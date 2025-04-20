@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Script from 'next/script';
 import Head from 'next/head';
 import ConnectAndPlay from '@/components/ConnectAndPlay';
 import Board from '@/components/Board';
@@ -25,24 +26,6 @@ export default function Page() {
   const [gameMessage, setGameMessage] = useState('');
   const [gameCompleted, setGameCompleted] = useState(false);
   const [gameData, setGameData] = useState(null);
-
-  useEffect(() => {
-    if (!GA_ENABLED || !GA_MEASUREMENT_ID) return;
-
-    const script1 = document.createElement('script');
-    script1.async = true;
-    script1.src = `https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}`;
-    document.head.appendChild(script1);
-
-    const script2 = document.createElement('script');
-    script2.innerHTML = `
-      window.dataLayer = window.dataLayer || [];
-      function gtag(){dataLayer.push(arguments);}
-      gtag('js', new Date());
-      gtag('config', '${GA_MEASUREMENT_ID}');
-    `;
-    document.head.appendChild(script2);
-  }, []);
 
   useEffect(() => {
     const saveGame = async () => {
@@ -72,6 +55,23 @@ export default function Page() {
         <meta name="description" content="Master Math, Mine MM3, and Shape the Future with PoV & PoA. A free Web3 experiment merging gamified learning and token economics." />
         <link rel="canonical" href="https://mathsmine3.xyz/" />
       </Head>
+
+      {GA_ENABLED && GA_MEASUREMENT_ID && (
+        <>
+          <Script
+            src={`https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}`}
+            strategy="afterInteractive"
+          />
+          <Script id="ga-init" strategy="afterInteractive">
+            {`
+              window.dataLayer = window.dataLayer || [];
+              function gtag(){dataLayer.push(arguments);}
+              gtag('js', new Date());
+              gtag('config', '${GA_MEASUREMENT_ID}');
+            `}
+          </Script>
+        </>
+      )}
 
       <main className="flex flex-col items-center w-full px-4 pt-10 pb-20 text-lg font-mono text-white bg-black">
         <div className="w-full max-w-3xl mx-auto">
