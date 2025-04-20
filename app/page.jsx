@@ -79,7 +79,7 @@ export default function Page() {
           {/* Hero section for SEO and users */}
           <section className="mb-12 text-center">
             <h1 className="text-xl font-semibold mt-8 mb-2">Master Math and Shape the Future with MathsMine3</h1>
-            <p className="text-base text-gray-500 text-center mb-2">
+            <p className="text-base text-gray-400 text-center mb-2">
             MathsMine3 is a free-to-play, open-source, and unique Web3 experiment where you solve math puzzles and earn MM3 — a fake token with no real-world value, used exclusively within MathsMine3 to participate in Proof of Ask (PoA) and Proof of Vote (PoV).
             </p>
           </section>
@@ -87,7 +87,7 @@ export default function Page() {
           {/* Game Board */}
           <div className="mb-12">
             {account && (
-              <p className="text-base text-gray-500 text-center mb-2">
+              <p className="text-base text-gray-400 text-center mb-2">
                 Connected as: {maskWallet(account)}
               </p>
             )}

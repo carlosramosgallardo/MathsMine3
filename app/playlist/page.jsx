@@ -34,7 +34,7 @@ export default function PlaylistPage() {
       <div className="max-w-5xl mx-auto px-4 py-8">
         <div className="text-center mb-6">
           <h1 className="text-xl font-semibold mt-8 mb-2">Official MathsMine3 Video Playlist</h1>
-          <p className="text-gray-500">
+          <p className="text-gray-400">
             Watch videos about the MathsMine3 project: gameplay mechanics, philosophical foundations,
             token dynamics, and community interaction.
           </p>

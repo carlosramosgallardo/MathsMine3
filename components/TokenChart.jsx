@@ -78,7 +78,7 @@ export default function TokenChart() {
     <div className="w-full mt-10 bg-gray-900 p-4 rounded-xl shadow-lg">
       <div className="bg-[#0b0f19] rounded-xl overflow-hidden">
         <div className="text-sm text-right mb-3 p-2">
-          <label htmlFor="range" className="mr-2 text-gray-300">
+          <label htmlFor="range" className="mr-2 text-gray-400">
             View range:
           </label>
           <select

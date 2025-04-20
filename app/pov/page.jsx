@@ -133,7 +133,7 @@ function PoVClientComponent() {
     <main className="flex flex-col items-center w-full pt-10 pb-20 text-sm font-mono text-gray-400 bg-black">
       <div className="w-full max-w-3xl px-4">
         {!isConnected && (
-          <p className="text-base text-gray-500 text-center mb-2">
+          <p className="text-base text-gray-400 text-center mb-2">
             Connect your wallet to participate. To vote, you must have mined at least 0.00001 MM3.
           </p>
         )}
@@ -143,7 +143,7 @@ function PoVClientComponent() {
         ) : (
           <>
             {eligibilityChecked && isConnected && (
-              <p className="text-base text-gray-500 text-center mb-6">
+              <p className="text-base text-gray-400 text-center mb-6">
                 {canVote
                   ? `Connected as: ${maskWallet(address)}`
                   : `Connected as ${maskWallet(address)}. You must have mined at least 0.00001 MM3 to vote.`}
@@ -211,7 +211,7 @@ function PoVClientComponent() {
                   )}
 
                   {statusMessages[poll.id] && (
-                    <p className="mt-4 text-sm text-gray-300">{statusMessages[poll.id]}</p>
+                    <p className="mt-4 text-sm text-gray-400">{statusMessages[poll.id]}</p>
                   )}
                 </div>
               );
