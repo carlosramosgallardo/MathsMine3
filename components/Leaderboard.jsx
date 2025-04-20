@@ -98,7 +98,7 @@ export default function Leaderboard() {
                   </div>
                 </td>
                 <td className="border border-[#22d3ee] px-4 py-2 font-mono text-right text-sm md:text-base">
-                  {entry.total_eth}
+                  {entry.total_eth?.toString().match(/^(\d+\.\d{0,3})/)?.[1] || entry.total_eth}
                 </td>
               </tr>
             ))
@@ -111,6 +111,24 @@ export default function Leaderboard() {
           )}
         </tbody>
       </table>
+
+      {totalPages > 1 && (
+        <div className="flex justify-center mt-4 space-x-2">
+          {[...Array(totalPages)].map((_, i) => (
+            <button
+              key={i}
+              onClick={() => setCurrentPage(i + 1)}
+              className={`px-3 py-1 rounded border ${
+                currentPage === i + 1
+                  ? 'bg-[#22d3ee] text-black font-bold'
+                  : 'bg-gray-800 text-white hover:bg-gray-700'
+              }`}
+            >
+              {i + 1}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
