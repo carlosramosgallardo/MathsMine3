@@ -98,7 +98,7 @@ export default function Leaderboard() {
                   </div>
                 </td>
                 <td className="border border-[#22d3ee] px-4 py-2 font-mono text-right text-sm md:text-base">
-                  {entry.total_eth?.toString().match(/^(\d+\.\d{0,3})/)?.[1] || entry.total_eth}
+                {entry.total_eth?.toString().match(/^(\d+\.\d{0,8})/)?.[1] || entry.total_eth}
                 </td>
               </tr>
             ))
