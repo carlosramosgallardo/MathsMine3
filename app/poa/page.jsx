@@ -97,18 +97,18 @@ function PoAClientComponent() {
   };
 
   return (
-    <main className="flex flex-col items-center w-full px-4 pt-10 pb-20 text-sm font-mono text-gray-400 bg-black min-h-screen">
+    <main className="flex flex-col items-center w-full px-4 pt-10 pb-20 text-sm font-mono text-gray-300 bg-black min-h-screen">
       <div className="max-w-3xl w-full">
         {/* Mensaje para usuario sin wallet conectada */}
         {!isConnected && (
-          <p className="text-base text-gray-400 text-center mb-2">
+          <p className="text-base text-gray-300 text-center mb-2">
             Connect your wallet to create a poll. To participate, you must have mined at least 0.00001 MM3.
           </p>
         )}
 
         {/* Mensajes cuando hay wallet conectada */}
         {isConnected && eligibilityChecked && !canAsk && (
-          <p className="text-base text-gray-400 text-center mb-2">
+          <p className="text-base text-gray-300 text-center mb-2">
             Connected as {maskWallet(address)}. You must have mined at least 0.00001 MM3 to create a poll.
           </p>
         )}
@@ -116,7 +116,7 @@ function PoAClientComponent() {
         {isConnected && eligibilityChecked && canAsk && (
           <>
             {hasCreatedPoll ? (
-              <p className="text-base text-gray-400 text-center mb-2">
+              <p className="text-base text-gray-300 text-center mb-2">
                 Connected as {maskWallet(address)}. Your poll has been published and is now available on PoV.
               </p>
             ) : (

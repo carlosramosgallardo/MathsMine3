@@ -130,20 +130,20 @@ function PoVClientComponent() {
   };
 
   return (
-    <main className="flex flex-col items-center w-full pt-10 pb-20 text-sm font-mono text-gray-400 bg-black">
+    <main className="flex flex-col items-center w-full pt-10 pb-20 text-sm font-mono text-gray-300 bg-black">
       <div className="w-full max-w-3xl px-4">
         {!isConnected && (
-          <p className="text-base text-gray-400 text-center mb-2">
+          <p className="text-base text-gray-300 text-center mb-2">
             Connect your wallet to participate. To vote, you must have mined at least 0.00001 MM3.
           </p>
         )}
 
         {pollData.length === 0 ? (
-          <p className="text-gray-400">Loading poll data...</p>
+          <p className="text-gray-300">Loading poll data...</p>
         ) : (
           <>
             {eligibilityChecked && isConnected && (
-              <p className="text-base text-gray-400 text-center mb-6">
+              <p className="text-base text-gray-300 text-center mb-6">
                 {canVote
                   ? `Connected as: ${maskWallet(address)}`
                   : `Connected as ${maskWallet(address)}. You must have mined at least 0.00001 MM3 to vote.`}
@@ -163,7 +163,7 @@ function PoVClientComponent() {
                   key={poll.id}
                   className="p-6 bg-[#0b0f19] border border-[#22d3ee] rounded-lg shadow-lg mb-12 animate-fadeInUp"
                 >
-                  <h2 className="text-base font-medium mb-1 text-gray-400">{poll.question}</h2>
+                  <h2 className="text-base font-medium mb-1 text-gray-300">{poll.question}</h2>
                   <p className="text-base text-[#22d3ee] mb-4">
                     Created by: {maskWallet(poll.wallet_address)}
                   </p>

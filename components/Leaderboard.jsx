@@ -28,7 +28,7 @@ export default function Leaderboard() {
       }
 
       const { data, error } = await supabase
-        .from('leaderboard_with_nfts') 
+        .from('leaderboard_with_nfts')
         .select('wallet, total_eth, nfts')
         .order('total_eth', { ascending: false });
 
@@ -81,7 +81,7 @@ export default function Leaderboard() {
               <tr key={index} className="hover:bg-[#1e293b] transition">
                 <td className="border border-[#22d3ee] px-4 py-2 font-mono whitespace-normal break-words">
                   <div className="flex items-center gap-1 flex-wrap">
-                    <span className="text-xs">{maskWallet(entry.wallet)}</span>
+                    <span>{maskWallet(entry.wallet)}</span>
                     {entry.nfts?.map((nft) => (
                       <a
                         href={`/nft/${nft.slug}`}
@@ -97,7 +97,7 @@ export default function Leaderboard() {
                     ))}
                   </div>
                 </td>
-                <td className="border border-[#22d3ee] px-4 py-2 font-mono text-right">
+                <td className="border border-[#22d3ee] px-4 py-2 font-mono text-right text-sm md:text-base">
                   {entry.total_eth}
                 </td>
               </tr>
