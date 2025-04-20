@@ -35,7 +35,7 @@ export default function LearnMathPage() {
 
   if (phrases.length === 0) {
     return (
-      <main className="flex flex-col items-center justify-center h-screen text-base font-mono text-gray-200 bg-black">
+      <main className="flex flex-col items-center justify-center h-screen text-base font-mono text-gray-400 bg-black">
         <p>Loading...</p>
       </main>
     );
@@ -45,11 +45,11 @@ export default function LearnMathPage() {
   const fullPhrase = currentPhrase.masked.replace('[MASK]', currentPhrase.answer);
 
   return (
-    <main className="flex flex-col items-center w-full px-4 pt-10 pb-20 text-base font-mono text-gray-200 bg-black">
+    <main className="flex flex-col items-center w-full px-4 pt-10 pb-20 text-base font-mono text-gray-400 bg-black">
       <div className="max-w-3xl w-full">
         <section className="mb-6 flex flex-col items-center">
           <div className="p-6 bg-[#0b0f19] border border-[#22d3ee] rounded-lg shadow-lg w-full">
-            <p className="mb-4 text-center">{fullPhrase}</p>
+            <p className="mb-4 text-center text-gray-400">{fullPhrase}</p>
             {currentPhrase.image && (
               <img
                 src={currentPhrase.image}
