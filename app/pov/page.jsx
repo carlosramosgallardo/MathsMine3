@@ -163,7 +163,7 @@ function PoVClientComponent() {
                   key={poll.id}
                   className="p-6 bg-[#0b0f19] border border-[#22d3ee] rounded-lg shadow-lg mb-12 animate-fadeInUp"
                 >
-                  <h2 className="text-base font-medium mb-1 text-white">{poll.question}</h2>
+                  <h2 className="text-base font-medium mb-1 text-gray-400">{poll.question}</h2>
                   <p className="text-base text-[#22d3ee] mb-4">
                     Created by: {maskWallet(poll.wallet_address)}
                   </p>

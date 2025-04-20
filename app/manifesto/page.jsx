@@ -7,7 +7,7 @@ export default function ManifestoPage() {
     <main className="flex flex-col items-center w-full px-4 pt-10 pb-20 text-sm font-mono text-gray-400 bg-black overflow-x-hidden">
       <div className="max-w-2xl w-full">
         <section className="mb-6">
-          <h2 className="text-xl font-semibold mb-2">Manifesto</h2>
+          <h2 className="text-xl font-semibold mb-2 text-white">Manifesto</h2>
           <p className="leading-relaxed">
             As the global economy teeters under scrutiny, the desire for personal financial sovereignty grows stronger.
             MathsMine3 offers a symbolic stage: here, anyone can "mine" a fake token and interact with the ecosystem using the only identity that truly matters in Web3: a wallet.
@@ -53,14 +53,14 @@ export default function ManifestoPage() {
         </section>
 
         <section className="mb-6">
-          <h2 className="text-xl font-semibold mb-2">About</h2>
+          <h2 className="text-xl font-semibold mb-2 text-white">About</h2>
           <p className="leading-relaxed">
             MathsMine3 is a social and educational experiment designed as a Web3-inspired game. Players solve math challenges under time pressure to simulate a fictional mining system. No real tokens, blockchain assets, or cryptocurrencies are involved or generated. The platform is 100% free to play and for educational purposes only.
           </p>
         </section>
 
         <section className="mb-6">
-          <h2 className="text-xl font-semibold mb-2">Privacy Policy</h2>
+          <h2 className="text-xl font-semibold mb-2 text-white">Privacy Policy</h2>
           <p className="leading-relaxed">
             MathsMine3 does not collect personal data such as name, email, or passwords. Wallet addresses are stored anonymously for gameplay tracking and leaderboard purposes. We use Supabase to securely store public game data, and Google Analytics for anonymous usage analytics.
           </p>
@@ -73,21 +73,21 @@ export default function ManifestoPage() {
         </section>
 
         <section className="mb-6">
-          <h2 className="text-xl font-semibold mb-2">Donation Disclaimer</h2>
+          <h2 className="text-xl font-semibold mb-2 text-white">Donation Disclaimer</h2>
           <p className="leading-relaxed">
             Donations made through wallet interaction are entirely voluntary and non-refundable. They do not represent a purchase or investment, and do not grant access to any exclusive features or tokens. They are used solely to support the continued development of the platform.
           </p>
         </section>
 
         <section className="mb-6">
-          <h2 className="text-xl font-semibold mb-2">Terms of Use</h2>
+          <h2 className="text-xl font-semibold mb-2 text-white">Terms of Use</h2>
           <p className="leading-relaxed">
             By using MathsMine3, you agree not to abuse the system through automation, scripting, or spammy interactions. All gameplay data is public and transparent. The site is provided as-is, with no guarantees regarding uptime, data retention, or gameplay outcomes. MathsMine3 reserves the right to remove any offensive or inappropriate content. Users are responsible for the content they publish.
           </p>
         </section>
 
         <section className="mb-6">
-          <h2 className="text-xl font-semibold mb-2">Copyright</h2>
+          <h2 className="text-xl font-semibold mb-2 text-white">Copyright</h2>
           <p className="leading-relaxed">
             MathsMine3 is an open-source project hosted on{' '}
             <a
@@ -103,7 +103,7 @@ export default function ManifestoPage() {
         </section>
 
         <section className="mb-6">
-          <h2 className="text-xl font-semibold mb-2">Sources</h2>
+          <h2 className="text-xl font-semibold mb-2 text-white">Sources</h2>
           <p className="leading-relaxed">
             Wikipedia:{' '}
             <a
@@ -121,14 +121,14 @@ export default function ManifestoPage() {
         </section>
 
         <section className="mb-6">
-          <h2 className="text-xl font-semibold mb-2">Image Credits</h2>
+          <h2 className="text-xl font-semibold mb-2 text-white">Image Credits</h2>
           <p className="leading-relaxed">
             All images are generated using Sora.
           </p>
         </section>
 
         <section>
-          <h2 className="text-xl font-semibold mb-2">Contact</h2>
+          <h2 className="text-xl font-semibold mb-2 text-white">Contact</h2>
           <p className="leading-relaxed">
             For inquiries or issues, please email us at:{' '}
             <a href="mailto:botsandpods@gmail.com" className="underline text-blue-400">
