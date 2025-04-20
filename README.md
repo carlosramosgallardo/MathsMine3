@@ -76,18 +76,6 @@ MathsMine3/
 
 ---
 
-## Navigation
-
-- [MM3 Home](/)
-- [Learn Math](/learn-math)
-- [Proof of Vote (PoV)](/pov)
-- [Proof of Ask (PoA)](/poa)
-- [API Docs](/api)
-- [Manifesto & Legal](/manifesto)
-- [Playlist](/playlist)
-
----
-
 ## Local Setup
 
 To run locally:
