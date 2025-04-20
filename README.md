@@ -1,4 +1,3 @@
-```md
 # MathsMine3
 
 ![MathsMine3 logo](public/og-image.jpg)
@@ -171,4 +170,4 @@ This platform is **not** a financial tool.
 ## License
 
 MIT © [botsandpods@gmail.com](https://github.com/carlosramosgallardo)
-```
+
