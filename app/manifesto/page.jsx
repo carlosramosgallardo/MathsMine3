@@ -5,7 +5,7 @@ import Link from 'next/link';
 export default function ManifestoPage() {
   return (
     <main className="flex flex-col items-center w-full px-4 pt-10 pb-20 text-sm font-mono text-gray-400 bg-black overflow-x-hidden">
-      <div className="max-w-2xl w-full">
+      <div className="max-w-2xl w-full break-words overflow-x-hidden">
         <section className="mb-6">
           <h2 className="text-xl font-semibold mb-2 text-white">Manifesto</h2>
           <p className="leading-relaxed">
@@ -92,11 +92,11 @@ export default function ManifestoPage() {
             MathsMine3 is an open-source project hosted on{' '}
             <a
               href="https://github.com/carlosramosgallardo/MathsMine3"
-              className="underline text-blue-400"
+              className="underline text-blue-400 break-all"
               target="_blank"
               rel="noopener noreferrer"
             >
-              GitHub
+              https://github.com/carlosramosgallardo/MathsMine3
             </a>
             . All original content, graphics, and game logic are licensed under MIT unless otherwise specified.
           </p>
@@ -110,7 +110,7 @@ export default function ManifestoPage() {
               href="https://en.wikipedia.org/wiki/List_of_mathematical_theories"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-blue-400 underline"
+              className="text-blue-400 underline break-all"
             >
               https://en.wikipedia.org/wiki/List_of_mathematical_theories
             </a>
