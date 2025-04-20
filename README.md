@@ -1,3 +1,8 @@
+Gracias, con base en la estructura de navegación actual (`NavLinks`) y los contenidos que mencionas, aquí tienes el `README.md` actualizado con todos los apartados visibles desde el portal — incluyendo la nueva sección `Playlist`, y asegurando que esté todo 100% en inglés.
+
+---
+
+```md
 # MathsMine3
 
 ![MathsMine3 logo](public/og-image.jpg)
@@ -6,20 +11,21 @@
 
 ## What is MathsMine3?
 
-The fake Web3 platform where mining means solving math challenges and people around the world propose and vote on ideas freely, openly, and transparently.
+A fake Web3 platform where mining means solving math challenges, and users around the world can propose and vote on ideas freely, openly, and transparently.
 
 ---
 
 ## Core Features
 
-- **Timed Math Rounds:** Guess the words in math texts as fast as you can.
-- **Dynamic Token Value:** Your speed influences a fictional token’s value.
-- **Real-Time Token Chart:** Visualize token history with live data.
-- **Leaderboard:** See top contributors by mining impact.
-- **Wallet Connection:** Connect via WalletConnect or MetaMask.
-- **Proof of Vote (PoV):** Vote on community polls.
-- **Proof of Ask (PoA):** Create a poll (one per wallet).
-- **Public API:** Endpoints for token value, history, contributors, and polls.
+- **Timed Math Rounds:** Guess the missing words in math texts as fast as possible.
+- **Dynamic Token Value:** Your response speed affects the fictional token’s value.
+- **Real-Time Token Chart:** Track mining performance over time with live data.
+- **Leaderboard:** View the top mining contributors.
+- **Wallet Connection:** Connect using WalletConnect or MetaMask.
+- **Proof of Vote (PoV):** Vote in community-driven polls.
+- **Proof of Ask (PoA):** Submit a poll (one per wallet).
+- **Playlist:** Listen to community-approved music for mining motivation.
+- **Public API:** Access token data, contributors, and polls via REST endpoints.
 
 ---
 
@@ -28,10 +34,10 @@ The fake Web3 platform where mining means solving math challenges and people aro
 - **Next.js (App Router)**
 - **React + TailwindCSS**
 - **Supabase** (PostgreSQL with REST API)
-- **Ethers, Wagmi, Web3Modal** for blockchain-like interactions
-- **Recharts** for charting time series data
-- **Vercel** for deployment
-- **GitLab CI/CD** pipelines
+- **Ethers, Wagmi, Web3Modal** for wallet integration
+- **Recharts** for real-time charting
+- **Vercel** for serverless deployment
+- **GitLab CI/CD** for continuous integration
 
 ---
 
@@ -46,42 +52,50 @@ The fake Web3 platform where mining means solving math challenges and people aro
 ```
 MathsMine3/
 ├── app/
-│   ├── api/                  # Public API endpoints (token-value, token-history, top-contributors, pov)
-│   ├── manifesto/            # Unified Manifesto page (Manifesto & Legal)
-│   ├── pov/                  # Proof of Vote pages (voting, leaderboard, etc.)
-│   ├── poa/                  # Proof of Ask page (create poll)
-│   ├── learn-math/               # Math to Mine (study math before mining)
-│   ├── globals.css           # Global CSS styles
-│   └── layout.jsx            # Application layout component
-├── components/               # Reusable UI components (Header, Footer, Board, Leaderboard, ConnectAndPlay, TokenChart, NavLinks, etc.)
-├── lib/                      # Libraries (Supabase client, rateLimitConfig)
-├── public/                   # Public assets (images, ads.txt, robots.txt, sitemap.xml)
-├── sql/                      # SQL migrations and documentation
-│   ├── database.sql          # Main database schema
-│   └── pov/                  # SQL for PoV related tables/views
-├── .env                      # Environment variables (do not commit)
-├── package.json              # Project dependencies and scripts
-├── tailwind.config.js        # TailwindCSS configuration
-├── postcss.config.js         # PostCSS configuration
+│   ├── api/                  # Public API routes
+│   ├── manifesto/            # Manifesto & Legal pages
+│   ├── pov/                  # Proof of Vote pages
+│   ├── poa/                  # Proof of Ask page
+│   ├── playlist/             # Playlist UI
+│   ├── learn-math/           # Study section for mining prep
+│   ├── globals.css           # Global styles
+│   └── layout.jsx            # Root layout
+├── components/               # UI components (Board, Leaderboard, etc.)
+├── lib/                      # Supabase client, rate limiter
+├── public/                   # Static files
+│   ├── og-image.jpg          # Social preview
+│   ├── ads.txt               # AdSense
+│   ├── robots.txt            # SEO rules
+│   ├── sitemap-0.xml         # Sitemap
+│   ├── math_phrases.json     # Math phrases used in gameplay
+│   └── nfts/                 # NFT-style images (e.g., nft_pi.png)
+├── sql/                      # SQL schemas and views
+│   ├── database.sql
+│   └── pov/
+├── .env                      # Environment variables (excluded from git)
+├── package.json              # Dependencies and scripts
+├── tailwind.config.js        # TailwindCSS setup
+├── postcss.config.js         # PostCSS setup
 └── README.md                 # This file
 ```
 
 ---
 
-## Navigation (Apartados)
+## Navigation
 
-- [Math to Mine](/learn-math)
-- [MM3](/)
-- [Manifesto](/manifesto)
-- [Proof of Vote](/pov)
-- [Proof of Ask](/poa)
-- [API](/api)
+- [MM3 Home](/)
+- [Learn Math](/learn-math)
+- [Proof of Vote (PoV)](/pov)
+- [Proof of Ask (PoA)](/poa)
+- [API Docs](/api)
+- [Manifesto & Legal](/manifesto)
+- [Playlist](/playlist)
 
 ---
 
 ## Local Setup
 
-Clone the repository and install dependencies:
+To run locally:
 
 ```bash
 git clone https://github.com/carlosramosgallardo/MathsMine3.git
@@ -91,13 +105,13 @@ cp .env.example .env.local
 npm run dev
 ```
 
-> **Note:** Do **not** commit your `.env.local` file. It is already included in `.gitignore`.
+> **Note:** `.env.local` is excluded from version control by default.
 
 ---
 
 ## Environment Variables
 
-Example of `.env.example`:
+Sample `.env.example`:
 
 ```env
 NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
@@ -113,33 +127,33 @@ NEXT_PUBLIC_GA_MEASUREMENT_ID=G-XXXXXXXXXX
 
 ## Database Schema
 
-SQL migrations can be found in the `/sql` directory:
+Schemas and migrations live in the `/sql` directory:
 
-- **games:** Stores each math round result.
-- **leaderboard:** View aggregating ETH earned per wallet.
-- **token_value:** Current token value logic.
-- **token_value_timeseries:** Historical hourly token stats.
-- **polls:** Active questions for Proof of Vote/Ask (with a UNIQUE wallet_address constraint).
-- **poll_votes:** Stores one vote per wallet per poll.
+- **games:** Stores round results.
+- **leaderboard:** Mining impact view per wallet.
+- **token_value:** Current token state.
+- **token_value_timeseries:** Token mining history.
+- **polls:** Community polls (one per wallet).
+- **poll_votes:** Single vote per wallet per poll.
 
 ---
 
 ## Public API Endpoints
 
-| Endpoint                                | Description                                           |
-|-----------------------------------------|-------------------------------------------------------|
-| [`/api/token-value`](https://mathsmine3.xyz/api/token-value)        | Latest token value                                    |
-| [`/api/token-history`](https://mathsmine3.xyz/api/token-history)        | Hour-by-hour mining totals                            |
-| [`/api/top-contributors`](https://mathsmine3.xyz/api/top-contributors)  | Wallets ranked by positive mining impact              |
-| [`/api/pov/get`](https://mathsmine3.xyz/api/pov/get)                    | List of active polls (Proof of Vote)                  |
+| Endpoint                                      | Description                                |
+|----------------------------------------------|--------------------------------------------|
+| [`/api/token-value`](https://mathsmine3.xyz/api/token-value)         | Current token value                        |
+| [`/api/token-history`](https://mathsmine3.xyz/api/token-history)     | Hourly mining data                         |
+| [`/api/top-contributors`](https://mathsmine3.xyz/api/top-contributors) | Wallets ranked by mining performance       |
+| [`/api/pov/get`](https://mathsmine3.xyz/api/pov/get)                 | Available PoV polls                        |
 
-See the [API Docs](https://mathsmine3.xyz/api) for response examples.
+Visit the [API Docs](https://mathsmine3.xyz/api) for full specs and JSON examples.
 
 ---
 
 ## Contributing
 
-Pull requests are welcome. Open an issue for suggestions or bugs.
+Open to contributions via pull requests. For feature requests or bug reports, [open an issue](https://github.com/carlosramosgallardo/MathsMine3/issues).
 
 ---
 
@@ -152,13 +166,17 @@ Pull requests are welcome. Open an issue for suggestions or bugs.
 
 ## Disclaimer
 
-This is a fictional and educational project.  
-No real tokens are mined or exchanged.  
-MathsMine3 is **not** a financial product.
+MathsMine3 is a fictional, educational project.  
+No real cryptocurrency is mined or traded.  
+This platform is **not** a financial tool.
 
 ---
 
 ## License
 
 MIT © [botsandpods@gmail.com](https://github.com/carlosramosgallardo)
+```
 
+---
+
+Let me know if you also want a README badge section, a changelog section, or if you want this file written directly into your project (`README.md`).
