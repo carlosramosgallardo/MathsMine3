@@ -1,7 +1,3 @@
-Gracias, con base en la estructura de navegación actual (`NavLinks`) y los contenidos que mencionas, aquí tienes el `README.md` actualizado con todos los apartados visibles desde el portal — incluyendo la nueva sección `Playlist`, y asegurando que esté todo 100% en inglés.
-
----
-
 ```md
 # MathsMine3
 
@@ -176,7 +172,3 @@ This platform is **not** a financial tool.
 
 MIT © [botsandpods@gmail.com](https://github.com/carlosramosgallardo)
 ```
-
----
-
-Let me know if you also want a README badge section, a changelog section, or if you want this file written directly into your project (`README.md`).
