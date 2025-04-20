@@ -6,7 +6,10 @@ export default function PlaylistPage() {
     <>
       <Head>
         <title>MathsMine3 – Official Video Playlist</title>
-        <meta name="description" content="Watch the official video playlist of MathsMine3: gameplay, philosophy, and behind-the-scenes of this Web3 social experiment." />
+        <meta
+          name="description"
+          content="Watch the official video playlist of MathsMine3: gameplay, philosophy, and behind-the-scenes of this Web3 social experiment."
+        />
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{
@@ -29,10 +32,13 @@ export default function PlaylistPage() {
       </Head>
 
       <div className="max-w-5xl mx-auto px-4 py-8">
-        <h1 className="text-xl font-semibold mt-8 mb-2">Official MathsMine3 Video Playlist</h1>
-        <p className="text-center text-gray-500 mb-6">
-          Watch videos about the MathsMine3 project: gameplay mechanics, philosophical foundations, token dynamics, and community interaction.
-        </p>
+        <div className="text-center mb-6">
+          <h1 className="text-xl font-semibold mt-8 mb-2">Official MathsMine3 Video Playlist</h1>
+          <p className="text-gray-500">
+            Watch videos about the MathsMine3 project: gameplay mechanics, philosophical foundations,
+            token dynamics, and community interaction.
+          </p>
+        </div>
         <YoutubePlaylist />
       </div>
     </>
