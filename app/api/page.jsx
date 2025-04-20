@@ -4,7 +4,7 @@ import Link from 'next/link';
 
 export default function ApiPage() {
   return (
-    <main className="flex flex-col items-center w-full px-4 pt-10 pb-20 text-sm font-mono text-white bg-black">
+    <main className="flex flex-col items-center w-full px-4 pt-10 pb-20 text-sm font-mono text-gray-400 bg-black">
       <div className="max-w-2xl w-full">
 
         <p className="mb-6">
@@ -12,7 +12,7 @@ export default function ApiPage() {
         </p>
 
         {/* /api/token-value */}
-        <h2 className="text-xl font-semibold mt-8 mb-2">Token Value</h2>
+        <h2 className="text-xl font-semibold mt-8 mb-2 text-white">Token Value</h2>
         <p>Returns the current token mining value:</p>
         <code className="block bg-gray-800 p-2 rounded my-2">
           <a href="/api/token-value" className="text-blue-400" target="_blank">
@@ -27,7 +27,7 @@ export default function ApiPage() {
         </pre>
 
         {/* /api/token-history */}
-        <h2 className="text-xl font-semibold mt-8 mb-2">Token History</h2>
+        <h2 className="text-xl font-semibold mt-8 mb-2 text-white">Token History</h2>
         <p>Hourly cumulative token mining values:</p>
         <code className="block bg-gray-800 p-2 rounded my-2">
           <a href="/api/token-history" className="text-blue-400" target="_blank">
@@ -44,7 +44,7 @@ export default function ApiPage() {
         </pre>
 
         {/* /api/top-contributors */}
-        <h2 className="text-xl font-semibold mt-8 mb-2">Top Contributors</h2>
+        <h2 className="text-xl font-semibold mt-8 mb-2 text-white">Top Contributors</h2>
         <p>List of wallet addresses with the highest mining impact (positive or negative):</p>
         <code className="block bg-gray-800 p-2 rounded my-2">
           <a href="/api/top-contributors" className="text-blue-400" target="_blank">
@@ -61,7 +61,7 @@ export default function ApiPage() {
         </pre>
 
         {/* /api/pov/get */}
-        <h2 className="text-xl font-semibold mt-8 mb-2">Active Polls</h2>
+        <h2 className="text-xl font-semibold mt-8 mb-2 text-white">Active Polls</h2>
         <p>Returns all polls currently open for voting:</p>
         <code className="block bg-gray-800 p-2 rounded my-2">
           <a href="/api/pov/get" className="text-blue-400" target="_blank">
