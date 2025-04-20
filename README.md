@@ -12,7 +12,7 @@ A fake Web3 platform where mining means solving math challenges, and users aroun
 
 ## Core Features
 
-- **Timed Math Rounds:** Guess the missing words in math texts as fast as possible.
+- **Timed Math Rounds:** Guess the missing words in math texts or solve basic math operations as fast as possible.
 - **Dynamic Token Value:** Your response speed affects the fictional token’s value.
 - **Real-Time Token Chart:** Track mining performance over time with live data.
 - **Leaderboard:** View the top mining contributors.
