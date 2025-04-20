@@ -16,12 +16,12 @@ export default function PlaylistPage() {
             __html: JSON.stringify({
               "@context": "https://schema.org",
               "@type": "VideoObject",
-              "name": "MathsMine3 Video Playlist",
-              "description": "Watch official MathsMine3 videos: gameplay, token dynamics, voting, and Web3 social mechanics.",
-              "thumbnailUrl": "https://mathsmine3.xyz/images/MM3_thumbnail.jpg",
+              "name": "MathsMine3 – Web3 Shorts Teaser",
+              "description": "A fast-paced teaser of the MathsMine3 social experiment. Connect your wallet, solve math, and shape the future.",
+              "thumbnailUrl": "https://img.youtube.com/vi/08jfpGlzeeg/hqdefault.jpg",
               "uploadDate": "2025-04-18",
-              "embedUrl": "https://www.youtube.com/embed/videoseries?list=PLVnPpTxW6VSe486FBj1R7mzA2XczNYqXc",
-              "contentUrl": "https://www.youtube.com/playlist?list=PLVnPpTxW6VSe486FBj1R7mzA2XczNYqXc",
+              "embedUrl": "https://www.youtube.com/embed/08jfpGlzeeg",
+              "contentUrl": "https://www.youtube.com/shorts/08jfpGlzeeg",
               "publisher": {
                 "@type": "Organization",
                 "name": "MathsMine3"
