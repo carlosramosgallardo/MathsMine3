@@ -4,7 +4,7 @@ import Link from 'next/link';
 
 export default function ManifestoPage() {
   return (
-    <main className="flex flex-col items-center w-full px-4 pt-10 pb-20 text-sm font-mono text-gray-200 bg-black overflow-x-hidden">
+    <main className="flex flex-col items-center w-full px-4 pt-10 pb-20 text-sm font-mono text-gray-400 bg-black overflow-x-hidden">
       <div className="max-w-2xl w-full">
         <section className="mb-6">
           <h2 className="text-xl font-semibold mb-2">Manifesto</h2>

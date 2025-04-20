@@ -130,7 +130,7 @@ function PoVClientComponent() {
   };
 
   return (
-    <main className="flex flex-col items-center w-full pt-10 pb-20 text-sm font-mono text-gray-200 bg-black">
+    <main className="flex flex-col items-center w-full pt-10 pb-20 text-sm font-mono text-gray-400 bg-black">
       <div className="w-full max-w-3xl px-4">
         {!isConnected && (
           <p className="text-base text-gray-500 text-center mb-2">
