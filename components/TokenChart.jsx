@@ -35,31 +35,34 @@ export default function TokenChart() {
     fetchData()
   }, [])
 
-const getVisibleData = () => {
-  if (!rawData || rawData.length === 0) return []
+  const getVisibleData = () => {
+    if (!rawData || rawData.length === 0) return []
 
-  const now = Date.now()
+    const now = Date.now()
 
-  const filtered = rawData.filter(({ hour }) => {
-    const h = new Date(hour).getTime()
-    const diffHours = (now - h) / (1000 * 60 * 60)
+    if (range === '24h') {
+      const cutoff = now - 24 * 60 * 60 * 1000
+      const filtered = rawData.filter(({ hour }) => new Date(hour).getTime() >= cutoff)
 
-    if (range === '24h') return diffHours < 24.01
-    if (range === '7d') return diffHours <= 24 * 7
-    if (range === '30d') return diffHours <= 24 * 30
-    return true
-  })
+      return filtered.map((entry) => ({
+        time: new Date(entry.hour).toLocaleTimeString('en-GB', {
+          hour: '2-digit',
+          minute: '2-digit',
+          timeZone: 'UTC'
+        }),
+        value: parseFloat(entry.cumulative_reward)
+      }))
+    }
 
-  if (range === '24h') {
-    return filtered.map((entry) => ({
-      time: new Date(entry.hour).toLocaleTimeString('en-GB', {
-        hour: '2-digit',
-        minute: '2-digit',
-        timeZone: 'UTC'
-      }),
-      value: parseFloat(entry.cumulative_reward)
-    }))
-  } else {
+    const filtered = rawData.filter(({ hour }) => {
+      const h = new Date(hour).getTime()
+      const diffHours = (now - h) / (1000 * 60 * 60)
+
+      if (range === '7d') return diffHours <= 24 * 7
+      if (range === '30d') return diffHours <= 24 * 30
+      return true
+    })
+
     const grouped = {}
     filtered.forEach(({ hour, cumulative_reward }) => {
       const day = new Date(hour).toISOString().slice(0, 10)
@@ -71,8 +74,6 @@ const getVisibleData = () => {
       value
     }))
   }
-}
-
 
   const data = getVisibleData()
 
@@ -100,55 +101,4 @@ const getVisibleData = () => {
           <ResponsiveContainer width="100%" height={300}>
             <AreaChart data={data}>
               <defs>
-                <linearGradient id="colorToken" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#22d3ee" stopOpacity={0.9} />
-                  <stop offset="70%" stopColor="#22d3ee" stopOpacity={0.1} />
-                </linearGradient>
-              </defs>
-
-              <XAxis
-                dataKey="time"
-                tick={{ fill: '#ccc', fontSize: 12 }}
-                axisLine={false}
-                tickLine={false}
-              />
-              <YAxis
-                tickFormatter={(val) => `${val} MM3`}
-                tick={{ fill: '#ccc', fontSize: 12 }}
-                axisLine={false}
-                tickLine={false}
-                domain={['auto', 'auto']}
-              />
-              <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.05} />
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: '#111827',
-                  borderRadius: '8px',
-                  border: 'none',
-                  color: '#e5e7eb'
-                }}
-                labelStyle={{ color: '#22d3ee' }}
-                formatter={(value) => [`${value} MM3`, 'Value']}
-                labelFormatter={(label) => `Time: ${label}`}
-              />
-              <Area
-                type="monotone"
-                dataKey="value"
-                stroke="#22d3ee"
-                fillOpacity={1}
-                fill="url(#colorToken)"
-                strokeWidth={2}
-                dot={false}
-                isAnimationActive={true}
-              />
-            </AreaChart>
-          </ResponsiveContainer>
-        ) : (
-          <p className="text-center text-sm text-gray-400">
-            No chart data available yet.
-          </p>
-        )}
-      </div>
-    </div>
-  )
-}
+                <linearGradient id="colorToken" x1="0" y1="
