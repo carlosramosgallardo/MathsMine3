@@ -44,7 +44,7 @@ const getVisibleData = () => {
     const h = new Date(hour).getTime()
     const diffHours = (now - h) / (1000 * 60 * 60)
 
-    if (range === '24h') return diffHours <= 24
+    if (range === '24h') return diffHours < 24.01
     if (range === '7d') return diffHours <= 24 * 7
     if (range === '30d') return diffHours <= 24 * 30
     return true
