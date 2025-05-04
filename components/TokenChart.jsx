@@ -38,60 +38,96 @@ export default function TokenChart() {
   const getVisibleData = () => {
     if (!rawData || rawData.length === 0) return []
 
-    const now = new Date()
+    const now = Date.now()
+
+    if (range === '24h') {
+      const cutoff = now - 24 * 60 * 60 * 1000
+      return rawData
+        .filter(({ hour }) => {
+          const timestamp = new Date(
+            hour.replace(' ', 'T').replace('+00', 'Z')
+          ).getTime()
+          return timestamp >= cutoff
+        })
+        .map((entry) => ({
+          time: new Date(
+            entry.hour.replace(' ', 'T').replace('+00', 'Z')
+          ).toLocaleTimeString('en-GB', {
+            hour: '2-digit',
+            minute: '2-digit',
+            timeZone: 'UTC'
+          }),
+          value: parseFloat(entry.cumulative_reward)
+        }))
+    }
+
     const filtered = rawData.filter(({ hour }) => {
-      const h = new Date(hour)
+      const h = new Date(
+        hour.replace(' ', 'T').replace('+00', 'Z')
+      ).getTime()
       const diffHours = (now - h) / (1000 * 60 * 60)
 
-      if (range === '24h') return diffHours <= 24
       if (range === '7d') return diffHours <= 24 * 7
       if (range === '30d') return diffHours <= 24 * 30
       return true
     })
 
-    if (range === '24h') {
-      return filtered.map((entry) => ({
-        time: new Date(entry.hour).toLocaleTimeString('en-GB', {
-          hour: '2-digit',
-          minute: '2-digit',
-          timeZone: 'UTC'
-        }),
-        value: parseFloat(entry.cumulative_reward)
-      }))
-    } else {
-      const grouped = {}
-      filtered.forEach(({ hour, cumulative_reward }) => {
-        const day = new Date(hour).toISOString().slice(0, 10)
-        grouped[day] = parseFloat(cumulative_reward)
-      })
+    const grouped = {}
+    filtered.forEach(({ hour, cumulative_reward }) => {
+      const day = new Date(
+        hour.replace(' ', 'T').replace('+00', 'Z')
+      ).toISOString().slice(0, 10)
+      grouped[day] = parseFloat(cumulative_reward)
+    })
 
-      return Object.entries(grouped).map(([day, value]) => ({
-        time: day,
-        value
-      }))
-    }
+    return Object.entries(grouped).map(([day, value]) => ({
+      time: day,
+      value
+    }))
   }
 
   const data = getVisibleData()
 
+  // Trend info
+  let trendText = ''
+  if (data.length >= 2) {
+    const first = data[0].value
+    const last = data[data.length - 1].value
+    const diff = last - first
+    const pct = ((diff / first) * 100).toFixed(2)
+
+    if (diff > 0) {
+      trendText = `📈 +${diff.toFixed(8)} MM3 (↑${pct}%)`
+    } else if (diff < 0) {
+      trendText = `📉 ${diff.toFixed(8)} MM3 (↓${Math.abs(pct)}%)`
+    } else {
+      trendText = `➖ No change in value`
+    }
+  }
+
   return (
     <div className="w-full mt-10 bg-gray-900 p-4 rounded-xl shadow-lg">
       <div className="bg-[#0b0f19] rounded-xl overflow-hidden">
-        <div className="text-sm text-right mb-3 p-2">
-          <label htmlFor="range" className="mr-2 text-gray-400">
-            View range:
-          </label>
-          <select
-            id="range"
-            value={range}
-            onChange={(e) => setRange(e.target.value)}
-            className="bg-black border border-white p-1 rounded text-white"
-          >
-            <option value="24h">Last 24h</option>
-            <option value="7d">Last 7 days</option>
-            <option value="30d">Last 30 days</option>
-            <option value="all">All time</option>
-          </select>
+        <div className="flex justify-between items-center mb-2 px-2">
+          <div className="text-sm text-gray-300">
+            {trendText && `${trendText} in last ${range}`}
+          </div>
+          <div className="text-sm">
+            <label htmlFor="range" className="mr-2 text-gray-400">
+              View range:
+            </label>
+            <select
+              id="range"
+              value={range}
+              onChange={(e) => setRange(e.target.value)}
+              className="bg-black border border-white p-1 rounded text-white"
+            >
+              <option value="24h">Last 24h</option>
+              <option value="7d">Last 7 days</option>
+              <option value="30d">Last 30 days</option>
+              <option value="all">All time</option>
+            </select>
+          </div>
         </div>
 
         {data.length > 0 ? (
