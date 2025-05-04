@@ -38,27 +38,54 @@ export default function TokenChart() {
   const getVisibleData = () => {
     if (!rawData || rawData.length === 0) return []
 
-    const now = new Date()
+    const now = Date.now()
+
+    if (range === '24h') {
+      const cutoff = now - 24 * 60 * 60 * 1000
+      const filtered = rawData.filter(({ hour }) => new Date(hour).getTime() >= cutoff)
+
+      console.log('Now:', new Date().toISOString())
+      console.log('Cutoff timestamp:', new Date(cutoff).toISOString())
+      console.log('DEBUG visible 24h data:', filtered)
+      console.log(
+        'Mapped chart values:',
+        filtered.map((entry) => ({
+          hour: entry.hour,
+          value: parseFloat(entry.cumulative_reward),
+          parsed: isNaN(parseFloat(entry.cumulative_reward)) ? 'INVALID' : 'OK'
+        }))
+      )
+
+      return filtered.map((entry) => ({
+        time: new Date(entry.hour).toLocaleTimeString('en-GB', {
+          hour: '2-digit',
+          minute: '2-digit',
+          timeZone: 'UTC'
+        }),
+        value: parseFloat(entry.cumulative_reward)
+      }))
+    }
+
     const filtered = rawData.filter(({ hour }) => {
-      const h = new Date(hour)
+      const h = new Date(hour).getTime()
       const diffHours = (now - h) / (1000 * 60 * 60)
 
-      if (range === '24h') return diffHours <= 24
       if (range === '7d') return diffHours <= 24 * 7
       if (range === '30d') return diffHours <= 24 * 30
       return true
     })
 
-console.log('DEBUG visible 24h data:', filtered)
-console.log(
-  'Mapped chart values:',
-  filtered.map((entry) => ({
-    hour: entry.hour,
-    value: parseFloat(entry.cumulative_reward),
-    parsed: isNaN(parseFloat(entry.cumulative_reward)) ? 'INVALID' : 'OK'
-  }))
-)
+    const grouped = {}
+    filtered.forEach(({ hour, cumulative_reward }) => {
+      const day = new Date(hour).toISOString().slice(0, 10)
+      grouped[day] = parseFloat(cumulative_reward)
+    })
 
+    return Object.entries(grouped).map(([day, value]) => ({
+      time: day,
+      value
+    }))
+  }
 
   const data = getVisibleData()
 
