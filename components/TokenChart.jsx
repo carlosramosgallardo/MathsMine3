@@ -35,7 +35,7 @@ export default function TokenChart() {
     fetchData()
   }, [])
 
- const getVisibleData = () => {
+const getVisibleData = () => {
   if (!rawData || rawData.length === 0) return []
 
   const now = Date.now()
@@ -72,30 +72,7 @@ export default function TokenChart() {
     }))
   }
 }
-)
 
-    if (range === '24h') {
-      return filtered.map((entry) => ({
-        time: new Date(entry.hour).toLocaleTimeString('en-GB', {
-          hour: '2-digit',
-          minute: '2-digit',
-          timeZone: 'UTC'
-        }),
-        value: parseFloat(entry.cumulative_reward)
-      }))
-    } else {
-      const grouped = {}
-      filtered.forEach(({ hour, cumulative_reward }) => {
-        const day = new Date(hour).toISOString().slice(0, 10)
-        grouped[day] = parseFloat(cumulative_reward)
-      })
-
-      return Object.entries(grouped).map(([day, value]) => ({
-        time: day,
-        value
-      }))
-    }
-  }
 
   const data = getVisibleData()
 
