@@ -41,10 +41,19 @@ export default function TokenChart() {
     const now = Date.now()
 
 if (range === '24h') {
-  const nowUTC = new Date().toISOString()
-  const cutoff = new Date(nowUTC).getTime() - 24 * 60 * 60 * 1000
-
+  const cutoff = Date.now() - 24 * 60 * 60 * 1000
   const filtered = rawData.filter(({ hour }) => new Date(hour).getTime() >= cutoff)
+
+  console.log('Now:', new Date().toISOString())
+  console.log('Cutoff timestamp:', new Date(cutoff).toISOString())
+  console.log(
+    'Entries within 24h:',
+    rawData.map(({ hour }) => ({
+      hour,
+      ms: new Date(hour).getTime(),
+      isIncluded: new Date(hour).getTime() >= cutoff
+    }))
+  )
 
   return filtered.map((entry) => ({
     time: new Date(entry.hour).toLocaleTimeString('en-GB', {
@@ -55,6 +64,7 @@ if (range === '24h') {
     value: parseFloat(entry.cumulative_reward)
   }))
 }
+
 
 
     const filtered = rawData.filter(({ hour }) => {
