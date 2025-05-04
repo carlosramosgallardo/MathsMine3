@@ -8,7 +8,9 @@ import {
   YAxis,
   Tooltip,
   ResponsiveContainer,
-  CartesianGrid
+  CartesianGrid,
+  ReferenceDot,
+  Label
 } from 'recharts'
 
 export default function TokenChart() {
@@ -42,35 +44,23 @@ export default function TokenChart() {
 
     if (range === '24h') {
       const cutoff = now - 24 * 60 * 60 * 1000
-      const filtered = rawData.filter(({ hour }) => {
-        const timestamp = new Date(
-          hour.replace(' ', 'T').replace('+00', 'Z')
-        ).getTime()
-        return timestamp >= cutoff
-      })
-
-      console.log('Now:', new Date().toISOString())
-      console.log('Cutoff timestamp:', new Date(cutoff).toISOString())
-      console.log('DEBUG visible 24h data:', filtered)
-      console.log(
-        'Mapped chart values:',
-        filtered.map((entry) => ({
-          hour: entry.hour,
-          value: parseFloat(entry.cumulative_reward),
-          parsed: isNaN(parseFloat(entry.cumulative_reward)) ? 'INVALID' : 'OK'
+      return rawData
+        .filter(({ hour }) => {
+          const timestamp = new Date(
+            hour.replace(' ', 'T').replace('+00', 'Z')
+          ).getTime()
+          return timestamp >= cutoff
+        })
+        .map((entry) => ({
+          time: new Date(
+            entry.hour.replace(' ', 'T').replace('+00', 'Z')
+          ).toLocaleTimeString('en-GB', {
+            hour: '2-digit',
+            minute: '2-digit',
+            timeZone: 'UTC'
+          }),
+          value: parseFloat(entry.cumulative_reward)
         }))
-      )
-
-      return filtered.map((entry) => ({
-        time: new Date(
-          entry.hour.replace(' ', 'T').replace('+00', 'Z')
-        ).toLocaleTimeString('en-GB', {
-          hour: '2-digit',
-          minute: '2-digit',
-          timeZone: 'UTC'
-        }),
-        value: parseFloat(entry.cumulative_reward)
-      }))
     }
 
     const filtered = rawData.filter(({ hour }) => {
@@ -100,6 +90,23 @@ export default function TokenChart() {
 
   const data = getVisibleData()
 
+  // Determine color by trend
+  let strokeColor = '#22d3ee'
+  if (data.length >= 2) {
+    const first = data[0].value
+    const last = data[data.length - 1].value
+    if (last > first) strokeColor = '#22c55e' // green
+    else if (last < first) strokeColor = '#ef4444' // red
+  }
+
+  // Safely calculate min/max
+  let maxPoint = null
+  let minPoint = null
+  if (data.length > 0) {
+    maxPoint = data.reduce((max, p) => (p.value > max.value ? p : max), data[0])
+    minPoint = data.reduce((min, p) => (p.value < min.value ? p : min), data[0])
+  }
+
   return (
     <div className="w-full mt-10 bg-gray-900 p-4 rounded-xl shadow-lg">
       <div className="bg-[#0b0f19] rounded-xl overflow-hidden">
@@ -125,8 +132,8 @@ export default function TokenChart() {
             <AreaChart data={data}>
               <defs>
                 <linearGradient id="colorToken" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#22d3ee" stopOpacity={0.9} />
-                  <stop offset="70%" stopColor="#22d3ee" stopOpacity={0.1} />
+                  <stop offset="0%" stopColor={strokeColor} stopOpacity={0.9} />
+                  <stop offset="70%" stopColor={strokeColor} stopOpacity={0.1} />
                 </linearGradient>
               </defs>
 
@@ -151,20 +158,54 @@ export default function TokenChart() {
                   border: 'none',
                   color: '#e5e7eb'
                 }}
-                labelStyle={{ color: '#22d3ee' }}
+                labelStyle={{ color: strokeColor }}
                 formatter={(value) => [`${value} MM3`, 'Value']}
                 labelFormatter={(label) => `Time: ${label}`}
               />
               <Area
                 type="monotone"
                 dataKey="value"
-                stroke="#22d3ee"
+                stroke={strokeColor}
                 fillOpacity={1}
                 fill="url(#colorToken)"
                 strokeWidth={2}
                 dot={false}
                 isAnimationActive={true}
               />
+
+              {maxPoint && (
+                <ReferenceDot
+                  x={maxPoint.time}
+                  y={maxPoint.value}
+                  r={4}
+                  fill="#22c55e"
+                  stroke="none"
+                >
+                  <Label
+                    value={`▲ ${maxPoint.value.toFixed(6)} MM3`}
+                    position="top"
+                    fill="#22c55e"
+                    fontSize={10}
+                  />
+                </ReferenceDot>
+              )}
+
+              {minPoint && (
+                <ReferenceDot
+                  x={minPoint.time}
+                  y={minPoint.value}
+                  r={4}
+                  fill="#ef4444"
+                  stroke="none"
+                >
+                  <Label
+                    value={`▼ ${minPoint.value.toFixed(6)} MM3`}
+                    position="bottom"
+                    fill="#ef4444"
+                    fontSize={10}
+                  />
+                </ReferenceDot>
+              )}
             </AreaChart>
           </ResponsiveContainer>
         ) : (
