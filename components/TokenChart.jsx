@@ -109,7 +109,7 @@ export default function TokenChart() {
       <div className="bg-[#0b0f19] rounded-xl overflow-hidden">
         <div className="flex justify-between items-center mb-2 px-2">
           <div className="text-sm text-gray-300">
-            {trendText && `${trendText} in last ${range}`}
+            {trendText}
           </div>
           <div className="text-sm">
             <label htmlFor="range" className="mr-2 text-gray-400">
