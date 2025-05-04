@@ -35,19 +35,44 @@ export default function TokenChart() {
     fetchData()
   }, [])
 
-  const getVisibleData = () => {
-    if (!rawData || rawData.length === 0) return []
+ const getVisibleData = () => {
+  if (!rawData || rawData.length === 0) return []
 
-    const now = new Date()
-    const filtered = rawData.filter(({ hour }) => {
-      const h = new Date(hour)
-      const diffHours = (now - h) / (1000 * 60 * 60)
+  const now = Date.now()
 
-      if (range === '24h') return diffHours <= 24
-      if (range === '7d') return diffHours <= 24 * 7
-      if (range === '30d') return diffHours <= 24 * 30
-      return true
+  const filtered = rawData.filter(({ hour }) => {
+    const h = new Date(hour).getTime()
+    const diffHours = (now - h) / (1000 * 60 * 60)
+
+    if (range === '24h') return diffHours <= 24
+    if (range === '7d') return diffHours <= 24 * 7
+    if (range === '30d') return diffHours <= 24 * 30
+    return true
+  })
+
+  if (range === '24h') {
+    return filtered.map((entry) => ({
+      time: new Date(entry.hour).toLocaleTimeString('en-GB', {
+        hour: '2-digit',
+        minute: '2-digit',
+        timeZone: 'UTC'
+      }),
+      value: parseFloat(entry.cumulative_reward)
+    }))
+  } else {
+    const grouped = {}
+    filtered.forEach(({ hour, cumulative_reward }) => {
+      const day = new Date(hour).toISOString().slice(0, 10)
+      grouped[day] = parseFloat(cumulative_reward)
     })
+
+    return Object.entries(grouped).map(([day, value]) => ({
+      time: day,
+      value
+    }))
+  }
+}
+)
 
     if (range === '24h') {
       return filtered.map((entry) => ({
