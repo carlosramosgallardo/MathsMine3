@@ -44,40 +44,47 @@ export default function TokenChart() {
       const cutoff = now - 24 * 60 * 60 * 1000
       return rawData
         .filter(({ hour }) => {
-          const timestamp = new Date(
-            hour.replace(' ', 'T').replace('+00', 'Z')
-          ).getTime()
-          return timestamp >= cutoff
+          if (!hour) return false
+          const timestamp = new Date(hour.replace(' ', 'T').replace('+00', 'Z')).getTime()
+          return !isNaN(timestamp) && timestamp >= cutoff
         })
-        .map((entry) => ({
-          time: new Date(
-            entry.hour.replace(' ', 'T').replace('+00', 'Z')
-          ).toLocaleTimeString('en-GB', {
-            hour: '2-digit',
-            minute: '2-digit',
-            timeZone: 'UTC'
-          }),
-          value: parseFloat(entry.cumulative_reward)
-        }))
+        .map((entry) => {
+          const cleaned = entry.hour?.replace(' ', 'T').replace('+00', 'Z')
+          const d = new Date(cleaned)
+          if (isNaN(d)) return null
+          return {
+            time: d.toLocaleTimeString('en-GB', {
+              hour: '2-digit',
+              minute: '2-digit',
+              timeZone: 'UTC'
+            }),
+            value: parseFloat(entry.cumulative_reward)
+          }
+        })
+        .filter(Boolean)
     }
 
     const filtered = rawData.filter(({ hour }) => {
-      const h = new Date(
-        hour.replace(' ', 'T').replace('+00', 'Z')
-      ).getTime()
+      if (!hour) return false
+      const h = new Date(hour.replace(' ', 'T').replace('+00', 'Z')).getTime()
       const diffHours = (now - h) / (1000 * 60 * 60)
-
-      if (range === '7d') return diffHours <= 24 * 7
-      if (range === '30d') return diffHours <= 24 * 30
-      return true
+      return !isNaN(h) && (
+        (range === '7d' && diffHours <= 24 * 7) ||
+        (range === '30d' && diffHours <= 24 * 30) ||
+        range === 'all'
+      )
     })
 
     const grouped = {}
     filtered.forEach(({ hour, cumulative_reward }) => {
-      const day = new Date(
-        hour.replace(' ', 'T').replace('+00', 'Z')
-      ).toISOString().slice(0, 10)
-      grouped[day] = parseFloat(cumulative_reward)
+      const cleaned = hour?.replace(' ', 'T').replace('+00', 'Z')
+      const d = new Date(cleaned)
+      if (!isNaN(d)) {
+        const day = d.toISOString().slice(0, 10)
+        grouped[day] = parseFloat(cumulative_reward)
+      } else {
+        console.warn('Invalid hour skipped:', hour)
+      }
     })
 
     return Object.entries(grouped).map(([day, value]) => ({
@@ -88,7 +95,6 @@ export default function TokenChart() {
 
   const data = getVisibleData()
 
-  // Trend info
   let trendText = ''
   if (data.length >= 2) {
     const first = data[0].value
