@@ -101,4 +101,55 @@ export default function TokenChart() {
           <ResponsiveContainer width="100%" height={300}>
             <AreaChart data={data}>
               <defs>
-                <linearGradient id="colorToken" x1="0" y1="
+                <linearGradient id="colorToken" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#22d3ee" stopOpacity={0.9} />
+                  <stop offset="70%" stopColor="#22d3ee" stopOpacity={0.1} />
+                </linearGradient>
+              </defs>
+
+              <XAxis
+                dataKey="time"
+                tick={{ fill: '#ccc', fontSize: 12 }}
+                axisLine={false}
+                tickLine={false}
+              />
+              <YAxis
+                tickFormatter={(val) => `${val} MM3`}
+                tick={{ fill: '#ccc', fontSize: 12 }}
+                axisLine={false}
+                tickLine={false}
+                domain={['auto', 'auto']}
+              />
+              <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.05} />
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: '#111827',
+                  borderRadius: '8px',
+                  border: 'none',
+                  color: '#e5e7eb'
+                }}
+                labelStyle={{ color: '#22d3ee' }}
+                formatter={(value) => [`${value} MM3`, 'Value']}
+                labelFormatter={(label) => `Time: ${label}`}
+              />
+              <Area
+                type="monotone"
+                dataKey="value"
+                stroke="#22d3ee"
+                fillOpacity={1}
+                fill="url(#colorToken)"
+                strokeWidth={2}
+                dot={false}
+                isAnimationActive={true}
+              />
+            </AreaChart>
+          </ResponsiveContainer>
+        ) : (
+          <p className="text-center text-sm text-gray-400">
+            No chart data available yet.
+          </p>
+        )}
+      </div>
+    </div>
+  )
+}
