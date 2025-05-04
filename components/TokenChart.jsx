@@ -42,7 +42,12 @@ export default function TokenChart() {
 
     if (range === '24h') {
       const cutoff = now - 24 * 60 * 60 * 1000
-      const filtered = rawData.filter(({ hour }) => new Date(hour).getTime() >= cutoff)
+      const filtered = rawData.filter(({ hour }) => {
+        const timestamp = new Date(
+          hour.replace(' ', 'T').replace('+00', 'Z')
+        ).getTime()
+        return timestamp >= cutoff
+      })
 
       console.log('Now:', new Date().toISOString())
       console.log('Cutoff timestamp:', new Date(cutoff).toISOString())
@@ -57,7 +62,9 @@ export default function TokenChart() {
       )
 
       return filtered.map((entry) => ({
-        time: new Date(entry.hour).toLocaleTimeString('en-GB', {
+        time: new Date(
+          entry.hour.replace(' ', 'T').replace('+00', 'Z')
+        ).toLocaleTimeString('en-GB', {
           hour: '2-digit',
           minute: '2-digit',
           timeZone: 'UTC'
@@ -67,7 +74,9 @@ export default function TokenChart() {
     }
 
     const filtered = rawData.filter(({ hour }) => {
-      const h = new Date(hour).getTime()
+      const h = new Date(
+        hour.replace(' ', 'T').replace('+00', 'Z')
+      ).getTime()
       const diffHours = (now - h) / (1000 * 60 * 60)
 
       if (range === '7d') return diffHours <= 24 * 7
@@ -77,7 +86,9 @@ export default function TokenChart() {
 
     const grouped = {}
     filtered.forEach(({ hour, cumulative_reward }) => {
-      const day = new Date(hour).toISOString().slice(0, 10)
+      const day = new Date(
+        hour.replace(' ', 'T').replace('+00', 'Z')
+      ).toISOString().slice(0, 10)
       grouped[day] = parseFloat(cumulative_reward)
     })
 
