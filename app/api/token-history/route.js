@@ -9,7 +9,8 @@ export async function GET() {
   const { data, error } = await supabase
     .from('token_value_timeseries')
     .select('hour, cumulative_reward')
-    .order('hour', { ascending: true })
+    .order('hour', { ascending: false }) // Más recientes primero
+    .limit(2000) // Suficiente para cubrir 30d+ (83 días)
 
   if (error) {
     return new Response(JSON.stringify({ error: error.message }), {
@@ -18,7 +19,10 @@ export async function GET() {
     })
   }
 
-  return new Response(JSON.stringify(data), {
+  // Volvemos a ordenar ascendente para el gráfico
+  const sorted = data.sort((a, b) => new Date(a.hour) - new Date(b.hour))
+
+  return new Response(JSON.stringify(sorted), {
     status: 200,
     headers: {
       'Content-Type': 'application/json',
