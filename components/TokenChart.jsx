@@ -44,14 +44,11 @@ export default function TokenChart() {
       const cutoff = now - 24 * 60 * 60 * 1000
       return rawData
         .filter(({ hour }) => {
-          if (!hour) return false
-          const timestamp = new Date(hour.replace(' ', 'T').replace('+00', 'Z')).getTime()
-          return !isNaN(timestamp) && timestamp >= cutoff
+          const d = new Date(hour)
+          return !isNaN(d) && d.getTime() >= cutoff
         })
         .map((entry) => {
-          const cleaned = entry.hour?.replace(' ', 'T').replace('+00', 'Z')
-          const d = new Date(cleaned)
-          if (isNaN(d)) return null
+          const d = new Date(entry.hour)
           return {
             time: d.toLocaleTimeString('en-GB', {
               hour: '2-digit',
@@ -61,14 +58,13 @@ export default function TokenChart() {
             value: parseFloat(entry.cumulative_reward)
           }
         })
-        .filter(Boolean)
     }
 
     const filtered = rawData.filter(({ hour }) => {
-      if (!hour) return false
-      const h = new Date(hour.replace(' ', 'T').replace('+00', 'Z')).getTime()
-      const diffHours = (now - h) / (1000 * 60 * 60)
-      return !isNaN(h) && (
+      const d = new Date(hour)
+      if (isNaN(d)) return false
+      const diffHours = (now - d.getTime()) / (1000 * 60 * 60)
+      return (
         (range === '7d' && diffHours <= 24 * 7) ||
         (range === '30d' && diffHours <= 24 * 30) ||
         range === 'all'
@@ -77,13 +73,10 @@ export default function TokenChart() {
 
     const grouped = {}
     filtered.forEach(({ hour, cumulative_reward }) => {
-      const cleaned = hour?.replace(' ', 'T').replace('+00', 'Z')
-      const d = new Date(cleaned)
+      const d = new Date(hour)
       if (!isNaN(d)) {
         const day = d.toISOString().slice(0, 10)
         grouped[day] = parseFloat(cumulative_reward)
-      } else {
-        console.warn('Invalid hour skipped:', hour)
       }
     })
 
