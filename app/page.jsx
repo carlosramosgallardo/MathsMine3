@@ -81,7 +81,7 @@ export default function Page() {
 
       {/* Fondo reactivo: orbe pixelado MM3 (logo único sin estela) */}
       <MM3PixelOrbSprite
-        src="/mm3-logo.png"   // <-- tu archivo
+        src="/og-image.jpg"   // <-- tu archivo
         tokenValue={mm3Value}
         minValue={0}
         maxValue={0.001}
