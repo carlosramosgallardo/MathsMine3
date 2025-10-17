@@ -52,7 +52,6 @@ export default function Page() {
   useEffect(() => {
     const saveGame = async () => {
       if (!gameData || !account) return;
-
       try {
         const { error } = await supabase.from('games').insert([gameData]);
         if (error) {
@@ -66,7 +65,6 @@ export default function Page() {
         setGameMessage('Unexpected error. Try again.');
       }
     };
-
     saveGame();
   }, [gameData, account]);
 
@@ -81,13 +79,16 @@ export default function Page() {
         <link rel="canonical" href="https://mathsmine3.xyz/" />
       </Head>
 
-      {/* Fondo reactivo: orbe pixelado MM3 */}
+      {/* Fondo reactivo: orbe pixelado MM3 (logo único sin estela) */}
       <MM3PixelOrb
         tokenValue={mm3Value}
         minValue={0}
-        maxValue={0.001}   // ajusta sensibilidad a tu escala
-        grid={6}           // look 8-bit
-        zIndex={0}         // fondo
+        maxValue={0.001}     // ajusta sensibilidad
+        grid={6}             // look 8-bit
+        sizeCells={12}       // tamaño del logo (10–14 = pequeño)
+        zIndex={0}           // detrás del contenido
+        startSelector="#logoTop"     // ID del logo superior (cámbialo si usas otro)
+        endSelector="#logoBottom"    // ID del logo inferior (cámbialo si usas otro)
       />
 
       {GA_ENABLED && GA_MEASUREMENT_ID && (
@@ -112,7 +113,7 @@ export default function Page() {
 
           {/* Hero section for SEO and users */}
           <section className="mb-12 text-center">
-            <h1 className="text-xl font-semibold mt-8 mb-2">
+            <h1 className="text-xl font-semibold mt-8 mb-2" id="logoTop">
               Fast Math and Shape the Future with MathsMine3
             </h1>
             <p className="text-base text-gray-400 text-center mb-2">
@@ -163,7 +164,7 @@ export default function Page() {
 
           {/* Leaderboard */}
           <section className="mb-12 text-center">
-            <h1 className="text-xl font-semibold mt-8 mb-2">MM3 Balance per wallet</h1>
+            <h1 className="text-xl font-semibold mt-8 mb-2" id="logoBottom">MM3 Balance per wallet</h1>
           </section>
           <div className="mb-16">
             <Leaderboard itemsPerPage={10} />
