@@ -22,7 +22,7 @@
     "react-dom": "^19.0.0",
     "recharts": "^2.15.1",
     "viem": "^2.23.13",
-    "wagmi": "^2.14.15"
+    "wagmi": "^2.18.1"
   },
   "devDependencies": {
     "@types/react": "^19.0.12",
