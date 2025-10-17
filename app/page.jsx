@@ -51,8 +51,8 @@ export default function Page() {
   return (
     <>
       <Head>
-        <title>MathsMine3 – Master Math, Mine MM3 & Shape the Future</title>
-        <meta name="description" content="Master Math, Mine MM3, and Shape the Future with PoV & PoA. A free Web3 experiment merging gamified learning and token economics." />
+        <title>MathsMine3 – Fast Math, Mine MM3 & Shape the Future</title>
+        <meta name="description" content="Fast Math, Mine MM3, and Shape the Future with PoV & PoA. A free Web3 experiment merging gamified learning and token economics." />
         <link rel="canonical" href="https://mathsmine3.xyz/" />
       </Head>
 
@@ -78,7 +78,7 @@ export default function Page() {
 
           {/* Hero section for SEO and users */}
           <section className="mb-12 text-center">
-            <h1 className="text-xl font-semibold mt-8 mb-2">Master Math and Shape the Future with MathsMine3</h1>
+            <h1 className="text-xl font-semibold mt-8 mb-2">Fast Math and Shape the Future with MathsMine3</h1>
             <p className="text-base text-gray-400 text-center mb-2">
             MathsMine3 is a free-to-play, open-source, and unique Web3 experiment where you solve math puzzles and earn MM3 — a fake token with no real-world value, used exclusively within MathsMine3 to participate in Proof of Ask (PoA) and Proof of Vote (PoV).
             </p>

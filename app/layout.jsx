@@ -4,11 +4,11 @@ import Footer from '@/components/Footer';
 
 export const metadata = {
   title: 'MathsMine3',
-  description: 'Master Math, Mine MM3, and Shape the Future with PoV & PoA.',
+  description: 'Fast Math, Mine MM3, and Shape the Future with PoV & PoA.',
   metadataBase: new URL('https://mathsmine3.xyz'),
   openGraph: {
     title: 'MathsMine3',
-    description: 'Master Math, Mine MM3, and Shape the Future with PoV & PoA.',
+    description: 'Fast Math, Mine MM3, and Shape the Future with PoV & PoA.',
     url: 'https://mathsmine3.xyz',
     siteName: 'MathsMine3',
     images: [
@@ -25,7 +25,7 @@ export const metadata = {
     card: 'summary_large_image',
     creator: '@FreakingAI',
     title: 'MathsMine3',
-    description: 'Master Math, Mine MM3, and Shape the Future with PoV & PoA.',
+    description: 'Fast Math, Mine MM3, and Shape the Future with PoV & PoA.',
     images: ['/og-image.jpg'],
   },
   verification: {
