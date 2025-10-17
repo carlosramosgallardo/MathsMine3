@@ -10,6 +10,7 @@ import TokenChart from '@/components/TokenChart';
 import supabase from '@/lib/supabaseClient';
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { Analytics } from "@vercel/analytics/react";
+import MM3PixelOrb from '@/components/MM3PixelOrb';
 
 import '@/app/globals.css';
 
@@ -26,6 +27,27 @@ export default function Page() {
   const [gameMessage, setGameMessage] = useState('');
   const [gameCompleted, setGameCompleted] = useState(false);
   const [gameData, setGameData] = useState(null);
+
+  // Valor del token para el orbe
+  const [mm3Value, setMm3Value] = useState(0);
+
+  useEffect(() => {
+    const fetchLastValue = async () => {
+      try {
+        const res = await fetch('/api/token-history');
+        const json = await res.json();
+        if (Array.isArray(json) && json.length > 0) {
+          const last = json[json.length - 1];
+          setMm3Value(parseFloat(last.cumulative_reward) || 0);
+        }
+      } catch (e) {
+        console.error('Error fetching token value:', e);
+      }
+    };
+    fetchLastValue();
+    const id = setInterval(fetchLastValue, 30000); // refresco opcional
+    return () => clearInterval(id);
+  }, []);
 
   useEffect(() => {
     const saveGame = async () => {
@@ -46,15 +68,27 @@ export default function Page() {
     };
 
     saveGame();
-  }, [gameData]);
+  }, [gameData, account]);
 
   return (
     <>
       <Head>
         <title>MathsMine3 – Fast Math, Mine MM3 & Shape the Future</title>
-        <meta name="description" content="Fast Math, Mine MM3, and Shape the Future with PoV & PoA. A free Web3 experiment merging gamified learning and token economics." />
+        <meta
+          name="description"
+          content="Fast Math, Mine MM3, and Shape the Future with PoV & PoA. A free Web3 experiment merging gamified learning and token economics."
+        />
         <link rel="canonical" href="https://mathsmine3.xyz/" />
       </Head>
+
+      {/* Fondo reactivo: orbe pixelado MM3 */}
+      <MM3PixelOrb
+        tokenValue={mm3Value}
+        minValue={0}
+        maxValue={0.001}   // ajusta sensibilidad a tu escala
+        grid={6}           // look 8-bit
+        zIndex={0}         // fondo
+      />
 
       {GA_ENABLED && GA_MEASUREMENT_ID && (
         <>
@@ -73,19 +107,21 @@ export default function Page() {
         </>
       )}
 
-      <main className="flex flex-col items-center w-full px-4 pt-10 pb-20 text-lg font-mono text-white bg-black">
+      <main className="relative z-10 flex flex-col items-center w-full px-4 pt-10 pb-20 text-lg font-mono text-white bg-black">
         <div className="w-full max-w-3xl mx-auto">
 
           {/* Hero section for SEO and users */}
           <section className="mb-12 text-center">
-            <h1 className="text-xl font-semibold mt-8 mb-2">Fast Math and Shape the Future with MathsMine3</h1>
+            <h1 className="text-xl font-semibold mt-8 mb-2">
+              Fast Math and Shape the Future with MathsMine3
+            </h1>
             <p className="text-base text-gray-400 text-center mb-2">
-            MathsMine3 is a free-to-play, open-source, and unique Web3 experiment where you solve math puzzles and earn MM3 — a fake token with no real-world value, used exclusively within MathsMine3 to participate in Proof of Ask (PoA) and Proof of Vote (PoV).
+              MathsMine3 is a free-to-play, open-source, and unique Web3 experiment where you solve math puzzles and earn MM3 — a fake token with no real-world value, used exclusively within MathsMine3 to participate in Proof of Ask (PoA) and Proof of Vote (PoV).
             </p>
           </section>
 
           {/* Game Board */}
-           <section className="mb-12 text-center">
+          <section className="mb-12 text-center">
             <h1 className="text-xl font-semibold mt-8 mb-2">Play now:</h1>
           </section>
           <div className="mb-12">
@@ -126,9 +162,9 @@ export default function Page() {
           </div>
 
           {/* Leaderboard */}
-            <section className="mb-12 text-center">
-              <h1 className="text-xl font-semibold mt-8 mb-2">MM3 Balance per wallet</h1>
-            </section>
+          <section className="mb-12 text-center">
+            <h1 className="text-xl font-semibold mt-8 mb-2">MM3 Balance per wallet</h1>
+          </section>
           <div className="mb-16">
             <Leaderboard itemsPerPage={10} />
           </div>

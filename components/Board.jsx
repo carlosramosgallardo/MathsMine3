@@ -44,7 +44,6 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
       case '/': answer = a / b; break;
     }
 
-    // choices near the correct value (unique)
     const correct = String(answer);
     const near = new Set();
     while (near.size < 5) {
@@ -241,6 +240,12 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
         const penaltyRatio = overTime / 5000;
         miningAmount = -PARTICIPATION_PRICE * 0.10 * penaltyRatio;
       }
+
+      // Dispara explosión pixel (MM3PixelOrb escucha este evento)
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('mm3-correct', { detail: { reward: miningAmount } }));
+      }
+
       const displayAmount = Math.abs(miningAmount) < 0.00000001 ? '< 0.00000001' : miningAmount.toFixed(8);
       const message = account
         ? `Inject MM3 now: ${displayAmount}`
@@ -304,7 +309,6 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
                       }`}
                     title="Pick your answer"
                   >
-                    {/* Slightly larger visual for operators */}
                     <span className={`${/^[+\-*/]$/.test(choice) ? 'text-2xl leading-none' : ''}`}>
                       {choice}
                     </span>
