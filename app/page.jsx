@@ -10,7 +10,7 @@ import TokenChart from '@/components/TokenChart';
 import supabase from '@/lib/supabaseClient';
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { Analytics } from "@vercel/analytics/react";
-import MM3PixelOrb from '@/components/MM3PixelOrbSprite';
+import MM3PixelOrbSprite from '@/components/MM3PixelOrbSprite';
 
 import '@/app/globals.css';
 
