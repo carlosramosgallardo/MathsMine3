@@ -102,31 +102,6 @@ export default function ManifestoPage() {
           </p>
         </section>
 
-        <section className="mb-6">
-          <h2 className="text-xl font-semibold mb-2 text-white">Sources</h2>
-          <p className="leading-relaxed">
-            Wikipedia:{' '}
-            <a
-              href="https://en.wikipedia.org/wiki/List_of_mathematical_theories"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-blue-400 underline break-all"
-            >
-              https://en.wikipedia.org/wiki/List_of_mathematical_theories
-            </a>
-          </p>
-          <p className="leading-relaxed">
-            Please, report if you identify any inaccuracies or discrepancies.
-          </p>
-        </section>
-
-        <section className="mb-6">
-          <h2 className="text-xl font-semibold mb-2 text-white">Image Credits</h2>
-          <p className="leading-relaxed">
-            All images are generated using Sora.
-          </p>
-        </section>
-
         <section>
           <h2 className="text-xl font-semibold mb-2 text-white">Contact</h2>
           <p className="leading-relaxed">
