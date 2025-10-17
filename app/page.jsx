@@ -10,7 +10,7 @@ import TokenChart from '@/components/TokenChart';
 import supabase from '@/lib/supabaseClient';
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { Analytics } from "@vercel/analytics/react";
-import MM3PixelOrb from '@/components/MM3PixelOrb';
+import MM3PixelOrb from '@/components/MM3PixelOrbSprite';
 
 import '@/app/globals.css';
 
@@ -80,15 +80,17 @@ export default function Page() {
       </Head>
 
       {/* Fondo reactivo: orbe pixelado MM3 (logo único sin estela) */}
-      <MM3PixelOrb
+      <MM3PixelOrbSprite
+        src="/mm3-logo.png"   // <-- tu archivo
         tokenValue={mm3Value}
         minValue={0}
-        maxValue={0.001}     // ajusta sensibilidad
-        grid={6}             // look 8-bit
-        sizeCells={12}       // tamaño del logo (10–14 = pequeño)
-        zIndex={0}           // detrás del contenido
-        startSelector="#logoTop"     // ID del logo superior (cámbialo si usas otro)
-        endSelector="#logoBottom"    // ID del logo inferior (cámbialo si usas otro)
+        maxValue={0.001}
+        pixelCols={28}        // más grande/pequeño: sube/baja 24–36
+        grid={6}              // tamaño de “pixel” en pantalla
+        zIndex={0}
+        startSelector="#logoTop"      // ancla arriba (ajusta al ID real)
+        endSelector="#logoBottom"     // ancla abajo (ajusta al ID real)
+        durationMs={7000}
       />
 
       {GA_ENABLED && GA_MEASUREMENT_ID && (
