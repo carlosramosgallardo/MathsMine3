@@ -52,7 +52,6 @@ MathsMine3/
 │   ├── pov/                  # Proof of Vote pages
 │   ├── poa/                  # Proof of Ask page
 │   ├── playlist/             # Playlist UI
-│   ├── learn-math/           # Study section for mining prep
 │   ├── globals.css           # Global styles
 │   └── layout.jsx            # Root layout
 ├── components/               # UI components (Board, Leaderboard, etc.)
