@@ -18,7 +18,7 @@ const wagmiConfig = createConfig({
   transports: { [mainnet.id]: http() }
 })
 
-// === Web3Modal con tema acorde al estilo MM3 ===
+// === Web3Modal con tema alineado al gráfico (cyan) ===
 createWeb3Modal({
   wagmiConfig,
   projectId,
@@ -28,7 +28,8 @@ createWeb3Modal({
   enableOnramp: false,
   themeMode: 'light',
   themeVariables: {
-    '--w3m-accent': '#6366F1',
+    // Alineado a botón/graph (cyan)
+    '--w3m-accent': '#06b6d4',          // Tailwind cyan-500
     '--w3m-accent-fill': '#FFFFFF',
     '--w3m-background': '#0b0f1a',
     '--w3m-font-family':
@@ -38,7 +39,7 @@ createWeb3Modal({
   }
 })
 
-// === Hook para abreviar dirección ===
+// === Hook para abreviar dirección (por si lo volvemos a usar) ===
 function useShortAddress(addr) {
   return useMemo(() => {
     if (!addr) return ''
@@ -48,17 +49,16 @@ function useShortAddress(addr) {
 
 // === Botón unificado estilo pill (toggle real) ===
 function PillConnectButton() {
-  const { isConnected, address } = useAccount()
+  const { isConnected } = useAccount()
   const { open } = useWeb3Modal()
   const { disconnect } = useDisconnect()
-  const short = useShortAddress(address)
 
   const handleClick = () => {
     if (isConnected) {
-      // Toggle: desconectar en un clic
+      // Desconecta en un clic
       disconnect()
     } else {
-      // Abrir modal de conexión
+      // Abre modal de conexión
       open({ view: 'Connect' })
     }
   }
@@ -68,13 +68,13 @@ function PillConnectButton() {
       type="button"
       onClick={handleClick}
       className="inline-flex items-center px-5 py-2 rounded-full font-semibold
-                 bg-indigo-500 text-white hover:bg-indigo-400 active:bg-indigo-600
+                 bg-cyan-500 text-white hover:bg-cyan-400 active:bg-cyan-600
                  transition-colors duration-200 shadow-sm focus:outline-none
-                 focus:ring-2 focus:ring-indigo-300"
+                 focus:ring-2 focus:ring-cyan-300"
       title={isConnected ? 'Disconnect wallet' : 'Connect wallet'}
       aria-label={isConnected ? 'Disconnect wallet' : 'Connect wallet'}
     >
-      {isConnected ? short : 'Connect Wallet'}
+      {isConnected ? 'Disconnect Wallet' : 'Connect Wallet'}
     </button>
   )
 }
@@ -137,28 +137,32 @@ function ConnectAndPlayContent({ gameCompleted, gameData, account, setAccount })
     }
   }
 
+  // Condición de habilitado de DONATE (por si quieres atarlo al Board):
+  // const donateEnabled = isConnected && gameCompleted && gameData?.is_correct === true
+  const donateEnabled = isConnected
+
   return (
     <>
       <div className="my-4 flex items-center justify-center gap-4 flex-wrap">
-        {/* Botón unificado (toggle real) */}
+        {/* Botón Connect / Disconnect (cyan, como el gráfico) */}
         <PillConnectButton />
 
-        {/* Botón de donación (opcional) */}
+        {/* Botón DONATE (verde) */}
         {isConnected && (
           <button
             type="button"
             onClick={handleDonation}
-            disabled={isDonating}
+            disabled={!donateEnabled || isDonating}
             className={`inline-flex items-center px-5 py-2 rounded-full font-semibold
                         transition-colors duration-200 shadow-sm focus:outline-none
                         focus:ring-2 focus:ring-emerald-300 ${
-                          isDonating
+                          isDonating || !donateEnabled
                             ? 'bg-emerald-600/60 text-white cursor-wait'
                             : 'bg-emerald-500 text-white hover:bg-emerald-400 active:bg-emerald-600'
                         }`}
-            aria-label="donate (optional)"
+            aria-label="Donate"
           >
-            {isDonating ? 'Donating…' : 'donate (optional)'}
+            {isDonating ? 'Donating…' : 'Donate'}
           </button>
         )}
       </div>
