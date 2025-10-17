@@ -1,18 +1,8 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import {
-  createWeb3Modal,
-  useWeb3Modal
-} from '@web3modal/wagmi/react'
-import {
-  WagmiConfig,
-  createConfig,
-  useAccount,
-  useConnect,
-  useWalletClient,
-  http
-} from 'wagmi'
+import { createWeb3Modal } from '@web3modal/wagmi/react'
+import { WagmiConfig, createConfig, useAccount, useWalletClient, http } from 'wagmi'
 import { mainnet } from 'wagmi/chains'
 import { BrowserProvider, parseEther } from 'ethers'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
@@ -24,9 +14,7 @@ const projectId = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID
 
 const wagmiConfig = createConfig({
   chains,
-  transports: {
-    [mainnet.id]: http()
-  }
+  transports: { [mainnet.id]: http() }
 })
 
 createWeb3Modal({
@@ -40,19 +28,16 @@ createWeb3Modal({
 })
 
 function ConnectAndPlayContent({ gameCompleted, gameData, account, setAccount }) {
-  const { open } = useWeb3Modal()
   const { address, isConnected } = useAccount()
-  const { connect, connectors } = useConnect()
   const { data: walletClient } = useWalletClient()
 
   const [statusMessage, setStatusMessage] = useState(null)
   const [isDonating, setIsDonating] = useState(false)
   const [isFading, setIsFading] = useState(false)
 
+  // Mantén tu estado local sincronizado con wagmi (sin cambiar tu lógica de juego)
   useEffect(() => {
-    if (isConnected && address && setAccount) {
-      setAccount(address)
-    }
+    if (setAccount) setAccount(isConnected && address ? address : null)
   }, [isConnected, address, setAccount])
 
   useEffect(() => {
@@ -66,18 +51,7 @@ function ConnectAndPlayContent({ gameCompleted, gameData, account, setAccount })
     }
   }, [statusMessage])
 
-  const showToast = (msg, type = 'info') => {
-    setStatusMessage({ msg, type })
-  }
-
-  const handleMobileConnect = () => {
-    const walletConnect = connectors.find(c => c.id === 'walletConnect')
-    if (walletConnect) {
-      connect({ connector: walletConnect })
-    } else {
-      open()
-    }
-  }
+  const showToast = (msg, type = 'info') => setStatusMessage({ msg, type })
 
   const handleDonation = async (e) => {
     e.preventDefault()
@@ -111,31 +85,27 @@ function ConnectAndPlayContent({ gameCompleted, gameData, account, setAccount })
     }
   }
 
-  const isAndroid =
-    typeof window !== 'undefined' && /android/i.test(navigator.userAgent)
-
   return (
     <>
-      <div className="text-center my-4 space-y-4">
-        {!isConnected ? (
-          <button
-            onClick={isAndroid ? handleMobileConnect : open}
-            className="px-4 py-2 mt-2 ml-2 rounded bg-black text-white hover:bg-gray-900 transition"
-          >
-            Connect Wallet
-          </button>
-        ) : (
+      <div className="my-4 flex items-center justify-center gap-4 flex-wrap">
+        {/* SIEMPRE visible: Connect cuando estás desconectado y menú con Disconnect cuando estás conectado */}
+        <w3m-button balance="hide" size="md" label="Connect / Disconnect" />
+
+        {/* Enlace de donación solo si estás conectado (no cambiamos tu lógica) */}
+        {isConnected && (
           <a
             href="#disturbance"
             onClick={handleDonation}
             role="link"
-            className={`px-0 py-0 mt-2 ml-2 font-medium underline transition-colors duration-200 whitespace-nowrap ${
+            className={`px-0 py-0 font-medium underline transition-colors duration-200 whitespace-nowrap ${
               isDonating
                 ? 'cursor-wait text-slate-500'
                 : 'cursor-pointer text-slate-800 hover:text-slate-600'
             }`}
           >
-            {isDonating ? 'Donating...' : 'Optional: donate a symbolic 0.00001 ETH to support the MM3 project.'}
+            {isDonating
+              ? 'Donating...'
+              : 'Optional: donate a symbolic 0.00001 ETH to support the MM3 project.'}
           </a>
         )}
       </div>
@@ -153,11 +123,7 @@ function ConnectAndPlayContent({ gameCompleted, gameData, account, setAccount })
           }`}
         >
           <span className="mr-2">
-            {statusMessage.type === 'success'
-              ? '✅'
-              : statusMessage.type === 'error'
-              ? '❌'
-              : 'ℹ️'}
+            {statusMessage.type === 'success' ? '✅' : statusMessage.type === 'error' ? '❌' : 'ℹ️'}
           </span>
           {statusMessage.msg}
         </div>
