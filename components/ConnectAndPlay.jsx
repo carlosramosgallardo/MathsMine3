@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react'
 import { createWeb3Modal, useWeb3Modal } from '@web3modal/wagmi/react'
-import { WagmiConfig, createConfig, useAccount, useWalletClient, http } from 'wagmi'
+import { WagmiConfig, createConfig, useAccount, useWalletClient, useDisconnect, http } from 'wagmi'
 import { mainnet } from 'wagmi/chains'
 import { BrowserProvider, parseEther } from 'ethers'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
@@ -46,14 +46,21 @@ function useShortAddress(addr) {
   }, [addr])
 }
 
-// === Botón unificado estilo pill ===
+// === Botón unificado estilo pill (toggle real) ===
 function PillConnectButton() {
   const { isConnected, address } = useAccount()
   const { open } = useWeb3Modal()
+  const { disconnect } = useDisconnect()
   const short = useShortAddress(address)
 
   const handleClick = () => {
-    open({ view: isConnected ? 'Account' : 'Connect' })
+    if (isConnected) {
+      // Toggle: desconectar en un clic
+      disconnect()
+    } else {
+      // Abrir modal de conexión
+      open({ view: 'Connect' })
+    }
   }
 
   return (
@@ -64,7 +71,8 @@ function PillConnectButton() {
                  bg-indigo-500 text-white hover:bg-indigo-400 active:bg-indigo-600
                  transition-colors duration-200 shadow-sm focus:outline-none
                  focus:ring-2 focus:ring-indigo-300"
-      aria-label={isConnected ? 'Open account / Disconnect' : 'Connect wallet'}
+      title={isConnected ? 'Disconnect wallet' : 'Connect wallet'}
+      aria-label={isConnected ? 'Disconnect wallet' : 'Connect wallet'}
     >
       {isConnected ? short : 'Connect Wallet'}
     </button>
@@ -132,25 +140,26 @@ function ConnectAndPlayContent({ gameCompleted, gameData, account, setAccount })
   return (
     <>
       <div className="my-4 flex items-center justify-center gap-4 flex-wrap">
-        {/* Botón unificado, siempre visible */}
+        {/* Botón unificado (toggle real) */}
         <PillConnectButton />
 
-        {/* Enlace de donación solo si estás conectado */}
+        {/* Botón de donación (opcional) */}
         {isConnected && (
-          <a
-            href="#disturbance"
+          <button
+            type="button"
             onClick={handleDonation}
-            role="link"
-            className={`px-0 py-0 font-medium underline transition-colors duration-200 whitespace-nowrap ${
-              isDonating
-                ? 'cursor-wait text-slate-500'
-                : 'cursor-pointer text-slate-200 hover:text-slate-300'
-            }`}
+            disabled={isDonating}
+            className={`inline-flex items-center px-5 py-2 rounded-full font-semibold
+                        transition-colors duration-200 shadow-sm focus:outline-none
+                        focus:ring-2 focus:ring-emerald-300 ${
+                          isDonating
+                            ? 'bg-emerald-600/60 text-white cursor-wait'
+                            : 'bg-emerald-500 text-white hover:bg-emerald-400 active:bg-emerald-600'
+                        }`}
+            aria-label="donate (optional)"
           >
-            {isDonating
-              ? 'Donating...'
-              : 'Optional: donate a symbolic 0.00001 ETH to support the MM3 project.'}
-          </a>
+            {isDonating ? 'Donating…' : 'donate (optional)'}
+          </button>
         )}
       </div>
 
