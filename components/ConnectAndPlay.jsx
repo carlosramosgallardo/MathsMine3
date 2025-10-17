@@ -1,13 +1,14 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { createWeb3Modal } from '@web3modal/wagmi/react'
+import { useState, useEffect, useMemo } from 'react'
+import { createWeb3Modal, useWeb3Modal } from '@web3modal/wagmi/react'
 import { WagmiConfig, createConfig, useAccount, useWalletClient, http } from 'wagmi'
 import { mainnet } from 'wagmi/chains'
 import { BrowserProvider, parseEther } from 'ethers'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import supabase from '@/lib/supabaseClient'
 
+// === Configuración base ===
 const queryClient = new QueryClient()
 const chains = [mainnet]
 const projectId = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID
@@ -17,6 +18,7 @@ const wagmiConfig = createConfig({
   transports: { [mainnet.id]: http() }
 })
 
+// === Web3Modal con tema acorde al estilo MM3 ===
 createWeb3Modal({
   wagmiConfig,
   projectId,
@@ -24,8 +26,50 @@ createWeb3Modal({
   enableAnalytics: false,
   disableTelemetry: true,
   enableOnramp: false,
-  themeMode: 'light'
+  themeMode: 'light',
+  themeVariables: {
+    '--w3m-accent': '#6366F1',
+    '--w3m-accent-fill': '#FFFFFF',
+    '--w3m-background': '#0b0f1a',
+    '--w3m-font-family':
+      'ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Helvetica Neue, Arial, "Apple Color Emoji","Segoe UI Emoji","Segoe UI Symbol"',
+    '--w3m-border-radius-master': '999px',
+    '--w3m-button-border-radius': '999px'
+  }
 })
+
+// === Hook para abreviar dirección ===
+function useShortAddress(addr) {
+  return useMemo(() => {
+    if (!addr) return ''
+    return addr.slice(0, 6) + '…' + addr.slice(-4)
+  }, [addr])
+}
+
+// === Botón unificado estilo pill ===
+function PillConnectButton() {
+  const { isConnected, address } = useAccount()
+  const { open } = useWeb3Modal()
+  const short = useShortAddress(address)
+
+  const handleClick = () => {
+    open({ view: isConnected ? 'Account' : 'Connect' })
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={handleClick}
+      className="inline-flex items-center px-5 py-2 rounded-full font-semibold
+                 bg-indigo-500 text-white hover:bg-indigo-400 active:bg-indigo-600
+                 transition-colors duration-200 shadow-sm focus:outline-none
+                 focus:ring-2 focus:ring-indigo-300"
+      aria-label={isConnected ? 'Open account / Disconnect' : 'Connect wallet'}
+    >
+      {isConnected ? short : 'Connect Wallet'}
+    </button>
+  )
+}
 
 function ConnectAndPlayContent({ gameCompleted, gameData, account, setAccount }) {
   const { address, isConnected } = useAccount()
@@ -35,7 +79,7 @@ function ConnectAndPlayContent({ gameCompleted, gameData, account, setAccount })
   const [isDonating, setIsDonating] = useState(false)
   const [isFading, setIsFading] = useState(false)
 
-  // Mantén tu estado local sincronizado con wagmi (sin cambiar tu lógica de juego)
+  // Sincroniza el estado de la cuenta sin alterar tu lógica
   useEffect(() => {
     if (setAccount) setAccount(isConnected && address ? address : null)
   }, [isConnected, address, setAccount])
@@ -88,10 +132,10 @@ function ConnectAndPlayContent({ gameCompleted, gameData, account, setAccount })
   return (
     <>
       <div className="my-4 flex items-center justify-center gap-4 flex-wrap">
-        {/* SIEMPRE visible: Connect cuando estás desconectado y menú con Disconnect cuando estás conectado */}
-        <w3m-button balance="hide" size="md" label="Connect / Disconnect" />
+        {/* Botón unificado, siempre visible */}
+        <PillConnectButton />
 
-        {/* Enlace de donación solo si estás conectado (no cambiamos tu lógica) */}
+        {/* Enlace de donación solo si estás conectado */}
         {isConnected && (
           <a
             href="#disturbance"
@@ -100,7 +144,7 @@ function ConnectAndPlayContent({ gameCompleted, gameData, account, setAccount })
             className={`px-0 py-0 font-medium underline transition-colors duration-200 whitespace-nowrap ${
               isDonating
                 ? 'cursor-wait text-slate-500'
-                : 'cursor-pointer text-slate-800 hover:text-slate-600'
+                : 'cursor-pointer text-slate-200 hover:text-slate-300'
             }`}
           >
             {isDonating
