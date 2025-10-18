@@ -364,17 +364,6 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
 
               {/* Controls */}
               <div className="flex justify-center items-center gap-2 mt-5">
-                <button
-                  className={`px-4 py-1 rounded-xl font-mono text-sm border-2
-                    ${isDisabled
-                      ? 'bg-gray-700 border-gray-600 text-gray-400 cursor-not-allowed'
-                      : 'bg-yellow-300 text-[#0b0f19] border-yellow-400 shadow-[0_0_15px_rgba(253,224,71,0.4)] hover:bg-yellow-400 hover:shadow-[0_0_20px_rgba(253,224,71,0.6)] hover:scale-105'
-                    }`}
-                  disabled
-                >
-                  Submit
-                </button>
-
                 {gameCompleted && (
                   <button
                     onClick={() => {
