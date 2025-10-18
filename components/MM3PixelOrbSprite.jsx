@@ -4,8 +4,8 @@ import { useEffect, useRef } from 'react';
 
 export default function MM3PixelOrbSprite({
   src = '/mm3-token.png',
-  fixedColor = '#000000', // persistent color from DB (overrides trend color)
-  trendPct = 0,           // fallback: green/red by trend when no fixedColor
+  fixedColor = '#000000', // persistent color from DB (overrides trend color) -> se grisea
+  trendPct = 0,           // fallback: gris por tendencia (oscuro=negativo, claro=positivo)
   pixelCols = 28,
   grid = 6,
   zIndex = 20,
@@ -37,17 +37,32 @@ export default function MM3PixelOrbSprite({
   // Jitter phase
   const phaseRef = useRef(Math.random() * Math.PI * 2);
 
-  // Color override
+  // Color override (se almacenará ya en gris)
   const colorHexRef = useRef(fixedColor);
 
   // --- utils ---
   const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
-  const clamp01 = (x) => clamp(x, 0, 1);
-  const isHex = (v) => typeof v === 'string' && /^#?[0-9a-f]{6}$/i.test(v.replace('#',''));
-  const normHex = (v) => (v.startsWith('#') ? v : `#${v}`);
   const lerp = (a, b, t) => a + (b - a) * t;
+  const isHex = (v) => typeof v === 'string' && /^#?[0-9a-f]{6}$/i.test((v || '').replace('#',''));
+  const normHex = (v) => (v.startsWith('#') ? v : `#${v}`);
 
-  const hslStr = (h, s, l) => `hsla(${h}, ${s}%, ${l}%, 1)`;
+  const hexToRgb = (hex) => {
+    const h = normHex(hex).slice(1);
+    const r = parseInt(h.slice(0,2), 16);
+    const g = parseInt(h.slice(2,4), 16);
+    const b = parseInt(h.slice(4,6), 16);
+    return { r, g, b };
+  };
+  const rgbToHex = (r, g, b) => {
+    const to2 = (n) => n.toString(16).padStart(2, '0');
+    return `#${to2(r)}${to2(g)}${to2(b)}`;
+  };
+  // Convierte cualquier hex a su equivalente en escala de grises, manteniendo luminosidad “percibida”
+  const hexToGrayHex = (hex) => {
+    const { r, g, b } = hexToRgb(hex);
+    const y = Math.round(clamp(0.2126*r + 0.7152*g + 0.0722*b, 0, 255)); // luminancia
+    return rgbToHex(y, y, y);
+  };
 
   const computeAnchor = () => {
     const vw = window.innerWidth;
@@ -81,39 +96,33 @@ export default function MM3PixelOrbSprite({
     return { x: ax, y: ay };
   };
 
+  // Color SOLO en escala de grises:
+  // 1) Si hay fixedColor válido -> lo convertimos a gris.
+  // 2) Si no, usamos trend (cap ±0.5) para mapear a luma HSL 0%–100% con S=0%.
   const resolveFillColor = () => {
-    // 1) explicit fixedColor override
     const overrideHex = colorHexRef.current;
-    if (isHex(overrideHex)) return normHex(overrideHex);
-
-    // 2) trend-based fallback (green for negative, red for positive)
-    const cap = 0.5;
-    const p = Math.max(-cap, Math.min(cap, trendPct || 0));
-    let h, s, l;
-    if (p >= 0) {
-      const t = p / cap;
-      h = lerp(12, 0, t);
-      s = lerp(80, 95, t);
-      l = lerp(58, 56, t);
-    } else {
-      const t = (-p) / cap;
-      h = lerp(120, 95, t);
-      s = lerp(70, 95, t);
-      l = lerp(58, 60, t);
+    if (isHex(overrideHex)) {
+      return hexToGrayHex(normHex(overrideHex)); // gris del override
     }
-    return hslStr(h, s, l);
+
+    const cap = 0.5;
+    const p = clamp(trendPct || 0, -cap, cap);
+    const t = (p / cap + 1) / 2; // [-cap..cap] -> [0..1]
+    // luz: 28% (negativo fuerte) -> 82% (positivo fuerte)
+    const lightness = Math.round(lerp(28, 82, t));
+    return `hsl(0 0% ${lightness}%)`; // saturación 0% => gris
   };
 
-  // keep override in sync
+  // keep override in sync (y convertirlo a gris en cuanto cambie)
   useEffect(() => {
-    colorHexRef.current = fixedColor;
+    colorHexRef.current = isHex(fixedColor) ? hexToGrayHex(normHex(fixedColor)) : fixedColor;
   }, [fixedColor]);
 
-  // allow instant external color updates
+  // allow instant external color updates (y forzamos gris)
   useEffect(() => {
     const onDirectColor = (ev) => {
       const hex = ev?.detail?.color;
-      if (isHex(hex)) colorHexRef.current = normHex(hex);
+      if (isHex(hex)) colorHexRef.current = hexToGrayHex(normHex(hex));
     };
     window.addEventListener('mm3-orb-color', onDirectColor);
     return () => window.removeEventListener('mm3-orb-color', onDirectColor);
@@ -172,8 +181,8 @@ export default function MM3PixelOrbSprite({
       last = now;
       const dt = dtMs / 1000; // seconds
 
-      const ctx = ctxRef.current;
-      if (!ctx) return;
+      const ctx2 = ctxRef.current;
+      if (!ctx2) return;
 
       // Periodically pick a new target near the anchor
       if (now - lastPickRef.current >= driftIntervalMs) {
@@ -201,7 +210,7 @@ export default function MM3PixelOrbSprite({
       const jy = Math.cos(phaseRef.current * 0.9) * (jitterAmpPx * 0.6);
 
       // Clear and draw
-      ctx.clearRect(0, 0, canvas.clientWidth, canvas.clientHeight);
+      ctx2.clearRect(0, 0, canvas.clientWidth, canvas.clientHeight);
 
       const fill = resolveFillColor();
       const mask = maskRef.current;
@@ -213,11 +222,11 @@ export default function MM3PixelOrbSprite({
         const dx2 = Math.round(cx - w / 2);
         const dy2 = Math.round(cy - hpx / 2);
 
-        ctx.drawImage(mask, dx2, dy2, w, hpx);
-        ctx.globalCompositeOperation = 'source-atop';
-        ctx.fillStyle = fill;
-        ctx.fillRect(dx2, dy2, w, hpx);
-        ctx.globalCompositeOperation = 'source-over';
+        ctx2.drawImage(mask, dx2, dy2, w, hpx);
+        ctx2.globalCompositeOperation = 'source-atop';
+        ctx2.fillStyle = fill;
+        ctx2.fillRect(dx2, dy2, w, hpx);
+        ctx2.globalCompositeOperation = 'source-over';
       }
 
       rafRef.current = requestAnimationFrame(loop);
