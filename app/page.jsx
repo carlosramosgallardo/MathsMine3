@@ -130,6 +130,20 @@ export default function Page() {
           content="Fast Math, Mine MM3, and Shape the Future with PoV & PoA. A free Web3 experiment merging gamified learning and token economics."
         />
         <link rel="canonical" href="https://mathsmine3.xyz/" />
+        {/* Scroll-snap solo en escritorio + scroll suave */}
+        <style jsx global>{`
+          html { scroll-behavior: smooth; }
+          @media (pointer: fine) and (min-width: 1024px) {
+            html, body {
+              height: 100%;
+              scroll-snap-type: y mandatory;
+            }
+            section[data-snap] {
+              scroll-snap-align: start;
+              scroll-snap-stop: always;
+            }
+          }
+        `}</style>
       </Head>
 
       <MM3PixelOrbSprite
@@ -162,7 +176,8 @@ export default function Page() {
 
       <main className="relative z-10 flex flex-col items-center w-full px-4 pt-10 pb-20 text-lg font-mono text-white bg-black">
         <div className="w-full max-w-3xl mx-auto">
-          {/* Hero */}
+
+          {/* Hero (no snap) */}
           <section className="mb-12 text-center">
             <h1 className="text-xl font-semibold mt-8 mb-2" id="logoTop">
               Fast Math and Shape the Future with MathsMine3
@@ -174,56 +189,68 @@ export default function Page() {
             </p>
           </section>
 
-          {/* Game Board */}
-          <section className="mb-12 text-center">
-            <h1 className="text-xl font-semibold mt-8 mb-2">Play now:</h1>
+          {/* SNAP 1: Game Board */}
+          <section
+            data-snap
+            id="snap-board"
+            className="md:min-h-screen md:flex md:flex-col md:justify-center"
+          >
+            <h2 className="text-xl font-semibold mt-8 mb-2 text-center">Play now:</h2>
+            <div className="mb-12">
+              {account && (
+                <p className="text-base text-gray-400 text-center mb-2">
+                  Connected as: {maskWallet(account)}
+                </p>
+              )}
+              <Board
+                account={account}
+                setGameMessage={setGameMessage}
+                setGameCompleted={setGameCompleted}
+                setGameData={setGameData}
+              />
+              {gameMessage && (
+                <div className="text-yellow-400 font-bold text-center mt-6 whitespace-pre-line animate-fade-in">
+                  {gameMessage}
+                </div>
+              )}
+            </div>
+
+            {/* Connect & Play (sigue dentro del snap 1) */}
+            <div className="mb-12">
+              <ConnectAndPlay
+                account={account}
+                setAccount={setAccount}
+                gameCompleted={gameCompleted}
+                gameData={gameData}
+              />
+            </div>
           </section>
-          <div className="mb-12">
-            {account && (
-              <p className="text-base text-gray-400 text-center mb-2">
-                Connected as: {maskWallet(account)}
-              </p>
-            )}
-            <Board
-              account={account}
-              setGameMessage={setGameMessage}
-              setGameCompleted={setGameCompleted}
-              setGameData={setGameData}
-            />
-            {gameMessage && (
-              <div className="text-yellow-400 font-bold text-center mt-6 whitespace-pre-line animate-fade-in">
-                {gameMessage}
-              </div>
-            )}
-          </div>
 
-          {/* Connect & Play */}
-          <div className="mb-12">
-            <ConnectAndPlay
-              account={account}
-              setAccount={setAccount}
-              gameCompleted={gameCompleted}
-              gameData={gameData}
-            />
-          </div>
-
-          {/* Token Chart */}
-          <section className="mb-12 text-center">
-            <h1 className="text-xl font-semibold mt-8 mb-2">Total MM3 Balance</h1>
+          {/* SNAP 2: Token Chart */}
+          <section
+            data-snap
+            id="snap-chart"
+            className="md:min-h-screen md:flex md:flex-col md:justify-center"
+          >
+            <h2 className="text-xl font-semibold mt-8 mb-2 text-center">Total MM3 Balance</h2>
+            <div className="mb-16">
+              <TokenChart />
+            </div>
           </section>
-          <div className="mb-16">
-            <TokenChart />
-          </div>
 
-          {/* Leaderboard */}
-          <section className="mb-12 text-center">
-            <h1 className="text-xl font-semibold mt-8 mb-2" id="logoBottom">
+          {/* SNAP 3: Leaderboard */}
+          <section
+            data-snap
+            id="snap-leaderboard"
+            className="md:min-h-screen md:flex md:flex-col md:justify-center"
+          >
+            <h2 className="text-xl font-semibold mt-8 mb-2 text-center" id="logoBottom">
               MM3 Balance per wallet
-            </h1>
+            </h2>
+            <div className="mb-16">
+              <Leaderboard itemsPerPage={10} />
+            </div>
           </section>
-          <div className="mb-16">
-            <Leaderboard itemsPerPage={10} />
-          </div>
         </div>
 
         <Analytics />
