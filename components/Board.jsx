@@ -224,21 +224,24 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
     }, 100);
   };
 
-  // --- helper: actualizar el color global en el servidor ---
-  const updateOrbColorServer = async (delta) => {
+  // ---- NUEVO: post al API para actualizar color cuando aciertas ----
+  const postOrbColorDelta = async (delta) => {
     try {
-      await fetch('/api/orb-color', {
+      const res = await fetch('/api/orb-color', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ delta }), // delta = miningAmount de esta jugada (puede ser < 0)
+        body: JSON.stringify({ delta }) // el endpoint calcula y persiste color
       });
+      if (!res.ok) return null;
+      const json = await res.json(); // { ok: true, color_hex: '#D43A2A' }
+      return json?.color_hex || null;
     } catch (e) {
-      // es “best effort”; si falla, no afecta a la partida
-      console.error('updateOrbColorServer error:', e);
+      console.error('orb-color API error:', e);
+      return null;
     }
   };
 
-  const checkAnswer = (choice) => {
+  const checkAnswer = async (choice) => {
     if (!problem || isDisabled) return;
     clearInterval(solveIntervalRef.current);
 
@@ -255,18 +258,21 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
         miningAmount = -PARTICIPATION_PRICE * 0.10 * penaltyRatio;
       }
 
-      // Notifica para efectos locales (si los hubiera)
+      // Aviso al orbe para animación (explosión/feedback)
       if (typeof window !== 'undefined') {
         window.dispatchEvent(new CustomEvent('mm3-correct', { detail: { reward: miningAmount } }));
       }
 
-      // 🔴 Actualiza color global persistente en Supabase (todas las wallets)
-      updateOrbColorServer(miningAmount);
+      // Actualiza color global en BBDD (persistente para todos)
+      const newHex = await postOrbColorDelta(miningAmount);
 
-      const displayAmount = Math.abs(miningAmount) < 0.00000001 ? '< 0.00000001' : miningAmount.toFixed(8);
+      const displayAmount =
+        Math.abs(miningAmount) < 0.00000001 ? '< 0.00000001' : miningAmount.toFixed(8);
+
       const message = account
-        ? `Inject MM3 now: ${displayAmount}`
-        : `Connect your wallet to proceed with injecting MM3: ${displayAmount}.`;
+        ? `Inject MM3 now: ${displayAmount}${newHex ? `  •  Orb color → ${newHex}` : ''}`
+        : `Connect your wallet to proceed with injecting MM3: ${displayAmount}.${newHex ? ` Orb color → ${newHex}` : ''}`;
+
       showMessage(message, 'success');
     } else {
       showMessage('Incorrect! No mining reward.', 'error', true);
