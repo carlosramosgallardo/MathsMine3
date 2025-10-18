@@ -4,20 +4,20 @@ import { useState, useEffect, useRef } from 'react';
 
 export default function Board({ account, setGameMessage, setGameCompleted, setGameData }) {
   // --- game state ---
-  const [problem, setProblem] = useState(null);            // { type, question, answer, choices[], masked, placeholder }
+  const [problem, setProblem] = useState(null);
   const [elapsedTime, setElapsedTime] = useState(0);
   const [preGameCountdown, setPreGameCountdown] = useState(3);
   const [isDisabled, setIsDisabled] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [gameCompleted, setLocalGameCompleted] = useState(false);
-  const [toast, setToast] = useState(null);                // { msg, type }
+  const [toast, setToast] = useState(null); // { msg, type }
   const [isFading, setIsFading] = useState(false);
 
   const PARTICIPATION_PRICE = Number(process.env.NEXT_PUBLIC_FAKE_MINING_PRICE) || 0.00001;
   const preGameIntervalRef = useRef(null);
   const solveIntervalRef = useRef(null);
 
-  // ---------- utils ----------
+  // ---------- utilities ----------
   const randInt = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
   const shuffle = (arr) => {
     const a = arr.slice();
@@ -28,14 +28,13 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
     return a;
   };
 
-  // ---------- generators (one correct answer) ----------
+  // ---------- generators ----------
   const genArith2 = () => {
     const ops = ['+', '-', '*', '/'];
     let op = ops[Math.floor(Math.random() * ops.length)];
     let a = randInt(6, 99);
     let b = randInt(2, 99);
     if (op === '/') { b = randInt(2, 12); a = b * randInt(2, 12); }
-
     let answer;
     switch (op) {
       case '+': answer = a + b; break;
@@ -43,7 +42,6 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
       case '*': answer = a * b; break;
       case '/': answer = a / b; break;
     }
-
     const correct = String(answer);
     const near = new Set();
     while (near.size < 5) {
@@ -51,8 +49,7 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
       const cand = String(answer + delta);
       if (cand !== correct) near.add(cand);
     }
-    const choices = shuffle([correct, ...Array.from(near).slice(0, 3)]); // 4 buttons
-
+    const choices = shuffle([correct, ...Array.from(near).slice(0, 3)]);
     return {
       type: 'arith2',
       question: `${a} ${op} ${b} =`,
@@ -63,14 +60,12 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
     };
   };
 
-  // a ? b = c  -> answer is one of + - * /
   const genOperatorFix = () => {
     const ops = ['+', '-', '*', '/'];
     let op = ops[Math.floor(Math.random() * ops.length)];
     let a = randInt(3, 40);
     let b = randInt(2, 20);
     if (op === '/') { b = randInt(2, 12); a = b * randInt(2, 12); }
-
     let c;
     switch (op) {
       case '+': c = a + b; break;
@@ -78,8 +73,6 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
       case '*': c = a * b; break;
       case '/': c = a / b; break;
     }
-
-    // ensure uniqueness
     const validOps = ops.filter(o => {
       let val;
       switch (o) {
@@ -91,11 +84,9 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
       return val === c;
     });
     if (validOps.length !== 1) return genOperatorFix();
-
     const correct = op;
     const distractors = shuffle(ops.filter(o => o !== correct)).slice(0, 3);
     const choices = shuffle([correct, ...distractors]);
-
     return {
       type: 'opfix',
       question: `${a} ? ${b} = ${c}`,
@@ -106,22 +97,17 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
     };
   };
 
-  // replace a single digit in X:  X? (+|-) Y = Z  -> answer 0..9
   const genDigitFix = () => {
     const op = Math.random() < 0.5 ? '+' : '-';
     let X = randInt(10, 98);
     let Y = randInt(2, 60);
     let Z = op === '+' ? X + Y : X - Y;
-
     const hideTens = Math.random() < 0.5;
     const xT = Math.floor(X / 10);
     const xU = X % 10;
-
     let maskedX, answerDigit;
     if (hideTens) { maskedX = `?${xU}`; answerDigit = xT; }
     else { maskedX = `${xT}?`; answerDigit = xU; }
-
-    // uniqueness
     const candidates = [];
     for (let d = 0; d <= 9; d++) {
       const testX = hideTens ? d * 10 + xU : xT * 10 + d;
@@ -129,7 +115,6 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
       if (lhs === Z) candidates.push(d);
     }
     if (candidates.length !== 1) return genDigitFix();
-
     const correct = String(answerDigit);
     const pool = new Set();
     while (pool.size < 3) {
@@ -137,7 +122,6 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
       if (d !== correct) pool.add(d);
     }
     const choices = shuffle([correct, ...Array.from(pool)]);
-
     return {
       type: 'digitfix',
       question: `${maskedX} ${op} ${Y} = ${Z}`,
@@ -161,7 +145,6 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
     try {
       const generated = generateProblem();
       setProblem(generated);
-
       setElapsedTime(0);
       setPreGameCountdown(3);
       setIsDisabled(true);
@@ -224,23 +207,6 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
     }, 100);
   };
 
-  // POST to persist new global orb color based on delta (mining amount)
-  const postOrbColorDelta = async (delta) => {
-    try {
-      const res = await fetch('/api/orb-color', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ delta })
-      });
-      if (!res.ok) return null;
-      const json = await res.json(); // { ok: true, color_hex: '#D43A2A' }
-      return json?.color_hex || null;
-    } catch (e) {
-      console.error('orb-color API error:', e);
-      return null;
-    }
-  };
-
   const checkAnswer = async (choice) => {
     if (!problem || isDisabled) return;
     clearInterval(solveIntervalRef.current);
@@ -258,25 +224,17 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
         miningAmount = -PARTICIPATION_PRICE * 0.10 * penaltyRatio;
       }
 
-      // Notify UI listeners (animation, etc.)
+      // Notifica a Page (que calculará y persistirá el color)
       if (typeof window !== 'undefined') {
         window.dispatchEvent(new CustomEvent('mm3-correct', { detail: { reward: miningAmount } }));
       }
 
-      // Persist and get the updated global color
-      const newHex = await postOrbColorDelta(miningAmount);
-
-      // Instant color update (no DB roundtrip needed on other listeners)
-      if (typeof window !== 'undefined' && newHex) {
-        window.dispatchEvent(new CustomEvent('mm3-orb-color', { detail: { color: newHex } }));
-      }
-
       const displayAmount =
-        Math.abs(miningAmount) < 0.00000001 ? '< 0.00000001' : miningAmount.toFixed(8);
+        Math.abs(miningAmount) < 1e-8 ? '< 0.00000001' : miningAmount.toFixed(8);
 
       const message = account
-        ? `Inject MM3 now: ${displayAmount}${newHex ? `  •  Orb color → ${newHex}` : ''}`
-        : `Connect your wallet to proceed with injecting MM3: ${displayAmount}.${newHex ? ` Orb color → ${newHex}` : ''}`;
+        ? `Inject MM3 now: ${displayAmount}`
+        : `Connect your wallet to proceed with injecting MM3: ${displayAmount}.`;
 
       showMessage(message, 'success');
     } else {

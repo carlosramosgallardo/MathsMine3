@@ -16,11 +16,36 @@ import '@/app/globals.css';
 
 const GA_MEASUREMENT_ID = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID;
 const GA_ENABLED = process.env.NEXT_PUBLIC_GA_ENABLED === 'true';
+const PARTICIPATION_PRICE = Number(process.env.NEXT_PUBLIC_FAKE_MINING_PRICE) || 0.00001;
 
 const maskWallet = (wallet) => {
   if (!wallet || wallet.length <= 10) return wallet || '';
   return wallet.slice(0, 5) + '...' + wallet.slice(-5);
 };
+
+// ---------- helpers de color (cliente) ----------
+const clamp01 = (x) => Math.max(0, Math.min(1, x));
+const isHex = (v) => typeof v === 'string' && /^#?[0-9a-f]{6}$/i.test(v.replace('#',''));
+const normHex = (v) => (v.startsWith('#') ? v : `#${v}`);
+const mixHex = (aHex, bHex, t) => {
+  const ah = normHex(aHex).slice(1);
+  const bh = normHex(bHex).slice(1);
+  const a = [parseInt(ah.slice(0,2),16), parseInt(ah.slice(2,4),16), parseInt(ah.slice(4,6),16)];
+  const b = [parseInt(bh.slice(0,2),16), parseInt(bh.slice(2,4),16), parseInt(bh.slice(4,6),16)];
+  const c = a.map((ai, i) => Math.round(ai + (b[i] - ai) * t));
+  return `#${c.map(v => v.toString(16).padStart(2, '0')).join('')}`;
+};
+
+// Desde el reward (delta) calculamos un empuje hacia rojo/verde sobre el color actual.
+function colorFromDeltaClient({ delta, prevHex, maxDelta }) {
+  const base = isHex(prevHex) ? normHex(prevHex) : '#000000';
+  const abs = Math.abs(delta);
+  const scale = clamp01(abs / (maxDelta || 1e-8)); // normaliza por el “precio” máx. de minado
+  const target = delta >= 0 ? '#ff3b30' : '#34c759'; // rojo / verde
+  // Empuje entre 0.15 y 0.75 para que siempre se note algo pero sin saltos bruscos
+  const t = 0.15 + 0.6 * scale;
+  return mixHex(base, target, t);
+}
 
 export default function Page() {
   const [account, setAccount] = useState(null);
@@ -28,7 +53,7 @@ export default function Page() {
   const [gameCompleted, setGameCompleted] = useState(false);
   const [gameData, setGameData] = useState(null);
 
-  // Global token color (persisted in Supabase)
+  // Color global del token (persistente en Supabase)
   const [orbColor, setOrbColor] = useState('#000000');
 
   const loadOrbColor = useCallback(async () => {
@@ -40,40 +65,49 @@ export default function Page() {
         .maybeSingle();
       if (!error && data?.color_hex) setOrbColor(data.color_hex);
     } catch (e) {
-      // silent fail is fine for cosmetic element
       console.error('Error loading orb color:', e);
     }
   }, []);
 
-  // Initial color load
-  useEffect(() => {
-    loadOrbColor();
-  }, [loadOrbColor]);
+  // Carga inicial
+  useEffect(() => { loadOrbColor(); }, [loadOrbColor]);
 
-  // Instant UI color update hooks:
-  // 1) If Board ever dispatches a direct color event: { detail: { color: '#RRGGBB' } }
-  // 2) Current Board dispatches only 'mm3-correct'; on that signal we re-fetch from DB.
+  // Cambio de color SIN API: escuchamos reward, calculamos hex y persistimos desde el cliente.
   useEffect(() => {
-    const onDirectColor = (ev) => {
-      const hex = ev?.detail?.color;
-      if (typeof hex === 'string' && /^#?[0-9a-f]{6}$/i.test(hex.replace('#', ''))) {
-        setOrbColor(hex.startsWith('#') ? hex : `#${hex}`);
+    const onCorrect = async (ev) => {
+      try {
+        const reward = Number(ev?.detail?.reward || 0);
+        const nextHex = colorFromDeltaClient({
+          delta: reward,
+          prevHex: orbColor,
+          maxDelta: PARTICIPATION_PRICE,
+        });
+
+        // Persistir en Supabase (requiere política RLS que permita UPDATE a role anon/auth)
+        const { error } = await supabase
+          .from('mm3_visual_state')
+          .update({ color_hex: nextHex, updated_at: new Date().toISOString() })
+          .eq('id', 1);
+
+        if (error) {
+          console.warn('Supabase update color error:', error.message);
+        }
+
+        // Cambio instantáneo en la UI
+        setOrbColor(nextHex);
+
+        // (Opcional) Notificar listeners de UI que quieran reaccionar al color nuevo
+        window.dispatchEvent(new CustomEvent('mm3-orb-color', { detail: { color: nextHex } }));
+      } catch (e) {
+        console.error('onCorrect color update error:', e);
       }
     };
-    const onCorrect = async () => {
-      // After a correct answer, backend may have persisted a new color.
-      await loadOrbColor();
-    };
 
-    window.addEventListener('mm3-orb-color', onDirectColor);
     window.addEventListener('mm3-correct', onCorrect);
-    return () => {
-      window.removeEventListener('mm3-orb-color', onDirectColor);
-      window.removeEventListener('mm3-correct', onCorrect);
-    };
-  }, [loadOrbColor]);
+    return () => window.removeEventListener('mm3-correct', onCorrect);
+  }, [orbColor]);
 
-  // Save game when gameData + wallet
+  // Guardar partida cuando hay gameData + wallet
   useEffect(() => {
     const saveGame = async () => {
       if (!gameData || !account) return;
@@ -102,10 +136,9 @@ export default function Page() {
         <link rel="canonical" href="https://mathsmine3.xyz/" />
       </Head>
 
-      {/* Pixelated token logo with globally persisted color and smooth travel */}
       <MM3PixelOrbSprite
         src="/mm3-token.png"
-        fixedColor={orbColor}
+        fixedColor={orbColor}   // <- sin API: este se recalcula y persiste desde el cliente
         pixelCols={26}
         grid={6}
         zIndex={20}
@@ -197,7 +230,6 @@ export default function Page() {
           </div>
         </div>
 
-        {/* Vercel Analytics */}
         <Analytics />
         <SpeedInsights />
       </main>
