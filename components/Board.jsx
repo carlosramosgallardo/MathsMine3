@@ -13,8 +13,7 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
   const [toast, setToast] = useState(null); // { msg, type }
   const [isFading, setIsFading] = useState(false);
 
-  // --- orb color (solo en sesión) + highlight de casilla correcta ---
-  const [orbColor, setOrbColor] = useState('#000000'); // gris actual del orbe
+  // --- highlight de casilla correcta ---
   const [highlightIdx, setHighlightIdx] = useState(null);
   const [highlightColor, setHighlightColor] = useState(null);
 
@@ -22,179 +21,96 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
   const preGameIntervalRef = useRef(null);
   const solveIntervalRef = useRef(null);
 
-  // ---------- utilities ----------
+  // ---------- utils ----------
   const randInt = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
-  const shuffle = (arr) => {
-    const a = arr.slice();
-    for (let i = a.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [a[i], a[j]] = [a[j], a[i]];
-    }
-    return a;
-  };
-
-  // hex/rgb + escala de grises
-  const normHex = (v) => (v?.startsWith?.('#') ? v : `#${v || ''}`);
-  const isHex = (v) => typeof v === 'string' && /^#?[0-9a-f]{6}$/i.test((v || '').replace('#',''));
-  const hexToRgb = (hex) => {
-    const h = normHex(hex).slice(1);
-    return { r: parseInt(h.slice(0,2),16), g: parseInt(h.slice(2,4),16), b: parseInt(h.slice(4,6),16) };
-  };
-  const rgbToHex = (r,g,b) => {
-    const to2 = (n) => Math.max(0, Math.min(255, Math.round(n))).toString(16).padStart(2,'0');
-    return `#${to2(r)}${to2(g)}${to2(b)}`;
-  };
-  const toGray = (hex) => {
-    if (!isHex(hex)) return '#808080';
-    const { r,g,b } = hexToRgb(hex);
-    const y = 0.2126*r + 0.7152*g + 0.0722*b; // luminancia
-    return rgbToHex(y,y,y);
-  };
-
+  const shuffle = (arr) => { const a = arr.slice(); for (let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];} return a; };
   const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+  const rgbHex = (r,g,b) => `#${[r,g,b].map(n=>Math.max(0,Math.min(255,Math.round(n))).toString(16).padStart(2,'0')).join('')}`;
+
+  // reward -> mm3 [-1,1]
   const rewardToMM3 = (reward) => {
-    const maxPos = PARTICIPATION_PRICE;           // recompensa ideal (tiempo 0ms)
-    const maxNeg = -PARTICIPATION_PRICE * 0.10;   // penalización máxima (10s)
-    if (reward >= 0) {
-      return clamp(reward / maxPos, 0, 1);        // 0..1
-    } else {
-      // reward y maxNeg son negativos → normalizamos y negamos para ir a -1..0
-      return clamp(-(reward / maxNeg), 0, 1) * -1;
-    }
+    const maxPos = PARTICIPATION_PRICE;           // mejor caso
+    const maxNeg = -PARTICIPATION_PRICE * 0.10;   // peor caso
+    if (reward >= 0) return clamp(reward / maxPos, 0, 1);
+    return clamp(-(reward / maxNeg), 0, 1) * -1;
   };
-  const mm3ToGrayHex = (mm3Scalar) => {
-    const t = (clamp(mm3Scalar, -1, 1) + 1) / 2;  // [-1..1] -> [0..1]
-    const y = Math.round(255 * t);
-    return rgbToHex(y,y,y);                       // 0 negro, 255 blanco
+  // mm3 -> gris
+  const mm3ToGrayHex = (mm3) => {
+    const t = (clamp(mm3, -1, 1) + 1) / 2; // [-1..1] -> [0..1]
+    const y = Math.round(255 * t);         // 0 negro, 255 blanco
+    return rgbHex(y,y,y);
   };
 
   // contraste de texto sobre fondo
   const getContrastText = (bgHex) => {
-    const { r,g,b } = hexToRgb(bgHex || '#000000');
+    const h = (bgHex || '#000000').replace('#','');
+    const r = parseInt(h.slice(0,2),16), g = parseInt(h.slice(2,4),16), b = parseInt(h.slice(4,6),16);
     const yiq = (r*299 + g*587 + b*114) / 1000;
     return yiq >= 150 ? '#0b0f19' : '#e2e8f0';
   };
 
   // ---------- generators ----------
   const genArith2 = () => {
-    const ops = ['+', '-', '*', '/'];
-    let op = ops[Math.floor(Math.random() * ops.length)];
-    let a = randInt(6, 99);
-    let b = randInt(2, 99);
-    if (op === '/') { b = randInt(2, 12); a = b * randInt(2, 12); }
-    let answer;
-    switch (op) {
-      case '+': answer = a + b; break;
-      case '-': answer = a - b; break;
-      case '*': answer = a * b; break;
-      case '/': answer = a / b; break;
-    }
-    const correct = String(answer);
+    const ops = ['+','-','*','/'];
+    let op = ops[Math.floor(Math.random()*ops.length)];
+    let a = randInt(6,99);
+    let b = randInt(2,99);
+    if (op === '/') { b = randInt(2,12); a = b * randInt(2,12); }
+    const ans = ({'+':a+b,'-':a-b,'*':a*b,'/':a/b})[op];
+    const correct = String(ans);
     const near = new Set();
     while (near.size < 5) {
-      const delta = randInt(1, 12) * (Math.random() < 0.5 ? -1 : 1);
-      const cand = String(answer + delta);
+      const delta = randInt(1,12) * (Math.random()<0.5?-1:1);
+      const cand = String(ans + delta);
       if (cand !== correct) near.add(cand);
     }
-    const choices = shuffle([correct, ...Array.from(near).slice(0, 3)]);
-    return {
-      type: 'arith2',
-      question: `${a} ${op} ${b} =`,
-      answer: correct,
-      masked: `${a} ${op} ${b} = [MASK]`,
-      placeholder: '?',
-      choices
-    };
+    const choices = shuffle([correct, ...Array.from(near).slice(0,3)]);
+    return { type:'arith2', question:`${a} ${op} ${b} =`, answer:correct, masked:`${a} ${op} ${b} = [MASK]`, placeholder:'?', choices };
   };
 
   const genOperatorFix = () => {
-    const ops = ['+', '-', '*', '/'];
-    let op = ops[Math.floor(Math.random() * ops.length)];
-    let a = randInt(3, 40);
-    let b = randInt(2, 20);
-    if (op === '/') { b = randInt(2, 12); a = b * randInt(2, 12); }
-    let c;
-    switch (op) {
-      case '+': c = a + b; break;
-      case '-': c = a - b; break;
-      case '*': c = a * b; break;
-      case '/': c = a / b; break;
-    }
-    const validOps = ops.filter(o => {
-      let val;
-      switch (o) {
-        case '+': val = a + b; break;
-        case '-': val = a - b; break;
-        case '*': val = a * b; break;
-        case '/': val = b !== 0 ? a / b : NaN; break;
-      }
-      return val === c;
+    const ops = ['+','-','*','/'];
+    let op = ops[Math.floor(Math.random()*ops.length)];
+    let a = randInt(3,40), b = randInt(2,20);
+    if (op === '/') { b = randInt(2,12); a = b * randInt(2,12); }
+    const c = ({'+':a+b,'-':a-b,'*':a*b,'/':a/b})[op];
+    const valid = ops.filter(o => {
+      const v = ({'+':a+b,'-':a-b,'*':a*b,'/':a/b})[o];
+      return v === c;
     });
-    if (validOps.length !== 1) return genOperatorFix();
-    const correct = op;
-    const distractors = shuffle(ops.filter(o => o !== correct)).slice(0, 3);
-    const choices = shuffle([correct, ...distractors]);
-    return {
-      type: 'opfix',
-      question: `${a} ? ${b} = ${c}`,
-      answer: correct,
-      masked: `${a} [MASK] ${b} = ${c}`,
-      placeholder: 'operator',
-      choices
-    };
+    if (valid.length !== 1) return genOperatorFix();
+    const choices = shuffle([op, ...shuffle(ops.filter(o=>o!==op)).slice(0,3)]);
+    return { type:'opfix', question:`${a} ? ${b} = ${c}`, answer:op, masked:`${a} [MASK] ${b} = ${c}`, placeholder:'operator', choices };
   };
 
   const genDigitFix = () => {
-    const op = Math.random() < 0.5 ? '+' : '-';
-    let X = randInt(10, 98);
-    let Y = randInt(2, 60);
-    let Z = op === '+' ? X + Y : X - Y;
-    const hideTens = Math.random() < 0.5;
-    const xT = Math.floor(X / 10);
-    const xU = X % 10;
+    const op = Math.random()<0.5?'+':'-';
+    let X = randInt(10,98), Y = randInt(2,60);
+    let Z = op==='+' ? X+Y : X-Y;
+    const hideTens = Math.random()<0.5;
+    const xT = Math.floor(X/10), xU = X%10;
     let maskedX, answerDigit;
     if (hideTens) { maskedX = `?${xU}`; answerDigit = xT; }
     else { maskedX = `${xT}?`; answerDigit = xU; }
     const candidates = [];
-    for (let d = 0; d <= 9; d++) {
-      const testX = hideTens ? d * 10 + xU : xT * 10 + d;
-      const lhs = op === '+' ? testX + Y : testX - Y;
+    for (let d=0; d<=9; d++) {
+      const testX = hideTens ? d*10 + xU : xT*10 + d;
+      const lhs = op==='+' ? testX + Y : testX - Y;
       if (lhs === Z) candidates.push(d);
     }
     if (candidates.length !== 1) return genDigitFix();
     const correct = String(answerDigit);
-    const pool = new Set();
-    while (pool.size < 3) {
-      const d = String(randInt(0, 9));
-      if (d !== correct) pool.add(d);
-    }
+    const pool = new Set(); while (pool.size<3){ const d=String(randInt(0,9)); if (d!==correct) pool.add(d); }
     const choices = shuffle([correct, ...Array.from(pool)]);
-    return {
-      type: 'digitfix',
-      question: `${maskedX} ${op} ${Y} = ${Z}`,
-      answer: correct,
-      masked: `${maskedX} ${op} ${Y} = ${Z}`,
-      placeholder: 'digit',
-      choices
-    };
+    return { type:'digitfix', question:`${maskedX} ${op} ${Y} = ${Z}`, answer:correct, masked:`${maskedX} ${op} ${Y} = ${Z}`, placeholder:'digit', choices };
   };
 
   const generateProblem = () => {
-    const pick = Math.random();
-    if (pick < 0.34) return genOperatorFix();
-    if (pick < 0.67) return genDigitFix();
+    const p = Math.random();
+    if (p < 0.34) return genOperatorFix();
+    if (p < 0.67) return genDigitFix();
     return genArith2();
   };
-
-  // ---------- orb color listener (si alguien emite, lo griseamos) ----------
-  useEffect(() => {
-    const onOrbColor = (ev) => {
-      const next = ev?.detail?.color;
-      if (typeof next === 'string') setOrbColor(toGray(next));
-    };
-    window.addEventListener('mm3-orb-color', onOrbColor);
-    return () => window.removeEventListener('mm3-orb-color', onOrbColor);
-  }, []);
 
   // ---------- flow ----------
   const fetchPhrase = async () => {
@@ -214,11 +130,7 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
 
       preGameIntervalRef.current = setInterval(() => {
         setPreGameCountdown((prev) => {
-          if (prev <= 1) {
-            clearInterval(preGameIntervalRef.current);
-            startSolveTimer();
-            return 0;
-          }
+          if (prev <= 1) { clearInterval(preGameIntervalRef.current); startSolveTimer(); return 0; }
           return prev - 1;
         });
       }, 1000);
@@ -231,10 +143,7 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
 
   useEffect(() => {
     fetchPhrase();
-    return () => {
-      clearInterval(preGameIntervalRef.current);
-      clearInterval(solveIntervalRef.current);
-    };
+    return () => { clearInterval(preGameIntervalRef.current); clearInterval(solveIntervalRef.current); };
   }, []);
 
   useEffect(() => {
@@ -242,10 +151,7 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
     setIsFading(false);
     const fadeTimer = setTimeout(() => setIsFading(true), 3500);
     const removeTimer = setTimeout(() => setToast(null), 4000);
-    return () => {
-      clearTimeout(fadeTimer);
-      clearTimeout(removeTimer);
-    };
+    return () => { clearTimeout(fadeTimer); clearTimeout(removeTimer); };
   }, [toast]);
 
   const showMessage = (msg, type = 'info', isToastOnly = false) => {
@@ -285,31 +191,24 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
         miningAmount = -PARTICIPATION_PRICE * 0.10 * penaltyRatio;
       }
 
-      // === Color MM3: [-1..1] -> gris ===
-      const mm3Scalar = rewardToMM3(miningAmount);       // -1 negro, 1 blanco
-      const grayHex   = mm3ToGrayHex(mm3Scalar);
+      const mm3 = rewardToMM3(miningAmount);   // -1..1
+      const grayHex = mm3ToGrayHex(mm3);       // gris puro
 
-      // Pinta la casilla correcta con ese gris
+      // Pinta la casilla correcta en gris
       setHighlightIdx(idx);
       setHighlightColor(grayHex);
 
-      // Emite color para el ORBE (y otros listeners)
+      // Emite INMEDIATAMENTE el color del orbe (gris) para UX
       if (typeof window !== 'undefined') {
         window.dispatchEvent(new CustomEvent('mm3-orb-color', { detail: { color: grayHex } }));
       }
-
-      // Notifica a Page (persistencia, etc.)
+      // Emite el evento de “acierto” con reward y mm3 (Page persistirá)
       if (typeof window !== 'undefined') {
-        window.dispatchEvent(new CustomEvent('mm3-correct', { detail: { reward: miningAmount } }));
+        window.dispatchEvent(new CustomEvent('mm3-correct', { detail: { reward: miningAmount, mm3 } }));
       }
 
-      const displayAmount =
-        Math.abs(miningAmount) < 1e-8 ? '< 0.00000001' : miningAmount.toFixed(8);
-
-      const message = account
-        ? `Inject MM3 now: ${displayAmount}`
-        : `Connect your wallet to proceed with injecting MM3: ${displayAmount}.`;
-
+      const displayAmount = Math.abs(miningAmount) < 1e-8 ? '< 0.00000001' : miningAmount.toFixed(8);
+      const message = account ? `Inject MM3 now: ${displayAmount}` : `Connect your wallet to proceed with injecting MM3: ${displayAmount}.`;
       showMessage(message, 'success');
     } else {
       setGameMessage('');
@@ -347,16 +246,11 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
 
               {/* Timer */}
               <p className="text-sm text-[#22d3ee] mt-2">
-                Time elapsed:{' '}
-                <span className="text-yellow-300">
-                  {preGameCountdown > 0 ? 0 : elapsedTime} ms
-                </span>
+                Time elapsed: <span className="text-yellow-300">{preGameCountdown > 0 ? 0 : elapsedTime} ms</span>
               </p>
 
               {preGameCountdown > 0 && (
-                <p className="mt-2 text-[#22d3ee]">
-                  Please wait {preGameCountdown} second(s)...
-                </p>
+                <p className="mt-2 text-[#22d3ee]">Please wait {preGameCountdown} second(s)...</p>
               )}
 
               {/* Choices */}
@@ -380,9 +274,7 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
                       style={isHighlighted ? { backgroundColor: bg, color: fg } : undefined}
                       title="Pick your answer"
                     >
-                      <span className={`${/^[+\-*/]$/.test(choice) ? 'text-2xl leading-none' : ''}`}>
-                        {choice}
-                      </span>
+                      <span className={`${/^[+\-*/]$/.test(choice) ? 'text-2xl leading-none' : ''}`}>{choice}</span>
                     </button>
                   );
                 })}
@@ -392,9 +284,7 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
               <div className="flex justify-center items-center gap-2 mt-5">
                 {gameCompleted && (
                   <button
-                    onClick={() => {
-                      if (typeof window !== 'undefined') window.location.reload();
-                    }}
+                    onClick={() => { if (typeof window !== 'undefined') window.location.reload(); }}
                     disabled={isRefreshing}
                     className={`w-8 h-8 flex items-center justify-center text-lg ${isRefreshing ? 'animate-spin opacity-50 cursor-wait' : 'hover:text-yellow-300'}`}
                     title="Reload page"
@@ -410,20 +300,10 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
 
       {/* Toast */}
       {toast && (
-        <div
-          className={`fixed bottom-6 left-1/2 transform -translate-x-1/2 px-5 py-3 rounded-xl font-mono text-sm z-50 shadow-xl transition-all duration-500 ${
-            isFading ? 'opacity-0 translate-y-2' : 'opacity-100'
-          } ${
-            toast.type === 'success'
-              ? 'bg-green-800 border border-green-400 text-green-200'
-              : toast.type === 'error'
-              ? 'bg-red-800 border border-red-400 text-red-200'
-              : 'bg-[#0f172a] border border-yellow-400 text-yellow-300'
-          }`}
-        >
-          <span className="mr-2">
-            {toast.type === 'success' ? '✅' : toast.type === 'error' ? '❌' : '⏳'}
-          </span>
+        <div className={`fixed bottom-6 left-1/2 transform -translate-x-1/2 px-5 py-3 rounded-xl font-mono text-sm z-50 shadow-xl transition-all duration-500 ${
+          isFading ? 'opacity-0 translate-y-2' : 'opacity-100'
+        } ${toast.type==='success'?'bg-green-800 border border-green-400 text-green-200':toast.type==='error'?'bg-red-800 border border-red-400 text-red-200':'bg-[#0f172a] border border-yellow-400 text-yellow-300'}`}>
+          <span className="mr-2">{toast.type==='success'?'✅':toast.type==='error'?'❌':'⏳'}</span>
           {toast.msg}
         </div>
       )}
