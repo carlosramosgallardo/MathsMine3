@@ -48,15 +48,15 @@ export default function Page() {
     loadColor();
 
     // (Opcional) Realtime para que cambie al vuelo si actualizas color_hex:
-    // const channel = supabase
-    //   .channel('mm3-visual')
-    //   .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'mm3_visual_state', filter: 'id=eq.1' },
-    //     (payload) => {
-    //       const newColor = payload.new?.color_hex;
-    //       if (newColor) setOrbColor(newColor);
-    //     }
-    //   ).subscribe();
-    // return () => { supabase.removeChannel(channel); };
+     const channel = supabase
+       .channel('mm3-visual')
+       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'mm3_visual_state', filter: 'id=eq.1' },
+         (payload) => {
+           const newColor = payload.new?.color_hex;
+           if (newColor) setOrbColor(newColor);
+         }
+       ).subscribe();
+    return () => { supabase.removeChannel(channel); };
   }, []);
 
   // Guardar partida cuando hay gameData + wallet

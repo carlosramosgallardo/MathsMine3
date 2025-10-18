@@ -224,6 +224,20 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
     }, 100);
   };
 
+  // --- helper: actualizar el color global en el servidor ---
+  const updateOrbColorServer = async (delta) => {
+    try {
+      await fetch('/api/orb-color', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ delta }), // delta = miningAmount de esta jugada (puede ser < 0)
+      });
+    } catch (e) {
+      // es “best effort”; si falla, no afecta a la partida
+      console.error('updateOrbColorServer error:', e);
+    }
+  };
+
   const checkAnswer = (choice) => {
     if (!problem || isDisabled) return;
     clearInterval(solveIntervalRef.current);
@@ -241,10 +255,13 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
         miningAmount = -PARTICIPATION_PRICE * 0.10 * penaltyRatio;
       }
 
-      // Dispara explosión pixel (MM3PixelOrb escucha este evento)
+      // Notifica para efectos locales (si los hubiera)
       if (typeof window !== 'undefined') {
         window.dispatchEvent(new CustomEvent('mm3-correct', { detail: { reward: miningAmount } }));
       }
+
+      // 🔴 Actualiza color global persistente en Supabase (todas las wallets)
+      updateOrbColorServer(miningAmount);
 
       const displayAmount = Math.abs(miningAmount) < 0.00000001 ? '< 0.00000001' : miningAmount.toFixed(8);
       const message = account
