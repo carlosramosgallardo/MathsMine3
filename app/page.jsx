@@ -7,6 +7,7 @@ import ConnectAndPlay from '@/components/ConnectAndPlay';
 import Board from '@/components/Board';
 import Leaderboard from '@/components/Leaderboard';
 import TokenChart from '@/components/TokenChart';
+import SectionFrame from '@/components/SectionFrame';
 import supabase from '@/lib/supabaseClient';
 import { SpeedInsights } from '@vercel/speed-insights/next';
 import { Analytics } from '@vercel/analytics/react';
@@ -130,18 +131,74 @@ export default function Page() {
           content="Fast Math, Mine MM3, and Shape the Future with PoV & PoA. A free Web3 experiment merging gamified learning and token economics."
         />
         <link rel="canonical" href="https://mathsmine3.xyz/" />
-        {/* Scroll-snap solo en escritorio + scroll suave */}
+        {/* Estilos del marco pixel retro */}
         <style jsx global>{`
-          html { scroll-behavior: smooth; }
-          @media (pointer: fine) and (min-width: 1024px) {
-            html, body {
-              height: 100%;
-              scroll-snap-type: y mandatory;
-            }
-            section[data-snap] {
-              scroll-snap-align: start;
-              scroll-snap-stop: always;
-            }
+          .mm3-pixel-frame {
+            --a: var(--mm3-accent, #22d3ee);
+            background: #0b0f19;
+            border: 2px solid var(--a);
+            outline: 1px solid rgba(255,255,255,0.06);
+            box-shadow:
+              0 0 0 1px rgba(34,211,238,0.15) inset,
+              0 0 18px 0 color-mix(in oklab, var(--a) 30%, transparent),
+              0 0 2px 0 rgba(0,0,0,0.6);
+            position: relative;
+          }
+          /* Esquinas “notch” pixel */
+          .mm3-pixel-frame::before,
+          .mm3-pixel-frame::after {
+            content: "";
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            background:
+              /* esquinas */
+              radial-gradient(8px 8px at 0 0, var(--a) 98%, transparent) top left,
+              radial-gradient(8px 8px at 100% 0, var(--a) 98%, transparent) top right,
+              radial-gradient(8px 8px at 0 100%, var(--a) 98%, transparent) bottom left,
+              radial-gradient(8px 8px at 100% 100%, var(--a) 98%, transparent) bottom right;
+            background-repeat: no-repeat;
+            background-size: 8px 8px;
+            opacity: .18;
+            mix-blend-mode: screen;
+          }
+          .mm3-pixel-frame::after {
+            background:
+              linear-gradient(90deg, transparent, color-mix(in oklab, var(--a) 30%, transparent), transparent) top/100% 1px no-repeat,
+              linear-gradient(90deg, transparent, color-mix(in oklab, var(--a) 30%, transparent), transparent) bottom/100% 1px no-repeat;
+            opacity: .35;
+          }
+          .mm3-chip {
+            background:
+              repeating-linear-gradient(
+                0deg,
+                color-mix(in oklab, var(--mm3-accent, #22d3ee) 25%, #000) 0 2px,
+                color-mix(in oklab, var(--mm3-accent, #22d3ee) 40%, #000) 2px 4px
+              );
+            color: #e2e8f0;
+            border: 2px solid var(--mm3-accent, #22d3ee);
+            border-radius: 10px;
+            box-shadow: 0 0 14px color-mix(in oklab, var(--mm3-accent, #22d3ee) 40%, transparent);
+          }
+          .mm3-scanlines {
+            position: absolute;
+            inset: 0;
+            background:
+              /* grid retro sutil */
+              linear-gradient(transparent 31px, rgba(255,255,255,0.018) 32px) 0 0 / 100% 32px,
+              linear-gradient(90deg, transparent 31px, rgba(255,255,255,0.018) 32px) 0 0 / 32px 100%,
+              /* scanline */
+              linear-gradient(rgba(255,255,255,0.03), rgba(0,0,0,0.06));
+            mix-blend-mode: overlay;
+            opacity: .35;
+          }
+          .mm3-glow-divider {
+            height: 6px;
+            width: 100%;
+            background: radial-gradient(40% 200% at 50% 0%,
+              color-mix(in oklab, var(--mm3-accent, #22d3ee) 45%, transparent),
+              transparent 70%);
+            filter: blur(0.2px);
           }
         `}</style>
       </Head>
@@ -176,9 +233,8 @@ export default function Page() {
 
       <main className="relative z-10 flex flex-col items-center w-full px-4 pt-10 pb-20 text-lg font-mono text-white bg-black">
         <div className="w-full max-w-3xl mx-auto">
-
-          {/* Hero (no snap) */}
-          <section className="mb-12 text-center">
+          {/* Hero */}
+          <section className="mb-8 text-center">
             <h1 className="text-xl font-semibold mt-8 mb-2" id="logoTop">
               Fast Math and Shape the Future with MathsMine3
             </h1>
@@ -189,34 +245,26 @@ export default function Page() {
             </p>
           </section>
 
-          {/* SNAP 1: Game Board */}
-          <section
-            data-snap
-            id="snap-board"
-            className="md:min-h-screen md:flex md:flex-col md:justify-center"
-          >
-            <h2 className="text-xl font-semibold mt-8 mb-2 text-center">Play now:</h2>
-            <div className="mb-12">
-              {account && (
-                <p className="text-base text-gray-400 text-center mb-2">
-                  Connected as: {maskWallet(account)}
-                </p>
-              )}
-              <Board
-                account={account}
-                setGameMessage={setGameMessage}
-                setGameCompleted={setGameCompleted}
-                setGameData={setGameData}
-              />
-              {gameMessage && (
-                <div className="text-yellow-400 font-bold text-center mt-6 whitespace-pre-line animate-fade-in">
-                  {gameMessage}
-                </div>
-              )}
-            </div>
-
-            {/* Connect & Play (sigue dentro del snap 1) */}
-            <div className="mb-12">
+          {/* Board */}
+          <SectionFrame title="PLAY BOARD" accent={orbColor} id="board-section">
+            {account && (
+              <p className="text-base text-gray-400 text-center mb-2">
+                Connected as: {maskWallet(account)}
+              </p>
+            )}
+            <Board
+              account={account}
+              setGameMessage={setGameMessage}
+              setGameCompleted={setGameCompleted}
+              setGameData={setGameData}
+            />
+            {gameMessage && (
+              <div className="text-yellow-400 font-bold text-center mt-6 whitespace-pre-line animate-fade-in">
+                {gameMessage}
+              </div>
+            )}
+            {/* Connect & Play dentro del marco del board */}
+            <div className="mt-8">
               <ConnectAndPlay
                 account={account}
                 setAccount={setAccount}
@@ -224,33 +272,20 @@ export default function Page() {
                 gameData={gameData}
               />
             </div>
-          </section>
+          </SectionFrame>
 
-          {/* SNAP 2: Token Chart */}
-          <section
-            data-snap
-            id="snap-chart"
-            className="md:min-h-screen md:flex md:flex-col md:justify-center"
-          >
-            <h2 className="text-xl font-semibold mt-8 mb-2 text-center">Total MM3 Balance</h2>
-            <div className="mb-16">
-              <TokenChart />
-            </div>
-          </section>
+          {/* Chart */}
+          <SectionFrame title="TOTAL MM3 BALANCE" accent={orbColor} id="chart-section">
+            <TokenChart />
+          </SectionFrame>
 
-          {/* SNAP 3: Leaderboard */}
-          <section
-            data-snap
-            id="snap-leaderboard"
-            className="md:min-h-screen md:flex md:flex-col md:justify-center"
-          >
-            <h2 className="text-xl font-semibold mt-8 mb-2 text-center" id="logoBottom">
-              MM3 Balance per wallet
-            </h2>
-            <div className="mb-16">
-              <Leaderboard itemsPerPage={10} />
-            </div>
-          </section>
+          {/* Leaderboard */}
+          <SectionFrame title="MM3 PER WALLET" accent={orbColor} id="leaderboard-section">
+            <Leaderboard itemsPerPage={10} />
+          </SectionFrame>
+
+          {/* marca inferior para el sprite */}
+          <div id="logoBottom" className="h-0 w-0 overflow-hidden" />
         </div>
 
         <Analytics />
