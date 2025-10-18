@@ -10,14 +10,14 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
   const [isDisabled, setIsDisabled] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [gameCompleted, setLocalGameCompleted] = useState(false);
-  const [gameMessage, setLocalGameMessage] = useState(null);
+  const [toast, setToast] = useState(null);                // { msg, type }
   const [isFading, setIsFading] = useState(false);
 
-  const PARTICIPATION_PRICE = parseFloat(process.env.NEXT_PUBLIC_FAKE_MINING_PRICE);
+  const PARTICIPATION_PRICE = Number(process.env.NEXT_PUBLIC_FAKE_MINING_PRICE) || 0.00001;
   const preGameIntervalRef = useRef(null);
   const solveIntervalRef = useRef(null);
 
-  // ---------- utilities ----------
+  // ---------- utils ----------
   const randInt = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
   const shuffle = (arr) => {
     const a = arr.slice();
@@ -155,7 +155,7 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
     return genArith2();
   };
 
-  // ---------- game flow ----------
+  // ---------- flow ----------
   const fetchPhrase = async () => {
     setIsRefreshing(true);
     try {
@@ -167,7 +167,7 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
       setIsDisabled(true);
       setLocalGameCompleted(false);
       setGameCompleted(false);
-      setLocalGameMessage(null);
+      setToast(null);
 
       preGameIntervalRef.current = setInterval(() => {
         setPreGameCountdown((prev) => {
@@ -195,19 +195,19 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
   }, []);
 
   useEffect(() => {
-    if (!gameMessage) return;
+    if (!toast) return;
     setIsFading(false);
     const fadeTimer = setTimeout(() => setIsFading(true), 3500);
-    const removeTimer = setTimeout(() => setLocalGameMessage(null), 4000);
+    const removeTimer = setTimeout(() => setToast(null), 4000);
     return () => {
       clearTimeout(fadeTimer);
       clearTimeout(removeTimer);
     };
-  }, [gameMessage]);
+  }, [toast]);
 
   const showMessage = (msg, type = 'info', isToastOnly = false) => {
     if (!isToastOnly) setGameMessage(msg);
-    setLocalGameMessage({ msg, type });
+    setToast({ msg, type });
   };
 
   const startSolveTimer = () => {
@@ -224,13 +224,13 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
     }, 100);
   };
 
-  // ---- NUEVO: post al API para actualizar color cuando aciertas ----
+  // POST to persist new global orb color based on delta (mining amount)
   const postOrbColorDelta = async (delta) => {
     try {
       const res = await fetch('/api/orb-color', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ delta }) // el endpoint calcula y persiste color
+        body: JSON.stringify({ delta })
       });
       if (!res.ok) return null;
       const json = await res.json(); // { ok: true, color_hex: '#D43A2A' }
@@ -258,13 +258,18 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
         miningAmount = -PARTICIPATION_PRICE * 0.10 * penaltyRatio;
       }
 
-      // Aviso al orbe para animación (explosión/feedback)
+      // Notify UI listeners (animation, etc.)
       if (typeof window !== 'undefined') {
         window.dispatchEvent(new CustomEvent('mm3-correct', { detail: { reward: miningAmount } }));
       }
 
-      // Actualiza color global en BBDD (persistente para todos)
+      // Persist and get the updated global color
       const newHex = await postOrbColorDelta(miningAmount);
+
+      // Instant color update (no DB roundtrip needed on other listeners)
+      if (typeof window !== 'undefined' && newHex) {
+        window.dispatchEvent(new CustomEvent('mm3-orb-color', { detail: { color: newHex } }));
+      }
 
       const displayAmount =
         Math.abs(miningAmount) < 0.00000001 ? '< 0.00000001' : miningAmount.toFixed(8);
@@ -309,7 +314,10 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
 
               {/* Timer */}
               <p className="text-sm text-[#22d3ee] mt-2">
-                Time elapsed: <span className="text-yellow-300">{preGameCountdown > 0 ? 0 : elapsedTime} ms</span>
+                Time elapsed:{' '}
+                <span className="text-yellow-300">
+                  {preGameCountdown > 0 ? 0 : elapsedTime} ms
+                </span>
               </p>
 
               {preGameCountdown > 0 && (
@@ -318,7 +326,7 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
                 </p>
               )}
 
-              {/* Choices grid (visual, clickable) */}
+              {/* Choices */}
               <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-3 max-w-xl mx-auto">
                 {problem.choices.map((choice, idx) => (
                   <button
@@ -368,22 +376,22 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
       </div>
 
       {/* Toast */}
-      {gameMessage && (
+      {toast && (
         <div
           className={`fixed bottom-6 left-1/2 transform -translate-x-1/2 px-5 py-3 rounded-xl font-mono text-sm z-50 shadow-xl transition-all duration-500 ${
             isFading ? 'opacity-0 translate-y-2' : 'opacity-100'
           } ${
-            gameMessage.type === 'success'
+            toast.type === 'success'
               ? 'bg-green-800 border border-green-400 text-green-200'
-              : gameMessage.type === 'error'
+              : toast.type === 'error'
               ? 'bg-red-800 border border-red-400 text-red-200'
               : 'bg-[#0f172a] border border-yellow-400 text-yellow-300'
           }`}
         >
           <span className="mr-2">
-            {gameMessage.type === 'success' ? '✅' : gameMessage.type === 'error' ? '❌' : '⏳'}
+            {toast.type === 'success' ? '✅' : toast.type === 'error' ? '❌' : '⏳'}
           </span>
-          {gameMessage.msg}
+          {toast.msg}
         </div>
       )}
     </>
