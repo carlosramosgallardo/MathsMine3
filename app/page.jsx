@@ -28,24 +28,49 @@ export default function Page() {
   const [gameCompleted, setGameCompleted] = useState(false);
   const [gameData, setGameData] = useState(null);
 
-  // Valor del token para el orbe
+  // Valor actual y tendencia 7d
   const [mm3Value, setMm3Value] = useState(0);
+  const [trendPct7d, setTrendPct7d] = useState(0); // +0.12 = +12%, -0.08 = -8%
 
   useEffect(() => {
-    const fetchLastValue = async () => {
+    const fetchHistory = async () => {
       try {
         const res = await fetch('/api/token-history');
         const json = await res.json();
-        if (Array.isArray(json) && json.length > 0) {
-          const last = json[json.length - 1];
-          setMm3Value(parseFloat(last.cumulative_reward) || 0);
+        if (!Array.isArray(json) || json.length === 0) return;
+
+        // último valor
+        const last = json[json.length - 1];
+        const lastVal = parseFloat(last?.cumulative_reward) || 0;
+        setMm3Value(lastVal);
+
+        // buscamos un punto ~7d atrás (o el primero si no llega)
+        const now = Date.now();
+        const weekAgo = now - 7 * 24 * 60 * 60 * 1000;
+        // elegimos el registro con fecha más antigua >= weekAgo
+        let weekRef = json.find((r) => {
+          const d = new Date(r.hour);
+          return !isNaN(d) && d.getTime() >= weekAgo;
+        }) || json[0];
+
+        const weekVal = parseFloat(weekRef?.cumulative_reward) || 0;
+
+        // % de cambio relativo a la referencia
+        let pct = 0;
+        if (Math.abs(weekVal) > 1e-12) {
+          pct = (lastVal - weekVal) / weekVal;
+        } else {
+          // si la referencia es ~0, usamos delta absoluto pequeño
+          pct = lastVal === 0 ? 0 : (lastVal > 0 ? 0.5 : -0.5); // heurística
         }
+        setTrendPct7d(pct);
       } catch (e) {
-        console.error('Error fetching token value:', e);
+        console.error('Error fetching token history:', e);
       }
     };
-    fetchLastValue();
-    const id = setInterval(fetchLastValue, 30000); // refresco opcional
+
+    fetchHistory();
+    const id = setInterval(fetchHistory, 30000); // refresco opcional
     return () => clearInterval(id);
   }, []);
 
@@ -79,12 +104,11 @@ export default function Page() {
         <link rel="canonical" href="https://mathsmine3.xyz/" />
       </Head>
 
-      {/* Fondo reactivo: orbe pixelado MM3 (logo único sin estela) */}
+      {/* Orbe pixelado MM3 (color fijo por tendencia 7d) */}
       <MM3PixelOrbSprite
-        src="/mm3-token.png"   // <-- PNG con transparencia
+        src="/mm3-token.png"
         tokenValue={mm3Value}
-        minValue={0}
-        maxValue={0.001}
+        trendPct={trendPct7d}     // <<--- nuevo
         pixelCols={28}
         grid={6}
         zIndex={20}
@@ -92,8 +116,6 @@ export default function Page() {
         endSelector="#logoBottom"
         durationMs={7000}
       />
-
-
 
       {GA_ENABLED && GA_MEASUREMENT_ID && (
         <>
@@ -114,8 +136,6 @@ export default function Page() {
 
       <main className="relative z-10 flex flex-col items-center w-full px-4 pt-10 pb-20 text-lg font-mono text-white bg-black">
         <div className="w-full max-w-3xl mx-auto">
-
-          {/* Hero section for SEO and users */}
           <section className="mb-12 text-center">
             <h1 className="text-xl font-semibold mt-8 mb-2" id="logoTop">
               Fast Math and Shape the Future with MathsMine3
@@ -125,7 +145,6 @@ export default function Page() {
             </p>
           </section>
 
-          {/* Game Board */}
           <section className="mb-12 text-center">
             <h1 className="text-xl font-semibold mt-8 mb-2">Play now:</h1>
           </section>
@@ -148,7 +167,6 @@ export default function Page() {
             )}
           </div>
 
-          {/* Connect & Play */}
           <div className="mb-12">
             <ConnectAndPlay
               account={account}
@@ -158,7 +176,6 @@ export default function Page() {
             />
           </div>
 
-          {/* Token Chart */}
           <section className="mb-12 text-center">
             <h1 className="text-xl font-semibold mt-8 mb-2">Total MM3 Balance</h1>
           </section>
@@ -166,7 +183,6 @@ export default function Page() {
             <TokenChart />
           </div>
 
-          {/* Leaderboard */}
           <section className="mb-12 text-center">
             <h1 className="text-xl font-semibold mt-8 mb-2" id="logoBottom">MM3 Balance per wallet</h1>
           </section>
@@ -175,7 +191,6 @@ export default function Page() {
           </div>
         </div>
 
-        {/* Vercel Analytics */}
         <Analytics />
         <SpeedInsights />
       </main>

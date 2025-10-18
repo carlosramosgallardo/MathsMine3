@@ -2,21 +2,10 @@
 
 import { useEffect, useRef } from 'react';
 
-/**
- * MM3PixelOrbSprite (v2)
- * - Dibuja el PNG en pixel-art (downscale + upscale NN), SIN fondo.
- * - Color:
- *    * Positivo: paleta cyan/verde que pulsa unos segundos.
- *    * Negativo: paleta rojo/naranja que pulsa unos segundos.
- *    * Sin evento reciente: vuelve a negro.
- * - Movimiento: arriba ↔ abajo con zig-zag suave y aleatorio por tramo.
- * - No bloquea clics (pointer-events: none).
- */
 export default function MM3PixelOrbSprite({
-  src = '/mm3-token.png',  // PNG con transparencia
-  tokenValue = 0,          // no imprescindible para color (usamos eventos), lo dejamos por si lo quieres usar luego
-  minValue = 0,
-  maxValue = 0.001,
+  src = '/mm3-token.png',
+  tokenValue = 0,     // no se usa para color ahora, lo dejamos por si lo necesitas
+  trendPct = 0,       // +0.12 = +12% semanal (más rojo), -0.08 = -8% (más verde)
   pixelCols = 28,
   grid = 6,
   zIndex = 20,
@@ -27,46 +16,25 @@ export default function MM3PixelOrbSprite({
   const canvasRef = useRef(null);
   const rafRef = useRef(null);
   const imgRef = useRef(null);
-
-  // máscara (pixelada) del PNG; no generamos tintes offscreen
   const maskRef = useRef(null);
 
-  // progreso y anclajes
   const tRef = useRef(0);
   const dirRef = useRef(1);
   const startRef = useRef({ x: 0, y: 0 });
   const endRef   = useRef({ x: 0, y: 0 });
 
-  // zig-zag params por tramo
-  const ampRef   = useRef(40);   // amplitud px
-  const freqRef  = useRef(1.5);  // ondas por tramo
-  const phaseRef = useRef(0);    // fase inicial
+  // zig-zag
+  const ampRef   = useRef(40);
+  const freqRef  = useRef(1.5);
+  const phaseRef = useRef(0);
 
-  // color state
-  const modeRef = useRef('neutral');             // 'neutral' | 'pos' | 'neg'
-  const pulseStartRef = useRef(0);               // ms
-  const lastEventRef = useRef(0);
-  const PULSE_DURATION = 4200;                   // ms (pulso visible)
-  const DECAY_AFTER    = 5200;                   // ms (vuelve a negro)
-
-  // paletas (HSL) – 2 tonos por modo para pulsar entre ellos
-  const POS = [{h: 190, s:100, l:60}, {h: 160, s:95, l:66}];   // cyan→verdoso
-  const NEG = [{h: 355, s:85, l:58}, {h: 25,  s:95, l:60}];   // rojo→naranja
-  const NEU = {h:0, s:0, l:0};
-
-  const clamp01 = (v)=>Math.max(0, Math.min(1, v));
   const lerp = (a,b,t)=>a+(b-a)*t;
+  const clamp01 = (v)=>Math.max(0, Math.min(1, v));
+  const hslStr = (h,s,l)=>`hsla(${h}, ${s}%, ${l}%, 1)`;
 
-  const hsl = (o)=>`hsla(${o.h}, ${o.s}%, ${o.l}%, 1)`;
-  const mixHsl = (a,b,t)=>({h:lerp(a.h,b.h,t), s:lerp(a.s,b.s,t), l:lerp(a.l,b.l,t)});
-
-  // anclajes (centro de selectores; fallback centro-arriba → centro-abajo)
   const computeAnchors = () => {
     const vw = window.innerWidth, vh = window.innerHeight;
-    const centerOf = (el) => {
-      const r = el.getBoundingClientRect();
-      return { x: r.left + r.width/2, y: r.top + r.height/2 };
-    };
+    const centerOf = (el) => { const r = el.getBoundingClientRect(); return { x: r.left + r.width/2, y: r.top + r.height/2 }; };
     let s=null, e=null;
     if (startSelector) { const el = document.querySelector(startSelector); if (el) s = centerOf(el); }
     if (endSelector)   { const el = document.querySelector(endSelector);   if (el) e = centerOf(el); }
@@ -75,22 +43,20 @@ export default function MM3PixelOrbSprite({
     startRef.current = s; endRef.current = e;
   };
 
-  // nueva “semilla” de zigzag en cada cambio de tramo (cuando toca tope)
   const reseedZigzag = () => {
     const vw = window.innerWidth;
-    ampRef.current   = 20 + Math.random()*Math.min(80, vw*0.06); // 20–~80 px
-    freqRef.current  = 1 + Math.random()*2.2;                    // 1–3.2 ondas
+    ampRef.current   = 20 + Math.random()*Math.min(80, vw*0.06);
+    freqRef.current  = 1 + Math.random()*2.2;
     phaseRef.current = Math.random()*Math.PI*2;
   };
 
-  // carga y crea máscara pixelada
+  // Carga PNG y crea máscara pixelada
   useEffect(() => {
     const img = new Image();
     img.crossOrigin = 'anonymous';
     img.src = src;
     img.onload = () => {
       imgRef.current = img;
-
       const aspect = img.height / img.width;
       const smallW = Math.max(8, pixelCols);
       const smallH = Math.max(8, Math.round(smallW * aspect));
@@ -100,27 +66,13 @@ export default function MM3PixelOrbSprite({
       const sctx = small.getContext('2d', { alpha: true });
       sctx.imageSmoothingEnabled = false;
       sctx.clearRect(0,0,smallW,smallH);
-      // el PNG ya tiene alpha, así que sirve como máscara
       sctx.drawImage(img, 0, 0, smallW, smallH);
-
       maskRef.current = small;
     };
     return () => { imgRef.current = null; maskRef.current = null; };
   }, [src, pixelCols]);
 
-  // escucha eventos del juego (correcto => cambia color según reward)
-  useEffect(() => {
-    const onCorrect = (e) => {
-      const reward = Number(e?.detail?.reward ?? 0);
-      lastEventRef.current = performance.now();
-      modeRef.current = reward > 0 ? 'pos' : (reward < 0 ? 'neg' : 'neutral');
-      pulseStartRef.current = performance.now();
-    };
-    window.addEventListener('mm3-correct', onCorrect);
-    return () => window.removeEventListener('mm3-correct', onCorrect);
-  }, []);
-
-  // canvas & animación
+  // Canvas + animación
   useEffect(() => {
     const canvas = canvasRef.current;
     const ctx = canvas.getContext('2d', { alpha: true });
@@ -138,56 +90,56 @@ export default function MM3PixelOrbSprite({
     reseedZigzag();
 
     let last = performance.now();
-
     const loop = (now) => {
       const dt = now - last; last = now;
 
-      // progreso y re-seed de zigzag en cambios de tramo
       tRef.current += (dirRef.current * dt) / durationMs;
       if (tRef.current >= 1) { tRef.current = 1; dirRef.current = -1; reseedZigzag(); }
       if (tRef.current <= 0) { tRef.current = 0; dirRef.current =  1; reseedZigzag(); }
 
       ctx.clearRect(0, 0, canvas.clientWidth, canvas.clientHeight);
 
-      // posición base lineal + zig-zag
+      // posición con zig-zag
       const s = startRef.current, e = endRef.current;
       const tt = tRef.current;
       const xLin = s.x + (e.x - s.x)*tt;
       const yLin = s.y + (e.y - s.y)*tt;
-      const A = ampRef.current, F = freqRef.current, P = phaseRef.current;
-      const zig = Math.sin(tt * Math.PI * 2 * F + P) * A;
-      const x = xLin + zig;    // zigzag en X
+      const x = xLin + Math.sin(tt * Math.PI * 2 * freqRef.current + phaseRef.current) * ampRef.current;
       const y = yLin;
 
-      // color según modo/pulso y decaimiento
-      let color = NEU;
-      const since = performance.now() - pulseStartRef.current;
-      if (modeRef.current !== 'neutral' && since <= DECAY_AFTER) {
-        const palettes = modeRef.current === 'pos' ? POS : NEG;
-        const u = (Math.sin((since / 300) * Math.PI) + 1) / 2; // 0..1 senoidal
-        color = mixHsl(palettes[0], palettes[1], u);
-        // si ya pasó el PULSE_DURATION, empieza a decaer hacia negro
-        if (since > PULSE_DURATION) {
-          const k = clamp01((since - PULSE_DURATION) / (DECAY_AFTER - PULSE_DURATION));
-          color = mixHsl(color, NEU, k);
-        }
+      // ---- Color constante según tendencia semanal ----
+      // map: tendencia positiva => más ROJO; negativa => más VERDE.
+      // Cap de ±50% para evitar saturaciones extremas; ajusta a tu gusto.
+      const cap = 0.5;
+      const p = Math.max(-cap, Math.min(cap, trendPct || 0)); // clamp
+      let h, s, l;
+      if (p >= 0) {
+        // ROJO (de salmón -> rojo intenso)
+        const t = p / cap;  // 0..1
+        h = lerp(12, 0, t);   // 12→0
+        s = lerp(80, 95, t);  // 80→95
+        l = lerp(58, 56, t);  // 58→56
+      } else {
+        // VERDE (de lima suave -> verde profundo)
+        const t = (-p) / cap; // 0..1
+        h = lerp(120, 95, t); // 120→95
+        s = lerp(70, 95, t);  // 70→95
+        l = lerp(58, 60, t);  // 58→60
       }
+      const fill = hslStr(h, s, l);
 
-      // dibuja máscara pixelada escalada
+      // dibuja máscara pixelada escalada y la colorea
       const mask = maskRef.current;
       if (mask) {
         const w = mask.width * grid;
-        const h = mask.height * grid;
+        const hpx = mask.height * grid;
         const dx = Math.round(x - w/2);
-        const dy = Math.round(y - h/2);
+        const dy = Math.round(y - hpx/2);
 
-        // 1) dibuja el PNG pixelado (con su alpha) – solo importa su alpha
-        ctx.drawImage(mask, dx, dy, w, h);
-
-        // 2) colorea SOLO donde hay esos píxeles (source-atop)
+        ctx.drawImage(mask, dx, dy, w, hpx);        // usa alpha del PNG
         ctx.globalCompositeOperation = 'source-atop';
-        ctx.fillStyle = hsl(color);
-        ctx.fillRect(dx, dy, w, h);
+        ctx.fillStyle = fill;
+        ctx.fillRect(dx, dy, w, hpx);               // color constante
         ctx.globalCompositeOperation = 'source-over';
       }
 
@@ -199,9 +151,9 @@ export default function MM3PixelOrbSprite({
       cancelAnimationFrame(rafRef.current);
       window.removeEventListener('resize', resize);
     };
-  }, [grid, durationMs, startSelector, endSelector]);
+  }, [grid, durationMs, startSelector, endSelector, trendPct]);
 
-  // anclajes tras un pequeño delay
+  // anclajes tras pequeño delay
   useEffect(() => {
     const id = setTimeout(() => computeAnchors(), 200);
     return () => clearTimeout(id);
