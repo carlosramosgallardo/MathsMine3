@@ -5,115 +5,121 @@ import { useEffect, useRef } from 'react';
 export default function MM3PixelOrbSprite({
   src = '/mm3-token.png',
   fixedColor = '#000000', // persistent color from DB (overrides trend color)
-  trendPct = 0,           // +0.12 => redder, -0.08 => greener
+  trendPct = 0,           // fallback: green/red by trend when no fixedColor
   pixelCols = 28,
   grid = 6,
   zIndex = 20,
-  startSelector,
-  endSelector,
-  durationMs = 7000
+  startSelector,          // hover anchor (usually your top logo)
+  endSelector,            // unused now, kept for API compatibility
+  durationMs = 14000,     // unused for hover travel; kept for compatibility
+  // Hover tuning:
+  hoverRadiusPx = 120,    // max distance from anchor
+  driftIntervalMs = 2800, // how often we pick a new drift target
+  maxDriftSpeedPx = 120,  // max speed toward target (px/s)
+  jitterAmpPx = 10,       // small sine jitter amplitude
+  jitterFreqHz = 0.4      // jitter frequency
 }) {
   const canvasRef = useRef(null);
   const rafRef = useRef(null);
   const ctxRef = useRef(null);
 
-  const imgRef = useRef(null);      // original image
-  const maskRef = useRef(null);     // downscaled (pixelated) alpha mask
+  const imgRef = useRef(null);
+  const maskRef = useRef(null);
 
-  const tRef = useRef(0);
-  const dirRef = useRef(1);
-  const startRef = useRef({ x: 0, y: 0 });
-  const endRef = useRef({ x: 0, y: 0 });
+  // Anchor near which we hover
+  const anchorRef = useRef({ x: 0, y: 0 });
 
-  // zig-zag
-  const ampRef = useRef(40);
-  const freqRef = useRef(1.5);
-  const phaseRef = useRef(0);
+  // Hover position and target
+  const posRef = useRef({ x: 0, y: 0 });
+  const targetRef = useRef({ x: 0, y: 0 });
+  const lastPickRef = useRef(0);
 
-  // runtime color override (e.g., from window 'mm3-orb-color' event)
+  // Jitter phase
+  const phaseRef = useRef(Math.random() * Math.PI * 2);
+
+  // Color override
   const colorHexRef = useRef(fixedColor);
 
   // --- utils ---
+  const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+  const clamp01 = (x) => clamp(x, 0, 1);
+  const isHex = (v) => typeof v === 'string' && /^#?[0-9a-f]{6}$/i.test(v.replace('#',''));
+  const normHex = (v) => (v.startsWith('#') ? v : `#${v}`);
   const lerp = (a, b, t) => a + (b - a) * t;
-  const isValidHex = (v) => typeof v === 'string' && /^#?[0-9a-f]{6}$/i.test(v.replace('#', ''));
-  const normalizeHex = (v) => (v.startsWith('#') ? v : `#${v}`);
 
   const hslStr = (h, s, l) => `hsla(${h}, ${s}%, ${l}%, 1)`;
 
-  const computeAnchors = () => {
+  const computeAnchor = () => {
     const vw = window.innerWidth;
     const vh = window.innerHeight;
     const centerOf = (el) => {
       const r = el.getBoundingClientRect();
       return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
     };
-    let s = null, e = null;
+    let s = null;
     if (startSelector) {
       const el = document.querySelector(startSelector);
       if (el) s = centerOf(el);
     }
-    if (endSelector) {
-      const el = document.querySelector(endSelector);
-      if (el) e = centerOf(el);
+    if (!s) s = { x: vw / 2, y: Math.max(80, vh * 0.18) }; // top-ish fallback
+    anchorRef.current = s;
+
+    // If first time, initialize pos and target near anchor
+    if (posRef.current.x === 0 && posRef.current.y === 0) {
+      posRef.current = { x: s.x, y: s.y };
+      targetRef.current = randomTargetNearAnchor();
+      lastPickRef.current = performance.now();
     }
-    if (!s) s = { x: vw / 2, y: Math.max(80, vh * 0.18) };
-    if (!e) e = { x: vw / 2, y: vh - Math.max(80, vh * 0.18) };
-    startRef.current = s;
-    endRef.current = e;
   };
 
-  const reseedZigzag = () => {
-    const vw = window.innerWidth;
-    ampRef.current = 20 + Math.random() * Math.min(80, vw * 0.06);
-    freqRef.current = 1 + Math.random() * 2.2;
-    phaseRef.current = Math.random() * Math.PI * 2;
+  const randomTargetNearAnchor = () => {
+    // Pick a polar offset within [0, hoverRadiusPx], bias slightly toward smaller radii
+    const a = Math.random() * Math.PI * 2;
+    const r = Math.pow(Math.random(), 0.7) * hoverRadiusPx;
+    const ax = anchorRef.current.x + Math.cos(a) * r;
+    const ay = anchorRef.current.y + Math.sin(a) * r;
+    return { x: ax, y: ay };
   };
 
   const resolveFillColor = () => {
-    // 1) explicit hex override (event or prop)
+    // 1) explicit fixedColor override
     const overrideHex = colorHexRef.current;
-    if (isValidHex(overrideHex)) {
-      return normalizeHex(overrideHex);
-    }
+    if (isHex(overrideHex)) return normHex(overrideHex);
 
-    // 2) derive from trend percentage (green for negative, red for positive)
-    const cap = 0.5; // clamp +/-50%
+    // 2) trend-based fallback (green for negative, red for positive)
+    const cap = 0.5;
     const p = Math.max(-cap, Math.min(cap, trendPct || 0));
     let h, s, l;
     if (p >= 0) {
-      // toward RED
-      const t = p / cap;       // 0..1
-      h = lerp(12, 0, t);      // 12→0
-      s = lerp(80, 95, t);     // 80→95
-      l = lerp(58, 56, t);     // 58→56
+      const t = p / cap;
+      h = lerp(12, 0, t);
+      s = lerp(80, 95, t);
+      l = lerp(58, 56, t);
     } else {
-      // toward GREEN
-      const t = (-p) / cap;    // 0..1
-      h = lerp(120, 95, t);    // 120→95
-      s = lerp(70, 95, t);     // 70→95
-      l = lerp(58, 60, t);     // 58→60
+      const t = (-p) / cap;
+      h = lerp(120, 95, t);
+      s = lerp(70, 95, t);
+      l = lerp(58, 60, t);
     }
     return hslStr(h, s, l);
   };
 
-  // keep override color in sync with prop changes
+  // keep override in sync
   useEffect(() => {
     colorHexRef.current = fixedColor;
   }, [fixedColor]);
 
-  // listen to external instant color updates: window.dispatchEvent(new CustomEvent('mm3-orb-color', { detail: { color: '#RRGGBB' } }))
+  // allow instant external color updates
   useEffect(() => {
     const onDirectColor = (ev) => {
       const hex = ev?.detail?.color;
-      if (isValidHex(hex)) {
-        colorHexRef.current = normalizeHex(hex);
-      }
+      if (isHex(hex)) colorHexRef.current = normHex(hex);
     };
     window.addEventListener('mm3-orb-color', onDirectColor);
     return () => window.removeEventListener('mm3-orb-color', onDirectColor);
   }, []);
 
-  // load PNG and build pixelated mask
+  // load image and create pixelated mask
   useEffect(() => {
     const img = new Image();
     img.crossOrigin = 'anonymous';
@@ -140,7 +146,7 @@ export default function MM3PixelOrbSprite({
     };
   }, [src, pixelCols]);
 
-  // canvas + animation
+  // canvas + hover animation
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -154,60 +160,63 @@ export default function MM3PixelOrbSprite({
       canvas.width = Math.floor(rect.width * dpr);
       canvas.height = Math.floor(rect.height * dpr);
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      computeAnchors();
+      computeAnchor();
     };
 
     resize();
     window.addEventListener('resize', resize);
-    reseedZigzag();
 
     let last = performance.now();
     const loop = (now) => {
-      const dt = now - last;
+      const dtMs = now - last;
       last = now;
+      const dt = dtMs / 1000; // seconds
 
-      tRef.current += (dirRef.current * dt) / durationMs;
-      if (tRef.current >= 1) {
-        tRef.current = 1;
-        dirRef.current = -1;
-        reseedZigzag();
-      }
-      if (tRef.current <= 0) {
-        tRef.current = 0;
-        dirRef.current = 1;
-        reseedZigzag();
+      const ctx = ctxRef.current;
+      if (!ctx) return;
+
+      // Periodically pick a new target near the anchor
+      if (now - lastPickRef.current >= driftIntervalMs) {
+        targetRef.current = randomTargetNearAnchor();
+        lastPickRef.current = now;
       }
 
+      // Smoothly move pos toward target, capped by maxDriftSpeedPx
+      const { x: px, y: py } = posRef.current;
+      const { x: tx, y: ty } = targetRef.current;
+      const dx = tx - px;
+      const dy = ty - py;
+      const dist = Math.hypot(dx, dy);
+      const maxStep = maxDriftSpeedPx * dt;
+      if (dist > 0.0001) {
+        const step = Math.min(dist, maxStep);
+        const nx = px + (dx / dist) * step;
+        const ny = py + (dy / dist) * step;
+        posRef.current = { x: nx, y: ny };
+      }
+
+      // Gentle jitter
+      phaseRef.current += dt * (Math.PI * 2 * jitterFreqHz);
+      const jx = Math.sin(phaseRef.current) * jitterAmpPx;
+      const jy = Math.cos(phaseRef.current * 0.9) * (jitterAmpPx * 0.6);
+
+      // Clear and draw
       ctx.clearRect(0, 0, canvas.clientWidth, canvas.clientHeight);
 
-      // position with zig-zag
-      const s = startRef.current;
-      const e = endRef.current;
-      const tt = tRef.current;
-      const xLin = s.x + (e.x - s.x) * tt;
-      const yLin = s.y + (e.y - s.y) * tt;
-      const x =
-        xLin + Math.sin(tt * Math.PI * 2 * freqRef.current + phaseRef.current) * ampRef.current;
-      const y = yLin;
-
-      // color (fixed hex overrides trend-based HSL)
       const fill = resolveFillColor();
-
-      // draw pixelated mask and tint it
       const mask = maskRef.current;
       if (mask) {
         const w = mask.width * grid;
         const hpx = mask.height * grid;
-        const dx = Math.round(x - w / 2);
-        const dy = Math.round(y - hpx / 2);
+        const cx = posRef.current.x + jx;
+        const cy = posRef.current.y + jy;
+        const dx2 = Math.round(cx - w / 2);
+        const dy2 = Math.round(cy - hpx / 2);
 
-        // draw the mask's alpha
-        ctx.drawImage(mask, dx, dy, w, hpx);
-
-        // color the drawn area
+        ctx.drawImage(mask, dx2, dy2, w, hpx);
         ctx.globalCompositeOperation = 'source-atop';
         ctx.fillStyle = fill;
-        ctx.fillRect(dx, dy, w, hpx);
+        ctx.fillRect(dx2, dy2, w, hpx);
         ctx.globalCompositeOperation = 'source-over';
       }
 
@@ -220,11 +229,19 @@ export default function MM3PixelOrbSprite({
       window.removeEventListener('resize', resize);
       ctxRef.current = null;
     };
-  }, [grid, durationMs, startSelector, endSelector, trendPct]); // color changes are read from refs each frame
+  }, [
+    grid,
+    trendPct,
+    hoverRadiusPx,
+    driftIntervalMs,
+    maxDriftSpeedPx,
+    jitterAmpPx,
+    jitterFreqHz
+  ]);
 
-  // compute anchors after a short delay (for layout to settle)
+  // compute anchor after layout settles
   useEffect(() => {
-    const id = setTimeout(() => computeAnchors(), 200);
+    const id = setTimeout(() => computeAnchor(), 200);
     return () => clearTimeout(id);
   }, []);
 
