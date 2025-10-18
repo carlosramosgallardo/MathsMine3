@@ -13,6 +13,11 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
   const [toast, setToast] = useState(null); // { msg, type }
   const [isFading, setIsFading] = useState(false);
 
+  // --- orb color (solo en sesión) + highlight de casilla correcta ---
+  const [orbColor, setOrbColor] = useState('#000000');
+  const [highlightIdx, setHighlightIdx] = useState(null);
+  const [highlightColor, setHighlightColor] = useState(null);
+
   const PARTICIPATION_PRICE = Number(process.env.NEXT_PUBLIC_FAKE_MINING_PRICE) || 0.00001;
   const preGameIntervalRef = useRef(null);
   const solveIntervalRef = useRef(null);
@@ -26,6 +31,19 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
       [a[i], a[j]] = [a[j], a[i]];
     }
     return a;
+  };
+
+  // contraste de texto sobre fondo
+  const hexToRgb = (hex) => {
+    const h = (hex || '').replace('#','');
+    if (h.length !== 6) return [0,0,0];
+    return [parseInt(h.slice(0,2),16), parseInt(h.slice(2,4),16), parseInt(h.slice(4,6),16)];
+  };
+  const getContrastText = (bgHex) => {
+    const [r,g,b] = hexToRgb(bgHex || '#000000');
+    // luminancia relativa simple
+    const yiq = (r*299 + g*587 + b*114) / 1000;
+    return yiq >= 150 ? '#0b0f19' : '#e2e8f0';
   };
 
   // ---------- generators ----------
@@ -139,6 +157,17 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
     return genArith2();
   };
 
+  // ---------- orb color listener ----------
+  useEffect(() => {
+    // escucha color actual del orbe (se emite en Page al cambiar)
+    const onOrbColor = (ev) => {
+      const next = ev?.detail?.color;
+      if (typeof next === 'string') setOrbColor(next);
+    };
+    window.addEventListener('mm3-orb-color', onOrbColor);
+    return () => window.removeEventListener('mm3-orb-color', onOrbColor);
+  }, []);
+
   // ---------- flow ----------
   const fetchPhrase = async () => {
     setIsRefreshing(true);
@@ -151,6 +180,9 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
       setLocalGameCompleted(false);
       setGameCompleted(false);
       setToast(null);
+      // reset highlight
+      setHighlightIdx(null);
+      setHighlightColor(null);
 
       preGameIntervalRef.current = setInterval(() => {
         setPreGameCountdown((prev) => {
@@ -207,7 +239,7 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
     }, 100);
   };
 
-  const checkAnswer = async (choice) => {
+  const checkAnswer = async (choice, idx) => {
     if (!problem || isDisabled) return;
     clearInterval(solveIntervalRef.current);
 
@@ -224,7 +256,29 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
         miningAmount = -PARTICIPATION_PRICE * 0.10 * penaltyRatio;
       }
 
-      // Notifica a Page (que calculará y persistirá el color)
+      // pintar la casilla con el MISMO color del orbe:
+      // 1) esperamos el próximo 'mm3-orb-color' (que Page emite tras calcular/persistir)
+      // 2) fallback en 250ms al último color conocido, por si el evento tarda un pelo
+      let settled = false;
+      const applyHighlight = (color) => {
+        if (settled) return;
+        settled = true;
+        setHighlightIdx(idx);
+        setHighlightColor(color || orbColor || '#22d3ee');
+      };
+
+      const oneShot = (ev) => {
+        applyHighlight(ev?.detail?.color);
+        window.removeEventListener('mm3-orb-color', oneShot);
+      };
+      window.addEventListener('mm3-orb-color', oneShot);
+
+      setTimeout(() => {
+        window.removeEventListener('mm3-orb-color', oneShot);
+        applyHighlight(orbColor);
+      }, 250);
+
+      // Notifica a Page (que calculará y persistirá el color y emitirá 'mm3-orb-color')
       if (typeof window !== 'undefined') {
         window.dispatchEvent(new CustomEvent('mm3-correct', { detail: { reward: miningAmount } }));
       }
@@ -286,23 +340,34 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
 
               {/* Choices */}
               <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-3 max-w-xl mx-auto">
-                {problem.choices.map((choice, idx) => (
-                  <button
-                    key={idx}
-                    onClick={() => checkAnswer(choice)}
-                    disabled={isDisabled}
-                    className={`px-4 py-3 rounded-2xl font-mono text-lg transition-all border-2
-                      ${isDisabled
-                        ? 'bg-gray-800 border-gray-700 text-gray-500 cursor-not-allowed'
-                        : 'bg-[#0b1222] border-[#22d3ee]/50 text-[#e2e8f0] hover:scale-105 hover:shadow-[0_0_18px_rgba(34,211,238,0.45)] hover:border-[#22d3ee]'
-                      }`}
-                    title="Pick your answer"
-                  >
-                    <span className={`${/^[+\-*/]$/.test(choice) ? 'text-2xl leading-none' : ''}`}>
-                      {choice}
-                    </span>
-                  </button>
-                ))}
+                {problem.choices.map((choice, idx) => {
+                  const isHighlighted = idx === highlightIdx && highlightColor;
+                  const bg = isHighlighted ? highlightColor : null;
+                  const fg = isHighlighted ? getContrastText(highlightColor) : null;
+                  return (
+                    <button
+                      key={idx}
+                      onClick={() => checkAnswer(choice, idx)}
+                      disabled={isDisabled}
+                      className={`px-4 py-3 rounded-2xl font-mono text-lg transition-all border-2
+                        ${isDisabled
+                          ? 'bg-gray-800 border-gray-700 text-gray-500 cursor-not-allowed'
+                          : isHighlighted
+                            ? 'border-transparent shadow-[0_0_18px_rgba(34,211,238,0.25)] scale-[1.01]'
+                            : 'bg-[#0b1222] border-[#22d3ee]/50 text-[#e2e8f0] hover:scale-105 hover:shadow-[0_0_18px_rgba(34,211,238,0.45)] hover:border-[#22d3ee]'
+                        }`}
+                      style={isHighlighted ? {
+                        backgroundColor: bg,
+                        color: fg
+                      } : undefined}
+                      title="Pick your answer"
+                    >
+                      <span className={`${/^[+\-*/]$/.test(choice) ? 'text-2xl leading-none' : ''}`}>
+                        {choice}
+                      </span>
+                    </button>
+                  );
+                })}
               </div>
 
               {/* Controls */}
