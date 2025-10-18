@@ -14,7 +14,7 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
   const [isFading, setIsFading] = useState(false);
 
   // --- orb color (solo en sesión) + highlight de casilla correcta ---
-  const [orbColor, setOrbColor] = useState('#000000');
+  const [orbColor, setOrbColor] = useState('#000000'); // siempre gris
   const [highlightIdx, setHighlightIdx] = useState(null);
   const [highlightColor, setHighlightColor] = useState(null);
 
@@ -33,14 +33,27 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
     return a;
   };
 
-  // contraste de texto sobre fondo
+  // hex ↔ rgb + toGray (misma fórmula que el orbe)
+  const normHex = (v) => (v?.startsWith?.('#') ? v : `#${v || ''}`);
+  const isHex = (v) => typeof v === 'string' && /^#?[0-9a-f]{6}$/i.test((v || '').replace('#',''));
   const hexToRgb = (hex) => {
-    const h = (hex || '').replace('#','');
-    if (h.length !== 6) return [0,0,0];
-    return [parseInt(h.slice(0,2),16), parseInt(h.slice(2,4),16), parseInt(h.slice(4,6),16)];
+    const h = normHex(hex).slice(1);
+    return { r: parseInt(h.slice(0,2),16), g: parseInt(h.slice(2,4),16), b: parseInt(h.slice(4,6),16) };
   };
+  const rgbToHex = (r,g,b) => {
+    const to2 = (n) => Math.max(0, Math.min(255, Math.round(n))).toString(16).padStart(2,'0');
+    return `#${to2(r)}${to2(g)}${to2(b)}`;
+  };
+  const toGray = (hex) => {
+    if (!isHex(hex)) return '#808080';
+    const { r,g,b } = hexToRgb(hex);
+    const y = 0.2126*r + 0.7152*g + 0.0722*b; // luminancia perceptual
+    return rgbToHex(y,y,y);
+  };
+
+  // contraste de texto sobre fondo
   const getContrastText = (bgHex) => {
-    const [r,g,b] = hexToRgb(bgHex || '#000000');
+    const { r,g,b } = hexToRgb(bgHex || '#000000');
     const yiq = (r*299 + g*587 + b*114) / 1000;
     return yiq >= 150 ? '#0b0f19' : '#e2e8f0';
   };
@@ -156,11 +169,11 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
     return genArith2();
   };
 
-  // ---------- orb color listener ----------
+  // ---------- orb color listener (forzamos gris) ----------
   useEffect(() => {
     const onOrbColor = (ev) => {
       const next = ev?.detail?.color;
-      if (typeof next === 'string') setOrbColor(next);
+      if (typeof next === 'string') setOrbColor(toGray(next));
     };
     window.addEventListener('mm3-orb-color', onOrbColor);
     return () => window.removeEventListener('mm3-orb-color', onOrbColor);
@@ -255,24 +268,29 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
         miningAmount = -PARTICIPATION_PRICE * 0.10 * penaltyRatio;
       }
 
-      // highlight con color del orbe
+      // highlight con el MISMO color del orbe, forzado a gris
       let settled = false;
       const applyHighlight = (color) => {
         if (settled) return;
         settled = true;
+        const gray = toGray(color || orbColor || '#9aa0a6'); // fallback gris
         setHighlightIdx(idx);
-        setHighlightColor(color || orbColor || '#22d3ee');
+        setHighlightColor(gray);
       };
+
       const oneShot = (ev) => {
         applyHighlight(ev?.detail?.color);
         window.removeEventListener('mm3-orb-color', oneShot);
       };
       window.addEventListener('mm3-orb-color', oneShot);
+
+      // Fallback por si el evento tarda un pelo
       setTimeout(() => {
         window.removeEventListener('mm3-orb-color', oneShot);
         applyHighlight(orbColor);
-      }, 250);
+      }, 300);
 
+      // Notifica a Page
       if (typeof window !== 'undefined') {
         window.dispatchEvent(new CustomEvent('mm3-correct', { detail: { reward: miningAmount } }));
       }
@@ -348,8 +366,8 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
                         ${isDisabled
                           ? 'bg-gray-800 border-gray-700 text-gray-500 cursor-not-allowed'
                           : isHighlighted
-                            ? 'border-transparent shadow-[0_0_18px_rgba(34,211,238,0.25)] scale-[1.01]'
-                            : 'bg-[#0b1222] border-[#22d3ee]/50 text-[#e2e8f0] hover:scale-105 hover:shadow-[0_0_18px_rgba(34,211,238,0.45)] hover:border-[#22d3ee]'
+                            ? 'border-transparent shadow-[0_0_18px_rgba(156,163,175,0.25)] scale-[1.01]'
+                            : 'bg-[#0b1222] border-[#22d3ee]/50 text-[#e2e8f0] hover:scale-105 hover:shadow-[0_0_18px_rgba(156,163,175,0.45)] hover:border-[#cbd5e1]'
                         }`}
                       style={isHighlighted ? { backgroundColor: bg, color: fg } : undefined}
                       title="Pick your answer"
