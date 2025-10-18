@@ -1,422 +1,323 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import Script from 'next/script';
+import Head from 'next/head';
+import ConnectAndPlay from '@/components/ConnectAndPlay';
+import Board from '@/components/Board';
+import Leaderboard from '@/components/Leaderboard';
+import TokenChart from '@/components/TokenChart';
+import SectionFrame from '@/components/SectionFrame';
+import supabase from '@/lib/supabaseClient';
+import { SpeedInsights } from '@vercel/speed-insights/next';
+import { Analytics } from '@vercel/analytics/react';
+import MM3PixelOrbSprite from '@/components/MM3PixelOrbSprite';
 
-export default function Board({ account, setGameMessage, setGameCompleted, setGameData }) {
-  // --- game state ---
-  const [problem, setProblem] = useState(null);
-  const [elapsedTime, setElapsedTime] = useState(0);
-  const [preGameCountdown, setPreGameCountdown] = useState(3);
-  const [isDisabled, setIsDisabled] = useState(true);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [gameCompleted, setLocalGameCompleted] = useState(false);
-  const [toast, setToast] = useState(null); // { msg, type }
-  const [isFading, setIsFading] = useState(false);
+import '@/app/globals.css';
 
-  // --- orb color (solo en sesión) + highlight de casilla correcta ---
+const GA_MEASUREMENT_ID = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID;
+const GA_ENABLED = process.env.NEXT_PUBLIC_GA_ENABLED === 'true';
+const PARTICIPATION_PRICE = Number(process.env.NEXT_PUBLIC_FAKE_MINING_PRICE) || 0.00001;
+
+const maskWallet = (wallet) => {
+  if (!wallet || wallet.length <= 10) return wallet || '';
+  return wallet.slice(0, 5) + '...' + wallet.slice(-5);
+};
+
+// ---------- color helpers (client) ----------
+const clamp01 = (x) => Math.max(0, Math.min(1, x));
+const isHex = (v) => typeof v === 'string' && /^#?[0-9a-f]{6}$/i.test(v.replace('#',''));
+const normHex = (v) => (v.startsWith('#') ? v : `#${v}`);
+const mixHex = (aHex, bHex, t) => {
+  const ah = normHex(aHex).slice(1);
+  const bh = normHex(bHex).slice(1);
+  const a = [parseInt(ah.slice(0,2),16), parseInt(ah.slice(2,4),16), parseInt(ah.slice(4,6),16)];
+  const b = [parseInt(bh.slice(0,2),16), parseInt(bh.slice(2,4),16), parseInt(bh.slice(4,6),16)];
+  const c = a.map((ai, i) => Math.round(ai + (b[i] - ai) * t));
+  return `#${c.map(v => v.toString(16).padStart(2, '0')).join('')}`;
+};
+
+function colorFromDeltaClient({ delta, prevHex, maxDelta }) {
+  const base = isHex(prevHex) ? normHex(prevHex) : '#000000';
+  const abs = Math.abs(delta);
+  const scale = clamp01(abs / (maxDelta || 1e-8));
+  const target = delta >= 0 ? '#ff3b30' : '#34c759';
+  const t = 0.15 + 0.6 * scale;
+  return mixHex(base, target, t);
+}
+
+export default function Page() {
+  const [account, setAccount] = useState(null);
+  const [gameMessage, setGameMessage] = useState('');
+  const [gameCompleted, setGameCompleted] = useState(false);
+  const [gameData, setGameData] = useState(null);
+
+  // token orb color
   const [orbColor, setOrbColor] = useState('#000000');
-  const [highlightIdx, setHighlightIdx] = useState(null);
-  const [highlightColor, setHighlightColor] = useState(null);
 
-  const PARTICIPATION_PRICE = Number(process.env.NEXT_PUBLIC_FAKE_MINING_PRICE) || 0.00001;
-  const preGameIntervalRef = useRef(null);
-  const solveIntervalRef = useRef(null);
-
-  // ---------- utilities ----------
-  const randInt = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
-  const shuffle = (arr) => {
-    const a = arr.slice();
-    for (let i = a.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [a[i], a[j]] = [a[j], a[i]];
-    }
-    return a;
-  };
-
-  // contraste de texto sobre fondo
-  const hexToRgb = (hex) => {
-    const h = (hex || '').replace('#','');
-    if (h.length !== 6) return [0,0,0];
-    return [parseInt(h.slice(0,2),16), parseInt(h.slice(2,4),16), parseInt(h.slice(4,6),16)];
-  };
-  const getContrastText = (bgHex) => {
-    const [r,g,b] = hexToRgb(bgHex || '#000000');
-    // luminancia relativa simple
-    const yiq = (r*299 + g*587 + b*114) / 1000;
-    return yiq >= 150 ? '#0b0f19' : '#e2e8f0';
-  };
-
-  // ---------- generators ----------
-  const genArith2 = () => {
-    const ops = ['+', '-', '*', '/'];
-    let op = ops[Math.floor(Math.random() * ops.length)];
-    let a = randInt(6, 99);
-    let b = randInt(2, 99);
-    if (op === '/') { b = randInt(2, 12); a = b * randInt(2, 12); }
-    let answer;
-    switch (op) {
-      case '+': answer = a + b; break;
-      case '-': answer = a - b; break;
-      case '*': answer = a * b; break;
-      case '/': answer = a / b; break;
-    }
-    const correct = String(answer);
-    const near = new Set();
-    while (near.size < 5) {
-      const delta = randInt(1, 12) * (Math.random() < 0.5 ? -1 : 1);
-      const cand = String(answer + delta);
-      if (cand !== correct) near.add(cand);
-    }
-    const choices = shuffle([correct, ...Array.from(near).slice(0, 3)]);
-    return {
-      type: 'arith2',
-      question: `${a} ${op} ${b} =`,
-      answer: correct,
-      masked: `${a} ${op} ${b} = [MASK]`,
-      placeholder: '?',
-      choices
-    };
-  };
-
-  const genOperatorFix = () => {
-    const ops = ['+', '-', '*', '/'];
-    let op = ops[Math.floor(Math.random() * ops.length)];
-    let a = randInt(3, 40);
-    let b = randInt(2, 20);
-    if (op === '/') { b = randInt(2, 12); a = b * randInt(2, 12); }
-    let c;
-    switch (op) {
-      case '+': c = a + b; break;
-      case '-': c = a - b; break;
-      case '*': c = a * b; break;
-      case '/': c = a / b; break;
-    }
-    const validOps = ops.filter(o => {
-      let val;
-      switch (o) {
-        case '+': val = a + b; break;
-        case '-': val = a - b; break;
-        case '*': val = a * b; break;
-        case '/': val = b !== 0 ? a / b : NaN; break;
-      }
-      return val === c;
-    });
-    if (validOps.length !== 1) return genOperatorFix();
-    const correct = op;
-    const distractors = shuffle(ops.filter(o => o !== correct)).slice(0, 3);
-    const choices = shuffle([correct, ...distractors]);
-    return {
-      type: 'opfix',
-      question: `${a} ? ${b} = ${c}`,
-      answer: correct,
-      masked: `${a} [MASK] ${b} = ${c}`,
-      placeholder: 'operator',
-      choices
-    };
-  };
-
-  const genDigitFix = () => {
-    const op = Math.random() < 0.5 ? '+' : '-';
-    let X = randInt(10, 98);
-    let Y = randInt(2, 60);
-    let Z = op === '+' ? X + Y : X - Y;
-    const hideTens = Math.random() < 0.5;
-    const xT = Math.floor(X / 10);
-    const xU = X % 10;
-    let maskedX, answerDigit;
-    if (hideTens) { maskedX = `?${xU}`; answerDigit = xT; }
-    else { maskedX = `${xT}?`; answerDigit = xU; }
-    const candidates = [];
-    for (let d = 0; d <= 9; d++) {
-      const testX = hideTens ? d * 10 + xU : xT * 10 + d;
-      const lhs = op === '+' ? testX + Y : testX - Y;
-      if (lhs === Z) candidates.push(d);
-    }
-    if (candidates.length !== 1) return genDigitFix();
-    const correct = String(answerDigit);
-    const pool = new Set();
-    while (pool.size < 3) {
-      const d = String(randInt(0, 9));
-      if (d !== correct) pool.add(d);
-    }
-    const choices = shuffle([correct, ...Array.from(pool)]);
-    return {
-      type: 'digitfix',
-      question: `${maskedX} ${op} ${Y} = ${Z}`,
-      answer: correct,
-      masked: `${maskedX} ${op} ${Y} = ${Z}`,
-      placeholder: 'digit',
-      choices
-    };
-  };
-
-  const generateProblem = () => {
-    const pick = Math.random();
-    if (pick < 0.34) return genOperatorFix();
-    if (pick < 0.67) return genDigitFix();
-    return genArith2();
-  };
-
-  // ---------- orb color listener ----------
-  useEffect(() => {
-    // escucha color actual del orbe (se emite en Page al cambiar)
-    const onOrbColor = (ev) => {
-      const next = ev?.detail?.color;
-      if (typeof next === 'string') setOrbColor(next);
-    };
-    window.addEventListener('mm3-orb-color', onOrbColor);
-    return () => window.removeEventListener('mm3-orb-color', onOrbColor);
-  }, []);
-
-  // ---------- flow ----------
-  const fetchPhrase = async () => {
-    setIsRefreshing(true);
+  const loadOrbColor = useCallback(async () => {
     try {
-      const generated = generateProblem();
-      setProblem(generated);
-      setElapsedTime(0);
-      setPreGameCountdown(3);
-      setIsDisabled(true);
-      setLocalGameCompleted(false);
-      setGameCompleted(false);
-      setToast(null);
-      // reset highlight
-      setHighlightIdx(null);
-      setHighlightColor(null);
-
-      preGameIntervalRef.current = setInterval(() => {
-        setPreGameCountdown((prev) => {
-          if (prev <= 1) {
-            clearInterval(preGameIntervalRef.current);
-            startSolveTimer();
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
+      const { data, error } = await supabase
+        .from('mm3_visual_state')
+        .select('color_hex')
+        .eq('id', 1)
+        .maybeSingle();
+      if (!error && data?.color_hex) setOrbColor(data.color_hex);
     } catch (e) {
-      console.error('Error starting round:', e);
-    } finally {
-      setTimeout(() => setIsRefreshing(false), 300);
+      console.error('Error loading orb color:', e);
     }
-  };
-
-  useEffect(() => {
-    fetchPhrase();
-    return () => {
-      clearInterval(preGameIntervalRef.current);
-      clearInterval(solveIntervalRef.current);
-    };
   }, []);
 
+  useEffect(() => { loadOrbColor(); }, [loadOrbColor]);
+
+  // instant color update from reward event (client-only, no API)
   useEffect(() => {
-    if (!toast) return;
-    setIsFading(false);
-    const fadeTimer = setTimeout(() => setIsFading(true), 3500);
-    const removeTimer = setTimeout(() => setToast(null), 4000);
-    return () => {
-      clearTimeout(fadeTimer);
-      clearTimeout(removeTimer);
+    const onCorrect = async (ev) => {
+      try {
+        const reward = Number(ev?.detail?.reward || 0);
+        const nextHex = colorFromDeltaClient({
+          delta: reward,
+          prevHex: orbColor,
+          maxDelta: PARTICIPATION_PRICE,
+        });
+
+        const { error } = await supabase
+          .from('mm3_visual_state')
+          .update({ color_hex: nextHex, updated_at: new Date().toISOString() })
+          .eq('id', 1);
+
+        if (error) console.warn('Supabase update color error:', error.message);
+
+        setOrbColor(nextHex);
+        window.dispatchEvent(new CustomEvent('mm3-orb-color', { detail: { color: nextHex } }));
+      } catch (e) {
+        console.error('onCorrect color update error:', e);
+      }
     };
-  }, [toast]);
 
-  const showMessage = (msg, type = 'info', isToastOnly = false) => {
-    if (!isToastOnly) setGameMessage(msg);
-    setToast({ msg, type });
-  };
+    window.addEventListener('mm3-correct', onCorrect);
+    return () => window.removeEventListener('mm3-correct', onCorrect);
+  }, [orbColor]);
 
-  const startSolveTimer = () => {
-    setIsDisabled(false);
-    const startTime = Date.now();
-    solveIntervalRef.current = setInterval(() => {
-      const timePassed = Date.now() - startTime;
-      setElapsedTime(timePassed);
-      if (timePassed >= 10000) {
-        clearInterval(solveIntervalRef.current);
-        showMessage('Time exceeded! No mining reward.', 'info', true);
-        finalizeGame(false, 0, null);
+  // persist game when gameData + wallet; then broadcast a refresh event
+  useEffect(() => {
+    const saveGame = async () => {
+      if (!gameData || !account) return;
+      try {
+        const { error } = await supabase.from('games').insert([gameData]);
+        if (error) {
+          console.error('Supabase insert error:', error.message);
+          setGameMessage('Error saving game data. Transaction aborted.');
+          return;
+        }
+        // Broadcast that DB has new data so charts/leaderboard can refresh immediately
+        window.dispatchEvent(new CustomEvent('mm3-db-updated', {
+          detail: { wallet: account, delta: gameData?.mining_reward ?? null }
+        }));
+      } catch (e) {
+        console.error('Unexpected error saving game:', e);
+        setGameMessage('Unexpected error. Try again.');
       }
-    }, 100);
-  };
+    };
+    saveGame();
+  }, [gameData, account]);
 
-  const checkAnswer = async (choice, idx) => {
-    if (!problem || isDisabled) return;
-    clearInterval(solveIntervalRef.current);
+  // color de acento efectivo para que el marco NUNCA sea negro
+  const frameAccent =
+    typeof orbColor === 'string' && orbColor.toLowerCase() !== '#000000'
+      ? orbColor
+      : '#22d3ee';
 
-    const totalTime = elapsedTime;
-    const correct = String(choice).trim().toLowerCase() === problem.answer.trim().toLowerCase();
-
-    let miningAmount = 0;
-    if (correct) {
-      if (totalTime <= 5000) {
-        miningAmount = PARTICIPATION_PRICE * ((5000 - totalTime) / 5000);
-      } else {
-        const overTime = Math.min(totalTime - 5000, 5000);
-        const penaltyRatio = overTime / 5000;
-        miningAmount = -PARTICIPATION_PRICE * 0.10 * penaltyRatio;
-      }
-
-      // pintar la casilla con el MISMO color del orbe:
-      // 1) esperamos el próximo 'mm3-orb-color' (que Page emite tras calcular/persistir)
-      // 2) fallback en 250ms al último color conocido, por si el evento tarda un pelo
-      let settled = false;
-      const applyHighlight = (color) => {
-        if (settled) return;
-        settled = true;
-        setHighlightIdx(idx);
-        setHighlightColor(color || orbColor || '#22d3ee');
-      };
-
-      const oneShot = (ev) => {
-        applyHighlight(ev?.detail?.color);
-        window.removeEventListener('mm3-orb-color', oneShot);
-      };
-      window.addEventListener('mm3-orb-color', oneShot);
-
-      setTimeout(() => {
-        window.removeEventListener('mm3-orb-color', oneShot);
-        applyHighlight(orbColor);
-      }, 250);
-
-      // Notifica a Page (que calculará y persistirá el color y emitirá 'mm3-orb-color')
-      if (typeof window !== 'undefined') {
-        window.dispatchEvent(new CustomEvent('mm3-correct', { detail: { reward: miningAmount } }));
-      }
-
-      const displayAmount =
-        Math.abs(miningAmount) < 1e-8 ? '< 0.00000001' : miningAmount.toFixed(8);
-
-      const message = account
-        ? `Inject MM3 now: ${displayAmount}`
-        : `Connect your wallet to proceed with injecting MM3: ${displayAmount}.`;
-
-      showMessage(message, 'success');
-    } else {
-      showMessage('Incorrect! No mining reward.', 'error', true);
-    }
-
-    finalizeGame(correct, miningAmount, choice);
-  };
-
-  const finalizeGame = (isCorrect, miningAmount, choice) => {
-    setIsDisabled(true);
-    setLocalGameCompleted(true);
-    setGameCompleted(true); // <- esta señal activa la ventana clicable en Page cuando is_correct === true
-    setGameData({
-      wallet: account,
-      problem: problem.masked,
-      user_answer: String(choice ?? ''),
-      is_correct: isCorrect,
-      time_ms: elapsedTime,
-      mining_reward: miningAmount,
-    });
-  };
-
-  // ---------- UI ----------
   return (
     <>
-      <div className="w-full mt-10 bg-gray-900 p-4 rounded-xl shadow-lg text-center">
-        <div className="bg-[#0b0f19] p-4 rounded-xl">
-          {problem && (
-            <>
-              {/* Statement */}
-              <div className="text-base font-mono text-[#22d3ee] flex flex-wrap justify-center items-center gap-1 text-center max-w-screen-sm mx-auto">
-                <span>{problem.question}</span>
-              </div>
+      <Head>
+        <title>MathsMine3 – Fast Math, Mine MM3 & Shape the Future</title>
+        <meta
+          name="description"
+          content="Fast Math, Mine MM3, and Shape the Future with PoV & PoA. A free Web3 experiment merging gamified learning and token economics."
+        />
+        <link rel="canonical" href="https://mathsmine3.xyz/" />
+        {/* Estilos del marco pixel retro (visibles y centrados) */}
+        <style jsx global>{`
+/* ===== FRAMES RETRO VISIBLES (sin color-mix) ===== */
 
-              {/* Timer */}
-              <p className="text-sm text-[#22d3ee] mt-2">
-                Time elapsed{' '}
-                <span className="text-yellow-300">
-                  {preGameCountdown > 0 ? 0 : elapsedTime} ms
-                </span>
-              </p>
+.mm3-pixel-frame {
+  /* color de acento configurable por inline style, con fallback */
+  --mm3-accent: var(--mm3-accent, #22d3ee);
 
-              {preGameCountdown > 0 && (
-                <p className="mt-2 text-[#22d3ee]">
-                  Please wait {preGameCountdown} second(s)...
-                </p>
-              )}
+  background: #0b0f19;                  /* fondo del frame */
+  border: 3px solid #22d3ee;            /* fallback fuerte y visible */
+  border-color: var(--mm3-accent);      /* si se define desde el componente */
+  border-radius: 12px;
+  outline: 1px solid rgba(255,255,255,0.08);
 
-              {/* Choices */}
-              <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-3 max-w-xl mx-auto">
-                {problem.choices.map((choice, idx) => {
-                  const isHighlighted = idx === highlightIdx && highlightColor;
-                  const bg = isHighlighted ? highlightColor : null;
-                  const fg = isHighlighted ? getContrastText(highlightColor) : null;
-                  return (
-                    <button
-                      key={idx}
-                      onClick={() => checkAnswer(choice, idx)}
-                      disabled={isDisabled}
-                      className={`px-4 py-3 rounded-2xl font-mono text-lg transition-all border-2
-                        ${isDisabled
-                          ? 'bg-gray-800 border-gray-700 text-gray-500 cursor-not-allowed'
-                          : isHighlighted
-                            ? 'border-transparent shadow-[0_0_18px_rgba(34,211,238,0.25)] scale-[1.01]'
-                            : 'bg-[#0b1222] border-[#22d3ee]/50 text-[#e2e8f0] hover:scale-105 hover:shadow-[0_0_18px_rgba(34,211,238,0.45)] hover:border-[#22d3ee]'
-                        }`}
-                      style={isHighlighted ? {
-                        backgroundColor: bg,
-                        color: fg
-                      } : undefined}
-                      title="Pick your answer"
-                    >
-                      <span className={`${/^[+\-*/]$/.test(choice) ? 'text-2xl leading-none' : ''}`}>
-                        {choice}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
+  /* halo y separación visual claros (sin funciones experimentales) */
+  box-shadow:
+    0 0 18px 0 rgba(34,211,238,0.28),   /* glow exterior */
+    inset 0 0 0 2px rgba(3,8,23,0.90),  /* viñeta interior */
+    inset 0 0 0 1px rgba(34,211,238,0.25);
 
-              {/* Controls */}
-              <div className="flex justify-center items-center gap-2 mt-5">
-                <button
-                  className={`px-4 py-1 rounded-xl font-mono text-sm border-2
-                    ${isDisabled
-                      ? 'bg-gray-700 border-gray-600 text-gray-400 cursor-not-allowed'
-                      : 'bg-yellow-300 text-[#0b0f19] border-yellow-400 shadow-[0_0_15px_rgba(253,224,71,0.4)] hover:bg-yellow-400 hover:shadow-[0_0_20px_rgba(253,224,71,0.6)] hover:scale-105'
-                    }`}
-                  disabled
-                >
-                  Submit
-                </button>
-                {gameCompleted && (
-                  <button
-                    onClick={fetchPhrase}
-                    disabled={isRefreshing}
-                    className={`w-8 h-8 flex items-center justify-center text-lg ${isRefreshing ? 'animate-spin opacity-50 cursor-wait' : 'hover:text-yellow-300'}`}
-                    title="Try a new round"
-                  >
-                    🔄
-                  </button>
-                )}
-              </div>
-            </>
-          )}
-        </div>
-      </div>
+  position: relative;
+  overflow: visible; /* no cortamos la “placa” del título */
+}
 
-      {/* Toast */}
-      {toast && (
-        <div
-          className={`fixed bottom-6 left-1/2 transform -translate-x-1/2 px-5 py-3 rounded-xl font-mono text-sm z-50 shadow-xl transition-all duration-500 ${
-            isFading ? 'opacity-0 translate-y-2' : 'opacity-100'
-          } ${
-            toast.type === 'success'
-              ? 'bg-green-800 border border-green-400 text-green-200'
-              : toast.type === 'error'
-              ? 'bg-red-800 border border-red-400 text-red-200'
-              : 'bg-[#0f172a] border border-yellow-400 text-yellow-300'
-          }`}
-        >
-          <span className="mr-2">
-            {toast.type === 'success' ? '✅' : toast.type === 'error' ? '❌' : '⏳'}
-          </span>
-          {toast.msg}
-        </div>
+/* líneas glow arriba/abajo del frame para remarcar el bloque */
+.mm3-pixel-frame::before,
+.mm3-pixel-frame::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  width: 100%;
+  height: 2px;
+  background: linear-gradient(90deg, rgba(0,0,0,0), var(--mm3-accent), rgba(0,0,0,0));
+  opacity: 0.85;
+  pointer-events: none;
+}
+.mm3-pixel-frame::before { top: 0; }
+.mm3-pixel-frame::after  { bottom: 0; }
+
+/* esquinas “notch” simples y compatibles */
+.mm3-pixel-frame .mm3-corners {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.mm3-pixel-frame .mm3-corners::before,
+.mm3-pixel-frame .mm3-corners::after {
+  content: "";
+  position: absolute;
+  width: 10px; height: 10px;
+  border: 2px solid var(--mm3-accent);
+  filter: drop-shadow(0 0 6px rgba(34,211,238,0.35));
+}
+.mm3-pixel-frame .mm3-corners::before { top: -1px; left: -1px; border-right: 0; border-bottom: 0; border-radius: 8px 0 0 0; }
+.mm3-pixel-frame .mm3-corners::after  { bottom: -1px; right: -1px; border-left: 0; border-top: 0; border-radius: 0 0 8px 0; }
+
+/* textura sutil (grid + scanline) */
+.mm3-scanlines {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(transparent 31px, rgba(255,255,255,0.02) 32px) 0 0 / 100% 32px,
+    linear-gradient(90deg, transparent 31px, rgba(255,255,255,0.02) 32px) 0 0 / 32px 100%,
+    linear-gradient(rgba(255,255,255,0.03), rgba(0,0,0,0.06));
+  mix-blend-mode: overlay;
+  opacity: .35;
+  pointer-events: none;
+}
+
+/* placa del título centrada y con buen contraste */
+.mm3-chip {
+  background: rgba(10, 20, 35, 0.9);
+  color: #e2e8f0;
+  border: 2px solid #22d3ee;        /* fallback */
+  border-color: var(--mm3-accent);
+  border-radius: 9px;
+  box-shadow:
+    0 0 0 2px #0b0f19,
+    0 0 10px rgba(34,211,238,0.55);
+  text-shadow: 0 0 6px rgba(34,211,238,0.35);
+}
+
+/* separador glow inferior dentro del frame */
+.mm3-glow-divider {
+  height: 7px;
+  width: 100%;
+  background: radial-gradient(45% 200% at 50% 0%, rgba(34,211,238,0.55), rgba(0,0,0,0));
+  pointer-events: none;
+  filter: blur(.2px);
+}
+
+        `}</style>
+      </Head>
+
+      <MM3PixelOrbSprite
+        src="/mm3-token.png"
+        fixedColor={orbColor}
+        pixelCols={26}
+        grid={6}
+        zIndex={20}
+        startSelector="#logoTop"
+        endSelector="#logoBottom"
+        durationMs={14000}
+      />
+
+      {GA_ENABLED && GA_MEASUREMENT_ID && (
+        <>
+          <Script
+            src={`https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}`}
+            strategy="afterInteractive"
+          />
+          <Script id="ga-init" strategy="afterInteractive">
+            {`
+              window.dataLayer = window.dataLayer || [];
+              function gtag(){dataLayer.push(arguments);}
+              gtag('js', new Date());
+              gtag('config', '${GA_MEASUREMENT_ID}');
+            `}
+          </Script>
+        </>
       )}
+
+      <main className="relative z-10 flex flex-col items-center w-full px-4 pt-10 pb-20 text-lg font-mono text-white bg-black">
+        <div className="w-full max-w-3xl mx-auto">
+          {/* Hero */}
+          <section className="mb-8 text-center">
+            <h1 className="text-xl font-semibold mt-8 mb-2" id="logoTop">
+              Fast Math and Shape the Future with MathsMine3
+            </h1>
+            <p className="text-base text-gray-400 text-center mb-2">
+              MathsMine3 is a free-to-play, open-source, and unique Web3 experiment where you solve
+              math puzzles and earn MM3 — a fake token with no real-world value, used exclusively within
+              MathsMine3 to participate in Proof of Ask (PoA) and Proof of Vote (PoV).
+            </p>
+          </section>
+
+          {/* Board */}
+          <SectionFrame title="PLAY BOARD" accent={frameAccent} id="board-section">
+            {account && (
+              <p className="text-base text-gray-400 text-center mb-2">
+                Connected as: {maskWallet(account)}
+              </p>
+            )}
+            <Board
+              account={account}
+              setGameMessage={setGameMessage}
+              setGameCompleted={setGameCompleted}
+              setGameData={setGameData}
+            />
+            {gameMessage && (
+              <div className="text-yellow-400 font-bold text-center mt-6 whitespace-pre-line animate-fade-in">
+                {gameMessage}
+              </div>
+            )}
+            <div className="mt-8">
+              <ConnectAndPlay
+                account={account}
+                setAccount={setAccount}
+                gameCompleted={gameCompleted}
+                gameData={gameData}
+              />
+            </div>
+          </SectionFrame>
+
+          {/* Chart */}
+          <SectionFrame title="TOTAL MM3 BALANCE" accent={frameAccent} id="chart-section">
+            <TokenChart />
+          </SectionFrame>
+
+          {/* Leaderboard */}
+          <SectionFrame title="MM3 PER WALLET" accent={frameAccent} id="leaderboard-section">
+            <Leaderboard itemsPerPage={10} />
+          </SectionFrame>
+
+          {/* marca inferior para el sprite */}
+          <div id="logoBottom" className="h-0 w-0 overflow-hidden" />
+        </div>
+
+        <Analytics />
+        <SpeedInsights />
+      </main>
     </>
   );
 }
