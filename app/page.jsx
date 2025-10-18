@@ -139,50 +139,93 @@ export default function Page() {
         <link rel="canonical" href="https://mathsmine3.xyz/" />
         {/* Estilos del marco pixel retro (visibles y centrados) */}
         <style jsx global>{`
+/* ===== FRAMES RETRO VISIBLES (sin color-mix) ===== */
+
 .mm3-pixel-frame {
-  --a: var(--mm3-accent, #22d3ee);
-  background: #0b0f19;
-  border: 2px solid color-mix(in oklab, var(--a) 90%, white);
-  border-radius: 10px;
+  /* color de acento configurable por inline style, con fallback */
+  --mm3-accent: var(--mm3-accent, #22d3ee);
+
+  background: #0b0f19;                  /* fondo del frame */
+  border: 3px solid #22d3ee;            /* fallback fuerte y visible */
+  border-color: var(--mm3-accent);      /* si se define desde el componente */
+  border-radius: 12px;
   outline: 1px solid rgba(255,255,255,0.08);
+
+  /* halo y separación visual claros (sin funciones experimentales) */
   box-shadow:
-    0 0 12px 1px color-mix(in oklab, var(--a) 70%, transparent),
-    0 0 0 3px rgba(0,0,0,0.5) inset,
-    0 0 20px rgba(0,255,255,0.15);
+    0 0 18px 0 rgba(34,211,238,0.28),   /* glow exterior */
+    inset 0 0 0 2px rgba(3,8,23,0.90),  /* viñeta interior */
+    inset 0 0 0 1px rgba(34,211,238,0.25);
+
   position: relative;
-  overflow: visible;
+  overflow: visible; /* no cortamos la “placa” del título */
 }
 
-/* contorno fosforescente superior e inferior */
-.mm3-pixel-frame::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: 0;
-  height: 2px;
-  width: 100%;
-  background: linear-gradient(90deg, transparent, var(--a), transparent);
-  opacity: 0.7;
-}
-
+/* líneas glow arriba/abajo del frame para remarcar el bloque */
+.mm3-pixel-frame::before,
 .mm3-pixel-frame::after {
   content: "";
   position: absolute;
-  bottom: 0;
   left: 0;
-  height: 2px;
   width: 100%;
-  background: linear-gradient(90deg, transparent, var(--a), transparent);
-  opacity: 0.7;
+  height: 2px;
+  background: linear-gradient(90deg, rgba(0,0,0,0), var(--mm3-accent), rgba(0,0,0,0));
+  opacity: 0.85;
+  pointer-events: none;
+}
+.mm3-pixel-frame::before { top: 0; }
+.mm3-pixel-frame::after  { bottom: 0; }
+
+/* esquinas “notch” simples y compatibles */
+.mm3-pixel-frame .mm3-corners {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.mm3-pixel-frame .mm3-corners::before,
+.mm3-pixel-frame .mm3-corners::after {
+  content: "";
+  position: absolute;
+  width: 10px; height: 10px;
+  border: 2px solid var(--mm3-accent);
+  filter: drop-shadow(0 0 6px rgba(34,211,238,0.35));
+}
+.mm3-pixel-frame .mm3-corners::before { top: -1px; left: -1px; border-right: 0; border-bottom: 0; border-radius: 8px 0 0 0; }
+.mm3-pixel-frame .mm3-corners::after  { bottom: -1px; right: -1px; border-left: 0; border-top: 0; border-radius: 0 0 8px 0; }
+
+/* textura sutil (grid + scanline) */
+.mm3-scanlines {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(transparent 31px, rgba(255,255,255,0.02) 32px) 0 0 / 100% 32px,
+    linear-gradient(90deg, transparent 31px, rgba(255,255,255,0.02) 32px) 0 0 / 32px 100%,
+    linear-gradient(rgba(255,255,255,0.03), rgba(0,0,0,0.06));
+  mix-blend-mode: overlay;
+  opacity: .35;
+  pointer-events: none;
 }
 
-/* título centrado con fondo visible */
+/* placa del título centrada y con buen contraste */
 .mm3-chip {
-  background: color-mix(in oklab, var(--mm3-accent, #22d3ee) 20%, #000);
+  background: rgba(10, 20, 35, 0.9);
   color: #e2e8f0;
-  border: 2px solid color-mix(in oklab, var(--mm3-accent, #22d3ee) 80%, white);
-  border-radius: 8px;
-  box-shadow: 0 0 6px color-mix(in oklab, var(--mm3-accent, #22d3ee) 60%, transparent);
+  border: 2px solid #22d3ee;        /* fallback */
+  border-color: var(--mm3-accent);
+  border-radius: 9px;
+  box-shadow:
+    0 0 0 2px #0b0f19,
+    0 0 10px rgba(34,211,238,0.55);
+  text-shadow: 0 0 6px rgba(34,211,238,0.35);
+}
+
+/* separador glow inferior dentro del frame */
+.mm3-glow-divider {
+  height: 7px;
+  width: 100%;
+  background: radial-gradient(45% 200% at 50% 0%, rgba(34,211,238,0.55), rgba(0,0,0,0));
+  pointer-events: none;
+  filter: blur(.2px);
 }
 
         `}</style>
