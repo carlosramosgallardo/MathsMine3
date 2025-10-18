@@ -23,7 +23,7 @@ const maskWallet = (wallet) => {
   return wallet.slice(0, 5) + '...' + wallet.slice(-5);
 };
 
-// ---------- helpers de color (cliente) ----------
+// ---------- color helpers (client) ----------
 const clamp01 = (x) => Math.max(0, Math.min(1, x));
 const isHex = (v) => typeof v === 'string' && /^#?[0-9a-f]{6}$/i.test(v.replace('#',''));
 const normHex = (v) => (v.startsWith('#') ? v : `#${v}`);
@@ -36,13 +36,11 @@ const mixHex = (aHex, bHex, t) => {
   return `#${c.map(v => v.toString(16).padStart(2, '0')).join('')}`;
 };
 
-// Desde el reward (delta) calculamos un empuje hacia rojo/verde sobre el color actual.
 function colorFromDeltaClient({ delta, prevHex, maxDelta }) {
   const base = isHex(prevHex) ? normHex(prevHex) : '#000000';
   const abs = Math.abs(delta);
-  const scale = clamp01(abs / (maxDelta || 1e-8)); // normaliza por el “precio” máx. de minado
-  const target = delta >= 0 ? '#ff3b30' : '#34c759'; // rojo / verde
-  // Empuje entre 0.15 y 0.75 para que siempre se note algo pero sin saltos bruscos
+  const scale = clamp01(abs / (maxDelta || 1e-8));
+  const target = delta >= 0 ? '#ff3b30' : '#34c759';
   const t = 0.15 + 0.6 * scale;
   return mixHex(base, target, t);
 }
@@ -53,7 +51,7 @@ export default function Page() {
   const [gameCompleted, setGameCompleted] = useState(false);
   const [gameData, setGameData] = useState(null);
 
-  // Color global del token (persistente en Supabase)
+  // token orb color
   const [orbColor, setOrbColor] = useState('#000000');
 
   const loadOrbColor = useCallback(async () => {
@@ -69,10 +67,9 @@ export default function Page() {
     }
   }, []);
 
-  // Carga inicial
   useEffect(() => { loadOrbColor(); }, [loadOrbColor]);
 
-  // Cambio de color SIN API: escuchamos reward, calculamos hex y persistimos desde el cliente.
+  // instant color update from reward event (client-only, no API)
   useEffect(() => {
     const onCorrect = async (ev) => {
       try {
@@ -83,20 +80,14 @@ export default function Page() {
           maxDelta: PARTICIPATION_PRICE,
         });
 
-        // Persistir en Supabase (requiere política RLS que permita UPDATE a role anon/auth)
         const { error } = await supabase
           .from('mm3_visual_state')
           .update({ color_hex: nextHex, updated_at: new Date().toISOString() })
           .eq('id', 1);
 
-        if (error) {
-          console.warn('Supabase update color error:', error.message);
-        }
+        if (error) console.warn('Supabase update color error:', error.message);
 
-        // Cambio instantáneo en la UI
         setOrbColor(nextHex);
-
-        // (Opcional) Notificar listeners de UI que quieran reaccionar al color nuevo
         window.dispatchEvent(new CustomEvent('mm3-orb-color', { detail: { color: nextHex } }));
       } catch (e) {
         console.error('onCorrect color update error:', e);
@@ -107,7 +98,7 @@ export default function Page() {
     return () => window.removeEventListener('mm3-correct', onCorrect);
   }, [orbColor]);
 
-  // Guardar partida cuando hay gameData + wallet
+  // persist game when gameData + wallet; then broadcast a refresh event
   useEffect(() => {
     const saveGame = async () => {
       if (!gameData || !account) return;
@@ -116,7 +107,12 @@ export default function Page() {
         if (error) {
           console.error('Supabase insert error:', error.message);
           setGameMessage('Error saving game data. Transaction aborted.');
+          return;
         }
+        // Broadcast that DB has new data so charts/leaderboard can refresh immediately
+        window.dispatchEvent(new CustomEvent('mm3-db-updated', {
+          detail: { wallet: account, delta: gameData?.mining_reward ?? null }
+        }));
       } catch (e) {
         console.error('Unexpected error saving game:', e);
         setGameMessage('Unexpected error. Try again.');
@@ -138,7 +134,7 @@ export default function Page() {
 
       <MM3PixelOrbSprite
         src="/mm3-token.png"
-        fixedColor={orbColor}   // <- sin API: este se recalcula y persiste desde el cliente
+        fixedColor={orbColor}
         pixelCols={26}
         grid={6}
         zIndex={20}

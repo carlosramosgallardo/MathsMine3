@@ -1,29 +1,43 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import supabase from '@/lib/supabaseClient';
 
-export default function Leaderboard() {
+export default function Leaderboard({ itemsPerPage = 10 }) {
   const [leaderboard, setLeaderboard] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 10;
   const [isLoading, setIsLoading] = useState(true);
 
   const cacheDuration = 60 * 1000;
   const cacheKey = 'leaderboard_data';
   const lastFetchTimeKey = 'leaderboard_last_fetch_time';
+  const abortRef = useRef(null);
 
-  useEffect(() => {
-    const fetchLeaderboard = async () => {
-      const lastFetchTime = localStorage.getItem(lastFetchTimeKey);
-      const currentTime = Date.now();
+  const maskWallet = (wallet) => {
+    if (!wallet || wallet.length <= 10) return wallet;
+    return wallet.slice(0, 5) + '...' + wallet.slice(-5);
+  };
 
-      if (lastFetchTime && currentTime - lastFetchTime < cacheDuration) {
-        const cachedData = JSON.parse(localStorage.getItem(cacheKey));
-        if (cachedData) {
-          setLeaderboard(cachedData);
-          setIsLoading(false);
-          return;
+  const fetchLeaderboard = useCallback(async ({ ignoreCache = false } = {}) => {
+    if (abortRef.current) {
+      abortRef.current.abort();
+    }
+    abortRef.current = new AbortController();
+
+    try {
+      setIsLoading(true);
+
+      if (!ignoreCache) {
+        const lastFetchTime = localStorage.getItem(lastFetchTimeKey);
+        const currentTime = Date.now();
+
+        if (lastFetchTime && currentTime - lastFetchTime < cacheDuration) {
+          const cachedData = JSON.parse(localStorage.getItem(cacheKey));
+          if (cachedData) {
+            setLeaderboard(cachedData);
+            setIsLoading(false);
+            return;
+          }
         }
       }
 
@@ -37,36 +51,58 @@ export default function Leaderboard() {
         setLeaderboard([]);
       } else {
         localStorage.setItem(cacheKey, JSON.stringify(data));
-        localStorage.setItem(lastFetchTimeKey, currentTime.toString());
+        localStorage.setItem(lastFetchTimeKey, Date.now().toString());
         setLeaderboard(data);
       }
+    } catch (e) {
+      if (e?.name !== 'AbortError') console.error('Leaderboard fetch error:', e);
+    } finally {
       setIsLoading(false);
+    }
+  }, []);
+
+  // initial load
+  useEffect(() => {
+    fetchLeaderboard();
+  }, [fetchLeaderboard]);
+
+  // instant refresh after game saved or correct move (with small backoff)
+  useEffect(() => {
+    const handleRefresh = () => {
+      // blow cache and refetch
+      localStorage.removeItem(cacheKey);
+      localStorage.removeItem(lastFetchTimeKey);
+
+      // immediate attempt + tiny retries for view materialization
+      fetchLeaderboard({ ignoreCache: true });
+      const t1 = setTimeout(() => fetchLeaderboard({ ignoreCache: true }), 1000);
+      const t2 = setTimeout(() => fetchLeaderboard({ ignoreCache: true }), 3000);
+      return () => { clearTimeout(t1); clearTimeout(t2); };
     };
 
-    fetchLeaderboard();
-  }, []);
+    const onDbUpdated = () => handleRefresh();
+    const onCorrect = () => handleRefresh();
+
+    window.addEventListener('mm3-db-updated', onDbUpdated);
+    window.addEventListener('mm3-correct', onCorrect);
+    return () => {
+      window.removeEventListener('mm3-db-updated', onDbUpdated);
+      window.removeEventListener('mm3-correct', onCorrect);
+    };
+  }, [fetchLeaderboard]);
 
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
   const currentItems = leaderboard.slice(indexOfFirstItem, indexOfLastItem);
   const totalPages = Math.ceil(leaderboard.length / itemsPerPage);
 
-  const maskWallet = (wallet) => {
-    if (!wallet || wallet.length <= 10) return wallet;
-    return wallet.slice(0, 5) + '...' + wallet.slice(-5);
-  };
-
   return (
     <div className="w-full overflow-auto">
       <table className="table-fixed w-full mx-auto border border-[#22d3ee] rounded-xl text-sm md:text-base">
         <thead className="bg-[#0b0f19] text-[#22d3ee]">
           <tr>
-            <th className="border border-[#22d3ee] px-4 py-2 text-left font-mono">
-              Wallet
-            </th>
-            <th className="border border-[#22d3ee] px-4 py-2 text-right font-mono">
-              MM3
-            </th>
+            <th className="border border-[#22d3ee] px-4 py-2 text-left font-mono">Wallet</th>
+            <th className="border border-[#22d3ee] px-4 py-2 text-right font-mono">MM3</th>
           </tr>
         </thead>
         <tbody className="bg-[#0b0f19] text-[#22d3ee]">
@@ -78,16 +114,12 @@ export default function Leaderboard() {
             </tr>
           ) : currentItems.length > 0 ? (
             currentItems.map((entry, index) => (
-              <tr key={index} className="hover:bg-[#1e293b] transition">
+              <tr key={`${entry.wallet}-${index}`} className="hover:bg-[#1e293b] transition">
                 <td className="border border-[#22d3ee] px-4 py-2 font-mono whitespace-normal break-words">
                   <div className="flex items-center gap-1 flex-wrap">
                     <span>{maskWallet(entry.wallet)}</span>
                     {entry.nfts?.map((nft) => (
-                      <a
-                        href={`/nft/${nft.slug}`}
-                        key={nft.slug}
-                        title={nft.name}
-                      >
+                      <a href={`/nft/${nft.slug}`} key={nft.slug} title={nft.name}>
                         <img
                           src={nft.image_url}
                           alt={nft.slug}
@@ -98,7 +130,7 @@ export default function Leaderboard() {
                   </div>
                 </td>
                 <td className="border border-[#22d3ee] px-4 py-2 font-mono text-right text-sm md:text-base">
-                {entry.total_eth?.toString().match(/^(\d+\.\d{0,8})/)?.[1] || entry.total_eth}
+                  {entry.total_eth?.toString().match(/^(\d+\.\d{0,8})/)?.[1] || entry.total_eth}
                 </td>
               </tr>
             ))
