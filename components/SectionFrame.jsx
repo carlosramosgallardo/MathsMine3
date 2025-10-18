@@ -6,23 +6,25 @@ export default function SectionFrame({
   children,
   id
 }) {
-  // Nota: todo es visual, sin persistencia
   return (
-    <section id={id} className="relative my-10">
+    <section id={id} className="relative my-12">
       <div
-        className="mm3-pixel-frame relative rounded-xl overflow-hidden"
+        className="mm3-pixel-frame relative rounded-xl"
         style={{ ['--mm3-accent']: accent }}
       >
-        {/* Título estilo “placa” pixel */}
+        {/* Reserva superior para que la placa nunca se corte */}
+        <div className="h-4" aria-hidden="true" />
+
+        {/* Placa/título 8-bit */}
         {title && (
           <div className="absolute -top-3 left-6 z-10">
-            <span className="mm3-chip px-3 py-1 font-mono text-xs uppercase tracking-widest">
+            <span className="mm3-chip px-3 py-1 font-mono text-xs uppercase tracking-widest select-none">
               {title}
             </span>
           </div>
         )}
 
-        {/* Fondo con grid + scanlines sutiles */}
+        {/* Textura sutil */}
         <div className="mm3-scanlines pointer-events-none" aria-hidden="true" />
 
         {/* Contenido */}
@@ -30,7 +32,7 @@ export default function SectionFrame({
           {children}
         </div>
 
-        {/* Divider inferior luminiscente */}
+        {/* Línea glow inferior (separador visual claro) */}
         <div className="mm3-glow-divider" aria-hidden="true" />
       </div>
     </section>

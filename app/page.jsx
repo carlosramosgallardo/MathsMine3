@@ -131,42 +131,48 @@ export default function Page() {
           content="Fast Math, Mine MM3, and Shape the Future with PoV & PoA. A free Web3 experiment merging gamified learning and token economics."
         />
         <link rel="canonical" href="https://mathsmine3.xyz/" />
-        {/* Estilos del marco pixel retro */}
+        {/* Estilos del marco pixel retro (ajustados para que NO se corten los títulos y se vea claro) */}
         <style jsx global>{`
           .mm3-pixel-frame {
             --a: var(--mm3-accent, #22d3ee);
             background: #0b0f19;
-            border: 2px solid var(--a);
+            border: 3px solid var(--a);
             outline: 1px solid rgba(255,255,255,0.06);
+            /* borde interior para delimitar mejor el bloque */
             box-shadow:
-              0 0 0 1px rgba(34,211,238,0.15) inset,
-              0 0 18px 0 color-mix(in oklab, var(--a) 30%, transparent),
-              0 0 2px 0 rgba(0,0,0,0.6);
+              0 0 0 2px rgba(3, 8, 23, 0.9) inset,
+              0 0 0 1px color-mix(in oklab, var(--a) 25%, transparent) inset,
+              0 0 20px 0 color-mix(in oklab, var(--a) 28%, transparent),
+              0 0 2px rgba(0,0,0,0.6);
             position: relative;
+            overflow: visible; /* <- evita cortar la placa del título */
           }
-          /* Esquinas “notch” pixel */
-          .mm3-pixel-frame::before,
-          .mm3-pixel-frame::after {
+          /* Esquinas “notch” más visibles */
+          .mm3-pixel-frame::before {
             content: "";
             position: absolute;
             inset: 0;
             pointer-events: none;
             background:
-              /* esquinas */
-              radial-gradient(8px 8px at 0 0, var(--a) 98%, transparent) top left,
-              radial-gradient(8px 8px at 100% 0, var(--a) 98%, transparent) top right,
-              radial-gradient(8px 8px at 0 100%, var(--a) 98%, transparent) bottom left,
-              radial-gradient(8px 8px at 100% 100%, var(--a) 98%, transparent) bottom right;
+              radial-gradient(10px 10px at 0 0, var(--a) 98%, transparent) top left,
+              radial-gradient(10px 10px at 100% 0, var(--a) 98%, transparent) top right,
+              radial-gradient(10px 10px at 0 100%, var(--a) 98%, transparent) bottom left,
+              radial-gradient(10px 10px at 100% 100%, var(--a) 98%, transparent) bottom right;
             background-repeat: no-repeat;
-            background-size: 8px 8px;
-            opacity: .18;
+            background-size: 10px 10px;
+            opacity: .22;
             mix-blend-mode: screen;
           }
+          /* Líneas superior e inferior internas para sensación de “caja” */
           .mm3-pixel-frame::after {
-            background:
-              linear-gradient(90deg, transparent, color-mix(in oklab, var(--a) 30%, transparent), transparent) top/100% 1px no-repeat,
-              linear-gradient(90deg, transparent, color-mix(in oklab, var(--a) 30%, transparent), transparent) bottom/100% 1px no-repeat;
-            opacity: .35;
+            content: "";
+            position: absolute;
+            left: 6px; right: 6px;
+            top: 8px; bottom: 8px;
+            border-top: 1px solid color-mix(in oklab, var(--a) 35%, transparent);
+            border-bottom: 1px solid color-mix(in oklab, var(--a) 35%, transparent);
+            opacity: .5;
+            pointer-events: none;
           }
           .mm3-chip {
             background:
@@ -178,26 +184,31 @@ export default function Page() {
             color: #e2e8f0;
             border: 2px solid var(--mm3-accent, #22d3ee);
             border-radius: 10px;
-            box-shadow: 0 0 14px color-mix(in oklab, var(--mm3-accent, #22d3ee) 40%, transparent);
+            /* “pixel shadow” para que se lea bien sobre cualquier fondo */
+            box-shadow:
+              0 0 0 2px #0b0f19,
+              0 0 14px color-mix(in oklab, var(--mm3-accent, #22d3ee) 45%, transparent);
           }
           .mm3-scanlines {
             position: absolute;
             inset: 0;
             background:
               /* grid retro sutil */
-              linear-gradient(transparent 31px, rgba(255,255,255,0.018) 32px) 0 0 / 100% 32px,
-              linear-gradient(90deg, transparent 31px, rgba(255,255,255,0.018) 32px) 0 0 / 32px 100%,
+              linear-gradient(transparent 31px, rgba(255,255,255,0.02) 32px) 0 0 / 100% 32px,
+              linear-gradient(90deg, transparent 31px, rgba(255,255,255,0.02) 32px) 0 0 / 32px 100%,
               /* scanline */
               linear-gradient(rgba(255,255,255,0.03), rgba(0,0,0,0.06));
             mix-blend-mode: overlay;
             opacity: .35;
+            pointer-events: none;
           }
           .mm3-glow-divider {
-            height: 6px;
+            height: 7px;
             width: 100%;
-            background: radial-gradient(40% 200% at 50% 0%,
-              color-mix(in oklab, var(--mm3-accent, #22d3ee) 45%, transparent),
-              transparent 70%);
+            background:
+              radial-gradient(45% 200% at 50% 0%,
+                color-mix(in oklab, var(--mm3-accent, #22d3ee) 55%, transparent),
+                transparent 70%);
             filter: blur(0.2px);
           }
         `}</style>
