@@ -41,7 +41,6 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
   };
   const getContrastText = (bgHex) => {
     const [r,g,b] = hexToRgb(bgHex || '#000000');
-    // luminancia relativa simple
     const yiq = (r*299 + g*587 + b*114) / 1000;
     return yiq >= 150 ? '#0b0f19' : '#e2e8f0';
   };
@@ -159,7 +158,6 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
 
   // ---------- orb color listener ----------
   useEffect(() => {
-    // escucha color actual del orbe (se emite en Page al cambiar)
     const onOrbColor = (ev) => {
       const next = ev?.detail?.color;
       if (typeof next === 'string') setOrbColor(next);
@@ -180,7 +178,7 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
       setLocalGameCompleted(false);
       setGameCompleted(false);
       setToast(null);
-      // reset highlight
+      setGameMessage('');
       setHighlightIdx(null);
       setHighlightColor(null);
 
@@ -233,6 +231,7 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
       setElapsedTime(timePassed);
       if (timePassed >= 10000) {
         clearInterval(solveIntervalRef.current);
+        setGameMessage('');
         showMessage('Time exceeded! No mining reward.', 'info', true);
         finalizeGame(false, 0, null);
       }
@@ -256,9 +255,7 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
         miningAmount = -PARTICIPATION_PRICE * 0.10 * penaltyRatio;
       }
 
-      // pintar la casilla con el MISMO color del orbe:
-      // 1) esperamos el próximo 'mm3-orb-color' (que Page emite tras calcular/persistir)
-      // 2) fallback en 250ms al último color conocido, por si el evento tarda un pelo
+      // highlight con color del orbe
       let settled = false;
       const applyHighlight = (color) => {
         if (settled) return;
@@ -266,19 +263,16 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
         setHighlightIdx(idx);
         setHighlightColor(color || orbColor || '#22d3ee');
       };
-
       const oneShot = (ev) => {
         applyHighlight(ev?.detail?.color);
         window.removeEventListener('mm3-orb-color', oneShot);
       };
       window.addEventListener('mm3-orb-color', oneShot);
-
       setTimeout(() => {
         window.removeEventListener('mm3-orb-color', oneShot);
         applyHighlight(orbColor);
       }, 250);
 
-      // Notifica a Page (que calculará y persistirá el color y emitirá 'mm3-orb-color')
       if (typeof window !== 'undefined') {
         window.dispatchEvent(new CustomEvent('mm3-correct', { detail: { reward: miningAmount } }));
       }
@@ -292,6 +286,7 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
 
       showMessage(message, 'success');
     } else {
+      setGameMessage('');
       showMessage('Incorrect! No mining reward.', 'error', true);
     }
 
@@ -356,10 +351,7 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
                             ? 'border-transparent shadow-[0_0_18px_rgba(34,211,238,0.25)] scale-[1.01]'
                             : 'bg-[#0b1222] border-[#22d3ee]/50 text-[#e2e8f0] hover:scale-105 hover:shadow-[0_0_18px_rgba(34,211,238,0.45)] hover:border-[#22d3ee]'
                         }`}
-                      style={isHighlighted ? {
-                        backgroundColor: bg,
-                        color: fg
-                      } : undefined}
+                      style={isHighlighted ? { backgroundColor: bg, color: fg } : undefined}
                       title="Pick your answer"
                     >
                       <span className={`${/^[+\-*/]$/.test(choice) ? 'text-2xl leading-none' : ''}`}>
@@ -382,12 +374,15 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
                 >
                   Submit
                 </button>
+
                 {gameCompleted && (
                   <button
-                    onClick={fetchPhrase}
+                    onClick={() => {
+                      if (typeof window !== 'undefined') window.location.reload();
+                    }}
                     disabled={isRefreshing}
                     className={`w-8 h-8 flex items-center justify-center text-lg ${isRefreshing ? 'animate-spin opacity-50 cursor-wait' : 'hover:text-yellow-300'}`}
-                    title="Try a new round"
+                    title="Reload page"
                   >
                     🔄
                   </button>
