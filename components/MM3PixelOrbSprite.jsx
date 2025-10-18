@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useMemo } from 'react';
 
 export default function MM3PixelOrbSprite({
   src = '/mm3-token.png',
@@ -17,7 +17,11 @@ export default function MM3PixelOrbSprite({
   driftIntervalMs = 2800, // how often we pick a new drift target
   maxDriftSpeedPx = 120,  // max speed toward target (px/s)
   jitterAmpPx = 10,       // small sine jitter amplitude
-  jitterFreqHz = 0.4      // jitter frequency
+  jitterFreqHz = 0.4,     // jitter frequency
+
+  // --- NUEVO: click control ---
+  isClickable = false,        // habilitado por la página solo tras acierto
+  onClickActive = () => {},   // handler que navega a /learn-math
 }) {
   const canvasRef = useRef(null);
   const rafRef = useRef(null);
@@ -39,6 +43,9 @@ export default function MM3PixelOrbSprite({
 
   // Color override
   const colorHexRef = useRef(fixedColor);
+
+  // Último rectángulo dibujado (para hit-test)
+  const drawRectRef = useRef({ x: 0, y: 0, w: 0, h: 0 });
 
   // --- utils ---
   const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
@@ -213,11 +220,29 @@ export default function MM3PixelOrbSprite({
         const dx2 = Math.round(cx - w / 2);
         const dy2 = Math.round(cy - hpx / 2);
 
+        // guardar rect para hit-test
+        drawRectRef.current = { x: dx2, y: dy2, w, h: hpx };
+
+        // dibujar sprite + tinte
         ctx.drawImage(mask, dx2, dy2, w, hpx);
         ctx.globalCompositeOperation = 'source-atop';
         ctx.fillStyle = fill;
         ctx.fillRect(dx2, dy2, w, hpx);
         ctx.globalCompositeOperation = 'source-over';
+
+        // Glow opcional cuando está clicable
+        if (isClickable) {
+          ctx.save();
+          ctx.shadowBlur = 18;
+          ctx.shadowColor = 'rgba(255,255,255,0.25)';
+          ctx.strokeStyle = 'rgba(255,255,255,0.35)';
+          ctx.lineWidth = 1.5;
+          ctx.strokeRect(dx2 - 2, dy2 - 2, w + 4, hpx + 4);
+          ctx.restore();
+        }
+      } else {
+        // si aún no hay máscara, no hay área clicable
+        drawRectRef.current = { x: 0, y: 0, w: 0, h: 0 };
       }
 
       rafRef.current = requestAnimationFrame(loop);
@@ -236,7 +261,8 @@ export default function MM3PixelOrbSprite({
     driftIntervalMs,
     maxDriftSpeedPx,
     jitterAmpPx,
-    jitterFreqHz
+    jitterFreqHz,
+    isClickable, // para que el glow responda en caliente
   ]);
 
   // compute anchor after layout settles
@@ -245,8 +271,38 @@ export default function MM3PixelOrbSprite({
     return () => clearTimeout(id);
   }, []);
 
+  // --- click handling con hit-test ---
+  const handleClick = (e) => {
+    if (!isClickable) return;
+    const rect = (canvasRef.current || {}).getBoundingClientRect?.();
+    if (!rect) return;
+    const mx = e.clientX - rect.left;
+    const my = e.clientY - rect.top;
+    const { x, y, w, h } = drawRectRef.current || {};
+    if (w > 0 && h > 0) {
+      const inside = mx >= x && mx <= x + w && my >= y && my <= y + h;
+      if (inside && typeof onClickActive === 'function') {
+        onClickActive();
+      }
+    }
+  };
+
+  const wrapperClass = useMemo(
+    () =>
+      [
+        'fixed inset-0',
+        isClickable ? 'pointer-events-auto cursor-pointer' : 'pointer-events-none cursor-default',
+      ].join(' '),
+    [isClickable]
+  );
+
   return (
-    <div className="pointer-events-none fixed inset-0" style={{ zIndex }} aria-hidden="true">
+    <div
+      className={wrapperClass}
+      style={{ zIndex }}
+      aria-hidden={!isClickable ? 'true' : 'false'}
+      onClick={handleClick}
+    >
       <canvas ref={canvasRef} className="w-full h-full" />
     </div>
   );

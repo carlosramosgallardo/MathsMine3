@@ -301,7 +301,7 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
   const finalizeGame = (isCorrect, miningAmount, choice) => {
     setIsDisabled(true);
     setLocalGameCompleted(true);
-    setGameCompleted(true);
+    setGameCompleted(true); // <- esta señal activa la ventana clicable en Page cuando is_correct === true
     setGameData({
       wallet: account,
       problem: problem.masked,
@@ -326,7 +326,7 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
 
               {/* Timer */}
               <p className="text-sm text-[#22d3ee] mt-2">
-                Time elapsed:{' '}
+                Time elapsed{' '}
                 <span className="text-yellow-300">
                   {preGameCountdown > 0 ? 0 : elapsedTime} ms
                 </span>
