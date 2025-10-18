@@ -24,27 +24,37 @@ const maskWallet = (wallet) => {
   return wallet.slice(0, 5) + '...' + wallet.slice(-5);
 };
 
-// ---------- color helpers (client) ----------
-const clamp01 = (x) => Math.max(0, Math.min(1, x));
-const isHex = (v) => typeof v === 'string' && /^#?[0-9a-f]{6}$/i.test(v.replace('#',''));
-const normHex = (v) => (v.startsWith('#') ? v : `#${v}`);
-const mixHex = (aHex, bHex, t) => {
-  const ah = normHex(aHex).slice(1);
-  const bh = normHex(bHex).slice(1);
-  const a = [parseInt(ah.slice(0,2),16), parseInt(ah.slice(2,4),16), parseInt(ah.slice(4,6),16)];
-  const b = [parseInt(bh.slice(0,2),16), parseInt(bh.slice(2,4),16), parseInt(bh.slice(4,6),16)];
-  const c = a.map((ai, i) => Math.round(ai + (b[i] - ai) * t));
-  return `#${c.map(v => v.toString(16).padStart(2, '0')).join('')}`;
+/* ===== Helpers de color (escala de grises) ===== */
+const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+const isHex = (v) => typeof v === 'string' && /^#?[0-9a-f]{6}$/i.test((v || '').replace('#',''));
+const normHex = (v) => (v?.startsWith?.('#') ? v : `#${v || ''}`);
+const hexToRgb = (hex) => {
+  const h = normHex(hex).slice(1);
+  return { r: parseInt(h.slice(0,2),16), g: parseInt(h.slice(2,4),16), b: parseInt(h.slice(4,6),16) };
 };
-
-function colorFromDeltaClient({ delta, prevHex, maxDelta }) {
-  const base = isHex(prevHex) ? normHex(prevHex) : '#000000';
-  const abs = Math.abs(delta);
-  const scale = clamp01(abs / (maxDelta || 1e-8));
-  const target = delta >= 0 ? '#ff3b30' : '#34c759';
-  const t = 0.15 + 0.6 * scale;
-  return mixHex(base, target, t);
-}
+const rgbToHex = (r,g,b) => {
+  const to2 = (n) => Math.max(0, Math.min(255, Math.round(n))).toString(16).padStart(2,'0');
+  return `#${to2(r)}${to2(g)}${to2(b)}`;
+};
+const toGrayHex = (hex) => {
+  if (!isHex(hex)) return '#808080';
+  const { r,g,b } = hexToRgb(hex);
+  const y = 0.2126*r + 0.7152*g + 0.0722*b;
+  return rgbToHex(y,y,y);
+};
+/** reward -> MM3 ∈ [-1,1] */
+const rewardToMM3 = (reward) => {
+  const maxPos = PARTICIPATION_PRICE;           // mejor caso (0 ms)
+  const maxNeg = -PARTICIPATION_PRICE * 0.10;   // peor caso (10s)
+  if (reward >= 0) return clamp(reward / maxPos, 0, 1);           // 0..1
+  return clamp(-(reward / maxNeg), 0, 1) * -1;                     // -1..0
+};
+/** MM3 ∈ [-1,1] -> #rrrrrr (gris) */
+const mm3ToGrayHex = (mm3) => {
+  const t = (clamp(mm3, -1, 1) + 1) / 2; // [-1..1] -> [0..1]
+  const y = Math.round(255 * t);         // 0 negro, 255 blanco
+  return rgbToHex(y,y,y);
+};
 
 export default function Page() {
   const [account, setAccount] = useState(null);
@@ -52,7 +62,7 @@ export default function Page() {
   const [gameCompleted, setGameCompleted] = useState(false);
   const [gameData, setGameData] = useState(null);
 
-  // token orb color
+  // color del orbe (siempre gris)
   const [orbColor, setOrbColor] = useState('#000000');
 
   const loadOrbColor = useCallback(async () => {
@@ -62,7 +72,10 @@ export default function Page() {
         .select('color_hex')
         .eq('id', 1)
         .maybeSingle();
-      if (!error && data?.color_hex) setOrbColor(data.color_hex);
+      if (!error && data?.color_hex) {
+        // aunque en BBDD viniera algo no-gris, lo normalizamos
+        setOrbColor(toGrayHex(data.color_hex));
+      }
     } catch (e) {
       console.error('Error loading orb color:', e);
     }
@@ -70,17 +83,15 @@ export default function Page() {
 
   useEffect(() => { loadOrbColor(); }, [loadOrbColor]);
 
-  // instant color update from reward event (client-only, no API)
+  /* === Actualiza orbe y BBDD al acertar (solo gris) === */
   useEffect(() => {
     const onCorrect = async (ev) => {
       try {
         const reward = Number(ev?.detail?.reward || 0);
-        const nextHex = colorFromDeltaClient({
-          delta: reward,
-          prevHex: orbColor,
-          maxDelta: PARTICIPATION_PRICE,
-        });
+        const mm3 = rewardToMM3(reward);
+        const nextHex = mm3ToGrayHex(mm3); // negro↔blanco
 
+        // Persistimos SOLO gris
         const { error } = await supabase
           .from('mm3_visual_state')
           .update({ color_hex: nextHex, updated_at: new Date().toISOString() })
@@ -88,6 +99,7 @@ export default function Page() {
 
         if (error) console.warn('Supabase update color error:', error.message);
 
+        // Actualiza estado + emite a otros listeners (Board, Orb)
         setOrbColor(nextHex);
         window.dispatchEvent(new CustomEvent('mm3-orb-color', { detail: { color: nextHex } }));
       } catch (e) {
@@ -97,7 +109,7 @@ export default function Page() {
 
     window.addEventListener('mm3-correct', onCorrect);
     return () => window.removeEventListener('mm3-correct', onCorrect);
-  }, [orbColor]);
+  }, []);
 
   // persist game when gameData + wallet; then broadcast a refresh event
   useEffect(() => {
@@ -110,7 +122,7 @@ export default function Page() {
           setGameMessage('Error saving game data. Transaction aborted.');
           return;
         }
-        // Broadcast that DB has new data so charts/leaderboard can refresh immediately
+        // Broadcast para que charts/leaderboard refresquen
         window.dispatchEvent(new CustomEvent('mm3-db-updated', {
           detail: { wallet: account, delta: gameData?.mining_reward ?? null }
         }));
@@ -122,11 +134,11 @@ export default function Page() {
     saveGame();
   }, [gameData, account]);
 
-  // color de acento efectivo para que el marco NUNCA sea negro
+  // Acento del marco: usa el gris del orbe; si es negro puro, usa gris claro
   const frameAccent =
-    typeof orbColor === 'string' && orbColor.toLowerCase() !== '#000000'
+    (typeof orbColor === 'string' && orbColor.toLowerCase() !== '#000000')
       ? orbColor
-      : '#22d3ee';
+      : '#cbd5e1';
 
   return (
     <>
@@ -142,26 +154,19 @@ export default function Page() {
 /* ===== FRAMES RETRO VISIBLES (sin color-mix) ===== */
 
 .mm3-pixel-frame {
-  /* color de acento configurable por inline style, con fallback */
-  --mm3-accent: var(--mm3-accent, #22d3ee);
-
-  background: #0b0f19;                  /* fondo del frame */
-  border: 3px solid #22d3ee;            /* fallback fuerte y visible */
-  border-color: var(--mm3-accent);      /* si se define desde el componente */
+  --mm3-accent: var(--mm3-accent, #cbd5e1);
+  background: #0b0f19;
+  border: 3px solid var(--mm3-accent);
   border-radius: 12px;
   outline: 1px solid rgba(255,255,255,0.08);
-
-  /* halo y separación visual claros (sin funciones experimentales) */
   box-shadow:
-    0 0 18px 0 rgba(34,211,238,0.28),   /* glow exterior */
-    inset 0 0 0 2px rgba(3,8,23,0.90),  /* viñeta interior */
-    inset 0 0 0 1px rgba(34,211,238,0.25);
-
+    0 0 18px 0 rgba(203,213,225,0.28),
+    inset 0 0 0 2px rgba(3,8,23,0.90),
+    inset 0 0 0 1px rgba(203,213,225,0.25);
   position: relative;
-  overflow: visible; /* no cortamos la “placa” del título */
+  overflow: visible;
 }
 
-/* líneas glow arriba/abajo del frame para remarcar el bloque */
 .mm3-pixel-frame::before,
 .mm3-pixel-frame::after {
   content: "";
@@ -176,7 +181,6 @@ export default function Page() {
 .mm3-pixel-frame::before { top: 0; }
 .mm3-pixel-frame::after  { bottom: 0; }
 
-/* esquinas “notch” simples y compatibles */
 .mm3-pixel-frame .mm3-corners {
   position: absolute;
   inset: 0;
@@ -188,12 +192,11 @@ export default function Page() {
   position: absolute;
   width: 10px; height: 10px;
   border: 2px solid var(--mm3-accent);
-  filter: drop-shadow(0 0 6px rgba(34,211,238,0.35));
+  filter: drop-shadow(0 0 6px rgba(203,213,225,0.35));
 }
 .mm3-pixel-frame .mm3-corners::before { top: -1px; left: -1px; border-right: 0; border-bottom: 0; border-radius: 8px 0 0 0; }
 .mm3-pixel-frame .mm3-corners::after  { bottom: -1px; right: -1px; border-left: 0; border-top: 0; border-radius: 0 0 8px 0; }
 
-/* textura sutil (grid + scanline) */
 .mm3-scanlines {
   position: absolute;
   inset: 0;
@@ -206,34 +209,30 @@ export default function Page() {
   pointer-events: none;
 }
 
-/* placa del título centrada y con buen contraste */
 .mm3-chip {
   background: rgba(10, 20, 35, 0.9);
   color: #e2e8f0;
-  border: 2px solid #22d3ee;        /* fallback */
-  border-color: var(--mm3-accent);
+  border: 2px solid var(--mm3-accent);
   border-radius: 9px;
   box-shadow:
     0 0 0 2px #0b0f19,
-    0 0 10px rgba(34,211,238,0.55);
-  text-shadow: 0 0 6px rgba(34,211,238,0.35);
+    0 0 10px rgba(203,213,225,0.55);
+  text-shadow: 0 0 6px rgba(203,213,225,0.35);
 }
 
-/* separador glow inferior dentro del frame */
 .mm3-glow-divider {
   height: 7px;
   width: 100%;
-  background: radial-gradient(45% 200% at 50% 0%, rgba(34,211,238,0.55), rgba(0,0,0,0));
+  background: radial-gradient(45% 200% at 50% 0%, rgba(203,213,225,0.55), rgba(0,0,0,0));
   pointer-events: none;
   filter: blur(.2px);
 }
-
         `}</style>
       </Head>
 
       <MM3PixelOrbSprite
         src="/mm3-token.png"
-        fixedColor={orbColor}
+        fixedColor={orbColor}   // ya va en gris
         pixelCols={26}
         grid={6}
         zIndex={20}
@@ -287,7 +286,7 @@ export default function Page() {
               setGameData={setGameData}
             />
             {gameMessage && (
-              <div className="text-yellow-400 font-bold text-center mt-6 whitespace-pre-line animate-fade-in">
+              <div className="text-gray-300 font-bold text-center mt-6 whitespace-pre-line animate-fade-in">
                 {gameMessage}
               </div>
             )}
