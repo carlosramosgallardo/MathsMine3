@@ -57,7 +57,7 @@ export default function Page() {
      //    }
      //  ).subscribe();
     //return () => { supabase.removeChannel(channel); };
-  //}, []);
+  }, []);
 
   // Guardar partida cuando hay gameData + wallet
   useEffect(() => {
