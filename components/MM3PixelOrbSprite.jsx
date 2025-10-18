@@ -4,7 +4,7 @@ import { useEffect, useRef } from 'react';
 
 export default function MM3PixelOrbSprite({
   src = '/mm3-token.png',
-  tokenValue = 0,     // no se usa para color ahora, lo dejamos por si lo necesitas
+  tokenValue = 0,     // reservado por si quieres usarlo
   trendPct = 0,       // +0.12 = +12% semanal (más rojo), -0.08 = -8% (más verde)
   pixelCols = 28,
   grid = 6,
@@ -29,18 +29,18 @@ export default function MM3PixelOrbSprite({
   const phaseRef = useRef(0);
 
   const lerp = (a,b,t)=>a+(b-a)*t;
-  const clamp01 = (v)=>Math.max(0, Math.min(1, v));
+
   const hslStr = (h,s,l)=>`hsla(${h}, ${s}%, ${l}%, 1)`;
 
   const computeAnchors = () => {
     const vw = window.innerWidth, vh = window.innerHeight;
     const centerOf = (el) => { const r = el.getBoundingClientRect(); return { x: r.left + r.width/2, y: r.top + r.height/2 }; };
-    let s=null, e=null;
-    if (startSelector) { const el = document.querySelector(startSelector); if (el) s = centerOf(el); }
-    if (endSelector)   { const el = document.querySelector(endSelector);   if (el) e = centerOf(el); }
-    if (!s) s = { x: vw/2, y: Math.max(80, vh*0.18) };
-    if (!e) e = { x: vw/2, y: vh - Math.max(80, vh*0.18) };
-    startRef.current = s; endRef.current = e;
+    let sEl=null, eEl=null;
+    if (startSelector) { const el = document.querySelector(startSelector); if (el) sEl = centerOf(el); }
+    if (endSelector)   { const el = document.querySelector(endSelector);   if (el) eEl = centerOf(el); }
+    if (!sEl) sEl = { x: vw/2, y: Math.max(80, vh*0.18) };
+    if (!eEl) eEl = { x: vw/2, y: vh - Math.max(80, vh*0.18) };
+    startRef.current = sEl; endRef.current = eEl;
   };
 
   const reseedZigzag = () => {
@@ -100,33 +100,32 @@ export default function MM3PixelOrbSprite({
       ctx.clearRect(0, 0, canvas.clientWidth, canvas.clientHeight);
 
       // posición con zig-zag
-      const s = startRef.current, e = endRef.current;
+      const sAnchor = startRef.current, eAnchor = endRef.current;
       const tt = tRef.current;
-      const xLin = s.x + (e.x - s.x)*tt;
-      const yLin = s.y + (e.y - s.y)*tt;
+      const xLin = sAnchor.x + (eAnchor.x - sAnchor.x)*tt;
+      const yLin = sAnchor.y + (eAnchor.y - sAnchor.y)*tt;
       const x = xLin + Math.sin(tt * Math.PI * 2 * freqRef.current + phaseRef.current) * ampRef.current;
       const y = yLin;
 
       // ---- Color constante según tendencia semanal ----
-      // map: tendencia positiva => más ROJO; negativa => más VERDE.
-      // Cap de ±50% para evitar saturaciones extremas; ajusta a tu gusto.
+      // tendencia positiva => más ROJO; negativa => más VERDE.
       const cap = 0.5;
       const p = Math.max(-cap, Math.min(cap, trendPct || 0)); // clamp
-      let h, s, l;
+      let hue, sat, lig;
       if (p >= 0) {
         // ROJO (de salmón -> rojo intenso)
-        const t = p / cap;  // 0..1
-        h = lerp(12, 0, t);   // 12→0
-        s = lerp(80, 95, t);  // 80→95
-        l = lerp(58, 56, t);  // 58→56
+        const t = p / cap;      // 0..1
+        hue = lerp(12, 0, t);   // 12→0
+        sat = lerp(80, 95, t);  // 80→95
+        lig = lerp(58, 56, t);  // 58→56
       } else {
         // VERDE (de lima suave -> verde profundo)
-        const t = (-p) / cap; // 0..1
-        h = lerp(120, 95, t); // 120→95
-        s = lerp(70, 95, t);  // 70→95
-        l = lerp(58, 60, t);  // 58→60
+        const t = (-p) / cap;   // 0..1
+        hue = lerp(120, 95, t); // 120→95
+        sat = lerp(70, 95, t);  // 70→95
+        lig = lerp(58, 60, t);  // 58→60
       }
-      const fill = hslStr(h, s, l);
+      const fill = hslStr(hue, sat, lig);
 
       // dibuja máscara pixelada escalada y la colorea
       const mask = maskRef.current;
