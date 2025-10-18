@@ -28,9 +28,10 @@ export default function Page() {
   const [gameCompleted, setGameCompleted] = useState(false);
   const [gameData, setGameData] = useState(null);
 
-  // Color global del token (persistente desde Supabase)
+  // Color global del token (persistente en Supabase)
   const [orbColor, setOrbColor] = useState('#000000');
 
+  // Lee el color inicial desde Supabase (tabla mm3_visual_state)
   useEffect(() => {
     const loadColor = async () => {
       try {
@@ -39,16 +40,44 @@ export default function Page() {
           .select('color_hex')
           .eq('id', 1)
           .maybeSingle();
-
         if (!error && data?.color_hex) setOrbColor(data.color_hex);
       } catch (e) {
         console.error('Error loading orb color:', e);
       }
     };
     loadColor();
+
+    // (Opcional) Realtime para que cambie al vuelo si actualizas color_hex:
+    // const channel = supabase
+    //   .channel('mm3-visual')
+    //   .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'mm3_visual_state', filter: 'id=eq.1' },
+    //     (payload) => {
+    //       const newColor = payload.new?.color_hex;
+    //       if (newColor) setOrbColor(newColor);
+    //     }
+    //   ).subscribe();
+    // return () => { supabase.removeChannel(channel); };
   }, []);
 
-  // ... tu efecto para guardar partidas (igual que ahora)
+  // Guardar partida cuando hay gameData + wallet
+  useEffect(() => {
+    const saveGame = async () => {
+      if (!gameData || !account) return;
+      try {
+        const { error } = await supabase.from('games').insert([gameData]);
+        if (error) {
+          console.error('Supabase insert error:', error.message);
+          setGameMessage('Error saving game data. Transaction aborted.');
+        } else {
+          console.log('Game saved successfully');
+        }
+      } catch (e) {
+        console.error('Unexpected error saving game:', e);
+        setGameMessage('Unexpected error. Try again.');
+      }
+    };
+    saveGame();
+  }, [gameData, account]);
 
   return (
     <>
@@ -61,16 +90,16 @@ export default function Page() {
         <link rel="canonical" href="https://mathsmine3.xyz/" />
       </Head>
 
-      {/* Orbe pixelado: color persistente desde Supabase */}
+      {/* Fondo: logo pixelado con color fijo (persistente) y movimiento más lento */}
       <MM3PixelOrbSprite
         src="/mm3-token.png"
-        fixedColor={orbColor}    // <- viene de la tabla
+        fixedColor={orbColor}   // <- color leído de Supabase
         pixelCols={26}
         grid={6}
         zIndex={20}
         startSelector="#logoTop"
         endSelector="#logoBottom"
-        durationMs={14000}       // movimiento más lento
+        durationMs={14000}      // <- más lento
       />
 
       {GA_ENABLED && GA_MEASUREMENT_ID && (
@@ -90,7 +119,72 @@ export default function Page() {
         </>
       )}
 
-      {/* ...tu <main> y todo el contenido igual */}
+      <main className="relative z-10 flex flex-col items-center w-full px-4 pt-10 pb-20 text-lg font-mono text-white bg-black">
+        <div className="w-full max-w-3xl mx-auto">
+          {/* Hero */}
+          <section className="mb-12 text-center">
+            <h1 className="text-xl font-semibold mt-8 mb-2" id="logoTop">
+              Fast Math and Shape the Future with MathsMine3
+            </h1>
+            <p className="text-base text-gray-400 text-center mb-2">
+              MathsMine3 is a free-to-play, open-source, and unique Web3 experiment where you solve math puzzles and earn MM3 — a fake token with no real-world value, used exclusively within MathsMine3 to participate in Proof of Ask (PoA) and Proof of Vote (PoV).
+            </p>
+          </section>
+
+          {/* Game Board */}
+          <section className="mb-12 text-center">
+            <h1 className="text-xl font-semibold mt-8 mb-2">Play now:</h1>
+          </section>
+          <div className="mb-12">
+            {account && (
+              <p className="text-base text-gray-400 text-center mb-2">
+                Connected as: {maskWallet(account)}
+              </p>
+            )}
+            <Board
+              account={account}
+              setGameMessage={setGameMessage}
+              setGameCompleted={setGameCompleted}
+              setGameData={setGameData}
+            />
+            {gameMessage && (
+              <div className="text-yellow-400 font-bold text-center mt-6 whitespace-pre-line animate-fade-in">
+                {gameMessage}
+              </div>
+            )}
+          </div>
+
+          {/* Connect & Play */}
+          <div className="mb-12">
+            <ConnectAndPlay
+              account={account}
+              setAccount={setAccount}
+              gameCompleted={gameCompleted}
+              gameData={gameData}
+            />
+          </div>
+
+          {/* Token Chart */}
+          <section className="mb-12 text-center">
+            <h1 className="text-xl font-semibold mt-8 mb-2">Total MM3 Balance</h1>
+          </section>
+          <div className="mb-16">
+            <TokenChart />
+          </div>
+
+          {/* Leaderboard */}
+          <section className="mb-12 text-center">
+            <h1 className="text-xl font-semibold mt-8 mb-2" id="logoBottom">MM3 Balance per wallet</h1>
+          </section>
+          <div className="mb-16">
+            <Leaderboard itemsPerPage={10} />
+          </div>
+        </div>
+
+        {/* Vercel Analytics */}
+        <Analytics />
+        <SpeedInsights />
+      </main>
     </>
   );
 }
