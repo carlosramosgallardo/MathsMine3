@@ -122,6 +122,12 @@ export default function Page() {
     saveGame();
   }, [gameData, account]);
 
+  // color de acento efectivo para que el marco NUNCA sea negro
+  const frameAccent =
+    typeof orbColor === 'string' && orbColor.toLowerCase() !== '#000000'
+      ? orbColor
+      : '#22d3ee';
+
   return (
     <>
       <Head>
@@ -131,7 +137,7 @@ export default function Page() {
           content="Fast Math, Mine MM3, and Shape the Future with PoV & PoA. A free Web3 experiment merging gamified learning and token economics."
         />
         <link rel="canonical" href="https://mathsmine3.xyz/" />
-        {/* Estilos del marco pixel retro (ajustados para que NO se corten los títulos y se vea claro) */}
+        {/* Estilos del marco pixel retro (visibles y centrados) */}
         <style jsx global>{`
           .mm3-pixel-frame {
             --a: var(--mm3-accent, #22d3ee);
@@ -145,7 +151,7 @@ export default function Page() {
               0 0 20px 0 color-mix(in oklab, var(--a) 28%, transparent),
               0 0 2px rgba(0,0,0,0.6);
             position: relative;
-            overflow: visible; /* <- evita cortar la placa del título */
+            overflow: visible; /* evita cortar la placa del título */
           }
           /* Esquinas “notch” más visibles */
           .mm3-pixel-frame::before {
@@ -257,7 +263,7 @@ export default function Page() {
           </section>
 
           {/* Board */}
-          <SectionFrame title="PLAY BOARD" accent={orbColor} id="board-section">
+          <SectionFrame title="PLAY BOARD" accent={frameAccent} id="board-section">
             {account && (
               <p className="text-base text-gray-400 text-center mb-2">
                 Connected as: {maskWallet(account)}
@@ -274,7 +280,6 @@ export default function Page() {
                 {gameMessage}
               </div>
             )}
-            {/* Connect & Play dentro del marco del board */}
             <div className="mt-8">
               <ConnectAndPlay
                 account={account}
@@ -286,12 +291,12 @@ export default function Page() {
           </SectionFrame>
 
           {/* Chart */}
-          <SectionFrame title="TOTAL MM3 BALANCE" accent={orbColor} id="chart-section">
+          <SectionFrame title="TOTAL MM3 BALANCE" accent={frameAccent} id="chart-section">
             <TokenChart />
           </SectionFrame>
 
           {/* Leaderboard */}
-          <SectionFrame title="MM3 PER WALLET" accent={orbColor} id="leaderboard-section">
+          <SectionFrame title="MM3 PER WALLET" accent={frameAccent} id="leaderboard-section">
             <Leaderboard itemsPerPage={10} />
           </SectionFrame>
 

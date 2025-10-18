@@ -12,12 +12,12 @@ export default function SectionFrame({
         className="mm3-pixel-frame relative rounded-xl"
         style={{ ['--mm3-accent']: accent }}
       >
-        {/* Reserva superior para que la placa nunca se corte */}
+        {/* Reserva superior para que la placa no se corte */}
         <div className="h-4" aria-hidden="true" />
 
-        {/* Placa/título 8-bit */}
+        {/* Placa/título 8-bit centrada */}
         {title && (
-          <div className="absolute -top-3 left-6 z-10">
+          <div className="absolute -top-3 left-1/2 -translate-x-1/2 z-10">
             <span className="mm3-chip px-3 py-1 font-mono text-xs uppercase tracking-widest select-none">
               {title}
             </span>
