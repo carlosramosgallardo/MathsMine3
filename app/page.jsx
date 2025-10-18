@@ -81,17 +81,18 @@ export default function Page() {
 
       {/* Fondo reactivo: orbe pixelado MM3 (logo único sin estela) */}
       <MM3PixelOrbSprite
-        src="/og-image.jpg"   // <-- tu archivo
+        src="/mm3-token.png"
         tokenValue={mm3Value}
         minValue={0}
         maxValue={0.001}
-        pixelCols={28}        // más grande/pequeño: sube/baja 24–36
-        grid={6}              // tamaño de “pixel” en pantalla
-        zIndex={0}
-        startSelector="#logoTop"      // ancla arriba (ajusta al ID real)
-        endSelector="#logoBottom"     // ancla abajo (ajusta al ID real)
+        pixelCols={28}
+        grid={6}
+        zIndex={20}                // <<--- antes 0
+        startSelector="#logoTop"
+        endSelector="#logoBottom"
         durationMs={7000}
       />
+
 
       {GA_ENABLED && GA_MEASUREMENT_ID && (
         <>

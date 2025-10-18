@@ -19,7 +19,7 @@ import { useEffect, useRef } from 'react';
  *  - durationMs: tiempo del viaje arriba→abajo (luego invierte)
  */
 export default function MM3PixelOrbSprite({
-  src = '/og-image.jpg',
+  src = '/mm3-token.png',
   tokenValue = 0,
   minValue = 0,
   maxValue = 0.001,
