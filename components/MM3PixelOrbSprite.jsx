@@ -109,7 +109,7 @@ export default function MM3PixelOrbSprite({
     const p = clamp(trendPct || 0, -cap, cap);
     const t = (p / cap + 1) / 2; // [-cap..cap] -> [0..1]
     // luz: 28% (negativo fuerte) -> 82% (positivo fuerte)
-    const lightness = Math.round(lerp(28, 82, t));
+    const lightness = Math.round(lerp(0, 100, t));
     return `hsl(0 0% ${lightness}%)`; // saturación 0% => gris
   };
 
