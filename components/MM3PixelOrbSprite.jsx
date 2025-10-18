@@ -4,20 +4,23 @@ import { useEffect, useRef } from 'react';
 
 export default function MM3PixelOrbSprite({
   src = '/mm3-token.png',
-  fixedColor = '#000000', // persistent color from DB (overrides trend color) -> se grisea
-  trendPct = 0,           // fallback: gris por tendencia (oscuro=negativo, claro=positivo)
+  // No usamos fixedColor para pintar (se mantiene por compatibilidad):
+  fixedColor = null,
+  // NUEVO: valor MM3 en [-1, 1] => -1 negro, 1 blanco
+  mm3 = 0,
+  // compat: si no pasas mm3, usamos trendPct (lo clampamos a [-1,1])
+  trendPct = 0,
   pixelCols = 28,
   grid = 6,
   zIndex = 20,
-  startSelector,          // hover anchor (usually your top logo)
-  endSelector,            // unused now, kept for API compatibility
-  durationMs = 14000,     // unused for hover travel; kept for compatibility
-  // Hover tuning:
-  hoverRadiusPx = 120,    // max distance from anchor
-  driftIntervalMs = 2800, // how often we pick a new drift target
-  maxDriftSpeedPx = 120,  // max speed toward target (px/s)
-  jitterAmpPx = 10,       // small sine jitter amplitude
-  jitterFreqHz = 0.4      // jitter frequency
+  startSelector,
+  endSelector,
+  durationMs = 14000,
+  hoverRadiusPx = 120,
+  driftIntervalMs = 2800,
+  maxDriftSpeedPx = 120,
+  jitterAmpPx = 10,
+  jitterFreqHz = 0.4
 }) {
   const canvasRef = useRef(null);
   const rafRef = useRef(null);
@@ -26,42 +29,35 @@ export default function MM3PixelOrbSprite({
   const imgRef = useRef(null);
   const maskRef = useRef(null);
 
-  // Anchor near which we hover
   const anchorRef = useRef({ x: 0, y: 0 });
-
-  // Hover position and target
   const posRef = useRef({ x: 0, y: 0 });
   const targetRef = useRef({ x: 0, y: 0 });
   const lastPickRef = useRef(0);
 
-  // Jitter phase
   const phaseRef = useRef(Math.random() * Math.PI * 2);
 
-  // Color override (se almacenará ya en gris)
-  const colorHexRef = useRef(fixedColor);
+  // guardamos el último color “anunciado” para poder emitirlo a otros componentes si quieres
+  const lastGrayHexRef = useRef('#808080');
 
   // --- utils ---
   const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
   const lerp = (a, b, t) => a + (b - a) * t;
-  const isHex = (v) => typeof v === 'string' && /^#?[0-9a-f]{6}$/i.test((v || '').replace('#',''));
-  const normHex = (v) => (v.startsWith('#') ? v : `#${v}`);
 
+  const normHex = (v) => (v?.startsWith?.('#') ? v : `#${v || ''}`);
+  const isHex = (v) => typeof v === 'string' && /^#?[0-9a-f]{6}$/i.test((v || '').replace('#',''));
   const hexToRgb = (hex) => {
     const h = normHex(hex).slice(1);
-    const r = parseInt(h.slice(0,2), 16);
-    const g = parseInt(h.slice(2,4), 16);
-    const b = parseInt(h.slice(4,6), 16);
-    return { r, g, b };
+    return { r: parseInt(h.slice(0,2),16), g: parseInt(h.slice(2,4),16), b: parseInt(h.slice(4,6),16) };
   };
-  const rgbToHex = (r, g, b) => {
-    const to2 = (n) => n.toString(16).padStart(2, '0');
+  const rgbToHex = (r,g,b) => {
+    const to2 = (n) => Math.max(0, Math.min(255, Math.round(n))).toString(16).padStart(2,'0');
     return `#${to2(r)}${to2(g)}${to2(b)}`;
   };
-  // Convierte cualquier hex a su equivalente en escala de grises, manteniendo luminosidad “percibida”
-  const hexToGrayHex = (hex) => {
-    const { r, g, b } = hexToRgb(hex);
-    const y = Math.round(clamp(0.2126*r + 0.7152*g + 0.0722*b, 0, 255)); // luminancia
-    return rgbToHex(y, y, y);
+  const toGrayHex = (hex) => {
+    if (!isHex(hex)) return '#808080';
+    const { r,g,b } = hexToRgb(hex);
+    const y = 0.2126*r + 0.7152*g + 0.0722*b;
+    return rgbToHex(y,y,y);
   };
 
   const computeAnchor = () => {
@@ -76,10 +72,9 @@ export default function MM3PixelOrbSprite({
       const el = document.querySelector(startSelector);
       if (el) s = centerOf(el);
     }
-    if (!s) s = { x: vw / 2, y: Math.max(80, vh * 0.18) }; // top-ish fallback
+    if (!s) s = { x: vw / 2, y: Math.max(80, vh * 0.18) };
     anchorRef.current = s;
 
-    // If first time, initialize pos and target near anchor
     if (posRef.current.x === 0 && posRef.current.y === 0) {
       posRef.current = { x: s.x, y: s.y };
       targetRef.current = randomTargetNearAnchor();
@@ -88,41 +83,35 @@ export default function MM3PixelOrbSprite({
   };
 
   const randomTargetNearAnchor = () => {
-    // Pick a polar offset within [0, hoverRadiusPx], bias slightly toward smaller radii
     const a = Math.random() * Math.PI * 2;
     const r = Math.pow(Math.random(), 0.7) * hoverRadiusPx;
-    const ax = anchorRef.current.x + Math.cos(a) * r;
-    const ay = anchorRef.current.y + Math.sin(a) * r;
-    return { x: ax, y: ay };
+    return { x: anchorRef.current.x + Math.cos(a) * r, y: anchorRef.current.y + Math.sin(a) * r };
   };
 
-  // Color SOLO en escala de grises:
-  // 1) Si hay fixedColor válido -> lo convertimos a gris.
-  // 2) Si no, usamos trend (cap ±0.5) para mapear a luma HSL 0%–100% con S=0%.
+  // === Color SOLO según MM3 en escala de grises ===
+  // - mm3 en [-1,1] → lightness 0..100
+  // - si no viene mm3, usamos trendPct (asumido -1..1; se clamp).
   const resolveFillColor = () => {
-    const overrideHex = colorHexRef.current;
-    if (isHex(overrideHex)) {
-      return hexToGrayHex(normHex(overrideHex)); // gris del override
-    }
-
-    const cap = 0.5;
-    const p = clamp(trendPct || 0, -cap, cap);
-    const t = (p / cap + 1) / 2; // [-cap..cap] -> [0..1]
-    // luz: 28% (negativo fuerte) -> 82% (positivo fuerte)
-    const lightness = Math.round(lerp(0, 100, t));
-    return `hsl(0 0% ${lightness}%)`; // saturación 0% => gris
+    const mm3Scalar = Number.isFinite(mm3) ? clamp(mm3, -1, 1) : clamp(trendPct || 0, -1, 1);
+    // map [-1..1] -> [0..1]
+    const t = (mm3Scalar + 1) / 2;
+    const lightness = Math.round(lerp(0, 100, t)); // 0 negro, 100 blanco
+    const hsl = `hsl(0 0% ${lightness}%)`;
+    // También guardamos una versión hex (para emitirla a otros componentes si se desea)
+    const y = Math.round(255 * t);
+    lastGrayHexRef.current = rgbToHex(y, y, y);
+    return hsl;
   };
 
-  // keep override in sync (y convertirlo a gris en cuanto cambie)
-  useEffect(() => {
-    colorHexRef.current = isHex(fixedColor) ? hexToGrayHex(normHex(fixedColor)) : fixedColor;
-  }, [fixedColor]);
-
-  // allow instant external color updates (y forzamos gris)
+  // Si algún componente externo emite un color, lo convertimos a gris y lo
+  // re-emitimos como gris para mantener coherencia (no pintamos con él aquí).
   useEffect(() => {
     const onDirectColor = (ev) => {
       const hex = ev?.detail?.color;
-      if (isHex(hex)) colorHexRef.current = hexToGrayHex(normHex(hex));
+      if (isHex(hex)) {
+        const gray = toGrayHex(normHex(hex));
+        window.dispatchEvent(new CustomEvent('mm3-orb-color', { detail: { color: gray } }));
+      }
     };
     window.addEventListener('mm3-orb-color', onDirectColor);
     return () => window.removeEventListener('mm3-orb-color', onDirectColor);
@@ -135,11 +124,9 @@ export default function MM3PixelOrbSprite({
     img.src = src;
     img.onload = () => {
       imgRef.current = img;
-
       const aspect = img.height / img.width || 1;
       const smallW = Math.max(8, pixelCols);
       const smallH = Math.max(8, Math.round(smallW * aspect));
-
       const small = document.createElement('canvas');
       small.width = smallW;
       small.height = smallH;
@@ -177,57 +164,49 @@ export default function MM3PixelOrbSprite({
 
     let last = performance.now();
     const loop = (now) => {
-      const dtMs = now - last;
+      const dt = (now - last) / 1000;
       last = now;
-      const dt = dtMs / 1000; // seconds
 
-      const ctx2 = ctxRef.current;
-      if (!ctx2) return;
-
-      // Periodically pick a new target near the anchor
       if (now - lastPickRef.current >= driftIntervalMs) {
         targetRef.current = randomTargetNearAnchor();
         lastPickRef.current = now;
       }
 
-      // Smoothly move pos toward target, capped by maxDriftSpeedPx
       const { x: px, y: py } = posRef.current;
       const { x: tx, y: ty } = targetRef.current;
-      const dx = tx - px;
-      const dy = ty - py;
+      const dx = tx - px, dy = ty - py;
       const dist = Math.hypot(dx, dy);
       const maxStep = maxDriftSpeedPx * dt;
       if (dist > 0.0001) {
         const step = Math.min(dist, maxStep);
-        const nx = px + (dx / dist) * step;
-        const ny = py + (dy / dist) * step;
-        posRef.current = { x: nx, y: ny };
+        posRef.current = { x: px + (dx / dist) * step, y: py + (dy / dist) * step };
       }
 
-      // Gentle jitter
       phaseRef.current += dt * (Math.PI * 2 * jitterFreqHz);
       const jx = Math.sin(phaseRef.current) * jitterAmpPx;
       const jy = Math.cos(phaseRef.current * 0.9) * (jitterAmpPx * 0.6);
 
-      // Clear and draw
+      const ctx2 = ctxRef.current;
+      const mask = maskRef.current;
+      if (!ctx2 || !mask) {
+        rafRef.current = requestAnimationFrame(loop);
+        return;
+      }
+
       ctx2.clearRect(0, 0, canvas.clientWidth, canvas.clientHeight);
 
-      const fill = resolveFillColor();
-      const mask = maskRef.current;
-      if (mask) {
-        const w = mask.width * grid;
-        const hpx = mask.height * grid;
-        const cx = posRef.current.x + jx;
-        const cy = posRef.current.y + jy;
-        const dx2 = Math.round(cx - w / 2);
-        const dy2 = Math.round(cy - hpx / 2);
+      const w = mask.width * grid;
+      const hpx = mask.height * grid;
+      const cx = posRef.current.x + jx;
+      const cy = posRef.current.y + jy;
+      const dx2 = Math.round(cx - w / 2);
+      const dy2 = Math.round(cy - hpx / 2);
 
-        ctx2.drawImage(mask, dx2, dy2, w, hpx);
-        ctx2.globalCompositeOperation = 'source-atop';
-        ctx2.fillStyle = fill;
-        ctx2.fillRect(dx2, dy2, w, hpx);
-        ctx2.globalCompositeOperation = 'source-over';
-      }
+      ctx2.drawImage(mask, dx2, dy2, w, hpx);
+      ctx2.globalCompositeOperation = 'source-atop';
+      ctx2.fillStyle = resolveFillColor(); // <- SOLO gris por MM3
+      ctx2.fillRect(dx2, dy2, w, hpx);
+      ctx2.globalCompositeOperation = 'source-over';
 
       rafRef.current = requestAnimationFrame(loop);
     };
@@ -240,6 +219,7 @@ export default function MM3PixelOrbSprite({
     };
   }, [
     grid,
+    mm3,
     trendPct,
     hoverRadiusPx,
     driftIntervalMs,
@@ -248,7 +228,6 @@ export default function MM3PixelOrbSprite({
     jitterFreqHz
   ]);
 
-  // compute anchor after layout settles
   useEffect(() => {
     const id = setTimeout(() => computeAnchor(), 200);
     return () => clearTimeout(id);

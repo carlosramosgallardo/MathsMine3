@@ -14,7 +14,7 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
   const [isFading, setIsFading] = useState(false);
 
   // --- orb color (solo en sesión) + highlight de casilla correcta ---
-  const [orbColor, setOrbColor] = useState('#000000'); // siempre gris
+  const [orbColor, setOrbColor] = useState('#000000'); // gris actual del orbe
   const [highlightIdx, setHighlightIdx] = useState(null);
   const [highlightColor, setHighlightColor] = useState(null);
 
@@ -33,7 +33,7 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
     return a;
   };
 
-  // hex ↔ rgb + toGray (misma fórmula que el orbe)
+  // hex/rgb + escala de grises
   const normHex = (v) => (v?.startsWith?.('#') ? v : `#${v || ''}`);
   const isHex = (v) => typeof v === 'string' && /^#?[0-9a-f]{6}$/i.test((v || '').replace('#',''));
   const hexToRgb = (hex) => {
@@ -47,8 +47,25 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
   const toGray = (hex) => {
     if (!isHex(hex)) return '#808080';
     const { r,g,b } = hexToRgb(hex);
-    const y = 0.2126*r + 0.7152*g + 0.0722*b; // luminancia perceptual
+    const y = 0.2126*r + 0.7152*g + 0.0722*b; // luminancia
     return rgbToHex(y,y,y);
+  };
+
+  const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+  const rewardToMM3 = (reward) => {
+    const maxPos = PARTICIPATION_PRICE;           // recompensa ideal (tiempo 0ms)
+    const maxNeg = -PARTICIPATION_PRICE * 0.10;   // penalización máxima (10s)
+    if (reward >= 0) {
+      return clamp(reward / maxPos, 0, 1);        // 0..1
+    } else {
+      // reward y maxNeg son negativos → normalizamos y negamos para ir a -1..0
+      return clamp(-(reward / maxNeg), 0, 1) * -1;
+    }
+  };
+  const mm3ToGrayHex = (mm3Scalar) => {
+    const t = (clamp(mm3Scalar, -1, 1) + 1) / 2;  // [-1..1] -> [0..1]
+    const y = Math.round(255 * t);
+    return rgbToHex(y,y,y);                       // 0 negro, 255 blanco
   };
 
   // contraste de texto sobre fondo
@@ -169,7 +186,7 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
     return genArith2();
   };
 
-  // ---------- orb color listener (forzamos gris) ----------
+  // ---------- orb color listener (si alguien emite, lo griseamos) ----------
   useEffect(() => {
     const onOrbColor = (ev) => {
       const next = ev?.detail?.color;
@@ -268,29 +285,20 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
         miningAmount = -PARTICIPATION_PRICE * 0.10 * penaltyRatio;
       }
 
-      // highlight con el MISMO color del orbe, forzado a gris
-      let settled = false;
-      const applyHighlight = (color) => {
-        if (settled) return;
-        settled = true;
-        const gray = toGray(color || orbColor || '#9aa0a6'); // fallback gris
-        setHighlightIdx(idx);
-        setHighlightColor(gray);
-      };
+      // === Color MM3: [-1..1] -> gris ===
+      const mm3Scalar = rewardToMM3(miningAmount);       // -1 negro, 1 blanco
+      const grayHex   = mm3ToGrayHex(mm3Scalar);
 
-      const oneShot = (ev) => {
-        applyHighlight(ev?.detail?.color);
-        window.removeEventListener('mm3-orb-color', oneShot);
-      };
-      window.addEventListener('mm3-orb-color', oneShot);
+      // Pinta la casilla correcta con ese gris
+      setHighlightIdx(idx);
+      setHighlightColor(grayHex);
 
-      // Fallback por si el evento tarda un pelo
-      setTimeout(() => {
-        window.removeEventListener('mm3-orb-color', oneShot);
-        applyHighlight(orbColor);
-      }, 300);
+      // Emite color para el ORBE (y otros listeners)
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('mm3-orb-color', { detail: { color: grayHex } }));
+      }
 
-      // Notifica a Page
+      // Notifica a Page (persistencia, etc.)
       if (typeof window !== 'undefined') {
         window.dispatchEvent(new CustomEvent('mm3-correct', { detail: { reward: miningAmount } }));
       }
@@ -367,7 +375,7 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
                           ? 'bg-gray-800 border-gray-700 text-gray-500 cursor-not-allowed'
                           : isHighlighted
                             ? 'border-transparent shadow-[0_0_18px_rgba(156,163,175,0.25)] scale-[1.01]'
-                            : 'bg-[#0b1222] border-[#22d3ee]/50 text-[#e2e8f0] hover:scale-105 hover:shadow-[0_0_18px_rgba(156,163,175,0.45)] hover:border-[#cbd5e1]'
+                            : 'bg-[#0b1222] border-[#cbd5e1]/50 text-[#e2e8f0] hover:scale-105 hover:shadow-[0_0_18px_rgba(156,163,175,0.45)] hover:border-[#cbd5e1]'
                         }`}
                       style={isHighlighted ? { backgroundColor: bg, color: fg } : undefined}
                       title="Pick your answer"
