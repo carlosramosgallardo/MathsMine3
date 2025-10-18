@@ -80,18 +80,19 @@ export default function Page() {
       </Head>
 
       {/* Fondo reactivo: orbe pixelado MM3 (logo único sin estela) */}
-      <MM3PixelOrbSprite
-        src="/mm3-token.png"
-        tokenValue={mm3Value}
-        minValue={0}
-        maxValue={0.001}
-        pixelCols={28}
-        grid={6}
-        zIndex={20}                // <<--- antes 0
-        startSelector="#logoTop"
-        endSelector="#logoBottom"
-        durationMs={7000}
-      />
+<MM3PixelOrbSprite
+  src="/mm3-token.png"   // <-- PNG con transparencia
+  tokenValue={mm3Value}
+  minValue={0}
+  maxValue={0.001}
+  pixelCols={28}
+  grid={6}
+  zIndex={20}
+  startSelector="#logoTop"
+  endSelector="#logoBottom"
+  durationMs={7000}
+/>
+
 
 
       {GA_ENABLED && GA_MEASUREMENT_ID && (

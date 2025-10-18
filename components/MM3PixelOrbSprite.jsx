@@ -93,47 +93,45 @@ export default function MM3PixelOrbSprite({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [src]);
 
-  // Prepara/actualiza offscreen canvases (pixelado + tinte)
-  const prepareOffscreens = () => {
-    const img = imgRef.current;
-    if (!img) return;
+// Prepara/actualiza offscreen canvases (pixelado + silueta negra SIN fondo)
+const prepareOffscreens = () => {
+  const img = imgRef.current;
+  if (!img) return;
 
-    // 1) calculamos alto proporcional para pixelCols
-    const aspect = img.height / img.width;
-    const smallW = Math.max(8, pixelCols);
-    const smallH = Math.max(8, Math.round(smallW * aspect));
+  const aspect = img.height / img.width;
+  const smallW = Math.max(8, pixelCols);
+  const smallH = Math.max(8, Math.round(smallW * aspect));
 
-    // canvas reducido
-    const small = document.createElement('canvas');
-    small.width = smallW;
-    small.height = smallH;
-    const sctx = small.getContext('2d', { alpha: true });
-    sctx.imageSmoothingEnabled = false;
-    // dibuja imagen original → tamaño reducido
-    sctx.clearRect(0,0,smallW,smallH);
-    sctx.drawImage(img, 0, 0, smallW, smallH);
+  // Canvas reducido (pixelado)
+  const small = document.createElement('canvas');
+  small.width = smallW;
+  small.height = smallH;
+  const sctx = small.getContext('2d', { alpha: true });
+  sctx.imageSmoothingEnabled = false;
+  sctx.clearRect(0, 0, smallW, smallH);
+  sctx.drawImage(img, 0, 0, smallW, smallH);
 
-    // 2) aplica tinte multiplicando (conserva luces/sombras metálicas)
-    const tint = document.createElement('canvas');
-    tint.width = smallW;
-    tint.height = smallH;
-    const tctx = tint.getContext('2d', { alpha: true });
-    tctx.imageSmoothingEnabled = false;
-    // copia base
-    tctx.clearRect(0,0,smallW,smallH);
-    tctx.drawImage(small, 0, 0);
-    // capa de color
-    tctx.globalCompositeOperation = 'multiply';
-    tctx.fillStyle = hslString(tintHsl());
-    tctx.fillRect(0,0,smallW,smallH);
-    // restaura para usos futuros
-    tctx.globalCompositeOperation = 'destination-over';
-    // fondo transparente (no ennegrece nada)
-    // (no dibujamos nada más debajo)
+  // Canvas de salida: rellenamos NEGRO y enmascaramos con la alpha del PNG
+  const tint = document.createElement('canvas');
+  tint.width = smallW;
+  tint.height = smallH;
+  const tctx = tint.getContext('2d', { alpha: true });
+  tctx.imageSmoothingEnabled = false;
 
-    offSmallRef.current = small;
-    offTintRef.current = tint;
-  };
+  // Color sólido
+  tctx.clearRect(0, 0, smallW, smallH);
+  tctx.fillStyle = 'rgba(0,0,0,1)';   // <- negro
+  tctx.fillRect(0, 0, smallW, smallH);
+
+  // Mantén solo donde el PNG tiene alfa (máscara)
+  tctx.globalCompositeOperation = 'destination-in';
+  tctx.drawImage(small, 0, 0);
+  tctx.globalCompositeOperation = 'source-over';
+
+  offSmallRef.current = small;
+  offTintRef.current = tint;
+};
+
 
   // Recalcular tinte cuando cambie el valor del token
   useEffect(() => {
