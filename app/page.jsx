@@ -28,88 +28,27 @@ export default function Page() {
   const [gameCompleted, setGameCompleted] = useState(false);
   const [gameData, setGameData] = useState(null);
 
-  // Valor actual según servidor
-  const [serverValue, setServerValue] = useState(0);
-  // Valor que mostramos (persistente hasta que llegue un nuevo serverValue o una nueva jugada)
-  const [displayValue, setDisplayValue] = useState(0);
-  // Rango para el color
-  const [rangeMin, setRangeMin] = useState(0);
-  const [rangeMax, setRangeMax] = useState(0.001); // fallback
+  // Color global del token (persistente desde Supabase)
+  const [orbColor, setOrbColor] = useState('#000000');
 
   useEffect(() => {
-    const fetchHistory = async () => {
+    const loadColor = async () => {
       try {
-        const res = await fetch('/api/token-history');
-        const json = await res.json();
-        if (!Array.isArray(json) || json.length === 0) return;
+        const { data, error } = await supabase
+          .from('mm3_visual_state')
+          .select('color_hex')
+          .eq('id', 1)
+          .maybeSingle();
 
-        // último valor del servidor
-        const last = json[json.length - 1];
-        const lastVal = parseFloat(last?.cumulative_reward) || 0;
-
-        // rango dinámico con lo disponible (puedes limitar a 7d/30d si quieres)
-        let minV = Infinity, maxV = -Infinity;
-        for (const r of json) {
-          const v = parseFloat(r?.cumulative_reward);
-          if (isNaN(v)) continue;
-          if (v < minV) minV = v;
-          if (v > maxV) maxV = v;
-        }
-        if (!isFinite(minV) || !isFinite(maxV) || minV === maxV) {
-          minV = Math.min(0, lastVal);
-          maxV = lastVal + 0.001;
-        }
-
-        setServerValue(lastVal);
-        setRangeMin(minV);
-        setRangeMax(maxV);
-
-        // si el servidor trae un valor diferente al que estamos mostrando,
-        // sincronizamos para "persistir" lo que decide la red
-        setDisplayValue((prev) => (Math.abs(prev - lastVal) > 1e-12 ? lastVal : prev));
-        // si prev estaba vacío (0 por primera vez), también lo iguala a lastVal
-        if (displayValue === 0 && lastVal !== 0) setDisplayValue(lastVal);
+        if (!error && data?.color_hex) setOrbColor(data.color_hex);
       } catch (e) {
-        console.error('Error fetching token history:', e);
+        console.error('Error loading orb color:', e);
       }
     };
-
-    fetchHistory();
-    const id = setInterval(fetchHistory, 30000); // refresco opcional
-    return () => clearInterval(id);
-  }, []); // solo al montar
-
-  // Reaccionar a jugadas locales correctas (reward)
-  useEffect(() => {
-    const onCorrect = (e) => {
-      const reward = Number(e?.detail?.reward ?? 0);
-      if (Number.isFinite(reward)) {
-        setDisplayValue((prev) => prev + reward);
-      }
-    };
-    window.addEventListener('mm3-correct', onCorrect);
-    return () => window.removeEventListener('mm3-correct', onCorrect);
+    loadColor();
   }, []);
 
-  // Guardar partidas
-  useEffect(() => {
-    const saveGame = async () => {
-      if (!gameData || !account) return;
-      try {
-        const { error } = await supabase.from('games').insert([gameData]);
-        if (error) {
-          console.error('Supabase insert error:', error.message);
-          setGameMessage('Error saving game data. Transaction aborted.');
-        } else {
-          console.log('Game saved successfully');
-        }
-      } catch (e) {
-        console.error('Unexpected error saving game:', e);
-        setGameMessage('Unexpected error. Try again.');
-      }
-    };
-    saveGame();
-  }, [gameData, account]);
+  // ... tu efecto para guardar partidas (igual que ahora)
 
   return (
     <>
@@ -122,18 +61,16 @@ export default function Page() {
         <link rel="canonical" href="https://mathsmine3.xyz/" />
       </Head>
 
-      {/* Orbe pixelado MM3 – color en función de displayValue (persistente) */}
+      {/* Orbe pixelado: color persistente desde Supabase */}
       <MM3PixelOrbSprite
         src="/mm3-token.png"
-        value={displayValue}
-        rangeMin={rangeMin}
-        rangeMax={rangeMax}
-        pixelCols={28}
+        fixedColor={orbColor}    // <- viene de la tabla
+        pixelCols={26}
         grid={6}
         zIndex={20}
         startSelector="#logoTop"
         endSelector="#logoBottom"
-        durationMs={7000}
+        durationMs={14000}       // movimiento más lento
       />
 
       {GA_ENABLED && GA_MEASUREMENT_ID && (
@@ -153,66 +90,7 @@ export default function Page() {
         </>
       )}
 
-      <main className="relative z-10 flex flex-col items-center w-full px-4 pt-10 pb-20 text-lg font-mono text-white bg-black">
-        <div className="w-full max-w-3xl mx-auto">
-          <section className="mb-12 text-center">
-            <h1 className="text-xl font-semibold mt-8 mb-2" id="logoTop">
-              Fast Math and Shape the Future with MathsMine3
-            </h1>
-            <p className="text-base text-gray-400 text-center mb-2">
-              MathsMine3 is a free-to-play, open-source, and unique Web3 experiment where you solve math puzzles and earn MM3 — a fake token with no real-world value, used exclusively within MathsMine3 to participate in Proof of Ask (PoA) and Proof of Vote (PoV).
-            </p>
-          </section>
-
-          <section className="mb-12 text-center">
-            <h1 className="text-xl font-semibold mt-8 mb-2">Play now:</h1>
-          </section>
-          <div className="mb-12">
-            {account && (
-              <p className="text-base text-gray-400 text-center mb-2">
-                Connected as: {maskWallet(account)}
-              </p>
-            )}
-            <Board
-              account={account}
-              setGameMessage={setGameMessage}
-              setGameCompleted={setGameCompleted}
-              setGameData={setGameData}
-            />
-            {gameMessage && (
-              <div className="text-yellow-400 font-bold text-center mt-6 whitespace-pre-line animate-fade-in">
-                {gameMessage}
-              </div>
-            )}
-          </div>
-
-          <div className="mb-12">
-            <ConnectAndPlay
-              account={account}
-              setAccount={setAccount}
-              gameCompleted={gameCompleted}
-              gameData={gameData}
-            />
-          </div>
-
-          <section className="mb-12 text-center">
-            <h1 className="text-xl font-semibold mt-8 mb-2">Total MM3 Balance</h1>
-          </section>
-          <div className="mb-16">
-            <TokenChart />
-          </div>
-
-          <section className="mb-12 text-center">
-            <h1 className="text-xl font-semibold mt-8 mb-2" id="logoBottom">MM3 Balance per wallet</h1>
-          </section>
-          <div className="mb-16">
-            <Leaderboard itemsPerPage={10} />
-          </div>
-        </div>
-
-        <Analytics />
-        <SpeedInsights />
-      </main>
+      {/* ...tu <main> y todo el contenido igual */}
     </>
   );
 }

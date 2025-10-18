@@ -4,15 +4,13 @@ import { useEffect, useRef } from 'react';
 
 export default function MM3PixelOrbSprite({
   src = '/mm3-token.png',
-  value = 0,          // valor mostrado (persistente en el cliente)
-  rangeMin = 0,       // límite inferior para normalizar
-  rangeMax = 0.001,   // límite superior para normalizar
+  fixedColor = '#000000',   // <- color persistente (de Supabase)
   pixelCols = 28,
   grid = 6,
   zIndex = 20,
   startSelector,
   endSelector,
-  durationMs = 7000
+  durationMs = 14000        // <- más lento (antes 7000)
 }) {
   const canvasRef = useRef(null);
   const rafRef = useRef(null);
@@ -24,14 +22,12 @@ export default function MM3PixelOrbSprite({
   const startRef = useRef({ x: 0, y: 0 });
   const endRef   = useRef({ x: 0, y: 0 });
 
-  // zig-zag
-  const ampRef   = useRef(40);
-  const freqRef  = useRef(1.5);
+  // zig-zag suavizado
+  const ampRef   = useRef(26);    // amplitud moderada
+  const freqRef  = useRef(1.1);   // frecuencia baja
   const phaseRef = useRef(0);
 
   const lerp = (a,b,t)=>a+(b-a)*t;
-  const clamp01 = (v)=>Math.max(0, Math.min(1, v));
-  const hslStr = (h,s,l)=>`hsla(${h}, ${s}%, ${l}%, 1)`;
 
   const computeAnchors = () => {
     const vw = window.innerWidth, vh = window.innerHeight;
@@ -46,8 +42,8 @@ export default function MM3PixelOrbSprite({
 
   const reseedZigzag = () => {
     const vw = window.innerWidth;
-    ampRef.current   = 20 + Math.random()*Math.min(80, vw*0.06);
-    freqRef.current  = 1 + Math.random()*2.2;
+    ampRef.current   = 18 + Math.random()*Math.min(40, vw*0.04);
+    freqRef.current  = 0.8 + Math.random()*0.8;
     phaseRef.current = Math.random()*Math.PI*2;
   };
 
@@ -100,7 +96,7 @@ export default function MM3PixelOrbSprite({
 
       ctx.clearRect(0, 0, canvas.clientWidth, canvas.clientHeight);
 
-      // posición con zig-zag
+      // posición con zig-zag suave
       const sAnchor = startRef.current, eAnchor = endRef.current;
       const tt = tRef.current;
       const xLin = sAnchor.x + (eAnchor.x - sAnchor.x)*tt;
@@ -108,16 +104,7 @@ export default function MM3PixelOrbSprite({
       const x = xLin + Math.sin(tt * Math.PI * 2 * freqRef.current + phaseRef.current) * ampRef.current;
       const y = yLin;
 
-      // ---- Color según value normalizado en [rangeMin, rangeMax] ----
-      const denom = Math.max(1e-12, rangeMax - rangeMin);
-      const u = clamp01((value - rangeMin) / denom); // 0..1
-      // Map verde (120) -> rojo (0). Ajusta saturación/luminosidad a tu gusto.
-      const hue = lerp(120, 0, u);
-      const sat = lerp(70, 95, u);
-      const lig = lerp(58, 56, u);
-      const fill = hslStr(hue, sat, lig);
-
-      // dibuja máscara pixelada escalada y la colorea
+      // dibuja máscara pixelada escalada y la colorea con el color fijo
       const mask = maskRef.current;
       if (mask) {
         const w = mask.width * grid;
@@ -127,7 +114,7 @@ export default function MM3PixelOrbSprite({
 
         ctx.drawImage(mask, dx, dy, w, hpx);        // usa alpha del PNG
         ctx.globalCompositeOperation = 'source-atop';
-        ctx.fillStyle = fill;
+        ctx.fillStyle = fixedColor;
         ctx.fillRect(dx, dy, w, hpx);               // color constante
         ctx.globalCompositeOperation = 'source-over';
       }
@@ -140,7 +127,7 @@ export default function MM3PixelOrbSprite({
       cancelAnimationFrame(rafRef.current);
       window.removeEventListener('resize', resize);
     };
-  }, [grid, durationMs, startSelector, endSelector, value, rangeMin, rangeMax]);
+  }, [grid, durationMs, startSelector, endSelector, fixedColor]);
 
   // anclajes tras pequeño delay
   useEffect(() => {

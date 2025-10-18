@@ -139,3 +139,27 @@ SELECT
   MAX(created_at) AS last_request
 FROM api_requests
 GROUP BY ip, endpoint;
+
+-- Tabla con una única fila que guarda el color "global" del orbe
+create table if not exists mm3_visual_state (
+  id smallint primary key default 1 check (id = 1),
+  color_hex text not null default '#000000',     -- color CSS (#RRGGBB)
+  updated_at timestamptz not null default now()
+);
+
+-- Fila única (si no existe)
+insert into mm3_visual_state (id, color_hex)
+values (1, '#000000')
+on conflict (id) do nothing;
+
+-- RLS
+alter table mm3_visual_state enable row level security;
+
+-- Lectura pública (sólo SELECT). Si prefieres, limita a 'authenticated'.
+create policy "public_read_visual_state"
+on mm3_visual_state for select
+to public
+using (true);
+
+-- (Opcional) Updates sólo con service_role o usuarios concretos.
+-- Si quieres permitir updates desde clientes autenticados, cambia la policy.
