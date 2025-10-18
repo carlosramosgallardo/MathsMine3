@@ -139,84 +139,52 @@ export default function Page() {
         <link rel="canonical" href="https://mathsmine3.xyz/" />
         {/* Estilos del marco pixel retro (visibles y centrados) */}
         <style jsx global>{`
-          .mm3-pixel-frame {
-            --a: var(--mm3-accent, #22d3ee);
-            background: #0b0f19;
-            border: 3px solid var(--a);
-            outline: 1px solid rgba(255,255,255,0.06);
-            /* borde interior para delimitar mejor el bloque */
-            box-shadow:
-              0 0 0 2px rgba(3, 8, 23, 0.9) inset,
-              0 0 0 1px color-mix(in oklab, var(--a) 25%, transparent) inset,
-              0 0 20px 0 color-mix(in oklab, var(--a) 28%, transparent),
-              0 0 2px rgba(0,0,0,0.6);
-            position: relative;
-            overflow: visible; /* evita cortar la placa del título */
-          }
-          /* Esquinas “notch” más visibles */
-          .mm3-pixel-frame::before {
-            content: "";
-            position: absolute;
-            inset: 0;
-            pointer-events: none;
-            background:
-              radial-gradient(10px 10px at 0 0, var(--a) 98%, transparent) top left,
-              radial-gradient(10px 10px at 100% 0, var(--a) 98%, transparent) top right,
-              radial-gradient(10px 10px at 0 100%, var(--a) 98%, transparent) bottom left,
-              radial-gradient(10px 10px at 100% 100%, var(--a) 98%, transparent) bottom right;
-            background-repeat: no-repeat;
-            background-size: 10px 10px;
-            opacity: .22;
-            mix-blend-mode: screen;
-          }
-          /* Líneas superior e inferior internas para sensación de “caja” */
-          .mm3-pixel-frame::after {
-            content: "";
-            position: absolute;
-            left: 6px; right: 6px;
-            top: 8px; bottom: 8px;
-            border-top: 1px solid color-mix(in oklab, var(--a) 35%, transparent);
-            border-bottom: 1px solid color-mix(in oklab, var(--a) 35%, transparent);
-            opacity: .5;
-            pointer-events: none;
-          }
-          .mm3-chip {
-            background:
-              repeating-linear-gradient(
-                0deg,
-                color-mix(in oklab, var(--mm3-accent, #22d3ee) 25%, #000) 0 2px,
-                color-mix(in oklab, var(--mm3-accent, #22d3ee) 40%, #000) 2px 4px
-              );
-            color: #e2e8f0;
-            border: 2px solid var(--mm3-accent, #22d3ee);
-            border-radius: 10px;
-            /* “pixel shadow” para que se lea bien sobre cualquier fondo */
-            box-shadow:
-              0 0 0 2px #0b0f19,
-              0 0 14px color-mix(in oklab, var(--mm3-accent, #22d3ee) 45%, transparent);
-          }
-          .mm3-scanlines {
-            position: absolute;
-            inset: 0;
-            background:
-              /* grid retro sutil */
-              linear-gradient(transparent 31px, rgba(255,255,255,0.02) 32px) 0 0 / 100% 32px,
-              linear-gradient(90deg, transparent 31px, rgba(255,255,255,0.02) 32px) 0 0 / 32px 100%,
-              /* scanline */
-              linear-gradient(rgba(255,255,255,0.03), rgba(0,0,0,0.06));
-            mix-blend-mode: overlay;
-            opacity: .35;
-            pointer-events: none;
-          }
-          .mm3-glow-divider {
-            height: 7px;
-            width: 100%;
-            background:
-              radial-gradient(45% 200% at 50% 0%,
-                color-mix(in oklab, var(--mm3-accent, #22d3ee) 55%, transparent),
-                transparent 70%);
-            filter: blur(0.2px);
-          }
+.mm3-pixel-frame {
+  --a: var(--mm3-accent, #22d3ee);
+  background: #0b0f19;
+  border: 2px solid color-mix(in oklab, var(--a) 90%, white);
+  border-radius: 10px;
+  outline: 1px solid rgba(255,255,255,0.08);
+  box-shadow:
+    0 0 12px 1px color-mix(in oklab, var(--a) 70%, transparent),
+    0 0 0 3px rgba(0,0,0,0.5) inset,
+    0 0 20px rgba(0,255,255,0.15);
+  position: relative;
+  overflow: visible;
+}
+
+/* contorno fosforescente superior e inferior */
+.mm3-pixel-frame::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 2px;
+  width: 100%;
+  background: linear-gradient(90deg, transparent, var(--a), transparent);
+  opacity: 0.7;
+}
+
+.mm3-pixel-frame::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  height: 2px;
+  width: 100%;
+  background: linear-gradient(90deg, transparent, var(--a), transparent);
+  opacity: 0.7;
+}
+
+/* título centrado con fondo visible */
+.mm3-chip {
+  background: color-mix(in oklab, var(--mm3-accent, #22d3ee) 20%, #000);
+  color: #e2e8f0;
+  border: 2px solid color-mix(in oklab, var(--mm3-accent, #22d3ee) 80%, white);
+  border-radius: 8px;
+  box-shadow: 0 0 6px color-mix(in oklab, var(--mm3-accent, #22d3ee) 60%, transparent);
+}
+
         `}</style>
       </Head>
 
