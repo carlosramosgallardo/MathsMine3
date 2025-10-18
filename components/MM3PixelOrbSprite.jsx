@@ -4,8 +4,9 @@ import { useEffect, useRef } from 'react';
 
 export default function MM3PixelOrbSprite({
   src = '/mm3-token.png',
-  tokenValue = 0,     // reservado por si quieres usarlo
-  trendPct = 0,       // +0.12 = +12% semanal (más rojo), -0.08 = -8% (más verde)
+  value = 0,          // valor mostrado (persistente en el cliente)
+  rangeMin = 0,       // límite inferior para normalizar
+  rangeMax = 0.001,   // límite superior para normalizar
   pixelCols = 28,
   grid = 6,
   zIndex = 20,
@@ -29,7 +30,7 @@ export default function MM3PixelOrbSprite({
   const phaseRef = useRef(0);
 
   const lerp = (a,b,t)=>a+(b-a)*t;
-
+  const clamp01 = (v)=>Math.max(0, Math.min(1, v));
   const hslStr = (h,s,l)=>`hsla(${h}, ${s}%, ${l}%, 1)`;
 
   const computeAnchors = () => {
@@ -107,24 +108,13 @@ export default function MM3PixelOrbSprite({
       const x = xLin + Math.sin(tt * Math.PI * 2 * freqRef.current + phaseRef.current) * ampRef.current;
       const y = yLin;
 
-      // ---- Color constante según tendencia semanal ----
-      // tendencia positiva => más ROJO; negativa => más VERDE.
-      const cap = 0.5;
-      const p = Math.max(-cap, Math.min(cap, trendPct || 0)); // clamp
-      let hue, sat, lig;
-      if (p >= 0) {
-        // ROJO (de salmón -> rojo intenso)
-        const t = p / cap;      // 0..1
-        hue = lerp(12, 0, t);   // 12→0
-        sat = lerp(80, 95, t);  // 80→95
-        lig = lerp(58, 56, t);  // 58→56
-      } else {
-        // VERDE (de lima suave -> verde profundo)
-        const t = (-p) / cap;   // 0..1
-        hue = lerp(120, 95, t); // 120→95
-        sat = lerp(70, 95, t);  // 70→95
-        lig = lerp(58, 60, t);  // 58→60
-      }
+      // ---- Color según value normalizado en [rangeMin, rangeMax] ----
+      const denom = Math.max(1e-12, rangeMax - rangeMin);
+      const u = clamp01((value - rangeMin) / denom); // 0..1
+      // Map verde (120) -> rojo (0). Ajusta saturación/luminosidad a tu gusto.
+      const hue = lerp(120, 0, u);
+      const sat = lerp(70, 95, u);
+      const lig = lerp(58, 56, u);
       const fill = hslStr(hue, sat, lig);
 
       // dibuja máscara pixelada escalada y la colorea
@@ -150,7 +140,7 @@ export default function MM3PixelOrbSprite({
       cancelAnimationFrame(rafRef.current);
       window.removeEventListener('resize', resize);
     };
-  }, [grid, durationMs, startSelector, endSelector, trendPct]);
+  }, [grid, durationMs, startSelector, endSelector, value, rangeMin, rangeMax]);
 
   // anclajes tras pequeño delay
   useEffect(() => {

@@ -28,9 +28,13 @@ export default function Page() {
   const [gameCompleted, setGameCompleted] = useState(false);
   const [gameData, setGameData] = useState(null);
 
-  // Valor actual y tendencia 7d
-  const [mm3Value, setMm3Value] = useState(0);
-  const [trendPct7d, setTrendPct7d] = useState(0); // +0.12 = +12%, -0.08 = -8%
+  // Valor actual según servidor
+  const [serverValue, setServerValue] = useState(0);
+  // Valor que mostramos (persistente hasta que llegue un nuevo serverValue o una nueva jugada)
+  const [displayValue, setDisplayValue] = useState(0);
+  // Rango para el color
+  const [rangeMin, setRangeMin] = useState(0);
+  const [rangeMax, setRangeMax] = useState(0.001); // fallback
 
   useEffect(() => {
     const fetchHistory = async () => {
@@ -39,31 +43,32 @@ export default function Page() {
         const json = await res.json();
         if (!Array.isArray(json) || json.length === 0) return;
 
-        // último valor
+        // último valor del servidor
         const last = json[json.length - 1];
         const lastVal = parseFloat(last?.cumulative_reward) || 0;
-        setMm3Value(lastVal);
 
-        // buscamos un punto ~7d atrás (o el primero si no llega)
-        const now = Date.now();
-        const weekAgo = now - 7 * 24 * 60 * 60 * 1000;
-        // elegimos el registro con fecha más antigua >= weekAgo
-        let weekRef = json.find((r) => {
-          const d = new Date(r.hour);
-          return !isNaN(d) && d.getTime() >= weekAgo;
-        }) || json[0];
-
-        const weekVal = parseFloat(weekRef?.cumulative_reward) || 0;
-
-        // % de cambio relativo a la referencia
-        let pct = 0;
-        if (Math.abs(weekVal) > 1e-12) {
-          pct = (lastVal - weekVal) / weekVal;
-        } else {
-          // si la referencia es ~0, usamos delta absoluto pequeño
-          pct = lastVal === 0 ? 0 : (lastVal > 0 ? 0.5 : -0.5); // heurística
+        // rango dinámico con lo disponible (puedes limitar a 7d/30d si quieres)
+        let minV = Infinity, maxV = -Infinity;
+        for (const r of json) {
+          const v = parseFloat(r?.cumulative_reward);
+          if (isNaN(v)) continue;
+          if (v < minV) minV = v;
+          if (v > maxV) maxV = v;
         }
-        setTrendPct7d(pct);
+        if (!isFinite(minV) || !isFinite(maxV) || minV === maxV) {
+          minV = Math.min(0, lastVal);
+          maxV = lastVal + 0.001;
+        }
+
+        setServerValue(lastVal);
+        setRangeMin(minV);
+        setRangeMax(maxV);
+
+        // si el servidor trae un valor diferente al que estamos mostrando,
+        // sincronizamos para "persistir" lo que decide la red
+        setDisplayValue((prev) => (Math.abs(prev - lastVal) > 1e-12 ? lastVal : prev));
+        // si prev estaba vacío (0 por primera vez), también lo iguala a lastVal
+        if (displayValue === 0 && lastVal !== 0) setDisplayValue(lastVal);
       } catch (e) {
         console.error('Error fetching token history:', e);
       }
@@ -72,8 +77,21 @@ export default function Page() {
     fetchHistory();
     const id = setInterval(fetchHistory, 30000); // refresco opcional
     return () => clearInterval(id);
+  }, []); // solo al montar
+
+  // Reaccionar a jugadas locales correctas (reward)
+  useEffect(() => {
+    const onCorrect = (e) => {
+      const reward = Number(e?.detail?.reward ?? 0);
+      if (Number.isFinite(reward)) {
+        setDisplayValue((prev) => prev + reward);
+      }
+    };
+    window.addEventListener('mm3-correct', onCorrect);
+    return () => window.removeEventListener('mm3-correct', onCorrect);
   }, []);
 
+  // Guardar partidas
   useEffect(() => {
     const saveGame = async () => {
       if (!gameData || !account) return;
@@ -104,11 +122,12 @@ export default function Page() {
         <link rel="canonical" href="https://mathsmine3.xyz/" />
       </Head>
 
-      {/* Orbe pixelado MM3 (color fijo por tendencia 7d) */}
+      {/* Orbe pixelado MM3 – color en función de displayValue (persistente) */}
       <MM3PixelOrbSprite
         src="/mm3-token.png"
-        tokenValue={mm3Value}
-        trendPct={trendPct7d}     // <<--- nuevo
+        value={displayValue}
+        rangeMin={rangeMin}
+        rangeMax={rangeMax}
         pixelCols={28}
         grid={6}
         zIndex={20}
