@@ -27,9 +27,10 @@ export const metadata = {
 };
 
 export default function RootLayout({ children }) {
-  // (si prefieres .env) const GTM_ID = process.env.NEXT_PUBLIC_GTM_ID
+  // You can move these to .env as NEXT_PUBLIC_* if you prefer.
   const GTM_ID = 'GTM-5Z3RTKX9';
   const ADS_CLIENT = 'ca-pub-1022737864838438';
+  const GA_ID = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID || 'G-SWPCXV7YF5';
 
   return (
     <html lang="en">
@@ -38,13 +39,13 @@ export default function RootLayout({ children }) {
         <link rel="canonical" href="https://mathsmine3.xyz/" />
         <link rel="icon" href="/favicon.ico" />
 
-        {/* Preconnects recomendados */}
+        {/* Recommended preconnects */}
         <link rel="preconnect" href="https://www.googletagmanager.com" />
         <link rel="preconnect" href="https://www.google-analytics.com" />
         <link rel="preconnect" href="https://pagead2.googlesyndication.com" />
         <link rel="preconnect" href="https://googleads.g.doubleclick.net" />
 
-        {/* AdSense (no AMP). Activa Auto ads en AdSense si quieres que Google coloque anuncios automáticamente */}
+        {/* AdSense (non-AMP). Make sure your CSP allows these domains. */}
         <Script
           id="adsbygoogle"
           strategy="afterInteractive"
@@ -53,7 +54,7 @@ export default function RootLayout({ children }) {
           async
         />
 
-        {/* GTM loader lo más arriba posible */}
+        {/* GTM loader as high as possible */}
         <Script id="gtm-init" strategy="beforeInteractive">
           {`
             (function(w,d,s,l,i){w[l]=w[l]||[];
@@ -64,10 +65,31 @@ export default function RootLayout({ children }) {
             })(window,document,'script','dataLayer','${GTM_ID}');
           `}
         </Script>
+
+        {/* GA4 direct snippet (use this OR GA inside GTM, not both) */}
+        {GA_ID && (
+          <>
+            <Script
+              id="ga4-src"
+              src={`https://www.googletagmanager.com/gtag/js?id=${GA_ID}`}
+              strategy="afterInteractive"
+            />
+            <Script id="ga4-init" strategy="afterInteractive">
+              {`
+                window.dataLayer = window.dataLayer || [];
+                function gtag(){dataLayer.push(arguments);}
+                gtag('js', new Date());
+                gtag('config', '${GA_ID}', {
+                  page_path: window.location.pathname
+                });
+              `}
+            </Script>
+          </>
+        )}
       </head>
 
       <body className="bg-black text-white font-mono">
-        {/* Noscript GTM inmediatamente tras <body> */}
+        {/* NoScript GTM right after <body> */}
         <noscript
           dangerouslySetInnerHTML={{
             __html: `
@@ -78,8 +100,7 @@ export default function RootLayout({ children }) {
           }}
         />
 
-        {/* ❌ Eliminado: <amp-auto-ads> y scripts AMP (no aplican en App Router) */}
-
+        {/* Page content */}
         <Header />
         <main>{children}</main>
         <Footer />
