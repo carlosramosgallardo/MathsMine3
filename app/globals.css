@@ -1,0 +1,109 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* === Global Styles === */
+body {
+  background-color: #000; /* Pure black background */
+  color: #fff;            /* White text */
+  font-family: Consolas, monospace;
+  min-height: 100vh;
+  display: block;         /* no centrar todo el documento */
+}
+
+/* === Buttons (genéricos) === */
+button {
+  border: 2px solid #fff;
+  background-color: transparent;
+  color: #fff;
+  padding: 10px 20px;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: background-color 0.3s ease-in-out, opacity .2s ease-in-out, transform .1s ease-in-out;
+}
+button:hover { background-color: rgba(255, 255, 255, 0.1); }
+button:disabled { opacity: .6; cursor: not-allowed; }
+
+/* === MM3 frame + chip + separators === */
+.mm3-pixel-frame {
+  --mm3-accent: #22d3ee;
+  position: relative;
+  border-radius: 0.75rem;
+  background: #0b0f19;
+  box-shadow:
+    0 0 0 1px rgba(203,213,225,0.15),
+    0 10px 30px rgba(2,6,23,0.6) inset;
+  overflow: hidden;
+}
+
+/* pixel-ish inner border using the accent */
+.mm3-pixel-frame::before,
+.mm3-pixel-frame::after {
+  content: "";
+  position: absolute;
+  inset: 8px;
+  border-radius: 0.5rem;
+  pointer-events: none;
+}
+.mm3-pixel-frame::before {
+  box-shadow:
+    0 0 0 2px color-mix(in srgb, var(--mm3-accent) 55%, transparent),
+    0 0 18px color-mix(in srgb, var(--mm3-accent) 35%, transparent) inset;
+}
+.mm3-pixel-frame::after {
+  inset: 0;
+  border-radius: 0.75rem;
+  box-shadow: 0 1px 0 rgba(255,255,255,0.06) inset;
+}
+
+/* tiny plate for the section title */
+.mm3-chip {
+  display: inline-block;
+  border-radius: 0.5rem;
+  color: #e2e8f0;
+  background: linear-gradient(#0f172a, #0b1222);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--mm3-accent) 55%, transparent),
+    0 6px 14px rgba(2,6,23,0.55);
+  white-space: nowrap;
+}
+
+/* subtle CRT scanlines texture */
+.mm3-scanlines {
+  position: absolute;
+  inset: 0;
+  background-image: repeating-linear-gradient(
+    to bottom,
+    rgba(255,255,255,0.03) 0,
+    rgba(255,255,255,0.03) 1px,
+    transparent 1px,
+    transparent 3px
+  );
+  mix-blend-mode: soft-light;
+  opacity: 0.35;
+}
+
+/* bottom glow divider to separate sections visually */
+.mm3-glow-divider {
+  height: 2px;
+  width: 100%;
+  margin-top: 8px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in srgb, var(--mm3-accent) 85%, transparent),
+    transparent
+  );
+  filter: blur(0.2px);
+  opacity: 0.9;
+}
+
+/* Ocultar scrollbars del carrusel */
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* usa el mismo color que el borde/orb si está definido; si no, fallback */
+.mm3-wallet {
+  color: var(--mm3-accent, #00e5ff);
+  transition: color 200ms ease;
+}
