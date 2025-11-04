@@ -52,13 +52,6 @@ const hexToRgb = (hex) => {
   return { r, g, b }
 }
 
-const hexWithAlpha = (hex, alpha /* 0..1 */) => {
-  const a = Math.round(alpha * 255)
-  const s = a.toString(16).padStart(2, '0')
-  const h = hex.startsWith('#') ? hex.slice(1) : hex
-  return `#${h}${s}`
-}
-
 /* ================== Retro Button Base (azul) ================== */
 function RetroButtonBase({
   children,
@@ -72,7 +65,7 @@ function RetroButtonBase({
   const accentSoft = `rgba(${r}, ${g}, ${b}, 0.35)`
   const accentBorder = `rgba(${r}, ${g}, ${b}, 0.75)`
   const accentBorderDisabled = `rgba(${r}, ${g}, ${b}, 0.35)`
-  const scanlineHex = accent // usamos el mismo azul para las líneas
+  const scanlineHex = accent
   const innerGlow = `inset 0 0 6px rgba(${r}, ${g}, ${b}, 0.45)`
 
   return (
@@ -93,7 +86,7 @@ function RetroButtonBase({
       }}
       aria-disabled={disabled ? 'true' : 'false'}
     >
-      {/* Scanlines en azul */}
+      {/* Scanlines */}
       <span
         aria-hidden="true"
         className="pointer-events-none absolute inset-0 rounded-2xl opacity-10"
@@ -101,7 +94,7 @@ function RetroButtonBase({
           backgroundImage: `repeating-linear-gradient(180deg, ${scanlineHex} 0, ${scanlineHex} 1px, transparent 2px, transparent 4px)`
         }}
       />
-      {/* Inner glow en azul */}
+      {/* Inner glow */}
       <span
         aria-hidden="true"
         className="absolute inset-0 rounded-2xl"
@@ -123,7 +116,7 @@ function RetroConnectButton() {
 
   const title = isConnected
     ? 'Disconnect your wallet safely.'
-    : 'Connect using a free wallet like MetaMask or Ronin.'
+    : 'Create a free wallet on MetaMask or Ronin and play for free without buying any tokens. This way, you can play, learn how to use a crypto wallet, and bring MathsMine3 to life!'
 
   return (
     <RetroButtonBase
@@ -254,8 +247,6 @@ export function WalletActions({ afterToast }) {
     }
   }
 
-  const totalDisplay = Number(donationsTotal || 0).toFixed(6)
-
   return (
     <div className="flex items-center gap-2 sm:gap-3">
       <RetroConnectButton />
@@ -266,16 +257,6 @@ export function WalletActions({ afterToast }) {
         isConnected={isConnected}
         isProcessing={isProcessing}
       />
-
-      {/* Total fuera del botón */}
-      <div
-        className="ml-1 sm:ml-2 font-mono text-xs sm:text-sm whitespace-nowrap px-3 py-1 rounded-full border"
-        style={{ borderColor: '#22d3ee', color: '#22d3ee', backgroundColor: 'rgba(0,0,0,0.5)' }}
-        title="Cumulative amount donated by all wallets"
-        aria-live="polite"
-      >
-        Total Donations = {totalDisplay} ETH
-      </div>
     </div>
   )
 }
