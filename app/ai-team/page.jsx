@@ -102,7 +102,7 @@ export default function AITeamPage() {
               <iframe
                 className="absolute inset-0 h-full w-full"
                 src="https://www.youtube-nocookie.com/embed/r6RTjgJvq5Y"
-                title="Peter Sánxez — Founder (AI)"
+                title="Pedro Sánchez (Founder) — Anarcho-capitalist & Crypto Bro"
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                 referrerPolicy="strict-origin-when-cross-origin"
                 allowFullScreen
@@ -122,7 +122,7 @@ export default function AITeamPage() {
               <iframe
                 className="absolute inset-0 h-full w-full"
                 src="https://www.youtube-nocookie.com/embed/GDnYV66vHU4"
-                title="Fernandisco Glande-Marlaska — International Relations (AI)"
+                title="Fernando Grande-Marlaska (International Relations) — International Relations of every kind"
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                 referrerPolicy="strict-origin-when-cross-origin"
                 allowFullScreen
@@ -142,7 +142,7 @@ export default function AITeamPage() {
               <iframe
                 className="absolute inset-0 h-full w-full"
                 src="https://www.youtube-nocookie.com/embed/rv_6a3xI5J4"
-                title="Patshi Lópes — The Engineer (AI)"
+                title="Patxi López (The Engineer) — Official and Reputable fake Engineer"
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                 referrerPolicy="strict-origin-when-cross-origin"
                 allowFullScreen

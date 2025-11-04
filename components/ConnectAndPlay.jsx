@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { createWeb3Modal, useWeb3Modal } from '@web3modal/wagmi/react'
 import { WagmiConfig, createConfig, useAccount, useWalletClient, useDisconnect, http } from 'wagmi'
 import { mainnet } from 'wagmi/chains'
@@ -40,7 +40,7 @@ export function useShortAddress(addr) {
   return useMemo(() => (!addr ? '' : addr.slice(0, 6) + '...' + addr.slice(-4)), [addr])
 }
 
-/* ================== Color helpers ================== */
+/* ================== Helpers ================== */
 const DEFAULT_ACCENT = '#22d3ee' // azul base MM3
 
 const hexToRgb = (hex) => {
@@ -52,14 +52,31 @@ const hexToRgb = (hex) => {
   return { r, g, b }
 }
 
-/* ================== Retro Button Base (azul) ================== */
+function useIsCoarsePointer() {
+  const [isCoarse, setIsCoarse] = useState(false)
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return
+    const mq = window.matchMedia('(pointer: coarse)')
+    const update = () => setIsCoarse(!!mq.matches)
+    update()
+    mq.addEventListener?.('change', update)
+    return () => mq.removeEventListener?.('change', update)
+  }, [])
+  return isCoarse
+}
+
+/* ================== Retro Button Base (con tooltip móvil) ================== */
 function RetroButtonBase({
   children,
   title,
+  ariaLabel,
   disabled,
   onClick,
   className = '',
-  accent = DEFAULT_ACCENT
+  accent = DEFAULT_ACCENT,
+  mobileTooltip,            // string opcional; si existe, se muestra con long-press en móviles
+  mobileTooltipMs = 2500,   // duración visible del tooltip móvil
+  longPressMs = 500         // tiempo para activar long-press
 }) {
   const { r, g, b } = hexToRgb(accent)
   const accentSoft = `rgba(${r}, ${g}, ${b}, 0.35)`
@@ -67,43 +84,106 @@ function RetroButtonBase({
   const accentBorderDisabled = `rgba(${r}, ${g}, ${b}, 0.35)`
   const scanlineHex = accent
   const innerGlow = `inset 0 0 6px rgba(${r}, ${g}, ${b}, 0.45)`
+  const isCoarse = useIsCoarsePointer()
+
+  const [showTip, setShowTip] = useState(false)
+  const longPressTimer = useRef(null)
+  const hideTimer = useRef(null)
+  const longPressTriggered = useRef(false)
+
+  const clearTimers = () => {
+    if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null }
+    if (hideTimer.current) { clearTimeout(hideTimer.current); hideTimer.current = null }
+  }
+
+  const startLongPress = () => {
+    if (!isCoarse || !mobileTooltip || disabled) return
+    clearTimers()
+    longPressTriggered.current = false
+    longPressTimer.current = setTimeout(() => {
+      longPressTriggered.current = true
+      setShowTip(true)
+      hideTimer.current = setTimeout(() => setShowTip(false), mobileTooltipMs)
+    }, longPressMs)
+  }
+
+  const endLongPress = () => {
+    if (!isCoarse || !mobileTooltip) return
+    clearTimeout(longPressTimer.current)
+  }
+
+  useEffect(() => () => clearTimers(), [])
+
+  const handleClick = (e) => {
+    // Si venimos de un long-press, no ejecutamos el click
+    if (longPressTriggered.current) {
+      longPressTriggered.current = false
+      e.preventDefault()
+      e.stopPropagation()
+      return
+    }
+    onClick?.(e)
+  }
 
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      title={title}
-      className={`relative inline-flex items-center px-4 sm:px-5 py-2 rounded-2xl font-mono text-sm
-                  border bg-black/70 transition-all duration-200
-                  ${disabled ? 'cursor-not-allowed opacity-70' : 'hover:bg-black/80 active:scale-[0.99]'}
-                  ${className}`}
-      style={{
-        backdropFilter: 'blur(2px)',
-        borderColor: disabled ? accentBorderDisabled : accentBorder,
-        color: accent,
-        boxShadow: disabled ? 'none' : `0 0 22px ${accentSoft}`
-      }}
-      aria-disabled={disabled ? 'true' : 'false'}
-    >
-      {/* Scanlines */}
-      <span
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-0 rounded-2xl opacity-10"
+    <div className="relative inline-block">
+      <button
+        type="button"
+        onClick={handleClick}
+        onTouchStart={startLongPress}
+        onTouchEnd={endLongPress}
+        onTouchCancel={endLongPress}
+        disabled={disabled}
+        title={title}               // tooltip nativo en desktop
+        aria-label={ariaLabel || title}
+        className={`relative inline-flex items-center px-4 sm:px-5 py-2 rounded-2xl font-mono text-sm
+                    border bg-black/70 transition-all duration-200
+                    ${disabled ? 'cursor-not-allowed opacity-70' : 'hover:bg-black/80 active:scale-[0.99]'}
+                    ${className}`}
         style={{
-          backgroundImage: `repeating-linear-gradient(180deg, ${scanlineHex} 0, ${scanlineHex} 1px, transparent 2px, transparent 4px)`
+          backdropFilter: 'blur(2px)',
+          borderColor: disabled ? accentBorderDisabled : accentBorder,
+          color: accent,
+          boxShadow: disabled ? 'none' : `0 0 22px ${accentSoft}`
         }}
-      />
-      {/* Inner glow */}
-      <span
-        aria-hidden="true"
-        className="absolute inset-0 rounded-2xl"
-        style={{ boxShadow: innerGlow }}
-      />
-      <span className="relative z-10 font-semibold tracking-wide whitespace-nowrap">
-        {children}
-      </span>
-    </button>
+        aria-disabled={disabled ? 'true' : 'false'}
+      >
+        {/* Scanlines */}
+        <span
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 rounded-2xl opacity-10"
+          style={{
+            backgroundImage: `repeating-linear-gradient(180deg, ${scanlineHex} 0, ${scanlineHex} 1px, transparent 2px, transparent 4px)`
+          }}
+        />
+        {/* Inner glow */}
+        <span
+          aria-hidden="true"
+          className="absolute inset-0 rounded-2xl"
+          style={{ boxShadow: innerGlow }}
+        />
+        <span className="relative z-10 font-semibold tracking-wide whitespace-nowrap">
+          {children}
+        </span>
+      </button>
+
+      {/* Tooltip móvil (solo si pointer: coarse) */}
+      {isCoarse && mobileTooltip && showTip && (
+        <div
+          role="tooltip"
+          className="absolute left-1/2 -translate-x-1/2 mt-2 max-w-[88vw] z-50
+                     rounded-md border px-3 py-2 text-xs font-mono
+                     shadow-lg"
+          style={{
+            backgroundColor: 'rgba(0,0,0,0.85)',
+            borderColor: accentBorder,
+            color: accent
+          }}
+        >
+          {mobileTooltip}
+        </div>
+      )}
+    </div>
   )
 }
 
@@ -122,7 +202,9 @@ function RetroConnectButton() {
     <RetroButtonBase
       onClick={handleClick}
       title={title}
+      ariaLabel={title}
       accent={DEFAULT_ACCENT}
+      mobileTooltip={title}
     >
       {isConnected ? 'Disconnect' : 'Connect'}
     </RetroButtonBase>
@@ -134,21 +216,21 @@ function RetroDonateButton({ total, disabled, onClick, isConnected, isProcessing
   const amountDisplay = Number(process.env.NEXT_PUBLIC_FAKE_MINING_PRICE || '0.00001').toFixed(6)
   const totalDisplay = Number(total || 0).toFixed(6)
 
-  const hoverTitleConnected =
-    `Real on-chain donation of ${amountDisplay} ETH to power MM3 into reality. ` +
-    `Total Donations = ${totalDisplay} ETH.`
+  const ttConnected =
+    `Real on-chain donation of ${amountDisplay} ETH to power MM3 into reality. Total Donations = ${totalDisplay} ETH.`
+  const ttDisconnected =
+    `Connect wallet to donate ${amountDisplay} ETH. Total Donations = ${totalDisplay} ETH.`
 
-  const hoverTitleDisconnected =
-    `Connect wallet to donate ${amountDisplay} ETH. ` +
-    `Total Donations = ${totalDisplay} ETH.`
+  const tooltip = isConnected ? ttConnected : ttDisconnected
 
   return (
     <RetroButtonBase
       onClick={onClick}
       disabled={disabled || !isConnected}
-      title={isConnected ? hoverTitleConnected : hoverTitleDisconnected}
-      aria-label="Donate to support MM3 becoming real"
+      title={tooltip}            // desktop hover
+      ariaLabel={tooltip}        // lectores de pantalla
       accent={DEFAULT_ACCENT}
+      mobileTooltip={tooltip}    // tooltip por long-press en móvil
     >
       {isProcessing ? 'Processing…' : 'Donate'}
     </RetroButtonBase>
