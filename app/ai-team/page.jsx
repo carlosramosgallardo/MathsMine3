@@ -3,7 +3,7 @@ import Head from 'next/head';
 export default function AITeamPage() {
   const pageTitle = 'MathsMine3 – AI Team';
   const pageDescription =
-    'Meet the AI-generated team behind the MathsMine3 social experiment. Two intros are live; the engineer joins soon.';
+    'Meet the AI-generated team behind the MathsMine3 social experiment. Three intros are live.';
   const canonicalUrl = 'https://mathsmine3.xyz/ai-team';
   const ogImage = 'https://mathsmine3.xyz/og-image.jpg';
 
@@ -79,11 +79,14 @@ export default function AITeamPage() {
         <header className="text-center mb-10">
           <h1 className="text-xl font-semibold mt-8 mb-2">Meet the AI Team</h1>
           <p className="text-gray-400">
-            A tongue-in-cheek, AI-generated “team” presenting the MathsMine3 experiment.
+            A tongue-in-cheek, AI-generated “team” presenting the MathsMine3 experiment. All three
+            intros are live.
           </p>
         </header>
 
-        <section className="grid gap-8 md:grid-cols-2">
+        {/* Tres tarjetas del mismo tamaño; 1 col en móvil, 2 en sm, 3 en lg */}
+        <section className="grid gap-8 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+          {/* Card base */}
           <article className="rounded-2xl border border-white/10 bg-black/40 p-4">
             <div className="mb-4">
               <h2 className="text-lg font-medium text-white">Peter Sánxez</h2>
@@ -91,6 +94,7 @@ export default function AITeamPage() {
                 Founder — anarcho-capitalist &amp; crypto bro (AI)
               </p>
             </div>
+            {/* Mantener 9:16 (Shorts) */}
             <div
               className="relative w-full overflow-hidden rounded-xl"
               style={{ paddingBottom: '177.78%' }}
@@ -126,7 +130,7 @@ export default function AITeamPage() {
             </div>
           </article>
 
-          <article className="rounded-2xl border border-white/10 bg-black/40 p-4 md:col-span-2">
+          <article className="rounded-2xl border border-white/10 bg-black/40 p-4">
             <div className="mb-4">
               <h2 className="text-lg font-medium text-white">Patshi Lópes</h2>
               <p className="text-sm text-gray-400">The Engineer (AI)</p>
