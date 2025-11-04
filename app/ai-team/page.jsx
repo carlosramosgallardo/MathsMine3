@@ -35,11 +35,13 @@ export default function AITeamPage() {
         publisher: { '@type': 'Organization', name: 'MathsMine3' },
       },
       {
-        '@type': 'CreativeWork',
+        '@type': 'VideoObject',
         position: 3,
         name: 'Patshi Lópes — The Engineer (AI)',
-        description: 'Video coming soon.',
-        creativeWorkStatus: 'Announced',
+        description: 'Engineer intro. AI-generated team member presentation.',
+        thumbnailUrl: 'https://img.youtube.com/vi/rv_6a3xI5J4/hqdefault.jpg',
+        embedUrl: 'https://www.youtube.com/embed/rv_6a3xI5J4',
+        contentUrl: 'https://www.youtube.com/shorts/rv_6a3xI5J4',
         publisher: { '@type': 'Organization', name: 'MathsMine3' },
       },
     ],
@@ -77,8 +79,7 @@ export default function AITeamPage() {
         <header className="text-center mb-10">
           <h1 className="text-xl font-semibold mt-8 mb-2">Meet the AI Team</h1>
           <p className="text-gray-400">
-            A tongue-in-cheek, AI-generated “team” presenting the MathsMine3 experiment. Two
-            intros are live; the engineer joins soon.
+            A tongue-in-cheek, AI-generated “team” presenting the MathsMine3 experiment.
           </p>
         </header>
 
@@ -90,7 +91,10 @@ export default function AITeamPage() {
                 Founder — anarcho-capitalist &amp; crypto bro (AI)
               </p>
             </div>
-            <div className="relative w-full overflow-hidden rounded-xl" style={{ paddingBottom: '177.78%' }}>
+            <div
+              className="relative w-full overflow-hidden rounded-xl"
+              style={{ paddingBottom: '177.78%' }}
+            >
               <iframe
                 className="absolute inset-0 h-full w-full"
                 src="https://www.youtube-nocookie.com/embed/r6RTjgJvq5Y"
@@ -107,7 +111,10 @@ export default function AITeamPage() {
               <h2 className="text-lg font-medium text-white">Fernandisco Glande-Marlaska</h2>
               <p className="text-sm text-gray-400">International Relations of every kind (AI)</p>
             </div>
-            <div className="relative w-full overflow-hidden rounded-xl" style={{ paddingBottom: '177.78%' }}>
+            <div
+              className="relative w-full overflow-hidden rounded-xl"
+              style={{ paddingBottom: '177.78%' }}
+            >
               <iframe
                 className="absolute inset-0 h-full w-full"
                 src="https://www.youtube-nocookie.com/embed/GDnYV66vHU4"
@@ -120,22 +127,22 @@ export default function AITeamPage() {
           </article>
 
           <article className="rounded-2xl border border-white/10 bg-black/40 p-4 md:col-span-2">
-            <div className="mb-4 flex items-center justify-between gap-4">
-              <div>
-                <h2 className="text-lg font-medium text-white">Patshi Lópes</h2>
-                <p className="text-sm text-gray-400">The Engineer (AI)</p>
-              </div>
-              <span className="inline-flex items-center rounded-full border border-cyan-500/40 px-3 py-1 text-xs text-cyan-300">
-                Coming soon
-              </span>
+            <div className="mb-4">
+              <h2 className="text-lg font-medium text-white">Patshi Lópes</h2>
+              <p className="text-sm text-gray-400">The Engineer (AI)</p>
             </div>
-            <div className="relative w-full overflow-hidden rounded-xl bg-white/5">
-              <div className="flex h-[320px] items-center justify-center md:h-[420px]" aria-label="Video coming soon">
-                <div className="text-center">
-                  <div className="mb-2 text-sm uppercase tracking-wide text-gray-400">Video</div>
-                  <div className="text-2xl font-semibold text-white">Coming soon</div>
-                </div>
-              </div>
+            <div
+              className="relative w-full overflow-hidden rounded-xl"
+              style={{ paddingBottom: '177.78%' }}
+            >
+              <iframe
+                className="absolute inset-0 h-full w-full"
+                src="https://www.youtube-nocookie.com/embed/rv_6a3xI5J4"
+                title="Patshi Lópes — The Engineer (AI)"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                referrerPolicy="strict-origin-when-cross-origin"
+                allowFullScreen
+              />
             </div>
           </article>
         </section>
