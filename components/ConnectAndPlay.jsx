@@ -136,12 +136,18 @@ function RetroConnectButton() {
   )
 }
 
-/* ================== Donate + total (MM3 Raised) ================== */
+/* ================== Donate (solo botón) ================== */
 function RetroDonateButton({ total, disabled, onClick, isConnected, isProcessing }) {
   const amountDisplay = Number(process.env.NEXT_PUBLIC_FAKE_MINING_PRICE || '0.00001').toFixed(6)
-  const hoverTitleConnected = `Real on-chain donation of ${amountDisplay} ETH to power MM3 into reality.`
-  const hoverTitleDisconnected = `Connect wallet to donate ${amountDisplay} ETH.`
   const totalDisplay = Number(total || 0).toFixed(6)
+
+  const hoverTitleConnected =
+    `Real on-chain donation of ${amountDisplay} ETH to power MM3 into reality. ` +
+    `Total Donations = ${totalDisplay} ETH.`
+
+  const hoverTitleDisconnected =
+    `Connect wallet to donate ${amountDisplay} ETH. ` +
+    `Total Donations = ${totalDisplay} ETH.`
 
   return (
     <RetroButtonBase
@@ -151,8 +157,7 @@ function RetroDonateButton({ total, disabled, onClick, isConnected, isProcessing
       aria-label="Donate to support MM3 becoming real"
       accent={DEFAULT_ACCENT}
     >
-      {isProcessing ? 'Processing…' : 'MM3 Raised ='}
-      <span className="font-bold ml-1">{totalDisplay} ETH</span>
+      {isProcessing ? 'Processing…' : 'Donate'}
     </RetroButtonBase>
   )
 }
@@ -180,7 +185,7 @@ export function WalletActions({ afterToast }) {
         const res = await fetch('/api/donations-total', { cache: 'no-store' })
         const json = await res.json()
         if (res.ok && typeof json.total === 'number') setDonationsTotal(json.total)
-      } catch {}
+      } catch {} // eslint-disable-line no-empty
       finally { timer = setTimeout(load, 15000) }
     }
     load()
@@ -240,7 +245,7 @@ export function WalletActions({ afterToast }) {
         const res = await fetch('/api/donations-total', { cache: 'no-store' })
         const json = await res.json()
         if (res.ok && typeof json.total === 'number') setDonationsTotal(json.total)
-      } catch {}
+      } catch {} // eslint-disable-line no-empty
     } catch (err) {
       console.error('Donation failed:', err)
       notify('Transaction cancelled or failed.', 'error')
@@ -248,6 +253,8 @@ export function WalletActions({ afterToast }) {
       setIsProcessing(false)
     }
   }
+
+  const totalDisplay = Number(donationsTotal || 0).toFixed(6)
 
   return (
     <div className="flex items-center gap-2 sm:gap-3">
@@ -259,6 +266,16 @@ export function WalletActions({ afterToast }) {
         isConnected={isConnected}
         isProcessing={isProcessing}
       />
+
+      {/* Total fuera del botón */}
+      <div
+        className="ml-1 sm:ml-2 font-mono text-xs sm:text-sm whitespace-nowrap px-3 py-1 rounded-full border"
+        style={{ borderColor: '#22d3ee', color: '#22d3ee', backgroundColor: 'rgba(0,0,0,0.5)' }}
+        title="Cumulative amount donated by all wallets"
+        aria-live="polite"
+      >
+        Total Donations = {totalDisplay} ETH
+      </div>
     </div>
   )
 }
