@@ -79,8 +79,7 @@ export default function AITeamPage() {
         <header className="text-center mb-10">
           <h1 className="text-xl font-semibold mt-8 mb-2">Meet the AI Team</h1>
           <p className="text-gray-400">
-            A tongue-in-cheek, AI-generated “team” presenting the MathsMine3 experiment. All three
-            intros are live.
+            A tongue-in-cheek, AI-generated “team” presenting the MathsMine3 experiment:
           </p>
         </header>
 
@@ -89,9 +88,9 @@ export default function AITeamPage() {
           {/* Card base */}
           <article className="rounded-2xl border border-white/10 bg-black/40 p-4">
             <div className="mb-4">
-              <h2 className="text-lg font-medium text-white">Peter Sánxez</h2>
+              <h2 className="text-lg font-medium text-white">Pedro Sánchez (Founder)</h2>
               <p className="text-sm text-gray-400">
-                Founder — anarcho-capitalist &amp; crypto bro (AI)
+                Founder, Anarcho-Capitalist and Crypto Bro
               </p>
             </div>
             {/* Mantener 9:16 (Shorts) */}
@@ -112,8 +111,8 @@ export default function AITeamPage() {
 
           <article className="rounded-2xl border border-white/10 bg-black/40 p-4">
             <div className="mb-4">
-              <h2 className="text-lg font-medium text-white">Fernandisco Glande-Marlaska</h2>
-              <p className="text-sm text-gray-400">International Relations of every kind (AI)</p>
+              <h2 className="text-lg font-medium text-white">Fernando Grande-Marlaska</h2>
+              <p className="text-sm text-gray-400">International Relations of every kind</p>
             </div>
             <div
               className="relative w-full overflow-hidden rounded-xl"
@@ -132,8 +131,8 @@ export default function AITeamPage() {
 
           <article className="rounded-2xl border border-white/10 bg-black/40 p-4">
             <div className="mb-4">
-              <h2 className="text-lg font-medium text-white">Patshi Lópes</h2>
-              <p className="text-sm text-gray-400">The Engineer (AI)</p>
+              <h2 className="text-lg font-medium text-white">Patxi López</h2>
+              <p className="text-sm text-gray-400">Official and reputable fake engineer</p>
             </div>
             <div
               className="relative w-full overflow-hidden rounded-xl"
