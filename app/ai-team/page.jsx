@@ -88,7 +88,7 @@ export default function AITeamPage() {
           {/* Card base */}
           <article className="rounded-2xl border border-white/10 bg-black/40 p-4">
             <div className="mb-4">
-              <h2 className="text-lg font-medium text-white">Pedro Sánchez (Founder)</h2>
+              <h2 className="text-lg font-medium text-white">Pedro Sánchez</h2>
               <p className="text-sm text-gray-400">
                 Founder, Anarcho-Capitalist and Crypto Bro
               </p>
