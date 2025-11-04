@@ -41,7 +41,7 @@ export function useShortAddress(addr) {
 }
 
 /* ================== Helpers ================== */
-const DEFAULT_ACCENT = '#22d3ee' // azul base MM3
+const DEFAULT_ACCENT = '#22d3ee'
 
 const hexToRgb = (hex) => {
   const h = hex.replace('#', '')
@@ -74,9 +74,9 @@ function RetroButtonBase({
   onClick,
   className = '',
   accent = DEFAULT_ACCENT,
-  mobileTooltip,            // string opcional; si existe, se muestra con long-press en móviles
-  mobileTooltipMs = 2500,   // duración visible del tooltip móvil
-  longPressMs = 500         // tiempo para activar long-press
+  mobileTooltip,            // texto del tooltip móvil (long-press)
+  mobileTooltipMs = 2500,
+  longPressMs = 500
 }) {
   const { r, g, b } = hexToRgb(accent)
   const accentSoft = `rgba(${r}, ${g}, ${b}, 0.35)`
@@ -97,7 +97,7 @@ function RetroButtonBase({
   }
 
   const startLongPress = () => {
-    if (!isCoarse || !mobileTooltip || disabled) return
+    if (!isCoarse || !mobileTooltip) return
     clearTimers()
     longPressTriggered.current = false
     longPressTimer.current = setTimeout(() => {
@@ -115,7 +115,7 @@ function RetroButtonBase({
   useEffect(() => () => clearTimers(), [])
 
   const handleClick = (e) => {
-    // Si venimos de un long-press, no ejecutamos el click
+    // si venimos de long-press, cancelamos el click
     if (longPressTriggered.current) {
       longPressTriggered.current = false
       e.preventDefault()
@@ -126,15 +126,18 @@ function RetroButtonBase({
   }
 
   return (
-    <div className="relative inline-block">
+    <div
+      className="relative inline-block"
+      /* Long-press en el WRAPPER para que funcione incluso con el botón disabled */
+      onTouchStart={startLongPress}
+      onTouchEnd={endLongPress}
+      onTouchCancel={endLongPress}
+    >
       <button
         type="button"
         onClick={handleClick}
-        onTouchStart={startLongPress}
-        onTouchEnd={endLongPress}
-        onTouchCancel={endLongPress}
         disabled={disabled}
-        title={title}               // tooltip nativo en desktop
+        title={title}               // tooltip nativo desktop
         aria-label={ariaLabel || title}
         className={`relative inline-flex items-center px-4 sm:px-5 py-2 rounded-2xl font-mono text-sm
                     border bg-black/70 transition-all duration-200
@@ -167,13 +170,12 @@ function RetroButtonBase({
         </span>
       </button>
 
-      {/* Tooltip móvil (solo si pointer: coarse) */}
+      {/* Tooltip móvil */}
       {isCoarse && mobileTooltip && showTip && (
         <div
           role="tooltip"
           className="absolute left-1/2 -translate-x-1/2 mt-2 max-w-[88vw] z-50
-                     rounded-md border px-3 py-2 text-xs font-mono
-                     shadow-lg"
+                     rounded-md border px-3 py-2 text-xs font-mono shadow-lg"
           style={{
             backgroundColor: 'rgba(0,0,0,0.85)',
             borderColor: accentBorder,
@@ -230,14 +232,14 @@ function RetroDonateButton({ total, disabled, onClick, isConnected, isProcessing
       title={tooltip}            // desktop hover
       ariaLabel={tooltip}        // lectores de pantalla
       accent={DEFAULT_ACCENT}
-      mobileTooltip={tooltip}    // tooltip por long-press en móvil
+      mobileTooltip={tooltip}    // long-press móvil (funciona también si está disabled)
     >
       {isProcessing ? 'Processing…' : 'Donate'}
     </RetroButtonBase>
   )
 }
 
-/* ================== Wallet Actions (dos botones visibles) ================== */
+/* ================== Wallet Actions ================== */
 export function WalletActions({ afterToast }) {
   const { address, isConnected } = useAccount()
   const { data: walletClient } = useWalletClient()
@@ -306,7 +308,6 @@ export function WalletActions({ afterToast }) {
         value: parseEther(process.env.NEXT_PUBLIC_FAKE_MINING_PRICE)
       })
 
-      // Sólo agradece si /api/donate-log confirma insert
       const ok = await logSuccess()
       if (!ok) {
         notify('On-chain ok, but logging failed. Please contact support.', 'error')
@@ -320,7 +321,7 @@ export function WalletActions({ afterToast }) {
         const res = await fetch('/api/donations-total', { cache: 'no-store' })
         const json = await res.json()
         if (res.ok && typeof json.total === 'number') setDonationsTotal(json.total)
-      } catch {} // eslint-disable-line no-empty
+      } catch {}
     } catch (err) {
       console.error('Donation failed:', err)
       notify('Transaction cancelled or failed.', 'error')
