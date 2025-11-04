@@ -3,7 +3,7 @@ import Head from 'next/head';
 export default function AITeamPage() {
   const pageTitle = 'MathsMine3 – AI Team';
   const pageDescription =
-    'Meet the AI-generated team behind the MathsMine3 social experiment. Three intros are live.';
+    'Meet the AI-generated team behind the MathsMine3 social experiment:';
   const canonicalUrl = 'https://mathsmine3.xyz/ai-team';
   const ogImage = 'https://mathsmine3.xyz/og-image.jpg';
 
@@ -15,9 +15,9 @@ export default function AITeamPage() {
       {
         '@type': 'VideoObject',
         position: 1,
-        name: 'Peter Sánxez — Founder (AI)',
+        name: 'Pedro Sánchez (Founder)',
         description:
-          'Founder, anarcho-capitalist and unapologetic crypto bro. AI-generated team intro.',
+          'Founder, anarcho-capitalist and unapologetic crypto bro.',
         thumbnailUrl: 'https://img.youtube.com/vi/r6RTjgJvq5Y/hqdefault.jpg',
         embedUrl: 'https://www.youtube.com/embed/r6RTjgJvq5Y',
         contentUrl: 'https://www.youtube.com/shorts/r6RTjgJvq5Y',
@@ -26,9 +26,9 @@ export default function AITeamPage() {
       {
         '@type': 'VideoObject',
         position: 2,
-        name: 'Fernandisco Glande-Marlaska — International Relations (AI)',
+        name: 'Fernando Grande-Marlaska (International Relations)',
         description:
-          'Handles international relations of every possible kind. AI-generated team intro.',
+          'Handles international relations of every possible kind.',
         thumbnailUrl: 'https://img.youtube.com/vi/GDnYV66vHU4/hqdefault.jpg',
         embedUrl: 'https://www.youtube.com/embed/GDnYV66vHU4',
         contentUrl: 'https://www.youtube.com/shorts/GDnYV66vHU4',
@@ -37,8 +37,8 @@ export default function AITeamPage() {
       {
         '@type': 'VideoObject',
         position: 3,
-        name: 'Patshi Lópes — The Engineer (AI)',
-        description: 'Engineer intro. AI-generated team member presentation.',
+        name: 'Patxi López (The Engineer)',
+        description: 'Official and reputable fake engineer',
         thumbnailUrl: 'https://img.youtube.com/vi/rv_6a3xI5J4/hqdefault.jpg',
         embedUrl: 'https://www.youtube.com/embed/rv_6a3xI5J4',
         contentUrl: 'https://www.youtube.com/shorts/rv_6a3xI5J4',
