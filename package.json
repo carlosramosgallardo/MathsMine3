@@ -16,7 +16,7 @@
     "@vercel/speed-insights": "^1.2.0",
     "@web3modal/wagmi": "^5.1.11",
     "ethers": "^6.13.5",
-    "next": "15.2.8",
+    "next": "15.5.12",
     "nextjs-google-analytics": "^2.3.7",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
