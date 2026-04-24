@@ -357,23 +357,25 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
         .lb-row.wallet-selected { background: linear-gradient(90deg, rgba(34,211,238,.16), rgba(74,222,128,.08)); border-color: rgba(34,211,238,.75); box-shadow: inset 0 0 22px rgba(34,211,238,.16), 0 0 14px rgba(34,211,238,.12); }
         .lb-tbl { border-collapse: collapse; border: 2px solid rgba(34,211,238,.25); border-radius: 12px; overflow: hidden; }
         .lb-tbl thead { background: linear-gradient(135deg,#0b0f19,#050810); border-bottom: 2px solid rgba(34,211,238,.3); }
-        .lb-tbl thead th { color:#22d3ee; font-weight:700; padding:.46rem .4rem; text-align:left; border-right:1px solid rgba(34,211,238,.15); font-size:.64rem; letter-spacing:.05em; }
-        @media(min-width:640px){ .lb-tbl thead th { padding:.62rem .56rem; font-size:.72rem; } }
+        .lb-tbl thead th { color:#22d3ee; font-weight:700; padding:.34rem .3rem; text-align:left; border-right:1px solid rgba(34,211,238,.15); font-size:.58rem; letter-spacing:.05em; }
+        @media(min-width:640px){ .lb-tbl thead th { padding:.42rem .4rem; font-size:.64rem; } }
         .lb-tbl thead th:last-child { border-right:none; }
         .lb-tbl tbody tr:nth-child(odd) { background:rgba(34,211,238,.015); }
-        .lb-tbl td { padding:.44rem .4rem; border-bottom:1px solid rgba(34,211,238,.1); font-size:.68rem; }
-        @media(min-width:640px){ .lb-tbl td { padding:.56rem; font-size:.72rem; } }
+        .lb-tbl td { padding:.3rem .3rem; border-bottom:1px solid rgba(34,211,238,.1); font-size:.62rem; }
+        @media(min-width:640px){ .lb-tbl td { padding:.38rem .4rem; font-size:.66rem; } }
         .lb-tbl tbody tr:last-child td { border-bottom:none; }
-        .rank-badge { display:inline-flex; align-items:center; justify-content:center; min-width:1.4rem; font-weight:900; font-size:.96rem; border:none; background:none; box-shadow:none; flex-shrink:0; }
+        .rank-badge { display:inline-flex; align-items:center; justify-content:center; min-width:1.1rem; font-weight:900; font-size:.82rem; border:none; background:none; box-shadow:none; flex-shrink:0; }
         .rank-badge.r1 { color:#facc15; text-shadow:0 0 10px rgba(250,204,21,.32); }
         .rank-badge.r2 { color:#67e8f9; text-shadow:0 0 10px rgba(103,232,249,.32); }
         .rank-badge.r3 { color:#f472b6; text-shadow:0 0 10px rgba(244,114,182,.32); }
         .lb-card { border:1px solid rgba(34,211,238,.18); background:linear-gradient(135deg, rgba(2,6,23,.94), rgba(0,0,0,.96)); box-shadow:0 0 18px rgba(34,211,238,.06); }
         .lb-card.wallet-active { border-color:rgba(74,222,128,.55); box-shadow:0 0 18px rgba(74,222,128,.14), inset 0 0 18px rgba(74,222,128,.08); }
         .lb-card.wallet-selected { border-color:rgba(34,211,238,.75); box-shadow:0 0 22px rgba(34,211,238,.16), inset 0 0 18px rgba(34,211,238,.1); }
-        .lb-status-chip { display:inline-flex; align-items:center; justify-content:center; min-width:4.9rem; padding:.22rem .46rem; border:1px solid rgba(34,211,238,.18); background:rgba(0,0,0,.45); font-size:.56rem; font-weight:900; letter-spacing:.14em; text-transform:uppercase; }
+        .lb-status-chip { display:inline-flex; align-items:center; justify-content:center; min-width:4.2rem; padding:.16rem .34rem; border:1px solid rgba(34,211,238,.18); background:rgba(0,0,0,.45); font-size:.5rem; font-weight:900; letter-spacing:.14em; text-transform:uppercase; }
         .lb-status-chip.online { border-color:rgba(74,222,128,.34); color:#4ade80; box-shadow:0 0 12px rgba(74,222,128,.12) inset; }
         .lb-status-chip.offline { border-color:rgba(148,163,184,.2); color:#64748b; }
+        .lb-slot-cell { width:1.95rem; height:1.95rem; }
+        .lb-block-cell { width:2rem; height:2rem; }
       `}</style>
 
       <div className="space-y-3 sm:hidden">
@@ -469,7 +471,7 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
               </div>
 
               <div className="mt-2">
-                <div className="mb-1 text-[0.58rem] uppercase tracking-[0.12em] text-cyan-700">{t('leaderboard.block')}</div>
+                <div className="mb-1 text-[0.58rem] uppercase tracking-[0.12em] text-cyan-700">{t('leaderboard.blocks')}</div>
                 <div className="flex min-h-7 flex-wrap items-center gap-1 rounded-lg border border-cyan-500/10 bg-black/50 px-2 py-1">
                   {marketBlocks.length > 0 ? marketBlocks.map((block) => (
                     <button
@@ -512,7 +514,7 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
               <th style={{ width:'10%', textAlign:'center' }}><SortButton sortKey="status" className="justify-center">{t('leaderboard.status')}</SortButton></th>
               <th style={{ width:'32%' }}><SortButton sortKey="wallet">{t('leaderboard.minerWallet')}</SortButton></th>
               <th style={{ width:'14%', textAlign:'center' }} title="NFTmojis — probability artifacts that influence MM3 global value"><SortButton sortKey="nftmoji" className="justify-center">NFTmojis</SortButton></th>
-              <th style={{ width:'12%', textAlign:'center' }}><SortButton sortKey="block" className="justify-center">{t('leaderboard.block')}</SortButton></th>
+              <th style={{ width:'12%', textAlign:'center' }}><SortButton sortKey="block" className="justify-center">{t('leaderboard.blocks')}</SortButton></th>
               <th style={{ width:'7%', textAlign:'center' }}><SortButton sortKey="level" className="justify-center">{t('leaderboard.level')}</SortButton></th>
               <th style={{ width:'9%', textAlign:'center' }}><SortButton sortKey="rank" className="justify-center">{t('leaderboard.rank')}</SortButton></th>
               <th style={{ width:'10%', textAlign:'right', paddingRight:'1rem' }}><SortButton sortKey="available_mm3" className="justify-end">{t('leaderboard.mm3Earned')}</SortButton></th>
@@ -575,7 +577,7 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
                           <div
                             key={slot.key}
                             title={getEmojiTitle(slot.emoji)}
-                            className="flex h-8 w-8 items-center justify-center rounded-md border text-base"
+                            className="lb-slot-cell flex items-center justify-center rounded-md border text-[0.95rem]"
                             style={{
                               borderColor: owned ? tier.glow : 'rgba(148,163,184,0.22)',
                               background: owned ? tier.bg : 'rgba(2,6,23,0.4)',
@@ -597,7 +599,7 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
                           type="button"
                           onClick={() => openMarketBlock(block.pixel_key)}
                           title={`${block.emoji} ${block.hex}`}
-                          className="relative flex h-8 w-8 items-center justify-center rounded-md border text-base transition hover:border-cyan-300 hover:text-cyan-100"
+                          className="lb-block-cell relative flex items-center justify-center rounded-md border text-[0.95rem] transition hover:border-cyan-300 hover:text-cyan-100"
                           style={{
                             borderColor: 'rgba(250,204,21,0.3)',
                             background: 'rgba(2,6,23,0.68)',
@@ -611,27 +613,27 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
                           </span>
                         </button>
                       )) : (
-                        <span className="text-[0.56rem] uppercase tracking-[0.12em] text-slate-600">{t('leaderboard.none')}</span>
+                        <span className="text-[0.52rem] uppercase tracking-[0.12em] text-slate-600">{t('leaderboard.none')}</span>
                       )}
                     </div>
                   </td>
                   <td style={{ textAlign:'center' }}>
-                    <span className="font-mono font-black text-sm" style={{ color: tier.color, textShadow:`0 0 8px ${tier.color}66` }}>
+                    <span className="font-mono font-black text-[0.82rem]" style={{ color: tier.color, textShadow:`0 0 8px ${tier.color}66` }}>
                       {lvl}
                     </span>
                   </td>
                   <td style={{ textAlign:'center' }}>
-                    <span className="inline-flex items-center justify-center text-[.92rem] font-mono font-bold" style={{ color: tier.color }} title={tier.label}>
+                    <span className="inline-flex items-center justify-center text-[0.8rem] font-mono font-bold" style={{ color: tier.color }} title={tier.label}>
                       <span>{tier.emoji}</span>
                     </span>
                   </td>
                   <td style={{ textAlign:'right', paddingRight:'1rem' }}>
-                    <span className="text-[#22d3ee] font-mono font-semibold text-[0.72rem]">
+                    <span className="text-[#22d3ee] font-mono font-semibold text-[0.64rem]">
                       {Number(entry.available_mm3 || 0).toFixed(8).replace(/\.?0+$/, '') || '0'}
                     </span>
                   </td>
                   <td style={{ textAlign:'right', paddingRight:'1rem' }}>
-                    <span className="font-mono font-semibold text-emerald-300 text-[0.72rem]">
+                    <span className="font-mono font-semibold text-emerald-300 text-[0.64rem]">
                       {formatMoney(sellValue, quoteCurrency)}
                     </span>
                   </td>
