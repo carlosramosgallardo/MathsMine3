@@ -21,7 +21,7 @@
     "nextjs-google-analytics": "^2.3.7",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "recharts": "^2.15.1",
+    "recharts": "^3.8.1",
     "viem": "^2.23.13",
     "wagmi": "^2.14.15"
   },
