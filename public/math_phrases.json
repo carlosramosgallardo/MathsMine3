@@ -1,0 +1,303 @@
+[
+  {
+    "masked": "Euclidean geometry studies shapes and lines in a [MASK] plane",
+    "answer": "flat",
+    "source": "Wikipedia",
+    "image": "/images/euclidean_geometry.png"
+  },
+  {
+    "masked": "Pythagoras proved the [MASK] theorem relating triangle sides",
+    "answer": "Pythagorean",
+    "source": "Wikipedia",
+    "image": "/images/pythagoras.png"
+  },
+  {
+    "masked": "Calculus, founded by Newton and Leibniz, studies change via [MASK]",
+    "answer": "derivatives",
+    "source": "Wikipedia",
+    "image": "/images/newton_leibniz.png"
+  },
+  {
+    "masked": "Algebra manipulates symbols to solve equations with unknown [MASK]",
+    "answer": "variables",
+    "source": "Wikipedia",
+      "image": "/images/variables.png"
+  },
+  {
+    "masked": "Archimedes used methods of exhaustion to estimate the area of a [MASK]",
+    "answer": "circle",
+    "source": "Wikipedia",
+    "image": "/images/archimedes.png"
+  },
+  {
+    "masked": "Euler introduced the formula e^(iπ)+1=[MASK] connecting complex numbers and trigonometry",
+    "answer": "0",
+    "source": "Wikipedia",
+    "image": "/images/leonhard_euler.png"
+  },
+  {
+    "masked": "Fibonacci's sequence appears in nature, such as in the arrangement of [MASK]",
+    "answer": "leaves",
+    "source": "Wikipedia",
+    "image": "/images/fibonacci.png"
+  },
+  {
+    "masked": "Non-Euclidean geometry explores spaces where parallel line postulates are [MASK]",
+    "answer": "redefined",
+    "source": "Wikipedia",
+    "image": "/images/non_euclidean.png"
+  },
+  {
+    "masked": "Statistics, a branch of mathematics, analyzes data to infer underlying [MASK]",
+    "answer": "patterns",
+    "source": "Wikipedia",
+    "image": "/images/holographic_data_analysis.png"
+  },
+  {
+    "masked": "Topology studies properties of spaces preserved under continuous [MASK]",
+    "answer": "deformations",
+    "source": "Wikipedia",
+    "image": "/images/topological_transformations.png"
+  },
+  {
+    "masked": "Set theory, founded by Cantor, revolutionized mathematics with the concept of [MASK]",
+    "answer": "infinity",
+    "source": "Wikipedia",
+    "image": "/images/exploring_infinite_realms.png"
+  },
+  {
+    "masked": "Graph theory explores relationships modeled as nodes connected by [MASK]",
+    "answer": "edges",
+    "source": "Wikipedia",
+    "image": "/images/analyzing_complex_networks.png"
+  },
+  {
+    "masked": "Number theory investigates properties of integers, including prime number [MASK]",
+    "answer": "distribution",
+    "source": "Wikipedia",
+    "image": "/images/mathematical_prime_odyssey.png"
+  },
+  {
+    "masked": "Mathematical induction proves statements for all natural numbers by verifying the [MASK] step",
+    "answer": "inductive",
+    "source": "Wikipedia",
+    "image": "/images/staircase.png"
+  },
+  {
+    "masked": "A fractal displays self-similarity at every scale, revealing infinite [MASK]",
+    "answer": "complexity",
+    "source": "Wikipedia",
+    "image": "/images/infinite_fractal.png"
+  },
+  {
+    "masked": "Probability's law of large numbers guarantees convergence of averages with increasing sample [MASK]",
+    "answer": "sizes",
+    "source": "Wikipedia",
+    "image": "/images/law_of_large_numbers.png"
+  },
+  {
+    "masked": "Differential equations describe systems where change is related to current [MASK]",
+    "answer": "state",
+    "source": "Wikipedia",
+    "image": "/images/flowing_equations.png"
+  },
+  {
+    "masked": "Mathematicians use proofs as logical arguments to establish mathematical [MASK]",
+    "answer": "truths",
+    "source": "Wikipedia",
+    "image": "/images/theorems_glowing_revelation.png"
+  },
+  {
+    "masked": "The Riemann Hypothesis, a famous unsolved problem, concerns the zeros of the [MASK] function",
+    "answer": "zeta",
+    "source": "Wikipedia",
+    "image": "/images/riemann_mystery.png"
+  },
+  {
+    "masked": "Complex numbers extend the real numbers by including the imaginary unit [MASK]",
+    "answer": "i",
+    "source": "Wikipedia",
+    "image": "/images/complex_number_cosmos.png"
+  },
+  {
+    "masked": "The Fundamental Theorem of Calculus connects differentiation and [MASK]",
+    "answer": "integration",
+    "source": "Wikipedia",
+    "image": "/images/calculus_connections.png"
+  },
+  {
+    "masked": "Rational numbers can be expressed as a ratio of two [MASK] numbers",
+    "answer": "integers",
+    "source": "Wikipedia",
+    "image": "/images/rational_numbers.png"
+  },
+  {
+    "masked": "Geometry studies points, lines, and angles in a [MASK] space",
+    "answer": "Euclidean",
+    "source": "Wikipedia",
+    "image": "/images/geometry.png"
+  },
+  {
+    "masked": "The binomial theorem expands expressions raised to a [MASK] power",
+    "answer": "natural",
+    "source": "Wikipedia",
+    "image": "/images/binomial_theorem_expansion.png"
+  },
+  {
+    "masked": "Cantor's work in set theory introduced different sizes of the [MASK]",
+    "answer": "infinite",
+    "source": "Wikipedia",
+    "image": "/images/cantor's_cosmic_infinities.png"
+  },
+  {
+    "masked": "A matrix is a rectangular array used in [MASK] algebra calculations",
+    "answer": "linear",
+    "source": "Wikipedia",
+    "image": "/images/matrix.png"
+  },
+  {
+    "masked": "Chaos theory examines systems that are extremely sensitive to initial [MASK]",
+    "answer": "conditions",
+    "source": "Wikipedia",
+    "image": "/images/chaos_theory.png"
+  },
+  {
+    "masked": "Probability theory quantifies uncertainty using the concept of [MASK] events",
+    "answer": "random",
+    "source": "Wikipedia",
+    "image": "/images/probability_in_motion.png"
+  },
+  {
+    "masked": "Mathematical logic studies formal languages and their [MASK]",
+    "answer": "semantics",
+    "source": "Wikipedia",
+    "image": "/images/abstract_mathematical_study.png"
+  
+  },
+  {
+    "masked": "Fractals exhibit self-similarity, revealing infinite [MASK] at every scale",
+    "answer": "complexity",
+    "source": "Wikipedia",
+    "image": "/images/fractal_infinity_unfolds.png"
+  },
+  {
+    "masked": "Number theory is famous for studying the properties of [MASK] numbers",
+    "answer": "prime",
+    "source": "Wikipedia",
+    "image": "/images/prime_numbers_enigma.png"
+  },
+  {
+    "masked": "Abstract algebra examines structures like groups and rings in [MASK] mathematics",
+    "answer": "algebra",
+    "source": "Wikipedia",
+    "image": "/images/futuristic_algebra_study.png"
+  },
+  {
+    "masked": "Differential geometry applies calculus to study curves and [MASK]",
+    "answer": "surfaces",
+    "source": "Wikipedia",
+    "image": "/images/exploring_differential_geometry.png"
+  },
+  {
+    "masked": "Topology considers properties preserved under continuous [MASK] of shapes",
+    "answer": "deformations",
+    "source": "Wikipedia",
+    "image": "/images/surreal_topology_exploration.png"
+  },
+  {
+    "masked": "A function maps elements from one set to another by a specific [MASK]",
+    "answer": "rule",
+    "source": "Wikipedia",
+    "image": "/images/domain_and_codomain_mapping.png"
+  },
+  {
+    "masked": "Symmetry in mathematics is analyzed using group [MASK]",
+    "answer": "theory",
+    "source": "Wikipedia",
+    "image": "/images/geometric_symmetry_exploration.png"
+  },
+  {
+    "masked": "Optimization seeks to maximize or minimize functions under given [MASK]",
+    "answer": "constraints",
+    "source": "Wikipedia",
+    "image": "/images/3d_optimization_visualization.png"
+  },
+  {
+    "masked": "A proof is a logical argument demonstrating an absolute mathematical [MASK]",
+    "answer": "truth",
+    "source": "Wikipedia",
+    "image": "/images/teorem_in_marble_hall.png"
+  },
+  {
+    "masked": "Euclid's parallel postulate distinguishes Euclidean from [MASK] geometry",
+    "answer": "non-Euclidean",
+    "source": "Wikipedia",
+    "image": "/images/contrasting_geometric_realms.png"
+  },
+  {
+    "masked": "The study of limits is central to understanding [MASK] in calculus",
+    "answer": "continuity",
+    "source": "Wikipedia",
+    "image": "/images/visualizing_calculus_limits_simple.png"
+  },
+  {
+    "masked": "A derivative represents the instantaneous rate of [MASK] of a function",
+    "answer": "change",
+    "source": "Wikipedia",
+    "image": "/images/dynamic_curve_derivatives.png"
+  },
+  {
+    "masked": "In combinatorics, the factorial counts the number of [MASK] arrangements",
+    "answer": "permutations",
+    "source": "Wikipedia",
+    "image": "/images/factorial_tree_display.png"
+  },
+  {
+    "masked": "Mathematical modeling uses equations to simulate real-world [MASK] phenomena",
+    "answer": "physical",
+    "source": "Wikipedia",
+    "image": "/images/holographic_math_lab.png"
+  },
+  {
+    "masked": "A conjecture is an unproven statement believed to be [MASK]",
+    "answer": "true",
+    "source": "Wikipedia",
+    "image": "/images/mathematical_curiosity_unveiled.png"
+  },
+  {
+    "masked": "Complex analysis studies functions of a complex [MASK] variable",
+    "answer": "numeric",
+    "source": "Wikipedia",
+    "image": "/images/complex_plane_exploration.png"
+  },
+  {
+    "masked": "A scalar has magnitude only, unlike a [MASK] which has direction",
+    "answer": "vector",
+    "source": "Wikipedia",
+    "image": "/images/vectors_and_scalars_explained.png"
+  },
+  {
+    "masked": "The Law of Cosines generalizes the Pythagorean theorem for an [MASK] triangle",
+    "answer": "oblique",
+    "source": "Wikipedia",
+    "image": "/images/law_of_cosines.png"
+  },
+  {
+    "masked": "Calculus uses limits to rigorously define derivatives and [MASK]",
+    "answer": "integrals",
+    "source": "Wikipedia",
+    "image": "/images/calculus_visualization.png"
+  },
+  {
+    "masked": "Chaos examines deterministic systems that can behave [MASK] over time",
+    "answer": "unpredictably",
+    "source": "Wikipedia",
+    "image": "/images/chaos_theory_in_motion.png"
+  },
+  {
+    "masked": "Convergence of a sequence in analysis means it approaches a specific [MASK]",
+    "answer": "limit",
+    "source": "Wikipedia",
+    "image": "/images/convergence_of_sequences.png"
+  }
+]

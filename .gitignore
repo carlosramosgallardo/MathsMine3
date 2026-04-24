@@ -1,0 +1,13 @@
+node_modules
+.env
+.vercel-cleanup
+.next
+.claude/
+.vscode/
+supabase/.temp/
+supabase/.branches/
+.private/
+
+# Evitar subir artefactos grandes
+*.zip
+MathsMine3.zip
