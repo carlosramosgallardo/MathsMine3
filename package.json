@@ -19,14 +19,14 @@
     "ethers": "^6.13.5",
     "next": "^15.5.15",
     "nextjs-google-analytics": "^2.3.7",
-    "react": "^19.0.0",
+    "react": "^19.2.5",
     "react-dom": "^19.0.0",
     "recharts": "^2.15.1",
     "viem": "^2.23.13",
     "wagmi": "^2.14.15"
   },
   "devDependencies": {
-    "@types/react": "^19.0.12",
+    "@types/react": "^19.2.14",
     "autoprefixer": "^10.4.21",
     "postcss": "^8.5.3",
     "supabase": "^2.92.1",
