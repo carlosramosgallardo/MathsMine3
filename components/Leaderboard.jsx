@@ -11,6 +11,10 @@ import { useCurrency } from '@/lib/currency-context';
 import { useActiveWallet } from '@/lib/use-active-wallet';
 import PageLoading from '@/components/PageLoading';
 
+function getBlockHexFromCoords(row, col) {
+  return '#' + ((Number(row) || 0) * 28 + (Number(col) || 0)).toString(16).toUpperCase().padStart(3, '0');
+}
+
 export default function Leaderboard({ itemsPerPage = 50 }) {
   const { t } = useI18n();
   const { currency: quoteCurrency } = useCurrency();
@@ -47,13 +51,18 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
           }
         }
       }
-      const [{ data: leaderboardRows, error }, progressResponse] = await Promise.all([
+      const [{ data: leaderboardRows, error }, progressResponse, marketResponse] = await Promise.all([
         supabase
           .from('leaderboard_data')
           .select('wallet, total_eth'),
         supabase
           .from('player_progress')
           .select('wallet, level, mm3_sold, cny_earned, eur_earned, usd_earned, wallet_emojis'),
+        supabase
+          .from('mm3_podcast_pixels')
+          .select('pixel_key, claimed_by, emoji, grid_row, grid_col, claimed_at')
+          .not('claimed_by', 'is', null)
+          .order('claimed_at', { ascending: true }),
       ]);
       if (error) { console.error('Leaderboard fetch:', error); setLeaderboard([]); return; }
       let progressData = progressResponse?.data || [];
@@ -79,9 +88,22 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
         ])
       );
 
+      const marketBlocksByWallet = new Map();
+      for (const entry of marketResponse?.data || []) {
+        const wallet = String(entry.claimed_by || '').toLowerCase();
+        if (!wallet) continue;
+        if (!marketBlocksByWallet.has(wallet)) marketBlocksByWallet.set(wallet, []);
+        marketBlocksByWallet.get(wallet).push({
+          pixel_key: entry.pixel_key,
+          emoji: String(entry.emoji || ''),
+          hex: getBlockHexFromCoords(entry.grid_row, entry.grid_col),
+        });
+      }
+
       const mergedData = (leaderboardRows || [])
         .map((entry) => {
-          const progress = earnedByWallet.get(String(entry.wallet || '').toLowerCase()) || {
+          const normalizedWallet = String(entry.wallet || '').toLowerCase();
+          const progress = earnedByWallet.get(normalizedWallet) || {
             level: 0,
             mm3Sold: 0,
             cny: 0,
@@ -101,6 +123,7 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
             money_balance_eur: progress.eur,
             money_balance_usd: progress.usd,
             wallet_emojis: progress.walletEmojis,
+            market_blocks: marketBlocksByWallet.get(normalizedWallet) || [],
           };
         })
         .sort((a, b) => {
@@ -177,6 +200,7 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
     const getValue = (entry) => {
       if (sortConfig.key === 'money') return Number(entry[moneyKey]) || 0;
       if (sortConfig.key === 'nftmoji') return normalizeWalletDecorations(entry.wallet_emojis).length;
+      if (sortConfig.key === 'block') return Array.isArray(entry.market_blocks) ? entry.market_blocks.length : 0;
       if (sortConfig.key === 'status') return onlineWallets.has(String(entry.wallet || '').toLowerCase()) ? 1 : 0;
       if (sortConfig.key === 'rank') return getRankTier(clampRankLevel(entry.level)).label;
       if (sortConfig.key === 'wallet') return String(entry.wallet || '').toLowerCase();
@@ -296,6 +320,11 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
     setSelectedWallet((current) => current === normalized ? '' : normalized);
   };
 
+  const openMarketBlock = (pixelKey) => {
+    if (!pixelKey || typeof window === 'undefined') return;
+    window.location.href = `/market?pixel=${encodeURIComponent(pixelKey)}`;
+  };
+
   const getPlacementDisplay = (position) => {
     if (position === 1) return { label: '1', title: '#1' };
     if (position === 2) return { label: '2', title: '#2' };
@@ -368,6 +397,7 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
                 ? entry.money_balance_cny
                 : entry.money_balance_eur;
           const ownedEmojis = normalizeWalletDecorations(entry.wallet_emojis);
+          const marketBlocks = Array.isArray(entry.market_blocks) ? entry.market_blocks : [];
 
           return (
             <article key={entry.wallet} className={`lb-card rounded-xl p-2.5${isActiveWallet ? ' wallet-active' : ''}${isSelectedWallet ? ' wallet-selected' : ''}`}>
@@ -437,6 +467,34 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
                   );
                 })}
               </div>
+
+              <div className="mt-2">
+                <div className="mb-1 text-[0.58rem] uppercase tracking-[0.12em] text-cyan-700">{t('leaderboard.block')}</div>
+                <div className="flex min-h-7 flex-wrap items-center gap-1 rounded-lg border border-cyan-500/10 bg-black/50 px-2 py-1">
+                  {marketBlocks.length > 0 ? marketBlocks.map((block) => (
+                    <button
+                      key={block.pixel_key}
+                      type="button"
+                      onClick={() => openMarketBlock(block.pixel_key)}
+                      title={`${block.emoji} ${block.hex}`}
+                      className="relative flex h-8 w-8 items-center justify-center rounded-md border text-base transition hover:border-cyan-300 hover:text-cyan-100"
+                      style={{
+                        borderColor: 'rgba(250,204,21,0.3)',
+                        background: 'rgba(2,6,23,0.68)',
+                        color: '#fef08a',
+                        boxShadow: '0 0 10px rgba(250,204,21,0.12)',
+                      }}
+                    >
+                      <span>{block.emoji}</span>
+                      <span className="absolute bottom-[1px] right-[2px] text-[0.26rem] font-black tracking-[0.08em] text-cyan-100/90">
+                        {block.hex.replace('#', '')}
+                      </span>
+                    </button>
+                  )) : (
+                    <span className="text-[0.56rem] uppercase tracking-[0.12em] text-slate-600">{t('leaderboard.none')}</span>
+                  )}
+                </div>
+              </div>
             </article>
           );
         }) : (
@@ -454,16 +512,17 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
               <th style={{ width:'10%', textAlign:'center' }}><SortButton sortKey="status" className="justify-center">{t('leaderboard.status')}</SortButton></th>
               <th style={{ width:'32%' }}><SortButton sortKey="wallet">{t('leaderboard.minerWallet')}</SortButton></th>
               <th style={{ width:'14%', textAlign:'center' }} title="NFTmojis — probability artifacts that influence MM3 global value"><SortButton sortKey="nftmoji" className="justify-center">NFTmojis</SortButton></th>
-              <th style={{ width:'8%', textAlign:'center' }}><SortButton sortKey="level" className="justify-center">{t('leaderboard.level')}</SortButton></th>
-              <th style={{ width:'10%', textAlign:'center' }}><SortButton sortKey="rank" className="justify-center">{t('leaderboard.rank')}</SortButton></th>
-              <th style={{ width:'12%', textAlign:'right', paddingRight:'1rem' }}><SortButton sortKey="available_mm3" className="justify-end">{t('leaderboard.mm3Earned')}</SortButton></th>
-              <th style={{ width:'12%', textAlign:'right', paddingRight:'1rem' }}><SortButton sortKey="money" className="justify-end">{t('leaderboard.sellValue')}</SortButton></th>
+              <th style={{ width:'12%', textAlign:'center' }}><SortButton sortKey="block" className="justify-center">{t('leaderboard.block')}</SortButton></th>
+              <th style={{ width:'7%', textAlign:'center' }}><SortButton sortKey="level" className="justify-center">{t('leaderboard.level')}</SortButton></th>
+              <th style={{ width:'9%', textAlign:'center' }}><SortButton sortKey="rank" className="justify-center">{t('leaderboard.rank')}</SortButton></th>
+              <th style={{ width:'10%', textAlign:'right', paddingRight:'1rem' }}><SortButton sortKey="available_mm3" className="justify-end">{t('leaderboard.mm3Earned')}</SortButton></th>
+              <th style={{ width:'10%', textAlign:'right', paddingRight:'1rem' }}><SortButton sortKey="money" className="justify-end">{t('leaderboard.sellValue')}</SortButton></th>
             </tr>
           </thead>
           <tbody>
             {isLoading ? (
               <tr className="lb-row">
-                <td colSpan={8} style={{ textAlign:'center', padding: '2rem' }}>
+                <td colSpan={9} style={{ textAlign:'center', padding: '2rem' }}>
                   <PageLoading label={t('leaderboard.loadingMiners')} fullScreen={false} />
                 </td>
               </tr>
@@ -485,6 +544,7 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
                     ? entry.money_balance_cny
                     : entry.money_balance_eur;
               const ownedEmojis = normalizeWalletDecorations(entry.wallet_emojis);
+              const marketBlocks = Array.isArray(entry.market_blocks) ? entry.market_blocks : [];
 
               return (
                 <tr key={entry.wallet} className={`lb-row${isActiveWallet ? ' wallet-active' : ''}${isSelectedWallet ? ' wallet-selected' : ''}`}>
@@ -530,6 +590,32 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
                     </div>
                   </td>
                   <td style={{ textAlign:'center' }}>
+                    <div className="flex flex-wrap items-center justify-center gap-1">
+                      {marketBlocks.length > 0 ? marketBlocks.map((block) => (
+                        <button
+                          key={block.pixel_key}
+                          type="button"
+                          onClick={() => openMarketBlock(block.pixel_key)}
+                          title={`${block.emoji} ${block.hex}`}
+                          className="relative flex h-8 w-8 items-center justify-center rounded-md border text-base transition hover:border-cyan-300 hover:text-cyan-100"
+                          style={{
+                            borderColor: 'rgba(250,204,21,0.3)',
+                            background: 'rgba(2,6,23,0.68)',
+                            color: '#fef08a',
+                            boxShadow: '0 0 10px rgba(250,204,21,0.12)',
+                          }}
+                        >
+                          <span>{block.emoji}</span>
+                          <span className="absolute bottom-[1px] right-[2px] text-[0.26rem] font-black tracking-[0.08em] text-cyan-100/90">
+                            {block.hex.replace('#', '')}
+                          </span>
+                        </button>
+                      )) : (
+                        <span className="text-[0.56rem] uppercase tracking-[0.12em] text-slate-600">{t('leaderboard.none')}</span>
+                      )}
+                    </div>
+                  </td>
+                  <td style={{ textAlign:'center' }}>
                     <span className="font-mono font-black text-sm" style={{ color: tier.color, textShadow:`0 0 8px ${tier.color}66` }}>
                       {lvl}
                     </span>
@@ -553,7 +639,7 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
               );
             }) : (
               <tr className="lb-row">
-                <td colSpan={8} className="text-center py-8 text-gray-500">{t('leaderboard.noMiners')}</td>
+                <td colSpan={9} className="text-center py-8 text-gray-500">{t('leaderboard.noMiners')}</td>
               </tr>
             )}
           </tbody>
@@ -591,3 +677,4 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
     </div>
   );
 }
+
