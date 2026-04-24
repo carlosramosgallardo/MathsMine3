@@ -51,7 +51,7 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
           }
         }
       }
-      const [{ data: leaderboardRows, error }, progressResponse, marketResponse] = await Promise.all([
+      const [{ data: leaderboardRows, error }, progressResponse, marketResponse, txResponse] = await Promise.all([
         supabase
           .from('leaderboard_data')
           .select('wallet, total_eth'),
@@ -63,6 +63,9 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
           .select('pixel_key, claimed_by, emoji, grid_row, grid_col, claimed_at')
           .not('claimed_by', 'is', null)
           .order('claimed_at', { ascending: true }),
+        supabase
+          .from('mm3_sell_transactions')
+          .select('wallet'),
       ]);
       if (error) { console.error('Leaderboard fetch:', error); setLeaderboard([]); return; }
       let progressData = progressResponse?.data || [];
@@ -100,6 +103,13 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
         });
       }
 
+      const txCountByWallet = new Map();
+      for (const entry of txResponse?.data || []) {
+        const wallet = String(entry.wallet || '').toLowerCase();
+        if (!wallet) continue;
+        txCountByWallet.set(wallet, (txCountByWallet.get(wallet) || 0) + 1);
+      }
+
       const mergedData = (leaderboardRows || [])
         .map((entry) => {
           const normalizedWallet = String(entry.wallet || '').toLowerCase();
@@ -123,6 +133,7 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
             money_balance_eur: progress.eur,
             money_balance_usd: progress.usd,
             wallet_emojis: progress.walletEmojis,
+            execs_count: txCountByWallet.get(normalizedWallet) || 0,
             market_blocks: marketBlocksByWallet.get(normalizedWallet) || [],
           };
         })
@@ -200,6 +211,7 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
     const getValue = (entry) => {
       if (sortConfig.key === 'money') return Number(entry[moneyKey]) || 0;
       if (sortConfig.key === 'nftmoji') return normalizeWalletDecorations(entry.wallet_emojis).length;
+      if (sortConfig.key === 'execs') return Number(entry.execs_count) || 0;
       if (sortConfig.key === 'block') return Array.isArray(entry.market_blocks) ? entry.market_blocks.length : 0;
       if (sortConfig.key === 'status') return onlineWallets.has(String(entry.wallet || '').toLowerCase()) ? 1 : 0;
       if (sortConfig.key === 'rank') return getRankTier(clampRankLevel(entry.level)).label;
@@ -436,6 +448,12 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
                   </div>
                 </div>
                 <div className="rounded-lg border border-cyan-500/10 bg-black/60 p-2">
+                  <div>{t('leaderboard.execs')}</div>
+                  <div className="mt-1 font-mono text-[0.78rem] font-semibold tracking-normal text-cyan-300">
+                    {Number(entry.execs_count || 0)}
+                  </div>
+                </div>
+                <div className="rounded-lg border border-cyan-500/10 bg-black/60 p-2">
                   <div>{t('leaderboard.mm3Earned')}</div>
                   <div className="mt-1 font-mono text-[0.78rem] font-semibold tracking-normal text-cyan-300">
                     {Number(entry.available_mm3 || 0).toFixed(8).replace(/\.?0+$/, '') || '0'}
@@ -512,19 +530,20 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
             <tr>
               <th style={{ width:'6%', textAlign:'center' }}><SortButton sortKey="position" className="justify-center">{t('leaderboard.position')}</SortButton></th>
               <th style={{ width:'10%', textAlign:'center' }}><SortButton sortKey="status" className="justify-center">{t('leaderboard.status')}</SortButton></th>
-              <th style={{ width:'32%' }}><SortButton sortKey="wallet">{t('leaderboard.minerWallet')}</SortButton></th>
+              <th style={{ width:'28%' }}><SortButton sortKey="wallet">{t('leaderboard.minerWallet')}</SortButton></th>
               <th style={{ width:'14%', textAlign:'center' }} title="NFTmojis — probability artifacts that influence MM3 global value"><SortButton sortKey="nftmoji" className="justify-center">NFTmojis</SortButton></th>
-              <th style={{ width:'12%', textAlign:'center' }}><SortButton sortKey="block" className="justify-center">{t('leaderboard.blocks')}</SortButton></th>
-              <th style={{ width:'7%', textAlign:'center' }}><SortButton sortKey="level" className="justify-center">{t('leaderboard.level')}</SortButton></th>
-              <th style={{ width:'9%', textAlign:'center' }}><SortButton sortKey="rank" className="justify-center">{t('leaderboard.rank')}</SortButton></th>
-              <th style={{ width:'10%', textAlign:'right', paddingRight:'1rem' }}><SortButton sortKey="available_mm3" className="justify-end">{t('leaderboard.mm3Earned')}</SortButton></th>
-              <th style={{ width:'10%', textAlign:'right', paddingRight:'1rem' }}><SortButton sortKey="money" className="justify-end">{t('leaderboard.sellValue')}</SortButton></th>
+              <th style={{ width:'7%', textAlign:'center' }}><SortButton sortKey="execs" className="justify-center">{t('leaderboard.execs')}</SortButton></th>
+              <th style={{ width:'11%', textAlign:'center' }}><SortButton sortKey="block" className="justify-center">{t('leaderboard.blocks')}</SortButton></th>
+              <th style={{ width:'6%', textAlign:'center' }}><SortButton sortKey="level" className="justify-center">{t('leaderboard.level')}</SortButton></th>
+              <th style={{ width:'8%', textAlign:'center' }}><SortButton sortKey="rank" className="justify-center">{t('leaderboard.rank')}</SortButton></th>
+              <th style={{ width:'9%', textAlign:'right', paddingRight:'1rem' }}><SortButton sortKey="available_mm3" className="justify-end">{t('leaderboard.mm3Earned')}</SortButton></th>
+              <th style={{ width:'9%', textAlign:'right', paddingRight:'1rem' }}><SortButton sortKey="money" className="justify-end">{t('leaderboard.sellValue')}</SortButton></th>
             </tr>
           </thead>
           <tbody>
             {isLoading ? (
               <tr className="lb-row">
-                <td colSpan={9} style={{ textAlign:'center', padding: '2rem' }}>
+                <td colSpan={10} style={{ textAlign:'center', padding: '2rem' }}>
                   <PageLoading label={t('leaderboard.loadingMiners')} fullScreen={false} />
                 </td>
               </tr>
@@ -592,6 +611,11 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
                     </div>
                   </td>
                   <td style={{ textAlign:'center' }}>
+                    <span className="font-mono font-black text-[0.72rem] text-cyan-300">
+                      {Number(entry.execs_count || 0)}
+                    </span>
+                  </td>
+                  <td style={{ textAlign:'center' }}>
                     <div className="flex flex-wrap items-center justify-center gap-1">
                       {marketBlocks.length > 0 ? marketBlocks.map((block) => (
                         <button
@@ -641,7 +665,7 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
               );
             }) : (
               <tr className="lb-row">
-                <td colSpan={9} className="text-center py-8 text-gray-500">{t('leaderboard.noMiners')}</td>
+                <td colSpan={10} className="text-center py-8 text-gray-500">{t('leaderboard.noMiners')}</td>
               </tr>
             )}
           </tbody>
