@@ -332,9 +332,9 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
     setSelectedWallet((current) => current === normalized ? '' : normalized);
   };
 
-  const openMarketBlock = (pixelKey) => {
-    if (!pixelKey || typeof window === 'undefined') return;
-    window.location.href = `/market?pixel=${encodeURIComponent(pixelKey)}`;
+  const openMarketBlock = (blockKey) => {
+    if (!blockKey || typeof window === 'undefined') return;
+    window.location.href = `/market?block=${encodeURIComponent(blockKey)}`;
   };
 
   const getPlacementDisplay = (position) => {

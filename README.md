@@ -2,7 +2,7 @@
 
 > Solve math. Mine fake crypto. Burn your level. Go freak.
 
-A retro math-mining portal where timed problem-solving drives a fully simulated crypto economy. Your wallet levels up, your tokens accumulate real-time value, rare NFTmojis drop on lucky answers, and a 28×28 pixel Market board hides claimable blocks behind numeric puzzles. All fictional. All deterministic. All live.
+A retro math-mining portal where timed problem-solving drives a fully simulated crypto economy. Your wallet levels up, your tokens accumulate real-time value, rare NFTmojis drop on lucky answers, and a 28×28 Market block board hides claimable blocks behind numeric puzzles. All fictional. All deterministic. All live.
 
 **v1.0 ships with:** the mining chain · Trade MM3 terminal · Prestige leaderboard · MM3 value chart · Market board (784 cells, 10 NFTmoji blocks) · IRC social relay · daily DRILL SLOTS system · hourly Dice modifier · War/Nature macro indicators · 13 problem types · 5 rank tiers · bilingual EN/ES
 
@@ -42,7 +42,7 @@ Solve timed math problems to mine MM3 tokens. Faster answers earn more. A wrong 
 
 The global MM3 value reacts to everything: every rare NFTmoji claim, every heart revive, every Market block sealed. A lucky 1/1000 roll can pump the whole economy by 10%. A death revive tanks it by 25%. Other wallets affect your token's worth. The system is alive.
 
-The Market is a 28×28 pixel board. Ten special NFTmoji blocks occupy fixed coordinates — each sellable and resellable. Owning one unlocks a daily IRC command that penalises all competing wallets. Every purchase generates a new mystery block that joins the board forever.
+The Market is a 28×28 block board. Ten special NFTmoji blocks occupy fixed coordinates — each sellable and resellable. Owning one unlocks a daily IRC command that penalises all competing wallets. Every purchase generates a new mystery block that joins the board forever.
 
 The Trade terminal is a fictional tty where you cash out mined MM3 for CNY, EUR, or USD at rates that shift with your rank, the war/nature macro state, and a deterministic hourly Dice modifier (`🎲`).
 
@@ -338,7 +338,7 @@ Each Market NFTmoji command that fires in IRC can penalise all wallets not holdi
 
 ## 7. Market — NFTmoji Blocks
 
-The Market is a **28×28 pixel board** (784 cells, hex-coded `#000`–`#30F`). Ten special NFTmoji blocks occupy fixed positions; new blocks auto-generate as wallets make first purchases. Navigate the board, find a live block, and pay in-game fiat to acquire its NFTmoji.
+The Market is a **28×28 block board** (784 cells, hex-coded `#000`–`#30F`). Ten special NFTmoji blocks occupy fixed positions; new blocks auto-generate as wallets make first purchases. Navigate the board, find a live block, and pay in-game fiat to acquire its NFTmoji.
 
 ### Ownership rules
 
@@ -433,7 +433,7 @@ Range: #000 (top-left) → #30F (bottom-right)
 
 ### Two views
 
-**Explorer board** — detail card on the left, pixel board on the right. Navigate with ▲▼ arrows (and ◀▶ on mobile). Keyboard arrow keys pan the selected block.
+**Explorer board** — detail card on the left, block board on the right. Navigate with ▲▼ arrows (and ◀▶ on mobile). Keyboard arrow keys pan the selected block.
 
 **Full board** — removes the card and expands the entire 28×28 grid. Four directional arrows around the outside, keyboard arrows, and a compact header show the focused block.
 
@@ -741,7 +741,7 @@ Both persist level, balances, NFTmojis, DRILL SLOTS bonus, and revive state. Lan
 /components
   Board.jsx               Main game UI (problems, timer, level progression, NFTmoji drops, DRILL SLOTS)
   TradeBoard.jsx          Fictional in-game trade terminal (sell/buy, daily limit, tx journal)
-  PodcastBoard.jsx        Market explorer board (card + pixel grid, dual viewport)
+  PodcastBoard.jsx        Market explorer board (card + block grid, dual viewport)
   MarketFullBoard.jsx     Full 28×28 Market board with focused-cell reveal
   IrcTerminal.jsx         Shared MM3 relay terminal (live presence, wallet chat, NFTmoji badges)
   Leaderboard.jsx         Prestige table — MM3, balances, level, NFTmojis, EXECs, Bloque/Penalización

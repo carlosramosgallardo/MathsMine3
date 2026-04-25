@@ -8,7 +8,7 @@ import PageLoading from '@/components/PageLoading';
 import { WALLET_DECORATIONS } from '@/lib/wallet-decorations';
 
 const ANSWER_HASH_GENESIS = '0ac59a6eff4c0d73984b7ec775d6a01864e80dbc5e5488c594ed1ae4748ff56d';
-const GENESIS_PIXEL_KEY = 'mm3-023';
+const GENESIS_BLOCK_KEY = 'mm3-023';
 const GRID_ROWS = 28;
 const GRID_COLS = 28;
 
@@ -27,7 +27,7 @@ const CATALOG_BLOCKS = [
 
 const FALLBACK_BLOCK = CATALOG_BLOCKS[0];
 
-function getTokenPixelTone(row, col) {
+function getTokenBlockTone(row, col) {
   return {
     backgroundImage: 'url(/mm3-token.png)',
     backgroundSize: `${GRID_COLS * 100}% ${GRID_ROWS * 100}%`,
@@ -113,12 +113,13 @@ function stepSelection(blocks, currentKey, direction) {
 export default function MarketFullBoard() {
   const { t, language } = useI18n();
   const [blocks, setBlocks] = useState(CATALOG_BLOCKS);
-  const [selectedKey, setSelectedKey] = useState(GENESIS_PIXEL_KEY);
+  const [selectedKey, setSelectedKey] = useState(GENESIS_BLOCK_KEY);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    const initialKey = new URLSearchParams(window.location.search).get('pixel');
+    const query = new URLSearchParams(window.location.search);
+    const initialKey = query.get('block') || query.get('pixel');
     if (initialKey) {
       setSelectedKey(initialKey);
     } else {
@@ -178,7 +179,7 @@ export default function MarketFullBoard() {
   );
 
   useEffect(() => {
-    if (!blockMap.has(selectedKey)) setSelectedKey(GENESIS_PIXEL_KEY);
+    if (!blockMap.has(selectedKey)) setSelectedKey(GENESIS_BLOCK_KEY);
   }, [blockMap, selectedKey]);
 
   useEffect(() => {
@@ -199,7 +200,7 @@ export default function MarketFullBoard() {
     : (selectedBlock?.title_en || selectedBlock?.title_es || t('podcast.template'));
   const selectedHex = getBlockHex(selectedBlock?.grid_row ?? 0, selectedBlock?.grid_col ?? 0);
   const marketHref = selectedBlock?.pixel_key
-    ? `/market?pixel=${encodeURIComponent(selectedBlock.pixel_key)}`
+    ? `/market?block=${encodeURIComponent(selectedBlock.pixel_key)}`
     : '/market';
 
   const move = (direction) => setSelectedKey((current) => stepSelection(mergedBlocks, current, direction));
@@ -264,7 +265,7 @@ export default function MarketFullBoard() {
                 const col = block.grid_col ?? 0;
                 const isSelected = block.pixel_key === selectedKey;
                 const isClaimed = Boolean(block.claimed_by);
-                const tone = getTokenPixelTone(row, col);
+                const tone = getTokenBlockTone(row, col);
                 const cellHex = getBlockHex(row, col);
 
                 return (

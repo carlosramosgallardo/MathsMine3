@@ -42,8 +42,8 @@ export default function ManifestoPage() {
       href: '/market',
       label: 'Market',
       desc: language === 'es'
-        ? 'el tablero pixelado donde cada bloque puede ocultar una shell, un short o un Nftmoji reclamable'
-        : 'the pixel board where each block can hide a shell, a short, or a claimable Nftmoji',
+        ? 'el tablero de bloques donde cada bloque puede ocultar una shell, un short o un Nftmoji reclamable'
+        : 'the block board where each block can hide a shell, a short, or a claimable Nftmoji',
     },
     {
       href: '/irc',

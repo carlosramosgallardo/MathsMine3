@@ -15,7 +15,7 @@ import {
 import { useSound } from '@/lib/sound-context';
 
 const ANSWER_HASH_GENESIS = '0ac59a6eff4c0d73984b7ec775d6a01864e80dbc5e5488c594ed1ae4748ff56d';
-const GENESIS_PIXEL_KEY = 'mm3-023';
+const GENESIS_BLOCK_KEY = 'mm3-023';
 const GRID_ROWS = 28;
 const GRID_COLS = 28;
 
@@ -58,7 +58,7 @@ async function sha256(value) {
     .join('');
 }
 
-function getTokenPixelTone(row, col) {
+function getTokenBlockTone(row, col) {
   return {
     backgroundImage: 'url(/mm3-token.png)',
     backgroundSize: `${GRID_COLS * 100}% ${GRID_ROWS * 100}%`,
@@ -143,7 +143,7 @@ export default function PodcastBoard({ account, isVirtualWallet = false }) {
   const { currency } = useCurrency();
   const { playMarketClaim } = useSound();
   const [blocks, setBlocks] = useState(CATALOG_BLOCKS);
-  const [selectedKey, setSelectedKey] = useState(GENESIS_PIXEL_KEY);
+  const [selectedKey, setSelectedKey] = useState(GENESIS_BLOCK_KEY);
   const [answer, setAnswer] = useState('');
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
@@ -223,9 +223,10 @@ export default function PodcastBoard({ account, isVirtualWallet = false }) {
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    const pixelFromQuery = new URLSearchParams(window.location.search).get('pixel');
-    if (pixelFromQuery) {
-      setSelectedKey(pixelFromQuery);
+    const query = new URLSearchParams(window.location.search);
+    const blockFromQuery = query.get('block') || query.get('pixel');
+    if (blockFromQuery) {
+      setSelectedKey(blockFromQuery);
     } else {
       setSelectedKey(CATALOG_BLOCKS[Math.floor(Math.random() * CATALOG_BLOCKS.length)].pixel_key);
     }
@@ -295,7 +296,7 @@ export default function PodcastBoard({ account, isVirtualWallet = false }) {
 
   useEffect(() => {
     if (!blockMap.has(selectedKey)) {
-      setSelectedKey(GENESIS_PIXEL_KEY);
+      setSelectedKey(GENESIS_BLOCK_KEY);
     }
   }, [blockMap, selectedKey]);
 
@@ -355,9 +356,9 @@ export default function PodcastBoard({ account, isVirtualWallet = false }) {
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [mergedBlocks]);
 
-  const handlePixelClick = (pixelKey) => {
-    setSelectedKey(pixelKey);
-    const block = blockMap.get(pixelKey);
+  const handleBlockClick = (blockKey) => {
+    setSelectedKey(blockKey);
+    const block = blockMap.get(blockKey);
     if (!block?.short_url) notify(block?.isPlaceholder ? t('podcast.offline') : t('podcast.unavailable'), 'info');
   };
 
@@ -553,14 +554,14 @@ export default function PodcastBoard({ account, isVirtualWallet = false }) {
                     const col = block.grid_col ?? 0;
                     const isSelected = block.pixel_key === selectedKey;
                     const isClaimed = Boolean(block.claimed_by);
-                    const tone = getTokenPixelTone(row, col);
+                    const tone = getTokenBlockTone(row, col);
                     const cellHex = getBlockHex(row, col);
 
                     return (
                       <button
                         key={block.pixel_key}
                         type="button"
-                        onClick={() => handlePixelClick(block.pixel_key)}
+                        onClick={() => handleBlockClick(block.pixel_key)}
                         className="relative flex items-center justify-center overflow-hidden transition duration-100 focus:outline-none"
                         style={{
                           background: isClaimed
