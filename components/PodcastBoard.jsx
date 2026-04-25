@@ -935,6 +935,9 @@ export default function PodcastBoard({ account, isVirtualWallet = false }) {
               <Link
                 href={`/market-short/${selectedBlock?.pixel_key}`}
                 className="flex items-center justify-center gap-1 rounded border border-cyan-500/10 bg-black/25 px-2 py-1.5 text-[0.42rem] uppercase tracking-[0.14em] text-cyan-800/70 transition hover:border-cyan-500/25 hover:text-cyan-500/80 lg:col-span-2"
+              >
+                {t('podcast.videoSoon')}
+              </Link>
             )
           )}
 
