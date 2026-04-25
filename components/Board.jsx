@@ -38,6 +38,13 @@ const REVIVE_COST_EUR = 1;
 const REVIVE_COST_USD = REVIVE_COST_EUR * (CNY_TO_USD / CNY_TO_EUR);
 const REVIVE_COST_CNY = REVIVE_COST_EUR / CNY_TO_EUR;
 const PROBLEM_CACHE_VERSION = 1;
+const DAILY_MINE_BASE = 100;
+
+function getUtcDayBounds(now = new Date()) {
+  const start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  const end   = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1));
+  return { start, end };
+}
 
 /* ── In-game question translations ── */
 const GT = {
@@ -596,6 +603,8 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
   const [isClaimingSuccess, setIsClaimingSuccess] = useState(false);
   const [isAwaitingStart, setIsAwaitingStart] = useState(false);
   const [isAwaitingContinue, setIsAwaitingContinue] = useState(false);
+  const [dailyMineUsed, setDailyMineUsed] = useState(0);
+  const [execsCount, setExecsCount] = useState(0);
   const shouldShowProblem = !isAwaitingStart && !isAwaitingContinue;
 
   const PRICE = Number(process.env.NEXT_PUBLIC_FAKE_MINING_PRICE) || 0.00001;
@@ -756,6 +765,19 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
     }
   };
 
+  const loadMiningAttempts = async (wallet) => {
+    if (!wallet) { setDailyMineUsed(0); setExecsCount(0); return; }
+    try {
+      const { start, end } = getUtcDayBounds();
+      const [{ count: gamesCount }, { count: txCount }] = await Promise.all([
+        supabase.from('games').select('id', { count: 'exact', head: true }).eq('wallet', wallet).gte('created_at', start.toISOString()).lt('created_at', end.toISOString()),
+        supabase.from('mm3_sell_transactions').select('id', { count: 'exact', head: true }).eq('wallet', wallet),
+      ]);
+      setDailyMineUsed(Number(gamesCount) || 0);
+      setExecsCount(Number(txCount) || 0);
+    } catch {}
+  };
+
   useEffect(() => {
     let cancelled = false;
     clearGameplayTimers();
@@ -771,6 +793,8 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
           setLevel(0);
           setTotalMined(0);
           refreshWalletMeta(null);
+          setDailyMineUsed(0);
+          setExecsCount(0);
         } else {
           const wallet = account.toLowerCase();
           const [{ data: progress }, { data: stats }] = await Promise.all([
@@ -781,6 +805,7 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
           setLevel(loadedLevel);
           setTotalMined(parseFloat(stats?.total_eth) || 0);
           await refreshWalletMeta(wallet);
+          await loadMiningAttempts(wallet);
         }
       } catch (e) {
         console.error('level load:', e);
@@ -860,9 +885,9 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
       const detail = event?.detail || {};
       const detailWallet = String(detail.wallet || '').toLowerCase();
       const matchesWallet = !detailWallet || detailWallet === account.toLowerCase();
-      if (matchesWallet && (detail.special || detail.trade)) {
-        refreshWalletMeta(account.toLowerCase());
-      }
+      if (!matchesWallet) return;
+      if (detail.special || detail.trade) refreshWalletMeta(account.toLowerCase());
+      loadMiningAttempts(account.toLowerCase());
     };
     window.addEventListener('mm3-db-updated', onDbUpdated);
     return () => window.removeEventListener('mm3-db-updated', onDbUpdated);
@@ -2072,6 +2097,7 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
         clearInterval(solveRef.current);
         solveRef.current = null;
         showMessage(t('board.timeExceeded'), 'info', true);
+        if (account) setDailyMineUsed((prev) => prev + 1);
         handleWrong(null);
       }
     }, 100);
@@ -2079,6 +2105,7 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
 
   const checkAnswer = async (choice) => {
     if (!problem || isDisabled) return;
+    if (account) setDailyMineUsed((prev) => prev + 1);
 
     clearInterval(solveRef.current);
     solveRef.current = null;
@@ -2282,6 +2309,9 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
   const boardAlertColor = wrongFeedbackActive ? '#fb7185' : correctFeedbackActive ? '#4ade80' : tier.color;
 
   const currentFunds = walletMeta[currency.toLowerCase()] ?? 0;
+  const dailyMineTotal = DAILY_MINE_BASE + execsCount;
+  const dailyMineLeft = Math.max(0, dailyMineTotal - dailyMineUsed);
+  const noSlotsLeft = !!account && dailyMineLeft <= 0;
   const stats = [
     { label: t('tradeBoard.levelRank'),      value: `${level} ${tier.emoji} ${tier.label}` },
     { label: t('tradeBoard.mm3Balance'),     value: totalMined.toFixed(6) },
@@ -2300,7 +2330,7 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
       <div className="w-full">
         <div className="mx-auto max-w-lg px-2">
 
-          {/* Stats bar — 3 pills, centered */}
+          {/* Stats bar — pills */}
           <div
             className={`flex justify-center gap-2 mb-3 ${levelFlash === 'up' ? 'level-up' : levelFlash === 'down' ? 'level-down' : ''}`}
           >
@@ -2324,6 +2354,26 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
                 </div>
               </div>
             ))}
+            {account && (
+              <div
+                className="text-center rounded-md py-2 px-2 border flex-1 min-w-0"
+                style={{ background: '#000', borderColor: noSlotsLeft ? '#fb718540' : tier.color + '28' }}
+                title={`${t('board.drillSlots')}: ${dailyMineLeft}/${dailyMineTotal} · base 100 + ${execsCount} EXECs`}
+              >
+                <div
+                  className="text-[0.48rem] font-mono uppercase tracking-widest mb-0.5 truncate"
+                  style={{ color: noSlotsLeft ? '#fb718580' : tier.color + '70' }}
+                >
+                  {t('board.drillSlots')}
+                </div>
+                <div
+                  className="text-[0.75rem] font-black font-mono truncate leading-none"
+                  style={{ color: noSlotsLeft ? '#fb7185' : tier.color }}
+                >
+                  {dailyMineLeft}/{dailyMineTotal}
+                </div>
+              </div>
+            )}
           </div>
 
           {problem && (
@@ -2381,17 +2431,17 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
                   ) : isAwaitingStart ? (
                     <button
                       onClick={startCountdown}
-                      disabled={isRefreshing}
+                      disabled={isRefreshing || noSlotsLeft}
                       aria-label="Start game"
                       className="px-8 py-2 rounded-lg font-mono text-sm uppercase tracking-[0.2em] border-2 transition-all duration-200 focus:outline-none"
                       style={{
-                        borderColor: tier.color + '65',
-                        color: tier.color,
+                        borderColor: noSlotsLeft ? '#fb718565' : tier.color + '65',
+                        color: noSlotsLeft ? '#fb7185' : tier.color,
                         background: 'transparent',
-                        cursor: isRefreshing ? 'not-allowed' : 'pointer',
-                        opacity: isRefreshing ? 0.5 : 1,
+                        cursor: (isRefreshing || noSlotsLeft) ? 'not-allowed' : 'pointer',
+                        opacity: (isRefreshing || noSlotsLeft) ? 0.5 : 1,
                       }}
-                      onMouseEnter={(e) => !isRefreshing && Object.assign(e.currentTarget.style, {
+                      onMouseEnter={(e) => !isRefreshing && !noSlotsLeft && Object.assign(e.currentTarget.style, {
                         background: tier.color + '14',
                         boxShadow: `0 0 16px ${tier.color}40`,
                         transform: 'translateY(-1px)',
@@ -2402,22 +2452,22 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
                         transform: 'none',
                       })}
                     >
-                      {isRefreshing ? `⟳ ${t('board.loading')}` : `▶ ${t('board.startGame')}`}
+                      {isRefreshing ? `⟳ ${t('board.loading')}` : noSlotsLeft ? t('board.noSlots') : `▶ ${t('board.startGame')}`}
                     </button>
                   ) : isAwaitingContinue ? (
                     <button
                       onClick={startNextBlock}
-                      disabled={isRefreshing}
+                      disabled={isRefreshing || noSlotsLeft}
                       aria-label="Next round"
                       className="px-8 py-2 rounded-lg font-mono text-sm uppercase tracking-[0.2em] border-2 transition-all duration-200 focus:outline-none"
                       style={{
-                        borderColor: tier.color + '65',
-                        color: tier.color,
+                        borderColor: noSlotsLeft ? '#fb718565' : tier.color + '65',
+                        color: noSlotsLeft ? '#fb7185' : tier.color,
                         background: 'transparent',
-                        cursor: isRefreshing ? 'not-allowed' : 'pointer',
-                        opacity: isRefreshing ? 0.5 : 1,
+                        cursor: (isRefreshing || noSlotsLeft) ? 'not-allowed' : 'pointer',
+                        opacity: (isRefreshing || noSlotsLeft) ? 0.5 : 1,
                       }}
-                      onMouseEnter={(e) => !isRefreshing && Object.assign(e.currentTarget.style, {
+                      onMouseEnter={(e) => !isRefreshing && !noSlotsLeft && Object.assign(e.currentTarget.style, {
                         background: tier.color + '14',
                         boxShadow: `0 0 16px ${tier.color}40`,
                         transform: 'translateY(-1px)',
@@ -2428,7 +2478,7 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
                         transform: 'none',
                       })}
                     >
-                      {isRefreshing ? `⟳ ${t('board.loading')}` : `▶ ${t('board.nextRound')}`}
+                      {isRefreshing ? `⟳ ${t('board.loading')}` : noSlotsLeft ? t('board.noSlots') : `▶ ${t('board.nextRound')}`}
                     </button>
                   ) : preGameCountdown === 0 ? (
                     <div className="w-full px-0.5">
@@ -2451,18 +2501,18 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
                   ) : (
                     <button
                       onClick={startNextBlock}
-                      disabled={isRefreshing}
+                      disabled={isRefreshing || noSlotsLeft}
                       aria-label="Next round"
                       className="px-8 py-2 rounded-lg font-mono text-sm uppercase tracking-[0.2em] border-2 transition-all duration-200 focus:outline-none"
                       style={{
-                        borderColor: tier.color + '65',
-                        color: tier.color,
+                        borderColor: noSlotsLeft ? '#fb718565' : tier.color + '65',
+                        color: noSlotsLeft ? '#fb7185' : tier.color,
                         background: 'transparent',
-                        cursor: isRefreshing ? 'not-allowed' : 'pointer',
-                        opacity: isRefreshing ? 0.5 : 1,
+                        cursor: (isRefreshing || noSlotsLeft) ? 'not-allowed' : 'pointer',
+                        opacity: (isRefreshing || noSlotsLeft) ? 0.5 : 1,
                       }}
                     >
-                      {isRefreshing ? `⟳ ${t('board.loading')}` : `▶ ${t('board.nextRound')}`}
+                      {isRefreshing ? `⟳ ${t('board.loading')}` : noSlotsLeft ? t('board.noSlots') : `▶ ${t('board.nextRound')}`}
                     </button>
                   )}
                 </div>
