@@ -73,6 +73,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
   const [connectedWallets, setConnectedWallets] = useState([]);
   const [marketClaimsByWallet, setMarketClaimsByWallet] = useState({});
   const [relayReady, setRelayReady] = useState(false);
+  const [visibleCount, setVisibleCount] = useState(5);
 
   const relayRef = useRef(null);
   const previousWalletRef = useRef('');
@@ -424,8 +425,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
         .mm3-irc-wallet-line {
           display: flex;
           align-items: flex-start;
-          justify-content: space-between;
-          gap: 0.45rem;
+          gap: 0.3rem;
         }
         .mm3-irc-wallet-meta {
           display: inline-flex;
@@ -438,16 +438,70 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
           display: inline-flex;
           flex-wrap: wrap;
           align-items: center;
-          justify-content: flex-start;
-          gap: 0.16rem;
-          min-width: fit-content;
+          gap: 0.14rem;
           flex-shrink: 0;
         }
         .mm3-irc-wallet-emoji {
-          font-size: 0.76rem;
+          font-size: 0.72rem;
           line-height: 1;
           filter: drop-shadow(0 0 6px rgba(34, 211, 238, 0.16));
         }
+        .mm3-irc-peer-row {
+          display: flex;
+          align-items: center;
+          gap: 0.28rem;
+          padding: 0.18rem 0;
+          border-bottom: 1px solid rgba(34, 211, 238, 0.05);
+          font-size: 0.56rem;
+          font-family: monospace;
+          letter-spacing: 0.08em;
+          line-height: 1.35;
+          color: #94a3b8;
+          min-width: 0;
+        }
+        .mm3-irc-peer-row:last-child { border-bottom: none; }
+        .mm3-irc-peer-row.is-you { color: #4ade80; }
+        .mm3-irc-peer-chevron {
+          color: rgba(34, 211, 238, 0.45);
+          flex-shrink: 0;
+          font-size: 0.5rem;
+        }
+        .mm3-irc-peer-label {
+          flex: 1;
+          min-width: 0;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+        .mm3-irc-peer-src {
+          flex-shrink: 0;
+          opacity: 0.38;
+          font-size: 0.48rem;
+          letter-spacing: 0.12em;
+          text-transform: uppercase;
+        }
+        .mm3-irc-peer-emojis {
+          flex-shrink: 0;
+          font-size: 0.64rem;
+          line-height: 1;
+          letter-spacing: 0;
+        }
+        .mm3-irc-show-more {
+          display: block;
+          width: 100%;
+          margin-top: 0.35rem;
+          padding: 0.22rem 0;
+          font-family: monospace;
+          font-size: 0.5rem;
+          letter-spacing: 0.18em;
+          text-transform: uppercase;
+          color: rgba(34, 211, 238, 0.45);
+          background: transparent;
+          border: none;
+          cursor: pointer;
+          text-align: left;
+        }
+        .mm3-irc-show-more:hover { color: #22d3ee; }
         .mm3-irc-submit:disabled {
           opacity: 0.45;
           cursor: not-allowed;
@@ -531,40 +585,56 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
         </section>
 
         <aside className="mm3-irc-panel rounded-sm p-2.5">
-          <div className="border-b border-cyan-500/12 pb-2 font-mono">
-            <div className="text-[0.64rem] uppercase tracking-[0.22em] text-cyan-300">Connected</div>
-            <div className="mt-0.5 text-[0.54rem] uppercase tracking-[0.15em] text-slate-500">
-              {connectedWallets.length} connected
+          <div className="border-b border-cyan-500/12 pb-1.5 font-mono">
+            <div className="flex items-baseline justify-between gap-1">
+              <div className="text-[0.6rem] uppercase tracking-[0.22em] text-cyan-400">Online</div>
+              <div className="text-[0.52rem] tracking-[0.14em] text-slate-600">{connectedWallets.length}</div>
             </div>
           </div>
 
-          <div className="mt-2.5 space-y-1.5">
-            {connectedWallets.length > 0 ? connectedWallets.map((entry) => (
-              <div
-                key={entry.wallet}
-                className="rounded-sm border border-cyan-500/10 bg-black/55 px-2 py-1.5 font-mono"
-                title={entry.wallet}
-              >
-                <div className="mm3-irc-wallet-line">
-                  <div className="mm3-irc-wallet-meta">
-                    {(marketClaimsByWallet[entry.wallet] || []).length > 0 ? (
-                      <div className="mm3-irc-wallet-emojis">
-                        {marketClaimsByWallet[entry.wallet].map((emoji, index) => (
-                          <span key={`${entry.wallet}-${emoji}-${index}`} className="mm3-irc-wallet-emoji">{emoji}</span>
-                        ))}
-                      </div>
-                    ) : null}
-                    <div className="break-all text-[0.6rem] text-cyan-200">
-                      {entry.wallet === normalizedWallet ? `${formatIrcWalletLabel(entry.wallet)} (${t('irc.you')})` : formatIrcWalletLabel(entry.wallet)}
+          <div className="mt-1.5">
+            {connectedWallets.length > 0 ? (
+              <>
+                {connectedWallets.slice(0, visibleCount).map((entry) => {
+                  const isYou = entry.wallet === normalizedWallet;
+                  const label = isYou
+                    ? `${formatIrcWalletLabel(entry.wallet)} (${t('irc.you')})`
+                    : formatIrcWalletLabel(entry.wallet);
+                  const emojis = marketClaimsByWallet[entry.wallet] || [];
+                  return (
+                    <div
+                      key={entry.wallet}
+                      className={`mm3-irc-peer-row${isYou ? ' is-you' : ''}`}
+                      title={entry.wallet}
+                    >
+                      <span className="mm3-irc-peer-chevron">▶</span>
+                      <span className="mm3-irc-peer-label">{label}</span>
+                      {emojis.length > 0 && (
+                        <span className="mm3-irc-peer-emojis">{emojis.join('')}</span>
+                      )}
+                      <span className="mm3-irc-peer-src">{entry.source === 'google' ? 'G' : 'W'}</span>
                     </div>
-                  </div>
-                </div>
-                <div className="mt-1 text-[0.5rem] uppercase tracking-[0.14em] text-slate-500">
-                  {entry.source === 'google' ? 'google' : 'wallet'}
-                </div>
-              </div>
-            )) : (
-              <div className="rounded-sm border border-cyan-500/10 bg-black/55 px-2 py-2.5 text-[0.58rem] uppercase tracking-[0.14em] text-slate-500">
+                  );
+                })}
+                {visibleCount < connectedWallets.length && (
+                  <button
+                    className="mm3-irc-show-more"
+                    onClick={() => setVisibleCount((v) => v + 5)}
+                  >
+                    {`+ ${Math.min(5, connectedWallets.length - visibleCount)} more`}
+                  </button>
+                )}
+                {visibleCount > 5 && connectedWallets.length <= visibleCount && (
+                  <button
+                    className="mm3-irc-show-more"
+                    onClick={() => setVisibleCount(5)}
+                  >
+                    ▲ collapse
+                  </button>
+                )}
+              </>
+            ) : (
+              <div className="pt-1 font-mono text-[0.52rem] uppercase tracking-[0.16em] text-slate-600">
                 {t('irc.empty')}
               </div>
             )}

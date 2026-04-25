@@ -18,8 +18,6 @@ DROP VIEW IF EXISTS token_value CASCADE;
 DROP VIEW IF EXISTS token_value_timeseries CASCADE;
 DROP VIEW IF EXISTS difficulty_distribution CASCADE;
 DROP VIEW IF EXISTS api_rate_summary CASCADE;
-DROP VIEW IF EXISTS donation_total CASCADE;
-
 -- Drop functions and triggers
 DROP TRIGGER IF EXISTS trigger_update_leaderboard ON games;
 DROP FUNCTION IF EXISTS trigger_update_leaderboard_fn();
@@ -36,7 +34,6 @@ DROP TABLE IF EXISTS leaderboard_data CASCADE;
 DROP TABLE IF EXISTS math_problems CASCADE;
 DROP TABLE IF EXISTS api_requests CASCADE;
 DROP TABLE IF EXISTS mm3_visual_state CASCADE;
-DROP TABLE IF EXISTS mm3_donations CASCADE;
 DROP TABLE IF EXISTS mm3_podcast_pixels CASCADE;
 DROP TABLE IF EXISTS games CASCADE;
 
@@ -183,14 +180,6 @@ CREATE TABLE mm3_visual_state (
   id SMALLINT PRIMARY KEY DEFAULT 1 CHECK (id = 1),
   color_hex TEXT NOT NULL DEFAULT '#000000',
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
--- MM3 Donations
-CREATE TABLE mm3_donations (
-  id BIGSERIAL PRIMARY KEY,
-  wallet TEXT NOT NULL,
-  amount_eth NUMERIC NOT NULL CHECK (amount_eth > 0),
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE TABLE mm3_podcast_pixels (
@@ -456,11 +445,6 @@ SELECT
 FROM api_requests
 GROUP BY ip, endpoint;
 
--- Donation Total
-CREATE OR REPLACE VIEW donation_total AS
-SELECT COALESCE(SUM(amount_eth), 0) AS total_eth
-FROM mm3_donations;
-
 -- ==============================================
 -- PHASE 7: ENABLE ROW LEVEL SECURITY
 -- ==============================================
@@ -476,7 +460,6 @@ ALTER TABLE mm3_sell_transactions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mm3_market_events ENABLE ROW LEVEL SECURITY;
 ALTER TABLE api_requests ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mm3_visual_state ENABLE ROW LEVEL SECURITY;
-ALTER TABLE mm3_donations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mm3_podcast_pixels ENABLE ROW LEVEL SECURITY;
 
 -- ==============================================
@@ -554,13 +537,6 @@ CREATE POLICY "public_read_visual_state" ON mm3_visual_state FOR SELECT TO publi
 
 DROP POLICY IF EXISTS "public_update_visual_state" ON mm3_visual_state;
 CREATE POLICY "public_update_visual_state" ON mm3_visual_state FOR UPDATE TO public USING (true) WITH CHECK (true);
-
--- MM3 Donations policies
-DROP POLICY IF EXISTS "public_read_mm3_donations" ON mm3_donations;
-CREATE POLICY "public_read_mm3_donations" ON mm3_donations FOR SELECT TO public USING (true);
-
-DROP POLICY IF EXISTS "public_insert_mm3_donations" ON mm3_donations;
-CREATE POLICY "public_insert_mm3_donations" ON mm3_donations FOR INSERT TO public WITH CHECK (true);
 
 DROP POLICY IF EXISTS "public_read_mm3_podcast_pixels" ON mm3_podcast_pixels;
 CREATE POLICY "public_read_mm3_podcast_pixels" ON mm3_podcast_pixels FOR SELECT TO public USING (true);
@@ -755,7 +731,6 @@ GRANT SELECT, INSERT, UPDATE ON mm3_wallet_presence TO anon;
 GRANT SELECT, INSERT ON mm3_sell_transactions TO anon;
 GRANT SELECT, INSERT ON mm3_market_events TO anon;
 GRANT INSERT ON api_requests TO anon;
-GRANT INSERT ON mm3_donations TO anon;
 GRANT SELECT, UPDATE ON mm3_podcast_pixels TO anon;
 GRANT UPDATE ON mm3_visual_state TO anon;
 GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO anon;
@@ -769,8 +744,6 @@ GRANT SELECT ON token_value TO anon;
 GRANT SELECT ON token_value_timeseries TO anon;
 GRANT SELECT ON difficulty_distribution TO anon;
 GRANT SELECT ON api_rate_summary TO anon;
-GRANT SELECT ON donation_total TO anon;
-
 -- ==============================================
 -- PHASE 11: INITIAL LEADERBOARD POPULATION
 -- ==============================================
