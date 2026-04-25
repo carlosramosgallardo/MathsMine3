@@ -771,9 +771,9 @@ export default function PodcastBoard({ account, isVirtualWallet = false }) {
     <div className="w-full font-mono text-cyan-100">
       {loading && <PageLoading label={t('podcast.loading')} />}
 
-      <div className="mm3-market-shell grid gap-1.5 lg:grid-cols-[minmax(420px,calc(100vw-380px))_360px] lg:items-stretch lg:justify-center lg:gap-1">
+      <div className="mm3-market-shell grid gap-1.5 lg:grid-cols-[minmax(520px,calc(100vw-520px))_minmax(360px,460px)] lg:items-stretch lg:justify-center lg:gap-1">
         <section className="min-w-0">
-          <div className="mm3-market-board-wrap mx-auto w-full max-w-[min(86vw,calc(100dvh-250px))] lg:mx-0 lg:max-w-[min(calc(100vw-380px),calc(100dvh-250px))]">
+          <div className="mm3-market-board-wrap mx-auto w-full max-w-[min(85vw,calc(100dvh-220px))] lg:mx-0 lg:max-w-[min(calc(100vw-520px),calc(100dvh-220px))]">
             <div className="relative">
               <button
                 type="button"
