@@ -771,9 +771,9 @@ export default function PodcastBoard({ account, isVirtualWallet = false }) {
     <div className="w-full font-mono text-cyan-100">
       {loading && <PageLoading label={t('podcast.loading')} />}
 
-      <div className="mm3-market-shell grid gap-1.5 lg:grid-cols-[360px_148px] lg:items-stretch lg:justify-center lg:gap-1">
+      <div className="mm3-market-shell grid gap-1.5 lg:grid-cols-[minmax(420px,calc(100vw-380px))_360px] lg:items-stretch lg:justify-center lg:gap-1">
         <section className="min-w-0">
-          <div className="mm3-market-board-wrap mx-auto w-full max-w-[min(86vw,calc(100dvh-250px))] lg:mx-0 lg:max-w-[360px]">
+          <div className="mm3-market-board-wrap mx-auto w-full max-w-[min(86vw,calc(100dvh-250px))] lg:mx-0 lg:max-w-[min(calc(100vw-380px),calc(100dvh-250px))]">
             <div className="relative">
               <button
                 type="button"
@@ -864,8 +864,8 @@ export default function PodcastBoard({ account, isVirtualWallet = false }) {
           </div>
         </section>
 
-        <aside className="mm3-market-detail flex flex-col gap-1.5 rounded border border-cyan-500/12 bg-black/40 p-2 lg:self-stretch lg:gap-1 lg:p-2">
-          <div className="mm3-market-detail-head flex items-start justify-between gap-2">
+        <aside className="mm3-market-detail grid grid-cols-1 gap-1.5 rounded border border-cyan-500/12 bg-black/40 p-2 lg:grid-cols-2 lg:gap-1 lg:p-2 lg:self-stretch">
+          <div className="mm3-market-detail-head col-span-1 flex items-start justify-between gap-2 lg:col-span-2">
             <div className="min-w-0">
               <div className="flex items-center gap-1.5">
                 <span className="text-base leading-none">{selectedBlock?.emoji}</span>
@@ -923,7 +923,7 @@ export default function PodcastBoard({ account, isVirtualWallet = false }) {
           {/* Video / Short link */}
           {!selectedBlock?.isPlaceholder && (
             selectedBlock?.short_url ? (
-              <div className="overflow-hidden rounded border border-cyan-500/10 bg-black/45">
+              <div className="overflow-hidden rounded border border-cyan-500/10 bg-black/45 lg:col-span-2">
                 <iframe
                   src={normalizeShortUrl(selectedBlock.short_url)}
                   className="aspect-video w-full"
@@ -934,10 +934,7 @@ export default function PodcastBoard({ account, isVirtualWallet = false }) {
             ) : (
               <Link
                 href={`/market-short/${selectedBlock?.pixel_key}`}
-                className="flex items-center justify-center gap-1 rounded border border-cyan-500/10 bg-black/25 px-2 py-1.5 text-[0.42rem] uppercase tracking-[0.14em] text-cyan-800/70 transition hover:border-cyan-500/25 hover:text-cyan-500/80"
-              >
-                {t('podcast.videoSoon')}
-              </Link>
+                className="flex items-center justify-center gap-1 rounded border border-cyan-500/10 bg-black/25 px-2 py-1.5 text-[0.42rem] uppercase tracking-[0.14em] text-cyan-800/70 transition hover:border-cyan-500/25 hover:text-cyan-500/80 lg:col-span-2"
             )
           )}
 
@@ -1006,12 +1003,12 @@ export default function PodcastBoard({ account, isVirtualWallet = false }) {
 
           {/* Auto-resell warning when wallet owns a different NFTmoji */}
           {hasOtherNftmoji && !ownsSelected && !selectedBlock?.isPlaceholder && (
-            <div className="rounded border border-red-400/25 bg-red-950/10 px-2 py-1 text-[0.38rem] uppercase tracking-[0.12em] text-red-400/70">
+            <div className="rounded border border-red-400/25 bg-red-950/10 px-2 py-1 text-[0.38rem] uppercase tracking-[0.12em] text-red-400/70 lg:col-span-2">
               {t('podcast.autoResoldHint')}
             </div>
           )}
 
-          <div className="mt-auto flex flex-col gap-1 pt-0.5">
+          <div className="mt-auto flex flex-col gap-1 pt-0.5 lg:col-span-2">
             {canResell ? (
               <button
                 type="button"
