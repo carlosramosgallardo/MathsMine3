@@ -109,18 +109,18 @@ export default function ManifestoPage() {
           </h2>
           <p className="leading-relaxed">
             {language === 'es'
-              ? 'MathsMine3 existe para convertir aprendizaje matemático, identidad wallet y estética crypto-freak en un mismo circuito de tensión. No quiere parecer una academia. Quiere parecer un terminal vivo que te obliga a pensar rápido, arriesgar, volver y recordar.'
-              : 'MathsMine3 exists to fuse mathematical learning, wallet identity, and crypto-freak aesthetics into a single tension circuit. It does not want to feel like an academy. It wants to feel like a live terminal that forces you to think fast, risk, return, and remember.'}
+              ? 'MathsMine3 existe para convertir aprendizaje matemático, identidad wallet y estética crypto-freak en un único circuito de tensión. No quiere parecer una academia. Quiere parecer un terminal vivo que te obliga a pensar rápido, arriesgar, volver y recordar. Una respuesta incorrecta rompe todo. Una tirada de suerte lo cambia.'
+              : 'MathsMine3 exists to fuse mathematical learning, wallet identity, and crypto-freak aesthetics into a single tension circuit. It does not want to feel like an academy. It wants to feel like a live terminal that forces you to think fast, risk, return, and remember. One wrong answer breaks everything. One lucky roll changes it.'}
           </p>
           <p className="leading-relaxed mt-3">
             {language === 'es'
-              ? 'El Manifiesto existe para decodificar ese sistema. Es la página que explica la intención detrás del portal, enlaza sus módulos y te da una lectura clara de por qué cada pantalla existe dentro del ritual.'
-              : 'The Manifesto exists to decode that system. It is the page that explains the intention behind the portal, links its modules, and gives you a clear reading of why each screen exists inside the ritual.'}
+              ? 'El Manifiesto existe para decodificar ese sistema. Explica la intención detrás del portal, enlaza sus módulos y te da una lectura de por qué cada pantalla existe dentro del ritual: Mining, Trading, Prestige, Market, IRC, la cadena de valor MM3.'
+              : 'The Manifesto exists to decode that system. It explains the intention behind the portal, links its modules, and gives you a reading of why each screen exists inside the ritual: Mining, Trading, Prestige, Market, IRC, the MM3 value chain.'}
           </p>
           <p className="leading-relaxed mt-3">
             {language === 'es'
-              ? 'Ahora ese circuito también incluye conversación. MM3 no solo se mina, se tradea o se exhibe: también se habla. El relay IRC convierte las wallets conectadas en presencia social visible, refuerza comunidad y deja que el mainframe respire como un espacio compartido.'
-              : 'That circuit now includes conversation too. MM3 is not only mined, traded, or displayed: it is also spoken through. The IRC relay turns connected wallets into visible social presence, reinforces community, and lets the mainframe breathe like a shared space.'}
+              ? 'El circuito también incluye conversación y economía de minado. MM3 se mina, se tradea, se exhibe, se habla y se reclama en el Market. Cada EXEC de trade suma combustible de minado permanente. El relay IRC convierte las wallets en presencia social real sobre el mismo mainframe.'
+              : 'The circuit also includes conversation and mining fuel. MM3 is mined, traded, displayed, spoken, and claimed in the Market. Every trade EXEC permanently adds mining fuel. The IRC relay turns wallets into real social presence on the same mainframe.'}
           </p>
         </section>
 
@@ -163,17 +163,17 @@ export default function ManifestoPage() {
 
         <section className="mb-6">
           <h2 className="text-xl font-semibold mb-2 text-[#22d3ee]">
-            {language === 'es' ? 'Relay Social' : 'Social Relay'}
+            {language === 'es' ? 'Relay Social · IRC' : 'Social Relay · IRC'}
           </h2>
           <p className="leading-relaxed">
             {language === 'es'
-              ? 'El canal IRC es la capa social de MathsMine3. No funciona como una red social clásica ni como un chat archivado para siempre: funciona como una terminal viva, efímera y conectada al pulso real del portal. Allí entran las wallets activas, aparece su presencia, se ven sus Nftmojis de Market y se activa una conversación que solo dura mientras la sesión existe.'
-              : 'The IRC channel is the social layer of MathsMine3. It does not behave like a classic social network or a forever-archived chat: it behaves like a live, ephemeral terminal wired to the real pulse of the portal. Active wallets enter it, their presence appears, their Market NFTmojis are visible, and conversation lasts only as long as the session stays alive.'}
+              ? 'El canal IRC es la capa social de MathsMine3. No es una red social ni un chat archivado para siempre: es una terminal viva y efímera conectada al pulso real del portal. Las wallets activas entran, su presencia aparece, se ven sus NFTmojis de Market y la conversación solo dura mientras la sesión existe. Sin archivo permanente. Sin rastro.'
+              : 'The IRC channel is the social layer of MathsMine3. Not a social network, not a forever-archived chat — a live, ephemeral terminal wired to the real pulse of the portal. Active wallets enter, their presence appears, their Market NFTmojis are visible, and conversation lasts only as long as the session exists. No permanent archive. No trace.'}
           </p>
           <p className="leading-relaxed mt-3">
             {language === 'es'
-              ? 'Eso potencia la comunidad MM3 sin convertir el proyecto en un vertedero de datos. Cada entrada al relay refuerza que el portal no es solo economía o juego: también es coordinación, identidad y compañía entre jugadores conectados al mismo mainframe.'
-              : 'That strengthens the MM3 community without turning the project into a permanent data dump. Every relay entry reinforces that the portal is not only economy or gameplay: it is also coordination, identity, and company between players connected to the same mainframe.'}
+              ? 'El relay convierte el portal en un espacio compartido sin convertirlo en un vertedero de datos. Mining, trading, ranking, coleccionar y hablar ocurren dentro de la misma cultura terminal. La presencia de wallet es también presencia social.'
+              : 'The relay turns the portal into a shared space without turning it into a data dump. Mining, trading, ranking, collecting, and talking all happen inside the same terminal culture. Wallet presence is social presence.'}
           </p>
         </section>
 
