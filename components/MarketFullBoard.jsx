@@ -119,7 +119,11 @@ export default function MarketFullBoard() {
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const initialKey = new URLSearchParams(window.location.search).get('pixel');
-    if (initialKey) setSelectedKey(initialKey);
+    if (initialKey) {
+      setSelectedKey(initialKey);
+    } else {
+      setSelectedKey(CATALOG_BLOCKS[Math.floor(Math.random() * CATALOG_BLOCKS.length)].pixel_key);
+    }
   }, []);
 
   useEffect(() => {

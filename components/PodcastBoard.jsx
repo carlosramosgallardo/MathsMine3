@@ -224,7 +224,11 @@ export default function PodcastBoard({ account, isVirtualWallet = false }) {
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const pixelFromQuery = new URLSearchParams(window.location.search).get('pixel');
-    if (pixelFromQuery) setSelectedKey(pixelFromQuery);
+    if (pixelFromQuery) {
+      setSelectedKey(pixelFromQuery);
+    } else {
+      setSelectedKey(CATALOG_BLOCKS[Math.floor(Math.random() * CATALOG_BLOCKS.length)].pixel_key);
+    }
   }, []);
 
   useEffect(() => {
