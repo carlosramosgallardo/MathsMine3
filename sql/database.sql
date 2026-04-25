@@ -24,6 +24,8 @@ DROP FUNCTION IF EXISTS trigger_update_leaderboard_fn();
 DROP FUNCTION IF EXISTS update_leaderboard();
 
 -- Drop tables
+DROP TABLE IF EXISTS mm3_command_penalties CASCADE;
+DROP TABLE IF EXISTS mm3_market_commands CASCADE;
 DROP TABLE IF EXISTS mm3_sell_transactions CASCADE;
 DROP TABLE IF EXISTS mm3_market_events CASCADE;
 DROP TABLE IF EXISTS mm3_market_state CASCADE;
@@ -97,6 +99,9 @@ CREATE TABLE player_progress (
   eur_earned NUMERIC NOT NULL DEFAULT 0,
   usd_earned NUMERIC NOT NULL DEFAULT 0,
   wallet_emojis TEXT[] NOT NULL DEFAULT '{}',
+  market_nftmoji_key TEXT,
+  market_nftmoji_price NUMERIC NOT NULL DEFAULT 0,
+  market_nftmoji_since TIMESTAMPTZ,
   life_used BOOLEAN NOT NULL DEFAULT FALSE,
   lucky_50_claimed BOOLEAN NOT NULL DEFAULT FALSE,
   lucky_100_claimed BOOLEAN NOT NULL DEFAULT FALSE,
@@ -142,7 +147,7 @@ CREATE TABLE mm3_sell_transactions (
 CREATE TABLE mm3_market_events (
   id BIGSERIAL PRIMARY KEY,
   wallet TEXT NOT NULL,
-  event_type TEXT NOT NULL CHECK (event_type IN ('life_continue', 'nftmoji_claim')),
+  event_type TEXT NOT NULL CHECK (event_type IN ('life_continue', 'nftmoji_claim', 'market_buy', 'market_resell')),
   delta_mm3 NUMERIC NOT NULL DEFAULT 0,
   emoji TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -197,11 +202,29 @@ CREATE TABLE mm3_podcast_pixels (
   claimed_by TEXT,
   claimed_source TEXT CHECK (claimed_source IN ('wallet', 'google')),
   claimed_at TIMESTAMPTZ,
+  first_purchased_at TIMESTAMPTZ,
   paid_eur NUMERIC NOT NULL DEFAULT 0,
   paid_usd NUMERIC NOT NULL DEFAULT 0,
   paid_cny NUMERIC NOT NULL DEFAULT 0,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE mm3_market_commands (
+  id BIGSERIAL PRIMARY KEY,
+  wallet TEXT NOT NULL,
+  nftmoji_key TEXT NOT NULL,
+  command TEXT NOT NULL,
+  executed_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE mm3_command_penalties (
+  id BIGSERIAL PRIMARY KEY,
+  wallet TEXT NOT NULL,
+  penalty_code TEXT NOT NULL,
+  penalty_value NUMERIC NOT NULL DEFAULT 0,
+  reason TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 -- ==============================================
@@ -225,6 +248,9 @@ CREATE INDEX idx_mm3_sell_transactions_created_at ON mm3_sell_transactions(creat
 CREATE INDEX idx_mm3_market_events_wallet ON mm3_market_events(wallet);
 CREATE INDEX idx_mm3_market_events_created_at ON mm3_market_events(created_at DESC);
 CREATE INDEX idx_mm3_podcast_pixels_claimed_by ON mm3_podcast_pixels(claimed_by);
+CREATE INDEX idx_player_progress_market_key ON player_progress(market_nftmoji_key) WHERE market_nftmoji_key IS NOT NULL;
+CREATE INDEX idx_mm3_market_commands_wallet ON mm3_market_commands(wallet);
+CREATE INDEX idx_mm3_command_penalties_wallet ON mm3_command_penalties(wallet);
 
 -- ==============================================
 -- PHASE 4: CREATE FUNCTIONS
@@ -461,6 +487,8 @@ ALTER TABLE mm3_market_events ENABLE ROW LEVEL SECURITY;
 ALTER TABLE api_requests ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mm3_visual_state ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mm3_podcast_pixels ENABLE ROW LEVEL SECURITY;
+ALTER TABLE mm3_market_commands ENABLE ROW LEVEL SECURITY;
+ALTER TABLE mm3_command_penalties ENABLE ROW LEVEL SECURITY;
 
 -- ==============================================
 -- PHASE 8: CREATE ROW LEVEL SECURITY POLICIES
@@ -522,7 +550,7 @@ DROP POLICY IF EXISTS "public_read_mm3_market_events" ON mm3_market_events;
 CREATE POLICY "public_read_mm3_market_events" ON mm3_market_events FOR SELECT TO public USING (true);
 
 DROP POLICY IF EXISTS "public_insert_mm3_market_events" ON mm3_market_events;
-CREATE POLICY "public_insert_mm3_market_events" ON mm3_market_events FOR INSERT TO public WITH CHECK (event_type IN ('life_continue', 'nftmoji_claim'));
+CREATE POLICY "public_insert_mm3_market_events" ON mm3_market_events FOR INSERT TO public WITH CHECK (event_type IN ('life_continue', 'nftmoji_claim', 'market_buy', 'market_resell'));
 
 -- API Requests policies
 DROP POLICY IF EXISTS "public_read_api_requests" ON api_requests;
@@ -543,6 +571,15 @@ CREATE POLICY "public_read_mm3_podcast_pixels" ON mm3_podcast_pixels FOR SELECT 
 
 DROP POLICY IF EXISTS "public_update_mm3_podcast_pixels" ON mm3_podcast_pixels;
 CREATE POLICY "public_update_mm3_podcast_pixels" ON mm3_podcast_pixels FOR UPDATE TO public USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "public_read_mm3_market_commands" ON mm3_market_commands;
+CREATE POLICY "public_read_mm3_market_commands" ON mm3_market_commands FOR SELECT TO public USING (true);
+
+DROP POLICY IF EXISTS "public_insert_mm3_market_commands" ON mm3_market_commands;
+CREATE POLICY "public_insert_mm3_market_commands" ON mm3_market_commands FOR INSERT TO public WITH CHECK (wallet <> '' AND nftmoji_key <> '' AND command <> '');
+
+DROP POLICY IF EXISTS "public_read_mm3_command_penalties" ON mm3_command_penalties;
+CREATE POLICY "public_read_mm3_command_penalties" ON mm3_command_penalties FOR SELECT TO public USING (true);
 
 -- ==============================================
 -- PHASE 9: INSERT INITIAL DATA
@@ -732,6 +769,8 @@ GRANT SELECT, INSERT ON mm3_sell_transactions TO anon;
 GRANT SELECT, INSERT ON mm3_market_events TO anon;
 GRANT INSERT ON api_requests TO anon;
 GRANT SELECT, UPDATE ON mm3_podcast_pixels TO anon;
+GRANT SELECT, INSERT ON mm3_market_commands TO anon;
+GRANT SELECT          ON mm3_command_penalties TO anon;
 GRANT UPDATE ON mm3_visual_state TO anon;
 GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO anon;
 GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO anon;

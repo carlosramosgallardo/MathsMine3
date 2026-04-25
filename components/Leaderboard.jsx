@@ -51,7 +51,7 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
           }
         }
       }
-      const [{ data: leaderboardRows, error }, progressResponse, marketResponse, txResponse] = await Promise.all([
+      const [{ data: leaderboardRows, error }, progressResponse, marketOwnersResponse, pixelsResponse, txResponse] = await Promise.all([
         supabase
           .from('leaderboard_data')
           .select('wallet, total_eth'),
@@ -59,10 +59,12 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
           .from('player_progress')
           .select('wallet, level, mm3_sold, cny_earned, eur_earned, usd_earned, wallet_emojis'),
         supabase
+          .from('player_progress')
+          .select('wallet, market_nftmoji_key')
+          .not('market_nftmoji_key', 'is', null),
+        supabase
           .from('mm3_podcast_pixels')
-          .select('pixel_key, claimed_by, emoji, grid_row, grid_col, claimed_at')
-          .not('claimed_by', 'is', null)
-          .order('claimed_at', { ascending: true }),
+          .select('pixel_key, emoji, grid_row, grid_col'),
         supabase
           .from('mm3_sell_transactions')
           .select('wallet'),
@@ -91,16 +93,19 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
         ])
       );
 
+      const pixelsByKey = new Map();
+      for (const p of pixelsResponse?.data || []) {
+        pixelsByKey.set(p.pixel_key, { emoji: String(p.emoji || ''), hex: getBlockHexFromCoords(p.grid_row, p.grid_col) });
+      }
+
       const marketBlocksByWallet = new Map();
-      for (const entry of marketResponse?.data || []) {
-        const wallet = String(entry.claimed_by || '').toLowerCase();
-        if (!wallet) continue;
-        if (!marketBlocksByWallet.has(wallet)) marketBlocksByWallet.set(wallet, []);
-        marketBlocksByWallet.get(wallet).push({
-          pixel_key: entry.pixel_key,
-          emoji: String(entry.emoji || ''),
-          hex: getBlockHexFromCoords(entry.grid_row, entry.grid_col),
-        });
+      for (const entry of marketOwnersResponse?.data || []) {
+        const wallet = String(entry.wallet || '').toLowerCase();
+        const key = entry.market_nftmoji_key;
+        if (!wallet || !key) continue;
+        const pixelInfo = pixelsByKey.get(key);
+        if (!pixelInfo) continue;
+        marketBlocksByWallet.set(wallet, [{ pixel_key: key, emoji: pixelInfo.emoji, hex: pixelInfo.hex }]);
       }
 
       const txCountByWallet = new Map();
@@ -489,7 +494,7 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
               </div>
 
               <div className="mt-2">
-                <div className="mb-1 text-[0.58rem] uppercase tracking-[0.12em] text-cyan-700">{t('leaderboard.blocks')}</div>
+                <div className="mb-1 text-[0.58rem] uppercase tracking-[0.12em] text-cyan-700">{t('leaderboard.blockPenalty')}</div>
                 <div className="flex min-h-7 flex-wrap items-center gap-1 rounded-lg border border-cyan-500/10 bg-black/50 px-2 py-1">
                   {marketBlocks.length > 0 ? marketBlocks.map((block) => (
                     <button
@@ -533,7 +538,7 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
               <th style={{ width:'28%' }}><SortButton sortKey="wallet">{t('leaderboard.minerWallet')}</SortButton></th>
               <th style={{ width:'14%', textAlign:'center' }} title="NFTmojis — probability artifacts that influence MM3 global value"><SortButton sortKey="nftmoji" className="justify-center">NFTmojis</SortButton></th>
               <th style={{ width:'7%', textAlign:'center' }}><SortButton sortKey="execs" className="justify-center">{t('leaderboard.execs')}</SortButton></th>
-              <th style={{ width:'11%', textAlign:'center' }}><SortButton sortKey="block" className="justify-center">{t('leaderboard.blocks')}</SortButton></th>
+              <th style={{ width:'11%', textAlign:'center' }}><SortButton sortKey="block" className="justify-center">{t('leaderboard.blockPenalty')}</SortButton></th>
               <th style={{ width:'6%', textAlign:'center' }}><SortButton sortKey="level" className="justify-center">{t('leaderboard.level')}</SortButton></th>
               <th style={{ width:'8%', textAlign:'center' }}><SortButton sortKey="rank" className="justify-center">{t('leaderboard.rank')}</SortButton></th>
               <th style={{ width:'9%', textAlign:'right', paddingRight:'1rem' }}><SortButton sortKey="available_mm3" className="justify-end">{t('leaderboard.mm3Earned')}</SortButton></th>

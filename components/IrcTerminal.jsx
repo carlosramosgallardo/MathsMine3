@@ -191,20 +191,29 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
 
   const loadMarketClaims = useCallback(async () => {
     try {
-      const { data, error } = await supabase
-        .from('mm3_podcast_pixels')
-        .select('claimed_by, emoji, claimed_at')
-        .not('claimed_by', 'is', null)
-        .order('claimed_at', { ascending: true });
+      const [{ data: ownersData, error }, { data: pixelsData }] = await Promise.all([
+        supabase
+          .from('player_progress')
+          .select('wallet, market_nftmoji_key')
+          .not('market_nftmoji_key', 'is', null),
+        supabase
+          .from('mm3_podcast_pixels')
+          .select('pixel_key, emoji'),
+      ]);
       if (error) throw error;
 
+      const emojiByKey = new Map();
+      for (const p of pixelsData || []) {
+        if (p.pixel_key && p.emoji) emojiByKey.set(p.pixel_key, p.emoji);
+      }
+
       const nextClaims = {};
-      for (const entry of data || []) {
-        const wallet = String(entry.claimed_by || '').toLowerCase();
-        const emoji = String(entry.emoji || '').trim();
+      for (const entry of ownersData || []) {
+        const wallet = String(entry.wallet || '').toLowerCase();
+        const key = entry.market_nftmoji_key;
+        const emoji = emojiByKey.get(key);
         if (!wallet || !emoji) continue;
-        if (!nextClaims[wallet]) nextClaims[wallet] = [];
-        if (!nextClaims[wallet].includes(emoji)) nextClaims[wallet].push(emoji);
+        nextClaims[wallet] = [emoji];
       }
       setMarketClaimsByWallet(nextClaims);
     } catch {
@@ -216,7 +225,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
     loadMarketClaims();
     const channel = supabase
       .channel('mm3-irc-market-claims')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'mm3_podcast_pixels' }, loadMarketClaims)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'player_progress' }, loadMarketClaims)
       .subscribe();
 
     return () => {

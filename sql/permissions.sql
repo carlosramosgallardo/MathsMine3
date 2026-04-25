@@ -26,6 +26,8 @@ ALTER TABLE IF EXISTS public.mm3_market_events     ENABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS public.api_requests          ENABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS public.mm3_visual_state      ENABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS public.mm3_podcast_pixels    ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS public.mm3_market_commands   ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS public.mm3_command_penalties ENABLE ROW LEVEL SECURITY;
 
 -- ==========================================================
 -- 2. RLS POLICIES  (drop+create = idempotent)
@@ -78,7 +80,7 @@ CREATE POLICY "public_insert_mm3_sell_transactions" ON public.mm3_sell_transacti
 DROP POLICY IF EXISTS "public_read_mm3_market_events"   ON public.mm3_market_events;
 DROP POLICY IF EXISTS "public_insert_mm3_market_events" ON public.mm3_market_events;
 CREATE POLICY "public_read_mm3_market_events"   ON public.mm3_market_events FOR SELECT TO anon USING (true);
-CREATE POLICY "public_insert_mm3_market_events" ON public.mm3_market_events FOR INSERT TO anon WITH CHECK (event_type IN ('life_continue', 'nftmoji_claim'));
+CREATE POLICY "public_insert_mm3_market_events" ON public.mm3_market_events FOR INSERT TO anon WITH CHECK (event_type IN ('life_continue', 'nftmoji_claim', 'market_buy', 'market_resell'));
 
 -- api_requests: read + insert for rate-limiting
 DROP POLICY IF EXISTS "public_read_api_requests"   ON public.api_requests;
@@ -99,6 +101,16 @@ DROP POLICY IF EXISTS "public_read_mm3_podcast_pixels"   ON public.mm3_podcast_p
 DROP POLICY IF EXISTS "public_update_mm3_podcast_pixels" ON public.mm3_podcast_pixels;
 CREATE POLICY "public_read_mm3_podcast_pixels"   ON public.mm3_podcast_pixels FOR SELECT TO anon USING (true);
 CREATE POLICY "public_update_mm3_podcast_pixels" ON public.mm3_podcast_pixels FOR UPDATE TO anon USING (true) WITH CHECK (true);
+
+-- mm3_market_commands: read + insert (Bloque B commands)
+DROP POLICY IF EXISTS "public_read_mm3_market_commands"   ON public.mm3_market_commands;
+DROP POLICY IF EXISTS "public_insert_mm3_market_commands" ON public.mm3_market_commands;
+CREATE POLICY "public_read_mm3_market_commands"   ON public.mm3_market_commands FOR SELECT TO anon USING (true);
+CREATE POLICY "public_insert_mm3_market_commands" ON public.mm3_market_commands FOR INSERT TO anon WITH CHECK (wallet <> '' AND nftmoji_key <> '' AND command <> '');
+
+-- mm3_command_penalties: read-only (written by service_role / admin)
+DROP POLICY IF EXISTS "public_read_mm3_command_penalties" ON public.mm3_command_penalties;
+CREATE POLICY "public_read_mm3_command_penalties" ON public.mm3_command_penalties FOR SELECT TO anon USING (true);
 
 -- ==========================================================
 -- 3. GRANTS to anon role
@@ -130,6 +142,8 @@ GRANT INSERT          ON public.mm3_visual_state      TO anon;
 GRANT UPDATE          ON public.mm3_visual_state      TO anon;
 GRANT SELECT          ON public.mm3_podcast_pixels    TO anon;
 GRANT UPDATE          ON public.mm3_podcast_pixels    TO anon;
+GRANT SELECT, INSERT  ON public.mm3_market_commands   TO anon;
+GRANT SELECT          ON public.mm3_command_penalties TO anon;
 
 -- Views
 GRANT SELECT ON public.leaderboard_stats                TO anon;
