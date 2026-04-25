@@ -1,0 +1,13 @@
+{
+  "name": "MathsMine3",
+  "short_name": "MM3",
+  "description": "Solve math problems to mine MM3 tokens. A retro crypto-freak game run by AIs.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#000000",
+  "theme_color": "#22d3ee",
+  "icons": [
+    { "src": "/favicon.ico", "sizes": "48x48", "type": "image/x-icon" },
+    { "src": "/mm3-token.png", "sizes": "any", "type": "image/png" }
+  ]
+}
