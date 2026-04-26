@@ -152,14 +152,14 @@ export default function GlobalPulseBar() {
         className="group relative flex h-7 items-center gap-[3px] px-0.5 sm:px-1 font-mono text-[0.54rem] font-black sm:h-9 sm:text-[0.62rem]"
         title={
           isSpanish
-            ? `logados: ${activeWallets.length} / community: ${totalWallets} · IRC: ${activeWallets.length + anonCount}`
-            : `online: ${activeWallets.length} / community: ${totalWallets} · IRC: ${activeWallets.length + anonCount}`
+            ? `logados: ${activeWallets.length} / wallets: ${totalWallets} · IRC: ${activeWallets.length + anonCount}`
+            : `online: ${activeWallets.length} / wallets: ${totalWallets} · IRC: ${activeWallets.length + anonCount}`
         }
       >
         <span className="text-emerald-400 tabular-nums">{activeWallets.length}</span>
         <span className="text-slate-600 text-[0.44rem]">/</span>
         <span className="text-slate-500 tabular-nums">{totalWallets}</span>
-        <span className="text-slate-600 text-[0.38rem]">com</span>
+        <span className="text-slate-600 text-[0.38rem]">wallets</span>
         <span className="text-slate-700 mx-[1px]">·</span>
         <span className="text-cyan-700 tabular-nums">{activeWallets.length + anonCount}</span>
         <span className="text-cyan-900 text-[0.38rem]">irc</span>

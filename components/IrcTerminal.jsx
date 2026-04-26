@@ -69,7 +69,9 @@ function makeMessage({ id, kind = 'chat', wallet = 'system', text = '', ts = Dat
 
 function formatRelayTime(ts) {
   try {
-    return new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    const d = new Date(ts);
+    const p = (n) => String(n).padStart(2, '0');
+    return `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
   } catch {
     return '--:--:--';
   }
@@ -788,7 +790,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
   // Refresh market status periodically (like relay-status mainframe)
   useEffect(() => {
     refreshMarketStatus();
-    const timer = setInterval(refreshMarketStatus, 60_000);
+    const timer = setInterval(refreshMarketStatus, 15_000);
     return () => clearInterval(timer);
   }, [refreshMarketStatus]);
 
@@ -1334,7 +1336,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
               <span className="text-emerald-400">{connectedWallets.length}</span>
               <span className="text-slate-600 text-[0.44rem]">/</span>
               <span className="text-slate-500">{totalWallets}</span>
-              <span className="text-slate-600 text-[0.38rem]">com</span>
+              <span className="text-slate-600 text-[0.38rem]">wallets</span>
               <span className="text-slate-700 mx-[1px]">·</span>
               <span className="text-cyan-700">{connectedWallets.length + anonUsers.length}</span>
               <span className="text-cyan-900 text-[0.38rem]">irc</span>
