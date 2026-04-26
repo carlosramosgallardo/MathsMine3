@@ -143,6 +143,14 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
   const presenceBootedRef = useRef(false);
   const endRef = useRef(null);
   const blockByKeyRef = useRef(new Map());
+  const inputRef = useRef(null);
+
+  // Auto-focus input when wallet is connected and terminal is ready
+  useEffect(() => {
+    if (normalizedWallet && inputRef.current) {
+      inputRef.current.focus();
+    }
+  }, [normalizedWallet, relayReady]);
 
   const persistMessages = useCallback((nextMessages) => {
     if (typeof window === 'undefined' || !storageKey) return;
@@ -328,14 +336,14 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
             const formula = getCommandFormula(entry.command);
             const reset = String(command.reset_at).slice(5, 16);
             const by = shortWallet(command.wallet);
-            marketMessages.push(`Market: ${entry.emoji} ${hex} // active // formula=${formula} // x=${command.formula_x ?? 0} // reset=${reset}Z${by ? ` // by ${by}` : ''}`);
+            marketMessages.push(`Market: ${entry.emoji} ${hex} // ${t('irc.commandActive')} // formula=${formula} // x=${command.formula_x ?? 0} // reset=${reset}Z${by ? ` // ${t('irc.by')} ${by}` : ''}`);
           } else {
             const ownerWallets = (ownersData || [])
               .filter((o) => o.market_nftmoji_key === entry.key)
               .map((o) => o.wallet)
               .filter(Boolean);
             const readyList = ownerWallets.map(shortWallet).join(' · ');
-            marketMessages.push(`Market: ${entry.emoji} // ${t('podcast.launchReady')}${readyList ? ` // ready: ${readyList}` : ''}`);
+            marketMessages.push(`Market: ${entry.emoji} // ${t('podcast.launchReady')}${readyList ? ` // ${t('irc.ready')}: ${readyList}` : ''}`);
             marketMessages.push(t('podcast.launchReadyTeaser'));
           }
         }
@@ -349,11 +357,11 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
           const formula = getCommandFormula(fallback?.command);
           const reset = String(command.reset_at || '').slice(5, 16);
           const by = shortWallet(command.wallet);
-          marketMessages.push(`Market: ${emoji} ${hex} // active // formula=${formula} // x=${command.formula_x ?? 0} // reset=${reset}Z${by ? ` // by ${by}` : ''}`);
+          marketMessages.push(`Market: ${emoji} ${hex} // ${t('irc.commandActive')} // formula=${formula} // x=${command.formula_x ?? 0} // reset=${reset}Z${by ? ` // ${t('irc.by')} ${by}` : ''}`);
         }
 
         if (marketMessages.length === 0) {
-          marketMessages.push(`Market: // no penalties active at this time :: all market commands on standby :: signal may spike without warning`);
+          marketMessages.push(`Market: ${t('irc.marketNoPenalties')}`);
         }
 
         const stored = safeParseSession(sessionStorage.getItem(storageKey));
@@ -810,7 +818,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
           id: `market-event:on:${rec.id}`,
           kind: 'system',
           wallet: 'system',
-          text: `Market: ${emoji} ${hex} // command active // formula=${formula} // x=${rec.formula_x} // reset=${reset}Z // by ${rec.wallet ? `${String(rec.wallet).slice(0, 6)}...${String(rec.wallet).slice(-4)}` : '?'}`,
+          text: `Market: ${emoji} ${hex} // ${t('irc.commandActive')} // formula=${formula} // x=${rec.formula_x} // reset=${reset}Z // ${t('irc.by')} ${rec.wallet ? `${String(rec.wallet).slice(0, 6)}...${String(rec.wallet).slice(-4)}` : '?'}`,
           ts: Date.now(),
           tone: 'market',
         }), { silent: false });
@@ -828,7 +836,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
                 id: `market-penalties:on:${rec.id}`,
                 kind: 'system',
                 wallet: 'system',
-                text: `Market: ${emoji} // ${count} wallets penalized // penalties active until ${reset}Z`,
+                text: `Market: ${emoji} // ${count} ${t('podcast.walletsPenalized')} // ${t('irc.activeUntil')} ${reset}Z`,
                 ts: Date.now(),
                 tone: 'market',
               }), { silent: false });
@@ -846,13 +854,13 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
             .select('wallet')
             .eq('command_id', rec.id);
           const count = (penaltyRows || []).length;
-          if (count > 0) releasedInfo = ` // ${count} wallets released`;
+          if (count > 0) releasedInfo = ` // ${count} ${t('irc.walletsReleased')}`;
         } catch {}
         const expiredPayload = {
           id: `market-event:off:${rec.id}`,
           kind: 'system',
           wallet: 'system',
-          text: `Market: ${emoji} ${hex} // command expired // penalties cleared${releasedInfo}`,
+          text: `Market: ${emoji} ${hex} // ${t('irc.commandExpired')} // ${t('irc.penaltiesCleared')}${releasedInfo}`,
           ts: Date.now(),
           tone: 'market',
         };
@@ -908,7 +916,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
     const dayWindow = getUtcDayWindow(now);
 
     try {
-      const [{ data: launcher }, { data: existingCommand }, { data: blockRow }, { data: progressRows }, { data: leaderboardRows }, { data: existingPenalties }] = await Promise.all([
+      const [{ data: launcher }, { data: existingCommand }, { data: blockRow }, { data: allProgress }, { data: existingPenalties }] = await Promise.all([
         supabase
           .from('player_progress')
           .select('wallet, market_nftmoji_key')
@@ -929,10 +937,8 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
           .maybeSingle(),
         supabase
           .from('player_progress')
-          .select('wallet, level, market_nftmoji_key, eur_earned, usd_earned, cny_earned'),
-        supabase
-          .from('leaderboard_data')
-          .select('wallet'),
+          .select('wallet, level, market_nftmoji_key, eur_earned, usd_earned, cny_earned, wallet_emojis, life_used, lucky_50_claimed, lucky_100_claimed, lucky_500_claimed, lucky_1000_claimed')
+          .limit(1000),
         supabase
           .from('mm3_command_penalties')
           .select('wallet')
@@ -941,7 +947,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
       ]);
 
       if (launcher?.market_nftmoji_key !== commandEntry.key) {
-        await broadcastSystemMessage(`command rejected // ${normalizedWallet} does not own ${commandEntry.emoji}`, 'leave');
+        await broadcastSystemMessage(`${t('irc.commandRejected')} // ${normalizedWallet} ${t('irc.doesNotOwn')} ${commandEntry.emoji}`, 'leave');
         return true;
       }
 
@@ -952,7 +958,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
       }
 
       if (!blockRow) {
-        await broadcastSystemMessage(`command rejected // market block missing ${commandEntry.key}`, 'leave');
+        await broadcastSystemMessage(`${t('irc.commandRejected')} // ${t('irc.noBlock')} ${commandEntry.key}`, 'leave');
         return true;
       }
 
@@ -972,17 +978,14 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
       if (commandError) throw commandError;
 
       const alreadyPenalized = new Set((existingPenalties || []).map((entry) => String(entry.wallet || '').toLowerCase()));
-      const progressByWallet = new Map(
-        (progressRows || []).map((row) => [String(row.wallet || '').toLowerCase(), row])
-      );
       const priceEur = Number(blockRow.price_eur) || 0;
       const priceUsd = priceEur * (CNY_TO_USD / CNY_TO_EUR);
       const priceCny = priceEur / CNY_TO_EUR;
       const penalties = [];
       const balanceUpdates = [];
-      for (const prestigeRow of leaderboardRows || []) {
-        const wallet = String(prestigeRow.wallet || '').toLowerCase();
-        const row = progressByWallet.get(wallet) || { wallet, level: 0, market_nftmoji_key: null };
+
+      for (const row of allProgress || []) {
+        const wallet = String(row.wallet || '').toLowerCase();
         if (!wallet || wallet === normalizedWallet) continue;
         if (row.market_nftmoji_key === commandEntry.key) continue;
         if (alreadyPenalized.has(wallet)) continue;
@@ -999,10 +1002,11 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
           reset_at: dayWindow.resetAt,
         });
         balanceUpdates.push({
-          wallet,
+          ...row,
           eur_earned: (Number(row.eur_earned) || 0) - priceEur,
           usd_earned: (Number(row.usd_earned) || 0) - priceUsd,
           cny_earned: (Number(row.cny_earned) || 0) - priceCny,
+          updated_at: new Date().toISOString(),
         });
       }
 
@@ -1011,11 +1015,11 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
           .from('mm3_command_penalties')
           .insert(penalties);
         if (penaltyError) throw penaltyError;
-        await Promise.all(balanceUpdates.map((payload) =>
-          supabase
-            .from('player_progress')
-            .upsert({ ...payload, updated_at: new Date().toISOString() }, { onConflict: 'wallet', ignoreDuplicates: false })
-        ));
+
+        const { error: balanceError } = await supabase
+          .from('player_progress')
+          .upsert(balanceUpdates, { onConflict: 'wallet', ignoreDuplicates: false });
+        if (balanceError) throw balanceError;
       }
 
       if (typeof window !== 'undefined') {
@@ -1302,6 +1306,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
           {normalizedWallet ? (
             <form onSubmit={handleSend} className="mt-2 flex flex-col gap-1.5 sm:flex-row">
               <input
+                ref={inputRef}
                 value={draft}
                 onChange={(event) => setDraft(event.target.value)}
                 placeholder={t('irc.inputPlaceholder')}
