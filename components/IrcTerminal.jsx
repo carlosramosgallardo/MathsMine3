@@ -105,16 +105,23 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
   const { t, language } = useI18n();
   const { account } = useActiveWallet();
   const { playIrcMessage } = useSound();
-  const normalizedWallet = useMemo(() => String(account || '').toLowerCase(), [account]);
-  const [anonId, setAnonId] = useState(() => {
+  // Stable anon ID initialization - check all sources for maximum stability
+  const initAnonId = (() => {
     if (typeof window === 'undefined') return 'anon:000000';
     const k = 'mm3-anon-session';
-    const stored = sessionStorage.getItem(k);
-    if (stored?.startsWith('anon:')) return stored;
-    const id = `anon:${Math.random().toString(36).slice(2, 8)}`;
-    sessionStorage.setItem(k, id);
-    return id;
-  });
+    const sessionStored = sessionStorage.getItem(k);
+    if (sessionStored?.startsWith('anon:')) return sessionStored;
+    // Try meta cache (has IP-based stable ID)
+    try {
+      const cached = JSON.parse(sessionStorage.getItem('mm3-anon-meta') || '{}');
+      if (cached.id?.startsWith('anon:')) return cached.id;
+    } catch {}
+    // Generate new random as last resort
+    return `anon:${Math.random().toString(36).slice(2, 8)}`;
+  })();
+
+  const normalizedWallet = useMemo(() => String(account || '').toLowerCase(), [account]);
+  const [anonId, setAnonId] = useState(initAnonId);
   const [anonFlag, setAnonFlag] = useState('');
   const [anonUsers, setAnonUsers] = useState([]);
   const [anonVisibleCount, setAnonVisibleCount] = useState(5);
@@ -133,6 +140,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
 
   const relayRef = useRef(null);
   const previousWalletRef = useRef('');
+  const previousAnonIdRef = useRef('');
   const previousPresenceRef = useRef(new Set());
   const presenceBootedRef = useRef(false);
   const endRef = useRef(null);
@@ -242,13 +250,58 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
     return () => { supabase.removeChannel(channel); setWalletFlags({}); };
   }, [normalizedWallet, walletFlag]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Initialize previousAnonIdRef when anonId first becomes stable
+  useEffect(() => {
+    if (anonId.startsWith('anon:') && !previousAnonIdRef.current) {
+      previousAnonIdRef.current = anonId;
+    }
+  }, [anonId]);
+
+  // Migrate messages when actorId changes (e.g., anon -> wallet transition)
+  useEffect(() => {
+    if (typeof window === 'undefined' || !storageKey) return;
+    const prevAnonId = previousAnonIdRef.current;
+    // If we had an anon identity and now have a wallet, migrate messages
+    if (prevAnonId && prevAnonId.startsWith('anon:') && normalizedWallet && !normalizedWallet.startsWith('anon:')) {
+      const oldKey = sessionKeyForWallet(prevAnonId);
+      const newKey = storageKey;
+      if (oldKey !== newKey) {
+        try {
+          const oldMessages = safeParseSession(sessionStorage.getItem(oldKey));
+          if (oldMessages.length > 0) {
+            // Filter out system/welcome messages, keep only user messages
+            const userMessages = oldMessages.filter((entry) =>
+              entry.kind === 'chat' || (entry.kind === 'system' && entry.tone !== 'accent' && !String(entry.id || '').startsWith('market-status:') && !String(entry.id || '').startsWith('relay-status:'))
+            );
+            if (userMessages.length > 0) {
+              // Append user messages to current session
+              setMessages((current) => {
+                const existingIds = new Set(current.map((m) => m.id));
+                const newMessages = userMessages.filter((m) => !existingIds.has(m.id));
+                if (newMessages.length === 0) return current;
+                const combined = [...current, ...newMessages].slice(-MAX_SESSION_MESSAGES);
+                persistMessages(combined);
+                return combined;
+              });
+            }
+            // Clean up old key
+            sessionStorage.removeItem(oldKey);
+          }
+        } catch {}
+      }
+    }
+    // Update previousAnonIdRef when anonId changes
+    if (anonId.startsWith('anon:')) {
+      previousAnonIdRef.current = anonId;
+    }
+  }, [normalizedWallet, storageKey, persistMessages, anonId]);
+
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const previousWallet = previousWalletRef.current;
     if (previousWallet && !previousWallet.startsWith('anon:') && previousWallet !== normalizedWallet) {
       sessionStorage.removeItem(sessionKeyForWallet(previousWallet));
     }
-    previousWalletRef.current = normalizedWallet;
     if (!normalizedWallet) {
       presenceBootedRef.current = false;
       previousPresenceRef.current = new Set();
