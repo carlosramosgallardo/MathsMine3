@@ -299,7 +299,10 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
             const command = commandByKey.get(entry.key);
             const resetAt = command?.reset_at;
             const owners = ownerCountByKey.get(entry.key) || 0;
-            const status = resetAt ? `lock ${String(resetAt).slice(5, 16)}Z` : t('podcast.launchReady');
+            const formula = getCommandFormula(entry.command);
+            const status = resetAt
+              ? `lock ${String(resetAt).slice(5, 16)}Z // formula=${formula} // x=${command?.formula_x ?? 0}`
+              : t('podcast.launchReady');
             return `${entry.emoji}x${owners} ${status}`;
           }).join(' | ')}`;
           if (activeCommands.length > 0) {
@@ -578,15 +581,43 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
           ts: Date.now(),
           tone: 'market',
         }), { silent: false });
+        setTimeout(async () => {
+          try {
+            const { data: penaltyRows } = await supabase
+              .from('mm3_command_penalties')
+              .select('wallet')
+              .eq('command_id', rec.id);
+            const count = (penaltyRows || []).length;
+            if (count > 0) {
+              appendMessage(makeMessage({
+                id: `market-penalties:on:${rec.id}`,
+                kind: 'system',
+                wallet: 'system',
+                text: `Market: ${emoji} // ${count} wallets penalized // penalties active until ${reset}Z`,
+                ts: Date.now(),
+                tone: 'market',
+              }), { silent: false });
+            }
+          } catch {}
+        }, 3000);
       })
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'mm3_market_commands' }, ({ new: rec }) => {
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'mm3_market_commands' }, async ({ new: rec }) => {
         if (new Date(rec.reset_at) > new Date()) return;
         const { emoji, hex } = resolveBlock(rec.nftmoji_key);
+        let releasedInfo = '';
+        try {
+          const { data: penaltyRows } = await supabase
+            .from('mm3_command_penalties')
+            .select('wallet')
+            .eq('command_id', rec.id);
+          const count = (penaltyRows || []).length;
+          if (count > 0) releasedInfo = ` // ${count} wallets released`;
+        } catch {}
         appendMessage(makeMessage({
           id: `market-event:off:${rec.id}:${Date.now()}`,
           kind: 'system',
           wallet: 'system',
-          text: `Market: ${emoji} ${hex} // command expired // penalties cleared`,
+          text: `Market: ${emoji} ${hex} // command expired // penalties cleared${releasedInfo}`,
           ts: Date.now(),
           tone: 'market',
         }), { silent: false });
