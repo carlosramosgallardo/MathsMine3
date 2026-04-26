@@ -370,12 +370,13 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
         );
 
         // Combine history from DB and session storage, then deduplicate by content signature
+        const normTs = (raw) => isNaN(Number(raw)) ? new Date(raw).getTime() : Number(raw);
         const dbMapped = chatHistory.map((m) => makeMessage({
-          id: `db:${m.wallet}:${m.ts}:${Math.random().toString(36).slice(2, 5)}`,
+          id: `db:${m.wallet}:${m.ts}`,
           kind: m.kind || 'chat',
           wallet: m.wallet,
           text: m.text,
-          ts: m.ts,
+          ts: normTs(m.ts),
           tone: m.tone || 'neutral',
         }));
 
