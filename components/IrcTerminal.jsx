@@ -1130,7 +1130,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
         .mm3-irc-line.system[data-tone='market']   { color: #f59e0b; }  /* market: amber  */
         .mm3-irc-line.system[data-tone='join']     { color: #22d3ee; }  /* join:   cyan   */
         .mm3-irc-line.system[data-tone='leave']    { color: #f87171; }  /* leave:  red    */
-        .mm3-irc-line.system[data-tone='ghost']    { color: #44403c; font-style: italic; }  /* ghost: stone */
+        .mm3-irc-line.system[data-tone='ghost']    { color: #44403c; }  /* ghost: stone */
         .mm3-irc-line.self   .mm3-irc-author       { color: #4ade80; }  /* self:   green  */
         .mm3-irc-line.other  .mm3-irc-author       { color: #e879f9; }  /* others: magenta */
         /* system text inherits line colour; chat text stays white */

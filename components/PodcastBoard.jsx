@@ -879,6 +879,8 @@ export default function PodcastBoard({ account, isVirtualWallet = false }) {
         </section>
 
         <aside className="mm3-market-detail grid grid-cols-1 gap-1.5 rounded border border-cyan-500/12 bg-black/40 p-2 lg:grid-cols-2 lg:gap-1 lg:p-2 lg:self-stretch">
+
+          {/* ── Header: emoji + title + hex + status badge ── */}
           <div className="mm3-market-detail-head col-span-1 flex items-start justify-between gap-2 lg:col-span-2">
             <div className="min-w-0">
               <div className="flex items-center gap-1.5">
@@ -902,11 +904,13 @@ export default function PodcastBoard({ account, isVirtualWallet = false }) {
             </span>
           </div>
 
+          {/* ── Price ── */}
           <div className="mm3-market-detail-card rounded border border-amber-400/14 bg-amber-950/8 px-2 py-1.5 lg:px-2.5 lg:py-2">
             <div className="text-[0.38rem] uppercase tracking-[0.16em] text-amber-300/65 lg:text-[0.42rem] lg:tracking-[0.18em]">{t('podcast.price')}</div>
             <div className="mt-1 text-[1.15rem] font-black leading-none text-amber-300 lg:text-lg">{displayPrice}</div>
           </div>
 
+          {/* ── Owner shell ── */}
           <div className="mm3-market-detail-card rounded border border-cyan-500/12 bg-black/45 px-2 py-1.5 lg:px-2.5 lg:py-2">
             <div className="text-[0.38rem] uppercase tracking-[0.16em] text-cyan-300/65 lg:text-[0.42rem] lg:tracking-[0.18em]">{t('podcast.owner')}</div>
             <div className="mt-1 flex max-h-20 flex-col gap-1 overflow-y-auto pr-1">
@@ -934,7 +938,7 @@ export default function PodcastBoard({ account, isVirtualWallet = false }) {
             </div>
           </div>
 
-          {/* Video / Short link */}
+          {/* ── Video / Short ── */}
           {!selectedBlock?.isPlaceholder && (
             selectedBlock?.short_url ? (
               <div className="overflow-hidden rounded border border-cyan-500/10 bg-black/45 lg:col-span-2">
@@ -955,32 +959,28 @@ export default function PodcastBoard({ account, isVirtualWallet = false }) {
             )
           )}
 
-          {!selectedBlock?.isPlaceholder && (
-            <div className="mm3-market-detail-card rounded border border-slate-700/20 bg-black/30 px-2 py-1.5 lg:px-2.5 lg:py-2">
-              <div className="flex gap-4">
-                <div>
-                  <div className="text-[0.36rem] uppercase tracking-[0.16em] text-slate-400/55 lg:text-[0.4rem]">{t('podcast.statBuys')}</div>
-                  <div className="mt-0.5 text-[0.72rem] font-black text-cyan-300/80">{selectedBlock?.buy_count ?? 0}</div>
-                </div>
-                <div>
-                  <div className="text-[0.36rem] uppercase tracking-[0.16em] text-slate-400/55 lg:text-[0.4rem]">{t('podcast.statResells')}</div>
-                  <div className="mt-0.5 text-[0.72rem] font-black text-fuchsia-300/80">{selectedBlock?.resell_count ?? 0}</div>
-                </div>
-              </div>
-            </div>
-          )}
-
+          {/* ── IRC Command — full width ── */}
           {selectedMarketCommand && (
-            <div className="mm3-market-detail-card rounded border border-cyan-500/12 bg-black/45 px-2 py-1.5 lg:px-2.5 lg:py-2">
-              <div className="mb-1 text-[0.38rem] uppercase tracking-[0.16em] text-cyan-300/65 lg:text-[0.42rem] lg:tracking-[0.18em]">{t('podcast.ircCommand')}</div>
-              {activeBlockCommand && (
-                <div className="mb-1 text-[0.44rem] font-black tracking-[0.12em] text-amber-300 lg:text-[0.48rem]">
-                  x = {activeBlockCommand.formula_x}
-                </div>
-              )}
+            <div className="mm3-market-detail-card col-span-1 rounded border border-cyan-500/14 bg-black/45 px-2 py-1.5 lg:col-span-2 lg:px-2.5 lg:py-2">
+              <div className="mb-1.5 flex items-center justify-between gap-2">
+                <div className="text-[0.38rem] uppercase tracking-[0.16em] text-cyan-300/65 lg:text-[0.42rem] lg:tracking-[0.18em]">{t('podcast.ircCommand')}</div>
+                {activeBlockCommand && (
+                  <div className="flex items-center gap-1 rounded border border-amber-400/30 bg-amber-950/20 px-1.5 py-0.5">
+                    <span className="text-[0.36rem] uppercase tracking-[0.1em] text-amber-400/70">x =</span>
+                    <span className="text-[0.52rem] font-black leading-none text-amber-300">{activeBlockCommand.formula_x}</span>
+                  </div>
+                )}
+              </div>
               <div className="break-words text-[0.44rem] leading-relaxed text-cyan-100/70 lg:text-[0.48rem]">
                 {selectedMarketCommand.command}
               </div>
+              {activeBlockCommand && (
+                <div className="mt-1 text-[0.36rem] uppercase tracking-[0.08em] text-amber-400/50">
+                  {language === 'es'
+                    ? `// sustituye x = ${activeBlockCommand.formula_x} → resultado entero = código numérico`
+                    : `// plug x = ${activeBlockCommand.formula_x} into formula → integer result = numeric code`}
+                </div>
+              )}
               {canLaunchIrc ? (
                 <Link
                   href={`/irc?command=${encodeURIComponent(selectedMarketCommand.command)}`}
@@ -996,12 +996,28 @@ export default function PodcastBoard({ account, isVirtualWallet = false }) {
             </div>
           )}
 
-          <div className="mm3-market-detail-card rounded border border-fuchsia-400/12 bg-black/45 px-2 py-1.5 lg:px-2.5 lg:py-2">
+          {/* ── Numeric code / Penalty redemption — full width ── */}
+          <div className="mm3-market-detail-card col-span-1 rounded border border-fuchsia-400/12 bg-black/45 px-2 py-1.5 lg:col-span-2 lg:px-2.5 lg:py-2">
             <div className="mb-1 text-[0.38rem] uppercase tracking-[0.16em] text-fuchsia-300/65 lg:text-[0.42rem] lg:tracking-[0.18em]">
               {activePenalty ? t('podcast.numericPrompt') : t('podcast.numericLocked')}
             </div>
             {activePenalty ? (
               <div className="space-y-1.5">
+                {/* Formula context repeated here so user can solve without scrolling */}
+                {selectedMarketCommand && activeBlockCommand && (
+                  <div className="rounded border border-fuchsia-400/10 bg-fuchsia-950/12 px-1.5 py-1">
+                    <div className="break-words text-[0.38rem] leading-relaxed text-fuchsia-100/45">
+                      {selectedMarketCommand.command}
+                    </div>
+                    <div className="mt-0.5 flex items-center gap-1.5">
+                      <span className="text-[0.36rem] uppercase tracking-[0.1em] text-fuchsia-400/60">x =</span>
+                      <span className="text-[0.5rem] font-black text-fuchsia-200">{activeBlockCommand.formula_x}</span>
+                      <span className="text-[0.36rem] uppercase tracking-[0.08em] text-fuchsia-400/45">
+                        {language === 'es' ? '// resultado → código 5 dígitos' : '// result → 5-digit code'}
+                      </span>
+                    </div>
+                  </div>
+                )}
                 <div className="text-[0.42rem] uppercase tracking-[0.12em] text-fuchsia-200/75">
                   -{activePenaltyValue.toFixed(8).replace(/\.?0+$/, '') || '0'} MM3
                 </div>
@@ -1013,7 +1029,7 @@ export default function PodcastBoard({ account, isVirtualWallet = false }) {
                     inputMode="numeric"
                     maxLength={5}
                     placeholder={t('podcast.numericCodeHint')}
-                    className="min-w-0 flex-1 rounded border border-fuchsia-400/18 bg-black/70 px-1.5 py-1 text-[0.58rem] text-fuchsia-100 outline-none placeholder:text-fuchsia-800/60 disabled:opacity-35"
+                    className="mm3-market-answer-input min-w-0 flex-1 rounded border border-fuchsia-400/18 bg-black/70 px-1.5 py-1 text-[0.58rem] text-fuchsia-100 outline-none placeholder:text-fuchsia-800/60 disabled:opacity-35"
                   />
                   <button
                     type="button"
@@ -1033,13 +1049,29 @@ export default function PodcastBoard({ account, isVirtualWallet = false }) {
             )}
           </div>
 
-          {/* Auto-resell warning when wallet owns a different NFTmoji */}
+          {/* ── Stats: purchases / resells — compact inline row ── */}
+          {!selectedBlock?.isPlaceholder && (
+            <div className="col-span-1 flex items-center gap-3 px-0.5 lg:col-span-2">
+              <div className="flex items-center gap-1">
+                <span className="text-[0.34rem] uppercase tracking-[0.12em] text-slate-600">{t('podcast.statBuys')}</span>
+                <span className="text-[0.58rem] font-black text-cyan-400/60">{selectedBlock?.buy_count ?? 0}</span>
+              </div>
+              <span className="text-[0.38rem] text-slate-700">//</span>
+              <div className="flex items-center gap-1">
+                <span className="text-[0.34rem] uppercase tracking-[0.12em] text-slate-600">{t('podcast.statResells')}</span>
+                <span className="text-[0.58rem] font-black text-fuchsia-400/60">{selectedBlock?.resell_count ?? 0}</span>
+              </div>
+            </div>
+          )}
+
+          {/* ── Auto-resell warning ── */}
           {hasOtherNftmoji && !ownsSelected && !selectedBlock?.isPlaceholder && (
             <div className="rounded border border-red-400/25 bg-red-950/10 px-2 py-1 text-[0.38rem] uppercase tracking-[0.12em] text-red-400/70 lg:col-span-2">
               {t('podcast.autoResoldHint')}
             </div>
           )}
 
+          {/* ── Buy / Resell ── */}
           <div className="mt-auto flex flex-col gap-1 pt-0.5 lg:col-span-2">
             {canResell ? (
               <button

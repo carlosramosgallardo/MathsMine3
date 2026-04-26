@@ -48,7 +48,7 @@ The Trade terminal is a fictional tty where you cash out mined MM3 for CNY, EUR,
 
 The Prestige board ranks every wallet by level, balance, and NFTmoji collection. Your wallet color is always the same — derived deterministically from your address hash.
 
-The IRC relay is a live social terminal. Connected wallets see each other, talk in-session, and carry their Market NFTmojis into the social layer. Real presence. Ephemeral chat. No permanent archive.
+The IRC relay is a live social terminal. Connected wallets see each other, talk, and carry their Market NFTmojis into the social layer. Real presence. Chat messages persist in the database — country flags and owned Market NFTmojis appear next to each author.
 
 The DRILL SLOTS system caps mining to 100 attempts per day. Each trade EXEC earns you +1 permanent extra slot. No slots = no new chain.
 
@@ -404,7 +404,6 @@ Command example (Genesis Uplink):
 - On launch: all wallets in Prestige (connected or not) are penalised by the NFTmoji's price in MM3 equivalent, **except:**
   - The wallet that fired the command
   - Any wallet that currently owns the same NFTmoji
-- Each wallet can only suffer 1 penalty per day per NFTmoji
 - Maximum daily penalties: 10 (one per NFTmoji, assuming all 10 are owned and fired)
 
 **Numeric code redemption:**
@@ -439,8 +438,8 @@ The portal includes an **IRC-style social relay** that makes MM3 feel like a sha
 - **Shared relay** — one common room for all active participants
 - **Live presence** — compact connected user list; wallet users (`W`/`G`) and anonymous ghosts (`A`, dim stone) appear in separate sidebar sections with +5 expansion each; the header shows `wallets/total` count (wallets on site / all connected including anon IRC)
 - **Anon ghost presence** — anonymous visitors are tracked via **Supabase Realtime Presence** (zero DB writes, ephemeral); identified by a deterministic `anon:xxxxxx` ID derived from their external IP hash; country flag is resolved client-side at connect time (no storage) and displayed as a flag image next to the ID; they appear in a dedicated sidebar section with a `○` marker
-- **Session-only memory** — chat persists only in the active browser session; anon users get their own isolated session storage keyed to their ghost ID
-- **No permanent archive** — disconnecting clears that session's copy
+- **Persistent chat** — user messages are stored permanently in `mm3_irc_messages`; history is loaded on connect so no messages are lost on refresh
+- **Country flags + NFTmoji badges** — each chat line shows the author's country flag and any owned Market NFTmoji inline before the wallet address
 - **Wallet identity** — every message is authored by the wallet address (shortened); anon guests can read but their ID never appears in the chat log
 - **Ghost join trace** — when an anon user connects, a dim system line appears in the relay: `[CC] ghost:xxxxxx // entered relay [read-only — no write clearance]`; anon leaves are silent
 - **System relay notices** — players see who connects and disconnects in real time (wallet users only)
@@ -666,7 +665,6 @@ penaltyMM3    = penaltyFiat / currentMM3Rate
 Affected wallets: all in Prestige EXCEPT
   - the wallet that fired the command
   - any wallet currently owning the same NFTmoji
-  - wallets that already received this penalty today (1/day/NFTmoji limit)
 ```
 
 ### Daily DRILL SLOTS
@@ -778,7 +776,7 @@ Both persist level, balances, NFTmojis, DRILL SLOTS bonus, and revive state. Lan
 /sql
   database.sql    Complete schema — tables, views, triggers, RLS, seed data (single source of truth)
   permissions.sql RLS policies + idempotent permission grants (safe to re-run anytime)
-  reset_full.sql  Full game reset — zeroes all wallet stats, market, penalties, and MM3 pool while preserving historical chart dates; restores admin account to €1 000 000
+  reset_full.sql  Full game reset — zeroes all wallet stats, market, penalties, IRC chat history, and MM3 pool while preserving historical chart dates
 
 /supabase
   config.toml     Supabase project config (non-sensitive, safe to commit)
@@ -809,6 +807,7 @@ Both persist level, balances, NFTmojis, DRILL SLOTS bonus, and revive state. Lan
 | `mm3_podcast_pixels` | Market NFTmoji blocks — fixed grid position, command metadata, price, first-purchase audit |
 | `mm3_market_commands` | Daily global Market command launches, generated numeric codes, launcher wallet, reset window |
 | `mm3_command_penalties` | Per-wallet active/refunded Market command penalties and one-shot numeric-code attempts |
+| `mm3_irc_messages` | Persistent IRC chat log — wallet, text, ts (bigint ms), kind, tone |
 | `mm3_macro_state` | Singleton: `war_percent`, `nature_percent`, bilingual ticker messages |
 | `mm3_wallet_presence` | Heartbeat table for wallets active in the last ~90 seconds |
 | `mm3_market_state` | Singleton: global MM3 commission pool |
@@ -833,7 +832,7 @@ Both persist level, balances, NFTmojis, DRILL SLOTS bonus, and revive state. Lan
 
 ### IRC persistence model
 
-IRC chat lines are **not** stored permanently in PostgreSQL. The shared relay uses Supabase Realtime broadcast for live delivery. Each wallet keeps only its own temporary browser session copy — disconnecting clears it.
+IRC chat lines (`kind = 'chat'`) are stored permanently in `mm3_irc_messages`. On connect, the last 500 messages are loaded from the DB, merged with any in-session messages via deduplication, and rendered in chronological order — refreshing the page does not lose history. Live delivery uses Supabase Realtime broadcast on the `mm3-irc-relay` channel; DB write and broadcast fire together on each send. Anonymous ghost messages are never persisted. The full reset script (`reset_full.sql`) deletes all rows with `kind = 'chat'`.
 
 ---
 
@@ -903,4 +902,3 @@ Deployed on Vercel. `vercel.json` specifies `npm ci && next build`. All environm
 - **PWA**: `manifest.json` with `theme_color: #22d3ee`, linked in `<head>`
 - **i18n**: full EN / ES across all UI, math generators, and seeded problems
 - **Currency**: CNY / EUR / USD toggle — preference persists across navigation
-- **Scale**: `zoom: 0.9` global scale on the shell for a denser terminal feel
