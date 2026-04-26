@@ -2313,9 +2313,9 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
   const dailyMineLeft = Math.max(0, dailyMineTotal - dailyMineUsed);
   const noSlotsLeft = !!account && dailyMineLeft <= 0;
   const stats = [
-    { label: t('tradeBoard.levelRank'),      value: `${level} ${tier.emoji} ${tier.label}` },
-    { label: t('tradeBoard.mm3Balance'),     value: totalMined.toFixed(6) },
-    { label: t('tradeBoard.availableFunds'), value: formatMoney(currentFunds, currency) },
+    { label: t('tradeBoard.levelRank').replace(/ *\(.*\)/, ''), value: `${level}` },
+    { label: t('leaderboard.mm3Earned'),  value: totalMined.toFixed(6) },
+    { label: t('leaderboard.sellValue'),  value: formatMoney(currentFunds, currency) },
   ];
 
   return (
