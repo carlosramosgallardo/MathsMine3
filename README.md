@@ -416,7 +416,7 @@ Command example (Genesis Uplink):
 - Entering wrong code: attempt consumed, penalty remains
 
 **IRC welcome status:**
-When a wallet connects to IRC, the system relay shows the status of all 10 Market NFTmojis: which are currently owned, whether their command has been launched today, and when the reset occurs. For NFTmojis with no active command, the relay lists all eligible owner wallets inline (`// ready: 0xd894...e8ab · 0x1234...5678`) followed by a mystery teaser — anyone watching can see who holds the trigger, but only one will fire it.
+When a wallet connects to IRC, the system relay shows the status of all 10 Market NFTmojis: which are currently owned, whether their command has been launched today, and when the reset occurs. For NFTmojis with no active command, the relay lists all eligible launcher wallets in a single line followed by a mystery teaser.
 
 ### Block hex numbering
 
