@@ -49,8 +49,8 @@ export default function ManifestoPage() {
       href: '/irc',
       label: 'IRC',
       desc: language === 'es'
-        ? 'el relay social del portal: wallets en vivo, Nftmojis de Market, comandos diarios y códigos numéricos'
-        : 'the portal social relay: live wallets, Market NFTmojis, daily commands, and numeric codes',
+        ? 'el relay social del portal: wallets en vivo, Nftmojis de Market, lista de wallets listas para lanzar comando y códigos numéricos'
+        : 'the portal social relay: live wallets, Market NFTmojis, command-ready wallet lists, daily commands, and numeric codes',
     },
     {
       href: '/manifesto',
@@ -167,8 +167,8 @@ export default function ManifestoPage() {
           </h2>
           <p className="leading-relaxed">
             {language === 'es'
-              ? 'El canal IRC es la capa social de MathsMine3. No es una red social ni un chat archivado para siempre: es una terminal viva y efímera conectada al pulso real del portal. Las wallets activas entran, su presencia aparece, se ven sus NFTmojis de Market y desde ahí se lanzan comandos diarios que generan penalizaciones y códigos numéricos. Sin archivo permanente. Sin rastro. Cualquiera puede entrar sin wallet en modo fantasma de solo lectura — su bandera de país aparece en el relay y deja traza de conexión, pero no puede escribir.'
-              : 'The IRC channel is the social layer of MathsMine3. Not a social network, not a forever-archived chat — a live, ephemeral terminal wired to the real pulse of the portal. Active wallets enter, their presence appears, their Market NFTmojis are visible, and daily commands can generate penalties and numeric codes from there. No permanent archive. No trace. Anyone can enter without a wallet in read-only ghost mode — their country flag shows in the relay and a connection trace is visible, but they cannot write.'}
+              ? 'El canal IRC es la capa social de MathsMine3. No es una red social ni un chat archivado para siempre: es una terminal viva y efímera conectada al pulso real del portal. Las wallets activas entran, su presencia aparece, se ven sus NFTmojis de Market y desde ahí se lanzan comandos diarios que generan penalizaciones y códigos numéricos. Cuando un NFTmoji está listo pero sin comando activo, el relay muestra las wallets elegibles para lanzarlo — cualquiera puede ver quién tiene el gatillo, pero solo una lo apretará. Sin archivo permanente. Sin rastro. Cualquiera puede entrar sin wallet en modo fantasma de solo lectura — su bandera de país aparece en el relay y deja traza de conexión, pero no puede escribir.'
+              : 'The IRC channel is the social layer of MathsMine3. Not a social network, not a forever-archived chat — a live, ephemeral terminal wired to the real pulse of the portal. Active wallets enter, their presence appears, their Market NFTmojis are visible, and daily commands can generate penalties and numeric codes from there. When a NFTmoji is ready but has no active command, the relay lists all eligible launcher wallets — anyone watching can see who holds the trigger, but only one will pull it. No permanent archive. No trace. Anyone can enter without a wallet in read-only ghost mode — their country flag shows in the relay and a connection trace is visible, but they cannot write.'}
           </p>
           <p className="leading-relaxed mt-3">
             {language === 'es'

@@ -304,10 +304,8 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
               .filter((o) => o.market_nftmoji_key === entry.key)
               .map((o) => o.wallet)
               .filter(Boolean);
-            marketMessages.push(`Market: ${entry.emoji} // ${t('podcast.launchReady')}`);
-            for (const w of ownerWallets) {
-              marketMessages.push(`ready para: ${shortWallet(w)}`);
-            }
+            const readyList = ownerWallets.map(shortWallet).join(' · ');
+            marketMessages.push(`Market: ${entry.emoji} // ${t('podcast.launchReady')}${readyList ? ` // ready: ${readyList}` : ''}`);
             marketMessages.push(t('podcast.launchReadyTeaser'));
           }
         }

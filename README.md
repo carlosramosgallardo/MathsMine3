@@ -416,7 +416,7 @@ Command example (Genesis Uplink):
 - Entering wrong code: attempt consumed, penalty remains
 
 **IRC welcome status:**
-When a wallet connects to IRC, the system relay shows the status of all 10 Market NFTmojis: which are currently owned, whether their command has been launched today, and when the reset occurs.
+When a wallet connects to IRC, the system relay shows the status of all 10 Market NFTmojis: which are currently owned, whether their command has been launched today, and when the reset occurs. For NFTmojis with no active command, the relay lists all eligible owner wallets inline (`// ready: 0xd894...e8ab · 0x1234...5678`) followed by a mystery teaser — anyone watching can see who holds the trigger, but only one will fire it.
 
 ### Block hex numbering
 
@@ -448,7 +448,7 @@ The portal includes an **IRC-style social relay** that makes MM3 feel like a sha
 - **System relay notices** — players see who connects and disconnects in real time (wallet users only)
 - **Market identity layer** — owned Market NFTmojis appear next to the wallets that hold them
 - **Mainframe welcome** — the relay boots with the welcome line stored in `mm3_macro_state`
-- **Market NFTmoji status** — the welcome block shows all 10 NFTmojis, their ownership status, whether the command fired today, and next reset time
+- **Market NFTmoji status** — the welcome block shows all 10 NFTmojis, their ownership status, whether the command fired today, next reset time, and for idle NFTmojis the list of eligible launcher wallets with a mystery teaser
 - **Command launch** — owning a Market NFTmoji lets you fire its daily command from the block detail page; a pre-filled IRC message is waiting for Enter
 
 IRC gives MM3 a social loop. Mining, trading, ranking, collecting, and talking all happen inside the same fictional terminal culture. Wallet presence becomes community presence.
@@ -781,6 +781,7 @@ Both persist level, balances, NFTmojis, DRILL SLOTS bonus, and revive state. Lan
 /sql
   database.sql    Complete schema — tables, views, triggers, RLS, seed data (single source of truth)
   permissions.sql RLS policies + idempotent permission grants (safe to re-run anytime)
+  reset_full.sql  Full game reset — zeroes all wallet stats, market, penalties, and MM3 pool while preserving historical chart dates; restores admin account to €1 000 000
 
 /supabase
   config.toml     Supabase project config (non-sensitive, safe to commit)
@@ -821,14 +822,9 @@ Both persist level, balances, NFTmojis, DRILL SLOTS bonus, and revive state. Lan
 
 | View | Purpose |
 |---|---|
-| `leaderboard_stats` | Rankings + accuracy % + stored trade values + `wallet_emojis` |
-| `top_positive_miner` | Top-1 wallet by positive MM3 |
+| `top_positive_miner` | Top-1 wallet by positive MM3 (drives global orb color) |
 | `token_value` | Aggregate totals (mining + commissions + market events) |
 | `token_value_timeseries` | Hourly cumulative rewards — backbone of the MM3 chart |
-| `daily_stats` | Per-day aggregates |
-| `difficulty_distribution` | Problem bank composition |
-| `player_performance_by_difficulty` | Per-wallet accuracy by difficulty level |
-| `api_rate_summary` | Request counts per IP / endpoint |
 
 ### Trigger
 
