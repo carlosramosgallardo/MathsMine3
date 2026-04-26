@@ -12,6 +12,7 @@ export default function GlobalPulseBar() {
   const [macro, setMacro] = useState(() => normalizeMacroState());
   const [activeWallets, setActiveWallets] = useState([]);
   const [anonCount, setAnonCount] = useState(0);
+  const [totalWallets, setTotalWallets] = useState(0);
 
   useEffect(() => {
     const load = async () => {
@@ -48,6 +49,20 @@ export default function GlobalPulseBar() {
 
     loadPresence();
     const timer = setInterval(loadPresence, 15_000);
+    return () => clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    const loadTotal = async () => {
+      try {
+        const { count } = await supabase
+          .from('player_progress')
+          .select('wallet', { count: 'exact', head: true });
+        if (count != null) setTotalWallets(count);
+      } catch {}
+    };
+    loadTotal();
+    const timer = setInterval(loadTotal, 60_000);
     return () => clearInterval(timer);
   }, []);
 
@@ -134,32 +149,40 @@ export default function GlobalPulseBar() {
       </div>
 
       <div
-        className="group relative flex h-7 items-center gap-0.5 px-0.5 sm:px-1 font-mono text-[0.54rem] font-black text-emerald-300 sm:h-9 sm:text-[0.62rem]"
-        title={isSpanish ? 'Wallets conectadas / total conectados (wallets + anon IRC)' : 'Logged-in wallets / total connected (wallets + anon IRC)'}
+        className="group relative flex h-7 items-center gap-[3px] px-0.5 sm:px-1 font-mono text-[0.54rem] font-black sm:h-9 sm:text-[0.62rem]"
+        title={
+          isSpanish
+            ? `logados: ${activeWallets.length} · totales: ${totalWallets} · IRC: ${activeWallets.length + anonCount}`
+            : `online: ${activeWallets.length} · total: ${totalWallets} · IRC: ${activeWallets.length + anonCount}`
+        }
       >
-        <span>👥</span>
-        <span>{activeWallets.length}</span>
-        <span className="text-emerald-800">/</span>
-        <span className="text-emerald-600">{activeWallets.length + anonCount}</span>
+        <span className="text-emerald-400 tabular-nums">{activeWallets.length}</span>
+        <span className="text-slate-700">·</span>
+        <span className="text-slate-500 tabular-nums">{totalWallets}</span>
+        <span className="text-slate-700">·</span>
+        <span className="text-cyan-700 tabular-nums">{activeWallets.length + anonCount}</span>
         <div className="pointer-events-none absolute left-1/2 top-full z-50 mt-2 hidden w-64 -translate-x-1/2 rounded-lg border border-emerald-400/30 bg-black/95 p-2 text-left font-mono text-[0.58rem] font-semibold tracking-normal text-emerald-200 shadow-[0_0_18px_rgba(74,222,128,0.18)] group-hover:block group-focus-within:block">
-          <div className="mb-1 text-[0.55rem] uppercase tracking-[0.16em] text-emerald-500">
-            {isSpanish ? 'Wallets online' : 'Online wallets'}
+          <div className="mb-1.5 grid grid-cols-[auto_1fr] gap-x-2 gap-y-0.5 text-[0.55rem]">
+            <span className="text-emerald-400">{activeWallets.length}</span>
+            <span className="text-slate-400">{isSpanish ? 'logados ahora' : 'online now'}</span>
+            <span className="text-slate-400">{totalWallets}</span>
+            <span className="text-slate-500">{isSpanish ? 'wallets creadas' : 'wallets created'}</span>
+            <span className="text-cyan-600">{activeWallets.length + anonCount}</span>
+            <span className="text-slate-500">{isSpanish ? 'conectados IRC (wallets + anon)' : 'IRC connected (wallets + anon)'}</span>
           </div>
-          {activeWallets.length > 0 ? activeWallets.map((entry) => (
-            <div key={entry.wallet} className="truncate py-0.5" title={entry.wallet}>
-              <span className="text-cyan-500">{entry.source === 'google' ? 'G' : 'W'}</span>
-              <span className="mx-1 text-emerald-900">/</span>
-              {entry.wallet}
-            </div>
-          )) : (
-            <div className="py-1 text-emerald-800">
-              {isSpanish ? 'Sin wallets activas' : 'No active wallets'}
-            </div>
-          )}
-          {anonCount > 0 && (
-            <div className="mt-1.5 border-t border-emerald-900/40 pt-1 text-[0.52rem] uppercase tracking-[0.14em] text-stone-600">
-              {isSpanish ? `+ ${anonCount} anon IRC` : `+ ${anonCount} anon IRC`}
-            </div>
+          {activeWallets.length > 0 && (
+            <>
+              <div className="mb-1 text-[0.52rem] uppercase tracking-[0.16em] text-emerald-700">
+                {isSpanish ? 'wallets online' : 'online wallets'}
+              </div>
+              {activeWallets.map((entry) => (
+                <div key={entry.wallet} className="truncate py-0.5" title={entry.wallet}>
+                  <span className="text-cyan-500">{entry.source === 'google' ? 'G' : 'W'}</span>
+                  <span className="mx-1 text-emerald-900">/</span>
+                  {entry.wallet}
+                </div>
+              ))}
+            </>
           )}
         </div>
       </div>

@@ -420,7 +420,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
           const flagTag = cc.length === 2 ? `[${cc}]` : '[??]';
           const shortId = id.split(':')[1] || '?';
           const payload = {
-            id: `ghost-join:${id}:${Date.now()}`,
+            id: `ghost-join:${id}:${Math.floor(Date.now() / 60000)}`,
             kind: 'system',
             wallet: 'system',
             text: `${flagTag} ghost:${shortId} // entered relay [read-only — no write clearance]`,
