@@ -917,7 +917,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
     const dayWindow = getUtcDayWindow(now);
 
     try {
-      const [{ data: launcher }, { data: existingCommand }, { data: blockRow }, { data: allProgress }, { data: existingPenalties }] = await Promise.all([
+      const [{ data: launcher }, { data: existingCommand }, { data: blockRow }, { data: allProgress }] = await Promise.all([
         supabase
           .from('player_progress')
           .select('wallet, market_nftmoji_key')
@@ -940,11 +940,6 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
           .from('player_progress')
           .select('wallet, level, market_nftmoji_key, eur_earned, usd_earned, cny_earned, wallet_emojis, life_used, lucky_50_claimed, lucky_100_claimed, lucky_500_claimed, lucky_1000_claimed')
           .limit(1000),
-        supabase
-          .from('mm3_command_penalties')
-          .select('wallet')
-          .eq('nftmoji_key', commandEntry.key)
-          .gte('created_at', dayWindow.startAt),
       ]);
 
       if (launcher?.market_nftmoji_key !== commandEntry.key) {
@@ -978,7 +973,6 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
         .single();
       if (commandError) throw commandError;
 
-      const alreadyPenalized = new Set((existingPenalties || []).map((entry) => String(entry.wallet || '').toLowerCase()));
       const priceEur = Number(blockRow.price_eur) || 0;
       const priceUsd = priceEur * (CNY_TO_USD / CNY_TO_EUR);
       const priceCny = priceEur / CNY_TO_EUR;
@@ -989,7 +983,6 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
         const wallet = String(row.wallet || '').toLowerCase();
         if (!wallet || wallet === normalizedWallet) continue;
         if (row.market_nftmoji_key === commandEntry.key) continue;
-        if (alreadyPenalized.has(wallet)) continue;
         const rateCny = getSellRateCny(Number(row.level) || 0);
         const penaltyMm3 = rateCny > 0 ? priceEur / (rateCny * CNY_TO_EUR) : 0;
         penalties.push({
