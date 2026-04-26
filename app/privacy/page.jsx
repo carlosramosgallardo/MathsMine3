@@ -9,7 +9,7 @@ export default function PrivacyPage() {
   return (
     <main className="w-full max-w-2xl mx-auto px-4 py-6 font-mono text-sm text-gray-300">
       <h1 className="text-xl font-black uppercase tracking-widest text-[#22d3ee] mb-1">Privacy Policy</h1>
-      <p className="text-[0.65rem] text-slate-600 mb-6">Last updated: April 2025 · Controller: FreakingAI · <a href="mailto:botsandpods@gmail.com" className="text-cyan-700 hover:text-cyan-400">botsandpods@gmail.com</a></p>
+      <p className="text-[0.65rem] text-slate-600 mb-6">Last updated: April 2026 · Controller: FreakingAI · <a href="mailto:botsandpods@gmail.com" className="text-cyan-700 hover:text-cyan-400">botsandpods@gmail.com</a></p>
 
       <section className="mb-6">
         <h2 className="text-base font-bold text-[#22d3ee] mb-2">1. Data We Collect</h2>

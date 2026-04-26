@@ -435,23 +435,23 @@ body.mm3-play-success-alert #board-section .section-frame::before {
 /* ── Mobile portrait header: centered logo, no overlap ── */
 @media (max-width: 767px) and (orientation: portrait) {
   .mm3-header-ticker {
-    height: 22px;
+    height: 26px;
   }
 
   .mm3-header-identity-row {
-    height: 2.3rem;
-    min-height: 2.3rem;
+    height: 3rem;
+    min-height: 3rem;
     padding-top: 0;
     padding-bottom: 0;
     align-items: center;
     grid-template-columns: 1fr auto 1fr;
-    column-gap: 0.18rem;
+    column-gap: 0.25rem;
     row-gap: 0;
   }
 
   .mm3-header-world-panel,
   .mm3-header-user-panel {
-    transform: scale(.7);
+    transform: scale(.82);
     transform-origin: center;
   }
 
@@ -471,8 +471,8 @@ body.mm3-play-success-alert #board-section .section-frame::before {
   }
 
   .mm3-header-logo-slot img {
-    width: 24px !important;
-    height: 24px !important;
+    width: 28px !important;
+    height: 28px !important;
   }
 
   .mm3-header-user-panel {
@@ -492,27 +492,27 @@ body.mm3-play-success-alert #board-section .section-frame::before {
 
   .mm3-header-wallet-row {
     height: auto;
-    min-height: 0.95rem;
-    padding-top: 0.02rem;
-    padding-bottom: 0.02rem;
+    min-height: 1.4rem;
+    padding-top: 0.1rem;
+    padding-bottom: 0.1rem;
     padding-left: 0.25rem;
     padding-right: 0.25rem;
   }
 
   .mm3-header-wallet-row > * {
-    transform: scale(0.72);
+    transform: scale(0.85);
     transform-origin: center;
     max-width: 100%;
   }
 
   .mm3-header-nav {
-    height: 1.7rem;
+    height: 2.2rem;
   }
 
   .mm3-header-nav .nav-link {
-    font-size: 0.54rem;
-    padding-top: 0.08rem;
-    padding-bottom: 0.08rem;
+    font-size: 0.64rem;
+    padding-top: 0.1rem;
+    padding-bottom: 0.1rem;
   }
 
   .mm3-market-shell {
@@ -520,7 +520,7 @@ body.mm3-play-success-alert #board-section .section-frame::before {
   }
 
   .mm3-market-board-wrap {
-    max-width: min(78vw, calc(100dvh - 275px));
+    max-width: min(78vw, calc(100dvh - 300px));
   }
 
   .mm3-market-board-frame {
@@ -528,43 +528,43 @@ body.mm3-play-success-alert #board-section .section-frame::before {
   }
 
   .mm3-market-nav {
-    width: 1.55rem !important;
-    height: 1.55rem !important;
-    font-size: 0.52rem !important;
+    width: 1.7rem !important;
+    height: 1.7rem !important;
+    font-size: 0.58rem !important;
   }
 
   .mm3-market-detail {
-    gap: 0.35rem;
-    padding: 0.38rem;
+    gap: 0.4rem;
+    padding: 0.5rem;
   }
 
   .mm3-market-detail-head {
-    gap: 0.45rem;
+    gap: 0.5rem;
   }
 
   .mm3-market-status-badge {
-    padding: 0.2rem 0.38rem !important;
-    font-size: 0.34rem !important;
+    padding: 0.22rem 0.4rem !important;
+    font-size: 0.48rem !important;
     letter-spacing: 0.1em !important;
   }
 
   .mm3-market-detail-card {
-    padding: 0.38rem !important;
+    padding: 0.5rem !important;
   }
 
   .mm3-market-answer-input {
-    padding: 0.34rem 0.45rem !important;
-    font-size: 0.66rem !important;
+    padding: 0.4rem 0.5rem !important;
+    font-size: 0.72rem !important;
   }
 
   .mm3-market-claim {
-    padding-top: 0.42rem !important;
-    padding-bottom: 0.42rem !important;
-    font-size: 0.42rem !important;
+    padding-top: 0.5rem !important;
+    padding-bottom: 0.5rem !important;
+    font-size: 0.54rem !important;
     letter-spacing: 0.14em !important;
   }
 
   .mm3-shell-main {
-    padding-top: 104px;
+    padding-top: 132px;
   }
 }
