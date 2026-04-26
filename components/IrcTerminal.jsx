@@ -300,7 +300,15 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
             const by = shortWallet(command.wallet);
             marketMessages.push(`Market: ${entry.emoji} ${hex} // active // formula=${formula} // x=${command.formula_x ?? 0} // reset=${reset}Z${by ? ` // by ${by}` : ''}`);
           } else {
+            const ownerWallets = (ownersData || [])
+              .filter((o) => o.market_nftmoji_key === entry.key)
+              .map((o) => o.wallet)
+              .filter(Boolean);
             marketMessages.push(`Market: ${entry.emoji} // ${t('podcast.launchReady')}`);
+            for (const w of ownerWallets) {
+              marketMessages.push(`ready para: ${shortWallet(w)}`);
+            }
+            marketMessages.push(t('podcast.launchReadyTeaser'));
           }
         }
 
@@ -619,14 +627,16 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
           const count = (penaltyRows || []).length;
           if (count > 0) releasedInfo = ` // ${count} wallets released`;
         } catch {}
-        appendMessage(makeMessage({
-          id: `market-event:off:${rec.id}:${Date.now()}`,
+        const expiredPayload = {
+          id: `market-event:off:${rec.id}`,
           kind: 'system',
           wallet: 'system',
           text: `Market: ${emoji} ${hex} // command expired // penalties cleared${releasedInfo}`,
           ts: Date.now(),
           tone: 'market',
-        }), { silent: false });
+        };
+        appendMessage(makeMessage(expiredPayload), { silent: false });
+        relayRef.current?.send({ type: 'broadcast', event: 'message', payload: expiredPayload }).catch(() => {});
       })
       .subscribe();
 
