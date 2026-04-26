@@ -917,7 +917,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
     const dayWindow = getUtcDayWindow(now);
 
     try {
-      const [{ data: launcher }, { data: existingCommand }, { data: blockRow }, { data: allProgress }] = await Promise.all([
+      const [{ data: launcher }, { data: existingCommand }, { data: blockRow }] = await Promise.all([
         supabase
           .from('player_progress')
           .select('wallet, market_nftmoji_key')
@@ -936,10 +936,6 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
           .select('pixel_key, emoji, title_en, title_es, price_eur')
           .eq('pixel_key', commandEntry.key)
           .maybeSingle(),
-        supabase
-          .from('player_progress')
-          .select('wallet, level, market_nftmoji_key, eur_earned, usd_earned, cny_earned, wallet_emojis, life_used, lucky_50_claimed, lucky_100_claimed, lucky_500_claimed, lucky_1000_claimed')
-          .limit(1000),
       ]);
 
       if (launcher?.market_nftmoji_key !== commandEntry.key) {
@@ -973,6 +969,12 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
         .single();
       if (commandError) throw commandError;
 
+      const { data: allProgress, error: progressError } = await supabase
+        .from('player_progress')
+        .select('wallet, level, market_nftmoji_key, eur_earned, usd_earned, cny_earned')
+        .limit(1000);
+      if (progressError) throw new Error(`allProgress: ${progressError.message}`);
+
       const priceEur = Number(blockRow.price_eur) || 0;
       const priceUsd = priceEur * (CNY_TO_USD / CNY_TO_EUR);
       const priceCny = priceEur / CNY_TO_EUR;
@@ -996,7 +998,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
           reset_at: dayWindow.resetAt,
         });
         balanceUpdates.push({
-          ...row,
+          wallet,
           eur_earned: (Number(row.eur_earned) || 0) - priceEur,
           usd_earned: (Number(row.usd_earned) || 0) - priceUsd,
           cny_earned: (Number(row.cny_earned) || 0) - priceCny,
@@ -1275,13 +1277,14 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
                   <div className="min-w-0 flex-1">
                     <div className="mm3-irc-wallet-line">
                       <div className="mm3-irc-wallet-meta">
-                        {ownedMarketEmojis.length > 0 ? (
-                          <div className="mm3-irc-wallet-emojis" aria-label="market nftmojis">
+                        {message.kind === 'chat' && (
+                          <span className="inline-flex shrink-0 items-center gap-[0.16rem]">
+                            <FlagImg cc={walletFlags[message.wallet]} style={{ height: '0.65rem' }} />
                             {ownedMarketEmojis.map((emoji, index) => (
                               <span key={`${message.wallet}-${emoji}-${index}`} className="mm3-irc-wallet-emoji">{emoji}</span>
                             ))}
-                          </div>
-                        ) : null}
+                          </span>
+                        )}
                         <div className="mm3-irc-author flex-1 text-[0.56rem] uppercase tracking-[0.13em]">{author}</div>
                       </div>
                     </div>
@@ -1329,10 +1332,9 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
           <div className="border-b border-cyan-500/12 pb-1.5 font-mono">
             <div className="flex items-baseline justify-end gap-[3px] text-[0.52rem] font-black tabular-nums">
               <span className="text-emerald-400">{connectedWallets.length}</span>
-              <span className="text-emerald-900 text-[0.38rem]">{language === 'es' ? 'log' : 'on'}</span>
-              <span className="text-slate-700 mx-[1px]">·</span>
+              <span className="text-slate-600 text-[0.44rem]">/</span>
               <span className="text-slate-500">{totalWallets}</span>
-              <span className="text-slate-700 text-[0.38rem]">tot</span>
+              <span className="text-slate-600 text-[0.38rem]">com</span>
               <span className="text-slate-700 mx-[1px]">·</span>
               <span className="text-cyan-700">{connectedWallets.length + anonUsers.length}</span>
               <span className="text-cyan-900 text-[0.38rem]">irc</span>
