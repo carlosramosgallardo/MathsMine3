@@ -127,6 +127,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
   const [connectedWallets, setConnectedWallets] = useState([]);
   const [marketClaimsByWallet, setMarketClaimsByWallet] = useState({});
   const [relayReady, setRelayReady] = useState(false);
+  const [totalWallets, setTotalWallets] = useState(0);
   const [visibleCount, setVisibleCount] = useState(5);
 
   const relayRef = useRef(null);
@@ -560,6 +561,20 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
       supabase.removeChannel(channel);
     };
   }, [loadPresence]);
+
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const { count } = await supabase
+          .from('player_progress')
+          .select('wallet', { count: 'exact', head: true });
+        if (count != null) setTotalWallets(count);
+      } catch {}
+    };
+    load();
+    const timer = setInterval(load, 60_000);
+    return () => clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     const shortW = (w) => `${String(w).slice(0, 6)}...${String(w).slice(-4)}`;
@@ -1113,10 +1128,15 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
 
         <aside className="mm3-irc-panel rounded-sm p-2.5">
           <div className="border-b border-cyan-500/12 pb-1.5 font-mono">
-            <div className="flex items-baseline justify-end gap-0.5">
-              <span className="text-[0.52rem] tracking-[0.14em] text-slate-500">{connectedWallets.length}</span>
-              <span className="text-[0.52rem] text-slate-700">/</span>
-              <span className="text-[0.52rem] tracking-[0.14em] text-slate-600">{connectedWallets.length + anonUsers.length}</span>
+            <div className="flex items-baseline justify-end gap-[3px] text-[0.52rem] font-black tabular-nums">
+              <span className="text-emerald-400">{connectedWallets.length}</span>
+              <span className="text-emerald-900 text-[0.38rem]">{language === 'es' ? 'log' : 'on'}</span>
+              <span className="text-slate-700 mx-[1px]">·</span>
+              <span className="text-slate-500">{totalWallets}</span>
+              <span className="text-slate-700 text-[0.38rem]">tot</span>
+              <span className="text-slate-700 mx-[1px]">·</span>
+              <span className="text-cyan-700">{connectedWallets.length + anonUsers.length}</span>
+              <span className="text-cyan-900 text-[0.38rem]">irc</span>
             </div>
           </div>
 

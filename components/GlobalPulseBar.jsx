@@ -157,10 +157,13 @@ export default function GlobalPulseBar() {
         }
       >
         <span className="text-emerald-400 tabular-nums">{activeWallets.length}</span>
-        <span className="text-slate-700">·</span>
+        <span className="text-emerald-900 text-[0.38rem]">{isSpanish ? 'log' : 'on'}</span>
+        <span className="text-slate-700 mx-[1px]">·</span>
         <span className="text-slate-500 tabular-nums">{totalWallets}</span>
-        <span className="text-slate-700">·</span>
+        <span className="text-slate-700 text-[0.38rem]">tot</span>
+        <span className="text-slate-700 mx-[1px]">·</span>
         <span className="text-cyan-700 tabular-nums">{activeWallets.length + anonCount}</span>
+        <span className="text-cyan-900 text-[0.38rem]">irc</span>
         <div className="pointer-events-none absolute left-1/2 top-full z-50 mt-2 hidden w-64 -translate-x-1/2 rounded-lg border border-emerald-400/30 bg-black/95 p-2 text-left font-mono text-[0.58rem] font-semibold tracking-normal text-emerald-200 shadow-[0_0_18px_rgba(74,222,128,0.18)] group-hover:block group-focus-within:block">
           <div className="mb-1.5 grid grid-cols-[auto_1fr] gap-x-2 gap-y-0.5 text-[0.55rem]">
             <span className="text-emerald-400">{activeWallets.length}</span>
