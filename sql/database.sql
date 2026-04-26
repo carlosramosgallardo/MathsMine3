@@ -240,6 +240,17 @@ CREATE TABLE mm3_command_penalties (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+-- IRC Messages table (1 day retention)
+CREATE TABLE mm3_irc_messages (
+  id BIGSERIAL PRIMARY KEY,
+  wallet TEXT NOT NULL,
+  text TEXT NOT NULL,
+  ts BIGINT NOT NULL,
+  kind TEXT NOT NULL DEFAULT 'chat' CHECK (kind IN ('chat', 'system')),
+  tone TEXT NOT NULL DEFAULT 'neutral',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 -- ==============================================
 -- PHASE 3: CREATE INDEXES
 -- ==============================================
@@ -266,6 +277,9 @@ CREATE INDEX idx_mm3_market_commands_wallet ON mm3_market_commands(wallet);
 CREATE INDEX idx_mm3_market_commands_key_reset ON mm3_market_commands(nftmoji_key, reset_at DESC);
 CREATE INDEX idx_mm3_command_penalties_wallet ON mm3_command_penalties(wallet);
 CREATE INDEX idx_mm3_command_penalties_active ON mm3_command_penalties(wallet, reset_at DESC) WHERE redeemed_at IS NULL;
+CREATE INDEX idx_mm3_irc_messages_wallet ON mm3_irc_messages(wallet);
+CREATE INDEX idx_mm3_irc_messages_ts ON mm3_irc_messages(ts DESC);
+CREATE INDEX idx_mm3_irc_messages_created_at ON mm3_irc_messages(created_at DESC);
 
 -- ==============================================
 -- PHASE 4: CREATE FUNCTIONS
@@ -334,6 +348,18 @@ AS $$
 BEGIN
   PERFORM public.update_leaderboard();
   RETURN NULL;
+END;
+$$;
+
+-- Function to clean old IRC messages (1 day retention)
+CREATE OR REPLACE FUNCTION clean_old_irc_messages()
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  DELETE FROM mm3_irc_messages WHERE created_at < NOW() - INTERVAL '1 day';
 END;
 $$;
 
@@ -445,6 +471,7 @@ ALTER TABLE mm3_visual_state ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mm3_podcast_pixels ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mm3_market_commands ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mm3_command_penalties ENABLE ROW LEVEL SECURITY;
+ALTER TABLE mm3_irc_messages ENABLE ROW LEVEL SECURITY;
 
 -- ==============================================
 -- PHASE 8: CREATE ROW LEVEL SECURITY POLICIES
@@ -548,6 +575,16 @@ CREATE POLICY "public_insert_mm3_command_penalties" ON mm3_command_penalties FOR
 
 DROP POLICY IF EXISTS "public_update_mm3_command_penalties" ON mm3_command_penalties;
 CREATE POLICY "public_update_mm3_command_penalties" ON mm3_command_penalties FOR UPDATE TO public USING (true) WITH CHECK (true);
+
+-- IRC Messages policies
+DROP POLICY IF EXISTS "public_read_mm3_irc_messages" ON mm3_irc_messages;
+CREATE POLICY "public_read_mm3_irc_messages" ON mm3_irc_messages FOR SELECT TO public USING (true);
+
+DROP POLICY IF EXISTS "public_insert_mm3_irc_messages" ON mm3_irc_messages;
+CREATE POLICY "public_insert_mm3_irc_messages" ON mm3_irc_messages FOR INSERT TO public WITH CHECK (wallet <> '' AND text <> '');
+
+DROP POLICY IF EXISTS "public_delete_mm3_irc_messages" ON mm3_irc_messages;
+CREATE POLICY "public_delete_mm3_irc_messages" ON mm3_irc_messages FOR DELETE TO public USING (true);
 
 -- ==============================================
 -- PHASE 9: INSERT INITIAL DATA
@@ -742,6 +779,8 @@ GRANT INSERT ON api_requests TO anon;
 GRANT SELECT, UPDATE ON mm3_podcast_pixels TO anon;
 GRANT SELECT, INSERT ON mm3_market_commands TO anon;
 GRANT SELECT, INSERT, UPDATE ON mm3_command_penalties TO anon;
+GRANT SELECT, INSERT ON mm3_irc_messages TO anon;
+GRANT DELETE ON mm3_irc_messages TO anon;
 GRANT UPDATE ON mm3_visual_state TO anon;
 GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO anon;
 GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO anon;
