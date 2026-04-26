@@ -609,6 +609,101 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
     return () => clearInterval(timer);
   }, [connectedWallets, anonUsers, language, upsertMessage]);
 
+  // Generate all current market status messages
+  const generateMarketStatusMessages = useCallback(async (actorIdForId) => {
+    const marketMessages = [];
+    try {
+      const nowIso = new Date().toISOString();
+      const [{ data: ownersData }, { data: commandsData }, { data: pixelsData }] = await Promise.all([
+        supabase
+          .from('player_progress')
+          .select('wallet, market_nftmoji_key')
+          .not('market_nftmoji_key', 'is', null),
+        supabase
+          .from('mm3_market_commands')
+          .select('nftmoji_key, formula_x, reset_at, wallet')
+          .gt('reset_at', nowIso),
+        supabase
+          .from('mm3_podcast_pixels')
+          .select('pixel_key, emoji, grid_row, grid_col'),
+      ]);
+
+      const ownerCountByKey = new Map();
+      for (const entry of ownersData || []) {
+        const key = entry.market_nftmoji_key;
+        if (!key) continue;
+        ownerCountByKey.set(key, (ownerCountByKey.get(key) || 0) + 1);
+      }
+      const blockByKey = new Map((pixelsData || []).map((entry) => [entry.pixel_key, entry]));
+      blockByKeyRef.current = blockByKey;
+      const commandByKey = new Map();
+      for (const entry of commandsData || []) {
+        if (entry.nftmoji_key && entry.reset_at) commandByKey.set(entry.nftmoji_key, entry);
+      }
+
+      const shortWallet = (w) => w ? `${String(w).slice(0, 6)}...${String(w).slice(-4)}` : '';
+      const ownedEntries = MARKET_COMMANDS.filter((entry) => (ownerCountByKey.get(entry.key) || 0) > 0);
+      const ownedKeys = new Set(ownedEntries.map((e) => e.key));
+
+      for (const entry of ownedEntries) {
+        const command = commandByKey.get(entry.key);
+        const owners = ownerCountByKey.get(entry.key) || 0;
+        if (command) {
+          const block = blockByKey.get(entry.key);
+          const hex = block ? getBlockHex(block.grid_row, block.grid_col) : entry.key;
+          const formula = getCommandFormula(entry.command);
+          const reset = String(command.reset_at).slice(5, 16);
+          const by = shortWallet(command.wallet);
+          marketMessages.push(`Market: ${entry.emoji} ${hex} // active // formula=${formula} // x=${command.formula_x ?? 0} // reset=${reset}Z${by ? ` // by ${by}` : ''}`);
+        } else {
+          const ownerWallets = (ownersData || [])
+            .filter((o) => o.market_nftmoji_key === entry.key)
+            .map((o) => o.wallet)
+            .filter(Boolean);
+          const readyList = ownerWallets.map(shortWallet).join(' · ');
+          marketMessages.push(`Market: ${entry.emoji} // ${t('podcast.launchReady')}${readyList ? ` // ready: ${readyList}` : ''}`);
+          marketMessages.push(t('podcast.launchReadyTeaser'));
+        }
+      }
+
+      for (const [key, command] of commandByKey.entries()) {
+        if (ownedKeys.has(key)) continue;
+        const fallback = MARKET_COMMANDS.find((e) => e.key === key);
+        const block = blockByKey.get(key);
+        const emoji = block?.emoji || fallback?.emoji || '?';
+        const hex = block ? getBlockHex(block.grid_row, block.grid_col) : key;
+        const formula = getCommandFormula(fallback?.command);
+        const reset = String(command.reset_at || '').slice(5, 16);
+        const by = shortWallet(command.wallet);
+        marketMessages.push(`Market: ${emoji} ${hex} // active // formula=${formula} // x=${command.formula_x ?? 0} // reset=${reset}Z${by ? ` // by ${by}` : ''}`);
+      }
+
+      if (marketMessages.length === 0) {
+        marketMessages.push(`Market: // no penalties active at this time :: all market commands on standby :: signal may spike without warning`);
+      }
+    } catch {}
+
+    return marketMessages.map((text, i) => makeMessage({
+      id: `market-status:${i}:${actorIdForId}`,
+      kind: 'system',
+      wallet: 'system',
+      text,
+      ts: Date.now(),
+      tone: 'market',
+    }));
+  }, [t]);
+
+  // Update market status messages with current state
+  const refreshMarketStatus = useCallback(async () => {
+    const messages = await generateMarketStatusMessages(actorId);
+    if (messages.length > 0) {
+      setMessages((current) => {
+        const filtered = current.filter((m) => !String(m.id).startsWith('market-status:'));
+        return [...filtered, ...messages].slice(-MAX_SESSION_MESSAGES);
+      });
+    }
+  }, [generateMarketStatusMessages, actorId]);
+
   useEffect(() => {
     const resolveBlock = (nftmojiKey) => {
       const block = blockByKeyRef.current.get(nftmojiKey);
@@ -618,6 +713,13 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
         hex: block ? getBlockHex(block.grid_row, block.grid_col) : nftmojiKey,
         formula: getCommandFormula(fallback?.command),
       };
+    };
+
+    let pendingTimeouts = [];
+    const scheduleTimeout = (fn, delay) => {
+      const id = setTimeout(fn, delay);
+      pendingTimeouts.push(id);
+      return id;
     };
 
     const channel = supabase
@@ -633,7 +735,9 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
           ts: Date.now(),
           tone: 'market',
         }), { silent: false });
-        setTimeout(async () => {
+        // After detail trace, refresh grouped market status for all users
+        scheduleTimeout(() => refreshMarketStatus(), 500);
+        scheduleTimeout(async () => {
           try {
             const { data: penaltyRows } = await supabase
               .from('mm3_command_penalties')
@@ -675,11 +779,16 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
         };
         appendMessage(makeMessage(expiredPayload), { silent: false });
         relayRef.current?.send({ type: 'broadcast', event: 'message', payload: expiredPayload }).catch(() => {});
+        // After detail trace, refresh grouped market status for all users
+        scheduleTimeout(() => refreshMarketStatus(), 500);
       })
       .subscribe();
 
-    return () => { supabase.removeChannel(channel); };
-  }, [appendMessage]);
+    return () => {
+      pendingTimeouts.forEach(clearTimeout);
+      supabase.removeChannel(channel);
+    };
+  }, [appendMessage, refreshMarketStatus, supabase]);
 
   useEffect(() => {
     if (typeof window === 'undefined' || !normalizedWallet) return;
