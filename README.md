@@ -79,12 +79,12 @@ It's a freak fake crypto portal. No real money. No real mining. All the vibes.
 
 All daily quotas reset at **UTC midnight**.
 
-| Resource | Base quota | Bonus | How to earn bonus |
+| Resource | Base quota | Bonus | Requirement |
 |---|---|---|---|
-| DRILL SLOTS (mining attempts) | 100 / day | +1 permanent per all-time EXEC | Execute any trade |
+| DRILL SLOTS (mining attempts) | 100 / day | +1 permanent per all-time EXEC | Execute any trade to earn bonus |
 | Trade EXECs | 5 / day | — | — |
-| Market NFTmoji IRC command | 1 / day (if owned) | — | Own a Market NFTmoji |
-| Numeric code attempt per NFTmoji | 1 / day (if penalised) | — | Receive a command penalty |
+| Market NFTmoji IRC command | 1 / day | — | Own a Market NFTmoji |
+| Numeric code attempt per NFTmoji | 1 / day | — | Automatically granted when a wallet receives a command penalty |
 
 ```
 dailySlots = 100 + allTimeExecs
@@ -382,7 +382,7 @@ poolInjection = price × 0.50  (injected as MM3 at current global rate into the 
 | ⭐ | Star Protocol | #2CA | €75.00 | −€75.00 to all other wallets | +20% on `rateCny` |
 | 💎 | Crystal Forge | #30E | €100.00 | −€100.00 to all other wallets | `tradeMultiplier` ×2.0 |
 
-🔒 = first-purchase locked (requires meeting minimum conditions). Passive modifiers are **proposed** — not yet implemented.
+Passive modifiers are **proposed** — not yet implemented.
 
 ### IRC command — how it works
 
@@ -425,11 +425,9 @@ hexId = '#' + (row × 28 + col).toString(16).toUpperCase().padStart(3, '0')
 Range: #000 (top-left) → #30F (bottom-right)
 ```
 
-### Two views
+### Navigation
 
-**Explorer board** — detail card on the left, block board on the right. Navigate with ▲▼ arrows (and ◀▶ on mobile). Keyboard arrow keys pan the selected block.
-
-**Full board** — removes the card and expands the entire 28×28 grid. Four directional arrows around the outside, keyboard arrows, and a compact header show the focused block.
+The Market shows the full 28×28 block grid with a detail card on the side for the focused block. Navigate with ▲▼ arrows (and ◀▶ on mobile) or keyboard arrow keys. Selecting a block opens its detail card with price, command description, buy/resell controls, and YouTube short.
 
 ---
 
@@ -718,9 +716,9 @@ Both persist level, balances, NFTmojis, DRILL SLOTS bonus, and revive state. Lan
   ranking/page.jsx          Prestige leaderboard route
   mm3-value/page.jsx        MM3 value chart route
   trade-mm3/page.jsx        Trade MM3 terminal route
-  market/page.jsx           Market board (explorer + detail card)
-  market/full/page.jsx      Full-board Market view
-  market-short/[pixelKey]   Dedicated Market short page per linked NFTmoji
+  market/page.jsx           Market board (28×28 grid + detail card)
+  market/[pixelKey]/        Individual block detail page
+  market-short/[pixelKey]/  Shareable short URL per Market block
   irc/page.jsx              MM3 Relay IRC terminal
   manifesto/page.jsx        Mission, privacy, terms, open source, contact
   ai-team/page.jsx          Team & FreakingAI
@@ -737,8 +735,7 @@ Both persist level, balances, NFTmojis, DRILL SLOTS bonus, and revive state. Lan
 /components
   Board.jsx               Main game UI (problems, timer, level progression, NFTmoji drops, DRILL SLOTS)
   TradeBoard.jsx          Fictional in-game trade terminal (sell/buy, daily limit, tx journal)
-  PodcastBoard.jsx        Market explorer board (card + block grid, dual viewport)
-  MarketFullBoard.jsx     Full 28×28 Market board with focused-cell reveal
+  PodcastBoard.jsx        Market board (card + 28×28 block grid, single view)
   IrcTerminal.jsx         Shared MM3 relay terminal (live presence, wallet chat, NFTmoji badges)
   Leaderboard.jsx         Prestige table — MM3, balances, level, NFTmojis, EXECs, Block / Pen.
   TokenChart.jsx          MM3 value chart — Recharts, NFTmoji markers, Dice overlays
