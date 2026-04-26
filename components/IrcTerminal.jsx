@@ -650,7 +650,6 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
 
   useEffect(() => {
     const shortW = (w) => `${String(w).slice(0, 6)}...${String(w).slice(-4)}`;
-    const isEs = language === 'es';
 
     const build = () => {
       const walletParts = connectedWallets.map((u) => shortW(u.wallet));
@@ -662,10 +661,11 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
       });
       const all = [...walletParts, ...anonParts];
       const n = all.length;
-      const nodeWord = isEs ? (n === 1 ? 'nodo' : 'nodos') : (n === 1 ? 'node' : 'nodes');
+      const nodeLabel = n === 1 ? t('irc.node') : t('irc.nodes');
       const text = n === 0
-        ? (isEs ? 'mainframe // señal silenciosa — sin nodos activos' : 'mainframe // signal quiet — no active nodes')
-        : `mainframe // ${n} ${nodeWord} // ${all.join(' · ')}`;
+        ? t('irc.mainframeQuiet')
+        : t('irc.mainframeNodes').replace('{count}', n).replace('{nodeLabel}', nodeLabel) + all.join(' · ');
+
       upsertMessage(makeMessage({
         id: `relay-status:${Date.now()}`,
         kind: 'system',
@@ -751,7 +751,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
       }
 
       if (marketMessages.length === 0) {
-        marketMessages.push(`Market: // no penalties active at this time :: all market commands on standby :: signal may spike without warning`);
+        marketMessages.push(`Market: ${t('irc.marketNoPenalties')}`);
       }
     } catch {}
 
@@ -1252,7 +1252,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
             </div>
             <div className="text-right">
               <div className={`text-[0.52rem] uppercase tracking-[0.16em] ${normalizedWallet ? 'text-cyan-700' : 'text-amber-700/70'}`}>
-                {!normalizedWallet ? t('irc.readOnly') : (relayReady ? 'live' : 'syncing')}
+                {!normalizedWallet ? t('irc.readOnly') : (relayReady ? t('irc.live') : t('irc.syncing'))}
               </div>
               <div className={`mt-0.5 break-all text-[0.58rem] ${normalizedWallet ? 'text-cyan-200' : 'text-slate-500'}`}>
                 {formatIrcWalletLabel(actorId)}
@@ -1377,7 +1377,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
                     className="mm3-irc-show-more"
                     onClick={() => setVisibleCount((v) => v + 5)}
                   >
-                    {`+ ${Math.min(5, connectedWallets.length - visibleCount)} more`}
+                    {`+ ${Math.min(5, connectedWallets.length - visibleCount)} ${t('irc.more')}`}
                   </button>
                 )}
                 {visibleCount > 5 && connectedWallets.length <= visibleCount && (
@@ -1385,7 +1385,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
                     className="mm3-irc-show-more"
                     onClick={() => setVisibleCount(5)}
                   >
-                    ▲ collapse
+                    ▲ {t('irc.collapse')}
                   </button>
                 )}
               </>
@@ -1414,12 +1414,12 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
                 })}
                 {anonVisibleCount < anonUsers.length && (
                   <button className="mm3-irc-show-more" onClick={() => setAnonVisibleCount((v) => v + 5)}>
-                    {`+ ${Math.min(5, anonUsers.length - anonVisibleCount)} more`}
+                    {`+ ${Math.min(5, anonUsers.length - anonVisibleCount)} ${t('irc.more')}`}
                   </button>
                 )}
                 {anonVisibleCount > 5 && anonUsers.length <= anonVisibleCount && (
                   <button className="mm3-irc-show-more" onClick={() => setAnonVisibleCount(5)}>
-                    ▲ collapse
+                    ▲ {t('irc.collapse')}
                   </button>
                 )}
               </>
