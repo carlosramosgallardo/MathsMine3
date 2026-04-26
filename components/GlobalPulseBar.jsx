@@ -6,6 +6,26 @@ import { normalizeMacroState } from '@/lib/mm3-macro';
 import { useI18n } from '@/lib/i18n-context';
 import { useDice } from '@/lib/dice-context';
 
+const ACTIVE_WINDOW_MS = 90_000;
+
+function normalizeActiveWallets(rows) {
+  const uniqueWallets = [];
+  const seen = new Set();
+
+  for (const entry of rows || []) {
+    const wallet = String(entry.wallet || '').toLowerCase();
+    if (!wallet || seen.has(wallet)) continue;
+    seen.add(wallet);
+    uniqueWallets.push({
+      wallet,
+      source: entry.source || 'wallet',
+      last_seen: entry.last_seen || null,
+    });
+  }
+
+  return uniqueWallets;
+}
+
 export default function GlobalPulseBar() {
   const { language } = useI18n();
   const dice = useDice();
@@ -34,22 +54,30 @@ export default function GlobalPulseBar() {
   useEffect(() => {
     const loadPresence = async () => {
       try {
-        const since = new Date(Date.now() - 90_000).toISOString();
+        const since = new Date(Date.now() - ACTIVE_WINDOW_MS).toISOString();
         const { data } = await supabase
           .from('mm3_wallet_presence')
           .select('wallet, source, last_seen')
           .gte('last_seen', since)
-          .order('last_seen', { ascending: false })
-          .limit(20);
-        setActiveWallets(data || []);
+          .order('last_seen', { ascending: false });
+
+        setActiveWallets(normalizeActiveWallets(data));
       } catch {
         setActiveWallets([]);
       }
     };
 
     loadPresence();
-    const timer = setInterval(loadPresence, 15_000);
-    return () => clearInterval(timer);
+    const timer = setInterval(loadPresence, 10_000);
+    const channel = supabase
+      .channel('mm3-global-pulse-presence-watch')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'mm3_wallet_presence' }, loadPresence)
+      .subscribe();
+
+    return () => {
+      clearInterval(timer);
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   useEffect(() => {
@@ -88,6 +116,7 @@ export default function GlobalPulseBar() {
   }, []);
 
   const isSpanish = language === 'es';
+  const ircConnectedCount = activeWallets.length + anonCount;
   const items = [
     {
       emoji: '⚔️',
@@ -152,8 +181,8 @@ export default function GlobalPulseBar() {
         className="group relative flex h-7 items-center gap-[3px] px-0.5 sm:px-1 font-mono text-[0.54rem] font-black sm:h-9 sm:text-[0.62rem]"
         title={
           isSpanish
-            ? `logados: ${activeWallets.length} / wallets: ${totalWallets} · IRC: ${activeWallets.length + anonCount}`
-            : `online: ${activeWallets.length} / wallets: ${totalWallets} · IRC: ${activeWallets.length + anonCount}`
+            ? `logados: ${activeWallets.length} / wallets: ${totalWallets} · IRC: ${ircConnectedCount}`
+            : `online: ${activeWallets.length} / wallets: ${totalWallets} · IRC: ${ircConnectedCount}`
         }
       >
         <span className="text-emerald-400 tabular-nums">{activeWallets.length}</span>
@@ -161,7 +190,7 @@ export default function GlobalPulseBar() {
         <span className="text-slate-500 tabular-nums">{totalWallets}</span>
         <span className="text-slate-600 text-[0.38rem]">wallets</span>
         <span className="text-slate-700 mx-[1px]">·</span>
-        <span className="text-cyan-700 tabular-nums">{activeWallets.length + anonCount}</span>
+        <span className="text-cyan-700 tabular-nums">{ircConnectedCount}</span>
         <span className="text-cyan-900 text-[0.38rem]">irc</span>
         <div className="pointer-events-none absolute left-1/2 top-full z-50 mt-2 hidden w-64 -translate-x-1/2 rounded-lg border border-emerald-400/30 bg-black/95 p-2 text-left font-mono text-[0.58rem] font-semibold tracking-normal text-emerald-200 shadow-[0_0_18px_rgba(74,222,128,0.18)] group-hover:block group-focus-within:block">
           <div className="mb-1.5 grid grid-cols-[auto_1fr] gap-x-2 gap-y-0.5 text-[0.55rem]">
@@ -169,7 +198,7 @@ export default function GlobalPulseBar() {
             <span className="text-slate-400">{isSpanish ? 'logados ahora' : 'online now'}</span>
             <span className="text-slate-400">{totalWallets}</span>
             <span className="text-slate-500">{isSpanish ? 'wallets creadas' : 'wallets created'}</span>
-            <span className="text-cyan-600">{activeWallets.length + anonCount}</span>
+            <span className="text-cyan-600">{ircConnectedCount}</span>
             <span className="text-slate-500">{isSpanish ? 'conectados IRC (wallets + anon)' : 'IRC connected (wallets + anon)'}</span>
           </div>
           {activeWallets.length > 0 && (
