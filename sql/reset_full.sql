@@ -11,13 +11,14 @@ BEGIN;
 UPDATE games
 SET    mining_reward = 0;
 
--- 2. Stats de minado por wallet: MM3 acumulado, partidas, rachas
+-- 2. Stats de minado por wallet: MM3 acumulado, partidas, rachas, rank
 UPDATE leaderboard_data
 SET    total_eth      = 0,
        total_correct  = 0,
        total_games    = 0,
        highest_streak = 0,
        current_streak = 0,
+       rank           = NULL,
        updated_at     = now();
 
 -- 3. Progreso de cada wallet: nivel, fondos, NFTmojis de mining y market
@@ -73,5 +74,12 @@ SET    first_purchased_at = NULL,
        paid_usd           = 0,
        paid_cny           = 0,
        updated_at         = now();
+
+-- 10. Cuenta admin con 1M € para probar funcionalidades
+INSERT INTO player_progress (wallet, eur_earned, updated_at)
+VALUES ('0xd89413f5f444cd420b448cda3bc096ea9c46e8ab', 1000000, now())
+ON CONFLICT (wallet) DO UPDATE
+SET    eur_earned = 1000000,
+       updated_at = now();
 
 COMMIT;
