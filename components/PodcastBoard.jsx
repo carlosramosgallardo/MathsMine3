@@ -145,7 +145,7 @@ export default function PodcastBoard({ account, isVirtualWallet = false }) {
   const loadBlocks = async () => {
     setLoading(true);
     try {
-      const [{ data: pixelData, error }, { data: ownersData }] = await Promise.all([
+      const [{ data: pixelData, error }, { data: ownersData }, { data: eventData }] = await Promise.all([
         supabase
           .from('mm3_podcast_pixels')
           .select('pixel_key, grid_row, grid_col, emoji, title_en, title_es, price_eur, short_url, is_active, first_purchased_at')
@@ -154,6 +154,10 @@ export default function PodcastBoard({ account, isVirtualWallet = false }) {
           .from('player_progress')
           .select('wallet, market_nftmoji_key')
           .not('market_nftmoji_key', 'is', null),
+        supabase
+          .from('mm3_market_events')
+          .select('emoji, event_type')
+          .in('event_type', ['market_buy', 'market_resell']),
       ]);
 
       if (error) throw error;
@@ -167,6 +171,14 @@ export default function PodcastBoard({ account, isVirtualWallet = false }) {
         currentOwnersByKey.get(key).push(wallet);
       }
 
+      const buyCountByEmoji = new Map();
+      const resellCountByEmoji = new Map();
+      for (const ev of eventData || []) {
+        const e = String(ev.emoji || '');
+        if (ev.event_type === 'market_buy') buyCountByEmoji.set(e, (buyCountByEmoji.get(e) || 0) + 1);
+        else if (ev.event_type === 'market_resell') resellCountByEmoji.set(e, (resellCountByEmoji.get(e) || 0) + 1);
+      }
+
       const dbBlocks = Array.isArray(pixelData) ? pixelData : [];
       const dbByKey = new Map(dbBlocks.map((b) => [b.pixel_key, b]));
 
@@ -174,6 +186,8 @@ export default function PodcastBoard({ account, isVirtualWallet = false }) {
         ...b,
         price_eur: Number(b.price_eur) || 0,
         current_owners: currentOwnersByKey.get(b.pixel_key) || [],
+        buy_count: buyCountByEmoji.get(String(b.emoji || '')) || 0,
+        resell_count: resellCountByEmoji.get(String(b.emoji || '')) || 0,
       });
 
       const catalogMerged = CATALOG_BLOCKS.map((cat) =>
@@ -939,6 +953,21 @@ export default function PodcastBoard({ account, isVirtualWallet = false }) {
                 {t('podcast.videoSoon')}
               </Link>
             )
+          )}
+
+          {!selectedBlock?.isPlaceholder && (
+            <div className="mm3-market-detail-card rounded border border-slate-700/20 bg-black/30 px-2 py-1.5 lg:px-2.5 lg:py-2">
+              <div className="flex gap-4">
+                <div>
+                  <div className="text-[0.36rem] uppercase tracking-[0.16em] text-slate-400/55 lg:text-[0.4rem]">{t('podcast.statBuys')}</div>
+                  <div className="mt-0.5 text-[0.72rem] font-black text-cyan-300/80">{selectedBlock?.buy_count ?? 0}</div>
+                </div>
+                <div>
+                  <div className="text-[0.36rem] uppercase tracking-[0.16em] text-slate-400/55 lg:text-[0.4rem]">{t('podcast.statResells')}</div>
+                  <div className="mt-0.5 text-[0.72rem] font-black text-fuchsia-300/80">{selectedBlock?.resell_count ?? 0}</div>
+                </div>
+              </div>
+            </div>
           )}
 
           {selectedMarketCommand && (

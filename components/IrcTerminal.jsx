@@ -298,9 +298,9 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
             const formula = getCommandFormula(entry.command);
             const reset = String(command.reset_at).slice(5, 16);
             const by = shortWallet(command.wallet);
-            marketMessages.push(`Market: ${entry.emoji} ${hex} // active x${owners} // formula=${formula} // x=${command.formula_x ?? 0} // reset=${reset}Z${by ? ` // by ${by}` : ''}`);
+            marketMessages.push(`Market: ${entry.emoji} ${hex} // active // formula=${formula} // x=${command.formula_x ?? 0} // reset=${reset}Z${by ? ` // by ${by}` : ''}`);
           } else {
-            marketMessages.push(`Market: ${entry.emoji} x${owners} // ${t('podcast.launchReady')}`);
+            marketMessages.push(`Market: ${entry.emoji} // ${t('podcast.launchReady')}`);
           }
         }
 
