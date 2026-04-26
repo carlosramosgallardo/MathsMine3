@@ -18,6 +18,7 @@ DROP VIEW IF EXISTS token_value CASCADE;
 DROP VIEW IF EXISTS token_value_timeseries CASCADE;
 DROP VIEW IF EXISTS difficulty_distribution CASCADE;
 DROP VIEW IF EXISTS api_rate_summary CASCADE;
+DROP VIEW IF EXISTS token_value_by_minute CASCADE;
 -- Drop functions and triggers
 DROP TRIGGER IF EXISTS trigger_update_leaderboard ON games;
 DROP FUNCTION IF EXISTS trigger_update_leaderboard_fn();
@@ -206,6 +207,9 @@ CREATE TABLE mm3_podcast_pixels (
   paid_eur NUMERIC NOT NULL DEFAULT 0,
   paid_usd NUMERIC NOT NULL DEFAULT 0,
   paid_cny NUMERIC NOT NULL DEFAULT 0,
+  market_command TEXT NOT NULL DEFAULT '',
+  formula_x INTEGER NOT NULL DEFAULT 123,
+  formula_result_5d TEXT NOT NULL DEFAULT '',
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -346,30 +350,7 @@ EXECUTE FUNCTION trigger_update_leaderboard_fn();
 -- PHASE 6: CREATE VIEWS
 -- ==============================================
 
--- Leaderboard Stats
-CREATE OR REPLACE VIEW leaderboard_stats AS
-SELECT
-  ld.wallet,
-  ld.total_eth,
-  GREATEST(ld.total_eth - COALESCE(pp.mm3_sold, 0), 0) as available_mm3,
-  ld.total_correct,
-  ld.total_games,
-  COALESCE(pp.level, 0) as level,
-  COALESCE(pp.sell_quote_cny, 0) as sell_quote_cny,
-  COALESCE(pp.sell_quote_eur, 0) as sell_quote_eur,
-  COALESCE(pp.sell_quote_usd, 0) as sell_quote_usd,
-  ld.rank,
-  CASE
-    WHEN ld.total_games > 0 THEN ROUND((ld.total_correct::NUMERIC / ld.total_games) * 100, 2)
-    ELSE 0
-  END as accuracy_percentage,
-  ld.updated_at,
-  COALESCE(pp.wallet_emojis, ARRAY[]::TEXT[]) as wallet_emojis
-FROM leaderboard_data ld
-LEFT JOIN player_progress pp ON LOWER(pp.wallet) = LOWER(ld.wallet)
-ORDER BY ld.rank;
-
--- Top Positive Miner
+-- Top Positive Miner (used by use-mm3-accent.js)
 CREATE OR REPLACE VIEW top_positive_miner AS
 SELECT
   wallet,
@@ -379,42 +360,6 @@ FROM leaderboard_data
 WHERE total_eth > 0
 ORDER BY total_eth DESC
 LIMIT 1;
-
--- Daily Stats
-CREATE OR REPLACE VIEW daily_stats AS
-SELECT
-  DATE(created_at) as game_date,
-  COUNT(*) as total_games,
-  SUM(CASE WHEN is_correct THEN 1 ELSE 0 END) as correct_answers,
-  SUM(CASE WHEN is_correct THEN mining_reward ELSE 0 END) as daily_eth,
-  COUNT(DISTINCT wallet) as unique_players
-FROM games
-GROUP BY DATE(created_at)
-ORDER BY game_date DESC;
-
--- Difficulty Distribution
-CREATE OR REPLACE VIEW difficulty_distribution AS
-SELECT
-  difficulty,
-  problem_type,
-  COUNT(*) as problem_count,
-  AVG(base_points) as avg_base_points
-FROM math_problems
-GROUP BY difficulty, problem_type
-ORDER BY difficulty, problem_type;
-
--- Player Performance by Difficulty
-CREATE OR REPLACE VIEW player_performance_by_difficulty AS
-SELECT
-  g.wallet,
-  g.difficulty,
-  COUNT(*) as attempts,
-  SUM(CASE WHEN g.is_correct THEN 1 ELSE 0 END) as correct,
-  ROUND((SUM(CASE WHEN g.is_correct THEN 1 ELSE 0 END)::NUMERIC / COUNT(*)) * 100, 2) as accuracy,
-  SUM(CASE WHEN g.is_correct THEN g.mining_reward ELSE 0 END) as eth_earned
-FROM games g
-GROUP BY g.wallet, g.difficulty
-ORDER BY g.wallet, g.difficulty;
 
 -- Token Value
 CREATE OR REPLACE VIEW token_value AS
@@ -572,10 +517,13 @@ CREATE POLICY "public_insert_api_requests" ON api_requests FOR INSERT TO public 
 
 -- MM3 Visual State policies
 DROP POLICY IF EXISTS "public_read_visual_state" ON mm3_visual_state;
-CREATE POLICY "public_read_visual_state" ON mm3_visual_state FOR SELECT TO public USING (true);
+CREATE POLICY "public_read_visual_state" ON mm3_visual_state FOR SELECT TO anon USING (true);
+
+DROP POLICY IF EXISTS "public_insert_visual_state" ON mm3_visual_state;
+CREATE POLICY "public_insert_visual_state" ON mm3_visual_state FOR INSERT TO anon WITH CHECK (id = 1);
 
 DROP POLICY IF EXISTS "public_update_visual_state" ON mm3_visual_state;
-CREATE POLICY "public_update_visual_state" ON mm3_visual_state FOR UPDATE TO public USING (true) WITH CHECK (true);
+CREATE POLICY "public_update_visual_state" ON mm3_visual_state FOR UPDATE TO anon USING (id = 1) WITH CHECK (id = 1);
 
 DROP POLICY IF EXISTS "public_read_mm3_podcast_pixels" ON mm3_podcast_pixels;
 CREATE POLICY "public_read_mm3_podcast_pixels" ON mm3_podcast_pixels FOR SELECT TO public USING (true);
@@ -584,10 +532,13 @@ DROP POLICY IF EXISTS "public_update_mm3_podcast_pixels" ON mm3_podcast_pixels;
 CREATE POLICY "public_update_mm3_podcast_pixels" ON mm3_podcast_pixels FOR UPDATE TO public USING (true) WITH CHECK (true);
 
 DROP POLICY IF EXISTS "public_read_mm3_market_commands" ON mm3_market_commands;
-CREATE POLICY "public_read_mm3_market_commands" ON mm3_market_commands FOR SELECT TO public USING (true);
+CREATE POLICY "public_read_mm3_market_commands" ON mm3_market_commands FOR SELECT TO anon USING (true);
 
 DROP POLICY IF EXISTS "public_insert_mm3_market_commands" ON mm3_market_commands;
-CREATE POLICY "public_insert_mm3_market_commands" ON mm3_market_commands FOR INSERT TO public WITH CHECK (wallet <> '' AND nftmoji_key <> '' AND command <> '');
+CREATE POLICY "public_insert_mm3_market_commands" ON mm3_market_commands FOR INSERT TO anon WITH CHECK (wallet <> '' AND nftmoji_key <> '' AND command <> '');
+
+DROP POLICY IF EXISTS "public_update_mm3_market_commands" ON mm3_market_commands;
+CREATE POLICY "public_update_mm3_market_commands" ON mm3_market_commands FOR UPDATE TO anon USING (wallet <> '') WITH CHECK (wallet <> '');
 
 DROP POLICY IF EXISTS "public_read_mm3_command_penalties" ON mm3_command_penalties;
 CREATE POLICY "public_read_mm3_command_penalties" ON mm3_command_penalties FOR SELECT TO public USING (true);
@@ -754,16 +705,19 @@ VALUES
     TRUE
   )
 ON CONFLICT (pixel_key) DO UPDATE SET
-  grid_row = EXCLUDED.grid_row,
-  grid_col = EXCLUDED.grid_col,
-  emoji = EXCLUDED.emoji,
-  title_en = EXCLUDED.title_en,
-  title_es = EXCLUDED.title_es,
-  answer_hash = EXCLUDED.answer_hash,
-  price_eur = EXCLUDED.price_eur,
-  short_url = COALESCE(mm3_podcast_pixels.short_url, EXCLUDED.short_url),
-  is_active = EXCLUDED.is_active,
-  updated_at = NOW();
+  grid_row         = EXCLUDED.grid_row,
+  grid_col         = EXCLUDED.grid_col,
+  emoji            = EXCLUDED.emoji,
+  title_en         = EXCLUDED.title_en,
+  title_es         = EXCLUDED.title_es,
+  answer_hash      = EXCLUDED.answer_hash,
+  price_eur        = EXCLUDED.price_eur,
+  short_url        = COALESCE(mm3_podcast_pixels.short_url, EXCLUDED.short_url),
+  is_active        = EXCLUDED.is_active,
+  market_command   = EXCLUDED.market_command,
+  formula_x        = EXCLUDED.formula_x,
+  formula_result_5d = EXCLUDED.formula_result_5d,
+  updated_at       = NOW();
 
 -- Mining question seeds intentionally live outside the tracked repository.
 -- To keep answers out of GitHub, execute the private local seed file after
@@ -792,14 +746,9 @@ GRANT UPDATE ON mm3_visual_state TO anon;
 GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO anon;
 GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO anon;
 
-GRANT SELECT ON leaderboard_stats TO anon;
 GRANT SELECT ON top_positive_miner TO anon;
-GRANT SELECT ON daily_stats TO anon;
-GRANT SELECT ON player_performance_by_difficulty TO anon;
 GRANT SELECT ON token_value TO anon;
 GRANT SELECT ON token_value_timeseries TO anon;
-GRANT SELECT ON difficulty_distribution TO anon;
-GRANT SELECT ON api_rate_summary TO anon;
 -- ==============================================
 -- PHASE 11: INITIAL LEADERBOARD POPULATION
 -- ==============================================

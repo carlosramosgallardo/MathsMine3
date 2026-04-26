@@ -153,14 +153,9 @@ GRANT SELECT, INSERT  ON public.mm3_command_penalties TO anon;
 GRANT UPDATE          ON public.mm3_command_penalties TO anon;
 
 -- Views
-GRANT SELECT ON public.leaderboard_stats                TO anon;
-GRANT SELECT ON public.top_positive_miner               TO anon;
-GRANT SELECT ON public.daily_stats                      TO anon;
-GRANT SELECT ON public.player_performance_by_difficulty TO anon;
-GRANT SELECT ON public.token_value                      TO anon;
-GRANT SELECT ON public.token_value_timeseries           TO anon;
-GRANT SELECT ON public.difficulty_distribution          TO anon;
-GRANT SELECT ON public.api_rate_summary                 TO anon;
+GRANT SELECT ON public.top_positive_miner     TO anon;
+GRANT SELECT ON public.token_value            TO anon;
+GRANT SELECT ON public.token_value_timeseries TO anon;
 
 -- Sequences (needed for SERIAL/BIGSERIAL inserts)
 GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO anon;
