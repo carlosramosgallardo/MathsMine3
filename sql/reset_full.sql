@@ -79,11 +79,4 @@ SET    first_purchased_at = NULL,
        paid_cny           = 0,
        updated_at         = now();
 
--- 11. Cuenta admin con 1M € para probar funcionalidades
-INSERT INTO player_progress (wallet, eur_earned, updated_at)
-VALUES ('0xd89413f5f444cd420b448cda3bc096ea9c46e8ab', 1000000, now())
-ON CONFLICT (wallet) DO UPDATE
-SET    eur_earned = 1000000,
-       updated_at = now();
-
 COMMIT;
