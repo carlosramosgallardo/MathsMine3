@@ -428,7 +428,36 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
         }
       `}</style>
 
-      <div className="space-y-3 sm:hidden">
+      {totalPages > 1 && (
+        <div className="flex justify-center gap-2 mb-3 flex-wrap sm:hidden">
+          <button onClick={() => setCurrentPage(p => Math.max(1, p-1))} disabled={currentPage === 1}
+                  className="px-3 py-1.5 rounded border-2 border-[#22d3ee]/40 text-[#22d3ee] hover:border-[#22d3ee] transition disabled:opacity-30 disabled:cursor-not-allowed text-sm font-mono">
+            {t('leaderboard.prev')}
+          </button>
+          <div className="flex gap-1 items-center">
+            {[...Array(totalPages)].map((_, i) => {
+              const p = i + 1, active = currentPage === p;
+              const near = Math.abs(currentPage - p) <= 2;
+              if (!near && p !== 1 && p !== totalPages) {
+                if (p === Math.floor(totalPages/2)+1) return <span key={p} className="px-1 text-[#22d3ee]">…</span>;
+                return null;
+              }
+              return (
+                <button key={p} onClick={() => setCurrentPage(p)}
+                        className={`w-8 h-8 rounded border-2 font-mono font-bold text-sm transition ${active ? 'bg-[#22d3ee] text-black border-[#22d3ee]' : 'border-[#22d3ee]/30 text-[#22d3ee] hover:border-[#22d3ee]/70'}`}>
+                  {p}
+                </button>
+              );
+            })}
+          </div>
+          <button onClick={() => setCurrentPage(p => Math.min(totalPages, p+1))} disabled={currentPage === totalPages}
+                  className="px-3 py-1.5 rounded border-2 border-[#22d3ee]/40 text-[#22d3ee] hover:border-[#22d3ee] transition disabled:opacity-30 disabled:cursor-not-allowed text-sm font-mono">
+            {t('leaderboard.next')}
+          </button>
+        </div>
+      )}
+
+      <div className="space-y-2 sm:hidden">
         {isLoading ? (
           <PageLoading label={t('leaderboard.loadingMiners')} fullScreen={false} />
         ) : currentItems.length > 0 ? currentItems.map((entry) => {
@@ -453,99 +482,84 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
           const activePenalty = entry.active_penalty;
 
           return (
-            <article key={entry.wallet} className={`lb-card rounded-xl p-2.5${isActiveWallet ? ' wallet-active' : ''}${isSelectedWallet ? ' wallet-selected' : ''}`}>
-              <div className="mb-3 flex items-center justify-between gap-3">
-                <span className={`rank-badge ${rankCls}`} title={placement.title}>{placement.label}</span>
+            <article key={entry.wallet} className={`lb-card p-2${isActiveWallet ? ' wallet-active' : ''}${isSelectedWallet ? ' wallet-selected' : ''}`}>
+              <div className="mb-1.5 flex items-center gap-2">
+                <span className={`rank-badge ${rankCls} shrink-0`} title={placement.title}>{placement.label}</span>
                 <button
                   type="button"
                   onClick={() => toggleSelectedWallet(entry.wallet)}
-                  className="min-w-0 flex-1 break-all text-left font-mono text-[0.72rem] font-semibold leading-relaxed transition hover:underline focus:outline-none"
+                  className="min-w-0 flex-1 truncate text-left font-mono text-[0.64rem] font-semibold transition hover:underline focus:outline-none"
                   style={{ color: walletColor }}
                   title={isSelectedWallet ? t('leaderboard.showAllWallets') : t('leaderboard.showOnlyWallet')}
                 >
                   {entry.wallet}
                 </button>
-              </div>
-
-              <div className="mb-2">
-                <span className={`lb-status-chip ${isOnline ? 'online' : 'offline'}`}>
+                <span className={`lb-status-chip ${isOnline ? 'online' : 'offline'} shrink-0`}>
                   {isOnline ? t('leaderboard.online') : t('leaderboard.offline')}
                 </span>
               </div>
 
-              <div className="grid grid-cols-2 gap-2 text-[0.62rem] uppercase tracking-[0.12em] text-cyan-700">
-                <div className="rounded-lg border border-cyan-500/10 bg-black/60 p-2">
+              <div className="grid grid-cols-3 gap-1 text-[0.55rem] uppercase tracking-[0.1em] text-cyan-700 mb-1.5">
+                <div className="rounded border border-cyan-500/10 bg-black/60 px-1.5 py-1">
                   <div>{t('leaderboard.level')}</div>
-                  <div className="mt-1 text-base font-black tracking-normal" style={{ color: tier.color, textShadow:`0 0 8px ${tier.color}66` }}>
-                    {lvl}
-                  </div>
+                  <div className="mt-0.5 text-sm font-black tracking-normal" style={{ color: tier.color, textShadow:`0 0 6px ${tier.color}66` }}>{lvl}</div>
                 </div>
-                <div className="rounded-lg border border-cyan-500/10 bg-black/60 p-2">
+                <div className="rounded border border-cyan-500/10 bg-black/60 px-1.5 py-1">
                   <div>{t('leaderboard.rank')}</div>
-                  <div className="mt-1 inline-flex items-center justify-center text-[0.92rem] font-bold tracking-normal" style={{ color: tier.color }} title={tier.label}>
-                    <span>{tier.emoji}</span>
-                  </div>
+                  <div className="mt-0.5 text-sm font-bold tracking-normal" style={{ color: tier.color }} title={tier.label}>{tier.emoji}</div>
                 </div>
-                <div className="rounded-lg border border-cyan-500/10 bg-black/60 p-2">
+                <div className="rounded border border-cyan-500/10 bg-black/60 px-1.5 py-1">
                   <div>{t('leaderboard.execs')}</div>
-                  <div className="mt-1 font-mono text-[0.78rem] font-semibold tracking-normal text-cyan-300">
-                    {Number(entry.execs_count || 0)}
-                  </div>
+                  <div className="mt-0.5 font-mono text-[0.7rem] font-semibold tracking-normal text-cyan-300">{Number(entry.execs_count || 0)}</div>
                 </div>
-                <div className="rounded-lg border border-cyan-500/10 bg-black/60 p-2">
+                <div className="rounded border border-cyan-500/10 bg-black/60 px-1.5 py-1">
                   <div>{t('leaderboard.mm3Earned')}</div>
-                  <div className="mt-1 font-mono text-[0.78rem] font-semibold tracking-normal text-cyan-300">
-                    {Number(entry.available_mm3 || 0).toFixed(8).replace(/\.?0+$/, '') || '0'}
-                  </div>
+                  <div className="mt-0.5 font-mono text-[0.64rem] font-semibold tracking-normal text-cyan-300">{Number(entry.available_mm3 || 0).toFixed(8).replace(/\.?0+$/, '') || '0'}</div>
                 </div>
-                <div className="rounded-lg border border-cyan-500/10 bg-black/60 p-2">
+                <div className="col-span-2 rounded border border-cyan-500/10 bg-black/60 px-1.5 py-1">
                   <div>{t('leaderboard.sellValue')}</div>
-                  <div className="mt-1 font-mono text-[0.78rem] font-semibold tracking-normal text-emerald-300">
-                    {formatCompactMoney(sellValue, quoteCurrency)}
-                  </div>
+                  <div className="mt-0.5 font-mono text-[0.7rem] font-semibold tracking-normal text-emerald-300">{formatCompactMoney(sellValue, quoteCurrency)}</div>
                 </div>
               </div>
 
-              <div className="mt-2 flex min-h-7 items-center justify-center gap-1 rounded-lg border border-cyan-500/10 bg-black/50 px-2 py-1">
-                {TRADE_SLOT_ORDER.map((slot) => {
-                  const owned = ownedEmojis.includes(slot.emoji);
-                  return (
-                    <div
-                      key={slot.key}
-                      title={getEmojiTitle(slot.emoji)}
-                      className="flex h-8 w-8 items-center justify-center rounded-md border text-base"
-                      style={{
-                        borderColor: owned ? tier.glow : 'rgba(148,163,184,0.22)',
-                        background: owned ? tier.bg : 'rgba(2,6,23,0.4)',
-                        color: owned ? tier.color : 'rgba(100,116,139,0.35)',
-                        boxShadow: owned ? `0 0 12px ${tier.color}22` : 'none',
-                      }}
-                    >
-                      {owned ? slot.emoji : ''}
-                    </div>
-                  );
-                })}
-              </div>
-
-              <div className="mt-2">
-                <div className="mb-1 text-[0.58rem] uppercase tracking-[0.12em] text-cyan-700">{t('leaderboard.blockPenalty')}</div>
-                <div className="flex min-h-7 flex-wrap items-center gap-1 rounded-lg border border-cyan-500/10 bg-black/50 px-2 py-1">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <div className="flex items-center gap-0.5 shrink-0">
+                  {TRADE_SLOT_ORDER.map((slot) => {
+                    const owned = ownedEmojis.includes(slot.emoji);
+                    return (
+                      <div
+                        key={slot.key}
+                        title={getEmojiTitle(slot.emoji)}
+                        className="flex h-6 w-6 items-center justify-center rounded border text-[0.68rem]"
+                        style={{
+                          borderColor: owned ? tier.glow : 'rgba(148,163,184,0.22)',
+                          background: owned ? tier.bg : 'rgba(2,6,23,0.4)',
+                          color: owned ? tier.color : 'rgba(100,116,139,0.35)',
+                          boxShadow: owned ? `0 0 8px ${tier.color}22` : 'none',
+                        }}
+                      >
+                        {owned ? slot.emoji : ''}
+                      </div>
+                    );
+                  })}
+                </div>
+                <div className="flex flex-wrap items-center gap-1">
                   {marketBlocks.length > 0 ? marketBlocks.map((block) => (
                     <button
                       key={block.pixel_key}
                       type="button"
                       onClick={() => openMarketBlock(block.pixel_key)}
                       title={`${block.emoji} ${block.hex}`}
-                      className="relative flex h-8 w-8 items-center justify-center rounded-md border text-base transition hover:border-cyan-300 hover:text-cyan-100"
+                      className="relative flex h-6 w-6 items-center justify-center rounded border text-[0.68rem] transition hover:border-cyan-300"
                       style={{
                         borderColor: 'rgba(250,204,21,0.3)',
                         background: 'rgba(2,6,23,0.68)',
                         color: '#fef08a',
-                        boxShadow: '0 0 10px rgba(250,204,21,0.12)',
+                        boxShadow: '0 0 8px rgba(250,204,21,0.12)',
                       }}
                     >
                       <span>{block.emoji}</span>
-                      <span className="absolute bottom-[1px] right-[2px] text-[0.26rem] font-black tracking-[0.08em] text-cyan-100/90">
+                      <span className="absolute bottom-[0px] right-[1px] text-[0.22rem] font-black text-cyan-100/90">
                         {block.hex.replace('#', '')}
                       </span>
                     </button>
@@ -554,14 +568,14 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
                     <button
                       type="button"
                       onClick={() => openMarketBlock(activePenalty.nftmoji_key)}
-                      className="lb-penalty-link rounded border border-rose-400/30 bg-rose-950/20 px-1.5 py-1 font-mono text-[0.58rem] font-black text-rose-300"
+                      className="lb-penalty-link rounded border border-rose-400/30 bg-rose-950/20 px-1.5 py-0.5 font-mono text-[0.52rem] font-black text-rose-300"
                       title={activePenalty.block ? `${activePenalty.block.emoji} ${activePenalty.block.hex}` : activePenalty.nftmoji_key}
                     >
                       -{Number(activePenalty.penalty_value || 0).toFixed(8).replace(/\.?0+$/, '') || '0'}
                     </button>
                   ) : null}
                   {marketBlocks.length === 0 && !activePenalty ? (
-                    <span className="text-[0.56rem] uppercase tracking-[0.12em] text-slate-600">{t('leaderboard.none')}</span>
+                    <span className="text-[0.5rem] uppercase tracking-[0.1em] text-slate-700">{t('leaderboard.none')}</span>
                   ) : null}
                 </div>
               </div>

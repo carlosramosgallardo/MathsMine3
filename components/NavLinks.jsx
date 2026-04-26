@@ -67,7 +67,8 @@ export default function NavLinks({ className = '' }) {
           t('nav.value')
         ) : (
           <span className="inline-flex items-baseline gap-1">
-            <span>{formatNavMm3(mm3Value)}</span>
+            <span className="sm:hidden">{Number(mm3Value).toFixed(4)}</span>
+            <span className="hidden sm:inline">{formatNavMm3(mm3Value)}</span>
             <span className="text-[0.5rem] uppercase tracking-[0.18em] text-cyan-300/60">MM3</span>
           </span>
         ),
