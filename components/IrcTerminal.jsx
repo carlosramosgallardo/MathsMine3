@@ -263,9 +263,17 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
     const loadWelcome = async () => {
       let welcomeText = t('irc.welcomeFallback');
       const marketMessages = [];
+      let chatHistory = [];
+
       try {
         const nowIso = new Date().toISOString();
-        const [{ data }, { data: ownersData }, { data: commandsData }, { data: pixelsData }, { data: dbMessages }] = await Promise.all([
+        // Separate queries: if macro or owners fail, we still want the chat history
+        const [ircRes, macroRes, ownersRes, commandsRes, pixelsRes] = await Promise.all([
+          supabase
+            .from('mm3_irc_messages')
+            .select('wallet, text, ts, kind, tone')
+            .order('ts', { ascending: false })
+            .limit(MAX_CHAT_HISTORY),
           supabase
             .from('mm3_macro_state')
             .select('ticker_message, ticker_message_en, ticker_message_es')
@@ -282,12 +290,16 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
           supabase
             .from('mm3_podcast_pixels')
             .select('pixel_key, emoji, grid_row, grid_col'),
-          supabase
-            .from('mm3_irc_messages')
-            .select('wallet, text, ts, kind, tone')
-            .order('ts', { ascending: false })
-            .limit(MAX_CHAT_HISTORY),
         ]);
+
+        const dbMessages = ircRes.data || [];
+        chatHistory = Array.isArray(dbMessages) ? [...dbMessages].reverse() : [];
+
+        const { data } = macroRes;
+        const { data: ownersData } = ownersRes;
+        const { data: commandsData } = commandsRes;
+        const { data: pixelsData } = pixelsRes;
+
         welcomeText = tickerFromRow(data, language, welcomeText);
 
         const ownerCountByKey = new Map();
@@ -343,15 +355,11 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
         if (marketMessages.length === 0) {
           marketMessages.push(`Market: // no penalties active at this time :: all market commands on standby :: signal may spike without warning`);
         }
-      } catch {}
 
-      // Reverse DB messages to restore chronological order for the terminal log
-      const chatHistory = Array.isArray(dbMessages) ? [...dbMessages].reverse() : [];
-
-      const stored = safeParseSession(sessionStorage.getItem(storageKey));
-      const withoutWelcome = stored.filter((entry) =>
-        !(entry.kind === 'system' && (entry.tone === 'accent' || String(entry.id || '').startsWith('market-status:') || String(entry.id || '').startsWith('relay-status:')))
-      );
+        const stored = safeParseSession(sessionStorage.getItem(storageKey));
+        const withoutWelcome = stored.filter((entry) =>
+          !(entry.kind === 'system' && (entry.tone === 'accent' || String(entry.id || '').startsWith('market-status:') || String(entry.id || '').startsWith('relay-status:')))
+        );
 
         // Combine history from DB and session storage, then deduplicate by content signature
         const dbMapped = chatHistory.map((m) => makeMessage({
@@ -378,27 +386,47 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
         // Ensure strict chronological order across sources
         uniqueMessages.sort((a, b) => a.ts - b.ts);
 
-      const seeded = [
-        makeMessage({
-          id: `welcome:${actorId}`,
-          kind: 'system',
-          wallet: 'system',
-          text: welcomeText,
-          tone: 'accent',
-        }),
-        ...marketMessages.map((text, i) => makeMessage({
-          id: `market-status:${i}:${actorId}`,
-          kind: 'system',
-          wallet: 'system',
-          text,
-          tone: 'market',
-        })),
-          ...uniqueMessages,
-      ].slice(-MAX_SESSION_MESSAGES);
+        // Use functional update to merge with messages received via broadcast during the await
+        setMessages((current) => {
+          const currentChat = current.filter(m => m.kind === 'chat');
+          const combinedPool = [...uniqueMessages, ...currentChat];
+          const finalSeen = new Set();
+          const finalUnique = [];
 
-      if (cancelled) return;
-      setMessages(seeded);
-      persistMessages(seeded);
+          for (const m of combinedPool) {
+            const sig = `${m.wallet}:${m.ts}:${m.text}`;
+            if (!finalSeen.has(sig)) {
+              finalSeen.add(sig);
+              finalUnique.push(m);
+            }
+          }
+          finalUnique.sort((a, b) => a.ts - b.ts);
+
+          const seeded = [
+            makeMessage({
+              id: `welcome:${actorId}`,
+              kind: 'system',
+              wallet: 'system',
+              text: welcomeText,
+              tone: 'accent',
+            }),
+            ...marketMessages.map((text, i) => makeMessage({
+              id: `market-status:${i}:${actorId}`,
+              kind: 'system',
+              wallet: 'system',
+              text,
+              tone: 'market',
+            })),
+            ...finalUnique,
+          ].slice(-MAX_SESSION_MESSAGES);
+
+          if (cancelled) return current;
+          persistMessages(seeded);
+          return seeded;
+        });
+      } catch (err) {
+        console.error('IRC initialization failed:', err);
+      }
     };
 
     loadWelcome();
