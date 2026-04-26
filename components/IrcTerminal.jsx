@@ -139,8 +139,6 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
   const [visibleCount, setVisibleCount] = useState(5);
 
   const relayRef = useRef(null);
-  const previousWalletRef = useRef('');
-  const previousAnonIdRef = useRef('');
   const previousPresenceRef = useRef(new Set());
   const presenceBootedRef = useRef(false);
   const endRef = useRef(null);
@@ -250,58 +248,8 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
     return () => { supabase.removeChannel(channel); setWalletFlags({}); };
   }, [normalizedWallet, walletFlag]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Initialize previousAnonIdRef when anonId first becomes stable
-  useEffect(() => {
-    if (anonId.startsWith('anon:') && !previousAnonIdRef.current) {
-      previousAnonIdRef.current = anonId;
-    }
-  }, [anonId]);
-
-  // Migrate messages when actorId changes (e.g., anon -> wallet transition)
-  useEffect(() => {
-    if (typeof window === 'undefined' || !storageKey) return;
-    const prevAnonId = previousAnonIdRef.current;
-    // If we had an anon identity and now have a wallet, migrate messages
-    if (prevAnonId && prevAnonId.startsWith('anon:') && normalizedWallet && !normalizedWallet.startsWith('anon:')) {
-      const oldKey = sessionKeyForWallet(prevAnonId);
-      const newKey = storageKey;
-      if (oldKey !== newKey) {
-        try {
-          const oldMessages = safeParseSession(sessionStorage.getItem(oldKey));
-          if (oldMessages.length > 0) {
-            // Filter out system/welcome messages, keep only user messages
-            const userMessages = oldMessages.filter((entry) =>
-              entry.kind === 'chat' || (entry.kind === 'system' && entry.tone !== 'accent' && !String(entry.id || '').startsWith('market-status:') && !String(entry.id || '').startsWith('relay-status:'))
-            );
-            if (userMessages.length > 0) {
-              // Append user messages to current session
-              setMessages((current) => {
-                const existingIds = new Set(current.map((m) => m.id));
-                const newMessages = userMessages.filter((m) => !existingIds.has(m.id));
-                if (newMessages.length === 0) return current;
-                const combined = [...current, ...newMessages].slice(-MAX_SESSION_MESSAGES);
-                persistMessages(combined);
-                return combined;
-              });
-            }
-            // Clean up old key
-            sessionStorage.removeItem(oldKey);
-          }
-        } catch {}
-      }
-    }
-    // Update previousAnonIdRef when anonId changes
-    if (anonId.startsWith('anon:')) {
-      previousAnonIdRef.current = anonId;
-    }
-  }, [normalizedWallet, storageKey, persistMessages, anonId]);
-
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    const previousWallet = previousWalletRef.current;
-    if (previousWallet && !previousWallet.startsWith('anon:') && previousWallet !== normalizedWallet) {
-      sessionStorage.removeItem(sessionKeyForWallet(previousWallet));
-    }
     if (!normalizedWallet) {
       presenceBootedRef.current = false;
       previousPresenceRef.current = new Set();
@@ -317,7 +265,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
       const marketMessages = [];
       try {
         const nowIso = new Date().toISOString();
-        const [{ data }, { data: ownersData }, { data: commandsData }, { data: pixelsData }] = await Promise.all([
+        const [{ data }, { data: ownersData }, { data: commandsData }, { data: pixelsData }, { data: dbMessages }] = await Promise.all([
           supabase
             .from('mm3_macro_state')
             .select('ticker_message, ticker_message_en, ticker_message_es')
@@ -334,6 +282,11 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
           supabase
             .from('mm3_podcast_pixels')
             .select('pixel_key, emoji, grid_row, grid_col'),
+          supabase
+            .from('mm3_irc_messages')
+            .select('wallet, text, ts, kind, tone')
+            .order('ts', { ascending: false })
+            .limit(MAX_CHAT_HISTORY),
         ]);
         welcomeText = tickerFromRow(data, language, welcomeText);
 
@@ -392,10 +345,39 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
         }
       } catch {}
 
+      // Reverse DB messages to restore chronological order for the terminal log
+      const chatHistory = Array.isArray(dbMessages) ? [...dbMessages].reverse() : [];
+
       const stored = safeParseSession(sessionStorage.getItem(storageKey));
       const withoutWelcome = stored.filter((entry) =>
         !(entry.kind === 'system' && (entry.tone === 'accent' || String(entry.id || '').startsWith('market-status:') || String(entry.id || '').startsWith('relay-status:')))
       );
+
+        // Combine history from DB and session storage, then deduplicate by content signature
+        const dbMapped = chatHistory.map((m) => makeMessage({
+          id: `db:${m.wallet}:${m.ts}:${Math.random().toString(36).slice(2, 5)}`,
+          kind: m.kind || 'chat',
+          wallet: m.wallet,
+          text: m.text,
+          ts: m.ts,
+          tone: m.tone || 'neutral',
+        }));
+
+        const combined = [...dbMapped, ...withoutWelcome];
+        const seenSig = new Set();
+        const uniqueMessages = [];
+
+        for (const m of combined) {
+          const sig = `${m.wallet}:${m.ts}:${m.text}`;
+          if (!seenSig.has(sig)) {
+            seenSig.add(sig);
+            uniqueMessages.push(m);
+          }
+        }
+
+        // Ensure strict chronological order across sources
+        uniqueMessages.sort((a, b) => a.ts - b.ts);
+
       const seeded = [
         makeMessage({
           id: `welcome:${actorId}`,
@@ -411,7 +393,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
           text,
           tone: 'market',
         })),
-        ...withoutWelcome,
+          ...uniqueMessages,
       ].slice(-MAX_SESSION_MESSAGES);
 
       if (cancelled) return;
@@ -1031,15 +1013,27 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
     const text = normalizeRelayMessage(draft);
     if (!text) return;
 
+    const now = Date.now();
     const payload = {
-      id: `msg:${normalizedWallet}:${Date.now()}:${Math.random().toString(36).slice(2, 7)}`,
+      id: `msg:${normalizedWallet}:${now}:${Math.random().toString(36).slice(2, 7)}`,
       wallet: normalizedWallet,
       text,
-      ts: Date.now(),
+      ts: now,
     };
 
     appendMessage(makeMessage(payload), { silent: false });
     setDraft('');
+
+    // Persist to database
+    try {
+      await supabase.from('mm3_irc_messages').insert({
+        wallet: normalizedWallet,
+        text,
+        ts: payload.ts,
+        kind: 'chat',
+        tone: 'neutral',
+      });
+    } catch {}
 
     try {
       await relayRef.current?.send({
