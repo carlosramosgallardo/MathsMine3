@@ -22,6 +22,7 @@ export const metadata = {
   description: 'Solve math problems to mine MM3 tokens, climb the prestige ranking, and watch your impact on a live token chart. A crypto-freak game powered entirely by an AI team.',
   metadataBase: new URL('https://mathsmine3.xyz'),
   alternates: { canonical: '/' },
+  authors: [{ name: 'FreakingAI', url: 'https://mathsmine3.xyz' }],
 };
 
 export default function RootLayout({ children }) {

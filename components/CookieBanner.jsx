@@ -26,8 +26,13 @@ export default function CookieBanner() {
   }, []);
 
   const handleAccept = () => {
-    // Store consent in localStorage — used to suppress this banner on future visits
     localStorage.setItem('mm3_cookies_accepted', 'true');
+    localStorage.setItem('mm3_cookies_accepted_at', new Date().toISOString());
+    setShowBanner(false);
+  };
+
+  const handleDecline = () => {
+    localStorage.setItem('mm3_cookies_accepted', 'false');
     localStorage.setItem('mm3_cookies_accepted_at', new Date().toISOString());
     setShowBanner(false);
   };
@@ -41,23 +46,31 @@ export default function CookieBanner() {
         {/* Cookie notice text */}
         <div className="flex-1">
           <p className="leading-relaxed">
-            We use cookies for analytics and tracking ({' '}
+            We use cookies for analytics and advertising ({' '}
             <span className="text-cyan-400">Google Analytics, GTM, AdSense</span>
-            ). By continuing, you accept our{' '}
-            <Link href="/manifesto#privacy" className="text-cyan-400 hover:text-cyan-300 underline">
-              privacy policy
+            ). See our{' '}
+            <Link href="/privacy" className="text-cyan-400 hover:text-cyan-300 underline">
+              Privacy Policy
             </Link>
             .
           </p>
         </div>
 
-        {/* Accept button */}
-        <button
-          onClick={handleAccept}
-          className="shrink-0 px-3 py-1.5 bg-cyan-500/15 border border-cyan-500/40 rounded text-cyan-300 hover:bg-cyan-500/25 hover:border-cyan-400/60 transition-colors whitespace-nowrap"
-        >
-          [ Accept ]
-        </button>
+        {/* Consent buttons */}
+        <div className="flex gap-2 shrink-0">
+          <button
+            onClick={handleDecline}
+            className="px-3 py-1.5 border border-slate-700/60 rounded text-slate-500 hover:text-slate-400 hover:border-slate-600 transition-colors whitespace-nowrap"
+          >
+            [ Decline ]
+          </button>
+          <button
+            onClick={handleAccept}
+            className="px-3 py-1.5 bg-cyan-500/15 border border-cyan-500/40 rounded text-cyan-300 hover:bg-cyan-500/25 hover:border-cyan-400/60 transition-colors whitespace-nowrap"
+          >
+            [ Accept ]
+          </button>
+        </div>
       </div>
     </div>
   );

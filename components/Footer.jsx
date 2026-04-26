@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useSound } from '@/lib/sound-context'
 import { useAccount, useWalletClient } from 'wagmi'
@@ -144,6 +145,11 @@ export default function Footer() {
             </a>
           )
         )}
+        <span className="select-none text-gray-800">|</span>
+        <Link href="/privacy" className="transition-colors duration-150 hover:text-cyan-400">Privacy</Link>
+        <Link href="/terms" className="transition-colors duration-150 hover:text-cyan-400">Terms</Link>
+        <span className="select-none text-gray-800">|</span>
+        <span className="text-gray-700 select-none">&copy; 2025 FreakingAI</span>
       </div>
     </footer>
   )
