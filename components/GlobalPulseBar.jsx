@@ -10,23 +10,20 @@ const ACTIVE_WINDOW_MS = 90_000;
 
 function normalizeActiveWallets(rows) { const uniqueWallets=[]; const seen=new Set(); for (const entry of rows||[]) { const wallet=String(entry.wallet||'').toLowerCase(); if(!wallet||seen.has(wallet)) continue; seen.add(wallet); uniqueWallets.push({wallet,source:entry.source||'wallet',last_seen:entry.last_seen||null}); } return uniqueWallets; }
 function countAnonFromState(state) { const seen=new Set(); let count=0; for (const entries of Object.values(state||{})) { for (const u of entries) { const id=String(u.anonId||''); if(!id.startsWith('anon:')||seen.has(id)) continue; seen.add(id); count++; } } return count; }
-function readIrcPanelCount(){ if(typeof document==='undefined') return null; const candidates=Array.from(document.querySelectorAll('span,div')); for(const el of candidates){ const text=String(el.textContent||'').replace(/\s+/g,' ').trim(); const match=text.match(/(?:^|\s)(\d+)\s*\/\s*\d+\s*wallets\s*·\s*(\d+)\s*irc(?:\s|$)/i); if(!match) continue; const rect=el.getBoundingClientRect?.(); if(rect&&rect.left>window.innerWidth*0.5) return Number(match[2]); } return null; }
 
 export default function GlobalPulseBar(){
 const { language } = useI18n(); const dice=useDice();
 const [macro,setMacro]=useState(()=>normalizeMacroState());
 const [activeWallets,setActiveWallets]=useState([]);
 const [anonCount,setAnonCount]=useState(0);
-const [panelIrcCount,setPanelIrcCount]=useState(null);
 const [totalWallets,setTotalWallets]=useState(0);
 
 useEffect(()=>{ const load=async()=>{ try{ const {data}=await supabase.from('mm3_macro_state').select('war_percent, nature_percent').eq('id',1).maybeSingle(); setMacro(normalizeMacroState(data)); }catch{} }; load(); const t=setInterval(load,30000); return()=>clearInterval(t); },[]);
 useEffect(()=>{ const load=async()=>{ try{ const since=new Date(Date.now()-ACTIVE_WINDOW_MS).toISOString(); const {data}=await supabase.from('mm3_wallet_presence').select('wallet, source, last_seen').gte('last_seen',since).order('last_seen',{ascending:false}); setActiveWallets(normalizeActiveWallets(data)); }catch{ setActiveWallets([]);} }; load(); const t=setInterval(load,10000); const c=supabase.channel('mm3-global-pulse-presence-watch').on('postgres_changes',{event:'*',schema:'public',table:'mm3_wallet_presence'},load).subscribe(); return()=>{clearInterval(t); supabase.removeChannel(c);} },[]);
 useEffect(()=>{ const load=async()=>{ try{ const {count}=await supabase.from('player_progress').select('wallet',{count:'exact',head:true}); if(count!=null) setTotalWallets(count);}catch{} }; load(); const t=setInterval(load,60000); return()=>clearInterval(t); },[]);
-useEffect(()=>{ const c=supabase.channel('mm3-irc-anon-presence'); c.on('presence',{event:'sync'},()=>setAnonCount(countAnonFromState(c.presenceState()))).subscribe((s)=>{ if(s==='SUBSCRIBED') setAnonCount(countAnonFromState(c.presenceState()));}); return()=>supabase.removeChannel(c); },[]);
-useEffect(()=>{ if(typeof document==='undefined') return; const sync=()=>{ const n=readIrcPanelCount(); setPanelIrcCount(Number.isFinite(n)?n:null);}; sync(); const t=setInterval(sync,1000); const o=new MutationObserver(sync); o.observe(document.body,{childList:true,subtree:true,characterData:true}); return()=>{clearInterval(t);o.disconnect();}; },[]);
+useEffect(()=>{ const c=supabase.channel('mm3-irc-anon-presence'); c.on('presence',{event:'sync'},()=>setAnonCount(countAnonFromState(c.presenceState()))).subscribe(async(s)=>{ if(s==='SUBSCRIBED'){ await c.track({type:'header'}).catch(()=>{}); setAnonCount(countAnonFromState(c.presenceState())); } }); return()=>supabase.removeChannel(c); },[]);
 
-const isSpanish=language==='es'; const ircConnectedCount=panelIrcCount ?? (activeWallets.length+anonCount);
+const isSpanish=language==='es'; const ircConnectedCount=activeWallets.length+anonCount;
 const items=[{emoji:'⚔️',value:macro.war_percent,color:'#fb7185'},{emoji:'🌪️',value:macro.nature_percent,color:'#67e8f9'}];
 const diceModPct=dice?Math.round(Math.abs(dice.modifier)*100):0; const diceSign=dice?.modifier>=0?'+':'−';
 
