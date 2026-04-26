@@ -785,36 +785,36 @@ export default function PodcastBoard({ account, isVirtualWallet = false }) {
     <div className="w-full font-mono text-cyan-100">
       {loading && <PageLoading label={t('podcast.loading')} />}
 
-      <div className="mm3-market-shell grid gap-1.5 lg:grid-cols-[minmax(520px,calc(100vw-520px))_minmax(360px,460px)] lg:items-stretch lg:justify-center lg:gap-1">
-        <section className="min-w-0">
-          <div className="mm3-market-board-wrap mx-auto w-full max-w-[min(85vw,calc(100dvh-220px))] lg:mx-0 lg:max-w-[min(calc(100vw-520px),calc(100dvh-220px))]">
+      <div className="mm3-market-shell mx-auto grid w-full max-w-[1080px] gap-2 lg:grid-cols-[minmax(0,1fr)_minmax(300px,400px)] lg:items-start lg:gap-3 lg:px-2">
+        <section className="min-w-0 rounded border border-cyan-500/15 bg-black/20 p-2 shadow-[0_0_18px_rgba(34,211,238,0.04)]">
+          <div className="mm3-market-board-wrap mx-auto w-full max-w-[min(85vw,calc(100dvh-200px),520px)] lg:max-w-[min(100%,calc(100dvh-180px),500px)]">
             <div className="relative">
               <button
                 type="button"
                 onClick={() => move('up')}
-                className="mm3-market-nav absolute left-1/2 top-0 z-10 flex h-8 w-8 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded border border-cyan-500/20 bg-black/90 text-[0.62rem] text-cyan-200 transition hover:border-cyan-400/45 hover:text-cyan-100"
+                className="mm3-market-nav absolute left-1/2 top-0 z-10 flex h-7 w-7 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded border border-cyan-500/20 bg-black/90 text-[0.58rem] text-cyan-200 transition hover:border-cyan-400/45 hover:text-cyan-100"
                 aria-label={t('podcast.panUp')}
               >▲</button>
               <button
                 type="button"
                 onClick={() => move('left')}
-                className="mm3-market-nav absolute left-0 top-1/2 z-10 flex h-8 w-8 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded border border-cyan-500/20 bg-black/90 text-[0.62rem] text-cyan-200 transition hover:border-cyan-400/45 hover:text-cyan-100"
+                className="mm3-market-nav absolute left-0 top-1/2 z-10 flex h-7 w-7 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded border border-cyan-500/20 bg-black/90 text-[0.58rem] text-cyan-200 transition hover:border-cyan-400/45 hover:text-cyan-100"
                 aria-label={t('podcast.panLeft')}
               >◀</button>
               <button
                 type="button"
                 onClick={() => move('right')}
-                className="mm3-market-nav absolute right-0 top-1/2 z-10 flex h-8 w-8 translate-x-1/2 -translate-y-1/2 items-center justify-center rounded border border-cyan-500/20 bg-black/90 text-[0.62rem] text-cyan-200 transition hover:border-cyan-400/45 hover:text-cyan-100"
+                className="mm3-market-nav absolute right-0 top-1/2 z-10 flex h-7 w-7 translate-x-1/2 -translate-y-1/2 items-center justify-center rounded border border-cyan-500/20 bg-black/90 text-[0.58rem] text-cyan-200 transition hover:border-cyan-400/45 hover:text-cyan-100"
                 aria-label={t('podcast.panRight')}
               >▶</button>
               <button
                 type="button"
                 onClick={() => move('down')}
-                className="mm3-market-nav absolute bottom-0 left-1/2 z-10 flex h-8 w-8 -translate-x-1/2 translate-y-1/2 items-center justify-center rounded border border-cyan-500/20 bg-black/90 text-[0.62rem] text-cyan-200 transition hover:border-cyan-400/45 hover:text-cyan-100"
+                className="mm3-market-nav absolute bottom-0 left-1/2 z-10 flex h-7 w-7 -translate-x-1/2 translate-y-1/2 items-center justify-center rounded border border-cyan-500/20 bg-black/90 text-[0.58rem] text-cyan-200 transition hover:border-cyan-400/45 hover:text-cyan-100"
                 aria-label={t('podcast.panDown')}
               >▼</button>
 
-              <div className="mm3-market-board-frame overflow-hidden rounded border border-cyan-500/10 bg-black/35 p-2">
+              <div className="mm3-market-board-frame overflow-hidden rounded border border-cyan-500/18 bg-black/40 p-1.5 shadow-[inset_0_0_24px_rgba(0,0,0,0.6),0_0_12px_rgba(34,211,238,0.06)]">
                 <div
                   className="relative grid w-full"
                   style={{
