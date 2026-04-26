@@ -31,6 +31,9 @@ export const metadata = {
   description:
     'Solve math problems to mine MM3 tokens, climb the prestige ranking, and watch your impact on a live token chart. A crypto-freak game powered entirely by an AI team.',
   metadataBase: new URL('https://mathsmine3.xyz'),
+  alternates: {
+    canonical: '/',
+  },
   keywords: ['math game', 'crypto game', 'mine tokens', 'MM3', 'blockchain game', 'math mining', 'NFT game', 'web3 game'],
   authors: [{ name: 'MathsMine3 AI Team', url: 'https://mathsmine3.xyz/ai-team' }],
   openGraph: {
@@ -63,7 +66,6 @@ export default function RootLayout({ children }) {
   return (
     <html lang="en" className="h-full">
       <head>
-        <link rel="canonical" href="https://mathsmine3.xyz/" />
         <link rel="icon" href="/favicon.ico" />
         <link rel="apple-touch-icon" href="/mm3-token.png" />
         <link rel="manifest" href="/manifest.json" />
@@ -80,7 +82,6 @@ export default function RootLayout({ children }) {
           crossOrigin="anonymous"
           async
         />
-        {/* GTM: beforeInteractive to capture early events + noscript fallback in body */}
         <Script id="gtm-init" strategy="beforeInteractive">{`
           (function(w,d,s,l,i){w[l]=w[l]||[];
             w[l].push({'gtm.start': new Date().getTime(),event:'gtm.js'});
@@ -89,8 +90,6 @@ export default function RootLayout({ children }) {
             f.parentNode.insertBefore(j,f);
           })(window,document,'script','dataLayer','${GTM_ID}');
         `}</Script>
-        {/* GA4 + AdSense: afterInteractive (optimal for FCP/LCP without losing data) */}
-        {/* Manual page_view event ensures GA4 data capture even if script loads slightly late */}
         {GA_ID && (
           <>
             <Script id="ga4-src" src={`https://www.googletagmanager.com/gtag/js?id=${GA_ID}`} strategy="afterInteractive" />
@@ -99,7 +98,6 @@ export default function RootLayout({ children }) {
               function gtag(){dataLayer.push(arguments);}
               gtag('js', new Date());
               gtag('config', '${GA_ID}', { page_path: window.location.pathname });
-              // Manual page_view event ensures data capture even if GA4 loads late
               gtag('event', 'page_view', {
                 page_path: window.location.pathname,
                 page_title: document.title,
@@ -111,11 +109,7 @@ export default function RootLayout({ children }) {
       </head>
 
       <body className="h-full bg-black text-white font-mono">
-        <noscript
-          dangerouslySetInnerHTML={{
-            __html: `<iframe src="https://www.googletagmanager.com/ns.html?id=${GTM_ID}" height="0" width="0" style="display:none;visibility:hidden"></iframe>`,
-          }}
-        />
+        <noscript dangerouslySetInnerHTML={{ __html: `<iframe src="https://www.googletagmanager.com/ns.html?id=${GTM_ID}" height="0" width="0" style="display:none;visibility:hidden"></iframe>` }} />
         <I18nProvider>
           <CurrencyProvider>
             <SoundProvider>
@@ -123,16 +117,12 @@ export default function RootLayout({ children }) {
                 <GoogleAuthProvider>
                   <DiceProvider>
                     <RouteShell>
-                      {/* Fixed topbar header */}
                       <Header />
                       <GlobalRouteLoading />
-                      {/* Scrollable content between header (144px mobile / 166px desktop) and footer (32px) */}
                       <main className="mm3-shell-main pt-[148px] sm:pt-[170px] lg:pt-[192px] pb-[32px] h-screen overflow-y-auto">
                         {children}
                       </main>
-                      {/* Fixed one-line footer */}
                       <Footer />
-                      {/* Cookie consent banner — appears if user hasn't accepted cookies yet */}
                       <CookieBanner />
                     </RouteShell>
                   </DiceProvider>
