@@ -36,12 +36,31 @@ function countAnonFromState(state) {
   return count;
 }
 
+function readIrcPanelCount() {
+  if (typeof document === 'undefined') return null;
+  const candidates = Array.from(document.querySelectorAll('span,div'));
+
+  for (const el of candidates) {
+    const text = String(el.textContent || '').replace(/\s+/g, ' ').trim();
+    const match = text.match(/(?:^|\s)(\d+)\s*\/\s*\d+\s*wallets\s*·\s*(\d+)\s*irc(?:\s|$)/i);
+    if (!match) continue;
+
+    const rect = el.getBoundingClientRect?.();
+    if (rect && rect.left > window.innerWidth * 0.5) {
+      return Number(match[2]);
+    }
+  }
+
+  return null;
+}
+
 export default function GlobalPulseBar() {
   const { language } = useI18n();
   const dice = useDice();
   const [macro, setMacro] = useState(() => normalizeMacroState());
   const [activeWallets, setActiveWallets] = useState([]);
   const [anonCount, setAnonCount] = useState(0);
+  const [panelIrcCount, setPanelIrcCount] = useState(null);
   const [totalWallets, setTotalWallets] = useState(0);
 
   useEffect(() => {
@@ -114,8 +133,28 @@ export default function GlobalPulseBar() {
     };
   }, []);
 
+  useEffect(() => {
+    if (typeof document === 'undefined') return undefined;
+
+    const syncFromPanel = () => {
+      const next = readIrcPanelCount();
+      setPanelIrcCount(Number.isFinite(next) ? next : null);
+    };
+
+    syncFromPanel();
+    const timer = setInterval(syncFromPanel, 1000);
+    const observer = new MutationObserver(syncFromPanel);
+    observer.observe(document.body, { childList: true, subtree: true, characterData: true });
+
+    return () => {
+      clearInterval(timer);
+      observer.disconnect();
+    };
+  }, []);
+
   const isSpanish = language === 'es';
-  const ircConnectedCount = activeWallets.length + anonCount;
+  const calculatedIrcCount = activeWallets.length + anonCount;
+  const ircConnectedCount = panelIrcCount ?? calculatedIrcCount;
 
   const items = [
     { emoji: '⚔️', value: macro.war_percent, color: '#fb7185' },
@@ -142,7 +181,14 @@ export default function GlobalPulseBar() {
         )}
       </div>
 
-      <div className="group relative flex h-7 items-center gap-[3px] px-0.5 sm:px-1 font-mono text-[0.54rem] font-black sm:h-9 sm:text-[0.62rem]">
+      <div
+        className="group relative flex h-7 items-center gap-[3px] px-0.5 sm:px-1 font-mono text-[0.54rem] font-black sm:h-9 sm:text-[0.62rem]"
+        title={
+          isSpanish
+            ? `logados: ${activeWallets.length} / wallets: ${totalWallets} · IRC: ${ircConnectedCount}`
+            : `online: ${activeWallets.length} / wallets: ${totalWallets} · IRC: ${ircConnectedCount}`
+        }
+      >
         <span className="text-emerald-400 tabular-nums">{activeWallets.length}</span>
         <span className="text-slate-600 text-[0.44rem]">/</span>
         <span className="text-slate-500 tabular-nums">{totalWallets}</span>
