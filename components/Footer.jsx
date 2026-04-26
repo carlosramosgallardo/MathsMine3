@@ -78,7 +78,7 @@ export default function Footer() {
   }
 
   return (
-    <footer className={`fixed bottom-0 left-0 right-0 z-40 h-[32px] overflow-x-auto whitespace-nowrap border-t border-cyan-900/20 bg-black/97 px-3 text-[0.62rem] font-mono text-gray-600 backdrop-blur-sm no-scrollbar ${pathname === '/trade-mm3' ? 'mm3-trade-footer' : ''}`}>
+    <footer className={`fixed bottom-0 left-0 right-0 z-40 h-[32px] overflow-x-auto whitespace-nowrap border-t border-cyan-900/20 bg-black/97 px-3 text-[0.75rem] font-mono text-gray-600 backdrop-blur-sm no-scrollbar ${pathname === '/trade-mm3' ? 'mm3-trade-footer' : ''}`}>
       <div className="mx-auto flex h-full min-w-max items-center justify-center gap-3">
         {socials.map(({ label, href }) => (
           <a

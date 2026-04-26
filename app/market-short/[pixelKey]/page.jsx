@@ -83,7 +83,7 @@ export default function MarketShortPage() {
         <div className="mx-auto max-w-4xl font-mono text-cyan-100">
           <div className="mb-4 flex items-center justify-between gap-4">
             <div>
-              <div className="text-[0.58rem] uppercase tracking-[0.22em] text-cyan-400/80">
+              <div className="text-[0.82rem] uppercase tracking-[0.22em] text-cyan-400/80">
                 {t('podcast.marketFeed')}
               </div>
               <div className="mt-1 flex items-center gap-3 text-lg font-black text-cyan-100 sm:text-2xl">
@@ -94,7 +94,7 @@ export default function MarketShortPage() {
 
             <Link
               href="/market"
-              className="rounded-xl border border-cyan-400/35 bg-black/70 px-4 py-3 text-[0.68rem] font-black uppercase tracking-[0.24em] text-cyan-200 transition hover:border-cyan-300 hover:text-cyan-100"
+              className="rounded-xl border border-cyan-400/35 bg-black/70 px-4 py-3 text-[0.90rem] font-black uppercase tracking-[0.24em] text-cyan-200 transition hover:border-cyan-300 hover:text-cyan-100"
             >
               {t('podcast.backToMarket')}
             </Link>
@@ -117,7 +117,7 @@ export default function MarketShortPage() {
               )}
             </div>
 
-            <div className="mt-4 text-center text-[0.62rem] uppercase tracking-[0.18em] text-cyan-300/70">
+            <div className="mt-4 text-center text-[0.75rem] uppercase tracking-[0.18em] text-cyan-300/70">
               {block?.claimed_by ? `${t('podcast.owner')}: ${block.claimed_by}` : t('podcast.noWinner')}
             </div>
           </section>

@@ -792,25 +792,25 @@ export default function PodcastBoard({ account, isVirtualWallet = false }) {
               <button
                 type="button"
                 onClick={() => move('up')}
-                className="mm3-market-nav absolute left-1/2 top-0 z-10 flex h-7 w-7 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded border border-cyan-500/20 bg-black/90 text-[0.58rem] text-cyan-200 transition hover:border-cyan-400/45 hover:text-cyan-100"
+                className="mm3-market-nav absolute left-1/2 top-0 z-10 flex h-7 w-7 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded border border-cyan-500/20 bg-black/90 text-[0.82rem] text-cyan-200 transition hover:border-cyan-400/45 hover:text-cyan-100"
                 aria-label={t('podcast.panUp')}
               >▲</button>
               <button
                 type="button"
                 onClick={() => move('left')}
-                className="mm3-market-nav absolute left-0 top-1/2 z-10 flex h-7 w-7 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded border border-cyan-500/20 bg-black/90 text-[0.58rem] text-cyan-200 transition hover:border-cyan-400/45 hover:text-cyan-100"
+                className="mm3-market-nav absolute left-0 top-1/2 z-10 flex h-7 w-7 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded border border-cyan-500/20 bg-black/90 text-[0.82rem] text-cyan-200 transition hover:border-cyan-400/45 hover:text-cyan-100"
                 aria-label={t('podcast.panLeft')}
               >◀</button>
               <button
                 type="button"
                 onClick={() => move('right')}
-                className="mm3-market-nav absolute right-0 top-1/2 z-10 flex h-7 w-7 translate-x-1/2 -translate-y-1/2 items-center justify-center rounded border border-cyan-500/20 bg-black/90 text-[0.58rem] text-cyan-200 transition hover:border-cyan-400/45 hover:text-cyan-100"
+                className="mm3-market-nav absolute right-0 top-1/2 z-10 flex h-7 w-7 translate-x-1/2 -translate-y-1/2 items-center justify-center rounded border border-cyan-500/20 bg-black/90 text-[0.82rem] text-cyan-200 transition hover:border-cyan-400/45 hover:text-cyan-100"
                 aria-label={t('podcast.panRight')}
               >▶</button>
               <button
                 type="button"
                 onClick={() => move('down')}
-                className="mm3-market-nav absolute bottom-0 left-1/2 z-10 flex h-7 w-7 -translate-x-1/2 translate-y-1/2 items-center justify-center rounded border border-cyan-500/20 bg-black/90 text-[0.58rem] text-cyan-200 transition hover:border-cyan-400/45 hover:text-cyan-100"
+                className="mm3-market-nav absolute bottom-0 left-1/2 z-10 flex h-7 w-7 -translate-x-1/2 translate-y-1/2 items-center justify-center rounded border border-cyan-500/20 bg-black/90 text-[0.82rem] text-cyan-200 transition hover:border-cyan-400/45 hover:text-cyan-100"
                 aria-label={t('podcast.panDown')}
               >▼</button>
 
@@ -864,7 +864,7 @@ export default function PodcastBoard({ account, isVirtualWallet = false }) {
                             <span className="pointer-events-none text-[min(2.4vw,0.92rem)] leading-none drop-shadow-[0_0_8px_rgba(250,204,21,0.35)] sm:text-[min(1.6vw,1rem)]">
                               {block.emoji}
                             </span>
-                            <span className="pointer-events-none absolute bottom-[1px] right-[1px] text-[0.26rem] font-black tracking-[0.08em] text-cyan-100/90 sm:text-[0.3rem]">
+                            <span className="pointer-events-none absolute bottom-[1px] right-[1px] text-[0.44rem] font-black tracking-[0.08em] text-cyan-100/90 sm:text-[0.3rem]">
                               {cellHex}
                             </span>
                           </>
@@ -886,15 +886,15 @@ export default function PodcastBoard({ account, isVirtualWallet = false }) {
               <div className="flex items-center gap-1.5">
                 <span className="text-base leading-none">{selectedBlock?.emoji}</span>
                 {!selectedBlock?.isPlaceholder ? (
-                  <Link href={`/market-short/${selectedBlock?.pixel_key}`} className="text-[0.58rem] font-black uppercase tracking-[0.18em] text-cyan-100 hover:text-cyan-300 hover:underline lg:text-[0.62rem]">{selectedTitle}</Link>
+                  <Link href={`/market-short/${selectedBlock?.pixel_key}`} className="text-[0.82rem] font-black uppercase tracking-[0.18em] text-cyan-100 hover:text-cyan-300 hover:underline lg:text-[0.75rem]">{selectedTitle}</Link>
                 ) : (
-                  <span className="text-[0.58rem] font-black uppercase tracking-[0.18em] text-cyan-100 lg:text-[0.62rem]">{selectedTitle}</span>
+                  <span className="text-[0.82rem] font-black uppercase tracking-[0.18em] text-cyan-100 lg:text-[0.75rem]">{selectedTitle}</span>
                 )}
               </div>
-              <div className="mt-0.5 text-[0.58rem] font-black uppercase tracking-[0.16em] text-cyan-400/55 lg:text-[0.6rem]">{selectedBlockHex}</div>
+              <div className="mt-0.5 text-[0.82rem] font-black uppercase tracking-[0.16em] text-cyan-400/55 lg:text-[0.6rem]">{selectedBlockHex}</div>
             </div>
             <span
-              className="mm3-market-status-badge shrink-0 rounded border px-1 py-0.5 text-[0.55rem] font-black uppercase tracking-[0.12em] lg:px-1.5 lg:text-[0.56rem] lg:tracking-[0.14em]"
+              className="mm3-market-status-badge shrink-0 rounded border px-1 py-0.5 text-[0.78rem] font-black uppercase tracking-[0.12em] lg:px-1.5 lg:text-[0.80rem] lg:tracking-[0.14em]"
               style={{
                 borderColor: hasCurrentOwners ? 'rgba(74,222,128,0.3)' : 'rgba(34,211,238,0.22)',
                 color: hasCurrentOwners ? '#4ade80' : '#67e8f9',
@@ -906,13 +906,13 @@ export default function PodcastBoard({ account, isVirtualWallet = false }) {
 
           {/* ── Price ── */}
           <div className="mm3-market-detail-card rounded border border-amber-400/14 bg-amber-950/8 px-2 py-1.5 lg:px-2.5 lg:py-2">
-            <div className="text-[0.55rem] uppercase tracking-[0.16em] text-amber-300/65 lg:text-[0.56rem] lg:tracking-[0.18em]">{t('podcast.price')}</div>
+            <div className="text-[0.78rem] uppercase tracking-[0.16em] text-amber-300/65 lg:text-[0.80rem] lg:tracking-[0.18em]">{t('podcast.price')}</div>
             <div className="mt-1 text-[1.15rem] font-black leading-none text-amber-300 lg:text-lg">{displayPrice}</div>
           </div>
 
           {/* ── Owner shell ── */}
           <div className="mm3-market-detail-card rounded border border-cyan-500/12 bg-black/45 px-2 py-1.5 lg:px-2.5 lg:py-2">
-            <div className="text-[0.55rem] uppercase tracking-[0.16em] text-cyan-300/65 lg:text-[0.56rem] lg:tracking-[0.18em]">{t('podcast.owner')}</div>
+            <div className="text-[0.78rem] uppercase tracking-[0.16em] text-cyan-300/65 lg:text-[0.80rem] lg:tracking-[0.18em]">{t('podcast.owner')}</div>
             <div className="mt-1 flex max-h-20 flex-col gap-1 overflow-y-auto pr-1">
               {hasCurrentOwners ? (
                 currentOwners.map((owner) => {
@@ -922,7 +922,7 @@ export default function PodcastBoard({ account, isVirtualWallet = false }) {
                       key={owner}
                       type="button"
                       onClick={() => openRankingWallet(owner)}
-                      className="block text-left text-[0.66rem] transition hover:underline focus:outline-none lg:text-[0.72rem]"
+                      className="block text-left text-[0.88rem] transition hover:underline focus:outline-none lg:text-[0.95rem]"
                       style={{ color: ownerColor, textShadow: `0 0 10px ${ownerColor}33` }}
                       title={owner}
                     >
@@ -931,7 +931,7 @@ export default function PodcastBoard({ account, isVirtualWallet = false }) {
                   );
                 })
               ) : (
-                <span className="text-[0.66rem] lg:text-[0.72rem]" style={{ color: '#cffafe', textShadow: '0 0 10px #cffafe33' }}>
+                <span className="text-[0.88rem] lg:text-[0.95rem]" style={{ color: '#cffafe', textShadow: '0 0 10px #cffafe33' }}>
                   {t('podcast.noWinner')}
                 </span>
               )}
@@ -952,7 +952,7 @@ export default function PodcastBoard({ account, isVirtualWallet = false }) {
             ) : (
               <Link
                 href={`/market-short/${selectedBlock?.pixel_key}`}
-                className="flex items-center justify-center gap-1 rounded border border-cyan-500/10 bg-black/25 px-2 py-1.5 text-[0.56rem] uppercase tracking-[0.14em] text-cyan-800/70 transition hover:border-cyan-500/25 hover:text-cyan-500/80 lg:col-span-2"
+                className="flex items-center justify-center gap-1 rounded border border-cyan-500/10 bg-black/25 px-2 py-1.5 text-[0.80rem] uppercase tracking-[0.14em] text-cyan-800/70 transition hover:border-cyan-500/25 hover:text-cyan-500/80 lg:col-span-2"
               >
                 {t('podcast.videoSoon')}
               </Link>
@@ -963,15 +963,15 @@ export default function PodcastBoard({ account, isVirtualWallet = false }) {
           {selectedMarketCommand && (
             <div className="mm3-market-detail-card col-span-1 rounded border border-cyan-500/14 bg-black/45 px-2 py-1.5 lg:col-span-2 lg:px-2.5 lg:py-2">
               <div className="mb-1.5 flex items-center justify-between gap-2">
-                <div className="text-[0.55rem] uppercase tracking-[0.16em] text-cyan-300/65 lg:text-[0.56rem] lg:tracking-[0.18em]">{t('podcast.ircCommand')}</div>
+                <div className="text-[0.78rem] uppercase tracking-[0.16em] text-cyan-300/65 lg:text-[0.80rem] lg:tracking-[0.18em]">{t('podcast.ircCommand')}</div>
                 {activeBlockCommand && (
                   <div className="flex items-center gap-1 rounded border border-amber-400/30 bg-amber-950/20 px-1.5 py-0.5">
                     <span className="text-[0.5rem] uppercase tracking-[0.1em] text-amber-400/70">x =</span>
-                    <span className="text-[0.52rem] font-black leading-none text-amber-300">{activeBlockCommand.formula_x}</span>
+                    <span className="text-[0.75rem] font-black leading-none text-amber-300">{activeBlockCommand.formula_x}</span>
                   </div>
                 )}
               </div>
-              <div className="break-words text-[0.58rem] leading-relaxed text-cyan-100/70 lg:text-[0.6rem]">
+              <div className="break-words text-[0.82rem] leading-relaxed text-cyan-100/70 lg:text-[0.6rem]">
                 {selectedMarketCommand.command}
               </div>
               {activeBlockCommand && (
@@ -984,12 +984,12 @@ export default function PodcastBoard({ account, isVirtualWallet = false }) {
               {canLaunchIrc ? (
                 <Link
                   href={`/irc?command=${encodeURIComponent(selectedMarketCommand.command)}`}
-                  className="mt-1.5 flex items-center justify-center rounded border border-cyan-500/28 bg-black/30 px-2 py-1 text-[0.54rem] font-black uppercase tracking-[0.14em] text-cyan-400/90 transition hover:border-cyan-400/55 hover:text-cyan-200"
+                  className="mt-1.5 flex items-center justify-center rounded border border-cyan-500/28 bg-black/30 px-2 py-1 text-[0.76rem] font-black uppercase tracking-[0.14em] text-cyan-400/90 transition hover:border-cyan-400/55 hover:text-cyan-200"
                 >
                   {t('podcast.launchIrcCommand')}
                 </Link>
               ) : (
-                <div className="mt-1.5 flex items-center justify-center rounded border border-slate-700/30 bg-black/20 px-2 py-1 text-[0.54rem] font-black uppercase tracking-[0.14em] text-slate-700 cursor-not-allowed select-none">
+                <div className="mt-1.5 flex items-center justify-center rounded border border-slate-700/30 bg-black/20 px-2 py-1 text-[0.76rem] font-black uppercase tracking-[0.14em] text-slate-700 cursor-not-allowed select-none">
                   {t('podcast.ircLocked')}
                 </div>
               )}
@@ -998,7 +998,7 @@ export default function PodcastBoard({ account, isVirtualWallet = false }) {
 
           {/* ── Numeric code / Penalty redemption — full width ── */}
           <div className="mm3-market-detail-card col-span-1 rounded border border-fuchsia-400/12 bg-black/45 px-2 py-1.5 lg:col-span-2 lg:px-2.5 lg:py-2">
-            <div className="mb-1 text-[0.55rem] uppercase tracking-[0.16em] text-fuchsia-300/65 lg:text-[0.56rem] lg:tracking-[0.18em]">
+            <div className="mb-1 text-[0.78rem] uppercase tracking-[0.16em] text-fuchsia-300/65 lg:text-[0.80rem] lg:tracking-[0.18em]">
               {activePenalty ? t('podcast.numericPrompt') : t('podcast.numericLocked')}
             </div>
             {activePenalty ? (
@@ -1006,7 +1006,7 @@ export default function PodcastBoard({ account, isVirtualWallet = false }) {
                 {/* Formula context repeated here so user can solve without scrolling */}
                 {selectedMarketCommand && activeBlockCommand && (
                   <div className="rounded border border-fuchsia-400/10 bg-fuchsia-950/12 px-1.5 py-1">
-                    <div className="break-words text-[0.55rem] leading-relaxed text-fuchsia-100/45">
+                    <div className="break-words text-[0.78rem] leading-relaxed text-fuchsia-100/45">
                       {selectedMarketCommand.command}
                     </div>
                     <div className="mt-0.5 flex items-center gap-1.5">
@@ -1018,7 +1018,7 @@ export default function PodcastBoard({ account, isVirtualWallet = false }) {
                     </div>
                   </div>
                 )}
-                <div className="text-[0.56rem] uppercase tracking-[0.12em] text-fuchsia-200/75">
+                <div className="text-[0.80rem] uppercase tracking-[0.12em] text-fuchsia-200/75">
                   -{activePenaltyValue.toFixed(8).replace(/\.?0+$/, '') || '0'} MM3
                 </div>
                 <div className="flex gap-1">
@@ -1029,23 +1029,23 @@ export default function PodcastBoard({ account, isVirtualWallet = false }) {
                     inputMode="numeric"
                     maxLength={5}
                     placeholder={t('podcast.numericCodeHint')}
-                    className="mm3-market-answer-input min-w-0 flex-1 rounded border border-fuchsia-400/18 bg-black/70 px-1.5 py-1 text-[0.58rem] text-fuchsia-100 outline-none placeholder:text-fuchsia-800/60 disabled:opacity-35"
+                    className="mm3-market-answer-input min-w-0 flex-1 rounded border border-fuchsia-400/18 bg-black/70 px-1.5 py-1 text-[0.82rem] text-fuchsia-100 outline-none placeholder:text-fuchsia-800/60 disabled:opacity-35"
                   />
                   <button
                     type="button"
                     onClick={handleRedeemPenalty}
                     disabled={!canRedeemPenalty}
-                    className="rounded border border-fuchsia-400/24 bg-black/60 px-2 py-1 text-[0.54rem] font-black uppercase tracking-[0.14em] text-fuchsia-200 transition hover:border-fuchsia-300 disabled:cursor-not-allowed disabled:opacity-35"
+                    className="rounded border border-fuchsia-400/24 bg-black/60 px-2 py-1 text-[0.76rem] font-black uppercase tracking-[0.14em] text-fuchsia-200 transition hover:border-fuchsia-300 disabled:cursor-not-allowed disabled:opacity-35"
                   >
                     ok
                   </button>
                 </div>
                 {activePenalty.attempted_at && (
-                  <div className="text-[0.55rem] uppercase tracking-[0.12em] text-fuchsia-500/70">{t('podcast.numericUsed')}</div>
+                  <div className="text-[0.78rem] uppercase tracking-[0.12em] text-fuchsia-500/70">{t('podcast.numericUsed')}</div>
                 )}
               </div>
             ) : (
-              <div className="text-[0.56rem] uppercase tracking-[0.12em] text-slate-600">{t('podcast.noPenalty')}</div>
+              <div className="text-[0.80rem] uppercase tracking-[0.12em] text-slate-600">{t('podcast.noPenalty')}</div>
             )}
           </div>
 
@@ -1053,20 +1053,20 @@ export default function PodcastBoard({ account, isVirtualWallet = false }) {
           {!selectedBlock?.isPlaceholder && (
             <div className="col-span-1 flex items-center gap-3 px-0.5 lg:col-span-2">
               <div className="flex items-center gap-1">
-                <span className="text-[0.34rem] uppercase tracking-[0.12em] text-slate-600">{t('podcast.statBuys')}</span>
-                <span className="text-[0.58rem] font-black text-cyan-400/60">{selectedBlock?.buy_count ?? 0}</span>
+                <span className="text-[0.55rem] uppercase tracking-[0.12em] text-slate-600">{t('podcast.statBuys')}</span>
+                <span className="text-[0.82rem] font-black text-cyan-400/60">{selectedBlock?.buy_count ?? 0}</span>
               </div>
-              <span className="text-[0.55rem] text-slate-700">//</span>
+              <span className="text-[0.78rem] text-slate-700">//</span>
               <div className="flex items-center gap-1">
-                <span className="text-[0.34rem] uppercase tracking-[0.12em] text-slate-600">{t('podcast.statResells')}</span>
-                <span className="text-[0.58rem] font-black text-fuchsia-400/60">{selectedBlock?.resell_count ?? 0}</span>
+                <span className="text-[0.55rem] uppercase tracking-[0.12em] text-slate-600">{t('podcast.statResells')}</span>
+                <span className="text-[0.82rem] font-black text-fuchsia-400/60">{selectedBlock?.resell_count ?? 0}</span>
               </div>
             </div>
           )}
 
           {/* ── Auto-resell warning ── */}
           {hasOtherNftmoji && !ownsSelected && !selectedBlock?.isPlaceholder && (
-            <div className="rounded border border-red-400/25 bg-red-950/10 px-2 py-1 text-[0.55rem] uppercase tracking-[0.12em] text-red-400/70 lg:col-span-2">
+            <div className="rounded border border-red-400/25 bg-red-950/10 px-2 py-1 text-[0.78rem] uppercase tracking-[0.12em] text-red-400/70 lg:col-span-2">
               {t('podcast.autoResoldHint')}
             </div>
           )}
@@ -1078,7 +1078,7 @@ export default function PodcastBoard({ account, isVirtualWallet = false }) {
                 type="button"
                 onClick={handleResell}
                 disabled={processing}
-                className="mm3-market-claim w-full rounded border border-green-400/35 bg-black/70 px-2.5 py-1.5 text-[0.46rem] font-black uppercase tracking-[0.18em] text-green-300 transition hover:border-green-300 hover:text-green-100 disabled:cursor-not-allowed disabled:opacity-35 lg:px-3 lg:py-2 lg:text-[0.52rem] lg:tracking-[0.22em]"
+                className="mm3-market-claim w-full rounded border border-green-400/35 bg-black/70 px-2.5 py-1.5 text-[0.68rem] font-black uppercase tracking-[0.18em] text-green-300 transition hover:border-green-300 hover:text-green-100 disabled:cursor-not-allowed disabled:opacity-35 lg:px-3 lg:py-2 lg:text-[0.75rem] lg:tracking-[0.22em]"
               >
                 {processing ? '[ sync ]' : t('podcast.resell')}
               </button>
@@ -1087,7 +1087,7 @@ export default function PodcastBoard({ account, isVirtualWallet = false }) {
                 type="button"
                 onClick={handleBuy}
                 disabled={!canBuy}
-                className="mm3-market-claim w-full rounded border border-cyan-400/28 bg-black/70 px-2.5 py-1.5 text-[0.46rem] font-black uppercase tracking-[0.18em] text-cyan-200 transition hover:border-cyan-300 hover:text-cyan-100 disabled:cursor-not-allowed disabled:opacity-35 lg:px-3 lg:py-2 lg:text-[0.52rem] lg:tracking-[0.22em]"
+                className="mm3-market-claim w-full rounded border border-cyan-400/28 bg-black/70 px-2.5 py-1.5 text-[0.68rem] font-black uppercase tracking-[0.18em] text-cyan-200 transition hover:border-cyan-300 hover:text-cyan-100 disabled:cursor-not-allowed disabled:opacity-35 lg:px-3 lg:py-2 lg:text-[0.75rem] lg:tracking-[0.22em]"
               >
                 {processing ? '[ sync ]' : t('podcast.buy')}
               </button>

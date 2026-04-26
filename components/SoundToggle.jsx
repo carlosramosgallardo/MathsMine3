@@ -15,7 +15,7 @@ export default function SoundToggle() {
       title={label}
       aria-label={label}
       aria-pressed={enabled}
-      className={`flex h-7 sm:h-9 items-center justify-center rounded-md px-1.5 sm:px-2 text-[0.72rem] sm:text-[0.82rem] font-mono font-bold
+      className={`flex h-7 sm:h-9 items-center justify-center rounded-md px-1.5 sm:px-2 text-[0.95rem] sm:text-[1.05rem] font-mono font-bold
         bg-black border transition uppercase tracking-wider focus:outline-none focus-visible:ring-1
         ${enabled
           ? 'border-emerald-500/40 text-emerald-300 hover:border-emerald-400/70 focus-visible:ring-emerald-500'

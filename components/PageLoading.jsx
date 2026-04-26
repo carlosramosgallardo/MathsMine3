@@ -47,7 +47,7 @@ export default function PageLoading({ label = 'loading', fullScreen = true }) {
           <span className="loading-spinner">{SPINNER_FRAMES[spinnerFrame]}</span>
         </div>
         <div
-          className={fullScreen ? 'loading-dots text-[0.72rem] uppercase tracking-[0.24em] sm:text-[0.8rem]' : 'text-[0.65rem] uppercase tracking-[0.22em] loading-dots'}
+          className={fullScreen ? 'loading-dots text-[0.95rem] uppercase tracking-[0.24em] sm:text-[0.8rem]' : 'text-[0.88rem] uppercase tracking-[0.22em] loading-dots'}
           style={{ color: 'rgba(34,211,238,0.8)' }}
         >
           {label}

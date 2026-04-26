@@ -210,7 +210,7 @@ function ConnectedBar({ address, isRealWallet, onDisconnect, mode = 'full' }) {
     }
   }
 
-  const btn = `flex h-7 sm:h-9 items-center rounded-md px-1.5 sm:px-2 text-[0.58rem] sm:text-[0.68rem] font-mono font-semibold border transition-all duration-150 focus:outline-none whitespace-nowrap`
+  const btn = `flex h-7 sm:h-9 items-center rounded-md px-1.5 sm:px-2 text-[0.82rem] sm:text-[0.90rem] font-mono font-semibold border transition-all duration-150 focus:outline-none whitespace-nowrap`
   const active = `border-transparent text-cyan-300 hover:border-transparent hover:bg-cyan-950/20 hover:shadow-none`
   const moneyValue = walletSummary ? walletSummary.funds[currency] || 0 : 0
   const mm3Compact = walletSummary ? Number(walletSummary.availableMm3 || 0).toFixed(6).replace(/\.?0+$/, '') || '0' : '0'
@@ -221,25 +221,25 @@ function ConnectedBar({ address, isRealWallet, onDisconnect, mode = 'full' }) {
         <button
           type="button"
           onClick={copyAddress}
-          className={`flex items-center rounded-md border border-transparent font-mono tracking-wide transition hover:bg-cyan-950/20 focus:border-transparent focus:outline-none focus:ring-0 active:border-transparent ${mode === 'wallet' ? 'min-h-5 px-1 py-0.5 text-[0.48rem] sm:px-1.5 sm:text-[0.58rem]' : 'h-9 px-2 text-[0.56rem] sm:text-[0.6rem]'}`}
+          className={`flex items-center rounded-md border border-transparent font-mono tracking-wide transition hover:bg-cyan-950/20 focus:border-transparent focus:outline-none focus:ring-0 active:border-transparent ${mode === 'wallet' ? 'min-h-5 px-1 py-0.5 text-[0.70rem] sm:px-1.5 sm:text-[0.82rem]' : 'h-9 px-2 text-[0.80rem] sm:text-[0.6rem]'}`}
           style={{ color: walletColor, textShadow: `0 0 10px ${walletColor}33` }}
           title={`${t('leaderboard.toggleMyWallet')}: ${address}`}
         >
           {mode === 'wallet' ? (
             <div className="flex items-center gap-1 sm:gap-1.5">
               <span className="inline-flex items-baseline gap-0.5 text-cyan-300/90">
-                <UtcClock className="font-mono text-[0.44rem] sm:text-[0.56rem] font-black tracking-[0.08em] sm:tracking-[0.14em] text-cyan-300" />
+                <UtcClock className="font-mono text-[0.65rem] sm:text-[0.80rem] font-black tracking-[0.08em] sm:tracking-[0.14em] text-cyan-300" />
               </span>
               <span className="max-w-[13ch] truncate sm:max-w-[24ch]">{visibleAddress}</span>
               {walletSummary ? (
                 <>
                   <span title={`${t('leaderboard.level')}: ${walletSummary.level}`} className="inline-flex items-baseline gap-0.5 text-cyan-300/90">
-                    <span className="text-[0.38rem] uppercase tracking-[0.1em] text-cyan-300/55 sm:text-[0.44rem] sm:tracking-[0.14em]">lvl</span>
+                    <span className="text-[0.60rem] uppercase tracking-[0.1em] text-cyan-300/55 sm:text-[0.65rem] sm:tracking-[0.14em]">lvl</span>
                     <span>{walletSummary.level}</span>
                   </span>
                   <span title={`${t('leaderboard.mm3Earned')}: ${walletSummary.availableMm3.toFixed(8)}`} className="inline-flex items-baseline gap-0.5 text-cyan-300/90">
                     <span>{mm3Compact}</span>
-                    <span className="text-[0.38rem] uppercase tracking-[0.1em] text-cyan-300/55 sm:text-[0.44rem] sm:tracking-[0.14em]">MM3</span>
+                    <span className="text-[0.60rem] uppercase tracking-[0.1em] text-cyan-300/55 sm:text-[0.65rem] sm:tracking-[0.14em]">MM3</span>
                   </span>
                   <span title={`${t('leaderboard.sellValue')}: ${formatMoney(moneyValue, currency)}`} className="text-emerald-300/90">{formatMoney(moneyValue, currency)}</span>
                 </>
@@ -294,7 +294,7 @@ function SplitConnectButton({ onGoogleClick, onWalletClick, googleBusy, walletBu
         onMouseLeave={() => setHoverG(false)}
       >
         {googleLabel
-          ? <span className="font-mono text-[0.65rem] font-bold" style={{ color: err ? '#ef4444' : '#22d3ee' }}>{googleLabel}</span>
+          ? <span className="font-mono text-[0.88rem] font-bold" style={{ color: err ? '#ef4444' : '#22d3ee' }}>{googleLabel}</span>
           : <GoogleIcon dim={noGoogle} />
         }
       </button>
@@ -310,7 +310,7 @@ function SplitConnectButton({ onGoogleClick, onWalletClick, googleBusy, walletBu
         onMouseEnter={() => setHoverW(true)}
         onMouseLeave={() => setHoverW(false)}
       >
-        {walletBusy ? <span className="font-mono text-[0.65rem] font-bold text-cyan-400">⟳</span> : <WalletIcon />}
+        {walletBusy ? <span className="font-mono text-[0.88rem] font-bold text-cyan-400">⟳</span> : <WalletIcon />}
       </button>
     </div>
   )

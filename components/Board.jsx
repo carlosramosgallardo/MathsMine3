@@ -2341,13 +2341,13 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
                 style={{ background: '#000', borderColor: tier.color + '28' }}
               >
                 <div
-                  className="text-[0.48rem] font-mono uppercase tracking-widest mb-0.5 truncate"
+                  className="text-[0.70rem] font-mono uppercase tracking-widest mb-0.5 truncate"
                   style={{ color: tier.color + '70' }}
                 >
                   {label}
                 </div>
                 <div
-                  className="text-[0.75rem] font-black font-mono truncate leading-none"
+                  className="text-[0.98rem] font-black font-mono truncate leading-none"
                   style={{ color: tier.color }}
                 >
                   {value}
@@ -2361,13 +2361,13 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
                 title={`${t('board.drillSlots')}: ${dailyMineLeft}/${dailyMineTotal} · base 100 + ${execsCount} EXECs`}
               >
                 <div
-                  className="text-[0.48rem] font-mono uppercase tracking-widest mb-0.5 truncate"
+                  className="text-[0.70rem] font-mono uppercase tracking-widest mb-0.5 truncate"
                   style={{ color: noSlotsLeft ? '#fb718580' : tier.color + '70' }}
                 >
                   {t('board.drillSlots')}
                 </div>
                 <div
-                  className="text-[0.75rem] font-black font-mono truncate leading-none"
+                  className="text-[0.98rem] font-black font-mono truncate leading-none"
                   style={{ color: noSlotsLeft ? '#fb7185' : tier.color }}
                 >
                   {dailyMineLeft}/{dailyMineTotal}
@@ -2482,7 +2482,7 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
                     </button>
                   ) : preGameCountdown === 0 ? (
                     <div className="w-full px-0.5">
-                      <div className="flex justify-between text-[0.58rem] font-mono mb-0.5">
+                      <div className="flex justify-between text-[0.82rem] font-mono mb-0.5">
                         <span style={{ color: timeColor }}>⏱ {elapsedTime}ms</span>
                         <span style={{ color: tier.color + '55' }}>{(timeLimit / 1000).toFixed(1)}s</span>
                       </div>
@@ -2600,7 +2600,7 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
                           : t('board.luck100Hint')}
                     </div>
                     {postFailOffer.offer.type === 'life' && !postFailOffer.offer.alreadyUsed && (
-                      <div className="mt-2 text-[0.68rem] font-mono text-amber-200/80">{t('board.lifeCost')}</div>
+                      <div className="mt-2 text-[0.90rem] font-mono text-amber-200/80">{t('board.lifeCost')}</div>
                     )}
                   </div>
                 )}

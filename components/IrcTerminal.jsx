@@ -1245,14 +1245,14 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
         <section className="mm3-irc-panel rounded-sm p-2.5">
           <div className="mb-2 flex items-center justify-between gap-2 border-b border-cyan-500/12 pb-2 font-mono">
             <div>
-              <div className="text-[0.66rem] uppercase tracking-[0.22em] text-cyan-300">{t('irc.title')}</div>
-              <div className="mt-0.5 text-[0.56rem] uppercase tracking-[0.16em] text-slate-500">#relay-mainframe</div>
+              <div className="text-[0.88rem] uppercase tracking-[0.22em] text-cyan-300">{t('irc.title')}</div>
+              <div className="mt-0.5 text-[0.80rem] uppercase tracking-[0.16em] text-slate-500">#relay-mainframe</div>
             </div>
             <div className="text-right">
-              <div className={`text-[0.52rem] uppercase tracking-[0.16em] ${normalizedWallet ? 'text-cyan-700' : 'text-amber-700/70'}`}>
+              <div className={`text-[0.75rem] uppercase tracking-[0.16em] ${normalizedWallet ? 'text-cyan-700' : 'text-amber-700/70'}`}>
                 {!normalizedWallet ? t('irc.readOnly') : (relayReady ? t('irc.live') : t('irc.syncing'))}
               </div>
-              <div className={`mt-0.5 break-all text-[0.58rem] ${normalizedWallet ? 'text-cyan-200' : 'text-slate-500'}`}>
+              <div className={`mt-0.5 break-all text-[0.82rem] ${normalizedWallet ? 'text-cyan-200' : 'text-slate-500'}`}>
                 {formatIrcWalletLabel(actorId)}
               </div>
             </div>
@@ -1273,7 +1273,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
                   className={`mm3-irc-line ${lineMode} flex gap-3 px-1 py-2 text-[0.7rem]`}
                   data-tone={message.tone}
                 >
-                  <span className="shrink-0 pt-0.5 text-[0.54rem] uppercase tracking-[0.14em] text-slate-500">
+                  <span className="shrink-0 pt-0.5 text-[0.76rem] uppercase tracking-[0.14em] text-slate-500">
                     {formatRelayTime(message.ts)}
                   </span>
                   <div className="min-w-0 flex-1">
@@ -1287,15 +1287,15 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
                             ))}
                           </span>
                         )}
-                        <div className="mm3-irc-author flex-1 text-[0.56rem] uppercase tracking-[0.13em]">{author}</div>
+                        <div className="mm3-irc-author flex-1 text-[0.80rem] uppercase tracking-[0.13em]">{author}</div>
                       </div>
                     </div>
-                    <div className="mm3-irc-msg-text mt-0.5 break-words text-[0.72rem] leading-relaxed">{message.text}</div>
+                    <div className="mm3-irc-msg-text mt-0.5 break-words text-[0.95rem] leading-relaxed">{message.text}</div>
                   </div>
                 </div>
               );
             }) : (
-              <div className="px-1 py-2 text-[0.66rem] uppercase tracking-[0.14em] text-slate-500">
+              <div className="px-1 py-2 text-[0.88rem] uppercase tracking-[0.14em] text-slate-500">
                 {t('irc.empty')}
               </div>
             )}
@@ -1309,14 +1309,14 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
                 value={draft}
                 onChange={(event) => setDraft(event.target.value)}
                 placeholder={t('irc.inputPlaceholder')}
-                className="min-w-0 flex-1 rounded-sm border border-cyan-500/15 bg-black/80 px-2.5 py-1.5 font-mono text-[0.72rem] text-cyan-100 outline-none transition placeholder:text-slate-600 focus:border-cyan-400/45 focus:shadow-[0_0_18px_rgba(34,211,238,0.08)]"
+                className="min-w-0 flex-1 rounded-sm border border-cyan-500/15 bg-black/80 px-2.5 py-1.5 font-mono text-[0.95rem] text-cyan-100 outline-none transition placeholder:text-slate-600 focus:border-cyan-400/45 focus:shadow-[0_0_18px_rgba(34,211,238,0.08)]"
                 maxLength={280}
                 autoComplete="off"
                 spellCheck={false}
               />
               <button
                 type="submit"
-                className="mm3-irc-submit rounded-sm border border-cyan-500/35 px-3 py-1.5 font-mono text-[0.62rem] font-black uppercase tracking-[0.22em] text-cyan-200 transition hover:border-cyan-300 hover:text-cyan-100"
+                className="mm3-irc-submit rounded-sm border border-cyan-500/35 px-3 py-1.5 font-mono text-[0.75rem] font-black uppercase tracking-[0.22em] text-cyan-200 transition hover:border-cyan-300 hover:text-cyan-100"
                 disabled={!relayReady || !normalizeRelayMessage(draft)}
               >
                 {t('irc.send')}
@@ -1325,21 +1325,21 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
           ) : (
             <div className="mt-2 flex items-center gap-2 border border-amber-500/12 bg-amber-950/10 px-2.5 py-1.5 font-mono">
               <span className="text-amber-600/70 text-[0.5rem]">▶</span>
-              <span className="text-[0.56rem] uppercase tracking-[0.2em] text-amber-700/60">{t('irc.readOnlyHint')}</span>
+              <span className="text-[0.80rem] uppercase tracking-[0.2em] text-amber-700/60">{t('irc.readOnlyHint')}</span>
             </div>
           )}
         </section>
 
         <aside className="mm3-irc-panel rounded-sm p-2.5">
           <div className="border-b border-cyan-500/12 pb-1.5 font-mono">
-            <div className="flex items-baseline justify-end gap-[3px] text-[0.52rem] font-black tabular-nums">
+            <div className="flex items-baseline justify-end gap-[3px] text-[0.75rem] font-black tabular-nums">
               <span className="text-emerald-400">{connectedWallets.length}</span>
-              <span className="text-slate-600 text-[0.44rem]">/</span>
+              <span className="text-slate-600 text-[0.65rem]">/</span>
               <span className="text-slate-500">{totalWallets}</span>
-              <span className="text-slate-600 text-[0.38rem]">wallets</span>
+              <span className="text-slate-600 text-[0.60rem]">wallets</span>
               <span className="text-slate-700 mx-[1px]">·</span>
               <span className="text-cyan-700">{connectedWallets.length + anonUsers.length}</span>
-              <span className="text-cyan-900 text-[0.38rem]">irc</span>
+              <span className="text-cyan-900 text-[0.60rem]">irc</span>
             </div>
           </div>
 
@@ -1388,7 +1388,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
                 )}
               </>
             ) : (
-              <div className="pt-1 font-mono text-[0.52rem] uppercase tracking-[0.16em] text-slate-600">
+              <div className="pt-1 font-mono text-[0.75rem] uppercase tracking-[0.16em] text-slate-600">
                 {t('irc.empty')}
               </div>
             )}

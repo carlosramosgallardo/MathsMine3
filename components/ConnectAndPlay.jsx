@@ -321,7 +321,7 @@ export function CompactWalletBar() {
     }
   }
 
-  const btnBase = `px-2 py-1 rounded text-[0.68rem] font-mono font-semibold border transition-all duration-150 focus:outline-none focus-visible:ring-1 focus-visible:ring-cyan-500 whitespace-nowrap`
+  const btnBase = `px-2 py-1 rounded text-[0.90rem] font-mono font-semibold border transition-all duration-150 focus:outline-none focus-visible:ring-1 focus-visible:ring-cyan-500 whitespace-nowrap`
   const btnCyan = `border-cyan-500/50 text-cyan-400 bg-black hover:border-cyan-400 hover:bg-cyan-950/40 hover:shadow-[0_0_8px_rgba(34,211,238,0.3)]`
   const btnDisabled = `border-cyan-900/40 text-cyan-900 bg-black cursor-not-allowed`
 
@@ -333,7 +333,7 @@ export function CompactWalletBar() {
     <div className="flex items-center gap-1.5">
       {isConnected && (
         <span
-          className="hidden lg:inline text-[0.62rem] font-mono text-cyan-500/55 tracking-wide select-none"
+          className="hidden lg:inline text-[0.75rem] font-mono text-cyan-500/55 tracking-wide select-none"
           title={address}
         >
           {shortAddr}

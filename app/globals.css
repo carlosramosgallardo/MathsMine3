@@ -304,7 +304,7 @@ body.mm3-play-success-alert #board-section .section-frame::before {
   color: #94a3b8;
   text-decoration: none;
   font-family: Consolas, monospace;
-  font-size: 0.72rem;
+  font-size: 0.85rem;
   font-weight: 500;
   padding: 0.3rem 0.55rem;
   border-bottom: 2px solid transparent;
@@ -510,7 +510,7 @@ body.mm3-play-success-alert #board-section .section-frame::before {
   }
 
   .mm3-header-nav .nav-link {
-    font-size: 0.64rem;
+    font-size: 0.75rem;
     padding-top: 0.1rem;
     padding-bottom: 0.1rem;
   }
@@ -530,7 +530,7 @@ body.mm3-play-success-alert #board-section .section-frame::before {
   .mm3-market-nav {
     width: 1.7rem !important;
     height: 1.7rem !important;
-    font-size: 0.58rem !important;
+    font-size: 0.68rem !important;
   }
 
   .mm3-market-detail {
@@ -544,7 +544,7 @@ body.mm3-play-success-alert #board-section .section-frame::before {
 
   .mm3-market-status-badge {
     padding: 0.22rem 0.4rem !important;
-    font-size: 0.48rem !important;
+    font-size: 0.58rem !important;
     letter-spacing: 0.1em !important;
   }
 
@@ -554,13 +554,13 @@ body.mm3-play-success-alert #board-section .section-frame::before {
 
   .mm3-market-answer-input {
     padding: 0.4rem 0.5rem !important;
-    font-size: 0.72rem !important;
+    font-size: 0.85rem !important;
   }
 
   .mm3-market-claim {
     padding-top: 0.5rem !important;
     padding-bottom: 0.5rem !important;
-    font-size: 0.54rem !important;
+    font-size: 0.65rem !important;
     letter-spacing: 0.14em !important;
   }
 

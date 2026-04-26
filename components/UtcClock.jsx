@@ -17,7 +17,7 @@ export default function UtcClock({ className = '' }) {
   }, []);
   return (
     <span className={className} suppressHydrationWarning>
-      <span className="opacity-55 mr-0.5 text-[0.46rem] sm:text-[0.52rem]">UTC</span>
+      <span className="opacity-55 mr-0.5 text-[0.68rem] sm:text-[0.75rem]">UTC</span>
       {now ? formatUtc(now) : '--:--:--'}
     </span>
   );

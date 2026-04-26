@@ -100,7 +100,7 @@ export default function MacroTicker() {
 
       {/* Normal scrolling ticker — hidden while notification is up */}
       <div
-        className="shrink-0 whitespace-nowrap font-mono text-[0.58rem] sm:text-[0.62rem] font-black uppercase tracking-[0.18em] sm:tracking-[0.22em] text-green-300 transition-opacity duration-300"
+        className="shrink-0 whitespace-nowrap font-mono text-[0.82rem] sm:text-[0.75rem] font-black uppercase tracking-[0.18em] sm:tracking-[0.22em] text-green-300 transition-opacity duration-300"
         style={{
           animation: `mm3-ticker-scroll ${TICKER_SECONDS}s linear infinite`,
           textShadow: '0 0 10px rgba(74,222,128,0.45)',
@@ -117,7 +117,7 @@ export default function MacroTicker() {
         >
           <div
             key={notif.id}
-            className="shrink-0 whitespace-nowrap font-mono text-[0.58rem] sm:text-[0.62rem] font-black uppercase tracking-[0.18em] sm:tracking-[0.22em]"
+            className="shrink-0 whitespace-nowrap font-mono text-[0.82rem] sm:text-[0.75rem] font-black uppercase tracking-[0.18em] sm:tracking-[0.22em]"
             onAnimationEnd={() => setNotif(null)}
             style={{
               animation: `mm3-ticker-scroll ${NOTIF_SECONDS}s linear 1 both`,

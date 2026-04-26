@@ -383,7 +383,7 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
       title={`${children} ${sortConfig.key === sortKey ? t(sortConfig.direction === 'asc' ? 'leaderboard.sortAsc' : 'leaderboard.sortDesc') : ''}`.trim()}
     >
       <span>{children}</span>
-      <span className="text-[0.65rem] text-emerald-300">{sortLabel(sortKey)}</span>
+      <span className="text-[0.88rem] text-emerald-300">{sortLabel(sortKey)}</span>
     </button>
   );
 
@@ -488,7 +488,7 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
                 <button
                   type="button"
                   onClick={() => toggleSelectedWallet(entry.wallet)}
-                  className="min-w-0 flex-1 truncate text-left font-mono text-[0.64rem] font-semibold transition hover:underline focus:outline-none"
+                  className="min-w-0 flex-1 truncate text-left font-mono text-[0.86rem] font-semibold transition hover:underline focus:outline-none"
                   style={{ color: walletColor }}
                   title={isSelectedWallet ? t('leaderboard.showAllWallets') : t('leaderboard.showOnlyWallet')}
                 >
@@ -499,7 +499,7 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
                 </span>
               </div>
 
-              <div className="grid grid-cols-3 gap-1 text-[0.55rem] uppercase tracking-[0.1em] text-cyan-700 mb-1.5">
+              <div className="grid grid-cols-3 gap-1 text-[0.78rem] uppercase tracking-[0.1em] text-cyan-700 mb-1.5">
                 <div className="rounded border border-cyan-500/10 bg-black/60 px-1.5 py-1">
                   <div>{t('leaderboard.level')}</div>
                   <div className="mt-0.5 text-sm font-black tracking-normal" style={{ color: tier.color, textShadow:`0 0 6px ${tier.color}66` }}>{lvl}</div>
@@ -514,7 +514,7 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
                 </div>
                 <div className="rounded border border-cyan-500/10 bg-black/60 px-1.5 py-1">
                   <div>{t('leaderboard.mm3Earned')}</div>
-                  <div className="mt-0.5 font-mono text-[0.64rem] font-semibold tracking-normal text-cyan-300">{Number(entry.available_mm3 || 0).toFixed(8).replace(/\.?0+$/, '') || '0'}</div>
+                  <div className="mt-0.5 font-mono text-[0.86rem] font-semibold tracking-normal text-cyan-300">{Number(entry.available_mm3 || 0).toFixed(8).replace(/\.?0+$/, '') || '0'}</div>
                 </div>
                 <div className="col-span-2 rounded border border-cyan-500/10 bg-black/60 px-1.5 py-1">
                   <div>{t('leaderboard.sellValue')}</div>
@@ -530,7 +530,7 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
                       <div
                         key={slot.key}
                         title={getEmojiTitle(slot.emoji)}
-                        className="flex h-6 w-6 items-center justify-center rounded border text-[0.68rem]"
+                        className="flex h-6 w-6 items-center justify-center rounded border text-[0.90rem]"
                         style={{
                           borderColor: owned ? tier.glow : 'rgba(148,163,184,0.22)',
                           background: owned ? tier.bg : 'rgba(2,6,23,0.4)',
@@ -550,7 +550,7 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
                       type="button"
                       onClick={() => openMarketBlock(block.pixel_key)}
                       title={`${block.emoji} ${block.hex}`}
-                      className="relative flex h-6 w-6 items-center justify-center rounded border text-[0.68rem] transition hover:border-cyan-300"
+                      className="relative flex h-6 w-6 items-center justify-center rounded border text-[0.90rem] transition hover:border-cyan-300"
                       style={{
                         borderColor: 'rgba(250,204,21,0.3)',
                         background: 'rgba(2,6,23,0.68)',
@@ -559,7 +559,7 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
                       }}
                     >
                       <span>{block.emoji}</span>
-                      <span className="absolute bottom-[0px] right-[1px] text-[0.22rem] font-black text-cyan-100/90">
+                      <span className="absolute bottom-[0px] right-[1px] text-[0.38rem] font-black text-cyan-100/90">
                         {block.hex.replace('#', '')}
                       </span>
                     </button>
@@ -568,7 +568,7 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
                     <button
                       type="button"
                       onClick={() => openMarketBlock(activePenalty.nftmoji_key)}
-                      className="lb-penalty-link rounded border border-rose-400/30 bg-rose-950/20 px-1.5 py-0.5 font-mono text-[0.52rem] font-black text-rose-300"
+                      className="lb-penalty-link rounded border border-rose-400/30 bg-rose-950/20 px-1.5 py-0.5 font-mono text-[0.75rem] font-black text-rose-300"
                       title={activePenalty.block ? `${activePenalty.block.emoji} ${activePenalty.block.hex}` : activePenalty.nftmoji_key}
                     >
                       -{Number(activePenalty.penalty_value || 0).toFixed(8).replace(/\.?0+$/, '') || '0'}
@@ -646,7 +646,7 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
                     <button
                       type="button"
                       onClick={() => toggleSelectedWallet(entry.wallet)}
-                      className="break-all text-left font-mono font-semibold text-[0.72rem] transition hover:underline focus:outline-none"
+                      className="break-all text-left font-mono font-semibold text-[0.95rem] transition hover:underline focus:outline-none"
                       style={{ color: walletColor }}
                       title={isSelectedWallet ? t('leaderboard.showAllWallets') : t('leaderboard.showOnlyWallet')}
                     >
@@ -676,7 +676,7 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
                     </div>
                   </td>
                   <td style={{ textAlign:'center' }}>
-                    <span className="font-mono font-black text-[0.72rem] text-cyan-300">
+                    <span className="font-mono font-black text-[0.95rem] text-cyan-300">
                       {Number(entry.execs_count || 0)}
                     </span>
                   </td>
@@ -697,7 +697,7 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
                           }}
                         >
                           <span>{block.emoji}</span>
-                          <span className="absolute bottom-[1px] right-[2px] text-[0.26rem] font-black tracking-[0.08em] text-cyan-100/90">
+                          <span className="absolute bottom-[1px] right-[2px] text-[0.44rem] font-black tracking-[0.08em] text-cyan-100/90">
                             {block.hex.replace('#', '')}
                           </span>
                         </button>
@@ -706,19 +706,19 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
                         <button
                           type="button"
                           onClick={() => openMarketBlock(activePenalty.nftmoji_key)}
-                          className="lb-penalty-link rounded border border-rose-400/30 bg-rose-950/20 px-1.5 py-1 font-mono text-[0.54rem] font-black text-rose-300"
+                          className="lb-penalty-link rounded border border-rose-400/30 bg-rose-950/20 px-1.5 py-1 font-mono text-[0.76rem] font-black text-rose-300"
                           title={activePenalty.block ? `${activePenalty.block.emoji} ${activePenalty.block.hex}` : activePenalty.nftmoji_key}
                         >
                           -{Number(activePenalty.penalty_value || 0).toFixed(8).replace(/\.?0+$/, '') || '0'}
                         </button>
                       ) : null}
                       {marketBlocks.length === 0 && !activePenalty ? (
-                        <span className="text-[0.52rem] uppercase tracking-[0.12em] text-slate-600">{t('leaderboard.none')}</span>
+                        <span className="text-[0.75rem] uppercase tracking-[0.12em] text-slate-600">{t('leaderboard.none')}</span>
                       ) : null}
                     </div>
                   </td>
                   <td style={{ textAlign:'center' }}>
-                    <span className="font-mono font-black text-[0.82rem]" style={{ color: tier.color, textShadow:`0 0 8px ${tier.color}66` }}>
+                    <span className="font-mono font-black text-[1.05rem]" style={{ color: tier.color, textShadow:`0 0 8px ${tier.color}66` }}>
                       {lvl}
                     </span>
                   </td>
@@ -728,12 +728,12 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
                     </span>
                   </td>
                   <td style={{ textAlign:'right', paddingRight:'1rem' }}>
-                    <span className="text-[#22d3ee] font-mono font-semibold text-[0.64rem]">
+                    <span className="text-[#22d3ee] font-mono font-semibold text-[0.86rem]">
                       {Number(entry.available_mm3 || 0).toFixed(8).replace(/\.?0+$/, '') || '0'}
                     </span>
                   </td>
                   <td style={{ textAlign:'right', paddingRight:'1rem' }}>
-                    <span className="whitespace-nowrap font-mono font-semibold text-emerald-300 text-[0.64rem]">
+                    <span className="whitespace-nowrap font-mono font-semibold text-emerald-300 text-[0.86rem]">
                       {formatCompactMoney(sellValue, quoteCurrency)}
                     </span>
                   </td>

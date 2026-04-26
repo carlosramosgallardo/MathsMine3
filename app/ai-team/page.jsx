@@ -264,7 +264,7 @@ export default function AITeamPage() {
 
         {/* Special AI Acknowledgements */}
         <section className="mm3-ai-panel mt-4 p-4">
-          <p className="text-center text-[0.58rem] uppercase tracking-[0.28em] text-cyan-400/50 mb-4 font-mono">
+          <p className="text-center text-[0.82rem] uppercase tracking-[0.28em] text-cyan-400/50 mb-4 font-mono">
             {t('aiTeam.builtWith')}
           </p>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -282,8 +282,8 @@ export default function AITeamPage() {
               </div>
               <div className="min-w-0">
                 <div className="text-sm font-black text-white group-hover:text-[#c97355] transition-colors">Claude</div>
-                <div className="text-[0.52rem] font-mono uppercase tracking-[0.18em]" style={{ color: 'rgba(201,115,85,0.7)' }}>Anthropic · claude‑sonnet‑4‑6</div>
-                <div className="mt-0.5 text-[0.48rem] uppercase tracking-[0.14em] text-gray-500">Code generation · Architecture · Review</div>
+                <div className="text-[0.75rem] font-mono uppercase tracking-[0.18em]" style={{ color: 'rgba(201,115,85,0.7)' }}>Anthropic · claude‑sonnet‑4‑6</div>
+                <div className="mt-0.5 text-[0.70rem] uppercase tracking-[0.14em] text-gray-500">Code generation · Architecture · Review</div>
               </div>
             </a>
 
@@ -300,8 +300,8 @@ export default function AITeamPage() {
               </div>
               <div className="min-w-0">
                 <div className="text-sm font-black text-white group-hover:text-gray-300 transition-colors">Codex</div>
-                <div className="text-[0.52rem] font-mono uppercase tracking-[0.18em] text-gray-400">OpenAI · Codex CLI</div>
-                <div className="mt-0.5 text-[0.48rem] uppercase tracking-[0.14em] text-gray-500">Agentic coding · Autonomous tasks</div>
+                <div className="text-[0.75rem] font-mono uppercase tracking-[0.18em] text-gray-400">OpenAI · Codex CLI</div>
+                <div className="mt-0.5 text-[0.70rem] uppercase tracking-[0.14em] text-gray-500">Agentic coding · Autonomous tasks</div>
               </div>
             </a>
 

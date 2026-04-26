@@ -578,7 +578,7 @@ export default function TradeBoard({ account, isVirtualWallet = false }) {
           `}</style>
           <>
           {!account && (
-            <div className="mb-2 rounded border border-cyan-500/20 bg-black/60 px-3 py-2 text-center text-[0.58rem] uppercase tracking-[0.18em] text-cyan-500/50">
+            <div className="mb-2 rounded border border-cyan-500/20 bg-black/60 px-3 py-2 text-center text-[0.82rem] uppercase tracking-[0.18em] text-cyan-500/50">
               {t('tradeBoard.connectNotice')}
             </div>
           )}
@@ -598,14 +598,14 @@ export default function TradeBoard({ account, isVirtualWallet = false }) {
                   />
                   <button
                     onClick={() => setMode('sell')}
-                    className="relative z-10 min-w-[76px] rounded-full px-3 py-1.5 text-[0.62rem] font-black uppercase tracking-[0.2em] transition"
+                    className="relative z-10 min-w-[76px] rounded-full px-3 py-1.5 text-[0.75rem] font-black uppercase tracking-[0.2em] transition"
                     style={{ color: mode === 'sell' ? '#050810' : canSell ? tier.color : `${tier.color}66` }}
                   >
                     {t('tradeBoard.sell')}
                   </button>
                   <button
                     onClick={() => setMode('buy')}
-                    className="relative z-10 min-w-[76px] rounded-full px-3 py-1.5 text-[0.62rem] font-black uppercase tracking-[0.2em] transition"
+                    className="relative z-10 min-w-[76px] rounded-full px-3 py-1.5 text-[0.75rem] font-black uppercase tracking-[0.2em] transition"
                     style={{ color: mode === 'buy' ? '#050810' : canBuy ? tier.color : `${tier.color}66` }}
                   >
                     {t('tradeBoard.buy')}
@@ -658,12 +658,12 @@ export default function TradeBoard({ account, isVirtualWallet = false }) {
               {account && (
                 <div className="flex items-center gap-2">
                   <div
-                    className="mm3-trade-limit rounded-lg border bg-black/70 px-3 py-2 text-[0.58rem] font-black uppercase tracking-[0.18em]"
+                    className="mm3-trade-limit rounded-lg border bg-black/70 px-3 py-2 text-[0.82rem] font-black uppercase tracking-[0.18em]"
                     style={{ borderColor: `${tier.glow}99`, color: canTradeToday ? tier.color : '#fca5a5' }}
                   >
                     {visibleTxCount}/{DAILY_TX_LIMIT}
                     {!canTradeToday ? (
-                      <span className="ml-2 text-[0.54rem] text-amber-300">{t('tradeBoard.resetIn')} {resetCountdown}</span>
+                      <span className="ml-2 text-[0.76rem] text-amber-300">{t('tradeBoard.resetIn')} {resetCountdown}</span>
                     ) : null}
                   </div>
                   <button
@@ -671,7 +671,7 @@ export default function TradeBoard({ account, isVirtualWallet = false }) {
                       setTransactionsPage(1);
                       setShowTransactions((open) => !open);
                     }}
-                    className="mm3-trade-log-toggle rounded-lg border bg-black/70 px-4 py-2 text-[0.62rem] font-black uppercase tracking-[0.22em] transition"
+                    className="mm3-trade-log-toggle rounded-lg border bg-black/70 px-4 py-2 text-[0.75rem] font-black uppercase tracking-[0.22em] transition"
                     style={{
                       borderColor: showTransactions ? tier.color : tier.glow,
                       color: showTransactions ? '#050810' : tier.color,
@@ -693,7 +693,7 @@ export default function TradeBoard({ account, isVirtualWallet = false }) {
               { label: t('tradeBoard.rate'), value: `${formatMoney(activeRate, currency)} / MM3` },
               ].map((item) => (
                 <div key={item.label} className="mm3-trade-stat-card rounded-lg border bg-black/70 p-2" style={{ borderColor: tier.glow }}>
-                  <div className="mm3-trade-stat-label text-[0.54rem] uppercase tracking-[0.22em]" style={{ color: `${tier.color}99` }}>{item.label}</div>
+                  <div className="mm3-trade-stat-label text-[0.76rem] uppercase tracking-[0.22em]" style={{ color: `${tier.color}99` }}>{item.label}</div>
                   <div className="mm3-trade-stat-value mt-0.5 text-sm font-black" style={{ color: tier.color }}>{item.value}</div>
                 </div>
               ))}
@@ -701,7 +701,7 @@ export default function TradeBoard({ account, isVirtualWallet = false }) {
 
             <div className="mm3-trade-panel mb-3 rounded-lg border bg-black/65 p-3" style={{ borderColor: tier.glow }}>
               <div className="mm3-trade-slider mb-3 rounded-lg border border-cyan-500/20 bg-black/50 p-2.5">
-                <div className="mm3-trade-slider-header mb-2 flex items-center justify-between gap-3 text-[0.58rem] uppercase tracking-[0.22em]" style={{ color: `${tier.color}AA` }}>
+                <div className="mm3-trade-slider-header mb-2 flex items-center justify-between gap-3 text-[0.82rem] uppercase tracking-[0.22em]" style={{ color: `${tier.color}AA` }}>
                   <span>{t('tradeBoard.tradeAmount')}</span>
                   <span style={{ color: tier.color }}>
                     {mode === 'buy' ? formatMoney(selectedBuyFunds, currency) : `${fmtMm3(selectedSellMm3)} MM3`}
@@ -718,16 +718,16 @@ export default function TradeBoard({ account, isVirtualWallet = false }) {
                   className="w-full accent-cyan-400 disabled:opacity-40"
                   aria-label={t('tradeBoard.tradeAmount')}
                 />
-                <div className="mm3-trade-slider-ends mt-2 flex items-center justify-between text-[0.62rem] text-slate-500">
+                <div className="mm3-trade-slider-ends mt-2 flex items-center justify-between text-[0.75rem] text-slate-500">
                   <span>{mode === 'buy' ? formatMoney(minBuyFunds, currency) : `${fmtMm3(minSellMm3)} MM3`}</span>
                   <span>{mode === 'buy' ? formatMoney(maxBuyFunds, currency) : `${fmtMm3(maxSellMm3)} MM3`}</span>
                 </div>
                 {mode === 'buy' && !canBuy ? (
-                  <div className="mm3-trade-minimum mt-2 text-[0.62rem] uppercase tracking-[0.18em] text-amber-300/80">
+                  <div className="mm3-trade-minimum mt-2 text-[0.75rem] uppercase tracking-[0.18em] text-amber-300/80">
                     {t('tradeBoard.minimumNeeded')}: {formatMoney(minBuyFunds, currency)}
                   </div>
                 ) : mode === 'sell' && !canSell ? (
-                  <div className="mm3-trade-minimum mt-2 text-[0.62rem] uppercase tracking-[0.18em] text-amber-300/80">
+                  <div className="mm3-trade-minimum mt-2 text-[0.75rem] uppercase tracking-[0.18em] text-amber-300/80">
                     {t('tradeBoard.minimumNeeded')}: {fmtMm3(MIN_TRADE_MM3)} MM3
                   </div>
                 ) : null}
@@ -735,11 +735,11 @@ export default function TradeBoard({ account, isVirtualWallet = false }) {
 
               <div className="mm3-trade-results grid gap-2 sm:grid-cols-2">
                 <div className="mm3-trade-result-card rounded-lg border p-2.5" style={{ borderColor: tier.glow, background: tier.bg }}>
-              <div className="mm3-trade-result-label text-[0.58rem] uppercase tracking-[0.22em]" style={{ color: `${tier.color}AA` }}>{t('tradeBoard.youReceive')}</div>
+              <div className="mm3-trade-result-label text-[0.82rem] uppercase tracking-[0.22em]" style={{ color: `${tier.color}AA` }}>{t('tradeBoard.youReceive')}</div>
                   <div className="mm3-trade-value-primary mt-1 text-xl font-black" style={{ color: tier.color }}>
                     {mode === 'buy' ? `${fmtMm3(activeQuote.netMm3)} MM3` : formatMoney(activeQuote[quoteField('net', currency)] || 0, currency)}
                   </div>
-                  <div className="mm3-trade-breakdown mt-2 text-[0.58rem] leading-relaxed text-cyan-200/70">
+                  <div className="mm3-trade-breakdown mt-2 text-[0.82rem] leading-relaxed text-cyan-200/70">
                     {t('tradeBoard.receiveBase')}{' '}
                     <span className="text-cyan-200">
                       {mode === 'buy' ? `${fmtMm3(receiveBaseAmount)} MM3` : formatMoney(receiveBaseAmount, currency)}
@@ -759,10 +759,10 @@ export default function TradeBoard({ account, isVirtualWallet = false }) {
                 </div>
                 <div className="mm3-trade-result-card rounded-lg border border-amber-300/20 bg-amber-500/5 p-2.5">
                   <div className="flex items-center justify-between">
-                    <div className="mm3-trade-commission-label text-[0.58rem] uppercase tracking-[0.22em] text-amber-200/60">{t('tradeBoard.commission')}</div>
+                    <div className="mm3-trade-commission-label text-[0.82rem] uppercase tracking-[0.22em] text-amber-200/60">{t('tradeBoard.commission')}</div>
                     {diceState?.active && (
                       <div
-                        className="flex items-center gap-0.5 rounded-full border px-1.5 py-0.5 text-[0.52rem] font-black"
+                        className="flex items-center gap-0.5 rounded-full border px-1.5 py-0.5 text-[0.75rem] font-black"
                         style={{ borderColor: `${diceState.color}60`, color: diceState.color }}
                         title={
                           language === 'es'
@@ -789,21 +789,21 @@ export default function TradeBoard({ account, isVirtualWallet = false }) {
               <div ref={ledgerRef} className="mm3-trade-log mt-4 rounded-lg border bg-black/70 p-4" style={{ borderColor: tier.glow }}>
                 <div className="mb-3 flex items-center justify-between gap-3">
                   <div>
-                    <div className="text-[0.58rem] uppercase tracking-[0.28em]" style={{ color: `${tier.color}AA` }}>
+                    <div className="text-[0.82rem] uppercase tracking-[0.28em]" style={{ color: `${tier.color}AA` }}>
                       {t('tradeBoard.transactionsTitle')}
                     </div>
-                    <div className="mt-1 text-[0.62rem] text-slate-500">
+                    <div className="mt-1 text-[0.75rem] text-slate-500">
                       {t('tradeBoard.transactionsSubtitle')}
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <div className="text-[0.58rem] uppercase tracking-[0.18em] text-slate-500">
+                    <div className="text-[0.82rem] uppercase tracking-[0.18em] text-slate-500">
                       {transactionsTotal > 0 ? `${transactionsPage}/${totalPages}` : `1/1`}
                     </div>
                     <button
                       onClick={loadTransactions}
                       disabled={transactionsLoading}
-                      className="rounded-md border px-3 py-1.5 text-[0.58rem] font-black uppercase tracking-[0.18em] disabled:opacity-50"
+                      className="rounded-md border px-3 py-1.5 text-[0.82rem] font-black uppercase tracking-[0.18em] disabled:opacity-50"
                       style={{ borderColor: tier.glow, color: tier.color }}
                     >
                       {transactionsLoading ? t('tradeBoard.loading') : t('tradeBoard.refresh')}
@@ -833,16 +833,16 @@ export default function TradeBoard({ account, isVirtualWallet = false }) {
                         <div key={tx.id} className="rounded-lg border bg-slate-950/60 p-3" style={{ borderColor: `${txColor}45` }}>
                           <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
                             <div className="flex items-center gap-2">
-                              <span className="rounded border px-2 py-1 text-[0.58rem] font-black uppercase tracking-[0.18em]" style={{ borderColor: txColor, color: txColor }}>
+                              <span className="rounded border px-2 py-1 text-[0.82rem] font-black uppercase tracking-[0.18em]" style={{ borderColor: txColor, color: txColor }}>
                                 {isBuy ? t('tradeBoard.txBuy') : t('tradeBoard.txSell')}
                               </span>
-                              <span className="text-[0.62rem] text-slate-500">{formatTxTime(tx.created_at)}</span>
+                              <span className="text-[0.75rem] text-slate-500">{formatTxTime(tx.created_at)}</span>
                             </div>
-                            <span className="text-[0.58rem] uppercase tracking-[0.16em] text-slate-500">
+                            <span className="text-[0.82rem] uppercase tracking-[0.16em] text-slate-500">
                               {t('tradeBoard.txLevel')} {tx.level} · {tx.source === 'google' ? 'G' : 'W'}
                             </span>
                           </div>
-                          <div className="grid gap-2 text-[0.66rem] sm:grid-cols-4">
+                          <div className="grid gap-2 text-[0.88rem] sm:grid-cols-4">
                             <div>
                               <div className="uppercase tracking-[0.18em] text-slate-600">{isBuy ? t('tradeBoard.txReceived') : t('tradeBoard.txSold')}</div>
                               <div className="font-black" style={{ color: txColor }}>{fmtMm3(isBuy ? netMm3 : tradedMm3)} MM3</div>
@@ -856,7 +856,7 @@ export default function TradeBoard({ account, isVirtualWallet = false }) {
                               <div className="font-black text-amber-300">
                                 {formatMoney(money.commission, currency)}
                               </div>
-                              <div className="text-[0.58rem] text-amber-100/60">{fmtMm3(commissionMm3)} MM3 · {(Number(tx.commission_rate || 0) * 100).toFixed(2)}%</div>
+                              <div className="text-[0.82rem] text-amber-100/60">{fmtMm3(commissionMm3)} MM3 · {(Number(tx.commission_rate || 0) * 100).toFixed(2)}%</div>
                             </div>
                             <div>
                               <div className="uppercase tracking-[0.18em] text-slate-600">{t('tradeBoard.txRate')}</div>
@@ -871,7 +871,7 @@ export default function TradeBoard({ account, isVirtualWallet = false }) {
                         <button
                           onClick={() => setTransactionsPage((page) => Math.max(1, page - 1))}
                           disabled={transactionsPage <= 1}
-                          className="rounded-md border px-3 py-1.5 text-[0.58rem] font-black uppercase tracking-[0.18em] disabled:opacity-40"
+                          className="rounded-md border px-3 py-1.5 text-[0.82rem] font-black uppercase tracking-[0.18em] disabled:opacity-40"
                           style={{ borderColor: tier.glow, color: tier.color }}
                         >
                           {t('tradeBoard.prevPage')}
@@ -879,7 +879,7 @@ export default function TradeBoard({ account, isVirtualWallet = false }) {
                         <button
                           onClick={() => setTransactionsPage((page) => Math.min(totalPages, page + 1))}
                           disabled={transactionsPage >= totalPages}
-                          className="rounded-md border px-3 py-1.5 text-[0.58rem] font-black uppercase tracking-[0.18em] disabled:opacity-40"
+                          className="rounded-md border px-3 py-1.5 text-[0.82rem] font-black uppercase tracking-[0.18em] disabled:opacity-40"
                           style={{ borderColor: tier.glow, color: tier.color }}
                         >
                           {t('tradeBoard.nextPage')}
@@ -887,7 +887,7 @@ export default function TradeBoard({ account, isVirtualWallet = false }) {
                       </div>
                       <button
                         onClick={() => setShowTransactions(false)}
-                        className="rounded-md border px-3 py-1.5 text-[0.58rem] font-black uppercase tracking-[0.18em]"
+                        className="rounded-md border px-3 py-1.5 text-[0.82rem] font-black uppercase tracking-[0.18em]"
                         style={{ borderColor: '#f472b6', color: '#f9a8d4' }}
                       >
                         {t('tradeBoard.closeLog')}

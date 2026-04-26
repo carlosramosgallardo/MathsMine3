@@ -385,7 +385,7 @@ function ChartTip({ active, payload, label, nftEvents, range, t }) {
   const diceActive = diceModifier != null
 
   return (
-    <div className="font-mono text-[0.63rem] rounded-lg px-3 py-2 border"
+    <div className="font-mono text-[0.85rem] rounded-lg px-3 py-2 border"
       style={{ background: '#050810', borderColor: `${C}40`, color: '#cbd5e1', minWidth: 165, maxWidth: 250 }}>
       <div className="mb-1" style={{ color: C }}>⏱ {label}</div>
       {val != null && (
@@ -398,7 +398,7 @@ function ChartTip({ active, payload, label, nftEvents, range, t }) {
       {(delta != null || breakdown.length > 0 || diceActive) && (
         <>
           <div className="mt-2 mb-1 border-t" style={{ borderColor: `${C}25` }} />
-          <div className="mb-1 uppercase tracking-widest text-[0.55rem]"
+          <div className="mb-1 uppercase tracking-widest text-[0.78rem]"
             style={{ color: `${C}70` }}>
             {t('chart.breakdownTitle')}
           </div>
@@ -422,7 +422,7 @@ function ChartTip({ active, payload, label, nftEvents, range, t }) {
       {evts.length > 0 && (
         <>
           <div className="mt-2 mb-1 border-t" style={{ borderColor: `${C}25` }} />
-          <div className="mb-1 uppercase tracking-widest text-[0.55rem]"
+          <div className="mb-1 uppercase tracking-widest text-[0.78rem]"
             style={{ color: `${C}80` }}>{t('chart.tooltipNftSection')}</div>
           {evts.map((ev, i) => {
             const clr  = emojiColor(ev.emoji)
@@ -727,11 +727,11 @@ export default function TokenChart() {
               <span style={{ color }}>
                 {stats.isUp ? '▲' : '▼'} {Math.abs(stats.change).toFixed(8)}
               </span>
-              <span className="px-1.5 py-px rounded text-[0.55rem] font-black"
+              <span className="px-1.5 py-px rounded text-[0.78rem] font-black"
                 style={{ background: `${color}22`, color }}>
                 {stats.isUp ? '+' : ''}{stats.pct.toFixed(2)}%
               </span>
-              <span className="text-gray-700 text-[0.55rem]">{range.toUpperCase()}</span>
+              <span className="text-gray-700 text-[0.78rem]">{range.toUpperCase()}</span>
             </div>
           ) : null}
         </div>
@@ -758,11 +758,11 @@ export default function TokenChart() {
 
       {/* ── Stats mini row ── */}
       {stats && (
-        <div className="flex flex-wrap gap-x-4 gap-y-0.5 mb-2 px-0.5 text-[0.62rem] font-bold">
+        <div className="flex flex-wrap gap-x-4 gap-y-0.5 mb-2 px-0.5 text-[0.75rem] font-bold">
           <div style={{ color: UP }}>H {stats.high.toFixed(isMobile ? 5 : 6)}</div>
           <div style={{ color: `${C}80` }}>L {stats.low.toFixed(isMobile ? 5 : 6)}</div>
           {nftEventCount > 0 && (
-            <div className="ml-auto flex items-center gap-1 text-[0.55rem] tracking-wide uppercase"
+            <div className="ml-auto flex items-center gap-1 text-[0.78rem] tracking-wide uppercase"
               style={{ color: `${C}50` }}>
               <span>◈</span>
               <span>{nftEventCount} nftmoji {nftEventCount === 1 ? t('chart.nftEvent1') : t('chart.nftCount')}</span>
@@ -898,7 +898,7 @@ export default function TokenChart() {
         ) : (
           <div className="flex flex-col items-center justify-center gap-2"
             style={{ height: chartHeight }}>
-            <div className="text-[0.65rem] tracking-[0.3em] uppercase"
+            <div className="text-[0.88rem] tracking-[0.3em] uppercase"
               style={{ color: `${C}40` }}>
               {t('chart.loading')}
             </div>

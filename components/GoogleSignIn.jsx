@@ -20,7 +20,7 @@ function SignInButton({ onClick, busy, err, disabled }) {
       onClick={!busy && !disabled ? onClick : undefined}
       disabled={busy || disabled}
       title={disabled ? 'Set NEXT_PUBLIC_GOOGLE_CLIENT_ID to enable Google sign-in' : PRIVACY_TIP}
-      className="px-2 py-1 rounded font-mono text-[0.65rem] font-semibold border transition-all focus:outline-none disabled:cursor-not-allowed"
+      className="px-2 py-1 rounded font-mono text-[0.88rem] font-semibold border transition-all focus:outline-none disabled:cursor-not-allowed"
       style={{ color, borderColor: border, background: 'transparent' }}
       onMouseEnter={e => {
         if (!busy && !disabled && !err) {

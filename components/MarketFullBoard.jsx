@@ -212,13 +212,13 @@ export default function MarketFullBoard() {
       <div className="mb-2 flex items-center justify-between gap-2 px-1">
         <div className="flex min-w-0 items-center gap-2">
           <span className="shrink-0 text-base leading-none">{selectedBlock?.emoji}</span>
-          <span className="truncate text-[0.58rem] font-black uppercase tracking-[0.22em] text-cyan-100/80">{selectedTitle}</span>
-          <span className="shrink-0 font-mono text-[0.42rem] text-cyan-400/40">{selectedHex}</span>
+          <span className="truncate text-[0.82rem] font-black uppercase tracking-[0.22em] text-cyan-100/80">{selectedTitle}</span>
+          <span className="shrink-0 font-mono text-[0.63rem] text-cyan-400/40">{selectedHex}</span>
         </div>
         <Link
           href={marketHref}
           onClick={() => window.dispatchEvent(new CustomEvent('mm3-route-loading', { detail: { href: '/market', label: 'market' } }))}
-          className="shrink-0 border border-cyan-500/20 bg-transparent px-2.5 py-1 text-[0.52rem] font-black uppercase tracking-[0.28em] text-cyan-400/50 transition hover:border-cyan-400/50 hover:text-cyan-300"
+          className="shrink-0 border border-cyan-500/20 bg-transparent px-2.5 py-1 text-[0.75rem] font-black uppercase tracking-[0.28em] text-cyan-400/50 transition hover:border-cyan-400/50 hover:text-cyan-300"
         >
           [ {t('podcast.closeFullBoard')} ]
         </Link>
@@ -301,7 +301,7 @@ export default function MarketFullBoard() {
                         <span className="pointer-events-none text-[min(2.4vw,0.92rem)] leading-none drop-shadow-[0_0_8px_rgba(250,204,21,0.35)] sm:text-[min(1.6vw,1rem)]">
                           {block.emoji}
                         </span>
-                        <span className="pointer-events-none absolute bottom-[1px] right-[1px] text-[0.26rem] font-black tracking-[0.08em] text-cyan-100/90 sm:text-[0.3rem]">
+                        <span className="pointer-events-none absolute bottom-[1px] right-[1px] text-[0.44rem] font-black tracking-[0.08em] text-cyan-100/90 sm:text-[0.3rem]">
                           {cellHex}
                         </span>
                       </>
