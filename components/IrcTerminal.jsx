@@ -704,6 +704,13 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
     }
   }, [generateMarketStatusMessages, actorId]);
 
+  // Refresh market status periodically (like relay-status mainframe)
+  useEffect(() => {
+    refreshMarketStatus();
+    const timer = setInterval(refreshMarketStatus, 60_000);
+    return () => clearInterval(timer);
+  }, [refreshMarketStatus]);
+
   useEffect(() => {
     const resolveBlock = (nftmojiKey) => {
       const block = blockByKeyRef.current.get(nftmojiKey);
