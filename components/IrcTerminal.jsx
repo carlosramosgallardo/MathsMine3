@@ -14,7 +14,8 @@ import {
 } from '@/lib/market-commands';
 
 const ACTIVE_WINDOW_MS = 90_000;
-const MAX_SESSION_MESSAGES = 120;
+const MAX_SESSION_MESSAGES = 500;
+const MAX_CHAT_HISTORY = 500;
 
 function flagImgUrl(cc) {
   if (!cc || cc.length !== 2) return null;
@@ -693,13 +694,21 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
     }));
   }, [t]);
 
-  // Update market status messages with current state
+  // Update market status messages with current state (keeps all user messages intact)
   const refreshMarketStatus = useCallback(async () => {
-    const messages = await generateMarketStatusMessages(actorId);
-    if (messages.length > 0) {
+    const newMarketMessages = await generateMarketStatusMessages(actorId);
+    if (newMarketMessages.length > 0) {
       setMessages((current) => {
-        const filtered = current.filter((m) => !String(m.id).startsWith('market-status:'));
-        return [...filtered, ...messages].slice(-MAX_SESSION_MESSAGES);
+        // Keep all existing messages (user chat, system events, etc.)
+        const existing = current;
+        // Remove old market-status messages
+        const withoutMarket = existing.filter((m) => !String(m.id).startsWith('market-status:'));
+        // Add new market status (goes at the end where welcome was)
+        const allMessages = [...withoutMarket, ...newMarketMessages];
+        // Only truncate at MAX_SESSION_MESSAGES if we have too many
+        return allMessages.length > MAX_SESSION_MESSAGES
+          ? allMessages.slice(-MAX_SESSION_MESSAGES)
+          : allMessages;
       });
     }
   }, [generateMarketStatusMessages, actorId]);
