@@ -154,6 +154,16 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
     }
   }, [persistMessages, playIrcMessage]);
 
+  const upsertMessage = useCallback((message) => {
+    if (!message?.id) return;
+    setMessages((current) => {
+      const filtered = current.filter((m) => !String(m.id).startsWith('relay-status:'));
+      const next = [...filtered, message].slice(-MAX_SESSION_MESSAGES);
+      persistMessages(next);
+      return next;
+    });
+  }, [persistMessages]);
+
   // Derive stable anon ID from external IP (client-only, no DB, cached in sessionStorage)
   useEffect(() => {
     if (normalizedWallet || typeof window === 'undefined') return;
@@ -329,7 +339,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
 
       const stored = safeParseSession(sessionStorage.getItem(storageKey));
       const withoutWelcome = stored.filter((entry) =>
-        !(entry.kind === 'system' && (entry.tone === 'accent' || String(entry.id || '').startsWith('market-status:')))
+        !(entry.kind === 'system' && (entry.tone === 'accent' || String(entry.id || '').startsWith('market-status:') || String(entry.id || '').startsWith('relay-status:')))
       );
       const seeded = [
         makeMessage({
@@ -412,25 +422,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
         }
         setAnonUsers(users);
       })
-      .on('presence', { event: 'join' }, ({ newPresences }) => {
-        for (const p of newPresences) {
-          const id = String(p.anonId || '');
-          if (!id.startsWith('anon:')) continue;
-          const cc = String(p.flag || '');
-          const flagTag = cc.length === 2 ? `[${cc}]` : '[??]';
-          const shortId = id.split(':')[1] || '?';
-          const payload = {
-            id: `ghost-join:${id}:${Math.floor(Date.now() / 60000)}`,
-            kind: 'system',
-            wallet: 'system',
-            text: `${flagTag} ghost:${shortId} // entered relay [read-only — no write clearance]`,
-            ts: Date.now(),
-            tone: 'ghost',
-          };
-          appendMessage(makeMessage(payload), { silent: true });
-          relayRef.current?.send({ type: 'broadcast', event: 'message', payload }).catch(() => {});
-        }
-      })
+      .on('presence', { event: 'join' }, () => {})
       .subscribe(async (status) => {
         if (status !== 'SUBSCRIBED' || normalizedWallet) return;
         if (!anonId.startsWith('anon:')) return;
@@ -568,6 +560,39 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
       supabase.removeChannel(channel);
     };
   }, [loadPresence]);
+
+  useEffect(() => {
+    const shortW = (w) => `${String(w).slice(0, 6)}...${String(w).slice(-4)}`;
+    const isEs = language === 'es';
+
+    const build = () => {
+      const walletParts = connectedWallets.map((u) => shortW(u.wallet));
+      const anonParts = anonUsers.map((u) => {
+        const cc = u.flag || '';
+        const tag = cc.length === 2 ? `[${cc}]` : '[??]';
+        const shortId = String(u.anonId || '').split(':')[1] || '?';
+        return `${tag} ghost:${shortId}`;
+      });
+      const all = [...walletParts, ...anonParts];
+      const n = all.length;
+      const nodeWord = isEs ? (n === 1 ? 'nodo' : 'nodos') : (n === 1 ? 'node' : 'nodes');
+      const text = n === 0
+        ? (isEs ? 'mainframe // señal silenciosa — sin nodos activos' : 'mainframe // signal quiet — no active nodes')
+        : `mainframe // ${n} ${nodeWord} // ${all.join(' · ')}`;
+      upsertMessage(makeMessage({
+        id: `relay-status:${Date.now()}`,
+        kind: 'system',
+        wallet: 'system',
+        text,
+        ts: Date.now(),
+        tone: 'ghost',
+      }));
+    };
+
+    build();
+    const timer = setInterval(build, 60_000);
+    return () => clearInterval(timer);
+  }, [connectedWallets, anonUsers, language, upsertMessage]);
 
   useEffect(() => {
     const resolveBlock = (nftmojiKey) => {
