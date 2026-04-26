@@ -55,7 +55,11 @@ DELETE FROM mm3_sell_transactions;
 -- 7. Eventos de market (compras, penalizaciones de PodcastBoard)
 DELETE FROM mm3_market_events;
 
--- 8. Comisiones acumuladas de Trade
+-- 8. Mensajes de usuario del chat IRC
+DELETE FROM mm3_irc_messages
+WHERE  kind = 'chat';
+
+-- 9. Comisiones acumuladas de Trade
 UPDATE mm3_market_state
 SET    commission_mm3 = 0,
        commission_cny = 0,
@@ -64,7 +68,7 @@ SET    commission_mm3 = 0,
        updated_at     = now()
 WHERE  id = 1;
 
--- 9. NFTmojis de market: borra propiedad y compra en pixels
+-- 10. NFTmojis de market: borra propiedad y compra en pixels
 UPDATE mm3_podcast_pixels
 SET    first_purchased_at = NULL,
        claimed_by         = NULL,
@@ -75,7 +79,7 @@ SET    first_purchased_at = NULL,
        paid_cny           = 0,
        updated_at         = now();
 
--- 10. Cuenta admin con 1M € para probar funcionalidades
+-- 11. Cuenta admin con 1M € para probar funcionalidades
 INSERT INTO player_progress (wallet, eur_earned, updated_at)
 VALUES ('0xd89413f5f444cd420b448cda3bc096ea9c46e8ab', 1000000, now())
 ON CONFLICT (wallet) DO UPDATE
