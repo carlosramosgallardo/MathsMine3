@@ -399,7 +399,7 @@ function ChartTip({ active, payload, label, nftEvents, range, t }) {
         <>
           <div className="mt-2 mb-1 border-t" style={{ borderColor: `${C}25` }} />
           <div className="mb-1 uppercase tracking-widest text-[0.78rem]"
-            style={{ color: `${C}70` }}>
+            style={{ color: `${C}b3` }}>
             {t('chart.breakdownTitle')}
           </div>
           {breakdown.map(([name, amount, clr]) => (
@@ -423,7 +423,7 @@ function ChartTip({ active, payload, label, nftEvents, range, t }) {
         <>
           <div className="mt-2 mb-1 border-t" style={{ borderColor: `${C}25` }} />
           <div className="mb-1 uppercase tracking-widest text-[0.78rem]"
-            style={{ color: `${C}80` }}>{t('chart.tooltipNftSection')}</div>
+            style={{ color: `${C}b3` }}>{t('chart.tooltipNftSection')}</div>
           {evts.map((ev, i) => {
             const clr  = emojiColor(ev.emoji)
             const pct  = ev.delta_mm3 !== 0 && val
@@ -745,7 +745,7 @@ export default function TokenChart() {
                 className="px-2.5 py-1.5 rounded text-sm uppercase font-bold tracking-wide transition-all duration-150 focus:outline-none"
                 style={{
                   background: active ? C : 'transparent',
-                  color:      active ? '#000' : `${C}70`,
+                  color:      active ? '#000' : `${C}b3`,
                   border:     `2px solid ${active ? C : `${C}30`}`,
                   boxShadow:  active ? `0 0 8px ${C}55` : 'none',
                 }}>

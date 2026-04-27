@@ -2344,7 +2344,7 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
               >
                 <div
                   className="text-[0.70rem] font-mono uppercase tracking-widest mb-0.5 truncate"
-                  style={{ color: tier.color + '70' }}
+                  style={{ color: tier.color + 'b3' }}
                 >
                   {label}
                 </div>
@@ -2364,7 +2364,7 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
               >
                 <div
                   className="text-[0.70rem] font-mono uppercase tracking-widest mb-0.5 truncate"
-                  style={{ color: noSlotsLeft ? '#fb718580' : tier.color + '70' }}
+                  style={{ color: noSlotsLeft ? '#fb7185b3' : tier.color + 'b3' }}
                 >
                   {t('board.drillSlots')}
                 </div>
