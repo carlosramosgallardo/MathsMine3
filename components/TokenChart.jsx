@@ -701,7 +701,7 @@ export default function TokenChart() {
     return ['auto', 'auto']
   }, [stats])
 
-  const chartHeight  = isMobile ? 190 : 248
+  const chartHeight  = isMobile ? 200 : 248
   const chartMargin  = isMobile
     ? { top: 36, right: 46, bottom: 4, left: 0 }
     : { top: 28, right: 60, bottom: 4, left: 0 }
@@ -720,33 +720,33 @@ export default function TokenChart() {
       `}</style>
 
       {/* ── Header ── */}
-      <div className="flex flex-wrap items-start justify-between gap-y-2 mb-2 px-0.5">
-        <div className="min-w-0 pt-0.5">
+      <div className="flex flex-wrap items-center justify-between gap-y-2 mb-2 px-0.5">
+        <div className="min-w-0">
           {stats ? (
-            <div className="text-[0.7rem] font-bold flex items-center gap-1.5 flex-wrap">
+            <div className="text-[0.85rem] font-bold flex items-center gap-1.5 flex-wrap">
               <span style={{ color }}>
                 {stats.isUp ? '▲' : '▼'} {Math.abs(stats.change).toFixed(8)}
               </span>
-              <span className="px-1.5 py-px rounded text-[0.78rem] font-black"
+              <span className="px-1.5 py-px rounded text-[0.88rem] font-black"
                 style={{ background: `${color}22`, color }}>
                 {stats.isUp ? '+' : ''}{stats.pct.toFixed(2)}%
               </span>
-              <span className="text-gray-700 text-[0.78rem]">{range.toUpperCase()}</span>
+              <span className="text-gray-600 text-[0.85rem]">{range.toUpperCase()}</span>
             </div>
           ) : null}
         </div>
 
         {/* Range buttons */}
-        <div className="flex flex-wrap gap-1 pt-0.5">
+        <div className="flex flex-wrap gap-1.5 pt-0.5">
           {RANGES.map(r => {
             const active = r === range
             return (
               <button key={r} onClick={() => handleRangeChange(r)}
-                className="px-1.5 py-1 rounded text-[0.6rem] uppercase font-bold tracking-wide transition-all duration-150 focus:outline-none"
+                className="px-2.5 py-1.5 rounded text-sm uppercase font-bold tracking-wide transition-all duration-150 focus:outline-none"
                 style={{
                   background: active ? C : 'transparent',
-                  color:      active ? '#000' : `${C}60`,
-                  border:     `1px solid ${active ? C : `${C}25`}`,
+                  color:      active ? '#000' : `${C}70`,
+                  border:     `2px solid ${active ? C : `${C}30`}`,
                   boxShadow:  active ? `0 0 8px ${C}55` : 'none',
                 }}>
                 {r}
@@ -758,11 +758,11 @@ export default function TokenChart() {
 
       {/* ── Stats mini row ── */}
       {stats && (
-        <div className="flex flex-wrap gap-x-4 gap-y-0.5 mb-2 px-0.5 text-[0.75rem] font-bold">
+        <div className="flex flex-wrap gap-x-4 gap-y-0.5 mb-2 px-0.5 text-[0.85rem] font-bold">
           <div style={{ color: UP }}>H {stats.high.toFixed(isMobile ? 5 : 6)}</div>
           <div style={{ color: `${C}80` }}>L {stats.low.toFixed(isMobile ? 5 : 6)}</div>
           {nftEventCount > 0 && (
-            <div className="ml-auto flex items-center gap-1 text-[0.78rem] tracking-wide uppercase"
+            <div className="ml-auto flex items-center gap-1 text-[0.85rem] tracking-wide uppercase"
               style={{ color: `${C}50` }}>
               <span>◈</span>
               <span>{nftEventCount} nftmoji {nftEventCount === 1 ? t('chart.nftEvent1') : t('chart.nftCount')}</span>
