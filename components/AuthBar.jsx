@@ -377,7 +377,7 @@ function AuthBarWithGoogle({ mode = 'full' }) {
   if (googleWallet) {
     return <ConnectedBar address={googleWallet} isRealWallet={false} onDisconnect={googleSignOut} mode={mode} />
   }
-  if (mode === 'wallet') return null
+  if (mode === 'wallet') return <UtcClock className="font-mono text-[0.65rem] sm:text-[0.80rem] font-black tracking-[0.08em] sm:tracking-[0.14em] text-cyan-300" />
   const openWalletModal = async () => {
     if (walletModalLockRef.current) return
     walletModalLockRef.current = true
@@ -421,7 +421,7 @@ function AuthBarWalletOnly({ mode = 'full' }) {
   if (googleWallet) {
     return <ConnectedBar address={googleWallet} isRealWallet={false} onDisconnect={googleSignOut} mode={mode} />
   }
-  if (mode === 'wallet') return null
+  if (mode === 'wallet') return <UtcClock className="font-mono text-[0.65rem] sm:text-[0.80rem] font-black tracking-[0.08em] sm:tracking-[0.14em] text-cyan-300" />
   const openWalletModal = async () => {
     if (walletModalLockRef.current) return
     walletModalLockRef.current = true
