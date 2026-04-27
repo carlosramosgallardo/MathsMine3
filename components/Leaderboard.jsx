@@ -240,7 +240,7 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
 
     const getValue = (entry) => {
       if (sortConfig.key === 'money') return Number(entry[moneyKey]) || 0;
-      if (sortConfig.key === 'nftmoji') return normalizeWalletDecorations(entry.wallet_emojis).length;
+      if (sortConfig.key === 'nftji') return normalizeWalletDecorations(entry.wallet_emojis).length;
       if (sortConfig.key === 'execs') return Number(entry.execs_count) || 0;
       if (sortConfig.key === 'block') return (Array.isArray(entry.market_blocks) ? entry.market_blocks.length : 0) + (entry.active_penalty ? 1 : 0);
       if (sortConfig.key === 'status') return onlineWallets.has(String(entry.wallet || '').toLowerCase()) ? 1 : 0;
@@ -595,7 +595,7 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
               <th style={{ width:'6%', textAlign:'center' }}><SortButton sortKey="position" className="justify-center">{t('leaderboard.position')}</SortButton></th>
               <th style={{ width:'10%', textAlign:'center' }}><SortButton sortKey="status" className="justify-center">{t('leaderboard.status')}</SortButton></th>
               <th style={{ width:'28%' }}><SortButton sortKey="wallet">{t('leaderboard.minerWallet')}</SortButton></th>
-              <th style={{ width:'14%', textAlign:'center' }} title="NFTmojis — probability artifacts that influence MM3 global value"><SortButton sortKey="nftmoji" className="justify-center">NFTmojis</SortButton></th>
+              <th style={{ width:'14%', textAlign:'center' }} title="NTFJIs — probability artifacts that influence MM3 global value"><SortButton sortKey="nftji" className="justify-center">NTFJIs</SortButton></th>
               <th style={{ width:'7%', textAlign:'center' }}><SortButton sortKey="execs" className="justify-center">{t('leaderboard.execs')}</SortButton></th>
               <th style={{ width:'11%', textAlign:'center' }}><SortButton sortKey="block" className="justify-center">{t('leaderboard.blockPenalty')}</SortButton></th>
               <th style={{ width:'6%', textAlign:'center' }}><SortButton sortKey="level" className="justify-center">{t('leaderboard.level')}</SortButton></th>

@@ -138,8 +138,8 @@ export default function PodcastBoard({ account, isVirtualWallet = false }) {
     mm3Sold: 0,
     totalMm3: 0,
     emojis: [],
-    marketNftmojiKey: null,
-    marketNftmojiPrice: 0,
+    marketNFTJIKey: null,
+    marketNFTJIPrice: 0,
   });
 
   const loadBlocks = async () => {
@@ -218,8 +218,8 @@ export default function PodcastBoard({ account, isVirtualWallet = false }) {
         mm3Sold: 0,
         totalMm3: 0,
         emojis: [],
-        marketNftmojiKey: null,
-        marketNftmojiPrice: 0,
+        marketNFTJIKey: null,
+        marketNFTJIPrice: 0,
       });
       return;
     }
@@ -245,8 +245,8 @@ export default function PodcastBoard({ account, isVirtualWallet = false }) {
         mm3Sold: Number(progress?.mm3_sold) || 0,
         totalMm3: Number(stats?.total_eth) || 0,
         emojis: normalizeWalletDecorations(progress?.wallet_emojis),
-        marketNftmojiKey: progress?.market_nftmoji_key || null,
-        marketNftmojiPrice: Number(progress?.market_nftmoji_price) || 0,
+        marketNFTJIKey: progress?.market_nftmoji_key || null,
+        marketNFTJIPrice: Number(progress?.market_nftmoji_price) || 0,
       });
     } catch (err) {
       console.error('market wallet load:', err);
@@ -437,8 +437,8 @@ export default function PodcastBoard({ account, isVirtualWallet = false }) {
     currency === 'USD' ? priceUsd : currency === 'CNY' ? priceCny : priceEur;
   const enoughFunds = activeFunds >= activePrice;
 
-  const ownsSelected = Boolean(account) && walletState.marketNftmojiKey === selectedBlock?.pixel_key;
-  const hasOtherNftmoji = Boolean(account) && Boolean(walletState.marketNftmojiKey) && walletState.marketNftmojiKey !== selectedBlock?.pixel_key;
+  const ownsSelected = Boolean(account) && walletState.marketNFTJIKey === selectedBlock?.pixel_key;
+  const hasOtherNFTJI = Boolean(account) && Boolean(walletState.marketNFTJIKey) && walletState.marketNFTJIKey !== selectedBlock?.pixel_key;
 
   const canBuy =
     Boolean(account) &&
@@ -447,7 +447,7 @@ export default function PodcastBoard({ account, isVirtualWallet = false }) {
     !selectedBlock?.isPlaceholder &&
     enoughFunds &&
     !ownsSelected &&
-    !hasOtherNftmoji &&
+    !hasOtherNFTJI &&
     !processing;
 
   const canResell = Boolean(account) && dbReady && ownsSelected && !processing;
@@ -1065,7 +1065,7 @@ export default function PodcastBoard({ account, isVirtualWallet = false }) {
           )}
 
           {/* ── Auto-resell warning ── */}
-          {hasOtherNftmoji && !ownsSelected && !selectedBlock?.isPlaceholder && (
+          {hasOtherNFTJI && !ownsSelected && !selectedBlock?.isPlaceholder && (
             <div className="rounded border border-red-400/25 bg-red-950/10 px-2 py-1 text-[0.78rem] uppercase tracking-[0.12em] text-red-400/70 lg:col-span-2">
               {t('podcast.autoResoldHint')}
             </div>

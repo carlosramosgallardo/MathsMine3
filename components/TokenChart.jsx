@@ -373,7 +373,7 @@ function ChartTip({ active, payload, label, nftEvents, range, t }) {
   const deltas = sourceDeltas(row)
   const breakdown = [
     [t('chart.breakdownMined'), deltas.mined_delta, UP],
-    [t('chart.breakdownNftmoji'), deltas.nftmoji_delta, C],
+    [t('chart.breakdownNFTJI'), deltas.nftmoji_delta, C],
     [
       `${t('chart.breakdownTrade')}${formatTradeSourceCounts(deltas.trade_wallet_count, deltas.trade_google_count, t)}`,
       deltas.trade_delta,
@@ -765,7 +765,7 @@ export default function TokenChart() {
             <div className="ml-auto flex items-center gap-1 text-[0.85rem] tracking-wide uppercase"
               style={{ color: `${C}50` }}>
               <span>◈</span>
-              <span>{nftEventCount} nftmoji {nftEventCount === 1 ? t('chart.nftEvent1') : t('chart.nftCount')}</span>
+              <span>{nftEventCount} nftji {nftEventCount === 1 ? t('chart.nftEvent1') : t('chart.nftCount')}</span>
               {nftKeys.length > 0 && nftKeys.length !== nftEventCount && (
                 <>
                   <span style={{ color: '#334155' }}>·</span>

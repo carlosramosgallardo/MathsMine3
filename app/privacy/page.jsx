@@ -14,7 +14,7 @@ export default function PrivacyPage() {
       <section className="mb-6">
         <h2 className="text-base font-bold text-[#22d3ee] mb-2">1. Data We Collect</h2>
         <ul className="list-none space-y-2 text-[1.00rem] leading-relaxed text-gray-400">
-          <li><span className="text-cyan-600">// wallet addresses</span> — stored pseudonymously for gameplay tracking, leaderboards, NFTmoji ownership and trade balances. Not linked to any real identity.</li>
+          <li><span className="text-cyan-600">// wallet addresses</span> — stored pseudonymously for gameplay tracking, leaderboards, NFTJI ownership and trade balances. Not linked to any real identity.</li>
           <li><span className="text-cyan-600">// IRC messages</span> — text, timestamp, wallet address, tone. Stored permanently in our database (Supabase). Visible to all users on the IRC channel.</li>
           <li><span className="text-cyan-600">// IP addresses</span> — collected temporarily for rate limiting and abuse prevention only. Not stored long-term or shared.</li>
           <li><span className="text-cyan-600">// gameplay events</span> — math answers, solve times, penalties, market transactions. Public by design — all leaderboard data is visible to all users.</li>

@@ -2,9 +2,9 @@
 
 > Solve math. Mine fake crypto. Burn your level. Go freak.
 
-A retro math-mining portal where timed problem-solving drives a fully simulated crypto economy. Your wallet levels up, your tokens accumulate real-time value, rare NFTmojis drop on lucky answers, and a 28×28 Market block board sells command-linked NFTmoji blocks. All fictional. All deterministic. All live.
+A retro math-mining portal where timed problem-solving drives a fully simulated crypto economy. Your wallet levels up, your tokens accumulate real-time value, rare NTFJIs drop on lucky answers, and a 28×28 Market block board sells command-linked NFTJI blocks. All fictional. All deterministic. All live.
 
-**v1.0 ships with:** the mining chain · Trade MM3 terminal · Prestige leaderboard · MM3 value chart · Market board (784 cells, 10 NFTmoji blocks) · IRC social relay · daily DRILL SLOTS system · hourly Dice modifier · War/Nature macro indicators · 13 problem types · 5 rank tiers · bilingual EN/ES
+**v1.0 ships with:** the mining chain · Trade MM3 terminal · Prestige leaderboard · MM3 value chart · Market board (784 cells, 10 NFTJI blocks) · IRC social relay · daily DRILL SLOTS system · hourly Dice modifier · War/Nature macro indicators · 13 problem types · 5 rank tiers · bilingual EN/ES
 
 ---
 
@@ -16,11 +16,11 @@ A retro math-mining portal where timed problem-solving drives a fully simulated 
 4. [Mining — Solve Fast, Earn More](#4-mining--solve-fast-earn-more)
 5. [Trade MM3 — The Freak Terminal](#5-trade-mm3--the-freak-terminal)
 6. [Prestige — The Ranking Board](#6-prestige--the-ranking-board)
-7. [Market — NFTmoji Blocks](#7-market--nftmoji-blocks)
+7. [Market — NFTJI Blocks](#7-market--nftji-blocks)
 8. [IRC — The MM3 Relay](#8-irc--the-mm3-relay)
 9. [MM3 Value Chart](#9-mm3-value-chart)
 10. [The World System — Macro & Dice](#10-the-world-system--macro--dice)
-11. [NFTmojis — Full Reference](#11-nftmojis--full-reference)
+11. [NTFJIs — Full Reference](#11-nftjis--full-reference)
 12. [Complete Formula Reference](#12-complete-formula-reference)
 13. [Wallets & Accounts](#13-wallets--accounts)
 14. [Tech Stack](#14-tech-stack)
@@ -40,15 +40,15 @@ MathsMine3 is a fake crypto mining game disguised as a math quiz — and it's co
 
 Solve timed math problems to mine MM3 tokens. Faster answers earn more. A wrong answer breaks your chain and costs you a level. Your level determines your rank, your trade rates, and how loudly the market reacts to your moves.
 
-The global MM3 value reacts to everything: every rare NFTmoji claim, every heart revive, every Market buy/resell. A lucky 1/1000 roll can pump the whole economy by 10%. A death revive tanks it by 25%. Other wallets affect your token's worth. The system is alive.
+The global MM3 value reacts to everything: every rare NFTJI claim, every heart revive, every Market buy/resell. A lucky 1/1000 roll can pump the whole economy by 10%. A death revive tanks it by 25%. Other wallets affect your token's worth. The system is alive.
 
-The Market is a 28×28 block board. Ten special NFTmoji blocks occupy fixed coordinates — each sellable and resellable. Owning one unlocks a daily IRC command that penalises all competing wallets. Every purchase generates a new mystery block that joins the board forever.
+The Market is a 28×28 block board. Ten special NFTJI blocks occupy fixed coordinates — each sellable and resellable. Owning one unlocks a daily IRC command that penalises all competing wallets. Every purchase generates a new mystery block that joins the board forever.
 
 The Trade terminal is a fictional tty where you cash out mined MM3 for CNY, EUR, or USD at rates that shift with your rank, the war/nature macro state, and a deterministic hourly Dice modifier (`🎲`).
 
-The Prestige board ranks every wallet by level, balance, and NFTmoji collection. Your wallet color is always the same — derived deterministically from your address hash.
+The Prestige board ranks every wallet by level, balance, and NFTJI collection. Your wallet color is always the same — derived deterministically from your address hash.
 
-The IRC relay is a live social terminal. Connected wallets see each other, talk, and carry their Market NFTmojis into the social layer. Real presence. Chat messages persist in the database — country flags and owned Market NFTmojis appear next to each author.
+The IRC relay is a live social terminal. Connected wallets see each other, talk, and carry their Market NTFJIs into the social layer. Real presence. Chat messages persist in the database — country flags and owned Market NTFJIs appear next to each author.
 
 The DRILL SLOTS system caps mining to 100 attempts per day. Each trade EXEC earns you +1 permanent extra slot. No slots = no new chain.
 
@@ -68,8 +68,8 @@ It's a freak fake crypto portal. No real money. No real mining. All the vibes.
 - **Level up** — Reach higher tiers (NOVICE → MINER → HACKER → WIZARD → LEGEND) and unlock better trade rates.
 - **Drill Slots** — 100 mining attempts per day. Each trade EXEC permanently adds +1 slot. Run out, and the chain goes dark until reset at UTC midnight.
 - **Trade** — Sell your MM3 on the fictional terminal for in-game CNY / EUR / USD. Or buy MM3 back when the price is right.
-- **Chase drops** — Every correct answer rolls for a rare NFTmoji. Some are 1/50. One is 1/1000.
-- **Hit the Market** — Browse the 28×28 board. Find a live block. Buy its NFTmoji. Use its IRC command before someone else does.
+- **Chase drops** — Every correct answer rolls for a rare NFTJI. Some are 1/50. One is 1/1000.
+- **Hit the Market** — Browse the 28×28 board. Find a live block. Buy its NFTJI. Use its IRC command before someone else does.
 - **Enter IRC** — Jump into the MM3 relay, see who is online, launch your daily command, and compete for the numeric code refund.
 - **Watch the chart** — The global MM3 value fluctuates based on what everyone is doing. Your drops, trades, buys, resells, and command penalties matter.
 
@@ -83,8 +83,8 @@ All daily quotas reset at **UTC midnight**.
 |---|---|---|---|
 | DRILL SLOTS (mining attempts) | 100 / day | +1 permanent per all-time EXEC | Execute any trade to earn bonus |
 | Trade EXECs | 5 / day | — | — |
-| Market NFTmoji IRC command | 1 / day | — | Own a Market NFTmoji |
-| Numeric code attempt per NFTmoji | 1 / day | — | Automatically granted when a wallet receives a command penalty |
+| Market NFTJI IRC command | 1 / day | — | Own a Market NFTJI |
+| Numeric code attempt per NFTJI | 1 / day | — | Automatically granted when a wallet receives a command penalty |
 
 ```
 dailySlots = 100 + allTimeExecs
@@ -163,11 +163,11 @@ else:
 
 Level is always clamped to [0, 100].
 
-### Mining drops — NFTmoji rolls (correct answer only)
+### Mining drops — NFTJI rolls (correct answer only)
 
-Each NFTmoji is rolled independently after every correct answer. Each can only be earned once per wallet (claimed flag stored in `player_progress`):
+Each NFTJI is rolled independently after every correct answer. Each can only be earned once per wallet (claimed flag stored in `player_progress`):
 
-| NFTmoji | Name | Probability | Roll order |
+| NFTJI | Name | Probability | Roll order |
 |---|---|---|---|
 | 🧿 | Fate Singularity | 1/1000 | checked first |
 | 🎰 | Jackpot Engine | 1/500 | checked second |
@@ -275,9 +275,9 @@ diceModifier ∈ [−0.50, +0.50]   (active 15 min/hour)
 effectiveDiceMult = 1 + diceModifier
 ```
 
-**3. NFTmoji trade multiplier** — `getWalletTradeMultiplier(decorations, level)`
+**3. NFTJI trade multiplier** — `getWalletTradeMultiplier(decorations, level)`
 ```
-baseMultiplier = Π of all owned NFTmoji multipliers:
+baseMultiplier = Π of all owned NFTJI multipliers:
   🔮 ×1.005 | 🍀 ×1.01 | 🎰 ×1.05 | 🧿 ×1.5 | ❤️ ×0.2
 
 levelMultiplier = 1 + level × 0.001
@@ -311,16 +311,16 @@ The leaderboard (called **Prestige** in the UI) ranks all wallets by level. It s
 - Wallet address — color-coded deterministically from the address hash
 - Current level and rank tier with color glow
 - Available MM3 and money balance
-- NFTmojis claimed — displayed as emoji badges with hover tooltips
+- NTFJIs claimed — displayed as emoji badges with hover tooltips
 - EXECs count — total all-time trade transactions
-- **Block / Pen.** — Market NFTmoji block owned (with HEX link) and current active penalty from IRC commands (0 or negative, blinks when unpaid)
+- **Block / Pen.** — Market NFTJI block owned (with HEX link) and current active penalty from IRC commands (0 or negative, blinks when unpaid)
 - Accuracy percentage across all answers
 
-Paginated at 50 per page. Sortable by level, MM3, money, NFTmoji count, and EXECs.
+Paginated at 50 per page. Sortable by level, MM3, money, NFTJI count, and EXECs.
 
 ### Block / Pen. column
 
-Each Market NFTmoji command that fires in IRC can penalise all wallets not holding that same NFTmoji. The penalty amount equals the NFTmoji's price. It appears as a negative number in this column, linked to the block's detail page where the numeric code can be entered to cancel it.
+Each Market NFTJI command that fires in IRC can penalise all wallets not holding that same NFTJI. The penalty amount equals the NFTJI's price. It appears as a negative number in this column, linked to the block's detail page where the numeric code can be entered to cancel it.
 
 - **0** — no active penalty
 - **−N** — active penalty in MM3 equivalent, blinking/glowing to prompt action
@@ -338,24 +338,24 @@ Each Market NFTmoji command that fires in IRC can penalise all wallets not holdi
 
 ---
 
-## 7. Market — NFTmoji Blocks
+## 7. Market — NFTJI Blocks
 
-The Market is a **28×28 block board** (784 cells, hex-coded `#000`–`#30F`). Ten special NFTmoji blocks occupy fixed positions; new blocks auto-generate as wallets make first purchases. Navigate the board, find a live block, and pay in-game fiat to acquire its NFTmoji.
+The Market is a **28×28 block board** (784 cells, hex-coded `#000`–`#30F`). Ten special NFTJI blocks occupy fixed positions; new blocks auto-generate as wallets make first purchases. Navigate the board, find a live block, and pay in-game fiat to acquire its NFTJI.
 
 ### Ownership rules
 
-- Any wallet can buy any Market NFTmoji **regardless of how many others already own it** — multiple wallets can hold the same emoji simultaneously.
-- A wallet may own **at most 1 Market NFTmoji at a time**. To buy a new one, resell the current one first — the system blocks the purchase if you already hold a different block.
-- Owning a Market NFTmoji does **not** lock out other wallets from buying the same item.
-- The goal is to acquire, use the daily IRC command, then potentially resell and cycle through different NFTmojis.
+- Any wallet can buy any Market NFTJI **regardless of how many others already own it** — multiple wallets can hold the same emoji simultaneously.
+- A wallet may own **at most 1 Market NFTJI at a time**. To buy a new one, resell the current one first — the system blocks the purchase if you already hold a different block.
+- Owning a Market NFTJI does **not** lock out other wallets from buying the same item.
+- The goal is to acquire, use the daily IRC command, then potentially resell and cycle through different NTFJIs.
 
 ### Purchase flow
 
 1. Select a live block — detail card appears with price, command description, and YouTube short
-2. If you already own a different Market NFTmoji, **RESELL it first** — the BUY button is locked until you do
+2. If you already own a different Market NFTJI, **RESELL it first** — the BUY button is locked until you do
 3. Click **BUY** — in-game fiat balance is debited
 4. The price equivalent in MM3 (at current global rate) is injected into the MM3 pool
-5. The NFTmoji is added to your wallet
+5. The NFTJI is added to your wallet
 6. **Auto-generation:** on any first-time purchase of one of the 10 original blocks, a new mystery block spawns at a random free cell, gets a new unique emoji (not used anywhere in the portal), and is added permanently to the board and the Market catalog — its full data is pending manual entry in Supabase before going on sale
 
 ### Resell flow
@@ -367,7 +367,7 @@ resellReturn = price × 0.50   (returned to wallet in in-game fiat)
 poolInjection = price × 0.50  (injected as MM3 at current global rate into the pool)
 ```
 
-### NFTmoji catalog (original 10)
+### NFTJI catalog (original 10)
 
 | Emoji | Name | HEX | Price | IRC command effect | Proposed passive modifier |
 |---|---|---|---|---|---|
@@ -386,7 +386,7 @@ Passive modifiers are **proposed** — not yet implemented.
 
 ### IRC command — how it works
 
-Each Market NFTmoji has one associated freak linux/crypto command containing a math formula that resolves to a **5-digit integer** computed at launch time.
+Each Market NFTJI has one associated freak linux/crypto command containing a math formula that resolves to a **5-digit integer** computed at launch time.
 
 ```
 Command example (Genesis Uplink):
@@ -395,27 +395,27 @@ Command example (Genesis Uplink):
 ```
 
 **Launch rules:**
-- Only the wallet currently owning the NFTmoji can launch its command
+- Only the wallet currently owning the NFTJI can launch its command
 - Each command can be launched **once per day globally** (not per wallet) — one wallet fires it and it is locked until UTC midnight reset
 - The owning wallet clicks the pre-filled command link from the block detail → IRC pre-populates the message → wallet hits Enter → system processes it
 - On execution the system generates a fresh `x` value, computes the formula result from that `x`, and stores the direct 5-digit formula output as the command's `numeric_code` in the DB
 
 **Penalty rules:**
-- On launch: all wallets in Prestige (connected or not) are penalised by the NFTmoji's price in MM3 equivalent, **except:**
+- On launch: all wallets in Prestige (connected or not) are penalised by the NFTJI's price in MM3 equivalent, **except:**
   - The wallet that fired the command
-  - Any wallet that currently owns the same NFTmoji
-- Maximum daily penalties: 10 (one per NFTmoji, assuming all 10 are owned and fired)
+  - Any wallet that currently owns the same NFTJI
+- Maximum daily penalties: 10 (one per NFTJI, assuming all 10 are owned and fired)
 
 **Numeric code redemption:**
 - Affected wallets see the penalty in the Prestige **Block / Pen.** column as a negative blinking value
-- The negative amount links to the NFTmoji's block detail
+- The negative amount links to the NFTJI's block detail
 - The numeric code field is only active if the command was launched today
-- Each wallet gets 1 attempt per day per NFTmoji
+- Each wallet gets 1 attempt per day per NFTJI
 - Entering the correct 5-digit code cancels the penalty completely (100% refund)
 - Entering wrong code: attempt consumed, penalty remains
 
 **IRC welcome status:**
-When a wallet connects to IRC, the system relay shows the status of all 10 Market NFTmojis: which are currently owned, whether their command has been launched today, and when the reset occurs. For NFTmojis with no active command, the relay lists all eligible launcher wallets in a single line followed by a mystery teaser.
+When a wallet connects to IRC, the system relay shows the status of all 10 Market NTFJIs: which are currently owned, whether their command has been launched today, and when the reset occurs. For NTFJIs with no active command, the relay lists all eligible launcher wallets in a single line followed by a mystery teaser.
 
 ### Block hex numbering
 
@@ -439,14 +439,14 @@ The portal includes an **IRC-style social relay** that makes MM3 feel like a sha
 - **Live presence** — compact connected user list; wallet users (`W`/`G`) and anonymous ghosts (`A`, dim stone) appear in separate sidebar sections with +5 expansion each; the header shows `wallets/total` count (wallets on site / all connected including anon IRC)
 - **Anon ghost presence** — anonymous visitors are tracked via **Supabase Realtime Presence** (zero DB writes, ephemeral); identified by a deterministic `anon:xxxxxx` ID derived from their external IP hash; country flag is resolved client-side at connect time (no storage) and displayed as a flag image next to the ID; they appear in a dedicated sidebar section with a `○` marker
 - **Persistent chat** — user messages are stored permanently in `mm3_irc_messages`; history is loaded on connect so no messages are lost on refresh
-- **Country flags + NFTmoji badges** — each chat line shows the author's country flag and any owned Market NFTmoji inline before the wallet address
+- **Country flags + NFTJI badges** — each chat line shows the author's country flag and any owned Market NFTJI inline before the wallet address
 - **Wallet identity** — every message is authored by the wallet address (shortened); anon guests can read but their ID never appears in the chat log
 - **Ghost join trace** — when an anon user connects, a dim system line appears in the relay: `[CC] ghost:xxxxxx // entered relay [read-only — no write clearance]`; anon leaves are silent
 - **System relay notices** — players see who connects and disconnects in real time (wallet users only)
-- **Market identity layer** — owned Market NFTmojis appear next to the wallets that hold them
+- **Market identity layer** — owned Market NTFJIs appear next to the wallets that hold them
 - **Mainframe welcome** — the relay boots with the welcome line stored in `mm3_macro_state`
-- **Market NFTmoji status** — the welcome block shows all 10 NFTmojis, their ownership status, whether the command fired today, next reset time, and for idle NFTmojis the list of eligible launcher wallets with a mystery teaser
-- **Command launch** — owning a Market NFTmoji lets you fire its daily command from the block detail page; a pre-filled IRC message is waiting for Enter
+- **Market NFTJI status** — the welcome block shows all 10 NTFJIs, their ownership status, whether the command fired today, next reset time, and for idle NTFJIs the list of eligible launcher wallets with a mystery teaser
+- **Command launch** — owning a Market NFTJI lets you fire its daily command from the block detail page; a pre-filled IRC message is waiting for Enter
 
 IRC gives MM3 a social loop. Mining, trading, ranking, collecting, and talking all happen inside the same fictional terminal culture. Wallet presence becomes community presence.
 
@@ -468,7 +468,7 @@ A live chart plotting cumulative MM3 value over time using the `token_value_time
 
 ### NFT event markers
 
-Every NFTmoji claim and heart-revive is plotted as an emoji pill above the chart line. Nearby events are grouped with a count badge. Hover shows wallet, emoji, MM3 delta, and timestamp.
+Every NFTJI claim and heart-revive is plotted as an emoji pill above the chart line. Nearby events are grouped with a count badge. Hover shows wallet, emoji, MM3 delta, and timestamp.
 
 The Dice window is rendered in the `1H` view as a colour-coded shaded band with a `🎲 +X%` pill at the start and a dashed close line at the end.
 
@@ -523,15 +523,15 @@ Applied as `commissionRate × (1 + modifier)`. Negative modifier = cheaper commi
 
 ---
 
-## 11. NFTmojis — Full Reference
+## 11. NTFJIs — Full Reference
 
-NFTmojis are wallet collectibles earned through gameplay. Each is stored in `player_progress.wallet_emojis[]`, displayed next to your address everywhere, and modifies your trade rates.
+NTFJIs are wallet collectibles earned through gameplay. Each is stored in `player_progress.wallet_emojis[]`, displayed next to your address everywhere, and modifies your trade rates.
 
 ### Mining drops (correct-answer rolls)
 
 Each roll is independent. Each emoji claimable once per wallet, ever.
 
-| NFTmoji | Name | Probability | Trade multiplier | MM3 pool shock |
+| NFTJI | Name | Probability | Trade multiplier | MM3 pool shock |
 |---|---|---|---|---|
 | 🔮 | Void Seer | 1/50 | ×1.005 | +0.5% |
 | 🍀 | Fortune Leaf | 1/100 | ×1.01 | +1% |
@@ -542,13 +542,13 @@ MM3 shock = `delta_mm3` written to `mm3_market_events`, added to the global pool
 
 ### Life continue
 
-| NFTmoji | How to get | Cost | Trade multiplier | MM3 pool shock |
+| NFTJI | How to get | Cost | Trade multiplier | MM3 pool shock |
 |---|---|---|---|---|
 | ❤️ | Life Toll | €1.00 fixed | ×0.2 | −25% |
 
 Conditions: wallet has never used a revive + holds ≥ €1.00 in-game. One per wallet, ever.
 
-### Trade multiplier formula (all mining NFTmojis)
+### Trade multiplier formula (all mining NTFJIs)
 
 ```
 tradeMultiplier = (Π owned multipliers) × (1 + level × 0.001)
@@ -559,11 +559,11 @@ Stack example — all 4 mining drops at level 100:
 
 The ❤️ multiplier (×0.2) stacks destructively — owning the revive nearly zeroes your trade output. This is intentional.
 
-### Market NFTmojis
+### Market NTFJIs
 
-A separate catalogue of NFTmojis tied to the Market board. These are **buyable by any wallet** (multiple wallets may own the same), but each wallet holds **at most 1 at a time**.
+A separate catalogue of NTFJIs tied to the Market board. These are **buyable by any wallet** (multiple wallets may own the same), but each wallet holds **at most 1 at a time**.
 
-Unlike mining drops, Market NFTmojis are purchased with in-game fiat and are resellable. They do not stack with mining drops in the trade multiplier (modifier system pending implementation). See §7 for the full catalog and mechanics.
+Unlike mining drops, Market NTFJIs are purchased with in-game fiat and are resellable. They do not stack with mining drops in the trade multiplier (modifier system pending implementation). See §7 for the full catalog and mechanics.
 
 ---
 
@@ -622,7 +622,7 @@ boostedNetCny  = netCny × tradeMultiplier
 ### Trade multiplier
 
 ```
-tradeMultiplier = (Π slot.multiplier for each owned mining NFTmoji) × (1 + level × 0.001)
+tradeMultiplier = (Π slot.multiplier for each owned mining NFTJI) × (1 + level × 0.001)
 ```
 
 ### Dice window (client-side deterministic)
@@ -641,7 +641,7 @@ window   = 15 min
 macroMult = clamp(1 − (war_percent/100)×0.5 + (nature_percent/100)×0.75, 0.1, 2.0)
 ```
 
-### Mining NFTmoji shock (global MM3 pool delta)
+### Mining NFTJI shock (global MM3 pool delta)
 
 ```
 🔮 → +0.005   🍀 → +0.01   🎰 → +0.05   🧿 → +0.10   ❤️ → −0.25
@@ -649,7 +649,7 @@ macroMult = clamp(1 − (war_percent/100)×0.5 + (nature_percent/100)×0.75, 0.1
 
 Written to `mm3_market_events.delta_mm3`, accumulates in `token_value_timeseries`.
 
-### Market NFTmoji resell
+### Market NFTJI resell
 
 ```
 playerReturn = price × 0.50
@@ -659,12 +659,12 @@ poolInjection = price × 0.50   (in MM3 at current global rate)
 ### Market command penalty
 
 ```
-penaltyFiat   = nftmoji.price_eur
+penaltyFiat   = nftji.price_eur
 penaltyMM3    = penaltyFiat / currentMM3Rate
 
 Affected wallets: all in Prestige EXCEPT
   - the wallet that fired the command
-  - any wallet currently owning the same NFTmoji
+  - any wallet currently owning the same NFTJI
 ```
 
 ### Daily DRILL SLOTS
@@ -683,7 +683,7 @@ Two wallet types work identically:
 
 **Google virtual wallet** — sign in with Google. A deterministic virtual wallet address is derived from your Google ID using a stable hash function. Same gameplay systems, no crypto wallet needed.
 
-Both persist level, balances, NFTmojis, DRILL SLOTS bonus, and revive state. Language and currency preferences persist across navigation. Your wallet color is deterministic from the address hash — same wallet always gets the same color, everywhere.
+Both persist level, balances, NTFJIs, DRILL SLOTS bonus, and revive state. Language and currency preferences persist across navigation. Your wallet color is deterministic from the address hash — same wallet always gets the same color, everywhere.
 
 ---
 
@@ -725,18 +725,18 @@ Both persist level, balances, NFTmojis, DRILL SLOTS bonus, and revive state. Lan
     token-value/            GET current MM3 aggregate value
     token-history/          GET hourly MM3 timeseries (up to 2 000 rows)
     token-history-minutes/  GET minute-by-minute MM3 for the last hour
-    nft-events/             GET all NFTmoji / life-continue events with emoji
+    nft-events/             GET all NFTJI / life-continue events with emoji
     leaderboard/            GET paginated leaderboard sorted by level (default 50/page)
     market-shuffle/         GET randomised Market block order for exploration
     status/                 GET service health
 
 /components
-  Board.jsx               Main game UI (problems, timer, level progression, NFTmoji drops, DRILL SLOTS)
+  Board.jsx               Main game UI (problems, timer, level progression, NFTJI drops, DRILL SLOTS)
   TradeBoard.jsx          Fictional in-game trade terminal (sell/buy, daily limit, tx journal)
   PodcastBoard.jsx        Market board (card + 28×28 block grid, single view)
-  IrcTerminal.jsx         Shared MM3 relay terminal (live presence, wallet chat, NFTmoji badges)
-  Leaderboard.jsx         Prestige table — MM3, balances, level, NFTmojis, EXECs, Block / Pen.
-  TokenChart.jsx          MM3 value chart — Recharts, NFTmoji markers, Dice overlays
+  IrcTerminal.jsx         Shared MM3 relay terminal (live presence, wallet chat, NFTJI badges)
+  Leaderboard.jsx         Prestige table — MM3, balances, level, NTFJIs, EXECs, Block / Pen.
+  TokenChart.jsx          MM3 value chart — Recharts, NFTJI markers, Dice overlays
   GlobalPulseBar.jsx      War/nature/dice indicators + UTC clock + active wallet count
   MacroTicker.jsx         Scrolling header ticker (bilingual macro transmission messages)
   Header.jsx              Logo + nav bar + macro ticker + UTC clock + wallet row
@@ -760,7 +760,7 @@ Both persist level, balances, NFTmojis, DRILL SLOTS bonus, and revive state. Lan
   translations.js         EN/ES string tables (all UI copy)
   ranks.js                Rank tier definitions (NOVICE → LEGEND), colors, emojis
   wallet-colors.js        Deterministic HSL color from wallet address hash
-  wallet-decorations.js   NFTmoji emoji constants, trade slot order, market delta helpers
+  wallet-decorations.js   NFTJI emoji constants, trade slot order, market delta helpers
   sell-offer.js           Trade MM3 quote calculation (sell/buy, commissions, macros, dice)
   mm3-macro.js            Macro state utilities (war%, nature%, normalization)
   dice.js                 Dice — deterministic hourly window generator (PRNG, no server call)
@@ -786,7 +786,7 @@ Both persist level, balances, NFTmojis, DRILL SLOTS bonus, and revive state. Lan
   og-image.jpg        OpenGraph preview image
   mm3-token.png       Token sprite / apple-touch-icon
   math_phrases.json   Problem template phrases (bilingual)
-  nfts/               NFTmoji artwork assets
+  nfts/               NFTJI artwork assets
   sounds/             In-game sound effects (correct, wrong)
 ```
 
@@ -801,10 +801,10 @@ Both persist level, balances, NFTmojis, DRILL SLOTS bonus, and revive state. Lan
 | `games` | Every game result (wallet, problem, answer, reward, timing, difficulty, problem_type) |
 | `math_problems` | Problem bank with bilingual `language` column and 5 difficulty levels |
 | `leaderboard_data` | Denormalized stats rebuilt by trigger on each INSERT to `games` |
-| `player_progress` | Wallet level, trade balances, revive flag, mining NFTmoji flags, `wallet_emojis[]`, current Market NFTmoji ownership |
+| `player_progress` | Wallet level, trade balances, revive flag, mining NFTJI flags, `wallet_emojis[]`, current Market NFTJI ownership |
 | `mm3_sell_transactions` | Fictional MM3 sell/buy transactions with full currency breakdown and commission rate |
-| `mm3_market_events` | Global MM3 shocks from NFTmoji claims and heart-revives — includes `emoji TEXT` |
-| `mm3_podcast_pixels` | Market NFTmoji blocks — fixed grid position, command metadata, price, first-purchase audit |
+| `mm3_market_events` | Global MM3 shocks from NFTJI claims and heart-revives — includes `emoji TEXT` |
+| `mm3_podcast_pixels` | Market NFTJI blocks — fixed grid position, command metadata, price, first-purchase audit |
 | `mm3_market_commands` | Daily global Market command launches, generated numeric codes, launcher wallet, reset window |
 | `mm3_command_penalties` | Per-wallet active/refunded Market command penalties and one-shot numeric-code attempts |
 | `mm3_irc_messages` | Persistent IRC chat log — wallet, text, ts (bigint ms), kind, tone |
@@ -845,7 +845,7 @@ All routes are dynamic (`force-dynamic`), rate-limited at 10 req / 60 s per IP v
 | `/api/token-value` | GET | Current MM3 aggregate value + commission pool |
 | `/api/token-history` | GET | Hourly timeseries up to 2 000 rows (`s-maxage=60`) |
 | `/api/token-history-minutes` | GET | Minute-by-minute last 60 min (`s-maxage=30`) |
-| `/api/nft-events` | GET | All NFTmoji / life events with resolved emoji (`s-maxage=60`) |
+| `/api/nft-events` | GET | All NFTJI / life events with resolved emoji (`s-maxage=60`) |
 | `/api/leaderboard` | GET | Paginated leaderboard `?page=1&limit=50` (`s-maxage=30`) |
 | `/api/market-shuffle` | GET | Randomised Market block order for board exploration |
 | `/api/status` | GET | Service health |

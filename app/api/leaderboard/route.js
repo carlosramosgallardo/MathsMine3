@@ -110,7 +110,7 @@ export async function GET(req) {
         cny_balance:   progress.cny,
         eur_balance:   progress.eur,
         usd_balance:   progress.usd,
-        nftmojis:      progress.walletEmojis,
+        nftjis:      progress.walletEmojis,
       }
     })
     .sort((a, b) => {
@@ -130,7 +130,7 @@ export async function GET(req) {
     cny_balance:   entry.cny_balance,
     eur_balance:   entry.eur_balance,
     usd_balance:   entry.usd_balance,
-    nftmojis:      entry.nftmojis,
+    nftjis:      entry.nftjis,
   }))
 
   return new Response(JSON.stringify({

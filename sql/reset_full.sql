@@ -21,7 +21,7 @@ SET    total_eth      = 0,
        rank           = NULL,
        updated_at     = now();
 
--- 3. Progreso de cada wallet: nivel, fondos, NFTmojis de mining y market
+-- 3. Progreso de cada wallet: nivel, fondos, NTFJIs de mining y market
 UPDATE player_progress
 SET    level                  = 0,
        mm3_sold               = 0,
@@ -68,7 +68,7 @@ SET    commission_mm3 = 0,
        updated_at     = now()
 WHERE  id = 1;
 
--- 10. NFTmojis de market: borra propiedad y compra en pixels
+-- 10. NTFJIs de market: borra propiedad y compra en pixels
 UPDATE mm3_podcast_pixels
 SET    first_purchased_at = NULL,
        claimed_by         = NULL,

@@ -12,7 +12,7 @@ import {
   appendWalletDecoration,
   getWalletMarketDelta,
   MARKET_EVENT_TYPE_LIFE,
-  MARKET_EVENT_TYPE_NFTMOJI,
+  MARKET_EVENT_TYPE_NFTJI,
 } from '@/lib/wallet-decorations';
 const getDiff = (lvl) => {
   if (lvl >= 70) return 5;
@@ -1918,12 +1918,12 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
         .from('mm3_market_events')
         .insert({
           wallet,
-          event_type: MARKET_EVENT_TYPE_NFTMOJI,
+          event_type: MARKET_EVENT_TYPE_NFTJI,
           delta_mm3: deltaMm3,
           emoji,
         });
       if (eventError) {
-        console.error('nftmoji market event insert:', eventError);
+        console.error('nftji market event insert:', eventError);
       }
     }
 
@@ -2644,7 +2644,7 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
                       <button
                         onClick={handleSuccessClaim}
                         disabled={isClaimingSuccess}
-                        aria-label="Claim Nftmoji"
+                        aria-label="Claim NFTJI"
                         className="min-w-14 px-4 py-2.5 rounded-lg font-mono text-2xl leading-none border-2 transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 disabled:opacity-40"
                         style={{
                           borderColor: '#facc15aa',

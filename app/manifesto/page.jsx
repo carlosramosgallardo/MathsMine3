@@ -35,22 +35,22 @@ export default function ManifestoPage() {
       href: '/mm3-value',
       label: 'MM3',
       desc: language === 'es'
-        ? 'el gráfico vivo que enseña cómo mining, trade, heart y Nftmojis deforman el valor global del sistema'
-        : 'the live chart that shows how mining, trade, heart, and Nftmojis distort the system-wide value',
+        ? 'el gráfico vivo que enseña cómo mining, trade, heart y NTFJIs deforman el valor global del sistema'
+        : 'the live chart that shows how mining, trade, heart, and NTFJIs distort the system-wide value',
     },
     {
       href: '/market',
       label: 'Market',
       desc: language === 'es'
-        ? 'el tablero de bloques donde compras, revendes y activas Nftmojis con comandos IRC diarios'
-        : 'the block board where wallets buy, resell, and activate NFTmojis with daily IRC commands',
+        ? 'el tablero de bloques donde compras, revendes y activas NTFJIs con comandos IRC diarios'
+        : 'the block board where wallets buy, resell, and activate NTFJIs with daily IRC commands',
     },
     {
       href: '/irc',
       label: 'IRC',
       desc: language === 'es'
-        ? 'el relay social del portal: wallets en vivo, Nftmojis de Market, lista de wallets listas para lanzar comando y códigos numéricos'
-        : 'the portal social relay: live wallets, Market NFTmojis, command-ready wallet lists, daily commands, and numeric codes',
+        ? 'el relay social del portal: wallets en vivo, NTFJIs de Market, lista de wallets listas para lanzar comando y códigos numéricos'
+        : 'the portal social relay: live wallets, Market NTFJIs, command-ready wallet lists, daily commands, and numeric codes',
     },
     {
       href: '/manifesto',
@@ -167,13 +167,13 @@ export default function ManifestoPage() {
           </h2>
           <p className="leading-relaxed">
             {language === 'es'
-              ? 'El canal IRC es la capa social de MathsMine3. No es una red social: es una terminal viva conectada al pulso real del portal. Las wallets activas entran, su presencia aparece junto a su bandera de país y sus NFTmojis de Market, y desde ahí se lanzan comandos diarios que generan penalizaciones y códigos numéricos. Los mensajes de chat se almacenan en base de datos — el historial persiste entre sesiones. Cuando un NFTmoji está listo pero sin comando activo, el relay muestra las wallets elegibles para lanzarlo — cualquiera puede ver quién tiene el gatillo, pero solo una lo apretará. Cualquiera puede entrar sin wallet en modo fantasma de solo lectura — su bandera de país aparece en el relay y deja traza de conexión, pero no puede escribir.'
-              : 'The IRC channel is the social layer of MathsMine3. Not a social network — a live terminal wired to the real pulse of the portal. Active wallets enter, their presence appears alongside their country flag and Market NFTmojis, and daily commands can generate penalties and numeric codes from there. Chat messages are stored in the database — history persists across sessions. When a NFTmoji is ready but has no active command, the relay lists all eligible launcher wallets — anyone watching can see who holds the trigger, but only one will pull it. Anyone can enter without a wallet in read-only ghost mode — their country flag shows in the relay and a connection trace is visible, but they cannot write.'}
+              ? 'El canal IRC es la capa social de MathsMine3. No es una red social: es una terminal viva conectada al pulso real del portal. Las wallets activas entran, su presencia aparece junto a su bandera de país y sus NTFJIs de Market, y desde ahí se lanzan comandos diarios que generan penalizaciones y códigos numéricos. Los mensajes de chat se almacenan en base de datos — el historial persiste entre sesiones. Cuando un NFTJI está listo pero sin comando activo, el relay muestra las wallets elegibles para lanzarlo — cualquiera puede ver quién tiene el gatillo, pero solo una lo apretará. Cualquiera puede entrar sin wallet en modo fantasma de solo lectura — su bandera de país aparece en el relay y deja traza de conexión, pero no puede escribir.'
+              : 'The IRC channel is the social layer of MathsMine3. Not a social network — a live terminal wired to the real pulse of the portal. Active wallets enter, their presence appears alongside their country flag and Market NTFJIs, and daily commands can generate penalties and numeric codes from there. Chat messages are stored in the database — history persists across sessions. When a NFTJI is ready but has no active command, the relay lists all eligible launcher wallets — anyone watching can see who holds the trigger, but only one will pull it. Anyone can enter without a wallet in read-only ghost mode — their country flag shows in the relay and a connection trace is visible, but they cannot write.'}
           </p>
           <p className="leading-relaxed mt-3">
             {language === 'es'
-              ? 'El relay convierte el portal en un espacio compartido. Mining, trading, ranking, comprar/revender NFTmojis, lanzar comandos y hablar ocurren dentro de la misma cultura terminal. La presencia de wallet es también presencia social. El contador muestra X/Y wallets · N irc para distinguir los logados del total de conectados — incluyendo fantasmas anónimos — en cualquier apartado del portal.'
-              : 'The relay turns the portal into a shared space. Mining, trading, ranking, buying/reselling NFTmojis, launching commands, and talking all happen inside the same terminal culture. Wallet presence is social presence. The counter shows X/Y wallets · N irc to distinguish logged-in wallets from total connected — including anonymous ghosts — across any section of the portal.'}
+              ? 'El relay convierte el portal en un espacio compartido. Mining, trading, ranking, comprar/revender NTFJIs, lanzar comandos y hablar ocurren dentro de la misma cultura terminal. La presencia de wallet es también presencia social. El contador muestra X/Y wallets · N irc para distinguir los logados del total de conectados — incluyendo fantasmas anónimos — en cualquier apartado del portal.'
+              : 'The relay turns the portal into a shared space. Mining, trading, ranking, buying/reselling NTFJIs, launching commands, and talking all happen inside the same terminal culture. Wallet presence is social presence. The counter shows X/Y wallets · N irc to distinguish logged-in wallets from total connected — including anonymous ghosts — across any section of the portal.'}
           </p>
         </section>
 
@@ -216,8 +216,8 @@ export default function ManifestoPage() {
               IRC relay
             </Link>
             {language === 'es'
-              ? ' para hablar con otras wallets conectadas, lanzar comandos de Market cuando tengas un NFTmoji y ver en tiempo real quién ocupa el mainframe contigo.'
-              : ' to talk with other connected wallets, launch Market commands when you own an NFTmoji, and see in real time who is occupying the mainframe with you.'}
+              ? ' para hablar con otras wallets conectadas, lanzar comandos de Market cuando tengas un NFTJI y ver en tiempo real quién ocupa el mainframe contigo.'
+              : ' to talk with other connected wallets, launch Market commands when you own an NFTJI, and see in real time who is occupying the mainframe with you.'}
           </p>
         </section>
 

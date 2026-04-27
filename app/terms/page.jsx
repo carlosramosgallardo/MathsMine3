@@ -41,7 +41,7 @@ export default function TermsPage() {
       <section className="mb-6">
         <h2 className="text-base font-bold text-[#22d3ee] mb-2">4. Gameplay Outcomes</h2>
         <p className="text-[1.00rem] leading-relaxed text-gray-400">
-          All gameplay results — MM3 token balances, level penalties, NFTmoji drops, Market block purchases, resells, and IRC command penalties — are <strong className="text-gray-300">permanent</strong> unless the game explicitly provides a refund or recovery path. We reserve the right to correct outcomes caused by verified system errors.
+          All gameplay results — MM3 token balances, level penalties, NFTJI drops, Market block purchases, resells, and IRC command penalties — are <strong className="text-gray-300">permanent</strong> unless the game explicitly provides a refund or recovery path. We reserve the right to correct outcomes caused by verified system errors.
         </p>
       </section>
 

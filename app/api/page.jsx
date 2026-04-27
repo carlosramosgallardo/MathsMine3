@@ -19,7 +19,7 @@ export default function ApiPage() {
         tokenHistoryMinutes:    'Histórico por Minutos',
         tokenHistoryMinutesDesc:'Valor MM3 minuto a minuto de la última hora (60 puntos de datos):',
         nftEvents:              'Eventos de Mercado',
-        nftEventsDesc:          'Todos los eventos de mercado: claims de Nftmoji y continuaciones de vida:',
+        nftEventsDesc:          'Todos los eventos de mercado: claims de NFTJI y continuaciones de vida:',
         leaderboard:            'Leaderboard',
         leaderboardDesc:        'Ranking completo ordenado por nivel y saldo MM3, paginado (50 por defecto, máx. 200):',
         status:                 'Estado del Servicio',
@@ -36,7 +36,7 @@ export default function ApiPage() {
         tokenHistoryMinutes:    'Minute-level History',
         tokenHistoryMinutesDesc:'Minute-by-minute MM3 value for the last 60 minutes (60 data points):',
         nftEvents:              'Market Events',
-        nftEventsDesc:          'All market events: Nftmoji claims and life continues:',
+        nftEventsDesc:          'All market events: NFTJI claims and life continues:',
         leaderboard:            'Leaderboard',
         leaderboardDesc:        'Full ranking sorted by level and MM3 balance, paginated (default 50, max 200):',
         status:                 'Service Status',
@@ -96,7 +96,7 @@ export default function ApiPage() {
     "trade_delta": 0.0000003,
     "trade_wallet_count": 4,
     "trade_google_count": 1,
-    "nftmoji_delta": 0.000001,
+    "nftji_delta": 0.000001,
     "market_delta": -0.000025
   }
 ]`}</pre>
@@ -116,7 +116,7 @@ export default function ApiPage() {
     "trade_delta": 0,
     "trade_wallet_count": 0,
     "trade_google_count": 0,
-    "nftmoji_delta": 0,
+    "nftji_delta": 0,
     "market_delta": 0
   }
 ]`}</pre>
@@ -130,7 +130,7 @@ export default function ApiPage() {
           <pre className="bg-gray-900 p-3 rounded overflow-auto mb-6">{`[
   {
     "wallet": "0xabc...1234",
-    "event_type": "nftmoji_claim",
+    "event_type": "nftji_claim",
     "delta_mm3": 0.000005,
     "created_at": "2025-03-26T18:30:00Z",
     "emoji": "🔮"
@@ -166,7 +166,7 @@ export default function ApiPage() {
       "cny_balance": 14.50,
       "eur_balance": 1.86,
       "usd_balance": 2.02,
-      "nftmojis": ["🔮", "🍀"]
+      "nftjis": ["🔮", "🍀"]
     }
   ]
 }`}</pre>

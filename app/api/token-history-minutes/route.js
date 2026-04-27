@@ -29,7 +29,7 @@ export async function GET() {
       .select('wallet, source, created_at, mm3_commission')
       .gte('created_at', windowStart)
       .order('created_at'),
-    // Market events (nftmoji / life events)
+    // Market events (nftji / life events)
     supabase.from('mm3_market_events')
       .select('created_at, event_type, delta_mm3')
       .gte('created_at', windowStart)

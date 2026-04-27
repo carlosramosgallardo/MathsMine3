@@ -118,10 +118,10 @@ function getTradeSlotTitle(slot, level, language) {
   const slotSign = slot.multiplier >= 1 ? '+' : '';
 
   if (language === 'es') {
-    return `${slot.emoji} recibido x${slot.multiplier} | nftmoji ${slotSign}${slotPct}% | nivel x${levelMultiplier.toFixed(3)} (+${levelPct}% actual)`;
+    return `${slot.emoji} recibido x${slot.multiplier} | nftji ${slotSign}${slotPct}% | nivel x${levelMultiplier.toFixed(3)} (+${levelPct}% actual)`;
   }
 
-  return `${slot.emoji} received x${slot.multiplier} | nftmoji ${slotSign}${slotPct}% | level x${levelMultiplier.toFixed(3)} (+${levelPct}% current)`;
+  return `${slot.emoji} received x${slot.multiplier} | nftji ${slotSign}${slotPct}% | level x${levelMultiplier.toFixed(3)} (+${levelPct}% current)`;
 }
 
 function getTradeBoostBreakdown(value, level = 0) {

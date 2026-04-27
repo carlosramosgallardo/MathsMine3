@@ -770,12 +770,12 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
   }, [refreshMarketStatus]);
 
   useEffect(() => {
-    const resolveBlock = (nftmojiKey) => {
-      const block = blockByKeyRef.current.get(nftmojiKey);
-      const fallback = MARKET_COMMANDS.find((e) => e.key === nftmojiKey);
+    const resolveBlock = (nftjiKey) => {
+      const block = blockByKeyRef.current.get(nftjiKey);
+      const fallback = MARKET_COMMANDS.find((e) => e.key === nftjiKey);
       return {
         emoji: block?.emoji || fallback?.emoji || '?',
-        hex: block ? getBlockHex(block.grid_row, block.grid_col) : nftmojiKey,
+        hex: block ? getBlockHex(block.grid_row, block.grid_col) : nftjiKey,
         formula: getCommandFormula(fallback?.command),
       };
     };
