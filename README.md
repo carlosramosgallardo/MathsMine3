@@ -382,7 +382,7 @@ poolInjection = price × 0.50  (injected as MM3 at current global rate into the 
 | ⭐ | Star Protocol | #2CA | €75.00 | −€75.00 to all other wallets | Steals €7.50 from all other wallets | 90 |
 | 💎 | Crystal Forge | #30E | €100.00 | −€100.00 to all other wallets | Steals €10.00 from all other wallets | 100 |
 
-Passive modifiers are **proposed** — not yet implemented.
+When a wallet executes the hidden command, every other eligible wallet loses that amount from its in-game Money balance. The executing wallet receives the total stolen amount.
 
 ### IRC command — how it works
 
