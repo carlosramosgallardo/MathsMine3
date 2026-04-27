@@ -12,3 +12,5 @@ supabase/.branches/
 # Evitar subir artefactos grandes
 *.zip
 MathsMine3.zip
+.vercel
+.env*.local
