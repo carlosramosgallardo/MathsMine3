@@ -369,18 +369,18 @@ poolInjection = price × 0.50  (injected as MM3 at current global rate into the 
 
 ### NFTJI catalog (original 10)
 
-| Emoji | Name | HEX | Price | IRC command effect | Proposed passive modifier |
-|---|---|---|---|---|---|
-| 🛰 | Genesis Uplink | #016 | €1.00 | −€1.00 to all other wallets | +3% on `rewardMult` |
-| 🌐 | Signal Nexus | #05C | €3.00 | −€3.00 to all other wallets | +10% `timeLimit` |
-| 🔭 | Deep Relay | #0B9 | €5.00 | −€5.00 to all other wallets | −10% commission rate |
-| 🧬 | Code Strand | #11B | €7.00 | −€7.00 to all other wallets | +10 DRILL SLOTS/day |
-| 💠 | Fractal Core | #184 | €10.00 | −€10.00 to all other wallets | +15% on `mining_raw` |
-| ⚡ | Arc Burst | #1E7 | €15.00 | −€15.00 to all other wallets | Drop probabilities ×2 |
-| 🌀 | Entropy Loop | #244 | €25.00 | −€25.00 to all other wallets | Fail penalty −1 level |
-| 🔴 | Null Beacon | #26D | €50.00 | −€50.00 to all other wallets | 1 commission-free exec/day |
-| ⭐ | Star Protocol | #2CA | €75.00 | −€75.00 to all other wallets | +20% on `rateCny` |
-| 💎 | Crystal Forge | #30E | €100.00 | −€100.00 to all other wallets | `tradeMultiplier` ×2.0 |
+| Emoji | Name | HEX | Price | Market command effect | Hidden command effect | Min level |
+|---|---|---:|---:|---|---:|---:|
+| 🛰 | Genesis Uplink | #016 | €1.00 | −€1.00 to all other wallets | Steals €0.10 from all other wallets | 10 |
+| 🌐 | Signal Nexus | #05C | €3.00 | −€3.00 to all other wallets | Steals €0.30 from all other wallets | 20 |
+| 🔭 | Deep Relay | #0B9 | €5.00 | −€5.00 to all other wallets | Steals €0.50 from all other wallets | 30 |
+| 🧬 | Code Strand | #11B | €7.00 | −€7.00 to all other wallets | Steals €0.70 from all other wallets | 40 |
+| 💠 | Fractal Core | #184 | €10.00 | −€10.00 to all other wallets | Steals €1.00 from all other wallets | 50 |
+| ⚡ | Arc Burst | #1E7 | €15.00 | −€15.00 to all other wallets | Steals €1.50 from all other wallets | 60 |
+| 🌀 | Entropy Loop | #244 | €25.00 | −€25.00 to all other wallets | Steals €2.50 from all other wallets | 70 |
+| 🔴 | Null Beacon | #26D | €50.00 | −€50.00 to all other wallets | Steals €5.00 from all other wallets | 80 |
+| ⭐ | Star Protocol | #2CA | €75.00 | −€75.00 to all other wallets | Steals €7.50 from all other wallets | 90 |
+| 💎 | Crystal Forge | #30E | €100.00 | −€100.00 to all other wallets | Steals €10.00 from all other wallets | 100 |
 
 Passive modifiers are **proposed** — not yet implemented.
 
