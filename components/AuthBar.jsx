@@ -80,29 +80,38 @@ function ConnectedBar({ address, isRealWallet, onDisconnect, mode = 'full' }) {
 
   useEffect(() => {
     if (!address) return undefined;
-    let cancelled = false;
+    let mounted = true;
     const wallet = address.toLowerCase();
     const source = isRealWallet ? 'wallet' : 'google';
 
     const beat = async () => {
-      if (cancelled) return;
+      if (!mounted) return;
       await supabase
         .from('mm3_wallet_presence')
-        .upsert(
-          {
-            wallet,
-            source,
-            last_seen: new Date().toISOString(),
-          },
-          { onConflict: 'wallet' }
-        );
+        .upsert({ wallet, source, last_seen: new Date().toISOString() }, { onConflict: 'wallet' });
     };
 
-    beat();
+    beat().then(() => {
+      if (typeof window !== 'undefined')
+        window.dispatchEvent(new CustomEvent('mm3-presence-changed'));
+    });
     const timer = setInterval(beat, 25_000);
+
     return () => {
-      cancelled = true;
+      mounted = false;
       clearInterval(timer);
+      // Expire presence immediately so Leaderboard shows offline without waiting 90s
+      supabase
+        .from('mm3_wallet_presence')
+        .upsert(
+          { wallet, source, last_seen: new Date(Date.now() - 120_000).toISOString() },
+          { onConflict: 'wallet' }
+        )
+        .then(() => {
+          if (typeof window !== 'undefined')
+            window.dispatchEvent(new CustomEvent('mm3-presence-changed'));
+        })
+        .catch(() => {});
     };
   }, [address, isRealWallet]);
 

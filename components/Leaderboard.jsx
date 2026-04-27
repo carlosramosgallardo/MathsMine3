@@ -218,6 +218,7 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
     loadPresence();
     const timer = setInterval(loadPresence, 10_000);
     window.addEventListener('focus', loadPresence);
+    window.addEventListener('mm3-presence-changed', loadPresence);
     const channel = supabase
       .channel('mm3-leaderboard-presence-live')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'mm3_wallet_presence' }, loadPresence)
@@ -227,6 +228,7 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
       mounted = false;
       clearInterval(timer);
       window.removeEventListener('focus', loadPresence);
+      window.removeEventListener('mm3-presence-changed', loadPresence);
       supabase.removeChannel(channel);
     };
   }, []);
