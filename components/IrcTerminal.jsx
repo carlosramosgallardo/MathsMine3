@@ -935,7 +935,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
 
       if (existingCommand) {
         const reset = new Date(existingCommand.reset_at).toISOString().slice(11, 16);
-        await broadcastSystemMessage(`${commandEntry.emoji} ${t('podcast.launchLocked')} ${reset} UTC`, 'leave');
+        await broadcastSystemMessage(`${commandEntry.emoji} ${t('podcast.launchLocked')} ${reset} local`, 'leave');
         return true;
       }
 
@@ -1014,7 +1014,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
       }
 
       await broadcastSystemMessage(
-        `${blockRow.emoji || commandEntry.emoji} ${t('podcast.launchSuccess')} // formula=${getCommandFormula(commandEntry.command)} // x=${x} // ${penalties.length} ${t('podcast.walletsPenalized')} // reset ${dayWindow.resetAt.slice(11, 16)} UTC`,
+        `${blockRow.emoji || commandEntry.emoji} ${t('podcast.launchSuccess')} // formula=${getCommandFormula(commandEntry.command)} // x=${x} // ${penalties.length} ${t('podcast.walletsPenalized')} // reset ${formatClockTime(dayWindow.resetAt)} local`,
         'accent'
       );
       return true;
