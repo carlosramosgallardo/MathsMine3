@@ -16,6 +16,7 @@ import { SoundProvider } from '@/lib/sound-context';
 import ConnectAndPlayProvider from '@/components/ConnectAndPlay';
 import { GoogleAuthProvider } from '@/lib/google-auth-context';
 import { DiceProvider } from '@/lib/dice-context';
+import { IrcPresenceProvider } from '@/lib/irc-presence-context';
 
 export const metadata = {
   title: { default: 'MathsMine3', template: '%s · MathsMine3' },
@@ -49,6 +50,7 @@ export default function RootLayout({ children }) {
               <ConnectAndPlayProvider>
                 <GoogleAuthProvider>
                   <DiceProvider>
+                    <IrcPresenceProvider>
                     <WalletBootstrap />
                     <RouteShell>
                       <Header />
@@ -57,6 +59,7 @@ export default function RootLayout({ children }) {
                       <Footer />
                       <CookieBanner />
                     </RouteShell>
+                    </IrcPresenceProvider>
                   </DiceProvider>
                 </GoogleAuthProvider>
               </ConnectAndPlayProvider>

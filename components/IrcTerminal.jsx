@@ -12,6 +12,7 @@ import {
   findMarketCommandByText,
   getUtcDayWindow,
 } from '@/lib/market-commands';
+import { useIrcPresence } from '@/lib/irc-presence-context';
 
 const ACTIVE_WINDOW_MS = 90_000;
 const MAX_SESSION_MESSAGES = 500;
@@ -123,9 +124,9 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
   })();
 
   const normalizedWallet = useMemo(() => String(account || '').toLowerCase(), [account]);
+  const { anonIrcUsers: anonUsers, trackAnon, untrackAnon, channelStatus } = useIrcPresence();
   const [anonId, setAnonId] = useState(initAnonId);
   const [anonFlag, setAnonFlag] = useState('');
-  const [anonUsers, setAnonUsers] = useState([]);
   const [anonVisibleCount, setAnonVisibleCount] = useState(5);
   const [walletFlag, setWalletFlag] = useState('');
   const [walletFlags, setWalletFlags] = useState({});
@@ -477,39 +478,13 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
     };
   }, [appendMessage]);
 
-  // Anon Realtime Presence — ephemeral, no DB writes
+  // Register anon presence via shared context channel
   useEffect(() => {
-    if (typeof window === 'undefined') return;
-
-    const channel = supabase
-      .channel('mm3-irc-anon-presence')
-      .on('presence', { event: 'sync' }, () => {
-        const state = channel.presenceState();
-        const seen = new Set();
-        const users = [];
-        for (const entries of Object.values(state)) {
-          for (const u of entries) {
-            const id = String(u.anonId || '');
-            if (!id.startsWith('anon:') || seen.has(id)) continue;
-            seen.add(id);
-            const rawFlag = String(u.flag || '');
-            users.push({ anonId: id, flag: rawFlag.length === 2 ? rawFlag : '' });
-          }
-        }
-        setAnonUsers(users);
-      })
-      .on('presence', { event: 'join' }, () => {})
-      .subscribe(async (status) => {
-        if (status !== 'SUBSCRIBED' || normalizedWallet) return;
-        if (!anonId.startsWith('anon:')) return;
-        await channel.track({ anonId, flag: anonFlag }).catch(() => {});
-      });
-
-    return () => {
-      supabase.removeChannel(channel);
-      setAnonUsers([]);
-    };
-  }, [anonId, anonFlag, appendMessage, normalizedWallet]);
+    if (channelStatus !== 'SUBSCRIBED') return;
+    if (normalizedWallet || !anonId.startsWith('anon:')) return;
+    trackAnon(anonId, anonFlag);
+    return () => { untrackAnon(); };
+  }, [channelStatus, anonId, anonFlag, normalizedWallet, trackAnon, untrackAnon]);
 
   const loadMarketClaims = useCallback(async () => {
     try {
