@@ -139,22 +139,27 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
         });
       }
 
-      const mergedData = (leaderboardRows || [])
-        .map((entry) => {
-          const normalizedWallet = String(entry.wallet || '').toLowerCase();
+      // Union of leaderboard_data + player_progress wallets so that wallets
+      // dropped from leaderboard_data by the trigger after a reset still appear
+      const lbByWallet = new Map(
+        (leaderboardRows || []).map((r) => [String(r.wallet || '').toLowerCase(), r])
+      );
+      const allWallets = new Set([
+        ...lbByWallet.keys(),
+        ...earnedByWallet.keys(),
+      ]);
+
+      const mergedData = [...allWallets]
+        .map((normalizedWallet) => {
+          const lbRow   = lbByWallet.get(normalizedWallet);
           const progress = earnedByWallet.get(normalizedWallet) || {
-            level: 0,
-            mm3Sold: 0,
-            cny: 0,
-            eur: 0,
-            usd: 0,
-            walletEmojis: [],
+            level: 0, mm3Sold: 0, cny: 0, eur: 0, usd: 0, walletEmojis: [],
           };
-          const totalMm3 = Number(entry.total_eth) || 0;
+          const totalMm3    = Number(lbRow?.total_eth) || 0;
           const availableMm3 = totalMm3 - progress.mm3Sold;
 
           return {
-            wallet: entry.wallet,
+            wallet: lbRow?.wallet || normalizedWallet,
             total_eth: totalMm3,
             available_mm3: availableMm3,
             level: progress.level,

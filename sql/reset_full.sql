@@ -5,11 +5,18 @@
 
 BEGIN;
 
+-- 0. Desactivar triggers durante el reset para que UPDATE games no dispare
+--    trigger_update_leaderboard_fn y no borre wallets de leaderboard_data
+SET session_replication_role = replica;
+
 -- 1. Recompensas de minado por partida a 0
 -- token_value_timeseries es una vista CTE que agrega games.mining_reward
 -- Poner a 0 aquí hace que el chart muestre 0 conservando todas las fechas
 UPDATE games
 SET    mining_reward = 0;
+
+-- Reactivar triggers
+SET session_replication_role = DEFAULT;
 
 -- 2. Stats de minado por wallet: MM3 acumulado, partidas, rachas, rank
 UPDATE leaderboard_data
