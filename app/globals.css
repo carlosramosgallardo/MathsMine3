@@ -432,58 +432,61 @@ body.mm3-play-success-alert #board-section .section-frame::before {
 }
 
 
-/* ── Mobile portrait header: centered logo, no overlap ── */
+/* ── Mobile portrait header: 2-row layout, no overlap ── */
 @media (max-width: 767px) and (orientation: portrait) {
   .mm3-header-ticker {
     height: 26px;
   }
 
+  /* Row 1: GlobalPulseBar full-width centred
+     Row 2: logo centred · controls right */
   .mm3-header-identity-row {
-    height: 3rem;
-    min-height: 3rem;
-    padding-top: 0;
-    padding-bottom: 0;
-    align-items: center;
     grid-template-columns: 1fr auto 1fr;
-    column-gap: 0.25rem;
-    row-gap: 0;
+    grid-template-rows: auto auto;
+    height: auto;
+    min-height: unset;
+    padding: 0.3rem 0.5rem;
+    align-items: center;
+    column-gap: 0.5rem;
+    row-gap: 0.25rem;
   }
 
+  /* Remove the shared scale — each element now has its own row */
   .mm3-header-world-panel,
   .mm3-header-user-panel {
-    transform: scale(.82);
-    transform-origin: center;
+    transform: none;
   }
 
+  /* GlobalPulseBar: spans all 3 columns, top row, centred */
   .mm3-header-world-panel {
-    grid-column: 1;
+    grid-column: 1 / -1;
     grid-row: 1;
-    justify-self: end;
+    justify-self: center;
     max-width: none;
-    overflow: hidden;
-    transform-origin: right center;
+    overflow: visible;
   }
 
+  /* Logo: centre column, second row */
   .mm3-header-logo-slot {
     grid-column: 2;
-    grid-row: 1;
+    grid-row: 2;
     justify-self: center;
   }
 
   .mm3-header-logo-slot img {
-    width: 28px !important;
-    height: 28px !important;
+    width: 32px !important;
+    height: 32px !important;
   }
 
+  /* Controls: right column, second row */
   .mm3-header-user-panel {
     grid-column: 3;
-    grid-row: 1;
-    justify-self: start;
+    grid-row: 2;
+    justify-self: end;
     justify-content: flex-end;
     overflow: visible;
     position: relative;
     z-index: 20;
-    transform-origin: left center;
   }
 
   .mm3-header-user-panel > * {
@@ -492,25 +495,20 @@ body.mm3-play-success-alert #board-section .section-frame::before {
 
   .mm3-header-wallet-row {
     height: auto;
-    min-height: 1.4rem;
-    padding-top: 0.1rem;
-    padding-bottom: 0.1rem;
-    padding-left: 0.25rem;
-    padding-right: 0.25rem;
+    min-height: 1.6rem;
+    padding: 0.15rem 0.5rem;
   }
 
   .mm3-header-wallet-row > * {
-    transform: scale(0.85);
-    transform-origin: center;
     max-width: 100%;
   }
 
   .mm3-header-nav {
-    height: 2.2rem;
+    height: 2.4rem;
   }
 
   .mm3-header-nav .nav-link {
-    font-size: 0.75rem;
+    font-size: 0.78rem;
     padding-top: 0.1rem;
     padding-bottom: 0.1rem;
   }
@@ -565,6 +563,6 @@ body.mm3-play-success-alert #board-section .section-frame::before {
   }
 
   .mm3-shell-main {
-    padding-top: 132px;
+    padding-top: 176px;
   }
 }
