@@ -390,7 +390,7 @@ function AuthBarWithGoogle({ mode = 'full' }) {
     walletModalLockRef.current = true
     setWalletBusy(true)
     try {
-      await open({ view: 'Connect' });
+      await open?.({ view: 'Connect' });
     } catch (error) {
       console.error('wallet modal open:', error);
       notify(t('wallet.walletModalFailed'), 'error');
@@ -434,7 +434,7 @@ function AuthBarWalletOnly({ mode = 'full' }) {
     walletModalLockRef.current = true
     setWalletBusy(true)
     try {
-      await open({ view: 'Connect' });
+      await open?.({ view: 'Connect' });
     } catch (error) {
       console.error('wallet modal open:', error);
       notify(t('wallet.walletModalFailed'), 'error');

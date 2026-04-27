@@ -4,15 +4,27 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useEffect, useState } from 'react'
+import dynamic from 'next/dynamic'
 import NavLinks from '@/components/NavLinks'
 import LanguageSwitcher from '@/components/LanguageSwitcher'
 import CurrencySwitcher from '@/components/CurrencySwitcher'
-import AuthBar from '@/components/AuthBar'
 import GlobalPulseBar from '@/components/GlobalPulseBar'
 import MacroTicker from '@/components/MacroTicker'
 import UtcClock from '@/components/UtcClock'
 import { useSound } from '@/lib/sound-context'
 import supabase from '@/lib/supabaseClient'
+
+// Deferred: AuthBar statically imports @web3modal — loading it lazily keeps
+// the 1.4 MB walletconnect chunk out of the initial page bundle.
+const AuthBar = dynamic(() => import('@/components/AuthBar'), {
+  ssr: false,
+  loading: () => (
+    <div className="flex items-center gap-1.5">
+      <div className="h-7 w-16 rounded border border-cyan-900/40 bg-cyan-950/10 animate-pulse" />
+      <div className="h-7 w-14 rounded border border-cyan-900/40 bg-cyan-950/10 animate-pulse" />
+    </div>
+  ),
+})
 
 function SoundToggle() {
   const { enabled, toggleSound } = useSound()

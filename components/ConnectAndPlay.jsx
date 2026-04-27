@@ -2,26 +2,21 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createWeb3Modal, useWeb3Modal } from '@web3modal/wagmi/react'
-import { WagmiConfig, createConfig, useAccount, useWalletClient, useDisconnect, http } from 'wagmi'
-import { mainnet } from 'wagmi/chains'
+import { useAccount, useWalletClient, useDisconnect } from 'wagmi'
 import { parseEther } from 'viem'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { useI18n } from '@/lib/i18n-context'
+import { wagmiConfig } from '@/lib/wagmi-core'
 
 /* ================== Setup ================== */
-const queryClient = new QueryClient()
-const chains = [mainnet]
+const chains = [wagmiConfig.chains[0]]
 const projectId = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID
 
-const wagmiConfig = createConfig({
-  chains,
-  transports: { [mainnet.id]: http() }
-})
-
-createWeb3Modal({
-  wagmiConfig,
-  projectId,
-  chains,
+let _web3ModalReady = false
+if (!_web3ModalReady) {
+  createWeb3Modal({
+    wagmiConfig,
+    projectId,
+    chains,
   enableAnalytics: false,
   disableTelemetry: true,
   enableOnramp: false,
@@ -38,7 +33,9 @@ createWeb3Modal({
     '--w3m-secondary-button-bg-color': '#1e293b'
   },
   allWallets: 'SHOW'
-})
+  })
+  _web3ModalReady = true
+}
 
 export function useShortAddress(addr) {
   return useMemo(() => (!addr ? '' : addr.slice(0, 6) + '...' + addr.slice(-4)), [addr])
@@ -174,7 +171,7 @@ function RetroConnectButton() {
   const { isConnected } = useAccount()
   const { open } = useWeb3Modal()
   const { disconnect } = useDisconnect()
-  const handleClick = () => (isConnected ? disconnect() : open({ view: 'Connect' }))
+  const handleClick = () => (isConnected ? disconnect() : open?.({ view: 'Connect' }))
 
   const title = isConnected
     ? 'Disconnect your wallet safely.'
@@ -336,7 +333,7 @@ export function CompactWalletBar() {
         </span>
       )}
       <button
-        onClick={isConnected ? () => disconnect() : () => open({ view: 'Connect' })}
+        onClick={isConnected ? () => disconnect() : () => open?.({ view: 'Connect' })}
         title={isConnected ? t('wallet.disconnect') : t('wallet.connect')}
         aria-label={isConnected ? t('wallet.disconnect') : t('wallet.connect')}
         className={`${btnBase} ${btnCyan}`}
@@ -356,11 +353,9 @@ export function CompactWalletBar() {
   )
 }
 
-/* ================== Provider ================== */
-export default function ConnectAndPlayProvider({ children }) {
-  return (
-    <WagmiConfig config={wagmiConfig}>
-      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
-    </WagmiConfig>
-  )
+/* ================== Web3Modal initializer (dynamically imported) ================== */
+export default function ConnectAndPlayProvider() {
+  // web3modal is initialized at module scope above; this component
+  // exists only so layout.jsx can dynamically import this module.
+  return null
 }
