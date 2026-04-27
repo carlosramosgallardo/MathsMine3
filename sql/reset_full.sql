@@ -62,9 +62,9 @@ DELETE FROM mm3_sell_transactions;
 -- 7. Eventos de market
 DELETE FROM mm3_market_events;
 
--- 8. Mensajes de usuario del chat IRC
-DELETE FROM mm3_irc_messages
-WHERE kind = 'chat';
+-- 8. Mensajes del chat IRC
+-- Borra todo el historial persistido del relay: chat, system, market, hacks, welcome, etc.
+DELETE FROM mm3_irc_messages;
 
 -- 9. Comisiones acumuladas de Trade
 UPDATE mm3_market_state
