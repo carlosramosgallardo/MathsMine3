@@ -1070,19 +1070,44 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
             grid-template-columns: minmax(0, 1fr) 12.6rem;
           }
         }
-        /* ── Mobile: compact aside above chat ── */
+        /* ── Mobile: compact aside above chat, flex layout ── */
         @media (max-width: 899px) {
+          /* Shell becomes a flex column bounded by the small viewport */
+          .mm3-irc-shell {
+            display: flex;
+            flex-direction: column;
+            gap: 0.45rem;
+            max-height: calc(100svh - 15.5rem);
+          }
+          /* Aside: shrink to content, floated above chat */
           .mm3-irc-shell > aside {
             order: -1;
+            flex: 0 0 auto;
             padding: 0.4rem 0.6rem;
           }
           .mm3-irc-aside-inner {
-            max-height: 4.2rem;
+            max-height: 4rem;
             overflow-y: auto;
           }
-          .mm3-irc-chat-log {
+          /* Chat section: grows to fill remaining height */
+          .mm3-irc-shell > section {
+            flex: 1 1 0;
             min-height: 0;
-            max-height: calc(100dvh - 30rem);
+            display: flex;
+            flex-direction: column;
+            padding: 0.5rem 0.65rem;
+          }
+          /* Section header and form: fixed size */
+          .mm3-irc-shell > section > div:first-child,
+          .mm3-irc-shell > section > form,
+          .mm3-irc-shell > section > div:last-child {
+            flex: 0 0 auto;
+          }
+          /* Chat log: takes all leftover space inside section */
+          .mm3-irc-chat-log {
+            flex: 1 1 0;
+            min-height: 0;
+            max-height: none;
           }
           .mm3-irc-peer-row {
             padding-top: 0.08rem;
