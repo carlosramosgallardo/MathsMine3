@@ -1,19 +1,17 @@
 -- ============================================================
 -- MM3 FULL RESET
--- Preserva fechas históricas; resetea todos los valores a 0
+-- Resetea valores, mining, drills, market, trade e IRC
 -- ============================================================
 
 BEGIN;
 
--- 0. Desactivar triggers durante el reset para que UPDATE games no dispare
---    trigger_update_leaderboard_fn y no borre wallets de leaderboard_data
+-- 0. Desactivar triggers durante el reset para evitar efectos secundarios
 SET session_replication_role = replica;
 
--- 1. Recompensas de minado por partida a 0
--- token_value_timeseries es una vista CTE que agrega games.mining_reward
--- Poner a 0 aquí hace que el chart muestre 0 conservando todas las fechas
-UPDATE games
-SET    mining_reward = 0;
+-- 1. Reset real de Mining y Drill Slots
+-- Los DRILL SLOTS se calculan a partir de las partidas existentes en games.
+-- Para que todas las wallets vuelvan a 100/100, hay que borrar las partidas.
+DELETE FROM games;
 
 -- Reactivar triggers
 SET session_replication_role = DEFAULT;
@@ -56,15 +54,17 @@ DELETE FROM mm3_market_commands;
 -- 5. Penalizaciones activas y ya redimidas
 DELETE FROM mm3_command_penalties;
 
--- 6. Historial de EXECs (drill slots vuelven a la base 100)
+-- 6. Historial de EXECs
+-- Si quieres que los drills vuelvan exactamente a 100/100 y no a 100+EXECs,
+-- también hay que borrar los EXECs.
 DELETE FROM mm3_sell_transactions;
 
--- 7. Eventos de market (compras, penalizaciones de PodcastBoard)
+-- 7. Eventos de market
 DELETE FROM mm3_market_events;
 
 -- 8. Mensajes de usuario del chat IRC
 DELETE FROM mm3_irc_messages
-WHERE  kind = 'chat';
+WHERE kind = 'chat';
 
 -- 9. Comisiones acumuladas de Trade
 UPDATE mm3_market_state
