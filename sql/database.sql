@@ -210,6 +210,8 @@ CREATE TABLE mm3_podcast_pixels (
   market_command TEXT NOT NULL DEFAULT '',
   formula_x INTEGER NOT NULL DEFAULT 123,
   formula_result_5d TEXT NOT NULL DEFAULT '',
+  hidden_command TEXT NOT NULL DEFAULT '',
+  hidden_cmd_min_level INTEGER NOT NULL DEFAULT 0,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );

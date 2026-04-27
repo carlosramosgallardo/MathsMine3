@@ -1,8 +1,8 @@
 -- Add hidden command fields to mm3_podcast_pixels
 -- Actual command values are set via .private/hidden-commands.seed.sql (not in git)
 ALTER TABLE mm3_podcast_pixels
-  ADD COLUMN IF NOT EXISTS hidden_command      TEXT    NULL DEFAULT NULL,
-  ADD COLUMN IF NOT EXISTS hidden_cmd_min_level INTEGER NULL DEFAULT NULL;
+  ADD COLUMN IF NOT EXISTS hidden_command      TEXT    NOT NULL DEFAULT '',
+  ADD COLUMN IF NOT EXISTS hidden_cmd_min_level INTEGER NOT NULL DEFAULT 0;
 
 -- Track daily executions of hidden commands (1x per wallet per pixel per UTC day)
 CREATE TABLE IF NOT EXISTS mm3_hidden_cmd_executions (
