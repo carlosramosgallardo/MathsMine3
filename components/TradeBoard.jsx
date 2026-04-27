@@ -533,17 +533,19 @@ export default function TradeBoard({ account, isVirtualWallet = false }) {
       );
       playTrade();
 
-      // Nudge war/meteo ±10% on every EXEC (fire-and-forget, non-blocking)
+      // Nudge war/meteo ±10% on every EXEC — written server-side to bypass RLS
       const nudge = (current) => {
         const delta = (Math.random() * 20) - 10;
         return Math.round(Math.max(0, Math.min(100, current + delta)) * 10) / 10;
       };
       const newWar = nudge(liveMacroState.war_percent);
       const newNature = nudge(liveMacroState.nature_percent);
-      supabase.from('mm3_macro_state').upsert(
-        { id: 1, war_percent: newWar, nature_percent: newNature, updated_at: new Date().toISOString() },
-        { onConflict: 'id', ignoreDuplicates: false }
-      ).then(() => setMacroState({ war_percent: newWar, nature_percent: newNature }));
+      fetch('/api/nudge-macro', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ war_percent: newWar, nature_percent: newNature }),
+      }).then((r) => r.ok && setMacroState({ war_percent: newWar, nature_percent: newNature }))
+        .catch(() => {});
 
       markLeaderboardDirty();
       await loadDailyTxCount(wallet);

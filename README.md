@@ -4,7 +4,7 @@
 
 A retro math-mining portal where timed problem-solving drives a fully simulated crypto economy. Your wallet levels up, your tokens accumulate real-time value, rare NTFJIs drop on lucky answers, and a 28×28 Market block board sells command-linked NFTJI blocks. All fictional. All deterministic. All live.
 
-**v1.0 ships with:** the mining chain · Trade MM3 terminal · Prestige leaderboard · MM3 value chart · Market board (784 cells, 10 NFTJI blocks) · IRC social relay · daily DRILL SLOTS system · hourly Dice modifier · War/Nature macro indicators · 13 problem types · 5 rank tiers · bilingual EN/ES
+**v1.0 ships with:** the mining chain · Trade MM3 terminal · Ranking board · MM3 value chart · Market board (784 cells, 10 NFTJI blocks) · IRC social relay · daily DRILL SLOTS system · hourly Dice modifier · War/Nature macro indicators (live-mutated by every trade EXEC) · 13 problem types · 5 rank tiers · bilingual EN/ES · per-route SEO metadata · in-game sound system
 
 ---
 
@@ -15,7 +15,7 @@ A retro math-mining portal where timed problem-solving drives a fully simulated 
 3. [Daily Limits per Wallet](#3-daily-limits-per-wallet)
 4. [Mining — Solve Fast, Earn More](#4-mining--solve-fast-earn-more)
 5. [Trade MM3 — The Freak Terminal](#5-trade-mm3--the-freak-terminal)
-6. [Prestige — The Ranking Board](#6-prestige--the-ranking-board)
+6. [Ranking — The Leaderboard](#6-ranking--the-leaderboard)
 7. [Market — NFTJI Blocks](#7-market--nftji-blocks)
 8. [IRC — The MM3 Relay](#8-irc--the-mm3-relay)
 9. [MM3 Value Chart](#9-mm3-value-chart)
@@ -46,7 +46,7 @@ The Market is a 28×28 block board. Ten special NFTJI blocks occupy fixed coordi
 
 The Trade terminal is a fictional tty where you cash out mined MM3 for CNY, EUR, or USD at rates that shift with your rank, the war/nature macro state, and a deterministic hourly Dice modifier (`🎲`).
 
-The Prestige board ranks every wallet by level, balance, and NFTJI collection. Your wallet color is always the same — derived deterministically from your address hash.
+The Ranking board sorts every wallet by level, balance, and NFTJI collection. Your wallet color is always the same — derived deterministically from your address hash.
 
 The IRC relay is a live social terminal. Connected wallets see each other, talk, and carry their Market NTFJIs into the social layer. Real presence. Chat messages persist in the database — country flags and owned Market NTFJIs appear next to each author.
 
@@ -214,7 +214,7 @@ A fictional exchange tty where you cash out mined MM3 for in-game currency, or b
 
 **Buy MM3** — spend your in-game balance to acquire MM3 at a 18% buy premium over the sell rate.
 
-**Daily limit** — 5 trade EXECs per UTC day. Each EXEC also permanently adds +1 DRILL SLOT to your daily mining quota.
+**Daily limit** — 5 trade EXECs per UTC day. Each EXEC also permanently adds +1 DRILL SLOT to your daily mining quota, and randomly shifts the global War and Nature macro indicators by ±10% (clamped 0–100).
 
 ### Sell rate — `getSellRateCny(level)`
 
@@ -304,9 +304,9 @@ The `tradeMultiplier` is applied only to the net (post-commission) amount — it
 
 ---
 
-## 6. Prestige — The Ranking Board
+## 6. Ranking — The Leaderboard
 
-The leaderboard (called **Prestige** in the UI) ranks all wallets by level. It shows:
+The Ranking board sorts all wallets by level. It shows:
 
 - Wallet address — color-coded deterministically from the address hash
 - Current level and rank tier with color glow
@@ -388,26 +388,31 @@ Passive modifiers are **proposed** — not yet implemented.
 
 Each Market NFTJI has one associated freak linux/crypto command containing a math formula that resolves to a **5-digit integer** computed at launch time.
 
+IRC commands use a slash-prefix syntax and are routed client-side — they are never saved as chat messages.
+
 ```
-Command example (Genesis Uplink):
-  wall [freakingAI@root] solve => (log10(100000)*(4000+x))+(12*(300+x))+((6000+3*x)/3) = ?
+/wall [freakingAI@MM3] solve => (log10(100000)*(4000+x))+(12*(300+x))+((6000+3*x)/3) = ?
   → result is a 5-digit integer, e.g. 12345
+
+/?   → lists all available slash commands
+/wall <command>  → fires a Market NFTJI command (validated against active NFTJI)
+Unknown slash prefix → error: "unknown command. type /? for help"
 ```
 
 **Launch rules:**
 - Only the wallet currently owning the NFTJI can launch its command
 - Each command can be launched **once per day globally** (not per wallet) — one wallet fires it and it is locked until UTC midnight reset
-- The owning wallet clicks the pre-filled command link from the block detail → IRC pre-populates the message → wallet hits Enter → system processes it
+- The owning wallet clicks the pre-filled `/wall` link from the block detail → IRC pre-populates the message → wallet hits `send` (EN) / `enviar` (ES) → system processes it
 - On execution the system generates a fresh `x` value, computes the formula result from that `x`, and stores the direct 5-digit formula output as the command's `numeric_code` in the DB
 
 **Penalty rules:**
-- On launch: all wallets in Prestige (connected or not) are penalised by the NFTJI's price in MM3 equivalent, **except:**
+- On launch: all wallets in Ranking (connected or not) are penalised by the NFTJI's price in MM3 equivalent, **except:**
   - The wallet that fired the command
   - Any wallet that currently owns the same NFTJI
 - Maximum daily penalties: 10 (one per NFTJI, assuming all 10 are owned and fired)
 
 **Numeric code redemption:**
-- Affected wallets see the penalty in the Prestige **Block / Pen.** column as a negative blinking value
+- Affected wallets see the penalty in the Ranking **Block / Pen.** column as a negative blinking value
 - The negative amount links to the NFTJI's block detail
 - The numeric code field is only active if the command was launched today
 - Each wallet gets 1 attempt per day per NFTJI
@@ -480,7 +485,9 @@ Three independent mechanics alter the cost of trading at all times. They stack m
 
 ### Macro indicators
 
-Two global percentages — `⚔️ war_percent` and `🌪️ nature_percent` — are set in Supabase and shift the commission baseline. Both are shown as animated chips in the header alongside the UTC clock.
+Two global percentages — `⚔️ war_percent` and `🌪️ nature_percent` — shift the commission baseline. Both are shown as animated chips in the header alongside the UTC clock.
+
+**Live mutation:** every trade EXEC shifts both values by a random ±10% from their current state (clamped 0–100, persisted via `/api/nudge-macro` using the service role key). This makes the macro state a live signal of trading activity — not just an admin-controlled parameter.
 
 ```
 macroMult = clamp(1 − war×0.5 + nature×0.75, 0.1, 2.0)
@@ -662,7 +669,7 @@ poolInjection = price × 0.50   (in MM3 at current global rate)
 penaltyFiat   = nftji.price_eur
 penaltyMM3    = penaltyFiat / currentMM3Rate
 
-Affected wallets: all in Prestige EXCEPT
+Affected wallets: all in Ranking EXCEPT
   - the wallet that fired the command
   - any wallet currently owning the same NFTJI
 ```
@@ -711,7 +718,7 @@ Both persist level, balances, NTFJIs, DRILL SLOTS bonus, and revive state. Langu
   page.jsx                  Play route (main gameplay)
   not-found.jsx             Custom 404 page
   globals.css               Global styles (CRT scanlines, glows, animations, utilities)
-  ranking/page.jsx          Prestige leaderboard route
+  ranking/page.jsx          Ranking leaderboard route
   mm3-value/page.jsx        MM3 value chart route
   trade-mm3/page.jsx        Trade MM3 terminal route
   market/page.jsx           Market board (28×28 grid + detail card)
@@ -719,7 +726,7 @@ Both persist level, balances, NTFJIs, DRILL SLOTS bonus, and revive state. Langu
   market-short/[pixelKey]/  Shareable short URL per Market block
   irc/page.jsx              MM3 Relay IRC terminal
   manifesto/page.jsx        Mission, privacy, terms, open source, contact
-  ai-team/page.jsx          Team & FreakingAI
+  ai-team/page.jsx          @FreakingAI team page
   api/
     page.jsx                API documentation page
     token-value/            GET current MM3 aggregate value
@@ -735,7 +742,7 @@ Both persist level, balances, NTFJIs, DRILL SLOTS bonus, and revive state. Langu
   TradeBoard.jsx          Fictional in-game trade terminal (sell/buy, daily limit, tx journal)
   PodcastBoard.jsx        Market board (card + 28×28 block grid, single view)
   IrcTerminal.jsx         Shared MM3 relay terminal (live presence, wallet chat, NFTJI badges)
-  Leaderboard.jsx         Prestige table — MM3, balances, level, NTFJIs, EXECs, Block / Pen.
+  Leaderboard.jsx         Ranking table — MM3, balances, level, NTFJIs, EXECs, Block / Pen.
   TokenChart.jsx          MM3 value chart — Recharts, NFTJI markers, Dice overlays
   GlobalPulseBar.jsx      War/nature/dice indicators + UTC clock + active wallet count
   MacroTicker.jsx         Scrolling header ticker (bilingual macro transmission messages)
@@ -860,6 +867,11 @@ NEXT_PUBLIC_SUPABASE_URL=               # Supabase project URL
 NEXT_PUBLIC_SUPABASE_ANON_KEY=          # Supabase anon/public key
 NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=   # WalletConnect / Web3Modal project ID
 
+# Required for EXEC macro nudge (server-side only, never exposed to browser)
+# Supabase project → Settings → API → service_role key
+# Used by /api/nudge-macro to bypass RLS on mm3_macro_state
+SUPABASE_SERVICE_ROLE_KEY=
+
 # Optional — Google sign-in
 NEXT_PUBLIC_GOOGLE_CLIENT_ID=           # *.apps.googleusercontent.com
 
@@ -897,7 +909,8 @@ Deployed on Vercel. `vercel.json` specifies `npm ci && next build`. All environm
 - **Rank colors**: cyan → green → yellow → orange → magenta (NOVICE → LEGEND)
 - **Wallet colors**: deterministic HSL from address hash (`hash % 360`, sat 70%, light 55%)
 - **Effects**: CRT scanlines, glow pulse, glitch-on-hover, float-in section animations
-- **Navigation**: Play · Trading · Prestige · MM3 · Market · IRC · Manifesto · AI Team · API
+- **Navigation**: Mining · Trading · Ranking · MM3 · Market · IRC · Manifesto · @FreakingAI · API
+- **Sound system**: Web Audio API oscillator tones — correct answer, wrong answer, trade EXEC, NFTJI market claim, IRC message ping, dice open/close, NFTJI mining drop, rank tier advance. Toggle in header (persisted in localStorage).
 - **Global orb**: color set by the top-1 positive miner's wallet, persisted in `mm3_visual_state`
 - **PWA**: `manifest.json` with `theme_color: #22d3ee`, linked in `<head>`
 - **i18n**: full EN / ES across all UI, math generators, and seeded problems
