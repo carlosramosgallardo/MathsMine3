@@ -34,21 +34,24 @@ export default function Header() {
               <GlobalPulseBar />
             </div>
 
-            <div className="mm3-header-logo-slot shrink-0">
-              <Link
-                href="/"
-                onClick={triggerHomeLoading}
-                aria-label="MathsMine3 home"
-                className="group block focus:outline-none transition-transform duration-200 hover:scale-105"
-              >
-                <Image src="/og-image.jpg" alt="MM3" width={38} height={38} priority />
-              </Link>
-            </div>
+            {/* On portrait mobile: flex row centred. On sm+: display:contents so children slot into the parent grid normally */}
+            <div className="mm3-header-logo-controls-row flex items-center justify-center gap-3 sm:contents">
+              <div className="mm3-header-logo-slot shrink-0">
+                <Link
+                  href="/"
+                  onClick={triggerHomeLoading}
+                  aria-label="MathsMine3 home"
+                  className="group block focus:outline-none transition-transform duration-200 hover:scale-105"
+                >
+                  <Image src="/og-image.jpg" alt="MM3" width={38} height={38} priority />
+                </Link>
+              </div>
 
-            <div className="mm3-header-side-shell mm3-header-user-panel justify-self-start">
-              <CurrencySwitcher />
-              <LanguageSwitcher />
-              <AuthBar mode="controls" />
+              <div className="mm3-header-side-shell mm3-header-user-panel justify-self-start">
+                <CurrencySwitcher />
+                <LanguageSwitcher />
+                <AuthBar mode="controls" />
+              </div>
             </div>
           </div>
         </div>
