@@ -108,7 +108,7 @@ export default function Header() {
         <MacroTicker />
       </div>
 
-      {/* Identity row — mobile portrait wraps controls to a second centered line */}
+      {/* Identity row — mobile portrait: row 1 pulse+logo, row 2 right-side controls */}
       <div className="border-b border-cyan-900/15 overflow-x-auto no-scrollbar max-sm:portrait:overflow-visible">
         <div className="flex h-12 items-center justify-center gap-1.5 px-3 sm:h-14 sm:gap-2.5 sm:px-4 max-sm:portrait:h-auto max-sm:portrait:min-h-12 max-sm:portrait:flex-wrap max-sm:portrait:gap-x-2 max-sm:portrait:gap-y-1 max-sm:portrait:py-1.5">
           <GlobalPulseBar />
@@ -120,11 +120,11 @@ export default function Header() {
           >
             <Image src="/og-image.jpg" alt="MM3" width={38} height={38} priority />
           </Link>
-          <CurrencySwitcher />
-          <LanguageSwitcher />
-          <SoundToggle />
           <div aria-hidden="true" className="hidden basis-full max-sm:portrait:block max-sm:portrait:h-0" />
-          <div className="shrink-0 max-sm:portrait:flex max-sm:portrait:w-full max-sm:portrait:justify-center">
+          <div className="contents max-sm:portrait:flex max-sm:portrait:w-full max-sm:portrait:items-center max-sm:portrait:justify-center max-sm:portrait:gap-2">
+            <CurrencySwitcher />
+            <LanguageSwitcher />
+            <SoundToggle />
             <AuthBar mode="controls" />
           </div>
         </div>
