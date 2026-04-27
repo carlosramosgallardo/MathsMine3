@@ -1074,24 +1074,24 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
         @media (max-width: 899px) {
           .mm3-irc-shell > aside {
             order: -1;
-            padding: 0.45rem 0.65rem;
+            padding: 0.4rem 0.6rem;
           }
           .mm3-irc-aside-inner {
-            max-height: 4.8rem;
+            max-height: 4.2rem;
             overflow-y: auto;
           }
           .mm3-irc-chat-log {
-            min-height: 9rem;
-            max-height: 36dvh;
+            min-height: 0;
+            max-height: calc(100dvh - 30rem);
           }
           .mm3-irc-peer-row {
-            padding-top: 0.10rem;
-            padding-bottom: 0.10rem;
-            font-size: 0.62rem;
+            padding-top: 0.08rem;
+            padding-bottom: 0.08rem;
+            font-size: 0.60rem;
           }
           .mm3-irc-anon-label {
-            margin-top: 0.2rem;
-            font-size: 0.50rem;
+            margin-top: 0.15rem;
+            font-size: 0.48rem;
           }
         }
         .mm3-irc-panel {
@@ -1302,7 +1302,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
           </div>
 
           {normalizedWallet ? (
-            <form onSubmit={handleSend} className="mt-2 flex flex-col gap-1.5 sm:flex-row">
+            <form onSubmit={handleSend} className="mt-2 flex gap-1.5">
               <input
                 ref={inputRef}
                 value={draft}
