@@ -77,7 +77,6 @@ export default function NavLinks({ className = '' }) {
     { href: '/irc',       label: t('nav.irc') },
     { href: '/manifesto', label: t('nav.manifesto') },
     { href: '/ai-team',   label: t('nav.aiTeam') },
-    { href: '/api',       label: 'API' },
   ]
 
   return (

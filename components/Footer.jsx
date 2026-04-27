@@ -135,6 +135,7 @@ export default function Footer() {
           )
         )}
         <span className="select-none text-gray-800">|</span>
+        <Link href="/api" className="transition-colors duration-150 hover:text-cyan-400">API</Link>
         <Link href="/privacy" className="transition-colors duration-150 hover:text-cyan-400">Privacy</Link>
         <Link href="/terms" className="transition-colors duration-150 hover:text-cyan-400">Terms</Link>
         <span className="select-none text-gray-800">|</span>
