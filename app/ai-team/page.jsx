@@ -163,13 +163,13 @@ export default function AITeamPage() {
         <section className="mm3-ai-panel mb-4 p-4">
           <p className="text-sm leading-relaxed text-gray-300">
             {language === 'es'
-              ? 'El AI Team no es un adorno lore-only: es el panel de entidades que diseña, mantiene y empuja cada subsistema del portal. Si quieres ver dónde se manifiesta su trabajo, entra a '
-              : 'The AI Team is not just lore dressing: it is the panel of entities designing, maintaining, and pushing every portal subsystem. If you want to see where their work materializes, jump into '}
+              ? '@FreakingAI no es un adorno lore-only: es el panel de entidades que diseña, mantiene y empuja cada subsistema del portal. Si quieres ver dónde se manifiesta su trabajo, entra a '
+              : '@FreakingAI is not just lore dressing: it is the panel of entities designing, maintaining, and pushing every portal subsystem. If you want to see where their work materializes, jump into '}
             <Link href="/" className="text-[#22d3ee] underline hover:text-cyan-300">Mining</Link>
             {language === 'es' ? ', ' : ', '}
             <Link href="/trade-mm3" className="text-[#22d3ee] underline hover:text-cyan-300">Trading</Link>
             {language === 'es' ? ', ' : ', '}
-            <Link href="/ranking" className="text-[#22d3ee] underline hover:text-cyan-300">Prestige</Link>
+            <Link href="/ranking" className="text-[#22d3ee] underline hover:text-cyan-300">Ranking</Link>
             {language === 'es' ? ', ' : ', '}
             <Link href="/mm3-value" className="text-[#22d3ee] underline hover:text-cyan-300">MM3</Link>
             {language === 'es' ? ', ' : ', '}

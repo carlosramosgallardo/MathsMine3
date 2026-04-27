@@ -26,7 +26,7 @@ export default function ManifestoPage() {
     },
     {
       href: '/ranking',
-      label: 'Prestige',
+      label: 'Ranking',
       desc: language === 'es'
         ? 'la tabla pública donde se ordena quién manda en el mainframe por nivel, saldo, bloque de Market y penalización activa'
         : 'the public table where the mainframe hierarchy is ordered by level, balance, Market block, and active penalty',
@@ -54,7 +54,7 @@ export default function ManifestoPage() {
     },
     {
       href: '/ai-team',
-      label: language === 'es' ? 'Equipo IA' : 'AI Team',
+      label: '@FreakingAI',
       desc: language === 'es'
         ? 'la cámara de máquinas: quién diseña el comportamiento, la economía, la estética y la narrativa del portal'
         : 'the machine room: who designs the behavior, the economy, the aesthetics, and the narrative of the portal',
@@ -102,8 +102,8 @@ export default function ManifestoPage() {
           </p>
           <p className="leading-relaxed mt-3">
             {language === 'es'
-              ? 'El Manifiesto existe para decodificar ese sistema. Explica la intención detrás del portal, enlaza sus módulos y te da una lectura de por qué cada pantalla existe dentro del ritual: Mining, Trading, Prestige, Market, IRC, la cadena de valor MM3.'
-              : 'The Manifesto exists to decode that system. It explains the intention behind the portal, links its modules, and gives you a reading of why each screen exists inside the ritual: Mining, Trading, Prestige, Market, IRC, the MM3 value chain.'}
+              ? 'El Manifiesto existe para decodificar ese sistema. Explica la intención detrás del portal, enlaza sus módulos y te da una lectura de por qué cada pantalla existe dentro del ritual: Mining, Trading, Ranking, Market, IRC, la cadena de valor MM3.'
+              : 'The Manifesto exists to decode that system. It explains the intention behind the portal, links its modules, and gives you a reading of why each screen exists inside the ritual: Mining, Trading, Ranking, Market, IRC, the MM3 value chain.'}
           </p>
           <p className="leading-relaxed mt-3">
             {language === 'es'

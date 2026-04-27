@@ -20,7 +20,7 @@ import { IrcPresenceProvider } from '@/lib/irc-presence-context';
 
 export const metadata = {
   title: { default: 'MathsMine3', template: '%s · MathsMine3' },
-  description: 'Solve math problems to mine MM3 tokens, climb the prestige ranking, and watch your impact on a live token chart. A crypto-freak game powered entirely by an AI team.',
+  description: 'Solve math problems to mine MM3 tokens, climb the ranking, and watch your impact on a live token chart. A crypto-freak game powered by @FreakingAI.',
   metadataBase: new URL('https://mathsmine3.xyz'),
   alternates: { canonical: '/' },
   authors: [{ name: 'FreakingAI', url: 'https://mathsmine3.xyz' }],

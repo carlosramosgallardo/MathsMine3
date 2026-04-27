@@ -532,6 +532,19 @@ export default function TradeBoard({ account, isVirtualWallet = false }) {
         'success'
       );
       playTrade();
+
+      // Nudge war/meteo ±10% on every EXEC (fire-and-forget, non-blocking)
+      const nudge = (current) => {
+        const delta = (Math.random() * 20) - 10;
+        return Math.round(Math.max(0, Math.min(100, current + delta)) * 10) / 10;
+      };
+      const newWar = nudge(liveMacroState.war_percent);
+      const newNature = nudge(liveMacroState.nature_percent);
+      supabase.from('mm3_macro_state').upsert(
+        { id: 1, war_percent: newWar, nature_percent: newNature, updated_at: new Date().toISOString() },
+        { onConflict: 'id', ignoreDuplicates: false }
+      ).then(() => setMacroState({ war_percent: newWar, nature_percent: newNature }));
+
       markLeaderboardDirty();
       await loadDailyTxCount(wallet);
       if (showTransactions) loadTransactions();

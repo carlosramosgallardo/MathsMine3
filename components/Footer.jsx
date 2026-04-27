@@ -3,7 +3,6 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { useSound } from '@/lib/sound-context'
 import { useAccount, useWalletClient } from 'wagmi'
 import { BrowserProvider, parseEther } from 'ethers'
 import { useGoogleAuth } from '@/lib/google-auth-context'
@@ -26,7 +25,6 @@ export default function Footer() {
   const [revealed, setRevealed] = useState(false)
   const [isProcessing, setIsProcessing] = useState(false)
   const { t } = useI18n()
-  const { enabled, toggleSound } = useSound()
   const { isConnected, address } = useAccount()
   const { data: walletClient } = useWalletClient()
   const { googleWallet } = useGoogleAuth()
@@ -108,15 +106,6 @@ export default function Footer() {
             botsandpods@gmail.com
           </a>
         )}
-        <span className="select-none text-gray-800">|</span>
-        <button
-          type="button"
-          onClick={toggleSound}
-          title={enabled ? 'Sound on' : 'Sound off'}
-          className="transition-colors duration-150 hover:text-cyan-400 focus:outline-none"
-        >
-          {enabled ? '🔊' : '🔇'}
-        </button>
         <span className="select-none text-gray-800">|</span>
         <span>{t('wallet.donate')}:</span>
         {SUPPORT_LINKS.map((item) =>
