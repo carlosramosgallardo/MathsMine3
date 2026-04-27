@@ -396,10 +396,6 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
 
   return (
     <div className="w-full">
-      {isLoading && leaderboard.length === 0 && (
-        <PageLoading label={t('leaderboard.loadingMiners')} />
-      )}
-
       <style>{`
         .lb-row { transition: all .25s ease; border: 1px solid rgba(34,211,238,.15); }
         .lb-row:hover { background: rgba(34,211,238,.05); border-color: rgba(34,211,238,.4); transform: translateX(2px); }
