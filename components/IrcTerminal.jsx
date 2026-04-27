@@ -1017,7 +1017,42 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
     if (!normalizedWallet) return;
     const text = normalizeRelayMessage(draft);
     if (!text) return;
+    setDraft('');
 
+    // ── Command routing: lines starting with / ──
+    if (text.startsWith('/')) {
+      const afterSlash = text.slice(1).trim();
+      const cmdName = afterSlash.split(/\s/)[0].toLowerCase();
+
+      // /? — local command index (not broadcast)
+      if (afterSlash === '?' || cmdName === 'help') {
+        appendMessage(makeMessage({
+          id: `sys:help:${Date.now()}`,
+          kind: 'system', wallet: 'system', ts: Date.now(), tone: 'accent',
+          text: '// cmd index :: /wall [freakingAI@MM3] solve => <formula>  →  launch NFTJI market signal (holder only) ·· /?  →  this index',
+        }), { silent: true });
+        return;
+      }
+
+      // /wall — market command or unauthorized broadcast
+      if (cmdName === 'wall') {
+        const handled = await processMarketCommand(text);
+        if (!handled) {
+          await broadcastSystemMessage(`${IRC_ADMIN_LABEL}:~$ ${t('irc.wallPrompt')}`, 'accent');
+        }
+        return;
+      }
+
+      // Unknown command — local error only
+      appendMessage(makeMessage({
+        id: `sys:err:${Date.now()}`,
+        kind: 'system', wallet: 'system', ts: Date.now(), tone: 'leave',
+        text: `// bash: /${cmdName}: command not found ·· type /? to dump available commands`,
+      }), { silent: true });
+      return;
+    }
+
+    // ── Regular chat message ──
     const now = Date.now();
     const payload = {
       id: `msg:${normalizedWallet}:${now}:${Math.random().toString(36).slice(2, 7)}`,
@@ -1027,9 +1062,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
     };
 
     appendMessage(makeMessage(payload), { silent: false });
-    setDraft('');
 
-    // Persist to database
     try {
       await supabase.from('mm3_irc_messages').insert({
         wallet: normalizedWallet,
@@ -1047,11 +1080,6 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
         payload,
       });
     } catch {}
-
-    const handledMarketCommand = await processMarketCommand(text);
-    if (!handledMarketCommand && /^wall\s/i.test(text)) {
-      await broadcastSystemMessage(`${IRC_ADMIN_LABEL}:~$ ${t('irc.wallPrompt')}`, 'accent');
-    }
   };
 
   return (
