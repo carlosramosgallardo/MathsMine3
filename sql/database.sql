@@ -158,9 +158,9 @@ CREATE TABLE mm3_macro_state (
   id SMALLINT PRIMARY KEY DEFAULT 1 CHECK (id = 1),
   war_percent NUMERIC NOT NULL DEFAULT 0 CHECK (war_percent >= 0 AND war_percent <= 100),
   nature_percent NUMERIC NOT NULL DEFAULT 0 CHECK (nature_percent >= 0 AND nature_percent <= 100),
-  ticker_message TEXT NOT NULL DEFAULT 'WELCOME TO MATHSMINE3 // SOLVE FAST, MINE MM3, FEED THE RETRO MAINFRAME',
-  ticker_message_en TEXT NOT NULL DEFAULT 'WELCOME TO MATHSMINE3 // SOLVE FAST, MINE MM3, FEED THE RETRO MAINFRAME',
-  ticker_message_es TEXT NOT NULL DEFAULT 'BIENVENIDO A MATHSMINE3 // RESUELVE RAPIDO, MINA MM3 Y ALIMENTA EL MAINFRAME RETRO',
+  ticker_message TEXT NOT NULL DEFAULT '## WELCOME TO MATHSMINE3 ## SOLVE FAST, MINE MM3, FEED THE RETRO MAINFRAME ##',
+  ticker_message_en TEXT NOT NULL DEFAULT '## WELCOME TO MATHSMINE3 ## SOLVE FAST, MINE MM3, FEED THE RETRO MAINFRAME ##',
+  ticker_message_es TEXT NOT NULL DEFAULT '## BIENVENIDO A MATHSMINE3 ## RESUELVE RAPIDO, MINA MM3 Y ALIMENTA EL MAINFRAME RETRO ##',
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
@@ -593,22 +593,29 @@ CREATE POLICY "public_delete_mm3_irc_messages" ON mm3_irc_messages FOR DELETE TO
 -- ==============================================
 
 -- Insert MM3 Visual State
-INSERT INTO mm3_visual_state (id, color_hex) VALUES (1, '#000000')
-ON CONFLICT (id) DO UPDATE SET color_hex = '#000000';
-
-INSERT INTO mm3_market_state (id) VALUES (1)
-ON CONFLICT (id) DO NOTHING;
-
-INSERT INTO mm3_macro_state (id, war_percent, nature_percent, ticker_message, ticker_message_en, ticker_message_es)
+INSERT INTO mm3_macro_state (
+  id,
+  war_percent,
+  nature_percent,
+  ticker_message,
+  ticker_message_en,
+  ticker_message_es,
+  updated_at
+)
 VALUES (
   1,
   0,
   0,
-  'WELCOME TO MATHSMINE3 // SOLVE FAST, MINE MM3, FEED THE RETRO MAINFRAME',
-  'WELCOME TO MATHSMINE3 // SOLVE FAST, MINE MM3, FEED THE RETRO MAINFRAME',
-  'BIENVENIDO A MATHSMINE3 // RESUELVE RAPIDO, MINA MM3 Y ALIMENTA EL MAINFRAME RETRO'
+  '## WELCOME TO MATHSMINE3 ## SOLVE FAST, MINE MM3, FEED THE RETRO MAINFRAME ##',
+  '## WELCOME TO MATHSMINE3 ## SOLVE FAST, MINE MM3, FEED THE RETRO MAINFRAME ##',
+  '## BIENVENIDO A MATHSMINE3 ## RESUELVE RAPIDO, MINA MM3 Y ALIMENTA EL MAINFRAME RETRO ##',
+  NOW()
 )
-ON CONFLICT (id) DO NOTHING;
+ON CONFLICT (id) DO UPDATE SET
+  ticker_message    = EXCLUDED.ticker_message,
+  ticker_message_en = EXCLUDED.ticker_message_en,
+  ticker_message_es = EXCLUDED.ticker_message_es,
+  updated_at        = NOW();
 
 INSERT INTO mm3_podcast_pixels (
   pixel_key,
