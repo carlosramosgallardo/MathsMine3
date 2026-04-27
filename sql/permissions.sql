@@ -62,8 +62,12 @@ CREATE POLICY "public_read_mm3_market_state"   ON public.mm3_market_state FOR SE
 CREATE POLICY "public_insert_mm3_market_state" ON public.mm3_market_state FOR INSERT TO anon WITH CHECK (id = 1);
 CREATE POLICY "public_update_mm3_market_state" ON public.mm3_market_state FOR UPDATE TO anon USING (id = 1) WITH CHECK (id = 1);
 
-DROP POLICY IF EXISTS "public_read_mm3_macro_state" ON public.mm3_macro_state;
-CREATE POLICY "public_read_mm3_macro_state" ON public.mm3_macro_state FOR SELECT TO anon USING (true);
+DROP POLICY IF EXISTS "public_read_mm3_macro_state"   ON public.mm3_macro_state;
+DROP POLICY IF EXISTS "public_insert_mm3_macro_state" ON public.mm3_macro_state;
+DROP POLICY IF EXISTS "public_update_mm3_macro_state" ON public.mm3_macro_state;
+CREATE POLICY "public_read_mm3_macro_state"   ON public.mm3_macro_state FOR SELECT TO anon USING (true);
+CREATE POLICY "public_insert_mm3_macro_state" ON public.mm3_macro_state FOR INSERT TO anon WITH CHECK (id = 1);
+CREATE POLICY "public_update_mm3_macro_state" ON public.mm3_macro_state FOR UPDATE TO anon USING (id = 1) WITH CHECK (id = 1);
 
 DROP POLICY IF EXISTS "public_read_mm3_wallet_presence"   ON public.mm3_wallet_presence;
 DROP POLICY IF EXISTS "public_insert_mm3_wallet_presence" ON public.mm3_wallet_presence;
@@ -134,6 +138,8 @@ GRANT SELECT          ON public.mm3_market_state      TO anon;
 GRANT INSERT          ON public.mm3_market_state      TO anon;
 GRANT UPDATE          ON public.mm3_market_state      TO anon;
 GRANT SELECT          ON public.mm3_macro_state       TO anon;
+GRANT INSERT          ON public.mm3_macro_state       TO anon;
+GRANT UPDATE          ON public.mm3_macro_state       TO anon;
 GRANT SELECT          ON public.mm3_wallet_presence   TO anon;
 GRANT INSERT          ON public.mm3_wallet_presence   TO anon;
 GRANT UPDATE          ON public.mm3_wallet_presence   TO anon;
