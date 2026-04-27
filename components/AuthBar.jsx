@@ -459,7 +459,9 @@ function AuthBarWalletOnly({ mode = 'full' }) {
 const CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || ''
 
 export default function AuthBar({ mode = 'full' }) {
-  if (CLIENT_ID) {
+  // wallet mode never shows the Google login button (returns null when disconnected),
+  // so it doesn't need GoogleOAuthProvider — avoids injecting the GSI script twice.
+  if (CLIENT_ID && mode !== 'wallet') {
     return (
       <GoogleOAuthProvider clientId={CLIENT_ID}>
         <AuthBarWithGoogle mode={mode} />

@@ -33,6 +33,13 @@
     "supabase": "^2.92.1",
     "tailwindcss": "^3.4.17"
   },
+  "browserslist": [
+    "chrome >= 94",
+    "firefox >= 93",
+    "safari >= 15",
+    "edge >= 94",
+    "not dead"
+  ],
   "overrides": {
     "sha.js": "2.4.12",
     "debug": ">=4.4.3"

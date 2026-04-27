@@ -1,5 +1,8 @@
 const nextConfig = {
   reactStrictMode: true,
+  experimental: {
+    optimizePackageImports: ['recharts'],
+  },
   webpack: (config) => {
     config.resolve.fallback = {
       ...config.resolve.fallback,
