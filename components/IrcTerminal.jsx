@@ -1268,17 +1268,14 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
       <div className="mm3-irc-shell">
         <section className="mm3-irc-panel rounded-sm p-2.5">
           <div className="mb-2 flex items-center justify-between gap-2 border-b border-cyan-500/12 pb-2 font-mono">
-            <div>
-              <div className="text-[0.88rem] uppercase tracking-[0.22em] text-cyan-300">{t('irc.title')}</div>
-              <div className="mt-0.5 text-[0.80rem] uppercase tracking-[0.16em] text-slate-500">#relay-mainframe</div>
-            </div>
-            <div className="text-right">
-              <div className={`text-[0.75rem] uppercase tracking-[0.16em] ${normalizedWallet ? 'text-cyan-700' : 'text-amber-700/70'}`}>
+            <div className="text-[0.80rem] uppercase tracking-[0.16em] text-slate-500">#relay-mainframe</div>
+            <div className="flex items-center gap-3">
+              <span className={`text-[0.75rem] uppercase tracking-[0.16em] ${normalizedWallet ? 'text-cyan-700' : 'text-amber-700/70'}`}>
                 {!normalizedWallet ? t('irc.readOnly') : (relayReady ? t('irc.live') : t('irc.syncing'))}
-              </div>
-              <div className={`mt-0.5 break-all text-[0.82rem] ${normalizedWallet ? 'text-cyan-200' : 'text-slate-500'}`}>
+              </span>
+              <span className={`break-all text-[0.82rem] ${normalizedWallet ? 'text-cyan-200' : 'text-slate-500'}`}>
                 {formatIrcWalletLabel(actorId)}
-              </div>
+              </span>
             </div>
           </div>
 
