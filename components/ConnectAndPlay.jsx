@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { createWeb3Modal, useWeb3Modal } from '@web3modal/wagmi/react'
 import { WagmiConfig, createConfig, useAccount, useWalletClient, useDisconnect, http } from 'wagmi'
 import { mainnet } from 'wagmi/chains'
-import { BrowserProvider, parseEther } from 'ethers'
+import { parseEther } from 'viem'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { useI18n } from '@/lib/i18n-context'
 
@@ -243,9 +243,7 @@ export function WalletActions({ afterToast }) {
     if (!walletClient?.transport?.request) { notify(t('wallet.donationSymbolicUnsupported'), 'error'); return }
     try {
       setIsProcessing(true)
-      const provider = new BrowserProvider(walletClient)
-      const signer = await provider.getSigner()
-      await signer.sendTransaction({
+      await walletClient.sendTransaction({
         to: process.env.NEXT_PUBLIC_ADMIN_WALLET,
         value: parseEther(process.env.NEXT_PUBLIC_FAKE_MINING_PRICE)
       })
@@ -305,9 +303,7 @@ export function CompactWalletBar() {
     if (!walletClient?.transport?.request) { notify(t('wallet.donationUnsupported'), 'error'); return }
     try {
       setIsProcessing(true)
-      const provider = new BrowserProvider(walletClient)
-      const signer = await provider.getSigner()
-      await signer.sendTransaction({
+      await walletClient.sendTransaction({
         to: process.env.NEXT_PUBLIC_ADMIN_WALLET,
         value: parseEther(process.env.NEXT_PUBLIC_FAKE_MINING_PRICE)
       })

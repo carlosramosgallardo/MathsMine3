@@ -4,7 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useAccount, useWalletClient } from 'wagmi'
-import { BrowserProvider, parseEther } from 'ethers'
+import { parseEther } from 'viem'
 import { useGoogleAuth } from '@/lib/google-auth-context'
 import { useI18n } from '@/lib/i18n-context'
 
@@ -52,9 +52,7 @@ export default function Footer() {
     }
     try {
       setIsProcessing(true)
-      const provider = new BrowserProvider(walletClient)
-      const signer = await provider.getSigner()
-      await signer.sendTransaction({
+      await walletClient.sendTransaction({
         to: process.env.NEXT_PUBLIC_ADMIN_WALLET,
         value: parseEther(process.env.NEXT_PUBLIC_FAKE_MINING_PRICE),
       })
