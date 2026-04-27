@@ -3,13 +3,16 @@
 import Image from 'next/image'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { useEffect, useState } from 'react'
 import NavLinks from '@/components/NavLinks'
 import LanguageSwitcher from '@/components/LanguageSwitcher'
 import CurrencySwitcher from '@/components/CurrencySwitcher'
 import AuthBar from '@/components/AuthBar'
 import GlobalPulseBar from '@/components/GlobalPulseBar'
 import MacroTicker from '@/components/MacroTicker'
+import UtcClock from '@/components/UtcClock'
 import { useSound } from '@/lib/sound-context'
+import supabase from '@/lib/supabaseClient'
 
 function SoundToggle() {
   const { enabled, toggleSound } = useSound()
@@ -34,6 +37,59 @@ function SoundToggle() {
         </svg>
       )}
     </button>
+  )
+}
+
+function Mm3Total() {
+  const [value, setValue] = useState(null)
+
+  useEffect(() => {
+    let mounted = true
+
+    const load = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('token_value')
+          .select('total_eth')
+          .limit(1)
+          .maybeSingle()
+        if (error) throw error
+        if (mounted) setValue(Number(data?.total_eth) || 0)
+      } catch {}
+    }
+
+    load()
+    const timer = setInterval(load, 15000)
+    window.addEventListener('focus', load)
+    window.addEventListener('mm3-db-updated', load)
+
+    const channel = supabase
+      .channel('mm3-header-total-live')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'games' }, load)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'mm3_sell_transactions' }, load)
+      .subscribe()
+
+    return () => {
+      mounted = false
+      clearInterval(timer)
+      window.removeEventListener('focus', load)
+      window.removeEventListener('mm3-db-updated', load)
+      supabase.removeChannel(channel)
+    }
+  }, [])
+
+  if (value === null) return null
+
+  return (
+    <Link
+      href="/mm3-value"
+      className="inline-flex items-baseline gap-0.5 font-mono text-cyan-300/90 transition hover:text-cyan-200"
+      title="MM3 total value"
+    >
+      <span className="text-[0.65rem] sm:hidden">{value.toFixed(4)}</span>
+      <span className="hidden text-[0.65rem] sm:inline">{value.toFixed(8)}</span>
+      <span className="text-[0.48rem] uppercase tracking-[0.18em] text-cyan-300/55">MM3</span>
+    </Link>
   )
 }
 
@@ -85,8 +141,24 @@ export default function Header() {
         </div>
       </div>
 
-      {/* Wallet row — centered wallet info block */}
-      <div className="mm3-header-wallet-row flex h-7 items-center justify-center border-b border-cyan-900/10 px-2 sm:px-4">
+      {/* Wallet row — clock | 📜 | MM3 total | 🤖 | wallet data */}
+      <div className="mm3-header-wallet-row flex h-7 items-center justify-center gap-1.5 sm:gap-2 border-b border-cyan-900/10 px-2 sm:px-4 overflow-x-auto no-scrollbar">
+        <UtcClock className="font-mono text-[0.65rem] sm:text-[0.80rem] font-black tracking-[0.08em] sm:tracking-[0.14em] text-cyan-300 shrink-0" />
+        <Link
+          href="/manifesto"
+          className="shrink-0 text-[0.82rem] leading-none transition hover:opacity-70"
+          title="Manifesto"
+        >
+          📜
+        </Link>
+        <Mm3Total />
+        <Link
+          href="/ai-team"
+          className="shrink-0 text-[0.82rem] leading-none transition hover:opacity-70"
+          title="AI Team"
+        >
+          🤖
+        </Link>
         <AuthBar mode="wallet" />
       </div>
 

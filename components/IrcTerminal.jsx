@@ -1043,6 +1043,43 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
         return;
       }
 
+      // Try hidden command (DB-validated, not in source)
+      try {
+        const res = await fetch('/api/exec-hidden-cmd', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ wallet: normalizedWallet, command: text }),
+        });
+        if (res.status !== 404) {
+          const data = await res.json().catch(() => ({}));
+          if (data.ok) {
+            const trace = language === 'es' ? data.trace_es : data.trace_en;
+            await broadcastSystemMessage(trace, 'accent');
+            try {
+              await supabase.from('mm3_irc_messages').insert({
+                wallet: 'system', text: trace, ts: Date.now(), kind: 'system', tone: 'accent',
+              });
+            } catch {}
+            if (typeof window !== 'undefined') {
+              localStorage.setItem('lb_dirty_at', String(Date.now()));
+              window.dispatchEvent(new CustomEvent('mm3-db-updated', { detail: { wallet: normalizedWallet } }));
+            }
+          } else {
+            const errorMsg = {
+              level_too_low: `// access denied :: level insufficient for /${cmdName}`,
+              wall_not_active: `// access denied :: /wall not active for this block today`,
+              already_executed_today: `// access denied :: command quota exhausted for today`,
+            }[data.error] || `// access denied :: /${cmdName} rejected`;
+            appendMessage(makeMessage({
+              id: `sys:err:${Date.now()}`,
+              kind: 'system', wallet: 'system', ts: Date.now(), tone: 'leave',
+              text: errorMsg,
+            }), { silent: true });
+          }
+          return;
+        }
+      } catch {}
+
       // Unknown command — local error only
       appendMessage(makeMessage({
         id: `sys:err:${Date.now()}`,
@@ -1385,7 +1422,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
               <span className="text-emerald-400">{connectedWallets.length}</span>
               <span className="text-slate-600 text-[0.65rem]">/</span>
               <span className="text-slate-500">{totalWallets}</span>
-              <span className="text-slate-600 text-[0.60rem]">wallets</span>
+              <span className="text-slate-600 text-[0.60rem]">nod</span>
               <span className="text-slate-700 mx-[1px]">·</span>
               <span className="text-cyan-700">{connectedWallets.length + anonUsers.length}</span>
               <span className="text-cyan-900 text-[0.60rem]">irc</span>

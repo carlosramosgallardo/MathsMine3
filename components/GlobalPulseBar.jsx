@@ -75,7 +75,7 @@ export default function GlobalPulseBar() {
         <span className="text-emerald-400 tabular-nums">{activeWallets.length}</span>
         <span className="text-slate-600 text-[0.70rem]">/</span>
         <span className="text-slate-500 tabular-nums">{totalWallets}</span>
-        <span className="text-slate-600 text-[0.65rem]">wallets</span>
+        <span className="text-slate-600 text-[0.65rem]">nod</span>
         <span className="text-slate-700 mx-[1px]">·</span>
         <span className="text-cyan-700 tabular-nums">{ircConnectedCount}</span>
         <span className="text-cyan-900 text-[0.65rem]">irc</span>

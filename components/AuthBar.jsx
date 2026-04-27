@@ -251,9 +251,9 @@ function ConnectedBar({ address, isRealWallet, onDisconnect, mode = 'full' }) {
         >
           {mode === 'wallet' ? (
             <div className="flex items-center gap-1 sm:gap-1.5">
-              <span className="inline-flex items-baseline gap-0.5 text-cyan-300/90">
-                <UtcClock className="font-mono text-[0.65rem] sm:text-[0.80rem] font-black tracking-[0.08em] sm:tracking-[0.14em] text-cyan-300" />
-              </span>
+              {walletSummary?.position ? (
+                <span className="font-mono text-[0.60rem] font-black text-slate-500 sm:text-[0.65rem]">#{walletSummary.position}</span>
+              ) : null}
               <span className="max-w-[13ch] truncate sm:max-w-[24ch]">{visibleAddress}</span>
               {walletSummary ? (
                 <>
@@ -261,6 +261,7 @@ function ConnectedBar({ address, isRealWallet, onDisconnect, mode = 'full' }) {
                     <span className="text-[0.60rem] uppercase tracking-[0.1em] text-cyan-300/55 sm:text-[0.65rem] sm:tracking-[0.14em]">lvl</span>
                     <span>{walletSummary.level}</span>
                   </span>
+                  <span title={walletSummary.tier.label} className="text-[0.82rem]">{walletSummary.tier.emoji}</span>
                   <span title={`${t('leaderboard.mm3Earned')}: ${walletSummary.availableMm3.toFixed(8)}`} className="inline-flex items-baseline gap-0.5 text-cyan-300/90">
                     <span>{mm3Compact}</span>
                     <span className="text-[0.60rem] uppercase tracking-[0.1em] text-cyan-300/55 sm:text-[0.65rem] sm:tracking-[0.14em]">MM3</span>
@@ -377,7 +378,7 @@ function AuthBarWithGoogle({ mode = 'full' }) {
   if (googleWallet) {
     return <ConnectedBar address={googleWallet} isRealWallet={false} onDisconnect={googleSignOut} mode={mode} />
   }
-  if (mode === 'wallet') return <UtcClock className="font-mono text-[0.65rem] sm:text-[0.80rem] font-black tracking-[0.08em] sm:tracking-[0.14em] text-cyan-300" />
+  if (mode === 'wallet') return null
   const openWalletModal = async () => {
     if (walletModalLockRef.current) return
     walletModalLockRef.current = true
@@ -421,7 +422,7 @@ function AuthBarWalletOnly({ mode = 'full' }) {
   if (googleWallet) {
     return <ConnectedBar address={googleWallet} isRealWallet={false} onDisconnect={googleSignOut} mode={mode} />
   }
-  if (mode === 'wallet') return <UtcClock className="font-mono text-[0.65rem] sm:text-[0.80rem] font-black tracking-[0.08em] sm:tracking-[0.14em] text-cyan-300" />
+  if (mode === 'wallet') return null
   const openWalletModal = async () => {
     if (walletModalLockRef.current) return
     walletModalLockRef.current = true

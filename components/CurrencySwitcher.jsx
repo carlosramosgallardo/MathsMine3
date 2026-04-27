@@ -32,7 +32,7 @@ export default function CurrencySwitcher() {
         className="flex h-7 sm:h-9 items-center gap-0.5 sm:gap-1 px-1 sm:px-1.5 text-[0.82rem] sm:text-[0.90rem] font-mono font-bold text-cyan-300
           hover:text-cyan-200 focus:outline-none uppercase tracking-wider transition"
       >
-        {currency} <span className="text-[0.5rem] sm:text-[0.78rem] opacity-70">▼</span>
+        {CURRENCY_FLAGS[currency]} <span className="text-[0.5rem] sm:text-[0.78rem] opacity-70">▼</span>
       </button>
 
       {isOpen && (

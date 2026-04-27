@@ -436,8 +436,8 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
       {totalPages > 1 && (
         <div className="flex justify-center gap-2 mb-3 flex-wrap sm:hidden">
           <button onClick={() => setCurrentPage(p => Math.max(1, p-1))} disabled={currentPage === 1}
-                  className="px-3 py-1.5 rounded border-2 border-[#22d3ee]/40 text-[#22d3ee] hover:border-[#22d3ee] transition disabled:opacity-30 disabled:cursor-not-allowed text-sm font-mono">
-            {t('leaderboard.prev')}
+                  className="w-8 h-8 rounded border-2 border-[#22d3ee]/40 text-[#22d3ee] hover:border-[#22d3ee] transition disabled:opacity-30 disabled:cursor-not-allowed text-sm font-mono">
+            ←
           </button>
           <div className="flex gap-1 items-center">
             {[...Array(totalPages)].map((_, i) => {
@@ -456,8 +456,8 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
             })}
           </div>
           <button onClick={() => setCurrentPage(p => Math.min(totalPages, p+1))} disabled={currentPage === totalPages}
-                  className="px-3 py-1.5 rounded border-2 border-[#22d3ee]/40 text-[#22d3ee] hover:border-[#22d3ee] transition disabled:opacity-30 disabled:cursor-not-allowed text-sm font-mono">
-            {t('leaderboard.next')}
+                  className="w-8 h-8 rounded border-2 border-[#22d3ee]/40 text-[#22d3ee] hover:border-[#22d3ee] transition disabled:opacity-30 disabled:cursor-not-allowed text-sm font-mono">
+            →
           </button>
         </div>
       )}
@@ -756,8 +756,8 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
       {totalPages > 1 && (
         <div className="flex justify-center gap-2 mt-5 flex-wrap">
           <button onClick={() => setCurrentPage(p => Math.max(1, p-1))} disabled={currentPage === 1}
-                  className="px-4 py-2 rounded-lg border-2 border-[#22d3ee]/40 text-[#22d3ee] hover:border-[#22d3ee] transition disabled:opacity-30 disabled:cursor-not-allowed text-sm font-mono">
-            {t('leaderboard.prev')}
+                  className="w-9 h-9 rounded-lg border-2 border-[#22d3ee]/40 text-[#22d3ee] hover:border-[#22d3ee] transition disabled:opacity-30 disabled:cursor-not-allowed text-sm font-mono">
+            ←
           </button>
           <div className="flex gap-1 items-center">
             {[...Array(totalPages)].map((_, i) => {
@@ -776,8 +776,8 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
             })}
           </div>
           <button onClick={() => setCurrentPage(p => Math.min(totalPages, p+1))} disabled={currentPage === totalPages}
-                  className="px-4 py-2 rounded-lg border-2 border-[#22d3ee]/40 text-[#22d3ee] hover:border-[#22d3ee] transition disabled:opacity-30 disabled:cursor-not-allowed text-sm font-mono">
-            {t('leaderboard.next')}
+                  className="w-9 h-9 rounded-lg border-2 border-[#22d3ee]/40 text-[#22d3ee] hover:border-[#22d3ee] transition disabled:opacity-30 disabled:cursor-not-allowed text-sm font-mono">
+            →
           </button>
         </div>
       )}
