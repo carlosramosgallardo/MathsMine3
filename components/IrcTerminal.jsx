@@ -78,6 +78,19 @@ function formatRelayTime(ts) {
   }
 }
 
+function formatClockTime(value) {
+  try {
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return '--:--:--';
+
+    const p = (n) => String(n).padStart(2, '0');
+
+    return `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+  } catch {
+    return '--:--:--';
+  }
+}
+
 function normalizeRelayMessage(value) {
   return String(value || '').replace(/\s+/g, ' ').trim().slice(0, 280);
 }
@@ -337,9 +350,9 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
             const block = blockByKey.get(entry.key);
             const hex = block ? getBlockHex(block.grid_row, block.grid_col) : entry.key;
             const formula = getCommandFormula(entry.command);
-            const reset = String(command.reset_at).slice(5, 16);
+            const reset = formatClockTime(command.reset_at);
             const by = shortWallet(command.wallet);
-            marketMessages.push(`Market: ${entry.emoji} ${hex} // ${t('irc.commandActive')} // formula=${formula} // x=${command.formula_x ?? 0} // reset=${reset}Z${by ? ` // ${t('irc.by')} ${by}` : ''}`);
+            marketMessages.push(`Market: ${entry.emoji} ${hex} // ${t('irc.commandActive')} // formula=${formula} // x=${command.formula_x ?? 0} // reset=${reset}${by ? ` // ${t('irc.by')} ${by}` : ''}`);
           } else {
             const ownerWallets = (ownersData || [])
               .filter((o) => o.market_nftmoji_key === entry.key)
@@ -358,9 +371,9 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
           const emoji = block?.emoji || fallback?.emoji || '?';
           const hex = block ? getBlockHex(block.grid_row, block.grid_col) : key;
           const formula = getCommandFormula(fallback?.command);
-          const reset = String(command.reset_at || '').slice(5, 16);
+          const reset = formatClockTime(command.reset_at);
           const by = shortWallet(command.wallet);
-          marketMessages.push(`Market: ${emoji} ${hex} // ${t('irc.commandActive')} // formula=${formula} // x=${command.formula_x ?? 0} // reset=${reset}Z${by ? ` // ${t('irc.by')} ${by}` : ''}`);
+          marketMessages.push(`Market: ${emoji} ${hex} // ${t('irc.commandActive')} // formula=${formula} // x=${command.formula_x ?? 0} // reset=${reset}${by ? ` // ${t('irc.by')} ${by}` : ''}`);
         }
 
         if (marketMessages.length === 0) {
@@ -702,9 +715,9 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
           const block = blockByKey.get(entry.key);
           const hex = block ? getBlockHex(block.grid_row, block.grid_col) : entry.key;
           const formula = getCommandFormula(entry.command);
-          const reset = String(command.reset_at).slice(5, 16);
+          const reset = formatClockTime(command.reset_at);
           const by = shortWallet(command.wallet);
-          marketMessages.push(`Market: ${entry.emoji} ${hex} // active // formula=${formula} // x=${command.formula_x ?? 0} // reset=${reset}Z${by ? ` // by ${by}` : ''}`);
+          marketMessages.push(`Market: ${entry.emoji} ${hex} // active // formula=${formula} // x=${command.formula_x ?? 0} // reset=${reset}${by ? ` // by ${by}` : ''}`);
         } else {
           const ownerWallets = (ownersData || [])
             .filter((o) => o.market_nftmoji_key === entry.key)
@@ -723,9 +736,9 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
         const emoji = block?.emoji || fallback?.emoji || '?';
         const hex = block ? getBlockHex(block.grid_row, block.grid_col) : key;
         const formula = getCommandFormula(fallback?.command);
-        const reset = String(command.reset_at || '').slice(5, 16);
+        const reset = formatClockTime(command.reset_at);
         const by = shortWallet(command.wallet);
-        marketMessages.push(`Market: ${emoji} ${hex} // active // formula=${formula} // x=${command.formula_x ?? 0} // reset=${reset}Z${by ? ` // by ${by}` : ''}`);
+        marketMessages.push(`Market: ${emoji} ${hex} // active // formula=${formula} // x=${command.formula_x ?? 0} // reset=${reset}${by ? ` // by ${by}` : ''}`);
       }
 
       if (marketMessages.length === 0) {
@@ -791,12 +804,12 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
       .channel('mm3-irc-market-commands-watch')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'mm3_market_commands' }, ({ new: rec }) => {
         const { emoji, hex, formula } = resolveBlock(rec.nftmoji_key);
-        const reset = String(rec.reset_at || '').slice(5, 16);
+        const reset = formatClockTime(rec.reset_at);
         appendMessage(makeMessage({
           id: `market-event:on:${rec.id}`,
           kind: 'system',
           wallet: 'system',
-          text: `Market: ${emoji} ${hex} // ${t('irc.commandActive')} // formula=${formula} // x=${rec.formula_x} // reset=${reset}Z // ${t('irc.by')} ${rec.wallet ? `${String(rec.wallet).slice(0, 6)}...${String(rec.wallet).slice(-4)}` : '?'}`,
+          text: `Market: ${emoji} ${hex} // ${t('irc.commandActive')} // formula=${formula} // x=${rec.formula_x} // reset=${reset} // ${t('irc.by')} ${rec.wallet ? `${String(rec.wallet).slice(0, 6)}...${String(rec.wallet).slice(-4)}` : '?'}`,
           ts: Date.now(),
           tone: 'market',
         }), { silent: false });
