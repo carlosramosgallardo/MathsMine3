@@ -108,35 +108,22 @@ export default function Header() {
         <MacroTicker />
       </div>
 
-      {/* Identity row — world left, logo centered, controls right */}
-      <div className="border-b border-cyan-900/15">
-        <div className="mm3-header-identity-inner mx-auto w-full max-w-5xl px-2 sm:px-4">
-          <div className="mm3-header-identity-row grid h-12 grid-cols-[1fr_auto_1fr] items-center gap-2 sm:h-14 sm:gap-3">
-            <div className="mm3-header-side-shell mm3-header-world-panel justify-self-end min-w-0">
-              <GlobalPulseBar />
-            </div>
-
-            {/* On portrait mobile: flex row centred. On sm+: display:contents so children slot into the parent grid normally */}
-            <div className="mm3-header-logo-controls-row flex items-center justify-center gap-3 sm:contents">
-              <div className="mm3-header-logo-slot shrink-0">
-                <Link
-                  href="/"
-                  onClick={triggerHomeLoading}
-                  aria-label="MathsMine3 home"
-                  className="group block focus:outline-none transition-transform duration-200 hover:scale-105"
-                >
-                  <Image src="/og-image.jpg" alt="MM3" width={38} height={38} priority />
-                </Link>
-              </div>
-
-              <div className="mm3-header-side-shell mm3-header-user-panel justify-self-start">
-                <CurrencySwitcher />
-                <LanguageSwitcher />
-                <SoundToggle />
-                <AuthBar mode="controls" />
-              </div>
-            </div>
-          </div>
+      {/* Identity row — all elements centered as one group */}
+      <div className="border-b border-cyan-900/15 overflow-x-auto no-scrollbar">
+        <div className="flex h-12 items-center justify-center gap-1.5 px-3 sm:h-14 sm:gap-2.5 sm:px-4">
+          <GlobalPulseBar />
+          <Link
+            href="/"
+            onClick={triggerHomeLoading}
+            aria-label="MathsMine3 home"
+            className="shrink-0 block focus:outline-none transition-transform duration-200 hover:scale-105 mx-0.5 sm:mx-1"
+          >
+            <Image src="/og-image.jpg" alt="MM3" width={38} height={38} priority />
+          </Link>
+          <CurrencySwitcher />
+          <LanguageSwitcher />
+          <SoundToggle />
+          <AuthBar mode="controls" />
         </div>
       </div>
 
