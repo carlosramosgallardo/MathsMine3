@@ -71,7 +71,7 @@ function notify(msg, type = 'info') {
 /* ── Connected state — same visual for both auth methods ── */
 function ConnectedBar({ address, isRealWallet, onDisconnect, mode = 'full' }) {
   const walletColor = useMemo(() => colorFromAddress(address), [address])
-  const visibleAddress = useMemo(() => (!address ? '' : `…${address.slice(-5)}`), [address])
+  const visibleAddress = useMemo(() => (!address ? '' : address.slice(-5)), [address])
   const pathname = usePathname()
   const { t } = useI18n()
   const { currency } = useCurrency()
