@@ -20,7 +20,7 @@ export default function AITeamPage() {
       id: 1,
       name: t('aiTeam.cipher'),
       role: t('aiTeam.cipherRole'),
-      emoji: '🤖',
+      emoji: '🧠',
       description: t('aiTeam.cipherDesc'),
       speciality: t('aiTeam.cipherSpeciality'),
       skills: ['Solidity', 'Game Mechanics', 'Optimization'],
