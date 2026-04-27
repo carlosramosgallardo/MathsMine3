@@ -38,6 +38,30 @@ function WalletIcon({ size = 13 }) {
   )
 }
 
+function PowerIcon({ connected = false, size = 15 }) {
+  const color = connected ? '#22d3ee' : '#475569'
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke={color}
+      strokeWidth={2.2}
+      strokeLinecap="round"
+      style={{
+        filter: connected
+          ? 'drop-shadow(0 0 3px rgba(34,211,238,0.8)) drop-shadow(0 0 8px rgba(34,211,238,0.4))'
+          : 'none',
+        transition: 'filter 0.15s, stroke 0.15s',
+      }}
+    >
+      <line x1="12" y1="2" x2="12" y2="12" />
+      <path d="M18.36 6.64a9 9 0 1 1-12.73 0" />
+    </svg>
+  )
+}
+
 /* ── Notify helper ── */
 function notify(msg, type = 'info') {
   if (typeof window !== 'undefined')
@@ -249,11 +273,14 @@ function ConnectedBar({ address, isRealWallet, onDisconnect, mode = 'full' }) {
         </button>
       )}
       {mode === 'wallet' ? null : (
-        <>
-      <button onClick={handleDisconnect} title={t('wallet.disconnect')} aria-label={t('wallet.disconnect')} className={`${btn} ${active}`}>
-        {t('wallet.disconnect')}
-      </button>
-        </>
+        <button
+          onClick={handleDisconnect}
+          title={t('wallet.disconnect')}
+          aria-label={t('wallet.disconnect')}
+          className="group flex h-7 sm:h-9 w-8 sm:w-9 items-center justify-center rounded-md border border-transparent transition-all duration-150 focus:outline-none hover:border-rose-500/30 hover:bg-rose-950/25"
+        >
+          <PowerIcon connected size={15} />
+        </button>
       )}
     </div>
   )
@@ -310,7 +337,7 @@ function SplitConnectButton({ onGoogleClick, onWalletClick, googleBusy, walletBu
         onMouseEnter={() => setHoverW(true)}
         onMouseLeave={() => setHoverW(false)}
       >
-        {walletBusy ? <span className="font-mono text-[0.88rem] font-bold text-cyan-400">⟳</span> : <WalletIcon />}
+        {walletBusy ? <span className="font-mono text-[0.88rem] font-bold text-cyan-400">⟳</span> : <PowerIcon connected={false} size={14} />}
       </button>
     </div>
   )
