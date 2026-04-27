@@ -83,10 +83,7 @@ export default function MarketShortPage() {
         <div className="mx-auto max-w-4xl font-mono text-cyan-100">
           <div className="mb-4 flex items-center justify-between gap-4">
             <div>
-              <div className="text-[0.82rem] uppercase tracking-[0.22em] text-cyan-400/80">
-                {t('podcast.marketFeed')}
-              </div>
-              <div className="mt-1 flex items-center gap-3 text-lg font-black text-cyan-100 sm:text-2xl">
+              <div className="flex items-center gap-3 text-lg font-black text-cyan-100 sm:text-2xl">
                 <span className="text-2xl sm:text-3xl">{block?.emoji}</span>
                 <span>{title}</span>
               </div>

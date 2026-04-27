@@ -572,7 +572,7 @@ function localizeActiveProblem(problem, lang) {
 export default function Board({ account, setGameMessage, setGameCompleted, setGameData }) {
   const { t, language } = useI18n();
   const { currency } = useCurrency();
-  const { playSuccess, playFailure } = useSound();
+  const { playSuccess, playFailure, playNftDrop, playTierUp } = useSound();
 
   const [problem, setProblem] = useState(null);
   const [elapsedTime, setElapsedTime] = useState(0);
@@ -2131,6 +2131,8 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
       const prevTier = getRankTier(level);
       const nextTier = getRankTier(newLevel);
       const tierUp = prevTier.label !== nextTier.label;
+      if (tierUp) playTierUp();
+      if (successOffer) playNftDrop();
 
       setLevel(newLevel);
       setTotalMined(nextTotalMined);
