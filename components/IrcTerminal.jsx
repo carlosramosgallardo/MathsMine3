@@ -1070,6 +1070,30 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
             grid-template-columns: minmax(0, 1fr) 12.6rem;
           }
         }
+        /* ── Mobile: compact aside above chat ── */
+        @media (max-width: 899px) {
+          .mm3-irc-shell > aside {
+            order: -1;
+            padding: 0.45rem 0.65rem;
+          }
+          .mm3-irc-aside-inner {
+            max-height: 4.8rem;
+            overflow-y: auto;
+          }
+          .mm3-irc-chat-log {
+            min-height: 9rem;
+            max-height: 36dvh;
+          }
+          .mm3-irc-peer-row {
+            padding-top: 0.10rem;
+            padding-bottom: 0.10rem;
+            font-size: 0.62rem;
+          }
+          .mm3-irc-anon-label {
+            margin-top: 0.2rem;
+            font-size: 0.50rem;
+          }
+        }
         .mm3-irc-panel {
           border: 1px solid rgba(34, 211, 238, 0.16);
           background:
@@ -1318,7 +1342,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
             </div>
           </div>
 
-          <div className="mt-1.5">
+          <div className="mm3-irc-aside-inner mt-1.5">
             {connectedWallets.length > 0 ? (
               <>
                 {connectedWallets.slice(0, visibleCount).map((entry) => {
