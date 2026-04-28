@@ -59,7 +59,7 @@ export default function RootLayout({ children }) {
                     <RouteShell>
                       <Header />
                       <GlobalRouteLoading />
-                      <main className="mm3-shell-main pt-[148px] sm:pt-[170px] lg:pt-[192px] pb-[32px] h-screen overflow-y-auto">{children}</main>
+                      <main className="mm3-shell-main pt-[164px] sm:pt-[170px] lg:pt-[192px] pb-[32px] h-screen overflow-y-auto">{children}</main>
                       <Footer />
                       <CookieBanner />
                     </RouteShell>
