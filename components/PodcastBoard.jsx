@@ -22,8 +22,8 @@ const GRID_COLS = 28;
 // Rules: must not appear in mining NTFJIs (🔮🍀🎰🧿❤️), Market catalog (🛰🌐🔭🧬💠⚡🌀🔴⭐💎),
 // rank icons (🧪⛏️🧠🪄👑), or UI indicators (⚔️🌪️🎲📜🤖).
 // Spawned blocks land in DB with title="Mystery Block" and is_active=true but no command data —
-// they need manual completion in Supabase (emoji, title, command, answer_hash, min_level)
-// before they become live purchasable NTFJIs. Add new emojis here when expanding the catalog.
+// complete public block data in Supabase, add public commands in market-commands.js,
+// and keep hidden signals in the private seed file. Add new emojis here when expanding the catalog.
 const MYSTERY_EMOJIS = ['🌑', '🌊', '🧲', '🌿', '💧', '🌈', '🌙', '🦋', '🧩', '⚗️', '🌸', '🌺', '🧊', '🎪', '🪐', '🏔️', '🦠', '🌋', '🦎', '🫧'];
 
 function notify(msg, type = 'info') {

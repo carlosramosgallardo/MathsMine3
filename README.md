@@ -364,7 +364,7 @@ There is also a second signal layer: hidden Market commands. They are not docume
 3. Click **BUY** — in-game fiat or available MM3 is debited, depending on the block family
 4. The block's MM3-equivalent amount is injected into the MM3 pool
 5. The NFTJI is added to your wallet
-6. **Auto-generation:** on the first-ever purchase of any block (tracked via `first_purchased_at`), a new placeholder block spawns at a random free cell with a unique emoji drawn from a reserved pool (`MYSTERY_EMOJIS` in `PodcastBoard.jsx`) not used anywhere else in the portal. The placeholder lands in the DB with `is_active: true` but no command data — it needs manual completion in Supabase (title, command formula, `answer_hash`, `min_level`) before it becomes a live purchasable NFTJI. Add new emojis to the pool in `MYSTERY_EMOJIS` when expanding the catalog.
+6. **Auto-generation:** on the first-ever purchase of any block (tracked via `first_purchased_at`), a new placeholder block spawns at a random free cell with a unique emoji drawn from a reserved pool (`MYSTERY_EMOJIS` in `PodcastBoard.jsx`) not used anywhere else in the portal. The placeholder lands in the DB with `is_active: true` but no command metadata — complete the public block data in Supabase (emoji, title, price, media/status), add any public Market command in `lib/market-commands.js`, and keep hidden signals in the private seed file only. Add new emojis to the pool in `MYSTERY_EMOJIS` when expanding the catalog.
 
 ### Resell flow
 
