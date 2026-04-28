@@ -57,7 +57,7 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
           }
         }
       }
-      const [{ data: leaderboardRows, error }, progressResponse, marketOwnersResponse, pixelsResponse, txResponse, penaltiesResponse] = await Promise.all([
+      const [{ data: leaderboardRows, error }, progressResponse, marketOwnersResponse, blocksResponse, txResponse, penaltiesResponse] = await Promise.all([
         supabase
           .from('leaderboard_data')
           .select('wallet, total_eth'),
@@ -105,9 +105,9 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
         ])
       );
 
-      const pixelsByKey = new Map();
-      for (const p of pixelsResponse?.data || []) {
-        pixelsByKey.set(p.block_key, { emoji: String(p.emoji || ''), hex: getBlockHexFromCoords(p.grid_row, p.grid_col) });
+      const blocksByKey = new Map();
+      for (const p of blocksResponse?.data || []) {
+        blocksByKey.set(p.block_key, { emoji: String(p.emoji || ''), hex: getBlockHexFromCoords(p.grid_row, p.grid_col) });
       }
 
       const marketBlocksByWallet = new Map();
@@ -115,9 +115,9 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
         const wallet = String(entry.wallet || '').toLowerCase();
         const key = entry.market_nftji_key;
         if (!wallet || !key) continue;
-        const pixelInfo = pixelsByKey.get(key);
-        if (!pixelInfo) continue;
-        marketBlocksByWallet.set(wallet, [{ block_key: key, emoji: pixelInfo.emoji, hex: pixelInfo.hex }]);
+        const blockInfo = blocksByKey.get(key);
+        if (!blockInfo) continue;
+        marketBlocksByWallet.set(wallet, [{ block_key: key, emoji: blockInfo.emoji, hex: blockInfo.hex }]);
       }
 
       const txCountByWallet = new Map();
@@ -135,7 +135,7 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
           nftji_key: entry.nftji_key,
           penalty_value: Number(entry.penalty_value) || 0,
           reset_at: entry.reset_at,
-          block: pixelsByKey.get(entry.nftji_key) || null,
+          block: blocksByKey.get(entry.nftji_key) || null,
         });
       }
 

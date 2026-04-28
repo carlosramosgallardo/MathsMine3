@@ -56,7 +56,7 @@ function shortenWallet(value) {
   return `${wallet.slice(0, 6)}...${wallet.slice(-4)}`;
 }
 
-function getTokenPixelTone(row, col) {
+function getTokenBlockTone(row, col) {
   return {
     backgroundImage: 'url(/mm3-token.png)',
     backgroundSize: `${GRID_COLS * 100}% ${GRID_ROWS * 100}%`,
@@ -151,7 +151,7 @@ export default function PodcastBoard({ account, isVirtualWallet = false }) {
   const loadBlocks = async () => {
     setLoading(true);
     try {
-      const [{ data: pixelData, error }, { data: ownersData }, { data: eventData }] = await Promise.all([
+      const [{ data: blockData, error }, { data: ownersData }, { data: eventData }] = await Promise.all([
         supabase
           .from('mm3_market_blocks')
           .select('block_key, grid_row, grid_col, emoji, title_en, title_es, price_eur, short_url, is_active, first_purchased_at')
@@ -185,7 +185,7 @@ export default function PodcastBoard({ account, isVirtualWallet = false }) {
         else if (ev.event_type === 'market_resell') resellCountByEmoji.set(e, (resellCountByEmoji.get(e) || 0) + 1);
       }
 
-      const dbBlocks = Array.isArray(pixelData) ? pixelData : [];
+      const dbBlocks = Array.isArray(blockData) ? blockData : [];
       const dbByKey = new Map(dbBlocks.map((b) => [b.block_key, b]));
 
       const norm = (b) => ({
@@ -346,7 +346,7 @@ export default function PodcastBoard({ account, isVirtualWallet = false }) {
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const query = new URLSearchParams(window.location.search);
-    const blockFromQuery = query.get('block') || query.get('pixel');
+    const blockFromQuery = query.get('block');
     if (blockFromQuery) {
       setSelectedKey(blockFromQuery);
     } else {
@@ -491,9 +491,9 @@ export default function PodcastBoard({ account, isVirtualWallet = false }) {
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [mergedBlocks]);
 
-  const handlePixelClick = (pixelKey) => {
-    setSelectedKey(pixelKey);
-    const block = blockMap.get(pixelKey);
+  const handleBlockClick = (blockKey) => {
+    setSelectedKey(blockKey);
+    const block = blockMap.get(blockKey);
     if (!block?.short_url) notify(block?.isPlaceholder ? t('podcast.offline') : t('podcast.unavailable'), 'info');
   };
 
@@ -834,14 +834,14 @@ export default function PodcastBoard({ account, isVirtualWallet = false }) {
                     const col = block.grid_col ?? 0;
                     const isSelected = block.block_key === selectedKey;
                     const isOwned = Array.isArray(block.current_owners) && block.current_owners.length > 0;
-                    const tone = getTokenPixelTone(row, col);
+                    const tone = getTokenBlockTone(row, col);
                     const cellHex = getBlockHex(row, col);
 
                     return (
                       <button
                         key={block.block_key}
                         type="button"
-                        onClick={() => handlePixelClick(block.block_key)}
+                        onClick={() => handleBlockClick(block.block_key)}
                         className="relative flex items-center justify-center overflow-hidden transition duration-100 focus:outline-none"
                         style={{
                           background: isOwned

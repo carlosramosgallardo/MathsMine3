@@ -23,21 +23,21 @@ export async function POST(req) {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
   );
 
-  // 1. Look up the pixel with this hidden_command value
-  const { data: pixel, error: pixelError } = await supabase
+  // 1. Look up the block with this hidden_command value
+  const { data: block, error: blockError } = await supabase
     .from('mm3_market_blocks')
     .select('block_key, emoji, grid_row, grid_col, price_eur, hidden_cmd_min_level')
     .eq('hidden_command', command)
     .maybeSingle();
 
-  if (pixelError || !pixel) {
+  if (blockError || !block) {
     // Return same error as unknown command — do not reveal valid command list
     return Response.json({ ok: false, error: 'command not found' }, { status: 404 });
   }
 
-  const hex = getBlockHex(pixel.grid_row, pixel.grid_col);
-  const minLevel = Number(pixel.hidden_cmd_min_level) || 0;
-  const priceEur = Number(pixel.price_eur) || 0;
+  const hex = getBlockHex(block.grid_row, block.grid_col);
+  const minLevel = Number(block.hidden_cmd_min_level) || 0;
+  const priceEur = Number(block.price_eur) || 0;
   const stealPerWallet = priceEur * 0.1;
 
   // 2. Check executor level
@@ -52,12 +52,12 @@ export async function POST(req) {
     return Response.json({ ok: false, error: 'level_too_low' }, { status: 403 });
   }
 
-  // 3. Check /wall active today for this pixel
+  // 3. Check /wall active today for this block
   const nowIso = new Date().toISOString();
   const { data: activeWall } = await supabase
     .from('mm3_market_commands')
     .select('id')
-    .eq('nftji_key', pixel.block_key)
+    .eq('nftji_key', block.block_key)
     .gt('reset_at', nowIso)
     .limit(1)
     .maybeSingle();
@@ -66,7 +66,7 @@ export async function POST(req) {
     return Response.json({ ok: false, error: 'wall_not_active' }, { status: 403 });
   }
 
-  // 4. Check 1x per day per wallet per pixel
+  // 4. Check 1x per day per wallet per block
   const todayUtc = new Date(Date.UTC(
     new Date().getUTCFullYear(),
     new Date().getUTCMonth(),
@@ -77,7 +77,7 @@ export async function POST(req) {
     .from('mm3_hidden_cmd_executions')
     .select('id')
     .eq('wallet', wallet)
-    .eq('block_key', pixel.block_key)
+    .eq('block_key', block.block_key)
     .gte('executed_at', todayUtc)
     .limit(1)
     .maybeSingle();
@@ -156,15 +156,15 @@ export async function POST(req) {
     .from('mm3_hidden_cmd_executions')
     .insert({
       wallet,
-      block_key: pixel.block_key,
+      block_key: block.block_key,
       amount_eur: totalStolenEur,
     });
 
   // 10. Build trace text (both languages, client picks)
   const amountStr = `€${totalStolenEur.toFixed(2)}`;
   const shortWallet = `${wallet.slice(0, 8)}…${wallet.slice(-6)}`;
-  const traceEn = `System hacked by ${shortWallet} via ${hex} "${command}" ${pixel.emoji} — ${amountStr} injected into wallet.`;
-  const traceEs = `Sistema hackeado por ${shortWallet} vía ${hex} "${command}" ${pixel.emoji} Se ha inyectado ${amountStr} en su wallet.`;
+  const traceEn = `System hacked by ${shortWallet} via ${hex} "${command}" ${block.emoji} — ${amountStr} injected into wallet.`;
+  const traceEs = `Sistema hackeado por ${shortWallet} vía ${hex} "${command}" ${block.emoji} Se ha inyectado ${amountStr} en su wallet.`;
 
   return Response.json({
     ok: true,

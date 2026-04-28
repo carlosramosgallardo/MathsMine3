@@ -293,7 +293,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
       try {
         const nowIso = new Date().toISOString();
         // Separate queries: if macro or owners fail, we still want the chat history
-        const [ircRes, macroRes, ownersRes, commandsRes, pixelsRes] = await Promise.all([
+        const [ircRes, macroRes, ownersRes, commandsRes, blocksRes] = await Promise.all([
           supabase
             .from('mm3_irc_messages')
             .select('wallet, text, ts, kind, tone')
@@ -323,7 +323,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
         const { data } = macroRes;
         const { data: ownersData } = ownersRes;
         const { data: commandsData } = commandsRes;
-        const { data: pixelsData } = pixelsRes;
+        const { data: blocksData } = blocksRes;
 
         welcomeText = tickerFromRow(data, language, welcomeText);
 
@@ -333,7 +333,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
           if (!key) continue;
           ownerCountByKey.set(key, (ownerCountByKey.get(key) || 0) + 1);
         }
-        const blockByKey = new Map((pixelsData || []).map((entry) => [entry.block_key, entry]));
+        const blockByKey = new Map((blocksData || []).map((entry) => [entry.block_key, entry]));
         blockByKeyRef.current = blockByKey;
         const commandByKey = new Map();
         for (const entry of commandsData || []) {
@@ -502,7 +502,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
 
   const loadMarketClaims = useCallback(async () => {
     try {
-      const [{ data: ownersData, error }, { data: pixelsData }] = await Promise.all([
+      const [{ data: ownersData, error }, { data: blocksData }] = await Promise.all([
         supabase
           .from('player_progress')
           .select('wallet, market_nftji_key')
@@ -514,7 +514,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
       if (error) throw error;
 
       const emojiByKey = new Map();
-      for (const p of pixelsData || []) {
+      for (const p of blocksData || []) {
         if (p.block_key && p.emoji) emojiByKey.set(p.block_key, p.emoji);
       }
 
@@ -678,7 +678,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
     const marketMessages = [];
     try {
       const nowIso = new Date().toISOString();
-      const [{ data: ownersData }, { data: commandsData }, { data: pixelsData }] = await Promise.all([
+      const [{ data: ownersData }, { data: commandsData }, { data: blocksData }] = await Promise.all([
         supabase
           .from('player_progress')
           .select('wallet, market_nftji_key')
@@ -698,7 +698,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
         if (!key) continue;
         ownerCountByKey.set(key, (ownerCountByKey.get(key) || 0) + 1);
       }
-      const blockByKey = new Map((pixelsData || []).map((entry) => [entry.block_key, entry]));
+      const blockByKey = new Map((blocksData || []).map((entry) => [entry.block_key, entry]));
       blockByKeyRef.current = blockByKey;
       const commandByKey = new Map();
       for (const entry of commandsData || []) {
