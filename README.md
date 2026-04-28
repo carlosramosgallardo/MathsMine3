@@ -2,9 +2,13 @@
 
 > Solve math. Mine fake crypto. Burn your level. Go freak.
 
+[![MathsMine3 Portal](https://mathsmine3.xyz/og-image.jpg)](https://mathsmine3.xyz)
+
 A retro math-mining portal where timed problem-solving drives a fully simulated crypto economy. Your wallet levels up, your tokens accumulate real-time value, rare NTFJIs drop on lucky answers, and a 28×28 Market block board sells command-linked NFTJI blocks. All fictional. All deterministic. All live.
 
 **v1.0 ships with:** the mining chain · Trade MM3 terminal · Ranking board · MM3 value chart · Market board (784 cells, 10 NFTJI blocks) · IRC social relay · daily DRILL SLOTS system · hourly Dice modifier · War/Nature macro indicators (live-mutated by every trade EXEC) · 13 problem types · 5 rank tiers · bilingual EN/ES · per-route SEO metadata · in-game sound system
+
+**Live:** [mathsmine3.xyz](https://mathsmine3.xyz) · [Manifesto](https://mathsmine3.xyz/manifesto) · [API](https://mathsmine3.xyz/api) · [Privacy](https://mathsmine3.xyz/privacy) · [Terms](https://mathsmine3.xyz/terms) · [GitHub](https://github.com/carlosramosgallardo/MathsMine3)
 
 ---
 
@@ -725,17 +729,22 @@ Both persist level, balances, NTFJIs, DRILL SLOTS bonus, and revive state. Langu
   market/[pixelKey]/        Individual block detail page
   market-short/[pixelKey]/  Shareable short URL per Market block
   irc/page.jsx              MM3 Relay IRC terminal
-  manifesto/page.jsx        Mission, privacy, terms, open source, contact
-  ai-team/page.jsx          @FreakingAI team page
+  manifesto/page.jsx        Mission, links to all sections, and legal pointers
+  ai-team/page.jsx          @FreakingAI team page (Claude, Codex, entity roster)
+  privacy/page.jsx          Privacy Policy (EN/ES, GDPR/CCPA)
+  terms/page.jsx            Terms of Use (EN/ES)
+  podcast/page.jsx          Podcast board (legacy route, same as market)
   api/
-    page.jsx                API documentation page
+    page.jsx                API documentation page (EN/ES)
     token-value/            GET current MM3 aggregate value
     token-history/          GET hourly MM3 timeseries (up to 2 000 rows)
     token-history-minutes/  GET minute-by-minute MM3 for the last hour
     nft-events/             GET all NFTJI / life-continue events with emoji
     leaderboard/            GET paginated leaderboard sorted by level (default 50/page)
     market-shuffle/         GET randomised Market block order for exploration
-    status/                 GET service health
+    exec-hidden-cmd/        POST execute hidden Market NFTJI command (authenticated)
+    nudge-macro/            POST shift war/nature macro state (service role, per-EXEC)
+    status/                 GET service health + rate-limit quota
 
 /components
   Board.jsx               Main game UI (problems, timer, level progression, NFTJI drops, DRILL SLOTS)
@@ -903,15 +912,23 @@ Deployed on Vercel. `vercel.json` specifies `npm ci && next build`. All environm
 
 ## 21. Design System
 
-- **Primary**: `#22d3ee` (cyan) — glows, active states, accent borders
-- **Background**: `#000000` with three-point radial gradients
-- **Font**: Consolas monospace throughout
-- **Rank colors**: cyan → green → yellow → orange → magenta (NOVICE → LEGEND)
-- **Wallet colors**: deterministic HSL from address hash (`hash % 360`, sat 70%, light 55%)
-- **Effects**: CRT scanlines, glow pulse, glitch-on-hover, float-in section animations
-- **Navigation**: Mining · Trading · Ranking · MM3 · Market · IRC · Manifesto · @FreakingAI · API
-- **Sound system**: Web Audio API oscillator tones — correct answer, wrong answer, trade EXEC, NFTJI market claim, IRC message ping, dice open/close, NFTJI mining drop, rank tier advance. Toggle in header (persisted in localStorage).
-- **Global orb**: color set by the top-1 positive miner's wallet, persisted in `mm3_visual_state`
+- **Primary**: `#22d3ee` (cyan `--mm3-cyan`) — glows, active states, accent borders
+- **Background**: `#000000` (`#050810` deep) with three-point radial gradients
+- **Font**: Consolas monospace throughout (`font-family: Consolas, 'Courier New', monospace`)
+- **Border radius**: 2px everywhere (`border-radius: 2px !important` via globals) — straight pixel-art corners
+- **Rank colors** (defined in `lib/ranks.js` + CSS vars):
+  - `🧪 NOVICE`  0–19  → `#22d3ee` cyan
+  - `⛏️ MINER`   20–39 → `#4ade80` green
+  - `🧠 HACKER`  40–59 → `#facc15` yellow
+  - `🪄 WIZARD`  60–79 → `#f97316` orange
+  - `👑 LEGEND`  80–100 → `#e879f9` magenta
+- **Wallet colors**: deterministic per-address via `lib/wallet-colors.js` → `colorFromAddress(addr)` — HSL hash-based (hue 0–359, sat 70%, light 55%). Same wallet always renders the same color in Leaderboard, AuthBar, IRC user list, and IRC chat authors.
+- **Global accent**: top-1 positive miner's wallet color, persisted in `mm3_visual_state`, exposed via `useMm3Accent()` hook → drives SectionFrame borders + scrollbar
+- **Effects**: CRT scanlines overlay, glow pulse (`mm3-pixel-frame::before`), glitch-on-hover, float-in section animations, rank badge glows
+- **Navigation**: Mining · Trading · Ranking · Market · IRC (main nav) + MM3 chart · Manifesto · @FreakingAI (header row)
+- **Footer**: Social links · Contact · API · Manifesto · Privacy · Terms · Donate (ETH / BMC / Patreon) — fully bilingual EN/ES
+- **Sound system**: Web Audio API — correct answer, wrong answer, trade EXEC, NFTJI market claim, IRC ping, dice open/close, NFTJI mining drop, rank advance. Toggle in header (persisted in `localStorage`)
 - **PWA**: `manifest.json` with `theme_color: #22d3ee`, linked in `<head>`
-- **i18n**: full EN / ES across all UI, math generators, and seeded problems
+- **i18n**: full EN / ES across all UI, math generators, seeded problems, privacy/terms/manifesto/api pages
 - **Currency**: CNY / EUR / USD toggle — preference persists across navigation
+- **PageSpeed**: AdSense loaded `lazyOnload`; GTM/GA4 `afterInteractive`; logo `priority` LCP; section images `loading="lazy"`

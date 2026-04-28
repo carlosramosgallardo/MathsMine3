@@ -24,7 +24,8 @@ export default function Footer() {
   const pathname = usePathname()
   const [revealed, setRevealed] = useState(false)
   const [isProcessing, setIsProcessing] = useState(false)
-  const { t } = useI18n()
+  const { t, language } = useI18n()
+  const es = language === 'es'
   const { isConnected, address } = useAccount()
   const { data: walletClient } = useWalletClient()
   const { googleWallet } = useGoogleAuth()
@@ -134,8 +135,9 @@ export default function Footer() {
         )}
         <span className="select-none text-gray-800">|</span>
         <Link href="/api" className="transition-colors duration-150 hover:text-cyan-400">API</Link>
-        <Link href="/privacy" className="transition-colors duration-150 hover:text-cyan-400">Privacy</Link>
-        <Link href="/terms" className="transition-colors duration-150 hover:text-cyan-400">Terms</Link>
+        <Link href="/manifesto" className="transition-colors duration-150 hover:text-cyan-400">{t('nav.manifesto')}</Link>
+        <Link href="/privacy" className="transition-colors duration-150 hover:text-cyan-400">{es ? 'Privacidad' : 'Privacy'}</Link>
+        <Link href="/terms" className="transition-colors duration-150 hover:text-cyan-400">{es ? 'Términos' : 'Terms'}</Link>
         <span className="select-none text-gray-800">|</span>
         <span className="text-gray-700 select-none">&copy; 2026 FreakingAI</span>
       </div>

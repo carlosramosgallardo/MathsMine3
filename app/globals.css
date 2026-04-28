@@ -273,6 +273,15 @@ body.mm3-play-success-alert #board-section .section-frame::before {
   transition: color .2s;
 }
 
+/* ── Wallet-colored address (per-wallet deterministic color via colorFromAddress) ── */
+.mm3-wallet-addr {
+  font-family: Consolas, 'Courier New', monospace;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  transition: opacity .15s;
+}
+.mm3-wallet-addr:hover { opacity: 0.85; }
+
 /* ── Fade-in ── */
 @keyframes fade-in { from { opacity:0; transform:translateY(4px); } to { opacity:1; transform:none; } }
 .animate-fade-in { animation: fade-in .4s ease-out both; }
@@ -387,8 +396,14 @@ body.mm3-play-success-alert #board-section .section-frame::before {
 
 @media (max-width: 639px) {
   .mm3-readable-scroll {
-    max-height: calc(100dvh - 12.75rem);
+    max-height: calc(100dvh - 13.5rem);
     padding-right: 0.25rem;
+  }
+}
+
+@media (max-width: 639px) and (orientation: portrait) {
+  .mm3-readable-scroll {
+    max-height: calc(100dvh - 17rem);
   }
 }
 

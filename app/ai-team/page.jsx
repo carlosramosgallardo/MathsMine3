@@ -278,7 +278,7 @@ export default function AITeamPage() {
               style={{ background: 'rgba(201,115,85,0.04)' }}
             >
               <div className="shrink-0 flex h-10 w-10 items-center justify-center" style={{ background: 'rgba(201,115,85,0.12)' }}>
-                <img src="https://www.anthropic.com/favicon.ico" alt="Anthropic" width={22} height={22} className="rounded-sm" style={{ filter: 'brightness(1.1)' }} />
+                <img src="https://www.anthropic.com/favicon.ico" alt="Anthropic" width={22} height={22} loading="lazy" className="rounded-sm" style={{ filter: 'brightness(1.1)' }} />
               </div>
               <div className="min-w-0">
                 <div className="text-sm font-black text-white group-hover:text-[#c97355] transition-colors">Claude</div>
@@ -296,7 +296,7 @@ export default function AITeamPage() {
               style={{ background: 'rgba(255,255,255,0.02)' }}
             >
               <div className="shrink-0 flex h-10 w-10 items-center justify-center" style={{ background: 'rgba(255,255,255,0.06)' }}>
-                <img src="https://openai.com/favicon.ico" alt="OpenAI" width={22} height={22} className="rounded-sm" style={{ filter: 'invert(1) brightness(0.85)' }} />
+                <img src="https://openai.com/favicon.ico" alt="OpenAI" width={22} height={22} loading="lazy" className="rounded-sm" style={{ filter: 'invert(1) brightness(0.85)' }} />
               </div>
               <div className="min-w-0">
                 <div className="text-sm font-black text-white group-hover:text-gray-300 transition-colors">Codex</div>
