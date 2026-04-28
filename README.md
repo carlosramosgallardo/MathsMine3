@@ -728,7 +728,7 @@ Both persist level, balances, NTFJIs, DRILL SLOTS bonus, and revive state. Langu
   mm3-value/page.jsx        MM3 value chart route
   trade-mm3/page.jsx        Trade MM3 terminal route
   market/page.jsx           Market board (28×28 grid + detail card)
-  market-short/[pixelKey]/  Shareable short URL per Market block
+  market-short/[blockKey]/  Shareable short URL per Market block
   irc/page.jsx              MM3 Relay IRC terminal
   manifesto/page.jsx        Mission, links to all sections, and legal pointers
   ai-team/page.jsx          @FreakingAI team page (Claude, Codex, entity roster)
@@ -767,7 +767,6 @@ Both persist level, balances, NTFJIs, DRILL SLOTS bonus, and revive state. Langu
   SectionFrame.jsx        Section wrapper with animated accent border
   GlobalRouteLoading.jsx  Navigation overlay loader (mounted at layout level)
   PageLoading.jsx         Freak retro loading overlay / inline loader
-  MM3PixelOrbSprite.jsx   Animated pixel orb colored by top-1 wallet
   UtcClock.jsx            Standalone UTC clock with SSR hydration guard
   CurrencySwitcher.jsx    CNY / EUR / USD toggle
   LanguageSwitcher.jsx    EN / ES toggle
@@ -918,7 +917,7 @@ Deployed on Vercel. `vercel.json` specifies `npm ci && next build`. All environm
 - **Primary**: `#22d3ee` (cyan `--mm3-cyan`) — glows, active states, accent borders
 - **Background**: `#000000` (`#050810` deep) with three-point radial gradients
 - **Font**: Consolas monospace throughout (`font-family: Consolas, 'Courier New', monospace`)
-- **Border radius**: 2px everywhere (`border-radius: 2px !important` via globals) — straight pixel-art corners
+- **Border radius**: 2px everywhere (`border-radius: 2px !important` via globals) — straight retro-grid corners
 - **Rank colors** (defined in `lib/ranks.js` + CSS vars):
   - `🧪 NOVICE`  0–19  → `#22d3ee` cyan
   - `⛏️ MINER`   20–39 → `#4ade80` green
@@ -927,7 +926,7 @@ Deployed on Vercel. `vercel.json` specifies `npm ci && next build`. All environm
   - `👑 LEGEND`  80–100 → `#e879f9` magenta
 - **Wallet colors**: deterministic per-address via `lib/wallet-colors.js` → `colorFromAddress(addr)` — HSL hash-based (hue 0–359, sat 70%, light 55%). Same wallet always renders the same color in Leaderboard, AuthBar, IRC user list, and IRC chat authors.
 - **Global accent**: top-1 positive miner's wallet color, persisted in `mm3_visual_state`, exposed via `useMm3Accent()` hook → drives SectionFrame borders + scrollbar
-- **Effects**: CRT scanlines overlay, glow pulse (`mm3-pixel-frame::before`), glitch-on-hover, float-in section animations, rank badge glows
+- **Effects**: CRT scanlines overlay, glow pulse (`mm3-frame::before`), glitch-on-hover, float-in section animations, rank badge glows
 - **Navigation**: Mining · Trading · Ranking · Market · IRC (main nav) + MM3 chart · Manifesto · @FreakingAI (header row)
 - **Footer**: Social links · Contact · API · Manifesto · Privacy · Terms · Donate (ETH / BMC / Patreon) — fully bilingual EN/ES
 - **Sound system**: Web Audio API — correct answer, wrong answer, trade EXEC, NFTJI market claim, IRC ping, dice open/close, NFTJI mining drop, rank advance. Toggle in header (persisted in `localStorage`)

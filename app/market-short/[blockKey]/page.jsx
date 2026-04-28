@@ -37,7 +37,7 @@ export default function MarketShortPage() {
   const [block, setBlock] = useState(FALLBACK_BLOCK);
   const [loading, setLoading] = useState(true);
 
-  const pixelKey = useMemo(() => String(params?.pixelKey || FALLBACK_BLOCK.block_key), [params]);
+  const blockKey = useMemo(() => String(params?.blockKey || FALLBACK_BLOCK.block_key), [params]);
 
   useEffect(() => {
     let active = true;
@@ -48,7 +48,7 @@ export default function MarketShortPage() {
         const { data, error } = await supabase
           .from('mm3_market_blocks')
           .select('block_key, emoji, title_en, title_es, short_url, claimed_by, is_active')
-          .eq('block_key', pixelKey)
+          .eq('block_key', blockKey)
           .maybeSingle();
 
         if (error) throw error;
@@ -70,7 +70,7 @@ export default function MarketShortPage() {
     return () => {
       active = false;
     };
-  }, [pixelKey]);
+  }, [blockKey]);
 
   const embedUrl = normalizeShortUrl(block?.short_url);
   const title = language === 'es'
