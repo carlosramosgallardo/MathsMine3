@@ -13,16 +13,16 @@ const GRID_ROWS = 28;
 const GRID_COLS = 28;
 
 const CATALOG_BLOCKS = [
-  { pixel_key: 'mm3-023', grid_row: 0,  grid_col: 22, emoji: WALLET_DECORATIONS.marketGenesis, title_en: 'Genesis Uplink',  title_es: 'Uplink Génesis',    answer_hash: ANSWER_HASH_GENESIS, price_eur: 1,   short_url: '', is_active: true, claimed_by: null, claimed_source: null, claimed_at: null, paid_eur: 0, paid_usd: 0, paid_cny: 0 },
-  { pixel_key: 'mm3-05c', grid_row: 3,  grid_col: 8,  emoji: '🌐', title_en: 'Signal Nexus',   title_es: 'Nexo Señal',        answer_hash: '',                  price_eur: 3,   short_url: '', is_active: true, claimed_by: null, claimed_source: null, claimed_at: null, paid_eur: 0, paid_usd: 0, paid_cny: 0 },
-  { pixel_key: 'mm3-0b9', grid_row: 6,  grid_col: 17, emoji: '🔭', title_en: 'Deep Relay',     title_es: 'Relay Profundo',    answer_hash: '',                  price_eur: 5,   short_url: '', is_active: true, claimed_by: null, claimed_source: null, claimed_at: null, paid_eur: 0, paid_usd: 0, paid_cny: 0 },
-  { pixel_key: 'mm3-11b', grid_row: 10, grid_col: 3,  emoji: '🧬', title_en: 'Code Strand',    title_es: 'Cadena Código',     answer_hash: '',                  price_eur: 7,   short_url: '', is_active: true, claimed_by: null, claimed_source: null, claimed_at: null, paid_eur: 0, paid_usd: 0, paid_cny: 0 },
-  { pixel_key: 'mm3-184', grid_row: 13, grid_col: 24, emoji: '💠', title_en: 'Fractal Core',   title_es: 'Núcleo Fractal',    answer_hash: '',                  price_eur: 10,  short_url: '', is_active: true, claimed_by: null, claimed_source: null, claimed_at: null, paid_eur: 0, paid_usd: 0, paid_cny: 0 },
-  { pixel_key: 'mm3-1e7', grid_row: 17, grid_col: 11, emoji: '⚡', title_en: 'Arc Burst',      title_es: 'Destello Arco',     answer_hash: '',                  price_eur: 15,  short_url: '', is_active: true, claimed_by: null, claimed_source: null, claimed_at: null, paid_eur: 0, paid_usd: 0, paid_cny: 0 },
-  { pixel_key: 'mm3-244', grid_row: 20, grid_col: 20, emoji: '🌀', title_en: 'Entropy Loop',   title_es: 'Bucle Entropía',    answer_hash: '',                  price_eur: 25,  short_url: '', is_active: true, claimed_by: null, claimed_source: null, claimed_at: null, paid_eur: 0, paid_usd: 0, paid_cny: 0 },
-  { pixel_key: 'mm3-26d', grid_row: 22, grid_col: 5,  emoji: '🔴', title_en: 'Null Beacon',    title_es: 'Baliza Nula',       answer_hash: '',                  price_eur: 50,  short_url: '', is_active: true, claimed_by: null, claimed_source: null, claimed_at: null, paid_eur: 0, paid_usd: 0, paid_cny: 0 },
-  { pixel_key: 'mm3-2ca', grid_row: 25, grid_col: 14, emoji: '⭐', title_en: 'Star Protocol',  title_es: 'Protocolo Estelar', answer_hash: '',                  price_eur: 75,  short_url: '', is_active: true, claimed_by: null, claimed_source: null, claimed_at: null, paid_eur: 0, paid_usd: 0, paid_cny: 0 },
-  { pixel_key: 'mm3-30e', grid_row: 27, grid_col: 26, emoji: '💎', title_en: 'Crystal Forge',  title_es: 'Forja Cristal',     answer_hash: '',                  price_eur: 100, short_url: '', is_active: true, claimed_by: null, claimed_source: null, claimed_at: null, paid_eur: 0, paid_usd: 0, paid_cny: 0 },
+  { block_key: 'mm3-023', grid_row: 0,  grid_col: 22, emoji: WALLET_DECORATIONS.marketGenesis, title_en: 'Genesis Uplink',  title_es: 'Uplink Génesis',    answer_hash: ANSWER_HASH_GENESIS, price_eur: 1,   short_url: '', is_active: true, claimed_by: null, claimed_source: null, claimed_at: null, paid_eur: 0, paid_usd: 0, paid_cny: 0 },
+  { block_key: 'mm3-05c', grid_row: 3,  grid_col: 8,  emoji: '🌐', title_en: 'Signal Nexus',   title_es: 'Nexo Señal',        answer_hash: '',                  price_eur: 3,   short_url: '', is_active: true, claimed_by: null, claimed_source: null, claimed_at: null, paid_eur: 0, paid_usd: 0, paid_cny: 0 },
+  { block_key: 'mm3-0b9', grid_row: 6,  grid_col: 17, emoji: '🔭', title_en: 'Deep Relay',     title_es: 'Relay Profundo',    answer_hash: '',                  price_eur: 5,   short_url: '', is_active: true, claimed_by: null, claimed_source: null, claimed_at: null, paid_eur: 0, paid_usd: 0, paid_cny: 0 },
+  { block_key: 'mm3-11b', grid_row: 10, grid_col: 3,  emoji: '🧬', title_en: 'Code Strand',    title_es: 'Cadena Código',     answer_hash: '',                  price_eur: 7,   short_url: '', is_active: true, claimed_by: null, claimed_source: null, claimed_at: null, paid_eur: 0, paid_usd: 0, paid_cny: 0 },
+  { block_key: 'mm3-184', grid_row: 13, grid_col: 24, emoji: '💠', title_en: 'Fractal Core',   title_es: 'Núcleo Fractal',    answer_hash: '',                  price_eur: 10,  short_url: '', is_active: true, claimed_by: null, claimed_source: null, claimed_at: null, paid_eur: 0, paid_usd: 0, paid_cny: 0 },
+  { block_key: 'mm3-1e7', grid_row: 17, grid_col: 11, emoji: '⚡', title_en: 'Arc Burst',      title_es: 'Destello Arco',     answer_hash: '',                  price_eur: 15,  short_url: '', is_active: true, claimed_by: null, claimed_source: null, claimed_at: null, paid_eur: 0, paid_usd: 0, paid_cny: 0 },
+  { block_key: 'mm3-244', grid_row: 20, grid_col: 20, emoji: '🌀', title_en: 'Entropy Loop',   title_es: 'Bucle Entropía',    answer_hash: '',                  price_eur: 25,  short_url: '', is_active: true, claimed_by: null, claimed_source: null, claimed_at: null, paid_eur: 0, paid_usd: 0, paid_cny: 0 },
+  { block_key: 'mm3-26d', grid_row: 22, grid_col: 5,  emoji: '🔴', title_en: 'Null Beacon',    title_es: 'Baliza Nula',       answer_hash: '',                  price_eur: 50,  short_url: '', is_active: true, claimed_by: null, claimed_source: null, claimed_at: null, paid_eur: 0, paid_usd: 0, paid_cny: 0 },
+  { block_key: 'mm3-2ca', grid_row: 25, grid_col: 14, emoji: '⭐', title_en: 'Star Protocol',  title_es: 'Protocolo Estelar', answer_hash: '',                  price_eur: 75,  short_url: '', is_active: true, claimed_by: null, claimed_source: null, claimed_at: null, paid_eur: 0, paid_usd: 0, paid_cny: 0 },
+  { block_key: 'mm3-30e', grid_row: 27, grid_col: 26, emoji: '💎', title_en: 'Crystal Forge',  title_es: 'Forja Cristal',     answer_hash: '',                  price_eur: 100, short_url: '', is_active: true, claimed_by: null, claimed_source: null, claimed_at: null, paid_eur: 0, paid_usd: 0, paid_cny: 0 },
 ];
 
 const FALLBACK_BLOCK = CATALOG_BLOCKS[0];
@@ -58,7 +58,7 @@ function buildMergedBlocks(blocks) {
       }
 
       result.push({
-        pixel_key: `ph-${row}-${col}`,
+        block_key: `ph-${row}-${col}`,
         grid_row: row,
         grid_col: col,
         emoji: '',
@@ -82,13 +82,13 @@ function buildMergedBlocks(blocks) {
 }
 
 function stepSelection(blocks, currentKey, direction) {
-  const current = blocks.find((entry) => entry.pixel_key === currentKey) || blocks[0];
+  const current = blocks.find((entry) => entry.block_key === currentKey) || blocks[0];
   if (!current) return currentKey;
 
   let best = current;
   let bestScore = Number.POSITIVE_INFINITY;
   for (const candidate of blocks) {
-    if (candidate.pixel_key === current.pixel_key) continue;
+    if (candidate.block_key === current.block_key) continue;
     const dx = candidate.grid_col - current.grid_col;
     const dy = candidate.grid_row - current.grid_row;
     const horizontalScore = Math.abs(dx) * 10 + Math.abs(dy);
@@ -107,7 +107,7 @@ function stepSelection(blocks, currentKey, direction) {
     }
   }
 
-  return best.pixel_key;
+  return best.block_key;
 }
 
 export default function MarketFullBoard() {
@@ -123,7 +123,7 @@ export default function MarketFullBoard() {
     if (initialKey) {
       setSelectedKey(initialKey);
     } else {
-      setSelectedKey(CATALOG_BLOCKS[Math.floor(Math.random() * CATALOG_BLOCKS.length)].pixel_key);
+      setSelectedKey(CATALOG_BLOCKS[Math.floor(Math.random() * CATALOG_BLOCKS.length)].block_key);
     }
   }, []);
 
@@ -132,13 +132,13 @@ export default function MarketFullBoard() {
       setLoading(true);
       try {
         const { data, error } = await supabase
-          .from('mm3_podcast_pixels')
-          .select('pixel_key, grid_row, grid_col, emoji, title_en, title_es, answer_hash, price_eur, short_url, is_active, claimed_by, claimed_source, claimed_at, paid_eur, paid_usd, paid_cny')
-          .order('pixel_key', { ascending: true });
+          .from('mm3_market_blocks')
+          .select('block_key, grid_row, grid_col, emoji, title_en, title_es, answer_hash, price_eur, short_url, is_active, claimed_by, claimed_source, claimed_at, paid_eur, paid_usd, paid_cny')
+          .order('block_key', { ascending: true });
 
         if (error) throw error;
         const dbBlocks = Array.isArray(data) ? data : [];
-        const dbByKey = new Map(dbBlocks.map((b) => [b.pixel_key, b]));
+        const dbByKey = new Map(dbBlocks.map((b) => [b.block_key, b]));
         const norm = (b) => ({
           ...b,
           price_eur: Number(b.price_eur) || 0,
@@ -147,7 +147,7 @@ export default function MarketFullBoard() {
           paid_cny: Number(b.paid_cny) || 0,
         });
         const merged = CATALOG_BLOCKS.map((cat) =>
-          norm(dbByKey.has(cat.pixel_key) ? { ...cat, ...dbByKey.get(cat.pixel_key) } : cat)
+          norm(dbByKey.has(cat.block_key) ? { ...cat, ...dbByKey.get(cat.block_key) } : cat)
         );
         setBlocks(merged);
       } catch (error) {
@@ -163,7 +163,7 @@ export default function MarketFullBoard() {
 
     const channel = supabase
       .channel('mm3-podcast-full-live')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'mm3_podcast_pixels' }, loadBlocks)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'mm3_market_blocks' }, loadBlocks)
       .subscribe();
 
     return () => {
@@ -174,7 +174,7 @@ export default function MarketFullBoard() {
 
   const mergedBlocks = useMemo(() => buildMergedBlocks(blocks), [blocks]);
   const blockMap = useMemo(
-    () => new Map(mergedBlocks.map((entry) => [String(entry.pixel_key), entry])),
+    () => new Map(mergedBlocks.map((entry) => [String(entry.block_key), entry])),
     [mergedBlocks]
   );
 
@@ -199,8 +199,8 @@ export default function MarketFullBoard() {
     ? (selectedBlock?.title_es || selectedBlock?.title_en || t('podcast.template'))
     : (selectedBlock?.title_en || selectedBlock?.title_es || t('podcast.template'));
   const selectedHex = getBlockHex(selectedBlock?.grid_row ?? 0, selectedBlock?.grid_col ?? 0);
-  const marketHref = selectedBlock?.pixel_key
-    ? `/market?block=${encodeURIComponent(selectedBlock.pixel_key)}`
+  const marketHref = selectedBlock?.block_key
+    ? `/market?block=${encodeURIComponent(selectedBlock.block_key)}`
     : '/market';
 
   const move = (direction) => setSelectedKey((current) => stepSelection(mergedBlocks, current, direction));
@@ -263,16 +263,16 @@ export default function MarketFullBoard() {
               {mergedBlocks.map((block) => {
                 const row = block.grid_row ?? 0;
                 const col = block.grid_col ?? 0;
-                const isSelected = block.pixel_key === selectedKey;
+                const isSelected = block.block_key === selectedKey;
                 const isClaimed = Boolean(block.claimed_by);
                 const tone = getTokenBlockTone(row, col);
                 const cellHex = getBlockHex(row, col);
 
                 return (
                   <button
-                    key={block.pixel_key}
+                    key={block.block_key}
                     type="button"
-                    onClick={() => setSelectedKey(block.pixel_key)}
+                    onClick={() => setSelectedKey(block.block_key)}
                     className="relative flex items-center justify-center overflow-hidden transition duration-100 focus:outline-none"
                     style={{
                       background: isClaimed

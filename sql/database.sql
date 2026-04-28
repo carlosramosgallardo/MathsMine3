@@ -37,7 +37,7 @@ DROP TABLE IF EXISTS leaderboard_data CASCADE;
 DROP TABLE IF EXISTS math_problems CASCADE;
 DROP TABLE IF EXISTS api_requests CASCADE;
 DROP TABLE IF EXISTS mm3_visual_state CASCADE;
-DROP TABLE IF EXISTS mm3_podcast_pixels CASCADE;
+DROP TABLE IF EXISTS mm3_market_blocks CASCADE;
 DROP TABLE IF EXISTS games CASCADE;
 
 -- Drop sequences
@@ -100,9 +100,9 @@ CREATE TABLE player_progress (
   eur_earned NUMERIC NOT NULL DEFAULT 0,
   usd_earned NUMERIC NOT NULL DEFAULT 0,
   wallet_emojis TEXT[] NOT NULL DEFAULT '{}',
-  market_nftmoji_key TEXT,
-  market_nftmoji_price NUMERIC NOT NULL DEFAULT 0,
-  market_nftmoji_since TIMESTAMPTZ,
+  market_nftji_key TEXT,
+  market_nftji_price NUMERIC NOT NULL DEFAULT 0,
+  market_nftji_since TIMESTAMPTZ,
   life_used BOOLEAN NOT NULL DEFAULT FALSE,
   lucky_50_claimed BOOLEAN NOT NULL DEFAULT FALSE,
   lucky_100_claimed BOOLEAN NOT NULL DEFAULT FALSE,
@@ -148,7 +148,7 @@ CREATE TABLE mm3_sell_transactions (
 CREATE TABLE mm3_market_events (
   id BIGSERIAL PRIMARY KEY,
   wallet TEXT NOT NULL,
-  event_type TEXT NOT NULL CHECK (event_type IN ('life_continue', 'nftmoji_claim', 'market_buy', 'market_resell')),
+  event_type TEXT NOT NULL CHECK (event_type IN ('life_continue', 'nftji_claim', 'market_buy', 'market_resell')),
   delta_mm3 NUMERIC NOT NULL DEFAULT 0,
   emoji TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -188,9 +188,10 @@ CREATE TABLE mm3_visual_state (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE TABLE mm3_podcast_pixels (
+-- Market NFTJI blocks (formerly mm3_podcast_pixels)
+CREATE TABLE mm3_market_blocks (
   id BIGSERIAL PRIMARY KEY,
-  pixel_key TEXT NOT NULL UNIQUE,
+  block_key TEXT NOT NULL UNIQUE,
   grid_row INTEGER NOT NULL,
   grid_col INTEGER NOT NULL,
   emoji TEXT NOT NULL,
@@ -219,7 +220,7 @@ CREATE TABLE mm3_podcast_pixels (
 CREATE TABLE mm3_market_commands (
   id BIGSERIAL PRIMARY KEY,
   wallet TEXT NOT NULL,
-  nftmoji_key TEXT NOT NULL,
+  nftji_key TEXT NOT NULL,
   command TEXT NOT NULL,
   numeric_code TEXT NOT NULL DEFAULT '',
   formula_x INTEGER NOT NULL DEFAULT 0,
@@ -231,7 +232,7 @@ CREATE TABLE mm3_command_penalties (
   id BIGSERIAL PRIMARY KEY,
   wallet TEXT NOT NULL,
   command_id BIGINT REFERENCES mm3_market_commands(id) ON DELETE CASCADE,
-  nftmoji_key TEXT NOT NULL DEFAULT '',
+  nftji_key TEXT NOT NULL DEFAULT '',
   penalty_code TEXT NOT NULL,
   penalty_value NUMERIC NOT NULL DEFAULT 0,
   penalty_eur NUMERIC NOT NULL DEFAULT 0,
@@ -242,7 +243,7 @@ CREATE TABLE mm3_command_penalties (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- IRC Messages table (1 day retention)
+-- IRC Messages table (permanent — no retention policy)
 CREATE TABLE mm3_irc_messages (
   id BIGSERIAL PRIMARY KEY,
   wallet TEXT NOT NULL,
@@ -273,10 +274,10 @@ CREATE INDEX idx_mm3_sell_transactions_wallet ON mm3_sell_transactions(wallet);
 CREATE INDEX idx_mm3_sell_transactions_created_at ON mm3_sell_transactions(created_at DESC);
 CREATE INDEX idx_mm3_market_events_wallet ON mm3_market_events(wallet);
 CREATE INDEX idx_mm3_market_events_created_at ON mm3_market_events(created_at DESC);
-CREATE INDEX idx_mm3_podcast_pixels_claimed_by ON mm3_podcast_pixels(claimed_by);
-CREATE INDEX idx_player_progress_market_key ON player_progress(market_nftmoji_key) WHERE market_nftmoji_key IS NOT NULL;
+CREATE INDEX idx_mm3_market_blocks_claimed_by ON mm3_market_blocks(claimed_by);
+CREATE INDEX idx_player_progress_market_nftji_key ON player_progress(market_nftji_key) WHERE market_nftji_key IS NOT NULL;
 CREATE INDEX idx_mm3_market_commands_wallet ON mm3_market_commands(wallet);
-CREATE INDEX idx_mm3_market_commands_key_reset ON mm3_market_commands(nftmoji_key, reset_at DESC);
+CREATE INDEX idx_mm3_market_commands_nftji_key_reset ON mm3_market_commands(nftji_key, reset_at DESC);
 CREATE INDEX idx_mm3_command_penalties_wallet ON mm3_command_penalties(wallet);
 CREATE INDEX idx_mm3_command_penalties_active ON mm3_command_penalties(wallet, reset_at DESC) WHERE redeemed_at IS NULL;
 CREATE INDEX idx_mm3_irc_messages_wallet ON mm3_irc_messages(wallet);
@@ -350,18 +351,6 @@ AS $$
 BEGIN
   PERFORM public.update_leaderboard();
   RETURN NULL;
-END;
-$$;
-
--- Function to clean old IRC messages (1 day retention)
-CREATE OR REPLACE FUNCTION clean_old_irc_messages()
-RETURNS void
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public
-AS $$
-BEGIN
-  DELETE FROM mm3_irc_messages WHERE created_at < NOW() - INTERVAL '1 day';
 END;
 $$;
 
@@ -470,7 +459,7 @@ ALTER TABLE mm3_sell_transactions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mm3_market_events ENABLE ROW LEVEL SECURITY;
 ALTER TABLE api_requests ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mm3_visual_state ENABLE ROW LEVEL SECURITY;
-ALTER TABLE mm3_podcast_pixels ENABLE ROW LEVEL SECURITY;
+ALTER TABLE mm3_market_blocks ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mm3_market_commands ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mm3_command_penalties ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mm3_irc_messages ENABLE ROW LEVEL SECURITY;
@@ -535,7 +524,7 @@ DROP POLICY IF EXISTS "public_read_mm3_market_events" ON mm3_market_events;
 CREATE POLICY "public_read_mm3_market_events" ON mm3_market_events FOR SELECT TO public USING (true);
 
 DROP POLICY IF EXISTS "public_insert_mm3_market_events" ON mm3_market_events;
-CREATE POLICY "public_insert_mm3_market_events" ON mm3_market_events FOR INSERT TO public WITH CHECK (event_type IN ('life_continue', 'nftmoji_claim', 'market_buy', 'market_resell'));
+CREATE POLICY "public_insert_mm3_market_events" ON mm3_market_events FOR INSERT TO public WITH CHECK (event_type IN ('life_continue', 'nftji_claim', 'market_buy', 'market_resell'));
 
 -- API Requests policies
 DROP POLICY IF EXISTS "public_read_api_requests" ON api_requests;
@@ -554,17 +543,17 @@ CREATE POLICY "public_insert_visual_state" ON mm3_visual_state FOR INSERT TO ano
 DROP POLICY IF EXISTS "public_update_visual_state" ON mm3_visual_state;
 CREATE POLICY "public_update_visual_state" ON mm3_visual_state FOR UPDATE TO anon USING (id = 1) WITH CHECK (id = 1);
 
-DROP POLICY IF EXISTS "public_read_mm3_podcast_pixels" ON mm3_podcast_pixels;
-CREATE POLICY "public_read_mm3_podcast_pixels" ON mm3_podcast_pixels FOR SELECT TO public USING (true);
+DROP POLICY IF EXISTS "public_read_mm3_market_blocks" ON mm3_market_blocks;
+CREATE POLICY "public_read_mm3_market_blocks" ON mm3_market_blocks FOR SELECT TO public USING (true);
 
-DROP POLICY IF EXISTS "public_update_mm3_podcast_pixels" ON mm3_podcast_pixels;
-CREATE POLICY "public_update_mm3_podcast_pixels" ON mm3_podcast_pixels FOR UPDATE TO public USING (true) WITH CHECK (true);
+DROP POLICY IF EXISTS "public_update_mm3_market_blocks" ON mm3_market_blocks;
+CREATE POLICY "public_update_mm3_market_blocks" ON mm3_market_blocks FOR UPDATE TO public USING (true) WITH CHECK (true);
 
 DROP POLICY IF EXISTS "public_read_mm3_market_commands" ON mm3_market_commands;
 CREATE POLICY "public_read_mm3_market_commands" ON mm3_market_commands FOR SELECT TO anon USING (true);
 
 DROP POLICY IF EXISTS "public_insert_mm3_market_commands" ON mm3_market_commands;
-CREATE POLICY "public_insert_mm3_market_commands" ON mm3_market_commands FOR INSERT TO anon WITH CHECK (wallet <> '' AND nftmoji_key <> '' AND command <> '');
+CREATE POLICY "public_insert_mm3_market_commands" ON mm3_market_commands FOR INSERT TO anon WITH CHECK (wallet <> '' AND nftji_key <> '' AND command <> '');
 
 DROP POLICY IF EXISTS "public_update_mm3_market_commands" ON mm3_market_commands;
 CREATE POLICY "public_update_mm3_market_commands" ON mm3_market_commands FOR UPDATE TO anon USING (wallet <> '') WITH CHECK (wallet <> '');
@@ -573,7 +562,7 @@ DROP POLICY IF EXISTS "public_read_mm3_command_penalties" ON mm3_command_penalti
 CREATE POLICY "public_read_mm3_command_penalties" ON mm3_command_penalties FOR SELECT TO public USING (true);
 
 DROP POLICY IF EXISTS "public_insert_mm3_command_penalties" ON mm3_command_penalties;
-CREATE POLICY "public_insert_mm3_command_penalties" ON mm3_command_penalties FOR INSERT TO public WITH CHECK (wallet <> '' AND nftmoji_key <> '' AND penalty_code <> '');
+CREATE POLICY "public_insert_mm3_command_penalties" ON mm3_command_penalties FOR INSERT TO public WITH CHECK (wallet <> '' AND nftji_key <> '' AND penalty_code <> '');
 
 DROP POLICY IF EXISTS "public_update_mm3_command_penalties" ON mm3_command_penalties;
 CREATE POLICY "public_update_mm3_command_penalties" ON mm3_command_penalties FOR UPDATE TO public USING (true) WITH CHECK (true);
@@ -617,8 +606,8 @@ ON CONFLICT (id) DO UPDATE SET
   ticker_message_es = EXCLUDED.ticker_message_es,
   updated_at        = NOW();
 
-INSERT INTO mm3_podcast_pixels (
-  pixel_key,
+INSERT INTO mm3_market_blocks (
+  block_key,
   grid_row,
   grid_col,
   emoji,
@@ -750,7 +739,7 @@ VALUES
     NULL,
     TRUE
   )
-ON CONFLICT (pixel_key) DO UPDATE SET
+ON CONFLICT (block_key) DO UPDATE SET
   grid_row         = EXCLUDED.grid_row,
   grid_col         = EXCLUDED.grid_col,
   emoji            = EXCLUDED.emoji,
@@ -758,7 +747,7 @@ ON CONFLICT (pixel_key) DO UPDATE SET
   title_es         = EXCLUDED.title_es,
   answer_hash      = EXCLUDED.answer_hash,
   price_eur        = EXCLUDED.price_eur,
-  short_url        = COALESCE(mm3_podcast_pixels.short_url, EXCLUDED.short_url),
+  short_url        = COALESCE(mm3_market_blocks.short_url, EXCLUDED.short_url),
   is_active        = EXCLUDED.is_active,
   market_command   = EXCLUDED.market_command,
   formula_x        = EXCLUDED.formula_x,
@@ -785,7 +774,7 @@ GRANT SELECT, INSERT, UPDATE ON mm3_wallet_presence TO anon;
 GRANT SELECT, INSERT ON mm3_sell_transactions TO anon;
 GRANT SELECT, INSERT ON mm3_market_events TO anon;
 GRANT INSERT ON api_requests TO anon;
-GRANT SELECT, UPDATE ON mm3_podcast_pixels TO anon;
+GRANT SELECT, UPDATE ON mm3_market_blocks TO anon;
 GRANT SELECT, INSERT ON mm3_market_commands TO anon;
 GRANT SELECT, INSERT, UPDATE ON mm3_command_penalties TO anon;
 GRANT SELECT, INSERT ON mm3_irc_messages TO anon;

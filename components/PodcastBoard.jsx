@@ -14,7 +14,7 @@ import {
 import { useSound } from '@/lib/sound-context';
 import { getMarketCommandForKey } from '@/lib/market-commands';
 
-const GENESIS_PIXEL_KEY = 'mm3-023';
+const GENESIS_BLOCK_KEY = 'mm3-023';
 const GRID_ROWS = 28;
 const GRID_COLS = 28;
 
@@ -82,13 +82,13 @@ function normalizeShortUrl(value) {
 }
 
 function stepSelection(blocks, currentKey, direction) {
-  const current = blocks.find((entry) => entry.pixel_key === currentKey) || blocks[0];
+  const current = blocks.find((entry) => entry.block_key === currentKey) || blocks[0];
   if (!current) return currentKey;
 
   let best = current;
   let bestScore = Number.POSITIVE_INFINITY;
   for (const candidate of blocks) {
-    if (candidate.pixel_key === current.pixel_key) continue;
+    if (candidate.block_key === current.block_key) continue;
     const dx = candidate.grid_col - current.grid_col;
     const dy = candidate.grid_row - current.grid_row;
     const horizontalScore = Math.abs(dx) * 10 + Math.abs(dy);
@@ -107,23 +107,23 @@ function stepSelection(blocks, currentKey, direction) {
     }
   }
 
-  return best.pixel_key;
+  return best.block_key;
 }
 
 const CATALOG_BLOCKS = [
-  { pixel_key: 'mm3-023', grid_row: 0,  grid_col: 22, emoji: WALLET_DECORATIONS.marketGenesis, title_en: 'Genesis Uplink',   title_es: 'Uplink Génesis',     price_eur: 1,   short_url: '', is_active: true },
-  { pixel_key: 'mm3-05c', grid_row: 3,  grid_col: 8,  emoji: '🌐', title_en: 'Signal Nexus',    title_es: 'Nexo Señal',         price_eur: 3,   short_url: '', is_active: true },
-  { pixel_key: 'mm3-0b9', grid_row: 6,  grid_col: 17, emoji: '🔭', title_en: 'Deep Relay',      title_es: 'Relay Profundo',     price_eur: 5,   short_url: '', is_active: true },
-  { pixel_key: 'mm3-11b', grid_row: 10, grid_col: 3,  emoji: '🧬', title_en: 'Code Strand',     title_es: 'Cadena Código',      price_eur: 7,   short_url: '', is_active: true },
-  { pixel_key: 'mm3-184', grid_row: 13, grid_col: 24, emoji: '💠', title_en: 'Fractal Core',    title_es: 'Núcleo Fractal',     price_eur: 10,  short_url: '', is_active: true },
-  { pixel_key: 'mm3-1e7', grid_row: 17, grid_col: 11, emoji: '⚡', title_en: 'Arc Burst',       title_es: 'Destello Arco',      price_eur: 15,  short_url: '', is_active: true },
-  { pixel_key: 'mm3-244', grid_row: 20, grid_col: 20, emoji: '🌀', title_en: 'Entropy Loop',    title_es: 'Bucle Entropía',     price_eur: 25,  short_url: '', is_active: true },
-  { pixel_key: 'mm3-26d', grid_row: 22, grid_col: 5,  emoji: '🔴', title_en: 'Null Beacon',     title_es: 'Baliza Nula',        price_eur: 50,  short_url: '', is_active: true },
-  { pixel_key: 'mm3-2ca', grid_row: 25, grid_col: 14, emoji: '⭐', title_en: 'Star Protocol',   title_es: 'Protocolo Estelar',  price_eur: 75,  short_url: '', is_active: true },
-  { pixel_key: 'mm3-30e', grid_row: 27, grid_col: 26, emoji: '💎', title_en: 'Crystal Forge',   title_es: 'Forja Cristal',      price_eur: 100, short_url: '', is_active: true },
+  { block_key: 'mm3-023', grid_row: 0,  grid_col: 22, emoji: WALLET_DECORATIONS.marketGenesis, title_en: 'Genesis Uplink',   title_es: 'Uplink Génesis',     price_eur: 1,   short_url: '', is_active: true },
+  { block_key: 'mm3-05c', grid_row: 3,  grid_col: 8,  emoji: '🌐', title_en: 'Signal Nexus',    title_es: 'Nexo Señal',         price_eur: 3,   short_url: '', is_active: true },
+  { block_key: 'mm3-0b9', grid_row: 6,  grid_col: 17, emoji: '🔭', title_en: 'Deep Relay',      title_es: 'Relay Profundo',     price_eur: 5,   short_url: '', is_active: true },
+  { block_key: 'mm3-11b', grid_row: 10, grid_col: 3,  emoji: '🧬', title_en: 'Code Strand',     title_es: 'Cadena Código',      price_eur: 7,   short_url: '', is_active: true },
+  { block_key: 'mm3-184', grid_row: 13, grid_col: 24, emoji: '💠', title_en: 'Fractal Core',    title_es: 'Núcleo Fractal',     price_eur: 10,  short_url: '', is_active: true },
+  { block_key: 'mm3-1e7', grid_row: 17, grid_col: 11, emoji: '⚡', title_en: 'Arc Burst',       title_es: 'Destello Arco',      price_eur: 15,  short_url: '', is_active: true },
+  { block_key: 'mm3-244', grid_row: 20, grid_col: 20, emoji: '🌀', title_en: 'Entropy Loop',    title_es: 'Bucle Entropía',     price_eur: 25,  short_url: '', is_active: true },
+  { block_key: 'mm3-26d', grid_row: 22, grid_col: 5,  emoji: '🔴', title_en: 'Null Beacon',     title_es: 'Baliza Nula',        price_eur: 50,  short_url: '', is_active: true },
+  { block_key: 'mm3-2ca', grid_row: 25, grid_col: 14, emoji: '⭐', title_en: 'Star Protocol',   title_es: 'Protocolo Estelar',  price_eur: 75,  short_url: '', is_active: true },
+  { block_key: 'mm3-30e', grid_row: 27, grid_col: 26, emoji: '💎', title_en: 'Crystal Forge',   title_es: 'Forja Cristal',      price_eur: 100, short_url: '', is_active: true },
 ];
 
-const CATALOG_KEY_SET = new Set(CATALOG_BLOCKS.map((b) => b.pixel_key));
+const CATALOG_KEY_SET = new Set(CATALOG_BLOCKS.map((b) => b.block_key));
 
 
 export default function PodcastBoard({ account, isVirtualWallet = false }) {
@@ -131,7 +131,7 @@ export default function PodcastBoard({ account, isVirtualWallet = false }) {
   const { currency } = useCurrency();
   const { playMarketClaim } = useSound();
   const [blocks, setBlocks] = useState(CATALOG_BLOCKS);
-  const [selectedKey, setSelectedKey] = useState(GENESIS_PIXEL_KEY);
+  const [selectedKey, setSelectedKey] = useState(GENESIS_BLOCK_KEY);
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
   const [dbReady, setDbReady] = useState(true);
@@ -153,13 +153,13 @@ export default function PodcastBoard({ account, isVirtualWallet = false }) {
     try {
       const [{ data: pixelData, error }, { data: ownersData }, { data: eventData }] = await Promise.all([
         supabase
-          .from('mm3_podcast_pixels')
-          .select('pixel_key, grid_row, grid_col, emoji, title_en, title_es, price_eur, short_url, is_active, first_purchased_at')
-          .order('pixel_key', { ascending: true }),
+          .from('mm3_market_blocks')
+          .select('block_key, grid_row, grid_col, emoji, title_en, title_es, price_eur, short_url, is_active, first_purchased_at')
+          .order('block_key', { ascending: true }),
         supabase
           .from('player_progress')
-          .select('wallet, market_nftmoji_key')
-          .not('market_nftmoji_key', 'is', null),
+          .select('wallet, market_nftji_key')
+          .not('market_nftji_key', 'is', null),
         supabase
           .from('mm3_market_events')
           .select('emoji, event_type')
@@ -170,7 +170,7 @@ export default function PodcastBoard({ account, isVirtualWallet = false }) {
 
       const currentOwnersByKey = new Map();
       for (const entry of ownersData || []) {
-        const key = entry.market_nftmoji_key;
+        const key = entry.market_nftji_key;
         const wallet = String(entry.wallet || '').toLowerCase();
         if (!key || !wallet) continue;
         if (!currentOwnersByKey.has(key)) currentOwnersByKey.set(key, []);
@@ -186,23 +186,23 @@ export default function PodcastBoard({ account, isVirtualWallet = false }) {
       }
 
       const dbBlocks = Array.isArray(pixelData) ? pixelData : [];
-      const dbByKey = new Map(dbBlocks.map((b) => [b.pixel_key, b]));
+      const dbByKey = new Map(dbBlocks.map((b) => [b.block_key, b]));
 
       const norm = (b) => ({
         ...b,
         price_eur: Number(b.price_eur) || 0,
-        current_owners: currentOwnersByKey.get(b.pixel_key) || [],
+        current_owners: currentOwnersByKey.get(b.block_key) || [],
         buy_count: buyCountByEmoji.get(String(b.emoji || '')) || 0,
         resell_count: resellCountByEmoji.get(String(b.emoji || '')) || 0,
       });
 
       const catalogMerged = CATALOG_BLOCKS.map((cat) =>
-        norm(dbByKey.has(cat.pixel_key) ? { ...cat, ...dbByKey.get(cat.pixel_key) } : cat)
+        norm(dbByKey.has(cat.block_key) ? { ...cat, ...dbByKey.get(cat.block_key) } : cat)
       );
 
       // Include dynamically spawned blocks (DB-only rows)
       const extraBlocks = dbBlocks
-        .filter((b) => !CATALOG_KEY_SET.has(b.pixel_key))
+        .filter((b) => !CATALOG_KEY_SET.has(b.block_key))
         .map((b) => norm(b));
 
       setBlocks([...catalogMerged, ...extraBlocks]);
@@ -235,7 +235,7 @@ export default function PodcastBoard({ account, isVirtualWallet = false }) {
       const [{ data: progress }, { data: stats }] = await Promise.all([
         supabase
           .from('player_progress')
-          .select('level, mm3_sold, eur_earned, usd_earned, cny_earned, wallet_emojis, market_nftmoji_key, market_nftmoji_price')
+          .select('level, mm3_sold, eur_earned, usd_earned, cny_earned, wallet_emojis, market_nftji_key, market_nftji_price')
           .eq('wallet', wallet)
           .maybeSingle(),
         supabase.from('leaderboard_data').select('total_eth').eq('wallet', wallet).maybeSingle(),
@@ -251,8 +251,8 @@ export default function PodcastBoard({ account, isVirtualWallet = false }) {
         mm3Sold: Number(progress?.mm3_sold) || 0,
         totalMm3: Number(stats?.total_eth) || 0,
         emojis: normalizeWalletDecorations(progress?.wallet_emojis),
-        marketNFTJIKey: progress?.market_nftmoji_key || null,
-        marketNFTJIPrice: Number(progress?.market_nftmoji_price) || 0,
+        marketNFTJIKey: progress?.market_nftji_key || null,
+        marketNFTJIPrice: Number(progress?.market_nftji_price) || 0,
       });
     } catch (err) {
       console.error('market wallet load:', err);
@@ -265,7 +265,7 @@ export default function PodcastBoard({ account, isVirtualWallet = false }) {
       const { data } = await supabase
         .from('mm3_market_commands')
         .select('id, wallet, formula_x, reset_at')
-        .eq('nftmoji_key', blockKey)
+        .eq('nftji_key', blockKey)
         .gt('reset_at', new Date().toISOString())
         .order('executed_at', { ascending: false })
         .limit(1)
@@ -283,9 +283,9 @@ export default function PodcastBoard({ account, isVirtualWallet = false }) {
     try {
       const { data, error } = await supabase
         .from('mm3_command_penalties')
-        .select('id, nftmoji_key, penalty_code, penalty_value, penalty_eur, attempted_at, redeemed_at, reset_at, created_at')
+        .select('id, nftji_key, penalty_code, penalty_value, penalty_eur, attempted_at, redeemed_at, reset_at, created_at')
         .eq('wallet', account.toLowerCase())
-        .eq('nftmoji_key', blockKey)
+        .eq('nftji_key', blockKey)
         .is('redeemed_at', null)
         .gt('reset_at', new Date().toISOString())
         .order('created_at', { ascending: false })
@@ -326,8 +326,8 @@ export default function PodcastBoard({ account, isVirtualWallet = false }) {
     const price = prices[Math.floor(Math.random() * prices.length)];
 
     try {
-      await supabase.from('mm3_podcast_pixels').insert({
-        pixel_key: pixelKey,
+      await supabase.from('mm3_market_blocks').insert({
+        block_key: pixelKey,
         grid_row: cell.row,
         grid_col: cell.col,
         emoji,
@@ -350,7 +350,7 @@ export default function PodcastBoard({ account, isVirtualWallet = false }) {
     if (blockFromQuery) {
       setSelectedKey(blockFromQuery);
     } else {
-      setSelectedKey(CATALOG_BLOCKS[Math.floor(Math.random() * CATALOG_BLOCKS.length)].pixel_key);
+      setSelectedKey(CATALOG_BLOCKS[Math.floor(Math.random() * CATALOG_BLOCKS.length)].block_key);
     }
   }, []);
 
@@ -378,7 +378,7 @@ export default function PodcastBoard({ account, isVirtualWallet = false }) {
 
     const channel = supabase
       .channel('mm3-podcast-live')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'mm3_podcast_pixels' }, refresh)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'mm3_market_blocks' }, refresh)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'mm3_command_penalties' }, refresh)
       .subscribe();
 
@@ -404,7 +404,7 @@ export default function PodcastBoard({ account, isVirtualWallet = false }) {
           result.push(posMap.get(key));
         } else {
           result.push({
-            pixel_key: `ph-${row}-${col}`,
+            block_key: `ph-${row}-${col}`,
             grid_row: row, grid_col: col,
             emoji: '', title_en: '', title_es: '',
             price_eur: 0, short_url: '', is_active: false,
@@ -417,13 +417,13 @@ export default function PodcastBoard({ account, isVirtualWallet = false }) {
   }, [blocks]);
 
   const blockMap = useMemo(
-    () => new Map(mergedBlocks.map((entry) => [String(entry.pixel_key), entry])),
+    () => new Map(mergedBlocks.map((entry) => [String(entry.block_key), entry])),
     [mergedBlocks]
   );
 
   useEffect(() => {
     if (!blockMap.has(selectedKey)) {
-      setSelectedKey(GENESIS_PIXEL_KEY);
+      setSelectedKey(GENESIS_BLOCK_KEY);
     }
   }, [blockMap, selectedKey]);
 
@@ -443,8 +443,8 @@ export default function PodcastBoard({ account, isVirtualWallet = false }) {
     currency === 'USD' ? priceUsd : currency === 'CNY' ? priceCny : priceEur;
   const enoughFunds = activeFunds >= activePrice;
 
-  const ownsSelected = Boolean(account) && walletState.marketNFTJIKey === selectedBlock?.pixel_key;
-  const hasOtherNFTJI = Boolean(account) && Boolean(walletState.marketNFTJIKey) && walletState.marketNFTJIKey !== selectedBlock?.pixel_key;
+  const ownsSelected = Boolean(account) && walletState.marketNFTJIKey === selectedBlock?.block_key;
+  const hasOtherNFTJI = Boolean(account) && Boolean(walletState.marketNFTJIKey) && walletState.marketNFTJIKey !== selectedBlock?.block_key;
 
   const canBuy =
     Boolean(account) &&
@@ -467,7 +467,7 @@ export default function PodcastBoard({ account, isVirtualWallet = false }) {
   const hasCurrentOwners = currentOwners.length > 0;
   const selectedBlockHex = getBlockHex(selectedBlock?.grid_row ?? 0, selectedBlock?.grid_col ?? 0);
   const selectedMarketCommand = !selectedBlock?.isPlaceholder
-    ? getMarketCommandForKey(selectedBlock?.pixel_key)
+    ? getMarketCommandForKey(selectedBlock?.block_key)
     : null;
   const activePenaltyValue = Number(activePenalty?.penalty_value) || 0;
   const canRedeemPenalty =
@@ -509,13 +509,13 @@ export default function PodcastBoard({ account, isVirtualWallet = false }) {
 
       const [{ data: blockRow, error: blockError }, { data: progressRow }, { data: statsRow }] = await Promise.all([
         supabase
-          .from('mm3_podcast_pixels')
-          .select('pixel_key, emoji, price_eur, is_active, first_purchased_at')
-          .eq('pixel_key', selectedBlock.pixel_key)
+          .from('mm3_market_blocks')
+          .select('block_key, emoji, price_eur, is_active, first_purchased_at')
+          .eq('block_key', selectedBlock.block_key)
           .maybeSingle(),
         supabase
           .from('player_progress')
-          .select('level, mm3_sold, eur_earned, usd_earned, cny_earned, wallet_emojis, life_used, lucky_50_claimed, lucky_100_claimed, lucky_500_claimed, lucky_1000_claimed, market_nftmoji_key, market_nftmoji_price')
+          .select('level, mm3_sold, eur_earned, usd_earned, cny_earned, wallet_emojis, life_used, lucky_50_claimed, lucky_100_claimed, lucky_500_claimed, lucky_1000_claimed, market_nftji_key, market_nftji_price')
           .eq('wallet', wallet)
           .maybeSingle(),
         supabase.from('leaderboard_data').select('total_eth').eq('wallet', wallet).maybeSingle(),
@@ -540,7 +540,7 @@ export default function PodcastBoard({ account, isVirtualWallet = false }) {
       const totalMm3 = Number(statsRow?.total_eth) || 0;
       const currentDecorations = normalizeWalletDecorations(progressRow?.wallet_emojis);
 
-      if (progressRow?.market_nftmoji_key && progressRow.market_nftmoji_key !== selectedBlock.pixel_key) {
+      if (progressRow?.market_nftji_key && progressRow.market_nftji_key !== selectedBlock.block_key) {
         notify(t('podcast.alreadyOwnsOther'), 'error');
         return;
       }
@@ -578,9 +578,9 @@ export default function PodcastBoard({ account, isVirtualWallet = false }) {
           sell_quote_cny: liveQuote.netCny,
           sell_quote_eur: liveQuote.netEur,
           sell_quote_usd: liveQuote.netUsd,
-          market_nftmoji_key: selectedBlock.pixel_key,
-          market_nftmoji_price: priceE,
-          market_nftmoji_since: now,
+          market_nftji_key: selectedBlock.block_key,
+          market_nftji_price: priceE,
+          market_nftji_since: now,
           updated_at: now,
         }, { onConflict: 'wallet', ignoreDuplicates: false });
       if (progressError) throw progressError;
@@ -589,15 +589,15 @@ export default function PodcastBoard({ account, isVirtualWallet = false }) {
         wallet,
         event_type: 'market_buy',
         delta_mm3: buyDelta,
-        emoji: String(blockRow.emoji || selectedBlock.pixel_key),
+        emoji: String(blockRow.emoji || selectedBlock.block_key),
       });
 
       // First-ever purchase: mark block and spawn a mystery block
       if (!blockRow.first_purchased_at) {
         await supabase
-          .from('mm3_podcast_pixels')
+          .from('mm3_market_blocks')
           .update({ first_purchased_at: now })
-          .eq('pixel_key', selectedBlock.pixel_key);
+          .eq('block_key', selectedBlock.block_key);
         await spawnNewBlock(blocks);
       }
 
@@ -628,13 +628,13 @@ export default function PodcastBoard({ account, isVirtualWallet = false }) {
       const [{ data: progressRow }, { data: statsRow }] = await Promise.all([
         supabase
           .from('player_progress')
-          .select('level, mm3_sold, eur_earned, usd_earned, cny_earned, wallet_emojis, life_used, lucky_50_claimed, lucky_100_claimed, lucky_500_claimed, lucky_1000_claimed, market_nftmoji_key, market_nftmoji_price')
+          .select('level, mm3_sold, eur_earned, usd_earned, cny_earned, wallet_emojis, life_used, lucky_50_claimed, lucky_100_claimed, lucky_500_claimed, lucky_1000_claimed, market_nftji_key, market_nftji_price')
           .eq('wallet', wallet)
           .maybeSingle(),
         supabase.from('leaderboard_data').select('total_eth').eq('wallet', wallet).maybeSingle(),
       ]);
 
-      if (!progressRow?.market_nftmoji_key || progressRow.market_nftmoji_key !== selectedBlock.pixel_key) {
+      if (!progressRow?.market_nftji_key || progressRow.market_nftji_key !== selectedBlock.block_key) {
         await loadWalletState();
         notify(t('podcast.notOwned'), 'info');
         return;
@@ -645,7 +645,7 @@ export default function PodcastBoard({ account, isVirtualWallet = false }) {
       const totalMm3 = Number(statsRow?.total_eth) || 0;
       const currentDecorations = normalizeWalletDecorations(progressRow?.wallet_emojis);
 
-      const oldPrice = Number(progressRow.market_nftmoji_price) || 0;
+      const oldPrice = Number(progressRow.market_nftji_price) || 0;
       const returnEur = oldPrice * 0.5;
       const returnUsd = toUsdFromEur(returnEur);
       const returnCny = toCnyFromEur(returnEur);
@@ -678,28 +678,28 @@ export default function PodcastBoard({ account, isVirtualWallet = false }) {
           sell_quote_cny: liveQuote.netCny,
           sell_quote_eur: liveQuote.netEur,
           sell_quote_usd: liveQuote.netUsd,
-          market_nftmoji_key: null,
-          market_nftmoji_price: 0,
-          market_nftmoji_since: null,
+          market_nftji_key: null,
+          market_nftji_price: 0,
+          market_nftji_since: null,
           updated_at: now,
         }, { onConflict: 'wallet', ignoreDuplicates: false });
       if (progressError) throw progressError;
 
       // Cancel active IRC command and its penalties when the owner resells
-      const resoldKey = progressRow.market_nftmoji_key;
+      const resoldKey = progressRow.market_nftji_key;
       await supabase
         .from('mm3_market_commands')
         .update({ reset_at: new Date(Date.now() - 1000).toISOString() })
         .eq('wallet', wallet)
-        .eq('nftmoji_key', resoldKey)
+        .eq('nftji_key', resoldKey)
         .gt('reset_at', now);
       await supabase
         .from('mm3_command_penalties')
         .update({ redeemed_at: now })
-        .eq('nftmoji_key', resoldKey)
+        .eq('nftji_key', resoldKey)
         .is('redeemed_at', null);
 
-      const resoldBlock = blocks.find((b) => b.pixel_key === resoldKey);
+      const resoldBlock = blocks.find((b) => b.block_key === resoldKey);
       await supabase.from('mm3_market_events').insert({
         wallet,
         event_type: 'market_resell',
@@ -772,7 +772,7 @@ export default function PodcastBoard({ account, isVirtualWallet = false }) {
 
       notify(isCorrect ? t('podcast.numericSuccess') : t('podcast.numericWrong'), isCorrect ? 'success' : 'error');
       setNumericCode('');
-      await loadActivePenalty(selectedBlock?.pixel_key);
+      await loadActivePenalty(selectedBlock?.block_key);
       if (typeof window !== 'undefined') {
         localStorage.setItem('lb_dirty_at', String(Date.now()));
         window.dispatchEvent(new CustomEvent('mm3-db-updated', { detail: { wallet: account?.toLowerCase(), penalty: true } }));
@@ -832,16 +832,16 @@ export default function PodcastBoard({ account, isVirtualWallet = false }) {
                   {mergedBlocks.map((block) => {
                     const row = block.grid_row ?? 0;
                     const col = block.grid_col ?? 0;
-                    const isSelected = block.pixel_key === selectedKey;
+                    const isSelected = block.block_key === selectedKey;
                     const isOwned = Array.isArray(block.current_owners) && block.current_owners.length > 0;
                     const tone = getTokenPixelTone(row, col);
                     const cellHex = getBlockHex(row, col);
 
                     return (
                       <button
-                        key={block.pixel_key}
+                        key={block.block_key}
                         type="button"
-                        onClick={() => handlePixelClick(block.pixel_key)}
+                        onClick={() => handlePixelClick(block.block_key)}
                         className="relative flex items-center justify-center overflow-hidden transition duration-100 focus:outline-none"
                         style={{
                           background: isOwned
@@ -892,7 +892,7 @@ export default function PodcastBoard({ account, isVirtualWallet = false }) {
               <div className="flex items-center gap-1.5">
                 <span className="text-base leading-none">{selectedBlock?.emoji}</span>
                 {!selectedBlock?.isPlaceholder ? (
-                  <Link href={`/market-short/${selectedBlock?.pixel_key}`} className="text-[0.82rem] font-black uppercase tracking-[0.18em] text-cyan-100 hover:text-cyan-300 hover:underline lg:text-[0.75rem]">{selectedTitle}</Link>
+                  <Link href={`/market-short/${selectedBlock?.block_key}`} className="text-[0.82rem] font-black uppercase tracking-[0.18em] text-cyan-100 hover:text-cyan-300 hover:underline lg:text-[0.75rem]">{selectedTitle}</Link>
                 ) : (
                   <span className="text-[0.82rem] font-black uppercase tracking-[0.18em] text-cyan-100 lg:text-[0.75rem]">{selectedTitle}</span>
                 )}
@@ -957,7 +957,7 @@ export default function PodcastBoard({ account, isVirtualWallet = false }) {
               </div>
             ) : (
               <Link
-                href={`/market-short/${selectedBlock?.pixel_key}`}
+                href={`/market-short/${selectedBlock?.block_key}`}
                 className="flex items-center justify-center gap-1 rounded border border-cyan-500/10 bg-black/25 px-2 py-1.5 text-[0.80rem] uppercase tracking-[0.14em] text-cyan-800/70 transition hover:border-cyan-500/25 hover:text-cyan-500/80 lg:col-span-2"
               >
                 {t('podcast.videoSoon')}

@@ -66,7 +66,7 @@ export async function GET() {
         trade_google_count: 0,
         _trade_wallets: new Set(),
         _trade_google: new Set(),
-        nftmoji_delta: 0,
+        nftji_delta: 0,
         market_delta: 0,
       }
     }
@@ -95,7 +95,7 @@ export async function GET() {
   marketData?.forEach(e => add(
     e.created_at,
     e.delta_mm3,
-    e.event_type === 'nftmoji_claim' ? 'nftmoji_delta' : 'market_delta'
+    e.event_type === 'nftji_claim' ? 'nftji_delta' : 'market_delta'
   ))
 
   const baseValue = parseFloat(baseData?.[0]?.cumulative_reward ?? 0)
@@ -112,7 +112,7 @@ export async function GET() {
   // Build cumulative series over the full minute grid
   let cumulative = baseValue
   const result = grid.map(key => {
-    const deltas = minuteDeltas[key] ?? { delta: 0, mined_delta: 0, trade_delta: 0, trade_wallet_count: 0, trade_google_count: 0, nftmoji_delta: 0, market_delta: 0 }
+    const deltas = minuteDeltas[key] ?? { delta: 0, mined_delta: 0, trade_delta: 0, trade_wallet_count: 0, trade_google_count: 0, nftji_delta: 0, market_delta: 0 }
     deltas.trade_wallet_count = deltas._trade_wallets?.size ?? deltas.trade_wallet_count ?? 0
     deltas.trade_google_count = deltas._trade_google?.size ?? deltas.trade_google_count ?? 0
     cumulative += deltas.delta

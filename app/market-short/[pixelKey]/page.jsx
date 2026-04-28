@@ -21,7 +21,7 @@ function normalizeShortUrl(value) {
 }
 
 const FALLBACK_BLOCK = {
-  pixel_key: 'mm3-023',
+  block_key: 'mm3-023',
   emoji: '🛰',
   title_en: 'Genesis uplink',
   title_es: 'Uplink génesis',
@@ -37,7 +37,7 @@ export default function MarketShortPage() {
   const [block, setBlock] = useState(FALLBACK_BLOCK);
   const [loading, setLoading] = useState(true);
 
-  const pixelKey = useMemo(() => String(params?.pixelKey || FALLBACK_BLOCK.pixel_key), [params]);
+  const pixelKey = useMemo(() => String(params?.pixelKey || FALLBACK_BLOCK.block_key), [params]);
 
   useEffect(() => {
     let active = true;
@@ -46,9 +46,9 @@ export default function MarketShortPage() {
       setLoading(true);
       try {
         const { data, error } = await supabase
-          .from('mm3_podcast_pixels')
-          .select('pixel_key, emoji, title_en, title_es, short_url, claimed_by, is_active')
-          .eq('pixel_key', pixelKey)
+          .from('mm3_market_blocks')
+          .select('block_key, emoji, title_en, title_es, short_url, claimed_by, is_active')
+          .eq('block_key', pixelKey)
           .maybeSingle();
 
         if (error) throw error;

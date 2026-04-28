@@ -66,17 +66,17 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
           .select('wallet, level, mm3_sold, cny_earned, eur_earned, usd_earned, wallet_emojis'),
         supabase
           .from('player_progress')
-          .select('wallet, market_nftmoji_key')
-          .not('market_nftmoji_key', 'is', null),
+          .select('wallet, market_nftji_key')
+          .not('market_nftji_key', 'is', null),
         supabase
-          .from('mm3_podcast_pixels')
-          .select('pixel_key, emoji, grid_row, grid_col'),
+          .from('mm3_market_blocks')
+          .select('block_key, emoji, grid_row, grid_col'),
         supabase
           .from('mm3_sell_transactions')
           .select('wallet'),
         supabase
           .from('mm3_command_penalties')
-          .select('wallet, nftmoji_key, penalty_value, reset_at, created_at')
+          .select('wallet, nftji_key, penalty_value, reset_at, created_at')
           .is('redeemed_at', null)
           .gt('reset_at', new Date().toISOString())
           .order('created_at', { ascending: false }),
@@ -107,17 +107,17 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
 
       const pixelsByKey = new Map();
       for (const p of pixelsResponse?.data || []) {
-        pixelsByKey.set(p.pixel_key, { emoji: String(p.emoji || ''), hex: getBlockHexFromCoords(p.grid_row, p.grid_col) });
+        pixelsByKey.set(p.block_key, { emoji: String(p.emoji || ''), hex: getBlockHexFromCoords(p.grid_row, p.grid_col) });
       }
 
       const marketBlocksByWallet = new Map();
       for (const entry of marketOwnersResponse?.data || []) {
         const wallet = String(entry.wallet || '').toLowerCase();
-        const key = entry.market_nftmoji_key;
+        const key = entry.market_nftji_key;
         if (!wallet || !key) continue;
         const pixelInfo = pixelsByKey.get(key);
         if (!pixelInfo) continue;
-        marketBlocksByWallet.set(wallet, [{ pixel_key: key, emoji: pixelInfo.emoji, hex: pixelInfo.hex }]);
+        marketBlocksByWallet.set(wallet, [{ block_key: key, emoji: pixelInfo.emoji, hex: pixelInfo.hex }]);
       }
 
       const txCountByWallet = new Map();
@@ -132,10 +132,10 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
         const wallet = String(entry.wallet || '').toLowerCase();
         if (!wallet || penaltiesByWallet.has(wallet)) continue;
         penaltiesByWallet.set(wallet, {
-          nftmoji_key: entry.nftmoji_key,
+          nftji_key: entry.nftji_key,
           penalty_value: Number(entry.penalty_value) || 0,
           reset_at: entry.reset_at,
-          block: pixelsByKey.get(entry.nftmoji_key) || null,
+          block: pixelsByKey.get(entry.nftji_key) || null,
         });
       }
 
@@ -549,9 +549,9 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
                 <div className="flex flex-wrap items-center gap-1">
                   {marketBlocks.length > 0 ? marketBlocks.map((block) => (
                     <button
-                      key={block.pixel_key}
+                      key={block.block_key}
                       type="button"
-                      onClick={() => openMarketBlock(block.pixel_key)}
+                      onClick={() => openMarketBlock(block.block_key)}
                       title={`${block.emoji} ${block.hex}`}
                       className="relative flex h-6 w-6 items-center justify-center rounded border text-[0.90rem] transition hover:border-cyan-300"
                       style={{
@@ -570,9 +570,9 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
                   {activePenalty ? (
                     <button
                       type="button"
-                      onClick={() => openMarketBlock(activePenalty.nftmoji_key)}
+                      onClick={() => openMarketBlock(activePenalty.nftji_key)}
                       className="lb-penalty-link rounded border border-rose-400/30 bg-rose-950/20 px-1.5 py-0.5 font-mono text-[0.75rem] font-black text-rose-300"
-                      title={activePenalty.block ? `${activePenalty.block.emoji} ${activePenalty.block.hex}` : activePenalty.nftmoji_key}
+                      title={activePenalty.block ? `${activePenalty.block.emoji} ${activePenalty.block.hex}` : activePenalty.nftji_key}
                     >
                       -{Number(activePenalty.penalty_value || 0).toFixed(8).replace(/\.?0+$/, '') || '0'}
                     </button>
@@ -687,9 +687,9 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
                     <div className="flex flex-wrap items-center justify-center gap-1">
                       {marketBlocks.length > 0 ? marketBlocks.map((block) => (
                         <button
-                          key={block.pixel_key}
+                          key={block.block_key}
                           type="button"
-                          onClick={() => openMarketBlock(block.pixel_key)}
+                          onClick={() => openMarketBlock(block.block_key)}
                           title={`${block.emoji} ${block.hex}`}
                           className="lb-block-cell relative flex items-center justify-center rounded-md border text-[0.95rem] transition hover:border-cyan-300 hover:text-cyan-100"
                           style={{
@@ -708,9 +708,9 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
                       {activePenalty ? (
                         <button
                           type="button"
-                          onClick={() => openMarketBlock(activePenalty.nftmoji_key)}
+                          onClick={() => openMarketBlock(activePenalty.nftji_key)}
                           className="lb-penalty-link rounded border border-rose-400/30 bg-rose-950/20 px-1.5 py-1 font-mono text-[0.76rem] font-black text-rose-300"
-                          title={activePenalty.block ? `${activePenalty.block.emoji} ${activePenalty.block.hex}` : activePenalty.nftmoji_key}
+                          title={activePenalty.block ? `${activePenalty.block.emoji} ${activePenalty.block.hex}` : activePenalty.nftji_key}
                         >
                           -{Number(activePenalty.penalty_value || 0).toFixed(8).replace(/\.?0+$/, '') || '0'}
                         </button>

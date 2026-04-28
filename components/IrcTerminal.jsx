@@ -306,15 +306,15 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
             .maybeSingle(),
           supabase
             .from('player_progress')
-            .select('wallet, market_nftmoji_key')
-            .not('market_nftmoji_key', 'is', null),
+            .select('wallet, market_nftji_key')
+            .not('market_nftji_key', 'is', null),
           supabase
             .from('mm3_market_commands')
-            .select('nftmoji_key, formula_x, reset_at, wallet')
+            .select('nftji_key, formula_x, reset_at, wallet')
             .gt('reset_at', nowIso),
           supabase
-            .from('mm3_podcast_pixels')
-            .select('pixel_key, emoji, grid_row, grid_col'),
+            .from('mm3_market_blocks')
+            .select('block_key, emoji, grid_row, grid_col'),
         ]);
 
         const dbMessages = ircRes.data || [];
@@ -329,15 +329,15 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
 
         const ownerCountByKey = new Map();
         for (const entry of ownersData || []) {
-          const key = entry.market_nftmoji_key;
+          const key = entry.market_nftji_key;
           if (!key) continue;
           ownerCountByKey.set(key, (ownerCountByKey.get(key) || 0) + 1);
         }
-        const blockByKey = new Map((pixelsData || []).map((entry) => [entry.pixel_key, entry]));
+        const blockByKey = new Map((pixelsData || []).map((entry) => [entry.block_key, entry]));
         blockByKeyRef.current = blockByKey;
         const commandByKey = new Map();
         for (const entry of commandsData || []) {
-          if (entry.nftmoji_key && entry.reset_at) commandByKey.set(entry.nftmoji_key, entry);
+          if (entry.nftji_key && entry.reset_at) commandByKey.set(entry.nftji_key, entry);
         }
 
         const shortWallet = (w) => w ? `${String(w).slice(0, 6)}...${String(w).slice(-4)}` : '';
@@ -356,7 +356,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
             marketMessages.push(`Market: ${entry.emoji} ${hex} // ${t('irc.commandActive')} // formula=${formula} // x=${command.formula_x ?? 0} // reset=${reset}${by ? ` // ${t('irc.by')} ${by}` : ''}`);
           } else {
             const ownerWallets = (ownersData || [])
-              .filter((o) => o.market_nftmoji_key === entry.key)
+              .filter((o) => o.market_nftji_key === entry.key)
               .map((o) => o.wallet)
               .filter(Boolean);
             const readyList = ownerWallets.map(shortWallet).join(' · ');
@@ -505,23 +505,23 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
       const [{ data: ownersData, error }, { data: pixelsData }] = await Promise.all([
         supabase
           .from('player_progress')
-          .select('wallet, market_nftmoji_key')
-          .not('market_nftmoji_key', 'is', null),
+          .select('wallet, market_nftji_key')
+          .not('market_nftji_key', 'is', null),
         supabase
-          .from('mm3_podcast_pixels')
-          .select('pixel_key, emoji'),
+          .from('mm3_market_blocks')
+          .select('block_key, emoji'),
       ]);
       if (error) throw error;
 
       const emojiByKey = new Map();
       for (const p of pixelsData || []) {
-        if (p.pixel_key && p.emoji) emojiByKey.set(p.pixel_key, p.emoji);
+        if (p.block_key && p.emoji) emojiByKey.set(p.block_key, p.emoji);
       }
 
       const nextClaims = {};
       for (const entry of ownersData || []) {
         const wallet = String(entry.wallet || '').toLowerCase();
-        const key = entry.market_nftmoji_key;
+        const key = entry.market_nftji_key;
         const emoji = emojiByKey.get(key);
         if (!wallet || !emoji) continue;
         nextClaims[wallet] = [emoji];
@@ -681,28 +681,28 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
       const [{ data: ownersData }, { data: commandsData }, { data: pixelsData }] = await Promise.all([
         supabase
           .from('player_progress')
-          .select('wallet, market_nftmoji_key')
-          .not('market_nftmoji_key', 'is', null),
+          .select('wallet, market_nftji_key')
+          .not('market_nftji_key', 'is', null),
         supabase
           .from('mm3_market_commands')
-          .select('nftmoji_key, formula_x, reset_at, wallet')
+          .select('nftji_key, formula_x, reset_at, wallet')
           .gt('reset_at', nowIso),
         supabase
-          .from('mm3_podcast_pixels')
-          .select('pixel_key, emoji, grid_row, grid_col'),
+          .from('mm3_market_blocks')
+          .select('block_key, emoji, grid_row, grid_col'),
       ]);
 
       const ownerCountByKey = new Map();
       for (const entry of ownersData || []) {
-        const key = entry.market_nftmoji_key;
+        const key = entry.market_nftji_key;
         if (!key) continue;
         ownerCountByKey.set(key, (ownerCountByKey.get(key) || 0) + 1);
       }
-      const blockByKey = new Map((pixelsData || []).map((entry) => [entry.pixel_key, entry]));
+      const blockByKey = new Map((pixelsData || []).map((entry) => [entry.block_key, entry]));
       blockByKeyRef.current = blockByKey;
       const commandByKey = new Map();
       for (const entry of commandsData || []) {
-        if (entry.nftmoji_key && entry.reset_at) commandByKey.set(entry.nftmoji_key, entry);
+        if (entry.nftji_key && entry.reset_at) commandByKey.set(entry.nftji_key, entry);
       }
 
       const shortWallet = (w) => w ? `${String(w).slice(0, 6)}...${String(w).slice(-4)}` : '';
@@ -721,7 +721,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
           marketMessages.push(`Market: ${entry.emoji} ${hex} // active // formula=${formula} // x=${command.formula_x ?? 0} // reset=${reset}${by ? ` // by ${by}` : ''}`);
         } else {
           const ownerWallets = (ownersData || [])
-            .filter((o) => o.market_nftmoji_key === entry.key)
+            .filter((o) => o.market_nftji_key === entry.key)
             .map((o) => o.wallet)
             .filter(Boolean);
           const readyList = ownerWallets.map(shortWallet).join(' · ');
@@ -804,7 +804,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
     const channel = supabase
       .channel('mm3-irc-market-commands-watch')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'mm3_market_commands' }, ({ new: rec }) => {
-        const { emoji, hex, formula } = resolveBlock(rec.nftmoji_key);
+        const { emoji, hex, formula } = resolveBlock(rec.nftji_key);
         const reset = formatClockTime(rec.reset_at);
         appendMessage(makeMessage({
           id: `market-event:on:${rec.id}`,
@@ -838,7 +838,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
       })
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'mm3_market_commands' }, async ({ new: rec }) => {
         if (new Date(rec.reset_at) > new Date()) return;
-        const { emoji, hex } = resolveBlock(rec.nftmoji_key);
+        const { emoji, hex } = resolveBlock(rec.nftji_key);
         let releasedInfo = '';
         try {
           const { data: penaltyRows } = await supabase
@@ -911,25 +911,25 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
       const [{ data: launcher }, { data: existingCommand }, { data: blockRow }] = await Promise.all([
         supabase
           .from('player_progress')
-          .select('wallet, market_nftmoji_key')
+          .select('wallet, market_nftji_key')
           .eq('wallet', normalizedWallet)
           .maybeSingle(),
         supabase
           .from('mm3_market_commands')
           .select('id, wallet, reset_at')
-          .eq('nftmoji_key', commandEntry.key)
+          .eq('nftji_key', commandEntry.key)
           .gt('reset_at', nowIso)
           .order('executed_at', { ascending: false })
           .limit(1)
           .maybeSingle(),
         supabase
-          .from('mm3_podcast_pixels')
-          .select('pixel_key, emoji, title_en, title_es, price_eur')
-          .eq('pixel_key', commandEntry.key)
+          .from('mm3_market_blocks')
+          .select('block_key, emoji, title_en, title_es, price_eur')
+          .eq('block_key', commandEntry.key)
           .maybeSingle(),
       ]);
 
-      if (launcher?.market_nftmoji_key !== commandEntry.key) {
+      if (launcher?.market_nftji_key !== commandEntry.key) {
         await broadcastSystemMessage(`${t('irc.commandRejected')} // ${normalizedWallet} ${t('irc.doesNotOwn')} ${commandEntry.emoji}`, 'leave');
         return true;
       }
@@ -950,7 +950,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
         .from('mm3_market_commands')
         .insert({
           wallet: normalizedWallet,
-          nftmoji_key: commandEntry.key,
+          nftji_key: commandEntry.key,
           command: commandEntry.command,
           numeric_code: code,
           formula_x: x,
@@ -962,7 +962,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
 
       const { data: allProgress, error: progressError } = await supabase
         .from('player_progress')
-        .select('wallet, level, market_nftmoji_key, eur_earned, usd_earned, cny_earned')
+        .select('wallet, level, market_nftji_key, eur_earned, usd_earned, cny_earned')
         .limit(1000);
       if (progressError) throw new Error(`allProgress: ${progressError.message}`);
 
@@ -975,13 +975,13 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
       for (const row of allProgress || []) {
         const wallet = String(row.wallet || '').toLowerCase();
         if (!wallet || wallet === normalizedWallet) continue;
-        if (row.market_nftmoji_key === commandEntry.key) continue;
+        if (row.market_nftji_key === commandEntry.key) continue;
         const rateCny = getSellRateCny(Number(row.level) || 0);
         const penaltyMm3 = rateCny > 0 ? priceEur / (rateCny * CNY_TO_EUR) : 0;
         penalties.push({
           wallet,
           command_id: insertedCommand?.id || null,
-          nftmoji_key: commandEntry.key,
+          nftji_key: commandEntry.key,
           penalty_code: code,
           penalty_value: penaltyMm3,
           penalty_eur: priceEur,

@@ -40,7 +40,7 @@ export async function GET() {
         trade_google_count: 0,
         _trade_wallets: new Set(),
         _trade_google: new Set(),
-        nftmoji_delta: 0,
+        nftji_delta: 0,
         market_delta: 0,
       }
     }
@@ -90,13 +90,13 @@ export async function GET() {
     marketData?.forEach(e => add(
       e.created_at,
       e.delta_mm3,
-      e.event_type === 'nftmoji_claim' ? 'nftmoji_delta' : 'market_delta'
+      e.event_type === 'nftji_claim' ? 'nftji_delta' : 'market_delta'
     ))
   }
 
   const enriched = sorted.map((entry, idx, arr) => {
     const key = hourKey(entry.hour)
-    const breakdown = breakdownByHour[key] ?? { mined_delta: 0, trade_delta: 0, trade_wallet_count: 0, trade_google_count: 0, nftmoji_delta: 0, market_delta: 0 }
+    const breakdown = breakdownByHour[key] ?? { mined_delta: 0, trade_delta: 0, trade_wallet_count: 0, trade_google_count: 0, nftji_delta: 0, market_delta: 0 }
     breakdown.trade_wallet_count = breakdown._trade_wallets?.size ?? breakdown.trade_wallet_count ?? 0
     breakdown.trade_google_count = breakdown._trade_google?.size ?? breakdown.trade_google_count ?? 0
     const { _trade_wallets, _trade_google, ...publicBreakdown } = breakdown

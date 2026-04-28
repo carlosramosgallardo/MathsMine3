@@ -34,9 +34,9 @@ SET    level                  = 0,
        usd_earned             = 0,
        cny_earned             = 0,
        wallet_emojis          = '{}'::text[],
-       market_nftmoji_key     = NULL,
-       market_nftmoji_price   = 0,
-       market_nftmoji_since   = NULL,
+       market_nftji_key     = NULL,
+       market_nftji_price   = 0,
+       market_nftji_since   = NULL,
        life_used              = false,
        lucky_50_claimed       = false,
        lucky_100_claimed      = false,
@@ -75,8 +75,8 @@ SET    commission_mm3 = 0,
        updated_at     = now()
 WHERE  id = 1;
 
--- 10. NTFJIs de market: borra propiedad y compra en pixels
-UPDATE mm3_podcast_pixels
+-- 10. NTFJIs de market: borra propiedad y compra en blocks
+UPDATE mm3_market_blocks
 SET    first_purchased_at = NULL,
        claimed_by         = NULL,
        claimed_source     = NULL,

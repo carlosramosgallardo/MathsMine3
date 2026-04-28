@@ -21,8 +21,8 @@ export async function POST(req) {
 
   // 1. Load all active non-sold blocks (these will be repositioned)
   const { data: activeBlocks, error: activeErr } = await supabase
-    .from('mm3_podcast_pixels')
-    .select('pixel_key, grid_row, grid_col')
+    .from('mm3_market_blocks')
+    .select('block_key, grid_row, grid_col')
     .eq('is_active', true)
     .is('claimed_by', null);
 
@@ -31,7 +31,7 @@ export async function POST(req) {
 
   // 2. Load sold blocks to exclude their positions
   const { data: soldBlocks } = await supabase
-    .from('mm3_podcast_pixels')
+    .from('mm3_market_blocks')
     .select('grid_row, grid_col')
     .not('claimed_by', 'is', null);
 
@@ -54,24 +54,24 @@ export async function POST(req) {
 
   // 5. First clear all positions to null to avoid unique-constraint conflicts during update
   const clearResult = await supabase
-    .from('mm3_podcast_pixels')
+    .from('mm3_market_blocks')
     .update({ grid_row: null, grid_col: null })
-    .in('pixel_key', activeBlocks.map((b) => b.pixel_key));
+    .in('block_key', activeBlocks.map((b) => b.block_key));
 
   if (clearResult.error) return NextResponse.json({ error: clearResult.error.message }, { status: 500 });
 
   // 6. Assign new random positions one by one
   const log = [];
   for (let i = 0; i < activeBlocks.length; i++) {
-    const { pixel_key } = activeBlocks[i];
+    const { block_key } = activeBlocks[i];
     const { row, col } = picked[i];
     const hex = '#' + (row * 28 + col).toString(16).toUpperCase().padStart(3, '0');
     const { error } = await supabase
-      .from('mm3_podcast_pixels')
+      .from('mm3_market_blocks')
       .update({ grid_row: row, grid_col: col })
-      .eq('pixel_key', pixel_key);
-    if (error) return NextResponse.json({ error: error.message, at: pixel_key }, { status: 500 });
-    log.push(`${pixel_key} → row ${row} col ${col} = ${hex}`);
+      .eq('block_key', block_key);
+    if (error) return NextResponse.json({ error: error.message, at: block_key }, { status: 500 });
+    log.push(`${block_key} → row ${row} col ${col} = ${hex}`);
   }
 
   return NextResponse.json({ msg: 'shuffle complete', count: activeBlocks.length, positions: log });

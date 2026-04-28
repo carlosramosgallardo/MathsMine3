@@ -87,7 +87,7 @@ export async function GET() {
   const enriched = withEmoji.map(ev => {
     if (ev.emoji) return { wallet: ev.wallet, event_type: ev.event_type, delta_mm3: ev.delta_mm3, created_at: ev.created_at, emoji: ev.emoji }
 
-    if (ev.event_type === 'nftmoji_claim') {
+    if (ev.event_type === 'nftji_claim') {
       const k = ev.wallet
       if (walletIdx[k] == null) walletIdx[k] = 0
       const emojis = emojiMap[k] || []

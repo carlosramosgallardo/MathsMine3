@@ -25,7 +25,7 @@ ALTER TABLE IF EXISTS public.mm3_sell_transactions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS public.mm3_market_events     ENABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS public.api_requests          ENABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS public.mm3_visual_state      ENABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS public.mm3_podcast_pixels    ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS public.mm3_market_blocks    ENABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS public.mm3_market_commands   ENABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS public.mm3_command_penalties ENABLE ROW LEVEL SECURITY;
 
@@ -84,7 +84,7 @@ CREATE POLICY "public_insert_mm3_sell_transactions" ON public.mm3_sell_transacti
 DROP POLICY IF EXISTS "public_read_mm3_market_events"   ON public.mm3_market_events;
 DROP POLICY IF EXISTS "public_insert_mm3_market_events" ON public.mm3_market_events;
 CREATE POLICY "public_read_mm3_market_events"   ON public.mm3_market_events FOR SELECT TO anon USING (true);
-CREATE POLICY "public_insert_mm3_market_events" ON public.mm3_market_events FOR INSERT TO anon WITH CHECK (event_type IN ('life_continue', 'nftmoji_claim', 'market_buy', 'market_resell'));
+CREATE POLICY "public_insert_mm3_market_events" ON public.mm3_market_events FOR INSERT TO anon WITH CHECK (event_type IN ('life_continue', 'nftji_claim', 'market_buy', 'market_resell'));
 
 -- api_requests: read + insert for rate-limiting
 DROP POLICY IF EXISTS "public_read_api_requests"   ON public.api_requests;
@@ -100,18 +100,18 @@ CREATE POLICY "public_read_visual_state"   ON public.mm3_visual_state FOR SELECT
 CREATE POLICY "public_insert_visual_state" ON public.mm3_visual_state FOR INSERT TO anon WITH CHECK (id = 1);
 CREATE POLICY "public_update_visual_state" ON public.mm3_visual_state FOR UPDATE TO anon USING (id = 1) WITH CHECK (id = 1);
 
--- mm3_podcast_pixels: read + update
-DROP POLICY IF EXISTS "public_read_mm3_podcast_pixels"   ON public.mm3_podcast_pixels;
-DROP POLICY IF EXISTS "public_update_mm3_podcast_pixels" ON public.mm3_podcast_pixels;
-CREATE POLICY "public_read_mm3_podcast_pixels"   ON public.mm3_podcast_pixels FOR SELECT TO anon USING (true);
-CREATE POLICY "public_update_mm3_podcast_pixels" ON public.mm3_podcast_pixels FOR UPDATE TO anon USING (true) WITH CHECK (true);
+-- mm3_market_blocks: read + update
+DROP POLICY IF EXISTS "public_read_mm3_market_blocks"   ON public.mm3_market_blocks;
+DROP POLICY IF EXISTS "public_update_mm3_market_blocks" ON public.mm3_market_blocks;
+CREATE POLICY "public_read_mm3_market_blocks"   ON public.mm3_market_blocks FOR SELECT TO anon USING (true);
+CREATE POLICY "public_update_mm3_market_blocks" ON public.mm3_market_blocks FOR UPDATE TO anon USING (true) WITH CHECK (true);
 
 -- mm3_market_commands: read + insert + update (owner can expire their own command on resell)
 DROP POLICY IF EXISTS "public_read_mm3_market_commands"   ON public.mm3_market_commands;
 DROP POLICY IF EXISTS "public_insert_mm3_market_commands" ON public.mm3_market_commands;
 DROP POLICY IF EXISTS "public_update_mm3_market_commands" ON public.mm3_market_commands;
 CREATE POLICY "public_read_mm3_market_commands"   ON public.mm3_market_commands FOR SELECT TO anon USING (true);
-CREATE POLICY "public_insert_mm3_market_commands" ON public.mm3_market_commands FOR INSERT TO anon WITH CHECK (wallet <> '' AND nftmoji_key <> '' AND command <> '');
+CREATE POLICY "public_insert_mm3_market_commands" ON public.mm3_market_commands FOR INSERT TO anon WITH CHECK (wallet <> '' AND nftji_key <> '' AND command <> '');
 CREATE POLICY "public_update_mm3_market_commands" ON public.mm3_market_commands FOR UPDATE TO anon USING (wallet <> '') WITH CHECK (wallet <> '');
 
 -- mm3_command_penalties: read + insert + redeem/update
@@ -119,7 +119,7 @@ DROP POLICY IF EXISTS "public_read_mm3_command_penalties"   ON public.mm3_comman
 DROP POLICY IF EXISTS "public_insert_mm3_command_penalties" ON public.mm3_command_penalties;
 DROP POLICY IF EXISTS "public_update_mm3_command_penalties" ON public.mm3_command_penalties;
 CREATE POLICY "public_read_mm3_command_penalties" ON public.mm3_command_penalties FOR SELECT TO anon USING (true);
-CREATE POLICY "public_insert_mm3_command_penalties" ON public.mm3_command_penalties FOR INSERT TO anon WITH CHECK (wallet <> '' AND nftmoji_key <> '' AND penalty_code <> '');
+CREATE POLICY "public_insert_mm3_command_penalties" ON public.mm3_command_penalties FOR INSERT TO anon WITH CHECK (wallet <> '' AND nftji_key <> '' AND penalty_code <> '');
 CREATE POLICY "public_update_mm3_command_penalties" ON public.mm3_command_penalties FOR UPDATE TO anon USING (true) WITH CHECK (true);
 
 -- ==========================================================
@@ -152,8 +152,8 @@ GRANT INSERT          ON public.api_requests          TO anon;
 GRANT SELECT          ON public.mm3_visual_state      TO anon;
 GRANT INSERT          ON public.mm3_visual_state      TO anon;
 GRANT UPDATE          ON public.mm3_visual_state      TO anon;
-GRANT SELECT          ON public.mm3_podcast_pixels    TO anon;
-GRANT UPDATE          ON public.mm3_podcast_pixels    TO anon;
+GRANT SELECT          ON public.mm3_market_blocks    TO anon;
+GRANT UPDATE          ON public.mm3_market_blocks    TO anon;
 GRANT SELECT, INSERT, UPDATE ON public.mm3_market_commands TO anon;
 GRANT SELECT, INSERT  ON public.mm3_command_penalties TO anon;
 GRANT UPDATE          ON public.mm3_command_penalties TO anon;

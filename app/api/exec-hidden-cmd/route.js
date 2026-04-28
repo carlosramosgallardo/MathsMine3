@@ -25,8 +25,8 @@ export async function POST(req) {
 
   // 1. Look up the pixel with this hidden_command value
   const { data: pixel, error: pixelError } = await supabase
-    .from('mm3_podcast_pixels')
-    .select('pixel_key, emoji, grid_row, grid_col, price_eur, hidden_cmd_min_level')
+    .from('mm3_market_blocks')
+    .select('block_key, emoji, grid_row, grid_col, price_eur, hidden_cmd_min_level')
     .eq('hidden_command', command)
     .maybeSingle();
 
@@ -57,7 +57,7 @@ export async function POST(req) {
   const { data: activeWall } = await supabase
     .from('mm3_market_commands')
     .select('id')
-    .eq('nftmoji_key', pixel.pixel_key)
+    .eq('nftji_key', pixel.block_key)
     .gt('reset_at', nowIso)
     .limit(1)
     .maybeSingle();
@@ -77,7 +77,7 @@ export async function POST(req) {
     .from('mm3_hidden_cmd_executions')
     .select('id')
     .eq('wallet', wallet)
-    .eq('pixel_key', pixel.pixel_key)
+    .eq('block_key', pixel.block_key)
     .gte('executed_at', todayUtc)
     .limit(1)
     .maybeSingle();
@@ -156,7 +156,7 @@ export async function POST(req) {
     .from('mm3_hidden_cmd_executions')
     .insert({
       wallet,
-      pixel_key: pixel.pixel_key,
+      block_key: pixel.block_key,
       amount_eur: totalStolenEur,
     });
 
