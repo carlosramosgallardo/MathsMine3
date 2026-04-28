@@ -1157,6 +1157,11 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
             gap: 0.45rem;
             max-height: calc(100svh - 15.5rem);
           }
+        }
+        @media (max-width: 899px) and (orientation: portrait) {
+          .mm3-irc-shell {
+            max-height: calc(100svh - 17rem);
+          }
           /* Aside: shrink to content, floated above chat */
           .mm3-irc-shell > aside {
             order: -1;
@@ -1345,13 +1350,13 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
 
       <div className="mm3-irc-shell">
         <section className="mm3-irc-panel rounded-sm p-2.5">
-          <div className="mb-2 flex items-center justify-between gap-2 border-b border-cyan-500/12 pb-2 font-mono">
-            <div className="text-[0.80rem] uppercase tracking-[0.16em] text-slate-500">#relay-mainframe</div>
-            <div className="flex items-center gap-3">
-              <span className={`text-[0.75rem] uppercase tracking-[0.16em] ${normalizedWallet ? 'text-cyan-700' : 'text-amber-700/70'}`}>
+          <div className="mb-2 flex items-center justify-between gap-1 border-b border-cyan-500/12 pb-2 font-mono">
+            <div className="shrink-0 text-[0.70rem] sm:text-[0.80rem] uppercase tracking-[0.16em] text-slate-500">#relay-mainframe</div>
+            <div className="flex min-w-0 items-center gap-1.5 sm:gap-3">
+              <span className={`shrink-0 text-[0.65rem] sm:text-[0.75rem] uppercase tracking-[0.16em] ${normalizedWallet ? 'text-cyan-700' : 'text-amber-700/70'}`}>
                 {!normalizedWallet ? t('irc.readOnly') : (relayReady ? t('irc.live') : t('irc.syncing'))}
               </span>
-              <span className={`break-all text-[0.82rem] ${normalizedWallet ? 'text-cyan-200' : 'text-slate-500'}`}>
+              <span className={`truncate text-[0.72rem] sm:text-[0.82rem] ${normalizedWallet ? 'text-cyan-200' : 'text-slate-500'}`}>
                 {formatIrcWalletLabel(actorId)}
               </span>
             </div>
