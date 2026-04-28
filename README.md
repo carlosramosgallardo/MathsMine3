@@ -728,14 +728,13 @@ Both persist level, balances, NTFJIs, DRILL SLOTS bonus, and revive state. Langu
   mm3-value/page.jsx        MM3 value chart route
   trade-mm3/page.jsx        Trade MM3 terminal route
   market/page.jsx           Market board (28×28 grid + detail card)
-  market/[pixelKey]/        Individual block detail page
   market-short/[pixelKey]/  Shareable short URL per Market block
   irc/page.jsx              MM3 Relay IRC terminal
   manifesto/page.jsx        Mission, links to all sections, and legal pointers
   ai-team/page.jsx          @FreakingAI team page (Claude, Codex, entity roster)
   privacy/page.jsx          Privacy Policy (EN/ES, GDPR/CCPA)
   terms/page.jsx            Terms of Use (EN/ES)
-  podcast/page.jsx          Podcast board (legacy route, same as market)
+  podcast/page.jsx          Legacy redirect → /market (preserves old URLs)
   api/
     page.jsx                API documentation page (EN/ES)
     token-value/            GET current MM3 aggregate value
@@ -743,7 +742,6 @@ Both persist level, balances, NTFJIs, DRILL SLOTS bonus, and revive state. Langu
     token-history-minutes/  GET minute-by-minute MM3 for the last hour
     nft-events/             GET all NFTJI / life-continue events with emoji
     leaderboard/            GET paginated leaderboard sorted by level (default 50/page)
-    market-shuffle/         GET randomised Market block order for exploration
     exec-hidden-cmd/        POST execute hidden Market NFTJI command (authenticated)
     nudge-macro/            POST shift war/nature macro state (service role, per-EXEC)
     status/                 GET service health + rate-limit quota
@@ -761,13 +759,17 @@ Both persist level, balances, NTFJIs, DRILL SLOTS bonus, and revive state. Langu
   NavLinks.jsx            Nav links + live total-MM3 nav slot
   AuthBar.jsx             Auth bar + active wallet display (mode: wallet / full)
   ConnectAndPlay.jsx      Wallet connection (Web3Modal + Wagmi)
+  WalletCoreProvider.jsx  Wagmi + Web3Modal provider tree
+  Web3ModalInit.jsx       Web3Modal initialization guard
+  WalletBootstrap.jsx     Wallet state bootstrapper (loads player_progress on connect)
+  RouteShell.jsx          Shell wrapper used by layout-level route pages
+  CookieBanner.jsx        GDPR/CCPA cookie consent banner
   SectionFrame.jsx        Section wrapper with animated accent border
   GlobalRouteLoading.jsx  Navigation overlay loader (mounted at layout level)
   PageLoading.jsx         Freak retro loading overlay / inline loader
   MM3PixelOrbSprite.jsx   Animated pixel orb colored by top-1 wallet
   UtcClock.jsx            Standalone UTC clock with SSR hydration guard
   CurrencySwitcher.jsx    CNY / EUR / USD toggle
-  GoogleSignIn.jsx        Google OAuth button
   LanguageSwitcher.jsx    EN / ES toggle
   SoundToggle.jsx         Sound on/off toggle
   Footer.jsx              Footer
@@ -822,7 +824,7 @@ Both persist level, balances, NTFJIs, DRILL SLOTS bonus, and revive state. Langu
 | `player_progress` | Wallet level, trade balances, revive flag, mining NFTJI flags, `wallet_emojis[]`, current Market NFTJI ownership |
 | `mm3_sell_transactions` | Fictional MM3 sell/buy transactions with full currency breakdown and commission rate |
 | `mm3_market_events` | Global MM3 shocks from NFTJI claims and heart-revives — includes `emoji TEXT` |
-| `mm3_podcast_pixels` | Market NFTJI blocks — fixed grid position, command metadata, price, first-purchase audit |
+| `mm3_market_blocks` | Market NFTJI blocks — fixed grid position, command metadata, price, first-purchase audit |
 | `mm3_market_commands` | Daily global Market command launches, generated numeric codes, launcher wallet, reset window |
 | `mm3_command_penalties` | Per-wallet active/refunded Market command penalties and one-shot numeric-code attempts |
 | `mm3_irc_messages` | Persistent IRC chat log — wallet, text, ts (bigint ms), kind, tone |
@@ -865,7 +867,6 @@ All routes are dynamic (`force-dynamic`), rate-limited at 10 req / 60 s per IP v
 | `/api/token-history-minutes` | GET | Minute-by-minute last 60 min (`s-maxage=30`) |
 | `/api/nft-events` | GET | All NFTJI / life events with resolved emoji (`s-maxage=60`) |
 | `/api/leaderboard` | GET | Paginated leaderboard `?page=1&limit=50` (`s-maxage=30`) |
-| `/api/market-shuffle` | GET | Randomised Market block order for board exploration |
 | `/api/status` | GET | Service health |
 
 ---
