@@ -6,7 +6,7 @@
 
 A retro math-mining portal where timed problem-solving drives a fully simulated crypto economy. Your wallet levels up, your tokens accumulate real-time value, rare NTFJIs drop on lucky answers, and a 28×28 Market block board sells command-linked NFTJI blocks. All fictional. All deterministic. All live.
 
-**v1.0 ships with:** the mining chain · Trade MM3 terminal · Ranking board · MM3 value chart · Market board (784 cells, 10 NFTJI blocks) · IRC social relay · daily DRILL SLOTS system · hourly Dice modifier · War/Nature macro indicators (live-mutated by every trade EXEC) · 13 problem types · 5 rank tiers · bilingual EN/ES · per-route SEO metadata · in-game sound system
+**v1.0 ships with:** the mining chain · Trade MM3 terminal · Ranking board · MM3 value chart · Market board (784 cells, 20 NFTJI blocks) · IRC social relay · daily DRILL SLOTS system · hourly Dice modifier · War/Nature macro indicators (live-mutated by every trade EXEC) · 13 problem types · 5 rank tiers · bilingual EN/ES · per-route SEO metadata · in-game sound system
 
 **Live:** [mathsmine3.xyz](https://mathsmine3.xyz) · [Manifesto](https://mathsmine3.xyz/manifesto) · [API](https://mathsmine3.xyz/api) · [Privacy](https://mathsmine3.xyz/privacy) · [Terms](https://mathsmine3.xyz/terms) · [GitHub](https://github.com/carlosramosgallardo/MathsMine3)
 
@@ -46,7 +46,7 @@ Solve timed math problems to mine MM3 tokens. Faster answers earn more. A wrong 
 
 The global MM3 value reacts to everything: every rare NFTJI claim, every heart revive, every Market buy/resell. A lucky 1/1000 roll can pump the whole economy by 10%. A death revive tanks it by 25%. Other wallets affect your token's worth. The system is alive.
 
-The Market is a 28×28 block board. Ten special NFTJI blocks occupy fixed coordinates — each sellable and resellable. Owning one unlocks a daily IRC command that penalises all competing wallets. Every purchase generates a new mystery block that joins the board forever.
+The Market is a 28×28 block board. Twenty special NFTJI blocks occupy fixed coordinates — ten money-priced blocks and ten MM3-priced blocks. Each is sellable and resellable. Owning one unlocks a daily IRC command that penalises all competing wallets. Every purchase generates a new mystery block that joins the board forever.
 
 The Trade terminal is a fictional tty where you cash out mined MM3 for CNY, EUR, or USD at rates that shift with your rank, the war/nature macro state, and a deterministic hourly Dice modifier (`🎲`).
 
@@ -346,7 +346,9 @@ Each Market NFTJI command that fires in IRC can penalise all wallets not holding
 
 ## 7. Market — NFTJI Blocks
 
-The Market is a **28×28 block board** (784 cells, hex-coded `#000`–`#30F`). Ten special NFTJI blocks occupy fixed positions; new blocks auto-generate as wallets make first purchases. Navigate the board, find a live block, and pay in-game fiat to acquire its NFTJI.
+The Market is a **28×28 block board** (784 cells, hex-coded `#000`–`#30F`). Twenty special NFTJI blocks occupy fixed positions: the original 10 are paid in in-game money, and the 10 MM3 family blocks are paid in MM3 at `1 EUR = 1 MM3`. New blocks auto-generate as wallets make first purchases. Navigate the board, find a live block, and pay the block's rail to acquire its NFTJI.
+
+There is also a second signal layer: hidden Market commands. They are not documented in this README and are not stored in public SQL. Their trail belongs to the upcoming **MathsMine3 Podcast by @FreakingAI** — under construction, signal locked, mainframe whispering.
 
 ### Ownership rules
 
@@ -359,8 +361,8 @@ The Market is a **28×28 block board** (784 cells, hex-coded `#000`–`#30F`). T
 
 1. Select a live block — detail card appears with price, command description, and YouTube short
 2. If you already own a different Market NFTJI, **RESELL it first** — the BUY button is locked until you do
-3. Click **BUY** — in-game fiat balance is debited
-4. The price equivalent in MM3 (at current global rate) is injected into the MM3 pool
+3. Click **BUY** — in-game fiat or available MM3 is debited, depending on the block family
+4. The block's MM3-equivalent amount is injected into the MM3 pool
 5. The NFTJI is added to your wallet
 6. **Auto-generation:** on the first-ever purchase of any block (tracked via `first_purchased_at`), a new placeholder block spawns at a random free cell with a unique emoji drawn from a reserved pool (`MYSTERY_EMOJIS` in `PodcastBoard.jsx`) not used anywhere else in the portal. The placeholder lands in the DB with `is_active: true` but no command data — it needs manual completion in Supabase (title, command formula, `answer_hash`, `min_level`) before it becomes a live purchasable NFTJI. Add new emojis to the pool in `MYSTERY_EMOJIS` when expanding the catalog.
 
@@ -369,26 +371,46 @@ The Market is a **28×28 block board** (784 cells, hex-coded `#000`–`#30F`). T
 From the block detail card, click **RESELL**:
 
 ```
-resellReturn = price × 0.50   (returned to wallet in in-game fiat)
-poolInjection = price × 0.50  (injected as MM3 at current global rate into the pool)
+money block: resellReturn = price × 0.50   (returned to wallet in in-game fiat)
+MM3 block:   resellReturn = price × 0.50   (returned to wallet as MM3)
+poolInjection = price × 0.50  (injected as MM3 into the pool)
 ```
 
-### NFTJI catalog (original 10)
+### NFTJI catalog — money family
 
-| Emoji | Name | HEX | Price | Market command effect | Hidden command effect | Min level |
-|---|---|---:|---:|---|---:|---:|
-| 🛰 | Genesis Uplink | #016 | €1.00 | −€1.00 to all other wallets | Steals €0.10 from all other wallets | 10 |
-| 🌐 | Signal Nexus | #05C | €3.00 | −€3.00 to all other wallets | Steals €0.30 from all other wallets | 20 |
-| 🔭 | Deep Relay | #0B9 | €5.00 | −€5.00 to all other wallets | Steals €0.50 from all other wallets | 30 |
-| 🧬 | Code Strand | #11B | €7.00 | −€7.00 to all other wallets | Steals €0.70 from all other wallets | 40 |
-| 💠 | Fractal Core | #184 | €10.00 | −€10.00 to all other wallets | Steals €1.00 from all other wallets | 50 |
-| ⚡ | Arc Burst | #1E7 | €15.00 | −€15.00 to all other wallets | Steals €1.50 from all other wallets | 60 |
-| 🌀 | Entropy Loop | #244 | €25.00 | −€25.00 to all other wallets | Steals €2.50 from all other wallets | 70 |
-| 🔴 | Null Beacon | #26D | €50.00 | −€50.00 to all other wallets | Steals €5.00 from all other wallets | 80 |
-| ⭐ | Star Protocol | #2CA | €75.00 | −€75.00 to all other wallets | Steals €7.50 from all other wallets | 90 |
-| 💎 | Crystal Forge | #30E | €100.00 | −€100.00 to all other wallets | Steals €10.00 from all other wallets | 100 |
+| Emoji | Name | HEX | Price | Market command effect | Hidden signal |
+|---|---|---:|---:|---|---|
+| 🛰 | Genesis Uplink | #016 | €1.00 | −€1.00 to all other wallets | Podcast reveal pending |
+| 🌐 | Signal Nexus | #05C | €3.00 | −€3.00 to all other wallets | Podcast reveal pending |
+| 🔭 | Deep Relay | #0B9 | €5.00 | −€5.00 to all other wallets | Podcast reveal pending |
+| 🧬 | Code Strand | #11B | €7.00 | −€7.00 to all other wallets | Podcast reveal pending |
+| 💠 | Fractal Core | #184 | €10.00 | −€10.00 to all other wallets | Podcast reveal pending |
+| ⚡ | Arc Burst | #1E7 | €15.00 | −€15.00 to all other wallets | Podcast reveal pending |
+| 🌀 | Entropy Loop | #244 | €25.00 | −€25.00 to all other wallets | Podcast reveal pending |
+| 🔴 | Null Beacon | #26D | €50.00 | −€50.00 to all other wallets | Podcast reveal pending |
+| ⭐ | Star Protocol | #2CA | €75.00 | −€75.00 to all other wallets | Podcast reveal pending |
+| 💎 | Crystal Forge | #30E | €100.00 | −€100.00 to all other wallets | Podcast reveal pending |
 
-When a wallet executes the hidden command, every other eligible wallet loses that amount from its in-game Money balance. The executing wallet receives the total stolen amount.
+Hidden money-family signals exist, but their exact slash commands stay sealed until the @FreakingAI podcast drops the lore. Mechanically, they steal from the in-game Money rail and inject the haul into the executing wallet.
+
+### NFTJI catalog — MM3 family
+
+These 10 are the new MM3 rail: unique emojis, unique `/mm3 ...` Market commands, same numeric ladder as the money family, but denominated as MM3. This is the crypto-freak mirror market: no fiat mask, just raw mined signal.
+
+| Emoji | Name | HEX | Price | Market command effect | Hidden signal |
+|---|---|---:|---:|---|---|
+| 🛸 | Orbit Siphon | #01D | 1 MM3 | −1 MM3 to all other wallets | Podcast reveal pending |
+| 🗝️ | Key Vault | #04A | 3 MM3 | −3 MM3 to all other wallets | Podcast reveal pending |
+| 🛡️ | Shield Fork | #091 | 5 MM3 | −5 MM3 to all other wallets | Podcast reveal pending |
+| 🧨 | Fuse Packet | #0F8 | 7 MM3 | −7 MM3 to all other wallets | Podcast reveal pending |
+| 🪙 | Coin Kernel | #15C | 10 MM3 | −10 MM3 to all other wallets | Podcast reveal pending |
+| 🧰 | Toolchain Cache | #1A6 | 15 MM3 | −15 MM3 to all other wallets | Podcast reveal pending |
+| 🪬 | Mirror Charm | #20B | 25 MM3 | −25 MM3 to all other wallets | Podcast reveal pending |
+| 🪞 | Reflector Gate | #29B | 50 MM3 | −50 MM3 to all other wallets | Podcast reveal pending |
+| 🔋 | Battery Node | #2DA | 75 MM3 | −75 MM3 to all other wallets | Podcast reveal pending |
+| 🎛️ | Mixer Console | #2F9 | 100 MM3 | −100 MM3 to all other wallets | Podcast reveal pending |
+
+Hidden MM3-family signals exist too, but the actual command strings remain off-chain lore for now. Mechanically, they steal from available MM3 and inject the total into the executing wallet.
 
 ### IRC command — how it works
 
@@ -402,20 +424,22 @@ IRC commands use a slash-prefix syntax and are routed client-side — they are n
 
 /?   → lists all available slash commands
 /wall <command>  → fires a Market NFTJI command (validated against active NFTJI)
+/mm3 <command>   → fires an MM3 Market NFTJI command (validated against active NFTJI)
 Unknown slash prefix → error: "unknown command. type /? for help"
 ```
 
 **Launch rules:**
 - Only the wallet currently owning the NFTJI can launch its command
 - Each command can be launched **once per day globally** (not per wallet) — one wallet fires it and it is locked until UTC midnight reset
-- The owning wallet clicks the pre-filled `/wall` link from the block detail → IRC pre-populates the message → wallet hits `send` (EN) / `enviar` (ES) → system processes it
+- The owning wallet clicks the pre-filled `/wall` or `/mm3` link from the block detail → IRC pre-populates the message → wallet hits `send` (EN) / `enviar` (ES) → system processes it
 - On execution the system generates a fresh `x` value, computes the formula result from that `x`, and stores the direct 5-digit formula output as the command's `numeric_code` in the DB
 
 **Penalty rules:**
-- On launch: all wallets in Ranking (connected or not) are penalised by the NFTJI's price in MM3 equivalent, **except:**
+- On launch: all wallets in Ranking (connected or not) are penalised by the NFTJI's price, **except:**
   - The wallet that fired the command
   - Any wallet that currently owns the same NFTJI
-- Maximum daily penalties: 10 (one per NFTJI, assuming all 10 are owned and fired)
+- Money-family commands debit in-game money; MM3-family commands debit available MM3.
+- Maximum daily penalties: 20 (one per NFTJI, assuming all 20 are owned and fired)
 
 **Numeric code redemption:**
 - Affected wallets see the penalty in the Ranking **Block / Pen.** column as a negative blinking value
@@ -426,7 +450,7 @@ Unknown slash prefix → error: "unknown command. type /? for help"
 - Entering wrong code: attempt consumed, penalty remains
 
 **IRC welcome status:**
-When a wallet connects to IRC, the system relay shows the status of all 10 Market NTFJIs: which are currently owned, whether their command has been launched today, and when the reset occurs. For NTFJIs with no active command, the relay lists all eligible launcher wallets in a single line followed by a mystery teaser.
+When a wallet connects to IRC, the system relay shows the status of all 20 Market NTFJIs: which are currently owned, whether their command has been launched today, and when the reset occurs. For NTFJIs with no active command, the relay lists all eligible launcher wallets in a single line followed by a mystery teaser.
 
 ### Block hex numbering
 
@@ -456,7 +480,7 @@ The portal includes an **IRC-style social relay** that makes MM3 feel like a sha
 - **System relay notices** — players see who connects and disconnects in real time (wallet users only)
 - **Market identity layer** — owned Market NTFJIs appear next to the wallets that hold them
 - **Mainframe welcome** — the relay boots with the welcome line stored in `mm3_macro_state`
-- **Market NFTJI status** — the welcome block shows all 10 NTFJIs, their ownership status, whether the command fired today, next reset time, and for idle NTFJIs the list of eligible launcher wallets with a mystery teaser
+- **Market NFTJI status** — the welcome block shows all 20 NTFJIs, their ownership status, whether the command fired today, next reset time, and for idle NTFJIs the list of eligible launcher wallets with a mystery teaser
 - **Command launch** — owning a Market NFTJI lets you fire its daily command from the block detail page; a pre-filled IRC message is waiting for Enter
 
 IRC gives MM3 a social loop. Mining, trading, ranking, collecting, and talking all happen inside the same fictional terminal culture. Wallet presence becomes community presence.
@@ -576,7 +600,7 @@ The ❤️ multiplier (×0.2) stacks destructively — owning the revive nearly 
 
 A separate catalogue of NTFJIs tied to the Market board. These are **buyable by any wallet** (multiple wallets may own the same), but each wallet holds **at most 1 at a time**.
 
-Unlike mining drops, Market NTFJIs are purchased with in-game fiat and are resellable. They do not stack with mining drops in the trade multiplier (modifier system pending implementation). See §7 for the full catalog and mechanics.
+Unlike mining drops, Market NTFJIs are purchased with in-game fiat or MM3 depending on the block family, and are resellable. They do not stack with mining drops in the trade multiplier (modifier system pending implementation). See §7 for the full catalog and mechanics.
 
 ---
 
@@ -672,13 +696,19 @@ poolInjection = price × 0.50   (in MM3 at current global rate)
 ### Market command penalty
 
 ```
-penaltyFiat   = nftji.price_eur
-penaltyMM3    = penaltyFiat / currentMM3Rate
+money family:
+  penaltyFiat = nftji.price_eur
+  penaltyMM3  = penaltyFiat / currentMM3Rate
+
+MM3 family:
+  penaltyMM3  = nftji.price_eur  // interpreted as 1 EUR = 1 MM3
 
 Affected wallets: all in Ranking EXCEPT
   - the wallet that fired the command
   - any wallet currently owning the same NFTJI
 ```
+
+For hidden signals, the exact slash strings are deliberately absent from public docs and public SQL. The reveal path is the upcoming MathsMine3 Podcast by @FreakingAI. Mechanically, the stolen amount is 10% of the same base amount per victim: money-family hidden signals steal money; MM3-family hidden signals steal available MM3.
 
 ### Daily DRILL SLOTS
 
@@ -795,6 +825,7 @@ Both persist level, balances, NTFJIs, DRILL SLOTS bonus, and revive state. Langu
 /sql
   database.sql    Complete schema — tables, views, triggers, RLS, seed data (single source of truth)
   permissions.sql RLS policies + idempotent permission grants (safe to re-run anytime)
+  add_mm3_market_nftjis.sql  Incremental migration for the 10 MM3-priced Market NFTJIs
   reset_full.sql  Full game reset — zeroes all wallet stats, market, penalties, IRC chat history, and MM3 pool while preserving historical chart dates
 
 /supabase
@@ -826,6 +857,7 @@ Both persist level, balances, NTFJIs, DRILL SLOTS bonus, and revive state. Langu
 | `mm3_market_blocks` | Market NFTJI blocks — fixed grid position, command metadata, price, first-purchase audit |
 | `mm3_market_commands` | Daily global Market command launches, generated numeric codes, launcher wallet, reset window |
 | `mm3_command_penalties` | Per-wallet active/refunded Market command penalties and one-shot numeric-code attempts |
+| `mm3_hidden_cmd_executions` | Per-wallet hidden-command execution audit, with money and MM3 stolen amounts |
 | `mm3_irc_messages` | Persistent IRC chat log — wallet, text, ts (bigint ms), kind, tone |
 | `mm3_macro_state` | Singleton: `war_percent`, `nature_percent`, bilingual ticker messages |
 | `mm3_wallet_presence` | Heartbeat table for wallets active in the last ~90 seconds |
@@ -866,6 +898,7 @@ All routes are dynamic (`force-dynamic`), rate-limited at 10 req / 60 s per IP v
 | `/api/token-history-minutes` | GET | Minute-by-minute last 60 min (`s-maxage=30`) |
 | `/api/nft-events` | GET | All NFTJI / life events with resolved emoji (`s-maxage=60`) |
 | `/api/leaderboard` | GET | Paginated leaderboard `?page=1&limit=50` (`s-maxage=30`) |
+| `/api/exec-hidden-cmd` | POST | Execute a DB-validated hidden Market command; money-family commands steal money, MM3-family commands steal available MM3 |
 | `/api/status` | GET | Service health |
 
 ---

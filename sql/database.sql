@@ -20,6 +20,7 @@ DROP FUNCTION IF EXISTS update_leaderboard();
 
 -- Drop tables
 DROP TABLE IF EXISTS mm3_command_penalties CASCADE;
+DROP TABLE IF EXISTS mm3_hidden_cmd_executions CASCADE;
 DROP TABLE IF EXISTS mm3_market_commands CASCADE;
 DROP TABLE IF EXISTS mm3_sell_transactions CASCADE;
 DROP TABLE IF EXISTS mm3_market_events CASCADE;
@@ -237,6 +238,15 @@ CREATE TABLE mm3_command_penalties (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+CREATE TABLE mm3_hidden_cmd_executions (
+  id BIGSERIAL PRIMARY KEY,
+  wallet TEXT NOT NULL,
+  block_key TEXT NOT NULL,
+  amount_eur NUMERIC NOT NULL DEFAULT 0,
+  amount_mm3 NUMERIC NOT NULL DEFAULT 0,
+  executed_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 -- IRC Messages table (permanent — no retention policy)
 CREATE TABLE mm3_irc_messages (
   id BIGSERIAL PRIMARY KEY,
@@ -274,6 +284,7 @@ CREATE INDEX idx_mm3_market_commands_wallet ON mm3_market_commands(wallet);
 CREATE INDEX idx_mm3_market_commands_nftji_key_reset ON mm3_market_commands(nftji_key, reset_at DESC);
 CREATE INDEX idx_mm3_command_penalties_wallet ON mm3_command_penalties(wallet);
 CREATE INDEX idx_mm3_command_penalties_active ON mm3_command_penalties(wallet, reset_at DESC) WHERE redeemed_at IS NULL;
+CREATE INDEX idx_mm3_hidden_cmd_executions_wallet_block ON mm3_hidden_cmd_executions(wallet, block_key, executed_at DESC);
 CREATE INDEX idx_mm3_irc_messages_wallet ON mm3_irc_messages(wallet);
 CREATE INDEX idx_mm3_irc_messages_ts ON mm3_irc_messages(ts DESC);
 CREATE INDEX idx_mm3_irc_messages_created_at ON mm3_irc_messages(created_at DESC);
@@ -446,6 +457,7 @@ ALTER TABLE mm3_visual_state ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mm3_market_blocks ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mm3_market_commands ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mm3_command_penalties ENABLE ROW LEVEL SECURITY;
+ALTER TABLE mm3_hidden_cmd_executions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mm3_irc_messages ENABLE ROW LEVEL SECURITY;
 
 -- ==============================================
@@ -550,6 +562,12 @@ CREATE POLICY "public_insert_mm3_command_penalties" ON mm3_command_penalties FOR
 
 DROP POLICY IF EXISTS "public_update_mm3_command_penalties" ON mm3_command_penalties;
 CREATE POLICY "public_update_mm3_command_penalties" ON mm3_command_penalties FOR UPDATE TO public USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "public_read_mm3_hidden_cmd_executions" ON mm3_hidden_cmd_executions;
+CREATE POLICY "public_read_mm3_hidden_cmd_executions" ON mm3_hidden_cmd_executions FOR SELECT TO public USING (true);
+
+DROP POLICY IF EXISTS "public_insert_mm3_hidden_cmd_executions" ON mm3_hidden_cmd_executions;
+CREATE POLICY "public_insert_mm3_hidden_cmd_executions" ON mm3_hidden_cmd_executions FOR INSERT TO public WITH CHECK (wallet <> '' AND block_key <> '');
 
 -- IRC Messages policies
 DROP POLICY IF EXISTS "public_read_mm3_irc_messages" ON mm3_irc_messages;
@@ -738,6 +756,41 @@ ON CONFLICT (block_key) DO UPDATE SET
   formula_result_5d = EXCLUDED.formula_result_5d,
   updated_at       = NOW();
 
+INSERT INTO mm3_market_blocks (
+  block_key,
+  grid_row,
+  grid_col,
+  emoji,
+  title_en,
+  title_es,
+  answer_hash,
+  price_eur,
+  short_url,
+  is_active
+)
+VALUES
+  ('mm3-01d', 1,  1,  '🛸', 'Orbit Siphon',    'Sifón Orbital',      '', 1,   NULL, TRUE),
+  ('mm3-04a', 2,  18, '🗝️', 'Key Vault',       'Bóveda Llave',       '', 3,   NULL, TRUE),
+  ('mm3-091', 5,  5,  '🛡️', 'Shield Fork',     'Bifurcación Escudo', '', 5,   NULL, TRUE),
+  ('mm3-0f8', 8,  24, '🧨', 'Fuse Packet',     'Paquete Mecha',      '', 7,   NULL, TRUE),
+  ('mm3-15c', 12, 12, '🪙', 'Coin Kernel',     'Kernel Moneda',      '', 10,  NULL, TRUE),
+  ('mm3-1a6', 15, 2,  '🧰', 'Toolchain Cache', 'Caché Toolchain',    '', 15,  NULL, TRUE),
+  ('mm3-20b', 18, 19, '🪬', 'Mirror Charm',    'Amuleto Espejo',     '', 25,  NULL, TRUE),
+  ('mm3-29b', 23, 23, '🪞', 'Reflector Gate',  'Puerta Reflector',   '', 50,  NULL, TRUE),
+  ('mm3-2da', 26, 2,  '🔋', 'Battery Node',    'Nodo Batería',       '', 75,  NULL, TRUE),
+  ('mm3-2f9', 27, 5,  '🎛️', 'Mixer Console',   'Consola Mixer',      '', 100, NULL, TRUE)
+ON CONFLICT (block_key) DO UPDATE SET
+  grid_row             = EXCLUDED.grid_row,
+  grid_col             = EXCLUDED.grid_col,
+  emoji                = EXCLUDED.emoji,
+  title_en             = EXCLUDED.title_en,
+  title_es             = EXCLUDED.title_es,
+  answer_hash          = EXCLUDED.answer_hash,
+  price_eur            = EXCLUDED.price_eur,
+  short_url            = COALESCE(mm3_market_blocks.short_url, EXCLUDED.short_url),
+  is_active            = EXCLUDED.is_active,
+  updated_at           = NOW();
+
 -- Mining question seeds intentionally live outside the tracked repository.
 -- To keep answers out of GitHub, execute the private local seed file after
 -- running this canonical schema:
@@ -761,6 +814,7 @@ GRANT INSERT ON api_requests TO anon;
 GRANT SELECT, UPDATE ON mm3_market_blocks TO anon;
 GRANT SELECT, INSERT ON mm3_market_commands TO anon;
 GRANT SELECT, INSERT, UPDATE ON mm3_command_penalties TO anon;
+GRANT SELECT, INSERT ON mm3_hidden_cmd_executions TO anon;
 GRANT SELECT, INSERT ON mm3_irc_messages TO anon;
 GRANT DELETE ON mm3_irc_messages TO anon;
 GRANT UPDATE ON mm3_visual_state TO anon;

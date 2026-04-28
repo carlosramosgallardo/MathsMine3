@@ -2,6 +2,7 @@ export const dynamic = 'force-dynamic';
 
 import { createClient } from '@supabase/supabase-js';
 import { clampRankLevel } from '@/lib/ranks';
+import { getMarketCommandForKey } from '@/lib/market-commands';
 
 function getBlockHex(row, col) {
   return '#' + ((Number(row) || 0) * 28 + (Number(col) || 0)).toString(16).toUpperCase().padStart(3, '0');
@@ -38,12 +39,13 @@ export async function POST(req) {
   const hex = getBlockHex(block.grid_row, block.grid_col);
   const minLevel = Number(block.hidden_cmd_min_level) || 0;
   const priceEur = Number(block.price_eur) || 0;
+  const isMm3Hidden = getMarketCommandForKey(block.block_key)?.effect === 'mm3';
   const stealPerWallet = priceEur * 0.1;
 
   // 2. Check executor level
   const { data: executorProgress } = await supabase
     .from('player_progress')
-    .select('level, eur_earned, usd_earned, cny_earned')
+    .select('level, mm3_sold, eur_earned, usd_earned, cny_earned')
     .eq('wallet', wallet)
     .maybeSingle();
 
@@ -87,12 +89,17 @@ export async function POST(req) {
   }
 
   // 5. Fetch all other wallets
-  const { data: allProgress, error: progressError } = await supabase
-    .from('player_progress')
-    .select('wallet, eur_earned, usd_earned, cny_earned')
-    .limit(2000);
+  const [{ data: allProgress, error: progressError }, { data: allStats, error: statsError }] = await Promise.all([
+    supabase
+      .from('player_progress')
+      .select('wallet, mm3_sold, eur_earned, usd_earned, cny_earned')
+      .limit(2000),
+    isMm3Hidden
+      ? supabase.from('leaderboard_data').select('wallet, total_eth').limit(2000)
+      : Promise.resolve({ data: [], error: null }),
+  ]);
 
-  if (progressError) {
+  if (progressError || statsError) {
     return Response.json({ ok: false, error: 'db_error' }, { status: 500 });
   }
 
@@ -102,9 +109,30 @@ export async function POST(req) {
 
   // 6. Steal from each victim and sum total
   let totalStolenEur = 0;
+  let totalStolenMm3 = 0;
   const updates = [];
+  const statsByWallet = new Map((allStats || []).map((row) => [
+    String(row.wallet || '').toLowerCase(),
+    Number(row.total_eth) || 0,
+  ]));
 
   for (const victim of victims) {
+    const victimWallet = String(victim.wallet).toLowerCase();
+    if (isMm3Hidden) {
+      const totalMm3 = statsByWallet.get(victimWallet) || 0;
+      const soldMm3 = Number(victim.mm3_sold) || 0;
+      const availableMm3 = Math.max(0, totalMm3 - soldMm3);
+      const steal = Math.min(stealPerWallet, availableMm3);
+      if (steal <= 0) continue;
+      totalStolenMm3 += steal;
+      updates.push({
+        wallet: victimWallet,
+        mm3_sold: soldMm3 + steal,
+        updated_at: nowIso,
+      });
+      continue;
+    }
+
     const curEur = Number(victim.eur_earned) || 0;
     const curUsd = Number(victim.usd_earned) || 0;
     const curCny = Number(victim.cny_earned) || 0;
@@ -115,7 +143,7 @@ export async function POST(req) {
     if (steal <= 0) continue;
     totalStolenEur += steal;
     updates.push({
-      wallet: String(victim.wallet).toLowerCase(),
+      wallet: victimWallet,
       eur_earned: curEur - steal,
       usd_earned: curUsd - steal * ratioUsd,
       cny_earned: curCny - steal * ratioCny,
@@ -134,22 +162,32 @@ export async function POST(req) {
   }
 
   // 8. Add total stolen to executor
-  const execEur = Number(executorProgress?.eur_earned) || 0;
-  const execUsd = Number(executorProgress?.usd_earned) || 0;
-  const execCny = Number(executorProgress?.cny_earned) || 0;
-  const eurRatio = execEur !== 0 ? 1 : 1;
-  const usdRatio = execEur !== 0 ? execUsd / execEur : 0;
-  const cnyRatio = execEur !== 0 ? execCny / execEur : 0;
+  if (isMm3Hidden) {
+    const execSoldMm3 = Number(executorProgress?.mm3_sold) || 0;
+    await supabase
+      .from('player_progress')
+      .upsert({
+        wallet,
+        mm3_sold: execSoldMm3 - totalStolenMm3,
+        updated_at: nowIso,
+      }, { onConflict: 'wallet', ignoreDuplicates: false });
+  } else {
+    const execEur = Number(executorProgress?.eur_earned) || 0;
+    const execUsd = Number(executorProgress?.usd_earned) || 0;
+    const execCny = Number(executorProgress?.cny_earned) || 0;
+    const usdRatio = execEur !== 0 ? execUsd / execEur : 0;
+    const cnyRatio = execEur !== 0 ? execCny / execEur : 0;
 
-  await supabase
-    .from('player_progress')
-    .upsert({
-      wallet,
-      eur_earned: execEur + totalStolenEur,
-      usd_earned: execUsd + totalStolenEur * usdRatio,
-      cny_earned: execCny + totalStolenEur * cnyRatio,
-      updated_at: nowIso,
-    }, { onConflict: 'wallet', ignoreDuplicates: false });
+    await supabase
+      .from('player_progress')
+      .upsert({
+        wallet,
+        eur_earned: execEur + totalStolenEur,
+        usd_earned: execUsd + totalStolenEur * usdRatio,
+        cny_earned: execCny + totalStolenEur * cnyRatio,
+        updated_at: nowIso,
+      }, { onConflict: 'wallet', ignoreDuplicates: false });
+  }
 
   // 9. Record execution
   await supabase
@@ -158,10 +196,13 @@ export async function POST(req) {
       wallet,
       block_key: block.block_key,
       amount_eur: totalStolenEur,
+      amount_mm3: totalStolenMm3,
     });
 
   // 10. Build trace text (both languages, client picks)
-  const amountStr = `€${totalStolenEur.toFixed(2)}`;
+  const amountStr = isMm3Hidden
+    ? `${totalStolenMm3.toFixed(8).replace(/\.?0+$/, '') || '0'} MM3`
+    : `€${totalStolenEur.toFixed(2)}`;
   const shortWallet = `${wallet.slice(0, 8)}…${wallet.slice(-6)}`;
   const traceEn = `System hacked by ${shortWallet} via ${hex} "${command}" ${block.emoji} — ${amountStr} injected into wallet.`;
   const traceEs = `Sistema hackeado por ${shortWallet} vía ${hex} "${command}" ${block.emoji} Se ha inyectado ${amountStr} en su wallet.`;
@@ -171,6 +212,7 @@ export async function POST(req) {
     trace_en: traceEn,
     trace_es: traceEs,
     amount_eur: totalStolenEur,
+    amount_mm3: totalStolenMm3,
     victims_count: updates.length,
   });
 }

@@ -911,7 +911,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
       const [{ data: launcher }, { data: existingCommand }, { data: blockRow }] = await Promise.all([
         supabase
           .from('player_progress')
-          .select('wallet, market_nftji_key')
+          .select('wallet, market_nftji_key, mm3_sold')
           .eq('wallet', normalizedWallet)
           .maybeSingle(),
         supabase
@@ -960,39 +960,85 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
         .single();
       if (commandError) throw commandError;
 
-      const { data: allProgress, error: progressError } = await supabase
-        .from('player_progress')
-        .select('wallet, level, market_nftji_key, eur_earned, usd_earned, cny_earned')
-        .limit(1000);
+      const [{ data: allProgress, error: progressError }, { data: allStats, error: statsError }] = await Promise.all([
+        supabase
+          .from('player_progress')
+          .select('wallet, level, market_nftji_key, eur_earned, usd_earned, cny_earned, mm3_sold')
+          .limit(1000),
+        supabase
+          .from('leaderboard_data')
+          .select('wallet, total_eth')
+          .limit(1000),
+      ]);
       if (progressError) throw new Error(`allProgress: ${progressError.message}`);
+      if (statsError) throw new Error(`allStats: ${statsError.message}`);
 
       const priceEur = Number(blockRow.price_eur) || 0;
       const priceUsd = priceEur * (CNY_TO_USD / CNY_TO_EUR);
       const priceCny = priceEur / CNY_TO_EUR;
+      const isMm3Command = commandEntry.effect === 'mm3';
+      const statsByWallet = new Map((allStats || []).map((row) => [
+        String(row.wallet || '').toLowerCase(),
+        Number(row.total_eth) || 0,
+      ]));
       const penalties = [];
       const balanceUpdates = [];
+      let totalStolenMm3 = 0;
 
       for (const row of allProgress || []) {
         const wallet = String(row.wallet || '').toLowerCase();
         if (!wallet || wallet === normalizedWallet) continue;
         if (row.market_nftji_key === commandEntry.key) continue;
-        const rateCny = getSellRateCny(Number(row.level) || 0);
-        const penaltyMm3 = rateCny > 0 ? priceEur / (rateCny * CNY_TO_EUR) : 0;
-        penalties.push({
-          wallet,
-          command_id: insertedCommand?.id || null,
-          nftji_key: commandEntry.key,
-          penalty_code: code,
-          penalty_value: penaltyMm3,
-          penalty_eur: priceEur,
-          reason: `${blockRow.emoji || commandEntry.emoji} ${blockRow.title_en || commandEntry.key}`,
-          reset_at: dayWindow.resetAt,
-        });
+        if (isMm3Command) {
+          const totalMm3 = statsByWallet.get(wallet) || 0;
+          const soldMm3 = Number(row.mm3_sold) || 0;
+          const availableMm3 = Math.max(0, totalMm3 - soldMm3);
+          const stolenMm3 = Math.min(priceEur, availableMm3);
+          if (stolenMm3 <= 0) continue;
+          totalStolenMm3 += stolenMm3;
+          penalties.push({
+            wallet,
+            command_id: insertedCommand?.id || null,
+            nftji_key: commandEntry.key,
+            penalty_code: code,
+            penalty_value: stolenMm3,
+            penalty_eur: 0,
+            reason: `${blockRow.emoji || commandEntry.emoji} ${blockRow.title_en || commandEntry.key}`,
+            reset_at: dayWindow.resetAt,
+          });
+          balanceUpdates.push({
+            wallet,
+            mm3_sold: soldMm3 + stolenMm3,
+            updated_at: new Date().toISOString(),
+          });
+        } else {
+          const rateCny = getSellRateCny(Number(row.level) || 0);
+          const penaltyMm3 = rateCny > 0 ? priceEur / (rateCny * CNY_TO_EUR) : 0;
+          penalties.push({
+            wallet,
+            command_id: insertedCommand?.id || null,
+            nftji_key: commandEntry.key,
+            penalty_code: code,
+            penalty_value: penaltyMm3,
+            penalty_eur: priceEur,
+            reason: `${blockRow.emoji || commandEntry.emoji} ${blockRow.title_en || commandEntry.key}`,
+            reset_at: dayWindow.resetAt,
+          });
+          balanceUpdates.push({
+            wallet,
+            eur_earned: (Number(row.eur_earned) || 0) - priceEur,
+            usd_earned: (Number(row.usd_earned) || 0) - priceUsd,
+            cny_earned: (Number(row.cny_earned) || 0) - priceCny,
+            updated_at: new Date().toISOString(),
+          });
+        }
+      }
+
+      if (isMm3Command && totalStolenMm3 > 0) {
+        const launcherSoldMm3 = Number(launcher?.mm3_sold) || 0;
         balanceUpdates.push({
-          wallet,
-          eur_earned: (Number(row.eur_earned) || 0) - priceEur,
-          usd_earned: (Number(row.usd_earned) || 0) - priceUsd,
-          cny_earned: (Number(row.cny_earned) || 0) - priceCny,
+          wallet: normalizedWallet,
+          mm3_sold: launcherSoldMm3 - totalStolenMm3,
           updated_at: new Date().toISOString(),
         });
       }
@@ -1043,13 +1089,13 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
         appendMessage(makeMessage({
           id: `sys:help:${Date.now()}`,
           kind: 'system', wallet: 'system', ts: Date.now(), tone: 'accent',
-          text: '// cmd index :: /wall [freakingAI@MM3] solve => <formula>  →  launch NFTJI market signal (holder only) ·· /?  →  this index',
+          text: '// cmd index :: /wall [freakingAI@MM3] solve => <formula>  →  money Market signal ·· /mm3 [freakingAI@MM3] siphon => <formula>  →  MM3 Market signal ·· /?  →  this index',
         }), { silent: true });
         return;
       }
 
-      // /wall — market command or unauthorized broadcast
-      if (cmdName === 'wall') {
+      // /wall and /mm3 — market commands or unauthorized broadcast
+      if (cmdName === 'wall' || cmdName === 'mm3') {
         const handled = await processMarketCommand(text);
         if (!handled) {
           await broadcastSystemMessage(`${IRC_ADMIN_LABEL}:~$ ${t('irc.wallPrompt')}`, 'accent');

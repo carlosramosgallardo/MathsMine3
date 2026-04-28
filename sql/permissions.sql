@@ -28,6 +28,7 @@ ALTER TABLE IF EXISTS public.mm3_visual_state      ENABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS public.mm3_market_blocks    ENABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS public.mm3_market_commands   ENABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS public.mm3_command_penalties ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS public.mm3_hidden_cmd_executions ENABLE ROW LEVEL SECURITY;
 
 -- ==========================================================
 -- 2. RLS POLICIES  (drop+create = idempotent)
@@ -122,6 +123,12 @@ CREATE POLICY "public_read_mm3_command_penalties" ON public.mm3_command_penaltie
 CREATE POLICY "public_insert_mm3_command_penalties" ON public.mm3_command_penalties FOR INSERT TO anon WITH CHECK (wallet <> '' AND nftji_key <> '' AND penalty_code <> '');
 CREATE POLICY "public_update_mm3_command_penalties" ON public.mm3_command_penalties FOR UPDATE TO anon USING (true) WITH CHECK (true);
 
+-- mm3_hidden_cmd_executions: read + insert
+DROP POLICY IF EXISTS "public_read_mm3_hidden_cmd_executions" ON public.mm3_hidden_cmd_executions;
+DROP POLICY IF EXISTS "public_insert_mm3_hidden_cmd_executions" ON public.mm3_hidden_cmd_executions;
+CREATE POLICY "public_read_mm3_hidden_cmd_executions" ON public.mm3_hidden_cmd_executions FOR SELECT TO anon USING (true);
+CREATE POLICY "public_insert_mm3_hidden_cmd_executions" ON public.mm3_hidden_cmd_executions FOR INSERT TO anon WITH CHECK (wallet <> '' AND block_key <> '');
+
 -- ==========================================================
 -- 3. GRANTS to anon role
 -- ==========================================================
@@ -157,6 +164,7 @@ GRANT UPDATE          ON public.mm3_market_blocks    TO anon;
 GRANT SELECT, INSERT, UPDATE ON public.mm3_market_commands TO anon;
 GRANT SELECT, INSERT  ON public.mm3_command_penalties TO anon;
 GRANT UPDATE          ON public.mm3_command_penalties TO anon;
+GRANT SELECT, INSERT  ON public.mm3_hidden_cmd_executions TO anon;
 
 -- Views
 GRANT SELECT ON public.top_positive_miner     TO anon;

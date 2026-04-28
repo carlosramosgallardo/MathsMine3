@@ -121,6 +121,16 @@ const CATALOG_BLOCKS = [
   { block_key: 'mm3-26d', grid_row: 22, grid_col: 5,  emoji: '🔴', title_en: 'Null Beacon',     title_es: 'Baliza Nula',        price_eur: 50,  short_url: '', is_active: true },
   { block_key: 'mm3-2ca', grid_row: 25, grid_col: 14, emoji: '⭐', title_en: 'Star Protocol',   title_es: 'Protocolo Estelar',  price_eur: 75,  short_url: '', is_active: true },
   { block_key: 'mm3-30e', grid_row: 27, grid_col: 26, emoji: '💎', title_en: 'Crystal Forge',   title_es: 'Forja Cristal',      price_eur: 100, short_url: '', is_active: true },
+  { block_key: 'mm3-01d', grid_row: 1,  grid_col: 1,  emoji: '🛸', title_en: 'Orbit Siphon',    title_es: 'Sifón Orbital',      price_eur: 1,   short_url: '', is_active: true },
+  { block_key: 'mm3-04a', grid_row: 2,  grid_col: 18, emoji: '🗝️', title_en: 'Key Vault',       title_es: 'Bóveda Llave',       price_eur: 3,   short_url: '', is_active: true },
+  { block_key: 'mm3-091', grid_row: 5,  grid_col: 5,  emoji: '🛡️', title_en: 'Shield Fork',     title_es: 'Bifurcación Escudo', price_eur: 5,   short_url: '', is_active: true },
+  { block_key: 'mm3-0f8', grid_row: 8,  grid_col: 24, emoji: '🧨', title_en: 'Fuse Packet',     title_es: 'Paquete Mecha',      price_eur: 7,   short_url: '', is_active: true },
+  { block_key: 'mm3-15c', grid_row: 12, grid_col: 12, emoji: '🪙', title_en: 'Coin Kernel',     title_es: 'Kernel Moneda',      price_eur: 10,  short_url: '', is_active: true },
+  { block_key: 'mm3-1a6', grid_row: 15, grid_col: 2,  emoji: '🧰', title_en: 'Toolchain Cache', title_es: 'Caché Toolchain',    price_eur: 15,  short_url: '', is_active: true },
+  { block_key: 'mm3-20b', grid_row: 18, grid_col: 19, emoji: '🪬', title_en: 'Mirror Charm',    title_es: 'Amuleto Espejo',     price_eur: 25,  short_url: '', is_active: true },
+  { block_key: 'mm3-29b', grid_row: 23, grid_col: 23, emoji: '🪞', title_en: 'Reflector Gate',  title_es: 'Puerta Reflector',   price_eur: 50,  short_url: '', is_active: true },
+  { block_key: 'mm3-2da', grid_row: 26, grid_col: 2,  emoji: '🔋', title_en: 'Battery Node',    title_es: 'Nodo Batería',       price_eur: 75,  short_url: '', is_active: true },
+  { block_key: 'mm3-2f9', grid_row: 27, grid_col: 5,  emoji: '🎛️', title_en: 'Mixer Console',   title_es: 'Consola Mixer',      price_eur: 100, short_url: '', is_active: true },
 ];
 
 const CATALOG_KEY_SET = new Set(CATALOG_BLOCKS.map((b) => b.block_key));
@@ -428,20 +438,26 @@ export default function PodcastBoard({ account, isVirtualWallet = false }) {
   }, [blockMap, selectedKey]);
 
   const selectedBlock = blockMap.get(selectedKey) || mergedBlocks[0];
+  const selectedMarketCommand = !selectedBlock?.isPlaceholder
+    ? getMarketCommandForKey(selectedBlock?.block_key)
+    : null;
+  const isMm3MarketBlock = selectedMarketCommand?.payment === 'mm3';
   const priceEur = Number(selectedBlock?.price_eur) || 0;
   const priceUsd = toUsdFromEur(priceEur);
   const priceCny = toCnyFromEur(priceEur);
-  const displayPrice =
-    currency === 'USD'
+  const displayPrice = isMm3MarketBlock
+    ? `${priceEur.toFixed(8).replace(/\.?0+$/, '') || '0'} MM3`
+    : currency === 'USD'
       ? formatMoney(priceUsd, 'USD')
       : currency === 'CNY'
         ? formatMoney(priceCny, 'CNY')
         : formatMoney(priceEur, 'EUR');
 
   const activeFunds = Number(walletState.funds[currency] || 0);
+  const availableMm3 = Math.max(0, Number(walletState.totalMm3 || 0) - Number(walletState.mm3Sold || 0));
   const activePrice =
     currency === 'USD' ? priceUsd : currency === 'CNY' ? priceCny : priceEur;
-  const enoughFunds = activeFunds >= activePrice;
+  const enoughFunds = isMm3MarketBlock ? availableMm3 >= priceEur : activeFunds >= activePrice;
 
   const ownsSelected = Boolean(account) && walletState.marketNFTJIKey === selectedBlock?.block_key;
   const hasOtherNFTJI = Boolean(account) && Boolean(walletState.marketNFTJIKey) && walletState.marketNFTJIKey !== selectedBlock?.block_key;
@@ -466,9 +482,6 @@ export default function PodcastBoard({ account, isVirtualWallet = false }) {
   const currentOwners = Array.isArray(selectedBlock?.current_owners) ? selectedBlock.current_owners : [];
   const hasCurrentOwners = currentOwners.length > 0;
   const selectedBlockHex = getBlockHex(selectedBlock?.grid_row ?? 0, selectedBlock?.grid_col ?? 0);
-  const selectedMarketCommand = !selectedBlock?.isPlaceholder
-    ? getMarketCommandForKey(selectedBlock?.block_key)
-    : null;
   const activePenaltyValue = Number(activePenalty?.penalty_value) || 0;
   const canRedeemPenalty =
     Boolean(account) &&
@@ -527,17 +540,24 @@ export default function PodcastBoard({ account, isVirtualWallet = false }) {
       const priceE = Number(blockRow.price_eur) || 0;
       const priceU = toUsdFromEur(priceE);
       const priceC = toCnyFromEur(priceE);
+      const paysWithMm3 = getMarketCommandForKey(selectedBlock.block_key)?.payment === 'mm3';
 
       const fundsEur = Number(progressRow?.eur_earned) || 0;
       const fundsUsd = Number(progressRow?.usd_earned) || 0;
       const fundsCny = Number(progressRow?.cny_earned) || 0;
       const activePriceCheck = currency === 'USD' ? priceU : currency === 'CNY' ? priceC : priceE;
       const activeFundsCheck = currency === 'USD' ? fundsUsd : currency === 'CNY' ? fundsCny : fundsEur;
-      if (activeFundsCheck < activePriceCheck) { notify(t('podcast.fundsLow'), 'error'); return; }
 
       const level = Math.max(0, Math.min(100, Number(progressRow?.level) || 0));
       const soldMm3 = Number(progressRow?.mm3_sold) || 0;
       const totalMm3 = Number(statsRow?.total_eth) || 0;
+      const availableMm3Live = Math.max(0, totalMm3 - soldMm3);
+      if (paysWithMm3) {
+        if (availableMm3Live < priceE) { notify(t('podcast.fundsLow'), 'error'); return; }
+      } else if (activeFundsCheck < activePriceCheck) {
+        notify(t('podcast.fundsLow'), 'error');
+        return;
+      }
       const currentDecorations = normalizeWalletDecorations(progressRow?.wallet_emojis);
 
       if (progressRow?.market_nftji_key && progressRow.market_nftji_key !== selectedBlock.block_key) {
@@ -549,13 +569,15 @@ export default function PodcastBoard({ account, isVirtualWallet = false }) {
       let newFundsUsd = fundsUsd;
       let newFundsCny = fundsCny;
 
-      // Deduct buy price
-      newFundsEur -= priceE;
-      newFundsUsd -= priceU;
-      newFundsCny -= priceC;
+      // Deduct buy price from the block's payment rail.
+      if (!paysWithMm3) {
+        newFundsEur -= priceE;
+        newFundsUsd -= priceU;
+        newFundsCny -= priceC;
+      }
 
       const rateCny = getSellRateCny(level);
-      const buyDelta = priceE / (rateCny * CNY_TO_EUR);
+      const buyDelta = paysWithMm3 ? priceE : priceE / (rateCny * CNY_TO_EUR);
       const liveQuote = getSellQuote(level, Math.max(0, totalMm3 - soldMm3), currentDecorations);
       const now = new Date().toISOString();
 
@@ -564,7 +586,7 @@ export default function PodcastBoard({ account, isVirtualWallet = false }) {
         .upsert({
           wallet,
           level,
-          mm3_sold: soldMm3,
+          mm3_sold: paysWithMm3 ? soldMm3 + priceE : soldMm3,
           eur_earned: newFundsEur,
           usd_earned: newFundsUsd,
           cny_earned: newFundsCny,
@@ -649,13 +671,14 @@ export default function PodcastBoard({ account, isVirtualWallet = false }) {
       const returnEur = oldPrice * 0.5;
       const returnUsd = toUsdFromEur(returnEur);
       const returnCny = toCnyFromEur(returnEur);
+      const paysWithMm3 = getMarketCommandForKey(progressRow.market_nftji_key)?.payment === 'mm3';
 
       const fundsEur = Number(progressRow.eur_earned) || 0;
       const fundsUsd = Number(progressRow.usd_earned) || 0;
       const fundsCny = Number(progressRow.cny_earned) || 0;
 
       const rateCny = getSellRateCny(level);
-      const resellDelta = returnEur / (rateCny * CNY_TO_EUR);
+      const resellDelta = paysWithMm3 ? returnEur : returnEur / (rateCny * CNY_TO_EUR);
       const liveQuote = getSellQuote(level, Math.max(0, totalMm3 - soldMm3), currentDecorations);
       const now = new Date().toISOString();
 
@@ -664,10 +687,10 @@ export default function PodcastBoard({ account, isVirtualWallet = false }) {
         .upsert({
           wallet,
           level,
-          mm3_sold: soldMm3,
-          eur_earned: fundsEur + returnEur,
-          usd_earned: fundsUsd + returnUsd,
-          cny_earned: fundsCny + returnCny,
+          mm3_sold: paysWithMm3 ? Math.max(0, soldMm3 - returnEur) : soldMm3,
+          eur_earned: paysWithMm3 ? fundsEur : fundsEur + returnEur,
+          usd_earned: paysWithMm3 ? fundsUsd : fundsUsd + returnUsd,
+          cny_earned: paysWithMm3 ? fundsCny : fundsCny + returnCny,
           wallet_emojis: currentDecorations,
           life_used: Boolean(progressRow.life_used),
           lucky_50_claimed: Boolean(progressRow.lucky_50_claimed),
@@ -707,7 +730,10 @@ export default function PodcastBoard({ account, isVirtualWallet = false }) {
         emoji: String(resoldBlock?.emoji || resoldKey),
       });
 
-      notify(`${t('podcast.resellSuccess')} ${formatMoney(returnEur, 'EUR')}`, 'success');
+      notify(
+        `${t('podcast.resellSuccess')} ${paysWithMm3 ? `${returnEur.toFixed(8).replace(/\.?0+$/, '') || '0'} MM3` : formatMoney(returnEur, 'EUR')}`,
+        'success'
+      );
 
       if (typeof window !== 'undefined') {
         localStorage.setItem('lb_dirty_at', String(Date.now()));
@@ -752,22 +778,30 @@ export default function PodcastBoard({ account, isVirtualWallet = false }) {
       if (isCorrect && account) {
         const wallet = account.toLowerCase();
         const refundEur = Number(activePenalty.penalty_eur) || 0;
+        const refundMm3 = Number(activePenalty.penalty_value) || 0;
         const refundUsd = toUsdFromEur(refundEur);
         const refundCny = toCnyFromEur(refundEur);
         const { data: progressRow } = await supabase
           .from('player_progress')
-          .select('eur_earned, usd_earned, cny_earned')
+          .select('mm3_sold, eur_earned, usd_earned, cny_earned')
           .eq('wallet', wallet)
           .maybeSingle();
+        const refundPayload = refundEur > 0
+          ? {
+              wallet,
+              eur_earned: (Number(progressRow?.eur_earned) || 0) + refundEur,
+              usd_earned: (Number(progressRow?.usd_earned) || 0) + refundUsd,
+              cny_earned: (Number(progressRow?.cny_earned) || 0) + refundCny,
+              updated_at: new Date().toISOString(),
+            }
+          : {
+              wallet,
+              mm3_sold: Math.max(0, (Number(progressRow?.mm3_sold) || 0) - refundMm3),
+              updated_at: new Date().toISOString(),
+            };
         await supabase
           .from('player_progress')
-          .upsert({
-            wallet,
-            eur_earned: (Number(progressRow?.eur_earned) || 0) + refundEur,
-            usd_earned: (Number(progressRow?.usd_earned) || 0) + refundUsd,
-            cny_earned: (Number(progressRow?.cny_earned) || 0) + refundCny,
-            updated_at: new Date().toISOString(),
-          }, { onConflict: 'wallet', ignoreDuplicates: false });
+          .upsert(refundPayload, { onConflict: 'wallet', ignoreDuplicates: false });
       }
 
       notify(isCorrect ? t('podcast.numericSuccess') : t('podcast.numericWrong'), isCorrect ? 'success' : 'error');
