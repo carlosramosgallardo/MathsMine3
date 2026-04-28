@@ -229,6 +229,7 @@ CREATE TABLE mm3_command_penalties (
   command_id BIGINT REFERENCES mm3_market_commands(id) ON DELETE CASCADE,
   nftji_key TEXT NOT NULL DEFAULT '',
   penalty_code TEXT NOT NULL,
+  penalty_effect TEXT NOT NULL DEFAULT 'money' CHECK (penalty_effect IN ('money', 'mm3')),
   penalty_value NUMERIC NOT NULL DEFAULT 0,
   penalty_eur NUMERIC NOT NULL DEFAULT 0,
   reason TEXT,
