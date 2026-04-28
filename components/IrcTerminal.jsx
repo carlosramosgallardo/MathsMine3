@@ -7,9 +7,9 @@ import { useActiveWallet } from '@/lib/use-active-wallet';
 import { useSound } from '@/lib/sound-context';
 import { CNY_TO_EUR, CNY_TO_USD, getSellRateCny } from '@/lib/sell-offer';
 import {
-  MARKET_COMMANDS,
   computeMarketCommandCode,
-  findMarketCommandByText,
+  marketCommandFromBlock,
+  normalizeCommandText,
   getUtcDayWindow,
 } from '@/lib/market-commands';
 import { useIrcPresence } from '@/lib/irc-presence-context';
@@ -314,7 +314,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
             .gt('reset_at', nowIso),
           supabase
             .from('mm3_market_blocks')
-            .select('block_key, emoji, grid_row, grid_col'),
+            .select('block_key, emoji, grid_row, grid_col, title_en, title_es, price_eur, market_command, is_active'),
         ]);
 
         const dbMessages = ircRes.data || [];
@@ -333,15 +333,17 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
           if (!key) continue;
           ownerCountByKey.set(key, (ownerCountByKey.get(key) || 0) + 1);
         }
-        const blockByKey = new Map((blocksData || []).map((entry) => [entry.block_key, entry]));
+        const blocks = blocksData || [];
+        const blockByKey = new Map(blocks.map((entry) => [entry.block_key, entry]));
         blockByKeyRef.current = blockByKey;
+        const marketCommandEntries = blocks.map(marketCommandFromBlock).filter(Boolean);
         const commandByKey = new Map();
         for (const entry of commandsData || []) {
           if (entry.nftji_key && entry.reset_at) commandByKey.set(entry.nftji_key, entry);
         }
 
         const shortWallet = (w) => w ? `${String(w).slice(0, 6)}...${String(w).slice(-4)}` : '';
-        const ownedEntries = MARKET_COMMANDS.filter((entry) => (ownerCountByKey.get(entry.key) || 0) > 0);
+        const ownedEntries = marketCommandEntries.filter((entry) => (ownerCountByKey.get(entry.key) || 0) > 0);
         const ownedKeys = new Set(ownedEntries.map((e) => e.key));
 
         for (const entry of ownedEntries) {
@@ -367,7 +369,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
 
         for (const [key, command] of commandByKey.entries()) {
           if (ownedKeys.has(key)) continue;
-          const fallback = MARKET_COMMANDS.find((e) => e.key === key);
+          const fallback = marketCommandEntries.find((e) => e.key === key);
           const block = blockByKey.get(key);
           const emoji = block?.emoji || fallback?.emoji || '?';
           const hex = block ? getBlockHex(block.grid_row, block.grid_col) : key;
@@ -689,7 +691,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
           .gt('reset_at', nowIso),
         supabase
           .from('mm3_market_blocks')
-          .select('block_key, emoji, grid_row, grid_col'),
+          .select('block_key, emoji, grid_row, grid_col, title_en, title_es, price_eur, market_command, is_active'),
       ]);
 
       const ownerCountByKey = new Map();
@@ -698,15 +700,17 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
         if (!key) continue;
         ownerCountByKey.set(key, (ownerCountByKey.get(key) || 0) + 1);
       }
-      const blockByKey = new Map((blocksData || []).map((entry) => [entry.block_key, entry]));
+      const blocks = blocksData || [];
+      const blockByKey = new Map(blocks.map((entry) => [entry.block_key, entry]));
       blockByKeyRef.current = blockByKey;
+      const marketCommandEntries = blocks.map(marketCommandFromBlock).filter(Boolean);
       const commandByKey = new Map();
       for (const entry of commandsData || []) {
         if (entry.nftji_key && entry.reset_at) commandByKey.set(entry.nftji_key, entry);
       }
 
       const shortWallet = (w) => w ? `${String(w).slice(0, 6)}...${String(w).slice(-4)}` : '';
-      const ownedEntries = MARKET_COMMANDS.filter((entry) => (ownerCountByKey.get(entry.key) || 0) > 0);
+      const ownedEntries = marketCommandEntries.filter((entry) => (ownerCountByKey.get(entry.key) || 0) > 0);
       const ownedKeys = new Set(ownedEntries.map((e) => e.key));
 
       for (const entry of ownedEntries) {
@@ -732,7 +736,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
 
       for (const [key, command] of commandByKey.entries()) {
         if (ownedKeys.has(key)) continue;
-        const fallback = MARKET_COMMANDS.find((e) => e.key === key);
+        const fallback = marketCommandEntries.find((e) => e.key === key);
         const block = blockByKey.get(key);
         const emoji = block?.emoji || fallback?.emoji || '?';
         const hex = block ? getBlockHex(block.grid_row, block.grid_col) : key;
@@ -786,11 +790,11 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
   useEffect(() => {
     const resolveBlock = (nftjiKey) => {
       const block = blockByKeyRef.current.get(nftjiKey);
-      const fallback = MARKET_COMMANDS.find((e) => e.key === nftjiKey);
+      const fallback = marketCommandFromBlock(block);
       return {
         emoji: block?.emoji || fallback?.emoji || '?',
         hex: block ? getBlockHex(block.grid_row, block.grid_col) : nftjiKey,
-        formula: getCommandFormula(fallback?.command),
+        formula: getCommandFormula(block?.market_command || fallback?.command),
       };
     };
 
@@ -899,8 +903,61 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
     } catch {}
   }, [appendMessage]);
 
+  const loadMarketCommandEntries = useCallback(async () => {
+    const { data, error } = await supabase
+      .from('mm3_market_blocks')
+      .select('block_key, emoji, grid_row, grid_col, title_en, title_es, price_eur, market_command, is_active')
+      .not('market_command', 'is', null);
+    if (error) throw error;
+    return (data || [])
+      .map(marketCommandFromBlock)
+      .filter(Boolean);
+  }, []);
+
+  const findMarketCommandInDb = useCallback(async (text) => {
+    const normalized = normalizeCommandText(text);
+    const entries = await loadMarketCommandEntries();
+    return entries.find((entry) => normalizeCommandText(entry.command) === normalized) || null;
+  }, [loadMarketCommandEntries]);
+
+  const showMarketCommandHelp = useCallback(async () => {
+    try {
+      const entries = await loadMarketCommandEntries();
+      const helpLines = [
+        `// cmd index :: ${entries.length} Market commands loaded from DB :: /wall = money penalty ·· /mm3 = MM3 penalty ·· hidden signals stay private`,
+        ...entries.map((entry) => {
+          const block = blockByKeyRef.current.get(entry.key);
+          const row = block?.grid_row ?? entry.grid_row;
+          const col = block?.grid_col ?? entry.grid_col;
+          const hex = row !== undefined && col !== undefined ? getBlockHex(row, col) : entry.key;
+          const rail = entry.effect === 'mm3' ? 'MM3' : 'money';
+          return `// ${entry.emoji} ${hex} :: ${entry.command} :: effect=-${rail} :: numeric_code=result(formula,x)`;
+        }),
+      ];
+      helpLines.forEach((line, index) => {
+        appendMessage(makeMessage({
+          id: `sys:help:${Date.now()}:${index}`,
+          kind: 'system',
+          wallet: 'system',
+          ts: Date.now() + index,
+          tone: 'accent',
+          text: line,
+        }), { silent: true });
+      });
+    } catch (err) {
+      appendMessage(makeMessage({
+        id: `sys:help:${Date.now()}`,
+        kind: 'system',
+        wallet: 'system',
+        ts: Date.now(),
+        tone: 'leave',
+        text: `// cmd index unavailable :: ${err?.message || 'market DB offline'}`,
+      }), { silent: true });
+    }
+  }, [appendMessage, loadMarketCommandEntries]);
+
   const processMarketCommand = useCallback(async (text) => {
-    const commandEntry = findMarketCommandByText(text);
+    const commandEntry = await findMarketCommandInDb(text);
     if (!commandEntry || !normalizedWallet) return false;
 
     const now = new Date();
@@ -924,7 +981,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
           .maybeSingle(),
         supabase
           .from('mm3_market_blocks')
-          .select('block_key, emoji, title_en, title_es, price_eur')
+          .select('block_key, emoji, title_en, title_es, price_eur, market_command')
           .eq('block_key', commandEntry.key)
           .maybeSingle(),
       ]);
@@ -1044,7 +1101,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
       await broadcastSystemMessage(`${t('podcast.commandFailed')} // ${err?.message || 'market daemon non-zero'}`, 'leave');
       return true;
     }
-  }, [broadcastSystemMessage, normalizedWallet, t]);
+  }, [broadcastSystemMessage, findMarketCommandInDb, normalizedWallet, t]);
 
   const handleSend = async (event) => {
     event.preventDefault();
@@ -1060,11 +1117,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
 
       // /? — local command index (not broadcast)
       if (afterSlash === '?' || cmdName === 'help') {
-        appendMessage(makeMessage({
-          id: `sys:help:${Date.now()}`,
-          kind: 'system', wallet: 'system', ts: Date.now(), tone: 'accent',
-          text: '// cmd index :: /wall [freakingAI@MM3] solve => <formula>  →  money Market signal ·· /mm3 [freakingAI@MM3] siphon => <formula>  →  MM3 Market signal ·· /?  →  this index',
-        }), { silent: true });
+        await showMarketCommandHelp();
         return;
       }
 

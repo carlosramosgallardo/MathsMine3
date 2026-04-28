@@ -12,7 +12,7 @@ import {
   WALLET_DECORATIONS,
 } from '@/lib/wallet-decorations';
 import { useSound } from '@/lib/sound-context';
-import { getMarketCommandForKey } from '@/lib/market-commands';
+import { getMarketCommandForKey, marketCommandFromBlock } from '@/lib/market-commands';
 
 const GENESIS_BLOCK_KEY = 'mm3-023';
 const GRID_ROWS = 28;
@@ -164,7 +164,7 @@ export default function PodcastBoard({ account, isVirtualWallet = false }) {
       const [{ data: blockData, error }, { data: ownersData }, { data: eventData }] = await Promise.all([
         supabase
           .from('mm3_market_blocks')
-          .select('block_key, grid_row, grid_col, emoji, title_en, title_es, price_eur, short_url, is_active, first_purchased_at')
+          .select('block_key, grid_row, grid_col, emoji, title_en, title_es, price_eur, short_url, is_active, first_purchased_at, market_command')
           .order('block_key', { ascending: true }),
         supabase
           .from('player_progress')
@@ -439,7 +439,7 @@ export default function PodcastBoard({ account, isVirtualWallet = false }) {
 
   const selectedBlock = blockMap.get(selectedKey) || mergedBlocks[0];
   const selectedMarketCommand = !selectedBlock?.isPlaceholder
-    ? getMarketCommandForKey(selectedBlock?.block_key)
+    ? (marketCommandFromBlock(selectedBlock) || getMarketCommandForKey(selectedBlock?.block_key))
     : null;
   const isMm3MarketBlock = selectedMarketCommand?.payment === 'mm3';
   const priceEur = Number(selectedBlock?.price_eur) || 0;
@@ -523,7 +523,7 @@ export default function PodcastBoard({ account, isVirtualWallet = false }) {
       const [{ data: blockRow, error: blockError }, { data: progressRow }, { data: statsRow }] = await Promise.all([
         supabase
           .from('mm3_market_blocks')
-          .select('block_key, emoji, price_eur, is_active, first_purchased_at')
+          .select('block_key, emoji, price_eur, is_active, first_purchased_at, market_command')
           .eq('block_key', selectedBlock.block_key)
           .maybeSingle(),
         supabase
@@ -540,7 +540,7 @@ export default function PodcastBoard({ account, isVirtualWallet = false }) {
       const priceE = Number(blockRow.price_eur) || 0;
       const priceU = toUsdFromEur(priceE);
       const priceC = toCnyFromEur(priceE);
-      const paysWithMm3 = getMarketCommandForKey(selectedBlock.block_key)?.payment === 'mm3';
+      const paysWithMm3 = (marketCommandFromBlock(blockRow) || getMarketCommandForKey(selectedBlock.block_key))?.payment === 'mm3';
 
       const fundsEur = Number(progressRow?.eur_earned) || 0;
       const fundsUsd = Number(progressRow?.usd_earned) || 0;
@@ -671,7 +671,7 @@ export default function PodcastBoard({ account, isVirtualWallet = false }) {
       const returnEur = oldPrice * 0.5;
       const returnUsd = toUsdFromEur(returnEur);
       const returnCny = toCnyFromEur(returnEur);
-      const paysWithMm3 = getMarketCommandForKey(progressRow.market_nftji_key)?.payment === 'mm3';
+      const paysWithMm3 = (marketCommandFromBlock(blocks.find((b) => b.block_key === progressRow.market_nftji_key)) || getMarketCommandForKey(progressRow.market_nftji_key))?.payment === 'mm3';
 
       const fundsEur = Number(progressRow.eur_earned) || 0;
       const fundsUsd = Number(progressRow.usd_earned) || 0;
