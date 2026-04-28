@@ -246,7 +246,7 @@ function ConnectedBar({ address, isRealWallet, onDisconnect, mode = 'full' }) {
   const btn = `flex h-7 sm:h-9 items-center rounded-md px-1.5 sm:px-2 text-[0.82rem] sm:text-[0.90rem] font-mono font-semibold border transition-all duration-150 focus:outline-none whitespace-nowrap`
   const active = `border-transparent text-cyan-300 hover:border-transparent hover:bg-cyan-950/20 hover:shadow-none`
   const moneyValue = walletSummary ? walletSummary.funds[currency] || 0 : 0
-  const mm3Compact = walletSummary ? Number(walletSummary.availableMm3 || 0).toFixed(1) : '0.0'
+  const mm3Compact = walletSummary ? Number(walletSummary.availableMm3 || 0).toFixed(2) : '0.00'
 
   return (
     <div className={`flex items-center ${mode === 'wallet' ? 'gap-1 sm:gap-1.5' : 'gap-1.5'}`}>
@@ -266,13 +266,13 @@ function ConnectedBar({ address, isRealWallet, onDisconnect, mode = 'full' }) {
               <span className="max-w-[13ch] truncate sm:max-w-[24ch]">{visibleAddress}</span>
               {walletSummary ? (
                 <>
-                  <span title={`${t('leaderboard.level')}: ${walletSummary.level}`} className="font-mono text-cyan-300/90">{walletSummary.level}</span>
+                  <span title={`${t('leaderboard.level')}: ${walletSummary.level}`} className="font-mono text-amber-400/90">{walletSummary.level}</span>
                   <span title={walletSummary.tier.label} className="text-[0.82rem]">{walletSummary.tier.emoji}</span>
                   <span title={`${t('leaderboard.mm3Earned')}: ${walletSummary.availableMm3.toFixed(8)}`} className="inline-flex items-baseline gap-0.5 text-cyan-300/90">
                     <span>{mm3Compact}</span>
-                    <span className="text-[0.60rem] uppercase tracking-[0.1em] text-cyan-300/55 sm:text-[0.65rem] sm:tracking-[0.14em]">MM3</span>
+                    <span className="text-[0.48rem] uppercase tracking-[0.1em] text-cyan-300/55">MM3</span>
                   </span>
-                  <span title={`${t('leaderboard.sellValue')}: ${formatMoney(moneyValue, currency)}`} className="text-emerald-300/90">{`${{ EUR: '€', USD: '$', CNY: '¥' }[currency] || ''}${Number(moneyValue).toFixed(1)}`}</span>
+                  <span title={`${t('leaderboard.sellValue')}: ${formatMoney(moneyValue, currency)}`} className="text-emerald-300/90">{`${{ EUR: '€', USD: '$', CNY: '¥' }[currency] || ''}${Number(moneyValue).toFixed(2)}`}</span>
                 </>
               ) : null}
             </div>

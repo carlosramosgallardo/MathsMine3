@@ -13,6 +13,7 @@ import {
   getUtcDayWindow,
 } from '@/lib/market-commands';
 import { useIrcPresence } from '@/lib/irc-presence-context';
+import { colorFromAddress } from '@/lib/wallet-colors';
 
 const ACTIVE_WINDOW_MS = 90_000;
 const MAX_SESSION_MESSAGES = 500;
@@ -1186,6 +1187,11 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
           .mm3-irc-shell > section > div:last-child {
             flex: 0 0 auto;
           }
+          /* Remove border-b from channel header row on mobile — avoids strikethrough appearance */
+          .mm3-irc-header-row {
+            border-bottom: none !important;
+            padding-bottom: 0.4rem;
+          }
           /* Chat log: takes all leftover space inside section */
           .mm3-irc-chat-log {
             flex: 1 1 0;
@@ -1350,7 +1356,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
 
       <div className="mm3-irc-shell">
         <section className="mm3-irc-panel rounded-sm p-2.5">
-          <div className="mb-2 flex items-center justify-between gap-1 border-b border-cyan-500/12 pb-2 font-mono">
+          <div className="mm3-irc-header-row mb-2 flex items-center justify-between gap-1 border-b border-cyan-500/12 pb-2 font-mono">
             <div className="shrink-0 text-[0.70rem] sm:text-[0.80rem] uppercase tracking-[0.16em] text-slate-500">#relay-mainframe</div>
             <div className="flex min-w-0 items-center gap-1.5 sm:gap-3">
               <span className={`shrink-0 text-[0.65rem] sm:text-[0.75rem] uppercase tracking-[0.16em] ${normalizedWallet ? 'text-cyan-700' : 'text-amber-700/70'}`}>
@@ -1391,7 +1397,10 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
                             ))}
                           </span>
                         )}
-                        <div className="mm3-irc-author flex-1 text-[0.80rem] uppercase tracking-[0.13em]">{author}</div>
+                        <div
+                          className="mm3-irc-author flex-1 text-[0.80rem] uppercase tracking-[0.13em]"
+                          style={message.kind === 'chat' ? { color: colorFromAddress(message.wallet) } : undefined}
+                        >{author}</div>
                       </div>
                     </div>
                     <div className="mm3-irc-msg-text mt-0.5 break-words text-[0.95rem] leading-relaxed">{message.text}</div>
@@ -1458,10 +1467,12 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
                     : formatIrcWalletLabel(entry.wallet);
                   const emojis = isAnon ? [] : (marketClaimsByWallet[entry.wallet] || []);
                   const srcLabel = isAnon ? 'A' : (entry.source === 'google' ? 'G' : 'W');
+                  const peerColor = isAnon ? undefined : colorFromAddress(entry.wallet);
                   return (
                     <div
                       key={entry.wallet}
-                      className={`mm3-irc-peer-row${isYou ? ' is-you' : ''}${isAnon && !isYou ? ' is-anon' : ''}`}
+                      className={`mm3-irc-peer-row${isAnon && !isYou ? ' is-anon' : ''}`}
+                      style={peerColor ? { color: peerColor } : undefined}
                       title={isAnon ? t('irc.readOnly') : entry.wallet}
                     >
                       <span className="mm3-irc-peer-chevron">{isAnon ? '○' : '▶'}</span>
