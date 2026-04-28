@@ -56,6 +56,8 @@ The IRC relay is a live social terminal. Connected wallets see each other, talk,
 
 The DRILL SLOTS system caps mining to 100 attempts per day. Each trade EXEC earns you +1 permanent extra slot. No slots = no new chain.
 
+The first-ever purchase of any block spawns a new placeholder block at a random free cell — added permanently to the board pending manual NFTJI data entry in Supabase before it goes on sale.
+
 It's a freak fake crypto portal. No real money. No real mining. All the vibes.
 
 ---
@@ -360,7 +362,7 @@ The Market is a **28×28 block board** (784 cells, hex-coded `#000`–`#30F`). T
 3. Click **BUY** — in-game fiat balance is debited
 4. The price equivalent in MM3 (at current global rate) is injected into the MM3 pool
 5. The NFTJI is added to your wallet
-6. **Auto-generation:** on any first-time purchase of one of the 10 original blocks, a new mystery block spawns at a random free cell, gets a new unique emoji (not used anywhere in the portal), and is added permanently to the board and the Market catalog — its full data is pending manual entry in Supabase before going on sale
+6. **Auto-generation:** on the first-ever purchase of any block (tracked via `first_purchased_at`), a new placeholder block spawns at a random free cell with a unique emoji drawn from a reserved pool (`MYSTERY_EMOJIS` in `PodcastBoard.jsx`) not used anywhere else in the portal. The placeholder lands in the DB with `is_active: true` but no command data — it needs manual completion in Supabase (title, command formula, `answer_hash`, `min_level`) before it becomes a live purchasable NFTJI. Add new emojis to the pool in `MYSTERY_EMOJIS` when expanding the catalog.
 
 ### Resell flow
 

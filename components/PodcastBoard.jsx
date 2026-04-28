@@ -18,7 +18,13 @@ const GENESIS_PIXEL_KEY = 'mm3-023';
 const GRID_ROWS = 28;
 const GRID_COLS = 28;
 
-const MYSTERY_EMOJIS = ['🌑', '🌊', '🧲', '🔥', '🌿', '💧', '🌈', '🌙', '🦋', '🎯', '🧩', '🔮', '🎲', '⚗️', '🌸', '🌺', '🧊', '🎪', '🪐', '🏔️'];
+// Emojis reserved for auto-spawned mystery blocks.
+// Rules: must not appear in mining NTFJIs (🔮🍀🎰🧿❤️), Market catalog (🛰🌐🔭🧬💠⚡🌀🔴⭐💎),
+// rank icons (🧪⛏️🧠🪄👑), or UI indicators (⚔️🌪️🎲📜🤖).
+// Spawned blocks land in DB with title="Mystery Block" and is_active=true but no command data —
+// they need manual completion in Supabase (emoji, title, command, answer_hash, min_level)
+// before they become live purchasable NTFJIs. Add new emojis here when expanding the catalog.
+const MYSTERY_EMOJIS = ['🌑', '🌊', '🧲', '🌿', '💧', '🌈', '🌙', '🦋', '🧩', '⚗️', '🌸', '🌺', '🧊', '🎪', '🪐', '🏔️', '🦠', '🌋', '🦎', '🫧'];
 
 function notify(msg, type = 'info') {
   if (typeof window !== 'undefined') {
