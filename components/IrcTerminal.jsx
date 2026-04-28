@@ -960,55 +960,38 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
         .single();
       if (commandError) throw commandError;
 
-      const [{ data: allProgress, error: progressError }, { data: allStats, error: statsError }] = await Promise.all([
-        supabase
-          .from('player_progress')
-          .select('wallet, level, market_nftji_key, eur_earned, usd_earned, cny_earned, mm3_sold')
-          .limit(1000),
-        supabase
-          .from('leaderboard_data')
-          .select('wallet, total_eth')
-          .limit(1000),
-      ]);
+      const { data: allProgress, error: progressError } = await supabase
+        .from('player_progress')
+        .select('wallet, level, market_nftji_key, eur_earned, usd_earned, cny_earned, mm3_sold')
+        .limit(1000);
       if (progressError) throw new Error(`allProgress: ${progressError.message}`);
-      if (statsError) throw new Error(`allStats: ${statsError.message}`);
 
       const priceEur = Number(blockRow.price_eur) || 0;
       const priceUsd = priceEur * (CNY_TO_USD / CNY_TO_EUR);
       const priceCny = priceEur / CNY_TO_EUR;
       const isMm3Command = commandEntry.effect === 'mm3';
-      const statsByWallet = new Map((allStats || []).map((row) => [
-        String(row.wallet || '').toLowerCase(),
-        Number(row.total_eth) || 0,
-      ]));
       const penalties = [];
       const balanceUpdates = [];
-      let totalStolenMm3 = 0;
 
       for (const row of allProgress || []) {
         const wallet = String(row.wallet || '').toLowerCase();
         if (!wallet || wallet === normalizedWallet) continue;
         if (row.market_nftji_key === commandEntry.key) continue;
         if (isMm3Command) {
-          const totalMm3 = statsByWallet.get(wallet) || 0;
           const soldMm3 = Number(row.mm3_sold) || 0;
-          const availableMm3 = Math.max(0, totalMm3 - soldMm3);
-          const stolenMm3 = Math.min(priceEur, availableMm3);
-          if (stolenMm3 <= 0) continue;
-          totalStolenMm3 += stolenMm3;
           penalties.push({
             wallet,
             command_id: insertedCommand?.id || null,
             nftji_key: commandEntry.key,
             penalty_code: code,
-            penalty_value: stolenMm3,
+            penalty_value: priceEur,
             penalty_eur: 0,
             reason: `${blockRow.emoji || commandEntry.emoji} ${blockRow.title_en || commandEntry.key}`,
             reset_at: dayWindow.resetAt,
           });
           balanceUpdates.push({
             wallet,
-            mm3_sold: soldMm3 + stolenMm3,
+            mm3_sold: soldMm3 + priceEur,
             updated_at: new Date().toISOString(),
           });
         } else {
@@ -1032,15 +1015,6 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
             updated_at: new Date().toISOString(),
           });
         }
-      }
-
-      if (isMm3Command && totalStolenMm3 > 0) {
-        const launcherSoldMm3 = Number(launcher?.mm3_sold) || 0;
-        balanceUpdates.push({
-          wallet: normalizedWallet,
-          mm3_sold: launcherSoldMm3 - totalStolenMm3,
-          updated_at: new Date().toISOString(),
-        });
       }
 
       if (penalties.length > 0) {
