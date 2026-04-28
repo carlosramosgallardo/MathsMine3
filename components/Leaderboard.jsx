@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { useI18n } from '@/lib/i18n-context';
 import supabase from '@/lib/supabaseClient';
-import { formatMoney } from '@/lib/sell-offer';
+import { CNY_TO_EUR, CNY_TO_USD, formatMoney } from '@/lib/sell-offer';
 import { clampRankLevel, getRankTier } from '@/lib/ranks';
 import { colorFromAddress } from '@/lib/wallet-colors';
 import { normalizeWalletDecorations, getEmojiTitle, TRADE_SLOT_ORDER } from '@/lib/wallet-decorations';
@@ -19,6 +19,21 @@ function formatCompactMoney(value, currency) {
   const amount = Number(value) || 0;
   const formatted = formatMoney(Math.abs(amount), currency);
   return amount < 0 ? `-${formatted}` : formatted;
+}
+
+function toCnyFromEur(value) {
+  return Number(value || 0) / CNY_TO_EUR;
+}
+
+function toUsdFromEur(value) {
+  return Number(value || 0) * (CNY_TO_USD / CNY_TO_EUR);
+}
+
+function convertPenaltyEur(value, currency) {
+  const eur = Number(value) || 0;
+  if (currency === 'USD') return toUsdFromEur(eur);
+  if (currency === 'CNY') return toCnyFromEur(eur);
+  return eur;
 }
 
 export default function Leaderboard({ itemsPerPage = 50 }) {
@@ -76,7 +91,7 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
           .select('wallet'),
         supabase
           .from('mm3_command_penalties')
-          .select('wallet, nftji_key, penalty_value, reset_at, created_at')
+          .select('wallet, nftji_key, penalty_value, penalty_eur, penalty_effect, reset_at, created_at')
           .is('redeemed_at', null)
           .gt('reset_at', new Date().toISOString())
           .order('created_at', { ascending: false }),
@@ -134,6 +149,8 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
         penaltiesByWallet.set(wallet, {
           nftji_key: entry.nftji_key,
           penalty_value: Number(entry.penalty_value) || 0,
+          penalty_eur: Number(entry.penalty_eur) || 0,
+          penalty_effect: entry.penalty_effect === 'mm3' ? 'mm3' : 'money',
           reset_at: entry.reset_at,
           block: blocksByKey.get(entry.nftji_key) || null,
         });
@@ -574,7 +591,10 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
                       className="lb-penalty-link rounded border border-rose-400/30 bg-rose-950/20 px-1.5 py-0.5 font-mono text-[0.75rem] font-black text-rose-300"
                       title={activePenalty.block ? `${activePenalty.block.emoji} ${activePenalty.block.hex}` : activePenalty.nftji_key}
                     >
-                      -{Number(activePenalty.penalty_value || 0).toFixed(8).replace(/\.?0+$/, '') || '0'}
+                      -{(activePenalty.penalty_effect === 'mm3'
+                        ? Number(activePenalty.penalty_value || 0)
+                        : convertPenaltyEur(activePenalty.penalty_eur || activePenalty.penalty_value || 0, quoteCurrency)
+                      ).toFixed(8).replace(/\.?0+$/, '') || '0'} {activePenalty.penalty_effect === 'mm3' ? 'MM3' : quoteCurrency}
                     </button>
                   ) : null}
                   {marketBlocks.length === 0 && !activePenalty ? (
@@ -712,7 +732,10 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
                           className="lb-penalty-link rounded border border-rose-400/30 bg-rose-950/20 px-1.5 py-1 font-mono text-[0.76rem] font-black text-rose-300"
                           title={activePenalty.block ? `${activePenalty.block.emoji} ${activePenalty.block.hex}` : activePenalty.nftji_key}
                         >
-                          -{Number(activePenalty.penalty_value || 0).toFixed(8).replace(/\.?0+$/, '') || '0'}
+                          -{(activePenalty.penalty_effect === 'mm3'
+                        ? Number(activePenalty.penalty_value || 0)
+                        : convertPenaltyEur(activePenalty.penalty_eur || activePenalty.penalty_value || 0, quoteCurrency)
+                      ).toFixed(8).replace(/\.?0+$/, '') || '0'} {activePenalty.penalty_effect === 'mm3' ? 'MM3' : quoteCurrency}
                         </button>
                       ) : null}
                       {marketBlocks.length === 0 && !activePenalty ? (
