@@ -10,15 +10,9 @@ BEGIN;
 -- ==============================================
 
 -- Drop views first (they depend on tables)
-DROP VIEW IF EXISTS leaderboard_stats CASCADE;
 DROP VIEW IF EXISTS top_positive_miner CASCADE;
-DROP VIEW IF EXISTS daily_stats CASCADE;
-DROP VIEW IF EXISTS player_performance_by_difficulty CASCADE;
 DROP VIEW IF EXISTS token_value CASCADE;
 DROP VIEW IF EXISTS token_value_timeseries CASCADE;
-DROP VIEW IF EXISTS difficulty_distribution CASCADE;
-DROP VIEW IF EXISTS api_rate_summary CASCADE;
-DROP VIEW IF EXISTS token_value_by_minute CASCADE;
 -- Drop functions and triggers
 DROP TRIGGER IF EXISTS trigger_update_leaderboard ON games;
 DROP FUNCTION IF EXISTS trigger_update_leaderboard_fn();
@@ -433,16 +427,6 @@ SELECT
     ORDER BY hour ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
   ) AS cumulative_reward
 FROM final;
-
--- API Rate Summary
-CREATE OR REPLACE VIEW api_rate_summary AS
-SELECT
-  ip,
-  endpoint,
-  COUNT(*) AS total_requests,
-  MAX(created_at) AS last_request
-FROM api_requests
-GROUP BY ip, endpoint;
 
 -- ==============================================
 -- PHASE 7: ENABLE ROW LEVEL SECURITY
