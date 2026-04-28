@@ -1356,7 +1356,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
 
       <div className="mm3-irc-shell">
         <section className="mm3-irc-panel rounded-sm p-2.5">
-          <div className="mm3-irc-header-row mb-2 flex items-center justify-between gap-1 border-b border-cyan-500/12 pb-2 font-mono">
+          <div className="mm3-irc-header-row mb-2 flex items-center justify-between gap-1 sm:border-b sm:border-cyan-500/12 pb-2 font-mono">
             <div className="shrink-0 text-[0.70rem] sm:text-[0.80rem] uppercase tracking-[0.16em] text-slate-500">#relay-mainframe</div>
             <div className="flex min-w-0 items-center gap-1.5 sm:gap-3">
               <span className={`shrink-0 text-[0.65rem] sm:text-[0.75rem] uppercase tracking-[0.16em] ${normalizedWallet ? 'text-cyan-700' : 'text-amber-700/70'}`}>
