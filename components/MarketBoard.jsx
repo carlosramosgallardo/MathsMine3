@@ -947,16 +947,15 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
             </span>
           </div>
 
-          {/* ── Price ── */}
-          <div className="mm3-market-detail-card rounded border border-amber-400/14 bg-amber-950/8 px-2 py-1 lg:px-2.5 lg:py-2">
-            <div className="text-[0.78rem] uppercase tracking-[0.16em] text-amber-300/65 lg:text-[0.80rem] lg:tracking-[0.18em]">{t('podcast.price')}</div>
-            <div className="mt-0.5 text-[1.05rem] font-black leading-none text-amber-300 lg:mt-1 lg:text-lg">{displayPrice}</div>
-          </div>
-
-          {/* ── Owner shell ── */}
-          <div className="mm3-market-detail-card rounded border border-cyan-500/12 bg-black/45 px-2 py-1 lg:px-2.5 lg:py-2">
-            <div className="text-[0.78rem] uppercase tracking-[0.16em] text-cyan-300/65 lg:text-[0.80rem] lg:tracking-[0.18em]">{t('podcast.owner')}</div>
-            <div className="mt-0.5 flex max-h-12 flex-col gap-1 overflow-y-auto pr-1 lg:max-h-20 lg:mt-1">
+          {/* ── Price + Owner — same row ── */}
+          <div className="col-span-1 flex gap-1.5 lg:col-span-2">
+            <div className="mm3-market-detail-card shrink-0 rounded border border-amber-400/14 bg-amber-950/8 px-2 py-1 lg:px-2.5 lg:py-2">
+              <div className="text-[0.78rem] uppercase tracking-[0.16em] text-amber-300/65 lg:text-[0.80rem] lg:tracking-[0.18em]">{t('podcast.price')}</div>
+              <div className="mt-0.5 text-[1.05rem] font-black leading-none text-amber-300 lg:mt-1 lg:text-lg">{displayPrice}</div>
+            </div>
+            <div className="mm3-market-detail-card min-w-0 flex-1 rounded border border-cyan-500/12 bg-black/45 px-2 py-1 lg:px-2.5 lg:py-2">
+              <div className="text-[0.78rem] uppercase tracking-[0.16em] text-cyan-300/65 lg:text-[0.80rem] lg:tracking-[0.18em]">{t('podcast.owner')}</div>
+              <div className="mt-0.5 flex max-h-12 flex-col gap-1 overflow-y-auto pr-1 lg:max-h-20 lg:mt-1">
               {hasCurrentOwners ? (
                 currentOwners.map((owner) => {
                   const ownerColor = colorFromAddress(owner);
@@ -979,6 +978,7 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
                 </span>
               )}
             </div>
+          </div>
           </div>
 
           {/* ── Video / Short — bottom on mobile, here on desktop ── */}
