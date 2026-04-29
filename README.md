@@ -587,16 +587,18 @@ mainframe@MM3·:~$ #0x6bccc2e5c5c2231bdf3a4f706161445f940f18f0 salió del relay
 
 Shows the current state of all active Market commands. Displayed at boot and kept up to date in real time. Every `#HEX` block code in market messages is **clickable** — it navigates to `/market?block=KEY` and opens that block's detail card directly.
 
+All `reset` values in market messages show **relative time remaining** — `reset in 2h 14m`, `reset in 43m`, `reset in 30s` — computed at render time from `reset_at`. When the window has already closed the value shows `now`.
+
 ```
 # No commands active:
 market@MM3·:~$ #no penalties active
 market@MM3·:~$ #sin penalizaciones activas
 
 # Command currently running:
-market@MM3·:~$ #active >> 🔥 #0A2 >> by 0x1234...5678 >> affected: 0x9abc...ef01 >> reset 23:59:59
+market@MM3·:~$ #active >> 🔥 #0A2 >> by 6e8ab >> affected: f5528 · fb2f6 >> reset in 2h 14m
 
 # Command owner ready but not yet fired today:
-market@MM3·:~$ #ready >> 🔥 #0A2 >> wallets: 0x1234...5678 · 0x9abc...def0
+market@MM3·:~$ #ready >> 🔥 #0A2 >> wallets: 6e8ab · f18f0
 ```
 
 #### `market@MM3·:~$` — Market command executed (real-time INSERT event)
@@ -604,7 +606,7 @@ market@MM3·:~$ #ready >> 🔥 #0A2 >> wallets: 0x1234...5678 · 0x9abc...def0
 Fires when a wallet launches its daily Market command. Appears ~3 s after execution to allow penalty rows to be written first.
 
 ```
-market@MM3·:~$ #exec >> 🔥 #0A2 >> by 0x1234...5678 >> affected: 0x9abc...ef01 · 0xdead...beef >> reset 23:59:59
+market@MM3·:~$ #exec >> 🔥 #0A2 >> by 6e8ab >> affected: f5528 · fb2f6 · d6a05 >> reset in 2h 14m
 ```
 
 #### `market@MM3·:~$` — Market command expired (real-time UPDATE event)
@@ -619,19 +621,19 @@ market@MM3·:~$ #penalty reset >> 🔥 #0A2 >> 3 wallets liberadas
 #### `market@MM3·:~$` — Market buy / resell (real-time INSERT on `mm3_market_events`)
 
 ```
-market@MM3·:~$ #buy >> 🔥 #0A2 >> 0x1234...5678
-market@MM3·:~$ #resell >> 🔥 #0A2 >> 0x1234...5678
-market@MM3·:~$ #compra >> 🔥 #0A2 >> 0x1234...5678
-market@MM3·:~$ #reventa >> 🔥 #0A2 >> 0x1234...5678
+market@MM3·:~$ #buy >> 🔥 #0A2 >> f18f0
+market@MM3·:~$ #resell >> 🔥 #0A2 >> f18f0
+market@MM3·:~$ #compra >> 🔥 #0A2 >> f18f0
+market@MM3·:~$ #reventa >> 🔥 #0A2 >> f18f0
 ```
 
-#### `market@MM3·:~$` — Numeric code redeemed (real-time UPDATE on `mm3_command_penalties`)
+#### `market@MM3·:~$` — Numeric code redeemed (persisted to `mm3_irc_messages`)
 
-Fires when an affected wallet enters the correct 5-digit code and cancels their penalty.
+Written to DB by the redeeming wallet when the correct 5-digit code is entered, so it appears in IRC history regardless of who is online at that moment. Language matches the redeeming wallet's active language.
 
 ```
-market@MM3·:~$ #code ok >> 🔥 #0A2 >> 0x1234...5678 >> penalty reset
-market@MM3·:~$ #código ok >> 🔥 #0A2 >> 0x1234...5678 >> penalización reset
+market@MM3·:~$ #code ok >> 🔥 #0A2 >> f18f0 >> penalty reset
+market@MM3·:~$ #código ok >> 🔥 #0A2 >> f18f0 >> penalización reset
 ```
 
 #### `market@MM3·:~$` — Market command self-execution result (broadcast)
@@ -639,8 +641,8 @@ market@MM3·:~$ #código ok >> 🔥 #0A2 >> 0x1234...5678 >> penalización reset
 Sent to all relay participants when the executing wallet's Market command is fully processed. The `nonce` value is the `x` variable used in the formula — affected wallets can compute `formula(nonce)` to get the 5-digit redemption code. The full formula is visible in the command string shown by `/?`.
 
 ```
-market@MM3·:~$ #exec >> 🛸 >> cmd=/lsblk => 41000 + x*11 + 2048/4 = ? >> nonce=347 >> 5 wallets penalized >> reset 23:59:59 local
-market@MM3·:~$ #exec >> 🛸 >> cmd=/lsblk => 41000 + x*11 + 2048/4 = ? >> nonce=347 >> 5 wallets penalizadas >> reset 23:59:59 local
+market@MM3·:~$ #exec >> 🛸 >> cmd=/lsblk => 41000 + x*11 + 2048/4 = ? >> nonce=347 >> 5 wallets penalized >> reset in 43m
+market@MM3·:~$ #exec >> 🛸 >> cmd=/lsblk => 41000 + x*11 + 2048/4 = ? >> nonce=347 >> 5 wallets penalizadas >> reset in 43m
 ```
 
 > `41000 + 347*11 + 2048/4 = 41000 + 3817 + 512 = 45329` → enter `45329` in the block detail to cancel the penalty.
@@ -672,7 +674,7 @@ cmd@MM3·:~$ #ERR: cmd rechazado >> 0x1234...5678 no posee #0A2🔥
 #### `cmd@MM3·:~$` — Command locked (already fired today)
 
 ```
-cmd@MM3·:~$ #🔥 locked until 23:59:59 local
+cmd@MM3·:~$ #🔥 locked in 43m
 ```
 
 #### `cmd@MM3·:~$` — Hidden command result (from `/api/exec-hidden-cmd`)
