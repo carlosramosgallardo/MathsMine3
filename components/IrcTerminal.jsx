@@ -943,18 +943,30 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
   const showMarketCommandHelp = useCallback(async () => {
     try {
       const entries = await loadMarketCommandEntries();
+      const moneyEntries = entries.filter((e) => e.effect !== 'mm3');
+      const mm3Entries = entries.filter((e) => e.effect === 'mm3');
+      const toLine = (entry) => {
+        const block = blockByKeyRef.current.get(entry.key);
+        const row = block?.grid_row ?? entry.grid_row;
+        const col = block?.grid_col ?? entry.grid_col;
+        const hex = row !== undefined && col !== undefined ? getBlockHex(row, col) : entry.key;
+        return `${entry.emoji}  ${hex}   ${entry.command}`;
+      };
       const helpLines = [
         language === 'es'
-          ? `índice cmd / cmd index :: ${entries.length} comandos Market desde DB :: rail dinero ·· rail MM3 ·· señales hidden privadas`
-          : `cmd index / índice cmd :: ${entries.length} Market commands from DB :: money rail ·· MM3 rail ·· hidden signals private`,
-        ...entries.map((entry) => {
-          const block = blockByKeyRef.current.get(entry.key);
-          const row = block?.grid_row ?? entry.grid_row;
-          const col = block?.grid_col ?? entry.grid_col;
-          const hex = row !== undefined && col !== undefined ? getBlockHex(row, col) : entry.key;
-          const rail = entry.effect === 'mm3' ? 'MM3' : 'money';
-          return `${entry.emoji} ${hex} :: ${entry.command} :: effect/efecto=-${rail} :: numeric_code/código=market challenge`;
-        }),
+          ? `índice cmd / cmd index :: ${entries.length} cmds cargados :: /?`
+          : `cmd index / índice cmd :: ${entries.length} cmds loaded :: /?`,
+        language === 'es'
+          ? `numeric_code :: código 5 dígitos >> introducir en bloque Market para cancelar penalización`
+          : `numeric_code :: 5-digit code >> enter in Market block detail to redeem penalty`,
+        language === 'es'
+          ? `── MONEY RAIL ─── penalización en fiat ──────────────────────`
+          : `── MONEY RAIL ─── penalty debits fiat ───────────────────────`,
+        ...moneyEntries.map(toLine),
+        language === 'es'
+          ? `── MM3 RAIL ───── penalización en MM3 ───────────────────────`
+          : `── MM3 RAIL ───── penalty debits MM3 ────────────────────────`,
+        ...mm3Entries.map(toLine),
       ];
       helpLines.forEach((line, index) => {
         appendMessage(makeMessage({

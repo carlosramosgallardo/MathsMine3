@@ -599,12 +599,19 @@ market@MM3·:~$ #exec >> 🔥 >> cmd=/fire >> nonce=42 >> 5 wallets penalizadas 
 
 #### `cmd@MM3·:~$` — Command index (`/?` or `/help`)
 
-Lists all public Market commands loaded from DB. Local only — not broadcast.
+Lists all public Market commands loaded from DB, grouped by rail. Local only — not broadcast. The `numeric_code` explanation appears once in the header, not repeated per command.
 
 ```
-cmd@MM3·:~$ #cmd index / índice cmd :: 20 Market commands from DB :: money rail ·· MM3 rail ·· hidden signals private
-cmd@MM3·:~$ #🔥 #0A2 :: /fire :: effect/efecto=-money :: numeric_code/código=market challenge
-cmd@MM3·:~$ #🛸 #01D :: /orbit :: effect/efecto=-MM3 :: numeric_code/código=market challenge
+cmd@MM3·:~$ #cmd index / índice cmd :: 20 cmds loaded :: /?
+cmd@MM3·:~$ #numeric_code :: 5-digit code >> enter in Market block detail to redeem penalty
+cmd@MM3·:~$ #── MONEY RAIL ─── penalty debits fiat ───────────────────────
+cmd@MM3·:~$ #🛰  #016   /ping -c 4 gateway.mainframe
+cmd@MM3·:~$ #🌐  #05C   /nmcli connection reload
+cmd@MM3·:~$ #...
+cmd@MM3·:~$ #── MM3 RAIL ───── penalty debits MM3 ────────────────────────
+cmd@MM3·:~$ #🛸  #01D   /lsblk
+cmd@MM3·:~$ #🗝️  #04A   /passwd
+cmd@MM3·:~$ #...
 ```
 
 #### `cmd@MM3·:~$` — Command rejected (wallet does not own the NFTJI)
