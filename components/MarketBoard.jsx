@@ -32,6 +32,34 @@ function notify(msg, type = 'info') {
   }
 }
 
+async function broadcastIrcMessage(payload) {
+  const channel = supabase.channel('mm3-irc-relay');
+  try {
+    await new Promise((resolve) => {
+      let settled = false;
+      const done = () => {
+        if (settled) return;
+        settled = true;
+        resolve();
+      };
+      const timer = setTimeout(done, 1500);
+      channel.subscribe(async (status) => {
+        if (status === 'SUBSCRIBED') {
+          clearTimeout(timer);
+          await channel.send({ type: 'broadcast', event: 'message', payload }).catch(() => {});
+          done();
+        }
+        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+          clearTimeout(timer);
+          done();
+        }
+      });
+    });
+  } finally {
+    supabase.removeChannel(channel);
+  }
+}
+
 function openRankingWallet(wallet) {
   if (!wallet || typeof window === 'undefined') return;
   localStorage.setItem('mm3_leaderboard_wallet', String(wallet).toLowerCase());
@@ -812,15 +840,26 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
         const ircHex = selectedBlock?.grid_row != null && selectedBlock?.grid_col != null
           ? getBlockHex(selectedBlock.grid_row, selectedBlock.grid_col)
           : selectedBlock?.block_key || '';
-        await supabase.from('mm3_irc_messages').insert({
+        const ircTs = Date.now();
+        const ircText = language === 'es'
+          ? `código ok >> ${ircEmoji} ${ircHex} >> ${wallet} >> penalización reset`
+          : `code ok >> ${ircEmoji} ${ircHex} >> ${wallet} >> penalty reset`;
+        const ircPayload = {
+          id: `db:system:${ircTs}`,
           wallet: 'system',
-          text: language === 'es'
-              ? `código ok >> ${ircEmoji} ${ircHex} >> ${wallet} >> penalización reset`
-              : `code ok >> ${ircEmoji} ${ircHex} >> ${wallet} >> penalty reset`,
-          ts: Date.now(),
+          text: ircText,
+          ts: ircTs,
           kind: 'system',
           tone: 'market',
+        };
+        await supabase.from('mm3_irc_messages').insert({
+          wallet: ircPayload.wallet,
+          text: ircPayload.text,
+          ts: ircPayload.ts,
+          kind: ircPayload.kind,
+          tone: ircPayload.tone,
         }).then(() => {});
+        await broadcastIrcMessage(ircPayload);
       }
 
       notify(isCorrect ? t('podcast.numericSuccess') : t('podcast.numericWrong'), isCorrect ? 'success' : 'error');

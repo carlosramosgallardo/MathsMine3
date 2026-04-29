@@ -145,6 +145,12 @@ function formatSystemPromptText(value) {
   return String(value || '').replace(/^\/\/\s*/, '');
 }
 
+function getStatusSignature(messages) {
+  return messages
+    .map((message) => String(message?.text || '').replace(/ >> reset (?:in|en) \d+(?:h(?: \d+m)?|m|s)$/i, ' >> reset'))
+    .join('\n');
+}
+
 function localizeLegacySystemPromptText(value, language) {
   let text = formatSystemPromptText(value);
   const isEs = language === 'es';
@@ -283,6 +289,8 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
   const endRef = useRef(null);
   const blockByKeyRef = useRef(new Map());
   const inputRef = useRef(null);
+  const lastRelayStatusRef = useRef('');
+  const lastMarketStatusRef = useRef('');
 
   // Auto-focus input when wallet is connected and terminal is ready
   useEffect(() => {
@@ -308,16 +316,6 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
       playIrcMessage();
     }
   }, [persistMessages, playIrcMessage]);
-
-  const upsertMessage = useCallback((message) => {
-    if (!message?.id) return;
-    setMessages((current) => {
-      const filtered = current.filter((m) => !String(m.id).startsWith('relay-status:'));
-      const next = [...filtered, message].slice(-MAX_SESSION_MESSAGES);
-      persistMessages(next);
-      return next;
-    });
-  }, [persistMessages]);
 
   const buildMarketStatusLines = useCallback(({ ownersData = [], commandsData = [], blocksData = [], penaltiesData = [] }) => {
     const blocks = blocksData || [];
@@ -523,10 +521,11 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
 
         welcomeText = tickerFromRow(data, language, welcomeText);
         marketMessages.push(...buildMarketStatusLines({ ownersData, commandsData, blocksData, penaltiesData }));
+        lastMarketStatusRef.current = getStatusSignature(marketMessages.map((text) => ({ text })));
 
         const stored = safeParseSession(sessionStorage.getItem(storageKey));
         const withoutWelcome = stored.filter((entry) =>
-          !(entry.kind === 'system' && (entry.tone === 'accent' || String(entry.id || '').startsWith('market-status:') || String(entry.id || '').startsWith('relay-status:')))
+          !(entry.kind === 'system' && entry.tone === 'accent')
         );
 
         // Combine history from DB and session storage, then deduplicate by content signature
@@ -791,21 +790,21 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
       const text = n === 0
         ? t('irc.mainframeQuiet')
         : t('irc.mainframeNodes').replace('{count}', n).replace('{walletLabel}', walletLabel) + walletParts.join(' · ');
+      if (text === lastRelayStatusRef.current) return;
+      lastRelayStatusRef.current = text;
 
-      upsertMessage(makeMessage({
+      appendMessage(makeMessage({
         id: `relay-status:${Date.now()}`,
         kind: 'system',
         wallet: 'system',
         text,
         ts: Date.now(),
         tone: 'ghost',
-      }));
+      }), { silent: false });
     };
 
     build();
-    const timer = setInterval(build, 60_000);
-    return () => clearInterval(timer);
-  }, [connectedWallets, language, t, upsertMessage]);
+  }, [appendMessage, connectedWallets, language, t]);
 
   // Generate all current market status messages
   const generateMarketStatusMessages = useCallback(async (actorIdForId) => {
@@ -833,40 +832,31 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
       marketMessages.push(...buildMarketStatusLines({ ownersData, commandsData, blocksData, penaltiesData }));
     } catch {}
 
+    const ts = Date.now();
     return marketMessages.map((text, i) => makeMessage({
-      id: `market-status:${i}:${actorIdForId}`,
+      id: `market-status:${ts}:${i}:${actorIdForId}`,
       kind: 'system',
       wallet: 'system',
       text,
-      ts: Date.now(),
+      ts: ts + i,
       tone: 'market',
     }));
   }, [buildMarketStatusLines]);
 
-  // Update market status messages with current state (keeps all user messages intact)
+  // Append market status traces when the state changes (keeps all user messages intact)
   const refreshMarketStatus = useCallback(async () => {
     const newMarketMessages = await generateMarketStatusMessages(actorId);
     if (newMarketMessages.length > 0) {
-      setMessages((current) => {
-        // Keep all existing messages (user chat, system events, etc.)
-        const existing = current;
-        // Remove old market-status messages
-        const withoutMarket = existing.filter((m) => !String(m.id).startsWith('market-status:'));
-        // Add new market status (goes at the end where welcome was)
-        const allMessages = [...withoutMarket, ...newMarketMessages];
-        // Only truncate at MAX_SESSION_MESSAGES if we have too many
-        return allMessages.length > MAX_SESSION_MESSAGES
-          ? allMessages.slice(-MAX_SESSION_MESSAGES)
-          : allMessages;
-      });
+      const signature = getStatusSignature(newMarketMessages);
+      if (signature === lastMarketStatusRef.current) return;
+      lastMarketStatusRef.current = signature;
+      newMarketMessages.forEach((message) => appendMessage(message, { silent: false }));
     }
-  }, [generateMarketStatusMessages, actorId]);
+  }, [appendMessage, generateMarketStatusMessages, actorId]);
 
-  // Refresh market status periodically (like relay-status mainframe)
+  // Seed market status once; later database events append fresh traces.
   useEffect(() => {
     refreshMarketStatus();
-    const timer = setInterval(refreshMarketStatus, 15_000);
-    return () => clearInterval(timer);
   }, [refreshMarketStatus]);
 
   useEffect(() => {
