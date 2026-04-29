@@ -329,6 +329,11 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
     }
   }, [persistMessages, playIrcMessage]);
 
+  const appendAndBroadcastMessage = useCallback((message, options = {}) => {
+    appendMessage(message, options);
+    relayRef.current?.send({ type: 'broadcast', event: 'message', payload: message }).catch(() => {});
+  }, [appendMessage]);
+
   const buildMarketStatusLines = useCallback(({ ownersData = [], commandsData = [], blocksData = [], penaltiesData = [] }) => {
     const blocks = blocksData || [];
     const blockByKey = new Map(blocks.map((entry) => [entry.block_key, entry]));
@@ -732,12 +737,13 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
 
       const nextPresence = new Set(stableWallets.map((entry) => entry.wallet));
       const previousPresence = previousPresenceRef.current;
+      const presenceHash = stableHash([...nextPresence].sort().join('|'));
       if (presenceBootedRef.current) {
         nextPresence.forEach((wallet) => {
           if (!previousPresence.has(wallet) && wallet !== actorId && !wallet.startsWith('anon:')) {
-            appendMessage(
+            appendAndBroadcastMessage(
               makeMessage({
-                id: `join:${wallet}:${Date.now()}`,
+                id: `join:${wallet}:${presenceHash}`,
                 kind: 'system',
                 wallet: 'system',
                 text: `${wallet} ${t('irc.joined')}`,
@@ -750,9 +756,9 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
 
         previousPresence.forEach((wallet) => {
           if (!nextPresence.has(wallet) && wallet !== actorId && !wallet.startsWith('anon:')) {
-            appendMessage(
+            appendAndBroadcastMessage(
               makeMessage({
-                id: `leave:${wallet}:${Date.now()}`,
+                id: `leave:${wallet}:${presenceHash}`,
                 kind: 'system',
                 wallet: 'system',
                 text: `${wallet} ${t('irc.left')}`,
@@ -771,7 +777,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
       setConnectedWallets([]);
       setPresenceReady(true);
     }
-  }, [appendMessage, actorId, t]);
+  }, [appendAndBroadcastMessage, actorId, t]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -812,11 +818,12 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
       const text = n === 0
         ? t('irc.mainframeQuiet')
         : t('irc.mainframeNodes').replace('{count}', n).replace('{walletLabel}', walletLabel) + walletParts.join(' · ');
-      if (text === lastRelayStatusRef.current) return;
-      lastRelayStatusRef.current = text;
+      const signature = walletParts.join('|');
+      if (signature === lastRelayStatusRef.current) return;
+      lastRelayStatusRef.current = signature;
 
-      appendMessage(makeMessage({
-        id: `relay-status:${Date.now()}`,
+      appendAndBroadcastMessage(makeMessage({
+        id: `relay-status:${stableHash(signature)}`,
         kind: 'system',
         wallet: 'system',
         text,
@@ -826,7 +833,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
     };
 
     build();
-  }, [appendMessage, connectedWallets, language, presenceReady, t]);
+  }, [appendAndBroadcastMessage, connectedWallets, language, presenceReady, t]);
 
   // Generate all current market status messages
   const generateMarketStatusMessages = useCallback(async (actorIdForId) => {
