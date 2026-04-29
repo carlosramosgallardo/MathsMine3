@@ -2317,7 +2317,7 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
   const stats = [
     { label: t('tradeBoard.levelRank').replace(/ *\(.*\)/, ''), value: `${level}` },
     { label: t('leaderboard.mm3Earned'),  value: formatCompactNum(totalMined) },
-    { label: t('leaderboard.sellValue'),  value: formatMoney(currentFunds, currency) },
+    { label: t('leaderboard.sellValue'),  value: ({ EUR: '€', USD: '$', CNY: '¥' }[currency] || '') + formatCompactNum(currentFunds) },
   ];
 
   return (
