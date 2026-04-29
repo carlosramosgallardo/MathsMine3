@@ -307,6 +307,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
   const lastRelayStatusRef = useRef('');
   const lastMarketStatusRef = useRef('');
   const pendingEmptyPresenceRef = useRef(false);
+  const refreshMarketStatusRef = useRef(null);
 
   // Auto-focus input when wallet is connected and terminal is ready
   useEffect(() => {
@@ -665,6 +666,9 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
           { silent: false }
         );
       })
+      .on('broadcast', { event: 'market-status-refresh' }, () => {
+        refreshMarketStatusRef.current?.();
+      })
       .subscribe((status) => {
         setRelayReady(status === 'SUBSCRIBED');
       });
@@ -920,11 +924,14 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
           replaceGroup: 'market-status',
           replaceBatchId: `market:${signatureHash}`,
         };
-        appendMessage(payload, { silent: false });
-        relayRef.current?.send({ type: 'broadcast', event: 'message', payload }).catch(() => {});
+        appendAndBroadcastMessage(payload, { silent: false });
       });
     }
-  }, [appendMessage, generateMarketStatusMessages, actorId]);
+  }, [appendAndBroadcastMessage, generateMarketStatusMessages, actorId]);
+
+  useEffect(() => {
+    refreshMarketStatusRef.current = refreshMarketStatus;
+  }, [refreshMarketStatus]);
 
   // Seed market status once; later database events append fresh traces.
   useEffect(() => {
@@ -971,7 +978,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
               .select('wallet')
               .eq('command_id', rec.id);
             const affected = (penaltyRows || []).map((row) => row.wallet).join(' · ') || '0';
-            appendMessage(makeMessage({
+            appendAndBroadcastMessage(makeMessage({
               id: `market-event:on:${rec.id}`,
               kind: 'system',
               wallet: 'system',
@@ -1003,8 +1010,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
           ts: Date.now(),
           tone: 'market',
         };
-        appendMessage(makeMessage(expiredPayload), { silent: false });
-        relayRef.current?.send({ type: 'broadcast', event: 'message', payload: expiredPayload }).catch(() => {});
+        appendAndBroadcastMessage(makeMessage(expiredPayload), { silent: false });
         // After detail trace, refresh grouped market status for all users
         scheduleTimeout(() => refreshMarketStatus(), 500);
       })
@@ -1012,7 +1018,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
         if (!['market_buy', 'market_resell'].includes(rec?.event_type)) return;
         const { emoji, hex } = resolveBlockByEmoji(rec.emoji);
         const action = rec.event_type === 'market_buy' ? traceLabel.buy : traceLabel.resell;
-        appendMessage(makeMessage({
+        appendAndBroadcastMessage(makeMessage({
           id: `market-event:${rec.event_type}:${rec.id || rec.created_at || Date.now()}`,
           kind: 'system',
           wallet: 'system',
@@ -1045,7 +1051,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
       pendingTimeouts.forEach(clearTimeout);
       supabase.removeChannel(channel);
     };
-  }, [appendMessage, refreshMarketStatus, supabase, language, t]);
+  }, [appendAndBroadcastMessage, refreshMarketStatus, supabase, language, t]);
 
   useEffect(() => {
     if (typeof window === 'undefined' || !normalizedWallet) return;
@@ -1289,6 +1295,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
         `exec >> ${blockRow.emoji || commandEntry.emoji} >> cmd=${commandEntry.command} >> nonce=${x} >> ${penalties.length} ${t('podcast.walletsPenalized')} >> reset ${formatResetIn(dayWindow.resetAt, language)}`,
         'market'
       );
+      relayRef.current?.send({ type: 'broadcast', event: 'market-status-refresh', payload: { ts: Date.now() } }).catch(() => {});
       return true;
     } catch (err) {
       console.error('market command:', err);

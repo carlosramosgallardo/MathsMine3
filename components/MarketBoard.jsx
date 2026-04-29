@@ -60,6 +60,38 @@ async function broadcastIrcMessage(payload) {
   }
 }
 
+async function broadcastIrcMarketRefresh() {
+  const channel = supabase.channel('mm3-irc-relay');
+  try {
+    await new Promise((resolve) => {
+      let settled = false;
+      const done = () => {
+        if (settled) return;
+        settled = true;
+        resolve();
+      };
+      const timer = setTimeout(done, 1500);
+      channel.subscribe(async (status) => {
+        if (status === 'SUBSCRIBED') {
+          clearTimeout(timer);
+          await channel.send({
+            type: 'broadcast',
+            event: 'market-status-refresh',
+            payload: { ts: Date.now() },
+          }).catch(() => {});
+          done();
+        }
+        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+          clearTimeout(timer);
+          done();
+        }
+      });
+    });
+  } finally {
+    supabase.removeChannel(channel);
+  }
+}
+
 function openRankingWallet(wallet) {
   if (!wallet || typeof window === 'undefined') return;
   localStorage.setItem('mm3_leaderboard_wallet', String(wallet).toLowerCase());
@@ -663,6 +695,7 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
         localStorage.setItem('lb_dirty_at', String(Date.now()));
         window.dispatchEvent(new CustomEvent('mm3-db-updated', { detail: { wallet, special: true, market: true } }));
       }
+      await broadcastIrcMarketRefresh();
       await Promise.all([loadBlocks(), loadWalletState()]);
     } catch (err) {
       console.error('market buy:', err);
@@ -772,6 +805,7 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
         localStorage.setItem('lb_dirty_at', String(Date.now()));
         window.dispatchEvent(new CustomEvent('mm3-db-updated', { detail: { wallet, special: true, market: true } }));
       }
+      await broadcastIrcMarketRefresh();
       await Promise.all([loadBlocks(), loadWalletState()]);
     } catch (err) {
       console.error('market resell:', err);
@@ -860,6 +894,7 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
           tone: ircPayload.tone,
         }).then(() => {});
         await broadcastIrcMessage(ircPayload);
+        await broadcastIrcMarketRefresh();
       }
 
       notify(isCorrect ? t('podcast.numericSuccess') : t('podcast.numericWrong'), isCorrect ? 'success' : 'error');
