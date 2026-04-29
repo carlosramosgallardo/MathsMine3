@@ -120,9 +120,9 @@ function formatChatAuthor(wallet, normalizedWallet, youLabel) {
 function formatSystemAuthor(tone) {
   if (tone === 'market') return 'market@MM3·:~$';
   if (tone === 'ghost' || tone === 'join' || tone === 'leave') return 'mainframe@MM3·:~$';
-  if (tone === 'command') return 'cmd@MM3#';
-  if (tone === 'accent') return 'welcome@MM3';
-  return 'system@MM3';
+  if (tone === 'command') return 'cmd@MM3·:~$';
+  if (tone === 'accent') return 'welcome@MM3·:~$';
+  return 'system@MM3·:~$';
 }
 
 function formatWelcomeText(value) {
@@ -131,7 +131,7 @@ function formatWelcomeText(value) {
     .split('//')
     .map((part) => part.trim())
     .filter(Boolean);
-  return parts.length > 0 ? `## ${parts.join(' ## ')} ##` : '## MATHSMINE3 ##';
+  return parts.length > 0 ? parts.join(' >> ') : 'MATHSMINE3';
 }
 
 function formatSystemPromptText(value) {
@@ -1536,7 +1536,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
               const author = isSystem
                 ? formatSystemAuthor(message.tone)
                 : formatChatAuthor(message.wallet, normalizedWallet, t('irc.you'));
-              const displayText = isSystem && message.tone !== 'accent'
+              const displayText = isSystem
                 ? `#${formatSystemPromptText(message.text)}`
                 : message.text;
 
