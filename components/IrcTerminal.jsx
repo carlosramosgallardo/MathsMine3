@@ -89,6 +89,10 @@ function normalizeRelayMessage(value) {
   return String(value || '').replace(/\s+/g, ' ').trim().slice(0, 280);
 }
 
+function getSlashHead(value) {
+  return String(value || '').trim().replace(/^\/+/, '').split(/\s+/)[0].toLowerCase();
+}
+
 function shortenWallet(value) {
   const wallet = String(value || '');
   if (wallet.length <= 18) return wallet;
@@ -912,14 +916,16 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
     try {
       const entries = await loadMarketCommandEntries();
       const helpLines = [
-        `// cmd index :: ${entries.length} Market commands loaded from DB :: money rail ·· MM3 rail ·· hidden signals stay private`,
+        language === 'es'
+          ? `// índice cmd / cmd index :: ${entries.length} comandos Market desde DB :: rail dinero ·· rail MM3 ·· señales hidden privadas`
+          : `// cmd index / índice cmd :: ${entries.length} Market commands from DB :: money rail ·· MM3 rail ·· hidden signals private`,
         ...entries.map((entry) => {
           const block = blockByKeyRef.current.get(entry.key);
           const row = block?.grid_row ?? entry.grid_row;
           const col = block?.grid_col ?? entry.grid_col;
           const hex = row !== undefined && col !== undefined ? getBlockHex(row, col) : entry.key;
           const rail = entry.effect === 'mm3' ? 'MM3' : 'money';
-          return `// ${entry.emoji} ${hex} :: ${entry.command} :: effect=-${rail} :: numeric_code=market challenge`;
+          return `// ${entry.emoji} ${hex} :: ${entry.command} :: effect/efecto=-${rail} :: numeric_code/código=market challenge`;
         }),
       ];
       helpLines.forEach((line, index) => {
@@ -928,7 +934,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
           kind: 'system',
           wallet: 'system',
           ts: Date.now() + index,
-          tone: 'accent',
+          tone: 'command',
           text: line,
         }), { silent: true });
       });
@@ -938,11 +944,13 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
         kind: 'system',
         wallet: 'system',
         ts: Date.now(),
-        tone: 'leave',
-        text: `// cmd index unavailable :: ${err?.message || 'market DB offline'}`,
+        tone: 'command',
+        text: language === 'es'
+          ? `// índice cmd no disponible / cmd index unavailable :: ${err?.message || 'market DB offline'}`
+          : `// cmd index unavailable / índice cmd no disponible :: ${err?.message || 'market DB offline'}`,
       }), { silent: true });
     }
-  }, [appendMessage, loadMarketCommandEntries]);
+  }, [appendMessage, language, loadMarketCommandEntries]);
 
   const processMarketCommand = useCallback(async (text) => {
     const commandEntry = await findMarketCommandInDb(text);
@@ -977,18 +985,18 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
       if (launcher?.market_nftji_key !== commandEntry.key) {
         const hex = blockRow ? getBlockHex(blockRow.grid_row, blockRow.grid_col) : commandEntry.key;
         const emoji = blockRow?.emoji || commandEntry.emoji;
-        await broadcastSystemMessage(`${t('irc.commandRejected')} // ${normalizedWallet} ${t('irc.doesNotOwn')} ${hex}${emoji}`, 'leave');
+        await broadcastSystemMessage(`${t('irc.commandRejected')} // ${normalizedWallet} ${t('irc.doesNotOwn')} ${hex}${emoji}`, 'command');
         return true;
       }
 
       if (existingCommand) {
         const reset = formatClockTime(existingCommand.reset_at);
-        await broadcastSystemMessage(`${commandEntry.emoji} ${t('podcast.launchLocked')} ${reset} local`, 'leave');
+        await broadcastSystemMessage(`${commandEntry.emoji} ${t('podcast.launchLocked')} ${reset} local`, 'command');
         return true;
       }
 
       if (!blockRow) {
-        await broadcastSystemMessage(`${t('irc.commandRejected')} // ${t('irc.noBlock')} ${commandEntry.key}`, 'leave');
+        await broadcastSystemMessage(`${t('irc.commandRejected')} // ${t('irc.noBlock')} ${commandEntry.key}`, 'command');
         return true;
       }
 
@@ -1084,13 +1092,13 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
       }
 
       await broadcastSystemMessage(
-        `${blockRow.emoji || commandEntry.emoji} ${t('podcast.launchSuccess')} // cmd=${commandEntry.command} // nonce=${x} // ${penalties.length} ${t('podcast.walletsPenalized')} // reset ${formatClockTime(dayWindow.resetAt)} local`,
-        'accent'
+        `Market: exec // ${blockRow.emoji || commandEntry.emoji} // cmd=${commandEntry.command} // nonce=${x} // ${penalties.length} ${t('podcast.walletsPenalized')} // reset ${formatClockTime(dayWindow.resetAt)} local`,
+        'market'
       );
       return true;
     } catch (err) {
       console.error('market command:', err);
-      await broadcastSystemMessage(`${t('podcast.commandFailed')} // ${err?.message || 'market daemon non-zero'}`, 'leave');
+      await broadcastSystemMessage(`${t('podcast.commandFailed')} // ${err?.message || 'market daemon non-zero'}`, 'command');
       return true;
     }
   }, [broadcastSystemMessage, findMarketCommandInDb, normalizedWallet, t]);
@@ -1118,6 +1126,29 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
         return;
       }
 
+      try {
+        const entries = await loadMarketCommandEntries();
+        const normalizedText = normalizeCommandText(text);
+        const malformedPublicCommand = entries.find((entry) => {
+          const commandHead = getSlashHead(entry.command);
+          if (!commandHead) return false;
+          if (normalizeCommandText(entry.command) === normalizedText) return false;
+          return cmdName === commandHead || cmdName.startsWith(commandHead);
+        });
+        if (malformedPublicCommand) {
+          const hackText = language === 'es'
+            ? `ERR: intento de hackeo del sistema / system hack attempt // wallet=${normalizedWallet} // input=${text} // expected=${malformedPublicCommand.command}`
+            : `ERR: system hack attempt / intento de hackeo del sistema // wallet=${normalizedWallet} // input=${text} // expected=${malformedPublicCommand.command}`;
+          await broadcastSystemMessage(hackText, 'command');
+          try {
+            await supabase.from('mm3_irc_messages').insert({
+              wallet: 'system', text: hackText, ts: Date.now(), kind: 'system', tone: 'command',
+            });
+          } catch {}
+          return;
+        }
+      } catch {}
+
       // Try hidden command (DB-validated, not in source)
       try {
         const res = await fetch('/api/exec-hidden-cmd', {
@@ -1129,10 +1160,10 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
           const data = await res.json().catch(() => ({}));
           if (data.ok) {
             const trace = language === 'es' ? data.trace_es : data.trace_en;
-            await broadcastSystemMessage(trace, 'accent');
+            await broadcastSystemMessage(trace, 'command');
             try {
               await supabase.from('mm3_irc_messages').insert({
-                wallet: 'system', text: trace, ts: Date.now(), kind: 'system', tone: 'accent',
+                wallet: 'system', text: trace, ts: Date.now(), kind: 'system', tone: 'command',
               });
             } catch {}
             if (typeof window !== 'undefined') {
@@ -1153,7 +1184,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
                 }[data.error] || `// access denied :: /${cmdName} rejected`);
             appendMessage(makeMessage({
               id: `sys:err:${Date.now()}`,
-              kind: 'system', wallet: 'system', ts: Date.now(), tone: 'leave',
+              kind: 'system', wallet: 'system', ts: Date.now(), tone: 'command',
               text: errorMsg,
             }), { silent: true });
           }
@@ -1164,8 +1195,10 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
       // Unknown command — local error only
       appendMessage(makeMessage({
         id: `sys:err:${Date.now()}`,
-        kind: 'system', wallet: 'system', ts: Date.now(), tone: 'leave',
-        text: `// bash: /${cmdName}: command not found ·· type /? to dump available commands`,
+        kind: 'system', wallet: 'system', ts: Date.now(), tone: 'command',
+        text: language === 'es'
+          ? `// comando no encontrado / command not found :: /${cmdName || '?'} :: usa /?`
+          : `// command not found / comando no encontrado :: /${cmdName || '?'} :: type /?`,
       }), { silent: true });
       return;
     }
@@ -1306,10 +1339,24 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
         }
         /* ── IRC fixed colour palette ── */
         .mm3-irc-line.system                       {
+          color: #f8fafc;
+          text-shadow: 0 0 8px rgba(248, 250, 252, 0.12);
+        }
+        .mm3-irc-line.system[data-tone='accent']   {
           color: var(--irc-accent, #22d3ee);
           text-shadow: 0 0 8px color-mix(in srgb, var(--irc-accent, #22d3ee) 18%, transparent);
         }
-        .mm3-irc-line.system[data-tone]            { color: var(--irc-accent, #22d3ee); }
+        .mm3-irc-line.system[data-tone='market']   {
+          color: #facc15;
+          text-shadow: 0 0 8px rgba(250, 204, 21, 0.16);
+        }
+        .mm3-irc-line.system[data-tone='command']  {
+          color: #4ade80;
+          text-shadow: 0 0 8px rgba(74, 222, 128, 0.18);
+        }
+        .mm3-irc-line.system[data-tone='ghost'],
+        .mm3-irc-line.system[data-tone='join'],
+        .mm3-irc-line.system[data-tone='leave']    { color: #f8fafc; }
         .mm3-irc-line.system > span,
         .mm3-irc-line.system .mm3-irc-author       { color: inherit; }
         .mm3-irc-line.self   .mm3-irc-author       { color: #4ade80; }  /* self:   green  */
