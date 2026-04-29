@@ -74,17 +74,19 @@ function formatRelayTime(ts) {
   }
 }
 
-function formatResetIn(value) {
+function formatResetIn(value, language = 'en') {
   try {
     const ms = new Date(value).getTime() - Date.now();
-    if (Number.isNaN(ms) || ms <= 0) return 'now';
+    const isEs = language === 'es';
+    if (Number.isNaN(ms) || ms <= 0) return isEs ? 'ahora' : 'now';
     const totalSec = Math.floor(ms / 1000);
     const h = Math.floor(totalSec / 3600);
     const m = Math.floor((totalSec % 3600) / 60);
     const s = totalSec % 60;
-    if (h > 0) return `in ${h}h${m > 0 ? ` ${m}m` : ''}`;
-    if (m > 0) return `in ${m}m`;
-    return `in ${s}s`;
+    const prefix = isEs ? 'en' : 'in';
+    if (h > 0) return `${prefix} ${h}h${m > 0 ? ` ${m}m` : ''}`;
+    if (m > 0) return `${prefix} ${m}m`;
+    return `${prefix} ${s}s`;
   } catch {
     return '--';
   }
@@ -328,7 +330,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
       const affectedWallets = penaltiesByCommandId.get(command.id) || penaltiesByKey.get(key) || [];
       const affected = affectedWallets.join(' · ') || '0';
       activeLines.push(
-        `${label.active} >> ${emoji} ${hex} >> ${t('irc.by')} ${command.wallet} >> ${label.affected}: ${affected} >> ${label.reset} ${formatResetIn(command.reset_at)}`
+        `${label.active} >> ${emoji} ${hex} >> ${t('irc.by')} ${command.wallet} >> ${label.affected}: ${affected} >> ${label.reset} ${formatResetIn(command.reset_at, language)}`
       );
     }
 
@@ -862,7 +864,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
       .channel('mm3-irc-market-commands-watch')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'mm3_market_commands' }, ({ new: rec }) => {
         const { emoji, hex } = resolveBlock(rec.nftji_key);
-        const reset = formatResetIn(rec.reset_at);
+        const reset = formatResetIn(rec.reset_at, language);
         scheduleTimeout(async () => {
           try {
             const { data: penaltyRows } = await supabase
@@ -1003,8 +1005,8 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
       };
       const helpLines = [
         language === 'es'
-          ? `índice cmd / cmd index :: ${entries.length} cmds cargados :: /?`
-          : `cmd index / índice cmd :: ${entries.length} cmds loaded :: /?`,
+          ? `índice cmd :: ${entries.length} cmds cargados :: /?`
+          : `cmd index :: ${entries.length} cmds loaded :: /?`,
         language === 'es'
           ? `numeric_code :: código 5 dígitos >> introducir en bloque Market para cancelar penalización`
           : `numeric_code :: 5-digit code >> enter in Market block detail to redeem penalty`,
@@ -1035,8 +1037,8 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
         ts: Date.now(),
         tone: 'command',
         text: language === 'es'
-          ? `índice cmd no disponible / cmd index unavailable :: ${err?.message || 'market DB offline'}`
-          : `cmd index unavailable / índice cmd no disponible :: ${err?.message || 'market DB offline'}`,
+          ? `índice cmd no disponible :: ${err?.message || 'market DB offline'}`
+          : `cmd index unavailable :: ${err?.message || 'market DB offline'}`,
       }), { silent: true });
     }
   }, [appendMessage, language, loadMarketCommandEntries]);
@@ -1079,7 +1081,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
       }
 
       if (existingCommand) {
-        const reset = formatResetIn(existingCommand.reset_at);
+        const reset = formatResetIn(existingCommand.reset_at, language);
         await broadcastSystemMessage(`${commandEntry.emoji} ${t('podcast.launchLocked')} ${reset}`, 'command');
         return true;
       }
@@ -1181,7 +1183,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
       }
 
       await broadcastSystemMessage(
-        `exec >> ${blockRow.emoji || commandEntry.emoji} >> cmd=${commandEntry.command} >> nonce=${x} >> ${penalties.length} ${t('podcast.walletsPenalized')} >> reset ${formatResetIn(dayWindow.resetAt)}`,
+        `exec >> ${blockRow.emoji || commandEntry.emoji} >> cmd=${commandEntry.command} >> nonce=${x} >> ${penalties.length} ${t('podcast.walletsPenalized')} >> reset ${formatResetIn(dayWindow.resetAt, language)}`,
         'market'
       );
       return true;
@@ -1190,7 +1192,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
       await broadcastSystemMessage(`${t('podcast.commandFailed')} >> ${err?.message || 'market daemon non-zero'}`, 'command');
       return true;
     }
-  }, [broadcastSystemMessage, findMarketCommandInDb, normalizedWallet, t]);
+  }, [broadcastSystemMessage, findMarketCommandInDb, language, normalizedWallet, t]);
 
   const handleSend = async (event) => {
     event.preventDefault();
@@ -1226,8 +1228,8 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
         });
         if (malformedPublicCommand) {
           const hackText = language === 'es'
-            ? `ERR: intento de hackeo del sistema / system hack attempt >> wallet=${normalizedWallet} >> input=${text} >> expected=${malformedPublicCommand.command}`
-            : `ERR: system hack attempt / intento de hackeo del sistema >> wallet=${normalizedWallet} >> input=${text} >> expected=${malformedPublicCommand.command}`;
+            ? `ERR: intento de hackeo del sistema >> wallet=${normalizedWallet} >> input=${text} >> expected=${malformedPublicCommand.command}`
+            : `ERR: system hack attempt >> wallet=${normalizedWallet} >> input=${text} >> expected=${malformedPublicCommand.command}`;
           await broadcastSystemMessage(hackText, 'command');
           try {
             await supabase.from('mm3_irc_messages').insert({
@@ -1286,8 +1288,8 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
         id: `sys:err:${Date.now()}`,
         kind: 'system', wallet: 'system', ts: Date.now(), tone: 'command',
         text: language === 'es'
-          ? `comando no encontrado / command not found :: /${cmdName || '?'} :: usa /?`
-          : `command not found / comando no encontrado :: /${cmdName || '?'} :: type /?`,
+          ? `comando no encontrado :: /${cmdName || '?'} :: usa /?`
+          : `command not found :: /${cmdName || '?'} :: type /?`,
       }), { silent: true });
       return;
     }
