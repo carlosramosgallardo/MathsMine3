@@ -280,6 +280,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
   const [connectedWallets, setConnectedWallets] = useState([]);
   const [marketClaimsByWallet, setMarketClaimsByWallet] = useState({});
   const [relayReady, setRelayReady] = useState(false);
+  const [presenceReady, setPresenceReady] = useState(false);
   const [totalWallets, setTotalWallets] = useState(0);
   const [visibleCount, setVisibleCount] = useState(5);
 
@@ -755,8 +756,10 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
 
       previousPresenceRef.current = nextPresence;
       presenceBootedRef.current = true;
+      setPresenceReady(true);
     } catch {
       setConnectedWallets([]);
+      setPresenceReady(true);
     }
   }, [appendMessage, actorId, t]);
 
@@ -792,6 +795,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
 
   useEffect(() => {
     const build = () => {
+      if (!presenceReady) return;
       const walletParts = connectedWallets.map((u) => u.wallet);
       const n = walletParts.length;
       const walletLabel = t('irc.wallets');
@@ -812,7 +816,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
     };
 
     build();
-  }, [appendMessage, connectedWallets, language, t]);
+  }, [appendMessage, connectedWallets, language, presenceReady, t]);
 
   // Generate all current market status messages
   const generateMarketStatusMessages = useCallback(async (actorIdForId) => {
