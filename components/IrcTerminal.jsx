@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import supabase from '@/lib/supabaseClient';
 import { useI18n } from '@/lib/i18n-context';
 import { useActiveWallet } from '@/lib/use-active-wallet';
@@ -154,20 +155,27 @@ function isErrorOrPenaltyMessage(text, tone) {
   return false;
 }
 
-function renderSystemTextWithWallets(displayText, tone) {
+function renderSystemTextWithWallets(displayText, tone, onWalletClick) {
   const str = String(displayText);
   const regex = /(0x[a-f0-9]{40})/gi;
   if (!regex.test(str)) return str;
   regex.lastIndex = 0;
-  const isConnection = tone === 'join' || tone === 'leave' || tone === 'ghost';
   const parts = [];
   let last = 0;
   let match;
   while ((match = regex.exec(str)) !== null) {
     if (match.index > last) parts.push(str.slice(last, match.index));
     const addr = match[1];
-    const label = isConnection ? `…${addr.slice(-5)}` : `${addr.slice(0, 6)}…${addr.slice(-4)}`;
-    parts.push(<span key={`wa-${match.index}`} style={{ color: colorFromAddress(addr) }}>{label}</span>);
+    parts.push(
+      <span
+        key={`wa-${match.index}`}
+        className="mm3-irc-wallet-link"
+        style={{ color: colorFromAddress(addr) }}
+        onClick={() => onWalletClick?.(addr)}
+      >
+        {addr.slice(-5)}
+      </span>
+    );
     last = match.index + addr.length;
   }
   if (last < str.length) parts.push(str.slice(last));
@@ -176,6 +184,7 @@ function renderSystemTextWithWallets(displayText, tone) {
 
 export default function IrcTerminal({ accent = '#22d3ee' }) {
   const { t, language } = useI18n();
+  const router = useRouter();
   const { account } = useActiveWallet();
   const { playIrcMessage } = useSound();
   // Stable anon ID initialization - check all sources for maximum stability
@@ -1549,6 +1558,18 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
           opacity: 0.45;
           cursor: not-allowed;
         }
+        .mm3-irc-wallet-link {
+          cursor: pointer;
+          text-decoration: none;
+          font-weight: 600;
+          letter-spacing: 0.04em;
+          transition: opacity 0.12s;
+        }
+        .mm3-irc-wallet-link:hover {
+          opacity: 0.7;
+          text-decoration: underline;
+          text-underline-offset: 2px;
+        }
       `}</style>
 
       <div className="mm3-irc-shell">
@@ -1578,6 +1599,11 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
                 ? `#${formatSystemPromptText(message.text)}`
                 : message.text;
               const isErrorOrPenalty = isSystem && isErrorOrPenaltyMessage(message.text, message.tone);
+              const handleWalletClick = (addr) => {
+                if (typeof window === 'undefined') return;
+                localStorage.setItem('mm3_leaderboard_wallet', addr);
+                router.push('/ranking');
+              };
 
               return (
                 <div
@@ -1607,7 +1633,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
                       </div>
                     </div>
                     <div className="mm3-irc-msg-text mt-0.5 break-words text-[0.95rem] leading-relaxed">
-                      {isSystem ? renderSystemTextWithWallets(displayText, message.tone) : displayText}
+                      {isSystem ? renderSystemTextWithWallets(displayText, message.tone, handleWalletClick) : displayText}
                     </div>
                   </div>
                 </div>
