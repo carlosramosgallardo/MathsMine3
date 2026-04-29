@@ -482,6 +482,8 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
   const currentOwners = Array.isArray(selectedBlock?.current_owners) ? selectedBlock.current_owners : [];
   const hasCurrentOwners = currentOwners.length > 0;
   const selectedBlockHex = getBlockHex(selectedBlock?.grid_row ?? 0, selectedBlock?.grid_col ?? 0);
+  const hiddenCmdMinLevel = Math.max(0, Number(selectedBlock?.hidden_cmd_min_level) || 0);
+  const hasSecretLevel = hiddenCmdMinLevel > 0;
   const activePenaltyEffect = activePenalty?.penalty_effect === 'mm3' ? 'mm3' : 'money';
   const activePenaltyValue = activePenaltyEffect === 'mm3'
     ? Number(activePenalty?.penalty_value) || 0
@@ -981,21 +983,29 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
           </div>
           </div>
 
-          {/* ── Video / Short — bottom on mobile, here on desktop ── */}
+          {/* ── Short / hidden command hint ── */}
           {!selectedBlock?.isPlaceholder && (
             selectedBlock?.short_url ? (
-              <div className="order-last overflow-hidden rounded border border-cyan-500/10 bg-black/45 lg:order-none lg:col-span-2">
-                {(selectedBlock?.hidden_cmd_min_level > 0) && (
-                  <div className="flex items-center gap-1.5 border-b border-cyan-500/10 bg-black/30 px-2 py-1">
-                    <span className="text-[0.82rem] leading-none">📺</span>
-                    <span className="text-[0.52rem] uppercase tracking-[0.13em] text-cyan-400/55">secret cmd lv.{selectedBlock.hidden_cmd_min_level}+</span>
-                    <span className="text-[0.45rem] text-cyan-600/40">·</span>
-                    <span className="text-[0.52rem] uppercase tracking-[0.1em] text-cyan-600/45">{language === 'es' ? 'revelado en este short' : 'revealed in this short'}</span>
-                  </div>
-                )}
+              <div className="mm3-market-short-panel overflow-hidden rounded border border-cyan-500/10 bg-black/45 lg:col-span-2">
+                <Link
+                  href={`/market-short/${selectedBlock?.block_key}`}
+                  className="mm3-market-short-cta grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 px-2 py-1.5 transition hover:bg-cyan-950/10"
+                  aria-label={`${t('podcast.openShort')} ${selectedTitle}`}
+                >
+                  <span className="flex h-7 w-7 items-center justify-center rounded border border-cyan-400/20 bg-black/50 text-[0.9rem] text-cyan-200">YT</span>
+                  <span className="min-w-0">
+                    <span className="block text-[0.66rem] font-black uppercase tracking-[0.14em] text-cyan-200/90">{t('podcast.openShort')}</span>
+                    <span className="block truncate text-[0.52rem] uppercase tracking-[0.1em] text-cyan-600/60">{t('podcast.revealedInShort')}</span>
+                  </span>
+                  {hasSecretLevel && (
+                    <span className="rounded border border-amber-300/20 bg-amber-950/15 px-1.5 py-1 text-[0.58rem] font-black uppercase tracking-[0.12em] text-amber-300/80">
+                      {t('podcast.minLevel')} {hiddenCmdMinLevel}+
+                    </span>
+                  )}
+                </Link>
                 <iframe
                   src={normalizeShortUrl(selectedBlock.short_url)}
-                  className="aspect-video w-full"
+                  className="hidden aspect-video w-full border-t border-cyan-500/10 lg:block"
                   allowFullScreen
                   title={selectedTitle}
                 />
@@ -1003,17 +1013,25 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
             ) : (
               <Link
                 href={`/market-short/${selectedBlock?.block_key}`}
-                className="order-last flex flex-wrap items-center justify-center gap-x-1.5 gap-y-0.5 rounded border border-cyan-500/10 bg-black/25 px-2 py-1.5 transition hover:border-cyan-500/25 hover:bg-black/40 lg:order-none lg:col-span-2"
+                className="mm3-market-short-panel grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded border border-cyan-500/10 bg-black/25 px-2 py-1.5 transition hover:border-cyan-500/25 hover:bg-black/40 lg:col-span-2"
               >
-                {(selectedBlock?.hidden_cmd_min_level > 0) ? (
+                {hasSecretLevel ? (
                   <>
-                    <span className="text-[0.88rem] leading-none">📺</span>
-                    <span className="text-[0.62rem] font-black uppercase tracking-[0.14em] text-cyan-500/70">secret cmd lv.{selectedBlock.hidden_cmd_min_level}+</span>
-                    <span className="text-[0.52rem] text-cyan-700/50">·</span>
-                    <span className="text-[0.55rem] uppercase tracking-[0.1em] text-cyan-700/55">{language === 'es' ? 'revelado en yt' : 'revealed in yt'}</span>
+                    <span className="flex h-7 w-7 items-center justify-center rounded border border-cyan-400/15 bg-black/40 text-[0.9rem] text-cyan-500/70">YT</span>
+                    <span className="min-w-0">
+                      <span className="block text-[0.62rem] font-black uppercase tracking-[0.14em] text-cyan-500/70">{t('podcast.secretCmd')}</span>
+                      <span className="block truncate text-[0.52rem] uppercase tracking-[0.1em] text-cyan-700/55">{t('podcast.shortPending')}</span>
+                    </span>
+                    <span className="rounded border border-amber-300/15 bg-amber-950/10 px-1.5 py-1 text-[0.58rem] font-black uppercase tracking-[0.12em] text-amber-400/65">
+                      {t('podcast.minLevel')} {hiddenCmdMinLevel}+
+                    </span>
                   </>
                 ) : (
-                  <>{t('podcast.videoSoon')}</>
+                  <>
+                    <span className="flex h-7 w-7 items-center justify-center rounded border border-cyan-400/15 bg-black/40 text-[0.9rem] text-cyan-500/70">YT</span>
+                    <span className="text-[0.62rem] font-black uppercase tracking-[0.14em] text-cyan-500/70">{t('podcast.videoSoon')}</span>
+                    <span />
+                  </>
                 )}
               </Link>
             )

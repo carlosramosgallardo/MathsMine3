@@ -563,6 +563,23 @@ body.mm3-play-success-alert #board-section .section-frame::before {
     padding: 0.35rem !important;
   }
 
+  .mm3-market-short-panel {
+    min-height: 2.4rem;
+  }
+
+  .mm3-market-short-cta {
+    padding-top: 0.35rem !important;
+    padding-bottom: 0.35rem !important;
+  }
+
+  .mm3-market-short-panel [class*="tracking-[0.14em]"] {
+    letter-spacing: 0.1em !important;
+  }
+
+  .mm3-market-short-panel [class*="tracking-[0.12em]"] {
+    letter-spacing: 0.08em !important;
+  }
+
   .mm3-market-answer-input {
     padding: 0.35rem 0.45rem !important;
     font-size: 0.85rem !important;
