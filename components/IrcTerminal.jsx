@@ -145,6 +145,38 @@ function formatSystemPromptText(value) {
   return String(value || '').replace(/^\/\/\s*/, '');
 }
 
+function localizeLegacySystemPromptText(value, language) {
+  const text = formatSystemPromptText(value);
+  const isEs = language === 'es';
+  const legacyPairs = [
+    {
+      es: 'ERR: intento de hackeo del sistema',
+      en: 'ERR: system hack attempt',
+    },
+    {
+      es: 'comando no encontrado',
+      en: 'command not found',
+    },
+    {
+      es: 'índice cmd no disponible',
+      en: 'cmd index unavailable',
+    },
+  ];
+
+  for (const { es, en } of legacyPairs) {
+    const esThenEn = `${es} / ${en}`;
+    const enThenEs = `${en} / ${es}`;
+    if (text.startsWith(esThenEn)) {
+      return `${isEs ? es : en}${text.slice(esThenEn.length)}`;
+    }
+    if (text.startsWith(enThenEs)) {
+      return `${isEs ? es : en}${text.slice(enThenEs.length)}`;
+    }
+  }
+
+  return text;
+}
+
 function tickerFromRow(row, language, fallback) {
   const localized = language === 'es' ? row?.ticker_message_es : row?.ticker_message_en;
   return String(localized || row?.ticker_message || fallback || '').trim() || fallback;
@@ -1629,7 +1661,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
                 ? formatSystemAuthor(message.tone)
                 : formatChatAuthor(message.wallet, normalizedWallet, t('irc.you'));
               const displayText = isSystem
-                ? `#${formatSystemPromptText(message.text)}`
+                ? `#${localizeLegacySystemPromptText(message.text, language)}`
                 : message.text;
               const isErrorOrPenalty = isSystem && isErrorOrPenaltyMessage(message.text, message.tone);
               const handleWalletClick = (addr) => {
