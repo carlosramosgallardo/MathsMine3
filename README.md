@@ -414,14 +414,12 @@ Secret command strings for the MM3 family are revealed exclusively in each block
 
 ### IRC command — how it works
 
-Each Market NFTJI has one associated Linux/crypto command containing a math formula that resolves to a **5-digit integer** computed at launch time.
+Each Market NFTJI has one associated Linux/crypto command. When launched, the system computes a private daily **5-digit numeric code** for the active penalty window.
 
 IRC commands use a slash-prefix syntax and are routed client-side — they are never saved as chat messages. Type `/?` in IRC to list all available commands with their full strings.
 
 ```
 /?      → lists all available Market commands (full strings visible here only)
-/drain  → money-family: drains in-game fiat from all other wallets
-/mm3    → MM3-family:   drains available MM3 from all other wallets
 ```
 
 **Launch rules:**
@@ -430,8 +428,8 @@ IRC commands use a slash-prefix syntax and are routed client-side — they are n
 - **Public commands have no level requirement** — any owner can launch regardless of level
 - **Secret commands are level-gated** — the wallet must meet the block's `hidden_cmd_min_level` threshold to execute (lv.10–lv.100, mirroring the price ladder). The threshold is shown as `📺 secret cmd lv.X+` on the YouTube Short button in the block detail card
 - **Secret commands are discovered via YouTube Shorts** — the command string is not listed anywhere in the portal; it is revealed only in the block's embedded YT short. Watch the short → learn the command → execute it if you meet the level
-- The owning wallet clicks the pre-filled `/drain` or `/mm3` link from the block detail → IRC pre-populates the full command → wallet hits `send` (EN) / `enviar` (ES) → system processes it
-- On execution the system generates a fresh `x` value, computes the formula result from that `x`, and stores the direct 5-digit formula output as the command's `numeric_code` in the DB
+- The owning wallet clicks the pre-filled Market command link from the block detail → IRC pre-populates the full command → wallet hits `send` (EN) / `enviar` (ES) → system processes it
+- On execution the system generates a fresh challenge value and stores the resulting 5-digit `numeric_code` in the DB
 
 **Penalty rules:**
 - On launch: all wallets in Ranking (connected or not) are penalised by the NFTJI's price, **except:**

@@ -1044,7 +1044,7 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
                 <div className="text-[0.78rem] uppercase tracking-[0.16em] text-cyan-300/65 lg:text-[0.80rem] lg:tracking-[0.18em]">{t('podcast.ircCommand')}</div>
                 {activeBlockCommand && (
                   <div className="flex items-center gap-1 rounded border border-amber-400/30 bg-amber-950/20 px-1.5 py-0.5">
-                    <span className="text-[0.5rem] uppercase tracking-[0.1em] text-amber-400/70">x =</span>
+                    <span className="text-[0.5rem] uppercase tracking-[0.1em] text-amber-400/70">nonce</span>
                     <span className="text-[0.75rem] font-black leading-none text-amber-300">{activeBlockCommand.formula_x}</span>
                   </div>
                 )}
@@ -1055,8 +1055,8 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
               {activeBlockCommand && (
                 <div className="mt-1 text-[0.5rem] uppercase tracking-[0.08em] text-amber-400/50">
                   {language === 'es'
-                    ? `// sustituye x = ${activeBlockCommand.formula_x} → resultado entero = código numérico`
-                    : `// plug x = ${activeBlockCommand.formula_x} into formula → integer result = numeric code`}
+                    ? `// reto activo ${activeBlockCommand.formula_x} → código numérico`
+                    : `// active challenge ${activeBlockCommand.formula_x} → numeric code`}
                 </div>
               )}
               {canLaunchIrc ? (
@@ -1081,14 +1081,14 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
             </div>
             {activePenalty ? (
               <div className="space-y-1.5">
-                {/* Formula context repeated here so user can solve without scrolling */}
+                {/* Command context repeated here so user can solve without scrolling */}
                 {selectedMarketCommand && activeBlockCommand && (
                   <div className="rounded border border-fuchsia-400/10 bg-fuchsia-950/12 px-1.5 py-1">
                     <div className="break-words text-[0.78rem] leading-relaxed text-fuchsia-100/45">
                       {selectedMarketCommand.command}
                     </div>
                     <div className="mt-0.5 flex items-center gap-1.5">
-                      <span className="text-[0.5rem] uppercase tracking-[0.1em] text-fuchsia-400/60">x =</span>
+                      <span className="text-[0.5rem] uppercase tracking-[0.1em] text-fuchsia-400/60">nonce</span>
                       <span className="text-[0.5rem] font-black text-fuchsia-200">{activeBlockCommand.formula_x}</span>
                       <span className="text-[0.5rem] uppercase tracking-[0.08em] text-fuchsia-400/45">
                         {language === 'es' ? '// resultado → código 5 dígitos' : '// result → 5-digit code'}

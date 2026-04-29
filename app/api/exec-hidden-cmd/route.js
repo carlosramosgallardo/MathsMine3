@@ -56,7 +56,7 @@ export async function POST(req) {
 
   // 3. Check public command active today for this block
   const nowIso = new Date().toISOString();
-  const { data: activeWall } = await supabase
+  const { data: activeCommand } = await supabase
     .from('mm3_market_commands')
     .select('id')
     .gt('reset_at', nowIso)
@@ -64,8 +64,8 @@ export async function POST(req) {
     .limit(1)
     .maybeSingle();
 
-  if (!activeWall) {
-    return Response.json({ ok: false, error: 'wall_not_active' }, { status: 403 });
+  if (!activeCommand) {
+    return Response.json({ ok: false, error: 'command_not_active' }, { status: 403 });
   }
 
   // 4. Check 1x per day per wallet per block

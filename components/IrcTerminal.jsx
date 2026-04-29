@@ -45,13 +45,6 @@ function getBlockHex(row, col) {
   return '#' + ((Number(row) || 0) * 28 + (Number(col) || 0)).toString(16).toUpperCase().padStart(3, '0');
 }
 
-function getCommandFormula(command) {
-  const raw = String(command || '').trim();
-  const parts = raw.split('=>');
-  if (parts.length < 2) return raw;
-  return parts[1].trim();
-}
-
 function safeParseSession(value) {
   try {
     const parsed = JSON.parse(value || '[]');
@@ -352,10 +345,9 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
           if (command) {
             const block = blockByKey.get(entry.key);
             const hex = block ? getBlockHex(block.grid_row, block.grid_col) : entry.key;
-            const formula = getCommandFormula(entry.command);
             const reset = formatClockTime(command.reset_at);
             const by = shortWallet(command.wallet);
-            marketMessages.push(`Market: ${entry.emoji} ${hex} // ${t('irc.commandActive')} // formula=${formula} // x=${command.formula_x ?? 0} // reset=${reset}${by ? ` // ${t('irc.by')} ${by}` : ''}`);
+            marketMessages.push(`Market: ${entry.emoji} ${hex} // ${t('irc.commandActive')} // cmd=${entry.command} // nonce=${command.formula_x ?? 0} // reset=${reset}${by ? ` // ${t('irc.by')} ${by}` : ''}`);
           } else {
             const ownerWallets = (ownersData || [])
               .filter((o) => o.market_nftji_key === entry.key)
@@ -373,10 +365,9 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
           const block = blockByKey.get(key);
           const emoji = block?.emoji || fallback?.emoji || '?';
           const hex = block ? getBlockHex(block.grid_row, block.grid_col) : key;
-          const formula = getCommandFormula(fallback?.command);
           const reset = formatClockTime(command.reset_at);
           const by = shortWallet(command.wallet);
-          marketMessages.push(`Market: ${emoji} ${hex} // ${t('irc.commandActive')} // formula=${formula} // x=${command.formula_x ?? 0} // reset=${reset}${by ? ` // ${t('irc.by')} ${by}` : ''}`);
+          marketMessages.push(`Market: ${emoji} ${hex} // ${t('irc.commandActive')} // cmd=${fallback?.command || '?'} // nonce=${command.formula_x ?? 0} // reset=${reset}${by ? ` // ${t('irc.by')} ${by}` : ''}`);
         }
 
         if (marketMessages.length === 0) {
@@ -719,10 +710,9 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
         if (command) {
           const block = blockByKey.get(entry.key);
           const hex = block ? getBlockHex(block.grid_row, block.grid_col) : entry.key;
-          const formula = getCommandFormula(entry.command);
           const reset = formatClockTime(command.reset_at);
           const by = shortWallet(command.wallet);
-          marketMessages.push(`Market: ${entry.emoji} ${hex} // active // formula=${formula} // x=${command.formula_x ?? 0} // reset=${reset}${by ? ` // by ${by}` : ''}`);
+          marketMessages.push(`Market: ${entry.emoji} ${hex} // active // cmd=${entry.command} // nonce=${command.formula_x ?? 0} // reset=${reset}${by ? ` // by ${by}` : ''}`);
         } else {
           const ownerWallets = (ownersData || [])
             .filter((o) => o.market_nftji_key === entry.key)
@@ -740,10 +730,9 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
         const block = blockByKey.get(key);
         const emoji = block?.emoji || fallback?.emoji || '?';
         const hex = block ? getBlockHex(block.grid_row, block.grid_col) : key;
-        const formula = getCommandFormula(fallback?.command);
         const reset = formatClockTime(command.reset_at);
         const by = shortWallet(command.wallet);
-        marketMessages.push(`Market: ${emoji} ${hex} // active // formula=${formula} // x=${command.formula_x ?? 0} // reset=${reset}${by ? ` // by ${by}` : ''}`);
+        marketMessages.push(`Market: ${emoji} ${hex} // active // cmd=${fallback?.command || '?'} // nonce=${command.formula_x ?? 0} // reset=${reset}${by ? ` // by ${by}` : ''}`);
       }
 
       if (marketMessages.length === 0) {
@@ -794,7 +783,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
       return {
         emoji: block?.emoji || fallback?.emoji || '?',
         hex: block ? getBlockHex(block.grid_row, block.grid_col) : nftjiKey,
-        formula: getCommandFormula(block?.market_command || fallback?.command),
+        command: block?.market_command || fallback?.command || '?',
       };
     };
 
@@ -808,13 +797,13 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
     const channel = supabase
       .channel('mm3-irc-market-commands-watch')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'mm3_market_commands' }, ({ new: rec }) => {
-        const { emoji, hex, formula } = resolveBlock(rec.nftji_key);
+        const { emoji, hex, command } = resolveBlock(rec.nftji_key);
         const reset = formatClockTime(rec.reset_at);
         appendMessage(makeMessage({
           id: `market-event:on:${rec.id}`,
           kind: 'system',
           wallet: 'system',
-          text: `Market: ${emoji} ${hex} // ${t('irc.commandActive')} // formula=${formula} // x=${rec.formula_x} // reset=${reset} // ${t('irc.by')} ${rec.wallet ? `${String(rec.wallet).slice(0, 6)}...${String(rec.wallet).slice(-4)}` : '?'}`,
+          text: `Market: ${emoji} ${hex} // ${t('irc.commandActive')} // cmd=${command} // nonce=${rec.formula_x} // reset=${reset} // ${t('irc.by')} ${rec.wallet ? `${String(rec.wallet).slice(0, 6)}...${String(rec.wallet).slice(-4)}` : '?'}`,
           ts: Date.now(),
           tone: 'market',
         }), { silent: false });
@@ -924,14 +913,14 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
     try {
       const entries = await loadMarketCommandEntries();
       const helpLines = [
-        `// cmd index :: ${entries.length} Market commands loaded from DB :: /drain = money penalty ·· /mm3 = MM3 penalty ·· hidden signals stay private`,
+        `// cmd index :: ${entries.length} Market commands loaded from DB :: money rail ·· MM3 rail ·· hidden signals stay private`,
         ...entries.map((entry) => {
           const block = blockByKeyRef.current.get(entry.key);
           const row = block?.grid_row ?? entry.grid_row;
           const col = block?.grid_col ?? entry.grid_col;
           const hex = row !== undefined && col !== undefined ? getBlockHex(row, col) : entry.key;
           const rail = entry.effect === 'mm3' ? 'MM3' : 'money';
-          return `// ${entry.emoji} ${hex} :: ${entry.command} :: effect=-${rail} :: numeric_code=result(formula,x)`;
+          return `// ${entry.emoji} ${hex} :: ${entry.command} :: effect=-${rail} :: numeric_code=market challenge`;
         }),
       ];
       helpLines.forEach((line, index) => {
@@ -1094,7 +1083,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
       }
 
       await broadcastSystemMessage(
-        `${blockRow.emoji || commandEntry.emoji} ${t('podcast.launchSuccess')} // formula=${getCommandFormula(commandEntry.command)} // x=${x} // ${penalties.length} ${t('podcast.walletsPenalized')} // reset ${formatClockTime(dayWindow.resetAt)} local`,
+        `${blockRow.emoji || commandEntry.emoji} ${t('podcast.launchSuccess')} // cmd=${commandEntry.command} // nonce=${x} // ${penalties.length} ${t('podcast.walletsPenalized')} // reset ${formatClockTime(dayWindow.resetAt)} local`,
         'accent'
       );
       return true;
@@ -1123,12 +1112,8 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
         return;
       }
 
-      // /drain and /mm3 — market commands or unauthorized broadcast
-      if (cmdName === 'drain' || cmdName === 'mm3') {
-        const handled = await processMarketCommand(text);
-        if (!handled) {
-          await broadcastSystemMessage(`${IRC_ADMIN_LABEL}:~$ ${t('irc.wallPrompt')}`, 'accent');
-        }
+      // Public Market commands are loaded from DB and can use any slash name.
+      if (await processMarketCommand(text)) {
         return;
       }
 
@@ -1156,7 +1141,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
           } else {
             const errorMsg = {
               level_too_low: `// access denied :: level insufficient for /${cmdName}`,
-              wall_not_active: `// access denied :: /drain not active for this block today`,
+              command_not_active: `// access denied :: public Market command not active for this block today`,
               already_executed_today: `// access denied :: command quota exhausted for today`,
             }[data.error] || `// access denied :: /${cmdName} rejected`;
             appendMessage(makeMessage({
