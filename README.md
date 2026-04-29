@@ -473,7 +473,6 @@ The portal includes an **IRC-style social relay** that makes MM3 feel like a sha
 - **Persistent chat** — user messages are stored permanently in `mm3_irc_messages`; history is loaded on connect so no messages are lost on refresh
 - **Country flags + NFTJI badges** — each chat line shows the author's country flag and any owned Market NFTJI inline before the wallet address
 - **Wallet identity** — every message is authored by the wallet address (shortened); anon guests can read but their ID never appears in the chat log
-- **Ghost join trace** — when an anon user connects, a dim system line appears in the relay: `[CC] ghost:xxxxxx // entered relay [read-only — no write clearance]`; anon leaves are silent
 - **System relay notices** — players see who connects and disconnects in real time (wallet users only)
 - **Market identity layer** — owned Market NTFJIs appear next to the wallets that hold them
 - **Mainframe welcome** — the relay boots with the welcome line stored in `mm3_macro_state`
@@ -481,6 +480,199 @@ The portal includes an **IRC-style social relay** that makes MM3 feel like a sha
 - **Command launch** — owning a Market NFTJI lets you fire its daily command from the block detail page; a pre-filled IRC message is waiting for Enter
 
 IRC gives MM3 a social loop. Mining, trading, ranking, collecting, and talking all happen inside the same fictional terminal culture. Wallet presence becomes community presence.
+
+### IRC System Prompts
+
+Every system-generated line in the relay is rendered as a real old-school Linux shell prompt followed by a `#` comment. The prompt identifies the subsystem, the `#` marks the message as a shell-style comment.
+
+| Prompt | Tone | Color | Subsystem |
+|---|---|---|---|
+| `welcome@MM3·:~$` | `accent` | cyan `#22d3ee` | Boot banner (from `mm3_macro_state`) |
+| `mainframe@MM3·:~$` | `ghost` | white `#f8fafc` | Node presence status |
+| `mainframe@MM3·:~$` | `join` | green `#4ade80` | Wallet entered relay |
+| `mainframe@MM3·:~$` | `leave` | dark blue `#1d4ed8` | Wallet left relay |
+| `market@MM3·:~$` | `market` | amber `#facc15` | Market command events and status |
+| `cmd@MM3·:~$` | `command` | green `#4ade80` | Command responses and errors |
+
+Chat messages (wallet users) have no system prompt — the author is the wallet address, rendered in its unique deterministic color.
+
+### IRC Message Catalog
+
+All system messages follow the pattern `PROMPT #text`. Separator within messages is `>>`. Internal type separators use `::`.
+
+#### `welcome@MM3·:~$` — boot banner
+
+Loaded once on connect from `mm3_macro_state.ticker_message`. Falls back to hardcoded string if DB is unreachable. The `//`-delimited DB value is split into sections joined with `>>`.
+
+```
+welcome@MM3·:~$ #MATHSMINE3 >> SOLVE FAST >> MINE MM3 >> FEED THE RETRO MAINFRAME
+```
+
+#### `mainframe@MM3·:~$` — node presence (ghost tone)
+
+Refreshed every 60 seconds. Lists all wallets active in the last 90 seconds.
+
+```
+mainframe@MM3·:~$ #no active wallets
+mainframe@MM3·:~$ #sin wallets activas
+
+mainframe@MM3·:~$ #[3 wallets] 0x1234...5678 · 0x9abc...def0 · 0xffff...0000
+```
+
+#### `mainframe@MM3·:~$` — wallet joined relay (join tone, green)
+
+Fires when a wallet address appears in `mm3_wallet_presence` for the first time in a polling cycle. The wallet address is rendered in its unique deterministic color.
+
+```
+mainframe@MM3·:~$ #0x6bccc2e5c5c2231bdf3a4f706161445f940f18f0 entered relay
+mainframe@MM3·:~$ #0x6bccc2e5c5c2231bdf3a4f706161445f940f18f0 unido al relay
+```
+
+#### `mainframe@MM3·:~$` — wallet left relay (leave tone, dark blue)
+
+Fires when a wallet address disappears from `mm3_wallet_presence`.
+
+```
+mainframe@MM3·:~$ #0x6bccc2e5c5c2231bdf3a4f706161445f940f18f0 left relay
+mainframe@MM3·:~$ #0x6bccc2e5c5c2231bdf3a4f706161445f940f18f0 salió del relay
+```
+
+#### `market@MM3·:~$` — Market status (refreshed every 15 s)
+
+Shows the current state of all active Market commands. Displayed at boot and kept up to date in real time.
+
+```
+# No commands active:
+market@MM3·:~$ #no penalties active
+market@MM3·:~$ #sin penalizaciones activas
+
+# Command currently running:
+market@MM3·:~$ #active >> 🔥 #0A2 >> by 0x1234...5678 >> affected: 0x9abc...ef01 >> reset 23:59:59
+
+# Command owner ready but not yet fired today:
+market@MM3·:~$ #ready >> 🔥 #0A2 >> wallets: 0x1234...5678 · 0x9abc...def0
+```
+
+#### `market@MM3·:~$` — Market command executed (real-time INSERT event)
+
+Fires when a wallet launches its daily Market command. Appears ~3 s after execution to allow penalty rows to be written first.
+
+```
+market@MM3·:~$ #exec >> 🔥 #0A2 >> by 0x1234...5678 >> affected: 0x9abc...ef01 · 0xdead...beef >> reset 23:59:59
+```
+
+#### `market@MM3·:~$` — Market command expired (real-time UPDATE event)
+
+Fires when an active command's `reset_at` passes and the row is updated.
+
+```
+market@MM3·:~$ #penalty reset >> 🔥 #0A2 >> 3 wallets released
+market@MM3·:~$ #penalty reset >> 🔥 #0A2 >> 3 wallets liberadas
+```
+
+#### `market@MM3·:~$` — Market buy / resell (real-time INSERT on `mm3_market_events`)
+
+```
+market@MM3·:~$ #buy >> 🔥 #0A2 >> 0x1234...5678
+market@MM3·:~$ #resell >> 🔥 #0A2 >> 0x1234...5678
+market@MM3·:~$ #compra >> 🔥 #0A2 >> 0x1234...5678
+market@MM3·:~$ #reventa >> 🔥 #0A2 >> 0x1234...5678
+```
+
+#### `market@MM3·:~$` — Numeric code redeemed (real-time UPDATE on `mm3_command_penalties`)
+
+Fires when an affected wallet enters the correct 5-digit code and cancels their penalty.
+
+```
+market@MM3·:~$ #code ok >> 🔥 #0A2 >> 0x1234...5678 >> penalty reset
+market@MM3·:~$ #código ok >> 🔥 #0A2 >> 0x1234...5678 >> penalización reset
+```
+
+#### `market@MM3·:~$` — Market command self-execution result (broadcast)
+
+Sent to all relay participants when the executing wallet's Market command is fully processed.
+
+```
+market@MM3·:~$ #exec >> 🔥 >> cmd=/fire >> nonce=42 >> 5 wallets penalized >> reset 23:59:59 local
+market@MM3·:~$ #exec >> 🔥 >> cmd=/fire >> nonce=42 >> 5 wallets penalizadas >> reset 23:59:59 local
+```
+
+#### `cmd@MM3·:~$` — Command index (`/?` or `/help`)
+
+Lists all public Market commands loaded from DB. Local only — not broadcast.
+
+```
+cmd@MM3·:~$ #cmd index / índice cmd :: 20 Market commands from DB :: money rail ·· MM3 rail ·· hidden signals private
+cmd@MM3·:~$ #🔥 #0A2 :: /fire :: effect/efecto=-money :: numeric_code/código=market challenge
+cmd@MM3·:~$ #🛸 #01D :: /orbit :: effect/efecto=-MM3 :: numeric_code/código=market challenge
+```
+
+#### `cmd@MM3·:~$` — Command rejected (wallet does not own the NFTJI)
+
+```
+cmd@MM3·:~$ #ERR: cmd rejected >> 0x1234...5678 does not own #0A2🔥
+cmd@MM3·:~$ #ERR: cmd rechazado >> 0x1234...5678 no posee #0A2🔥
+```
+
+#### `cmd@MM3·:~$` — Command locked (already fired today)
+
+```
+cmd@MM3·:~$ #🔥 locked until 23:59:59 local
+```
+
+#### `cmd@MM3·:~$` — Hidden command result (from `/api/exec-hidden-cmd`)
+
+Text is dynamic — `trace_en` / `trace_es` comes from the DB row for the hidden command.
+
+```
+cmd@MM3·:~$ #<trace text from DB>
+```
+
+#### `cmd@MM3·:~$` — Access denied (hidden command, level or quota)
+
+```
+cmd@MM3·:~$ #access denied :: level insufficient for /cmdname
+cmd@MM3·:~$ #access denied :: public Market command not active for this block today
+cmd@MM3·:~$ #access denied :: command quota exhausted for today
+cmd@MM3·:~$ #access denied :: /cmdname rejected
+
+cmd@MM3·:~$ #acceso denegado :: nivel insuficiente para /cmdname
+cmd@MM3·:~$ #acceso denegado :: comando Market público no activo hoy para este bloque
+cmd@MM3·:~$ #acceso denegado :: cuota diaria del comando agotada
+cmd@MM3·:~$ #acceso denegado :: /cmdname rechazado
+```
+
+#### `cmd@MM3·:~$` — Unknown command
+
+```
+cmd@MM3·:~$ #command not found / comando no encontrado :: /cmdname :: type /?
+cmd@MM3·:~$ #comando no encontrado / command not found :: /cmdname :: usa /?
+```
+
+#### `cmd@MM3·:~$` — System hack attempt (malformed known command)
+
+Broadcast to all participants and persisted in DB.
+
+```
+cmd@MM3·:~$ #ERR: system hack attempt / intento de hackeo del sistema >> wallet=0x1234...5678 >> input=/fire 999 >> expected=/fire
+cmd@MM3·:~$ #ERR: intento de hackeo del sistema / system hack attempt >> wallet=0x1234...5678 >> input=/fire 999 >> expected=/fire
+```
+
+#### `cmd@MM3·:~$` — Command failed (DB error)
+
+```
+cmd@MM3·:~$ #command failed >> <error message>
+cmd@MM3·:~$ #comando fallido >> <error message>
+```
+
+#### Empty relay state
+
+Shown in the chat log area when no messages have been loaded yet.
+
+```
+#relay silent — no traffic detected
+#relay silencioso — sin tráfico detectado
+```
 
 ---
 
