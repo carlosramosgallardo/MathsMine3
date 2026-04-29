@@ -1009,7 +1009,7 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
                 <div className="flex items-center gap-1.5">
                   <div className="text-[0.78rem] uppercase tracking-[0.16em] text-cyan-300/65 lg:text-[0.80rem] lg:tracking-[0.18em]">{t('podcast.ircCommand')}</div>
                   {(selectedBlock?.hidden_cmd_min_level > 0) && (
-                    <span className="rounded border border-cyan-500/20 bg-cyan-950/30 px-1 py-0.5 text-[0.5rem] uppercase tracking-[0.12em] text-cyan-400/60">lv.{selectedBlock.hidden_cmd_min_level}+</span>
+                    <span className="rounded border border-cyan-500/20 bg-cyan-950/30 px-1 py-0.5 text-[0.5rem] uppercase tracking-[0.1em] text-cyan-400/55">hidden cmd lv.{selectedBlock.hidden_cmd_min_level}+</span>
                   )}
                 </div>
                 {activeBlockCommand && (
