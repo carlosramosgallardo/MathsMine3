@@ -348,7 +348,7 @@ Each Market NFTJI command that fires in IRC can penalise all wallets not holding
 
 The Market is a **28×28 block board** (784 cells, hex-coded `#000`–`#30F`). Twenty special NFTJI blocks occupy fixed positions: the original 10 are paid in in-game money, and the 10 MM3 family blocks are paid in MM3 at `1 EUR = 1 MM3`. New blocks auto-generate as wallets make first purchases. Navigate the board, find a live block, and pay the block's rail to acquire its NFTJI.
 
-There is also a second signal layer: hidden Market commands. They are not documented in this README and are not stored in public SQL. Their trail belongs to the upcoming **MathsMine3 Podcast by @FreakingAI** — under construction, signal locked, mainframe whispering.
+There is also a second signal layer: hidden Market commands. They are not documented in this README and are not stored in public SQL — their strings live exclusively in the private seed file.
 
 ### Ownership rules
 
@@ -380,18 +380,18 @@ poolInjection = price × 0.50  (injected as MM3 into the pool)
 
 | Emoji | Name | HEX | Price | Market command effect | Hidden signal |
 |---|---|---:|---:|---|---|
-| 🛰 | Genesis Uplink | #016 | €1.00 | −€1.00 to all other wallets | Podcast reveal pending |
-| 🌐 | Signal Nexus | #05C | €3.00 | −€3.00 to all other wallets | Podcast reveal pending |
-| 🔭 | Deep Relay | #0B9 | €5.00 | −€5.00 to all other wallets | Podcast reveal pending |
-| 🧬 | Code Strand | #11B | €7.00 | −€7.00 to all other wallets | Podcast reveal pending |
-| 💠 | Fractal Core | #184 | €10.00 | −€10.00 to all other wallets | Podcast reveal pending |
-| ⚡ | Arc Burst | #1E7 | €15.00 | −€15.00 to all other wallets | Podcast reveal pending |
-| 🌀 | Entropy Loop | #244 | €25.00 | −€25.00 to all other wallets | Podcast reveal pending |
-| 🔴 | Null Beacon | #26D | €50.00 | −€50.00 to all other wallets | Podcast reveal pending |
-| ⭐ | Star Protocol | #2CA | €75.00 | −€75.00 to all other wallets | Podcast reveal pending |
-| 💎 | Crystal Forge | #30E | €100.00 | −€100.00 to all other wallets | Podcast reveal pending |
+| 🛰 | Genesis Uplink | #016 | €1.00 | −€1.00 to all other wallets | Signal locked |
+| 🌐 | Signal Nexus | #05C | €3.00 | −€3.00 to all other wallets | Signal locked |
+| 🔭 | Deep Relay | #0B9 | €5.00 | −€5.00 to all other wallets | Signal locked |
+| 🧬 | Code Strand | #11B | €7.00 | −€7.00 to all other wallets | Signal locked |
+| 💠 | Fractal Core | #184 | €10.00 | −€10.00 to all other wallets | Signal locked |
+| ⚡ | Arc Burst | #1E7 | €15.00 | −€15.00 to all other wallets | Signal locked |
+| 🌀 | Entropy Loop | #244 | €25.00 | −€25.00 to all other wallets | Signal locked |
+| 🔴 | Null Beacon | #26D | €50.00 | −€50.00 to all other wallets | Signal locked |
+| ⭐ | Star Protocol | #2CA | €75.00 | −€75.00 to all other wallets | Signal locked |
+| 💎 | Crystal Forge | #30E | €100.00 | −€100.00 to all other wallets | Signal locked |
 
-Hidden money-family signals exist, but their exact slash commands stay sealed until the @FreakingAI podcast drops the lore. Mechanically, they steal from the in-game Money rail and inject the haul into the executing wallet.
+Hidden money-family signals exist. Their exact slash commands are not public — strings are kept in the private seed file only. Mechanically, they steal from the in-game Money rail and inject the haul into the executing wallet.
 
 ### NFTJI catalog — MM3 family
 
@@ -399,39 +399,35 @@ These 10 are the new MM3 rail: unique emojis, unique `/mm3 ...` Market commands,
 
 | Emoji | Name | HEX | Price | Market command effect | Hidden signal |
 |---|---|---:|---:|---|---|
-| 🛸 | Orbit Siphon | #01D | 1 MM3 | −1 MM3 to all other wallets | Podcast reveal pending |
-| 🗝️ | Key Vault | #04A | 3 MM3 | −3 MM3 to all other wallets | Podcast reveal pending |
-| 🛡️ | Shield Fork | #091 | 5 MM3 | −5 MM3 to all other wallets | Podcast reveal pending |
-| 🧨 | Fuse Packet | #0F8 | 7 MM3 | −7 MM3 to all other wallets | Podcast reveal pending |
-| 🪙 | Coin Kernel | #15C | 10 MM3 | −10 MM3 to all other wallets | Podcast reveal pending |
-| 🧰 | Toolchain Cache | #1A6 | 15 MM3 | −15 MM3 to all other wallets | Podcast reveal pending |
-| 🪬 | Mirror Charm | #20B | 25 MM3 | −25 MM3 to all other wallets | Podcast reveal pending |
-| 🪞 | Reflector Gate | #29B | 50 MM3 | −50 MM3 to all other wallets | Podcast reveal pending |
-| 🔋 | Battery Node | #2DA | 75 MM3 | −75 MM3 to all other wallets | Podcast reveal pending |
-| 🎛️ | Mixer Console | #2F9 | 100 MM3 | −100 MM3 to all other wallets | Podcast reveal pending |
+| 🛸 | Orbit Siphon | #01D | 1 MM3 | −1 MM3 to all other wallets | Signal locked |
+| 🗝️ | Key Vault | #04A | 3 MM3 | −3 MM3 to all other wallets | Signal locked |
+| 🛡️ | Shield Fork | #091 | 5 MM3 | −5 MM3 to all other wallets | Signal locked |
+| 🧨 | Fuse Packet | #0F8 | 7 MM3 | −7 MM3 to all other wallets | Signal locked |
+| 🪙 | Coin Kernel | #15C | 10 MM3 | −10 MM3 to all other wallets | Signal locked |
+| 🧰 | Toolchain Cache | #1A6 | 15 MM3 | −15 MM3 to all other wallets | Signal locked |
+| 🪬 | Mirror Charm | #20B | 25 MM3 | −25 MM3 to all other wallets | Signal locked |
+| 🪞 | Reflector Gate | #29B | 50 MM3 | −50 MM3 to all other wallets | Signal locked |
+| 🔋 | Battery Node | #2DA | 75 MM3 | −75 MM3 to all other wallets | Signal locked |
+| 🎛️ | Mixer Console | #2F9 | 100 MM3 | −100 MM3 to all other wallets | Signal locked |
 
-Hidden MM3-family signals exist too, but the actual command strings remain off-chain lore for now. Mechanically, they steal from available MM3 and inject the total into the executing wallet.
+Hidden MM3-family signals exist too. Command strings are kept in the private seed file only. Mechanically, they steal from available MM3 and inject the total into the executing wallet.
 
 ### IRC command — how it works
 
-Each Market NFTJI has one associated freak linux/crypto command containing a math formula that resolves to a **5-digit integer** computed at launch time.
+Each Market NFTJI has one associated Linux/crypto command containing a math formula that resolves to a **5-digit integer** computed at launch time.
 
-IRC commands use a slash-prefix syntax and are routed client-side — they are never saved as chat messages.
+IRC commands use a slash-prefix syntax and are routed client-side — they are never saved as chat messages. Type `/?` in IRC to list all available commands with their full strings.
 
 ```
-/drain [freakingAI@MM3] solve => (log10(100000)*(4000+x))+(12*(300+x))+((6000+3*x)/3) = ?
-  → result is a 5-digit integer, e.g. 12345
-
-/?     → lists all available slash commands
-/drain <command>  → fires a money-family Market NFTJI command (validated against active NFTJI)
-/mm3 <command>    → fires an MM3-family Market NFTJI command (validated against active NFTJI)
-Unknown slash prefix → error: "unknown command. type /? for help"
+/?      → lists all available Market commands (full strings visible here only)
+/drain  → money-family: drains in-game fiat from all other wallets
+/mm3    → MM3-family:   drains available MM3 from all other wallets
 ```
 
 **Launch rules:**
 - Only the wallet currently owning the NFTJI can launch its command
 - Each command can be launched **once per day globally** (not per wallet) — one wallet fires it and it is locked until UTC midnight reset
-- The owning wallet clicks the pre-filled `/drain` or `/mm3` link from the block detail → IRC pre-populates the message → wallet hits `send` (EN) / `enviar` (ES) → system processes it
+- The owning wallet clicks the pre-filled `/drain` or `/mm3` link from the block detail → IRC pre-populates the full command → wallet hits `send` (EN) / `enviar` (ES) → system processes it
 - On execution the system generates a fresh `x` value, computes the formula result from that `x`, and stores the direct 5-digit formula output as the command's `numeric_code` in the DB
 
 **Penalty rules:**
@@ -708,7 +704,7 @@ Affected wallets: all in Ranking EXCEPT
   - any wallet currently owning the same NFTJI
 ```
 
-For hidden signals, the exact slash strings are deliberately absent from public docs and public SQL. The reveal path is the upcoming MathsMine3 Podcast by @FreakingAI. Mechanically, the stolen amount is 10% of the same base amount per victim: money-family hidden signals steal money; MM3-family hidden signals steal available MM3.
+For hidden signals, the exact slash strings are absent from public docs and public SQL — they live in the private seed file only. Mechanically, the stolen amount is 10% of the same base amount per victim: money-family hidden signals steal money; MM3-family hidden signals steal available MM3.
 
 ### Daily DRILL SLOTS
 
