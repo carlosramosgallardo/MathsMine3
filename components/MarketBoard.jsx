@@ -814,7 +814,9 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
           : selectedBlock?.block_key || '';
         await supabase.from('mm3_irc_messages').insert({
           wallet: 'system',
-          text: `code ok / código ok >> ${ircEmoji} ${ircHex} >> ${wallet} >> penalty reset / penalización reset`,
+          text: language === 'es'
+              ? `código ok >> ${ircEmoji} ${ircHex} >> ${wallet} >> penalización reset`
+              : `code ok >> ${ircEmoji} ${ircHex} >> ${wallet} >> penalty reset`,
           ts: Date.now(),
           kind: 'system',
           tone: 'market',

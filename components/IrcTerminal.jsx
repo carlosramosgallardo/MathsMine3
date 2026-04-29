@@ -74,16 +74,19 @@ function formatRelayTime(ts) {
   }
 }
 
-function formatClockTime(value) {
+function formatResetIn(value) {
   try {
-    const d = new Date(value);
-    if (Number.isNaN(d.getTime())) return '--:--:--';
-
-    const p = (n) => String(n).padStart(2, '0');
-
-    return `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+    const ms = new Date(value).getTime() - Date.now();
+    if (Number.isNaN(ms) || ms <= 0) return 'now';
+    const totalSec = Math.floor(ms / 1000);
+    const h = Math.floor(totalSec / 3600);
+    const m = Math.floor((totalSec % 3600) / 60);
+    const s = totalSec % 60;
+    if (h > 0) return `in ${h}h${m > 0 ? ` ${m}m` : ''}`;
+    if (m > 0) return `in ${m}m`;
+    return `in ${s}s`;
   } catch {
-    return '--:--:--';
+    return '--';
   }
 }
 
@@ -325,7 +328,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
       const affectedWallets = penaltiesByCommandId.get(command.id) || penaltiesByKey.get(key) || [];
       const affected = affectedWallets.join(' · ') || '0';
       activeLines.push(
-        `${label.active} >> ${emoji} ${hex} >> ${t('irc.by')} ${command.wallet} >> ${label.affected}: ${affected} >> ${label.reset} ${formatClockTime(command.reset_at)}`
+        `${label.active} >> ${emoji} ${hex} >> ${t('irc.by')} ${command.wallet} >> ${label.affected}: ${affected} >> ${label.reset} ${formatResetIn(command.reset_at)}`
       );
     }
 
@@ -859,7 +862,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
       .channel('mm3-irc-market-commands-watch')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'mm3_market_commands' }, ({ new: rec }) => {
         const { emoji, hex } = resolveBlock(rec.nftji_key);
-        const reset = formatClockTime(rec.reset_at);
+        const reset = formatResetIn(rec.reset_at);
         scheduleTimeout(async () => {
           try {
             const { data: penaltyRows } = await supabase
@@ -1076,8 +1079,8 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
       }
 
       if (existingCommand) {
-        const reset = formatClockTime(existingCommand.reset_at);
-        await broadcastSystemMessage(`${commandEntry.emoji} ${t('podcast.launchLocked')} ${reset} local`, 'command');
+        const reset = formatResetIn(existingCommand.reset_at);
+        await broadcastSystemMessage(`${commandEntry.emoji} ${t('podcast.launchLocked')} ${reset}`, 'command');
         return true;
       }
 
@@ -1178,7 +1181,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
       }
 
       await broadcastSystemMessage(
-        `exec >> ${blockRow.emoji || commandEntry.emoji} >> cmd=${commandEntry.command} >> nonce=${x} >> ${penalties.length} ${t('podcast.walletsPenalized')} >> reset ${formatClockTime(dayWindow.resetAt)} local`,
+        `exec >> ${blockRow.emoji || commandEntry.emoji} >> cmd=${commandEntry.command} >> nonce=${x} >> ${penalties.length} ${t('podcast.walletsPenalized')} >> reset ${formatResetIn(dayWindow.resetAt)}`,
         'market'
       );
       return true;
