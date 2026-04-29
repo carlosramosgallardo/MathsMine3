@@ -118,8 +118,8 @@ function formatChatAuthor(wallet, normalizedWallet, youLabel) {
 }
 
 function formatSystemAuthor(tone) {
-  if (tone === 'market') return 'market@MM3#';
-  if (tone === 'ghost' || tone === 'join' || tone === 'leave') return 'mainframe@MM3';
+  if (tone === 'market') return 'market@MM3·:~$ #';
+  if (tone === 'ghost' || tone === 'join' || tone === 'leave') return 'mainframe@MM3·:~$ #';
   if (tone === 'command') return 'cmd@MM3#';
   if (tone === 'accent') return 'welcome@MM3';
   return 'system@MM3';
