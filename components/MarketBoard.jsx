@@ -164,7 +164,7 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
       const [{ data: blockData, error }, { data: ownersData }, { data: eventData }] = await Promise.all([
         supabase
           .from('mm3_market_blocks')
-          .select('block_key, grid_row, grid_col, emoji, title_en, title_es, price_eur, short_url, is_active, first_purchased_at, market_command')
+          .select('block_key, grid_row, grid_col, emoji, title_en, title_es, price_eur, short_url, is_active, first_purchased_at, market_command, hidden_cmd_min_level')
           .order('block_key', { ascending: true }),
         supabase
           .from('player_progress')
@@ -952,6 +952,9 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
             <div className="mm3-market-detail-card shrink-0 rounded border border-amber-400/14 bg-amber-950/8 px-2 py-1 lg:px-2.5 lg:py-2">
               <div className="text-[0.78rem] uppercase tracking-[0.16em] text-amber-300/65 lg:text-[0.80rem] lg:tracking-[0.18em]">{t('podcast.price')}</div>
               <div className="mt-0.5 text-[1.05rem] font-black leading-none text-amber-300 lg:mt-1 lg:text-lg">{displayPrice}</div>
+              {(selectedBlock?.hidden_cmd_min_level > 0) && (
+                <div className="mt-0.5 text-[0.55rem] uppercase tracking-[0.14em] text-amber-400/55">lv.{selectedBlock.hidden_cmd_min_level}+</div>
+              )}
             </div>
             <div className="mm3-market-detail-card min-w-0 flex-1 rounded border border-cyan-500/12 bg-black/45 px-2 py-1 lg:px-2.5 lg:py-2">
               <div className="text-[0.78rem] uppercase tracking-[0.16em] text-cyan-300/65 lg:text-[0.80rem] lg:tracking-[0.18em]">{t('podcast.owner')}</div>
