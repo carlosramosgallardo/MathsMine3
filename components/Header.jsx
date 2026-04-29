@@ -98,8 +98,8 @@ function Mm3Total() {
       className="inline-flex items-baseline gap-0.5 font-mono text-cyan-300/90 transition hover:text-cyan-200"
       title="MM3 total value"
     >
-      <span className="text-[0.65rem]">{value.toFixed(2)}</span>
-      <span className="text-[0.48rem] uppercase tracking-[0.18em] text-cyan-300/55">MM3</span>
+      <span className="text-[0.80rem] font-semibold">{value.toFixed(2)}</span>
+      <span className="text-[0.52rem] uppercase tracking-[0.18em] text-cyan-300/55">MM3</span>
     </Link>
   )
 }
