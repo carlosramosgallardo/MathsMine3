@@ -666,18 +666,11 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
 
     const build = () => {
       const walletParts = connectedWallets.map((u) => shortW(u.wallet));
-      const anonParts = anonUsers.map((u) => {
-        const cc = u.flag || '';
-        const tag = cc.length === 2 ? `[${cc}]` : '[??]';
-        const shortId = String(u.anonId || '').split(':')[1] || '?';
-        return `${tag} ghost:${shortId}`;
-      });
-      const all = [...walletParts, ...anonParts];
-      const n = all.length;
-      const nodeLabel = n === 1 ? t('irc.node') : t('irc.nodes');
+      const n = walletParts.length;
+      const walletLabel = t('irc.wallets');
       const text = n === 0
         ? t('irc.mainframeQuiet')
-        : t('irc.mainframeNodes').replace('{count}', n).replace('{nodeLabel}', nodeLabel) + all.join(' · ');
+        : t('irc.mainframeNodes').replace('{count}', n).replace('{walletLabel}', walletLabel) + walletParts.join(' · ');
 
       upsertMessage(makeMessage({
         id: `relay-status:${Date.now()}`,
@@ -692,7 +685,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
     build();
     const timer = setInterval(build, 60_000);
     return () => clearInterval(timer);
-  }, [connectedWallets, anonUsers, language, upsertMessage]);
+  }, [connectedWallets, language, t, upsertMessage]);
 
   // Generate all current market status messages
   const generateMarketStatusMessages = useCallback(async (actorIdForId) => {
@@ -1312,12 +1305,13 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
           border-bottom: none;
         }
         /* ── IRC fixed colour palette ── */
-        .mm3-irc-line.system                       { color: #64748b; }  /* system: slate  */
-        .mm3-irc-line.system[data-tone='accent']   { color: #4ade80; text-shadow: 0 0 8px rgba(74,222,128,.18); }  /* welcome: green */
-        .mm3-irc-line.system[data-tone='market']   { color: #f59e0b; }  /* market: amber  */
-        .mm3-irc-line.system[data-tone='join']     { color: #22d3ee; }  /* join:   cyan   */
-        .mm3-irc-line.system[data-tone='leave']    { color: #f87171; }  /* leave:  red    */
-        .mm3-irc-line.system[data-tone='ghost']    { color: #44403c; }  /* ghost: stone */
+        .mm3-irc-line.system                       {
+          color: var(--irc-accent, #22d3ee);
+          text-shadow: 0 0 8px color-mix(in srgb, var(--irc-accent, #22d3ee) 18%, transparent);
+        }
+        .mm3-irc-line.system[data-tone]            { color: var(--irc-accent, #22d3ee); }
+        .mm3-irc-line.system > span,
+        .mm3-irc-line.system .mm3-irc-author       { color: inherit; }
         .mm3-irc-line.self   .mm3-irc-author       { color: #4ade80; }  /* self:   green  */
         .mm3-irc-line.other  .mm3-irc-author       { color: #e879f9; }  /* others: magenta */
         /* system text inherits line colour; chat text stays white */
@@ -1366,7 +1360,6 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
         .mm3-irc-peer-row.is-you { color: #4ade80; }
         .mm3-irc-peer-row.is-anon { color: #78716c; opacity: 0.7; }
         .mm3-irc-line.system[data-tone='ghost'] {
-          color: #57534e;
           font-style: italic;
         }
         .mm3-irc-anon-label {
