@@ -419,19 +419,19 @@ Each Market NFTJI has one associated freak linux/crypto command containing a mat
 IRC commands use a slash-prefix syntax and are routed client-side — they are never saved as chat messages.
 
 ```
-/wall [freakingAI@MM3] solve => (log10(100000)*(4000+x))+(12*(300+x))+((6000+3*x)/3) = ?
+/drain [freakingAI@MM3] solve => (log10(100000)*(4000+x))+(12*(300+x))+((6000+3*x)/3) = ?
   → result is a 5-digit integer, e.g. 12345
 
-/?   → lists all available slash commands
-/wall <command>  → fires a Market NFTJI command (validated against active NFTJI)
-/mm3 <command>   → fires an MM3 Market NFTJI command (validated against active NFTJI)
+/?     → lists all available slash commands
+/drain <command>  → fires a money-family Market NFTJI command (validated against active NFTJI)
+/mm3 <command>    → fires an MM3-family Market NFTJI command (validated against active NFTJI)
 Unknown slash prefix → error: "unknown command. type /? for help"
 ```
 
 **Launch rules:**
 - Only the wallet currently owning the NFTJI can launch its command
 - Each command can be launched **once per day globally** (not per wallet) — one wallet fires it and it is locked until UTC midnight reset
-- The owning wallet clicks the pre-filled `/wall` or `/mm3` link from the block detail → IRC pre-populates the message → wallet hits `send` (EN) / `enviar` (ES) → system processes it
+- The owning wallet clicks the pre-filled `/drain` or `/mm3` link from the block detail → IRC pre-populates the message → wallet hits `send` (EN) / `enviar` (ES) → system processes it
 - On execution the system generates a fresh `x` value, computes the formula result from that `x`, and stores the direct 5-digit formula output as the command's `numeric_code` in the DB
 
 **Penalty rules:**

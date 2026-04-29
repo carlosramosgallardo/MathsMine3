@@ -924,7 +924,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
     try {
       const entries = await loadMarketCommandEntries();
       const helpLines = [
-        `// cmd index :: ${entries.length} Market commands loaded from DB :: /wall = money penalty ·· /mm3 = MM3 penalty ·· hidden signals stay private`,
+        `// cmd index :: ${entries.length} Market commands loaded from DB :: /drain = money penalty ·· /mm3 = MM3 penalty ·· hidden signals stay private`,
         ...entries.map((entry) => {
           const block = blockByKeyRef.current.get(entry.key);
           const row = block?.grid_row ?? entry.grid_row;
@@ -1123,8 +1123,8 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
         return;
       }
 
-      // /wall and /mm3 — market commands or unauthorized broadcast
-      if (cmdName === 'wall' || cmdName === 'mm3') {
+      // /drain and /mm3 — market commands or unauthorized broadcast
+      if (cmdName === 'drain' || cmdName === 'mm3') {
         const handled = await processMarketCommand(text);
         if (!handled) {
           await broadcastSystemMessage(`${IRC_ADMIN_LABEL}:~$ ${t('irc.wallPrompt')}`, 'accent');
@@ -1156,7 +1156,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
           } else {
             const errorMsg = {
               level_too_low: `// access denied :: level insufficient for /${cmdName}`,
-              wall_not_active: `// access denied :: /wall not active for this block today`,
+              wall_not_active: `// access denied :: /drain not active for this block today`,
               already_executed_today: `// access denied :: command quota exhausted for today`,
             }[data.error] || `// access denied :: /${cmdName} rejected`;
             appendMessage(makeMessage({
