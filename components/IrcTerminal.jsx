@@ -277,7 +277,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
       const affectedWallets = penaltiesByCommandId.get(command.id) || penaltiesByKey.get(key) || [];
       const affected = affectedWallets.map(shortenMarketWallet).join(' · ') || '0';
       activeLines.push(
-        `${label.active} // ${emoji} ${hex} // ${t('irc.by')} ${shortenMarketWallet(command.wallet)} // ${label.affected}: ${affected} // ${label.reset} ${formatClockTime(command.reset_at)}`
+        `${label.active} >> ${emoji} ${hex} >> ${t('irc.by')} ${shortenMarketWallet(command.wallet)} >> ${label.affected}: ${affected} >> ${label.reset} ${formatClockTime(command.reset_at)}`
       );
     }
 
@@ -291,7 +291,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
       const block = blockByKey.get(entry.key);
       const hex = block ? getBlockHex(block.grid_row, block.grid_col) : entry.key;
       const readyWallets = ownerWallets.map(shortenMarketWallet).join(' · ');
-      readyLines.push(`${label.ready} // ${entry.emoji} ${hex} // ${label.wallets}: ${readyWallets}`);
+      readyLines.push(`${label.ready} >> ${entry.emoji} ${hex} >> ${label.wallets}: ${readyWallets}`);
     }
 
     return readyLines.length > 0 ? readyLines : [t('irc.marketNoPenalties')];
@@ -825,7 +825,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
               id: `market-event:on:${rec.id}`,
               kind: 'system',
               wallet: 'system',
-              text: `${traceLabel.exec} // ${emoji} ${hex} // ${t('irc.by')} ${shortenMarketWallet(rec.wallet)} // ${traceLabel.affected}: ${affected} // reset ${reset}`,
+              text: `${traceLabel.exec} >> ${emoji} ${hex} >> ${t('irc.by')} ${shortenMarketWallet(rec.wallet)} >> ${traceLabel.affected}: ${affected} >> reset ${reset}`,
               ts: Date.now(),
               tone: 'market',
             }), { silent: false });
@@ -849,7 +849,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
           id: `market-event:off:${rec.id}`,
           kind: 'system',
           wallet: 'system',
-          text: `${traceLabel.reset} // ${emoji} ${hex} // ${releasedInfo} ${t('irc.walletsReleased')}`,
+          text: `${traceLabel.reset} >> ${emoji} ${hex} >> ${releasedInfo} ${t('irc.walletsReleased')}`,
           ts: Date.now(),
           tone: 'market',
         };
@@ -866,7 +866,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
           id: `market-event:${rec.event_type}:${rec.id || rec.created_at || Date.now()}`,
           kind: 'system',
           wallet: 'system',
-          text: `${action} // ${emoji}${hex ? ` ${hex}` : ''} // ${shortenMarketWallet(rec.wallet)}`,
+          text: `${action} >> ${emoji}${hex ? ` ${hex}` : ''} >> ${shortenMarketWallet(rec.wallet)}`,
           ts: Date.now(),
           tone: 'market',
         }), { silent: false });
@@ -879,7 +879,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
           id: `market-code-ok:${rec.id}:${rec.redeemed_at}`,
           kind: 'system',
           wallet: 'system',
-          text: `${traceLabel.codeOk} // ${emoji} ${hex} // ${shortenMarketWallet(rec.wallet)} // ${traceLabel.reset}`,
+          text: `${traceLabel.codeOk} >> ${emoji} ${hex} >> ${shortenMarketWallet(rec.wallet)} >> ${traceLabel.reset}`,
           ts: Date.now(),
           tone: 'market',
         }), { silent: false });
@@ -945,15 +945,15 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
       const entries = await loadMarketCommandEntries();
       const helpLines = [
         language === 'es'
-          ? `// índice cmd / cmd index :: ${entries.length} comandos Market desde DB :: rail dinero ·· rail MM3 ·· señales hidden privadas`
-          : `// cmd index / índice cmd :: ${entries.length} Market commands from DB :: money rail ·· MM3 rail ·· hidden signals private`,
+          ? `índice cmd / cmd index :: ${entries.length} comandos Market desde DB :: rail dinero ·· rail MM3 ·· señales hidden privadas`
+          : `cmd index / índice cmd :: ${entries.length} Market commands from DB :: money rail ·· MM3 rail ·· hidden signals private`,
         ...entries.map((entry) => {
           const block = blockByKeyRef.current.get(entry.key);
           const row = block?.grid_row ?? entry.grid_row;
           const col = block?.grid_col ?? entry.grid_col;
           const hex = row !== undefined && col !== undefined ? getBlockHex(row, col) : entry.key;
           const rail = entry.effect === 'mm3' ? 'MM3' : 'money';
-          return `// ${entry.emoji} ${hex} :: ${entry.command} :: effect/efecto=-${rail} :: numeric_code/código=market challenge`;
+          return `${entry.emoji} ${hex} :: ${entry.command} :: effect/efecto=-${rail} :: numeric_code/código=market challenge`;
         }),
       ];
       helpLines.forEach((line, index) => {
@@ -974,8 +974,8 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
         ts: Date.now(),
         tone: 'command',
         text: language === 'es'
-          ? `// índice cmd no disponible / cmd index unavailable :: ${err?.message || 'market DB offline'}`
-          : `// cmd index unavailable / índice cmd no disponible :: ${err?.message || 'market DB offline'}`,
+          ? `índice cmd no disponible / cmd index unavailable :: ${err?.message || 'market DB offline'}`
+          : `cmd index unavailable / índice cmd no disponible :: ${err?.message || 'market DB offline'}`,
       }), { silent: true });
     }
   }, [appendMessage, language, loadMarketCommandEntries]);
@@ -1013,7 +1013,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
       if (launcher?.market_nftji_key !== commandEntry.key) {
         const hex = blockRow ? getBlockHex(blockRow.grid_row, blockRow.grid_col) : commandEntry.key;
         const emoji = blockRow?.emoji || commandEntry.emoji;
-        await broadcastSystemMessage(`${t('irc.commandRejected')} // ${normalizedWallet} ${t('irc.doesNotOwn')} ${hex}${emoji}`, 'command');
+        await broadcastSystemMessage(`${t('irc.commandRejected')} >> ${normalizedWallet} ${t('irc.doesNotOwn')} ${hex}${emoji}`, 'command');
         return true;
       }
 
@@ -1024,7 +1024,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
       }
 
       if (!blockRow) {
-        await broadcastSystemMessage(`${t('irc.commandRejected')} // ${t('irc.noBlock')} ${commandEntry.key}`, 'command');
+        await broadcastSystemMessage(`${t('irc.commandRejected')} >> ${t('irc.noBlock')} ${commandEntry.key}`, 'command');
         return true;
       }
 
@@ -1120,13 +1120,13 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
       }
 
       await broadcastSystemMessage(
-        `exec // ${blockRow.emoji || commandEntry.emoji} // cmd=${commandEntry.command} // nonce=${x} // ${penalties.length} ${t('podcast.walletsPenalized')} // reset ${formatClockTime(dayWindow.resetAt)} local`,
+        `exec >> ${blockRow.emoji || commandEntry.emoji} >> cmd=${commandEntry.command} >> nonce=${x} >> ${penalties.length} ${t('podcast.walletsPenalized')} >> reset ${formatClockTime(dayWindow.resetAt)} local`,
         'market'
       );
       return true;
     } catch (err) {
       console.error('market command:', err);
-      await broadcastSystemMessage(`${t('podcast.commandFailed')} // ${err?.message || 'market daemon non-zero'}`, 'command');
+      await broadcastSystemMessage(`${t('podcast.commandFailed')} >> ${err?.message || 'market daemon non-zero'}`, 'command');
       return true;
     }
   }, [broadcastSystemMessage, findMarketCommandInDb, normalizedWallet, t]);
@@ -1165,8 +1165,8 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
         });
         if (malformedPublicCommand) {
           const hackText = language === 'es'
-            ? `ERR: intento de hackeo del sistema / system hack attempt // wallet=${normalizedWallet} // input=${text} // expected=${malformedPublicCommand.command}`
-            : `ERR: system hack attempt / intento de hackeo del sistema // wallet=${normalizedWallet} // input=${text} // expected=${malformedPublicCommand.command}`;
+            ? `ERR: intento de hackeo del sistema / system hack attempt >> wallet=${normalizedWallet} >> input=${text} >> expected=${malformedPublicCommand.command}`
+            : `ERR: system hack attempt / intento de hackeo del sistema >> wallet=${normalizedWallet} >> input=${text} >> expected=${malformedPublicCommand.command}`;
           await broadcastSystemMessage(hackText, 'command');
           try {
             await supabase.from('mm3_irc_messages').insert({
@@ -1201,15 +1201,15 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
           } else {
             const errorMsg = language === 'es'
               ? ({
-                  level_too_low: `// acceso denegado :: nivel insuficiente para /${cmdName}`,
-                  command_not_active: '// acceso denegado :: comando Market público no activo hoy para este bloque',
-                  already_executed_today: '// acceso denegado :: cuota diaria del comando agotada',
-                }[data.error] || `// acceso denegado :: /${cmdName} rechazado`)
+                  level_too_low: `acceso denegado :: nivel insuficiente para /${cmdName}`,
+                  command_not_active: 'acceso denegado :: comando Market público no activo hoy para este bloque',
+                  already_executed_today: 'acceso denegado :: cuota diaria del comando agotada',
+                }[data.error] || `acceso denegado :: /${cmdName} rechazado`)
               : ({
-                  level_too_low: `// access denied :: level insufficient for /${cmdName}`,
-                  command_not_active: '// access denied :: public Market command not active for this block today',
-                  already_executed_today: '// access denied :: command quota exhausted for today',
-                }[data.error] || `// access denied :: /${cmdName} rejected`);
+                  level_too_low: `access denied :: level insufficient for /${cmdName}`,
+                  command_not_active: 'access denied :: public Market command not active for this block today',
+                  already_executed_today: 'access denied :: command quota exhausted for today',
+                }[data.error] || `access denied :: /${cmdName} rejected`);
             appendMessage(makeMessage({
               id: `sys:err:${Date.now()}`,
               kind: 'system', wallet: 'system', ts: Date.now(), tone: 'command',
@@ -1225,8 +1225,8 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
         id: `sys:err:${Date.now()}`,
         kind: 'system', wallet: 'system', ts: Date.now(), tone: 'command',
         text: language === 'es'
-          ? `// comando no encontrado / command not found :: /${cmdName || '?'} :: usa /?`
-          : `// command not found / comando no encontrado :: /${cmdName || '?'} :: type /?`,
+          ? `comando no encontrado / command not found :: /${cmdName || '?'} :: usa /?`
+          : `command not found / comando no encontrado :: /${cmdName || '?'} :: type /?`,
       }), { silent: true });
       return;
     }
