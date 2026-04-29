@@ -117,6 +117,14 @@ function formatChatAuthor(wallet, normalizedWallet, youLabel) {
   return normalized === normalizedWallet ? `${baseLabel} (${youLabel})` : baseLabel;
 }
 
+function formatSystemAuthor(tone) {
+  if (tone === 'market') return 'market@MM3#';
+  if (tone === 'ghost' || tone === 'join' || tone === 'leave') return 'mainframe@MM3';
+  if (tone === 'command') return 'cmd@MM3#';
+  if (tone === 'accent') return 'welcome@MM3';
+  return 'system@MM3';
+}
+
 function tickerFromRow(row, language, fallback) {
   const localized = language === 'es' ? row?.ticker_message_es : row?.ticker_message_en;
   return String(localized || row?.ticker_message || fallback || '').trim() || fallback;
@@ -249,7 +257,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
       const affectedWallets = penaltiesByCommandId.get(command.id) || penaltiesByKey.get(key) || [];
       const affected = affectedWallets.map(shortenMarketWallet).join(' · ') || '0';
       activeLines.push(
-        `Market: ${label.active} // ${emoji} ${hex} // ${t('irc.by')} ${shortenMarketWallet(command.wallet)} // ${label.affected}: ${affected} // ${label.reset} ${formatClockTime(command.reset_at)}`
+        `${label.active} // ${emoji} ${hex} // ${t('irc.by')} ${shortenMarketWallet(command.wallet)} // ${label.affected}: ${affected} // ${label.reset} ${formatClockTime(command.reset_at)}`
       );
     }
 
@@ -263,10 +271,10 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
       const block = blockByKey.get(entry.key);
       const hex = block ? getBlockHex(block.grid_row, block.grid_col) : entry.key;
       const readyWallets = ownerWallets.map(shortenMarketWallet).join(' · ');
-      readyLines.push(`Market: ${label.ready} // ${entry.emoji} ${hex} // ${label.wallets}: ${readyWallets}`);
+      readyLines.push(`${label.ready} // ${entry.emoji} ${hex} // ${label.wallets}: ${readyWallets}`);
     }
 
-    return readyLines.length > 0 ? readyLines : [`Market: ${t('irc.marketNoPenalties')}`];
+    return readyLines.length > 0 ? readyLines : [t('irc.marketNoPenalties')];
   }, [language, t]);
 
   // Derive stable anon ID from external IP (client-only, no DB, cached in sessionStorage)
@@ -797,7 +805,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
               id: `market-event:on:${rec.id}`,
               kind: 'system',
               wallet: 'system',
-              text: `Market: ${traceLabel.exec} // ${emoji} ${hex} // ${t('irc.by')} ${shortenMarketWallet(rec.wallet)} // ${traceLabel.affected}: ${affected} // reset ${reset}`,
+              text: `${traceLabel.exec} // ${emoji} ${hex} // ${t('irc.by')} ${shortenMarketWallet(rec.wallet)} // ${traceLabel.affected}: ${affected} // reset ${reset}`,
               ts: Date.now(),
               tone: 'market',
             }), { silent: false });
@@ -821,7 +829,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
           id: `market-event:off:${rec.id}`,
           kind: 'system',
           wallet: 'system',
-          text: `Market: ${traceLabel.reset} // ${emoji} ${hex} // ${releasedInfo} ${t('irc.walletsReleased')}`,
+          text: `${traceLabel.reset} // ${emoji} ${hex} // ${releasedInfo} ${t('irc.walletsReleased')}`,
           ts: Date.now(),
           tone: 'market',
         };
@@ -838,7 +846,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
           id: `market-event:${rec.event_type}:${rec.id || rec.created_at || Date.now()}`,
           kind: 'system',
           wallet: 'system',
-          text: `Market: ${action} // ${emoji}${hex ? ` ${hex}` : ''} // ${shortenMarketWallet(rec.wallet)}`,
+          text: `${action} // ${emoji}${hex ? ` ${hex}` : ''} // ${shortenMarketWallet(rec.wallet)}`,
           ts: Date.now(),
           tone: 'market',
         }), { silent: false });
@@ -851,7 +859,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
           id: `market-code-ok:${rec.id}:${rec.redeemed_at}`,
           kind: 'system',
           wallet: 'system',
-          text: `Market: ${traceLabel.codeOk} // ${emoji} ${hex} // ${shortenMarketWallet(rec.wallet)} // ${traceLabel.reset}`,
+          text: `${traceLabel.codeOk} // ${emoji} ${hex} // ${shortenMarketWallet(rec.wallet)} // ${traceLabel.reset}`,
           ts: Date.now(),
           tone: 'market',
         }), { silent: false });
@@ -1092,7 +1100,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
       }
 
       await broadcastSystemMessage(
-        `Market: exec // ${blockRow.emoji || commandEntry.emoji} // cmd=${commandEntry.command} // nonce=${x} // ${penalties.length} ${t('podcast.walletsPenalized')} // reset ${formatClockTime(dayWindow.resetAt)} local`,
+        `exec // ${blockRow.emoji || commandEntry.emoji} // cmd=${commandEntry.command} // nonce=${x} // ${penalties.length} ${t('podcast.walletsPenalized')} // reset ${formatClockTime(dayWindow.resetAt)} local`,
         'market'
       );
       return true;
@@ -1488,7 +1496,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
               const lineMode = message.kind === 'system' ? 'system' : isSelf ? 'self' : 'other';
               const ownedMarketEmojis = message.kind === 'chat' ? (marketClaimsByWallet[message.wallet] || []) : [];
               const author = message.kind === 'system'
-                ? 'system'
+                ? formatSystemAuthor(message.tone)
                 : formatChatAuthor(message.wallet, normalizedWallet, t('irc.you'));
 
               return (
