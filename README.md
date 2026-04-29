@@ -348,7 +348,7 @@ Each Market NFTJI command that fires in IRC can penalise all wallets not holding
 
 The Market is a **28×28 block board** (784 cells, hex-coded `#000`–`#30F`). Twenty special NFTJI blocks occupy fixed positions: the original 10 are paid in in-game money, and the 10 MM3 family blocks are paid in MM3 at `1 EUR = 1 MM3`. New blocks auto-generate as wallets make first purchases. Navigate the board, find a live block, and pay the block's rail to acquire its NFTJI.
 
-There is also a second signal layer: hidden Market commands. Their strings are not visible to players — `hidden_command` is a column-level REVOKE'd field in `mm3_market_blocks` (populated by the `.private/` seed, readable only via the service role key used by the `/api/exec-hidden-cmd` endpoint). Unlike public commands, hidden commands are **level-gated**: each block carries a `hidden_cmd_min_level` value that the executing wallet must meet or exceed. Both money-family and MM3-family blocks have thresholds from lv.10 (cheapest) to lv.100 (most expensive), mirroring the price ladder. The required level is shown as a `hidden cmd lv.X+` badge next to the IRC command label in the block detail card.
+Each block also carries a **secret command** — a hidden slash command with unknown effects that the system interprets as a hack. Secret commands are **not listed anywhere in the portal**. The only way to discover one is to watch the block's **YouTube Short**: the command string is revealed there. The block detail card shows a `📺 secret cmd lv.X+ · revealed in yt` button that links directly to the short. Once a wallet knows the command and meets the minimum level requirement, they can execute it via the `/api/exec-hidden-cmd` endpoint. Secret command strings are kept out of the public repo — stored in Supabase via the `.private/` seed file only.
 
 ### Ownership rules
 
@@ -378,39 +378,39 @@ poolInjection = price × 0.50  (injected as MM3 into the pool)
 
 ### NFTJI catalog — money family
 
-| Emoji | Name | HEX | Price | Market command effect | Hidden signal |
-|---|---|---:|---:|---|---|
-| 🛰 | Genesis Uplink | #016 | €1.00 | −€1.00 to all other wallets | Signal locked |
-| 🌐 | Signal Nexus | #05C | €3.00 | −€3.00 to all other wallets | Signal locked |
-| 🔭 | Deep Relay | #0B9 | €5.00 | −€5.00 to all other wallets | Signal locked |
-| 🧬 | Code Strand | #11B | €7.00 | −€7.00 to all other wallets | Signal locked |
-| 💠 | Fractal Core | #184 | €10.00 | −€10.00 to all other wallets | Signal locked |
-| ⚡ | Arc Burst | #1E7 | €15.00 | −€15.00 to all other wallets | Signal locked |
-| 🌀 | Entropy Loop | #244 | €25.00 | −€25.00 to all other wallets | Signal locked |
-| 🔴 | Null Beacon | #26D | €50.00 | −€50.00 to all other wallets | Signal locked |
-| ⭐ | Star Protocol | #2CA | €75.00 | −€75.00 to all other wallets | Signal locked |
-| 💎 | Crystal Forge | #30E | €100.00 | −€100.00 to all other wallets | Signal locked |
+| Emoji | Name | HEX | Price | Market command effect | Secret cmd min level | Secret cmd effect |
+|---|---|---:|---:|---|:---:|---|
+| 🛰 | Genesis Uplink | #016 | €1.00 | −€1.00 to all other wallets | lv.10+ | steals money → executor |
+| 🌐 | Signal Nexus | #05C | €3.00 | −€3.00 to all other wallets | lv.20+ | steals money → executor |
+| 🔭 | Deep Relay | #0B9 | €5.00 | −€5.00 to all other wallets | lv.30+ | steals money → executor |
+| 🧬 | Code Strand | #11B | €7.00 | −€7.00 to all other wallets | lv.40+ | steals money → executor |
+| 💠 | Fractal Core | #184 | €10.00 | −€10.00 to all other wallets | lv.50+ | steals money → executor |
+| ⚡ | Arc Burst | #1E7 | €15.00 | −€15.00 to all other wallets | lv.60+ | steals money → executor |
+| 🌀 | Entropy Loop | #244 | €25.00 | −€25.00 to all other wallets | lv.70+ | steals money → executor |
+| 🔴 | Null Beacon | #26D | €50.00 | −€50.00 to all other wallets | lv.80+ | steals money → executor |
+| ⭐ | Star Protocol | #2CA | €75.00 | −€75.00 to all other wallets | lv.90+ | steals money → executor |
+| 💎 | Crystal Forge | #30E | €100.00 | −€100.00 to all other wallets | lv.100 | steals money → executor |
 
-Hidden money-family signals exist. Their exact slash commands are not public — strings are kept in the private seed file only. Mechanically, they steal from the in-game Money rail and inject the haul into the executing wallet.
+Secret command strings for the money family are revealed exclusively in each block's YouTube Short. They steal from the in-game Money rail of all other wallets and inject the total into the executor.
 
 ### NFTJI catalog — MM3 family
 
 These 10 are the new MM3 rail: unique emojis, unique `/mm3 ...` Market commands, same numeric ladder as the money family, but denominated as MM3. This is the crypto-freak mirror market: no fiat mask, just raw mined signal.
 
-| Emoji | Name | HEX | Price | Market command effect | Hidden signal |
-|---|---|---:|---:|---|---|
-| 🛸 | Orbit Siphon | #01D | 1 MM3 | −1 MM3 to all other wallets | Signal locked |
-| 🗝️ | Key Vault | #04A | 3 MM3 | −3 MM3 to all other wallets | Signal locked |
-| 🛡️ | Shield Fork | #091 | 5 MM3 | −5 MM3 to all other wallets | Signal locked |
-| 🧨 | Fuse Packet | #0F8 | 7 MM3 | −7 MM3 to all other wallets | Signal locked |
-| 🪙 | Coin Kernel | #15C | 10 MM3 | −10 MM3 to all other wallets | Signal locked |
-| 🧰 | Toolchain Cache | #1A6 | 15 MM3 | −15 MM3 to all other wallets | Signal locked |
-| 🪬 | Mirror Charm | #20B | 25 MM3 | −25 MM3 to all other wallets | Signal locked |
-| 🪞 | Reflector Gate | #29B | 50 MM3 | −50 MM3 to all other wallets | Signal locked |
-| 🔋 | Battery Node | #2DA | 75 MM3 | −75 MM3 to all other wallets | Signal locked |
-| 🎛️ | Mixer Console | #2F9 | 100 MM3 | −100 MM3 to all other wallets | Signal locked |
+| Emoji | Name | HEX | Price | Market command effect | Secret cmd min level | Secret cmd effect |
+|---|---|---:|---:|---|:---:|---|
+| 🛸 | Orbit Siphon | #01D | 1 MM3 | −1 MM3 to all other wallets | lv.10+ | steals MM3 → executor |
+| 🗝️ | Key Vault | #04A | 3 MM3 | −3 MM3 to all other wallets | lv.20+ | steals MM3 → executor |
+| 🛡️ | Shield Fork | #091 | 5 MM3 | −5 MM3 to all other wallets | lv.30+ | steals MM3 → executor |
+| 🧨 | Fuse Packet | #0F8 | 7 MM3 | −7 MM3 to all other wallets | lv.40+ | steals MM3 → executor |
+| 🪙 | Coin Kernel | #15C | 10 MM3 | −10 MM3 to all other wallets | lv.50+ | steals MM3 → executor |
+| 🧰 | Toolchain Cache | #1A6 | 15 MM3 | −15 MM3 to all other wallets | lv.60+ | steals MM3 → executor |
+| 🪬 | Mirror Charm | #20B | 25 MM3 | −25 MM3 to all other wallets | lv.70+ | steals MM3 → executor |
+| 🪞 | Reflector Gate | #29B | 50 MM3 | −50 MM3 to all other wallets | lv.80+ | steals MM3 → executor |
+| 🔋 | Battery Node | #2DA | 75 MM3 | −75 MM3 to all other wallets | lv.90+ | steals MM3 → executor |
+| 🎛️ | Mixer Console | #2F9 | 100 MM3 | −100 MM3 to all other wallets | lv.100 | steals MM3 → executor |
 
-Hidden MM3-family signals exist too. Command strings are kept in the private seed file only. Mechanically, they steal from available MM3 and inject the total into the executing wallet.
+Secret command strings for the MM3 family are revealed exclusively in each block's YouTube Short. They steal available MM3 from all other wallets and inject the total into the executor.
 
 ### IRC command — how it works
 
@@ -428,7 +428,8 @@ IRC commands use a slash-prefix syntax and are routed client-side — they are n
 - Only the wallet currently owning the NFTJI can launch its command
 - Each command can be launched **once per day globally** (not per wallet) — one wallet fires it and it is locked until UTC midnight reset
 - **Public commands have no level requirement** — any owner can launch regardless of level
-- **Hidden commands are level-gated** — the wallet must meet the block's `hidden_cmd_min_level` threshold to execute. The threshold is visible as `hidden cmd lv.X+` in the block detail card. Both families range from lv.10 to lv.100
+- **Secret commands are level-gated** — the wallet must meet the block's `hidden_cmd_min_level` threshold to execute (lv.10–lv.100, mirroring the price ladder). The threshold is shown as `📺 secret cmd lv.X+` on the YouTube Short button in the block detail card
+- **Secret commands are discovered via YouTube Shorts** — the command string is not listed anywhere in the portal; it is revealed only in the block's embedded YT short. Watch the short → learn the command → execute it if you meet the level
 - The owning wallet clicks the pre-filled `/drain` or `/mm3` link from the block detail → IRC pre-populates the full command → wallet hits `send` (EN) / `enviar` (ES) → system processes it
 - On execution the system generates a fresh `x` value, computes the formula result from that `x`, and stores the direct 5-digit formula output as the command's `numeric_code` in the DB
 
@@ -459,7 +460,7 @@ Range: #000 (top-left) → #30F (bottom-right)
 
 ### Navigation
 
-The Market shows the full 28×28 block grid with a detail card on the side for the focused block. Navigate with ▲▼ arrows (and ◀▶ on mobile) or keyboard arrow keys. Selecting a block opens its detail card with price, command description, buy/resell controls, and YouTube short.
+The Market shows the full 28×28 block grid with a detail card on the side for the focused block. Navigate with ▲▼ arrows (and ◀▶ on mobile) or keyboard arrow keys. Selecting a block opens its detail card with: price, owner, public IRC command, buy/resell controls, numeric code redemption, and a `📺 secret cmd lv.X+ · revealed in yt` button linking to the block's YouTube Short where the secret command string is disclosed.
 
 ---
 
