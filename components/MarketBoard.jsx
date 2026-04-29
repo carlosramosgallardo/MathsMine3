@@ -1037,95 +1037,78 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
             )
           )}
 
-          {/* ── IRC Command — full width ── */}
-          {selectedMarketCommand && (
-            <div className="mm3-market-detail-card col-span-1 rounded border border-cyan-500/14 bg-black/45 px-2 py-1 lg:col-span-2 lg:px-2.5 lg:py-2">
-              <div className="mb-1 flex items-center justify-between gap-2">
-                <div className="text-[0.78rem] uppercase tracking-[0.16em] text-cyan-300/65 lg:text-[0.80rem] lg:tracking-[0.18em]">{t('podcast.ircCommand')}</div>
-                {activeBlockCommand && (
-                  <div className="flex items-center gap-1 rounded border border-amber-400/30 bg-amber-950/20 px-1.5 py-0.5">
-                    <span className="text-[0.5rem] uppercase tracking-[0.1em] text-amber-400/70">nonce</span>
-                    <span className="text-[0.75rem] font-black leading-none text-amber-300">{activeBlockCommand.formula_x}</span>
+          {/* ── IRC Command + Penalty redemption — unified card ── */}
+          {(selectedMarketCommand || activePenalty) && (
+            <div className="mm3-market-detail-card col-span-1 rounded border border-cyan-500/14 bg-black/45 px-2 py-1.5 lg:col-span-2 lg:px-2.5 lg:py-2">
+
+              {/* Command zone */}
+              {selectedMarketCommand && (
+                <>
+                  <div className="mb-1 flex items-center justify-between gap-2">
+                    <div className="text-[0.78rem] uppercase tracking-[0.16em] text-cyan-300/65">{t('podcast.ircCommand')}</div>
+                    {activeBlockCommand && (
+                      <div className="flex items-center gap-1 rounded border border-amber-400/30 bg-amber-950/20 px-1.5 py-0.5">
+                        <span className="text-[0.5rem] uppercase tracking-[0.1em] text-amber-400/70">nonce</span>
+                        <span className="text-[0.75rem] font-black leading-none text-amber-300">{activeBlockCommand.formula_x}</span>
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
-              <div className="break-words text-[0.68rem] leading-snug text-cyan-100/70 lg:text-[0.6rem] lg:leading-relaxed">
-                {selectedMarketCommand.command}
-              </div>
-              {activeBlockCommand && (
-                <div className="mt-1 text-[0.5rem] uppercase tracking-[0.08em] text-amber-400/50">
-                  {language === 'es'
-                    ? `// reto activo ${activeBlockCommand.formula_x} → código numérico`
-                    : `// active challenge ${activeBlockCommand.formula_x} → numeric code`}
-                </div>
+                  <div className="mb-1.5 break-words text-[0.68rem] leading-snug text-cyan-100/70 lg:text-[0.6rem] lg:leading-relaxed">
+                    {selectedMarketCommand.command}
+                  </div>
+                  {canLaunchIrc ? (
+                    <Link
+                      href={`/irc?command=${encodeURIComponent(selectedMarketCommand.command)}`}
+                      className="flex items-center justify-center rounded border border-cyan-500/28 bg-black/30 px-2 py-1 text-[0.76rem] font-black uppercase tracking-[0.14em] text-cyan-400/90 transition hover:border-cyan-400/55 hover:text-cyan-200"
+                    >
+                      {t('podcast.launchIrcCommand')}
+                    </Link>
+                  ) : (
+                    <div className="flex items-center justify-center rounded border border-slate-700/30 bg-black/20 px-2 py-1 text-[0.76rem] font-black uppercase tracking-[0.14em] text-slate-700 cursor-not-allowed select-none">
+                      {t('podcast.ircLocked')}
+                    </div>
+                  )}
+                </>
               )}
-              {canLaunchIrc ? (
-                <Link
-                  href={`/irc?command=${encodeURIComponent(selectedMarketCommand.command)}`}
-                  className="mt-1.5 flex items-center justify-center rounded border border-cyan-500/28 bg-black/30 px-2 py-1 text-[0.76rem] font-black uppercase tracking-[0.14em] text-cyan-400/90 transition hover:border-cyan-400/55 hover:text-cyan-200"
-                >
-                  {t('podcast.launchIrcCommand')}
-                </Link>
-              ) : (
-                <div className="mt-1.5 flex items-center justify-center rounded border border-slate-700/30 bg-black/20 px-2 py-1 text-[0.76rem] font-black uppercase tracking-[0.14em] text-slate-700 cursor-not-allowed select-none">
-                  {t('podcast.ircLocked')}
-                </div>
+
+              {/* Penalty zone — only when there is an active penalty */}
+              {activePenalty && (
+                <>
+                  {selectedMarketCommand && <hr className="my-1.5 border-fuchsia-400/15" />}
+                  <div className="flex items-center justify-between gap-2 mb-1">
+                    <div className="text-[0.78rem] uppercase tracking-[0.16em] text-fuchsia-300/65">{t('podcast.numericPrompt')}</div>
+                    <div className="text-[0.80rem] font-black uppercase tracking-[0.12em] text-fuchsia-200/75">
+                      -{activePenaltyValue.toFixed(8).replace(/\.?0+$/, '') || '0'} {activePenaltyEffect === 'mm3' ? 'MM3' : 'EUR'}
+                    </div>
+                  </div>
+                  {activePenalty.attempted_at ? (
+                    <div className="text-[0.78rem] uppercase tracking-[0.12em] text-fuchsia-500/70">{t('podcast.numericUsed')}</div>
+                  ) : (
+                    <div className="flex gap-1">
+                      <input
+                        value={numericCode}
+                        onChange={(event) => setNumericCode(clampDigits(event.target.value).slice(0, 5))}
+                        disabled={processing}
+                        inputMode="numeric"
+                        maxLength={5}
+                        placeholder={t('podcast.numericCodeHint')}
+                        className="mm3-market-answer-input min-w-0 flex-1 rounded border border-fuchsia-400/18 bg-black/70 px-1.5 py-1 text-[0.82rem] text-fuchsia-100 outline-none placeholder:text-fuchsia-800/60 disabled:opacity-35"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleRedeemPenalty}
+                        disabled={!canRedeemPenalty}
+                        className="rounded border border-fuchsia-400/24 bg-black/60 px-2 py-1 text-[0.76rem] font-black uppercase tracking-[0.14em] text-fuchsia-200 transition hover:border-fuchsia-300 disabled:cursor-not-allowed disabled:opacity-35"
+                      >
+                        ok
+                      </button>
+                    </div>
+                  )}
+                </>
               )}
+
             </div>
           )}
-
-          {/* ── Numeric code / Penalty redemption — full width ── */}
-          <div className="mm3-market-detail-card col-span-1 rounded border border-fuchsia-400/12 bg-black/45 px-2 py-1 lg:col-span-2 lg:px-2.5 lg:py-2">
-            <div className="mb-1 text-[0.78rem] uppercase tracking-[0.16em] text-fuchsia-300/65 lg:text-[0.80rem] lg:tracking-[0.18em]">
-              {activePenalty ? t('podcast.numericPrompt') : t('podcast.numericLocked')}
-            </div>
-            {activePenalty ? (
-              <div className="space-y-1.5">
-                {/* Command context repeated here so user can solve without scrolling */}
-                {selectedMarketCommand && activeBlockCommand && (
-                  <div className="rounded border border-fuchsia-400/10 bg-fuchsia-950/12 px-1.5 py-1">
-                    <div className="break-words text-[0.78rem] leading-relaxed text-fuchsia-100/45">
-                      {selectedMarketCommand.command}
-                    </div>
-                    <div className="mt-0.5 flex items-center gap-1.5">
-                      <span className="text-[0.5rem] uppercase tracking-[0.1em] text-fuchsia-400/60">nonce</span>
-                      <span className="text-[0.5rem] font-black text-fuchsia-200">{activeBlockCommand.formula_x}</span>
-                      <span className="text-[0.5rem] uppercase tracking-[0.08em] text-fuchsia-400/45">
-                        {language === 'es' ? '// resultado → código 5 dígitos' : '// result → 5-digit code'}
-                      </span>
-                    </div>
-                  </div>
-                )}
-                <div className="text-[0.80rem] uppercase tracking-[0.12em] text-fuchsia-200/75">
-                  -{activePenaltyValue.toFixed(8).replace(/\.?0+$/, '') || '0'} {activePenaltyEffect === 'mm3' ? 'MM3' : 'EUR'}
-                </div>
-                <div className="flex gap-1">
-                  <input
-                    value={numericCode}
-                    onChange={(event) => setNumericCode(clampDigits(event.target.value).slice(0, 5))}
-                    disabled={Boolean(activePenalty.attempted_at) || processing}
-                    inputMode="numeric"
-                    maxLength={5}
-                    placeholder={t('podcast.numericCodeHint')}
-                    className="mm3-market-answer-input min-w-0 flex-1 rounded border border-fuchsia-400/18 bg-black/70 px-1.5 py-1 text-[0.82rem] text-fuchsia-100 outline-none placeholder:text-fuchsia-800/60 disabled:opacity-35"
-                  />
-                  <button
-                    type="button"
-                    onClick={handleRedeemPenalty}
-                    disabled={!canRedeemPenalty}
-                    className="rounded border border-fuchsia-400/24 bg-black/60 px-2 py-1 text-[0.76rem] font-black uppercase tracking-[0.14em] text-fuchsia-200 transition hover:border-fuchsia-300 disabled:cursor-not-allowed disabled:opacity-35"
-                  >
-                    ok
-                  </button>
-                </div>
-                {activePenalty.attempted_at && (
-                  <div className="text-[0.78rem] uppercase tracking-[0.12em] text-fuchsia-500/70">{t('podcast.numericUsed')}</div>
-                )}
-              </div>
-            ) : (
-              <div className="text-[0.80rem] uppercase tracking-[0.12em] text-slate-600">{t('podcast.noPenalty')}</div>
-            )}
-          </div>
 
           {/* ── Stats: purchases / resells — compact inline row ── */}
           {!selectedBlock?.isPlaceholder && (
