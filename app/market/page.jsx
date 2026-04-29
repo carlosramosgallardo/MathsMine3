@@ -1,6 +1,6 @@
 'use client';
 
-import PodcastBoard from '@/components/PodcastBoard';
+import MarketBoard from '@/components/MarketBoard';
 import SectionFrame from '@/components/SectionFrame';
 import { useActiveWallet } from '@/lib/use-active-wallet';
 import { useMm3Accent } from '@/lib/use-mm3-accent';
@@ -12,7 +12,7 @@ export default function MarketPage() {
   return (
     <main className="w-full px-2 py-1" style={{ '--mm3-accent': frameAccent }}>
       <SectionFrame accent={frameAccent} id="market-section">
-        <PodcastBoard account={account} isVirtualWallet={isVirtualWallet} />
+        <MarketBoard account={account} isVirtualWallet={isVirtualWallet} />
       </SectionFrame>
     </main>
   );

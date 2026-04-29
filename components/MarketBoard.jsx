@@ -136,7 +136,7 @@ const CATALOG_BLOCKS = [
 const CATALOG_KEY_SET = new Set(CATALOG_BLOCKS.map((b) => b.block_key));
 
 
-export default function PodcastBoard({ account, isVirtualWallet = false }) {
+export default function MarketBoard({ account, isVirtualWallet = false }) {
   const { t, language } = useI18n();
   const { currency } = useCurrency();
   const { playMarketClaim } = useSound();
@@ -293,7 +293,7 @@ export default function PodcastBoard({ account, isVirtualWallet = false }) {
     try {
       const { data, error } = await supabase
         .from('mm3_command_penalties')
-        .select('id, nftji_key, penalty_code, penalty_value, penalty_eur, attempted_at, redeemed_at, reset_at, created_at')
+        .select('id, nftji_key, penalty_code, penalty_value, penalty_eur, penalty_effect, attempted_at, redeemed_at, reset_at, created_at')
         .eq('wallet', account.toLowerCase())
         .eq('nftji_key', blockKey)
         .is('redeemed_at', null)
@@ -387,7 +387,7 @@ export default function PodcastBoard({ account, isVirtualWallet = false }) {
     window.addEventListener('focus', refresh);
 
     const channel = supabase
-      .channel('mm3-podcast-live')
+      .channel('mm3-market-live')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'mm3_market_blocks' }, refresh)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'mm3_command_penalties' }, refresh)
       .subscribe();
@@ -482,7 +482,10 @@ export default function PodcastBoard({ account, isVirtualWallet = false }) {
   const currentOwners = Array.isArray(selectedBlock?.current_owners) ? selectedBlock.current_owners : [];
   const hasCurrentOwners = currentOwners.length > 0;
   const selectedBlockHex = getBlockHex(selectedBlock?.grid_row ?? 0, selectedBlock?.grid_col ?? 0);
-  const activePenaltyValue = Number(activePenalty?.penalty_value) || 0;
+  const activePenaltyEffect = activePenalty?.penalty_effect === 'mm3' ? 'mm3' : 'money';
+  const activePenaltyValue = activePenaltyEffect === 'mm3'
+    ? Number(activePenalty?.penalty_value) || 0
+    : Number(activePenalty?.penalty_eur || activePenalty?.penalty_value) || 0;
   const canRedeemPenalty =
     Boolean(account) &&
     Boolean(activePenalty) &&
@@ -628,7 +631,7 @@ export default function PodcastBoard({ account, isVirtualWallet = false }) {
 
       if (typeof window !== 'undefined') {
         localStorage.setItem('lb_dirty_at', String(Date.now()));
-        window.dispatchEvent(new CustomEvent('mm3-db-updated', { detail: { wallet, special: true, podcast: true } }));
+        window.dispatchEvent(new CustomEvent('mm3-db-updated', { detail: { wallet, special: true, market: true } }));
       }
       await Promise.all([loadBlocks(), loadWalletState()]);
     } catch (err) {
@@ -737,7 +740,7 @@ export default function PodcastBoard({ account, isVirtualWallet = false }) {
 
       if (typeof window !== 'undefined') {
         localStorage.setItem('lb_dirty_at', String(Date.now()));
-        window.dispatchEvent(new CustomEvent('mm3-db-updated', { detail: { wallet, special: true, podcast: true } }));
+        window.dispatchEvent(new CustomEvent('mm3-db-updated', { detail: { wallet, special: true, market: true } }));
       }
       await Promise.all([loadBlocks(), loadWalletState()]);
     } catch (err) {
@@ -1059,7 +1062,7 @@ export default function PodcastBoard({ account, isVirtualWallet = false }) {
                   </div>
                 )}
                 <div className="text-[0.80rem] uppercase tracking-[0.12em] text-fuchsia-200/75">
-                  -{activePenaltyValue.toFixed(8).replace(/\.?0+$/, '') || '0'} MM3
+                  -{activePenaltyValue.toFixed(8).replace(/\.?0+$/, '') || '0'} {activePenaltyEffect === 'mm3' ? 'MM3' : 'EUR'}
                 </div>
                 <div className="flex gap-1">
                   <input

@@ -145,15 +145,19 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
       const penaltiesByWallet = new Map();
       for (const entry of penaltiesResponse?.data || []) {
         const wallet = String(entry.wallet || '').toLowerCase();
-        if (!wallet || penaltiesByWallet.has(wallet)) continue;
-        penaltiesByWallet.set(wallet, {
-          nftji_key: entry.nftji_key,
-          penalty_value: Number(entry.penalty_value) || 0,
-          penalty_eur: Number(entry.penalty_eur) || 0,
-          penalty_effect: entry.penalty_effect === 'mm3' ? 'mm3' : 'money',
-          reset_at: entry.reset_at,
-          block: blocksByKey.get(entry.nftji_key) || null,
-        });
+        if (!wallet) continue;
+        const effect = entry.penalty_effect === 'mm3' ? 'mm3' : 'money';
+        const existing = penaltiesByWallet.get(wallet) || { mm3: null, money: null };
+        if (!existing[effect]) {
+          existing[effect] = {
+            nftji_key: entry.nftji_key,
+            penalty_value: Number(entry.penalty_value) || 0,
+            penalty_eur: Number(entry.penalty_eur) || 0,
+            reset_at: entry.reset_at,
+            block: blocksByKey.get(entry.nftji_key) || null,
+          };
+          penaltiesByWallet.set(wallet, existing);
+        }
       }
 
       // Union of leaderboard_data + player_progress wallets so that wallets
@@ -266,7 +270,7 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
       if (sortConfig.key === 'money') return Number(entry[moneyKey]) || 0;
       if (sortConfig.key === 'nftji') return normalizeWalletDecorations(entry.wallet_emojis).length;
       if (sortConfig.key === 'execs') return Number(entry.execs_count) || 0;
-      if (sortConfig.key === 'block') return (Array.isArray(entry.market_blocks) ? entry.market_blocks.length : 0) + (entry.active_penalty ? 1 : 0);
+      if (sortConfig.key === 'block') return (Array.isArray(entry.market_blocks) ? entry.market_blocks.length : 0) + (entry.active_penalty?.mm3 || entry.active_penalty?.money ? 1 : 0);
       if (sortConfig.key === 'status') return onlineWallets.has(String(entry.wallet || '').toLowerCase()) ? 1 : 0;
       if (sortConfig.key === 'rank') return getRankTier(clampRankLevel(entry.level)).label;
       if (sortConfig.key === 'wallet') return String(entry.wallet || '').toLowerCase();
@@ -584,20 +588,27 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
                       </span>
                     </button>
                   )) : null}
-                  {activePenalty ? (
+                  {activePenalty?.mm3 ? (
                     <button
                       type="button"
-                      onClick={() => openMarketBlock(activePenalty.nftji_key)}
+                      onClick={() => openMarketBlock(activePenalty.mm3.nftji_key)}
                       className="lb-penalty-link rounded border border-rose-400/30 bg-rose-950/20 px-1.5 py-0.5 font-mono text-[0.75rem] font-black text-rose-300"
-                      title={activePenalty.block ? `${activePenalty.block.emoji} ${activePenalty.block.hex}` : activePenalty.nftji_key}
+                      title={activePenalty.mm3.block ? `${activePenalty.mm3.block.emoji} ${activePenalty.mm3.block.hex}` : activePenalty.mm3.nftji_key}
                     >
-                      -{(activePenalty.penalty_effect === 'mm3'
-                        ? Number(activePenalty.penalty_value || 0)
-                        : convertPenaltyEur(activePenalty.penalty_eur || activePenalty.penalty_value || 0, quoteCurrency)
-                      ).toFixed(8).replace(/\.?0+$/, '') || '0'} {activePenalty.penalty_effect === 'mm3' ? 'MM3' : quoteCurrency}
+                      -{Number(activePenalty.mm3.penalty_value || 0).toFixed(8).replace(/\.?0+$/, '') || '0'} MM3
                     </button>
                   ) : null}
-                  {marketBlocks.length === 0 && !activePenalty ? (
+                  {activePenalty?.money ? (
+                    <button
+                      type="button"
+                      onClick={() => openMarketBlock(activePenalty.money.nftji_key)}
+                      className="lb-penalty-link rounded border border-amber-400/30 bg-amber-950/20 px-1.5 py-0.5 font-mono text-[0.75rem] font-black text-amber-300"
+                      title={activePenalty.money.block ? `${activePenalty.money.block.emoji} ${activePenalty.money.block.hex}` : activePenalty.money.nftji_key}
+                    >
+                      -{convertPenaltyEur(activePenalty.money.penalty_eur || activePenalty.money.penalty_value || 0, quoteCurrency).toFixed(8).replace(/\.?0+$/, '') || '0'} {quoteCurrency}
+                    </button>
+                  ) : null}
+                  {marketBlocks.length === 0 && !activePenalty?.mm3 && !activePenalty?.money ? (
                     <span className="text-[0.5rem] uppercase tracking-[0.1em] text-slate-700">{t('leaderboard.none')}</span>
                   ) : null}
                 </div>
@@ -725,20 +736,27 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
                           </span>
                         </button>
                       )) : null}
-                      {activePenalty ? (
+                      {activePenalty?.mm3 ? (
                         <button
                           type="button"
-                          onClick={() => openMarketBlock(activePenalty.nftji_key)}
+                          onClick={() => openMarketBlock(activePenalty.mm3.nftji_key)}
                           className="lb-penalty-link rounded border border-rose-400/30 bg-rose-950/20 px-1.5 py-1 font-mono text-[0.76rem] font-black text-rose-300"
-                          title={activePenalty.block ? `${activePenalty.block.emoji} ${activePenalty.block.hex}` : activePenalty.nftji_key}
+                          title={activePenalty.mm3.block ? `${activePenalty.mm3.block.emoji} ${activePenalty.mm3.block.hex}` : activePenalty.mm3.nftji_key}
                         >
-                          -{(activePenalty.penalty_effect === 'mm3'
-                        ? Number(activePenalty.penalty_value || 0)
-                        : convertPenaltyEur(activePenalty.penalty_eur || activePenalty.penalty_value || 0, quoteCurrency)
-                      ).toFixed(8).replace(/\.?0+$/, '') || '0'} {activePenalty.penalty_effect === 'mm3' ? 'MM3' : quoteCurrency}
+                          -{Number(activePenalty.mm3.penalty_value || 0).toFixed(8).replace(/\.?0+$/, '') || '0'} MM3
                         </button>
                       ) : null}
-                      {marketBlocks.length === 0 && !activePenalty ? (
+                      {activePenalty?.money ? (
+                        <button
+                          type="button"
+                          onClick={() => openMarketBlock(activePenalty.money.nftji_key)}
+                          className="lb-penalty-link rounded border border-amber-400/30 bg-amber-950/20 px-1.5 py-1 font-mono text-[0.76rem] font-black text-amber-300"
+                          title={activePenalty.money.block ? `${activePenalty.money.block.emoji} ${activePenalty.money.block.hex}` : activePenalty.money.nftji_key}
+                        >
+                          -{convertPenaltyEur(activePenalty.money.penalty_eur || activePenalty.money.penalty_value || 0, quoteCurrency).toFixed(8).replace(/\.?0+$/, '') || '0'} {quoteCurrency}
+                        </button>
+                      ) : null}
+                      {marketBlocks.length === 0 && !activePenalty?.mm3 && !activePenalty?.money ? (
                         <span className="text-[0.75rem] uppercase tracking-[0.12em] text-slate-600">{t('leaderboard.none')}</span>
                       ) : null}
                     </div>
