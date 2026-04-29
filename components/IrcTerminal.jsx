@@ -75,7 +75,12 @@ function stableHash(value) {
 }
 
 function sortMessagesByTime(messages) {
-  return [...messages].sort((a, b) => (Number(a.ts) || 0) - (Number(b.ts) || 0) || String(a.id || '').localeCompare(String(b.id || '')));
+  const priority = (message) => message?.replaceGroup === 'welcome' || message?.tone === 'accent' ? 0 : 1;
+  return [...messages].sort((a, b) =>
+    priority(a) - priority(b) ||
+    (Number(a.ts) || 0) - (Number(b.ts) || 0) ||
+    String(a.id || '').localeCompare(String(b.id || ''))
+  );
 }
 
 function formatRelayTime(ts) {
@@ -308,6 +313,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
   const lastMarketStatusRef = useRef('');
   const pendingEmptyPresenceRef = useRef(false);
   const refreshMarketStatusRef = useRef(null);
+  const welcomeTsRef = useRef(Date.now());
 
   // Auto-focus input when wallet is connected and terminal is ready
   useEffect(() => {
@@ -607,9 +613,10 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
               kind: 'system',
               wallet: 'system',
               text: formatWelcomeText(welcomeText),
+              ts: welcomeTsRef.current,
               tone: 'accent',
               replaceGroup: 'welcome',
-              replaceBatchId: `welcome:${language}`,
+              replaceBatchId: `welcome:${actorId}`,
             }),
             ...marketMessages.map((text, i) => makeMessage({
               id: `market-status:${i}:${actorId}`,
@@ -628,11 +635,12 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
               candidate.replaceBatchId === entry.replaceBatchId &&
               candidate.id === entry.id
             ) === index;
-          }).slice(-MAX_SESSION_MESSAGES);
+          });
+          const sortedSeeded = sortMessagesByTime(seeded).slice(-MAX_SESSION_MESSAGES);
 
           if (cancelled) return current;
-          persistMessages(seeded);
-          return seeded;
+          persistMessages(sortedSeeded);
+          return sortedSeeded;
         });
       } catch (err) {
         console.error('IRC initialization failed:', err);
