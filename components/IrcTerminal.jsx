@@ -156,9 +156,9 @@ function isErrorOrPenaltyMessage(text, tone) {
   return false;
 }
 
-function renderSystemTextWithWallets(displayText, tone, onWalletClick) {
+function renderSystemTextWithWallets(displayText, tone, onWalletClick, blockHexMap, onBlockClick) {
   const str = String(displayText);
-  const regex = /(0x[a-f0-9]{40})/gi;
+  const regex = /(0x[a-f0-9]{40}|#[0-9A-F]{3})(?![0-9A-Fa-f])/g;
   if (!regex.test(str)) return str;
   regex.lastIndex = 0;
   const parts = [];
@@ -166,18 +166,32 @@ function renderSystemTextWithWallets(displayText, tone, onWalletClick) {
   let match;
   while ((match = regex.exec(str)) !== null) {
     if (match.index > last) parts.push(str.slice(last, match.index));
-    const addr = match[1];
-    parts.push(
-      <span
-        key={`wa-${match.index}`}
-        className="mm3-irc-wallet-link"
-        style={{ color: colorFromAddress(addr) }}
-        onClick={() => onWalletClick?.(addr)}
-      >
-        {addr.slice(-5)}
-      </span>
-    );
-    last = match.index + addr.length;
+    const token = match[1];
+    if (token.startsWith('0x')) {
+      const addr = token;
+      parts.push(
+        <span
+          key={`wa-${match.index}`}
+          className="mm3-irc-wallet-link"
+          style={{ color: colorFromAddress(addr) }}
+          onClick={() => onWalletClick?.(addr)}
+        >
+          {addr.slice(-5)}
+        </span>
+      );
+    } else {
+      const blockKey = blockHexMap?.get(token);
+      parts.push(
+        <span
+          key={`bh-${match.index}`}
+          className={blockKey ? 'mm3-irc-block-link' : ''}
+          onClick={blockKey ? () => onBlockClick?.(blockKey) : undefined}
+        >
+          {token}
+        </span>
+      );
+    }
+    last = match.index + token.length;
   }
   if (last < str.length) parts.push(str.slice(last));
   return <>{parts}</>;
@@ -1571,6 +1585,19 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
           text-decoration: underline;
           text-underline-offset: 2px;
         }
+        .mm3-irc-block-link {
+          cursor: pointer;
+          color: #facc15;
+          font-weight: 700;
+          letter-spacing: 0.05em;
+          transition: opacity 0.12s, text-shadow 0.12s;
+        }
+        .mm3-irc-block-link:hover {
+          opacity: 0.8;
+          text-decoration: underline;
+          text-underline-offset: 2px;
+          text-shadow: 0 0 6px #facc1588;
+        }
       `}</style>
 
       <div className="mm3-irc-shell">
@@ -1605,6 +1632,18 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
                 localStorage.setItem('mm3_leaderboard_wallet', addr);
                 router.push('/ranking');
               };
+              const handleBlockHexClick = (blockKey) => {
+                router.push(`/market?block=${blockKey}`);
+              };
+              const hexToKeyMap = (() => {
+                const map = new Map();
+                for (const [key, block] of blockByKeyRef.current) {
+                  if (block.grid_row != null && block.grid_col != null) {
+                    map.set(getBlockHex(block.grid_row, block.grid_col), key);
+                  }
+                }
+                return map;
+              })();
 
               return (
                 <div
@@ -1634,7 +1673,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
                       </div>
                     </div>
                     <div className="mm3-irc-msg-text mt-0.5 break-words text-[0.95rem] leading-relaxed">
-                      {isSystem ? renderSystemTextWithWallets(displayText, message.tone, handleWalletClick) : displayText}
+                      {isSystem ? renderSystemTextWithWallets(displayText, message.tone, handleWalletClick, hexToKeyMap, handleBlockHexClick) : displayText}
                     </div>
                   </div>
                 </div>

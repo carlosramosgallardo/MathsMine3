@@ -438,6 +438,16 @@ IRC commands use a slash-prefix syntax and are routed client-side — they are n
 - Money-family commands debit in-game money; MM3-family commands debit available MM3.
 - Maximum daily penalties: 20 (one per NFTJI, assuming all 20 are owned and fired)
 
+**Numeric code — when it is computed:**
+
+The code is generated **at execution time** (the moment the owning wallet fires the command), not at penalty receipt. The server-side API (`/api/exec-market-command`) calls `computeMarketCommandCode(commandEntry, wallet, dayKey, now)` which:
+
+1. Builds a seed string: `commandKey:wallet:dayKey:timestamp`
+2. Applies FNV-1a hash → truncates to range `100–799` → this is the **nonce `x`** (shown as `nonce=xxx` in the IRC exec broadcast)
+3. Evaluates the block's formula with `x` → floors the result → zero-pads to 5 digits → this is the `numeric_code` stored in DB
+
+The `numeric_code` does **not change** after execution — it is fixed for the lifetime of that command window (until UTC midnight reset). Affected wallets can compute it themselves using the formula embedded in the command string and the nonce shown in the IRC exec message.
+
 **Numeric code redemption:**
 - Affected wallets see the penalty in the Ranking **Block / Pen.** column as a negative blinking value
 - The negative amount links to the NFTJI's block detail
@@ -445,6 +455,42 @@ IRC commands use a slash-prefix syntax and are routed client-side — they are n
 - Each wallet gets 1 attempt per day per NFTJI
 - Entering the correct 5-digit code cancels the penalty completely (100% refund)
 - Entering wrong code: attempt consumed, penalty remains
+
+### Command formula table
+
+Each of the 20 public Market commands carries its arithmetic formula embedded in the command string as `=> formula(x) = ?`. The nonce `x` (100–799) is shown in the IRC exec broadcast. The result is **always a 5-digit integer**. The formula is fixed per block; only `x` changes on each execution.
+
+**Money rail** — penalty debits in-game money:
+
+| Emoji | HEX | Command | Formula (x = nonce 100–799) |
+|---|---|---|---|
+| 🛰 | `#016` | `/ping -c 4 gateway.mainframe` | `5*(4000+x) + 12*(300+x) + (6000+3*x)/3` |
+| 🌐 | `#05C` | `/nmcli connection reload` | `(7000+x) + 13*200 + x*4` |
+| 🔭 | `#0B9` | `/netstat -tulpn` | `9000 + 8*x + 3600/3` |
+| 🧬 | `#11B` | `/git cherry-pick a1b2c3d` | `11000 + 21*x + 1440/2` |
+| 💠 | `#184` | `/kubectl rollout restart deploy/fractal-core` | `12000 + x*17 + 4096/4` |
+| ⚡ | `#1E7` | `/uptime` | `15000 + x*23 + 2048/2` |
+| 🌀 | `#244` | `/journalctl -n 50` | `18000 + x*31 + 7777%1000` |
+| 🔴 | `#26D` | `/whoami` | `22000 + x*37 + 9999/3` |
+| ⭐ | `#2CA` | `/hostnamectl status` | `26000 + x*41 + 12345%678` |
+| 💎 | `#30E` | `/sha256sum /etc/hosts` | `30000 + x*47 + 8192/4` |
+
+**MM3 rail** — penalty debits MM3:
+
+| Emoji | HEX | Command | Formula (x = nonce 100–799) |
+|---|---|---|---|
+| 🛸 | `#01D` | `/lsblk` | `41000 + x*11 + 2048/4` |
+| 🗝️ | `#04A` | `/passwd` | `(43000+x) + 17*300 + x*3` |
+| 🛡️ | `#091` | `/ufw status verbose` | `47000 + 19*x + 4096/8` |
+| 🧨 | `#0F8` | `/ss -lntp` | `51000 + x*29 + 7776/6` |
+| 🪙 | `#15C` | `/uname -r` | `54000 + x*31 + 10000/8` |
+| 🧰 | `#1A6` | `/gcc --version` | `58000 + x*37 + 8192/16` |
+| 🪬 | `#20B` | `/scp file.txt backup:/tmp/` | `62000 + x*43 + 12345%789` |
+| 🪞 | `#29B` | `/curl -I http://localhost` | `68000 + x*38 + 9999/9` |
+| 🔋 | `#2DA` | `/acpi -V` | `73000 + x*32 + 16384/16` |
+| 🎛️ | `#2F9` | `/alsamixer` | `79000 + x*25 + 22222%999` |
+
+> Commands and formulas are fixed. The `x` nonce is re-rolled on every execution via FNV-1a hash of `key:wallet:dayKey:timestamp`, producing a different 5-digit result each time — but always exactly 5 digits.
 
 **IRC welcome status:**
 When a wallet connects to IRC, the system relay shows the status of all 20 Market NTFJIs: which are currently owned, whether their command has been launched today, and when the reset occurs. For NTFJIs with no active command, the relay lists all eligible launcher wallets in a single line followed by a mystery teaser.
@@ -539,7 +585,7 @@ mainframe@MM3·:~$ #0x6bccc2e5c5c2231bdf3a4f706161445f940f18f0 salió del relay
 
 #### `market@MM3·:~$` — Market status (refreshed every 15 s)
 
-Shows the current state of all active Market commands. Displayed at boot and kept up to date in real time.
+Shows the current state of all active Market commands. Displayed at boot and kept up to date in real time. Every `#HEX` block code in market messages is **clickable** — it navigates to `/market?block=KEY` and opens that block's detail card directly.
 
 ```
 # No commands active:
@@ -590,12 +636,14 @@ market@MM3·:~$ #código ok >> 🔥 #0A2 >> 0x1234...5678 >> penalización reset
 
 #### `market@MM3·:~$` — Market command self-execution result (broadcast)
 
-Sent to all relay participants when the executing wallet's Market command is fully processed.
+Sent to all relay participants when the executing wallet's Market command is fully processed. The `nonce` value is the `x` variable used in the formula — affected wallets can compute `formula(nonce)` to get the 5-digit redemption code. The full formula is visible in the command string shown by `/?`.
 
 ```
-market@MM3·:~$ #exec >> 🔥 >> cmd=/fire >> nonce=42 >> 5 wallets penalized >> reset 23:59:59 local
-market@MM3·:~$ #exec >> 🔥 >> cmd=/fire >> nonce=42 >> 5 wallets penalizadas >> reset 23:59:59 local
+market@MM3·:~$ #exec >> 🛸 >> cmd=/lsblk => 41000 + x*11 + 2048/4 = ? >> nonce=347 >> 5 wallets penalized >> reset 23:59:59 local
+market@MM3·:~$ #exec >> 🛸 >> cmd=/lsblk => 41000 + x*11 + 2048/4 = ? >> nonce=347 >> 5 wallets penalizadas >> reset 23:59:59 local
 ```
+
+> `41000 + 347*11 + 2048/4 = 41000 + 3817 + 512 = 45329` → enter `45329` in the block detail to cancel the penalty.
 
 #### `cmd@MM3·:~$` — Command index (`/?` or `/help`)
 
