@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useI18n } from '@/lib/i18n-context';
 import supabase from '@/lib/supabaseClient';
 import { clampRankLevel, getRankTier } from '@/lib/ranks';
-import { CNY_TO_EUR, CNY_TO_USD, getSellQuote, formatMoney } from '@/lib/sell-offer';
+import { CNY_TO_EUR, CNY_TO_USD, getSellQuote, formatMoney, formatCompactNum } from '@/lib/sell-offer';
 import { useCurrency } from '@/lib/currency-context';
 import { useSound } from '@/lib/sound-context';
 import {
@@ -2316,7 +2316,7 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
   const noSlotsLeft = !!account && dailyMineLeft <= 0;
   const stats = [
     { label: t('tradeBoard.levelRank').replace(/ *\(.*\)/, ''), value: `${level}` },
-    { label: t('leaderboard.mm3Earned'),  value: totalMined.toFixed(6) },
+    { label: t('leaderboard.mm3Earned'),  value: formatCompactNum(totalMined) },
     { label: t('leaderboard.sellValue'),  value: formatMoney(currentFunds, currency) },
   ];
 

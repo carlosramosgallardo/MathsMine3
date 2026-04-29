@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { useI18n } from '@/lib/i18n-context';
 import supabase from '@/lib/supabaseClient';
-import { CNY_TO_EUR, CNY_TO_USD, formatMoney } from '@/lib/sell-offer';
+import { CNY_TO_EUR, CNY_TO_USD, formatMoney, formatCompactNum } from '@/lib/sell-offer';
 import { clampRankLevel, getRankTier } from '@/lib/ranks';
 import { colorFromAddress } from '@/lib/wallet-colors';
 import { normalizeWalletDecorations, getEmojiTitle, TRADE_SLOT_ORDER } from '@/lib/wallet-decorations';
@@ -15,10 +15,17 @@ function getBlockHexFromCoords(row, col) {
   return '#' + ((Number(row) || 0) * 28 + (Number(col) || 0)).toString(16).toUpperCase().padStart(3, '0');
 }
 
+const CURRENCY_SYM = { EUR: '€', USD: '$', CNY: '¥' };
+
 function formatCompactMoney(value, currency) {
-  const amount = Number(value) || 0;
-  const formatted = formatMoney(Math.abs(amount), currency);
-  return amount < 0 ? `-${formatted}` : formatted;
+  const n = Number(value) || 0;
+  const abs = Math.abs(n);
+  const sign = n < 0 ? '-' : '';
+  const sym = CURRENCY_SYM[currency] || '';
+  if (abs >= 1_000_000_000) return `${sign}${sym}${(abs / 1_000_000_000).toFixed(1)}B`;
+  if (abs >= 1_000_000)     return `${sign}${sym}${(abs / 1_000_000).toFixed(1)}M`;
+  if (abs >= 1_000)         return `${sign}${sym}${(abs / 1_000).toFixed(1)}k`;
+  return (n < 0 ? '-' : '') + formatMoney(abs, currency);
 }
 
 function toCnyFromEur(value) {
@@ -538,7 +545,7 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
                 </div>
                 <div className="rounded border border-cyan-500/10 bg-black/60 px-1.5 py-1">
                   <div>{t('leaderboard.mm3Earned')}</div>
-                  <div className="mt-0.5 font-mono text-[0.86rem] font-semibold tracking-normal text-cyan-300">{Number(entry.available_mm3 || 0).toFixed(8).replace(/\.?0+$/, '') || '0'}</div>
+                  <div className="mt-0.5 font-mono text-[0.86rem] font-semibold tracking-normal text-cyan-300">{formatCompactNum(entry.available_mm3 || 0)}</div>
                 </div>
                 <div className="col-span-2 rounded border border-cyan-500/10 bg-black/60 px-1.5 py-1">
                   <div>{t('leaderboard.sellValue')}</div>
@@ -773,7 +780,7 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
                   </td>
                   <td style={{ textAlign:'right', paddingRight:'1rem' }}>
                     <span className="text-[#22d3ee] font-mono font-semibold text-[0.86rem]">
-                      {Number(entry.available_mm3 || 0).toFixed(8).replace(/\.?0+$/, '') || '0'}
+                      {formatCompactNum(entry.available_mm3 || 0)}
                     </span>
                   </td>
                   <td style={{ textAlign:'right', paddingRight:'1rem' }}>
