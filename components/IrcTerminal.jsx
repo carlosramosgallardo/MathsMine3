@@ -64,6 +64,16 @@ function makeMessage({ id, kind = 'chat', wallet = 'system', text = '', ts = Dat
   return { id, kind, wallet, text, ts, tone };
 }
 
+function stableHash(value) {
+  let h = 2166136261;
+  const str = String(value || '');
+  for (let i = 0; i < str.length; i++) {
+    h ^= str.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return (h >>> 0).toString(36);
+}
+
 function formatRelayTime(ts) {
   try {
     const d = new Date(ts);
@@ -862,7 +872,15 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
       const signature = getStatusSignature(newMarketMessages);
       if (signature === lastMarketStatusRef.current) return;
       lastMarketStatusRef.current = signature;
-      newMarketMessages.forEach((message) => appendMessage(message, { silent: false }));
+      const signatureHash = stableHash(signature);
+      newMarketMessages.forEach((message, index) => {
+        const payload = {
+          ...message,
+          id: `market-status:${signatureHash}:${index}`,
+        };
+        appendMessage(payload, { silent: false });
+        relayRef.current?.send({ type: 'broadcast', event: 'message', payload }).catch(() => {});
+      });
     }
   }, [appendMessage, generateMarketStatusMessages, actorId]);
 
