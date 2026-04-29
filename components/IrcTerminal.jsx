@@ -146,7 +146,7 @@ function formatSystemPromptText(value) {
 }
 
 function localizeLegacySystemPromptText(value, language) {
-  const text = formatSystemPromptText(value);
+  let text = formatSystemPromptText(value);
   const isEs = language === 'es';
   const legacyPairs = [
     {
@@ -172,6 +172,11 @@ function localizeLegacySystemPromptText(value, language) {
     if (text.startsWith(enThenEs)) {
       return `${isEs ? es : en}${text.slice(enThenEs.length)}`;
     }
+  }
+
+  if (text.startsWith('code ok >>') || text.startsWith('código ok >>')) {
+    text = text.replace(/^(code ok|código ok)/, isEs ? 'código ok' : 'code ok');
+    text = text.replace(/ >> (penalty reset|penalización reset)$/i, ` >> ${isEs ? 'penalización reset' : 'penalty reset'}`);
   }
 
   return text;
@@ -882,8 +887,8 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
       };
     };
     const traceLabel = language === 'es'
-      ? { exec: 'exec', affected: 'afectadas', buy: 'compra', resell: 'reventa', codeOk: 'código ok', reset: 'penalización reset' }
-      : { exec: 'exec', affected: 'affected', buy: 'buy', resell: 'resell', codeOk: 'code ok', reset: 'penalty reset' };
+      ? { exec: 'exec', affected: 'afectadas', buy: 'compra', resell: 'reventa', reset: 'penalización reset' }
+      : { exec: 'exec', affected: 'affected', buy: 'buy', resell: 'resell', reset: 'penalty reset' };
 
     let pendingTimeouts = [];
     const scheduleTimeout = (fn, delay) => {
@@ -955,17 +960,21 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
         }), { silent: false });
         scheduleTimeout(() => refreshMarketStatus(), 500);
       })
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'mm3_irc_messages', filter: 'tone=eq.market' }, ({ new: rec }) => {
+        const text = normalizeRelayMessage(rec?.text);
+        if (!text) return;
+        appendMessage(makeMessage({
+          id: `db:${rec.wallet || 'system'}:${rec.ts || rec.created_at || Date.now()}`,
+          kind: rec.kind || 'system',
+          wallet: String(rec.wallet || 'system').toLowerCase(),
+          text,
+          ts: isNaN(Number(rec.ts)) ? new Date(rec.ts || rec.created_at || Date.now()).getTime() : Number(rec.ts),
+          tone: rec.tone || 'market',
+        }), { silent: false });
+        scheduleTimeout(() => refreshMarketStatus(), 500);
+      })
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'mm3_command_penalties' }, ({ new: rec }) => {
         if (!rec?.redeemed_at || !rec?.attempted_at) return;
-        const { emoji, hex } = resolveBlock(rec.nftji_key);
-        appendMessage(makeMessage({
-          id: `market-code-ok:${rec.id}:${rec.redeemed_at}`,
-          kind: 'system',
-          wallet: 'system',
-          text: `${traceLabel.codeOk} >> ${emoji} ${hex} >> ${rec.wallet} >> ${traceLabel.reset}`,
-          ts: Date.now(),
-          tone: 'market',
-        }), { silent: false });
         scheduleTimeout(() => refreshMarketStatus(), 500);
       })
       .subscribe();
