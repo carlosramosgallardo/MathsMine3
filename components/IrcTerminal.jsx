@@ -291,6 +291,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
   const inputRef = useRef(null);
   const lastRelayStatusRef = useRef('');
   const lastMarketStatusRef = useRef('');
+  const pendingEmptyPresenceRef = useRef(false);
 
   // Auto-focus input when wallet is connected and terminal is ready
   useEffect(() => {
@@ -709,9 +710,16 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
         });
       }
 
-      setConnectedWallets(uniqueWallets);
+      const stableWallets = uniqueWallets.sort((a, b) => a.wallet.localeCompare(b.wallet));
+      if (stableWallets.length === 0 && previousPresenceRef.current.size > 0 && !pendingEmptyPresenceRef.current) {
+        pendingEmptyPresenceRef.current = true;
+        return;
+      }
+      pendingEmptyPresenceRef.current = false;
 
-      const nextPresence = new Set(uniqueWallets.map((entry) => entry.wallet));
+      setConnectedWallets(stableWallets);
+
+      const nextPresence = new Set(stableWallets.map((entry) => entry.wallet));
       const previousPresence = previousPresenceRef.current;
       if (presenceBootedRef.current) {
         nextPresence.forEach((wallet) => {
