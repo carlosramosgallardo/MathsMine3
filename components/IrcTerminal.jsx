@@ -143,6 +143,17 @@ function tickerFromRow(row, language, fallback) {
   return String(localized || row?.ticker_message || fallback || '').trim() || fallback;
 }
 
+function isErrorOrPenaltyMessage(text, tone) {
+  const t = String(text || '').replace(/^\/\/\s*/, '').trim();
+  if (tone === 'command') {
+    return /^(ERR:|access denied|acceso denegado|command not found|comando no encontrado|command failed|comando fallido|cmd index unavailable|índice cmd no disponible)/i.test(t);
+  }
+  if (tone === 'market') {
+    return /^exec\b/i.test(t);
+  }
+  return false;
+}
+
 function renderJoinLeaveText(displayText) {
   const match = String(displayText).match(/^(#)(0x[a-f0-9]{10,})([\s\S]*)$/i);
   if (!match) return displayText;
@@ -1399,6 +1410,10 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
         .mm3-irc-line.system[data-tone='leave']    { color: #1d4ed8; text-shadow: 0 0 8px rgba(29, 78, 216, 0.22); }
         .mm3-irc-line.system > span,
         .mm3-irc-line.system .mm3-irc-author       { color: inherit; }
+        .mm3-irc-line.system[data-error='true'] .mm3-irc-msg-text {
+          color: #f87171;
+          text-shadow: 0 0 8px rgba(248, 113, 113, 0.22);
+        }
         .mm3-irc-line.system.system-prompt .mm3-irc-system-body {
           display: flex;
           flex-wrap: wrap;
@@ -1551,12 +1566,14 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
               const displayText = isSystem
                 ? `#${formatSystemPromptText(message.text)}`
                 : message.text;
+              const isErrorOrPenalty = isSystem && isErrorOrPenaltyMessage(message.text, message.tone);
 
               return (
                 <div
                   key={message.id}
                   className={`mm3-irc-line ${lineMode} flex gap-3 px-1 py-2 text-[0.7rem] ${isSystem ? 'system-prompt' : ''}`}
                   data-tone={message.tone}
+                  data-error={isErrorOrPenalty ? 'true' : undefined}
                 >
                   <span className="shrink-0 pt-0.5 text-[0.76rem] uppercase tracking-[0.14em] text-slate-500">
                     {formatRelayTime(message.ts)}
