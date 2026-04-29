@@ -134,6 +134,10 @@ function formatWelcomeText(value) {
   return parts.length > 0 ? `## ${parts.join(' ## ')} ##` : '## MATHSMINE3 ##';
 }
 
+function formatSystemPromptText(value) {
+  return String(value || '').replace(/^\/\/\s*/, '');
+}
+
 function tickerFromRow(row, language, fallback) {
   const localized = language === 'es' ? row?.ticker_message_es : row?.ticker_message_en;
   return String(localized || row?.ticker_message || fallback || '').trim() || fallback;
@@ -1529,7 +1533,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
                 ? formatSystemAuthor(message.tone)
                 : formatChatAuthor(message.wallet, normalizedWallet, t('irc.you'));
               const displayText = isSystem && message.tone !== 'accent'
-                ? `#${message.text}`
+                ? `#${formatSystemPromptText(message.text)}`
                 : message.text;
 
               return (
