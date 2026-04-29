@@ -9,6 +9,7 @@ import { useSound } from '@/lib/sound-context';
 import { CNY_TO_EUR, CNY_TO_USD, getSellRateCny } from '@/lib/sell-offer';
 import {
   computeMarketCommandCode,
+  commandKey,
   marketCommandFromBlock,
   normalizeCommandText,
   getUtcDayWindow,
@@ -968,7 +969,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
   const findMarketCommandInDb = useCallback(async (text) => {
     const normalized = normalizeCommandText(text);
     const entries = await loadMarketCommandEntries();
-    return entries.find((entry) => normalizeCommandText(entry.command) === normalized) || null;
+    return entries.find((entry) => commandKey(entry.command) === normalized) || null;
   }, [loadMarketCommandEntries]);
 
   const showMarketCommandHelp = useCallback(async () => {
@@ -1203,7 +1204,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
         const malformedPublicCommand = entries.find((entry) => {
           const commandHead = getSlashHead(entry.command);
           if (!commandHead) return false;
-          if (normalizeCommandText(entry.command) === normalizedText) return false;
+          if (commandKey(entry.command) === normalizedText) return false;
           return cmdName === commandHead || cmdName.startsWith(commandHead);
         });
         if (malformedPublicCommand) {
