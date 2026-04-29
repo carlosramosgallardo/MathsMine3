@@ -348,7 +348,7 @@ Each Market NFTJI command that fires in IRC can penalise all wallets not holding
 
 The Market is a **28×28 block board** (784 cells, hex-coded `#000`–`#30F`). Twenty special NFTJI blocks occupy fixed positions: the original 10 are paid in in-game money, and the 10 MM3 family blocks are paid in MM3 at `1 EUR = 1 MM3`. New blocks auto-generate as wallets make first purchases. Navigate the board, find a live block, and pay the block's rail to acquire its NFTJI.
 
-There is also a second signal layer: hidden Market commands. They are not documented in this README and are not stored in public SQL — their strings live exclusively in the private seed file.
+There is also a second signal layer: hidden Market commands. They are not documented in this README and are not stored in public SQL — their strings live exclusively in the private seed file. Unlike public commands, hidden commands are **level-gated**: each block carries a `hidden_cmd_min_level` value that the executing wallet must meet or exceed. Money-family blocks have thresholds from lv.10 (cheapest) to lv.100 (most expensive); MM3-family blocks have no gate (threshold = 0). The required level is shown as a `lv.X+` badge next to the IRC command label in the block detail card.
 
 ### Ownership rules
 
@@ -427,6 +427,8 @@ IRC commands use a slash-prefix syntax and are routed client-side — they are n
 **Launch rules:**
 - Only the wallet currently owning the NFTJI can launch its command
 - Each command can be launched **once per day globally** (not per wallet) — one wallet fires it and it is locked until UTC midnight reset
+- **Public commands have no level requirement** — any owner can launch regardless of level
+- **Hidden commands are level-gated** — the wallet must meet the block's `hidden_cmd_min_level` threshold to execute. This threshold is visible as `lv.X+` in the block detail card. Money-family blocks range from lv.10 to lv.100; MM3-family blocks have no gate
 - The owning wallet clicks the pre-filled `/drain` or `/mm3` link from the block detail → IRC pre-populates the full command → wallet hits `send` (EN) / `enviar` (ES) → system processes it
 - On execution the system generates a fresh `x` value, computes the formula result from that `x`, and stores the direct 5-digit formula output as the command's `numeric_code` in the DB
 
