@@ -143,6 +143,13 @@ function tickerFromRow(row, language, fallback) {
   return String(localized || row?.ticker_message || fallback || '').trim() || fallback;
 }
 
+function renderJoinLeaveText(displayText) {
+  const match = String(displayText).match(/^(#)(0x[a-f0-9]{10,})([\s\S]*)$/i);
+  if (!match) return displayText;
+  const [, prefix, wallet, rest] = match;
+  return <>{prefix}<span style={{ color: colorFromAddress(wallet) }}>{wallet}</span>{rest}</>;
+}
+
 export default function IrcTerminal({ accent = '#22d3ee' }) {
   const { t, language } = useI18n();
   const { account } = useActiveWallet();
@@ -1375,9 +1382,9 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
           color: #4ade80;
           text-shadow: 0 0 8px rgba(74, 222, 128, 0.18);
         }
-        .mm3-irc-line.system[data-tone='ghost'],
-        .mm3-irc-line.system[data-tone='join'],
-        .mm3-irc-line.system[data-tone='leave']    { color: #f8fafc; }
+        .mm3-irc-line.system[data-tone='ghost']    { color: #f8fafc; }
+        .mm3-irc-line.system[data-tone='join']     { color: #4ade80; text-shadow: 0 0 8px rgba(74, 222, 128, 0.18); }
+        .mm3-irc-line.system[data-tone='leave']    { color: #1d4ed8; text-shadow: 0 0 8px rgba(29, 78, 216, 0.22); }
         .mm3-irc-line.system > span,
         .mm3-irc-line.system .mm3-irc-author       { color: inherit; }
         .mm3-irc-line.system.system-prompt .mm3-irc-system-body {
@@ -1447,9 +1454,6 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
         .mm3-irc-peer-row:last-child { border-bottom: none; }
         .mm3-irc-peer-row.is-you { color: #4ade80; }
         .mm3-irc-peer-row.is-anon { color: #78716c; opacity: 0.7; }
-        .mm3-irc-line.system[data-tone='ghost'] {
-          font-style: italic;
-        }
         .mm3-irc-anon-label {
           font-family: monospace;
           font-size: 0.42rem;
@@ -1562,7 +1566,9 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
                         >{author}</div>
                       </div>
                     </div>
-                    <div className="mm3-irc-msg-text mt-0.5 break-words text-[0.95rem] leading-relaxed">{displayText}</div>
+                    <div className="mm3-irc-msg-text mt-0.5 break-words text-[0.95rem] leading-relaxed">
+                      {(message.tone === 'join' || message.tone === 'leave') ? renderJoinLeaveText(displayText) : displayText}
+                    </div>
                   </div>
                 </div>
               );
