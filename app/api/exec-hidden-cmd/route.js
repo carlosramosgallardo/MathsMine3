@@ -8,18 +8,6 @@ function getBlockHex(row, col) {
   return '#' + ((Number(row) || 0) * 28 + (Number(col) || 0)).toString(16).toUpperCase().padStart(3, '0');
 }
 
-// Hidden command → block_key mapping lives in HIDDEN_COMMANDS_MAP env var (server-side only).
-// Value is a JSON object: { "/cmd-slug": "mm3-xxx", ... }
-// Never stored in the public DB — keep it in Vercel env vars / .private seed.
-function resolveBlockKey(command) {
-  try {
-    const map = JSON.parse(process.env.HIDDEN_COMMANDS_MAP || '{}');
-    return map[command] || null;
-  } catch {
-    return null;
-  }
-}
-
 export async function POST(req) {
   let body;
   try { body = await req.json(); } catch { return Response.json({ ok: false, error: 'bad json' }, { status: 400 }); }
@@ -31,25 +19,20 @@ export async function POST(req) {
     return Response.json({ ok: false, error: 'invalid params' }, { status: 400 });
   }
 
-  // 1. Resolve block_key from private env map — same error as unknown command to avoid enumeration
-  const blockKey = resolveBlockKey(command);
-  if (!blockKey) {
-    return Response.json({ ok: false, error: 'command not found' }, { status: 404 });
-  }
-
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
   );
 
-  // 2. Load block metadata from DB (no hidden_command column needed)
+  // 1. Look up the block with this hidden_command value
   const { data: block, error: blockError } = await supabase
     .from('mm3_market_blocks')
     .select('block_key, emoji, grid_row, grid_col, price_eur, hidden_cmd_min_level')
-    .eq('block_key', blockKey)
+    .eq('hidden_command', command)
     .maybeSingle();
 
   if (blockError || !block) {
+    // Return same error as unknown command — do not reveal valid command list
     return Response.json({ ok: false, error: 'command not found' }, { status: 404 });
   }
 
@@ -59,7 +42,7 @@ export async function POST(req) {
   const isMm3Hidden = getMarketCommandForKey(block.block_key)?.effect === 'mm3';
   const stealPerWallet = priceEur * 0.1;
 
-  // 3. Check executor level
+  // 2. Check executor level
   const { data: executorProgress } = await supabase
     .from('player_progress')
     .select('level, mm3_sold, eur_earned, usd_earned, cny_earned')
@@ -71,13 +54,13 @@ export async function POST(req) {
     return Response.json({ ok: false, error: 'level_too_low' }, { status: 403 });
   }
 
-  // 4. Check /drain or /mm3 active today for this block
+  // 3. Check public command active today for this block
   const nowIso = new Date().toISOString();
   const { data: activeWall } = await supabase
     .from('mm3_market_commands')
     .select('id')
-    .eq('nftji_key', block.block_key)
     .gt('reset_at', nowIso)
+    .eq('nftji_key', block.block_key)
     .limit(1)
     .maybeSingle();
 
@@ -85,7 +68,7 @@ export async function POST(req) {
     return Response.json({ ok: false, error: 'wall_not_active' }, { status: 403 });
   }
 
-  // 5. Check 1x per day per wallet per block
+  // 4. Check 1x per day per wallet per block
   const todayUtc = new Date(Date.UTC(
     new Date().getUTCFullYear(),
     new Date().getUTCMonth(),
@@ -105,7 +88,7 @@ export async function POST(req) {
     return Response.json({ ok: false, error: 'already_executed_today' }, { status: 429 });
   }
 
-  // 6. Fetch all other wallets
+  // 5. Fetch all other wallets
   const [{ data: allProgress, error: progressError }, { data: allStats, error: statsError }] = await Promise.all([
     supabase
       .from('player_progress')
@@ -124,7 +107,7 @@ export async function POST(req) {
     (r) => String(r.wallet || '').toLowerCase() !== wallet
   );
 
-  // 7. Steal from each victim and sum total
+  // 6. Steal from each victim and sum total
   let totalStolenEur = 0;
   let totalStolenMm3 = 0;
   const updates = [];
@@ -167,7 +150,7 @@ export async function POST(req) {
     });
   }
 
-  // 8. Apply deductions to victims
+  // 7. Apply deductions to victims
   if (updates.length > 0) {
     const { error: deductError } = await supabase
       .from('player_progress')
@@ -177,7 +160,7 @@ export async function POST(req) {
     }
   }
 
-  // 9. Add total stolen to executor
+  // 8. Add total stolen to executor
   if (isMm3Hidden) {
     const execSoldMm3 = Number(executorProgress?.mm3_sold) || 0;
     await supabase
@@ -205,7 +188,7 @@ export async function POST(req) {
       }, { onConflict: 'wallet', ignoreDuplicates: false });
   }
 
-  // 10. Record execution
+  // 9. Record execution
   await supabase
     .from('mm3_hidden_cmd_executions')
     .insert({
@@ -215,7 +198,7 @@ export async function POST(req) {
       amount_mm3: totalStolenMm3,
     });
 
-  // 11. Build trace text (both languages, client picks)
+  // 10. Build trace text (both languages, client picks)
   const amountStr = isMm3Hidden
     ? `${totalStolenMm3.toFixed(8).replace(/\.?0+$/, '') || '0'} MM3`
     : `€${totalStolenEur.toFixed(2)}`;

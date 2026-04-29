@@ -107,6 +107,7 @@ DROP POLICY IF EXISTS "public_update_mm3_market_blocks" ON public.mm3_market_blo
 CREATE POLICY "public_read_mm3_market_blocks"   ON public.mm3_market_blocks FOR SELECT TO anon USING (true);
 CREATE POLICY "public_update_mm3_market_blocks" ON public.mm3_market_blocks FOR UPDATE TO anon USING (true) WITH CHECK (true);
 
+
 -- mm3_market_commands: read + insert + update (owner can expire their own command on resell)
 DROP POLICY IF EXISTS "public_read_mm3_market_commands"   ON public.mm3_market_commands;
 DROP POLICY IF EXISTS "public_insert_mm3_market_commands" ON public.mm3_market_commands;

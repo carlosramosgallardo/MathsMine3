@@ -348,7 +348,7 @@ Each Market NFTJI command that fires in IRC can penalise all wallets not holding
 
 The Market is a **28×28 block board** (784 cells, hex-coded `#000`–`#30F`). Twenty special NFTJI blocks occupy fixed positions: the original 10 are paid in in-game money, and the 10 MM3 family blocks are paid in MM3 at `1 EUR = 1 MM3`. New blocks auto-generate as wallets make first purchases. Navigate the board, find a live block, and pay the block's rail to acquire its NFTJI.
 
-There is also a second signal layer: hidden Market commands. They are not documented in this README and are not stored in the database — command strings live exclusively in the `HIDDEN_COMMANDS_MAP` server-side environment variable. Unlike public commands, hidden commands are **level-gated**: each block carries a `hidden_cmd_min_level` value that the executing wallet must meet or exceed. Both money-family and MM3-family blocks have thresholds from lv.10 (cheapest) to lv.100 (most expensive), mirroring the price ladder. The required level is shown as a `hidden cmd lv.X+` badge next to the IRC command label in the block detail card.
+There is also a second signal layer: hidden Market commands. Their strings are not visible to players — `hidden_command` is a column-level REVOKE'd field in `mm3_market_blocks` (populated by the `.private/` seed, readable only via the service role key used by the `/api/exec-hidden-cmd` endpoint). Unlike public commands, hidden commands are **level-gated**: each block carries a `hidden_cmd_min_level` value that the executing wallet must meet or exceed. Both money-family and MM3-family blocks have thresholds from lv.10 (cheapest) to lv.100 (most expensive), mirroring the price ladder. The required level is shown as a `hidden cmd lv.X+` badge next to the IRC command label in the block detail card.
 
 ### Ownership rules
 
@@ -916,11 +916,6 @@ SUPABASE_SERVICE_ROLE_KEY=
 
 # Optional — Google sign-in
 NEXT_PUBLIC_GOOGLE_CLIENT_ID=           # *.apps.googleusercontent.com
-
-# Required for hidden Market commands (server-side only, never exposed to browser)
-# JSON object mapping hidden command slug → block_key, e.g.:
-# {"\/uplink-x":"mm3-023","\/nexus-0":"mm3-05c", ...}
-HIDDEN_COMMANDS_MAP=
 
 # Optional — gameplay & analytics
 NEXT_PUBLIC_FAKE_MINING_PRICE=0.00001   # Base reward per answer (default 0.00001)
