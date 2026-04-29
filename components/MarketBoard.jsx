@@ -985,6 +985,14 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
           {!selectedBlock?.isPlaceholder && (
             selectedBlock?.short_url ? (
               <div className="order-last overflow-hidden rounded border border-cyan-500/10 bg-black/45 lg:order-none lg:col-span-2">
+                {(selectedBlock?.hidden_cmd_min_level > 0) && (
+                  <div className="flex items-center gap-1.5 border-b border-cyan-500/10 bg-black/30 px-2 py-1">
+                    <span className="text-[0.82rem] leading-none">📺</span>
+                    <span className="text-[0.52rem] uppercase tracking-[0.13em] text-cyan-400/55">secret cmd lv.{selectedBlock.hidden_cmd_min_level}+</span>
+                    <span className="text-[0.45rem] text-cyan-600/40">·</span>
+                    <span className="text-[0.52rem] uppercase tracking-[0.1em] text-cyan-600/45">{language === 'es' ? 'revelado en este short' : 'revealed in this short'}</span>
+                  </div>
+                )}
                 <iframe
                   src={normalizeShortUrl(selectedBlock.short_url)}
                   className="aspect-video w-full"
@@ -995,9 +1003,18 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
             ) : (
               <Link
                 href={`/market-short/${selectedBlock?.block_key}`}
-                className="order-last flex items-center justify-center gap-1 rounded border border-cyan-500/10 bg-black/25 px-2 py-1 text-[0.80rem] uppercase tracking-[0.14em] text-cyan-800/70 transition hover:border-cyan-500/25 hover:text-cyan-500/80 lg:order-none lg:col-span-2 lg:py-1.5"
+                className="order-last flex flex-wrap items-center justify-center gap-x-1.5 gap-y-0.5 rounded border border-cyan-500/10 bg-black/25 px-2 py-1.5 transition hover:border-cyan-500/25 hover:bg-black/40 lg:order-none lg:col-span-2"
               >
-                {t('podcast.videoSoon')}
+                {(selectedBlock?.hidden_cmd_min_level > 0) ? (
+                  <>
+                    <span className="text-[0.88rem] leading-none">📺</span>
+                    <span className="text-[0.62rem] font-black uppercase tracking-[0.14em] text-cyan-500/70">secret cmd lv.{selectedBlock.hidden_cmd_min_level}+</span>
+                    <span className="text-[0.52rem] text-cyan-700/50">·</span>
+                    <span className="text-[0.55rem] uppercase tracking-[0.1em] text-cyan-700/55">{language === 'es' ? 'revelado en yt' : 'revealed in yt'}</span>
+                  </>
+                ) : (
+                  <>{t('podcast.videoSoon')}</>
+                )}
               </Link>
             )
           )}
@@ -1006,12 +1023,7 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
           {selectedMarketCommand && (
             <div className="mm3-market-detail-card col-span-1 rounded border border-cyan-500/14 bg-black/45 px-2 py-1 lg:col-span-2 lg:px-2.5 lg:py-2">
               <div className="mb-1 flex items-center justify-between gap-2">
-                <div className="flex items-center gap-1.5">
-                  <div className="text-[0.78rem] uppercase tracking-[0.16em] text-cyan-300/65 lg:text-[0.80rem] lg:tracking-[0.18em]">{t('podcast.ircCommand')}</div>
-                  {(selectedBlock?.hidden_cmd_min_level > 0) && (
-                    <span className="rounded border border-cyan-500/20 bg-cyan-950/30 px-1 py-0.5 text-[0.5rem] uppercase tracking-[0.1em] text-cyan-400/55">hidden cmd lv.{selectedBlock.hidden_cmd_min_level}+</span>
-                  )}
-                </div>
+                <div className="text-[0.78rem] uppercase tracking-[0.16em] text-cyan-300/65 lg:text-[0.80rem] lg:tracking-[0.18em]">{t('podcast.ircCommand')}</div>
                 {activeBlockCommand && (
                   <div className="flex items-center gap-1 rounded border border-amber-400/30 bg-amber-950/20 px-1.5 py-0.5">
                     <span className="text-[0.5rem] uppercase tracking-[0.1em] text-amber-400/70">x =</span>
