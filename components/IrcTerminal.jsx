@@ -60,8 +60,8 @@ function sessionKeyForWallet(wallet) {
   return `mm3-irc-session-${String(wallet || '').toLowerCase()}`;
 }
 
-function makeMessage({ id, kind = 'chat', wallet = 'system', text = '', ts = Date.now(), tone = 'neutral' }) {
-  return { id, kind, wallet, text, ts, tone };
+function makeMessage({ id, kind = 'chat', wallet = 'system', text = '', ts = Date.now(), tone = 'neutral', replaceGroup = '', replaceBatchId = '' }) {
+  return { id, kind, wallet, text, ts, tone, replaceGroup, replaceBatchId };
 }
 
 function stableHash(value) {
@@ -324,7 +324,10 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
     if (!message?.id) return;
     setMessages((current) => {
       if (current.some((entry) => entry.id === message.id)) return current;
-      const next = sortMessagesByTime([...current, message]).slice(-MAX_SESSION_MESSAGES);
+      const base = message.replaceGroup
+        ? current.filter((entry) => entry.replaceGroup !== message.replaceGroup || entry.replaceBatchId === message.replaceBatchId)
+        : current;
+      const next = sortMessagesByTime([...base, message]).slice(-MAX_SESSION_MESSAGES);
       persistMessages(next);
       return next;
     });
@@ -546,7 +549,13 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
 
         const stored = safeParseSession(sessionStorage.getItem(storageKey));
         const withoutWelcome = stored.filter((entry) =>
-          !(entry.kind === 'system' && entry.tone === 'accent')
+          !(entry.kind === 'system' && (
+            entry.tone === 'accent' ||
+            entry.replaceGroup === 'market-status' ||
+            entry.replaceGroup === 'relay-status' ||
+            String(entry.id || '').startsWith('market-status:') ||
+            String(entry.id || '').startsWith('relay-status:')
+          ))
         );
 
         // Combine history from DB and session storage, then deduplicate by content signature
@@ -598,6 +607,8 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
               wallet: 'system',
               text: formatWelcomeText(welcomeText),
               tone: 'accent',
+              replaceGroup: 'welcome',
+              replaceBatchId: `welcome:${language}`,
             }),
             ...marketMessages.map((text, i) => makeMessage({
               id: `market-status:${i}:${actorId}`,
@@ -605,9 +616,18 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
               wallet: 'system',
               text,
               tone: 'market',
+              replaceGroup: 'market-status',
+              replaceBatchId: `market-boot:${actorId}`,
             })),
             ...finalUnique,
-          ].slice(-MAX_SESSION_MESSAGES);
+          ].filter((entry, index, arr) => {
+            if (!entry.replaceGroup) return true;
+            return arr.findIndex((candidate) =>
+              candidate.replaceGroup === entry.replaceGroup &&
+              candidate.replaceBatchId === entry.replaceBatchId &&
+              candidate.id === entry.id
+            ) === index;
+          }).slice(-MAX_SESSION_MESSAGES);
 
           if (cancelled) return current;
           persistMessages(seeded);
@@ -639,6 +659,8 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
             text,
             ts: payload?.ts || Date.now(),
             tone: payload?.tone || 'neutral',
+            replaceGroup: payload?.replaceGroup || '',
+            replaceBatchId: payload?.replaceBatchId || '',
           }),
           { silent: false }
         );
@@ -836,6 +858,8 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
         text,
         ts: Date.now() + 100,
         tone: 'ghost',
+        replaceGroup: 'relay-status',
+        replaceBatchId: `relay:${stableHash(signature)}`,
       }), { silent: false });
     };
 
@@ -893,6 +917,8 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
           ...message,
           id: `market-status:${signatureHash}:${index}`,
           ts: statusTs + index,
+          replaceGroup: 'market-status',
+          replaceBatchId: `market:${signatureHash}`,
         };
         appendMessage(payload, { silent: false });
         relayRef.current?.send({ type: 'broadcast', event: 'message', payload }).catch(() => {});
