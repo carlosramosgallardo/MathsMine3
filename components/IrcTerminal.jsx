@@ -154,11 +154,24 @@ function isErrorOrPenaltyMessage(text, tone) {
   return false;
 }
 
-function renderJoinLeaveText(displayText) {
-  const match = String(displayText).match(/^(#)(0x[a-f0-9]{10,})([\s\S]*)$/i);
-  if (!match) return displayText;
-  const [, prefix, wallet, rest] = match;
-  return <>{prefix}<span style={{ color: colorFromAddress(wallet) }}>{wallet}</span>{rest}</>;
+function renderSystemTextWithWallets(displayText, tone) {
+  const str = String(displayText);
+  const regex = /(0x[a-f0-9]{40})/gi;
+  if (!regex.test(str)) return str;
+  regex.lastIndex = 0;
+  const isConnection = tone === 'join' || tone === 'leave' || tone === 'ghost';
+  const parts = [];
+  let last = 0;
+  let match;
+  while ((match = regex.exec(str)) !== null) {
+    if (match.index > last) parts.push(str.slice(last, match.index));
+    const addr = match[1];
+    const label = isConnection ? `…${addr.slice(-5)}` : `${addr.slice(0, 6)}…${addr.slice(-4)}`;
+    parts.push(<span key={`wa-${match.index}`} style={{ color: colorFromAddress(addr) }}>{label}</span>);
+    last = match.index + addr.length;
+  }
+  if (last < str.length) parts.push(str.slice(last));
+  return <>{parts}</>;
 }
 
 export default function IrcTerminal({ accent = '#22d3ee' }) {
@@ -286,9 +299,9 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
       const emoji = block?.emoji || fallback?.emoji || '?';
       const hex = block ? getBlockHex(block.grid_row, block.grid_col) : key;
       const affectedWallets = penaltiesByCommandId.get(command.id) || penaltiesByKey.get(key) || [];
-      const affected = affectedWallets.map(shortenMarketWallet).join(' · ') || '0';
+      const affected = affectedWallets.join(' · ') || '0';
       activeLines.push(
-        `${label.active} >> ${emoji} ${hex} >> ${t('irc.by')} ${shortenMarketWallet(command.wallet)} >> ${label.affected}: ${affected} >> ${label.reset} ${formatClockTime(command.reset_at)}`
+        `${label.active} >> ${emoji} ${hex} >> ${t('irc.by')} ${command.wallet} >> ${label.affected}: ${affected} >> ${label.reset} ${formatClockTime(command.reset_at)}`
       );
     }
 
@@ -301,7 +314,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
       if (ownerWallets.length === 0) continue;
       const block = blockByKey.get(entry.key);
       const hex = block ? getBlockHex(block.grid_row, block.grid_col) : entry.key;
-      const readyWallets = ownerWallets.map(shortenMarketWallet).join(' · ');
+      const readyWallets = ownerWallets.join(' · ');
       readyLines.push(`${label.ready} >> ${entry.emoji} ${hex} >> ${label.wallets}: ${readyWallets}`);
     }
 
@@ -705,10 +718,8 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
   }, []);
 
   useEffect(() => {
-    const shortW = (w) => `${String(w).slice(0, 6)}...${String(w).slice(-4)}`;
-
     const build = () => {
-      const walletParts = connectedWallets.map((u) => shortW(u.wallet));
+      const walletParts = connectedWallets.map((u) => u.wallet);
       const n = walletParts.length;
       const walletLabel = t('irc.wallets');
       const text = n === 0
@@ -831,12 +842,12 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
               .from('mm3_command_penalties')
               .select('wallet')
               .eq('command_id', rec.id);
-            const affected = (penaltyRows || []).map((row) => shortenMarketWallet(row.wallet)).join(' · ') || '0';
+            const affected = (penaltyRows || []).map((row) => row.wallet).join(' · ') || '0';
             appendMessage(makeMessage({
               id: `market-event:on:${rec.id}`,
               kind: 'system',
               wallet: 'system',
-              text: `${traceLabel.exec} >> ${emoji} ${hex} >> ${t('irc.by')} ${shortenMarketWallet(rec.wallet)} >> ${traceLabel.affected}: ${affected} >> reset ${reset}`,
+              text: `${traceLabel.exec} >> ${emoji} ${hex} >> ${t('irc.by')} ${rec.wallet} >> ${traceLabel.affected}: ${affected} >> reset ${reset}`,
               ts: Date.now(),
               tone: 'market',
             }), { silent: false });
@@ -877,7 +888,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
           id: `market-event:${rec.event_type}:${rec.id || rec.created_at || Date.now()}`,
           kind: 'system',
           wallet: 'system',
-          text: `${action} >> ${emoji}${hex ? ` ${hex}` : ''} >> ${shortenMarketWallet(rec.wallet)}`,
+          text: `${action} >> ${emoji}${hex ? ` ${hex}` : ''} >> ${rec.wallet}`,
           ts: Date.now(),
           tone: 'market',
         }), { silent: false });
@@ -890,7 +901,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
           id: `market-code-ok:${rec.id}:${rec.redeemed_at}`,
           kind: 'system',
           wallet: 'system',
-          text: `${traceLabel.codeOk} >> ${emoji} ${hex} >> ${shortenMarketWallet(rec.wallet)} >> ${traceLabel.reset}`,
+          text: `${traceLabel.codeOk} >> ${emoji} ${hex} >> ${rec.wallet} >> ${traceLabel.reset}`,
           ts: Date.now(),
           tone: 'market',
         }), { silent: false });
@@ -1596,7 +1607,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
                       </div>
                     </div>
                     <div className="mm3-irc-msg-text mt-0.5 break-words text-[0.95rem] leading-relaxed">
-                      {(message.tone === 'join' || message.tone === 'leave') ? renderJoinLeaveText(displayText) : displayText}
+                      {isSystem ? renderSystemTextWithWallets(displayText, message.tone) : displayText}
                     </div>
                   </div>
                 </div>
