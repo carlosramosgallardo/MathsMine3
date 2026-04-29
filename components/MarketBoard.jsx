@@ -921,7 +921,7 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
           </div>
         </section>
 
-        <aside className="mm3-market-detail grid grid-cols-1 gap-1.5 rounded border border-cyan-500/12 bg-black/40 p-2 lg:grid-cols-2 lg:gap-1 lg:p-2 lg:self-stretch">
+        <aside className="mm3-market-detail grid grid-cols-1 gap-1 rounded border border-cyan-500/12 bg-black/40 p-1.5 lg:grid-cols-2 lg:gap-1 lg:p-2 lg:self-stretch">
 
           {/* ── Header: emoji + title + hex + status badge ── */}
           <div className="mm3-market-detail-head col-span-1 flex items-start justify-between gap-2 lg:col-span-2">
@@ -948,15 +948,15 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
           </div>
 
           {/* ── Price ── */}
-          <div className="mm3-market-detail-card rounded border border-amber-400/14 bg-amber-950/8 px-2 py-1.5 lg:px-2.5 lg:py-2">
+          <div className="mm3-market-detail-card rounded border border-amber-400/14 bg-amber-950/8 px-2 py-1 lg:px-2.5 lg:py-2">
             <div className="text-[0.78rem] uppercase tracking-[0.16em] text-amber-300/65 lg:text-[0.80rem] lg:tracking-[0.18em]">{t('podcast.price')}</div>
-            <div className="mt-1 text-[1.15rem] font-black leading-none text-amber-300 lg:text-lg">{displayPrice}</div>
+            <div className="mt-0.5 text-[1.05rem] font-black leading-none text-amber-300 lg:mt-1 lg:text-lg">{displayPrice}</div>
           </div>
 
           {/* ── Owner shell ── */}
-          <div className="mm3-market-detail-card rounded border border-cyan-500/12 bg-black/45 px-2 py-1.5 lg:px-2.5 lg:py-2">
+          <div className="mm3-market-detail-card rounded border border-cyan-500/12 bg-black/45 px-2 py-1 lg:px-2.5 lg:py-2">
             <div className="text-[0.78rem] uppercase tracking-[0.16em] text-cyan-300/65 lg:text-[0.80rem] lg:tracking-[0.18em]">{t('podcast.owner')}</div>
-            <div className="mt-1 flex max-h-20 flex-col gap-1 overflow-y-auto pr-1">
+            <div className="mt-0.5 flex max-h-12 flex-col gap-1 overflow-y-auto pr-1 lg:max-h-20 lg:mt-1">
               {hasCurrentOwners ? (
                 currentOwners.map((owner) => {
                   const ownerColor = colorFromAddress(owner);
@@ -981,10 +981,10 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
             </div>
           </div>
 
-          {/* ── Video / Short ── */}
+          {/* ── Video / Short — bottom on mobile, here on desktop ── */}
           {!selectedBlock?.isPlaceholder && (
             selectedBlock?.short_url ? (
-              <div className="overflow-hidden rounded border border-cyan-500/10 bg-black/45 lg:col-span-2">
+              <div className="order-last overflow-hidden rounded border border-cyan-500/10 bg-black/45 lg:order-none lg:col-span-2">
                 <iframe
                   src={normalizeShortUrl(selectedBlock.short_url)}
                   className="aspect-video w-full"
@@ -995,7 +995,7 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
             ) : (
               <Link
                 href={`/market-short/${selectedBlock?.block_key}`}
-                className="flex items-center justify-center gap-1 rounded border border-cyan-500/10 bg-black/25 px-2 py-1.5 text-[0.80rem] uppercase tracking-[0.14em] text-cyan-800/70 transition hover:border-cyan-500/25 hover:text-cyan-500/80 lg:col-span-2"
+                className="order-last flex items-center justify-center gap-1 rounded border border-cyan-500/10 bg-black/25 px-2 py-1 text-[0.80rem] uppercase tracking-[0.14em] text-cyan-800/70 transition hover:border-cyan-500/25 hover:text-cyan-500/80 lg:order-none lg:col-span-2 lg:py-1.5"
               >
                 {t('podcast.videoSoon')}
               </Link>
@@ -1004,8 +1004,8 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
 
           {/* ── IRC Command — full width ── */}
           {selectedMarketCommand && (
-            <div className="mm3-market-detail-card col-span-1 rounded border border-cyan-500/14 bg-black/45 px-2 py-1.5 lg:col-span-2 lg:px-2.5 lg:py-2">
-              <div className="mb-1.5 flex items-center justify-between gap-2">
+            <div className="mm3-market-detail-card col-span-1 rounded border border-cyan-500/14 bg-black/45 px-2 py-1 lg:col-span-2 lg:px-2.5 lg:py-2">
+              <div className="mb-1 flex items-center justify-between gap-2">
                 <div className="text-[0.78rem] uppercase tracking-[0.16em] text-cyan-300/65 lg:text-[0.80rem] lg:tracking-[0.18em]">{t('podcast.ircCommand')}</div>
                 {activeBlockCommand && (
                   <div className="flex items-center gap-1 rounded border border-amber-400/30 bg-amber-950/20 px-1.5 py-0.5">
@@ -1014,7 +1014,7 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
                   </div>
                 )}
               </div>
-              <div className="break-words text-[0.82rem] leading-relaxed text-cyan-100/70 lg:text-[0.6rem]">
+              <div className="break-words text-[0.68rem] leading-snug text-cyan-100/70 lg:text-[0.6rem] lg:leading-relaxed">
                 {selectedMarketCommand.command}
               </div>
               {activeBlockCommand && (
@@ -1040,7 +1040,7 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
           )}
 
           {/* ── Numeric code / Penalty redemption — full width ── */}
-          <div className="mm3-market-detail-card col-span-1 rounded border border-fuchsia-400/12 bg-black/45 px-2 py-1.5 lg:col-span-2 lg:px-2.5 lg:py-2">
+          <div className="mm3-market-detail-card col-span-1 rounded border border-fuchsia-400/12 bg-black/45 px-2 py-1 lg:col-span-2 lg:px-2.5 lg:py-2">
             <div className="mb-1 text-[0.78rem] uppercase tracking-[0.16em] text-fuchsia-300/65 lg:text-[0.80rem] lg:tracking-[0.18em]">
               {activePenalty ? t('podcast.numericPrompt') : t('podcast.numericLocked')}
             </div>
