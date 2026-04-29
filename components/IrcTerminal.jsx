@@ -1043,6 +1043,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
             penalty_code: code,
             penalty_value: priceEur,
             penalty_eur: 0,
+            penalty_effect: 'mm3',
             reason: `${blockRow.emoji || commandEntry.emoji} ${blockRow.title_en || commandEntry.key}`,
             reset_at: dayWindow.resetAt,
           });
@@ -1061,6 +1062,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
             penalty_code: code,
             penalty_value: penaltyMm3,
             penalty_eur: priceEur,
+            penalty_effect: 'money',
             reason: `${blockRow.emoji || commandEntry.emoji} ${blockRow.title_en || commandEntry.key}`,
             reset_at: dayWindow.resetAt,
           });

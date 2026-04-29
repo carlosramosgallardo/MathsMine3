@@ -146,7 +146,7 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
       for (const entry of penaltiesResponse?.data || []) {
         const wallet = String(entry.wallet || '').toLowerCase();
         if (!wallet) continue;
-        const effect = entry.penalty_effect === 'mm3' ? 'mm3' : 'money';
+        const effect = entry.penalty_effect === 'mm3' || (entry.penalty_effect == null && Number(entry.penalty_eur) === 0 && Number(entry.penalty_value) > 0) ? 'mm3' : 'money';
         const existing = penaltiesByWallet.get(wallet) || { mm3: null, money: null };
         if (!existing[effect]) {
           existing[effect] = {
