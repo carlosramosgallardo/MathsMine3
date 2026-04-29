@@ -118,11 +118,20 @@ function formatChatAuthor(wallet, normalizedWallet, youLabel) {
 }
 
 function formatSystemAuthor(tone) {
-  if (tone === 'market') return 'market@MM3·:~$ #';
-  if (tone === 'ghost' || tone === 'join' || tone === 'leave') return 'mainframe@MM3·:~$ #';
+  if (tone === 'market') return 'market@MM3·:~$';
+  if (tone === 'ghost' || tone === 'join' || tone === 'leave') return 'mainframe@MM3·:~$';
   if (tone === 'command') return 'cmd@MM3#';
   if (tone === 'accent') return 'welcome@MM3';
   return 'system@MM3';
+}
+
+function formatWelcomeText(value) {
+  const parts = String(value || '')
+    .replace(/#/g, ' ')
+    .split('//')
+    .map((part) => part.trim())
+    .filter(Boolean);
+  return parts.length > 0 ? `## ${parts.join(' ## ')} ##` : '## MATHSMINE3 ##';
 }
 
 function tickerFromRow(row, language, fallback) {
@@ -466,7 +475,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
               id: `welcome:${actorId}`,
               kind: 'system',
               wallet: 'system',
-              text: welcomeText,
+              text: formatWelcomeText(welcomeText),
               tone: 'accent',
             }),
             ...marketMessages.map((text, i) => makeMessage({
@@ -1367,6 +1376,26 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
         .mm3-irc-line.system[data-tone='leave']    { color: #f8fafc; }
         .mm3-irc-line.system > span,
         .mm3-irc-line.system .mm3-irc-author       { color: inherit; }
+        .mm3-irc-line.system.system-prompt .mm3-irc-system-body {
+          display: flex;
+          flex-wrap: wrap;
+          align-items: baseline;
+          gap: 0.35rem;
+        }
+        .mm3-irc-line.system.system-prompt .mm3-irc-wallet-line {
+          flex: 0 0 auto;
+        }
+        .mm3-irc-line.system.system-prompt .mm3-irc-wallet-meta {
+          flex: 0 0 auto;
+        }
+        .mm3-irc-line.system.system-prompt .mm3-irc-author {
+          flex: 0 0 auto;
+        }
+        .mm3-irc-line.system.system-prompt .mm3-irc-msg-text {
+          margin-top: 0;
+          flex: 1 1 12rem;
+          min-width: 0;
+        }
         .mm3-irc-line.self   .mm3-irc-author       { color: #4ade80; }  /* self:   green  */
         .mm3-irc-line.other  .mm3-irc-author       { color: #e879f9; }  /* others: magenta */
         /* system text inherits line colour; chat text stays white */
@@ -1494,21 +1523,25 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
             {messages.length > 0 ? messages.map((message) => {
               const isSelf = message.kind === 'chat' && message.wallet === normalizedWallet;
               const lineMode = message.kind === 'system' ? 'system' : isSelf ? 'self' : 'other';
+              const isSystem = message.kind === 'system';
               const ownedMarketEmojis = message.kind === 'chat' ? (marketClaimsByWallet[message.wallet] || []) : [];
-              const author = message.kind === 'system'
+              const author = isSystem
                 ? formatSystemAuthor(message.tone)
                 : formatChatAuthor(message.wallet, normalizedWallet, t('irc.you'));
+              const displayText = isSystem && message.tone !== 'accent'
+                ? `#${message.text}`
+                : message.text;
 
               return (
                 <div
                   key={message.id}
-                  className={`mm3-irc-line ${lineMode} flex gap-3 px-1 py-2 text-[0.7rem]`}
+                  className={`mm3-irc-line ${lineMode} flex gap-3 px-1 py-2 text-[0.7rem] ${isSystem ? 'system-prompt' : ''}`}
                   data-tone={message.tone}
                 >
                   <span className="shrink-0 pt-0.5 text-[0.76rem] uppercase tracking-[0.14em] text-slate-500">
                     {formatRelayTime(message.ts)}
                   </span>
-                  <div className="min-w-0 flex-1">
+                  <div className={`min-w-0 flex-1 ${isSystem ? 'mm3-irc-system-body' : ''}`}>
                     <div className="mm3-irc-wallet-line">
                       <div className="mm3-irc-wallet-meta">
                         {message.kind === 'chat' && (
@@ -1525,7 +1558,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
                         >{author}</div>
                       </div>
                     </div>
-                    <div className="mm3-irc-msg-text mt-0.5 break-words text-[0.95rem] leading-relaxed">{message.text}</div>
+                    <div className="mm3-irc-msg-text mt-0.5 break-words text-[0.95rem] leading-relaxed">{displayText}</div>
                   </div>
                 </div>
               );
