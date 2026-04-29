@@ -74,6 +74,10 @@ function stableHash(value) {
   return (h >>> 0).toString(36);
 }
 
+function sortMessagesByTime(messages) {
+  return [...messages].sort((a, b) => (Number(a.ts) || 0) - (Number(b.ts) || 0) || String(a.id || '').localeCompare(String(b.id || '')));
+}
+
 function formatRelayTime(ts) {
   try {
     const d = new Date(ts);
@@ -320,7 +324,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
     if (!message?.id) return;
     setMessages((current) => {
       if (current.some((entry) => entry.id === message.id)) return current;
-      const next = [...current, message].slice(-MAX_SESSION_MESSAGES);
+      const next = sortMessagesByTime([...current, message]).slice(-MAX_SESSION_MESSAGES);
       persistMessages(next);
       return next;
     });
@@ -738,8 +742,9 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
       const nextPresence = new Set(stableWallets.map((entry) => entry.wallet));
       const previousPresence = previousPresenceRef.current;
       const presenceHash = stableHash([...nextPresence].sort().join('|'));
+      const presenceTs = Date.now();
       if (presenceBootedRef.current) {
-        nextPresence.forEach((wallet) => {
+        [...nextPresence].sort().forEach((wallet, index) => {
           if (!previousPresence.has(wallet) && wallet !== actorId && !wallet.startsWith('anon:')) {
             appendAndBroadcastMessage(
               makeMessage({
@@ -747,6 +752,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
                 kind: 'system',
                 wallet: 'system',
                 text: `${wallet} ${t('irc.joined')}`,
+                ts: presenceTs + index,
                 tone: 'join',
               }),
               { silent: false }
@@ -754,7 +760,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
           }
         });
 
-        previousPresence.forEach((wallet) => {
+        [...previousPresence].sort().forEach((wallet, index) => {
           if (!nextPresence.has(wallet) && wallet !== actorId && !wallet.startsWith('anon:')) {
             appendAndBroadcastMessage(
               makeMessage({
@@ -762,6 +768,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
                 kind: 'system',
                 wallet: 'system',
                 text: `${wallet} ${t('irc.left')}`,
+                ts: presenceTs + nextPresence.size + index,
                 tone: 'leave',
               }),
               { silent: false }
@@ -827,7 +834,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
         kind: 'system',
         wallet: 'system',
         text,
-        ts: Date.now(),
+        ts: Date.now() + 100,
         tone: 'ghost',
       }), { silent: false });
     };
@@ -880,10 +887,12 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
       if (signature === lastMarketStatusRef.current) return;
       lastMarketStatusRef.current = signature;
       const signatureHash = stableHash(signature);
+      const statusTs = Date.now();
       newMarketMessages.forEach((message, index) => {
         const payload = {
           ...message,
           id: `market-status:${signatureHash}:${index}`,
+          ts: statusTs + index,
         };
         appendMessage(payload, { silent: false });
         relayRef.current?.send({ type: 'broadcast', event: 'message', payload }).catch(() => {});
