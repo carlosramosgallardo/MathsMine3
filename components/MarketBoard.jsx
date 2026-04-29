@@ -952,9 +952,6 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
             <div className="mm3-market-detail-card shrink-0 rounded border border-amber-400/14 bg-amber-950/8 px-2 py-1 lg:px-2.5 lg:py-2">
               <div className="text-[0.78rem] uppercase tracking-[0.16em] text-amber-300/65 lg:text-[0.80rem] lg:tracking-[0.18em]">{t('podcast.price')}</div>
               <div className="mt-0.5 text-[1.05rem] font-black leading-none text-amber-300 lg:mt-1 lg:text-lg">{displayPrice}</div>
-              {(selectedBlock?.hidden_cmd_min_level > 0) && (
-                <div className="mt-0.5 text-[0.55rem] uppercase tracking-[0.14em] text-amber-400/55">lv.{selectedBlock.hidden_cmd_min_level}+</div>
-              )}
             </div>
             <div className="mm3-market-detail-card min-w-0 flex-1 rounded border border-cyan-500/12 bg-black/45 px-2 py-1 lg:px-2.5 lg:py-2">
               <div className="text-[0.78rem] uppercase tracking-[0.16em] text-cyan-300/65 lg:text-[0.80rem] lg:tracking-[0.18em]">{t('podcast.owner')}</div>
@@ -1009,7 +1006,12 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
           {selectedMarketCommand && (
             <div className="mm3-market-detail-card col-span-1 rounded border border-cyan-500/14 bg-black/45 px-2 py-1 lg:col-span-2 lg:px-2.5 lg:py-2">
               <div className="mb-1 flex items-center justify-between gap-2">
-                <div className="text-[0.78rem] uppercase tracking-[0.16em] text-cyan-300/65 lg:text-[0.80rem] lg:tracking-[0.18em]">{t('podcast.ircCommand')}</div>
+                <div className="flex items-center gap-1.5">
+                  <div className="text-[0.78rem] uppercase tracking-[0.16em] text-cyan-300/65 lg:text-[0.80rem] lg:tracking-[0.18em]">{t('podcast.ircCommand')}</div>
+                  {(selectedBlock?.hidden_cmd_min_level > 0) && (
+                    <span className="rounded border border-cyan-500/20 bg-cyan-950/30 px-1 py-0.5 text-[0.5rem] uppercase tracking-[0.12em] text-cyan-400/60">lv.{selectedBlock.hidden_cmd_min_level}+</span>
+                  )}
+                </div>
                 {activeBlockCommand && (
                   <div className="flex items-center gap-1 rounded border border-amber-400/30 bg-amber-950/20 px-1.5 py-0.5">
                     <span className="text-[0.5rem] uppercase tracking-[0.1em] text-amber-400/70">x =</span>
