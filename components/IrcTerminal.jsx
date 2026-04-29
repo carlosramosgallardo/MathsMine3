@@ -95,6 +95,13 @@ function shortenWallet(value) {
   return `${wallet.slice(0, 10)}…${wallet.slice(-6)}`;
 }
 
+function shortenMarketWallet(value) {
+  const wallet = String(value || '');
+  if (!wallet) return '';
+  if (wallet.length <= 14) return wallet;
+  return `${wallet.slice(0, 6)}...${wallet.slice(-4)}`;
+}
+
 function formatIrcWalletLabel(wallet) {
   const normalized = String(wallet || '').toLowerCase();
   return normalized === IRC_ADMIN_WALLET ? IRC_ADMIN_LABEL : shortenWallet(normalized);
@@ -189,6 +196,74 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
       return next;
     });
   }, [persistMessages]);
+
+  const buildMarketStatusLines = useCallback(({ ownersData = [], commandsData = [], blocksData = [], penaltiesData = [] }) => {
+    const blocks = blocksData || [];
+    const blockByKey = new Map(blocks.map((entry) => [entry.block_key, entry]));
+    blockByKeyRef.current = blockByKey;
+
+    const commandEntries = blocks.map(marketCommandFromBlock).filter(Boolean);
+    const commandEntryByKey = new Map(commandEntries.map((entry) => [entry.key, entry]));
+    const ownerWalletsByKey = new Map();
+    for (const entry of ownersData || []) {
+      const key = entry.market_nftji_key;
+      const wallet = String(entry.wallet || '').toLowerCase();
+      if (!key || !wallet) continue;
+      if (!ownerWalletsByKey.has(key)) ownerWalletsByKey.set(key, []);
+      ownerWalletsByKey.get(key).push(wallet);
+    }
+
+    const penaltiesByCommandId = new Map();
+    const penaltiesByKey = new Map();
+    for (const penalty of penaltiesData || []) {
+      const wallet = String(penalty.wallet || '').toLowerCase();
+      if (!wallet) continue;
+      if (penalty.command_id) {
+        if (!penaltiesByCommandId.has(penalty.command_id)) penaltiesByCommandId.set(penalty.command_id, []);
+        penaltiesByCommandId.get(penalty.command_id).push(wallet);
+      }
+      if (penalty.nftji_key) {
+        if (!penaltiesByKey.has(penalty.nftji_key)) penaltiesByKey.set(penalty.nftji_key, []);
+        penaltiesByKey.get(penalty.nftji_key).push(wallet);
+      }
+    }
+
+    const label = language === 'es'
+      ? { active: 'activo', ready: 'listo', affected: 'afectadas', wallets: 'wallets', reset: 'reset' }
+      : { active: 'active', ready: 'ready', affected: 'affected', wallets: 'wallets', reset: 'reset' };
+
+    const activeLines = [];
+    const activeKeys = new Set();
+    for (const command of commandsData || []) {
+      const key = command.nftji_key;
+      if (!key) continue;
+      activeKeys.add(key);
+      const block = blockByKey.get(key);
+      const fallback = commandEntryByKey.get(key);
+      const emoji = block?.emoji || fallback?.emoji || '?';
+      const hex = block ? getBlockHex(block.grid_row, block.grid_col) : key;
+      const affectedWallets = penaltiesByCommandId.get(command.id) || penaltiesByKey.get(key) || [];
+      const affected = affectedWallets.map(shortenMarketWallet).join(' · ') || '0';
+      activeLines.push(
+        `Market: ${label.active} // ${emoji} ${hex} // ${t('irc.by')} ${shortenMarketWallet(command.wallet)} // ${label.affected}: ${affected} // ${label.reset} ${formatClockTime(command.reset_at)}`
+      );
+    }
+
+    if (activeLines.length > 0) return activeLines;
+
+    const readyLines = [];
+    for (const entry of commandEntries) {
+      if (activeKeys.has(entry.key)) continue;
+      const ownerWallets = ownerWalletsByKey.get(entry.key) || [];
+      if (ownerWallets.length === 0) continue;
+      const block = blockByKey.get(entry.key);
+      const hex = block ? getBlockHex(block.grid_row, block.grid_col) : entry.key;
+      const readyWallets = ownerWallets.map(shortenMarketWallet).join(' · ');
+      readyLines.push(`Market: ${label.ready} // ${entry.emoji} ${hex} // ${label.wallets}: ${readyWallets}`);
+    }
+
+    return readyLines.length > 0 ? readyLines : [`Market: ${t('irc.marketNoPenalties')}`];
+  }, [language, t]);
 
   // Derive stable anon ID from external IP (client-only, no DB, cached in sessionStorage)
   useEffect(() => {
@@ -286,7 +361,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
       try {
         const nowIso = new Date().toISOString();
         // Separate queries: if macro or owners fail, we still want the chat history
-        const [ircRes, macroRes, ownersRes, commandsRes, blocksRes] = await Promise.all([
+        const [ircRes, macroRes, ownersRes, commandsRes, blocksRes, penaltiesRes] = await Promise.all([
           supabase
             .from('mm3_irc_messages')
             .select('wallet, text, ts, kind, tone')
@@ -303,11 +378,16 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
             .not('market_nftji_key', 'is', null),
           supabase
             .from('mm3_market_commands')
-            .select('nftji_key, formula_x, reset_at, wallet')
+            .select('id, nftji_key, formula_x, reset_at, wallet')
             .gt('reset_at', nowIso),
           supabase
             .from('mm3_market_blocks')
             .select('block_key, emoji, grid_row, grid_col, title_en, title_es, price_eur, market_command, is_active'),
+          supabase
+            .from('mm3_command_penalties')
+            .select('command_id, nftji_key, wallet')
+            .is('redeemed_at', null)
+            .gt('reset_at', nowIso),
         ]);
 
         const dbMessages = ircRes.data || [];
@@ -317,62 +397,10 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
         const { data: ownersData } = ownersRes;
         const { data: commandsData } = commandsRes;
         const { data: blocksData } = blocksRes;
+        const { data: penaltiesData } = penaltiesRes;
 
         welcomeText = tickerFromRow(data, language, welcomeText);
-
-        const ownerCountByKey = new Map();
-        for (const entry of ownersData || []) {
-          const key = entry.market_nftji_key;
-          if (!key) continue;
-          ownerCountByKey.set(key, (ownerCountByKey.get(key) || 0) + 1);
-        }
-        const blocks = blocksData || [];
-        const blockByKey = new Map(blocks.map((entry) => [entry.block_key, entry]));
-        blockByKeyRef.current = blockByKey;
-        const marketCommandEntries = blocks.map(marketCommandFromBlock).filter(Boolean);
-        const commandByKey = new Map();
-        for (const entry of commandsData || []) {
-          if (entry.nftji_key && entry.reset_at) commandByKey.set(entry.nftji_key, entry);
-        }
-
-        const shortWallet = (w) => w ? `${String(w).slice(0, 6)}...${String(w).slice(-4)}` : '';
-        const ownedEntries = marketCommandEntries.filter((entry) => (ownerCountByKey.get(entry.key) || 0) > 0);
-        const ownedKeys = new Set(ownedEntries.map((e) => e.key));
-
-        for (const entry of ownedEntries) {
-          const command = commandByKey.get(entry.key);
-          const owners = ownerCountByKey.get(entry.key) || 0;
-          if (command) {
-            const block = blockByKey.get(entry.key);
-            const hex = block ? getBlockHex(block.grid_row, block.grid_col) : entry.key;
-            const reset = formatClockTime(command.reset_at);
-            const by = shortWallet(command.wallet);
-            marketMessages.push(`Market: ${entry.emoji} ${hex} // ${t('irc.commandActive')} // cmd=${entry.command} // nonce=${command.formula_x ?? 0} // reset=${reset}${by ? ` // ${t('irc.by')} ${by}` : ''}`);
-          } else {
-            const ownerWallets = (ownersData || [])
-              .filter((o) => o.market_nftji_key === entry.key)
-              .map((o) => o.wallet)
-              .filter(Boolean);
-            const readyList = ownerWallets.map(shortWallet).join(' · ');
-            marketMessages.push(`Market: ${entry.emoji} // ${t('podcast.launchReady')}${readyList ? ` // ${t('irc.ready')}: ${readyList}` : ''}`);
-            marketMessages.push(t('podcast.launchReadyTeaser'));
-          }
-        }
-
-        for (const [key, command] of commandByKey.entries()) {
-          if (ownedKeys.has(key)) continue;
-          const fallback = marketCommandEntries.find((e) => e.key === key);
-          const block = blockByKey.get(key);
-          const emoji = block?.emoji || fallback?.emoji || '?';
-          const hex = block ? getBlockHex(block.grid_row, block.grid_col) : key;
-          const reset = formatClockTime(command.reset_at);
-          const by = shortWallet(command.wallet);
-          marketMessages.push(`Market: ${emoji} ${hex} // ${t('irc.commandActive')} // cmd=${fallback?.command || '?'} // nonce=${command.formula_x ?? 0} // reset=${reset}${by ? ` // ${t('irc.by')} ${by}` : ''}`);
-        }
-
-        if (marketMessages.length === 0) {
-          marketMessages.push(`Market: ${t('irc.marketNoPenalties')}`);
-        }
+        marketMessages.push(...buildMarketStatusLines({ ownersData, commandsData, blocksData, penaltiesData }));
 
         const stored = safeParseSession(sessionStorage.getItem(storageKey));
         const withoutWelcome = stored.filter((entry) =>
@@ -452,7 +480,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
     return () => {
       cancelled = true;
     };
-  }, [language, actorId, persistMessages, storageKey, t]);
+  }, [language, actorId, persistMessages, storageKey, t, buildMarketStatusLines]);
 
   useEffect(() => {
     const relay = supabase
@@ -671,73 +699,25 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
     const marketMessages = [];
     try {
       const nowIso = new Date().toISOString();
-      const [{ data: ownersData }, { data: commandsData }, { data: blocksData }] = await Promise.all([
+      const [{ data: ownersData }, { data: commandsData }, { data: blocksData }, { data: penaltiesData }] = await Promise.all([
         supabase
           .from('player_progress')
           .select('wallet, market_nftji_key')
           .not('market_nftji_key', 'is', null),
-        supabase
-          .from('mm3_market_commands')
-          .select('nftji_key, formula_x, reset_at, wallet')
-          .gt('reset_at', nowIso),
+          supabase
+            .from('mm3_market_commands')
+            .select('id, nftji_key, formula_x, reset_at, wallet')
+            .gt('reset_at', nowIso),
         supabase
           .from('mm3_market_blocks')
           .select('block_key, emoji, grid_row, grid_col, title_en, title_es, price_eur, market_command, is_active'),
+        supabase
+          .from('mm3_command_penalties')
+          .select('command_id, nftji_key, wallet')
+          .is('redeemed_at', null)
+          .gt('reset_at', nowIso),
       ]);
-
-      const ownerCountByKey = new Map();
-      for (const entry of ownersData || []) {
-        const key = entry.market_nftji_key;
-        if (!key) continue;
-        ownerCountByKey.set(key, (ownerCountByKey.get(key) || 0) + 1);
-      }
-      const blocks = blocksData || [];
-      const blockByKey = new Map(blocks.map((entry) => [entry.block_key, entry]));
-      blockByKeyRef.current = blockByKey;
-      const marketCommandEntries = blocks.map(marketCommandFromBlock).filter(Boolean);
-      const commandByKey = new Map();
-      for (const entry of commandsData || []) {
-        if (entry.nftji_key && entry.reset_at) commandByKey.set(entry.nftji_key, entry);
-      }
-
-      const shortWallet = (w) => w ? `${String(w).slice(0, 6)}...${String(w).slice(-4)}` : '';
-      const ownedEntries = marketCommandEntries.filter((entry) => (ownerCountByKey.get(entry.key) || 0) > 0);
-      const ownedKeys = new Set(ownedEntries.map((e) => e.key));
-
-      for (const entry of ownedEntries) {
-        const command = commandByKey.get(entry.key);
-        const owners = ownerCountByKey.get(entry.key) || 0;
-        if (command) {
-          const block = blockByKey.get(entry.key);
-          const hex = block ? getBlockHex(block.grid_row, block.grid_col) : entry.key;
-          const reset = formatClockTime(command.reset_at);
-          const by = shortWallet(command.wallet);
-          marketMessages.push(`Market: ${entry.emoji} ${hex} // active // cmd=${entry.command} // nonce=${command.formula_x ?? 0} // reset=${reset}${by ? ` // by ${by}` : ''}`);
-        } else {
-          const ownerWallets = (ownersData || [])
-            .filter((o) => o.market_nftji_key === entry.key)
-            .map((o) => o.wallet)
-            .filter(Boolean);
-          const readyList = ownerWallets.map(shortWallet).join(' · ');
-          marketMessages.push(`Market: ${entry.emoji} // ${t('podcast.launchReady')}${readyList ? ` // ready: ${readyList}` : ''}`);
-          marketMessages.push(t('podcast.launchReadyTeaser'));
-        }
-      }
-
-      for (const [key, command] of commandByKey.entries()) {
-        if (ownedKeys.has(key)) continue;
-        const fallback = marketCommandEntries.find((e) => e.key === key);
-        const block = blockByKey.get(key);
-        const emoji = block?.emoji || fallback?.emoji || '?';
-        const hex = block ? getBlockHex(block.grid_row, block.grid_col) : key;
-        const reset = formatClockTime(command.reset_at);
-        const by = shortWallet(command.wallet);
-        marketMessages.push(`Market: ${emoji} ${hex} // active // cmd=${fallback?.command || '?'} // nonce=${command.formula_x ?? 0} // reset=${reset}${by ? ` // by ${by}` : ''}`);
-      }
-
-      if (marketMessages.length === 0) {
-        marketMessages.push(`Market: ${t('irc.marketNoPenalties')}`);
-      }
+      marketMessages.push(...buildMarketStatusLines({ ownersData, commandsData, blocksData, penaltiesData }));
     } catch {}
 
     return marketMessages.map((text, i) => makeMessage({
@@ -748,7 +728,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
       ts: Date.now(),
       tone: 'market',
     }));
-  }, [t]);
+  }, [buildMarketStatusLines]);
 
   // Update market status messages with current state (keeps all user messages intact)
   const refreshMarketStatus = useCallback(async () => {
@@ -786,6 +766,16 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
         command: block?.market_command || fallback?.command || '?',
       };
     };
+    const resolveBlockByEmoji = (emoji) => {
+      const block = [...blockByKeyRef.current.values()].find((entry) => String(entry.emoji || '') === String(emoji || ''));
+      return {
+        emoji: block?.emoji || emoji || '?',
+        hex: block ? getBlockHex(block.grid_row, block.grid_col) : '',
+      };
+    };
+    const traceLabel = language === 'es'
+      ? { exec: 'exec', affected: 'afectadas', buy: 'compra', resell: 'reventa', codeOk: 'código ok', reset: 'penalización reset' }
+      : { exec: 'exec', affected: 'affected', buy: 'buy', resell: 'resell', codeOk: 'code ok', reset: 'penalty reset' };
 
     let pendingTimeouts = [];
     const scheduleTimeout = (fn, delay) => {
@@ -797,55 +787,44 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
     const channel = supabase
       .channel('mm3-irc-market-commands-watch')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'mm3_market_commands' }, ({ new: rec }) => {
-        const { emoji, hex, command } = resolveBlock(rec.nftji_key);
+        const { emoji, hex } = resolveBlock(rec.nftji_key);
         const reset = formatClockTime(rec.reset_at);
-        appendMessage(makeMessage({
-          id: `market-event:on:${rec.id}`,
-          kind: 'system',
-          wallet: 'system',
-          text: `Market: ${emoji} ${hex} // ${t('irc.commandActive')} // cmd=${command} // nonce=${rec.formula_x} // reset=${reset} // ${t('irc.by')} ${rec.wallet ? `${String(rec.wallet).slice(0, 6)}...${String(rec.wallet).slice(-4)}` : '?'}`,
-          ts: Date.now(),
-          tone: 'market',
-        }), { silent: false });
-        // After detail trace, refresh grouped market status for all users
-        scheduleTimeout(() => refreshMarketStatus(), 500);
         scheduleTimeout(async () => {
           try {
             const { data: penaltyRows } = await supabase
               .from('mm3_command_penalties')
               .select('wallet')
               .eq('command_id', rec.id);
-            const count = (penaltyRows || []).length;
-            if (count > 0) {
-              appendMessage(makeMessage({
-                id: `market-penalties:on:${rec.id}`,
-                kind: 'system',
-                wallet: 'system',
-                text: `Market: ${emoji} // ${count} ${t('podcast.walletsPenalized')} // ${t('irc.activeUntil')} ${reset}Z`,
-                ts: Date.now(),
-                tone: 'market',
-              }), { silent: false });
-            }
+            const affected = (penaltyRows || []).map((row) => shortenMarketWallet(row.wallet)).join(' · ') || '0';
+            appendMessage(makeMessage({
+              id: `market-event:on:${rec.id}`,
+              kind: 'system',
+              wallet: 'system',
+              text: `Market: ${traceLabel.exec} // ${emoji} ${hex} // ${t('irc.by')} ${shortenMarketWallet(rec.wallet)} // ${traceLabel.affected}: ${affected} // reset ${reset}`,
+              ts: Date.now(),
+              tone: 'market',
+            }), { silent: false });
           } catch {}
+          refreshMarketStatus();
         }, 3000);
       })
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'mm3_market_commands' }, async ({ new: rec }) => {
         if (new Date(rec.reset_at) > new Date()) return;
         const { emoji, hex } = resolveBlock(rec.nftji_key);
-        let releasedInfo = '';
+        let releasedInfo = '0';
         try {
           const { data: penaltyRows } = await supabase
             .from('mm3_command_penalties')
             .select('wallet')
             .eq('command_id', rec.id);
           const count = (penaltyRows || []).length;
-          if (count > 0) releasedInfo = ` // ${count} ${t('irc.walletsReleased')}`;
+          releasedInfo = String(count);
         } catch {}
         const expiredPayload = {
           id: `market-event:off:${rec.id}`,
           kind: 'system',
           wallet: 'system',
-          text: `Market: ${emoji} ${hex} // ${t('irc.commandExpired')} // ${t('irc.penaltiesCleared')}${releasedInfo}`,
+          text: `Market: ${traceLabel.reset} // ${emoji} ${hex} // ${releasedInfo} ${t('irc.walletsReleased')}`,
           ts: Date.now(),
           tone: 'market',
         };
@@ -854,13 +833,40 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
         // After detail trace, refresh grouped market status for all users
         scheduleTimeout(() => refreshMarketStatus(), 500);
       })
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'mm3_market_events' }, ({ new: rec }) => {
+        if (!['market_buy', 'market_resell'].includes(rec?.event_type)) return;
+        const { emoji, hex } = resolveBlockByEmoji(rec.emoji);
+        const action = rec.event_type === 'market_buy' ? traceLabel.buy : traceLabel.resell;
+        appendMessage(makeMessage({
+          id: `market-event:${rec.event_type}:${rec.id || rec.created_at || Date.now()}`,
+          kind: 'system',
+          wallet: 'system',
+          text: `Market: ${action} // ${emoji}${hex ? ` ${hex}` : ''} // ${shortenMarketWallet(rec.wallet)}`,
+          ts: Date.now(),
+          tone: 'market',
+        }), { silent: false });
+        scheduleTimeout(() => refreshMarketStatus(), 500);
+      })
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'mm3_command_penalties' }, ({ new: rec }) => {
+        if (!rec?.redeemed_at || !rec?.attempted_at) return;
+        const { emoji, hex } = resolveBlock(rec.nftji_key);
+        appendMessage(makeMessage({
+          id: `market-code-ok:${rec.id}:${rec.redeemed_at}`,
+          kind: 'system',
+          wallet: 'system',
+          text: `Market: ${traceLabel.codeOk} // ${emoji} ${hex} // ${shortenMarketWallet(rec.wallet)} // ${traceLabel.reset}`,
+          ts: Date.now(),
+          tone: 'market',
+        }), { silent: false });
+        scheduleTimeout(() => refreshMarketStatus(), 500);
+      })
       .subscribe();
 
     return () => {
       pendingTimeouts.forEach(clearTimeout);
       supabase.removeChannel(channel);
     };
-  }, [appendMessage, refreshMarketStatus, supabase]);
+  }, [appendMessage, refreshMarketStatus, supabase, language, t]);
 
   useEffect(() => {
     if (typeof window === 'undefined' || !normalizedWallet) return;
@@ -970,13 +976,15 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
           .maybeSingle(),
         supabase
           .from('mm3_market_blocks')
-          .select('block_key, emoji, title_en, title_es, price_eur, market_command')
+          .select('block_key, emoji, grid_row, grid_col, title_en, title_es, price_eur, market_command')
           .eq('block_key', commandEntry.key)
           .maybeSingle(),
       ]);
 
       if (launcher?.market_nftji_key !== commandEntry.key) {
-        await broadcastSystemMessage(`${t('irc.commandRejected')} // ${normalizedWallet} ${t('irc.doesNotOwn')} ${commandEntry.emoji}`, 'leave');
+        const hex = blockRow ? getBlockHex(blockRow.grid_row, blockRow.grid_col) : commandEntry.key;
+        const emoji = blockRow?.emoji || commandEntry.emoji;
+        await broadcastSystemMessage(`${t('irc.commandRejected')} // ${normalizedWallet} ${t('irc.doesNotOwn')} ${hex}${emoji}`, 'leave');
         return true;
       }
 
@@ -1139,11 +1147,17 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
               window.dispatchEvent(new CustomEvent('mm3-db-updated', { detail: { wallet: normalizedWallet } }));
             }
           } else {
-            const errorMsg = {
-              level_too_low: `// access denied :: level insufficient for /${cmdName}`,
-              command_not_active: `// access denied :: public Market command not active for this block today`,
-              already_executed_today: `// access denied :: command quota exhausted for today`,
-            }[data.error] || `// access denied :: /${cmdName} rejected`;
+            const errorMsg = language === 'es'
+              ? ({
+                  level_too_low: `// acceso denegado :: nivel insuficiente para /${cmdName}`,
+                  command_not_active: '// acceso denegado :: comando Market público no activo hoy para este bloque',
+                  already_executed_today: '// acceso denegado :: cuota diaria del comando agotada',
+                }[data.error] || `// acceso denegado :: /${cmdName} rechazado`)
+              : ({
+                  level_too_low: `// access denied :: level insufficient for /${cmdName}`,
+                  command_not_active: '// access denied :: public Market command not active for this block today',
+                  already_executed_today: '// access denied :: command quota exhausted for today',
+                }[data.error] || `// access denied :: /${cmdName} rejected`);
             appendMessage(makeMessage({
               id: `sys:err:${Date.now()}`,
               kind: 'system', wallet: 'system', ts: Date.now(), tone: 'leave',
