@@ -12,7 +12,7 @@ import {
   WALLET_DECORATIONS,
 } from '@/lib/wallet-decorations';
 import { useSound } from '@/lib/sound-context';
-import { getMarketCommandForKey, marketCommandFromBlock } from '@/lib/market-commands';
+import { commandKey, getMarketCommandForKey, marketCommandFromBlock } from '@/lib/market-commands';
 
 const GENESIS_BLOCK_KEY = 'mm3-023';
 const GRID_ROWS = 28;
@@ -1070,7 +1070,7 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
                   </div>
                   {canLaunchIrc ? (
                     <Link
-                      href={`/irc?command=${encodeURIComponent(selectedMarketCommand.command)}`}
+                      href={`/irc?command=${encodeURIComponent(commandKey(selectedMarketCommand.command))}`}
                       className="flex items-center justify-center rounded border border-cyan-500/28 bg-black/30 px-2 py-1 text-[0.76rem] font-black uppercase tracking-[0.14em] text-cyan-400/90 transition hover:border-cyan-400/55 hover:text-cyan-200"
                     >
                       {t('podcast.launchIrcCommand')}
