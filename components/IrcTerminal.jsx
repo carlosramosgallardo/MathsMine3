@@ -75,9 +75,7 @@ function stableHash(value) {
 }
 
 function sortMessagesByTime(messages) {
-  const priority = (message) => message?.replaceGroup === 'welcome' || message?.tone === 'accent' ? 0 : 1;
   return [...messages].sort((a, b) =>
-    priority(a) - priority(b) ||
     (Number(a.ts) || 0) - (Number(b.ts) || 0) ||
     String(a.id || '').localeCompare(String(b.id || ''))
   );
@@ -617,7 +615,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
               id: `welcome:${actorId}`,
               kind: 'system',
               wallet: 'system',
-              text: formatWelcomeText(welcomeText),
+              text: `${formatWelcomeText(welcomeText)} >> ${actorId}`,
               ts: welcomeTsRef.current,
               tone: 'accent',
               replaceGroup: 'welcome',
