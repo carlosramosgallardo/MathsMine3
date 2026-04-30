@@ -139,7 +139,8 @@ function formatIrcWalletLabel(wallet) {
 
 function formatChatAuthor(wallet, normalizedWallet, youLabel) {
   const normalized = String(wallet || '').toLowerCase();
-  const baseLabel = normalized === IRC_ADMIN_WALLET ? IRC_ADMIN_LABEL : normalized;
+  const suffix = normalized.length >= 5 ? normalized.slice(-5) : normalized;
+  const baseLabel = normalized === IRC_ADMIN_WALLET ? IRC_ADMIN_LABEL : `${suffix}@MM3·:~$`;
   return normalized === normalizedWallet ? `${baseLabel} (${youLabel})` : baseLabel;
 }
 
@@ -315,6 +316,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
   const refreshMarketStatusRef = useRef(null);
   const welcomeTsRef = useRef(Date.now());
   const relayStatusBootedRef = useRef(false);
+  const presenceDeltaRef = useRef({ joined: [], left: [] });
 
   // Auto-focus input when wallet is connected and terminal is ready
   useEffect(() => {
@@ -779,40 +781,17 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
 
       const nextPresence = new Set(stableWallets.map((entry) => entry.wallet));
       const previousPresence = previousPresenceRef.current;
-      const presenceHash = stableHash([...nextPresence].sort().join('|'));
-      const presenceTs = Date.now();
-      if (presenceBootedRef.current) {
-        [...nextPresence].sort().forEach((wallet, index) => {
-          if (!previousPresence.has(wallet) && wallet !== actorId && !wallet.startsWith('anon:')) {
-            appendAndBroadcastMessage(
-              makeMessage({
-                id: `join:${wallet}:${presenceHash}`,
-                kind: 'system',
-                wallet: 'system',
-                text: `${wallet} ${t('irc.joined')}`,
-                ts: presenceTs + index,
-                tone: 'join',
-              }),
-              { silent: false }
-            );
-          }
-        });
 
-        [...previousPresence].sort().forEach((wallet, index) => {
-          if (!nextPresence.has(wallet) && wallet !== actorId && !wallet.startsWith('anon:')) {
-            appendAndBroadcastMessage(
-              makeMessage({
-                id: `leave:${wallet}:${presenceHash}`,
-                kind: 'system',
-                wallet: 'system',
-                text: `${wallet} ${t('irc.left')}`,
-                ts: presenceTs + nextPresence.size + index,
-                tone: 'leave',
-              }),
-              { silent: false }
-            );
-          }
-        });
+      if (presenceBootedRef.current) {
+        const joined = [...nextPresence].sort().filter(
+          (w) => !previousPresence.has(w) && w !== actorId && !w.startsWith('anon:')
+        );
+        const left = [...previousPresence].sort().filter(
+          (w) => !nextPresence.has(w) && w !== actorId && !w.startsWith('anon:')
+        );
+        presenceDeltaRef.current = { joined, left };
+      } else {
+        presenceDeltaRef.current = { joined: [], left: [] };
       }
 
       previousPresenceRef.current = nextPresence;
@@ -822,7 +801,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
       setConnectedWallets([]);
       setPresenceReady(true);
     }
-  }, [appendAndBroadcastMessage, actorId, t]);
+  }, [actorId]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -860,11 +839,25 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
       const walletParts = connectedWallets.map((u) => u.wallet);
       const n = walletParts.length;
       const walletLabel = t('irc.wallets');
-      const text = n === 0
+      const listPart = n === 0
         ? t('irc.mainframeQuiet')
         : t('irc.mainframeNodes').replace('{count}', n).replace('{walletLabel}', walletLabel) + walletParts.join(' · ');
+
+      const { joined, left } = presenceDeltaRef.current;
+      presenceDeltaRef.current = { joined: [], left: [] };
+
+      let text;
+      if (joined.length > 0 || left.length > 0) {
+        const parts = [];
+        if (joined.length > 0) parts.push(`${joined.join(' · ')} ${t('irc.joined')}`);
+        if (left.length > 0) parts.push(`${left.join(' · ')} ${t('irc.left')}`);
+        text = parts.join(' · ') + ' · ' + listPart;
+      } else {
+        text = listPart;
+      }
+
       const signature = walletParts.join('|');
-      if (signature === lastRelayStatusRef.current) return;
+      if (signature === lastRelayStatusRef.current && joined.length === 0 && left.length === 0) return;
       lastRelayStatusRef.current = signature;
 
       const isFirstRelay = !relayStatusBootedRef.current;
