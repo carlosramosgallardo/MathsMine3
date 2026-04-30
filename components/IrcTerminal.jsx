@@ -314,6 +314,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
   const pendingEmptyPresenceRef = useRef(false);
   const refreshMarketStatusRef = useRef(null);
   const welcomeTsRef = useRef(Date.now());
+  const relayStatusBootedRef = useRef(false);
 
   // Auto-focus input when wallet is connected and terminal is ready
   useEffect(() => {
@@ -503,6 +504,8 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
   useEffect(() => {
     if (typeof window === 'undefined' || !storageKey) return;
     let cancelled = false;
+    relayStatusBootedRef.current = false;
+    lastRelayStatusRef.current = '';
 
     const loadWelcome = async () => {
       let welcomeText = t('irc.welcomeFallback');
@@ -623,6 +626,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
               kind: 'system',
               wallet: 'system',
               text,
+              ts: welcomeTsRef.current + 2 + i,
               tone: 'market',
               replaceGroup: 'market-status',
               replaceBatchId: `market-boot:${actorId}`,
@@ -863,12 +867,15 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
       if (signature === lastRelayStatusRef.current) return;
       lastRelayStatusRef.current = signature;
 
+      const isFirstRelay = !relayStatusBootedRef.current;
+      relayStatusBootedRef.current = true;
+
       appendAndBroadcastMessage(makeMessage({
         id: `relay-status:${stableHash(signature)}`,
         kind: 'system',
         wallet: 'system',
         text,
-        ts: Date.now() + 100,
+        ts: isFirstRelay ? welcomeTsRef.current + 1 : Date.now() + 100,
         tone: 'ghost',
         replaceGroup: 'relay-status',
         replaceBatchId: `relay:${stableHash(signature)}`,
