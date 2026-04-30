@@ -1579,7 +1579,13 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
           color: #f87171;
           text-shadow: 0 0 8px rgba(248, 113, 113, 0.22);
         }
-        .mm3-irc-author { word-break: break-all; flex-shrink: 0; }
+        .mm3-irc-line { word-break: break-word; overflow-wrap: break-word; }
+        .mm3-irc-author { word-break: break-all; }
+        @media (max-width: 639px) {
+          .mm3-irc-time   { letter-spacing: 0.04em; font-size: 0.66rem; }
+          .mm3-irc-author { letter-spacing: 0.02em !important; font-size: 0.66rem !important; }
+          .mm3-irc-msg-text { font-size: 0.86rem !important; }
+        }
         .mm3-irc-wallet-emojis {
           display: inline-flex;
           flex-wrap: wrap;
@@ -1740,26 +1746,31 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
               return (
                 <div
                   key={message.id}
-                  className={`mm3-irc-line ${lineMode} flex flex-wrap items-baseline gap-x-2 gap-y-0 px-1 py-1.5 text-[0.7rem]`}
+                  className={`mm3-irc-line ${lineMode} px-1 py-1.5`}
                   data-tone={message.tone}
                   data-error={isErrorOrPenalty ? 'true' : undefined}
                 >
-                  <span className="shrink-0 text-[0.76rem] uppercase tracking-[0.14em] text-slate-500">
+                  <span className="mm3-irc-time text-[0.76rem] uppercase tracking-[0.14em] text-slate-500">
                     {formatRelayTime(message.ts)}
                   </span>
+                  {' '}
                   {message.kind === 'chat' && (
-                    <span className="inline-flex shrink-0 items-center gap-[0.14rem]">
-                      <FlagImg cc={walletFlags[message.wallet]} style={{ height: '0.65rem' }} />
-                      {ownedMarketEmojis.map((emoji, index) => (
-                        <span key={`${message.wallet}-${emoji}-${index}`} className="mm3-irc-wallet-emoji">{emoji}</span>
-                      ))}
-                    </span>
+                    <>
+                      <span className="inline-flex items-center gap-[0.12rem]">
+                        <FlagImg cc={walletFlags[message.wallet]} style={{ height: '0.65rem' }} />
+                        {ownedMarketEmojis.map((emoji, index) => (
+                          <span key={`${message.wallet}-${emoji}-${index}`} className="mm3-irc-wallet-emoji">{emoji}</span>
+                        ))}
+                      </span>
+                      {' '}
+                    </>
                   )}
                   <span
                     className="mm3-irc-author text-[0.80rem] uppercase tracking-[0.13em]"
                     style={message.kind === 'chat' ? { color: colorFromAddress(message.wallet) } : undefined}
                   >{author}</span>
-                  <span className="mm3-irc-msg-text min-w-0 flex-1 break-words text-[0.95rem] leading-relaxed">
+                  {' '}
+                  <span className="mm3-irc-msg-text text-[0.95rem] leading-relaxed">
                     {isSystem ? renderSystemTextWithWallets(displayText, message.tone, handleWalletClick, hexToKeyMap, handleBlockHexClick) : displayText}
                   </span>
                 </div>
