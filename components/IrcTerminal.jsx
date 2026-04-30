@@ -845,7 +845,8 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
       presenceDeltaRef.current = { joined: [], left: [] };
 
       let text;
-      if (joined.length > 0 || left.length > 0) {
+      const hasPresenceDelta = joined.length > 0 || left.length > 0;
+      if (hasPresenceDelta) {
         const parts = [];
         if (joined.length > 0) parts.push(`${joined.join(' · ')} ${t('irc.joined')}`);
         if (left.length > 0) parts.push(`${left.join(' · ')} ${t('irc.left')}`);
@@ -860,21 +861,28 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
 
       const isFirstRelay = !relayStatusBootedRef.current;
       relayStatusBootedRef.current = true;
+      const statusHash = stableHash(`${signature}:${text}`);
 
-      appendAndBroadcastMessage(makeMessage({
-        id: `relay-status:${stableHash(signature)}`,
+      const relayStatusMessage = makeMessage({
+        id: `relay-status:${statusHash}`,
         kind: 'system',
         wallet: 'system',
         text,
         ts: isFirstRelay ? welcomeTsRef.current + 1 : Date.now() + 100,
         tone: 'ghost',
         replaceGroup: 'relay-status',
-        replaceBatchId: `relay:${stableHash(signature)}`,
-      }), { silent: false });
+        replaceBatchId: `relay:${statusHash}`,
+      });
+
+      if (hasPresenceDelta) {
+        appendAndBroadcastMessage(relayStatusMessage, { silent: false });
+      } else {
+        appendMessage(relayStatusMessage, { silent: false });
+      }
     };
 
     build();
-  }, [appendAndBroadcastMessage, connectedWallets, language, presenceReady, t]);
+  }, [appendAndBroadcastMessage, appendMessage, connectedWallets, language, presenceReady, t]);
 
   // Generate all current market status messages
   const generateMarketStatusMessages = useCallback(async (actorIdForId) => {
