@@ -519,9 +519,9 @@ The portal includes an **IRC-style social relay** that makes MM3 feel like a sha
 - **Persistent chat** — user messages are stored permanently in `mm3_irc_messages`; history is loaded on connect so no messages are lost on refresh
 - **Country flags + NFTJI badges** — each chat line shows the author's country flag and any owned Market NFTJI inline before the wallet address
 - **Wallet identity** — every message is authored by the wallet address (shortened); anon guests can read but their ID never appears in the chat log
-- **System relay notices** — players see who connects and disconnects in real time (wallet users only)
+- **System relay notices** — players see a single live mainframe status line that combines wallet join/leave events with the current connected wallet list (wallet users only)
 - **Market identity layer** — owned Market NTFJIs appear next to the wallets that hold them
-- **Mainframe welcome** — the relay boots with the welcome line stored in `mm3_macro_state`
+- **Mainframe welcome** — the relay boots with a private welcome line loaded from `mm3_macro_state`, personalized with the local `actorId`, and rendered in chronological order with chat history
 - **Market NFTJI status** — the welcome block shows all 20 NTFJIs, their ownership status, whether the command fired today, next reset time, and for idle NTFJIs the list of eligible launcher wallets with a mystery teaser
 - **Command launch** — owning a Market NFTJI lets you fire its daily command from the block detail page; a pre-filled IRC message is waiting for Enter
 
@@ -533,14 +533,12 @@ Every system-generated line in the relay is rendered as a real old-school Linux 
 
 | Prompt | Tone | Color | Subsystem |
 |---|---|---|---|
-| `welcome@MM3·:~$` | `accent` | cyan `#22d3ee` | Boot banner (from `mm3_macro_state`) |
-| `mainframe@MM3·:~$` | `ghost` | white `#f8fafc` | Node presence status |
-| `mainframe@MM3·:~$` | `join` | green `#4ade80` | Wallet entered relay |
-| `mainframe@MM3·:~$` | `leave` | dark blue `#1d4ed8` | Wallet left relay |
+| `welcome@MM3·:~$` | `accent` | cyan `#22d3ee` | Private personalized boot banner (session-only, not broadcast) |
+| `mainframe@MM3·:~$` | `ghost` | white `#f8fafc` | Node presence status — join/leave events + connected wallet list, unified in one overwriting message |
 | `market@MM3·:~$` | `market` | amber `#facc15` | Market command events and status |
 | `cmd@MM3·:~$` | `command` | green `#4ade80` | Command responses and errors |
 
-Chat messages (wallet users) have no system prompt — the author is the wallet address, rendered in its unique deterministic color.
+Chat messages (wallet users) use the wallet address as the prompt in `f5528@MM3·:~$` format, colored with its unique deterministic color. Text follows as `#message`.
 
 ### IRC Message Catalog
 
@@ -548,39 +546,26 @@ All system messages follow the pattern `PROMPT #text`. Separator within messages
 
 #### `welcome@MM3·:~$` — boot banner
 
-Loaded once on connect from `mm3_macro_state.ticker_message`. Falls back to hardcoded string if DB is unreachable. The `//`-delimited DB value is split into sections joined with `>>`.
+Loaded once on connect from `mm3_macro_state.ticker_message`. Falls back to hardcoded string if DB is unreachable. The `//`-delimited DB value is split into sections joined with `>>`. The line is session-private, personalized by appending the local `actorId`, and sorted chronologically with the loaded chat history instead of being pinned above it.
 
 ```
-welcome@MM3·:~$ #MATHSMINE3 >> SOLVE FAST >> MINE MM3 >> FEED THE RETRO MAINFRAME
+welcome@MM3·:~$ #MATHSMINE3 >> SOLVE FAST >> MINE MM3 >> FEED THE RETRO MAINFRAME >> 0xf5528...
 ```
 
 #### `mainframe@MM3·:~$` — node presence (ghost tone)
 
-Refreshed every 60 seconds. Lists all wallets active in the last 90 seconds.
+Refreshed from wallet presence changes and periodic polling. It is one overwriting ghost message, not separate join/leave history. When wallets enter or leave, the event text is prefixed to the current wallet list in the same line.
 
 ```
 mainframe@MM3·:~$ #no active wallets
 mainframe@MM3·:~$ #sin wallets activas
 
 mainframe@MM3·:~$ #[3 wallets] 0x1234...5678 · 0x9abc...def0 · 0xffff...0000
-```
 
-#### `mainframe@MM3·:~$` — wallet joined relay (join tone, green)
-
-Fires when a wallet address appears in `mm3_wallet_presence` for the first time in a polling cycle. The wallet address is rendered in its unique deterministic color.
-
-```
-mainframe@MM3·:~$ #0x6bccc2e5c5c2231bdf3a4f706161445f940f18f0 entered relay
-mainframe@MM3·:~$ #0x6bccc2e5c5c2231bdf3a4f706161445f940f18f0 unido al relay
-```
-
-#### `mainframe@MM3·:~$` — wallet left relay (leave tone, dark blue)
-
-Fires when a wallet address disappears from `mm3_wallet_presence`.
-
-```
-mainframe@MM3·:~$ #0x6bccc2e5c5c2231bdf3a4f706161445f940f18f0 left relay
-mainframe@MM3·:~$ #0x6bccc2e5c5c2231bdf3a4f706161445f940f18f0 salió del relay
+mainframe@MM3·:~$ #0x6bccc2e5c5c2231bdf3a4f706161445f940f18f0 entered relay · [3 wallets] 0x1234...5678 · 0x6bccc...18f0 · 0x9abc...def0
+mainframe@MM3·:~$ #0x6bccc2e5c5c2231bdf3a4f706161445f940f18f0 unido al relay · [3 wallets] 0x1234...5678 · 0x6bccc...18f0 · 0x9abc...def0
+mainframe@MM3·:~$ #0x6bccc2e5c5c2231bdf3a4f706161445f940f18f0 left relay · [2 wallets] 0x1234...5678 · 0x9abc...def0
+mainframe@MM3·:~$ #0x6bccc2e5c5c2231bdf3a4f706161445f940f18f0 salió del relay · [2 wallets] 0x1234...5678 · 0x9abc...def0
 ```
 
 #### `market@MM3·:~$` — Market status (refreshed every 15 s)
