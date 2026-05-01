@@ -249,10 +249,11 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
   const [dbReady, setDbReady] = useState(true);
   const [canLoadInlineShort, setCanLoadInlineShort] = useState(false);
   const [selectedEventCounts, setSelectedEventCounts] = useState({ emoji: '', buys: 0, resells: 0 });
-  const [eventCountsVersion, setEventCountsVersion] = useState(0);
   const [numericCode, setNumericCode] = useState('');
   const [activePenalty, setActivePenalty] = useState(null);
   const [activeBlockCommand, setActiveBlockCommand] = useState(null);
+  const pendingSnapshotKeyRef = useRef('');
+  const lastSnapshotKeyRef = useRef('');
   const [walletState, setWalletState] = useState({
     funds: { EUR: 0, USD: 0, CNY: 0 },
     level: 0,
@@ -382,12 +383,18 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
     }
   };
 
-  const loadMarketSnapshot = async ({ showLoading = true, blockKey = selectedKeyRef.current } = {}) => {
+  const loadMarketSnapshot = async ({ showLoading = true, blockKey = selectedKeyRef.current, force = false } = {}) => {
+    const snapshotKey = `${String(account || '').toLowerCase()}:${String(blockKey || '')}`;
+    if (!force && !showLoading && (pendingSnapshotKeyRef.current === snapshotKey || lastSnapshotKeyRef.current === snapshotKey)) {
+      return;
+    }
+    pendingSnapshotKeyRef.current = snapshotKey;
     if (showLoading) setLoading(true);
     try {
       const params = new URLSearchParams();
       if (account) params.set('wallet', account.toLowerCase());
       if (blockKey && !blockKey.startsWith('ph-')) params.set('blockKey', blockKey);
+      if (blockKey && !blockKey.startsWith('ph-')) params.set('details', '1');
 
       const response = await fetch(
         `/api/market-snapshot?${params.toString()}`,
@@ -418,6 +425,7 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
         setSelectedEventCounts(snapshot.selectedEventCounts || { emoji: '', buys: 0, resells: 0 });
       }
       setDbReady(true);
+      lastSnapshotKeyRef.current = snapshotKey;
     } catch (err) {
       console.error('market snapshot load:', err);
       await Promise.all([
@@ -426,8 +434,8 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
         loadActivePenalty(blockKey),
         loadActiveBlockCommand(blockKey),
       ]);
-      setEventCountsVersion((version) => version + 1);
     } finally {
+      if (pendingSnapshotKeyRef.current === snapshotKey) pendingSnapshotKeyRef.current = '';
       if (showLoading) setLoading(false);
     }
   };
@@ -532,13 +540,12 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
   useEffect(() => {
     setNumericCode('');
     if (loading) return;
-    loadActivePenalty(selectedKey);
-    loadActiveBlockCommand(selectedKey);
+    loadMarketSnapshot({ showLoading: false, blockKey: selectedKey });
   }, [account, selectedKey, loading]);
 
   useEffect(() => {
     const refresh = async () => {
-      await loadMarketSnapshot({ showLoading: false, blockKey: selectedKeyRef.current });
+      await loadMarketSnapshot({ showLoading: false, blockKey: selectedKeyRef.current, force: true });
     };
 
     window.addEventListener('mm3-db-updated', refresh);
@@ -654,36 +661,12 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
     !processing;
 
   useEffect(() => {
-    const emoji = String(selectedBlock?.emoji || '');
-    if (!emoji || selectedBlock?.isPlaceholder) {
+    if (!selectedBlock?.emoji || selectedBlock?.isPlaceholder) {
       setSelectedEventCounts({ emoji: '', buys: 0, resells: 0 });
-      return;
+      setActivePenalty(null);
+      setActiveBlockCommand(null);
     }
-
-    let cancelled = false;
-    const loadSelectedEventCounts = async () => {
-      try {
-        const [{ count: buys }, { count: resells }] = await Promise.all([
-          supabase
-            .from('mm3_market_events')
-            .select('id', { count: 'exact', head: true })
-            .eq('emoji', emoji)
-            .eq('event_type', 'market_buy'),
-          supabase
-            .from('mm3_market_events')
-            .select('id', { count: 'exact', head: true })
-            .eq('emoji', emoji)
-            .eq('event_type', 'market_resell'),
-        ]);
-        if (!cancelled) setSelectedEventCounts({ emoji, buys: buys || 0, resells: resells || 0 });
-      } catch {
-        if (!cancelled) setSelectedEventCounts({ emoji, buys: 0, resells: 0 });
-      }
-    };
-
-    loadSelectedEventCounts();
-    return () => { cancelled = true; };
-  }, [selectedBlock?.emoji, selectedBlock?.isPlaceholder, eventCountsVersion]);
+  }, [selectedBlock?.emoji, selectedBlock?.isPlaceholder]);
 
   useEffect(() => {
     const onKeyDown = (event) => {

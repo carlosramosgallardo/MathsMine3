@@ -58,6 +58,7 @@ export async function GET(req) {
   const { searchParams } = new URL(req.url);
   const wallet = normalizeWallet(searchParams.get('wallet'));
   const includeDetails = searchParams.get('details') === '1';
+  const blockKey = String(searchParams.get('blockKey') || '').trim();
 
   let publicSnapshot;
   try {
@@ -66,7 +67,19 @@ export async function GET(req) {
     return Response.json({ ok: false, error: err?.message || 'market snapshot failed' }, { status: 500 });
   }
 
-  const [progressResponse, statsResponse] = await Promise.all([
+  const selectedBlock = blockKey
+    ? (publicSnapshot.blocks || []).find((block) => block?.block_key === blockKey)
+    : null;
+  const selectedEmoji = String(selectedBlock?.emoji || '');
+
+  const [
+    progressResponse,
+    statsResponse,
+    activeCommandResponse,
+    activePenaltyResponse,
+    buyCountResponse,
+    resellCountResponse,
+  ] = await Promise.all([
     wallet
       ? supabase
           .from('player_progress')
@@ -81,15 +94,55 @@ export async function GET(req) {
           .eq('wallet', wallet)
           .maybeSingle()
       : Promise.resolve({ data: null, error: null }),
+    includeDetails && blockKey
+      ? supabase
+          .from('mm3_market_commands')
+          .select('id, wallet, formula_x, reset_at')
+          .eq('nftji_key', blockKey)
+          .gt('reset_at', new Date().toISOString())
+          .order('executed_at', { ascending: false })
+          .limit(1)
+          .maybeSingle()
+      : Promise.resolve({ data: null, error: null }),
+    includeDetails && wallet && blockKey
+      ? supabase
+          .from('mm3_command_penalties')
+          .select('id, nftji_key, penalty_code, penalty_value, penalty_eur, penalty_effect, attempted_at, redeemed_at, reset_at, created_at')
+          .eq('wallet', wallet)
+          .eq('nftji_key', blockKey)
+          .is('redeemed_at', null)
+          .gt('reset_at', new Date().toISOString())
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle()
+      : Promise.resolve({ data: null, error: null }),
+    includeDetails && selectedEmoji
+      ? supabase
+          .from('mm3_market_events')
+          .select('id', { count: 'exact', head: true })
+          .eq('emoji', selectedEmoji)
+          .eq('event_type', 'market_buy')
+      : Promise.resolve({ count: 0, error: null }),
+    includeDetails && selectedEmoji
+      ? supabase
+          .from('mm3_market_events')
+          .select('id', { count: 'exact', head: true })
+          .eq('emoji', selectedEmoji)
+          .eq('event_type', 'market_resell')
+      : Promise.resolve({ count: 0, error: null }),
   ]);
 
   const progress = progressResponse.data;
   const stats = statsResponse.data;
   const detailsPayload = includeDetails
     ? {
-        activeBlockCommand: null,
-        activePenalty: null,
-        selectedEventCounts: { emoji: '', buys: 0, resells: 0 },
+        activeBlockCommand: activeCommandResponse.data || null,
+        activePenalty: activePenaltyResponse.data || null,
+        selectedEventCounts: {
+          emoji: selectedEmoji,
+          buys: buyCountResponse.count || 0,
+          resells: resellCountResponse.count || 0,
+        },
       }
     : {};
 
