@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import supabase from '@/lib/supabaseClient';
 import { useI18n } from '@/lib/i18n-context';
@@ -116,15 +116,6 @@ function shortenWallet(value) {
   return `${wallet.slice(0, 6)}...${wallet.slice(-4)}`;
 }
 
-function getTokenBlockTone(row, col) {
-  return {
-    backgroundImage: 'url(/mm3-token.png)',
-    backgroundSize: `${GRID_COLS * 100}% ${GRID_ROWS * 100}%`,
-    backgroundPosition: `${(col / (GRID_COLS - 1)) * 100}% ${(row / (GRID_ROWS - 1)) * 100}%`,
-    border: 'rgba(34,211,238,0.08)',
-  };
-}
-
 function getBlockHex(row, col) {
   return '#' + (row * GRID_COLS + col).toString(16).toUpperCase().padStart(3, '0');
 }
@@ -170,6 +161,56 @@ function stepSelection(blocks, currentKey, direction) {
   return best.block_key;
 }
 
+const MarketCell = memo(function MarketCell({
+  block,
+  isSelected,
+  isOwned,
+  language,
+  onSelect,
+}) {
+  const row = block.grid_row ?? 0;
+  const col = block.grid_col ?? 0;
+  const cellHex = isSelected ? getBlockHex(row, col) : '';
+  const title = `${block.emoji} ${language === 'es' ? block.title_es : block.title_en}`;
+
+  return (
+    <button
+      type="button"
+      onClick={() => onSelect(block.block_key)}
+      className="relative flex items-center justify-center overflow-hidden border border-cyan-400/10 bg-transparent transition-[background,border-color,box-shadow] duration-100 focus:outline-none"
+      style={{
+        background: isOwned
+          ? 'rgba(2,8,4,0.97)'
+          : isSelected
+            ? 'linear-gradient(180deg,rgba(250,204,21,0.42),rgba(113,63,18,0.95))'
+            : undefined,
+        borderColor: isSelected
+          ? 'rgba(250,204,21,0.95)'
+          : isOwned
+            ? 'rgba(34,197,94,0.18)'
+            : 'rgba(34,211,238,0.08)',
+        boxShadow: isSelected
+          ? '0 0 10px rgba(250,204,21,0.35)'
+          : isOwned
+            ? 'inset 0 0 4px rgba(34,197,94,0.1)'
+            : 'none',
+      }}
+      title={title}
+    >
+      {isSelected && (
+        <>
+          <span className="pointer-events-none text-[min(2.4vw,0.92rem)] leading-none drop-shadow-[0_0_8px_rgba(250,204,21,0.35)] sm:text-[min(1.6vw,1rem)]">
+            {block.emoji}
+          </span>
+          <span className="pointer-events-none absolute bottom-[1px] right-[1px] text-[0.44rem] font-black tracking-[0.08em] text-cyan-100/90 sm:text-[0.3rem]">
+            {cellHex}
+          </span>
+        </>
+      )}
+    </button>
+  );
+});
+
 const CATALOG_BLOCKS = [
   { block_key: 'mm3-023', grid_row: 0,  grid_col: 22, emoji: WALLET_DECORATIONS.marketGenesis, title_en: 'Genesis Uplink',   title_es: 'Uplink Génesis',     price_eur: 1,   short_url: 'https://www.youtube.com/shorts/NRaN40UXpOM', is_active: true },
   { block_key: 'mm3-05c', grid_row: 3,  grid_col: 8,  emoji: '🌐', title_en: 'Signal Nexus',    title_es: 'Nexo Señal',         price_eur: 3,   short_url: '', is_active: true },
@@ -202,9 +243,13 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
   const { playMarketClaim } = useSound();
   const [blocks, setBlocks] = useState(CATALOG_BLOCKS);
   const [selectedKey, setSelectedKey] = useState(GENESIS_BLOCK_KEY);
+  const selectedKeyRef = useRef(GENESIS_BLOCK_KEY);
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
   const [dbReady, setDbReady] = useState(true);
+  const [canLoadInlineShort, setCanLoadInlineShort] = useState(false);
+  const [selectedEventCounts, setSelectedEventCounts] = useState({ emoji: '', buys: 0, resells: 0 });
+  const [eventCountsVersion, setEventCountsVersion] = useState(0);
   const [numericCode, setNumericCode] = useState('');
   const [activePenalty, setActivePenalty] = useState(null);
   const [activeBlockCommand, setActiveBlockCommand] = useState(null);
@@ -218,10 +263,29 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
     marketNFTJIPrice: 0,
   });
 
-  const loadBlocks = async () => {
-    setLoading(true);
+  useEffect(() => {
+    selectedKeyRef.current = selectedKey;
+  }, [selectedKey]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const query = window.matchMedia('(min-width: 1024px)');
+    const syncDesktopShort = () => setCanLoadInlineShort(query.matches);
+
+    syncDesktopShort();
+    if (query.addEventListener) {
+      query.addEventListener('change', syncDesktopShort);
+      return () => query.removeEventListener('change', syncDesktopShort);
+    }
+    query.addListener(syncDesktopShort);
+    return () => query.removeListener(syncDesktopShort);
+  }, []);
+
+  const loadBlocks = async ({ showLoading = true } = {}) => {
+    if (showLoading) setLoading(true);
     try {
-      const [{ data: blockData, error }, { data: ownersData }, { data: eventData }] = await Promise.all([
+      const [{ data: blockData, error }, { data: ownersData }] = await Promise.all([
         supabase
           .from('mm3_market_blocks')
           .select('block_key, grid_row, grid_col, emoji, title_en, title_es, price_eur, short_url, is_active, first_purchased_at, market_command, hidden_cmd_min_level')
@@ -230,10 +294,6 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
           .from('player_progress')
           .select('wallet, market_nftji_key')
           .not('market_nftji_key', 'is', null),
-        supabase
-          .from('mm3_market_events')
-          .select('emoji, event_type')
-          .in('event_type', ['market_buy', 'market_resell']),
       ]);
 
       if (error) throw error;
@@ -247,14 +307,6 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
         currentOwnersByKey.get(key).push(wallet);
       }
 
-      const buyCountByEmoji = new Map();
-      const resellCountByEmoji = new Map();
-      for (const ev of eventData || []) {
-        const e = String(ev.emoji || '');
-        if (ev.event_type === 'market_buy') buyCountByEmoji.set(e, (buyCountByEmoji.get(e) || 0) + 1);
-        else if (ev.event_type === 'market_resell') resellCountByEmoji.set(e, (resellCountByEmoji.get(e) || 0) + 1);
-      }
-
       const dbBlocks = Array.isArray(blockData) ? blockData : [];
       const dbByKey = new Map(dbBlocks.map((b) => [b.block_key, b]));
 
@@ -262,8 +314,6 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
         ...b,
         price_eur: Number(b.price_eur) || 0,
         current_owners: currentOwnersByKey.get(b.block_key) || [],
-        buy_count: buyCountByEmoji.get(String(b.emoji || '')) || 0,
-        resell_count: resellCountByEmoji.get(String(b.emoji || '')) || 0,
       });
 
       const catalogMerged = CATALOG_BLOCKS.map((cat) =>
@@ -282,7 +332,7 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
       setBlocks(CATALOG_BLOCKS);
       setDbReady(false);
     } finally {
-      setLoading(false);
+      if (showLoading) setLoading(false);
     }
   };
 
@@ -440,7 +490,14 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
 
   useEffect(() => {
     const refresh = async () => {
-      await Promise.all([loadBlocks(), loadWalletState(), loadActivePenalty(selectedKey), loadActiveBlockCommand(selectedKey)]);
+      const currentKey = selectedKeyRef.current;
+      await Promise.all([
+        loadBlocks({ showLoading: false }),
+        loadWalletState(),
+        loadActivePenalty(currentKey),
+        loadActiveBlockCommand(currentKey),
+      ]);
+      setEventCountsVersion((version) => version + 1);
     };
 
     window.addEventListener('mm3-db-updated', refresh);
@@ -457,7 +514,7 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
       window.removeEventListener('focus', refresh);
       supabase.removeChannel(channel);
     };
-  }, [account, selectedKey]);
+  }, [account]);
 
   const mergedBlocks = useMemo(() => {
     const posMap = new Map();
@@ -556,6 +613,38 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
     !processing;
 
   useEffect(() => {
+    const emoji = String(selectedBlock?.emoji || '');
+    if (!emoji || selectedBlock?.isPlaceholder) {
+      setSelectedEventCounts({ emoji: '', buys: 0, resells: 0 });
+      return;
+    }
+
+    let cancelled = false;
+    const loadSelectedEventCounts = async () => {
+      try {
+        const [{ count: buys }, { count: resells }] = await Promise.all([
+          supabase
+            .from('mm3_market_events')
+            .select('id', { count: 'exact', head: true })
+            .eq('emoji', emoji)
+            .eq('event_type', 'market_buy'),
+          supabase
+            .from('mm3_market_events')
+            .select('id', { count: 'exact', head: true })
+            .eq('emoji', emoji)
+            .eq('event_type', 'market_resell'),
+        ]);
+        if (!cancelled) setSelectedEventCounts({ emoji, buys: buys || 0, resells: resells || 0 });
+      } catch {
+        if (!cancelled) setSelectedEventCounts({ emoji, buys: 0, resells: 0 });
+      }
+    };
+
+    loadSelectedEventCounts();
+    return () => { cancelled = true; };
+  }, [selectedBlock?.emoji, selectedBlock?.isPlaceholder, eventCountsVersion]);
+
+  useEffect(() => {
     const onKeyDown = (event) => {
       if (!['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(event.key)) return;
       const target = event.target;
@@ -569,11 +658,11 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [mergedBlocks]);
 
-  const handleBlockClick = (blockKey) => {
+  const handleBlockClick = useCallback((blockKey) => {
     setSelectedKey(blockKey);
     const block = blockMap.get(blockKey);
     if (!block?.short_url) notify(block?.isPlaceholder ? t('podcast.offline') : t('podcast.unavailable'), 'info');
-  };
+  }, [blockMap, t]);
 
   const handleBuy = async () => {
     if (!account) { notify(t('podcast.noWallet'), 'error'); return; }
@@ -951,58 +1040,27 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
                 <div
                   className="relative grid w-full"
                   style={{
+                    backgroundImage: 'url(/mm3-token.png)',
+                    backgroundSize: '100% 100%',
+                    backgroundPosition: 'center',
                     gridTemplate: `repeat(${GRID_ROWS}, 1fr) / repeat(${GRID_COLS}, 1fr)`,
                     aspectRatio: '1 / 1',
                     gap: '1px',
                   }}
                 >
                   {mergedBlocks.map((block) => {
-                    const row = block.grid_row ?? 0;
-                    const col = block.grid_col ?? 0;
                     const isSelected = block.block_key === selectedKey;
                     const isOwned = Array.isArray(block.current_owners) && block.current_owners.length > 0;
-                    const tone = getTokenBlockTone(row, col);
-                    const cellHex = getBlockHex(row, col);
 
                     return (
-                      <button
+                      <MarketCell
                         key={block.block_key}
-                        type="button"
-                        onClick={() => handleBlockClick(block.block_key)}
-                        className="relative flex items-center justify-center overflow-hidden transition duration-100 focus:outline-none"
-                        style={{
-                          background: isOwned
-                            ? 'rgba(2,8,4,0.97)'
-                            : isSelected
-                              ? 'linear-gradient(180deg,rgba(250,204,21,0.42),rgba(113,63,18,0.95))'
-                              : undefined,
-                          backgroundImage: !isOwned && !isSelected ? tone.backgroundImage : undefined,
-                          backgroundSize: !isOwned && !isSelected ? tone.backgroundSize : undefined,
-                          backgroundPosition: !isOwned && !isSelected ? tone.backgroundPosition : undefined,
-                          border: isSelected
-                            ? '1px solid rgba(250,204,21,0.95)'
-                            : isOwned
-                              ? '1px solid rgba(34,197,94,0.18)'
-                              : `1px solid ${tone.border}`,
-                          boxShadow: isSelected
-                            ? '0 0 10px rgba(250,204,21,0.35)'
-                            : isOwned
-                              ? 'inset 0 0 4px rgba(34,197,94,0.1)'
-                              : 'none',
-                        }}
-                        title={`${block.emoji} ${language === 'es' ? block.title_es : block.title_en}`}
-                      >
-                        {isSelected && (
-                          <>
-                            <span className="pointer-events-none text-[min(2.4vw,0.92rem)] leading-none drop-shadow-[0_0_8px_rgba(250,204,21,0.35)] sm:text-[min(1.6vw,1rem)]">
-                              {block.emoji}
-                            </span>
-                            <span className="pointer-events-none absolute bottom-[1px] right-[1px] text-[0.44rem] font-black tracking-[0.08em] text-cyan-100/90 sm:text-[0.3rem]">
-                              {cellHex}
-                            </span>
-                          </>
-                        )}
-                      </button>
+                        block={block}
+                        isSelected={isSelected}
+                        isOwned={isOwned}
+                        language={language}
+                        onSelect={handleBlockClick}
+                      />
                     );
                   })}
                 </div>
@@ -1091,12 +1149,15 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
                     </span>
                   )}
                 </Link>
-                <iframe
-                  src={normalizeShortUrl(selectedBlock.short_url)}
-                  className="hidden aspect-video w-full border-t border-cyan-500/10 lg:block"
-                  allowFullScreen
-                  title={selectedTitle}
-                />
+                {canLoadInlineShort && (
+                  <iframe
+                    src={normalizeShortUrl(selectedBlock.short_url)}
+                    className="aspect-video w-full border-t border-cyan-500/10"
+                    loading="lazy"
+                    allowFullScreen
+                    title={selectedTitle}
+                  />
+                )}
               </div>
             ) : (
               <Link
@@ -1203,12 +1264,12 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
             <div className="col-span-1 flex items-center gap-3 px-0.5 lg:col-span-2">
               <div className="flex items-center gap-1">
                 <span className="text-[0.55rem] uppercase tracking-[0.12em] text-slate-600">{t('podcast.statBuys')}</span>
-                <span className="text-[0.82rem] font-black text-cyan-400/60">{selectedBlock?.buy_count ?? 0}</span>
+                <span className="text-[0.82rem] font-black text-cyan-400/60">{selectedEventCounts.emoji === selectedBlock?.emoji ? selectedEventCounts.buys : 0}</span>
               </div>
               <span className="text-[0.78rem] text-slate-700">//</span>
               <div className="flex items-center gap-1">
                 <span className="text-[0.55rem] uppercase tracking-[0.12em] text-slate-600">{t('podcast.statResells')}</span>
-                <span className="text-[0.82rem] font-black text-fuchsia-400/60">{selectedBlock?.resell_count ?? 0}</span>
+                <span className="text-[0.82rem] font-black text-fuchsia-400/60">{selectedEventCounts.emoji === selectedBlock?.emoji ? selectedEventCounts.resells : 0}</span>
               </div>
             </div>
           )}
