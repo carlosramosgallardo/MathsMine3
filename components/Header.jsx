@@ -27,34 +27,6 @@ const AuthBar = dynamic(() => import('@/components/AuthBar'), {
   ),
 })
 
-function DeferredAuthBar({ mode }) {
-  const [ready, setReady] = useState(false)
-
-  useEffect(() => {
-    const load = () => setReady(true)
-    const timer = window.setTimeout(load, 15000)
-    return () => window.clearTimeout(timer)
-  }, [])
-
-  if (ready) return <AuthBar mode={mode} />
-
-  return (
-    <div
-      className="flex items-center gap-1.5"
-      onPointerEnter={() => setReady(true)}
-      onFocus={() => setReady(true)}
-      onTouchStart={() => setReady(true)}
-    >
-      {mode === 'wallet' ? null : (
-        <>
-          <div className="h-7 w-10 rounded border border-cyan-900/25 bg-cyan-950/5 sm:h-9" />
-          <div className="h-7 w-10 rounded border border-cyan-900/25 bg-cyan-950/5 sm:h-9" />
-        </>
-      )}
-    </div>
-  )
-}
-
 function SoundToggle() {
   const { enabled, toggleSound } = useSound()
   return (
@@ -169,7 +141,7 @@ export default function Header() {
             <CurrencySwitcher />
             <LanguageSwitcher />
             <SoundToggle />
-            <DeferredAuthBar mode="controls" />
+            <AuthBar mode="controls" />
           </div>
         </div>
       </div>
@@ -179,7 +151,7 @@ export default function Header() {
         <Link href="/manifesto" className="shrink-0 text-[0.82rem] leading-none transition hover:opacity-70 px-1" title="Manifesto">📜</Link>
         <Mm3Total />
         <Link href="/ai-team" className="shrink-0 text-[0.82rem] leading-none transition hover:opacity-70 px-1" title="AI Team">🤖</Link>
-        <DeferredAuthBar mode="wallet" />
+        <AuthBar mode="wallet" />
       </div>
 
       <nav className="mm3-header-nav relative z-[30] h-11 sm:h-[52px] overflow-x-auto no-scrollbar px-3 sm:px-0">
