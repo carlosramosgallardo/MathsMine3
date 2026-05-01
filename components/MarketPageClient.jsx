@@ -1,15 +1,9 @@
 'use client';
 
-import dynamic from 'next/dynamic';
-import PageLoading from '@/components/PageLoading';
+import MarketBoard from '@/components/MarketBoard';
 import SectionFrame from '@/components/SectionFrame';
 import { useActiveWallet } from '@/lib/use-active-wallet';
 import { useMm3Accent } from '@/lib/use-mm3-accent';
-
-const MarketBoard = dynamic(() => import('@/components/MarketBoard'), {
-  ssr: false,
-  loading: () => <PageLoading label="market" />,
-});
 
 export default function MarketPageClient() {
   const { account, isVirtualWallet } = useActiveWallet();
