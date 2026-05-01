@@ -27,6 +27,34 @@ const AuthBar = dynamic(() => import('@/components/AuthBar'), {
   ),
 })
 
+function DeferredAuthBar({ mode }) {
+  const [ready, setReady] = useState(false)
+
+  useEffect(() => {
+    const load = () => setReady(true)
+    const timer = window.setTimeout(load, 15000)
+    return () => window.clearTimeout(timer)
+  }, [])
+
+  if (ready) return <AuthBar mode={mode} />
+
+  return (
+    <div
+      className="flex items-center gap-1.5"
+      onPointerEnter={() => setReady(true)}
+      onFocus={() => setReady(true)}
+      onTouchStart={() => setReady(true)}
+    >
+      {mode === 'wallet' ? null : (
+        <>
+          <div className="h-7 w-10 rounded border border-cyan-900/25 bg-cyan-950/5 sm:h-9" />
+          <div className="h-7 w-10 rounded border border-cyan-900/25 bg-cyan-950/5 sm:h-9" />
+        </>
+      )}
+    </div>
+  )
+}
+
 function SoundToggle() {
   const { enabled, toggleSound } = useSound()
   return (
@@ -76,18 +104,23 @@ function Mm3Total() {
     window.addEventListener('focus', load)
     window.addEventListener('mm3-db-updated', load)
 
-    const channel = supabase
-      .channel('mm3-header-total-live')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'games' }, load)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'mm3_sell_transactions' }, load)
-      .subscribe()
+    let channel = null
+    const channelTimer = window.setTimeout(() => {
+      if (!mounted) return
+      channel = supabase
+        .channel('mm3-header-total-live')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'games' }, load)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'mm3_sell_transactions' }, load)
+        .subscribe()
+    }, 15000)
 
     return () => {
       mounted = false
       clearInterval(timer)
+      window.clearTimeout(channelTimer)
       window.removeEventListener('focus', load)
       window.removeEventListener('mm3-db-updated', load)
-      supabase.removeChannel(channel)
+      if (channel) supabase.removeChannel(channel)
     }
   }, [])
 
@@ -135,7 +168,7 @@ export default function Header() {
             <CurrencySwitcher />
             <LanguageSwitcher />
             <SoundToggle />
-            <AuthBar mode="controls" />
+            <DeferredAuthBar mode="controls" />
           </div>
         </div>
       </div>
@@ -145,7 +178,7 @@ export default function Header() {
         <Link href="/manifesto" className="shrink-0 text-[0.82rem] leading-none transition hover:opacity-70 px-1" title="Manifesto">📜</Link>
         <Mm3Total />
         <Link href="/ai-team" className="shrink-0 text-[0.82rem] leading-none transition hover:opacity-70 px-1" title="AI Team">🤖</Link>
-        <AuthBar mode="wallet" />
+        <DeferredAuthBar mode="wallet" />
       </div>
 
       <nav className="mm3-header-nav relative z-[30] h-11 sm:h-[52px] overflow-x-auto no-scrollbar px-3 sm:px-0">

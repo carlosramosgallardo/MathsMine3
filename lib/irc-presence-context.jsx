@@ -22,29 +22,33 @@ export function IrcPresenceProvider({ children }) {
 
   /* ── Single mm3-irc-anon-presence subscription ── */
   useEffect(() => {
-    const ch = supabase.channel('mm3-irc-anon-presence');
-    channelRef.current = ch;
+    let ch = null;
+    const timer = setTimeout(() => {
+      ch = supabase.channel('mm3-irc-anon-presence');
+      channelRef.current = ch;
 
-    ch.on('presence', { event: 'sync' }, () => {
-      const state = ch.presenceState();
-      const seen  = new Set();
-      const users = [];
-      for (const entries of Object.values(state || {})) {
-        for (const u of entries) {
-          const id = String(u.anonId || '');
-          if (!id.startsWith('anon:') || seen.has(id)) continue;
-          seen.add(id);
-          const rawFlag = String(u.flag || '');
-          users.push({ anonId: id, flag: rawFlag.length === 2 ? rawFlag : '' });
+      ch.on('presence', { event: 'sync' }, () => {
+        const state = ch.presenceState();
+        const seen  = new Set();
+        const users = [];
+        for (const entries of Object.values(state || {})) {
+          for (const u of entries) {
+            const id = String(u.anonId || '');
+            if (!id.startsWith('anon:') || seen.has(id)) continue;
+            seen.add(id);
+            const rawFlag = String(u.flag || '');
+            users.push({ anonId: id, flag: rawFlag.length === 2 ? rawFlag : '' });
+          }
         }
-      }
-      setAnonIrcUsers(users);
-    }).subscribe((status) => {
-      setChannelStatus(status);
-    });
+        setAnonIrcUsers(users);
+      }).subscribe((status) => {
+        setChannelStatus(status);
+      });
+    }, 15000);
 
     return () => {
-      supabase.removeChannel(ch);
+      clearTimeout(timer);
+      if (ch) supabase.removeChannel(ch);
       channelRef.current = null;
       setChannelStatus('JOINING');
     };
@@ -73,11 +77,18 @@ export function IrcPresenceProvider({ children }) {
     };
     load();
     const t  = setInterval(load, 10_000);
-    const ch = supabase
-      .channel('mm3-irc-presence-ctx')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'mm3_wallet_presence' }, load)
-      .subscribe();
-    return () => { clearInterval(t); supabase.removeChannel(ch); };
+    let ch = null;
+    const channelTimer = setTimeout(() => {
+      ch = supabase
+        .channel('mm3-irc-presence-ctx')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'mm3_wallet_presence' }, load)
+        .subscribe();
+    }, 15000);
+    return () => {
+      clearInterval(t);
+      clearTimeout(channelTimer);
+      if (ch) supabase.removeChannel(ch);
+    };
   }, []);
 
   /* ── Total wallets count ── */

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useAccount, useDisconnect } from 'wagmi'
-import { useWeb3Modal } from '@web3modal/wagmi/react'
+import { createWeb3Modal, useWeb3Modal } from '@web3modal/wagmi/react'
 import { GoogleOAuthProvider, useGoogleLogin } from '@react-oauth/google'
 import { usePathname } from 'next/navigation'
 import { useGoogleAuth } from '@/lib/google-auth-context'
@@ -14,6 +14,38 @@ import { formatMoney, formatCompactNum } from '@/lib/sell-offer'
 import { clampRankLevel, getRankTier } from '@/lib/ranks'
 import { normalizeWalletDecorations } from '@/lib/wallet-decorations'
 import UtcClock from '@/components/UtcClock'
+import { wagmiConfig } from '@/lib/wagmi-core'
+
+const chains = [wagmiConfig.chains[0]]
+const projectId = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID
+let web3ModalReady = false
+
+function ensureWeb3Modal() {
+  if (web3ModalReady) return
+  createWeb3Modal({
+    wagmiConfig,
+    projectId,
+    chains,
+    enableAnalytics: false,
+    disableTelemetry: true,
+    enableOnramp: false,
+    themeMode: 'dark',
+    themeVariables: {
+      '--w3m-accent': '#22d3ee',
+      '--w3m-accent-fill': '#0b0f19',
+      '--w3m-background': '#0b0f1a',
+      '--w3m-surface': '#050810',
+      '--w3m-font-family': 'Consolas, monospace',
+      '--w3m-border-radius-master': '12px',
+      '--w3m-button-border-radius': '8px',
+      '--w3m-text': '#e2e8f0',
+      '--w3m-secondary-button-bg-color': '#1e293b',
+    },
+    allWallets: 'SHOW',
+  })
+  web3ModalReady = true
+}
+ensureWeb3Modal()
 
 /* ── Icons ── */
 function GoogleIcon({ size = 13, dim = false }) {
@@ -390,6 +422,7 @@ function AuthBarWithGoogle({ mode = 'full' }) {
     walletModalLockRef.current = true
     setWalletBusy(true)
     try {
+      ensureWeb3Modal()
       await open?.({ view: 'Connect' });
     } catch (error) {
       console.error('wallet modal open:', error);
@@ -434,6 +467,7 @@ function AuthBarWalletOnly({ mode = 'full' }) {
     walletModalLockRef.current = true
     setWalletBusy(true)
     try {
+      ensureWeb3Modal()
       await open?.({ view: 'Connect' });
     } catch (error) {
       console.error('wallet modal open:', error);

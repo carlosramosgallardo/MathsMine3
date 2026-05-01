@@ -8,7 +8,6 @@ import GlobalRouteLoading from '@/components/GlobalRouteLoading';
 import RouteShell from '@/components/RouteShell';
 import WalletBootstrap from '@/components/WalletBootstrap';
 import WalletCoreProvider from '@/components/WalletCoreProvider';
-import Web3ModalInit from '@/components/Web3ModalInit';
 import { I18nProvider } from '@/lib/i18n-context';
 import { CurrencyProvider } from '@/lib/currency-context';
 import { SoundProvider } from '@/lib/sound-context';
@@ -42,8 +41,8 @@ export default function RootLayout({ children }) {
         <link rel="dns-prefetch" href="https://relay.walletconnect.com" />
         <link rel="dns-prefetch" href="https://www.anthropic.com" />
         <Script id="adsbygoogle" strategy="lazyOnload" src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${ADS_CLIENT}`} crossOrigin="anonymous" async />
-        <Script id="gtm-init" strategy="afterInteractive">{`(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start': new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src='https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);})(window,document,'script','dataLayer','${GTM_ID}');`}</Script>
-        {GA_ID && <><Script id="ga4-src" src={`https://www.googletagmanager.com/gtag/js?id=${GA_ID}`} strategy="afterInteractive" /><Script id="ga4-init" strategy="afterInteractive">{`window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','${GA_ID}',{page_path:window.location.pathname});`}</Script></>}
+        <Script id="gtm-init" strategy="lazyOnload">{`(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start': new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src='https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);})(window,document,'script','dataLayer','${GTM_ID}');`}</Script>
+        {GA_ID && <><Script id="ga4-src" src={`https://www.googletagmanager.com/gtag/js?id=${GA_ID}`} strategy="lazyOnload" /><Script id="ga4-init" strategy="lazyOnload">{`window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','${GA_ID}',{page_path:window.location.pathname});`}</Script></>}
       </head>
       <body className="h-full bg-black text-white font-mono">
         <noscript dangerouslySetInnerHTML={{ __html: `<iframe src="https://www.googletagmanager.com/ns.html?id=${GTM_ID}" height="0" width="0" style="display:none;visibility:hidden"></iframe>` }} />
@@ -51,7 +50,6 @@ export default function RootLayout({ children }) {
           <CurrencyProvider>
             <SoundProvider>
               <WalletCoreProvider>
-                <Web3ModalInit />
                 <GoogleAuthProvider>
                   <DiceProvider>
                     <IrcPresenceProvider>
