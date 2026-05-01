@@ -130,6 +130,12 @@ DROP POLICY IF EXISTS "public_insert_mm3_hidden_cmd_executions" ON public.mm3_hi
 CREATE POLICY "public_read_mm3_hidden_cmd_executions" ON public.mm3_hidden_cmd_executions FOR SELECT TO anon USING (true);
 CREATE POLICY "public_insert_mm3_hidden_cmd_executions" ON public.mm3_hidden_cmd_executions FOR INSERT TO anon WITH CHECK (wallet <> '' AND block_key <> '');
 
+-- daily_task_claims: read + insert
+DROP POLICY IF EXISTS "public_read_daily_task_claims" ON public.daily_task_claims;
+DROP POLICY IF EXISTS "public_insert_daily_task_claims" ON public.daily_task_claims;
+CREATE POLICY "public_read_daily_task_claims" ON public.daily_task_claims FOR SELECT TO anon USING (true);
+CREATE POLICY "public_insert_daily_task_claims" ON public.daily_task_claims FOR INSERT TO anon WITH CHECK (wallet <> '' AND day <> '' AND task_key <> '');
+
 -- ==========================================================
 -- 3. GRANTS to anon role
 -- ==========================================================
@@ -166,6 +172,7 @@ GRANT SELECT, INSERT, UPDATE ON public.mm3_market_commands TO anon;
 GRANT SELECT, INSERT  ON public.mm3_command_penalties TO anon;
 GRANT UPDATE          ON public.mm3_command_penalties TO anon;
 GRANT SELECT, INSERT  ON public.mm3_hidden_cmd_executions TO anon;
+GRANT SELECT, INSERT  ON public.daily_task_claims TO anon;
 
 -- Views
 GRANT SELECT ON public.top_positive_miner     TO anon;

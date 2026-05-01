@@ -110,6 +110,19 @@ CREATE TABLE player_progress (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+CREATE TABLE daily_task_claims (
+  wallet TEXT NOT NULL,
+  day TEXT NOT NULL,
+  task_key TEXT NOT NULL,
+  reward_claimed BOOLEAN NOT NULL DEFAULT TRUE,
+  reward_eur NUMERIC NOT NULL DEFAULT 0,
+  reward_usd NUMERIC NOT NULL DEFAULT 0,
+  reward_cny NUMERIC NOT NULL DEFAULT 0,
+  claimed_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (wallet, day, task_key)
+);
+
 CREATE TABLE mm3_market_state (
   id SMALLINT PRIMARY KEY DEFAULT 1 CHECK (id = 1),
   commission_mm3 NUMERIC NOT NULL DEFAULT 0,

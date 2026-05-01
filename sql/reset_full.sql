@@ -54,6 +54,7 @@ DELETE FROM mm3_market_commands;
 -- 5. Penalizaciones activas y ya redimidas
 DELETE FROM mm3_command_penalties;
 DELETE FROM mm3_hidden_cmd_executions;
+DELETE FROM daily_task_claims;
 
 -- 6. Historial de EXECs
 -- Si quieres que los drills vuelvan exactamente a 100/100 y no a 100+EXECs,
