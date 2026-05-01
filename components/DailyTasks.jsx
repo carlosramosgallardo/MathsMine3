@@ -255,7 +255,6 @@ export default function DailyTasks() {
               </div>
             ) : null}
           </div>
-        )}
       </div>
     </SectionFrame>
   );
