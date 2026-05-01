@@ -1,5 +1,6 @@
 'use client';
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
+import { usePathname } from 'next/navigation';
 import supabase from './supabaseClient';
 
 const ACTIVE_WINDOW_MS = 90_000;
@@ -14,6 +15,7 @@ const IrcPresenceContext = createContext({
 });
 
 export function IrcPresenceProvider({ children }) {
+  const pathname = usePathname();
   const [activeWallets, setActiveWallets] = useState([]);
   const [totalWallets, setTotalWallets]   = useState(0);
   const [anonIrcUsers, setAnonIrcUsers]   = useState([]);
@@ -44,7 +46,7 @@ export function IrcPresenceProvider({ children }) {
       }).subscribe((status) => {
         setChannelStatus(status);
       });
-    }, 15000);
+    }, pathname === '/irc' ? 1000 : 60000);
 
     return () => {
       clearTimeout(timer);
@@ -52,7 +54,7 @@ export function IrcPresenceProvider({ children }) {
       channelRef.current = null;
       setChannelStatus('JOINING');
     };
-  }, []);
+  }, [pathname]);
 
   /* ── Wallet presence from DB ── */
   useEffect(() => {
@@ -83,13 +85,13 @@ export function IrcPresenceProvider({ children }) {
         .channel('mm3-irc-presence-ctx')
         .on('postgres_changes', { event: '*', schema: 'public', table: 'mm3_wallet_presence' }, load)
         .subscribe();
-    }, 15000);
+    }, pathname === '/irc' ? 1000 : 60000);
     return () => {
       clearInterval(t);
       clearTimeout(channelTimer);
       if (ch) supabase.removeChannel(ch);
     };
-  }, []);
+  }, [pathname]);
 
   /* ── Total wallets count ── */
   useEffect(() => {

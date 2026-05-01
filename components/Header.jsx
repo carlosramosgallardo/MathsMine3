@@ -83,6 +83,7 @@ function SoundToggle() {
 
 function Mm3Total() {
   const [value, setValue] = useState(null)
+  const pathname = usePathname()
 
   useEffect(() => {
     let mounted = true
@@ -112,7 +113,7 @@ function Mm3Total() {
         .on('postgres_changes', { event: '*', schema: 'public', table: 'games' }, load)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'mm3_sell_transactions' }, load)
         .subscribe()
-    }, 15000)
+    }, pathname === '/irc' ? 1000 : 60000)
 
     return () => {
       mounted = false
@@ -122,7 +123,7 @@ function Mm3Total() {
       window.removeEventListener('mm3-db-updated', load)
       if (channel) supabase.removeChannel(channel)
     }
-  }, [])
+  }, [pathname])
 
   if (value === null) return null
 

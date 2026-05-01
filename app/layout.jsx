@@ -1,9 +1,9 @@
 // app/layout.jsx
 import './globals.css';
-import Script from 'next/script';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import CookieBanner from '@/components/CookieBanner';
+import ThirdPartyScripts from '@/components/ThirdPartyScripts';
 import GlobalRouteLoading from '@/components/GlobalRouteLoading';
 import RouteShell from '@/components/RouteShell';
 import WalletBootstrap from '@/components/WalletBootstrap';
@@ -24,9 +24,7 @@ export const metadata = {
 };
 
 export default function RootLayout({ children }) {
-  const GTM_ID = 'GTM-5Z3RTKX9';
-  const ADS_CLIENT = 'ca-pub-1022737864838438';
-  const GA_ID = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID || 'G-SWPCXV7YF5';
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 
   return (
     <html lang="en" className="h-full">
@@ -35,17 +33,12 @@ export default function RootLayout({ children }) {
         <link rel="apple-touch-icon" href="/mm3-token.png" />
         <link rel="manifest" href="/manifest.json" />
         <meta name="theme-color" content="#000000" />
-        <link rel="preconnect" href="https://www.googletagmanager.com" />
-        <link rel="preconnect" href="https://pagead2.googlesyndication.com" />
+        {supabaseUrl ? <link rel="preconnect" href={supabaseUrl} crossOrigin="anonymous" /> : null}
         <link rel="dns-prefetch" href="https://verify.walletconnect.com" />
         <link rel="dns-prefetch" href="https://relay.walletconnect.com" />
         <link rel="dns-prefetch" href="https://www.anthropic.com" />
-        <Script id="adsbygoogle" strategy="lazyOnload" src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${ADS_CLIENT}`} crossOrigin="anonymous" async />
-        <Script id="gtm-init" strategy="lazyOnload">{`(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start': new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src='https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);})(window,document,'script','dataLayer','${GTM_ID}');`}</Script>
-        {GA_ID && <><Script id="ga4-src" src={`https://www.googletagmanager.com/gtag/js?id=${GA_ID}`} strategy="lazyOnload" /><Script id="ga4-init" strategy="lazyOnload">{`window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','${GA_ID}',{page_path:window.location.pathname});`}</Script></>}
       </head>
       <body className="h-full bg-black text-white font-mono">
-        <noscript dangerouslySetInnerHTML={{ __html: `<iframe src="https://www.googletagmanager.com/ns.html?id=${GTM_ID}" height="0" width="0" style="display:none;visibility:hidden"></iframe>` }} />
         <I18nProvider>
           <CurrencyProvider>
             <SoundProvider>
@@ -60,6 +53,7 @@ export default function RootLayout({ children }) {
                       <main className="mm3-shell-main pt-[148px] max-sm:portrait:pt-[200px] sm:pt-[170px] lg:pt-[192px] pb-[32px] h-screen overflow-y-auto">{children}</main>
                       <Footer />
                       <CookieBanner />
+                      <ThirdPartyScripts />
                     </RouteShell>
                     </IrcPresenceProvider>
                   </DiceProvider>

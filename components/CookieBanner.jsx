@@ -28,12 +28,14 @@ export default function CookieBanner() {
   const handleAccept = () => {
     localStorage.setItem('mm3_cookies_accepted', 'true');
     localStorage.setItem('mm3_cookies_accepted_at', new Date().toISOString());
+    window.dispatchEvent(new CustomEvent('mm3-cookie-consent-changed'));
     setShowBanner(false);
   };
 
   const handleDecline = () => {
     localStorage.setItem('mm3_cookies_accepted', 'false');
     localStorage.setItem('mm3_cookies_accepted_at', new Date().toISOString());
+    window.dispatchEvent(new CustomEvent('mm3-cookie-consent-changed'));
     setShowBanner(false);
   };
 
