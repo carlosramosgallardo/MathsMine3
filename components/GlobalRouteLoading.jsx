@@ -5,12 +5,14 @@ import { usePathname } from 'next/navigation';
 import PageLoading from '@/components/PageLoading';
 
 const MIN_VISIBLE_MS = 220;
+const MAX_VISIBLE_MS = 900;
 
 export default function GlobalRouteLoading() {
   const pathname = usePathname();
   const [state, setState] = useState({ visible: false, label: 'loading' });
   const startedAtRef = useRef(0);
   const hideTimerRef = useRef(null);
+  const maxTimerRef = useRef(null);
 
   useEffect(() => {
     const show = (event) => {
@@ -19,14 +21,23 @@ export default function GlobalRouteLoading() {
         clearTimeout(hideTimerRef.current);
         hideTimerRef.current = null;
       }
+      if (maxTimerRef.current) {
+        clearTimeout(maxTimerRef.current);
+        maxTimerRef.current = null;
+      }
       startedAtRef.current = Date.now();
       setState({ visible: true, label });
+      maxTimerRef.current = setTimeout(() => {
+        setState((current) => current.visible ? { ...current, visible: false } : current);
+        maxTimerRef.current = null;
+      }, MAX_VISIBLE_MS);
     };
 
     window.addEventListener('mm3-route-loading', show);
     return () => {
       window.removeEventListener('mm3-route-loading', show);
       if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
+      if (maxTimerRef.current) clearTimeout(maxTimerRef.current);
     };
   }, []);
 
@@ -38,6 +49,10 @@ export default function GlobalRouteLoading() {
     hideTimerRef.current = setTimeout(() => {
       setState((current) => ({ ...current, visible: false }));
       hideTimerRef.current = null;
+      if (maxTimerRef.current) {
+        clearTimeout(maxTimerRef.current);
+        maxTimerRef.current = null;
+      }
     }, remaining);
 
     return () => {
