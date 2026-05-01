@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useI18n } from '@/lib/i18n-context';
 import { useActiveWallet } from '@/lib/use-active-wallet';
+import { useSound } from '@/lib/sound-context';
 import SectionFrame from '@/components/SectionFrame';
 import supabase from '@/lib/supabaseClient';
 
@@ -59,6 +60,10 @@ export default function DailyTasks() {
   const [message, setMessage] = useState('');
   const [dayKey, setDayKey] = useState('');
   const [countdown, setCountdown] = useState('00:00:00');
+  const [notifiedComplete, setNotifiedComplete] = useState({});
+  const firstLoadRef = useRef(true);
+
+  const { playSuccess, playMarketClaim } = useSound();
 
   const translateOr = (key, fallback) => {
     const value = t(key);
@@ -68,6 +73,10 @@ export default function DailyTasks() {
   const formatResetTimer = (countdownValue) => {
     const raw = translateOr('dailyTasks.resetTimer', 'Reset in {countdown} UTC');
     return raw.replace('{countdown}', countdownValue);
+  };
+
+  const pushToast = (msg, type = 'info') => {
+    window.dispatchEvent(new CustomEvent('mm3-toast', { detail: { msg, type } }));
   };
 
   useEffect(() => {
