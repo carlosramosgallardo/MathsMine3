@@ -321,6 +321,7 @@ export default function TradeBoard({ account, isVirtualWallet = false }) {
     if (showTransactions) {
       loadTransactions();
       setTimeout(() => {
+        if (window.matchMedia?.('(max-width: 767px)').matches) return;
         ledgerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }, 40);
     }
