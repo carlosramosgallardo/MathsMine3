@@ -115,7 +115,9 @@ export async function GET(req) {
     ...detailsPayload,
   }, {
     headers: {
-      'Cache-Control': 'private, no-store',
+      'Cache-Control': wallet
+        ? 'private, no-store'
+        : 'public, s-maxage=10, stale-while-revalidate=60',
     },
   });
 }

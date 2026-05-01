@@ -244,7 +244,7 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
   const [blocks, setBlocks] = useState(CATALOG_BLOCKS);
   const [selectedKey, setSelectedKey] = useState(GENESIS_BLOCK_KEY);
   const selectedKeyRef = useRef(GENESIS_BLOCK_KEY);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [processing, setProcessing] = useState(false);
   const [dbReady, setDbReady] = useState(true);
   const [canLoadInlineShort, setCanLoadInlineShort] = useState(false);
@@ -389,9 +389,10 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
       if (account) params.set('wallet', account.toLowerCase());
       if (blockKey && !blockKey.startsWith('ph-')) params.set('blockKey', blockKey);
 
-      const response = await fetch(`/api/market-snapshot?${params.toString()}`, {
-        cache: 'no-store',
-      });
+      const response = await fetch(
+        `/api/market-snapshot?${params.toString()}`,
+        account ? { cache: 'no-store' } : undefined
+      );
       if (!response.ok) throw new Error(`market snapshot ${response.status}`);
 
       const snapshot = await response.json();
@@ -525,7 +526,7 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
   }, []);
 
   useEffect(() => {
-    loadMarketSnapshot({ blockKey: selectedKeyRef.current });
+    loadMarketSnapshot({ showLoading: false, blockKey: selectedKeyRef.current });
   }, [account]);
 
   useEffect(() => {
