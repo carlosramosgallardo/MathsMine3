@@ -58,6 +58,7 @@ export default function DailyTasks() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [dayKey, setDayKey] = useState('');
+  const [countdown, setCountdown] = useState('00:00:00');
 
   useEffect(() => {
     if (!account) {
@@ -144,6 +145,22 @@ export default function DailyTasks() {
     return () => window.clearInterval(interval);
   }, [account, t]);
 
+  useEffect(() => {
+    const updateCountdown = () => {
+      const { endIso } = getUtcDayBounds();
+      const remaining = Math.max(0, new Date(endIso) - new Date());
+      const seconds = Math.floor(remaining / 1000);
+      const hours = String(Math.floor(seconds / 3600)).padStart(2, '0');
+      const minutes = String(Math.floor((seconds % 3600) / 60)).padStart(2, '0');
+      const secs = String(seconds % 60).padStart(2, '0');
+      setCountdown(`${hours}:${minutes}:${secs}`);
+    };
+
+    updateCountdown();
+    const timer = window.setInterval(updateCountdown, 1000);
+    return () => window.clearInterval(timer);
+  }, []);
+
   const handleClaim = async (task) => {
     if (!account || loading) return;
     setLoading(true);
@@ -184,22 +201,24 @@ export default function DailyTasks() {
   });
 
   return (
-    <SectionFrame title={t('dailyTasks.title')} accent="#f9a8d4" id="daily-tasks-section">
+    <SectionFrame accent="#22d3ee" id="daily-tasks-section">
       <div className="px-4 pb-6 pt-6 sm:px-6">
-        <div className="mb-5 rounded-3xl border border-amber-400/20 bg-amber-950/10 p-5 text-sm leading-6 text-amber-100 sm:p-6">
-          <p className="font-semibold uppercase tracking-[0.28em] text-amber-200">{t('dailyTasks.subtitle')}</p>
-          <p className="mt-2 text-slate-300">{t('dailyTasks.description')}</p>
-          <p className="mt-3 text-xs uppercase tracking-[0.22em] text-amber-300">{t('dailyTasks.resetNotice')}</p>
-        </div>
-
-        {!account ? (
-          <div className="rounded-3xl border border-slate-700/50 bg-slate-900/80 p-6 text-center text-slate-300">
-            {t('dailyTasks.connectWallet')}
+        {account ? (
+          <div className="mb-5 rounded-3xl border border-slate-700/60 bg-slate-950/80 p-5 text-sm leading-6 text-slate-200 sm:p-6">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <span className="font-semibold uppercase tracking-[0.28em] text-slate-100">
+                {t('dailyTasks.notice')}
+              </span>
+              <span className="text-xs uppercase tracking-[0.22em] text-slate-400">
+                {t('dailyTasks.resetTimer', { countdown })}
+              </span>
+            </div>
           </div>
-        ) : (
-          <div className="space-y-4">
-            {taskRows.map((task) => (
-              <div key={task.key} className="rounded-3xl border border-slate-700/50 bg-slate-950/80 p-4 sm:p-5">
+        ) : null}
+
+        <div className="space-y-4">
+          {taskRows.map((task) => (
+            <div key={task.key} className="rounded-3xl border border-slate-700/50 bg-slate-950/80 p-4 sm:p-5">
                 <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div>
                     <div className="text-xs uppercase tracking-[0.3em] text-fuchsia-300">{t(`dailyTasks.tasks.${task.translationKey}.name`)}</div>
