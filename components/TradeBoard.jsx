@@ -593,11 +593,6 @@ export default function TradeBoard({ account, isVirtualWallet = false }) {
             }
           `}</style>
           <>
-          {!account && (
-            <div className="mb-2 rounded border border-cyan-500/20 bg-black/60 px-3 py-2 text-center text-[0.82rem] uppercase tracking-[0.18em] text-cyan-500/50">
-              {t('tradeBoard.connectNotice')}
-            </div>
-          )}
             <div className="mm3-trade-toolbar mb-3 flex flex-wrap items-start justify-between gap-2">
               <div className="flex flex-wrap items-center gap-2">
                 <div

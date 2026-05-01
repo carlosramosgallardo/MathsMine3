@@ -488,19 +488,28 @@ const DB_DEFINITION_ES = {
   },
 };
 
+function getDbDefinitionTranslation(question) {
+  if (!question) return null;
+  const normalized = String(question).replace(/\s+/g, ' ').trim();
+  return DB_DEFINITION_ES[question] || DB_DEFINITION_ES[normalized] || null;
+}
+
 function localizeDbProblemRow(data, lang) {
   if (lang !== 'es') return data;
 
-  if (data?.is_definition_type && DB_DEFINITION_ES[data.question]) {
-    const translated = DB_DEFINITION_ES[data.question];
+  const isDefinition = data?.is_definition_type || data?.problem_type === 'definition';
+  const translatedDefinition = getDbDefinitionTranslation(data?.question);
+  if (isDefinition && translatedDefinition) {
     return {
       ...data,
       source_question: data.question,
       source_answer: data.correct_answer,
       source_choices: data.answer_options,
-      question: translated.q,
-      correct_answer: translated.a,
-      answer_options: translated.choices,
+      question: translatedDefinition.q,
+      correct_answer: translatedDefinition.a,
+      answer_options: translatedDefinition.choices,
+      is_definition_type: true,
+      problem_type: 'definition',
     };
   }
 
@@ -518,14 +527,16 @@ function localizeDbProblemRow(data, lang) {
 function localizeActiveProblem(problem, lang) {
   if (!problem) return problem;
 
-  if (problem.type === 'definition') {
+  if (problem.type === 'definition' || problem.problem_type === 'definition') {
     if (lang === 'es') {
       const sourceQuestion = problem.sourceQuestion || problem.question;
-      const translated = DB_DEFINITION_ES[sourceQuestion]
+      const translated = getDbDefinitionTranslation(sourceQuestion)
         || Object.values(DB_DEFINITION_ES).find((entry) => entry.q === problem.question);
       if (!translated) return problem;
       return {
         ...problem,
+        type: 'definition',
+        problem_type: 'definition',
         sourceQuestion,
         question: translated.q,
         masked: translated.q,
@@ -540,6 +551,8 @@ function localizeActiveProblem(problem, lang) {
     const [sourceQuestion] = entry;
     return {
       ...problem,
+      type: 'definition',
+      problem_type: 'definition',
       sourceQuestion,
       question: sourceQuestion,
       masked: sourceQuestion,
@@ -1976,7 +1989,7 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
       }
       if (!pool) return null;
       const data = localizeDbProblemRow(pool[Math.floor(Math.random() * pool.length)], lang);
-      if (data.is_definition_type) {
+      if (data.is_definition_type || data.problem_type === 'definition') {
         return {
           id: data.id,
           type: 'definition',
