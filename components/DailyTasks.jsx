@@ -60,6 +60,16 @@ export default function DailyTasks() {
   const [dayKey, setDayKey] = useState('');
   const [countdown, setCountdown] = useState('00:00:00');
 
+  const translateOr = (key, fallback) => {
+    const value = t(key);
+    return typeof value === 'string' && value !== key ? value : fallback;
+  };
+
+  const formatResetTimer = (countdownValue) => {
+    const raw = translateOr('dailyTasks.resetTimer', 'Reset in {countdown} UTC');
+    return raw.replace('{countdown}', countdownValue);
+  };
+
   useEffect(() => {
     if (!account) {
       setCounts({});
@@ -200,17 +210,20 @@ export default function DailyTasks() {
     };
   });
 
+  const noticeText = translateOr('dailyTasks.notice', 'Unclaimed rewards disappear.');
+  const resetText = formatResetTimer(countdown);
+
   return (
     <SectionFrame accent="#22d3ee" id="daily-tasks-section">
-      <div className="px-4 pb-6 pt-6 sm:px-6">
+      <div className="mx-auto w-full max-w-[1120px] px-2 pb-6 pt-6 sm:px-6">
         {account ? (
-          <div className="mb-5 rounded-3xl border border-slate-700/60 bg-slate-950/80 p-5 text-sm leading-6 text-slate-200 sm:p-6">
+          <div className="mb-5 border border-slate-700/60 bg-slate-950/90 p-5 text-sm leading-6 text-slate-200 sm:p-6">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <span className="font-semibold uppercase tracking-[0.28em] text-slate-100">
-                {t('dailyTasks.notice')}
+                {noticeText}
               </span>
               <span className="text-xs uppercase tracking-[0.22em] text-slate-400">
-                {t('dailyTasks.resetTimer', { countdown })}
+                {resetText}
               </span>
             </div>
           </div>
@@ -218,7 +231,7 @@ export default function DailyTasks() {
 
         <div className="space-y-4">
           {taskRows.map((task) => (
-            <div key={task.key} className="rounded-3xl border border-slate-700/50 bg-slate-950/80 p-4 sm:p-5">
+            <div key={task.key} className="border border-slate-700/50 bg-slate-950/90 p-4 sm:p-5">
                 <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div>
                     <div className="text-xs uppercase tracking-[0.3em] text-fuchsia-300">{t(`dailyTasks.tasks.${task.translationKey}.name`)}</div>
@@ -242,8 +255,8 @@ export default function DailyTasks() {
                     <span>{task.value} / {task.target}</span>
                     <span>{task.filled}%</span>
                   </div>
-                  <div className="h-3 overflow-hidden rounded-full bg-slate-900">
-                    <div className="h-full rounded-full bg-gradient-to-r from-fuchsia-500 via-cyan-400 to-amber-300" style={{ width: `${task.filled}%` }} />
+                  <div className="h-3 overflow-hidden rounded-none bg-slate-900">
+                    <div className="h-full rounded-none bg-gradient-to-r from-fuchsia-500 via-cyan-400 to-amber-300" style={{ width: `${task.filled}%` }} />
                   </div>
                 </div>
               </div>
