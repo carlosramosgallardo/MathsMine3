@@ -631,7 +631,7 @@ VALUES
     'Uplink Génesis',
     '0ac59a6eff4c0d73984b7ec775d6a01864e80dbc5e5488c594ed1ae4748ff56d',
     1,
-    NULL,
+    'https://www.youtube.com/shorts/NRaN40UXpOM',
     TRUE
   ),
   (
@@ -750,7 +750,7 @@ ON CONFLICT (block_key) DO UPDATE SET
   title_es         = EXCLUDED.title_es,
   answer_hash      = EXCLUDED.answer_hash,
   price_eur        = EXCLUDED.price_eur,
-  short_url        = COALESCE(mm3_market_blocks.short_url, EXCLUDED.short_url),
+  short_url        = COALESCE(NULLIF(mm3_market_blocks.short_url, ''), EXCLUDED.short_url),
   is_active        = EXCLUDED.is_active,
   market_command   = EXCLUDED.market_command,
   formula_x        = EXCLUDED.formula_x,
