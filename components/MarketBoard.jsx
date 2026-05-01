@@ -411,9 +411,11 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
           marketNFTJIPrice: 0,
         });
       }
-      setActiveBlockCommand(snapshot.activeBlockCommand || null);
-      setActivePenalty(snapshot.activePenalty || null);
-      setSelectedEventCounts(snapshot.selectedEventCounts || { emoji: '', buys: 0, resells: 0 });
+      if ('activeBlockCommand' in snapshot) setActiveBlockCommand(snapshot.activeBlockCommand || null);
+      if ('activePenalty' in snapshot) setActivePenalty(snapshot.activePenalty || null);
+      if ('selectedEventCounts' in snapshot) {
+        setSelectedEventCounts(snapshot.selectedEventCounts || { emoji: '', buys: 0, resells: 0 });
+      }
       setDbReady(true);
     } catch (err) {
       console.error('market snapshot load:', err);
