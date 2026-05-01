@@ -282,6 +282,37 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
     return () => query.removeListener(syncDesktopShort);
   }, []);
 
+  const applyBlockRows = (blockData, ownersData) => {
+    const currentOwnersByKey = new Map();
+    for (const entry of ownersData || []) {
+      const key = entry.market_nftji_key;
+      const wallet = String(entry.wallet || '').toLowerCase();
+      if (!key || !wallet) continue;
+      if (!currentOwnersByKey.has(key)) currentOwnersByKey.set(key, []);
+      currentOwnersByKey.get(key).push(wallet);
+    }
+
+    const dbBlocks = Array.isArray(blockData) ? blockData : [];
+    const dbByKey = new Map(dbBlocks.map((b) => [b.block_key, b]));
+
+    const norm = (b) => ({
+      ...b,
+      price_eur: Number(b.price_eur) || 0,
+      current_owners: currentOwnersByKey.get(b.block_key) || [],
+    });
+
+    const catalogMerged = CATALOG_BLOCKS.map((cat) =>
+      norm(dbByKey.has(cat.block_key) ? { ...cat, ...dbByKey.get(cat.block_key) } : cat)
+    );
+
+    const extraBlocks = dbBlocks
+      .filter((b) => !CATALOG_KEY_SET.has(b.block_key))
+      .map((b) => norm(b));
+
+    setBlocks([...catalogMerged, ...extraBlocks]);
+    setDbReady(true);
+  };
+
   const loadBlocks = async ({ showLoading = true } = {}) => {
     if (showLoading) setLoading(true);
     try {
@@ -298,35 +329,7 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
 
       if (error) throw error;
 
-      const currentOwnersByKey = new Map();
-      for (const entry of ownersData || []) {
-        const key = entry.market_nftji_key;
-        const wallet = String(entry.wallet || '').toLowerCase();
-        if (!key || !wallet) continue;
-        if (!currentOwnersByKey.has(key)) currentOwnersByKey.set(key, []);
-        currentOwnersByKey.get(key).push(wallet);
-      }
-
-      const dbBlocks = Array.isArray(blockData) ? blockData : [];
-      const dbByKey = new Map(dbBlocks.map((b) => [b.block_key, b]));
-
-      const norm = (b) => ({
-        ...b,
-        price_eur: Number(b.price_eur) || 0,
-        current_owners: currentOwnersByKey.get(b.block_key) || [],
-      });
-
-      const catalogMerged = CATALOG_BLOCKS.map((cat) =>
-        norm(dbByKey.has(cat.block_key) ? { ...cat, ...dbByKey.get(cat.block_key) } : cat)
-      );
-
-      // Include dynamically spawned blocks (DB-only rows)
-      const extraBlocks = dbBlocks
-        .filter((b) => !CATALOG_KEY_SET.has(b.block_key))
-        .map((b) => norm(b));
-
-      setBlocks([...catalogMerged, ...extraBlocks]);
-      setDbReady(true);
+      applyBlockRows(blockData, ownersData);
     } catch (err) {
       console.error('market blocks load:', err);
       setBlocks(CATALOG_BLOCKS);
@@ -376,6 +379,53 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
       });
     } catch (err) {
       console.error('market wallet load:', err);
+    }
+  };
+
+  const loadMarketSnapshot = async ({ showLoading = true, blockKey = selectedKeyRef.current } = {}) => {
+    if (showLoading) setLoading(true);
+    try {
+      const params = new URLSearchParams();
+      if (account) params.set('wallet', account.toLowerCase());
+      if (blockKey && !blockKey.startsWith('ph-')) params.set('blockKey', blockKey);
+
+      const response = await fetch(`/api/market-snapshot?${params.toString()}`, {
+        cache: 'no-store',
+      });
+      if (!response.ok) throw new Error(`market snapshot ${response.status}`);
+
+      const snapshot = await response.json();
+      if (!snapshot?.ok) throw new Error(snapshot?.error || 'market snapshot failed');
+
+      applyBlockRows(snapshot.blocks || [], snapshot.owners || []);
+      if (snapshot.walletState) {
+        setWalletState(snapshot.walletState);
+      } else if (!account) {
+        setWalletState({
+          funds: { EUR: 0, USD: 0, CNY: 0 },
+          level: 0,
+          mm3Sold: 0,
+          totalMm3: 0,
+          emojis: [],
+          marketNFTJIKey: null,
+          marketNFTJIPrice: 0,
+        });
+      }
+      setActiveBlockCommand(snapshot.activeBlockCommand || null);
+      setActivePenalty(snapshot.activePenalty || null);
+      setSelectedEventCounts(snapshot.selectedEventCounts || { emoji: '', buys: 0, resells: 0 });
+      setDbReady(true);
+    } catch (err) {
+      console.error('market snapshot load:', err);
+      await Promise.all([
+        loadBlocks({ showLoading: false }),
+        loadWalletState(),
+        loadActivePenalty(blockKey),
+        loadActiveBlockCommand(blockKey),
+      ]);
+      setEventCountsVersion((version) => version + 1);
+    } finally {
+      if (showLoading) setLoading(false);
     }
   };
 
@@ -467,37 +517,25 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
     if (typeof window === 'undefined') return;
     const query = new URLSearchParams(window.location.search);
     const blockFromQuery = query.get('block');
-    if (blockFromQuery) {
-      setSelectedKey(blockFromQuery);
-    } else {
-      setSelectedKey(CATALOG_BLOCKS[Math.floor(Math.random() * CATALOG_BLOCKS.length)].block_key);
-    }
+    const initialKey = blockFromQuery || CATALOG_BLOCKS[Math.floor(Math.random() * CATALOG_BLOCKS.length)].block_key;
+    selectedKeyRef.current = initialKey;
+    setSelectedKey(initialKey);
   }, []);
 
   useEffect(() => {
-    loadBlocks();
-  }, []);
-
-  useEffect(() => {
-    loadWalletState();
+    loadMarketSnapshot({ blockKey: selectedKeyRef.current });
   }, [account]);
 
   useEffect(() => {
     setNumericCode('');
+    if (loading) return;
     loadActivePenalty(selectedKey);
     loadActiveBlockCommand(selectedKey);
-  }, [account, selectedKey]);
+  }, [account, selectedKey, loading]);
 
   useEffect(() => {
     const refresh = async () => {
-      const currentKey = selectedKeyRef.current;
-      await Promise.all([
-        loadBlocks({ showLoading: false }),
-        loadWalletState(),
-        loadActivePenalty(currentKey),
-        loadActiveBlockCommand(currentKey),
-      ]);
-      setEventCountsVersion((version) => version + 1);
+      await loadMarketSnapshot({ showLoading: false, blockKey: selectedKeyRef.current });
     };
 
     window.addEventListener('mm3-db-updated', refresh);
