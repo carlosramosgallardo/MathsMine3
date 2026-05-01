@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useAccount, useDisconnect } from 'wagmi'
-import { createWeb3Modal, useWeb3Modal } from '@web3modal/wagmi/react'
+import { createWeb3Modal } from '@web3modal/wagmi/react'
 import { GoogleOAuthProvider, useGoogleLogin } from '@react-oauth/google'
 import { usePathname } from 'next/navigation'
 import { useGoogleAuth } from '@/lib/google-auth-context'
@@ -19,10 +19,11 @@ import { wagmiConfig } from '@/lib/wagmi-core'
 const chains = [wagmiConfig.chains[0]]
 const projectId = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID
 let web3ModalReady = false
+let web3ModalInstance = null
 
 function ensureWeb3Modal() {
-  if (web3ModalReady) return
-  createWeb3Modal({
+  if (web3ModalReady) return web3ModalInstance
+  web3ModalInstance = createWeb3Modal({
     wagmiConfig,
     projectId,
     chains,
@@ -44,8 +45,8 @@ function ensureWeb3Modal() {
     allWallets: 'SHOW',
   })
   web3ModalReady = true
+  return web3ModalInstance
 }
-ensureWeb3Modal()
 
 /* ── Icons ── */
 function GoogleIcon({ size = 13, dim = false }) {
@@ -385,7 +386,6 @@ function SplitConnectButton({ onGoogleClick, onWalletClick, googleBusy, walletBu
 /* ── Inner bar — requires GoogleOAuthProvider in tree ── */
 function AuthBarWithGoogle({ mode = 'full' }) {
   const { address, isConnected } = useAccount()
-  const { open } = useWeb3Modal()
   const { disconnect } = useDisconnect()
   const { googleWallet, setGoogleSub, signOut: googleSignOut } = useGoogleAuth()
   const { t } = useI18n()
@@ -420,10 +420,10 @@ function AuthBarWithGoogle({ mode = 'full' }) {
   const openWalletModal = async () => {
     if (walletModalLockRef.current) return
     walletModalLockRef.current = true
-    setWalletBusy(true)
-    try {
-      ensureWeb3Modal()
-      await open?.({ view: 'Connect' });
+      setWalletBusy(true)
+      try {
+      const modal = ensureWeb3Modal()
+      await modal?.open?.({ view: 'Connect' });
     } catch (error) {
       console.error('wallet modal open:', error);
       notify(t('wallet.walletModalFailed'), 'error');
@@ -448,7 +448,6 @@ function AuthBarWithGoogle({ mode = 'full' }) {
 /* ── Fallback when no CLIENT_ID ── */
 function AuthBarWalletOnly({ mode = 'full' }) {
   const { address, isConnected } = useAccount()
-  const { open } = useWeb3Modal()
   const { disconnect } = useDisconnect()
   const { googleWallet, signOut: googleSignOut } = useGoogleAuth()
   const { t } = useI18n()
@@ -467,8 +466,8 @@ function AuthBarWalletOnly({ mode = 'full' }) {
     walletModalLockRef.current = true
     setWalletBusy(true)
     try {
-      ensureWeb3Modal()
-      await open?.({ view: 'Connect' });
+      const modal = ensureWeb3Modal()
+      await modal?.open?.({ view: 'Connect' });
     } catch (error) {
       console.error('wallet modal open:', error);
       notify(t('wallet.walletModalFailed'), 'error');

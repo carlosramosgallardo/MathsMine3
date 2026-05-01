@@ -37,7 +37,7 @@ const PRE_GAME_LINES = [
 const REVIVE_COST_EUR = 1;
 const REVIVE_COST_USD = REVIVE_COST_EUR * (CNY_TO_USD / CNY_TO_EUR);
 const REVIVE_COST_CNY = REVIVE_COST_EUR / CNY_TO_EUR;
-const PROBLEM_CACHE_VERSION = 1;
+const PROBLEM_CACHE_VERSION = 2;
 const DAILY_MINE_BASE = 100;
 
 function getUtcDayBounds(now = new Date()) {
@@ -52,6 +52,7 @@ const GT = {
     seq: 'Sequence', fib: 'Fibonacci',
     prime: 'PRIME', notPrime: 'NOT PRIME', composite: 'COMPOSITE', odd: 'ODD',
     yes: 'YES', no: 'NO', truth: 'TRUE', falsehood: 'FALSE', maybe: 'MAYBE', both: 'BOTH', unknown: 'UNKNOWN', none: 'NONE', equal: 'EQUAL', nil: 'NULL',
+    and: 'AND', or: 'OR', not: 'NOT',
     isNPrime: n => `Is ${n} prime?`,
     nextPrime: n => `Next prime after ${n}?`,
     smallFactor: n => `Smallest prime factor of ${n}?`,
@@ -96,6 +97,7 @@ const GT = {
     seq: 'Secuencia', fib: 'Fibonacci',
     prime: 'PRIMO', notPrime: 'NO PRIMO', composite: 'COMPUESTO', odd: 'IMPAR',
     yes: 'SÍ', no: 'NO', truth: 'VERDADERO', falsehood: 'FALSO', maybe: 'QUIZÁ', both: 'AMBAS', unknown: 'DESCONOCIDO', none: 'NINGUNO', equal: 'IGUAL', nil: 'NULO',
+    and: 'Y', or: 'O', not: 'NO',
     isNPrime: n => `¿Es ${n} primo?`,
     nextPrime: n => `¿Siguiente primo después de ${n}?`,
     smallFactor: n => `¿Factor primo menor de ${n}?`,
@@ -614,7 +616,7 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
   const refreshUiTimeoutRef = useRef(null);
   const levelFlashTimeoutRef = useRef(null);
   const didMountRef = useRef(false);
-  const problemStorageKey = `mm3-active-problem:${account?.toLowerCase() || 'guest'}`;
+  const problemStorageKey = `mm3-active-problem:${account?.toLowerCase() || 'guest'}:${language}`;
 
   const randInt = (a, b) => Math.floor(Math.random() * (b - a + 1)) + a;
   const pickOne = (items) => items[randInt(0, items.length - 1)];
@@ -645,6 +647,7 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
       if (!raw) return null;
       const parsed = JSON.parse(raw);
       if (parsed?.version !== PROBLEM_CACHE_VERSION) return null;
+      if (parsed?.language && parsed.language !== language) return null;
       if (!parsed?.problem?.question || parsed.problem.answer === undefined) return null;
       return parsed;
     } catch {
@@ -659,6 +662,7 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
         problemStorageKey,
         JSON.stringify({
           version: PROBLEM_CACHE_VERSION,
+          language,
           level: clampLevel(lvl),
           problem: nextProblem,
           savedAt: Date.now(),
@@ -886,7 +890,15 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
       const detailWallet = String(detail.wallet || '').toLowerCase();
       const matchesWallet = !detailWallet || detailWallet === account.toLowerCase();
       if (!matchesWallet) return;
-      if (detail.special || detail.trade) refreshWalletMeta(account.toLowerCase());
+      if (detail.reward) {
+        setWalletMeta((current) => ({
+          ...current,
+          eur: Number(current.eur) + (Number(detail.reward.EUR) || 0),
+          usd: Number(current.usd) + (Number(detail.reward.USD) || 0),
+          cny: Number(current.cny) + (Number(detail.reward.CNY) || 0),
+        }));
+      }
+      if (detail.special || detail.trade || detail.dailyTask || detail.reward) refreshWalletMeta(account.toLowerCase());
       loadMiningAttempts(account.toLowerCase());
     };
     window.addEventListener('mm3-db-updated', onDbUpdated);
@@ -1213,16 +1225,16 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
     const bools = [T, F];
 
     if (diff <= 2) {
-      const op = Math.random() < 0.5 ? 'AND' : 'OR';
+      const op = Math.random() < 0.5 ? g.and : g.or;
       const a = bools[randInt(0, 1)]; const b = bools[randInt(0, 1)];
-      const result = op === 'AND' ? (a === T && b === T ? T : F) : (a === T || b === T ? T : F);
+      const result = op === g.and ? (a === T && b === T ? T : F) : (a === T || b === T ? T : F);
       return { type: 'logic', problem_type: 'logic', question: `${a} ${op} ${b} =`, answer: result, masked: `${a} ${op} ${b} = [MASK]`, placeholder: '?', choices: shuffle([T, F, g.maybe, g.both]), difficulty: diff };
     }
 
     if (diff === 3) {
       if (Math.random() < 0.5) {
         const a = bools[randInt(0, 1)]; const result = a === T ? F : T;
-        return { type: 'logic', problem_type: 'logic', question: `NOT ${a} =`, answer: result, masked: `NOT ${a} = [MASK]`, placeholder: '?', choices: shuffle([T, F, g.nil, '?']), difficulty: diff };
+        return { type: 'logic', problem_type: 'logic', question: `${g.not} ${a} =`, answer: result, masked: `${g.not} ${a} = [MASK]`, placeholder: '?', choices: shuffle([T, F, g.nil, '?']), difficulty: diff };
       }
       const a = bools[randInt(0, 1)]; const b = bools[randInt(0, 1)];
       const result = a !== b ? T : F;
@@ -1349,7 +1361,7 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
       const a = PRIMES[idx];
       const b = PRIMES[idx + 1];
       const ans = b - a === 2 ? g.yes : g.no;
-      return { type: 'primes', problem_type: 'primes', question: g.twinPrimes(a, b), answer: ans, masked: g.twinPrimes(a, b), placeholder: '?', choices: shuffle([g.yes, g.no, 'MAYBE', 'BOTH']), difficulty: diff };
+      return { type: 'primes', problem_type: 'primes', question: g.twinPrimes(a, b), answer: ans, masked: g.twinPrimes(a, b), placeholder: '?', choices: shuffle([g.yes, g.no, g.maybe, g.both]), difficulty: diff };
     }
 
     if (Math.random() < 0.5) {
