@@ -37,7 +37,7 @@ const PRE_GAME_LINES = [
 const REVIVE_COST_EUR = 1;
 const REVIVE_COST_USD = REVIVE_COST_EUR * (CNY_TO_USD / CNY_TO_EUR);
 const REVIVE_COST_CNY = REVIVE_COST_EUR / CNY_TO_EUR;
-const PROBLEM_CACHE_VERSION = 2;
+const PROBLEM_CACHE_VERSION = 3;
 const DAILY_MINE_BASE = 100;
 
 function getUtcDayBounds(now = new Date()) {
@@ -141,6 +141,16 @@ const GT = {
 };
 
 const DB_DEFINITION_ES = {
+  'What is a number that can be divided by 1 and itself only?': {
+    q: '¿Cómo se llama un número entero mayor que 1 cuyos únicos divisores positivos son 1 y él mismo?',
+    a: 'Número primo',
+    choices: ['Número primo', 'Número compuesto', 'Número par', 'Número impar'],
+  },
+  'The sum of all angles in a triangle equals...': {
+    q: 'La suma de los ángulos interiores de un triángulo es...',
+    a: '180 grados',
+    choices: ['180 grados', '90 grados', '360 grados', '270 grados'],
+  },
   'I have four equal sides and four equal angles. What am I?': {
     q: 'Tengo cuatro lados iguales y cuatro ángulos iguales. ¿Qué soy?',
     a: 'Cuadrado',
@@ -202,7 +212,7 @@ const DB_DEFINITION_ES = {
     choices: ['Par', 'Impar', 'Primo', 'Compuesto'],
   },
   'I am doubled when you read me forward or backward. I am 11. What property do I have?': {
-    q: 'Se lee igual hacia delante y hacia atrás. Soy 11. ¿Qué propiedad tengo?',
+    q: 'Se lee igual hacia delante y hacia atrás. Soy 22. ¿Qué propiedad tengo?',
     a: 'Palíndromo',
     choices: ['Palíndromo', 'Primo', 'Cuadrado', 'Fibonacci'],
   },
@@ -222,7 +232,7 @@ const DB_DEFINITION_ES = {
     choices: ['Fracciones equivalentes', 'Números mixtos', 'Fracciones impropias', 'Fracciones unitarias'],
   },
   'What is a number called when it appears in its own multiplication table result? e.g. 4 = 2²': {
-    q: '¿Cómo se llama un número que aparece como resultado de multiplicarse por sí mismo? Ej: 4 = 2²',
+    q: '¿Cómo se llama un entero que es igual a otro entero multiplicado por sí mismo? Ej: 4 = 2²',
     a: 'Cuadrado perfecto',
     choices: ['Cuadrado perfecto', 'Primo', 'Factorial', 'Recíproco'],
   },
@@ -402,7 +412,7 @@ const DB_DEFINITION_ES = {
     choices: ['Los números reales', 'Los enteros', 'Los números complejos', 'Los naturales'],
   },
   'A statement that is true but whose proof uses itself is called...': {
-    q: 'Una afirmación verdadera cuya prueba se usa a sí misma se llama...',
+    q: 'Una prueba o argumento que asume lo que intenta demostrar se llama...',
     a: 'Razonamiento circular',
     choices: ['Razonamiento circular', 'Prueba inductiva', 'Axioma', 'Conjetura'],
   },
@@ -412,12 +422,12 @@ const DB_DEFINITION_ES = {
     choices: ['Integración', 'Factorización', 'Permutación', 'Iteración'],
   },
   'A prime number that remains prime when its digits are reversed is called...': {
-    q: 'Un número primo que sigue siendo primo al invertir sus cifras se llama...',
+    q: 'Un número primo cuyas cifras invertidas forman un primo distinto se llama...',
     a: 'Emirp',
     choices: ['Emirp', 'Primo de Mersenne', 'Primo gemelo', 'Primo seguro'],
   },
   'Fermat\'s Last Theorem states that x^n + y^n = z^n has no integer solutions for n...': {
-    q: 'El Último Teorema de Fermat dice que x^n + y^n = z^n no tiene soluciones enteras para n...',
+    q: 'El Último Teorema de Fermat dice que x^n + y^n = z^n no tiene soluciones enteras positivas para n...',
     a: 'Mayor que 2',
     choices: ['Mayor que 2', 'Mayor que 1', 'Igual a 2', 'Menor que 2'],
   },
@@ -437,7 +447,7 @@ const DB_DEFINITION_ES = {
     choices: ['Indecidibles', 'NP-hard', 'Insolubles numéricamente', 'Exponenciales'],
   },
   'Which theorem guarantees a root between f(a) and f(b) if f is continuous?': {
-    q: '¿Qué teorema garantiza una raíz entre f(a) y f(b) si f es continua?',
+    q: '¿Qué teorema garantiza una raíz entre a y b si f es continua y f(a), f(b) tienen signos opuestos?',
     a: 'Teorema del valor intermedio',
     choices: ['Teorema del valor intermedio', 'Teorema del valor medio', 'Teorema de Rolle', 'Teorema del encaje'],
   },
@@ -482,9 +492,57 @@ const DB_DEFINITION_ES = {
     choices: ['Si NO Q entonces NO P', 'Si Q entonces P', 'Si NO P entonces NO Q', 'Si P entonces NO Q'],
   },
   'Gödel\'s incompleteness theorem states that any consistent system...': {
-    q: 'El teorema de incompletitud de Gödel dice que cualquier sistema consistente...',
+    q: 'El teorema de incompletitud de Gödel dice que cualquier sistema formal consistente y suficientemente expresivo...',
     a: 'Contiene verdades que no puede demostrar',
     choices: ['Contiene verdades que no puede demostrar', 'Tiene axiomas infinitos', 'Siempre es completo', 'No puede manejar enteros'],
+  },
+};
+
+const DB_DEFINITION_EN_OVERRIDES = {
+  'What is a number that can be divided by 1 and itself only?': {
+    q: 'What is a whole number greater than 1 whose only positive divisors are 1 and itself?',
+    a: 'Prime number',
+    choices: ['Prime number', 'Composite number', 'Even number', 'Odd number'],
+  },
+  'The sum of all angles in a triangle equals...': {
+    q: 'The sum of the interior angles of a triangle equals...',
+    a: '180 degrees',
+    choices: ['180 degrees', '90 degrees', '360 degrees', '270 degrees'],
+  },
+  'I am doubled when you read me forward or backward. I am 11. What property do I have?': {
+    q: 'I read the same forward and backward. I am 22. What property do I have?',
+    a: 'Palindrome',
+    choices: ['Palindrome', 'Prime', 'Square', 'Fibonacci'],
+  },
+  'What is a number called when it appears in its own multiplication table result? e.g. 4 = 2²': {
+    q: 'What is a whole number called when it equals an integer multiplied by itself? e.g. 4 = 2²',
+    a: 'Perfect square',
+    choices: ['Perfect square', 'Prime', 'Factorial', 'Reciprocal'],
+  },
+  'A statement that is true but whose proof uses itself is called...': {
+    q: 'A proof or argument that assumes what it is trying to prove is called...',
+    a: 'Circular reasoning',
+    choices: ['Circular reasoning', 'Inductive proof', 'Axiom', 'Conjecture'],
+  },
+  'A prime number that remains prime when its digits are reversed is called...': {
+    q: 'A prime number whose reversed digits form a different prime is called...',
+    a: 'Emirp',
+    choices: ['Emirp', 'Mersenne prime', 'Twin prime', 'Safe prime'],
+  },
+  'Fermat\'s Last Theorem states that x^n + y^n = z^n has no integer solutions for n...': {
+    q: 'Fermat\'s Last Theorem states that x^n + y^n = z^n has no positive integer solutions for n...',
+    a: 'Greater than 2',
+    choices: ['Greater than 2', 'Greater than 1', 'Equal to 2', 'Less than 2'],
+  },
+  'Which theorem guarantees a root between f(a) and f(b) if f is continuous?': {
+    q: 'Which theorem guarantees a root between a and b if f is continuous and f(a), f(b) have opposite signs?',
+    a: 'Intermediate Value Theorem',
+    choices: ['Intermediate Value Theorem', 'Mean Value Theorem', 'Rolle\'s Theorem', 'Squeeze Theorem'],
+  },
+  'Gödel\'s incompleteness theorem states that any consistent system...': {
+    q: 'Gödel\'s incompleteness theorem states that any consistent, sufficiently expressive formal system...',
+    a: 'Contains true statements it cannot prove',
+    choices: ['Contains true statements it cannot prove', 'Has infinite axioms', 'Is always complete', 'Cannot handle integers'],
   },
 };
 
@@ -494,10 +552,30 @@ function getDbDefinitionTranslation(question) {
   return DB_DEFINITION_ES[question] || DB_DEFINITION_ES[normalized] || null;
 }
 
-function localizeDbProblemRow(data, lang) {
-  if (lang !== 'es') return data;
+function getDbDefinitionEnglishOverride(question) {
+  if (!question) return null;
+  const normalized = String(question).replace(/\s+/g, ' ').trim();
+  return DB_DEFINITION_EN_OVERRIDES[question] || DB_DEFINITION_EN_OVERRIDES[normalized] || null;
+}
 
+function localizeDbProblemRow(data, lang) {
   const isDefinition = data?.is_definition_type || data?.problem_type === 'definition';
+  if (lang !== 'es') {
+    const englishOverride = isDefinition ? getDbDefinitionEnglishOverride(data?.question) : null;
+    if (!englishOverride) return data;
+    return {
+      ...data,
+      source_question: data.question,
+      source_answer: data.correct_answer,
+      source_choices: data.answer_options,
+      question: englishOverride.q,
+      correct_answer: englishOverride.a,
+      answer_options: englishOverride.choices,
+      is_definition_type: true,
+      problem_type: 'definition',
+    };
+  }
+
   const translatedDefinition = getDbDefinitionTranslation(data?.question);
   if (isDefinition && translatedDefinition) {
     return {
@@ -549,15 +627,16 @@ function localizeActiveProblem(problem, lang) {
       .find(([sourceQuestion, translated]) => problem.sourceQuestion === sourceQuestion || problem.question === translated.q);
     if (!entry) return problem;
     const [sourceQuestion] = entry;
+    const englishOverride = getDbDefinitionEnglishOverride(sourceQuestion);
     return {
       ...problem,
       type: 'definition',
       problem_type: 'definition',
       sourceQuestion,
-      question: sourceQuestion,
-      masked: sourceQuestion,
-      answer: String(problem.sourceAnswer || problem.answer).toLowerCase(),
-      choices: Array.isArray(problem.sourceChoices) ? problem.sourceChoices : problem.choices,
+      question: englishOverride?.q || sourceQuestion,
+      masked: englishOverride?.q || sourceQuestion,
+      answer: String(englishOverride?.a || problem.sourceAnswer || problem.answer).toLowerCase(),
+      choices: englishOverride?.choices || (Array.isArray(problem.sourceChoices) ? problem.sourceChoices : problem.choices),
     };
   }
 
@@ -954,8 +1033,8 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
           question: `(${dividend} ÷ ${divisor}) + ${b} =`,
           answer: quotient + b,
         });
-        const avgA = randInt(20, 80);
-        const avgB = randInt(20, 80);
+        const avgA = randInt(7, 26) * 3;
+        const avgB = randInt(7, 26) * 3;
         forms.push({
           question: g.averageOf(avgA, avgB, avgA + avgB),
           answer: (avgA + avgB + (avgA + avgB)) / 3,
@@ -992,9 +1071,19 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
 
     if (lvl >= 18 && diff >= 2 && Math.random() < 0.45) {
       const c = randInt(2, 16 + diff * 3);
+      const tailOp = pickOne(['+', '-']);
+      const middleOp = pickOne(['+', '-']);
       const forms = [
-        { question: `${a} ${op} ${b} ${pickOne(['+', '-'])} ${c} =`, answer: op === '+' ? a + b + c : op === '-' ? a - b + c : op === '*' ? a * b + c : a / b + c },
-        { question: `${a} ${pickOne(['+', '-'])} ${b} ${op} ${c} =`, answer: op === '+' ? a - b + c : op === '-' ? a + b - c : op === '*' ? a + b * c : a + b / c },
+        {
+          question: `${a} ${op} ${b} ${tailOp} ${c} =`,
+          answer: (op === '+' ? a + b : op === '-' ? a - b : op === '*' ? a * b : a / b) + (tailOp === '+' ? c : -c),
+        },
+        {
+          question: `${a} ${middleOp} ${b} ${op} ${c} =`,
+          answer: middleOp === '+'
+            ? a + (op === '+' ? b + c : op === '-' ? b - c : op === '*' ? b * c : b / c)
+            : a - (op === '+' ? b + c : op === '-' ? b - c : op === '*' ? b * c : b / c),
+        },
       ];
       const picked = pickOne(forms);
       return {
@@ -1270,9 +1359,9 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
     const scenarios = [
       { q: `P→Q, Q→R, P=${T}. R=?`, a: T, others: [F, g.unknown, g.nil] },
       { q: `P→Q, Q→R, R=${F}. P=?`, a: F, others: [T, g.unknown, g.maybe] },
-      { q: `NOT P→Q, P=${F}. Q=?`, a: T, others: [F, g.unknown, g.nil] },
+      { q: `${g.not} P→Q, P=${F}. Q=?`, a: T, others: [F, g.unknown, g.nil] },
       { q: `P→Q, P=${F}. Q=?`, a: g.unknown, others: [T, F, g.nil] },
-      { q: `P=${T}, Q=${F}. P AND NOT Q = ?`, a: T, others: [F, g.unknown, g.nil] },
+      { q: `P=${T}, Q=${F}. P ${g.and} ${g.not} Q = ?`, a: T, others: [F, g.unknown, g.nil] },
       { q: `P=${T}, Q=${F}. P ↔ Q = ?`, a: F, others: [T, g.unknown, g.nil] },
     ];
     const s = scenarios[randInt(0, scenarios.length - 1)];
@@ -1333,7 +1422,7 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
       const left = a * d2;
       const right = b * d1;
       const ans = left > right ? '>' : left < right ? '<' : '=';
-      return { type: 'fractions', problem_type: 'fractions', question: `${a}/${d1} ? ${b}/${d2}`, answer: ans, masked: `${a}/${d1} [MASK] ${b}/${d2}`, placeholder: '?', choices: shuffle(['>', '<', '=', '||']), difficulty: diff };
+      return { type: 'fractions', problem_type: 'fractions', question: `${a}/${d1} ? ${b}/${d2}`, answer: ans, masked: `${a}/${d1} [MASK] ${b}/${d2}`, placeholder: '?', choices: shuffle(['>', '<', '=']), difficulty: diff };
     }
 
     const d1 = denoms[randInt(0, 4)]; const d2 = denoms[randInt(0, 4)];
@@ -1349,7 +1438,7 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
       const pool = [...PRIMES.filter(p => p < (diff === 1 ? 30 : 70)), 4, 6, 8, 9, 10, 12, 14, 15, 18, 20, 21, 22, 25, 27, 35, 49, 51];
       const n = pool[randInt(0, Math.min(pool.length - 1, diff === 1 ? 18 : pool.length - 1))];
       const ans = isPrime(n) ? g.prime : g.notPrime;
-      return { type: 'primes', problem_type: 'primes', question: g.isNPrime(n), answer: ans, masked: g.isNPrime(n), placeholder: '?', choices: [g.prime, g.notPrime, g.composite, g.odd], difficulty: diff };
+      return { type: 'primes', problem_type: 'primes', question: g.isNPrime(n), answer: ans, masked: g.isNPrime(n), placeholder: '?', choices: [g.prime, g.notPrime], difficulty: diff };
     }
 
     if (diff === 3) {
