@@ -78,8 +78,7 @@ function getPoolRankTier(level) {
   if (lvl >= 600) return { emoji: '🏴‍☠️', label: 'VOID SYNDICATE' };
   if (lvl >= 400) return { emoji: '🧲', label: 'SIGNAL CARTEL' };
   if (lvl >= 200) return { emoji: '🕳️', label: 'HASH COVEN' };
-  if (lvl >= 100) return { emoji: '🧟', label: 'NODE SWARM' };
-  return { emoji: '', label: '' };
+  return { emoji: '🧟', label: 'NODE SWARM' };
 }
 
 export default function Leaderboard({ itemsPerPage = 50 }) {
