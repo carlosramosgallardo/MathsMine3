@@ -563,12 +563,12 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
       localStorage.removeItem('lb_fetch_time');
       // Mark data as dirty so other tabs will refetch
       localStorage.setItem('lb_dirty_at', String(Date.now()));
+      // Show success immediately
+      window.dispatchEvent(new CustomEvent('mm3-toast', { detail: { msg: labels.poolLeft, type: 'success' } }));
       // Fetch fresh data without dispatching event (avoid race conditions)
       await fetchLeaderboard({ ignoreCache: true });
       // Notify other listeners that DB changed
       window.dispatchEvent(new CustomEvent('mm3-db-updated'));
-      // Show success after data is confirmed refreshed
-      window.dispatchEvent(new CustomEvent('mm3-toast', { detail: { msg: labels.poolLeft, type: 'success' } }));
       await fetchInvites();
     } catch (error) {
       console.error('leave pool:', error);
@@ -600,6 +600,7 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
     const onToggleWallet = (event) => {
       const wallet = String(event.detail?.wallet || '').toLowerCase();
       if (!wallet) return;
+      setViewMode('wallets');
       setSelectedWallet((current) => current === wallet ? '' : wallet);
     };
 
