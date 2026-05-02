@@ -26,9 +26,10 @@ export async function POST(req) {
     }
 
     const supabase = getSupabaseAdmin();
-
     const payload = await req.json();
     const activities = payload?.event?.activity || [];
+
+    let inserted = 0;
 
     for (const tx of activities) {
       const toAddress = tx.toAddress?.toLowerCase();
@@ -42,19 +43,41 @@ export async function POST(req) {
       if (asset === 'ETH' && amount < 0.00001) continue;
       if (asset === 'USDC' && amount < 0.01) continue;
 
+      const now = Date.now();
       const shortHash = `${hash.slice(0, 10)}...${hash.slice(-6)}`;
       const message = `[REALCHAIN] Donation detected → ${amount} ${asset} injected into MM3 mainframe :: tx ${shortHash}`;
 
-      await supabase.from('mm3_irc_messages').insert({
+      const ircPayload = {
+        id: `realchain:${hash}:${now}`,
         wallet: 'realchain',
         text: message,
-        ts: Date.now(),
+        ts: now,
         kind: 'system',
         tone: 'realchain',
+      };
+
+      const { error: insertError } = await supabase.from('mm3_irc_messages').insert({
+        wallet: ircPayload.wallet,
+        text: ircPayload.text,
+        ts: ircPayload.ts,
+        kind: ircPayload.kind,
+        tone: ircPayload.tone,
       });
+
+      if (insertError) {
+        throw insertError;
+      }
+
+      await supabase.channel('mm3-irc-relay').send({
+        type: 'broadcast',
+        event: 'message',
+        payload: ircPayload,
+      });
+
+      inserted += 1;
     }
 
-    return NextResponse.json({ ok: true });
+    return NextResponse.json({ ok: true, inserted });
   } catch (error) {
     console.error('[alchemy webhook]', error);
     return NextResponse.json({ error: 'Webhook failed' }, { status: 500 });
