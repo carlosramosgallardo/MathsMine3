@@ -439,9 +439,9 @@ export default function ManifestoClient({ enContent, esContent }) {
               border: 1px solid rgba(34, 211, 238, 0.24);
               display: block;
               height: auto;
-              max-height: 360px;
+              max-height: 340px;
               max-width: 100%;
-              object-fit: cover;
+              object-fit: contain;
               width: 100%;
             }
             #manifesto-section .mm3-doc-table-wrap {
@@ -474,6 +474,16 @@ export default function ManifestoClient({ enContent, esContent }) {
               }
               #manifesto-section .mm3-markdown-doc table {
                 min-width: 520px;
+              }
+            }
+            @media (min-width: 768px) {
+              #manifesto-section .mm3-doc-image-link {
+                margin: 1rem auto 1.2rem;
+                max-width: 440px;
+              }
+              #manifesto-section .mm3-doc-image {
+                margin: 0 auto;
+                width: min(100%, 440px);
               }
             }
           `}</style>
