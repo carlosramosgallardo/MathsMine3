@@ -37,15 +37,16 @@ export async function POST(req) {
     }
 
     const { data: deletedRows, error: deleteError } = await supabase
-      .from('mm3_wallet_pool_members')
-      .delete()
-      .ilike('wallet', wallet)
-      .select('wallet,pool_code');
+      .rpc('mm3_leave_wallet_pool', { p_wallet: wallet });
 
     if (deleteError) throw deleteError;
 
     if (!deletedRows?.length) {
-      return Response.json({ ok: false, error: 'delete_failed' }, { status: 409 });
+      return Response.json({
+        ok: false,
+        error: 'delete_failed',
+        wallet,
+      }, { status: 409 });
     }
 
     const { error: updatePoolError } = await supabase
