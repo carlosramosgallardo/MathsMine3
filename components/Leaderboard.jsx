@@ -994,7 +994,7 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
                 </div>
                 <div className="rounded border border-cyan-500/10 bg-black/60 px-1.5 py-1">
                   <div>{t('leaderboard.mm3Earned')}</div>
-                  <div className="mt-0.5 font-mono text-[0.86rem] font-semibold tracking-normal text-cyan-300">{formatCompactNum(entry.available_mm3 || 0)}</div>
+                  <div className="mt-0.5 font-mono text-[0.86rem] font-semibold tracking-normal text-cyan-300">{Number(entry.available_mm3 || 0).toFixed(2)}</div>
                 </div>
                 <div className="col-span-2 rounded border border-cyan-500/10 bg-black/60 px-1.5 py-1">
                   <div>{t('leaderboard.sellValue')}</div>
@@ -1147,7 +1147,7 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
                 </div>
                 <div className="rounded border border-cyan-500/10 bg-black/60 px-1.5 py-1">
                   <div>{t('leaderboard.mm3Earned')}</div>
-                  <div className="mt-0.5 font-mono text-[0.86rem] font-semibold tracking-normal text-cyan-300">{formatCompactNum(entry.available_mm3 || 0)}</div>
+                  <div className="mt-0.5 font-mono text-[0.86rem] font-semibold tracking-normal text-cyan-300">{Number(entry.available_mm3 || 0).toFixed(2)}</div>
                 </div>
                 <div className="col-span-2 rounded border border-cyan-500/10 bg-black/60 px-1.5 py-1">
                   <div>{t('leaderboard.sellValue')}</div>
@@ -1378,7 +1378,7 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
                   </td>
                   <td style={{ textAlign:'right', paddingRight:'1rem' }}>
                     <span className="text-[#22d3ee] font-mono font-semibold text-[0.86rem]">
-                      {formatCompactNum(entry.available_mm3 || 0)}
+                      {Number(entry.available_mm3 || 0).toFixed(2)}
                     </span>
                   </td>
                   <td style={{ textAlign:'right', paddingRight:'1rem' }}>
@@ -1547,7 +1547,7 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
                   </td>
                   <td style={{ textAlign:'right', paddingRight:'1rem' }}>
                     <span className="text-[#22d3ee] font-mono font-semibold text-[0.86rem]">
-                      {formatCompactNum(entry.available_mm3 || 0)}
+                      {Number(entry.available_mm3 || 0).toFixed(2)}
                     </span>
                   </td>
                   <td style={{ textAlign:'right', paddingRight:'1rem' }}>
