@@ -4,6 +4,14 @@ import SectionFrame from '@/components/SectionFrame';
 import { useMm3Accent } from '@/lib/use-mm3-accent';
 import { useI18n } from '@/lib/i18n-context';
 
+function ReadmeTerminal({ readmeText }) {
+  return (
+    <section className="mm3-manifesto-panel mb-6 p-4 sm:p-6 whitespace-pre-wrap leading-relaxed text-slate-300">
+      {readmeText}
+    </section>
+  );
+}
+
 export default function ManifestoClient({ enContent, esContent }) {
   const { frameAccent } = useMm3Accent();
   const { lang } = useI18n();
