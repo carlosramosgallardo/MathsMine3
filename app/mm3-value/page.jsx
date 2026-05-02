@@ -9,9 +9,11 @@ export default function MM3ValuePage() {
 
   return (
     <main className="w-full px-2 py-1" style={{ '--mm3-accent': frameAccent }}>
-      <SectionFrame accent={frameAccent} id="value-section">
-        <TokenChart />
-      </SectionFrame>
+      <div className="mx-auto w-full max-w-6xl">
+        <SectionFrame accent={frameAccent} id="value-section">
+          <TokenChart />
+        </SectionFrame>
+      </div>
     </main>
   );
 }
