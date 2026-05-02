@@ -425,8 +425,13 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
       const totalCny = members.reduce((sum, entry) => sum + (Number(entry.money_balance_cny) || 0), 0);
       const totalEur = members.reduce((sum, entry) => sum + (Number(entry.money_balance_eur) || 0), 0);
       const totalUsd = members.reduce((sum, entry) => sum + (Number(entry.money_balance_usd) || 0), 0);
-      const poolEmojiSet = new Set(members.flatMap((entry) => normalizeWalletDecorations(entry.wallet_emojis)));
-      const totalNftjis = poolEmojiSet.size;
+      const poolEmojiCounts = members.reduce((counts, entry) => {
+        for (const emoji of normalizeWalletDecorations(entry.wallet_emojis)) {
+          counts[emoji] = (counts[emoji] || 0) + 1;
+        }
+        return counts;
+      }, {});
+      const totalNftjis = Object.values(poolEmojiCounts).reduce((sum, count) => sum + count, 0);
       const totalExecs = members.reduce((sum, entry) => sum + (Number(entry.execs_count) || 0), 0);
       const totalPenalties = members.reduce((sum, entry) => {
         return sum + (entry.active_penalty?.mm3 ? 1 : 0) + (entry.active_penalty?.money ? 1 : 0);
@@ -457,7 +462,8 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
         money_balance_cny: totalCny,
         money_balance_eur: totalEur,
         money_balance_usd: totalUsd,
-        wallet_emojis: [...poolEmojiSet],
+        wallet_emojis: Object.keys(poolEmojiCounts),
+        wallet_emoji_counts: poolEmojiCounts,
         market_blocks: marketBlocks,
         member_wallets: normalizedWallets,
         member_wallets_short: normalizedWallets.map(shortWallet),
@@ -1325,12 +1331,13 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
                   <td style={{ textAlign:'center' }}>
                     <div className="flex items-center justify-center gap-1">
                       {TRADE_SLOT_ORDER.map((slot) => {
-                        const owned = ownedEmojis.includes(slot.emoji);
+                        const count = Number(entry.wallet_emoji_counts?.[slot.emoji] || 0);
+                        const owned = count > 0;
                         return (
                           <div
                             key={slot.key}
-                            title={getEmojiTitle(slot.emoji)}
-                            className="lb-slot-cell flex items-center justify-center rounded-md border text-[0.95rem]"
+                            title={owned ? `${getEmojiTitle(slot.emoji)} ×${count}` : getEmojiTitle(slot.emoji)}
+                            className="lb-slot-cell relative flex items-center justify-center rounded-md border text-[0.95rem]"
                             style={{
                               borderColor: owned ? tier.glow : 'rgba(148,163,184,0.22)',
                               background: owned ? tier.bg : 'rgba(2,6,23,0.4)',
@@ -1339,12 +1346,14 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
                             }}
                           >
                             {owned ? slot.emoji : ''}
+                            {count > 1 ? (
+                              <span className="absolute bottom-[1px] right-[2px] font-mono text-[0.48rem] font-black leading-none text-cyan-200">
+                                ×{count}
+                              </span>
+                            ) : null}
                           </div>
                         );
                       })}
-                      <span className="ml-1 font-mono text-[0.72rem] font-black text-cyan-300">
-                        ×{Number(entry.total_nftjis || 0)}
-                      </span>
                     </div>
                   </td>
                   <td style={{ textAlign:'center' }}>
