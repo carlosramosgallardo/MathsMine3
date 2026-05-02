@@ -129,7 +129,11 @@ function renderInline(text, keyPrefix = 'inline') {
 function parseMarkdown(readmeText) {
   const lines = String(readmeText || '')
     .split('\n')
-    .filter((line) => !/^\*\*Live:\*\*/.test(line.trim()));
+    .filter((line) => {
+      const trimmed = line.trim();
+      return !/^\*\*Live:\*\*/.test(trimmed)
+        && !/^\[!\[MathsMine3 Portal\]\([^)]+\)\]\([^)]+\)$/.test(trimmed);
+    });
   const blocks = [];
   let i = 0;
 
