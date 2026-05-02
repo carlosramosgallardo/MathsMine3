@@ -127,7 +127,9 @@ function renderInline(text, keyPrefix = 'inline') {
 }
 
 function parseMarkdown(readmeText) {
-  const lines = String(readmeText || '').split('\n');
+  const lines = String(readmeText || '')
+    .split('\n')
+    .filter((line) => !/^\*\*Live:\*\*/.test(line.trim()));
   const blocks = [];
   let i = 0;
 
