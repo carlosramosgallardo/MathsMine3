@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
+import { usePathname } from 'next/navigation';
 import { useI18n } from '@/lib/i18n-context';
 import supabase from '@/lib/supabaseClient';
 import { CNY_TO_EUR, CNY_TO_USD, formatMoney, formatCompactNum } from '@/lib/sell-offer';
@@ -86,6 +87,7 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
   const [contactBusy, setContactBusy] = useState('');
   const [sortConfig, setSortConfig] = useState({ key: 'status', direction: 'desc' });
   const { account } = useActiveWallet();
+  const pathname = usePathname();
   const activeWallet = account?.toLowerCase() || '';
   const abortRef = useRef(null);
   const refreshTimersRef = useRef([]);
@@ -526,8 +528,11 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
       // Clear caches to force fresh fetch
       localStorage.removeItem('lb_data');
       localStorage.removeItem('lb_fetch_time');
+      localStorage.setItem('lb_dirty_at', String(Date.now()));
       // Fetch fresh data without dispatching event (avoid race conditions)
       await fetchLeaderboard({ ignoreCache: true });
+      // Notify other listeners that DB changed
+      window.dispatchEvent(new CustomEvent('mm3-db-updated'));
       // Show success after data is confirmed refreshed
       window.dispatchEvent(new CustomEvent('mm3-toast', { detail: { msg: labels.inviteAccepted, type: 'success' } }));
       await fetchInvites();
@@ -556,8 +561,12 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
       // Clear caches to force fresh fetch
       localStorage.removeItem('lb_data');
       localStorage.removeItem('lb_fetch_time');
+      // Mark data as dirty so other tabs will refetch
+      localStorage.setItem('lb_dirty_at', String(Date.now()));
       // Fetch fresh data without dispatching event (avoid race conditions)
       await fetchLeaderboard({ ignoreCache: true });
+      // Notify other listeners that DB changed
+      window.dispatchEvent(new CustomEvent('mm3-db-updated'));
       // Show success after data is confirmed refreshed
       window.dispatchEvent(new CustomEvent('mm3-toast', { detail: { msg: labels.poolLeft, type: 'success' } }));
       await fetchInvites();
@@ -692,6 +701,18 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
     setSortConfig({ key: 'status', direction: 'desc' });
   };
 
+  const goToWalletRanking = (wallet) => {
+    const normalized = String(wallet || '').toLowerCase();
+    if (!normalized || typeof window === 'undefined') return;
+    if (pathname?.startsWith('/ranking')) {
+      showWalletRanking();
+      setSelectedWallet(normalized);
+      return;
+    }
+    localStorage.setItem('mm3_leaderboard_wallet', normalized);
+    window.location.href = '/ranking';
+  };
+
   const handleContactWallet = async (targetWallet) => {
     const normalizedTarget = normalizeWallet(targetWallet);
     if (!activeWallet || !normalizedTarget || normalizedTarget === activeWallet || contactBusy) return;
@@ -721,8 +742,12 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
       // Clear caches to force fresh fetch
       localStorage.removeItem('lb_data');
       localStorage.removeItem('lb_fetch_time');
+      // Mark data as dirty so other tabs will refetch
+      localStorage.setItem('lb_dirty_at', String(Date.now()));
       // Fetch fresh data without dispatching event (avoid race conditions)
       await fetchLeaderboard({ ignoreCache: true });
+      // Notify other listeners that DB changed
+      window.dispatchEvent(new CustomEvent('mm3-db-updated'));
       // Show success after data is confirmed refreshed
       window.dispatchEvent(new CustomEvent('mm3-toast', { detail: { msg: labels.inviteSent, type: 'success' } }));
     } catch (error) {
@@ -930,17 +955,21 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
                   <div className="mt-0.5 text-[0.72rem] font-mono font-semibold tracking-normal text-cyan-300">
                     {Array.isArray(entry.member_wallets) && entry.member_wallets.length > 0 ? (
                       <div className="flex flex-wrap items-center gap-1">
-                        {entry.member_wallets.map((wallet, index) => (
-                          <button
-                            key={`${wallet}-${index}`}
-                            type="button"
-                            onClick={() => toggleSelectedWallet(wallet)}
-                            title={wallet}
-                            className="rounded border border-cyan-500/20 bg-cyan-950/10 px-2 py-1 font-mono text-[0.72rem] font-semibold text-cyan-200 transition hover:border-cyan-300"
-                          >
-                            {shortWallet(wallet)}
-                          </button>
-                        ))}
+                        {entry.member_wallets.map((wallet, index) => {
+                          const walletColor = colorFromAddress(wallet);
+                          return (
+                            <button
+                              key={`${wallet}-${index}`}
+                              type="button"
+                              onClick={() => goToWalletRanking(wallet)}
+                              title={wallet}
+                              className="rounded border bg-cyan-950/10 px-2 py-1 font-mono text-[0.72rem] font-semibold transition hover:border-cyan-300"
+                              style={{ color: walletColor, borderColor: `${walletColor}33` }}
+                            >
+                              {shortWallet(wallet)}
+                            </button>
+                          );
+                        })}
                         {entry.hidden_member_wallet_count ? (
                           <span className="rounded border border-cyan-500/20 bg-cyan-950/10 px-2 py-1 font-mono text-[0.72rem] font-semibold text-cyan-200">
                             +{entry.hidden_member_wallet_count}
@@ -1259,28 +1288,27 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
                   </td>
                   <td>
                     <div className="flex flex-wrap items-center justify-center gap-1 text-[0.8rem] uppercase tracking-[0.08em] text-cyan-300">
-                      {(entry.member_wallets || []).map((wallet, index) => (
-                        <button
-                          key={`${wallet}-${index}`}
-                          type="button"
-                          onClick={() => toggleSelectedWallet(wallet)}
-                          title={wallet}
-                          className="rounded border border-cyan-500/20 bg-cyan-950/10 px-2 py-1 font-mono text-[0.72rem] font-semibold text-cyan-200 transition hover:border-cyan-300"
-                        >
-                          {shortWallet(wallet)}
-                        </button>
-                      ))}
+                      {(entry.member_wallets || []).map((wallet, index) => {
+                        const walletColor = colorFromAddress(wallet);
+                        return (
+                          <button
+                            key={`${wallet}-${index}`}
+                            type="button"
+                            onClick={() => goToWalletRanking(wallet)}
+                            title={wallet}
+                            className="rounded border bg-cyan-950/10 px-2 py-1 font-mono text-[0.72rem] font-semibold transition hover:border-cyan-300"
+                            style={{ color: walletColor, borderColor: `${walletColor}33` }}
+                          >
+                            {shortWallet(wallet)}
+                          </button>
+                        );
+                      })}
                       {entry.hidden_member_wallet_count ? (
                         <span className="rounded border border-cyan-500/20 bg-cyan-950/10 px-2 py-1 font-mono text-[0.72rem] font-semibold text-cyan-200">
                           +{entry.hidden_member_wallet_count}
                         </span>
                       ) : null}
                     </div>
-                  </td>
-                  <td style={{ textAlign:'center' }}>
-                    <span className="font-mono font-semibold text-cyan-100">
-                      {Number(entry.avg_nftjis || 0).toFixed(2)}
-                    </span>
                   </td>
                   <td style={{ textAlign:'center' }}>
                     <span className="font-mono font-semibold text-cyan-100">

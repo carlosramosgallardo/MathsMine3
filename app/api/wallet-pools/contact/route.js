@@ -88,7 +88,8 @@ export async function POST(req) {
     }
 
     const rows = [];
-    if (!walletPool) rows.push({ wallet, pool_code: poolCode, added_by: wallet });
+    // Only auto-add the initiator when we're creating a new pool (both were poolless).
+    if (!walletPool && !targetPool) rows.push({ wallet, pool_code: poolCode, added_by: wallet });
 
     if (walletPool && targetPool) {
       // Already in same pool handled above.
@@ -127,7 +128,7 @@ export async function POST(req) {
       .update({ updated_at: new Date().toISOString() })
       .eq('pool_code', poolCode);
 
-    return Response.json({ ok: true, poolCode, inviteTo: targetWallet, wallet });
+    return Response.json({ ok: true, poolCode, inviteTo, wallet });
   } catch (error) {
     console.error('wallet pool contact error:', error);
     const missingTable = error?.code === '42P01';
