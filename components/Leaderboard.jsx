@@ -420,16 +420,16 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
     }
 
     const rows = [...grouped.entries()].map(([poolCode, members]) => {
-      const avgLevel = avg(members.map((entry) => entry.level));
-      const avgMm3 = avg(members.map((entry) => entry.available_mm3));
-      const avgCny = avg(members.map((entry) => entry.money_balance_cny));
-      const avgEur = avg(members.map((entry) => entry.money_balance_eur));
-      const avgUsd = avg(members.map((entry) => entry.money_balance_usd));
-      const avgNftjis = avg(members.map((entry) => Array.isArray(entry.market_blocks) ? entry.market_blocks.length : 0));
-      const avgBlockPen = avg(members.map((entry) => {
-        const blocks = Array.isArray(entry.market_blocks) ? entry.market_blocks.length : 0;
-        return blocks + (entry.active_penalty?.mm3 || entry.active_penalty?.money ? 1 : 0);
-      }));
+      const totalLevel = members.reduce((sum, entry) => sum + (Number(entry.level) || 0), 0);
+      const totalMm3 = members.reduce((sum, entry) => sum + (Number(entry.available_mm3) || 0), 0);
+      const totalCny = members.reduce((sum, entry) => sum + (Number(entry.money_balance_cny) || 0), 0);
+      const totalEur = members.reduce((sum, entry) => sum + (Number(entry.money_balance_eur) || 0), 0);
+      const totalUsd = members.reduce((sum, entry) => sum + (Number(entry.money_balance_usd) || 0), 0);
+      const poolEmojiSet = new Set(members.flatMap((entry) => normalizeWalletDecorations(entry.wallet_emojis)));
+      const totalNftjis = poolEmojiSet.size;
+      const totalPenalties = members.reduce((sum, entry) => {
+        return sum + (entry.active_penalty?.mm3 ? 1 : 0) + (entry.active_penalty?.money ? 1 : 0);
+      }, 0);
       const marketBlocks = uniqueBy(
         members.flatMap((entry) => Array.isArray(entry.market_blocks) ? entry.market_blocks : []),
         (block) => block.block_key
@@ -448,14 +448,14 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
         is_pool: true,
         pool_code: poolCode,
         member_count: members.length,
-        level: avgLevel,
-        avg_nftjis: avgNftjis,
-        avg_block_pen: avgBlockPen,
-        available_mm3: avgMm3,
-        money_balance_cny: avgCny,
-        money_balance_eur: avgEur,
-        money_balance_usd: avgUsd,
-        wallet_emojis: [...new Set(members.flatMap((entry) => normalizeWalletDecorations(entry.wallet_emojis)))],
+        level: totalLevel,
+        total_nftjis: totalNftjis,
+        total_penalties: totalPenalties,
+        available_mm3: totalMm3,
+        money_balance_cny: totalCny,
+        money_balance_eur: totalEur,
+        money_balance_usd: totalUsd,
+        wallet_emojis: [...poolEmojiSet],
         market_blocks: marketBlocks,
         member_wallets: normalizedWallets,
         member_wallets_short: normalizedWallets.map(shortWallet),
@@ -466,10 +466,10 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
 
     const getValue = (entry) => {
       if (sortConfig.key === 'money') return Number(entry[moneyKey]) || 0;
-      if (sortConfig.key === 'nftji') return Number(entry.avg_nftjis) || 0;
+      if (sortConfig.key === 'nftji') return Number(entry.total_nftjis) || 0;
       if (sortConfig.key === 'wallets') return String((entry.member_wallets || []).join(' ')).toLowerCase();
-      if (sortConfig.key === 'block') return Number(entry.avg_block_pen) || 0;
-      if (sortConfig.key === 'rank') return getRankTier(clampRankLevel(Math.round(entry.level))).label;
+      if (sortConfig.key === 'block') return Number(entry.total_penalties) || 0;
+      if (sortConfig.key === 'rank') return '';
       if (sortConfig.key === 'pool') return String(entry.pool_code || '').toLowerCase();
       return entry[sortConfig.key];
     };
@@ -952,7 +952,7 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
                 </div>
                 <div className="rounded border border-cyan-500/10 bg-black/60 px-1.5 py-1">
                   <div>{t('leaderboard.rank')}</div>
-                  <div className="mt-0.5 text-sm font-bold tracking-normal" style={{ color: tier.color }}>{tier.emoji}</div>
+                  <div className="mt-0.5 text-sm font-bold tracking-normal text-slate-700">—</div>
                 </div>
                 <div className="col-span-3 rounded border border-cyan-500/10 bg-black/60 px-1.5 py-1">
                   <div>{labels.wallets}</div>
@@ -1319,13 +1319,33 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
                     </div>
                   </td>
                   <td style={{ textAlign:'center' }}>
-                    <span className="font-mono font-semibold text-cyan-100">
-                      {Number(entry.avg_nftjis || 0).toFixed(2)}
-                    </span>
+                    <div className="flex items-center justify-center gap-1">
+                      {TRADE_SLOT_ORDER.map((slot) => {
+                        const owned = ownedEmojis.includes(slot.emoji);
+                        return (
+                          <div
+                            key={slot.key}
+                            title={getEmojiTitle(slot.emoji)}
+                            className="lb-slot-cell flex items-center justify-center rounded-md border text-[0.95rem]"
+                            style={{
+                              borderColor: owned ? tier.glow : 'rgba(148,163,184,0.22)',
+                              background: owned ? tier.bg : 'rgba(2,6,23,0.4)',
+                              color: owned ? tier.color : 'rgba(100,116,139,0.35)',
+                              boxShadow: owned ? `0 0 12px ${tier.color}22` : 'none',
+                            }}
+                          >
+                            {owned ? slot.emoji : ''}
+                          </div>
+                        );
+                      })}
+                      <span className="ml-1 font-mono text-[0.72rem] font-black text-cyan-300">
+                        ×{Number(entry.total_nftjis || 0)}
+                      </span>
+                    </div>
                   </td>
                   <td style={{ textAlign:'center' }}>
-                    <span className="font-mono font-semibold text-cyan-100">
-                      {Number(entry.avg_block_pen || 0).toFixed(2)}
+                    <span className="font-mono font-semibold text-rose-300">
+                      -{Number(entry.total_penalties || 0)}
                     </span>
                   </td>
                   <td style={{ textAlign:'center' }}>
@@ -1334,8 +1354,8 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
                     </span>
                   </td>
                   <td style={{ textAlign:'center' }}>
-                    <span className="inline-flex items-center justify-center text-[0.8rem] font-mono font-bold" style={{ color: tier.color }} title={tier.label}>
-                      <span>{tier.emoji}</span>
+                    <span className="inline-flex items-center justify-center text-[0.8rem] font-mono font-bold text-slate-700">
+                      —
                     </span>
                   </td>
                   <td style={{ textAlign:'right', paddingRight:'1rem' }}>
