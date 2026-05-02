@@ -135,4 +135,4 @@ export async function POST(req) {
       { status: missingTable ? 501 : 500 }
     );
   }
-}
+}}
