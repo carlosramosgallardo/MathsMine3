@@ -32,8 +32,9 @@ export async function POST(req) {
     let inserted = 0;
 
     for (const tx of activities) {
+      const fromAddress = tx.fromAddress?.toLowerCase();
       const toAddress = tx.toAddress?.toLowerCase();
-      const amount = Number(tx.value || 0);
+      const amount = Math.abs(Number(tx.value || 0));
       const asset = tx.asset || 'UNKNOWN';
       const hash = tx.hash;
 
@@ -45,7 +46,11 @@ export async function POST(req) {
 
       const now = Date.now();
       const shortHash = `${hash.slice(0, 10)}...${hash.slice(-6)}`;
-      const message = `Donation detected → ${amount} ${asset} injected into MM3 mainframe :: tx ${shortHash}`;
+      const isSelf = fromAddress === ADMIN_WALLET && toAddress === ADMIN_WALLET;
+
+      const message = isSelf
+        ? `Self injection → ${amount} ${asset} recycled into MM3 mainframe :: tx ${shortHash}`
+        : `Donation detected → ${amount} ${asset} injected into MM3 mainframe :: tx ${shortHash}`;
 
       const ircPayload = {
         id: `realchain:${hash}:${now}`,
