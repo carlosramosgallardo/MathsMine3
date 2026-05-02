@@ -12,7 +12,7 @@ A retro math-mining portal where timed problem-solving drives a fully simulated 
 
 ---
 
-<!-- MANIFESTO_START -->
+<!-- MANIFESTO_EN_START -->
 
 # MathsMine3 Manifesto
 
@@ -102,7 +102,97 @@ MathsMine3 is a fictional math game and simulated crypto economy. MM3 is not a r
 
 Read the public legal pages: [Privacy](https://mathsmine3.xyz/privacy) · [Terms](https://mathsmine3.xyz/terms)
 
-<!-- MANIFESTO_END -->
+<!-- MANIFESTO_EN_END -->
+
+<!-- MANIFESTO_ES_START -->
+
+# MathsMine3 Manifiesto
+
+> Terminal de matemáticas cripto freak antigua. Resuelve rápido. Mina MM3 falso. Rompe la cadena. Vuelve más agudo.
+
+MathsMine3 es un portal retro de minería matemática donde la resolución de problemas cronometrados, la identidad de wallet, la economía cripto simulada, los bloques de Market, la presencia en IRC y la presión de clasificación se convierten en un ritual terminal compartido.
+
+Sin minería real. Sin dinero real. Sin producto de inversión. Solo un mainframe ficticio donde la habilidad matemática, la velocidad, la suerte y la persistencia de la wallet producen una economía de juego en vivo.
+
+## Índice del Manifiesto
+
+1. [Propósito del Mainframe](#propósito-del-mainframe)
+2. [Cómo Funciona](#cómo-funciona)
+3. [¿Por Qué MathsMine3?](#por-qué-mathsmine3)
+4. [Mapa de Menú](#mapa-de-menú)
+5. [IRC Relay Social](#irc-relay-social)
+6. [Participación](#participación)
+7. [API y Transparencia](#api-y-transparencia)
+8. [Legal](#legal)
+
+## Propósito del Mainframe
+
+MathsMine3 existe para fusionar el aprendizaje matemático, la identidad de wallet y la estética cripto-freak en un único circuito de tensión. No quiere parecer una academia. Quiere parecer un terminal vivo que te obliga a pensar rápido, arriesgar, regresar y recordar.
+
+Una respuesta incorrecta lo rompe todo. Una tirada de suerte lo cambia. Un EXEC de trade muta el mundo. Un comando del Market puede penalizar el tablero.
+
+El Manifiesto decodifica ese sistema. Explica la intención detrás del portal, vincula sus módulos y proporciona un mapa legible de por qué cada pantalla existe dentro del ritual: Mining, Trading, Ranking, valor MM3, Market, IRC y @FreakingAI.
+
+## Cómo Funciona
+
+**Juego.** Mining es el bucle central: responde preguntas de matemáticas cronometradas, gana MM3 ficticio, pierde nivel al fallar, escala a través de rangos y empuja tu wallet más profundamente en el mainframe.
+
+**Rangos.** Las wallets progresan a través de NOVICE, MINER, HACKER, WIZARD y LEGEND. El rango influye en las tasas de trade, el estado visual y cómo la economía reacciona al jugador.
+
+**Economía.** MM3 es ficticio y simulado, pero el sistema está conectado internamente: recompensas de minería, comisiones de trade, compras/reventas de Market, drops de NFTJI, revives de corazón, estado macro y ventanas de Dice alimentan la capa de valor visible del portal.
+
+**Comunidad.** El relay IRC convierte las wallets en presencia social. Los jugadores aparecen con identidad de wallet, bandera de país y NTFJIs de Market. El mismo mundo que mina y tradea también habla.
+
+## ¿Por Qué MathsMine3?
+
+- **Aprendizaje adictivo.** Las matemáticas no se presentan como tarea. Es presión, recompensa, memoria, velocidad y consecuencia.
+- **Justo y transparente.** La mecánica central está documentada: cuotas, fórmulas, rangos, drops, comandos de Market, lógica de reset diario y rutas API.
+- **Identidad nativa de Web3.** Las wallets reales de Ethereum y las wallets virtuales derivadas de Google funcionan como identidades persistentes sin requerir transacciones de juego en cadena.
+- **Gratuito.** La economía es ficticia. El portal no vende un token real, rendimiento financiero o promesa de inversión.
+- **Educación solapada.** Aritmética, lógica, fracciones, primos, álgebra, geometría, porcentajes, sucesiones y definiciones se envuelven en cultura terminal en lugar de empaquetado de aula.
+
+## Mapa de Menú
+
+| Ruta | Propósito |
+|---|---|
+| [Mining](https://mathsmine3.xyz/) | Resuelve problemas de matemáticas cronometrados, mina MM3, consume SONDEOS, desencadena drops de NFTJI y construye nivel de wallet. |
+| [Trading](https://mathsmine3.xyz/trade-mm3) | Tty ficticio donde las wallets venden o compran MM3 en CNY, EUR o USD usando fórmulas de rango, macro, Dice y comisión. |
+| [Ranking](https://mathsmine3.xyz/ranking) | Leaderboard público ordenado por nivel, MM3, dinero, NTFJIs, EXECs, bloque Market, estado de penalización y precisión. |
+| [Valor MM3](https://mathsmine3.xyz/mm3-value) | Gráfico en vivo mostrando el pulso de valor simulado creado por minería, trades, shocks de NFTJI, revives y eventos de Market. |
+| [Market](https://mathsmine3.xyz/market) | Tablero de bloque 28×28 donde las wallets compran, revenden y activan NTFJIs de Market vinculados a comandos. |
+| [IRC](https://mathsmine3.xyz/irc) | Relay compartido para presencia de wallet, chat persistente, estado de comando de Market, redenciones de código numérico y cultura terminal social. |
+| [@FreakingAI](https://mathsmine3.xyz/ai-team) | Roster de entidades detrás del diseño, economía, estética, código y sistemas narrativos del portal. |
+| [API](https://mathsmine3.xyz/api) | Documentación pública y puntos finales para inspeccionar valor de token, historial, eventos, leaderboard y estado del servicio. |
+
+## IRC Relay Social
+
+El canal IRC es la capa social de MathsMine3. No es una red social genérica; es un terminal vivo conectado al pulso del portal.
+
+Las wallets activas entran al relay con banderas de país y NTFJIs de Market. Los mensajes de chat persisten en la base de datos. Lanzamientos de comandos de Market, penalizaciones, redenciones de código numérico, bloqueos de comandos y presencia de wallet aparecen como líneas de estilo shell del sistema.
+
+Cualquiera puede entrar sin una wallet en modo de solo lectura fantasma. Los fantasmas pueden ver el relay y aparecer como presencia anónima, pero no pueden escribir, lanzar comandos ni reclamar identidad de wallet.
+
+IRC hace que el portal sea compartido: minería, trading, ranking, compra, reventa, disparo de comandos y conversación todo sucede dentro de la misma cultura terminal antigua.
+
+## Participación
+
+MathsMine3 está diseñado para visitas repetidas: SONDEOS diarios, ventanas de reset UTC, cinco EXECs de trade diarios, bloqueos de comandos de Market, redenciones de código numérico y progresión de wallet a largo plazo.
+
+El jugador ideal no solo resuelve una pregunta y se va. Mina, verifica el ranking, mira el valor MM3, tradea en la ventana correcta, entra a IRC, inspecciona bloques de Market y regresa después del reset.
+
+## API y Transparencia
+
+La [API REST](https://mathsmine3.xyz/api) expone datos de servicio público para que el sistema pueda inspeccionarse sin depender solo de la IU.
+
+El README más amplio a continuación documenta fórmulas, cuotas, rutas, tablas de base de datos, mecánica de comandos de Market, lógica de ranking y convenciones de diseño. El Manifiesto es la puerta legible; el resto del README es el manual de operador completo.
+
+## Legal
+
+MathsMine3 es un juego de matemáticas ficticio y economía cripto simulada. MM3 no es una criptomoneda real, no representa dinero, capital, rendimiento o derechos financieros, y no está destinado a inversión.
+
+Lee las páginas legales públicas: [Privacidad](https://mathsmine3.xyz/privacy) · [Términos](https://mathsmine3.xyz/terms)
+
+<!-- MANIFESTO_ES_END -->
 
 ---
 

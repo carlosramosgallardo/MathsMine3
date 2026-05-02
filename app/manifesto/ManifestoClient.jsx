@@ -282,12 +282,12 @@ function ReadmeTerminal({ readmeText }) {
   );
 }
 
-export default function ManifestoClient() {
+export default function ManifestoClient({ enContent, esContent }) {
   const { frameAccent } = useMm3Accent();
-  const { t } = useI18n();
+  const { lang } = useI18n();
 
-  // Get manifesto content from translations (manifesto is structured to support bilingual content)
-  const manifestoContent = t('manifesto.manifestoContent') || '';
+  // Select manifesto content based on current language
+  const manifestoContent = lang === 'es' ? esContent : enContent;
 
   return (
     <main className="w-full px-2 py-1" style={{ '--mm3-accent': frameAccent }}>
