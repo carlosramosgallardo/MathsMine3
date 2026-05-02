@@ -1074,10 +1074,6 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
             activeWalletPool &&
             entry.pool_code &&
             String(activeWalletPool).toUpperCase() === String(entry.pool_code).toUpperCase();
-          const isSamePool =
-            activeWalletPool &&
-            entry.pool_code &&
-            String(activeWalletPool).toUpperCase() === String(entry.pool_code).toUpperCase();
           const sellValue =
             quoteCurrency === 'USD'
               ? entry.money_balance_usd
