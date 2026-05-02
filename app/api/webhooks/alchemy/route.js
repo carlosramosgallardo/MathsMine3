@@ -45,7 +45,7 @@ export async function POST(req) {
 
       const now = Date.now();
       const shortHash = `${hash.slice(0, 10)}...${hash.slice(-6)}`;
-      const message = `[REALCHAIN] Donation detected → ${amount} ${asset} injected into MM3 mainframe :: tx ${shortHash}`;
+      const message = `Donation detected → ${amount} ${asset} injected into MM3 mainframe :: tx ${shortHash}`;
 
       const ircPayload = {
         id: `realchain:${hash}:${now}`,
