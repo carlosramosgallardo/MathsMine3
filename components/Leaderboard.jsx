@@ -1070,6 +1070,10 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
           const lvl = clampRankLevel(entry.level);
           const tier = getRankTier(lvl);
           const isOnline = onlineWallets.has(normalizedWallet);
+          const isSamePool =
+            activeWalletPool &&
+            entry.pool_code &&
+            String(activeWalletPool).toUpperCase() === String(entry.pool_code).toUpperCase();
           const sellValue =
             quoteCurrency === 'USD'
               ? entry.money_balance_usd
@@ -1107,11 +1111,11 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
                   <button
                     type="button"
                     onClick={() => handleContactWallet(entry.wallet)}
-                    disabled={contactBusy === normalizedWallet}
-                    className="shrink-0 rounded border border-cyan-400/25 bg-cyan-950/10 px-1.5 py-0.5 text-[0.56rem] font-black uppercase tracking-[0.12em] text-cyan-300 disabled:opacity-40"
-                    title={labels.addContactTitle}
+                    disabled={contactBusy === normalizedWallet || isSamePool}
+                    className="shrink-0 rounded border border-cyan-400/25 bg-cyan-950/10 px-1.5 py-0.5 text-[0.56rem] font-black uppercase tracking-[0.12em] text-cyan-300 disabled:cursor-not-allowed disabled:opacity-30"
+                    title={isSamePool ? labels.poolSame : labels.addContactTitle}
                   >
-                    +{labels.addContact}
+                    {isSamePool ? labels.pool : `+${labels.addContact}`}
                   </button>
                 ) : null}
                 <span className={`lb-status-chip ${isOnline ? 'online' : 'offline'} shrink-0`}>
@@ -1392,10 +1396,11 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
                         <button
                           type="button"
                           onClick={() => handleContactWallet(entry.wallet)}
-                          disabled={contactBusy === normalizedWallet}
-                          className="w-fit rounded border border-cyan-400/25 bg-cyan-950/10 px-2 py-0.5 font-mono text-[0.58rem] font-black uppercase tracking-[0.14em] text-cyan-300 transition hover:border-cyan-300 disabled:cursor-wait disabled:opacity-50"
+                          disabled={contactBusy === normalizedWallet || isSamePool}
+                          className="w-fit rounded border border-cyan-400/25 bg-cyan-950/10 px-2 py-0.5 font-mono text-[0.58rem] font-black uppercase tracking-[0.14em] text-cyan-300 transition hover:border-cyan-300 disabled:cursor-not-allowed disabled:opacity-30"
+                          title={isSamePool ? labels.poolSame : labels.addContactTitle}
                         >
-                          {contactBusy === normalizedWallet ? '...' : labels.addContact}
+                          {isSamePool ? labels.pool : contactBusy === normalizedWallet ? '...' : labels.addContact}
                         </button>
                       ) : null}
                     </div>
