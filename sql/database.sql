@@ -28,6 +28,7 @@ DROP TABLE IF EXISTS mm3_market_state CASCADE;
 DROP TABLE IF EXISTS mm3_macro_state CASCADE;
 DROP TABLE IF EXISTS mm3_wallet_presence CASCADE;
 DROP TABLE IF EXISTS mm3_wallet_pool_members CASCADE;
+DROP TABLE IF EXISTS mm3_wallet_pool_invitations CASCADE;
 DROP TABLE IF EXISTS mm3_wallet_pools CASCADE;
 DROP TABLE IF EXISTS player_progress CASCADE;
 DROP TABLE IF EXISTS leaderboard_data CASCADE;
@@ -137,6 +138,16 @@ CREATE TABLE mm3_wallet_pool_members (
   pool_code TEXT NOT NULL REFERENCES mm3_wallet_pools(pool_code) ON DELETE CASCADE,
   added_by TEXT NOT NULL,
   joined_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE mm3_wallet_pool_invitations (
+  id BIGSERIAL PRIMARY KEY,
+  wallet TEXT NOT NULL,
+  invited_by TEXT NOT NULL,
+  pool_code TEXT NOT NULL REFERENCES mm3_wallet_pools(pool_code) ON DELETE CASCADE,
+  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'accepted', 'declined')),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  accepted_at TIMESTAMPTZ
 );
 
 CREATE TABLE mm3_market_state (
@@ -305,6 +316,8 @@ CREATE INDEX idx_leaderboard_data_total_eth ON leaderboard_data(total_eth DESC);
 CREATE INDEX idx_player_progress_level ON player_progress(level DESC);
 CREATE INDEX idx_mm3_wallet_presence_last_seen ON mm3_wallet_presence(last_seen DESC);
 CREATE INDEX idx_mm3_wallet_pool_members_pool_code ON mm3_wallet_pool_members(pool_code);
+CREATE INDEX idx_mm3_wallet_pool_invitations_pool_code ON mm3_wallet_pool_invitations(pool_code);
+CREATE INDEX idx_mm3_wallet_pool_invitations_wallet ON mm3_wallet_pool_invitations(wallet);
 CREATE INDEX idx_mm3_sell_transactions_wallet ON mm3_sell_transactions(wallet);
 CREATE INDEX idx_mm3_sell_transactions_created_at ON mm3_sell_transactions(created_at DESC);
 CREATE INDEX idx_mm3_market_events_wallet ON mm3_market_events(wallet);
@@ -483,6 +496,7 @@ ALTER TABLE mm3_macro_state ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mm3_wallet_presence ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mm3_wallet_pools ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mm3_wallet_pool_members ENABLE ROW LEVEL SECURITY;
+ALTER TABLE mm3_wallet_pool_invitations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mm3_sell_transactions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mm3_market_events ENABLE ROW LEVEL SECURITY;
 ALTER TABLE api_requests ENABLE ROW LEVEL SECURITY;
@@ -551,6 +565,13 @@ CREATE POLICY "public_read_mm3_wallet_pool_members" ON mm3_wallet_pool_members F
 
 DROP POLICY IF EXISTS "public_insert_mm3_wallet_pool_members" ON mm3_wallet_pool_members;
 CREATE POLICY "public_insert_mm3_wallet_pool_members" ON mm3_wallet_pool_members FOR INSERT TO public WITH CHECK (wallet <> '' AND pool_code <> '' AND added_by <> '');
+
+DROP POLICY IF EXISTS "public_read_mm3_wallet_pool_invitations" ON mm3_wallet_pool_invitations;
+DROP POLICY IF EXISTS "public_insert_mm3_wallet_pool_invitations" ON mm3_wallet_pool_invitations;
+DROP POLICY IF EXISTS "public_update_mm3_wallet_pool_invitations" ON mm3_wallet_pool_invitations;
+CREATE POLICY "public_read_mm3_wallet_pool_invitations" ON mm3_wallet_pool_invitations FOR SELECT TO public USING (true);
+CREATE POLICY "public_insert_mm3_wallet_pool_invitations" ON mm3_wallet_pool_invitations FOR INSERT TO public WITH CHECK (wallet <> '' AND invited_by <> '' AND pool_code <> '');
+CREATE POLICY "public_update_mm3_wallet_pool_invitations" ON mm3_wallet_pool_invitations FOR UPDATE TO public USING (true) WITH CHECK (wallet <> '' AND invited_by <> '' AND pool_code <> '');
 
 DROP POLICY IF EXISTS "public_insert_mm3_market_state" ON mm3_market_state;
 CREATE POLICY "public_insert_mm3_market_state" ON mm3_market_state FOR INSERT TO public WITH CHECK (id = 1);

@@ -56,6 +56,7 @@ DELETE FROM mm3_command_penalties;
 DELETE FROM mm3_hidden_cmd_executions;
 DELETE FROM daily_task_claims;
 DELETE FROM mm3_wallet_pool_members;
+DELETE FROM mm3_wallet_pool_invitations;
 DELETE FROM mm3_wallet_pools;
 
 -- 6. Historial de EXECs

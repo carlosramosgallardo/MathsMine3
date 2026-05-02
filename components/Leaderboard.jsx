@@ -43,6 +43,16 @@ function convertPenaltyEur(value, currency) {
   return eur;
 }
 
+function normalizeWallet(value) {
+  return String(value || '').trim().toLowerCase();
+}
+
+function shortWallet(wallet) {
+  const normalized = String(wallet || '').trim();
+  if (!normalized) return '';
+  return normalized.length <= 5 ? normalized : `...${normalized.slice(-5)}`;
+}
+
 function avg(values) {
   const nums = values.map(Number).filter((value) => Number.isFinite(value));
   if (!nums.length) return 0;
@@ -86,11 +96,21 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
         addContact: 'contacto',
         addContactTitle: 'Crear contacto / unir wallets en pool',
         members: 'wallets',
+        wallets: 'Wallets',
         noPools: 'Sin pools todavía. Crea contactos desde el ranking de wallets.',
-        poolCreated: 'Pool conectado.',
+        poolCreated: 'Invitación enviada.',
+        inviteSent: 'Invitación enviada.',
+        inviteAccepted: 'Invitación aceptada.',
+        poolLeft: 'Has salido del pool.',
         poolError: 'No se pudo crear el contacto.',
         poolConflict: 'Las dos wallets ya pertenecen a pools distintos.',
+        poolFull: 'El pool ya tiene 5 wallets.',
+        poolSame: 'Ya estáis en el mismo pool.',
         poolMissing: 'Instala sql/add_wallet_pools.sql en Supabase.',
+        pendingInvites: 'Invitaciones pendientes',
+        acceptInvite: 'Aceptar',
+        invitedBy: 'Invitado por',
+        leavePool: 'Salir del pool',
       }
     : {
         pool: 'Pool',
@@ -99,11 +119,21 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
         addContact: 'contact',
         addContactTitle: 'Create contact / join wallets into a pool',
         members: 'wallets',
+        wallets: 'Wallets',
         noPools: 'No pools yet. Create contacts from the wallet ranking.',
-        poolCreated: 'Pool connected.',
+        poolCreated: 'Invitation sent.',
+        inviteSent: 'Invitation sent.',
+        inviteAccepted: 'Invitation accepted.',
+        poolLeft: 'You left the pool.',
         poolError: 'Could not create contact.',
         poolConflict: 'Both wallets already belong to different pools.',
+        poolFull: 'The pool already has 5 wallets.',
+        poolSame: 'Already in the same pool.',
         poolMissing: 'Install sql/add_wallet_pools.sql in Supabase.',
+        pendingInvites: 'Pending invitations',
+        acceptInvite: 'Accept',
+        invitedBy: 'Invited by',
+        leavePool: 'Leave pool',
       };
 
   const fetchLeaderboard = useCallback(async ({ ignoreCache = false } = {}) => {
@@ -218,24 +248,29 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
       }
 
       const poolByWallet = new Map();
+      const poolMemberWallets = [];
       if (!poolMembersResponse?.error) {
         for (const entry of poolMembersResponse?.data || []) {
-          const wallet = String(entry.wallet || '').toLowerCase();
+          const wallet = normalizeWallet(entry.wallet);
           const poolCode = String(entry.pool_code || '').toUpperCase();
-          if (wallet && poolCode) poolByWallet.set(wallet, poolCode);
+          if (wallet && poolCode) {
+            poolByWallet.set(wallet, poolCode);
+            poolMemberWallets.push(wallet);
+          }
         }
       } else if (poolMembersResponse.error?.code !== '42P01') {
         console.error('Leaderboard pool fetch:', poolMembersResponse.error);
       }
 
-      // Union of leaderboard_data + player_progress wallets so that wallets
-      // dropped from leaderboard_data by the trigger after a reset still appear
+      // Union of leaderboard_data + player_progress + pool wallets so that wallets
+      // only present in pool membership still appear in the leaderboard.
       const lbByWallet = new Map(
-        (leaderboardRows || []).map((r) => [String(r.wallet || '').toLowerCase(), r])
+        (leaderboardRows || []).map((r) => [normalizeWallet(r.wallet), r])
       );
       const allWallets = new Set([
         ...lbByWallet.keys(),
         ...earnedByWallet.keys(),
+        ...poolMemberWallets,
       ]);
 
       const mergedData = [...allWallets]
@@ -393,6 +428,11 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
         mm3: penalties.find((penalty) => penalty?.mm3)?.mm3 || null,
         money: penalties.find((penalty) => penalty?.money)?.money || null,
       };
+      const normalizedWallets = [...new Set(members
+        .map((entry) => normalizeWallet(entry.wallet))
+        .filter(Boolean)
+        .slice(0, 5)
+      )];
       return {
         is_pool: true,
         pool_code: poolCode,
@@ -405,6 +445,8 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
         money_balance_usd: avgUsd,
         wallet_emojis: [...new Set(members.flatMap((entry) => normalizeWalletDecorations(entry.wallet_emojis)))],
         market_blocks: marketBlocks,
+        member_wallets: normalizedWallets.map(shortWallet),
+        hidden_member_wallet_count: Math.max(0, new Set(members.map((entry) => normalizeWallet(entry.wallet)).filter(Boolean)).size - normalizedWallets.length),
         active_penalty: activePenalty.mm3 || activePenalty.money ? activePenalty : null,
       };
     });
@@ -412,7 +454,7 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
     const getValue = (entry) => {
       if (sortConfig.key === 'money') return Number(entry[moneyKey]) || 0;
       if (sortConfig.key === 'nftji') return normalizeWalletDecorations(entry.wallet_emojis).length;
-      if (sortConfig.key === 'execs') return Number(entry.execs_count) || 0;
+      if (sortConfig.key === 'wallets') return String((entry.member_wallets || []).join(' ')).toLowerCase();
       if (sortConfig.key === 'block') return (Array.isArray(entry.market_blocks) ? entry.market_blocks.length : 0) + (entry.active_penalty?.mm3 || entry.active_penalty?.money ? 1 : 0);
       if (sortConfig.key === 'rank') return getRankTier(clampRankLevel(Math.round(entry.level))).label;
       if (sortConfig.key === 'pool') return String(entry.pool_code || '').toLowerCase();
@@ -439,6 +481,84 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
   const activeWalletPool = activeWallet
     ? leaderboard.find((entry) => String(entry.wallet || '').toLowerCase() === activeWallet)?.pool_code || ''
     : '';
+  const [incomingInvites, setIncomingInvites] = useState([]);
+  const [acceptBusy, setAcceptBusy] = useState('');
+  const [leaveBusy, setLeaveBusy] = useState(false);
+
+  const fetchInvites = useCallback(async () => {
+    if (!activeWallet) { setIncomingInvites([]); return; }
+    try {
+      const response = await fetch(`/api/wallet-pools/invites?wallet=${encodeURIComponent(activeWallet)}`);
+      const payload = await response.json().catch(() => ({}));
+      if (response.ok && payload.ok) {
+        setIncomingInvites(Array.isArray(payload.invites) ? payload.invites : []);
+      } else {
+        setIncomingInvites([]);
+      }
+    } catch {
+      setIncomingInvites([]);
+    }
+  }, [activeWallet]);
+
+  const handleAcceptInvite = async (inviteId) => {
+    if (!activeWallet || acceptBusy || !inviteId) return;
+    setAcceptBusy(inviteId);
+    try {
+      const response = await fetch('/api/wallet-pools/accept', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ wallet: activeWallet, inviteId }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || !payload.ok) {
+        window.dispatchEvent(new CustomEvent('mm3-toast', { detail: { msg: labels.poolError, type: 'error' } }));
+        return;
+      }
+      localStorage.removeItem('lb_data');
+      localStorage.removeItem('lb_fetch_time');
+      window.dispatchEvent(new CustomEvent('mm3-db-updated', { detail: { poolCode: payload.poolCode } }));
+      window.dispatchEvent(new CustomEvent('mm3-toast', { detail: { msg: labels.inviteAccepted, type: 'success' } }));
+      await fetchLeaderboard({ ignoreCache: true });
+      await fetchInvites();
+    } catch (error) {
+      console.error('accept invite:', error);
+      window.dispatchEvent(new CustomEvent('mm3-toast', { detail: { msg: labels.poolError, type: 'error' } }));
+    } finally {
+      setAcceptBusy('');
+    }
+  };
+
+  const handleLeavePool = async () => {
+    if (!activeWallet || leaveBusy || !activeWalletPool) return;
+    setLeaveBusy(true);
+    try {
+      const response = await fetch('/api/wallet-pools/leave', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ wallet: activeWallet }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || !payload.ok) {
+        window.dispatchEvent(new CustomEvent('mm3-toast', { detail: { msg: labels.poolError, type: 'error' } }));
+        return;
+      }
+      localStorage.removeItem('lb_data');
+      localStorage.removeItem('lb_fetch_time');
+      window.dispatchEvent(new CustomEvent('mm3-db-updated', { detail: { poolCode: payload.poolCode } }));
+      window.dispatchEvent(new CustomEvent('mm3-toast', { detail: { msg: labels.poolLeft, type: 'success' } }));
+      await fetchLeaderboard({ ignoreCache: true });
+      await fetchInvites();
+    } catch (error) {
+      console.error('leave pool:', error);
+      window.dispatchEvent(new CustomEvent('mm3-toast', { detail: { msg: labels.poolError, type: 'error' } }));
+    } finally {
+      setLeaveBusy(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchInvites();
+  }, [activeWallet, fetchInvites]);
 
   useEffect(() => {
     const total = Math.max(1, Math.ceil(activeLeaderboard.length / itemsPerPage));
@@ -570,14 +690,20 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
           ? labels.poolConflict
           : payload.error === 'wallet_pools_not_installed'
             ? labels.poolMissing
-            : labels.poolError;
+            : payload.error === 'pool_full'
+              ? labels.poolFull
+              : payload.error === 'already_in_same_pool'
+                ? labels.poolSame
+                : payload.error === 'invite_already_exists'
+                  ? labels.poolCreated
+                  : labels.poolError;
         window.dispatchEvent(new CustomEvent('mm3-toast', { detail: { msg, type: 'error' } }));
         return;
       }
       localStorage.removeItem('lb_data');
       localStorage.removeItem('lb_fetch_time');
       window.dispatchEvent(new CustomEvent('mm3-db-updated', { detail: { poolCode: payload.poolCode } }));
-      window.dispatchEvent(new CustomEvent('mm3-toast', { detail: { msg: `${labels.poolCreated} ${payload.poolCode}`, type: 'success' } }));
+      window.dispatchEvent(new CustomEvent('mm3-toast', { detail: { msg: labels.inviteSent, type: 'success' } }));
       await fetchLeaderboard({ ignoreCache: true });
     } catch (error) {
       console.error('contact wallet:', error);
@@ -653,6 +779,16 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
           {viewMode === 'pools' ? labels.poolRanking : labels.walletRanking}
         </div>
         <div className="flex items-center gap-2">
+          {activeWallet && activeWalletPool ? (
+            <button
+              type="button"
+              onClick={handleLeavePool}
+              disabled={leaveBusy}
+              className="rounded border border-rose-400/30 bg-rose-950/20 px-2.5 py-1 text-[0.68rem] font-black uppercase tracking-[0.16em] text-rose-300 transition hover:border-rose-300 hover:text-rose-50 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              {labels.leavePool} #{activeWalletPool}
+            </button>
+          ) : null}
           {viewMode === 'pools' ? (
             <button
               type="button"
@@ -673,6 +809,30 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
           )}
         </div>
       </div>
+
+      {incomingInvites.length > 0 && (
+        <div className="mb-3 rounded-xl border border-cyan-500/20 bg-slate-950/70 p-3 text-sm text-slate-200">
+          <div className="mb-2 font-mono text-[0.72rem] uppercase tracking-[0.18em] text-cyan-300">{labels.pendingInvites}</div>
+          <div className="space-y-2">
+            {incomingInvites.map((invite) => (
+              <div key={invite.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-cyan-500/10 bg-black/60 p-2">
+                <div className="min-w-0">
+                  <div className="font-semibold text-cyan-100">{labels.invitedBy}: {shortWallet(invite.invited_by)}</div>
+                  <div className="text-[0.72rem] text-slate-400">Pool #{invite.pool_code}</div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleAcceptInvite(invite.id)}
+                  disabled={acceptBusy === invite.id}
+                  className="rounded border border-emerald-400/30 bg-emerald-950/15 px-3 py-1 text-[0.72rem] font-black uppercase tracking-[0.12em] text-emerald-200 transition hover:border-emerald-300 hover:text-emerald-100 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  {acceptBusy === invite.id ? '...' : labels.acceptInvite}
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {totalPages > 1 && (
         <div className="flex justify-center gap-2 mb-3 flex-wrap sm:hidden">
@@ -745,9 +905,13 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
                   <div>{t('leaderboard.rank')}</div>
                   <div className="mt-0.5 text-sm font-bold tracking-normal" style={{ color: tier.color }}>{tier.emoji}</div>
                 </div>
-                <div className="rounded border border-cyan-500/10 bg-black/60 px-1.5 py-1">
-                  <div>{t('leaderboard.execs')}</div>
-                  <div className="mt-0.5 font-mono text-[0.7rem] font-semibold tracking-normal text-cyan-300">{Number(entry.execs_count || 0).toFixed(1).replace(/\.0$/, '')}</div>
+                <div className="col-span-3 rounded border border-cyan-500/10 bg-black/60 px-1.5 py-1">
+                  <div>{labels.wallets}</div>
+                  <div className="mt-0.5 text-[0.72rem] font-mono font-semibold tracking-normal text-cyan-300">
+                    {Array.isArray(entry.member_wallets) && entry.member_wallets.length > 0
+                      ? `${entry.member_wallets.join(' ')}${entry.hidden_member_wallet_count ? ` +${entry.hidden_member_wallet_count}` : ''}`
+                      : t('leaderboard.none')}
+                  </div>
                 </div>
                 <div className="rounded border border-cyan-500/10 bg-black/60 px-1.5 py-1">
                   <div>{t('leaderboard.mm3Earned')}</div>
@@ -991,8 +1155,8 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
               <tr>
                 <th style={{ width:'7%', textAlign:'center' }}><SortButton sortKey="position" className="justify-center">{t('leaderboard.position')}</SortButton></th>
                 <th style={{ width:'18%' }}><SortButton sortKey="pool">{labels.pool}</SortButton></th>
+                <th style={{ width:'20%' }}><SortButton sortKey="wallets">{labels.wallets}</SortButton></th>
                 <th style={{ width:'15%', textAlign:'center' }} title="NFTJIs — pool union"><SortButton sortKey="nftji" className="justify-center">NTFJIs</SortButton></th>
-                <th style={{ width:'8%', textAlign:'center' }}><SortButton sortKey="execs" className="justify-center">{t('leaderboard.execs')}</SortButton></th>
                 <th style={{ width:'13%', textAlign:'center' }}><SortButton sortKey="block" className="justify-center">{t('leaderboard.blockPenalty')}</SortButton></th>
                 <th style={{ width:'8%', textAlign:'center' }}><SortButton sortKey="level" className="justify-center">{t('leaderboard.level')}</SortButton></th>
                 <th style={{ width:'8%', textAlign:'center' }}><SortButton sortKey="rank" className="justify-center">{t('leaderboard.rank')}</SortButton></th>
@@ -1056,32 +1220,19 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
                       {entry.member_count} {labels.members}
                     </span>
                   </td>
-                  <td style={{ textAlign:'center' }}>
-                    <div className="flex items-center justify-center gap-1">
-                      {TRADE_SLOT_ORDER.map((slot) => {
-                        const owned = ownedEmojis.includes(slot.emoji);
-                        return (
-                          <div
-                            key={slot.key}
-                            title={getEmojiTitle(slot.emoji)}
-                            className="lb-slot-cell flex items-center justify-center rounded-md border text-[0.95rem]"
-                            style={{
-                              borderColor: owned ? tier.glow : 'rgba(148,163,184,0.22)',
-                              background: owned ? tier.bg : 'rgba(2,6,23,0.4)',
-                              color: owned ? tier.color : 'rgba(100,116,139,0.35)',
-                              boxShadow: owned ? `0 0 12px ${tier.color}22` : 'none',
-                            }}
-                          >
-                            {owned ? slot.emoji : ''}
-                          </div>
-                        );
-                      })}
+                  <td>
+                    <div className="flex flex-wrap items-center justify-center gap-1 text-[0.8rem] uppercase tracking-[0.08em] text-cyan-300">
+                      {(entry.member_wallets || []).map((wallet, index) => (
+                        <span key={`${wallet}-${index}`} className="rounded border border-cyan-500/20 bg-cyan-950/10 px-2 py-1 font-mono text-[0.72rem] font-semibold">
+                          {wallet}
+                        </span>
+                      ))}
+                      {entry.hidden_member_wallet_count ? (
+                        <span className="rounded border border-cyan-500/20 bg-cyan-950/10 px-2 py-1 font-mono text-[0.72rem] font-semibold">
+                          +{entry.hidden_member_wallet_count}
+                        </span>
+                      ) : null}
                     </div>
-                  </td>
-                  <td style={{ textAlign:'center' }}>
-                    <span className="font-mono font-black text-[0.95rem] text-cyan-300">
-                      {Number(entry.execs_count || 0).toFixed(1).replace(/\.0$/, '')}
-                    </span>
                   </td>
                   <td style={{ textAlign:'center' }}>
                     <div className="flex flex-wrap items-center justify-center gap-1">

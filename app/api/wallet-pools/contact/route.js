@@ -64,10 +64,46 @@ export async function POST(req) {
       return Response.json({ ok: false, error: 'both_wallets_already_pooled' }, { status: 409 });
     }
 
+    if (!walletPool && targetPool) {
+      return Response.json({ ok: false, error: 'target_in_pool' }, { status: 409 });
+    }
+
+    if (walletPool && targetPool && walletPool === targetPool) {
+      return Response.json({ ok: false, error: 'already_in_same_pool' }, { status: 409 });
+    }
+
     const poolCode = walletPool || targetPool || await createUniquePool(supabase, wallet);
+    const { data: poolCountData, count: poolCount, error: countError } = await supabase
+      .from('mm3_wallet_pool_members')
+      .select('*', { count: 'exact', head: true })
+      .eq('pool_code', poolCode);
+
+    if (countError) throw countError;
+    if (Number(poolCount || 0) >= 5) {
+      return Response.json({ ok: false, error: 'pool_full' }, { status: 409 });
+    }
+
     const rows = [];
     if (!walletPool) rows.push({ wallet, pool_code: poolCode, added_by: wallet });
-    if (!targetPool) rows.push({ wallet: targetWallet, pool_code: poolCode, added_by: wallet });
+
+    if (walletPool && targetPool) {
+      // Already in same pool handled above.
+    } else if (!targetPool) {
+      const { data: existingInvite, error: inviteError } = await supabase
+        .from('mm3_wallet_pool_invitations')
+        .select('id')
+        .eq('wallet', targetWallet)
+        .eq('pool_code', poolCode)
+        .eq('invited_by', wallet)
+        .eq('status', 'pending')
+        .limit(1)
+        .maybeSingle();
+
+      if (inviteError) throw inviteError;
+      if (existingInvite) {
+        return Response.json({ ok: false, error: 'invite_already_exists' }, { status: 409 });
+      }
+    }
 
     if (rows.length) {
       const { error: insertError } = await supabase
@@ -77,12 +113,18 @@ export async function POST(req) {
       if (insertError && insertError.code !== '23505') throw insertError;
     }
 
+    const { error: inviteInsertError } = await supabase
+      .from('mm3_wallet_pool_invitations')
+      .insert({ wallet: targetWallet, invited_by: wallet, pool_code: poolCode });
+
+    if (inviteInsertError) throw inviteInsertError;
+
     await supabase
       .from('mm3_wallet_pools')
       .update({ updated_at: new Date().toISOString() })
       .eq('pool_code', poolCode);
 
-    return Response.json({ ok: true, poolCode, wallets: [wallet, targetWallet] });
+    return Response.json({ ok: true, poolCode, inviteTo: targetWallet, wallet });
   } catch (error) {
     console.error('wallet pool contact error:', error);
     const missingTable = error?.code === '42P01';
