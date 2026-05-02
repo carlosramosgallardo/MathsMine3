@@ -2,6 +2,7 @@
 
 import SectionFrame from '@/components/SectionFrame';
 import { useMm3Accent } from '@/lib/use-mm3-accent';
+import { useI18n } from '@/lib/i18n-context';
 
 function slugifyHeading(text) {
   return text
@@ -281,8 +282,12 @@ function ReadmeTerminal({ readmeText }) {
   );
 }
 
-export default function ManifestoClient({ readmeText }) {
+export default function ManifestoClient() {
   const { frameAccent } = useMm3Accent();
+  const { t } = useI18n();
+
+  // Get manifesto content from translations (manifesto is structured to support bilingual content)
+  const manifestoContent = t('manifesto.manifestoContent') || '';
 
   return (
     <main className="w-full px-2 py-1" style={{ '--mm3-accent': frameAccent }}>
@@ -315,7 +320,7 @@ export default function ManifestoClient({ readmeText }) {
           }
         `}</style>
 
-        <ReadmeTerminal readmeText={readmeText} />
+        <ReadmeTerminal readmeText={manifestoContent} />
 
         </div>
       </SectionFrame>
