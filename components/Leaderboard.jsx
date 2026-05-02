@@ -43,14 +43,34 @@ function convertPenaltyEur(value, currency) {
   return eur;
 }
 
+function avg(values) {
+  const nums = values.map(Number).filter((value) => Number.isFinite(value));
+  if (!nums.length) return 0;
+  return nums.reduce((sum, value) => sum + value, 0) / nums.length;
+}
+
+function uniqueBy(items, getKey) {
+  const seen = new Set();
+  const out = [];
+  for (const item of items) {
+    const key = getKey(item);
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    out.push(item);
+  }
+  return out;
+}
+
 export default function Leaderboard({ itemsPerPage = 50 }) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const { currency: quoteCurrency } = useCurrency();
   const [leaderboard, setLeaderboard] = useState([]);
   const [onlineWallets, setOnlineWallets] = useState(() => new Set());
   const [currentPage, setCurrentPage] = useState(1);
   const [isLoading, setIsLoading]     = useState(true);
   const [selectedWallet, setSelectedWallet] = useState('');
+  const [viewMode, setViewMode] = useState('wallets');
+  const [contactBusy, setContactBusy] = useState('');
   const [sortConfig, setSortConfig] = useState({ key: 'status', direction: 'desc' });
   const { account } = useActiveWallet();
   const activeWallet = account?.toLowerCase() || '';
@@ -58,6 +78,33 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
   const refreshTimersRef = useRef([]);
   const loadedOnceRef = useRef(false);
   const CACHE_MS = 2_000;
+  const labels = language === 'es'
+    ? {
+        pool: 'Pool',
+        poolRanking: 'Ranking de pools',
+        walletRanking: 'Ranking wallets',
+        addContact: 'contacto',
+        addContactTitle: 'Crear contacto / unir wallets en pool',
+        members: 'wallets',
+        noPools: 'Sin pools todavía. Crea contactos desde el ranking de wallets.',
+        poolCreated: 'Pool conectado.',
+        poolError: 'No se pudo crear el contacto.',
+        poolConflict: 'Las dos wallets ya pertenecen a pools distintos.',
+        poolMissing: 'Instala sql/add_wallet_pools.sql en Supabase.',
+      }
+    : {
+        pool: 'Pool',
+        poolRanking: 'Pool ranking',
+        walletRanking: 'Wallet ranking',
+        addContact: 'contact',
+        addContactTitle: 'Create contact / join wallets into a pool',
+        members: 'wallets',
+        noPools: 'No pools yet. Create contacts from the wallet ranking.',
+        poolCreated: 'Pool connected.',
+        poolError: 'Could not create contact.',
+        poolConflict: 'Both wallets already belong to different pools.',
+        poolMissing: 'Install sql/add_wallet_pools.sql in Supabase.',
+      };
 
   const fetchLeaderboard = useCallback(async ({ ignoreCache = false } = {}) => {
     if (abortRef.current) abortRef.current.abort();
@@ -79,7 +126,7 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
           }
         }
       }
-      const [{ data: leaderboardRows, error }, progressResponse, marketOwnersResponse, blocksResponse, txResponse, penaltiesResponse] = await Promise.all([
+      const [{ data: leaderboardRows, error }, progressResponse, marketOwnersResponse, blocksResponse, txResponse, penaltiesResponse, poolMembersResponse] = await Promise.all([
         supabase
           .from('leaderboard_data')
           .select('wallet, total_eth'),
@@ -102,6 +149,9 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
           .is('redeemed_at', null)
           .gt('reset_at', new Date().toISOString())
           .order('created_at', { ascending: false }),
+        supabase
+          .from('mm3_wallet_pool_members')
+          .select('wallet, pool_code'),
       ]);
       if (error) { console.error('Leaderboard fetch:', error); setLeaderboard([]); return; }
       let progressData = progressResponse?.data || [];
@@ -167,6 +217,17 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
         }
       }
 
+      const poolByWallet = new Map();
+      if (!poolMembersResponse?.error) {
+        for (const entry of poolMembersResponse?.data || []) {
+          const wallet = String(entry.wallet || '').toLowerCase();
+          const poolCode = String(entry.pool_code || '').toUpperCase();
+          if (wallet && poolCode) poolByWallet.set(wallet, poolCode);
+        }
+      } else if (poolMembersResponse.error?.code !== '42P01') {
+        console.error('Leaderboard pool fetch:', poolMembersResponse.error);
+      }
+
       // Union of leaderboard_data + player_progress wallets so that wallets
       // dropped from leaderboard_data by the trigger after a reset still appear
       const lbByWallet = new Map(
@@ -198,6 +259,7 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
             execs_count: txCountByWallet.get(normalizedWallet) || 0,
             market_blocks: marketBlocksByWallet.get(normalizedWallet) || [],
             active_penalty: penaltiesByWallet.get(normalizedWallet) || null,
+            pool_code: poolByWallet.get(normalizedWallet) || '',
           };
         })
         .sort((a, b) => {
@@ -278,6 +340,7 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
       if (sortConfig.key === 'nftji') return normalizeWalletDecorations(entry.wallet_emojis).length;
       if (sortConfig.key === 'execs') return Number(entry.execs_count) || 0;
       if (sortConfig.key === 'block') return (Array.isArray(entry.market_blocks) ? entry.market_blocks.length : 0) + (entry.active_penalty?.mm3 || entry.active_penalty?.money ? 1 : 0);
+      if (sortConfig.key === 'pool') return String(entry.pool_code || '').toLowerCase();
       if (sortConfig.key === 'status') return onlineWallets.has(String(entry.wallet || '').toLowerCase()) ? 1 : 0;
       if (sortConfig.key === 'rank') return getRankTier(clampRankLevel(entry.level)).label;
       if (sortConfig.key === 'wallet') return String(entry.wallet || '').toLowerCase();
@@ -298,14 +361,93 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
     });
   }, [leaderboard, onlineWallets, quoteCurrency, selectedWallet, sortConfig]);
 
+  const poolLeaderboard = useMemo(() => {
+    const moneyKey =
+      quoteCurrency === 'USD'
+        ? 'money_balance_usd'
+        : quoteCurrency === 'CNY'
+          ? 'money_balance_cny'
+          : 'money_balance_eur';
+    const grouped = new Map();
+    for (const entry of leaderboard) {
+      const poolCode = String(entry.pool_code || '').toUpperCase();
+      if (!poolCode) continue;
+      const members = grouped.get(poolCode) || [];
+      members.push(entry);
+      grouped.set(poolCode, members);
+    }
+
+    const rows = [...grouped.entries()].map(([poolCode, members]) => {
+      const avgLevel = avg(members.map((entry) => entry.level));
+      const avgExecs = avg(members.map((entry) => entry.execs_count));
+      const avgMm3 = avg(members.map((entry) => entry.available_mm3));
+      const avgCny = avg(members.map((entry) => entry.money_balance_cny));
+      const avgEur = avg(members.map((entry) => entry.money_balance_eur));
+      const avgUsd = avg(members.map((entry) => entry.money_balance_usd));
+      const marketBlocks = uniqueBy(
+        members.flatMap((entry) => Array.isArray(entry.market_blocks) ? entry.market_blocks : []),
+        (block) => block.block_key
+      );
+      const penalties = members.map((entry) => entry.active_penalty).filter(Boolean);
+      const activePenalty = {
+        mm3: penalties.find((penalty) => penalty?.mm3)?.mm3 || null,
+        money: penalties.find((penalty) => penalty?.money)?.money || null,
+      };
+      return {
+        is_pool: true,
+        pool_code: poolCode,
+        member_count: members.length,
+        level: avgLevel,
+        execs_count: avgExecs,
+        available_mm3: avgMm3,
+        money_balance_cny: avgCny,
+        money_balance_eur: avgEur,
+        money_balance_usd: avgUsd,
+        wallet_emojis: [...new Set(members.flatMap((entry) => normalizeWalletDecorations(entry.wallet_emojis)))],
+        market_blocks: marketBlocks,
+        active_penalty: activePenalty.mm3 || activePenalty.money ? activePenalty : null,
+      };
+    });
+
+    const getValue = (entry) => {
+      if (sortConfig.key === 'money') return Number(entry[moneyKey]) || 0;
+      if (sortConfig.key === 'nftji') return normalizeWalletDecorations(entry.wallet_emojis).length;
+      if (sortConfig.key === 'execs') return Number(entry.execs_count) || 0;
+      if (sortConfig.key === 'block') return (Array.isArray(entry.market_blocks) ? entry.market_blocks.length : 0) + (entry.active_penalty?.mm3 || entry.active_penalty?.money ? 1 : 0);
+      if (sortConfig.key === 'rank') return getRankTier(clampRankLevel(Math.round(entry.level))).label;
+      if (sortConfig.key === 'pool') return String(entry.pool_code || '').toLowerCase();
+      return entry[sortConfig.key];
+    };
+
+    return rows
+      .sort((a, b) => {
+        const aValue = getValue(a);
+        const bValue = getValue(b);
+        let result = 0;
+        if (typeof aValue === 'string' || typeof bValue === 'string') {
+          result = String(aValue || '').localeCompare(String(bValue || ''));
+        } else {
+          result = (Number(aValue) || 0) - (Number(bValue) || 0);
+        }
+        if (result === 0) result = String(a.pool_code).localeCompare(String(b.pool_code));
+        return sortConfig.direction === 'asc' ? result : -result;
+      })
+      .map((entry, index) => ({ ...entry, position: index + 1 }));
+  }, [leaderboard, quoteCurrency, sortConfig]);
+
+  const activeLeaderboard = viewMode === 'pools' ? poolLeaderboard : filteredLeaderboard;
+  const activeWalletPool = activeWallet
+    ? leaderboard.find((entry) => String(entry.wallet || '').toLowerCase() === activeWallet)?.pool_code || ''
+    : '';
+
   useEffect(() => {
-    const total = Math.max(1, Math.ceil(filteredLeaderboard.length / itemsPerPage));
+    const total = Math.max(1, Math.ceil(activeLeaderboard.length / itemsPerPage));
     if (currentPage > total) setCurrentPage(1);
-  }, [filteredLeaderboard.length, itemsPerPage, currentPage]);
+  }, [activeLeaderboard.length, itemsPerPage, currentPage]);
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [selectedWallet, sortConfig]);
+  }, [selectedWallet, sortConfig, viewMode]);
 
   useEffect(() => {
     const onToggleWallet = (event) => {
@@ -358,6 +500,8 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'player_progress' }, refresh)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'leaderboard_data' }, refresh)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'mm3_command_penalties' }, refresh)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'mm3_wallet_pools' }, refresh)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'mm3_wallet_pool_members' }, refresh)
       .subscribe();
 
     return () => {
@@ -372,8 +516,8 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
   }, [fetchLeaderboard]);
 
   const start        = (currentPage - 1) * itemsPerPage;
-  const currentItems = filteredLeaderboard.slice(start, start + itemsPerPage);
-  const totalPages   = Math.ceil(filteredLeaderboard.length / itemsPerPage);
+  const currentItems = activeLeaderboard.slice(start, start + itemsPerPage);
+  const totalPages   = Math.ceil(activeLeaderboard.length / itemsPerPage);
 
   const toggleSort = (key) => {
     setSortConfig((current) => ({
@@ -395,7 +539,52 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
   const toggleSelectedWallet = (wallet) => {
     const normalized = String(wallet || '').toLowerCase();
     if (!normalized) return;
+    setViewMode('wallets');
     setSelectedWallet((current) => current === normalized ? '' : normalized);
+  };
+
+  const showPoolRanking = () => {
+    setSelectedWallet('');
+    setViewMode('pools');
+    setSortConfig({ key: 'level', direction: 'desc' });
+  };
+
+  const showWalletRanking = () => {
+    setViewMode('wallets');
+    setSortConfig({ key: 'status', direction: 'desc' });
+  };
+
+  const handleContactWallet = async (targetWallet) => {
+    const normalizedTarget = String(targetWallet || '').toLowerCase();
+    if (!activeWallet || !normalizedTarget || normalizedTarget === activeWallet || contactBusy) return;
+    setContactBusy(normalizedTarget);
+    try {
+      const response = await fetch('/api/wallet-pools/contact', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ wallet: activeWallet, targetWallet: normalizedTarget }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || !payload.ok) {
+        const msg = payload.error === 'both_wallets_already_pooled'
+          ? labels.poolConflict
+          : payload.error === 'wallet_pools_not_installed'
+            ? labels.poolMissing
+            : labels.poolError;
+        window.dispatchEvent(new CustomEvent('mm3-toast', { detail: { msg, type: 'error' } }));
+        return;
+      }
+      localStorage.removeItem('lb_data');
+      localStorage.removeItem('lb_fetch_time');
+      window.dispatchEvent(new CustomEvent('mm3-db-updated', { detail: { poolCode: payload.poolCode } }));
+      window.dispatchEvent(new CustomEvent('mm3-toast', { detail: { msg: `${labels.poolCreated} ${payload.poolCode}`, type: 'success' } }));
+      await fetchLeaderboard({ ignoreCache: true });
+    } catch (error) {
+      console.error('contact wallet:', error);
+      window.dispatchEvent(new CustomEvent('mm3-toast', { detail: { msg: labels.poolError, type: 'error' } }));
+    } finally {
+      setContactBusy('');
+    }
   };
 
   const openMarketBlock = (blockKey) => {
@@ -459,6 +648,32 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
         }
       `}</style>
 
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2 font-mono">
+        <div className="text-[0.72rem] uppercase tracking-[0.18em] text-cyan-700">
+          {viewMode === 'pools' ? labels.poolRanking : labels.walletRanking}
+        </div>
+        <div className="flex items-center gap-2">
+          {viewMode === 'pools' ? (
+            <button
+              type="button"
+              onClick={showWalletRanking}
+              className="rounded border border-cyan-400/35 bg-black/70 px-2.5 py-1 text-[0.68rem] font-black uppercase tracking-[0.16em] text-cyan-200 transition hover:border-cyan-300 hover:text-cyan-50"
+            >
+              {labels.walletRanking}
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={showPoolRanking}
+              className="rounded border border-emerald-400/30 bg-black/70 px-2.5 py-1 text-[0.68rem] font-black uppercase tracking-[0.16em] text-emerald-200 transition hover:border-emerald-300 hover:text-emerald-50 disabled:cursor-not-allowed disabled:opacity-40"
+              disabled={!poolLeaderboard.length}
+            >
+              {labels.poolRanking}
+            </button>
+          )}
+        </div>
+      </div>
+
       {totalPages > 1 && (
         <div className="flex justify-center gap-2 mb-3 flex-wrap sm:hidden">
           <button onClick={() => setCurrentPage(p => Math.max(1, p-1))} disabled={currentPage === 1}
@@ -491,7 +706,126 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
       <div className="space-y-2 sm:hidden">
         {isLoading ? (
           <PageLoading label={t('leaderboard.loadingMiners')} fullScreen={false} />
-        ) : currentItems.length > 0 ? currentItems.map((entry) => {
+        ) : currentItems.length > 0 ? viewMode === 'pools' ? currentItems.map((entry) => {
+          const globalRank = entry.position || 0;
+          const rankCls = globalRank === 1 ? 'r1' : globalRank === 2 ? 'r2' : globalRank === 3 ? 'r3' : '';
+          const placement = getPlacementDisplay(globalRank);
+          const lvl = Math.round(Number(entry.level) || 0);
+          const tier = getRankTier(clampRankLevel(lvl));
+          const sellValue =
+            quoteCurrency === 'USD'
+              ? entry.money_balance_usd
+              : quoteCurrency === 'CNY'
+                ? entry.money_balance_cny
+                : entry.money_balance_eur;
+          const ownedEmojis = normalizeWalletDecorations(entry.wallet_emojis);
+          const marketBlocks = Array.isArray(entry.market_blocks) ? entry.market_blocks : [];
+          const activePenalty = entry.active_penalty;
+
+          return (
+            <article key={entry.pool_code} className="lb-card p-2">
+              <div className="mb-1.5 flex items-center gap-2">
+                <span className={`rank-badge ${rankCls} shrink-0`} title={placement.title}>{placement.label}</span>
+                <button
+                  type="button"
+                  onClick={showWalletRanking}
+                  className="min-w-0 flex-1 truncate text-left font-mono text-[0.92rem] font-black text-emerald-300 transition hover:underline focus:outline-none"
+                  title={`${entry.member_count} ${labels.members}`}
+                >
+                  #{entry.pool_code}
+                </button>
+                <span className="lb-status-chip online shrink-0">{entry.member_count} {labels.members}</span>
+              </div>
+              <div className="grid grid-cols-3 gap-1 text-[0.78rem] uppercase tracking-[0.1em] text-cyan-700">
+                <div className="rounded border border-cyan-500/10 bg-black/60 px-1.5 py-1">
+                  <div>{t('leaderboard.level')}</div>
+                  <div className="mt-0.5 text-sm font-black tracking-normal" style={{ color: tier.color }}>{lvl}</div>
+                </div>
+                <div className="rounded border border-cyan-500/10 bg-black/60 px-1.5 py-1">
+                  <div>{t('leaderboard.rank')}</div>
+                  <div className="mt-0.5 text-sm font-bold tracking-normal" style={{ color: tier.color }}>{tier.emoji}</div>
+                </div>
+                <div className="rounded border border-cyan-500/10 bg-black/60 px-1.5 py-1">
+                  <div>{t('leaderboard.execs')}</div>
+                  <div className="mt-0.5 font-mono text-[0.7rem] font-semibold tracking-normal text-cyan-300">{Number(entry.execs_count || 0).toFixed(1).replace(/\.0$/, '')}</div>
+                </div>
+                <div className="rounded border border-cyan-500/10 bg-black/60 px-1.5 py-1">
+                  <div>{t('leaderboard.mm3Earned')}</div>
+                  <div className="mt-0.5 font-mono text-[0.86rem] font-semibold tracking-normal text-cyan-300">{formatCompactNum(entry.available_mm3 || 0)}</div>
+                </div>
+                <div className="col-span-2 rounded border border-cyan-500/10 bg-black/60 px-1.5 py-1">
+                  <div>{t('leaderboard.sellValue')}</div>
+                  <div className="mt-0.5 font-mono text-[0.7rem] font-semibold tracking-normal text-emerald-300">{formatCompactMoney(sellValue, quoteCurrency)}</div>
+                </div>
+              </div>
+              <div className="mt-1.5 flex items-center gap-1.5 flex-wrap">
+                <div className="flex items-center gap-0.5 shrink-0">
+                  {TRADE_SLOT_ORDER.map((slot) => {
+                    const owned = ownedEmojis.includes(slot.emoji);
+                    return (
+                      <div
+                        key={slot.key}
+                        title={getEmojiTitle(slot.emoji)}
+                        className="flex h-6 w-6 items-center justify-center rounded border text-[0.90rem]"
+                        style={{
+                          borderColor: owned ? tier.glow : 'rgba(148,163,184,0.22)',
+                          background: owned ? tier.bg : 'rgba(2,6,23,0.4)',
+                          color: owned ? tier.color : 'rgba(100,116,139,0.35)',
+                          boxShadow: owned ? `0 0 8px ${tier.color}22` : 'none',
+                        }}
+                      >
+                        {owned ? slot.emoji : ''}
+                      </div>
+                    );
+                  })}
+                </div>
+                <div className="flex flex-wrap items-center gap-1">
+                  {marketBlocks.length > 0 ? marketBlocks.map((block) => (
+                    <button
+                      key={block.block_key}
+                      type="button"
+                      onClick={() => openMarketBlock(block.block_key)}
+                      title={`${block.emoji} ${block.hex}`}
+                      className="relative flex h-6 w-6 items-center justify-center rounded border text-[0.90rem] transition hover:border-cyan-300"
+                      style={{
+                        borderColor: 'rgba(250,204,21,0.3)',
+                        background: 'rgba(2,6,23,0.68)',
+                        color: '#fef08a',
+                        boxShadow: '0 0 8px rgba(250,204,21,0.12)',
+                      }}
+                    >
+                      <span>{block.emoji}</span>
+                      <span className="absolute bottom-[0px] right-[1px] text-[0.38rem] font-black text-cyan-100/90">
+                        {block.hex.replace('#', '')}
+                      </span>
+                    </button>
+                  )) : null}
+                  {activePenalty?.mm3 ? (
+                    <button
+                      type="button"
+                      onClick={() => openMarketBlock(activePenalty.mm3.nftji_key)}
+                      className="lb-penalty-link rounded border border-rose-400/30 bg-rose-950/20 px-1.5 py-0.5 font-mono text-[0.75rem] font-black text-rose-300"
+                    >
+                      -{Number(activePenalty.mm3.penalty_value || 0).toFixed(8).replace(/\.?0+$/, '') || '0'} MM3
+                    </button>
+                  ) : null}
+                  {activePenalty?.money ? (
+                    <button
+                      type="button"
+                      onClick={() => openMarketBlock(activePenalty.money.nftji_key)}
+                      className="lb-penalty-link rounded border border-amber-400/30 bg-amber-950/20 px-1.5 py-0.5 font-mono text-[0.75rem] font-black text-amber-300"
+                    >
+                      -{convertPenaltyEur(activePenalty.money.penalty_eur || activePenalty.money.penalty_value || 0, quoteCurrency).toFixed(8).replace(/\.?0+$/, '') || '0'} {quoteCurrency}
+                    </button>
+                  ) : null}
+                  {marketBlocks.length === 0 && !activePenalty?.mm3 && !activePenalty?.money ? (
+                    <span className="text-[0.5rem] uppercase tracking-[0.1em] text-slate-700">{t('leaderboard.none')}</span>
+                  ) : null}
+                </div>
+              </div>
+            </article>
+          );
+        }) : currentItems.map((entry) => {
           const globalRank = entry.position || 0;
           const normalizedWallet = String(entry.wallet || '').toLowerCase();
           const isActiveWallet = activeWallet && normalizedWallet === activeWallet;
@@ -525,6 +859,27 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
                 >
                   {entry.wallet}
                 </button>
+                {entry.pool_code ? (
+                  <button
+                    type="button"
+                    onClick={showPoolRanking}
+                    className="shrink-0 rounded border border-emerald-400/30 bg-emerald-950/20 px-1.5 py-0.5 text-[0.58rem] font-black uppercase tracking-[0.12em] text-emerald-300"
+                    title={`${labels.pool} ${entry.pool_code}`}
+                  >
+                    #{entry.pool_code}
+                  </button>
+                ) : null}
+                {activeWallet && normalizedWallet !== activeWallet && !activeWalletPool ? (
+                  <button
+                    type="button"
+                    onClick={() => handleContactWallet(entry.wallet)}
+                    disabled={contactBusy === normalizedWallet}
+                    className="shrink-0 rounded border border-cyan-400/25 bg-cyan-950/10 px-1.5 py-0.5 text-[0.56rem] font-black uppercase tracking-[0.12em] text-cyan-300 disabled:opacity-40"
+                    title={labels.addContactTitle}
+                  >
+                    +{labels.addContact}
+                  </button>
+                ) : null}
                 <span className={`lb-status-chip ${isOnline ? 'online' : 'offline'} shrink-0`}>
                   {isOnline ? t('leaderboard.online') : t('leaderboard.offline')}
                 </span>
@@ -624,7 +979,7 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
           );
         }) : (
           <div className="rounded-xl border border-cyan-500/20 bg-black/80 p-5 text-center text-xs text-gray-500">
-            {t('leaderboard.noMiners')}
+            {viewMode === 'pools' ? labels.noPools : t('leaderboard.noMiners')}
           </div>
         )}
       </div>
@@ -632,27 +987,162 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
       <div className="hidden overflow-x-auto sm:block">
         <table className="lb-tbl w-full">
           <thead>
-            <tr>
-              <th style={{ width:'6%', textAlign:'center' }}><SortButton sortKey="position" className="justify-center">{t('leaderboard.position')}</SortButton></th>
-              <th style={{ width:'10%', textAlign:'center' }}><SortButton sortKey="status" className="justify-center">{t('leaderboard.status')}</SortButton></th>
-              <th style={{ width:'28%' }}><SortButton sortKey="wallet">{t('leaderboard.minerWallet')}</SortButton></th>
-              <th style={{ width:'14%', textAlign:'center' }} title="NTFJIs — probability artifacts that influence MM3 global value"><SortButton sortKey="nftji" className="justify-center">NTFJIs</SortButton></th>
-              <th style={{ width:'7%', textAlign:'center' }}><SortButton sortKey="execs" className="justify-center">{t('leaderboard.execs')}</SortButton></th>
-              <th style={{ width:'11%', textAlign:'center' }}><SortButton sortKey="block" className="justify-center">{t('leaderboard.blockPenalty')}</SortButton></th>
-              <th style={{ width:'6%', textAlign:'center' }}><SortButton sortKey="level" className="justify-center">{t('leaderboard.level')}</SortButton></th>
-              <th style={{ width:'8%', textAlign:'center' }}><SortButton sortKey="rank" className="justify-center">{t('leaderboard.rank')}</SortButton></th>
-              <th style={{ width:'9%', textAlign:'right', paddingRight:'1rem' }}><SortButton sortKey="available_mm3" className="justify-end">{t('leaderboard.mm3Earned')}</SortButton></th>
-              <th style={{ width:'9%', textAlign:'right', paddingRight:'1rem' }}><SortButton sortKey="money" className="justify-end">{t('leaderboard.sellValue')}</SortButton></th>
-            </tr>
+            {viewMode === 'pools' ? (
+              <tr>
+                <th style={{ width:'7%', textAlign:'center' }}><SortButton sortKey="position" className="justify-center">{t('leaderboard.position')}</SortButton></th>
+                <th style={{ width:'18%' }}><SortButton sortKey="pool">{labels.pool}</SortButton></th>
+                <th style={{ width:'15%', textAlign:'center' }} title="NFTJIs — pool union"><SortButton sortKey="nftji" className="justify-center">NTFJIs</SortButton></th>
+                <th style={{ width:'8%', textAlign:'center' }}><SortButton sortKey="execs" className="justify-center">{t('leaderboard.execs')}</SortButton></th>
+                <th style={{ width:'13%', textAlign:'center' }}><SortButton sortKey="block" className="justify-center">{t('leaderboard.blockPenalty')}</SortButton></th>
+                <th style={{ width:'8%', textAlign:'center' }}><SortButton sortKey="level" className="justify-center">{t('leaderboard.level')}</SortButton></th>
+                <th style={{ width:'8%', textAlign:'center' }}><SortButton sortKey="rank" className="justify-center">{t('leaderboard.rank')}</SortButton></th>
+                <th style={{ width:'11%', textAlign:'right', paddingRight:'1rem' }}><SortButton sortKey="available_mm3" className="justify-end">{t('leaderboard.mm3Earned')}</SortButton></th>
+                <th style={{ width:'12%', textAlign:'right', paddingRight:'1rem' }}><SortButton sortKey="money" className="justify-end">{t('leaderboard.sellValue')}</SortButton></th>
+              </tr>
+            ) : (
+              <tr>
+                <th style={{ width:'5%', textAlign:'center' }}><SortButton sortKey="position" className="justify-center">{t('leaderboard.position')}</SortButton></th>
+                <th style={{ width:'9%', textAlign:'center' }}><SortButton sortKey="status" className="justify-center">{t('leaderboard.status')}</SortButton></th>
+                <th style={{ width:'23%' }}><SortButton sortKey="wallet">{t('leaderboard.minerWallet')}</SortButton></th>
+                <th style={{ width:'8%', textAlign:'center' }}><SortButton sortKey="pool" className="justify-center">{labels.pool}</SortButton></th>
+                <th style={{ width:'13%', textAlign:'center' }} title="NTFJIs — probability artifacts that influence MM3 global value"><SortButton sortKey="nftji" className="justify-center">NTFJIs</SortButton></th>
+                <th style={{ width:'7%', textAlign:'center' }}><SortButton sortKey="execs" className="justify-center">{t('leaderboard.execs')}</SortButton></th>
+                <th style={{ width:'11%', textAlign:'center' }}><SortButton sortKey="block" className="justify-center">{t('leaderboard.blockPenalty')}</SortButton></th>
+                <th style={{ width:'6%', textAlign:'center' }}><SortButton sortKey="level" className="justify-center">{t('leaderboard.level')}</SortButton></th>
+                <th style={{ width:'7%', textAlign:'center' }}><SortButton sortKey="rank" className="justify-center">{t('leaderboard.rank')}</SortButton></th>
+                <th style={{ width:'9%', textAlign:'right', paddingRight:'1rem' }}><SortButton sortKey="available_mm3" className="justify-end">{t('leaderboard.mm3Earned')}</SortButton></th>
+                <th style={{ width:'9%', textAlign:'right', paddingRight:'1rem' }}><SortButton sortKey="money" className="justify-end">{t('leaderboard.sellValue')}</SortButton></th>
+              </tr>
+            )}
           </thead>
           <tbody>
             {isLoading ? (
               <tr className="lb-row">
-                <td colSpan={10} style={{ textAlign:'center', padding: '2rem' }}>
+                <td colSpan={viewMode === 'pools' ? 9 : 11} style={{ textAlign:'center', padding: '2rem' }}>
                   <PageLoading label={t('leaderboard.loadingMiners')} fullScreen={false} />
                 </td>
               </tr>
-            ) : currentItems.length > 0 ? currentItems.map((entry) => {
+            ) : currentItems.length > 0 ? viewMode === 'pools' ? currentItems.map((entry) => {
+              const globalRank = entry.position || 0;
+              const rankCls = globalRank === 1 ? 'r1' : globalRank === 2 ? 'r2' : globalRank === 3 ? 'r3' : '';
+              const placement = getPlacementDisplay(globalRank);
+              const lvl = Math.round(Number(entry.level) || 0);
+              const tier = getRankTier(clampRankLevel(lvl));
+              const sellValue =
+                quoteCurrency === 'USD'
+                  ? entry.money_balance_usd
+                  : quoteCurrency === 'CNY'
+                    ? entry.money_balance_cny
+                    : entry.money_balance_eur;
+              const ownedEmojis = normalizeWalletDecorations(entry.wallet_emojis);
+              const marketBlocks = Array.isArray(entry.market_blocks) ? entry.market_blocks : [];
+              const activePenalty = entry.active_penalty;
+
+              return (
+                <tr key={entry.pool_code} className="lb-row">
+                  <td style={{ textAlign:'center' }}>
+                    <span className={`rank-badge ${rankCls}`} title={placement.title}>{placement.label}</span>
+                  </td>
+                  <td>
+                    <button
+                      type="button"
+                      onClick={showWalletRanking}
+                      className="font-mono font-black text-[0.95rem] text-emerald-300 transition hover:underline focus:outline-none"
+                      title={`${entry.member_count} ${labels.members}`}
+                    >
+                      #{entry.pool_code}
+                    </button>
+                    <span className="ml-2 text-[0.62rem] uppercase tracking-[0.12em] text-slate-600">
+                      {entry.member_count} {labels.members}
+                    </span>
+                  </td>
+                  <td style={{ textAlign:'center' }}>
+                    <div className="flex items-center justify-center gap-1">
+                      {TRADE_SLOT_ORDER.map((slot) => {
+                        const owned = ownedEmojis.includes(slot.emoji);
+                        return (
+                          <div
+                            key={slot.key}
+                            title={getEmojiTitle(slot.emoji)}
+                            className="lb-slot-cell flex items-center justify-center rounded-md border text-[0.95rem]"
+                            style={{
+                              borderColor: owned ? tier.glow : 'rgba(148,163,184,0.22)',
+                              background: owned ? tier.bg : 'rgba(2,6,23,0.4)',
+                              color: owned ? tier.color : 'rgba(100,116,139,0.35)',
+                              boxShadow: owned ? `0 0 12px ${tier.color}22` : 'none',
+                            }}
+                          >
+                            {owned ? slot.emoji : ''}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </td>
+                  <td style={{ textAlign:'center' }}>
+                    <span className="font-mono font-black text-[0.95rem] text-cyan-300">
+                      {Number(entry.execs_count || 0).toFixed(1).replace(/\.0$/, '')}
+                    </span>
+                  </td>
+                  <td style={{ textAlign:'center' }}>
+                    <div className="flex flex-wrap items-center justify-center gap-1">
+                      {marketBlocks.length > 0 ? marketBlocks.map((block) => (
+                        <button
+                          key={block.block_key}
+                          type="button"
+                          onClick={() => openMarketBlock(block.block_key)}
+                          title={`${block.emoji} ${block.hex}`}
+                          className="lb-block-cell relative flex items-center justify-center rounded-md border text-[0.95rem] transition hover:border-cyan-300 hover:text-cyan-100"
+                          style={{
+                            borderColor: 'rgba(250,204,21,0.3)',
+                            background: 'rgba(2,6,23,0.68)',
+                            color: '#fef08a',
+                            boxShadow: '0 0 10px rgba(250,204,21,0.12)',
+                          }}
+                        >
+                          <span>{block.emoji}</span>
+                          <span className="absolute bottom-[1px] right-[2px] text-[0.44rem] font-black tracking-[0.08em] text-cyan-100/90">
+                            {block.hex.replace('#', '')}
+                          </span>
+                        </button>
+                      )) : null}
+                      {activePenalty?.mm3 ? (
+                        <button type="button" onClick={() => openMarketBlock(activePenalty.mm3.nftji_key)} className="lb-penalty-link rounded border border-rose-400/30 bg-rose-950/20 px-1.5 py-1 font-mono text-[0.76rem] font-black text-rose-300">
+                          -{Number(activePenalty.mm3.penalty_value || 0).toFixed(8).replace(/\.?0+$/, '') || '0'} MM3
+                        </button>
+                      ) : null}
+                      {activePenalty?.money ? (
+                        <button type="button" onClick={() => openMarketBlock(activePenalty.money.nftji_key)} className="lb-penalty-link rounded border border-amber-400/30 bg-amber-950/20 px-1.5 py-1 font-mono text-[0.76rem] font-black text-amber-300">
+                          -{convertPenaltyEur(activePenalty.money.penalty_eur || activePenalty.money.penalty_value || 0, quoteCurrency).toFixed(8).replace(/\.?0+$/, '') || '0'} {quoteCurrency}
+                        </button>
+                      ) : null}
+                      {marketBlocks.length === 0 && !activePenalty?.mm3 && !activePenalty?.money ? (
+                        <span className="text-[0.75rem] uppercase tracking-[0.12em] text-slate-600">{t('leaderboard.none')}</span>
+                      ) : null}
+                    </div>
+                  </td>
+                  <td style={{ textAlign:'center' }}>
+                    <span className="font-mono font-black text-[1.05rem]" style={{ color: tier.color, textShadow:`0 0 8px ${tier.color}66` }}>
+                      {lvl}
+                    </span>
+                  </td>
+                  <td style={{ textAlign:'center' }}>
+                    <span className="inline-flex items-center justify-center text-[0.8rem] font-mono font-bold" style={{ color: tier.color }} title={tier.label}>
+                      <span>{tier.emoji}</span>
+                    </span>
+                  </td>
+                  <td style={{ textAlign:'right', paddingRight:'1rem' }}>
+                    <span className="text-[#22d3ee] font-mono font-semibold text-[0.86rem]">
+                      {formatCompactNum(entry.available_mm3 || 0)}
+                    </span>
+                  </td>
+                  <td style={{ textAlign:'right', paddingRight:'1rem' }}>
+                    <span className="whitespace-nowrap font-mono font-semibold text-emerald-300 text-[0.86rem]">
+                      {formatCompactMoney(sellValue, quoteCurrency)}
+                    </span>
+                  </td>
+                </tr>
+              );
+            }) : currentItems.map((entry) => {
               const globalRank = entry.position || 0;
               const normalizedWallet = String(entry.wallet || '').toLowerCase();
               const isActiveWallet = activeWallet && normalizedWallet === activeWallet;
@@ -684,15 +1174,41 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
                     </span>
                   </td>
                   <td>
-                    <button
-                      type="button"
-                      onClick={() => toggleSelectedWallet(entry.wallet)}
-                      className="break-all text-left font-mono font-semibold text-[0.95rem] transition hover:underline focus:outline-none"
-                      style={{ color: walletColor }}
-                      title={isSelectedWallet ? t('leaderboard.showAllWallets') : t('leaderboard.showOnlyWallet')}
-                    >
-                      {entry.wallet}
-                    </button>
+                    <div className="flex min-w-0 flex-col gap-1">
+                      <button
+                        type="button"
+                        onClick={() => toggleSelectedWallet(entry.wallet)}
+                        className="break-all text-left font-mono font-semibold text-[0.95rem] transition hover:underline focus:outline-none"
+                        style={{ color: walletColor }}
+                        title={isSelectedWallet ? t('leaderboard.showAllWallets') : t('leaderboard.showOnlyWallet')}
+                      >
+                        {entry.wallet}
+                      </button>
+                      {activeWallet && !isActiveWallet && !activeWalletPool ? (
+                        <button
+                          type="button"
+                          onClick={() => handleContactWallet(entry.wallet)}
+                          disabled={contactBusy === normalizedWallet}
+                          className="w-fit rounded border border-cyan-400/25 bg-cyan-950/10 px-2 py-0.5 font-mono text-[0.58rem] font-black uppercase tracking-[0.14em] text-cyan-300 transition hover:border-cyan-300 disabled:cursor-wait disabled:opacity-50"
+                        >
+                          {contactBusy === normalizedWallet ? '...' : labels.addContact}
+                        </button>
+                      ) : null}
+                    </div>
+                  </td>
+                  <td style={{ textAlign:'center' }}>
+                    {entry.pool_code ? (
+                      <button
+                        type="button"
+                        onClick={showPoolRanking}
+                        className="rounded border border-emerald-400/25 bg-emerald-950/10 px-2 py-1 font-mono text-[0.72rem] font-black text-emerald-300 transition hover:border-emerald-300 hover:text-emerald-100"
+                        title={labels.viewPoolRanking}
+                      >
+                        #{entry.pool_code}
+                      </button>
+                    ) : (
+                      <span className="text-[0.7rem] uppercase tracking-[0.12em] text-slate-700">{t('leaderboard.none')}</span>
+                    )}
                   </td>
                   <td style={{ textAlign:'center' }}>
                     <div className="flex items-center justify-center gap-1">
@@ -792,7 +1308,9 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
               );
             }) : (
               <tr className="lb-row">
-                <td colSpan={10} className="text-center py-8 text-gray-500">{t('leaderboard.noMiners')}</td>
+                <td colSpan={viewMode === 'pools' ? 9 : 11} className="text-center py-8 text-gray-500">
+                  {viewMode === 'pools' ? labels.noPools : t('leaderboard.noMiners')}
+                </td>
               </tr>
             )}
           </tbody>

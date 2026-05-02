@@ -21,6 +21,8 @@ ALTER TABLE IF EXISTS public.player_progress       ENABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS public.mm3_market_state      ENABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS public.mm3_macro_state       ENABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS public.mm3_wallet_presence   ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS public.mm3_wallet_pools      ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS public.mm3_wallet_pool_members ENABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS public.mm3_sell_transactions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS public.mm3_market_events     ENABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS public.api_requests          ENABLE ROW LEVEL SECURITY;
@@ -136,6 +138,19 @@ DROP POLICY IF EXISTS "public_insert_daily_task_claims" ON public.daily_task_cla
 CREATE POLICY "public_read_daily_task_claims" ON public.daily_task_claims FOR SELECT TO anon USING (true);
 CREATE POLICY "public_insert_daily_task_claims" ON public.daily_task_claims FOR INSERT TO anon WITH CHECK (wallet <> '' AND day <> '' AND task_key <> '');
 
+-- wallet pools: read + insert/update pools, read + insert members
+DROP POLICY IF EXISTS "public_read_mm3_wallet_pools" ON public.mm3_wallet_pools;
+DROP POLICY IF EXISTS "public_insert_mm3_wallet_pools" ON public.mm3_wallet_pools;
+DROP POLICY IF EXISTS "public_update_mm3_wallet_pools" ON public.mm3_wallet_pools;
+CREATE POLICY "public_read_mm3_wallet_pools" ON public.mm3_wallet_pools FOR SELECT TO anon USING (true);
+CREATE POLICY "public_insert_mm3_wallet_pools" ON public.mm3_wallet_pools FOR INSERT TO anon WITH CHECK (pool_code <> '' AND created_by <> '');
+CREATE POLICY "public_update_mm3_wallet_pools" ON public.mm3_wallet_pools FOR UPDATE TO anon USING (true) WITH CHECK (pool_code <> '' AND created_by <> '');
+
+DROP POLICY IF EXISTS "public_read_mm3_wallet_pool_members" ON public.mm3_wallet_pool_members;
+DROP POLICY IF EXISTS "public_insert_mm3_wallet_pool_members" ON public.mm3_wallet_pool_members;
+CREATE POLICY "public_read_mm3_wallet_pool_members" ON public.mm3_wallet_pool_members FOR SELECT TO anon USING (true);
+CREATE POLICY "public_insert_mm3_wallet_pool_members" ON public.mm3_wallet_pool_members FOR INSERT TO anon WITH CHECK (wallet <> '' AND pool_code <> '' AND added_by <> '');
+
 -- ==========================================================
 -- 3. GRANTS to anon role
 -- ==========================================================
@@ -157,6 +172,8 @@ GRANT UPDATE          ON public.mm3_macro_state       TO anon;
 GRANT SELECT          ON public.mm3_wallet_presence   TO anon;
 GRANT INSERT          ON public.mm3_wallet_presence   TO anon;
 GRANT UPDATE          ON public.mm3_wallet_presence   TO anon;
+GRANT SELECT, INSERT, UPDATE ON public.mm3_wallet_pools TO anon;
+GRANT SELECT, INSERT  ON public.mm3_wallet_pool_members TO anon;
 GRANT SELECT          ON public.mm3_sell_transactions TO anon;
 GRANT INSERT          ON public.mm3_sell_transactions TO anon;
 GRANT SELECT          ON public.mm3_market_events     TO anon;

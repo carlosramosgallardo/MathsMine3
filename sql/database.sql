@@ -27,6 +27,8 @@ DROP TABLE IF EXISTS mm3_market_events CASCADE;
 DROP TABLE IF EXISTS mm3_market_state CASCADE;
 DROP TABLE IF EXISTS mm3_macro_state CASCADE;
 DROP TABLE IF EXISTS mm3_wallet_presence CASCADE;
+DROP TABLE IF EXISTS mm3_wallet_pool_members CASCADE;
+DROP TABLE IF EXISTS mm3_wallet_pools CASCADE;
 DROP TABLE IF EXISTS player_progress CASCADE;
 DROP TABLE IF EXISTS leaderboard_data CASCADE;
 DROP TABLE IF EXISTS math_problems CASCADE;
@@ -121,6 +123,20 @@ CREATE TABLE daily_task_claims (
   claimed_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   PRIMARY KEY (wallet, day, task_key)
+);
+
+CREATE TABLE mm3_wallet_pools (
+  pool_code TEXT PRIMARY KEY CHECK (pool_code ~ '^[A-Z0-9]{5}$'),
+  created_by TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE mm3_wallet_pool_members (
+  wallet TEXT PRIMARY KEY,
+  pool_code TEXT NOT NULL REFERENCES mm3_wallet_pools(pool_code) ON DELETE CASCADE,
+  added_by TEXT NOT NULL,
+  joined_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE TABLE mm3_market_state (
@@ -288,6 +304,7 @@ CREATE INDEX idx_problems_language_difficulty ON math_problems(language, difficu
 CREATE INDEX idx_leaderboard_data_total_eth ON leaderboard_data(total_eth DESC);
 CREATE INDEX idx_player_progress_level ON player_progress(level DESC);
 CREATE INDEX idx_mm3_wallet_presence_last_seen ON mm3_wallet_presence(last_seen DESC);
+CREATE INDEX idx_mm3_wallet_pool_members_pool_code ON mm3_wallet_pool_members(pool_code);
 CREATE INDEX idx_mm3_sell_transactions_wallet ON mm3_sell_transactions(wallet);
 CREATE INDEX idx_mm3_sell_transactions_created_at ON mm3_sell_transactions(created_at DESC);
 CREATE INDEX idx_mm3_market_events_wallet ON mm3_market_events(wallet);
@@ -464,6 +481,8 @@ ALTER TABLE player_progress ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mm3_market_state ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mm3_macro_state ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mm3_wallet_presence ENABLE ROW LEVEL SECURITY;
+ALTER TABLE mm3_wallet_pools ENABLE ROW LEVEL SECURITY;
+ALTER TABLE mm3_wallet_pool_members ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mm3_sell_transactions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mm3_market_events ENABLE ROW LEVEL SECURITY;
 ALTER TABLE api_requests ENABLE ROW LEVEL SECURITY;
@@ -517,6 +536,21 @@ CREATE POLICY "public_insert_mm3_wallet_presence" ON mm3_wallet_presence FOR INS
 
 DROP POLICY IF EXISTS "public_update_mm3_wallet_presence" ON mm3_wallet_presence;
 CREATE POLICY "public_update_mm3_wallet_presence" ON mm3_wallet_presence FOR UPDATE TO public USING (true) WITH CHECK (wallet <> '');
+
+DROP POLICY IF EXISTS "public_read_mm3_wallet_pools" ON mm3_wallet_pools;
+CREATE POLICY "public_read_mm3_wallet_pools" ON mm3_wallet_pools FOR SELECT TO public USING (true);
+
+DROP POLICY IF EXISTS "public_insert_mm3_wallet_pools" ON mm3_wallet_pools;
+CREATE POLICY "public_insert_mm3_wallet_pools" ON mm3_wallet_pools FOR INSERT TO public WITH CHECK (pool_code <> '' AND created_by <> '');
+
+DROP POLICY IF EXISTS "public_update_mm3_wallet_pools" ON mm3_wallet_pools;
+CREATE POLICY "public_update_mm3_wallet_pools" ON mm3_wallet_pools FOR UPDATE TO public USING (true) WITH CHECK (pool_code <> '' AND created_by <> '');
+
+DROP POLICY IF EXISTS "public_read_mm3_wallet_pool_members" ON mm3_wallet_pool_members;
+CREATE POLICY "public_read_mm3_wallet_pool_members" ON mm3_wallet_pool_members FOR SELECT TO public USING (true);
+
+DROP POLICY IF EXISTS "public_insert_mm3_wallet_pool_members" ON mm3_wallet_pool_members;
+CREATE POLICY "public_insert_mm3_wallet_pool_members" ON mm3_wallet_pool_members FOR INSERT TO public WITH CHECK (wallet <> '' AND pool_code <> '' AND added_by <> '');
 
 DROP POLICY IF EXISTS "public_insert_mm3_market_state" ON mm3_market_state;
 CREATE POLICY "public_insert_mm3_market_state" ON mm3_market_state FOR INSERT TO public WITH CHECK (id = 1);
@@ -852,6 +886,8 @@ GRANT INSERT, UPDATE ON player_progress TO anon;
 GRANT SELECT, INSERT, UPDATE ON mm3_market_state TO anon;
 GRANT SELECT ON mm3_macro_state TO anon;
 GRANT SELECT, INSERT, UPDATE ON mm3_wallet_presence TO anon;
+GRANT SELECT, INSERT, UPDATE ON mm3_wallet_pools TO anon;
+GRANT SELECT, INSERT ON mm3_wallet_pool_members TO anon;
 GRANT SELECT, INSERT ON mm3_sell_transactions TO anon;
 GRANT SELECT, INSERT ON mm3_market_events TO anon;
 GRANT INSERT ON api_requests TO anon;
