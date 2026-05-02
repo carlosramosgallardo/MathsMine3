@@ -14,9 +14,9 @@ function ReadmeTerminal({ readmeText }) {
 
 export default function ManifestoClient({ enContent, esContent }) {
   const { frameAccent } = useMm3Accent();
-  const { lang } = useI18n();
+  const { language } = useI18n();
 
-  const normalizedLang = String(lang || 'en').toLowerCase();
+  const normalizedLang = String(language || 'en').toLowerCase();
   const manifestoContent = normalizedLang.startsWith('es')
     ? (esContent || enContent)
     : (enContent || esContent);
