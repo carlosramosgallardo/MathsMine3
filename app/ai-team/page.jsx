@@ -142,14 +142,15 @@ export default function AITeamPage() {
           text-shadow: 0 0 12px rgba(34, 211, 238, 0.24);
         }
         #ai-team-section .mm3-ai-panel {
-          background: linear-gradient(180deg, rgba(5,8,16,0.97) 0%, rgba(2,6,23,0.9) 100%);
-          box-shadow: inset 0 0 24px rgba(34,211,238,0.05);
+          background: linear-gradient(180deg, rgba(5,8,16,0.96) 0%, rgba(2,6,23,0.9) 100%);
+          border: 1px solid rgba(34, 211, 238, 0.22);
+          box-shadow: inset 0 0 24px rgba(34,211,238,0.05), 0 0 18px rgba(34,211,238,0.06);
         }
       `}</style>
 
       <main className="w-full px-2 py-1" style={{ '--mm3-accent': frameAccent }}>
       <SectionFrame accent={frameAccent} id="ai-team-section">
-      <div className="mm3-readable-scroll max-w-4xl mx-auto px-1 py-1">
+      <div className="mm3-readable-scroll max-w-5xl mx-auto px-1 py-1">
         {/* Header */}
         <header className="text-center mb-4">
           <h1 className="text-2xl font-bold mb-2 text-[#22d3ee]">
