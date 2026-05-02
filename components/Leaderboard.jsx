@@ -72,6 +72,16 @@ function uniqueBy(items, getKey) {
   return out;
 }
 
+function getPoolRankTier(level) {
+  const lvl = Number(level) || 0;
+  if (lvl >= 800) return { emoji: '🐉', label: 'DRAGON MAINNET' };
+  if (lvl >= 600) return { emoji: '🏴‍☠️', label: 'VOID SYNDICATE' };
+  if (lvl >= 400) return { emoji: '🧲', label: 'SIGNAL CARTEL' };
+  if (lvl >= 200) return { emoji: '🕳️', label: 'HASH COVEN' };
+  if (lvl >= 100) return { emoji: '🧟', label: 'NODE SWARM' };
+  return { emoji: '', label: '' };
+}
+
 export default function Leaderboard({ itemsPerPage = 50 }) {
   const { t, language } = useI18n();
   const { currency: quoteCurrency } = useCurrency();
@@ -421,6 +431,7 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
 
     const rows = [...grouped.entries()].map(([poolCode, members]) => {
       const totalLevel = members.reduce((sum, entry) => sum + (Number(entry.level) || 0), 0);
+      const poolRankTier = getPoolRankTier(totalLevel);
       const totalMm3 = members.reduce((sum, entry) => sum + (Number(entry.available_mm3) || 0), 0);
       const totalCny = members.reduce((sum, entry) => sum + (Number(entry.money_balance_cny) || 0), 0);
       const totalEur = members.reduce((sum, entry) => sum + (Number(entry.money_balance_eur) || 0), 0);
@@ -455,6 +466,8 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
         pool_code: poolCode,
         member_count: members.length,
         level: totalLevel,
+        pool_rank_emoji: poolRankTier.emoji,
+        pool_rank_label: poolRankTier.label,
         total_nftjis: totalNftjis,
         total_execs: totalExecs,
         total_penalties: totalPenalties,
@@ -478,7 +491,7 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
       if (sortConfig.key === 'execs') return Number(entry.total_execs) || 0;
       if (sortConfig.key === 'wallets') return String((entry.member_wallets || []).join(' ')).toLowerCase();
       if (sortConfig.key === 'block') return Number(entry.total_penalties) || 0;
-      if (sortConfig.key === 'rank') return '';
+      if (sortConfig.key === 'rank') return Number(entry.level) || 0;
       if (sortConfig.key === 'pool') return String(entry.pool_code || '').toLowerCase();
       return entry[sortConfig.key];
     };
@@ -961,7 +974,12 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
                 </div>
                 <div className="rounded border border-cyan-500/10 bg-black/60 px-1.5 py-1">
                   <div>{t('leaderboard.rank')}</div>
-                  <div className="mt-0.5 text-sm font-bold tracking-normal text-slate-700">—</div>
+                  <div
+                    className="mt-0.5 text-sm font-bold tracking-normal"
+                    title={entry.pool_rank_label || 'No pool rank yet'}
+                  >
+                    {entry.pool_rank_emoji || '—'}
+                  </div>
                 </div>
                 <div className="col-span-3 rounded border border-cyan-500/10 bg-black/60 px-1.5 py-1">
                   <div>{labels.wallets}</div>
@@ -1372,8 +1390,11 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
                     </span>
                   </td>
                   <td style={{ textAlign:'center' }}>
-                    <span className="inline-flex items-center justify-center text-[0.8rem] font-mono font-bold text-slate-700">
-                      —
+                    <span
+                      className="inline-flex items-center justify-center text-[1rem] font-mono font-bold"
+                      title={entry.pool_rank_label || 'No pool rank yet'}
+                    >
+                      {entry.pool_rank_emoji || '—'}
                     </span>
                   </td>
                   <td style={{ textAlign:'right', paddingRight:'1rem' }}>
