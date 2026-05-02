@@ -39,7 +39,7 @@ export async function POST(req) {
     const { data: deletedRows, error: deleteError } = await supabase
       .from('mm3_wallet_pool_members')
       .delete()
-      .eq('wallet', wallet)
+      .ilike('wallet', wallet)
       .select('wallet,pool_code');
 
     if (deleteError) throw deleteError;
