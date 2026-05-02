@@ -14,20 +14,6 @@ A retro math-mining portal where timed problem-solving drives a fully simulated 
 
 <!-- MANIFESTO_EN_START -->
 
-# MathsMine3 v1.0
-
-> Solve math. Mine fake crypto. Burn your level. Go freak.
-
-[![MathsMine3 Portal](https://mathsmine3.xyz/og-image.jpg)](https://mathsmine3.xyz)
-
-**MathsMine3** is a retro math-mining portal where timed problem-solving, wallet identity, simulated crypto economics, Market blocks, IRC presence, rankings, and fake-token speculation become one shared terminal ritual.
-
-It is not real mining. It is not a real cryptocurrency. It is not an investment product. It is a fully simulated educational game economy where math skill, speed, luck, persistence, and social pressure drive a live fictional mainframe.
-
-**Live:** [mathsmine3.xyz](https://mathsmine3.xyz) · [Manifesto](https://mathsmine3.xyz/manifesto) · [API](https://mathsmine3.xyz/api) · [Privacy](https://mathsmine3.xyz/privacy) · [Terms](https://mathsmine3.xyz/terms) · [GitHub](https://github.com/carlosramosgallardo/MathsMine3)
-
----
-
 ## Manifesto
 
 MathsMine3 exists to turn mathematics into pressure, reward, memory, risk, and ritual.
@@ -1110,20 +1096,6 @@ MathsMine3 is a tiny fictional civilization inside a terminal: solve math, mine 
 <!-- MANIFESTO_EN_END -->
 
 <!-- MANIFESTO_ES_START -->
-
-# MathsMine3 v1.0
-
-> Resuelve matemáticas. Mina cripto fake. Quema tu nivel. Go freak.
-
-[![MathsMine3 Portal](https://mathsmine3.xyz/og-image.jpg)](https://mathsmine3.xyz)
-
-**MathsMine3** es un portal retro de minería matemática donde la resolución de problemas cronometrados, la identidad de wallet, la economía cripto simulada, los bloques del Market, la presencia en IRC y el ranking se fusionan en un único ritual de terminal.
-
-No hay minería real. No hay dinero real. No es un producto de inversión. Es una economía ficticia completamente conectada donde la habilidad matemática, la velocidad, la suerte y la persistencia generan un sistema vivo.
-
-**Live:** https://mathsmine3.xyz
-
----
 
 ## Manifesto
 
