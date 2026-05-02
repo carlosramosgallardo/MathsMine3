@@ -10,6 +10,31 @@
 
 ---
 
+## Index
+
+- [Manifesto](#manifesto)
+- [What MathsMine3 Is](#what-mathsmine3-is)
+- [What Ships](#what-ships)
+- [How to Play](#how-to-play)
+- [Mining](#mining)
+- [Daily Limits](#daily-limits)
+- [Ranks](#ranks)
+- [Wallets](#wallets)
+- [NFTJIs](#nftjis)
+- [Trade MM3](#trade-mm3)
+- [World System](#world-system)
+- [Market](#market)
+- [IRC Relay](#irc-relay)
+- [Ranking](#ranking)
+- [API](#api)
+- [Tech Stack](#tech-stack)
+- [Project Structure](#project-structure)
+- [Environment Variables](#environment-variables)
+- [Local Development](#local-development)
+- [Legal](#legal)
+
+---
+
 ## Manifesto
 
 MathsMine3 exists to turn mathematics into pressure, reward, memory, risk, and ritual.
@@ -412,6 +437,31 @@ MathsMine3 is a tiny fictional civilization inside a terminal: solve math, mine 
 [![MathsMine3 Portal](https://mathsmine3.xyz/og-image.jpg)](https://mathsmine3.xyz)
 
 **Live:** [mathsmine3.xyz](https://mathsmine3.xyz) · [Manifiesto](https://mathsmine3.xyz/manifesto) · [Trade MM3](https://mathsmine3.xyz/trade-mm3) · [Ranking](https://mathsmine3.xyz/ranking) · [Market](https://mathsmine3.xyz/market) · [IRC](https://mathsmine3.xyz/irc) · [API](https://mathsmine3.xyz/api)
+
+---
+
+## Indice
+
+- [Manifiesto](#manifiesto)
+- [Que Es MathsMine3](#que-es-mathsmine3)
+- [Que Incluye](#que-incluye)
+- [Como Jugar](#como-jugar)
+- [Mining](#mining)
+- [Limites Diarios](#limites-diarios)
+- [Rangos](#rangos)
+- [Wallets](#wallets)
+- [NFTJIs](#nftjis)
+- [Trade MM3](#trade-mm3)
+- [Sistema Mundo](#sistema-mundo)
+- [Market](#market)
+- [IRC Relay](#irc-relay)
+- [Ranking](#ranking)
+- [API](#api)
+- [Stack Tecnico](#stack-tecnico)
+- [Estructura del Proyecto](#estructura-del-proyecto)
+- [Variables de Entorno](#variables-de-entorno)
+- [Desarrollo Local](#desarrollo-local)
+- [Legal](#legal)
 
 ---
 
