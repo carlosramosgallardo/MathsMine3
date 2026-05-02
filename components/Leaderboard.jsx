@@ -50,7 +50,7 @@ function normalizeWallet(value) {
 function shortWallet(wallet) {
   const normalized = String(wallet || '').trim();
   if (!normalized) return '';
-  return normalized.length <= 5 ? normalized : `...${normalized.slice(-5)}`;
+  return normalized.slice(-5).toUpperCase();
 }
 
 function avg(values) {
@@ -79,7 +79,10 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
   const [currentPage, setCurrentPage] = useState(1);
   const [isLoading, setIsLoading]     = useState(true);
   const [selectedWallet, setSelectedWallet] = useState('');
-  const [viewMode, setViewMode] = useState('wallets');
+  const [viewMode, setViewMode] = useState(() => {
+    if (typeof window === 'undefined') return 'wallets';
+    return localStorage.getItem('mm3_leaderboard_view_mode') || 'wallets';
+  });
   const [contactBusy, setContactBusy] = useState('');
   const [sortConfig, setSortConfig] = useState({ key: 'status', direction: 'desc' });
   const { account } = useActiveWallet();
@@ -414,11 +417,15 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
 
     const rows = [...grouped.entries()].map(([poolCode, members]) => {
       const avgLevel = avg(members.map((entry) => entry.level));
-      const avgExecs = avg(members.map((entry) => entry.execs_count));
       const avgMm3 = avg(members.map((entry) => entry.available_mm3));
       const avgCny = avg(members.map((entry) => entry.money_balance_cny));
       const avgEur = avg(members.map((entry) => entry.money_balance_eur));
       const avgUsd = avg(members.map((entry) => entry.money_balance_usd));
+      const avgNftjis = avg(members.map((entry) => Array.isArray(entry.market_blocks) ? entry.market_blocks.length : 0));
+      const avgBlockPen = avg(members.map((entry) => {
+        const blocks = Array.isArray(entry.market_blocks) ? entry.market_blocks.length : 0;
+        return blocks + (entry.active_penalty?.mm3 || entry.active_penalty?.money ? 1 : 0);
+      }));
       const marketBlocks = uniqueBy(
         members.flatMap((entry) => Array.isArray(entry.market_blocks) ? entry.market_blocks : []),
         (block) => block.block_key
@@ -438,14 +445,16 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
         pool_code: poolCode,
         member_count: members.length,
         level: avgLevel,
-        execs_count: avgExecs,
+        avg_nftjis: avgNftjis,
+        avg_block_pen: avgBlockPen,
         available_mm3: avgMm3,
         money_balance_cny: avgCny,
         money_balance_eur: avgEur,
         money_balance_usd: avgUsd,
         wallet_emojis: [...new Set(members.flatMap((entry) => normalizeWalletDecorations(entry.wallet_emojis)))],
         market_blocks: marketBlocks,
-        member_wallets: normalizedWallets.map(shortWallet),
+        member_wallets: normalizedWallets,
+        member_wallets_short: normalizedWallets.map(shortWallet),
         hidden_member_wallet_count: Math.max(0, new Set(members.map((entry) => normalizeWallet(entry.wallet)).filter(Boolean)).size - normalizedWallets.length),
         active_penalty: activePenalty.mm3 || activePenalty.money ? activePenalty : null,
       };
@@ -453,9 +462,9 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
 
     const getValue = (entry) => {
       if (sortConfig.key === 'money') return Number(entry[moneyKey]) || 0;
-      if (sortConfig.key === 'nftji') return normalizeWalletDecorations(entry.wallet_emojis).length;
+      if (sortConfig.key === 'nftji') return Number(entry.avg_nftjis) || 0;
       if (sortConfig.key === 'wallets') return String((entry.member_wallets || []).join(' ')).toLowerCase();
-      if (sortConfig.key === 'block') return (Array.isArray(entry.market_blocks) ? entry.market_blocks.length : 0) + (entry.active_penalty?.mm3 || entry.active_penalty?.money ? 1 : 0);
+      if (sortConfig.key === 'block') return Number(entry.avg_block_pen) || 0;
       if (sortConfig.key === 'rank') return getRankTier(clampRankLevel(Math.round(entry.level))).label;
       if (sortConfig.key === 'pool') return String(entry.pool_code || '').toLowerCase();
       return entry[sortConfig.key];
@@ -555,6 +564,11 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
       setLeaveBusy(false);
     }
   };
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    localStorage.setItem('mm3_leaderboard_view_mode', viewMode);
+  }, [viewMode]);
 
   useEffect(() => {
     fetchInvites();
@@ -908,9 +922,26 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
                 <div className="col-span-3 rounded border border-cyan-500/10 bg-black/60 px-1.5 py-1">
                   <div>{labels.wallets}</div>
                   <div className="mt-0.5 text-[0.72rem] font-mono font-semibold tracking-normal text-cyan-300">
-                    {Array.isArray(entry.member_wallets) && entry.member_wallets.length > 0
-                      ? `${entry.member_wallets.join(' ')}${entry.hidden_member_wallet_count ? ` +${entry.hidden_member_wallet_count}` : ''}`
-                      : t('leaderboard.none')}
+                    {Array.isArray(entry.member_wallets) && entry.member_wallets.length > 0 ? (
+                      <div className="flex flex-wrap items-center gap-1">
+                        {entry.member_wallets.map((wallet, index) => (
+                          <button
+                            key={`${wallet}-${index}`}
+                            type="button"
+                            onClick={() => toggleSelectedWallet(wallet)}
+                            title={wallet}
+                            className="rounded border border-cyan-500/20 bg-cyan-950/10 px-2 py-1 font-mono text-[0.72rem] font-semibold text-cyan-200 transition hover:border-cyan-300"
+                          >
+                            {shortWallet(wallet)}
+                          </button>
+                        ))}
+                        {entry.hidden_member_wallet_count ? (
+                          <span className="rounded border border-cyan-500/20 bg-cyan-950/10 px-2 py-1 font-mono text-[0.72rem] font-semibold text-cyan-200">
+                            +{entry.hidden_member_wallet_count}
+                          </span>
+                        ) : null}
+                      </div>
+                    ) : t('leaderboard.none')}
                   </div>
                 </div>
                 <div className="rounded border border-cyan-500/10 bg-black/60 px-1.5 py-1">
@@ -1223,53 +1254,37 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
                   <td>
                     <div className="flex flex-wrap items-center justify-center gap-1 text-[0.8rem] uppercase tracking-[0.08em] text-cyan-300">
                       {(entry.member_wallets || []).map((wallet, index) => (
-                        <span key={`${wallet}-${index}`} className="rounded border border-cyan-500/20 bg-cyan-950/10 px-2 py-1 font-mono text-[0.72rem] font-semibold">
-                          {wallet}
-                        </span>
+                        <button
+                          key={`${wallet}-${index}`}
+                          type="button"
+                          onClick={() => toggleSelectedWallet(wallet)}
+                          title={wallet}
+                          className="rounded border border-cyan-500/20 bg-cyan-950/10 px-2 py-1 font-mono text-[0.72rem] font-semibold text-cyan-200 transition hover:border-cyan-300"
+                        >
+                          {shortWallet(wallet)}
+                        </button>
                       ))}
                       {entry.hidden_member_wallet_count ? (
-                        <span className="rounded border border-cyan-500/20 bg-cyan-950/10 px-2 py-1 font-mono text-[0.72rem] font-semibold">
+                        <span className="rounded border border-cyan-500/20 bg-cyan-950/10 px-2 py-1 font-mono text-[0.72rem] font-semibold text-cyan-200">
                           +{entry.hidden_member_wallet_count}
                         </span>
                       ) : null}
                     </div>
                   </td>
                   <td style={{ textAlign:'center' }}>
-                    <div className="flex flex-wrap items-center justify-center gap-1">
-                      {marketBlocks.length > 0 ? marketBlocks.map((block) => (
-                        <button
-                          key={block.block_key}
-                          type="button"
-                          onClick={() => openMarketBlock(block.block_key)}
-                          title={`${block.emoji} ${block.hex}`}
-                          className="lb-block-cell relative flex items-center justify-center rounded-md border text-[0.95rem] transition hover:border-cyan-300 hover:text-cyan-100"
-                          style={{
-                            borderColor: 'rgba(250,204,21,0.3)',
-                            background: 'rgba(2,6,23,0.68)',
-                            color: '#fef08a',
-                            boxShadow: '0 0 10px rgba(250,204,21,0.12)',
-                          }}
-                        >
-                          <span>{block.emoji}</span>
-                          <span className="absolute bottom-[1px] right-[2px] text-[0.44rem] font-black tracking-[0.08em] text-cyan-100/90">
-                            {block.hex.replace('#', '')}
-                          </span>
-                        </button>
-                      )) : null}
-                      {activePenalty?.mm3 ? (
-                        <button type="button" onClick={() => openMarketBlock(activePenalty.mm3.nftji_key)} className="lb-penalty-link rounded border border-rose-400/30 bg-rose-950/20 px-1.5 py-1 font-mono text-[0.76rem] font-black text-rose-300">
-                          -{Number(activePenalty.mm3.penalty_value || 0).toFixed(8).replace(/\.?0+$/, '') || '0'} MM3
-                        </button>
-                      ) : null}
-                      {activePenalty?.money ? (
-                        <button type="button" onClick={() => openMarketBlock(activePenalty.money.nftji_key)} className="lb-penalty-link rounded border border-amber-400/30 bg-amber-950/20 px-1.5 py-1 font-mono text-[0.76rem] font-black text-amber-300">
-                          -{convertPenaltyEur(activePenalty.money.penalty_eur || activePenalty.money.penalty_value || 0, quoteCurrency).toFixed(8).replace(/\.?0+$/, '') || '0'} {quoteCurrency}
-                        </button>
-                      ) : null}
-                      {marketBlocks.length === 0 && !activePenalty?.mm3 && !activePenalty?.money ? (
-                        <span className="text-[0.75rem] uppercase tracking-[0.12em] text-slate-600">{t('leaderboard.none')}</span>
-                      ) : null}
-                    </div>
+                    <span className="font-mono font-semibold text-cyan-100">
+                      {Number(entry.avg_nftjis || 0).toFixed(2)}
+                    </span>
+                  </td>
+                  <td style={{ textAlign:'center' }}>
+                    <span className="font-mono font-semibold text-cyan-100">
+                      {Number(entry.avg_nftjis || 0).toFixed(2)}
+                    </span>
+                  </td>
+                  <td style={{ textAlign:'center' }}>
+                    <span className="font-mono font-semibold text-cyan-100">
+                      {Number(entry.avg_block_pen || 0).toFixed(2)}
+                    </span>
                   </td>
                   <td style={{ textAlign:'center' }}>
                     <span className="font-mono font-black text-[1.05rem]" style={{ color: tier.color, textShadow:`0 0 8px ${tier.color}66` }}>
