@@ -143,6 +143,7 @@ function formatChatAuthor(wallet, normalizedWallet, youLabel) {
 }
 
 function formatSystemAuthor(tone) {
+  if (tone === 'realchain') return 'MathsMine3@ETH·:~$';
   if (tone === 'market') return 'market@MM3·:~$';
   if (tone === 'ghost' || tone === 'join' || tone === 'leave') return 'mainframe@MM3·:~$';
   if (tone === 'command') return 'cmd@MM3·:~$';
@@ -1055,6 +1056,18 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
         }), { silent: false });
         scheduleTimeout(() => refreshMarketStatus(), 500);
       })
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'mm3_irc_messages', filter: 'tone=eq.realchain' }, ({ new: rec }) => {
+        const text = normalizeRelayMessage(rec?.text);
+        if (!text) return;
+        appendMessage(makeMessage({
+          id: `db:${rec.wallet || 'realchain'}:${rec.ts || rec.created_at || Date.now()}`,
+          kind: rec.kind || 'system',
+          wallet: String(rec.wallet || 'realchain').toLowerCase(),
+          text,
+          ts: isNaN(Number(rec.ts)) ? new Date(rec.ts || rec.created_at || Date.now()).getTime() : Number(rec.ts),
+          tone: rec.tone || 'realchain',
+        }), { silent: false });
+      })
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'mm3_command_penalties' }, ({ new: rec }) => {
         if (!rec?.redeemed_at || !rec?.attempted_at) return;
         scheduleTimeout(() => refreshMarketStatus(), 500);
@@ -1564,6 +1577,10 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
         .mm3-irc-line.system[data-tone='market']   {
           color: #facc15;
           text-shadow: 0 0 8px rgba(250, 204, 21, 0.16);
+        }
+        .mm3-irc-line.system[data-tone='realchain'] {
+          color: #a78bfa;
+          text-shadow: 0 0 10px rgba(167, 139, 250, 0.28);
         }
         .mm3-irc-line.system[data-tone='command']  {
           color: #4ade80;
