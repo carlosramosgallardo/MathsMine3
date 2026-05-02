@@ -92,6 +92,7 @@ export async function POST(req) {
 
     if (walletPool && targetPool) {
       // Already in same pool handled above.
+    }
     const { data: existingInvite, error: inviteError } = await supabase
       .from('mm3_wallet_pool_invitations')
       .select('id')
