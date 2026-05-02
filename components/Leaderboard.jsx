@@ -488,7 +488,7 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
 
   const activeLeaderboard = viewMode === 'pools' ? poolLeaderboard : filteredLeaderboard;
   const activeWalletPool = activeWallet
-    ? leaderboard.find((entry) => String(entry.wallet || '').toLowerCase() === activeWallet)?.pool_code || ''
+    ? leaderboard.find((entry) => normalizeWallet(entry.wallet) === activeWallet)?.pool_code || ''
     : '';
   const [incomingInvites, setIncomingInvites] = useState([]);
   const [acceptBusy, setAcceptBusy] = useState('');
@@ -523,11 +523,13 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
         window.dispatchEvent(new CustomEvent('mm3-toast', { detail: { msg: labels.poolError, type: 'error' } }));
         return;
       }
+      // Clear caches to force fresh fetch
       localStorage.removeItem('lb_data');
       localStorage.removeItem('lb_fetch_time');
-      window.dispatchEvent(new CustomEvent('mm3-db-updated', { detail: { poolCode: payload.poolCode } }));
-      window.dispatchEvent(new CustomEvent('mm3-toast', { detail: { msg: labels.inviteAccepted, type: 'success' } }));
+      // Fetch fresh data without dispatching event (avoid race conditions)
       await fetchLeaderboard({ ignoreCache: true });
+      // Show success after data is confirmed refreshed
+      window.dispatchEvent(new CustomEvent('mm3-toast', { detail: { msg: labels.inviteAccepted, type: 'success' } }));
       await fetchInvites();
     } catch (error) {
       console.error('accept invite:', error);
@@ -551,11 +553,13 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
         window.dispatchEvent(new CustomEvent('mm3-toast', { detail: { msg: labels.poolError, type: 'error' } }));
         return;
       }
+      // Clear caches to force fresh fetch
       localStorage.removeItem('lb_data');
       localStorage.removeItem('lb_fetch_time');
-      window.dispatchEvent(new CustomEvent('mm3-db-updated', { detail: { poolCode: payload.poolCode } }));
-      window.dispatchEvent(new CustomEvent('mm3-toast', { detail: { msg: labels.poolLeft, type: 'success' } }));
+      // Fetch fresh data without dispatching event (avoid race conditions)
       await fetchLeaderboard({ ignoreCache: true });
+      // Show success after data is confirmed refreshed
+      window.dispatchEvent(new CustomEvent('mm3-toast', { detail: { msg: labels.poolLeft, type: 'success' } }));
       await fetchInvites();
     } catch (error) {
       console.error('leave pool:', error);
@@ -689,7 +693,7 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
   };
 
   const handleContactWallet = async (targetWallet) => {
-    const normalizedTarget = String(targetWallet || '').toLowerCase();
+    const normalizedTarget = normalizeWallet(targetWallet);
     if (!activeWallet || !normalizedTarget || normalizedTarget === activeWallet || contactBusy) return;
     setContactBusy(normalizedTarget);
     try {
@@ -714,11 +718,13 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
         window.dispatchEvent(new CustomEvent('mm3-toast', { detail: { msg, type: 'error' } }));
         return;
       }
+      // Clear caches to force fresh fetch
       localStorage.removeItem('lb_data');
       localStorage.removeItem('lb_fetch_time');
-      window.dispatchEvent(new CustomEvent('mm3-db-updated', { detail: { poolCode: payload.poolCode } }));
-      window.dispatchEvent(new CustomEvent('mm3-toast', { detail: { msg: labels.inviteSent, type: 'success' } }));
+      // Fetch fresh data without dispatching event (avoid race conditions)
       await fetchLeaderboard({ ignoreCache: true });
+      // Show success after data is confirmed refreshed
+      window.dispatchEvent(new CustomEvent('mm3-toast', { detail: { msg: labels.inviteSent, type: 'success' } }));
     } catch (error) {
       console.error('contact wallet:', error);
       window.dispatchEvent(new CustomEvent('mm3-toast', { detail: { msg: labels.poolError, type: 'error' } }));
