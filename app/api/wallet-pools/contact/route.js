@@ -64,19 +64,23 @@ export async function POST(req) {
       return Response.json({ ok: false, error: 'both_wallets_already_pooled' }, { status: 409 });
     }
 
-    if (!walletPool && targetPool) {
-      return Response.json({ ok: false, error: 'target_in_pool' }, { status: 409 });
-    }
-
     if (walletPool && targetPool && walletPool === targetPool) {
       return Response.json({ ok: false, error: 'already_in_same_pool' }, { status: 409 });
     }
 
+    const isWalletPoolless = !walletPool;
+    const isTargetPoolless = !targetPool;
     const poolCode = walletPool || targetPool || await createUniquePool(supabase, wallet);
+
+    // Determine who receives the invitation.
+    const inviteTo = isTargetPoolless ? targetWallet : wallet;
+    const invitedBy = isTargetPoolless ? wallet : targetWallet;
+    const invitePoolCode = poolCode;
+
     const { data: poolCountData, count: poolCount, error: countError } = await supabase
       .from('mm3_wallet_pool_members')
       .select('*', { count: 'exact', head: true })
-      .eq('pool_code', poolCode);
+      .eq('pool_code', invitePoolCode);
 
     if (countError) throw countError;
     if (Number(poolCount || 0) >= 5) {
@@ -88,21 +92,19 @@ export async function POST(req) {
 
     if (walletPool && targetPool) {
       // Already in same pool handled above.
-    } else if (!targetPool) {
-      const { data: existingInvite, error: inviteError } = await supabase
-        .from('mm3_wallet_pool_invitations')
-        .select('id')
-        .eq('wallet', targetWallet)
-        .eq('pool_code', poolCode)
-        .eq('invited_by', wallet)
-        .eq('status', 'pending')
-        .limit(1)
-        .maybeSingle();
+    const { data: existingInvite, error: inviteError } = await supabase
+      .from('mm3_wallet_pool_invitations')
+      .select('id')
+      .eq('wallet', inviteTo)
+      .eq('pool_code', invitePoolCode)
+      .eq('invited_by', invitedBy)
+      .eq('status', 'pending')
+      .limit(1)
+      .maybeSingle();
 
-      if (inviteError) throw inviteError;
-      if (existingInvite) {
-        return Response.json({ ok: false, error: 'invite_already_exists' }, { status: 409 });
-      }
+    if (inviteError) throw inviteError;
+    if (existingInvite) {
+      return Response.json({ ok: false, error: 'invite_already_exists' }, { status: 409 });
     }
 
     if (rows.length) {
@@ -115,7 +117,7 @@ export async function POST(req) {
 
     const { error: inviteInsertError } = await supabase
       .from('mm3_wallet_pool_invitations')
-      .insert({ wallet: targetWallet, invited_by: wallet, pool_code: poolCode });
+      .insert({ wallet: inviteTo, invited_by: invitedBy, pool_code: invitePoolCode });
 
     if (inviteInsertError) throw inviteInsertError;
 

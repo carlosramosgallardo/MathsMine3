@@ -1064,7 +1064,7 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
                     #{entry.pool_code}
                   </button>
                 ) : null}
-                {activeWallet && normalizedWallet !== activeWallet && !activeWalletPool ? (
+                {activeWallet && normalizedWallet !== activeWallet ? (
                   <button
                     type="button"
                     onClick={() => handleContactWallet(entry.wallet)}
@@ -1350,7 +1350,7 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
                       >
                         {entry.wallet}
                       </button>
-                      {activeWallet && !isActiveWallet && !activeWalletPool ? (
+                      {activeWallet && !isActiveWallet ? (
                         <button
                           type="button"
                           onClick={() => handleContactWallet(entry.wallet)}

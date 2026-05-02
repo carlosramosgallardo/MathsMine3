@@ -55,9 +55,18 @@ DELETE FROM mm3_market_commands;
 DELETE FROM mm3_command_penalties;
 DELETE FROM mm3_hidden_cmd_executions;
 DELETE FROM daily_task_claims;
-DELETE FROM mm3_wallet_pool_members;
-DELETE FROM mm3_wallet_pool_invitations;
-DELETE FROM mm3_wallet_pools;
+DO $$
+BEGIN
+  IF EXISTS (SELECT FROM pg_class WHERE relname = 'mm3_wallet_pool_members' AND relnamespace = 'public'::regnamespace) THEN
+    EXECUTE 'DELETE FROM mm3_wallet_pool_members';
+  END IF;
+  IF EXISTS (SELECT FROM pg_class WHERE relname = 'mm3_wallet_pool_invitations' AND relnamespace = 'public'::regnamespace) THEN
+    EXECUTE 'DELETE FROM mm3_wallet_pool_invitations';
+  END IF;
+  IF EXISTS (SELECT FROM pg_class WHERE relname = 'mm3_wallet_pools' AND relnamespace = 'public'::regnamespace) THEN
+    EXECUTE 'DELETE FROM mm3_wallet_pools';
+  END IF;
+END$$;
 
 -- 6. Historial de EXECs
 -- Si quieres que los drills vuelvan exactamente a 100/100 y no a 100+EXECs,
