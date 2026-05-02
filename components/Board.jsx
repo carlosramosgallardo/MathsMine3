@@ -40,6 +40,48 @@ const REVIVE_COST_CNY = REVIVE_COST_EUR / CNY_TO_EUR;
 const PROBLEM_CACHE_VERSION = 3;
 const DAILY_MINE_BASE = 100;
 
+const PROBLEM_FAMILY_LABELS = {
+  en: {
+    arithmetic: 'Arithmetic',
+    operator_fix: 'Operator',
+    digit_fix: 'Digit',
+    powers: 'Powers',
+    sequence: 'Sequence',
+    modulo: 'Modulo',
+    logic: 'Logic',
+    fractions: 'Fractions',
+    primes: 'Primes',
+    geometry: 'Geometry',
+    percentage: 'Percent',
+    algebra: 'Algebra',
+    definition: 'Definition',
+  },
+  es: {
+    arithmetic: 'Aritmética',
+    operator_fix: 'Operador',
+    digit_fix: 'Dígito',
+    powers: 'Potencias',
+    sequence: 'Secuencia',
+    modulo: 'Módulo',
+    logic: 'Lógica',
+    fractions: 'Fracciones',
+    primes: 'Primos',
+    geometry: 'Geometría',
+    percentage: 'Porcentaje',
+    algebra: 'Álgebra',
+    definition: 'Definición',
+  },
+};
+
+function getProblemFamilyLabel(problem, lang) {
+  const rawType = problem?.problem_type || problem?.type || 'arithmetic';
+  const type = String(rawType).toLowerCase();
+  const dictionary = String(lang || 'en').startsWith('es')
+    ? PROBLEM_FAMILY_LABELS.es
+    : PROBLEM_FAMILY_LABELS.en;
+  return dictionary[type] || dictionary.arithmetic;
+}
+
 function getUtcDayBounds(now = new Date()) {
   const start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
   const end   = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1));
@@ -2428,6 +2470,7 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
   const dailyMineTotal = DAILY_MINE_BASE + execsCount;
   const dailyMineLeft = Math.max(0, dailyMineTotal - dailyMineUsed);
   const noSlotsLeft = !!account && dailyMineLeft <= 0;
+  const problemFamilyLabel = getProblemFamilyLabel(problem, language);
   const stats = [
     { label: t('tradeBoard.levelRank').replace(/ *\(.*\)/, ''), value: `${level}` },
     { label: t('leaderboard.mm3Earned'),  value: formatCompactNum(totalMined) },
@@ -2441,6 +2484,15 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
         @keyframes flash-down { 0%,100%{opacity:1} 30%{opacity:.35;filter:brightness(.4)} }
         .level-up   { animation: flash-up   .5s ease-in-out; }
         .level-down { animation: flash-down .8s ease-in-out; }
+        .mm3-question-family {
+          backdrop-filter: blur(6px);
+          max-width: min(44%, 9.5rem);
+        }
+        @media (max-width: 420px) {
+          .mm3-question-family {
+            max-width: 7.5rem;
+          }
+        }
       `}</style>
 
       <div className="w-full">
@@ -2521,6 +2573,18 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
                 {/* Question */}
                 {shouldShowProblem && (
                   <div className="relative z-10 text-center mb-4">
+                    <span
+                      className="mm3-question-family absolute -top-3 right-0 truncate rounded border px-1.5 py-0.5 text-[0.54rem] font-black uppercase tracking-[0.14em]"
+                      style={{
+                        borderColor: `${boardAlertColor}40`,
+                        background: 'rgba(2,6,23,0.72)',
+                        color: `${boardAlertColor}cc`,
+                        boxShadow: `0 0 10px ${boardAlertColor}16`,
+                      }}
+                      title={problemFamilyLabel}
+                    >
+                      {problemFamilyLabel}
+                    </span>
                     <p
                       className="text-xl sm:text-2xl font-mono font-black tracking-wide break-words leading-tight"
                       style={{ color: boardAlertColor, textShadow: `0 0 16px ${boardAlertColor}50` }}
