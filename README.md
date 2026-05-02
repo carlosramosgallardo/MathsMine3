@@ -18,6 +18,7 @@
 - [Core Systems](#core-systems)
 - [Mining](#mining)
 - [Daily Limits](#daily-limits)
+- [Daily Rewards](#daily-rewards)
 - [Ranks](#ranks)
 - [Wallets](#wallets)
 - [NFTJIs](#nftjis)
@@ -184,6 +185,28 @@ All quotas reset at UTC midnight.
 ```txt
 dailySlots = 100 + allTimeExecs
 ```
+
+---
+
+## Daily Rewards
+
+Daily rewards are wallet-bound tasks that pay fictional in-game money when claimed. They reset at UTC midnight, and unclaimed rewards disappear.
+
+| Task | Daily Target | Reward | Counts From | Why It Matters |
+|---|---:|---:|---|---|
+| MINING | 25 correct mining games | 0.25 EUR | Correct rows in `games` for the current UTC day | Rewards sustained math play, not idle presence. |
+| TRADING | 5 buy/sell operations | 0.50 EUR | Daily rows in `mm3_sell_transactions` | Pushes the player to use the exchange loop and understand MM3 value. |
+| MARKET | 1 Market buy or resell | 0.75 EUR | `market_buy` or `market_resell` events | Makes the 28x28 board part of the daily economy. |
+| IRC | 1 public Market command | 1.00 EUR | Daily rows in `mm3_market_commands` | Rewards social command activity from owned Market NFTJIs. |
+| HIDDEN IRC | 1 hidden command | 5.00 EUR | Daily rows in `mm3_hidden_cmd_executions` | High-value reward for discovering and executing hidden command paths. |
+
+| Rule | Explanation |
+|---|---|
+| Claim model | A completed task must be manually claimed from the daily panel. |
+| Wallet scope | Claims are stored by `wallet + UTC day + task_key`. |
+| Currency credit | Rewards are credited to fictional EUR, USD, and CNY balances using the internal fixed conversion rates. |
+| Maximum daily reward | Completing and claiming every task pays 7.50 EUR equivalent in fictional funds. |
+| Expiry | If a task is completed but not claimed before UTC reset, the reward is lost. |
 
 ---
 
@@ -437,6 +460,7 @@ Read:
 - [Sistemas Base](#sistemas-base)
 - [Mining](#mining)
 - [Límites Diarios](#limites-diarios)
+- [Recompensas Diarias](#recompensas-diarias)
 - [Rangos](#rangos)
 - [Wallets](#wallets)
 - [NFTJIs](#nftjis)
@@ -603,6 +627,28 @@ Todas las cuotas se reinician a medianoche UTC.
 ```txt
 dailySlots = 100 + allTimeExecs
 ```
+
+---
+
+## Recompensas Diarias
+
+Las recompensas diarias son tareas asociadas a la wallet que pagan dinero ficticio dentro del juego al reclamarlas. Se reinician a medianoche UTC, y las recompensas no reclamadas se pierden.
+
+| Tarea | Objetivo Diario | Recompensa | Cuenta Desde | Por Qué Importa |
+|---|---:|---:|---|---|
+| MINING | 25 partidas correctas de mining | 0.25 EUR | Filas correctas en `games` durante el día UTC actual | Premia juego matemático sostenido, no presencia pasiva. |
+| TRADING | 5 operaciones de compra/venta | 0.50 EUR | Filas diarias en `mm3_sell_transactions` | Empuja a usar el exchange y entender el valor de MM3. |
+| MARKET | 1 compra o reventa en Market | 0.75 EUR | Eventos `market_buy` o `market_resell` | Hace que el tablero 28x28 forme parte de la economía diaria. |
+| IRC | 1 comando público de Market | 1.00 EUR | Filas diarias en `mm3_market_commands` | Recompensa actividad social de comandos desde NFTJIs del Market. |
+| HIDDEN IRC | 1 comando oculto | 5.00 EUR | Filas diarias en `mm3_hidden_cmd_executions` | Recompensa de alto valor por descubrir y ejecutar rutas ocultas. |
+
+| Regla | Explicación |
+|---|---|
+| Modelo de reclamación | Una tarea completada debe reclamarse manualmente desde el panel diario. |
+| Alcance por wallet | Las reclamaciones se guardan por `wallet + día UTC + task_key`. |
+| Crédito de moneda | Las recompensas se añaden a balances ficticios EUR, USD y CNY usando las conversiones internas fijas. |
+| Recompensa diaria máxima | Completar y reclamar todas las tareas paga 7.50 EUR equivalentes en fondos ficticios. |
+| Caducidad | Si una tarea se completa pero no se reclama antes del reset UTC, la recompensa se pierde. |
 
 ---
 
