@@ -2,7 +2,7 @@
 
 # MathsMine3 `v1.0`
 
-> Solve math. Mine fake crypto. Burn your level. Go freak.
+> Timed math. Fictional mining. Wallet identity. Terminal economy.
 
 [![MathsMine3 Portal](https://mathsmine3.xyz/og-image.jpg)](https://mathsmine3.xyz)
 
@@ -12,119 +12,130 @@
 
 ## Index
 
+- [Snapshot](#snapshot)
 - [Manifesto](#manifesto)
-- [What MathsMine3 Is](#what-mathsmine3-is)
-- [What Ships](#what-ships)
-- [How to Play](#how-to-play)
+- [Game Loop](#game-loop)
+- [Core Systems](#core-systems)
 - [Mining](#mining)
 - [Daily Limits](#daily-limits)
 - [Ranks](#ranks)
 - [Wallets](#wallets)
 - [NFTJIs](#nftjis)
 - [Trade MM3](#trade-mm3)
-- [World System](#world-system)
 - [Market](#market)
 - [IRC Relay](#irc-relay)
 - [Ranking](#ranking)
 - [API](#api)
 - [Tech Stack](#tech-stack)
-- [Project Structure](#project-structure)
-- [Environment Variables](#environment-variables)
-- [Local Development](#local-development)
+- [Run Locally](#run-locally)
 - [Legal](#legal)
+
+---
+
+## Snapshot
+
+| Field | Value |
+|---|---|
+| Project | MathsMine3 |
+| Version | `v1.0` |
+| Genre | Retro math-mining game |
+| Economy | Fully simulated, fictional MM3 token |
+| Identity | Ethereum wallet or deterministic Google virtual wallet |
+| Persistence | Supabase player, market, chart, chat, and event state |
+| Languages | English and Spanish |
+| Core routes | Mining, Trade MM3, Ranking, Market, IRC, MM3 Value, Manifesto, API |
+| Legal status | No real mining, no real token, no payout, no investment |
 
 ---
 
 ## Manifesto
 
-MathsMine3 exists to turn mathematics into pressure, reward, memory, risk, and ritual.
+MathsMine3 turns math into pressure, reward, memory, risk, and ritual.
 
-It does not try to look like a classroom. It behaves like a cracked old crypto terminal: solve fast, mine fake MM3, climb ranks, lose level when you fail, trade inside a fictional exchange, collect strange NFTJI objects, fire Market commands, talk inside IRC, and return after reset sharper than before.
+It is not a classroom skin. It is a terminal-world game: solve fast, mine fake MM3, climb ranks, lose level when you fail, trade inside a fictional exchange, collect NFTJIs, fire Market commands, appear in IRC, and return after every reset sharper than before.
 
-This is not a finance product. This is not a token launch. This is a videogame-shaped mathematical machine with fake money, real persistence, and terminal drama.
+The useful idea is simple: **math becomes action**. Every problem solved is not just a score event; it moves a wallet, a rank, a fictional market, and a shared public state.
 
 ```txt
 solve -> mine -> level -> trade -> collect -> command -> recover -> repeat
 ```
 
-One correct answer can mint a tiny reward. One slow answer can go negative. One wrong answer can burn level. One lucky roll can drop an NFTJI. One trade EXEC can move the macro state. One Market command can hurt rival wallets. One numeric code can cancel the hit.
-
-That is the ritual: learn, risk, return, repeat.
-
----
-
-## What MathsMine3 Is
-
-MathsMine3 is a retro math-mining portal where timed problem solving drives a fully simulated crypto economy. Your wallet levels up, MM3 moves, rare NFTJIs drop, the Market mutates, IRC gets noisy, and every trade leaves a mark on a fictional world.
-
-MM3 has no external financial value. No real mining occurs. No real payout is promised. All balances, rewards, trades, penalties, blocks, and prices are fictional gameplay mechanics.
-
-The project has four pillars:
-
-| Pillar | Meaning |
+| Principle | Design Meaning |
 |---|---|
-| Math as action | Arithmetic, logic, algebra, geometry, percentages, primes, sequences, fractions, and definitions become timed game events. |
-| Wallet as identity | Real Ethereum wallets and Google-derived virtual wallets become persistent player identities. |
-| Economy as simulation | MM3 has no external value, but every in-game action mutates the visible fictional economy. |
-| Community as terminal culture | Players appear in IRC with wallet identity, country flag, Market NFTJIs, command status, and public activity signals. |
+| Math as action | Timed problems become game events, not worksheets. |
+| Wallet as identity | Progress belongs to a persistent player identity. |
+| Economy as simulation | MM3 has no external value, but every action affects the fiction. |
+| Community as terminal culture | IRC, Market commands, rankings, and visible wallets make the game public. |
 
 ---
 
-## What Ships
+## Game Loop
 
-| System | Included |
+1. Solve a timed math problem.
+2. Mine fictional MM3 if correct.
+3. Gain or lose level based on performance.
+4. Spend daily DRILL SLOTS.
+5. Trade MM3 in a fictional exchange.
+6. Collect rare NFTJIs.
+7. Buy or resell Market blocks.
+8. Launch IRC commands from owned Market NFTJIs.
+9. Watch global MM3 value react.
+10. Return after UTC reset.
+
+---
+
+## Core Systems
+
+| System | What It Does |
 |---|---|
-| Mining chain | Timed math rounds, rewards, penalties, level changes |
-| Problem engine | 13 problem families, seeded bilingual definitions |
-| Wallet identity | Ethereum wallet or deterministic Google virtual wallet |
-| Ranks | NOVICE, MINER, HACKER, WIZARD, LEGEND |
-| Daily economy | DRILL SLOTS, EXEC limits, command limits, UTC reset |
-| Trade MM3 | Fictional exchange terminal for MM3 / CNY / EUR / USD |
-| World state | War, Nature, hourly Dice modifier |
-| MM3 chart | Fictional value history mutated by game events |
-| Market | 28x28 board, 784 cells, 20 fixed NFTJI command blocks |
-| IRC relay | Persistent social terminal with wallet presence |
-| NFTJIs | Mining drops, one-time heart revive, Market blocks |
-| i18n | Full English / Spanish player-facing experience |
-| Persistence | Supabase-backed player, market, chart, chat, and event state |
-
----
-
-## How to Play
-
-Open [mathsmine3.xyz](https://mathsmine3.xyz) and start solving. You can play as a guest, but persistent progression requires identity:
-
-- Connect a real Ethereum wallet through Web3Modal.
-- Or sign in with Google to generate a deterministic virtual wallet.
-
-Both account types unlock the same systems. No on-chain transaction is required for gameplay.
-
-The main loop:
-
-1. Solve timed math problems.
-2. Mine fictional MM3 from correct answers.
-3. Level up through rank tiers.
-4. Spend DRILL SLOTS until the daily quota runs out.
-5. Trade MM3 in the fictional exchange terminal.
-6. Collect NFTJIs from rare drops or Market purchases.
-7. Enter IRC to talk, watch presence, and launch commands.
-8. Use Market blocks to buy, resell, penalize, and compete.
-9. Watch the MM3 chart react to global activity.
-10. Return after reset and do it again.
+| Mining chain | Timed rounds, rewards, penalties, and level movement |
+| Problem engine | 13 math families with scalable difficulty |
+| Wallet layer | Real Ethereum wallet or deterministic Google virtual wallet |
+| Daily limits | DRILL SLOTS, trade EXECs, Market commands, numeric-code attempts |
+| Trade MM3 | Fictional buy/sell terminal for MM3 and in-game fiat balances |
+| World state | War, Nature, and hourly Dice modifier affect the atmosphere |
+| MM3 chart | Fictional global value history fed by game events |
+| Market board | 28x28 grid with command-linked NFTJI blocks |
+| IRC relay | Persistent social terminal with wallet presence and events |
+| Ranking | Public wallet memory: level, MM3, trades, NFTJIs, penalties |
 
 ---
 
 ## Mining
 
-Each round presents a timed math problem. Faster correct answers produce better rewards. Slow correct answers can produce tiny negative rewards. Wrong answers reduce level.
+Mining is the main skill loop. Faster correct answers produce better MM3 rewards. Slow correct answers can produce small negative rewards. Wrong answers reduce level.
+
+### Problem Families
+
+| Type | Focus |
+|---|---|
+| `arithmetic` | Basic operations |
+| `operator_fix` | Missing operator |
+| `digit_fix` | Missing digit |
+| `powers` | Exponents |
+| `sequence` | Arithmetic, geometric, Fibonacci-style patterns |
+| `modulo` | Modular arithmetic |
+| `logic` | AND, OR, XOR, NOT, implication |
+| `fractions` | Operations and comparisons |
+| `primes` | Prime tests, next prime, factors |
+| `geometry` | Areas, perimeters, volumes, angles |
+| `percentage` | Direct and reverse percentages |
+| `algebra` | Linear and simultaneous equations |
+| `definition` | Conceptual math riddles |
+
+### Timing
 
 ```txt
 timeLimit(level) = max(1500ms, 6000ms - level * 55ms)
 ```
 
-At level 0, the player has 6000 ms. At level 100, the player has 1500 ms.
+| Level | Time Limit |
+|---:|---:|
+| 0 | 6000 ms |
+| 50 | 3250 ms |
+| 100 | 1500 ms |
 
-### Reward Formula
+### Reward Shape
 
 ```txt
 PRICE      = 0.00001 MM3 by default
@@ -138,55 +149,37 @@ if totalTime > baseWindow:
   reward = -PRICE * 0.05 * min((totalTime - baseWindow) / baseWindow, 1) * rewardMult
 ```
 
-| Level | Instant answer | At base window | Max slow penalty |
-|---:|---:|---:|---:|
-| 0 | 0.00001 MM3 | 0 | -0.0000005 MM3 |
-| 50 | 0.000035 MM3 | 0 | -0.00000175 MM3 |
-| 100 | 0.00006 MM3 | 0 | -0.000003 MM3 |
+| Level | Instant Answer | Max Slow Penalty |
+|---:|---:|---:|
+| 0 | 0.00001 MM3 | -0.0000005 MM3 |
+| 50 | 0.000035 MM3 | -0.00000175 MM3 |
+| 100 | 0.00006 MM3 | -0.000003 MM3 |
 
-### Level Changes
+### Level Movement
 
 | Event | Condition | Delta |
 |---|---|---:|
-| Correct answer | level < 80 | +1 |
-| Correct answer | level >= 80 | +2 |
-| Wrong answer | level < 15 | -1 |
-| Wrong answer | 15 <= level < 40 | -2 |
-| Wrong answer | 40 <= level < 70 | -3 |
-| Wrong answer | level >= 70 | -5 |
+| Correct | level < 80 | +1 |
+| Correct | level >= 80 | +2 |
+| Wrong | level < 15 | -1 |
+| Wrong | 15 <= level < 40 | -2 |
+| Wrong | 40 <= level < 70 | -3 |
+| Wrong | level >= 70 | -5 |
 
-Level is clamped between 0 and 100.
-
-### Problem Families
-
-| Type | Description |
-|---|---|
-| `arithmetic` | Basic operations |
-| `operator_fix` | Find the missing operator |
-| `digit_fix` | Find the missing digit |
-| `powers` | Exponents and powers |
-| `sequence` | Arithmetic, geometric, and Fibonacci-style sequences |
-| `modulo` | Modular arithmetic |
-| `logic` | AND, OR, XOR, NOT, implication chains |
-| `fractions` | Fraction operations and comparison |
-| `primes` | Prime tests, next prime, factors, twin primes |
-| `geometry` | Areas, perimeters, volumes, angles, Pythagorean triples |
-| `percentage` | Percentages, reverse percentages, increases, decreases |
-| `algebra` | Linear and simultaneous equations |
-| `definition` | Conceptual math riddles from the seeded problem bank |
+Level is clamped from 0 to 100.
 
 ---
 
 ## Daily Limits
 
-All daily quotas reset at UTC midnight.
+All quotas reset at UTC midnight.
 
-| Resource | Base quota | Bonus | Requirement |
+| Resource | Base | Bonus | Purpose |
 |---|---:|---:|---|
-| DRILL SLOTS | 100 / day | +1 permanent slot per all-time EXEC | Submit mining answers |
-| Trade EXECs | 5 / day | None | Execute trades |
-| Market command | 1 / day | Per owned Market NFTJI | Own a Market block |
-| Numeric-code attempt | 1 / day | Per received penalty | Be hit by a command |
+| DRILL SLOTS | 100/day | +1 permanent per all-time EXEC | Mining attempts |
+| Trade EXECs | 5/day | None | Fictional exchange actions |
+| Market command | 1/day | Per owned Market NFTJI | IRC command launch |
+| Numeric-code attempt | 1/day | Per received penalty | Cancel command penalty |
 
 ```txt
 dailySlots = 100 + allTimeExecs
@@ -196,61 +189,71 @@ dailySlots = 100 + allTimeExecs
 
 ## Ranks
 
-| Level | Rank |
-|---:|---|
-| 0-19 | NOVICE |
-| 20-39 | MINER |
-| 40-59 | HACKER |
-| 60-79 | WIZARD |
-| 80-100 | LEGEND |
+| Level | Rank | Meaning |
+|---:|---|---|
+| 0-19 | NOVICE | Entry pressure |
+| 20-39 | MINER | Stable progress |
+| 40-59 | HACKER | Higher speed and risk |
+| 60-79 | WIZARD | Advanced loop pressure |
+| 80-100 | LEGEND | Maximum tempo |
 
-Ranks affect visual identity, progression pressure, and Trade MM3 rates.
+Ranks affect status, pacing, and Trade MM3 rates.
 
 ---
 
 ## Wallets
 
-MathsMine3 supports two wallet modes.
-
-| Type | Description |
+| Wallet Mode | Role |
 |---|---|
-| Real Ethereum wallet | Connected through Web3Modal / Wagmi. No on-chain gameplay transaction is required. |
-| Google virtual wallet | Generated deterministically from the Google account ID using a stable hash. |
+| Ethereum wallet | Real wallet address through Web3Modal / Wagmi. Gameplay does not require on-chain transactions. |
+| Google virtual wallet | Deterministic virtual address generated from the Google account ID. |
 
-Both persist level, rank, MM3 balance, fictional CNY / EUR / USD balances, NFTJI ownership, DRILL SLOT bonuses, Trade EXEC count, revive state, Market ownership, language, and currency preferences.
+Persisted per wallet:
 
-Wallet colors are deterministic. The same wallet always renders with the same color in AuthBar, Ranking, IRC, and chat.
+- Level and rank
+- MM3 balance
+- Fictional CNY / EUR / USD balances
+- Mining NFTJIs and Market NFTJIs
+- DRILL SLOT bonus
+- Trade EXEC count
+- One-time revive state
+- Market ownership
+- Language and currency preferences
+
+Wallet colors are deterministic, so the same identity keeps the same visual signature across AuthBar, Ranking, IRC, and chat.
 
 ---
 
 ## NFTJIs
 
-NFTJIs are strange game objects attached to wallet identity.
+NFTJIs are wallet-bound game objects. They are not financial assets.
+
+| Type | How It Appears | Gameplay Value |
+|---|---|---|
+| Mining drop | Rare roll after correct answers | Collection and economy shocks |
+| Heart revive | One-time emergency option | Cancels one failure penalty |
+| Market NFTJI | Bought or resold on the Market board | Unlocks daily IRC command |
 
 ### Mining Drops
 
-| NFTJI | Name | Probability | Notes |
-|---|---|---:|---|
-| Void Seer | Mining drop | 1 / 50 | Common rare drop |
-| Fortune Leaf | Mining drop | 1 / 100 | Luck marker |
-| Jackpot Engine | Mining drop | 1 / 500 | High-voltage drop |
-| Fate Singularity | Mining drop | 1 / 1000 | Checked first |
+| NFTJI | Probability | Note |
+|---|---:|---|
+| Void Seer | 1/50 | Common rare drop |
+| Fortune Leaf | 1/100 | Luck marker |
+| Jackpot Engine | 1/500 | High-voltage drop |
+| Fate Singularity | 1/1000 | Rarest mining roll |
 
-Each drop can only be claimed once per wallet. If the player ignores the claim offer and starts the next round, the drop is lost.
+Each mining drop can be claimed once per wallet. If the offer is ignored before the next round, it is lost.
 
 ### Heart Revive
 
-The heart revive is a one-time emergency mechanic. If the wallet has never revived and holds at least 1.00 EUR in fictional funds, the player can cancel one failure penalty by spending 1.00 EUR. The revive is permanent and fires a global MM3 shock.
-
-### Market NFTJIs
-
-Market NFTJIs live on the 28x28 board. Owning one unlocks a daily IRC command and turns the wallet into a visible actor in the social layer.
+One use per wallet. Requires at least 1.00 EUR in fictional funds. Cancels one failure penalty, costs 1.00 EUR in-game, and emits a global MM3 shock.
 
 ---
 
 ## Trade MM3
 
-Trade MM3 is a fictional exchange terminal. Players can sell mined MM3 into in-game CNY / EUR / USD, or buy MM3 back with fictional balances. Rates depend on rank, level, the global War / Nature state, and the hourly Dice modifier.
+Trade MM3 is a fictional exchange terminal. Players can sell mined MM3 into in-game CNY / EUR / USD, or buy MM3 back using fictional balances.
 
 ```txt
 NOVICE  0-19    base 80 CNY / MM3
@@ -264,46 +267,55 @@ USD = CNY * 0.139
 buyRate = sellRate * 1.18
 ```
 
-Each EXEC counts toward the 5/day trade limit, permanently adds +1 DRILL SLOT to the wallet, mutates War / Nature, and emits activity into the world simulation.
+Each EXEC:
 
----
-
-## World System
-
-MathsMine3 has two visible macro indicators:
-
-- **War**: pressure, volatility, conflict.
-- **Nature**: recovery, calm, organic counterweight.
-
-Trade EXECs mutate them. The Dice modifier changes hourly and affects the trading atmosphere. The chart is fictional, but it is not decorative: mining, drops, revives, Market buys, resells, command penalties, and trades all feed the simulation.
+- Counts toward the 5/day trade limit.
+- Adds +1 permanent DRILL SLOT.
+- Mutates War / Nature.
+- Feeds the global activity simulation.
 
 ---
 
 ## Market
 
-The Market is a 28x28 board: 784 cells, 20 fixed NFTJI command blocks, and a trail of player-triggered history.
+The Market is a 28x28 command board: 784 cells, 20 fixed NFTJI blocks, and player-owned state.
 
-| Family | Price rail |
-|---|---|
-| Money rail | Priced in fictional fiat value |
-| MM3 rail | Priced directly in MM3 |
+| Rail | Price Basis | Main Use |
+|---|---|---|
+| Money rail | Fictional fiat value | Buy with in-game balances |
+| MM3 rail | MM3 value | Buy directly with mined MM3 |
 
-Each Market NFTJI has a coordinate, price, owner or sale state, public IRC command, command formula, hidden YouTube Short command, and resale path.
+Each Market NFTJI includes:
 
-Owning a Market NFTJI unlocks one daily command. Commands can penalize competing wallets. Penalized wallets can cancel the penalty by solving a 5-digit numeric code derived from the command formula and the daily nonce.
+- Board coordinate
+- Price and sale state
+- Owner state
+- Public IRC command
+- Command formula
+- Hidden YouTube Short command
+- Resale path
+
+Owning a Market NFTJI unlocks one daily IRC command. Commands can penalize rival wallets. Penalized wallets can cancel the hit with a 5-digit numeric code derived from the command formula and daily nonce.
 
 ```txt
 example:
 41000 + x * 11 + 2048 / 4
 ```
 
-This is not just a shop. It is a command board.
-
 ---
 
 ## IRC Relay
 
-IRC turns MathsMine3 from a solo quiz into a shared terminal world. The relay shows wallet presence, country flags when available, anonymous ghost mode, persistent chat, Market NFTJIs attached to authors, command launches, penalty events, system prompts, and activity signals.
+IRC is the shared terminal layer.
+
+| Signal | Meaning |
+|---|---|
+| Wallet presence | Who is currently active |
+| Country flag | Optional location signal |
+| Ghost mode | Anonymous temporary presence |
+| Chat history | Persistent social log |
+| Market badges | Owned NFTJIs shown beside authors |
+| Command events | Public command and penalty activity |
 
 ```txt
 wallet@MM3:~$ hello mainframe
@@ -315,79 +327,53 @@ system@MM3:~$ value mutated
 
 ## Ranking
 
-The Ranking board sorts wallets by level, MM3 balance, trade activity, NFTJI ownership, Market presence, and active penalties. It is part leaderboard, part public memory.
+Ranking is public memory for the game.
+
+It prioritizes level, MM3 balance, trade activity, NFTJI ownership, Market presence, and active penalties. It gives the fictional economy a visible social scoreboard.
 
 ---
 
 ## API
 
-MathsMine3 exposes public REST endpoints for status, value, history, leaderboard, market snapshots, NFT events, daily tasks, and gameplay support.
+Public API routes expose the readable state of the simulation.
 
-```txt
-/api/status
-/api/token-value
-/api/token-history
-/api/token-history-minutes
-/api/leaderboard
-/api/market-snapshot
-/api/nft-events
-```
-
-The API is part of the fiction: it makes the simulated economy inspectable.
+| Route | Purpose |
+|---|---|
+| `/api/status` | Service health |
+| `/api/token-value` | Current fictional MM3 aggregate |
+| `/api/token-history` | Historical MM3 value |
+| `/api/token-history-minutes` | Recent minute-level chart data |
+| `/api/leaderboard` | Ranking data |
+| `/api/market-snapshot` | Market block state |
+| `/api/nft-events` | NFTJI and revive events |
 
 ---
 
 ## Tech Stack
 
+| Layer | Stack |
+|---|---|
+| App | Next.js 15, React 19 |
+| UI | Tailwind CSS, custom CRT terminal styling |
+| Data | Supabase |
+| Wallet | Wagmi, Web3Modal |
+| State | TanStack Query, local React contexts |
+| Charts | Recharts |
+| Platform | Vercel Analytics, Speed Insights |
+
+### Project Map
+
 ```txt
-Next.js 15
-React 19
-Supabase
-Wagmi
-Web3Modal
-TanStack Query
-Tailwind CSS
-Recharts
-Vercel Analytics
-Vercel Speed Insights
+app/                 Routes, layouts, API handlers
+components/          UI, market, chart, wallet, IRC, shell
+lib/                 Game logic, i18n, wallet helpers, macro, dice
+sql/                 Supabase schema and maintenance scripts
+public/              Images, metadata, manifest, sitemap, robots
 ```
 
 ---
 
-## Project Structure
-
-```txt
-app/
-  page.jsx                         Mining portal
-  manifesto/                       README-powered manifesto
-  trade-mm3/                       Fictional exchange terminal
-  ranking/                         Leaderboard
-  market/                          28x28 NFTJI Market board
-  irc/                             Social relay
-  mm3-value/                       MM3 value chart
-  api/                             Public API routes
-components/                        UI, wallet, market, chart, IRC, shell
-lib/                               Game logic, wallet helpers, i18n, macro, dice
-sql/                               Supabase schema and maintenance scripts
-public/                            Images, metadata, robots, sitemap, PWA manifest
-```
-
----
-
-## Environment Variables
-
-```txt
-NEXT_PUBLIC_SUPABASE_URL
-NEXT_PUBLIC_SUPABASE_ANON_KEY
-SUPABASE_SERVICE_ROLE_KEY
-NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID
-NEXT_PUBLIC_GOOGLE_CLIENT_ID
-NEXT_PUBLIC_FAKE_MINING_PRICE
-```
-
----
-
-## Local Development
+## Run Locally
 
 ```bash
 npm install
@@ -396,11 +382,20 @@ npm run dev
 
 Open `http://localhost:3000`.
 
-Build:
-
 ```bash
 npm run build
 npm run start
+```
+
+Required environment variables:
+
+```txt
+NEXT_PUBLIC_SUPABASE_URL
+NEXT_PUBLIC_SUPABASE_ANON_KEY
+SUPABASE_SERVICE_ROLE_KEY
+NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID
+NEXT_PUBLIC_GOOGLE_CLIENT_ID
+NEXT_PUBLIC_FAKE_MINING_PRICE
 ```
 
 ---
@@ -418,12 +413,6 @@ Read:
 - [Privacy](https://mathsmine3.xyz/privacy)
 - [Terms](https://mathsmine3.xyz/terms)
 
----
-
-## Final Line
-
-MathsMine3 is a tiny fictional civilization inside a terminal: solve math, mine fake MM3, watch the economy mutate, enter IRC, trigger the Market, and come back sharper after every reset.
-
 <!-- MANIFESTO_EN_END -->
 
 ---
@@ -432,7 +421,7 @@ MathsMine3 is a tiny fictional civilization inside a terminal: solve math, mine 
 
 # MathsMine3 `v1.0`
 
-> Resuelve matematicas. Mina cripto falsa. Quema tu nivel. Go freak.
+> Matemáticas contra reloj. Minería ficticia. Identidad wallet. Economía de terminal.
 
 [![MathsMine3 Portal](https://mathsmine3.xyz/og-image.jpg)](https://mathsmine3.xyz)
 
@@ -440,121 +429,132 @@ MathsMine3 is a tiny fictional civilization inside a terminal: solve math, mine 
 
 ---
 
-## Indice
+## Índice
 
+- [Resumen](#resumen)
 - [Manifiesto](#manifiesto)
-- [Que Es MathsMine3](#que-es-mathsmine3)
-- [Que Incluye](#que-incluye)
-- [Como Jugar](#como-jugar)
+- [Loop de Juego](#loop-de-juego)
+- [Sistemas Base](#sistemas-base)
 - [Mining](#mining)
-- [Limites Diarios](#limites-diarios)
+- [Límites Diarios](#limites-diarios)
 - [Rangos](#rangos)
 - [Wallets](#wallets)
 - [NFTJIs](#nftjis)
 - [Trade MM3](#trade-mm3)
-- [Sistema Mundo](#sistema-mundo)
 - [Market](#market)
 - [IRC Relay](#irc-relay)
 - [Ranking](#ranking)
 - [API](#api)
-- [Stack Tecnico](#stack-tecnico)
-- [Estructura del Proyecto](#estructura-del-proyecto)
-- [Variables de Entorno](#variables-de-entorno)
-- [Desarrollo Local](#desarrollo-local)
+- [Stack Técnico](#stack-tecnico)
+- [Ejecución Local](#ejecucion-local)
 - [Legal](#legal)
+
+---
+
+## Resumen
+
+| Campo | Valor |
+|---|---|
+| Proyecto | MathsMine3 |
+| Versión | `v1.0` |
+| Género | Juego retro de mining matemático |
+| Economía | Token MM3 completamente simulado y ficticio |
+| Identidad | Wallet de Ethereum o wallet virtual determinista de Google |
+| Persistencia | Estado de jugadores, Market, gráfico, chat y eventos en Supabase |
+| Idiomas | Inglés y español |
+| Rutas principales | Mining, Trade MM3, Ranking, Market, IRC, MM3 Value, Manifiesto, API |
+| Estado legal | Sin minería real, sin token real, sin pagos, sin inversión |
 
 ---
 
 ## Manifiesto
 
-MathsMine3 existe para convertir las matematicas en presion, recompensa, memoria, riesgo y ritual.
+MathsMine3 convierte las matemáticas en presión, recompensa, memoria, riesgo y ritual.
 
-No intenta parecer una clase. Se comporta como un terminal cripto viejo y medio roto: resuelve rapido, mina MM3 falso, sube de rango, pierde nivel cuando fallas, comercia dentro de un exchange ficticio, colecciona objetos NFTJI raros, dispara comandos del Market, habla en IRC y vuelve despues del reset mas afilado que antes.
+No es una clase con skin. Es un juego-mundo de terminal: resuelve rápido, mina MM3 falso, sube de rango, pierde nivel cuando fallas, comercia dentro de un exchange ficticio, colecciona NFTJIs, dispara comandos del Market, aparece en IRC y vuelve después de cada reset más afilado que antes.
 
-Esto no es un producto financiero. No es un lanzamiento de token. Es una maquina matematica con forma de videojuego, dinero falso, persistencia real y drama de terminal.
+La idea útil es simple: **la matemática se convierte en acción**. Cada problema resuelto no es solo puntuación; mueve una wallet, un rango, un mercado ficticio y un estado público compartido.
 
 ```txt
 resolver -> minar -> subir nivel -> tradear -> coleccionar -> comandar -> recuperarse -> repetir
 ```
 
-Una respuesta correcta puede minar una recompensa minima. Una respuesta lenta puede salir negativa. Una respuesta incorrecta puede quemar nivel. Un golpe de suerte puede soltar un NFTJI. Un EXEC de Trade puede mover el estado macro. Un comando del Market puede golpear wallets rivales. Un codigo numerico puede cancelar el golpe.
-
-Ese es el ritual: aprender, arriesgar, volver, repetir.
-
----
-
-## Que Es MathsMine3
-
-MathsMine3 es un portal retro de mining matematico donde resolver problemas contra reloj mueve una economia cripto totalmente simulada. Tu wallet sube de nivel, MM3 se mueve, caen NFTJIs raros, el Market muta, IRC se enciende y cada trade deja una marca en un mundo ficticio.
-
-MM3 no tiene valor financiero externo. No ocurre mineria real. No se promete ningun pago. Todos los balances, recompensas, trades, penalizaciones, bloques y precios son mecanicas ficticias de juego.
-
-El proyecto tiene cuatro pilares:
-
-| Pilar | Significado |
+| Principio | Significado de Diseño |
 |---|---|
-| Matematicas como accion | Aritmetica, logica, algebra, geometria, porcentajes, primos, sucesiones, fracciones y definiciones se convierten en eventos cronometrados. |
-| Wallet como identidad | Wallets reales de Ethereum y wallets virtuales derivadas de Google funcionan como identidades persistentes. |
-| Economia como simulacion | MM3 no tiene valor externo, pero cada accion del juego muta la economia ficticia visible. |
-| Comunidad como cultura terminal | Los jugadores aparecen en IRC con wallet, pais, NFTJIs del Market, estado de comandos y senales publicas de actividad. |
+| Matemáticas como acción | Los problemas cronometrados son eventos de juego, no fichas de ejercicios. |
+| Wallet como identidad | El progreso pertenece a una identidad persistente. |
+| Economía como simulación | MM3 no tiene valor externo, pero cada acción afecta a la ficción. |
+| Comunidad como cultura terminal | IRC, comandos del Market, rankings y wallets visibles hacen público el juego. |
 
 ---
 
-## Que Incluye
+## Loop de Juego
 
-| Sistema | Incluido |
+1. Resuelve un problema matemático contra reloj.
+2. Mina MM3 ficticio si aciertas.
+3. Gana o pierde nivel según tu rendimiento.
+4. Gasta DRILL SLOTS diarios.
+5. Tradea MM3 en un exchange ficticio.
+6. Colecciona NFTJIs raros.
+7. Compra o revende bloques del Market.
+8. Lanza comandos IRC desde NFTJIs del Market.
+9. Mira cómo reacciona el valor global de MM3.
+10. Vuelve después del reset UTC.
+
+---
+
+## Sistemas Base
+
+| Sistema | Qué Hace |
 |---|---|
-| Mining chain | Rondas matematicas cronometradas, recompensas, penalizaciones, cambios de nivel |
-| Motor de problemas | 13 familias de problemas, definiciones bilingues sembradas |
-| Identidad wallet | Wallet de Ethereum o wallet virtual determinista de Google |
-| Rangos | NOVICE, MINER, HACKER, WIZARD, LEGEND |
-| Economia diaria | DRILL SLOTS, limites de EXEC, limites de comandos, reset UTC |
-| Trade MM3 | Exchange ficticio para MM3 / CNY / EUR / USD |
-| Estado mundo | War, Nature, modificador horario Dice |
-| Grafico MM3 | Historico de valor ficticio mutado por eventos del juego |
-| Market | Tablero 28x28, 784 celdas, 20 bloques NFTJI fijos con comandos |
-| IRC relay | Terminal social persistente con presencia de wallets |
-| NFTJIs | Drops de mining, heart revive de un uso, bloques del Market |
-| i18n | Experiencia completa en ingles y espanol |
-| Persistencia | Estado de jugadores, market, chart, chat y eventos sobre Supabase |
-
----
-
-## Como Jugar
-
-Entra en [mathsmine3.xyz](https://mathsmine3.xyz) y empieza a resolver. Puedes jugar como invitado, pero la progresion persistente requiere identidad:
-
-- Conectar una wallet real de Ethereum mediante Web3Modal.
-- O iniciar sesion con Google para generar una wallet virtual determinista.
-
-Los dos tipos de cuenta desbloquean los mismos sistemas. No hace falta ninguna transaccion on-chain para jugar.
-
-El loop principal:
-
-1. Resuelve problemas matematicos cronometrados.
-2. Mina MM3 ficticio con respuestas correctas.
-3. Sube nivel a traves de los rangos.
-4. Gasta DRILL SLOTS hasta agotar la cuota diaria.
-5. Tradea MM3 en el exchange ficticio.
-6. Colecciona NFTJIs por drops raros o compras del Market.
-7. Entra en IRC para hablar, ver presencia y lanzar comandos.
-8. Usa bloques del Market para comprar, revender, penalizar y competir.
-9. Mira como el grafico de MM3 reacciona a la actividad global.
-10. Vuelve despues del reset y hazlo otra vez.
+| Mining chain | Rondas cronometradas, recompensas, penalizaciones y movimiento de nivel |
+| Motor de problemas | 13 familias matemáticas con dificultad escalable |
+| Capa wallet | Wallet real de Ethereum o wallet virtual determinista de Google |
+| Límites diarios | DRILL SLOTS, EXECs de Trade, comandos del Market, intentos de código |
+| Trade MM3 | Terminal ficticio de compra/venta de MM3 y balances fiat de juego |
+| Estado mundo | War, Nature y modificador horario Dice afectan la atmósfera |
+| Gráfico MM3 | Histórico de valor ficticio alimentado por eventos del juego |
+| Market board | Grid 28x28 con bloques NFTJI vinculados a comandos |
+| IRC relay | Terminal social persistente con presencia de wallets y eventos |
+| Ranking | Memoria pública: nivel, MM3, trades, NFTJIs, penalizaciones |
 
 ---
 
 ## Mining
 
-Cada ronda muestra un problema matematico con tiempo limitado. Las respuestas correctas rapidas producen mejores recompensas. Las respuestas correctas lentas pueden producir pequenas recompensas negativas. Las respuestas incorrectas reducen nivel.
+Mining es el loop principal de habilidad. Las respuestas correctas rápidas producen mejores recompensas MM3. Las correctas lentas pueden producir pequeñas recompensas negativas. Las incorrectas reducen nivel.
+
+### Familias de Problemas
+
+| Tipo | Enfoque |
+|---|---|
+| `arithmetic` | Operaciones básicas |
+| `operator_fix` | Operador faltante |
+| `digit_fix` | Dígito faltante |
+| `powers` | Exponentes |
+| `sequence` | Patrones aritméticos, geométricos y tipo Fibonacci |
+| `modulo` | Aritmética modular |
+| `logic` | AND, OR, XOR, NOT, implicación |
+| `fractions` | Operaciones y comparaciones |
+| `primes` | Primalidad, siguiente primo, factores |
+| `geometry` | Áreas, perímetros, volúmenes, ángulos |
+| `percentage` | Porcentajes directos e inversos |
+| `algebra` | Ecuaciones lineales y sistemas |
+| `definition` | Acertijos matemáticos conceptuales |
+
+### Tiempo
 
 ```txt
 timeLimit(level) = max(1500ms, 6000ms - level * 55ms)
 ```
 
-En nivel 0, el jugador tiene 6000 ms. En nivel 100, tiene 1500 ms.
+| Nivel | Tiempo Límite |
+|---:|---:|
+| 0 | 6000 ms |
+| 50 | 3250 ms |
+| 100 | 1500 ms |
 
-### Formula de Recompensa
+### Recompensa
 
 ```txt
 PRICE      = 0.00001 MM3 por defecto
@@ -568,55 +568,37 @@ if totalTime > baseWindow:
   reward = -PRICE * 0.05 * min((totalTime - baseWindow) / baseWindow, 1) * rewardMult
 ```
 
-| Nivel | Respuesta instantanea | En base window | Maxima penalizacion lenta |
-|---:|---:|---:|---:|
-| 0 | 0.00001 MM3 | 0 | -0.0000005 MM3 |
-| 50 | 0.000035 MM3 | 0 | -0.00000175 MM3 |
-| 100 | 0.00006 MM3 | 0 | -0.000003 MM3 |
+| Nivel | Respuesta Instantánea | Penalización Lenta Máxima |
+|---:|---:|---:|
+| 0 | 0.00001 MM3 | -0.0000005 MM3 |
+| 50 | 0.000035 MM3 | -0.00000175 MM3 |
+| 100 | 0.00006 MM3 | -0.000003 MM3 |
 
-### Cambios de Nivel
+### Movimiento de Nivel
 
-| Evento | Condicion | Delta |
+| Evento | Condición | Delta |
 |---|---|---:|
-| Respuesta correcta | level < 80 | +1 |
-| Respuesta correcta | level >= 80 | +2 |
-| Respuesta incorrecta | level < 15 | -1 |
-| Respuesta incorrecta | 15 <= level < 40 | -2 |
-| Respuesta incorrecta | 40 <= level < 70 | -3 |
-| Respuesta incorrecta | level >= 70 | -5 |
+| Correcta | level < 80 | +1 |
+| Correcta | level >= 80 | +2 |
+| Incorrecta | level < 15 | -1 |
+| Incorrecta | 15 <= level < 40 | -2 |
+| Incorrecta | 40 <= level < 70 | -3 |
+| Incorrecta | level >= 70 | -5 |
 
 El nivel siempre queda entre 0 y 100.
 
-### Familias de Problemas
-
-| Tipo | Descripcion |
-|---|---|
-| `arithmetic` | Operaciones basicas |
-| `operator_fix` | Encuentra el operador que falta |
-| `digit_fix` | Encuentra el digito que falta |
-| `powers` | Exponentes y potencias |
-| `sequence` | Sucesiones aritmeticas, geometricas y tipo Fibonacci |
-| `modulo` | Aritmetica modular |
-| `logic` | AND, OR, XOR, NOT, cadenas de implicacion |
-| `fractions` | Operaciones y comparacion de fracciones |
-| `primes` | Primalidad, siguiente primo, factores, primos gemelos |
-| `geometry` | Areas, perimetros, volumenes, angulos, ternas pitagoricas |
-| `percentage` | Porcentajes, porcentajes inversos, subidas y bajadas |
-| `algebra` | Ecuaciones lineales y sistemas |
-| `definition` | Acertijos conceptuales desde el banco sembrado |
-
 ---
 
-## Limites Diarios
+## Límites Diarios
 
-Todas las cuotas diarias se reinician a medianoche UTC.
+Todas las cuotas se reinician a medianoche UTC.
 
-| Recurso | Cuota base | Bonus | Requisito |
+| Recurso | Base | Bonus | Uso |
 |---|---:|---:|---|
-| DRILL SLOTS | 100 / dia | +1 slot permanente por EXEC historico | Enviar respuestas de mining |
-| EXECs de Trade | 5 / dia | Ninguno | Ejecutar trades |
-| Comando del Market | 1 / dia | Por cada NFTJI del Market poseido | Tener un bloque del Market |
-| Intento de codigo numerico | 1 / dia | Por penalizacion recibida | Haber recibido un comando |
+| DRILL SLOTS | 100/día | +1 permanente por EXEC histórico | Intentos de mining |
+| EXECs de Trade | 5/día | Ninguno | Acciones del exchange ficticio |
+| Comando del Market | 1/día | Por NFTJI del Market poseído | Lanzamiento de comando IRC |
+| Intento de código | 1/día | Por penalización recibida | Cancelar penalización de comando |
 
 ```txt
 dailySlots = 100 + allTimeExecs
@@ -626,61 +608,71 @@ dailySlots = 100 + allTimeExecs
 
 ## Rangos
 
-| Nivel | Rango |
-|---:|---|
-| 0-19 | NOVICE |
-| 20-39 | MINER |
-| 40-59 | HACKER |
-| 60-79 | WIZARD |
-| 80-100 | LEGEND |
+| Nivel | Rango | Significado |
+|---:|---|---|
+| 0-19 | NOVICE | Presión inicial |
+| 20-39 | MINER | Progreso estable |
+| 40-59 | HACKER | Más velocidad y riesgo |
+| 60-79 | WIZARD | Presión avanzada del loop |
+| 80-100 | LEGEND | Tempo máximo |
 
-Los rangos afectan la identidad visual, la presion de progresion y las tasas de Trade MM3.
+Los rangos afectan estatus, ritmo y tasas de Trade MM3.
 
 ---
 
 ## Wallets
 
-MathsMine3 soporta dos modos de wallet.
-
-| Tipo | Descripcion |
+| Modo Wallet | Rol |
 |---|---|
-| Wallet real de Ethereum | Conectada mediante Web3Modal / Wagmi. No requiere transacciones on-chain para jugar. |
-| Wallet virtual de Google | Generada de forma determinista desde el ID de la cuenta de Google usando un hash estable. |
+| Wallet de Ethereum | Dirección real mediante Web3Modal / Wagmi. El gameplay no requiere transacciones on-chain. |
+| Wallet virtual de Google | Dirección virtual determinista generada desde el ID de la cuenta de Google. |
 
-Ambas persisten nivel, rango, balance MM3, balances ficticios CNY / EUR / USD, propiedad de NFTJIs, bonus de DRILL SLOTS, conteo de EXECs, estado del revive, propiedad del Market, idioma y moneda.
+Persistido por wallet:
 
-Los colores de wallet son deterministas. La misma wallet siempre aparece con el mismo color en AuthBar, Ranking, IRC y chat.
+- Nivel y rango
+- Balance MM3
+- Balances ficticios CNY / EUR / USD
+- NFTJIs de mining y NFTJIs del Market
+- Bonus de DRILL SLOTS
+- Conteo de EXECs
+- Estado del revive de un uso
+- Propiedad del Market
+- Preferencias de idioma y moneda
+
+Los colores de wallet son deterministas: la misma identidad conserva la misma firma visual en AuthBar, Ranking, IRC y chat.
 
 ---
 
 ## NFTJIs
 
-Los NFTJIs son objetos raros del juego asociados a la identidad de la wallet.
+Los NFTJIs son objetos de juego asociados a la wallet. No son activos financieros.
+
+| Tipo | Cómo Aparece | Valor de Juego |
+|---|---|---|
+| Drop de mining | Tirada rara tras respuestas correctas | Colección y shocks económicos |
+| Heart revive | Opción de emergencia de un uso | Cancela una penalización por fallo |
+| NFTJI del Market | Compra o reventa en el Market board | Desbloquea comando IRC diario |
 
 ### Drops de Mining
 
-| NFTJI | Nombre | Probabilidad | Notas |
-|---|---|---:|---|
-| Void Seer | Drop de mining | 1 / 50 | Drop raro comun |
-| Fortune Leaf | Drop de mining | 1 / 100 | Marca de suerte |
-| Jackpot Engine | Drop de mining | 1 / 500 | Drop de alto voltaje |
-| Fate Singularity | Drop de mining | 1 / 1000 | Se comprueba primero |
+| NFTJI | Probabilidad | Nota |
+|---|---:|---|
+| Void Seer | 1/50 | Drop raro común |
+| Fortune Leaf | 1/100 | Marca de suerte |
+| Jackpot Engine | 1/500 | Drop de alto voltaje |
+| Fate Singularity | 1/1000 | Tirada más rara de mining |
 
-Cada drop solo puede reclamarse una vez por wallet. Si el jugador ignora la oferta y empieza la siguiente ronda, el drop se pierde.
+Cada drop de mining puede reclamarse una vez por wallet. Si se ignora la oferta antes de la siguiente ronda, se pierde.
 
 ### Heart Revive
 
-El heart revive es una mecanica de emergencia de un solo uso. Si la wallet nunca ha revivido y tiene al menos 1.00 EUR en fondos ficticios, el jugador puede cancelar una penalizacion gastando 1.00 EUR. El revive queda marcado para siempre y dispara un shock global de MM3.
-
-### NFTJIs del Market
-
-Los NFTJIs del Market viven en el tablero 28x28. Tener uno desbloquea un comando diario de IRC y convierte la wallet en un actor visible dentro de la capa social.
+Un uso por wallet. Requiere al menos 1.00 EUR en fondos ficticios. Cancela una penalización por fallo, cuesta 1.00 EUR dentro del juego y emite un shock global de MM3.
 
 ---
 
 ## Trade MM3
 
-Trade MM3 es un exchange ficticio con estetica de terminal. Los jugadores pueden vender MM3 minado a CNY / EUR / USD dentro del juego, o comprar MM3 usando balances ficticios. Las tasas dependen del rango, el nivel, el estado global War / Nature y el modificador horario Dice.
+Trade MM3 es un exchange ficticio. Los jugadores pueden vender MM3 minado a CNY / EUR / USD dentro del juego, o recomprar MM3 usando balances ficticios.
 
 ```txt
 NOVICE  0-19    base 80 CNY / MM3
@@ -694,46 +686,55 @@ USD = CNY * 0.139
 buyRate = sellRate * 1.18
 ```
 
-Cada EXEC cuenta para el limite diario de 5 trades, anade +1 DRILL SLOT permanente a la wallet, muta War / Nature y emite actividad dentro de la simulacion del mundo.
+Cada EXEC:
 
----
-
-## Sistema Mundo
-
-MathsMine3 tiene dos indicadores macro visibles:
-
-- **War**: presion, volatilidad, conflicto.
-- **Nature**: recuperacion, calma, contrapeso organico.
-
-Los EXECs de Trade los mutan. El modificador Dice cambia cada hora y afecta la atmosfera de trading. El grafico es ficticio, pero no decorativo: mining, drops, revives, compras del Market, reventas, penalizaciones y trades alimentan la simulacion.
+- Cuenta para el límite diario de 5 trades.
+- Añade +1 DRILL SLOT permanente.
+- Muta War / Nature.
+- Alimenta la simulación global de actividad.
 
 ---
 
 ## Market
 
-El Market es un tablero 28x28: 784 celdas, 20 bloques NFTJI fijos con comandos y un rastro de historia generado por jugadores.
+El Market es un tablero de comandos 28x28: 784 celdas, 20 bloques NFTJI fijos y estado poseído por jugadores.
 
-| Familia | Via de precio |
-|---|---|
-| Money rail | Precio en valor fiat ficticio |
-| MM3 rail | Precio directamente en MM3 |
+| Rail | Base de Precio | Uso Principal |
+|---|---|---|
+| Money rail | Valor fiat ficticio | Comprar con balances de juego |
+| MM3 rail | Valor MM3 | Comprar directamente con MM3 minado |
 
-Cada NFTJI del Market tiene coordenada, precio, owner o estado de venta, comando publico de IRC, formula de comando, comando oculto de YouTube Short y ruta de reventa.
+Cada NFTJI del Market incluye:
 
-Tener un NFTJI del Market desbloquea un comando diario. Los comandos pueden penalizar wallets rivales. Las wallets penalizadas pueden cancelar el golpe resolviendo un codigo de 5 digitos derivado de la formula del comando y el nonce diario.
+- Coordenada en el tablero
+- Precio y estado de venta
+- Estado de owner
+- Comando público de IRC
+- Fórmula de comando
+- Comando oculto de YouTube Short
+- Ruta de reventa
+
+Tener un NFTJI del Market desbloquea un comando IRC diario. Los comandos pueden penalizar wallets rivales. Las wallets penalizadas pueden cancelar el golpe con un código de 5 dígitos derivado de la fórmula del comando y el nonce diario.
 
 ```txt
 ejemplo:
 41000 + x * 11 + 2048 / 4
 ```
 
-Esto no es solo una tienda. Es un tablero de comandos.
-
 ---
 
 ## IRC Relay
 
-IRC convierte MathsMine3 de quiz solitario en mundo terminal compartido. El relay muestra presencia de wallets, banderas de pais cuando estan disponibles, modo ghost anonimo, chat persistente, NFTJIs del Market junto a los autores, lanzamiento de comandos, eventos de penalizacion, prompts del sistema y senales de actividad.
+IRC es la capa terminal compartida.
+
+| Señal | Significado |
+|---|---|
+| Presencia wallet | Quién está activo |
+| Bandera de país | Señal opcional de ubicación |
+| Modo ghost | Presencia anónima temporal |
+| Historial de chat | Log social persistente |
+| Badges del Market | NFTJIs poseídos junto al autor |
+| Eventos de comandos | Actividad pública de comandos y penalizaciones |
 
 ```txt
 wallet@MM3:~$ hola mainframe
@@ -745,66 +746,67 @@ system@MM3:~$ valor mutado
 
 ## Ranking
 
-El Ranking ordena wallets por nivel, balance MM3, actividad de Trade, propiedad de NFTJIs, presencia en Market y penalizaciones activas. Es leaderboard y memoria publica a la vez.
+Ranking es la memoria pública del juego.
+
+Prioriza nivel, balance MM3, actividad de Trade, propiedad de NFTJIs, presencia en Market y penalizaciones activas. Le da a la economía ficticia un marcador social visible.
 
 ---
 
 ## API
 
-MathsMine3 expone endpoints REST publicos para status, valor, historico, leaderboard, snapshots de Market, eventos NFT, daily tasks y soporte de gameplay.
+Las rutas públicas exponen el estado legible de la simulación.
 
-```txt
-/api/status
-/api/token-value
-/api/token-history
-/api/token-history-minutes
-/api/leaderboard
-/api/market-snapshot
-/api/nft-events
-```
-
-La API forma parte de la ficcion: hace inspeccionable la economia simulada.
+| Ruta | Uso |
+|---|---|
+| `/api/status` | Salud del servicio |
+| `/api/token-value` | Agregado ficticio actual de MM3 |
+| `/api/token-history` | Histórico de valor MM3 |
+| `/api/token-history-minutes` | Datos recientes por minuto |
+| `/api/leaderboard` | Datos del Ranking |
+| `/api/market-snapshot` | Estado de bloques del Market |
+| `/api/nft-events` | Eventos NFTJI y revive |
 
 ---
 
-## Stack Tecnico
+## Stack Técnico
+
+| Capa | Stack |
+|---|---|
+| App | Next.js 15, React 19 |
+| UI | Tailwind CSS, estilo CRT/terminal propio |
+| Datos | Supabase |
+| Wallet | Wagmi, Web3Modal |
+| Estado | TanStack Query, contextos React locales |
+| Gráficos | Recharts |
+| Plataforma | Vercel Analytics, Speed Insights |
+
+### Mapa del Proyecto
 
 ```txt
-Next.js 15
-React 19
-Supabase
-Wagmi
-Web3Modal
-TanStack Query
-Tailwind CSS
-Recharts
-Vercel Analytics
-Vercel Speed Insights
-```
-
----
-
-## Estructura del Proyecto
-
-```txt
-app/
-  page.jsx                         Portal de mining
-  manifesto/                       Manifiesto alimentado por README
-  trade-mm3/                       Exchange ficticio
-  ranking/                         Leaderboard
-  market/                          Tablero Market NFTJI 28x28
-  irc/                             Relay social
-  mm3-value/                       Grafico de valor MM3
-  api/                             Rutas API publicas
-components/                        UI, wallet, market, chart, IRC, shell
-lib/                               Logica de juego, helpers wallet, i18n, macro, dice
-sql/                               Schema Supabase y scripts de mantenimiento
-public/                            Imagenes, metadata, robots, sitemap, PWA manifest
+app/                 Rutas, layouts, API handlers
+components/          UI, Market, chart, wallet, IRC, shell
+lib/                 Lógica de juego, i18n, wallet helpers, macro, dice
+sql/                 Schema Supabase y scripts de mantenimiento
+public/              Imágenes, metadata, manifest, sitemap, robots
 ```
 
 ---
 
-## Variables de Entorno
+## Ejecución Local
+
+```bash
+npm install
+npm run dev
+```
+
+Abre `http://localhost:3000`.
+
+```bash
+npm run build
+npm run start
+```
+
+Variables de entorno necesarias:
 
 ```txt
 NEXT_PUBLIC_SUPABASE_URL
@@ -817,41 +819,17 @@ NEXT_PUBLIC_FAKE_MINING_PRICE
 
 ---
 
-## Desarrollo Local
-
-```bash
-npm install
-npm run dev
-```
-
-Abre `http://localhost:3000`.
-
-Build:
-
-```bash
-npm run build
-npm run start
-```
-
----
-
 ## Legal
 
-MathsMine3 es un juego matematico y una economia cripto simulada.
+MathsMine3 es un juego matemático y una economía cripto simulada.
 
-MM3 no es una criptomoneda real. No representa dinero, acciones, rendimiento, derechos de propiedad, derechos financieros ni una oportunidad de inversion. Los balances, valores MM3, objetos del Market, penalizaciones, trades y recompensas son mecanicas ficticias de juego.
+MM3 no es una criptomoneda real. No representa dinero, acciones, rendimiento, derechos de propiedad, derechos financieros ni una oportunidad de inversión. Los balances, valores MM3, objetos del Market, penalizaciones, trades y recompensas son mecánicas ficticias de juego.
 
-No ocurre mineria real. No se promete ningun pago. No existe retorno financiero real.
+No ocurre minería real. No se promete ningún pago. No existe retorno financiero real.
 
 Lee:
 
 - [Privacy](https://mathsmine3.xyz/privacy)
 - [Terms](https://mathsmine3.xyz/terms)
-
----
-
-## Linea Final
-
-MathsMine3 es una pequena civilizacion ficticia dentro de un terminal: resuelve matematicas, mina MM3 falso, mira como muta la economia, entra en IRC, dispara el Market y vuelve mas afilado despues de cada reset.
 
 <!-- MANIFESTO_ES_END -->
