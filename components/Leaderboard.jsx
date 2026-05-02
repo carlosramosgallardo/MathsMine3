@@ -427,6 +427,7 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
       const totalUsd = members.reduce((sum, entry) => sum + (Number(entry.money_balance_usd) || 0), 0);
       const poolEmojiSet = new Set(members.flatMap((entry) => normalizeWalletDecorations(entry.wallet_emojis)));
       const totalNftjis = poolEmojiSet.size;
+      const totalExecs = members.reduce((sum, entry) => sum + (Number(entry.execs_count) || 0), 0);
       const totalPenalties = members.reduce((sum, entry) => {
         return sum + (entry.active_penalty?.mm3 ? 1 : 0) + (entry.active_penalty?.money ? 1 : 0);
       }, 0);
@@ -450,6 +451,7 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
         member_count: members.length,
         level: totalLevel,
         total_nftjis: totalNftjis,
+        total_execs: totalExecs,
         total_penalties: totalPenalties,
         available_mm3: totalMm3,
         money_balance_cny: totalCny,
@@ -467,6 +469,7 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
     const getValue = (entry) => {
       if (sortConfig.key === 'money') return Number(entry[moneyKey]) || 0;
       if (sortConfig.key === 'nftji') return Number(entry.total_nftjis) || 0;
+      if (sortConfig.key === 'execs') return Number(entry.total_execs) || 0;
       if (sortConfig.key === 'wallets') return String((entry.member_wallets || []).join(' ')).toLowerCase();
       if (sortConfig.key === 'block') return Number(entry.total_penalties) || 0;
       if (sortConfig.key === 'rank') return '';
@@ -1230,8 +1233,9 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
                 <th style={{ width:'7%', textAlign:'center' }}><SortButton sortKey="position" className="justify-center">{t('leaderboard.position')}</SortButton></th>
                 <th style={{ width:'18%' }}><SortButton sortKey="pool">{labels.pool}</SortButton></th>
                 <th style={{ width:'20%' }}><SortButton sortKey="wallets">{labels.wallets}</SortButton></th>
-                <th style={{ width:'15%', textAlign:'center' }} title="NFTJIs — pool union"><SortButton sortKey="nftji" className="justify-center">NTFJIs</SortButton></th>
-                <th style={{ width:'13%', textAlign:'center' }}><SortButton sortKey="block" className="justify-center">{t('leaderboard.blockPenalty')}</SortButton></th>
+                <th style={{ width:'14%', textAlign:'center' }} title="NFTJIs — pool union"><SortButton sortKey="nftji" className="justify-center">NTFJIs</SortButton></th>
+                <th style={{ width:'8%', textAlign:'center' }}><SortButton sortKey="execs" className="justify-center">{t('leaderboard.execs')}</SortButton></th>
+                <th style={{ width:'10%', textAlign:'center' }}><SortButton sortKey="block" className="justify-center">Pen.</SortButton></th>
                 <th style={{ width:'8%', textAlign:'center' }}><SortButton sortKey="level" className="justify-center">{t('leaderboard.level')}</SortButton></th>
                 <th style={{ width:'8%', textAlign:'center' }}><SortButton sortKey="rank" className="justify-center">{t('leaderboard.rank')}</SortButton></th>
                 <th style={{ width:'11%', textAlign:'right', paddingRight:'1rem' }}><SortButton sortKey="available_mm3" className="justify-end">{t('leaderboard.mm3Earned')}</SortButton></th>
@@ -1256,7 +1260,7 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
           <tbody>
             {isLoading ? (
               <tr className="lb-row">
-                <td colSpan={viewMode === 'pools' ? 9 : 11} style={{ textAlign:'center', padding: '2rem' }}>
+                <td colSpan={viewMode === 'pools' ? 10 : 11} style={{ textAlign:'center', padding: '2rem' }}>
                   <PageLoading label={t('leaderboard.loadingMiners')} fullScreen={false} />
                 </td>
               </tr>
@@ -1342,6 +1346,11 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
                         ×{Number(entry.total_nftjis || 0)}
                       </span>
                     </div>
+                  </td>
+                  <td style={{ textAlign:'center' }}>
+                    <span className="font-mono font-black text-[0.95rem] text-cyan-300">
+                      {Number(entry.total_execs || 0)}
+                    </span>
                   </td>
                   <td style={{ textAlign:'center' }}>
                     <span className="font-mono font-semibold text-rose-300">
@@ -1541,7 +1550,7 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
               );
             }) : (
               <tr className="lb-row">
-                <td colSpan={viewMode === 'pools' ? 9 : 11} className="text-center py-8 text-gray-500">
+                <td colSpan={viewMode === 'pools' ? 10 : 11} className="text-center py-8 text-gray-500">
                   {viewMode === 'pools' ? labels.noPools : t('leaderboard.noMiners')}
                 </td>
               </tr>
