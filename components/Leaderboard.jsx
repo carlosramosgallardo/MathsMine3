@@ -315,6 +315,8 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
       setLeaderboard((current) => {
         const currentJson = JSON.stringify(current);
         const nextJson = JSON.stringify(mergedData);
+        console.log('setLeaderboard: currentJson length', currentJson.length);
+        console.log('setLeaderboard: nextJson length', nextJson.length);
         return currentJson === nextJson ? current : mergedData;
       });
       loadedOnceRef.current = true;
@@ -566,6 +568,7 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
       // Show success immediately
       window.dispatchEvent(new CustomEvent('mm3-toast', { detail: { msg: labels.poolLeft, type: 'success' } }));
       // Fetch fresh data without dispatching event (avoid race conditions)
+      await new Promise(resolve => setTimeout(resolve, 500)); // Add a small delay for Supabase consistency
       await fetchLeaderboard({ ignoreCache: true });
       // Notify other listeners that DB changed
       window.dispatchEvent(new CustomEvent('mm3-db-updated'));
