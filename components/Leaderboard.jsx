@@ -450,6 +450,7 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
         members.flatMap((entry) => Array.isArray(entry.market_blocks) ? entry.market_blocks : []),
         (block) => block.block_key
       );
+      const marketNftjiMemberCount = members.filter(m => Array.isArray(m.market_blocks) && m.market_blocks.length > 0).length;
       const penalties = members.map((entry) => entry.active_penalty).filter(Boolean);
       const activePenalty = {
         mm3: penalties.find((penalty) => penalty?.mm3)?.mm3 || null,
@@ -477,6 +478,7 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
         wallet_emojis: Object.keys(poolEmojiCounts),
         wallet_emoji_counts: poolEmojiCounts,
         market_blocks: marketBlocks,
+        market_nftji_member_count: marketNftjiMemberCount,
         member_wallets: normalizedWallets,
         member_wallets_short: normalizedWallets.map(shortWallet),
         hidden_member_wallet_count: Math.max(0, new Set(members.map((entry) => normalizeWallet(entry.wallet)).filter(Boolean)).size - normalizedWallets.length),
@@ -1022,13 +1024,17 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
                 <div className="flex items-center gap-0.5 shrink-0">
                   {TRADE_SLOT_ORDER.map((slot) => {
                     const owned = ownedEmojis.includes(slot.emoji);
+                    const isLife = slot.key === 'revive';
+                    const borderColor = owned
+                      ? (isLife ? 'rgba(251,113,133,0.6)' : tier.glow)
+                      : (isLife ? 'rgba(251,113,133,0.22)' : 'rgba(148,163,184,0.22)');
                     return (
                       <div
                         key={slot.key}
                         title={getEmojiTitle(slot.emoji)}
                         className="flex h-6 w-6 items-center justify-center rounded border text-[0.90rem]"
                         style={{
-                          borderColor: owned ? tier.glow : 'rgba(148,163,184,0.22)',
+                          borderColor,
                           background: owned ? tier.bg : 'rgba(2,6,23,0.4)',
                           color: owned ? tier.color : 'rgba(100,116,139,0.35)',
                           boxShadow: owned ? `0 0 8px ${tier.color}22` : 'none',
@@ -1038,28 +1044,32 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
                       </div>
                     );
                   })}
+                  {(() => {
+                    const mCount = Number(entry.market_nftji_member_count || 0);
+                    const mEmoji = marketBlocks[0]?.emoji || '';
+                    const mOwned = mCount > 0;
+                    return (
+                      <div
+                        title={mOwned ? `Market NFTJI — ${mCount} member${mCount !== 1 ? 's' : ''}` : 'Market NFTJI — none'}
+                        className="relative flex h-6 w-6 items-center justify-center rounded border text-[0.90rem]"
+                        style={{
+                          borderColor: mOwned ? 'rgba(250,204,21,0.6)' : 'rgba(250,204,21,0.22)',
+                          background: mOwned ? tier.bg : 'rgba(2,6,23,0.4)',
+                          color: mOwned ? '#fef08a' : 'rgba(100,116,139,0.35)',
+                          boxShadow: mOwned ? '0 0 8px rgba(250,204,21,0.25)' : 'none',
+                        }}
+                      >
+                        {mOwned ? mEmoji : ''}
+                        {mCount > 1 ? (
+                          <span className="absolute bottom-[0px] right-[1px] font-mono text-[0.38rem] font-black leading-none text-cyan-100/90">
+                            ×{mCount}
+                          </span>
+                        ) : null}
+                      </div>
+                    );
+                  })()}
                 </div>
                 <div className="flex flex-wrap items-center gap-1">
-                  {marketBlocks.length > 0 ? marketBlocks.map((block) => (
-                    <button
-                      key={block.block_key}
-                      type="button"
-                      onClick={() => openMarketBlock(block.block_key)}
-                      title={`${block.emoji} ${block.hex}`}
-                      className="relative flex h-6 w-6 items-center justify-center rounded border text-[0.90rem] transition hover:border-cyan-300"
-                      style={{
-                        borderColor: 'rgba(250,204,21,0.3)',
-                        background: 'rgba(2,6,23,0.68)',
-                        color: '#fef08a',
-                        boxShadow: '0 0 8px rgba(250,204,21,0.12)',
-                      }}
-                    >
-                      <span>{block.emoji}</span>
-                      <span className="absolute bottom-[0px] right-[1px] text-[0.38rem] font-black text-cyan-100/90">
-                        {block.hex.replace('#', '')}
-                      </span>
-                    </button>
-                  )) : null}
                   {activePenalty?.mm3 ? (
                     <button
                       type="button"
@@ -1078,7 +1088,7 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
                       -{convertPenaltyEur(activePenalty.money.penalty_eur || activePenalty.money.penalty_value || 0, quoteCurrency).toFixed(8).replace(/\.?0+$/, '') || '0'} {quoteCurrency}
                     </button>
                   ) : null}
-                  {marketBlocks.length === 0 && !activePenalty?.mm3 && !activePenalty?.money ? (
+                  {!activePenalty?.mm3 && !activePenalty?.money ? (
                     <span className="text-[0.5rem] uppercase tracking-[0.1em] text-slate-700">{t('leaderboard.none')}</span>
                   ) : null}
                 </div>
@@ -1176,13 +1186,17 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
                 <div className="flex items-center gap-0.5 shrink-0">
                   {TRADE_SLOT_ORDER.map((slot) => {
                     const owned = ownedEmojis.includes(slot.emoji);
+                    const isLife = slot.key === 'revive';
+                    const borderColor = owned
+                      ? (isLife ? 'rgba(251,113,133,0.6)' : tier.glow)
+                      : (isLife ? 'rgba(251,113,133,0.22)' : 'rgba(148,163,184,0.22)');
                     return (
                       <div
                         key={slot.key}
                         title={getEmojiTitle(slot.emoji)}
                         className="flex h-6 w-6 items-center justify-center rounded border text-[0.90rem]"
                         style={{
-                          borderColor: owned ? tier.glow : 'rgba(148,163,184,0.22)',
+                          borderColor,
                           background: owned ? tier.bg : 'rgba(2,6,23,0.4)',
                           color: owned ? tier.color : 'rgba(100,116,139,0.35)',
                           boxShadow: owned ? `0 0 8px ${tier.color}22` : 'none',
@@ -1192,28 +1206,29 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
                       </div>
                     );
                   })}
+                  {(() => {
+                    const mBlock = marketBlocks[0] || null;
+                    const mOwned = !!mBlock;
+                    return (
+                      <button
+                        type="button"
+                        onClick={mOwned ? () => openMarketBlock(mBlock.block_key) : undefined}
+                        title={mOwned ? `Market NFTJI — ${mBlock.emoji} ${mBlock.hex}` : 'Market NFTJI — none'}
+                        className="relative flex h-6 w-6 items-center justify-center rounded border text-[0.90rem] transition"
+                        style={{
+                          borderColor: mOwned ? 'rgba(250,204,21,0.6)' : 'rgba(250,204,21,0.22)',
+                          background: mOwned ? tier.bg : 'rgba(2,6,23,0.4)',
+                          color: mOwned ? '#fef08a' : 'rgba(100,116,139,0.35)',
+                          boxShadow: mOwned ? '0 0 8px rgba(250,204,21,0.25)' : 'none',
+                          cursor: mOwned ? 'pointer' : 'default',
+                        }}
+                      >
+                        {mOwned ? mBlock.emoji : ''}
+                      </button>
+                    );
+                  })()}
                 </div>
                 <div className="flex flex-wrap items-center gap-1">
-                  {marketBlocks.length > 0 ? marketBlocks.map((block) => (
-                    <button
-                      key={block.block_key}
-                      type="button"
-                      onClick={() => openMarketBlock(block.block_key)}
-                      title={`${block.emoji} ${block.hex}`}
-                      className="relative flex h-6 w-6 items-center justify-center rounded border text-[0.90rem] transition hover:border-cyan-300"
-                      style={{
-                        borderColor: 'rgba(250,204,21,0.3)',
-                        background: 'rgba(2,6,23,0.68)',
-                        color: '#fef08a',
-                        boxShadow: '0 0 8px rgba(250,204,21,0.12)',
-                      }}
-                    >
-                      <span>{block.emoji}</span>
-                      <span className="absolute bottom-[0px] right-[1px] text-[0.38rem] font-black text-cyan-100/90">
-                        {block.hex.replace('#', '')}
-                      </span>
-                    </button>
-                  )) : null}
                   {activePenalty?.mm3 ? (
                     <button
                       type="button"
@@ -1234,7 +1249,7 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
                       -{convertPenaltyEur(activePenalty.money.penalty_eur || activePenalty.money.penalty_value || 0, quoteCurrency).toFixed(8).replace(/\.?0+$/, '') || '0'} {quoteCurrency}
                     </button>
                   ) : null}
-                  {marketBlocks.length === 0 && !activePenalty?.mm3 && !activePenalty?.money ? (
+                  {!activePenalty?.mm3 && !activePenalty?.money ? (
                     <span className="text-[0.5rem] uppercase tracking-[0.1em] text-slate-700">{t('leaderboard.none')}</span>
                   ) : null}
                 </div>
@@ -1350,13 +1365,17 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
                       {TRADE_SLOT_ORDER.map((slot) => {
                         const count = Number(entry.wallet_emoji_counts?.[slot.emoji] || 0);
                         const owned = count > 0;
+                        const isLife = slot.key === 'revive';
+                        const borderColor = owned
+                          ? (isLife ? 'rgba(251,113,133,0.6)' : tier.glow)
+                          : (isLife ? 'rgba(251,113,133,0.22)' : 'rgba(148,163,184,0.22)');
                         return (
                           <div
                             key={slot.key}
                             title={owned ? `${getEmojiTitle(slot.emoji)} ×${count}` : getEmojiTitle(slot.emoji)}
                             className="lb-slot-cell relative flex items-center justify-center rounded-md border text-[0.95rem]"
                             style={{
-                              borderColor: owned ? tier.glow : 'rgba(148,163,184,0.22)',
+                              borderColor,
                               background: owned ? tier.bg : 'rgba(2,6,23,0.4)',
                               color: owned ? tier.color : 'rgba(100,116,139,0.35)',
                               boxShadow: owned ? `0 0 12px ${tier.color}22` : 'none',
@@ -1371,6 +1390,30 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
                           </div>
                         );
                       })}
+                      {(() => {
+                        const mCount = Number(entry.market_nftji_member_count || 0);
+                        const mEmoji = Array.isArray(entry.market_blocks) && entry.market_blocks[0]?.emoji || '';
+                        const mOwned = mCount > 0;
+                        return (
+                          <div
+                            title={mOwned ? `Market NFTJI — ${mCount} member${mCount !== 1 ? 's' : ''}` : 'Market NFTJI — none'}
+                            className="lb-slot-cell relative flex items-center justify-center rounded-md border text-[0.95rem]"
+                            style={{
+                              borderColor: mOwned ? 'rgba(250,204,21,0.6)' : 'rgba(250,204,21,0.22)',
+                              background: mOwned ? tier.bg : 'rgba(2,6,23,0.4)',
+                              color: mOwned ? '#fef08a' : 'rgba(100,116,139,0.35)',
+                              boxShadow: mOwned ? '0 0 12px rgba(250,204,21,0.25)' : 'none',
+                            }}
+                          >
+                            {mOwned ? mEmoji : ''}
+                            {mCount > 1 ? (
+                              <span className="absolute bottom-[1px] right-[2px] font-mono text-[0.48rem] font-black leading-none text-cyan-200">
+                                ×{mCount}
+                              </span>
+                            ) : null}
+                          </div>
+                        );
+                      })()}
                     </div>
                   </td>
                   <td style={{ textAlign:'center' }}>
@@ -1485,13 +1528,17 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
                     <div className="flex items-center justify-center gap-1">
                       {TRADE_SLOT_ORDER.map((slot) => {
                         const owned = ownedEmojis.includes(slot.emoji);
+                        const isLife = slot.key === 'revive';
+                        const borderColor = owned
+                          ? (isLife ? 'rgba(251,113,133,0.6)' : tier.glow)
+                          : (isLife ? 'rgba(251,113,133,0.22)' : 'rgba(148,163,184,0.22)');
                         return (
                           <div
                             key={slot.key}
                             title={getEmojiTitle(slot.emoji)}
                             className="lb-slot-cell flex items-center justify-center rounded-md border text-[0.95rem]"
                             style={{
-                              borderColor: owned ? tier.glow : 'rgba(148,163,184,0.22)',
+                              borderColor,
                               background: owned ? tier.bg : 'rgba(2,6,23,0.4)',
                               color: owned ? tier.color : 'rgba(100,116,139,0.35)',
                               boxShadow: owned ? `0 0 12px ${tier.color}22` : 'none',
@@ -1501,6 +1548,27 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
                           </div>
                         );
                       })}
+                      {(() => {
+                        const mBlock = marketBlocks[0] || null;
+                        const mOwned = !!mBlock;
+                        return (
+                          <button
+                            type="button"
+                            onClick={mOwned ? () => openMarketBlock(mBlock.block_key) : undefined}
+                            title={mOwned ? `Market NFTJI — ${mBlock.emoji} ${mBlock.hex}` : 'Market NFTJI — none'}
+                            className="lb-slot-cell flex items-center justify-center rounded-md border text-[0.95rem] transition"
+                            style={{
+                              borderColor: mOwned ? 'rgba(250,204,21,0.6)' : 'rgba(250,204,21,0.22)',
+                              background: mOwned ? tier.bg : 'rgba(2,6,23,0.4)',
+                              color: mOwned ? '#fef08a' : 'rgba(100,116,139,0.35)',
+                              boxShadow: mOwned ? '0 0 12px rgba(250,204,21,0.25)' : 'none',
+                              cursor: mOwned ? 'pointer' : 'default',
+                            }}
+                          >
+                            {mOwned ? mBlock.emoji : ''}
+                          </button>
+                        );
+                      })()}
                     </div>
                   </td>
                   <td style={{ textAlign:'center' }}>

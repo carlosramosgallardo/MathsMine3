@@ -171,6 +171,7 @@ export default function TradeBoard({ account, isVirtualWallet = false }) {
   const [loading, setLoading] = useState(false);
   const [processing, setProcessing] = useState(false);
   const [walletDecorations, setWalletDecorations] = useState([]);
+  const [marketNftjiEmoji, setMarketNftjiEmoji] = useState(null);
   const [macroState, setMacroState] = useState(() => normalizeMacroState());
   const [tradeRatio, setTradeRatio] = useState(100);
   const [showTransactions, setShowTransactions] = useState(false);
@@ -280,13 +281,14 @@ export default function TradeBoard({ account, isVirtualWallet = false }) {
       setLoading(true);
       try {
         const wallet = account.toLowerCase();
-        const [{ data: progress }, { data: stats }] = await Promise.all([
+        const [{ data: progress }, { data: stats }, { data: marketBlockRows }] = await Promise.all([
           supabase
             .from('player_progress')
-            .select('level, mm3_sold, cny_earned, eur_earned, usd_earned, wallet_emojis')
+            .select('level, mm3_sold, cny_earned, eur_earned, usd_earned, wallet_emojis, market_nftji_key')
             .eq('wallet', wallet)
             .maybeSingle(),
           supabase.from('leaderboard_data').select('total_eth').eq('wallet', wallet).maybeSingle(),
+          supabase.from('mm3_market_blocks').select('block_key, emoji'),
         ]);
         setLevel(progress?.level ?? 0);
         const totalMm3 = Number(stats?.total_eth) || 0;
@@ -298,6 +300,9 @@ export default function TradeBoard({ account, isVirtualWallet = false }) {
           usd: Number(progress?.usd_earned) || 0,
         });
         setWalletDecorations(normalizeWalletDecorations(progress?.wallet_emojis));
+        const blockEmojiMap = new Map((marketBlockRows || []).map(b => [b.block_key, b.emoji]));
+        const nftjiKey = progress?.market_nftji_key || null;
+        setMarketNftjiEmoji(nftjiKey ? (blockEmojiMap.get(nftjiKey) || null) : null);
         await loadDailyTxCount(wallet);
       } catch (error) {
         console.error('trade board load:', error);
@@ -648,13 +653,17 @@ export default function TradeBoard({ account, isVirtualWallet = false }) {
                 <div className="flex items-center gap-2">
                   {TRADE_SLOT_ORDER.map((slot) => {
                     const owned = walletDecorations.includes(slot.emoji);
+                    const isLife = slot.key === 'revive';
+                    const borderColor = owned
+                      ? (isLife ? 'rgba(251,113,133,0.6)' : tier.glow)
+                      : (isLife ? 'rgba(251,113,133,0.22)' : 'rgba(148,163,184,0.22)');
                     return (
                       <div
                         key={slot.key}
                         title={getTradeSlotTitle(slot, level, language)}
                         className="mm3-trade-slot flex h-8 w-8 items-center justify-center rounded-md border text-base"
                         style={{
-                          borderColor: owned ? tier.glow : 'rgba(148,163,184,0.22)',
+                          borderColor,
                           background: owned ? tier.bg : 'rgba(2,6,23,0.4)',
                           color: owned ? tier.color : 'rgba(100,116,139,0.35)',
                           boxShadow: owned ? `0 0 12px ${tier.color}22` : 'none',
@@ -664,6 +673,18 @@ export default function TradeBoard({ account, isVirtualWallet = false }) {
                       </div>
                     );
                   })}
+                  <div
+                    title={marketNftjiEmoji ? `Market NFTJI — ${marketNftjiEmoji}` : 'Market NFTJI — none'}
+                    className="mm3-trade-slot flex h-8 w-8 items-center justify-center rounded-md border text-base"
+                    style={{
+                      borderColor: marketNftjiEmoji ? 'rgba(250,204,21,0.6)' : 'rgba(250,204,21,0.22)',
+                      background: marketNftjiEmoji ? tier.bg : 'rgba(2,6,23,0.4)',
+                      color: marketNftjiEmoji ? '#fef08a' : 'rgba(100,116,139,0.35)',
+                      boxShadow: marketNftjiEmoji ? '0 0 12px rgba(250,204,21,0.25)' : 'none',
+                    }}
+                  >
+                    {marketNftjiEmoji || ''}
+                  </div>
                 </div>
               </div>
               {account && (
