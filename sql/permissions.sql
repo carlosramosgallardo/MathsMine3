@@ -209,8 +209,12 @@ GRANT SELECT ON public.token_value_timeseries TO anon;
 GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO anon;
 
 -- Functions
-GRANT EXECUTE ON FUNCTION public.update_leaderboard()            TO anon;
-GRANT EXECUTE ON FUNCTION public.trigger_update_leaderboard_fn() TO anon;
+GRANT EXECUTE ON FUNCTION public.update_leaderboard()             TO anon;
+GRANT EXECUTE ON FUNCTION public.trigger_update_leaderboard_fn()  TO anon;
+GRANT EXECUTE ON FUNCTION public.mm3_leave_wallet_pool(text)      TO anon;
+GRANT EXECUTE ON FUNCTION public.mm3_leave_wallet_pool(text)      TO authenticated;
+GRANT EXECUTE ON FUNCTION public.mm3_pool_rank_from_level(integer) TO anon;
+GRANT EXECUTE ON FUNCTION public.mm3_pool_rank_from_level(integer) TO authenticated;
 
 -- ==========================================================
 -- 4. Ensure the single config rows exist

@@ -1,4 +1,12 @@
+<p align="center">
+  <a href="#english">🇬🇧 English</a> &nbsp;·&nbsp; <a href="#español">🇪🇸 Español</a>
+</p>
+
+---
+
 <!-- MANIFESTO_EN_START -->
+
+<a name="english"></a>
 
 # MathsMine3 `v1.0`
 
@@ -24,6 +32,7 @@
 - [NFTJIs](#nftjis)
 - [Trade MM3](#trade-mm3)
 - [Market](#market)
+- [Pools](#pools)
 - [IRC Relay](#irc-relay)
 - [Ranking](#ranking)
 - [API](#api)
@@ -97,6 +106,7 @@ solve -> mine -> level -> trade -> collect -> command -> recover -> repeat
 | World state | War, Nature, and hourly Dice modifier affect the atmosphere |
 | MM3 chart | Fictional global value history fed by game events |
 | Market board | 28x28 grid with command-linked NFTJI blocks |
+| Pools | Wallet coalitions with a shared rank tier and IRC identity |
 | IRC relay | Persistent social terminal with wallet presence and events |
 | Ranking | Public wallet memory: level, MM3, trades, NFTJIs, penalties |
 
@@ -241,6 +251,7 @@ Persisted per wallet:
 - Trade EXEC count
 - One-time revive state
 - Market ownership
+- Pool membership
 - Language and currency preferences
 
 Wallet colors are deterministic, so the same identity keeps the same visual signature across AuthBar, Ranking, IRC, and chat.
@@ -327,6 +338,31 @@ example:
 
 ---
 
+## Pools
+
+Wallets can form coalitions called Pools. Each Pool is identified by a 5-character alphanumeric code.
+
+| Action | Description |
+|---|---|
+| Create | Any wallet can create a pool and share its code |
+| Invite | Pool creators send invitations to specific wallet addresses |
+| Join | Invited wallets accept or decline; one pool per wallet |
+| Leave | Any member can leave the pool at any time |
+
+Pool rank is calculated from the combined level sum of all active members:
+
+| Tier | Pool Rank | Symbol |
+|---|---|:---:|
+| Entry sync | NODE SWARM | 🧟 |
+| Stable bloc | HASH COVEN | 🕳️ |
+| Coordinated force | SIGNAL CARTEL | 🧲 |
+| Dangerous alliance | VOID SYNDICATE | 🏴‍☠️ |
+| Dominant entity | DRAGON MAINNET | 🐉 |
+
+Pool membership and rank are visible in Ranking and IRC.
+
+---
+
 ## IRC Relay
 
 IRC is the shared terminal layer.
@@ -339,12 +375,16 @@ IRC is the shared terminal layer.
 | Chat history | Persistent social log |
 | Market badges | Owned NFTJIs shown beside authors |
 | Command events | Public command and penalty activity |
+| Blockchain trace | Real ETH transactions confirmed on-chain via Alchemy webhook |
 
 ```txt
-wallet@MM3:~$ hello mainframe
-market@MM3:~$ command fired
-system@MM3:~$ value mutated
+wallet@MM3:~$       hello mainframe
+market@MM3:~$       command fired
+system@MM3:~$       value mutated
+MathsMine3@ETH·:~$  0.01 ETH donation confirmed · tx 0xabc…def
 ```
+
+The `MathsMine3@ETH·:~$` line appears when a real Ethereum transaction is received by the Alchemy webhook. The event is written directly to the IRC log with `tone=realchain`, making on-chain activity visible inside the terminal without any player action.
 
 ---
 
@@ -383,6 +423,7 @@ Public API routes expose the readable state of the simulation.
 | State | TanStack Query, local React contexts |
 | Charts | Recharts |
 | Platform | Vercel Analytics, Speed Insights |
+| Blockchain | Alchemy webhook (ETH mainnet realchain trace) |
 
 ### Project Map
 
@@ -442,6 +483,8 @@ Read:
 
 <!-- MANIFESTO_ES_START -->
 
+<a name="español"></a>
+
 # MathsMine3 `v1.0`
 
 > Matemáticas contra reloj. Minería ficticia. Identidad wallet. Economía de terminal.
@@ -458,20 +501,21 @@ Read:
 - [Manifiesto](#manifiesto)
 - [Loop de Juego](#loop-de-juego)
 - [Sistemas Base](#sistemas-base)
-- [Mining](#mining)
-- [Límites Diarios](#limites-diarios)
+- [Mining](#mining-1)
+- [Límites Diarios](#límites-diarios)
 - [Recompensas Diarias](#recompensas-diarias)
 - [Rangos](#rangos)
-- [Wallets](#wallets)
-- [NFTJIs](#nftjis)
-- [Trade MM3](#trade-mm3)
-- [Market](#market)
-- [IRC Relay](#irc-relay)
-- [Ranking](#ranking)
-- [API](#api)
-- [Stack Técnico](#stack-tecnico)
-- [Ejecución Local](#ejecucion-local)
-- [Legal](#legal)
+- [Wallets](#wallets-1)
+- [NFTJIs](#nftjis-1)
+- [Trade MM3](#trade-mm3-1)
+- [Market](#market-1)
+- [Pools](#pools-1)
+- [IRC Relay](#irc-relay-1)
+- [Ranking](#ranking-1)
+- [API](#api-1)
+- [Stack Técnico](#stack-técnico)
+- [Ejecución Local](#ejecución-local)
+- [Legal](#legal-1)
 
 ---
 
@@ -539,6 +583,7 @@ resolver -> minar -> subir nivel -> tradear -> coleccionar -> comandar -> recupe
 | Estado mundo | War, Nature y modificador horario Dice afectan la atmósfera |
 | Gráfico MM3 | Histórico de valor ficticio alimentado por eventos del juego |
 | Market board | Grid 28x28 con bloques NFTJI vinculados a comandos |
+| Pools | Coaliciones de wallets con rango compartido e identidad IRC |
 | IRC relay | Terminal social persistente con presencia de wallets y eventos |
 | Ranking | Memoria pública: nivel, MM3, trades, NFTJIs, penalizaciones |
 
@@ -683,6 +728,7 @@ Persistido por wallet:
 - Conteo de EXECs
 - Estado del revive de un uso
 - Propiedad del Market
+- Membresía de Pool
 - Preferencias de idioma y moneda
 
 Los colores de wallet son deterministas: la misma identidad conserva la misma firma visual en AuthBar, Ranking, IRC y chat.
@@ -769,6 +815,31 @@ ejemplo:
 
 ---
 
+## Pools
+
+Las wallets pueden formar coaliciones llamadas Pools. Cada Pool se identifica con un código alfanumérico de 5 caracteres.
+
+| Acción | Descripción |
+|---|---|
+| Crear | Cualquier wallet puede crear un Pool y compartir su código |
+| Invitar | El creador envía invitaciones a direcciones de wallet concretas |
+| Unirse | Las wallets invitadas aceptan o rechazan; una Pool por wallet |
+| Salir | Cualquier miembro puede abandonar el Pool en cualquier momento |
+
+El rango del Pool se calcula a partir de la suma de niveles de todos sus miembros activos:
+
+| Tier | Rango de Pool | Símbolo |
+|---|---|:---:|
+| Sincronización inicial | NODE SWARM | 🧟 |
+| Bloque estable | HASH COVEN | 🕳️ |
+| Fuerza coordinada | SIGNAL CARTEL | 🧲 |
+| Alianza peligrosa | VOID SYNDICATE | 🏴‍☠️ |
+| Entidad dominante | DRAGON MAINNET | 🐉 |
+
+La membresía y el rango del Pool son visibles en el Ranking y en el IRC.
+
+---
+
 ## IRC Relay
 
 IRC es la capa terminal compartida.
@@ -781,12 +852,16 @@ IRC es la capa terminal compartida.
 | Historial de chat | Log social persistente |
 | Badges del Market | NFTJIs poseídos junto al autor |
 | Eventos de comandos | Actividad pública de comandos y penalizaciones |
+| Traza blockchain | Transacciones ETH reales confirmadas on-chain vía Alchemy webhook |
 
 ```txt
-wallet@MM3:~$ hola mainframe
-market@MM3:~$ comando disparado
-system@MM3:~$ valor mutado
+wallet@MM3:~$       hola mainframe
+market@MM3:~$       comando disparado
+system@MM3:~$       valor mutado
+MathsMine3@ETH·:~$  0.01 ETH donación confirmada · tx 0xabc…def
 ```
+
+La línea `MathsMine3@ETH·:~$` aparece cuando el webhook de Alchemy recibe una transacción real de Ethereum. El evento se escribe directamente en el log IRC con `tone=realchain`, haciendo visible la actividad on-chain dentro del terminal sin ninguna acción del jugador.
 
 ---
 
@@ -825,6 +900,7 @@ Las rutas públicas exponen el estado legible de la simulación.
 | Estado | TanStack Query, contextos React locales |
 | Gráficos | Recharts |
 | Plataforma | Vercel Analytics, Speed Insights |
+| Blockchain | Alchemy webhook (traza realchain ETH mainnet) |
 
 ### Mapa del Proyecto
 

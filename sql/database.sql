@@ -17,6 +17,8 @@ DROP VIEW IF EXISTS token_value_timeseries CASCADE;
 DROP TRIGGER IF EXISTS trigger_update_leaderboard ON games;
 DROP FUNCTION IF EXISTS trigger_update_leaderboard_fn();
 DROP FUNCTION IF EXISTS update_leaderboard();
+DROP FUNCTION IF EXISTS mm3_leave_wallet_pool(text);
+DROP FUNCTION IF EXISTS mm3_pool_rank_from_level(integer);
 
 -- Drop tables
 DROP TABLE IF EXISTS mm3_command_penalties CASCADE;
@@ -31,11 +33,13 @@ DROP TABLE IF EXISTS mm3_wallet_pool_members CASCADE;
 DROP TABLE IF EXISTS mm3_wallet_pool_invitations CASCADE;
 DROP TABLE IF EXISTS mm3_wallet_pools CASCADE;
 DROP TABLE IF EXISTS player_progress CASCADE;
+DROP TABLE IF EXISTS daily_task_claims CASCADE;
 DROP TABLE IF EXISTS leaderboard_data CASCADE;
 DROP TABLE IF EXISTS math_problems CASCADE;
 DROP TABLE IF EXISTS api_requests CASCADE;
 DROP TABLE IF EXISTS mm3_visual_state CASCADE;
 DROP TABLE IF EXISTS mm3_market_blocks CASCADE;
+DROP TABLE IF EXISTS mm3_irc_messages CASCADE;
 DROP TABLE IF EXISTS games CASCADE;
 
 -- Drop sequences
@@ -401,6 +405,47 @@ BEGIN
   PERFORM public.update_leaderboard();
   RETURN NULL;
 END;
+$$;
+
+-- Pool helper: remove a wallet from its pool
+CREATE OR REPLACE FUNCTION public.mm3_leave_wallet_pool(p_wallet text)
+RETURNS TABLE(wallet text, pool_code text)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  RETURN QUERY
+  DELETE FROM public.mm3_wallet_pool_members m
+  WHERE lower(trim(m.wallet)) = lower(trim(p_wallet))
+  RETURNING m.wallet, m.pool_code;
+END;
+$$;
+
+-- Pool rank tier derived from the combined level sum of all members
+CREATE OR REPLACE FUNCTION public.mm3_pool_rank_from_level(p_level integer)
+RETURNS TABLE(
+  rank_key text,
+  emoji text,
+  rank_name text,
+  rank_desc text,
+  min_level integer,
+  max_level integer
+)
+LANGUAGE sql
+IMMUTABLE
+AS $$
+  SELECT *
+  FROM (
+    VALUES
+      ('node_swarm',     '🧟',  'NODE SWARM',     'Pool recién sincronizado; muchas wallets, poca potencia.', 0,   199),
+      ('hash_coven',     '🕳️', 'HASH COVEN',     'Grupo estable que empieza a deformar el ranking.',        200, 3999),
+      ('signal_cartel',  '🧲',  'SIGNAL CARTEL',  'Pool coordinado con fuerza real de ejecución.',           400, 599),
+      ('void_syndicate', '🏴‍☠️','VOID SYNDICATE', 'Alianza peligrosa capaz de mover el mainframe.',         600, 799),
+      ('dragon_mainnet', '🐉',  'DRAGON MAINNET', 'Pool élite; entidad dominante del ecosistema MM3.',       800, 9999)
+  ) AS r(rank_key, emoji, rank_name, rank_desc, min_level, max_level)
+  WHERE p_level BETWEEN r.min_level AND r.max_level
+  LIMIT 1;
 $$;
 
 -- ==============================================
