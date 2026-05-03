@@ -36,6 +36,7 @@
 - [IRC Relay](#irc-relay)
 - [Ranking](#ranking)
 - [API](#api)
+- [Emoji Catalog](#emoji-catalog)
 - [Tech Stack](#tech-stack)
 - [Run Locally](#run-locally)
 - [Legal](#legal)
@@ -412,6 +413,84 @@ Public API routes expose the readable state of the simulation.
 
 ---
 
+## Emoji Catalog
+
+### Ranks — Individual
+
+| Level | Emoji | Rank | Color |
+|---:|:---:|---|---|
+| 0–19 | 🧪 | NOVICE | `#22d3ee` |
+| 20–39 | ⛏️ | MINER | `#4ade80` |
+| 40–59 | 🧠 | HACKER | `#facc15` |
+| 60–79 | 🪄 | WIZARD | `#f97316` |
+| 80–100 | 👑 | LEGEND | `#e879f9` |
+
+### Ranks — Pool
+
+| Sum Level | Emoji | Pool Rank | Description |
+|---:|:---:|---|---|
+| 100–199 | 🧟 | NODE SWARM | Recently synced; many wallets, low power. |
+| 200–399 | 🕳️ | HASH COVEN | Stable group starting to deform the ranking. |
+| 400–599 | 🧲 | SIGNAL CARTEL | Coordinated pool with real execution force. |
+| 600–799 | 🏴‍☠️ | VOID SYNDICATE | Dangerous alliance capable of moving the mainframe. |
+| 800–1000 | 🐉 | DRAGON MAINNET | Elite pool; dominant entity of the MM3 ecosystem. |
+
+### NFTJIs — Mining Drops
+
+| Emoji | Name | Probability | Trade × | MM3 Shock |
+|:---:|---|---:|---:|---:|
+| 🔮 | Void Seer | 1/50 | ×1.005 | +0.5% |
+| 🍀 | Fortune Leaf | 1/100 | ×1.01 | +1% |
+| 🎰 | Jackpot Engine | 1/500 | ×1.05 | +5% |
+| 🧿 | Fate Singularity | 1/1000 | ×1.5 | +10% |
+| ❤️ | Life Toll *(revive)* | one-use | ×0.2 | −25% |
+
+### NFTJIs — Market · Money Rail
+
+Secret effect: steals fiat → executor. `x = daily nonce (100–799)`.
+
+| Emoji | Name | HEX | Price | Command | Penalty | Secret lv. | Formula |
+|:---:|---|---|---:|---|---|---:|---|
+| 🛰 | Genesis Uplink | #016 | €1 | `/ping -c 4 gateway.mainframe` | −€1 all | 10+ | `5*(4000+x) + 12*(300+x) + (6000+3*x)/3` |
+| 🌐 | Signal Nexus | #05C | €3 | `/nmcli connection reload` | −€3 all | 20+ | `(7000+x) + 13*200 + x*4` |
+| 🔭 | Deep Relay | #0B9 | €5 | `/netstat -tulpn` | −€5 all | 30+ | `9000 + 8*x + 3600/3` |
+| 🧬 | Code Strand | #11B | €7 | `/git cherry-pick a1b2c3d` | −€7 all | 40+ | `11000 + 21*x + 1440/2` |
+| 💠 | Fractal Core | #184 | €10 | `/kubectl rollout restart deploy/fractal-core` | −€10 all | 50+ | `12000 + x*17 + 4096/4` |
+| ⚡ | Arc Burst | #1E7 | €15 | `/uptime` | −€15 all | 60+ | `15000 + x*23 + 2048/2` |
+| 🌀 | Entropy Loop | #244 | €25 | `/journalctl -n 50` | −€25 all | 70+ | `18000 + x*31 + 7777%1000` |
+| 🔴 | Null Beacon | #26D | €50 | `/whoami` | −€50 all | 80+ | `22000 + x*37 + 9999/3` |
+| ⭐ | Star Protocol | #2CA | €75 | `/hostnamectl status` | −€75 all | 90+ | `26000 + x*41 + 12345%678` |
+| 💎 | Crystal Forge | #30E | €100 | `/sha256sum /etc/hosts` | −€100 all | 100 | `30000 + x*47 + 8192/4` |
+
+### NFTJIs — Market · MM3 Rail
+
+Secret effect: steals MM3 → executor. `x = daily nonce (100–799)`.
+
+| Emoji | Name | HEX | Price | Command | Penalty | Secret lv. | Formula |
+|:---:|---|---|---:|---|---|---:|---|
+| 🛸 | Orbit Siphon | #01D | 1 MM3 | `/lsblk` | −1 MM3 all | 10+ | `41000 + x*11 + 2048/4` |
+| 🗝️ | Key Vault | #04A | 3 MM3 | `/passwd` | −3 MM3 all | 20+ | `(43000+x) + 17*300 + x*3` |
+| 🛡️ | Shield Fork | #091 | 5 MM3 | `/ufw status verbose` | −5 MM3 all | 30+ | `47000 + 19*x + 4096/8` |
+| 🧨 | Fuse Packet | #0F8 | 7 MM3 | `/ss -lntp` | −7 MM3 all | 40+ | `51000 + x*29 + 7776/6` |
+| 🪙 | Coin Kernel | #15C | 10 MM3 | `/uname -r` | −10 MM3 all | 50+ | `54000 + x*31 + 10000/8` |
+| 🧰 | Toolchain Cache | #1A6 | 15 MM3 | `/gcc --version` | −15 MM3 all | 60+ | `58000 + x*37 + 8192/16` |
+| 🪬 | Mirror Charm | #20B | 25 MM3 | `/scp file.txt backup:/tmp/` | −25 MM3 all | 70+ | `62000 + x*43 + 12345%789` |
+| 🪞 | Reflector Gate | #29B | 50 MM3 | `/curl -I http://localhost` | −50 MM3 all | 80+ | `68000 + x*38 + 9999/9` |
+| 🔋 | Battery Node | #2DA | 75 MM3 | `/acpi -V` | −75 MM3 all | 90+ | `73000 + x*32 + 16384/16` |
+| 🎛️ | Mixer Console | #2F9 | 100 MM3 | `/alsamixer` | −100 MM3 all | 100 | `79000 + x*25 + 22222%999` |
+
+### World State & UI
+
+| Emoji | Label | Role |
+|:---:|---|---|
+| ⚔️ | War | Global conflict modifier — affects atmosphere and trade rates |
+| 🌪️ | Meteo | Nature / weather modifier |
+| 🎲 | Dice | Hourly random modifier |
+| 📜 | Manifest | Manifesto page |
+| 🤖 | AI Team | FreakingAI — in-game AI entity |
+
+---
+
 ## Tech Stack
 
 | Layer | Stack |
@@ -513,6 +592,7 @@ Read:
 - [IRC Relay](#irc-relay-1)
 - [Ranking](#ranking-1)
 - [API](#api-1)
+- [Catálogo de Emojis](#catálogo-de-emojis)
 - [Stack Técnico](#stack-técnico)
 - [Ejecución Local](#ejecución-local)
 - [Legal](#legal-1)
@@ -886,6 +966,84 @@ Las rutas públicas exponen el estado legible de la simulación.
 | `/api/leaderboard` | Datos del Ranking |
 | `/api/market-snapshot` | Estado de bloques del Market |
 | `/api/nft-events` | Eventos NFTJI y revive |
+
+---
+
+## Catálogo de Emojis
+
+### Rangos — Individual
+
+| Nivel | Emoji | Rango | Color |
+|---:|:---:|---|---|
+| 0–19 | 🧪 | NOVICE | `#22d3ee` |
+| 20–39 | ⛏️ | MINER | `#4ade80` |
+| 40–59 | 🧠 | HACKER | `#facc15` |
+| 60–79 | 🪄 | WIZARD | `#f97316` |
+| 80–100 | 👑 | LEGEND | `#e879f9` |
+
+### Rangos — Pool
+
+| Suma Niveles | Emoji | Rango Pool | Descripción |
+|---:|:---:|---|---|
+| 100–199 | 🧟 | NODE SWARM | Pool recién sincronizado; muchas wallets, poca potencia. |
+| 200–399 | 🕳️ | HASH COVEN | Grupo estable que empieza a deformar el ranking. |
+| 400–599 | 🧲 | SIGNAL CARTEL | Pool coordinado con fuerza real de ejecución. |
+| 600–799 | 🏴‍☠️ | VOID SYNDICATE | Alianza peligrosa capaz de mover el mainframe. |
+| 800–1000 | 🐉 | DRAGON MAINNET | Pool élite; entidad dominante del ecosistema MM3. |
+
+### NFTJIs — Drops de Mining
+
+| Emoji | Nombre | Probabilidad | Trade × | Shock MM3 |
+|:---:|---|---:|---:|---:|
+| 🔮 | Void Seer | 1/50 | ×1.005 | +0.5% |
+| 🍀 | Fortune Leaf | 1/100 | ×1.01 | +1% |
+| 🎰 | Jackpot Engine | 1/500 | ×1.05 | +5% |
+| 🧿 | Fate Singularity | 1/1000 | ×1.5 | +10% |
+| ❤️ | Life Toll *(revive)* | un uso | ×0.2 | −25% |
+
+### NFTJIs — Market · Rail Fiat
+
+Efecto secreto: roba fiat → wallet ejecutora. `x = nonce diario (100–799)`.
+
+| Emoji | Nombre | HEX | Precio | Comando | Penalización | Nivel secreto | Fórmula |
+|:---:|---|---|---:|---|---|---:|---|
+| 🛰 | Genesis Uplink | #016 | €1 | `/ping -c 4 gateway.mainframe` | −€1 todas | 10+ | `5*(4000+x) + 12*(300+x) + (6000+3*x)/3` |
+| 🌐 | Signal Nexus | #05C | €3 | `/nmcli connection reload` | −€3 todas | 20+ | `(7000+x) + 13*200 + x*4` |
+| 🔭 | Deep Relay | #0B9 | €5 | `/netstat -tulpn` | −€5 todas | 30+ | `9000 + 8*x + 3600/3` |
+| 🧬 | Code Strand | #11B | €7 | `/git cherry-pick a1b2c3d` | −€7 todas | 40+ | `11000 + 21*x + 1440/2` |
+| 💠 | Fractal Core | #184 | €10 | `/kubectl rollout restart deploy/fractal-core` | −€10 todas | 50+ | `12000 + x*17 + 4096/4` |
+| ⚡ | Arc Burst | #1E7 | €15 | `/uptime` | −€15 todas | 60+ | `15000 + x*23 + 2048/2` |
+| 🌀 | Entropy Loop | #244 | €25 | `/journalctl -n 50` | −€25 todas | 70+ | `18000 + x*31 + 7777%1000` |
+| 🔴 | Null Beacon | #26D | €50 | `/whoami` | −€50 todas | 80+ | `22000 + x*37 + 9999/3` |
+| ⭐ | Star Protocol | #2CA | €75 | `/hostnamectl status` | −€75 todas | 90+ | `26000 + x*41 + 12345%678` |
+| 💎 | Crystal Forge | #30E | €100 | `/sha256sum /etc/hosts` | −€100 todas | 100 | `30000 + x*47 + 8192/4` |
+
+### NFTJIs — Market · Rail MM3
+
+Efecto secreto: roba MM3 → wallet ejecutora. `x = nonce diario (100–799)`.
+
+| Emoji | Nombre | HEX | Precio | Comando | Penalización | Nivel secreto | Fórmula |
+|:---:|---|---|---:|---|---|---:|---|
+| 🛸 | Orbit Siphon | #01D | 1 MM3 | `/lsblk` | −1 MM3 todas | 10+ | `41000 + x*11 + 2048/4` |
+| 🗝️ | Key Vault | #04A | 3 MM3 | `/passwd` | −3 MM3 todas | 20+ | `(43000+x) + 17*300 + x*3` |
+| 🛡️ | Shield Fork | #091 | 5 MM3 | `/ufw status verbose` | −5 MM3 todas | 30+ | `47000 + 19*x + 4096/8` |
+| 🧨 | Fuse Packet | #0F8 | 7 MM3 | `/ss -lntp` | −7 MM3 todas | 40+ | `51000 + x*29 + 7776/6` |
+| 🪙 | Coin Kernel | #15C | 10 MM3 | `/uname -r` | −10 MM3 todas | 50+ | `54000 + x*31 + 10000/8` |
+| 🧰 | Toolchain Cache | #1A6 | 15 MM3 | `/gcc --version` | −15 MM3 todas | 60+ | `58000 + x*37 + 8192/16` |
+| 🪬 | Mirror Charm | #20B | 25 MM3 | `/scp file.txt backup:/tmp/` | −25 MM3 todas | 70+ | `62000 + x*43 + 12345%789` |
+| 🪞 | Reflector Gate | #29B | 50 MM3 | `/curl -I http://localhost` | −50 MM3 todas | 80+ | `68000 + x*38 + 9999/9` |
+| 🔋 | Battery Node | #2DA | 75 MM3 | `/acpi -V` | −75 MM3 todas | 90+ | `73000 + x*32 + 16384/16` |
+| 🎛️ | Mixer Console | #2F9 | 100 MM3 | `/alsamixer` | −100 MM3 todas | 100 | `79000 + x*25 + 22222%999` |
+
+### Estado Mundo e Interfaz
+
+| Emoji | Etiqueta | Rol |
+|:---:|---|---|
+| ⚔️ | War | Modificador de conflicto global — afecta atmósfera y tasas |
+| 🌪️ | Meteo | Modificador de naturaleza / clima |
+| 🎲 | Dice | Modificador aleatorio horario |
+| 📜 | Manifest | Página del Manifiesto |
+| 🤖 | AI Team | FreakingAI — entidad IA del juego |
 
 ---
 
