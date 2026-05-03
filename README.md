@@ -284,6 +284,20 @@ Each mining drop can be claimed once per wallet. If the offer is ignored before 
 
 One use per wallet. Requires at least 1.00 EUR in fictional funds. Cancels one failure penalty, costs 1.00 EUR in-game, and emits a global MM3 shock.
 
+### NFTJI Slot Display
+
+Trade, Ranking (wallet and pool views) show **6 NFTJI slots** side by side per wallet. Border color identifies slot type at a glance:
+
+| Slots | Content | Border |
+|:---:|---|---|
+| 1–4 | Mining drops — 🔮 🍀 🎰 🧿 | Wallet rank color |
+| 5 | Life Toll — ❤️ | Rose |
+| 6 | Market NFTJI *(one per wallet)* | Amber / gold |
+
+Empty slots remain visible with a faint border of their type's color.  
+Slot 6 shows the emoji of the wallet's owned Market block. Only one Market NFTJI is possible at a time per wallet.  
+In Pool views, slot 6 shows a count overlay (×N) if multiple pool members hold a Market NFTJI.
+
 ---
 
 ## Trade MM3
@@ -434,6 +448,19 @@ Public API routes expose the readable state of the simulation.
 | 400–599 | 🧲 | SIGNAL CARTEL | Coordinated pool with real execution force. |
 | 600–799 | 🏴‍☠️ | VOID SYNDICATE | Dangerous alliance capable of moving the mainframe. |
 | 800–1000 | 🐉 | DRAGON MAINNET | Elite pool; dominant entity of the MM3 ecosystem. |
+
+### NFTJIs — Slot Overview
+
+| Slot | Emoji | Name | Acquired |
+|:---:|:---:|---|---|
+| 1 | 🔮 | Void Seer | Mining drop |
+| 2 | 🍀 | Fortune Leaf | Mining drop |
+| 3 | 🎰 | Jackpot Engine | Mining drop |
+| 4 | 🧿 | Fate Singularity | Mining drop |
+| 5 | ❤️ | Life Toll | Emergency revive |
+| 6 | *(variable)* | Market NFTJI | Market board purchase |
+
+Slot 6 border is **amber**. Slot 5 border is **rose**. Slots 1–4 share the wallet's rank color.
 
 ### NFTJIs — Mining Drops
 
@@ -840,6 +867,20 @@ Cada drop de mining puede reclamarse una vez por wallet. Si se ignora la oferta 
 
 Un uso por wallet. Requiere al menos 1.00 EUR en fondos ficticios. Cancela una penalización por fallo, cuesta 1.00 EUR dentro del juego y emite un shock global de MM3.
 
+### Visualización de Casillas NFTJI
+
+Trade, Ranking (wallets y pools) muestran **6 casillas NFTJI** en fila por wallet. El color del borde identifica el tipo de casilla de un vistazo:
+
+| Casillas | Contenido | Borde |
+|:---:|---|---|
+| 1–4 | Drops de mining — 🔮 🍀 🎰 🧿 | Color del rango de la wallet |
+| 5 | Life Toll — ❤️ | Rosa |
+| 6 | NFTJI del Market *(una por wallet)* | Ámbar / dorado |
+
+Las casillas vacías mantienen un borde tenue de su color de tipo.  
+La casilla 6 muestra el emoji del bloque del Market que posee la wallet. Solo es posible un NFTJI del Market a la vez por wallet.  
+En vistas de Pool, la casilla 6 muestra un contador (×N) si varios miembros del pool poseen un NFTJI del Market.
+
 ---
 
 ## Trade MM3
@@ -990,6 +1031,19 @@ Las rutas públicas exponen el estado legible de la simulación.
 | 400–599 | 🧲 | SIGNAL CARTEL | Pool coordinado con fuerza real de ejecución. |
 | 600–799 | 🏴‍☠️ | VOID SYNDICATE | Alianza peligrosa capaz de mover el mainframe. |
 | 800–1000 | 🐉 | DRAGON MAINNET | Pool élite; entidad dominante del ecosistema MM3. |
+
+### NFTJIs — Resumen de Casillas
+
+| Casilla | Emoji | Nombre | Obtención |
+|:---:|:---:|---|---|
+| 1 | 🔮 | Void Seer | Drop de mining |
+| 2 | 🍀 | Fortune Leaf | Drop de mining |
+| 3 | 🎰 | Jackpot Engine | Drop de mining |
+| 4 | 🧿 | Fate Singularity | Drop de mining |
+| 5 | ❤️ | Life Toll | Revive de emergencia |
+| 6 | *(variable)* | NFTJI del Market | Compra en el Market board |
+
+Borde de casilla 6: **ámbar**. Casilla 5: **rosa**. Casillas 1–4 comparten el color del rango de la wallet.
 
 ### NFTJIs — Drops de Mining
 
