@@ -533,8 +533,8 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
   const [incomingInvites, setIncomingInvites] = useState([]);
   const [acceptBusy, setAcceptBusy] = useState('');
   const [leaveBusy, setLeaveBusy] = useState(false);
-  const [showDisputes, setShowDisputes] = useState(false);
   const [disputeBusy, setDisputeBusy] = useState('');
+  const [activeDisputePairs, setActiveDisputePairs] = useState(() => new Set());
 
   const fetchInvites = useCallback(async () => {
     if (!activeWallet) { setIncomingInvites([]); return; }
@@ -641,7 +641,7 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
         return;
       }
       window.dispatchEvent(new CustomEvent('mm3-toast', { detail: { msg: labels.disputeVoted, type: 'success' } }));
-      setShowDisputes(true);
+      setViewMode('disputes');
     } catch {
       window.dispatchEvent(new CustomEvent('mm3-toast', { detail: { msg: labels.disputeError, type: 'error' } }));
     } finally {
@@ -657,6 +657,22 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
   useEffect(() => {
     fetchInvites();
   }, [activeWallet, fetchInvites]);
+
+  useEffect(() => {
+    if (!activeWalletPool) { setActiveDisputePairs(new Set()); return; }
+    fetch(`/api/wallet-pools/disputes?pool=${encodeURIComponent(activeWalletPool)}&limit=50`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (!data.ok) return;
+        const pairs = new Set(
+          (data.disputes || [])
+            .filter((d) => d.status !== 'resolved' && d.challenger_pool_code === activeWalletPool)
+            .map((d) => d.defender_pool_code)
+        );
+        setActiveDisputePairs(pairs);
+      })
+      .catch(() => {});
+  }, [activeWalletPool]);
 
   useEffect(() => {
     const total = Math.max(1, Math.ceil(activeLeaderboard.length / itemsPerPage));
@@ -893,30 +909,28 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
 
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2 font-mono">
         <div className="text-[0.72rem] uppercase tracking-[0.18em] text-cyan-700">
-          {viewMode === 'pools' ? labels.poolRanking : labels.walletRanking}
+          {viewMode === 'disputes' ? labels.disputes : viewMode === 'pools' ? labels.poolRanking : labels.walletRanking}
         </div>
         <div className="flex items-center gap-2">
-          {activeWallet && activeWalletPool ? (
-            <>
-              <button
-                type="button"
-                onClick={handleLeavePool}
-                disabled={leaveBusy}
-                className="rounded border border-rose-400/30 bg-rose-950/20 px-2.5 py-1 text-[0.68rem] font-black uppercase tracking-[0.16em] text-rose-300 transition hover:border-rose-300 hover:text-rose-50 disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                {labels.leavePool} #{activeWalletPool}
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowDisputes((v) => !v)}
-                className="rounded border border-amber-400/30 bg-amber-950/20 px-2.5 py-1 text-[0.68rem] font-black uppercase tracking-[0.16em] text-amber-300 transition hover:border-amber-300 hover:text-amber-50"
-                style={showDisputes ? { borderColor: 'rgba(251,191,36,0.7)', color: '#fef08a' } : {}}
-              >
-                {labels.disputes}
-              </button>
-            </>
+          {viewMode !== 'disputes' && activeWallet && activeWalletPool ? (
+            <button
+              type="button"
+              onClick={handleLeavePool}
+              disabled={leaveBusy}
+              className="rounded border border-rose-400/30 bg-rose-950/20 px-2.5 py-1 text-[0.68rem] font-black uppercase tracking-[0.16em] text-rose-300 transition hover:border-rose-300 hover:text-rose-50 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              {labels.leavePool} #{activeWalletPool}
+            </button>
           ) : null}
-          {viewMode === 'pools' ? (
+          <button
+            type="button"
+            onClick={() => viewMode === 'disputes' ? showPoolRanking() : setViewMode('disputes')}
+            className="rounded border border-amber-400/30 bg-amber-950/20 px-2.5 py-1 text-[0.68rem] font-black uppercase tracking-[0.16em] text-amber-300 transition hover:border-amber-300 hover:text-amber-50"
+            style={viewMode === 'disputes' ? { borderColor: 'rgba(251,191,36,0.7)', color: '#fef08a' } : {}}
+          >
+            {viewMode === 'disputes' ? `← ${labels.poolRanking}` : labels.disputes}
+          </button>
+          {viewMode !== 'disputes' && (viewMode === 'pools' ? (
             <button
               type="button"
               onClick={showWalletRanking}
@@ -933,17 +947,22 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
             >
               {labels.poolRanking}
             </button>
-          )}
+          ))}
         </div>
       </div>
 
-      {showDisputes && activeWallet && activeWalletPool && (
+      {viewMode === 'disputes' && (
         <div className="mb-3 rounded-xl border border-amber-500/20 bg-slate-950/70 p-3">
-          <DisputesPanel wallet={activeWallet} poolCode={activeWalletPool} language={language} />
+          <DisputesPanel
+            wallet={activeWallet}
+            poolCode={activeWalletPool}
+            language={language}
+            onWalletClick={goToWalletRanking}
+          />
         </div>
       )}
 
-      {incomingInvites.length > 0 && (
+      {viewMode !== 'disputes' && incomingInvites.length > 0 && (
         <div className="mb-3 rounded-xl border border-cyan-500/20 bg-slate-950/70 p-3 text-sm text-slate-200">
           <div className="mb-2 font-mono text-[0.72rem] uppercase tracking-[0.18em] text-cyan-300">{labels.pendingInvites}</div>
           <div className="space-y-2">
@@ -967,7 +986,7 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
         </div>
       )}
 
-      {totalPages > 1 && (
+      {viewMode !== 'disputes' && totalPages > 1 && (
         <div className="flex justify-center gap-2 mb-3 flex-wrap sm:hidden">
           <button onClick={() => setCurrentPage(p => Math.max(1, p-1))} disabled={currentPage === 1}
                   className="w-8 h-8 rounded border-2 border-[#22d3ee]/40 text-[#22d3ee] hover:border-[#22d3ee] transition disabled:opacity-30 disabled:cursor-not-allowed text-sm font-mono">
@@ -996,7 +1015,7 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
         </div>
       )}
 
-      <div className="space-y-2 sm:hidden">
+      {viewMode !== 'disputes' && <div className="space-y-2 sm:hidden">
         {isLoading ? (
           <PageLoading label={t('leaderboard.loadingMiners')} fullScreen={false} />
         ) : currentItems.length > 0 ? viewMode === 'pools' ? currentItems.map((entry) => {
@@ -1154,7 +1173,8 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
                   ) : null}
                 </div>
                 {activeWallet && activeWalletPool &&
-                  String(entry.pool_code).toUpperCase() !== String(activeWalletPool).toUpperCase() ? (
+                  String(entry.pool_code).toUpperCase() !== String(activeWalletPool).toUpperCase() &&
+                  !activeDisputePairs.has(String(entry.pool_code).toUpperCase()) ? (
                   <button
                     type="button"
                     onClick={() => handleDisputeVote(entry.pool_code)}
@@ -1334,9 +1354,9 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
             {viewMode === 'pools' ? labels.noPools : t('leaderboard.noMiners')}
           </div>
         )}
-      </div>
+      </div>}
 
-      <div className="hidden overflow-x-auto sm:block">
+      {viewMode !== 'disputes' && <div className="hidden overflow-x-auto sm:block">
         <table className="lb-tbl w-full">
           <thead>
             {viewMode === 'pools' ? (
@@ -1525,7 +1545,8 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
                   </td>
                   <td style={{ textAlign:'center' }}>
                     {activeWallet && activeWalletPool &&
-                      String(entry.pool_code).toUpperCase() !== String(activeWalletPool).toUpperCase() ? (
+                      String(entry.pool_code).toUpperCase() !== String(activeWalletPool).toUpperCase() &&
+                      !activeDisputePairs.has(String(entry.pool_code).toUpperCase()) ? (
                       <button
                         type="button"
                         onClick={() => handleDisputeVote(entry.pool_code)}
@@ -1742,9 +1763,9 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
             )}
           </tbody>
         </table>
-      </div>
+      </div>}
 
-      {totalPages > 1 && (
+      {viewMode !== 'disputes' && totalPages > 1 && (
         <div className="flex justify-center gap-2 mt-5 flex-wrap">
           <button onClick={() => setCurrentPage(p => Math.max(1, p-1))} disabled={currentPage === 1}
                   className="w-9 h-9 rounded-lg border-2 border-[#22d3ee]/40 text-[#22d3ee] hover:border-[#22d3ee] transition disabled:opacity-30 disabled:cursor-not-allowed text-sm font-mono">

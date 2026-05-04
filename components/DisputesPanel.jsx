@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useRef, useCallback } from 'react';
+import { colorFromAddress } from '@/lib/wallet-colors';
 
 const STATUS_LABELS = {
   registering: { es: 'REGISTRANDO', en: 'REGISTERING', color: '#22d3ee' },
@@ -56,7 +57,7 @@ function ScoreBar({ chScore, dfScore }) {
   );
 }
 
-function DisputeCard({ dispute, activeWallet, poolCode, language, onJoin, onTransition }) {
+function DisputeCard({ dispute, activeWallet, poolCode, language, onJoin, onWalletClick }) {
   const lang = language === 'es' ? 'es' : 'en';
   const statusMeta = STATUS_LABELS[dispute.status] || STATUS_LABELS.resolved;
   const isRegistering = dispute.status === 'registering';
@@ -249,28 +250,40 @@ function DisputeCard({ dispute, activeWallet, poolCode, language, onJoin, onTran
                 <div style={{ fontSize: '0.7rem', color: '#475569' }}>—</div>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                  {wallets.map((w) => (
-                    <div key={w.wallet} style={{ display: 'flex', gap: 6, alignItems: 'center', fontSize: '0.7rem' }}>
-                      <span style={{
-                        fontFamily: 'monospace',
-                        color: w.wallet === activeWallet ? color : '#94a3b8',
-                        flex: '0 0 90px',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap',
-                      }} title={w.wallet}>
-                        {w.wallet.slice(0, 8)}…
-                      </span>
-                      <span style={{ color: '#64748b' }}>Lv{w.level_snap}</span>
-                      {w.has_penalty && <span title={lang === 'es' ? 'Penalización activa' : 'Active penalty'}>⚠️</span>}
-                      {w.market_nftji_snap && <span title="Market NFTJI">🛰</span>}
-                      {isResolved && w.delta_eur !== 0 && (
-                        <span style={{ marginLeft: 'auto', color: w.delta_eur > 0 ? '#4ade80' : '#f87171', fontFamily: 'monospace' }}>
-                          {w.delta_eur > 0 ? '+' : ''}{fmt(w.delta_eur, 4)}€
-                        </span>
-                      )}
-                    </div>
-                  ))}
+                  {wallets.map((w) => {
+                    const wColor = colorFromAddress(w.wallet);
+                    const isMe = w.wallet === activeWallet;
+                    return (
+                      <div key={w.wallet} style={{ display: 'flex', gap: 6, alignItems: 'center', fontSize: '0.7rem' }}>
+                        <button
+                          type="button"
+                          onClick={() => onWalletClick && onWalletClick(w.wallet)}
+                          title={w.wallet}
+                          style={{
+                            fontFamily: 'monospace',
+                            color: wColor,
+                            fontWeight: isMe ? 700 : 400,
+                            background: 'none',
+                            border: 'none',
+                            padding: 0,
+                            cursor: onWalletClick ? 'pointer' : 'default',
+                            textDecoration: onWalletClick ? 'underline' : 'none',
+                            textDecorationColor: `${wColor}55`,
+                          }}
+                        >
+                          …{w.wallet.slice(-5)}
+                        </button>
+                        <span style={{ color: '#64748b' }}>Lv{w.level_snap}</span>
+                        {w.has_penalty && <span title={lang === 'es' ? 'Penalización activa' : 'Active penalty'}>⚠️</span>}
+                        {w.market_nftji_snap && <span title="Market NFTJI">🛰</span>}
+                        {isResolved && w.delta_eur !== 0 && (
+                          <span style={{ marginLeft: 'auto', color: w.delta_eur > 0 ? '#4ade80' : '#f87171', fontFamily: 'monospace' }}>
+                            {w.delta_eur > 0 ? '+' : ''}{fmt(w.delta_eur, 4)}€
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -308,7 +321,7 @@ function DisputeCard({ dispute, activeWallet, poolCode, language, onJoin, onTran
   );
 }
 
-export default function DisputesPanel({ wallet, poolCode, language }) {
+export default function DisputesPanel({ wallet, poolCode, language, onWalletClick }) {
   const lang = language === 'es' ? 'es' : 'en';
   const [disputes, setDisputes] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -444,6 +457,7 @@ export default function DisputesPanel({ wallet, poolCode, language }) {
           poolCode={poolCode}
           language={language}
           onJoin={handleJoin}
+          onWalletClick={onWalletClick}
         />
       ))}
 
@@ -460,6 +474,7 @@ export default function DisputesPanel({ wallet, poolCode, language }) {
               poolCode={poolCode}
               language={language}
               onJoin={handleJoin}
+              onWalletClick={onWalletClick}
             />
           ))}
         </>
