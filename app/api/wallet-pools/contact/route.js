@@ -72,9 +72,11 @@ export async function POST(req) {
     const isTargetPoolless = !targetPool;
     const poolCode = walletPool || targetPool || await createUniquePool(supabase, wallet);
 
-    // Determine who receives the invitation.
-    const inviteTo = isTargetPoolless ? targetWallet : wallet;
-    const invitedBy = isTargetPoolless ? wallet : targetWallet;
+    // Invitation always goes to targetWallet; wallet is always the initiator.
+    // When wallet (no pool) contacts target (has pool): target approves → wallet joins.
+    // When wallet (has pool) contacts target (no pool): target accepts → target joins.
+    const inviteTo = targetWallet;
+    const invitedBy = wallet;
     const invitePoolCode = poolCode;
 
     const { data: poolCountData, count: poolCount, error: countError } = await supabase

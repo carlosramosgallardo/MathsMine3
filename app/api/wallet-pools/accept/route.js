@@ -38,15 +38,39 @@ export async function POST(req) {
       return Response.json({ ok: false, error: 'invite_not_found' }, { status: 404 });
     }
 
-    const { data: existingMember, error: memberError } = await supabase
+    // Check if the accepting wallet is already in this pool (join-request approval flow).
+    // In that case the wallet accepting is the approver, and the actual joiner is invited_by.
+    const { data: approverMember, error: memberError } = await supabase
       .from('mm3_wallet_pool_members')
-      .select('wallet')
+      .select('wallet, pool_code')
       .eq('wallet', wallet)
       .maybeSingle();
 
     if (memberError) throw memberError;
-    if (existingMember) {
+
+    const isJoinRequest =
+      approverMember &&
+      approverMember.pool_code === invitation.pool_code;
+
+    if (approverMember && !isJoinRequest) {
+      // Approver is in a different pool — invalid state
       return Response.json({ ok: false, error: 'already_in_pool' }, { status: 409 });
+    }
+
+    // The wallet that will actually join the pool
+    const joinerWallet = isJoinRequest ? invitation.invited_by : wallet;
+    const addedBy = isJoinRequest ? wallet : invitation.invited_by;
+
+    // Validate joiner is not already in any pool
+    if (isJoinRequest) {
+      const { data: joinerMember } = await supabase
+        .from('mm3_wallet_pool_members')
+        .select('wallet')
+        .eq('wallet', joinerWallet)
+        .maybeSingle();
+      if (joinerMember) {
+        return Response.json({ ok: false, error: 'requester_already_in_pool' }, { status: 409 });
+      }
     }
 
     const { data: poolMembers, error: countError } = await supabase
@@ -71,7 +95,7 @@ export async function POST(req) {
 
     const { error: insertError } = await supabase
       .from('mm3_wallet_pool_members')
-      .insert({ wallet, pool_code: invitation.pool_code, added_by: invitation.invited_by });
+      .insert({ wallet: joinerWallet, pool_code: invitation.pool_code, added_by: addedBy });
 
     if (insertError) throw insertError;
 

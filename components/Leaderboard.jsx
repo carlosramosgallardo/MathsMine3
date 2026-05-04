@@ -108,23 +108,24 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
         pool: 'Pool',
         poolRanking: 'Ranking de pools',
         walletRanking: 'Ranking wallets',
-        addContact: 'contacto',
-        addContactTitle: 'Crear contacto / unir wallets en pool',
+        addContact: 'pool+',
+        addContactTitle: 'Solicitar unión al pool',
         members: 'wallets',
         wallets: 'Wallets',
-        noPools: 'Sin pools todavía. Crea contactos desde el ranking de wallets.',
-        poolCreated: 'Invitación enviada.',
-        inviteSent: 'Invitación enviada.',
-        inviteAccepted: 'Invitación aceptada.',
+        noPools: 'Sin pools todavía. Solicita unión desde el ranking de wallets.',
+        poolCreated: 'Solicitud enviada.',
+        inviteSent: 'Solicitud enviada.',
+        inviteAccepted: 'Solicitud aceptada.',
         poolLeft: 'Has salido del pool.',
-        poolError: 'No se pudo crear el contacto.',
+        poolError: 'No se pudo enviar la solicitud.',
         poolConflict: 'Las dos wallets ya pertenecen a pools distintos.',
-        poolFull: 'El pool ya tiene 5 wallets.',
+        poolFull: 'El pool está lleno.',
         poolSame: 'Ya estáis en el mismo pool.',
         poolMissing: 'Instala sql/add_wallet_pools.sql en Supabase.',
-        pendingInvites: 'Invitaciones pendientes',
+        pendingInvites: 'Solicitudes pendientes',
         acceptInvite: 'Aceptar',
         invitedBy: 'Invitado por',
+        joinRequestFrom: 'Solicitud de',
         leavePool: 'Salir del pool',
         disputes: 'Disputas',
         dispute: 'Disputar',
@@ -137,23 +138,24 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
         pool: 'Pool',
         poolRanking: 'Pool ranking',
         walletRanking: 'Wallet ranking',
-        addContact: 'contact',
-        addContactTitle: 'Create contact / join wallets into a pool',
+        addContact: 'pool+',
+        addContactTitle: 'Request pool join',
         members: 'wallets',
         wallets: 'Wallets',
-        noPools: 'No pools yet. Create contacts from the wallet ranking.',
-        poolCreated: 'Invitation sent.',
-        inviteSent: 'Invitation sent.',
-        inviteAccepted: 'Invitation accepted.',
+        noPools: 'No pools yet. Request to join from the wallet ranking.',
+        poolCreated: 'Request sent.',
+        inviteSent: 'Request sent.',
+        inviteAccepted: 'Request accepted.',
         poolLeft: 'You left the pool.',
-        poolError: 'Could not create contact.',
+        poolError: 'Could not send request.',
         poolConflict: 'Both wallets already belong to different pools.',
-        poolFull: 'The pool already has 5 wallets.',
+        poolFull: 'The pool is full.',
         poolSame: 'Already in the same pool.',
         poolMissing: 'Install sql/add_wallet_pools.sql in Supabase.',
-        pendingInvites: 'Pending invitations',
+        pendingInvites: 'Pending requests',
         acceptInvite: 'Accept',
         invitedBy: 'Invited by',
+        joinRequestFrom: 'Request from',
         leavePool: 'Leave pool',
         disputes: 'Disputes',
         dispute: 'Dispute',
@@ -659,6 +661,15 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
   }, [activeWallet, fetchInvites]);
 
   useEffect(() => {
+    if (!activeWallet) return;
+    const channel = supabase
+      .channel('mm3-invites-live')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'mm3_wallet_pool_invitations' }, fetchInvites)
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [activeWallet, fetchInvites]);
+
+  useEffect(() => {
     if (!activeWalletPool) { setActiveDisputePairs(new Set()); return; }
     fetch(`/api/wallet-pools/disputes?pool=${encodeURIComponent(activeWalletPool)}&limit=50`)
       .then((r) => r.json())
@@ -966,10 +977,12 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
         <div className="mb-3 rounded-xl border border-cyan-500/20 bg-slate-950/70 p-3 text-sm text-slate-200">
           <div className="mb-2 font-mono text-[0.72rem] uppercase tracking-[0.18em] text-cyan-300">{labels.pendingInvites}</div>
           <div className="space-y-2">
-            {incomingInvites.map((invite) => (
+            {incomingInvites.map((invite) => {
+              const isJoinRequest = activeWalletPool && String(invite.pool_code).toUpperCase() === String(activeWalletPool).toUpperCase();
+              return (
               <div key={invite.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-cyan-500/10 bg-black/60 p-2">
                 <div className="min-w-0">
-                  <div className="font-semibold text-cyan-100">{labels.invitedBy}: {shortWallet(invite.invited_by)}</div>
+                  <div className="font-semibold text-cyan-100">{isJoinRequest ? labels.joinRequestFrom : labels.invitedBy}: {shortWallet(invite.invited_by)}</div>
                   <div className="text-[0.72rem] text-slate-400">Pool #{invite.pool_code}</div>
                 </div>
                 <button
@@ -981,7 +994,8 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
                   {acceptBusy === invite.id ? '...' : labels.acceptInvite}
                 </button>
               </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}
