@@ -379,6 +379,76 @@ Pool rank is calculated from the combined level sum of all active members. Max p
 
 Pool membership and rank are visible in Ranking and IRC. Invite chips appear inline in the Ranking header bar and update in real time (Supabase subscription + 5s polling fallback).
 
+### Pool Disputes — Scoring Formula
+
+Two pools can enter a dispute. The outcome is determined by a **scoring formula with world state modifiers**.
+
+**Stakes (locked at battle snapshot):**
+
+```
+eur_stake = eur_earned × 0.05   (5% of each wallet's EUR balance)
+mm3_stake = mm3_sold  × 0.03   (3% of each wallet's accumulated MM3)
+```
+
+**Base Score Calculation (per-wallet averages — normalizes pool size differences):**
+
+```
+base = (Σlevel / n) × 40
+     + ln(ΣMM3 / n + 1) × 20
+     + (exec_count / n) × 12
+     + (nftji_count / n) × 8
+     + (market_nftji_count / n) × 15
+     - (penalty_count / n) × 20
+```
+
+Where `n` = number of participating wallets from that pool in the dispute.
+
+**Final Score with World Modifiers:**
+
+```
+ch_score = MAX(0.01, base_ch)
+         × (1 + (⚔️ - 50) / 100 × 0.30)
+         × (1 + (50 - 🌪️) / 100 × 0.20)
+         × (1 + 🎲 × 0.30)
+
+df_score = MAX(0.01, base_df)
+         × (1 + (50 - ⚔️) / 100 × 0.30)
+         × (1 + (🌪️ - 50) / 100 × 0.20)
+         × (1 - 🎲 × 0.30)
+```
+
+| Modifier | Favors | Max impact |
+|---|---|---|
+| ⚔️ War high (→100%) | Challenger | +30% |
+| 🌪️ Nature high (→100%) | Defender | +20% |
+| 🎲 Dice positive (+1) | Challenger | +30% |
+| 🎲 Dice negative (−1) | Defender | +30% |
+
+🎲 Dice is **deterministic per dispute**: `hashtext(dispute_id || 'dice')` mapped to [−1, +1]. Cannot be manipulated.
+
+**Resolution:**
+
+- Pool with higher score wins. Tie if equal.
+- Each losing wallet forfeits **100% of its stake**.
+- **55% of total loser stakes** is split equally among winning wallets.
+- The remaining **45% is burned** (removed from the game economy).
+
+**Example: TK2K8 (2 wallets, Lv2) vs SJ9NJ (2 wallets, Lv1)**
+
+| Pool | Base Score | Modifiers | Final | Outcome |
+|---|---|---|---|---|
+| TK2K8 | ≈93.86 | war=0%, nature=0%, dice=−0.87 | **89.95** | ✅ WINNER |
+| SJ9NJ | ≈72.19 | war=0%, nature=0%, dice=−0.87 | **34.76** | ❌ LOSER |
+
+The dice roll of −0.87 reduced TK2K8's score by ~4% but SJ9NJ's by ~52% (lower base amplifies variance). Same modifiers, a +0.87 dice would flip the outcome (TK2K8: ≈65.7 vs SJ9NJ: ≈93.85).
+
+**Dispute Lifecycle:**
+1. ≥2 wallets from pool A vote "dispute" against pool B → **Dispute created** (5-min registration window)
+2. Only the voters are initially enrolled; others from pool A can join voluntarily during the window
+3. All defender wallets are auto-enrolled at dispute creation
+4. After 5 minutes → **battle_start**: stats snapshot taken, scores computed
+5. After 5 seconds → **resolved**: winner determined, stakes applied
+
 ### Pool System — Where It's Processed
 
 | File | Role |
@@ -396,8 +466,7 @@ Pool membership and rank are visible in Ranking and IRC. Invite chips appear inl
 | `app/api/wallet-pools/dispute/resolve/route.js` | Resolves battle and applies stakes after 5s delay |
 | `components/Leaderboard.jsx` | Renders ranking, pool list, invite chips, cooldown hiding, disputes view |
 | `components/DisputesPanel.jsx` | Dispute cards with real-time state transitions and formula display |
-| `sql/disputes.sql` | DB: disputes, votes, wallet snapshots; dispute lifecycle SQL functions |
-| `sql/wallet_pool_cooldowns.sql` | DB: leave cooldown tracking table |
+| `sql/database.sql` | DB: disputes, votes, wallet snapshots, cooldowns; dispute lifecycle functions |
 
 ---
 
@@ -984,6 +1053,67 @@ El rango del Pool se calcula a partir de la suma de niveles de todos sus miembro
 | Entidad dominante | DRAGON MAINNET | 🐉 |
 
 La membresía y el rango del Pool son visibles en el Ranking y en el IRC. Los chips de invitación aparecen en la barra de cabecera del Ranking y se actualizan en tiempo real (suscripción Supabase + polling cada 5s).
+
+### Disputas de Pool — Fórmula de Scoring
+
+Dos pools pueden entrar en una disputa. El resultado se determina mediante una **fórmula de puntuación con modificadores del estado del mundo**.
+
+**Stakes (apostados en el snapshot de batalla):**
+
+```
+eur_stake = eur_earned × 0.05   (5% del balance EUR de cada wallet)
+mm3_stake = mm3_sold  × 0.03   (3% del MM3 acumulado de cada wallet)
+```
+
+**Puntuación Base (medias por wallet — normaliza diferencias de tamaño de pool):**
+
+```
+base = (Σnivel / n) × 40
+     + ln(ΣMM3 / n + 1) × 20
+     + (exec_count / n) × 12
+     + (nftji_count / n) × 8
+     + (market_nftji_count / n) × 15
+     - (penalty_count / n) × 20
+```
+
+Donde `n` = número de wallets participantes del pool en la disputa.
+
+**Modificadores del Mundo aplicados al score final:**
+
+```
+ch_score = MÁXIMO(0.01, base_ch)
+         × (1 + (⚔️ - 50) / 100 × 0.30)
+         × (1 + (50 - 🌪️) / 100 × 0.20)
+         × (1 + 🎲 × 0.30)
+
+df_score = MÁXIMO(0.01, base_df)
+         × (1 + (50 - ⚔️) / 100 × 0.30)
+         × (1 + (🌪️ - 50) / 100 × 0.20)
+         × (1 - 🎲 × 0.30)
+```
+
+| Modificador | Favorece | Impacto máximo |
+|---|---|---|
+| ⚔️ Guerra alta (→100%) | Atacante | +30% |
+| 🌪️ Meteo alta (→100%) | Defensor | +20% |
+| 🎲 Dado positivo (+1) | Atacante | +30% |
+| 🎲 Dado negativo (−1) | Defensor | +30% |
+
+El dado `🎲` es **determinista por disputa**: `hashtext(dispute_id || 'dice')` mapeado a [−1, +1]. No puede manipularse.
+
+**Resolución:**
+
+- Gana el pool con mayor score. Empate si son iguales.
+- Cada wallet perdedora pierde el **100% de su stake**.
+- El **55% del total perdido** se reparte a partes iguales entre las wallets ganadoras.
+- El **45% restante** se evaporiza (se extrae de la economía del juego).
+
+**Ciclo de vida de la disputa:**
+1. ≥2 wallets del pool A votan "disputar" contra pool B → **Disputa creada** (ventana de registro de 5 min)
+2. Solo los votantes atacantes se enrolan inicialmente; otros del pool A pueden unirse voluntariamente durante la ventana
+3. Todas las wallets del pool defensor se enrolan automáticamente al crearse la disputa
+4. Tras 5 minutos → **battle_start**: snapshot de stats, scores calculados
+5. Tras 5 segundos → **resolved**: ganador determinado, stakes aplicados
 
 ### Sistema de Pools — Dónde se procesa
 
