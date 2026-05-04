@@ -134,9 +134,11 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
         disputes: 'Disputas',
         dispute: 'Disputar',
         disputeTitle: 'Disputar este pool',
-        disputeVoted: 'Voto registrado',
+        disputeVoted: 'Disputa iniciada',
+        disputeProposed: 'Propuesta enviada — esperando otra wallet del pool',
+        disputeProposalJoin: 'Unirse a la propuesta de disputa',
         disputeError: 'Error al disputar',
-        disputeAlready: 'Ya votaste o hay disputa activa',
+        disputeAlready: 'Ya propusiste o hay disputa activa',
       }
     : {
         pool: 'Pool',
@@ -168,9 +170,11 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
         disputes: 'Disputes',
         dispute: 'Dispute',
         disputeTitle: 'Challenge this pool',
-        disputeVoted: 'Vote cast',
+        disputeVoted: 'Dispute started',
+        disputeProposed: 'Proposal sent — waiting for another pool wallet',
+        disputeProposalJoin: 'Join the dispute proposal',
         disputeError: 'Dispute error',
-        disputeAlready: 'Already voted or dispute active',
+        disputeAlready: 'Already proposed or dispute active',
       };
 
   const fetchLeaderboard = useCallback(async ({ ignoreCache = false } = {}) => {
@@ -547,6 +551,7 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
   const [disputeBusy, setDisputeBusy] = useState('');
   const [cooldownExpiresAt, setCooldownExpiresAt] = useState(null);
   const [activeDisputePairs, setActiveDisputePairs] = useState(() => new Set());
+  const [proposingDisputes, setProposingDisputes] = useState([]);
   const isPoolCooldown = !!cooldownExpiresAt && new Date(cooldownExpiresAt) > new Date();
 
   const fetchInvites = useCallback(async () => {
@@ -677,7 +682,9 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
         window.dispatchEvent(new CustomEvent('mm3-toast', { detail: { msg: labels[errKey], type: 'error' } }));
         return;
       }
-      window.dispatchEvent(new CustomEvent('mm3-toast', { detail: { msg: labels.disputeVoted, type: 'success' } }));
+      // proposing=true means 1st wallet — dispute is in proposing state awaiting a 2nd
+      const toastMsg = payload.proposing && !payload.created ? labels.disputeProposed : labels.disputeVoted;
+      window.dispatchEvent(new CustomEvent('mm3-toast', { detail: { msg: toastMsg, type: 'success' } }));
       setViewMode('disputes');
     } catch {
       window.dispatchEvent(new CustomEvent('mm3-toast', { detail: { msg: labels.disputeError, type: 'error' } }));
@@ -721,20 +728,37 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
   }, [activeWallet, fetchInvites]);
 
   useEffect(() => {
-    if (!activeWalletPool) { setActiveDisputePairs(new Set()); return; }
-    fetch(`/api/wallet-pools/disputes?pool=${encodeURIComponent(activeWalletPool)}&limit=50`)
-      .then((r) => r.json())
-      .then((data) => {
-        if (!data.ok) return;
-        const pairs = new Set(
-          (data.disputes || [])
-            .filter((d) => d.status !== 'resolved' && d.challenger_pool_code === activeWalletPool)
-            .map((d) => d.defender_pool_code)
-        );
-        setActiveDisputePairs(pairs);
-      })
-      .catch(() => {});
-  }, [activeWalletPool]);
+    if (!activeWalletPool) {
+      setActiveDisputePairs(new Set());
+      setProposingDisputes([]);
+      return;
+    }
+    const fetchDisputeState = () => {
+      fetch(`/api/wallet-pools/disputes?pool=${encodeURIComponent(activeWalletPool)}&limit=50`)
+        .then((r) => r.json())
+        .then((data) => {
+          if (!data.ok) return;
+          const pairs = new Set(
+            (data.disputes || [])
+              .filter((d) => !['resolved', 'cancelled'].includes(d.status) && d.challenger_pool_code === activeWalletPool)
+              .map((d) => d.defender_pool_code)
+          );
+          setActiveDisputePairs(pairs);
+          // Proposing disputes where the active wallet hasn't committed yet
+          const proposing = (data.disputes || []).filter(
+            (d) => d.status === 'proposing' &&
+            d.challenger_pool_code === activeWalletPool &&
+            activeWallet &&
+            !(d.votes || []).includes(activeWallet)
+          );
+          setProposingDisputes(proposing);
+        })
+        .catch(() => {});
+    };
+    fetchDisputeState();
+    const poll = setInterval(fetchDisputeState, 5_000);
+    return () => clearInterval(poll);
+  }, [activeWalletPool, activeWallet]);
 
   useEffect(() => {
     const total = Math.max(1, Math.ceil(activeLeaderboard.length / itemsPerPage));
@@ -992,6 +1016,19 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
                 className="ml-1 px-1 text-[0.82rem] font-black leading-none text-rose-400 transition hover:text-rose-200 disabled:opacity-30">✗</button>
               <button type="button" onClick={() => handleAcceptInvite(invite.id)} disabled={busy} title={labels.acceptInvite}
                 className="px-1 text-[0.82rem] font-black leading-none text-emerald-400 transition hover:text-emerald-200 disabled:opacity-30">✓</button>
+            </div>
+          );
+        })}
+        {proposingDisputes.map((d) => {
+          const busy = disputeBusy === d.defender_pool_code;
+          return (
+            <div key={`prop-${d.id}`} className="flex items-center gap-2 rounded border border-violet-500/20 bg-black/80 px-2 py-0.5 text-[0.6rem] font-mono">
+              <span className="text-violet-500">⚔️</span>
+              <span className="text-slate-500">vs</span>
+              <span className="font-semibold text-violet-400">#{d.defender_pool_code}</span>
+              <button type="button" onClick={() => handleDisputeVote(d.defender_pool_code)} disabled={busy}
+                title={labels.disputeProposalJoin}
+                className="ml-1 px-1 text-[0.82rem] font-black leading-none text-emerald-400 transition hover:text-emerald-200 disabled:opacity-30">✓</button>
             </div>
           );
         })}

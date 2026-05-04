@@ -12,6 +12,7 @@ DROP FUNCTION IF EXISTS mm3_dispute_join(bigint, text);
 DROP FUNCTION IF EXISTS mm3_dispute_start_battle(bigint);
 DROP FUNCTION IF EXISTS mm3_dispute_resolve(bigint);
 DROP FUNCTION IF EXISTS mm3_dispute_can_leave(text);
+DROP FUNCTION IF EXISTS mm3_dispute_cancel(bigint);
 DROP FUNCTION IF EXISTS mm3_pool_max_wallets(integer);
 
 -- ==============================================
@@ -22,11 +23,12 @@ CREATE TABLE mm3_pool_disputes (
   id                    BIGSERIAL PRIMARY KEY,
   challenger_pool_code  TEXT NOT NULL,
   defender_pool_code    TEXT NOT NULL,
-  status                TEXT NOT NULL DEFAULT 'registering'
-                          CHECK (status IN ('registering', 'battle_start', 'resolved')),
+  status                TEXT NOT NULL DEFAULT 'proposing'
+                          CHECK (status IN ('proposing', 'registering', 'battle_start', 'resolved', 'cancelled')),
   registered_at         TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   battle_start_at       TIMESTAMPTZ,
   resolved_at           TIMESTAMPTZ,
+  cancelled_at          TIMESTAMPTZ,
   -- world state snapshot (set at battle_start)
   war_percent           NUMERIC,
   nature_percent        NUMERIC,
@@ -116,9 +118,11 @@ AS $$
 $$;
 
 -- ==============================================
--- FUNCTION: cast dispute vote
+-- FUNCTION: cast dispute vote / propose dispute
 -- ==============================================
--- Returns: {dispute_id, created, vote_count, error}
+-- 1st caller → creates 'proposing' dispute (waiting for 2nd wallet)
+-- 2nd caller  → transitions 'proposing' → 'registering', enrolls members
+-- Returns: {dispute_id, created, proposing, vote_count, error}
 
 CREATE OR REPLACE FUNCTION public.mm3_dispute_vote(
   p_challenger_pool text,
@@ -130,25 +134,22 @@ LANGUAGE plpgsql
 SECURITY DEFINER
 AS $$
 DECLARE
-  v_in_pool         BOOLEAN;
-  v_already_voted   BOOLEAN;
-  v_active_dispute  BIGINT;
-  v_dispute_id      BIGINT;
-  v_vote_count      INT;
-  v_defender_members TEXT[];
+  v_in_pool           BOOLEAN;
+  v_already_voted     BOOLEAN;
+  v_active_dispute    BIGINT;
+  v_proposing_dispute BIGINT;
+  v_dispute_id        BIGINT;
+  v_vote_count        INT;
+  v_defender_members  TEXT[];
   v_challenger_members TEXT[];
-  v_member          TEXT;
-  v_pp              RECORD;
-  v_exec_count      INT;
-  v_nftji_count     INT;
-  v_has_penalty     BOOLEAN;
+  v_member            TEXT;
+  v_exec_count        INT;
+  v_has_penalty       BOOLEAN;
 BEGIN
-  -- Validate pools differ
   IF p_challenger_pool = p_defender_pool THEN
     RETURN jsonb_build_object('error', 'same_pool');
   END IF;
 
-  -- Validate wallet is in challenger pool
   SELECT EXISTS(
     SELECT 1 FROM mm3_wallet_pool_members
     WHERE wallet = p_wallet AND pool_code = p_challenger_pool
@@ -158,7 +159,6 @@ BEGIN
     RETURN jsonb_build_object('error', 'not_in_challenger_pool');
   END IF;
 
-  -- Check already voted for this pairing
   SELECT EXISTS(
     SELECT 1 FROM mm3_pool_dispute_votes
     WHERE challenger_pool_code = p_challenger_pool
@@ -170,7 +170,7 @@ BEGIN
     RETURN jsonb_build_object('error', 'already_voted');
   END IF;
 
-  -- Check no active dispute between same pools
+  -- Block if a full dispute (registering / battle_start) is already running
   SELECT id INTO v_active_dispute
   FROM mm3_pool_disputes
   WHERE challenger_pool_code = p_challenger_pool
@@ -182,128 +182,122 @@ BEGIN
     RETURN jsonb_build_object('error', 'dispute_already_active', 'dispute_id', v_active_dispute);
   END IF;
 
-  -- Insert vote
+  -- Check whether a proposing dispute already exists (this is the 2nd wallet)
+  SELECT id INTO v_proposing_dispute
+  FROM mm3_pool_disputes
+  WHERE challenger_pool_code = p_challenger_pool
+    AND defender_pool_code = p_defender_pool
+    AND status = 'proposing'
+  LIMIT 1;
+
+  -- Record this wallet's intent
   INSERT INTO mm3_pool_dispute_votes(challenger_pool_code, defender_pool_code, wallet)
   VALUES (p_challenger_pool, p_defender_pool, p_wallet);
 
-  -- Count votes for this pairing (pending, no dispute yet)
-  SELECT COUNT(*) INTO v_vote_count
-  FROM mm3_pool_dispute_votes
-  WHERE challenger_pool_code = p_challenger_pool
-    AND defender_pool_code = p_defender_pool
-    AND dispute_id IS NULL;
+  -- ── 2nd wallet: transition proposing → registering ───────────────────────
+  IF v_proposing_dispute IS NOT NULL THEN
+    v_dispute_id := v_proposing_dispute;
 
-  -- Need at least 2 votes to open dispute
-  IF v_vote_count < 2 THEN
-    RETURN jsonb_build_object('created', false, 'vote_count', v_vote_count);
+    UPDATE mm3_pool_dispute_votes
+    SET dispute_id = v_dispute_id
+    WHERE challenger_pool_code = p_challenger_pool
+      AND defender_pool_code = p_defender_pool
+      AND dispute_id IS NULL;
+
+    SELECT COUNT(*) INTO v_vote_count
+    FROM mm3_pool_dispute_votes
+    WHERE dispute_id = v_dispute_id;
+
+    -- Reset registered_at so the 5-min join window starts fresh now
+    UPDATE mm3_pool_disputes
+    SET status = 'registering', registered_at = NOW()
+    WHERE id = v_dispute_id;
+
+    -- Enroll challenger voters
+    SELECT ARRAY_AGG(wallet) INTO v_challenger_members
+    FROM mm3_pool_dispute_votes
+    WHERE dispute_id = v_dispute_id;
+
+    IF v_challenger_members IS NOT NULL THEN
+      FOREACH v_member IN ARRAY v_challenger_members LOOP
+        SELECT COUNT(*) INTO v_exec_count
+        FROM mm3_hidden_cmd_executions WHERE wallet = v_member;
+
+        SELECT EXISTS(
+          SELECT 1 FROM mm3_command_penalties
+          WHERE wallet = v_member AND redeemed_at IS NULL
+        ) INTO v_has_penalty;
+
+        INSERT INTO mm3_pool_dispute_wallets(
+          dispute_id, wallet, pool_code, side,
+          level_snap, mm3_snap, eur_snap, usd_snap, cny_snap,
+          exec_snap, nftji_snap, market_nftji_snap, has_penalty,
+          eur_stake, mm3_stake
+        )
+        SELECT
+          v_dispute_id, v_member, p_challenger_pool, 'challenger',
+          COALESCE(pp.level, 0), COALESCE(pp.mm3_sold, 0),
+          COALESCE(pp.eur_earned, 0), COALESCE(pp.usd_earned, 0), COALESCE(pp.cny_earned, 0),
+          v_exec_count, COALESCE(array_length(pp.wallet_emojis, 1), 0),
+          pp.market_nftji_key, v_has_penalty,
+          ROUND(COALESCE(pp.eur_earned, 0) * 0.05, 4),
+          ROUND(COALESCE(pp.mm3_sold, 0) * 0.03, 4)
+        FROM player_progress pp
+        WHERE pp.wallet = v_member
+        ON CONFLICT (dispute_id, wallet) DO NOTHING;
+      END LOOP;
+    END IF;
+
+    -- Auto-enroll all defender pool members
+    SELECT ARRAY_AGG(wallet) INTO v_defender_members
+    FROM mm3_wallet_pool_members WHERE pool_code = p_defender_pool;
+
+    IF v_defender_members IS NOT NULL THEN
+      FOREACH v_member IN ARRAY v_defender_members LOOP
+        SELECT COUNT(*) INTO v_exec_count
+        FROM mm3_hidden_cmd_executions WHERE wallet = v_member;
+
+        SELECT EXISTS(
+          SELECT 1 FROM mm3_command_penalties
+          WHERE wallet = v_member AND redeemed_at IS NULL
+        ) INTO v_has_penalty;
+
+        INSERT INTO mm3_pool_dispute_wallets(
+          dispute_id, wallet, pool_code, side,
+          level_snap, mm3_snap, eur_snap, usd_snap, cny_snap,
+          exec_snap, nftji_snap, market_nftji_snap, has_penalty,
+          eur_stake, mm3_stake
+        )
+        SELECT
+          v_dispute_id, v_member, p_defender_pool, 'defender',
+          COALESCE(pp.level, 0), COALESCE(pp.mm3_sold, 0),
+          COALESCE(pp.eur_earned, 0), COALESCE(pp.usd_earned, 0), COALESCE(pp.cny_earned, 0),
+          v_exec_count, COALESCE(array_length(pp.wallet_emojis, 1), 0),
+          pp.market_nftji_key, v_has_penalty,
+          ROUND(COALESCE(pp.eur_earned, 0) * 0.05, 4),
+          ROUND(COALESCE(pp.mm3_sold, 0) * 0.03, 4)
+        FROM player_progress pp
+        WHERE pp.wallet = v_member
+        ON CONFLICT (dispute_id, wallet) DO NOTHING;
+      END LOOP;
+    END IF;
+
+    RETURN jsonb_build_object('created', true, 'dispute_id', v_dispute_id, 'vote_count', v_vote_count);
+
+  -- ── 1st wallet: create proposing dispute ─────────────────────────────────
+  ELSE
+    INSERT INTO mm3_pool_disputes(challenger_pool_code, defender_pool_code, status)
+    VALUES (p_challenger_pool, p_defender_pool, 'proposing')
+    RETURNING id INTO v_dispute_id;
+
+    UPDATE mm3_pool_dispute_votes
+    SET dispute_id = v_dispute_id
+    WHERE challenger_pool_code = p_challenger_pool
+      AND defender_pool_code = p_defender_pool
+      AND dispute_id IS NULL;
+
+    RETURN jsonb_build_object('created', false, 'proposing', true, 'dispute_id', v_dispute_id, 'vote_count', 1);
   END IF;
-
-  -- Create dispute
-  INSERT INTO mm3_pool_disputes(challenger_pool_code, defender_pool_code)
-  VALUES (p_challenger_pool, p_defender_pool)
-  RETURNING id INTO v_dispute_id;
-
-  -- Link votes to this dispute
-  UPDATE mm3_pool_dispute_votes
-  SET dispute_id = v_dispute_id
-  WHERE challenger_pool_code = p_challenger_pool
-    AND defender_pool_code = p_defender_pool
-    AND dispute_id IS NULL;
-
-  -- Enroll only the wallets that voted (others can join voluntarily during 5-min window)
-  SELECT ARRAY_AGG(wallet) INTO v_challenger_members
-  FROM mm3_pool_dispute_votes
-  WHERE challenger_pool_code = p_challenger_pool
-    AND defender_pool_code = p_defender_pool
-    AND dispute_id = v_dispute_id;
-
-  IF v_challenger_members IS NOT NULL THEN
-    FOREACH v_member IN ARRAY v_challenger_members LOOP
-      SELECT pp.level, pp.mm3_sold, pp.eur_earned, pp.usd_earned, pp.cny_earned,
-             COALESCE(array_length(pp.wallet_emojis, 1), 0),
-             pp.market_nftji_key
-      INTO v_pp
-      FROM player_progress pp
-      WHERE pp.wallet = v_member;
-
-      SELECT COUNT(*) INTO v_exec_count
-      FROM mm3_hidden_cmd_executions
-      WHERE wallet = v_member;
-
-      v_nftji_count := COALESCE((SELECT array_length(wallet_emojis, 1) FROM player_progress WHERE wallet = v_member), 0);
-
-      SELECT EXISTS(
-        SELECT 1 FROM mm3_command_penalties
-        WHERE wallet = v_member AND redeemed_at IS NULL
-      ) INTO v_has_penalty;
-
-      INSERT INTO mm3_pool_dispute_wallets(
-        dispute_id, wallet, pool_code, side,
-        level_snap, mm3_snap, eur_snap, usd_snap, cny_snap,
-        exec_snap, nftji_snap, market_nftji_snap, has_penalty,
-        eur_stake, mm3_stake
-      )
-      SELECT
-        v_dispute_id, v_member, p_challenger_pool, 'challenger',
-        COALESCE(pp.level, 0),
-        COALESCE(pp.mm3_sold, 0),
-        COALESCE(pp.eur_earned, 0),
-        COALESCE(pp.usd_earned, 0),
-        COALESCE(pp.cny_earned, 0),
-        v_exec_count,
-        COALESCE(array_length(pp.wallet_emojis, 1), 0),
-        pp.market_nftji_key,
-        v_has_penalty,
-        ROUND(COALESCE(pp.eur_earned, 0) * 0.05, 4),
-        ROUND(COALESCE(pp.mm3_sold, 0) * 0.03, 4)
-      FROM player_progress pp
-      WHERE pp.wallet = v_member
-      ON CONFLICT (dispute_id, wallet) DO NOTHING;
-    END LOOP;
-  END IF;
-
-  -- Enroll ALL defender pool members (100% auto-enrolled)
-  SELECT ARRAY_AGG(wallet) INTO v_defender_members
-  FROM mm3_wallet_pool_members
-  WHERE pool_code = p_defender_pool;
-
-  IF v_defender_members IS NOT NULL THEN
-    FOREACH v_member IN ARRAY v_defender_members LOOP
-      SELECT COUNT(*) INTO v_exec_count
-      FROM mm3_hidden_cmd_executions
-      WHERE wallet = v_member;
-
-      SELECT EXISTS(
-        SELECT 1 FROM mm3_command_penalties
-        WHERE wallet = v_member AND redeemed_at IS NULL
-      ) INTO v_has_penalty;
-
-      INSERT INTO mm3_pool_dispute_wallets(
-        dispute_id, wallet, pool_code, side,
-        level_snap, mm3_snap, eur_snap, usd_snap, cny_snap,
-        exec_snap, nftji_snap, market_nftji_snap, has_penalty,
-        eur_stake, mm3_stake
-      )
-      SELECT
-        v_dispute_id, v_member, p_defender_pool, 'defender',
-        COALESCE(pp.level, 0),
-        COALESCE(pp.mm3_sold, 0),
-        COALESCE(pp.eur_earned, 0),
-        COALESCE(pp.usd_earned, 0),
-        COALESCE(pp.cny_earned, 0),
-        v_exec_count,
-        COALESCE(array_length(pp.wallet_emojis, 1), 0),
-        pp.market_nftji_key,
-        v_has_penalty,
-        ROUND(COALESCE(pp.eur_earned, 0) * 0.05, 4),
-        ROUND(COALESCE(pp.mm3_sold, 0) * 0.03, 4)
-      FROM player_progress pp
-      WHERE pp.wallet = v_member
-      ON CONFLICT (dispute_id, wallet) DO NOTHING;
-    END LOOP;
-  END IF;
-
-  RETURN jsonb_build_object('created', true, 'dispute_id', v_dispute_id, 'vote_count', v_vote_count);
 END;
 $$;
 
@@ -646,6 +640,40 @@ END;
 $$;
 
 -- ==============================================
+-- FUNCTION: cancel proposing dispute after 5-min timeout
+-- ==============================================
+
+CREATE OR REPLACE FUNCTION public.mm3_dispute_cancel(p_dispute_id bigint)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  v_dispute RECORD;
+BEGIN
+  SELECT * INTO v_dispute FROM mm3_pool_disputes WHERE id = p_dispute_id;
+
+  IF NOT FOUND THEN
+    RETURN jsonb_build_object('error', 'dispute_not_found');
+  END IF;
+
+  IF v_dispute.status <> 'proposing' THEN
+    RETURN jsonb_build_object('error', 'wrong_status', 'status', v_dispute.status);
+  END IF;
+
+  IF NOW() < v_dispute.registered_at + INTERVAL '5 minutes' THEN
+    RETURN jsonb_build_object('error', 'not_expired_yet');
+  END IF;
+
+  UPDATE mm3_pool_disputes
+  SET status = 'cancelled', cancelled_at = NOW()
+  WHERE id = p_dispute_id;
+
+  RETURN jsonb_build_object('ok', true);
+END;
+$$;
+
+-- ==============================================
 -- FUNCTION: check if wallet can leave pool
 -- ==============================================
 
@@ -660,7 +688,7 @@ AS $$
     FROM mm3_pool_dispute_wallets dw
     JOIN mm3_pool_disputes d ON d.id = dw.dispute_id
     WHERE dw.wallet = p_wallet
-      AND d.status IN ('registering', 'battle_start')
+      AND d.status IN ('proposing', 'registering', 'battle_start')
   );
 $$;
 
@@ -704,6 +732,8 @@ GRANT EXECUTE ON FUNCTION public.mm3_dispute_start_battle(bigint)    TO anon;
 GRANT EXECUTE ON FUNCTION public.mm3_dispute_start_battle(bigint)    TO authenticated;
 GRANT EXECUTE ON FUNCTION public.mm3_dispute_resolve(bigint)         TO anon;
 GRANT EXECUTE ON FUNCTION public.mm3_dispute_resolve(bigint)         TO authenticated;
+GRANT EXECUTE ON FUNCTION public.mm3_dispute_cancel(bigint)          TO anon;
+GRANT EXECUTE ON FUNCTION public.mm3_dispute_cancel(bigint)          TO authenticated;
 GRANT EXECUTE ON FUNCTION public.mm3_dispute_can_leave(text)         TO anon;
 GRANT EXECUTE ON FUNCTION public.mm3_dispute_can_leave(text)         TO authenticated;
 GRANT EXECUTE ON FUNCTION public.mm3_pool_max_wallets(integer)       TO anon;

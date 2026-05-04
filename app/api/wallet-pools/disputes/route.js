@@ -49,15 +49,33 @@ export async function GET(req) {
       walletRows = wData || [];
     }
 
+    // Fetch voter wallets for proposing disputes (to allow clients to filter already-voted)
+    const proposingIds = (data || []).filter((d) => d.status === 'proposing').map((d) => d.id);
+    let voteRows = [];
+    if (proposingIds.length > 0) {
+      const { data: vData } = await supabase
+        .from('mm3_pool_dispute_votes')
+        .select('dispute_id, wallet')
+        .in('dispute_id', proposingIds);
+      voteRows = vData || [];
+    }
+
     const walletsByDispute = {};
     for (const w of walletRows) {
       if (!walletsByDispute[w.dispute_id]) walletsByDispute[w.dispute_id] = [];
       walletsByDispute[w.dispute_id].push(w);
     }
 
+    const votesByDispute = {};
+    for (const v of voteRows) {
+      if (!votesByDispute[v.dispute_id]) votesByDispute[v.dispute_id] = [];
+      votesByDispute[v.dispute_id].push(v.wallet);
+    }
+
     const disputes = (data || []).map((d) => ({
       ...d,
       wallets: walletsByDispute[d.id] || [],
+      votes: votesByDispute[d.id] || [],
     }));
 
     return Response.json({ ok: true, disputes });

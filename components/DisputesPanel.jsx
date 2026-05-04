@@ -4,9 +4,11 @@ import { useEffect, useState, useRef, useCallback } from 'react';
 import { colorFromAddress } from '@/lib/wallet-colors';
 
 const STATUS_LABELS = {
-  registering: { es: 'REGISTRANDO', en: 'REGISTERING', color: '#22d3ee' },
+  proposing:    { es: 'PROPUESTA',      en: 'PROPOSAL',     color: '#a78bfa' },
+  registering:  { es: 'REGISTRANDO',    en: 'REGISTERING',  color: '#22d3ee' },
   battle_start: { es: 'INICIO DISPUTA', en: 'BATTLE START', color: '#f59e0b' },
-  resolved: { es: 'RESUELTO', en: 'RESOLVED', color: '#4ade80' },
+  resolved:     { es: 'RESUELTO',       en: 'RESOLVED',     color: '#4ade80' },
+  cancelled:    { es: 'CANCELADO',      en: 'CANCELLED',    color: '#475569' },
 };
 
 const WINNER_LABELS = {
@@ -60,10 +62,15 @@ function ScoreBar({ chScore, dfScore }) {
 function DisputeCard({ dispute, activeWallet, poolCode, language, onJoin, onWalletClick }) {
   const lang = language === 'es' ? 'es' : 'en';
   const statusMeta = STATUS_LABELS[dispute.status] || STATUS_LABELS.resolved;
+  const isProposing   = dispute.status === 'proposing';
   const isRegistering = dispute.status === 'registering';
   const isBattleStart = dispute.status === 'battle_start';
-  const isResolved = dispute.status === 'resolved';
+  const isResolved    = dispute.status === 'resolved';
+  const isCancelled   = dispute.status === 'cancelled';
 
+  const proposalDeadline = isProposing
+    ? new Date(dispute.registered_at).getTime() + 5 * 60 * 1000
+    : null;
   const battleDeadline = isRegistering
     ? new Date(dispute.registered_at).getTime() + 5 * 60 * 1000
     : null;
@@ -121,6 +128,44 @@ function DisputeCard({ dispute, activeWallet, poolCode, language, onJoin, onWall
           {statusMeta[lang]}
         </span>
       </div>
+
+      {/* Proposing: waiting for a 2nd wallet */}
+      {isProposing && proposalDeadline && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8, flexWrap: 'wrap' }}>
+          <span style={{ color: '#a78bfa', fontSize: '0.75rem' }}>
+            {lang === 'es'
+              ? 'esperando a una wallet más del pool o se cancelará en'
+              : 'waiting for another wallet from the pool or cancels in'}
+          </span>
+          <CountdownBadge targetMs={proposalDeadline} color="#a78bfa" />
+        </div>
+      )}
+
+      {/* Cancelled: failed attempt banner */}
+      {isCancelled && (
+        <div style={{
+          border: '1px solid rgba(71,85,105,0.4)',
+          borderRadius: 6,
+          padding: '8px 12px',
+          marginBottom: 10,
+          background: 'rgba(15,23,42,0.6)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 10,
+        }}>
+          <span style={{ fontSize: '1.1rem' }}>💨</span>
+          <div>
+            <div style={{ fontWeight: 700, fontSize: '0.82rem', color: '#64748b', letterSpacing: '0.06em' }}>
+              {lang === 'es' ? 'INTENTO DE DISPUTA FALLIDO' : 'FAILED DISPUTE ATTEMPT'}
+            </div>
+            <div style={{ fontSize: '0.7rem', color: '#475569', marginTop: 2 }}>
+              {lang === 'es'
+                ? `${dispute.challenger_pool_code} intentó disputar a ${dispute.defender_pool_code}`
+                : `${dispute.challenger_pool_code} attempted to challenge ${dispute.defender_pool_code}`}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Registration countdown + join button */}
       {isRegistering && battleDeadline && (
@@ -235,7 +280,7 @@ function DisputeCard({ dispute, activeWallet, poolCode, language, onJoin, onWall
         </div>
       )}
 
-      {/* Wallet stats tables */}
+      {/* Wallet stats tables (not shown for proposing/cancelled) */}
       {(isRegistering || isBattleStart || isResolved) && (
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
           {[
@@ -401,7 +446,20 @@ export default function DisputesPanel({ wallet, poolCode, language, onWalletClic
     for (const d of disputeList) {
       if (transitioningRef.current.has(d.id)) continue;
 
-      if (d.status === 'registering') {
+      if (d.status === 'proposing') {
+        const deadline = new Date(d.registered_at).getTime() + 5 * 60 * 1000;
+        if (now >= deadline) {
+          transitioningRef.current.add(d.id);
+          fetch('/api/wallet-pools/dispute/cancel', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ disputeId: d.id }),
+          }).then(() => {
+            transitioningRef.current.delete(d.id);
+            fetchDisputes();
+          }).catch(() => transitioningRef.current.delete(d.id));
+        }
+      } else if (d.status === 'registering') {
         const deadline = new Date(d.registered_at).getTime() + 5 * 60 * 1000;
         if (now >= deadline) {
           transitioningRef.current.add(d.id);
@@ -459,8 +517,8 @@ export default function DisputesPanel({ wallet, poolCode, language, onWalletClic
     }
   }
 
-  const activeDisputes = disputes.filter((d) => d.status !== 'resolved');
-  const resolvedDisputes = disputes.filter((d) => d.status === 'resolved');
+  const activeDisputes = disputes.filter((d) => !['resolved', 'cancelled'].includes(d.status));
+  const historyDisputes = disputes.filter((d) => ['resolved', 'cancelled'].includes(d.status));
 
   if (isLoading) {
     return (
@@ -513,12 +571,12 @@ export default function DisputesPanel({ wallet, poolCode, language, onWalletClic
         />
       ))}
 
-      {resolvedDisputes.length > 0 && (
+      {historyDisputes.length > 0 && (
         <>
           <div style={{ fontSize: '0.68rem', color: '#334155', letterSpacing: '0.08em', marginTop: 8, marginBottom: 8 }}>
             {lang === 'es' ? 'HISTORIAL' : 'HISTORY'}
           </div>
-          {resolvedDisputes.slice(0, 20).map((d) => (
+          {historyDisputes.slice(0, 20).map((d) => (
             <DisputeCard
               key={d.id}
               dispute={d}
