@@ -37,17 +37,15 @@ export async function GET(req) {
     const { data, error } = await query;
     if (error) throw error;
 
-    // For active disputes, also fetch participant wallets
-    const activeIds = (data || [])
-      .filter((d) => d.status !== 'resolved')
-      .map((d) => d.id);
+    // Fetch participant wallets for all disputes
+    const allIds = (data || []).map((d) => d.id);
 
     let walletRows = [];
-    if (activeIds.length > 0) {
+    if (allIds.length > 0) {
       const { data: wData } = await supabase
         .from('mm3_pool_dispute_wallets')
         .select('dispute_id, wallet, pool_code, side, registered_at, level_snap, mm3_snap, eur_snap, exec_snap, nftji_snap, market_nftji_snap, has_penalty, eur_stake, mm3_stake, delta_eur, delta_mm3')
-        .in('dispute_id', activeIds);
+        .in('dispute_id', allIds);
       walletRows = wData || [];
     }
 

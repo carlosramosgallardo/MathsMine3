@@ -165,12 +165,12 @@ function DisputeCard({ dispute, activeWallet, poolCode, language, onJoin, onWall
       {(isBattleStart || isResolved) && (
         <div style={{ display: 'flex', gap: 14, marginBottom: 10, flexWrap: 'wrap' }}>
           {[
-            { label: lang === 'es' ? '⚔️ guerra' : '⚔️ war', val: `${fmt(dispute.war_percent, 0)}%` },
-            { label: lang === 'es' ? '🌿 natura' : '🌿 nature', val: `${fmt(dispute.nature_percent, 0)}%` },
-            { label: '🎲 dice', val: fmt(dispute.dice_modifier, 4) },
-          ].map(({ label, val }) => (
-            <div key={label} style={{ fontSize: '0.72rem', color: '#94a3b8' }}>
-              <span>{label} </span>
+            { emoji: '⚔️', val: `${fmt(dispute.war_percent, 0)}%` },
+            { emoji: '🌪️', val: `${fmt(dispute.nature_percent, 0)}%` },
+            { emoji: '🎲', val: fmt(dispute.dice_modifier, 4) },
+          ].map(({ emoji, val }) => (
+            <div key={emoji} style={{ fontSize: '0.72rem', color: '#94a3b8', display: 'flex', alignItems: 'center', gap: 3 }}>
+              <span>{emoji}</span>
               <span style={{ color: '#e2e8f0', fontFamily: 'monospace' }}>{val}</span>
             </div>
           ))}
@@ -271,7 +271,7 @@ function DisputeCard({ dispute, activeWallet, poolCode, language, onJoin, onWall
                             textDecorationColor: `${wColor}55`,
                           }}
                         >
-                          …{w.wallet.slice(-5)}
+                          {w.wallet.slice(-5)}
                         </button>
                         <span style={{ color: '#64748b' }}>Lv{w.level_snap}</span>
                         {w.has_penalty && <span title={lang === 'es' ? 'Penalización activa' : 'Active penalty'}>⚠️</span>}
@@ -291,7 +291,7 @@ function DisputeCard({ dispute, activeWallet, poolCode, language, onJoin, onWall
         </div>
       )}
 
-      {/* Aggregate stats trace (battle_start / resolved) */}
+      {/* Aggregate stats trace + formula (battle_start / resolved) */}
       {(isBattleStart || isResolved) && (
         <details style={{ marginTop: 10 }}>
           <summary style={{ fontSize: '0.7rem', color: '#475569', cursor: 'pointer', userSelect: 'none' }}>
@@ -299,13 +299,13 @@ function DisputeCard({ dispute, activeWallet, poolCode, language, onJoin, onWall
           </summary>
           <div style={{ marginTop: 6, display: 'flex', gap: 16, flexWrap: 'wrap' }}>
             {[
-              { label: lang === 'es' ? 'Wallets' : 'Wallets', ch: dispute.ch_wallet_count, df: dispute.df_wallet_count },
-              { label: lang === 'es' ? 'Σ Nivel' : 'Σ Level', ch: dispute.ch_level_sum, df: dispute.df_level_sum },
-              { label: 'Σ MM3', ch: fmt(dispute.ch_mm3_sum), df: fmt(dispute.df_mm3_sum) },
-              { label: 'Σ EUR', ch: fmt(dispute.ch_eur_sum), df: fmt(dispute.df_eur_sum) },
-              { label: lang === 'es' ? 'NFTJIs' : 'NFTJIs', ch: dispute.ch_nftji_count, df: dispute.df_nftji_count },
-              { label: lang === 'es' ? 'Execs' : 'Execs', ch: dispute.ch_exec_count, df: dispute.df_exec_count },
-              { label: lang === 'es' ? 'Penal.' : 'Penal.', ch: dispute.ch_penalty_count, df: dispute.df_penalty_count },
+              { label: 'n', ch: dispute.ch_wallet_count, df: dispute.df_wallet_count },
+              { label: lang === 'es' ? 'Σnivel' : 'Σlevel', ch: dispute.ch_level_sum, df: dispute.df_level_sum },
+              { label: 'ΣMM3', ch: fmt(dispute.ch_mm3_sum), df: fmt(dispute.df_mm3_sum) },
+              { label: 'ΣEUR', ch: fmt(dispute.ch_eur_sum), df: fmt(dispute.df_eur_sum) },
+              { label: 'NFTJIs', ch: dispute.ch_nftji_count, df: dispute.df_nftji_count },
+              { label: 'Execs', ch: dispute.ch_exec_count, df: dispute.df_exec_count },
+              { label: 'Pen.', ch: dispute.ch_penalty_count, df: dispute.df_penalty_count },
             ].map(({ label, ch, df }) => (
               <div key={label} style={{ fontSize: '0.68rem', color: '#64748b' }}>
                 <div style={{ marginBottom: 1, color: '#475569', fontSize: '0.65rem' }}>{label}</div>
@@ -314,6 +314,58 @@ function DisputeCard({ dispute, activeWallet, poolCode, language, onJoin, onWall
                 <span style={{ color: '#f59e0b', fontFamily: 'monospace' }}>{df}</span>
               </div>
             ))}
+          </div>
+          <div style={{
+            marginTop: 10,
+            padding: '8px 10px',
+            background: 'rgba(2,6,23,0.6)',
+            border: '1px solid rgba(71,85,105,0.25)',
+            borderRadius: 5,
+            fontSize: '0.65rem',
+            fontFamily: 'monospace',
+            color: '#475569',
+            lineHeight: 1.7,
+          }}>
+            <div style={{ color: '#334155', marginBottom: 3, letterSpacing: '0.06em' }}>
+              {lang === 'es' ? 'FÓRMULA' : 'FORMULA'}
+            </div>
+            <div>
+              <span style={{ color: '#64748b' }}>base</span>
+              {' = '}
+              <span style={{ color: '#22d3ee' }}>(Σnivel/n)×40</span>
+              {' + '}
+              <span style={{ color: '#22d3ee' }}>ln(ΣMM3/n+1)×20</span>
+              {' + '}
+              <span style={{ color: '#22d3ee' }}>(execs/n)×12</span>
+              {' + '}
+              <span style={{ color: '#22d3ee' }}>(nftjis/n)×8</span>
+              {' + '}
+              <span style={{ color: '#22d3ee' }}>(market/n)×15</span>
+              {' - '}
+              <span style={{ color: '#f87171' }}>(pen/n)×20</span>
+            </div>
+            <div style={{ marginTop: 3 }}>
+              <span style={{ color: '#64748b' }}>⚔️ score</span>
+              {' = base × (1+(⚔️-50)/100×0.30) × (1+(50-🌪️)/100×0.20) × (1+🎲×0.30)'}
+            </div>
+            <div>
+              <span style={{ color: '#64748b' }}>🛡️ score</span>
+              {' = base × (1+(50-⚔️)/100×0.30) × (1+(🌪️-50)/100×0.20) × (1-🎲×0.30)'}
+            </div>
+            <div style={{ marginTop: 3, color: '#334155' }}>
+              {lang === 'es'
+                ? `⚔️${fmt(dispute.war_percent,0)}% 🌪️${fmt(dispute.nature_percent,0)}% 🎲${fmt(dispute.dice_modifier,4)} → ⚔️${fmt(dispute.ch_score,4)} vs 🛡️${fmt(dispute.df_score,4)}`
+                : `⚔️${fmt(dispute.war_percent,0)}% 🌪️${fmt(dispute.nature_percent,0)}% 🎲${fmt(dispute.dice_modifier,4)} → ⚔️${fmt(dispute.ch_score,4)} vs 🛡️${fmt(dispute.df_score,4)}`
+              }
+            </div>
+            {isResolved && (
+              <div style={{ marginTop: 3 }}>
+                {lang === 'es' ? 'apuesta' : 'stake'}{': '}
+                <span style={{ color: '#94a3b8' }}>5% EUR + 3% MM3 por wallet</span>
+                {' → '}
+                <span style={{ color: '#4ade80' }}>55% {lang === 'es' ? 'del perdedor al ganador' : 'of loser transferred to winner'}</span>
+              </div>
+            )}
           </div>
         </details>
       )}
