@@ -540,7 +540,6 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
   const activeWalletPool = activeWallet
     ? leaderboard.find((entry) => normalizeWallet(entry.wallet) === activeWallet)?.pool_code || ''
     : '';
-  const isPoolCooldown = !!cooldownExpiresAt && new Date(cooldownExpiresAt) > new Date();
   const [incomingInvites, setIncomingInvites] = useState([]);
   const [acceptBusy, setAcceptBusy] = useState('');
   const [declineBusy, setDeclineBusy] = useState('');
@@ -548,6 +547,7 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
   const [disputeBusy, setDisputeBusy] = useState('');
   const [cooldownExpiresAt, setCooldownExpiresAt] = useState(null);
   const [activeDisputePairs, setActiveDisputePairs] = useState(() => new Set());
+  const isPoolCooldown = !!cooldownExpiresAt && new Date(cooldownExpiresAt) > new Date();
 
   const fetchInvites = useCallback(async () => {
     if (!activeWallet) { setIncomingInvites([]); return; }
