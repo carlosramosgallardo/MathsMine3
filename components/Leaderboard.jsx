@@ -11,6 +11,7 @@ import { normalizeWalletDecorations, getEmojiTitle, TRADE_SLOT_ORDER } from '@/l
 import { useCurrency } from '@/lib/currency-context';
 import { useActiveWallet } from '@/lib/use-active-wallet';
 import PageLoading from '@/components/PageLoading';
+import DisputesPanel from '@/components/DisputesPanel';
 
 function getBlockHexFromCoords(row, col) {
   return '#' + ((Number(row) || 0) * 28 + (Number(col) || 0)).toString(16).toUpperCase().padStart(3, '0');
@@ -125,6 +126,12 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
         acceptInvite: 'Aceptar',
         invitedBy: 'Invitado por',
         leavePool: 'Salir del pool',
+        disputes: 'Disputas',
+        dispute: 'Disputar',
+        disputeTitle: 'Disputar este pool',
+        disputeVoted: 'Voto registrado',
+        disputeError: 'Error al disputar',
+        disputeAlready: 'Ya votaste o hay disputa activa',
       }
     : {
         pool: 'Pool',
@@ -148,6 +155,12 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
         acceptInvite: 'Accept',
         invitedBy: 'Invited by',
         leavePool: 'Leave pool',
+        disputes: 'Disputes',
+        dispute: 'Dispute',
+        disputeTitle: 'Challenge this pool',
+        disputeVoted: 'Vote cast',
+        disputeError: 'Dispute error',
+        disputeAlready: 'Already voted or dispute active',
       };
 
   const fetchLeaderboard = useCallback(async ({ ignoreCache = false } = {}) => {
@@ -520,6 +533,8 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
   const [incomingInvites, setIncomingInvites] = useState([]);
   const [acceptBusy, setAcceptBusy] = useState('');
   const [leaveBusy, setLeaveBusy] = useState(false);
+  const [showDisputes, setShowDisputes] = useState(false);
+  const [disputeBusy, setDisputeBusy] = useState('');
 
   const fetchInvites = useCallback(async () => {
     if (!activeWallet) { setIncomingInvites([]); return; }
@@ -601,6 +616,36 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
       window.dispatchEvent(new CustomEvent('mm3-toast', { detail: { msg: labels.poolError, type: 'error' } }));
     } finally {
       setLeaveBusy(false);
+    }
+  };
+
+  const handleDisputeVote = async (defenderPoolCode) => {
+    if (!activeWallet || !activeWalletPool || disputeBusy) return;
+    setDisputeBusy(defenderPoolCode);
+    try {
+      const response = await fetch('/api/wallet-pools/dispute/vote', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          wallet: activeWallet,
+          challengerPool: activeWalletPool,
+          defenderPool: defenderPoolCode,
+        }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || !payload.ok) {
+        const errKey = payload.error === 'already_voted' || payload.error === 'dispute_already_active'
+          ? 'disputeAlready'
+          : 'disputeError';
+        window.dispatchEvent(new CustomEvent('mm3-toast', { detail: { msg: labels[errKey], type: 'error' } }));
+        return;
+      }
+      window.dispatchEvent(new CustomEvent('mm3-toast', { detail: { msg: labels.disputeVoted, type: 'success' } }));
+      setShowDisputes(true);
+    } catch {
+      window.dispatchEvent(new CustomEvent('mm3-toast', { detail: { msg: labels.disputeError, type: 'error' } }));
+    } finally {
+      setDisputeBusy('');
     }
   };
 
@@ -852,14 +897,24 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
         </div>
         <div className="flex items-center gap-2">
           {activeWallet && activeWalletPool ? (
-            <button
-              type="button"
-              onClick={handleLeavePool}
-              disabled={leaveBusy}
-              className="rounded border border-rose-400/30 bg-rose-950/20 px-2.5 py-1 text-[0.68rem] font-black uppercase tracking-[0.16em] text-rose-300 transition hover:border-rose-300 hover:text-rose-50 disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              {labels.leavePool} #{activeWalletPool}
-            </button>
+            <>
+              <button
+                type="button"
+                onClick={handleLeavePool}
+                disabled={leaveBusy}
+                className="rounded border border-rose-400/30 bg-rose-950/20 px-2.5 py-1 text-[0.68rem] font-black uppercase tracking-[0.16em] text-rose-300 transition hover:border-rose-300 hover:text-rose-50 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                {labels.leavePool} #{activeWalletPool}
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowDisputes((v) => !v)}
+                className="rounded border border-amber-400/30 bg-amber-950/20 px-2.5 py-1 text-[0.68rem] font-black uppercase tracking-[0.16em] text-amber-300 transition hover:border-amber-300 hover:text-amber-50"
+                style={showDisputes ? { borderColor: 'rgba(251,191,36,0.7)', color: '#fef08a' } : {}}
+              >
+                {labels.disputes}
+              </button>
+            </>
           ) : null}
           {viewMode === 'pools' ? (
             <button
@@ -881,6 +936,12 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
           )}
         </div>
       </div>
+
+      {showDisputes && activeWallet && activeWalletPool && (
+        <div className="mb-3 rounded-xl border border-amber-500/20 bg-slate-950/70 p-3">
+          <DisputesPanel wallet={activeWallet} poolCode={activeWalletPool} language={language} />
+        </div>
+      )}
 
       {incomingInvites.length > 0 && (
         <div className="mb-3 rounded-xl border border-cyan-500/20 bg-slate-950/70 p-3 text-sm text-slate-200">
@@ -1092,6 +1153,18 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
                     <span className="text-[0.5rem] uppercase tracking-[0.1em] text-slate-700">{t('leaderboard.none')}</span>
                   ) : null}
                 </div>
+                {activeWallet && activeWalletPool &&
+                  String(entry.pool_code).toUpperCase() !== String(activeWalletPool).toUpperCase() ? (
+                  <button
+                    type="button"
+                    onClick={() => handleDisputeVote(entry.pool_code)}
+                    disabled={disputeBusy === entry.pool_code}
+                    className="ml-auto shrink-0 rounded border border-amber-400/30 bg-amber-950/15 px-1.5 py-0.5 text-[0.58rem] font-black uppercase tracking-[0.12em] text-amber-300 transition hover:border-amber-300 hover:text-amber-100 disabled:cursor-not-allowed disabled:opacity-40"
+                    title={labels.disputeTitle}
+                  >
+                    {disputeBusy === entry.pool_code ? '...' : labels.dispute}
+                  </button>
+                ) : null}
               </div>
             </article>
           );
@@ -1278,6 +1351,7 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
                 <th style={{ width:'8%', textAlign:'center' }}><SortButton sortKey="rank" className="justify-center">{t('leaderboard.rank')}</SortButton></th>
                 <th style={{ width:'11%', textAlign:'right', paddingRight:'1rem' }}><SortButton sortKey="available_mm3" className="justify-end">{t('leaderboard.mm3Earned')}</SortButton></th>
                 <th style={{ width:'12%', textAlign:'right', paddingRight:'1rem' }}><SortButton sortKey="money" className="justify-end">{t('leaderboard.sellValue')}</SortButton></th>
+                <th style={{ width:'8%', textAlign:'center' }}></th>
               </tr>
             ) : (
               <tr>
@@ -1448,6 +1522,20 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
                     <span className="whitespace-nowrap font-mono font-semibold text-emerald-300 text-[0.86rem]">
                       {formatCompactMoney(sellValue, quoteCurrency)}
                     </span>
+                  </td>
+                  <td style={{ textAlign:'center' }}>
+                    {activeWallet && activeWalletPool &&
+                      String(entry.pool_code).toUpperCase() !== String(activeWalletPool).toUpperCase() ? (
+                      <button
+                        type="button"
+                        onClick={() => handleDisputeVote(entry.pool_code)}
+                        disabled={disputeBusy === entry.pool_code}
+                        className="rounded border border-amber-400/30 bg-amber-950/15 px-2 py-0.5 font-mono text-[0.62rem] font-black uppercase tracking-[0.1em] text-amber-300 transition hover:border-amber-300 hover:text-amber-100 disabled:cursor-not-allowed disabled:opacity-40"
+                        title={labels.disputeTitle}
+                      >
+                        {disputeBusy === entry.pool_code ? '...' : labels.dispute}
+                      </button>
+                    ) : null}
                   </td>
                 </tr>
               );

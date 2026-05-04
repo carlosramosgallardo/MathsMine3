@@ -49,13 +49,23 @@ export async function POST(req) {
       return Response.json({ ok: false, error: 'already_in_pool' }, { status: 409 });
     }
 
-    const { count, error: countError } = await supabase
+    const { data: poolMembers, error: countError } = await supabase
       .from('mm3_wallet_pool_members')
-      .select('*', { count: 'exact', head: true })
+      .select('wallet, player_progress(level)')
       .eq('pool_code', invitation.pool_code);
 
     if (countError) throw countError;
-    if (Number(count || 0) >= 5) {
+
+    const memberCount = (poolMembers || []).length;
+    const avgLevel = memberCount > 0
+      ? Math.round((poolMembers || []).reduce((s, m) => s + (m.player_progress?.level || 0), 0) / memberCount)
+      : 0;
+
+    const { data: maxData } = await supabase
+      .rpc('mm3_pool_max_wallets', { p_avg_level: avgLevel });
+
+    const poolMax = Number(maxData || 5);
+    if (memberCount >= poolMax) {
       return Response.json({ ok: false, error: 'pool_full' }, { status: 409 });
     }
 
