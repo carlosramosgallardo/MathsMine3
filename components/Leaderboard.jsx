@@ -689,6 +689,8 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
 
   useEffect(() => {
     fetchInvites();
+    const poll = setInterval(fetchInvites, 5_000);
+    return () => clearInterval(poll);
   }, [activeWallet, fetchInvites]);
 
   useEffect(() => {
@@ -951,10 +953,25 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
         }
       `}</style>
 
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-2 font-mono">
-        <div className="text-[0.72rem] uppercase tracking-[0.18em] text-cyan-700">
+      <div className="mb-3 flex flex-wrap items-center gap-2 font-mono">
+        <span className="shrink-0 mr-auto text-[0.72rem] uppercase tracking-[0.18em] text-cyan-700">
           {viewMode === 'disputes' ? labels.disputes : viewMode === 'pools' ? labels.poolRanking : labels.walletRanking}
-        </div>
+        </span>
+        {incomingInvites.map((invite) => {
+          const isJoinRequest = activeWalletPool && String(invite.pool_code).toUpperCase() === String(activeWalletPool).toUpperCase();
+          const busy = acceptBusy === invite.id || declineBusy === invite.id;
+          return (
+            <div key={invite.id} className="flex items-center gap-1.5 rounded border border-cyan-500/20 bg-black/80 px-2 py-0.5 text-[0.6rem] font-mono">
+              <span className="uppercase tracking-wide text-cyan-600">{isJoinRequest ? 'req' : 'inv'}</span>
+              <span className="font-semibold" style={{ color: colorFromAddress(invite.invited_by) }}>{shortWallet(invite.invited_by)}</span>
+              <span className="text-slate-600">#{invite.pool_code}</span>
+              <button type="button" onClick={() => handleDeclineInvite(invite.id)} disabled={busy} title={labels.declineInvite}
+                className="ml-0.5 text-[0.82rem] font-black leading-none text-rose-400 transition hover:text-rose-200 disabled:opacity-30">✗</button>
+              <button type="button" onClick={() => handleAcceptInvite(invite.id)} disabled={busy} title={labels.acceptInvite}
+                className="text-[0.82rem] font-black leading-none text-emerald-400 transition hover:text-emerald-200 disabled:opacity-30">✓</button>
+            </div>
+          );
+        })}
         <div className="flex items-center gap-2">
           {viewMode !== 'disputes' && activeWallet && activeWalletPool ? (
             <button
@@ -1003,43 +1020,6 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
             language={language}
             onWalletClick={goToWalletRanking}
           />
-        </div>
-      )}
-
-      {viewMode !== 'disputes' && incomingInvites.length > 0 && (
-        <div className="mb-3 rounded-xl border border-cyan-500/20 bg-slate-950/70 p-3 text-sm text-slate-200">
-          <div className="mb-2 font-mono text-[0.72rem] uppercase tracking-[0.18em] text-cyan-300">{labels.pendingInvites}</div>
-          <div className="space-y-2">
-            {incomingInvites.map((invite) => {
-              const isJoinRequest = activeWalletPool && String(invite.pool_code).toUpperCase() === String(activeWalletPool).toUpperCase();
-              return (
-              <div key={invite.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-cyan-500/10 bg-black/60 p-2">
-                <div className="min-w-0">
-                  <div className="font-semibold text-cyan-100">{isJoinRequest ? labels.joinRequestFrom : labels.invitedBy}: {shortWallet(invite.invited_by)}</div>
-                  <div className="text-[0.72rem] text-slate-400">Pool #{invite.pool_code}</div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => handleDeclineInvite(invite.id)}
-                    disabled={declineBusy === invite.id || acceptBusy === invite.id}
-                    className="rounded border border-rose-400/30 bg-rose-950/15 px-3 py-1 text-[0.72rem] font-black uppercase tracking-[0.12em] text-rose-300 transition hover:border-rose-300 hover:text-rose-100 disabled:cursor-not-allowed disabled:opacity-40"
-                  >
-                    {declineBusy === invite.id ? '...' : labels.declineInvite}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleAcceptInvite(invite.id)}
-                    disabled={acceptBusy === invite.id || declineBusy === invite.id}
-                    className="rounded border border-emerald-400/30 bg-emerald-950/15 px-3 py-1 text-[0.72rem] font-black uppercase tracking-[0.12em] text-emerald-200 transition hover:border-emerald-300 hover:text-emerald-100 disabled:cursor-not-allowed disabled:opacity-40"
-                  >
-                    {acceptBusy === invite.id ? '...' : labels.acceptInvite}
-                  </button>
-                </div>
-              </div>
-              );
-            })}
-          </div>
         </div>
       )}
 
