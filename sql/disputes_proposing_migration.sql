@@ -77,24 +77,26 @@ BEGIN
   END IF;
 
   -- Block if an active (registering / battle_start) dispute already exists
-  SELECT id INTO v_active_dispute
-  FROM mm3_pool_disputes
-  WHERE challenger_pool_code = p_challenger_pool
-    AND defender_pool_code = p_defender_pool
-    AND status IN ('registering', 'battle_start')
-  LIMIT 1;
-
-  IF v_active_dispute IS NOT NULL THEN
-    RETURN jsonb_build_object('error', 'dispute_already_active', 'dispute_id', v_active_dispute);
-  END IF;
-
-  -- Check whether a proposing dispute already exists (2nd vote scenario)
+  -- Check whether a proposing dispute already exists for THIS pair (2nd wallet joining)
   SELECT id INTO v_proposing_dispute
   FROM mm3_pool_disputes
   WHERE challenger_pool_code = p_challenger_pool
     AND defender_pool_code = p_defender_pool
     AND status = 'proposing'
   LIMIT 1;
+
+  -- If NOT joining an existing proposal, block if the challenger pool has any active dispute
+  IF v_proposing_dispute IS NULL THEN
+    SELECT id INTO v_active_dispute
+    FROM mm3_pool_disputes
+    WHERE challenger_pool_code = p_challenger_pool
+      AND status IN ('proposing', 'registering', 'battle_start')
+    LIMIT 1;
+
+    IF v_active_dispute IS NOT NULL THEN
+      RETURN jsonb_build_object('error', 'dispute_already_active', 'dispute_id', v_active_dispute);
+    END IF;
+  END IF;
 
   -- Record this vote
   INSERT INTO mm3_pool_dispute_votes(challenger_pool_code, defender_pool_code, wallet)

@@ -64,6 +64,21 @@ export async function POST(req) {
       return Response.json({ ok: false, error: 'both_wallets_already_pooled' }, { status: 409 });
     }
 
+    // Block invitations while the initiating wallet's pool has an active dispute as challenger
+    if (walletPool) {
+      const { data: activeDispute, error: disputeCheckError } = await supabase
+        .from('mm3_pool_disputes')
+        .select('id')
+        .eq('challenger_pool_code', walletPool)
+        .in('status', ['proposing', 'registering', 'battle_start'])
+        .limit(1)
+        .maybeSingle();
+      if (disputeCheckError && disputeCheckError.code !== '42P01') throw disputeCheckError;
+      if (activeDispute) {
+        return Response.json({ ok: false, error: 'dispute_in_progress' }, { status: 409 });
+      }
+    }
+
     const { data: cooldownData, error: cooldownError } = await supabase
       .from('mm3_wallet_pool_cooldowns')
       .select('expires_at')

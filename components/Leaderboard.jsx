@@ -131,6 +131,7 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
         inviteLimitReached: 'Esa wallet ya tiene 5 solicitudes pendientes.',
         leaveCooldown: 'Enfriamiento 24h — saliste recientemente',
         leavePool: 'Salir del pool',
+        disputeInProgress: 'Tu pool tiene una disputa activa en curso.',
         disputes: 'Disputas',
         dispute: 'Disputar',
         disputeTitle: 'Disputar este pool',
@@ -167,6 +168,7 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
         inviteLimitReached: 'That wallet already has 5 pending requests.',
         leaveCooldown: '24h cooldown — left a pool recently',
         leavePool: 'Leave pool',
+        disputeInProgress: 'Your pool has an active dispute in progress.',
         disputes: 'Disputes',
         dispute: 'Dispute',
         disputeTitle: 'Challenge this pool',
@@ -553,6 +555,7 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
   const [activeDisputePairs, setActiveDisputePairs] = useState(() => new Set());
   const [proposingDisputes, setProposingDisputes] = useState([]);
   const isPoolCooldown = !!cooldownExpiresAt && new Date(cooldownExpiresAt) > new Date();
+  const poolInActiveDispute = activeDisputePairs.size > 0;
 
   const fetchInvites = useCallback(async () => {
     if (!activeWallet) { setIncomingInvites([]); return; }
@@ -913,7 +916,9 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
                     ? labels.inviteLimitReached
                     : payload.error === 'leave_cooldown'
                       ? labels.leaveCooldown
-                      : labels.poolError;
+                      : payload.error === 'dispute_in_progress'
+                        ? labels.disputeInProgress
+                        : labels.poolError;
         window.dispatchEvent(new CustomEvent('mm3-toast', { detail: { msg, type: 'error' } }));
         return;
       }
@@ -1271,7 +1276,7 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
                 </div>
                 {activeWallet && activeWalletPool &&
                   String(entry.pool_code).toUpperCase() !== String(activeWalletPool).toUpperCase() &&
-                  !activeDisputePairs.has(String(entry.pool_code).toUpperCase()) ? (
+                  activeDisputePairs.size === 0 ? (
                   <button
                     type="button"
                     onClick={() => handleDisputeVote(entry.pool_code)}
@@ -1333,7 +1338,7 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
                     #{entry.pool_code}
                   </button>
                 ) : null}
-                {activeWallet && normalizedWallet !== activeWallet && !isPoolCooldown ? (
+                {activeWallet && normalizedWallet !== activeWallet && !isPoolCooldown && !poolInActiveDispute ? (
                   <button
                     type="button"
                     onClick={() => handleContactWallet(entry.wallet)}
@@ -1643,7 +1648,7 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
                   <td style={{ textAlign:'center' }}>
                     {activeWallet && activeWalletPool &&
                       String(entry.pool_code).toUpperCase() !== String(activeWalletPool).toUpperCase() &&
-                      !activeDisputePairs.has(String(entry.pool_code).toUpperCase()) ? (
+                      activeDisputePairs.size === 0 ? (
                       <button
                         type="button"
                         onClick={() => handleDisputeVote(entry.pool_code)}
@@ -1703,7 +1708,7 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
                       >
                         {entry.wallet}
                       </button>
-                      {activeWallet && !isActiveWallet && !isPoolCooldown ? (
+                      {activeWallet && !isActiveWallet && !isPoolCooldown && !poolInActiveDispute ? (
                         <button
                           type="button"
                           onClick={() => handleContactWallet(entry.wallet)}
