@@ -210,10 +210,12 @@ BEGIN
     AND defender_pool_code = p_defender_pool
     AND dispute_id IS NULL;
 
-  -- Enroll all challenger pool members
+  -- Enroll only the wallets that voted (others can join voluntarily during 5-min window)
   SELECT ARRAY_AGG(wallet) INTO v_challenger_members
-  FROM mm3_wallet_pool_members
-  WHERE pool_code = p_challenger_pool;
+  FROM mm3_pool_dispute_votes
+  WHERE challenger_pool_code = p_challenger_pool
+    AND defender_pool_code = p_defender_pool
+    AND dispute_id = v_dispute_id;
 
   IF v_challenger_members IS NOT NULL THEN
     FOREACH v_member IN ARRAY v_challenger_members LOOP
