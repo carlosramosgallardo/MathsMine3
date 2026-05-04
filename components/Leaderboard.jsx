@@ -1435,7 +1435,7 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
             {viewMode === 'pools' ? labels.noPools : t('leaderboard.noMiners')}
           </div>
         )}
-      </div>}
+      </div>
 
       <div className="hidden overflow-x-auto sm:block">
         <table className="lb-tbl w-full">
@@ -1844,7 +1844,7 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
             )}
           </tbody>
         </table>
-      </div>}
+      </div>
 
       {totalPages > 1 && (
         <div className="flex justify-center gap-2 mt-5 flex-wrap">
