@@ -57,6 +57,15 @@ DELETE FROM mm3_hidden_cmd_executions;
 DELETE FROM daily_task_claims;
 DO $$
 BEGIN
+  IF EXISTS (SELECT FROM pg_class WHERE relname = 'mm3_pool_dispute_wallets' AND relnamespace = 'public'::regnamespace) THEN
+    EXECUTE 'DELETE FROM mm3_pool_dispute_wallets';
+  END IF;
+  IF EXISTS (SELECT FROM pg_class WHERE relname = 'mm3_pool_dispute_votes' AND relnamespace = 'public'::regnamespace) THEN
+    EXECUTE 'DELETE FROM mm3_pool_dispute_votes';
+  END IF;
+  IF EXISTS (SELECT FROM pg_class WHERE relname = 'mm3_pool_disputes' AND relnamespace = 'public'::regnamespace) THEN
+    EXECUTE 'DELETE FROM mm3_pool_disputes';
+  END IF;
   IF EXISTS (SELECT FROM pg_class WHERE relname = 'mm3_wallet_pool_members' AND relnamespace = 'public'::regnamespace) THEN
     EXECUTE 'DELETE FROM mm3_wallet_pool_members';
   END IF;
@@ -65,6 +74,9 @@ BEGIN
   END IF;
   IF EXISTS (SELECT FROM pg_class WHERE relname = 'mm3_wallet_pools' AND relnamespace = 'public'::regnamespace) THEN
     EXECUTE 'DELETE FROM mm3_wallet_pools';
+  END IF;
+  IF EXISTS (SELECT FROM pg_class WHERE relname = 'mm3_wallet_pool_cooldowns' AND relnamespace = 'public'::regnamespace) THEN
+    EXECUTE 'DELETE FROM mm3_wallet_pool_cooldowns';
   END IF;
 END$$;
 
