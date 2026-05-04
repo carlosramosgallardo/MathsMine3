@@ -111,6 +111,17 @@ export async function POST(req) {
       return Response.json({ ok: false, error: 'invite_already_exists' }, { status: 409 });
     }
 
+    const { count: pendingCount, error: pendingCountError } = await supabase
+      .from('mm3_wallet_pool_invitations')
+      .select('*', { count: 'exact', head: true })
+      .eq('wallet', inviteTo)
+      .eq('status', 'pending');
+
+    if (pendingCountError) throw pendingCountError;
+    if (Number(pendingCount || 0) >= 5) {
+      return Response.json({ ok: false, error: 'invite_limit_reached' }, { status: 409 });
+    }
+
     if (rows.length) {
       const { error: insertError } = await supabase
         .from('mm3_wallet_pool_members')

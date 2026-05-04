@@ -124,8 +124,11 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
         poolMissing: 'Instala sql/add_wallet_pools.sql en Supabase.',
         pendingInvites: 'Solicitudes pendientes',
         acceptInvite: 'Aceptar',
+        declineInvite: 'Rechazar',
         invitedBy: 'Invitado por',
         joinRequestFrom: 'Solicitud de',
+        inviteDeclined: 'Solicitud rechazada.',
+        inviteLimitReached: 'Esa wallet ya tiene 5 solicitudes pendientes.',
         leavePool: 'Salir del pool',
         disputes: 'Disputas',
         dispute: 'Disputar',
@@ -154,8 +157,11 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
         poolMissing: 'Install sql/add_wallet_pools.sql in Supabase.',
         pendingInvites: 'Pending requests',
         acceptInvite: 'Accept',
+        declineInvite: 'Decline',
         invitedBy: 'Invited by',
         joinRequestFrom: 'Request from',
+        inviteDeclined: 'Request declined.',
+        inviteLimitReached: 'That wallet already has 5 pending requests.',
         leavePool: 'Leave pool',
         disputes: 'Disputes',
         dispute: 'Dispute',
@@ -534,6 +540,7 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
     : '';
   const [incomingInvites, setIncomingInvites] = useState([]);
   const [acceptBusy, setAcceptBusy] = useState('');
+  const [declineBusy, setDeclineBusy] = useState('');
   const [leaveBusy, setLeaveBusy] = useState(false);
   const [disputeBusy, setDisputeBusy] = useState('');
   const [activeDisputePairs, setActiveDisputePairs] = useState(() => new Set());
@@ -583,6 +590,30 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
       window.dispatchEvent(new CustomEvent('mm3-toast', { detail: { msg: labels.poolError, type: 'error' } }));
     } finally {
       setAcceptBusy('');
+    }
+  };
+
+  const handleDeclineInvite = async (inviteId) => {
+    if (!activeWallet || declineBusy || !inviteId) return;
+    setDeclineBusy(inviteId);
+    try {
+      const response = await fetch('/api/wallet-pools/decline', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ wallet: activeWallet, inviteId }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || !payload.ok) {
+        window.dispatchEvent(new CustomEvent('mm3-toast', { detail: { msg: labels.poolError, type: 'error' } }));
+        return;
+      }
+      window.dispatchEvent(new CustomEvent('mm3-toast', { detail: { msg: labels.inviteDeclined, type: 'success' } }));
+      await fetchInvites();
+    } catch (error) {
+      console.error('decline invite:', error);
+      window.dispatchEvent(new CustomEvent('mm3-toast', { detail: { msg: labels.poolError, type: 'error' } }));
+    } finally {
+      setDeclineBusy('');
     }
   };
 
@@ -834,7 +865,9 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
                 ? labels.poolSame
                 : payload.error === 'invite_already_exists'
                   ? labels.poolCreated
-                  : labels.poolError;
+                  : payload.error === 'invite_limit_reached'
+                    ? labels.inviteLimitReached
+                    : labels.poolError;
         window.dispatchEvent(new CustomEvent('mm3-toast', { detail: { msg, type: 'error' } }));
         return;
       }
@@ -985,14 +1018,24 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
                   <div className="font-semibold text-cyan-100">{isJoinRequest ? labels.joinRequestFrom : labels.invitedBy}: {shortWallet(invite.invited_by)}</div>
                   <div className="text-[0.72rem] text-slate-400">Pool #{invite.pool_code}</div>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => handleAcceptInvite(invite.id)}
-                  disabled={acceptBusy === invite.id}
-                  className="rounded border border-emerald-400/30 bg-emerald-950/15 px-3 py-1 text-[0.72rem] font-black uppercase tracking-[0.12em] text-emerald-200 transition hover:border-emerald-300 hover:text-emerald-100 disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  {acceptBusy === invite.id ? '...' : labels.acceptInvite}
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleDeclineInvite(invite.id)}
+                    disabled={declineBusy === invite.id || acceptBusy === invite.id}
+                    className="rounded border border-rose-400/30 bg-rose-950/15 px-3 py-1 text-[0.72rem] font-black uppercase tracking-[0.12em] text-rose-300 transition hover:border-rose-300 hover:text-rose-100 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    {declineBusy === invite.id ? '...' : labels.declineInvite}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleAcceptInvite(invite.id)}
+                    disabled={acceptBusy === invite.id || declineBusy === invite.id}
+                    className="rounded border border-emerald-400/30 bg-emerald-950/15 px-3 py-1 text-[0.72rem] font-black uppercase tracking-[0.12em] text-emerald-200 transition hover:border-emerald-300 hover:text-emerald-100 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    {acceptBusy === invite.id ? '...' : labels.acceptInvite}
+                  </button>
+                </div>
               </div>
               );
             })}
