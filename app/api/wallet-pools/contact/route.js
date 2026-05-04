@@ -64,6 +64,17 @@ export async function POST(req) {
       return Response.json({ ok: false, error: 'both_wallets_already_pooled' }, { status: 409 });
     }
 
+    const { data: cooldownData } = await supabase
+      .from('mm3_wallet_pool_cooldowns')
+      .select('expires_at')
+      .eq('wallet', wallet)
+      .gt('expires_at', new Date().toISOString())
+      .maybeSingle();
+
+    if (cooldownData) {
+      return Response.json({ ok: false, error: 'leave_cooldown', expiresAt: cooldownData.expires_at }, { status: 409 });
+    }
+
     if (walletPool && targetPool && walletPool === targetPool) {
       return Response.json({ ok: false, error: 'already_in_same_pool' }, { status: 409 });
     }

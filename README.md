@@ -359,12 +359,15 @@ Wallets can form coalitions called Pools. Each Pool is identified by a 5-charact
 
 | Action | Description |
 |---|---|
-| Create | Any wallet can create a pool and share its code |
-| Invite | Pool creators send invitations to specific wallet addresses |
-| Join | Invited wallets accept or decline; one pool per wallet |
-| Leave | Any member can leave the pool at any time |
+| pool+ | Send a join request or invite a wallet to your pool |
+| Accept | Confirm an invite or approve a join request |
+| Decline | Reject an invite or deny a join request |
+| Leave | Any member can leave at any time |
+| Cooldown | After leaving, the wallet cannot join any pool for 24 hours |
 
-Pool rank is calculated from the combined level sum of all active members:
+A wallet can receive up to **5 pending requests** simultaneously. No more can be sent until the recipient acts on one.
+
+Pool rank is calculated from the combined level sum of all active members. Max pool size scales with the average rank tier.
 
 | Tier | Pool Rank | Symbol |
 |---|---|:---:|
@@ -374,7 +377,27 @@ Pool rank is calculated from the combined level sum of all active members:
 | Dangerous alliance | VOID SYNDICATE | 🏴‍☠️ |
 | Dominant entity | DRAGON MAINNET | 🐉 |
 
-Pool membership and rank are visible in Ranking and IRC.
+Pool membership and rank are visible in Ranking and IRC. Invite chips appear inline in the Ranking header bar and update in real time (Supabase subscription + 5s polling fallback).
+
+### Pool System — Where It's Processed
+
+| File | Role |
+|---|---|
+| `app/api/wallet-pools/contact/route.js` | Creates invite or join request; checks cooldown and 5-invite cap |
+| `app/api/wallet-pools/accept/route.js` | Accepts invite or approves join request; checks cooldown |
+| `app/api/wallet-pools/decline/route.js` | Declines invite or join request |
+| `app/api/wallet-pools/leave/route.js` | Removes wallet from pool; writes 24h cooldown record |
+| `app/api/wallet-pools/cooldown/route.js` | Returns cooldown status for a wallet |
+| `app/api/wallet-pools/invites/route.js` | Returns pending invites for the active wallet |
+| `app/api/wallet-pools/disputes/route.js` | Lists pool disputes (optional pool filter) |
+| `app/api/wallet-pools/dispute/vote/route.js` | Casts a dispute vote |
+| `app/api/wallet-pools/dispute/join/route.js` | Joins an active dispute as challenger |
+| `app/api/wallet-pools/dispute/start-battle/route.js` | Triggers battle snapshot after 5-min registration window |
+| `app/api/wallet-pools/dispute/resolve/route.js` | Resolves battle and applies stakes after 5s delay |
+| `components/Leaderboard.jsx` | Renders ranking, pool list, invite chips, cooldown hiding, disputes view |
+| `components/DisputesPanel.jsx` | Dispute cards with real-time state transitions and formula display |
+| `sql/disputes.sql` | DB: disputes, votes, wallet snapshots; dispute lifecycle SQL functions |
+| `sql/wallet_pool_cooldowns.sql` | DB: leave cooldown tracking table |
 
 ---
 
@@ -942,12 +965,15 @@ Las wallets pueden formar coaliciones llamadas Pools. Cada Pool se identifica co
 
 | Acción | Descripción |
 |---|---|
-| Crear | Cualquier wallet puede crear un Pool y compartir su código |
-| Invitar | El creador envía invitaciones a direcciones de wallet concretas |
-| Unirse | Las wallets invitadas aceptan o rechazan; una Pool por wallet |
+| pool+ | Enviar solicitud de unión o invitación a otra wallet |
+| Aceptar | Confirmar invitación o aprobar solicitud de unión |
+| Rechazar | Denegar invitación o solicitud |
 | Salir | Cualquier miembro puede abandonar el Pool en cualquier momento |
+| Enfriamiento | Tras salir, la wallet no puede unirse a ningún Pool durante 24 horas |
 
-El rango del Pool se calcula a partir de la suma de niveles de todos sus miembros activos:
+Una wallet puede recibir hasta **5 solicitudes pendientes** simultáneamente. No se pueden enviar más hasta que el destinatario actúe sobre alguna.
+
+El rango del Pool se calcula a partir de la suma de niveles de todos sus miembros activos. El tamaño máximo del pool escala según el rango medio del pool.
 
 | Tier | Rango de Pool | Símbolo |
 |---|---|:---:|
@@ -957,7 +983,27 @@ El rango del Pool se calcula a partir de la suma de niveles de todos sus miembro
 | Alianza peligrosa | VOID SYNDICATE | 🏴‍☠️ |
 | Entidad dominante | DRAGON MAINNET | 🐉 |
 
-La membresía y el rango del Pool son visibles en el Ranking y en el IRC.
+La membresía y el rango del Pool son visibles en el Ranking y en el IRC. Los chips de invitación aparecen en la barra de cabecera del Ranking y se actualizan en tiempo real (suscripción Supabase + polling cada 5s).
+
+### Sistema de Pools — Dónde se procesa
+
+| Archivo | Función |
+|---|---|
+| `app/api/wallet-pools/contact/route.js` | Crea invitaciones o solicitudes de unión; comprueba cooldown y límite de 5 |
+| `app/api/wallet-pools/accept/route.js` | Acepta invitación o aprueba solicitud; comprueba cooldown |
+| `app/api/wallet-pools/decline/route.js` | Rechaza invitación o solicitud |
+| `app/api/wallet-pools/leave/route.js` | Elimina wallet del pool; registra cooldown de 24h |
+| `app/api/wallet-pools/cooldown/route.js` | Devuelve estado del cooldown para una wallet |
+| `app/api/wallet-pools/invites/route.js` | Devuelve invitaciones pendientes para la wallet activa |
+| `app/api/wallet-pools/disputes/route.js` | Lista disputas de pool (filtro opcional por pool) |
+| `app/api/wallet-pools/dispute/vote/route.js` | Registra voto de disputa |
+| `app/api/wallet-pools/dispute/join/route.js` | Une a la wallet a una disputa activa |
+| `app/api/wallet-pools/dispute/start-battle/route.js` | Activa snapshot de batalla tras 5 min de registro |
+| `app/api/wallet-pools/dispute/resolve/route.js` | Resuelve la batalla y aplica stakes tras 5s |
+| `components/Leaderboard.jsx` | Renderiza ranking, lista de pools, chips de invitación, cooldown, disputas |
+| `components/DisputesPanel.jsx` | Tarjetas de disputa con transiciones en tiempo real y fórmula |
+| `sql/disputes.sql` | BD: disputas, votos, snapshots; funciones SQL del ciclo de vida |
+| `sql/wallet_pool_cooldowns.sql` | BD: tabla de registro de cooldown al salir de pool |
 
 ---
 

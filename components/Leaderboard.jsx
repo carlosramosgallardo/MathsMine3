@@ -129,6 +129,7 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
         joinRequestFrom: 'Solicitud de',
         inviteDeclined: 'Solicitud rechazada.',
         inviteLimitReached: 'Esa wallet ya tiene 5 solicitudes pendientes.',
+        leaveCooldown: 'Enfriamiento 24h — saliste recientemente',
         leavePool: 'Salir del pool',
         disputes: 'Disputas',
         dispute: 'Disputar',
@@ -162,6 +163,7 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
         joinRequestFrom: 'Request from',
         inviteDeclined: 'Request declined.',
         inviteLimitReached: 'That wallet already has 5 pending requests.',
+        leaveCooldown: '24h cooldown — left a pool recently',
         leavePool: 'Leave pool',
         disputes: 'Disputes',
         dispute: 'Dispute',
@@ -538,11 +540,13 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
   const activeWalletPool = activeWallet
     ? leaderboard.find((entry) => normalizeWallet(entry.wallet) === activeWallet)?.pool_code || ''
     : '';
+  const isPoolCooldown = !!cooldownExpiresAt && new Date(cooldownExpiresAt) > new Date();
   const [incomingInvites, setIncomingInvites] = useState([]);
   const [acceptBusy, setAcceptBusy] = useState('');
   const [declineBusy, setDeclineBusy] = useState('');
   const [leaveBusy, setLeaveBusy] = useState(false);
   const [disputeBusy, setDisputeBusy] = useState('');
+  const [cooldownExpiresAt, setCooldownExpiresAt] = useState(null);
   const [activeDisputePairs, setActiveDisputePairs] = useState(() => new Set());
 
   const fetchInvites = useCallback(async () => {
@@ -692,6 +696,20 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
     const poll = setInterval(fetchInvites, 5_000);
     return () => clearInterval(poll);
   }, [activeWallet, fetchInvites]);
+
+  useEffect(() => {
+    if (!activeWallet) { setCooldownExpiresAt(null); return; }
+    const check = async () => {
+      try {
+        const res = await fetch(`/api/wallet-pools/cooldown?wallet=${encodeURIComponent(activeWallet)}`);
+        const data = await res.json().catch(() => ({}));
+        setCooldownExpiresAt(data.inCooldown ? data.expiresAt : null);
+      } catch { setCooldownExpiresAt(null); }
+    };
+    check();
+    const poll = setInterval(check, 30_000);
+    return () => clearInterval(poll);
+  }, [activeWallet]);
 
   useEffect(() => {
     if (!activeWallet) return;
@@ -869,7 +887,9 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
                   ? labels.poolCreated
                   : payload.error === 'invite_limit_reached'
                     ? labels.inviteLimitReached
-                    : labels.poolError;
+                    : payload.error === 'leave_cooldown'
+                      ? labels.leaveCooldown
+                      : labels.poolError;
         window.dispatchEvent(new CustomEvent('mm3-toast', { detail: { msg, type: 'error' } }));
         return;
       }
@@ -961,14 +981,17 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
           const isJoinRequest = activeWalletPool && String(invite.pool_code).toUpperCase() === String(activeWalletPool).toUpperCase();
           const busy = acceptBusy === invite.id || declineBusy === invite.id;
           return (
-            <div key={invite.id} className="flex items-center gap-1.5 rounded border border-cyan-500/20 bg-black/80 px-2 py-0.5 text-[0.6rem] font-mono">
+            <div key={invite.id} className="flex items-center gap-2 rounded border border-cyan-500/20 bg-black/80 px-2 py-0.5 text-[0.6rem] font-mono">
               <span className="uppercase tracking-wide text-cyan-600">{isJoinRequest ? 'req' : 'inv'}</span>
-              <span className="font-semibold" style={{ color: colorFromAddress(invite.invited_by) }}>{shortWallet(invite.invited_by)}</span>
+              <button type="button" onClick={() => goToWalletRanking(invite.invited_by)} title={invite.invited_by}
+                className="font-semibold hover:underline" style={{ color: colorFromAddress(invite.invited_by) }}>
+                {shortWallet(invite.invited_by)}
+              </button>
               <span className="text-slate-600">#{invite.pool_code}</span>
               <button type="button" onClick={() => handleDeclineInvite(invite.id)} disabled={busy} title={labels.declineInvite}
-                className="ml-0.5 text-[0.82rem] font-black leading-none text-rose-400 transition hover:text-rose-200 disabled:opacity-30">✗</button>
+                className="ml-1 px-1 text-[0.82rem] font-black leading-none text-rose-400 transition hover:text-rose-200 disabled:opacity-30">✗</button>
               <button type="button" onClick={() => handleAcceptInvite(invite.id)} disabled={busy} title={labels.acceptInvite}
-                className="text-[0.82rem] font-black leading-none text-emerald-400 transition hover:text-emerald-200 disabled:opacity-30">✓</button>
+                className="px-1 text-[0.82rem] font-black leading-none text-emerald-400 transition hover:text-emerald-200 disabled:opacity-30">✓</button>
             </div>
           );
         })}
@@ -1273,7 +1296,7 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
                     #{entry.pool_code}
                   </button>
                 ) : null}
-                {activeWallet && normalizedWallet !== activeWallet ? (
+                {activeWallet && normalizedWallet !== activeWallet && !isPoolCooldown ? (
                   <button
                     type="button"
                     onClick={() => handleContactWallet(entry.wallet)}
@@ -1643,7 +1666,7 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
                       >
                         {entry.wallet}
                       </button>
-                      {activeWallet && !isActiveWallet ? (
+                      {activeWallet && !isActiveWallet && !isPoolCooldown ? (
                         <button
                           type="button"
                           onClick={() => handleContactWallet(entry.wallet)}

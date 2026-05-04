@@ -61,6 +61,18 @@ export async function POST(req) {
     const joinerWallet = isJoinRequest ? invitation.invited_by : wallet;
     const addedBy = isJoinRequest ? wallet : invitation.invited_by;
 
+    // Check cooldown — wallet that recently left cannot rejoin for 24h
+    const { data: cooldownData } = await supabase
+      .from('mm3_wallet_pool_cooldowns')
+      .select('expires_at')
+      .eq('wallet', joinerWallet)
+      .gt('expires_at', new Date().toISOString())
+      .maybeSingle();
+
+    if (cooldownData) {
+      return Response.json({ ok: false, error: 'leave_cooldown', expiresAt: cooldownData.expires_at }, { status: 409 });
+    }
+
     // Validate joiner is not already in any pool
     if (isJoinRequest) {
       const { data: joinerMember } = await supabase

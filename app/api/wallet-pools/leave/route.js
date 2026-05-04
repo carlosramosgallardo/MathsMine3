@@ -56,6 +56,11 @@ export async function POST(req) {
 
     if (updatePoolError) throw updatePoolError;
 
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+    await supabase
+      .from('mm3_wallet_pool_cooldowns')
+      .upsert({ wallet, left_at: new Date().toISOString(), expires_at: expiresAt }, { onConflict: 'wallet' });
+
     return Response.json({ ok: true, poolCode: member.pool_code });
   } catch (error) {
     console.error('wallet pool leave error:', error);
