@@ -553,7 +553,7 @@ export default function DisputesPanel({ wallet, poolCode, language, onWalletClic
         </span>
       </div>
 
-      {activeDisputes.length === 0 && resolvedDisputes.length === 0 && (
+      {activeDisputes.length === 0 && historyDisputes.length === 0 && (
         <div style={{ color: '#475569', fontSize: '0.8rem', textAlign: 'center', padding: '24px 0' }}>
           {lang === 'es' ? 'No hay disputas registradas todavía.' : 'No disputes registered yet.'}
         </div>
