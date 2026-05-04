@@ -16,6 +16,7 @@ export default function NavLinks({ className = '' }) {
     { href: '/',          label: t('nav.play') },
     { href: '/trade-mm3', label: t('nav.trade') },
     { href: '/ranking',   label: t('nav.leaderboard') },
+    { href: '/squeeze',   label: t('nav.squeeze') },
     { href: '/market',    label: t('nav.podcast') },
     { href: '/irc',       label: t('nav.irc') },
   ]

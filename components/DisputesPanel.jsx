@@ -547,15 +547,15 @@ export default function DisputesPanel({ wallet, poolCode, language, onWalletClic
         borderBottom: '1px solid rgba(71,85,105,0.3)',
         paddingBottom: 6,
       }}>
-        {lang === 'es' ? 'DISPUTAS DE POOL' : 'POOL DISPUTES'}
+        {'SQUEEZE'}
         <span style={{ marginLeft: 10, color: '#334155' }}>
-          {activeDisputes.length > 0 ? `${activeDisputes.length} ${lang === 'es' ? 'activa(s)' : 'active'}` : lang === 'es' ? 'sin disputas activas' : 'none active'}
+          {activeDisputes.length > 0 ? `${activeDisputes.length} ${lang === 'es' ? 'activo(s)' : 'active'}` : lang === 'es' ? 'sin combates activos' : 'none active'}
         </span>
       </div>
 
       {activeDisputes.length === 0 && historyDisputes.length === 0 && (
         <div style={{ color: '#475569', fontSize: '0.8rem', textAlign: 'center', padding: '24px 0' }}>
-          {lang === 'es' ? 'No hay disputas registradas todavía.' : 'No disputes registered yet.'}
+          {lang === 'es' ? 'Sin combates registrados todavía.' : 'No Squeeze battles yet.'}
         </div>
       )}
 

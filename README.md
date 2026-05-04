@@ -379,9 +379,9 @@ Pool rank is calculated from the combined level sum of all active members. Max p
 
 Pool membership and rank are visible in Ranking and IRC. Invite chips appear inline in the Ranking header bar and update in real time (Supabase subscription + 5s polling fallback).
 
-### Pool Disputes — Scoring Formula
+### Squeeze — Scoring Formula
 
-Two pools can enter a dispute. The outcome is determined by a **scoring formula with world state modifiers**.
+Two pools can enter a **Squeeze** (pool combat). The outcome is determined by a **scoring formula with world state modifiers**.
 
 **Stakes (locked at battle snapshot):**
 
@@ -401,7 +401,7 @@ base = (Σlevel / n) × 40
      - (penalty_count / n) × 20
 ```
 
-Where `n` = number of participating wallets from that pool in the dispute.
+Where `n` = number of participating wallets from that pool in the Squeeze.
 
 **Final Score with World Modifiers:**
 
@@ -424,7 +424,7 @@ df_score = MAX(0.01, base_df)
 | 🎲 Dice positive (+1) | Challenger | +30% |
 | 🎲 Dice negative (−1) | Defender | +30% |
 
-🎲 Dice is **deterministic per dispute**: `hashtext(dispute_id || 'dice')` mapped to [−1, +1]. Cannot be manipulated.
+🎲 Dice is **deterministic per Squeeze**: `hashtext(dispute_id || 'dice')` mapped to [−1, +1]. Cannot be manipulated.
 
 **Resolution:**
 
@@ -442,12 +442,14 @@ df_score = MAX(0.01, base_df)
 
 The dice roll of −0.87 reduced TK2K8's score by ~4% but SJ9NJ's by ~52% (lower base amplifies variance). Same modifiers, a +0.87 dice would flip the outcome (TK2K8: ≈65.7 vs SJ9NJ: ≈93.85).
 
-**Dispute Lifecycle:**
-1. ≥2 wallets from pool A vote "dispute" against pool B → **Dispute created** (5-min registration window)
-2. Only the voters are initially enrolled; others from pool A can join voluntarily during the window
-3. All defender wallets are auto-enrolled at dispute creation
+**Squeeze Lifecycle:**
+1. First wallet from pool A proposes a Squeeze against pool B → **proposing** (5-min window to get a 2nd wallet; cancels if none join)
+2. A 2nd wallet from pool A joins → **registering** (5-min window; other pool A wallets can join voluntarily)
+3. All defender wallets are auto-enrolled at transition to registering
 4. After 5 minutes → **battle_start**: stats snapshot taken, scores computed
 5. After 5 seconds → **resolved**: winner determined, stakes applied
+
+If the 5-min proposing window expires with only 1 wallet → **cancelled** (both pools see "failed attempt").
 
 ### Pool System — Where It's Processed
 
@@ -459,14 +461,16 @@ The dice roll of −0.87 reduced TK2K8's score by ~4% but SJ9NJ's by ~52% (lower
 | `app/api/wallet-pools/leave/route.js` | Removes wallet from pool; writes 24h cooldown record |
 | `app/api/wallet-pools/cooldown/route.js` | Returns cooldown status for a wallet |
 | `app/api/wallet-pools/invites/route.js` | Returns pending invites for the active wallet |
-| `app/api/wallet-pools/disputes/route.js` | Lists pool disputes (optional pool filter) |
-| `app/api/wallet-pools/dispute/vote/route.js` | Casts a dispute vote |
-| `app/api/wallet-pools/dispute/join/route.js` | Joins an active dispute as challenger |
+| `app/api/wallet-pools/disputes/route.js` | Lists Squeeze battles (optional pool filter) |
+| `app/api/wallet-pools/dispute/vote/route.js` | Proposes or joins a Squeeze |
+| `app/api/wallet-pools/dispute/join/route.js` | Joins an active Squeeze registering window |
+| `app/api/wallet-pools/dispute/cancel/route.js` | Auto-cancels a proposing Squeeze after 5-min timeout |
 | `app/api/wallet-pools/dispute/start-battle/route.js` | Triggers battle snapshot after 5-min registration window |
 | `app/api/wallet-pools/dispute/resolve/route.js` | Resolves battle and applies stakes after 5s delay |
-| `components/Leaderboard.jsx` | Renders ranking, pool list, invite chips, cooldown hiding, disputes view |
-| `components/DisputesPanel.jsx` | Dispute cards with real-time state transitions and formula display |
-| `sql/database.sql` | DB: disputes, votes, wallet snapshots, cooldowns; dispute lifecycle functions |
+| `components/Leaderboard.jsx` | Renders ranking + pool list; invite chips, proposal chips, cooldown/dispute blocking |
+| `components/DisputesPanel.jsx` | Squeeze cards with real-time state transitions and formula display |
+| `app/squeeze/page.jsx` | Squeeze section page (nav entry) |
+| `sql/database.sql` | DB: Squeeze tables, votes, wallet snapshots, cooldowns; lifecycle functions |
 
 ---
 
@@ -1054,9 +1058,9 @@ El rango del Pool se calcula a partir de la suma de niveles de todos sus miembro
 
 La membresía y el rango del Pool son visibles en el Ranking y en el IRC. Los chips de invitación aparecen en la barra de cabecera del Ranking y se actualizan en tiempo real (suscripción Supabase + polling cada 5s).
 
-### Disputas de Pool — Fórmula de Scoring
+### Squeeze — Fórmula de Scoring
 
-Dos pools pueden entrar en una disputa. El resultado se determina mediante una **fórmula de puntuación con modificadores del estado del mundo**.
+Dos pools pueden iniciar un **Squeeze** (combate de pools). El resultado se determina mediante una **fórmula de puntuación con modificadores del estado del mundo**.
 
 **Stakes (apostados en el snapshot de batalla):**
 
@@ -1076,7 +1080,7 @@ base = (Σnivel / n) × 40
      - (penalty_count / n) × 20
 ```
 
-Donde `n` = número de wallets participantes del pool en la disputa.
+Donde `n` = número de wallets participantes del pool en el Squeeze.
 
 **Modificadores del Mundo aplicados al score final:**
 
@@ -1099,7 +1103,7 @@ df_score = MÁXIMO(0.01, base_df)
 | 🎲 Dado positivo (+1) | Atacante | +30% |
 | 🎲 Dado negativo (−1) | Defensor | +30% |
 
-El dado `🎲` es **determinista por disputa**: `hashtext(dispute_id || 'dice')` mapeado a [−1, +1]. No puede manipularse.
+El dado `🎲` es **determinista por Squeeze**: `hashtext(dispute_id || 'dice')` mapeado a [−1, +1]. No puede manipularse.
 
 **Resolución:**
 
@@ -1108,12 +1112,14 @@ El dado `🎲` es **determinista por disputa**: `hashtext(dispute_id || 'dice')`
 - El **55% del total perdido** se reparte a partes iguales entre las wallets ganadoras.
 - El **45% restante** se evaporiza (se extrae de la economía del juego).
 
-**Ciclo de vida de la disputa:**
-1. ≥2 wallets del pool A votan "disputar" contra pool B → **Disputa creada** (ventana de registro de 5 min)
-2. Solo los votantes atacantes se enrolan inicialmente; otros del pool A pueden unirse voluntariamente durante la ventana
-3. Todas las wallets del pool defensor se enrolan automáticamente al crearse la disputa
+**Ciclo de vida del Squeeze:**
+1. Primera wallet del pool A propone un Squeeze contra pool B → **proposing** (ventana de 5 min para conseguir una 2ª wallet; se cancela si no hay)
+2. Una 2ª wallet del pool A se une → **registering** (ventana de 5 min; otras wallets del pool A pueden unirse voluntariamente)
+3. Todas las wallets del defensor se enrolan automáticamente al pasar a registering
 4. Tras 5 minutos → **battle_start**: snapshot de stats, scores calculados
 5. Tras 5 segundos → **resolved**: ganador determinado, stakes aplicados
+
+Si la ventana de 5 min de **proposing** expira con solo 1 wallet → **cancelled** (ambos pools ven "intento fallido").
 
 ### Sistema de Pools — Dónde se procesa
 
@@ -1125,15 +1131,17 @@ El dado `🎲` es **determinista por disputa**: `hashtext(dispute_id || 'dice')`
 | `app/api/wallet-pools/leave/route.js` | Elimina wallet del pool; registra cooldown de 24h |
 | `app/api/wallet-pools/cooldown/route.js` | Devuelve estado del cooldown para una wallet |
 | `app/api/wallet-pools/invites/route.js` | Devuelve invitaciones pendientes para la wallet activa |
-| `app/api/wallet-pools/disputes/route.js` | Lista disputas de pool (filtro opcional por pool) |
-| `app/api/wallet-pools/dispute/vote/route.js` | Registra voto de disputa |
-| `app/api/wallet-pools/dispute/join/route.js` | Une a la wallet a una disputa activa |
+| `app/api/wallet-pools/disputes/route.js` | Lista combates Squeeze (filtro opcional por pool) |
+| `app/api/wallet-pools/dispute/vote/route.js` | Propone o se une a un Squeeze |
+| `app/api/wallet-pools/dispute/join/route.js` | Se une a la ventana de registro de un Squeeze activo |
+| `app/api/wallet-pools/dispute/cancel/route.js` | Cancela un Squeeze en proposing tras timeout |
 | `app/api/wallet-pools/dispute/start-battle/route.js` | Activa snapshot de batalla tras 5 min de registro |
 | `app/api/wallet-pools/dispute/resolve/route.js` | Resuelve la batalla y aplica stakes tras 5s |
-| `components/Leaderboard.jsx` | Renderiza ranking, lista de pools, chips de invitación, cooldown, disputas |
-| `components/DisputesPanel.jsx` | Tarjetas de disputa con transiciones en tiempo real y fórmula |
-| `sql/disputes.sql` | BD: disputas, votos, snapshots; funciones SQL del ciclo de vida |
-| `sql/wallet_pool_cooldowns.sql` | BD: tabla de registro de cooldown al salir de pool |
+| `components/Leaderboard.jsx` | Renderiza ranking + pools; chips de invitación/propuesta, bloqueo por cooldown/disputa |
+| `components/DisputesPanel.jsx` | Tarjetas Squeeze con transiciones en tiempo real y fórmula |
+| `app/squeeze/page.jsx` | Página de la sección Squeeze (entrada en el menú) |
+| `app/api/wallet-pools/dispute/cancel/route.js` | Cancela un Squeeze en proposing tras timeout |
+| `sql/database.sql` | BD: tablas Squeeze, votos, snapshots, cooldowns; funciones del ciclo de vida |
 
 ---
 
