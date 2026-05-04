@@ -62,13 +62,15 @@ export async function POST(req) {
     const addedBy = isJoinRequest ? wallet : invitation.invited_by;
 
     // Check cooldown — wallet that recently left cannot rejoin for 24h
-    const { data: cooldownData } = await supabase
+    // Gracefully skip if table doesn't exist yet (42P01)
+    const { data: cooldownData, error: cooldownError } = await supabase
       .from('mm3_wallet_pool_cooldowns')
       .select('expires_at')
       .eq('wallet', joinerWallet)
       .gt('expires_at', new Date().toISOString())
       .maybeSingle();
 
+    if (cooldownError && cooldownError.code !== '42P01') throw cooldownError;
     if (cooldownData) {
       return Response.json({ ok: false, error: 'leave_cooldown', expiresAt: cooldownData.expires_at }, { status: 409 });
     }
@@ -85,17 +87,26 @@ export async function POST(req) {
       }
     }
 
+    // Fetch member wallets first, then levels separately (no FK join available)
     const { data: poolMembers, error: countError } = await supabase
       .from('mm3_wallet_pool_members')
-      .select('wallet, player_progress(level)')
+      .select('wallet')
       .eq('pool_code', invitation.pool_code);
 
     if (countError) throw countError;
 
     const memberCount = (poolMembers || []).length;
-    const avgLevel = memberCount > 0
-      ? Math.round((poolMembers || []).reduce((s, m) => s + (m.player_progress?.level || 0), 0) / memberCount)
-      : 0;
+    let avgLevel = 0;
+    if (memberCount > 0) {
+      const memberWallets = (poolMembers || []).map((m) => m.wallet);
+      const { data: levels } = await supabase
+        .from('player_progress')
+        .select('level')
+        .in('wallet', memberWallets);
+      if (levels && levels.length > 0) {
+        avgLevel = Math.round(levels.reduce((s, l) => s + (Number(l.level) || 0), 0) / levels.length);
+      }
+    }
 
     const { data: maxData } = await supabase
       .rpc('mm3_pool_max_wallets', { p_avg_level: avgLevel });
