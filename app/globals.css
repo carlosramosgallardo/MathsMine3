@@ -16,6 +16,13 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Mobile footer safety margin - prevents content overlap */
+@media (max-width: 639px) {
+  main {
+    padding-bottom: max(80px, 32px + 2rem) !important;
+  }
+}
+
 :root {
   --mm3-cyan: #22d3ee;
   --mm3-green: #4ade80;
