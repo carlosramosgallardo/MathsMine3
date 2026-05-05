@@ -43,6 +43,8 @@ DROP FUNCTION IF EXISTS mm3_dispute_resolve(bigint);
 DROP FUNCTION IF EXISTS mm3_dispute_can_leave(text);
 DROP FUNCTION IF EXISTS mm3_dispute_cancel(bigint);
 DROP FUNCTION IF EXISTS mm3_pool_max_wallets(integer);
+DROP TABLE IF EXISTS mm3_squeeze_nftji CASCADE;
+DROP FUNCTION IF EXISTS mm3_squeeze_nftji_take(bigint, text);
 DROP TABLE IF EXISTS player_progress CASCADE;
 DROP TABLE IF EXISTS daily_task_claims CASCADE;
 DROP TABLE IF EXISTS leaderboard_data CASCADE;
@@ -203,7 +205,10 @@ CREATE TABLE mm3_pool_disputes (
   df_exec_count         INT NOT NULL DEFAULT 0,
   df_score              NUMERIC,
   winner                TEXT CHECK (winner IN ('challenger', 'defender', 'draw')),
-  result_summary        JSONB
+  result_summary        JSONB,
+  drop_type             TEXT CHECK (drop_type IN ('attack', 'defense')),
+  ch_squeeze_atk_sum    INT NOT NULL DEFAULT 0,
+  df_squeeze_atk_sum    INT NOT NULL DEFAULT 0
 );
 
 CREATE TABLE mm3_pool_dispute_votes (
@@ -234,9 +239,20 @@ CREATE TABLE mm3_pool_dispute_wallets (
   has_penalty     BOOLEAN NOT NULL DEFAULT FALSE,
   eur_stake       NUMERIC NOT NULL DEFAULT 0,
   mm3_stake       NUMERIC NOT NULL DEFAULT 0,
-  delta_eur       NUMERIC NOT NULL DEFAULT 0,
-  delta_mm3       NUMERIC NOT NULL DEFAULT 0,
+  delta_eur              NUMERIC NOT NULL DEFAULT 0,
+  delta_mm3              NUMERIC NOT NULL DEFAULT 0,
+  squeeze_nftji_equipped TEXT CHECK (squeeze_nftji_equipped IN ('attack', 'defense')),
+  squeeze_nftji_level    SMALLINT NOT NULL DEFAULT -1,
+  squeeze_nftji_claimed  BOOLEAN NOT NULL DEFAULT FALSE,
   UNIQUE (dispute_id, wallet)
+);
+
+CREATE TABLE mm3_squeeze_nftji (
+  wallet         TEXT PRIMARY KEY,
+  equipped       TEXT CHECK (equipped IN ('attack', 'defense')),
+  attack_level   SMALLINT NOT NULL DEFAULT -1,
+  defense_level  SMALLINT NOT NULL DEFAULT -1,
+  updated_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE TABLE mm3_market_state (
@@ -413,6 +429,8 @@ CREATE INDEX idx_mm3_pool_disputes_pools          ON mm3_pool_disputes(challenge
 CREATE INDEX idx_mm3_pool_dispute_votes_pairing   ON mm3_pool_dispute_votes(challenger_pool_code, defender_pool_code);
 CREATE INDEX idx_mm3_pool_dispute_wallets_dispute ON mm3_pool_dispute_wallets(dispute_id, side);
 CREATE INDEX idx_mm3_pool_dispute_wallets_wallet  ON mm3_pool_dispute_wallets(wallet);
+CREATE INDEX idx_mm3_squeeze_nftji_wallet          ON mm3_squeeze_nftji(wallet);
+CREATE INDEX idx_mm3_squeeze_nftji_equipped        ON mm3_squeeze_nftji(equipped) WHERE equipped IS NOT NULL;
 CREATE INDEX idx_mm3_sell_transactions_wallet ON mm3_sell_transactions(wallet);
 CREATE INDEX idx_mm3_sell_transactions_created_at ON mm3_sell_transactions(created_at DESC);
 CREATE INDEX idx_mm3_market_events_wallet ON mm3_market_events(wallet);
@@ -740,7 +758,7 @@ BEGIN
     SET status = 'registering', registered_at = NOW()
     WHERE id = v_dispute_id;
 
-    -- Enroll challenger voters
+    -- Enroll challenger voters (snapshot Squeeze NFTJI at registration time)
     SELECT ARRAY_AGG(wallet) INTO v_challenger_members
     FROM mm3_pool_dispute_votes
     WHERE dispute_id = v_dispute_id;
@@ -759,7 +777,8 @@ BEGIN
           dispute_id, wallet, pool_code, side,
           level_snap, mm3_snap, eur_snap, usd_snap, cny_snap,
           exec_snap, nftji_snap, market_nftji_snap, has_penalty,
-          eur_stake, mm3_stake
+          eur_stake, mm3_stake,
+          squeeze_nftji_equipped, squeeze_nftji_level
         )
         SELECT
           v_dispute_id, v_member, p_challenger_pool, 'challenger',
@@ -768,14 +787,19 @@ BEGIN
           v_exec_count, COALESCE(array_length(pp.wallet_emojis, 1), 0),
           pp.market_nftji_key, v_has_penalty,
           ROUND(COALESCE(pp.eur_earned, 0) * 0.05, 4),
-          ROUND(COALESCE(pp.mm3_sold, 0) * 0.03, 4)
+          ROUND(COALESCE(pp.mm3_sold, 0) * 0.03, 4),
+          sn.equipped,
+          CASE WHEN sn.equipped = 'attack'  THEN sn.attack_level
+               WHEN sn.equipped = 'defense' THEN sn.defense_level
+               ELSE -1 END
         FROM player_progress pp
+        LEFT JOIN mm3_squeeze_nftji sn ON sn.wallet = v_member
         WHERE pp.wallet = v_member
         ON CONFLICT (dispute_id, wallet) DO NOTHING;
       END LOOP;
     END IF;
 
-    -- Auto-enroll all defender pool members
+    -- Auto-enroll all defender pool members (snapshot Squeeze NFTJI)
     SELECT ARRAY_AGG(wallet) INTO v_defender_members
     FROM mm3_wallet_pool_members WHERE pool_code = p_defender_pool;
 
@@ -793,7 +817,8 @@ BEGIN
           dispute_id, wallet, pool_code, side,
           level_snap, mm3_snap, eur_snap, usd_snap, cny_snap,
           exec_snap, nftji_snap, market_nftji_snap, has_penalty,
-          eur_stake, mm3_stake
+          eur_stake, mm3_stake,
+          squeeze_nftji_equipped, squeeze_nftji_level
         )
         SELECT
           v_dispute_id, v_member, p_defender_pool, 'defender',
@@ -802,8 +827,13 @@ BEGIN
           v_exec_count, COALESCE(array_length(pp.wallet_emojis, 1), 0),
           pp.market_nftji_key, v_has_penalty,
           ROUND(COALESCE(pp.eur_earned, 0) * 0.05, 4),
-          ROUND(COALESCE(pp.mm3_sold, 0) * 0.03, 4)
+          ROUND(COALESCE(pp.mm3_sold, 0) * 0.03, 4),
+          sn.equipped,
+          CASE WHEN sn.equipped = 'attack'  THEN sn.attack_level
+               WHEN sn.equipped = 'defense' THEN sn.defense_level
+               ELSE -1 END
         FROM player_progress pp
+        LEFT JOIN mm3_squeeze_nftji sn ON sn.wallet = v_member
         WHERE pp.wallet = v_member
         ON CONFLICT (dispute_id, wallet) DO NOTHING;
       END LOOP;
@@ -883,7 +913,8 @@ BEGIN
     dispute_id, wallet, pool_code, side,
     level_snap, mm3_snap, eur_snap, usd_snap, cny_snap,
     exec_snap, nftji_snap, market_nftji_snap, has_penalty,
-    eur_stake, mm3_stake
+    eur_stake, mm3_stake,
+    squeeze_nftji_equipped, squeeze_nftji_level
   )
   SELECT
     p_dispute_id, p_wallet, v_dispute.challenger_pool_code, 'challenger',
@@ -897,8 +928,13 @@ BEGIN
     pp.market_nftji_key,
     v_has_penalty,
     ROUND(COALESCE(pp.eur_earned, 0) * 0.05, 4),
-    ROUND(COALESCE(pp.mm3_sold, 0) * 0.03, 4)
+    ROUND(COALESCE(pp.mm3_sold, 0) * 0.03, 4),
+    sn.equipped,
+    CASE WHEN sn.equipped = 'attack'  THEN sn.attack_level
+         WHEN sn.equipped = 'defense' THEN sn.defense_level
+         ELSE -1 END
   FROM player_progress pp
+  LEFT JOIN mm3_squeeze_nftji sn ON sn.wallet = p_wallet
   WHERE pp.wallet = p_wallet
   ON CONFLICT (dispute_id, wallet) DO NOTHING;
 
@@ -944,7 +980,8 @@ BEGIN
   -- Dice: deterministic from dispute id, range -1..1
   v_dice := ((hashtext(p_dispute_id::text || 'dice')::bigint & 2147483647)::numeric / 2147483647.0) * 2 - 1;
 
-  -- Challenger aggregates (all registered wallets)
+  -- Challenger aggregates
+  -- squeeze_atk_sum: sum of (level+1) for wallets with ⚔️ equipped — contributes to base score
   SELECT
     COUNT(*)                          AS wallet_count,
     COALESCE(SUM(level_snap), 0)     AS level_sum,
@@ -953,7 +990,9 @@ BEGIN
     COALESCE(SUM(nftji_snap), 0)     AS nftji_count,
     COUNT(*) FILTER (WHERE market_nftji_snap IS NOT NULL) AS market_nftji_count,
     COUNT(*) FILTER (WHERE has_penalty)  AS penalty_count,
-    COALESCE(SUM(exec_snap), 0)      AS exec_count
+    COALESCE(SUM(exec_snap), 0)      AS exec_count,
+    COALESCE(SUM(CASE WHEN squeeze_nftji_equipped = 'attack' AND squeeze_nftji_level >= 0
+                      THEN squeeze_nftji_level + 1 ELSE 0 END), 0) AS squeeze_atk_sum
   INTO v_ch
   FROM mm3_pool_dispute_wallets
   WHERE dispute_id = p_dispute_id AND side = 'challenger';
@@ -967,15 +1006,17 @@ BEGIN
     COALESCE(SUM(nftji_snap), 0)     AS nftji_count,
     COUNT(*) FILTER (WHERE market_nftji_snap IS NOT NULL) AS market_nftji_count,
     COUNT(*) FILTER (WHERE has_penalty)  AS penalty_count,
-    COALESCE(SUM(exec_snap), 0)      AS exec_count
+    COALESCE(SUM(exec_snap), 0)      AS exec_count,
+    COALESCE(SUM(CASE WHEN squeeze_nftji_equipped = 'attack' AND squeeze_nftji_level >= 0
+                      THEN squeeze_nftji_level + 1 ELSE 0 END), 0) AS squeeze_atk_sum
   INTO v_df
   FROM mm3_pool_dispute_wallets
   WHERE dispute_id = p_dispute_id AND side = 'defender';
 
   -- Base scores (per-wallet averages to normalize pool size differences)
   -- Formula:
-  --   base = (level_sum/n)*40 + LN(mm3/n+1)*20 + (execs/n)*12 + (nftjis/n)*8
-  --          + (market_nftjis/n)*15 - (penalties/n)*20
+  --   base = (level/n)*40 + ln(mm3/n+1)*20 + (execs/n)*12 + (nftjis/n)*8
+  --          + (market/n)*15 + (sqz_atk_sum/n)*20 - (penalties/n)*20
   -- War favors challenger (+30%), nature favors defender (+20%), dice adds variance (±30%)
   IF v_ch.wallet_count > 0 THEN
     v_ch_base :=
@@ -984,6 +1025,7 @@ BEGIN
       + (v_ch.exec_count::numeric / v_ch.wallet_count) * 12
       + (v_ch.nftji_count::numeric / v_ch.wallet_count) * 8
       + (v_ch.market_nftji_count::numeric / v_ch.wallet_count) * 15
+      + (v_ch.squeeze_atk_sum::numeric / v_ch.wallet_count) * 20
       - (v_ch.penalty_count::numeric / v_ch.wallet_count) * 20;
   ELSE
     v_ch_base := 0;
@@ -996,15 +1038,13 @@ BEGIN
       + (v_df.exec_count::numeric / v_df.wallet_count) * 12
       + (v_df.nftji_count::numeric / v_df.wallet_count) * 8
       + (v_df.market_nftji_count::numeric / v_df.wallet_count) * 15
+      + (v_df.squeeze_atk_sum::numeric / v_df.wallet_count) * 20
       - (v_df.penalty_count::numeric / v_df.wallet_count) * 20;
   ELSE
     v_df_base := 0;
   END IF;
 
   -- Apply world modifiers
-  -- war: high war → challenger boost (+30% at 100%), low war → defender boost
-  -- nature: high nature → defender boost (+20% at 100%), low nature → challenger boost
-  -- dice: challenger gets +dice*30%, defender gets -dice*30%
   v_ch_score := GREATEST(0.01, v_ch_base)
     * (1 + (v_war - 50) / 100.0 * 0.30)
     * (1 + (50 - v_nature) / 100.0 * 0.20)
@@ -1017,29 +1057,31 @@ BEGIN
 
   -- Update dispute
   UPDATE mm3_pool_disputes SET
-    status          = 'battle_start',
-    battle_start_at = NOW(),
-    war_percent     = v_war,
-    nature_percent  = v_nature,
-    dice_modifier   = ROUND(v_dice, 4),
-    ch_wallet_count = v_ch.wallet_count,
-    ch_level_sum    = v_ch.level_sum,
-    ch_mm3_sum      = v_ch.mm3_sum,
-    ch_eur_sum      = v_ch.eur_sum,
-    ch_nftji_count  = v_ch.nftji_count,
+    status               = 'battle_start',
+    battle_start_at      = NOW(),
+    war_percent          = v_war,
+    nature_percent       = v_nature,
+    dice_modifier        = ROUND(v_dice, 4),
+    ch_wallet_count      = v_ch.wallet_count,
+    ch_level_sum         = v_ch.level_sum,
+    ch_mm3_sum           = v_ch.mm3_sum,
+    ch_eur_sum           = v_ch.eur_sum,
+    ch_nftji_count       = v_ch.nftji_count,
     ch_market_nftji_count = v_ch.market_nftji_count,
-    ch_penalty_count = v_ch.penalty_count,
-    ch_exec_count   = v_ch.exec_count,
-    ch_score        = ROUND(v_ch_score, 4),
-    df_wallet_count = v_df.wallet_count,
-    df_level_sum    = v_df.level_sum,
-    df_mm3_sum      = v_df.mm3_sum,
-    df_eur_sum      = v_df.eur_sum,
-    df_nftji_count  = v_df.nftji_count,
+    ch_penalty_count     = v_ch.penalty_count,
+    ch_exec_count        = v_ch.exec_count,
+    ch_score             = ROUND(v_ch_score, 4),
+    ch_squeeze_atk_sum   = v_ch.squeeze_atk_sum,
+    df_wallet_count      = v_df.wallet_count,
+    df_level_sum         = v_df.level_sum,
+    df_mm3_sum           = v_df.mm3_sum,
+    df_eur_sum           = v_df.eur_sum,
+    df_nftji_count       = v_df.nftji_count,
     df_market_nftji_count = v_df.market_nftji_count,
-    df_penalty_count = v_df.penalty_count,
-    df_exec_count   = v_df.exec_count,
-    df_score        = ROUND(v_df_score, 4)
+    df_penalty_count     = v_df.penalty_count,
+    df_exec_count        = v_df.exec_count,
+    df_score             = ROUND(v_df_score, 4),
+    df_squeeze_atk_sum   = v_df.squeeze_atk_sum
   WHERE id = p_dispute_id;
 
   RETURN jsonb_build_object(
@@ -1072,6 +1114,7 @@ DECLARE
   v_transfer_eur NUMERIC;
   v_per_eur      NUMERIC;
   v_summary      JSONB;
+  v_drop_type    TEXT;
 BEGIN
   SELECT * INTO v_dispute FROM mm3_pool_disputes WHERE id = p_dispute_id;
 
@@ -1097,17 +1140,28 @@ BEGIN
   END IF;
 
   IF v_winner <> 'draw' THEN
-    -- 55% of loser money stakes transferred to winner pool (MM3 is never at stake)
+    -- 55% of loser money stakes transferred to winner pool (based on raw stakes)
     SELECT COALESCE(SUM(eur_stake), 0) * 0.55
     INTO v_transfer_eur
     FROM mm3_pool_dispute_wallets
     WHERE dispute_id = p_dispute_id AND side = v_loser_side;
 
-    -- Loser wallets lose 100% of their money stake
+    -- 🛡️ Defense NFTJI: losers with defense equipped recover min(50%, (level+1)*5%) of their stake
+    UPDATE mm3_pool_dispute_wallets SET
+      delta_eur = -ROUND(eur_stake * (1 - LEAST(0.50, (squeeze_nftji_level + 1)::numeric * 0.05)), 6),
+      delta_mm3 = 0
+    WHERE dispute_id = p_dispute_id
+      AND side = v_loser_side
+      AND squeeze_nftji_equipped = 'defense'
+      AND squeeze_nftji_level >= 0;
+
+    -- Losers without defense: full loss
     UPDATE mm3_pool_dispute_wallets SET
       delta_eur = -eur_stake,
       delta_mm3 = 0
-    WHERE dispute_id = p_dispute_id AND side = v_loser_side;
+    WHERE dispute_id = p_dispute_id
+      AND side = v_loser_side
+      AND (squeeze_nftji_equipped IS DISTINCT FROM 'defense' OR squeeze_nftji_level < 0);
 
     -- Winner wallets gain proportional share of transferred money
     SELECT COUNT(*) INTO v_winner_n
@@ -1134,6 +1188,17 @@ BEGIN
 
   END IF;
 
+  -- NFTJI drop roll: 1/25 chance, deterministic per dispute
+  -- Type: 50/50 attack/defense. Winners can claim it voluntarily.
+  v_drop_type := NULL;
+  IF (hashtext(p_dispute_id::text || 'nftdrop')::bigint & 2147483647) % 25 = 0 THEN
+    IF (hashtext(p_dispute_id::text || 'nftdroptype')::bigint & 1) = 0 THEN
+      v_drop_type := 'attack';
+    ELSE
+      v_drop_type := 'defense';
+    END IF;
+  END IF;
+
   -- Build result summary
   v_summary := jsonb_build_object(
     'winner',          v_winner,
@@ -1145,7 +1210,8 @@ BEGIN
     'ch_wallet_count', v_dispute.ch_wallet_count,
     'df_wallet_count', v_dispute.df_wallet_count,
     'transfer_eur',    COALESCE(v_transfer_eur, 0),
-    'transfer_mm3',    0
+    'transfer_mm3',    0,
+    'drop_type',       v_drop_type
   );
 
   -- Clean up votes so participants can propose again later
@@ -1156,7 +1222,8 @@ BEGIN
     status         = 'resolved',
     resolved_at    = NOW(),
     winner         = v_winner,
-    result_summary = v_summary
+    result_summary = v_summary,
+    drop_type      = v_drop_type
   WHERE id = p_dispute_id;
 
   RETURN v_summary;
@@ -1197,6 +1264,104 @@ BEGIN
   DELETE FROM mm3_pool_dispute_votes WHERE dispute_id = p_dispute_id;
 
   RETURN jsonb_build_object('ok', true);
+END;
+$$;
+
+-- ==============================================
+-- FUNCTION: claim Squeeze NFTJI drop
+-- ==============================================
+-- Winners of a resolved Squeeze with a drop can call this once.
+-- Same type = level +1. Different type = swap equipped, level +1 for new type.
+-- Level starts at 0 on first acquisition.
+
+CREATE OR REPLACE FUNCTION public.mm3_squeeze_nftji_take(
+  p_dispute_id BIGINT,
+  p_wallet     TEXT
+)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  v_dispute     RECORD;
+  v_wallet_dw   RECORD;
+  v_drop_type   TEXT;
+  v_cur_atk     SMALLINT;
+  v_cur_def     SMALLINT;
+  v_new_atk     SMALLINT;
+  v_new_def     SMALLINT;
+BEGIN
+  SELECT status, drop_type, winner INTO v_dispute
+  FROM mm3_pool_disputes WHERE id = p_dispute_id;
+
+  IF NOT FOUND THEN
+    RETURN jsonb_build_object('error', 'dispute_not_found');
+  END IF;
+
+  IF v_dispute.status <> 'resolved' THEN
+    RETURN jsonb_build_object('error', 'not_resolved');
+  END IF;
+
+  IF v_dispute.drop_type IS NULL THEN
+    RETURN jsonb_build_object('error', 'no_drop');
+  END IF;
+
+  SELECT side, squeeze_nftji_claimed INTO v_wallet_dw
+  FROM mm3_pool_dispute_wallets
+  WHERE dispute_id = p_dispute_id AND wallet = p_wallet;
+
+  IF NOT FOUND THEN
+    RETURN jsonb_build_object('error', 'wallet_not_in_dispute');
+  END IF;
+
+  IF v_dispute.winner <> 'draw' AND v_wallet_dw.side <> v_dispute.winner THEN
+    RETURN jsonb_build_object('error', 'not_winner');
+  END IF;
+
+  IF v_wallet_dw.squeeze_nftji_claimed THEN
+    RETURN jsonb_build_object('error', 'already_claimed');
+  END IF;
+
+  -- Mark this wallet as having responded to the drop
+  UPDATE mm3_pool_dispute_wallets
+  SET squeeze_nftji_claimed = TRUE
+  WHERE dispute_id = p_dispute_id AND wallet = p_wallet;
+
+  v_drop_type := v_dispute.drop_type;
+
+  -- Get current NFTJI state for this wallet
+  SELECT attack_level, defense_level INTO v_cur_atk, v_cur_def
+  FROM mm3_squeeze_nftji WHERE wallet = p_wallet;
+
+  IF NOT FOUND THEN
+    -- First ever drop for this wallet
+    v_new_atk := CASE WHEN v_drop_type = 'attack'  THEN 0 ELSE -1 END;
+    v_new_def := CASE WHEN v_drop_type = 'defense' THEN 0 ELSE -1 END;
+    INSERT INTO mm3_squeeze_nftji(wallet, equipped, attack_level, defense_level)
+    VALUES (p_wallet, v_drop_type, v_new_atk, v_new_def);
+  ELSE
+    IF v_drop_type = 'attack' THEN
+      v_new_atk := CASE WHEN v_cur_atk < 0 THEN 0 ELSE v_cur_atk + 1 END;
+      v_new_def := v_cur_def;
+    ELSE
+      v_new_atk := v_cur_atk;
+      v_new_def := CASE WHEN v_cur_def < 0 THEN 0 ELSE v_cur_def + 1 END;
+    END IF;
+    UPDATE mm3_squeeze_nftji SET
+      equipped      = v_drop_type,
+      attack_level  = v_new_atk,
+      defense_level = v_new_def,
+      updated_at    = NOW()
+    WHERE wallet = p_wallet;
+  END IF;
+
+  RETURN jsonb_build_object(
+    'ok',            true,
+    'drop_type',     v_drop_type,
+    'attack_level',  v_new_atk,
+    'defense_level', v_new_def,
+    'equipped',      v_drop_type
+  );
 END;
 $$;
 
@@ -1246,6 +1411,7 @@ ALTER TABLE mm3_wallet_pool_cooldowns    ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mm3_pool_disputes            ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mm3_pool_dispute_votes       ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mm3_pool_dispute_wallets     ENABLE ROW LEVEL SECURITY;
+ALTER TABLE mm3_squeeze_nftji            ENABLE ROW LEVEL SECURITY;
 
 -- ==============================================
 -- PHASE 8: CREATE ROW LEVEL SECURITY POLICIES
@@ -1400,6 +1566,9 @@ CREATE POLICY "public_read_mm3_pool_dispute_votes" ON mm3_pool_dispute_votes FOR
 DROP POLICY IF EXISTS "public_read_mm3_pool_dispute_wallets" ON mm3_pool_dispute_wallets;
 CREATE POLICY "public_read_mm3_pool_dispute_wallets" ON mm3_pool_dispute_wallets FOR SELECT TO public USING (true);
 
+DROP POLICY IF EXISTS "public_read_mm3_squeeze_nftji" ON mm3_squeeze_nftji;
+CREATE POLICY "public_read_mm3_squeeze_nftji" ON mm3_squeeze_nftji FOR SELECT TO public USING (true);
+
 -- ==============================================
 -- PHASE 9: INSERT INITIAL DATA
 -- ==============================================
@@ -1416,8 +1585,8 @@ INSERT INTO mm3_macro_state (
 )
 VALUES (
   1,
-  0,
-  0,
+  75,
+  65,
   '## WELCOME TO MATHSMINE3 ## SOLVE FAST, MINE MM3, FEED THE RETRO MAINFRAME ##',
   '## WELCOME TO MATHSMINE3 ## SOLVE FAST, MINE MM3, FEED THE RETRO MAINFRAME ##',
   '## BIENVENIDO A MATHSMINE3 ## RESUELVE RAPIDO, MINA MM3 Y ALIMENTA EL MAINFRAME RETRO ##',
@@ -1653,6 +1822,7 @@ WHERE b.block_key = v.block_key;
 -- PHASE 10: GRANT PERMISSIONS
 -- ==============================================
 
+GRANT SELECT ON mm3_squeeze_nftji TO anon;
 GRANT SELECT ON ALL TABLES IN SCHEMA public TO anon;
 GRANT INSERT ON games TO anon;
 GRANT INSERT, UPDATE ON player_progress TO anon;

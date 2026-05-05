@@ -20,10 +20,10 @@ export async function GET(req) {
         registered_at, battle_start_at, resolved_at,
         war_percent, nature_percent, dice_modifier,
         ch_wallet_count, ch_level_sum, ch_mm3_sum, ch_eur_sum,
-        ch_nftji_count, ch_market_nftji_count, ch_penalty_count, ch_exec_count, ch_score,
+        ch_nftji_count, ch_market_nftji_count, ch_penalty_count, ch_exec_count, ch_score, ch_squeeze_atk_sum,
         df_wallet_count, df_level_sum, df_mm3_sum, df_eur_sum,
-        df_nftji_count, df_market_nftji_count, df_penalty_count, df_exec_count, df_score,
-        winner, result_summary
+        df_nftji_count, df_market_nftji_count, df_penalty_count, df_exec_count, df_score, df_squeeze_atk_sum,
+        winner, result_summary, drop_type
       `)
       .order('registered_at', { ascending: false })
       .limit(limit);
@@ -44,7 +44,7 @@ export async function GET(req) {
     if (allIds.length > 0) {
       const { data: wData } = await supabase
         .from('mm3_pool_dispute_wallets')
-        .select('dispute_id, wallet, pool_code, side, registered_at, level_snap, mm3_snap, eur_snap, exec_snap, nftji_snap, market_nftji_snap, has_penalty, eur_stake, mm3_stake, delta_eur, delta_mm3')
+        .select('dispute_id, wallet, pool_code, side, registered_at, level_snap, mm3_snap, eur_snap, exec_snap, nftji_snap, market_nftji_snap, has_penalty, eur_stake, mm3_stake, delta_eur, delta_mm3, squeeze_nftji_equipped, squeeze_nftji_level, squeeze_nftji_claimed')
         .in('dispute_id', allIds);
       walletRows = wData || [];
 

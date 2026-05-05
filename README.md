@@ -50,7 +50,7 @@
 |---|---|
 | Project | MathsMine3 |
 | Version | `v1.0` |
-| Genre | Retro math-mining game |
+| Genre | Math-mining RPG / pool strategy — crypto freak terminal |
 | Economy | Fully simulated, fictional MM3 token |
 | Identity | Ethereum wallet or deterministic Google virtual wallet |
 | Persistence | Supabase player, market, chart, chat, and event state |
@@ -418,6 +418,7 @@ base = (Σlevel / n) × 40
      + (exec_count / n) × 12
      + (nftji_count / n) × 8
      + (market_nftji_count / n) × 15
+     + (⚔️_atk_sum / n) × 20          ← Squeeze Attack NFTJI contribution
      - (penalty_count / n) × 20
 ```
 
@@ -447,8 +448,9 @@ df_score = MAX(0.01, base_df)
 **Resolution:**
 
 - Higher score wins. Equal score = draw.
-- Losers forfeit **100% of their stake**.
-- **55%** of total loser pool → split equally across winners.
+- Losers with no 🛡️ NFTJI equipped forfeit **100% of their stake**.
+- Losers with 🛡️ equipped recover `min(50%, (level+1)×5%)` of their stake.
+- **55%** of total loser raw stakes → split equally across winners.
 - **45% burned** — extracted from the game economy permanently.
 
 **Example: TK2K8 (2w, Lv2) vs SJ9NJ (2w, Lv1)**
@@ -460,13 +462,34 @@ df_score = MAX(0.01, base_df)
 
 Same dice, lower base → SJ9NJ lost ~52% of score vs TK2K8's ~4%. Variance punishes weak pools harder.
 
+**Squeeze NFTJI — ⚔️ Attack & 🛡️ Defense:**
+
+Two rare NFTJIs drop exclusively from Squeeze battles (1/25 probability per resolution). Unlike Market NFTJIs, they cannot be bought or sold.
+
+- **⚔️ Attack** — each equipped wallet contributes `(level+1)` units to its pool's `⚔️_atk_sum`. Weight ×20 in the base formula — a level-0 attack equals a Market NFTJI at level-0.
+- **🛡️ Defense** — reduces personal EUR stake loss on defeat: `min(50%, (level+1)×5%)` recovered. Level 9 = maximum 50% protection.
+
+**Progression:**
+- Only one type equipped at a time (avatar slot).
+- Both types owned simultaneously with independent level counters.
+- Getting the **same** type: equipped level +1 (starts at 0 on first pickup).
+- Getting the **other** type: equipped slot swaps; both levels persist.
+- Winners of a drop Squeeze see a claim prompt — taking it is optional.
+
+```
+first drop  → level 0
+second same → level 1
+third same  → level 2   (no cap)
+```
+
 **Lifecycle:**
 
 ```
 [propose] → 5 min to get 2nd wallet, else cancelled
 [registering] → 5 min join window, defender auto-enrolled
-[battle_start] → snapshot taken, scores computed
-[resolved] → 5s later, stakes applied
+[battle_start] → snapshot taken, scores computed (⚔️ NFTJI included)
+[resolved] → 5s later, stakes applied (🛡️ NFTJI reduces loser loss)
+             → 1/25: ⚔️ or 🛡️ drop available to all winners
 ```
 
 | File | Role |
@@ -476,8 +499,9 @@ Same dice, lower base → SJ9NJ lost ~52% of score vs TK2K8's ~4%. Variance puni
 | `app/api/wallet-pools/dispute/join/route.js` | Additional challenger wallet joins registering window |
 | `app/api/wallet-pools/dispute/cancel/route.js` | Cancels proposing dispute after 5-min timeout |
 | `app/api/wallet-pools/dispute/start-battle/route.js` | Takes snapshot and computes scores after registering window |
-| `app/api/wallet-pools/dispute/resolve/route.js` | Applies EUR stakes 5s after battle_start |
-| `components/DisputesPanel.jsx` | Squeeze cards — real-time lifecycle, scores, wallet deltas |
+| `app/api/wallet-pools/dispute/resolve/route.js` | Applies EUR stakes, defense protection, and drop roll 5s after battle_start |
+| `app/api/wallet-pools/dispute/claim-nftji-drop/route.js` | Winner claims ⚔️/🛡️ NFTJI drop (calls `mm3_squeeze_nftji_take`) |
+| `components/DisputesPanel.jsx` | Squeeze cards — real-time lifecycle, scores, wallet deltas, drop claim UI |
 | `app/squeeze/page.jsx` | Squeeze nav page |
 | `sql/database.sql` | Tables, vote records, wallet snapshots, score functions, lifecycle RPCs |
 
@@ -738,7 +762,7 @@ Read:
 |---|---|
 | Proyecto | MathsMine3 |
 | Versión | `v1.0` |
-| Género | Juego retro de mining matemático |
+| Género | RPG de mining matemático / estrategia de pools — terminal crypto freak |
 | Economía | Token MM3 completamente simulado y ficticio |
 | Identidad | Wallet de Ethereum o wallet virtual determinista de Google |
 | Persistencia | Estado de jugadores, Market, gráfico, chat y eventos en Supabase |
@@ -1106,6 +1130,7 @@ base = (Σnivel / n) × 40
      + (exec_count / n) × 12
      + (nftji_count / n) × 8
      + (market_nftji_count / n) × 15
+     + (⚔️_atk_sum / n) × 20          ← aporte NFTJI Ataque de Squeeze
      - (penalty_count / n) × 20
 ```
 
@@ -1135,17 +1160,39 @@ El dado `🎲` es **determinista por Squeeze**: `hashtext(dispute_id || 'dice')`
 **Resolución:**
 
 - Mayor score gana. Empate si son iguales.
-- Las wallets perdedoras pierden el **100% de su stake**.
-- El **55%** del total perdido → repartido entre las wallets ganadoras.
+- Perdedores sin 🛡️ NFTJI equipado pierden el **100% de su stake**.
+- Perdedores con 🛡️ equipado recuperan `min(50%, (nivel+1)×5%)` de su stake.
+- El **55%** del total de stakes brutos → repartido entre wallets ganadoras.
 - El **45% restante se quema** — extraído de la economía del juego permanentemente.
+
+**NFTJI Squeeze — ⚔️ Ataque & 🛡️ Defensa:**
+
+Dos NFTJIs raros caen exclusivamente en combates Squeeze (probabilidad 1/25 por resolución). A diferencia de los NFTJIs del Market, no se compran ni venden.
+
+- **⚔️ Ataque** — cada wallet con él equipado contribuye `(nivel+1)` unidades al `⚔️_atk_sum` del pool. Peso ×20 en la fórmula base.
+- **🛡️ Defensa** — reduce la pérdida personal de stake en derrota: `min(50%, (nivel+1)×5%)` recuperado. Nivel 9 = protección máxima del 50%.
+
+**Progresión:**
+- Solo un tipo equipado simultáneamente (slot de avatar).
+- Ambos tipos se poseen a la vez con niveles independientes.
+- Recibir el **mismo** tipo: nivel equipado +1 (empieza en 0 en el primer drop).
+- Recibir el **otro** tipo: el slot equipado cambia; ambos niveles se conservan.
+- Los ganadores del Squeeze con drop ven un botón de reclamación — cogerlo es opcional.
+
+```
+primer drop  → nivel 0
+segundo mismo → nivel 1
+tercero mismo → nivel 2   (sin tope)
+```
 
 **Ciclo de vida:**
 
 ```
 [propose] → 5 min para conseguir 2ª wallet, si no → cancelled
 [registering] → 5 min ventana de unión, defensor auto-enrolado
-[battle_start] → snapshot tomado, scores calculados
-[resolved] → 5s después, stakes aplicados
+[battle_start] → snapshot tomado, scores calculados (⚔️ NFTJI incluido)
+[resolved] → 5s después, stakes aplicados (🛡️ NFTJI reduce pérdida)
+             → 1/25: drop ⚔️ o 🛡️ disponible para todos los ganadores
 ```
 
 | Archivo | Función |
@@ -1155,8 +1202,9 @@ El dado `🎲` es **determinista por Squeeze**: `hashtext(dispute_id || 'dice')`
 | `app/api/wallet-pools/dispute/join/route.js` | Wallet adicional del atacante se une en la ventana de registro |
 | `app/api/wallet-pools/dispute/cancel/route.js` | Cancela propuesta expirada tras 5 min |
 | `app/api/wallet-pools/dispute/start-battle/route.js` | Toma snapshot y calcula scores al cerrar el registro |
-| `app/api/wallet-pools/dispute/resolve/route.js` | Aplica stakes EUR 5s después de battle_start |
-| `components/DisputesPanel.jsx` | Tarjetas Squeeze — ciclo de vida en tiempo real, scores, deltas por wallet |
+| `app/api/wallet-pools/dispute/resolve/route.js` | Aplica stakes, protección defensa y tirada de drop 5s después de battle_start |
+| `app/api/wallet-pools/dispute/claim-nftji-drop/route.js` | Ganador reclama drop ⚔️/🛡️ (llama a `mm3_squeeze_nftji_take`) |
+| `components/DisputesPanel.jsx` | Tarjetas Squeeze — ciclo de vida, scores, deltas, UI de drop |
 | `app/squeeze/page.jsx` | Página de Squeeze (entrada en el menú) |
 | `sql/database.sql` | Tablas, votos, snapshots, funciones de score, RPCs del ciclo de vida |
 

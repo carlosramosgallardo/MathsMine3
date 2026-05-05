@@ -60,7 +60,7 @@ function ScoreBar({ chScore, dfScore }) {
   );
 }
 
-function DisputeCard({ dispute, activeWallet, poolCode, language, onJoin, onWalletClick, emojiByWallet }) {
+function DisputeCard({ dispute, activeWallet, poolCode, language, onJoin, onClaimDrop, onWalletClick, emojiByWallet, sqzNftjiByWallet }) {
   const lang = language === 'es' ? 'es' : 'en';
   const statusMeta = STATUS_LABELS[dispute.status] || STATUS_LABELS.resolved;
   const isProposing   = dispute.status === 'proposing';
@@ -277,6 +277,56 @@ function DisputeCard({ dispute, activeWallet, poolCode, language, onJoin, onWall
         </div>
       )}
 
+      {/* Squeeze NFTJI drop claim (resolved with drop, active wallet is winner) */}
+      {isResolved && dispute.drop_type && (() => {
+        const mySlot = registeredWallets.find((w) => w.wallet === activeWallet);
+        if (!mySlot || mySlot.side !== dispute.winner || mySlot.squeeze_nftji_claimed) return null;
+        const isAtk = dispute.drop_type === 'attack';
+        const dropEmoji = isAtk ? '⚔️' : '🛡️';
+        const dropLabel = isAtk
+          ? (lang === 'es' ? 'Ataque' : 'Attack')
+          : (lang === 'es' ? 'Defensa' : 'Defense');
+        return (
+          <div style={{
+            border: `1px solid ${isAtk ? 'rgba(245,158,11,0.5)' : 'rgba(34,211,238,0.5)'}`,
+            borderRadius: 6,
+            padding: '8px 12px',
+            marginBottom: 10,
+            background: isAtk ? 'rgba(245,158,11,0.07)' : 'rgba(34,211,238,0.07)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 10,
+          }}>
+            <span style={{ fontSize: '1.2rem' }}>{dropEmoji}</span>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontWeight: 700, fontSize: '0.82rem', color: isAtk ? '#f59e0b' : '#22d3ee' }}>
+                {lang === 'es' ? `DROP: NFTJI ${dropLabel.toUpperCase()}` : `DROP: ${dropLabel.toUpperCase()} NFTJI`}
+              </div>
+              <div style={{ fontSize: '0.68rem', color: '#64748b', marginTop: 1 }}>
+                {lang === 'es' ? 'Recompensa de victoria — equipa o levea' : 'Victory reward — equip or level up'}
+              </div>
+            </div>
+            <button
+              onClick={() => onClaimDrop(dispute.id, dispute.drop_type)}
+              style={{
+                padding: '4px 14px',
+                borderRadius: 4,
+                border: `1px solid ${isAtk ? 'rgba(245,158,11,0.5)' : 'rgba(34,211,238,0.5)'}`,
+                background: isAtk ? 'rgba(245,158,11,0.12)' : 'rgba(34,211,238,0.12)',
+                color: isAtk ? '#f59e0b' : '#22d3ee',
+                fontSize: '0.78rem',
+                cursor: 'pointer',
+                fontFamily: 'monospace',
+                fontWeight: 700,
+                letterSpacing: '0.06em',
+              }}
+            >
+              {lang === 'es' ? 'COGER' : 'TAKE'}
+            </button>
+          </div>
+        );
+      })()}
+
       {/* Wallet stats tables (not shown for proposing/cancelled) */}
       {(isRegistering || isBattleStart || isResolved) && (
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
@@ -318,6 +368,20 @@ function DisputeCard({ dispute, activeWallet, poolCode, language, onJoin, onWall
                         <span style={{ color: '#64748b' }}>Lv{w.level_snap}</span>
                         {w.has_penalty && <span title={lang === 'es' ? 'Penalización activa' : 'Active penalty'}>⚠️</span>}
                         {emojiByWallet?.[w.wallet] && <span title={`Market NFTJI — ${emojiByWallet[w.wallet]}`}>{emojiByWallet[w.wallet]}</span>}
+                        {(() => {
+                          const sn = sqzNftjiByWallet?.[w.wallet];
+                          if (!sn?.equipped) return null;
+                          const isAtk = sn.equipped === 'attack';
+                          const lvl = isAtk ? sn.attack_level : sn.defense_level;
+                          return (
+                            <span
+                              title={`Squeeze ${isAtk ? 'Attack' : 'Defense'} NFTJI — Lv${lvl}`}
+                              style={{ fontSize: '0.75rem', opacity: 0.9 }}
+                            >
+                              {isAtk ? '⚔️' : '🛡️'}<span style={{ fontFamily: 'monospace', fontSize: '0.6rem', verticalAlign: 'super', color: isAtk ? '#f59e0b' : '#22d3ee' }}>{lvl}</span>
+                            </span>
+                          );
+                        })()}
                         {isResolved && w.delta_eur !== 0 && (
                           <span style={{ marginLeft: 'auto', color: w.delta_eur > 0 ? '#4ade80' : '#f87171', fontFamily: 'monospace' }}>
                             {w.delta_eur > 0 ? '+' : ''}{fmt(w.delta_eur, 4)}€
@@ -347,6 +411,7 @@ function DisputeCard({ dispute, activeWallet, poolCode, language, onJoin, onWall
               { label: 'ΣEUR', ch: fmt(dispute.ch_eur_sum), df: fmt(dispute.df_eur_sum) },
               { label: 'NFTJIs', ch: dispute.ch_nftji_count, df: dispute.df_nftji_count },
               { label: 'Mkt.NFTJI', ch: dispute.ch_market_nftji_count ?? '—', df: dispute.df_market_nftji_count ?? '—' },
+              { label: '⚔️Σatk', ch: dispute.ch_squeeze_atk_sum ?? 0, df: dispute.df_squeeze_atk_sum ?? 0 },
               { label: 'Execs', ch: dispute.ch_exec_count, df: dispute.df_exec_count },
               { label: 'Pen.', ch: dispute.ch_penalty_count, df: dispute.df_penalty_count },
             ].map(({ label, ch, df }) => (
@@ -384,6 +449,8 @@ function DisputeCard({ dispute, activeWallet, poolCode, language, onJoin, onWall
               <span style={{ color: '#22d3ee' }}>(nftjis/n)×8</span>
               {' + '}
               <span style={{ color: '#22d3ee' }}>(market/n)×15</span>
+              {' + '}
+              <span style={{ color: '#f59e0b' }}>(⚔️Σatk/n)×20</span>
               {' - '}
               <span style={{ color: '#f87171' }}>(pen/n)×20</span>
             </div>
@@ -423,6 +490,7 @@ export default function DisputesPanel({ wallet, poolCode, language, onWalletClic
   const [error, setError] = useState(null);
   const [joinBusy, setJoinBusy] = useState(false);
   const [emojiByWallet, setEmojiByWallet] = useState({});
+  const [sqzNftjiByWallet, setSqzNftjiByWallet] = useState({});
   const pollingRef = useRef(null);
   const transitioningRef = useRef(new Set());
 
@@ -443,6 +511,19 @@ export default function DisputesPanel({ wallet, poolCode, language, onWalletClic
     setEmojiByWallet(map);
   }, []);
 
+  // Client-side Squeeze NFTJI lookup (equipped type + levels per wallet)
+  const refreshSqueezeNftji = useCallback(async (disputeList) => {
+    const allWallets = [...new Set(disputeList.flatMap((d) => (d.wallets || []).map((w) => w.wallet)))];
+    if (!allWallets.length) return;
+    const { data } = await supabase
+      .from('mm3_squeeze_nftji')
+      .select('wallet, equipped, attack_level, defense_level')
+      .in('wallet', allWallets);
+    const map = {};
+    for (const n of data || []) map[n.wallet] = n;
+    setSqzNftjiByWallet(map);
+  }, []);
+
   const fetchDisputes = useCallback(async () => {
     try {
       const res = await fetch('/api/wallet-pools/disputes?limit=50');
@@ -450,13 +531,14 @@ export default function DisputesPanel({ wallet, poolCode, language, onWalletClic
       if (data.ok) {
         setDisputes(data.disputes || []);
         refreshEmojis(data.disputes || []);
+        refreshSqueezeNftji(data.disputes || []);
       } else setError(data.error || 'fetch_error');
     } catch {
       setError('network_error');
     } finally {
       setIsLoading(false);
     }
-  }, [refreshEmojis]);
+  }, [refreshEmojis, refreshSqueezeNftji]);
 
 
   // Poll every 3 seconds; trigger state transitions when timers expire
@@ -520,6 +602,19 @@ export default function DisputesPanel({ wallet, poolCode, language, onWalletClic
   useEffect(() => {
     if (disputes.length > 0) checkTransitions(disputes);
   }, [disputes, checkTransitions]);
+
+  async function handleClaimDrop(disputeId) {
+    if (!wallet) return;
+    try {
+      const res = await fetch('/api/wallet-pools/dispute/claim-nftji-drop', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ disputeId, wallet }),
+      });
+      const data = await res.json();
+      if (data.ok) await fetchDisputes();
+    } catch { /* ignore */ }
+  }
 
   async function handleJoin(disputeId) {
     if (!wallet || joinBusy) return;
@@ -587,8 +682,10 @@ export default function DisputesPanel({ wallet, poolCode, language, onWalletClic
           poolCode={poolCode}
           language={language}
           onJoin={handleJoin}
+          onClaimDrop={handleClaimDrop}
           onWalletClick={onWalletClick}
           emojiByWallet={emojiByWallet}
+          sqzNftjiByWallet={sqzNftjiByWallet}
         />
       ))}
 
