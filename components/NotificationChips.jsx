@@ -199,7 +199,7 @@ export default function NotificationChips() {
   if (!activeWallet || (invites.length === 0 && proposingDisputes.length === 0)) return null;
 
   return (
-    <div className="flex flex-wrap items-center gap-2 border-b border-cyan-900/10 px-3 py-1 sm:px-4">
+    <div className="flex flex-wrap items-center justify-center gap-2 border-b border-cyan-900/10 px-3 py-1 sm:px-4">
       {invites.map((invite) => {
         const isJoinRequest = myPool && String(invite.pool_code).toUpperCase() === String(myPool).toUpperCase();
         const busy = acceptBusy === invite.id || declineBusy === invite.id;

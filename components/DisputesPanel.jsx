@@ -270,10 +270,6 @@ function DisputeCard({ dispute, activeWallet, poolCode, language, onJoin, onWall
                 <span style={{ color: '#4ade80' }}>
                   {fmt(dispute.result_summary.transfer_eur, 4)} EUR
                 </span>
-                {' + '}
-                <span style={{ color: '#f59e0b' }}>
-                  {fmt(dispute.result_summary.transfer_mm3, 4)} MM3
-                </span>
               </div>
             )}
           </div>
@@ -430,12 +426,31 @@ function DisputeCard({ dispute, activeWallet, poolCode, language, onJoin, onWall
   );
 }
 
+const SQUEEZE_NFTJI_INFO = {
+  'sq-def': { emoji: '🔰', name: { es: 'Void Ward', en: 'Void Ward' } },
+  'sq-atk': { emoji: '⚔️', name: { es: 'Chaos Blade', en: 'Chaos Blade' } },
+};
+
+function RewardCountdown({ expiresAt }) {
+  const [remaining, setRemaining] = useState(() => Math.max(0, new Date(expiresAt).getTime() - Date.now()));
+  useEffect(() => {
+    const t = setInterval(() => setRemaining(Math.max(0, new Date(expiresAt).getTime() - Date.now())), 1000);
+    return () => clearInterval(t);
+  }, [expiresAt]);
+  const h = Math.floor(remaining / 3_600_000);
+  const m = Math.floor((remaining % 3_600_000) / 60_000);
+  const s = Math.floor((remaining % 60_000) / 1_000);
+  return <span>{String(h).padStart(2, '0')}:{String(m).padStart(2, '0')}:{String(s).padStart(2, '0')}</span>;
+}
+
 export default function DisputesPanel({ wallet, poolCode, language, onWalletClick }) {
   const lang = language === 'es' ? 'es' : 'en';
   const [disputes, setDisputes] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [joinBusy, setJoinBusy] = useState(false);
+  const [pendingRewards, setPendingRewards] = useState([]);
+  const [claimBusy, setClaimBusy] = useState('');
   const pollingRef = useRef(null);
   const transitioningRef = useRef(new Set());
 
@@ -451,6 +466,34 @@ export default function DisputesPanel({ wallet, poolCode, language, onWalletClic
       setIsLoading(false);
     }
   }, []);
+
+  const fetchRewards = useCallback(async () => {
+    if (!wallet) { setPendingRewards([]); return; }
+    try {
+      const res = await fetch(`/api/wallet-pools/dispute/claim-nftji?wallet=${encodeURIComponent(wallet)}`);
+      const data = await res.json();
+      if (data.ok) setPendingRewards(data.rewards || []);
+    } catch { /* silent */ }
+  }, [wallet]);
+
+  async function handleClaim(rewardId) {
+    if (!wallet || claimBusy) return;
+    setClaimBusy(String(rewardId));
+    try {
+      const res = await fetch('/api/wallet-pools/dispute/claim-nftji', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ wallet, rewardId }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        setPendingRewards((prev) => prev.filter((r) => r.id !== rewardId));
+        window.dispatchEvent(new CustomEvent('mm3-db-updated'));
+      }
+    } finally {
+      setClaimBusy('');
+    }
+  }
 
   // Poll every 3 seconds; trigger state transitions when timers expire
   const checkTransitions = useCallback(async (disputeList) => {
@@ -510,6 +553,12 @@ export default function DisputesPanel({ wallet, poolCode, language, onWalletClic
   }, [fetchDisputes]);
 
   useEffect(() => {
+    fetchRewards();
+    const t = setInterval(fetchRewards, 15_000);
+    return () => clearInterval(t);
+  }, [fetchRewards]);
+
+  useEffect(() => {
     if (disputes.length > 0) checkTransitions(disputes);
   }, [disputes, checkTransitions]);
 
@@ -564,6 +613,44 @@ export default function DisputesPanel({ wallet, poolCode, language, onWalletClic
           {activeDisputes.length > 0 ? `${activeDisputes.length} ${lang === 'es' ? 'activo(s)' : 'active'}` : lang === 'es' ? 'sin combates activos' : 'none active'}
         </span>
       </div>
+
+      {pendingRewards.length > 0 && (
+        <div style={{ marginBottom: 12 }}>
+          {pendingRewards.map((reward) => {
+            const info = SQUEEZE_NFTJI_INFO[reward.nftji_key];
+            if (!info) return null;
+            const isBusy = claimBusy === String(reward.id);
+            return (
+              <div key={reward.id} style={{
+                display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap',
+                background: 'rgba(167,139,250,0.08)', border: '1px solid rgba(167,139,250,0.35)',
+                borderRadius: 6, padding: '6px 10px', marginBottom: 6,
+                fontFamily: 'monospace', fontSize: '0.75rem',
+              }}>
+                <span style={{ fontSize: '1.1rem' }}>{info.emoji}</span>
+                <span style={{ color: '#c4b5fd', fontWeight: 700 }}>{info.name[lang]}</span>
+                <span style={{ color: '#64748b' }}>
+                  {lang === 'es' ? 'expira en' : 'expires in'} <RewardCountdown expiresAt={reward.expires_at} />
+                </span>
+                <button
+                  type="button"
+                  onClick={() => handleClaim(reward.id)}
+                  disabled={isBusy}
+                  style={{
+                    marginLeft: 'auto', padding: '2px 10px', border: '1px solid rgba(167,139,250,0.5)',
+                    borderRadius: 4, background: 'rgba(167,139,250,0.15)', color: '#c4b5fd',
+                    fontFamily: 'monospace', fontSize: '0.7rem', fontWeight: 700,
+                    cursor: isBusy ? 'not-allowed' : 'pointer', opacity: isBusy ? 0.5 : 1,
+                    letterSpacing: '0.08em', textTransform: 'uppercase',
+                  }}
+                >
+                  {isBusy ? '...' : lang === 'es' ? 'Reclamar' : 'Claim'}
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       {activeDisputes.length === 0 && historyDisputes.length === 0 && (
         <div style={{ color: '#475569', fontSize: '0.8rem', textAlign: 'center', padding: '24px 0' }}>

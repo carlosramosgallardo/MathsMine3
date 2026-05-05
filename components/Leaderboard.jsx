@@ -29,6 +29,16 @@ function formatCompactMoney(value, currency) {
   return (n < 0 ? '-' : '') + formatMoney(abs, currency);
 }
 
+function formatCompactMm3(value) {
+  const n = Number(value) || 0;
+  const abs = Math.abs(n);
+  const sign = n < 0 ? '-' : '';
+  if (abs >= 1_000_000_000) return `${sign}${(abs / 1_000_000_000).toFixed(1)}B`;
+  if (abs >= 1_000_000)     return `${sign}${(abs / 1_000_000).toFixed(1)}M`;
+  if (abs >= 1_000)         return `${sign}${(abs / 1_000).toFixed(1)}k`;
+  return `${sign}${abs.toFixed(2)}`;
+}
+
 function toCnyFromEur(value) {
   return Number(value || 0) / CNY_TO_EUR;
 }
@@ -1156,6 +1166,19 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
                 >
                   #{entry.pool_code}
                 </button>
+                {activeWallet && activeWalletPool &&
+                  String(entry.pool_code).toUpperCase() !== String(activeWalletPool).toUpperCase() &&
+                  activeDisputePairs.size === 0 ? (
+                  <button
+                    type="button"
+                    onClick={() => handleDisputeVote(entry.pool_code)}
+                    disabled={disputeBusy === entry.pool_code}
+                    className="shrink-0 rounded border border-amber-400/30 bg-amber-950/15 px-1.5 py-0.5 text-[0.58rem] font-black uppercase tracking-[0.12em] text-amber-300 transition hover:border-amber-300 hover:text-amber-100 disabled:cursor-not-allowed disabled:opacity-40"
+                    title={labels.disputeTitle}
+                  >
+                    {disputeBusy === entry.pool_code ? '...' : labels.dispute}
+                  </button>
+                ) : null}
                 <span className="lb-status-chip online shrink-0">{entry.member_count} {labels.members}</span>
               </div>
               <div className="grid grid-cols-3 gap-1 text-[0.78rem] uppercase tracking-[0.1em] text-cyan-700">
@@ -1203,7 +1226,7 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
                 </div>
                 <div className="rounded border border-cyan-500/10 bg-black/60 px-1.5 py-1">
                   <div>{t('leaderboard.mm3Earned')}</div>
-                  <div className="mt-0.5 font-mono text-[0.86rem] font-semibold tracking-normal text-cyan-300">{Number(entry.available_mm3 || 0).toFixed(2)}</div>
+                  <div className="mt-0.5 font-mono text-[0.86rem] font-semibold tracking-normal text-cyan-300">{formatCompactMm3(entry.available_mm3)}</div>
                 </div>
                 <div className="col-span-2 rounded border border-cyan-500/10 bg-black/60 px-1.5 py-1">
                   <div>{t('leaderboard.sellValue')}</div>
@@ -1286,19 +1309,6 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
                     <span className="text-[0.5rem] uppercase tracking-[0.1em] text-slate-700">{t('leaderboard.none')}</span>
                   ) : null}
                 </div>
-                {activeWallet && activeWalletPool &&
-                  String(entry.pool_code).toUpperCase() !== String(activeWalletPool).toUpperCase() &&
-                  activeDisputePairs.size === 0 ? (
-                  <button
-                    type="button"
-                    onClick={() => handleDisputeVote(entry.pool_code)}
-                    disabled={disputeBusy === entry.pool_code}
-                    className="ml-auto shrink-0 rounded border border-amber-400/30 bg-amber-950/15 px-1.5 py-0.5 text-[0.58rem] font-black uppercase tracking-[0.12em] text-amber-300 transition hover:border-amber-300 hover:text-amber-100 disabled:cursor-not-allowed disabled:opacity-40"
-                    title={labels.disputeTitle}
-                  >
-                    {disputeBusy === entry.pool_code ? '...' : labels.dispute}
-                  </button>
-                ) : null}
               </div>
             </article>
           );
@@ -1381,7 +1391,7 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
                 </div>
                 <div className="rounded border border-cyan-500/10 bg-black/60 px-1.5 py-1">
                   <div>{t('leaderboard.mm3Earned')}</div>
-                  <div className="mt-0.5 font-mono text-[0.86rem] font-semibold tracking-normal text-cyan-300">{Number(entry.available_mm3 || 0).toFixed(2)}</div>
+                  <div className="mt-0.5 font-mono text-[0.86rem] font-semibold tracking-normal text-cyan-300">{formatCompactMm3(entry.available_mm3)}</div>
                 </div>
                 <div className="col-span-2 rounded border border-cyan-500/10 bg-black/60 px-1.5 py-1">
                   <div>{t('leaderboard.sellValue')}</div>
@@ -1503,7 +1513,6 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
                 <th style={{ width:'8%', textAlign:'center' }}><SortButton sortKey="rank" className="justify-center">{t('leaderboard.rank')}</SortButton></th>
                 <th style={{ width:'11%', textAlign:'right', paddingRight:'1rem' }}><SortButton sortKey="available_mm3" className="justify-end">{t('leaderboard.mm3Earned')}</SortButton></th>
                 <th style={{ width:'12%', textAlign:'right', paddingRight:'1rem' }}><SortButton sortKey="money" className="justify-end">{t('leaderboard.sellValue')}</SortButton></th>
-                <th style={{ width:'8%', textAlign:'center' }}></th>
               </tr>
             ) : (
               <tr>
@@ -1513,7 +1522,7 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
                 <th style={{ width:'8%', textAlign:'center' }}><SortButton sortKey="pool" className="justify-center">{labels.pool}</SortButton></th>
                 <th style={{ width:'13%', textAlign:'center' }} title="NTFJIs — probability artifacts that influence MM3 global value"><SortButton sortKey="nftji" className="justify-center">NTFJIs</SortButton></th>
                 <th style={{ width:'7%', textAlign:'center' }}><SortButton sortKey="execs" className="justify-center">{t('leaderboard.execs')}</SortButton></th>
-                <th style={{ width:'11%', textAlign:'center' }}><SortButton sortKey="block" className="justify-center">{t('leaderboard.blockPenalty')}</SortButton></th>
+                <th style={{ width:'11%', textAlign:'center' }}><SortButton sortKey="block" className="justify-center">Pen.</SortButton></th>
                 <th style={{ width:'6%', textAlign:'center' }}><SortButton sortKey="level" className="justify-center">{t('leaderboard.level')}</SortButton></th>
                 <th style={{ width:'7%', textAlign:'center' }}><SortButton sortKey="rank" className="justify-center">{t('leaderboard.rank')}</SortButton></th>
                 <th style={{ width:'9%', textAlign:'right', paddingRight:'1rem' }}><SortButton sortKey="available_mm3" className="justify-end">{t('leaderboard.mm3Earned')}</SortButton></th>
@@ -1550,17 +1559,32 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
                     <span className={`rank-badge ${rankCls}`} title={placement.title}>{placement.label}</span>
                   </td>
                   <td>
-                    <button
-                      type="button"
-                      onClick={showWalletRanking}
-                      className="font-mono font-black text-[0.95rem] text-emerald-300 transition hover:underline focus:outline-none"
-                      title={`${entry.member_count} ${labels.members}`}
-                    >
-                      #{entry.pool_code}
-                    </button>
-                    <span className="ml-2 text-[0.62rem] uppercase tracking-[0.12em] text-slate-600">
-                      {entry.member_count} {labels.members}
-                    </span>
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={showWalletRanking}
+                        className="font-mono font-black text-[0.95rem] text-emerald-300 transition hover:underline focus:outline-none"
+                        title={`${entry.member_count} ${labels.members}`}
+                      >
+                        #{entry.pool_code}
+                      </button>
+                      <span className="text-[0.62rem] uppercase tracking-[0.12em] text-slate-600">
+                        {entry.member_count} {labels.members}
+                      </span>
+                      {activeWallet && activeWalletPool &&
+                        String(entry.pool_code).toUpperCase() !== String(activeWalletPool).toUpperCase() &&
+                        activeDisputePairs.size === 0 ? (
+                        <button
+                          type="button"
+                          onClick={() => handleDisputeVote(entry.pool_code)}
+                          disabled={disputeBusy === entry.pool_code}
+                          className="rounded border border-amber-400/30 bg-amber-950/15 px-2 py-0.5 font-mono text-[0.62rem] font-black uppercase tracking-[0.1em] text-amber-300 transition hover:border-amber-300 hover:text-amber-100 disabled:cursor-not-allowed disabled:opacity-40"
+                          title={labels.disputeTitle}
+                        >
+                          {disputeBusy === entry.pool_code ? '...' : labels.dispute}
+                        </button>
+                      ) : null}
+                    </div>
                   </td>
                   <td>
                     <div className="flex flex-wrap items-center justify-center gap-1 text-[0.8rem] uppercase tracking-[0.08em] text-cyan-300">
@@ -1671,28 +1695,13 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
                   </td>
                   <td style={{ textAlign:'right', paddingRight:'1rem' }}>
                     <span className="text-[#22d3ee] font-mono font-semibold text-[0.86rem]">
-                      {Number(entry.available_mm3 || 0).toFixed(2)}
+                      {formatCompactMm3(entry.available_mm3)}
                     </span>
                   </td>
                   <td style={{ textAlign:'right', paddingRight:'1rem' }}>
                     <span className="whitespace-nowrap font-mono font-semibold text-emerald-300 text-[0.86rem]">
                       {formatCompactMoney(sellValue, quoteCurrency)}
                     </span>
-                  </td>
-                  <td style={{ textAlign:'center' }}>
-                    {activeWallet && activeWalletPool &&
-                      String(entry.pool_code).toUpperCase() !== String(activeWalletPool).toUpperCase() &&
-                      activeDisputePairs.size === 0 ? (
-                      <button
-                        type="button"
-                        onClick={() => handleDisputeVote(entry.pool_code)}
-                        disabled={disputeBusy === entry.pool_code}
-                        className="rounded border border-amber-400/30 bg-amber-950/15 px-2 py-0.5 font-mono text-[0.62rem] font-black uppercase tracking-[0.1em] text-amber-300 transition hover:border-amber-300 hover:text-amber-100 disabled:cursor-not-allowed disabled:opacity-40"
-                        title={labels.disputeTitle}
-                      >
-                        {disputeBusy === entry.pool_code ? '...' : labels.dispute}
-                      </button>
-                    ) : null}
                   </td>
                 </tr>
               );
@@ -1841,47 +1850,27 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
                   </td>
                   <td style={{ textAlign:'center' }}>
                     <div className="flex flex-wrap items-center justify-center gap-1">
-                      {marketBlocks.length > 0 ? marketBlocks.map((block) => (
-                        <button
-                          key={block.block_key}
-                          type="button"
-                          onClick={() => openMarketBlock(block.block_key)}
-                          title={`${block.emoji} ${block.hex}`}
-                          className="lb-block-cell relative flex items-center justify-center rounded-md border text-[0.95rem] transition hover:border-cyan-300 hover:text-cyan-100"
-                          style={{
-                            borderColor: 'rgba(250,204,21,0.3)',
-                            background: 'rgba(2,6,23,0.68)',
-                            color: '#fef08a',
-                            boxShadow: '0 0 10px rgba(250,204,21,0.12)',
-                          }}
-                        >
-                          <span>{block.emoji}</span>
-                          <span className="absolute bottom-[1px] right-[2px] text-[0.44rem] font-black tracking-[0.08em] text-cyan-100/90">
-                            {block.hex.replace('#', '')}
-                          </span>
-                        </button>
-                      )) : null}
                       {activePenalty?.mm3 ? (
                         <button
                           type="button"
                           onClick={() => openMarketBlock(activePenalty.mm3.nftji_key)}
-                          className="lb-penalty-link rounded border border-rose-400/30 bg-rose-950/20 px-1.5 py-1 font-mono text-[0.76rem] font-black text-rose-300"
+                          className="lb-penalty-link rounded border border-rose-400/30 bg-rose-950/20 px-1.5 py-1 font-mono text-[0.72rem] font-black text-rose-300"
                           title={activePenalty.mm3.block ? `${activePenalty.mm3.block.emoji} ${activePenalty.mm3.block.hex}` : activePenalty.mm3.nftji_key}
                         >
-                          -{Number(activePenalty.mm3.penalty_value || 0).toFixed(8).replace(/\.?0+$/, '') || '0'} MM3
+                          {activePenalty.mm3.block?.hex || ''} -{formatCompactMm3(activePenalty.mm3.penalty_value)} MM3
                         </button>
                       ) : null}
                       {activePenalty?.money ? (
                         <button
                           type="button"
                           onClick={() => openMarketBlock(activePenalty.money.nftji_key)}
-                          className="lb-penalty-link rounded border border-amber-400/30 bg-amber-950/20 px-1.5 py-1 font-mono text-[0.76rem] font-black text-amber-300"
+                          className="lb-penalty-link rounded border border-amber-400/30 bg-amber-950/20 px-1.5 py-1 font-mono text-[0.72rem] font-black text-amber-300"
                           title={activePenalty.money.block ? `${activePenalty.money.block.emoji} ${activePenalty.money.block.hex}` : activePenalty.money.nftji_key}
                         >
-                          -{convertPenaltyEur(activePenalty.money.penalty_eur || activePenalty.money.penalty_value || 0, quoteCurrency).toFixed(8).replace(/\.?0+$/, '') || '0'} {quoteCurrency}
+                          {activePenalty.money.block?.hex || ''} {formatCompactMoney(-convertPenaltyEur(activePenalty.money.penalty_eur || activePenalty.money.penalty_value || 0, quoteCurrency), quoteCurrency)}
                         </button>
                       ) : null}
-                      {marketBlocks.length === 0 && !activePenalty?.mm3 && !activePenalty?.money ? (
+                      {!activePenalty?.mm3 && !activePenalty?.money ? (
                         <span className="text-[0.75rem] uppercase tracking-[0.12em] text-slate-600">{t('leaderboard.none')}</span>
                       ) : null}
                     </div>
@@ -1898,7 +1887,7 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
                   </td>
                   <td style={{ textAlign:'right', paddingRight:'1rem' }}>
                     <span className="text-[#22d3ee] font-mono font-semibold text-[0.86rem]">
-                      {Number(entry.available_mm3 || 0).toFixed(2)}
+                      {formatCompactMm3(entry.available_mm3)}
                     </span>
                   </td>
                   <td style={{ textAlign:'right', paddingRight:'1rem' }}>

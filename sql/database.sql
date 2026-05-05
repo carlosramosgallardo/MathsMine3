@@ -1057,6 +1057,26 @@ END;
 $$;
 
 -- ==============================================
+-- TABLE: squeeze NFTJI rewards (1/25 chance per winning wallet)
+-- ==============================================
+
+CREATE TABLE IF NOT EXISTS mm3_squeeze_nftji_rewards (
+  id          BIGSERIAL PRIMARY KEY,
+  wallet      TEXT          NOT NULL,
+  dispute_id  BIGINT        NOT NULL REFERENCES mm3_pool_disputes(id) ON DELETE CASCADE,
+  nftji_key   TEXT          NOT NULL CHECK (nftji_key IN ('sq-def', 'sq-atk')),
+  expires_at  TIMESTAMPTZ   NOT NULL,
+  claimed_at  TIMESTAMPTZ,
+  created_at  TIMESTAMPTZ   NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_squeeze_nftji_rewards_wallet
+  ON mm3_squeeze_nftji_rewards(wallet);
+CREATE INDEX IF NOT EXISTS idx_squeeze_nftji_rewards_unclaimed
+  ON mm3_squeeze_nftji_rewards(wallet, expires_at)
+  WHERE claimed_at IS NULL;
+
+-- ==============================================
 -- FUNCTION: resolve dispute (called 5s after battle_start)
 -- ==============================================
 
@@ -1066,18 +1086,14 @@ LANGUAGE plpgsql
 SECURITY DEFINER
 AS $$
 DECLARE
-  v_dispute         RECORD;
-  v_winner          TEXT;
-  v_loser_side      TEXT;
-  v_winner_side     TEXT;
-  v_loser_eur_total NUMERIC;
-  v_loser_mm3_total NUMERIC;
-  v_winner_n        INT;
-  v_transfer_eur    NUMERIC;
-  v_transfer_mm3    NUMERIC;
-  v_per_eur         NUMERIC;
-  v_per_mm3         NUMERIC;
-  v_summary         JSONB;
+  v_dispute      RECORD;
+  v_winner       TEXT;
+  v_loser_side   TEXT;
+  v_winner_side  TEXT;
+  v_winner_n     INT;
+  v_transfer_eur NUMERIC;
+  v_per_eur      NUMERIC;
+  v_summary      JSONB;
 BEGIN
   SELECT * INTO v_dispute FROM mm3_pool_disputes WHERE id = p_dispute_id;
 
@@ -1103,44 +1119,52 @@ BEGIN
   END IF;
 
   IF v_winner <> 'draw' THEN
-    -- 55% of loser stakes transferred to winner pool
-    SELECT
-      COALESCE(SUM(eur_stake), 0) * 0.55,
-      COALESCE(SUM(mm3_stake), 0) * 0.55
-    INTO v_transfer_eur, v_transfer_mm3
+    -- 55% of loser money stakes transferred to winner pool (MM3 is never at stake)
+    SELECT COALESCE(SUM(eur_stake), 0) * 0.55
+    INTO v_transfer_eur
     FROM mm3_pool_dispute_wallets
     WHERE dispute_id = p_dispute_id AND side = v_loser_side;
 
-    -- Loser wallets lose 100% of their stake
+    -- Loser wallets lose 100% of their money stake
     UPDATE mm3_pool_dispute_wallets SET
       delta_eur = -eur_stake,
-      delta_mm3 = -mm3_stake
+      delta_mm3 = 0
     WHERE dispute_id = p_dispute_id AND side = v_loser_side;
 
-    -- Winner wallets gain proportional share of transferred stakes
+    -- Winner wallets gain proportional share of transferred money
     SELECT COUNT(*) INTO v_winner_n
     FROM mm3_pool_dispute_wallets
     WHERE dispute_id = p_dispute_id AND side = v_winner_side;
 
     IF v_winner_n > 0 THEN
       v_per_eur := ROUND(v_transfer_eur / v_winner_n, 6);
-      v_per_mm3 := ROUND(v_transfer_mm3 / v_winner_n, 6);
 
       UPDATE mm3_pool_dispute_wallets SET
         delta_eur = v_per_eur,
-        delta_mm3 = v_per_mm3
+        delta_mm3 = 0
       WHERE dispute_id = p_dispute_id AND side = v_winner_side;
     END IF;
 
-    -- Apply deltas to player_progress
+    -- Apply money deltas to player_progress (MM3 never changes via squeeze)
     UPDATE player_progress pp SET
       eur_earned = GREATEST(0, pp.eur_earned + dw.delta_eur),
-      mm3_sold   = GREATEST(0, pp.mm3_sold   + dw.delta_mm3),
       updated_at = NOW()
     FROM mm3_pool_dispute_wallets dw
     WHERE dw.dispute_id = p_dispute_id
       AND dw.wallet = pp.wallet
-      AND (dw.delta_eur <> 0 OR dw.delta_mm3 <> 0);
+      AND dw.delta_eur <> 0;
+
+    -- 1/25 chance per winning wallet to earn a squeeze NFTJI reward (24h claimable)
+    INSERT INTO mm3_squeeze_nftji_rewards (wallet, dispute_id, nftji_key, expires_at)
+    SELECT
+      dw.wallet,
+      p_dispute_id,
+      CASE WHEN random() < 0.5 THEN 'sq-def' ELSE 'sq-atk' END,
+      NOW() + INTERVAL '24 hours'
+    FROM mm3_pool_dispute_wallets dw
+    WHERE dw.dispute_id = p_dispute_id
+      AND dw.side = v_winner_side
+      AND random() < 0.04;
   END IF;
 
   -- Build result summary
@@ -1154,14 +1178,14 @@ BEGIN
     'ch_wallet_count', v_dispute.ch_wallet_count,
     'df_wallet_count', v_dispute.df_wallet_count,
     'transfer_eur',    COALESCE(v_transfer_eur, 0),
-    'transfer_mm3',    COALESCE(v_transfer_mm3, 0)
+    'transfer_mm3',    0
   );
 
   -- Finalize dispute
   UPDATE mm3_pool_disputes SET
-    status       = 'resolved',
-    resolved_at  = NOW(),
-    winner       = v_winner,
+    status         = 'resolved',
+    resolved_at    = NOW(),
+    winner         = v_winner,
     result_summary = v_summary
   WHERE id = p_dispute_id;
 
@@ -1695,5 +1719,20 @@ SELECT update_leaderboard();
 -- ALTER TABLE mm3_pool_disputes ADD COLUMN IF NOT EXISTS ch_squeeze_nftji_count INT NOT NULL DEFAULT 0;
 -- ALTER TABLE mm3_pool_disputes ADD COLUMN IF NOT EXISTS df_squeeze_nftji_count INT NOT NULL DEFAULT 0;
 -- CREATE INDEX IF NOT EXISTS idx_player_progress_squeeze_nftji_key ON player_progress(squeeze_nftji_key) WHERE squeeze_nftji_key IS NOT NULL;
+
+-- ==============================================
+-- MIGRATION: Squeeze NFTJI rewards table (run on existing DBs)
+-- ==============================================
+-- CREATE TABLE IF NOT EXISTS mm3_squeeze_nftji_rewards (
+--   id          BIGSERIAL PRIMARY KEY,
+--   wallet      TEXT        NOT NULL,
+--   dispute_id  BIGINT      NOT NULL REFERENCES mm3_pool_disputes(id) ON DELETE CASCADE,
+--   nftji_key   TEXT        NOT NULL CHECK (nftji_key IN ('sq-def', 'sq-atk')),
+--   expires_at  TIMESTAMPTZ NOT NULL,
+--   claimed_at  TIMESTAMPTZ,
+--   created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+-- );
+-- CREATE INDEX IF NOT EXISTS idx_squeeze_nftji_rewards_wallet ON mm3_squeeze_nftji_rewards(wallet);
+-- CREATE INDEX IF NOT EXISTS idx_squeeze_nftji_rewards_unclaimed ON mm3_squeeze_nftji_rewards(wallet, expires_at) WHERE claimed_at IS NULL;
 
 COMMIT;
