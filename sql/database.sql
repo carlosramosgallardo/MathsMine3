@@ -116,8 +116,6 @@ CREATE TABLE player_progress (
   market_nftji_key TEXT,
   market_nftji_price NUMERIC NOT NULL DEFAULT 0,
   market_nftji_since TIMESTAMPTZ,
-  squeeze_nftji_key TEXT,
-  squeeze_nftji_since TIMESTAMPTZ,
   life_used BOOLEAN NOT NULL DEFAULT FALSE,
   lucky_50_claimed BOOLEAN NOT NULL DEFAULT FALSE,
   lucky_100_claimed BOOLEAN NOT NULL DEFAULT FALSE,
@@ -192,7 +190,6 @@ CREATE TABLE mm3_pool_disputes (
   ch_eur_sum            NUMERIC NOT NULL DEFAULT 0,
   ch_nftji_count           INT NOT NULL DEFAULT 0,
   ch_market_nftji_count    INT NOT NULL DEFAULT 0,
-  ch_squeeze_nftji_count   INT NOT NULL DEFAULT 0,
   ch_penalty_count         INT NOT NULL DEFAULT 0,
   ch_exec_count            INT NOT NULL DEFAULT 0,
   ch_score                 NUMERIC,
@@ -202,7 +199,6 @@ CREATE TABLE mm3_pool_disputes (
   df_eur_sum               NUMERIC NOT NULL DEFAULT 0,
   df_nftji_count           INT NOT NULL DEFAULT 0,
   df_market_nftji_count    INT NOT NULL DEFAULT 0,
-  df_squeeze_nftji_count   INT NOT NULL DEFAULT 0,
   df_penalty_count         INT NOT NULL DEFAULT 0,
   df_exec_count         INT NOT NULL DEFAULT 0,
   df_score              NUMERIC,
@@ -235,7 +231,6 @@ CREATE TABLE mm3_pool_dispute_wallets (
   exec_snap       INT     NOT NULL DEFAULT 0,
   nftji_snap      INT     NOT NULL DEFAULT 0,
   market_nftji_snap TEXT,
-  squeeze_nftji_snap TEXT,
   has_penalty     BOOLEAN NOT NULL DEFAULT FALSE,
   eur_stake       NUMERIC NOT NULL DEFAULT 0,
   mm3_stake       NUMERIC NOT NULL DEFAULT 0,
@@ -689,10 +684,12 @@ BEGIN
   END IF;
 
   SELECT EXISTS(
-    SELECT 1 FROM mm3_pool_dispute_votes
-    WHERE challenger_pool_code = p_challenger_pool
-      AND defender_pool_code = p_defender_pool
-      AND wallet = p_wallet
+    SELECT 1 FROM mm3_pool_dispute_votes v
+    LEFT JOIN mm3_pool_disputes d ON d.id = v.dispute_id
+    WHERE v.challenger_pool_code = p_challenger_pool
+      AND v.defender_pool_code = p_defender_pool
+      AND v.wallet = p_wallet
+      AND (v.dispute_id IS NULL OR d.status IN ('proposing', 'registering', 'battle_start'))
   ) INTO v_already_voted;
 
   IF v_already_voted THEN
@@ -1057,25 +1054,6 @@ END;
 $$;
 
 -- ==============================================
--- TABLE: squeeze NFTJI rewards (1/25 chance per winning wallet)
--- ==============================================
-
-CREATE TABLE IF NOT EXISTS mm3_squeeze_nftji_rewards (
-  id          BIGSERIAL PRIMARY KEY,
-  wallet      TEXT          NOT NULL,
-  dispute_id  BIGINT        NOT NULL REFERENCES mm3_pool_disputes(id) ON DELETE CASCADE,
-  nftji_key   TEXT          NOT NULL CHECK (nftji_key IN ('sq-def', 'sq-atk')),
-  expires_at  TIMESTAMPTZ   NOT NULL,
-  claimed_at  TIMESTAMPTZ,
-  created_at  TIMESTAMPTZ   NOT NULL DEFAULT NOW()
-);
-
-CREATE INDEX IF NOT EXISTS idx_squeeze_nftji_rewards_wallet
-  ON mm3_squeeze_nftji_rewards(wallet);
-CREATE INDEX IF NOT EXISTS idx_squeeze_nftji_rewards_unclaimed
-  ON mm3_squeeze_nftji_rewards(wallet, expires_at)
-  WHERE claimed_at IS NULL;
-
 -- ==============================================
 -- FUNCTION: resolve dispute (called 5s after battle_start)
 -- ==============================================
@@ -1154,17 +1132,6 @@ BEGIN
       AND dw.wallet = pp.wallet
       AND dw.delta_eur <> 0;
 
-    -- 1/25 chance per winning wallet to earn a squeeze NFTJI reward (24h claimable)
-    INSERT INTO mm3_squeeze_nftji_rewards (wallet, dispute_id, nftji_key, expires_at)
-    SELECT
-      dw.wallet,
-      p_dispute_id,
-      CASE WHEN random() < 0.5 THEN 'sq-def' ELSE 'sq-atk' END,
-      NOW() + INTERVAL '24 hours'
-    FROM mm3_pool_dispute_wallets dw
-    WHERE dw.dispute_id = p_dispute_id
-      AND dw.side = v_winner_side
-      AND random() < 0.04;
   END IF;
 
   -- Build result summary
@@ -1180,6 +1147,9 @@ BEGIN
     'transfer_eur',    COALESCE(v_transfer_eur, 0),
     'transfer_mm3',    0
   );
+
+  -- Clean up votes so participants can propose again later
+  DELETE FROM mm3_pool_dispute_votes WHERE dispute_id = p_dispute_id;
 
   -- Finalize dispute
   UPDATE mm3_pool_disputes SET
@@ -1222,6 +1192,9 @@ BEGIN
   UPDATE mm3_pool_disputes
   SET status = 'cancelled', cancelled_at = NOW()
   WHERE id = p_dispute_id;
+
+  -- Clean up votes so participants can propose again later
+  DELETE FROM mm3_pool_dispute_votes WHERE dispute_id = p_dispute_id;
 
   RETURN jsonb_build_object('ok', true);
 END;
@@ -1709,30 +1682,5 @@ GRANT SELECT ON token_value_timeseries TO anon;
 -- ==============================================
 
 SELECT update_leaderboard();
-
--- ==============================================
--- MIGRATION: Squeeze NFTJI columns (run on existing DBs)
--- ==============================================
--- ALTER TABLE player_progress ADD COLUMN IF NOT EXISTS squeeze_nftji_key TEXT;
--- ALTER TABLE player_progress ADD COLUMN IF NOT EXISTS squeeze_nftji_since TIMESTAMPTZ;
--- ALTER TABLE mm3_pool_dispute_wallets ADD COLUMN IF NOT EXISTS squeeze_nftji_snap TEXT;
--- ALTER TABLE mm3_pool_disputes ADD COLUMN IF NOT EXISTS ch_squeeze_nftji_count INT NOT NULL DEFAULT 0;
--- ALTER TABLE mm3_pool_disputes ADD COLUMN IF NOT EXISTS df_squeeze_nftji_count INT NOT NULL DEFAULT 0;
--- CREATE INDEX IF NOT EXISTS idx_player_progress_squeeze_nftji_key ON player_progress(squeeze_nftji_key) WHERE squeeze_nftji_key IS NOT NULL;
-
--- ==============================================
--- MIGRATION: Squeeze NFTJI rewards table (run on existing DBs)
--- ==============================================
--- CREATE TABLE IF NOT EXISTS mm3_squeeze_nftji_rewards (
---   id          BIGSERIAL PRIMARY KEY,
---   wallet      TEXT        NOT NULL,
---   dispute_id  BIGINT      NOT NULL REFERENCES mm3_pool_disputes(id) ON DELETE CASCADE,
---   nftji_key   TEXT        NOT NULL CHECK (nftji_key IN ('sq-def', 'sq-atk')),
---   expires_at  TIMESTAMPTZ NOT NULL,
---   claimed_at  TIMESTAMPTZ,
---   created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
--- );
--- CREATE INDEX IF NOT EXISTS idx_squeeze_nftji_rewards_wallet ON mm3_squeeze_nftji_rewards(wallet);
--- CREATE INDEX IF NOT EXISTS idx_squeeze_nftji_rewards_unclaimed ON mm3_squeeze_nftji_rewards(wallet, expires_at) WHERE claimed_at IS NULL;
 
 COMMIT;
