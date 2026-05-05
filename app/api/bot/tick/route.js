@@ -262,6 +262,15 @@ export async function GET(req) {
     actions.push({ type: 'daily_claim', taskKey, rewardEur });
   }
 
+  // ── IRC GREETING ─────────────────────────────────────────
+  await supabase.from('mm3_irc_messages').insert({
+    wallet,
+    text: 'hello world!',
+    ts: Date.now(),
+    kind: 'chat',
+    tone: 'neutral',
+  });
+
   // ── PRESENCE ─────────────────────────────────────────────
   const botIsActive = availableMm3 > 0.000001 || drillsLeft > 0;
   await supabase.from('mm3_wallet_presence').upsert({
