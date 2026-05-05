@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { colorFromAddress } from '@/lib/wallet-colors';
+import supabase from '@/lib/supabaseClient';
 
 const STATUS_LABELS = {
   proposing:    { es: 'PROPUESTA',      en: 'PROPOSAL',     color: '#a78bfa' },
@@ -59,7 +60,7 @@ function ScoreBar({ chScore, dfScore }) {
   );
 }
 
-function DisputeCard({ dispute, activeWallet, poolCode, language, onJoin, onWalletClick }) {
+function DisputeCard({ dispute, activeWallet, poolCode, language, onJoin, onWalletClick, emojiByWallet }) {
   const lang = language === 'es' ? 'es' : 'en';
   const statusMeta = STATUS_LABELS[dispute.status] || STATUS_LABELS.resolved;
   const isProposing   = dispute.status === 'proposing';
@@ -316,7 +317,7 @@ function DisputeCard({ dispute, activeWallet, poolCode, language, onJoin, onWall
                         </button>
                         <span style={{ color: '#64748b' }}>Lv{w.level_snap}</span>
                         {w.has_penalty && <span title={lang === 'es' ? 'Penalización activa' : 'Active penalty'}>⚠️</span>}
-                        {w.market_nftji_emoji && <span title={`Market NFTJI — ${w.market_nftji_emoji}`}>{w.market_nftji_emoji}</span>}
+                        {emojiByWallet?.[w.wallet] && <span title={`Market NFTJI — ${emojiByWallet[w.wallet]}`}>{emojiByWallet[w.wallet]}</span>}
                         {isResolved && w.delta_eur !== 0 && (
                           <span style={{ marginLeft: 'auto', color: w.delta_eur > 0 ? '#4ade80' : '#f87171', fontFamily: 'monospace' }}>
                             {w.delta_eur > 0 ? '+' : ''}{fmt(w.delta_eur, 4)}€
@@ -421,21 +422,41 @@ export default function DisputesPanel({ wallet, poolCode, language, onWalletClic
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [joinBusy, setJoinBusy] = useState(false);
+  const [emojiByWallet, setEmojiByWallet] = useState({});
   const pollingRef = useRef(null);
   const transitioningRef = useRef(new Set());
+
+  // Client-side Market NFTJI emoji lookup (direct Supabase — same as Leaderboard)
+  const refreshEmojis = useCallback(async (disputeList) => {
+    const allWallets = [...new Set(disputeList.flatMap((d) => (d.wallets || []).map((w) => w.wallet)))];
+    if (!allWallets.length) return;
+    const [{ data: progress }, { data: blocks }] = await Promise.all([
+      supabase.from('player_progress').select('wallet, market_nftji_key').in('wallet', allWallets).not('market_nftji_key', 'is', null),
+      supabase.from('mm3_market_blocks').select('block_key, emoji'),
+    ]);
+    const emojiByKey = new Map((blocks || []).map((b) => [b.block_key, b.emoji]));
+    const map = {};
+    for (const p of progress || []) {
+      const emoji = emojiByKey.get(p.market_nftji_key);
+      if (emoji) map[p.wallet] = emoji;
+    }
+    setEmojiByWallet(map);
+  }, []);
 
   const fetchDisputes = useCallback(async () => {
     try {
       const res = await fetch('/api/wallet-pools/disputes?limit=50');
       const data = await res.json();
-      if (data.ok) setDisputes(data.disputes || []);
-      else setError(data.error || 'fetch_error');
+      if (data.ok) {
+        setDisputes(data.disputes || []);
+        refreshEmojis(data.disputes || []);
+      } else setError(data.error || 'fetch_error');
     } catch {
       setError('network_error');
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [refreshEmojis]);
 
 
   // Poll every 3 seconds; trigger state transitions when timers expire
@@ -567,6 +588,7 @@ export default function DisputesPanel({ wallet, poolCode, language, onWalletClic
           language={language}
           onJoin={handleJoin}
           onWalletClick={onWalletClick}
+          emojiByWallet={emojiByWallet}
         />
       ))}
 
@@ -584,6 +606,7 @@ export default function DisputesPanel({ wallet, poolCode, language, onWalletClic
               language={language}
               onJoin={handleJoin}
               onWalletClick={onWalletClick}
+              emojiByWallet={emojiByWallet}
             />
           ))}
         </>
