@@ -89,8 +89,9 @@ DELETE FROM mm3_sell_transactions;
 DELETE FROM mm3_market_events;
 
 -- 8. Mensajes del chat IRC
--- Borra todo el historial persistido del relay: chat, system, market, hacks, welcome, etc.
-DELETE FROM mm3_irc_messages;
+-- EXCLUDED: Comentado para preservar donaciones incluso después de reset
+-- Las donaciones con "Self injection" o "Donation detected" se mantienen persistentes
+-- DELETE FROM mm3_irc_messages;
 
 -- 9. Comisiones acumuladas de Trade
 UPDATE mm3_market_state
