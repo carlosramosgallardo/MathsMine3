@@ -14,7 +14,7 @@
 
 [![MathsMine3 Portal](https://mathsmine3.xyz/og-image.jpg)](https://mathsmine3.xyz)
 
-**Live:** [mathsmine3.xyz](https://mathsmine3.xyz) · [Manifesto](https://mathsmine3.xyz/manifesto) · [Trade MM3](https://mathsmine3.xyz/trade-mm3) · [Ranking](https://mathsmine3.xyz/ranking) · [Market](https://mathsmine3.xyz/market) · [IRC](https://mathsmine3.xyz/irc) · [API](https://mathsmine3.xyz/api)
+**Live:** [mathsmine3.xyz](https://mathsmine3.xyz) · [Manifesto](https://mathsmine3.xyz/manifesto) · [Trade MM3](https://mathsmine3.xyz/trade-mm3) · [Ranking](https://mathsmine3.xyz/ranking) · [Squeeze](https://mathsmine3.xyz/squeeze) · [Market](https://mathsmine3.xyz/market) · [IRC](https://mathsmine3.xyz/irc) · [API](https://mathsmine3.xyz/api)
 
 ---
 
@@ -32,7 +32,7 @@
 - [NFTJIs](#nftjis)
 - [Trade MM3](#trade-mm3)
 - [Market](#market)
-- [Pools](#pools)
+- [Pools & Squeeze](#pools--squeeze)
 - [IRC Relay](#irc-relay)
 - [Ranking](#ranking)
 - [API](#api)
@@ -54,7 +54,7 @@
 | Identity | Ethereum wallet or deterministic Google virtual wallet |
 | Persistence | Supabase player, market, chart, chat, and event state |
 | Languages | English and Spanish |
-| Core routes | Mining, Trade MM3, Ranking, Market, IRC, MM3 Value, Manifesto, API |
+| Core routes | Mining, Trade MM3, Ranking, Squeeze, Market, IRC, MM3 Value, Manifesto, API |
 | Legal status | No real mining, no real token, no payout, no investment |
 
 ---
@@ -68,7 +68,7 @@ It is not a classroom skin. It is a terminal-world game: solve fast, mine fake M
 The useful idea is simple: **math becomes action**. Every problem solved is not just a score event; it moves a wallet, a rank, a fictional market, and a shared public state.
 
 ```txt
-solve -> mine -> level -> trade -> collect -> command -> recover -> repeat
+solve -> mine -> level -> trade -> collect -> pool -> squeeze -> command -> recover -> repeat
 ```
 
 | Principle | Design Meaning |
@@ -88,10 +88,12 @@ solve -> mine -> level -> trade -> collect -> command -> recover -> repeat
 4. Spend daily DRILL SLOTS.
 5. Trade MM3 in a fictional exchange.
 6. Collect rare NFTJIs.
-7. Buy or resell Market blocks.
-8. Launch IRC commands from owned Market NFTJIs.
-9. Watch global MM3 value react.
-10. Return after UTC reset.
+7. Form or join a Pool with other wallets.
+8. Challenge a rival Pool to a Squeeze — stake EUR, compute scores, win or burn.
+9. Buy or resell Market blocks to own IRC command slots.
+10. Fire daily IRC commands from owned Market NFTJIs to penalize rivals.
+11. Watch global MM3 value react.
+12. Return after UTC reset.
 
 ---
 
@@ -108,6 +110,7 @@ solve -> mine -> level -> trade -> collect -> command -> recover -> repeat
 | MM3 chart | Fictional global value history fed by game events |
 | Market board | 28x28 grid with command-linked NFTJI blocks |
 | Pools | Wallet coalitions with a shared rank tier and IRC identity |
+| Squeeze | Pool vs pool combat — score formula, EUR stakes, world state modifiers |
 | IRC relay | Persistent social terminal with wallet presence and events |
 | Ranking | Public wallet memory: level, MM3, trades, NFTJIs, penalties |
 
@@ -387,8 +390,9 @@ Two pools can enter a **Squeeze** (pool combat). The outcome is determined by a 
 
 ```
 eur_stake = eur_earned × 0.05   (5% of each wallet's EUR balance)
-mm3_stake = mm3_sold  × 0.03   (3% of each wallet's accumulated MM3)
 ```
+
+MM3 values are used in the score formula (`ln(ΣMM3/n+1)×20`) but MM3 is **not staked**.
 
 **Base Score Calculation (per-wallet averages — normalizes pool size differences):**
 
@@ -693,7 +697,7 @@ Read:
 
 [![MathsMine3 Portal](https://mathsmine3.xyz/og-image.jpg)](https://mathsmine3.xyz)
 
-**Live:** [mathsmine3.xyz](https://mathsmine3.xyz) · [Manifiesto](https://mathsmine3.xyz/manifesto) · [Trade MM3](https://mathsmine3.xyz/trade-mm3) · [Ranking](https://mathsmine3.xyz/ranking) · [Market](https://mathsmine3.xyz/market) · [IRC](https://mathsmine3.xyz/irc) · [API](https://mathsmine3.xyz/api)
+**Live:** [mathsmine3.xyz](https://mathsmine3.xyz) · [Manifiesto](https://mathsmine3.xyz/manifesto) · [Trade MM3](https://mathsmine3.xyz/trade-mm3) · [Ranking](https://mathsmine3.xyz/ranking) · [Squeeze](https://mathsmine3.xyz/squeeze) · [Market](https://mathsmine3.xyz/market) · [IRC](https://mathsmine3.xyz/irc) · [API](https://mathsmine3.xyz/api)
 
 ---
 
@@ -711,7 +715,7 @@ Read:
 - [NFTJIs](#nftjis-1)
 - [Trade MM3](#trade-mm3-1)
 - [Market](#market-1)
-- [Pools](#pools-1)
+- [Pools y Squeeze](#pools-y-squeeze)
 - [IRC Relay](#irc-relay-1)
 - [Ranking](#ranking-1)
 - [API](#api-1)
@@ -733,7 +737,7 @@ Read:
 | Identidad | Wallet de Ethereum o wallet virtual determinista de Google |
 | Persistencia | Estado de jugadores, Market, gráfico, chat y eventos en Supabase |
 | Idiomas | Inglés y español |
-| Rutas principales | Mining, Trade MM3, Ranking, Market, IRC, MM3 Value, Manifiesto, API |
+| Rutas principales | Mining, Trade MM3, Ranking, Squeeze, Market, IRC, MM3 Value, Manifiesto, API |
 | Estado legal | Sin minería real, sin token real, sin pagos, sin inversión |
 
 ---
@@ -747,7 +751,7 @@ No es una clase con skin. Es un juego-mundo de terminal: resuelve rápido, mina 
 La idea útil es simple: **la matemática se convierte en acción**. Cada problema resuelto no es solo puntuación; mueve una wallet, un rango, un mercado ficticio y un estado público compartido.
 
 ```txt
-resolver -> minar -> subir nivel -> tradear -> coleccionar -> comandar -> recuperarse -> repetir
+resolver -> minar -> subir nivel -> tradear -> coleccionar -> pool -> squeeze -> comandar -> recuperarse -> repetir
 ```
 
 | Principio | Significado de Diseño |
@@ -767,10 +771,12 @@ resolver -> minar -> subir nivel -> tradear -> coleccionar -> comandar -> recupe
 4. Gasta DRILL SLOTS diarios.
 5. Tradea MM3 en un exchange ficticio.
 6. Colecciona NFTJIs raros.
-7. Compra o revende bloques del Market.
-8. Lanza comandos IRC desde NFTJIs del Market.
-9. Mira cómo reacciona el valor global de MM3.
-10. Vuelve después del reset UTC.
+7. Forma o únete a un Pool con otras wallets.
+8. Reta a un Pool rival a un Squeeze — apuesta EUR, calcula el score, gana o quema.
+9. Compra o revende bloques del Market para tener slots de comando IRC.
+10. Dispara comandos IRC diarios desde tus NFTJIs del Market para penalizar rivales.
+11. Mira cómo reacciona el valor global de MM3.
+12. Vuelve después del reset UTC.
 
 ---
 
@@ -787,6 +793,7 @@ resolver -> minar -> subir nivel -> tradear -> coleccionar -> comandar -> recupe
 | Gráfico MM3 | Histórico de valor ficticio alimentado por eventos del juego |
 | Market board | Grid 28x28 con bloques NFTJI vinculados a comandos |
 | Pools | Coaliciones de wallets con rango compartido e identidad IRC |
+| Squeeze | Combate pool vs pool — fórmula de score, stakes EUR, modificadores del mundo |
 | IRC relay | Terminal social persistente con presencia de wallets y eventos |
 | Ranking | Memoria pública: nivel, MM3, trades, NFTJIs, penalizaciones |
 
@@ -1032,7 +1039,7 @@ ejemplo:
 
 ---
 
-## Pools
+## Pools y Squeeze
 
 Las wallets pueden formar coaliciones llamadas Pools. Cada Pool se identifica con un código alfanumérico de 5 caracteres.
 
@@ -1066,8 +1073,9 @@ Dos pools pueden iniciar un **Squeeze** (combate de pools). El resultado se dete
 
 ```
 eur_stake = eur_earned × 0.05   (5% del balance EUR de cada wallet)
-mm3_stake = mm3_sold  × 0.03   (3% del MM3 acumulado de cada wallet)
 ```
+
+Los valores MM3 se usan en la fórmula de puntuación (`ln(ΣMM3/n+1)×20`) pero MM3 **no se apuesta**.
 
 **Puntuación Base (medias por wallet — normaliza diferencias de tamaño de pool):**
 
@@ -1140,7 +1148,6 @@ Si la ventana de 5 min de **proposing** expira con solo 1 wallet → **cancelled
 | `components/Leaderboard.jsx` | Renderiza ranking + pools; chips de invitación/propuesta, bloqueo por cooldown/disputa |
 | `components/DisputesPanel.jsx` | Tarjetas Squeeze con transiciones en tiempo real y fórmula |
 | `app/squeeze/page.jsx` | Página de la sección Squeeze (entrada en el menú) |
-| `app/api/wallet-pools/dispute/cancel/route.js` | Cancela un Squeeze en proposing tras timeout |
 | `sql/database.sql` | BD: tablas Squeeze, votos, snapshots, cooldowns; funciones del ciclo de vida |
 
 ---
