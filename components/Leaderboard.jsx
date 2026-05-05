@@ -215,7 +215,7 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
           .select('wallet, total_eth'),
         supabase
           .from('player_progress')
-          .select('wallet, level, mm3_sold, cny_earned, eur_earned, usd_earned, wallet_emojis'),
+          .select('wallet, level, mm3_sold, cny_earned, eur_earned, usd_earned, wallet_emojis, is_bot'),
         supabase
           .from('player_progress')
           .select('wallet, market_nftji_key')
@@ -256,6 +256,7 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
             eur: Number(entry.eur_earned) || 0,
             usd: Number(entry.usd_earned) || 0,
             walletEmojis: Array.isArray(entry.wallet_emojis) ? entry.wallet_emojis : [],
+            is_bot: Boolean(entry.is_bot),
           },
         ])
       );
@@ -330,7 +331,7 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
         .map((normalizedWallet) => {
           const lbRow   = lbByWallet.get(normalizedWallet);
           const progress = earnedByWallet.get(normalizedWallet) || {
-            level: 0, mm3Sold: 0, cny: 0, eur: 0, usd: 0, walletEmojis: [],
+            level: 0, mm3Sold: 0, cny: 0, eur: 0, usd: 0, walletEmojis: [], is_bot: false,
           };
           const totalMm3    = Number(lbRow?.total_eth) || 0;
           const availableMm3 = totalMm3 - progress.mm3Sold;
@@ -348,6 +349,7 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
             market_blocks: marketBlocksByWallet.get(normalizedWallet) || [],
             active_penalty: penaltiesByWallet.get(normalizedWallet) || null,
             pool_code: poolByWallet.get(normalizedWallet) || '',
+            is_bot: progress.is_bot || false,
           };
         })
         .sort((a, b) => {
@@ -1332,7 +1334,7 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
                   style={{ color: walletColor }}
                   title={isSelectedWallet ? t('leaderboard.showAllWallets') : t('leaderboard.showOnlyWallet')}
                 >
-                  {entry.wallet}
+                  {entry.wallet}{entry.is_bot ? <span className="ml-1 text-[0.62rem] font-black uppercase tracking-widest text-slate-500">(bot)</span> : null}
                 </button>
                 {entry.pool_code ? (
                   <button
@@ -1701,7 +1703,7 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
                         style={{ color: walletColor }}
                         title={isSelectedWallet ? t('leaderboard.showAllWallets') : t('leaderboard.showOnlyWallet')}
                       >
-                        {entry.wallet}
+                        {entry.wallet}{entry.is_bot ? <span className="ml-1 text-[0.62rem] font-black uppercase tracking-widest text-slate-500">(bot)</span> : null}
                       </button>
                       {activeWallet && !isActiveWallet && !isPoolCooldown && !poolInActiveDispute ? (
                         <button

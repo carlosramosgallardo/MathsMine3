@@ -127,6 +127,7 @@ CREATE TABLE player_progress (
   sell_quote_cny NUMERIC NOT NULL DEFAULT 0,
   sell_quote_eur NUMERIC NOT NULL DEFAULT 0,
   sell_quote_usd NUMERIC NOT NULL DEFAULT 0,
+  is_bot BOOLEAN NOT NULL DEFAULT FALSE,
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 

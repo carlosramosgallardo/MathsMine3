@@ -1,5 +1,11 @@
 {
   "installCommand": "npm install --legacy-peer-deps",
-  "buildCommand": "next build"
+  "buildCommand": "next build",
+  "crons": [
+    {
+      "path": "/api/bot/tick",
+      "schedule": "*/10 * * * *"
+    }
+  ]
 }
 
