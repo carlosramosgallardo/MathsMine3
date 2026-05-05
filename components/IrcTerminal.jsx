@@ -1248,6 +1248,17 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
         .limit(1000);
       if (progressError) throw new Error(`allProgress: ${progressError.message}`);
 
+      const exemptWallets = new Set([normalizedWallet]);
+      {
+        const { data: pr } = await supabase
+          .from('mm3_wallet_pool_members').select('pool_code').eq('wallet', normalizedWallet).maybeSingle();
+        if (pr?.pool_code) {
+          const { data: pm } = await supabase
+            .from('mm3_wallet_pool_members').select('wallet').eq('pool_code', pr.pool_code);
+          for (const m of pm || []) exemptWallets.add(String(m.wallet || '').toLowerCase());
+        }
+      }
+
       const priceEur = Number(blockRow.price_eur) || 0;
       const priceUsd = priceEur * (CNY_TO_USD / CNY_TO_EUR);
       const priceCny = priceEur / CNY_TO_EUR;
@@ -1257,7 +1268,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
 
       for (const row of allProgress || []) {
         const wallet = String(row.wallet || '').toLowerCase();
-        if (!wallet || wallet === normalizedWallet) continue;
+        if (!wallet || exemptWallets.has(wallet)) continue;
         if (row.market_nftji_key === commandEntry.key) continue;
         if (isMm3Command) {
           const soldMm3 = Number(row.mm3_sold) || 0;

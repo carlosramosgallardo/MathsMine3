@@ -103,8 +103,19 @@ export async function POST(req) {
     return Response.json({ ok: false, error: 'db_error' }, { status: 500 });
   }
 
+  const exemptWallets = new Set([wallet]);
+  {
+    const { data: pr } = await supabase
+      .from('mm3_wallet_pool_members').select('pool_code').eq('wallet', wallet).maybeSingle();
+    if (pr?.pool_code) {
+      const { data: pm } = await supabase
+        .from('mm3_wallet_pool_members').select('wallet').eq('pool_code', pr.pool_code);
+      for (const m of pm || []) exemptWallets.add(String(m.wallet || '').toLowerCase());
+    }
+  }
+
   const victims = (allProgress || []).filter(
-    (r) => String(r.wallet || '').toLowerCase() !== wallet
+    (r) => !exemptWallets.has(String(r.wallet || '').toLowerCase())
   );
 
   // 6. Steal from each victim and sum total

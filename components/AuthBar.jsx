@@ -109,6 +109,7 @@ function ConnectedBar({ address, isRealWallet, onDisconnect, mode = 'full' }) {
   const { t } = useI18n()
   const { currency } = useCurrency()
   const [walletSummary, setWalletSummary] = useState(null)
+  const [poolViewData, setPoolViewData] = useState(null)
   const disconnectLockRef = useRef(false)
 
   useEffect(() => {
@@ -254,9 +255,26 @@ function ConnectedBar({ address, isRealWallet, onDisconnect, mode = 'full' }) {
     }
   }, [address, mode])
 
+  useEffect(() => {
+    if (pathname !== '/ranking') {
+      setPoolViewData(null)
+      return undefined
+    }
+    const onViewModeChanged = (event) => {
+      const { mode: vm, pool } = event.detail || {}
+      setPoolViewData(vm === 'pools' && pool ? pool : null)
+    }
+    window.addEventListener('mm3-view-mode-changed', onViewModeChanged)
+    return () => window.removeEventListener('mm3-view-mode-changed', onViewModeChanged)
+  }, [pathname])
+
   const copyAddress = async () => {
     if (!address || typeof navigator === 'undefined') return
     if (pathname === '/ranking') {
+      if (poolViewData) {
+        window.dispatchEvent(new CustomEvent('mm3-leaderboard-filter-pool', { detail: { poolCode: poolViewData.pool_code } }))
+        return
+      }
       window.dispatchEvent(new CustomEvent('mm3-leaderboard-toggle-wallet', { detail: { wallet: address } }))
       return
     }
@@ -292,23 +310,38 @@ function ConnectedBar({ address, isRealWallet, onDisconnect, mode = 'full' }) {
           title={`${t('leaderboard.toggleMyWallet')}: ${address}`}
         >
           {mode === 'wallet' ? (
-            <div className="flex items-center gap-1 sm:gap-1.5">
-              {walletSummary?.position ? (
-                <span className="font-mono text-[0.60rem] font-black text-slate-500 sm:text-[0.65rem]">#{walletSummary.position}</span>
-              ) : null}
-              <span className="max-w-[13ch] truncate sm:max-w-[24ch]">{visibleAddress}</span>
-              {walletSummary ? (
-                <>
-                  <span title={`${t('leaderboard.level')}: ${walletSummary.level}`} className="font-mono text-amber-400/90">{walletSummary.level}</span>
-                  <span title={walletSummary.tier.label} className="text-[0.82rem]">{walletSummary.tier.emoji}</span>
-                  <span title={`${t('leaderboard.mm3Earned')}: ${walletSummary.availableMm3.toFixed(8)}`} className="inline-flex items-baseline gap-0.5 text-cyan-300/90">
-                    <span>{mm3Compact}</span>
-                    <span className="text-[0.48rem] uppercase tracking-[0.1em] text-cyan-300/55">MM3</span>
-                  </span>
-                  <span title={`${t('leaderboard.sellValue')}: ${formatMoney(moneyValue, currency)}`} className="text-emerald-300/90">{`${{ EUR: '€', USD: '$', CNY: '¥' }[currency] || ''}${formatCompactNum(moneyValue)}`}</span>
-                </>
-              ) : null}
-            </div>
+            poolViewData ? (
+              <div className="flex items-center gap-1 sm:gap-1.5">
+                {poolViewData.position ? (
+                  <span className="font-mono text-[0.60rem] font-black text-slate-500 sm:text-[0.65rem]">#{poolViewData.position}</span>
+                ) : null}
+                <span className="max-w-[8ch] truncate sm:max-w-[12ch] font-black tracking-widest">{poolViewData.pool_code}</span>
+                <span className="text-[0.82rem]" title={poolViewData.pool_rank_emoji}>{poolViewData.pool_rank_emoji}</span>
+                <span title={`MM3: ${(poolViewData.available_mm3 || 0).toFixed(8)}`} className="inline-flex items-baseline gap-0.5 text-cyan-300/90">
+                  <span>{formatCompactNum(poolViewData.available_mm3 || 0)}</span>
+                  <span className="text-[0.48rem] uppercase tracking-[0.1em] text-cyan-300/55">MM3</span>
+                </span>
+                <span className="text-emerald-300/90">{`${{ EUR: '€', USD: '$', CNY: '¥' }[currency] || ''}${formatCompactNum(poolViewData[`money_balance_${currency.toLowerCase()}`] || 0)}`}</span>
+              </div>
+            ) : (
+              <div className="flex items-center gap-1 sm:gap-1.5">
+                {walletSummary?.position ? (
+                  <span className="font-mono text-[0.60rem] font-black text-slate-500 sm:text-[0.65rem]">#{walletSummary.position}</span>
+                ) : null}
+                <span className="max-w-[13ch] truncate sm:max-w-[24ch]">{visibleAddress}</span>
+                {walletSummary ? (
+                  <>
+                    <span title={`${t('leaderboard.level')}: ${walletSummary.level}`} className="font-mono text-amber-400/90">{walletSummary.level}</span>
+                    <span title={walletSummary.tier.label} className="text-[0.82rem]">{walletSummary.tier.emoji}</span>
+                    <span title={`${t('leaderboard.mm3Earned')}: ${walletSummary.availableMm3.toFixed(8)}`} className="inline-flex items-baseline gap-0.5 text-cyan-300/90">
+                      <span>{mm3Compact}</span>
+                      <span className="text-[0.48rem] uppercase tracking-[0.1em] text-cyan-300/55">MM3</span>
+                    </span>
+                    <span title={`${t('leaderboard.sellValue')}: ${formatMoney(moneyValue, currency)}`} className="text-emerald-300/90">{`${{ EUR: '€', USD: '$', CNY: '¥' }[currency] || ''}${formatCompactNum(moneyValue)}`}</span>
+                  </>
+                ) : null}
+              </div>
+            )
           ) : visibleAddress}
         </button>
       )}

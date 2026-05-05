@@ -103,6 +103,7 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
     if (typeof window === 'undefined') return 'wallets';
     return localStorage.getItem('mm3_leaderboard_view_mode') || 'wallets';
   });
+  const [selectedPool, setSelectedPool] = useState('');
   const [contactBusy, setContactBusy] = useState('');
   const [sortConfig, setSortConfig] = useState({ key: 'status', direction: 'desc' });
   const { account } = useActiveWallet();
@@ -422,7 +423,9 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
           : 'money_balance_eur';
     const rows = selected
       ? leaderboard.filter((entry) => String(entry.wallet || '').toLowerCase() === selected)
-      : leaderboard;
+      : selectedPool
+        ? leaderboard.filter((entry) => String(entry.pool_code || '').toUpperCase() === selectedPool)
+        : leaderboard;
 
     const getValue = (entry) => {
       if (sortConfig.key === 'money') return Number(entry[moneyKey]) || 0;
@@ -448,7 +451,7 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
       if (result === 0) result = (a.position || 0) - (b.position || 0);
       return sortConfig.direction === 'asc' ? result : -result;
     });
-  }, [leaderboard, onlineWallets, quoteCurrency, selectedWallet, sortConfig]);
+  }, [leaderboard, onlineWallets, quoteCurrency, selectedWallet, selectedPool, sortConfig]);
 
   const poolLeaderboard = useMemo(() => {
     const moneyKey =
@@ -786,19 +789,55 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [selectedWallet, sortConfig, viewMode]);
+  }, [selectedWallet, selectedPool, sortConfig, viewMode]);
 
   useEffect(() => {
     const onToggleWallet = (event) => {
       const wallet = String(event.detail?.wallet || '').toLowerCase();
       if (!wallet) return;
       setViewMode('wallets');
+      setSelectedPool('');
       setSelectedWallet((current) => current === wallet ? '' : wallet);
     };
 
     window.addEventListener('mm3-leaderboard-toggle-wallet', onToggleWallet);
     return () => window.removeEventListener('mm3-leaderboard-toggle-wallet', onToggleWallet);
   }, []);
+
+  useEffect(() => {
+    const onFilterPool = (event) => {
+      const poolCode = String(event.detail?.poolCode || '').toUpperCase();
+      if (!poolCode) return;
+      setSelectedPool(poolCode);
+      setSelectedWallet('');
+      setViewMode('wallets');
+      setSortConfig({ key: 'status', direction: 'desc' });
+    };
+    window.addEventListener('mm3-leaderboard-filter-pool', onFilterPool);
+    return () => window.removeEventListener('mm3-leaderboard-filter-pool', onFilterPool);
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    let poolInfo = null;
+    if (viewMode === 'pools' && activeWallet && activeWalletPool) {
+      const myPool = poolLeaderboard.find(
+        (p) => String(p.pool_code || '').toUpperCase() === String(activeWalletPool || '').toUpperCase()
+      );
+      if (myPool) {
+        poolInfo = {
+          pool_code: myPool.pool_code,
+          position: myPool.position,
+          pool_rank_emoji: myPool.pool_rank_emoji,
+          available_mm3: myPool.available_mm3,
+          money_balance_eur: myPool.money_balance_eur,
+          money_balance_usd: myPool.money_balance_usd,
+          money_balance_cny: myPool.money_balance_cny,
+        };
+      }
+    }
+    window.dispatchEvent(new CustomEvent('mm3-view-mode-changed', { detail: { mode: viewMode, pool: poolInfo } }));
+  }, [viewMode, poolLeaderboard, activeWallet, activeWalletPool]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -880,16 +919,19 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
     const normalized = String(wallet || '').toLowerCase();
     if (!normalized) return;
     setViewMode('wallets');
+    setSelectedPool('');
     setSelectedWallet((current) => current === normalized ? '' : normalized);
   };
 
   const showPoolRanking = () => {
     setSelectedWallet('');
+    setSelectedPool('');
     setViewMode('pools');
     setSortConfig({ key: 'level', direction: 'desc' });
   };
 
   const showWalletRanking = () => {
+    setSelectedPool('');
     setViewMode('wallets');
     setSortConfig({ key: 'status', direction: 'desc' });
   };
