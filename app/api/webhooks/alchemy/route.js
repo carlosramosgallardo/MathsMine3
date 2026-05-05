@@ -38,9 +38,7 @@ export async function POST(req) {
       const asset = tx.asset || 'UNKNOWN';
       const hash = tx.hash;
 
-      if (!ADMIN_WALLET) continue;
-      // Accept: donations TO admin, or FROM admin to admin (self-test)
-      if (toAddress !== ADMIN_WALLET && fromAddress !== ADMIN_WALLET) continue;
+      if (!ADMIN_WALLET || toAddress !== ADMIN_WALLET) continue;
       if (!hash || amount <= 0) continue;
 
       if (asset === 'ETH' && amount < 0.00001) continue;
@@ -49,12 +47,9 @@ export async function POST(req) {
       const now = Date.now();
       const shortHash = `${hash.slice(0, 10)}...${hash.slice(-6)}`;
       const isSelf = fromAddress === ADMIN_WALLET && toAddress === ADMIN_WALLET;
-      const isSelfSend = fromAddress === ADMIN_WALLET; // Sending to someone else from admin
 
       const message = isSelf
         ? `Self injection → ${amount} ${asset} recycled into MM3 mainframe :: tx ${shortHash}`
-        : isSelfSend
-        ? `Self-test send → ${amount} ${asset} from MM3 treasury :: tx ${shortHash}`
         : `Donation detected → ${amount} ${asset} injected into MM3 mainframe :: tx ${shortHash}`;
 
       const ircPayload = {
