@@ -9,7 +9,7 @@ export default function IrcPage() {
 
   return (
     <main className="w-full px-2 py-1" style={{ '--mm3-accent': frameAccent }}>
-      <SectionFrame accent={frameAccent} id="irc-section">
+      <SectionFrame title="IRC" accent={frameAccent} id="irc-section">
         <IrcTerminal accent={frameAccent} />
       </SectionFrame>
     </main>

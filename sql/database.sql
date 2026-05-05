@@ -116,6 +116,8 @@ CREATE TABLE player_progress (
   market_nftji_key TEXT,
   market_nftji_price NUMERIC NOT NULL DEFAULT 0,
   market_nftji_since TIMESTAMPTZ,
+  squeeze_nftji_key TEXT,
+  squeeze_nftji_since TIMESTAMPTZ,
   life_used BOOLEAN NOT NULL DEFAULT FALSE,
   lucky_50_claimed BOOLEAN NOT NULL DEFAULT FALSE,
   lucky_100_claimed BOOLEAN NOT NULL DEFAULT FALSE,
@@ -188,18 +190,20 @@ CREATE TABLE mm3_pool_disputes (
   ch_level_sum          NUMERIC NOT NULL DEFAULT 0,
   ch_mm3_sum            NUMERIC NOT NULL DEFAULT 0,
   ch_eur_sum            NUMERIC NOT NULL DEFAULT 0,
-  ch_nftji_count        INT NOT NULL DEFAULT 0,
-  ch_market_nftji_count INT NOT NULL DEFAULT 0,
-  ch_penalty_count      INT NOT NULL DEFAULT 0,
-  ch_exec_count         INT NOT NULL DEFAULT 0,
-  ch_score              NUMERIC,
-  df_wallet_count       INT NOT NULL DEFAULT 0,
-  df_level_sum          NUMERIC NOT NULL DEFAULT 0,
-  df_mm3_sum            NUMERIC NOT NULL DEFAULT 0,
-  df_eur_sum            NUMERIC NOT NULL DEFAULT 0,
-  df_nftji_count        INT NOT NULL DEFAULT 0,
-  df_market_nftji_count INT NOT NULL DEFAULT 0,
-  df_penalty_count      INT NOT NULL DEFAULT 0,
+  ch_nftji_count           INT NOT NULL DEFAULT 0,
+  ch_market_nftji_count    INT NOT NULL DEFAULT 0,
+  ch_squeeze_nftji_count   INT NOT NULL DEFAULT 0,
+  ch_penalty_count         INT NOT NULL DEFAULT 0,
+  ch_exec_count            INT NOT NULL DEFAULT 0,
+  ch_score                 NUMERIC,
+  df_wallet_count          INT NOT NULL DEFAULT 0,
+  df_level_sum             NUMERIC NOT NULL DEFAULT 0,
+  df_mm3_sum               NUMERIC NOT NULL DEFAULT 0,
+  df_eur_sum               NUMERIC NOT NULL DEFAULT 0,
+  df_nftji_count           INT NOT NULL DEFAULT 0,
+  df_market_nftji_count    INT NOT NULL DEFAULT 0,
+  df_squeeze_nftji_count   INT NOT NULL DEFAULT 0,
+  df_penalty_count         INT NOT NULL DEFAULT 0,
   df_exec_count         INT NOT NULL DEFAULT 0,
   df_score              NUMERIC,
   winner                TEXT CHECK (winner IN ('challenger', 'defender', 'draw')),
@@ -231,6 +235,7 @@ CREATE TABLE mm3_pool_dispute_wallets (
   exec_snap       INT     NOT NULL DEFAULT 0,
   nftji_snap      INT     NOT NULL DEFAULT 0,
   market_nftji_snap TEXT,
+  squeeze_nftji_snap TEXT,
   has_penalty     BOOLEAN NOT NULL DEFAULT FALSE,
   eur_stake       NUMERIC NOT NULL DEFAULT 0,
   mm3_stake       NUMERIC NOT NULL DEFAULT 0,
@@ -1680,5 +1685,15 @@ GRANT SELECT ON token_value_timeseries TO anon;
 -- ==============================================
 
 SELECT update_leaderboard();
+
+-- ==============================================
+-- MIGRATION: Squeeze NFTJI columns (run on existing DBs)
+-- ==============================================
+-- ALTER TABLE player_progress ADD COLUMN IF NOT EXISTS squeeze_nftji_key TEXT;
+-- ALTER TABLE player_progress ADD COLUMN IF NOT EXISTS squeeze_nftji_since TIMESTAMPTZ;
+-- ALTER TABLE mm3_pool_dispute_wallets ADD COLUMN IF NOT EXISTS squeeze_nftji_snap TEXT;
+-- ALTER TABLE mm3_pool_disputes ADD COLUMN IF NOT EXISTS ch_squeeze_nftji_count INT NOT NULL DEFAULT 0;
+-- ALTER TABLE mm3_pool_disputes ADD COLUMN IF NOT EXISTS df_squeeze_nftji_count INT NOT NULL DEFAULT 0;
+-- CREATE INDEX IF NOT EXISTS idx_player_progress_squeeze_nftji_key ON player_progress(squeeze_nftji_key) WHERE squeeze_nftji_key IS NOT NULL;
 
 COMMIT;

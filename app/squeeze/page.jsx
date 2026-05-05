@@ -2,30 +2,30 @@
 
 import DisputesPanel from '@/components/DisputesPanel';
 import SectionFrame from '@/components/SectionFrame';
-import { useMm3Accent } from '@/lib/use-mm3-accent';
 import { useActiveWallet } from '@/lib/use-active-wallet';
 import { useI18n } from '@/lib/i18n-context';
-import { useRouter } from 'next/navigation';
+import { useMm3Accent } from '@/lib/use-mm3-accent';
 
 export default function SqueezePage() {
-  const { frameAccent } = useMm3Accent();
-  const { activeWallet, activeWalletPool } = useActiveWallet();
+  const { account } = useActiveWallet();
   const { language } = useI18n();
-  const router = useRouter();
+  const { frameAccent } = useMm3Accent();
 
-  function goToWallet(wallet) {
-    router.push(`/ranking?wallet=${encodeURIComponent(wallet)}`);
-  }
+  const handleWalletClick = (wallet) => {
+    if (typeof window === 'undefined') return;
+    localStorage.setItem('mm3_leaderboard_wallet', wallet.toLowerCase());
+    window.location.href = '/ranking';
+  };
 
   return (
     <main className="w-full px-2 py-1" style={{ '--mm3-accent': frameAccent }}>
-      <div className="mx-auto w-full max-w-6xl">
-        <SectionFrame accent={frameAccent} id="squeeze-section">
+      <div className="mx-auto w-full max-w-4xl">
+        <SectionFrame title="Squeeze" accent={frameAccent} id="squeeze-section">
           <DisputesPanel
-            wallet={activeWallet}
-            poolCode={activeWalletPool}
+            wallet={account?.toLowerCase() || ''}
+            poolCode=""
             language={language}
-            onWalletClick={goToWallet}
+            onWalletClick={handleWalletClick}
           />
         </SectionFrame>
       </div>

@@ -7,7 +7,7 @@ import supabase from '@/lib/supabaseClient';
 import { CNY_TO_EUR, CNY_TO_USD, formatMoney, formatCompactNum } from '@/lib/sell-offer';
 import { clampRankLevel, getRankTier } from '@/lib/ranks';
 import { colorFromAddress } from '@/lib/wallet-colors';
-import { normalizeWalletDecorations, getEmojiTitle, TRADE_SLOT_ORDER } from '@/lib/wallet-decorations';
+import { normalizeWalletDecorations, getEmojiTitle, TRADE_SLOT_ORDER, SQUEEZE_SLOT_ORDER, getSqueezeEmojiForKey } from '@/lib/wallet-decorations';
 import { useCurrency } from '@/lib/currency-context';
 import { useActiveWallet } from '@/lib/use-active-wallet';
 import PageLoading from '@/components/PageLoading';
@@ -130,15 +130,15 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
         inviteLimitReached: 'Esa wallet ya tiene 5 solicitudes pendientes.',
         leaveCooldown: 'Enfriamiento 24h — saliste recientemente',
         leavePool: 'Salir del pool',
-        disputeInProgress: 'Tu pool tiene una disputa activa en curso.',
-        disputes: 'Disputas',
-        dispute: 'Disputar',
-        disputeTitle: 'Disputar este pool',
-        disputeVoted: 'Disputa iniciada',
+        disputeInProgress: 'Tu pool tiene una squeeze activa en curso.',
+        disputes: 'Squeezes',
+        dispute: 'Squeeze',
+        disputeTitle: 'Squeeze a este pool',
+        disputeVoted: 'Squeeze iniciado',
         disputeProposed: 'Propuesta enviada — esperando otra wallet del pool',
-        disputeProposalJoin: 'Unirse a la propuesta de disputa',
-        disputeError: 'Error al disputar',
-        disputeAlready: 'Ya propusiste o hay disputa activa',
+        disputeProposalJoin: 'Unirse a la propuesta de squeeze',
+        disputeError: 'Error en squeeze',
+        disputeAlready: 'Ya propusiste o hay squeeze activa',
       }
     : {
         pool: 'Pool',
@@ -167,15 +167,15 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
         inviteLimitReached: 'That wallet already has 5 pending requests.',
         leaveCooldown: '24h cooldown — left a pool recently',
         leavePool: 'Leave pool',
-        disputeInProgress: 'Your pool has an active dispute in progress.',
-        disputes: 'Disputes',
-        dispute: 'Dispute',
-        disputeTitle: 'Challenge this pool',
-        disputeVoted: 'Dispute started',
+        disputeInProgress: 'Your pool has an active squeeze in progress.',
+        disputes: 'Squeezes',
+        dispute: 'Squeeze',
+        disputeTitle: 'Squeeze this pool',
+        disputeVoted: 'Squeeze started',
         disputeProposed: 'Proposal sent — waiting for another pool wallet',
-        disputeProposalJoin: 'Join the dispute proposal',
-        disputeError: 'Dispute error',
-        disputeAlready: 'Already proposed or dispute active',
+        disputeProposalJoin: 'Join the squeeze proposal',
+        disputeError: 'Squeeze error',
+        disputeAlready: 'Already proposed or squeeze active',
       };
 
   const fetchLeaderboard = useCallback(async ({ ignoreCache = false } = {}) => {
@@ -198,7 +198,7 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
           }
         }
       }
-      const [{ data: leaderboardRows, error }, progressResponse, marketOwnersResponse, blocksResponse, txResponse, penaltiesResponse, poolMembersResponse] = await Promise.all([
+      const [{ data: leaderboardRows, error }, progressResponse, marketOwnersResponse, blocksResponse, txResponse, penaltiesResponse, poolMembersResponse, squeezeOwnersResponse] = await Promise.all([
         supabase
           .from('leaderboard_data')
           .select('wallet, total_eth'),
@@ -224,6 +224,10 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
         supabase
           .from('mm3_wallet_pool_members')
           .select('wallet, pool_code'),
+        supabase
+          .from('player_progress')
+          .select('wallet, squeeze_nftji_key')
+          .not('squeeze_nftji_key', 'is', null),
       ]);
       if (error) { console.error('Leaderboard fetch:', error); setLeaderboard([]); return; }
       let progressData = progressResponse?.data || [];
@@ -262,6 +266,18 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
         const blockInfo = blocksByKey.get(key);
         if (!blockInfo) continue;
         marketBlocksByWallet.set(wallet, [{ block_key: key, emoji: blockInfo.emoji, hex: blockInfo.hex }]);
+      }
+
+      const squeezeByWallet = new Map();
+      if (!squeezeOwnersResponse?.error) {
+        for (const entry of squeezeOwnersResponse?.data || []) {
+          const wallet = String(entry.wallet || '').toLowerCase();
+          const key = entry.squeeze_nftji_key;
+          if (!wallet || !key) continue;
+          const emoji = getSqueezeEmojiForKey(key);
+          if (!emoji) continue;
+          squeezeByWallet.set(wallet, { key, emoji });
+        }
       }
 
       const txCountByWallet = new Map();
@@ -335,6 +351,7 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
             wallet_emojis: progress.walletEmojis,
             execs_count: txCountByWallet.get(normalizedWallet) || 0,
             market_blocks: marketBlocksByWallet.get(normalizedWallet) || [],
+            squeeze_nftji: squeezeByWallet.get(normalizedWallet) || null,
             active_penalty: penaltiesByWallet.get(normalizedWallet) || null,
             pool_code: poolByWallet.get(normalizedWallet) || '',
           };
@@ -479,6 +496,16 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
         (block) => block.block_key
       );
       const marketNftjiMemberCount = members.filter(m => Array.isArray(m.market_blocks) && m.market_blocks.length > 0).length;
+      const marketEmojiCounts = members.reduce((counts, entry) => {
+        for (const block of Array.isArray(entry.market_blocks) ? entry.market_blocks : []) {
+          if (block.emoji) counts[block.emoji] = (counts[block.emoji] || 0) + 1;
+        }
+        return counts;
+      }, {});
+      const squeezeEmojiCounts = members.reduce((counts, entry) => {
+        if (entry.squeeze_nftji?.emoji) counts[entry.squeeze_nftji.emoji] = (counts[entry.squeeze_nftji.emoji] || 0) + 1;
+        return counts;
+      }, {});
       const penalties = members.map((entry) => entry.active_penalty).filter(Boolean);
       const activePenalty = {
         mm3: penalties.find((penalty) => penalty?.mm3)?.mm3 || null,
@@ -507,6 +534,8 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
         wallet_emoji_counts: poolEmojiCounts,
         market_blocks: marketBlocks,
         market_nftji_member_count: marketNftjiMemberCount,
+        market_emoji_counts: marketEmojiCounts,
+        squeeze_emoji_counts: squeezeEmojiCounts,
         member_wallets: normalizedWallets,
         member_wallets_short: normalizedWallets.map(shortWallet),
         hidden_member_wallet_count: Math.max(0, new Set(members.map((entry) => normalizeWallet(entry.wallet)).filter(Boolean)).size - normalizedWallets.length),
@@ -1205,30 +1234,34 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
                       </div>
                     );
                   })}
-                  {(() => {
-                    const mCount = Number(entry.market_nftji_member_count || 0);
-                    const mEmoji = marketBlocks[0]?.emoji || '';
-                    const mOwned = mCount > 0;
-                    return (
-                      <div
-                        title={mOwned ? `Market NFTJI — ${mCount} member${mCount !== 1 ? 's' : ''}` : 'Market NFTJI — none'}
-                        className="relative flex h-6 w-6 items-center justify-center rounded border text-[0.90rem]"
-                        style={{
-                          borderColor: mOwned ? 'rgba(250,204,21,0.6)' : 'rgba(250,204,21,0.22)',
-                          background: mOwned ? tier.bg : 'rgba(2,6,23,0.4)',
-                          color: mOwned ? '#fef08a' : 'rgba(100,116,139,0.35)',
-                          boxShadow: mOwned ? '0 0 8px rgba(250,204,21,0.25)' : 'none',
-                        }}
-                      >
-                        {mOwned ? mEmoji : ''}
-                        {mCount > 1 ? (
-                          <span className="absolute bottom-[0px] right-[1px] font-mono text-[0.38rem] font-black leading-none text-cyan-100/90">
-                            ×{mCount}
-                          </span>
-                        ) : null}
-                      </div>
-                    );
-                  })()}
+                  {Object.entries(entry.market_emoji_counts || {}).length === 0 ? (
+                    <div className="flex h-6 w-6 items-center justify-center rounded border text-[0.90rem]"
+                      title="Market NFTJI — none"
+                      style={{ borderColor: 'rgba(250,204,21,0.22)', background: 'rgba(2,6,23,0.4)', color: 'rgba(100,116,139,0.35)' }} />
+                  ) : Object.entries(entry.market_emoji_counts || {}).map(([emoji, count]) => (
+                    <div key={`mkt-${emoji}`}
+                      title={`Market NFTJI ${emoji} — ${count} member${count !== 1 ? 's' : ''}`}
+                      className="relative flex h-6 w-6 items-center justify-center rounded border text-[0.90rem]"
+                      style={{ borderColor: 'rgba(250,204,21,0.6)', background: tier.bg, color: '#fef08a', boxShadow: '0 0 8px rgba(250,204,21,0.25)' }}
+                    >
+                      {emoji}
+                      {count > 1 ? <span className="absolute bottom-[0px] right-[1px] font-mono text-[0.38rem] font-black leading-none text-cyan-100/90">×{count}</span> : null}
+                    </div>
+                  ))}
+                  {Object.entries(entry.squeeze_emoji_counts || {}).length === 0 ? (
+                    <div className="flex h-6 w-6 items-center justify-center rounded border text-[0.90rem]"
+                      title="Squeeze NFTJI — none"
+                      style={{ borderColor: 'rgba(167,139,250,0.22)', background: 'rgba(2,6,23,0.4)', color: 'rgba(100,116,139,0.35)' }} />
+                  ) : Object.entries(entry.squeeze_emoji_counts || {}).map(([emoji, count]) => (
+                    <div key={`sq-${emoji}`}
+                      title={`Squeeze NFTJI ${emoji} — ${count} member${count !== 1 ? 's' : ''}`}
+                      className="relative flex h-6 w-6 items-center justify-center rounded border text-[0.90rem]"
+                      style={{ borderColor: 'rgba(167,139,250,0.6)', background: tier.bg, color: '#c4b5fd', boxShadow: '0 0 8px rgba(167,139,250,0.25)' }}
+                    >
+                      {emoji}
+                      {count > 1 ? <span className="absolute bottom-[0px] right-[1px] font-mono text-[0.38rem] font-black leading-none text-cyan-100/90">×{count}</span> : null}
+                    </div>
+                  ))}
                 </div>
                 <div className="flex flex-wrap items-center gap-1">
                   {activePenalty?.mm3 ? (
@@ -1401,6 +1434,24 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
                       </button>
                     );
                   })()}
+                  {(() => {
+                    const sqNftji = entry.squeeze_nftji;
+                    const sqOwned = !!sqNftji;
+                    return (
+                      <div
+                        title={sqOwned ? `Squeeze NFTJI — ${sqNftji.emoji}` : 'Squeeze NFTJI — none'}
+                        className="relative flex h-6 w-6 items-center justify-center rounded border text-[0.90rem]"
+                        style={{
+                          borderColor: sqOwned ? 'rgba(167,139,250,0.6)' : 'rgba(167,139,250,0.22)',
+                          background: sqOwned ? tier.bg : 'rgba(2,6,23,0.4)',
+                          color: sqOwned ? '#c4b5fd' : 'rgba(100,116,139,0.35)',
+                          boxShadow: sqOwned ? '0 0 8px rgba(167,139,250,0.25)' : 'none',
+                        }}
+                      >
+                        {sqOwned ? sqNftji.emoji : ''}
+                      </div>
+                    );
+                  })()}
                 </div>
                 <div className="flex flex-wrap items-center gap-1">
                   {activePenalty?.mm3 ? (
@@ -1565,30 +1616,34 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
                           </div>
                         );
                       })}
-                      {(() => {
-                        const mCount = Number(entry.market_nftji_member_count || 0);
-                        const mEmoji = Array.isArray(entry.market_blocks) && entry.market_blocks[0]?.emoji || '';
-                        const mOwned = mCount > 0;
-                        return (
-                          <div
-                            title={mOwned ? `Market NFTJI — ${mCount} member${mCount !== 1 ? 's' : ''}` : 'Market NFTJI — none'}
-                            className="lb-slot-cell relative flex items-center justify-center rounded-md border text-[0.95rem]"
-                            style={{
-                              borderColor: mOwned ? 'rgba(250,204,21,0.6)' : 'rgba(250,204,21,0.22)',
-                              background: mOwned ? tier.bg : 'rgba(2,6,23,0.4)',
-                              color: mOwned ? '#fef08a' : 'rgba(100,116,139,0.35)',
-                              boxShadow: mOwned ? '0 0 12px rgba(250,204,21,0.25)' : 'none',
-                            }}
-                          >
-                            {mOwned ? mEmoji : ''}
-                            {mCount > 1 ? (
-                              <span className="absolute bottom-[1px] right-[2px] font-mono text-[0.48rem] font-black leading-none text-cyan-200">
-                                ×{mCount}
-                              </span>
-                            ) : null}
-                          </div>
-                        );
-                      })()}
+                      {Object.entries(entry.market_emoji_counts || {}).length === 0 ? (
+                        <div className="lb-slot-cell flex items-center justify-center rounded-md border text-[0.95rem]"
+                          title="Market NFTJI — none"
+                          style={{ borderColor: 'rgba(250,204,21,0.22)', background: 'rgba(2,6,23,0.4)', color: 'rgba(100,116,139,0.35)' }} />
+                      ) : Object.entries(entry.market_emoji_counts || {}).map(([emoji, count]) => (
+                        <div key={`mkt-${emoji}`}
+                          title={`Market NFTJI ${emoji} — ${count} member${count !== 1 ? 's' : ''}`}
+                          className="lb-slot-cell relative flex items-center justify-center rounded-md border text-[0.95rem]"
+                          style={{ borderColor: 'rgba(250,204,21,0.6)', background: tier.bg, color: '#fef08a', boxShadow: '0 0 12px rgba(250,204,21,0.25)' }}
+                        >
+                          {emoji}
+                          {count > 1 ? <span className="absolute bottom-[1px] right-[2px] font-mono text-[0.48rem] font-black leading-none text-cyan-200">×{count}</span> : null}
+                        </div>
+                      ))}
+                      {Object.entries(entry.squeeze_emoji_counts || {}).length === 0 ? (
+                        <div className="lb-slot-cell flex items-center justify-center rounded-md border text-[0.95rem]"
+                          title="Squeeze NFTJI — none"
+                          style={{ borderColor: 'rgba(167,139,250,0.22)', background: 'rgba(2,6,23,0.4)', color: 'rgba(100,116,139,0.35)' }} />
+                      ) : Object.entries(entry.squeeze_emoji_counts || {}).map(([emoji, count]) => (
+                        <div key={`sq-${emoji}`}
+                          title={`Squeeze NFTJI ${emoji} — ${count} member${count !== 1 ? 's' : ''}`}
+                          className="lb-slot-cell relative flex items-center justify-center rounded-md border text-[0.95rem]"
+                          style={{ borderColor: 'rgba(167,139,250,0.6)', background: tier.bg, color: '#c4b5fd', boxShadow: '0 0 12px rgba(167,139,250,0.25)' }}
+                        >
+                          {emoji}
+                          {count > 1 ? <span className="absolute bottom-[1px] right-[2px] font-mono text-[0.48rem] font-black leading-none text-cyan-200">×{count}</span> : null}
+                        </div>
+                      ))}
                     </div>
                   </td>
                   <td style={{ textAlign:'center' }}>
@@ -1757,6 +1812,24 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
                           >
                             {mOwned ? mBlock.emoji : ''}
                           </button>
+                        );
+                      })()}
+                      {(() => {
+                        const sqNftji = entry.squeeze_nftji;
+                        const sqOwned = !!sqNftji;
+                        return (
+                          <div
+                            title={sqOwned ? `Squeeze NFTJI — ${sqNftji.emoji}` : 'Squeeze NFTJI — none'}
+                            className="lb-slot-cell flex items-center justify-center rounded-md border text-[0.95rem]"
+                            style={{
+                              borderColor: sqOwned ? 'rgba(167,139,250,0.6)' : 'rgba(167,139,250,0.22)',
+                              background: sqOwned ? tier.bg : 'rgba(2,6,23,0.4)',
+                              color: sqOwned ? '#c4b5fd' : 'rgba(100,116,139,0.35)',
+                              boxShadow: sqOwned ? '0 0 12px rgba(167,139,250,0.25)' : 'none',
+                            }}
+                          >
+                            {sqOwned ? sqNftji.emoji : ''}
+                          </div>
                         );
                       })()}
                     </div>

@@ -11,7 +11,7 @@ export default function MarketPageClient() {
 
   return (
     <main className="w-full px-2 py-1" style={{ '--mm3-accent': frameAccent }}>
-      <SectionFrame accent={frameAccent} id="market-section">
+      <SectionFrame title="Market" accent={frameAccent} id="market-section">
         <MarketBoard account={account} isVirtualWallet={isVirtualWallet} />
       </SectionFrame>
     </main>

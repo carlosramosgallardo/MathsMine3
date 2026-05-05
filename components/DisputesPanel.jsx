@@ -156,12 +156,12 @@ function DisputeCard({ dispute, activeWallet, poolCode, language, onJoin, onWall
           <span style={{ fontSize: '1.1rem' }}>💨</span>
           <div>
             <div style={{ fontWeight: 700, fontSize: '0.82rem', color: '#64748b', letterSpacing: '0.06em' }}>
-              {lang === 'es' ? 'INTENTO DE DISPUTA FALLIDO' : 'FAILED DISPUTE ATTEMPT'}
+              {lang === 'es' ? 'INTENTO DE SQUEEZE FALLIDO' : 'FAILED SQUEEZE ATTEMPT'}
             </div>
             <div style={{ fontSize: '0.7rem', color: '#475569', marginTop: 2 }}>
               {lang === 'es'
-                ? `${dispute.challenger_pool_code} intentó disputar a ${dispute.defender_pool_code}`
-                : `${dispute.challenger_pool_code} attempted to challenge ${dispute.defender_pool_code}`}
+                ? `${dispute.challenger_pool_code} intentó un squeeze a ${dispute.defender_pool_code}`
+                : `${dispute.challenger_pool_code} attempted to squeeze ${dispute.defender_pool_code}`}
             </div>
           </div>
         </div>
@@ -321,6 +321,8 @@ function DisputeCard({ dispute, activeWallet, poolCode, language, onJoin, onWall
                         <span style={{ color: '#64748b' }}>Lv{w.level_snap}</span>
                         {w.has_penalty && <span title={lang === 'es' ? 'Penalización activa' : 'Active penalty'}>⚠️</span>}
                         {w.market_nftji_snap && <span title="Market NFTJI">🛰</span>}
+                        {w.squeeze_nftji_snap === 'sq-def' && <span title="Void Ward — Defense · losses −50%">🔰</span>}
+                        {w.squeeze_nftji_snap === 'sq-atk' && <span title="Chaos Blade — Attack · wins +50%">⚔️</span>}
                         {isResolved && w.delta_eur !== 0 && (
                           <span style={{ marginLeft: 'auto', color: w.delta_eur > 0 ? '#4ade80' : '#f87171', fontFamily: 'monospace' }}>
                             {w.delta_eur > 0 ? '+' : ''}{fmt(w.delta_eur, 4)}€
@@ -349,6 +351,8 @@ function DisputeCard({ dispute, activeWallet, poolCode, language, onJoin, onWall
               { label: 'ΣMM3', ch: fmt(dispute.ch_mm3_sum), df: fmt(dispute.df_mm3_sum) },
               { label: 'ΣEUR', ch: fmt(dispute.ch_eur_sum), df: fmt(dispute.df_eur_sum) },
               { label: 'NFTJIs', ch: dispute.ch_nftji_count, df: dispute.df_nftji_count },
+              { label: 'Mkt.NFTJI', ch: dispute.ch_market_nftji_count ?? '—', df: dispute.df_market_nftji_count ?? '—' },
+              { label: 'Sq.NFTJI', ch: dispute.ch_squeeze_nftji_count ?? '—', df: dispute.df_squeeze_nftji_count ?? '—' },
               { label: 'Execs', ch: dispute.ch_exec_count, df: dispute.df_exec_count },
               { label: 'Pen.', ch: dispute.ch_penalty_count, df: dispute.df_penalty_count },
             ].map(({ label, ch, df }) => (
@@ -388,6 +392,14 @@ function DisputeCard({ dispute, activeWallet, poolCode, language, onJoin, onWall
               <span style={{ color: '#22d3ee' }}>(market/n)×15</span>
               {' - '}
               <span style={{ color: '#f87171' }}>(pen/n)×20</span>
+            </div>
+            <div style={{ marginTop: 3, color: '#334155' }}>
+              🔰 <span style={{ color: '#a78bfa' }}>Void Ward</span>
+              {' → '}
+              {lang === 'es' ? 'pérdida×0.5  ' : 'loss×0.5  '}
+              ⚔️ <span style={{ color: '#f59e0b' }}>Chaos Blade</span>
+              {' → '}
+              {lang === 'es' ? 'victoria×1.5' : 'win×1.5'}
             </div>
             <div style={{ marginTop: 3 }}>
               <span style={{ color: '#64748b' }}>⚔️ score</span>
@@ -523,7 +535,7 @@ export default function DisputesPanel({ wallet, poolCode, language, onWalletClic
   if (isLoading) {
     return (
       <div style={{ padding: 16, color: '#475569', fontSize: '0.8rem', textAlign: 'center' }}>
-        {lang === 'es' ? 'Cargando disputas…' : 'Loading disputes…'}
+        {lang === 'es' ? 'Cargando squeezes…' : 'Loading squeezes…'}
       </div>
     );
   }
@@ -531,7 +543,7 @@ export default function DisputesPanel({ wallet, poolCode, language, onWalletClic
   if (error) {
     return (
       <div style={{ padding: 16, color: '#f87171', fontSize: '0.8rem' }}>
-        {lang === 'es' ? 'Error al cargar disputas' : 'Error loading disputes'}
+        {lang === 'es' ? 'Error cargando squeezes' : 'Error loading squeezes'}
       </div>
     );
   }
