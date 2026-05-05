@@ -32,7 +32,8 @@
 - [NFTJIs](#nftjis)
 - [Trade MM3](#trade-mm3)
 - [Market](#market)
-- [Pools & Squeeze](#pools--squeeze)
+- [Pools](#pools)
+- [Squeeze](#squeeze)
 - [IRC Relay](#irc-relay)
 - [Ranking](#ranking)
 - [API](#api)
@@ -68,7 +69,7 @@ It is not a classroom skin. It is a terminal-world game: solve fast, mine fake M
 The useful idea is simple: **math becomes action**. Every problem solved is not just a score event; it moves a wallet, a rank, a fictional market, and a shared public state.
 
 ```txt
-solve -> mine -> level -> trade -> collect -> pool -> squeeze -> command -> recover -> repeat
+solve → mine → level → collect → exec → pool → squeeze → command → claim → reset
 ```
 
 | Principle | Design Meaning |
@@ -82,18 +83,21 @@ solve -> mine -> level -> trade -> collect -> pool -> squeeze -> command -> reco
 
 ## Game Loop
 
-1. Solve a timed math problem.
-2. Mine fictional MM3 if correct.
-3. Gain or lose level based on performance.
-4. Spend daily DRILL SLOTS.
-5. Trade MM3 in a fictional exchange.
-6. Collect rare NFTJIs.
-7. Form or join a Pool with other wallets.
-8. Challenge a rival Pool to a Squeeze — stake EUR, compute scores, win or burn.
-9. Buy or resell Market blocks to own IRC command slots.
-10. Fire daily IRC commands from owned Market NFTJIs to penalize rivals.
-11. Watch global MM3 value react.
-12. Return after UTC reset.
+```txt
+$ drill --solve --mine --level --exec --pool --squeeze --market --claim --reset
+```
+
+1. Allocate a DRILL SLOT → solve a timed math problem under pressure.
+2. Correct answer mines fictional MM3. Wrong answer drops your level.
+3. Gain level — unlock faster rounds, higher rewards, probabilistic NFTJI drops.
+4. Trade MM3 via the exchange terminal (EXECs) — each EXEC adds a permanent DRILL SLOT.
+5. Form or join a Pool — shared rank tier, IRC identity, coalition presence.
+6. Challenge a rival Pool to a Squeeze — stake EUR, scores resolve with world state modifiers, 45% burns.
+7. Buy Market NFTJI blocks — each owns a daily IRC command slot and a hidden command path.
+8. Fire commands in IRC to penalize rivals. Crack the formula code to cancel incoming hits.
+9. Complete daily tasks (MINING / TRADING / MARKET / IRC / HIDDEN) — claim fictional fiat rewards.
+10. Watch the global MM3 value shift with every action in the ecosystem.
+11. UTC midnight resets the clock. Return sharper than before.
 
 ---
 
@@ -358,7 +362,7 @@ example:
 
 ## Pools
 
-Wallets can form coalitions called Pools. Each Pool is identified by a 5-character alphanumeric code.
+Wallets can form coalitions. Each Pool is identified by a 5-character alphanumeric code.
 
 | Action | Description |
 |---|---|
@@ -382,19 +386,31 @@ Pool rank is calculated from the combined level sum of all active members. Max p
 
 Pool membership and rank are visible in Ranking and IRC. Invite chips appear inline in the Ranking header bar and update in real time (Supabase subscription + 5s polling fallback).
 
-### Squeeze — Scoring Formula
+| File | Role |
+|---|---|
+| `app/api/wallet-pools/contact/route.js` | Creates invite or join request; checks cooldown and 5-invite cap |
+| `app/api/wallet-pools/accept/route.js` | Accepts invite or approves join request; checks cooldown |
+| `app/api/wallet-pools/decline/route.js` | Declines invite or join request |
+| `app/api/wallet-pools/leave/route.js` | Removes wallet from pool; writes 24h cooldown record |
+| `app/api/wallet-pools/cooldown/route.js` | Returns cooldown status for a wallet |
+| `app/api/wallet-pools/invites/route.js` | Returns pending invites for the active wallet |
+| `components/Leaderboard.jsx` | Renders pool ranking; invite chips, cooldown blocking, pool badge |
 
-Two pools can enter a **Squeeze** (pool combat). The outcome is determined by a **scoring formula with world state modifiers**.
+---
 
-**Stakes (locked at battle snapshot):**
+## Squeeze
+
+Two pools enter a **Squeeze** — a scored combat with EUR stakes and world state modifiers. The loser burns 45% of their staked funds into the void.
+
+**Stake (locked at snapshot):**
 
 ```
 eur_stake = eur_earned × 0.05   (5% of each wallet's EUR balance)
 ```
 
-MM3 values are used in the score formula (`ln(ΣMM3/n+1)×20`) but MM3 is **not staked**.
+MM3 values feed the score formula (`ln(ΣMM3/n+1)×20`) but are **never at stake**.
 
-**Base Score Calculation (per-wallet averages — normalizes pool size differences):**
+**Score Formula (per-wallet averages — neutralizes size differences):**
 
 ```
 base = (Σlevel / n) × 40
@@ -405,9 +421,7 @@ base = (Σlevel / n) × 40
      - (penalty_count / n) × 20
 ```
 
-Where `n` = number of participating wallets from that pool in the Squeeze.
-
-**Final Score with World Modifiers:**
+**World State Modifiers:**
 
 ```
 ch_score = MAX(0.01, base_ch)
@@ -428,53 +442,44 @@ df_score = MAX(0.01, base_df)
 | 🎲 Dice positive (+1) | Challenger | +30% |
 | 🎲 Dice negative (−1) | Defender | +30% |
 
-🎲 Dice is **deterministic per Squeeze**: `hashtext(dispute_id || 'dice')` mapped to [−1, +1]. Cannot be manipulated.
+🎲 Dice is **deterministic per Squeeze**: `hashtext(dispute_id || 'dice')` → [−1, +1]. Cannot be gamed.
 
 **Resolution:**
 
-- Pool with higher score wins. Tie if equal.
-- Each losing wallet forfeits **100% of its stake**.
-- **55% of total loser stakes** is split equally among winning wallets.
-- The remaining **45% is burned** (removed from the game economy).
+- Higher score wins. Equal score = draw.
+- Losers forfeit **100% of their stake**.
+- **55%** of total loser pool → split equally across winners.
+- **45% burned** — extracted from the game economy permanently.
 
-**Example: TK2K8 (2 wallets, Lv2) vs SJ9NJ (2 wallets, Lv1)**
+**Example: TK2K8 (2w, Lv2) vs SJ9NJ (2w, Lv1)**
 
-| Pool | Base Score | Modifiers | Final | Outcome |
+| Pool | Base | Modifiers | Final | Result |
 |---|---|---|---|---|
-| TK2K8 | ≈93.86 | war=0%, nature=0%, dice=−0.87 | **89.95** | ✅ WINNER |
-| SJ9NJ | ≈72.19 | war=0%, nature=0%, dice=−0.87 | **34.76** | ❌ LOSER |
+| TK2K8 | ≈93.86 | dice=−0.87 | **89.95** | ✅ WIN |
+| SJ9NJ | ≈72.19 | dice=−0.87 | **34.76** | ❌ LOSS |
 
-The dice roll of −0.87 reduced TK2K8's score by ~4% but SJ9NJ's by ~52% (lower base amplifies variance). Same modifiers, a +0.87 dice would flip the outcome (TK2K8: ≈65.7 vs SJ9NJ: ≈93.85).
+Same dice, lower base → SJ9NJ lost ~52% of score vs TK2K8's ~4%. Variance punishes weak pools harder.
 
-**Squeeze Lifecycle:**
-1. First wallet from pool A proposes a Squeeze against pool B → **proposing** (5-min window to get a 2nd wallet; cancels if none join)
-2. A 2nd wallet from pool A joins → **registering** (5-min window; other pool A wallets can join voluntarily)
-3. All defender wallets are auto-enrolled at transition to registering
-4. After 5 minutes → **battle_start**: stats snapshot taken, scores computed
-5. After 5 seconds → **resolved**: winner determined, stakes applied
+**Lifecycle:**
 
-If the 5-min proposing window expires with only 1 wallet → **cancelled** (both pools see "failed attempt").
-
-### Pool System — Where It's Processed
+```
+[propose] → 5 min to get 2nd wallet, else cancelled
+[registering] → 5 min join window, defender auto-enrolled
+[battle_start] → snapshot taken, scores computed
+[resolved] → 5s later, stakes applied
+```
 
 | File | Role |
 |---|---|
-| `app/api/wallet-pools/contact/route.js` | Creates invite or join request; checks cooldown and 5-invite cap |
-| `app/api/wallet-pools/accept/route.js` | Accepts invite or approves join request; checks cooldown |
-| `app/api/wallet-pools/decline/route.js` | Declines invite or join request |
-| `app/api/wallet-pools/leave/route.js` | Removes wallet from pool; writes 24h cooldown record |
-| `app/api/wallet-pools/cooldown/route.js` | Returns cooldown status for a wallet |
-| `app/api/wallet-pools/invites/route.js` | Returns pending invites for the active wallet |
-| `app/api/wallet-pools/disputes/route.js` | Lists Squeeze battles (optional pool filter) |
-| `app/api/wallet-pools/dispute/vote/route.js` | Proposes or joins a Squeeze |
-| `app/api/wallet-pools/dispute/join/route.js` | Joins an active Squeeze registering window |
-| `app/api/wallet-pools/dispute/cancel/route.js` | Auto-cancels a proposing Squeeze after 5-min timeout |
-| `app/api/wallet-pools/dispute/start-battle/route.js` | Triggers battle snapshot after 5-min registration window |
-| `app/api/wallet-pools/dispute/resolve/route.js` | Resolves battle and applies stakes after 5s delay |
-| `components/Leaderboard.jsx` | Renders ranking + pool list; invite chips, proposal chips, cooldown/dispute blocking |
-| `components/DisputesPanel.jsx` | Squeeze cards with real-time state transitions and formula display |
-| `app/squeeze/page.jsx` | Squeeze section page (nav entry) |
-| `sql/database.sql` | DB: Squeeze tables, votes, wallet snapshots, cooldowns; lifecycle functions |
+| `app/api/wallet-pools/disputes/route.js` | Lists Squeeze battles with wallet snapshots and Market NFTJI emojis |
+| `app/api/wallet-pools/dispute/vote/route.js` | Proposes or confirms a Squeeze (1st / 2nd challenger wallet) |
+| `app/api/wallet-pools/dispute/join/route.js` | Additional challenger wallet joins registering window |
+| `app/api/wallet-pools/dispute/cancel/route.js` | Cancels proposing dispute after 5-min timeout |
+| `app/api/wallet-pools/dispute/start-battle/route.js` | Takes snapshot and computes scores after registering window |
+| `app/api/wallet-pools/dispute/resolve/route.js` | Applies EUR stakes 5s after battle_start |
+| `components/DisputesPanel.jsx` | Squeeze cards — real-time lifecycle, scores, wallet deltas |
+| `app/squeeze/page.jsx` | Squeeze nav page |
+| `sql/database.sql` | Tables, vote records, wallet snapshots, score functions, lifecycle RPCs |
 
 ---
 
@@ -715,7 +720,8 @@ Read:
 - [NFTJIs](#nftjis-1)
 - [Trade MM3](#trade-mm3-1)
 - [Market](#market-1)
-- [Pools y Squeeze](#pools-y-squeeze)
+- [Pools](#pools-1)
+- [Squeeze](#squeeze-1)
 - [IRC Relay](#irc-relay-1)
 - [Ranking](#ranking-1)
 - [API](#api-1)
@@ -751,7 +757,7 @@ No es una clase con skin. Es un juego-mundo de terminal: resuelve rápido, mina 
 La idea útil es simple: **la matemática se convierte en acción**. Cada problema resuelto no es solo puntuación; mueve una wallet, un rango, un mercado ficticio y un estado público compartido.
 
 ```txt
-resolver -> minar -> subir nivel -> tradear -> coleccionar -> pool -> squeeze -> comandar -> recuperarse -> repetir
+resolver → minar → nivel → coleccionar → exec → pool → squeeze → comandar → reclamar → reset
 ```
 
 | Principio | Significado de Diseño |
@@ -765,18 +771,21 @@ resolver -> minar -> subir nivel -> tradear -> coleccionar -> pool -> squeeze ->
 
 ## Loop de Juego
 
-1. Resuelve un problema matemático contra reloj.
-2. Mina MM3 ficticio si aciertas.
-3. Gana o pierde nivel según tu rendimiento.
-4. Gasta DRILL SLOTS diarios.
-5. Tradea MM3 en un exchange ficticio.
-6. Colecciona NFTJIs raros.
-7. Forma o únete a un Pool con otras wallets.
-8. Reta a un Pool rival a un Squeeze — apuesta EUR, calcula el score, gana o quema.
-9. Compra o revende bloques del Market para tener slots de comando IRC.
-10. Dispara comandos IRC diarios desde tus NFTJIs del Market para penalizar rivales.
-11. Mira cómo reacciona el valor global de MM3.
-12. Vuelve después del reset UTC.
+```txt
+$ drill --resolver --minar --nivel --exec --pool --squeeze --market --reclamar --reset
+```
+
+1. Asigna un DRILL SLOT → resuelve un problema bajo presión de tiempo.
+2. La respuesta correcta mina MM3 ficticio. La incorrecta baja tu nivel.
+3. Sube nivel — desbloquea rondas más rápidas, mejores recompensas y drops probabilísticos de NFTJIs.
+4. Tradea MM3 en el terminal de exchange (EXECs) — cada EXEC añade un DRILL SLOT permanente.
+5. Forma o únete a un Pool — rango compartido, identidad IRC, fuerza de coalición.
+6. Reta a un Pool rival a un Squeeze — apuesta EUR, el score se resuelve con modificadores del mundo, el 45% se quema.
+7. Compra bloques NFTJI del Market — cada uno domina un slot IRC diario y una ruta de comando oculta.
+8. Dispara comandos IRC para penalizar rivales. Descifra la fórmula para cancelar golpes entrantes.
+9. Completa tareas diarias (MINING / TRADING / MARKET / IRC / HIDDEN) — reclama recompensas en EUR ficticio.
+10. Observa cómo el valor global de MM3 oscila con cada acción del ecosistema.
+11. El reset UTC borra los contadores. Vuelve más afilado que antes.
 
 ---
 
@@ -793,7 +802,7 @@ resolver -> minar -> subir nivel -> tradear -> coleccionar -> pool -> squeeze ->
 | Gráfico MM3 | Histórico de valor ficticio alimentado por eventos del juego |
 | Market board | Grid 28x28 con bloques NFTJI vinculados a comandos |
 | Pools | Coaliciones de wallets con rango compartido e identidad IRC |
-| Squeeze | Combate pool vs pool — fórmula de score, stakes EUR, modificadores del mundo |
+| Squeeze | Combate pool vs pool — score con modificadores del mundo, stakes EUR, 45% quemado |
 | IRC relay | Terminal social persistente con presencia de wallets y eventos |
 | Ranking | Memoria pública: nivel, MM3, trades, NFTJIs, penalizaciones |
 
@@ -1039,9 +1048,9 @@ ejemplo:
 
 ---
 
-## Pools y Squeeze
+## Pools
 
-Las wallets pueden formar coaliciones llamadas Pools. Cada Pool se identifica con un código alfanumérico de 5 caracteres.
+Las wallets pueden formar coaliciones. Cada Pool se identifica con un código alfanumérico de 5 caracteres.
 
 | Acción | Descripción |
 |---|---|
@@ -1065,19 +1074,31 @@ El rango del Pool se calcula a partir de la suma de niveles de todos sus miembro
 
 La membresía y el rango del Pool son visibles en el Ranking y en el IRC. Los chips de invitación aparecen en la barra de cabecera del Ranking y se actualizan en tiempo real (suscripción Supabase + polling cada 5s).
 
-### Squeeze — Fórmula de Scoring
+| Archivo | Función |
+|---|---|
+| `app/api/wallet-pools/contact/route.js` | Crea invitaciones o solicitudes; comprueba cooldown y límite de 5 |
+| `app/api/wallet-pools/accept/route.js` | Acepta invitación o aprueba solicitud; comprueba cooldown |
+| `app/api/wallet-pools/decline/route.js` | Rechaza invitación o solicitud |
+| `app/api/wallet-pools/leave/route.js` | Elimina wallet del pool; registra cooldown de 24h |
+| `app/api/wallet-pools/cooldown/route.js` | Devuelve estado del cooldown para una wallet |
+| `app/api/wallet-pools/invites/route.js` | Devuelve invitaciones pendientes para la wallet activa |
+| `components/Leaderboard.jsx` | Renderiza pool ranking; chips de invitación, bloqueo por cooldown, badge de pool |
 
-Dos pools pueden iniciar un **Squeeze** (combate de pools). El resultado se determina mediante una **fórmula de puntuación con modificadores del estado del mundo**.
+---
 
-**Stakes (apostados en el snapshot de batalla):**
+## Squeeze
+
+Dos pools entran en un **Squeeze** — combate con stakes EUR y modificadores del estado del mundo. El perdedor quema el 45% de sus fondos apostados al vacío.
+
+**Stake (bloqueado en el snapshot):**
 
 ```
 eur_stake = eur_earned × 0.05   (5% del balance EUR de cada wallet)
 ```
 
-Los valores MM3 se usan en la fórmula de puntuación (`ln(ΣMM3/n+1)×20`) pero MM3 **no se apuesta**.
+Los valores MM3 alimentan la fórmula (`ln(ΣMM3/n+1)×20`) pero **nunca se apuestan**.
 
-**Puntuación Base (medias por wallet — normaliza diferencias de tamaño de pool):**
+**Fórmula de Score (medias por wallet — neutraliza diferencias de tamaño):**
 
 ```
 base = (Σnivel / n) × 40
@@ -1088,9 +1109,7 @@ base = (Σnivel / n) × 40
      - (penalty_count / n) × 20
 ```
 
-Donde `n` = número de wallets participantes del pool en el Squeeze.
-
-**Modificadores del Mundo aplicados al score final:**
+**Modificadores del Mundo:**
 
 ```
 ch_score = MÁXIMO(0.01, base_ch)
@@ -1111,44 +1130,35 @@ df_score = MÁXIMO(0.01, base_df)
 | 🎲 Dado positivo (+1) | Atacante | +30% |
 | 🎲 Dado negativo (−1) | Defensor | +30% |
 
-El dado `🎲` es **determinista por Squeeze**: `hashtext(dispute_id || 'dice')` mapeado a [−1, +1]. No puede manipularse.
+El dado `🎲` es **determinista por Squeeze**: `hashtext(dispute_id || 'dice')` → [−1, +1]. No puede manipularse.
 
 **Resolución:**
 
-- Gana el pool con mayor score. Empate si son iguales.
-- Cada wallet perdedora pierde el **100% de su stake**.
-- El **55% del total perdido** se reparte a partes iguales entre las wallets ganadoras.
-- El **45% restante** se evaporiza (se extrae de la economía del juego).
+- Mayor score gana. Empate si son iguales.
+- Las wallets perdedoras pierden el **100% de su stake**.
+- El **55%** del total perdido → repartido entre las wallets ganadoras.
+- El **45% restante se quema** — extraído de la economía del juego permanentemente.
 
-**Ciclo de vida del Squeeze:**
-1. Primera wallet del pool A propone un Squeeze contra pool B → **proposing** (ventana de 5 min para conseguir una 2ª wallet; se cancela si no hay)
-2. Una 2ª wallet del pool A se une → **registering** (ventana de 5 min; otras wallets del pool A pueden unirse voluntariamente)
-3. Todas las wallets del defensor se enrolan automáticamente al pasar a registering
-4. Tras 5 minutos → **battle_start**: snapshot de stats, scores calculados
-5. Tras 5 segundos → **resolved**: ganador determinado, stakes aplicados
+**Ciclo de vida:**
 
-Si la ventana de 5 min de **proposing** expira con solo 1 wallet → **cancelled** (ambos pools ven "intento fallido").
-
-### Sistema de Pools — Dónde se procesa
+```
+[propose] → 5 min para conseguir 2ª wallet, si no → cancelled
+[registering] → 5 min ventana de unión, defensor auto-enrolado
+[battle_start] → snapshot tomado, scores calculados
+[resolved] → 5s después, stakes aplicados
+```
 
 | Archivo | Función |
 |---|---|
-| `app/api/wallet-pools/contact/route.js` | Crea invitaciones o solicitudes de unión; comprueba cooldown y límite de 5 |
-| `app/api/wallet-pools/accept/route.js` | Acepta invitación o aprueba solicitud; comprueba cooldown |
-| `app/api/wallet-pools/decline/route.js` | Rechaza invitación o solicitud |
-| `app/api/wallet-pools/leave/route.js` | Elimina wallet del pool; registra cooldown de 24h |
-| `app/api/wallet-pools/cooldown/route.js` | Devuelve estado del cooldown para una wallet |
-| `app/api/wallet-pools/invites/route.js` | Devuelve invitaciones pendientes para la wallet activa |
-| `app/api/wallet-pools/disputes/route.js` | Lista combates Squeeze (filtro opcional por pool) |
-| `app/api/wallet-pools/dispute/vote/route.js` | Propone o se une a un Squeeze |
-| `app/api/wallet-pools/dispute/join/route.js` | Se une a la ventana de registro de un Squeeze activo |
-| `app/api/wallet-pools/dispute/cancel/route.js` | Cancela un Squeeze en proposing tras timeout |
-| `app/api/wallet-pools/dispute/start-battle/route.js` | Activa snapshot de batalla tras 5 min de registro |
-| `app/api/wallet-pools/dispute/resolve/route.js` | Resuelve la batalla y aplica stakes tras 5s |
-| `components/Leaderboard.jsx` | Renderiza ranking + pools; chips de invitación/propuesta, bloqueo por cooldown/disputa |
-| `components/DisputesPanel.jsx` | Tarjetas Squeeze con transiciones en tiempo real y fórmula |
-| `app/squeeze/page.jsx` | Página de la sección Squeeze (entrada en el menú) |
-| `sql/database.sql` | BD: tablas Squeeze, votos, snapshots, cooldowns; funciones del ciclo de vida |
+| `app/api/wallet-pools/disputes/route.js` | Lista combates con snapshots de wallets y emojis NFTJI del Market |
+| `app/api/wallet-pools/dispute/vote/route.js` | Propone o confirma un Squeeze (1ª / 2ª wallet atacante) |
+| `app/api/wallet-pools/dispute/join/route.js` | Wallet adicional del atacante se une en la ventana de registro |
+| `app/api/wallet-pools/dispute/cancel/route.js` | Cancela propuesta expirada tras 5 min |
+| `app/api/wallet-pools/dispute/start-battle/route.js` | Toma snapshot y calcula scores al cerrar el registro |
+| `app/api/wallet-pools/dispute/resolve/route.js` | Aplica stakes EUR 5s después de battle_start |
+| `components/DisputesPanel.jsx` | Tarjetas Squeeze — ciclo de vida en tiempo real, scores, deltas por wallet |
+| `app/squeeze/page.jsx` | Página de Squeeze (entrada en el menú) |
+| `sql/database.sql` | Tablas, votos, snapshots, funciones de score, RPCs del ciclo de vida |
 
 ---
 
