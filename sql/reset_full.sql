@@ -93,14 +93,19 @@ DELETE FROM mm3_market_events;
 -- Las donaciones con "Self injection" o "Donation detected" se mantienen persistentes
 -- DELETE FROM mm3_irc_messages;
 
--- 9. Comisiones acumuladas de Trade + reseteo de modificadores del mundo
+-- 9. Comisiones acumuladas de Trade
 UPDATE mm3_market_state
 SET    commission_mm3 = 0,
        commission_cny = 0,
        commission_eur = 0,
        commission_usd = 0,
-       war_percent    = 75,   -- ⚔️ valor inicial
-       nature_percent = 65,   -- 🌪️ valor inicial
+       updated_at     = now()
+WHERE  id = 1;
+
+-- 9b. Modificadores del mundo: ⚔️ guerra y 🌪️ meteo
+UPDATE mm3_macro_state
+SET    war_percent    = 75,
+       nature_percent = 65,
        updated_at     = now()
 WHERE  id = 1;
 
