@@ -6,6 +6,7 @@ import CookieBanner from '@/components/CookieBanner';
 import ThirdPartyScripts from '@/components/ThirdPartyScripts';
 import GlobalRouteLoading from '@/components/GlobalRouteLoading';
 import RouteShell from '@/components/RouteShell';
+import NotificationChips from '@/components/NotificationChips';
 import WalletBootstrap from '@/components/WalletBootstrap';
 import WalletCoreProvider from '@/components/WalletCoreProvider';
 import { I18nProvider } from '@/lib/i18n-context';
@@ -50,7 +51,10 @@ export default function RootLayout({ children }) {
                     <RouteShell>
                       <Header />
                       <GlobalRouteLoading />
-                      <main className="mm3-shell-main pt-[148px] max-sm:portrait:pt-[200px] sm:pt-[170px] lg:pt-[192px] pb-[32px] h-screen overflow-y-auto">{children}</main>
+                      <main className="mm3-shell-main pt-[148px] max-sm:portrait:pt-[200px] sm:pt-[170px] lg:pt-[192px] pb-[32px] h-screen overflow-y-auto">
+                        <NotificationChips />
+                        {children}
+                      </main>
                       <Footer />
                       <CookieBanner />
                       <ThirdPartyScripts />
