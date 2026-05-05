@@ -47,6 +47,45 @@ export async function GET(req) {
         .select('dispute_id, wallet, pool_code, side, registered_at, level_snap, mm3_snap, eur_snap, exec_snap, nftji_snap, market_nftji_snap, has_penalty, eur_stake, mm3_stake, delta_eur, delta_mm3')
         .in('dispute_id', allIds);
       walletRows = wData || [];
+
+      // Resolve market_nftji_snap keys → actual block emojis (fetch all 20 blocks, no filter)
+      const hasAnySnap = walletRows.some((w) => w.market_nftji_snap);
+      if (hasAnySnap) {
+        const { data: blocks, error: blocksErr } = await supabase
+          .from('mm3_market_blocks')
+          .select('block_key, emoji');
+        if (blocksErr) console.error('disputes: market_blocks fetch error:', blocksErr);
+        const emojiByKey = new Map((blocks || []).map((b) => [b.block_key, b.emoji]));
+        walletRows = walletRows.map((w) => ({
+          ...w,
+          market_nftji_emoji: w.market_nftji_snap ? (emojiByKey.get(w.market_nftji_snap) || null) : null,
+        }));
+      }
+
+      // Also enrich with current market_nftji_key from player_progress (in case snapshot is stale)
+      const walletAddrs = [...new Set(walletRows.map((w) => w.wallet))];
+      if (walletAddrs.length > 0) {
+        const { data: progress } = await supabase
+          .from('player_progress')
+          .select('wallet, market_nftji_key')
+          .in('wallet', walletAddrs)
+          .not('market_nftji_key', 'is', null);
+        if (progress && progress.length > 0) {
+          const { data: allBlocks } = await supabase
+            .from('mm3_market_blocks')
+            .select('block_key, emoji');
+          const emojiByKey = new Map((allBlocks || []).map((b) => [b.block_key, b.emoji]));
+          const currentKeyByWallet = new Map(progress.map((p) => [p.wallet, p.market_nftji_key]));
+          walletRows = walletRows.map((w) => {
+            const currentKey = currentKeyByWallet.get(w.wallet);
+            const currentEmoji = currentKey ? (emojiByKey.get(currentKey) || null) : null;
+            return {
+              ...w,
+              market_nftji_emoji: currentEmoji || w.market_nftji_emoji || null,
+            };
+          });
+        }
+      }
     }
 
     // Fetch voter wallets for proposing disputes (to allow clients to filter already-voted)
