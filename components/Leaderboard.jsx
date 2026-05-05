@@ -1334,7 +1334,7 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
                   style={{ color: walletColor }}
                   title={isSelectedWallet ? t('leaderboard.showAllWallets') : t('leaderboard.showOnlyWallet')}
                 >
-                  {entry.wallet}{entry.is_bot ? <span className="ml-1 text-[0.62rem] font-black uppercase tracking-widest text-slate-500">(bot)</span> : null}
+                  {entry.is_bot ? <><span>{shortWallet(entry.wallet).toLowerCase()}</span><span className="ml-1 text-[0.62rem] font-black uppercase tracking-widest text-slate-500">(bot)</span></> : entry.wallet}
                 </button>
                 {entry.pool_code ? (
                   <button
@@ -1703,7 +1703,7 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
                         style={{ color: walletColor }}
                         title={isSelectedWallet ? t('leaderboard.showAllWallets') : t('leaderboard.showOnlyWallet')}
                       >
-                        {entry.wallet}{entry.is_bot ? <span className="ml-1 text-[0.62rem] font-black uppercase tracking-widest text-slate-500">(bot)</span> : null}
+                        {entry.is_bot ? <><span>{shortWallet(entry.wallet).toLowerCase()}</span><span className="ml-1 text-[0.62rem] font-black uppercase tracking-widest text-slate-500">(bot)</span></> : entry.wallet}
                       </button>
                       {activeWallet && !isActiveWallet && !isPoolCooldown && !poolInActiveDispute ? (
                         <button
