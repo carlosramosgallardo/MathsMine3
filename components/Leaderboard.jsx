@@ -7,7 +7,7 @@ import supabase from '@/lib/supabaseClient';
 import { CNY_TO_EUR, CNY_TO_USD, formatMoney, formatCompactNum } from '@/lib/sell-offer';
 import { clampRankLevel, getRankTier } from '@/lib/ranks';
 import { colorFromAddress } from '@/lib/wallet-colors';
-import { normalizeWalletDecorations, getEmojiTitle, TRADE_SLOT_ORDER, SQUEEZE_SLOT_ORDER, getSqueezeEmojiForKey } from '@/lib/wallet-decorations';
+import { normalizeWalletDecorations, getEmojiTitle, TRADE_SLOT_ORDER } from '@/lib/wallet-decorations';
 import { useCurrency } from '@/lib/currency-context';
 import { useActiveWallet } from '@/lib/use-active-wallet';
 import PageLoading from '@/components/PageLoading';
@@ -208,7 +208,7 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
           }
         }
       }
-      const [{ data: leaderboardRows, error }, progressResponse, marketOwnersResponse, blocksResponse, txResponse, penaltiesResponse, poolMembersResponse, squeezeOwnersResponse] = await Promise.all([
+      const [{ data: leaderboardRows, error }, progressResponse, marketOwnersResponse, blocksResponse, txResponse, penaltiesResponse, poolMembersResponse] = await Promise.all([
         supabase
           .from('leaderboard_data')
           .select('wallet, total_eth'),
@@ -234,10 +234,6 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
         supabase
           .from('mm3_wallet_pool_members')
           .select('wallet, pool_code'),
-        supabase
-          .from('player_progress')
-          .select('wallet, squeeze_nftji_key')
-          .not('squeeze_nftji_key', 'is', null),
       ]);
       if (error) { console.error('Leaderboard fetch:', error); setLeaderboard([]); return; }
       let progressData = progressResponse?.data || [];
@@ -276,18 +272,6 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
         const blockInfo = blocksByKey.get(key);
         if (!blockInfo) continue;
         marketBlocksByWallet.set(wallet, [{ block_key: key, emoji: blockInfo.emoji, hex: blockInfo.hex }]);
-      }
-
-      const squeezeByWallet = new Map();
-      if (!squeezeOwnersResponse?.error) {
-        for (const entry of squeezeOwnersResponse?.data || []) {
-          const wallet = String(entry.wallet || '').toLowerCase();
-          const key = entry.squeeze_nftji_key;
-          if (!wallet || !key) continue;
-          const emoji = getSqueezeEmojiForKey(key);
-          if (!emoji) continue;
-          squeezeByWallet.set(wallet, { key, emoji });
-        }
       }
 
       const txCountByWallet = new Map();
@@ -361,7 +345,6 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
             wallet_emojis: progress.walletEmojis,
             execs_count: txCountByWallet.get(normalizedWallet) || 0,
             market_blocks: marketBlocksByWallet.get(normalizedWallet) || [],
-            squeeze_nftji: squeezeByWallet.get(normalizedWallet) || null,
             active_penalty: penaltiesByWallet.get(normalizedWallet) || null,
             pool_code: poolByWallet.get(normalizedWallet) || '',
           };
@@ -512,10 +495,6 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
         }
         return counts;
       }, {});
-      const squeezeEmojiCounts = members.reduce((counts, entry) => {
-        if (entry.squeeze_nftji?.emoji) counts[entry.squeeze_nftji.emoji] = (counts[entry.squeeze_nftji.emoji] || 0) + 1;
-        return counts;
-      }, {});
       const penalties = members.map((entry) => entry.active_penalty).filter(Boolean);
       const activePenalty = {
         mm3: penalties.find((penalty) => penalty?.mm3)?.mm3 || null,
@@ -545,7 +524,6 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
         market_blocks: marketBlocks,
         market_nftji_member_count: marketNftjiMemberCount,
         market_emoji_counts: marketEmojiCounts,
-        squeeze_emoji_counts: squeezeEmojiCounts,
         member_wallets: normalizedWallets,
         member_wallets_short: normalizedWallets.map(shortWallet),
         hidden_member_wallet_count: Math.max(0, new Set(members.map((entry) => normalizeWallet(entry.wallet)).filter(Boolean)).size - normalizedWallets.length),
@@ -588,6 +566,7 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
   const [acceptBusy, setAcceptBusy] = useState('');
   const [declineBusy, setDeclineBusy] = useState('');
   const [leaveBusy, setLeaveBusy] = useState(false);
+  const [confirmLeave, setConfirmLeave] = useState(false);
   const [disputeBusy, setDisputeBusy] = useState('');
   const [cooldownExpiresAt, setCooldownExpiresAt] = useState(null);
   const [activeDisputePairs, setActiveDisputePairs] = useState(() => new Set());
@@ -1043,47 +1022,24 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
         <span className="shrink-0 mr-auto text-[0.72rem] uppercase tracking-[0.18em] text-cyan-700">
           {viewMode === 'pools' ? labels.poolRanking : labels.walletRanking}
         </span>
-        {incomingInvites.map((invite) => {
-          const isJoinRequest = activeWalletPool && String(invite.pool_code).toUpperCase() === String(activeWalletPool).toUpperCase();
-          const busy = acceptBusy === invite.id || declineBusy === invite.id;
-          return (
-            <div key={invite.id} className="flex items-center gap-2 rounded border border-cyan-500/20 bg-black/80 px-2 py-0.5 text-[0.6rem] font-mono">
-              <span className="uppercase tracking-wide text-cyan-600">{isJoinRequest ? 'req' : 'inv'}</span>
-              <button type="button" onClick={() => goToWalletRanking(invite.invited_by)} title={invite.invited_by}
-                className="font-semibold hover:underline" style={{ color: colorFromAddress(invite.invited_by) }}>
-                {shortWallet(invite.invited_by)}
-              </button>
-              <span className="text-slate-600">#{invite.pool_code}</span>
-              <button type="button" onClick={() => handleDeclineInvite(invite.id)} disabled={busy} title={labels.declineInvite}
-                className="ml-1 px-1 text-[0.82rem] font-black leading-none text-rose-400 transition hover:text-rose-200 disabled:opacity-30">✗</button>
-              <button type="button" onClick={() => handleAcceptInvite(invite.id)} disabled={busy} title={labels.acceptInvite}
-                className="px-1 text-[0.82rem] font-black leading-none text-emerald-400 transition hover:text-emerald-200 disabled:opacity-30">✓</button>
-            </div>
-          );
-        })}
-        {proposingDisputes.map((d) => {
-          const busy = disputeBusy === d.defender_pool_code;
-          return (
-            <div key={`prop-${d.id}`} className="flex items-center gap-2 rounded border border-violet-500/20 bg-black/80 px-2 py-0.5 text-[0.6rem] font-mono">
-              <span className="text-violet-500">⚔️</span>
-              <span className="text-slate-500">vs</span>
-              <span className="font-semibold text-violet-400">#{d.defender_pool_code}</span>
-              <button type="button" onClick={() => handleDisputeVote(d.defender_pool_code)} disabled={busy}
-                title={labels.disputeProposalJoin}
-                className="ml-1 px-1 text-[0.82rem] font-black leading-none text-emerald-400 transition hover:text-emerald-200 disabled:opacity-30">✓</button>
-            </div>
-          );
-        })}
         <div className="flex items-center gap-2">
           {activeWallet && activeWalletPool ? (
-            <button
-              type="button"
-              onClick={handleLeavePool}
-              disabled={leaveBusy}
-              className="rounded border border-rose-400/30 bg-rose-950/20 px-2.5 py-1 text-[0.68rem] font-black uppercase tracking-[0.16em] text-rose-300 transition hover:border-rose-300 hover:text-rose-50 disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              {labels.leavePool} #{activeWalletPool}
-            </button>
+            confirmLeave ? (
+              <div className="flex items-center gap-1.5 rounded border border-rose-400/40 bg-rose-950/30 px-2 py-0.5">
+                <span className="text-[0.62rem] font-mono uppercase tracking-wide text-rose-300">
+                  {labels.leavePool} #{activeWalletPool}?
+                </span>
+                <button type="button" onClick={() => { setConfirmLeave(false); handleLeavePool(); }} disabled={leaveBusy}
+                  className="px-1.5 text-[0.82rem] font-black leading-none text-emerald-400 transition hover:text-emerald-200 disabled:opacity-30">✓</button>
+                <button type="button" onClick={() => setConfirmLeave(false)}
+                  className="px-1.5 text-[0.82rem] font-black leading-none text-slate-400 transition hover:text-slate-200">✗</button>
+              </div>
+            ) : (
+              <button type="button" onClick={() => setConfirmLeave(true)} disabled={leaveBusy}
+                className="rounded border border-rose-400/30 bg-rose-950/20 px-2.5 py-1 text-[0.68rem] font-black uppercase tracking-[0.16em] text-rose-300 transition hover:border-rose-300 hover:text-rose-50 disabled:cursor-not-allowed disabled:opacity-40">
+                {labels.leavePool} #{activeWalletPool}
+              </button>
+            )
           ) : null}
           {viewMode === 'pools' ? (
             <button
@@ -1271,20 +1227,6 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
                       {count > 1 ? <span className="absolute bottom-[0px] right-[1px] font-mono text-[0.38rem] font-black leading-none text-cyan-100/90">×{count}</span> : null}
                     </div>
                   ))}
-                  {Object.entries(entry.squeeze_emoji_counts || {}).length === 0 ? (
-                    <div className="flex h-6 w-6 items-center justify-center rounded border text-[0.90rem]"
-                      title="Squeeze NFTJI — none"
-                      style={{ borderColor: 'rgba(167,139,250,0.22)', background: 'rgba(2,6,23,0.4)', color: 'rgba(100,116,139,0.35)' }} />
-                  ) : Object.entries(entry.squeeze_emoji_counts || {}).map(([emoji, count]) => (
-                    <div key={`sq-${emoji}`}
-                      title={`Squeeze NFTJI ${emoji} — ${count} member${count !== 1 ? 's' : ''}`}
-                      className="relative flex h-6 w-6 items-center justify-center rounded border text-[0.90rem]"
-                      style={{ borderColor: 'rgba(167,139,250,0.6)', background: tier.bg, color: '#c4b5fd', boxShadow: '0 0 8px rgba(167,139,250,0.25)' }}
-                    >
-                      {emoji}
-                      {count > 1 ? <span className="absolute bottom-[0px] right-[1px] font-mono text-[0.38rem] font-black leading-none text-cyan-100/90">×{count}</span> : null}
-                    </div>
-                  ))}
                 </div>
                 <div className="flex flex-wrap items-center gap-1">
                   {activePenalty?.mm3 ? (
@@ -1442,24 +1384,6 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
                       >
                         {mOwned ? mBlock.emoji : ''}
                       </button>
-                    );
-                  })()}
-                  {(() => {
-                    const sqNftji = entry.squeeze_nftji;
-                    const sqOwned = !!sqNftji;
-                    return (
-                      <div
-                        title={sqOwned ? `Squeeze NFTJI — ${sqNftji.emoji}` : 'Squeeze NFTJI — none'}
-                        className="relative flex h-6 w-6 items-center justify-center rounded border text-[0.90rem]"
-                        style={{
-                          borderColor: sqOwned ? 'rgba(167,139,250,0.6)' : 'rgba(167,139,250,0.22)',
-                          background: sqOwned ? tier.bg : 'rgba(2,6,23,0.4)',
-                          color: sqOwned ? '#c4b5fd' : 'rgba(100,116,139,0.35)',
-                          boxShadow: sqOwned ? '0 0 8px rgba(167,139,250,0.25)' : 'none',
-                        }}
-                      >
-                        {sqOwned ? sqNftji.emoji : ''}
-                      </div>
                     );
                   })()}
                 </div>
@@ -1654,20 +1578,6 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
                           {count > 1 ? <span className="absolute bottom-[1px] right-[2px] font-mono text-[0.48rem] font-black leading-none text-cyan-200">×{count}</span> : null}
                         </div>
                       ))}
-                      {Object.entries(entry.squeeze_emoji_counts || {}).length === 0 ? (
-                        <div className="lb-slot-cell flex items-center justify-center rounded-md border text-[0.95rem]"
-                          title="Squeeze NFTJI — none"
-                          style={{ borderColor: 'rgba(167,139,250,0.22)', background: 'rgba(2,6,23,0.4)', color: 'rgba(100,116,139,0.35)' }} />
-                      ) : Object.entries(entry.squeeze_emoji_counts || {}).map(([emoji, count]) => (
-                        <div key={`sq-${emoji}`}
-                          title={`Squeeze NFTJI ${emoji} — ${count} member${count !== 1 ? 's' : ''}`}
-                          className="lb-slot-cell relative flex items-center justify-center rounded-md border text-[0.95rem]"
-                          style={{ borderColor: 'rgba(167,139,250,0.6)', background: tier.bg, color: '#c4b5fd', boxShadow: '0 0 12px rgba(167,139,250,0.25)' }}
-                        >
-                          {emoji}
-                          {count > 1 ? <span className="absolute bottom-[1px] right-[2px] font-mono text-[0.48rem] font-black leading-none text-cyan-200">×{count}</span> : null}
-                        </div>
-                      ))}
                     </div>
                   </td>
                   <td style={{ textAlign:'center' }}>
@@ -1821,24 +1731,6 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
                           >
                             {mOwned ? mBlock.emoji : ''}
                           </button>
-                        );
-                      })()}
-                      {(() => {
-                        const sqNftji = entry.squeeze_nftji;
-                        const sqOwned = !!sqNftji;
-                        return (
-                          <div
-                            title={sqOwned ? `Squeeze NFTJI — ${sqNftji.emoji}` : 'Squeeze NFTJI — none'}
-                            className="lb-slot-cell flex items-center justify-center rounded-md border text-[0.95rem]"
-                            style={{
-                              borderColor: sqOwned ? 'rgba(167,139,250,0.6)' : 'rgba(167,139,250,0.22)',
-                              background: sqOwned ? tier.bg : 'rgba(2,6,23,0.4)',
-                              color: sqOwned ? '#c4b5fd' : 'rgba(100,116,139,0.35)',
-                              boxShadow: sqOwned ? '0 0 12px rgba(167,139,250,0.25)' : 'none',
-                            }}
-                          >
-                            {sqOwned ? sqNftji.emoji : ''}
-                          </div>
                         );
                       })()}
                     </div>
