@@ -1,4 +1,5 @@
 export const dynamic = 'force-dynamic';
+export const maxDuration = 300;
 
 import { createClient } from '@supabase/supabase-js';
 import { getSellQuote, getSellRateCny, getCommissionRate, CNY_TO_EUR, CNY_TO_USD, clampLevel } from '@/lib/sell-offer';
@@ -51,6 +52,7 @@ export async function GET(req) {
     { count: totalExecs },
     { count: tradesToday },
     { data: claimsData },
+    { data: problems },
   ] = await Promise.all([
     supabase.from('player_progress')
       .select('level, mm3_sold, eur_earned, usd_earned, cny_earned, wallet_emojis, lucky_50_claimed, lucky_100_claimed, lucky_500_claimed, lucky_1000_claimed')
@@ -65,30 +67,34 @@ export async function GET(req) {
       .eq('wallet', wallet).gte('created_at', startIso).lt('created_at', endIso),
     supabase.from('daily_task_claims').select('task_key')
       .eq('wallet', wallet).eq('day', dayKey),
+    supabase.from('math_problems')
+      .select('id, question, correct_answer, difficulty, problem_type')
+      .limit(200),
   ]);
 
-  const level = clampLevel(progressRow?.level ?? 0);
+  let level = clampLevel(progressRow?.level ?? 0);
   const mm3Sold = Number(progressRow?.mm3_sold) || 0;
   const totalMm3 = Number(leaderboardRow?.total_eth) || 0;
-  const availableMm3 = Math.max(0, totalMm3 - mm3Sold);
+  let availableMm3 = Math.max(0, totalMm3 - mm3Sold);
   const totalExecsCount = Number(totalExecs) || 0;
   const gamesTodayCount = Number(gamesToday) || 0;
-  const tradesTodayCount = Number(tradesToday) || 0;
+  let tradesTodayCount = Number(tradesToday) || 0;
   const drillsTotal = DAILY_MINE_BASE + totalExecsCount;
   const drillsLeft = Math.max(0, drillsTotal - gamesTodayCount);
   const walletEmojis = Array.isArray(progressRow?.wallet_emojis) ? progressRow.wallet_emojis : [];
   const claimedTasks = new Set((claimsData || []).map((r) => r.task_key));
+  const pool = problems?.length ? problems : null;
   const actions = [];
 
-  // ── MINING GAME ──────────────────────────────────────────
-  if (drillsLeft > 0) {
-    const { data: problems } = await supabase
-      .from('math_problems')
-      .select('id, question, correct_answer, difficulty, problem_type')
-      .limit(100);
+  // ── MINING GAMES (batch all drills) ──────────────────────
+  if (drillsLeft > 0 && pool) {
+    const gameRecords = [];
+    let totalMiningReward = 0;
+    let nftjiDrop = null;
+    const ownedSet = new Set(walletEmojis);
+    const runStart = Date.now() - drillsLeft * 55_000; // spread timestamps ~55s apart
 
-    const pool = problems?.length ? problems : null;
-    if (pool) {
+    for (let i = 0; i < drillsLeft; i++) {
       const problem = pool[Math.floor(Math.random() * pool.length)];
       const timeLimit = getTimeLimit(level);
       const timePct = 0.3 + Math.random() * 0.5;
@@ -99,9 +105,7 @@ export async function GET(req) {
         : -PRICE * 0.05 * Math.min((totalTime - base) / base, 1);
       mining *= getRewardMult(level);
 
-      const newLevel = clampLevel(level + (level >= 80 ? 2 : 1));
-
-      await supabase.from('games').insert([{
+      gameRecords.push({
         wallet,
         problem: problem.question,
         user_answer: String(problem.correct_answer).trim(),
@@ -111,103 +115,122 @@ export async function GET(req) {
         problem_id: problem.id || null,
         difficulty: problem.difficulty || 1,
         problem_type: problem.problem_type || 'arithmetic',
-      }]);
+        created_at: new Date(runStart + i * 55_000).toISOString(),
+      });
 
-      // NFTJI drop roll
-      const ownedSet = new Set(walletEmojis);
-      let nftjiDrop = null;
-      if (!progressRow?.lucky_1000_claimed && !ownedSet.has(WALLET_DECORATIONS.lucky1000) && Math.random() < 1 / 1000)
-        nftjiDrop = { emoji: WALLET_DECORATIONS.lucky1000, field: 'lucky_1000_claimed' };
-      else if (!progressRow?.lucky_500_claimed && !ownedSet.has(WALLET_DECORATIONS.lucky500) && Math.random() < 1 / 500)
-        nftjiDrop = { emoji: WALLET_DECORATIONS.lucky500, field: 'lucky_500_claimed' };
-      else if (!progressRow?.lucky_100_claimed && !ownedSet.has(WALLET_DECORATIONS.lucky100) && Math.random() < 1 / 100)
-        nftjiDrop = { emoji: WALLET_DECORATIONS.lucky100, field: 'lucky_100_claimed' };
-      else if (!progressRow?.lucky_50_claimed && !ownedSet.has(WALLET_DECORATIONS.lucky50) && Math.random() < 1 / 50)
-        nftjiDrop = { emoji: WALLET_DECORATIONS.lucky50, field: 'lucky_50_claimed' };
+      totalMiningReward += mining;
+      level = clampLevel(level + (level >= 80 ? 2 : 1));
 
-      const newEmojis = nftjiDrop ? [...walletEmojis, nftjiDrop.emoji] : walletEmojis;
-      const quote = getSellQuote(newLevel, availableMm3 + mining);
-      const progressUpdate = {
-        wallet,
-        is_bot: true,
-        level: newLevel,
-        sell_rate_cny: quote.rateCny,
-        sell_quote_cny: quote.netCny,
-        sell_quote_eur: quote.netEur,
-        sell_quote_usd: quote.netUsd,
-        wallet_emojis: newEmojis,
-        updated_at: now,
-      };
-      if (nftjiDrop) progressUpdate[nftjiDrop.field] = true;
-
-      await supabase.from('player_progress')
-        .upsert(progressUpdate, { onConflict: 'wallet', ignoreDuplicates: false });
-
-      actions.push({ type: 'game', mining_reward: mining, level: newLevel, nftji_drop: nftjiDrop?.emoji || null });
+      if (!nftjiDrop) {
+        if (!progressRow?.lucky_1000_claimed && !ownedSet.has(WALLET_DECORATIONS.lucky1000) && Math.random() < 1 / 1000)
+          nftjiDrop = { emoji: WALLET_DECORATIONS.lucky1000, field: 'lucky_1000_claimed' };
+        else if (!progressRow?.lucky_500_claimed && !ownedSet.has(WALLET_DECORATIONS.lucky500) && Math.random() < 1 / 500)
+          nftjiDrop = { emoji: WALLET_DECORATIONS.lucky500, field: 'lucky_500_claimed' };
+        else if (!progressRow?.lucky_100_claimed && !ownedSet.has(WALLET_DECORATIONS.lucky100) && Math.random() < 1 / 100)
+          nftjiDrop = { emoji: WALLET_DECORATIONS.lucky100, field: 'lucky_100_claimed' };
+        else if (!progressRow?.lucky_50_claimed && !ownedSet.has(WALLET_DECORATIONS.lucky50) && Math.random() < 1 / 50)
+          nftjiDrop = { emoji: WALLET_DECORATIONS.lucky50, field: 'lucky_50_claimed' };
+      }
     }
+
+    await supabase.from('games').insert(gameRecords);
+    availableMm3 += totalMiningReward;
+
+    const newEmojis = nftjiDrop ? [...walletEmojis, nftjiDrop.emoji] : walletEmojis;
+    const quote = getSellQuote(level, availableMm3);
+    const progressUpdate = {
+      wallet,
+      is_bot: true,
+      level,
+      sell_rate_cny: quote.rateCny,
+      sell_quote_cny: quote.netCny,
+      sell_quote_eur: quote.netEur,
+      sell_quote_usd: quote.netUsd,
+      wallet_emojis: newEmojis,
+      updated_at: now,
+    };
+    if (nftjiDrop) progressUpdate[nftjiDrop.field] = true;
+    await supabase.from('player_progress')
+      .upsert(progressUpdate, { onConflict: 'wallet', ignoreDuplicates: false });
+
+    actions.push({ type: 'games', count: drillsLeft, total_mining_reward: totalMiningReward, level, nftji_drop: nftjiDrop?.emoji || null });
   }
 
-  // ── TRADE (SELL MM3) ─────────────────────────────────────
+  // ── TRADES (all remaining up to daily limit) ──────────────
   if (tradesTodayCount < DAILY_TRADE_LIMIT && availableMm3 > 0.000001) {
     const { data: macro } = await supabase.from('mm3_macro_state')
       .select('war_percent, nature_percent').eq('id', 1).maybeSingle();
-    const macroState = { war_percent: Number(macro?.war_percent) || 50, nature_percent: Number(macro?.nature_percent) || 50 };
+    let macroState = { war_percent: Number(macro?.war_percent) || 50, nature_percent: Number(macro?.nature_percent) || 50 };
 
-    const fraction = 0.10 + Math.random() * 0.20;
-    const sellMm3 = availableMm3 * fraction;
-    const rateCny = getSellRateCny(level);
-    const commissionRate = getCommissionRate(sellMm3);
-    const commissionMm3 = sellMm3 * commissionRate;
-    const grossCny = sellMm3 * rateCny;
-    const commissionCny = grossCny * commissionRate;
-    const netCny = Math.max(0, grossCny - commissionCny);
+    let currentEur = Number(progressRow?.eur_earned) || 0;
+    let currentCny = Number(progressRow?.cny_earned) || 0;
+    let currentUsd = Number(progressRow?.usd_earned) || 0;
+    let currentMm3Sold = mm3Sold;
 
-    await supabase.from('mm3_sell_transactions').insert({
-      wallet,
-      source: 'wallet',
-      level,
-      mm3_amount: sellMm3,
-      mm3_commission: commissionMm3,
-      rate_cny: rateCny,
-      gross_cny: grossCny,
-      gross_eur: grossCny * CNY_TO_EUR,
-      gross_usd: grossCny * CNY_TO_USD,
-      commission_rate: commissionRate,
-      commission_cny: commissionCny,
-      commission_eur: commissionCny * CNY_TO_EUR,
-      commission_usd: commissionCny * CNY_TO_USD,
-      net_cny: netCny,
-      net_eur: netCny * CNY_TO_EUR,
-      net_usd: netCny * CNY_TO_USD,
-    });
+    while (tradesTodayCount < DAILY_TRADE_LIMIT && availableMm3 > 0.000001) {
+      const fraction = 0.10 + Math.random() * 0.20;
+      const sellMm3 = availableMm3 * fraction;
+      const rateCny = getSellRateCny(level);
+      const commissionRate = getCommissionRate(sellMm3);
+      const commissionMm3 = sellMm3 * commissionRate;
+      const grossCny = sellMm3 * rateCny;
+      const commissionCny = grossCny * commissionRate;
+      const netCny = Math.max(0, grossCny - commissionCny);
 
-    const currentEur = Number(progressRow?.eur_earned) || 0;
-    const currentCny = Number(progressRow?.cny_earned) || 0;
-    const currentUsd = Number(progressRow?.usd_earned) || 0;
-    await supabase.from('player_progress').upsert({
-      wallet,
-      is_bot: true,
-      mm3_sold: mm3Sold + sellMm3,
-      eur_earned: currentEur + netCny * CNY_TO_EUR,
-      cny_earned: currentCny + netCny,
-      usd_earned: currentUsd + netCny * CNY_TO_USD,
-      updated_at: now,
-    }, { onConflict: 'wallet', ignoreDuplicates: false });
+      await supabase.from('mm3_sell_transactions').insert({
+        wallet,
+        source: 'wallet',
+        level,
+        mm3_amount: sellMm3,
+        mm3_commission: commissionMm3,
+        rate_cny: rateCny,
+        gross_cny: grossCny,
+        gross_eur: grossCny * CNY_TO_EUR,
+        gross_usd: grossCny * CNY_TO_USD,
+        commission_rate: commissionRate,
+        commission_cny: commissionCny,
+        commission_eur: commissionCny * CNY_TO_EUR,
+        commission_usd: commissionCny * CNY_TO_USD,
+        net_cny: netCny,
+        net_eur: netCny * CNY_TO_EUR,
+        net_usd: netCny * CNY_TO_USD,
+        created_at: new Date(Date.now() + tradesTodayCount * 120_000).toISOString(),
+      });
 
-    // Nudge macro ±10%
-    const nudge = (v) => Math.round(Math.max(0, Math.min(100, v + (Math.random() * 20 - 10))) * 10) / 10;
+      currentEur += netCny * CNY_TO_EUR;
+      currentCny += netCny;
+      currentUsd += netCny * CNY_TO_USD;
+      currentMm3Sold += sellMm3;
+      availableMm3 -= sellMm3;
+      tradesTodayCount++;
+
+      actions.push({ type: 'trade', mm3_sold: sellMm3, net_eur: netCny * CNY_TO_EUR });
+
+      // Nudge macro ±10%
+      const nudge = (v) => Math.round(Math.max(0, Math.min(100, v + (Math.random() * 20 - 10))) * 10) / 10;
+      macroState = { war_percent: nudge(macroState.war_percent), nature_percent: nudge(macroState.nature_percent) };
+    }
+
     await supabase.from('mm3_macro_state').update({
-      war_percent: nudge(macroState.war_percent),
-      nature_percent: nudge(macroState.nature_percent),
+      war_percent: macroState.war_percent,
+      nature_percent: macroState.nature_percent,
       updated_at: now,
     }).eq('id', 1);
 
-    actions.push({ type: 'trade', mm3_sold: sellMm3, net_eur: netCny * CNY_TO_EUR });
+    await supabase.from('player_progress').upsert({
+      wallet,
+      is_bot: true,
+      mm3_sold: currentMm3Sold,
+      eur_earned: currentEur,
+      cny_earned: currentCny,
+      usd_earned: currentUsd,
+      updated_at: now,
+    }, { onConflict: 'wallet', ignoreDuplicates: false });
   }
 
   // ── DAILY REWARDS ────────────────────────────────────────
-  const newGamesToday = gamesTodayCount + (actions.some((a) => a.type === 'game') ? 1 : 0);
-  const newTradesToday = tradesTodayCount + (actions.some((a) => a.type === 'trade') ? 1 : 0);
+  const newGamesToday = gamesTodayCount + drillsLeft;
+  const newTradesToday = tradesTodayCount;
 
   const dailyTargets = { mining: { target: 25, rewardEur: 0.25 }, trading: { target: 5, rewardEur: 0.5 } };
   for (const [taskKey, { target, rewardEur }] of Object.entries(dailyTargets)) {
@@ -240,9 +263,7 @@ export async function GET(req) {
   }
 
   // ── PRESENCE ─────────────────────────────────────────────
-  const finalDrillsLeft = Math.max(0, drillsLeft - (actions.some((a) => a.type === 'game') ? 1 : 0));
-  const postGameMm3 = availableMm3 + (actions.find((a) => a.type === 'game')?.mining_reward || 0);
-  const botIsActive = finalDrillsLeft > 0 || (newTradesToday < DAILY_TRADE_LIMIT && postGameMm3 > 0.000001);
+  const botIsActive = availableMm3 > 0.000001 || drillsLeft > 0;
   await supabase.from('mm3_wallet_presence').upsert({
     wallet,
     source: 'wallet',
@@ -253,7 +274,7 @@ export async function GET(req) {
   return Response.json({
     ok: true,
     actions,
-    drillsLeft: finalDrillsLeft,
-    tradesToday: newTradesToday,
+    gamesPlayed: drillsLeft,
+    tradesPlaced: tradesTodayCount - Number(tradesToday),
   });
 }
