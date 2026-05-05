@@ -11,7 +11,7 @@ export default function TradeMM3Page() {
 
   return (
     <main className="mm3-trade-page w-full px-2 py-1" style={{ '--mm3-accent': frameAccent }}>
-      <SectionFrame title="Trading" accent={frameAccent} id="trade-mm3-section">
+      <SectionFrame accent={frameAccent} id="trade-mm3-section">
         <TradeBoard account={account} isVirtualWallet={isVirtualWallet} />
       </SectionFrame>
     </main>

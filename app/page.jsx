@@ -87,7 +87,7 @@ export default function Page() {
   return (
     <>
       <div className="w-full px-2 py-1" style={{ '--mm3-accent': frameAccent }}>
-        <SectionFrame title="Mining" accent={frameAccent} id="board-section">
+        <SectionFrame accent={frameAccent} id="board-section">
           <Board
             account={account}
             setGameMessage={setGameMessage}

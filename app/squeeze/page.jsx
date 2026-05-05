@@ -20,7 +20,7 @@ export default function SqueezePage() {
   return (
     <main className="w-full px-2 py-1" style={{ '--mm3-accent': frameAccent }}>
       <div className="mx-auto w-full max-w-4xl">
-        <SectionFrame title="Squeeze" accent={frameAccent} id="squeeze-section">
+        <SectionFrame accent={frameAccent} id="squeeze-section">
           <DisputesPanel
             wallet={account?.toLowerCase() || ''}
             poolCode=""
