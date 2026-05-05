@@ -239,10 +239,21 @@ export async function GET(req) {
     actions.push({ type: 'daily_claim', taskKey, rewardEur });
   }
 
+  // ── PRESENCE ─────────────────────────────────────────────
+  const finalDrillsLeft = Math.max(0, drillsLeft - (actions.some((a) => a.type === 'game') ? 1 : 0));
+  const postGameMm3 = availableMm3 + (actions.find((a) => a.type === 'game')?.mining_reward || 0);
+  const botIsActive = finalDrillsLeft > 0 || (newTradesToday < DAILY_TRADE_LIMIT && postGameMm3 > 0.000001);
+  await supabase.from('mm3_wallet_presence').upsert({
+    wallet,
+    source: 'wallet',
+    last_seen: botIsActive ? endIso : new Date(Date.now() - 200_000).toISOString(),
+    updated_at: now,
+  }, { onConflict: 'wallet', ignoreDuplicates: false });
+
   return Response.json({
     ok: true,
     actions,
-    drillsLeft: Math.max(0, drillsLeft - (actions.some((a) => a.type === 'game') ? 1 : 0)),
+    drillsLeft: finalDrillsLeft,
     tradesToday: newTradesToday,
   });
 }
