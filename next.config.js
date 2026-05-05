@@ -1,5 +1,6 @@
 const nextConfig = {
   reactStrictMode: true,
+  turbopack: {},
   experimental: {
     optimizePackageImports: ['recharts'],
   },
