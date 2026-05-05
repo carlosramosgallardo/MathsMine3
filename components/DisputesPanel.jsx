@@ -316,9 +316,7 @@ function DisputeCard({ dispute, activeWallet, poolCode, language, onJoin, onWall
                         </button>
                         <span style={{ color: '#64748b' }}>Lv{w.level_snap}</span>
                         {w.has_penalty && <span title={lang === 'es' ? 'Penalización activa' : 'Active penalty'}>⚠️</span>}
-                        {w.market_nftji_snap && <span title="Market NFTJI">🛰</span>}
-                        {w.squeeze_nftji_snap === 'sq-def' && <span title="Void Ward — Defense · losses −50%">🔰</span>}
-                        {w.squeeze_nftji_snap === 'sq-atk' && <span title="Chaos Blade — Attack · wins +50%">⚔️</span>}
+                        {w.market_nftji_emoji && <span title={`Market NFTJI — ${w.market_nftji_emoji}`}>{w.market_nftji_emoji}</span>}
                         {isResolved && w.delta_eur !== 0 && (
                           <span style={{ marginLeft: 'auto', color: w.delta_eur > 0 ? '#4ade80' : '#f87171', fontFamily: 'monospace' }}>
                             {w.delta_eur > 0 ? '+' : ''}{fmt(w.delta_eur, 4)}€
@@ -348,7 +346,6 @@ function DisputeCard({ dispute, activeWallet, poolCode, language, onJoin, onWall
               { label: 'ΣEUR', ch: fmt(dispute.ch_eur_sum), df: fmt(dispute.df_eur_sum) },
               { label: 'NFTJIs', ch: dispute.ch_nftji_count, df: dispute.df_nftji_count },
               { label: 'Mkt.NFTJI', ch: dispute.ch_market_nftji_count ?? '—', df: dispute.df_market_nftji_count ?? '—' },
-              { label: 'Sq.NFTJI', ch: dispute.ch_squeeze_nftji_count ?? '—', df: dispute.df_squeeze_nftji_count ?? '—' },
               { label: 'Execs', ch: dispute.ch_exec_count, df: dispute.df_exec_count },
               { label: 'Pen.', ch: dispute.ch_penalty_count, df: dispute.df_penalty_count },
             ].map(({ label, ch, df }) => (
@@ -389,14 +386,6 @@ function DisputeCard({ dispute, activeWallet, poolCode, language, onJoin, onWall
               {' - '}
               <span style={{ color: '#f87171' }}>(pen/n)×20</span>
             </div>
-            <div style={{ marginTop: 3, color: '#334155' }}>
-              🔰 <span style={{ color: '#a78bfa' }}>Void Ward</span>
-              {' → '}
-              {lang === 'es' ? 'pérdida×0.5  ' : 'loss×0.5  '}
-              ⚔️ <span style={{ color: '#f59e0b' }}>Chaos Blade</span>
-              {' → '}
-              {lang === 'es' ? 'victoria×1.5' : 'win×1.5'}
-            </div>
             <div style={{ marginTop: 3 }}>
               <span style={{ color: '#64748b' }}>⚔️ score</span>
               {' = base × (1+(⚔️-50)/100×0.30) × (1+(50-🌪️)/100×0.20) × (1+🎲×0.30)'}
@@ -414,7 +403,7 @@ function DisputeCard({ dispute, activeWallet, poolCode, language, onJoin, onWall
             {isResolved && (
               <div style={{ marginTop: 3 }}>
                 {lang === 'es' ? 'apuesta' : 'stake'}{': '}
-                <span style={{ color: '#94a3b8' }}>5% EUR + 3% MM3 por wallet</span>
+                <span style={{ color: '#94a3b8' }}>5% EUR por wallet</span>
                 {' → '}
                 <span style={{ color: '#4ade80' }}>55% {lang === 'es' ? 'del perdedor al ganador' : 'of loser transferred to winner'}</span>
               </div>
@@ -426,31 +415,12 @@ function DisputeCard({ dispute, activeWallet, poolCode, language, onJoin, onWall
   );
 }
 
-const SQUEEZE_NFTJI_INFO = {
-  'sq-def': { emoji: '🔰', name: { es: 'Void Ward', en: 'Void Ward' } },
-  'sq-atk': { emoji: '⚔️', name: { es: 'Chaos Blade', en: 'Chaos Blade' } },
-};
-
-function RewardCountdown({ expiresAt }) {
-  const [remaining, setRemaining] = useState(() => Math.max(0, new Date(expiresAt).getTime() - Date.now()));
-  useEffect(() => {
-    const t = setInterval(() => setRemaining(Math.max(0, new Date(expiresAt).getTime() - Date.now())), 1000);
-    return () => clearInterval(t);
-  }, [expiresAt]);
-  const h = Math.floor(remaining / 3_600_000);
-  const m = Math.floor((remaining % 3_600_000) / 60_000);
-  const s = Math.floor((remaining % 60_000) / 1_000);
-  return <span>{String(h).padStart(2, '0')}:{String(m).padStart(2, '0')}:{String(s).padStart(2, '0')}</span>;
-}
-
 export default function DisputesPanel({ wallet, poolCode, language, onWalletClick }) {
   const lang = language === 'es' ? 'es' : 'en';
   const [disputes, setDisputes] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [joinBusy, setJoinBusy] = useState(false);
-  const [pendingRewards, setPendingRewards] = useState([]);
-  const [claimBusy, setClaimBusy] = useState('');
   const pollingRef = useRef(null);
   const transitioningRef = useRef(new Set());
 
@@ -467,33 +437,6 @@ export default function DisputesPanel({ wallet, poolCode, language, onWalletClic
     }
   }, []);
 
-  const fetchRewards = useCallback(async () => {
-    if (!wallet) { setPendingRewards([]); return; }
-    try {
-      const res = await fetch(`/api/wallet-pools/dispute/claim-nftji?wallet=${encodeURIComponent(wallet)}`);
-      const data = await res.json();
-      if (data.ok) setPendingRewards(data.rewards || []);
-    } catch { /* silent */ }
-  }, [wallet]);
-
-  async function handleClaim(rewardId) {
-    if (!wallet || claimBusy) return;
-    setClaimBusy(String(rewardId));
-    try {
-      const res = await fetch('/api/wallet-pools/dispute/claim-nftji', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ wallet, rewardId }),
-      });
-      const data = await res.json();
-      if (data.ok) {
-        setPendingRewards((prev) => prev.filter((r) => r.id !== rewardId));
-        window.dispatchEvent(new CustomEvent('mm3-db-updated'));
-      }
-    } finally {
-      setClaimBusy('');
-    }
-  }
 
   // Poll every 3 seconds; trigger state transitions when timers expire
   const checkTransitions = useCallback(async (disputeList) => {
@@ -552,11 +495,6 @@ export default function DisputesPanel({ wallet, poolCode, language, onWalletClic
     return () => clearInterval(pollingRef.current);
   }, [fetchDisputes]);
 
-  useEffect(() => {
-    fetchRewards();
-    const t = setInterval(fetchRewards, 15_000);
-    return () => clearInterval(t);
-  }, [fetchRewards]);
 
   useEffect(() => {
     if (disputes.length > 0) checkTransitions(disputes);
@@ -613,44 +551,6 @@ export default function DisputesPanel({ wallet, poolCode, language, onWalletClic
           {activeDisputes.length > 0 ? `${activeDisputes.length} ${lang === 'es' ? 'activo(s)' : 'active'}` : lang === 'es' ? 'sin combates activos' : 'none active'}
         </span>
       </div>
-
-      {pendingRewards.length > 0 && (
-        <div style={{ marginBottom: 12 }}>
-          {pendingRewards.map((reward) => {
-            const info = SQUEEZE_NFTJI_INFO[reward.nftji_key];
-            if (!info) return null;
-            const isBusy = claimBusy === String(reward.id);
-            return (
-              <div key={reward.id} style={{
-                display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap',
-                background: 'rgba(167,139,250,0.08)', border: '1px solid rgba(167,139,250,0.35)',
-                borderRadius: 6, padding: '6px 10px', marginBottom: 6,
-                fontFamily: 'monospace', fontSize: '0.75rem',
-              }}>
-                <span style={{ fontSize: '1.1rem' }}>{info.emoji}</span>
-                <span style={{ color: '#c4b5fd', fontWeight: 700 }}>{info.name[lang]}</span>
-                <span style={{ color: '#64748b' }}>
-                  {lang === 'es' ? 'expira en' : 'expires in'} <RewardCountdown expiresAt={reward.expires_at} />
-                </span>
-                <button
-                  type="button"
-                  onClick={() => handleClaim(reward.id)}
-                  disabled={isBusy}
-                  style={{
-                    marginLeft: 'auto', padding: '2px 10px', border: '1px solid rgba(167,139,250,0.5)',
-                    borderRadius: 4, background: 'rgba(167,139,250,0.15)', color: '#c4b5fd',
-                    fontFamily: 'monospace', fontSize: '0.7rem', fontWeight: 700,
-                    cursor: isBusy ? 'not-allowed' : 'pointer', opacity: isBusy ? 0.5 : 1,
-                    letterSpacing: '0.08em', textTransform: 'uppercase',
-                  }}
-                >
-                  {isBusy ? '...' : lang === 'es' ? 'Reclamar' : 'Claim'}
-                </button>
-              </div>
-            );
-          })}
-        </div>
-      )}
 
       {activeDisputes.length === 0 && historyDisputes.length === 0 && (
         <div style={{ color: '#475569', fontSize: '0.8rem', textAlign: 'center', padding: '24px 0' }}>
