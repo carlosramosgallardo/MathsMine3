@@ -353,6 +353,8 @@ Each Market NFTJI includes:
 
 Owning a Market NFTJI unlocks one daily IRC command. Commands can penalize rival wallets. Penalized wallets can cancel the hit with a 5-digit numeric code derived from the command formula and daily nonce.
 
+> **Pool immunity:** market commands and hidden commands launched by a wallet never affect other members of the same pool. Only wallets belonging to a different pool, or to no pool at all, are exposed to penalties.
+
 ```txt
 example:
 41000 + x * 11 + 2048 / 4
@@ -385,6 +387,8 @@ Pool rank is calculated from the combined level sum of all active members. Max p
 | Dominant entity | DRAGON MAINNET | 🐉 |
 
 Pool membership and rank are visible in Ranking and IRC. Invite chips appear inline in the Ranking header bar and update in real time (Supabase subscription + 5s polling fallback).
+
+**Command immunity:** market commands and hidden commands fired by any pool member never affect other wallets in the same pool. Penalties only land on wallets from rival pools or on wallets with no pool affiliation.
 
 | File | Role |
 |---|---|
@@ -1065,6 +1069,8 @@ Cada NFTJI del Market incluye:
 
 Tener un NFTJI del Market desbloquea un comando IRC diario. Los comandos pueden penalizar wallets rivales. Las wallets penalizadas pueden cancelar el golpe con un código de 5 dígitos derivado de la fórmula del comando y el nonce diario.
 
+> **Inmunidad de pool:** los comandos de market y los comandos ocultos lanzados por una wallet nunca afectan a otros miembros del mismo pool. Solo quedan expuestas las wallets de pools rivales o las wallets sin pool.
+
 ```txt
 ejemplo:
 41000 + x * 11 + 2048 / 4
@@ -1097,6 +1103,8 @@ El rango del Pool se calcula a partir de la suma de niveles de todos sus miembro
 | Entidad dominante | DRAGON MAINNET | 🐉 |
 
 La membresía y el rango del Pool son visibles en el Ranking y en el IRC. Los chips de invitación aparecen en la barra de cabecera del Ranking y se actualizan en tiempo real (suscripción Supabase + polling cada 5s).
+
+**Inmunidad de pool:** los comandos de market y los comandos ocultos lanzados por cualquier miembro de un pool nunca penalizan a otras wallets del mismo pool. Las penalizaciones solo alcanzan a wallets de pools rivales o a wallets sin afiliación a ningún pool.
 
 | Archivo | Función |
 |---|---|

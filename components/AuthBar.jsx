@@ -306,7 +306,9 @@ function ConnectedBar({ address, isRealWallet, onDisconnect, mode = 'full' }) {
           type="button"
           onClick={copyAddress}
           className={`flex items-center rounded-md border border-transparent font-mono tracking-wide transition hover:bg-cyan-950/20 focus:border-transparent focus:outline-none focus:ring-0 active:border-transparent ${mode === 'wallet' ? 'min-h-5 px-1 py-0.5 text-[0.70rem] sm:px-1.5 sm:text-[0.82rem]' : 'h-9 px-2 text-[0.80rem] sm:text-[0.6rem]'}`}
-          style={{ color: walletColor, textShadow: `0 0 10px ${walletColor}33` }}
+          style={poolViewData
+            ? { color: '#4ade80', textShadow: '0 0 10px rgba(74,222,128,0.3)' }
+            : { color: walletColor, textShadow: `0 0 10px ${walletColor}33` }}
           title={`${t('leaderboard.toggleMyWallet')}: ${address}`}
         >
           {mode === 'wallet' ? (
