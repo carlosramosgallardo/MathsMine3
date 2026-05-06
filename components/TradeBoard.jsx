@@ -667,14 +667,16 @@ export default function TradeBoard({ account, isVirtualWallet = false }) {
                   {TRADE_SLOT_ORDER.map((slot) => {
                     const owned = walletDecorations.includes(slot.emoji);
                     const isLife = slot.key === 'revive';
+                    const slotLvl = Math.max(0, Number(nftjiLevels?.[slot.key] ?? 0) || 0);
+                    const showLvl = owned && !isLife;
                     const borderColor = owned
                       ? (isLife ? 'rgba(251,113,133,0.6)' : tier.glow)
                       : (isLife ? 'rgba(251,113,133,0.22)' : 'rgba(148,163,184,0.22)');
                     return (
                       <div
                         key={slot.key}
-                        title={getTradeSlotTitle(slot, level, language)}
-                        className="mm3-trade-slot flex h-8 w-8 items-center justify-center rounded-md border text-base"
+                        title={`${getTradeSlotTitle(slot, level, language)}${showLvl ? ` | Lv.${slotLvl}` : ''}`}
+                        className="mm3-trade-slot flex h-8 w-8 flex-col items-center justify-center rounded-md border"
                         style={{
                           borderColor,
                           background: owned ? tier.bg : 'rgba(2,6,23,0.4)',
@@ -682,7 +684,19 @@ export default function TradeBoard({ account, isVirtualWallet = false }) {
                           boxShadow: owned ? `0 0 12px ${tier.color}22` : 'none',
                         }}
                       >
-                        {owned ? slot.emoji : ''}
+                        <span style={{ fontSize: showLvl ? '0.82rem' : '1rem', lineHeight: 1 }}>{owned ? slot.emoji : ''}</span>
+                        {showLvl && (
+                          <span style={{
+                            fontSize: '0.52rem',
+                            fontFamily: 'monospace',
+                            fontWeight: 800,
+                            lineHeight: 1,
+                            color: tier.color,
+                            textShadow: `0 0 3px ${tier.color}`,
+                          }}>
+                            {slotLvl}
+                          </span>
+                        )}
                       </div>
                     );
                   })}
