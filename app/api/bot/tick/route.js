@@ -45,6 +45,14 @@ export async function GET(req) {
   const wallet = BOT_WALLET;
   const now = new Date().toISOString();
 
+  // Mark bot as online at the start of execution
+  await supabase.from('mm3_wallet_presence').upsert({
+    wallet,
+    source: 'wallet',
+    last_seen: now,
+    updated_at: now,
+  }, { onConflict: 'wallet', ignoreDuplicates: false });
+
   const [
     { data: progressRow },
     { data: leaderboardRow },
@@ -327,13 +335,13 @@ export async function GET(req) {
     }).catch(() => {});
   }
 
-  // ── PRESENCE ─────────────────────────────────────────────
-  const botIsActive = availableMm3 > 0.000001 || drillsLeft > 0;
+  // ── PRESENCE: mark offline when execution ends ───────────
+  const doneAt = new Date().toISOString();
   await supabase.from('mm3_wallet_presence').upsert({
     wallet,
     source: 'wallet',
-    last_seen: botIsActive ? endIso : new Date(Date.now() - 200_000).toISOString(),
-    updated_at: now,
+    last_seen: new Date(Date.now() - 200_000).toISOString(),
+    updated_at: doneAt,
   }, { onConflict: 'wallet', ignoreDuplicates: false });
 
   return Response.json({
