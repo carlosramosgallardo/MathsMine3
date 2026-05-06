@@ -53,6 +53,9 @@ export async function GET(req) {
     updated_at: now,
   }, { onConflict: 'wallet', ignoreDuplicates: false });
 
+  // Wait for presence to propagate before starting work
+  await new Promise((resolve) => setTimeout(resolve, 10_000));
+
   const [
     { data: progressRow },
     { data: leaderboardRow },
