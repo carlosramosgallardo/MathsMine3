@@ -120,4 +120,9 @@ SET    first_purchased_at = NULL,
        paid_cny           = 0,
        updated_at         = now();
 
+-- 11. Presencia online: forzar offline a todas las wallets
+UPDATE mm3_wallet_presence
+SET    last_seen  = now() - interval '1 hour',
+       updated_at = now();
+
 COMMIT;
