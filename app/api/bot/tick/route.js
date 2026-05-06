@@ -311,6 +311,20 @@ export async function GET(req) {
       kind: 'chat',
       tone: 'bot',
     });
+
+    // Broadcast via Supabase JS built-in REST fallback (channel not subscribed → uses /api/broadcast)
+    await supabase.channel('mm3-irc-relay').send({
+      type: 'broadcast',
+      event: 'message',
+      payload: {
+        id: `db:${wallet}:${msgTs}`,
+        kind: 'chat',
+        wallet,
+        text: botMsg,
+        ts: msgTs,
+        tone: 'neutral',
+      },
+    }).catch(() => {});
   }
 
   // ── PRESENCE ─────────────────────────────────────────────
