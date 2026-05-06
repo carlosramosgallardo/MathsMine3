@@ -282,13 +282,35 @@ export async function GET(req) {
   }
 
   // ── IRC GREETING ─────────────────────────────────────────
-  await supabase.from('mm3_irc_messages').insert({
-    wallet,
-    text: 'hello world!',
-    ts: Date.now(),
-    kind: 'chat',
-    tone: 'neutral',
-  });
+  {
+    const gamesAction = actions.find((a) => a.type === 'games');
+    const tradeActions = actions.filter((a) => a.type === 'trade');
+    const claimActions = actions.filter((a) => a.type === 'daily_claim');
+
+    const gamesCount = gamesAction?.count || 0;
+    const mm3Mined = gamesAction?.total_mining_reward || 0;
+    const nftjiDrop = gamesAction?.nftji_drop || null;
+    const eurEarned = tradeActions.reduce((sum, t) => sum + (t.net_eur || 0), 0);
+    const tasksCompleted = claimActions.map((c) => c.taskKey);
+
+    let botMsg = `ran ${gamesCount} drills`;
+    if (mm3Mined !== 0) botMsg += ` :: ${mm3Mined >= 0 ? '+' : ''}${mm3Mined.toFixed(6)} MM3`;
+    if (eurEarned > 0) botMsg += ` / +${eurEarned.toFixed(4)} EUR`;
+    botMsg += nftjiDrop
+      ? ` :: nftji drop: ${nftjiDrop}`
+      : ` :: no nftji drop`;
+    botMsg += tasksCompleted.length > 0
+      ? ` :: daily tasks: ${tasksCompleted.join(' ')}`
+      : ` :: no daily tasks`;
+
+    await supabase.from('mm3_irc_messages').insert({
+      wallet,
+      text: botMsg,
+      ts: Date.now(),
+      kind: 'chat',
+      tone: 'neutral',
+    });
+  }
 
   // ── PRESENCE ─────────────────────────────────────────────
   const botIsActive = availableMm3 > 0.000001 || drillsLeft > 0;
