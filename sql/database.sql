@@ -446,6 +446,7 @@ CREATE INDEX idx_mm3_hidden_cmd_executions_wallet_block ON mm3_hidden_cmd_execut
 CREATE INDEX idx_mm3_irc_messages_wallet ON mm3_irc_messages(wallet);
 CREATE INDEX idx_mm3_irc_messages_ts ON mm3_irc_messages(ts DESC);
 CREATE INDEX idx_mm3_irc_messages_created_at ON mm3_irc_messages(created_at DESC);
+ALTER TABLE mm3_irc_messages REPLICA IDENTITY FULL;
 
 -- ==============================================
 -- PHASE 4: CREATE FUNCTIONS

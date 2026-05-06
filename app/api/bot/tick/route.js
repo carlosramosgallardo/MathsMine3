@@ -190,12 +190,13 @@ export async function GET(req) {
       const totalMm3Global = Number(tokenRow?.total_eth) || 0;
       const marketDelta = getWalletMarketDelta(nftjiDrop.emoji);
       if (marketDelta !== 0) {
-        await supabase.from('mm3_market_events').insert({
+        const { error: evtErr } = await supabase.from('mm3_market_events').insert({
           wallet,
           event_type: 'nftji_claim',
           delta_mm3: Math.abs(totalMm3Global * marketDelta),
           emoji: nftjiDrop.emoji,
-        }).catch(() => {});
+        });
+        if (evtErr) console.error('[bot] nftji event insert error:', evtErr.message);
       }
     }
 
@@ -342,7 +343,8 @@ export async function GET(req) {
       tone: 'bot',
     });
 
-    // Broadcast via Supabase JS built-in REST fallback (channel not subscribed → uses /api/broadcast)
+    // Broadcast via Supabase JS REST fallback — setAuth ensures the Bearer header is populated
+    supabase.realtime.setAuth(process.env.SUPABASE_SERVICE_ROLE_KEY);
     await supabase.channel('mm3-irc-relay').send({
       type: 'broadcast',
       event: 'message',

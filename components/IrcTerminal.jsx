@@ -1036,6 +1036,10 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
         scheduleTimeout(() => refreshMarketStatus(), 500);
       })
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'mm3_market_events' }, ({ new: rec }) => {
+        if (rec?.event_type === 'nftji_claim') {
+          window.dispatchEvent(new CustomEvent('mm3-db-updated'));
+          return;
+        }
         if (!['market_buy', 'market_resell'].includes(rec?.event_type)) return;
         const { emoji, hex } = resolveBlockByEmoji(rec.emoji);
         const action = rec.event_type === 'market_buy' ? traceLabel.buy : traceLabel.resell;
