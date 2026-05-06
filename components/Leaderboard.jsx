@@ -341,6 +341,8 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
           const lbRow   = lbByWallet.get(normalizedWallet);
           const progress = earnedByWallet.get(normalizedWallet) || {
             level: 0, mm3Sold: 0, cny: 0, eur: 0, usd: 0, walletEmojis: [], is_bot: false,
+            nftjiLevels: { lucky50: -1, lucky100: -1, lucky500: -1, lucky1000: -1 },
+            marketNftjiLevels: {},
           };
           const totalMm3    = Number(lbRow?.total_eth) || 0;
           const availableMm3 = totalMm3 - progress.mm3Sold;
@@ -359,6 +361,8 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
             active_penalty: penaltiesByWallet.get(normalizedWallet) || null,
             pool_code: poolByWallet.get(normalizedWallet) || '',
             is_bot: progress.is_bot || false,
+            nftjiLevels: progress.nftjiLevels || { lucky50: -1, lucky100: -1, lucky500: -1, lucky1000: -1 },
+            marketNftjiLevels: progress.marketNftjiLevels || {},
           };
         })
         .sort((a, b) => {
