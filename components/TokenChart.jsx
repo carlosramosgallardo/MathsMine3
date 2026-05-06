@@ -113,9 +113,21 @@ function groupColor(evts) {
   return C
 }
 
-function maskWallet(w) {
-  if (!w || w.length < 10) return w || '—'
-  return `${w.slice(0, 6)}…${w.slice(-4)}`
+const BOT_WALLET_ADDR = '0xcab10d0e0650d45cb0b7482370a1ca93d5bf5528'
+
+function WalletTag({ wallet, className = '' }) {
+  const addr = String(wallet || '').toLowerCase()
+  const short = addr.slice(-5)
+  if (!short) return <span className={className}>—</span>
+  if (addr === BOT_WALLET_ADDR) {
+    return (
+      <>
+        <span className={className}>{short}</span>
+        <span className="text-slate-600 text-[0.65em] uppercase tracking-wider ml-0.5">(bot)</span>
+      </>
+    )
+  }
+  return <span className={className}>{short.toUpperCase()}</span>
 }
 
 /* ── Mobile detection hook ── */
@@ -442,7 +454,7 @@ function ChartTip({ active, payload, label, nftEvents, range, t, isMobile }) {
               <div key={i} className="flex items-center justify-between gap-2 mb-0.5">
                 <span>
                   {ev.emoji}{' '}
-                  <span className="text-gray-500">{maskWallet(ev.wallet)}</span>
+                  <WalletTag wallet={ev.wallet} className="text-gray-500" />
                 </span>
                 {pct && (
                   <span style={{ color: clr }} className="font-black shrink-0">
