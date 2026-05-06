@@ -7,7 +7,7 @@ import { WALLET_DECORATIONS, getWalletMarketDelta } from '@/lib/wallet-decoratio
 import { marketCommandFromBlock, computeMarketCommandCode, getUtcDayWindow } from '@/lib/market-commands';
 
 const BOT_WALLET = '0xcab10d0e0650d45cb0b7482370a1ca93d5bf5528';
-const DAILY_MINE_BASE = 100;
+const DAILY_MINE_BASE = 200;
 const PRICE = Number(process.env.NEXT_PUBLIC_FAKE_MINING_PRICE) || 0.00001;
 const DAILY_TRADE_LIMIT = 5;
 
@@ -115,8 +115,8 @@ export async function GET(req) {
       const problem = pool[Math.floor(Math.random() * pool.length)];
       const timeLimit = getTimeLimit(level);
 
-      // Win rate decreases with level → natural equilibrium ~70 (never reaches 100)
-      const winRate = 0.85 - (level / 100) * 0.50;
+      // Win rate decreases with level — raised for more reliable NFTJi drop testing
+      const winRate = 0.92 - (level / 100) * 0.20;
       const isCorrect = Math.random() < winRate;
 
       let totalTime, mining, userAnswer;
