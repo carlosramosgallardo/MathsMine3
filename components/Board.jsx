@@ -908,16 +908,19 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
   };
 
   const loadMiningAttempts = async (wallet) => {
-    if (!wallet) { setDailyMineUsed(0); setExecsCount(0); return; }
+    if (!wallet) { setDailyMineUsed(0); setExecsCount(0); return { mineUsed: 0, execs: 0 }; }
     try {
       const { start, end } = getUtcDayBounds();
       const [{ count: gamesCount }, { count: txCount }] = await Promise.all([
         supabase.from('games').select('id', { count: 'exact', head: true }).eq('wallet', wallet).gte('created_at', start.toISOString()).lt('created_at', end.toISOString()),
         supabase.from('mm3_sell_transactions').select('id', { count: 'exact', head: true }).eq('wallet', wallet),
       ]);
-      setDailyMineUsed(Number(gamesCount) || 0);
-      setExecsCount(Number(txCount) || 0);
-    } catch {}
+      const mineUsed = Number(gamesCount) || 0;
+      const execs = Number(txCount) || 0;
+      setDailyMineUsed(mineUsed);
+      setExecsCount(execs);
+      return { mineUsed, execs };
+    } catch { return { mineUsed: 0, execs: 0 }; }
   };
 
   useEffect(() => {
@@ -930,6 +933,7 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
 
     const load = async () => {
       let loadedLevel = 0;
+      let loadedAttempts = null;
       try {
         if (!account) {
           setLevel(0);
@@ -947,15 +951,17 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
           setLevel(loadedLevel);
           setTotalMined(parseFloat(stats?.total_eth) || 0);
           await refreshWalletMeta(wallet);
-          await loadMiningAttempts(wallet);
+          loadedAttempts = await loadMiningAttempts(wallet);
         }
       } catch (e) {
         console.error('level load:', e);
       }
       if (cancelled) return;
       didMountRef.current = true;
+      const mineTotal = DAILY_MINE_BASE + (loadedAttempts?.execs || 0);
+      const mineLeft = Math.max(0, mineTotal - (loadedAttempts?.mineUsed || 0));
       const cachedProblem = readCachedProblem();
-      if (cachedProblem?.problem) {
+      if (cachedProblem?.problem && mineLeft > 0) {
         if (cancelled) return;
         setProblem(cachedProblem.problem);
         setElapsedTime(0);
@@ -2233,6 +2239,7 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
   };
 
   const startCountdown = () => {
+    if (noSlotsLeft) return;
     clearBoardFeedback();
     notifyGuestMining();
     clearGameplayTimers();
@@ -2254,6 +2261,7 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
   };
 
   const startNextBlock = () => {
+    if (noSlotsLeft) return;
     clearBoardFeedback();
     notifyGuestMining();
     fetchPhrase(undefined, true);
@@ -2276,7 +2284,7 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
   };
 
   const checkAnswer = async (choice) => {
-    if (!problem || isDisabled) return;
+    if (!problem || isDisabled || noSlotsLeft) return;
     if (account) setDailyMineUsed((prev) => prev + 1);
 
     clearInterval(solveRef.current);
