@@ -105,7 +105,7 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
   });
   const [selectedPool, setSelectedPool] = useState('');
   const [contactBusy, setContactBusy] = useState('');
-  const [sortConfig, setSortConfig] = useState({ key: 'status', direction: 'desc' });
+  const [sortConfig, setSortConfig] = useState({ key: 'position', direction: 'asc' });
   const { account } = useActiveWallet();
   const pathname = usePathname();
   const activeWallet = account?.toLowerCase() || '';
