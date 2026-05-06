@@ -97,6 +97,7 @@ export async function GET(req) {
   let tradesTodayCount = Number(tradesToday) || 0;
   const drillsTotal = DAILY_MINE_BASE + totalExecsCount;
   const drillsLeft = Math.max(0, drillsTotal - gamesTodayCount);
+  let actualGamesPlayed = 0;
   const walletEmojis = Array.isArray(progressRow?.wallet_emojis) ? progressRow.wallet_emojis : [];
   const claimedTasks = new Set((claimsData || []).map((r) => r.task_key));
   const pool = problems?.length ? problems : null;
@@ -208,6 +209,7 @@ export async function GET(req) {
       }
     }
 
+    actualGamesPlayed = drillsLeft;
     actions.push({ type: 'games', count: drillsLeft, total_mining_reward: totalMiningReward, level, nftji_drop: nftjiDrop?.emoji || null });
   }
 
@@ -468,7 +470,7 @@ export async function GET(req) {
   }
 
   // ── DAILY REWARDS ────────────────────────────────────────
-  const newGamesToday = gamesTodayCount + drillsLeft;
+  const newGamesToday = gamesTodayCount + actualGamesPlayed;
   const newTradesToday = tradesTodayCount;
 
   const dailyTargets = {
@@ -574,7 +576,7 @@ export async function GET(req) {
   return Response.json({
     ok: true,
     actions,
-    gamesPlayed: drillsLeft,
+    gamesPlayed: actualGamesPlayed,
     tradesPlaced: tradesTodayCount - Number(tradesToday),
   });
 }
