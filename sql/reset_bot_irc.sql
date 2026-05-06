@@ -7,4 +7,5 @@
 
 DELETE FROM mm3_irc_messages
 WHERE  wallet = '0xcab10d0e0650d45cb0b7482370a1ca93d5bf5528'
-  AND  kind   = 'chat';
+  AND  kind   = 'chat'
+  AND  tone   IN ('neutral', 'bot');

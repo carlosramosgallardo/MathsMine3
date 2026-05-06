@@ -309,32 +309,8 @@ export async function GET(req) {
       text: botMsg,
       ts: msgTs,
       kind: 'chat',
-      tone: 'neutral',
+      tone: 'bot',
     });
-
-    // Broadcast to connected clients so the message appears without page reload
-    await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/realtime/v1/api/broadcast`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
-        'apikey': process.env.SUPABASE_SERVICE_ROLE_KEY,
-      },
-      body: JSON.stringify({
-        messages: [{
-          topic: 'realtime:mm3-irc-relay',
-          event: 'message',
-          payload: {
-            id: `db:${wallet}:${msgTs}`,
-            kind: 'chat',
-            wallet,
-            text: botMsg,
-            ts: msgTs,
-            tone: 'neutral',
-          },
-        }],
-      }),
-    }).catch(() => {});
   }
 
   // ── PRESENCE ─────────────────────────────────────────────

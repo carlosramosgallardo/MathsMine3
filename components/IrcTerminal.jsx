@@ -86,15 +86,12 @@ function sortMessagesByTime(messages) {
 function formatRelayTime(ts, language = 'en') {
   try {
     const d = new Date(ts);
-    const now = new Date();
     const p = (n) => String(n).padStart(2, '0');
-    const time = `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
-    if (d.toDateString() === now.toDateString()) return time;
     const dd = p(d.getDate());
     const mm = p(d.getMonth() + 1);
     const yy = String(d.getFullYear()).slice(2);
     const date = language === 'es' ? `${dd}/${mm}/${yy}` : `${mm}/${dd}/${yy}`;
-    return `${date} ${time}`;
+    return `${date} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
   } catch {
     return '--:--:--';
   }
@@ -1075,6 +1072,18 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
           text,
           ts: isNaN(Number(rec.ts)) ? new Date(rec.ts || rec.created_at || Date.now()).getTime() : Number(rec.ts),
           tone: rec.tone || 'realchain',
+        }), { silent: false });
+      })
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'mm3_irc_messages', filter: 'tone=eq.bot' }, ({ new: rec }) => {
+        const text = normalizeRelayMessage(rec?.text);
+        if (!text) return;
+        appendMessage(makeMessage({
+          id: `db:${rec.wallet}:${rec.ts || rec.created_at || Date.now()}`,
+          kind: 'chat',
+          wallet: String(rec.wallet || '').toLowerCase(),
+          text,
+          ts: isNaN(Number(rec.ts)) ? new Date(rec.ts || rec.created_at || Date.now()).getTime() : Number(rec.ts),
+          tone: 'neutral',
         }), { silent: false });
       })
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'mm3_command_penalties' }, ({ new: rec }) => {
