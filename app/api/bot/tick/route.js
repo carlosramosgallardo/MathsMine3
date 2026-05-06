@@ -103,6 +103,35 @@ export async function GET(req) {
   const pool = problems?.length ? problems : null;
   const actions = [];
 
+  async function claimDailyReward(taskKey, rewardEur) {
+    if (claimedTasks.has(taskKey)) return false;
+
+    const rewardCny = rewardEur / CNY_TO_EUR;
+    const rewardUsd = rewardCny * CNY_TO_USD;
+
+    const claimResult = await supabase.from('daily_task_claims').insert({
+      wallet, day: dayKey, task_key: taskKey,
+      reward_claimed: true, reward_eur: rewardEur, reward_usd: rewardUsd, reward_cny: rewardCny,
+      claimed_at: now, created_at: now,
+    });
+    if (claimResult.error) return false;
+
+    const { data: fresh } = await supabase.from('player_progress')
+      .select('eur_earned, usd_earned, cny_earned').eq('wallet', wallet).maybeSingle();
+    await supabase.from('player_progress').upsert({
+      wallet,
+      is_bot: true,
+      eur_earned: (Number(fresh?.eur_earned) || 0) + rewardEur,
+      usd_earned: (Number(fresh?.usd_earned) || 0) + rewardUsd,
+      cny_earned: (Number(fresh?.cny_earned) || 0) + rewardCny,
+      updated_at: now,
+    }, { onConflict: 'wallet', ignoreDuplicates: false });
+
+    claimedTasks.add(taskKey);
+    actions.push({ type: 'daily_claim', taskKey, rewardEur });
+    return true;
+  }
+
   // ── MINING GAMES (batch all drills) ──────────────────────
   if (drillsLeft > 0 && pool) {
     const gameRecords = [];
@@ -295,6 +324,24 @@ export async function GET(req) {
     }, { onConflict: 'wallet', ignoreDuplicates: false });
   }
 
+  // ── DAILY REWARDS available before market ────────────────
+  const newGamesToday = gamesTodayCount + actualGamesPlayed;
+  const newTradesToday = tradesTodayCount;
+
+  const dailyTargets = {
+    mining: { target: 25, rewardEur: 0.25 },
+    trading: { target: 5, rewardEur: 0.5 },
+    market: { target: 1, rewardEur: 0.75 },
+    irc: { target: 1, rewardEur: 1.0 },
+  };
+
+  if (newGamesToday >= dailyTargets.mining.target) {
+    await claimDailyReward('mining', dailyTargets.mining.rewardEur);
+  }
+  if (newTradesToday >= dailyTargets.trading.target) {
+    await claimDailyReward('trading', dailyTargets.trading.rewardEur);
+  }
+
   // ── MARKET NFTJI (buy / upgrade+resell) ──────────────────
   let currentMarketKey = progressRow?.market_nftji_key || null;
   let currentMarketPrice = Number(progressRow?.market_nftji_price) || 0;
@@ -476,16 +523,7 @@ export async function GET(req) {
     }
   }
 
-  // ── DAILY REWARDS ────────────────────────────────────────
-  const newGamesToday = gamesTodayCount + actualGamesPlayed;
-  const newTradesToday = tradesTodayCount;
-
-  const dailyTargets = {
-    mining: { target: 25, rewardEur: 0.25 },
-    trading: { target: 5, rewardEur: 0.5 },
-    market: { target: 1, rewardEur: 0.75 },
-    irc: { target: 1, rewardEur: 1.0 },
-  };
+  // ── DAILY REWARDS that depend on market/IRC actions ──────
   for (const [taskKey, { target, rewardEur }] of Object.entries(dailyTargets)) {
     if (claimedTasks.has(taskKey)) continue;
     let count;
@@ -496,28 +534,7 @@ export async function GET(req) {
     else continue;
     if (count < target) continue;
 
-    const rewardCny = rewardEur / CNY_TO_EUR;
-    const rewardUsd = rewardCny * CNY_TO_USD;
-
-    const claimResult = await supabase.from('daily_task_claims').insert({
-      wallet, day: dayKey, task_key: taskKey,
-      reward_claimed: true, reward_eur: rewardEur, reward_usd: rewardUsd, reward_cny: rewardCny,
-      claimed_at: now, created_at: now,
-    });
-    if (claimResult.error) continue;
-
-    const { data: fresh } = await supabase.from('player_progress')
-      .select('eur_earned, usd_earned, cny_earned').eq('wallet', wallet).maybeSingle();
-    await supabase.from('player_progress').upsert({
-      wallet,
-      is_bot: true,
-      eur_earned: (Number(fresh?.eur_earned) || 0) + rewardEur,
-      usd_earned: (Number(fresh?.usd_earned) || 0) + rewardUsd,
-      cny_earned: (Number(fresh?.cny_earned) || 0) + rewardCny,
-      updated_at: now,
-    }, { onConflict: 'wallet', ignoreDuplicates: false });
-
-    actions.push({ type: 'daily_claim', taskKey, rewardEur });
+    await claimDailyReward(taskKey, rewardEur);
   }
 
   // ── IRC GREETING ─────────────────────────────────────────

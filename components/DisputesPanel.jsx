@@ -366,6 +366,7 @@ function DisputeCard({ dispute, activeWallet, poolCode, language, onJoin, onClai
                           {w.wallet.slice(-5)}
                         </button>
                         <span style={{ color: '#64748b' }}>Lv{w.level_snap}</span>
+                        {w.nftji_snap > 0 && <span title={lang === 'es' ? `NFTJi poder total: ${w.nftji_snap}` : `NFTJi power: ${w.nftji_snap}`} style={{ color: '#22d3ee', fontFamily: 'monospace', fontSize: '0.65rem' }}>✦{w.nftji_snap}</span>}
                         {w.has_penalty && <span title={lang === 'es' ? 'Penalización activa' : 'Active penalty'}>⚠️</span>}
                         {emojiByWallet?.[w.wallet] && <span title={`Market NFTJI — ${emojiByWallet[w.wallet]}`}>{emojiByWallet[w.wallet]}</span>}
                         {(() => {
@@ -410,6 +411,7 @@ function DisputeCard({ dispute, activeWallet, poolCode, language, onJoin, onClai
               { label: 'ΣMM3', ch: fmt(dispute.ch_mm3_sum), df: fmt(dispute.df_mm3_sum) },
               { label: 'ΣEUR', ch: fmt(dispute.ch_eur_sum), df: fmt(dispute.df_eur_sum) },
               { label: 'NFTJIs', ch: dispute.ch_nftji_count, df: dispute.df_nftji_count },
+              { label: 'Σ✦NFTJI', ch: chWallets.reduce((s, w) => s + (w.nftji_snap || 0), 0), df: dfWallets.reduce((s, w) => s + (w.nftji_snap || 0), 0) },
               { label: 'Mkt.NFTJI', ch: dispute.ch_market_nftji_count ?? '—', df: dispute.df_market_nftji_count ?? '—' },
               { label: '⚔️Σatk', ch: dispute.ch_squeeze_atk_sum ?? 0, df: dispute.df_squeeze_atk_sum ?? 0 },
               { label: 'Execs', ch: dispute.ch_exec_count, df: dispute.df_exec_count },

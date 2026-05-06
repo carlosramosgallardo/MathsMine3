@@ -1257,29 +1257,33 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
                   {TRADE_SLOT_ORDER.map((slot) => {
                     const owned = ownedEmojis.includes(slot.emoji);
                     const isLife = slot.key === 'revive';
+                    const slotLvl = isLife ? -1 : (entry.nftjiLevels?.[slot.key] ?? -1);
+                    const showLvl = owned && !isLife && slotLvl >= 0;
                     const borderColor = owned
                       ? (isLife ? 'rgba(251,113,133,0.6)' : tier.glow)
                       : (isLife ? 'rgba(251,113,133,0.22)' : 'rgba(148,163,184,0.22)');
                     return (
                       <div
                         key={slot.key}
-                        title={getEmojiTitle(slot.emoji)}
-                        className="flex h-6 w-6 items-center justify-center rounded border text-[0.90rem]"
+                        title={getEmojiTitle(slot.emoji) + (showLvl ? ` Lv.${slotLvl}` : '')}
+                        className="relative flex flex-col items-center justify-center rounded border"
                         style={{
+                          width: '1.5rem', height: '1.5rem',
                           borderColor,
                           background: owned ? tier.bg : 'rgba(2,6,23,0.4)',
                           color: owned ? tier.color : 'rgba(100,116,139,0.35)',
                           boxShadow: owned ? `0 0 8px ${tier.color}22` : 'none',
                         }}
                       >
-                        {owned ? slot.emoji : ''}
+                        <span style={{ fontSize: showLvl ? '0.72rem' : '0.88rem', lineHeight: 1 }}>{owned ? slot.emoji : ''}</span>
+                        {showLvl && <span style={{ fontSize: '0.48rem', fontFamily: 'monospace', color: tier.color, fontWeight: 800, lineHeight: 1 }}>{slotLvl}</span>}
                       </div>
                     );
                   })}
                   {Object.entries(entry.market_emoji_counts || {}).length === 0 ? (
-                    <div className="flex h-6 w-6 items-center justify-center rounded border text-[0.90rem]"
+                    <div className="flex items-center justify-center rounded border"
                       title="Market NFTJI — none"
-                      style={{ borderColor: 'rgba(250,204,21,0.22)', background: 'rgba(2,6,23,0.4)', color: 'rgba(100,116,139,0.35)' }} />
+                      style={{ width: '1.5rem', height: '1.5rem', borderColor: 'rgba(250,204,21,0.22)', background: 'rgba(2,6,23,0.4)', color: 'rgba(100,116,139,0.35)' }} />
                   ) : Object.entries(entry.market_emoji_counts || {}).map(([emoji, count]) => (
                     <div key={`mkt-${emoji}`}
                       title={`Market NFTJI ${emoji} — ${count} member${count !== 1 ? 's' : ''}`}
@@ -1409,22 +1413,26 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
                   {TRADE_SLOT_ORDER.map((slot) => {
                     const owned = ownedEmojis.includes(slot.emoji);
                     const isLife = slot.key === 'revive';
+                    const slotLvl = isLife ? -1 : (entry.nftjiLevels?.[slot.key] ?? -1);
+                    const showLvl = owned && !isLife && slotLvl >= 0;
                     const borderColor = owned
                       ? (isLife ? 'rgba(251,113,133,0.6)' : tier.glow)
                       : (isLife ? 'rgba(251,113,133,0.22)' : 'rgba(148,163,184,0.22)');
                     return (
                       <div
                         key={slot.key}
-                        title={getEmojiTitle(slot.emoji)}
-                        className="flex h-6 w-6 items-center justify-center rounded border text-[0.90rem]"
+                        title={getEmojiTitle(slot.emoji) + (showLvl ? ` Lv.${slotLvl}` : '')}
+                        className="relative flex flex-col items-center justify-center rounded border"
                         style={{
+                          width: '1.5rem', height: '1.5rem',
                           borderColor,
                           background: owned ? tier.bg : 'rgba(2,6,23,0.4)',
                           color: owned ? tier.color : 'rgba(100,116,139,0.35)',
                           boxShadow: owned ? `0 0 8px ${tier.color}22` : 'none',
                         }}
                       >
-                        {owned ? slot.emoji : ''}
+                        <span style={{ fontSize: showLvl ? '0.72rem' : '0.88rem', lineHeight: 1 }}>{owned ? slot.emoji : ''}</span>
+                        {showLvl && <span style={{ fontSize: '0.48rem', fontFamily: 'monospace', color: tier.color, fontWeight: 800, lineHeight: 1 }}>{slotLvl}</span>}
                       </div>
                     );
                   })}
@@ -1611,7 +1619,7 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
                           <div
                             key={slot.key}
                             title={owned ? `${getEmojiTitle(slot.emoji)} ×${count}${lvlSum > 0 ? ` Lv.${lvlSum}` : ''}` : getEmojiTitle(slot.emoji)}
-                            className="lb-slot-cell relative flex items-center justify-center rounded-md border text-[0.95rem]"
+                            className="lb-slot-cell flex flex-col items-center justify-center rounded-md border"
                             style={{
                               borderColor,
                               background: owned ? tier.bg : 'rgba(2,6,23,0.4)',
@@ -1619,19 +1627,16 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
                               boxShadow: owned ? `0 0 12px ${tier.color}22` : 'none',
                             }}
                           >
-                            {owned ? slot.emoji : ''}
+                            <span style={{ fontSize: owned && (count > 1 || (!isLife && lvlSum > 0)) ? '0.78rem' : '0.95rem', lineHeight: 1 }}>{owned ? slot.emoji : ''}</span>
                             {owned && count > 1 && (
-                              <span className="absolute bottom-[1px] right-[2px] font-mono text-[0.48rem] font-black leading-none text-cyan-200">
-                                ×{count}
+                              <span style={{ fontSize: '0.5rem', fontFamily: 'monospace', fontWeight: 800, lineHeight: 1, color: '#a5f3fc' }}>
+                                ×{count}{!isLife && lvlSum > 0 ? ` L${lvlSum}` : ''}
                               </span>
                             )}
-                            {owned && !isLife && lvlSum > 0 && count <= 1 && (
-                              <span style={{
-                                position: 'absolute', bottom: 1, right: 2,
-                                fontSize: '0.48rem', fontFamily: 'monospace',
-                                color: tier.color, lineHeight: 1, fontWeight: 700,
-                                textShadow: `0 0 4px ${tier.color}`,
-                              }}>Lv.{lvlSum}</span>
+                            {owned && count <= 1 && !isLife && lvlSum > 0 && (
+                              <span style={{ fontSize: '0.52rem', fontFamily: 'monospace', color: tier.color, fontWeight: 800, lineHeight: 1, textShadow: `0 0 3px ${tier.color}` }}>
+                                Lv.{lvlSum}
+                              </span>
                             )}
                           </div>
                         );
@@ -1766,14 +1771,15 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
                         const owned = ownedEmojis.includes(slot.emoji);
                         const isLife = slot.key === 'revive';
                         const lvl = isLife ? -1 : (entry.nftjiLevels?.[slot.key] ?? -1);
+                        const showLvl = owned && !isLife && lvl >= 0;
                         const borderColor = owned
                           ? (isLife ? 'rgba(251,113,133,0.6)' : tier.glow)
                           : (isLife ? 'rgba(251,113,133,0.22)' : 'rgba(148,163,184,0.22)');
                         return (
                           <div
                             key={slot.key}
-                            title={getEmojiTitle(slot.emoji)}
-                            className="lb-slot-cell relative flex items-center justify-center rounded-md border text-[0.95rem]"
+                            title={getEmojiTitle(slot.emoji) + (showLvl ? ` Lv.${lvl}` : '')}
+                            className="lb-slot-cell flex flex-col items-center justify-center rounded-md border"
                             style={{
                               borderColor,
                               background: owned ? tier.bg : 'rgba(2,6,23,0.4)',
@@ -1781,13 +1787,12 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
                               boxShadow: owned ? `0 0 12px ${tier.color}22` : 'none',
                             }}
                           >
-                            {owned ? slot.emoji : ''}
-                            {owned && !isLife && lvl >= 0 && (
+                            <span style={{ fontSize: showLvl ? '0.78rem' : '0.95rem', lineHeight: 1 }}>{owned ? slot.emoji : ''}</span>
+                            {showLvl && (
                               <span style={{
-                                position: 'absolute', bottom: 1, right: 2,
-                                fontSize: '0.48rem', fontFamily: 'monospace',
-                                color: tier.color, lineHeight: 1, fontWeight: 700,
-                                textShadow: `0 0 4px ${tier.color}`,
+                                fontSize: '0.52rem', fontFamily: 'monospace',
+                                color: tier.color, fontWeight: 800, lineHeight: 1,
+                                textShadow: `0 0 3px ${tier.color}`,
                               }}>{lvl}</span>
                             )}
                           </div>
