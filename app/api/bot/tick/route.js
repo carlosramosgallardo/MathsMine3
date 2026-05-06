@@ -3,7 +3,7 @@ export const maxDuration = 60;
 
 import { createClient } from '@supabase/supabase-js';
 import { getSellQuote, getSellRateCny, getCommissionRate, CNY_TO_EUR, CNY_TO_USD, clampLevel } from '@/lib/sell-offer';
-import { WALLET_DECORATIONS } from '@/lib/wallet-decorations';
+import { WALLET_DECORATIONS, getWalletMarketDelta } from '@/lib/wallet-decorations';
 
 const BOT_WALLET = '0xcab10d0e0650d45cb0b7482370a1ca93d5bf5528';
 const DAILY_MINE_BASE = 100;
@@ -182,6 +182,22 @@ export async function GET(req) {
     if (nftjiDrop) progressUpdate[nftjiDrop.field] = true;
     await supabase.from('player_progress')
       .upsert(progressUpdate, { onConflict: 'wallet', ignoreDuplicates: false });
+
+    // Record NFTJi claim event on the chart
+    if (nftjiDrop) {
+      const { data: tokenRow } = await supabase
+        .from('leaderboard_data').select('total_eth').eq('wallet', wallet).maybeSingle();
+      const totalMm3Global = Number(tokenRow?.total_eth) || 0;
+      const marketDelta = getWalletMarketDelta(nftjiDrop.emoji);
+      if (marketDelta !== 0) {
+        await supabase.from('mm3_market_events').insert({
+          wallet,
+          event_type: 'nftji_claim',
+          delta_mm3: Math.abs(totalMm3Global * marketDelta),
+          emoji: nftjiDrop.emoji,
+        }).catch(() => {});
+      }
+    }
 
     actions.push({ type: 'games', count: drillsLeft, total_mining_reward: totalMiningReward, level, nftji_drop: nftjiDrop?.emoji || null });
   }
