@@ -97,19 +97,39 @@ export async function GET(req) {
     for (let i = 0; i < drillsLeft; i++) {
       const problem = pool[Math.floor(Math.random() * pool.length)];
       const timeLimit = getTimeLimit(level);
-      const timePct = 0.3 + Math.random() * 0.5;
-      const totalTime = Math.round(timeLimit * timePct);
-      const base = timeLimit * 0.5;
-      let mining = totalTime <= base
-        ? PRICE * ((base - totalTime) / base)
-        : -PRICE * 0.05 * Math.min((totalTime - base) / base, 1);
-      mining *= getRewardMult(level);
+
+      // Win rate decreases with level → natural equilibrium ~70 (never reaches 100)
+      const winRate = 0.85 - (level / 100) * 0.50;
+      const isCorrect = Math.random() < winRate;
+
+      let totalTime, mining, userAnswer;
+
+      if (isCorrect) {
+        const timePct = 0.3 + Math.random() * 0.5;
+        totalTime = Math.round(timeLimit * timePct);
+        const base = timeLimit * 0.5;
+        mining = totalTime <= base
+          ? PRICE * ((base - totalTime) / base)
+          : -PRICE * 0.05 * Math.min((totalTime - base) / base, 1);
+        mining *= getRewardMult(level);
+        userAnswer = String(problem.correct_answer).trim();
+        level = clampLevel(level + 1);
+      } else {
+        totalTime = Math.round(timeLimit * (0.85 + Math.random() * 0.15));
+        mining = 0;
+        const offset = Math.floor(Math.random() * 5) + 1;
+        const correctNum = Number(problem.correct_answer);
+        userAnswer = isNaN(correctNum)
+          ? String(problem.correct_answer) + '?'
+          : String(correctNum + offset);
+        level = clampLevel(level - 1);
+      }
 
       gameRecords.push({
         wallet,
         problem: problem.question,
-        user_answer: String(problem.correct_answer).trim(),
-        is_correct: true,
+        user_answer: userAnswer,
+        is_correct: isCorrect,
         time_ms: totalTime,
         mining_reward: mining,
         problem_id: problem.id || null,
@@ -119,9 +139,8 @@ export async function GET(req) {
       });
 
       totalMiningReward += mining;
-      level = clampLevel(level + (level >= 80 ? 2 : 1));
 
-      if (!nftjiDrop) {
+      if (isCorrect && !nftjiDrop) {
         if (!progressRow?.lucky_1000_claimed && !ownedSet.has(WALLET_DECORATIONS.lucky1000) && Math.random() < 1 / 1000)
           nftjiDrop = { emoji: WALLET_DECORATIONS.lucky1000, field: 'lucky_1000_claimed' };
         else if (!progressRow?.lucky_500_claimed && !ownedSet.has(WALLET_DECORATIONS.lucky500) && Math.random() < 1 / 500)
