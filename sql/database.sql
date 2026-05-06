@@ -1571,6 +1571,18 @@ CREATE POLICY "public_read_mm3_pool_dispute_wallets" ON mm3_pool_dispute_wallets
 DROP POLICY IF EXISTS "public_read_mm3_squeeze_nftji" ON mm3_squeeze_nftji;
 CREATE POLICY "public_read_mm3_squeeze_nftji" ON mm3_squeeze_nftji FOR SELECT TO public USING (true);
 
+-- daily_task_claims
+DROP POLICY IF EXISTS "public_read_daily_task_claims" ON daily_task_claims;
+DROP POLICY IF EXISTS "public_insert_daily_task_claims" ON daily_task_claims;
+CREATE POLICY "public_read_daily_task_claims" ON daily_task_claims FOR SELECT TO public USING (true);
+CREATE POLICY "public_insert_daily_task_claims" ON daily_task_claims FOR INSERT TO public WITH CHECK (wallet <> '' AND day <> '' AND task_key <> '');
+
+-- mm3_macro_state write policies
+DROP POLICY IF EXISTS "public_insert_mm3_macro_state" ON mm3_macro_state;
+DROP POLICY IF EXISTS "public_update_mm3_macro_state" ON mm3_macro_state;
+CREATE POLICY "public_insert_mm3_macro_state" ON mm3_macro_state FOR INSERT TO public WITH CHECK (id = 1);
+CREATE POLICY "public_update_mm3_macro_state" ON mm3_macro_state FOR UPDATE TO public USING (id = 1) WITH CHECK (id = 1);
+
 -- ==============================================
 -- PHASE 9: INSERT INITIAL DATA
 -- ==============================================
@@ -1790,26 +1802,26 @@ SET market_command = v.market_command,
     updated_at = NOW()
 FROM (
   VALUES
-    ('mm3-023', '/ping -c 4 gateway.mainframe', '27814'),
-    ('mm3-05c', '/nmcli connection reload', '10215'),
-    ('mm3-0b9', '/netstat -tulpn', '11184'),
-    ('mm3-11b', '/git cherry-pick a1b2c3d', '14303'),
-    ('mm3-184', '/kubectl rollout restart deploy/fractal-core', '15115'),
-    ('mm3-1e7', '/uptime', '18853'),
-    ('mm3-244', '/journalctl -n 50', '22590'),
-    ('mm3-26d', '/whoami', '29884'),
-    ('mm3-2ca', '/hostnamectl status', '31184'),
-    ('mm3-30e', '/sha256sum /etc/hosts', '37829'),
-    ('mm3-01d', '/lsblk', '42865'),
-    ('mm3-04a', '/passwd', '48592'),
-    ('mm3-091', '/ufw status verbose', '49849'),
-    ('mm3-0f8', '/ss -lntp', '55863'),
-    ('mm3-15c', '/uname -r', '59063'),
-    ('mm3-1a6', '/gcc --version', '63063'),
-    ('mm3-20b', '/scp file.txt backup:/tmp/', '67799'),
-    ('mm3-29b', '/curl -I http://localhost', '75630'),
-    ('mm3-2da', '/acpi -V', '81281'),
-    ('mm3-2f9', '/alsamixer', '87485')
+    ('mm3-023', '/ping -c 4 gateway.mainframe => 5*(4000+x) + 12*(300+x) + (6000+3*x)/3 = ?', '27814'),
+    ('mm3-05c', '/nmcli connection reload => (7000+x) + 13*200 + x*4 = ?', '10215'),
+    ('mm3-0b9', '/netstat -tulpn => 9000 + 8*x + 3600/3 = ?', '11184'),
+    ('mm3-11b', '/git cherry-pick a1b2c3d => 11000 + 21*x + 1440/2 = ?', '14303'),
+    ('mm3-184', '/kubectl rollout restart deploy/fractal-core => 12000 + x*17 + 4096/4 = ?', '15115'),
+    ('mm3-1e7', '/uptime => 15000 + x*23 + 2048/2 = ?', '18853'),
+    ('mm3-244', '/journalctl -n 50 => 18000 + x*31 + 7777%1000 = ?', '22590'),
+    ('mm3-26d', '/whoami => 22000 + x*37 + 9999/3 = ?', '29884'),
+    ('mm3-2ca', '/hostnamectl status => 26000 + x*41 + 12345%678 = ?', '31184'),
+    ('mm3-30e', '/sha256sum /etc/hosts => 30000 + x*47 + 8192/4 = ?', '37829'),
+    ('mm3-01d', '/lsblk => 41000 + x*11 + 2048/4 = ?', '42865'),
+    ('mm3-04a', '/passwd => (43000+x) + 17*300 + x*3 = ?', '48592'),
+    ('mm3-091', '/ufw status verbose => 47000 + 19*x + 4096/8 = ?', '49849'),
+    ('mm3-0f8', '/ss -lntp => 51000 + x*29 + 7776/6 = ?', '55863'),
+    ('mm3-15c', '/uname -r => 54000 + x*31 + 10000/8 = ?', '59063'),
+    ('mm3-1a6', '/gcc --version => 58000 + x*37 + 8192/16 = ?', '63063'),
+    ('mm3-20b', '/scp file.txt backup:/tmp/ => 62000 + x*43 + 12345%789 = ?', '67799'),
+    ('mm3-29b', '/curl -I http://localhost => 68000 + x*38 + 9999/9 = ?', '75630'),
+    ('mm3-2da', '/acpi -V => 73000 + x*32 + 16384/16 = ?', '81281'),
+    ('mm3-2f9', '/alsamixer => 79000 + x*25 + 22222%999 = ?', '87485')
 ) AS v(block_key, market_command, formula_result_5d)
 WHERE b.block_key = v.block_key;
 
@@ -1820,35 +1832,54 @@ WHERE b.block_key = v.block_key;
 --
 -- That private script should contain the INSERTs for public.math_problems.
 
+-- Bot wallet: ensure is_bot flag is set
+INSERT INTO player_progress (wallet, is_bot, updated_at)
+VALUES ('0xcab10d0e0650d45cb0b7482370a1ca93d5bf5528', TRUE, NOW())
+ON CONFLICT (wallet) DO UPDATE SET is_bot = TRUE, updated_at = NOW();
+
 -- ==============================================
 -- PHASE 10: GRANT PERMISSIONS
 -- ==============================================
 
-GRANT SELECT ON mm3_squeeze_nftji TO anon;
-GRANT SELECT ON ALL TABLES IN SCHEMA public TO anon;
-GRANT INSERT ON games TO anon;
-GRANT INSERT, UPDATE ON player_progress TO anon;
-GRANT SELECT, INSERT, UPDATE ON mm3_market_state TO anon;
-GRANT SELECT ON mm3_macro_state TO anon;
-GRANT SELECT, INSERT, UPDATE ON mm3_wallet_presence TO anon;
-GRANT SELECT, INSERT, UPDATE ON mm3_wallet_pools TO anon;
-GRANT SELECT, INSERT ON mm3_wallet_pool_members TO anon;
-GRANT SELECT, INSERT ON mm3_sell_transactions TO anon;
-GRANT SELECT, INSERT ON mm3_market_events TO anon;
-GRANT INSERT ON api_requests TO anon;
-GRANT SELECT, UPDATE ON mm3_market_blocks TO anon;
-GRANT SELECT, INSERT ON mm3_market_commands TO anon;
-GRANT SELECT, INSERT, UPDATE ON mm3_command_penalties TO anon;
-GRANT SELECT, INSERT ON mm3_hidden_cmd_executions TO anon;
-GRANT SELECT, INSERT ON mm3_irc_messages TO anon;
-GRANT DELETE ON mm3_irc_messages TO anon;
-GRANT UPDATE ON mm3_visual_state TO anon;
-GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO anon;
-GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO anon;
+-- Tables
+GRANT SELECT, INSERT           ON games                        TO anon;
+GRANT SELECT                   ON math_problems                TO anon;
+GRANT SELECT                   ON leaderboard_data             TO anon;
+GRANT SELECT, INSERT, UPDATE   ON player_progress              TO anon;
+GRANT SELECT, INSERT, UPDATE   ON mm3_market_state             TO anon;
+GRANT SELECT, INSERT, UPDATE   ON mm3_macro_state              TO anon;
+GRANT SELECT, INSERT, UPDATE   ON mm3_wallet_presence          TO anon;
+GRANT SELECT, INSERT, UPDATE   ON mm3_wallet_pools             TO anon;
+GRANT SELECT, INSERT           ON mm3_wallet_pool_members      TO anon;
+GRANT SELECT, INSERT, UPDATE   ON mm3_wallet_pool_invitations  TO anon;
+GRANT SELECT, INSERT           ON mm3_sell_transactions        TO anon;
+GRANT SELECT, INSERT           ON mm3_market_events            TO anon;
+GRANT SELECT, INSERT           ON api_requests                 TO anon;
+GRANT SELECT, INSERT, UPDATE   ON mm3_visual_state             TO anon;
+GRANT SELECT, UPDATE           ON mm3_market_blocks            TO anon;
+GRANT SELECT, INSERT, UPDATE   ON mm3_market_commands          TO anon;
+GRANT SELECT, INSERT, UPDATE   ON mm3_command_penalties        TO anon;
+GRANT SELECT, INSERT           ON mm3_hidden_cmd_executions    TO anon;
+GRANT SELECT, INSERT           ON mm3_irc_messages             TO anon;
+GRANT DELETE                   ON mm3_irc_messages             TO anon;
+GRANT SELECT, INSERT           ON daily_task_claims            TO anon;
+GRANT SELECT                   ON mm3_squeeze_nftji            TO anon;
 
-GRANT SELECT ON top_positive_miner TO anon;
-GRANT SELECT ON token_value TO anon;
-GRANT SELECT ON token_value_timeseries TO anon;
+-- Views
+GRANT SELECT ON top_positive_miner       TO anon;
+GRANT SELECT ON token_value              TO anon;
+GRANT SELECT ON token_value_timeseries   TO anon;
+
+-- Sequences
+GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO anon;
+
+-- Functions
+GRANT EXECUTE ON FUNCTION public.update_leaderboard()              TO anon;
+GRANT EXECUTE ON FUNCTION public.trigger_update_leaderboard_fn()   TO anon;
+GRANT EXECUTE ON FUNCTION public.mm3_leave_wallet_pool(text)       TO anon;
+GRANT EXECUTE ON FUNCTION public.mm3_leave_wallet_pool(text)       TO authenticated;
+GRANT EXECUTE ON FUNCTION public.mm3_pool_rank_from_level(integer) TO anon;
+GRANT EXECUTE ON FUNCTION public.mm3_pool_rank_from_level(integer) TO authenticated;
 -- ==============================================
 -- PHASE 11: INITIAL LEADERBOARD POPULATION
 -- ==============================================
@@ -1856,3 +1887,127 @@ GRANT SELECT ON token_value_timeseries TO anon;
 SELECT update_leaderboard();
 
 COMMIT;
+
+-- ============================================================
+-- FULL RESET  (operational script — NOT part of fresh install)
+-- Resets all game state: mining, drills, market, trade, IRC.
+-- Run manually in Supabase SQL editor when needed.
+-- ============================================================
+
+-- BEGIN;
+--
+-- -- 0. Disable triggers to avoid side-effects during reset
+-- SET session_replication_role = replica;
+--
+-- -- 1. Reset mining and drill slots (games drive the drill count)
+-- DELETE FROM games;
+--
+-- -- Re-enable triggers
+-- SET session_replication_role = DEFAULT;
+--
+-- -- 2. Mining stats per wallet
+-- UPDATE leaderboard_data
+-- SET    total_eth      = 0,
+--        total_correct  = 0,
+--        total_games    = 0,
+--        highest_streak = 0,
+--        current_streak = 0,
+--        rank           = NULL,
+--        updated_at     = now();
+--
+-- -- 3. Wallet progress: level, funds, NFTJIs
+-- UPDATE player_progress
+-- SET    level                = 0,
+--        mm3_sold             = 0,
+--        eur_earned           = 0,
+--        usd_earned           = 0,
+--        cny_earned           = 0,
+--        wallet_emojis        = '{}'::text[],
+--        market_nftji_key     = NULL,
+--        market_nftji_price   = 0,
+--        market_nftji_since   = NULL,
+--        life_used            = false,
+--        lucky_50_claimed     = false,
+--        lucky_100_claimed    = false,
+--        lucky_500_claimed    = false,
+--        lucky_1000_claimed   = false,
+--        sell_rate_cny        = 0,
+--        sell_quote_cny       = 0,
+--        sell_quote_eur       = 0,
+--        sell_quote_usd       = 0,
+--        updated_at           = now();
+--
+-- -- 4. Active market commands
+-- DELETE FROM mm3_market_commands;
+--
+-- -- 5. Penalties, hidden executions, daily claims
+-- DELETE FROM mm3_command_penalties;
+-- DELETE FROM mm3_hidden_cmd_executions;
+-- DELETE FROM daily_task_claims;
+-- DO $$
+-- BEGIN
+--   IF EXISTS (SELECT FROM pg_class WHERE relname = 'mm3_pool_dispute_wallets' AND relnamespace = 'public'::regnamespace) THEN
+--     EXECUTE 'DELETE FROM mm3_pool_dispute_wallets';
+--   END IF;
+--   IF EXISTS (SELECT FROM pg_class WHERE relname = 'mm3_pool_dispute_votes' AND relnamespace = 'public'::regnamespace) THEN
+--     EXECUTE 'DELETE FROM mm3_pool_dispute_votes';
+--   END IF;
+--   IF EXISTS (SELECT FROM pg_class WHERE relname = 'mm3_pool_disputes' AND relnamespace = 'public'::regnamespace) THEN
+--     EXECUTE 'DELETE FROM mm3_pool_disputes';
+--   END IF;
+--   IF EXISTS (SELECT FROM pg_class WHERE relname = 'mm3_wallet_pool_members' AND relnamespace = 'public'::regnamespace) THEN
+--     EXECUTE 'DELETE FROM mm3_wallet_pool_members';
+--   END IF;
+--   IF EXISTS (SELECT FROM pg_class WHERE relname = 'mm3_wallet_pool_invitations' AND relnamespace = 'public'::regnamespace) THEN
+--     EXECUTE 'DELETE FROM mm3_wallet_pool_invitations';
+--   END IF;
+--   IF EXISTS (SELECT FROM pg_class WHERE relname = 'mm3_wallet_pools' AND relnamespace = 'public'::regnamespace) THEN
+--     EXECUTE 'DELETE FROM mm3_wallet_pools';
+--   END IF;
+--   IF EXISTS (SELECT FROM pg_class WHERE relname = 'mm3_wallet_pool_cooldowns' AND relnamespace = 'public'::regnamespace) THEN
+--     EXECUTE 'DELETE FROM mm3_wallet_pool_cooldowns';
+--   END IF;
+-- END$$;
+--
+-- -- 6. Sell transaction history
+-- DELETE FROM mm3_sell_transactions;
+--
+-- -- 7. Market events
+-- DELETE FROM mm3_market_events;
+--
+-- -- 8. IRC messages: donations/realchain traces preserved
+-- -- DELETE FROM mm3_irc_messages;
+--
+-- -- 9. Trade commissions
+-- UPDATE mm3_market_state
+-- SET    commission_mm3 = 0,
+--        commission_cny = 0,
+--        commission_eur = 0,
+--        commission_usd = 0,
+--        updated_at     = now()
+-- WHERE  id = 1;
+--
+-- -- 9b. World modifiers: war & weather
+-- UPDATE mm3_macro_state
+-- SET    war_percent    = 75,
+--        nature_percent = 65,
+--        updated_at     = now()
+-- WHERE  id = 1;
+--
+-- -- 10. Market NFTJI blocks: reset ownership
+-- UPDATE mm3_market_blocks
+-- SET    first_purchased_at = NULL,
+--        claimed_by         = NULL,
+--        claimed_source     = NULL,
+--        claimed_at         = NULL,
+--        paid_eur           = 0,
+--        paid_usd           = 0,
+--        paid_cny           = 0,
+--        updated_at         = now();
+--
+-- -- 11. Presence: force all wallets offline
+-- UPDATE mm3_wallet_presence
+-- SET    last_seen  = now() - interval '1 hour',
+--        updated_at = now();
+--
+-- COMMIT;
