@@ -1074,6 +1074,19 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
         if (!rec?.redeemed_at || !rec?.attempted_at) return;
         scheduleTimeout(() => refreshMarketStatus(), 500);
       })
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'mm3_irc_messages', filter: `wallet=eq.${IRC_BOT_WALLET}` }, ({ new: rec }) => {
+        if (rec?.kind !== 'chat') return;
+        const text = normalizeRelayMessage(rec?.text);
+        if (!text) return;
+        appendMessage(makeMessage({
+          id: `db:${rec.wallet}:${rec.ts}`,
+          kind: 'chat',
+          wallet: String(rec.wallet || '').toLowerCase(),
+          text,
+          ts: isNaN(Number(rec.ts)) ? new Date(rec.ts || rec.created_at || Date.now()).getTime() : Number(rec.ts),
+          tone: rec.tone || 'neutral',
+        }), { silent: false });
+      })
       .subscribe();
 
     return () => {
