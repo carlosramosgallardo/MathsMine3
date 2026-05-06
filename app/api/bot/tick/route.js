@@ -4,6 +4,7 @@ export const maxDuration = 60;
 import { createClient } from '@supabase/supabase-js';
 import { getSellQuote, getSellRateCny, getCommissionRate, CNY_TO_EUR, CNY_TO_USD, clampLevel } from '@/lib/sell-offer';
 import { WALLET_DECORATIONS, getWalletMarketDelta } from '@/lib/wallet-decorations';
+import { marketCommandFromBlock, computeMarketCommandCode, getUtcDayWindow } from '@/lib/market-commands';
 
 const BOT_WALLET = '0xcab10d0e0650d45cb0b7482370a1ca93d5bf5528';
 const DAILY_MINE_BASE = 100;
@@ -64,9 +65,10 @@ export async function GET(req) {
     { count: tradesToday },
     { data: claimsData },
     { data: problems },
+    { data: marketBlocks },
   ] = await Promise.all([
     supabase.from('player_progress')
-      .select('level, mm3_sold, eur_earned, usd_earned, cny_earned, wallet_emojis, lucky_50_claimed, lucky_100_claimed, lucky_500_claimed, lucky_1000_claimed')
+      .select('level, mm3_sold, eur_earned, usd_earned, cny_earned, wallet_emojis, lucky_50_claimed, lucky_100_claimed, lucky_500_claimed, lucky_1000_claimed, market_nftji_key, market_nftji_price')
       .eq('wallet', wallet).maybeSingle(),
     supabase.from('leaderboard_data')
       .select('total_eth').eq('wallet', wallet).maybeSingle(),
@@ -81,6 +83,9 @@ export async function GET(req) {
     supabase.from('math_problems')
       .select('id, question, correct_answer, difficulty, problem_type')
       .limit(200),
+    supabase.from('mm3_market_blocks')
+      .select('block_key, emoji, price_eur, is_active, market_command, grid_row, grid_col, title_en, first_purchased_at')
+      .order('price_eur', { ascending: true }),
   ]);
 
   let level = clampLevel(progressRow?.level ?? 0);
@@ -278,14 +283,199 @@ export async function GET(req) {
     }, { onConflict: 'wallet', ignoreDuplicates: false });
   }
 
+  // ── MARKET NFTJI (buy / upgrade+resell) ──────────────────
+  let currentMarketKey = progressRow?.market_nftji_key || null;
+  let currentMarketPrice = Number(progressRow?.market_nftji_price) || 0;
+  let didBuyOrResell = false;
+
+  if (marketBlocks && marketBlocks.length > 0) {
+    const { data: freshProg } = await supabase
+      .from('player_progress')
+      .select('eur_earned, cny_earned, usd_earned')
+      .eq('wallet', wallet)
+      .maybeSingle();
+
+    let botEur = Number(freshProg?.eur_earned) || 0;
+    let botCny = Number(freshProg?.cny_earned) || 0;
+    let botUsd = Number(freshProg?.usd_earned) || 0;
+    const rateCny = getSellRateCny(level);
+
+    // Only EUR-payment, active blocks with a command
+    const buyableBlocks = marketBlocks.filter((b) => {
+      if (!b.is_active) return false;
+      const e = marketCommandFromBlock(b);
+      return e && e.payment !== 'mm3';
+    });
+
+    let targetBlock = null;
+
+    if (!currentMarketKey) {
+      targetBlock = buyableBlocks.find((b) => Number(b.price_eur) <= botEur) || null;
+    } else {
+      const resellReturn = currentMarketPrice * 0.5;
+      targetBlock = [...buyableBlocks]
+        .reverse()
+        .find((b) => Number(b.price_eur) > currentMarketPrice && Number(b.price_eur) <= botEur + resellReturn) || null;
+    }
+
+    if (targetBlock) {
+      const newPrice = Number(targetBlock.price_eur);
+      const newPriceCny = newPrice / CNY_TO_EUR;
+      const newPriceUsd = newPriceCny * CNY_TO_USD;
+
+      if (currentMarketKey) {
+        const returnEur = currentMarketPrice * 0.5;
+        const returnCny = returnEur / CNY_TO_EUR;
+        const returnUsd = returnCny * CNY_TO_USD;
+
+        await supabase.from('mm3_market_commands')
+          .update({ reset_at: new Date(Date.now() - 1000).toISOString() })
+          .eq('wallet', wallet).eq('nftji_key', currentMarketKey).gt('reset_at', now);
+        await supabase.from('mm3_command_penalties')
+          .update({ redeemed_at: now })
+          .eq('nftji_key', currentMarketKey).is('redeemed_at', null);
+
+        const resoldBlock = marketBlocks.find((b) => b.block_key === currentMarketKey);
+        const resellDelta = returnEur / (rateCny * CNY_TO_EUR);
+        await supabase.from('mm3_market_events').insert({
+          wallet, event_type: 'market_resell', delta_mm3: resellDelta,
+          emoji: String(resoldBlock?.emoji || currentMarketKey),
+        });
+
+        botEur += returnEur; botCny += returnCny; botUsd += returnUsd;
+        actions.push({ type: 'market_resell', blockKey: currentMarketKey, returnEur });
+        didBuyOrResell = true;
+      }
+
+      botEur -= newPrice; botCny -= newPriceCny; botUsd -= newPriceUsd;
+      const buyDelta = newPrice / (rateCny * CNY_TO_EUR);
+
+      await supabase.from('player_progress').upsert({
+        wallet, is_bot: true, eur_earned: botEur, cny_earned: botCny, usd_earned: botUsd,
+        market_nftji_key: targetBlock.block_key, market_nftji_price: newPrice,
+        market_nftji_since: now, updated_at: now,
+      }, { onConflict: 'wallet', ignoreDuplicates: false });
+
+      await supabase.from('mm3_market_events').insert({
+        wallet, event_type: 'market_buy', delta_mm3: buyDelta,
+        emoji: String(targetBlock.emoji || targetBlock.block_key),
+      });
+
+      if (!targetBlock.first_purchased_at) {
+        await supabase.from('mm3_market_blocks')
+          .update({ first_purchased_at: now }).eq('block_key', targetBlock.block_key);
+      }
+
+      currentMarketKey = targetBlock.block_key;
+      currentMarketPrice = newPrice;
+      didBuyOrResell = true;
+      actions.push({ type: 'market_buy', blockKey: targetBlock.block_key, priceEur: newPrice });
+    }
+  }
+
+  // ── MARKET COMMAND ────────────────────────────────────────
+  let didMarketCommand = false;
+
+  if (currentMarketKey) {
+    const ownedBlock = marketBlocks?.find((b) => b.block_key === currentMarketKey);
+    if (ownedBlock) {
+      const cmdEntry = marketCommandFromBlock(ownedBlock);
+      if (cmdEntry && cmdEntry.payment !== 'mm3') {
+        const { data: existingCmd } = await supabase
+          .from('mm3_market_commands').select('id')
+          .eq('nftji_key', currentMarketKey).gt('reset_at', now)
+          .limit(1).maybeSingle();
+
+        if (!existingCmd) {
+          const dayWindow = getUtcDayWindow(new Date());
+          const { x, code } = computeMarketCommandCode(cmdEntry, wallet, dayWindow.dayKey, Date.now());
+
+          const { data: insertedCommand, error: cmdErr } = await supabase
+            .from('mm3_market_commands')
+            .insert({
+              wallet, nftji_key: currentMarketKey, command: cmdEntry.command,
+              numeric_code: code, formula_x: x, reset_at: dayWindow.resetAt,
+            })
+            .select('id').single();
+
+          if (!cmdErr && insertedCommand) {
+            const { data: allProgress } = await supabase
+              .from('player_progress')
+              .select('wallet, level, market_nftji_key, eur_earned, usd_earned, cny_earned, mm3_sold')
+              .limit(1000);
+
+            const priceEur = Number(ownedBlock.price_eur) || 0;
+            const isMm3Cmd = cmdEntry.effect === 'mm3';
+            const penalties = [];
+            const balanceUpdates = [];
+
+            for (const row of allProgress || []) {
+              const w = String(row.wallet || '').toLowerCase();
+              if (!w || w === wallet) continue;
+              if (row.market_nftji_key === currentMarketKey) continue;
+
+              if (isMm3Cmd) {
+                penalties.push({
+                  wallet: w, command_id: insertedCommand.id, nftji_key: currentMarketKey,
+                  penalty_code: code, penalty_value: priceEur, penalty_eur: 0,
+                  penalty_effect: 'mm3',
+                  reason: `${ownedBlock.emoji || currentMarketKey} ${ownedBlock.title_en || currentMarketKey}`,
+                  reset_at: dayWindow.resetAt,
+                });
+                balanceUpdates.push({ wallet: w, mm3_sold: (Number(row.mm3_sold) || 0) + priceEur, updated_at: now });
+              } else {
+                const wRateCny = getSellRateCny(Number(row.level) || 0);
+                const penaltyMm3 = wRateCny > 0 ? priceEur / (wRateCny * CNY_TO_EUR) : 0;
+                const priceCny = priceEur / CNY_TO_EUR;
+                const priceUsd = priceCny * CNY_TO_USD;
+                penalties.push({
+                  wallet: w, command_id: insertedCommand.id, nftji_key: currentMarketKey,
+                  penalty_code: code, penalty_value: penaltyMm3, penalty_eur: priceEur,
+                  penalty_effect: 'money',
+                  reason: `${ownedBlock.emoji || currentMarketKey} ${ownedBlock.title_en || currentMarketKey}`,
+                  reset_at: dayWindow.resetAt,
+                });
+                balanceUpdates.push({
+                  wallet: w,
+                  eur_earned: (Number(row.eur_earned) || 0) - priceEur,
+                  usd_earned: (Number(row.usd_earned) || 0) - priceUsd,
+                  cny_earned: (Number(row.cny_earned) || 0) - priceCny,
+                  updated_at: now,
+                });
+              }
+            }
+
+            if (penalties.length > 0) {
+              await supabase.from('mm3_command_penalties').insert(penalties);
+              await supabase.from('player_progress').upsert(balanceUpdates, { onConflict: 'wallet', ignoreDuplicates: false });
+            }
+
+            didMarketCommand = true;
+            actions.push({ type: 'market_command', blockKey: currentMarketKey, x, penalties: penalties.length });
+          }
+        }
+      }
+    }
+  }
+
   // ── DAILY REWARDS ────────────────────────────────────────
   const newGamesToday = gamesTodayCount + drillsLeft;
   const newTradesToday = tradesTodayCount;
 
-  const dailyTargets = { mining: { target: 25, rewardEur: 0.25 }, trading: { target: 5, rewardEur: 0.5 } };
+  const dailyTargets = {
+    mining: { target: 25, rewardEur: 0.25 },
+    trading: { target: 5, rewardEur: 0.5 },
+    market: { target: 1, rewardEur: 0.75 },
+    irc: { target: 1, rewardEur: 1.0 },
+  };
   for (const [taskKey, { target, rewardEur }] of Object.entries(dailyTargets)) {
     if (claimedTasks.has(taskKey)) continue;
-    const count = taskKey === 'mining' ? newGamesToday : newTradesToday;
+    let count;
+    if (taskKey === 'mining') count = newGamesToday;
+    else if (taskKey === 'trading') count = newTradesToday;
+    else if (taskKey === 'market') count = didBuyOrResell ? 1 : 0;
+    else if (taskKey === 'irc') count = didMarketCommand ? 1 : 0;
+    else continue;
     if (count < target) continue;
 
     const rewardCny = rewardEur / CNY_TO_EUR;
@@ -317,6 +507,9 @@ export async function GET(req) {
     const gamesAction = actions.find((a) => a.type === 'games');
     const tradeActions = actions.filter((a) => a.type === 'trade');
     const claimActions = actions.filter((a) => a.type === 'daily_claim');
+    const marketBuyAction = actions.find((a) => a.type === 'market_buy');
+    const marketResellAction = actions.find((a) => a.type === 'market_resell');
+    const marketCmdAction = actions.find((a) => a.type === 'market_command');
 
     const gamesCount = gamesAction?.count || 0;
     const mm3Mined = gamesAction?.total_mining_reward || 0;
@@ -327,9 +520,10 @@ export async function GET(req) {
     let botMsg = `ran ${gamesCount} drills`;
     if (mm3Mined !== 0) botMsg += ` :: ${mm3Mined >= 0 ? '+' : ''}${mm3Mined.toFixed(6)} MM3`;
     if (eurEarned > 0) botMsg += ` / +${eurEarned.toFixed(4)} EUR`;
-    botMsg += nftjiDrop
-      ? ` :: nftji drop: ${nftjiDrop}`
-      : ` :: no nftji drop`;
+    botMsg += nftjiDrop ? ` :: nftji drop: ${nftjiDrop}` : ` :: no nftji drop`;
+    if (marketResellAction) botMsg += ` :: resell ${marketResellAction.blockKey} +€${marketResellAction.returnEur.toFixed(2)}`;
+    if (marketBuyAction) botMsg += ` :: buy ${marketBuyAction.blockKey} €${marketBuyAction.priceEur.toFixed(2)}`;
+    if (marketCmdAction) botMsg += ` :: cmd ${marketCmdAction.blockKey} x=${marketCmdAction.x} (${marketCmdAction.penalties} hit)`;
     botMsg += tasksCompleted.length > 0
       ? ` :: daily tasks: ${tasksCompleted.join(' ')}`
       : ` :: no daily tasks`;
