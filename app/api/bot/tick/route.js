@@ -101,6 +101,8 @@ export async function GET(req) {
   const walletEmojis = Array.isArray(progressRow?.wallet_emojis) ? progressRow.wallet_emojis : [];
   const claimedTasks = new Set((claimsData || []).map((r) => r.task_key));
   const pool = problems?.length ? problems : null;
+  const problemsCount = Array.isArray(problems) ? problems.length : 0;
+  const marketBlocksCount = Array.isArray(marketBlocks) ? marketBlocks.length : 0;
   const actions = [];
 
   async function claimDailyReward(taskKey, rewardEur) {
@@ -538,7 +540,7 @@ export async function GET(req) {
   }
 
   // ── IRC GREETING ─────────────────────────────────────────
-  {
+  if (actions.length > 0) {
     const gamesAction = actions.find((a) => a.type === 'games');
     const tradeActions = actions.filter((a) => a.type === 'trade');
     const claimActions = actions.filter((a) => a.type === 'daily_claim');
@@ -597,10 +599,37 @@ export async function GET(req) {
     updated_at: doneAt,
   }, { onConflict: 'wallet', ignoreDuplicates: false });
 
+  const idleReasons = [];
+  if (actualGamesPlayed === 0) {
+    if (drillsLeft <= 0) idleReasons.push('no_drills_left_today');
+    else if (!pool) idleReasons.push('no_math_problems_loaded');
+  }
+  if (tradesTodayCount >= DAILY_TRADE_LIMIT) idleReasons.push('daily_trade_limit_reached');
+  if (claimedTasks.size >= Object.keys(dailyTargets).length) idleReasons.push('daily_tasks_already_claimed');
+  if (currentMarketKey && !actions.some((a) => a.type === 'market_buy' || a.type === 'market_resell' || a.type === 'market_command')) {
+    idleReasons.push('market_nftji_held_no_upgrade_or_command_available');
+  }
+  if (!currentMarketKey && marketBlocksCount <= 0) idleReasons.push('no_market_blocks_loaded');
+
   return Response.json({
     ok: true,
     actions,
     gamesPlayed: actualGamesPlayed,
     tradesPlaced: tradesTodayCount - Number(tradesToday),
+    idleReasons,
+    diagnostics: {
+      day: dayKey,
+      gamesToday: gamesTodayCount,
+      totalExecs: totalExecsCount,
+      drillsTotal,
+      drillsLeft,
+      problemsCount,
+      tradesTodayStart: Number(tradesToday) || 0,
+      tradesTodayEnd: tradesTodayCount,
+      claimedTasks: [...claimedTasks],
+      currentMarketKey,
+      currentMarketPrice,
+      marketBlocksCount,
+    },
   });
 }
