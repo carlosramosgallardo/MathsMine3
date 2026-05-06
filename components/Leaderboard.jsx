@@ -36,7 +36,9 @@ function formatCompactMm3(value) {
   if (abs >= 1_000_000_000) return `${sign}${(abs / 1_000_000_000).toFixed(1)}B`;
   if (abs >= 1_000_000)     return `${sign}${(abs / 1_000_000).toFixed(1)}M`;
   if (abs >= 1_000)         return `${sign}${(abs / 1_000).toFixed(1)}k`;
-  return `${sign}${abs.toFixed(2)}`;
+  if (abs >= 0.01)          return `${sign}${abs.toFixed(2)}`;
+  if (abs === 0)            return '0.00';
+  return `${sign}${abs.toFixed(6).replace(/\.?0+$/, '')}`;
 }
 
 function toCnyFromEur(value) {
