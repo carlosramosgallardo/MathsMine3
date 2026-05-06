@@ -83,11 +83,18 @@ function sortMessagesByTime(messages) {
   );
 }
 
-function formatRelayTime(ts) {
+function formatRelayTime(ts, language = 'en') {
   try {
     const d = new Date(ts);
+    const now = new Date();
     const p = (n) => String(n).padStart(2, '0');
-    return `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+    const time = `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+    if (d.toDateString() === now.toDateString()) return time;
+    const dd = p(d.getDate());
+    const mm = p(d.getMonth() + 1);
+    const yy = String(d.getFullYear()).slice(2);
+    const date = language === 'es' ? `${dd}/${mm}/${yy}` : `${mm}/${dd}/${yy}`;
+    return `${date} ${time}`;
   } catch {
     return '--:--:--';
   }
@@ -1074,19 +1081,6 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
         if (!rec?.redeemed_at || !rec?.attempted_at) return;
         scheduleTimeout(() => refreshMarketStatus(), 500);
       })
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'mm3_irc_messages', filter: `wallet=eq.${IRC_BOT_WALLET}` }, ({ new: rec }) => {
-        if (rec?.kind !== 'chat') return;
-        const text = normalizeRelayMessage(rec?.text);
-        if (!text) return;
-        appendMessage(makeMessage({
-          id: `db:${rec.wallet}:${rec.ts}`,
-          kind: 'chat',
-          wallet: String(rec.wallet || '').toLowerCase(),
-          text,
-          ts: isNaN(Number(rec.ts)) ? new Date(rec.ts || rec.created_at || Date.now()).getTime() : Number(rec.ts),
-          tone: rec.tone || 'neutral',
-        }), { silent: false });
-      })
       .subscribe();
 
     return () => {
@@ -1800,7 +1794,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
                   data-error={isErrorOrPenalty ? 'true' : undefined}
                 >
                   <span className="mm3-irc-time text-[0.76rem] uppercase tracking-[0.14em] text-slate-500">
-                    {formatRelayTime(message.ts)}
+                    {formatRelayTime(message.ts, language)}
                   </span>
                   {' '}
                   {message.kind === 'chat' && (
