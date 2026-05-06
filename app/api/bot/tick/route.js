@@ -107,8 +107,7 @@ export async function GET(req) {
   if (drillsLeft > 0 && pool) {
     const gameRecords = [];
     let totalMiningReward = 0;
-    let nftjiDrop = null;
-    const ownedSet = new Set(walletEmojis);
+    const nftjiDropCounts = {}; // levelField → { emoji, claimField, levelField, count }
     const runStart = Date.now() - drillsLeft * 55_000; // spread timestamps ~55s apart
 
     for (let i = 0; i < drillsLeft; i++) {
@@ -157,22 +156,30 @@ export async function GET(req) {
 
       totalMiningReward += mining;
 
-      if (isCorrect && !nftjiDrop) {
+      if (isCorrect) {
+        let drop = null;
         if (Math.random() < 1 / 1000)
-          nftjiDrop = { emoji: WALLET_DECORATIONS.lucky1000, claimField: 'lucky_1000_claimed', levelField: 'lucky_1000_level' };
+          drop = { emoji: WALLET_DECORATIONS.lucky1000, claimField: 'lucky_1000_claimed', levelField: 'lucky_1000_level' };
         else if (Math.random() < 1 / 500)
-          nftjiDrop = { emoji: WALLET_DECORATIONS.lucky500, claimField: 'lucky_500_claimed', levelField: 'lucky_500_level' };
+          drop = { emoji: WALLET_DECORATIONS.lucky500, claimField: 'lucky_500_claimed', levelField: 'lucky_500_level' };
         else if (Math.random() < 1 / 100)
-          nftjiDrop = { emoji: WALLET_DECORATIONS.lucky100, claimField: 'lucky_100_claimed', levelField: 'lucky_100_level' };
+          drop = { emoji: WALLET_DECORATIONS.lucky100, claimField: 'lucky_100_claimed', levelField: 'lucky_100_level' };
         else if (Math.random() < 1 / 50)
-          nftjiDrop = { emoji: WALLET_DECORATIONS.lucky50, claimField: 'lucky_50_claimed', levelField: 'lucky_50_level' };
+          drop = { emoji: WALLET_DECORATIONS.lucky50, claimField: 'lucky_50_claimed', levelField: 'lucky_50_level' };
+        if (drop) {
+          if (!nftjiDropCounts[drop.levelField]) nftjiDropCounts[drop.levelField] = { ...drop, count: 0 };
+          nftjiDropCounts[drop.levelField].count++;
+        }
       }
     }
 
     await supabase.from('games').insert(gameRecords);
     availableMm3 += totalMiningReward;
 
-    const newEmojis = nftjiDrop ? [...new Set([...walletEmojis, nftjiDrop.emoji])] : walletEmojis;
+    const dropList = Object.values(nftjiDropCounts);
+    const newEmojis = dropList.length
+      ? [...new Set([...walletEmojis, ...dropList.map((d) => d.emoji)])]
+      : walletEmojis;
     const quote = getSellQuote(level, availableMm3);
     const progressUpdate = {
       wallet,
@@ -185,32 +192,32 @@ export async function GET(req) {
       wallet_emojis: newEmojis,
       updated_at: now,
     };
-    if (nftjiDrop) {
-      progressUpdate[nftjiDrop.claimField] = true;
-      progressUpdate[nftjiDrop.levelField] = Number(progressRow?.[nftjiDrop.levelField] ?? -1) + 1;
+    for (const d of dropList) {
+      progressUpdate[d.claimField] = true;
+      progressUpdate[d.levelField] = Number(progressRow?.[d.levelField] ?? -1) + d.count;
     }
     await supabase.from('player_progress')
       .upsert(progressUpdate, { onConflict: 'wallet', ignoreDuplicates: false });
 
-    // Record NFTJi claim event on the chart
-    if (nftjiDrop) {
+    // Record NFTJi claim events on the chart (one per unique drop type)
+    if (dropList.length > 0) {
       const { data: tokenRow } = await supabase
         .from('leaderboard_data').select('total_eth').eq('wallet', wallet).maybeSingle();
       const totalMm3Global = Number(tokenRow?.total_eth) || 0;
-      const marketDelta = getWalletMarketDelta(nftjiDrop.emoji);
-      if (marketDelta !== 0) {
-        const { error: evtErr } = await supabase.from('mm3_market_events').insert({
-          wallet,
-          event_type: 'nftji_claim',
-          delta_mm3: Math.abs(totalMm3Global * marketDelta),
-          emoji: nftjiDrop.emoji,
-        });
-        if (evtErr) console.error('[bot] nftji event insert error:', evtErr.message);
+      for (const d of dropList) {
+        const marketDelta = getWalletMarketDelta(d.emoji);
+        if (marketDelta !== 0) {
+          await supabase.from('mm3_market_events').insert({
+            wallet, event_type: 'nftji_claim',
+            delta_mm3: Math.abs(totalMm3Global * marketDelta), emoji: d.emoji,
+          });
+        }
       }
     }
 
     actualGamesPlayed = drillsLeft;
-    actions.push({ type: 'games', count: drillsLeft, total_mining_reward: totalMiningReward, level, nftji_drop: nftjiDrop?.emoji || null });
+    const dropSummary = dropList.map((d) => `${d.emoji}×${d.count}`).join(' ') || null;
+    actions.push({ type: 'games', count: drillsLeft, total_mining_reward: totalMiningReward, level, nftji_drops: dropSummary });
   }
 
   // ── TRADES (all remaining up to daily limit) ──────────────
@@ -524,14 +531,14 @@ export async function GET(req) {
 
     const gamesCount = gamesAction?.count || 0;
     const mm3Mined = gamesAction?.total_mining_reward || 0;
-    const nftjiDrop = gamesAction?.nftji_drop || null;
+    const nftjiDrops = gamesAction?.nftji_drops || null;
     const eurEarned = tradeActions.reduce((sum, t) => sum + (t.net_eur || 0), 0);
     const tasksCompleted = claimActions.map((c) => c.taskKey);
 
     let botMsg = `ran ${gamesCount} drills`;
     if (mm3Mined !== 0) botMsg += ` :: ${mm3Mined >= 0 ? '+' : ''}${mm3Mined.toFixed(6)} MM3`;
     if (eurEarned > 0) botMsg += ` / +${eurEarned.toFixed(4)} EUR`;
-    botMsg += nftjiDrop ? ` :: nftji drop: ${nftjiDrop}` : ` :: no nftji drop`;
+    botMsg += nftjiDrops ? ` :: nftji drops: ${nftjiDrops}` : ` :: no nftji drop`;
     if (marketResellAction) botMsg += ` :: resell ${marketResellAction.blockKey} +€${marketResellAction.returnEur.toFixed(2)}`;
     if (marketBuyAction) botMsg += ` :: buy ${marketBuyAction.blockKey} €${marketBuyAction.priceEur.toFixed(2)}`;
     if (marketCmdAction) botMsg += ` :: cmd ${marketCmdAction.blockKey} x=${marketCmdAction.x} (${marketCmdAction.penalties} hit)`;

@@ -217,7 +217,7 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
           .select('wallet, total_eth'),
         supabase
           .from('player_progress')
-          .select('wallet, level, mm3_sold, cny_earned, eur_earned, usd_earned, wallet_emojis, is_bot'),
+          .select('wallet, level, mm3_sold, cny_earned, eur_earned, usd_earned, wallet_emojis, is_bot, lucky_50_level, lucky_100_level, lucky_500_level, lucky_1000_level, market_nftji_levels'),
         supabase
           .from('player_progress')
           .select('wallet, market_nftji_key')
@@ -259,6 +259,13 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
             usd: Number(entry.usd_earned) || 0,
             walletEmojis: Array.isArray(entry.wallet_emojis) ? entry.wallet_emojis : [],
             is_bot: Boolean(entry.is_bot),
+            nftjiLevels: {
+              lucky50: Number(entry.lucky_50_level ?? -1),
+              lucky100: Number(entry.lucky_100_level ?? -1),
+              lucky500: Number(entry.lucky_500_level ?? -1),
+              lucky1000: Number(entry.lucky_1000_level ?? -1),
+            },
+            marketNftjiLevels: entry.market_nftji_levels || {},
           },
         ])
       );
@@ -487,6 +494,15 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
         return counts;
       }, {});
       const totalNftjis = Object.values(poolEmojiCounts).reduce((sum, count) => sum + count, 0);
+      const walletEmojiLevelSums = TRADE_SLOT_ORDER.reduce((sums, slot) => {
+        if (slot.key === 'revive') return sums;
+        const s = members.reduce((acc, m) => {
+          const lvl = m.nftjiLevels?.[slot.key] ?? -1;
+          return lvl >= 0 ? acc + lvl : acc;
+        }, 0);
+        if (s > 0) sums[slot.emoji] = s;
+        return sums;
+      }, {});
       const totalExecs = members.reduce((sum, entry) => sum + (Number(entry.execs_count) || 0), 0);
       const totalPenalties = members.reduce((sum, entry) => {
         return sum + (entry.active_penalty?.mm3 ? 1 : 0) + (entry.active_penalty?.money ? 1 : 0);
@@ -528,6 +544,7 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
         money_balance_usd: totalUsd,
         wallet_emojis: Object.keys(poolEmojiCounts),
         wallet_emoji_counts: poolEmojiCounts,
+        wallet_emoji_level_sums: walletEmojiLevelSums,
         market_blocks: marketBlocks,
         market_nftji_member_count: marketNftjiMemberCount,
         market_emoji_counts: marketEmojiCounts,
@@ -1586,13 +1603,14 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
                         const count = Number(entry.wallet_emoji_counts?.[slot.emoji] || 0);
                         const owned = count > 0;
                         const isLife = slot.key === 'revive';
+                        const lvlSum = !isLife ? (entry.wallet_emoji_level_sums?.[slot.emoji] || 0) : 0;
                         const borderColor = owned
                           ? (isLife ? 'rgba(251,113,133,0.6)' : tier.glow)
                           : (isLife ? 'rgba(251,113,133,0.22)' : 'rgba(148,163,184,0.22)');
                         return (
                           <div
                             key={slot.key}
-                            title={owned ? `${getEmojiTitle(slot.emoji)} ×${count}` : getEmojiTitle(slot.emoji)}
+                            title={owned ? `${getEmojiTitle(slot.emoji)} ×${count}${lvlSum > 0 ? ` Lv.${lvlSum}` : ''}` : getEmojiTitle(slot.emoji)}
                             className="lb-slot-cell relative flex items-center justify-center rounded-md border text-[0.95rem]"
                             style={{
                               borderColor,
@@ -1602,11 +1620,19 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
                             }}
                           >
                             {owned ? slot.emoji : ''}
-                            {count > 1 ? (
+                            {owned && count > 1 && (
                               <span className="absolute bottom-[1px] right-[2px] font-mono text-[0.48rem] font-black leading-none text-cyan-200">
                                 ×{count}
                               </span>
-                            ) : null}
+                            )}
+                            {owned && !isLife && lvlSum > 0 && count <= 1 && (
+                              <span style={{
+                                position: 'absolute', bottom: 1, right: 2,
+                                fontSize: '0.48rem', fontFamily: 'monospace',
+                                color: tier.color, lineHeight: 1, fontWeight: 700,
+                                textShadow: `0 0 4px ${tier.color}`,
+                              }}>Lv.{lvlSum}</span>
+                            )}
                           </div>
                         );
                       })}
@@ -1739,6 +1765,7 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
                       {TRADE_SLOT_ORDER.map((slot) => {
                         const owned = ownedEmojis.includes(slot.emoji);
                         const isLife = slot.key === 'revive';
+                        const lvl = isLife ? -1 : (entry.nftjiLevels?.[slot.key] ?? -1);
                         const borderColor = owned
                           ? (isLife ? 'rgba(251,113,133,0.6)' : tier.glow)
                           : (isLife ? 'rgba(251,113,133,0.22)' : 'rgba(148,163,184,0.22)');
@@ -1746,7 +1773,7 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
                           <div
                             key={slot.key}
                             title={getEmojiTitle(slot.emoji)}
-                            className="lb-slot-cell flex items-center justify-center rounded-md border text-[0.95rem]"
+                            className="lb-slot-cell relative flex items-center justify-center rounded-md border text-[0.95rem]"
                             style={{
                               borderColor,
                               background: owned ? tier.bg : 'rgba(2,6,23,0.4)',
@@ -1755,6 +1782,14 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
                             }}
                           >
                             {owned ? slot.emoji : ''}
+                            {owned && !isLife && lvl >= 0 && (
+                              <span style={{
+                                position: 'absolute', bottom: 1, right: 2,
+                                fontSize: '0.48rem', fontFamily: 'monospace',
+                                color: tier.color, lineHeight: 1, fontWeight: 700,
+                                textShadow: `0 0 4px ${tier.color}`,
+                              }}>{lvl}</span>
+                            )}
                           </div>
                         );
                       })}
