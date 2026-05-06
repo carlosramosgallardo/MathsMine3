@@ -883,7 +883,7 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
     try {
       const { data: progress } = await supabase
         .from('player_progress')
-        .select('eur_earned, usd_earned, cny_earned, life_used, lucky_50_claimed, lucky_100_claimed, lucky_500_claimed, lucky_1000_claimed, wallet_emojis')
+        .select('eur_earned, usd_earned, cny_earned, life_used, lucky_50_claimed, lucky_100_claimed, lucky_500_claimed, lucky_1000_claimed, lucky_50_level, lucky_100_level, lucky_500_level, lucky_1000_level, wallet_emojis')
         .eq('wallet', wallet)
         .maybeSingle();
 
@@ -896,6 +896,10 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
         lucky100Claimed: Boolean(progress?.lucky_100_claimed),
         lucky500Claimed: Boolean(progress?.lucky_500_claimed),
         lucky1000Claimed: Boolean(progress?.lucky_1000_claimed),
+        lucky50Level: Number(progress?.lucky_50_level ?? -1),
+        lucky100Level: Number(progress?.lucky_100_level ?? -1),
+        lucky500Level: Number(progress?.lucky_500_level ?? -1),
+        lucky1000Level: Number(progress?.lucky_1000_level ?? -1),
         walletEmojis: Array.isArray(progress?.wallet_emojis) ? progress.wallet_emojis : [],
       });
     } catch (error) {
@@ -1826,19 +1830,11 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
 
   const getSpecialSuccessOffer = () => {
     if (!account) return null;
-    const owned = new Set(Array.isArray(walletMeta.walletEmojis) ? walletMeta.walletEmojis : []);
-    if (!walletMeta.lucky1000Claimed && !owned.has(WALLET_DECORATIONS.lucky1000) && Math.random() < 1 / 1000) {
-      return { type: 'emoji1000', emoji: WALLET_DECORATIONS.lucky1000 };
-    }
-    if (!walletMeta.lucky500Claimed && !owned.has(WALLET_DECORATIONS.lucky500) && Math.random() < 1 / 500) {
-      return { type: 'emoji500', emoji: WALLET_DECORATIONS.lucky500 };
-    }
-    if (!walletMeta.lucky100Claimed && !owned.has(WALLET_DECORATIONS.lucky100) && Math.random() < 1 / 100) {
-      return { type: 'emoji100', emoji: WALLET_DECORATIONS.lucky100 };
-    }
-    if (!walletMeta.lucky50Claimed && !owned.has(WALLET_DECORATIONS.lucky50) && Math.random() < 1 / 50) {
-      return { type: 'emoji50', emoji: WALLET_DECORATIONS.lucky50 };
-    }
+    // No "already owned" guard — NFTJis level up each time they drop
+    if (Math.random() < 1 / 1000) return { type: 'emoji1000', emoji: WALLET_DECORATIONS.lucky1000 };
+    if (Math.random() < 1 / 500)  return { type: 'emoji500',  emoji: WALLET_DECORATIONS.lucky500  };
+    if (Math.random() < 1 / 100)  return { type: 'emoji100',  emoji: WALLET_DECORATIONS.lucky100  };
+    if (Math.random() < 1 / 50)   return { type: 'emoji50',   emoji: WALLET_DECORATIONS.lucky50   };
     return null;
   };
 
@@ -1849,7 +1845,7 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
     const [{ data: progressRow }, { data: tokenValueRow }] = await Promise.all([
       supabase
         .from('player_progress')
-        .select('eur_earned, usd_earned, cny_earned, mm3_sold, wallet_emojis, life_used, lucky_50_claimed, lucky_100_claimed, lucky_500_claimed, lucky_1000_claimed')
+        .select('eur_earned, usd_earned, cny_earned, mm3_sold, wallet_emojis, life_used, lucky_50_claimed, lucky_100_claimed, lucky_500_claimed, lucky_1000_claimed, lucky_50_level, lucky_100_level, lucky_500_level, lucky_1000_level')
         .eq('wallet', wallet)
         .maybeSingle(),
       marketDelta !== 0
@@ -1895,6 +1891,10 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
       lucky_100_claimed: emoji === WALLET_DECORATIONS.lucky100 ? true : Boolean(progressRow?.lucky_100_claimed),
       lucky_500_claimed: emoji === WALLET_DECORATIONS.lucky500 ? true : Boolean(progressRow?.lucky_500_claimed),
       lucky_1000_claimed: emoji === WALLET_DECORATIONS.lucky1000 ? true : Boolean(progressRow?.lucky_1000_claimed),
+      lucky_50_level: Number(progressRow?.lucky_50_level ?? -1),
+      lucky_100_level: Number(progressRow?.lucky_100_level ?? -1),
+      lucky_500_level: Number(progressRow?.lucky_500_level ?? -1),
+      lucky_1000_level: Number(progressRow?.lucky_1000_level ?? -1),
       sell_rate_cny: liveSellQuote.rateCny,
       sell_quote_cny: liveSellQuote.netCny,
       sell_quote_eur: liveSellQuote.netEur,
@@ -1949,7 +1949,7 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
     const [{ data: progressRow }, { data: tokenValueRow }] = await Promise.all([
       supabase
         .from('player_progress')
-        .select('eur_earned, usd_earned, cny_earned, mm3_sold, wallet_emojis, life_used, lucky_50_claimed, lucky_100_claimed, lucky_500_claimed, lucky_1000_claimed')
+        .select('eur_earned, usd_earned, cny_earned, mm3_sold, wallet_emojis, life_used, lucky_50_claimed, lucky_100_claimed, lucky_500_claimed, lucky_1000_claimed, lucky_50_level, lucky_100_level, lucky_500_level, lucky_1000_level')
         .eq('wallet', wallet)
         .maybeSingle(),
       supabase.from('token_value').select('total_eth').limit(1).maybeSingle(),
@@ -1984,6 +1984,10 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
       lucky_100_claimed: Boolean(progressRow?.lucky_100_claimed),
       lucky_500_claimed: Boolean(progressRow?.lucky_500_claimed),
       lucky_1000_claimed: Boolean(progressRow?.lucky_1000_claimed),
+      lucky_50_level: Number(progressRow?.lucky_50_level ?? -1),
+      lucky_100_level: Number(progressRow?.lucky_100_level ?? -1),
+      lucky_500_level: Number(progressRow?.lucky_500_level ?? -1),
+      lucky_1000_level: Number(progressRow?.lucky_1000_level ?? -1),
       sell_rate_cny: liveSellQuote.rateCny,
       sell_quote_cny: liveSellQuote.netCny,
       sell_quote_eur: liveSellQuote.netEur,
@@ -2028,7 +2032,7 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
     const [{ data: progressRow }, { data: tokenValueRow }] = await Promise.all([
       supabase
         .from('player_progress')
-        .select('level, eur_earned, usd_earned, cny_earned, mm3_sold, wallet_emojis, life_used, lucky_50_claimed, lucky_100_claimed, lucky_500_claimed, lucky_1000_claimed')
+        .select('level, eur_earned, usd_earned, cny_earned, mm3_sold, wallet_emojis, life_used, lucky_50_claimed, lucky_100_claimed, lucky_500_claimed, lucky_1000_claimed, lucky_50_level, lucky_100_level, lucky_500_level, lucky_1000_level')
         .eq('wallet', wallet)
         .maybeSingle(),
       supabase.from('token_value').select('total_eth').limit(1).maybeSingle(),
@@ -2054,6 +2058,14 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
       lucky_100_claimed: emoji === WALLET_DECORATIONS.lucky100 ? true : Boolean(progressRow?.lucky_100_claimed),
       lucky_500_claimed: emoji === WALLET_DECORATIONS.lucky500 ? true : Boolean(progressRow?.lucky_500_claimed),
       lucky_1000_claimed: emoji === WALLET_DECORATIONS.lucky1000 ? true : Boolean(progressRow?.lucky_1000_claimed),
+      lucky_50_level: emoji === WALLET_DECORATIONS.lucky50
+        ? Number(progressRow?.lucky_50_level ?? -1) + 1 : Number(progressRow?.lucky_50_level ?? -1),
+      lucky_100_level: emoji === WALLET_DECORATIONS.lucky100
+        ? Number(progressRow?.lucky_100_level ?? -1) + 1 : Number(progressRow?.lucky_100_level ?? -1),
+      lucky_500_level: emoji === WALLET_DECORATIONS.lucky500
+        ? Number(progressRow?.lucky_500_level ?? -1) + 1 : Number(progressRow?.lucky_500_level ?? -1),
+      lucky_1000_level: emoji === WALLET_DECORATIONS.lucky1000
+        ? Number(progressRow?.lucky_1000_level ?? -1) + 1 : Number(progressRow?.lucky_1000_level ?? -1),
       sell_rate_cny: liveSellQuote.rateCny,
       sell_quote_cny: liveSellQuote.netCny,
       sell_quote_eur: liveSellQuote.netEur,
@@ -2092,6 +2104,10 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
       lucky100Claimed: progressPayload.lucky_100_claimed,
       lucky500Claimed: progressPayload.lucky_500_claimed,
       lucky1000Claimed: progressPayload.lucky_1000_claimed,
+      lucky50Level: progressPayload.lucky_50_level,
+      lucky100Level: progressPayload.lucky_100_level,
+      lucky500Level: progressPayload.lucky_500_level,
+      lucky1000Level: progressPayload.lucky_1000_level,
       walletEmojis: nextDecorations,
     });
 

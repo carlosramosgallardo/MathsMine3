@@ -706,7 +706,7 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
           .maybeSingle(),
         supabase
           .from('player_progress')
-          .select('level, mm3_sold, eur_earned, usd_earned, cny_earned, wallet_emojis, life_used, lucky_50_claimed, lucky_100_claimed, lucky_500_claimed, lucky_1000_claimed, market_nftji_key, market_nftji_price')
+          .select('level, mm3_sold, eur_earned, usd_earned, cny_earned, wallet_emojis, life_used, lucky_50_claimed, lucky_100_claimed, lucky_500_claimed, lucky_1000_claimed, market_nftji_key, market_nftji_price, market_nftji_levels')
           .eq('wallet', wallet)
           .maybeSingle(),
         supabase.from('leaderboard_data').select('total_eth').eq('wallet', wallet).maybeSingle(),
@@ -781,6 +781,10 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
           market_nftji_key: selectedBlock.block_key,
           market_nftji_price: priceE,
           market_nftji_since: now,
+          market_nftji_levels: {
+            ...(progressRow?.market_nftji_levels || {}),
+            [selectedBlock.block_key]: Number((progressRow?.market_nftji_levels || {})[selectedBlock.block_key] ?? -1) + 1,
+          },
           updated_at: now,
         }, { onConflict: 'wallet', ignoreDuplicates: false });
       if (progressError) throw progressError;
@@ -829,7 +833,7 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
       const [{ data: progressRow }, { data: statsRow }] = await Promise.all([
         supabase
           .from('player_progress')
-          .select('level, mm3_sold, eur_earned, usd_earned, cny_earned, wallet_emojis, life_used, lucky_50_claimed, lucky_100_claimed, lucky_500_claimed, lucky_1000_claimed, market_nftji_key, market_nftji_price')
+          .select('level, mm3_sold, eur_earned, usd_earned, cny_earned, wallet_emojis, life_used, lucky_50_claimed, lucky_100_claimed, lucky_500_claimed, lucky_1000_claimed, market_nftji_key, market_nftji_price, market_nftji_levels')
           .eq('wallet', wallet)
           .maybeSingle(),
         supabase.from('leaderboard_data').select('total_eth').eq('wallet', wallet).maybeSingle(),
@@ -883,6 +887,7 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
           market_nftji_key: null,
           market_nftji_price: 0,
           market_nftji_since: null,
+          market_nftji_levels: progressRow.market_nftji_levels || {},
           updated_at: now,
         }, { onConflict: 'wallet', ignoreDuplicates: false });
       if (progressError) throw progressError;

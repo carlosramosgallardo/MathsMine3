@@ -171,6 +171,7 @@ export default function TradeBoard({ account, isVirtualWallet = false }) {
   const [loading, setLoading] = useState(false);
   const [processing, setProcessing] = useState(false);
   const [walletDecorations, setWalletDecorations] = useState([]);
+  const [nftjiLevels, setNftjiLevels] = useState({});
   const [marketNftjiEmoji, setMarketNftjiEmoji] = useState(null);
   const [macroState, setMacroState] = useState(() => normalizeMacroState());
   const [tradeRatio, setTradeRatio] = useState(100);
@@ -284,7 +285,7 @@ export default function TradeBoard({ account, isVirtualWallet = false }) {
         const [{ data: progress }, { data: stats }, { data: marketBlockRows }] = await Promise.all([
           supabase
             .from('player_progress')
-            .select('level, mm3_sold, cny_earned, eur_earned, usd_earned, wallet_emojis, market_nftji_key')
+            .select('level, mm3_sold, cny_earned, eur_earned, usd_earned, wallet_emojis, market_nftji_key, lucky_50_level, lucky_100_level, lucky_500_level, lucky_1000_level')
             .eq('wallet', wallet)
             .maybeSingle(),
           supabase.from('leaderboard_data').select('total_eth').eq('wallet', wallet).maybeSingle(),
@@ -300,6 +301,12 @@ export default function TradeBoard({ account, isVirtualWallet = false }) {
           usd: Number(progress?.usd_earned) || 0,
         });
         setWalletDecorations(normalizeWalletDecorations(progress?.wallet_emojis));
+        setNftjiLevels({
+          lucky50: Number(progress?.lucky_50_level ?? -1),
+          lucky100: Number(progress?.lucky_100_level ?? -1),
+          lucky500: Number(progress?.lucky_500_level ?? -1),
+          lucky1000: Number(progress?.lucky_1000_level ?? -1),
+        });
         const blockEmojiMap = new Map((marketBlockRows || []).map(b => [b.block_key, b.emoji]));
         const nftjiKey = progress?.market_nftji_key || null;
         setMarketNftjiEmoji(nftjiKey ? (blockEmojiMap.get(nftjiKey) || null) : null);
@@ -352,7 +359,7 @@ export default function TradeBoard({ account, isVirtualWallet = false }) {
   const maxSellMm3 = Math.max(0, availableMm3);
   const minSellMm3 = maxSellMm3 >= MIN_TRADE_MM3 ? MIN_TRADE_MM3 : 0;
   const maxBuyFunds = Math.max(0, currentFunds);
-  const maxBuyQuote = useMemo(() => getBuyQuote(level, maxBuyFunds, currency, walletDecorations, macroState, diceModifier), [level, maxBuyFunds, currency, walletDecorations, macroState, diceModifier]);
+  const maxBuyQuote = useMemo(() => getBuyQuote(level, maxBuyFunds, currency, walletDecorations, macroState, diceModifier, nftjiLevels), [level, maxBuyFunds, currency, walletDecorations, macroState, diceModifier, nftjiLevels]);
   const minBuyFunds = useMemo(
     () => getMinimumBuyFunds(level, currency, walletDecorations, macroState),
     [level, currency, walletDecorations, macroState]
@@ -365,8 +372,8 @@ export default function TradeBoard({ account, isVirtualWallet = false }) {
   const selectedBuyFunds = canBuy
     ? minBuyFunds + (maxBuyFunds - minBuyFunds) * (tradeRatio / SLIDER_STEPS)
     : 0;
-  const sellQuote = useMemo(() => getSellQuote(level, selectedSellMm3, walletDecorations, macroState, diceModifier), [level, selectedSellMm3, walletDecorations, macroState, diceModifier]);
-  const buyQuote = useMemo(() => getBuyQuote(level, selectedBuyFunds, currency, walletDecorations, macroState, diceModifier), [level, selectedBuyFunds, currency, walletDecorations, macroState, diceModifier]);
+  const sellQuote = useMemo(() => getSellQuote(level, selectedSellMm3, walletDecorations, macroState, diceModifier, nftjiLevels), [level, selectedSellMm3, walletDecorations, macroState, diceModifier, nftjiLevels]);
+  const buyQuote = useMemo(() => getBuyQuote(level, selectedBuyFunds, currency, walletDecorations, macroState, diceModifier, nftjiLevels), [level, selectedBuyFunds, currency, walletDecorations, macroState, diceModifier, nftjiLevels]);
   const activeQuote = mode === 'buy' ? buyQuote : sellQuote;
   const activeRate = mode === 'buy' ? activeQuote.rateCurrency : rateByCurrency[currency];
   const sliderDisabled = mode === 'buy' ? !canBuy : !canSell;
@@ -410,7 +417,7 @@ export default function TradeBoard({ account, isVirtualWallet = false }) {
       const [{ data: progress }, { data: stats }, { data: market }, { data: macroRow }] = await Promise.all([
           supabase
             .from('player_progress')
-            .select('level, mm3_sold, cny_earned, eur_earned, usd_earned, wallet_emojis')
+            .select('level, mm3_sold, cny_earned, eur_earned, usd_earned, wallet_emojis, lucky_50_level, lucky_100_level, lucky_500_level, lucky_1000_level')
             .eq('wallet', wallet)
             .maybeSingle(),
         supabase
@@ -441,6 +448,12 @@ export default function TradeBoard({ account, isVirtualWallet = false }) {
       };
       const liveDecorations = normalizeWalletDecorations(progress?.wallet_emojis);
       const liveMacroState = normalizeMacroState(macroRow);
+      const liveNftjiLevels = {
+        lucky50: Number(progress?.lucky_50_level ?? -1),
+        lucky100: Number(progress?.lucky_100_level ?? -1),
+        lucky500: Number(progress?.lucky_500_level ?? -1),
+        lucky1000: Number(progress?.lucky_1000_level ?? -1),
+      };
       // Recompute dice at execution time (deterministic from current clock)
       const liveDice = getDiceState();
       const liveDiceModifier = liveDice.active ? liveDice.modifier : 0;
@@ -450,8 +463,8 @@ export default function TradeBoard({ account, isVirtualWallet = false }) {
           : Math.min(liveAvailableMm3, selectedSellMm3);
       const liveTradeQuote =
         mode === 'buy'
-          ? getBuyQuote(liveLevel, requestedAmount, currency, liveDecorations, liveMacroState, liveDiceModifier)
-          : getSellQuote(liveLevel, requestedAmount, liveDecorations, liveMacroState, liveDiceModifier);
+          ? getBuyQuote(liveLevel, requestedAmount, currency, liveDecorations, liveMacroState, liveDiceModifier, liveNftjiLevels)
+          : getSellQuote(liveLevel, requestedAmount, liveDecorations, liveMacroState, liveDiceModifier, liveNftjiLevels);
 
       if (mode === 'sell' && liveTradeQuote.totalMm3 < MIN_TRADE_MM3) {
         pushToast(t('tradeBoard.insufficientMm3Error'), 'error');

@@ -68,7 +68,7 @@ export async function GET(req) {
     { data: marketBlocks },
   ] = await Promise.all([
     supabase.from('player_progress')
-      .select('level, mm3_sold, eur_earned, usd_earned, cny_earned, wallet_emojis, lucky_50_claimed, lucky_100_claimed, lucky_500_claimed, lucky_1000_claimed, market_nftji_key, market_nftji_price')
+      .select('level, mm3_sold, eur_earned, usd_earned, cny_earned, wallet_emojis, lucky_50_claimed, lucky_100_claimed, lucky_500_claimed, lucky_1000_claimed, lucky_50_level, lucky_100_level, lucky_500_level, lucky_1000_level, market_nftji_key, market_nftji_price, market_nftji_levels')
       .eq('wallet', wallet).maybeSingle(),
     supabase.from('leaderboard_data')
       .select('total_eth').eq('wallet', wallet).maybeSingle(),
@@ -157,21 +157,21 @@ export async function GET(req) {
       totalMiningReward += mining;
 
       if (isCorrect && !nftjiDrop) {
-        if (!progressRow?.lucky_1000_claimed && !ownedSet.has(WALLET_DECORATIONS.lucky1000) && Math.random() < 1 / 1000)
-          nftjiDrop = { emoji: WALLET_DECORATIONS.lucky1000, field: 'lucky_1000_claimed' };
-        else if (!progressRow?.lucky_500_claimed && !ownedSet.has(WALLET_DECORATIONS.lucky500) && Math.random() < 1 / 500)
-          nftjiDrop = { emoji: WALLET_DECORATIONS.lucky500, field: 'lucky_500_claimed' };
-        else if (!progressRow?.lucky_100_claimed && !ownedSet.has(WALLET_DECORATIONS.lucky100) && Math.random() < 1 / 100)
-          nftjiDrop = { emoji: WALLET_DECORATIONS.lucky100, field: 'lucky_100_claimed' };
-        else if (!progressRow?.lucky_50_claimed && !ownedSet.has(WALLET_DECORATIONS.lucky50) && Math.random() < 1 / 50)
-          nftjiDrop = { emoji: WALLET_DECORATIONS.lucky50, field: 'lucky_50_claimed' };
+        if (Math.random() < 1 / 1000)
+          nftjiDrop = { emoji: WALLET_DECORATIONS.lucky1000, claimField: 'lucky_1000_claimed', levelField: 'lucky_1000_level' };
+        else if (Math.random() < 1 / 500)
+          nftjiDrop = { emoji: WALLET_DECORATIONS.lucky500, claimField: 'lucky_500_claimed', levelField: 'lucky_500_level' };
+        else if (Math.random() < 1 / 100)
+          nftjiDrop = { emoji: WALLET_DECORATIONS.lucky100, claimField: 'lucky_100_claimed', levelField: 'lucky_100_level' };
+        else if (Math.random() < 1 / 50)
+          nftjiDrop = { emoji: WALLET_DECORATIONS.lucky50, claimField: 'lucky_50_claimed', levelField: 'lucky_50_level' };
       }
     }
 
     await supabase.from('games').insert(gameRecords);
     availableMm3 += totalMiningReward;
 
-    const newEmojis = nftjiDrop ? [...walletEmojis, nftjiDrop.emoji] : walletEmojis;
+    const newEmojis = nftjiDrop ? [...new Set([...walletEmojis, nftjiDrop.emoji])] : walletEmojis;
     const quote = getSellQuote(level, availableMm3);
     const progressUpdate = {
       wallet,
@@ -184,7 +184,10 @@ export async function GET(req) {
       wallet_emojis: newEmojis,
       updated_at: now,
     };
-    if (nftjiDrop) progressUpdate[nftjiDrop.field] = true;
+    if (nftjiDrop) {
+      progressUpdate[nftjiDrop.claimField] = true;
+      progressUpdate[nftjiDrop.levelField] = Number(progressRow?.[nftjiDrop.levelField] ?? -1) + 1;
+    }
     await supabase.from('player_progress')
       .upsert(progressUpdate, { onConflict: 'wallet', ignoreDuplicates: false });
 
@@ -350,10 +353,16 @@ export async function GET(req) {
       botEur -= newPrice; botCny -= newPriceCny; botUsd -= newPriceUsd;
       const buyDelta = newPrice / (rateCny * CNY_TO_EUR);
 
+      const currentLevels = progressRow?.market_nftji_levels || {};
       await supabase.from('player_progress').upsert({
         wallet, is_bot: true, eur_earned: botEur, cny_earned: botCny, usd_earned: botUsd,
         market_nftji_key: targetBlock.block_key, market_nftji_price: newPrice,
-        market_nftji_since: now, updated_at: now,
+        market_nftji_since: now,
+        market_nftji_levels: {
+          ...currentLevels,
+          [targetBlock.block_key]: Number(currentLevels[targetBlock.block_key] ?? -1) + 1,
+        },
+        updated_at: now,
       }, { onConflict: 'wallet', ignoreDuplicates: false });
 
       await supabase.from('mm3_market_events').insert({

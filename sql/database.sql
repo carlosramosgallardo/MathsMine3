@@ -123,6 +123,11 @@ CREATE TABLE player_progress (
   lucky_100_claimed BOOLEAN NOT NULL DEFAULT FALSE,
   lucky_500_claimed BOOLEAN NOT NULL DEFAULT FALSE,
   lucky_1000_claimed BOOLEAN NOT NULL DEFAULT FALSE,
+  lucky_50_level INTEGER NOT NULL DEFAULT -1,
+  lucky_100_level INTEGER NOT NULL DEFAULT -1,
+  lucky_500_level INTEGER NOT NULL DEFAULT -1,
+  lucky_1000_level INTEGER NOT NULL DEFAULT -1,
+  market_nftji_levels JSONB NOT NULL DEFAULT '{}',
   sell_rate_cny NUMERIC NOT NULL DEFAULT 0,
   sell_quote_cny NUMERIC NOT NULL DEFAULT 0,
   sell_quote_eur NUMERIC NOT NULL DEFAULT 0,
@@ -237,6 +242,7 @@ CREATE TABLE mm3_pool_dispute_wallets (
   exec_snap       INT     NOT NULL DEFAULT 0,
   nftji_snap      INT     NOT NULL DEFAULT 0,
   market_nftji_snap TEXT,
+  market_nftji_level_snap INTEGER NOT NULL DEFAULT 0,
   has_penalty     BOOLEAN NOT NULL DEFAULT FALSE,
   eur_stake       NUMERIC NOT NULL DEFAULT 0,
   mm3_stake       NUMERIC NOT NULL DEFAULT 0,
@@ -778,7 +784,7 @@ BEGIN
         INSERT INTO mm3_pool_dispute_wallets(
           dispute_id, wallet, pool_code, side,
           level_snap, mm3_snap, eur_snap, usd_snap, cny_snap,
-          exec_snap, nftji_snap, market_nftji_snap, has_penalty,
+          exec_snap, nftji_snap, market_nftji_snap, market_nftji_level_snap, has_penalty,
           eur_stake, mm3_stake,
           squeeze_nftji_equipped, squeeze_nftji_level
         )
@@ -786,8 +792,17 @@ BEGIN
           v_dispute_id, v_member, p_challenger_pool, 'challenger',
           COALESCE(pp.level, 0), COALESCE(pp.mm3_sold, 0),
           COALESCE(pp.eur_earned, 0), COALESCE(pp.usd_earned, 0), COALESCE(pp.cny_earned, 0),
-          v_exec_count, COALESCE(array_length(pp.wallet_emojis, 1), 0),
-          pp.market_nftji_key, v_has_penalty,
+          v_exec_count,
+          (CASE WHEN pp.lucky_50_level >= 0 THEN pp.lucky_50_level + 1 ELSE 0 END +
+           CASE WHEN pp.lucky_100_level >= 0 THEN pp.lucky_100_level + 1 ELSE 0 END +
+           CASE WHEN pp.lucky_500_level >= 0 THEN pp.lucky_500_level + 1 ELSE 0 END +
+           CASE WHEN pp.lucky_1000_level >= 0 THEN pp.lucky_1000_level + 1 ELSE 0 END +
+           CASE WHEN pp.life_used THEN 1 ELSE 0 END),
+          pp.market_nftji_key,
+          CASE WHEN pp.market_nftji_key IS NOT NULL
+            THEN GREATEST(0, COALESCE((pp.market_nftji_levels->>pp.market_nftji_key)::integer, 0))
+            ELSE 0 END,
+          v_has_penalty,
           ROUND(COALESCE(pp.eur_earned, 0) * 0.05, 4),
           ROUND(COALESCE(pp.mm3_sold, 0) * 0.03, 4),
           sn.equipped,
@@ -818,7 +833,7 @@ BEGIN
         INSERT INTO mm3_pool_dispute_wallets(
           dispute_id, wallet, pool_code, side,
           level_snap, mm3_snap, eur_snap, usd_snap, cny_snap,
-          exec_snap, nftji_snap, market_nftji_snap, has_penalty,
+          exec_snap, nftji_snap, market_nftji_snap, market_nftji_level_snap, has_penalty,
           eur_stake, mm3_stake,
           squeeze_nftji_equipped, squeeze_nftji_level
         )
@@ -826,8 +841,17 @@ BEGIN
           v_dispute_id, v_member, p_defender_pool, 'defender',
           COALESCE(pp.level, 0), COALESCE(pp.mm3_sold, 0),
           COALESCE(pp.eur_earned, 0), COALESCE(pp.usd_earned, 0), COALESCE(pp.cny_earned, 0),
-          v_exec_count, COALESCE(array_length(pp.wallet_emojis, 1), 0),
-          pp.market_nftji_key, v_has_penalty,
+          v_exec_count,
+          (CASE WHEN pp.lucky_50_level >= 0 THEN pp.lucky_50_level + 1 ELSE 0 END +
+           CASE WHEN pp.lucky_100_level >= 0 THEN pp.lucky_100_level + 1 ELSE 0 END +
+           CASE WHEN pp.lucky_500_level >= 0 THEN pp.lucky_500_level + 1 ELSE 0 END +
+           CASE WHEN pp.lucky_1000_level >= 0 THEN pp.lucky_1000_level + 1 ELSE 0 END +
+           CASE WHEN pp.life_used THEN 1 ELSE 0 END),
+          pp.market_nftji_key,
+          CASE WHEN pp.market_nftji_key IS NOT NULL
+            THEN GREATEST(0, COALESCE((pp.market_nftji_levels->>pp.market_nftji_key)::integer, 0))
+            ELSE 0 END,
+          v_has_penalty,
           ROUND(COALESCE(pp.eur_earned, 0) * 0.05, 4),
           ROUND(COALESCE(pp.mm3_sold, 0) * 0.03, 4),
           sn.equipped,
@@ -990,7 +1014,7 @@ BEGIN
     COALESCE(SUM(mm3_snap), 0)       AS mm3_sum,
     COALESCE(SUM(eur_snap), 0)       AS eur_sum,
     COALESCE(SUM(nftji_snap), 0)     AS nftji_count,
-    COUNT(*) FILTER (WHERE market_nftji_snap IS NOT NULL) AS market_nftji_count,
+    COALESCE(SUM(market_nftji_level_snap + 1) FILTER (WHERE market_nftji_snap IS NOT NULL), 0) AS market_nftji_count,
     COUNT(*) FILTER (WHERE has_penalty)  AS penalty_count,
     COALESCE(SUM(exec_snap), 0)      AS exec_count,
     COALESCE(SUM(CASE WHEN squeeze_nftji_equipped = 'attack' AND squeeze_nftji_level >= 0
@@ -1006,7 +1030,7 @@ BEGIN
     COALESCE(SUM(mm3_snap), 0)       AS mm3_sum,
     COALESCE(SUM(eur_snap), 0)       AS eur_sum,
     COALESCE(SUM(nftji_snap), 0)     AS nftji_count,
-    COUNT(*) FILTER (WHERE market_nftji_snap IS NOT NULL) AS market_nftji_count,
+    COALESCE(SUM(market_nftji_level_snap + 1) FILTER (WHERE market_nftji_snap IS NOT NULL), 0) AS market_nftji_count,
     COUNT(*) FILTER (WHERE has_penalty)  AS penalty_count,
     COALESCE(SUM(exec_snap), 0)      AS exec_count,
     COALESCE(SUM(CASE WHEN squeeze_nftji_equipped = 'attack' AND squeeze_nftji_level >= 0
