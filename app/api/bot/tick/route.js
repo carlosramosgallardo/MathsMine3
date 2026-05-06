@@ -197,9 +197,12 @@ export async function GET(req) {
     let currentUsd = Number(progressRow?.usd_earned) || 0;
     let currentMm3Sold = mm3Sold;
 
-    while (tradesTodayCount < DAILY_TRADE_LIMIT && availableMm3 > 0.000001) {
+    // Always keep 30% of MM3 untouched — bot never sells everything
+    const mm3Reserve = availableMm3 * 0.30;
+
+    while (tradesTodayCount < DAILY_TRADE_LIMIT && availableMm3 > mm3Reserve + 0.000001) {
       const fraction = 0.10 + Math.random() * 0.20;
-      const sellMm3 = availableMm3 * fraction;
+      const sellMm3 = Math.min(availableMm3 * fraction, availableMm3 - mm3Reserve);
       const rateCny = getSellRateCny(level);
       const commissionRate = getCommissionRate(sellMm3);
       const commissionMm3 = sellMm3 * commissionRate;
