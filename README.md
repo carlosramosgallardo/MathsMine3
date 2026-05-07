@@ -287,6 +287,17 @@ NFTJIs are wallet-bound game objects. They are not financial assets.
 
 Each mining drop can be claimed once per wallet. If the offer is ignored before the next round, it is lost.
 
+### NFTJI Leveling
+
+All obtainable NFTJIs except **Life Toll** can level up when the same NFTJI is obtained again. The first acquisition starts at **Lv.0**; each duplicate adds +1 level.
+
+Life Toll is the exception: it can only be bought once per wallet and never levels.
+
+NFTJI levels are gameplay power, not cosmetic-only badges:
+
+- In **Trade MM3**, levelled mining NFTJIs multiply their trade effect on buy/sell quotes.
+- In **Squeeze**, levelled NFTJI power is snapshotted and summed into pool scoring; Squeeze Attack/Defense NFTJIs also scale their own attack/protection formulas by level.
+
 ### Heart Revive
 
 One use per wallet. Requires at least 1.00 EUR in fictional funds. Cancels one failure penalty, costs 1.00 EUR in-game, and emits a global MM3 shock.
@@ -1002,6 +1013,17 @@ Los NFTJIs son objetos de juego asociados a la wallet. No son activos financiero
 | Fate Singularity | 1/1000 | Tirada más rara de mining |
 
 Cada drop de mining puede reclamarse una vez por wallet. Si se ignora la oferta antes de la siguiente ronda, se pierde.
+
+### Niveles de NFTJI
+
+Todos los NFTJIs obtenibles excepto **Life Toll** suben de nivel cuando se obtiene de nuevo el mismo NFTJI. La primera adquisición empieza en **Lv.0**; cada duplicado suma +1 nivel.
+
+Life Toll es la excepción: solo puede comprarse una vez por wallet y nunca sube de nivel.
+
+Los niveles de NFTJI son poder de juego, no solo badges visuales:
+
+- En **Trade MM3**, los NFTJIs de mining con nivel multiplican su efecto en las cotizaciones de compra/venta.
+- En **Squeeze**, el poder de los NFTJIs con nivel se captura en el snapshot y se suma al score del pool; los NFTJIs de Squeeze Ataque/Defensa también escalan sus fórmulas de ataque/protección por nivel.
 
 ### Heart Revive
 
