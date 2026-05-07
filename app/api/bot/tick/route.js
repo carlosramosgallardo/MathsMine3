@@ -7,7 +7,7 @@ import { WALLET_DECORATIONS, getWalletMarketDelta } from '@/lib/wallet-decoratio
 import { marketCommandFromBlock, computeMarketCommandCode, getUtcDayWindow } from '@/lib/market-commands';
 
 const BOT_WALLET = '0xcab10d0e0650d45cb0b7482370a1ca93d5bf5528';
-const DAILY_MINE_BASE = 200;
+const DAILY_MINE_BASE = 100;
 const PRICE = Number(process.env.NEXT_PUBLIC_FAKE_MINING_PRICE) || 0.00001;
 const DAILY_TRADE_LIMIT = 5;
 

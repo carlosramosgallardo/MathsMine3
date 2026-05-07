@@ -1,9 +1,9 @@
 -- ============================================================
 -- TEST: Give the bot 1000 drills for the next tick
 -- How it works:
---   drillsTotal = DAILY_MINE_BASE(200) + COUNT(sell_transactions)
+--   drillsTotal = DAILY_MINE_BASE(100) + COUNT(sell_transactions)
 --   drillsLeft  = drillsTotal - COUNT(games today)
---   Target: drillsLeft = 1000  →  need totalExecs = 800 (if clean env)
+--   Target: drillsLeft = 1000  →  need totalExecs = 900 (if clean env)
 --
 -- Cleanup: run test_reset_full.sql when done (deletes sell_transactions).
 -- ============================================================
@@ -21,8 +21,8 @@ WHERE  wallet = '0xcab10d0e0650d45cb0b7482370a1ca93d5bf5528'
   AND  day    = to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD');
 
 -- 3. Insert dummy sell_transactions to reach drillsTotal = 1000
---    (800 rows × zero values — only the row count matters for the formula)
---    generate_series stops at 0 if the bot already has ≥800 transactions.
+--    (900 rows × zero values — only the row count matters for the formula)
+--    generate_series stops at 0 if the bot already has ≥900 transactions.
 INSERT INTO mm3_sell_transactions (
   wallet, source, level,
   mm3_amount, mm3_commission, rate_cny,
@@ -38,7 +38,7 @@ SELECT
   0, 0, 0
 FROM generate_series(
   1,
-  GREATEST(0, 800 - (
+  GREATEST(0, 900 - (
     SELECT COUNT(*)::int FROM mm3_sell_transactions
     WHERE wallet = '0xcab10d0e0650d45cb0b7482370a1ca93d5bf5528'
   ))
@@ -51,7 +51,7 @@ SELECT
      AND created_at >= date_trunc('day', now() AT TIME ZONE 'UTC'))  AS games_today,
   (SELECT COUNT(*) FROM mm3_sell_transactions
    WHERE wallet = '0xcab10d0e0650d45cb0b7482370a1ca93d5bf5528')       AS total_execs,
-  200 + (SELECT COUNT(*) FROM mm3_sell_transactions
+  100 + (SELECT COUNT(*) FROM mm3_sell_transactions
          WHERE wallet = '0xcab10d0e0650d45cb0b7482370a1ca93d5bf5528') AS drills_total;
 
 COMMIT;
