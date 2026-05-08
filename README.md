@@ -535,12 +535,14 @@ IRC is the shared terminal layer.
 | Chat history | Persistent social log |
 | Market badges | Owned NFTJIs shown beside authors |
 | Command events | Public command and penalty activity |
+| Squeeze trace | Completed or cancelled Squeeze summaries |
 | Blockchain trace | Real ETH transactions confirmed on-chain via Alchemy webhook |
 
 ```txt
 wallet@MM3:~$       hello mainframe
 market@MM3:~$       command fired
 system@MM3:~$       value mutated
+squeeze@MM3·:~$     squeeze resolved or cancelled
 MathsMine3@ETH·:~$  0.01 ETH donation confirmed · tx 0xabc…def
 ```
 
