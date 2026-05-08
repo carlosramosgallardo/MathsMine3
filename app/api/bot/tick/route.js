@@ -769,7 +769,10 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
     const mm3Mined = gamesAction?.total_mining_reward || 0;
     const nftjiDrops = gamesAction?.nftji_drops || null;
     const eurEarned = tradeActions.reduce((sum, t) => sum + (t.net_eur || 0), 0);
-    const tasksCompleted = claimActions.map((c) => c.taskKey);
+    const tasksCompleted = claimActions.map((c) => ({
+      irc: 'irc(public)',
+      ircHidden: 'irc(secret)',
+    }[c.taskKey] || c.taskKey));
 
     let botMsg = `ran ${gamesCount} drills`;
     if (mm3Mined !== 0) botMsg += ` :: ${mm3Mined >= 0 ? '+' : ''}${mm3Mined.toFixed(6)} MM3`;
