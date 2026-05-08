@@ -49,6 +49,43 @@ function CountdownBadge({ targetMs, color }) {
   );
 }
 
+function parseMs(value) {
+  const ms = new Date(value || 0).getTime();
+  return Number.isFinite(ms) ? ms : 0;
+}
+
+function formatUtc(value) {
+  const ms = parseMs(value);
+  if (!ms) return 'UTC --';
+  return `UTC ${new Date(ms).toISOString().replace('T', ' ').replace(/\.\d{3}Z$/, 'Z')}`;
+}
+
+function getDisputeTrace(dispute, lang) {
+  const labels = {
+    proposing: lang === 'es' ? 'propuesta' : 'proposed',
+    registering: lang === 'es' ? 'registro' : 'registered',
+    battle_start: lang === 'es' ? 'batalla' : 'battle',
+    resolved: lang === 'es' ? 'resultado' : 'result',
+    cancelled: lang === 'es' ? 'cancelada' : 'cancelled',
+  };
+  const value = dispute.status === 'resolved'
+    ? dispute.resolved_at || dispute.battle_start_at || dispute.registered_at
+    : dispute.status === 'cancelled'
+      ? dispute.cancelled_at || dispute.registered_at
+      : dispute.status === 'battle_start'
+        ? dispute.battle_start_at || dispute.registered_at
+        : dispute.registered_at;
+  return {
+    label: labels[dispute.status] || labels.proposing,
+    value,
+    ms: parseMs(value),
+  };
+}
+
+function getDisputeSortMs(dispute) {
+  return getDisputeTrace(dispute, 'en').ms;
+}
+
 function ScoreBar({ chScore, dfScore }) {
   const total = (Number(chScore) || 0) + (Number(dfScore) || 0);
   if (total <= 0) return null;
@@ -68,6 +105,7 @@ function DisputeCard({ dispute, activeWallet, poolCode, language, onJoin, onClai
   const isBattleStart = dispute.status === 'battle_start';
   const isResolved    = dispute.status === 'resolved';
   const isCancelled   = dispute.status === 'cancelled';
+  const trace = getDisputeTrace(dispute, lang);
 
   const proposalDeadline = isProposing
     ? new Date(dispute.registered_at).getTime() + 5 * 60 * 1000
@@ -129,6 +167,35 @@ function DisputeCard({ dispute, activeWallet, poolCode, language, onJoin, onClai
           {statusMeta[lang]}
         </span>
       </div>
+      <div style={{
+        display: 'flex',
+        gap: 10,
+        alignItems: 'center',
+        flexWrap: 'wrap',
+        marginBottom: 10,
+        fontSize: '0.68rem',
+        fontFamily: 'monospace',
+        color: '#64748b',
+        letterSpacing: '0.06em',
+      }}>
+        <span style={{ color: statusMeta.color }}>{trace.label.toUpperCase()}</span>
+        <span>{formatUtc(trace.value)}</span>
+        {isProposing && proposalDeadline && (
+          <span style={{ color: '#475569' }}>
+            {lang === 'es' ? 'EXPIRA' : 'EXPIRES'} {formatUtc(proposalDeadline)}
+          </span>
+        )}
+        {isRegistering && battleDeadline && (
+          <span style={{ color: '#475569' }}>
+            {lang === 'es' ? 'CIERRE' : 'CLOSE'} {formatUtc(battleDeadline)}
+          </span>
+        )}
+        {isBattleStart && resolveDeadline && (
+          <span style={{ color: '#475569' }}>
+            {lang === 'es' ? 'RESUELVE' : 'RESOLVES'} {formatUtc(resolveDeadline)}
+          </span>
+        )}
+      </div>
 
       {/* Proposing: waiting for a 2nd wallet */}
       {isProposing && proposalDeadline && (
@@ -163,6 +230,9 @@ function DisputeCard({ dispute, activeWallet, poolCode, language, onJoin, onClai
               {lang === 'es'
                 ? `${dispute.challenger_pool_code} intentó un squeeze a ${dispute.defender_pool_code}`
                 : `${dispute.challenger_pool_code} attempted to squeeze ${dispute.defender_pool_code}`}
+            </div>
+            <div style={{ fontSize: '0.65rem', color: '#334155', marginTop: 2, fontFamily: 'monospace' }}>
+              {formatUtc(trace.value)}
             </div>
           </div>
         </div>
@@ -273,6 +343,9 @@ function DisputeCard({ dispute, activeWallet, poolCode, language, onJoin, onClai
                 </span>
               </div>
             )}
+            <div style={{ fontSize: '0.65rem', color: '#64748b', marginTop: 2, fontFamily: 'monospace' }}>
+              {formatUtc(trace.value)}
+            </div>
           </div>
         </div>
       )}
@@ -634,8 +707,12 @@ export default function DisputesPanel({ wallet, poolCode, language, onWalletClic
     }
   }
 
-  const activeDisputes = disputes.filter((d) => !['resolved', 'cancelled'].includes(d.status));
-  const historyDisputes = disputes.filter((d) => ['resolved', 'cancelled'].includes(d.status));
+  const activeDisputes = disputes
+    .filter((d) => !['resolved', 'cancelled'].includes(d.status))
+    .sort((a, b) => getDisputeSortMs(b) - getDisputeSortMs(a));
+  const historyDisputes = disputes
+    .filter((d) => ['resolved', 'cancelled'].includes(d.status))
+    .sort((a, b) => getDisputeSortMs(b) - getDisputeSortMs(a));
 
   if (isLoading) {
     return (

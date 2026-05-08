@@ -17,7 +17,7 @@ export async function GET(req) {
       .from('mm3_pool_disputes')
       .select(`
         id, challenger_pool_code, defender_pool_code, status,
-        registered_at, battle_start_at, resolved_at,
+        registered_at, battle_start_at, resolved_at, cancelled_at,
         war_percent, nature_percent, dice_modifier,
         ch_wallet_count, ch_level_sum, ch_mm3_sum, ch_eur_sum,
         ch_nftji_count, ch_market_nftji_count, ch_penalty_count, ch_exec_count, ch_score, ch_squeeze_atk_sum,

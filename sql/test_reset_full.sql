@@ -62,15 +62,15 @@ DELETE FROM daily_task_claims;
 DELETE FROM mm3_market_commands;
 DELETE FROM mm3_command_penalties;
 
--- 6. Pool / dispute state
+-- 6. Pool / Squeeze state
 DELETE FROM mm3_pool_dispute_wallets;
 DELETE FROM mm3_pool_dispute_votes;
 DELETE FROM mm3_pool_disputes;
+DELETE FROM mm3_squeeze_nftji;
 DELETE FROM mm3_wallet_pool_members;
 DELETE FROM mm3_wallet_pool_invitations;
 DELETE FROM mm3_wallet_pools;
 DELETE FROM mm3_wallet_pool_cooldowns;
-DELETE FROM mm3_squeeze_nftji;
 
 -- 7. Trade history and market events
 DELETE FROM mm3_sell_transactions;
