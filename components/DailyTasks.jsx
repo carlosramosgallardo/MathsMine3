@@ -40,6 +40,12 @@ const TASKS = [
     rewardEur: 1,
   },
   {
+    key: 'squeeze',
+    translationKey: 'squeeze',
+    target: 1,
+    rewardEur: 1.25,
+  },
+  {
     key: 'ircHidden',
     translationKey: 'ircHidden',
     target: 1,
@@ -97,7 +103,7 @@ export default function DailyTasks() {
       setMessage('');
       try {
         const { startIso, endIso, dayKey: currentDayKey } = getUtcDayBounds();
-        const [miningRes, tradingRes, marketRes, ircRes, hiddenRes, claimsRes] = await Promise.all([
+        const [miningRes, tradingRes, marketRes, ircRes, squeezeRes, hiddenRes, claimsRes] = await Promise.all([
           supabase
             .from('games')
             .select('id', { count: 'exact', head: true })
@@ -125,6 +131,12 @@ export default function DailyTasks() {
             .gte('executed_at', startIso)
             .lt('executed_at', endIso),
           supabase
+            .from('mm3_pool_dispute_votes')
+            .select('id', { count: 'exact', head: true })
+            .eq('wallet', wallet)
+            .gte('voted_at', startIso)
+            .lt('voted_at', endIso),
+          supabase
             .from('mm3_hidden_cmd_executions')
             .select('id', { count: 'exact', head: true })
             .eq('wallet', wallet)
@@ -144,6 +156,7 @@ export default function DailyTasks() {
           trading: toCount(tradingRes.count),
           market: toCount(marketRes.count),
           irc: toCount(ircRes.count),
+          squeeze: toCount(squeezeRes.count),
           ircHidden: toCount(hiddenRes.count),
         };
         setCounts(nextCounts);

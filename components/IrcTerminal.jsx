@@ -153,6 +153,7 @@ function formatChatAuthor(wallet, normalizedWallet, youLabel) {
 function formatSystemAuthor(tone) {
   if (tone === 'realchain') return 'MathsMine3@ETH·:~$';
   if (tone === 'market') return 'market@MM3·:~$';
+  if (tone === 'squeeze') return 'squeeze@MM3·:~$';
   if (tone === 'ghost' || tone === 'join' || tone === 'leave') return 'mainframe@MM3·:~$';
   if (tone === 'command') return 'cmd@MM3·:~$';
   if (tone === 'accent') return 'welcome@MM3·:~$';
@@ -1067,6 +1068,18 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
           tone: rec.tone || 'realchain',
         }), { silent: false });
       })
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'mm3_irc_messages', filter: 'tone=eq.squeeze' }, ({ new: rec }) => {
+        const text = normalizeRelayMessage(rec?.text);
+        if (!text) return;
+        appendMessage(makeMessage({
+          id: `db:${rec.wallet || 'system'}:${rec.ts || rec.created_at || Date.now()}`,
+          kind: rec.kind || 'system',
+          wallet: String(rec.wallet || 'system').toLowerCase(),
+          text,
+          ts: isNaN(Number(rec.ts)) ? new Date(rec.ts || rec.created_at || Date.now()).getTime() : Number(rec.ts),
+          tone: 'squeeze',
+        }), { silent: false });
+      })
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'mm3_irc_messages', filter: 'tone=eq.join' }, ({ new: rec }) => {
         const text = normalizeRelayMessage(rec?.text);
         if (!text) return;
@@ -1623,6 +1636,10 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
         .mm3-irc-line.system[data-tone='market']   {
           color: #facc15;
           text-shadow: 0 0 8px rgba(250, 204, 21, 0.16);
+        }
+        .mm3-irc-line.system[data-tone='squeeze']  {
+          color: #22d3ee;
+          text-shadow: 0 0 8px rgba(34, 211, 238, 0.18);
         }
         .mm3-irc-line.system[data-tone='realchain'] {
           color: #a78bfa;

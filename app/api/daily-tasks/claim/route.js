@@ -15,6 +15,7 @@ const TASKS = {
   trading: { target: 5, rewardEur: 0.5 },
   market: { target: 1, rewardEur: 0.75 },
   irc: { target: 1, rewardEur: 1 },
+  squeeze: { target: 1, rewardEur: 1.25 },
   ircHidden: { target: 1, rewardEur: 5 },
 };
 
@@ -44,7 +45,7 @@ export async function POST(req) {
 
   const { startIso, endIso, dayKey } = getUtcDayBounds();
 
-  const [miningRes, tradingRes, marketRes, ircRes, hiddenRes, claimsRes] = await Promise.all([
+  const [miningRes, tradingRes, marketRes, ircRes, squeezeRes, hiddenRes, claimsRes] = await Promise.all([
     supabase
       .from('games')
       .select('id', { count: 'exact', head: true })
@@ -72,6 +73,12 @@ export async function POST(req) {
       .gte('executed_at', startIso)
       .lt('executed_at', endIso),
     supabase
+      .from('mm3_pool_dispute_votes')
+      .select('id', { count: 'exact', head: true })
+      .eq('wallet', wallet)
+      .gte('voted_at', startIso)
+      .lt('voted_at', endIso),
+    supabase
       .from('mm3_hidden_cmd_executions')
       .select('id', { count: 'exact', head: true })
       .eq('wallet', wallet)
@@ -84,8 +91,8 @@ export async function POST(req) {
       .eq('day', dayKey),
   ]);
 
-  if (miningRes.error || tradingRes.error || marketRes.error || ircRes.error || hiddenRes.error || claimsRes.error) {
-    console.error('daily task claim load error:', miningRes.error || tradingRes.error || marketRes.error || ircRes.error || hiddenRes.error || claimsRes.error);
+  if (miningRes.error || tradingRes.error || marketRes.error || ircRes.error || squeezeRes.error || hiddenRes.error || claimsRes.error) {
+    console.error('daily task claim load error:', miningRes.error || tradingRes.error || marketRes.error || ircRes.error || squeezeRes.error || hiddenRes.error || claimsRes.error);
     return Response.json({ ok: false, error: 'db_error' }, { status: 500 });
   }
 
@@ -94,6 +101,7 @@ export async function POST(req) {
     trading: countValue(tradingRes),
     market: countValue(marketRes),
     irc: countValue(ircRes),
+    squeeze: countValue(squeezeRes),
     ircHidden: countValue(hiddenRes),
   };
 

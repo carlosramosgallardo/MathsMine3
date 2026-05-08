@@ -95,7 +95,7 @@ $ drill --solve --mine --level --exec --pool --squeeze --market --claim --reset
 6. Challenge a rival Pool to a Squeeze — stake EUR, scores resolve with world state modifiers, 45% burns.
 7. Buy Market NFTJI blocks — each owns a daily IRC command slot and a hidden command path.
 8. Fire commands in IRC to penalize rivals. Crack the formula code to cancel incoming hits.
-9. Complete daily tasks (MINING / TRADING / MARKET / IRC / HIDDEN) — claim fictional fiat rewards.
+9. Complete daily tasks (MINING / TRADING / MARKET / IRC / SQUEEZE / HIDDEN) — claim fictional fiat rewards.
 10. Watch the global MM3 value shift with every action in the ecosystem.
 11. UTC midnight resets the clock. Return sharper than before.
 
@@ -216,6 +216,7 @@ Daily rewards are wallet-bound tasks that pay fictional in-game money when claim
 | TRADING | 5 buy/sell operations | 0.50 EUR | Daily rows in `mm3_sell_transactions` | Pushes the player to use the exchange loop and understand MM3 value. |
 | MARKET | 1 Market buy or resell | 0.75 EUR | `market_buy` or `market_resell` events | Makes the 28x28 board part of the daily economy. |
 | IRC | 1 public Market command | 1.00 EUR | Daily rows in `mm3_market_commands` | Rewards social command activity from owned Market NFTJIs. |
+| SQUEEZE | 1 Squeeze launched against a wallet pool | 1.25 EUR | Daily rows in `mm3_pool_dispute_votes` | Rewards initiating pool-vs-pool combat. |
 | HIDDEN IRC | 1 hidden command | 5.00 EUR | Daily rows in `mm3_hidden_cmd_executions` | High-value reward for discovering and executing hidden command paths. |
 
 | Rule | Explanation |
@@ -822,7 +823,7 @@ $ drill --resolver --minar --nivel --exec --pool --squeeze --market --reclamar -
 6. Reta a un Pool rival a un Squeeze — apuesta EUR, el score se resuelve con modificadores del mundo, el 45% se quema.
 7. Compra bloques NFTJI del Market — cada uno domina un slot IRC diario y una ruta de comando oculta.
 8. Dispara comandos IRC para penalizar rivales. Descifra la fórmula para cancelar golpes entrantes.
-9. Completa tareas diarias (MINING / TRADING / MARKET / IRC / HIDDEN) — reclama recompensas en EUR ficticio.
+9. Completa tareas diarias (MINING / TRADING / MARKET / IRC / SQUEEZE / HIDDEN) — reclama recompensas en EUR ficticio.
 10. Observa cómo el valor global de MM3 oscila con cada acción del ecosistema.
 11. El reset UTC borra los contadores. Vuelve más afilado que antes.
 
@@ -943,6 +944,7 @@ Las recompensas diarias son tareas asociadas a la wallet que pagan dinero fictic
 | TRADING | 5 operaciones de compra/venta | 0.50 EUR | Filas diarias en `mm3_sell_transactions` | Empuja a usar el exchange y entender el valor de MM3. |
 | MARKET | 1 compra o reventa en Market | 0.75 EUR | Eventos `market_buy` o `market_resell` | Hace que el tablero 28x28 forme parte de la economía diaria. |
 | IRC | 1 comando público de Market | 1.00 EUR | Filas diarias en `mm3_market_commands` | Recompensa actividad social de comandos desde NFTJIs del Market. |
+| SQUEEZE | 1 Squeeze lanzado contra un pool de wallets | 1.25 EUR | Filas diarias en `mm3_pool_dispute_votes` | Recompensa iniciar combate pool-vs-pool. |
 | HIDDEN IRC | 1 comando oculto | 5.00 EUR | Filas diarias en `mm3_hidden_cmd_executions` | Recompensa de alto valor por descubrir y ejecutar rutas ocultas. |
 
 | Regla | Explicación |

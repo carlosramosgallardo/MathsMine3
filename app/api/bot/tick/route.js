@@ -6,6 +6,7 @@ import { getSellQuote, getSellRateCny, getCommissionRate, CNY_TO_EUR, CNY_TO_USD
 import { WALLET_DECORATIONS, getWalletMarketDelta } from '@/lib/wallet-decorations';
 import { marketCommandFromBlock, computeMarketCommandCode, getUtcDayWindow } from '@/lib/market-commands';
 import { getChallengerRegistrationState, SQUEEZE_REGISTER_MS } from '@/lib/squeeze-transitions';
+import { insertSqueezeIrcTrace } from '@/lib/squeeze-irc';
 
 const BOT_WALLETS = [
   '0xcab10d0e0650d45cb0b7482370a1ca93d5bf5528',
@@ -147,7 +148,15 @@ async function advanceBotSqueezes(supabase) {
       const registeredAt = new Date(dispute.registered_at).getTime();
       if (now - registeredAt >= 5 * 60 * 1000) {
         const { data } = await supabase.rpc('mm3_dispute_cancel', { p_dispute_id: dispute.id });
-        if (!data?.error) actions.push({ type: 'squeeze_cancelled', disputeId: dispute.id });
+        if (!data?.error) {
+          const { data: cancelledDispute } = await supabase
+            .from('mm3_pool_disputes')
+            .select('id, challenger_pool_code, defender_pool_code, status, cancelled_at')
+            .eq('id', dispute.id)
+            .maybeSingle();
+          if (cancelledDispute) await insertSqueezeIrcTrace(supabase, cancelledDispute, 'cancelled').catch(() => {});
+          actions.push({ type: 'squeeze_cancelled', disputeId: dispute.id });
+        }
       }
     } else if (dispute.status === 'registering') {
       const registeredAt = new Date(dispute.registered_at).getTime();
@@ -160,7 +169,15 @@ async function advanceBotSqueezes(supabase) {
       const battleStartAt = new Date(dispute.battle_start_at).getTime();
       if (now - battleStartAt >= 5000) {
         const { data } = await supabase.rpc('mm3_dispute_resolve', { p_dispute_id: dispute.id });
-        if (!data?.error) actions.push({ type: 'squeeze_resolved', disputeId: dispute.id });
+        if (!data?.error) {
+          const { data: resolvedDispute } = await supabase
+            .from('mm3_pool_disputes')
+            .select('id, challenger_pool_code, defender_pool_code, status, resolved_at, ch_score, df_score, winner, result_summary, drop_type')
+            .eq('id', dispute.id)
+            .maybeSingle();
+          if (resolvedDispute) await insertSqueezeIrcTrace(supabase, resolvedDispute, 'resolved').catch(() => {});
+          actions.push({ type: 'squeeze_resolved', disputeId: dispute.id });
+        }
       }
     }
   }
@@ -236,7 +253,7 @@ async function maybeLaunchBotSqueeze(supabase) {
   return actions;
 }
 
-async function runBotTick(supabase, wallet) {
+async function runBotTick(supabase, wallet, sharedActions = []) {
   const botActions = await acceptPendingPoolInvites(supabase, wallet);
 
   const { startIso, endIso, dayKey } = getUtcDayBounds();
@@ -533,6 +550,7 @@ async function runBotTick(supabase, wallet) {
     trading: { target: 5, rewardEur: 0.5 },
     market: { target: 1, rewardEur: 0.75 },
     irc: { target: 1, rewardEur: 1.0 },
+    squeeze: { target: 1, rewardEur: 1.25 },
   };
 
   if (newGamesToday >= dailyTargets.mining.target) {
@@ -731,6 +749,7 @@ async function runBotTick(supabase, wallet) {
     else if (taskKey === 'trading') count = newTradesToday;
     else if (taskKey === 'market') count = didBuyOrResell ? 1 : 0;
     else if (taskKey === 'irc') count = didMarketCommand ? 1 : 0;
+    else if (taskKey === 'squeeze') count = sharedActions.some((a) => a.type === 'squeeze_proposed' && a.wallet === wallet) ? 1 : 0;
     else continue;
     if (count < target) continue;
 
@@ -846,20 +865,20 @@ export async function GET(req) {
     process.env.SUPABASE_SERVICE_ROLE_KEY
   );
 
+  const squeezeActions = [
+    ...await advanceBotSqueezes(supabase),
+    ...await maybeLaunchBotSqueeze(supabase),
+  ];
+
   const results = [];
   for (const wallet of BOT_WALLETS) {
     try {
-      results.push(await runBotTick(supabase, wallet));
+      results.push(await runBotTick(supabase, wallet, squeezeActions));
     } catch (error) {
       console.error('bot tick error:', wallet, error);
       results.push({ ok: false, wallet, error: 'bot_tick_failed' });
     }
   }
-
-  const squeezeActions = [
-    ...await advanceBotSqueezes(supabase),
-    ...await maybeLaunchBotSqueeze(supabase),
-  ];
 
   return Response.json({
     ok: results.every((result) => result.ok),

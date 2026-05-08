@@ -1,6 +1,7 @@
 export const dynamic = 'force-dynamic';
 
 import { createClient } from '@supabase/supabase-js';
+import { insertSqueezeIrcTrace } from '@/lib/squeeze-irc';
 
 export async function POST(req) {
   let body;
@@ -36,6 +37,13 @@ export async function POST(req) {
       }
       return Response.json({ ok: false, error: data.error }, { status: 400 });
     }
+
+    const { data: dispute } = await supabase
+      .from('mm3_pool_disputes')
+      .select('id, challenger_pool_code, defender_pool_code, status, cancelled_at')
+      .eq('id', disputeId)
+      .maybeSingle();
+    if (dispute) await insertSqueezeIrcTrace(supabase, dispute, 'cancelled').catch(() => {});
 
     return Response.json({ ok: true });
   } catch (error) {
