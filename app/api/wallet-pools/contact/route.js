@@ -3,6 +3,10 @@ export const dynamic = 'force-dynamic';
 import { createClient } from '@supabase/supabase-js';
 
 const POOL_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+const BOT_WALLETS = new Set([
+  '0xcab10d0e0650d45cb0b7482370a1ca93d5bf5528',
+  '0xd6c6c15060b27406d956c7e99e520cc810b44233',
+]);
 
 function normalizeWallet(value) {
   return String(value || '').toLowerCase().trim();
@@ -14,6 +18,52 @@ function randomPoolCode() {
     code += POOL_ALPHABET[Math.floor(Math.random() * POOL_ALPHABET.length)];
   }
   return code;
+}
+
+async function acceptBotInviteImmediately(supabase, invitation) {
+  const botWallet = normalizeWallet(invitation.wallet);
+  if (!BOT_WALLETS.has(botWallet)) return null;
+
+  const { data: botMember, error: memberError } = await supabase
+    .from('mm3_wallet_pool_members')
+    .select('wallet, pool_code')
+    .eq('wallet', botWallet)
+    .maybeSingle();
+  if (memberError) throw memberError;
+
+  const isJoinRequest = botMember && botMember.pool_code === invitation.pool_code;
+  if (botMember && !isJoinRequest) {
+    return { ok: false, error: 'already_in_pool' };
+  }
+
+  const joinerWallet = isJoinRequest ? normalizeWallet(invitation.invited_by) : botWallet;
+  const addedBy = isJoinRequest ? botWallet : normalizeWallet(invitation.invited_by);
+
+  const { data: existingJoiner, error: joinerError } = await supabase
+    .from('mm3_wallet_pool_members')
+    .select('wallet')
+    .eq('wallet', joinerWallet)
+    .maybeSingle();
+  if (joinerError) throw joinerError;
+  if (existingJoiner) return { ok: false, error: 'requester_already_in_pool' };
+
+  const { error: insertError } = await supabase
+    .from('mm3_wallet_pool_members')
+    .insert({ wallet: joinerWallet, pool_code: invitation.pool_code, added_by: addedBy });
+  if (insertError && insertError.code !== '23505') throw insertError;
+
+  const { error: updateInviteError } = await supabase
+    .from('mm3_wallet_pool_invitations')
+    .update({ status: 'accepted', accepted_at: new Date().toISOString() })
+    .eq('id', invitation.id);
+  if (updateInviteError) throw updateInviteError;
+
+  await supabase
+    .from('mm3_wallet_pools')
+    .update({ updated_at: new Date().toISOString() })
+    .eq('pool_code', invitation.pool_code);
+
+  return { ok: true, poolCode: invitation.pool_code, joinedWallet: joinerWallet };
 }
 
 async function createUniquePool(supabase, wallet) {
@@ -64,13 +114,14 @@ export async function POST(req) {
       return Response.json({ ok: false, error: 'both_wallets_already_pooled' }, { status: 409 });
     }
 
-    // Block invitations while the initiating wallet's pool has an active dispute as challenger
+    // Block invitations once a Squeeze is registered. While still proposing,
+    // the pool may need another wallet to join/confirm the proposal.
     if (walletPool) {
       const { data: activeDispute, error: disputeCheckError } = await supabase
         .from('mm3_pool_disputes')
         .select('id')
         .eq('challenger_pool_code', walletPool)
-        .in('status', ['proposing', 'registering', 'battle_start'])
+        .in('status', ['registering', 'battle_start'])
         .limit(1)
         .maybeSingle();
       if (disputeCheckError && disputeCheckError.code !== '42P01') throw disputeCheckError;
@@ -157,18 +208,23 @@ export async function POST(req) {
       if (insertError && insertError.code !== '23505') throw insertError;
     }
 
-    const { error: inviteInsertError } = await supabase
+    const { data: insertedInvite, error: inviteInsertError } = await supabase
       .from('mm3_wallet_pool_invitations')
-      .insert({ wallet: inviteTo, invited_by: invitedBy, pool_code: invitePoolCode });
+      .insert({ wallet: inviteTo, invited_by: invitedBy, pool_code: invitePoolCode })
+      .select('id, wallet, invited_by, pool_code, status')
+      .single();
 
     if (inviteInsertError) throw inviteInsertError;
 
-    await supabase
-      .from('mm3_wallet_pools')
-      .update({ updated_at: new Date().toISOString() })
-      .eq('pool_code', poolCode);
+    const botAccept = await acceptBotInviteImmediately(supabase, insertedInvite);
+    if (!botAccept) {
+      await supabase
+        .from('mm3_wallet_pools')
+        .update({ updated_at: new Date().toISOString() })
+        .eq('pool_code', poolCode);
+    }
 
-    return Response.json({ ok: true, poolCode, inviteTo, wallet });
+    return Response.json({ ok: true, poolCode, inviteTo, wallet, botAccepted: Boolean(botAccept?.ok), joinedWallet: botAccept?.joinedWallet || null });
   } catch (error) {
     console.error('wallet pool contact error:', error);
     const missingTable = error?.code === '42P01';

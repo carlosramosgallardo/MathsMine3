@@ -170,6 +170,19 @@ async function maybeLaunchBotSqueeze(supabase) {
     return actions;
   }
 
+  const { data: poolMembers } = await supabase
+    .from('mm3_wallet_pool_members')
+    .select('wallet, pool_code')
+    .in('pool_code', readyBots.map((bot) => bot.poolCode));
+  const memberCountByPool = new Map();
+  for (const member of poolMembers || []) {
+    memberCountByPool.set(member.pool_code, (memberCountByPool.get(member.pool_code) || 0) + 1);
+  }
+  if (readyBots.some((bot) => (memberCountByPool.get(bot.poolCode) || 0) < 2)) {
+    actions.push({ type: 'squeeze_waiting_for_pool_mates' });
+    return actions;
+  }
+
   const { data: active } = await supabase
     .from('mm3_pool_disputes')
     .select('id')
