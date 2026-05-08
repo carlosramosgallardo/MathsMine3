@@ -903,8 +903,8 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
       localStorage.removeItem('lb_fetch_time');
       fetchLeaderboard({ ignoreCache: true });
       refreshTimersRef.current = [
-        setTimeout(() => fetchLeaderboard({ ignoreCache: true }), 1200),
-        setTimeout(() => fetchLeaderboard({ ignoreCache: true }), 3500),
+        setTimeout(() => fetchLeaderboard({ ignoreCache: true }), 400),
+        setTimeout(() => fetchLeaderboard({ ignoreCache: true }), 1500),
       ];
     };
 
@@ -925,6 +925,9 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'mm3_command_penalties' }, refresh)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'mm3_wallet_pools' }, refresh)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'mm3_wallet_pool_members' }, refresh)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'mm3_pool_disputes' }, refresh)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'mm3_pool_dispute_wallets' }, refresh)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'mm3_pool_dispute_votes' }, refresh)
       .subscribe();
 
     return () => {
