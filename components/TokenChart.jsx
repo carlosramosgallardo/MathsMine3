@@ -113,13 +113,16 @@ function groupColor(evts) {
   return C
 }
 
-const BOT_WALLET_ADDR = '0xcab10d0e0650d45cb0b7482370a1ca93d5bf5528'
+const BOT_WALLET_ADDRS = new Set([
+  '0xcab10d0e0650d45cb0b7482370a1ca93d5bf5528',
+  '0xd6c6c15060b27406d956c7e99e520cc810b44233',
+])
 
 function WalletTag({ wallet, className = '' }) {
   const addr = String(wallet || '').toLowerCase()
   const short = addr.slice(-5)
   if (!short) return <span className={className}>—</span>
-  if (addr === BOT_WALLET_ADDR) {
+  if (BOT_WALLET_ADDRS.has(addr)) {
     return (
       <>
         <span className={className}>{short}</span>

@@ -42,8 +42,10 @@ function hashIpToId(ip) {
 }
 const IRC_ADMIN_WALLET = '0xd89413f5f444cd420b448cda3bc096ea9c46e8ab';
 const IRC_ADMIN_LABEL = 'freakingAI@MM3·:~$';
-const IRC_BOT_WALLET = '0xcab10d0e0650d45cb0b7482370a1ca93d5bf5528';
-const IRC_BOT_LABEL = 'f5528(bot)@MM3·:~$';
+const IRC_BOT_WALLETS = new Set([
+  '0xcab10d0e0650d45cb0b7482370a1ca93d5bf5528',
+  '0xd6c6c15060b27406d956c7e99e520cc810b44233',
+]);
 
 function getBlockHex(row, col) {
   return '#' + ((Number(row) || 0) * 28 + (Number(col) || 0)).toString(16).toUpperCase().padStart(3, '0');
@@ -144,7 +146,7 @@ function formatIrcWalletLabel(wallet) {
 function formatChatAuthor(wallet, normalizedWallet, youLabel) {
   const normalized = String(wallet || '').toLowerCase();
   const suffix = normalized.length >= 5 ? normalized.slice(-5) : normalized;
-  const baseLabel = normalized === IRC_ADMIN_WALLET ? IRC_ADMIN_LABEL : normalized === IRC_BOT_WALLET ? IRC_BOT_LABEL : `${suffix}@MM3·:~$`;
+  const baseLabel = normalized === IRC_ADMIN_WALLET ? IRC_ADMIN_LABEL : IRC_BOT_WALLETS.has(normalized) ? `${suffix}(bot)@MM3·:~$` : `${suffix}@MM3·:~$`;
   return normalized === normalizedWallet ? `${baseLabel} (${youLabel})` : baseLabel;
 }
 

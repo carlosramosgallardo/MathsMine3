@@ -6,7 +6,10 @@ import { getSellQuote, getSellRateCny, getCommissionRate, CNY_TO_EUR, CNY_TO_USD
 import { WALLET_DECORATIONS, getWalletMarketDelta } from '@/lib/wallet-decorations';
 import { marketCommandFromBlock, computeMarketCommandCode, getUtcDayWindow } from '@/lib/market-commands';
 
-const BOT_WALLET = '0xcab10d0e0650d45cb0b7482370a1ca93d5bf5528';
+const BOT_WALLETS = [
+  '0xcab10d0e0650d45cb0b7482370a1ca93d5bf5528',
+  '0xd6c6c15060b27406d956c7e99e520cc810b44233',
+];
 const DAILY_MINE_BASE = 100;
 const PRICE = Number(process.env.NEXT_PUBLIC_FAKE_MINING_PRICE) || 0.00001;
 const DAILY_TRADE_LIMIT = 5;
@@ -30,20 +33,186 @@ function getTimeLimit(level) {
   return Math.max(1500, 6000 - level * 55);
 }
 
-export async function GET(req) {
-  const authHeader = req.headers.get('authorization') || '';
-  const cronSecret = process.env.CRON_SECRET || '';
-  if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
-    return Response.json({ ok: false, error: 'unauthorized' }, { status: 401 });
+function normalizeWallet(value) {
+  return String(value || '').trim().toLowerCase();
+}
+
+async function acceptPendingPoolInvites(supabase, wallet) {
+  const actions = [];
+  const { data: invites } = await supabase
+    .from('mm3_wallet_pool_invitations')
+    .select('id, wallet, invited_by, pool_code, status')
+    .eq('wallet', wallet)
+    .eq('status', 'pending')
+    .order('id', { ascending: true });
+
+  for (const invite of invites || []) {
+    const { data: botMember } = await supabase
+      .from('mm3_wallet_pool_members')
+      .select('wallet, pool_code')
+      .eq('wallet', wallet)
+      .maybeSingle();
+
+    const botPool = botMember?.pool_code || '';
+    const isJoinRequest = botPool && botPool === invite.pool_code;
+    if (botPool && !isJoinRequest) {
+      actions.push({ type: 'pool_invite_skipped', inviteId: invite.id, reason: 'already_in_pool' });
+      continue;
+    }
+
+    const joinerWallet = normalizeWallet(isJoinRequest ? invite.invited_by : wallet);
+    const addedBy = normalizeWallet(isJoinRequest ? wallet : invite.invited_by);
+
+    const { data: existingJoiner } = await supabase
+      .from('mm3_wallet_pool_members')
+      .select('wallet')
+      .eq('wallet', joinerWallet)
+      .maybeSingle();
+    if (existingJoiner) {
+      await supabase
+        .from('mm3_wallet_pool_invitations')
+        .update({ status: 'declined', accepted_at: new Date().toISOString() })
+        .eq('id', invite.id);
+      actions.push({ type: 'pool_invite_skipped', inviteId: invite.id, reason: 'joiner_already_in_pool' });
+      continue;
+    }
+
+    const { count: memberCount } = await supabase
+      .from('mm3_wallet_pool_members')
+      .select('*', { count: 'exact', head: true })
+      .eq('pool_code', invite.pool_code);
+
+    if (Number(memberCount || 0) >= 5) {
+      actions.push({ type: 'pool_invite_skipped', inviteId: invite.id, reason: 'pool_full' });
+      continue;
+    }
+
+    const { error: insertError } = await supabase
+      .from('mm3_wallet_pool_members')
+      .insert({ wallet: joinerWallet, pool_code: invite.pool_code, added_by: addedBy });
+
+    if (insertError && insertError.code !== '23505') {
+      actions.push({ type: 'pool_invite_error', inviteId: invite.id, error: insertError.code || 'insert_failed' });
+      continue;
+    }
+
+    await supabase
+      .from('mm3_wallet_pool_invitations')
+      .update({ status: 'accepted', accepted_at: new Date().toISOString() })
+      .eq('id', invite.id);
+
+    await supabase
+      .from('mm3_wallet_pools')
+      .update({ updated_at: new Date().toISOString() })
+      .eq('pool_code', invite.pool_code);
+
+    actions.push({ type: isJoinRequest ? 'pool_join_request_accepted' : 'pool_invite_accepted', inviteId: invite.id, poolCode: invite.pool_code, wallet: joinerWallet });
   }
 
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_ROLE_KEY
-  );
+  return actions;
+}
+
+async function advanceBotSqueezes(supabase) {
+  const now = Date.now();
+  const actions = [];
+  const { data: members } = await supabase
+    .from('mm3_wallet_pool_members')
+    .select('pool_code')
+    .in('wallet', BOT_WALLETS);
+  const botPools = [...new Set((members || []).map((row) => row.pool_code).filter(Boolean))];
+  if (botPools.length === 0) return actions;
+
+  const { data: activeDisputes } = await supabase
+    .from('mm3_pool_disputes')
+    .select('id, challenger_pool_code, defender_pool_code, status, registered_at, battle_start_at')
+    .or(`challenger_pool_code.in.(${botPools.join(',')}),defender_pool_code.in.(${botPools.join(',')})`)
+    .in('status', ['proposing', 'registering', 'battle_start'])
+    .order('registered_at', { ascending: true });
+
+  for (const dispute of activeDisputes || []) {
+    if (dispute.status === 'proposing') {
+      const registeredAt = new Date(dispute.registered_at).getTime();
+      if (now - registeredAt >= 5 * 60 * 1000) {
+        const { data } = await supabase.rpc('mm3_dispute_cancel', { p_dispute_id: dispute.id });
+        if (!data?.error) actions.push({ type: 'squeeze_cancelled', disputeId: dispute.id });
+      }
+    } else if (dispute.status === 'registering') {
+      const registeredAt = new Date(dispute.registered_at).getTime();
+      if (now - registeredAt >= 5 * 60 * 1000) {
+        const { data } = await supabase.rpc('mm3_dispute_start_battle', { p_dispute_id: dispute.id });
+        if (!data?.error) actions.push({ type: 'squeeze_battle_started', disputeId: dispute.id });
+      }
+    } else if (dispute.status === 'battle_start') {
+      const battleStartAt = new Date(dispute.battle_start_at).getTime();
+      if (now - battleStartAt >= 5000) {
+        const { data } = await supabase.rpc('mm3_dispute_resolve', { p_dispute_id: dispute.id });
+        if (!data?.error) actions.push({ type: 'squeeze_resolved', disputeId: dispute.id });
+      }
+    }
+  }
+
+  return actions;
+}
+
+async function maybeLaunchBotSqueeze(supabase) {
+  const actions = [];
+  const { data: members } = await supabase
+    .from('mm3_wallet_pool_members')
+    .select('wallet, pool_code')
+    .in('wallet', BOT_WALLETS);
+
+  const poolByBot = new Map((members || []).map((row) => [normalizeWallet(row.wallet), row.pool_code]));
+  const readyBots = BOT_WALLETS
+    .map((wallet) => ({ wallet, poolCode: poolByBot.get(wallet) }))
+    .filter((bot) => bot.poolCode);
+
+  if (readyBots.length < 2 || readyBots[0].poolCode === readyBots[1].poolCode) {
+    return actions;
+  }
+
+  const { data: active } = await supabase
+    .from('mm3_pool_disputes')
+    .select('id')
+    .or(`challenger_pool_code.in.(${readyBots.map((b) => b.poolCode).join(',')}),defender_pool_code.in.(${readyBots.map((b) => b.poolCode).join(',')})`)
+    .in('status', ['proposing', 'registering', 'battle_start'])
+    .limit(1)
+    .maybeSingle();
+
+  if (active) return actions;
+
+  const [challenger, defender] = Math.random() < 0.5 ? readyBots : [...readyBots].reverse();
+  await supabase
+    .from('mm3_pool_dispute_votes')
+    .delete()
+    .eq('challenger_pool_code', challenger.poolCode)
+    .eq('defender_pool_code', defender.poolCode)
+    .eq('wallet', challenger.wallet);
+
+  const { data, error } = await supabase.rpc('mm3_dispute_vote', {
+    p_challenger_pool: challenger.poolCode,
+    p_defender_pool: defender.poolCode,
+    p_wallet: challenger.wallet,
+  });
+
+  if (!error && !data?.error) {
+    actions.push({
+      type: 'squeeze_proposed',
+      disputeId: data.dispute_id,
+      challengerPool: challenger.poolCode,
+      defenderPool: defender.poolCode,
+      wallet: challenger.wallet,
+    });
+  } else if (data?.error && data.error !== 'already_voted' && data.error !== 'dispute_already_active') {
+    actions.push({ type: 'squeeze_proposal_skipped', reason: data.error });
+  }
+
+  return actions;
+}
+
+async function runBotTick(supabase, wallet) {
+  const botActions = await acceptPendingPoolInvites(supabase, wallet);
 
   const { startIso, endIso, dayKey } = getUtcDayBounds();
-  const wallet = BOT_WALLET;
   const now = new Date().toISOString();
 
   // Mark bot as online at the start of execution
@@ -104,6 +273,7 @@ export async function GET(req) {
   const problemsCount = Array.isArray(problems) ? problems.length : 0;
   const marketBlocksCount = Array.isArray(marketBlocks) ? marketBlocks.length : 0;
   const actions = [];
+  actions.push(...botActions);
 
   async function claimDailyReward(taskKey, rewardEur) {
     if (claimedTasks.has(taskKey)) return false;
@@ -611,8 +781,9 @@ export async function GET(req) {
   }
   if (!currentMarketKey && marketBlocksCount <= 0) idleReasons.push('no_market_blocks_loaded');
 
-  return Response.json({
+  return {
     ok: true,
+    wallet,
     actions,
     gamesPlayed: actualGamesPlayed,
     tradesPlaced: tradesTodayCount - Number(tradesToday),
@@ -631,5 +802,39 @@ export async function GET(req) {
       currentMarketPrice,
       marketBlocksCount,
     },
+  };
+}
+
+export async function GET(req) {
+  const authHeader = req.headers.get('authorization') || '';
+  const cronSecret = process.env.CRON_SECRET || '';
+  if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
+    return Response.json({ ok: false, error: 'unauthorized' }, { status: 401 });
+  }
+
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL,
+    process.env.SUPABASE_SERVICE_ROLE_KEY
+  );
+
+  const results = [];
+  for (const wallet of BOT_WALLETS) {
+    try {
+      results.push(await runBotTick(supabase, wallet));
+    } catch (error) {
+      console.error('bot tick error:', wallet, error);
+      results.push({ ok: false, wallet, error: 'bot_tick_failed' });
+    }
+  }
+
+  const squeezeActions = [
+    ...await advanceBotSqueezes(supabase),
+    ...await maybeLaunchBotSqueeze(supabase),
+  ];
+
+  return Response.json({
+    ok: results.every((result) => result.ok),
+    bots: results,
+    squeezeActions,
   });
 }
