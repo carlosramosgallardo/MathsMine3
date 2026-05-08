@@ -28,7 +28,7 @@ function flagImgUrl(cc) {
 
 function FlagImg({ cc, style }) {
   const url = flagImgUrl(cc);
-  if (!url) return <span style={style}>🌐</span>;
+  if (!url) return <span style={style}>👻</span>;
   return <img src={url} alt={cc} style={{ display: 'inline', verticalAlign: 'middle', height: '0.7rem', ...style }} />;
 }
 

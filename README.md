@@ -529,7 +529,7 @@ IRC is the shared terminal layer.
 | Signal | Meaning |
 |---|---|
 | Wallet presence | Who is currently active |
-| Country flag | Optional location signal |
+| Country flag / 👻 | Optional location signal; 👻 marks an IRC connection without an assignable country flag |
 | Ghost mode | Anonymous temporary presence |
 | Chat history | Persistent social log |
 | Market badges | Owned NFTJIs shown beside authors |
@@ -1247,7 +1247,7 @@ IRC es la capa terminal compartida.
 | Señal | Significado |
 |---|---|
 | Presencia wallet | Quién está activo |
-| Bandera de país | Señal opcional de ubicación |
+| Bandera de país / 👻 | Señal opcional de ubicación; 👻 marca una conexión IRC sin bandera de país asignable |
 | Modo ghost | Presencia anónima temporal |
 | Historial de chat | Log social persistente |
 | Badges del Market | NFTJIs poseídos junto al autor |
