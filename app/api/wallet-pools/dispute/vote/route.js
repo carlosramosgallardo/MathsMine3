@@ -2,6 +2,7 @@ export const dynamic = 'force-dynamic';
 
 import { createClient } from '@supabase/supabase-js';
 import { maybeStartBattleWhenFull } from '@/lib/squeeze-transitions';
+import { getActivePoolDispute } from '@/lib/pool-dispute-lock';
 
 function normalizeWallet(value) {
   return String(value || '').trim().toLowerCase();
@@ -33,6 +34,22 @@ export async function POST(req) {
   );
 
   try {
+    const existingLock = await getActivePoolDispute(supabase, challengerPool);
+    if (existingLock && !(existingLock.status === 'proposing' && existingLock.challenger_pool_code === challengerPool && existingLock.defender_pool_code === defenderPool)) {
+      return Response.json(
+        { ok: false, error: 'dispute_already_active', dispute_id: existingLock.id },
+        { status: 409 }
+      );
+    }
+
+    const defenderLock = await getActivePoolDispute(supabase, defenderPool);
+    if (defenderLock && defenderLock.id !== existingLock?.id) {
+      return Response.json(
+        { ok: false, error: 'dispute_already_active', dispute_id: defenderLock.id },
+        { status: 409 }
+      );
+    }
+
     const { data, error } = await supabase.rpc('mm3_dispute_vote', {
       p_challenger_pool: challengerPool,
       p_defender_pool: defenderPool,

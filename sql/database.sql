@@ -1404,17 +1404,28 @@ $$;
 
 CREATE OR REPLACE FUNCTION public.mm3_dispute_can_leave(p_wallet text)
 RETURNS boolean
-LANGUAGE sql
+LANGUAGE plpgsql
 SECURITY DEFINER
 STABLE
 AS $$
-  SELECT NOT EXISTS(
+DECLARE
+  v_pool_code text;
+BEGIN
+  SELECT pool_code INTO v_pool_code
+  FROM mm3_wallet_pool_members
+  WHERE wallet = p_wallet;
+
+  IF v_pool_code IS NULL THEN
+    RETURN true;
+  END IF;
+
+  RETURN NOT EXISTS(
     SELECT 1
-    FROM mm3_pool_dispute_wallets dw
-    JOIN mm3_pool_disputes d ON d.id = dw.dispute_id
-    WHERE dw.wallet = p_wallet
+    FROM mm3_pool_disputes d
+    WHERE (d.challenger_pool_code = v_pool_code OR d.defender_pool_code = v_pool_code)
       AND d.status IN ('proposing', 'registering', 'battle_start')
   );
+END;
 $$;
 
 -- ==============================================

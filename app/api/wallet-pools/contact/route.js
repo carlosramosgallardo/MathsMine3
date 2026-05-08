@@ -1,6 +1,7 @@
 export const dynamic = 'force-dynamic';
 
 import { createClient } from '@supabase/supabase-js';
+import { getActivePoolDispute } from '@/lib/pool-dispute-lock';
 
 const POOL_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 const BOT_WALLETS = new Set([
@@ -114,17 +115,8 @@ export async function POST(req) {
       return Response.json({ ok: false, error: 'both_wallets_already_pooled' }, { status: 409 });
     }
 
-    // Block invitations once a Squeeze is registered. While still proposing,
-    // the pool may need another wallet to join/confirm the proposal.
-    if (walletPool) {
-      const { data: activeDispute, error: disputeCheckError } = await supabase
-        .from('mm3_pool_disputes')
-        .select('id')
-        .eq('challenger_pool_code', walletPool)
-        .in('status', ['registering', 'battle_start'])
-        .limit(1)
-        .maybeSingle();
-      if (disputeCheckError && disputeCheckError.code !== '42P01') throw disputeCheckError;
+    for (const pool of [walletPool, targetPool].filter(Boolean)) {
+      const activeDispute = await getActivePoolDispute(supabase, pool);
       if (activeDispute) {
         return Response.json({ ok: false, error: 'dispute_in_progress' }, { status: 409 });
       }

@@ -1,6 +1,7 @@
 export const dynamic = 'force-dynamic';
 
 import { createClient } from '@supabase/supabase-js';
+import { getActivePoolDispute } from '@/lib/pool-dispute-lock';
 
 function normalizeWallet(value) {
   return String(value || '').trim().toLowerCase();
@@ -34,6 +35,11 @@ export async function POST(req) {
     if (memberError) throw memberError;
     if (!member) {
       return Response.json({ ok: false, error: 'not_in_pool' }, { status: 404 });
+    }
+
+    const activeDispute = await getActivePoolDispute(supabase, member.pool_code);
+    if (activeDispute) {
+      return Response.json({ ok: false, error: 'dispute_in_progress', dispute_id: activeDispute.id }, { status: 409 });
     }
 
     const { data: deletedRows, error: deleteError } = await supabase
