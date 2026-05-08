@@ -875,7 +875,20 @@ export default function Leaderboard({ itemsPerPage = 50 }) {
     const pendingWallet = String(localStorage.getItem('mm3_leaderboard_wallet') || '').toLowerCase();
     if (!pendingWallet) return;
     setSelectedWallet(pendingWallet);
+    setSelectedPool('');
+    setViewMode('wallets');
     localStorage.removeItem('mm3_leaderboard_wallet');
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const pendingPool = String(localStorage.getItem('mm3_leaderboard_pool') || '').toUpperCase();
+    if (!pendingPool) return;
+    setSelectedPool(pendingPool);
+    setSelectedWallet('');
+    setViewMode('wallets');
+    setSortConfig({ key: 'status', direction: 'desc' });
+    localStorage.removeItem('mm3_leaderboard_pool');
   }, []);
 
   useEffect(() => {

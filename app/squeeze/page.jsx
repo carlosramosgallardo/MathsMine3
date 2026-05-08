@@ -17,6 +17,17 @@ export default function SqueezePage() {
     window.location.href = '/ranking';
   };
 
+  const handlePoolClick = (poolCode) => {
+    if (typeof window === 'undefined') return;
+    localStorage.setItem('mm3_leaderboard_pool', String(poolCode || '').toUpperCase());
+    window.location.href = '/ranking';
+  };
+
+  const handleMarketBlockClick = (blockKey) => {
+    if (typeof window === 'undefined' || !blockKey) return;
+    window.location.href = `/market?block=${encodeURIComponent(blockKey)}`;
+  };
+
   return (
     <main className="w-full px-2 py-1" style={{ '--mm3-accent': frameAccent }}>
       <div className="mx-auto w-full max-w-4xl">
@@ -26,6 +37,8 @@ export default function SqueezePage() {
             poolCode=""
             language={language}
             onWalletClick={handleWalletClick}
+            onPoolClick={handlePoolClick}
+            onMarketBlockClick={handleMarketBlockClick}
           />
         </SectionFrame>
       </div>

@@ -97,7 +97,53 @@ function ScoreBar({ chScore, dfScore }) {
   );
 }
 
-function DisputeCard({ dispute, activeWallet, poolCode, language, onJoin, onClaimDrop, onWalletClick, emojiByWallet, sqzNftjiByWallet }) {
+function PoolLink({ poolCode, color, onPoolClick, children, style }) {
+  return (
+    <button
+      type="button"
+      onClick={() => onPoolClick?.(poolCode)}
+      title={poolCode}
+      style={{
+        fontFamily: 'monospace',
+        fontWeight: 700,
+        color,
+        background: 'none',
+        border: 'none',
+        padding: 0,
+        cursor: onPoolClick ? 'pointer' : 'default',
+        textDecoration: onPoolClick ? 'underline' : 'none',
+        textDecorationColor: `${color}55`,
+        ...style,
+      }}
+    >
+      {children || poolCode}
+    </button>
+  );
+}
+
+function MarketBlockLink({ emoji, blockKey, onMarketBlockClick, title }) {
+  if (!emoji) return null;
+  return (
+    <button
+      type="button"
+      onClick={() => blockKey && onMarketBlockClick?.(blockKey)}
+      title={title || blockKey || emoji}
+      style={{
+        background: 'none',
+        border: 'none',
+        padding: 0,
+        cursor: blockKey && onMarketBlockClick ? 'pointer' : 'default',
+        lineHeight: 1,
+        textDecoration: blockKey && onMarketBlockClick ? 'underline' : 'none',
+        textDecorationColor: 'rgba(34,211,238,0.35)',
+      }}
+    >
+      {emoji}
+    </button>
+  );
+}
+
+function DisputeCard({ dispute, activeWallet, poolCode, language, onJoin, onClaimDrop, onWalletClick, onPoolClick, onMarketBlockClick, emojiByWallet, sqzNftjiByWallet }) {
   const lang = language === 'es' ? 'es' : 'en';
   const statusMeta = STATUS_LABELS[dispute.status] || STATUS_LABELS.resolved;
   const isProposing   = dispute.status === 'proposing';
@@ -145,15 +191,11 @@ function DisputeCard({ dispute, activeWallet, poolCode, language, onJoin, onClai
     }}>
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 10 }}>
-        <span style={{ fontFamily: 'monospace', fontWeight: 700, color: '#22d3ee', fontSize: '0.95rem' }}>
-          {dispute.challenger_pool_code}
-        </span>
+        <PoolLink poolCode={dispute.challenger_pool_code} color="#22d3ee" onPoolClick={onPoolClick} style={{ fontSize: '0.95rem' }} />
         <span style={{ color: '#64748b', fontSize: '0.8rem' }}>
           {lang === 'es' ? 'vs' : 'vs'}
         </span>
-        <span style={{ fontFamily: 'monospace', fontWeight: 700, color: '#f59e0b', fontSize: '0.95rem' }}>
-          {dispute.defender_pool_code}
-        </span>
+        <PoolLink poolCode={dispute.defender_pool_code} color="#f59e0b" onPoolClick={onPoolClick} style={{ fontSize: '0.95rem' }} />
         <span style={{
           marginLeft: 'auto',
           fontSize: '0.7rem',
@@ -228,8 +270,16 @@ function DisputeCard({ dispute, activeWallet, poolCode, language, onJoin, onClai
             </div>
             <div style={{ fontSize: '0.7rem', color: '#475569', marginTop: 2 }}>
               {lang === 'es'
-                ? `${dispute.challenger_pool_code} intentó un squeeze a ${dispute.defender_pool_code}`
-                : `${dispute.challenger_pool_code} attempted to squeeze ${dispute.defender_pool_code}`}
+                ? <>
+                    <PoolLink poolCode={dispute.challenger_pool_code} color="#64748b" onPoolClick={onPoolClick} style={{ fontSize: '0.7rem', fontWeight: 400 }} />
+                    {' intentó un squeeze a '}
+                    <PoolLink poolCode={dispute.defender_pool_code} color="#64748b" onPoolClick={onPoolClick} style={{ fontSize: '0.7rem', fontWeight: 400 }} />
+                  </>
+                : <>
+                    <PoolLink poolCode={dispute.challenger_pool_code} color="#64748b" onPoolClick={onPoolClick} style={{ fontSize: '0.7rem', fontWeight: 400 }} />
+                    {' attempted to squeeze '}
+                    <PoolLink poolCode={dispute.defender_pool_code} color="#64748b" onPoolClick={onPoolClick} style={{ fontSize: '0.7rem', fontWeight: 400 }} />
+                  </>}
             </div>
             <div style={{ fontSize: '0.65rem', color: '#334155', marginTop: 2, fontFamily: 'monospace' }}>
               {formatUtc(trace.value)}
@@ -300,13 +350,13 @@ function DisputeCard({ dispute, activeWallet, poolCode, language, onJoin, onClai
             <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
               <span style={{ color: '#22d3ee', fontFamily: 'monospace', fontWeight: 700 }}>{fmt(chScore, 4)}</span>
               <span style={{ color: '#64748b', fontSize: '0.7rem' }}>
-                {dispute.challenger_pool_code}
+                <PoolLink poolCode={dispute.challenger_pool_code} color="#64748b" onPoolClick={onPoolClick} style={{ fontSize: '0.7rem', fontWeight: 400 }} />
                 {!isResolved && <> ({dispute.ch_wallet_count}w)</>}
               </span>
             </div>
             <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
               <span style={{ color: '#64748b', fontSize: '0.7rem' }}>
-                {dispute.defender_pool_code}
+                <PoolLink poolCode={dispute.defender_pool_code} color="#64748b" onPoolClick={onPoolClick} style={{ fontSize: '0.7rem', fontWeight: 400 }} />
                 {!isResolved && <> ({dispute.df_wallet_count}w)</>}
               </span>
               <span style={{ color: '#f59e0b', fontFamily: 'monospace', fontWeight: 700 }}>{fmt(dfScore, 4)}</span>
@@ -409,7 +459,8 @@ function DisputeCard({ dispute, activeWallet, poolCode, language, onJoin, onClai
           ].map(({ side, wallets, color, pool }) => (
             <div key={side} style={{ flex: '1 1 200px', minWidth: 0 }}>
               <div style={{ fontSize: '0.68rem', color, fontWeight: 700, marginBottom: 4, letterSpacing: '0.06em' }}>
-                {pool} ({wallets.length}w)
+                <PoolLink poolCode={pool} color={color} onPoolClick={onPoolClick} style={{ fontSize: '0.68rem' }} />
+                {' '}({wallets.length}w)
               </div>
               {wallets.length === 0 ? (
                 <div style={{ fontSize: '0.7rem', color: '#475569' }}>—</div>
@@ -418,6 +469,8 @@ function DisputeCard({ dispute, activeWallet, poolCode, language, onJoin, onClai
                   {wallets.map((w) => {
                     const wColor = colorFromAddress(w.wallet);
                     const isMe = w.wallet === activeWallet;
+                    const marketEmoji = w.market_nftji_emoji || emojiByWallet?.[w.wallet]?.emoji || emojiByWallet?.[w.wallet] || '';
+                    const marketBlockKey = w.market_nftji_key || w.market_nftji_snap || emojiByWallet?.[w.wallet]?.blockKey || '';
                     return (
                       <div key={w.wallet} style={{ display: 'flex', gap: 6, alignItems: 'center', fontSize: '0.7rem' }}>
                         <button
@@ -441,7 +494,12 @@ function DisputeCard({ dispute, activeWallet, poolCode, language, onJoin, onClai
                         <span style={{ color: '#64748b' }}>Lv{w.level_snap}</span>
                         {w.nftji_snap > 0 && <span title={lang === 'es' ? `NFTJi poder total: ${w.nftji_snap}` : `NFTJi power: ${w.nftji_snap}`} style={{ color: '#22d3ee', fontFamily: 'monospace', fontSize: '0.65rem' }}>✦{w.nftji_snap}</span>}
                         {w.has_penalty && <span title={lang === 'es' ? 'Penalización activa' : 'Active penalty'}>⚠️</span>}
-                        {emojiByWallet?.[w.wallet] && <span title={`Market NFTJI — ${emojiByWallet[w.wallet]}`}>{emojiByWallet[w.wallet]}</span>}
+                        <MarketBlockLink
+                          emoji={marketEmoji}
+                          blockKey={marketBlockKey}
+                          onMarketBlockClick={onMarketBlockClick}
+                          title={marketBlockKey ? `Market NFTJI — ${marketBlockKey}` : `Market NFTJI — ${marketEmoji}`}
+                        />
                         {(() => {
                           const sn = sqzNftjiByWallet?.[w.wallet];
                           if (!sn?.equipped) return null;
@@ -558,7 +616,7 @@ function DisputeCard({ dispute, activeWallet, poolCode, language, onJoin, onClai
   );
 }
 
-export default function DisputesPanel({ wallet, poolCode, language, onWalletClick }) {
+export default function DisputesPanel({ wallet, poolCode, language, onWalletClick, onPoolClick, onMarketBlockClick }) {
   const lang = language === 'es' ? 'es' : 'en';
   const [disputes, setDisputes] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -581,7 +639,7 @@ export default function DisputesPanel({ wallet, poolCode, language, onWalletClic
     const map = {};
     for (const p of progress || []) {
       const emoji = emojiByKey.get(p.market_nftji_key);
-      if (emoji) map[p.wallet] = emoji;
+      if (emoji) map[p.wallet] = { emoji, blockKey: p.market_nftji_key };
     }
     setEmojiByWallet(map);
   }, []);
@@ -763,6 +821,8 @@ export default function DisputesPanel({ wallet, poolCode, language, onWalletClic
           onJoin={handleJoin}
           onClaimDrop={handleClaimDrop}
           onWalletClick={onWalletClick}
+          onPoolClick={onPoolClick}
+          onMarketBlockClick={onMarketBlockClick}
           emojiByWallet={emojiByWallet}
           sqzNftjiByWallet={sqzNftjiByWallet}
         />
@@ -782,7 +842,10 @@ export default function DisputesPanel({ wallet, poolCode, language, onWalletClic
               language={language}
               onJoin={handleJoin}
               onWalletClick={onWalletClick}
+              onPoolClick={onPoolClick}
+              onMarketBlockClick={onMarketBlockClick}
               emojiByWallet={emojiByWallet}
+              sqzNftjiByWallet={sqzNftjiByWallet}
             />
           ))}
         </>

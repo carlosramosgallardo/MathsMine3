@@ -59,6 +59,7 @@ export async function GET(req) {
         walletRows = walletRows.map((w) => ({
           ...w,
           market_nftji_emoji: w.market_nftji_snap ? (emojiByKey.get(w.market_nftji_snap) || null) : null,
+          market_nftji_key: w.market_nftji_snap || null,
         }));
       }
 
@@ -82,6 +83,7 @@ export async function GET(req) {
             return {
               ...w,
               market_nftji_emoji: currentEmoji || w.market_nftji_emoji || null,
+              market_nftji_key: currentKey || w.market_nftji_key || w.market_nftji_snap || null,
             };
           });
         }
