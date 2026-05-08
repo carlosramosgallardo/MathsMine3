@@ -501,7 +501,7 @@ third same  → level 2   (no cap)
 
 ```
 [propose] → 5 min to get 2nd wallet, else cancelled
-[registering] → 5 min join window, defender auto-enrolled
+[registering] → 5 min join window, defender auto-enrolled; starts immediately if all challenger pool wallets are registered
 [battle_start] → snapshot taken, scores computed (⚔️ NFTJI included)
 [resolved] → 5s later, stakes applied (🛡️ NFTJI reduces loser loss)
              → 1/25: ⚔️ or 🛡️ drop available to all winners
@@ -1219,7 +1219,7 @@ tercero mismo → nivel 2   (sin tope)
 
 ```
 [propose] → 5 min para conseguir 2ª wallet, si no → cancelled
-[registering] → 5 min ventana de unión, defensor auto-enrolado
+[registering] → 5 min ventana de unión, defensor auto-enrolado; empieza al instante si todas las wallets del pool atacante están registradas
 [battle_start] → snapshot tomado, scores calculados (⚔️ NFTJI incluido)
 [resolved] → 5s después, stakes aplicados (🛡️ NFTJI reduce pérdida)
              → 1/25: drop ⚔️ o 🛡️ disponible para todos los ganadores

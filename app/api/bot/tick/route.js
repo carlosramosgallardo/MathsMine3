@@ -5,6 +5,7 @@ import { createClient } from '@supabase/supabase-js';
 import { getSellQuote, getSellRateCny, getCommissionRate, CNY_TO_EUR, CNY_TO_USD, clampLevel } from '@/lib/sell-offer';
 import { WALLET_DECORATIONS, getWalletMarketDelta } from '@/lib/wallet-decorations';
 import { marketCommandFromBlock, computeMarketCommandCode, getUtcDayWindow } from '@/lib/market-commands';
+import { getChallengerRegistrationState, SQUEEZE_REGISTER_MS } from '@/lib/squeeze-transitions';
 
 const BOT_WALLETS = [
   '0xcab10d0e0650d45cb0b7482370a1ca93d5bf5528',
@@ -138,9 +139,10 @@ async function advanceBotSqueezes(supabase) {
       }
     } else if (dispute.status === 'registering') {
       const registeredAt = new Date(dispute.registered_at).getTime();
-      if (now - registeredAt >= 5 * 60 * 1000) {
+      const registration = await getChallengerRegistrationState(supabase, dispute);
+      if (registration.full || now - registeredAt >= SQUEEZE_REGISTER_MS) {
         const { data } = await supabase.rpc('mm3_dispute_start_battle', { p_dispute_id: dispute.id });
-        if (!data?.error) actions.push({ type: 'squeeze_battle_started', disputeId: dispute.id });
+        if (!data?.error) actions.push({ type: 'squeeze_battle_started', disputeId: dispute.id, registrationFull: registration.full });
       }
     } else if (dispute.status === 'battle_start') {
       const battleStartAt = new Date(dispute.battle_start_at).getTime();

@@ -1,6 +1,7 @@
 export const dynamic = 'force-dynamic';
 
 import { createClient } from '@supabase/supabase-js';
+import { maybeStartBattleWhenFull } from '@/lib/squeeze-transitions';
 
 function normalizeWallet(value) {
   return String(value || '').trim().toLowerCase();
@@ -53,7 +54,11 @@ export async function POST(req) {
       );
     }
 
-    return Response.json({ ok: true, ...data });
+    const transition = data?.created && data?.dispute_id
+      ? await maybeStartBattleWhenFull(supabase, data.dispute_id)
+      : { started: false };
+
+    return Response.json({ ok: true, ...data, transition });
   } catch (error) {
     console.error('dispute vote error:', error);
     return Response.json({ ok: false, error: 'db_error' }, { status: 500 });

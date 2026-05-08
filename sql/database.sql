@@ -976,7 +976,7 @@ END;
 $$;
 
 -- ==============================================
--- FUNCTION: start battle (called after 5 min)
+-- FUNCTION: start battle (called after 5 min, or earlier when challenger pool is fully registered)
 -- ==============================================
 
 CREATE OR REPLACE FUNCTION public.mm3_dispute_start_battle(p_dispute_id bigint)
