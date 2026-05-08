@@ -111,9 +111,11 @@ UPDATE mm3_wallet_presence
 SET    last_seen  = now() - interval '1 hour',
        updated_at = now();
 
--- 13. Re-seed bot wallet flag (survives progress reset)
+-- 13. Re-seed bot wallet flags (survives progress reset)
 INSERT INTO player_progress (wallet, is_bot, updated_at)
-VALUES ('0xcab10d0e0650d45cb0b7482370a1ca93d5bf5528', TRUE, NOW())
+VALUES
+  ('0xcab10d0e0650d45cb0b7482370a1ca93d5bf5528', TRUE, NOW()),
+  ('0xd6c6c15060b27406d956c7e99e520cc810b44233', TRUE, NOW())
 ON CONFLICT (wallet) DO UPDATE SET is_bot = TRUE, updated_at = NOW();
 
 COMMIT;

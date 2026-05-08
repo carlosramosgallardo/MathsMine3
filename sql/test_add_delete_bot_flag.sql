@@ -1,15 +1,20 @@
 -- ============================================================
--- MM3 BOT FLAG — add or remove
+-- MM3 BOT FLAGS — add or remove
 -- Run the relevant block in Supabase SQL editor.
 -- ============================================================
 
--- ADD: mark wallet as bot (upserts the row if missing)
+-- ADD: mark wallets as bots (upserts rows if missing)
 INSERT INTO player_progress (wallet, is_bot, updated_at)
-VALUES ('0xcab10d0e0650d45cb0b7482370a1ca93d5bf5528', TRUE, NOW())
+VALUES
+  ('0xcab10d0e0650d45cb0b7482370a1ca93d5bf5528', TRUE, NOW()),
+  ('0xd6c6c15060b27406d956c7e99e520cc810b44233', TRUE, NOW())
 ON CONFLICT (wallet) DO UPDATE SET is_bot = TRUE, updated_at = NOW();
 
 -- DELETE (comment out ADD above and uncomment this instead):
 -- UPDATE player_progress
 -- SET    is_bot     = FALSE,
 --        updated_at = NOW()
--- WHERE  wallet = '0xcab10d0e0650d45cb0b7482370a1ca93d5bf5528';
+-- WHERE  wallet IN (
+--   '0xcab10d0e0650d45cb0b7482370a1ca93d5bf5528',
+--   '0xd6c6c15060b27406d956c7e99e520cc810b44233'
+-- );

@@ -1863,9 +1863,11 @@ WHERE b.block_key = v.block_key;
 --
 -- That private script should contain the INSERTs for public.math_problems.
 
--- Bot wallet: ensure is_bot flag is set
+-- Bot wallets: ensure is_bot flag is set
 INSERT INTO player_progress (wallet, is_bot, updated_at)
-VALUES ('0xcab10d0e0650d45cb0b7482370a1ca93d5bf5528', TRUE, NOW())
+VALUES
+  ('0xcab10d0e0650d45cb0b7482370a1ca93d5bf5528', TRUE, NOW()),
+  ('0xd6c6c15060b27406d956c7e99e520cc810b44233', TRUE, NOW())
 ON CONFLICT (wallet) DO UPDATE SET is_bot = TRUE, updated_at = NOW();
 
 -- ==============================================
