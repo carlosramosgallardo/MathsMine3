@@ -11,7 +11,7 @@ export default function RankingPage() {
     <main className="w-full px-2 py-1" style={{ '--mm3-accent': frameAccent }}>
       <div className="mx-auto w-full max-w-6xl">
         <SectionFrame accent={frameAccent} id="ranking-section">
-          <Leaderboard itemsPerPage={5} />
+          <Leaderboard itemsPerPage={10} />
         </SectionFrame>
       </div>
     </main>

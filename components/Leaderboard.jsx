@@ -93,7 +93,7 @@ function getPoolRankTier(level) {
   return { emoji: '🧟', label: 'NODE SWARM' };
 }
 
-export default function Leaderboard({ itemsPerPage = 50 }) {
+export default function Leaderboard({ itemsPerPage = 10 }) {
   const { t, language } = useI18n();
   const { currency: quoteCurrency } = useCurrency();
   const [leaderboard, setLeaderboard] = useState([]);
