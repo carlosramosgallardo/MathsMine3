@@ -101,16 +101,33 @@ function notify(msg, type = 'info') {
     window.dispatchEvent(new CustomEvent('mm3-toast', { detail: { msg, type } }))
 }
 
+async function insertIrcPresenceTrace(wallet, tone, text) {
+  const normalized = String(wallet || '').toLowerCase()
+  if (!normalized || !['join', 'leave'].includes(tone)) return
+  await supabase.from('mm3_irc_messages').insert({
+    wallet: 'system',
+    text: `${normalized} ${text}`,
+    ts: Date.now(),
+    kind: 'system',
+    tone,
+  }).catch(() => {})
+}
+
 /* ── Connected state — same visual for both auth methods ── */
 function ConnectedBar({ address, isRealWallet, onDisconnect, mode = 'full' }) {
   const walletColor = useMemo(() => colorFromAddress(address), [address])
   const visibleAddress = useMemo(() => (!address ? '' : address.slice(-5)), [address])
   const pathname = usePathname()
   const { t } = useI18n()
+  const tRef = useRef(t)
   const { currency } = useCurrency()
   const [walletSummary, setWalletSummary] = useState(null)
   const [poolViewData, setPoolViewData] = useState(null)
   const disconnectLockRef = useRef(false)
+
+  useEffect(() => {
+    tRef.current = t
+  }, [t])
 
   useEffect(() => {
     if (!address) return undefined;
@@ -129,6 +146,7 @@ function ConnectedBar({ address, isRealWallet, onDisconnect, mode = 'full' }) {
       if (typeof window !== 'undefined')
         window.dispatchEvent(new CustomEvent('mm3-presence-changed'));
     });
+    insertIrcPresenceTrace(wallet, 'join', tRef.current('irc.joined'));
     const timer = setInterval(beat, 25_000);
 
     return () => {
@@ -146,6 +164,7 @@ function ConnectedBar({ address, isRealWallet, onDisconnect, mode = 'full' }) {
             window.dispatchEvent(new CustomEvent('mm3-presence-changed'));
         })
         .catch(() => {});
+      insertIrcPresenceTrace(wallet, 'leave', tRef.current('irc.left'));
     };
   }, [address, isRealWallet]);
 

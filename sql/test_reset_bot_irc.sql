@@ -13,6 +13,15 @@ WHERE  wallet IN (
   AND  kind   = 'chat'
   AND  tone   IN ('neutral', 'bot');
 
+DELETE FROM mm3_irc_messages
+WHERE  wallet = 'system'
+  AND  kind   = 'system'
+  AND  tone   IN ('join', 'leave')
+  AND (
+    text ILIKE '%0xcab10d0e0650d45cb0b7482370a1ca93d5bf5528%' OR
+    text ILIKE '%0xd6c6c15060b27406d956c7e99e520cc810b44233%'
+  );
+
 UPDATE mm3_wallet_presence
 SET    last_seen  = now() - interval '1 hour',
        updated_at = now()

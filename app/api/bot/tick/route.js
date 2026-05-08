@@ -38,6 +38,18 @@ function normalizeWallet(value) {
   return String(value || '').trim().toLowerCase();
 }
 
+async function insertBotPresenceTrace(supabase, wallet, tone) {
+  const normalized = normalizeWallet(wallet);
+  if (!normalized || !['join', 'leave'].includes(tone)) return;
+  await supabase.from('mm3_irc_messages').insert({
+    wallet: 'system',
+    text: `${normalized} ${tone === 'join' ? 'entered relay' : 'left relay'}`,
+    ts: Date.now(),
+    kind: 'system',
+    tone,
+  });
+}
+
 async function acceptPendingPoolInvites(supabase, wallet) {
   const actions = [];
   const { data: invites } = await supabase
@@ -237,6 +249,7 @@ async function runBotTick(supabase, wallet) {
     last_seen: now,
     updated_at: now,
   }, { onConflict: 'wallet', ignoreDuplicates: false });
+  await insertBotPresenceTrace(supabase, wallet, 'join');
 
   // Wait for presence to propagate before starting work
   await new Promise((resolve) => setTimeout(resolve, 10_000));
@@ -783,6 +796,7 @@ async function runBotTick(supabase, wallet) {
     last_seen: new Date(Date.now() - 200_000).toISOString(),
     updated_at: doneAt,
   }, { onConflict: 'wallet', ignoreDuplicates: false });
+  await insertBotPresenceTrace(supabase, wallet, 'leave');
 
   const idleReasons = [];
   if (actualGamesPlayed === 0) {

@@ -853,16 +853,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
       const { joined, left } = presenceDeltaRef.current;
       presenceDeltaRef.current = { joined: [], left: [] };
 
-      let text;
-      const hasPresenceDelta = joined.length > 0 || left.length > 0;
-      if (hasPresenceDelta) {
-        const parts = [];
-        if (joined.length > 0) parts.push(`${joined.join(' · ')} ${t('irc.joined')}`);
-        if (left.length > 0) parts.push(`${left.join(' · ')} ${t('irc.left')}`);
-        text = parts.join(' · ') + ' · ' + listPart;
-      } else {
-        text = listPart;
-      }
+      const text = listPart;
 
       const signature = walletParts.join('|');
       if (signature === lastRelayStatusRef.current && joined.length === 0 && left.length === 0) return;
@@ -883,11 +874,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
         replaceBatchId: `relay:${statusHash}`,
       });
 
-      if (hasPresenceDelta) {
-        appendAndBroadcastMessage(relayStatusMessage, { silent: false });
-      } else {
-        appendMessage(relayStatusMessage, { silent: false });
-      }
+      appendMessage(relayStatusMessage, { silent: false });
     };
 
     build();
@@ -1078,6 +1065,30 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
           text,
           ts: isNaN(Number(rec.ts)) ? new Date(rec.ts || rec.created_at || Date.now()).getTime() : Number(rec.ts),
           tone: rec.tone || 'realchain',
+        }), { silent: false });
+      })
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'mm3_irc_messages', filter: 'tone=eq.join' }, ({ new: rec }) => {
+        const text = normalizeRelayMessage(rec?.text);
+        if (!text) return;
+        appendMessage(makeMessage({
+          id: `db:${rec.wallet || 'system'}:${rec.ts || rec.created_at || Date.now()}`,
+          kind: rec.kind || 'system',
+          wallet: String(rec.wallet || 'system').toLowerCase(),
+          text,
+          ts: isNaN(Number(rec.ts)) ? new Date(rec.ts || rec.created_at || Date.now()).getTime() : Number(rec.ts),
+          tone: 'join',
+        }), { silent: false });
+      })
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'mm3_irc_messages', filter: 'tone=eq.leave' }, ({ new: rec }) => {
+        const text = normalizeRelayMessage(rec?.text);
+        if (!text) return;
+        appendMessage(makeMessage({
+          id: `db:${rec.wallet || 'system'}:${rec.ts || rec.created_at || Date.now()}`,
+          kind: rec.kind || 'system',
+          wallet: String(rec.wallet || 'system').toLowerCase(),
+          text,
+          ts: isNaN(Number(rec.ts)) ? new Date(rec.ts || rec.created_at || Date.now()).getTime() : Number(rec.ts),
+          tone: 'leave',
         }), { silent: false });
       })
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'mm3_irc_messages', filter: 'tone=eq.bot' }, ({ new: rec }) => {
