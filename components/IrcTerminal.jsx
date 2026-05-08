@@ -232,9 +232,9 @@ function isErrorOrPenaltyMessage(text, tone) {
   return false;
 }
 
-function renderSystemTextWithWallets(displayText, tone, onWalletClick, blockHexMap, onBlockClick) {
+function renderIrcTextLinks(displayText, tone, onWalletClick, blockMap, onBlockClick, poolCodes, onPoolClick) {
   const str = String(displayText);
-  const regex = /(0x[a-f0-9]{40}|#[0-9A-F]{3})(?![0-9A-Fa-f])/g;
+  const regex = /(0x[a-f0-9]{40}|#[0-9A-F]{3}|mm3-\d{3}|\b[A-Z0-9]{5}\b)(?![0-9A-Fa-f])/gi;
   if (!regex.test(str)) return str;
   regex.lastIndex = 0;
   const parts = [];
@@ -243,8 +243,11 @@ function renderSystemTextWithWallets(displayText, tone, onWalletClick, blockHexM
   while ((match = regex.exec(str)) !== null) {
     if (match.index > last) parts.push(str.slice(last, match.index));
     const token = match[1];
-    if (token.startsWith('0x')) {
-      const addr = token;
+    const normalizedToken = token.toLowerCase();
+    const poolToken = token.toUpperCase();
+    const blockKey = blockMap?.get(poolToken) || blockMap?.get(normalizedToken) || blockMap?.get(token);
+    if (normalizedToken.startsWith('0x')) {
+      const addr = normalizedToken;
       parts.push(
         <span
           key={`wa-${match.index}`}
@@ -255,17 +258,28 @@ function renderSystemTextWithWallets(displayText, tone, onWalletClick, blockHexM
           {addr.slice(-5)}
         </span>
       );
-    } else {
-      const blockKey = blockHexMap?.get(token);
+    } else if (blockKey) {
       parts.push(
         <span
           key={`bh-${match.index}`}
-          className={blockKey ? 'mm3-irc-block-link' : ''}
-          onClick={blockKey ? () => onBlockClick?.(blockKey) : undefined}
+          className="mm3-irc-block-link"
+          onClick={() => onBlockClick?.(blockKey)}
         >
           {token}
         </span>
       );
+    } else if (poolCodes?.has(poolToken)) {
+      parts.push(
+        <span
+          key={`po-${match.index}`}
+          className="mm3-irc-pool-link"
+          onClick={() => onPoolClick?.(poolToken)}
+        >
+          {token}
+        </span>
+      );
+    } else {
+      parts.push(token);
     }
     last = match.index + token.length;
   }
@@ -307,6 +321,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
   const [messages, setMessages] = useState([]);
   const [connectedWallets, setConnectedWallets] = useState([]);
   const [marketClaimsByWallet, setMarketClaimsByWallet] = useState({});
+  const [poolCodes, setPoolCodes] = useState(() => new Set());
   const [relayReady, setRelayReady] = useState(false);
   const [presenceReady, setPresenceReady] = useState(false);
   const [totalWallets, setTotalWallets] = useState(0);
@@ -754,6 +769,31 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
       supabase.removeChannel(channel);
     };
   }, [loadMarketClaims]);
+
+  const loadPoolCodes = useCallback(async () => {
+    try {
+      const { data, error } = await supabase
+        .from('mm3_wallet_pools')
+        .select('pool_code');
+      if (error) throw error;
+      setPoolCodes(new Set((data || []).map((row) => String(row.pool_code || '').toUpperCase()).filter(Boolean)));
+    } catch {
+      setPoolCodes(new Set());
+    }
+  }, []);
+
+  useEffect(() => {
+    loadPoolCodes();
+    const channel = supabase
+      .channel('mm3-irc-pool-links')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'mm3_wallet_pools' }, loadPoolCodes)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'mm3_wallet_pool_members' }, loadPoolCodes)
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [loadPoolCodes]);
 
   const loadPresence = useCallback(async () => {
     try {
@@ -1667,6 +1707,11 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
         }
         .mm3-irc-line { word-break: break-word; overflow-wrap: break-word; }
         .mm3-irc-author { word-break: break-all; }
+        .mm3-irc-line.chat .mm3-irc-author,
+        .mm3-irc-line.self .mm3-irc-author,
+        .mm3-irc-line.other .mm3-irc-author {
+          cursor: pointer;
+        }
         @media (max-width: 639px) {
           .mm3-irc-time   { letter-spacing: 0.04em; font-size: 0.66rem; }
           .mm3-irc-author { letter-spacing: 0.02em !important; font-size: 0.66rem !important; }
@@ -1782,6 +1827,19 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
           text-underline-offset: 2px;
           text-shadow: 0 0 6px #facc1588;
         }
+        .mm3-irc-pool-link {
+          cursor: pointer;
+          color: #22d3ee;
+          font-weight: 800;
+          letter-spacing: 0.05em;
+          transition: opacity 0.12s, text-shadow 0.12s;
+        }
+        .mm3-irc-pool-link:hover {
+          opacity: 0.8;
+          text-decoration: underline;
+          text-underline-offset: 2px;
+          text-shadow: 0 0 6px rgba(34, 211, 238, 0.45);
+        }
       `}</style>
 
       <div className="mm3-irc-shell">
@@ -1816,14 +1874,22 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
                 localStorage.setItem('mm3_leaderboard_wallet', addr);
                 router.push('/ranking');
               };
+              const handlePoolClick = (poolCode) => {
+                if (typeof window === 'undefined') return;
+                localStorage.setItem('mm3_leaderboard_pool', String(poolCode || '').toUpperCase());
+                router.push('/ranking');
+              };
               const handleBlockHexClick = (blockKey) => {
                 router.push(`/market?block=${blockKey}`);
               };
-              const hexToKeyMap = (() => {
+              const blockLinkMap = (() => {
                 const map = new Map();
                 for (const [key, block] of blockByKeyRef.current) {
+                  map.set(String(key).toLowerCase(), key);
                   if (block.grid_row != null && block.grid_col != null) {
-                    map.set(getBlockHex(block.grid_row, block.grid_col), key);
+                    const hex = getBlockHex(block.grid_row, block.grid_col);
+                    map.set(hex, key);
+                    map.set(hex.toLowerCase(), key);
                   }
                 }
                 return map;
@@ -1854,10 +1920,13 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
                   <span
                     className="mm3-irc-author text-[0.80rem] uppercase tracking-[0.13em]"
                     style={message.kind === 'chat' ? { color: colorFromAddress(message.wallet) } : undefined}
+                    title={message.kind === 'chat' ? message.wallet : undefined}
+                    onClick={message.kind === 'chat' ? () => handleWalletClick(message.wallet) : undefined}
+                    role={message.kind === 'chat' ? 'button' : undefined}
                   >{author}</span>
                   {' '}
                   <span className="mm3-irc-msg-text text-[0.95rem] leading-relaxed">
-                    {isSystem ? renderSystemTextWithWallets(displayText, message.tone, handleWalletClick, hexToKeyMap, handleBlockHexClick) : displayText}
+                    {renderIrcTextLinks(displayText, message.tone, handleWalletClick, blockLinkMap, handleBlockHexClick, poolCodes, handlePoolClick)}
                   </span>
                 </div>
               );
