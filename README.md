@@ -480,7 +480,7 @@ Same dice, lower base → SJ9NJ lost ~52% of score vs TK2K8's ~4%. Variance puni
 
 **Squeeze NFTJI — ⚔️ Attack & 🛡️ Defense:**
 
-Two rare NFTJIs drop exclusively from Squeeze battles (1/25 probability per resolution). Unlike Market NFTJIs, they cannot be bought or sold.
+Two rare NFTJIs drop exclusively from Squeeze battles (1/5 probability per resolution; 50/50 Attack or Defense). Unlike Market NFTJIs, they cannot be bought or sold.
 
 - **⚔️ Attack** — each equipped wallet contributes `(level+1)` units to its pool's `⚔️_atk_sum`. Weight ×20 in the base formula — a level-0 attack equals a Market NFTJI at level-0.
 - **🛡️ Defense** — reduces personal EUR stake loss on defeat: `min(50%, (level+1)×5%)` recovered. Level 9 = maximum 50% protection.
@@ -505,7 +505,7 @@ third same  → level 2   (no cap)
 [registering] → 5 min join window, defender auto-enrolled; starts immediately if all challenger pool wallets are registered
 [battle_start] → snapshot taken, scores computed (⚔️ NFTJI included)
 [resolved] → 5s later, stakes applied (🛡️ NFTJI reduces loser loss)
-             → 1/25: ⚔️ or 🛡️ drop available to all winners
+             → 1/5: ⚔️ or 🛡️ drop available to all winners
 ```
 
 | File | Role |
@@ -1201,7 +1201,7 @@ El dado `🎲` es **determinista por Squeeze**: `hashtext(dispute_id || 'dice')`
 
 **NFTJI Squeeze — ⚔️ Ataque & 🛡️ Defensa:**
 
-Dos NFTJIs raros caen exclusivamente en combates Squeeze (probabilidad 1/25 por resolución). A diferencia de los NFTJIs del Market, no se compran ni venden.
+Dos NFTJIs raros caen exclusivamente en combates Squeeze (probabilidad 1/5 por resolución; 50/50 Ataque o Defensa). A diferencia de los NFTJIs del Market, no se compran ni venden.
 
 - **⚔️ Ataque** — cada wallet con él equipado contribuye `(nivel+1)` unidades al `⚔️_atk_sum` del pool. Peso ×20 en la fórmula base.
 - **🛡️ Defensa** — reduce la pérdida personal de stake en derrota: `min(50%, (nivel+1)×5%)` recuperado. Nivel 9 = protección máxima del 50%.
@@ -1226,7 +1226,7 @@ tercero mismo → nivel 2   (sin tope)
 [registering] → 5 min ventana de unión, defensor auto-enrolado; empieza al instante si todas las wallets del pool atacante están registradas
 [battle_start] → snapshot tomado, scores calculados (⚔️ NFTJI incluido)
 [resolved] → 5s después, stakes aplicados (🛡️ NFTJI reduce pérdida)
-             → 1/25: drop ⚔️ o 🛡️ disponible para todos los ganadores
+             → 1/5: drop ⚔️ o 🛡️ disponible para todos los ganadores
 ```
 
 | Archivo | Función |
