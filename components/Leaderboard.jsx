@@ -585,12 +585,11 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
         return counts;
       }, {});
       const squeezeEmojiLevelSums = SQUEEZE_SLOT_ORDER.reduce((sums, slot) => {
-        const count = members.reduce((acc, m) => acc + (getSqueezeLevel(m.squeeze_nftji, slot.key) >= 0 ? 1 : 0), 0);
-        const levelSum = members.reduce((acc, m) => {
+        const powerSum = members.reduce((acc, m) => {
           const lvl = getSqueezeLevel(m.squeeze_nftji, slot.key);
-          return lvl >= 0 ? acc + Math.max(0, lvl) : acc;
+          return lvl >= 0 ? acc + Math.max(0, lvl) + 1 : acc;
         }, 0);
-        if (count > 0) sums[slot.emoji] = levelSum;
+        if (powerSum > 0) sums[slot.emoji] = powerSum - 1;
         return sums;
       }, {});
       const totalNftjis = Object.values(poolEmojiCounts).reduce((sum, count) => sum + count, 0)
@@ -605,9 +604,9 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
         const s = members.reduce((acc, m) => {
           const owned = normalizeWalletDecorations(m.wallet_emojis).includes(slot.emoji);
           if (!owned) return acc;
-          return acc + Math.max(0, Number(m.nftjiLevels?.[slot.key] ?? 0) || 0);
+          return acc + Math.max(0, Number(m.nftjiLevels?.[slot.key] ?? 0) || 0) + 1;
         }, 0);
-        sums[slot.emoji] = s;
+        sums[slot.emoji] = s - 1;
         return sums;
       }, {});
       const totalExecs = members.reduce((sum, entry) => sum + (Number(entry.execs_count) || 0), 0);
@@ -633,12 +632,15 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
         }
         return counts;
       }, {});
-      const marketEmojiLevelSums = members.reduce((sums, entry) => {
+      const marketEmojiPowerSums = members.reduce((sums, entry) => {
         for (const block of Array.isArray(entry.market_blocks) ? entry.market_blocks : []) {
-          if (block.emoji) sums[block.emoji] = (sums[block.emoji] || 0) + Math.max(0, Number(block.level) || 0);
+          if (block.emoji) sums[block.emoji] = (sums[block.emoji] || 0) + Math.max(0, Number(block.level) || 0) + 1;
         }
         return sums;
       }, {});
+      const marketEmojiLevelSums = Object.fromEntries(
+        Object.entries(marketEmojiPowerSums).map(([emoji, power]) => [emoji, Math.max(0, (Number(power) || 0) - 1)])
+      );
       const penalties = members.map((entry) => entry.active_penalty).filter(Boolean);
       const activePenalty = {
         mm3: penalties.find((penalty) => penalty?.mm3)?.mm3 || null,
