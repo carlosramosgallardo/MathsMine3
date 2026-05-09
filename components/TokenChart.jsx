@@ -379,11 +379,11 @@ function useNftEvents(range) {
   }, [rawEvts, range])
 }
 
-/* ── Custom tooltip ── */
-function ChartTip({ active, payload, label, nftEvents, range, t, isMobile }) {
-  if (!active || !payload?.length) return null
-  const val   = payload.find(p => p.dataKey === 'value')?.value
-  const row   = payload.find(p => p.dataKey === 'value')?.payload ?? {}
+/* ── Fixed detail panel ── */
+function ChartPointDetail({ point, label, nftEvents, range, t, isMobile }) {
+  if (!point) return null
+  const val   = point.value
+  const row   = point
   const delta = row.delta
   const evts  = nftEvents?.[label] ?? []
   const deltas = sourceDeltas(row)
@@ -402,29 +402,25 @@ function ChartTip({ active, payload, label, nftEvents, range, t, isMobile }) {
   const diceActive = diceModifier != null
 
   const sz   = isMobile ? 'text-[0.72rem]' : 'text-[0.85rem]'
-  const pad  = isMobile ? 'px-2 py-1.5'   : 'px-3 py-2'
-  const mw   = isMobile ? { minWidth: 130, maxWidth: 190 } : { minWidth: 165, maxWidth: 250 }
 
   return (
-    <div className={`font-mono ${sz} rounded-lg ${pad} border`}
-      style={{ background: '#050810', borderColor: `${C}40`, color: '#cbd5e1', ...mw }}>
-      <div className="mb-0.5" style={{ color: C }}>⏱ {label}</div>
-      {val != null && (
-        <div>{t('chart.tooltipValue')} <span style={{ color: C }}>{val.toFixed(dec)}</span> MM3</div>
-      )}
-      {delta != null && delta !== 0 && (
-        <div>{t('chart.tooltipChange')} <span style={{ color: delta >= 0 ? UP : '#ef4444' }}>{delta >= 0 ? '+' : ''}{delta.toFixed(dec)}</span></div>
-      )}
-
-      {(breakdown.length > 0 || diceActive) && (
-        <>
-          <div className="mt-1.5 mb-1 border-t" style={{ borderColor: `${C}25` }} />
-          {!isMobile && (
-            <div className="mb-1 uppercase tracking-widest text-[0.78rem]"
-              style={{ color: `${C}b3` }}>
-              {t('chart.breakdownTitle')}
-            </div>
+    <div className={`mt-2 rounded-lg border bg-[#050810] px-3 py-2 font-mono ${sz}`}
+      style={{ borderColor: `${C}30`, color: '#cbd5e1' }}>
+      <div className="grid gap-2 sm:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)_minmax(0,1fr)] sm:items-start">
+        <div className="min-w-0">
+          <div className="mb-1 uppercase tracking-[0.18em]" style={{ color: C }}>⏱ {label}</div>
+          {val != null && (
+            <div>{t('chart.tooltipValue')} <span style={{ color: C }}>{val.toFixed(dec)}</span> MM3</div>
           )}
+          {delta != null && delta !== 0 && (
+            <div>{t('chart.tooltipChange')} <span style={{ color: delta >= 0 ? UP : '#ef4444' }}>{delta >= 0 ? '+' : ''}{delta.toFixed(dec)}</span></div>
+          )}
+        </div>
+
+        <div className="min-w-0 border-t pt-2 sm:border-l sm:border-t-0 sm:pl-3 sm:pt-0" style={{ borderColor: `${C}20` }}>
+          <div className="mb-1 uppercase tracking-widest text-[0.72rem]" style={{ color: `${C}b3` }}>
+            {t('chart.breakdownTitle')}
+          </div>
           {breakdown.map(([name, amount, clr]) => (
             <div key={name} className="flex justify-between gap-2">
               <span className="text-gray-500 truncate">{name}</span>
@@ -439,37 +435,35 @@ function ChartTip({ active, payload, label, nftEvents, range, t, isMobile }) {
               {diceActive ? `${diceModifier >= 0 ? '+' : ''}${Math.round(diceModifier * 100)}%` : (isMobile ? '—' : t('chart.diceInactive'))}
             </span>
           </div>
-        </>
-      )}
+        </div>
 
-      {evts.length > 0 && (
-        <>
-          <div className="mt-1.5 mb-1 border-t" style={{ borderColor: `${C}25` }} />
-          {!isMobile && (
-            <div className="mb-1 uppercase tracking-widest text-[0.78rem]"
-              style={{ color: `${C}b3` }}>{t('chart.tooltipNftSection')}</div>
-          )}
-          {evts.map((ev, i) => {
-            const clr  = emojiColor(ev.emoji)
-            const pct  = ev.delta_mm3 !== 0 && val
-              ? ((ev.delta_mm3 / val) * 100).toFixed(2)
-              : null
-            return (
-              <div key={i} className="flex items-center justify-between gap-2 mb-0.5">
-                <span>
-                  {ev.emoji}{' '}
-                  <WalletTag wallet={ev.wallet} className="text-gray-500" />
-                </span>
-                {pct && (
-                  <span style={{ color: clr }} className="font-black shrink-0">
-                    {ev.delta_mm3 >= 0 ? '+' : ''}{pct}%
+        <div className="min-w-0 border-t pt-2 sm:border-l sm:border-t-0 sm:pl-3 sm:pt-0" style={{ borderColor: `${C}20` }}>
+          <div className="mb-1 uppercase tracking-widest text-[0.72rem]" style={{ color: `${C}b3` }}>
+            {t('chart.tooltipNftSection')}
+          </div>
+          {evts.length > 0 ? evts.map((ev, i) => {
+              const clr  = emojiColor(ev.emoji)
+              const pct  = ev.delta_mm3 !== 0 && val
+                ? ((ev.delta_mm3 / val) * 100).toFixed(2)
+                : null
+              return (
+                <div key={i} className="mb-0.5 flex items-center justify-between gap-2">
+                  <span>
+                    {ev.emoji}{' '}
+                    <WalletTag wallet={ev.wallet} className="text-gray-500" />
                   </span>
-                )}
-              </div>
-            )
-          })}
-        </>
-      )}
+                  {pct && (
+                    <span style={{ color: clr }} className="shrink-0 font-black">
+                      {ev.delta_mm3 >= 0 ? '+' : ''}{pct}%
+                    </span>
+                  )}
+                </div>
+              )
+            }) : (
+              <span className="text-gray-600">{t('chart.noNftEvents')}</span>
+            )}
+        </div>
+      </div>
     </div>
   )
 }
@@ -627,6 +621,7 @@ export default function TokenChart() {
     if (typeof window === 'undefined') return '1h'
     return localStorage.getItem('mm3-chart-range') || '1h'
   })
+  const [activePoint, setActivePoint] = useState(null)
 
   const handleRangeChange = useCallback((r) => {
     setRange(r)
@@ -713,6 +708,18 @@ export default function TokenChart() {
       return next
     })
   }, [data, diceOverlays, diceWindows])
+
+  useEffect(() => {
+    if (!chartData.length) {
+      setActivePoint(null)
+      return
+    }
+    const last = chartData[chartData.length - 1]
+    setActivePoint({ label: last.time, point: last })
+  }, [range, chartData])
+
+  const detailPoint = activePoint?.point || chartData[chartData.length - 1] || null
+  const detailLabel = activePoint?.label || detailPoint?.time || ''
 
   const isFlatLine = !!stats && stats.high === stats.low
 
@@ -815,7 +822,15 @@ export default function TokenChart() {
 
         {data.length > 0 ? (
           <ResponsiveContainer width="100%" height={chartHeight}>
-            <AreaChart data={chartData} margin={chartMargin}>
+            <AreaChart
+              data={chartData}
+              margin={chartMargin}
+              onMouseMove={(state) => {
+                const row = state?.activePayload?.find((entry) => entry?.dataKey === 'value')?.payload
+                  || state?.activePayload?.[0]?.payload
+                if (row) setActivePoint({ label: state?.activeLabel || row.time, point: row })
+              }}
+            >
               <defs>
                 <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
                   <stop offset="0%"   stopColor={baseChartColor} stopOpacity={0.07} />
@@ -865,7 +880,7 @@ export default function TokenChart() {
               />
 
               <Tooltip
-                content={<ChartTip nftEvents={nftEvents} range={range} t={t} isMobile={isMobile} />}
+                content={() => null}
                 cursor={{ stroke: `${C}30`, strokeWidth: 1, strokeDasharray: '3 3' }}
                 wrapperStyle={{ zIndex: 20 }}
               />
@@ -943,6 +958,17 @@ export default function TokenChart() {
           </div>
         )}
       </div>
+
+      {detailPoint ? (
+        <ChartPointDetail
+          point={detailPoint}
+          label={detailLabel}
+          nftEvents={nftEvents}
+          range={range}
+          t={t}
+          isMobile={isMobile}
+        />
+      ) : null}
     </div>
   )
 }
