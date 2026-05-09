@@ -7,7 +7,7 @@ import supabase from '@/lib/supabaseClient';
 import { CNY_TO_EUR, CNY_TO_USD, formatMoney, formatCompactNum } from '@/lib/sell-offer';
 import { clampRankLevel, getRankTier } from '@/lib/ranks';
 import { colorFromAddress } from '@/lib/wallet-colors';
-import { normalizeWalletDecorations, getEmojiTitle, TRADE_SLOT_ORDER } from '@/lib/wallet-decorations';
+import { normalizeWalletDecorations, getEmojiTitle, TRADE_SLOT_ORDER, SQUEEZE_SLOT_ORDER } from '@/lib/wallet-decorations';
 import { useCurrency } from '@/lib/currency-context';
 import { useActiveWallet } from '@/lib/use-active-wallet';
 import PageLoading from '@/components/PageLoading';
@@ -82,6 +82,17 @@ function uniqueBy(items, getKey) {
     out.push(item);
   }
   return out;
+}
+
+function getSqueezeLevel(squeezeNftji, slotKey) {
+  if (!squeezeNftji) return -1;
+  if (slotKey === 'sq-atk') return Number(squeezeNftji.attack_level ?? -1);
+  if (slotKey === 'sq-def') return Number(squeezeNftji.defense_level ?? -1);
+  return -1;
+}
+
+function countSqueezeNftjis(squeezeNftji) {
+  return SQUEEZE_SLOT_ORDER.reduce((sum, slot) => sum + (getSqueezeLevel(squeezeNftji, slot.key) >= 0 ? 1 : 0), 0);
 }
 
 function getPoolRankTier(level) {
@@ -211,7 +222,7 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
           }
         }
       }
-      const [{ data: leaderboardRows, error }, progressResponse, marketOwnersResponse, blocksResponse, txResponse, penaltiesResponse, poolMembersResponse] = await Promise.all([
+      const [{ data: leaderboardRows, error }, progressResponse, marketOwnersResponse, blocksResponse, txResponse, penaltiesResponse, poolMembersResponse, squeezeNftjiResponse] = await Promise.all([
         supabase
           .from('leaderboard_data')
           .select('wallet, total_eth'),
@@ -237,6 +248,9 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
         supabase
           .from('mm3_wallet_pool_members')
           .select('wallet, pool_code'),
+        supabase
+          .from('mm3_squeeze_nftji')
+          .select('wallet, equipped, attack_level, defense_level'),
       ]);
       if (error) { console.error('Leaderboard fetch:', error); setLeaderboard([]); return; }
       let progressData = progressResponse?.data || [];
@@ -283,6 +297,21 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
         const blockInfo = blocksByKey.get(key);
         if (!blockInfo) continue;
         marketBlocksByWallet.set(wallet, [{ block_key: key, emoji: blockInfo.emoji, hex: blockInfo.hex }]);
+      }
+
+      const squeezeNftjiByWallet = new Map();
+      if (!squeezeNftjiResponse?.error) {
+        for (const entry of squeezeNftjiResponse?.data || []) {
+          const wallet = String(entry.wallet || '').toLowerCase();
+          if (!wallet) continue;
+          squeezeNftjiByWallet.set(wallet, {
+            equipped: entry.equipped || null,
+            attack_level: Number(entry.attack_level ?? -1),
+            defense_level: Number(entry.defense_level ?? -1),
+          });
+        }
+      } else if (squeezeNftjiResponse.error?.code !== '42P01') {
+        console.error('Leaderboard squeeze nftji fetch:', squeezeNftjiResponse.error);
       }
 
       const txCountByWallet = new Map();
@@ -334,6 +363,7 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
         ...lbByWallet.keys(),
         ...earnedByWallet.keys(),
         ...poolMemberWallets,
+        ...squeezeNftjiByWallet.keys(),
       ]);
 
       const mergedData = [...allWallets]
@@ -358,6 +388,7 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
             wallet_emojis: progress.walletEmojis,
             execs_count: txCountByWallet.get(normalizedWallet) || 0,
             market_blocks: marketBlocksByWallet.get(normalizedWallet) || [],
+            squeeze_nftji: squeezeNftjiByWallet.get(normalizedWallet) || { equipped: null, attack_level: -1, defense_level: -1 },
             active_penalty: penaltiesByWallet.get(normalizedWallet) || null,
             pool_code: poolByWallet.get(normalizedWallet) || '',
             is_bot: progress.is_bot || false,
@@ -444,7 +475,7 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
 
     const getValue = (entry) => {
       if (sortConfig.key === 'money') return Number(entry[moneyKey]) || 0;
-      if (sortConfig.key === 'nftji') return normalizeWalletDecorations(entry.wallet_emojis).length;
+      if (sortConfig.key === 'nftji') return normalizeWalletDecorations(entry.wallet_emojis).length + (Array.isArray(entry.market_blocks) ? entry.market_blocks.length : 0) + countSqueezeNftjis(entry.squeeze_nftji);
       if (sortConfig.key === 'execs') return Number(entry.execs_count) || 0;
       if (sortConfig.key === 'block') return (Array.isArray(entry.market_blocks) ? entry.market_blocks.length : 0) + (entry.active_penalty?.mm3 || entry.active_penalty?.money ? 1 : 0);
       if (sortConfig.key === 'pool') return String(entry.pool_code || '').toLowerCase();
@@ -497,7 +528,21 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
         }
         return counts;
       }, {});
-      const totalNftjis = Object.values(poolEmojiCounts).reduce((sum, count) => sum + count, 0);
+      const squeezeEmojiCounts = SQUEEZE_SLOT_ORDER.reduce((counts, slot) => {
+        const count = members.reduce((acc, m) => acc + (getSqueezeLevel(m.squeeze_nftji, slot.key) >= 0 ? 1 : 0), 0);
+        if (count > 0) counts[slot.emoji] = count;
+        return counts;
+      }, {});
+      const squeezeEmojiLevelSums = SQUEEZE_SLOT_ORDER.reduce((sums, slot) => {
+        const levelSum = members.reduce((acc, m) => {
+          const lvl = getSqueezeLevel(m.squeeze_nftji, slot.key);
+          return lvl >= 0 ? acc + Math.max(0, lvl) : acc;
+        }, 0);
+        if (levelSum > 0) sums[slot.emoji] = levelSum;
+        return sums;
+      }, {});
+      const totalNftjis = Object.values(poolEmojiCounts).reduce((sum, count) => sum + count, 0)
+        + Object.values(squeezeEmojiCounts).reduce((sum, count) => sum + count, 0);
       const walletEmojiLevelSums = TRADE_SLOT_ORDER.reduce((sums, slot) => {
         if (slot.key === 'revive') return sums;
         const count = members.reduce((acc, m) => {
@@ -555,6 +600,8 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
         wallet_emojis: Object.keys(poolEmojiCounts),
         wallet_emoji_counts: poolEmojiCounts,
         wallet_emoji_level_sums: walletEmojiLevelSums,
+        squeeze_emoji_counts: squeezeEmojiCounts,
+        squeeze_emoji_level_sums: squeezeEmojiLevelSums,
         market_blocks: marketBlocks,
         market_nftji_member_count: marketNftjiMemberCount,
         market_emoji_counts: marketEmojiCounts,
@@ -925,6 +972,7 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'mm3_command_penalties' }, refresh)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'mm3_wallet_pools' }, refresh)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'mm3_wallet_pool_members' }, refresh)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'mm3_squeeze_nftji' }, refresh)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'mm3_pool_disputes' }, refresh)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'mm3_pool_dispute_wallets' }, refresh)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'mm3_pool_dispute_votes' }, refresh)
@@ -1306,6 +1354,29 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
                       </div>
                     );
                   })}
+                  {SQUEEZE_SLOT_ORDER.map((slot) => {
+                    const count = Number(entry.squeeze_emoji_counts?.[slot.emoji] || 0);
+                    const owned = count > 0;
+                    const lvlSum = Number(entry.squeeze_emoji_level_sums?.[slot.emoji] || 0);
+                    const color = slot.key === 'sq-atk' ? '#f59e0b' : '#22d3ee';
+                    return (
+                      <div
+                        key={slot.key}
+                        title={owned ? `${getEmojiTitle(slot.emoji)} ×${count}${lvlSum > 0 ? ` Lv.${lvlSum}` : ''}` : getEmojiTitle(slot.emoji)}
+                        className="relative flex flex-col items-center justify-center rounded border"
+                        style={{
+                          width: '1.5rem', height: '1.5rem',
+                          borderColor: owned ? `${color}99` : `${color}33`,
+                          background: owned ? `${color}18` : 'rgba(2,6,23,0.4)',
+                          color: owned ? color : 'rgba(100,116,139,0.35)',
+                          boxShadow: owned ? `0 0 8px ${color}25` : 'none',
+                        }}
+                      >
+                        <span style={{ fontSize: owned && (count > 1 || lvlSum > 0) ? '0.72rem' : '0.88rem', lineHeight: 1 }}>{owned ? slot.emoji : ''}</span>
+                        {owned && (count > 1 || lvlSum > 0) && <span style={{ fontSize: '0.48rem', fontFamily: 'monospace', color, fontWeight: 800, lineHeight: 1 }}>×{count}{lvlSum > 0 ? ` L${lvlSum}` : ''}</span>}
+                      </div>
+                    );
+                  })}
                   {Object.entries(entry.market_emoji_counts || {}).length === 0 ? (
                     <div className="flex items-center justify-center rounded border"
                       title="Market NFTJI — none"
@@ -1459,6 +1530,28 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
                       >
                         <span style={{ fontSize: showLvl ? '0.72rem' : '0.88rem', lineHeight: 1 }}>{owned ? slot.emoji : ''}</span>
                         {showLvl && <span style={{ fontSize: '0.48rem', fontFamily: 'monospace', color: tier.color, fontWeight: 800, lineHeight: 1 }}>{slotLvl}</span>}
+                      </div>
+                    );
+                  })}
+                  {SQUEEZE_SLOT_ORDER.map((slot) => {
+                    const lvl = getSqueezeLevel(entry.squeeze_nftji, slot.key);
+                    const owned = lvl >= 0;
+                    const color = slot.key === 'sq-atk' ? '#f59e0b' : '#22d3ee';
+                    return (
+                      <div
+                        key={slot.key}
+                        title={getEmojiTitle(slot.emoji) + (owned ? ` Lv.${Math.max(0, lvl)}` : '')}
+                        className="relative flex flex-col items-center justify-center rounded border"
+                        style={{
+                          width: '1.5rem', height: '1.5rem',
+                          borderColor: owned ? `${color}99` : `${color}33`,
+                          background: owned ? `${color}18` : 'rgba(2,6,23,0.4)',
+                          color: owned ? color : 'rgba(100,116,139,0.35)',
+                          boxShadow: owned ? `0 0 8px ${color}25` : 'none',
+                        }}
+                      >
+                        <span style={{ fontSize: owned ? '0.72rem' : '0.88rem', lineHeight: 1 }}>{owned ? slot.emoji : ''}</span>
+                        {owned && <span style={{ fontSize: '0.48rem', fontFamily: 'monospace', color, fontWeight: 800, lineHeight: 1 }}>{Math.max(0, lvl)}</span>}
                       </div>
                     );
                   })}
@@ -1668,6 +1761,32 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
                           </div>
                         );
                       })}
+                      {SQUEEZE_SLOT_ORDER.map((slot) => {
+                        const count = Number(entry.squeeze_emoji_counts?.[slot.emoji] || 0);
+                        const owned = count > 0;
+                        const lvlSum = Number(entry.squeeze_emoji_level_sums?.[slot.emoji] || 0);
+                        const color = slot.key === 'sq-atk' ? '#f59e0b' : '#22d3ee';
+                        return (
+                          <div
+                            key={slot.key}
+                            title={owned ? `${getEmojiTitle(slot.emoji)} ×${count}${lvlSum > 0 ? ` Lv.${lvlSum}` : ''}` : getEmojiTitle(slot.emoji)}
+                            className="lb-slot-cell flex flex-col items-center justify-center rounded-md border"
+                            style={{
+                              borderColor: owned ? `${color}99` : `${color}33`,
+                              background: owned ? `${color}18` : 'rgba(2,6,23,0.4)',
+                              color: owned ? color : 'rgba(100,116,139,0.35)',
+                              boxShadow: owned ? `0 0 12px ${color}25` : 'none',
+                            }}
+                          >
+                            <span style={{ fontSize: owned && (count > 1 || lvlSum > 0) ? '0.78rem' : '0.95rem', lineHeight: 1 }}>{owned ? slot.emoji : ''}</span>
+                            {owned && (count > 1 || lvlSum > 0) && (
+                              <span style={{ fontSize: '0.5rem', fontFamily: 'monospace', fontWeight: 800, lineHeight: 1, color: '#a5f3fc' }}>
+                                ×{count}{lvlSum > 0 ? ` L${lvlSum}` : ''}
+                              </span>
+                            )}
+                          </div>
+                        );
+                      })}
                       {Object.entries(entry.market_emoji_counts || {}).length === 0 ? (
                         <div className="lb-slot-cell flex items-center justify-center rounded-md border text-[0.95rem]"
                           title="Market NFTJI — none"
@@ -1821,6 +1940,33 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
                                 color: tier.color, fontWeight: 800, lineHeight: 1,
                                 textShadow: `0 0 3px ${tier.color}`,
                               }}>{lvl}</span>
+                            )}
+                          </div>
+                        );
+                      })}
+                      {SQUEEZE_SLOT_ORDER.map((slot) => {
+                        const sqLvl = getSqueezeLevel(entry.squeeze_nftji, slot.key);
+                        const owned = sqLvl >= 0;
+                        const color = slot.key === 'sq-atk' ? '#f59e0b' : '#22d3ee';
+                        return (
+                          <div
+                            key={slot.key}
+                            title={getEmojiTitle(slot.emoji) + (owned ? ` Lv.${Math.max(0, sqLvl)}` : '')}
+                            className="lb-slot-cell flex flex-col items-center justify-center rounded-md border"
+                            style={{
+                              borderColor: owned ? `${color}99` : `${color}33`,
+                              background: owned ? `${color}18` : 'rgba(2,6,23,0.4)',
+                              color: owned ? color : 'rgba(100,116,139,0.35)',
+                              boxShadow: owned ? `0 0 12px ${color}25` : 'none',
+                            }}
+                          >
+                            <span style={{ fontSize: owned ? '0.78rem' : '0.95rem', lineHeight: 1 }}>{owned ? slot.emoji : ''}</span>
+                            {owned && (
+                              <span style={{
+                                fontSize: '0.52rem', fontFamily: 'monospace',
+                                color, fontWeight: 800, lineHeight: 1,
+                                textShadow: `0 0 3px ${color}`,
+                              }}>{Math.max(0, sqLvl)}</span>
                             )}
                           </div>
                         );

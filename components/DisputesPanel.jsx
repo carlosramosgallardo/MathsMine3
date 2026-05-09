@@ -157,6 +157,44 @@ function MarketBlockLink({ label, emoji, blockKey, onMarketBlockClick, title }) 
   );
 }
 
+function SqueezeDropSlot({ emoji, color, level, claimable, claimed, busy, lang, onClaim }) {
+  const title = claimed
+    ? (lang === 'es' ? `NFTJI Squeeze reclamado · Lv.${level}` : `Squeeze NFTJI claimed · Lv.${level}`)
+    : claimable
+      ? (lang === 'es' ? `Pulsa para obtener NFTJI Squeeze · Lv.${level}` : `Click to claim Squeeze NFTJI · Lv.${level}`)
+      : (lang === 'es' ? `NFTJI Squeeze disponible para wallets ganadoras · Lv.${level}` : `Squeeze NFTJI available for winning wallets · Lv.${level}`);
+  const Tag = claimable ? 'button' : 'span';
+  return (
+    <Tag
+      type={claimable ? 'button' : undefined}
+      onClick={claimable ? onClaim : undefined}
+      disabled={claimable ? busy : undefined}
+      title={title}
+      style={{
+        width: '1.5rem',
+        height: '1.5rem',
+        border: `1px solid ${color}${claimable ? 'aa' : '66'}`,
+        borderRadius: 4,
+        background: claimed ? 'rgba(2,6,23,0.42)' : `${color}18`,
+        color,
+        display: 'inline-flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        fontFamily: 'monospace',
+        fontWeight: 800,
+        lineHeight: 1,
+        cursor: claimable ? (busy ? 'wait' : 'pointer') : 'default',
+        opacity: claimed ? 0.55 : 1,
+        boxShadow: claimable ? `0 0 10px ${color}33` : 'none',
+      }}
+    >
+      <span style={{ fontSize: '0.82rem', lineHeight: 1 }}>{busy ? '...' : emoji}</span>
+      <span style={{ fontSize: '0.45rem', lineHeight: 1, marginTop: 1 }}>{level}</span>
+    </Tag>
+  );
+}
+
 function DisputeCard({ dispute, activeWallet, poolCode, language, currency, onJoin, onClaimDrop, claimBusy, onWalletClick, onPoolClick, onMarketBlockClick, emojiByWallet, sqzNftjiByWallet }) {
   const lang = language === 'es' ? 'es' : 'en';
   const statusMeta = STATUS_LABELS[dispute.status] || STATUS_LABELS.resolved;
@@ -433,7 +471,15 @@ function DisputeCard({ dispute, activeWallet, poolCode, language, currency, onJo
             alignItems: 'center',
             gap: 10,
           }}>
-            <span style={{ fontSize: '1.2rem' }}>{dropEmoji}</span>
+            <SqueezeDropSlot
+              emoji={dropEmoji}
+              color={isAtk ? '#f59e0b' : '#22d3ee'}
+              level={0}
+              claimable={false}
+              claimed={false}
+              busy={false}
+              lang={lang}
+            />
             <div style={{ flex: 1 }}>
               <div style={{ fontWeight: 700, fontSize: '0.82rem', color: isAtk ? '#f59e0b' : '#22d3ee' }}>
                 {lang === 'es' ? `DROP: NFTJI ${dropLabel.toUpperCase()}` : `DROP: ${dropLabel.toUpperCase()} NFTJI`}
@@ -471,6 +517,13 @@ function DisputeCard({ dispute, activeWallet, poolCode, language, currency, onJo
                     const isAtkDrop = dispute.drop_type === 'attack';
                     const dropEmoji = isAtkDrop ? '⚔️' : '🛡️';
                     const dropColor = isAtkDrop ? '#f59e0b' : '#22d3ee';
+                    const currentDropLevelRaw = Number(isAtkDrop
+                      ? sqzNftjiByWallet?.[w.wallet]?.attack_level
+                      : sqzNftjiByWallet?.[w.wallet]?.defense_level) ?? -1;
+                    const currentDropLevel = Math.max(0, Number.isFinite(currentDropLevelRaw) ? currentDropLevelRaw : -1);
+                    const visibleDropLevel = w.squeeze_nftji_claimed
+                      ? currentDropLevel
+                      : Math.max(0, (Number.isFinite(currentDropLevelRaw) ? currentDropLevelRaw : -1) + 1);
                     const marketEmoji = w.market_nftji_emoji || emojiByWallet?.[w.wallet]?.emoji || emojiByWallet?.[w.wallet] || '';
                     const marketBlockKey = w.market_nftji_key || w.market_nftji_snap || emojiByWallet?.[w.wallet]?.blockKey || '';
                     const marketLabel = w.market_nftji_label || emojiByWallet?.[w.wallet]?.label || marketEmoji;
@@ -505,43 +558,16 @@ function DisputeCard({ dispute, activeWallet, poolCode, language, currency, onJo
                           title={marketLabel ? `Market NFTJI — ${marketLabel}` : `Market NFTJI — ${marketEmoji}`}
                         />
                         {isWinnerDropWallet && (
-                          isMe && !w.squeeze_nftji_claimed ? (
-                            <button
-                              type="button"
-                              onClick={() => onClaimDrop(dispute.id)}
-                              disabled={claimBusy === dispute.id}
-                              title={lang === 'es' ? `Obtener NFTJI ${isAtkDrop ? 'Ataque' : 'Defensa'}` : `Claim ${isAtkDrop ? 'Attack' : 'Defense'} NFTJI`}
-                              style={{
-                                border: `1px solid ${dropColor}88`,
-                                background: `${dropColor}1a`,
-                                color: dropColor,
-                                borderRadius: 4,
-                                padding: '1px 5px',
-                                fontFamily: 'monospace',
-                                fontSize: '0.62rem',
-                                fontWeight: 800,
-                                cursor: claimBusy === dispute.id ? 'wait' : 'pointer',
-                                letterSpacing: '0.04em',
-                              }}
-                            >
-                              {dropEmoji} {claimBusy === dispute.id ? '...' : (lang === 'es' ? 'OBTENER' : 'CLAIM')}
-                            </button>
-                          ) : (
-                            <span
-                              title={w.squeeze_nftji_claimed
-                                ? (lang === 'es' ? 'NFTJI reclamado' : 'NFTJI claimed')
-                                : (lang === 'es' ? 'NFTJI disponible para esta wallet ganadora' : 'NFTJI available for this winning wallet')}
-                              style={{
-                                color: dropColor,
-                                fontFamily: 'monospace',
-                                fontSize: '0.68rem',
-                                fontWeight: 800,
-                                opacity: w.squeeze_nftji_claimed ? 0.55 : 1,
-                              }}
-                            >
-                              {dropEmoji}{w.squeeze_nftji_claimed ? ' claimed' : ' drop'}
-                            </span>
-                          )
+                          <SqueezeDropSlot
+                            emoji={dropEmoji}
+                            color={dropColor}
+                            level={visibleDropLevel}
+                            claimable={isMe && !w.squeeze_nftji_claimed}
+                            claimed={w.squeeze_nftji_claimed}
+                            busy={claimBusy === dispute.id}
+                            lang={lang}
+                            onClaim={() => onClaimDrop(dispute.id)}
+                          />
                         )}
                         {(() => {
                           const sn = sqzNftjiByWallet?.[w.wallet];
@@ -863,6 +889,8 @@ export default function DisputesPanel({ wallet, poolCode, language, onWalletClic
           type: 'success',
         },
       }));
+      localStorage.setItem('lb_dirty_at', String(Date.now()));
+      window.dispatchEvent(new CustomEvent('mm3-db-updated'));
       await fetchDisputes();
     } catch {
       window.dispatchEvent(new CustomEvent('mm3-toast', {
