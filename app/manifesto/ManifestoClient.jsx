@@ -132,6 +132,7 @@ function parseMarkdown(readmeText) {
     .filter((line) => {
       const trimmed = line.trim();
       return !/^\*\*Live:\*\*/.test(trimmed)
+        && !/^<a\s+name=["'](?:english|español|espanol)["']\s*><\/a>$/i.test(trimmed)
         && !/^\[!\[MathsMine3 Portal\]\([^)]+\)\]\([^)]+\)$/.test(trimmed);
     });
   const blocks = [];
