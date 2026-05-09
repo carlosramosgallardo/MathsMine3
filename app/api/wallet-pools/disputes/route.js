@@ -20,7 +20,7 @@ function blockInfoMap(rows) {
 export async function GET(req) {
   const { searchParams } = new URL(req.url);
   const poolCode = searchParams.get('pool') || null;
-  const limit = Math.min(Number(searchParams.get('limit') || 50), 100);
+  const limit = Math.min(Number(searchParams.get('limit') || 50), 500);
 
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL,

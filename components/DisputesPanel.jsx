@@ -20,6 +20,9 @@ const WINNER_LABELS = {
   draw: { es: 'EMPATE', en: 'DRAW' },
 };
 
+const DISPUTE_FETCH_LIMIT = 500;
+const HISTORY_PAGE_SIZE = 10;
+
 function fmt(n, dec = 2) {
   if (n === null || n === undefined) return '—';
   return Number(n).toFixed(dec);
@@ -651,6 +654,7 @@ export default function DisputesPanel({ wallet, poolCode, language, onWalletClic
   const [error, setError] = useState(null);
   const [joinBusy, setJoinBusy] = useState(false);
   const [claimBusy, setClaimBusy] = useState(null);
+  const [historyPage, setHistoryPage] = useState(1);
   const [emojiByWallet, setEmojiByWallet] = useState({});
   const [sqzNftjiByWallet, setSqzNftjiByWallet] = useState({});
   const pollingRef = useRef(null);
@@ -734,7 +738,7 @@ export default function DisputesPanel({ wallet, poolCode, language, onWalletClic
 
   const fetchDisputes = useCallback(async () => {
     try {
-      const res = await fetch('/api/wallet-pools/disputes?limit=50');
+      const res = await fetch(`/api/wallet-pools/disputes?limit=${DISPUTE_FETCH_LIMIT}`);
       const data = await res.json();
       if (data.ok) {
         const nextDisputes = data.disputes || [];
@@ -887,6 +891,16 @@ export default function DisputesPanel({ wallet, poolCode, language, onWalletClic
   const historyDisputes = disputes
     .filter((d) => ['resolved', 'cancelled'].includes(d.status))
     .sort((a, b) => getDisputeSortMs(b) - getDisputeSortMs(a));
+  const historyTotalPages = Math.max(1, Math.ceil(historyDisputes.length / HISTORY_PAGE_SIZE));
+  const safeHistoryPage = Math.min(historyPage, historyTotalPages);
+  const visibleHistoryDisputes = historyDisputes.slice(
+    (safeHistoryPage - 1) * HISTORY_PAGE_SIZE,
+    safeHistoryPage * HISTORY_PAGE_SIZE
+  );
+
+  useEffect(() => {
+    if (historyPage > historyTotalPages) setHistoryPage(historyTotalPages);
+  }, [historyPage, historyTotalPages]);
 
   if (isLoading) {
     return (
@@ -951,7 +965,7 @@ export default function DisputesPanel({ wallet, poolCode, language, onWalletClic
           <div style={{ fontSize: '0.68rem', color: '#334155', letterSpacing: '0.08em', marginTop: 8, marginBottom: 8 }}>
             {lang === 'es' ? 'HISTORIAL' : 'HISTORY'}
           </div>
-          {historyDisputes.slice(0, 20).map((d) => (
+          {visibleHistoryDisputes.map((d) => (
             <DisputeCard
               key={d.id}
               dispute={d}
@@ -969,6 +983,49 @@ export default function DisputesPanel({ wallet, poolCode, language, onWalletClic
               sqzNftjiByWallet={sqzNftjiByWallet}
             />
           ))}
+          {historyTotalPages > 1 && (
+            <div style={{ display: 'flex', justifyContent: 'center', gap: 8, alignItems: 'center', margin: '12px 0 4px' }}>
+              <button
+                type="button"
+                onClick={() => setHistoryPage((page) => Math.max(1, page - 1))}
+                disabled={safeHistoryPage <= 1}
+                style={{
+                  border: '1px solid rgba(34,211,238,0.35)',
+                  borderRadius: 4,
+                  background: 'rgba(2,6,23,0.7)',
+                  color: '#22d3ee',
+                  padding: '3px 9px',
+                  fontFamily: 'monospace',
+                  fontSize: '0.7rem',
+                  cursor: safeHistoryPage <= 1 ? 'not-allowed' : 'pointer',
+                  opacity: safeHistoryPage <= 1 ? 0.35 : 1,
+                }}
+              >
+                {'<'}
+              </button>
+              <span style={{ color: '#64748b', fontFamily: 'monospace', fontSize: '0.7rem' }}>
+                {safeHistoryPage}/{historyTotalPages}
+              </span>
+              <button
+                type="button"
+                onClick={() => setHistoryPage((page) => Math.min(historyTotalPages, page + 1))}
+                disabled={safeHistoryPage >= historyTotalPages}
+                style={{
+                  border: '1px solid rgba(34,211,238,0.35)',
+                  borderRadius: 4,
+                  background: 'rgba(2,6,23,0.7)',
+                  color: '#22d3ee',
+                  padding: '3px 9px',
+                  fontFamily: 'monospace',
+                  fontSize: '0.7rem',
+                  cursor: safeHistoryPage >= historyTotalPages ? 'not-allowed' : 'pointer',
+                  opacity: safeHistoryPage >= historyTotalPages ? 0.35 : 1,
+                }}
+              >
+                {'>'}
+              </button>
+            </div>
+          )}
         </>
       )}
     </div>
