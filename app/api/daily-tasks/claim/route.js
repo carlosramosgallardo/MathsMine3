@@ -10,12 +10,18 @@ function getUtcDayBounds(now = new Date()) {
   return { startIso: start.toISOString(), endIso: end.toISOString(), dayKey };
 }
 
+function getRolling24hWindow(now = new Date()) {
+  const end = new Date(now);
+  const start = new Date(end.getTime() - 24 * 60 * 60 * 1000);
+  return { startIso: start.toISOString(), endIso: end.toISOString() };
+}
+
 const TASKS = {
   mining: { target: 25, rewardEur: 0.25 },
   trading: { target: 5, rewardEur: 0.5 },
   market: { target: 1, rewardEur: 0.75 },
   irc: { target: 1, rewardEur: 1 },
-  squeeze: { target: 1, rewardEur: 1.25 },
+  squeeze: { target: 5, rewardEur: 2.5 },
   ircHidden: { target: 1, rewardEur: 5 },
 };
 
@@ -44,6 +50,7 @@ export async function POST(req) {
   );
 
   const { startIso, endIso, dayKey } = getUtcDayBounds();
+  const { startIso: rollingStartIso, endIso: rollingEndIso } = getRolling24hWindow();
 
   const [miningRes, tradingRes, marketRes, ircRes, squeezeRes, hiddenRes, claimsRes] = await Promise.all([
     supabase
@@ -73,11 +80,11 @@ export async function POST(req) {
       .gte('executed_at', startIso)
       .lt('executed_at', endIso),
     supabase
-      .from('mm3_pool_dispute_votes')
+      .from('mm3_squeeze_launches')
       .select('id', { count: 'exact', head: true })
       .eq('wallet', wallet)
-      .gte('voted_at', startIso)
-      .lt('voted_at', endIso),
+      .gte('created_at', rollingStartIso)
+      .lt('created_at', rollingEndIso),
     supabase
       .from('mm3_hidden_cmd_executions')
       .select('id', { count: 'exact', head: true })

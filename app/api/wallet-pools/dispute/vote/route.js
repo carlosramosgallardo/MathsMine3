@@ -4,12 +4,33 @@ import { createClient } from '@supabase/supabase-js';
 import { maybeStartBattleWhenFull } from '@/lib/squeeze-transitions';
 import { getActivePoolDispute } from '@/lib/pool-dispute-lock';
 
+const SQUEEZE_LAUNCH_LIMIT = 5;
+const SQUEEZE_LAUNCH_WINDOW_MS = 24 * 60 * 60 * 1000;
+
 function normalizeWallet(value) {
   return String(value || '').trim().toLowerCase();
 }
 
 function normalizePool(value) {
   return String(value || '').trim().toUpperCase();
+}
+
+async function getSqueezeLaunchLimitState(supabase, wallet) {
+  const windowStart = new Date(Date.now() - SQUEEZE_LAUNCH_WINDOW_MS).toISOString();
+  const { data, error } = await supabase
+    .from('mm3_squeeze_launches')
+    .select('created_at')
+    .eq('wallet', wallet)
+    .gte('created_at', windowStart)
+    .order('created_at', { ascending: true });
+
+  if (error) throw error;
+
+  const launches = data || [];
+  const count = launches.length;
+  const firstAt = launches[0]?.created_at ? new Date(launches[0].created_at).getTime() : null;
+  const resetAt = firstAt ? new Date(firstAt + SQUEEZE_LAUNCH_WINDOW_MS).toISOString() : null;
+  return { count, resetAt, remaining: Math.max(0, SQUEEZE_LAUNCH_LIMIT - count) };
 }
 
 export async function POST(req) {
@@ -50,6 +71,27 @@ export async function POST(req) {
       );
     }
 
+    const { data: existingProposal, error: existingProposalError } = await supabase
+      .from('mm3_pool_disputes')
+      .select('id')
+      .eq('challenger_pool_code', challengerPool)
+      .eq('defender_pool_code', defenderPool)
+      .eq('status', 'proposing')
+      .limit(1)
+      .maybeSingle();
+    if (existingProposalError) throw existingProposalError;
+
+    const isNewLaunch = !existingProposal;
+    if (isNewLaunch) {
+      const limitState = await getSqueezeLaunchLimitState(supabase, wallet);
+      if (limitState.count >= SQUEEZE_LAUNCH_LIMIT) {
+        return Response.json(
+          { ok: false, error: 'squeeze_limit_reached', reset_at: limitState.resetAt },
+          { status: 429 }
+        );
+      }
+    }
+
     const { data, error } = await supabase.rpc('mm3_dispute_vote', {
       p_challenger_pool: challengerPool,
       p_defender_pool: defenderPool,
@@ -64,11 +106,21 @@ export async function POST(req) {
         not_in_challenger_pool: 403,
         already_voted: 409,
         dispute_already_active: 409,
+        squeeze_limit_reached: 429,
       };
       return Response.json(
         { ok: false, error: data.error, dispute_id: data.dispute_id },
         { status: statusMap[data.error] || 400 }
       );
+    }
+
+    if (isNewLaunch && data?.proposing && data?.dispute_id) {
+      await supabase.from('mm3_squeeze_launches').insert({
+        wallet,
+        challenger_pool_code: challengerPool,
+        defender_pool_code: defenderPool,
+        dispute_id: data.dispute_id,
+      });
     }
 
     const transition = data?.created && data?.dispute_id

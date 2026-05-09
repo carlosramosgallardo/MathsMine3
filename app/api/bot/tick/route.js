@@ -15,6 +15,8 @@ const BOT_WALLETS = [
 const DAILY_MINE_BASE = 100;
 const PRICE = Number(process.env.NEXT_PUBLIC_FAKE_MINING_PRICE) || 0.00001;
 const DAILY_TRADE_LIMIT = 5;
+const SQUEEZE_LAUNCH_LIMIT = 5;
+const SQUEEZE_LAUNCH_WINDOW_MS = 24 * 60 * 60 * 1000;
 const REVIVE_COST_EUR = 1;
 const REVIVE_COST_USD = REVIVE_COST_EUR * (CNY_TO_USD / CNY_TO_EUR);
 const REVIVE_COST_CNY = REVIVE_COST_EUR / CNY_TO_EUR;
@@ -79,6 +81,16 @@ function getReviveCostOption(meta) {
     return { currency: 'CNY', amount: REVIVE_COST_CNY, field: 'cny_earned' };
   }
   return null;
+}
+
+async function getSqueezeLaunchCount(supabase, wallet) {
+  const windowStart = new Date(Date.now() - SQUEEZE_LAUNCH_WINDOW_MS).toISOString();
+  const { count } = await supabase
+    .from('mm3_squeeze_launches')
+    .select('id', { count: 'exact', head: true })
+    .eq('wallet', normalizeWallet(wallet))
+    .gte('created_at', windowStart);
+  return Number(count) || 0;
 }
 
 function chooseBotMarketTarget({ buyableBlocks, currentMarketKey, currentMarketPrice, marketLevels, botEur }) {
@@ -398,6 +410,12 @@ async function maybeLaunchBotSqueeze(supabase) {
   if (active) return actions;
 
   const [challenger, defender] = Math.random() < 0.5 ? readyBots : [...readyBots].reverse();
+  const launchCount = await getSqueezeLaunchCount(supabase, challenger.wallet);
+  if (launchCount >= SQUEEZE_LAUNCH_LIMIT) {
+    actions.push({ type: 'squeeze_launch_limit_reached', wallet: challenger.wallet, count: launchCount });
+    return actions;
+  }
+
   await supabase
     .from('mm3_pool_dispute_votes')
     .delete()
@@ -412,6 +430,14 @@ async function maybeLaunchBotSqueeze(supabase) {
   });
 
   if (!error && !data?.error) {
+    if (data?.proposing && data?.dispute_id) {
+      await supabase.from('mm3_squeeze_launches').insert({
+        wallet: challenger.wallet,
+        challenger_pool_code: challenger.poolCode,
+        defender_pool_code: defender.poolCode,
+        dispute_id: data.dispute_id,
+      });
+    }
     actions.push({
       type: 'squeeze_proposed',
       disputeId: data.dispute_id,
@@ -770,7 +796,7 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
     trading: { target: 5, rewardEur: 0.5 },
     market: { target: 1, rewardEur: 0.75 },
     irc: { target: 1, rewardEur: 1.0 },
-    squeeze: { target: 1, rewardEur: 1.25 },
+    squeeze: { target: 5, rewardEur: 2.5 },
   };
 
   if (newGamesToday >= dailyTargets.mining.target) {
@@ -984,7 +1010,7 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
     else if (taskKey === 'trading') count = newTradesToday;
     else if (taskKey === 'market') count = didBuyOrResell ? 1 : 0;
     else if (taskKey === 'irc') count = didMarketCommand ? 1 : 0;
-    else if (taskKey === 'squeeze') count = sharedActions.some((a) => a.type === 'squeeze_proposed' && a.wallet === wallet) ? 1 : 0;
+    else if (taskKey === 'squeeze') count = await getSqueezeLaunchCount(supabase, wallet);
     else continue;
     if (count < target) continue;
 

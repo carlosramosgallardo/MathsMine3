@@ -24,6 +24,7 @@ const LABELS = {
     disputeVoted: 'Unido a la disputa.',
     disputeError: 'Error al enviar propuesta.',
     disputeAlready: 'Ya has participado en esta propuesta.',
+    disputeLimit: 'Límite de 5 Squeezes en 24h alcanzado.',
   },
   en: {
     acceptInvite: 'Accept invite',
@@ -36,6 +37,7 @@ const LABELS = {
     disputeVoted: 'Joined the dispute.',
     disputeError: 'Error sending proposal.',
     disputeAlready: 'You already participated in this proposal.',
+    disputeLimit: '5 Squeezes per 24h limit reached.',
   },
 };
 
@@ -183,7 +185,9 @@ export default function NotificationChips() {
       });
       const d = await r.json().catch(() => ({}));
       if (!r.ok || !d.ok) {
-        const errKey = d.error === 'already_voted' || d.error === 'dispute_already_active' ? 'disputeAlready' : 'disputeError';
+        const errKey = d.error === 'squeeze_limit_reached'
+          ? 'disputeLimit'
+          : d.error === 'already_voted' || d.error === 'dispute_already_active' ? 'disputeAlready' : 'disputeError';
         window.dispatchEvent(new CustomEvent('mm3-toast', { detail: { msg: labels[errKey], type: 'error' } }));
         return;
       }

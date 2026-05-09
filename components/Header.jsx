@@ -154,8 +154,8 @@ function ManifestoDailyTaskLink() {
     <Link
       href="/manifesto"
       className="relative shrink-0 px-1 text-[0.82rem] leading-none transition hover:opacity-70"
-      title={count > 0 ? `${count} daily task reward${count === 1 ? '' : 's'} ready` : 'Manifesto'}
-      aria-label={count > 0 ? `Manifesto, ${count} daily task reward${count === 1 ? '' : 's'} ready` : 'Manifesto'}
+      title={count > 0 ? `${count} daily task reward${count === 1 ? '' : 's'} ready · Daily Tasks & Help` : 'Daily Tasks & Help'}
+      aria-label={count > 0 ? `Daily Tasks & Help, ${count} daily task reward${count === 1 ? '' : 's'} ready` : 'Daily Tasks & Help'}
     >
       <span aria-hidden="true">📜</span>
       {count > 0 ? (

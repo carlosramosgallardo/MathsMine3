@@ -210,6 +210,7 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
         disputeProposalJoin: 'Unirse a la propuesta de squeeze',
         disputeError: 'Error en squeeze',
         disputeAlready: 'Ya propusiste o hay squeeze activa',
+        disputeLimit: 'Límite de 5 Squeezes en 24h alcanzado.',
       }
     : {
         pool: 'Pool',
@@ -247,6 +248,7 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
         disputeProposalJoin: 'Join the squeeze proposal',
         disputeError: 'Squeeze error',
         disputeAlready: 'Already proposed or squeeze active',
+        disputeLimit: '5 Squeezes per 24h limit reached.',
       };
 
   const fetchLeaderboard = useCallback(async ({ ignoreCache = false } = {}) => {
@@ -844,7 +846,9 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
       });
       const payload = await response.json().catch(() => ({}));
       if (!response.ok || !payload.ok) {
-        const errKey = payload.error === 'already_voted' || payload.error === 'dispute_already_active'
+        const errKey = payload.error === 'squeeze_limit_reached'
+          ? 'disputeLimit'
+          : payload.error === 'already_voted' || payload.error === 'dispute_already_active'
           ? 'disputeAlready'
           : 'disputeError';
         window.dispatchEvent(new CustomEvent('mm3-toast', { detail: { msg: labels[errKey], type: 'error' } }));

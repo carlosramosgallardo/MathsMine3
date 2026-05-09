@@ -31,6 +31,7 @@ DROP TABLE IF EXISTS mm3_macro_state CASCADE;
 DROP TABLE IF EXISTS mm3_wallet_presence CASCADE;
 DROP TABLE IF EXISTS mm3_pool_dispute_wallets CASCADE;
 DROP TABLE IF EXISTS mm3_pool_dispute_votes CASCADE;
+DROP TABLE IF EXISTS mm3_squeeze_launches CASCADE;
 DROP TABLE IF EXISTS mm3_pool_disputes CASCADE;
 DROP TABLE IF EXISTS mm3_wallet_pool_cooldowns CASCADE;
 DROP TABLE IF EXISTS mm3_wallet_pool_members CASCADE;
@@ -215,6 +216,15 @@ CREATE TABLE mm3_pool_disputes (
   drop_type             TEXT CHECK (drop_type IN ('attack', 'defense')),
   ch_squeeze_atk_sum    INT NOT NULL DEFAULT 0,
   df_squeeze_atk_sum    INT NOT NULL DEFAULT 0
+);
+
+CREATE TABLE mm3_squeeze_launches (
+  id                    BIGSERIAL PRIMARY KEY,
+  wallet                TEXT NOT NULL,
+  challenger_pool_code  TEXT NOT NULL,
+  defender_pool_code    TEXT NOT NULL,
+  dispute_id            BIGINT REFERENCES mm3_pool_disputes(id) ON DELETE SET NULL,
+  created_at            TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE TABLE mm3_pool_dispute_votes (
@@ -433,6 +443,7 @@ CREATE INDEX idx_mm3_wallet_pool_invitations_wallet ON mm3_wallet_pool_invitatio
 CREATE INDEX idx_mm3_wallet_pool_cooldowns_expires ON mm3_wallet_pool_cooldowns(wallet, expires_at);
 CREATE INDEX idx_mm3_pool_disputes_status         ON mm3_pool_disputes(status);
 CREATE INDEX idx_mm3_pool_disputes_pools          ON mm3_pool_disputes(challenger_pool_code, defender_pool_code);
+CREATE INDEX idx_mm3_squeeze_launches_wallet_created ON mm3_squeeze_launches(wallet, created_at DESC);
 CREATE INDEX idx_mm3_pool_dispute_votes_pairing   ON mm3_pool_dispute_votes(challenger_pool_code, defender_pool_code);
 CREATE INDEX idx_mm3_pool_dispute_wallets_dispute ON mm3_pool_dispute_wallets(dispute_id, side);
 CREATE INDEX idx_mm3_pool_dispute_wallets_wallet  ON mm3_pool_dispute_wallets(wallet);
@@ -1453,6 +1464,7 @@ ALTER TABLE mm3_hidden_cmd_executions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mm3_irc_messages ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mm3_wallet_pool_cooldowns    ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mm3_pool_disputes            ENABLE ROW LEVEL SECURITY;
+ALTER TABLE mm3_squeeze_launches         ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mm3_pool_dispute_votes       ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mm3_pool_dispute_wallets     ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mm3_squeeze_nftji            ENABLE ROW LEVEL SECURITY;
@@ -1603,6 +1615,9 @@ CREATE POLICY "public_read_mm3_wallet_pool_cooldowns" ON mm3_wallet_pool_cooldow
 
 DROP POLICY IF EXISTS "public_read_mm3_pool_disputes"        ON mm3_pool_disputes;
 CREATE POLICY "public_read_mm3_pool_disputes" ON mm3_pool_disputes FOR SELECT TO public USING (true);
+
+DROP POLICY IF EXISTS "public_read_mm3_squeeze_launches" ON mm3_squeeze_launches;
+CREATE POLICY "public_read_mm3_squeeze_launches" ON mm3_squeeze_launches FOR SELECT TO public USING (true);
 
 DROP POLICY IF EXISTS "public_read_mm3_pool_dispute_votes"   ON mm3_pool_dispute_votes;
 CREATE POLICY "public_read_mm3_pool_dispute_votes" ON mm3_pool_dispute_votes FOR SELECT TO public USING (true);
@@ -1907,6 +1922,7 @@ GRANT SELECT, INSERT           ON mm3_hidden_cmd_executions    TO anon;
 GRANT SELECT, INSERT           ON mm3_irc_messages             TO anon;
 GRANT DELETE                   ON mm3_irc_messages             TO anon;
 GRANT SELECT, INSERT           ON daily_task_claims            TO anon;
+GRANT SELECT                   ON mm3_squeeze_launches         TO anon;
 GRANT SELECT                   ON mm3_squeeze_nftji            TO anon;
 
 -- Views
