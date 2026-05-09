@@ -13,6 +13,7 @@ import {
 } from '@/lib/wallet-decorations';
 import { useSound } from '@/lib/sound-context';
 import { commandKey, getMarketCommandForKey, marketCommandFromBlock } from '@/lib/market-commands';
+import { formatWalletLabel } from '@/lib/wallet-format';
 
 const GENESIS_BLOCK_KEY = 'mm3-023';
 const GRID_ROWS = 28;
@@ -113,7 +114,7 @@ function clampDigits(value) {
 function shortenWallet(value) {
   const wallet = String(value || '');
   if (wallet.length <= 14) return wallet;
-  return `${wallet.slice(0, 6)}...${wallet.slice(-4)}`;
+  return formatWalletLabel(wallet);
 }
 
 function getBlockHex(row, col) {
@@ -994,8 +995,8 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
           : selectedBlock?.block_key || '';
         const ircTs = Date.now();
         const ircText = language === 'es'
-          ? `código ok >> ${ircEmoji} ${ircHex} >> ${wallet} >> penalización reset`
-          : `code ok >> ${ircEmoji} ${ircHex} >> ${wallet} >> penalty reset`;
+          ? `código ok >> ${ircEmoji} ${ircHex} >> ${formatWalletLabel(wallet)} >> penalización reset`
+          : `code ok >> ${ircEmoji} ${ircHex} >> ${formatWalletLabel(wallet)} >> penalty reset`;
         const ircPayload = {
           id: `db:system:${ircTs}`,
           wallet: 'system',

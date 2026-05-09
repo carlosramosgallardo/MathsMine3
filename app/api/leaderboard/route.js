@@ -6,14 +6,14 @@ import {
   RATE_LIMIT_WINDOW_MS,
   getRateLimitHeaders
 } from '@/lib/rateLimitConfig'
+import { formatWalletLabel } from '@/lib/wallet-format'
 
 function clampLevel(level = 0) {
   return Math.max(0, Math.min(100, Number(level) || 0))
 }
 
 function maskWallet(wallet) {
-  if (!wallet || wallet.length <= 10) return wallet || ''
-  return wallet.slice(0, 6) + '...' + wallet.slice(-4)
+  return formatWalletLabel(wallet)
 }
 
 export async function GET(req) {

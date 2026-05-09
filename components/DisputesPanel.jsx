@@ -5,6 +5,7 @@ import { colorFromAddress } from '@/lib/wallet-colors';
 import supabase from '@/lib/supabaseClient';
 import { useCurrency } from '@/lib/currency-context';
 import { CNY_TO_EUR, CNY_TO_USD, formatMoney } from '@/lib/sell-offer';
+import { formatWalletLabel } from '@/lib/wallet-format';
 
 const STATUS_LABELS = {
   proposing:    { es: 'PROPUESTA',      en: 'PROPOSAL',     color: '#a78bfa' },
@@ -506,7 +507,7 @@ function DisputeCard({ dispute, activeWallet, poolCode, language, currency, onJo
                             textDecorationColor: `${wColor}55`,
                           }}
                         >
-                          {w.wallet.slice(-5)}
+                          {formatWalletLabel(w.wallet)}
                         </button>
                         <span style={{ color: '#64748b' }}>Lv{w.level_snap}</span>
                         {w.nftji_snap > 0 && <span title={lang === 'es' ? `NFTJi poder total: ${w.nftji_snap}` : `NFTJi power: ${w.nftji_snap}`} style={{ color: '#22d3ee', fontFamily: 'monospace', fontSize: '0.65rem' }}>✦{w.nftji_snap}</span>}

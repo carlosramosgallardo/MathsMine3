@@ -6,6 +6,7 @@ import { useAccount, useWalletClient, useDisconnect } from 'wagmi'
 import { parseEther } from 'viem'
 import { useI18n } from '@/lib/i18n-context'
 import { wagmiConfig } from '@/lib/wagmi-core'
+import { formatWalletLabel } from '@/lib/wallet-format'
 
 /* ================== Setup ================== */
 const chains = [wagmiConfig.chains[0]]
@@ -38,7 +39,7 @@ if (!_web3ModalReady) {
 }
 
 export function useShortAddress(addr) {
-  return useMemo(() => (!addr ? '' : addr.slice(0, 6) + '...' + addr.slice(-4)), [addr])
+  return useMemo(() => (!addr ? '' : formatWalletLabel(addr)), [addr])
 }
 
 /* ================== Helpers ================== */

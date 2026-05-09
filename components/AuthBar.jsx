@@ -13,6 +13,7 @@ import { useCurrency } from '@/lib/currency-context'
 import { formatMoney, formatCompactNum } from '@/lib/sell-offer'
 import { clampRankLevel, getRankTier } from '@/lib/ranks'
 import { normalizeWalletDecorations } from '@/lib/wallet-decorations'
+import { formatWalletLabel } from '@/lib/wallet-format'
 import UtcClock from '@/components/UtcClock'
 import { wagmiConfig } from '@/lib/wagmi-core'
 
@@ -116,7 +117,7 @@ async function insertIrcPresenceTrace(wallet, tone, text) {
 /* ── Connected state — same visual for both auth methods ── */
 function ConnectedBar({ address, isRealWallet, onDisconnect, mode = 'full' }) {
   const walletColor = useMemo(() => colorFromAddress(address), [address])
-  const visibleAddress = useMemo(() => (!address ? '' : address.slice(-5)), [address])
+  const visibleAddress = useMemo(() => (!address ? '' : formatWalletLabel(address)), [address])
   const pathname = usePathname()
   const { t } = useI18n()
   const tRef = useRef(t)

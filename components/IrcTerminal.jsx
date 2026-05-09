@@ -16,6 +16,7 @@ import {
 } from '@/lib/market-commands';
 import { useIrcPresence } from '@/lib/irc-presence-context';
 import { colorFromAddress } from '@/lib/wallet-colors';
+import { formatWalletLabel } from '@/lib/wallet-format';
 
 const ACTIVE_WINDOW_MS = 90_000;
 const MAX_SESSION_MESSAGES = 500;
@@ -128,14 +129,14 @@ function getSlashHead(value) {
 function shortenWallet(value) {
   const wallet = String(value || '');
   if (wallet.length <= 18) return wallet;
-  return `${wallet.slice(0, 10)}…${wallet.slice(-6)}`;
+  return formatWalletLabel(wallet);
 }
 
 function shortenMarketWallet(value) {
   const wallet = String(value || '');
   if (!wallet) return '';
   if (wallet.length <= 14) return wallet;
-  return `${wallet.slice(0, 6)}...${wallet.slice(-4)}`;
+  return formatWalletLabel(wallet);
 }
 
 function formatIrcWalletLabel(wallet) {
@@ -145,8 +146,8 @@ function formatIrcWalletLabel(wallet) {
 
 function formatChatAuthor(wallet, normalizedWallet, youLabel) {
   const normalized = String(wallet || '').toLowerCase();
-  const suffix = normalized.length >= 5 ? normalized.slice(-5) : normalized;
-  const baseLabel = normalized === IRC_ADMIN_WALLET ? IRC_ADMIN_LABEL : IRC_BOT_WALLETS.has(normalized) ? `${suffix}(bot)@MM3·:~$` : `${suffix}@MM3·:~$`;
+  const label = formatWalletLabel(normalized);
+  const baseLabel = normalized === IRC_ADMIN_WALLET ? IRC_ADMIN_LABEL : IRC_BOT_WALLETS.has(normalized) ? `${label}(bot)@MM3·:~$` : `${label}@MM3·:~$`;
   return normalized === normalizedWallet ? `${baseLabel} (${youLabel})` : baseLabel;
 }
 
@@ -255,7 +256,7 @@ function renderIrcTextLinks(displayText, tone, onWalletClick, blockMap, onBlockC
           style={{ color: colorFromAddress(addr) }}
           onClick={() => onWalletClick?.(addr)}
         >
-          {addr.slice(-5)}
+          {formatWalletLabel(addr)}
         </span>
       );
     } else if (blockLink) {
@@ -420,9 +421,9 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
       const emoji = block?.emoji || fallback?.emoji || '?';
       const hex = block ? getBlockHex(block.grid_row, block.grid_col) : key;
       const affectedWallets = penaltiesByCommandId.get(command.id) || penaltiesByKey.get(key) || [];
-      const affected = affectedWallets.join(' · ') || '0';
+      const affected = affectedWallets.map(formatWalletLabel).join(' · ') || '0';
       activeLines.push(
-        `${label.active} >> ${emoji} ${hex} >> ${t('irc.by')} ${command.wallet} >> ${label.affected}: ${affected} >> ${label.reset} ${formatResetIn(command.reset_at, language)}`
+        `${label.active} >> ${emoji} ${hex} >> ${t('irc.by')} ${formatWalletLabel(command.wallet)} >> ${label.affected}: ${affected} >> ${label.reset} ${formatResetIn(command.reset_at, language)}`
       );
     }
 
@@ -435,7 +436,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
       if (ownerWallets.length === 0) continue;
       const block = blockByKey.get(entry.key);
       const hex = block ? getBlockHex(block.grid_row, block.grid_col) : entry.key;
-      const readyWallets = ownerWallets.join(' · ');
+      const readyWallets = ownerWallets.map(formatWalletLabel).join(' · ');
       readyLines.push(`${label.ready} >> ${entry.emoji} ${hex} >> ${label.wallets}: ${readyWallets}`);
     }
 
@@ -884,7 +885,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
   useEffect(() => {
     const build = () => {
       if (!presenceReady) return;
-      const walletParts = connectedWallets.map((u) => u.wallet);
+      const walletParts = connectedWallets.map((u) => formatWalletLabel(u.wallet));
       const n = walletParts.length;
       const walletLabel = t('irc.wallets');
       const listPart = n === 0
@@ -1028,12 +1029,12 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
               .from('mm3_command_penalties')
               .select('wallet')
               .eq('command_id', rec.id);
-            const affected = (penaltyRows || []).map((row) => row.wallet).join(' · ') || '0';
+            const affected = (penaltyRows || []).map((row) => formatWalletLabel(row.wallet)).join(' · ') || '0';
             appendAndBroadcastMessage(makeMessage({
               id: `market-event:on:${rec.id}`,
               kind: 'system',
               wallet: 'system',
-              text: `${traceLabel.exec} >> ${emoji} ${hex} >> ${t('irc.by')} ${rec.wallet} >> ${traceLabel.affected}: ${affected} >> reset ${reset}`,
+              text: `${traceLabel.exec} >> ${emoji} ${hex} >> ${t('irc.by')} ${formatWalletLabel(rec.wallet)} >> ${traceLabel.affected}: ${affected} >> reset ${reset}`,
               ts: Date.now(),
               tone: 'market',
             }), { silent: false });
@@ -1077,7 +1078,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
           id: `market-event:${rec.event_type}:${rec.id || rec.created_at || Date.now()}`,
           kind: 'system',
           wallet: 'system',
-          text: `${action} >> ${emoji}${hex ? ` ${hex}` : ''} >> ${rec.wallet}`,
+          text: `${action} >> ${emoji}${hex ? ` ${hex}` : ''} >> ${formatWalletLabel(rec.wallet)}`,
           ts: Date.now(),
           tone: 'market',
         }), { silent: false });
@@ -1300,7 +1301,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
       if (launcher?.market_nftji_key !== commandEntry.key) {
         const hex = blockRow ? getBlockHex(blockRow.grid_row, blockRow.grid_col) : commandEntry.key;
         const emoji = blockRow?.emoji || commandEntry.emoji;
-        await broadcastSystemMessage(`${t('irc.commandRejected')} >> ${normalizedWallet} ${t('irc.doesNotOwn')} ${hex}${emoji}`, 'command');
+        await broadcastSystemMessage(`${t('irc.commandRejected')} >> ${formatWalletLabel(normalizedWallet)} ${t('irc.doesNotOwn')} ${hex}${emoji}`, 'command');
         return true;
       }
 
@@ -1464,8 +1465,8 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
         });
         if (malformedPublicCommand) {
           const hackText = language === 'es'
-            ? `ERR: intento de hackeo del sistema >> wallet=${normalizedWallet} >> input=${text} >> expected=${malformedPublicCommand.command}`
-            : `ERR: system hack attempt >> wallet=${normalizedWallet} >> input=${text} >> expected=${malformedPublicCommand.command}`;
+            ? `ERR: intento de hackeo del sistema >> wallet=${formatWalletLabel(normalizedWallet)} >> input=${text} >> expected=${malformedPublicCommand.command}`
+            : `ERR: system hack attempt >> wallet=${formatWalletLabel(normalizedWallet)} >> input=${text} >> expected=${malformedPublicCommand.command}`;
           await broadcastSystemMessage(hackText, 'command');
           try {
             await supabase.from('mm3_irc_messages').insert({

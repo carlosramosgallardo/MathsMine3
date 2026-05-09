@@ -3,6 +3,7 @@
 import { useEffect, useState, useMemo, useCallback } from 'react'
 import { useI18n } from '@/lib/i18n-context'
 import { getDiceWindowForHour } from '@/lib/dice'
+import { formatWalletLabel } from '@/lib/wallet-format'
 import {
   AreaChart,
   Area,
@@ -120,7 +121,7 @@ const BOT_WALLET_ADDRS = new Set([
 
 function WalletTag({ wallet, className = '' }) {
   const addr = String(wallet || '').toLowerCase()
-  const short = addr.slice(-5)
+  const short = formatWalletLabel(addr)
   if (!short) return <span className={className}>—</span>
   if (BOT_WALLET_ADDRS.has(addr)) {
     return (

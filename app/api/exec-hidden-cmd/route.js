@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic';
 import { createClient } from '@supabase/supabase-js';
 import { clampRankLevel } from '@/lib/ranks';
 import { getMarketCommandForKey } from '@/lib/market-commands';
+import { formatWalletLabel } from '@/lib/wallet-format';
 
 function getBlockHex(row, col) {
   return '#' + ((Number(row) || 0) * 28 + (Number(col) || 0)).toString(16).toUpperCase().padStart(3, '0');
@@ -213,7 +214,7 @@ export async function POST(req) {
   const amountStr = isMm3Hidden
     ? `${totalStolenMm3.toFixed(8).replace(/\.?0+$/, '') || '0'} MM3`
     : `€${totalStolenEur.toFixed(2)}`;
-  const shortWallet = `${wallet.slice(0, 8)}…${wallet.slice(-6)}`;
+  const shortWallet = formatWalletLabel(wallet);
   const traceEn = `System hacked by ${shortWallet} via ${hex} "${command}" ${block.emoji} — ${amountStr} injected into wallet.`;
   const traceEs = `Sistema hackeado por ${shortWallet} vía ${hex} "${command}" ${block.emoji} Se ha inyectado ${amountStr} en su wallet.`;
 

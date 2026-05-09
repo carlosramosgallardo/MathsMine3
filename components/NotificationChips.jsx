@@ -4,11 +4,12 @@ import { useState, useCallback, useEffect } from 'react';
 import { useActiveWallet } from '@/lib/use-active-wallet';
 import { useI18n } from '@/lib/i18n-context';
 import { colorFromAddress } from '@/lib/wallet-colors';
+import { formatWalletLabel } from '@/lib/wallet-format';
 import supabase from '@/lib/supabaseClient';
 
 function shortWallet(wallet) {
   const s = String(wallet || '').trim();
-  return s ? s.slice(-5).toUpperCase() : '';
+  return s ? formatWalletLabel(s).toUpperCase() : '';
 }
 
 const LABELS = {

@@ -10,6 +10,7 @@ import { colorFromAddress } from '@/lib/wallet-colors';
 import { normalizeWalletDecorations, getEmojiTitle, TRADE_SLOT_ORDER, SQUEEZE_SLOT_ORDER } from '@/lib/wallet-decorations';
 import { useCurrency } from '@/lib/currency-context';
 import { useActiveWallet } from '@/lib/use-active-wallet';
+import { formatWalletLabel } from '@/lib/wallet-format';
 import PageLoading from '@/components/PageLoading';
 
 function getBlockHexFromCoords(row, col) {
@@ -63,7 +64,7 @@ function normalizeWallet(value) {
 function shortWallet(wallet) {
   const normalized = String(wallet || '').trim();
   if (!normalized) return '';
-  return normalized.slice(-5).toUpperCase();
+  return formatWalletLabel(normalized).toUpperCase();
 }
 
 function avg(values) {
@@ -1506,7 +1507,7 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
                   style={{ color: walletColor }}
                   title={isSelectedWallet ? t('leaderboard.showAllWallets') : t('leaderboard.showOnlyWallet')}
                 >
-                  {entry.is_bot ? <><span>{shortWallet(entry.wallet).toLowerCase()}</span><span className="ml-1 text-[0.62rem] font-black uppercase tracking-widest text-slate-500">(bot)</span></> : entry.wallet}
+                  {entry.is_bot ? <><span>{shortWallet(entry.wallet).toLowerCase()}</span><span className="ml-1 text-[0.62rem] font-black uppercase tracking-widest text-slate-500">(bot)</span></> : formatWalletLabel(entry.wallet)}
                 </button>
                 {entry.pool_code ? (
                   <button
@@ -1958,7 +1959,7 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
                         style={{ color: walletColor }}
                         title={isSelectedWallet ? t('leaderboard.showAllWallets') : t('leaderboard.showOnlyWallet')}
                       >
-                        {entry.is_bot ? <><span>{shortWallet(entry.wallet).toLowerCase()}</span><span className="ml-1 text-[0.62rem] font-black uppercase tracking-widest text-slate-500">(bot)</span></> : entry.wallet}
+                        {entry.is_bot ? <><span>{shortWallet(entry.wallet).toLowerCase()}</span><span className="ml-1 text-[0.62rem] font-black uppercase tracking-widest text-slate-500">(bot)</span></> : formatWalletLabel(entry.wallet)}
                       </button>
                       {activeWallet && !isActiveWallet && !isPoolCooldown && !poolInActiveDispute ? (
                         <button
