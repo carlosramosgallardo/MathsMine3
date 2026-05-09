@@ -1221,10 +1221,10 @@ BEGIN
 
   END IF;
 
-  -- NFTJI drop roll: 1/25 chance, deterministic per dispute
+  -- NFTJI drop roll: 1/5 chance, deterministic per dispute
   -- Type: 50/50 attack/defense. Winners can claim it voluntarily.
   v_drop_type := NULL;
-  IF (hashtext(p_dispute_id::text || 'nftdrop')::bigint & 2147483647) % 25 = 0 THEN
+  IF (hashtext(p_dispute_id::text || 'nftdrop')::bigint & 2147483647) % 5 = 0 THEN
     IF (hashtext(p_dispute_id::text || 'nftdroptype')::bigint & 1) = 0 THEN
       v_drop_type := 'attack';
     ELSE
