@@ -3,6 +3,8 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { colorFromAddress } from '@/lib/wallet-colors';
 import supabase from '@/lib/supabaseClient';
+import { useCurrency } from '@/lib/currency-context';
+import { CNY_TO_EUR, CNY_TO_USD, formatMoney } from '@/lib/sell-offer';
 
 const STATUS_LABELS = {
   proposing:    { es: 'PROPUESTA',      en: 'PROPOSAL',     color: '#a78bfa' },
@@ -21,6 +23,17 @@ const WINNER_LABELS = {
 function fmt(n, dec = 2) {
   if (n === null || n === undefined) return '—';
   return Number(n).toFixed(dec);
+}
+
+function eurToCurrency(value, currency) {
+  const eur = Number(value) || 0;
+  if (currency === 'USD') return eur * (CNY_TO_USD / CNY_TO_EUR);
+  if (currency === 'CNY') return eur / CNY_TO_EUR;
+  return eur;
+}
+
+function formatEurAsCurrency(value, currency) {
+  return formatMoney(eurToCurrency(value, currency), currency);
 }
 
 function useCountdown(targetMs) {
@@ -144,7 +157,7 @@ function MarketBlockLink({ label, emoji, blockKey, onMarketBlockClick, title }) 
   );
 }
 
-function DisputeCard({ dispute, activeWallet, poolCode, language, onJoin, onClaimDrop, onWalletClick, onPoolClick, onMarketBlockClick, emojiByWallet, sqzNftjiByWallet }) {
+function DisputeCard({ dispute, activeWallet, poolCode, language, currency, onJoin, onClaimDrop, onWalletClick, onPoolClick, onMarketBlockClick, emojiByWallet, sqzNftjiByWallet }) {
   const lang = language === 'es' ? 'es' : 'en';
   const statusMeta = STATUS_LABELS[dispute.status] || STATUS_LABELS.resolved;
   const isProposing   = dispute.status === 'proposing';
@@ -390,7 +403,7 @@ function DisputeCard({ dispute, activeWallet, poolCode, language, onJoin, onClai
               <div style={{ fontSize: '0.72rem', color: '#94a3b8', marginTop: 2 }}>
                 {lang === 'es' ? 'Transferido' : 'Transferred'}{': '}
                 <span style={{ color: '#4ade80' }}>
-                  {fmt(dispute.result_summary.transfer_eur, 4)} EUR
+                  {formatEurAsCurrency(dispute.result_summary.transfer_eur, currency)}
                 </span>
               </div>
             )}
@@ -519,7 +532,7 @@ function DisputeCard({ dispute, activeWallet, poolCode, language, onJoin, onClai
                         })()}
                         {isResolved && w.delta_eur !== 0 && (
                           <span style={{ marginLeft: 'auto', color: w.delta_eur > 0 ? '#4ade80' : '#f87171', fontFamily: 'monospace' }}>
-                            {w.delta_eur > 0 ? '+' : ''}{fmt(w.delta_eur, 4)}€
+                            {w.delta_eur > 0 ? '+' : ''}{formatEurAsCurrency(w.delta_eur, currency)}
                           </span>
                         )}
                       </div>
@@ -543,7 +556,7 @@ function DisputeCard({ dispute, activeWallet, poolCode, language, onJoin, onClai
               { label: 'n', ch: dispute.ch_wallet_count, df: dispute.df_wallet_count },
               { label: lang === 'es' ? 'Σnivel' : 'Σlevel', ch: dispute.ch_level_sum, df: dispute.df_level_sum },
               { label: 'ΣMM3', ch: fmt(dispute.ch_mm3_sum), df: fmt(dispute.df_mm3_sum) },
-              { label: 'ΣEUR', ch: fmt(dispute.ch_eur_sum), df: fmt(dispute.df_eur_sum) },
+              { label: `Σ${currency}`, ch: formatEurAsCurrency(dispute.ch_eur_sum, currency), df: formatEurAsCurrency(dispute.df_eur_sum, currency) },
               { label: 'NFTJIs', ch: dispute.ch_nftji_count, df: dispute.df_nftji_count },
               { label: 'Σ✦NFTJI', ch: chWallets.reduce((s, w) => s + (w.nftji_snap || 0), 0), df: dfWallets.reduce((s, w) => s + (w.nftji_snap || 0), 0) },
               { label: 'Mkt.NFTJI', ch: dispute.ch_market_nftji_count ?? '—', df: dispute.df_market_nftji_count ?? '—' },
@@ -607,7 +620,7 @@ function DisputeCard({ dispute, activeWallet, poolCode, language, onJoin, onClai
             {isResolved && (
               <div style={{ marginTop: 3 }}>
                 {lang === 'es' ? 'apuesta' : 'stake'}{': '}
-                <span style={{ color: '#94a3b8' }}>5% EUR por wallet</span>
+                <span style={{ color: '#94a3b8' }}>5% {currency} {lang === 'es' ? 'por wallet' : 'per wallet'}</span>
                 {' → '}
                 <span style={{ color: '#4ade80' }}>55% {lang === 'es' ? 'del perdedor al ganador' : 'of loser transferred to winner'}</span>
               </div>
@@ -621,6 +634,7 @@ function DisputeCard({ dispute, activeWallet, poolCode, language, onJoin, onClai
 
 export default function DisputesPanel({ wallet, poolCode, language, onWalletClick, onPoolClick, onMarketBlockClick }) {
   const lang = language === 'es' ? 'es' : 'en';
+  const { currency } = useCurrency();
   const [disputes, setDisputes] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -629,6 +643,44 @@ export default function DisputesPanel({ wallet, poolCode, language, onWalletClic
   const [sqzNftjiByWallet, setSqzNftjiByWallet] = useState({});
   const pollingRef = useRef(null);
   const transitioningRef = useRef(new Set());
+  const notifiedResolvedRef = useRef(new Set());
+  const firstFetchRef = useRef(true);
+
+  const notifyResolvedSqueezes = useCallback((disputeList) => {
+    const resolved = (disputeList || []).filter((d) => d.status === 'resolved');
+    if (firstFetchRef.current) {
+      for (const d of resolved) notifiedResolvedRef.current.add(d.id);
+      firstFetchRef.current = false;
+      return;
+    }
+
+    for (const d of resolved) {
+      if (notifiedResolvedRef.current.has(d.id)) continue;
+      notifiedResolvedRef.current.add(d.id);
+      const winnerPool = d.winner === 'challenger'
+        ? d.challenger_pool_code
+        : d.winner === 'defender'
+          ? d.defender_pool_code
+          : '';
+      const loserPool = d.winner === 'challenger'
+        ? d.defender_pool_code
+        : d.winner === 'defender'
+          ? d.challenger_pool_code
+          : '';
+      const msg = d.winner === 'draw'
+        ? {
+            en: `FREAK SIGNAL :: SQUEEZE DRAW ${d.challenger_pool_code} VS ${d.defender_pool_code}`,
+            es: `FREAK SIGNAL :: EMPATE SQUEEZE ${d.challenger_pool_code} VS ${d.defender_pool_code}`,
+          }
+        : {
+            en: `FREAK SIGNAL :: ${winnerPool} WON SQUEEZE VS ${loserPool}`,
+            es: `FREAK SIGNAL :: ${winnerPool} GANA SQUEEZE VS ${loserPool}`,
+          };
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('mm3-toast', { detail: { msg, type: 'success' } }));
+      }
+    }
+  }, []);
 
   // Client-side Market NFTJI emoji lookup (direct Supabase — same as Leaderboard)
   const refreshEmojis = useCallback(async (disputeList) => {
@@ -673,16 +725,18 @@ export default function DisputesPanel({ wallet, poolCode, language, onWalletClic
       const res = await fetch('/api/wallet-pools/disputes?limit=50');
       const data = await res.json();
       if (data.ok) {
-        setDisputes(data.disputes || []);
-        refreshEmojis(data.disputes || []);
-        refreshSqueezeNftji(data.disputes || []);
+        const nextDisputes = data.disputes || [];
+        setDisputes(nextDisputes);
+        notifyResolvedSqueezes(nextDisputes);
+        refreshEmojis(nextDisputes);
+        refreshSqueezeNftji(nextDisputes);
       } else setError(data.error || 'fetch_error');
     } catch {
       setError('network_error');
     } finally {
       setIsLoading(false);
     }
-  }, [refreshEmojis, refreshSqueezeNftji]);
+  }, [notifyResolvedSqueezes, refreshEmojis, refreshSqueezeNftji]);
 
 
   // Poll every 3 seconds; trigger state transitions when timers expire
@@ -829,6 +883,7 @@ export default function DisputesPanel({ wallet, poolCode, language, onWalletClic
           activeWallet={wallet}
           poolCode={poolCode}
           language={language}
+          currency={currency}
           onJoin={handleJoin}
           onClaimDrop={handleClaimDrop}
           onWalletClick={onWalletClick}
@@ -851,6 +906,7 @@ export default function DisputesPanel({ wallet, poolCode, language, onWalletClic
               activeWallet={wallet}
               poolCode={poolCode}
               language={language}
+              currency={currency}
               onJoin={handleJoin}
               onWalletClick={onWalletClick}
               onPoolClick={onPoolClick}
