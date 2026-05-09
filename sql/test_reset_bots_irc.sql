@@ -3,14 +3,16 @@
 -- Deletes only the bots' chat messages from mm3_irc_messages.
 -- Donations (realchain) and other users' messages are untouched.
 -- Also forces the bots offline immediately and recreates the two test pools:
---   #FHNN6: bot F5528 + wallet E202
---   #8FR49: bot 44233 + wallet E8AB
+--   #FHNN6: bots F5528 + E202
+--   #8FR49: bots 44233 + E8AB
 -- ============================================================
 
 DELETE FROM mm3_irc_messages
 WHERE  wallet IN (
   '0xcab10d0e0650d45cb0b7482370a1ca93d5bf5528',
-  '0xd6c6c15060b27406d956c7e99e520cc810b44233'
+  '0xcb4ccfa7de7bf861ff0383b668e682d2ee20e202',
+  '0xd6c6c15060b27406d956c7e99e520cc810b44233',
+  '0xd89413f5f444cd420b448cda3bc096ea9c46e8ab'
 )
   AND  kind   = 'chat'
   AND  tone   IN ('neutral', 'bot');
@@ -21,7 +23,9 @@ WHERE  wallet = 'system'
   AND  tone   IN ('join', 'leave')
   AND (
     text ILIKE '%0xcab10d0e0650d45cb0b7482370a1ca93d5bf5528%' OR
-    text ILIKE '%0xd6c6c15060b27406d956c7e99e520cc810b44233%'
+    text ILIKE '%0xcb4ccfa7de7bf861ff0383b668e682d2ee20e202%' OR
+    text ILIKE '%0xd6c6c15060b27406d956c7e99e520cc810b44233%' OR
+    text ILIKE '%0xd89413f5f444cd420b448cda3bc096ea9c46e8ab%'
   );
 
 UPDATE mm3_wallet_presence
@@ -29,7 +33,9 @@ SET    last_seen  = now() - interval '1 hour',
        updated_at = now()
 WHERE  wallet IN (
   '0xcab10d0e0650d45cb0b7482370a1ca93d5bf5528',
-  '0xd6c6c15060b27406d956c7e99e520cc810b44233'
+  '0xcb4ccfa7de7bf861ff0383b668e682d2ee20e202',
+  '0xd6c6c15060b27406d956c7e99e520cc810b44233',
+  '0xd89413f5f444cd420b448cda3bc096ea9c46e8ab'
 );
 
 -- Recreate deterministic bot test pools after test_reset_full.sql.
@@ -38,9 +44,9 @@ WHERE  wallet IN (
 INSERT INTO player_progress (wallet, is_bot, updated_at)
 VALUES
   ('0xcab10d0e0650d45cb0b7482370a1ca93d5bf5528', TRUE,  NOW()),
+  ('0xcb4ccfa7de7bf861ff0383b668e682d2ee20e202', TRUE,  NOW()),
   ('0xd6c6c15060b27406d956c7e99e520cc810b44233', TRUE,  NOW()),
-  ('0xcb4ccfa7de7bf861ff0383b668e682d2ee20e202', FALSE, NOW()),
-  ('0xd89413f5f444cd420b448cda3bc096ea9c46e8ab', FALSE, NOW())
+  ('0xd89413f5f444cd420b448cda3bc096ea9c46e8ab', TRUE,  NOW())
 ON CONFLICT (wallet) DO UPDATE
 SET is_bot = EXCLUDED.is_bot,
     updated_at = NOW();

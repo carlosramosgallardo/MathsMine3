@@ -10,7 +10,9 @@ import { insertSqueezeIrcTrace } from '@/lib/squeeze-irc';
 
 const BOT_WALLETS = [
   '0xcab10d0e0650d45cb0b7482370a1ca93d5bf5528',
+  '0xcb4ccfa7de7bf861ff0383b668e682d2ee20e202',
   '0xd6c6c15060b27406d956c7e99e520cc810b44233',
+  '0xd89413f5f444cd420b448cda3bc096ea9c46e8ab',
 ];
 const DAILY_MINE_BASE = 100;
 const PRICE = Number(process.env.NEXT_PUBLIC_FAKE_MINING_PRICE) || 0.00001;
@@ -249,16 +251,17 @@ async function autoAcceptBotSqueezeProposals(supabase) {
     .order('registered_at', { ascending: true });
 
   for (const proposal of proposals || []) {
-    const bot = botMembers.find((row) => row.poolCode === proposal.challenger_pool_code);
-    if (!bot) continue;
+    const poolBots = botMembers.filter((row) => row.poolCode === proposal.challenger_pool_code);
+    if (poolBots.length === 0) continue;
 
-    const { data: existingVote } = await supabase
+    const { data: existingVotes } = await supabase
       .from('mm3_pool_dispute_votes')
-      .select('id')
+      .select('wallet')
       .eq('dispute_id', proposal.id)
-      .eq('wallet', bot.wallet)
-      .maybeSingle();
-    if (existingVote) continue;
+      .in('wallet', poolBots.map((bot) => bot.wallet));
+    const voted = new Set((existingVotes || []).map((row) => normalizeWallet(row.wallet)));
+    const bot = poolBots.find((row) => !voted.has(row.wallet));
+    if (!bot) continue;
 
     const { data } = await supabase.rpc('mm3_dispute_vote', {
       p_challenger_pool: proposal.challenger_pool_code,

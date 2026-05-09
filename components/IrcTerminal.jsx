@@ -47,7 +47,9 @@ const IRC_ADMIN_WALLET = '0xd89413f5f444cd420b448cda3bc096ea9c46e8ab';
 const IRC_ADMIN_LABEL = 'freakingAI@MM3·:~$';
 const IRC_BOT_WALLETS = new Set([
   '0xcab10d0e0650d45cb0b7482370a1ca93d5bf5528',
+  '0xcb4ccfa7de7bf861ff0383b668e682d2ee20e202',
   '0xd6c6c15060b27406d956c7e99e520cc810b44233',
+  '0xd89413f5f444cd420b448cda3bc096ea9c46e8ab',
 ]);
 
 function getBlockHex(row, col) {
@@ -147,13 +149,14 @@ function shortenMarketWallet(value) {
 
 function formatIrcWalletLabel(wallet) {
   const normalized = String(wallet || '').toLowerCase();
+  if (IRC_BOT_WALLETS.has(normalized)) return shortenWallet(normalized);
   return normalized === IRC_ADMIN_WALLET ? IRC_ADMIN_LABEL : shortenWallet(normalized);
 }
 
 function formatChatAuthor(wallet, normalizedWallet, youLabel) {
   const normalized = String(wallet || '').toLowerCase();
   const label = formatWalletLabel(normalized);
-  const baseLabel = normalized === IRC_ADMIN_WALLET ? IRC_ADMIN_LABEL : IRC_BOT_WALLETS.has(normalized) ? `${label}(bot)@MM3·:~$` : `${label}@MM3·:~$`;
+  const baseLabel = IRC_BOT_WALLETS.has(normalized) ? `${label}(bot)@MM3·:~$` : normalized === IRC_ADMIN_WALLET ? IRC_ADMIN_LABEL : `${label}@MM3·:~$`;
   return normalized === normalizedWallet ? `${baseLabel} (${youLabel})` : baseLabel;
 }
 

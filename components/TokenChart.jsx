@@ -116,7 +116,9 @@ function groupColor(evts) {
 
 const BOT_WALLET_ADDRS = new Set([
   '0xcab10d0e0650d45cb0b7482370a1ca93d5bf5528',
+  '0xcb4ccfa7de7bf861ff0383b668e682d2ee20e202',
   '0xd6c6c15060b27406d956c7e99e520cc810b44233',
+  '0xd89413f5f444cd420b448cda3bc096ea9c46e8ab',
 ])
 
 function WalletTag({ wallet, className = '' }) {
