@@ -794,65 +794,30 @@ Read:
 
 MathsMine3 convierte las matemáticas en presión, recompensa, memoria, riesgo y ritual.
 
-No es una clase con skin. Es un juego-mundo de terminal: resuelve rápido, mina MM3 falso, sube de rango, pierde nivel cuando fallas, comercia dentro de un exchange ficticio, colecciona NFTJIs, dispara comandos del Market, aparece en IRC y vuelve después de cada reset más afilado que antes.
+No es una clase con skin. Es un juego-mundo de terminal: resuelve rápido, mina MM3 falso, sube de rango, pierde nivel cuando fallas, comercia dentro de un exchange ficticio, colecciona NFTJIs, dispara comandos del Market, participa en en el chat IRC y vuelve después de cada reset más afilado que antes.
 
 La idea útil es simple: **la matemática se convierte en acción**. Cada problema resuelto no es solo puntuación; mueve una wallet, un rango, un mercado ficticio y un estado público compartido.
 
-```txt
-resolver → minar → nivel → coleccionar → exec → pool → squeeze → comandar → reclamar → reset
-```
-
-| Principio | Significado de Diseño |
-|---|---|
-| Matemáticas como acción | Los problemas cronometrados son eventos de juego, no fichas de ejercicios. |
-| Wallet como identidad | El progreso pertenece a una identidad persistente. |
-| Economía como simulación | MM3 no tiene valor externo, pero cada acción afecta a la ficción. |
-| Comunidad como cultura terminal | IRC, comandos del Market, rankings y wallets visibles hacen público el juego. |
-
 ---
 
-## Loop de Juego
+## Mecánica del juego
 
-```txt
-$ drill --resolver --minar --nivel --exec --pool --squeeze --market --reclamar --reset
-```
-
-1. Asigna un DRILL SLOT → resuelve un problema bajo presión de tiempo.
-2. La respuesta correcta mina MM3 ficticio. La incorrecta baja tu nivel.
-3. Sube nivel — desbloquea rondas más rápidas, mejores recompensas y drops probabilísticos de NFTJIs.
-4. Tradea MM3 en el terminal de exchange (EXECs) — cada EXEC añade un DRILL SLOT permanente.
-5. Forma o únete a un Pool — rango compartido, identidad IRC, fuerza de coalición.
-6. Reta a un Pool rival a un Squeeze — apuesta EUR, el score se resuelve con modificadores del mundo, el 45% se quema.
-7. Compra bloques NFTJI del Market — cada uno domina un slot IRC diario y una ruta de comando oculta.
-8. Dispara comandos IRC para penalizar rivales. Descifra la fórmula para cancelar golpes entrantes.
-9. Completa tareas diarias (MINING / TRADING / MARKET / IRC / SQUEEZE / HIDDEN) — reclama recompensas en EUR ficticio.
-10. Observa cómo el valor global de MM3 oscila con cada acción del ecosistema.
-11. El reset UTC borra los contadores. Vuelve más afilado que antes.
-
----
-
-## Sistemas Base
-
-| Sistema | Qué Hace |
+| Sistema | Qué Hacer |
 |---|---|
-| Mining chain | Rondas cronometradas, recompensas, penalizaciones y movimiento de nivel |
-| Motor de problemas | 13 familias matemáticas con dificultad escalable |
-| Capa wallet | Wallet real de Ethereum o wallet virtual determinista de Google |
-| Límites diarios | DRILL SLOTS, EXECs de Trade, comandos del Market, intentos de código |
-| Trade MM3 | Terminal ficticio de compra/venta de MM3 y balances fiat de juego |
-| Estado mundo | War, Nature y modificador horario Dice afectan la atmósfera |
-| Gráfico MM3 | Histórico de valor ficticio alimentado por eventos del juego |
+| Login vs. Anónimo | Siéntete libre de jugar anónimante en MINING y navegar por el portal. Existen bots que están compitiendo activamente en el ranking | Cuanod te decias, si no quieres usar una wallet real, usa una de google para que el sistema de genere una exclusiva para tí en MAthsMine3 |
+| Stats del mundo | War, Meteo y Dice afectan y son afectados por las diferentes operaciones que se realizan en el juego. Merece la pena tenerlos en cuenta en todo momento |
+| Mining | Mina MM3 acertando preguntas de mates de diferentes tipo y subiendo de nivel. Si tardas en contestar y aciertas, minarás en negativo. Si fallas, bajarás de nivel, a no ser que tenga el dinero necesario para comprar la vida, pero solo la podrás comprar y usar una vez. En ocasionas, si aciertas, obtendrás NFTJIs que irás acumulando y potenciarán tu progresión |
+| Trading | Cuando tengas suficiente MM3, puedes venderlo por dinero. Y cuando necesites más MM3, puedes comprarlo. Pero ¡ojo a los intereres! |
+| Ranking y Pools | Comprueba tu posición, fondos y NFTJIs y compárate con el resto de Wallets y de pools. Forma parte de uno o trabaja de manera autónoma. Tú decides |
+| Squeeze | Diputa pool vs pool. Comprende la fórmula aplicada para ser ganador, junto con tus wallets de confianza, si es que te puedes fiar de alguien. En ocasionas, si tu pool gana, obtendréis NFTJIs que iréis acumulando y catapultarán vuestra alianza |
 | Market board | Grid 28x28 con bloques NFTJI vinculados a comandos |
-| Pools | Coaliciones de wallets con rango compartido e identidad IRC |
-| Squeeze | Combate pool vs pool — score con modificadores del mundo, stakes EUR, 45% quemado |
-| IRC relay | Terminal social persistente con presencia de wallets y eventos |
-| Ranking | Memoria pública: nivel, MM3, trades, NFTJIs, penalizaciones |
+| IRC | Terminal social persistente con presencia de wallets y eventos. Aunque no estés logado puedes ver lo que se va cociendo día a día hasta que te animes a probarlo |
+| MM3 | Histórico de valor global alimentado por eventos del juego. Tan importante son los fondos propios o compartidados como lo es el valor del MM3. La pregunta es, ¿por qué? |
+| Recompensas diarias | Completa el máximo de tareas cada día de MINING, TRADING, SQUEEZE e IRC, para obtener algo de dinero extra, que no te vendrá mal |
 
 ---
 
 ## Mining
-
-Mining es el loop principal de habilidad. Las respuestas correctas rápidas producen mejores recompensas MM3. Las correctas lentas pueden producir pequeñas recompensas negativas. Las incorrectas reducen nivel.
 
 ### Familias de Problemas
 
@@ -921,7 +886,7 @@ El nivel siempre queda entre 0 y 100.
 
 ## Límites Diarios
 
-Todas las cuotas se reinician a medianoche UTC.
+Todas las cuotas se reinician a las 24h desde su lanzamiento.
 
 | Recurso | Base | Bonus | Uso |
 |---|---:|---:|---|
@@ -980,34 +945,20 @@ Los rangos afectan estatus, ritmo y tasas de Trade MM3.
 | Wallet de Ethereum | Dirección real mediante Web3Modal / Wagmi. El gameplay no requiere transacciones on-chain. |
 | Wallet virtual de Google | Dirección virtual determinista generada desde el ID de la cuenta de Google. |
 
-Persistido por wallet:
-
-- Nivel y rango
-- Balance MM3
-- Balances ficticios CNY / EUR / USD
-- NFTJIs de mining y NFTJIs del Market
-- Bonus de DRILL SLOTS
-- Conteo de EXECs
-- Estado del revive de un uso
-- Propiedad del Market
-- Membresía de Pool
-- Preferencias de idioma y moneda
-
-Los colores de wallet son deterministas: la misma identidad conserva la misma firma visual en AuthBar, Ranking, IRC y chat.
-
 ---
 
 ## NFTJIs
 
-Los NFTJIs son objetos de juego asociados a la wallet. No son activos financieros.
+Los NFTJIs son objetos de juego asociados a la wallet. 
 
 | Tipo | Cómo Aparece | Valor de Juego |
 |---|---|---|
-| Drop de mining | Tirada rara tras respuestas correctas | Colección y shocks económicos |
+| NFTJI de mining | Tirada rara tras respuestas correctas | Colección y shocks económicos |
 | Heart revive | Opción de emergencia de un uso | Cancela una penalización por fallo |
-| NFTJI del Market | Compra o reventa en el Market board | Desbloquea comando IRC diario |
+| NFTJI de Market | Compra o reventa en el Market board | Desbloquea comando IRC diario |
+| NFTJI de Squeeze | Compra o reventa en el Market board | Desbloquea comando IRC diario |
 
-### Drops de Mining
+### NFTJIs de Mining
 
 | NFTJI | Probabilidad | Nota |
 |---|---:|---|
@@ -1069,7 +1020,7 @@ Cada EXEC:
 
 - Cuenta para el límite diario de 5 trades.
 - Añade +1 DRILL SLOT permanente.
-- Muta War / Nature.
+- Modifica War / Nature.
 - Alimenta la simulación global de actividad.
 
 ---
