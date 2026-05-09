@@ -571,7 +571,7 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
           const lvl = getSqueezeLevel(m.squeeze_nftji, slot.key);
           return lvl >= 0 ? acc + Math.max(0, lvl) : acc;
         }, 0);
-        if (levelSum > 0) sums[slot.emoji] = levelSum;
+        if (count > 0) sums[slot.emoji] = levelSum;
         return sums;
       }, {});
       const totalNftjis = Object.values(poolEmojiCounts).reduce((sum, count) => sum + count, 0)
@@ -1410,7 +1410,7 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
                         }}
                       >
                         <span style={{ fontSize: showLvl ? '0.72rem' : '0.88rem', lineHeight: 1 }}>{owned ? slot.emoji : ''}</span>
-                        {showLvl && <span style={{ fontSize: '0.48rem', fontFamily: 'monospace', color: tier.color, fontWeight: 800, lineHeight: 1 }}>{slotLvl}</span>}
+                        {showLvl && <span style={{ fontSize: '0.48rem', fontFamily: 'monospace', color: tier.color, fontWeight: 800, lineHeight: 1 }}>Lv.{slotLvl}</span>}
                       </div>
                     );
                   })}
@@ -1422,7 +1422,7 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
                     return (
                       <div
                         key={slot.key}
-                        title={owned ? `${getEmojiTitle(slot.emoji)} ×${count}${lvlSum > 0 ? ` Lv.${lvlSum}` : ''}` : getEmojiTitle(slot.emoji)}
+                        title={owned ? `${getEmojiTitle(slot.emoji)} ×${count} Lv.${lvlSum}` : getEmojiTitle(slot.emoji)}
                         className="relative flex flex-col items-center justify-center rounded border"
                         style={{
                           width: '1.5rem', height: '1.5rem',
@@ -1432,8 +1432,8 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
                           boxShadow: owned ? `0 0 8px ${color}25` : 'none',
                         }}
                       >
-                        <span style={{ fontSize: owned && (count > 1 || lvlSum > 0) ? '0.72rem' : '0.88rem', lineHeight: 1 }}>{owned ? slot.emoji : ''}</span>
-                        {owned && (count > 1 || lvlSum > 0) && <span style={{ fontSize: '0.48rem', fontFamily: 'monospace', color, fontWeight: 800, lineHeight: 1 }}>×{count}{lvlSum > 0 ? ` L${lvlSum}` : ''}</span>}
+                        <span style={{ fontSize: owned ? '0.72rem' : '0.88rem', lineHeight: 1 }}>{owned ? slot.emoji : ''}</span>
+                        {owned && <span style={{ fontSize: '0.48rem', fontFamily: 'monospace', color, fontWeight: 800, lineHeight: 1 }}>{count > 1 ? `×${count} ` : ''}Lv.{lvlSum}</span>}
                       </div>
                     );
                   })}
@@ -1446,12 +1446,12 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
                       const lvlSum = Number(entry.market_emoji_level_sums?.[emoji] || 0);
                       return (
                         <div key={`mkt-${emoji}`}
-                          title={`Market NFTJI ${emoji} — ${count} member${count !== 1 ? 's' : ''}${lvlSum > 0 ? ` · Lv.${lvlSum}` : ''}`}
+                          title={`Market NFTJI ${emoji} — ${count} member${count !== 1 ? 's' : ''} · Lv.${lvlSum}`}
                           className="relative flex h-6 w-6 flex-col items-center justify-center rounded border"
                           style={{ borderColor: 'rgba(250,204,21,0.6)', background: tier.bg, color: '#fef08a', boxShadow: '0 0 8px rgba(250,204,21,0.25)' }}
                         >
-                          <span style={{ fontSize: count > 1 || lvlSum > 0 ? '0.72rem' : '0.90rem', lineHeight: 1 }}>{emoji}</span>
-                          {(count > 1 || lvlSum > 0) ? <span className="font-mono text-[0.48rem] font-black leading-none text-cyan-100/90">×{count}{lvlSum > 0 ? ` L${lvlSum}` : ''}</span> : null}
+                          <span style={{ fontSize: '0.72rem', lineHeight: 1 }}>{emoji}</span>
+                          <span className="font-mono text-[0.48rem] font-black leading-none text-cyan-100/90">{count > 1 ? `×${count} ` : ''}Lv.{lvlSum}</span>
                         </div>
                       );
                     })()
@@ -1596,7 +1596,7 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
                         }}
                       >
                         <span style={{ fontSize: showLvl ? '0.72rem' : '0.88rem', lineHeight: 1 }}>{owned ? slot.emoji : ''}</span>
-                        {showLvl && <span style={{ fontSize: '0.48rem', fontFamily: 'monospace', color: tier.color, fontWeight: 800, lineHeight: 1 }}>{slotLvl}</span>}
+                        {showLvl && <span style={{ fontSize: '0.48rem', fontFamily: 'monospace', color: tier.color, fontWeight: 800, lineHeight: 1 }}>Lv.{slotLvl}</span>}
                       </div>
                     );
                   })}
@@ -1618,7 +1618,7 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
                         }}
                       >
                         <span style={{ fontSize: owned ? '0.72rem' : '0.88rem', lineHeight: 1 }}>{owned ? slot.emoji : ''}</span>
-                        {owned && <span style={{ fontSize: '0.48rem', fontFamily: 'monospace', color, fontWeight: 800, lineHeight: 1 }}>{Math.max(0, lvl)}</span>}
+                        {owned && <span style={{ fontSize: '0.48rem', fontFamily: 'monospace', color, fontWeight: 800, lineHeight: 1 }}>Lv.{Math.max(0, lvl)}</span>}
                       </div>
                     );
                   })}
@@ -1641,7 +1641,7 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
                         }}
                       >
                         <span style={{ fontSize: mOwned ? '0.72rem' : '0.88rem', lineHeight: 1 }}>{mOwned ? mBlock.emoji : ''}</span>
-                        {mOwned && <span style={{ fontSize: '0.48rem', fontFamily: 'monospace', color: '#fef08a', fontWeight: 800, lineHeight: 1 }}>{mLevel}</span>}
+                        {mOwned && <span style={{ fontSize: '0.48rem', fontFamily: 'monospace', color: '#fef08a', fontWeight: 800, lineHeight: 1 }}>Lv.{mLevel}</span>}
                       </button>
                     );
                   })()}
@@ -1809,7 +1809,7 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
                         return (
                           <div
                             key={slot.key}
-                            title={owned ? `${getEmojiTitle(slot.emoji)} ×${count}${lvlSum > 0 ? ` Lv.${lvlSum}` : ''}` : getEmojiTitle(slot.emoji)}
+                            title={owned ? `${getEmojiTitle(slot.emoji)} ×${count} Lv.${lvlSum}` : getEmojiTitle(slot.emoji)}
                             className="lb-slot-cell flex flex-col items-center justify-center rounded-md border"
                             style={{
                               borderColor,
@@ -1840,7 +1840,7 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
                         return (
                           <div
                             key={slot.key}
-                            title={owned ? `${getEmojiTitle(slot.emoji)} ×${count}${lvlSum > 0 ? ` Lv.${lvlSum}` : ''}` : getEmojiTitle(slot.emoji)}
+                            title={owned ? `${getEmojiTitle(slot.emoji)} ×${count} Lv.${lvlSum}` : getEmojiTitle(slot.emoji)}
                             className="lb-slot-cell flex flex-col items-center justify-center rounded-md border"
                             style={{
                               borderColor: owned ? `${color}99` : `${color}33`,
@@ -1849,10 +1849,10 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
                               boxShadow: owned ? `0 0 12px ${color}25` : 'none',
                             }}
                           >
-                            <span style={{ fontSize: owned && (count > 1 || lvlSum > 0) ? '0.78rem' : '0.95rem', lineHeight: 1 }}>{owned ? slot.emoji : ''}</span>
-                            {owned && (count > 1 || lvlSum > 0) && (
+                            <span style={{ fontSize: owned ? '0.78rem' : '0.95rem', lineHeight: 1 }}>{owned ? slot.emoji : ''}</span>
+                            {owned && (
                               <span style={{ fontSize: '0.5rem', fontFamily: 'monospace', fontWeight: 800, lineHeight: 1, color: '#a5f3fc' }}>
-                                ×{count}{lvlSum > 0 ? ` L${lvlSum}` : ''}
+                                {count > 1 ? `×${count} ` : ''}Lv.{lvlSum}
                               </span>
                             )}
                           </div>
@@ -1866,12 +1866,12 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
                         const lvlSum = Number(entry.market_emoji_level_sums?.[emoji] || 0);
                         return (
                           <div key={`mkt-${emoji}`}
-                            title={`Market NFTJI ${emoji} — ${count} member${count !== 1 ? 's' : ''}${lvlSum > 0 ? ` · Lv.${lvlSum}` : ''}`}
+                            title={`Market NFTJI ${emoji} — ${count} member${count !== 1 ? 's' : ''} · Lv.${lvlSum}`}
                             className="lb-slot-cell relative flex flex-col items-center justify-center rounded-md border"
                             style={{ borderColor: 'rgba(250,204,21,0.6)', background: tier.bg, color: '#fef08a', boxShadow: '0 0 12px rgba(250,204,21,0.25)' }}
                           >
-                            <span style={{ fontSize: count > 1 || lvlSum > 0 ? '0.78rem' : '0.95rem', lineHeight: 1 }}>{emoji}</span>
-                            {(count > 1 || lvlSum > 0) ? <span className="font-mono text-[0.52rem] font-black leading-none text-cyan-200">×{count}{lvlSum > 0 ? ` L${lvlSum}` : ''}</span> : null}
+                            <span style={{ fontSize: '0.78rem', lineHeight: 1 }}>{emoji}</span>
+                            <span className="font-mono text-[0.52rem] font-black leading-none text-cyan-200">{count > 1 ? `×${count} ` : ''}Lv.{lvlSum}</span>
                           </div>
                         );
                       })}
@@ -2062,7 +2062,7 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
                                 fontSize: '0.52rem', fontFamily: 'monospace',
                                 color, fontWeight: 800, lineHeight: 1,
                                 textShadow: `0 0 3px ${color}`,
-                              }}>{Math.max(0, sqLvl)}</span>
+                              }}>Lv.{Math.max(0, sqLvl)}</span>
                             )}
                           </div>
                         );
@@ -2091,7 +2091,7 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
                                 fontSize: '0.52rem', fontFamily: 'monospace',
                                 color: '#fef08a', fontWeight: 800, lineHeight: 1,
                                 textShadow: '0 0 3px rgba(250,204,21,0.75)',
-                              }}>{mLevel}</span>
+                              }}>Lv.{mLevel}</span>
                             )}
                           </button>
                         );
