@@ -327,7 +327,7 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
         if (!wallet || !key) continue;
         const blockInfo = blocksByKey.get(key);
         if (!blockInfo) continue;
-        const progress = progressByWallet.get(wallet);
+        const progress = earnedByWallet.get(wallet);
         const level = Math.max(0, Number(progress?.marketNftjiLevels?.[key] ?? 0) || 0);
         marketBlocksByWallet.set(wallet, [{ block_key: key, emoji: blockInfo.emoji, hex: blockInfo.hex, level }]);
       }
