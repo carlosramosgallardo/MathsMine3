@@ -21,6 +21,8 @@ import { formatWalletLabel } from '@/lib/wallet-format';
 const ACTIVE_WINDOW_MS = 90_000;
 const MAX_SESSION_MESSAGES = 500;
 const MAX_CHAT_HISTORY = 500;
+const IRC_FILTER_TYPES = ['welcome', 'market', 'mainframe', 'squeeze', 'donations'];
+const DEFAULT_IRC_FILTERS = IRC_FILTER_TYPES.reduce((acc, key) => ({ ...acc, [key]: true }), {});
 
 function flagImgUrl(cc) {
   if (!cc || cc.length !== 2) return null;
@@ -63,6 +65,10 @@ function safeParseSession(value) {
 
 function sessionKeyForWallet(wallet) {
   return `mm3-irc-session-${String(wallet || '').toLowerCase()}`;
+}
+
+function filterKeyForWallet(wallet) {
+  return `mm3-irc-filters-${String(wallet || '').toLowerCase()}`;
 }
 
 function makeMessage({ id, kind = 'chat', wallet = 'system', text = '', ts = Date.now(), tone = 'neutral', replaceGroup = '', replaceBatchId = '' }) {
@@ -159,6 +165,16 @@ function formatSystemAuthor(tone) {
   if (tone === 'command') return 'cmd@MM3·:~$';
   if (tone === 'accent') return 'welcome@MM3·:~$';
   return 'system@MM3·:~$';
+}
+
+function getMessageFilterType(message) {
+  if (message?.kind !== 'system') return null;
+  if (message.tone === 'accent') return 'welcome';
+  if (message.tone === 'market') return 'market';
+  if (message.tone === 'squeeze') return 'squeeze';
+  if (message.tone === 'realchain') return 'donations';
+  if (message.tone === 'ghost' || message.tone === 'join' || message.tone === 'leave') return 'mainframe';
+  return null;
 }
 
 function formatWelcomeText(value) {
@@ -317,9 +333,11 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
   const [walletFlags, setWalletFlags] = useState({});
   const actorId = normalizedWallet || anonId;
   const storageKey = useMemo(() => sessionKeyForWallet(actorId), [actorId]);
+  const filterStorageKey = useMemo(() => filterKeyForWallet(actorId), [actorId]);
 
   const [draft, setDraft] = useState('');
   const [messages, setMessages] = useState([]);
+  const [messageFilters, setMessageFilters] = useState(DEFAULT_IRC_FILTERS);
   const [connectedWallets, setConnectedWallets] = useState([]);
   const [marketClaimsByWallet, setMarketClaimsByWallet] = useState({});
   const [poolCodes, setPoolCodes] = useState(() => new Set());
@@ -341,6 +359,51 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
   const welcomeTsRef = useRef(Date.now());
   const relayStatusBootedRef = useRef(false);
   const presenceDeltaRef = useRef({ joined: [], left: [] });
+
+  const filterLabels = useMemo(() => (
+    language === 'es'
+      ? {
+          welcome: 'welcome',
+          market: 'market',
+          mainframe: 'mainframe',
+          squeeze: 'squeeze',
+          donations: 'donations ETH',
+        }
+      : {
+          welcome: 'welcome',
+          market: 'market',
+          mainframe: 'mainframe',
+          squeeze: 'squeeze',
+          donations: 'donations ETH',
+        }
+  ), [language]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !filterStorageKey) return;
+    try {
+      const parsed = JSON.parse(localStorage.getItem(filterStorageKey) || 'null');
+      setMessageFilters({ ...DEFAULT_IRC_FILTERS, ...(parsed && typeof parsed === 'object' ? parsed : {}) });
+    } catch {
+      setMessageFilters(DEFAULT_IRC_FILTERS);
+    }
+  }, [filterStorageKey]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !filterStorageKey) return;
+    localStorage.setItem(filterStorageKey, JSON.stringify(messageFilters));
+  }, [filterStorageKey, messageFilters]);
+
+  const toggleMessageFilter = useCallback((key) => {
+    setMessageFilters((current) => ({
+      ...current,
+      [key]: !current[key],
+    }));
+  }, []);
+
+  const visibleMessages = useMemo(() => messages.filter((message) => {
+    const filterType = getMessageFilterType(message);
+    return !filterType || messageFilters[filterType] !== false;
+  }), [messages, messageFilters]);
 
   // Auto-focus input when wallet is connected and terminal is ready
   useEffect(() => {
@@ -1659,6 +1722,40 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
             ),
             rgba(0,0,0,0.72);
         }
+        .mm3-irc-filters {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 0.35rem;
+          margin: -0.1rem 0 0.45rem;
+          padding: 0 0.15rem 0.35rem;
+          border-bottom: 1px solid rgba(34, 211, 238, 0.10);
+          font-family: var(--font-geist-mono), monospace;
+        }
+        .mm3-irc-filter {
+          display: inline-flex;
+          align-items: center;
+          gap: 0.28rem;
+          border: 1px solid rgba(34, 211, 238, 0.16);
+          background: rgba(2, 6, 23, 0.55);
+          padding: 0.22rem 0.42rem;
+          color: rgba(165, 243, 252, 0.78);
+          font-size: 0.58rem;
+          font-weight: 900;
+          letter-spacing: 0.13em;
+          text-transform: uppercase;
+          cursor: pointer;
+          user-select: none;
+        }
+        .mm3-irc-filter input {
+          width: 0.72rem;
+          height: 0.72rem;
+          accent-color: #22d3ee;
+        }
+        .mm3-irc-filter[data-active='false'] {
+          color: rgba(100, 116, 139, 0.82);
+          border-color: rgba(100, 116, 139, 0.18);
+          opacity: 0.68;
+        }
         .mm3-irc-line {
           border-bottom: 1px solid rgba(34, 211, 238, 0.06);
         }
@@ -1857,8 +1954,21 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
             </div>
           </div>
 
+          <div className="mm3-irc-filters" aria-label="IRC message filters">
+            {IRC_FILTER_TYPES.map((key) => (
+              <label key={key} className="mm3-irc-filter" data-active={messageFilters[key] !== false}>
+                <input
+                  type="checkbox"
+                  checked={messageFilters[key] !== false}
+                  onChange={() => toggleMessageFilter(key)}
+                />
+                <span>{filterLabels[key]}</span>
+              </label>
+            ))}
+          </div>
+
           <div className="mm3-irc-chat-log rounded-sm border border-cyan-500/12 px-2.5 py-1.5 font-mono">
-            {messages.length > 0 ? messages.map((message) => {
+            {visibleMessages.length > 0 ? visibleMessages.map((message) => {
               const isSelf = message.kind === 'chat' && message.wallet === normalizedWallet;
               const lineMode = message.kind === 'system' ? 'system' : isSelf ? 'self' : 'other';
               const isSystem = message.kind === 'system';
@@ -1937,7 +2047,9 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
               );
             }) : (
               <div className="px-1 py-2 text-[0.88rem] uppercase tracking-[0.14em] text-slate-500">
-                {t('irc.empty')}
+                {messages.length > 0
+                  ? (language === 'es' ? 'los filtros ocultan las trazas seleccionadas' : 'filters hide selected traces')
+                  : t('irc.empty')}
               </div>
             )}
             <div ref={endRef} />
