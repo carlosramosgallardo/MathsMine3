@@ -95,6 +95,38 @@ function countSqueezeNftjis(squeezeNftji) {
   return SQUEEZE_SLOT_ORDER.reduce((sum, slot) => sum + (getSqueezeLevel(squeezeNftji, slot.key) >= 0 ? 1 : 0), 0);
 }
 
+const LEADERBOARD_VIEW_STORAGE_KEY = 'mm3_leaderboard_view_mode';
+const LEADERBOARD_SORT_STORAGE_PREFIX = 'mm3_leaderboard_sort_';
+const DEFAULT_SORT_BY_VIEW = {
+  wallets: { key: 'position', direction: 'asc' },
+  pools: { key: 'level', direction: 'desc' },
+};
+
+function getInitialLeaderboardViewMode() {
+  if (typeof window === 'undefined') return 'wallets';
+  const stored = localStorage.getItem(LEADERBOARD_VIEW_STORAGE_KEY);
+  return stored === 'pools' ? 'pools' : 'wallets';
+}
+
+function getStoredLeaderboardSort(viewMode) {
+  const normalizedView = viewMode === 'pools' ? 'pools' : 'wallets';
+  const fallback = DEFAULT_SORT_BY_VIEW[normalizedView] || DEFAULT_SORT_BY_VIEW.wallets;
+  if (typeof window === 'undefined') return fallback;
+  try {
+    const parsed = JSON.parse(localStorage.getItem(`${LEADERBOARD_SORT_STORAGE_PREFIX}${normalizedView}`) || 'null');
+    if (
+      parsed &&
+      typeof parsed.key === 'string' &&
+      (parsed.direction === 'asc' || parsed.direction === 'desc')
+    ) {
+      return { key: parsed.key, direction: parsed.direction };
+    }
+  } catch {
+    // Ignore broken localStorage state and fall back to the default sort.
+  }
+  return fallback;
+}
+
 function getPoolRankTier(level) {
   const lvl = Number(level) || 0;
   if (lvl >= 800) return { emoji: '🐉', label: 'DRAGON MAINNET' };
@@ -112,19 +144,17 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
   const [currentPage, setCurrentPage] = useState(1);
   const [isLoading, setIsLoading]     = useState(true);
   const [selectedWallet, setSelectedWallet] = useState('');
-  const [viewMode, setViewMode] = useState(() => {
-    if (typeof window === 'undefined') return 'wallets';
-    return localStorage.getItem('mm3_leaderboard_view_mode') || 'wallets';
-  });
+  const [viewMode, setViewMode] = useState(getInitialLeaderboardViewMode);
   const [selectedPool, setSelectedPool] = useState('');
   const [contactBusy, setContactBusy] = useState('');
-  const [sortConfig, setSortConfig] = useState({ key: 'position', direction: 'asc' });
+  const [sortConfig, setSortConfig] = useState(() => getStoredLeaderboardSort(getInitialLeaderboardViewMode()));
   const { account } = useActiveWallet();
   const pathname = usePathname();
   const activeWallet = account?.toLowerCase() || '';
   const abortRef = useRef(null);
   const refreshTimersRef = useRef([]);
   const loadedOnceRef = useRef(false);
+  const skipSortPersistRef = useRef(false);
   const CACHE_MS = 2_000;
   const labels = language === 'es'
     ? {
@@ -795,8 +825,20 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    localStorage.setItem('mm3_leaderboard_view_mode', viewMode);
+    localStorage.setItem(LEADERBOARD_VIEW_STORAGE_KEY, viewMode);
+    skipSortPersistRef.current = true;
+    setSortConfig(getStoredLeaderboardSort(viewMode));
   }, [viewMode]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (skipSortPersistRef.current) {
+      skipSortPersistRef.current = false;
+      return;
+    }
+    const normalizedView = viewMode === 'pools' ? 'pools' : 'wallets';
+    localStorage.setItem(`${LEADERBOARD_SORT_STORAGE_PREFIX}${normalizedView}`, JSON.stringify(sortConfig));
+  }, [sortConfig, viewMode]);
 
   useEffect(() => {
     fetchInvites();
@@ -889,7 +931,6 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
       setSelectedPool(poolCode);
       setSelectedWallet('');
       setViewMode('wallets');
-      setSortConfig({ key: 'status', direction: 'desc' });
     };
     window.addEventListener('mm3-leaderboard-filter-pool', onFilterPool);
     return () => window.removeEventListener('mm3-leaderboard-filter-pool', onFilterPool);
@@ -934,7 +975,6 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
     setSelectedPool(pendingPool);
     setSelectedWallet('');
     setViewMode('wallets');
-    setSortConfig({ key: 'status', direction: 'desc' });
     localStorage.removeItem('mm3_leaderboard_pool');
   }, []);
 
@@ -1022,13 +1062,11 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
     setSelectedWallet('');
     setSelectedPool('');
     setViewMode('pools');
-    setSortConfig({ key: 'level', direction: 'desc' });
   };
 
   const showWalletRanking = () => {
     setSelectedPool('');
     setViewMode('wallets');
-    setSortConfig({ key: 'status', direction: 'desc' });
   };
 
   const goToWalletRanking = (wallet) => {
