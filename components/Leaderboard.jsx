@@ -567,6 +567,7 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
         return counts;
       }, {});
       const squeezeEmojiLevelSums = SQUEEZE_SLOT_ORDER.reduce((sums, slot) => {
+        const count = members.reduce((acc, m) => acc + (getSqueezeLevel(m.squeeze_nftji, slot.key) >= 0 ? 1 : 0), 0);
         const levelSum = members.reduce((acc, m) => {
           const lvl = getSqueezeLevel(m.squeeze_nftji, slot.key);
           return lvl >= 0 ? acc + Math.max(0, lvl) : acc;
