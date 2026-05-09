@@ -45,6 +45,15 @@ ON CONFLICT (wallet) DO UPDATE
 SET is_bot = EXCLUDED.is_bot,
     updated_at = NOW();
 
+INSERT INTO leaderboard_data (wallet, total_eth, total_correct, total_games, highest_streak, current_streak, updated_at)
+VALUES
+  ('0xcab10d0e0650d45cb0b7482370a1ca93d5bf5528', 0, 0, 0, 0, 0, NOW()),
+  ('0xd6c6c15060b27406d956c7e99e520cc810b44233', 0, 0, 0, 0, 0, NOW()),
+  ('0xcb4ccfa7de7bf861ff0383b668e682d2ee20e202', 0, 0, 0, 0, 0, NOW()),
+  ('0xd89413f5f444cd420b448cda3bc096ea9c46e8ab', 0, 0, 0, 0, 0, NOW())
+ON CONFLICT (wallet) DO UPDATE
+SET updated_at = NOW();
+
 DELETE FROM mm3_wallet_pool_invitations
 WHERE  pool_code IN ('FHNN6', '8FR49')
    OR  wallet IN (

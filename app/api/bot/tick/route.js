@@ -16,6 +16,7 @@ const DAILY_MINE_BASE = 100;
 const PRICE = Number(process.env.NEXT_PUBLIC_FAKE_MINING_PRICE) || 0.00001;
 const DAILY_TRADE_LIMIT = 5;
 const BOT_PRESENCE_SETTLE_MS = Math.max(0, Math.min(3000, Number(process.env.BOT_PRESENCE_SETTLE_MS) || 1500));
+const SQUEEZE_BATTLE_SETTLE_MS = 5200;
 
 function getUtcDayBounds() {
   const now = new Date();
@@ -1050,16 +1051,26 @@ export async function GET(req) {
     process.env.SUPABASE_SERVICE_ROLE_KEY
   );
 
-  const autoAcceptedSqueezes = await autoAcceptBotSqueezeProposals(supabase);
-  const advancedSqueezes = await advanceBotSqueezes(supabase);
-  const claimedSqueezeDrops = await autoClaimBotSqueezeDrops(supabase);
+  const squeezeActions = [];
+  squeezeActions.push(...await autoAcceptBotSqueezeProposals(supabase));
+  squeezeActions.push(...await advanceBotSqueezes(supabase));
+  squeezeActions.push(...await autoClaimBotSqueezeDrops(supabase));
+
   const launchedSqueezes = await maybeLaunchBotSqueeze(supabase);
-  const squeezeActions = [
-    ...autoAcceptedSqueezes,
-    ...advancedSqueezes,
-    ...claimedSqueezeDrops,
-    ...launchedSqueezes,
-  ];
+  squeezeActions.push(...launchedSqueezes);
+
+  if (launchedSqueezes.some((action) => action.type === 'squeeze_proposed')) {
+    squeezeActions.push(...await autoAcceptBotSqueezeProposals(supabase));
+    const postLaunchAdvance = await advanceBotSqueezes(supabase);
+    squeezeActions.push(...postLaunchAdvance);
+
+    if (postLaunchAdvance.some((action) => action.type === 'squeeze_battle_started')) {
+      await new Promise((resolve) => setTimeout(resolve, SQUEEZE_BATTLE_SETTLE_MS));
+      squeezeActions.push(...await advanceBotSqueezes(supabase));
+    }
+
+    squeezeActions.push(...await autoClaimBotSqueezeDrops(supabase));
+  }
 
   const results = await Promise.all(BOT_WALLETS.map(async (wallet) => {
     try {
