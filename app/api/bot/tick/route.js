@@ -702,10 +702,26 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
             const isMm3Cmd = cmdEntry.effect === 'mm3';
             const penalties = [];
             const balanceUpdates = [];
+            const exemptWallets = new Set([wallet]);
+            const { data: botPool } = await supabase
+              .from('mm3_wallet_pool_members')
+              .select('pool_code')
+              .eq('wallet', wallet)
+              .maybeSingle();
+            if (botPool?.pool_code) {
+              const { data: poolMembers } = await supabase
+                .from('mm3_wallet_pool_members')
+                .select('wallet')
+                .eq('pool_code', botPool.pool_code);
+              for (const member of poolMembers || []) {
+                const memberWallet = String(member.wallet || '').toLowerCase();
+                if (memberWallet) exemptWallets.add(memberWallet);
+              }
+            }
 
             for (const row of allProgress || []) {
               const w = String(row.wallet || '').toLowerCase();
-              if (!w || w === wallet) continue;
+              if (!w || exemptWallets.has(w)) continue;
               if (row.market_nftji_key === currentMarketKey) continue;
 
               if (isMm3Cmd) {
