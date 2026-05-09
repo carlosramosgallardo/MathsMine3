@@ -592,8 +592,14 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
       const totalPenalties = members.reduce((sum, entry) => {
         return sum + (entry.active_penalty?.mm3 ? 1 : 0) + (entry.active_penalty?.money ? 1 : 0);
       }, 0);
-      const totalPenaltiesMm3 = members.reduce((sum, entry) => sum + (entry.active_penalty?.mm3 ? 1 : 0), 0);
-      const totalPenaltiesMoney = members.reduce((sum, entry) => sum + (entry.active_penalty?.money ? 1 : 0), 0);
+      const totalPenaltiesMm3 = members.reduce((sum, entry) => {
+        return sum + (Number(entry.active_penalty?.mm3?.penalty_value) || 0);
+      }, 0);
+      const totalPenaltiesMoneyEur = members.reduce((sum, entry) => {
+        const penalty = entry.active_penalty?.money;
+        if (!penalty) return sum;
+        return sum + (Number(penalty.penalty_eur || penalty.penalty_value) || 0);
+      }, 0);
       const marketBlocks = uniqueBy(
         members.flatMap((entry) => Array.isArray(entry.market_blocks) ? entry.market_blocks : []),
         (block) => block.block_key
@@ -626,7 +632,7 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
         total_execs: totalExecs,
         total_penalties: totalPenalties,
         total_penalties_mm3: totalPenaltiesMm3,
-        total_penalties_money: totalPenaltiesMoney,
+        total_penalties_money_eur: totalPenaltiesMoneyEur,
         available_mm3: totalMm3,
         money_balance_cny: totalCny,
         money_balance_eur: totalEur,
@@ -1289,7 +1295,7 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
           const marketBlocks = Array.isArray(entry.market_blocks) ? entry.market_blocks : [];
           const activePenalty = entry.active_penalty;
           const totalPenaltyMm3 = Number(entry.total_penalties_mm3 || 0);
-          const totalPenaltyMoney = Number(entry.total_penalties_money || 0);
+          const totalPenaltyMoney = convertPenaltyEur(entry.total_penalties_money_eur || 0, quoteCurrency);
 
           return (
             <article key={entry.pool_code} className="lb-card p-2">
@@ -1444,7 +1450,7 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
                       className="lb-penalty-link rounded border border-rose-400/30 bg-rose-950/20 px-1.5 py-0.5 font-mono text-[0.75rem] font-black text-rose-300"
                       title={activePenalty?.mm3?.block ? `${activePenalty.mm3.block.emoji} ${activePenalty.mm3.block.hex}` : activePenalty?.mm3?.nftji_key || 'MM3 penalties'}
                     >
-                      MM3 ×{totalPenaltyMm3}
+                      -{formatCompactMm3(totalPenaltyMm3)} MM3
                     </button>
                   ) : null}
                   {totalPenaltyMoney > 0 ? (
@@ -1454,7 +1460,7 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
                       className="lb-penalty-link rounded border border-amber-400/30 bg-amber-950/20 px-1.5 py-0.5 font-mono text-[0.75rem] font-black text-amber-300"
                       title={activePenalty?.money?.block ? `${activePenalty.money.block.emoji} ${activePenalty.money.block.hex}` : activePenalty?.money?.nftji_key || 'Money penalties'}
                     >
-                      {quoteCurrency} ×{totalPenaltyMoney}
+                      {formatCompactMoney(-totalPenaltyMoney, quoteCurrency)}
                     </button>
                   ) : null}
                   {totalPenaltyMm3 <= 0 && totalPenaltyMoney <= 0 ? (
@@ -1713,7 +1719,7 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
               const marketBlocks = Array.isArray(entry.market_blocks) ? entry.market_blocks : [];
               const activePenalty = entry.active_penalty;
               const totalPenaltyMm3 = Number(entry.total_penalties_mm3 || 0);
-              const totalPenaltyMoney = Number(entry.total_penalties_money || 0);
+              const totalPenaltyMoney = convertPenaltyEur(entry.total_penalties_money_eur || 0, quoteCurrency);
 
               return (
                 <tr key={entry.pool_code} className="lb-row">
@@ -1865,7 +1871,7 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
                           className="rounded border border-rose-400/30 bg-rose-950/20 px-1.5 py-1 font-mono text-[0.68rem] font-black text-rose-300"
                           title={activePenalty?.mm3?.block ? `${activePenalty.mm3.block.emoji} ${activePenalty.mm3.block.hex}` : activePenalty?.mm3?.nftji_key || 'MM3 penalties'}
                         >
-                          MM3 ×{totalPenaltyMm3}
+                          -{formatCompactMm3(totalPenaltyMm3)} MM3
                         </button>
                       ) : null}
                       {totalPenaltyMoney > 0 ? (
@@ -1875,7 +1881,7 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
                           className="rounded border border-amber-400/30 bg-amber-950/20 px-1.5 py-1 font-mono text-[0.68rem] font-black text-amber-300"
                           title={activePenalty?.money?.block ? `${activePenalty.money.block.emoji} ${activePenalty.money.block.hex}` : activePenalty?.money?.nftji_key || 'Money penalties'}
                         >
-                          {quoteCurrency} ×{totalPenaltyMoney}
+                          {formatCompactMoney(-totalPenaltyMoney, quoteCurrency)}
                         </button>
                       ) : null}
                       {totalPenaltyMm3 <= 0 && totalPenaltyMoney <= 0 ? (
