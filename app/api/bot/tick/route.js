@@ -39,6 +39,17 @@ function normalizeWallet(value) {
   return String(value || '').trim().toLowerCase();
 }
 
+function getMarketBlockHex(block) {
+  if (block?.grid_row == null || block?.grid_col == null) return '';
+  return '#' + ((Number(block.grid_row) || 0) * 28 + (Number(block.grid_col) || 0)).toString(16).toUpperCase().padStart(3, '0');
+}
+
+function getMarketBlockLabel(block, fallbackKey = '') {
+  if (!block) return fallbackKey || '';
+  const hex = getMarketBlockHex(block);
+  return `${block.emoji || ''}${hex ? ` ${hex}` : block.block_key ? ` ${block.block_key}` : ''}`.trim() || fallbackKey || '';
+}
+
 async function insertBotPresenceTrace(supabase, wallet, tone) {
   const normalized = normalizeWallet(wallet);
   if (!normalized || !['join', 'leave'].includes(tone)) return;
@@ -620,7 +631,7 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
         });
 
         botEur += returnEur; botCny += returnCny; botUsd += returnUsd;
-        actions.push({ type: 'market_resell', blockKey: currentMarketKey, returnEur });
+        actions.push({ type: 'market_resell', blockKey: currentMarketKey, blockLabel: getMarketBlockLabel(resoldBlock, currentMarketKey), returnEur });
         didBuyOrResell = true;
       }
 
@@ -652,7 +663,7 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
       currentMarketKey = targetBlock.block_key;
       currentMarketPrice = newPrice;
       didBuyOrResell = true;
-      actions.push({ type: 'market_buy', blockKey: targetBlock.block_key, priceEur: newPrice });
+      actions.push({ type: 'market_buy', blockKey: targetBlock.block_key, blockLabel: getMarketBlockLabel(targetBlock, targetBlock.block_key), priceEur: newPrice });
     }
   }
 
@@ -734,7 +745,7 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
             }
 
             didMarketCommand = true;
-            actions.push({ type: 'market_command', blockKey: currentMarketKey, x, penalties: penalties.length });
+            actions.push({ type: 'market_command', blockKey: currentMarketKey, blockLabel: getMarketBlockLabel(ownedBlock, currentMarketKey), x, penalties: penalties.length });
           }
         }
       }
@@ -778,9 +789,9 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
     if (mm3Mined !== 0) botMsg += ` :: ${mm3Mined >= 0 ? '+' : ''}${mm3Mined.toFixed(6)} MM3`;
     if (eurEarned > 0) botMsg += ` / +${eurEarned.toFixed(4)} EUR`;
     botMsg += nftjiDrops ? ` :: nftji drops: ${nftjiDrops}` : ` :: no nftji drop`;
-    if (marketResellAction) botMsg += ` :: resell ${marketResellAction.blockKey} +€${marketResellAction.returnEur.toFixed(2)}`;
-    if (marketBuyAction) botMsg += ` :: buy ${marketBuyAction.blockKey} €${marketBuyAction.priceEur.toFixed(2)}`;
-    if (marketCmdAction) botMsg += ` :: cmd ${marketCmdAction.blockKey} x=${marketCmdAction.x} (${marketCmdAction.penalties} hit)`;
+    if (marketResellAction) botMsg += ` :: resell ${marketResellAction.blockLabel || marketResellAction.blockKey} +€${marketResellAction.returnEur.toFixed(2)}`;
+    if (marketBuyAction) botMsg += ` :: buy ${marketBuyAction.blockLabel || marketBuyAction.blockKey} €${marketBuyAction.priceEur.toFixed(2)}`;
+    if (marketCmdAction) botMsg += ` :: cmd ${marketCmdAction.blockLabel || marketCmdAction.blockKey} x=${marketCmdAction.x} (${marketCmdAction.penalties} hit)`;
     botMsg += tasksCompleted.length > 0
       ? ` :: daily tasks: ${tasksCompleted.join(' ')}`
       : ` :: no daily tasks`;

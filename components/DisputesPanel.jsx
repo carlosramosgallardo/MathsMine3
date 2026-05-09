@@ -121,8 +121,9 @@ function PoolLink({ poolCode, color, onPoolClick, children, style }) {
   );
 }
 
-function MarketBlockLink({ emoji, blockKey, onMarketBlockClick, title }) {
-  if (!emoji) return null;
+function MarketBlockLink({ label, emoji, blockKey, onMarketBlockClick, title }) {
+  const display = label || emoji;
+  if (!display) return null;
   return (
     <button
       type="button"
@@ -138,7 +139,7 @@ function MarketBlockLink({ emoji, blockKey, onMarketBlockClick, title }) {
         textDecorationColor: 'rgba(34,211,238,0.35)',
       }}
     >
-      {emoji}
+      {display}
     </button>
   );
 }
@@ -471,6 +472,7 @@ function DisputeCard({ dispute, activeWallet, poolCode, language, onJoin, onClai
                     const isMe = w.wallet === activeWallet;
                     const marketEmoji = w.market_nftji_emoji || emojiByWallet?.[w.wallet]?.emoji || emojiByWallet?.[w.wallet] || '';
                     const marketBlockKey = w.market_nftji_key || w.market_nftji_snap || emojiByWallet?.[w.wallet]?.blockKey || '';
+                    const marketLabel = w.market_nftji_label || emojiByWallet?.[w.wallet]?.label || marketEmoji;
                     return (
                       <div key={w.wallet} style={{ display: 'flex', gap: 6, alignItems: 'center', fontSize: '0.7rem' }}>
                         <button
@@ -495,10 +497,11 @@ function DisputeCard({ dispute, activeWallet, poolCode, language, onJoin, onClai
                         {w.nftji_snap > 0 && <span title={lang === 'es' ? `NFTJi poder total: ${w.nftji_snap}` : `NFTJi power: ${w.nftji_snap}`} style={{ color: '#22d3ee', fontFamily: 'monospace', fontSize: '0.65rem' }}>✦{w.nftji_snap}</span>}
                         {w.has_penalty && <span title={lang === 'es' ? 'Penalización activa' : 'Active penalty'}>⚠️</span>}
                         <MarketBlockLink
+                          label={marketLabel}
                           emoji={marketEmoji}
                           blockKey={marketBlockKey}
                           onMarketBlockClick={onMarketBlockClick}
-                          title={marketBlockKey ? `Market NFTJI — ${marketBlockKey}` : `Market NFTJI — ${marketEmoji}`}
+                          title={marketLabel ? `Market NFTJI — ${marketLabel}` : `Market NFTJI — ${marketEmoji}`}
                         />
                         {(() => {
                           const sn = sqzNftjiByWallet?.[w.wallet];
@@ -633,13 +636,21 @@ export default function DisputesPanel({ wallet, poolCode, language, onWalletClic
     if (!allWallets.length) return;
     const [{ data: progress }, { data: blocks }] = await Promise.all([
       supabase.from('player_progress').select('wallet, market_nftji_key').in('wallet', allWallets).not('market_nftji_key', 'is', null),
-      supabase.from('mm3_market_blocks').select('block_key, emoji'),
+      supabase.from('mm3_market_blocks').select('block_key, emoji, grid_row, grid_col'),
     ]);
-    const emojiByKey = new Map((blocks || []).map((b) => [b.block_key, b.emoji]));
+    const infoByKey = new Map((blocks || []).map((b) => {
+      const hex = b.grid_row != null && b.grid_col != null
+        ? `#${((Number(b.grid_row) || 0) * 28 + (Number(b.grid_col) || 0)).toString(16).toUpperCase().padStart(3, '0')}`
+        : '';
+      return [b.block_key, {
+        emoji: b.emoji,
+        label: `${b.emoji || ''}${hex ? ` ${hex}` : ''}`.trim(),
+      }];
+    }));
     const map = {};
     for (const p of progress || []) {
-      const emoji = emojiByKey.get(p.market_nftji_key);
-      if (emoji) map[p.wallet] = { emoji, blockKey: p.market_nftji_key };
+      const info = infoByKey.get(p.market_nftji_key);
+      if (info?.emoji) map[p.wallet] = { emoji: info.emoji, label: info.label, blockKey: p.market_nftji_key };
     }
     setEmojiByWallet(map);
   }, []);

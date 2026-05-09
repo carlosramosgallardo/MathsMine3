@@ -2,6 +2,21 @@ export const dynamic = 'force-dynamic';
 
 import { createClient } from '@supabase/supabase-js';
 
+function getBlockHex(row, col) {
+  return '#' + ((Number(row) || 0) * 28 + (Number(col) || 0)).toString(16).toUpperCase().padStart(3, '0');
+}
+
+function blockInfoMap(rows) {
+  return new Map((rows || []).map((b) => {
+    const hex = b.grid_row != null && b.grid_col != null ? getBlockHex(b.grid_row, b.grid_col) : '';
+    return [b.block_key, {
+      emoji: b.emoji || null,
+      hex,
+      label: `${b.emoji || ''}${hex ? ` ${hex}` : ''}`.trim() || b.block_key,
+    }];
+  }));
+}
+
 export async function GET(req) {
   const { searchParams } = new URL(req.url);
   const poolCode = searchParams.get('pool') || null;
@@ -53,13 +68,15 @@ export async function GET(req) {
       if (hasAnySnap) {
         const { data: blocks, error: blocksErr } = await supabase
           .from('mm3_market_blocks')
-          .select('block_key, emoji');
+          .select('block_key, emoji, grid_row, grid_col');
         if (blocksErr) console.error('disputes: market_blocks fetch error:', blocksErr);
-        const emojiByKey = new Map((blocks || []).map((b) => [b.block_key, b.emoji]));
+        const infoByKey = blockInfoMap(blocks);
         walletRows = walletRows.map((w) => ({
           ...w,
-          market_nftji_emoji: w.market_nftji_snap ? (emojiByKey.get(w.market_nftji_snap) || null) : null,
+          market_nftji_emoji: w.market_nftji_snap ? (infoByKey.get(w.market_nftji_snap)?.emoji || null) : null,
           market_nftji_key: w.market_nftji_snap || null,
+          market_nftji_hex: w.market_nftji_snap ? (infoByKey.get(w.market_nftji_snap)?.hex || null) : null,
+          market_nftji_label: w.market_nftji_snap ? (infoByKey.get(w.market_nftji_snap)?.label || null) : null,
         }));
       }
 
@@ -74,16 +91,18 @@ export async function GET(req) {
         if (progress && progress.length > 0) {
           const { data: allBlocks } = await supabase
             .from('mm3_market_blocks')
-            .select('block_key, emoji');
-          const emojiByKey = new Map((allBlocks || []).map((b) => [b.block_key, b.emoji]));
+            .select('block_key, emoji, grid_row, grid_col');
+          const infoByKey = blockInfoMap(allBlocks);
           const currentKeyByWallet = new Map(progress.map((p) => [p.wallet, p.market_nftji_key]));
           walletRows = walletRows.map((w) => {
             const currentKey = currentKeyByWallet.get(w.wallet);
-            const currentEmoji = currentKey ? (emojiByKey.get(currentKey) || null) : null;
+            const currentInfo = currentKey ? infoByKey.get(currentKey) : null;
             return {
               ...w,
-              market_nftji_emoji: currentEmoji || w.market_nftji_emoji || null,
+              market_nftji_emoji: currentInfo?.emoji || w.market_nftji_emoji || null,
               market_nftji_key: currentKey || w.market_nftji_key || w.market_nftji_snap || null,
+              market_nftji_hex: currentInfo?.hex || w.market_nftji_hex || null,
+              market_nftji_label: currentInfo?.label || w.market_nftji_label || null,
             };
           });
         }

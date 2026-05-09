@@ -245,7 +245,7 @@ function renderIrcTextLinks(displayText, tone, onWalletClick, blockMap, onBlockC
     const token = match[1];
     const normalizedToken = token.toLowerCase();
     const poolToken = token.toUpperCase();
-    const blockKey = blockMap?.get(poolToken) || blockMap?.get(normalizedToken) || blockMap?.get(token);
+    const blockLink = blockMap?.get(poolToken) || blockMap?.get(normalizedToken) || blockMap?.get(token);
     if (normalizedToken.startsWith('0x')) {
       const addr = normalizedToken;
       parts.push(
@@ -258,14 +258,14 @@ function renderIrcTextLinks(displayText, tone, onWalletClick, blockMap, onBlockC
           {addr.slice(-5)}
         </span>
       );
-    } else if (blockKey) {
+    } else if (blockLink) {
       parts.push(
         <span
           key={`bh-${match.index}`}
           className="mm3-irc-block-link"
-          onClick={() => onBlockClick?.(blockKey)}
+          onClick={() => onBlockClick?.(blockLink.key)}
         >
-          {token}
+          {blockLink.label}
         </span>
       );
     } else if (poolCodes?.has(poolToken)) {
@@ -1885,11 +1885,15 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
               const blockLinkMap = (() => {
                 const map = new Map();
                 for (const [key, block] of blockByKeyRef.current) {
-                  map.set(String(key).toLowerCase(), key);
+                  const fallbackLink = { key, label: block.emoji ? `${block.emoji} ${key}` : key };
+                  map.set(String(key).toLowerCase(), fallbackLink);
                   if (block.grid_row != null && block.grid_col != null) {
                     const hex = getBlockHex(block.grid_row, block.grid_col);
-                    map.set(hex, key);
-                    map.set(hex.toLowerCase(), key);
+                    const label = `${block.emoji || ''} ${hex}`.trim();
+                    const link = { key, label };
+                    map.set(String(key).toLowerCase(), link);
+                    map.set(hex, link);
+                    map.set(hex.toLowerCase(), link);
                   }
                 }
                 return map;
