@@ -20,6 +20,9 @@ const SQUEEZE_LAUNCH_WINDOW_MS = 24 * 60 * 60 * 1000;
 const REVIVE_COST_EUR = 1;
 const REVIVE_COST_USD = REVIVE_COST_EUR * (CNY_TO_USD / CNY_TO_EUR);
 const REVIVE_COST_CNY = REVIVE_COST_EUR / CNY_TO_EUR;
+const BOT_CRON_INTERVAL_MINUTES = Math.max(1, Number(process.env.BOT_CRON_INTERVAL_MINUTES) || 5);
+const BOT_MAX_DRILLS_PER_TICK = Math.max(1, Number(process.env.BOT_MAX_DRILLS_PER_TICK) || 4);
+const BOT_MAX_TRADES_PER_TICK = Math.max(1, Number(process.env.BOT_MAX_TRADES_PER_TICK) || 1);
 const BOT_PRESENCE_SETTLE_MS = Math.max(0, Math.min(3000, Number(process.env.BOT_PRESENCE_SETTLE_MS) || 1500));
 const SQUEEZE_BATTLE_SETTLE_MS = 5200;
 
@@ -32,6 +35,22 @@ function getUtcDayBounds() {
     endIso: end.toISOString(),
     dayKey: start.toISOString().slice(0, 10),
   };
+}
+
+function getPacedAllowance(total, alreadyDone, windowStartIso, windowEndIso, nowMs = Date.now()) {
+  const totalCount = Math.max(0, Number(total) || 0);
+  const doneCount = Math.max(0, Number(alreadyDone) || 0);
+  if (totalCount <= doneCount) return 0;
+
+  const startMs = new Date(windowStartIso).getTime();
+  const endMs = new Date(windowEndIso).getTime();
+  const spanMs = Math.max(1, endMs - startMs);
+  const elapsedMs = Math.max(0, Math.min(spanMs, nowMs - startMs));
+  const ticksElapsed = Math.max(1, Math.ceil(elapsedMs / (BOT_CRON_INTERVAL_MINUTES * 60_000)));
+  const totalTicks = Math.max(1, Math.ceil(spanMs / (BOT_CRON_INTERVAL_MINUTES * 60_000)));
+  const targetDone = Math.min(totalCount, Math.ceil((totalCount * ticksElapsed) / totalTicks));
+
+  return Math.max(0, targetDone - doneCount);
 }
 
 function getRewardMult(level) {
@@ -83,7 +102,17 @@ function getReviveCostOption(meta) {
   return null;
 }
 
-async function getSqueezeLaunchCount(supabase, wallet) {
+async function getSqueezePoolLaunchCount(supabase, challengerPool) {
+  const windowStart = new Date(Date.now() - SQUEEZE_LAUNCH_WINDOW_MS).toISOString();
+  const { count } = await supabase
+    .from('mm3_squeeze_launches')
+    .select('id', { count: 'exact', head: true })
+    .eq('challenger_pool_code', String(challengerPool || '').toUpperCase())
+    .gte('created_at', windowStart);
+  return Number(count) || 0;
+}
+
+async function getSqueezeWalletLaunchCount(supabase, wallet) {
   const windowStart = new Date(Date.now() - SQUEEZE_LAUNCH_WINDOW_MS).toISOString();
   const { count } = await supabase
     .from('mm3_squeeze_launches')
@@ -410,7 +439,7 @@ async function maybeLaunchBotSqueeze(supabase) {
   if (active) return actions;
 
   const [challenger, defender] = Math.random() < 0.5 ? readyBots : [...readyBots].reverse();
-  const launchCount = await getSqueezeLaunchCount(supabase, challenger.wallet);
+  const launchCount = await getSqueezePoolLaunchCount(supabase, challenger.poolCode);
   if (launchCount >= SQUEEZE_LAUNCH_LIMIT) {
     actions.push({ type: 'squeeze_launch_limit_reached', wallet: challenger.wallet, count: launchCount });
     return actions;
@@ -512,6 +541,10 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
   let tradesTodayCount = Number(tradesToday) || 0;
   const drillsTotal = DAILY_MINE_BASE + totalExecsCount;
   const drillsLeft = Math.max(0, drillsTotal - gamesTodayCount);
+  const pacedDrillsAvailable = getPacedAllowance(drillsTotal, gamesTodayCount, startIso, endIso);
+  const drillsToRun = Math.min(drillsLeft, pacedDrillsAvailable, BOT_MAX_DRILLS_PER_TICK);
+  const pacedTradesAvailable = getPacedAllowance(DAILY_TRADE_LIMIT, tradesTodayCount, startIso, endIso);
+  const tradesToRun = Math.min(DAILY_TRADE_LIMIT - tradesTodayCount, pacedTradesAvailable, BOT_MAX_TRADES_PER_TICK);
   let actualGamesPlayed = 0;
   const walletEmojis = Array.isArray(progressRow?.wallet_emojis) ? progressRow.wallet_emojis : [];
   const claimedTasks = new Set((claimsData || []).map((r) => r.task_key));
@@ -559,15 +592,15 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
     return true;
   }
 
-  // ── MINING GAMES (batch all drills) ──────────────────────
-  if (drillsLeft > 0 && pool) {
+  // ── MINING GAMES (paced for frequent cron ticks) ─────────
+  if (drillsToRun > 0 && pool) {
     const gameRecords = [];
     let totalMiningReward = 0;
     let failedGames = 0;
     const nftjiDropCounts = {}; // levelField → { emoji, claimField, levelField, count }
-    const runStart = Date.now() - drillsLeft * 55_000; // spread timestamps ~55s apart
+    const runStart = Date.now() - drillsToRun * 55_000; // spread timestamps ~55s apart
 
-    for (let i = 0; i < drillsLeft; i++) {
+    for (let i = 0; i < drillsToRun; i++) {
       const problem = pool[Math.floor(Math.random() * pool.length)];
       const timeLimit = getTimeLimit(level);
 
@@ -704,13 +737,13 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
       });
     }
 
-    actualGamesPlayed = drillsLeft;
+    actualGamesPlayed = drillsToRun;
     const dropSummary = dropList.map((d) => `${d.emoji}×${d.count}`).join(' ') || null;
-    actions.push({ type: 'games', count: drillsLeft, total_mining_reward: totalMiningReward, level, nftji_drops: dropSummary, life_bought: revived ? reviveCost.currency : null });
+    actions.push({ type: 'games', count: drillsToRun, total_mining_reward: totalMiningReward, level, nftji_drops: dropSummary, life_bought: revived ? reviveCost.currency : null });
   }
 
-  // ── TRADES (all remaining up to daily limit) ──────────────
-  if (tradesTodayCount < DAILY_TRADE_LIMIT && availableMm3 > 0.000001) {
+  // ── TRADES (paced for frequent cron ticks) ────────────────
+  if (tradesToRun > 0 && availableMm3 > 0.000001) {
     const { data: macro } = await supabase.from('mm3_macro_state')
       .select('war_percent, nature_percent').eq('id', 1).maybeSingle();
     let macroState = { war_percent: Number(macro?.war_percent) || 50, nature_percent: Number(macro?.nature_percent) || 50 };
@@ -723,7 +756,8 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
     // Always keep 30% of MM3 untouched — bot never sells everything
     const mm3Reserve = availableMm3 * 0.30;
 
-    while (tradesTodayCount < DAILY_TRADE_LIMIT && availableMm3 > mm3Reserve + 0.000001) {
+    let tradesThisTick = 0;
+    while (tradesThisTick < tradesToRun && availableMm3 > mm3Reserve + 0.000001) {
       const fraction = 0.10 + Math.random() * 0.20;
       const sellMm3 = Math.min(availableMm3 * fraction, availableMm3 - mm3Reserve);
       const rateCny = getSellRateCny(level);
@@ -759,6 +793,7 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
       currentMm3Sold += sellMm3;
       availableMm3 -= sellMm3;
       tradesTodayCount++;
+      tradesThisTick++;
 
       actions.push({ type: 'trade', mm3_sold: sellMm3, net_eur: netCny * CNY_TO_EUR });
 
@@ -1010,7 +1045,7 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
     else if (taskKey === 'trading') count = newTradesToday;
     else if (taskKey === 'market') count = didBuyOrResell ? 1 : 0;
     else if (taskKey === 'irc') count = didMarketCommand ? 1 : 0;
-    else if (taskKey === 'squeeze') count = await getSqueezeLaunchCount(supabase, wallet);
+    else if (taskKey === 'squeeze') count = await getSqueezeWalletLaunchCount(supabase, wallet);
     else continue;
     if (count < target) continue;
 
@@ -1090,8 +1125,10 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
   if (actualGamesPlayed === 0) {
     if (drillsLeft <= 0) idleReasons.push('no_drills_left_today');
     else if (!pool) idleReasons.push('no_math_problems_loaded');
+    else if (drillsToRun <= 0) idleReasons.push('drills_waiting_next_paced_tick');
   }
   if (tradesTodayCount >= DAILY_TRADE_LIMIT) idleReasons.push('daily_trade_limit_reached');
+  else if (tradesToRun <= 0) idleReasons.push('trades_waiting_next_paced_tick');
   if (claimedTasks.size >= Object.keys(dailyTargets).length) idleReasons.push('daily_tasks_already_claimed');
   if (currentMarketKey && !actions.some((a) => a.type === 'market_buy' || a.type === 'market_resell' || a.type === 'market_command')) {
     idleReasons.push('market_nftji_held_no_upgrade_or_command_available');
@@ -1111,9 +1148,13 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
       totalExecs: totalExecsCount,
       drillsTotal,
       drillsLeft,
+      pacedDrillsAvailable,
+      drillsToRun,
       problemsCount,
       tradesTodayStart: Number(tradesToday) || 0,
       tradesTodayEnd: tradesTodayCount,
+      pacedTradesAvailable,
+      tradesToRun,
       claimedTasks: [...claimedTasks],
       currentMarketKey,
       currentMarketPrice,

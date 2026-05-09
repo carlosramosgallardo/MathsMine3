@@ -15,12 +15,12 @@ function normalizePool(value) {
   return String(value || '').trim().toUpperCase();
 }
 
-async function getSqueezeLaunchLimitState(supabase, wallet) {
+async function getSqueezeLaunchLimitState(supabase, challengerPool) {
   const windowStart = new Date(Date.now() - SQUEEZE_LAUNCH_WINDOW_MS).toISOString();
   const { data, error } = await supabase
     .from('mm3_squeeze_launches')
     .select('created_at')
-    .eq('wallet', wallet)
+    .eq('challenger_pool_code', challengerPool)
     .gte('created_at', windowStart)
     .order('created_at', { ascending: true });
 
@@ -83,7 +83,7 @@ export async function POST(req) {
 
     const isNewLaunch = !existingProposal;
     if (isNewLaunch) {
-      const limitState = await getSqueezeLaunchLimitState(supabase, wallet);
+      const limitState = await getSqueezeLaunchLimitState(supabase, challengerPool);
       if (limitState.count >= SQUEEZE_LAUNCH_LIMIT) {
         return Response.json(
           { ok: false, error: 'squeeze_limit_reached', reset_at: limitState.resetAt },

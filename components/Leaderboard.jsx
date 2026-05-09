@@ -114,10 +114,25 @@ function countSqueezeNftjis(squeezeNftji) {
 
 const LEADERBOARD_VIEW_STORAGE_KEY = 'mm3_leaderboard_view_mode';
 const LEADERBOARD_SORT_STORAGE_PREFIX = 'mm3_leaderboard_sort_';
+const SQUEEZE_LAUNCH_LIMIT = 5;
+const SQUEEZE_LAUNCH_WINDOW_MS = 24 * 60 * 60 * 1000;
 const DEFAULT_SORT_BY_VIEW = {
   wallets: { key: 'position', direction: 'asc' },
   pools: { key: 'level', direction: 'desc' },
 };
+
+function formatResetCountdown(resetAt, nowMs = Date.now()) {
+  if (!resetAt) return '';
+  const ms = new Date(resetAt).getTime() - nowMs;
+  if (!Number.isFinite(ms) || ms <= 0) return '0s';
+  const totalSeconds = Math.ceil(ms / 1000);
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  if (hours > 0) return `${hours}h ${minutes}m`;
+  if (minutes > 0) return `${minutes}m ${seconds}s`;
+  return `${seconds}s`;
+}
 
 function getInitialLeaderboardViewMode() {
   if (typeof window === 'undefined') return 'wallets';
@@ -165,6 +180,8 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
   const [selectedPool, setSelectedPool] = useState('');
   const [contactBusy, setContactBusy] = useState('');
   const [sortConfig, setSortConfig] = useState(() => getStoredLeaderboardSort(getInitialLeaderboardViewMode()));
+  const [nowMs, setNowMs] = useState(() => Date.now());
+  const [squeezeLimitsByPool, setSqueezeLimitsByPool] = useState({});
   const { account } = useActiveWallet();
   const pathname = usePathname();
   const activeWallet = account?.toLowerCase() || '';
@@ -211,6 +228,7 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
         disputeError: 'Error en squeeze',
         disputeAlready: 'Ya propusiste o hay squeeze activa',
         disputeLimit: 'Límite de 5 Squeezes en 24h alcanzado.',
+        resetIn: 'reset en',
       }
     : {
         pool: 'Pool',
@@ -249,7 +267,13 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
         disputeError: 'Squeeze error',
         disputeAlready: 'Already proposed or squeeze active',
         disputeLimit: '5 Squeezes per 24h limit reached.',
+        resetIn: 'reset in',
       };
+
+  useEffect(() => {
+    const timer = setInterval(() => setNowMs(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   const fetchLeaderboard = useCallback(async ({ ignoreCache = false } = {}) => {
     if (abortRef.current) abortRef.current.abort();
@@ -271,7 +295,8 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
           }
         }
       }
-      const [{ data: leaderboardRows, error }, progressResponse, marketOwnersResponse, blocksResponse, txResponse, penaltiesResponse, poolMembersResponse, squeezeNftjiResponse] = await Promise.all([
+      const squeezeWindowStart = new Date(Date.now() - SQUEEZE_LAUNCH_WINDOW_MS).toISOString();
+      const [{ data: leaderboardRows, error }, progressResponse, marketOwnersResponse, blocksResponse, txResponse, penaltiesResponse, poolMembersResponse, squeezeNftjiResponse, squeezeLaunchesResponse] = await Promise.all([
         supabase
           .from('leaderboard_data')
           .select('wallet, total_eth'),
@@ -300,6 +325,11 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
         supabase
           .from('mm3_squeeze_nftji')
           .select('wallet, equipped, attack_level, defense_level'),
+        supabase
+          .from('mm3_squeeze_launches')
+          .select('challenger_pool_code, created_at')
+          .gte('created_at', squeezeWindowStart)
+          .order('created_at', { ascending: true }),
       ]);
       if (error) { console.error('Leaderboard fetch:', error); setLeaderboard([]); return; }
       let progressData = progressResponse?.data || [];
@@ -403,6 +433,27 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
         }
       } else if (poolMembersResponse.error?.code !== '42P01') {
         console.error('Leaderboard pool fetch:', poolMembersResponse.error);
+      }
+
+      if (!squeezeLaunchesResponse?.error) {
+        const groupedLaunches = {};
+        for (const launch of squeezeLaunchesResponse?.data || []) {
+          const poolCode = String(launch.challenger_pool_code || '').toUpperCase();
+          if (!poolCode || !launch.created_at) continue;
+          if (!groupedLaunches[poolCode]) groupedLaunches[poolCode] = [];
+          groupedLaunches[poolCode].push(launch.created_at);
+        }
+        const limitState = {};
+        for (const [poolCode, launches] of Object.entries(groupedLaunches)) {
+          const firstAt = launches[0] ? new Date(launches[0]).getTime() : 0;
+          limitState[poolCode] = {
+            count: launches.length,
+            reset_at: firstAt ? new Date(firstAt + SQUEEZE_LAUNCH_WINDOW_MS).toISOString() : null,
+          };
+        }
+        setSqueezeLimitsByPool(limitState);
+      } else if (squeezeLaunchesResponse.error?.code !== '42P01') {
+        console.error('Leaderboard squeeze launches fetch:', squeezeLaunchesResponse.error);
       }
 
       // Union of leaderboard_data + player_progress + pool wallets so that wallets
@@ -714,6 +765,12 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
   const activeWalletPool = activeWallet
     ? leaderboard.find((entry) => normalizeWallet(entry.wallet) === activeWallet)?.pool_code || ''
     : '';
+  const activePoolLimit = activeWalletPool ? squeezeLimitsByPool[String(activeWalletPool).toUpperCase()] || null : null;
+  const activePoolSqueezeLimitReached = Number(activePoolLimit?.count || 0) >= SQUEEZE_LAUNCH_LIMIT
+    && (!activePoolLimit?.reset_at || new Date(activePoolLimit.reset_at).getTime() > nowMs);
+  const activePoolSqueezeResetText = activePoolSqueezeLimitReached
+    ? `${labels.resetIn} ${formatResetCountdown(activePoolLimit.reset_at, nowMs)} UTC`
+    : '';
   const [incomingInvites, setIncomingInvites] = useState([]);
   const [acceptBusy, setAcceptBusy] = useState('');
   const [declineBusy, setDeclineBusy] = useState('');
@@ -725,6 +782,22 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
   const [proposingDisputes, setProposingDisputes] = useState([]);
   const isPoolCooldown = !!cooldownExpiresAt && new Date(cooldownExpiresAt) > new Date();
   const poolInActiveDispute = activeDisputePairs.size > 0;
+  const poolCooldownResetText = isPoolCooldown
+    ? `${labels.resetIn} ${formatResetCountdown(cooldownExpiresAt, nowMs)} UTC`
+    : '';
+  const poolContactBlockedText = isPoolCooldown
+    ? `${labels.leaveCooldown} · ${poolCooldownResetText}`
+    : poolInActiveDispute
+      ? labels.disputeInProgress
+      : '';
+  const disputeBlockedText = activePoolSqueezeLimitReached
+    ? activePoolSqueezeResetText
+    : poolInActiveDispute
+      ? labels.disputeInProgress
+      : '';
+  const disputeButtonLabel = activePoolSqueezeLimitReached
+    ? `${labels.resetIn} ${formatResetCountdown(activePoolLimit?.reset_at, nowMs)} UTC`
+    : labels.dispute;
 
   const fetchInvites = useCallback(async () => {
     if (!activeWallet) { setIncomingInvites([]); return; }
@@ -835,6 +908,12 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
 
   const handleDisputeVote = async (defenderPoolCode) => {
     if (!activeWallet || !activeWalletPool || disputeBusy) return;
+    if (activePoolSqueezeLimitReached) {
+      window.dispatchEvent(new CustomEvent('mm3-toast', {
+        detail: { msg: `${labels.disputeLimit} ${activePoolSqueezeResetText}`, type: 'error' },
+      }));
+      return;
+    }
     setDisputeBusy(defenderPoolCode);
     try {
       const response = await fetch('/api/wallet-pools/dispute/vote', {
@@ -853,7 +932,8 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
           : payload.error === 'already_voted' || payload.error === 'dispute_already_active'
           ? 'disputeAlready'
           : 'disputeError';
-        window.dispatchEvent(new CustomEvent('mm3-toast', { detail: { msg: labels[errKey], type: 'error' } }));
+        const resetText = payload.reset_at ? `${labels.resetIn} ${formatResetCountdown(payload.reset_at, nowMs)} UTC` : '';
+        window.dispatchEvent(new CustomEvent('mm3-toast', { detail: { msg: `${labels[errKey]}${resetText ? ` ${resetText}` : ''}`, type: 'error' } }));
         return;
       }
       // proposing=true means 1st wallet — dispute is in proposing state awaiting a 2nd
@@ -1127,6 +1207,10 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
   const handleContactWallet = async (targetWallet) => {
     const normalizedTarget = normalizeWallet(targetWallet);
     if (!activeWallet || !normalizedTarget || normalizedTarget === activeWallet || contactBusy) return;
+    if (poolContactBlockedText) {
+      window.dispatchEvent(new CustomEvent('mm3-toast', { detail: { msg: poolContactBlockedText, type: 'error' } }));
+      return;
+    }
     setContactBusy(normalizedTarget);
     try {
       const response = await fetch('/api/wallet-pools/contact', {
@@ -1343,16 +1427,15 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
                   #{entry.pool_code}
                 </button>
                 {activeWallet && activeWalletPool &&
-                  String(entry.pool_code).toUpperCase() !== String(activeWalletPool).toUpperCase() &&
-                  activeDisputePairs.size === 0 ? (
+                  String(entry.pool_code).toUpperCase() !== String(activeWalletPool).toUpperCase() ? (
                   <button
                     type="button"
                     onClick={() => handleDisputeVote(entry.pool_code)}
-                    disabled={disputeBusy === entry.pool_code}
+                    disabled={disputeBusy === entry.pool_code || !!disputeBlockedText}
                     className="shrink-0 rounded border border-amber-400/30 bg-amber-950/15 px-1.5 py-0.5 text-[0.58rem] font-black uppercase tracking-[0.12em] text-amber-300 transition hover:border-amber-300 hover:text-amber-100 disabled:cursor-not-allowed disabled:opacity-40"
-                    title={labels.disputeTitle}
+                    title={disputeBlockedText || labels.disputeTitle}
                   >
-                    {disputeBusy === entry.pool_code ? '...' : labels.dispute}
+                    {disputeBusy === entry.pool_code ? '...' : disputeButtonLabel}
                   </button>
                 ) : null}
                 <span className="lb-status-chip online shrink-0">{entry.member_count} {labels.members}</span>
@@ -1556,15 +1639,15 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
                     #{entry.pool_code}
                   </button>
                 ) : null}
-                {activeWallet && normalizedWallet !== activeWallet && !isPoolCooldown && !poolInActiveDispute ? (
+                {activeWallet && normalizedWallet !== activeWallet ? (
                   <button
                     type="button"
                     onClick={() => handleContactWallet(entry.wallet)}
-                    disabled={contactBusy === normalizedWallet || isSamePool}
+                    disabled={contactBusy === normalizedWallet || isSamePool || !!poolContactBlockedText}
                     className="shrink-0 rounded border border-cyan-400/25 bg-cyan-950/10 px-1.5 py-0.5 text-[0.56rem] font-black uppercase tracking-[0.12em] text-cyan-300 disabled:cursor-not-allowed disabled:opacity-30"
-                    title={isSamePool ? labels.poolSame : labels.addContactTitle}
+                    title={isSamePool ? labels.poolSame : poolContactBlockedText || labels.addContactTitle}
                   >
-                    {isSamePool ? labels.pool : `+${labels.addContact}`}
+                    {isSamePool ? labels.pool : isPoolCooldown ? poolCooldownResetText : `+${labels.addContact}`}
                   </button>
                 ) : null}
                 <span className={`lb-status-chip ${isOnline ? 'online' : 'offline'} shrink-0`}>
@@ -1780,16 +1863,15 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
                         {entry.member_count} {labels.members}
                       </span>
                       {activeWallet && activeWalletPool &&
-                        String(entry.pool_code).toUpperCase() !== String(activeWalletPool).toUpperCase() &&
-                        activeDisputePairs.size === 0 ? (
+                        String(entry.pool_code).toUpperCase() !== String(activeWalletPool).toUpperCase() ? (
                         <button
                           type="button"
                           onClick={() => handleDisputeVote(entry.pool_code)}
-                          disabled={disputeBusy === entry.pool_code}
+                          disabled={disputeBusy === entry.pool_code || !!disputeBlockedText}
                           className="rounded border border-amber-400/30 bg-amber-950/15 px-2 py-0.5 font-mono text-[0.62rem] font-black uppercase tracking-[0.1em] text-amber-300 transition hover:border-amber-300 hover:text-amber-100 disabled:cursor-not-allowed disabled:opacity-40"
-                          title={labels.disputeTitle}
+                          title={disputeBlockedText || labels.disputeTitle}
                         >
-                          {disputeBusy === entry.pool_code ? '...' : labels.dispute}
+                          {disputeBusy === entry.pool_code ? '...' : disputeButtonLabel}
                         </button>
                       ) : null}
                     </div>
@@ -1998,15 +2080,15 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
                       >
                         {entry.is_bot ? <><span>{shortWallet(entry.wallet).toLowerCase()}</span><span className="ml-1 text-[0.62rem] font-black uppercase tracking-widest text-slate-500">(bot)</span></> : formatWalletLabel(entry.wallet)}
                       </button>
-                      {activeWallet && !isActiveWallet && !isPoolCooldown && !poolInActiveDispute ? (
+                      {activeWallet && !isActiveWallet ? (
                         <button
                           type="button"
                           onClick={() => handleContactWallet(entry.wallet)}
-                          disabled={contactBusy === normalizedWallet || isSamePool}
+                          disabled={contactBusy === normalizedWallet || isSamePool || !!poolContactBlockedText}
                           className="w-fit rounded border border-cyan-400/25 bg-cyan-950/10 px-2 py-0.5 font-mono text-[0.58rem] font-black uppercase tracking-[0.14em] text-cyan-300 transition hover:border-cyan-300 disabled:cursor-not-allowed disabled:opacity-30"
-                          title={isSamePool ? labels.poolSame : labels.addContactTitle}
+                          title={isSamePool ? labels.poolSame : poolContactBlockedText || labels.addContactTitle}
                         >
-                          {isSamePool ? labels.pool : contactBusy === normalizedWallet ? '...' : labels.addContact}
+                          {isSamePool ? labels.pool : contactBusy === normalizedWallet ? '...' : isPoolCooldown ? poolCooldownResetText : labels.addContact}
                         </button>
                       ) : null}
                     </div>

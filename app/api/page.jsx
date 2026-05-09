@@ -22,6 +22,8 @@ export default function ApiPage() {
         nftEventsDesc:          'Todos los eventos de mercado: claims de NFTJI y continuaciones de vida:',
         leaderboard:            'Leaderboard',
         leaderboardDesc:        'Ranking completo ordenado por nivel y saldo MM3, paginado (50 por defecto, máx. 200):',
+        squeezeApi:             'Squeezes',
+        squeezeApiDesc:         'Detalle de cada Squeeze lanzado: pools implicados, estado, tiempos UTC, wallets registradas, scores, resultado y drop:',
         status:                 'Estado del Servicio',
         statusDesc:             'Estado de salud del servicio y cuota de rate limit:',
         rateLimit:              'Rate Limiting',
@@ -39,6 +41,8 @@ export default function ApiPage() {
         nftEventsDesc:          'All market events: NFTJI claims and life continues:',
         leaderboard:            'Leaderboard',
         leaderboardDesc:        'Full ranking sorted by level and MM3 balance, paginated (default 50, max 200):',
+        squeezeApi:             'Squeezes',
+        squeezeApiDesc:         'Details for every launched Squeeze: involved pools, status, UTC timings, registered wallets, scores, result and drop:',
         status:                 'Service Status',
         statusDesc:             'Service health and rate-limit quota:',
         rateLimit:              'Rate Limiting',
@@ -167,6 +171,64 @@ export default function ApiPage() {
       "eur_balance": 1.86,
       "usd_balance": 2.02,
       "nftjis": ["🔮", "🍀"]
+    }
+  ]
+}`}</pre>
+
+          {/* /api/wallet-pools/disputes */}
+          <h2 className="text-xl font-semibold mt-8 mb-2">{copy.squeezeApi}</h2>
+          <p className="mb-2">{copy.squeezeApiDesc}</p>
+          <code className="block bg-gray-800 p-2 rounded my-2">
+            <a href="/api/wallet-pools/disputes?pool=FHNN6&amp;limit=50" className="text-blue-400" target="_blank">GET /api/wallet-pools/disputes<span className="text-gray-500">?pool=FHNN6&amp;limit=50</span></a>
+          </code>
+          <pre className="bg-gray-900 p-3 rounded overflow-auto mb-6">{`{
+  "ok": true,
+  "disputes": [
+    {
+      "id": 42,
+      "challenger_pool_code": "FHNN6",
+      "defender_pool_code": "8FR49",
+      "status": "resolved",
+      "registered_at": "2026-05-09T10:00:00Z",
+      "battle_start_at": "2026-05-09T10:00:05Z",
+      "resolved_at": "2026-05-09T10:00:10Z",
+      "cancelled_at": null,
+      "winner": "defender",
+      "drop_type": "attack",
+      "war_percent": 59,
+      "nature_percent": 60,
+      "dice_modifier": 0.2414,
+      "ch_score": 1269.7239,
+      "df_score": 2025.3542,
+      "ch_wallet_count": 2,
+      "df_wallet_count": 2,
+      "ch_exec_count": 5,
+      "df_exec_count": 5,
+      "result_summary": {
+        "winner": "defender",
+        "transfer_eur": 0.0243,
+        "transfer_mm3": 0,
+        "drop_type": "attack"
+      },
+      "wallets": [
+        {
+          "wallet": "0xcab10d0e0650d45cb0b7482370a1ca93d5bf5528",
+          "pool_code": "FHNN6",
+          "side": "challenger",
+          "level_snap": 79,
+          "exec_snap": 5,
+          "market_nftji_snap": "mm3-023",
+          "market_nftji_level_snap": 0,
+          "squeeze_nftji_equipped": "attack",
+          "squeeze_nftji_level": 1,
+          "delta_eur": -0.042,
+          "delta_mm3": 0,
+          "squeeze_nftji_claimed": false
+        }
+      ],
+      "votes": [
+        "0xcab10d0e0650d45cb0b7482370a1ca93d5bf5528"
+      ]
     }
   ]
 }`}</pre>
