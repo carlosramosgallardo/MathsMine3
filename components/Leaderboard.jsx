@@ -57,6 +57,22 @@ function convertPenaltyEur(value, currency) {
   return eur;
 }
 
+function formatPenaltyBlockLabel(penalty) {
+  return penalty?.block?.hex || '';
+}
+
+function formatMm3PenaltyLabel(penalty) {
+  const block = formatPenaltyBlockLabel(penalty);
+  const amount = formatCompactMm3(penalty?.penalty_value || 0);
+  return `${block ? `${block} ` : ''}-${amount} MM3`;
+}
+
+function formatMoneyPenaltyLabel(penalty, currency) {
+  const block = formatPenaltyBlockLabel(penalty);
+  const amount = formatCompactMoney(-convertPenaltyEur(penalty?.penalty_eur || penalty?.penalty_value || 0, currency), currency);
+  return `${block ? `${block} ` : ''}${amount}`;
+}
+
 function normalizeWallet(value) {
   return String(value || '').trim().toLowerCase();
 }
@@ -1466,7 +1482,7 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
                       className="lb-penalty-link rounded border border-rose-400/30 bg-rose-950/20 px-1.5 py-0.5 font-mono text-[0.75rem] font-black text-rose-300"
                       title={activePenalty?.mm3?.block ? `${activePenalty.mm3.block.emoji} ${activePenalty.mm3.block.hex}` : activePenalty?.mm3?.nftji_key || 'MM3 penalties'}
                     >
-                      -{formatCompactMm3(totalPenaltyMm3)} MM3
+                      {activePenalty?.mm3?.block?.hex || ''} -{formatCompactMm3(totalPenaltyMm3)} MM3
                     </button>
                   ) : null}
                   {totalPenaltyMoney > 0 ? (
@@ -1476,7 +1492,7 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
                       className="lb-penalty-link rounded border border-amber-400/30 bg-amber-950/20 px-1.5 py-0.5 font-mono text-[0.75rem] font-black text-amber-300"
                       title={activePenalty?.money?.block ? `${activePenalty.money.block.emoji} ${activePenalty.money.block.hex}` : activePenalty?.money?.nftji_key || 'Money penalties'}
                     >
-                      {formatCompactMoney(-totalPenaltyMoney, quoteCurrency)}
+                      {activePenalty?.money?.block?.hex || ''} {formatCompactMoney(-totalPenaltyMoney, quoteCurrency)}
                     </button>
                   ) : null}
                   {totalPenaltyMm3 <= 0 && totalPenaltyMoney <= 0 ? (
@@ -1655,7 +1671,7 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
                       className="lb-penalty-link rounded border border-rose-400/30 bg-rose-950/20 px-1.5 py-0.5 font-mono text-[0.75rem] font-black text-rose-300"
                       title={activePenalty.mm3.block ? `${activePenalty.mm3.block.emoji} ${activePenalty.mm3.block.hex}` : activePenalty.mm3.nftji_key}
                     >
-                      -{Number(activePenalty.mm3.penalty_value || 0).toFixed(8).replace(/\.?0+$/, '') || '0'} MM3
+                      {formatMm3PenaltyLabel(activePenalty.mm3)}
                     </button>
                   ) : null}
                   {activePenalty?.money ? (
@@ -1665,7 +1681,7 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
                       className="lb-penalty-link rounded border border-amber-400/30 bg-amber-950/20 px-1.5 py-0.5 font-mono text-[0.75rem] font-black text-amber-300"
                       title={activePenalty.money.block ? `${activePenalty.money.block.emoji} ${activePenalty.money.block.hex}` : activePenalty.money.nftji_key}
                     >
-                      -{convertPenaltyEur(activePenalty.money.penalty_eur || activePenalty.money.penalty_value || 0, quoteCurrency).toFixed(8).replace(/\.?0+$/, '') || '0'} {quoteCurrency}
+                      {formatMoneyPenaltyLabel(activePenalty.money, quoteCurrency)}
                     </button>
                   ) : null}
                   {!activePenalty?.mm3 && !activePenalty?.money ? (
@@ -1892,7 +1908,7 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
                           className="rounded border border-rose-400/30 bg-rose-950/20 px-1.5 py-1 font-mono text-[0.68rem] font-black text-rose-300"
                           title={activePenalty?.mm3?.block ? `${activePenalty.mm3.block.emoji} ${activePenalty.mm3.block.hex}` : activePenalty?.mm3?.nftji_key || 'MM3 penalties'}
                         >
-                          -{formatCompactMm3(totalPenaltyMm3)} MM3
+                          {activePenalty?.mm3?.block?.hex || ''} -{formatCompactMm3(totalPenaltyMm3)} MM3
                         </button>
                       ) : null}
                       {totalPenaltyMoney > 0 ? (
@@ -1902,7 +1918,7 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
                           className="rounded border border-amber-400/30 bg-amber-950/20 px-1.5 py-1 font-mono text-[0.68rem] font-black text-amber-300"
                           title={activePenalty?.money?.block ? `${activePenalty.money.block.emoji} ${activePenalty.money.block.hex}` : activePenalty?.money?.nftji_key || 'Money penalties'}
                         >
-                          {formatCompactMoney(-totalPenaltyMoney, quoteCurrency)}
+                          {activePenalty?.money?.block?.hex || ''} {formatCompactMoney(-totalPenaltyMoney, quoteCurrency)}
                         </button>
                       ) : null}
                       {totalPenaltyMm3 <= 0 && totalPenaltyMoney <= 0 ? (
@@ -2113,7 +2129,7 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
                           className="lb-penalty-link rounded border border-rose-400/30 bg-rose-950/20 px-1.5 py-1 font-mono text-[0.72rem] font-black text-rose-300"
                           title={activePenalty.mm3.block ? `${activePenalty.mm3.block.emoji} ${activePenalty.mm3.block.hex}` : activePenalty.mm3.nftji_key}
                         >
-                          {activePenalty.mm3.block?.hex || ''} -{formatCompactMm3(activePenalty.mm3.penalty_value)} MM3
+                          {formatMm3PenaltyLabel(activePenalty.mm3)}
                         </button>
                       ) : null}
                       {activePenalty?.money ? (
@@ -2123,7 +2139,7 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
                           className="lb-penalty-link rounded border border-amber-400/30 bg-amber-950/20 px-1.5 py-1 font-mono text-[0.72rem] font-black text-amber-300"
                           title={activePenalty.money.block ? `${activePenalty.money.block.emoji} ${activePenalty.money.block.hex}` : activePenalty.money.nftji_key}
                         >
-                          {activePenalty.money.block?.hex || ''} {formatCompactMoney(-convertPenaltyEur(activePenalty.money.penalty_eur || activePenalty.money.penalty_value || 0, quoteCurrency), quoteCurrency)}
+                          {formatMoneyPenaltyLabel(activePenalty.money, quoteCurrency)}
                         </button>
                       ) : null}
                       {!activePenalty?.mm3 && !activePenalty?.money ? (
