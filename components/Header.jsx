@@ -14,6 +14,8 @@ import UtcClock from '@/components/UtcClock'
 import { useSound } from '@/lib/sound-context'
 import supabase from '@/lib/supabaseClient'
 import { formatCompactNum } from '@/lib/sell-offer'
+import { useActiveWallet } from '@/lib/use-active-wallet'
+import { loadDailyTaskProgress } from '@/lib/daily-tasks'
 
 // Deferred: AuthBar statically imports @web3modal — loading it lazily keeps
 // the 1.4 MB walletconnect chunk out of the initial page bundle.
@@ -111,6 +113,60 @@ function Mm3Total() {
   )
 }
 
+function ManifestoDailyTaskLink() {
+  const { account } = useActiveWallet()
+  const [pendingRewards, setPendingRewards] = useState(0)
+
+  useEffect(() => {
+    let mounted = true
+    const wallet = String(account || '').toLowerCase()
+
+    if (!wallet) {
+      setPendingRewards(0)
+      return undefined
+    }
+
+    const load = async () => {
+      try {
+        const state = await loadDailyTaskProgress(supabase, wallet)
+        if (mounted) setPendingRewards(state.pendingRewards || 0)
+      } catch {
+        if (mounted) setPendingRewards(0)
+      }
+    }
+
+    load()
+    const timer = setInterval(load, 30000)
+    window.addEventListener('focus', load)
+    window.addEventListener('mm3-db-updated', load)
+
+    return () => {
+      mounted = false
+      clearInterval(timer)
+      window.removeEventListener('focus', load)
+      window.removeEventListener('mm3-db-updated', load)
+    }
+  }, [account])
+
+  const count = Math.max(0, Number(pendingRewards) || 0)
+
+  return (
+    <Link
+      href="/manifesto"
+      className="relative shrink-0 px-1 text-[0.82rem] leading-none transition hover:opacity-70"
+      title={count > 0 ? `${count} daily task reward${count === 1 ? '' : 's'} ready` : 'Manifesto'}
+      aria-label={count > 0 ? `Manifesto, ${count} daily task reward${count === 1 ? '' : 's'} ready` : 'Manifesto'}
+    >
+      <span aria-hidden="true">📜</span>
+      {count > 0 ? (
+        <span className="absolute -right-1.5 -top-2 inline-flex h-4 min-w-4 items-center justify-center rounded-full border border-cyan-200 bg-fuchsia-500 px-1 font-mono text-[0.56rem] font-black leading-none text-white shadow-[0_0_8px_rgba(217,70,239,0.75)]">
+          {count > 9 ? '9+' : count}
+        </span>
+      ) : null}
+    </Link>
+  )
+}
+
 export default function Header() {
   const pathname = usePathname()
 
@@ -148,7 +204,7 @@ export default function Header() {
 
       <div className="mm3-header-wallet-row relative z-[40] flex h-7 items-center justify-center gap-1.5 sm:gap-2 border-b border-cyan-900/10 px-2 sm:px-4 overflow-x-auto no-scrollbar">
         <UtcClock className="font-mono text-[0.65rem] sm:text-[0.80rem] font-black tracking-[0.08em] sm:tracking-[0.14em] text-cyan-300 shrink-0" />
-        <Link href="/manifesto" className="shrink-0 text-[0.82rem] leading-none transition hover:opacity-70 px-1" title="Manifesto">📜</Link>
+        <ManifestoDailyTaskLink />
         <Mm3Total />
         <Link href="/ai-team" className="shrink-0 text-[0.82rem] leading-none transition hover:opacity-70 px-1" title="AI Team">🤖</Link>
         <AuthBar mode="wallet" />

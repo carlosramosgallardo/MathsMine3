@@ -4,60 +4,11 @@ import { useEffect, useRef, useState } from 'react';
 import { useI18n } from '@/lib/i18n-context';
 import { useActiveWallet } from '@/lib/use-active-wallet';
 import { useSound } from '@/lib/sound-context';
+import { DAILY_TASKS, getUtcDayBounds, loadDailyTaskProgress } from '@/lib/daily-tasks';
 import SectionFrame from '@/components/SectionFrame';
 import supabase from '@/lib/supabaseClient';
 
-function getUtcDayBounds(now = new Date()) {
-  const start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
-  const end = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1));
-  const dayKey = start.toISOString().slice(0, 10);
-  return { startIso: start.toISOString(), endIso: end.toISOString(), dayKey };
-}
-
-const TASKS = [
-  {
-    key: 'mining',
-    translationKey: 'mining',
-    target: 25,
-    rewardEur: 0.25,
-  },
-  {
-    key: 'trading',
-    translationKey: 'trading',
-    target: 5,
-    rewardEur: 0.5,
-  },
-  {
-    key: 'market',
-    translationKey: 'market',
-    target: 1,
-    rewardEur: 0.75,
-  },
-  {
-    key: 'irc',
-    translationKey: 'irc',
-    target: 1,
-    rewardEur: 1,
-  },
-  {
-    key: 'squeeze',
-    translationKey: 'squeeze',
-    target: 1,
-    rewardEur: 1.25,
-  },
-  {
-    key: 'ircHidden',
-    translationKey: 'ircHidden',
-    target: 1,
-    rewardEur: 5,
-  },
-];
-
-function toCount(value) {
-  return Number(value) || 0;
-}
-
-export default function DailyTasks() {
+export default function DailyTasks({ framed = true }) {
   const { account } = useActiveWallet();
   const { t } = useI18n();
   const [counts, setCounts] = useState({});
@@ -102,74 +53,16 @@ export default function DailyTasks() {
       setLoading(true);
       setMessage('');
       try {
-        const { startIso, endIso, dayKey: currentDayKey } = getUtcDayBounds();
-        const [miningRes, tradingRes, marketRes, ircRes, squeezeRes, hiddenRes, claimsRes] = await Promise.all([
-          supabase
-            .from('games')
-            .select('id', { count: 'exact', head: true })
-            .eq('wallet', wallet)
-            .eq('is_correct', true)
-            .gte('created_at', startIso)
-            .lt('created_at', endIso),
-          supabase
-            .from('mm3_sell_transactions')
-            .select('id', { count: 'exact', head: true })
-            .eq('wallet', wallet)
-            .gte('created_at', startIso)
-            .lt('created_at', endIso),
-          supabase
-            .from('mm3_market_events')
-            .select('id', { count: 'exact', head: true })
-            .eq('wallet', wallet)
-            .in('event_type', ['market_buy', 'market_resell'])
-            .gte('created_at', startIso)
-            .lt('created_at', endIso),
-          supabase
-            .from('mm3_market_commands')
-            .select('id', { count: 'exact', head: true })
-            .eq('wallet', wallet)
-            .gte('executed_at', startIso)
-            .lt('executed_at', endIso),
-          supabase
-            .from('mm3_pool_dispute_votes')
-            .select('id', { count: 'exact', head: true })
-            .eq('wallet', wallet)
-            .gte('voted_at', startIso)
-            .lt('voted_at', endIso),
-          supabase
-            .from('mm3_hidden_cmd_executions')
-            .select('id', { count: 'exact', head: true })
-            .eq('wallet', wallet)
-            .gte('executed_at', startIso)
-            .lt('executed_at', endIso),
-          supabase
-            .from('daily_task_claims')
-            .select('task_key, reward_claimed, claimed_at')
-            .eq('wallet', wallet)
-            .eq('day', currentDayKey),
-        ]);
+        const { counts: nextCounts, claimed: claimMap, dayKey: currentDayKey } = await loadDailyTaskProgress(supabase, wallet);
 
         if (cancelled) return;
 
-        const nextCounts = {
-          mining: toCount(miningRes.count),
-          trading: toCount(tradingRes.count),
-          market: toCount(marketRes.count),
-          irc: toCount(ircRes.count),
-          squeeze: toCount(squeezeRes.count),
-          ircHidden: toCount(hiddenRes.count),
-        };
         setCounts(nextCounts);
-
-        const claimMap = {};
-        (claimsRes.data || []).forEach((row) => {
-          if (row?.task_key) claimMap[row.task_key] = Boolean(row.reward_claimed);
-        });
         setClaimed(claimMap);
         setDayKey(currentDayKey);
         if (firstLoadRef.current) {
           const completedOnLoad = {};
-          TASKS.forEach((task) => {
+          DAILY_TASKS.forEach((task) => {
             if ((nextCounts[task.key] || 0) >= task.target) completedOnLoad[task.key] = true;
           });
           setNotifiedComplete(completedOnLoad);
@@ -253,7 +146,7 @@ export default function DailyTasks() {
     }
   };
 
-  const taskRows = TASKS.map((task) => {
+  const taskRows = DAILY_TASKS.map((task) => {
     const value = counts[task.key] || 0;
     const filled = Math.min(100, Math.round((value / task.target) * 100));
     const complete = value >= task.target;
@@ -269,8 +162,7 @@ export default function DailyTasks() {
   const noticeText = translateOr('dailyTasks.notice', 'Unclaimed rewards disappear.');
   const resetText = formatResetTimer(countdown);
 
-  return (
-    <SectionFrame accent="#22d3ee" id="daily-tasks-section">
+  const content = (
       <div className="mx-auto w-full max-w-lg px-2 pb-6 pt-4 sm:px-2">
         {account ? (
           <div className="mb-3 rounded-md border border-cyan-500/20 bg-black/70 p-3 font-mono text-sm leading-6 text-cyan-100 shadow-[inset_0_0_22px_rgba(34,211,238,0.05)]">
@@ -325,6 +217,13 @@ export default function DailyTasks() {
             ) : null}
           </div>
       </div>
+  );
+
+  if (!framed) return content;
+
+  return (
+    <SectionFrame accent="#22d3ee" id="daily-tasks-section">
+      {content}
     </SectionFrame>
   );
 }

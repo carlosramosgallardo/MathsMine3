@@ -14,7 +14,6 @@ import '@/app/globals.css';
 import { useActiveWallet } from '@/lib/use-active-wallet';
 import { getSellQuote } from '@/lib/sell-offer';
 import { useMm3Accent } from '@/lib/use-mm3-accent';
-import DailyTasks from '@/components/DailyTasks';
 
 const markLeaderboardDirty = () => {
   if (typeof window !== 'undefined') {
@@ -96,8 +95,6 @@ export default function Page() {
           />
         </SectionFrame>
       </div>
-
-      <DailyTasks />
 
       <Analytics />
       <SpeedInsights />
