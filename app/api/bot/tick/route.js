@@ -15,6 +15,7 @@ const BOT_WALLETS = [
 const DAILY_MINE_BASE = 100;
 const PRICE = Number(process.env.NEXT_PUBLIC_FAKE_MINING_PRICE) || 0.00001;
 const DAILY_TRADE_LIMIT = 5;
+const BOT_PRESENCE_SETTLE_MS = Math.max(0, Math.min(3000, Number(process.env.BOT_PRESENCE_SETTLE_MS) || 1500));
 
 function getUtcDayBounds() {
   const now = new Date();
@@ -369,8 +370,10 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
   }, { onConflict: 'wallet', ignoreDuplicates: false });
   await insertBotPresenceTrace(supabase, wallet, 'join');
 
-  // Wait for presence to propagate before starting work
-  await new Promise((resolve) => setTimeout(resolve, 10_000));
+  // Keep the relay trace visible without burning cron runtime before mining starts.
+  if (BOT_PRESENCE_SETTLE_MS > 0) {
+    await new Promise((resolve) => setTimeout(resolve, BOT_PRESENCE_SETTLE_MS));
+  }
 
   const [
     { data: progressRow },
@@ -1002,15 +1005,14 @@ export async function GET(req) {
     ...launchedSqueezes,
   ];
 
-  const results = [];
-  for (const wallet of BOT_WALLETS) {
+  const results = await Promise.all(BOT_WALLETS.map(async (wallet) => {
     try {
-      results.push(await runBotTick(supabase, wallet, squeezeActions));
+      return await runBotTick(supabase, wallet, squeezeActions);
     } catch (error) {
       console.error('bot tick error:', wallet, error);
-      results.push({ ok: false, wallet, error: 'bot_tick_failed' });
+      return { ok: false, wallet, error: 'bot_tick_failed' };
     }
-  }
+  }));
 
   return Response.json({
     ok: results.every((result) => result.ok),
