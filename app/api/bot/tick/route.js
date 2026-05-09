@@ -50,6 +50,38 @@ function getMarketBlockLabel(block, fallbackKey = '') {
   return `${block.emoji || ''}${hex ? ` ${hex}` : block.block_key ? ` ${block.block_key}` : ''}`.trim() || fallbackKey || '';
 }
 
+function chooseBotSqueezeEquip(attackLevel = -1, defenseLevel = -1) {
+  const atk = Number(attackLevel);
+  const def = Number(defenseLevel);
+  const hasAtk = Number.isFinite(atk) && atk >= 0;
+  const hasDef = Number.isFinite(def) && def >= 0;
+  if (hasAtk && !hasDef) return 'attack';
+  if (!hasAtk && hasDef) return 'defense';
+  if (!hasAtk && !hasDef) return null;
+  if (atk < def) return 'attack';
+  if (def < atk) return 'defense';
+  return ((atk + def) % 2 === 0) ? 'attack' : 'defense';
+}
+
+function chooseBotMarketTarget({ buyableBlocks, currentMarketKey, currentMarketPrice, marketLevels, botEur }) {
+  const resellReturn = currentMarketKey ? currentMarketPrice * 0.5 : 0;
+  const budget = botEur + resellReturn;
+  const candidates = (buyableBlocks || [])
+    .filter((block) => block.block_key !== currentMarketKey)
+    .filter((block) => Number(block.price_eur) <= budget)
+    .map((block) => ({
+      block,
+      level: Number(marketLevels?.[block.block_key] ?? -1),
+      price: Number(block.price_eur) || 0,
+    }))
+    .sort((a, b) => {
+      if (a.level !== b.level) return a.level - b.level;
+      if (a.price !== b.price) return a.price - b.price;
+      return String(a.block.block_key).localeCompare(String(b.block.block_key));
+    });
+  return candidates[0]?.block || null;
+}
+
 async function insertBotPresenceTrace(supabase, wallet, tone) {
   const normalized = normalizeWallet(wallet);
   if (!normalized || !['join', 'leave'].includes(tone)) return;
@@ -196,6 +228,64 @@ async function advanceBotSqueezes(supabase) {
   return actions;
 }
 
+async function autoClaimBotSqueezeDrops(supabase) {
+  const actions = [];
+  const { data: walletRows } = await supabase
+    .from('mm3_pool_dispute_wallets')
+    .select('dispute_id, wallet, side, squeeze_nftji_claimed')
+    .in('wallet', BOT_WALLETS)
+    .eq('squeeze_nftji_claimed', false)
+    .order('dispute_id', { ascending: true });
+
+  const disputeIds = [...new Set((walletRows || []).map((row) => row.dispute_id).filter(Boolean))];
+  if (disputeIds.length === 0) return actions;
+
+  const { data: disputes } = await supabase
+    .from('mm3_pool_disputes')
+    .select('id, status, winner, drop_type')
+    .in('id', disputeIds)
+    .eq('status', 'resolved')
+    .not('drop_type', 'is', null);
+  const disputeById = new Map((disputes || []).map((dispute) => [dispute.id, dispute]));
+
+  for (const row of walletRows || []) {
+    const dispute = disputeById.get(row.dispute_id);
+    if (!dispute) continue;
+    if (dispute.winner !== 'draw' && row.side !== dispute.winner) continue;
+
+    const { data } = await supabase.rpc('mm3_squeeze_nftji_take', {
+      p_dispute_id: row.dispute_id,
+      p_wallet: row.wallet,
+    });
+    if (!data?.ok) {
+      if (data?.error && data.error !== 'already_claimed') {
+        actions.push({ type: 'squeeze_drop_claim_skipped', wallet: row.wallet, disputeId: row.dispute_id, reason: data.error });
+      }
+      continue;
+    }
+
+    const equip = chooseBotSqueezeEquip(data.attack_level, data.defense_level);
+    if (equip && equip !== data.equipped) {
+      await supabase
+        .from('mm3_squeeze_nftji')
+        .update({ equipped: equip, updated_at: new Date().toISOString() })
+        .eq('wallet', row.wallet);
+    }
+
+    actions.push({
+      type: 'squeeze_drop_claimed',
+      wallet: row.wallet,
+      disputeId: row.dispute_id,
+      dropType: data.drop_type,
+      equipped: equip || data.equipped,
+      attackLevel: Number(data.attack_level ?? -1),
+      defenseLevel: Number(data.defense_level ?? -1),
+    });
+  }
+
+  return actions;
+}
+
 async function maybeLaunchBotSqueeze(supabase) {
   const actions = [];
   const { data: members } = await supabase
@@ -330,6 +420,10 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
   const marketBlocksCount = Array.isArray(marketBlocks) ? marketBlocks.length : 0;
   const actions = [];
   actions.push(...botActions);
+  actions.push(...sharedActions.filter((action) =>
+    ['squeeze_drop_claimed', 'squeeze_proposed'].includes(action.type) &&
+    normalizeWallet(action.wallet) === normalizeWallet(wallet)
+  ));
 
   async function claimDailyReward(taskKey, rewardEur) {
     if (claimedTasks.has(taskKey)) return false;
@@ -579,13 +673,14 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
   if (marketBlocks && marketBlocks.length > 0) {
     const { data: freshProg } = await supabase
       .from('player_progress')
-      .select('eur_earned, cny_earned, usd_earned')
+      .select('eur_earned, cny_earned, usd_earned, market_nftji_levels')
       .eq('wallet', wallet)
       .maybeSingle();
 
     let botEur = Number(freshProg?.eur_earned) || 0;
     let botCny = Number(freshProg?.cny_earned) || 0;
     let botUsd = Number(freshProg?.usd_earned) || 0;
+    const currentLevels = freshProg?.market_nftji_levels || progressRow?.market_nftji_levels || {};
     const rateCny = getSellRateCny(level);
 
     // Only EUR-payment, active blocks with a command
@@ -597,14 +692,13 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
 
     let targetBlock = null;
 
-    if (!currentMarketKey) {
-      targetBlock = buyableBlocks.find((b) => Number(b.price_eur) <= botEur) || null;
-    } else {
-      const resellReturn = currentMarketPrice * 0.5;
-      targetBlock = [...buyableBlocks]
-        .reverse()
-        .find((b) => Number(b.price_eur) > currentMarketPrice && Number(b.price_eur) <= botEur + resellReturn) || null;
-    }
+    targetBlock = chooseBotMarketTarget({
+      buyableBlocks,
+      currentMarketKey,
+      currentMarketPrice,
+      marketLevels: currentLevels,
+      botEur,
+    });
 
     if (targetBlock) {
       const newPrice = Number(targetBlock.price_eur);
@@ -638,7 +732,6 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
       botEur -= newPrice; botCny -= newPriceCny; botUsd -= newPriceUsd;
       const buyDelta = newPrice / (rateCny * CNY_TO_EUR);
 
-      const currentLevels = progressRow?.market_nftji_levels || {};
       await supabase.from('player_progress').upsert({
         wallet, is_bot: true, eur_earned: botEur, cny_earned: botCny, usd_earned: botUsd,
         market_nftji_key: targetBlock.block_key, market_nftji_price: newPrice,
@@ -791,6 +884,7 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
     const marketBuyAction = actions.find((a) => a.type === 'market_buy');
     const marketResellAction = actions.find((a) => a.type === 'market_resell');
     const marketCmdAction = actions.find((a) => a.type === 'market_command');
+    const squeezeDropAction = actions.find((a) => a.type === 'squeeze_drop_claimed');
 
     const gamesCount = gamesAction?.count || 0;
     const mm3Mined = gamesAction?.total_mining_reward || 0;
@@ -808,6 +902,10 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
     if (marketResellAction) botMsg += ` :: resell ${marketResellAction.blockLabel || marketResellAction.blockKey} +€${marketResellAction.returnEur.toFixed(2)}`;
     if (marketBuyAction) botMsg += ` :: buy ${marketBuyAction.blockLabel || marketBuyAction.blockKey} €${marketBuyAction.priceEur.toFixed(2)}`;
     if (marketCmdAction) botMsg += ` :: cmd ${marketCmdAction.blockLabel || marketCmdAction.blockKey} x=${marketCmdAction.x} (${marketCmdAction.penalties} hit)`;
+    if (squeezeDropAction) {
+      const dropEmoji = squeezeDropAction.dropType === 'attack' ? '⚔️' : '🔰';
+      botMsg += ` :: squeeze drop ${dropEmoji} atk${squeezeDropAction.attackLevel} def${squeezeDropAction.defenseLevel} equip ${squeezeDropAction.equipped}`;
+    }
     botMsg += tasksCompleted.length > 0
       ? ` :: daily tasks: ${tasksCompleted.join(' ')}`
       : ` :: no daily tasks`;
@@ -895,9 +993,13 @@ export async function GET(req) {
     process.env.SUPABASE_SERVICE_ROLE_KEY
   );
 
+  const advancedSqueezes = await advanceBotSqueezes(supabase);
+  const claimedSqueezeDrops = await autoClaimBotSqueezeDrops(supabase);
+  const launchedSqueezes = await maybeLaunchBotSqueeze(supabase);
   const squeezeActions = [
-    ...await advanceBotSqueezes(supabase),
-    ...await maybeLaunchBotSqueeze(supabase),
+    ...advancedSqueezes,
+    ...claimedSqueezeDrops,
+    ...launchedSqueezes,
   ];
 
   const results = [];
