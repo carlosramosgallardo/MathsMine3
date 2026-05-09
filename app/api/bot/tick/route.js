@@ -170,6 +170,60 @@ async function acceptPendingPoolInvites(supabase, wallet) {
   return actions;
 }
 
+async function autoAcceptBotSqueezeProposals(supabase) {
+  const actions = [];
+  const { data: members } = await supabase
+    .from('mm3_wallet_pool_members')
+    .select('wallet, pool_code')
+    .in('wallet', BOT_WALLETS);
+
+  const botMembers = (members || [])
+    .map((row) => ({ wallet: normalizeWallet(row.wallet), poolCode: row.pool_code }))
+    .filter((row) => row.wallet && row.poolCode);
+  const botPools = [...new Set(botMembers.map((row) => row.poolCode))];
+  if (botPools.length === 0) return actions;
+
+  const { data: proposals } = await supabase
+    .from('mm3_pool_disputes')
+    .select('id, challenger_pool_code, defender_pool_code, status')
+    .in('challenger_pool_code', botPools)
+    .eq('status', 'proposing')
+    .order('registered_at', { ascending: true });
+
+  for (const proposal of proposals || []) {
+    const bot = botMembers.find((row) => row.poolCode === proposal.challenger_pool_code);
+    if (!bot) continue;
+
+    const { data: existingVote } = await supabase
+      .from('mm3_pool_dispute_votes')
+      .select('id')
+      .eq('dispute_id', proposal.id)
+      .eq('wallet', bot.wallet)
+      .maybeSingle();
+    if (existingVote) continue;
+
+    const { data } = await supabase.rpc('mm3_dispute_vote', {
+      p_challenger_pool: proposal.challenger_pool_code,
+      p_defender_pool: proposal.defender_pool_code,
+      p_wallet: bot.wallet,
+    });
+
+    if (!data?.error) {
+      actions.push({
+        type: 'squeeze_auto_accepted',
+        disputeId: proposal.id,
+        challengerPool: proposal.challenger_pool_code,
+        defenderPool: proposal.defender_pool_code,
+        wallet: bot.wallet,
+      });
+    } else if (data.error !== 'already_voted') {
+      actions.push({ type: 'squeeze_auto_accept_skipped', disputeId: proposal.id, wallet: bot.wallet, reason: data.error });
+    }
+  }
+
+  return actions;
+}
+
 async function advanceBotSqueezes(supabase) {
   const now = Date.now();
   const actions = [];
@@ -996,10 +1050,12 @@ export async function GET(req) {
     process.env.SUPABASE_SERVICE_ROLE_KEY
   );
 
+  const autoAcceptedSqueezes = await autoAcceptBotSqueezeProposals(supabase);
   const advancedSqueezes = await advanceBotSqueezes(supabase);
   const claimedSqueezeDrops = await autoClaimBotSqueezeDrops(supabase);
   const launchedSqueezes = await maybeLaunchBotSqueeze(supabase);
   const squeezeActions = [
+    ...autoAcceptedSqueezes,
     ...advancedSqueezes,
     ...claimedSqueezeDrops,
     ...launchedSqueezes,
