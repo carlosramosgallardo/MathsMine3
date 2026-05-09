@@ -592,6 +592,8 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
       const totalPenalties = members.reduce((sum, entry) => {
         return sum + (entry.active_penalty?.mm3 ? 1 : 0) + (entry.active_penalty?.money ? 1 : 0);
       }, 0);
+      const totalPenaltiesMm3 = members.reduce((sum, entry) => sum + (entry.active_penalty?.mm3 ? 1 : 0), 0);
+      const totalPenaltiesMoney = members.reduce((sum, entry) => sum + (entry.active_penalty?.money ? 1 : 0), 0);
       const marketBlocks = uniqueBy(
         members.flatMap((entry) => Array.isArray(entry.market_blocks) ? entry.market_blocks : []),
         (block) => block.block_key
@@ -623,6 +625,8 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
         total_nftjis: totalNftjis,
         total_execs: totalExecs,
         total_penalties: totalPenalties,
+        total_penalties_mm3: totalPenaltiesMm3,
+        total_penalties_money: totalPenaltiesMoney,
         available_mm3: totalMm3,
         money_balance_cny: totalCny,
         money_balance_eur: totalEur,
@@ -1284,6 +1288,8 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
           const ownedEmojis = normalizeWalletDecorations(entry.wallet_emojis);
           const marketBlocks = Array.isArray(entry.market_blocks) ? entry.market_blocks : [];
           const activePenalty = entry.active_penalty;
+          const totalPenaltyMm3 = Number(entry.total_penalties_mm3 || 0);
+          const totalPenaltyMoney = Number(entry.total_penalties_money || 0);
 
           return (
             <article key={entry.pool_code} className="lb-card p-2">
@@ -1431,25 +1437,27 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
                   ))}
                 </div>
                 <div className="flex flex-wrap items-center gap-1">
-                  {activePenalty?.mm3 ? (
+                  {totalPenaltyMm3 > 0 ? (
                     <button
                       type="button"
-                      onClick={() => openMarketBlock(activePenalty.mm3.nftji_key)}
+                      onClick={() => activePenalty?.mm3?.nftji_key && openMarketBlock(activePenalty.mm3.nftji_key)}
                       className="lb-penalty-link rounded border border-rose-400/30 bg-rose-950/20 px-1.5 py-0.5 font-mono text-[0.75rem] font-black text-rose-300"
+                      title={activePenalty?.mm3?.block ? `${activePenalty.mm3.block.emoji} ${activePenalty.mm3.block.hex}` : activePenalty?.mm3?.nftji_key || 'MM3 penalties'}
                     >
-                      -{Number(activePenalty.mm3.penalty_value || 0).toFixed(8).replace(/\.?0+$/, '') || '0'} MM3
+                      MM3 ×{totalPenaltyMm3}
                     </button>
                   ) : null}
-                  {activePenalty?.money ? (
+                  {totalPenaltyMoney > 0 ? (
                     <button
                       type="button"
-                      onClick={() => openMarketBlock(activePenalty.money.nftji_key)}
+                      onClick={() => activePenalty?.money?.nftji_key && openMarketBlock(activePenalty.money.nftji_key)}
                       className="lb-penalty-link rounded border border-amber-400/30 bg-amber-950/20 px-1.5 py-0.5 font-mono text-[0.75rem] font-black text-amber-300"
+                      title={activePenalty?.money?.block ? `${activePenalty.money.block.emoji} ${activePenalty.money.block.hex}` : activePenalty?.money?.nftji_key || 'Money penalties'}
                     >
-                      -{convertPenaltyEur(activePenalty.money.penalty_eur || activePenalty.money.penalty_value || 0, quoteCurrency).toFixed(8).replace(/\.?0+$/, '') || '0'} {quoteCurrency}
+                      {quoteCurrency} ×{totalPenaltyMoney}
                     </button>
                   ) : null}
-                  {!activePenalty?.mm3 && !activePenalty?.money ? (
+                  {totalPenaltyMm3 <= 0 && totalPenaltyMoney <= 0 ? (
                     <span className="text-[0.5rem] uppercase tracking-[0.1em] text-slate-700">{t('leaderboard.none')}</span>
                   ) : null}
                 </div>
@@ -1704,6 +1712,8 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
               const ownedEmojis = normalizeWalletDecorations(entry.wallet_emojis);
               const marketBlocks = Array.isArray(entry.market_blocks) ? entry.market_blocks : [];
               const activePenalty = entry.active_penalty;
+              const totalPenaltyMm3 = Number(entry.total_penalties_mm3 || 0);
+              const totalPenaltyMoney = Number(entry.total_penalties_money || 0);
 
               return (
                 <tr key={entry.pool_code} className="lb-row">
@@ -1847,9 +1857,31 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
                     </span>
                   </td>
                   <td style={{ textAlign:'center' }}>
-                    <span className="font-mono font-semibold text-rose-300">
-                      -{Number(entry.total_penalties || 0)}
-                    </span>
+                    <div className="flex flex-wrap items-center justify-center gap-1">
+                      {totalPenaltyMm3 > 0 ? (
+                        <button
+                          type="button"
+                          onClick={() => activePenalty?.mm3?.nftji_key && openMarketBlock(activePenalty.mm3.nftji_key)}
+                          className="rounded border border-rose-400/30 bg-rose-950/20 px-1.5 py-1 font-mono text-[0.68rem] font-black text-rose-300"
+                          title={activePenalty?.mm3?.block ? `${activePenalty.mm3.block.emoji} ${activePenalty.mm3.block.hex}` : activePenalty?.mm3?.nftji_key || 'MM3 penalties'}
+                        >
+                          MM3 ×{totalPenaltyMm3}
+                        </button>
+                      ) : null}
+                      {totalPenaltyMoney > 0 ? (
+                        <button
+                          type="button"
+                          onClick={() => activePenalty?.money?.nftji_key && openMarketBlock(activePenalty.money.nftji_key)}
+                          className="rounded border border-amber-400/30 bg-amber-950/20 px-1.5 py-1 font-mono text-[0.68rem] font-black text-amber-300"
+                          title={activePenalty?.money?.block ? `${activePenalty.money.block.emoji} ${activePenalty.money.block.hex}` : activePenalty?.money?.nftji_key || 'Money penalties'}
+                        >
+                          {quoteCurrency} ×{totalPenaltyMoney}
+                        </button>
+                      ) : null}
+                      {totalPenaltyMm3 <= 0 && totalPenaltyMoney <= 0 ? (
+                        <span className="text-[0.75rem] uppercase tracking-[0.12em] text-slate-600">{t('leaderboard.none')}</span>
+                      ) : null}
+                    </div>
                   </td>
                   <td style={{ textAlign:'center' }}>
                     <span className="font-mono font-black text-[1.05rem]" style={{ color: tier.color, textShadow:`0 0 8px ${tier.color}66` }}>

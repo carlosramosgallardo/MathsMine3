@@ -452,48 +452,6 @@ function DisputeCard({ dispute, activeWallet, poolCode, language, currency, onJo
         </div>
       )}
 
-      {/* Squeeze NFTJI drop notice (claim happens per winning wallet row) */}
-      {isResolved && dispute.drop_type && (() => {
-        const isAtk = dispute.drop_type === 'attack';
-        const dropEmoji = isAtk ? '⚔️' : '🛡️';
-        const dropLabel = isAtk
-          ? (lang === 'es' ? 'Ataque' : 'Attack')
-          : (lang === 'es' ? 'Defensa' : 'Defense');
-        const winnerWalletCount = registeredWallets.filter((w) => w.side === dispute.winner).length;
-        return (
-          <div style={{
-            border: `1px solid ${isAtk ? 'rgba(245,158,11,0.5)' : 'rgba(34,211,238,0.5)'}`,
-            borderRadius: 6,
-            padding: '8px 12px',
-            marginBottom: 10,
-            background: isAtk ? 'rgba(245,158,11,0.07)' : 'rgba(34,211,238,0.07)',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 10,
-          }}>
-            <SqueezeDropSlot
-              emoji={dropEmoji}
-              color={isAtk ? '#f59e0b' : '#22d3ee'}
-              level={0}
-              claimable={false}
-              claimed={false}
-              busy={false}
-              lang={lang}
-            />
-            <div style={{ flex: 1 }}>
-              <div style={{ fontWeight: 700, fontSize: '0.82rem', color: isAtk ? '#f59e0b' : '#22d3ee' }}>
-                {lang === 'es' ? `DROP: NFTJI ${dropLabel.toUpperCase()}` : `DROP: ${dropLabel.toUpperCase()} NFTJI`}
-              </div>
-              <div style={{ fontSize: '0.68rem', color: '#64748b', marginTop: 1 }}>
-                {lang === 'es'
-                  ? `Disponible para ${winnerWalletCount} wallet(s) ganadoras — reclama en tu fila`
-                  : `Available for ${winnerWalletCount} winning wallet(s) — claim on your row`}
-              </div>
-            </div>
-          </div>
-        );
-      })()}
-
       {/* Wallet stats tables (not shown for proposing/cancelled) */}
       {(isRegistering || isBattleStart || isResolved) && (
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
