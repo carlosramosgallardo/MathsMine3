@@ -22,8 +22,7 @@
 
 - [Snapshot](#snapshot)
 - [Manifesto](#manifesto)
-- [Game Loop](#game-loop)
-- [Core Systems](#core-systems)
+- [Game Mechanics](#game-mechanics)
 - [Mining](#mining)
 - [Daily Limits](#daily-limits)
 - [Daily Rewards](#daily-rewards)
@@ -64,65 +63,30 @@
 
 MathsMine3 turns math into pressure, reward, memory, risk, and ritual.
 
-It is not a classroom skin. It is a terminal-world game: solve fast, mine fake MM3, climb ranks, lose level when you fail, trade inside a fictional exchange, collect NFTJIs, fire Market commands, appear in IRC, and return after every reset sharper than before.
+It is not a classroom skin. It is a terminal-world game: solve fast, mine fake MM3, climb ranks, lose level when you fail, trade inside a fictional exchange, collect NFTJIs, fire Market commands, take part in IRC chat, and return after every reset sharper than before.
 
 The useful idea is simple: **math becomes action**. Every problem solved is not just a score event; it moves a wallet, a rank, a fictional market, and a shared public state.
 
-```txt
-solve → mine → level → collect → exec → pool → squeeze → command → claim → reset
-```
-
-| Principle | Design Meaning |
-|---|---|
-| Math as action | Timed problems become game events, not worksheets. |
-| Wallet as identity | Progress belongs to a persistent player identity. |
-| Economy as simulation | MM3 has no external value, but every action affects the fiction. |
-| Community as terminal culture | IRC, Market commands, rankings, and visible wallets make the game public. |
-
 ---
 
-## Game Loop
+## Game Mechanics
 
-```txt
-$ drill --solve --mine --level --exec --pool --squeeze --market --claim --reset
-```
-
-1. Allocate a DRILL SLOT → solve a timed math problem under pressure.
-2. Correct answer mines fictional MM3. Wrong answer drops your level.
-3. Gain level — unlock faster rounds, higher rewards, probabilistic NFTJI drops.
-4. Trade MM3 via the exchange terminal (EXECs) — each EXEC adds a permanent DRILL SLOT.
-5. Form or join a Pool — shared rank tier, IRC identity, coalition presence.
-6. Challenge a rival Pool to a Squeeze — stake EUR, scores resolve with world state modifiers, 45% burns.
-7. Buy Market NFTJI blocks — each owns a daily IRC command slot and a hidden command path.
-8. Fire commands in IRC to penalize rivals. Crack the formula code to cancel incoming hits.
-9. Complete daily tasks (MINING / TRADING / MARKET / IRC / SQUEEZE / HIDDEN) — claim fictional fiat rewards.
-10. Watch the global MM3 value shift with every action in the ecosystem.
-11. UTC midnight resets the clock. Return sharper than before.
-
----
-
-## Core Systems
-
-| System | What It Does |
+| System | What To Do |
 |---|---|
-| Mining chain | Timed rounds, rewards, penalties, and level movement |
-| Problem engine | 13 math families with scalable difficulty |
-| Wallet layer | Real Ethereum wallet or deterministic Google virtual wallet |
-| Daily limits | DRILL SLOTS, trade EXECs, Market commands, numeric-code attempts |
-| Trade MM3 | Fictional buy/sell terminal for MM3 and in-game fiat balances |
-| World state | War, Nature, and hourly Dice modifier affect the atmosphere |
-| MM3 chart | Fictional global value history fed by game events |
-| Market board | 28x28 grid with command-linked NFTJI blocks |
-| Pools | Wallet coalitions with a shared rank tier and IRC identity |
-| Squeeze | Pool vs pool combat — score formula, EUR stakes, world state modifiers |
-| IRC relay | Persistent social terminal with wallet presence and events |
-| Ranking | Public wallet memory: level, MM3, trades, NFTJIs, penalties |
+| Login vs. Anonymous | Feel free to play anonymously in MINING and browse the portal. Bots are actively competing in the ranking. When you decide to log in, if you do not want to use a real wallet, use Google so the system generates an exclusive MathsMine3 wallet for you. |
+| World stats | War, Meteo, and Dice affect and are affected by the different operations performed in the game. They are worth watching at all times. |
+| Mining | Mine MM3 by answering different kinds of math questions and leveling up. If you answer correctly but too slowly, you mine negative MM3. If you fail, you lose level unless you have enough money to buy Life Toll, which can only be bought and used once. Sometimes, when you answer correctly, you obtain NFTJIs that accumulate and boost your progression. |
+| Trading | When you have enough MM3, you can sell it for money. When you need more MM3, you can buy it back. But watch the interest. |
+| Ranking and Pools | Check your position, funds, and NFTJIs, and compare yourself against other wallets and pools. Join one or work alone. Your call. |
+| Squeeze | Dispute pool vs pool. Understand the applied formula to win together with trusted wallets, if you can trust anyone. Sometimes, when your pool wins, you obtain NFTJIs that accumulate and can catapult your alliance. |
+| Market board | 28x28 grid with NFTJI blocks linked to commands. |
+| IRC | Persistent social terminal with wallet presence and events. Even if you are not logged in, you can watch what is cooking day by day until you feel like trying it. |
+| MM3 | Global value history fed by game events. Your own or shared funds matter, but so does the value of MM3. The question is, why? |
+| Daily rewards | Complete as many daily MINING, TRADING, SQUEEZE, and IRC tasks as possible to get some extra money, which will come in handy. |
 
 ---
 
 ## Mining
-
-Mining is the main skill loop. Faster correct answers produce better MM3 rewards. Slow correct answers can produce small negative rewards. Wrong answers reduce level.
 
 ### Problem Families
 
@@ -191,7 +155,7 @@ Level is clamped from 0 to 100.
 
 ## Daily Limits
 
-All quotas reset at UTC midnight.
+All quotas reset 24h after they are launched.
 
 | Resource | Base | Bonus | Purpose |
 |---|---:|---:|---|
@@ -250,32 +214,18 @@ Ranks affect status, pacing, and Trade MM3 rates.
 | Ethereum wallet | Real wallet address through Web3Modal / Wagmi. Gameplay does not require on-chain transactions. |
 | Google virtual wallet | Deterministic virtual address generated from the Google account ID. |
 
-Persisted per wallet:
-
-- Level and rank
-- MM3 balance
-- Fictional CNY / EUR / USD balances
-- Mining NFTJIs and Market NFTJIs
-- DRILL SLOT bonus
-- Trade EXEC count
-- One-time revive state
-- Market ownership
-- Pool membership
-- Language and currency preferences
-
-Wallet colors are deterministic, so the same identity keeps the same visual signature across AuthBar, Ranking, IRC, and chat.
-
 ---
 
 ## NFTJIs
 
-NFTJIs are wallet-bound game objects. They are not financial assets.
+NFTJIs are wallet-bound game objects.
 
 | Type | How It Appears | Gameplay Value |
 |---|---|---|
 | Mining drop | Rare roll after correct answers | Collection and economy shocks |
 | Heart revive | One-time emergency option | Cancels one failure penalty |
 | Market NFTJI | Bought or resold on the Market board | Unlocks daily IRC command |
+| Squeeze NFTJI | Bought or resold on the Market board | Unlocks daily IRC command |
 
 ### Mining Drops
 
@@ -469,20 +419,11 @@ df_score = MAX(0.01, base_df)
 - **55%** of total loser raw stakes → split equally across winners.
 - **45% burned** — extracted from the game economy permanently.
 
-**Example: TK2K8 (2w, Lv2) vs SJ9NJ (2w, Lv1)**
-
-| Pool | Base | Modifiers | Final | Result |
-|---|---|---|---|---|
-| TK2K8 | ≈93.86 | dice=−0.87 | **89.95** | ✅ WIN |
-| SJ9NJ | ≈72.19 | dice=−0.87 | **34.76** | ❌ LOSS |
-
-Same dice, lower base → SJ9NJ lost ~52% of score vs TK2K8's ~4%. Variance punishes weak pools harder.
-
 **Squeeze NFTJI — ⚔️ Attack & 🛡️ Defense:**
 
 Two rare NFTJIs drop exclusively from Squeeze battles (1/5 probability per resolution; 50/50 Attack or Defense). Unlike Market NFTJIs, they cannot be bought or sold.
 
-- **⚔️ Attack** — each equipped wallet contributes `(level+1)` units to its pool's `⚔️_atk_sum`. Weight ×20 in the base formula — a level-0 attack equals a Market NFTJI at level-0.
+- **⚔️ Attack** — each equipped wallet contributes `(level+1)` units to its pool's `⚔️_atk_sum`. Weight ×20 in the base formula.
 - **🛡️ Defense** — reduces personal EUR stake loss on defeat: `min(50%, (level+1)×5%)` recovered. Level 9 = maximum 50% protection.
 
 **Progression:**
@@ -517,8 +458,8 @@ third same  → level 2   (no cap)
 | `app/api/wallet-pools/dispute/start-battle/route.js` | Takes snapshot and computes scores after registering window |
 | `app/api/wallet-pools/dispute/resolve/route.js` | Applies EUR stakes, defense protection, and drop roll 5s after battle_start |
 | `app/api/wallet-pools/dispute/claim-nftji-drop/route.js` | Winner claims ⚔️/🛡️ NFTJI drop (calls `mm3_squeeze_nftji_take`) |
-| `components/DisputesPanel.jsx` | Squeeze cards — real-time lifecycle, scores, wallet deltas, drop claim UI |
-| `app/squeeze/page.jsx` | Squeeze nav page |
+| `components/DisputesPanel.jsx` | Squeeze cards — lifecycle, scores, deltas, drop UI |
+| `app/squeeze/page.jsx` | Squeeze page (menu entry) |
 | `sql/database.sql` | Tables, vote records, wallet snapshots, score functions, lifecycle RPCs |
 
 ---
@@ -535,14 +476,12 @@ IRC is the shared terminal layer.
 | Chat history | Persistent social log |
 | Market badges | Owned NFTJIs shown beside authors |
 | Command events | Public command and penalty activity |
-| Squeeze trace | Completed or cancelled Squeeze summaries |
 | Blockchain trace | Real ETH transactions confirmed on-chain via Alchemy webhook |
 
 ```txt
 wallet@MM3:~$       hello mainframe
 market@MM3:~$       command fired
 system@MM3:~$       value mutated
-squeeze@MM3·:~$     squeeze resolved or cancelled
 MathsMine3@ETH·:~$  0.01 ETH donation confirmed · tx 0xabc…def
 ```
 
