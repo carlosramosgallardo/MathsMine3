@@ -552,7 +552,7 @@ export default function TradeBoard({ account, isVirtualWallet = false }) {
       );
       playTrade();
 
-      // Nudge war/meteo ±10% on every EXEC — written server-side to bypass RLS
+      // Nudge war/nature ±10% on every EXEC — written server-side to bypass RLS
       const nudge = (current) => {
         const delta = (Math.random() * 20) - 10;
         return Math.round(Math.max(0, Math.min(100, current + delta)) * 10) / 10;

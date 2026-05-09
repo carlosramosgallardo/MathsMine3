@@ -74,7 +74,7 @@ The useful idea is simple: **math becomes action**. Every problem solved is not 
 | System | What To Do |
 |---|---|
 | Login vs. Anonymous | Feel free to play anonymously in MINING and browse the portal. Bots are actively competing in the ranking. When you decide to log in, if you do not want to use a real wallet, use Google so the system generates an exclusive MathsMine3 wallet for you. |
-| World stats | War, Meteo, and Dice affect and are affected by the different operations performed in the game. They are worth watching at all times. |
+| World stats | War, Nature, and Dice affect and are affected by the different operations performed in the game. They are worth watching at all times. |
 | Mining | Mine MM3 by answering different kinds of math questions and leveling up. If you answer correctly but too slowly, you mine negative MM3. If you fail, you lose level unless you have enough money to buy Life Toll, which can only be bought and used once. Sometimes, when you answer correctly, you obtain NFTJIs that accumulate and boost your progression. |
 | Trading | When you have enough MM3, you can sell it for money. When you need more MM3, you can buy it back. But watch the interest. |
 | Ranking and Pools | Check your position, funds, and NFTJIs, and compare yourself against other wallets and pools. Join one or work alone. Your call. |
@@ -597,7 +597,7 @@ Secret effect: steals MM3 → executor. `x = daily nonce (100–799)`.
 | Emoji | Label | Role |
 |:---:|---|---|
 | ⚔️ | War | Global conflict modifier — affects atmosphere and trade rates |
-| 🌪️ | Meteo | Nature / weather modifier |
+| 🌪️ | Nature | Nature modifier |
 | 🎲 | Dice | Hourly random modifier |
 | 📜 | Manifest | Manifesto page |
 | 🤖 | AI Team | FreakingAI — in-game AI entity |
@@ -744,7 +744,7 @@ La idea útil es simple: **la matemática se convierte en acción**. Cada proble
 | Sistema | Qué Hacer |
 |---|---|
 | Login vs. Anónimo | Siéntete libre de jugar anónimante en MINING y navegar por el portal. Existen bots que están compitiendo activamente en el ranking | Cuanod te decias, si no quieres usar una wallet real, usa una de google para que el sistema de genere una exclusiva para tí en MAthsMine3 |
-| Stats del mundo | War, Meteo y Dice afectan y son afectados por las diferentes operaciones que se realizan en el juego. Merece la pena tenerlos en cuenta en todo momento |
+| Stats del mundo | War, Naturaleza y Dice afectan y son afectados por las diferentes operaciones que se realizan en el juego. Merece la pena tenerlos en cuenta en todo momento |
 | Mining | Mina MM3 acertando preguntas de mates de diferentes tipo y subiendo de nivel. Si tardas en contestar y aciertas, minarás en negativo. Si fallas, bajarás de nivel, a no ser que tenga el dinero necesario para comprar la vida, pero solo la podrás comprar y usar una vez. En ocasionas, si aciertas, obtendrás NFTJIs que irás acumulando y potenciarán tu progresión |
 | Trading | Cuando tengas suficiente MM3, puedes venderlo por dinero. Y cuando necesites más MM3, puedes comprarlo. Pero ¡ojo a los intereres! |
 | Ranking y Pools | Comprueba tu posición, fondos y NFTJIs y compárate con el resto de Wallets y de pools. Forma parte de uno o trabaja de manera autónoma. Tú decides |
@@ -1075,7 +1075,7 @@ df_score = MÁXIMO(0.01, base_df)
 | Modificador | Favorece | Impacto máximo |
 |---|---|---|
 | ⚔️ Guerra alta (→100%) | Atacante | +30% |
-| 🌪️ Meteo alta (→100%) | Defensor | +20% |
+| 🌪️ Naturaleza alta (→100%) | Defensor | +20% |
 | 🎲 Dado positivo (+1) | Atacante | +30% |
 | 🎲 Dado negativo (−1) | Defensor | +30% |
 
@@ -1267,7 +1267,7 @@ Efecto secreto: roba MM3 → wallet ejecutora. `x = nonce diario (100–799)`.
 | Emoji | Etiqueta | Rol |
 |:---:|---|---|
 | ⚔️ | War | Modificador de conflicto global — afecta atmósfera y tasas |
-| 🌪️ | Meteo | Modificador de naturaleza / clima |
+| 🌪️ | Naturaleza | Modificador de naturaleza |
 | 🎲 | Dice | Modificador aleatorio horario |
 | 📜 | Manifest | Página del Manifiesto |
 | 🤖 | AI Team | FreakingAI — entidad IA del juego |
