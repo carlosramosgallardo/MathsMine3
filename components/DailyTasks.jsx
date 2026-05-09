@@ -163,7 +163,7 @@ export default function DailyTasks({ framed = true }) {
   const resetText = formatResetTimer(countdown);
 
   const content = (
-      <div className="mx-auto w-full max-w-lg px-2 pb-6 pt-4 sm:px-2">
+      <div className="mx-auto w-full max-w-5xl px-1 pb-6 pt-4">
         {account ? (
           <div className="mb-3 rounded-md border border-cyan-500/20 bg-black/70 p-3 font-mono text-sm leading-6 text-cyan-100 shadow-[inset_0_0_22px_rgba(34,211,238,0.05)]">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -177,7 +177,7 @@ export default function DailyTasks({ framed = true }) {
           </div>
         ) : null}
 
-        <div className="space-y-2.5 font-mono">
+        <div className="grid grid-cols-1 gap-2.5 font-mono md:grid-cols-2">
           {taskRows.map((task) => (
             <div key={task.key} className="rounded-md border border-cyan-500/15 bg-black/70 p-3 shadow-[0_0_18px_rgba(34,211,238,0.04)]">
                 <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -211,7 +211,7 @@ export default function DailyTasks({ framed = true }) {
             ))}
 
             {message ? (
-              <div className="rounded-md border border-cyan-500/15 bg-black/80 px-4 py-3 text-sm text-cyan-100">
+              <div className="rounded-md border border-cyan-500/15 bg-black/80 px-4 py-3 text-sm text-cyan-100 md:col-span-2">
                 {message}
               </div>
             ) : null}
