@@ -29,6 +29,20 @@ function fmt(n, dec = 2) {
   return Number(n).toFixed(dec);
 }
 
+function squeezeScoreTerms(dispute, side) {
+  const prefix = side === 'challenger' ? 'ch' : 'df';
+  const n = Math.max(1, Number(dispute?.[`${prefix}_wallet_count`]) || 0);
+  const level = ((Number(dispute?.[`${prefix}_level_sum`]) || 0) / n) * 40;
+  const mm3 = Math.log(((Number(dispute?.[`${prefix}_mm3_sum`]) || 0) / n) + 1) * 20;
+  const execs = ((Number(dispute?.[`${prefix}_exec_count`]) || 0) / n) * 12;
+  const nftjis = ((Number(dispute?.[`${prefix}_nftji_count`]) || 0) / n) * 8;
+  const market = ((Number(dispute?.[`${prefix}_market_nftji_count`]) || 0) / n) * 15;
+  const attack = ((Number(dispute?.[`${prefix}_squeeze_atk_sum`]) || 0) / n) * 20;
+  const penalty = -((Number(dispute?.[`${prefix}_penalty_count`]) || 0) / n) * 20;
+  const base = level + mm3 + execs + nftjis + market + attack + penalty;
+  return { level, mm3, execs, nftjis, market, attack, penalty, base };
+}
+
 function eurToCurrency(value, currency) {
   const eur = Number(value) || 0;
   if (currency === 'USD') return eur * (CNY_TO_USD / CNY_TO_EUR);
@@ -138,26 +152,49 @@ function PoolLink({ poolCode, color, onPoolClick, children, style }) {
   );
 }
 
-function MarketBlockLink({ label, emoji, blockKey, onMarketBlockClick, title }) {
+function NftjiLevelSlot({ emoji, color, level, title, onClick, empty = false }) {
+  const Tag = onClick ? 'button' : 'span';
+  return (
+    <Tag
+      type={onClick ? 'button' : undefined}
+      onClick={onClick}
+      title={title}
+      style={{
+        width: '1.5rem',
+        height: '1.5rem',
+        border: `1px solid ${empty ? `${color}33` : `${color}99`}`,
+        borderRadius: 4,
+        background: empty ? 'rgba(2,6,23,0.4)' : `${color}18`,
+        color: empty ? 'rgba(100,116,139,0.35)' : color,
+        display: 'inline-flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        fontFamily: 'monospace',
+        fontWeight: 800,
+        lineHeight: 1,
+        cursor: onClick ? 'pointer' : 'default',
+        boxShadow: empty ? 'none' : `0 0 8px ${color}25`,
+        padding: 0,
+      }}
+    >
+      <span style={{ fontSize: empty ? '0.88rem' : '0.72rem', lineHeight: 1 }}>{empty ? '' : emoji}</span>
+      {!empty && <span style={{ fontSize: '0.48rem', lineHeight: 1, marginTop: 1 }}>{Math.max(0, Number(level) || 0)}</span>}
+    </Tag>
+  );
+}
+
+function MarketBlockLink({ label, emoji, blockKey, level = 0, onMarketBlockClick, title }) {
   const display = label || emoji;
   if (!display) return null;
   return (
-    <button
-      type="button"
-      onClick={() => blockKey && onMarketBlockClick?.(blockKey)}
-      title={title || blockKey || emoji}
-      style={{
-        background: 'none',
-        border: 'none',
-        padding: 0,
-        cursor: blockKey && onMarketBlockClick ? 'pointer' : 'default',
-        lineHeight: 1,
-        textDecoration: blockKey && onMarketBlockClick ? 'underline' : 'none',
-        textDecorationColor: 'rgba(34,211,238,0.35)',
-      }}
-    >
-      {display}
-    </button>
+    <NftjiLevelSlot
+      emoji={emoji}
+      color="#facc15"
+      level={level}
+      title={`${title || blockKey || emoji} · Lv.${Math.max(0, Number(level) || 0)}`}
+      onClick={blockKey && onMarketBlockClick ? () => onMarketBlockClick(blockKey) : null}
+    />
   );
 }
 
@@ -230,6 +267,8 @@ function DisputeCard({ dispute, activeWallet, poolCode, language, currency, onJo
   const chScore = Number(dispute.ch_score || 0);
   const dfScore = Number(dispute.df_score || 0);
   const winner = dispute.winner;
+  const chTerms = squeezeScoreTerms(dispute, 'challenger');
+  const dfTerms = squeezeScoreTerms(dispute, 'defender');
 
   const winnerColor =
     winner === 'draw' ? '#94a3b8'
@@ -516,6 +555,7 @@ function DisputeCard({ dispute, activeWallet, poolCode, language, currency, onJo
                           label={marketLabel}
                           emoji={marketEmoji}
                           blockKey={marketBlockKey}
+                          level={w.market_nftji_level_snap}
                           onMarketBlockClick={onMarketBlockClick}
                           title={marketLabel ? `Market NFTJI — ${marketLabel}` : `Market NFTJI — ${marketEmoji}`}
                         />
@@ -537,12 +577,12 @@ function DisputeCard({ dispute, activeWallet, poolCode, language, currency, onJo
                           const isAtk = sn.equipped === 'attack';
                           const lvl = isAtk ? sn.attack_level : sn.defense_level;
                           return (
-                            <span
-                              title={`Squeeze ${isAtk ? 'Attack' : 'Defense'} NFTJI — Lv${lvl}`}
-                              style={{ fontSize: '0.75rem', opacity: 0.9 }}
-                            >
-                              {isAtk ? '⚔️' : '🛡️'}<span style={{ fontFamily: 'monospace', fontSize: '0.6rem', verticalAlign: 'super', color: isAtk ? '#f59e0b' : '#22d3ee' }}>{lvl}</span>
-                            </span>
+                            <NftjiLevelSlot
+                              emoji={isAtk ? '⚔️' : '🛡️'}
+                              color={isAtk ? '#f59e0b' : '#22d3ee'}
+                              level={lvl}
+                              title={`Squeeze ${isAtk ? 'Attack' : 'Defense'} NFTJI — Lv.${Math.max(0, Number(lvl) || 0)}`}
+                            />
                           );
                         })()}
                         {isResolved && w.delta_eur !== 0 && (
@@ -625,6 +665,37 @@ function DisputeCard({ dispute, activeWallet, poolCode, language, currency, onJo
             <div>
               <span style={{ color: '#64748b' }}>🛡️ score</span>
               {' = base × (1+(50-⚔️)/100×0.30) × (1+(🌪️-50)/100×0.20) × (1-🎲×0.30)'}
+            </div>
+            <div style={{ marginTop: 6, display: 'grid', gap: 4 }}>
+              {[
+                { color: '#22d3ee', pool: dispute.challenger_pool_code, terms: chTerms },
+                { color: '#f59e0b', pool: dispute.defender_pool_code, terms: dfTerms },
+              ].map(({ color, pool, terms }) => (
+                <div key={pool} style={{ color: '#475569' }}>
+                  <span style={{ color }}>{pool}</span>
+                  {' base = '}
+                  <span title="(Σlevel/n)×40">lvl {fmt(terms.level, 2)}</span>
+                  {' + '}
+                  <span title="ln(ΣMM3/n+1)×20">mm3 {fmt(terms.mm3, 2)}</span>
+                  {' + '}
+                  <span title="(EXECs/n)×12">exec {fmt(terms.execs, 2)}</span>
+                  {' + '}
+                  <span title="(NFTJIs/n)×8">nftji {fmt(terms.nftjis, 2)}</span>
+                  {' + '}
+                  <span title="(Market NFTJI power/n)×15">market {fmt(terms.market, 2)}</span>
+                  {' + '}
+                  <span title="(Squeeze attack power/n)×20">atk {fmt(terms.attack, 2)}</span>
+                  {' '}
+                  <span title="-(penalties/n)×20">pen {fmt(terms.penalty, 2)}</span>
+                  {' = '}
+                  <span style={{ color: '#94a3b8' }}>{fmt(terms.base, 2)}</span>
+                </div>
+              ))}
+            </div>
+            <div style={{ marginTop: 5, color: '#334155' }}>
+              {lang === 'es'
+                ? 'Execs = total histórico de operaciones Trade MM3 (mm3_sell_transactions) capturado en el snapshot.'
+                : 'Execs = all-time Trade MM3 operations (mm3_sell_transactions) captured in the snapshot.'}
             </div>
             <div style={{ marginTop: 3, color: '#334155' }}>
               {lang === 'es'

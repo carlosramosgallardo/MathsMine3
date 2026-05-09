@@ -59,7 +59,7 @@ export async function GET(req) {
     if (allIds.length > 0) {
       const { data: wData } = await supabase
         .from('mm3_pool_dispute_wallets')
-        .select('dispute_id, wallet, pool_code, side, registered_at, level_snap, mm3_snap, eur_snap, exec_snap, nftji_snap, market_nftji_snap, has_penalty, eur_stake, mm3_stake, delta_eur, delta_mm3, squeeze_nftji_equipped, squeeze_nftji_level, squeeze_nftji_claimed')
+        .select('dispute_id, wallet, pool_code, side, registered_at, level_snap, mm3_snap, eur_snap, exec_snap, nftji_snap, market_nftji_snap, market_nftji_level_snap, has_penalty, eur_stake, mm3_stake, delta_eur, delta_mm3, squeeze_nftji_equipped, squeeze_nftji_level, squeeze_nftji_claimed')
         .in('dispute_id', allIds);
       walletRows = wData || [];
 
@@ -85,7 +85,7 @@ export async function GET(req) {
       if (walletAddrs.length > 0) {
         const { data: progress } = await supabase
           .from('player_progress')
-          .select('wallet, market_nftji_key')
+          .select('wallet, market_nftji_key, market_nftji_levels')
           .in('wallet', walletAddrs)
           .not('market_nftji_key', 'is', null);
         if (progress && progress.length > 0) {
@@ -93,16 +93,22 @@ export async function GET(req) {
             .from('mm3_market_blocks')
             .select('block_key, emoji, grid_row, grid_col');
           const infoByKey = blockInfoMap(allBlocks);
-          const currentKeyByWallet = new Map(progress.map((p) => [p.wallet, p.market_nftji_key]));
+          const currentByWallet = new Map(progress.map((p) => [p.wallet, p]));
           walletRows = walletRows.map((w) => {
-            const currentKey = currentKeyByWallet.get(w.wallet);
-            const currentInfo = currentKey ? infoByKey.get(currentKey) : null;
+            const current = currentByWallet.get(w.wallet);
+            const currentKey = current?.market_nftji_key;
+            const displayKey = w.market_nftji_snap || currentKey;
+            const currentInfo = displayKey ? infoByKey.get(displayKey) : null;
+            const currentLevel = currentKey
+              ? Math.max(0, Number(current?.market_nftji_levels?.[currentKey] ?? 0) || 0)
+              : null;
             return {
               ...w,
               market_nftji_emoji: currentInfo?.emoji || w.market_nftji_emoji || null,
-              market_nftji_key: currentKey || w.market_nftji_key || w.market_nftji_snap || null,
+              market_nftji_key: displayKey || w.market_nftji_key || null,
               market_nftji_hex: currentInfo?.hex || w.market_nftji_hex || null,
               market_nftji_label: currentInfo?.label || w.market_nftji_label || null,
+              market_nftji_level_snap: w.market_nftji_snap ? (w.market_nftji_level_snap ?? 0) : (currentLevel ?? w.market_nftji_level_snap ?? 0),
             };
           });
         }

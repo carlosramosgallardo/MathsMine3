@@ -388,6 +388,8 @@ base = (Σlevel / n) × 40
      - (penalty_count / n) × 20
 ```
 
+`exec_count` is the all-time count of Trade MM3 EXECs (`mm3_sell_transactions`) snapshotted per wallet.
+
 **World State Modifiers:**
 
 ```
@@ -1057,6 +1059,8 @@ base = (Σnivel / n) × 40
      + (⚔️_atk_sum / n) × 20          ← aporte NFTJI Ataque de Squeeze
      - (penalty_count / n) × 20
 ```
+
+`exec_count` es el total histórico de EXECs de Trade MM3 (`mm3_sell_transactions`) capturado en el snapshot por wallet.
 
 **Modificadores del Mundo:**
 

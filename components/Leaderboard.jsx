@@ -327,7 +327,9 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
         if (!wallet || !key) continue;
         const blockInfo = blocksByKey.get(key);
         if (!blockInfo) continue;
-        marketBlocksByWallet.set(wallet, [{ block_key: key, emoji: blockInfo.emoji, hex: blockInfo.hex }]);
+        const progress = progressByWallet.get(wallet);
+        const level = Math.max(0, Number(progress?.marketNftjiLevels?.[key] ?? 0) || 0);
+        marketBlocksByWallet.set(wallet, [{ block_key: key, emoji: blockInfo.emoji, hex: blockInfo.hex, level }]);
       }
 
       const squeezeNftjiByWallet = new Map();
@@ -612,6 +614,12 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
         }
         return counts;
       }, {});
+      const marketEmojiLevelSums = members.reduce((sums, entry) => {
+        for (const block of Array.isArray(entry.market_blocks) ? entry.market_blocks : []) {
+          if (block.emoji) sums[block.emoji] = (sums[block.emoji] || 0) + Math.max(0, Number(block.level) || 0);
+        }
+        return sums;
+      }, {});
       const penalties = members.map((entry) => entry.active_penalty).filter(Boolean);
       const activePenalty = {
         mm3: penalties.find((penalty) => penalty?.mm3)?.mm3 || null,
@@ -646,6 +654,7 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
         market_blocks: marketBlocks,
         market_nftji_member_count: marketNftjiMemberCount,
         market_emoji_counts: marketEmojiCounts,
+        market_emoji_level_sums: marketEmojiLevelSums,
         member_wallets: normalizedWallets,
         member_wallets_short: normalizedWallets.map(shortWallet),
         hidden_member_wallet_count: Math.max(0, new Set(members.map((entry) => normalizeWallet(entry.wallet)).filter(Boolean)).size - normalizedWallets.length),
@@ -1433,14 +1442,19 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
                       title="Market NFTJI — none"
                       style={{ width: '1.5rem', height: '1.5rem', borderColor: 'rgba(250,204,21,0.22)', background: 'rgba(2,6,23,0.4)', color: 'rgba(100,116,139,0.35)' }} />
                   ) : Object.entries(entry.market_emoji_counts || {}).map(([emoji, count]) => (
-                    <div key={`mkt-${emoji}`}
-                      title={`Market NFTJI ${emoji} — ${count} member${count !== 1 ? 's' : ''}`}
-                      className="relative flex h-6 w-6 items-center justify-center rounded border text-[0.90rem]"
-                      style={{ borderColor: 'rgba(250,204,21,0.6)', background: tier.bg, color: '#fef08a', boxShadow: '0 0 8px rgba(250,204,21,0.25)' }}
-                    >
-                      {emoji}
-                      {count > 1 ? <span className="absolute bottom-[0px] right-[1px] font-mono text-[0.38rem] font-black leading-none text-cyan-100/90">×{count}</span> : null}
-                    </div>
+                    (() => {
+                      const lvlSum = Number(entry.market_emoji_level_sums?.[emoji] || 0);
+                      return (
+                        <div key={`mkt-${emoji}`}
+                          title={`Market NFTJI ${emoji} — ${count} member${count !== 1 ? 's' : ''}${lvlSum > 0 ? ` · Lv.${lvlSum}` : ''}`}
+                          className="relative flex h-6 w-6 flex-col items-center justify-center rounded border"
+                          style={{ borderColor: 'rgba(250,204,21,0.6)', background: tier.bg, color: '#fef08a', boxShadow: '0 0 8px rgba(250,204,21,0.25)' }}
+                        >
+                          <span style={{ fontSize: count > 1 || lvlSum > 0 ? '0.72rem' : '0.90rem', lineHeight: 1 }}>{emoji}</span>
+                          {(count > 1 || lvlSum > 0) ? <span className="font-mono text-[0.48rem] font-black leading-none text-cyan-100/90">×{count}{lvlSum > 0 ? ` L${lvlSum}` : ''}</span> : null}
+                        </div>
+                      );
+                    })()
                   ))}
                 </div>
                 <div className="flex flex-wrap items-center gap-1">
@@ -1611,12 +1625,13 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
                   {(() => {
                     const mBlock = marketBlocks[0] || null;
                     const mOwned = !!mBlock;
+                    const mLevel = Math.max(0, Number(mBlock?.level) || 0);
                     return (
                       <button
                         type="button"
                         onClick={mOwned ? () => openMarketBlock(mBlock.block_key) : undefined}
-                        title={mOwned ? `Market NFTJI — ${mBlock.emoji} ${mBlock.hex}` : 'Market NFTJI — none'}
-                        className="relative flex h-6 w-6 items-center justify-center rounded border text-[0.90rem] transition"
+                        title={mOwned ? `Market NFTJI — ${mBlock.emoji} ${mBlock.hex} Lv.${mLevel}` : 'Market NFTJI — none'}
+                        className="relative flex h-6 w-6 flex-col items-center justify-center rounded border transition"
                         style={{
                           borderColor: mOwned ? 'rgba(250,204,21,0.6)' : 'rgba(250,204,21,0.22)',
                           background: mOwned ? tier.bg : 'rgba(2,6,23,0.4)',
@@ -1625,7 +1640,8 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
                           cursor: mOwned ? 'pointer' : 'default',
                         }}
                       >
-                        {mOwned ? mBlock.emoji : ''}
+                        <span style={{ fontSize: mOwned ? '0.72rem' : '0.88rem', lineHeight: 1 }}>{mOwned ? mBlock.emoji : ''}</span>
+                        {mOwned && <span style={{ fontSize: '0.48rem', fontFamily: 'monospace', color: '#fef08a', fontWeight: 800, lineHeight: 1 }}>{mLevel}</span>}
                       </button>
                     );
                   })()}
@@ -1846,16 +1862,19 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
                         <div className="lb-slot-cell flex items-center justify-center rounded-md border text-[0.95rem]"
                           title="Market NFTJI — none"
                           style={{ borderColor: 'rgba(250,204,21,0.22)', background: 'rgba(2,6,23,0.4)', color: 'rgba(100,116,139,0.35)' }} />
-                      ) : Object.entries(entry.market_emoji_counts || {}).map(([emoji, count]) => (
-                        <div key={`mkt-${emoji}`}
-                          title={`Market NFTJI ${emoji} — ${count} member${count !== 1 ? 's' : ''}`}
-                          className="lb-slot-cell relative flex items-center justify-center rounded-md border text-[0.95rem]"
-                          style={{ borderColor: 'rgba(250,204,21,0.6)', background: tier.bg, color: '#fef08a', boxShadow: '0 0 12px rgba(250,204,21,0.25)' }}
-                        >
-                          {emoji}
-                          {count > 1 ? <span className="absolute bottom-[1px] right-[2px] font-mono text-[0.48rem] font-black leading-none text-cyan-200">×{count}</span> : null}
-                        </div>
-                      ))}
+                      ) : Object.entries(entry.market_emoji_counts || {}).map(([emoji, count]) => {
+                        const lvlSum = Number(entry.market_emoji_level_sums?.[emoji] || 0);
+                        return (
+                          <div key={`mkt-${emoji}`}
+                            title={`Market NFTJI ${emoji} — ${count} member${count !== 1 ? 's' : ''}${lvlSum > 0 ? ` · Lv.${lvlSum}` : ''}`}
+                            className="lb-slot-cell relative flex flex-col items-center justify-center rounded-md border"
+                            style={{ borderColor: 'rgba(250,204,21,0.6)', background: tier.bg, color: '#fef08a', boxShadow: '0 0 12px rgba(250,204,21,0.25)' }}
+                          >
+                            <span style={{ fontSize: count > 1 || lvlSum > 0 ? '0.78rem' : '0.95rem', lineHeight: 1 }}>{emoji}</span>
+                            {(count > 1 || lvlSum > 0) ? <span className="font-mono text-[0.52rem] font-black leading-none text-cyan-200">×{count}{lvlSum > 0 ? ` L${lvlSum}` : ''}</span> : null}
+                          </div>
+                        );
+                      })}
                     </div>
                   </td>
                   <td style={{ textAlign:'center' }}>
@@ -2051,12 +2070,13 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
                       {(() => {
                         const mBlock = marketBlocks[0] || null;
                         const mOwned = !!mBlock;
+                        const mLevel = Math.max(0, Number(mBlock?.level) || 0);
                         return (
                           <button
                             type="button"
                             onClick={mOwned ? () => openMarketBlock(mBlock.block_key) : undefined}
-                            title={mOwned ? `Market NFTJI — ${mBlock.emoji} ${mBlock.hex}` : 'Market NFTJI — none'}
-                            className="lb-slot-cell flex items-center justify-center rounded-md border text-[0.95rem] transition"
+                            title={mOwned ? `Market NFTJI — ${mBlock.emoji} ${mBlock.hex} Lv.${mLevel}` : 'Market NFTJI — none'}
+                            className="lb-slot-cell flex flex-col items-center justify-center rounded-md border transition"
                             style={{
                               borderColor: mOwned ? 'rgba(250,204,21,0.6)' : 'rgba(250,204,21,0.22)',
                               background: mOwned ? tier.bg : 'rgba(2,6,23,0.4)',
@@ -2065,7 +2085,14 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
                               cursor: mOwned ? 'pointer' : 'default',
                             }}
                           >
-                            {mOwned ? mBlock.emoji : ''}
+                            <span style={{ fontSize: mOwned ? '0.78rem' : '0.95rem', lineHeight: 1 }}>{mOwned ? mBlock.emoji : ''}</span>
+                            {mOwned && (
+                              <span style={{
+                                fontSize: '0.52rem', fontFamily: 'monospace',
+                                color: '#fef08a', fontWeight: 800, lineHeight: 1,
+                                textShadow: '0 0 3px rgba(250,204,21,0.75)',
+                              }}>{mLevel}</span>
+                            )}
                           </button>
                         );
                       })()}

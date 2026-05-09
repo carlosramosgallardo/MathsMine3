@@ -774,7 +774,7 @@ BEGIN
     IF v_challenger_members IS NOT NULL THEN
       FOREACH v_member IN ARRAY v_challenger_members LOOP
         SELECT COUNT(*) INTO v_exec_count
-        FROM mm3_hidden_cmd_executions WHERE wallet = v_member;
+        FROM mm3_sell_transactions WHERE wallet = v_member;
 
         SELECT EXISTS(
           SELECT 1 FROM mm3_command_penalties
@@ -823,7 +823,7 @@ BEGIN
     IF v_defender_members IS NOT NULL THEN
       FOREACH v_member IN ARRAY v_defender_members LOOP
         SELECT COUNT(*) INTO v_exec_count
-        FROM mm3_hidden_cmd_executions WHERE wallet = v_member;
+        FROM mm3_sell_transactions WHERE wallet = v_member;
 
         SELECT EXISTS(
           SELECT 1 FROM mm3_command_penalties
@@ -928,7 +928,7 @@ BEGIN
   END IF;
 
   SELECT COUNT(*) INTO v_exec_count
-  FROM mm3_hidden_cmd_executions WHERE wallet = p_wallet;
+  FROM mm3_sell_transactions WHERE wallet = p_wallet;
 
   SELECT EXISTS(
     SELECT 1 FROM mm3_command_penalties
