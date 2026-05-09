@@ -3,7 +3,7 @@ export const maxDuration = 60;
 
 import { createClient } from '@supabase/supabase-js';
 import { getSellQuote, getSellRateCny, getCommissionRate, CNY_TO_EUR, CNY_TO_USD, clampLevel } from '@/lib/sell-offer';
-import { WALLET_DECORATIONS, getWalletMarketDelta } from '@/lib/wallet-decorations';
+import { WALLET_DECORATIONS, appendWalletDecoration, getWalletMarketDelta, MARKET_EVENT_TYPE_LIFE } from '@/lib/wallet-decorations';
 import { marketCommandFromBlock, computeMarketCommandCode, getUtcDayWindow } from '@/lib/market-commands';
 import { getChallengerRegistrationState, SQUEEZE_REGISTER_MS } from '@/lib/squeeze-transitions';
 import { insertSqueezeIrcTrace } from '@/lib/squeeze-irc';
@@ -15,6 +15,9 @@ const BOT_WALLETS = [
 const DAILY_MINE_BASE = 100;
 const PRICE = Number(process.env.NEXT_PUBLIC_FAKE_MINING_PRICE) || 0.00001;
 const DAILY_TRADE_LIMIT = 5;
+const REVIVE_COST_EUR = 1;
+const REVIVE_COST_USD = REVIVE_COST_EUR * (CNY_TO_USD / CNY_TO_EUR);
+const REVIVE_COST_CNY = REVIVE_COST_EUR / CNY_TO_EUR;
 const BOT_PRESENCE_SETTLE_MS = Math.max(0, Math.min(3000, Number(process.env.BOT_PRESENCE_SETTLE_MS) || 1500));
 const SQUEEZE_BATTLE_SETTLE_MS = 5200;
 
@@ -63,6 +66,19 @@ function chooseBotSqueezeEquip(attackLevel = -1, defenseLevel = -1) {
   if (atk < def) return 'attack';
   if (def < atk) return 'defense';
   return ((atk + def) % 2 === 0) ? 'attack' : 'defense';
+}
+
+function getReviveCostOption(meta) {
+  if ((Number(meta?.eur_earned) || 0) >= REVIVE_COST_EUR) {
+    return { currency: 'EUR', amount: REVIVE_COST_EUR, field: 'eur_earned' };
+  }
+  if ((Number(meta?.usd_earned) || 0) >= REVIVE_COST_USD) {
+    return { currency: 'USD', amount: REVIVE_COST_USD, field: 'usd_earned' };
+  }
+  if ((Number(meta?.cny_earned) || 0) >= REVIVE_COST_CNY) {
+    return { currency: 'CNY', amount: REVIVE_COST_CNY, field: 'cny_earned' };
+  }
+  return null;
 }
 
 function chooseBotMarketTarget({ buyableBlocks, currentMarketKey, currentMarketPrice, marketLevels, botEur }) {
@@ -441,7 +457,7 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
     { data: marketBlocks },
   ] = await Promise.all([
     supabase.from('player_progress')
-      .select('level, mm3_sold, eur_earned, usd_earned, cny_earned, wallet_emojis, lucky_50_claimed, lucky_100_claimed, lucky_500_claimed, lucky_1000_claimed, lucky_50_level, lucky_100_level, lucky_500_level, lucky_1000_level, market_nftji_key, market_nftji_price, market_nftji_levels')
+      .select('level, mm3_sold, eur_earned, usd_earned, cny_earned, wallet_emojis, life_used, lucky_50_claimed, lucky_100_claimed, lucky_500_claimed, lucky_1000_claimed, lucky_50_level, lucky_100_level, lucky_500_level, lucky_1000_level, market_nftji_key, market_nftji_price, market_nftji_levels')
       .eq('wallet', wallet).maybeSingle(),
     supabase.from('leaderboard_data')
       .select('total_eth').eq('wallet', wallet).maybeSingle(),
@@ -482,6 +498,11 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
     ['squeeze_drop_claimed', 'squeeze_proposed'].includes(action.type) &&
     normalizeWallet(action.wallet) === normalizeWallet(wallet)
   ));
+  const botFunds = {
+    eur_earned: Number(progressRow?.eur_earned) || 0,
+    usd_earned: Number(progressRow?.usd_earned) || 0,
+    cny_earned: Number(progressRow?.cny_earned) || 0,
+  };
 
   async function claimDailyReward(taskKey, rewardEur) {
     if (claimedTasks.has(taskKey)) return false;
@@ -516,6 +537,7 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
   if (drillsLeft > 0 && pool) {
     const gameRecords = [];
     let totalMiningReward = 0;
+    let failedGames = 0;
     const nftjiDropCounts = {}; // levelField → { emoji, claimField, levelField, count }
     const runStart = Date.now() - drillsLeft * 55_000; // spread timestamps ~55s apart
 
@@ -548,6 +570,7 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
           ? String(problem.correct_answer) + '?'
           : String(correctNum + offset);
         level = clampLevel(level - 1);
+        failedGames++;
       }
 
       gameRecords.push({
@@ -586,9 +609,19 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
     availableMm3 += totalMiningReward;
 
     const dropList = Object.values(nftjiDropCounts);
-    const newEmojis = dropList.length
+    let newEmojis = dropList.length
       ? [...new Set([...walletEmojis, ...dropList.map((d) => d.emoji)])]
       : walletEmojis;
+
+    const hasLife = Boolean(progressRow?.life_used) || newEmojis.includes(WALLET_DECORATIONS.revive);
+    const reviveCost = failedGames > 0 && !hasLife ? getReviveCostOption(botFunds) : null;
+    const revived = Boolean(reviveCost);
+    if (revived) {
+      botFunds[reviveCost.field] = Math.max(0, botFunds[reviveCost.field] - reviveCost.amount);
+      newEmojis = appendWalletDecoration(newEmojis, WALLET_DECORATIONS.revive);
+      level = clampLevel(level + 1);
+    }
+
     const quote = getSellQuote(level, availableMm3);
     const progressUpdate = {
       wallet,
@@ -599,8 +632,14 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
       sell_quote_eur: quote.netEur,
       sell_quote_usd: quote.netUsd,
       wallet_emojis: newEmojis,
+      life_used: revived || Boolean(progressRow?.life_used),
       updated_at: now,
     };
+    if (revived) {
+      progressUpdate.eur_earned = botFunds.eur_earned;
+      progressUpdate.usd_earned = botFunds.usd_earned;
+      progressUpdate.cny_earned = botFunds.cny_earned;
+    }
     for (const d of dropList) {
       progressUpdate[d.claimField] = true;
       progressUpdate[d.levelField] = Number(progressRow?.[d.levelField] ?? -1) + d.count;
@@ -624,9 +663,24 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
       }
     }
 
+    if (revived) {
+      const { data: tokenValueRow } = await supabase
+        .from('token_value')
+        .select('total_eth')
+        .limit(1)
+        .maybeSingle();
+      const totalMm3Global = Number(tokenValueRow?.total_eth) || 0;
+      await supabase.from('mm3_market_events').insert({
+        wallet,
+        event_type: MARKET_EVENT_TYPE_LIFE,
+        delta_mm3: -Math.abs(totalMm3Global * 0.25),
+        emoji: WALLET_DECORATIONS.revive,
+      });
+    }
+
     actualGamesPlayed = drillsLeft;
     const dropSummary = dropList.map((d) => `${d.emoji}×${d.count}`).join(' ') || null;
-    actions.push({ type: 'games', count: drillsLeft, total_mining_reward: totalMiningReward, level, nftji_drops: dropSummary });
+    actions.push({ type: 'games', count: drillsLeft, total_mining_reward: totalMiningReward, level, nftji_drops: dropSummary, life_bought: revived ? reviveCost.currency : null });
   }
 
   // ── TRADES (all remaining up to daily limit) ──────────────
@@ -635,9 +689,9 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
       .select('war_percent, nature_percent').eq('id', 1).maybeSingle();
     let macroState = { war_percent: Number(macro?.war_percent) || 50, nature_percent: Number(macro?.nature_percent) || 50 };
 
-    let currentEur = Number(progressRow?.eur_earned) || 0;
-    let currentCny = Number(progressRow?.cny_earned) || 0;
-    let currentUsd = Number(progressRow?.usd_earned) || 0;
+    let currentEur = botFunds.eur_earned;
+    let currentCny = botFunds.cny_earned;
+    let currentUsd = botFunds.usd_earned;
     let currentMm3Sold = mm3Sold;
 
     // Always keep 30% of MM3 untouched — bot never sells everything
@@ -702,6 +756,9 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
       usd_earned: currentUsd,
       updated_at: now,
     }, { onConflict: 'wallet', ignoreDuplicates: false });
+    botFunds.eur_earned = currentEur;
+    botFunds.cny_earned = currentCny;
+    botFunds.usd_earned = currentUsd;
   }
 
   // ── DAILY REWARDS available before market ────────────────
