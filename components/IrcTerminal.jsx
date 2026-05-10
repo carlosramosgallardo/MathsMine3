@@ -21,7 +21,7 @@ import { formatWalletLabel } from '@/lib/wallet-format';
 const ACTIVE_WINDOW_MS = 90_000;
 const MAX_SESSION_MESSAGES = 500;
 const MAX_CHAT_HISTORY = 500;
-const IRC_FILTER_TYPES = ['welcome', 'market', 'mainframe', 'squeeze', 'donations'];
+const IRC_FILTER_TYPES = ['welcome', 'market', 'mainframe', 'squeeze', 'donations', 'bots'];
 const DEFAULT_IRC_FILTERS = IRC_FILTER_TYPES.reduce((acc, key) => ({ ...acc, [key]: true }), {});
 
 function flagImgUrl(cc) {
@@ -171,6 +171,7 @@ function formatSystemAuthor(tone) {
 }
 
 function getMessageFilterType(message) {
+  if (message?.tone === 'bot' || IRC_BOT_WALLETS.has(String(message?.wallet || '').toLowerCase())) return 'bots';
   if (message?.kind !== 'system') return null;
   if (message.tone === 'accent') return 'welcome';
   if (message.tone === 'market') return 'market';
@@ -371,6 +372,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
           mainframe: 'mainframe',
           squeeze: 'squeeze',
           donations: 'donations ETH',
+          bots: 'bots',
         }
       : {
           welcome: 'welcome',
@@ -378,6 +380,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
           mainframe: 'mainframe',
           squeeze: 'squeeze',
           donations: 'donations ETH',
+          bots: 'bots',
         }
   ), [language]);
 
