@@ -7,6 +7,7 @@ import {
   getRateLimitHeaders
 } from '@/lib/rateLimitConfig'
 import { formatWalletLabel } from '@/lib/wallet-format'
+import { MM3_BLOCK_CHAIN_REQUIREMENTS } from '@/lib/mm3-block-chain'
 
 function clampLevel(level = 0) {
   return Math.max(0, Math.min(100, Number(level) || 0))
@@ -56,13 +57,16 @@ export async function GET(req) {
 
   await supabase.from('api_requests').insert({ ip, endpoint })
 
-  const [{ data: leaderboardRows, error: leaderboardError }, progressResponse] = await Promise.all([
+  const [{ data: leaderboardRows, error: leaderboardError }, progressResponse, minedBlocksResponse] = await Promise.all([
     supabase
       .from('leaderboard_data')
       .select('wallet, total_eth, total_correct, total_games, highest_streak'),
     supabase
       .from('player_progress')
-      .select('wallet, level, mm3_sold, cny_earned, eur_earned, usd_earned, wallet_emojis'),
+      .select('wallet, level, block_chain_percent, mm3_sold, cny_earned, eur_earned, usd_earned, wallet_emojis'),
+    supabase
+      .from('mm3_mined_blocks')
+      .select('wallet'),
   ])
 
   if (leaderboardError) {
@@ -80,11 +84,22 @@ export async function GET(req) {
     progressRows = fallback?.data || []
   }
 
+  const minedCountByWallet = new Map()
+  if (!minedBlocksResponse?.error) {
+    for (const entry of minedBlocksResponse?.data || []) {
+      const wallet = String(entry.wallet || '').toLowerCase()
+      if (!wallet) continue
+      minedCountByWallet.set(wallet, (minedCountByWallet.get(wallet) || 0) + 1)
+    }
+  }
+  const minedBlockTotal = MM3_BLOCK_CHAIN_REQUIREMENTS.length || 1
+
   const progressByWallet = new Map(
     (progressRows || []).map((entry) => [
       String(entry.wallet || '').toLowerCase(),
       {
         level:       clampLevel(entry.level),
+        blockChainPercent: Number(entry.block_chain_percent) || 0,
         mm3Sold:     Number(entry.mm3_sold)   || 0,
         cny:         Number(entry.cny_earned) || 0,
         eur:         Number(entry.eur_earned) || 0,
@@ -97,12 +112,18 @@ export async function GET(req) {
   const merged = (leaderboardRows || [])
     .map((entry) => {
       const progress = progressByWallet.get(String(entry.wallet || '').toLowerCase()) || {
-        level: 0, mm3Sold: 0, cny: 0, eur: 0, usd: 0, walletEmojis: [],
+        level: 0, blockChainPercent: 0, mm3Sold: 0, cny: 0, eur: 0, usd: 0, walletEmojis: [],
       }
       const totalMm3 = Number(entry.total_eth) || 0
+      const minedBlockCount = Number(minedCountByWallet.get(String(entry.wallet || '').toLowerCase()) || 0)
+      const blockChainPercent = minedBlockCount > 0
+        ? Math.round((minedBlockCount / minedBlockTotal) * 10000) / 100
+        : progress.blockChainPercent
       return {
         wallet:        entry.wallet,
         level:         progress.level,
+        block_chain_percent: blockChainPercent,
+        mined_block_count: minedBlockCount,
         available_mm3: totalMm3 - progress.mm3Sold,
         total_correct: Number(entry.total_correct) || 0,
         total_games:   Number(entry.total_games)   || 0,
@@ -114,6 +135,7 @@ export async function GET(req) {
       }
     })
     .sort((a, b) => {
+      if (b.block_chain_percent !== a.block_chain_percent) return b.block_chain_percent - a.block_chain_percent
       if (b.level !== a.level) return b.level - a.level
       if (b.available_mm3 !== a.available_mm3) return b.available_mm3 - a.available_mm3
       return String(a.wallet).localeCompare(String(b.wallet))
@@ -123,6 +145,8 @@ export async function GET(req) {
     rank:          offset + index + 1,
     wallet:        maskWallet(entry.wallet),
     level:         entry.level,
+    block_chain_percent: Number(entry.block_chain_percent || 0),
+    mined_block_count: Number(entry.mined_block_count || 0),
     available_mm3: Number(entry.available_mm3 || 0),
     total_correct: entry.total_correct,
     total_games:   entry.total_games,

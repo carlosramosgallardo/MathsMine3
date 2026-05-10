@@ -14,6 +14,13 @@ import {
 import { useSound } from '@/lib/sound-context';
 import { commandKey, getMarketCommandForKey, marketCommandFromBlock } from '@/lib/market-commands';
 import { formatWalletLabel } from '@/lib/wallet-format';
+import {
+  BLOCK_CHAIN_TITLE,
+  buildBlockChainCode,
+  formatBlockRequirement,
+  MM3_BLOCK_CHAIN_REQUIREMENTS,
+  MM3_BLOCK_REQUIREMENT_BY_HEX,
+} from '@/lib/mm3-block-chain';
 
 const GENESIS_BLOCK_KEY = 'mm3-023';
 const GRID_ROWS = 28;
@@ -166,6 +173,8 @@ const MarketCell = memo(function MarketCell({
   block,
   isSelected,
   isOwned,
+  isMined,
+  minedColor,
   language,
   onSelect,
 }) {
@@ -180,28 +189,34 @@ const MarketCell = memo(function MarketCell({
       onClick={() => onSelect(block.block_key)}
       className="relative flex items-center justify-center overflow-hidden border border-cyan-400/10 bg-transparent transition-[background,border-color,box-shadow] duration-100 focus:outline-none"
       style={{
-        background: isOwned
+        background: isMined
+          ? `${minedColor}33`
+          : isOwned
           ? 'rgba(2,8,4,0.97)'
           : isSelected
             ? 'linear-gradient(180deg,rgba(250,204,21,0.42),rgba(113,63,18,0.95))'
             : undefined,
         borderColor: isSelected
           ? 'rgba(250,204,21,0.95)'
+          : isMined
+            ? `${minedColor}AA`
           : isOwned
             ? 'rgba(34,197,94,0.18)'
             : 'rgba(34,211,238,0.08)',
         boxShadow: isSelected
           ? '0 0 10px rgba(250,204,21,0.35)'
+          : isMined
+            ? `inset 0 0 7px ${minedColor}55, 0 0 6px ${minedColor}22`
           : isOwned
             ? 'inset 0 0 4px rgba(34,197,94,0.1)'
             : 'none',
       }}
       title={title}
     >
-      {isSelected && (
+      {(isSelected || isMined) && (
         <>
           <span className="pointer-events-none text-[min(2.4vw,0.92rem)] leading-none drop-shadow-[0_0_8px_rgba(250,204,21,0.35)] sm:text-[min(1.6vw,1rem)]">
-            {block.emoji}
+            {isMined && !block.emoji ? '■' : block.emoji}
           </span>
           <span className="pointer-events-none absolute bottom-[1px] right-[1px] text-[0.44rem] font-black tracking-[0.08em] text-cyan-100/90 sm:text-[0.3rem]">
             {cellHex}
@@ -236,6 +251,8 @@ const CATALOG_BLOCKS = [
 ];
 
 const CATALOG_KEY_SET = new Set(CATALOG_BLOCKS.map((b) => b.block_key));
+const MINEABLE_HEX_SET = new Set(MM3_BLOCK_CHAIN_REQUIREMENTS.map((entry) => entry.blockHex));
+const MINED_BLOCK_COLORS = ['#22d3ee', '#a78bfa', '#f472b6', '#facc15', '#4ade80'];
 
 
 export default function MarketBoard({ account, isVirtualWallet = false }) {
@@ -250,6 +267,8 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
   const [dbReady, setDbReady] = useState(true);
   const [canLoadInlineShort, setCanLoadInlineShort] = useState(false);
   const [selectedEventCounts, setSelectedEventCounts] = useState({ emoji: '', buys: 0, resells: 0 });
+  const [minedBlocks, setMinedBlocks] = useState([]);
+  const [blockChain, setBlockChain] = useState({ title: BLOCK_CHAIN_TITLE, mined: 0, total: MM3_BLOCK_CHAIN_REQUIREMENTS.length, percent: 0, code: '' });
   const [numericCode, setNumericCode] = useState('');
   const [activePenalty, setActivePenalty] = useState(null);
   const [activeBlockCommand, setActiveBlockCommand] = useState(null);
@@ -407,6 +426,15 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
       if (!snapshot?.ok) throw new Error(snapshot?.error || 'market snapshot failed');
 
       applyBlockRows(snapshot.blocks || [], snapshot.owners || []);
+      const nextMinedBlocks = Array.isArray(snapshot.minedBlocks) ? snapshot.minedBlocks : [];
+      setMinedBlocks(nextMinedBlocks);
+      setBlockChain(snapshot.blockChain || {
+        title: BLOCK_CHAIN_TITLE,
+        mined: nextMinedBlocks.length,
+        total: MM3_BLOCK_CHAIN_REQUIREMENTS.length,
+        percent: MM3_BLOCK_CHAIN_REQUIREMENTS.length ? Math.round((nextMinedBlocks.length / MM3_BLOCK_CHAIN_REQUIREMENTS.length) * 10000) / 100 : 0,
+        code: buildBlockChainCode(nextMinedBlocks),
+      });
       if (snapshot.walletState) {
         setWalletState(snapshot.walletState);
       } else if (!account) {
@@ -555,6 +583,7 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
     const channel = supabase
       .channel('mm3-market-live')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'mm3_market_blocks' }, refresh)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'mm3_mined_blocks' }, refresh)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'mm3_command_penalties' }, refresh)
       .subscribe();
 
@@ -564,6 +593,8 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
       supabase.removeChannel(channel);
     };
   }, [account]);
+
+  const minedByHex = useMemo(() => new Map((minedBlocks || []).map((entry) => [entry.block_hex, entry])), [minedBlocks]);
 
   const mergedBlocks = useMemo(() => {
     const posMap = new Map();
@@ -579,18 +610,23 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
         if (posMap.has(key)) {
           result.push(posMap.get(key));
         } else {
+          const hex = getBlockHex(row, col);
+          const mined = minedByHex.get(hex) || null;
           result.push({
             block_key: `ph-${row}-${col}`,
             grid_row: row, grid_col: col,
-            emoji: '', title_en: '', title_es: '',
+            emoji: '', title_en: hex, title_es: hex,
             price_eur: 0, short_url: '', is_active: false,
             current_owners: [], isPlaceholder: true,
+            mine_hex: hex,
+            mined_block: mined,
+            isMineable: MINEABLE_HEX_SET.has(hex),
           });
         }
       }
     }
     return result;
-  }, [blocks]);
+  }, [blocks, minedByHex]);
 
   const blockMap = useMemo(
     () => new Map(mergedBlocks.map((entry) => [String(entry.block_key), entry])),
@@ -648,6 +684,10 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
   const currentOwners = Array.isArray(selectedBlock?.current_owners) ? selectedBlock.current_owners : [];
   const hasCurrentOwners = currentOwners.length > 0;
   const selectedBlockHex = getBlockHex(selectedBlock?.grid_row ?? 0, selectedBlock?.grid_col ?? 0);
+  const selectedMineRequirement = selectedBlock?.isPlaceholder ? MM3_BLOCK_REQUIREMENT_BY_HEX.get(selectedBlockHex) : null;
+  const selectedMinedBlock = selectedBlock?.isPlaceholder ? minedByHex.get(selectedBlockHex) || null : null;
+  const isMineBlock = Boolean(selectedBlock?.isPlaceholder && selectedMineRequirement);
+  const isMineBlockMined = Boolean(selectedMinedBlock);
   const hiddenCmdMinLevel = Math.max(0, Number(selectedBlock?.hidden_cmd_min_level) || 0);
   const hasSecretLevel = hiddenCmdMinLevel > 0;
   const activePenaltyEffect = activePenalty?.penalty_effect === 'mm3' ? 'mm3' : 'money';
@@ -686,7 +726,7 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
   const handleBlockClick = useCallback((blockKey) => {
     setSelectedKey(blockKey);
     const block = blockMap.get(blockKey);
-    if (!block?.short_url) notify(block?.isPlaceholder ? t('podcast.offline') : t('podcast.unavailable'), 'info');
+    if (!block?.short_url && !block?.isMineable) notify(block?.isPlaceholder ? t('podcast.offline') : t('podcast.unavailable'), 'info');
   }, [blockMap, t]);
 
   const handleBuy = async () => {
@@ -1081,6 +1121,11 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
                   {mergedBlocks.map((block) => {
                     const isSelected = block.block_key === selectedKey;
                     const isOwned = Array.isArray(block.current_owners) && block.current_owners.length > 0;
+                    const minedBlock = block.mined_block || minedByHex.get(getBlockHex(block.grid_row ?? 0, block.grid_col ?? 0));
+                    const isMined = Boolean(block.isPlaceholder && minedBlock);
+                    const minedColor = isMined
+                      ? MINED_BLOCK_COLORS[(Number(minedBlock.chain_index) || 1) % MINED_BLOCK_COLORS.length]
+                      : MINED_BLOCK_COLORS[0];
 
                     return (
                       <MarketCell
@@ -1088,6 +1133,8 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
                         block={block}
                         isSelected={isSelected}
                         isOwned={isOwned}
+                        isMined={isMined}
+                        minedColor={minedColor}
                         language={language}
                         onSelect={handleBlockClick}
                       />
@@ -1095,6 +1142,43 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
                   })}
                 </div>
               </div>
+            </div>
+            <div className="mt-2 border-t border-cyan-500/10 pt-2">
+              <div className="flex items-center justify-between gap-2 text-[0.58rem] font-black uppercase tracking-[0.16em] text-cyan-300/70">
+                <span>{blockChain?.title || BLOCK_CHAIN_TITLE}</span>
+                <span>{Number(blockChain?.percent || 0).toFixed(2)}%</span>
+              </div>
+              <div className="mt-1 h-1 overflow-hidden rounded bg-cyan-950/40">
+                <div
+                  className="h-full bg-cyan-300/80 shadow-[0_0_10px_rgba(34,211,238,0.45)]"
+                  style={{ width: `${Math.max(0, Math.min(100, Number(blockChain?.percent || 0)))}%` }}
+                />
+              </div>
+              {blockChain?.code && (
+                <div className="mt-1 max-h-14 overflow-y-auto break-all text-[0.52rem] leading-snug text-cyan-100/55">
+                  {String(blockChain.code).split('#').filter(Boolean).map((part, index) => {
+                    const token = `#${part}`;
+                    const isWallet = part.startsWith('0x');
+                    const isBlock = /^#[0-9A-F]{3}$/i.test(token);
+                    return (
+                      <button
+                        key={`${part}-${index}`}
+                        type="button"
+                        className="mr-1 hover:text-cyan-200 hover:underline"
+                        onClick={() => {
+                          if (isWallet) openRankingWallet(part);
+                          else if (isBlock) {
+                            const cell = parseInt(part, 16);
+                            setSelectedKey(`ph-${Math.floor(cell / GRID_COLS)}-${cell % GRID_COLS}`);
+                          }
+                        }}
+                      >
+                        {token}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           </div>
         </section>
@@ -1117,24 +1201,36 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
             <span
               className="mm3-market-status-badge shrink-0 rounded border px-1 py-0.5 text-[0.78rem] font-black uppercase tracking-[0.12em] lg:px-1.5 lg:text-[0.80rem] lg:tracking-[0.14em]"
               style={{
-                borderColor: hasCurrentOwners ? 'rgba(74,222,128,0.3)' : 'rgba(34,211,238,0.22)',
-                color: hasCurrentOwners ? '#4ade80' : '#67e8f9',
+                borderColor: isMineBlockMined || hasCurrentOwners ? 'rgba(74,222,128,0.3)' : 'rgba(34,211,238,0.22)',
+                color: isMineBlockMined || hasCurrentOwners ? '#4ade80' : '#67e8f9',
               }}
             >
-              {hasCurrentOwners ? t('podcast.sealed') : selectedBlock?.is_active ? t('podcast.live') : t('podcast.template')}
+              {isMineBlock ? (isMineBlockMined ? 'mined block' : 'open block') : hasCurrentOwners ? t('podcast.sealed') : selectedBlock?.is_active ? t('podcast.live') : t('podcast.template')}
             </span>
           </div>
 
           {/* ── Price + Owner — same row ── */}
           <div className="col-span-1 flex gap-1.5 lg:col-span-2">
             <div className="mm3-market-detail-card shrink-0 rounded border border-amber-400/14 bg-amber-950/8 px-2 py-1 lg:px-2.5 lg:py-2">
-              <div className="text-[0.78rem] uppercase tracking-[0.16em] text-amber-300/65 lg:text-[0.80rem] lg:tracking-[0.18em]">{t('podcast.price')}</div>
-              <div className="mt-0.5 text-[1.05rem] font-black leading-none text-amber-300 lg:mt-1 lg:text-lg">{displayPrice}</div>
+              <div className="text-[0.78rem] uppercase tracking-[0.16em] text-amber-300/65 lg:text-[0.80rem] lg:tracking-[0.18em]">{isMineBlock ? 'req' : t('podcast.price')}</div>
+              <div className={`${isMineBlock ? 'max-w-[13rem] text-[0.62rem] leading-snug' : 'text-[1.05rem] leading-none lg:text-lg'} mt-0.5 font-black text-amber-300 lg:mt-1`}>
+                {isMineBlock ? formatBlockRequirement(selectedMineRequirement) : displayPrice}
+              </div>
             </div>
             <div className="mm3-market-detail-card min-w-0 flex-1 rounded border border-cyan-500/12 bg-black/45 px-2 py-1 lg:px-2.5 lg:py-2">
-              <div className="text-[0.78rem] uppercase tracking-[0.16em] text-cyan-300/65 lg:text-[0.80rem] lg:tracking-[0.18em]">{t('podcast.owner')}</div>
+              <div className="text-[0.78rem] uppercase tracking-[0.16em] text-cyan-300/65 lg:text-[0.80rem] lg:tracking-[0.18em]">{isMineBlock ? 'miner shell' : t('podcast.owner')}</div>
               <div className="mt-0.5 flex max-h-12 flex-col gap-1 overflow-y-auto pr-1 lg:max-h-20 lg:mt-1">
-              {hasCurrentOwners ? (
+              {isMineBlockMined ? (
+                <button
+                  type="button"
+                  onClick={() => openRankingWallet(selectedMinedBlock.wallet)}
+                  className="block text-left text-[0.88rem] transition hover:underline focus:outline-none lg:text-[0.95rem]"
+                  style={{ color: colorFromAddress(selectedMinedBlock.wallet), textShadow: `0 0 10px ${colorFromAddress(selectedMinedBlock.wallet)}33` }}
+                  title={selectedMinedBlock.wallet}
+                >
+                  {shortenWallet(selectedMinedBlock.wallet)}
+                </button>
+              ) : hasCurrentOwners ? (
                 currentOwners.map((owner) => {
                   const ownerColor = colorFromAddress(owner);
                   return (
@@ -1312,6 +1408,7 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
           )}
 
           {/* ── Buy / Resell ── */}
+          {!selectedBlock?.isPlaceholder && (
           <div className="mt-auto flex flex-col gap-1 pt-0.5 lg:col-span-2">
             {canResell ? (
               <button
@@ -1332,6 +1429,19 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
                 {processing ? '[ sync ]' : t('podcast.buy')}
               </button>
             )}
+          </div>
+          )}
+          <div className="rounded border border-cyan-500/10 bg-black/30 px-2 py-1.5 lg:col-span-2">
+            <div className="flex items-center justify-between gap-2 text-[0.56rem] font-black uppercase tracking-[0.15em] text-cyan-300/65">
+              <span>{blockChain?.title || BLOCK_CHAIN_TITLE}</span>
+              <span>{Number(blockChain?.percent || 0).toFixed(2)}%</span>
+            </div>
+            <div className="mt-1 h-1 overflow-hidden rounded bg-cyan-950/35">
+              <div
+                className="h-full bg-cyan-300/75"
+                style={{ width: `${Math.max(0, Math.min(100, Number(blockChain?.percent || 0)))}%` }}
+              />
+            </div>
           </div>
         </aside>
       </div>

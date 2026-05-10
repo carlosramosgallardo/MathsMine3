@@ -53,6 +53,7 @@ DROP TABLE IF EXISTS math_problems CASCADE;
 DROP TABLE IF EXISTS api_requests CASCADE;
 DROP TABLE IF EXISTS mm3_visual_state CASCADE;
 DROP TABLE IF EXISTS mm3_market_blocks CASCADE;
+DROP TABLE IF EXISTS mm3_mined_blocks CASCADE;
 DROP TABLE IF EXISTS mm3_irc_messages CASCADE;
 DROP TABLE IF EXISTS games CASCADE;
 
@@ -111,6 +112,7 @@ CREATE TABLE leaderboard_data (
 CREATE TABLE player_progress (
   wallet TEXT PRIMARY KEY,
   level INTEGER NOT NULL DEFAULT 0 CHECK (level >= 0 AND level <= 100),
+  block_chain_percent NUMERIC NOT NULL DEFAULT 0 CHECK (block_chain_percent >= 0 AND block_chain_percent <= 100),
   mm3_sold NUMERIC NOT NULL DEFAULT 0,
   cny_earned NUMERIC NOT NULL DEFAULT 0,
   eur_earned NUMERIC NOT NULL DEFAULT 0,
@@ -374,6 +376,19 @@ CREATE TABLE mm3_market_blocks (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+CREATE TABLE mm3_mined_blocks (
+  id BIGSERIAL PRIMARY KEY,
+  block_hex TEXT NOT NULL UNIQUE CHECK (block_hex ~ '^#[0-9A-F]{3}$'),
+  grid_row INTEGER NOT NULL,
+  grid_col INTEGER NOT NULL,
+  wallet TEXT NOT NULL,
+  wallet_level INTEGER NOT NULL DEFAULT 0 CHECK (wallet_level >= 0 AND wallet_level <= 100),
+  mm3_value NUMERIC NOT NULL DEFAULT 0,
+  mm3_value_hex TEXT NOT NULL DEFAULT '0',
+  chain_index INTEGER NOT NULL UNIQUE,
+  mined_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 CREATE TABLE mm3_market_commands (
   id BIGSERIAL PRIMARY KEY,
   wallet TEXT NOT NULL,
@@ -436,6 +451,7 @@ CREATE INDEX idx_problems_language_difficulty ON math_problems(language, difficu
 
 CREATE INDEX idx_leaderboard_data_total_eth ON leaderboard_data(total_eth DESC);
 CREATE INDEX idx_player_progress_level ON player_progress(level DESC);
+CREATE INDEX idx_player_progress_block_chain_percent ON player_progress(block_chain_percent DESC);
 CREATE INDEX idx_mm3_wallet_presence_last_seen ON mm3_wallet_presence(last_seen DESC);
 CREATE INDEX idx_mm3_wallet_pool_members_pool_code ON mm3_wallet_pool_members(pool_code);
 CREATE INDEX idx_mm3_wallet_pool_invitations_pool_code ON mm3_wallet_pool_invitations(pool_code);
@@ -454,6 +470,8 @@ CREATE INDEX idx_mm3_sell_transactions_created_at ON mm3_sell_transactions(creat
 CREATE INDEX idx_mm3_market_events_wallet ON mm3_market_events(wallet);
 CREATE INDEX idx_mm3_market_events_created_at ON mm3_market_events(created_at DESC);
 CREATE INDEX idx_mm3_market_blocks_claimed_by ON mm3_market_blocks(claimed_by);
+CREATE INDEX idx_mm3_mined_blocks_chain_index ON mm3_mined_blocks(chain_index);
+CREATE INDEX idx_mm3_mined_blocks_wallet ON mm3_mined_blocks(wallet);
 CREATE INDEX idx_player_progress_market_nftji_key ON player_progress(market_nftji_key) WHERE market_nftji_key IS NOT NULL;
 CREATE INDEX idx_mm3_market_commands_wallet ON mm3_market_commands(wallet);
 CREATE INDEX idx_mm3_market_commands_nftji_key_reset ON mm3_market_commands(nftji_key, reset_at DESC);
@@ -1458,6 +1476,7 @@ ALTER TABLE mm3_market_events ENABLE ROW LEVEL SECURITY;
 ALTER TABLE api_requests ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mm3_visual_state ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mm3_market_blocks ENABLE ROW LEVEL SECURITY;
+ALTER TABLE mm3_mined_blocks ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mm3_market_commands ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mm3_command_penalties ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mm3_hidden_cmd_executions ENABLE ROW LEVEL SECURITY;
@@ -1575,6 +1594,9 @@ CREATE POLICY "public_read_mm3_market_blocks" ON mm3_market_blocks FOR SELECT TO
 
 DROP POLICY IF EXISTS "public_update_mm3_market_blocks" ON mm3_market_blocks;
 CREATE POLICY "public_update_mm3_market_blocks" ON mm3_market_blocks FOR UPDATE TO public USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "public_read_mm3_mined_blocks" ON mm3_mined_blocks;
+CREATE POLICY "public_read_mm3_mined_blocks" ON mm3_mined_blocks FOR SELECT TO public USING (true);
 
 DROP POLICY IF EXISTS "public_read_mm3_market_commands" ON mm3_market_commands;
 CREATE POLICY "public_read_mm3_market_commands" ON mm3_market_commands FOR SELECT TO anon USING (true);
@@ -1918,6 +1940,7 @@ GRANT SELECT, INSERT           ON mm3_market_events            TO anon;
 GRANT SELECT, INSERT           ON api_requests                 TO anon;
 GRANT SELECT, INSERT, UPDATE   ON mm3_visual_state             TO anon;
 GRANT SELECT, UPDATE           ON mm3_market_blocks            TO anon;
+GRANT SELECT                   ON mm3_mined_blocks             TO anon;
 GRANT SELECT, INSERT, UPDATE   ON mm3_market_commands          TO anon;
 GRANT SELECT, INSERT, UPDATE   ON mm3_command_penalties        TO anon;
 GRANT SELECT, INSERT           ON mm3_hidden_cmd_executions    TO anon;
@@ -1980,6 +2003,7 @@ COMMIT;
 -- -- 3. Wallet progress: level, funds, NFTJIs
 -- UPDATE player_progress
 -- SET    level                = 0,
+--        block_chain_percent  = 0,
 --        mm3_sold             = 0,
 --        eur_earned           = 0,
 --        usd_earned           = 0,
@@ -2066,6 +2090,9 @@ COMMIT;
 --        paid_usd           = 0,
 --        paid_cny           = 0,
 --        updated_at         = now();
+--
+-- -- 10b. MM3 mined blocks: unseal block chain
+-- DELETE FROM mm3_mined_blocks;
 --
 -- -- 11. Presence: force all wallets offline
 -- UPDATE mm3_wallet_presence

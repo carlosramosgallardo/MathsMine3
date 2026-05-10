@@ -2,6 +2,7 @@ export const dynamic = 'force-dynamic';
 
 import { createClient } from '@supabase/supabase-js';
 import { normalizeWalletDecorations } from '@/lib/wallet-decorations';
+import { buildBlockChainCode, MM3_BLOCK_CHAIN_REQUIREMENTS } from '@/lib/mm3-block-chain';
 
 const PUBLIC_CACHE_MS = 10_000;
 let publicSnapshotCache = null;
@@ -31,12 +32,28 @@ async function getPublicMarketSnapshot(supabase) {
         .from('player_progress')
         .select('wallet, market_nftji_key')
         .not('market_nftji_key', 'is', null),
+      supabase
+        .from('mm3_mined_blocks')
+        .select('block_hex, grid_row, grid_col, wallet, wallet_level, mm3_value, mm3_value_hex, chain_index, mined_at')
+        .order('chain_index', { ascending: true }),
     ])
-      .then(([blocksResponse, ownersResponse]) => {
+      .then(([blocksResponse, ownersResponse, minedResponse]) => {
         if (blocksResponse.error) throw blocksResponse.error;
+        if (minedResponse.error && minedResponse.error.code !== '42P01') throw minedResponse.error;
+        const minedBlocks = minedResponse.data || [];
         const payload = {
           blocks: blocksResponse.data || [],
           owners: ownersResponse.data || [],
+          minedBlocks,
+          blockChain: {
+            title: 'MM3 BLOCK CHAIN IN PROGRESS',
+            mined: minedBlocks.length,
+            total: MM3_BLOCK_CHAIN_REQUIREMENTS.length,
+            percent: MM3_BLOCK_CHAIN_REQUIREMENTS.length > 0
+              ? Math.round((minedBlocks.length / MM3_BLOCK_CHAIN_REQUIREMENTS.length) * 10000) / 100
+              : 0,
+            code: buildBlockChainCode(minedBlocks),
+          },
         };
         publicSnapshotCache = { ts: Date.now(), payload };
         return payload;
@@ -150,6 +167,8 @@ export async function GET(req) {
     ok: true,
     blocks: publicSnapshot.blocks,
     owners: publicSnapshot.owners,
+    minedBlocks: publicSnapshot.minedBlocks || [],
+    blockChain: publicSnapshot.blockChain || null,
     walletState: wallet
       ? {
           funds: {

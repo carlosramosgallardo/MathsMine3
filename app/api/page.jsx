@@ -11,7 +11,7 @@ export default function ApiPage() {
 
   const copy = es
     ? {
-        intro:                  'MathsMine3 ofrece una API pública y de solo lectura con datos del mercado MM3 y del gameplay. Todos los endpoints devuelven JSON.',
+        intro:                  'MathsMine3 ofrece una API pública con datos del mercado MM3 y del gameplay. Todos los endpoints devuelven JSON.',
         tokenValue:             'Valor del Token',
         tokenValueDesc:         'Valor MM3 acumulado más reciente (actualizado cada minuto):',
         tokenHistory:           'Histórico del Token',
@@ -21,7 +21,9 @@ export default function ApiPage() {
         nftEvents:              'Eventos de Mercado',
         nftEventsDesc:          'Todos los eventos de mercado: claims de NFTJI y continuaciones de vida:',
         leaderboard:            'Leaderboard',
-        leaderboardDesc:        'Ranking completo ordenado por nivel y saldo MM3, paginado (50 por defecto, máx. 200):',
+        leaderboardDesc:        'Ranking completo ordenado por contribución MM3 Chain, paginado (50 por defecto, máx. 200):',
+        mineBlock:              'MM3 Block Chain',
+        mineBlockDesc:          'Mina un bloque libre del tablero desde IRC si la wallet y el valor global MM3 cumplen el requisito:',
         squeezeApi:             'Squeezes',
         squeezeApiDesc:         'Detalle de cada Squeeze lanzado: pools implicados, estado, tiempos UTC, wallets registradas, scores, resultado y drop:',
         status:                 'Estado del Servicio',
@@ -30,7 +32,7 @@ export default function ApiPage() {
         rateLimitDesc:          'Los endpoints públicos (/api/token-value, /api/leaderboard) aplican un límite por IP. Las cabeceras X-RateLimit-* indican el estado de la cuota.',
       }
     : {
-        intro:                  'MathsMine3 provides a public, read-only API with MM3 market and gameplay data. All endpoints return JSON.',
+        intro:                  'MathsMine3 provides a public API with MM3 market and gameplay data. All endpoints return JSON.',
         tokenValue:             'Token Value',
         tokenValueDesc:         'Latest aggregated MM3 value (updated every minute):',
         tokenHistory:           'Token History',
@@ -40,7 +42,9 @@ export default function ApiPage() {
         nftEvents:              'Market Events',
         nftEventsDesc:          'All market events: NFTJI claims and life continues:',
         leaderboard:            'Leaderboard',
-        leaderboardDesc:        'Full ranking sorted by level and MM3 balance, paginated (default 50, max 200):',
+        leaderboardDesc:        'Full ranking sorted by MM3 Chain contribution, paginated (default 50, max 200):',
+        mineBlock:              'MM3 Block Chain',
+        mineBlockDesc:          'Mine a free board block from IRC when the wallet and global MM3 value meet the requirement:',
         squeezeApi:             'Squeezes',
         squeezeApiDesc:         'Details for every launched Squeeze: involved pools, status, UTC timings, registered wallets, scores, result and drop:',
         status:                 'Service Status',
@@ -163,6 +167,8 @@ export default function ApiPage() {
       "rank": 1,
       "wallet": "0xabc...1234",
       "level": 72,
+      "block_chain_percent": 2.04,
+      "mined_block_count": 1,
       "available_mm3": 0.00412,
       "total_correct": 340,
       "total_games": 410,
@@ -173,6 +179,29 @@ export default function ApiPage() {
       "nftjis": ["🔮", "🍀"]
     }
   ]
+}`}</pre>
+
+          {/* /api/mine-block */}
+          <h2 className="text-xl font-semibold mt-8 mb-2">{copy.mineBlock}</h2>
+          <p className="mb-2">{copy.mineBlockDesc}</p>
+          <code className="block bg-gray-800 p-2 rounded my-2">
+            POST /api/mine-block
+          </code>
+          <pre className="bg-gray-900 p-3 rounded overflow-auto mb-6">{`{
+  "wallet": "0xabc123...",
+  "blockHex": "#029"
+}
+
+{
+  "ok": true,
+  "mined": {
+    "block_hex": "#029",
+    "wallet": "0xabc123...",
+    "mm3_value_hex": "D6D8C0",
+    "chain_index": 1
+  },
+  "percent": 2.04,
+  "code": "#0xabc123...#029#D6D8C0"
 }`}</pre>
 
           {/* /api/wallet-pools/disputes */}

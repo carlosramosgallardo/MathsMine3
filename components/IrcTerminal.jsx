@@ -14,6 +14,7 @@ import {
   normalizeCommandText,
   getUtcDayWindow,
 } from '@/lib/market-commands';
+import { formatBlockRequirement, MM3_BLOCK_REQUIREMENT_BY_HEX, normalizeBlockHex } from '@/lib/mm3-block-chain';
 import { useIrcPresence } from '@/lib/irc-presence-context';
 import { colorFromAddress } from '@/lib/wallet-colors';
 import { formatWalletLabel } from '@/lib/wallet-format';
@@ -1305,6 +1306,9 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
           ? `numeric_code :: código 5 dígitos >> introducir en bloque Market para cancelar penalización`
           : `numeric_code :: 5-digit code >> enter in Market block detail to redeem penalty`,
         language === 'es'
+          ? `mine block :: /mine block #029 >> mina un bloque libre si tu wallet y el valor global MM3 cumplen el requisito`
+          : `mine block :: /mine block #029 >> mine a free board block if wallet level and global MM3 value meet the requirement`,
+        language === 'es'
           ? `── MONEY RAIL ─── penalización en fiat ──────────────────────`
           : `── MONEY RAIL ─── penalty debits fiat ───────────────────────`,
         ...moneyEntries.map(toLine),
@@ -1500,6 +1504,65 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
     }
   }, [broadcastSystemMessage, findMarketCommandInDb, language, normalizedWallet, t]);
 
+  const processMineBlockCommand = useCallback(async (text) => {
+    const match = String(text || '').trim().match(/^\/mine\s+block\s+(#?[0-9a-f]{1,3})$/i);
+    if (!match || !normalizedWallet) return false;
+
+    const blockHex = normalizeBlockHex(match[1]);
+    const requirement = MM3_BLOCK_REQUIREMENT_BY_HEX.get(blockHex);
+    if (!requirement) {
+      appendMessage(makeMessage({
+        id: `sys:mine:${Date.now()}`,
+        kind: 'system',
+        wallet: 'system',
+        ts: Date.now(),
+        tone: 'command',
+        text: language === 'es'
+          ? `mine block rechazado :: ${blockHex || match[1]} no pertenece a la cadena minable`
+          : `mine block rejected :: ${blockHex || match[1]} is not in the mineable chain`,
+      }), { silent: true });
+      return true;
+    }
+
+    const res = await fetch('/api/mine-block', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ wallet: normalizedWallet, blockHex }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (data.ok) {
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('lb_dirty_at', String(Date.now()));
+        window.dispatchEvent(new CustomEvent('mm3-db-updated', { detail: { wallet: normalizedWallet, minedBlock: blockHex } }));
+      }
+      return true;
+    }
+
+    const textByError = {
+      requirements_not_met: language === 'es'
+        ? `mine block rechazado :: ${blockHex} requiere ${data.requirement || formatBlockRequirement(requirement)}`
+        : `mine block rejected :: ${blockHex} requires ${data.requirement || formatBlockRequirement(requirement)}`,
+      already_mined: language === 'es'
+        ? `mine block rechazado :: ${blockHex} ya minado por ${formatWalletLabel(data.owner || '')}`
+        : `mine block rejected :: ${blockHex} already mined by ${formatWalletLabel(data.owner || '')}`,
+      reserved_market_nftji: language === 'es'
+        ? `mine block rechazado :: ${blockHex} reservado para NFTJI de Market`
+        : `mine block rejected :: ${blockHex} is reserved for a Market NFTJI`,
+      block_chain_not_installed: language === 'es'
+        ? `mine block offline :: tabla mm3_mined_blocks no instalada`
+        : `mine block offline :: mm3_mined_blocks table not installed`,
+    };
+    appendMessage(makeMessage({
+      id: `sys:mine:${Date.now()}`,
+      kind: 'system',
+      wallet: 'system',
+      ts: Date.now(),
+      tone: 'command',
+      text: textByError[data.error] || (language === 'es' ? `mine block rechazado :: ${blockHex}` : `mine block rejected :: ${blockHex}`),
+    }), { silent: true });
+    return true;
+  }, [appendMessage, language, normalizedWallet]);
+
   const handleSend = async (event) => {
     event.preventDefault();
     if (!normalizedWallet) return;
@@ -1515,6 +1578,10 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
       // /? — local command index (not broadcast)
       if (afterSlash === '?' || cmdName === 'help') {
         await showMarketCommandHelp();
+        return;
+      }
+
+      if (await processMineBlockCommand(text)) {
         return;
       }
 
