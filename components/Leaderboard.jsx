@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useI18n } from '@/lib/i18n-context';
 import supabase from '@/lib/supabaseClient';
 import { CNY_TO_EUR, CNY_TO_USD, formatMoney, formatCompactNum } from '@/lib/sell-offer';
@@ -194,6 +194,7 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
   const [squeezeLimitsByPool, setSqueezeLimitsByPool] = useState({});
   const { account } = useActiveWallet();
   const pathname = usePathname();
+  const router = useRouter();
   const activeWallet = account?.toLowerCase() || '';
   const abortRef = useRef(null);
   const refreshTimersRef = useRef([]);
@@ -279,6 +280,10 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
         disputeLimit: '5 Squeezes per 24h limit reached.',
         resetIn: 'reset in',
       };
+
+  const openMarketChain = useCallback(() => {
+    router.push('/market');
+  }, [router]);
 
   useEffect(() => {
     const timer = setInterval(() => setNowMs(Date.now()), 1000);
@@ -1466,9 +1471,14 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
           return (
             <article key={entry.pool_code} className="lb-card p-2">
               <div className="mb-1.5 flex items-center gap-2">
-                <span className={`rank-badge ${rankCls} shrink-0`} title={`${Number(entry.mined_block_count || 0)} mined blocks`}>
+                <button
+                  type="button"
+                  onClick={openMarketChain}
+                  className={`rank-badge ${rankCls} shrink-0`}
+                  title={`${Number(entry.mined_block_count || 0)} mined blocks`}
+                >
                   {formatBlockChainPercent(entry.block_chain_percent)}
-                </span>
+                </button>
                 <button
                   type="button"
                   onClick={showWalletRanking}
@@ -1671,9 +1681,14 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
           return (
             <article key={entry.wallet} className={`lb-card p-2${isActiveWallet ? ' wallet-active' : ''}${isSelectedWallet ? ' wallet-selected' : ''}`}>
               <div className="mb-1.5 flex items-center gap-2">
-                <span className={`rank-badge ${rankCls} shrink-0`} title={`${Number(entry.mined_block_count || 0)} mined blocks`}>
+                <button
+                  type="button"
+                  onClick={openMarketChain}
+                  className={`rank-badge ${rankCls} shrink-0`}
+                  title={`${Number(entry.mined_block_count || 0)} mined blocks`}
+                >
                   {formatBlockChainPercent(entry.block_chain_percent)}
-                </span>
+                </button>
                 <button
                   type="button"
                   onClick={() => toggleSelectedWallet(entry.wallet)}
@@ -1901,9 +1916,14 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
               return (
                 <tr key={entry.pool_code} className="lb-row">
                   <td style={{ textAlign:'center' }}>
-                    <span className={`rank-badge ${rankCls}`} title={`${Number(entry.mined_block_count || 0)} mined blocks`}>
+                    <button
+                      type="button"
+                      onClick={openMarketChain}
+                      className={`rank-badge ${rankCls}`}
+                      title={`${Number(entry.mined_block_count || 0)} mined blocks`}
+                    >
                       {formatBlockChainPercent(entry.block_chain_percent)}
-                    </span>
+                    </button>
                   </td>
                   <td>
                     <div className="flex flex-wrap items-center gap-1.5">
@@ -2119,9 +2139,14 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
               return (
                 <tr key={entry.wallet} className={`lb-row${isActiveWallet ? ' wallet-active' : ''}${isSelectedWallet ? ' wallet-selected' : ''}`}>
                   <td style={{ textAlign:'center' }}>
-                    <span className={`rank-badge ${rankCls}`} title={`${Number(entry.mined_block_count || 0)} mined blocks`}>
+                    <button
+                      type="button"
+                      onClick={openMarketChain}
+                      className={`rank-badge ${rankCls}`}
+                      title={`${Number(entry.mined_block_count || 0)} mined blocks`}
+                    >
                       {formatBlockChainPercent(entry.block_chain_percent)}
-                    </span>
+                    </button>
                   </td>
                   <td style={{ textAlign:'center' }}>
                     <span className={`lb-status-chip ${isOnline ? 'online' : 'offline'}`}>

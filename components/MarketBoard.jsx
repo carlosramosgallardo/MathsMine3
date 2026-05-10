@@ -252,7 +252,7 @@ const CATALOG_BLOCKS = [
 ];
 
 const CATALOG_KEY_SET = new Set(CATALOG_BLOCKS.map((b) => b.block_key));
-const MINED_BLOCK_COLOR = '#9ca3af';
+const MINED_BLOCK_COLOR = '#374151';
 
 
 export default function MarketBoard({ account, isVirtualWallet = false }) {
@@ -1164,7 +1164,7 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
                       <button
                         key={`${part}-${index}`}
                         type="button"
-                        className="mr-1 hover:text-cyan-200 hover:underline"
+                        className="hover:text-cyan-200 hover:underline"
                         onClick={() => {
                           if (isWallet) openRankingWallet(part);
                           else if (isBlock) {
