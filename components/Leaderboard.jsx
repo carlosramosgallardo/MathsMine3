@@ -103,6 +103,8 @@ function uniqueBy(items, getKey) {
 
 function getSqueezeLevel(squeezeNftji, slotKey) {
   if (!squeezeNftji) return -1;
+  if (slotKey === 'sq-atk' && squeezeNftji.equipped !== 'attack') return -1;
+  if (slotKey === 'sq-def' && squeezeNftji.equipped !== 'defense') return -1;
   if (slotKey === 'sq-atk') return Number(squeezeNftji.attack_level ?? -1);
   if (slotKey === 'sq-def') return Number(squeezeNftji.defense_level ?? -1);
   return -1;

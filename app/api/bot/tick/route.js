@@ -78,19 +78,6 @@ function getMarketBlockLabel(block, fallbackKey = '') {
   return `${block.emoji || ''}${hex ? ` ${hex}` : block.block_key ? ` ${block.block_key}` : ''}`.trim() || fallbackKey || '';
 }
 
-function chooseBotSqueezeEquip(attackLevel = -1, defenseLevel = -1) {
-  const atk = Number(attackLevel);
-  const def = Number(defenseLevel);
-  const hasAtk = Number.isFinite(atk) && atk >= 0;
-  const hasDef = Number.isFinite(def) && def >= 0;
-  if (hasAtk && !hasDef) return 'attack';
-  if (!hasAtk && hasDef) return 'defense';
-  if (!hasAtk && !hasDef) return null;
-  if (atk < def) return 'attack';
-  if (def < atk) return 'defense';
-  return ((atk + def) % 2 === 0) ? 'attack' : 'defense';
-}
-
 function getReviveCostOption(meta) {
   if ((Number(meta?.eur_earned) || 0) >= REVIVE_COST_EUR) {
     return { currency: 'EUR', amount: REVIVE_COST_EUR, field: 'eur_earned' };
@@ -380,20 +367,18 @@ async function autoClaimBotSqueezeDrops(supabase) {
       continue;
     }
 
-    const equip = chooseBotSqueezeEquip(data.attack_level, data.defense_level);
-    if (equip && equip !== data.equipped) {
-      await supabase
-        .from('mm3_squeeze_nftji')
-        .update({ equipped: equip, updated_at: new Date().toISOString() })
-        .eq('wallet', row.wallet);
-    }
+    const equipped = data.equipped || data.drop_type;
+    const equippedLevel = equipped === 'attack'
+      ? Number(data.attack_level ?? -1)
+      : Number(data.defense_level ?? -1);
 
     actions.push({
       type: 'squeeze_drop_claimed',
       wallet: row.wallet,
       disputeId: row.dispute_id,
       dropType: data.drop_type,
-      equipped: equip || data.equipped,
+      equipped,
+      equippedLevel,
       attackLevel: Number(data.attack_level ?? -1),
       defenseLevel: Number(data.defense_level ?? -1),
     });
@@ -1115,12 +1100,13 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
     if (mm3Mined !== 0) botMsg += ` :: ${mm3Mined >= 0 ? '+' : ''}${mm3Mined.toFixed(6)} MM3`;
     if (eurEarned > 0) botMsg += ` / +${eurEarned.toFixed(4)} EUR`;
     botMsg += nftjiDrops ? ` :: nftji drops: ${nftjiDrops}` : ` :: no nftji drop`;
+    if (gamesAction?.life_bought) botMsg += ` :: bought life (${gamesAction.life_bought})`;
     if (marketResellAction) botMsg += ` :: resell ${marketResellAction.blockLabel || marketResellAction.blockKey} +€${marketResellAction.returnEur.toFixed(2)}`;
     if (marketBuyAction) botMsg += ` :: buy ${marketBuyAction.blockLabel || marketBuyAction.blockKey} €${marketBuyAction.priceEur.toFixed(2)}`;
     if (marketCmdAction) botMsg += ` :: cmd ${marketCmdAction.blockLabel || marketCmdAction.blockKey} x=${marketCmdAction.x} (${marketCmdAction.penalties} hit)`;
     if (squeezeDropAction) {
       const dropEmoji = squeezeDropAction.dropType === 'attack' ? '⚔️' : '🔰';
-      botMsg += ` :: squeeze drop ${dropEmoji} atk${squeezeDropAction.attackLevel} def${squeezeDropAction.defenseLevel} equip ${squeezeDropAction.equipped}`;
+      botMsg += ` :: squeeze drop ${dropEmoji} Lv.${Math.max(0, Number(squeezeDropAction.equippedLevel) || 0)} equip ${squeezeDropAction.equipped}`;
     }
     botMsg += tasksCompleted.length > 0
       ? ` :: daily tasks: ${tasksCompleted.join(' ')}`
