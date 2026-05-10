@@ -409,24 +409,30 @@ async function maybeLaunchBotSqueeze(supabase) {
     .select('wallet, pool_code')
     .in('wallet', BOT_WALLETS);
 
-  const poolByBot = new Map((members || []).map((row) => [normalizeWallet(row.wallet), row.pool_code]));
-  const readyBots = BOT_WALLETS
-    .map((wallet) => ({ wallet, poolCode: poolByBot.get(wallet) }))
-    .filter((bot) => bot.poolCode);
+  const botsByPool = new Map();
+  for (const row of members || []) {
+    const wallet = normalizeWallet(row.wallet);
+    const poolCode = String(row.pool_code || '').trim().toUpperCase();
+    if (!wallet || !poolCode) continue;
+    if (!botsByPool.has(poolCode)) botsByPool.set(poolCode, []);
+    botsByPool.get(poolCode).push(wallet);
+  }
 
-  if (readyBots.length < 2 || readyBots[0].poolCode === readyBots[1].poolCode) {
+  const botPools = [...botsByPool.keys()];
+  if (botPools.length < 2) {
     return actions;
   }
 
   const { data: poolMembers } = await supabase
     .from('mm3_wallet_pool_members')
     .select('wallet, pool_code')
-    .in('pool_code', readyBots.map((bot) => bot.poolCode));
+    .in('pool_code', botPools);
   const memberCountByPool = new Map();
   for (const member of poolMembers || []) {
     memberCountByPool.set(member.pool_code, (memberCountByPool.get(member.pool_code) || 0) + 1);
   }
-  if (readyBots.some((bot) => (memberCountByPool.get(bot.poolCode) || 0) < 2)) {
+  const readyPools = botPools.filter((poolCode) => (memberCountByPool.get(poolCode) || 0) >= 2);
+  if (readyPools.length < 2) {
     actions.push({ type: 'squeeze_waiting_for_pool_mates' });
     return actions;
   }
@@ -434,15 +440,46 @@ async function maybeLaunchBotSqueeze(supabase) {
   const { data: active } = await supabase
     .from('mm3_pool_disputes')
     .select('id')
-    .or(`challenger_pool_code.in.(${readyBots.map((b) => b.poolCode).join(',')}),defender_pool_code.in.(${readyBots.map((b) => b.poolCode).join(',')})`)
+    .or(`challenger_pool_code.in.(${readyPools.join(',')}),defender_pool_code.in.(${readyPools.join(',')})`)
     .in('status', ['proposing', 'registering', 'battle_start'])
     .limit(1)
     .maybeSingle();
 
   if (active) return actions;
 
-  const [challenger, defender] = Math.random() < 0.5 ? readyBots : [...readyBots].reverse();
-  const launchCount = await getSqueezePoolLaunchCount(supabase, challenger.poolCode);
+  const shuffledPools = [...readyPools].sort(() => Math.random() - 0.5);
+  let challengerPool = null;
+  let defenderPool = null;
+  let launchCount = 0;
+  for (const poolCode of shuffledPools) {
+    const count = await getSqueezePoolLaunchCount(supabase, poolCode);
+    if (count >= SQUEEZE_LAUNCH_LIMIT) continue;
+    challengerPool = poolCode;
+    defenderPool = shuffledPools.find((candidate) => candidate !== challengerPool);
+    launchCount = count;
+    break;
+  }
+
+  if (!challengerPool || !defenderPool) {
+    actions.push({ type: 'squeeze_launch_limit_reached', count: SQUEEZE_LAUNCH_LIMIT });
+    return actions;
+  }
+
+  const challengerBots = botsByPool.get(challengerPool) || [];
+  const defenderBots = botsByPool.get(defenderPool) || [];
+  const challenger = {
+    wallet: challengerBots[Math.floor(Math.random() * challengerBots.length)],
+    poolCode: challengerPool,
+  };
+  const defender = {
+    wallet: defenderBots[Math.floor(Math.random() * defenderBots.length)],
+    poolCode: defenderPool,
+  };
+
+  if (!challenger.wallet || !defender.wallet || challenger.poolCode === defender.poolCode) {
+    return actions;
+  }
+
   if (launchCount >= SQUEEZE_LAUNCH_LIMIT) {
     actions.push({ type: 'squeeze_launch_limit_reached', wallet: challenger.wallet, count: launchCount });
     return actions;
