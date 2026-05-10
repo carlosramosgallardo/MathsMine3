@@ -14,8 +14,18 @@ import { formatWalletLabel } from '@/lib/wallet-format';
 import { MM3_BLOCK_CHAIN_REQUIREMENTS } from '@/lib/mm3-block-chain';
 import PageLoading from '@/components/PageLoading';
 
+const MARKET_FIRST_MINING_BLOCK_KEY = 'ph-0-0';
+
 function getBlockHexFromCoords(row, col) {
   return '#' + ((Number(row) || 0) * 28 + (Number(col) || 0)).toString(16).toUpperCase().padStart(3, '0');
+}
+
+function marketKeyFromBlockHex(blockHex) {
+  const match = String(blockHex || '').trim().toUpperCase().match(/^#?([0-9A-F]{1,3})$/);
+  if (!match) return MARKET_FIRST_MINING_BLOCK_KEY;
+  const index = parseInt(match[1], 16);
+  if (!Number.isFinite(index)) return MARKET_FIRST_MINING_BLOCK_KEY;
+  return `ph-${Math.floor(index / 28)}-${index % 28}`;
 }
 
 const CURRENCY_SYM = { EUR: '€', USD: '$', CNY: '¥' };
@@ -281,8 +291,8 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
         resetIn: 'reset in',
       };
 
-  const openMarketChain = useCallback(() => {
-    router.push('/market');
+  const openMarketChain = useCallback((entry) => {
+    router.push(`/market?block=${entry?.first_mined_block_key || MARKET_FIRST_MINING_BLOCK_KEY}`);
   }, [router]);
 
   useEffect(() => {
@@ -347,7 +357,8 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
           .order('created_at', { ascending: true }),
         supabase
           .from('mm3_mined_blocks')
-          .select('wallet, block_hex'),
+          .select('wallet, block_hex, chain_index')
+          .order('chain_index', { ascending: true }),
       ]);
       if (error) { console.error('Leaderboard fetch:', error); setLeaderboard([]); return; }
       let progressData = progressResponse?.data || [];
@@ -422,11 +433,19 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
       }
 
       const minedCountByWallet = new Map();
+      const firstMinedBlockByWallet = new Map();
       if (!minedBlocksResponse?.error) {
         for (const entry of minedBlocksResponse?.data || []) {
           const wallet = normalizeWallet(entry.wallet);
           if (!wallet) continue;
           minedCountByWallet.set(wallet, (minedCountByWallet.get(wallet) || 0) + 1);
+          if (!firstMinedBlockByWallet.has(wallet)) {
+            firstMinedBlockByWallet.set(wallet, {
+              block_hex: String(entry.block_hex || '').toUpperCase(),
+              block_key: marketKeyFromBlockHex(entry.block_hex),
+              chain_index: Number(entry.chain_index) || 0,
+            });
+          }
         }
       } else if (minedBlocksResponse.error?.code !== '42P01') {
         console.error('Leaderboard mined blocks fetch:', minedBlocksResponse.error);
@@ -510,6 +529,7 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
           const totalMm3    = Number(lbRow?.total_eth) || 0;
           const availableMm3 = totalMm3 - progress.mm3Sold;
           const minedBlockCount = Number(minedCountByWallet.get(normalizedWallet) || 0);
+          const firstMinedBlock = firstMinedBlockByWallet.get(normalizedWallet) || null;
           const blockChainPercent = minedBlockCount > 0
             ? Math.round((minedBlockCount / minedBlockTotal) * 10000) / 100
             : Number(progress.blockChainPercent) || 0;
@@ -520,6 +540,9 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
             available_mm3: availableMm3,
             block_chain_percent: blockChainPercent,
             mined_block_count: minedBlockCount,
+            first_mined_block_hex: firstMinedBlock?.block_hex || '',
+            first_mined_block_key: firstMinedBlock?.block_key || '',
+            first_mined_chain_index: Number(firstMinedBlock?.chain_index) || 0,
             level: progress.level,
             money_balance_cny: progress.cny,
             money_balance_eur: progress.eur,
@@ -666,6 +689,9 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
       const totalUsd = members.reduce((sum, entry) => sum + (Number(entry.money_balance_usd) || 0), 0);
       const blockChainPercent = Math.min(100, members.reduce((sum, entry) => sum + (Number(entry.block_chain_percent) || 0), 0));
       const minedBlockCount = members.reduce((sum, entry) => sum + (Number(entry.mined_block_count) || 0), 0);
+      const firstMinedBlock = members
+        .filter((entry) => entry.first_mined_block_key)
+        .sort((a, b) => (Number(a.first_mined_chain_index) || Number.POSITIVE_INFINITY) - (Number(b.first_mined_chain_index) || Number.POSITIVE_INFINITY))[0] || null;
       const poolEmojiCounts = members.reduce((counts, entry) => {
         for (const emoji of normalizeWalletDecorations(entry.wallet_emojis)) {
           counts[emoji] = (counts[emoji] || 0) + 1;
@@ -759,6 +785,9 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
         available_mm3: totalMm3,
         block_chain_percent: blockChainPercent,
         mined_block_count: minedBlockCount,
+        first_mined_block_hex: firstMinedBlock?.first_mined_block_hex || '',
+        first_mined_block_key: firstMinedBlock?.first_mined_block_key || '',
+        first_mined_chain_index: Number(firstMinedBlock?.first_mined_chain_index) || 0,
         money_balance_cny: totalCny,
         money_balance_eur: totalEur,
         money_balance_usd: totalUsd,
@@ -1473,7 +1502,7 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
               <div className="mb-1.5 flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={openMarketChain}
+                  onClick={() => openMarketChain(entry)}
                   className={`rank-badge ${rankCls} shrink-0`}
                   title={`${Number(entry.mined_block_count || 0)} mined blocks`}
                 >
@@ -1683,7 +1712,7 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
               <div className="mb-1.5 flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={openMarketChain}
+                  onClick={() => openMarketChain(entry)}
                   className={`rank-badge ${rankCls} shrink-0`}
                   title={`${Number(entry.mined_block_count || 0)} mined blocks`}
                 >
@@ -1918,7 +1947,7 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
                   <td style={{ textAlign:'center' }}>
                     <button
                       type="button"
-                      onClick={openMarketChain}
+                      onClick={() => openMarketChain(entry)}
                       className={`rank-badge ${rankCls}`}
                       title={`${Number(entry.mined_block_count || 0)} mined blocks`}
                     >
@@ -2141,7 +2170,7 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
                   <td style={{ textAlign:'center' }}>
                     <button
                       type="button"
-                      onClick={openMarketChain}
+                      onClick={() => openMarketChain(entry)}
                       className={`rank-badge ${rankCls}`}
                       title={`${Number(entry.mined_block_count || 0)} mined blocks`}
                     >
