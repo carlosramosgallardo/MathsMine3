@@ -18,13 +18,14 @@ import {
   BLOCK_CHAIN_TITLE,
   buildBlockChainCode,
   formatBlockRequirement,
-  MM3_BLOCK_CHAIN_REQUIREMENTS,
+  MM3_BLOCK_GRID_COLS,
+  MM3_BLOCK_GRID_ROWS,
   MM3_BLOCK_REQUIREMENT_BY_HEX,
 } from '@/lib/mm3-block-chain';
 
 const GENESIS_BLOCK_KEY = 'mm3-023';
-const GRID_ROWS = 28;
-const GRID_COLS = 28;
+const GRID_ROWS = MM3_BLOCK_GRID_ROWS;
+const GRID_COLS = MM3_BLOCK_GRID_COLS;
 
 // Emojis reserved for auto-spawned mystery blocks.
 // Rules: must not appear in mining NTFJIs (🔮🍀🎰🧿❤️), Market catalog (🛰🌐🔭🧬💠⚡🌀🔴⭐💎),
@@ -251,7 +252,6 @@ const CATALOG_BLOCKS = [
 ];
 
 const CATALOG_KEY_SET = new Set(CATALOG_BLOCKS.map((b) => b.block_key));
-const MINEABLE_HEX_SET = new Set(MM3_BLOCK_CHAIN_REQUIREMENTS.map((entry) => entry.blockHex));
 const MINED_BLOCK_COLORS = ['#22d3ee', '#a78bfa', '#f472b6', '#facc15', '#4ade80'];
 
 
@@ -268,7 +268,7 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
   const [canLoadInlineShort, setCanLoadInlineShort] = useState(false);
   const [selectedEventCounts, setSelectedEventCounts] = useState({ emoji: '', buys: 0, resells: 0 });
   const [minedBlocks, setMinedBlocks] = useState([]);
-  const [blockChain, setBlockChain] = useState({ title: BLOCK_CHAIN_TITLE, mined: 0, total: MM3_BLOCK_CHAIN_REQUIREMENTS.length, percent: 0, code: '' });
+  const [blockChain, setBlockChain] = useState({ title: BLOCK_CHAIN_TITLE, mined: 0, total: GRID_ROWS * GRID_COLS, percent: 0, code: '' });
   const [numericCode, setNumericCode] = useState('');
   const [activePenalty, setActivePenalty] = useState(null);
   const [activeBlockCommand, setActiveBlockCommand] = useState(null);
@@ -431,8 +431,10 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
       setBlockChain(snapshot.blockChain || {
         title: BLOCK_CHAIN_TITLE,
         mined: nextMinedBlocks.length,
-        total: MM3_BLOCK_CHAIN_REQUIREMENTS.length,
-        percent: MM3_BLOCK_CHAIN_REQUIREMENTS.length ? Math.round((nextMinedBlocks.length / MM3_BLOCK_CHAIN_REQUIREMENTS.length) * 10000) / 100 : 0,
+        total: Math.max(1, GRID_ROWS * GRID_COLS - (Array.isArray(snapshot.blocks) ? snapshot.blocks.length : 0)),
+        percent: Math.max(1, GRID_ROWS * GRID_COLS - (Array.isArray(snapshot.blocks) ? snapshot.blocks.length : 0))
+          ? Math.round((nextMinedBlocks.length / Math.max(1, GRID_ROWS * GRID_COLS - (Array.isArray(snapshot.blocks) ? snapshot.blocks.length : 0))) * 10000) / 100
+          : 0,
         code: buildBlockChainCode(nextMinedBlocks),
       });
       if (snapshot.walletState) {
@@ -620,7 +622,7 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
             current_owners: [], isPlaceholder: true,
             mine_hex: hex,
             mined_block: mined,
-            isMineable: MINEABLE_HEX_SET.has(hex),
+            isMineable: Boolean(MM3_BLOCK_REQUIREMENT_BY_HEX.get(hex)),
           });
         }
       }

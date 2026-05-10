@@ -41,6 +41,7 @@ async function getPublicMarketSnapshot(supabase) {
         if (blocksResponse.error) throw blocksResponse.error;
         if (minedResponse.error && minedResponse.error.code !== '42P01') throw minedResponse.error;
         const minedBlocks = minedResponse.data || [];
+        const mineableTotal = Math.max(1, MM3_BLOCK_CHAIN_REQUIREMENTS.length - (blocksResponse.data || []).length);
         const payload = {
           blocks: blocksResponse.data || [],
           owners: ownersResponse.data || [],
@@ -48,9 +49,9 @@ async function getPublicMarketSnapshot(supabase) {
           blockChain: {
             title: 'MM3 BLOCK CHAIN IN PROGRESS',
             mined: minedBlocks.length,
-            total: MM3_BLOCK_CHAIN_REQUIREMENTS.length,
-            percent: MM3_BLOCK_CHAIN_REQUIREMENTS.length > 0
-              ? Math.round((minedBlocks.length / MM3_BLOCK_CHAIN_REQUIREMENTS.length) * 10000) / 100
+            total: mineableTotal,
+            percent: mineableTotal > 0
+              ? Math.round((minedBlocks.length / mineableTotal) * 10000) / 100
               : 0,
             code: buildBlockChainCode(minedBlocks),
           },

@@ -426,7 +426,7 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
       } else if (minedBlocksResponse.error?.code !== '42P01') {
         console.error('Leaderboard mined blocks fetch:', minedBlocksResponse.error);
       }
-      const minedBlockTotal = MM3_BLOCK_CHAIN_REQUIREMENTS.length || 1;
+      const minedBlockTotal = Math.max(1, MM3_BLOCK_CHAIN_REQUIREMENTS.length - (blocksResponse?.data || []).length);
 
       const penaltiesByWallet = new Map();
       for (const entry of penaltiesResponse?.data || []) {

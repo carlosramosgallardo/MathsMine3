@@ -43,13 +43,16 @@ export async function POST(req) {
   );
 
   try {
-    const [{ data: reservedBlock }, { data: existing }, { data: progress }, { data: tokenValue }] = await Promise.all([
+    const [{ data: reservedBlock }, { count: reservedCount }, { data: existing }, { data: progress }, { data: tokenValue }] = await Promise.all([
       supabase
         .from('mm3_market_blocks')
         .select('block_key, emoji')
         .eq('grid_row', grid.row)
         .eq('grid_col', grid.col)
         .maybeSingle(),
+      supabase
+        .from('mm3_market_blocks')
+        .select('block_key', { count: 'exact', head: true }),
       supabase
         .from('mm3_mined_blocks')
         .select('block_hex, wallet')
@@ -121,16 +124,17 @@ export async function POST(req) {
       .select('block_hex, wallet, mm3_value_hex, chain_index')
       .order('chain_index', { ascending: true });
     const chain = chainRows || [mined];
-    const percent = MM3_BLOCK_CHAIN_REQUIREMENTS.length > 0
-      ? Math.round((chain.length / MM3_BLOCK_CHAIN_REQUIREMENTS.length) * 10000) / 100
+    const mineableTotal = Math.max(1, MM3_BLOCK_CHAIN_REQUIREMENTS.length - (Number(reservedCount) || 0));
+    const percent = mineableTotal > 0
+      ? Math.round((chain.length / mineableTotal) * 10000) / 100
       : 0;
     const walletMinedCount = chain.filter((row) => normalizeWallet(row.wallet) === wallet).length;
-    const walletPercent = MM3_BLOCK_CHAIN_REQUIREMENTS.length > 0
-      ? Math.round((walletMinedCount / MM3_BLOCK_CHAIN_REQUIREMENTS.length) * 10000) / 100
+    const walletPercent = mineableTotal > 0
+      ? Math.round((walletMinedCount / mineableTotal) * 10000) / 100
       : 0;
     const code = buildBlockChainCode(chain);
     const ts = Date.now();
-    const trace = `MM3 BLOCK CHAIN IN PROGRESS >> mined ${blockHex} by ${formatWalletLabel(wallet)} >> ${chain.length}/${MM3_BLOCK_CHAIN_REQUIREMENTS.length} ${percent.toFixed(2)}% >> ${code}`;
+    const trace = `MM3 BLOCK CHAIN IN PROGRESS >> mined ${blockHex} by ${formatWalletLabel(wallet)} >> ${chain.length}/${mineableTotal} ${percent.toFixed(2)}% >> ${code}`;
 
     await supabase
       .from('player_progress')

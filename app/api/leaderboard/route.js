@@ -57,7 +57,7 @@ export async function GET(req) {
 
   await supabase.from('api_requests').insert({ ip, endpoint })
 
-  const [{ data: leaderboardRows, error: leaderboardError }, progressResponse, minedBlocksResponse] = await Promise.all([
+  const [{ data: leaderboardRows, error: leaderboardError }, progressResponse, minedBlocksResponse, marketBlocksResponse] = await Promise.all([
     supabase
       .from('leaderboard_data')
       .select('wallet, total_eth, total_correct, total_games, highest_streak'),
@@ -67,6 +67,9 @@ export async function GET(req) {
     supabase
       .from('mm3_mined_blocks')
       .select('wallet'),
+    supabase
+      .from('mm3_market_blocks')
+      .select('block_key', { count: 'exact', head: true }),
   ])
 
   if (leaderboardError) {
@@ -92,7 +95,7 @@ export async function GET(req) {
       minedCountByWallet.set(wallet, (minedCountByWallet.get(wallet) || 0) + 1)
     }
   }
-  const minedBlockTotal = MM3_BLOCK_CHAIN_REQUIREMENTS.length || 1
+  const minedBlockTotal = Math.max(1, MM3_BLOCK_CHAIN_REQUIREMENTS.length - (Number(marketBlocksResponse?.count) || 0))
 
   const progressByWallet = new Map(
     (progressRows || []).map((entry) => [
