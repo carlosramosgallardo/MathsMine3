@@ -1531,6 +1531,17 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
     });
     const data = await res.json().catch(() => ({}));
     if (data.ok) {
+      if (data.trace) {
+        appendAndBroadcastMessage(makeMessage({
+          id: `db:system:${data.ts || Date.now()}`,
+          kind: 'system',
+          wallet: 'system',
+          ts: Number(data.ts) || Date.now(),
+          tone: 'market',
+          text: data.trace,
+        }), { silent: false });
+        relayRef.current?.send({ type: 'broadcast', event: 'market-status-refresh', payload: { ts: Date.now() } }).catch(() => {});
+      }
       if (typeof window !== 'undefined') {
         localStorage.setItem('lb_dirty_at', String(Date.now()));
         window.dispatchEvent(new CustomEvent('mm3-db-updated', { detail: { wallet: normalizedWallet, minedBlock: blockHex } }));
@@ -1561,7 +1572,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
       text: textByError[data.error] || (language === 'es' ? `mine block rechazado :: ${blockHex}` : `mine block rejected :: ${blockHex}`),
     }), { silent: true });
     return true;
-  }, [appendMessage, language, normalizedWallet]);
+  }, [appendAndBroadcastMessage, appendMessage, language, normalizedWallet]);
 
   const handleSend = async (event) => {
     event.preventDefault();

@@ -181,7 +181,7 @@ const MarketCell = memo(function MarketCell({
 }) {
   const row = block.grid_row ?? 0;
   const col = block.grid_col ?? 0;
-  const cellHex = isSelected ? getBlockHex(row, col) : '';
+  const cellHex = (isSelected || isMined) ? getBlockHex(row, col) : '';
   const title = `${block.emoji} ${language === 'es' ? block.title_es : block.title_en}`;
 
   return (
@@ -216,10 +216,10 @@ const MarketCell = memo(function MarketCell({
     >
       {(isSelected || isMined) && (
         <>
-          <span className="pointer-events-none text-[min(2.4vw,0.92rem)] leading-none drop-shadow-[0_0_8px_rgba(250,204,21,0.35)] sm:text-[min(1.6vw,1rem)]">
+          <span className="pointer-events-none text-[min(2.4vw,0.92rem)] leading-none text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.45)] sm:text-[min(1.6vw,1rem)]">
             {isMined && !block.emoji ? '■' : block.emoji}
           </span>
-          <span className="pointer-events-none absolute bottom-[1px] right-[1px] text-[0.44rem] font-black tracking-[0.08em] text-cyan-100/90 sm:text-[0.3rem]">
+          <span className="pointer-events-none absolute bottom-[1px] right-[1px] text-[0.44rem] font-black tracking-[0.08em] text-white drop-shadow-[0_0_5px_rgba(0,0,0,0.9)] sm:text-[0.3rem]">
             {cellHex}
           </span>
         </>
@@ -252,7 +252,7 @@ const CATALOG_BLOCKS = [
 ];
 
 const CATALOG_KEY_SET = new Set(CATALOG_BLOCKS.map((b) => b.block_key));
-const MINED_BLOCK_COLORS = ['#22d3ee', '#a78bfa', '#f472b6', '#facc15', '#4ade80'];
+const MINED_BLOCK_COLOR = '#9ca3af';
 
 
 export default function MarketBoard({ account, isVirtualWallet = false }) {
@@ -1125,9 +1125,7 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
                     const isOwned = Array.isArray(block.current_owners) && block.current_owners.length > 0;
                     const minedBlock = block.mined_block || minedByHex.get(getBlockHex(block.grid_row ?? 0, block.grid_col ?? 0));
                     const isMined = Boolean(block.isPlaceholder && minedBlock);
-                    const minedColor = isMined
-                      ? MINED_BLOCK_COLORS[(Number(minedBlock.chain_index) || 1) % MINED_BLOCK_COLORS.length]
-                      : MINED_BLOCK_COLORS[0];
+                    const minedColor = MINED_BLOCK_COLOR;
 
                     return (
                       <MarketCell
@@ -1433,18 +1431,6 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
             )}
           </div>
           )}
-          <div className="rounded border border-cyan-500/10 bg-black/30 px-2 py-1.5 lg:col-span-2">
-            <div className="flex items-center justify-between gap-2 text-[0.56rem] font-black uppercase tracking-[0.15em] text-cyan-300/65">
-              <span>{blockChain?.title || BLOCK_CHAIN_TITLE}</span>
-              <span>{Number(blockChain?.percent || 0).toFixed(2)}%</span>
-            </div>
-            <div className="mt-1 h-1 overflow-hidden rounded bg-cyan-950/35">
-              <div
-                className="h-full bg-cyan-300/75"
-                style={{ width: `${Math.max(0, Math.min(100, Number(blockChain?.percent || 0)))}%` }}
-              />
-            </div>
-          </div>
         </aside>
       </div>
     </div>

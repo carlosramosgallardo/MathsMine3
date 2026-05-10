@@ -148,7 +148,7 @@ export async function POST(req) {
       tone: 'market',
     });
 
-    return Response.json({ ok: true, mined, trace, percent, code });
+    return Response.json({ ok: true, mined, trace, percent, code, ts });
   } catch (error) {
     console.error('mine block error:', error);
     const missingTable = error?.code === '42P01';
