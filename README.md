@@ -296,7 +296,7 @@ Each EXEC:
 
 ## Market
 
-The Market is a 28x28 command board: 784 cells, 20 fixed NFTJI blocks, and player-owned state.
+The Market is a 28x28 command board: 784 cells, 20 fixed NFTJI blocks, and a mineable MM3 Block Chain across every remaining free board cell.
 
 | Rail | Price Basis | Main Use |
 |---|---|---|
@@ -320,6 +320,76 @@ Owning a Market NFTJI unlocks one daily IRC command. Commands can penalize rival
 ```txt
 example:
 41000 + x * 11 + 2048 / 4
+```
+
+### MM3 Block Chain
+
+Cells that are not fixed Market NFTJIs are **open blocks**. They are not bought, sold, resold, linked to YouTube, or tied to Market formulas. Instead, they can be mined from IRC with:
+
+```txt
+/mine block #029
+```
+
+When the first wallet that satisfies the requirement mines a block:
+
+- The block becomes a permanent **mined block**.
+- Its color freezes on the board.
+- The miner wallet is stored as the block owner for that cell.
+- A new immutable chain segment is appended:
+
+```txt
+#wallet#mined_block#mm3_value_in_hex
+```
+
+The full chain is ordered by mining time:
+
+```txt
+#wallet_1#029#D6D8C0#wallet_2#02A#-D6D8C0
+```
+
+The Market UI shows **MM3 BLOCK CHAIN IN PROGRESS** with a percentage:
+
+```txt
+mined free blocks / total free blocks
+```
+
+Fixed Market NFTJI cells are excluded from this percentage. If every free board block is mined, the chain reaches 100% and the generated code becomes final game history.
+
+### Block Requirements
+
+Every free block has a requirement based on its board position. Requirements scale proportionally across the 28x28 grid:
+
+- `#000` starts at wallet level `0` and `mm3_global_value 0.00000`.
+- Later blocks gradually rise toward wallet level `100`.
+- Required `mm3_global_value` gradually rises toward `100.00000`.
+- Positive and negative MM3 value requirements alternate by block index.
+
+The block detail card for an open/mined block shows:
+
+| Field | Meaning |
+|---|---|
+| Status | `open block` or `mined block` |
+| Req | Minimum wallet level and required global MM3 value |
+| Miner shell | Empty while open; miner wallet after success |
+
+Market NFTJI controls such as buy, sell, command formula, numeric code, secret command, and short links do not appear for MM3 Block Chain cells.
+
+### IRC Mining Responses
+
+The command is handled from the IRC terminal:
+
+| Input | Result |
+|---|---|
+| `/mine block #029` | Attempts to mine block `#029` |
+| Requirement missing | IRC returns the exact requirement, e.g. `min wallet lvl. 88; mm3_global_value 88.00000` |
+| Already mined | IRC returns the wallet that mined it |
+| Market NFTJI cell | IRC rejects it as reserved for a Market NFTJI |
+| Success | A persistent Market trace is written to IRC |
+
+The success trace is stored in `mm3_irc_messages` as `kind=system`, `tone=market`. It is appended once, keeps its original timestamp, is never edited by status refreshes, and is only cleared by running the database reset SQL.
+
+```txt
+MM3 BLOCK CHAIN IN PROGRESS >> mined #029 by 0xa...123 >> 1/764 0.13% >> #0xabc...#029#D6D8C0
 ```
 
 ---
@@ -478,16 +548,20 @@ IRC is the shared terminal layer.
 | Chat history | Persistent social log |
 | Market badges | Owned NFTJIs shown beside authors |
 | Command events | Public command and penalty activity |
+| MM3 Block Chain | Persistent `tone=market` traces for each mined board block |
 | Blockchain trace | Real ETH transactions confirmed on-chain via Alchemy webhook |
 
 ```txt
 wallet@MM3:~$       hello mainframe
 market@MM3:~$       command fired
+market@MM3:~$       MM3 BLOCK CHAIN IN PROGRESS >> mined #029...
 system@MM3:~$       value mutated
 MathsMine3@ETH·:~$  0.01 ETH donation confirmed · tx 0xabc…def
 ```
 
 The `MathsMine3@ETH·:~$` line appears when a real Ethereum transaction is received by the Alchemy webhook. The event is written directly to the IRC log with `tone=realchain`, making on-chain activity visible inside the terminal without any player action.
+
+IRC help (`/?`) includes `/mine block #029` as the short form for mining free Market board cells. Bots do not auto-mine these blocks, but a logged bot wallet can be used manually to test the command path.
 
 ---
 
@@ -495,7 +569,11 @@ The `MathsMine3@ETH·:~$` line appears when a real Ethereum transaction is recei
 
 Ranking is public memory for the game.
 
-It prioritizes level, MM3 balance, trade activity, NFTJI ownership, Market presence, and active penalties. It gives the fictional economy a visible social scoreboard.
+The first ranking column is **MM3 Chain**. It shows the percentage of free Market board blocks mined by each wallet. Wallet ranking sorts by this percentage by default.
+
+Pool ranking sums the MM3 Chain percentages of its current member wallets. The sum can never exceed 100%. It only reaches 100% if every wallet that contributed mined blocks is currently inside pools.
+
+Level, MM3 balance, trade activity, NFTJI ownership, Market presence, and active penalties remain visible as supporting context.
 
 ---
 
@@ -511,7 +589,10 @@ Public API routes expose the readable state of the simulation.
 | `/api/token-history-minutes` | Recent minute-level chart data |
 | `/api/leaderboard` | Ranking data |
 | `/api/market-snapshot` | Market block state |
+| `/api/mine-block` | Mine a free Market board block from IRC command flow |
 | `/api/nft-events` | NFTJI and revive events |
+
+`/api/leaderboard` includes `block_chain_percent` and `mined_block_count`. `/api/market-snapshot` includes `minedBlocks` and `blockChain` progress/code data.
 
 ---
 
@@ -968,7 +1049,7 @@ Cada EXEC:
 
 ## Market
 
-El Market es un tablero de comandos 28x28: 784 celdas, 20 bloques NFTJI fijos y estado poseído por jugadores.
+El Market es un tablero de comandos 28x28: 784 celdas, 20 bloques NFTJI fijos y una MM3 Block Chain minable en todas las demás celdas libres.
 
 | Rail | Base de Precio | Uso Principal |
 |---|---|---|
@@ -992,6 +1073,76 @@ Tener un NFTJI del Market desbloquea un comando IRC diario. Los comandos pueden 
 ```txt
 ejemplo:
 41000 + x * 11 + 2048 / 4
+```
+
+### MM3 Block Chain
+
+Las celdas que no son NFTJI fijos del Market son **open blocks**. No se compran, no se venden, no se revenden, no enlazan a YouTube y no usan fórmulas de Market. Se minan desde IRC con:
+
+```txt
+/mine block #029
+```
+
+Cuando la primera wallet que cumple el requisito mina un bloque:
+
+- El bloque pasa a ser **mined block** permanente.
+- Su color queda congelado en el tablero.
+- La wallet minera queda guardada como owner de esa celda.
+- Se añade un segmento inmutable a la cadena:
+
+```txt
+#wallet#mined_block#mm3_value_in_hex
+```
+
+La cadena completa queda ordenada por momento de minado:
+
+```txt
+#wallet_1#029#D6D8C0#wallet_2#02A#-D6D8C0
+```
+
+La UI del Market muestra **MM3 BLOCK CHAIN IN PROGRESS** con un porcentaje:
+
+```txt
+bloques libres minados / total de bloques libres
+```
+
+Las celdas NFTJI fijas del Market no cuentan en ese porcentaje. Si todos los bloques libres se minan, la cadena llega al 100% y el código generado queda como historia final del juego.
+
+### Requisitos de Bloque
+
+Cada bloque libre tiene un requisito basado en su posición en el tablero. Los requisitos escalan proporcionalmente en el grid 28x28:
+
+- `#000` empieza en wallet level `0` y `mm3_global_value 0.00000`.
+- Los bloques posteriores suben gradualmente hasta wallet level `100`.
+- El `mm3_global_value` requerido sube gradualmente hasta `100.00000`.
+- Los requisitos positivos y negativos de valor MM3 alternan por índice de bloque.
+
+La tarjeta de detalle para un bloque abierto/minado muestra:
+
+| Campo | Significado |
+|---|---|
+| Status | `open block` o `mined block` |
+| Req | Nivel mínimo de wallet y valor global MM3 requerido |
+| Miner shell | Vacío si está abierto; wallet minera tras el éxito |
+
+Los controles propios de NFTJI de Market como comprar, vender, fórmula, numeric code, secreto y short link no aparecen en celdas de MM3 Block Chain.
+
+### Respuestas IRC de Minado
+
+El comando se gestiona desde el terminal IRC:
+
+| Input | Resultado |
+|---|---|
+| `/mine block #029` | Intenta minar el bloque `#029` |
+| No cumple requisito | IRC devuelve el requisito exacto, ej. `min wallet lvl. 88; mm3_global_value 88.00000` |
+| Ya minado | IRC devuelve la wallet que lo minó |
+| Celda NFTJI Market | IRC lo rechaza como reservado para NFTJI de Market |
+| Éxito | Se escribe una traza persistente de Market en IRC |
+
+La traza de éxito se guarda en `mm3_irc_messages` como `kind=system`, `tone=market`. Se añade una vez, mantiene su hora original, no se edita por los refrescos de estado y solo se borra al ejecutar el reset SQL de la base de datos.
+
+```txt
+MM3 BLOCK CHAIN IN PROGRESS >> mined #029 by 0xa...123 >> 1/764 0.13% >> #0xabc...#029#D6D8C0
 ```
 
 ---
@@ -1150,16 +1301,20 @@ IRC es la capa terminal compartida.
 | Historial de chat | Log social persistente |
 | Badges del Market | NFTJIs poseídos junto al autor |
 | Eventos de comandos | Actividad pública de comandos y penalizaciones |
+| MM3 Block Chain | Trazas persistentes `tone=market` por cada bloque minado |
 | Traza blockchain | Transacciones ETH reales confirmadas on-chain vía Alchemy webhook |
 
 ```txt
 wallet@MM3:~$       hola mainframe
 market@MM3:~$       comando disparado
+market@MM3:~$       MM3 BLOCK CHAIN IN PROGRESS >> mined #029...
 system@MM3:~$       valor mutado
 MathsMine3@ETH·:~$  0.01 ETH donación confirmada · tx 0xabc…def
 ```
 
 La línea `MathsMine3@ETH·:~$` aparece cuando el webhook de Alchemy recibe una transacción real de Ethereum. El evento se escribe directamente en el log IRC con `tone=realchain`, haciendo visible la actividad on-chain dentro del terminal sin ninguna acción del jugador.
+
+La ayuda IRC (`/?`) incluye `/mine block #029` como forma corta para minar celdas libres del tablero Market. Los bots no autominan estos bloques, pero una wallet marcada como bot puede usarse manualmente para probar el flujo.
 
 ---
 
@@ -1167,7 +1322,11 @@ La línea `MathsMine3@ETH·:~$` aparece cuando el webhook de Alchemy recibe una 
 
 Ranking es la memoria pública del juego.
 
-Prioriza nivel, balance MM3, actividad de Trade, propiedad de NFTJIs, presencia en Market y penalizaciones activas. Le da a la economía ficticia un marcador social visible.
+La primera columna del ranking es **MM3 Chain**. Muestra el porcentaje de bloques libres del Market minados por cada wallet. El ranking de wallets ordena por este porcentaje por defecto.
+
+El ranking de pools suma los porcentajes MM3 Chain de sus wallets miembro actuales. La suma nunca supera el 100%. Solo llega al 100% si todas las wallets que han contribuido minando bloques forman parte de algún pool.
+
+Nivel, balance MM3, actividad de Trade, propiedad de NFTJIs, presencia en Market y penalizaciones activas siguen visibles como contexto de soporte.
 
 ---
 
@@ -1183,7 +1342,10 @@ Las rutas públicas exponen el estado legible de la simulación.
 | `/api/token-history-minutes` | Datos recientes por minuto |
 | `/api/leaderboard` | Datos del Ranking |
 | `/api/market-snapshot` | Estado de bloques del Market |
+| `/api/mine-block` | Mina un bloque libre del Market desde el flujo de comando IRC |
 | `/api/nft-events` | Eventos NFTJI y revive |
+
+`/api/leaderboard` incluye `block_chain_percent` y `mined_block_count`. `/api/market-snapshot` incluye `minedBlocks` y datos de progreso/código en `blockChain`.
 
 ---
 
