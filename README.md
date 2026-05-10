@@ -359,9 +359,9 @@ Fixed Market NFTJI cells are excluded from this percentage. If every free board 
 
 Every free block has a requirement based on its board position. Requirements scale proportionally across the 28x28 grid:
 
-- `#000` starts at wallet level `0` and `mm3_global_value 0.00000`.
+- `#000` starts at wallet level `0` and `mm3_global_value 0.00`.
 - Later blocks gradually rise toward wallet level `100`.
-- Required `mm3_global_value` gradually rises toward `100.00000`.
+- Required `mm3_global_value` gradually rises toward `100.00`.
 - Positive and negative MM3 value requirements alternate by block index.
 
 The block detail card for an open/mined block shows:
@@ -381,7 +381,7 @@ The command is handled from the IRC terminal:
 | Input | Result |
 |---|---|
 | `/mine block #029` | Attempts to mine block `#029` |
-| Requirement missing | IRC returns the exact requirement, e.g. `min wallet lvl. 88; mm3_global_value 88.00000` |
+| Requirement missing | IRC returns the exact requirement, e.g. `min wallet lvl. 88; mm3_global_value 88.00` |
 | Already mined | IRC returns the wallet that mined it |
 | Market NFTJI cell | IRC rejects it as reserved for a Market NFTJI |
 | Success | A persistent Market trace is written to IRC |
@@ -1112,9 +1112,9 @@ Las celdas NFTJI fijas del Market no cuentan en ese porcentaje. Si todos los blo
 
 Cada bloque libre tiene un requisito basado en su posición en el tablero. Los requisitos escalan proporcionalmente en el grid 28x28:
 
-- `#000` empieza en wallet level `0` y `mm3_global_value 0.00000`.
+- `#000` empieza en wallet level `0` y `mm3_global_value 0.00`.
 - Los bloques posteriores suben gradualmente hasta wallet level `100`.
-- El `mm3_global_value` requerido sube gradualmente hasta `100.00000`.
+- El `mm3_global_value` requerido sube gradualmente hasta `100.00`.
 - Los requisitos positivos y negativos de valor MM3 alternan por índice de bloque.
 
 La tarjeta de detalle para un bloque abierto/minado muestra:
@@ -1134,7 +1134,7 @@ El comando se gestiona desde el terminal IRC:
 | Input | Resultado |
 |---|---|
 | `/mine block #029` | Intenta minar el bloque `#029` |
-| No cumple requisito | IRC devuelve el requisito exacto, ej. `min wallet lvl. 88; mm3_global_value 88.00000` |
+| No cumple requisito | IRC devuelve el requisito exacto, ej. `min wallet lvl. 88; mm3_global_value 88.00` |
 | Ya minado | IRC devuelve la wallet que lo minó |
 | Celda NFTJI Market | IRC lo rechaza como reservado para NFTJI de Market |
 | Éxito | Se escribe una traza persistente de Market en IRC |
