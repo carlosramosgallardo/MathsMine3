@@ -1185,7 +1185,7 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
           </div>
         </section>
 
-        <aside className="mm3-market-detail grid grid-cols-1 gap-1 rounded border border-cyan-500/12 bg-black/40 p-1.5 lg:grid-cols-2 lg:gap-1 lg:p-2 lg:self-stretch">
+        <aside className="mm3-market-detail grid auto-rows-min grid-cols-1 content-start gap-1 rounded border border-cyan-500/12 bg-black/40 p-1.5 lg:grid-cols-2 lg:gap-1 lg:p-2 lg:self-start">
 
           {/* ── Header: emoji + title + hex + status badge ── */}
           <div className="mm3-market-detail-head col-span-1 flex items-start justify-between gap-2 lg:col-span-2">
@@ -1212,16 +1212,16 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
           </div>
 
           {/* ── Price + Owner — same row ── */}
-          <div className="col-span-1 flex gap-1.5 lg:col-span-2">
-            <div className="mm3-market-detail-card shrink-0 rounded border border-amber-400/14 bg-amber-950/8 px-2 py-1 lg:px-2.5 lg:py-2">
-              <div className="text-[0.78rem] uppercase tracking-[0.16em] text-amber-300/65 lg:text-[0.80rem] lg:tracking-[0.18em]">{isMineBlock ? 'req' : t('podcast.price')}</div>
-              <div className={`${isMineBlock ? 'max-w-[13rem] text-[0.62rem] leading-snug' : 'text-[1.05rem] leading-none lg:text-lg'} mt-0.5 font-black text-amber-300 lg:mt-1`}>
+          <div className={`col-span-1 flex gap-1.5 lg:col-span-2 ${isMineBlock ? 'flex-col' : ''}`}>
+            <div className={`mm3-market-detail-card rounded border border-amber-400/14 bg-amber-950/8 px-2 py-1 lg:px-2.5 lg:py-2 ${isMineBlock ? 'w-full' : 'shrink-0'}`}>
+              <div className="text-[0.66rem] uppercase tracking-[0.16em] text-amber-300/65 lg:text-[0.68rem] lg:tracking-[0.18em]">{isMineBlock ? 'req' : t('podcast.price')}</div>
+              <div className={`${isMineBlock ? 'text-[0.7rem] leading-snug' : 'text-[1.05rem] leading-none lg:text-lg'} mt-0.5 font-black text-amber-300 lg:mt-1`}>
                 {isMineBlock ? formatBlockRequirement(selectedMineRequirement) : displayPrice}
               </div>
             </div>
-            <div className="mm3-market-detail-card min-w-0 flex-1 rounded border border-cyan-500/12 bg-black/45 px-2 py-1 lg:px-2.5 lg:py-2">
-              <div className="text-[0.78rem] uppercase tracking-[0.16em] text-cyan-300/65 lg:text-[0.80rem] lg:tracking-[0.18em]">{isMineBlock ? 'miner shell' : t('podcast.owner')}</div>
-              <div className="mt-0.5 flex max-h-12 flex-col gap-1 overflow-y-auto pr-1 lg:max-h-20 lg:mt-1">
+            <div className={`mm3-market-detail-card min-w-0 flex-1 rounded border border-cyan-500/12 bg-black/45 px-2 py-1 lg:px-2.5 lg:py-2 ${isMineBlock ? 'w-full' : ''}`}>
+              <div className="text-[0.66rem] uppercase tracking-[0.16em] text-cyan-300/65 lg:text-[0.68rem] lg:tracking-[0.18em]">{isMineBlock ? 'miner shell' : t('podcast.owner')}</div>
+              <div className={`mt-0.5 flex flex-col gap-1 overflow-y-auto pr-1 lg:mt-1 ${isMineBlock ? 'max-h-10' : 'max-h-12 lg:max-h-20'}`}>
               {isMineBlockMined ? (
                 <button
                   type="button"
