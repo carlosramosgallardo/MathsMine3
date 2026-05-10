@@ -144,14 +144,12 @@ function formatBlockChainPercent(value) {
 function formatResetCountdown(resetAt, nowMs = Date.now()) {
   if (!resetAt) return '';
   const ms = new Date(resetAt).getTime() - nowMs;
-  if (!Number.isFinite(ms) || ms <= 0) return '0s';
+  if (!Number.isFinite(ms) || ms <= 0) return '00:00:00';
   const totalSeconds = Math.ceil(ms / 1000);
   const hours = Math.floor(totalSeconds / 3600);
   const minutes = Math.floor((totalSeconds % 3600) / 60);
   const seconds = totalSeconds % 60;
-  if (hours > 0) return `${hours}h ${minutes}m`;
-  if (minutes > 0) return `${minutes}m ${seconds}s`;
-  return `${seconds}s`;
+  return [hours, minutes, seconds].map((value) => String(value).padStart(2, '0')).join(':');
 }
 
 function getInitialLeaderboardViewMode() {
@@ -843,7 +841,7 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
   const activePoolSqueezeLimitReached = Number(activePoolLimit?.count || 0) >= SQUEEZE_LAUNCH_LIMIT
     && (!activePoolLimit?.reset_at || new Date(activePoolLimit.reset_at).getTime() > nowMs);
   const activePoolSqueezeResetText = activePoolSqueezeLimitReached
-    ? `${labels.resetIn} ${formatResetCountdown(activePoolLimit.reset_at, nowMs)} UTC`
+    ? `${labels.resetIn} ${formatResetCountdown(activePoolLimit.reset_at, nowMs)}`
     : '';
   const [incomingInvites, setIncomingInvites] = useState([]);
   const [acceptBusy, setAcceptBusy] = useState('');
@@ -857,7 +855,7 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
   const isPoolCooldown = !!cooldownExpiresAt && new Date(cooldownExpiresAt) > new Date();
   const poolInActiveDispute = activeDisputePairs.size > 0;
   const poolCooldownResetText = isPoolCooldown
-    ? `${labels.resetIn} ${formatResetCountdown(cooldownExpiresAt, nowMs)} UTC`
+    ? `${labels.resetIn} ${formatResetCountdown(cooldownExpiresAt, nowMs)}`
     : '';
   const poolContactBlockedText = isPoolCooldown
     ? `${labels.leaveCooldown} · ${poolCooldownResetText}`
@@ -870,7 +868,7 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
       ? labels.disputeInProgress
       : '';
   const disputeButtonLabel = activePoolSqueezeLimitReached
-    ? `${labels.resetIn} ${formatResetCountdown(activePoolLimit?.reset_at, nowMs)} UTC`
+    ? `${labels.resetIn} ${formatResetCountdown(activePoolLimit?.reset_at, nowMs)}`
     : labels.dispute;
 
   const fetchInvites = useCallback(async () => {
@@ -1006,7 +1004,7 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
           : payload.error === 'already_voted' || payload.error === 'dispute_already_active'
           ? 'disputeAlready'
           : 'disputeError';
-        const resetText = payload.reset_at ? `${labels.resetIn} ${formatResetCountdown(payload.reset_at, nowMs)} UTC` : '';
+        const resetText = payload.reset_at ? `${labels.resetIn} ${formatResetCountdown(payload.reset_at, nowMs)}` : '';
         window.dispatchEvent(new CustomEvent('mm3-toast', { detail: { msg: `${labels[errKey]}${resetText ? ` ${resetText}` : ''}`, type: 'error' } }));
         return;
       }
@@ -1522,7 +1520,7 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
                     type="button"
                     onClick={() => handleDisputeVote(entry.pool_code)}
                     disabled={disputeBusy === entry.pool_code || !!disputeBlockedText}
-                    className="shrink-0 rounded border border-amber-400/30 bg-amber-950/15 px-1.5 py-0.5 text-[0.58rem] font-black uppercase tracking-[0.12em] text-amber-300 transition hover:border-amber-300 hover:text-amber-100 disabled:cursor-not-allowed disabled:opacity-40"
+                    className="shrink-0 whitespace-nowrap rounded border border-amber-400/30 bg-amber-950/15 px-1.5 py-0.5 text-[0.58rem] font-black uppercase tracking-[0.12em] text-amber-300 transition hover:border-amber-300 hover:text-amber-100 disabled:cursor-not-allowed disabled:opacity-40"
                     title={disputeBlockedText || labels.disputeTitle}
                   >
                     {disputeBusy === entry.pool_code ? '...' : disputeButtonLabel}
@@ -1973,7 +1971,7 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
                           type="button"
                           onClick={() => handleDisputeVote(entry.pool_code)}
                           disabled={disputeBusy === entry.pool_code || !!disputeBlockedText}
-                          className="rounded border border-amber-400/30 bg-amber-950/15 px-2 py-0.5 font-mono text-[0.62rem] font-black uppercase tracking-[0.1em] text-amber-300 transition hover:border-amber-300 hover:text-amber-100 disabled:cursor-not-allowed disabled:opacity-40"
+                          className="whitespace-nowrap rounded border border-amber-400/30 bg-amber-950/15 px-2 py-0.5 font-mono text-[0.62rem] font-black uppercase tracking-[0.1em] text-amber-300 transition hover:border-amber-300 hover:text-amber-100 disabled:cursor-not-allowed disabled:opacity-40"
                           title={disputeBlockedText || labels.disputeTitle}
                         >
                           {disputeBusy === entry.pool_code ? '...' : disputeButtonLabel}
