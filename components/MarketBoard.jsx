@@ -1080,7 +1080,45 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
       {loading && <PageLoading label={t('podcast.loading')} />}
 
       <div className="mm3-market-shell mx-auto grid w-full max-w-[1080px] gap-2 lg:grid-cols-[minmax(0,1fr)_minmax(300px,400px)] lg:items-start lg:gap-3 lg:px-2">
-        <section className="min-w-0 rounded border border-cyan-500/15 bg-black/20 p-2 shadow-[0_0_18px_rgba(34,211,238,0.04)]">
+        <div className="mm3-market-chain mx-auto w-full max-w-[860px] rounded border border-cyan-500/15 bg-black/35 px-3 py-2 text-center shadow-[0_0_18px_rgba(34,211,238,0.05)] lg:col-span-2 lg:px-5 lg:py-3">
+          <div className="flex items-center justify-center gap-4 text-[0.72rem] font-black uppercase tracking-[0.2em] text-cyan-300/80 lg:text-[0.88rem]">
+            <span>{blockChain?.title || BLOCK_CHAIN_TITLE}</span>
+            <span className="text-cyan-100">{Number(blockChain?.percent || 0).toFixed(2)}%</span>
+          </div>
+          <div className="mx-auto mt-2 h-1.5 max-w-[720px] overflow-hidden rounded bg-cyan-950/45 lg:h-2">
+            <div
+              className="h-full bg-cyan-300/85 shadow-[0_0_12px_rgba(34,211,238,0.55)]"
+              style={{ width: `${Math.max(0, Math.min(100, Number(blockChain?.percent || 0)))}%` }}
+            />
+          </div>
+          {blockChain?.code && (
+            <div className="mx-auto mt-2 max-h-20 max-w-[780px] overflow-y-auto break-all text-[0.62rem] leading-relaxed text-cyan-100/60 lg:text-[0.68rem]">
+              {String(blockChain.code).split('#').filter(Boolean).map((part, index) => {
+                const token = `#${part}`;
+                const isWallet = part.startsWith('0x');
+                const isBlock = /^#[0-9A-F]{3}$/i.test(token);
+                return (
+                  <button
+                    key={`${part}-${index}`}
+                    type="button"
+                    className="hover:text-cyan-200 hover:underline"
+                    onClick={() => {
+                      if (isWallet) openRankingWallet(part);
+                      else if (isBlock) {
+                        const cell = parseInt(part, 16);
+                        setSelectedKey(`ph-${Math.floor(cell / GRID_COLS)}-${cell % GRID_COLS}`);
+                      }
+                    }}
+                  >
+                    {token}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        <section className="mm3-market-board-panel min-w-0 rounded border border-cyan-500/15 bg-black/20 p-2 shadow-[0_0_18px_rgba(34,211,238,0.04)]">
           <div className="mm3-market-board-wrap mx-auto w-full max-w-[min(85vw,calc(100dvh-200px),520px)] lg:max-w-[min(100%,calc(100dvh-180px),500px)]">
             <div className="relative">
               <button
@@ -1142,43 +1180,6 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
                   })}
                 </div>
               </div>
-            </div>
-            <div className="mt-2 border-t border-cyan-500/10 pt-2">
-              <div className="flex items-center justify-between gap-2 text-[0.58rem] font-black uppercase tracking-[0.16em] text-cyan-300/70">
-                <span>{blockChain?.title || BLOCK_CHAIN_TITLE}</span>
-                <span>{Number(blockChain?.percent || 0).toFixed(2)}%</span>
-              </div>
-              <div className="mt-1 h-1 overflow-hidden rounded bg-cyan-950/40">
-                <div
-                  className="h-full bg-cyan-300/80 shadow-[0_0_10px_rgba(34,211,238,0.45)]"
-                  style={{ width: `${Math.max(0, Math.min(100, Number(blockChain?.percent || 0)))}%` }}
-                />
-              </div>
-              {blockChain?.code && (
-                <div className="mt-1 max-h-14 overflow-y-auto break-all text-[0.52rem] leading-snug text-cyan-100/55">
-                  {String(blockChain.code).split('#').filter(Boolean).map((part, index) => {
-                    const token = `#${part}`;
-                    const isWallet = part.startsWith('0x');
-                    const isBlock = /^#[0-9A-F]{3}$/i.test(token);
-                    return (
-                      <button
-                        key={`${part}-${index}`}
-                        type="button"
-                        className="hover:text-cyan-200 hover:underline"
-                        onClick={() => {
-                          if (isWallet) openRankingWallet(part);
-                          else if (isBlock) {
-                            const cell = parseInt(part, 16);
-                            setSelectedKey(`ph-${Math.floor(cell / GRID_COLS)}-${cell % GRID_COLS}`);
-                          }
-                        }}
-                      >
-                        {token}
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
             </div>
           </div>
         </section>

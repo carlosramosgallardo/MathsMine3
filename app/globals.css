@@ -533,8 +533,12 @@ body.mm3-play-success-alert #board-section .section-frame::before {
     gap: 0.25rem;
   }
 
-  .mm3-market-shell > section:first-child {
+  .mm3-market-board-panel {
     padding: 0.35rem !important;
+  }
+
+  .mm3-market-chain {
+    padding: 0.45rem 0.7rem !important;
   }
 
   .mm3-market-board-wrap {
