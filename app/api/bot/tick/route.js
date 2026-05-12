@@ -18,7 +18,6 @@ const DAILY_MINE_BASE = 100;
 const PRICE = Number(process.env.NEXT_PUBLIC_FAKE_MINING_PRICE) || 0.00001;
 const DAILY_TRADE_LIMIT = 5;
 const SQUEEZE_LAUNCH_LIMIT = 20;
-const SQUEEZE_LAUNCH_WINDOW_MS = 24 * 60 * 60 * 1000;
 const REVIVE_COST_EUR = 1;
 const REVIVE_COST_USD = REVIVE_COST_EUR * (CNY_TO_USD / CNY_TO_EUR);
 const REVIVE_COST_CNY = REVIVE_COST_EUR / CNY_TO_EUR;
@@ -92,22 +91,22 @@ function getReviveCostOption(meta) {
 }
 
 async function getSqueezePoolLaunchCount(supabase, challengerPool) {
-  const windowStart = new Date(Date.now() - SQUEEZE_LAUNCH_WINDOW_MS).toISOString();
+  const { startIso } = getUtcDayBounds();
   const { count } = await supabase
     .from('mm3_squeeze_launches')
     .select('id', { count: 'exact', head: true })
     .eq('challenger_pool_code', String(challengerPool || '').toUpperCase())
-    .gte('created_at', windowStart);
+    .gte('created_at', startIso);
   return Number(count) || 0;
 }
 
 async function getSqueezeWalletLaunchCount(supabase, wallet) {
-  const windowStart = new Date(Date.now() - SQUEEZE_LAUNCH_WINDOW_MS).toISOString();
+  const { startIso } = getUtcDayBounds();
   const { count } = await supabase
     .from('mm3_squeeze_launches')
     .select('id', { count: 'exact', head: true })
     .eq('wallet', normalizeWallet(wallet))
-    .gte('created_at', windowStart);
+    .gte('created_at', startIso);
   return Number(count) || 0;
 }
 
