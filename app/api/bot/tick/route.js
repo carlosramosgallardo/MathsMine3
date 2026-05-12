@@ -405,6 +405,7 @@ async function maybeLaunchBotSqueeze(supabase) {
 
   const botPools = [...botsByPool.keys()];
   if (botPools.length < 2) {
+    console.log('[squeeze] skip: botPools.length < 2 =>', botPools);
     return actions;
   }
 
@@ -418,19 +419,23 @@ async function maybeLaunchBotSqueeze(supabase) {
   }
   const readyPools = botPools.filter((poolCode) => (memberCountByPool.get(poolCode) || 0) >= 2);
   if (readyPools.length < 2) {
+    console.log('[squeeze] skip: readyPools.length < 2 =>', readyPools, 'counts =>', Object.fromEntries(memberCountByPool));
     actions.push({ type: 'squeeze_waiting_for_pool_mates' });
     return actions;
   }
 
   const { data: active } = await supabase
     .from('mm3_pool_disputes')
-    .select('id')
+    .select('id, status, challenger_pool_code, defender_pool_code')
     .or(`challenger_pool_code.in.(${readyPools.join(',')}),defender_pool_code.in.(${readyPools.join(',')})`)
     .in('status', ['proposing', 'registering', 'battle_start'])
     .limit(1)
     .maybeSingle();
 
-  if (active) return actions;
+  if (active) {
+    console.log('[squeeze] skip: active dispute =>', active);
+    return actions;
+  }
 
   const shuffledPools = [...readyPools].sort(() => Math.random() - 0.5);
   let challengerPool = null;
@@ -446,6 +451,7 @@ async function maybeLaunchBotSqueeze(supabase) {
   }
 
   if (!challengerPool || !defenderPool) {
+    console.log('[squeeze] skip: all pools at launch limit =>', SQUEEZE_LAUNCH_LIMIT, 'shuffledPools =>', shuffledPools);
     actions.push({ type: 'squeeze_launch_limit_reached', count: SQUEEZE_LAUNCH_LIMIT });
     return actions;
   }
@@ -483,6 +489,9 @@ async function maybeLaunchBotSqueeze(supabase) {
     p_wallet: challenger.wallet,
   });
 
+  if (error || data?.error) {
+    console.log('[squeeze] vote failed =>', { rpcError: error?.message, dataError: data?.error, challenger: challenger.poolCode, defender: defender.poolCode, wallet: challenger.wallet });
+  }
   if (!error && !data?.error) {
     if (data?.proposing && data?.dispute_id) {
       await supabase.from('mm3_squeeze_launches').insert({
