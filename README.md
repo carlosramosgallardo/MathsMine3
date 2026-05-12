@@ -22,6 +22,7 @@
 
 - [Snapshot](#snapshot)
 - [Manifesto](#manifesto)
+- [Objective](#objective)
 - [Game Mechanics](#game-mechanics)
 - [Mining](#mining)
 - [Daily Limits](#daily-limits)
@@ -55,6 +56,7 @@
 | Persistence | Supabase player, market, chart, chat, and event state |
 | Languages | English and Spanish |
 | Core routes | Mining, Trade MM3, Ranking, Squeeze, Market, IRC, MM3 Value, Manifesto, API |
+| Win condition | Mine a higher % of the 764 free Market board blocks than any other wallet |
 | Legal status | No real mining, no real token, no payout, no investment |
 
 ---
@@ -65,7 +67,29 @@ MathsMine3 turns math into pressure, reward, memory, risk, and ritual.
 
 It is not a classroom skin. It is a terminal-world game: solve fast, mine fake MM3, climb ranks, lose level when you fail, trade inside a fictional exchange, collect NFTJIs, fire Market commands, take part in IRC chat, and return after every reset sharper than before.
 
-The useful idea is simple: **math becomes action**. Every problem solved is not just a score event; it moves a wallet, a rank, a fictional market, and a shared public state.
+The useful idea is simple: **math becomes action**. Every problem solved is not just a score event; it moves a wallet, a rank, a fictional market, and a shared public state. The chain has a finish line: 764 blocks, one winner.
+
+---
+
+## Objective
+
+The ranking orders wallets by **MM3 Chain** percentage: the share of the 764 free Market board blocks each wallet has mined. **The winner is the wallet at #1 when the chain reaches 100%.** That is the only metric that decides the final position.
+
+### Why reaching #1 is genuinely hard
+
+**Level wall.** Most blocks in the upper half of the 28×28 grid require wallet level 80–100 (LEGEND rank). At level 100 you have 1500 ms per problem. One wrong answer at level 95+ costs 5 levels. Recovering takes at least three consecutive correct answers under that same pressure. Getting there and *staying* there is the first filter most wallets never pass.
+
+**Block scarcity.** Each of the 764 free blocks is mined once and never again. Bots compete actively. Any block another wallet claims first is gone from your count permanently.
+
+**Daily drill cap.** The base limit is 100 mining games per day — rising +1 for each all-time Trade EXEC. Even flawless play only translates to a handful of qualifying blocks per session, because qualifying for late-chain blocks requires both your wallet level and the shared global MM3 value to meet escalating thresholds at the same time.
+
+**Shared global state.** The `mm3_global_value` required by advanced blocks is not yours to control. It is shaped by the whole economy — trades, Market commands, Squeeze stakes burned. You may reach the right level only to find the global condition unmet.
+
+**Alternating signs.** Block requirements flip between positive and negative `mm3_global_value` by block index. You cannot skip ahead: if the next qualifying block demands a negative global value and the economy is running positive, you wait.
+
+**Rival pressure.** Without pool cover, any wallet can fire daily Market commands that drain your MM3 or fiat. A €100 hit from 💎 Crystal Forge or a −100 MM3 deduction from 🎛️ Mixer Console can erase reserves needed to satisfy a block requirement or buy back MM3 at the exchange.
+
+**The real scale.** 764 blocks. One per miner. Hundreds of timed problems under maximum pressure. Days or weeks of sustained LEGEND-level performance. Active bots. World-state conditions outside your control. Rivals targeting your economy. The wallet that reaches #1 will have earned it.
 
 ---
 
@@ -79,7 +103,7 @@ The useful idea is simple: **math becomes action**. Every problem solved is not 
 | Trading | When you have enough MM3, you can sell it for money. When you need more MM3, you can buy it back. But watch the interest. |
 | Ranking and Pools | Check your position, funds, and NFTJIs, and compare yourself against other wallets and pools. Join one or work alone. Your call. |
 | Squeeze | Dispute pool vs pool. Understand the applied formula to win together with trusted wallets, if you can trust anyone. Sometimes, when your pool wins, you obtain NFTJIs that accumulate and can catapult your alliance. |
-| Market board | 28x28 grid with NFTJI blocks linked to commands. |
+| Market board | 28x28 grid: 20 fixed Market NFTJI blocks (commands, penalties, resale) + 764 free MM3 Block Chain cells mineable from IRC. Mining those free cells is the core competition — the wallet with the highest mined percentage leads the chain and wins. |
 | IRC | Persistent social terminal with wallet presence and events. Even if you are not logged in, you can watch what is cooking day by day until you feel like trying it. |
 | MM3 | Global value history fed by game events. Your own or shared funds matter, but so does the value of MM3. The question is, why? |
 | Daily rewards | Complete as many daily MINING, TRADING, SQUEEZE, and IRC tasks as possible to get some extra money, which will come in handy. |
@@ -567,13 +591,15 @@ IRC help (`/?`) includes `/mine block #029` as the short form for mining free Ma
 
 ## Ranking
 
-Ranking is public memory for the game.
+Ranking is public memory for the game and defines its end state.
 
-The first ranking column is **MM3 Chain**. It shows the percentage of free Market board blocks mined by each wallet. Wallet ranking sorts by this percentage by default.
+The first ranking column is **MM3 Chain**. It shows the percentage of the 764 free Market board blocks mined by each wallet. **Wallet ranking sorts by this column — this is the win condition.** The wallet at #1 when the chain reaches 100% wins.
 
-Pool ranking sums the MM3 Chain percentages of its current member wallets. The sum can never exceed 100%. It only reaches 100% if every wallet that contributed mined blocks is currently inside pools.
+Pool ranking sums the MM3 Chain percentages of its current member wallets. The sum can never exceed 100%. It only reaches 100% if every wallet that contributed mined blocks is currently a pool member.
 
-Level, MM3 balance, trade activity, NFTJI ownership, Market presence, and active penalties remain visible as supporting context.
+All other visible data — level, MM3 balance, trade activity, NFTJI ownership, Market presence, active penalties — shows the context behind the chain percentages: how a wallet earned its position and how exposed it is to rivals.
+
+See [Objective](#objective) for a full breakdown of what it takes to reach #1.
 
 ---
 
@@ -691,7 +717,7 @@ Secret effect: steals MM3 → executor. `x = daily nonce (100–799)`.
 
 | Layer | Stack |
 |---|---|
-| App | Next.js 15, React 19 |
+| App | Next.js 16, React 19 |
 | UI | Tailwind CSS, custom CRT terminal styling |
 | Data | Supabase |
 | Wallet | Wagmi, Web3Modal |
@@ -774,8 +800,8 @@ Read:
 
 - [Resumen](#resumen)
 - [Manifiesto](#manifiesto)
-- [Loop de Juego](#loop-de-juego)
-- [Sistemas Base](#sistemas-base)
+- [Objetivo](#objetivo)
+- [Mecánica del juego](#mecánica-del-juego)
 - [Mining](#mining)
 - [Límites Diarios](#limites-diarios)
 - [Recompensas Diarias](#recompensas-diarias)
@@ -808,6 +834,7 @@ Read:
 | Persistencia | Estado de jugadores, Market, gráfico, chat y eventos en Supabase |
 | Idiomas | Inglés y español |
 | Rutas principales | Mining, Trade MM3, Ranking, Squeeze, Market, IRC, MM3 Value, Manifiesto, API |
+| Condición de victoria | Minar un mayor % de los 764 bloques libres del tablero Market que cualquier otra wallet |
 | Estado legal | Sin minería real, sin token real, sin pagos, sin inversión |
 
 ---
@@ -818,7 +845,29 @@ MathsMine3 convierte las matemáticas en presión, recompensa, memoria, riesgo y
 
 No es una clase con skin. Es un juego-mundo de terminal: resuelve rápido, mina MM3 falso, sube de rango, pierde nivel cuando fallas, comercia dentro de un exchange ficticio, colecciona NFTJIs, dispara comandos del Market, participa en en el chat IRC y vuelve después de cada reset más afilado que antes.
 
-La idea útil es simple: **la matemática se convierte en acción**. Cada problema resuelto no es solo puntuación; mueve una wallet, un rango, un mercado ficticio y un estado público compartido.
+La idea útil es simple: **la matemática se convierte en acción**. Cada problema resuelto no es solo puntuación; mueve una wallet, un rango, un mercado ficticio y un estado público compartido. La cadena tiene una línea de llegada: 764 bloques, un solo ganador.
+
+---
+
+## Objetivo
+
+El ranking ordena las wallets por el porcentaje **MM3 Chain**: la proporción de los 764 bloques libres del tablero Market que cada wallet ha minado. **Gana la wallet en el puesto #1 cuando la cadena alcanza el 100%.** Esa es la única métrica que decide la posición final.
+
+### Por qué llegar al #1 es genuinamente difícil
+
+**Barrera de nivel.** La mayoría de los bloques de la mitad superior del grid 28×28 requieren nivel de wallet 80–100 (rango LEGEND). Al nivel 100 tienes 1500 ms por problema. Un fallo en el nivel 95+ cuesta 5 niveles. Recuperarse exige al menos tres respuestas correctas consecutivas bajo esa misma presión. Llegar ahí *y mantenerse* es el primer filtro que la mayoría de wallets nunca superan.
+
+**Escasez de bloques.** Cada uno de los 764 bloques libres se mina una sola vez y nunca vuelve a estar disponible. Los bots compiten activamente. Cualquier bloque que otra wallet reclame primero desaparece de tu conteo para siempre.
+
+**Tope diario de drill.** El límite base es 100 partidas de mining por día — sube +1 por cada EXEC histórico de Trade. Incluso jugando a la perfección, eso solo se traduce en un puñado de bloques cualificados por sesión, ya que minar bloques avanzados requiere que tu nivel de wallet y el `mm3_global_value` compartido cumplan umbrales crecientes al mismo tiempo.
+
+**Estado global compartido.** El `mm3_global_value` requerido por los bloques avanzados no está bajo tu control. Lo moldea toda la economía — trades, comandos del Market, stakes quemados en Squeeze. Puedes alcanzar el nivel correcto y encontrar que la condición global no se cumple.
+
+**Signos alternos.** Los requisitos de bloque alternan entre `mm3_global_value` positivo y negativo según el índice del bloque. No puedes saltarte bloques: si el siguiente que puedes alcanzar exige valor global negativo y la economía está en positivo, esperas.
+
+**Presión rival.** Sin cobertura de pool, cualquier wallet puede disparar comandos diarios del Market que drenen tu MM3 o fiat. Un golpe de €100 de 💎 Crystal Forge o una deducción de −100 MM3 de 🎛️ Mixer Console pueden borrar las reservas que necesitabas para cumplir un requisito de bloque o recomprar MM3 en el exchange.
+
+**La escala real.** 764 bloques. Uno por minero. Cientos de problemas cronometrados bajo presión máxima. Días o semanas de rendimiento sostenido a nivel LEGEND. Bots activos. Condiciones del estado del mundo fuera de tu control. Rivales apuntando a tu economía. La wallet que llegue al #1 se lo habrá ganado.
 
 ---
 
@@ -832,7 +881,7 @@ La idea útil es simple: **la matemática se convierte en acción**. Cada proble
 | Trading | Cuando tengas suficiente MM3, puedes venderlo por dinero. Y cuando necesites más MM3, puedes comprarlo. Pero ¡ojo a los intereres! |
 | Ranking y Pools | Comprueba tu posición, fondos y NFTJIs y compárate con el resto de Wallets y de pools. Forma parte de uno o trabaja de manera autónoma. Tú decides |
 | Squeeze | Diputa pool vs pool. Comprende la fórmula aplicada para ser ganador, junto con tus wallets de confianza, si es que te puedes fiar de alguien. En ocasionas, si tu pool gana, obtendréis NFTJIs que iréis acumulando y catapultarán vuestra alianza |
-| Market board | Grid 28x28 con bloques NFTJI vinculados a comandos |
+| Market board | Grid 28x28: 20 bloques NFTJI fijos (comandos, penalizaciones, reventa) + 764 celdas libres de la MM3 Block Chain minables desde IRC. Minar esas celdas libres es la competición central — la wallet con el mayor porcentaje minado lidera la cadena y gana. |
 | IRC | Terminal social persistente con presencia de wallets y eventos. Aunque no estés logado puedes ver lo que se va cociendo día a día hasta que te animes a probarlo |
 | MM3 | Histórico de valor global alimentado por eventos del juego. Tan importante son los fondos propios o compartidados como lo es el valor del MM3. La pregunta es, ¿por qué? |
 | Recompensas diarias | Completa el máximo de tareas cada día de MINING, TRADING, SQUEEZE e IRC, para obtener algo de dinero extra, que no te vendrá mal |
@@ -1320,13 +1369,15 @@ La ayuda IRC (`/?`) incluye `/mine block #029` como forma corta para minar celda
 
 ## Ranking
 
-Ranking es la memoria pública del juego.
+El Ranking es la memoria pública del juego y define su estado final.
 
-La primera columna del ranking es **MM3 Chain**. Muestra el porcentaje de bloques libres del Market minados por cada wallet. El ranking de wallets ordena por este porcentaje por defecto.
+La primera columna del ranking es **MM3 Chain**. Muestra el porcentaje de los 764 bloques libres del Market minados por cada wallet. **El ranking de wallets ordena por esta columna — esta es la condición de victoria.** La wallet en el puesto #1 cuando la cadena alcance el 100% gana.
 
 El ranking de pools suma los porcentajes MM3 Chain de sus wallets miembro actuales. La suma nunca supera el 100%. Solo llega al 100% si todas las wallets que han contribuido minando bloques forman parte de algún pool.
 
-Nivel, balance MM3, actividad de Trade, propiedad de NFTJIs, presencia en Market y penalizaciones activas siguen visibles como contexto de soporte.
+El resto de datos visibles — nivel, balance MM3, actividad de Trade, propiedad de NFTJIs, presencia en Market, penalizaciones activas — muestra el contexto detrás de los porcentajes de cadena: cómo una wallet ganó su posición y qué tan expuesta está a los rivales.
+
+Consulta [Objetivo](#objetivo) para un análisis completo de lo que se necesita para llegar al #1.
 
 ---
 
@@ -1444,7 +1495,7 @@ Efecto secreto: roba MM3 → wallet ejecutora. `x = nonce diario (100–799)`.
 
 | Capa | Stack |
 |---|---|
-| App | Next.js 15, React 19 |
+| App | Next.js 16, React 19 |
 | UI | Tailwind CSS, estilo CRT/terminal propio |
 | Datos | Supabase |
 | Wallet | Wagmi, Web3Modal |
