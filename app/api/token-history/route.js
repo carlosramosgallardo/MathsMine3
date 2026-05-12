@@ -90,7 +90,7 @@ export async function GET() {
     marketData?.forEach(e => add(
       e.created_at,
       e.delta_mm3,
-      e.event_type === 'nftji_claim' ? 'nftji_delta' : 'market_delta'
+      (e.event_type === 'nftji_claim' || e.event_type === 'nftji_level_up') ? 'nftji_delta' : 'market_delta'
     ))
   }
 

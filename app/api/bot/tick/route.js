@@ -27,6 +27,15 @@ const BOT_MAX_DRILLS_PER_TICK = Math.max(1, Number(process.env.BOT_MAX_DRILLS_PE
 const BOT_MAX_TRADES_PER_TICK = Math.max(1, Number(process.env.BOT_MAX_TRADES_PER_TICK) || 1);
 const BOT_PRESENCE_SETTLE_MS = Math.max(0, Math.min(3000, Number(process.env.BOT_PRESENCE_SETTLE_MS) || 1500));
 const SQUEEZE_BATTLE_SETTLE_MS = 5200;
+const MARKET_NFTJI_LEVEL_BASE_PCT = 0.003;
+
+function getMiningNftjiLevelBasePct(emoji) {
+  if (emoji === WALLET_DECORATIONS.lucky1000) return 0.01;
+  if (emoji === WALLET_DECORATIONS.lucky500) return 0.005;
+  if (emoji === WALLET_DECORATIONS.lucky100) return 0.002;
+  if (emoji === WALLET_DECORATIONS.lucky50) return 0.001;
+  return 0;
+}
 
 function getUtcDayBounds() {
   const now = new Date();
@@ -753,6 +762,20 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
             delta_mm3: Math.abs(totalMm3Global * marketDelta), emoji: d.emoji,
           });
         }
+        const basePct = getMiningNftjiLevelBasePct(d.emoji);
+        if (basePct > 0) {
+          const oldLevel = Number(progressRow?.[d.levelField] ?? -1);
+          let levelUpDelta = 0;
+          for (let l = oldLevel + 1; l <= oldLevel + d.count; l++) {
+            if (l > 0) levelUpDelta += totalMm3Global * basePct * l;
+          }
+          if (levelUpDelta > 0) {
+            await supabase.from('mm3_market_events').insert({
+              wallet, event_type: 'nftji_level_up',
+              delta_mm3: levelUpDelta, emoji: d.emoji,
+            });
+          }
+        }
       }
     }
 
@@ -928,7 +951,7 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
           .eq('nftji_key', currentMarketKey).is('redeemed_at', null);
 
         const resoldBlock = marketBlocks.find((b) => b.block_key === currentMarketKey);
-        const resellDelta = returnEur / (rateCny * CNY_TO_EUR);
+        const resellDelta = -(returnEur / (rateCny * CNY_TO_EUR));
         await supabase.from('mm3_market_events').insert({
           wallet, event_type: 'market_resell', delta_mm3: resellDelta,
           emoji: String(resoldBlock?.emoji || currentMarketKey),
@@ -957,6 +980,19 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
         wallet, event_type: 'market_buy', delta_mm3: buyDelta,
         emoji: String(targetBlock.emoji || targetBlock.block_key),
       });
+
+      const marketNewLevel = Number(currentLevels[targetBlock.block_key] ?? -1) + 1;
+      if (marketNewLevel > 0) {
+        const { data: tvRow } = await supabase.from('token_value').select('total_eth').limit(1).maybeSingle();
+        const totalMm3ForLevel = Number(tvRow?.total_eth) || 0;
+        const marketLevelUpDelta = totalMm3ForLevel * MARKET_NFTJI_LEVEL_BASE_PCT * marketNewLevel;
+        if (marketLevelUpDelta > 0) {
+          await supabase.from('mm3_market_events').insert({
+            wallet, event_type: 'nftji_level_up',
+            delta_mm3: marketLevelUpDelta, emoji: String(targetBlock.emoji || targetBlock.block_key),
+          });
+        }
+      }
 
       if (!targetBlock.first_purchased_at) {
         await supabase.from('mm3_market_blocks')

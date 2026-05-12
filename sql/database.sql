@@ -307,7 +307,7 @@ CREATE TABLE mm3_sell_transactions (
 CREATE TABLE mm3_market_events (
   id BIGSERIAL PRIMARY KEY,
   wallet TEXT NOT NULL,
-  event_type TEXT NOT NULL CHECK (event_type IN ('life_continue', 'nftji_claim', 'market_buy', 'market_resell')),
+  event_type TEXT NOT NULL CHECK (event_type IN ('life_continue', 'nftji_claim', 'market_buy', 'market_resell', 'nftji_level_up')),
   delta_mm3 NUMERIC NOT NULL DEFAULT 0,
   emoji TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
