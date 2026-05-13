@@ -752,7 +752,7 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
     // Record NFTJi claim events on the chart (one per unique drop type)
     if (dropList.length > 0) {
       const { data: tokenRow } = await supabase
-        .from('leaderboard_data').select('total_eth').eq('wallet', wallet).maybeSingle();
+        .from('token_value').select('total_eth').limit(1).maybeSingle();
       const totalMm3Global = Number(tokenRow?.total_eth) || 0;
       for (const d of dropList) {
         const marketDelta = getWalletMarketDelta(d.emoji);
