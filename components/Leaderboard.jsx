@@ -6,7 +6,7 @@ import { useI18n } from '@/lib/i18n-context';
 import supabase from '@/lib/supabaseClient';
 import { CNY_TO_EUR, CNY_TO_USD, formatMoney, formatCompactNum } from '@/lib/sell-offer';
 import { clampRankLevel, getRankTier } from '@/lib/ranks';
-import { colorFromAddress } from '@/lib/wallet-colors';
+import { colorFromAddress, colorFromPool } from '@/lib/wallet-colors';
 import { normalizeWalletDecorations, getEmojiTitle, TRADE_SLOT_ORDER, SQUEEZE_SLOT_ORDER } from '@/lib/wallet-decorations';
 import { useCurrency } from '@/lib/currency-context';
 import { useActiveWallet } from '@/lib/use-active-wallet';
@@ -1519,7 +1519,7 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
                   type="button"
                   onClick={showWalletRanking}
                   className="min-w-0 flex-1 truncate text-left font-mono text-[0.92rem] font-black transition hover:underline focus:outline-none"
-                  style={{ color: colorFromAddress(String(entry.pool_code || '')) }}
+                  style={{ color: colorFromPool(String(entry.pool_code || '')) }}
                   title={`${entry.member_count} ${labels.members}`}
                 >
                   #{entry.pool_code}
@@ -1740,7 +1740,7 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
                     type="button"
                     onClick={showPoolRanking}
                     className="shrink-0 rounded border bg-black/40 px-1.5 py-0.5 text-[0.58rem] font-black uppercase tracking-[0.12em] transition hover:brightness-125"
-                    style={(() => { const pc = colorFromAddress(String(entry.pool_code || '')); return { color: pc, borderColor: `${pc}55` }; })()}
+                    style={(() => { const pc = colorFromPool(String(entry.pool_code || '')); return { color: pc, borderColor: `${pc}55` }; })()}
                     title={`${labels.pool} ${entry.pool_code}`}
                   >
                     #{entry.pool_code}
@@ -1969,7 +1969,7 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
                         type="button"
                         onClick={showWalletRanking}
                         className="font-mono font-black text-[0.95rem] transition hover:underline focus:outline-none"
-                        style={{ color: colorFromAddress(String(entry.pool_code || '')) }}
+                        style={{ color: colorFromPool(String(entry.pool_code || '')) }}
                         title={`${entry.member_count} ${labels.members}`}
                       >
                         #{entry.pool_code}
@@ -2222,7 +2222,7 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
                         type="button"
                         onClick={showPoolRanking}
                         className="rounded border bg-black/40 px-2 py-1 font-mono text-[0.72rem] font-black transition hover:brightness-125"
-                        style={(() => { const pc = colorFromAddress(String(entry.pool_code || '')); return { color: pc, borderColor: `${pc}55` }; })()}
+                        style={(() => { const pc = colorFromPool(String(entry.pool_code || '')); return { color: pc, borderColor: `${pc}55` }; })()}
                         title={labels.viewPoolRanking}
                       >
                         #{entry.pool_code}

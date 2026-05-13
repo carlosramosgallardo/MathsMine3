@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useRef, useCallback } from 'react';
-import { colorFromAddress } from '@/lib/wallet-colors';
+import { colorFromAddress, colorFromPool } from '@/lib/wallet-colors';
 import supabase from '@/lib/supabaseClient';
 import { useCurrency } from '@/lib/currency-context';
 import { CNY_TO_EUR, CNY_TO_USD, formatMoney } from '@/lib/sell-offer';
@@ -129,7 +129,7 @@ function ScoreBar({ chScore, dfScore }) {
 }
 
 function PoolLink({ poolCode, onPoolClick, children, style }) {
-  const color = colorFromAddress(String(poolCode || ''));
+  const color = colorFromPool(String(poolCode || ''));
   return (
     <button
       type="button"
@@ -427,7 +427,7 @@ function DisputeCard({ dispute, activeWallet, poolCode, language, currency, onJo
       {(isBattleStart || isResolved) && (
         <div style={{ display: 'flex', gap: 14, marginBottom: 10, flexWrap: 'wrap' }}>
           {[
-            { emoji: '⚔️', val: `${fmt(dispute.war_percent, 0)}%` },
+            { emoji: '🔥', val: `${fmt(dispute.war_percent, 0)}%` },
             { emoji: '🌪️', val: `${fmt(dispute.nature_percent, 0)}%` },
             { emoji: '🎲', val: fmt(dispute.dice_modifier, 4) },
           ].map(({ emoji, val }) => (
@@ -661,11 +661,11 @@ function DisputeCard({ dispute, activeWallet, poolCode, language, currency, onJo
             </div>
             <div style={{ marginTop: 3 }}>
               <span style={{ color: '#64748b' }}>⚔️ score</span>
-              {' = base × (1+(⚔️-50)/100×0.30) × (1+(50-🌪️)/100×0.20) × (1+🎲×0.30)'}
+              {' = base × (1+(🔥-50)/100×0.30) × (1+(50-🌪️)/100×0.20) × (1+🎲×0.30)'}
             </div>
             <div>
               <span style={{ color: '#64748b' }}>🛡️ score</span>
-              {' = base × (1+(50-⚔️)/100×0.30) × (1+(🌪️-50)/100×0.20) × (1-🎲×0.30)'}
+              {' = base × (1+(50-🔥)/100×0.30) × (1+(🌪️-50)/100×0.20) × (1-🎲×0.30)'}
             </div>
             <div style={{ marginTop: 6, display: 'grid', gap: 4 }}>
               {[
@@ -700,8 +700,8 @@ function DisputeCard({ dispute, activeWallet, poolCode, language, currency, onJo
             </div>
             <div style={{ marginTop: 3, color: '#334155' }}>
               {lang === 'es'
-                ? `⚔️${fmt(dispute.war_percent,0)}% 🌪️${fmt(dispute.nature_percent,0)}% 🎲${fmt(dispute.dice_modifier,4)} → ⚔️${fmt(dispute.ch_score,4)} vs 🛡️${fmt(dispute.df_score,4)}`
-                : `⚔️${fmt(dispute.war_percent,0)}% 🌪️${fmt(dispute.nature_percent,0)}% 🎲${fmt(dispute.dice_modifier,4)} → ⚔️${fmt(dispute.ch_score,4)} vs 🛡️${fmt(dispute.df_score,4)}`
+                ? `🔥${fmt(dispute.war_percent,0)}% 🌪️${fmt(dispute.nature_percent,0)}% 🎲${fmt(dispute.dice_modifier,4)} → ⚔️${fmt(dispute.ch_score,4)} vs 🛡️${fmt(dispute.df_score,4)}`
+                : `🔥${fmt(dispute.war_percent,0)}% 🌪️${fmt(dispute.nature_percent,0)}% 🎲${fmt(dispute.dice_modifier,4)} → ⚔️${fmt(dispute.ch_score,4)} vs 🛡️${fmt(dispute.df_score,4)}`
               }
             </div>
             {isResolved && (

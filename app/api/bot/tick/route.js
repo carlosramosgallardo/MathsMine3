@@ -1225,7 +1225,11 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
               .select('wallet, level, market_nftji_key, eur_earned, usd_earned, cny_earned, mm3_sold')
               .limit(1000);
 
-            const priceEur = Number(ownedBlock.price_eur) || 0;
+            const priceEurBase = Number(ownedBlock.price_eur) || 0;
+            const nftjiLevels = progressRow?.market_nftji_levels || {};
+            const nftjiLevel = Math.max(0, Number(nftjiLevels[currentMarketKey] ?? 0));
+            const levelMultiplier = 1 + nftjiLevel * 0.25;
+            const priceEur = priceEurBase * levelMultiplier;
             const isMm3Cmd = cmdEntry.effect === 'mm3';
             const penalties = [];
             const balanceUpdates = [];

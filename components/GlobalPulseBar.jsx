@@ -34,7 +34,7 @@ export default function GlobalPulseBar() {
   const ircConnectedCount = activeWallets.length + anonIrcUsers.length;
 
   const items = [
-    { emoji: '⚔️', value: macro.war_percent,    color: '#fb7185' },
+    { emoji: '🔥', value: macro.war_percent,    color: '#fb7185' },
     { emoji: '🌪️', value: macro.nature_percent, color: '#67e8f9' },
   ];
   const diceModPct = dice ? Math.round(Math.abs(dice.modifier) * 100) : 0;

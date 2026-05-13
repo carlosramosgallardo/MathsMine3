@@ -16,7 +16,7 @@ import {
 } from '@/lib/market-commands';
 import { formatBlockRequirement, MM3_BLOCK_REQUIREMENT_BY_HEX, normalizeBlockHex } from '@/lib/mm3-block-chain';
 import { useIrcPresence } from '@/lib/irc-presence-context';
-import { colorFromAddress } from '@/lib/wallet-colors';
+import { colorFromAddress, colorFromPool } from '@/lib/wallet-colors';
 import { formatWalletLabel } from '@/lib/wallet-format';
 
 const ACTIVE_WINDOW_MS = 90_000;
@@ -295,7 +295,7 @@ function renderIrcTextLinks(displayText, tone, onWalletClick, blockMap, onBlockC
         <span
           key={`po-${match.index}`}
           className="mm3-irc-pool-link"
-          style={{ color: colorFromAddress(poolToken) }}
+          style={{ color: colorFromPool(poolToken) }}
           onClick={() => onPoolClick?.(poolToken)}
         >
           {token}

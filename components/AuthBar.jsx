@@ -6,7 +6,7 @@ import { createWeb3Modal } from '@web3modal/wagmi/react'
 import { GoogleOAuthProvider, useGoogleLogin } from '@react-oauth/google'
 import { usePathname } from 'next/navigation'
 import { useGoogleAuth } from '@/lib/google-auth-context'
-import { colorFromAddress } from '@/lib/wallet-colors'
+import { colorFromAddress, colorFromPool } from '@/lib/wallet-colors'
 import supabase from '@/lib/supabaseClient'
 import { useI18n } from '@/lib/i18n-context'
 import { useCurrency } from '@/lib/currency-context'
@@ -327,7 +327,7 @@ function ConnectedBar({ address, isRealWallet, onDisconnect, mode = 'full' }) {
           onClick={copyAddress}
           className={`flex items-center rounded-md border border-transparent font-mono tracking-wide transition hover:bg-cyan-950/20 focus:border-transparent focus:outline-none focus:ring-0 active:border-transparent ${mode === 'wallet' ? 'min-h-5 px-1 py-0.5 text-[0.70rem] sm:px-1.5 sm:text-[0.82rem]' : 'h-9 px-2 text-[0.80rem] sm:text-[0.6rem]'}`}
           style={poolViewData
-            ? (() => { const pc = colorFromAddress(poolViewData.pool_code); return { color: pc, textShadow: `0 0 10px ${pc}4d` }; })()
+            ? (() => { const pc = colorFromPool(poolViewData.pool_code); return { color: pc, textShadow: `0 0 10px ${pc}4d` }; })()
             : { color: walletColor, textShadow: `0 0 10px ${walletColor}33` }}
           title={`${t('leaderboard.toggleMyWallet')}: ${address}`}
         >

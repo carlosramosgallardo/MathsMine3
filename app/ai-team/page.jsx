@@ -5,45 +5,42 @@ import Link from 'next/link';
 import SectionFrame from '@/components/SectionFrame';
 import { useI18n } from '@/lib/i18n-context';
 import { useMm3Accent } from '@/lib/use-mm3-accent';
-import { colorFromAddress } from '@/lib/wallet-colors';
+import { colorFromAddress, colorFromPool } from '@/lib/wallet-colors';
 
-// Bot pool assignments — fill pool_code once known (e.g. 'ALFA')
-const BOT_PROFILES = [
+const BOT_POOLS = [
   {
-    key: 'bear',
-    emoji: '🐻',
-    wallet: '0xcab10d0e0650d45cb0b7482370a1ca93d5bf5528',
-    strategy: 'sell_mm3',
-    squeeze: '90%',
-    pool_code: null,
-    tags: ['sell_mm3', 'squeeze 90%', 'liquidator'],
+    pool_code: 'FHNN6',
+    bots: [
+      {
+        key: 'bear',
+        emoji: '🐻',
+        wallet: '0xcab10d0e0650d45cb0b7482370a1ca93d5bf5528',
+        tags: ['sell_mm3', 'squeeze 90%', 'liquidator'],
+      },
+      {
+        key: 'bull',
+        emoji: '🐂',
+        wallet: '0xcb4ccfa7de7bf861ff0383b668e682d2ee20e202',
+        tags: ['buy_mm3', 'squeeze 15%', 'accumulator'],
+      },
+    ],
   },
   {
-    key: 'bull',
-    emoji: '🐂',
-    wallet: '0xcb4ccfa7de7bf861ff0383b668e682d2ee20e202',
-    strategy: 'buy_mm3',
-    squeeze: '15%',
-    pool_code: null,
-    tags: ['buy_mm3', 'squeeze 15%', 'accumulator'],
-  },
-  {
-    key: 'collector',
-    emoji: '🏛',
-    wallet: '0xd6c6c15060b27406d956c7e99e520cc810b44233',
-    strategy: 'market_buy',
-    squeeze: '55%',
-    pool_code: null,
-    tags: ['market_buy', 'squeeze 55%', 'collector'],
-  },
-  {
-    key: 'flipper',
-    emoji: '⚡',
-    wallet: '0xd89413f5f444cd420b448cda3bc096ea9c46e8ab',
-    strategy: 'market_sell',
-    squeeze: '80%',
-    pool_code: null,
-    tags: ['market_sell', 'squeeze 80%', 'flipper'],
+    pool_code: '8FR49',
+    bots: [
+      {
+        key: 'collector',
+        emoji: '🏛',
+        wallet: '0xd6c6c15060b27406d956c7e99e520cc810b44233',
+        tags: ['market_buy', 'squeeze 55%', 'collector'],
+      },
+      {
+        key: 'flipper',
+        emoji: '⚡',
+        wallet: '0xd89413f5f444cd420b448cda3bc096ea9c46e8ab',
+        tags: ['market_sell', 'squeeze 80%', 'flipper'],
+      },
+    ],
   },
 ];
 
@@ -52,7 +49,7 @@ function shortWallet(w) {
 }
 
 export default function AITeamPage() {
-  const { t, language } = useI18n();
+  const { t } = useI18n();
   const { frameAccent } = useMm3Accent();
   const pageTitle = 'MathsMine3 – AI Team';
   const pageDescription =
@@ -79,32 +76,30 @@ export default function AITeamPage() {
 
       <style>{`
         @keyframes float-in {
-          from { opacity: 0; transform: translateY(16px); }
+          from { opacity: 0; transform: translateY(14px); }
           to   { opacity: 1; transform: translateY(0); }
         }
-        .bot-card {
-          animation: float-in 0.5s ease-out both;
-          transition: box-shadow 0.2s, transform 0.2s;
-        }
-        .bot-card:hover { transform: translateY(-3px); }
+        .pool-section { animation: float-in 0.5s ease-out both; }
+        .bot-card { transition: box-shadow 0.2s, transform 0.2s; }
+        .bot-card:hover { transform: translateY(-2px); }
         #ai-team-section .mm3-ai-panel {
           background: linear-gradient(180deg, rgba(5,8,16,0.96) 0%, rgba(2,6,23,0.9) 100%);
           border: 1px solid rgba(34,211,238,0.18);
         }
         .bot-tag {
           font-family: monospace;
-          font-size: 0.70rem;
+          font-size: 0.68rem;
           text-transform: uppercase;
           letter-spacing: 0.08em;
-          padding: 2px 8px;
+          padding: 2px 7px;
         }
         .bot-link {
           font-family: monospace;
-          font-size: 0.75rem;
+          font-size: 0.72rem;
           text-decoration: none;
           transition: opacity 0.15s;
         }
-        .bot-link:hover { opacity: 0.7; }
+        .bot-link:hover { opacity: 0.65; }
       `}</style>
 
       <main className="w-full px-2 py-1" style={{ '--mm3-accent': frameAccent }}>
@@ -121,73 +116,100 @@ export default function AITeamPage() {
           </p>
         </header>
 
-        {/* Bot cards 2×2 */}
-        <section className="grid gap-3 grid-cols-1 md:grid-cols-2 mb-4">
-          {BOT_PROFILES.map((bot, index) => {
-            const color = colorFromAddress(bot.wallet);
-            const name = t(`aiTeam.${bot.key}`);
-            const role = t(`aiTeam.${bot.key}Role`);
-            const desc = t(`aiTeam.${bot.key}Desc`);
-            const spec = t(`aiTeam.${bot.key}Speciality`);
-
+        {/* Pools */}
+        <div className="flex flex-col gap-4 mb-4">
+          {BOT_POOLS.map((pool, pi) => {
+            const poolColor = colorFromPool(pool.pool_code);
             return (
-              <article
-                key={bot.wallet}
-                className="bot-card mm3-ai-panel p-4"
-                style={{
-                  animationDelay: `${index * 0.08}s`,
-                  borderColor: `${color}35`,
-                }}
-                onMouseEnter={(e) => { e.currentTarget.style.boxShadow = `0 0 22px ${color}25`; }}
-                onMouseLeave={(e) => { e.currentTarget.style.boxShadow = 'none'; }}
+              <section
+                key={pool.pool_code}
+                className="pool-section mm3-ai-panel p-4"
+                style={{ animationDelay: `${pi * 0.1}s`, borderColor: `${poolColor}35` }}
               >
-                {/* Name */}
-                <div className="flex items-center gap-2 mb-2">
-                  <span style={{ fontSize: '1.3rem', filter: `drop-shadow(0 0 6px ${color}50)` }}>
-                    {bot.emoji}
-                  </span>
-                  <div>
-                    <h2 className="text-sm font-bold uppercase tracking-wider" style={{ color }}>{name}</h2>
-                    <p className="text-[0.68rem] font-mono uppercase tracking-wider" style={{ color: `${color}90` }}>{role}</p>
-                  </div>
-                </div>
-
-                {/* Wallet + Pool */}
-                <div className="flex items-center gap-3 mb-3 pb-2" style={{ borderBottom: `1px solid ${color}18` }}>
-                  <Link href={`/ranking?wallet=${bot.wallet}`} className="bot-link" style={{ color }} title={bot.wallet}>
-                    ⬡ {shortWallet(bot.wallet)}
+                {/* Pool header */}
+                <div className="flex items-center gap-3 mb-4 pb-2" style={{ borderBottom: `1px solid ${poolColor}25` }}>
+                  <Link
+                    href="/ranking?view=pools"
+                    className="bot-link font-bold text-sm uppercase tracking-widest"
+                    style={{ color: poolColor }}
+                  >
+                    ◈ {pool.pool_code}
                   </Link>
-                  {bot.pool_code
-                    ? <Link href="/ranking?view=pools" className="bot-link" style={{ color: `${color}bb` }}>◈ {bot.pool_code}</Link>
-                    : <span className="bot-link" style={{ color: `${color}35` }}>◈ —</span>
-                  }
+                  <span className="text-xs text-gray-500 font-mono">2 bots</span>
                 </div>
 
-                {/* Desc */}
-                <p className="text-xs text-gray-400 leading-relaxed mb-3">{desc}</p>
+                {/* Bots in this pool — side by side */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {pool.bots.map((bot) => {
+                    const color = colorFromAddress(bot.wallet);
+                    const name = t(`aiTeam.${bot.key}`);
+                    const role = t(`aiTeam.${bot.key}Role`);
+                    const desc = t(`aiTeam.${bot.key}Desc`);
+                    const spec = t(`aiTeam.${bot.key}Speciality`);
 
-                {/* Speciality */}
-                <p className="text-xs font-mono mb-3" style={{ color: `${color}cc` }}>{spec}</p>
+                    return (
+                      <div
+                        key={bot.wallet}
+                        className="bot-card p-3"
+                        style={{
+                          background: `${color}08`,
+                          border: `1px solid ${color}25`,
+                        }}
+                        onMouseEnter={(e) => { e.currentTarget.style.boxShadow = `0 0 16px ${color}20`; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.boxShadow = 'none'; }}
+                      >
+                        {/* Bot name */}
+                        <div className="flex items-center gap-2 mb-2">
+                          <span style={{ fontSize: '1.1rem', filter: `drop-shadow(0 0 5px ${color}50)` }}>
+                            {bot.emoji}
+                          </span>
+                          <div>
+                            <div className="text-xs font-bold uppercase tracking-wider" style={{ color }}>{name}</div>
+                            <div className="text-[0.62rem] font-mono uppercase tracking-wider" style={{ color: `${color}80` }}>{role}</div>
+                          </div>
+                        </div>
 
-                {/* Tags */}
-                <div className="flex flex-wrap gap-1">
-                  {bot.tags.map((tag) => (
-                    <span key={tag} className="bot-tag" style={{ background: `${color}15`, color }}>
-                      {tag}
-                    </span>
-                  ))}
+                        {/* Wallet link */}
+                        <div className="mb-2">
+                          <Link
+                            href={`/ranking?wallet=${bot.wallet}`}
+                            className="bot-link"
+                            style={{ color }}
+                            title={bot.wallet}
+                          >
+                            ⬡ {shortWallet(bot.wallet)}
+                          </Link>
+                        </div>
+
+                        {/* Desc */}
+                        <p className="text-[0.70rem] text-gray-400 leading-relaxed mb-2">{desc}</p>
+
+                        {/* Speciality */}
+                        <p className="text-[0.65rem] font-mono mb-2" style={{ color: `${color}bb` }}>{spec}</p>
+
+                        {/* Tags */}
+                        <div className="flex flex-wrap gap-1">
+                          {bot.tags.map((tag) => (
+                            <span key={tag} className="bot-tag" style={{ background: `${color}12`, color }}>
+                              {tag}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
-              </article>
+              </section>
             );
           })}
-        </section>
+        </div>
 
         {/* FreakingAI CTA */}
         <section className="mm3-ai-panel p-4 text-center mb-3">
-          <h2 className="text-base font-bold text-[#22d3ee] uppercase tracking-widest mb-2">
+          <h2 className="text-sm font-bold text-[#22d3ee] uppercase tracking-widest mb-2">
             {t('aiTeam.freakingAI')}
           </h2>
-          <p className="text-xs text-gray-400 mb-4">{t('aiTeam.freakingAIDesc')}</p>
+          <p className="text-xs text-gray-400 mb-3">{t('aiTeam.freakingAIDesc')}</p>
           <a
             href="https://www.youtube.com/@FreakingAI"
             target="_blank"
@@ -201,7 +223,7 @@ export default function AITeamPage() {
 
         {/* Built with */}
         <section className="mm3-ai-panel p-3">
-          <p className="text-center text-[0.72rem] uppercase tracking-[0.28em] text-cyan-400/40 mb-3 font-mono">
+          <p className="text-center text-[0.68rem] uppercase tracking-[0.28em] text-cyan-400/40 mb-3 font-mono">
             {t('aiTeam.builtWith')}
           </p>
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
@@ -212,7 +234,7 @@ export default function AITeamPage() {
               </div>
               <div className="min-w-0">
                 <div className="text-xs font-black text-white group-hover:text-[#c97355] transition-colors">Claude</div>
-                <div className="text-[0.65rem] font-mono uppercase tracking-widest text-gray-500">Anthropic · claude-sonnet-4-6</div>
+                <div className="text-[0.62rem] font-mono uppercase tracking-widest text-gray-500">Anthropic · claude-sonnet-4-6</div>
               </div>
             </a>
             <a href="https://openai.com/codex" target="_blank" rel="noopener noreferrer"
@@ -222,7 +244,7 @@ export default function AITeamPage() {
               </div>
               <div className="min-w-0">
                 <div className="text-xs font-black text-white group-hover:text-gray-300 transition-colors">Codex</div>
-                <div className="text-[0.65rem] font-mono uppercase tracking-widest text-gray-500">OpenAI · Codex CLI</div>
+                <div className="text-[0.62rem] font-mono uppercase tracking-widest text-gray-500">OpenAI · Codex CLI</div>
               </div>
             </a>
           </div>

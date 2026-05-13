@@ -380,6 +380,8 @@ Owning a Market NFTJI unlocks one daily IRC command.
 
 > **Pool immunity:** market commands and hidden commands launched by a wallet never affect other members of the same pool. Only wallets belonging to a different pool, or to no pool at all, are exposed to penalties.
 
+> **NFTJI level penalty scaling:** the penalty inflicted scales with the attacker's Market NFTJI level: `penalty × (1 + level × 0.25)`. A Lv.0 block applies the base price; Lv.1 applies 1.25×; Lv.2 applies 1.50×, and so on. Level is the number of times the same block has been repurchased. Applies to both public IRC commands (bot tick and real players) and hidden YouTube commands.
+
 ```txt
 example:
 41000 + x * 11 + 2048 / 4
@@ -527,19 +529,19 @@ base = (Σlevel / n) × 40
 
 ```
 ch_score = MAX(0.01, base_ch)
-         × (1 + (⚔️ - 50) / 100 × 0.30)
+         × (1 + (🔥 - 50) / 100 × 0.30)
          × (1 + (50 - 🌪️) / 100 × 0.20)
          × (1 + 🎲 × 0.30)
 
 df_score = MAX(0.01, base_df)
-         × (1 + (50 - ⚔️) / 100 × 0.30)
+         × (1 + (50 - 🔥) / 100 × 0.30)
          × (1 + (🌪️ - 50) / 100 × 0.20)
          × (1 - 🎲 × 0.30)
 ```
 
 | Modifier | Favors | Max impact |
 |---|---|---|
-| ⚔️ War high (→100%) | Challenger | +30% |
+| 🔥 War high (→100%) | Challenger | +30% |
 | 🌪️ Nature high (→100%) | Defender | +20% |
 | 🎲 Dice positive (+1) | Challenger | +30% |
 | 🎲 Dice negative (−1) | Defender | +30% |
@@ -807,7 +809,7 @@ Secret effect: steals MM3 → executor. `x = daily nonce (100–799)`.
 
 | Emoji | Label | Role |
 |:---:|---|---|
-| ⚔️ | War | Global conflict modifier — affects atmosphere and trade rates |
+| 🔥 | War | Global conflict modifier — affects atmosphere and trade rates |
 | 🌪️ | Nature | Nature modifier |
 | 🎲 | Dice | Hourly random modifier — active ~15 min/hour. Scales trading commissions, mining NFTJi drop rates, Market NFTJI buy impact and resell return, and Squeeze drop flip magnitude by `(1 + modifier)`. Modifier range: −50% (cyan, cheaper/smaller) to +50% (orange, pricier/larger). |
 | 📜 | Manifest | Manifesto page |
@@ -1260,6 +1262,8 @@ Tener un NFTJI del Market desbloquea un comando IRC diario.
 
 > **Inmunidad de pool:** los comandos de market y los comandos ocultos lanzados por una wallet nunca afectan a otros miembros del mismo pool. Solo quedan expuestas las wallets de pools rivales o las wallets sin pool.
 
+> **Escalado de penalización por nivel NFTJI:** la penalización infligida escala con el nivel del Market NFTJI del atacante: `penalización × (1 + nivel × 0.25)`. Lv.0 aplica el precio base; Lv.1 aplica 1.25×; Lv.2 aplica 1.50×, y así sucesivamente. El nivel es el número de veces que se ha recomprado el mismo bloque. Aplica tanto a comandos IRC públicos como a comandos ocultos.
+
 ```txt
 ejemplo:
 41000 + x * 11 + 2048 / 4
@@ -1407,19 +1411,19 @@ base = (Σnivel / n) × 40
 
 ```
 ch_score = MÁXIMO(0.01, base_ch)
-         × (1 + (⚔️ - 50) / 100 × 0.30)
+         × (1 + (🔥 - 50) / 100 × 0.30)
          × (1 + (50 - 🌪️) / 100 × 0.20)
          × (1 + 🎲 × 0.30)
 
 df_score = MÁXIMO(0.01, base_df)
-         × (1 + (50 - ⚔️) / 100 × 0.30)
+         × (1 + (50 - 🔥) / 100 × 0.30)
          × (1 + (🌪️ - 50) / 100 × 0.20)
          × (1 - 🎲 × 0.30)
 ```
 
 | Modificador | Favorece | Impacto máximo |
 |---|---|---|
-| ⚔️ Guerra alta (→100%) | Atacante | +30% |
+| 🔥 Guerra alta (→100%) | Atacante | +30% |
 | 🌪️ Naturaleza alta (→100%) | Defensor | +20% |
 | 🎲 Dado positivo (+1) | Atacante | +30% |
 | 🎲 Dado negativo (−1) | Defensor | +30% |
@@ -1687,7 +1691,7 @@ Efecto secreto: roba MM3 → wallet ejecutora. `x = nonce diario (100–799)`.
 
 | Emoji | Etiqueta | Rol |
 |:---:|---|---|
-| ⚔️ | War | Modificador de conflicto global — afecta atmósfera y tasas |
+| 🔥 | War | Modificador de conflicto global — afecta atmósfera y tasas |
 | 🌪️ | Naturaleza | Modificador de naturaleza |
 | 🎲 | Dado | Modificador aleatorio horario — activo ~15 min/hora. Escala comisiones de trading, tasas de drop de NFTJi de mining, impacto de compra y retorno de reventa de Market NFTJI, y la magnitud del volteo de drop de Squeeze por `(1 + modifier)`. Rango: −50% (cyan, más barato/menor) a +50% (naranja, más caro/mayor). |
 | 📜 | Manifest | Página del Manifiesto |

@@ -41,12 +41,12 @@ export async function POST(req) {
   const minLevel = Number(block.hidden_cmd_min_level) || 0;
   const priceEur = Number(block.price_eur) || 0;
   const isMm3Hidden = getMarketCommandForKey(block.block_key)?.effect === 'mm3';
-  const stealPerWallet = priceEur * 0.1;
+  const stealPerWallet = priceEur * 0.1 * levelMultiplier;
 
   // 2. Check executor level
   const { data: executorProgress } = await supabase
     .from('player_progress')
-    .select('level, mm3_sold, eur_earned, usd_earned, cny_earned')
+    .select('level, mm3_sold, eur_earned, usd_earned, cny_earned, market_nftji_levels')
     .eq('wallet', wallet)
     .maybeSingle();
 
@@ -54,6 +54,10 @@ export async function POST(req) {
   if (executorLevel < minLevel) {
     return Response.json({ ok: false, error: 'level_too_low' }, { status: 403 });
   }
+
+  const nftjiLevels = executorProgress?.market_nftji_levels || {};
+  const nftjiLevel = Math.max(0, Number(nftjiLevels[block.block_key] ?? 0));
+  const levelMultiplier = 1 + nftjiLevel * 0.25;
 
   // 3. Check public command active today for this block
   const nowIso = new Date().toISOString();
