@@ -262,6 +262,8 @@ NFTJIs are wallet-bound game objects.
 
 Each mining drop can be claimed once per wallet. If the offer is ignored before the next round, it is lost.
 
+> **🎲 Dice window:** during the active dice period (~15 min/hour), each drop probability is multiplied by `(1 + diceModifier)`. Positive modifier (orange, up to +50%) raises all drop rates; negative modifier (cyan, down to −50%) lowers them. Same formula as trading commission scaling.
+
 ### NFTJI Leveling
 
 All obtainable NFTJIs except **Life Toll** can level up when the same NFTJI is obtained again. The first acquisition starts at **Lv.0**; each duplicate adds +1 level.
@@ -346,9 +348,13 @@ Each Market NFTJI includes:
 - Public IRC command
 - Command formula
 - Hidden YouTube Short command
-- Resale path
+- Resale path (50% of purchase price returned, before dice)
 
-Owning a Market NFTJI unlocks one daily IRC command. Commands can penalize rival wallets. Penalized wallets can cancel the hit with a 5-digit numeric code derived from the command formula and daily nonce.
+Owning a Market NFTJI unlocks one daily IRC command.
+
+> **🎲 Dice window effect on Market NFTJI:**
+> - **Buy** — the positive MM3 delta is scaled: `buyDelta × (1 + diceModifier)`. Buying during a positive dice window creates a larger MM3 boost; negative window reduces it.
+> - **Resell** — the return is scaled: `price × 0.5 × (1 + diceModifier)`. Positive dice = better resell return (up to 75%); negative dice = worse return (down to 25%). Commands can penalize rival wallets. Penalized wallets can cancel the hit with a 5-digit numeric code derived from the command formula and daily nonce.
 
 > **Pool immunity:** market commands and hidden commands launched by a wallet never affect other members of the same pool. Only wallets belonging to a different pool, or to no pool at all, are exposed to penalties.
 
@@ -1066,6 +1072,8 @@ Los NFTJIs son objetos de juego asociados a la wallet.
 
 Cada drop de mining puede reclamarse una vez por wallet. Si se ignora la oferta antes de la siguiente ronda, se pierde.
 
+> **🎲 Ventana del dado:** durante el periodo activo del dado (~15 min/hora), cada probabilidad de drop se multiplica por `(1 + diceModifier)`. Modificador positivo (naranja, hasta +50%) sube todas las tasas de drop; negativo (cyan, hasta −50%) las baja. Misma fórmula que el escalado de comisiones de trading.
+
 ### Niveles de NFTJI
 
 Todos los NFTJIs obtenibles excepto **Life Toll** suben de nivel cuando se obtiene de nuevo el mismo NFTJI. La primera adquisición empieza en **Lv.0**; cada duplicado suma +1 nivel.
@@ -1150,9 +1158,13 @@ Cada NFTJI del Market incluye:
 - Comando público de IRC
 - Fórmula de comando
 - Comando oculto de YouTube Short
-- Ruta de reventa
+- Ruta de reventa (50% del precio de compra devuelto, antes del dado)
 
-Tener un NFTJI del Market desbloquea un comando IRC diario. Los comandos pueden penalizar wallets rivales. Las wallets penalizadas pueden cancelar el golpe con un código de 5 dígitos derivado de la fórmula del comando y el nonce diario.
+Tener un NFTJI del Market desbloquea un comando IRC diario.
+
+> **🎲 Efecto de la ventana del dado en Market NFTJI:**
+> - **Compra** — el delta positivo de MM3 se escala: `buyDelta × (1 + diceModifier)`. Comprar durante dado positivo crea un impulso MM3 mayor; dado negativo lo reduce.
+> - **Reventa** — el retorno se escala: `precio × 0.5 × (1 + diceModifier)`. Dado positivo = mejor retorno (hasta 75%); dado negativo = peor retorno (hasta 25%). Los comandos pueden penalizar wallets rivales. Las wallets penalizadas pueden cancelar el golpe con un código de 5 dígitos derivado de la fórmula del comando y el nonce diario.
 
 > **Inmunidad de pool:** los comandos de market y los comandos ocultos lanzados por una wallet nunca afectan a otros miembros del mismo pool. Solo quedan expuestas las wallets de pools rivales o las wallets sin pool.
 
