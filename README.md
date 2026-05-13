@@ -31,6 +31,7 @@
 - [Wallets](#wallets)
 - [NFTJIs](#nftjis)
 - [Trade MM3](#trade-mm3)
+- [Dice](#dice)
 - [Market](#market)
 - [Pools](#pools)
 - [Squeeze](#squeeze)
@@ -331,6 +332,26 @@ Each EXEC:
 
 ---
 
+## Dice
+
+Once per hour a deterministic 🎲 window opens at a random offset (1–2699 s into the hour) and stays active for **15 minutes**. The offset and modifier are seeded from the UTC hour, so all clients see the same window simultaneously.
+
+The modifier is a continuous value in **[−0.50, +0.50]** (1 % precision). It multiplies each affected rate by `(1 + modifier)`:
+
+| What is affected | Formula | Positive modifier | Negative modifier |
+|---|---|---|---|
+| Trading commission (buy & sell) | `commissionRate × (1 + dm)` | Higher commission | Lower commission |
+| Mining NFTJi drop rates | `prob × (1 + dm)` | More drops | Fewer drops |
+| Market NFTJI buy MM3 delta | `buyDelta × (1 + dm)` | Larger MM3 boost | Smaller MM3 boost |
+| Market NFTJI resell return | `price × 0.5 × (1 + dm)` | Up to 75% returned | Down to 25% returned |
+| Squeeze drop MM3 flip magnitude | `−2 × MM3 × (1 + dm)` | Larger flip | Smaller flip |
+
+The modifier is read live at the moment each operation executes (`getDiceState()` in `lib/dice.js`). The UI shows a 🎲 chip in orange (positive) or cyan (negative) wherever the dice affects an active action — TradeBoard, MarketBoard.
+
+> **Note:** the Squeeze battle formula uses a *separate* deterministic dice value seeded from `dispute_id` (not the hourly window) and cannot be gamed by timing a claim.
+
+---
+
 ## Market
 
 The Market is a 28x28 command board: 784 cells, 20 fixed NFTJI blocks, and a mineable MM3 Block Chain across every remaining free board cell.
@@ -550,7 +571,9 @@ When any wallet claims a Squeeze NFTJi drop, the global MM3 value is flipped to 
 | 🛡️ Defense | MM3 > 0 (positive) | MM3 flipped to negative (same absolute value) |
 | 🛡️ Defense | MM3 ≤ 0 (negative or zero) | No change |
 
-The flip is applied by inserting a `nftji_claim` event into `mm3_market_events` with `delta = −2 × total_eth`. If multiple wallets claim the same drop type in the same Squeeze, only the first claim triggers the flip (subsequent claims find MM3 already in the correct polarity and do nothing). Implemented in `claim-nftji-drop/route.js` (real users) and `autoClaimBotSqueezeDrops` inside `bot/tick/route.js` (bots).
+The flip is applied by inserting a `nftji_claim` event into `mm3_market_events` with `delta = −2 × total_eth × (1 + diceModifier)`. If multiple wallets claim the same drop type in the same Squeeze, only the first claim triggers the flip (subsequent claims find MM3 already in the correct polarity and do nothing). Implemented in `claim-nftji-drop/route.js` (real users) and `autoClaimBotSqueezeDrops` inside `bot/tick/route.js` (bots).
+
+> **🎲 Dice window:** the magnitude of the flip is scaled by the active dice modifier at claim time. Positive modifier (orange) amplifies the flip; negative modifier (cyan) reduces it.
 
 **Progression:**
 - Only one type equipped at a time (avatar slot).
@@ -739,7 +762,7 @@ Secret effect: steals MM3 → executor. `x = daily nonce (100–799)`.
 |:---:|---|---|
 | ⚔️ | War | Global conflict modifier — affects atmosphere and trade rates |
 | 🌪️ | Nature | Nature modifier |
-| 🎲 | Dice | Hourly random modifier |
+| 🎲 | Dice | Hourly random modifier — active ~15 min/hour. Scales trading commissions, mining NFTJi drop rates, Market NFTJI buy impact and resell return, and Squeeze drop flip magnitude by `(1 + modifier)`. Modifier range: −50% (cyan, cheaper/smaller) to +50% (orange, pricier/larger). |
 | 📜 | Manifest | Manifesto page |
 | 🤖 | AI Team | FreakingAI — in-game AI entity |
 
@@ -841,6 +864,7 @@ Read:
 - [Wallets](#wallets)
 - [NFTJIs](#nftjis)
 - [Trade MM3](#trade-mm3)
+- [Dado](#dado)
 - [Market](#market)
 - [Pools](#pools)
 - [Squeeze](#squeeze)
@@ -1141,6 +1165,26 @@ Cada EXEC:
 
 ---
 
+## Dado
+
+Una vez por hora se abre una ventana 🎲 determinista en un offset aleatorio (1–2699 s dentro de la hora) y permanece activa **15 minutos**. El offset y el modificador se generan a partir de la hora UTC, por lo que todos los clientes ven la misma ventana simultáneamente.
+
+El modificador es un valor continuo en **[−0.50, +0.50]** (precisión del 1 %). Multiplica cada tasa afectada por `(1 + modifier)`:
+
+| Qué se ve afectado | Fórmula | Modificador positivo | Modificador negativo |
+|---|---|---|---|
+| Comisión de trading (compra y venta) | `commissionRate × (1 + dm)` | Comisión más alta | Comisión más baja |
+| Tasas de drop de NFTJi de mining | `prob × (1 + dm)` | Más drops | Menos drops |
+| Delta MM3 de compra en Market NFTJI | `buyDelta × (1 + dm)` | Mayor impulso MM3 | Menor impulso MM3 |
+| Retorno de reventa de Market NFTJI | `precio × 0.5 × (1 + dm)` | Hasta 75% devuelto | Hasta 25% devuelto |
+| Magnitud del volteo MM3 por drop de Squeeze | `−2 × MM3 × (1 + dm)` | Volteo mayor | Volteo menor |
+
+El modificador se lee en vivo en el momento en que se ejecuta cada operación (`getDiceState()` en `lib/dice.js`). La UI muestra un chip 🎲 en naranja (positivo) o cyan (negativo) donde el dado afecta a una acción activa — TradeBoard, MarketBoard.
+
+> **Nota:** la fórmula de batalla del Squeeze usa un valor de dado *separado* generado desde `dispute_id` (no la ventana horaria) y no puede manipularse eligiendo el momento de la reclamación.
+
+---
+
 ## Market
 
 El Market es un tablero de comandos 28x28: 784 celdas, 20 bloques NFTJI fijos y una MM3 Block Chain minable en todas las demás celdas libres.
@@ -1360,7 +1404,9 @@ Cuando cualquier wallet reclama un drop de NFTJI Squeeze, el valor global de MM3
 | 🛡️ Defensa | MM3 > 0 (positivo) | MM3 pasa a negativo (mismo valor absoluto) |
 | 🛡️ Defensa | MM3 ≤ 0 (negativo o cero) | Sin cambio |
 
-El volteo se aplica insertando un evento `nftji_claim` en `mm3_market_events` con `delta = −2 × total_eth`. Si varias wallets reclaman el mismo tipo de drop en el mismo Squeeze, solo la primera reclamación dispara el volteo (las siguientes encuentran MM3 ya en la polaridad correcta y no hacen nada). Implementado en `claim-nftji-drop/route.js` (usuarios reales) y `autoClaimBotSqueezeDrops` dentro de `bot/tick/route.js` (bots).
+El volteo se aplica insertando un evento `nftji_claim` en `mm3_market_events` con `delta = −2 × total_eth × (1 + diceModifier)`. Si varias wallets reclaman el mismo tipo de drop en el mismo Squeeze, solo la primera reclamación dispara el volteo (las siguientes encuentran MM3 ya en la polaridad correcta y no hacen nada). Implementado en `claim-nftji-drop/route.js` (usuarios reales) y `autoClaimBotSqueezeDrops` dentro de `bot/tick/route.js` (bots).
+
+> **🎲 Ventana del dado:** la magnitud del volteo se escala con el modificador del dado activo en el momento de la reclamación. Modificador positivo (naranja) amplifica el volteo; negativo (cyan) lo reduce.
 
 **Progresión:**
 - Solo un tipo equipado simultáneamente (slot de avatar).
@@ -1549,7 +1595,7 @@ Efecto secreto: roba MM3 → wallet ejecutora. `x = nonce diario (100–799)`.
 |:---:|---|---|
 | ⚔️ | War | Modificador de conflicto global — afecta atmósfera y tasas |
 | 🌪️ | Naturaleza | Modificador de naturaleza |
-| 🎲 | Dice | Modificador aleatorio horario |
+| 🎲 | Dado | Modificador aleatorio horario — activo ~15 min/hora. Escala comisiones de trading, tasas de drop de NFTJi de mining, impacto de compra y retorno de reventa de Market NFTJI, y la magnitud del volteo de drop de Squeeze por `(1 + modifier)`. Rango: −50% (cyan, más barato/menor) a +50% (naranja, más caro/mayor). |
 | 📜 | Manifest | Página del Manifiesto |
 | 🤖 | AI Team | FreakingAI — entidad IA del juego |
 
