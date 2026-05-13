@@ -272,6 +272,17 @@ NFTJI levels are gameplay power, not cosmetic-only badges:
 
 - In **Trade MM3**, levelled mining NFTJIs multiply their trade effect on buy/sell quotes.
 - In **Squeeze**, levelled NFTJI power is snapshotted and summed into pool scoring; Squeeze Attack/Defense NFTJIs also scale their own attack/protection formulas by level.
+- **Level-up MM3 events**: each time a mining NFTJI gains a level, a `nftji_level_up` event is emitted that raises the global MM3 value. Each Market NFTJI re-purchase that increases its level does the same at a fixed rate.
+
+| NFTJI | Level-up rate |
+|:---:|---:|
+| 🔮 Void Seer | +0.1% of global MM3 per level |
+| 🍀 Fortune Leaf | +0.2% of global MM3 per level |
+| 🎰 Jackpot Engine | +0.5% of global MM3 per level |
+| 🧿 Fate Singularity | +1% of global MM3 per level |
+| Market NFTJI *(re-purchase)* | +0.3% of global MM3 per level |
+
+The delta is `total_mm3 × rate × new_level`. Higher levels and rarer NFTJIs produce larger positive shocks to the shared economy.
 
 ### Heart Revive
 
@@ -534,6 +545,8 @@ first drop  → level 0
 second same → level 1
 third same  → level 2   (no cap)
 ```
+
+**Launch limit:** each pool can launch a maximum of **20 Squeezes per rolling 24-hour window**. The counter resets 24 hours after the pool exhausts it, not at UTC midnight.
 
 **Lifecycle:**
 
@@ -1050,6 +1063,17 @@ Los niveles de NFTJI son poder de juego, no solo badges visuales:
 
 - En **Trade MM3**, los NFTJIs de mining con nivel multiplican su efecto en las cotizaciones de compra/venta.
 - En **Squeeze**, el poder de los NFTJIs con nivel se captura en el snapshot y se suma al score del pool; los NFTJIs de Squeeze Ataque/Defensa también escalan sus fórmulas de ataque/protección por nivel.
+- **Eventos level-up de MM3**: cada vez que un NFTJI de mining sube de nivel, se emite un evento `nftji_level_up` que aumenta el valor global de MM3. Cada recompra de NFTJI del Market que sube su nivel hace lo mismo a una tasa fija.
+
+| NFTJI | Tasa por nivel |
+|:---:|---:|
+| 🔮 Void Seer | +0,1% del MM3 global por nivel |
+| 🍀 Fortune Leaf | +0,2% del MM3 global por nivel |
+| 🎰 Jackpot Engine | +0,5% del MM3 global por nivel |
+| 🧿 Fate Singularity | +1% del MM3 global por nivel |
+| NFTJI de Market *(recompra)* | +0,3% del MM3 global por nivel |
+
+El delta es `total_mm3 × tasa × nuevo_nivel`. Niveles más altos y NFTJIs más raros producen shocks positivos mayores en la economía compartida.
 
 ### Heart Revive
 
@@ -1312,6 +1336,8 @@ primer drop  → nivel 0
 segundo mismo → nivel 1
 tercero mismo → nivel 2   (sin tope)
 ```
+
+**Límite de lanzamiento:** cada pool puede lanzar un máximo de **20 Squeezes por ventana móvil de 24 horas**. El contador se reinicia 24 horas después de agotarlo, no a medianoche UTC.
 
 **Ciclo de vida:**
 

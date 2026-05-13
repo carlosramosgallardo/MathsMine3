@@ -1061,6 +1061,10 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
             for (const row of allProgress || []) {
               const w = String(row.wallet || '').toLowerCase();
               if (!w || exemptWallets.has(w)) continue;
+              // Wallets that own the same market block as the attacker are exempt —
+              // owning the attacking block means participating in its command economy.
+              // This applies regardless of pool membership (a rival bot owning the same
+              // block is not penalized, even if it's in the opposing pool).
               if (row.market_nftji_key === currentMarketKey) continue;
 
               if (isMm3Cmd) {
