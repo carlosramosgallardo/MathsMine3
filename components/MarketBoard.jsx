@@ -12,6 +12,8 @@ import {
   WALLET_DECORATIONS,
 } from '@/lib/wallet-decorations';
 import { useSound } from '@/lib/sound-context';
+import { getDiceState } from '@/lib/dice';
+import { useDice } from '@/lib/dice-context';
 import { commandKey, getMarketCommandForKey, marketCommandFromBlock } from '@/lib/market-commands';
 import { formatWalletLabel } from '@/lib/wallet-format';
 import {
@@ -259,6 +261,7 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
   const { t, language } = useI18n();
   const { currency } = useCurrency();
   const { playMarketClaim } = useSound();
+  const diceState = useDice();
   const [blocks, setBlocks] = useState(CATALOG_BLOCKS);
   const [selectedKey, setSelectedKey] = useState(GENESIS_BLOCK_KEY);
   const selectedKeyRef = useRef(GENESIS_BLOCK_KEY);
@@ -798,7 +801,9 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
       }
 
       const rateCny = getSellRateCny(level);
-      const buyDelta = paysWithMm3 ? priceE : priceE / (rateCny * CNY_TO_EUR);
+      const liveDice = getDiceState();
+      const liveDiceModifier = liveDice.active ? liveDice.modifier : 0;
+      const buyDelta = (paysWithMm3 ? priceE : priceE / (rateCny * CNY_TO_EUR)) * (1 + liveDiceModifier);
       const liveQuote = getSellQuote(level, Math.max(0, totalMm3 - soldMm3), currentDecorations);
       const now = new Date().toISOString();
 
@@ -894,7 +899,9 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
       const currentDecorations = normalizeWalletDecorations(progressRow?.wallet_emojis);
 
       const oldPrice = Number(progressRow.market_nftji_price) || 0;
-      const returnEur = oldPrice * 0.5;
+      const liveDiceResell = getDiceState();
+      const liveDiceModifierResell = liveDiceResell.active ? liveDiceResell.modifier : 0;
+      const returnEur = oldPrice * 0.5 * (1 + liveDiceModifierResell);
       const returnUsd = toUsdFromEur(returnEur);
       const returnCny = toCnyFromEur(returnEur);
       const paysWithMm3 = (marketCommandFromBlock(blocks.find((b) => b.block_key === progressRow.market_nftji_key)) || getMarketCommandForKey(progressRow.market_nftji_key))?.payment === 'mm3';
@@ -1405,6 +1412,16 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
           {hasOtherNFTJI && !ownsSelected && !selectedBlock?.isPlaceholder && (
             <div className="rounded border border-red-400/25 bg-red-950/10 px-2 py-1 text-[0.78rem] uppercase tracking-[0.12em] text-red-400/70 lg:col-span-2">
               {t('podcast.autoResoldHint')}
+            </div>
+          )}
+
+          {/* ── Dice active indicator ── */}
+          {diceState?.active && (
+            <div
+              className="rounded border px-2 py-1 text-[0.68rem] font-black uppercase tracking-[0.14em] lg:col-span-2"
+              style={{ borderColor: `${diceState.color}55`, color: diceState.color }}
+            >
+              🎲 {diceState.modifier >= 0 ? '+' : ''}{Math.round(diceState.modifier * 100)}% {diceState.modifier >= 0 ? '↑ buy impact / ↑ resell return' : '↓ buy impact / ↓ resell return'}
             </div>
           )}
 

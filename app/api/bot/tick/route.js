@@ -6,6 +6,7 @@ import { getSellQuote, getBuyQuote, getSellRateCny, getCommissionRate, CNY_TO_EU
 import { WALLET_DECORATIONS, SQUEEZE_NFTJIS, appendWalletDecoration, getWalletMarketDelta, MARKET_EVENT_TYPE_LIFE } from '@/lib/wallet-decorations';
 import { marketCommandFromBlock, computeMarketCommandCode, getUtcDayWindow } from '@/lib/market-commands';
 import { getChallengerRegistrationState, SQUEEZE_REGISTER_MS } from '@/lib/squeeze-transitions';
+import { getDiceState } from '@/lib/dice';
 import { insertSqueezeIrcTrace } from '@/lib/squeeze-irc';
 
 const BOT_WALLETS = [
@@ -758,6 +759,8 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
     let failedGames = 0;
     const nftjiDropCounts = {}; // levelField → { emoji, claimField, levelField, count }
     const runStart = Date.now() - drillsToRun * 55_000; // spread timestamps ~55s apart
+    const miningDice = getDiceState();
+    const miningDm = miningDice.active ? miningDice.modifier : 0;
 
     for (let i = 0; i < drillsToRun; i++) {
       const problem = pool[Math.floor(Math.random() * pool.length)];
@@ -808,13 +811,13 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
 
       if (isCorrect) {
         let drop = null;
-        if (Math.random() < 1 / 1000)
+        if (Math.random() < (1 / 1000) * (1 + miningDm))
           drop = { emoji: WALLET_DECORATIONS.lucky1000, claimField: 'lucky_1000_claimed', levelField: 'lucky_1000_level' };
-        else if (Math.random() < 1 / 500)
+        else if (Math.random() < (1 / 500) * (1 + miningDm))
           drop = { emoji: WALLET_DECORATIONS.lucky500, claimField: 'lucky_500_claimed', levelField: 'lucky_500_level' };
-        else if (Math.random() < 1 / 100)
+        else if (Math.random() < (1 / 100) * (1 + miningDm))
           drop = { emoji: WALLET_DECORATIONS.lucky100, claimField: 'lucky_100_claimed', levelField: 'lucky_100_level' };
-        else if (Math.random() < 1 / 50)
+        else if (Math.random() < (1 / 50) * (1 + miningDm))
           drop = { emoji: WALLET_DECORATIONS.lucky50, claimField: 'lucky_50_claimed', levelField: 'lucky_50_level' };
         if (drop) {
           if (!nftjiDropCounts[drop.levelField]) nftjiDropCounts[drop.levelField] = { ...drop, count: 0 };
@@ -1120,9 +1123,11 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
       const newPrice = Number(targetBlock.price_eur);
       const newPriceCny = newPrice / CNY_TO_EUR;
       const newPriceUsd = newPriceCny * CNY_TO_USD;
+      const marketDice = getDiceState();
+      const marketDm = marketDice.active ? marketDice.modifier : 0;
 
       if (currentMarketKey) {
-        const returnEur = currentMarketPrice * 0.5;
+        const returnEur = currentMarketPrice * 0.5 * (1 + marketDm);
         const returnCny = returnEur / CNY_TO_EUR;
         const returnUsd = returnCny * CNY_TO_USD;
 
@@ -1146,7 +1151,7 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
       }
 
       botEur -= newPrice; botCny -= newPriceCny; botUsd -= newPriceUsd;
-      const buyDelta = newPrice / (rateCny * CNY_TO_EUR);
+      const buyDelta = (newPrice / (rateCny * CNY_TO_EUR)) * (1 + marketDm);
 
       await supabase.from('player_progress').upsert({
         wallet, is_bot: true, eur_earned: botEur, cny_earned: botCny, usd_earned: botUsd,

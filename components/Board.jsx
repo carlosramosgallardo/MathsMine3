@@ -5,6 +5,7 @@ import { useI18n } from '@/lib/i18n-context';
 import supabase from '@/lib/supabaseClient';
 import { clampRankLevel, getRankTier } from '@/lib/ranks';
 import { CNY_TO_EUR, CNY_TO_USD, getSellQuote, formatMoney, formatCompactNum } from '@/lib/sell-offer';
+import { getDiceState } from '@/lib/dice';
 import { useCurrency } from '@/lib/currency-context';
 import { useSound } from '@/lib/sound-context';
 import {
@@ -1837,10 +1838,12 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
   const getSpecialSuccessOffer = () => {
     if (!account) return null;
     // No "already owned" guard — NFTJis level up each time they drop
-    if (Math.random() < 1 / 1000) return { type: 'emoji1000', emoji: WALLET_DECORATIONS.lucky1000 };
-    if (Math.random() < 1 / 500)  return { type: 'emoji500',  emoji: WALLET_DECORATIONS.lucky500  };
-    if (Math.random() < 1 / 100)  return { type: 'emoji100',  emoji: WALLET_DECORATIONS.lucky100  };
-    if (Math.random() < 1 / 50)   return { type: 'emoji50',   emoji: WALLET_DECORATIONS.lucky50   };
+    const liveDice = getDiceState();
+    const dm = liveDice.active ? liveDice.modifier : 0;
+    if (Math.random() < (1 / 1000) * (1 + dm)) return { type: 'emoji1000', emoji: WALLET_DECORATIONS.lucky1000 };
+    if (Math.random() < (1 / 500)  * (1 + dm)) return { type: 'emoji500',  emoji: WALLET_DECORATIONS.lucky500  };
+    if (Math.random() < (1 / 100)  * (1 + dm)) return { type: 'emoji100',  emoji: WALLET_DECORATIONS.lucky100  };
+    if (Math.random() < (1 / 50)   * (1 + dm)) return { type: 'emoji50',   emoji: WALLET_DECORATIONS.lucky50   };
     return null;
   };
 
