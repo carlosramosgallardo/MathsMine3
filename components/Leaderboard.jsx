@@ -1730,7 +1730,8 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
                   <button
                     type="button"
                     onClick={showPoolRanking}
-                    className="shrink-0 rounded border border-emerald-400/30 bg-emerald-950/20 px-1.5 py-0.5 text-[0.58rem] font-black uppercase tracking-[0.12em] text-emerald-300"
+                    className="shrink-0 rounded border bg-black/40 px-1.5 py-0.5 text-[0.58rem] font-black uppercase tracking-[0.12em] transition hover:brightness-125"
+                    style={(() => { const pc = colorFromAddress(String(entry.pool_code || '')); return { color: pc, borderColor: `${pc}55` }; })()}
                     title={`${labels.pool} ${entry.pool_code}`}
                   >
                     #{entry.pool_code}
@@ -2211,7 +2212,8 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
                       <button
                         type="button"
                         onClick={showPoolRanking}
-                        className="rounded border border-emerald-400/25 bg-emerald-950/10 px-2 py-1 font-mono text-[0.72rem] font-black text-emerald-300 transition hover:border-emerald-300 hover:text-emerald-100"
+                        className="rounded border bg-black/40 px-2 py-1 font-mono text-[0.72rem] font-black transition hover:brightness-125"
+                        style={(() => { const pc = colorFromAddress(String(entry.pool_code || '')); return { color: pc, borderColor: `${pc}55` }; })()}
                         title={labels.viewPoolRanking}
                       >
                         #{entry.pool_code}
