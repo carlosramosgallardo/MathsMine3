@@ -29,13 +29,13 @@ export async function GET() {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
   )
   const [
-    { data: events,     error: e1 },
+    { data: rawEvents,  error: e1 },
     { data: timeseries, error: e2 },
   ] = await Promise.all([
     supabase
       .from('mm3_market_events')
       .select('wallet, event_type, delta_mm3, created_at, emoji')
-      .order('created_at', { ascending: true })
+      .order('created_at', { ascending: false })
       .limit(2000),
     supabase
       .from('token_value_timeseries')
@@ -49,6 +49,9 @@ export async function GET() {
       status: 500, headers: { 'Content-Type': 'application/json' },
     })
   }
+
+  // Sort ascending so positional emoji assignment works chronologically
+  const events = (rawEvents ?? []).slice().sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
 
   // Collect wallets whose old events need fallback from wallet_emojis
   const needsFallback = new Set()

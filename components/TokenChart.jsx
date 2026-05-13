@@ -346,7 +346,7 @@ function useNftEvents(range) {
         .then(j => Array.isArray(j) && setIfChanged(setRawEvts, j))
         .catch(() => {})
     load()
-    const id = setInterval(load, 30_000)
+    const id = setInterval(load, 15_000)
     window.addEventListener('focus', load)
     window.addEventListener('mm3-db-updated', load)
     return () => {
