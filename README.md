@@ -37,6 +37,7 @@
 - [Squeeze](#squeeze)
 - [IRC Relay](#irc-relay)
 - [Ranking](#ranking)
+- [Bots](#bots)
 - [API](#api)
 - [Emoji Catalog](#emoji-catalog)
 - [Tech Stack](#tech-stack)
@@ -658,6 +659,52 @@ See [Objective](#objective) for a full breakdown of what it takes to reach #1.
 
 ---
 
+## Bots
+
+Four permanent AI wallets compete alongside real players. They hold real rankings, accumulate blocks, own NFTJIs, participate in Squeeze disputes as pool members, and affect the global MM3 value. Their actions appear in the event log and chart like any other wallet. They are rivals, not props.
+
+### Pool Structure
+
+Bots are split across two fixed pools of two members each. These assignments never change. The exact pool codes are visible in the Ranking tab → Pools view.
+
+Each pool's Squeeze aggression is driven by its most aggressive member's strategy probability.
+
+### Profiles
+
+| Wallet | Strategy | Archetype | Squeeze initiation |
+|--------|----------|-----------|--------------------|
+| `0xcab…5528` | `sell_mm3` | 🐻 The Bear | 90 % |
+| `0xcb4…0202` | `buy_mm3` | 🐂 The Bull | 15 % |
+| `0xd6c…4233` | `market_buy` | 🏛 The Collector | 55 % |
+| `0xd89…e8ab` | `market_sell` | ⚡ The Flipper | 80 % |
+
+### Strategy Details
+
+| Archetype | MM3 Trading | MM3 Reserve | Market NFTJI target | Squeeze role |
+|-----------|-------------|-------------|---------------------|--------------|
+| 🐻 Bear | Dumps MM3 aggressively — 10–30 % slices per tick | 15 % | Default (balanced) | Max aggressor — challenges 9 out of 10 ticks |
+| 🐂 Bull | Buys MM3 with fiat — spends 40–70 % of balance per trade | — (accumulates) | Default (balanced) | Pacifist — rarely challenges (15 %) |
+| 🏛 Collector | Moderate seller — holds 50 % MM3 reserve | 50 % | Highest-level / most expensive block | Strategic — challenges ~55 % of ticks |
+| ⚡ Flipper | Heavy seller between flips — 30–60 % slices, 25 % reserve | 25 % | Cheapest block (max flip frequency) | Aggressive — challenges ~80 % of ticks |
+
+### Mining
+
+All four bots run up to 100 mining games per day at a win rate of ~92 % (decreasing with level) and are capped by the same daily limits as real players: 5 trades, 20 Squeeze launches per 24 h.
+
+**Bots do not mine Market board blocks.** Block mining via IRC command (`/mine block #NNN`) is exclusive to real players. Bots participate in the Market NFTJI economy (buy and resell NFTJI blocks) but never claim free chain blocks, so the 764-block race is a human competition.
+
+### Impact on Real Players
+
+| Bot action | Effect |
+|------------|--------|
+| Bear / Flipper selling MM3 | Pushes global MM3 value **down** |
+| Bull buying MM3 | Pushes global MM3 value **up** |
+| Any market buy / resell event | Moves the MM3 curve — visible in the chart |
+| Squeeze launched by bot pool | Penalty risk for the targeted pool (same rules as any Squeeze) |
+| ⚔️ / 🔰 drop claimed | MM3 polarity flip scaled by active Dice modifier; always appears in chart |
+
+---
+
 ## API
 
 Public API routes expose the readable state of the simulation.
@@ -870,6 +917,7 @@ Read:
 - [Squeeze](#squeeze)
 - [IRC Relay](#irc-relay)
 - [Ranking](#ranking)
+- [Bots](#bots-1)
 - [API](#api)
 - [Catálogo de Emojis](#catalogo-de-emojis)
 - [Stack Técnico](#stack-tecnico)
@@ -1488,6 +1536,52 @@ El ranking de pools suma los porcentajes MM3 Chain de sus wallets miembro actual
 El resto de datos visibles — nivel, balance MM3, actividad de Trade, propiedad de NFTJIs, presencia en Market, penalizaciones activas — muestra el contexto detrás de los porcentajes de cadena: cómo una wallet ganó su posición y qué tan expuesta está a los rivales.
 
 Consulta [Objetivo](#objetivo) para un análisis completo de lo que se necesita para llegar al #1.
+
+---
+
+## Bots
+
+Cuatro wallets de IA permanentes compiten junto a los jugadores reales. Tienen ranking real, acumulan bloques, poseen NFTJIs, participan en disputas Squeeze como miembros de pool y afectan el valor global de MM3. Sus acciones aparecen en el log de eventos y en el gráfico como cualquier otra wallet. Son rivales, no decorado.
+
+### Estructura de Pools
+
+Los bots están distribuidos en dos pools fijos de dos miembros cada uno. Estas asignaciones nunca cambian. Los códigos de pool exactos son visibles en la pestaña Ranking → vista Pools.
+
+La agresividad Squeeze de cada pool la marca la estrategia del miembro más agresivo.
+
+### Perfiles
+
+| Wallet | Estrategia | Arquetipo | Inicio de Squeeze |
+|--------|------------|-----------|-------------------|
+| `0xcab…5528` | `sell_mm3` | 🐻 El Oso | 90 % |
+| `0xcb4…0202` | `buy_mm3` | 🐂 El Toro | 15 % |
+| `0xd6c…4233` | `market_buy` | 🏛 El Coleccionista | 55 % |
+| `0xd89…e8ab` | `market_sell` | ⚡ El Flipper | 80 % |
+
+### Detalle de Estrategias
+
+| Arquetipo | Trading MM3 | Reserva MM3 | Objetivo Market NFTJI | Rol en Squeeze |
+|-----------|-------------|-------------|------------------------|----------------|
+| 🐻 Oso | Vende MM3 agresivamente — tramos del 10–30 % por tick | 15 % | Por defecto (equilibrado) | Máximo agresor — reta 9 de cada 10 ticks |
+| 🐂 Toro | Compra MM3 con fiat — gasta 40–70 % del balance por trade | — (acumula) | Por defecto (equilibrado) | Pacifista — apenas reta (15 %) |
+| 🏛 Coleccionista | Vendedor moderado — mantiene reserva del 50 % de MM3 | 50 % | Bloque de nivel más alto / más caro | Estratégico — reta ~55 % de los ticks |
+| ⚡ Flipper | Vendedor intensivo entre flips — tramos del 30–60 %, reserva 25 % | 25 % | Bloque más barato (máxima frecuencia de flip) | Agresivo — reta ~80 % de los ticks |
+
+### Mining
+
+Los cuatro bots ejecutan hasta 100 partidas de mining al día con una tasa de acierto de ~92 % (decreciente con el nivel) y están sujetos a los mismos límites diarios que los jugadores reales: 5 trades, 20 lanzamientos de Squeeze por ventana de 24 h.
+
+**Los bots no minan bloques del Market board.** El minado de bloques mediante comando IRC (`/mine block #NNN`) es exclusivo de jugadores reales. Los bots participan en la economía NFTJI del Market (compran y revenden bloques) pero nunca reclaman bloques libres de la cadena, así que la carrera de los 764 bloques es una competición humana.
+
+### Impacto en los Jugadores Reales
+
+| Acción del bot | Efecto |
+|----------------|--------|
+| Oso / Flipper vendiendo MM3 | Empuja el valor global de MM3 **hacia abajo** |
+| Toro comprando MM3 | Empuja el valor global de MM3 **hacia arriba** |
+| Cualquier evento de compra / reventa en Market | Mueve la curva de MM3 — visible en el gráfico |
+| Squeeze lanzado por pool de bots | Riesgo de penalización para el pool objetivo (mismas reglas que cualquier Squeeze) |
+| Drop ⚔️ / 🔰 reclamado | Volteo de polaridad MM3 escalado por el modificador del Dado activo; siempre aparece en el gráfico |
 
 ---
 

@@ -26,10 +26,10 @@ const BOT_STRATEGIES = new Map([
 
 // Probability [0–1] that this strategy's pool initiates a squeeze on a given tick
 const STRATEGY_SQUEEZE_PROB = {
-  sell_mm3:    0.90,
-  market_sell: 0.75,
-  market_buy:  0.55,
-  buy_mm3:     0.30,
+  sell_mm3:    0.90, // Bear — maximum aggression
+  market_sell: 0.80, // Flipper — high aggression to clear market rivals
+  market_buy:  0.55, // Collector — strategic, initiates when convenient
+  buy_mm3:     0.15, // Bull — pacifist, rarely initiates
 };
 const DAILY_MINE_BASE = 100;
 const PRICE = Number(process.env.NEXT_PUBLIC_FAKE_MINING_PRICE) || 0.00001;
@@ -933,7 +933,7 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
 
       while (tradesThisTick < tradesToRun && (botFunds.eur_earned - spentEurTotal) > minBalance) {
         const remainingEur = botFunds.eur_earned - spentEurTotal - minBalance;
-        const spendEur = Math.max(0, remainingEur * (0.20 + Math.random() * 0.20));
+        const spendEur = Math.max(0, remainingEur * (0.40 + Math.random() * 0.30)); // Bull: large buys, strong upward push
         if (spendEur < 0.001) break;
 
         const buyQuote = getBuyQuote(level, spendEur, 'EUR', walletEmojis, macroState);
@@ -993,14 +993,14 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
       let currentUsd = botFunds.usd_earned;
       let currentMm3Sold = mm3Sold;
 
-      // market_buy saves more MM3 (sells less aggressively), market_sell churns faster
-      const reserveFraction = strategy === 'market_buy' ? 0.50 : 0.30;
+      // Bear keeps minimal reserve; Collector holds half; Flipper keeps a quarter
+      const reserveFraction = strategy === 'market_buy' ? 0.50 : strategy === 'sell_mm3' ? 0.15 : 0.25;
       const mm3Reserve = availableMm3 * reserveFraction;
 
       let tradesThisTick = 0;
       while (tradesThisTick < tradesToRun && availableMm3 > mm3Reserve + 0.000001) {
         const fraction = strategy === 'market_sell'
-          ? 0.20 + Math.random() * 0.30  // market_sell trades larger slices
+          ? 0.30 + Math.random() * 0.30  // Flipper: heavy sell slices between market operations
           : 0.10 + Math.random() * 0.20;
         const sellMm3 = Math.min(availableMm3 * fraction, availableMm3 - mm3Reserve);
         const rateCny = getSellRateCny(level);
