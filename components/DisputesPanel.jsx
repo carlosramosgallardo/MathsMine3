@@ -128,7 +128,8 @@ function ScoreBar({ chScore, dfScore }) {
   );
 }
 
-function PoolLink({ poolCode, color, onPoolClick, children, style }) {
+function PoolLink({ poolCode, onPoolClick, children, style }) {
+  const color = colorFromAddress(String(poolCode || ''));
   return (
     <button
       type="button"

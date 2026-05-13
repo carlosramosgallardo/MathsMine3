@@ -214,7 +214,7 @@ export default function NotificationChips() {
             <span className="font-semibold" style={{ color: colorFromAddress(invite.invited_by) }}>
               {shortWallet(invite.invited_by)}
             </span>
-            <span className="text-slate-600">#{invite.pool_code}</span>
+            <span style={{ color: colorFromAddress(String(invite.pool_code || '')) }}>#{invite.pool_code}</span>
             <button type="button" onClick={() => handleDecline(invite.id)} disabled={busy} title={labels.declineInvite}
               className="ml-1 px-1 text-[0.82rem] font-black leading-none text-rose-400 transition hover:text-rose-200 disabled:opacity-30">✗</button>
             <button type="button" onClick={() => handleAccept(invite.id)} disabled={busy} title={labels.acceptInvite}
@@ -228,7 +228,7 @@ export default function NotificationChips() {
           <div key={`prop-${d.id}`} className="flex items-center gap-2 rounded border border-violet-500/20 bg-black/80 px-2 py-0.5 text-[0.6rem] font-mono">
             <span className="text-violet-500">⚔️</span>
             <span className="text-slate-500">vs</span>
-            <span className="font-semibold text-violet-400">#{d.defender_pool_code}</span>
+            <span className="font-semibold" style={{ color: colorFromAddress(String(d.defender_pool_code || '')) }}>#{d.defender_pool_code}</span>
             <button type="button" onClick={() => handleDisputeJoin(d.defender_pool_code, d.id)} disabled={busy}
               title={labels.disputeProposalJoin}
               className="ml-1 px-1 text-[0.82rem] font-black leading-none text-emerald-400 transition hover:text-emerald-200 disabled:opacity-30">✓</button>

@@ -295,6 +295,7 @@ function renderIrcTextLinks(displayText, tone, onWalletClick, blockMap, onBlockC
         <span
           key={`po-${match.index}`}
           className="mm3-irc-pool-link"
+          style={{ color: colorFromAddress(poolToken) }}
           onClick={() => onPoolClick?.(poolToken)}
         >
           {token}

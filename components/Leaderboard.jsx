@@ -1509,7 +1509,8 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
                 <button
                   type="button"
                   onClick={showWalletRanking}
-                  className="min-w-0 flex-1 truncate text-left font-mono text-[0.92rem] font-black text-emerald-300 transition hover:underline focus:outline-none"
+                  className="min-w-0 flex-1 truncate text-left font-mono text-[0.92rem] font-black transition hover:underline focus:outline-none"
+                  style={{ color: colorFromAddress(String(entry.pool_code || '')) }}
                   title={`${entry.member_count} ${labels.members}`}
                 >
                   #{entry.pool_code}
@@ -1957,7 +1958,8 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
                       <button
                         type="button"
                         onClick={showWalletRanking}
-                        className="font-mono font-black text-[0.95rem] text-emerald-300 transition hover:underline focus:outline-none"
+                        className="font-mono font-black text-[0.95rem] transition hover:underline focus:outline-none"
+                        style={{ color: colorFromAddress(String(entry.pool_code || '')) }}
                         title={`${entry.member_count} ${labels.members}`}
                       >
                         #{entry.pool_code}
