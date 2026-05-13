@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useI18n } from '@/lib/i18n-context';
 import supabase from '@/lib/supabaseClient';
 import { CNY_TO_EUR, CNY_TO_USD, formatMoney, formatCompactNum } from '@/lib/sell-offer';
@@ -203,6 +203,7 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
   const { account } = useActiveWallet();
   const pathname = usePathname();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const activeWallet = account?.toLowerCase() || '';
   const abortRef = useRef(null);
   const refreshTimersRef = useRef([]);
@@ -1017,6 +1018,14 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
       setDisputeBusy('');
     }
   };
+
+  // Apply URL params on first load (?view=pools, ?wallet=0x...)
+  useEffect(() => {
+    const viewParam = searchParams?.get('view');
+    const walletParam = searchParams?.get('wallet');
+    if (viewParam === 'pools') setViewMode('pools');
+    if (walletParam) setSelectedWallet(walletParam.toLowerCase());
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (typeof window === 'undefined') return;

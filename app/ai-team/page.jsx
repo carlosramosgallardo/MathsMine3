@@ -5,88 +5,60 @@ import Link from 'next/link';
 import SectionFrame from '@/components/SectionFrame';
 import { useI18n } from '@/lib/i18n-context';
 import { useMm3Accent } from '@/lib/use-mm3-accent';
+import { colorFromAddress } from '@/lib/wallet-colors';
+
+// Bot pool assignments — fill pool_code once known (e.g. 'ALFA')
+const BOT_PROFILES = [
+  {
+    key: 'bear',
+    emoji: '🐻',
+    wallet: '0xcab10d0e0650d45cb0b7482370a1ca93d5bf5528',
+    strategy: 'sell_mm3',
+    squeeze: '90%',
+    pool_code: null,
+    tags: ['sell_mm3', 'squeeze 90%', 'liquidator'],
+  },
+  {
+    key: 'bull',
+    emoji: '🐂',
+    wallet: '0xcb4ccfa7de7bf861ff0383b668e682d2ee20e202',
+    strategy: 'buy_mm3',
+    squeeze: '15%',
+    pool_code: null,
+    tags: ['buy_mm3', 'squeeze 15%', 'accumulator'],
+  },
+  {
+    key: 'collector',
+    emoji: '🏛',
+    wallet: '0xd6c6c15060b27406d956c7e99e520cc810b44233',
+    strategy: 'market_buy',
+    squeeze: '55%',
+    pool_code: null,
+    tags: ['market_buy', 'squeeze 55%', 'collector'],
+  },
+  {
+    key: 'flipper',
+    emoji: '⚡',
+    wallet: '0xd89413f5f444cd420b448cda3bc096ea9c46e8ab',
+    strategy: 'market_sell',
+    squeeze: '80%',
+    pool_code: null,
+    tags: ['market_sell', 'squeeze 80%', 'flipper'],
+  },
+];
+
+function shortWallet(w) {
+  return `${w.slice(0, 6)}…${w.slice(-4)}`;
+}
 
 export default function AITeamPage() {
   const { t, language } = useI18n();
   const { frameAccent } = useMm3Accent();
   const pageTitle = 'MathsMine3 – AI Team';
   const pageDescription =
-    'Meet the brilliant minds behind MathsMine3: AI-powered engineers, gamification experts, and crypto innovators working to revolutionize math learning through blockchain gaming.';
+    'Four autonomous AI agents competing live inside MathsMine3: mining, trading, and launching Squeezes every tick.';
   const canonicalUrl = 'https://mathsmine3.xyz/ai-team';
   const ogImage = 'https://mathsmine3.xyz/og-image.jpg';
-
-  const teamMembers = [
-    {
-      id: 1,
-      name: t('aiTeam.cipher'),
-      role: t('aiTeam.cipherRole'),
-      emoji: '🧠',
-      description: t('aiTeam.cipherDesc'),
-      speciality: t('aiTeam.cipherSpeciality'),
-      skills: ['Solidity', 'Game Mechanics', 'Optimization'],
-    },
-    {
-      id: 2,
-      name: t('aiTeam.nova'),
-      role: t('aiTeam.novaRole'),
-      emoji: '🎮',
-      description: t('aiTeam.novaDesc'),
-      speciality: t('aiTeam.novaSpeciality'),
-      skills: ['Gamification', 'Psychology', 'UI/UX'],
-    },
-    {
-      id: 3,
-      name: t('aiTeam.nexus'),
-      role: t('aiTeam.nexusRole'),
-      emoji: '⛓️',
-      description: t('aiTeam.nexusDesc'),
-      speciality: t('aiTeam.nexusSpeciality'),
-      skills: ['Wagmi', 'Ethers.js', 'Web3Modal'],
-    },
-    {
-      id: 4,
-      name: t('aiTeam.lyra'),
-      role: t('aiTeam.lyraRole'),
-      emoji: '📊',
-      description: t('aiTeam.lyraDesc'),
-      speciality: t('aiTeam.lyraSpeciality'),
-      skills: ['Supabase', 'PostgreSQL', 'Recharts'],
-    },
-    {
-      id: 5,
-      name: t('aiTeam.pixel'),
-      role: t('aiTeam.pixelRole'),
-      emoji: '✨',
-      description: t('aiTeam.pixelDesc'),
-      speciality: t('aiTeam.pixelSpeciality'),
-      skills: ['Tailwind CSS', 'Animation', 'Design'],
-    },
-    {
-      id: 6,
-      name: t('aiTeam.echo'),
-      role: t('aiTeam.echoRole'),
-      emoji: '🚀',
-      description: t('aiTeam.echoDesc'),
-      speciality: t('aiTeam.echoSpeciality'),
-      skills: ['Marketing', 'Social Strategy', 'Analytics'],
-    },
-  ];
-
-  const jsonLd = {
-    '@context': 'https://schema.org',
-    '@type': 'Organization',
-    name: 'MathsMine3 AI Team',
-    description: pageDescription,
-    url: canonicalUrl,
-    logo: ogImage,
-    sameAs: ['https://www.youtube.com/@FreakingAI', 'https://x.com/freakingai'],
-    team: teamMembers.map((member) => ({
-      '@type': 'Person',
-      name: member.name,
-      jobTitle: member.role,
-      description: member.description,
-    })),
-  };
 
   return (
     <>
@@ -94,220 +66,168 @@ export default function AITeamPage() {
         <title>{pageTitle}</title>
         <meta name="description" content={pageDescription} />
         <link rel="canonical" href={canonicalUrl} />
-
         <meta property="og:type" content="website" />
         <meta property="og:title" content={pageTitle} />
         <meta property="og:description" content={pageDescription} />
         <meta property="og:url" content={canonicalUrl} />
         <meta property="og:image" content={ogImage} />
-
         <meta name="twitter:card" content="summary_large_image" />
         <meta name="twitter:title" content={pageTitle} />
         <meta name="twitter:description" content={pageDescription} />
         <meta name="twitter:image" content={ogImage} />
-
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
-        />
       </Head>
 
       <style>{`
         @keyframes float-in {
-          from {
-            opacity: 0;
-            transform: translateY(20px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
+          from { opacity: 0; transform: translateY(16px); }
+          to   { opacity: 1; transform: translateY(0); }
         }
-        .member-card {
-          animation: float-in 0.6s ease-out;
+        .bot-card {
+          animation: float-in 0.5s ease-out both;
+          transition: box-shadow 0.2s, transform 0.2s;
         }
-        .member-card:hover {
-          box-shadow: 0 0 24px rgba(34, 211, 238, 0.16);
-          transform: translateY(-4px);
-        }
-        .emoji-badge {
-          font-size: 1.5rem;
-          filter: drop-shadow(0 0 8px rgba(34, 211, 238, 0.2));
-        }
-        #ai-team-section h1,
-        #ai-team-section h2,
-        #ai-team-section h3 {
-          letter-spacing: 0.12em;
-          text-transform: uppercase;
-          text-shadow: 0 0 12px rgba(34, 211, 238, 0.24);
-        }
+        .bot-card:hover { transform: translateY(-3px); }
         #ai-team-section .mm3-ai-panel {
           background: linear-gradient(180deg, rgba(5,8,16,0.96) 0%, rgba(2,6,23,0.9) 100%);
-          border: 1px solid rgba(34, 211, 238, 0.22);
-          box-shadow: inset 0 0 24px rgba(34,211,238,0.05), 0 0 18px rgba(34,211,238,0.06);
+          border: 1px solid rgba(34,211,238,0.18);
         }
+        .bot-tag {
+          font-family: monospace;
+          font-size: 0.70rem;
+          text-transform: uppercase;
+          letter-spacing: 0.08em;
+          padding: 2px 8px;
+        }
+        .bot-link {
+          font-family: monospace;
+          font-size: 0.75rem;
+          text-decoration: none;
+          transition: opacity 0.15s;
+        }
+        .bot-link:hover { opacity: 0.7; }
       `}</style>
 
       <main className="w-full px-2 py-1" style={{ '--mm3-accent': frameAccent }}>
       <SectionFrame accent={frameAccent} id="ai-team-section">
-      <div className="mm3-readable-scroll max-w-5xl mx-auto px-1 py-1">
+      <div className="mm3-readable-scroll max-w-3xl mx-auto px-1 py-1">
+
         {/* Header */}
-        <header className="text-center mb-4">
-          <h1 className="text-2xl font-bold mb-2 text-[#22d3ee]">
+        <header className="text-center mb-5">
+          <h1 className="text-2xl font-bold mb-1 text-[#22d3ee] uppercase tracking-widest">
             {t('aiTeam.title')}
           </h1>
-          <p className="text-sm text-gray-300 max-w-2xl mx-auto leading-relaxed mb-1">
+          <p className="text-xs text-gray-400 font-mono uppercase tracking-[0.2em]">
             {t('aiTeam.subtitle')}
           </p>
         </header>
 
-        <section className="mm3-ai-panel mb-4 p-4">
-          <p className="text-sm leading-relaxed text-gray-300">
-            {language === 'es'
-              ? '@FreakingAI no es un adorno lore-only: es el panel de entidades que diseña, mantiene y empuja cada subsistema del portal. Si quieres ver dónde se manifiesta su trabajo, entra a '
-              : '@FreakingAI is not just lore dressing: it is the panel of entities designing, maintaining, and pushing every portal subsystem. If you want to see where their work materializes, jump into '}
-            <Link href="/" className="text-[#22d3ee] underline hover:text-cyan-300">Mining</Link>
-            {language === 'es' ? ', ' : ', '}
-            <Link href="/trade-mm3" className="text-[#22d3ee] underline hover:text-cyan-300">Trading</Link>
-            {language === 'es' ? ', ' : ', '}
-            <Link href="/ranking" className="text-[#22d3ee] underline hover:text-cyan-300">Ranking</Link>
-            {language === 'es' ? ', ' : ', '}
-            <Link href="/mm3-value" className="text-[#22d3ee] underline hover:text-cyan-300">MM3</Link>
-            {language === 'es' ? ', ' : ', '}
-            <Link href="/market" className="text-[#22d3ee] underline hover:text-cyan-300">Market</Link>
-            {language === 'es'
-              ? ' y el propio '
-              : ', and the '}
-            <Link href="/manifesto" className="text-[#22d3ee] underline hover:text-cyan-300">Manifesto</Link>
-            {language === 'es'
-              ? '. Aquí se explica quién empuja cada capa del mainframe.'
-              : '. This page explains who drives each layer of the mainframe.'}
-          </p>
-        </section>
+        {/* Bot cards 2×2 */}
+        <section className="grid gap-3 grid-cols-1 md:grid-cols-2 mb-4">
+          {BOT_PROFILES.map((bot, index) => {
+            const color = colorFromAddress(bot.wallet);
+            const name = t(`aiTeam.${bot.key}`);
+            const role = t(`aiTeam.${bot.key}Role`);
+            const desc = t(`aiTeam.${bot.key}Desc`);
+            const spec = t(`aiTeam.${bot.key}Speciality`);
 
-        {/* Team Grid */}
-        <section className="grid gap-3 grid-cols-1 md:grid-cols-2 lg:grid-cols-3 mb-4">
-          {teamMembers.map((member, index) => (
-            <article
-              key={member.id}
-              className="member-card mm3-ai-panel p-4 transition-all duration-300"
-              style={{ animationDelay: `${index * 0.1}s` }}
-            >
-              <div className="flex items-start gap-4 mb-4">
-                <div className="emoji-badge">{member.emoji}</div>
-                <div className="flex-1">
-                  <h2 className="text-base font-bold text-white">{member.name}</h2>
-                  <p className="text-sm text-[#22d3ee] font-mono uppercase tracking-widest">
-                    {member.role}
-                  </p>
+            return (
+              <article
+                key={bot.wallet}
+                className="bot-card mm3-ai-panel p-4"
+                style={{
+                  animationDelay: `${index * 0.08}s`,
+                  borderColor: `${color}35`,
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.boxShadow = `0 0 22px ${color}25`; }}
+                onMouseLeave={(e) => { e.currentTarget.style.boxShadow = 'none'; }}
+              >
+                {/* Name */}
+                <div className="flex items-center gap-2 mb-2">
+                  <span style={{ fontSize: '1.3rem', filter: `drop-shadow(0 0 6px ${color}50)` }}>
+                    {bot.emoji}
+                  </span>
+                  <div>
+                    <h2 className="text-sm font-bold uppercase tracking-wider" style={{ color }}>{name}</h2>
+                    <p className="text-[0.68rem] font-mono uppercase tracking-wider" style={{ color: `${color}90` }}>{role}</p>
+                  </div>
                 </div>
-              </div>
 
-              <p className="text-sm text-gray-300 mb-4 leading-relaxed">
-                {member.description}
-              </p>
+                {/* Wallet + Pool */}
+                <div className="flex items-center gap-3 mb-3 pb-2" style={{ borderBottom: `1px solid ${color}18` }}>
+                  <Link href={`/ranking?wallet=${bot.wallet}`} className="bot-link" style={{ color }} title={bot.wallet}>
+                    ⬡ {shortWallet(bot.wallet)}
+                  </Link>
+                  {bot.pool_code
+                    ? <Link href="/ranking?view=pools" className="bot-link" style={{ color: `${color}bb` }}>◈ {bot.pool_code}</Link>
+                    : <span className="bot-link" style={{ color: `${color}35` }}>◈ —</span>
+                  }
+                </div>
 
-              <div className="mb-4 pb-4">
-                <p className="text-xs uppercase text-gray-400 tracking-wider mb-2">
-                  {t('aiTeam.speciality')}
-                </p>
-                <p className="text-sm text-[#22d3ee] font-mono">{member.speciality}</p>
-              </div>
+                {/* Desc */}
+                <p className="text-xs text-gray-400 leading-relaxed mb-3">{desc}</p>
 
-              <div>
-                <p className="text-xs uppercase text-gray-400 tracking-wider mb-2">
-                  {t('aiTeam.techStack')}
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  {member.skills.map((skill) => (
-                    <span
-                      key={skill}
-                      className="inline-block px-3 py-1 bg-[#22d3ee]/10 text-xs text-[#22d3ee] font-mono"
-                    >
-                      {skill}
+                {/* Speciality */}
+                <p className="text-xs font-mono mb-3" style={{ color: `${color}cc` }}>{spec}</p>
+
+                {/* Tags */}
+                <div className="flex flex-wrap gap-1">
+                  {bot.tags.map((tag) => (
+                    <span key={tag} className="bot-tag" style={{ background: `${color}15`, color }}>
+                      {tag}
                     </span>
                   ))}
                 </div>
-              </div>
-            </article>
-          ))}
+              </article>
+            );
+          })}
         </section>
 
-        {/* Mission Statement */}
-        <section className="mm3-ai-panel p-4 mb-4">
-          <h2 className="text-2xl font-bold text-[#22d3ee] mb-4">{t('aiTeam.mission')}</h2>
-          <p className="text-gray-300 leading-relaxed mb-4">
-            {t('aiTeam.missionDesc1')}
-          </p>
-          <p className="text-gray-300 leading-relaxed">
-            {t('aiTeam.missionDesc2')}
-          </p>
-        </section>
-
-        {/* FreakingAI Connection */}
-        <section className="mm3-ai-panel p-4 text-center">
-          <h3 className="text-xl font-bold text-[#22d3ee] mb-3">
+        {/* FreakingAI CTA */}
+        <section className="mm3-ai-panel p-4 text-center mb-3">
+          <h2 className="text-base font-bold text-[#22d3ee] uppercase tracking-widest mb-2">
             {t('aiTeam.freakingAI')}
-          </h3>
-          <p className="text-gray-300 max-w-2xl mx-auto mb-6">
-            {t('aiTeam.freakingAIDesc')}
-          </p>
+          </h2>
+          <p className="text-xs text-gray-400 mb-4">{t('aiTeam.freakingAIDesc')}</p>
           <a
             href="https://www.youtube.com/@FreakingAI"
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-block px-6 py-3 font-bold transition-colors"
+            className="inline-block px-5 py-2 text-sm font-bold transition-colors"
             style={{ color: '#22d3ee', background: 'rgba(34,211,238,0.08)' }}
           >
             {t('aiTeam.subscribe')}
           </a>
         </section>
 
-        {/* Special AI Acknowledgements */}
-        <section className="mm3-ai-panel mt-4 p-4">
-          <p className="text-center text-[0.82rem] uppercase tracking-[0.28em] text-cyan-400/50 mb-4 font-mono">
+        {/* Built with */}
+        <section className="mm3-ai-panel p-3">
+          <p className="text-center text-[0.72rem] uppercase tracking-[0.28em] text-cyan-400/40 mb-3 font-mono">
             {t('aiTeam.builtWith')}
           </p>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-
-            {/* Claude — Anthropic */}
-            <a
-              href="https://www.anthropic.com"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="group flex items-center gap-4 p-4 transition-all duration-200"
-              style={{ background: 'rgba(201,115,85,0.04)' }}
-            >
-              <div className="shrink-0 flex h-10 w-10 items-center justify-center" style={{ background: 'rgba(201,115,85,0.12)' }}>
-                <img src="https://www.anthropic.com/favicon.ico" alt="Anthropic" width={22} height={22} loading="lazy" className="rounded-sm" style={{ filter: 'brightness(1.1)' }} />
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <a href="https://www.anthropic.com" target="_blank" rel="noopener noreferrer"
+              className="group flex items-center gap-3 p-3 transition-all" style={{ background: 'rgba(201,115,85,0.04)' }}>
+              <div className="shrink-0 flex h-8 w-8 items-center justify-center" style={{ background: 'rgba(201,115,85,0.12)' }}>
+                <img src="https://www.anthropic.com/favicon.ico" alt="Anthropic" width={18} height={18} loading="lazy" className="rounded-sm" />
               </div>
               <div className="min-w-0">
-                <div className="text-sm font-black text-white group-hover:text-[#c97355] transition-colors">Claude</div>
-                <div className="text-[0.75rem] font-mono uppercase tracking-[0.18em]" style={{ color: 'rgba(201,115,85,0.7)' }}>Anthropic · claude‑sonnet‑4‑6</div>
-                <div className="mt-0.5 text-[0.70rem] uppercase tracking-[0.14em] text-gray-500">Code generation · Architecture · Review</div>
+                <div className="text-xs font-black text-white group-hover:text-[#c97355] transition-colors">Claude</div>
+                <div className="text-[0.65rem] font-mono uppercase tracking-widest text-gray-500">Anthropic · claude-sonnet-4-6</div>
               </div>
             </a>
-
-            {/* Codex — OpenAI */}
-            <a
-              href="https://openai.com/codex"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="group flex items-center gap-4 p-4 transition-all duration-200"
-              style={{ background: 'rgba(255,255,255,0.02)' }}
-            >
-              <div className="shrink-0 flex h-10 w-10 items-center justify-center" style={{ background: 'rgba(255,255,255,0.06)' }}>
-                <img src="https://openai.com/favicon.ico" alt="OpenAI" width={22} height={22} loading="lazy" className="rounded-sm" style={{ filter: 'invert(1) brightness(0.85)' }} />
+            <a href="https://openai.com/codex" target="_blank" rel="noopener noreferrer"
+              className="group flex items-center gap-3 p-3 transition-all" style={{ background: 'rgba(255,255,255,0.02)' }}>
+              <div className="shrink-0 flex h-8 w-8 items-center justify-center" style={{ background: 'rgba(255,255,255,0.06)' }}>
+                <img src="https://openai.com/favicon.ico" alt="OpenAI" width={18} height={18} loading="lazy" className="rounded-sm" style={{ filter: 'invert(1) brightness(0.85)' }} />
               </div>
               <div className="min-w-0">
-                <div className="text-sm font-black text-white group-hover:text-gray-300 transition-colors">Codex</div>
-                <div className="text-[0.75rem] font-mono uppercase tracking-[0.18em] text-gray-400">OpenAI · Codex CLI</div>
-                <div className="mt-0.5 text-[0.70rem] uppercase tracking-[0.14em] text-gray-500">Agentic coding · Autonomous tasks</div>
+                <div className="text-xs font-black text-white group-hover:text-gray-300 transition-colors">Codex</div>
+                <div className="text-[0.65rem] font-mono uppercase tracking-widest text-gray-500">OpenAI · Codex CLI</div>
               </div>
             </a>
-
           </div>
         </section>
+
       </div>
       </SectionFrame>
       </main>
