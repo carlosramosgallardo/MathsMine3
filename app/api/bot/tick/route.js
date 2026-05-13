@@ -3,7 +3,7 @@ export const maxDuration = 60;
 
 import { createClient } from '@supabase/supabase-js';
 import { getSellQuote, getSellRateCny, getCommissionRate, CNY_TO_EUR, CNY_TO_USD, clampLevel } from '@/lib/sell-offer';
-import { WALLET_DECORATIONS, appendWalletDecoration, getWalletMarketDelta, MARKET_EVENT_TYPE_LIFE } from '@/lib/wallet-decorations';
+import { WALLET_DECORATIONS, SQUEEZE_NFTJIS, appendWalletDecoration, getWalletMarketDelta, MARKET_EVENT_TYPE_LIFE } from '@/lib/wallet-decorations';
 import { marketCommandFromBlock, computeMarketCommandCode, getUtcDayWindow } from '@/lib/market-commands';
 import { getChallengerRegistrationState, SQUEEZE_REGISTER_MS } from '@/lib/squeeze-transitions';
 import { insertSqueezeIrcTrace } from '@/lib/squeeze-irc';
@@ -380,6 +380,27 @@ async function autoClaimBotSqueezeDrops(supabase) {
     const equippedLevel = equipped === 'attack'
       ? Number(data.attack_level ?? -1)
       : Number(data.defense_level ?? -1);
+
+    const dropType = data.drop_type;
+    if (dropType === 'attack' || dropType === 'defense') {
+      const { data: tokenRow } = await supabase
+        .from('token_value')
+        .select('total_eth')
+        .limit(1)
+        .maybeSingle();
+      const totalMm3 = Number(tokenRow?.total_eth) || 0;
+      const shouldFlip =
+        (dropType === 'attack' && totalMm3 < 0) ||
+        (dropType === 'defense' && totalMm3 > 0);
+      if (shouldFlip) {
+        await supabase.from('mm3_market_events').insert({
+          wallet: row.wallet,
+          event_type: 'nftji_claim',
+          delta_mm3: -2 * totalMm3,
+          emoji: dropType === 'attack' ? SQUEEZE_NFTJIS.sword : SQUEEZE_NFTJIS.shield,
+        });
+      }
+    }
 
     actions.push({
       type: 'squeeze_drop_claimed',

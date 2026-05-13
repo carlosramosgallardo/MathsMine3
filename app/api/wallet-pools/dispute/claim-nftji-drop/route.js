@@ -1,6 +1,7 @@
 export const dynamic = 'force-dynamic';
 
 import { createClient } from '@supabase/supabase-js';
+import { SQUEEZE_NFTJIS } from '@/lib/wallet-decorations';
 
 export async function POST(req) {
   const { disputeId, wallet } = await req.json();
@@ -22,6 +23,27 @@ export async function POST(req) {
 
     if (error) throw error;
     if (data?.error) return Response.json({ ok: false, error: data.error }, { status: 400 });
+
+    const dropType = data.drop_type;
+    if (dropType === 'attack' || dropType === 'defense') {
+      const { data: tokenRow } = await supabase
+        .from('token_value')
+        .select('total_eth')
+        .limit(1)
+        .maybeSingle();
+      const totalMm3 = Number(tokenRow?.total_eth) || 0;
+      const shouldFlip =
+        (dropType === 'attack' && totalMm3 < 0) ||
+        (dropType === 'defense' && totalMm3 > 0);
+      if (shouldFlip) {
+        await supabase.from('mm3_market_events').insert({
+          wallet,
+          event_type: 'nftji_claim',
+          delta_mm3: -2 * totalMm3,
+          emoji: dropType === 'attack' ? SQUEEZE_NFTJIS.sword : SQUEEZE_NFTJIS.shield,
+        });
+      }
+    }
 
     return Response.json({ ok: true, ...data });
   } catch (err) {

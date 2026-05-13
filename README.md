@@ -533,6 +533,19 @@ Two rare NFTJIs drop exclusively from Squeeze battles (1/5 probability per resol
 - **⚔️ Attack** — each equipped wallet contributes `(level+1)` units to its pool's `⚔️_atk_sum`. Weight ×20 in the base formula.
 - **🛡️ Defense** — reduces personal EUR stake loss on defeat: `min(50%, (level+1)×5%)` recovered. Level 9 = maximum 50% protection.
 
+**Global MM3 impact on claim:**
+
+When any wallet claims a Squeeze NFTJi drop, the global MM3 value is flipped to match the drop polarity — but only if the current sign is opposite:
+
+| Drop | Condition | Effect |
+|---|---|---|
+| ⚔️ Attack | MM3 < 0 (negative) | MM3 flipped to positive (same absolute value) |
+| ⚔️ Attack | MM3 ≥ 0 (positive or zero) | No change |
+| 🛡️ Defense | MM3 > 0 (positive) | MM3 flipped to negative (same absolute value) |
+| 🛡️ Defense | MM3 ≤ 0 (negative or zero) | No change |
+
+The flip is applied by inserting a `nftji_claim` event into `mm3_market_events` with `delta = −2 × total_eth`. If multiple wallets claim the same drop type in the same Squeeze, only the first claim triggers the flip (subsequent claims find MM3 already in the correct polarity and do nothing). Implemented in `claim-nftji-drop/route.js` (real users) and `autoClaimBotSqueezeDrops` inside `bot/tick/route.js` (bots).
+
 **Progression:**
 - Only one type equipped at a time (avatar slot).
 - Both types owned simultaneously with independent level counters.
@@ -1323,6 +1336,19 @@ Dos NFTJIs raros caen exclusivamente en combates Squeeze (probabilidad 1/5 por r
 
 - **⚔️ Ataque** — cada wallet con él equipado contribuye `(nivel+1)` unidades al `⚔️_atk_sum` del pool. Peso ×20 en la fórmula base.
 - **🛡️ Defensa** — reduce la pérdida personal de stake en derrota: `min(50%, (nivel+1)×5%)` recuperado. Nivel 9 = protección máxima del 50%.
+
+**Impacto global en el valor de MM3 al reclamar:**
+
+Cuando cualquier wallet reclama un drop de NFTJI Squeeze, el valor global de MM3 se voltea para coincidir con la polaridad del drop — pero solo si el signo actual es opuesto:
+
+| Drop | Condición | Efecto |
+|---|---|---|
+| ⚔️ Ataque | MM3 < 0 (negativo) | MM3 pasa a positivo (mismo valor absoluto) |
+| ⚔️ Ataque | MM3 ≥ 0 (positivo o cero) | Sin cambio |
+| 🛡️ Defensa | MM3 > 0 (positivo) | MM3 pasa a negativo (mismo valor absoluto) |
+| 🛡️ Defensa | MM3 ≤ 0 (negativo o cero) | Sin cambio |
+
+El volteo se aplica insertando un evento `nftji_claim` en `mm3_market_events` con `delta = −2 × total_eth`. Si varias wallets reclaman el mismo tipo de drop en el mismo Squeeze, solo la primera reclamación dispara el volteo (las siguientes encuentran MM3 ya en la polaridad correcta y no hacen nada). Implementado en `claim-nftji-drop/route.js` (usuarios reales) y `autoClaimBotSqueezeDrops` dentro de `bot/tick/route.js` (bots).
 
 **Progresión:**
 - Solo un tipo equipado simultáneamente (slot de avatar).
