@@ -2,6 +2,7 @@ export const dynamic = 'force-dynamic';
 
 import { createClient } from '@supabase/supabase-js';
 import { SQUEEZE_NFTJIS } from '@/lib/wallet-decorations';
+import { getDiceState } from '@/lib/dice';
 
 export async function POST(req) {
   const { disputeId, wallet } = await req.json();
@@ -36,10 +37,12 @@ export async function POST(req) {
         (dropType === 'attack' && totalMm3 < 0) ||
         (dropType === 'defense' && totalMm3 > 0);
       if (shouldFlip) {
+        const liveDice = getDiceState();
+        const dm = liveDice.active ? liveDice.modifier : 0;
         await supabase.from('mm3_market_events').insert({
           wallet,
           event_type: 'nftji_claim',
-          delta_mm3: -2 * totalMm3,
+          delta_mm3: -2 * totalMm3 * (1 + dm),
           emoji: dropType === 'attack' ? SQUEEZE_NFTJIS.sword : SQUEEZE_NFTJIS.shield,
         });
       }

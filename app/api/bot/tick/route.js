@@ -449,10 +449,12 @@ async function autoClaimBotSqueezeDrops(supabase) {
         (dropType === 'attack' && totalMm3 < 0) ||
         (dropType === 'defense' && totalMm3 > 0);
       if (shouldFlip) {
+        const squeezeDice = getDiceState();
+        const squeezeDm = squeezeDice.active ? squeezeDice.modifier : 0;
         await supabase.from('mm3_market_events').insert({
           wallet: row.wallet,
           event_type: 'nftji_claim',
-          delta_mm3: -2 * totalMm3,
+          delta_mm3: -2 * totalMm3 * (1 + squeezeDm),
           emoji: dropType === 'attack' ? SQUEEZE_NFTJIS.sword : SQUEEZE_NFTJIS.shield,
         });
       }
