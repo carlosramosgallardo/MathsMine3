@@ -2,7 +2,7 @@ export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
 import { createClient } from '@supabase/supabase-js';
-import { getSellQuote, getSellRateCny, getCommissionRate, CNY_TO_EUR, CNY_TO_USD, clampLevel } from '@/lib/sell-offer';
+import { getSellQuote, getBuyQuote, getSellRateCny, getCommissionRate, CNY_TO_EUR, CNY_TO_USD, clampLevel } from '@/lib/sell-offer';
 import { WALLET_DECORATIONS, SQUEEZE_NFTJIS, appendWalletDecoration, getWalletMarketDelta, MARKET_EVENT_TYPE_LIFE } from '@/lib/wallet-decorations';
 import { marketCommandFromBlock, computeMarketCommandCode, getUtcDayWindow } from '@/lib/market-commands';
 import { getChallengerRegistrationState, SQUEEZE_REGISTER_MS } from '@/lib/squeeze-transitions';
@@ -14,6 +14,22 @@ const BOT_WALLETS = [
   '0xd6c6c15060b27406d956c7e99e520cc810b44233',
   '0xd89413f5f444cd420b448cda3bc096ea9c46e8ab',
 ];
+
+// Each bot has a distinct trading strategy
+const BOT_STRATEGIES = new Map([
+  ['0xcab10d0e0650d45cb0b7482370a1ca93d5bf5528', 'sell_mm3'],   // aggressive seller
+  ['0xcb4ccfa7de7bf861ff0383b668e682d2ee20e202', 'buy_mm3'],    // accumulator / buyer
+  ['0xd6c6c15060b27406d956c7e99e520cc810b44233', 'market_buy'], // premium market collector
+  ['0xd89413f5f444cd420b448cda3bc096ea9c46e8ab', 'market_sell'],// market flipper
+]);
+
+// Probability [0–1] that this strategy's pool initiates a squeeze on a given tick
+const STRATEGY_SQUEEZE_PROB = {
+  sell_mm3:    0.90,
+  market_sell: 0.75,
+  market_buy:  0.55,
+  buy_mm3:     0.30,
+};
 const DAILY_MINE_BASE = 100;
 const PRICE = Number(process.env.NEXT_PUBLIC_FAKE_MINING_PRICE) || 0.00001;
 const DAILY_TRADE_LIMIT = 5;
@@ -134,6 +150,45 @@ function chooseBotMarketTarget({ buyableBlocks, currentMarketKey, currentMarketP
     .sort((a, b) => {
       if (a.level !== b.level) return a.level - b.level;
       if (a.price !== b.price) return a.price - b.price;
+      return String(a.block.block_key).localeCompare(String(b.block.block_key));
+    });
+  return candidates[0]?.block || null;
+}
+
+// market_buy strategy: targets highest-level / most expensive block affordable
+function chooseBotMarketTargetPremium({ buyableBlocks, currentMarketKey, currentMarketPrice, marketLevels, botEur }) {
+  const resellReturn = currentMarketKey ? currentMarketPrice * 0.5 : 0;
+  const budget = botEur + resellReturn;
+  const candidates = (buyableBlocks || [])
+    .filter((block) => block.block_key !== currentMarketKey)
+    .filter((block) => Number(block.price_eur) <= budget)
+    .map((block) => ({
+      block,
+      level: Number(marketLevels?.[block.block_key] ?? -1),
+      price: Number(block.price_eur) || 0,
+    }))
+    .sort((a, b) => {
+      if (a.level !== b.level) return b.level - a.level; // highest level first
+      if (a.price !== b.price) return b.price - a.price; // most expensive first
+      return String(a.block.block_key).localeCompare(String(b.block.block_key));
+    });
+  return candidates[0]?.block || null;
+}
+
+// market_sell strategy: picks cheapest block (maximises flip frequency)
+function chooseBotMarketTargetFlip({ buyableBlocks, currentMarketKey, currentMarketPrice, marketLevels, botEur }) {
+  const resellReturn = currentMarketKey ? currentMarketPrice * 0.5 : 0;
+  const budget = botEur + resellReturn;
+  // Allow rebuying the same block so the flipper always churns
+  const candidates = (buyableBlocks || [])
+    .filter((block) => Number(block.price_eur) <= budget)
+    .map((block) => ({
+      block,
+      level: Number(marketLevels?.[block.block_key] ?? -1),
+      price: Number(block.price_eur) || 0,
+    }))
+    .sort((a, b) => {
+      if (a.price !== b.price) return a.price - b.price; // cheapest first
       return String(a.block.block_key).localeCompare(String(b.block.block_key));
     });
   return candidates[0]?.block || null;
@@ -467,22 +522,61 @@ async function maybeLaunchBotSqueeze(supabase) {
     return actions;
   }
 
-  const shuffledPools = [...readyPools].sort(() => Math.random() - 0.5);
-  let challengerPool = null;
-  let defenderPool = null;
-  let launchCount = 0;
-  for (const poolCode of shuffledPools) {
-    const count = await getSqueezePoolLaunchCount(supabase, poolCode);
-    if (count >= SQUEEZE_LAUNCH_LIMIT) continue;
-    challengerPool = poolCode;
-    defenderPool = shuffledPools.find((candidate) => candidate !== challengerPool);
-    launchCount = count;
-    break;
+  // Build pool → strategy mapping using the most aggressive bot's strategy per pool
+  const poolStrategyMap = new Map();
+  for (const [poolCode, bots] of botsByPool.entries()) {
+    let bestStrat = 'sell_mm3';
+    let bestProb = 0;
+    for (const botWallet of bots) {
+      const s = BOT_STRATEGIES.get(botWallet) || 'sell_mm3';
+      const p = STRATEGY_SQUEEZE_PROB[s] ?? 0.5;
+      if (p > bestProb) { bestProb = p; bestStrat = s; }
+    }
+    poolStrategyMap.set(poolCode, { strategy: bestStrat, prob: bestProb });
   }
 
-  if (!challengerPool || !defenderPool) {
-    console.log('[squeeze] skip: all pools at launch limit =>', SQUEEZE_LAUNCH_LIMIT, 'shuffledPools =>', shuffledPools);
+  // Collect launch counts for all ready pools
+  const poolLaunchCounts = new Map();
+  for (const poolCode of readyPools) {
+    poolLaunchCounts.set(poolCode, await getSqueezePoolLaunchCount(supabase, poolCode));
+  }
+
+  const availablePools = readyPools.filter(p => (poolLaunchCounts.get(p) || 0) < SQUEEZE_LAUNCH_LIMIT);
+  if (availablePools.length < 2) {
+    console.log('[squeeze] skip: all pools at launch limit =>', SQUEEZE_LAUNCH_LIMIT);
     actions.push({ type: 'squeeze_launch_limit_reached', count: SQUEEZE_LAUNCH_LIMIT });
+    return actions;
+  }
+
+  // Each pool rolls against its strategy's aggression probability
+  const wantToChallenge = availablePools.filter(p => {
+    const { prob } = poolStrategyMap.get(p) || { prob: 0.5 };
+    return Math.random() < prob;
+  });
+
+  if (wantToChallenge.length === 0) {
+    // No pool was aggressive enough to launch this tick
+    return actions;
+  }
+
+  // Most aggressive pool challenges first
+  wantToChallenge.sort((a, b) =>
+    ((poolStrategyMap.get(b) || {}).prob || 0.5) - ((poolStrategyMap.get(a) || {}).prob || 0.5)
+  );
+
+  const challengerPool = wantToChallenge[0];
+  const launchCount = poolLaunchCounts.get(challengerPool) || 0;
+  const challengerProb = (poolStrategyMap.get(challengerPool) || {}).prob || 0.5;
+
+  // Prefer a defender with the most contrasting aggression (cross-strategy matchup)
+  const potentialDefenders = availablePools.filter(p => p !== challengerPool);
+  potentialDefenders.sort((a, b) =>
+    Math.abs(((poolStrategyMap.get(b) || {}).prob || 0.5) - challengerProb) -
+    Math.abs(((poolStrategyMap.get(a) || {}).prob || 0.5) - challengerProb)
+  );
+  const defenderPool = potentialDefenders[0];
+
+  if (!challengerPool || !defenderPool) {
     return actions;
   }
 
@@ -626,6 +720,7 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
     usd_earned: Number(progressRow?.usd_earned) || 0,
     cny_earned: Number(progressRow?.cny_earned) || 0,
   };
+  const strategy = BOT_STRATEGIES.get(normalizeWallet(wallet)) || 'sell_mm3';
 
   async function claimDailyReward(taskKey, rewardEur) {
     if (claimedTasks.has(taskKey)) return false;
@@ -821,90 +916,150 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
   }
 
   // ── TRADES (paced for frequent cron ticks) ────────────────
-  if (tradesToRun > 0 && availableMm3 > 0.000001) {
+  if (tradesToRun > 0) {
     const { data: macro } = await supabase.from('mm3_macro_state')
       .select('war_percent, nature_percent').eq('id', 1).maybeSingle();
     let macroState = { war_percent: Number(macro?.war_percent) || 50, nature_percent: Number(macro?.nature_percent) || 50 };
 
-    let currentEur = botFunds.eur_earned;
-    let currentCny = botFunds.cny_earned;
-    let currentUsd = botFunds.usd_earned;
-    let currentMm3Sold = mm3Sold;
+    if (strategy === 'buy_mm3') {
+      // ── BUY MM3 strategy: spend earned fiat to accumulate MM3 ──
+      let spentEurTotal = 0;
+      let boughtMm3Total = 0;
+      let tradesThisTick = 0;
+      const minBalance = 0.005; // keep a small EUR reserve
 
-    // Always keep 30% of MM3 untouched — bot never sells everything
-    const mm3Reserve = availableMm3 * 0.30;
+      while (tradesThisTick < tradesToRun && (botFunds.eur_earned - spentEurTotal) > minBalance) {
+        const remainingEur = botFunds.eur_earned - spentEurTotal - minBalance;
+        const spendEur = Math.max(0, remainingEur * (0.20 + Math.random() * 0.20));
+        if (spendEur < 0.001) break;
 
-    let tradesThisTick = 0;
-    while (tradesThisTick < tradesToRun && availableMm3 > mm3Reserve + 0.000001) {
-      const fraction = 0.10 + Math.random() * 0.20;
-      const sellMm3 = Math.min(availableMm3 * fraction, availableMm3 - mm3Reserve);
-      const rateCny = getSellRateCny(level);
-      const commissionRate = getCommissionRate(sellMm3);
-      const commissionMm3 = sellMm3 * commissionRate;
-      const grossCny = sellMm3 * rateCny;
-      const commissionCny = grossCny * commissionRate;
-      const netCny = Math.max(0, grossCny - commissionCny);
+        const buyQuote = getBuyQuote(level, spendEur, 'EUR', walletEmojis, macroState);
+        if (buyQuote.grossMm3 <= 0) break;
 
-      await supabase.from('mm3_sell_transactions').insert({
-        wallet,
-        source: 'wallet',
-        level,
-        mm3_amount: sellMm3,
-        mm3_commission: commissionMm3,
-        rate_cny: rateCny,
-        gross_cny: grossCny,
-        gross_eur: grossCny * CNY_TO_EUR,
-        gross_usd: grossCny * CNY_TO_USD,
-        commission_rate: commissionRate,
-        commission_cny: commissionCny,
-        commission_eur: commissionCny * CNY_TO_EUR,
-        commission_usd: commissionCny * CNY_TO_USD,
-        net_cny: netCny,
-        net_eur: netCny * CNY_TO_EUR,
-        net_usd: netCny * CNY_TO_USD,
-        created_at: new Date(Date.now() + tradesTodayCount * 120_000).toISOString(),
-      });
+        const spentCny = spendEur / CNY_TO_EUR;
+        const spentUsd = spentCny * CNY_TO_USD;
 
-      await supabase.from('mm3_market_events').insert({
-        wallet,
-        event_type: 'market_resell',
-        delta_mm3: -sellMm3,
-        emoji: '📉',
-      });
+        await supabase.from('mm3_sell_transactions').insert({
+          wallet, source: 'wallet', level,
+          mm3_amount: -buyQuote.grossMm3,
+          mm3_commission: buyQuote.commissionMm3,
+          rate_cny: buyQuote.rateCny,
+          gross_cny: -buyQuote.grossCny,
+          gross_eur: -spendEur,
+          gross_usd: -spentUsd,
+          commission_rate: buyQuote.commissionRate,
+          commission_cny: buyQuote.commissionCny,
+          commission_eur: buyQuote.commissionCny * CNY_TO_EUR,
+          commission_usd: buyQuote.commissionCny * CNY_TO_USD,
+          net_cny: -(buyQuote.grossCny - buyQuote.commissionCny),
+          net_eur: -((buyQuote.grossCny - buyQuote.commissionCny) * CNY_TO_EUR),
+          net_usd: -((buyQuote.grossCny - buyQuote.commissionCny) * CNY_TO_USD),
+          created_at: new Date(Date.now() + tradesTodayCount * 120_000).toISOString(),
+        });
 
-      currentEur += netCny * CNY_TO_EUR;
-      currentCny += netCny;
-      currentUsd += netCny * CNY_TO_USD;
-      currentMm3Sold += sellMm3;
-      availableMm3 -= sellMm3;
-      tradesTodayCount++;
-      tradesThisTick++;
+        await supabase.from('mm3_market_events').insert({
+          wallet, event_type: 'market_buy', delta_mm3: buyQuote.grossMm3, emoji: '📈',
+        });
 
-      actions.push({ type: 'trade', mm3_sold: sellMm3, net_eur: netCny * CNY_TO_EUR });
+        spentEurTotal += spendEur;
+        boughtMm3Total += buyQuote.netMm3;
+        tradesTodayCount++;
+        tradesThisTick++;
+        actions.push({ type: 'trade', mm3_bought: buyQuote.netMm3, spent_eur: spendEur });
+      }
 
-      // Nudge macro ±10%
-      const nudge = (v) => Math.round(Math.max(0, Math.min(100, v + (Math.random() * 20 - 10))) * 10) / 10;
-      macroState = { war_percent: nudge(macroState.war_percent), nature_percent: nudge(macroState.nature_percent) };
+      if (spentEurTotal > 0) {
+        const spentCny = spentEurTotal / CNY_TO_EUR;
+        const spentUsd = spentCny * CNY_TO_USD;
+        await supabase.from('player_progress').upsert({
+          wallet, is_bot: true,
+          eur_earned: Math.max(0, botFunds.eur_earned - spentEurTotal),
+          cny_earned: Math.max(0, botFunds.cny_earned - spentCny),
+          usd_earned: Math.max(0, botFunds.usd_earned - spentUsd),
+          mm3_sold: Math.max(0, mm3Sold - boughtMm3Total),
+          updated_at: now,
+        }, { onConflict: 'wallet', ignoreDuplicates: false });
+        botFunds.eur_earned = Math.max(0, botFunds.eur_earned - spentEurTotal);
+        botFunds.cny_earned = Math.max(0, botFunds.cny_earned - spentCny);
+        botFunds.usd_earned = Math.max(0, botFunds.usd_earned - spentUsd);
+      }
+    } else if (availableMm3 > 0.000001) {
+      // ── SELL MM3 strategy (sell_mm3, market_buy, market_sell) ──
+      let currentEur = botFunds.eur_earned;
+      let currentCny = botFunds.cny_earned;
+      let currentUsd = botFunds.usd_earned;
+      let currentMm3Sold = mm3Sold;
+
+      // market_buy saves more MM3 (sells less aggressively), market_sell churns faster
+      const reserveFraction = strategy === 'market_buy' ? 0.50 : 0.30;
+      const mm3Reserve = availableMm3 * reserveFraction;
+
+      let tradesThisTick = 0;
+      while (tradesThisTick < tradesToRun && availableMm3 > mm3Reserve + 0.000001) {
+        const fraction = strategy === 'market_sell'
+          ? 0.20 + Math.random() * 0.30  // market_sell trades larger slices
+          : 0.10 + Math.random() * 0.20;
+        const sellMm3 = Math.min(availableMm3 * fraction, availableMm3 - mm3Reserve);
+        const rateCny = getSellRateCny(level);
+        const commissionRate = getCommissionRate(sellMm3);
+        const commissionMm3 = sellMm3 * commissionRate;
+        const grossCny = sellMm3 * rateCny;
+        const commissionCny = grossCny * commissionRate;
+        const netCny = Math.max(0, grossCny - commissionCny);
+
+        await supabase.from('mm3_sell_transactions').insert({
+          wallet, source: 'wallet', level,
+          mm3_amount: sellMm3,
+          mm3_commission: commissionMm3,
+          rate_cny: rateCny,
+          gross_cny: grossCny,
+          gross_eur: grossCny * CNY_TO_EUR,
+          gross_usd: grossCny * CNY_TO_USD,
+          commission_rate: commissionRate,
+          commission_cny: commissionCny,
+          commission_eur: commissionCny * CNY_TO_EUR,
+          commission_usd: commissionCny * CNY_TO_USD,
+          net_cny: netCny,
+          net_eur: netCny * CNY_TO_EUR,
+          net_usd: netCny * CNY_TO_USD,
+          created_at: new Date(Date.now() + tradesTodayCount * 120_000).toISOString(),
+        });
+
+        await supabase.from('mm3_market_events').insert({
+          wallet, event_type: 'market_resell', delta_mm3: -sellMm3, emoji: '📉',
+        });
+
+        currentEur += netCny * CNY_TO_EUR;
+        currentCny += netCny;
+        currentUsd += netCny * CNY_TO_USD;
+        currentMm3Sold += sellMm3;
+        availableMm3 -= sellMm3;
+        tradesTodayCount++;
+        tradesThisTick++;
+        actions.push({ type: 'trade', mm3_sold: sellMm3, net_eur: netCny * CNY_TO_EUR });
+
+        const nudge = (v) => Math.round(Math.max(0, Math.min(100, v + (Math.random() * 20 - 10))) * 10) / 10;
+        macroState = { war_percent: nudge(macroState.war_percent), nature_percent: nudge(macroState.nature_percent) };
+      }
+
+      await supabase.from('mm3_macro_state').update({
+        war_percent: macroState.war_percent,
+        nature_percent: macroState.nature_percent,
+        updated_at: now,
+      }).eq('id', 1);
+
+      await supabase.from('player_progress').upsert({
+        wallet, is_bot: true,
+        mm3_sold: currentMm3Sold,
+        eur_earned: currentEur,
+        cny_earned: currentCny,
+        usd_earned: currentUsd,
+        updated_at: now,
+      }, { onConflict: 'wallet', ignoreDuplicates: false });
+      botFunds.eur_earned = currentEur;
+      botFunds.cny_earned = currentCny;
+      botFunds.usd_earned = currentUsd;
     }
-
-    await supabase.from('mm3_macro_state').update({
-      war_percent: macroState.war_percent,
-      nature_percent: macroState.nature_percent,
-      updated_at: now,
-    }).eq('id', 1);
-
-    await supabase.from('player_progress').upsert({
-      wallet,
-      is_bot: true,
-      mm3_sold: currentMm3Sold,
-      eur_earned: currentEur,
-      cny_earned: currentCny,
-      usd_earned: currentUsd,
-      updated_at: now,
-    }, { onConflict: 'wallet', ignoreDuplicates: false });
-    botFunds.eur_earned = currentEur;
-    botFunds.cny_earned = currentCny;
-    botFunds.usd_earned = currentUsd;
   }
 
   // ── DAILY REWARDS available before market ────────────────
@@ -953,13 +1108,13 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
 
     let targetBlock = null;
 
-    targetBlock = chooseBotMarketTarget({
-      buyableBlocks,
-      currentMarketKey,
-      currentMarketPrice,
-      marketLevels: currentLevels,
-      botEur,
-    });
+    if (strategy === 'market_buy') {
+      targetBlock = chooseBotMarketTargetPremium({ buyableBlocks, currentMarketKey, currentMarketPrice, marketLevels: currentLevels, botEur });
+    } else if (strategy === 'market_sell') {
+      targetBlock = chooseBotMarketTargetFlip({ buyableBlocks, currentMarketKey, currentMarketPrice, marketLevels: currentLevels, botEur });
+    } else {
+      targetBlock = chooseBotMarketTarget({ buyableBlocks, currentMarketKey, currentMarketPrice, marketLevels: currentLevels, botEur });
+    }
 
     if (targetBlock) {
       const newPrice = Number(targetBlock.price_eur);
