@@ -865,6 +865,13 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
         created_at: new Date(Date.now() + tradesTodayCount * 120_000).toISOString(),
       });
 
+      await supabase.from('mm3_market_events').insert({
+        wallet,
+        event_type: 'market_resell',
+        delta_mm3: -sellMm3,
+        emoji: '📉',
+      });
+
       currentEur += netCny * CNY_TO_EUR;
       currentCny += netCny;
       currentUsd += netCny * CNY_TO_USD;

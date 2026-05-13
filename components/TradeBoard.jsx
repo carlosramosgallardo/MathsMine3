@@ -544,6 +544,18 @@ export default function TradeBoard({ account, isVirtualWallet = false }) {
       });
       if (txError) throw txError;
 
+      const tradeDelta = mode === 'buy'
+        ? Number(liveTradeQuote.grossMm3 || 0)
+        : -Number(liveTradeQuote.totalMm3 || 0);
+      if (tradeDelta !== 0) {
+        await supabase.from('mm3_market_events').insert({
+          wallet,
+          event_type: mode === 'buy' ? 'market_buy' : 'market_resell',
+          delta_mm3: tradeDelta,
+          emoji: mode === 'buy' ? '📈' : '📉',
+        }).catch(() => {});
+      }
+
       pushToast(
         mode === 'buy'
           ? `${t('tradeBoard.buySuccess')} ${formatMoney(liveTradeQuote.grossEur, 'EUR')} / ${formatMoney(liveTradeQuote.grossUsd, 'USD')} / ${formatMoney(liveTradeQuote.grossCny, 'CNY')} -> ${fmtMm3(liveTradeQuote.netMm3)} MM3.`

@@ -105,6 +105,8 @@ function emojiColor(emoji) {
   if (emoji === '❤️') return '#ef4444'
   if (emoji === '⚔️') return '#f97316'
   if (emoji === '🔰') return '#3b82f6'
+  if (emoji === '📈') return '#22c55e'
+  if (emoji === '📉') return '#f43f5e'
   return C
 }
 
@@ -115,6 +117,8 @@ function groupColor(evts) {
   if (evts.some(e => e.emoji === '🍀')) return UP
   if (evts.some(e => e.emoji === '⚔️')) return '#f97316'
   if (evts.some(e => e.emoji === '🔰')) return '#3b82f6'
+  if (evts.some(e => e.emoji === '📈')) return '#22c55e'
+  if (evts.some(e => e.emoji === '📉')) return '#f43f5e'
   return C
 }
 
@@ -483,6 +487,8 @@ const NFT_LEGEND_BASE = [
   { emoji: '❤️', key: 'legendLife',       clr: '#ef4444' },
   { emoji: '⚔️', key: 'legendSqAttack',  clr: '#f97316' },
   { emoji: '🔰', key: 'legendSqDefense', clr: '#3b82f6' },
+  { emoji: '📈', key: 'legendTradeBuy',  clr: '#22c55e' },
+  { emoji: '📉', key: 'legendTradeSell', clr: '#f43f5e' },
 ]
 
 /* ── Dice windows hook ── */
