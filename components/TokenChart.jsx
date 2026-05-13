@@ -103,6 +103,8 @@ function emojiColor(emoji) {
   if (emoji === '🎰') return '#f59e0b'
   if (emoji === '🍀') return UP
   if (emoji === '❤️') return '#ef4444'
+  if (emoji === '⚔️') return '#f97316'
+  if (emoji === '🔰') return '#3b82f6'
   return C
 }
 
@@ -111,6 +113,8 @@ function groupColor(evts) {
   if (evts.some(e => e.emoji === '🎰')) return '#f59e0b'
   if (evts.some(e => e.emoji === '❤️')) return '#ef4444'
   if (evts.some(e => e.emoji === '🍀')) return UP
+  if (evts.some(e => e.emoji === '⚔️')) return '#f97316'
+  if (evts.some(e => e.emoji === '🔰')) return '#3b82f6'
   return C
 }
 
@@ -472,11 +476,13 @@ function ChartPointDetail({ point, label, nftEvents, range, t, isMobile }) {
 
 /* ── NFT legend items — built inside component to pick up t() ── */
 const NFT_LEGEND_BASE = [
-  { emoji: '🧿', key: 'legendFate',    clr: '#c084fc' },
-  { emoji: '🎰', key: 'legendJackpot', clr: '#f59e0b' },
-  { emoji: '🍀', key: 'legendFortune', clr: UP },
-  { emoji: '🔮', key: 'legendVoid',    clr: C },
-  { emoji: '❤️', key: 'legendLife',    clr: '#ef4444' },
+  { emoji: '🧿', key: 'legendFate',       clr: '#c084fc' },
+  { emoji: '🎰', key: 'legendJackpot',    clr: '#f59e0b' },
+  { emoji: '🍀', key: 'legendFortune',    clr: UP },
+  { emoji: '🔮', key: 'legendVoid',       clr: C },
+  { emoji: '❤️', key: 'legendLife',       clr: '#ef4444' },
+  { emoji: '⚔️', key: 'legendSqAttack',  clr: '#f97316' },
+  { emoji: '🔰', key: 'legendSqDefense', clr: '#3b82f6' },
 ]
 
 /* ── Dice windows hook ── */
