@@ -16,6 +16,14 @@ const BOT_WALLETS = [
   '0xd89413f5f444cd420b448cda3bc096ea9c46e8ab',
 ];
 
+// Pool membership per bot (for time-window checks in IRC messages)
+const BOT_POOL_MAP = new Map([
+  ['0xcab10d0e0650d45cb0b7482370a1ca93d5bf5528', 'FHNN6'],
+  ['0xcb4ccfa7de7bf861ff0383b668e682d2ee20e202', 'FHNN6'],
+  ['0xd6c6c15060b27406d956c7e99e520cc810b44233', '8FR49'],
+  ['0xd89413f5f444cd420b448cda3bc096ea9c46e8ab', '8FR49'],
+]);
+
 // Each bot has a distinct trading strategy
 const BOT_STRATEGIES = new Map([
   ['0xcab10d0e0650d45cb0b7482370a1ca93d5bf5528', 'sell_mm3'],   // aggressive seller
@@ -1377,31 +1385,75 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
     const marketResellAction = actions.find((a) => a.type === 'market_resell');
     const marketCmdAction = actions.find((a) => a.type === 'market_command');
     const squeezeDropAction = actions.find((a) => a.type === 'squeeze_drop_claimed');
+    const squeezeProposeAction = actions.find((a) => a.type === 'squeeze_proposed');
 
     const gamesCount = gamesAction?.count || 0;
     const mm3Mined = gamesAction?.total_mining_reward || 0;
     const nftjiDrops = gamesAction?.nftji_drops || null;
-    const eurEarned = tradeActions.reduce((sum, t) => sum + (t.net_eur || 0), 0);
+    const eurFromTrades = tradeActions.reduce((sum, t) => sum + (t.net_eur || -(t.spent_eur || 0)), 0);
     const tasksCompleted = claimActions.map((c) => ({
       irc: 'irc(public)',
       ircHidden: 'irc(secret)',
     }[c.taskKey] || c.taskKey));
 
+    // ── mining
     let botMsg = `ran ${gamesCount} drills`;
     if (mm3Mined !== 0) botMsg += ` :: ${mm3Mined >= 0 ? '+' : ''}${mm3Mined.toFixed(6)} MM3`;
-    if (eurEarned > 0) botMsg += ` / +${eurEarned.toFixed(4)} EUR`;
-    botMsg += nftjiDrops ? ` :: nftji drops: ${nftjiDrops}` : ` :: no nftji drop`;
-    if (gamesAction?.life_bought) botMsg += ` :: bought life (${gamesAction.life_bought})`;
-    if (marketResellAction) botMsg += ` :: resell ${marketResellAction.blockLabel || marketResellAction.blockKey} +€${marketResellAction.returnEur.toFixed(2)}`;
-    if (marketBuyAction) botMsg += ` :: buy ${marketBuyAction.blockLabel || marketBuyAction.blockKey} €${marketBuyAction.priceEur.toFixed(2)}`;
-    if (marketCmdAction) botMsg += ` :: cmd ${marketCmdAction.blockLabel || marketCmdAction.blockKey} x=${marketCmdAction.x} (${marketCmdAction.penalties} hit)`;
-    if (squeezeDropAction) {
-      const dropEmoji = squeezeDropAction.dropType === 'attack' ? '⚔️' : '🔰';
-      botMsg += ` :: squeeze drop ${dropEmoji} Lv.${Math.max(0, Number(squeezeDropAction.equippedLevel) || 0)} equip ${squeezeDropAction.equipped}`;
+    botMsg += nftjiDrops ? ` :: drops: ${nftjiDrops}` : ` :: no drop`;
+    if (gamesAction?.life_bought) botMsg += ` :: life(${gamesAction.life_bought})`;
+
+    // ── trades
+    if (!inTradeWindow) {
+      botMsg += ` :: trade: idle(window ${tradeWindows.map(([s, e]) => `${s}-${e}`).join('/')})`;
+    } else if (wantsBuyNftji) {
+      botMsg += ` :: trade: saved(pending nftji)`;
+    } else if (tradeActions.length > 0) {
+      const tradeDir = strategy === 'buy_mm3' ? 'buy' : 'sell';
+      botMsg += ` :: trade: ${tradeActions.length}x ${tradeDir} ${eurFromTrades >= 0 ? '+' : ''}${eurFromTrades.toFixed(4)} EUR`;
+    } else {
+      botMsg += ` :: trade: idle`;
     }
+
+    // ── market NFTJI
+    if (marketResellAction) botMsg += ` :: resell ${marketResellAction.blockLabel || marketResellAction.blockKey} +€${marketResellAction.returnEur.toFixed(2)}`;
+    if (marketBuyAction) {
+      botMsg += ` :: nftji→${marketBuyAction.blockLabel || marketBuyAction.blockKey} €${marketBuyAction.priceEur.toFixed(2)}`;
+    } else if (dailyNftjiTarget) {
+      const holding = dailyNftjiTarget.block_key === currentMarketKey;
+      if (holding) {
+        botMsg += ` :: nftji=${getMarketBlockLabel(dailyNftjiTarget, dailyNftjiTarget.block_key)}`;
+      } else {
+        const needed = Math.max(0, Number(dailyNftjiTarget.price_eur) - (botFunds.eur_earned + (currentMarketPrice * 0.5)));
+        botMsg += ` :: nftji pending ${getMarketBlockLabel(dailyNftjiTarget, dailyNftjiTarget.block_key)} (need +€${needed.toFixed(2)})`;
+      }
+    } else {
+      botMsg += ` :: nftji none`;
+    }
+    if (marketCmdAction) botMsg += ` :: cmd ${marketCmdAction.blockLabel || marketCmdAction.blockKey} x=${marketCmdAction.x} (${marketCmdAction.penalties} hit)`;
+
+    // ── squeeze
+    if (squeezeProposeAction) {
+      botMsg += ` :: squeeze→${squeezeProposeAction.defenderPool}`;
+    } else if (squeezeDropAction) {
+      const dropEmoji = squeezeDropAction.dropType === 'attack' ? '⚔️' : '🔰';
+      botMsg += ` :: drop ${dropEmoji} Lv.${Math.max(0, Number(squeezeDropAction.equippedLevel) || 0)} equip ${squeezeDropAction.equipped}`;
+    } else {
+      const botPoolCode = BOT_POOL_MAP.get(normalizeWallet(wallet)) || '';
+      const poolWindows = POOL_TIME_WINDOWS[botPoolCode];
+      const inSqzWindow = poolWindows ? poolWindows.some(([s, e]) => tradeHour >= s && tradeHour < e) : true;
+      const globalLimitHit = sharedActions.some((a) => a.type === 'squeeze_launch_limit_reached');
+      const globalLaunched = sharedActions.some((a) => a.type === 'squeeze_proposed');
+      if (globalLimitHit) botMsg += ` :: squeeze: limit`;
+      else if (!inSqzWindow) botMsg += ` :: squeeze: idle(window ${(poolWindows || []).map(([s, e]) => `${s}-${e}`).join('/')})`;
+      else if (globalLaunched) botMsg += ` :: squeeze: idle(other pool active)`;
+      else botMsg += ` :: squeeze: idle`;
+    }
+
+    // ── balance + tasks
+    botMsg += ` :: bal €${botFunds.eur_earned.toFixed(4)}`;
     botMsg += tasksCompleted.length > 0
-      ? ` :: daily tasks: ${tasksCompleted.join(' ')}`
-      : ` :: no daily tasks`;
+      ? ` :: tasks: ${tasksCompleted.join(' ')}`
+      : ` :: no tasks`;
 
     const msgTs = Date.now();
     await supabase.from('mm3_irc_messages').insert({
