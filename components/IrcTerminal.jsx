@@ -612,12 +612,18 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
       try {
         const nowIso = new Date().toISOString();
         // Separate queries: if macro or owners fail, we still want the chat history
-        const [ircRes, macroRes, ownersRes, commandsRes, blocksRes, penaltiesRes] = await Promise.all([
+        const [ircRes, squeezeRes, macroRes, ownersRes, commandsRes, blocksRes, penaltiesRes] = await Promise.all([
           supabase
             .from('mm3_irc_messages')
             .select('wallet, text, ts, kind, tone')
             .order('ts', { ascending: false })
             .limit(MAX_CHAT_HISTORY),
+          supabase
+            .from('mm3_irc_messages')
+            .select('wallet, text, ts, kind, tone')
+            .eq('tone', 'squeeze')
+            .order('ts', { ascending: false })
+            .limit(100),
           supabase
             .from('mm3_macro_state')
             .select('ticker_message, ticker_message_en, ticker_message_es')
@@ -642,7 +648,15 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
         ]);
 
         const dbMessages = ircRes.data || [];
-        chatHistory = Array.isArray(dbMessages) ? [...dbMessages].reverse() : [];
+        // Merge squeeze traces (fetched independently so they never get buried by bot messages)
+        const squeezeMessages = squeezeRes.data || [];
+        const allDbMessages = [...dbMessages];
+        const existingTs = new Set(dbMessages.map((m) => String(m.ts)));
+        for (const m of squeezeMessages) {
+          if (!existingTs.has(String(m.ts))) allDbMessages.push(m);
+        }
+        allDbMessages.sort((a, b) => Number(a.ts) - Number(b.ts));
+        chatHistory = allDbMessages;
 
         const { data } = macroRes;
         const { data: ownersData } = ownersRes;
