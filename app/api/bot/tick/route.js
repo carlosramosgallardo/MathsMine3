@@ -579,17 +579,18 @@ async function maybeLaunchBotSqueeze(supabase) {
     return actions;
   }
 
-  // Each pool rolls against its strategy probability, modulated by time window + cooldown + dice
+  // Each pool rolls against its strategy probability, modulated by time window + cooldown
+  // Bots prefer the dice window (same strategy any real player would use); outside it, skip most ticks
   const nowHour = new Date().getUTCHours();
   const squeezeDice = getDiceState();
-  const diceSqueezeMult = squeezeDice.active ? 1.5 : 0.35;
   const wantToChallenge = availablePools.filter(p => {
+    if (!squeezeDice.active && Math.random() < 0.75) return false;
     const { prob } = poolStrategyMap.get(p) || { prob: 0.5 };
     const info = poolLaunchInfo.get(p) || { count: 0, lastLaunchMs: 0 };
     if (Date.now() - info.lastLaunchMs < SQUEEZE_COOLDOWN_MS) return false;
     const windows = POOL_TIME_WINDOWS[p];
     const inWindow = windows ? windows.some(([s, e]) => nowHour >= s && nowHour < e) : true;
-    const timeMult = (inWindow ? 2.0 : 0.3) * diceSqueezeMult;
+    const timeMult = inWindow ? 2.0 : 0.3;
     return Math.random() < Math.min(0.95, prob * timeMult);
   });
 
@@ -742,12 +743,10 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
   const drillsToRun = Math.min(drillsLeft, pacedDrillsAvailable, BOT_MAX_DRILLS_PER_TICK);
   const pacedTradesAvailable = getPacedAllowance(DAILY_TRADE_LIMIT, tradesTodayCount, startIso, endIso);
   const diceState = getDiceState();
-  // Concentrate trades in dice window: 2x cap when active, 25% chance to trade at all when inactive
-  const tradesToRun = diceState.active
-    ? Math.min(DAILY_TRADE_LIMIT - tradesTodayCount, pacedTradesAvailable, BOT_MAX_TRADES_PER_TICK * 2)
-    : Math.random() < 0.25
-      ? Math.min(DAILY_TRADE_LIMIT - tradesTodayCount, pacedTradesAvailable, BOT_MAX_TRADES_PER_TICK)
-      : 0;
+  // Bots prefer the dice window; skip most ticks when inactive (same strategy as any real player)
+  const tradesToRun = !diceState.active && Math.random() < 0.80
+    ? 0
+    : Math.min(DAILY_TRADE_LIMIT - tradesTodayCount, pacedTradesAvailable, BOT_MAX_TRADES_PER_TICK);
   let actualGamesPlayed = 0;
   const walletEmojis = Array.isArray(progressRow?.wallet_emojis) ? progressRow.wallet_emojis : [];
   const claimedTasks = new Set((claimsData || []).map((r) => r.task_key));
@@ -1163,8 +1162,8 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
   let currentMarketPrice = Number(progressRow?.market_nftji_price) || 0;
   let didBuyOrResell = false;
 
-  // Concentrate NFTJI operations in dice window: 30% chance to act outside it
-  if (marketBlocks && marketBlocks.length > 0 && (diceState.active || Math.random() < 0.30)) {
+  // Bots prefer dice window for market ops; skip most ticks when inactive
+  if (marketBlocks && marketBlocks.length > 0 && (diceState.active || Math.random() < 0.20)) {
     const { data: freshProg } = await supabase
       .from('player_progress')
       .select('eur_earned, cny_earned, usd_earned, market_nftji_levels')
