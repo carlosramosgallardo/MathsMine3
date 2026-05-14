@@ -46,6 +46,15 @@ const POOL_TIME_WINDOWS = {
   '8FR49': [[6, 12], [18, 24]],
 };
 
+// UTC hour windows [start, end) where each strategy prefers to execute trades.
+// Sellers active in the first half, buyers in the second — avoids same-tick cancellation.
+const STRATEGY_TRADE_WINDOWS = {
+  sell_mm3:    [[0, 12]],
+  market_sell: [[6, 18]],
+  market_buy:  [[12, 24]],
+  buy_mm3:     [[18, 24], [0, 6]],
+};
+
 // Minimum ms between consecutive squeeze launches from the same pool
 const SQUEEZE_COOLDOWN_MS = 2 * 60 * 60 * 1000;
 const DAILY_MINE_BASE = 100;
@@ -964,7 +973,11 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
     dailyNftjiTarget.block_key !== preTradeMarketKey;
 
   // ── TRADES (paced for frequent cron ticks) ────────────────
-  if (tradesToRun > 0) {
+  const tradeHour = new Date().getUTCHours();
+  const tradeWindows = STRATEGY_TRADE_WINDOWS[strategy] || [[0, 24]];
+  const inTradeWindow = tradeWindows.some(([s, e]) => tradeHour >= s && tradeHour < e);
+
+  if (tradesToRun > 0 && inTradeWindow) {
     const { data: macro } = await supabase.from('mm3_macro_state')
       .select('war_percent, nature_percent').eq('id', 1).maybeSingle();
     let macroState = { war_percent: Number(macro?.war_percent) || 50, nature_percent: Number(macro?.nature_percent) || 50 };
