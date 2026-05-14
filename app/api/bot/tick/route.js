@@ -579,15 +579,17 @@ async function maybeLaunchBotSqueeze(supabase) {
     return actions;
   }
 
-  // Each pool rolls against its strategy probability, modulated by time window + cooldown
+  // Each pool rolls against its strategy probability, modulated by time window + cooldown + dice
   const nowHour = new Date().getUTCHours();
+  const squeezeDice = getDiceState();
+  const diceSqueezeMult = squeezeDice.active ? 1.5 : 0.35;
   const wantToChallenge = availablePools.filter(p => {
     const { prob } = poolStrategyMap.get(p) || { prob: 0.5 };
     const info = poolLaunchInfo.get(p) || { count: 0, lastLaunchMs: 0 };
     if (Date.now() - info.lastLaunchMs < SQUEEZE_COOLDOWN_MS) return false;
     const windows = POOL_TIME_WINDOWS[p];
     const inWindow = windows ? windows.some(([s, e]) => nowHour >= s && nowHour < e) : true;
-    const timeMult = inWindow ? 2.0 : 0.3;
+    const timeMult = (inWindow ? 2.0 : 0.3) * diceSqueezeMult;
     return Math.random() < Math.min(0.95, prob * timeMult);
   });
 
@@ -739,7 +741,13 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
   const pacedDrillsAvailable = getPacedAllowance(drillsTotal, gamesTodayCount, startIso, endIso);
   const drillsToRun = Math.min(drillsLeft, pacedDrillsAvailable, BOT_MAX_DRILLS_PER_TICK);
   const pacedTradesAvailable = getPacedAllowance(DAILY_TRADE_LIMIT, tradesTodayCount, startIso, endIso);
-  const tradesToRun = Math.min(DAILY_TRADE_LIMIT - tradesTodayCount, pacedTradesAvailable, BOT_MAX_TRADES_PER_TICK);
+  const diceState = getDiceState();
+  // Concentrate trades in dice window: 2x cap when active, 25% chance to trade at all when inactive
+  const tradesToRun = diceState.active
+    ? Math.min(DAILY_TRADE_LIMIT - tradesTodayCount, pacedTradesAvailable, BOT_MAX_TRADES_PER_TICK * 2)
+    : Math.random() < 0.25
+      ? Math.min(DAILY_TRADE_LIMIT - tradesTodayCount, pacedTradesAvailable, BOT_MAX_TRADES_PER_TICK)
+      : 0;
   let actualGamesPlayed = 0;
   const walletEmojis = Array.isArray(progressRow?.wallet_emojis) ? progressRow.wallet_emojis : [];
   const claimedTasks = new Set((claimsData || []).map((r) => r.task_key));
@@ -1155,7 +1163,8 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
   let currentMarketPrice = Number(progressRow?.market_nftji_price) || 0;
   let didBuyOrResell = false;
 
-  if (marketBlocks && marketBlocks.length > 0) {
+  // Concentrate NFTJI operations in dice window: 30% chance to act outside it
+  if (marketBlocks && marketBlocks.length > 0 && (diceState.active || Math.random() < 0.30)) {
     const { data: freshProg } = await supabase
       .from('player_progress')
       .select('eur_earned, cny_earned, usd_earned, market_nftji_levels')
@@ -1403,15 +1412,18 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
     if (gamesAction?.life_bought) botMsg += ` :: life(${gamesAction.life_bought})`;
 
     // ── trades
+    const diceLabel = diceState.active
+      ? `dice:ON(${diceState.modifier >= 0 ? '+' : ''}${Math.round(diceState.modifier * 100)}%)`
+      : `dice:off`;
     if (!inTradeWindow) {
-      botMsg += ` :: trade: idle(window ${tradeWindows.map(([s, e]) => `${s}-${e}`).join('/')})`;
+      botMsg += ` :: trade: idle(window ${tradeWindows.map(([s, e]) => `${s}-${e}`).join('/')}) :: ${diceLabel}`;
     } else if (wantsBuyNftji) {
-      botMsg += ` :: trade: saved(pending nftji)`;
+      botMsg += ` :: trade: saved(pending nftji) :: ${diceLabel}`;
     } else if (tradeActions.length > 0) {
       const tradeDir = strategy === 'buy_mm3' ? 'buy' : 'sell';
-      botMsg += ` :: trade: ${tradeActions.length}x ${tradeDir} ${eurFromTrades >= 0 ? '+' : ''}${eurFromTrades.toFixed(4)} EUR`;
+      botMsg += ` :: trade: ${tradeActions.length}x ${tradeDir} ${eurFromTrades >= 0 ? '+' : ''}${eurFromTrades.toFixed(4)} EUR :: ${diceLabel}`;
     } else {
-      botMsg += ` :: trade: idle`;
+      botMsg += ` :: trade: idle(dice gate) :: ${diceLabel}`;
     }
 
     // ── market NFTJI
