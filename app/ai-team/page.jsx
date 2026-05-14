@@ -13,15 +13,13 @@ const BOT_POOLS = [
     bots: [
       {
         key: 'bear',
-        emoji: '🐻',
         wallet: '0xcab10d0e0650d45cb0b7482370a1ca93d5bf5528',
-        tags: ['sell_mm3', 'squeeze 90%', 'liquidator'],
+        tags: ['sell_mm3', 'squeeze 90%', 'attack'],
       },
       {
         key: 'bull',
-        emoji: '🐂',
         wallet: '0xcb4ccfa7de7bf861ff0383b668e682d2ee20e202',
-        tags: ['buy_mm3', 'squeeze 15%', 'accumulator'],
+        tags: ['buy_mm3', 'squeeze 15%', 'defense'],
       },
     ],
   },
@@ -30,15 +28,13 @@ const BOT_POOLS = [
     bots: [
       {
         key: 'collector',
-        emoji: '🏛',
         wallet: '0xd6c6c15060b27406d956c7e99e520cc810b44233',
-        tags: ['market_buy', 'squeeze 55%', 'collector'],
+        tags: ['market_buy', 'squeeze 55%', 'balanced'],
       },
       {
         key: 'flipper',
-        emoji: '⚡',
         wallet: '0xd89413f5f444cd420b448cda3bc096ea9c46e8ab',
-        tags: ['market_sell', 'squeeze 80%', 'flipper'],
+        tags: ['market_sell', 'squeeze 80%', 'balanced'],
       },
     ],
   },
@@ -142,10 +138,6 @@ export default function AITeamPage() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {pool.bots.map((bot) => {
                     const color = colorFromAddress(bot.wallet);
-                    const name = t(`aiTeam.${bot.key}`);
-                    const role = t(`aiTeam.${bot.key}Role`);
-                    const desc = t(`aiTeam.${bot.key}Desc`);
-                    const spec = t(`aiTeam.${bot.key}Speciality`);
 
                     return (
                       <div
@@ -158,34 +150,17 @@ export default function AITeamPage() {
                         onMouseEnter={(e) => { e.currentTarget.style.boxShadow = `0 0 16px ${color}20`; }}
                         onMouseLeave={(e) => { e.currentTarget.style.boxShadow = 'none'; }}
                       >
-                        {/* Bot name */}
-                        <div className="flex items-center gap-2 mb-2">
-                          <span style={{ fontSize: '1.1rem', filter: `drop-shadow(0 0 5px ${color}50)` }}>
-                            {bot.emoji}
-                          </span>
-                          <div>
-                            <div className="text-xs font-bold uppercase tracking-wider" style={{ color }}>{name}</div>
-                            <div className="text-[0.62rem] font-mono uppercase tracking-wider" style={{ color: `${color}80` }}>{role}</div>
-                          </div>
-                        </div>
-
-                        {/* Wallet link */}
-                        <div className="mb-2">
+                        {/* Wallet identity */}
+                        <div className="mb-3">
                           <Link
                             href={`/ranking?wallet=${bot.wallet}`}
-                            className="bot-link"
+                            className="bot-link font-bold"
                             style={{ color }}
                             title={bot.wallet}
                           >
-                            ⬡ {shortWallet(bot.wallet)}
+                            {shortWallet(bot.wallet)}
                           </Link>
                         </div>
-
-                        {/* Desc */}
-                        <p className="text-[0.70rem] text-gray-400 leading-relaxed mb-2">{desc}</p>
-
-                        {/* Speciality */}
-                        <p className="text-[0.65rem] font-mono mb-2" style={{ color: `${color}bb` }}>{spec}</p>
 
                         {/* Tags */}
                         <div className="flex flex-wrap gap-1">

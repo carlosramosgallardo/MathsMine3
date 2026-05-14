@@ -26,11 +26,28 @@ const BOT_STRATEGIES = new Map([
 
 // Probability [0–1] that this strategy's pool initiates a squeeze on a given tick
 const STRATEGY_SQUEEZE_PROB = {
-  sell_mm3:    0.90, // Bear — maximum aggression
-  market_sell: 0.80, // Flipper — high aggression to clear market rivals
-  market_buy:  0.55, // Collector — strategic, initiates when convenient
-  buy_mm3:     0.15, // Bull — pacifist, rarely initiates
+  sell_mm3:    0.90,
+  market_sell: 0.80,
+  market_buy:  0.55,
+  buy_mm3:     0.15,
 };
+
+// Squeeze drop specialization per bot: 'attack' | 'defense' | 'both'
+const SQUEEZE_DROP_SPECIALIZATION = new Map([
+  ['0xcab10d0e0650d45cb0b7482370a1ca93d5bf5528', 'attack'],
+  ['0xcb4ccfa7de7bf861ff0383b668e682d2ee20e202', 'defense'],
+  ['0xd6c6c15060b27406d956c7e99e520cc810b44233', 'both'],
+  ['0xd89413f5f444cd420b448cda3bc096ea9c46e8ab', 'both'],
+]);
+
+// UTC hour windows [start, end) where each pool prefers to initiate squeezes
+const POOL_TIME_WINDOWS = {
+  FHNN6:  [[0, 6], [12, 18]],
+  '8FR49': [[6, 12], [18, 24]],
+};
+
+// Minimum ms between consecutive squeeze launches from the same pool
+const SQUEEZE_COOLDOWN_MS = 2 * 60 * 60 * 1000;
 const DAILY_MINE_BASE = 100;
 const PRICE = Number(process.env.NEXT_PUBLIC_FAKE_MINING_PRICE) || 0.00001;
 const DAILY_TRADE_LIMIT = 5;
@@ -117,14 +134,19 @@ function getReviveCostOption(meta) {
   return null;
 }
 
-async function getSqueezePoolLaunchCount(supabase, challengerPool) {
+async function getSqueezePoolLaunchInfo(supabase, challengerPool) {
   const windowStart = new Date(Date.now() - SQUEEZE_LAUNCH_WINDOW_MS).toISOString();
-  const { count } = await supabase
+  const { data } = await supabase
     .from('mm3_squeeze_launches')
-    .select('id', { count: 'exact', head: true })
+    .select('created_at')
     .eq('challenger_pool_code', String(challengerPool || '').toUpperCase())
-    .gte('created_at', windowStart);
-  return Number(count) || 0;
+    .gte('created_at', windowStart)
+    .order('created_at', { ascending: false });
+  const rows = data || [];
+  return {
+    count: rows.length,
+    lastLaunchMs: rows.length > 0 ? new Date(rows[0].created_at).getTime() : 0,
+  };
 }
 
 async function getSqueezeWalletLaunchCount(supabase, wallet) {
@@ -137,62 +159,49 @@ async function getSqueezeWalletLaunchCount(supabase, wallet) {
   return Number(count) || 0;
 }
 
-function chooseBotMarketTarget({ buyableBlocks, currentMarketKey, currentMarketPrice, marketLevels, botEur }) {
-  const resellReturn = currentMarketKey ? currentMarketPrice * 0.5 : 0;
-  const budget = botEur + resellReturn;
-  const candidates = (buyableBlocks || [])
-    .filter((block) => block.block_key !== currentMarketKey)
-    .filter((block) => Number(block.price_eur) <= budget)
-    .map((block) => ({
-      block,
-      level: Number(marketLevels?.[block.block_key] ?? -1),
-      price: Number(block.price_eur) || 0,
-    }))
-    .sort((a, b) => {
-      if (a.level !== b.level) return a.level - b.level;
-      if (a.price !== b.price) return a.price - b.price;
-      return String(a.block.block_key).localeCompare(String(b.block.block_key));
-    });
-  return candidates[0]?.block || null;
-}
+// Daily NFTJI target: each bot rotates through its preferred block tier day by day.
+// The same wallet+dayKey always returns the same block so the bot holds it all day.
+function getDailyNftjiTarget({ buyableBlocks, currentMarketKey, currentMarketPrice, marketLevels, botEur, wallet, dayKey, strategy }) {
+  if (!buyableBlocks || buyableBlocks.length === 0) return null;
 
-// market_buy strategy: targets highest-level / most expensive block affordable
-function chooseBotMarketTargetPremium({ buyableBlocks, currentMarketKey, currentMarketPrice, marketLevels, botEur }) {
   const resellReturn = currentMarketKey ? currentMarketPrice * 0.5 : 0;
   const budget = botEur + resellReturn;
-  const candidates = (buyableBlocks || [])
-    .filter((block) => block.block_key !== currentMarketKey)
-    .filter((block) => Number(block.price_eur) <= budget)
-    .map((block) => ({
-      block,
-      level: Number(marketLevels?.[block.block_key] ?? -1),
-      price: Number(block.price_eur) || 0,
-    }))
-    .sort((a, b) => {
-      if (a.level !== b.level) return b.level - a.level; // highest level first
-      if (a.price !== b.price) return b.price - a.price; // most expensive first
-      return String(a.block.block_key).localeCompare(String(b.block.block_key));
-    });
-  return candidates[0]?.block || null;
-}
+  const affordable = buyableBlocks.filter((b) => Number(b.price_eur) <= budget);
+  if (affordable.length === 0) return null;
 
-// market_sell strategy: picks cheapest block (maximises flip frequency)
-function chooseBotMarketTargetFlip({ buyableBlocks, currentMarketKey, currentMarketPrice, marketLevels, botEur }) {
-  const resellReturn = currentMarketKey ? currentMarketPrice * 0.5 : 0;
-  const budget = botEur + resellReturn;
-  // Allow rebuying the same block so the flipper always churns
-  const candidates = (buyableBlocks || [])
-    .filter((block) => Number(block.price_eur) <= budget)
-    .map((block) => ({
-      block,
-      level: Number(marketLevels?.[block.block_key] ?? -1),
-      price: Number(block.price_eur) || 0,
-    }))
-    .sort((a, b) => {
-      if (a.price !== b.price) return a.price - b.price; // cheapest first
-      return String(a.block.block_key).localeCompare(String(b.block.block_key));
+  let ranked;
+  if (strategy === 'market_buy') {
+    // Collector: prefer highest-level / most expensive
+    ranked = [...affordable].sort((a, b) => {
+      const la = Number(marketLevels?.[a.block_key] ?? -1);
+      const lb = Number(marketLevels?.[b.block_key] ?? -1);
+      if (lb !== la) return lb - la;
+      if (Number(b.price_eur) !== Number(a.price_eur)) return Number(b.price_eur) - Number(a.price_eur);
+      return String(a.block_key).localeCompare(String(b.block_key));
     });
-  return candidates[0]?.block || null;
+  } else if (strategy === 'market_sell') {
+    // Flipper: prefer cheapest
+    ranked = [...affordable].sort((a, b) => {
+      if (Number(a.price_eur) !== Number(b.price_eur)) return Number(a.price_eur) - Number(b.price_eur);
+      return String(a.block_key).localeCompare(String(b.block_key));
+    });
+  } else {
+    // Default: lowest-level / lowest-price
+    ranked = [...affordable].sort((a, b) => {
+      const la = Number(marketLevels?.[a.block_key] ?? -1);
+      const lb = Number(marketLevels?.[b.block_key] ?? -1);
+      if (la !== lb) return la - lb;
+      if (Number(a.price_eur) !== Number(b.price_eur)) return Number(a.price_eur) - Number(b.price_eur);
+      return String(a.block_key).localeCompare(String(b.block_key));
+    });
+  }
+
+  // Rotate among top-3 candidates using wallet+day seed for determinism
+  const topN = Math.min(ranked.length, 3);
+  const walletSeed = parseInt(wallet.slice(-6), 16) || 0;
+  const dayNum = parseInt((dayKey || '').replace(/-/g, ''), 10) || 0;
+  const idx = (walletSeed + dayNum) % topN;
+  return ranked[idx] || null;
 }
 
 async function insertBotPresenceTrace(supabase, wallet, tone) {
@@ -421,6 +430,10 @@ async function autoClaimBotSqueezeDrops(supabase) {
     if (!dispute) continue;
     if (dispute.winner !== 'draw' && row.side !== dispute.winner) continue;
 
+    // Skip drops that don't match the bot's squeeze specialization
+    const dropSpec = SQUEEZE_DROP_SPECIALIZATION.get(normalizeWallet(row.wallet)) || 'both';
+    if (dropSpec !== 'both' && dispute.drop_type !== dropSpec) continue;
+
     const { data } = await supabase.rpc('mm3_squeeze_nftji_take', {
       p_dispute_id: row.dispute_id,
       p_wallet: row.wallet,
@@ -536,23 +549,29 @@ async function maybeLaunchBotSqueeze(supabase) {
     poolStrategyMap.set(poolCode, { strategy: bestStrat, prob: bestProb });
   }
 
-  // Collect launch counts for all ready pools
-  const poolLaunchCounts = new Map();
+  // Collect launch info (count + last launch time) for all ready pools
+  const poolLaunchInfo = new Map();
   for (const poolCode of readyPools) {
-    poolLaunchCounts.set(poolCode, await getSqueezePoolLaunchCount(supabase, poolCode));
+    poolLaunchInfo.set(poolCode, await getSqueezePoolLaunchInfo(supabase, poolCode));
   }
 
-  const availablePools = readyPools.filter(p => (poolLaunchCounts.get(p) || 0) < SQUEEZE_LAUNCH_LIMIT);
+  const availablePools = readyPools.filter(p => (poolLaunchInfo.get(p)?.count || 0) < SQUEEZE_LAUNCH_LIMIT);
   if (availablePools.length < 2) {
     console.log('[squeeze] skip: all pools at launch limit =>', SQUEEZE_LAUNCH_LIMIT);
     actions.push({ type: 'squeeze_launch_limit_reached', count: SQUEEZE_LAUNCH_LIMIT });
     return actions;
   }
 
-  // Each pool rolls against its strategy's aggression probability
+  // Each pool rolls against its strategy probability, modulated by time window + cooldown
+  const nowHour = new Date().getUTCHours();
   const wantToChallenge = availablePools.filter(p => {
     const { prob } = poolStrategyMap.get(p) || { prob: 0.5 };
-    return Math.random() < prob;
+    const info = poolLaunchInfo.get(p) || { count: 0, lastLaunchMs: 0 };
+    if (Date.now() - info.lastLaunchMs < SQUEEZE_COOLDOWN_MS) return false;
+    const windows = POOL_TIME_WINDOWS[p];
+    const inWindow = windows ? windows.some(([s, e]) => nowHour >= s && nowHour < e) : true;
+    const timeMult = inWindow ? 2.0 : 0.3;
+    return Math.random() < Math.min(0.95, prob * timeMult);
   });
 
   if (wantToChallenge.length === 0) {
@@ -566,7 +585,7 @@ async function maybeLaunchBotSqueeze(supabase) {
   );
 
   const challengerPool = wantToChallenge[0];
-  const launchCount = poolLaunchCounts.get(challengerPool) || 0;
+  const launchCount = poolLaunchInfo.get(challengerPool)?.count || 0;
   const challengerProb = (poolStrategyMap.get(challengerPool) || {}).prob || 0.5;
 
   // Prefer a defender with the most contrasting aggression (cross-strategy matchup)
@@ -918,13 +937,39 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
     actions.push({ type: 'games', count: drillsToRun, total_mining_reward: totalMiningReward, level, nftji_drops: dropSummary, life_bought: revived ? reviveCost.currency : null });
   }
 
+  // ── PRE-COMPUTE DAILY NFTJI TARGET ───────────────────────────
+  const buyableBlocksForTarget = Array.isArray(marketBlocks)
+    ? marketBlocks.filter((b) => {
+        if (!b.is_active) return false;
+        const e = marketCommandFromBlock(b);
+        return e && e.payment !== 'mm3';
+      })
+    : [];
+  const preTradeMarketKey = progressRow?.market_nftji_key || null;
+  const preTradeMarketPrice = Number(progressRow?.market_nftji_price) || 0;
+  const preTradeMarketLevels = progressRow?.market_nftji_levels || {};
+  const dailyNftjiTarget = getDailyNftjiTarget({
+    buyableBlocks: buyableBlocksForTarget,
+    currentMarketKey: preTradeMarketKey,
+    currentMarketPrice: preTradeMarketPrice,
+    marketLevels: preTradeMarketLevels,
+    botEur: botFunds.eur_earned,
+    wallet,
+    dayKey,
+    strategy,
+  });
+  // buy_mm3 skips MM3 purchases when its daily NFTJI target is not yet held
+  const wantsBuyNftji = strategy === 'buy_mm3' &&
+    dailyNftjiTarget !== null &&
+    dailyNftjiTarget.block_key !== preTradeMarketKey;
+
   // ── TRADES (paced for frequent cron ticks) ────────────────
   if (tradesToRun > 0) {
     const { data: macro } = await supabase.from('mm3_macro_state')
       .select('war_percent, nature_percent').eq('id', 1).maybeSingle();
     let macroState = { war_percent: Number(macro?.war_percent) || 50, nature_percent: Number(macro?.nature_percent) || 50 };
 
-    if (strategy === 'buy_mm3') {
+    if (strategy === 'buy_mm3' && !wantsBuyNftji) {
       // ── BUY MM3 strategy: spend earned fiat to accumulate MM3 ──
       let spentEurTotal = 0;
       let boughtMm3Total = 0;
@@ -1102,21 +1147,13 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
     const currentLevels = freshProg?.market_nftji_levels || progressRow?.market_nftji_levels || {};
     const rateCny = getSellRateCny(level);
 
-    // Only EUR-payment, active blocks with a command
-    const buyableBlocks = marketBlocks.filter((b) => {
-      if (!b.is_active) return false;
-      const e = marketCommandFromBlock(b);
-      return e && e.payment !== 'mm3';
-    });
-
+    // Use the pre-computed daily target; only switch if not already holding today's block
     let targetBlock = null;
-
-    if (strategy === 'market_buy') {
-      targetBlock = chooseBotMarketTargetPremium({ buyableBlocks, currentMarketKey, currentMarketPrice, marketLevels: currentLevels, botEur });
-    } else if (strategy === 'market_sell') {
-      targetBlock = chooseBotMarketTargetFlip({ buyableBlocks, currentMarketKey, currentMarketPrice, marketLevels: currentLevels, botEur });
-    } else {
-      targetBlock = chooseBotMarketTarget({ buyableBlocks, currentMarketKey, currentMarketPrice, marketLevels: currentLevels, botEur });
+    if (dailyNftjiTarget && dailyNftjiTarget.block_key !== currentMarketKey) {
+      const resellReturn = currentMarketKey ? currentMarketPrice * 0.5 : 0;
+      if (botEur + resellReturn >= Number(dailyNftjiTarget.price_eur)) {
+        targetBlock = dailyNftjiTarget;
+      }
     }
 
     if (targetBlock) {

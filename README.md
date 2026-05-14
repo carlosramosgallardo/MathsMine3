@@ -673,21 +673,21 @@ Each pool's Squeeze aggression is driven by its most aggressive member's strateg
 
 ### Profiles
 
-| Wallet | Strategy | Archetype | Squeeze initiation |
-|--------|----------|-----------|--------------------|
-| `0xcab…5528` | `sell_mm3` | 🐻 The Bear | 90 % |
-| `0xcb4…0202` | `buy_mm3` | 🐂 The Bull | 15 % |
-| `0xd6c…4233` | `market_buy` | 🏛 The Collector | 55 % |
-| `0xd89…e8ab` | `market_sell` | ⚡ The Flipper | 80 % |
+| Wallet | Strategy | Squeeze initiation | Squeeze drop focus |
+|--------|----------|--------------------|--------------------|
+| `0xcab…5528` | `sell_mm3` | 90 % | attack only |
+| `0xcb4…0202` | `buy_mm3` | 15 % | defense only |
+| `0xd6c…4233` | `market_buy` | 55 % | balanced |
+| `0xd89…e8ab` | `market_sell` | 80 % | balanced |
 
 ### Strategy Details
 
-| Archetype | MM3 Trading | MM3 Reserve | Market NFTJI target | Squeeze role |
-|-----------|-------------|-------------|---------------------|--------------|
-| 🐻 Bear | Dumps MM3 aggressively — 10–30 % slices per tick | 15 % | Default (balanced) | Max aggressor — challenges 9 out of 10 ticks |
-| 🐂 Bull | Buys MM3 with fiat — spends 40–70 % of balance per trade | — (accumulates) | Default (balanced) | Pacifist — rarely challenges (15 %) |
-| 🏛 Collector | Moderate seller — holds 50 % MM3 reserve | 50 % | Highest-level / most expensive block | Strategic — challenges ~55 % of ticks |
-| ⚡ Flipper | Heavy seller between flips — 30–60 % slices, 25 % reserve | 25 % | Cheapest block (max flip frequency) | Aggressive — challenges ~80 % of ticks |
+| Wallet | MM3 Trading | MM3 Reserve | Market NFTJI | Squeeze window |
+|--------|-------------|-------------|--------------|----------------|
+| `0xcab…5528` | Dumps MM3 — 10–30 % slices per trade | 15 % | Rotates daily among cheapest options | Active 00–06 UTC and 12–18 UTC |
+| `0xcb4…0202` | Buys MM3 with fiat (skips MM3 trades when NFTJI purchase pending) | — | Rotates daily among cheapest options | Active 00–06 UTC and 12–18 UTC |
+| `0xd6c…4233` | Moderate seller — holds 50 % MM3 reserve | 50 % | Rotates daily among highest-level blocks | Active 06–12 UTC and 18–24 UTC |
+| `0xd89…e8ab` | Heavy seller — 30–60 % slices, 25 % reserve | 25 % | Rotates daily among cheapest blocks | Active 06–12 UTC and 18–24 UTC |
 
 ### Mining
 
@@ -699,8 +699,8 @@ All four bots run up to 100 mining games per day at a win rate of ~92 % (decreas
 
 | Bot action | Effect |
 |------------|--------|
-| Bear / Flipper selling MM3 | Pushes global MM3 value **down** |
-| Bull buying MM3 | Pushes global MM3 value **up** |
+| `sell_mm3` / `market_sell` selling MM3 | Pushes global MM3 value **down** |
+| `buy_mm3` buying MM3 | Pushes global MM3 value **up** |
 | Any market buy / resell event | Moves the MM3 curve — visible in the chart |
 | Squeeze launched by bot pool | Penalty risk for the targeted pool (same rules as any Squeeze) |
 | ⚔️ / 🔰 drop claimed | MM3 polarity flip scaled by active Dice modifier; always appears in chart |
@@ -1555,21 +1555,21 @@ La agresividad Squeeze de cada pool la marca la estrategia del miembro más agre
 
 ### Perfiles
 
-| Wallet | Estrategia | Arquetipo | Inicio de Squeeze |
-|--------|------------|-----------|-------------------|
-| `0xcab…5528` | `sell_mm3` | 🐻 El Oso | 90 % |
-| `0xcb4…0202` | `buy_mm3` | 🐂 El Toro | 15 % |
-| `0xd6c…4233` | `market_buy` | 🏛 El Coleccionista | 55 % |
-| `0xd89…e8ab` | `market_sell` | ⚡ El Flipper | 80 % |
+| Wallet | Estrategia | Inicio de Squeeze | Foco en drops Squeeze |
+|--------|------------|-------------------|-----------------------|
+| `0xcab…5528` | `sell_mm3` | 90 % | solo ataque |
+| `0xcb4…0202` | `buy_mm3` | 15 % | solo defensa |
+| `0xd6c…4233` | `market_buy` | 55 % | equilibrado |
+| `0xd89…e8ab` | `market_sell` | 80 % | equilibrado |
 
 ### Detalle de Estrategias
 
-| Arquetipo | Trading MM3 | Reserva MM3 | Objetivo Market NFTJI | Rol en Squeeze |
-|-----------|-------------|-------------|------------------------|----------------|
-| 🐻 Oso | Vende MM3 agresivamente — tramos del 10–30 % por tick | 15 % | Por defecto (equilibrado) | Máximo agresor — reta 9 de cada 10 ticks |
-| 🐂 Toro | Compra MM3 con fiat — gasta 40–70 % del balance por trade | — (acumula) | Por defecto (equilibrado) | Pacifista — apenas reta (15 %) |
-| 🏛 Coleccionista | Vendedor moderado — mantiene reserva del 50 % de MM3 | 50 % | Bloque de nivel más alto / más caro | Estratégico — reta ~55 % de los ticks |
-| ⚡ Flipper | Vendedor intensivo entre flips — tramos del 30–60 %, reserva 25 % | 25 % | Bloque más barato (máxima frecuencia de flip) | Agresivo — reta ~80 % de los ticks |
+| Wallet | Trading MM3 | Reserva MM3 | Market NFTJI | Ventana Squeeze |
+|--------|-------------|-------------|--------------|-----------------|
+| `0xcab…5528` | Vende MM3 — tramos del 10–30 % por trade | 15 % | Rota diariamente entre opciones más baratas | Activo 00–06 UTC y 12–18 UTC |
+| `0xcb4…0202` | Compra MM3 con fiat (omite trades MM3 si hay compra NFTJI pendiente) | — | Rota diariamente entre opciones más baratas | Activo 00–06 UTC y 12–18 UTC |
+| `0xd6c…4233` | Vendedor moderado — reserva 50 % de MM3 | 50 % | Rota diariamente entre bloques de mayor nivel | Activo 06–12 UTC y 18–24 UTC |
+| `0xd89…e8ab` | Vendedor intensivo — tramos 30–60 %, reserva 25 % | 25 % | Rota diariamente entre bloques más baratos | Activo 06–12 UTC y 18–24 UTC |
 
 ### Mining
 
@@ -1581,8 +1581,8 @@ Los cuatro bots ejecutan hasta 100 partidas de mining al día con una tasa de ac
 
 | Acción del bot | Efecto |
 |----------------|--------|
-| Oso / Flipper vendiendo MM3 | Empuja el valor global de MM3 **hacia abajo** |
-| Toro comprando MM3 | Empuja el valor global de MM3 **hacia arriba** |
+| `sell_mm3` / `market_sell` vendiendo MM3 | Empuja el valor global de MM3 **hacia abajo** |
+| `buy_mm3` comprando MM3 | Empuja el valor global de MM3 **hacia arriba** |
 | Cualquier evento de compra / reventa en Market | Mueve la curva de MM3 — visible en el gráfico |
 | Squeeze lanzado por pool de bots | Riesgo de penalización para el pool objetivo (mismas reglas que cualquier Squeeze) |
 | Drop ⚔️ / 🔰 reclamado | Volteo de polaridad MM3 escalado por el modificador del Dado activo; siempre aparece en el gráfico |
