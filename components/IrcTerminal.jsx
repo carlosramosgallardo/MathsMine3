@@ -23,7 +23,7 @@ const ACTIVE_WINDOW_MS = 90_000;
 const MAX_SESSION_MESSAGES = 500;
 const MAX_CHAT_HISTORY = 500;
 const IRC_FILTER_TYPES = ['welcome', 'market', 'mainframe', 'squeeze', 'donations', 'bots'];
-const DEFAULT_IRC_FILTERS = IRC_FILTER_TYPES.reduce((acc, key) => ({ ...acc, [key]: true }), {});
+const DEFAULT_IRC_FILTERS = IRC_FILTER_TYPES.reduce((acc, key) => ({ ...acc, [key]: false }), {});
 
 function flagImgUrl(cc) {
   if (!cc || cc.length !== 2) return null;
@@ -71,7 +71,7 @@ function sessionKeyForWallet(wallet) {
 }
 
 function filterKeyForWallet(wallet) {
-  return `mm3-irc-filters-${String(wallet || '').toLowerCase()}`;
+  return `mm3-irc-filters-v2-${String(wallet || '').toLowerCase()}`;
 }
 
 function makeMessage({ id, kind = 'chat', wallet = 'system', text = '', ts = Date.now(), tone = 'neutral', replaceGroup = '', replaceBatchId = '' }) {
@@ -2133,7 +2133,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
             }) : (
               <div className="px-1 py-2 text-[0.88rem] uppercase tracking-[0.14em] text-slate-500">
                 {messages.length > 0
-                  ? (language === 'es' ? 'los filtros ocultan las trazas seleccionadas' : 'filters hide selected traces')
+                  ? (language === 'es' ? 'activa filtros para ver trazas del sistema' : 'enable filters to show system traces')
                   : t('irc.empty')}
               </div>
             )}
