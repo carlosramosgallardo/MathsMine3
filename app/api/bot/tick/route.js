@@ -1424,7 +1424,6 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
     if (mm3Mined !== 0) botMsg += ` ${mm3Mined >= 0 ? '+' : ''}${mm3Mined.toFixed(6)} MM3`;
     const eurDelta = botFunds.eur_earned - eurStart;
     if (eurDelta !== 0) botMsg += ` ${eurDelta >= 0 ? '+' : ''}${eurDelta.toFixed(4)}€`;
-    botMsg += ` bal:€${botFunds.eur_earned.toFixed(4)}`;
     if (mm3GlobalDelta !== 0) botMsg += ` Δmm3:${mm3GlobalDelta >= 0 ? '+' : ''}${mm3GlobalDelta.toFixed(6)}`;
     if (diceState.active) botMsg += ` dice:ON(${diceState.modifier >= 0 ? '+' : ''}${Math.round(diceState.modifier * 100)}%)`;
     if (nftjiDrops) botMsg += ` :: drops:${nftjiDrops}`;
