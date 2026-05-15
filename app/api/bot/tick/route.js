@@ -1413,6 +1413,7 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
     const mm3Mined = gamesAction?.total_mining_reward || 0;
     const nftjiDrops = gamesAction?.nftji_drops || null;
     const eurFromTrades = tradeActions.reduce((sum, t) => sum + (t.net_eur || -(t.spent_eur || 0)), 0);
+    const mm3FromTrades = tradeActions.reduce((sum, t) => sum + (t.mm3_bought || -(t.mm3_sold || 0)), 0);
     mm3GlobalDelta += Number(squeezeDropAction?.delta_mm3 || 0);
     const tasksCompleted = claimActions.map((c) => ({
       irc: 'irc(public)',
@@ -1432,7 +1433,7 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
     // ── trades
     if (tradeActions.length > 0) {
       const tradeDir = strategy === 'buy_mm3' ? 'buy' : 'sell';
-      botMsg += ` :: trade:${tradeActions.length}x ${tradeDir} ${eurFromTrades >= 0 ? '+' : ''}${eurFromTrades.toFixed(4)}EUR`;
+      botMsg += ` :: trade:${tradeActions.length}x ${tradeDir} ${eurFromTrades >= 0 ? '+' : ''}${eurFromTrades.toFixed(4)}€ ${mm3FromTrades >= 0 ? '+' : ''}${mm3FromTrades.toFixed(6)}MM3`;
     } else if (wantsBuyNftji) {
       botMsg += ` :: trade:saved(pending nftji)`;
     }
