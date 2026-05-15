@@ -87,8 +87,12 @@ function parseMs(value) {
 
 function formatUtc(value) {
   const ms = parseMs(value);
-  if (!ms) return 'UTC --';
-  return `UTC ${new Date(ms).toISOString().replace('T', ' ').replace(/\.\d{3}Z$/, 'Z')}`;
+  if (!ms) return '--';
+  return new Date(ms).toLocaleString(undefined, {
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', second: '2-digit',
+    hour12: false,
+  });
 }
 
 function getDisputeTrace(dispute, lang) {
