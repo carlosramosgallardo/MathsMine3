@@ -1407,6 +1407,7 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
     // ── mining
     let botMsg = `drills:${gamesCount}`;
     if (mm3Mined !== 0) botMsg += ` ${mm3Mined >= 0 ? '+' : ''}${mm3Mined.toFixed(6)} MM3`;
+    botMsg += ` €${botFunds.eur_earned.toFixed(4)}`;
     botMsg += nftjiDrops ? ` :: drops:${nftjiDrops}` : ` :: no drop`;
     if (gamesAction?.life_bought) botMsg += ` :: life(${gamesAction.life_bought})`;
 
@@ -1460,8 +1461,7 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
       else botMsg += ` :: squeeze:idle`;
     }
 
-    // ── balance + tasks
-    botMsg += ` :: €${botFunds.eur_earned.toFixed(4)}`;
+    // ── tasks
     if (tasksCompleted.length > 0) botMsg += ` :: tasks:${tasksCompleted.join(' ')}`;
 
     const msgTs = Date.now();
