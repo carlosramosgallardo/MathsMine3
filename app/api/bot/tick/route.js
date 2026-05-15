@@ -1408,16 +1408,14 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
     let botMsg = `drills:${gamesCount}`;
     if (mm3Mined !== 0) botMsg += ` ${mm3Mined >= 0 ? '+' : ''}${mm3Mined.toFixed(6)} MM3`;
     botMsg += ` €${botFunds.eur_earned.toFixed(4)}`;
+    if (diceState.active) botMsg += ` dice:ON(${diceState.modifier >= 0 ? '+' : ''}${Math.round(diceState.modifier * 100)}%)`;
     if (nftjiDrops) botMsg += ` :: drops:${nftjiDrops}`;
     if (gamesAction?.life_bought) botMsg += ` :: life(${gamesAction.life_bought})`;
 
     // ── trades
     if (tradeActions.length > 0) {
       const tradeDir = strategy === 'buy_mm3' ? 'buy' : 'sell';
-      const diceLabel = diceState.active
-        ? ` dice:ON(${diceState.modifier >= 0 ? '+' : ''}${Math.round(diceState.modifier * 100)}%)`
-        : '';
-      botMsg += ` :: trade:${tradeActions.length}x ${tradeDir} ${eurFromTrades >= 0 ? '+' : ''}${eurFromTrades.toFixed(4)}EUR${diceLabel}`;
+      botMsg += ` :: trade:${tradeActions.length}x ${tradeDir} ${eurFromTrades >= 0 ? '+' : ''}${eurFromTrades.toFixed(4)}EUR`;
     } else if (wantsBuyNftji) {
       botMsg += ` :: trade:saved(pending nftji)`;
     }
