@@ -480,10 +480,11 @@ async function autoClaimBotSqueezeDrops(supabase) {
         (dropType === 'defense' && totalMm3 > 0);
       const squeezeDice = getDiceState();
       const squeezeDm = squeezeDice.active ? squeezeDice.modifier : 0;
+      const squeezeDropDelta = shouldFlip ? -2 * totalMm3 * (1 + squeezeDm) : 0;
       await supabase.from('mm3_market_events').insert({
         wallet: row.wallet,
         event_type: 'nftji_claim',
-        delta_mm3: shouldFlip ? -2 * totalMm3 * (1 + squeezeDm) : 0,
+        delta_mm3: squeezeDropDelta,
         emoji: dropType === 'attack' ? SQUEEZE_NFTJIS.sword : SQUEEZE_NFTJIS.shield,
       });
     }
@@ -497,6 +498,7 @@ async function autoClaimBotSqueezeDrops(supabase) {
       equippedLevel,
       attackLevel: Number(data.attack_level ?? -1),
       defenseLevel: Number(data.defense_level ?? -1),
+      delta_mm3: squeezeDropDelta,
     });
   }
 
@@ -759,6 +761,7 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
     ['squeeze_drop_claimed', 'squeeze_proposed'].includes(action.type) &&
     normalizeWallet(action.wallet) === normalizeWallet(wallet)
   ));
+  let mm3GlobalDelta = 0;
   const botFunds = {
     eur_earned: Number(progressRow?.eur_earned) || 0,
     usd_earned: Number(progressRow?.usd_earned) || 0,
@@ -920,10 +923,12 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
       for (const d of dropList) {
         const marketDelta = getWalletMarketDelta(d.emoji);
         if (marketDelta !== 0) {
+          const dropDelta = Math.abs(totalMm3Global * marketDelta);
           await supabase.from('mm3_market_events').insert({
             wallet, event_type: 'nftji_claim',
-            delta_mm3: Math.abs(totalMm3Global * marketDelta), emoji: d.emoji,
+            delta_mm3: dropDelta, emoji: d.emoji,
           });
+          mm3GlobalDelta += dropDelta;
         }
         const basePct = getMiningNftjiLevelBasePct(d.emoji);
         if (basePct > 0) {
@@ -937,6 +942,7 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
               wallet, event_type: 'nftji_level_up',
               delta_mm3: levelUpDelta, emoji: d.emoji,
             });
+            mm3GlobalDelta += levelUpDelta;
           }
         }
       }
@@ -949,12 +955,14 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
         .limit(1)
         .maybeSingle();
       const totalMm3Global = Number(tokenValueRow?.total_eth) || 0;
+      const lifeDelta = -Math.abs(totalMm3Global * 0.25);
       await supabase.from('mm3_market_events').insert({
         wallet,
         event_type: MARKET_EVENT_TYPE_LIFE,
-        delta_mm3: -Math.abs(totalMm3Global * 0.25),
+        delta_mm3: lifeDelta,
         emoji: WALLET_DECORATIONS.revive,
       });
+      mm3GlobalDelta += lifeDelta;
     }
 
     actualGamesPlayed = drillsToRun;
@@ -1037,6 +1045,7 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
         await supabase.from('mm3_market_events').insert({
           wallet, event_type: 'market_buy', delta_mm3: buyQuote.grossMm3, emoji: '📈',
         });
+        mm3GlobalDelta += buyQuote.grossMm3;
 
         spentEurTotal += spendEur;
         boughtMm3Total += buyQuote.netMm3;
@@ -1105,6 +1114,7 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
         await supabase.from('mm3_market_events').insert({
           wallet, event_type: 'market_resell', delta_mm3: -sellMm3, emoji: '📉',
         });
+        mm3GlobalDelta += -sellMm3;
 
         currentEur += netCny * CNY_TO_EUR;
         currentCny += netCny;
@@ -1211,6 +1221,7 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
           wallet, event_type: 'market_resell', delta_mm3: resellDelta,
           emoji: String(resoldBlock?.emoji || currentMarketKey),
         });
+        mm3GlobalDelta += resellDelta;
 
         botEur += returnEur; botCny += returnCny; botUsd += returnUsd;
         actions.push({ type: 'market_resell', blockKey: currentMarketKey, blockLabel: getMarketBlockLabel(resoldBlock, currentMarketKey), returnEur });
@@ -1235,6 +1246,7 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
         wallet, event_type: 'market_buy', delta_mm3: buyDelta,
         emoji: String(targetBlock.emoji || targetBlock.block_key),
       });
+      mm3GlobalDelta += buyDelta;
 
       const marketNewLevel = Number(currentLevels[targetBlock.block_key] ?? -1) + 1;
       if (marketNewLevel > 0) {
@@ -1246,6 +1258,7 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
             wallet, event_type: 'nftji_level_up',
             delta_mm3: marketLevelUpDelta, emoji: String(targetBlock.emoji || targetBlock.block_key),
           });
+          mm3GlobalDelta += marketLevelUpDelta;
         }
       }
 
@@ -1400,6 +1413,7 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
     const mm3Mined = gamesAction?.total_mining_reward || 0;
     const nftjiDrops = gamesAction?.nftji_drops || null;
     const eurFromTrades = tradeActions.reduce((sum, t) => sum + (t.net_eur || -(t.spent_eur || 0)), 0);
+    mm3GlobalDelta += Number(squeezeDropAction?.delta_mm3 || 0);
     const tasksCompleted = claimActions.map((c) => ({
       irc: 'irc(public)',
       ircHidden: 'irc(secret)',
@@ -1411,6 +1425,7 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
     const eurDelta = botFunds.eur_earned - eurStart;
     if (eurDelta !== 0) botMsg += ` ${eurDelta >= 0 ? '+' : ''}${eurDelta.toFixed(4)}€`;
     botMsg += ` bal:€${botFunds.eur_earned.toFixed(4)}`;
+    if (mm3GlobalDelta !== 0) botMsg += ` Δmm3:${mm3GlobalDelta >= 0 ? '+' : ''}${mm3GlobalDelta.toFixed(6)}`;
     if (diceState.active) botMsg += ` dice:ON(${diceState.modifier >= 0 ? '+' : ''}${Math.round(diceState.modifier * 100)}%)`;
     if (nftjiDrops) botMsg += ` :: drops:${nftjiDrops}`;
     if (gamesAction?.life_bought) botMsg += ` :: life(${gamesAction.life_bought})`;
