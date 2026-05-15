@@ -1427,7 +1427,7 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
     }[c.taskKey] || c.taskKey));
 
     // ── mining
-    let botMsg = `drills:${gamesCount}`;
+    let botMsg = `lvl:${level} drills:${gamesCount}`;
     if (mm3Mined !== 0) botMsg += ` ${mm3Mined >= 0 ? '+' : ''}${mm3Mined.toFixed(6)} MM3`;
     const eurDelta = botFunds.eur_earned - eurStart;
     if (eurDelta !== 0) botMsg += ` ${eurDelta >= 0 ? '+' : ''}${eurDelta.toFixed(4)}€`;
