@@ -813,8 +813,10 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
       const problem = pool[Math.floor(Math.random() * pool.length)];
       const timeLimit = getTimeLimit(level);
 
-      // Win rate decreases with level — raised for more reliable NFTJi drop testing
-      const winRate = 0.92 - (level / 100) * 0.20;
+      // Per-bot skill derived from wallet address → equilibrium level spread ~20–90
+      const walletSeed = parseInt(normalizeWallet(wallet).replace('0x', '').slice(-6), 16) % 1000;
+      const botBaseWin = 0.58 + (walletSeed / 1000) * 0.28; // 0.58–0.86
+      const winRate = Math.max(0.10, botBaseWin - (level / 100) * 0.40);
       const isCorrect = Math.random() < winRate;
 
       let totalTime, mining, userAnswer;
@@ -966,7 +968,11 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
     }
 
     actualGamesPlayed = drillsToRun;
-    const dropSummary = dropList.map((d) => `${d.emoji}×${d.count}`).join(' ') || null;
+    const dropSummary = dropList.map((d) => {
+      const oldLvl = Number(progressRow?.[d.levelField] ?? -1);
+      const newLvl = oldLvl + d.count;
+      return `${d.emoji}×${d.count}(lvl:${oldLvl < 0 ? 'new' : oldLvl}→${newLvl})`;
+    }).join(' ') || null;
     actions.push({ type: 'games', count: drillsToRun, total_mining_reward: totalMiningReward, level, nftji_drops: dropSummary, life_bought: revived ? reviveCost.currency : null });
   }
 
