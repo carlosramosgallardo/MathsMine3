@@ -48,6 +48,14 @@ const SQUEEZE_DROP_SPECIALIZATION = new Map([
   ['0xd89413f5f444cd420b448cda3bc096ea9c46e8ab', 'both'],
 ]);
 
+// NFTJi payment preference: 'mm3' → prefers mm3-priced market blocks; 'money' → EUR-priced blocks
+const STRATEGY_NFTJI_PAYMENT = new Map([
+  ['sell_mm3',    'money'],  // earns EUR selling MM3 → buys money NFTJIs
+  ['buy_mm3',     'mm3'],    // accumulates MM3 → buys mm3 NFTJIs
+  ['market_buy',  'money'],  // collector → money NFTJIs
+  ['market_sell', 'mm3'],    // flipper → mm3 NFTJIs
+]);
+
 // UTC hour windows [start, end) where each pool prefers to initiate squeezes
 const POOL_TIME_WINDOWS = {
   FHNN6:  [[0, 6], [12, 18]],
@@ -178,12 +186,30 @@ async function getSqueezeWalletLaunchCount(supabase, wallet) {
 
 // Daily NFTJI target: each bot rotates through its preferred block tier day by day.
 // The same wallet+dayKey always returns the same block so the bot holds it all day.
-function getDailyNftjiTarget({ buyableBlocks, currentMarketKey, currentMarketPrice, marketLevels, botEur, wallet, dayKey, strategy }) {
+function getDailyNftjiTarget({ buyableBlocks, currentMarketKey, currentMarketPrice, marketLevels, botEur, availableMm3, rateCny, wallet, dayKey, strategy, nftjiPayment }) {
   if (!buyableBlocks || buyableBlocks.length === 0) return null;
 
   const resellReturn = currentMarketKey ? currentMarketPrice * 0.5 : 0;
-  const budget = botEur + resellReturn;
-  const affordable = buyableBlocks.filter((b) => Number(b.price_eur) <= budget);
+
+  function blockAffordable(b) {
+    const e = marketCommandFromBlock(b);
+    if (!e) return false;
+    if (e.payment === 'mm3') {
+      const priceInMm3 = rateCny > 0 ? Number(b.price_eur) / (rateCny * CNY_TO_EUR) : Infinity;
+      return availableMm3 >= priceInMm3;
+    }
+    return (botEur + resellReturn) >= Number(b.price_eur);
+  }
+
+  function matchesPreferred(b) {
+    const e = marketCommandFromBlock(b);
+    if (!e) return false;
+    return nftjiPayment === 'mm3' ? e.payment === 'mm3' : e.payment !== 'mm3';
+  }
+
+  const preferredAffordable = buyableBlocks.filter((b) => matchesPreferred(b) && blockAffordable(b));
+  const fallbackAffordable = buyableBlocks.filter((b) => !matchesPreferred(b) && blockAffordable(b));
+  const affordable = preferredAffordable.length > 0 ? preferredAffordable : fallbackAffordable;
   if (affordable.length === 0) return null;
 
   let ranked;
@@ -980,25 +1006,30 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
   const buyableBlocksForTarget = Array.isArray(marketBlocks)
     ? marketBlocks.filter((b) => {
         if (!b.is_active) return false;
-        const e = marketCommandFromBlock(b);
-        return e && e.payment !== 'mm3';
+        return !!marketCommandFromBlock(b);
       })
     : [];
   const preTradeMarketKey = progressRow?.market_nftji_key || null;
   const preTradeMarketPrice = Number(progressRow?.market_nftji_price) || 0;
   const preTradeMarketLevels = progressRow?.market_nftji_levels || {};
+  const nftjiPayment = STRATEGY_NFTJI_PAYMENT.get(strategy) || 'money';
+  const preTradeRateCny = getSellRateCny(level);
   const dailyNftjiTarget = getDailyNftjiTarget({
     buyableBlocks: buyableBlocksForTarget,
     currentMarketKey: preTradeMarketKey,
     currentMarketPrice: preTradeMarketPrice,
     marketLevels: preTradeMarketLevels,
     botEur: botFunds.eur_earned,
+    availableMm3,
+    rateCny: preTradeRateCny,
     wallet,
     dayKey,
     strategy,
+    nftjiPayment,
   });
-  // buy_mm3 skips MM3 purchases when its daily NFTJI target is not yet held
+  // buy_mm3 skips EUR→MM3 trades only when its daily money-NFTJI target is not yet held
   const wantsBuyNftji = strategy === 'buy_mm3' &&
+    nftjiPayment === 'money' &&
     dailyNftjiTarget !== null &&
     dailyNftjiTarget.block_key !== preTradeMarketKey;
 
@@ -1183,7 +1214,7 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
   if (marketBlocks && marketBlocks.length > 0 && (diceState.active || Math.random() < 0.20)) {
     const { data: freshProg } = await supabase
       .from('player_progress')
-      .select('eur_earned, cny_earned, usd_earned, market_nftji_levels')
+      .select('eur_earned, cny_earned, usd_earned, mm3_sold, market_nftji_levels')
       .eq('wallet', wallet)
       .maybeSingle();
 
@@ -1196,18 +1227,29 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
     // Use the pre-computed daily target; only switch if not already holding today's block
     let targetBlock = null;
     if (dailyNftjiTarget && dailyNftjiTarget.block_key !== currentMarketKey) {
+      const targetCmdCheck = marketCommandFromBlock(dailyNftjiTarget);
+      const isMm3Check = targetCmdCheck?.payment === 'mm3';
       const resellReturn = currentMarketKey ? currentMarketPrice * 0.5 : 0;
-      if (botEur + resellReturn >= Number(dailyNftjiTarget.price_eur)) {
-        targetBlock = dailyNftjiTarget;
-      }
+      const mm3PriceCheck = isMm3Check && rateCny > 0
+        ? Number(dailyNftjiTarget.price_eur) / (rateCny * CNY_TO_EUR)
+        : 0;
+      const canAfford = isMm3Check
+        ? availableMm3 >= mm3PriceCheck
+        : (botEur + resellReturn) >= Number(dailyNftjiTarget.price_eur);
+      if (canAfford) targetBlock = dailyNftjiTarget;
     }
 
     if (targetBlock) {
+      const targetCmdEntry = marketCommandFromBlock(targetBlock);
+      const isMm3Payment = targetCmdEntry?.payment === 'mm3';
       const newPrice = Number(targetBlock.price_eur);
       const newPriceCny = newPrice / CNY_TO_EUR;
       const newPriceUsd = newPriceCny * CNY_TO_USD;
       const marketDice = getDiceState();
       const marketDm = marketDice.active ? marketDice.modifier : 0;
+      const mm3PurchaseAmount = isMm3Payment && rateCny > 0
+        ? newPrice / (rateCny * CNY_TO_EUR)
+        : 0;
 
       if (currentMarketKey) {
         const returnEur = currentMarketPrice * 0.5 * (1 + marketDm);
@@ -1234,11 +1276,20 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
         didBuyOrResell = true;
       }
 
-      botEur -= newPrice; botCny -= newPriceCny; botUsd -= newPriceUsd;
+      if (isMm3Payment) {
+        availableMm3 -= mm3PurchaseAmount;
+      } else {
+        botEur -= newPrice; botCny -= newPriceCny; botUsd -= newPriceUsd;
+      }
       const buyDelta = (newPrice / (rateCny * CNY_TO_EUR)) * (1 + marketDm);
 
+      const freshMm3Sold = Number(freshProg?.mm3_sold) || 0;
       await supabase.from('player_progress').upsert({
-        wallet, is_bot: true, eur_earned: botEur, cny_earned: botCny, usd_earned: botUsd,
+        wallet, is_bot: true,
+        ...(isMm3Payment
+          ? { mm3_sold: freshMm3Sold + mm3PurchaseAmount }
+          : { eur_earned: botEur, cny_earned: botCny, usd_earned: botUsd }
+        ),
         market_nftji_key: targetBlock.block_key, market_nftji_price: newPrice,
         market_nftji_since: now,
         market_nftji_levels: {
@@ -1276,7 +1327,7 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
       currentMarketKey = targetBlock.block_key;
       currentMarketPrice = newPrice;
       didBuyOrResell = true;
-      actions.push({ type: 'market_buy', blockKey: targetBlock.block_key, blockLabel: getMarketBlockLabel(targetBlock, targetBlock.block_key), priceEur: newPrice });
+      actions.push({ type: 'market_buy', blockKey: targetBlock.block_key, blockLabel: getMarketBlockLabel(targetBlock, targetBlock.block_key), priceEur: newPrice, isMm3Payment, mm3Amount: mm3PurchaseAmount });
     }
   }
 
@@ -1287,7 +1338,7 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
     const ownedBlock = marketBlocks?.find((b) => b.block_key === currentMarketKey);
     if (ownedBlock) {
       const cmdEntry = marketCommandFromBlock(ownedBlock);
-      if (cmdEntry && cmdEntry.payment !== 'mm3') {
+      if (cmdEntry) {
         const { data: existingCmd } = await supabase
           .from('mm3_market_commands').select('id')
           .eq('nftji_key', currentMarketKey).gt('reset_at', now)
@@ -1447,14 +1498,27 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
     // ── market NFTJI
     if (marketResellAction) botMsg += ` :: resell:${marketResellAction.blockLabel || marketResellAction.blockKey} +€${marketResellAction.returnEur.toFixed(2)}`;
     if (marketBuyAction) {
-      botMsg += ` :: nftji→${marketBuyAction.blockLabel || marketBuyAction.blockKey} €${marketBuyAction.priceEur.toFixed(2)}`;
+      if (marketBuyAction.isMm3Payment) {
+        botMsg += ` :: nftji→${marketBuyAction.blockLabel || marketBuyAction.blockKey} ${marketBuyAction.mm3Amount.toFixed(6)}MM3`;
+      } else {
+        botMsg += ` :: nftji→${marketBuyAction.blockLabel || marketBuyAction.blockKey} €${marketBuyAction.priceEur.toFixed(2)}`;
+      }
     } else if (dailyNftjiTarget) {
       const holding = dailyNftjiTarget.block_key === currentMarketKey;
       if (holding) {
         botMsg += ` :: nftji:${getMarketBlockLabel(dailyNftjiTarget, dailyNftjiTarget.block_key)}`;
       } else {
-        const needed = Math.max(0, Number(dailyNftjiTarget.price_eur) - (botFunds.eur_earned + (currentMarketPrice * 0.5)));
-        botMsg += ` :: nftji:pending ${getMarketBlockLabel(dailyNftjiTarget, dailyNftjiTarget.block_key)} need+€${needed.toFixed(2)}`;
+        const pendingCmdEntry = marketCommandFromBlock(dailyNftjiTarget);
+        const isPendingMm3 = pendingCmdEntry?.payment === 'mm3';
+        if (isPendingMm3) {
+          const pendingRateCny = getSellRateCny(level);
+          const pendingMm3 = pendingRateCny > 0 ? Number(dailyNftjiTarget.price_eur) / (pendingRateCny * CNY_TO_EUR) : 0;
+          const neededMm3 = Math.max(0, pendingMm3 - availableMm3);
+          botMsg += ` :: nftji:pending ${getMarketBlockLabel(dailyNftjiTarget, dailyNftjiTarget.block_key)} need+${neededMm3.toFixed(6)}MM3`;
+        } else {
+          const needed = Math.max(0, Number(dailyNftjiTarget.price_eur) - (botFunds.eur_earned + (currentMarketPrice * 0.5)));
+          botMsg += ` :: nftji:pending ${getMarketBlockLabel(dailyNftjiTarget, dailyNftjiTarget.block_key)} need+€${needed.toFixed(2)}`;
+        }
       }
     }
     if (marketCmdAction) botMsg += ` :: cmd:${marketCmdAction.blockLabel || marketCmdAction.blockKey} x=${marketCmdAction.x}(${marketCmdAction.penalties}hit)`;
