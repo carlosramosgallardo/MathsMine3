@@ -208,13 +208,14 @@ Daily rewards are wallet-bound tasks that pay fictional in-game money when claim
 | IRC | 1 public Market command | 1.00 EUR | Daily rows in `mm3_market_commands` | Rewards social command activity from owned Market NFTJIs. |
 | SQUEEZE | 1 Squeeze launched against a wallet pool | 1.25 EUR | Daily rows in `mm3_pool_dispute_votes` | Rewards initiating pool-vs-pool combat. |
 | HIDDEN IRC | 1 hidden command | 5.00 EUR | Daily rows in `mm3_hidden_cmd_executions` | High-value reward for discovering and executing hidden command paths. |
+| MARKET BLOCK CHAIN | Mine 1 Market board block chain cell | 10.00 EUR | Rows in `mm3_mined_blocks` for the current UTC day | Top reward for advancing the 764-block shared chain race. |
 
 | Rule | Explanation |
 |---|---|
 | Claim model | A completed task must be manually claimed from the daily panel. |
 | Wallet scope | Claims are stored by `wallet + UTC day + task_key`. |
 | Currency credit | Rewards are credited to fictional EUR, USD, and CNY balances using the internal fixed conversion rates. |
-| Maximum daily reward | Completing and claiming every task pays 7.50 EUR equivalent in fictional funds. |
+| Maximum daily reward | Completing and claiming every task pays 17.50 EUR equivalent in fictional funds. |
 | Expiry | If a task is completed but not claimed before UTC reset, the reward is lost. |
 
 ---
@@ -693,7 +694,9 @@ Each pool's Squeeze aggression is driven by its most aggressive member's strateg
 
 All four bots run up to 100 mining games per day at a win rate of ~92 % (decreasing with level) and are capped by the same daily limits as real players: 5 trades, 20 Squeeze launches per 24 h.
 
-**Bots do not mine Market board blocks.** Block mining via IRC command (`/mine block #NNN`) is exclusive to real players. Bots participate in the Market NFTJI economy (buy and resell NFTJI blocks) but never claim free chain blocks, so the 764-block race is a human competition.
+**Bots mine Market board blocks.** Each bot tick has a 55 % chance of mining one qualifying chain cell (wallet level and global MM3 must meet the block's requirement). Bots apply the same chain-mining rules as real players and update `block_chain_percent` in `player_progress`. They also claim the MARKET BLOCK CHAIN daily reward (€10) automatically after a successful mine.
+
+**Bots redeem their own penalties.** When a bot wallet is under an active command penalty, each subsequent tick has a 40 % chance of entering the penalty code to cancel it — the same flow a real player would use in the Market block detail.
 
 ### Impact on Real Players
 
@@ -704,6 +707,8 @@ All four bots run up to 100 mining games per day at a win rate of ~92 % (decreas
 | Any market buy / resell event | Moves the MM3 curve — visible in the chart |
 | Squeeze launched by bot pool | Penalty risk for the targeted pool (same rules as any Squeeze) |
 | ⚔️ / 🔰 drop claimed | MM3 polarity flip scaled by active Dice modifier; always appears in chart |
+| Chain block mined | Advances the shared 784-cell block chain race; bot IRC message shows `chain:X.XX%` |
+| Penalty redeemed | Bot cancels its own active penalty; IRC message shows `pen:redeemed(N)` |
 
 ---
 
@@ -1090,13 +1095,14 @@ Las recompensas diarias son tareas asociadas a la wallet que pagan dinero fictic
 | IRC | 1 comando público de Market | 1.00 EUR | Filas diarias en `mm3_market_commands` | Recompensa actividad social de comandos desde NFTJIs del Market. |
 | SQUEEZE | 1 Squeeze lanzado contra un pool de wallets | 1.25 EUR | Filas diarias en `mm3_pool_dispute_votes` | Recompensa iniciar combate pool-vs-pool. |
 | HIDDEN IRC | 1 comando oculto | 5.00 EUR | Filas diarias en `mm3_hidden_cmd_executions` | Recompensa de alto valor por descubrir y ejecutar rutas ocultas. |
+| MARKET BLOCK CHAIN | Minar 1 celda de la cadena del tablero Market | 10.00 EUR | Filas en `mm3_mined_blocks` durante el día UTC actual | Máxima recompensa por avanzar en la carrera compartida de 764 bloques. |
 
 | Regla | Explicación |
 |---|---|
 | Modelo de reclamación | Una tarea completada debe reclamarse manualmente desde el panel diario. |
 | Alcance por wallet | Las reclamaciones se guardan por `wallet + día UTC + task_key`. |
 | Crédito de moneda | Las recompensas se añaden a balances ficticios EUR, USD y CNY usando las conversiones internas fijas. |
-| Recompensa diaria máxima | Completar y reclamar todas las tareas paga 7.50 EUR equivalentes en fondos ficticios. |
+| Recompensa diaria máxima | Completar y reclamar todas las tareas paga 17.50 EUR equivalentes en fondos ficticios. |
 | Caducidad | Si una tarea se completa pero no se reclama antes del reset UTC, la recompensa se pierde. |
 
 ---
@@ -1575,7 +1581,9 @@ La agresividad Squeeze de cada pool la marca la estrategia del miembro más agre
 
 Los cuatro bots ejecutan hasta 100 partidas de mining al día con una tasa de acierto de ~92 % (decreciente con el nivel) y están sujetos a los mismos límites diarios que los jugadores reales: 5 trades, 20 lanzamientos de Squeeze por ventana de 24 h.
 
-**Los bots no minan bloques del Market board.** El minado de bloques mediante comando IRC (`/mine block #NNN`) es exclusivo de jugadores reales. Los bots participan en la economía NFTJI del Market (compran y revenden bloques) pero nunca reclaman bloques libres de la cadena, así que la carrera de los 764 bloques es una competición humana.
+**Los bots minan bloques del Market board.** Cada tick tiene un 55 % de probabilidad de minar una celda de la cadena que cumpla los requisitos (el nivel de wallet y el valor global MM3 deben satisfacer las condiciones del bloque). Los bots aplican las mismas reglas de minado que los jugadores reales y actualizan `block_chain_percent` en `player_progress`. También reclaman automáticamente la recompensa diaria MARKET BLOCK CHAIN tras un mine exitoso.
+
+**Los bots redimen sus propias penalizaciones.** Cuando una wallet de bot tiene una penalización de comando activa, cada tick siguiente tiene un 40 % de probabilidad de introducir el código para cancelarla — el mismo flujo que usaría un jugador real en el detalle del bloque Market.
 
 ### Impacto en los Jugadores Reales
 
@@ -1586,6 +1594,8 @@ Los cuatro bots ejecutan hasta 100 partidas de mining al día con una tasa de ac
 | Cualquier evento de compra / reventa en Market | Mueve la curva de MM3 — visible en el gráfico |
 | Squeeze lanzado por pool de bots | Riesgo de penalización para el pool objetivo (mismas reglas que cualquier Squeeze) |
 | Drop ⚔️ / 🔰 reclamado | Volteo de polaridad MM3 escalado por el modificador del Dado activo; siempre aparece en el gráfico |
+| Bloque de cadena minado | Avanza la carrera compartida de 784 celdas; el mensaje IRC del bot muestra `chain:X.XX%` |
+| Penalización redimida | El bot cancela su propia penalización activa; el mensaje IRC muestra `pen:redeemed(N)` |
 
 ---
 

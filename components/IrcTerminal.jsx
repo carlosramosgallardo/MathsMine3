@@ -1324,6 +1324,9 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
           ? `mine block :: /mine block #029 >> mina un bloque libre si tu wallet y el valor global MM3 cumplen el requisito`
           : `mine block :: /mine block #029 >> mine a free board block if wallet level and global MM3 value meet the requirement`,
         language === 'es'
+          ? `chain :: mina 1 bloque de la cadena Market hoy >> recompensa €10 diaria`
+          : `chain :: mine 1 Market block chain cell today >> €10 daily reward`,
+        language === 'es'
           ? `── MONEY RAIL ─── penalización en fiat ──────────────────────`
           : `── MONEY RAIL ─── penalty debits fiat ───────────────────────`,
         ...moneyEntries.map(toLine),

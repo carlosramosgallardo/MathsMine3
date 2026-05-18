@@ -8,6 +8,14 @@ import { marketCommandFromBlock, computeMarketCommandCode, getUtcDayWindow } fro
 import { getChallengerRegistrationState, SQUEEZE_REGISTER_MS } from '@/lib/squeeze-transitions';
 import { getDiceState } from '@/lib/dice';
 import { insertSqueezeIrcTrace } from '@/lib/squeeze-irc';
+import {
+  MM3_BLOCK_CHAIN_REQUIREMENTS,
+  MM3_BLOCK_REQUIREMENT_BY_HEX,
+  blockHexToGrid,
+  doesGlobalValueMeetRequirement,
+  mm3ValueToHex,
+} from '@/lib/mm3-block-chain';
+import { formatWalletLabel } from '@/lib/wallet-format';
 
 const BOT_WALLETS = [
   '0xcab10d0e0650d45cb0b7482370a1ca93d5bf5528',
@@ -1196,6 +1204,7 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
     market: { target: 1, rewardEur: 0.75 },
     irc: { target: 1, rewardEur: 1.0 },
     squeeze: { target: 5, rewardEur: 2.5 },
+    market_chain: { target: 1, rewardEur: 10 },
   };
 
   if (newGamesToday >= dailyTargets.mining.target) {
@@ -1440,6 +1449,104 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
     }
   }
 
+  // ── PENALTY REDEMPTION ───────────────────────────────────
+  // Bots redeem their own penalties within the 24h window (probabilistic per tick)
+  if (Math.random() < 0.40) {
+    const { data: activePenalties } = await supabase
+      .from('mm3_command_penalties')
+      .select('id, penalty_code, penalty_value, penalty_eur, penalty_effect')
+      .eq('wallet', wallet)
+      .is('redeemed_at', null)
+      .gt('reset_at', now)
+      .limit(3);
+
+    for (const pen of activePenalties || []) {
+      await supabase.from('mm3_command_penalties')
+        .update({ redeemed_at: now, attempted_at: now })
+        .eq('id', pen.id);
+
+      const { data: freshFunds } = await supabase.from('player_progress')
+        .select('eur_earned, usd_earned, cny_earned, mm3_sold')
+        .eq('wallet', wallet).maybeSingle();
+
+      if (pen.penalty_effect === 'mm3') {
+        const newMm3Sold = Math.max(0, (Number(freshFunds?.mm3_sold) || 0) - Number(pen.penalty_value));
+        await supabase.from('player_progress').upsert({
+          wallet, is_bot: true, mm3_sold: newMm3Sold, updated_at: now,
+        }, { onConflict: 'wallet', ignoreDuplicates: false });
+      } else {
+        const penEur = Number(pen.penalty_eur) || Number(pen.penalty_value) || 0;
+        const penCny = penEur / CNY_TO_EUR;
+        const penUsd = penCny * CNY_TO_USD;
+        await supabase.from('player_progress').upsert({
+          wallet, is_bot: true,
+          eur_earned: (Number(freshFunds?.eur_earned) || 0) + penEur,
+          usd_earned: (Number(freshFunds?.usd_earned) || 0) + penUsd,
+          cny_earned: (Number(freshFunds?.cny_earned) || 0) + penCny,
+          updated_at: now,
+        }, { onConflict: 'wallet', ignoreDuplicates: false });
+      }
+      actions.push({ type: 'penalty_redeemed', penaltyId: pen.id, effect: pen.penalty_effect });
+    }
+  }
+
+  // ── MARKET BLOCK CHAIN MINING ─────────────────────────────
+  // Bots mine a qualifying block if one is available (max 1 per tick)
+  if (!claimedTasks.has('market_chain') && Math.random() < 0.55) {
+    const [{ data: alreadyMined }, { data: marketReserved }, { data: tvRow }] = await Promise.all([
+      supabase.from('mm3_mined_blocks').select('block_hex'),
+      supabase.from('mm3_market_blocks').select('grid_row, grid_col'),
+      supabase.from('token_value').select('total_eth').maybeSingle(),
+    ]);
+    const minedSet = new Set((alreadyMined || []).map((r) => r.block_hex));
+    const reservedCoords = new Set((marketReserved || []).map((r) => `${r.grid_row},${r.grid_col}`));
+    const globalMm3 = Number(tvRow?.total_eth) || 0;
+
+    const qualifying = MM3_BLOCK_CHAIN_REQUIREMENTS.filter((req) => {
+      if (minedSet.has(req.blockHex)) return false;
+      const g = blockHexToGrid(req.blockHex);
+      if (reservedCoords.has(`${g.row},${g.col}`)) return false;
+      if (level < req.minLevel) return false;
+      return doesGlobalValueMeetRequirement(globalMm3, req.requiredMm3);
+    });
+
+    if (qualifying.length > 0) {
+      const pick = qualifying[Math.floor(Math.random() * Math.min(qualifying.length, 10))];
+      const grid = blockHexToGrid(pick.blockHex);
+      const { data: lastChainRow } = await supabase.from('mm3_mined_blocks')
+        .select('chain_index').order('chain_index', { ascending: false }).limit(1).maybeSingle();
+      const chainIndex = (Number(lastChainRow?.chain_index) || 0) + 1;
+
+      const { error: mineErr } = await supabase.from('mm3_mined_blocks').insert({
+        block_hex: pick.blockHex, grid_row: grid.row, grid_col: grid.col,
+        wallet, wallet_level: level, mm3_value: globalMm3,
+        mm3_value_hex: mm3ValueToHex(globalMm3), chain_index: chainIndex,
+      });
+
+      if (!mineErr) {
+        const { data: allMined } = await supabase.from('mm3_mined_blocks').select('wallet');
+        const { count: reservedCount } = await supabase.from('mm3_market_blocks')
+          .select('block_key', { count: 'exact', head: true });
+        const mineableTotal = Math.max(1, MM3_BLOCK_CHAIN_REQUIREMENTS.length - (Number(reservedCount) || 0));
+        const walletMinedCount = (allMined || []).filter((r) => String(r.wallet || '').toLowerCase() === wallet).length;
+        const walletPct = Math.round((walletMinedCount / mineableTotal) * 10000) / 100;
+        const chainPct = Math.round(((allMined || []).length / mineableTotal) * 10000) / 100;
+
+        await supabase.from('player_progress').upsert({
+          wallet, is_bot: true, block_chain_percent: walletPct, updated_at: now,
+        }, { onConflict: 'wallet', ignoreDuplicates: false });
+
+        const trace = `MM3 BLOCK CHAIN IN PROGRESS >> mined ${pick.blockHex} by ${formatWalletLabel(wallet)} >> ${(allMined || []).length}/${mineableTotal} ${chainPct.toFixed(2)}%`;
+        await supabase.from('mm3_irc_messages').insert({
+          wallet: 'system', text: trace, ts: Date.now(), kind: 'system', tone: 'market',
+        });
+
+        actions.push({ type: 'chain_mine', blockHex: pick.blockHex, chainPct });
+        await claimDailyReward('market_chain', dailyTargets.market_chain.rewardEur);
+      }
+    }
+  }
+
   // ── DAILY REWARDS that depend on market/IRC actions ──────
   for (const [taskKey, { target, rewardEur }] of Object.entries(dailyTargets)) {
     if (claimedTasks.has(taskKey)) continue;
@@ -1449,6 +1556,7 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
     else if (taskKey === 'market') count = didBuyOrResell ? 1 : 0;
     else if (taskKey === 'irc') count = didMarketCommand ? 1 : 0;
     else if (taskKey === 'squeeze') count = await getSqueezeWalletLaunchCount(supabase, wallet);
+    else if (taskKey === 'market_chain') continue; // claimed separately after chain mine
     else continue;
     if (count < target) continue;
 
@@ -1465,6 +1573,8 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
     const marketCmdAction = actions.find((a) => a.type === 'market_command');
     const squeezeDropAction = actions.find((a) => a.type === 'squeeze_drop_claimed');
     const squeezeProposeAction = actions.find((a) => a.type === 'squeeze_proposed');
+    const penaltyRedeemedActions = actions.filter((a) => a.type === 'penalty_redeemed');
+    const chainMineAction = actions.find((a) => a.type === 'chain_mine');
 
     const gamesCount = gamesAction?.count || 0;
     const mm3Mined = gamesAction?.total_mining_reward || 0;
@@ -1530,6 +1640,12 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
       const dropEmoji = squeezeDropAction.dropType === 'attack' ? '⚔️' : '🔰';
       botMsg += ` :: drop:${dropEmoji}Lv.${Math.max(0, Number(squeezeDropAction.equippedLevel) || 0)} equip:${squeezeDropAction.equipped}`;
     }
+
+    // ── penalty redeemed
+    if (penaltyRedeemedActions.length > 0) botMsg += ` :: pen:redeemed(${penaltyRedeemedActions.length})`;
+
+    // ── market block chain
+    if (chainMineAction) botMsg += ` :: chain:${chainMineAction.chainPct.toFixed(2)}%`;
 
     // ── tasks
     if (tasksCompleted.length > 0) botMsg += ` :: tasks:${tasksCompleted.join(' ')}`;
