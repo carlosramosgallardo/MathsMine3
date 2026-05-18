@@ -151,7 +151,7 @@ function getMarketBlockHex(block) {
 function getMarketBlockLabel(block, fallbackKey = '') {
   if (!block) return fallbackKey || '';
   const hex = getMarketBlockHex(block);
-  return `${block.emoji || ''}${hex ? ` ${hex}` : block.block_key ? ` ${block.block_key}` : ''}`.trim() || fallbackKey || '';
+  return (hex || block.block_key || fallbackKey || '').trim();
 }
 
 function getReviveCostOption(meta) {
