@@ -254,9 +254,9 @@ function isErrorOrPenaltyMessage(text, tone) {
   return false;
 }
 
-function renderIrcTextLinks(displayText, tone, onWalletClick, blockMap, onBlockClick, poolCodes, onPoolClick) {
+function renderIrcTextLinks(displayText, tone, onWalletClick, blockMap, onBlockClick, poolCodes, onPoolClick, onChainClick) {
   const str = String(displayText);
-  const regex = /(0x[a-f0-9]{40}|#[0-9A-F]{3}|mm3-\d{3}|\b[A-Z0-9]{5}\b)(?![0-9A-Fa-f])/gi;
+  const regex = /(chain:\d+(?:\.\d+)?%|0x[a-f0-9]{40}|#[0-9A-F]{3}|mm3-\d{3}|\b[A-Z0-9]{5}\b)(?![0-9A-Fa-f])/gi;
   if (!regex.test(str)) return str;
   regex.lastIndex = 0;
   const parts = [];
@@ -268,7 +268,17 @@ function renderIrcTextLinks(displayText, tone, onWalletClick, blockMap, onBlockC
     const normalizedToken = token.toLowerCase();
     const poolToken = token.toUpperCase();
     const blockLink = blockMap?.get(poolToken) || blockMap?.get(normalizedToken) || blockMap?.get(token);
-    if (normalizedToken.startsWith('0x')) {
+    if (normalizedToken.startsWith('chain:') && onChainClick) {
+      parts.push(
+        <span
+          key={`ch-${match.index}`}
+          className="mm3-irc-chain-link"
+          onClick={onChainClick}
+        >
+          {token}
+        </span>
+      );
+    } else if (normalizedToken.startsWith('0x')) {
       const addr = normalizedToken;
       parts.push(
         <span
@@ -2040,6 +2050,19 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
           text-underline-offset: 2px;
           text-shadow: 0 0 6px rgba(34, 211, 238, 0.45);
         }
+        .mm3-irc-chain-link {
+          cursor: pointer;
+          color: #4ade80;
+          font-weight: 700;
+          letter-spacing: 0.04em;
+          transition: opacity 0.12s, text-shadow 0.12s;
+        }
+        .mm3-irc-chain-link:hover {
+          opacity: 0.8;
+          text-decoration: underline;
+          text-underline-offset: 2px;
+          text-shadow: 0 0 6px rgba(74, 222, 128, 0.5);
+        }
       `}</style>
 
       <div className="mm3-irc-shell">
@@ -2095,6 +2118,21 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
               const handleBlockHexClick = (blockKey) => {
                 router.push(`/market?block=${blockKey}`);
               };
+              const handleChainClick = message.wallet && message.wallet !== 'system' ? async () => {
+                try {
+                  const { data } = await supabase
+                    .from('mm3_mined_blocks')
+                    .select('block_hex')
+                    .eq('wallet', String(message.wallet).toLowerCase())
+                    .order('created_at', { ascending: false })
+                    .limit(1)
+                    .maybeSingle();
+                  if (data?.block_hex) {
+                    const idx = parseInt(String(data.block_hex).replace(/^#/, ''), 16);
+                    if (Number.isFinite(idx)) router.push(`/market?block=ph-${Math.floor(idx / 28)}-${idx % 28}`);
+                  }
+                } catch {}
+              } : undefined;
               const blockLinkMap = (() => {
                 const map = new Map();
                 for (const [key, block] of blockByKeyRef.current) {
@@ -2143,7 +2181,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
                   >{author}</span>
                   {' '}
                   <span className="mm3-irc-msg-text text-[0.95rem] leading-relaxed">
-                    {renderIrcTextLinks(displayText, message.tone, handleWalletClick, blockLinkMap, handleBlockHexClick, poolCodes, handlePoolClick)}
+                    {renderIrcTextLinks(displayText, message.tone, handleWalletClick, blockLinkMap, handleBlockHexClick, poolCodes, handlePoolClick, handleChainClick)}
                   </span>
                 </div>
               );
