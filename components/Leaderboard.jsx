@@ -705,7 +705,7 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
       const squeezeEmojiLevelSums = SQUEEZE_SLOT_ORDER.reduce((sums, slot) => {
         const powerSum = members.reduce((acc, m) => {
           const lvl = getSqueezeLevel(m.squeeze_nftji, slot.key);
-          return lvl >= 0 ? acc + Math.max(0, lvl) + 1 : acc;
+          return lvl > 0 ? acc + lvl + 1 : acc;
         }, 0);
         if (powerSum > 0) sums[slot.emoji] = powerSum - 1;
         return sums;
@@ -722,9 +722,10 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
         const s = members.reduce((acc, m) => {
           const owned = normalizeWalletDecorations(m.wallet_emojis).includes(slot.emoji);
           if (!owned) return acc;
-          return acc + Math.max(0, Number(m.nftjiLevels?.[slot.key] ?? 0) || 0) + 1;
+          const lvl = Math.max(0, Number(m.nftjiLevels?.[slot.key] ?? 0) || 0);
+          return acc + (lvl > 0 ? lvl + 1 : 0);
         }, 0);
-        sums[slot.emoji] = s - 1;
+        sums[slot.emoji] = Math.max(0, s - 1);
         return sums;
       }, {});
       const totalExecs = members.reduce((sum, entry) => sum + (Number(entry.execs_count) || 0), 0);
@@ -752,7 +753,10 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
       }, {});
       const marketEmojiPowerSums = members.reduce((sums, entry) => {
         for (const block of Array.isArray(entry.market_blocks) ? entry.market_blocks : []) {
-          if (block.emoji) sums[block.emoji] = (sums[block.emoji] || 0) + Math.max(0, Number(block.level) || 0) + 1;
+          if (block.emoji) {
+            const lvl = Math.max(0, Number(block.level) || 0);
+            sums[block.emoji] = (sums[block.emoji] || 0) + (lvl > 0 ? lvl + 1 : 0);
+          }
         }
         return sums;
       }, {});

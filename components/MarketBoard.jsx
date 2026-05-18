@@ -237,16 +237,7 @@ const MarketCell = memo(function MarketCell({
           {block.emoji}
         </span>
       )}
-      {/* Chain block indicator — shown when mined but not an NFTJI */}
-      {isMined && !isNFTJI && !isSelected && (
-        <span
-          className="pointer-events-none font-black leading-none"
-          style={{ fontSize: 'min(1.4vw,0.52rem)', color: 'rgba(74,222,128,0.65)' }}
-        >
-          ▣
-        </span>
-      )}
-      {/* Chain block selected — show filled node */}
+      {/* Chain block selected — show filled node icon */}
       {isSelected && !isNFTJI && isMined && (
         <span
           className="pointer-events-none text-[min(2.4vw,0.92rem)] leading-none sm:text-[min(1.6vw,1rem)]"
@@ -255,8 +246,8 @@ const MarketCell = memo(function MarketCell({
           ▣
         </span>
       )}
-      {/* Hex corner label for selected or chain-mined */}
-      {(isSelected || isMined) && (
+      {/* Hex corner label — only on selection (mined non-selected: green border is enough) */}
+      {isSelected && (
         <span
           className="pointer-events-none absolute bottom-[1px] right-[1px] font-black tracking-[0.06em]"
           style={{ fontSize: 'min(0.95vw,0.36rem)', color: hexColor, textShadow: '0 0 4px rgba(0,0,0,0.95)' }}
