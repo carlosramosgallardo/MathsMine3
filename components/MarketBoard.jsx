@@ -177,7 +177,6 @@ const MarketCell = memo(function MarketCell({
   isSelected,
   isOwned,
   isMined,
-  minedColor,
   language,
   onSelect,
 }) {
@@ -185,46 +184,85 @@ const MarketCell = memo(function MarketCell({
   const col = block.grid_col ?? 0;
   const cellHex = (isSelected || isMined) ? getBlockHex(row, col) : '';
   const title = `${block.emoji} ${language === 'es' ? block.title_es : block.title_en}`;
+  const isNFTJI = !block.isPlaceholder;
+
+  let bg, border, shadow;
+  if (isSelected) {
+    bg = 'linear-gradient(180deg,rgba(250,204,21,0.42),rgba(113,63,18,0.95))';
+    border = 'rgba(250,204,21,0.95)';
+    shadow = '0 0 10px rgba(250,204,21,0.35)';
+  } else if (isMined) {
+    bg = 'rgba(74,222,128,0.09)';
+    border = 'rgba(74,222,128,0.58)';
+    shadow = 'inset 0 0 6px rgba(74,222,128,0.22), 0 0 5px rgba(74,222,128,0.10)';
+  } else if (isOwned) {
+    bg = 'rgba(192,132,252,0.13)';
+    border = 'rgba(192,132,252,0.50)';
+    shadow = 'inset 0 0 5px rgba(192,132,252,0.20)';
+  } else if (isNFTJI) {
+    bg = 'rgba(34,211,238,0.04)';
+    border = 'rgba(34,211,238,0.18)';
+    shadow = 'none';
+  } else {
+    bg = undefined;
+    border = 'rgba(34,211,238,0.04)';
+    shadow = 'none';
+  }
+
+  const hexColor = isSelected
+    ? 'rgba(255,255,255,0.9)'
+    : isMined
+      ? 'rgba(74,222,128,0.85)'
+      : isOwned
+        ? 'rgba(192,132,252,0.9)'
+        : 'rgba(255,255,255,0.7)';
 
   return (
     <button
       type="button"
       onClick={() => onSelect(block.block_key)}
-      className="relative flex items-center justify-center overflow-hidden border border-cyan-400/10 bg-transparent transition-[background,border-color,box-shadow] duration-100 focus:outline-none"
-      style={{
-        background: isMined
-          ? `${minedColor}33`
-          : isOwned
-          ? 'rgba(2,8,4,0.97)'
-          : isSelected
-            ? 'linear-gradient(180deg,rgba(250,204,21,0.42),rgba(113,63,18,0.95))'
-            : undefined,
-        borderColor: isSelected
-          ? 'rgba(250,204,21,0.95)'
-          : isMined
-            ? `${minedColor}AA`
-          : isOwned
-            ? 'rgba(34,197,94,0.18)'
-            : 'rgba(34,211,238,0.08)',
-        boxShadow: isSelected
-          ? '0 0 10px rgba(250,204,21,0.35)'
-          : isMined
-            ? `inset 0 0 7px ${minedColor}55, 0 0 6px ${minedColor}22`
-          : isOwned
-            ? 'inset 0 0 4px rgba(34,197,94,0.1)'
-            : 'none',
-      }}
+      className="relative flex items-center justify-center overflow-hidden border transition-[background,border-color,box-shadow] duration-100 focus:outline-none"
+      style={{ background: bg, borderColor: border, boxShadow: shadow }}
       title={title}
     >
+      {/* NFTJI emoji — always visible */}
+      {isNFTJI && block.emoji && (
+        <span
+          className="pointer-events-none text-[min(2.4vw,0.92rem)] leading-none sm:text-[min(1.6vw,1rem)]"
+          style={{
+            opacity: isSelected ? 1 : isOwned ? 0.85 : 0.55,
+            filter: isOwned && !isSelected ? 'drop-shadow(0 0 3px rgba(192,132,252,0.45))' : undefined,
+          }}
+        >
+          {block.emoji}
+        </span>
+      )}
+      {/* Chain block indicator — shown when mined but not an NFTJI */}
+      {isMined && !isNFTJI && !isSelected && (
+        <span
+          className="pointer-events-none font-black leading-none"
+          style={{ fontSize: 'min(1.4vw,0.52rem)', color: 'rgba(74,222,128,0.65)' }}
+        >
+          ▣
+        </span>
+      )}
+      {/* Chain block selected — show filled node */}
+      {isSelected && !isNFTJI && isMined && (
+        <span
+          className="pointer-events-none text-[min(2.4vw,0.92rem)] leading-none sm:text-[min(1.6vw,1rem)]"
+          style={{ color: '#4ade80', filter: 'drop-shadow(0 0 4px rgba(74,222,128,0.6))' }}
+        >
+          ▣
+        </span>
+      )}
+      {/* Hex corner label for selected or chain-mined */}
       {(isSelected || isMined) && (
-        <>
-          <span className="pointer-events-none text-[min(2.4vw,0.92rem)] leading-none text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.45)] sm:text-[min(1.6vw,1rem)]">
-            {isMined && !block.emoji ? '■' : block.emoji}
-          </span>
-          <span className="pointer-events-none absolute bottom-[1px] right-[1px] text-[0.44rem] font-black tracking-[0.08em] text-white drop-shadow-[0_0_5px_rgba(0,0,0,0.9)] sm:text-[0.3rem]">
-            {cellHex}
-          </span>
-        </>
+        <span
+          className="pointer-events-none absolute bottom-[1px] right-[1px] font-black tracking-[0.06em]"
+          style={{ fontSize: 'min(0.95vw,0.36rem)', color: hexColor, textShadow: '0 0 4px rgba(0,0,0,0.95)' }}
+        >
+          {cellHex}
+        </span>
       )}
     </button>
   );
@@ -254,7 +292,6 @@ const CATALOG_BLOCKS = [
 ];
 
 const CATALOG_KEY_SET = new Set(CATALOG_BLOCKS.map((b) => b.block_key));
-const MINED_BLOCK_COLOR = '#374151';
 
 
 export default function MarketBoard({ account, isVirtualWallet = false }) {
@@ -1087,28 +1124,40 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
       {loading && <PageLoading label={t('podcast.loading')} />}
 
       <div className="mm3-market-shell mx-auto grid w-full max-w-[1080px] gap-2 lg:grid-cols-[minmax(0,1fr)_minmax(300px,400px)] lg:items-start lg:gap-3 lg:px-2">
-        <div className="mm3-market-chain mx-auto w-full max-w-[860px] rounded border border-cyan-500/15 bg-black/35 px-3 py-2 text-center shadow-[0_0_18px_rgba(34,211,238,0.05)] lg:col-span-2 lg:px-5 lg:py-3">
-          <div className="flex items-center justify-center gap-4 text-[0.72rem] font-black uppercase tracking-[0.2em] text-cyan-300/80 lg:text-[0.88rem]">
-            <span>{blockChain?.title || BLOCK_CHAIN_TITLE}</span>
-            <span className="text-cyan-100">{Number(blockChain?.percent || 0).toFixed(2)}%</span>
+        <div className="mm3-market-chain mx-auto w-full max-w-[860px] rounded border border-emerald-500/20 bg-black/40 px-3 py-2 text-center shadow-[0_0_18px_rgba(74,222,128,0.06),inset_0_0_20px_rgba(74,222,128,0.03)] lg:col-span-2 lg:px-5 lg:py-3">
+          <div className="flex items-center justify-center gap-3 text-[0.72rem] font-black uppercase tracking-[0.2em] lg:text-[0.88rem]">
+            <span className="text-emerald-300/70">{blockChain?.title || BLOCK_CHAIN_TITLE}</span>
+            <span className="text-emerald-200" style={{ textShadow: '0 0 12px rgba(74,222,128,0.5)' }}>{Number(blockChain?.percent || 0).toFixed(2)}%</span>
           </div>
-          <div className="mx-auto mt-2 h-1.5 max-w-[720px] overflow-hidden rounded bg-cyan-950/45 lg:h-2">
+          <div className="mx-auto mt-2 h-1.5 max-w-[720px] overflow-hidden rounded-sm border border-emerald-500/15 bg-black/50 lg:h-2">
             <div
-              className="h-full bg-cyan-300/85 shadow-[0_0_12px_rgba(34,211,238,0.55)]"
-              style={{ width: `${Math.max(0, Math.min(100, Number(blockChain?.percent || 0)))}%` }}
+              className="h-full rounded-none"
+              style={{
+                width: `${Math.max(0, Math.min(100, Number(blockChain?.percent || 0)))}%`,
+                background: 'linear-gradient(90deg, #166534, #4ade80)',
+                boxShadow: '0 0 10px rgba(74,222,128,0.45)',
+              }}
             />
           </div>
           {blockChain?.code && (
-            <div className="mx-auto mt-2 max-h-20 max-w-[780px] overflow-y-auto break-all text-[0.62rem] leading-relaxed text-cyan-100/60 lg:text-[0.68rem]">
+            <div className="mx-auto mt-2 max-h-20 max-w-[780px] overflow-y-auto break-all text-[0.62rem] leading-relaxed lg:text-[0.68rem]">
               {String(blockChain.code).split('#').filter(Boolean).map((part, index) => {
                 const token = `#${part}`;
                 const isWallet = part.startsWith('0x');
                 const isBlock = /^#[0-9A-F]{3}$/i.test(token);
+                const isValue = !isWallet && !isBlock;
                 return (
                   <button
                     key={`${part}-${index}`}
                     type="button"
-                    className="hover:text-cyan-200 hover:underline"
+                    className="transition-colors"
+                    style={{
+                      color: isWallet
+                        ? 'rgba(34,211,238,0.65)'
+                        : isBlock
+                          ? 'rgba(74,222,128,0.80)'
+                          : 'rgba(74,222,128,0.40)',
+                    }}
                     onClick={() => {
                       if (isWallet) openRankingWallet(part);
                       else if (isBlock) {
@@ -1170,7 +1219,6 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
                     const isOwned = Array.isArray(block.current_owners) && block.current_owners.length > 0;
                     const minedBlock = block.mined_block || minedByHex.get(getBlockHex(block.grid_row ?? 0, block.grid_col ?? 0));
                     const isMined = Boolean(block.isPlaceholder && minedBlock);
-                    const minedColor = MINED_BLOCK_COLOR;
 
                     return (
                       <MarketCell
@@ -1179,7 +1227,6 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
                         isSelected={isSelected}
                         isOwned={isOwned}
                         isMined={isMined}
-                        minedColor={minedColor}
                         language={language}
                         onSelect={handleBlockClick}
                       />
@@ -1219,21 +1266,21 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
 
           {/* ── Price + Owner — same row ── */}
           <div className={`col-span-1 flex gap-1.5 lg:col-span-2 ${isMineBlock ? 'flex-col' : ''}`}>
-            <div className={`mm3-market-detail-card rounded border border-amber-400/14 bg-amber-950/8 px-2 py-1 lg:px-2.5 lg:py-2 ${isMineBlock ? 'w-full' : 'shrink-0'}`}>
-              <div className="text-[0.66rem] uppercase tracking-[0.16em] text-amber-300/65 lg:text-[0.68rem] lg:tracking-[0.18em]">{isMineBlock ? 'req' : t('podcast.price')}</div>
-              <div className={`${isMineBlock ? 'text-[0.7rem] leading-snug' : 'text-[1.05rem] leading-none lg:text-lg'} mt-0.5 font-black text-amber-300 lg:mt-1`}>
+            <div className={`mm3-market-detail-card rounded border px-2 py-1 lg:px-2.5 lg:py-2 ${isMineBlock ? 'w-full border-emerald-500/20 bg-emerald-950/8' : 'shrink-0 border-amber-400/14 bg-amber-950/8'}`}>
+              <div className={`text-[0.66rem] uppercase tracking-[0.16em] lg:text-[0.68rem] lg:tracking-[0.18em] ${isMineBlock ? 'text-emerald-400/65' : 'text-amber-300/65'}`}>{isMineBlock ? 'req' : t('podcast.price')}</div>
+              <div className={`${isMineBlock ? 'text-[0.7rem] leading-snug text-emerald-200' : 'text-[1.05rem] leading-none text-amber-300 lg:text-lg'} mt-0.5 font-black lg:mt-1`}>
                 {isMineBlock ? formatBlockRequirement(selectedMineRequirement) : displayPrice}
               </div>
             </div>
-            <div className={`mm3-market-detail-card min-w-0 flex-1 rounded border border-cyan-500/12 bg-black/45 px-2 py-1 lg:px-2.5 lg:py-2 ${isMineBlock ? 'w-full' : ''}`}>
-              <div className="text-[0.66rem] uppercase tracking-[0.16em] text-cyan-300/65 lg:text-[0.68rem] lg:tracking-[0.18em]">{isMineBlock ? 'miner shell' : t('podcast.owner')}</div>
+            <div className={`mm3-market-detail-card min-w-0 flex-1 rounded border px-2 py-1 lg:px-2.5 lg:py-2 ${isMineBlock ? 'w-full border-emerald-500/12 bg-emerald-950/5' : 'border-cyan-500/12 bg-black/45'}`}>
+              <div className={`text-[0.66rem] uppercase tracking-[0.16em] lg:text-[0.68rem] lg:tracking-[0.18em] ${isMineBlock ? 'text-emerald-400/65' : 'text-cyan-300/65'}`}>{isMineBlock ? 'miner shell' : t('podcast.owner')}</div>
               <div className={`mt-0.5 flex flex-col gap-1 overflow-y-auto pr-1 lg:mt-1 ${isMineBlock ? 'max-h-10' : 'max-h-12 lg:max-h-20'}`}>
               {isMineBlockMined ? (
                 <button
                   type="button"
                   onClick={() => openRankingWallet(selectedMinedBlock.wallet)}
-                  className="block text-left text-[0.88rem] transition hover:underline focus:outline-none lg:text-[0.95rem]"
-                  style={{ color: colorFromAddress(selectedMinedBlock.wallet), textShadow: `0 0 10px ${colorFromAddress(selectedMinedBlock.wallet)}33` }}
+                  className="block text-left text-[0.88rem] font-black transition hover:underline focus:outline-none lg:text-[0.95rem]"
+                  style={{ color: colorFromAddress(selectedMinedBlock.wallet), textShadow: `0 0 10px ${colorFromAddress(selectedMinedBlock.wallet)}44` }}
                   title={selectedMinedBlock.wallet}
                 >
                   {shortenWallet(selectedMinedBlock.wallet)}
@@ -1262,6 +1309,32 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
             </div>
           </div>
           </div>
+
+          {/* ── Chain block metadata ── */}
+          {isMineBlockMined && selectedMinedBlock && (
+            <div className="col-span-1 flex gap-1.5 lg:col-span-2">
+              <div className="mm3-market-detail-card flex-1 rounded border border-emerald-500/18 bg-emerald-950/8 px-2 py-1 lg:px-2.5 lg:py-1.5">
+                <div className="text-[0.66rem] uppercase tracking-[0.16em] text-emerald-400/60 lg:text-[0.68rem]">chain index</div>
+                <div className="mt-0.5 font-black text-emerald-300" style={{ fontSize: '0.88rem' }}>
+                  #{Number(selectedMinedBlock.chain_index) || '—'}
+                </div>
+              </div>
+              <div className="mm3-market-detail-card flex-1 rounded border border-emerald-500/18 bg-emerald-950/8 px-2 py-1 lg:px-2.5 lg:py-1.5">
+                <div className="text-[0.66rem] uppercase tracking-[0.16em] text-emerald-400/60 lg:text-[0.68rem]">mm3 at mining</div>
+                <div className="mt-0.5 font-black text-emerald-300" style={{ fontSize: '0.88rem' }}>
+                  {Number(selectedMinedBlock.mm3_value || 0).toFixed(2)} <span className="text-emerald-500/70">MM3</span>
+                </div>
+              </div>
+              {selectedMinedBlock.wallet_level != null && (
+                <div className="mm3-market-detail-card flex-1 rounded border border-emerald-500/18 bg-emerald-950/8 px-2 py-1 lg:px-2.5 lg:py-1.5">
+                  <div className="text-[0.66rem] uppercase tracking-[0.16em] text-emerald-400/60 lg:text-[0.68rem]">miner level</div>
+                  <div className="mt-0.5 font-black text-emerald-300" style={{ fontSize: '0.88rem' }}>
+                    Lv.{Number(selectedMinedBlock.wallet_level)}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* ── Short / hidden command hint ── */}
           {!selectedBlock?.isPlaceholder && (

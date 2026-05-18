@@ -2124,14 +2124,14 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
                     .from('mm3_mined_blocks')
                     .select('block_hex')
                     .eq('wallet', String(message.wallet).toLowerCase())
-                    .order('created_at', { ascending: false })
+                    .order('chain_index', { ascending: false })
                     .limit(1)
                     .maybeSingle();
                   if (data?.block_hex) {
                     const idx = parseInt(String(data.block_hex).replace(/^#/, ''), 16);
                     if (Number.isFinite(idx)) router.push(`/market?block=ph-${Math.floor(idx / 28)}-${idx % 28}`);
                   }
-                } catch {}
+                } catch (e) { console.error('chain click:', e); }
               } : undefined;
               const blockLinkMap = (() => {
                 const map = new Map();
