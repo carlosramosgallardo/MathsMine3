@@ -20,9 +20,18 @@ const UP   = '#4ade80'
 const DN   = '#f97316'
 const RANGES = ['1h', '24h', '7d', '30d', '360d', 'all']
 
-const CHART_FILTER_KEYS = ['dice', 'nftji', 'market']
-const DEFAULT_CHART_FILTERS = { dice: true, nftji: true, market: true }
-const CHART_FILTER_LABELS = { dice: '🎲 dice', nftji: '⛏️ nftji', market: '📈 market' }
+const CHART_FILTER_KEYS = ['dice', 'mining', 'trading', 'market', 'squeeze']
+const DEFAULT_CHART_FILTERS = { dice: true, mining: true, trading: true, market: true, squeeze: true }
+const CHART_FILTER_LABELS = { dice: '🎲 dice', mining: '⛏️ mining', trading: '📈 trading', market: '🛒 market', squeeze: '⚔️ squeeze' }
+
+function chartEventCategory(ev) {
+  const emoji = ev.emoji
+  const et = ev.event_type
+  if (emoji === '⚔️' || emoji === '🔰') return 'squeeze'
+  if (emoji === '📈' || emoji === '📉') return 'trading'
+  if (et === 'nftji_level_up' || (et === 'market_buy' && emoji !== '📈') || (et === 'market_resell' && emoji !== '📉')) return 'market'
+  return 'mining'
+}
 
 // negative modifier = cheaper commissions (good for miners) → cyan (distinct from UP green)
 // positive modifier = pricier commissions (bad for miners)  → amber (distinct from DN orange)
@@ -725,17 +734,11 @@ export default function TokenChart() {
   const nftKeys = Object.keys(nftEvents)
 
   const filteredNftEvents = useMemo(() => {
-    if (chartFilters.nftji && chartFilters.market) return nftEvents
+    const allOn = CHART_FILTER_KEYS.filter(k => k !== 'dice').every(k => chartFilters[k])
+    if (allOn) return nftEvents
     return Object.fromEntries(
       Object.entries(nftEvents)
-        .map(([key, evts]) => [
-          key,
-          evts.filter(ev => {
-            const et = ev.event_type
-            if (et === 'market_buy' || et === 'market_resell') return chartFilters.market
-            return chartFilters.nftji
-          }),
-        ])
+        .map(([key, evts]) => [key, evts.filter(ev => chartFilters[chartEventCategory(ev)])])
         .filter(([, evts]) => evts.length > 0)
     )
   }, [nftEvents, chartFilters])
