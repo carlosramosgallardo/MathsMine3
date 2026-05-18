@@ -75,6 +75,13 @@ function setIfChanged(setter, next) {
   setter(prev => JSON.stringify(prev) === JSON.stringify(next) ? prev : next)
 }
 
+function localDateStr(d) {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const dy = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${dy}`
+}
+
 function sourceDeltas(row = {}) {
   const mined_delta = parseFloat(row.mined_delta || 0)
   const trade_delta = parseFloat(row.trade_delta || 0)
@@ -245,7 +252,7 @@ function useChartData(rawHourly, rawMinutes, range) {
       for (let i = 60; i >= 0; i -= 5) {
         const d = new Date(now - i * 60_000)
         points.push({
-          time:  `${String(d.getUTCHours()).padStart(2,'0')}:${String(d.getUTCMinutes()).padStart(2,'0')}`,
+          time:  `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`,
           value: lastVal,
           delta: 0,
           ...sourceDeltas(),
@@ -268,18 +275,18 @@ function useChartData(rawHourly, rawMinutes, range) {
     if (range === '24h') {
       if (!sorted.length) return []
 
-      const allSameUtcDay = sorted.every(({ hour }) => {
+      const allSameLocalDay = sorted.every(({ hour }) => {
         const d = new Date(hour)
-        return d.toISOString().slice(0, 10) === new Date(sorted[sorted.length - 1].hour).toISOString().slice(0, 10)
+        return localDateStr(d) === localDateStr(new Date(sorted[sorted.length - 1].hour))
       })
 
-      if (!allSameUtcDay) {
+      if (!allSameLocalDay) {
         return sorted.map((e, i, arr) => {
           const val  = parseFloat(e.cumulative_reward)
           const prev = parseFloat(arr[i - 1]?.cumulative_reward ?? e.cumulative_reward)
           const d    = new Date(e.hour)
           return {
-            time:  `${String(d.getUTCHours()).padStart(2, '0')}:00`,
+            time:  `${String(d.getHours()).padStart(2, '0')}:00`,
             value:  val,
             delta: parseFloat(e.delta ?? val - prev),
             ...sourceDeltas(e),
@@ -288,18 +295,18 @@ function useChartData(rawHourly, rawMinutes, range) {
       }
 
       const lastDate = new Date(sorted[sorted.length - 1].hour)
-      const start = Date.UTC(lastDate.getUTCFullYear(), lastDate.getUTCMonth(), lastDate.getUTCDate(), 0, 0, 0, 0)
-      const end = Date.UTC(lastDate.getUTCFullYear(), lastDate.getUTCMonth(), lastDate.getUTCDate(), lastDate.getUTCHours(), 0, 0, 0)
+      const start = new Date(lastDate.getFullYear(), lastDate.getMonth(), lastDate.getDate(), 0, 0, 0, 0).getTime()
+      const end = new Date(lastDate.getFullYear(), lastDate.getMonth(), lastDate.getDate(), lastDate.getHours(), 0, 0, 0).getTime()
       const valueByHour = new Map(
         sorted.map(({ hour, cumulative_reward }) => {
           const d = new Date(hour)
-          return [`${String(d.getUTCHours()).padStart(2, '0')}:00`, parseFloat(cumulative_reward)]
+          return [`${String(d.getHours()).padStart(2, '0')}:00`, parseFloat(cumulative_reward)]
         })
       )
       const deltasByHour = new Map(
         sorted.map(row => {
           const d = new Date(row.hour)
-          return [`${String(d.getUTCHours()).padStart(2, '0')}:00`, {
+          return [`${String(d.getHours()).padStart(2, '0')}:00`, {
             delta: parseFloat(row.delta || 0),
             ...sourceDeltas(row),
           }]
@@ -310,7 +317,7 @@ function useChartData(rawHourly, rawMinutes, range) {
       const filled = []
       for (let ts = start; ts <= end; ts += 3_600_000) {
         const d = new Date(ts)
-        const key = `${String(d.getUTCHours()).padStart(2, '0')}:00`
+        const key = `${String(d.getHours()).padStart(2, '0')}:00`
         const nextValue = valueByHour.has(key) ? valueByHour.get(key) : carry
         filled.push({ time: key, value: nextValue, ...(deltasByHour.get(key) ?? { delta: 0, ...sourceDeltas() }) })
         carry = nextValue
@@ -326,7 +333,7 @@ function useChartData(rawHourly, rawMinutes, range) {
       const { hour, cumulative_reward } = row
       const d = new Date(hour)
       if (!isNaN(d)) {
-        const key = d.toISOString().slice(0, 10)
+        const key = localDateStr(d)
         map[key] = parseFloat(cumulative_reward)
         if (!dailyDeltas[key]) dailyDeltas[key] = { delta: 0, ...sourceDeltas() }
         dailyDeltas[key].delta += parseFloat(row.delta || 0)
@@ -387,10 +394,10 @@ function useNftEvents(range) {
     filtered.forEach(ev => {
       const d   = new Date(ev.created_at)
       const key = range === '1h'
-        ? `${String(d.getUTCHours()).padStart(2, '0')}:${String(d.getUTCMinutes()).padStart(2, '0')}`
+        ? `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
         : range === '24h'
-          ? `${String(d.getUTCHours()).padStart(2, '0')}:00`
-          : d.toISOString().slice(5, 10)
+          ? `${String(d.getHours()).padStart(2, '0')}:00`
+          : localDateStr(d).slice(5)
       if (!grouped[key]) grouped[key] = []
       grouped[key].push({
         wallet:     ev.wallet,
@@ -509,9 +516,9 @@ const NFT_LEGEND_BASE = [
 function useDiceChartWindows(data, range, clockTick) {
   return useMemo(() => {
     const now = Date.now()
-    const toMinKey  = ms => { const d = new Date(ms); return `${String(d.getUTCHours()).padStart(2,'0')}:${String(d.getUTCMinutes()).padStart(2,'0')}` }
-    const toHourKey = ms => { const d = new Date(ms); return `${String(d.getUTCHours()).padStart(2,'0')}:00` }
-    const toDayKey  = ms => new Date(ms).toISOString().slice(5, 10)
+    const toMinKey  = ms => { const d = new Date(ms); return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}` }
+    const toHourKey = ms => { const d = new Date(ms); return `${String(d.getHours()).padStart(2,'0')}:00` }
+    const toDayKey  = ms => localDateStr(new Date(ms)).slice(5)
 
     if (range === '1h') {
       const chartRangeStart = now - 3_600_000
