@@ -4,13 +4,22 @@ import { useEffect, useRef, useState } from 'react';
 import { useI18n } from '@/lib/i18n-context';
 import { useActiveWallet } from '@/lib/use-active-wallet';
 import { useSound } from '@/lib/sound-context';
+import { useCurrency } from '@/lib/currency-context';
+import { CNY_TO_EUR, CNY_TO_USD, formatMoney } from '@/lib/sell-offer';
 import { DAILY_TASKS, getUtcDayBounds, loadDailyTaskProgress } from '@/lib/daily-tasks';
 import SectionFrame from '@/components/SectionFrame';
 import supabase from '@/lib/supabaseClient';
 
+function formatReward(rewardEur, currency) {
+  if (currency === 'USD') return formatMoney(rewardEur * (CNY_TO_USD / CNY_TO_EUR), 'USD');
+  if (currency === 'CNY') return formatMoney(rewardEur / CNY_TO_EUR, 'CNY');
+  return formatMoney(rewardEur, 'EUR');
+}
+
 export default function DailyTasks({ framed = true }) {
   const { account } = useActiveWallet();
   const { t } = useI18n();
+  const { currency } = useCurrency();
   const [counts, setCounts] = useState({});
   const [claimed, setClaimed] = useState({});
   const [loading, setLoading] = useState(false);
@@ -178,20 +187,25 @@ export default function DailyTasks({ framed = true }) {
         ) : null}
 
         <div className="grid grid-cols-1 gap-2.5 font-mono md:grid-cols-2">
-          {taskRows.map((task) => (
-            <div key={task.key} className="rounded-md border border-cyan-500/15 bg-black/70 p-3 shadow-[0_0_18px_rgba(34,211,238,0.04)]">
+          {taskRows.map((task) => {
+            const isFinal = task.key === 'market_chain';
+            return (
+            <div
+              key={task.key}
+              className={`rounded-md border p-3 ${isFinal ? 'md:col-span-2 border-emerald-500/30 bg-black/70 shadow-[0_0_22px_rgba(74,222,128,0.07),inset_0_0_18px_rgba(74,222,128,0.03)]' : 'border-cyan-500/15 bg-black/70 shadow-[0_0_18px_rgba(34,211,238,0.04)]'}`}
+            >
                 <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div>
-                    <div className="text-xs uppercase tracking-[0.24em] text-fuchsia-300">{t(`dailyTasks.tasks.${task.translationKey}.name`)}</div>
+                    <div className={`text-xs uppercase tracking-[0.24em] ${isFinal ? 'text-emerald-400/80' : 'text-fuchsia-300'}`}>{t(`dailyTasks.tasks.${task.translationKey}.name`)}</div>
                     <div className="mt-1 text-[0.92rem] font-black text-slate-100">{t(`dailyTasks.tasks.${task.translationKey}.hint`)}</div>
                   </div>
                   <div className="flex flex-col items-start gap-2 sm:items-end">
-                    <span className="text-xs uppercase tracking-[0.18em] text-emerald-300/90">{t('dailyTasks.rewardLabel')} {task.rewardEur.toFixed(2)}€</span>
+                    <span className={`text-xs uppercase tracking-[0.18em] ${isFinal ? 'text-emerald-300' : 'text-emerald-300/90'}`}>{t('dailyTasks.rewardLabel')} {formatReward(task.rewardEur, currency)}</span>
                     <button
                       type="button"
                       onClick={() => handleClaim(task)}
                       disabled={!task.complete || task.claimed || loading}
-                      className={`inline-flex min-h-9 items-center justify-center rounded-md border px-3 py-1.5 text-[0.76rem] font-black uppercase tracking-[0.18em] transition ${task.claimed ? 'cursor-default border-emerald-400/45 bg-emerald-500/10 text-emerald-200' : task.complete ? 'border-cyan-400/65 bg-cyan-500/10 text-cyan-100 hover:border-cyan-300 hover:bg-cyan-500/20' : 'cursor-not-allowed border-slate-800 bg-black/50 text-slate-600'}`}
+                      className={`inline-flex min-h-9 items-center justify-center rounded-md border px-3 py-1.5 text-[0.76rem] font-black uppercase tracking-[0.18em] transition ${task.claimed ? 'cursor-default border-emerald-400/45 bg-emerald-500/10 text-emerald-200' : task.complete ? (isFinal ? 'border-emerald-400/65 bg-emerald-500/10 text-emerald-100 hover:border-emerald-300 hover:bg-emerald-500/20' : 'border-cyan-400/65 bg-cyan-500/10 text-cyan-100 hover:border-cyan-300 hover:bg-cyan-500/20') : 'cursor-not-allowed border-slate-800 bg-black/50 text-slate-600'}`}
                     >
                       {task.claimed ? t('dailyTasks.claimed') : t('dailyTasks.claimReward')}
                     </button>
@@ -203,12 +217,13 @@ export default function DailyTasks({ framed = true }) {
                     <span>{task.value} / {task.target}</span>
                     <span>{task.filled}%</span>
                   </div>
-                  <div className="h-2 overflow-hidden rounded-sm border border-cyan-500/10 bg-slate-950">
-                    <div className="h-full rounded-none bg-gradient-to-r from-fuchsia-500 via-cyan-400 to-green-300" style={{ width: `${task.filled}%` }} />
+                  <div className={`h-2 overflow-hidden rounded-sm border bg-slate-950 ${isFinal ? 'border-emerald-500/20' : 'border-cyan-500/10'}`}>
+                    <div className={`h-full rounded-none ${isFinal ? 'bg-gradient-to-r from-emerald-700 via-emerald-400 to-green-300' : 'bg-gradient-to-r from-fuchsia-500 via-cyan-400 to-green-300'}`} style={{ width: `${task.filled}%` }} />
                   </div>
                 </div>
               </div>
-            ))}
+            );
+          })}
 
             {message ? (
               <div className="rounded-md border border-cyan-500/15 bg-black/80 px-4 py-3 text-sm text-cyan-100 md:col-span-2">
