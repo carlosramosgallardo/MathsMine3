@@ -20,6 +20,10 @@ const UP   = '#4ade80'
 const DN   = '#f97316'
 const RANGES = ['1h', '24h', '7d', '30d', '360d', 'all']
 
+const CHART_FILTER_KEYS = ['dice', 'nftji', 'market']
+const DEFAULT_CHART_FILTERS = { dice: true, nftji: true, market: true }
+const CHART_FILTER_LABELS = { dice: '🎲 dice', nftji: '⛏️ nftji', market: '📈 market' }
+
 // negative modifier = cheaper commissions (good for miners) → cyan (distinct from UP green)
 // positive modifier = pricier commissions (bad for miners)  → amber (distinct from DN orange)
 const chartDiceColor = (mod) => mod < 0 ? C : '#fb923c'
@@ -380,9 +384,10 @@ function useNftEvents(range) {
           : d.toISOString().slice(5, 10)
       if (!grouped[key]) grouped[key] = []
       grouped[key].push({
-        wallet:    ev.wallet,
-        delta_mm3: parseFloat(ev.delta_mm3),
-        emoji:     ev.emoji ?? '🔮',
+        wallet:     ev.wallet,
+        delta_mm3:  parseFloat(ev.delta_mm3),
+        emoji:      ev.emoji ?? '🔮',
+        event_type: ev.event_type,
       })
     })
     return grouped
@@ -662,10 +667,24 @@ export default function TokenChart() {
     return localStorage.getItem('mm3-chart-range') || '1h'
   })
   const [activePoint, setActivePoint] = useState(null)
+  const [chartFilters, setChartFilters] = useState(() => {
+    if (typeof window === 'undefined') return DEFAULT_CHART_FILTERS
+    try {
+      return { ...DEFAULT_CHART_FILTERS, ...JSON.parse(localStorage.getItem('mm3-chart-filters') || 'null') }
+    } catch { return DEFAULT_CHART_FILTERS }
+  })
 
   const handleRangeChange = useCallback((r) => {
     setRange(r)
     if (typeof window !== 'undefined') localStorage.setItem('mm3-chart-range', r)
+  }, [])
+
+  const toggleChartFilter = useCallback((key) => {
+    setChartFilters(prev => {
+      const next = { ...prev, [key]: !prev[key] }
+      if (typeof window !== 'undefined') localStorage.setItem('mm3-chart-filters', JSON.stringify(next))
+      return next
+    })
   }, [])
 
   const rawHistory  = useRawHistory()
@@ -705,14 +724,28 @@ export default function TokenChart() {
   )
   const nftKeys = Object.keys(nftEvents)
 
+  const filteredNftEvents = useMemo(() => {
+    if (chartFilters.nftji && chartFilters.market) return nftEvents
+    return Object.fromEntries(
+      Object.entries(nftEvents)
+        .map(([key, evts]) => [
+          key,
+          evts.filter(ev => {
+            const et = ev.event_type
+            if (et === 'market_buy' || et === 'market_resell') return chartFilters.market
+            return chartFilters.nftji
+          }),
+        ])
+        .filter(([, evts]) => evts.length > 0)
+    )
+  }, [nftEvents, chartFilters])
+
   const mergedMarkers = useMemo(() => {
     const map = {}
-    // NFT events only — no dice markers for non-1h (dice lives only in legend there)
-    for (const [key, evts] of Object.entries(nftEvents)) {
+    for (const [key, evts] of Object.entries(filteredNftEvents)) {
       map[key] = { nft: evts, dice: null }
     }
-    // For 1h, add start AND end markers for the dice window
-    if (range === '1h') {
+    if (range === '1h' && chartFilters.dice) {
       for (const { x, win, isEnd } of diceWindows.lines) {
         const diceEntry = isEnd ? { ...win, isEnd: true } : win
         if (!map[x]) map[x] = { nft: null, dice: diceEntry }
@@ -720,18 +753,18 @@ export default function TokenChart() {
       }
     }
     return map
-  }, [nftEvents, diceWindows, range])
+  }, [filteredNftEvents, diceWindows, range, chartFilters.dice])
 
   // Overlays for 1H dice windows — separate Areas so they work in all browsers.
   const diceOverlays = useMemo(() => {
-    if (range !== '1h' || !data.length || !diceWindows.areas.length) return []
+    if (range !== '1h' || !data.length || !diceWindows.areas.length || !chartFilters.dice) return []
     return diceWindows.areas.flatMap(({ x1, x2, win }, idx) => {
       const si = data.findIndex(d => d.time === x1)
       const ei = data.findIndex(d => d.time === x2)
       if (si === -1 || ei <= si) return []
       return [{ key: `diceValue${idx}`, si, end: ei, color: chartDiceColor(win.modifier), modifier: win.modifier }]
     })
-  }, [range, data, diceWindows])
+  }, [range, data, diceWindows, chartFilters.dice])
 
   // Enrich data: diceValue is only set within the dice window segment
   const chartData = useMemo(() => {
@@ -789,6 +822,39 @@ export default function TokenChart() {
           );
           pointer-events: none;
         }
+        .mm3-chart-filters {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 0.3rem;
+          margin: 0 0 0.5rem;
+          padding: 0 0.1rem;
+          font-family: var(--font-geist-mono), monospace;
+        }
+        .mm3-chart-filter {
+          display: inline-flex;
+          align-items: center;
+          gap: 0.25rem;
+          border: 1px solid rgba(34,211,238,0.18);
+          background: rgba(2,6,23,0.55);
+          padding: 0.18rem 0.38rem;
+          color: rgba(165,243,252,0.80);
+          font-size: 0.58rem;
+          font-weight: 900;
+          letter-spacing: 0.12em;
+          text-transform: uppercase;
+          cursor: pointer;
+          user-select: none;
+        }
+        .mm3-chart-filter input {
+          width: 0.68rem;
+          height: 0.68rem;
+          accent-color: #22d3ee;
+        }
+        .mm3-chart-filter[data-active='false'] {
+          color: rgba(100,116,139,0.70);
+          border-color: rgba(100,116,139,0.16);
+          opacity: 0.62;
+        }
       `}</style>
 
       {/* ── Header ── */}
@@ -799,7 +865,7 @@ export default function TokenChart() {
               <span style={{ color }}>
                 {stats.isUp ? '▲' : '▼'} {Math.abs(stats.change).toFixed(isMobile ? 6 : 8)}
               </span>
-              <span className={`${isMobile ? 'px-1 py-px text-[0.78rem]' : 'px-1.5 py-px text-[0.88rem]'} rounded font-black`}
+              <span className={`${isMobile ? 'px-1 py-px text-[0.78rem]' : 'px-1.5 py-px text-[0.88rem]'} font-black`}
                 style={{ background: `${color}22`, color }}>
                 {stats.isUp ? '+' : ''}{stats.pct.toFixed(2)}%
               </span>
@@ -814,7 +880,7 @@ export default function TokenChart() {
             const active = r === range
             return (
               <button key={r} onClick={() => handleRangeChange(r)}
-                className={`${isMobile ? 'px-1.5 py-1 text-xs' : 'px-2.5 py-1.5 text-sm'} rounded uppercase font-bold tracking-wide transition-all duration-150 focus:outline-none`}
+                className={`${isMobile ? 'px-1.5 py-1 text-xs' : 'px-2.5 py-1.5 text-sm'} uppercase font-bold tracking-wide transition-all duration-150 focus:outline-none`}
                 style={{
                   background: active ? C : 'transparent',
                   color:      active ? '#000' : `${C}b3`,
@@ -854,6 +920,16 @@ export default function TokenChart() {
           )}
         </div>
       )}
+
+      {/* ── Chart filters ── */}
+      <div className="mm3-chart-filters" aria-label="Chart layer filters">
+        {CHART_FILTER_KEYS.map(key => (
+          <label key={key} className="mm3-chart-filter" data-active={chartFilters[key]}>
+            <input type="checkbox" checked={chartFilters[key]} onChange={() => toggleChartFilter(key)} />
+            <span>{CHART_FILTER_LABELS[key]}</span>
+          </label>
+        ))}
+      </div>
 
       {/* ── Chart ── */}
       <div className="relative rounded-lg overflow-hidden border"
@@ -1003,7 +1079,7 @@ export default function TokenChart() {
         <ChartPointDetail
           point={detailPoint}
           label={detailLabel}
-          nftEvents={nftEvents}
+          nftEvents={filteredNftEvents}
           range={range}
           t={t}
           isMobile={isMobile}
