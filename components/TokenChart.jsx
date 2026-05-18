@@ -579,10 +579,20 @@ function CombinedMarkerLabel({ viewBox, dice, nft }) {
     <g style={{ pointerEvents: 'none' }}>
       {hasNft && (
         <>
+          {/* glitch shadow offset */}
+          <rect x={nftCx - nftW / 2 + 2} y={cy - pillH / 2 + 2}
+            width={nftW} height={pillH} rx={0}
+            fill={nftClr} fillOpacity={0.12} stroke="none" />
+          {/* outer border */}
           <rect x={nftCx - nftW / 2} y={cy - pillH / 2}
-            width={nftW} height={pillH} rx={10}
-            fill={nftClr} fillOpacity={0.15}
-            stroke={nftClr} strokeOpacity={0.45} strokeWidth={1} />
+            width={nftW} height={pillH} rx={0}
+            fill={nftClr} fillOpacity={0.13}
+            stroke={nftClr} strokeOpacity={0.85} strokeWidth={1} />
+          {/* inner border (double border effect) */}
+          <rect x={nftCx - nftW / 2 + 2} y={cy - pillH / 2 + 2}
+            width={nftW - 4} height={pillH - 4} rx={0}
+            fill="none"
+            stroke={nftClr} strokeOpacity={0.3} strokeWidth={0.5} />
           <text x={nftCx} y={cy + 5}
             textAnchor="middle" fontSize={nftEmojis.length > 2 ? 9 : 12}
             style={{ userSelect: 'none' }}>
@@ -590,7 +600,13 @@ function CombinedMarkerLabel({ viewBox, dice, nft }) {
           </text>
           {nftCount > 1 && (
             <g>
-              <circle cx={nftCx + nftW / 2 - 1} cy={cy - pillH / 2} r={6}
+              {/* glitch shadow for badge */}
+              <rect x={nftCx + nftW / 2 - 8} y={cy - pillH / 2 - 4}
+                width={13} height={9} rx={0}
+                fill={nftClr} fillOpacity={0.3} stroke="none"
+                transform="translate(1,1)" />
+              <rect x={nftCx + nftW / 2 - 8} y={cy - pillH / 2 - 4}
+                width={13} height={9} rx={0}
                 fill={nftClr} stroke="#060910" strokeWidth={1} />
               <text x={nftCx + nftW / 2 - 1} y={cy - pillH / 2 + 4}
                 textAnchor="middle" fontSize={7}
@@ -604,10 +620,20 @@ function CombinedMarkerLabel({ viewBox, dice, nft }) {
 
       {hasDice && (
         <>
+          {/* glitch shadow offset */}
+          <rect x={diceCx - diceW / 2 + 2} y={cy - pillH / 2 + 2}
+            width={diceW} height={pillH} rx={0}
+            fill={diceClr} fillOpacity={0.12} stroke="none" />
+          {/* outer border */}
           <rect x={diceCx - diceW / 2} y={cy - pillH / 2}
-            width={diceW} height={pillH} rx={10}
-            fill={diceClr} fillOpacity={0.15}
-            stroke={diceClr} strokeOpacity={0.45} strokeWidth={1} />
+            width={diceW} height={pillH} rx={0}
+            fill={diceClr} fillOpacity={0.13}
+            stroke={diceClr} strokeOpacity={0.85} strokeWidth={1} />
+          {/* inner border */}
+          <rect x={diceCx - diceW / 2 + 2} y={cy - pillH / 2 + 2}
+            width={diceW - 4} height={pillH - 4} rx={0}
+            fill="none"
+            stroke={diceClr} strokeOpacity={0.3} strokeWidth={0.5} />
           <text x={diceCx - 10} y={cy + 5}
             textAnchor="middle" fontSize={12}
             style={{ userSelect: 'none' }}>
