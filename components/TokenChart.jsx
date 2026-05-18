@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useMemo, useCallback } from 'react'
+import { useEffect, useRef, useState, useMemo, useCallback } from 'react'
 import { useI18n } from '@/lib/i18n-context'
 import { getDiceWindowForHour } from '@/lib/dice'
 import { formatWalletLabel } from '@/lib/wallet-format'
@@ -676,6 +676,8 @@ export default function TokenChart() {
     return localStorage.getItem('mm3-chart-range') || '1h'
   })
   const [activePoint, setActivePoint] = useState(null)
+  const userLabelRef  = useRef(null)  // label the user last moved onto
+  const prevRangeRef  = useRef(range)
   const [chartFilters, setChartFilters] = useState(() => {
     if (typeof window === 'undefined') return DEFAULT_CHART_FILTERS
     try {
@@ -789,6 +791,24 @@ export default function TokenChart() {
     if (!chartData.length) {
       setActivePoint(null)
       return
+    }
+    const rangeChanged = prevRangeRef.current !== range
+    prevRangeRef.current = range
+    if (rangeChanged) {
+      userLabelRef.current = null
+      const last = chartData[chartData.length - 1]
+      setActivePoint({ label: last.time, point: last })
+      return
+    }
+    // Data refresh: restore user's selected point if still present
+    const label = userLabelRef.current
+    if (label) {
+      const match = chartData.find(d => d.time === label)
+      if (match) {
+        setActivePoint({ label, point: match })
+        return
+      }
+      userLabelRef.current = null
     }
     const last = chartData[chartData.length - 1]
     setActivePoint({ label: last.time, point: last })
@@ -947,7 +967,11 @@ export default function TokenChart() {
               onMouseMove={(state) => {
                 const row = state?.activePayload?.find((entry) => entry?.dataKey === 'value')?.payload
                   || state?.activePayload?.[0]?.payload
-                if (row) setActivePoint({ label: state?.activeLabel || row.time, point: row })
+                if (row) {
+                  const label = state?.activeLabel || row.time
+                  userLabelRef.current = label
+                  setActivePoint({ label, point: row })
+                }
               }}
             >
               <defs>
