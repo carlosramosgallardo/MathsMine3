@@ -1114,13 +1114,13 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
     <div className="w-full font-mono text-cyan-100">
       {loading && <PageLoading label={t('podcast.loading')} />}
 
-      <div className="mm3-market-shell mx-auto grid w-full max-w-[1080px] gap-2 lg:grid-cols-[minmax(0,1fr)_minmax(300px,400px)] lg:items-start lg:gap-3 lg:px-2">
-        <div className="mm3-market-chain mx-auto w-full max-w-[860px] rounded border border-emerald-500/20 bg-black/40 px-3 py-2 text-center shadow-[0_0_18px_rgba(74,222,128,0.06),inset_0_0_20px_rgba(74,222,128,0.03)] lg:col-span-2 lg:px-5 lg:py-3">
+      <div className="mx-auto w-full max-w-[1080px] px-2 lg:px-3">
+        <div className="mm3-market-chain w-full rounded border border-emerald-500/20 bg-black/40 px-3 py-2 text-center shadow-[0_0_18px_rgba(74,222,128,0.06),inset_0_0_20px_rgba(74,222,128,0.03)] lg:px-5 lg:py-3">
           <div className="flex items-center justify-center gap-3 text-[0.72rem] font-black uppercase tracking-[0.2em] lg:text-[0.88rem]">
             <span className="text-emerald-300/70">{blockChain?.title || BLOCK_CHAIN_TITLE}</span>
             <span className="text-emerald-200" style={{ textShadow: '0 0 12px rgba(74,222,128,0.5)' }}>{Number(blockChain?.percent || 0).toFixed(2)}%</span>
           </div>
-          <div className="mx-auto mt-2 h-1.5 max-w-[720px] overflow-hidden rounded-sm border border-emerald-500/15 bg-black/50 lg:h-2">
+          <div className="mt-2 h-1.5 w-full overflow-hidden rounded-sm border border-emerald-500/15 bg-black/50 lg:h-2">
             <div
               className="h-full rounded-none"
               style={{
@@ -1131,7 +1131,7 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
             />
           </div>
           {blockChain?.code && (
-            <div className="mx-auto mt-2 max-h-20 max-w-[780px] overflow-y-auto break-all text-[0.62rem] leading-relaxed lg:text-[0.68rem]">
+            <div className="mx-auto mt-2 max-h-20 w-full overflow-y-auto break-all text-[0.62rem] leading-relaxed lg:text-[0.68rem]">
               {String(blockChain.code).split('#').filter(Boolean).map((part, index) => {
                 const token = `#${part}`;
                 const isWallet = part.startsWith('0x');
@@ -1164,7 +1164,9 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
             </div>
           )}
         </div>
+      </div>
 
+      <div className="mm3-market-shell mx-auto mt-2 grid w-full max-w-[1080px] gap-2 px-2 lg:mt-3 lg:grid-cols-[minmax(0,1fr)_minmax(300px,400px)] lg:items-start lg:gap-3 lg:px-3">
         <section className="mm3-market-board-panel min-w-0 rounded border border-cyan-500/15 bg-black/20 p-2 shadow-[0_0_18px_rgba(34,211,238,0.04)]">
           <div className="mm3-market-board-wrap mx-auto w-full max-w-[min(85vw,calc(100dvh-200px),520px)] lg:max-w-[min(100%,calc(100dvh-180px),500px)]">
             <div className="relative">
@@ -1229,7 +1231,7 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
           </div>
         </section>
 
-        <aside className="mm3-market-detail grid auto-rows-min grid-cols-1 content-start gap-1 rounded border border-cyan-500/12 bg-black/40 p-1.5 lg:grid-cols-2 lg:gap-1 lg:p-2 lg:self-start">
+        <aside className="mm3-market-detail grid auto-rows-min grid-cols-1 content-start gap-1 rounded border border-cyan-500/12 bg-black/40 p-1.5 lg:sticky lg:top-2 lg:grid-cols-2 lg:gap-1 lg:p-2">
 
           {/* ── Header: emoji + title + hex + status badge ── */}
           <div className="mm3-market-detail-head col-span-1 flex items-start justify-between gap-2 lg:col-span-2">
