@@ -23,6 +23,7 @@ const TASKS = {
   irc: { target: 1, rewardEur: 1 },
   squeeze: { target: 5, rewardEur: 2.5 },
   ircHidden: { target: 1, rewardEur: 5 },
+  market_chain: { target: 1, rewardEur: 10 },
 };
 
 const noOp = { count: 0, error: null };
@@ -52,7 +53,7 @@ export async function POST(req) {
   const { startIso, endIso, dayKey } = getUtcDayBounds();
   const { startIso: rollingStartIso, endIso: rollingEndIso } = getRolling24hWindow();
 
-  const [miningRes, tradingRes, marketRes, ircRes, squeezeRes, hiddenRes, claimsRes] = await Promise.all([
+  const [miningRes, tradingRes, marketRes, ircRes, squeezeRes, hiddenRes, chainRes, claimsRes] = await Promise.all([
     supabase
       .from('games')
       .select('id', { count: 'exact', head: true })
@@ -92,13 +93,19 @@ export async function POST(req) {
       .gte('executed_at', startIso)
       .lt('executed_at', endIso),
     supabase
+      .from('mm3_mined_blocks')
+      .select('id', { count: 'exact', head: true })
+      .eq('wallet', wallet)
+      .gte('mined_at', startIso)
+      .lt('mined_at', endIso),
+    supabase
       .from('daily_task_claims')
       .select('task_key')
       .eq('wallet', wallet)
       .eq('day', dayKey),
   ]);
 
-  if (miningRes.error || tradingRes.error || marketRes.error || ircRes.error || squeezeRes.error || hiddenRes.error || claimsRes.error) {
+  if (miningRes.error || tradingRes.error || marketRes.error || ircRes.error || squeezeRes.error || hiddenRes.error || chainRes.error || claimsRes.error) {
     console.error('daily task claim load error:', miningRes.error || tradingRes.error || marketRes.error || ircRes.error || squeezeRes.error || hiddenRes.error || claimsRes.error);
     return Response.json({ ok: false, error: 'db_error' }, { status: 500 });
   }
@@ -110,6 +117,7 @@ export async function POST(req) {
     irc: countValue(ircRes),
     squeeze: countValue(squeezeRes),
     ircHidden: countValue(hiddenRes),
+    market_chain: countValue(chainRes),
   };
 
   const completed = progress[taskKey] >= task.target;
