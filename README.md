@@ -410,8 +410,10 @@ When the first wallet that satisfies the requirement mines a block:
 The full chain is ordered by mining time:
 
 ```txt
-#wallet_1#029#D6D8C0#wallet_2#02A#-D6D8C0
+#wallet_1#029#4D#wallet_2#02A#-52
 ```
+
+The hex suffix is the global MM3 value at mining time, scaled by 100 and encoded as hexadecimal (e.g. `4D` = 0.77, `-52` = −0.82).
 
 The Market UI shows **MM3 BLOCK CHAIN IN PROGRESS** with a percentage:
 
@@ -427,8 +429,9 @@ Every free block has a requirement based on its board position. Requirements sca
 
 - `#000` starts at wallet level `0` and `mm3_global_value 0.00`.
 - Later blocks gradually rise toward wallet level `100`.
-- Required `mm3_global_value` gradually rises toward `100.00`.
+- Required `mm3_global_value` magnitude gradually rises toward `100.00`, with sign alternating by block index.
 - Positive and negative MM3 value requirements alternate by block index.
+- The comparison is performed at 2-decimal precision: the current global value is rounded to 2 decimal places before being checked against the requirement.
 
 The block detail card for an open/mined block shows:
 
@@ -1297,8 +1300,10 @@ Cuando la primera wallet que cumple el requisito mina un bloque:
 La cadena completa queda ordenada por momento de minado:
 
 ```txt
-#wallet_1#029#D6D8C0#wallet_2#02A#-D6D8C0
+#wallet_1#029#4D#wallet_2#02A#-52
 ```
+
+El sufijo hex es el valor MM3 global en el momento del minado, escalado ×100 y codificado en hexadecimal (ej. `4D` = 0.77, `-52` = −0.82).
 
 La UI del Market muestra **MM3 BLOCK CHAIN IN PROGRESS** con un porcentaje:
 
@@ -1314,8 +1319,9 @@ Cada bloque libre tiene un requisito basado en su posición en el tablero. Los r
 
 - `#000` empieza en wallet level `0` y `mm3_global_value 0.00`.
 - Los bloques posteriores suben gradualmente hasta wallet level `100`.
-- El `mm3_global_value` requerido sube gradualmente hasta `100.00`.
+- La magnitud del `mm3_global_value` requerido sube gradualmente hasta `100.00`, con signo alternante por índice de bloque.
 - Los requisitos positivos y negativos de valor MM3 alternan por índice de bloque.
+- La comparación se realiza con precisión de 2 decimales: el valor global actual se redondea a 2 decimales antes de verificarse contra el requisito.
 
 La tarjeta de detalle para un bloque abierto/minado muestra:
 
