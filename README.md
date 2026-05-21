@@ -33,6 +33,7 @@
 - [Trade MM3](#trade-mm3)
 - [Dice](#dice)
 - [Market](#market)
+- [Solve the Chain](#solve-the-chain)
 - [Pools](#pools)
 - [Squeeze](#squeeze)
 - [IRC Relay](#irc-relay)
@@ -460,6 +461,29 @@ The success trace is stored in `mm3_irc_messages` as `kind=system`, `tone=market
 ```txt
 MM3 BLOCK CHAIN IN PROGRESS >> mined #029 by 0xa...123 >> 1/764 0.13% >> #0xabc...#029#D6D8C0
 ```
+
+---
+
+## Solve the Chain
+
+One per-game challenge open to all connected wallets. The objective: compute a secret function `Ω(α, β, γ)` and submit the correct integer answer.
+
+| Variable | Symbol | Source |
+|---|:---:|---|
+| Total market events (all time) | α | `mm3_market_events` row count |
+| Total chain blocks mined (all time) | β | `mm3_mined_blocks` row count |
+| MM3 global value scaled ×100 (absolute, integer) | γ | `\|mm3_global\| × 100` |
+
+The three live inputs are captured at the **exact moment** you submit. The function `f : ℤ³ → ℤ` projects them through a prime lattice onto a unique integer in **[1, 9973]**. The exact mapping is not documented anywhere publicly.
+
+**Rules:**
+
+- **1 attempt per wallet per 24 hours.** A countdown shows time until your next attempt.
+- **Answer range:** integer from `1` to `9973`.
+- **Bots do not participate** — this is a human-only challenge.
+- **First correct answer wins the game.** The board locks, the ticker announces the winner, and the game is permanently over.
+
+The values of α, β, and γ are visible on the card in real time. The rest is up to you.
 
 ---
 
@@ -923,6 +947,7 @@ Read:
 - [Trade MM3](#trade-mm3)
 - [Dado](#dado)
 - [Market](#market)
+- [Resolver la Cadena](#resolver-la-cadena)
 - [Pools](#pools)
 - [Squeeze](#squeeze)
 - [IRC Relay](#irc-relay)
@@ -1350,6 +1375,29 @@ La traza de éxito se guarda en `mm3_irc_messages` como `kind=system`, `tone=mar
 ```txt
 MM3 BLOCK CHAIN IN PROGRESS >> mined #029 by 0xa...123 >> 1/764 0.13% >> #0xabc...#029#D6D8C0
 ```
+
+---
+
+## Resolver la Cadena
+
+Desafío único por partida abierto a todas las wallets conectadas. El objetivo: calcular una función secreta `Ω(α, β, γ)` y enviar el entero correcto.
+
+| Variable | Símbolo | Origen |
+|---|:---:|---|
+| Total de eventos de market (histórico) | α | Conteo de filas en `mm3_market_events` |
+| Total de bloques de cadena minados (histórico) | β | Conteo de filas en `mm3_mined_blocks` |
+| Valor global MM3 escalado ×100 (valor absoluto, entero) | γ | `\|mm3_global\| × 100` |
+
+Las tres variables se capturan en el **momento exacto** del envío. La función `f : ℤ³ → ℤ` las proyecta a través de un retículo de primos sobre un entero único en **[1, 9973]**. La lógica exacta no está documentada en ningún sitio público.
+
+**Reglas:**
+
+- **1 intento por wallet cada 24 horas.** Una cuenta regresiva indica el tiempo hasta el próximo intento.
+- **Rango de respuesta:** entero de `1` a `9973`.
+- **Los bots no participan** — este desafío es exclusivo para humanos.
+- **El primer acierto gana la partida.** El tablero se bloquea, el ticker anuncia al ganador y la partida termina de forma permanente.
+
+Los valores de α, β y γ son visibles en la tarjeta en tiempo real. El resto depende de ti.
 
 ---
 
