@@ -23,6 +23,15 @@ function computeCorrectAnswer(A, B, C) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 export async function POST(req) {
+  try {
+    return await handleAttempt(req);
+  } catch (err) {
+    console.error('[chain-solve/attempt]', err);
+    return Response.json({ ok: false, error: 'server_error' }, { status: 500 });
+  }
+}
+
+async function handleAttempt(req) {
   let body;
   try {
     body = await req.json();
@@ -93,7 +102,7 @@ export async function POST(req) {
     day,
     attempted_at: now,
     is_correct: isCorrect,
-  }).throwOnError().catch(() => {});
+  });
 
   if (!isCorrect) {
     const resetAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();

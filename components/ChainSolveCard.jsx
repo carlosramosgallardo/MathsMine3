@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useI18n } from '@/lib/i18n-context';
 
 function formatCountdown(ms) {
   if (ms <= 0) return '00:00:00';
@@ -17,6 +18,7 @@ function shortWallet(w) {
 }
 
 export default function ChainSolveCard({ wallet, onWinner }) {
+  const { t } = useI18n();
   const [status, setStatus] = useState(null);
   const [input, setInput] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -66,7 +68,7 @@ export default function ChainSolveCard({ wallet, onWinner }) {
     const answer = parseInt(input.trim(), 10);
     const maxAnswer = Math.max(Number(status?.gamma) || 0, 50);
     if (isNaN(answer) || answer < 1 || answer > maxAnswer) {
-      setFeedback({ type: 'error', msg: `Answer must be an integer between 1 and ${maxAnswer}.` });
+      setFeedback({ type: 'error', msg: `${t('chainSolve.errorRange')} ${maxAnswer}.` });
       return;
     }
     setSubmitting(true);
@@ -80,22 +82,22 @@ export default function ChainSolveCard({ wallet, onWinner }) {
       const data = await res.json();
       if (!data.ok) {
         if (data.error === 'already_attempted_today') {
-          setFeedback({ type: 'warn', msg: 'Already attempted today.' });
+          setFeedback({ type: 'warn', msg: t('chainSolve.feedbackAlreadyAttempted') });
         } else if (data.error === 'game_over') {
-          setFeedback({ type: 'info', msg: `Chain already solved by ${shortWallet(data.winner?.wallet)}.` });
+          setFeedback({ type: 'info', msg: `${t('chainSolve.feedbackGameOver')} ${shortWallet(data.winner?.wallet)}.` });
         } else {
-          setFeedback({ type: 'error', msg: data.error || 'Submission failed.' });
+          setFeedback({ type: 'error', msg: data.error || t('chainSolve.feedbackNetwork') });
         }
       } else if (data.correct) {
-        setFeedback({ type: 'win', msg: '⬡ CHAIN SOLVED. You win.' });
+        setFeedback({ type: 'win', msg: t('chainSolve.feedbackWin') });
         if (onWinner) onWinner(data.winner);
       } else {
-        setFeedback({ type: 'wrong', msg: `Wrong answer. Ω(α, β, γ) ≠ ${answer}. Next attempt available in 24h.` });
+        setFeedback({ type: 'wrong', msg: `${t('chainSolve.feedbackWrong')} ${answer}${t('chainSolve.feedbackWrongSuffix')}` });
       }
       setInput('');
       await fetchStatus();
     } catch {
-      setFeedback({ type: 'error', msg: 'Network error. Try again.' });
+      setFeedback({ type: 'error', msg: t('chainSolve.feedbackNetwork') });
     } finally {
       setSubmitting(false);
     }
@@ -110,7 +112,7 @@ export default function ChainSolveCard({ wallet, onWinner }) {
       <div className="mm3-chain-solve-card w-full max-w-[1080px] mx-auto px-2 lg:px-3 mt-2">
         <div className="rounded border border-emerald-500/20 bg-black/40 px-3 py-3 text-center">
           <span className="text-[0.6rem] font-mono uppercase tracking-[0.2em] text-emerald-400/30 animate-pulse">
-            loading chain oracle…
+            {t('chainSolve.loadingOracle')}
           </span>
         </div>
       </div>
@@ -134,10 +136,10 @@ export default function ChainSolveCard({ wallet, onWinner }) {
           }}
         >
           <div className="text-[0.72rem] font-black uppercase tracking-[0.28em] text-emerald-300 mb-1">
-            ⬡ MM3 BLOCK CHAIN — SOLVED ⬡
+            {t('chainSolve.solvedTitle')}
           </div>
           <div className="text-[0.62rem] font-mono uppercase tracking-[0.18em] text-emerald-400/60 mb-2">
-            prime lattice cracked · game over
+            {t('chainSolve.solvedSubtitle')}
           </div>
           <div
             className="inline-block px-4 py-1.5 text-[0.78rem] font-black font-mono"
@@ -194,14 +196,14 @@ export default function ChainSolveCard({ wallet, onWinner }) {
                 className="text-[0.72rem] font-black uppercase tracking-[0.22em]"
                 style={{ color: '#4ade80', textShadow: '0 0 10px rgba(74,222,128,0.4)' }}
               >
-                ⬡ SOLVE THE CHAIN
+                {t('chainSolve.title')}
               </span>
             </div>
             <div className="text-[0.58rem] font-mono uppercase tracking-[0.14em] text-emerald-400/40 leading-relaxed">
-              Ω(α, β, γ) ∈ [1, {effectiveGamma}] · f : ℤ³ → ℤ
+              Ω(α, β, γ) ∈ [1, {effectiveGamma}] · {t('chainSolve.formulaHint')}
             </div>
             <div className="text-[0.55rem] font-mono text-emerald-500/25 mt-0.5">
-              1 attempt / wallet / 24h · bots cannot solve this
+              {t('chainSolve.rules')}
             </div>
           </div>
 
@@ -214,13 +216,13 @@ export default function ChainSolveCard({ wallet, onWinner }) {
             }}
           >
             <div className="text-[0.55rem] uppercase tracking-[0.18em] text-emerald-500/40 mb-1.5">
-              live inputs · captured at submission
+              {t('chainSolve.liveInputs')}
             </div>
             <div className="grid grid-cols-3 gap-1 text-center">
               {[
-                { sym: 'α', label: 'Σ(market)', val: alpha },
-                { sym: 'β', label: 'Σ(chain)', val: beta },
-                { sym: 'γ', label: '|mm3|×10²', val: gamma },
+                { sym: 'α', label: t('chainSolve.labelMarket'), val: alpha },
+                { sym: 'β', label: t('chainSolve.labelChain'), val: beta },
+                { sym: 'γ', label: t('chainSolve.labelGamma'), val: gamma },
               ].map(({ sym, label, val }) => (
                 <div key={sym}>
                   <div
@@ -243,12 +245,12 @@ export default function ChainSolveCard({ wallet, onWinner }) {
         {/* Input row */}
         {!wallet ? (
           <div className="text-center text-[0.64rem] font-mono uppercase tracking-[0.18em] text-emerald-500/40 py-1">
-            connect wallet to attempt
+            {t('chainSolve.connectWallet')}
           </div>
         ) : !canAttempt && countdown ? (
           <div className="flex items-center justify-center gap-3 py-1">
             <span className="text-[0.6rem] font-mono uppercase tracking-[0.18em] text-emerald-500/40">
-              next attempt in
+              {t('chainSolve.nextAttemptIn')}
             </span>
             <span
               className="text-[0.82rem] font-black font-mono"
@@ -288,12 +290,12 @@ export default function ChainSolveCard({ wallet, onWinner }) {
                 cursor: submitting || !input.trim() ? 'not-allowed' : 'pointer',
               }}
             >
-              {submitting ? '…' : 'SUBMIT'}
+              {submitting ? '…' : t('chainSolve.submit')}
             </button>
           </div>
         ) : (
           <div className="text-center text-[0.62rem] font-mono uppercase tracking-[0.18em] text-emerald-500/30 py-1">
-            loading…
+            {t('chainSolve.loading')}
           </div>
         )}
 
