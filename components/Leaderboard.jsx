@@ -456,17 +456,15 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
         const wallet = String(entry.wallet || '').toLowerCase();
         if (!wallet) continue;
         const effect = entry.penalty_effect === 'mm3' || (entry.penalty_effect == null && Number(entry.penalty_eur) === 0 && Number(entry.penalty_value) > 0) ? 'mm3' : 'money';
-        const existing = penaltiesByWallet.get(wallet) || { mm3: null, money: null };
-        if (!existing[effect]) {
-          existing[effect] = {
-            nftji_key: entry.nftji_key,
-            penalty_value: Number(entry.penalty_value) || 0,
-            penalty_eur: Number(entry.penalty_eur) || 0,
-            reset_at: entry.reset_at,
-            block: blocksByKey.get(entry.nftji_key) || null,
-          };
-          penaltiesByWallet.set(wallet, existing);
-        }
+        const existing = penaltiesByWallet.get(wallet) || { mm3: [], money: [] };
+        existing[effect].push({
+          nftji_key: entry.nftji_key,
+          penalty_value: Number(entry.penalty_value) || 0,
+          penalty_eur: Number(entry.penalty_eur) || 0,
+          reset_at: entry.reset_at,
+          block: blocksByKey.get(entry.nftji_key) || null,
+        });
+        penaltiesByWallet.set(wallet, existing);
       }
 
       const poolByWallet = new Map();
@@ -640,7 +638,7 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
       if (sortConfig.key === 'money') return Number(entry[moneyKey]) || 0;
       if (sortConfig.key === 'nftji') return normalizeWalletDecorations(entry.wallet_emojis).length + (Array.isArray(entry.market_blocks) ? entry.market_blocks.length : 0) + countSqueezeNftjis(entry.squeeze_nftji);
       if (sortConfig.key === 'execs') return Number(entry.execs_count) || 0;
-      if (sortConfig.key === 'block') return (Array.isArray(entry.market_blocks) ? entry.market_blocks.length : 0) + (entry.active_penalty?.mm3 || entry.active_penalty?.money ? 1 : 0);
+      if (sortConfig.key === 'block') return (Array.isArray(entry.market_blocks) ? entry.market_blocks.length : 0) + (entry.active_penalty?.mm3?.length || 0) + (entry.active_penalty?.money?.length || 0);
       if (sortConfig.key === 'pool') return String(entry.pool_code || '').toLowerCase();
       if (sortConfig.key === 'status') return onlineWallets.has(String(entry.wallet || '').toLowerCase()) ? 1 : 0;
       if (sortConfig.key === 'rank') return getRankTier(clampRankLevel(entry.level)).label;
@@ -730,15 +728,13 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
       }, {});
       const totalExecs = members.reduce((sum, entry) => sum + (Number(entry.execs_count) || 0), 0);
       const totalPenalties = members.reduce((sum, entry) => {
-        return sum + (entry.active_penalty?.mm3 ? 1 : 0) + (entry.active_penalty?.money ? 1 : 0);
+        return sum + (entry.active_penalty?.mm3?.length || 0) + (entry.active_penalty?.money?.length || 0);
       }, 0);
       const totalPenaltiesMm3 = members.reduce((sum, entry) => {
-        return sum + (Number(entry.active_penalty?.mm3?.penalty_value) || 0);
+        return sum + (entry.active_penalty?.mm3 || []).reduce((s, p) => s + (Number(p.penalty_value) || 0), 0);
       }, 0);
       const totalPenaltiesMoneyEur = members.reduce((sum, entry) => {
-        const penalty = entry.active_penalty?.money;
-        if (!penalty) return sum;
-        return sum + (Number(penalty.penalty_eur || penalty.penalty_value) || 0);
+        return sum + (entry.active_penalty?.money || []).reduce((s, p) => s + (Number(p.penalty_eur || p.penalty_value) || 0), 0);
       }, 0);
       const marketBlocks = uniqueBy(
         members.flatMap((entry) => Array.isArray(entry.market_blocks) ? entry.market_blocks : []),
@@ -765,8 +761,8 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
       );
       const penalties = members.map((entry) => entry.active_penalty).filter(Boolean);
       const activePenalty = {
-        mm3: penalties.find((penalty) => penalty?.mm3)?.mm3 || null,
-        money: penalties.find((penalty) => penalty?.money)?.money || null,
+        mm3: penalties.flatMap((p) => p?.mm3 || []),
+        money: penalties.flatMap((p) => p?.money || []),
       };
       const normalizedWallets = [...new Set(members
         .map((entry) => normalizeWallet(entry.wallet))
@@ -806,7 +802,7 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
         member_wallets: normalizedWallets,
         member_wallets_short: normalizedWallets.map(shortWallet),
         hidden_member_wallet_count: Math.max(0, new Set(members.map((entry) => normalizeWallet(entry.wallet)).filter(Boolean)).size - normalizedWallets.length),
-        active_penalty: activePenalty.mm3 || activePenalty.money ? activePenalty : null,
+        active_penalty: activePenalty.mm3.length || activePenalty.money.length ? activePenalty : null,
       };
     });
 
@@ -1669,21 +1665,21 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
                   {totalPenaltyMm3 > 0 ? (
                     <button
                       type="button"
-                      onClick={() => activePenalty?.mm3?.nftji_key && openMarketBlock(activePenalty.mm3.nftji_key)}
+                      onClick={() => activePenalty?.mm3?.[0]?.nftji_key && openMarketBlock(activePenalty.mm3[0].nftji_key)}
                       className="lb-penalty-link rounded border border-rose-400/30 bg-rose-950/20 px-1.5 py-0.5 font-mono text-[0.75rem] font-black text-rose-300"
-                      title={activePenalty?.mm3?.block ? `${activePenalty.mm3.block.emoji} ${activePenalty.mm3.block.hex}` : activePenalty?.mm3?.nftji_key || 'MM3 penalties'}
+                      title={activePenalty?.mm3?.[0]?.block ? `${activePenalty.mm3[0].block.emoji} ${activePenalty.mm3[0].block.hex}` : activePenalty?.mm3?.[0]?.nftji_key || 'MM3 penalties'}
                     >
-                      {activePenalty?.mm3?.block?.hex || ''} -{formatCompactMm3(totalPenaltyMm3)} MM3
+                      -{formatCompactMm3(totalPenaltyMm3)} MM3
                     </button>
                   ) : null}
                   {totalPenaltyMoney > 0 ? (
                     <button
                       type="button"
-                      onClick={() => activePenalty?.money?.nftji_key && openMarketBlock(activePenalty.money.nftji_key)}
+                      onClick={() => activePenalty?.money?.[0]?.nftji_key && openMarketBlock(activePenalty.money[0].nftji_key)}
                       className="lb-penalty-link rounded border border-amber-400/30 bg-amber-950/20 px-1.5 py-0.5 font-mono text-[0.75rem] font-black text-amber-300"
-                      title={activePenalty?.money?.block ? `${activePenalty.money.block.emoji} ${activePenalty.money.block.hex}` : activePenalty?.money?.nftji_key || 'Money penalties'}
+                      title={activePenalty?.money?.[0]?.block ? `${activePenalty.money[0].block.emoji} ${activePenalty.money[0].block.hex}` : activePenalty?.money?.[0]?.nftji_key || 'Money penalties'}
                     >
-                      {activePenalty?.money?.block?.hex || ''} {formatCompactMoney(-totalPenaltyMoney, quoteCurrency)}
+                      {formatCompactMoney(-totalPenaltyMoney, quoteCurrency)}
                     </button>
                   ) : null}
                   {totalPenaltyMm3 <= 0 && totalPenaltyMoney <= 0 ? (
@@ -1864,27 +1860,29 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
                   })()}
                 </div>
                 <div className="flex flex-wrap items-center gap-1">
-                  {activePenalty?.mm3 ? (
+                  {(activePenalty?.mm3 || []).map((p, i) => (
                     <button
+                      key={`mm3-${i}`}
                       type="button"
-                      onClick={() => openMarketBlock(activePenalty.mm3.nftji_key)}
+                      onClick={() => openMarketBlock(p.nftji_key)}
                       className="lb-penalty-link rounded border border-rose-400/30 bg-rose-950/20 px-1.5 py-0.5 font-mono text-[0.75rem] font-black text-rose-300"
-                      title={activePenalty.mm3.block ? `${activePenalty.mm3.block.emoji} ${activePenalty.mm3.block.hex}` : activePenalty.mm3.nftji_key}
+                      title={p.block ? `${p.block.emoji} ${p.block.hex}` : p.nftji_key}
                     >
-                      {formatMm3PenaltyLabel(activePenalty.mm3)}
+                      {formatMm3PenaltyLabel(p)}
                     </button>
-                  ) : null}
-                  {activePenalty?.money ? (
+                  ))}
+                  {(activePenalty?.money || []).map((p, i) => (
                     <button
+                      key={`money-${i}`}
                       type="button"
-                      onClick={() => openMarketBlock(activePenalty.money.nftji_key)}
+                      onClick={() => openMarketBlock(p.nftji_key)}
                       className="lb-penalty-link rounded border border-amber-400/30 bg-amber-950/20 px-1.5 py-0.5 font-mono text-[0.75rem] font-black text-amber-300"
-                      title={activePenalty.money.block ? `${activePenalty.money.block.emoji} ${activePenalty.money.block.hex}` : activePenalty.money.nftji_key}
+                      title={p.block ? `${p.block.emoji} ${p.block.hex}` : p.nftji_key}
                     >
-                      {formatMoneyPenaltyLabel(activePenalty.money, quoteCurrency)}
+                      {formatMoneyPenaltyLabel(p, quoteCurrency)}
                     </button>
-                  ) : null}
-                  {!activePenalty?.mm3 && !activePenalty?.money ? (
+                  ))}
+                  {!activePenalty?.mm3?.length && !activePenalty?.money?.length ? (
                     <span className="text-[0.5rem] uppercase tracking-[0.1em] text-slate-700">{t('leaderboard.none')}</span>
                   ) : null}
                 </div>
@@ -2106,21 +2104,21 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
                       {totalPenaltyMm3 > 0 ? (
                         <button
                           type="button"
-                          onClick={() => activePenalty?.mm3?.nftji_key && openMarketBlock(activePenalty.mm3.nftji_key)}
+                          onClick={() => activePenalty?.mm3?.[0]?.nftji_key && openMarketBlock(activePenalty.mm3[0].nftji_key)}
                           className="rounded border border-rose-400/30 bg-rose-950/20 px-1.5 py-1 font-mono text-[0.68rem] font-black text-rose-300"
-                          title={activePenalty?.mm3?.block ? `${activePenalty.mm3.block.emoji} ${activePenalty.mm3.block.hex}` : activePenalty?.mm3?.nftji_key || 'MM3 penalties'}
+                          title={activePenalty?.mm3?.[0]?.block ? `${activePenalty.mm3[0].block.emoji} ${activePenalty.mm3[0].block.hex}` : activePenalty?.mm3?.[0]?.nftji_key || 'MM3 penalties'}
                         >
-                          {activePenalty?.mm3?.block?.hex || ''} -{formatCompactMm3(totalPenaltyMm3)} MM3
+                          -{formatCompactMm3(totalPenaltyMm3)} MM3
                         </button>
                       ) : null}
                       {totalPenaltyMoney > 0 ? (
                         <button
                           type="button"
-                          onClick={() => activePenalty?.money?.nftji_key && openMarketBlock(activePenalty.money.nftji_key)}
+                          onClick={() => activePenalty?.money?.[0]?.nftji_key && openMarketBlock(activePenalty.money[0].nftji_key)}
                           className="rounded border border-amber-400/30 bg-amber-950/20 px-1.5 py-1 font-mono text-[0.68rem] font-black text-amber-300"
-                          title={activePenalty?.money?.block ? `${activePenalty.money.block.emoji} ${activePenalty.money.block.hex}` : activePenalty?.money?.nftji_key || 'Money penalties'}
+                          title={activePenalty?.money?.[0]?.block ? `${activePenalty.money[0].block.emoji} ${activePenalty.money[0].block.hex}` : activePenalty?.money?.[0]?.nftji_key || 'Money penalties'}
                         >
-                          {activePenalty?.money?.block?.hex || ''} {formatCompactMoney(-totalPenaltyMoney, quoteCurrency)}
+                          {formatCompactMoney(-totalPenaltyMoney, quoteCurrency)}
                         </button>
                       ) : null}
                       {totalPenaltyMm3 <= 0 && totalPenaltyMoney <= 0 ? (
@@ -2333,27 +2331,29 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
                   </td>
                   <td style={{ textAlign:'center' }}>
                     <div className="flex flex-wrap items-center justify-center gap-1">
-                      {activePenalty?.mm3 ? (
+                      {(activePenalty?.mm3 || []).map((p, i) => (
                         <button
+                          key={`mm3-${i}`}
                           type="button"
-                          onClick={() => openMarketBlock(activePenalty.mm3.nftji_key)}
+                          onClick={() => openMarketBlock(p.nftji_key)}
                           className="lb-penalty-link rounded border border-rose-400/30 bg-rose-950/20 px-1.5 py-1 font-mono text-[0.72rem] font-black text-rose-300"
-                          title={activePenalty.mm3.block ? `${activePenalty.mm3.block.emoji} ${activePenalty.mm3.block.hex}` : activePenalty.mm3.nftji_key}
+                          title={p.block ? `${p.block.emoji} ${p.block.hex}` : p.nftji_key}
                         >
-                          {formatMm3PenaltyLabel(activePenalty.mm3)}
+                          {formatMm3PenaltyLabel(p)}
                         </button>
-                      ) : null}
-                      {activePenalty?.money ? (
+                      ))}
+                      {(activePenalty?.money || []).map((p, i) => (
                         <button
+                          key={`money-${i}`}
                           type="button"
-                          onClick={() => openMarketBlock(activePenalty.money.nftji_key)}
+                          onClick={() => openMarketBlock(p.nftji_key)}
                           className="lb-penalty-link rounded border border-amber-400/30 bg-amber-950/20 px-1.5 py-1 font-mono text-[0.72rem] font-black text-amber-300"
-                          title={activePenalty.money.block ? `${activePenalty.money.block.emoji} ${activePenalty.money.block.hex}` : activePenalty.money.nftji_key}
+                          title={p.block ? `${p.block.emoji} ${p.block.hex}` : p.nftji_key}
                         >
-                          {formatMoneyPenaltyLabel(activePenalty.money, quoteCurrency)}
+                          {formatMoneyPenaltyLabel(p, quoteCurrency)}
                         </button>
-                      ) : null}
-                      {!activePenalty?.mm3 && !activePenalty?.money ? (
+                      ))}
+                      {!activePenalty?.mm3?.length && !activePenalty?.money?.length ? (
                         <span className="text-[0.75rem] uppercase tracking-[0.12em] text-slate-600">{t('leaderboard.none')}</span>
                       ) : null}
                     </div>
