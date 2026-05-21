@@ -14,12 +14,12 @@ const BOT_POOLS = [
       {
         key: 'bear',
         wallet: '0xcab10d0e0650d45cb0b7482370a1ca93d5bf5528',
-        tags: ['sell_mm3', 'squeeze 90%', 'attack'],
+        tags: ['sell_mm3', 'squeeze 90%', 'attack', 'chain_mine'],
       },
       {
         key: 'bull',
         wallet: '0xcb4ccfa7de7bf861ff0383b668e682d2ee20e202',
-        tags: ['buy_mm3', 'squeeze 15%', 'defense'],
+        tags: ['buy_mm3', 'squeeze 15%', 'defense', 'chain_mine'],
       },
     ],
   },
@@ -29,12 +29,12 @@ const BOT_POOLS = [
       {
         key: 'collector',
         wallet: '0xd6c6c15060b27406d956c7e99e520cc810b44233',
-        tags: ['market_buy', 'squeeze 55%', 'balanced'],
+        tags: ['market_buy', 'squeeze 55%', 'balanced', 'chain_mine'],
       },
       {
         key: 'flipper',
         wallet: '0xd89413f5f444cd420b448cda3bc096ea9c46e8ab',
-        tags: ['market_sell', 'squeeze 80%', 'balanced'],
+        tags: ['market_sell', 'squeeze 80%', 'balanced', 'chain_mine'],
       },
     ],
   },
@@ -49,7 +49,7 @@ export default function AITeamPage() {
   const { frameAccent } = useMm3Accent();
   const pageTitle = 'MathsMine3 – AI Team';
   const pageDescription =
-    'Four autonomous AI agents competing live inside MathsMine3: mining, trading, and launching Squeezes every tick.';
+    'Four autonomous AI agents competing live inside MathsMine3: mining, trading, launching Squeezes, and resolving MM3 Block Chain blocks every tick.';
   const canonicalUrl = 'https://mathsmine3.xyz/ai-team';
   const ogImage = 'https://mathsmine3.xyz/og-image.jpg';
 
