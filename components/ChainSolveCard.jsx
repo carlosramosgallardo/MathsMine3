@@ -189,21 +189,10 @@ export default function ChainSolveCard({ wallet, onWinner }) {
         {/* Header row */}
         <div className="grid grid-cols-2 gap-2 items-start mb-3">
 
-          {/* Left: title + formula hint */}
+          {/* Left: formula hint */}
           <div>
-            <div className="flex items-center gap-2 mb-1">
-              <span
-                className="text-[0.72rem] font-black uppercase tracking-[0.22em]"
-                style={{ color: '#4ade80', textShadow: '0 0 10px rgba(74,222,128,0.4)' }}
-              >
-                {t('chainSolve.title')}
-              </span>
-            </div>
             <div className="text-[0.58rem] font-mono uppercase tracking-[0.14em] text-emerald-400/40 leading-relaxed">
               Ω(α, β, γ) ∈ [1, {effectiveGamma}] · {t('chainSolve.formulaHint')}
-            </div>
-            <div className="text-[0.55rem] font-mono text-emerald-500/25 mt-0.5">
-              {t('chainSolve.rules')}
             </div>
           </div>
 
@@ -216,7 +205,7 @@ export default function ChainSolveCard({ wallet, onWinner }) {
             }}
           >
             <div className="text-[0.55rem] uppercase tracking-[0.18em] text-emerald-500/40 mb-1.5">
-              {t('chainSolve.liveInputs')}
+              {t('chainSolve.liveLabel')}
             </div>
             <div className="grid grid-cols-3 gap-1 text-center">
               {[
