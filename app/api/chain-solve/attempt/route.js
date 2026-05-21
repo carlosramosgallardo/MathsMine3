@@ -13,13 +13,14 @@ function getUtcDay() {
 
 // ── Secret formula ───────────────────────────────────────────────────────────
 // Inputs are captured at the exact moment the attempt is submitted.
-// Not documented in README, SQL, or any public-facing file.
+// Coefficients (k1, k2, k3, modulus) are stored in mm3_chain_formula (service_role only).
+// Seeded from .private/chain-formula.seed.sql — never in git or public files.
 // A = total mm3_market_events rows (all time)
 // B = total mm3_mined_blocks rows (chain blocks solved)
 // C = Math.round(|mm3_global_value| × 100)  — integer
-function computeCorrectAnswer(A, B, C) {
-  const seed = A * 1009 + B * 7919 + C * 2003;
-  return (seed % 9973) + 1;
+function computeCorrectAnswer(A, B, C, { k1, k2, k3, modulus }) {
+  const seed = A * k1 + B * k2 + C * k3;
+  return (seed % modulus) + 1;
 }
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -73,18 +74,24 @@ export async function POST(req) {
     { count: A },
     { count: B },
     { data: tvRow },
+    { data: formulaRow },
   ] = await Promise.all([
     supabase.from('mm3_market_events').select('id', { count: 'exact', head: true }),
     supabase.from('mm3_mined_blocks').select('id', { count: 'exact', head: true }),
     supabase.from('token_value').select('total_eth').maybeSingle(),
+    supabase.from('mm3_chain_formula').select('k1,k2,k3,modulus').eq('id', 1).maybeSingle(),
   ]);
+
+  if (!formulaRow) {
+    return Response.json({ ok: false, error: 'formula_unavailable' }, { status: 500 });
+  }
 
   const mm3Global = Number(tvRow?.total_eth) || 0;
   const C = Math.round(Math.abs(mm3Global) * 100);
   const aVal = Number(A) || 0;
   const bVal = Number(B) || 0;
 
-  const correctAnswer = computeCorrectAnswer(aVal, bVal, C);
+  const correctAnswer = computeCorrectAnswer(aVal, bVal, C, formulaRow);
   const isCorrect = answer === correctAnswer;
   const now = new Date().toISOString();
 
