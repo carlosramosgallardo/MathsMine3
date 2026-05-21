@@ -148,6 +148,40 @@ export async function POST(req) {
       tone: 'market',
     });
 
+    // Chain complete — award winner by most blocks if no winner yet
+    if (chain.length >= mineableTotal) {
+      const { data: existingWinner } = await supabase
+        .from('mm3_game_winner').select('wallet').eq('id', 1).maybeSingle();
+      if (!existingWinner) {
+        const stats = {};
+        for (const row of chain) {
+          const w = normalizeWallet(row.wallet);
+          if (!stats[w]) stats[w] = { count: 0, lastIndex: 0 };
+          stats[w].count++;
+          stats[w].lastIndex = Math.max(stats[w].lastIndex, row.chain_index);
+        }
+        const topWallet = Object.entries(stats)
+          .sort(([, a], [, b]) => b.count - a.count || a.lastIndex - b.lastIndex)[0]?.[0];
+        if (topWallet) {
+          const wonAt = new Date().toISOString();
+          await supabase.from('mm3_game_winner')
+            .insert({ id: 1, wallet: topWallet, won_at: wonAt }).catch(() => {});
+          const winnerLabel = formatWalletLabel(topWallet);
+          await supabase.from('mm3_irc_messages').insert({
+            wallet: 'system',
+            text: `⬡ MM3 BLOCK CHAIN COMPLETE ⬡ ${winnerLabel} sealed the chain with the most blocks mined. Game over. Congratulations.`,
+            ts: Date.now(), kind: 'system', tone: 'market',
+          });
+          await supabase.from('mm3_macro_state').update({
+            ticker_message: `⬡ CHAIN COMPLETE · WINNER: ${topWallet.toUpperCase()} ⬡ MM3 BLOCK CHAIN SEALED ⬡`,
+            ticker_message_en: `⬡ CHAIN COMPLETE · WINNER: ${winnerLabel.toUpperCase()} ⬡ MM3 BLOCK CHAIN SEALED ⬡`,
+            ticker_message_es: `⬡ CADENA SELLADA · GANADOR: ${winnerLabel.toUpperCase()} ⬡ MM3 BLOCK CHAIN COMPLETA ⬡`,
+            updated_at: wonAt,
+          }).eq('id', 1);
+        }
+      }
+    }
+
     return Response.json({ ok: true, mined, trace, percent, code, ts });
   } catch (error) {
     console.error('mine block error:', error);

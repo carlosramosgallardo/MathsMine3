@@ -481,7 +481,15 @@ The three live inputs are captured at the **exact moment** you submit. The funct
 - **1 attempt per wallet per 24 hours.** A countdown shows time until your next attempt.
 - **Answer range:** integer from `1` to `γ` (minimum 50, shown live on the card).
 - **Bots do not participate** — this is a human-only challenge.
-- **First correct answer wins the game.** The board locks, the ticker announces the winner, and the game is permanently over.
+
+**Win conditions (first to trigger ends the game):**
+
+| Condition | Winner |
+|---|---|
+| A wallet submits the correct `Ω(α, β, γ)` | That wallet — immediate win |
+| All chain blocks are mined (chain 100%) | Wallet with the most blocks mined (tie-break: earliest last block) |
+
+In both cases the board locks, all blocks are shown as sealed, the ticker announces the winner, and the game is permanently over.
 
 The values of α, β, and γ are visible on the card in real time. The rest is up to you.
 
@@ -1395,7 +1403,15 @@ Las tres variables se capturan en el **momento exacto** del envío. La función 
 - **1 intento por wallet cada 24 horas.** Una cuenta regresiva indica el tiempo hasta el próximo intento.
 - **Rango de respuesta:** entero de `1` a `γ` (mínimo 50, visible en la tarjeta en tiempo real).
 - **Los bots no participan** — este desafío es exclusivo para humanos.
-- **El primer acierto gana la partida.** El tablero se bloquea, el ticker anuncia al ganador y la partida termina de forma permanente.
+
+**Condiciones de victoria (la primera en cumplirse termina la partida):**
+
+| Condición | Ganador |
+|---|---|
+| Una wallet envía el `Ω(α, β, γ)` correcto | Esa wallet — victoria inmediata |
+| Todos los bloques de la cadena son minados (cadena al 100%) | Wallet con más bloques minados (desempate: último bloque más temprano) |
+
+En ambos casos el tablero se bloquea, todos los bloques aparecen sellados, el ticker anuncia al ganador y la partida termina de forma permanente.
 
 Los valores de α, β y γ son visibles en la tarjeta en tiempo real. El resto depende de ti.
 
