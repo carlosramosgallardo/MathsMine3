@@ -389,6 +389,23 @@ CREATE TABLE mm3_mined_blocks (
   mined_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+-- Chain Solve: tracks 1 daily attempt per wallet
+CREATE TABLE mm3_chain_solve_attempts (
+  id BIGSERIAL PRIMARY KEY,
+  wallet TEXT NOT NULL,
+  day TEXT NOT NULL,
+  attempted_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  is_correct BOOLEAN NOT NULL DEFAULT FALSE,
+  UNIQUE(wallet, day)
+);
+
+-- Chain Solve: singleton row when someone wins the game
+CREATE TABLE mm3_game_winner (
+  id SMALLINT PRIMARY KEY DEFAULT 1 CHECK (id = 1),
+  wallet TEXT NOT NULL,
+  won_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 CREATE TABLE mm3_market_commands (
   id BIGSERIAL PRIMARY KEY,
   wallet TEXT NOT NULL,
@@ -1487,6 +1504,8 @@ ALTER TABLE mm3_squeeze_launches         ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mm3_pool_dispute_votes       ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mm3_pool_dispute_wallets     ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mm3_squeeze_nftji            ENABLE ROW LEVEL SECURITY;
+ALTER TABLE mm3_chain_solve_attempts     ENABLE ROW LEVEL SECURITY;
+ALTER TABLE mm3_game_winner              ENABLE ROW LEVEL SECURITY;
 
 -- ==============================================
 -- PHASE 8: CREATE ROW LEVEL SECURITY POLICIES
@@ -1661,6 +1680,16 @@ DROP POLICY IF EXISTS "public_insert_mm3_macro_state" ON mm3_macro_state;
 DROP POLICY IF EXISTS "public_update_mm3_macro_state" ON mm3_macro_state;
 CREATE POLICY "public_insert_mm3_macro_state" ON mm3_macro_state FOR INSERT TO public WITH CHECK (id = 1);
 CREATE POLICY "public_update_mm3_macro_state" ON mm3_macro_state FOR UPDATE TO public USING (id = 1) WITH CHECK (id = 1);
+
+-- mm3_chain_solve_attempts policies
+DROP POLICY IF EXISTS "public_read_chain_solve_attempts" ON mm3_chain_solve_attempts;
+CREATE POLICY "public_read_chain_solve_attempts" ON mm3_chain_solve_attempts FOR SELECT TO public USING (true);
+DROP POLICY IF EXISTS "public_insert_chain_solve_attempts" ON mm3_chain_solve_attempts;
+CREATE POLICY "public_insert_chain_solve_attempts" ON mm3_chain_solve_attempts FOR INSERT TO public WITH CHECK (wallet <> '' AND day <> '');
+
+-- mm3_game_winner policies
+DROP POLICY IF EXISTS "public_read_game_winner" ON mm3_game_winner;
+CREATE POLICY "public_read_game_winner" ON mm3_game_winner FOR SELECT TO public USING (true);
 
 -- ==============================================
 -- PHASE 9: INSERT INITIAL DATA
@@ -1954,6 +1983,9 @@ GRANT SELECT                   ON mm3_squeeze_nftji            TO anon;
 GRANT SELECT ON top_positive_miner       TO anon;
 GRANT SELECT ON token_value              TO anon;
 GRANT SELECT ON token_value_timeseries   TO anon;
+
+GRANT SELECT, INSERT           ON mm3_chain_solve_attempts   TO anon;
+GRANT SELECT                   ON mm3_game_winner             TO anon;
 
 -- Sequences
 GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO anon;

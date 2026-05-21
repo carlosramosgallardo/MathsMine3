@@ -2,6 +2,7 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import supabase from '@/lib/supabaseClient';
+import ChainSolveCard from '@/components/ChainSolveCard';
 import { useI18n } from '@/lib/i18n-context';
 import { useCurrency } from '@/lib/currency-context';
 import { CNY_TO_EUR, CNY_TO_USD, formatMoney, getSellQuote, getSellRateCny } from '@/lib/sell-offer';
@@ -300,6 +301,7 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
   const [selectedEventCounts, setSelectedEventCounts] = useState({ emoji: '', buys: 0, resells: 0 });
   const [minedBlocks, setMinedBlocks] = useState([]);
   const [blockChain, setBlockChain] = useState({ title: BLOCK_CHAIN_TITLE, mined: 0, total: GRID_ROWS * GRID_COLS, percent: 0, code: '' });
+  const [gameWinner, setGameWinner] = useState(null);
   const [numericCode, setNumericCode] = useState('');
   const [activePenalty, setActivePenalty] = useState(null);
   const [activeBlockCommand, setActiveBlockCommand] = useState(null);
@@ -618,7 +620,14 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'mm3_market_blocks' }, refresh)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'mm3_mined_blocks' }, refresh)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'mm3_command_penalties' }, refresh)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'mm3_game_winner' }, (payload) => {
+        if (payload.new) setGameWinner(payload.new);
+      })
       .subscribe();
+
+    // Check winner on mount
+    supabase.from('mm3_game_winner').select('wallet, won_at').eq('id', 1).maybeSingle()
+      .then(({ data }) => { if (data) setGameWinner(data); });
 
     return () => {
       window.removeEventListener('mm3-db-updated', refresh);
@@ -1166,10 +1175,52 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
         </div>
       </div>
 
+      <ChainSolveCard
+        wallet={account}
+        onWinner={(winner) => setGameWinner(winner)}
+      />
+
+      {gameWinner && (
+        <div className="w-full max-w-[1080px] mx-auto px-2 lg:px-3 mt-1">
+          <div
+            className="rounded border py-2 text-center text-[0.64rem] font-mono uppercase tracking-[0.22em]"
+            style={{
+              borderColor: 'rgba(74,222,128,0.5)',
+              background: 'rgba(0,20,8,0.9)',
+              color: '#4ade80',
+              textShadow: '0 0 10px rgba(74,222,128,0.5)',
+              animation: 'pulse 2s ease-in-out infinite',
+            }}
+          >
+            ⬡ CHAIN SOLVED · BOARD LOCKED · WINNER: {gameWinner.wallet ? `${gameWinner.wallet.slice(0, 6)}…${gameWinner.wallet.slice(-4)}` : '—'} ⬡
+          </div>
+        </div>
+      )}
+
       <div className="mm3-market-shell mx-auto mt-2 grid w-full max-w-[1080px] gap-2 px-2 lg:mt-3 lg:grid-cols-[minmax(0,1fr)_minmax(300px,400px)] lg:items-start lg:gap-3 lg:px-3">
         <section className="mm3-market-board-panel min-w-0 rounded border border-cyan-500/15 bg-black/20 p-2 shadow-[0_0_18px_rgba(34,211,238,0.04)]">
           <div className="mm3-market-board-wrap mx-auto w-full max-w-[min(85vw,calc(100dvh-200px),520px)] lg:max-w-[min(100%,calc(100dvh-180px),500px)]">
             <div className="relative">
+              {gameWinner && (
+                <div
+                  className="absolute inset-0 z-20 flex flex-col items-center justify-center pointer-events-none"
+                  style={{
+                    background: 'rgba(0,10,5,0.72)',
+                    backdropFilter: 'blur(2px)',
+                    border: '2px solid rgba(74,222,128,0.4)',
+                  }}
+                >
+                  <div
+                    className="text-[0.8rem] font-black font-mono uppercase tracking-[0.3em] mb-1"
+                    style={{ color: '#4ade80', textShadow: '0 0 20px rgba(74,222,128,0.7)' }}
+                  >
+                    ⬡ CHAIN SOLVED ⬡
+                  </div>
+                  <div className="text-[0.58rem] font-mono uppercase tracking-[0.2em] text-emerald-400/60">
+                    board locked
+                  </div>
+                </div>
+              )}
               <button
                 type="button"
                 onClick={() => move('up')}
