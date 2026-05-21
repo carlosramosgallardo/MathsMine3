@@ -474,12 +474,12 @@ One per-game challenge open to all connected wallets. The objective: compute a s
 | Total chain blocks mined (all time) | β | `mm3_mined_blocks` row count |
 | MM3 global value scaled ×100 (absolute, integer) | γ | `\|mm3_global\| × 100` |
 
-The three live inputs are captured at the **exact moment** you submit. The function `f : ℤ³ → ℤ` projects them through a prime lattice onto a unique integer in **[1, 9973]**. The exact mapping is not documented anywhere publicly.
+The three live inputs are captured at the **exact moment** you submit. The function `f : ℤ³ → ℤ` maps them to a unique integer in **[1, γ]** — the answer range itself is determined by γ and changes as the game evolves.
 
 **Rules:**
 
 - **1 attempt per wallet per 24 hours.** A countdown shows time until your next attempt.
-- **Answer range:** integer from `1` to `9973`.
+- **Answer range:** integer from `1` to `γ` (minimum 50, shown live on the card).
 - **Bots do not participate** — this is a human-only challenge.
 - **First correct answer wins the game.** The board locks, the ticker announces the winner, and the game is permanently over.
 
@@ -1388,12 +1388,12 @@ Desafío único por partida abierto a todas las wallets conectadas. El objetivo:
 | Total de bloques de cadena minados (histórico) | β | Conteo de filas en `mm3_mined_blocks` |
 | Valor global MM3 escalado ×100 (valor absoluto, entero) | γ | `\|mm3_global\| × 100` |
 
-Las tres variables se capturan en el **momento exacto** del envío. La función `f : ℤ³ → ℤ` las proyecta a través de un retículo de primos sobre un entero único en **[1, 9973]**. La lógica exacta no está documentada en ningún sitio público.
+Las tres variables se capturan en el **momento exacto** del envío. La función `f : ℤ³ → ℤ` las proyecta sobre un entero único en **[1, γ]** — el propio rango de respuesta lo determina γ y cambia a medida que evoluciona el juego.
 
 **Reglas:**
 
 - **1 intento por wallet cada 24 horas.** Una cuenta regresiva indica el tiempo hasta el próximo intento.
-- **Rango de respuesta:** entero de `1` a `9973`.
+- **Rango de respuesta:** entero de `1` a `γ` (mínimo 50, visible en la tarjeta en tiempo real).
 - **Los bots no participan** — este desafío es exclusivo para humanos.
 - **El primer acierto gana la partida.** El tablero se bloquea, el ticker anuncia al ganador y la partida termina de forma permanente.
 

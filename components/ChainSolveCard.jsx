@@ -64,8 +64,9 @@ export default function ChainSolveCard({ wallet, onWinner }) {
   const handleSubmit = useCallback(async () => {
     if (!wallet || !input.trim() || submitting) return;
     const answer = parseInt(input.trim(), 10);
-    if (isNaN(answer) || answer < 1 || answer > 9973) {
-      setFeedback({ type: 'error', msg: 'Answer must be an integer between 1 and 9973.' });
+    const maxAnswer = Math.max(Number(status?.gamma) || 0, 50);
+    if (isNaN(answer) || answer < 1 || answer > maxAnswer) {
+      setFeedback({ type: 'error', msg: `Answer must be an integer between 1 and ${maxAnswer}.` });
       return;
     }
     setSubmitting(true);
@@ -89,7 +90,7 @@ export default function ChainSolveCard({ wallet, onWinner }) {
         setFeedback({ type: 'win', msg: '⬡ CHAIN SOLVED. You win.' });
         if (onWinner) onWinner(data.winner);
       } else {
-        setFeedback({ type: 'wrong', msg: 'Wrong answer. Ω(α, β, γ) ≠ ' + answer + '. Next attempt available in 24h.' });
+        setFeedback({ type: 'wrong', msg: `Wrong answer. Ω(α, β, γ) ≠ ${answer}. Next attempt available in 24h.` });
       }
       setInput('');
       await fetchStatus();
@@ -118,6 +119,7 @@ export default function ChainSolveCard({ wallet, onWinner }) {
 
   const { winner, canAttempt, alpha, beta, gamma, mm3Global } = status;
   const mm3Display = Number(mm3Global || 0).toFixed(2);
+  const effectiveGamma = Math.max(Number(gamma) || 0, 50);
 
   // ── GAME WON STATE ──────────────────────────────────────────
   if (winner) {
@@ -196,7 +198,7 @@ export default function ChainSolveCard({ wallet, onWinner }) {
               </span>
             </div>
             <div className="text-[0.58rem] font-mono uppercase tracking-[0.14em] text-emerald-400/40 leading-relaxed">
-              Ω(α, β, γ) ∈ [1, 9973] · f : ℤ³ → ℤ via prime lattice
+              Ω(α, β, γ) ∈ [1, {effectiveGamma}] · f : ℤ³ → ℤ
             </div>
             <div className="text-[0.55rem] font-mono text-emerald-500/25 mt-0.5">
               1 attempt / wallet / 24h · bots cannot solve this
@@ -264,11 +266,11 @@ export default function ChainSolveCard({ wallet, onWinner }) {
               ref={inputRef}
               type="number"
               min={1}
-              max={9973}
+              max={effectiveGamma}
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKey}
-              placeholder="Ω(α, β, γ) = ?"
+              placeholder={`Ω(α, β, γ) ∈ [1, ${effectiveGamma}]`}
               disabled={submitting}
               className="chain-solve-input flex-1 bg-black/60 border border-emerald-500/20 text-emerald-200 font-mono text-[0.76rem] px-3 py-2 outline-none focus:border-emerald-400/50 placeholder:text-emerald-600/30"
               style={{ minWidth: 0 }}

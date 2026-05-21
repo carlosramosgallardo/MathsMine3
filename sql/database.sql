@@ -57,7 +57,6 @@ DROP TABLE IF EXISTS mm3_mined_blocks CASCADE;
 DROP TABLE IF EXISTS mm3_irc_messages CASCADE;
 DROP TABLE IF EXISTS mm3_chain_solve_attempts CASCADE;
 DROP TABLE IF EXISTS mm3_game_winner CASCADE;
-DROP TABLE IF EXISTS mm3_chain_formula CASCADE;
 DROP TABLE IF EXISTS games CASCADE;
 
 -- Drop sequences
@@ -407,16 +406,6 @@ CREATE TABLE mm3_game_winner (
   id SMALLINT PRIMARY KEY DEFAULT 1 CHECK (id = 1),
   wallet TEXT NOT NULL,
   won_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
--- Chain Solve: secret formula coefficients — seeded from .private/chain-formula.seed.sql, never in git
--- No public RLS policy: only service_role can read this table
-CREATE TABLE mm3_chain_formula (
-  id SMALLINT PRIMARY KEY DEFAULT 1 CHECK (id = 1),
-  k1  INT NOT NULL,
-  k2  INT NOT NULL,
-  k3  INT NOT NULL,
-  modulus INT NOT NULL
 );
 
 CREATE TABLE mm3_market_commands (
@@ -1519,7 +1508,6 @@ ALTER TABLE mm3_pool_dispute_wallets     ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mm3_squeeze_nftji            ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mm3_chain_solve_attempts     ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mm3_game_winner              ENABLE ROW LEVEL SECURITY;
-ALTER TABLE mm3_chain_formula            ENABLE ROW LEVEL SECURITY;
 
 -- ==============================================
 -- PHASE 8: CREATE ROW LEVEL SECURITY POLICIES
