@@ -23,7 +23,7 @@
 - [Snapshot](#snapshot)
 - [Manifesto](#manifesto)
 - [Objective](#objective)
-- [Game Mechanics](#game-mechanics)
+- [How to Play](#how-to-play)
 - [Mining](#mining)
 - [Daily Limits](#daily-limits)
 - [Daily Rewards](#daily-rewards)
@@ -59,7 +59,7 @@
 | Persistence | Supabase player, market, chart, chat, and event state |
 | Languages | English and Spanish |
 | Core routes | Mining, Trade MM3, Ranking, Squeeze, Market, IRC, MM3 Value, Manifesto, API |
-| Win condition | Mine a higher % of the 764 free Market board blocks than any other wallet |
+| Win condition | Be #1 in MM3 Chain % when the chain hits 100%, OR submit the correct `Ω(α, β, γ)` for an immediate win |
 | Legal status | No real mining, no real token, no payout, no investment |
 
 ---
@@ -76,7 +76,7 @@ The useful idea is simple: **math becomes action**. Every problem solved is not 
 
 ## Objective
 
-The ranking orders wallets by **MM3 Chain** percentage: the share of the 764 free Market board blocks each wallet has mined. **The winner is the wallet at #1 when the chain reaches 100%.** That is the only metric that decides the final position.
+The goal is to complete the MM3 blockchain and win. There are two paths: **mine the most blocks** — the wallet at #1 when all 764 blocks are mined wins — or **solve the chain directly** by submitting the correct answer to the secret function `Ω(α, β, γ)`, which triggers an immediate win regardless of block count.
 
 ### Why reaching #1 is genuinely hard
 
@@ -90,13 +90,13 @@ The ranking orders wallets by **MM3 Chain** percentage: the share of the 764 fre
 
 **Alternating signs.** Block requirements flip between positive and negative `mm3_global_value` by block index. You cannot skip ahead: if the next qualifying block demands a negative global value and the economy is running positive, you wait.
 
-**Rival pressure.** Without pool cover, any wallet can fire daily Market commands that drain your MM3 or fiat. A €100 hit from 💎 Crystal Forge or a −100 MM3 deduction from 🎛️ Mixer Console can erase reserves needed to satisfy a block requirement or buy back MM3 at the exchange.
+**Rival pressure.** Without pool cover, any wallet that owns a Market NFTJI can fire its daily command and drain rivals' fiat or MM3 in a single shot. Those losses can erase the reserves needed to meet a block threshold or rebuy MM3 at the exchange.
 
 **The real scale.** 764 blocks. One per miner. Hundreds of timed problems under maximum pressure. Days or weeks of sustained LEGEND-level performance. Active bots. World-state conditions outside your control. Rivals targeting your economy. The wallet that reaches #1 will have earned it.
 
 ---
 
-## Game Mechanics
+## How to Play
 
 | System | What To Do |
 |---|---|
@@ -253,7 +253,7 @@ NFTJIs are wallet-bound game objects.
 | Mining drop | Rare roll after correct answers | Collection and economy shocks |
 | Heart revive | One-time emergency option | Cancels one failure penalty |
 | Market NFTJI | Bought or resold on the Market board | Unlocks daily IRC command |
-| Squeeze NFTJI | Bought or resold on the Market board | Unlocks daily IRC command |
+| Squeeze NFTJI | Drops from Squeeze battles (1/5 chance) | ⚔️ boosts pool Squeeze score · 🛡️ protects EUR stake |
 
 ### Mining Drops
 
@@ -351,8 +351,6 @@ The modifier is a continuous value in **[−0.50, +0.50]** (1 % precision). It m
 
 The modifier is read live at the moment each operation executes (`getDiceState()` in `lib/dice.js`). The UI shows a 🎲 chip in orange (positive) or cyan (negative) wherever the dice affects an active action — TradeBoard, MarketBoard.
 
-> **Note:** the Squeeze battle formula uses a *separate* deterministic dice value seeded from `dispute_id` (not the hourly window) and cannot be gamed by timing a claim.
-
 ---
 
 ## Market
@@ -376,18 +374,13 @@ Each Market NFTJI includes:
 
 Owning a Market NFTJI unlocks one daily IRC command.
 
-> **🎲 Dice window effect on Market NFTJI:**
-> - **Buy** — the positive MM3 delta is scaled: `buyDelta × (1 + diceModifier)`. Buying during a positive dice window creates a larger MM3 boost; negative window reduces it.
-> - **Resell** — the return is scaled: `price × 0.5 × (1 + diceModifier)`. Positive dice = better resell return (up to 75%); negative dice = worse return (down to 25%). Commands can penalize rival wallets. Penalized wallets can cancel the hit with a 5-digit numeric code derived from the command formula and daily nonce.
+> **🎲 Dice window:** scales buy delta and resell return by `(1 + diceModifier)`. Positive (orange) = larger MM3 boost / up to 75% returned on resell. Negative (cyan) = smaller boost / down to 25% returned.
 
-> **Pool immunity:** market commands and hidden commands launched by a wallet never affect other members of the same pool. Only wallets belonging to a different pool, or to no pool at all, are exposed to penalties.
+> **Penalty cancellation:** every command hit generates a 5-digit code from the formula and daily nonce. The targeted wallet can enter it to cancel the penalty (1 attempt per day, per received penalty).
 
-> **NFTJI level penalty scaling:** the penalty inflicted scales with the attacker's Market NFTJI level: `penalty × (1 + level × 0.25)`. A Lv.0 block applies the base price; Lv.1 applies 1.25×; Lv.2 applies 1.50×, and so on. Level is the number of times the same block has been repurchased. Applies to both public IRC commands (bot tick and real players) and hidden YouTube commands.
+> **Penalty level scaling:** `penalty × (1 + level × 0.25)`. Lv.0 = base; Lv.1 = ×1.25; Lv.2 = ×1.50, etc. Level = repurchase count. Applies to both public IRC commands and hidden commands.
 
-```txt
-example:
-41000 + x * 11 + 2048 / 4
-```
+> **Secret command:** each NFTJI has a hidden command unlocked at the wallet level shown in the Emoji Catalog (`Secret lv.` column). Executing it from IRC earns the **HIDDEN IRC** daily reward (€5.00) and triggers a steal effect — the executor gains what rivals lose.
 
 ### MM3 Block Chain
 
@@ -511,27 +504,17 @@ A wallet can receive up to **5 pending requests** simultaneously. No more can be
 
 Pool rank is calculated from the combined level sum of all active members. Max pool size scales with the average rank tier.
 
-| Tier | Pool Rank | Symbol |
-|---|---|:---:|
-| Entry sync | NODE SWARM | 🧟 |
-| Stable bloc | HASH COVEN | 🕳️ |
-| Coordinated force | SIGNAL CARTEL | 🧲 |
-| Dangerous alliance | VOID SYNDICATE | 🏴‍☠️ |
-| Dominant entity | DRAGON MAINNET | 🐉 |
+| Sum of levels | Rank | Symbol |
+|---:|---|:---:|
+| 100–199 | NODE SWARM | 🧟 |
+| 200–399 | HASH COVEN | 🕳️ |
+| 400–599 | SIGNAL CARTEL | 🧲 |
+| 600–799 | VOID SYNDICATE | 🏴‍☠️ |
+| 800–1000 | DRAGON MAINNET | 🐉 |
 
-Pool membership and rank are visible in Ranking and IRC. Invite chips appear inline in the Ranking header bar and update in real time (Supabase subscription + 5s polling fallback).
+Pool membership and rank are visible in Ranking and IRC. Invite chips appear inline in the Ranking header bar and update in real time.
 
 **Command immunity:** market commands and hidden commands fired by any pool member never affect other wallets in the same pool. Penalties only land on wallets from rival pools or on wallets with no pool affiliation.
-
-| File | Role |
-|---|---|
-| `app/api/wallet-pools/contact/route.js` | Creates invite or join request; checks cooldown and 5-invite cap |
-| `app/api/wallet-pools/accept/route.js` | Accepts invite or approves join request; checks cooldown |
-| `app/api/wallet-pools/decline/route.js` | Declines invite or join request |
-| `app/api/wallet-pools/leave/route.js` | Removes wallet from pool; writes 24h cooldown record |
-| `app/api/wallet-pools/cooldown/route.js` | Returns cooldown status for a wallet |
-| `app/api/wallet-pools/invites/route.js` | Returns pending invites for the active wallet |
-| `components/Leaderboard.jsx` | Renders pool ranking; invite chips, cooldown blocking, pool badge |
 
 ---
 
@@ -639,18 +622,6 @@ third same  → level 2   (no cap)
              → 1/5: ⚔️ or 🛡️ drop available to all winners
 ```
 
-| File | Role |
-|---|---|
-| `app/api/wallet-pools/disputes/route.js` | Lists Squeeze battles with wallet snapshots and Market NFTJI emojis |
-| `app/api/wallet-pools/dispute/vote/route.js` | Proposes or confirms a Squeeze (1st / 2nd challenger wallet) |
-| `app/api/wallet-pools/dispute/join/route.js` | Additional challenger wallet joins registering window |
-| `app/api/wallet-pools/dispute/cancel/route.js` | Cancels proposing dispute after 5-min timeout |
-| `app/api/wallet-pools/dispute/start-battle/route.js` | Takes snapshot and computes scores after registering window |
-| `app/api/wallet-pools/dispute/resolve/route.js` | Applies EUR stakes, defense protection, and drop roll 5s after battle_start |
-| `app/api/wallet-pools/dispute/claim-nftji-drop/route.js` | Winner claims ⚔️/🛡️ NFTJI drop (calls `mm3_squeeze_nftji_take`) |
-| `components/DisputesPanel.jsx` | Squeeze cards — lifecycle, scores, deltas, drop UI |
-| `app/squeeze/page.jsx` | Squeeze page (menu entry) |
-| `sql/database.sql` | Tables, vote records, wallet snapshots, score functions, lifecycle RPCs |
 
 ---
 
@@ -679,7 +650,7 @@ MathsMine3@ETH·:~$  0.01 ETH donation confirmed · tx 0xabc…def
 
 The `MathsMine3@ETH·:~$` line appears when a real Ethereum transaction is received by the Alchemy webhook. The event is written directly to the IRC log with `tone=realchain`, making on-chain activity visible inside the terminal without any player action.
 
-IRC help (`/?`) includes `/mine block #029` as the short form for mining free Market board cells. Bots do not auto-mine these blocks, but a logged bot wallet can be used manually to test the command path.
+IRC help (`/?`) includes `/mine block #029` as the short form for mining free Market board cells.
 
 ---
 
@@ -687,13 +658,11 @@ IRC help (`/?`) includes `/mine block #029` as the short form for mining free Ma
 
 Ranking is public memory for the game and defines its end state.
 
-The first ranking column is **MM3 Chain**. It shows the percentage of the 764 free Market board blocks mined by each wallet. **Wallet ranking sorts by this column — this is the win condition.** The wallet at #1 when the chain reaches 100% wins.
+The first ranking column is **MM3 Chain**: the share of 764 free Market board blocks mined per wallet. **Ranking sorts by this column.** Win paths: be at #1 when the chain hits 100%, or submit the correct `Ω(α, β, γ)` for an immediate win — see [Objective](#objective) and [Solve the Chain](#solve-the-chain).
 
-Pool ranking sums the MM3 Chain percentages of its current member wallets. The sum can never exceed 100%. It only reaches 100% if every wallet that contributed mined blocks is currently a pool member.
+Pool ranking sums the MM3 Chain percentages of current members. The sum cannot exceed 100%.
 
-All other visible data — level, MM3 balance, trade activity, NFTJI ownership, Market presence, active penalties — shows the context behind the chain percentages: how a wallet earned its position and how exposed it is to rivals.
-
-See [Objective](#objective) for a full breakdown of what it takes to reach #1.
+All other visible data — level, MM3 balance, trade activity, NFTJI ownership, Market presence, active penalties — shows the context behind the chain percentages.
 
 ---
 
@@ -741,7 +710,7 @@ All four bots run up to 100 mining games per day at a win rate of ~92 % (decreas
 | `buy_mm3` buying MM3 | Pushes global MM3 value **up** |
 | Any market buy / resell event | Moves the MM3 curve — visible in the chart |
 | Squeeze launched by bot pool | Penalty risk for the targeted pool (same rules as any Squeeze) |
-| ⚔️ / 🔰 drop claimed | MM3 polarity flip scaled by active Dice modifier; always appears in chart |
+| ⚔️ / 🛡️ drop claimed | MM3 polarity flip scaled by active Dice modifier; always appears in chart |
 | Chain block mined | Advances the shared 784-cell block chain race; bot IRC message shows `chain:X.XX%` |
 | Penalty redeemed | Bot cancels its own active penalty; IRC message shows `pen:redeemed(N)` |
 
@@ -945,7 +914,7 @@ Read:
 - [Resumen](#resumen)
 - [Manifiesto](#manifiesto)
 - [Objetivo](#objetivo)
-- [Mecánica del juego](#mecánica-del-juego)
+- [Cómo Jugar](#cómo-jugar)
 - [Mining](#mining)
 - [Límites Diarios](#limites-diarios)
 - [Recompensas Diarias](#recompensas-diarias)
@@ -981,7 +950,7 @@ Read:
 | Persistencia | Estado de jugadores, Market, gráfico, chat y eventos en Supabase |
 | Idiomas | Inglés y español |
 | Rutas principales | Mining, Trade MM3, Ranking, Squeeze, Market, IRC, MM3 Value, Manifiesto, API |
-| Condición de victoria | Minar un mayor % de los 764 bloques libres del tablero Market que cualquier otra wallet |
+| Condición de victoria | Ser #1 en % MM3 Chain cuando la cadena llegue al 100%, O enviar el `Ω(α, β, γ)` correcto para ganar de inmediato |
 | Estado legal | Sin minería real, sin token real, sin pagos, sin inversión |
 
 ---
@@ -990,7 +959,7 @@ Read:
 
 MathsMine3 convierte las matemáticas en presión, recompensa, memoria, riesgo y ritual.
 
-No es una clase con skin. Es un juego-mundo de terminal: resuelve rápido, mina MM3 falso, sube de rango, pierde nivel cuando fallas, comercia dentro de un exchange ficticio, colecciona NFTJIs, dispara comandos del Market, participa en en el chat IRC y vuelve después de cada reset más afilado que antes.
+No es una clase con skin. Es un juego-mundo de terminal: resuelve rápido, mina MM3 falso, sube de rango, pierde nivel cuando fallas, comercia dentro de un exchange ficticio, colecciona NFTJIs, dispara comandos del Market, participa en el chat IRC y vuelve después de cada reset más afilado que antes.
 
 La idea útil es simple: **la matemática se convierte en acción**. Cada problema resuelto no es solo puntuación; mueve una wallet, un rango, un mercado ficticio y un estado público compartido. La cadena tiene una línea de llegada: 764 bloques, un solo ganador.
 
@@ -998,7 +967,7 @@ La idea útil es simple: **la matemática se convierte en acción**. Cada proble
 
 ## Objetivo
 
-El ranking ordena las wallets por el porcentaje **MM3 Chain**: la proporción de los 764 bloques libres del tablero Market que cada wallet ha minado. **Gana la wallet en el puesto #1 cuando la cadena alcanza el 100%.** Esa es la única métrica que decide la posición final.
+El objetivo es completar la blockchain MM3 y ganar. Hay dos caminos: **minar el mayor número de bloques** — gana la wallet en el puesto #1 cuando los 764 bloques están minados — o **resolver la cadena directamente** enviando la respuesta correcta a la función secreta `Ω(α, β, γ)`, lo que activa una victoria inmediata sin importar el conteo de bloques.
 
 ### Por qué llegar al #1 es genuinamente difícil
 
@@ -1012,22 +981,22 @@ El ranking ordena las wallets por el porcentaje **MM3 Chain**: la proporción de
 
 **Signos alternos.** Los requisitos de bloque alternan entre `mm3_global_value` positivo y negativo según el índice del bloque. No puedes saltarte bloques: si el siguiente que puedes alcanzar exige valor global negativo y la economía está en positivo, esperas.
 
-**Presión rival.** Sin cobertura de pool, cualquier wallet puede disparar comandos diarios del Market que drenen tu MM3 o fiat. Un golpe de €100 de 💎 Crystal Forge o una deducción de −100 MM3 de 🎛️ Mixer Console pueden borrar las reservas que necesitabas para cumplir un requisito de bloque o recomprar MM3 en el exchange.
+**Presión rival.** Sin cobertura de pool, cualquier wallet que posea un NFTJI de Market puede disparar su comando diario y drenar fiat o MM3 de los rivales de un solo golpe. Esas pérdidas pueden borrar las reservas necesarias para cumplir un umbral de bloque o recomprar MM3 en el exchange.
 
 **La escala real.** 764 bloques. Uno por minero. Cientos de problemas cronometrados bajo presión máxima. Días o semanas de rendimiento sostenido a nivel LEGEND. Bots activos. Condiciones del estado del mundo fuera de tu control. Rivales apuntando a tu economía. La wallet que llegue al #1 se lo habrá ganado.
 
 ---
 
-## Mecánica del juego
+## Cómo Jugar
 
 | Sistema | Qué Hacer |
 |---|---|
-| Login vs. Anónimo | Siéntete libre de jugar anónimante en MINING y navegar por el portal. Existen bots que están compitiendo activamente en el ranking | Cuanod te decias, si no quieres usar una wallet real, usa una de google para que el sistema de genere una exclusiva para tí en MAthsMine3 |
+| Login vs. Anónimo | Siéntete libre de jugar de forma anónima en MINING y navegar por el portal. Los bots compiten activamente en el ranking. Cuando te decidas, si no quieres usar una wallet real, usa Google para que el sistema te genere una wallet exclusiva en MathsMine3. |
 | Stats del mundo | War, Naturaleza y Dice afectan y son afectados por las diferentes operaciones que se realizan en el juego. Merece la pena tenerlos en cuenta en todo momento |
-| Mining | Mina MM3 acertando preguntas de mates de diferentes tipo y subiendo de nivel. Si tardas en contestar y aciertas, minarás en negativo. Si fallas, bajarás de nivel, a no ser que tenga el dinero necesario para comprar la vida, pero solo la podrás comprar y usar una vez. En ocasionas, si aciertas, obtendrás NFTJIs que irás acumulando y potenciarán tu progresión |
-| Trading | Cuando tengas suficiente MM3, puedes venderlo por dinero. Y cuando necesites más MM3, puedes comprarlo. Pero ¡ojo a los intereres! |
+| Mining | Mina MM3 acertando preguntas de mates de diferentes tipos y subiendo de nivel. Si tardas en contestar y aciertas, minarás en negativo. Si fallas, bajarás de nivel, a no ser que tengas el dinero necesario para comprar la vida, pero solo la podrás comprar y usar una vez. En ocasiones, si aciertas, obtendrás NFTJIs que irás acumulando y potenciarán tu progresión. |
+| Trading | Cuando tengas suficiente MM3, puedes venderlo por dinero. Y cuando necesites más MM3, puedes comprarlo. Pero ¡ojo a los intereses! |
 | Ranking y Pools | Comprueba tu posición, fondos y NFTJIs y compárate con el resto de Wallets y de pools. Forma parte de uno o trabaja de manera autónoma. Tú decides |
-| Squeeze | Diputa pool vs pool. Comprende la fórmula aplicada para ser ganador, junto con tus wallets de confianza, si es que te puedes fiar de alguien. En ocasionas, si tu pool gana, obtendréis NFTJIs que iréis acumulando y catapultarán vuestra alianza |
+| Squeeze | Disputa pool vs pool. Comprende la fórmula aplicada para ser ganador, junto con tus wallets de confianza, si es que te puedes fiar de alguien. En ocasiones, si tu pool gana, obtendréis NFTJIs que iréis acumulando y catapultarán vuestra alianza. |
 | Market board | Grid 28x28: 20 bloques NFTJI fijos (comandos, penalizaciones, reventa) + 764 celdas libres de la MM3 Block Chain minables desde IRC. Minar esas celdas libres es la competición central — la wallet con el mayor porcentaje minado lidera la cadena y gana. |
 | IRC | Terminal social persistente con presencia de wallets y eventos. Aunque no estés logado puedes ver lo que se va cociendo día a día hasta que te animes a probarlo |
 | MM3 | Histórico de valor global alimentado por eventos del juego. Tan importante son los fondos propios o compartidados como lo es el valor del MM3. La pregunta es, ¿por qué? |
@@ -1175,7 +1144,7 @@ Los NFTJIs son objetos de juego asociados a la wallet.
 | NFTJI de mining | Tirada rara tras respuestas correctas | Colección y shocks económicos |
 | Heart revive | Opción de emergencia de un uso | Cancela una penalización por fallo |
 | NFTJI de Market | Compra o reventa en el Market board | Desbloquea comando IRC diario |
-| NFTJI de Squeeze | Compra o reventa en el Market board | Desbloquea comando IRC diario |
+| NFTJI de Squeeze | Cae en combates Squeeze (probabilidad 1/5) | ⚔️ mejora score del pool en Squeeze · 🛡️ protege el stake EUR |
 
 ### NFTJIs de Mining
 
@@ -1273,8 +1242,6 @@ El modificador es un valor continuo en **[−0.50, +0.50]** (precisión del 1 %)
 
 El modificador se lee en vivo en el momento en que se ejecuta cada operación (`getDiceState()` en `lib/dice.js`). La UI muestra un chip 🎲 en naranja (positivo) o cyan (negativo) donde el dado afecta a una acción activa — TradeBoard, MarketBoard.
 
-> **Nota:** la fórmula de batalla del Squeeze usa un valor de dado *separado* generado desde `dispute_id` (no la ventana horaria) y no puede manipularse eligiendo el momento de la reclamación.
-
 ---
 
 ## Market
@@ -1298,18 +1265,13 @@ Cada NFTJI del Market incluye:
 
 Tener un NFTJI del Market desbloquea un comando IRC diario.
 
-> **🎲 Efecto de la ventana del dado en Market NFTJI:**
-> - **Compra** — el delta positivo de MM3 se escala: `buyDelta × (1 + diceModifier)`. Comprar durante dado positivo crea un impulso MM3 mayor; dado negativo lo reduce.
-> - **Reventa** — el retorno se escala: `precio × 0.5 × (1 + diceModifier)`. Dado positivo = mejor retorno (hasta 75%); dado negativo = peor retorno (hasta 25%). Los comandos pueden penalizar wallets rivales. Las wallets penalizadas pueden cancelar el golpe con un código de 5 dígitos derivado de la fórmula del comando y el nonce diario.
+> **🎲 Dado:** escala el delta de compra y el retorno de reventa por `(1 + diceModifier)`. Positivo (naranja) = mayor impulso MM3 / hasta 75% devuelto en reventa. Negativo (cyan) = menor impulso / hasta 25% devuelto.
 
-> **Inmunidad de pool:** los comandos de market y los comandos ocultos lanzados por una wallet nunca afectan a otros miembros del mismo pool. Solo quedan expuestas las wallets de pools rivales o las wallets sin pool.
+> **Cancelación de penalización:** cada golpe de comando genera un código de 5 dígitos a partir de la fórmula y el nonce diario. La wallet afectada puede introducirlo para cancelar la penalización (1 intento por día, por penalización recibida).
 
-> **Escalado de penalización por nivel NFTJI:** la penalización infligida escala con el nivel del Market NFTJI del atacante: `penalización × (1 + nivel × 0.25)`. Lv.0 aplica el precio base; Lv.1 aplica 1.25×; Lv.2 aplica 1.50×, y así sucesivamente. El nivel es el número de veces que se ha recomprado el mismo bloque. Aplica tanto a comandos IRC públicos como a comandos ocultos.
+> **Escalado por nivel:** `penalización × (1 + nivel × 0.25)`. Lv.0 = base; Lv.1 = ×1.25; Lv.2 = ×1.50, etc. Nivel = número de recompras. Aplica tanto a comandos IRC públicos como a comandos ocultos.
 
-```txt
-ejemplo:
-41000 + x * 11 + 2048 / 4
-```
+> **Comando secreto:** cada NFTJI tiene un comando oculto desbloqueado al nivel de wallet indicado en el Catálogo de Emojis (columna `Nivel secreto`). Ejecutarlo desde IRC otorga la recompensa diaria **HIDDEN IRC** (€5.00) y activa un efecto de robo — el ejecutor gana lo que los rivales pierden.
 
 ### MM3 Block Chain
 
@@ -1433,27 +1395,17 @@ Una wallet puede recibir hasta **5 solicitudes pendientes** simultáneamente. No
 
 El rango del Pool se calcula a partir de la suma de niveles de todos sus miembros activos. El tamaño máximo del pool escala según el rango medio del pool.
 
-| Tier | Rango de Pool | Símbolo |
-|---|---|:---:|
-| Sincronización inicial | NODE SWARM | 🧟 |
-| Bloque estable | HASH COVEN | 🕳️ |
-| Fuerza coordinada | SIGNAL CARTEL | 🧲 |
-| Alianza peligrosa | VOID SYNDICATE | 🏴‍☠️ |
-| Entidad dominante | DRAGON MAINNET | 🐉 |
+| Suma de niveles | Rango | Símbolo |
+|---:|---|:---:|
+| 100–199 | NODE SWARM | 🧟 |
+| 200–399 | HASH COVEN | 🕳️ |
+| 400–599 | SIGNAL CARTEL | 🧲 |
+| 600–799 | VOID SYNDICATE | 🏴‍☠️ |
+| 800–1000 | DRAGON MAINNET | 🐉 |
 
-La membresía y el rango del Pool son visibles en el Ranking y en el IRC. Los chips de invitación aparecen en la barra de cabecera del Ranking y se actualizan en tiempo real (suscripción Supabase + polling cada 5s).
+La membresía y el rango del Pool son visibles en el Ranking y en el IRC. Los chips de invitación aparecen en la barra de cabecera del Ranking y se actualizan en tiempo real.
 
 **Inmunidad de pool:** los comandos de market y los comandos ocultos lanzados por cualquier miembro de un pool nunca penalizan a otras wallets del mismo pool. Las penalizaciones solo alcanzan a wallets de pools rivales o a wallets sin afiliación a ningún pool.
-
-| Archivo | Función |
-|---|---|
-| `app/api/wallet-pools/contact/route.js` | Crea invitaciones o solicitudes; comprueba cooldown y límite de 5 |
-| `app/api/wallet-pools/accept/route.js` | Acepta invitación o aprueba solicitud; comprueba cooldown |
-| `app/api/wallet-pools/decline/route.js` | Rechaza invitación o solicitud |
-| `app/api/wallet-pools/leave/route.js` | Elimina wallet del pool; registra cooldown de 24h |
-| `app/api/wallet-pools/cooldown/route.js` | Devuelve estado del cooldown para una wallet |
-| `app/api/wallet-pools/invites/route.js` | Devuelve invitaciones pendientes para la wallet activa |
-| `components/Leaderboard.jsx` | Renderiza pool ranking; chips de invitación, bloqueo por cooldown, badge de pool |
 
 ---
 
@@ -1561,18 +1513,6 @@ tercero mismo → nivel 2   (sin tope)
              → 1/5: drop ⚔️ o 🛡️ disponible para todos los ganadores
 ```
 
-| Archivo | Función |
-|---|---|
-| `app/api/wallet-pools/disputes/route.js` | Lista combates con snapshots de wallets y emojis NFTJI del Market |
-| `app/api/wallet-pools/dispute/vote/route.js` | Propone o confirma un Squeeze (1ª / 2ª wallet atacante) |
-| `app/api/wallet-pools/dispute/join/route.js` | Wallet adicional del atacante se une en la ventana de registro |
-| `app/api/wallet-pools/dispute/cancel/route.js` | Cancela propuesta expirada tras 5 min |
-| `app/api/wallet-pools/dispute/start-battle/route.js` | Toma snapshot y calcula scores al cerrar el registro |
-| `app/api/wallet-pools/dispute/resolve/route.js` | Aplica stakes, protección defensa y tirada de drop 5s después de battle_start |
-| `app/api/wallet-pools/dispute/claim-nftji-drop/route.js` | Ganador reclama drop ⚔️/🛡️ (llama a `mm3_squeeze_nftji_take`) |
-| `components/DisputesPanel.jsx` | Tarjetas Squeeze — ciclo de vida, scores, deltas, UI de drop |
-| `app/squeeze/page.jsx` | Página de Squeeze (entrada en el menú) |
-| `sql/database.sql` | Tablas, votos, snapshots, funciones de score, RPCs del ciclo de vida |
 
 ---
 
@@ -1601,7 +1541,7 @@ MathsMine3@ETH·:~$  0.01 ETH donación confirmada · tx 0xabc…def
 
 La línea `MathsMine3@ETH·:~$` aparece cuando el webhook de Alchemy recibe una transacción real de Ethereum. El evento se escribe directamente en el log IRC con `tone=realchain`, haciendo visible la actividad on-chain dentro del terminal sin ninguna acción del jugador.
 
-La ayuda IRC (`/?`) incluye `/mine block #029` como forma corta para minar celdas libres del tablero Market. Los bots no autominan estos bloques, pero una wallet marcada como bot puede usarse manualmente para probar el flujo.
+La ayuda IRC (`/?`) incluye `/mine block #029` como forma corta para minar celdas libres del tablero Market.
 
 ---
 
@@ -1609,13 +1549,11 @@ La ayuda IRC (`/?`) incluye `/mine block #029` como forma corta para minar celda
 
 El Ranking es la memoria pública del juego y define su estado final.
 
-La primera columna del ranking es **MM3 Chain**. Muestra el porcentaje de los 764 bloques libres del Market minados por cada wallet. **El ranking de wallets ordena por esta columna — esta es la condición de victoria.** La wallet en el puesto #1 cuando la cadena alcance el 100% gana.
+La primera columna del ranking es **MM3 Chain**: el porcentaje de los 764 bloques libres del Market minados por cada wallet. **El ranking ordena por esta columna.** Caminos de victoria: ser #1 cuando la cadena llegue al 100%, o enviar el `Ω(α, β, γ)` correcto para ganar de inmediato — ver [Objetivo](#objetivo) y [Resolver la Cadena](#resolver-la-cadena).
 
-El ranking de pools suma los porcentajes MM3 Chain de sus wallets miembro actuales. La suma nunca supera el 100%. Solo llega al 100% si todas las wallets que han contribuido minando bloques forman parte de algún pool.
+El ranking de pools suma los porcentajes MM3 Chain de sus miembros actuales. La suma nunca supera el 100%.
 
-El resto de datos visibles — nivel, balance MM3, actividad de Trade, propiedad de NFTJIs, presencia en Market, penalizaciones activas — muestra el contexto detrás de los porcentajes de cadena: cómo una wallet ganó su posición y qué tan expuesta está a los rivales.
-
-Consulta [Objetivo](#objetivo) para un análisis completo de lo que se necesita para llegar al #1.
+El resto de datos visibles — nivel, balance MM3, actividad de Trade, propiedad de NFTJIs, presencia en Market, penalizaciones activas — muestra el contexto detrás de los porcentajes de cadena.
 
 ---
 
@@ -1663,7 +1601,7 @@ Los cuatro bots ejecutan hasta 100 partidas de mining al día con una tasa de ac
 | `buy_mm3` comprando MM3 | Empuja el valor global de MM3 **hacia arriba** |
 | Cualquier evento de compra / reventa en Market | Mueve la curva de MM3 — visible en el gráfico |
 | Squeeze lanzado por pool de bots | Riesgo de penalización para el pool objetivo (mismas reglas que cualquier Squeeze) |
-| Drop ⚔️ / 🔰 reclamado | Volteo de polaridad MM3 escalado por el modificador del Dado activo; siempre aparece en el gráfico |
+| Drop ⚔️ / 🛡️ reclamado | Volteo de polaridad MM3 escalado por el modificador del Dado activo; siempre aparece en el gráfico |
 | Bloque de cadena minado | Avanza la carrera compartida de 784 celdas; el mensaje IRC del bot muestra `chain:X.XX%` |
 | Penalización redimida | El bot cancela su propia penalización activa; el mensaje IRC muestra `pen:redeemed(N)` |
 
