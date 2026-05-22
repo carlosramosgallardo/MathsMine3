@@ -33,13 +33,13 @@ export default function RootLayout({ children }) {
         <link rel="icon" href="/favicon.ico" />
         <link rel="apple-touch-icon" href="/mm3-token.png" />
         <link rel="manifest" href="/manifest.json" />
-        <meta name="theme-color" content="#000000" />
+        <meta name="theme-color" content="#070b0f" />
         {supabaseUrl ? <link rel="preconnect" href={supabaseUrl} crossOrigin="anonymous" /> : null}
         <link rel="dns-prefetch" href="https://verify.walletconnect.com" />
         <link rel="dns-prefetch" href="https://relay.walletconnect.com" />
         <link rel="dns-prefetch" href="https://www.anthropic.com" />
       </head>
-      <body className="h-full bg-black text-white font-mono">
+      <body className="h-full bg-[#070b0f] text-white font-mono">
         <I18nProvider>
           <CurrencyProvider>
             <SoundProvider>

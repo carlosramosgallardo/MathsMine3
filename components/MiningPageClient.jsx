@@ -10,7 +10,7 @@ export default function MiningPageClient() {
   const { frameAccent } = useMm3Accent();
 
   return (
-    <main className="w-full px-2 py-1" style={{ '--mm3-accent': frameAccent }}>
+    <main className="w-full px-1 py-1 sm:px-2" style={{ '--mm3-accent': frameAccent }}>
       <SectionFrame accent={frameAccent} id="mining-section">
         <MiningBoard account={account} isVirtualWallet={isVirtualWallet} />
       </SectionFrame>
