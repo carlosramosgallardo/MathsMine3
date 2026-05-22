@@ -109,7 +109,7 @@ export default function ChainSolveCard({ wallet, onWinner }) {
 
   if (!status) {
     return (
-      <div className="mm3-chain-solve-card w-full max-w-[860px] mx-auto px-2 lg:px-3 mt-2">
+      <div className="mm3-chain-solve-card w-full max-w-[1080px] mx-auto px-2 lg:px-3 mt-2">
         <div className="rounded border border-emerald-500/20 bg-black/40 px-3 py-2 text-center">
           <span className="text-[0.6rem] font-mono uppercase tracking-[0.2em] text-emerald-400/30 animate-pulse">
             {t('chainSolve.loadingOracle')}
@@ -126,7 +126,7 @@ export default function ChainSolveCard({ wallet, onWinner }) {
   // ── GAME WON STATE ──────────────────────────────────────────
   if (winner) {
     return (
-      <div className="mm3-chain-solve-card w-full max-w-[860px] mx-auto px-2 lg:px-3 mt-2">
+      <div className="mm3-chain-solve-card w-full max-w-[1080px] mx-auto px-2 lg:px-3 mt-2">
         <div
           className="rounded border px-3 py-3 text-center"
           style={{
@@ -169,7 +169,7 @@ export default function ChainSolveCard({ wallet, onWinner }) {
   };
 
   return (
-    <div className="mm3-chain-solve-card w-full max-w-[860px] mx-auto px-2 lg:px-3 mt-2">
+    <div className="mm3-chain-solve-card w-full max-w-[1080px] mx-auto px-2 lg:px-3 mt-2">
       <style>{`
         .chain-solve-input::-webkit-inner-spin-button,
         .chain-solve-input::-webkit-outer-spin-button { -webkit-appearance: none; }
