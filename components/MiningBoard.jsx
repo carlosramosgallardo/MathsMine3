@@ -1139,7 +1139,7 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
       <div className="mx-auto w-full max-w-[1080px] px-2 lg:px-3">
         <div className="mm3-market-chain w-full rounded border border-emerald-500/20 bg-black/40 px-3 py-2 text-center shadow-[0_0_18px_rgba(74,222,128,0.06),inset_0_0_20px_rgba(74,222,128,0.03)] lg:px-5 lg:py-3">
           <div className="flex items-center justify-center gap-3 text-[0.72rem] font-black uppercase tracking-[0.2em] lg:text-[0.88rem]">
-            <span className="text-emerald-300/70">{blockChain?.title || BLOCK_CHAIN_TITLE}</span>
+            <span className="text-emerald-300/70">{t('mining.blockChainTitle')}</span>
             <span className="text-emerald-200" style={{ textShadow: '0 0 12px rgba(74,222,128,0.5)' }}>{Number(blockChain?.percent || 0).toFixed(2)}%</span>
           </div>
           <div className="mt-2 h-1.5 w-full overflow-hidden rounded-sm border border-emerald-500/15 bg-black/50 lg:h-2">
