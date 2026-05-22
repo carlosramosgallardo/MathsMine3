@@ -58,7 +58,7 @@
 | Identity | Ethereum wallet or deterministic Google virtual wallet |
 | Persistence | Supabase player, market, chart, chat, and event state |
 | Languages | English and Spanish |
-| Core routes | Training, Trade MM3, Ranking, Squeeze, Mining, IRC, MM3 Value, Manifesto, API |
+| Core routes | Training, Mining, Trading, Ranking, Squeezing, Relaying, MM3 Value, Manifesto, API |
 | Win condition | Be #1 in Mining % when all 784 board cells are covered (764 chain blocks mined + all 20 NFTJIs owned), OR submit the correct `Ω(α, β, γ)` for an immediate win |
 | Legal status | No real mining, no real token, no payout, no investment |
 
@@ -424,13 +424,13 @@ The full chain is ordered by mining time:
 
 The hex suffix is the global MM3 value at mining time, scaled by 100 and encoded as hexadecimal (e.g. `4D` = 0.77, `-52` = −0.82).
 
-The Market UI shows **MM3 BLOCK CHAIN IN PROGRESS** with a percentage:
+The Mining board shows **MM3 BLOCK CHAIN IN PROGRESS** with a percentage:
 
 ```txt
-mined free blocks / total free blocks
+(mined free blocks + distinct Market NFTJIs currently owned) / 784
 ```
 
-Fixed Market NFTJI cells are excluded from this percentage. If every free board block is mined, the chain reaches 100% and the generated code becomes final game history.
+All 784 cells count. Free chain cells are permanently mined; Market NFTJI cells count only while at least one wallet owns them. When all 784 cells are covered, the chain reaches 100% and the generated code becomes final game history.
 
 ### Block Requirements
 
@@ -974,7 +974,7 @@ Read:
 | Identidad | Wallet de Ethereum o wallet virtual determinista de Google |
 | Persistencia | Estado de jugadores, Market, gráfico, chat y eventos en Supabase |
 | Idiomas | Inglés y español |
-| Rutas principales | Training, Trade MM3, Ranking, Squeeze, Mining, IRC, MM3 Value, Manifiesto, API |
+| Rutas principales | Training, Mining, Trading, Ranking, Squeezing, Relaying, MM3 Value, Manifiesto, API |
 | Condición de victoria | Ser #1 en % de Minado cuando las 784 celdas estén cubiertas (764 bloques minados + los 20 NFTJIs con dueño), O enviar el `Ω(α, β, γ)` correcto para ganar de inmediato |
 | Estado legal | Sin minería real, sin token real, sin pagos, sin inversión |
 
@@ -1340,13 +1340,13 @@ La cadena completa queda ordenada por momento de minado:
 
 El sufijo hex es el valor MM3 global en el momento del minado, escalado ×100 y codificado en hexadecimal (ej. `4D` = 0.77, `-52` = −0.82).
 
-La UI del Market muestra **MM3 BLOCK CHAIN IN PROGRESS** con un porcentaje:
+El tablero de Mining muestra **MM3 BLOCK CHAIN IN PROGRESS** con un porcentaje:
 
 ```txt
-bloques libres minados / total de bloques libres
+(bloques libres minados + NFTJIs del Market con al menos un dueño) / 784
 ```
 
-Las celdas NFTJI fijas del Market no cuentan en ese porcentaje. Si todos los bloques libres se minan, la cadena llega al 100% y el código generado queda como historia final del juego.
+Las 784 celdas cuentan. Las celdas libres se minan permanentemente; las celdas de NFTJI del Market cuentan solo mientras al menos una wallet las posea. Cuando las 784 celdas están cubiertas, la cadena llega al 100% y el código generado queda como historia final del juego.
 
 ### Requisitos de Bloque
 
