@@ -84,11 +84,11 @@ The goal is to complete the MM3 mining board and win. The board has **784 cells*
 
 **Block scarcity.** Each of the 764 free chain cells is mined once and never again. Bots compete actively. Any cell another wallet claims first is gone from your count permanently. The 20 NFTJI cells can be owned simultaneously by multiple wallets — but only while you hold the NFTJI; selling it removes that cell from your count.
 
-**Daily drill cap.** The base limit is 100 mining games per day — rising +1 for each all-time Trade EXEC. Even flawless play only translates to a handful of qualifying blocks per session, because qualifying for late-chain blocks requires both your wallet level and the shared global MM3 value to meet escalating thresholds at the same time.
+**Daily drill cap.** The base limit is 100 Training games per day — rising +1 for each all-time Trade EXEC. Even flawless play only translates to a handful of qualifying blocks per session, because qualifying for late-chain blocks requires both your wallet level and the shared global MM3 value to meet escalating thresholds at the same time.
 
 **Shared global state.** The `mm3_global_value` required by advanced blocks is not yours to control. It is shaped by the whole economy — trades, Market commands, Squeeze stakes burned. You may reach the right level only to find the global condition unmet.
 
-**Alternating signs.** Block requirements flip between positive and negative `mm3_global_value` by block index. You cannot skip ahead: if the next qualifying block demands a negative global value and the economy is running positive, you wait.
+**Alternating signs.** Block requirements flip between positive and negative `mm3_global_value` by block index. You can attempt any block — but only those whose sign matches the current global value are valid. If every available block demands a negative global value and the economy is running positive, you wait.
 
 **Rival pressure.** Without pool cover, any wallet that owns a Mining NFTJI can fire its daily command and drain rivals' fiat or MM3 in a single shot. Those losses can erase the reserves needed to meet a block threshold or rebuy MM3 at the exchange.
 
@@ -1002,11 +1002,11 @@ El objetivo es completar el tablero de Mining y ganar. El tablero tiene **784 ce
 
 **Escasez de bloques.** Cada una de las 764 celdas libres se mina una sola vez y nunca vuelve a estar disponible. Los bots compiten activamente. Cualquier celda que otra wallet reclame primero desaparece de tu conteo para siempre. Las 20 celdas de NFTJI pueden ser poseídas simultáneamente por varias wallets, pero solo mientras tengas el NFTJI — si lo vendes, esa celda sale de tu conteo.
 
-**Tope diario de drill.** El límite base es 100 partidas de mining por día — sube +1 por cada EXEC histórico de Trade. Incluso jugando a la perfección, eso solo se traduce en un puñado de bloques cualificados por sesión, ya que minar bloques avanzados requiere que tu nivel de wallet y el `mm3_global_value` compartido cumplan umbrales crecientes al mismo tiempo.
+**Tope diario de drill.** El límite base es 100 partidas de Training por día — sube +1 por cada EXEC histórico de Trade. Incluso jugando a la perfección, eso solo se traduce en un puñado de bloques cualificados por sesión, ya que minar bloques avanzados requiere que tu nivel de wallet y el `mm3_global_value` compartido cumplan umbrales crecientes al mismo tiempo.
 
 **Estado global compartido.** El `mm3_global_value` requerido por los bloques avanzados no está bajo tu control. Lo moldea toda la economía — trades, comandos del Market, stakes quemados en Squeeze. Puedes alcanzar el nivel correcto y encontrar que la condición global no se cumple.
 
-**Signos alternos.** Los requisitos de bloque alternan entre `mm3_global_value` positivo y negativo según el índice del bloque. No puedes saltarte bloques: si el siguiente que puedes alcanzar exige valor global negativo y la economía está en positivo, esperas.
+**Signos alternos.** Los requisitos de bloque alternan entre `mm3_global_value` positivo y negativo según el índice del bloque. Puedes intentar cualquier bloque — pero solo son válidos aquellos cuyo signo coincide con el valor global actual. Si todos los bloques disponibles exigen valor global negativo y la economía está en positivo, esperas.
 
 **Presión rival.** Sin cobertura de pool, cualquier wallet que posea un NFTJI de Mining puede disparar su comando diario y drenar fiat o MM3 de los rivales de un solo golpe. Esas pérdidas pueden borrar las reservas necesarias para cumplir un umbral de bloque o recomprar MM3 en el exchange.
 
