@@ -29,7 +29,13 @@
   --mm3-yellow: #facc15;
   --mm3-orange: #f97316;
   --mm3-magenta: #e879f9;
-  --mm3-bg: #050810;
+  --mm3-bg: #000;
+  --mm3-panel: #02060b;
+  --mm3-panel-soft: #050b12;
+  --mm3-line: rgba(34,211,238,.22);
+  --mm3-line-dim: rgba(34,211,238,.12);
+  --mm3-text: #d7f9ff;
+  --mm3-muted: #64748b;
   --rank-novice: #22d3ee;
   --rank-miner: #4ade80;
   --rank-hacker: #facc15;
@@ -67,9 +73,9 @@ body {
   height: 100%;
   overflow: hidden;
   background-image:
-    radial-gradient(ellipse at 15% 40%, rgba(34,211,238,.05) 0%, transparent 60%),
-    radial-gradient(ellipse at 85% 70%, rgba(232,121,249,.04) 0%, transparent 60%),
-    radial-gradient(ellipse at 50% 0%, rgba(34,211,238,.03) 0%, transparent 50%);
+    linear-gradient(rgba(34,211,238,.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(34,211,238,.018) 1px, transparent 1px);
+  background-size: 24px 24px, 24px 24px;
   -webkit-font-smoothing: antialiased;
 }
 
@@ -86,7 +92,11 @@ button {
 }
 button:disabled { opacity: .4; cursor: not-allowed; }
 
-/* ── Old-school straight corners ── */
+/* ── Portal discipline: square, thin, terminal-first ── */
+.mm3-portal-shell *,
+.mm3-portal-shell *::before,
+.mm3-portal-shell *::after,
+.mm3-portal-shell .rounded,
 .rounded-xl,
 .rounded-lg,
 .rounded-md,
@@ -98,7 +108,34 @@ button:disabled { opacity: .4; cursor: not-allowed; }
 .lb-card,
 .lb-tbl,
 .rank-badge-tier {
-  border-radius: 2px !important;
+  border-radius: 0 !important;
+}
+
+.mm3-portal-shell .border-2 {
+  border-width: 1px !important;
+}
+
+.mm3-portal-shell :is(button, [role="button"], input, select, textarea, a) {
+  -webkit-tap-highlight-color: transparent;
+}
+
+.mm3-portal-shell :is(button, [role="button"]) {
+  letter-spacing: inherit;
+}
+
+.mm3-portal-shell :is(button, [role="button"], a):hover {
+  transform: none !important;
+}
+
+.mm3-portal-shell :is(button, [role="button"], a, input, select, textarea):focus-visible {
+  outline: 1px solid color-mix(in srgb, var(--mm3-accent, #22d3ee) 78%, transparent);
+  outline-offset: 2px;
+}
+
+.mm3-portal-shell *,
+.mm3-portal-shell *::before,
+.mm3-portal-shell *::after {
+  box-shadow: none !important;
 }
 
 .mm3-pixel-frame::before,
@@ -129,25 +166,20 @@ button:disabled { opacity: .4; cursor: not-allowed; }
 .mm3-pixel-frame {
   --mm3-accent: #22d3ee;
   position: relative;
-  border-radius: .75rem;
-  background: linear-gradient(145deg, #0c1020, #060910);
+  border: 1px solid var(--mm3-line-dim);
+  background: #02060b;
   box-shadow:
-    0 0 0 1px rgba(34,211,238,.15),
-    0 10px 40px rgba(2,6,23,.7) inset,
-    0 0 32px rgba(34,211,238,.07),
-    0 1px 0 rgba(255,255,255,.04) inset;
+    0 0 0 1px rgba(34,211,238,.12),
+    0 0 20px rgba(34,211,238,.04) inset;
   overflow: hidden;
 }
 .mm3-pixel-frame::before {
   content: "";
   position: absolute;
-  inset: 8px;
-  border-radius: .5rem;
+  inset: 6px;
+  border: 1px solid color-mix(in srgb, var(--mm3-accent) 28%, transparent);
   pointer-events: none;
-  box-shadow:
-    0 0 0 1px color-mix(in srgb, var(--mm3-accent) 35%, transparent),
-    0 0 24px color-mix(in srgb, var(--mm3-accent) 18%, transparent) inset,
-    0 0 40px color-mix(in srgb, var(--mm3-accent) 12%, transparent);
+  box-shadow: none;
 }
 
 @keyframes mm3-fail-frame-pulse {
@@ -229,22 +261,17 @@ body.mm3-play-success-alert #board-section .section-frame::before {
 /* ── MM3 chip ── */
 .mm3-chip {
   display: inline-block;
-  border-radius: .5rem;
-  color: #e2e8f0;
-  background: linear-gradient(135deg, #111827, #0b1222);
-  box-shadow:
-    0 0 0 1px color-mix(in srgb, var(--mm3-accent) 45%, transparent),
-    0 6px 16px rgba(2,6,23,.6),
-    0 0 14px color-mix(in srgb, var(--mm3-accent) 16%, transparent);
+  border: 1px solid color-mix(in srgb, var(--mm3-accent) 44%, transparent);
+  color: color-mix(in srgb, var(--mm3-accent) 72%, #e2e8f0);
+  background: #000;
+  box-shadow: none;
   white-space: nowrap;
-  transition: transform .2s, box-shadow .2s;
+  transition: color .15s, border-color .15s, background-color .15s;
 }
 .mm3-chip:hover {
-  transform: translateY(-2px);
-  box-shadow:
-    0 0 0 1px color-mix(in srgb, var(--mm3-accent) 70%, transparent),
-    0 10px 24px rgba(2,6,23,.75),
-    0 0 22px color-mix(in srgb, var(--mm3-accent) 28%, transparent);
+  border-color: color-mix(in srgb, var(--mm3-accent) 70%, transparent);
+  color: color-mix(in srgb, var(--mm3-accent) 88%, #fff);
+  background: color-mix(in srgb, var(--mm3-accent) 8%, #000);
 }
 
 /* ── CRT scanlines ── */
@@ -357,7 +384,7 @@ body.mm3-play-success-alert #board-section .section-frame::before {
 ::selection { background: rgba(34,211,238,.25); color: #fff; }
 
 /* ── Focus ring ── */
-:focus-visible { outline: 2px solid rgba(34,211,238,.7); outline-offset: 2px; border-radius: 4px; }
+:focus-visible { outline: 1px solid rgba(34,211,238,.7); outline-offset: 2px; border-radius: 0; }
 
 /* ── Section shell (frame-less by default) ── */
 .mm3-section-shell {
@@ -412,6 +439,87 @@ body.mm3-play-success-alert #board-section .section-frame::before {
   .mm3-readable-scroll {
     max-height: calc(100dvh - 17rem);
   }
+}
+
+/* ── Shared portal surfaces ── */
+.mm3-portal-shell :is(section, aside, article, header, footer, nav, div)[class*="border"] {
+  border-color: color-mix(in srgb, var(--mm3-accent, #22d3ee) 18%, transparent);
+}
+
+.mm3-portal-shell :is(button, [role="button"], a[href]) {
+  transition-property: color, background-color, border-color, opacity, filter;
+  transition-duration: 120ms;
+}
+
+.mm3-portal-shell :is(button, [role="button"]):not(:disabled):hover,
+.mm3-portal-shell a[href]:hover {
+  filter: brightness(1.12);
+}
+
+.mm3-portal-shell :is(button, [role="button"]):disabled {
+  filter: grayscale(.35);
+}
+
+.mm3-portal-shell :is(input, textarea, select) {
+  background: #000 !important;
+  border-color: color-mix(in srgb, var(--mm3-accent, #22d3ee) 24%, transparent) !important;
+}
+
+.mm3-portal-shell :is(pre, code) {
+  border-radius: 0 !important;
+}
+
+.mm3-trade-board > div,
+.mm3-trade-panel,
+.mm3-trade-stat-card,
+.mm3-trade-result-card,
+.mm3-trade-slider,
+.mm3-trade-log,
+.mm3-mining-chain,
+.mm3-mining-board-panel,
+.mm3-mining-board-frame,
+.mm3-mining-detail,
+.mm3-mining-detail-card,
+.mm3-mining-short-panel,
+.mm3-relaying-panel,
+.mm3-relaying-chat-log {
+  background: rgba(0,0,0,.74) !important;
+}
+
+.mm3-trade-mode-switch,
+.mm3-trade-mode-switch > div {
+  border-radius: 0 !important;
+}
+
+.mm3-trade-mode-switch > div {
+  opacity: .88;
+}
+
+.mm3-mining-board-frame > div {
+  background-color: #000;
+}
+
+.mm3-mining-chain [style*="linear-gradient"],
+.mm3-readable-scroll pre,
+.mm3-readable-scroll code {
+  background: #02060b !important;
+}
+
+.mm3-shell-main {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(34,211,238,.35) transparent;
+}
+
+.mm3-shell-main::-webkit-scrollbar {
+  width: 6px;
+}
+
+.mm3-shell-main::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.mm3-shell-main::-webkit-scrollbar-thumb {
+  background: rgba(34,211,238,.35);
 }
 
 /* ── Header side shells ── */
@@ -529,74 +637,74 @@ body.mm3-play-success-alert #board-section .section-frame::before {
   }
 
   /* ── Market compact: board + detail both visible without scroll ── */
-  .mm3-market-shell {
+  .mm3-mining-shell {
     gap: 0.25rem;
   }
 
-  .mm3-market-board-panel {
+  .mm3-mining-board-panel {
     padding: 0.35rem !important;
   }
 
-  .mm3-market-chain {
+  .mm3-mining-chain {
     padding: 0.45rem 0.7rem !important;
   }
 
-  .mm3-market-board-wrap {
+  .mm3-mining-board-wrap {
     max-width: min(60vw, calc(100dvh - 430px));
   }
 
-  .mm3-market-board-frame {
+  .mm3-mining-board-frame {
     padding: 0.32rem;
   }
 
-  .mm3-market-nav {
+  .mm3-mining-nav {
     width: 1.7rem !important;
     height: 1.7rem !important;
     font-size: 0.68rem !important;
   }
 
-  .mm3-market-detail {
+  .mm3-mining-detail {
     gap: 0.25rem;
     padding: 0.35rem;
   }
 
-  .mm3-market-detail-head {
+  .mm3-mining-detail-head {
     gap: 0.35rem;
   }
 
-  .mm3-market-status-badge {
+  .mm3-mining-status-badge {
     padding: 0.18rem 0.3rem !important;
     font-size: 0.58rem !important;
     letter-spacing: 0.1em !important;
   }
 
-  .mm3-market-detail-card {
+  .mm3-mining-detail-card {
     padding: 0.35rem !important;
   }
 
-  .mm3-market-short-panel {
+  .mm3-mining-short-panel {
     min-height: 2.4rem;
   }
 
-  .mm3-market-short-cta {
+  .mm3-mining-short-cta {
     padding-top: 0.35rem !important;
     padding-bottom: 0.35rem !important;
   }
 
-  .mm3-market-short-panel [class*="tracking-[0.14em]"] {
+  .mm3-mining-short-panel [class*="tracking-[0.14em]"] {
     letter-spacing: 0.1em !important;
   }
 
-  .mm3-market-short-panel [class*="tracking-[0.12em]"] {
+  .mm3-mining-short-panel [class*="tracking-[0.12em]"] {
     letter-spacing: 0.08em !important;
   }
 
-  .mm3-market-answer-input {
+  .mm3-mining-answer-input {
     padding: 0.35rem 0.45rem !important;
     font-size: 0.85rem !important;
   }
 
-  .mm3-market-claim {
+  .mm3-mining-claim {
     padding-top: 0.4rem !important;
     padding-bottom: 0.4rem !important;
     font-size: 0.65rem !important;
@@ -604,6 +712,42 @@ body.mm3-play-success-alert #board-section .section-frame::before {
   }
 
   .mm3-shell-main {
-    padding-top: 172px;
+    padding-top: clamp(130px, 22dvh, 172px);
   }
+}
+
+/* ── Base button: freak terminal style ── */
+.mm3-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  border: 1px solid color-mix(in srgb, var(--mm3-accent, #22d3ee) 30%, transparent);
+  background: transparent;
+  color: color-mix(in srgb, var(--mm3-accent, #22d3ee) 80%, #e2e8f0);
+  font-family: Consolas, 'Courier New', monospace;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 0.35rem 0.75rem;
+  border-radius: 2px;
+  cursor: pointer;
+  transition: border-color .15s, color .15s, background-color .15s;
+  white-space: nowrap;
+}
+.mm3-btn:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--mm3-accent, #22d3ee) 65%, transparent);
+  color: #fff;
+  background: color-mix(in srgb, var(--mm3-accent, #22d3ee) 6%, transparent);
+}
+.mm3-btn:disabled {
+  opacity: .4;
+  cursor: not-allowed;
+}
+.mm3-btn-danger {
+  --mm3-accent: #fb7185;
+}
+.mm3-btn-success {
+  --mm3-accent: #4ade80;
 }

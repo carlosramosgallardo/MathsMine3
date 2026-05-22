@@ -1796,7 +1796,7 @@ export default function RelayingTerminal({ accent = '#22d3ee' }) {
             padding-bottom: 0.4rem;
           }
           /* Chat log: takes all leftover space inside section */
-          .mm3-irc-chat-log {
+          .mm3-relaying-chat-log {
             flex: 1 1 0;
             min-height: 0;
             max-height: none;
@@ -1811,16 +1811,11 @@ export default function RelayingTerminal({ accent = '#22d3ee' }) {
             font-size: 0.48rem;
           }
         }
-        .mm3-irc-panel {
+        .mm3-relaying-panel {
           border: 1px solid rgba(34, 211, 238, 0.16);
-          background:
-            linear-gradient(180deg, rgba(34, 211, 238, 0.05), transparent 28%),
-            linear-gradient(180deg, rgba(255,255,255,0.02), rgba(0,0,0,0.95));
-          box-shadow:
-            inset 0 0 24px rgba(34, 211, 238, 0.05),
-            0 0 18px rgba(34, 211, 238, 0.05);
+          background: rgba(0,0,0,0.86);
         }
-        .mm3-irc-chat-log {
+        .mm3-relaying-chat-log {
           min-height: 18.5rem;
           max-height: 50dvh;
           overflow-y: auto;
@@ -2066,7 +2061,7 @@ export default function RelayingTerminal({ accent = '#22d3ee' }) {
       `}</style>
 
       <div className="mm3-irc-shell">
-        <section className="mm3-irc-panel rounded-sm p-2.5">
+        <section className="mm3-relaying-panel rounded-sm p-2.5">
           <div className="mm3-irc-header-row max-sm:portrait:hidden mb-2 flex items-center justify-between gap-1 sm:border-b sm:border-cyan-500/12 pb-2 font-mono">
             <div className="shrink-0 text-[0.70rem] sm:text-[0.80rem] uppercase tracking-[0.16em] text-slate-500">#relay-mainframe</div>
             <div className="flex min-w-0 items-center gap-1.5 sm:gap-3">
@@ -2092,7 +2087,7 @@ export default function RelayingTerminal({ accent = '#22d3ee' }) {
             ))}
           </div>
 
-          <div className="mm3-irc-chat-log rounded-sm border border-cyan-500/12 px-2.5 py-1.5 font-mono">
+          <div className="mm3-relaying-chat-log rounded-sm border border-cyan-500/12 px-2.5 py-1.5 font-mono">
             {visibleMessages.length > 0 ? visibleMessages.map((message) => {
               const isSelf = message.kind === 'chat' && message.wallet === normalizedWallet;
               const lineMode = message.kind === 'system' ? 'system' : isSelf ? 'self' : 'other';
@@ -2223,7 +2218,7 @@ export default function RelayingTerminal({ accent = '#22d3ee' }) {
           )}
         </section>
 
-        <aside className="mm3-irc-panel rounded-sm p-2.5">
+        <aside className="mm3-relaying-panel rounded-sm p-2.5">
           <div className="border-b border-cyan-500/12 pb-1.5 font-mono">
             <div className="flex items-baseline justify-end gap-[3px] text-[0.75rem] font-black tabular-nums">
               <span className="text-emerald-400">{connectedWallets.length}</span>

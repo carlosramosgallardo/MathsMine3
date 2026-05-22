@@ -189,9 +189,9 @@ const MarketCell = memo(function MarketCell({
 
   let bg, border, shadow;
   if (isSelected) {
-    bg = 'linear-gradient(180deg,rgba(250,204,21,0.42),rgba(113,63,18,0.95))';
+    bg = 'rgba(250,204,21,0.22)';
     border = 'rgba(250,204,21,0.95)';
-    shadow = '0 0 10px rgba(250,204,21,0.35)';
+    shadow = 'none';
   } else if (isMined) {
     bg = 'rgba(74,222,128,0.09)';
     border = 'rgba(74,222,128,0.58)';
@@ -623,7 +623,7 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
     window.addEventListener('focus', refresh);
 
     const channel = supabase
-      .channel('mm3-market-live')
+      .channel('mm3-mining-live')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'mm3_mining_blocks' }, refresh)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'mm3_mined_blocks' }, refresh)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'mm3_command_penalties' }, refresh)
@@ -1137,7 +1137,7 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
       {loading && <PageLoading label={t('mining.loading')} />}
 
       <div className="mx-auto w-full max-w-[1080px] px-2 lg:px-3">
-        <div className="mm3-market-chain w-full rounded border border-emerald-500/20 bg-black/40 px-3 py-2 text-center shadow-[0_0_18px_rgba(74,222,128,0.06),inset_0_0_20px_rgba(74,222,128,0.03)] lg:px-5 lg:py-3">
+        <div className="mm3-mining-chain w-full rounded border border-emerald-500/20 bg-black/40 px-3 py-2 text-center shadow-[0_0_18px_rgba(74,222,128,0.06),inset_0_0_20px_rgba(74,222,128,0.03)] lg:px-5 lg:py-3">
           <div className="flex items-center justify-center gap-3 text-[0.72rem] font-black uppercase tracking-[0.2em] lg:text-[0.88rem]">
             <span className="text-emerald-300/70">{t('mining.blockChainTitle')}</span>
             <span className="text-emerald-200" style={{ textShadow: '0 0 12px rgba(74,222,128,0.5)' }}>{Number(blockChain?.percent || 0).toFixed(2)}%</span>
@@ -1147,8 +1147,7 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
               className="h-full rounded-none"
               style={{
                 width: `${Math.max(0, Math.min(100, Number(blockChain?.percent || 0)))}%`,
-                background: 'linear-gradient(90deg, #166534, #4ade80)',
-                boxShadow: '0 0 10px rgba(74,222,128,0.45)',
+                background: '#4ade80',
               }}
             />
           </div>
@@ -1210,9 +1209,9 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
         </div>
       )}
 
-      <div className="mm3-market-shell mx-auto mt-2 grid w-full max-w-[1080px] gap-2 px-2 lg:mt-3 lg:grid-cols-[minmax(0,1fr)_minmax(300px,400px)] lg:items-start lg:gap-3 lg:px-3">
-        <section className="mm3-market-board-panel min-w-0 rounded border border-cyan-500/15 bg-black/20 p-2 shadow-[0_0_18px_rgba(34,211,238,0.04)]">
-          <div className="mm3-market-board-wrap mx-auto w-full max-w-[min(85vw,calc(100dvh-200px),520px)] lg:max-w-[min(100%,calc(100dvh-180px),500px)]">
+      <div className="mm3-mining-shell mx-auto mt-2 grid w-full max-w-[1080px] gap-2 px-2 lg:mt-3 lg:grid-cols-[minmax(0,1fr)_minmax(300px,400px)] lg:items-start lg:gap-3 lg:px-3">
+        <section className="mm3-mining-board-panel min-w-0 rounded border border-cyan-500/15 bg-black/20 p-2 shadow-[0_0_18px_rgba(34,211,238,0.04)]">
+          <div className="mm3-mining-board-wrap mx-auto w-full max-w-[min(85vw,calc(100dvh-200px),520px)] lg:max-w-[min(100%,calc(100dvh-180px),500px)]">
             <div className="relative">
               {gameWinner && (
                 <div
@@ -1237,29 +1236,29 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
               <button
                 type="button"
                 onClick={() => move('up')}
-                className="mm3-market-nav absolute left-1/2 top-0 z-10 flex h-7 w-7 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded border border-cyan-500/20 bg-black/90 text-[0.82rem] text-cyan-200 transition hover:border-cyan-400/45 hover:text-cyan-100"
+                className="mm3-mining-nav absolute left-1/2 top-0 z-10 flex h-7 w-7 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded border border-cyan-500/20 bg-black/90 text-[0.82rem] text-cyan-200 transition hover:border-cyan-400/45 hover:text-cyan-100"
                 aria-label={t('mining.panUp')}
               >▲</button>
               <button
                 type="button"
                 onClick={() => move('left')}
-                className="mm3-market-nav absolute left-0 top-1/2 z-10 flex h-7 w-7 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded border border-cyan-500/20 bg-black/90 text-[0.82rem] text-cyan-200 transition hover:border-cyan-400/45 hover:text-cyan-100"
+                className="mm3-mining-nav absolute left-0 top-1/2 z-10 flex h-7 w-7 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded border border-cyan-500/20 bg-black/90 text-[0.82rem] text-cyan-200 transition hover:border-cyan-400/45 hover:text-cyan-100"
                 aria-label={t('mining.panLeft')}
               >◀</button>
               <button
                 type="button"
                 onClick={() => move('right')}
-                className="mm3-market-nav absolute right-0 top-1/2 z-10 flex h-7 w-7 translate-x-1/2 -translate-y-1/2 items-center justify-center rounded border border-cyan-500/20 bg-black/90 text-[0.82rem] text-cyan-200 transition hover:border-cyan-400/45 hover:text-cyan-100"
+                className="mm3-mining-nav absolute right-0 top-1/2 z-10 flex h-7 w-7 translate-x-1/2 -translate-y-1/2 items-center justify-center rounded border border-cyan-500/20 bg-black/90 text-[0.82rem] text-cyan-200 transition hover:border-cyan-400/45 hover:text-cyan-100"
                 aria-label={t('mining.panRight')}
               >▶</button>
               <button
                 type="button"
                 onClick={() => move('down')}
-                className="mm3-market-nav absolute bottom-0 left-1/2 z-10 flex h-7 w-7 -translate-x-1/2 translate-y-1/2 items-center justify-center rounded border border-cyan-500/20 bg-black/90 text-[0.82rem] text-cyan-200 transition hover:border-cyan-400/45 hover:text-cyan-100"
+                className="mm3-mining-nav absolute bottom-0 left-1/2 z-10 flex h-7 w-7 -translate-x-1/2 translate-y-1/2 items-center justify-center rounded border border-cyan-500/20 bg-black/90 text-[0.82rem] text-cyan-200 transition hover:border-cyan-400/45 hover:text-cyan-100"
                 aria-label={t('mining.panDown')}
               >▼</button>
 
-              <div className="mm3-market-board-frame overflow-hidden rounded border border-cyan-500/18 bg-black/40 p-1.5 shadow-[inset_0_0_24px_rgba(0,0,0,0.6),0_0_12px_rgba(34,211,238,0.06)]">
+              <div className="mm3-mining-board-frame overflow-hidden rounded border border-cyan-500/18 bg-black/40 p-1.5 shadow-[inset_0_0_24px_rgba(0,0,0,0.6),0_0_12px_rgba(34,211,238,0.06)]">
                 <div
                   className="relative grid w-full"
                   style={{
@@ -1295,10 +1294,10 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
           </div>
         </section>
 
-        <aside className="mm3-market-detail grid auto-rows-min grid-cols-1 content-start gap-1 rounded border border-cyan-500/12 bg-black/40 p-1.5 lg:sticky lg:top-2 lg:grid-cols-2 lg:gap-1 lg:p-2">
+        <aside className="mm3-mining-detail grid auto-rows-min grid-cols-1 content-start gap-1 rounded border border-cyan-500/12 bg-black/40 p-1.5 lg:sticky lg:top-2 lg:grid-cols-2 lg:gap-1 lg:p-2">
 
           {/* ── Header: emoji + title + hex + status badge ── */}
-          <div className="mm3-market-detail-head col-span-1 flex items-start justify-between gap-2 lg:col-span-2">
+          <div className="mm3-mining-detail-head col-span-1 flex items-start justify-between gap-2 lg:col-span-2">
             <div className="min-w-0">
               <div className="flex items-center gap-1.5">
                 <span className="text-base leading-none">{selectedBlock?.emoji}</span>
@@ -1311,7 +1310,7 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
               <div className="mt-0.5 text-[0.82rem] font-black uppercase tracking-[0.16em] text-cyan-400/55 lg:text-[0.6rem]">{selectedBlockHex}</div>
             </div>
             <span
-              className="mm3-market-status-badge shrink-0 rounded border px-1 py-0.5 text-[0.78rem] font-black uppercase tracking-[0.12em] lg:px-1.5 lg:text-[0.80rem] lg:tracking-[0.14em]"
+              className="mm3-mining-status-badge shrink-0 rounded border px-1 py-0.5 text-[0.78rem] font-black uppercase tracking-[0.12em] lg:px-1.5 lg:text-[0.80rem] lg:tracking-[0.14em]"
               style={{
                 borderColor: isMineBlockMined || hasCurrentOwners ? 'rgba(74,222,128,0.3)' : 'rgba(34,211,238,0.22)',
                 color: isMineBlockMined || hasCurrentOwners ? '#4ade80' : '#67e8f9',
@@ -1323,13 +1322,13 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
 
           {/* ── Price + Owner — same row ── */}
           <div className={`col-span-1 flex gap-1.5 lg:col-span-2 ${isMineBlock ? 'flex-col' : ''}`}>
-            <div className={`mm3-market-detail-card rounded border px-2 py-1 lg:px-2.5 lg:py-2 ${isMineBlock ? 'w-full border-emerald-500/20 bg-emerald-950/8' : 'shrink-0 border-amber-400/14 bg-amber-950/8'}`}>
+            <div className={`mm3-mining-detail-card rounded border px-2 py-1 lg:px-2.5 lg:py-2 ${isMineBlock ? 'w-full border-emerald-500/20 bg-emerald-950/8' : 'shrink-0 border-amber-400/14 bg-amber-950/8'}`}>
               <div className={`text-[0.66rem] uppercase tracking-[0.16em] lg:text-[0.68rem] lg:tracking-[0.18em] ${isMineBlock ? 'text-emerald-400/65' : 'text-amber-300/65'}`}>{isMineBlock ? 'req' : t('mining.price')}</div>
               <div className={`${isMineBlock ? 'text-[0.7rem] leading-snug text-emerald-200' : 'text-[1.05rem] leading-none text-amber-300 lg:text-lg'} mt-0.5 font-black lg:mt-1`}>
                 {isMineBlock ? formatBlockRequirement(selectedMineRequirement) : displayPrice}
               </div>
             </div>
-            <div className={`mm3-market-detail-card min-w-0 flex-1 rounded border px-2 py-1 lg:px-2.5 lg:py-2 ${isMineBlock ? 'w-full border-emerald-500/12 bg-emerald-950/5' : 'border-cyan-500/12 bg-black/45'}`}>
+            <div className={`mm3-mining-detail-card min-w-0 flex-1 rounded border px-2 py-1 lg:px-2.5 lg:py-2 ${isMineBlock ? 'w-full border-emerald-500/12 bg-emerald-950/5' : 'border-cyan-500/12 bg-black/45'}`}>
               <div className={`text-[0.66rem] uppercase tracking-[0.16em] lg:text-[0.68rem] lg:tracking-[0.18em] ${isMineBlock ? 'text-emerald-400/65' : 'text-cyan-300/65'}`}>{isMineBlock ? 'miner shell' : t('mining.owner')}</div>
               <div className={`mt-0.5 flex flex-col gap-1 overflow-y-auto pr-1 lg:mt-1 ${isMineBlock ? 'max-h-10' : 'max-h-12 lg:max-h-20'}`}>
               {isMineBlockMined ? (
@@ -1370,20 +1369,20 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
           {/* ── Chain block metadata ── */}
           {isMineBlockMined && selectedMinedBlock && (
             <div className="col-span-1 flex gap-1.5 lg:col-span-2">
-              <div className="mm3-market-detail-card flex-1 rounded border border-emerald-500/18 bg-emerald-950/8 px-2 py-1 lg:px-2.5 lg:py-1.5">
+              <div className="mm3-mining-detail-card flex-1 rounded border border-emerald-500/18 bg-emerald-950/8 px-2 py-1 lg:px-2.5 lg:py-1.5">
                 <div className="text-[0.66rem] uppercase tracking-[0.16em] text-emerald-400/60 lg:text-[0.68rem]">chain index</div>
                 <div className="mt-0.5 font-black text-emerald-300" style={{ fontSize: '0.88rem' }}>
                   #{Number(selectedMinedBlock.chain_index) || '—'}
                 </div>
               </div>
-              <div className="mm3-market-detail-card flex-1 rounded border border-emerald-500/18 bg-emerald-950/8 px-2 py-1 lg:px-2.5 lg:py-1.5">
+              <div className="mm3-mining-detail-card flex-1 rounded border border-emerald-500/18 bg-emerald-950/8 px-2 py-1 lg:px-2.5 lg:py-1.5">
                 <div className="text-[0.66rem] uppercase tracking-[0.16em] text-emerald-400/60 lg:text-[0.68rem]">mm3 at mining</div>
                 <div className="mt-0.5 font-black text-emerald-300" style={{ fontSize: '0.88rem' }}>
                   {Number(selectedMinedBlock.mm3_value || 0).toFixed(2)} <span className="text-emerald-500/70">MM3</span>
                 </div>
               </div>
               {selectedMinedBlock.wallet_level != null && (
-                <div className="mm3-market-detail-card flex-1 rounded border border-emerald-500/18 bg-emerald-950/8 px-2 py-1 lg:px-2.5 lg:py-1.5">
+                <div className="mm3-mining-detail-card flex-1 rounded border border-emerald-500/18 bg-emerald-950/8 px-2 py-1 lg:px-2.5 lg:py-1.5">
                   <div className="text-[0.66rem] uppercase tracking-[0.16em] text-emerald-400/60 lg:text-[0.68rem]">miner level</div>
                   <div className="mt-0.5 font-black text-emerald-300" style={{ fontSize: '0.88rem' }}>
                     Lv.{Number(selectedMinedBlock.wallet_level)}
@@ -1396,10 +1395,10 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
           {/* ── Short / hidden command hint ── */}
           {!selectedBlock?.isPlaceholder && (
             selectedBlock?.short_url ? (
-              <div className="mm3-market-short-panel overflow-hidden rounded border border-cyan-500/10 bg-black/45 lg:col-span-2">
+              <div className="mm3-mining-short-panel overflow-hidden rounded border border-cyan-500/10 bg-black/45 lg:col-span-2">
                 <Link
                   href={`/mining-short/${selectedBlock?.block_key}`}
-                  className="mm3-market-short-cta grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 px-2 py-1.5 transition hover:bg-cyan-950/10"
+                  className="mm3-mining-short-cta grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 px-2 py-1.5 transition hover:bg-cyan-950/10"
                   aria-label={`${t('mining.openShort')} ${selectedTitle}`}
                 >
                   <span className="flex h-7 w-7 items-center justify-center rounded border border-cyan-400/20 bg-black/50 text-[0.9rem] text-cyan-200">YT</span>
@@ -1426,7 +1425,7 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
             ) : (
               <Link
                 href={`/mining-short/${selectedBlock?.block_key}`}
-                className="mm3-market-short-panel grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded border border-cyan-500/10 bg-black/25 px-2 py-1.5 transition hover:border-cyan-500/25 hover:bg-black/40 lg:col-span-2"
+                className="mm3-mining-short-panel grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded border border-cyan-500/10 bg-black/25 px-2 py-1.5 transition hover:border-cyan-500/25 hover:bg-black/40 lg:col-span-2"
               >
                 {hasSecretLevel ? (
                   <>
@@ -1452,7 +1451,7 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
 
           {/* ── IRC Command + Penalty redemption — unified card ── */}
           {(selectedMarketCommand || activePenalty) && (
-            <div className="mm3-market-detail-card col-span-1 rounded border border-cyan-500/14 bg-black/45 px-2 py-1.5 lg:col-span-2 lg:px-2.5 lg:py-2">
+            <div className="mm3-mining-detail-card col-span-1 rounded border border-cyan-500/14 bg-black/45 px-2 py-1.5 lg:col-span-2 lg:px-2.5 lg:py-2">
 
               {/* Command zone */}
               {selectedMarketCommand && (
@@ -1505,7 +1504,7 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
                         inputMode="numeric"
                         maxLength={5}
                         placeholder={t('mining.numericCodeHint')}
-                        className="mm3-market-answer-input min-w-0 flex-1 rounded border border-fuchsia-400/18 bg-black/70 px-1.5 py-1 text-[0.82rem] text-fuchsia-100 outline-none placeholder:text-fuchsia-800/60 disabled:opacity-35"
+                        className="mm3-mining-answer-input min-w-0 flex-1 rounded border border-fuchsia-400/18 bg-black/70 px-1.5 py-1 text-[0.82rem] text-fuchsia-100 outline-none placeholder:text-fuchsia-800/60 disabled:opacity-35"
                       />
                       <button
                         type="button"
@@ -1563,7 +1562,7 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
                 type="button"
                 onClick={handleResell}
                 disabled={processing}
-                className="mm3-market-claim w-full rounded border border-green-400/35 bg-black/70 px-2.5 py-1.5 text-[0.68rem] font-black uppercase tracking-[0.18em] text-green-300 transition hover:border-green-300 hover:text-green-100 disabled:cursor-not-allowed disabled:opacity-35 lg:px-3 lg:py-2 lg:text-[0.75rem] lg:tracking-[0.22em]"
+                className="mm3-mining-claim w-full rounded border border-green-400/35 bg-black/70 px-2.5 py-1.5 text-[0.68rem] font-black uppercase tracking-[0.18em] text-green-300 transition hover:border-green-300 hover:text-green-100 disabled:cursor-not-allowed disabled:opacity-35 lg:px-3 lg:py-2 lg:text-[0.75rem] lg:tracking-[0.22em]"
               >
                 {processing ? '[ sync ]' : t('mining.resell')}
               </button>
@@ -1572,7 +1571,7 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
                 type="button"
                 onClick={handleBuy}
                 disabled={!canBuy}
-                className="mm3-market-claim w-full rounded border border-cyan-400/28 bg-black/70 px-2.5 py-1.5 text-[0.68rem] font-black uppercase tracking-[0.18em] text-cyan-200 transition hover:border-cyan-300 hover:text-cyan-100 disabled:cursor-not-allowed disabled:opacity-35 lg:px-3 lg:py-2 lg:text-[0.75rem] lg:tracking-[0.22em]"
+                className="mm3-mining-claim w-full rounded border border-cyan-400/28 bg-black/70 px-2.5 py-1.5 text-[0.68rem] font-black uppercase tracking-[0.18em] text-cyan-200 transition hover:border-cyan-300 hover:text-cyan-100 disabled:cursor-not-allowed disabled:opacity-35 lg:px-3 lg:py-2 lg:text-[0.75rem] lg:tracking-[0.22em]"
               >
                 {processing ? '[ sync ]' : t('mining.buy')}
               </button>
