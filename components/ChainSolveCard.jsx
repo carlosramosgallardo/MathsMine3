@@ -109,8 +109,8 @@ export default function ChainSolveCard({ wallet, onWinner }) {
 
   if (!status) {
     return (
-      <div className="mm3-chain-solve-card w-full max-w-[1080px] mx-auto px-2 lg:px-3 mt-2">
-        <div className="rounded border border-emerald-500/20 bg-black/40 px-3 py-3 text-center">
+      <div className="mm3-chain-solve-card w-full max-w-[860px] mx-auto px-2 lg:px-3 mt-2">
+        <div className="rounded border border-emerald-500/20 bg-black/40 px-3 py-2 text-center">
           <span className="text-[0.6rem] font-mono uppercase tracking-[0.2em] text-emerald-400/30 animate-pulse">
             {t('chainSolve.loadingOracle')}
           </span>
@@ -126,9 +126,9 @@ export default function ChainSolveCard({ wallet, onWinner }) {
   // ── GAME WON STATE ──────────────────────────────────────────
   if (winner) {
     return (
-      <div className="mm3-chain-solve-card w-full max-w-[1080px] mx-auto px-2 lg:px-3 mt-2">
+      <div className="mm3-chain-solve-card w-full max-w-[860px] mx-auto px-2 lg:px-3 mt-2">
         <div
-          className="rounded border px-3 py-4 text-center"
+          className="rounded border px-3 py-3 text-center"
           style={{
             borderColor: 'rgba(74,222,128,0.6)',
             background: 'linear-gradient(180deg, rgba(0,20,10,0.97) 0%, rgba(0,10,5,0.95) 100%)',
@@ -170,7 +170,7 @@ export default function ChainSolveCard({ wallet, onWinner }) {
   };
 
   return (
-    <div className="mm3-chain-solve-card w-full max-w-[1080px] mx-auto px-2 lg:px-3 mt-2">
+    <div className="mm3-chain-solve-card w-full max-w-[860px] mx-auto px-2 lg:px-3 mt-2">
       <style>{`
         .chain-solve-input::-webkit-inner-spin-button,
         .chain-solve-input::-webkit-outer-spin-button { -webkit-appearance: none; }
@@ -179,7 +179,7 @@ export default function ChainSolveCard({ wallet, onWinner }) {
       `}</style>
 
       <div
-        className="rounded border px-3 py-3 lg:px-5 lg:py-4"
+        className="rounded border px-3 py-2.5 lg:px-4 lg:py-3"
         style={{
           borderColor: 'rgba(74,222,128,0.18)',
           background: 'linear-gradient(180deg, rgba(0,12,6,0.96) 0%, rgba(0,5,3,0.92) 100%)',
@@ -187,24 +187,24 @@ export default function ChainSolveCard({ wallet, onWinner }) {
         }}
       >
         {/* Header row */}
-        <div className="grid grid-cols-2 gap-2 items-start mb-3">
+        <div className="grid gap-2 items-start mb-2 sm:grid-cols-[minmax(0,1fr)_minmax(320px,430px)]">
 
           {/* Left: formula hint */}
           <div>
-            <div className="text-[0.58rem] font-mono uppercase tracking-[0.14em] text-emerald-400/40 leading-relaxed">
+            <div className="text-[0.56rem] font-mono uppercase tracking-[0.14em] text-emerald-400/40 leading-snug">
               Ω(α, β, γ) ∈ [1, {effectiveGamma}] · {t('chainSolve.formulaHint')}
             </div>
           </div>
 
           {/* Right: live variables */}
           <div
-            className="rounded px-3 py-2 font-mono"
+            className="rounded px-3 py-1.5 font-mono"
             style={{
               background: 'rgba(74,222,128,0.03)',
               border: '1px solid rgba(74,222,128,0.10)',
             }}
           >
-            <div className="text-[0.55rem] uppercase tracking-[0.18em] text-emerald-500/40 mb-1.5">
+            <div className="text-[0.52rem] uppercase tracking-[0.18em] text-emerald-500/40 mb-1">
               {t('chainSolve.liveLabel')}
             </div>
             <div className="grid grid-cols-3 gap-1 text-center">
@@ -215,17 +215,17 @@ export default function ChainSolveCard({ wallet, onWinner }) {
               ].map(({ sym, label, val }) => (
                 <div key={sym}>
                   <div
-                    className="text-[0.78rem] font-black"
+                    className="text-[0.72rem] font-black leading-tight"
                     style={{ color: '#4ade80', textShadow: '0 0 8px rgba(74,222,128,0.3)' }}
                   >
                     {sym}
                   </div>
-                  <div className="text-[0.68rem] font-black text-emerald-200">{val}</div>
-                  <div className="text-[0.52rem] text-emerald-500/40">{label}</div>
+                  <div className="text-[0.62rem] font-black leading-tight text-emerald-200">{val}</div>
+                  <div className="text-[0.5rem] leading-tight text-emerald-500/40">{label}</div>
                 </div>
               ))}
             </div>
-            <div className="mt-1.5 text-center text-[0.52rem] text-emerald-500/25 font-mono">
+            <div className="mt-1 text-center text-[0.5rem] leading-tight text-emerald-500/25 font-mono">
               mm3 global: {mm3Display} · γ = |{mm3Display}|×100→int
             </div>
           </div>
@@ -233,11 +233,11 @@ export default function ChainSolveCard({ wallet, onWinner }) {
 
         {/* Input row */}
         {!wallet ? (
-          <div className="text-center text-[0.64rem] font-mono uppercase tracking-[0.18em] text-emerald-500/40 py-1">
+          <div className="text-center text-[0.62rem] font-mono uppercase tracking-[0.18em] text-emerald-500/40 py-0.5">
             {t('chainSolve.connectWallet')}
           </div>
         ) : !canAttempt && countdown ? (
-          <div className="flex items-center justify-center gap-3 py-1">
+          <div className="flex items-center justify-center gap-3 py-0.5">
             <span className="text-[0.6rem] font-mono uppercase tracking-[0.18em] text-emerald-500/40">
               {t('chainSolve.nextAttemptIn')}
             </span>
@@ -263,14 +263,14 @@ export default function ChainSolveCard({ wallet, onWinner }) {
               onKeyDown={handleKey}
               placeholder={`Ω(α, β, γ) ∈ [1, ${effectiveGamma}]`}
               disabled={submitting}
-              className="chain-solve-input flex-1 bg-black/60 border border-emerald-500/20 text-emerald-200 font-mono text-[0.76rem] px-3 py-2 outline-none focus:border-emerald-400/50 placeholder:text-emerald-600/30"
+              className="chain-solve-input flex-1 bg-black/60 border border-emerald-500/20 text-emerald-200 font-mono text-[0.74rem] px-3 py-1.5 outline-none focus:border-emerald-400/50 placeholder:text-emerald-600/30"
               style={{ minWidth: 0 }}
             />
             <button
               type="button"
               onClick={handleSubmit}
               disabled={submitting || !input.trim()}
-              className="shrink-0 px-4 py-2 font-black font-mono text-[0.72rem] uppercase tracking-widest transition-all"
+              className="shrink-0 px-4 py-1.5 font-black font-mono text-[0.7rem] uppercase tracking-widest transition-all"
               style={{
                 color: submitting || !input.trim() ? 'rgba(74,222,128,0.25)' : '#4ade80',
                 background: submitting || !input.trim() ? 'rgba(74,222,128,0.03)' : 'rgba(74,222,128,0.08)',
