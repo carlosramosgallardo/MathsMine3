@@ -178,55 +178,40 @@ export default function ChainSolveCard({ wallet, onWinner }) {
       `}</style>
 
       <div
-        className="rounded border px-3 py-2.5 lg:px-4 lg:py-3"
+        className="rounded border px-2.5 py-1.5"
         style={{
           borderColor: 'rgba(74,222,128,0.18)',
           background: '#070b0f',
         }}
       >
-        {/* Header row */}
-        <div className="grid gap-2 items-start mb-2 sm:grid-cols-[minmax(0,1fr)_minmax(320px,430px)]">
-
-          {/* Left: formula hint */}
-          <div>
-            <div className="text-[0.56rem] font-mono uppercase tracking-[0.14em] text-emerald-400/40 leading-snug">
-              Ω(α, β, γ) ∈ [1, {effectiveGamma}] · {t('chainSolve.formulaHint')}
-            </div>
+        {/* Header row: formula + live stats inline */}
+        <div className="flex items-center justify-between gap-3 flex-wrap mb-1">
+          <div className="text-[0.54rem] font-mono uppercase tracking-[0.12em] text-emerald-400/40 leading-tight">
+            Ω(α, β, γ) ∈ [1, {effectiveGamma}] · {t('chainSolve.formulaHint')}
           </div>
-
-          {/* Right: live variables */}
           <div
-            className="rounded px-3 py-1.5 font-mono"
-            style={{
-              background: 'rgba(74,222,128,0.03)',
-              border: '1px solid rgba(74,222,128,0.10)',
-            }}
+            className="flex items-center gap-1.5 font-mono px-2 py-0.5 shrink-0"
+            style={{ border: '1px solid rgba(74,222,128,0.10)', background: 'rgba(74,222,128,0.03)' }}
           >
-            <div className="text-[0.52rem] uppercase tracking-[0.18em] text-emerald-500/40 mb-1">
+            <span className="text-[0.46rem] uppercase tracking-[0.16em] text-emerald-500/40 mr-0.5">
               {t('chainSolve.liveLabel')}
-            </div>
-            <div className="grid grid-cols-3 gap-1 text-center">
-              {[
-                { sym: 'α', label: t('chainSolve.labelMarket'), val: alpha },
-                { sym: 'β', label: t('chainSolve.labelChain'), val: beta },
-                { sym: 'γ', label: t('chainSolve.labelGamma'), val: gamma },
-              ].map(({ sym, label, val }) => (
-                <div key={sym}>
-                  <div
-                    className="text-[0.72rem] font-black leading-tight"
-                    style={{ color: '#4ade80', textShadow: '0 0 8px rgba(74,222,128,0.3)' }}
-                  >
-                    {sym}
-                  </div>
-                  <div className="text-[0.62rem] font-black leading-tight text-emerald-200">{val}</div>
-                  <div className="text-[0.5rem] leading-tight text-emerald-500/40">{label}</div>
-                </div>
-              ))}
-            </div>
-            <div className="mt-1 text-center text-[0.5rem] leading-tight text-emerald-500/25 font-mono">
-              mm3 global: {mm3Display} · γ = |{mm3Display}|×100→int
-            </div>
+            </span>
+            {[
+              { sym: 'α', label: t('chainSolve.labelMarket'), val: alpha },
+              { sym: 'β', label: t('chainSolve.labelChain'), val: beta },
+              { sym: 'γ', label: t('chainSolve.labelGamma'), val: gamma },
+            ].map(({ sym, label, val }, i) => (
+              <span key={sym} className="flex items-baseline gap-0.5">
+                {i > 0 && <span className="text-emerald-700/30 text-[0.46rem] mx-0.5">·</span>}
+                <span className="text-[0.64rem] font-black" style={{ color: '#4ade80' }}>{sym}</span>
+                <span className="text-[0.6rem] font-black text-emerald-200 ml-0.5">{val}</span>
+                <span className="text-[0.44rem] text-emerald-500/35 ml-0.5">{label}</span>
+              </span>
+            ))}
           </div>
+        </div>
+        <div className="text-[0.44rem] text-emerald-500/25 font-mono mb-1">
+          mm3 global: {mm3Display} · γ = |{mm3Display}|×100→int
         </div>
 
         {/* Input row */}
