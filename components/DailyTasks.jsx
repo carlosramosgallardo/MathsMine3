@@ -188,7 +188,7 @@ export default function DailyTasks({ framed = true }) {
 
         <div className="grid grid-cols-1 gap-2.5 font-mono md:grid-cols-2">
           {taskRows.map((task) => {
-            const isFinal = task.key === 'market_chain';
+            const isFinal = task.key === 'mining_chain';
             return (
             <div
               key={task.key}

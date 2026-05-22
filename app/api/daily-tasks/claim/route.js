@@ -68,20 +68,20 @@ export async function POST(req) {
       .gte('created_at', startIso)
       .lt('created_at', endIso),
     supabase
-      .from('mm3_market_events')
+      .from('mm3_mining_events')
       .select('id', { count: 'exact', head: true })
       .eq('wallet', wallet)
-      .in('event_type', ['market_buy', 'market_resell'])
+      .in('event_type', ['mining_buy', 'mining_resell'])
       .gte('created_at', startIso)
       .lt('created_at', endIso),
     supabase
-      .from('mm3_market_commands')
+      .from('mm3_mining_commands')
       .select('id', { count: 'exact', head: true })
       .eq('wallet', wallet)
       .gte('executed_at', startIso)
       .lt('executed_at', endIso),
     supabase
-      .from('mm3_squeeze_launches')
+      .from('mm3_squeezing_launches')
       .select('id', { count: 'exact', head: true })
       .eq('wallet', wallet)
       .gte('created_at', rollingStartIso)

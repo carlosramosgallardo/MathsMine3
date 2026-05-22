@@ -30,7 +30,7 @@ export async function GET() {
       .gte('created_at', windowStart)
       .order('created_at'),
     // Market events (nftji / life events)
-    supabase.from('mm3_market_events')
+    supabase.from('mm3_mining_events')
       .select('created_at, event_type, delta_mm3')
       .gte('created_at', windowStart)
       .order('created_at'),

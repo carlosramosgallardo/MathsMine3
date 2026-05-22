@@ -29,7 +29,7 @@ function chartEventCategory(ev) {
   const et = ev.event_type
   if (emoji === '⚔️' || emoji === '🔰') return 'squeeze'
   if (emoji === '📈' || emoji === '📉') return 'trading'
-  if (et === 'nftji_level_up' || (et === 'market_buy' && emoji !== '📈') || (et === 'market_resell' && emoji !== '📉')) return 'market'
+  if (et === 'nftji_level_up' || (et === 'mining_buy' && emoji !== '📈') || (et === 'mining_resell' && emoji !== '📉')) return 'market'
   return 'mining'
 }
 

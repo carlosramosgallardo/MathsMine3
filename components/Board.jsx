@@ -1921,7 +1921,7 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
       const totalMm3 = Number(tokenValueRow?.total_eth) || 0;
       const deltaMm3 = -Math.abs(totalMm3 * marketDelta);
       const { error: eventError } = await supabase
-        .from('mm3_market_events')
+        .from('mm3_mining_events')
         .insert({
           wallet,
           event_type: MARKET_EVENT_TYPE_LIFE,
@@ -2013,7 +2013,7 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
     const totalMm3 = Number(tokenValueRow?.total_eth) || 0;
     const deltaMm3 = -Math.abs(totalMm3 * 0.25);
     const { error: eventError } = await supabase
-      .from('mm3_market_events')
+      .from('mm3_mining_events')
       .insert({ wallet, event_type: MARKET_EVENT_TYPE_LIFE, delta_mm3: deltaMm3, emoji: WALLET_DECORATIONS.revive });
     if (eventError) throw eventError;
 
@@ -2092,7 +2092,7 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
       const totalMm3 = Number(tokenValueRow?.total_eth) || 0;
       const deltaMm3 = Math.abs(totalMm3 * marketDelta);
       const { error: eventError } = await supabase
-        .from('mm3_market_events')
+        .from('mm3_mining_events')
         .insert({
           wallet,
           event_type: MARKET_EVENT_TYPE_NFTJI,
@@ -2500,8 +2500,8 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
   const problemFamilyLabel = getProblemFamilyLabel(problem, language);
   const stats = [
     { label: t('tradeBoard.levelRank').replace(/ *\(.*\)/, ''), value: `${level}` },
-    { label: t('leaderboard.mm3Earned'),  value: formatCompactNum(totalMined) },
-    { label: t('leaderboard.sellValue'),  value: ({ EUR: '€', USD: '$', CNY: '¥' }[currency] || '') + formatCompactNum(currentFunds) },
+    { label: t('ranking.mm3Earned'),  value: formatCompactNum(totalMined) },
+    { label: t('ranking.sellValue'),  value: ({ EUR: '€', USD: '$', CNY: '¥' }[currency] || '') + formatCompactNum(currentFunds) },
   ];
 
   return (

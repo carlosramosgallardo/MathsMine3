@@ -105,7 +105,7 @@ function notify(msg, type = 'info') {
 async function insertIrcPresenceTrace(wallet, tone, text) {
   const normalized = String(wallet || '').toLowerCase()
   if (!normalized || !['join', 'leave'].includes(tone)) return
-  await supabase.from('mm3_irc_messages').insert({
+  await supabase.from('mm3_relaying_messages').insert({
     wallet: 'system',
     text: `${normalized} ${text}`,
     ts: Date.now(),
@@ -147,7 +147,7 @@ function ConnectedBar({ address, isRealWallet, onDisconnect, mode = 'full' }) {
       if (typeof window !== 'undefined')
         window.dispatchEvent(new CustomEvent('mm3-presence-changed'));
     });
-    insertIrcPresenceTrace(wallet, 'join', tRef.current('irc.joined'));
+    insertIrcPresenceTrace(wallet, 'join', tRef.current('relaying.joined'));
     const timer = setInterval(beat, 25_000);
 
     return () => {
@@ -165,7 +165,7 @@ function ConnectedBar({ address, isRealWallet, onDisconnect, mode = 'full' }) {
             window.dispatchEvent(new CustomEvent('mm3-presence-changed'));
         })
         .catch(() => {});
-      insertIrcPresenceTrace(wallet, 'leave', tRef.current('irc.left'));
+      insertIrcPresenceTrace(wallet, 'leave', tRef.current('relaying.left'));
     };
   }, [address, isRealWallet]);
 
@@ -329,7 +329,7 @@ function ConnectedBar({ address, isRealWallet, onDisconnect, mode = 'full' }) {
           style={poolViewData
             ? (() => { const pc = colorFromPool(poolViewData.pool_code); return { color: pc, textShadow: `0 0 10px ${pc}4d` }; })()
             : { color: walletColor, textShadow: `0 0 10px ${walletColor}33` }}
-          title={`${t('leaderboard.toggleMyWallet')}: ${address}`}
+          title={`${t('ranking.toggleMyWallet')}: ${address}`}
         >
           {mode === 'wallet' ? (
             poolViewData ? (
@@ -353,13 +353,13 @@ function ConnectedBar({ address, isRealWallet, onDisconnect, mode = 'full' }) {
                 <span className="max-w-[13ch] truncate sm:max-w-[24ch]">{visibleAddress}</span>
                 {walletSummary ? (
                   <>
-                    <span title={`${t('leaderboard.level')}: ${walletSummary.level}`} className="font-mono text-amber-400/90">{walletSummary.level}</span>
+                    <span title={`${t('ranking.level')}: ${walletSummary.level}`} className="font-mono text-amber-400/90">{walletSummary.level}</span>
                     <span title={walletSummary.tier.label} className="text-[0.82rem]">{walletSummary.tier.emoji}</span>
-                    <span title={`${t('leaderboard.mm3Earned')}: ${walletSummary.availableMm3.toFixed(8)}`} className="inline-flex items-baseline gap-0.5 text-cyan-300/90">
+                    <span title={`${t('ranking.mm3Earned')}: ${walletSummary.availableMm3.toFixed(8)}`} className="inline-flex items-baseline gap-0.5 text-cyan-300/90">
                       <span>{mm3Compact}</span>
                       <span className="text-[0.48rem] uppercase tracking-[0.1em] text-cyan-300/55">MM3</span>
                     </span>
-                    <span title={`${t('leaderboard.sellValue')}: ${formatMoney(moneyValue, currency)}`} className="text-emerald-300/90">{`${{ EUR: '€', USD: '$', CNY: '¥' }[currency] || ''}${formatCompactNum(moneyValue)}`}</span>
+                    <span title={`${t('ranking.sellValue')}: ${formatMoney(moneyValue, currency)}`} className="text-emerald-300/90">{`${{ EUR: '€', USD: '$', CNY: '¥' }[currency] || ''}${formatCompactNum(moneyValue)}`}</span>
                   </>
                 ) : null}
               </div>

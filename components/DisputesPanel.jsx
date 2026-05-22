@@ -36,7 +36,7 @@ function squeezeScoreTerms(dispute, side) {
   const mm3 = Math.log(((Number(dispute?.[`${prefix}_mm3_sum`]) || 0) / n) + 1) * 20;
   const execs = ((Number(dispute?.[`${prefix}_exec_count`]) || 0) / n) * 12;
   const nftjis = ((Number(dispute?.[`${prefix}_nftji_count`]) || 0) / n) * 8;
-  const market = ((Number(dispute?.[`${prefix}_market_nftji_count`]) || 0) / n) * 15;
+  const market = ((Number(dispute?.[`${prefix}_mining_nftji_count`]) || 0) / n) * 15;
   const attack = ((Number(dispute?.[`${prefix}_squeeze_atk_sum`]) || 0) / n) * 20;
   const penalty = -((Number(dispute?.[`${prefix}_penalty_count`]) || 0) / n) * 20;
   const base = level + mm3 + execs + nftjis + market + attack + penalty;
@@ -530,9 +530,9 @@ function DisputeCard({ dispute, activeWallet, poolCode, language, currency, onJo
                     const visibleDropLevel = w.squeeze_nftji_claimed
                       ? currentDropLevel
                       : Math.max(0, (Number.isFinite(currentDropLevelRaw) ? currentDropLevelRaw : -1) + 1);
-                    const marketEmoji = w.market_nftji_emoji || emojiByWallet?.[w.wallet]?.emoji || emojiByWallet?.[w.wallet] || '';
-                    const marketBlockKey = w.market_nftji_key || w.market_nftji_snap || emojiByWallet?.[w.wallet]?.blockKey || '';
-                    const marketLabel = w.market_nftji_label || emojiByWallet?.[w.wallet]?.label || marketEmoji;
+                    const marketEmoji = w.mining_nftji_emoji || emojiByWallet?.[w.wallet]?.emoji || emojiByWallet?.[w.wallet] || '';
+                    const marketBlockKey = w.mining_nftji_key || w.mining_nftji_snap || emojiByWallet?.[w.wallet]?.blockKey || '';
+                    const marketLabel = w.mining_nftji_label || emojiByWallet?.[w.wallet]?.label || marketEmoji;
                     return (
                       <div key={w.wallet} style={{ display: 'flex', gap: 6, alignItems: 'center', fontSize: '0.7rem' }}>
                         <button
@@ -560,7 +560,7 @@ function DisputeCard({ dispute, activeWallet, poolCode, language, currency, onJo
                           label={marketLabel}
                           emoji={marketEmoji}
                           blockKey={marketBlockKey}
-                          level={w.market_nftji_level_snap}
+                          level={w.mining_nftji_level_snap}
                           onMarketBlockClick={onMarketBlockClick}
                           title={marketLabel ? `Market NFTJI — ${marketLabel}` : `Market NFTJI — ${marketEmoji}`}
                         />
@@ -619,7 +619,7 @@ function DisputeCard({ dispute, activeWallet, poolCode, language, currency, onJo
               { label: `Σ${currency}`, ch: formatEurAsCurrency(dispute.ch_eur_sum, currency), df: formatEurAsCurrency(dispute.df_eur_sum, currency) },
               { label: 'NFTJIs', ch: dispute.ch_nftji_count, df: dispute.df_nftji_count },
               { label: 'Σ✦NFTJI', ch: chWallets.reduce((s, w) => s + (w.nftji_snap || 0), 0), df: dfWallets.reduce((s, w) => s + (w.nftji_snap || 0), 0) },
-              { label: 'Mkt.NFTJI', ch: dispute.ch_market_nftji_count ?? '—', df: dispute.df_market_nftji_count ?? '—' },
+              { label: 'Mkt.NFTJI', ch: dispute.ch_mining_nftji_count ?? '—', df: dispute.df_mining_nftji_count ?? '—' },
               { label: '⚔️Σatk', ch: dispute.ch_squeeze_atk_sum ?? 0, df: dispute.df_squeeze_atk_sum ?? 0 },
               { label: 'Execs', ch: dispute.ch_exec_count, df: dispute.df_exec_count },
               { label: 'Pen.', ch: dispute.ch_penalty_count, df: dispute.df_penalty_count },
@@ -780,8 +780,8 @@ export default function DisputesPanel({ wallet, poolCode, language, onWalletClic
     const allWallets = [...new Set(disputeList.flatMap((d) => (d.wallets || []).map((w) => w.wallet)))];
     if (!allWallets.length) return;
     const [{ data: progress }, { data: blocks }] = await Promise.all([
-      supabase.from('player_progress').select('wallet, market_nftji_key').in('wallet', allWallets).not('market_nftji_key', 'is', null),
-      supabase.from('mm3_market_blocks').select('block_key, emoji, grid_row, grid_col'),
+      supabase.from('player_progress').select('wallet, mining_nftji_key').in('wallet', allWallets).not('mining_nftji_key', 'is', null),
+      supabase.from('mm3_mining_blocks').select('block_key, emoji, grid_row, grid_col'),
     ]);
     const infoByKey = new Map((blocks || []).map((b) => {
       const hex = b.grid_row != null && b.grid_col != null
@@ -794,8 +794,8 @@ export default function DisputesPanel({ wallet, poolCode, language, onWalletClic
     }));
     const map = {};
     for (const p of progress || []) {
-      const info = infoByKey.get(p.market_nftji_key);
-      if (info?.emoji) map[p.wallet] = { emoji: info.emoji, label: info.label, blockKey: p.market_nftji_key };
+      const info = infoByKey.get(p.mining_nftji_key);
+      if (info?.emoji) map[p.wallet] = { emoji: info.emoji, label: info.label, blockKey: p.mining_nftji_key };
     }
     setEmojiByWallet(map);
   }, []);
@@ -805,7 +805,7 @@ export default function DisputesPanel({ wallet, poolCode, language, onWalletClic
     const allWallets = [...new Set(disputeList.flatMap((d) => (d.wallets || []).map((w) => w.wallet)))];
     if (!allWallets.length) return;
     const { data } = await supabase
-      .from('mm3_squeeze_nftji')
+      .from('mm3_squeezing_nftji')
       .select('wallet, equipped, attack_level, defense_level')
       .in('wallet', allWallets);
     const map = {};

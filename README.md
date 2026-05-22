@@ -14,7 +14,7 @@
 
 [![MathsMine3 Portal](https://mathsmine3.xyz/og-image.jpg)](https://mathsmine3.xyz)
 
-**Live:** [mathsmine3.xyz](https://mathsmine3.xyz) · [Manifesto](https://mathsmine3.xyz/manifesto) · [Trade MM3](https://mathsmine3.xyz/trade-mm3) · [Ranking](https://mathsmine3.xyz/ranking) · [Squeeze](https://mathsmine3.xyz/squeeze) · [Market](https://mathsmine3.xyz/market) · [IRC](https://mathsmine3.xyz/irc) · [API](https://mathsmine3.xyz/api)
+**Live:** [mathsmine3.xyz](https://mathsmine3.xyz) · [Manifesto](https://mathsmine3.xyz/manifesto) · [Trading](https://mathsmine3.xyz/trading) · [Ranking](https://mathsmine3.xyz/ranking) · [Squeezing](https://mathsmine3.xyz/squeezing) · [Mining](https://mathsmine3.xyz/mining) · [Relaying](https://mathsmine3.xyz/relaying) · [API](https://mathsmine3.xyz/api)
 
 ---
 
@@ -752,11 +752,11 @@ Public API routes expose the readable state of the simulation.
 | `/api/token-history` | Historical MM3 value |
 | `/api/token-history-minutes` | Recent minute-level chart data |
 | `/api/leaderboard` | Ranking data |
-| `/api/market-snapshot` | Market block state |
-| `/api/mine-block` | Mine a free Market board block from IRC command flow |
+| `/api/mining-snapshot` | Mining block state |
+| `/api/mine-block` | Mine a free Mining board block from Relaying command flow |
 | `/api/nft-events` | NFTJI and revive events |
 
-`/api/leaderboard` includes `block_chain_percent` and `mined_block_count`. `/api/market-snapshot` includes `minedBlocks` and `blockChain` progress/code data.
+`/api/leaderboard` includes `block_chain_percent` and `mined_block_count`. `/api/mining-snapshot` includes `minedBlocks` and `blockChain` progress/code data.
 
 ---
 
@@ -868,7 +868,7 @@ Secret effect: steals MM3 → executor. `x = daily nonce (100–799)`.
 
 ```txt
 app/                 Routes, layouts, API handlers
-components/          UI, market, chart, wallet, IRC, shell
+components/          UI, mining, chart, wallet, relaying, shell
 lib/                 Game logic, i18n, wallet helpers, macro, dice
 sql/                 Supabase schema and maintenance scripts
 public/              Images, metadata, manifest, sitemap, robots
@@ -930,7 +930,7 @@ Read:
 
 [![MathsMine3 Portal](https://mathsmine3.xyz/og-image.jpg)](https://mathsmine3.xyz)
 
-**Live:** [mathsmine3.xyz](https://mathsmine3.xyz) · [Manifiesto](https://mathsmine3.xyz/manifesto) · [Trade MM3](https://mathsmine3.xyz/trade-mm3) · [Ranking](https://mathsmine3.xyz/ranking) · [Squeeze](https://mathsmine3.xyz/squeeze) · [Market](https://mathsmine3.xyz/market) · [IRC](https://mathsmine3.xyz/irc) · [API](https://mathsmine3.xyz/api)
+**Live:** [mathsmine3.xyz](https://mathsmine3.xyz) · [Manifiesto](https://mathsmine3.xyz/manifesto) · [Trading](https://mathsmine3.xyz/trading) · [Ranking](https://mathsmine3.xyz/ranking) · [Squeezing](https://mathsmine3.xyz/squeezing) · [Mining](https://mathsmine3.xyz/mining) · [Relaying](https://mathsmine3.xyz/relaying) · [API](https://mathsmine3.xyz/api)
 
 ---
 

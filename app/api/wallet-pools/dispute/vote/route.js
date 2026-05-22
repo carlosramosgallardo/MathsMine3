@@ -18,7 +18,7 @@ function normalizePool(value) {
 async function getSqueezeLaunchLimitState(supabase, challengerPool) {
   const windowStart = new Date(Date.now() - SQUEEZE_LAUNCH_WINDOW_MS).toISOString();
   const { data, error } = await supabase
-    .from('mm3_squeeze_launches')
+    .from('mm3_squeezing_launches')
     .select('created_at')
     .eq('challenger_pool_code', challengerPool)
     .gte('created_at', windowStart)
@@ -115,7 +115,7 @@ export async function POST(req) {
     }
 
     if (isNewLaunch && data?.proposing && data?.dispute_id) {
-      await supabase.from('mm3_squeeze_launches').insert({
+      await supabase.from('mm3_squeezing_launches').insert({
         wallet,
         challenger_pool_code: challengerPool,
         defender_pool_code: defenderPool,

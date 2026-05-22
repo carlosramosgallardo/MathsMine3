@@ -35,9 +35,9 @@ export async function GET(req) {
         registered_at, battle_start_at, resolved_at, cancelled_at,
         war_percent, nature_percent, dice_modifier,
         ch_wallet_count, ch_level_sum, ch_mm3_sum, ch_eur_sum,
-        ch_nftji_count, ch_market_nftji_count, ch_penalty_count, ch_exec_count, ch_score, ch_squeeze_atk_sum,
+        ch_nftji_count, ch_mining_nftji_count, ch_penalty_count, ch_exec_count, ch_score, ch_squeeze_atk_sum,
         df_wallet_count, df_level_sum, df_mm3_sum, df_eur_sum,
-        df_nftji_count, df_market_nftji_count, df_penalty_count, df_exec_count, df_score, df_squeeze_atk_sum,
+        df_nftji_count, df_mining_nftji_count, df_penalty_count, df_exec_count, df_score, df_squeeze_atk_sum,
         winner, result_summary, drop_type
       `)
       .order('registered_at', { ascending: false })
@@ -59,56 +59,56 @@ export async function GET(req) {
     if (allIds.length > 0) {
       const { data: wData } = await supabase
         .from('mm3_pool_dispute_wallets')
-        .select('dispute_id, wallet, pool_code, side, registered_at, level_snap, mm3_snap, eur_snap, exec_snap, nftji_snap, market_nftji_snap, market_nftji_level_snap, has_penalty, eur_stake, mm3_stake, delta_eur, delta_mm3, squeeze_nftji_equipped, squeeze_nftji_level, squeeze_nftji_claimed')
+        .select('dispute_id, wallet, pool_code, side, registered_at, level_snap, mm3_snap, eur_snap, exec_snap, nftji_snap, mining_nftji_snap, mining_nftji_level_snap, has_penalty, eur_stake, mm3_stake, delta_eur, delta_mm3, squeeze_nftji_equipped, squeeze_nftji_level, squeeze_nftji_claimed')
         .in('dispute_id', allIds);
       walletRows = wData || [];
 
-      // Resolve market_nftji_snap keys → actual block emojis (fetch all 20 blocks, no filter)
-      const hasAnySnap = walletRows.some((w) => w.market_nftji_snap);
+      // Resolve mining_nftji_snap keys → actual block emojis (fetch all 20 blocks, no filter)
+      const hasAnySnap = walletRows.some((w) => w.mining_nftji_snap);
       if (hasAnySnap) {
         const { data: blocks, error: blocksErr } = await supabase
-          .from('mm3_market_blocks')
+          .from('mm3_mining_blocks')
           .select('block_key, emoji, grid_row, grid_col');
         if (blocksErr) console.error('disputes: market_blocks fetch error:', blocksErr);
         const infoByKey = blockInfoMap(blocks);
         walletRows = walletRows.map((w) => ({
           ...w,
-          market_nftji_emoji: w.market_nftji_snap ? (infoByKey.get(w.market_nftji_snap)?.emoji || null) : null,
-          market_nftji_key: w.market_nftji_snap || null,
-          market_nftji_hex: w.market_nftji_snap ? (infoByKey.get(w.market_nftji_snap)?.hex || null) : null,
-          market_nftji_label: w.market_nftji_snap ? (infoByKey.get(w.market_nftji_snap)?.label || null) : null,
+          mining_nftji_emoji: w.mining_nftji_snap ? (infoByKey.get(w.mining_nftji_snap)?.emoji || null) : null,
+          mining_nftji_key: w.mining_nftji_snap || null,
+          mining_nftji_hex: w.mining_nftji_snap ? (infoByKey.get(w.mining_nftji_snap)?.hex || null) : null,
+          mining_nftji_label: w.mining_nftji_snap ? (infoByKey.get(w.mining_nftji_snap)?.label || null) : null,
         }));
       }
 
-      // Also enrich with current market_nftji_key from player_progress (in case snapshot is stale)
+      // Also enrich with current mining_nftji_key from player_progress (in case snapshot is stale)
       const walletAddrs = [...new Set(walletRows.map((w) => w.wallet))];
       if (walletAddrs.length > 0) {
         const { data: progress } = await supabase
           .from('player_progress')
-          .select('wallet, market_nftji_key, market_nftji_levels')
+          .select('wallet, mining_nftji_key, mining_nftji_levels')
           .in('wallet', walletAddrs)
-          .not('market_nftji_key', 'is', null);
+          .not('mining_nftji_key', 'is', null);
         if (progress && progress.length > 0) {
           const { data: allBlocks } = await supabase
-            .from('mm3_market_blocks')
+            .from('mm3_mining_blocks')
             .select('block_key, emoji, grid_row, grid_col');
           const infoByKey = blockInfoMap(allBlocks);
           const currentByWallet = new Map(progress.map((p) => [p.wallet, p]));
           walletRows = walletRows.map((w) => {
             const current = currentByWallet.get(w.wallet);
-            const currentKey = current?.market_nftji_key;
-            const displayKey = w.market_nftji_snap || currentKey;
+            const currentKey = current?.mining_nftji_key;
+            const displayKey = w.mining_nftji_snap || currentKey;
             const currentInfo = displayKey ? infoByKey.get(displayKey) : null;
             const currentLevel = currentKey
-              ? Math.max(0, Number(current?.market_nftji_levels?.[currentKey] ?? 0) || 0)
+              ? Math.max(0, Number(current?.mining_nftji_levels?.[currentKey] ?? 0) || 0)
               : null;
             return {
               ...w,
-              market_nftji_emoji: currentInfo?.emoji || w.market_nftji_emoji || null,
-              market_nftji_key: displayKey || w.market_nftji_key || null,
-              market_nftji_hex: currentInfo?.hex || w.market_nftji_hex || null,
-              market_nftji_label: currentInfo?.label || w.market_nftji_label || null,
-              market_nftji_level_snap: w.market_nftji_snap ? (w.market_nftji_level_snap ?? 0) : (currentLevel ?? w.market_nftji_level_snap ?? 0),
+              mining_nftji_emoji: currentInfo?.emoji || w.mining_nftji_emoji || null,
+              mining_nftji_key: displayKey || w.mining_nftji_key || null,
+              mining_nftji_hex: currentInfo?.hex || w.mining_nftji_hex || null,
+              mining_nftji_label: currentInfo?.label || w.mining_nftji_label || null,
+              mining_nftji_level_snap: w.mining_nftji_snap ? (w.mining_nftji_level_snap ?? 0) : (currentLevel ?? w.mining_nftji_level_snap ?? 0),
             };
           });
         }

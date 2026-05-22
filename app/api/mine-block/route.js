@@ -46,13 +46,13 @@ export async function POST(req) {
   try {
     const [{ data: reservedBlock }, { count: reservedCount }, { data: existing }, { data: progress }, { data: tokenValue }] = await Promise.all([
       supabase
-        .from('mm3_market_blocks')
+        .from('mm3_mining_blocks')
         .select('block_key, emoji')
         .eq('grid_row', grid.row)
         .eq('grid_col', grid.col)
         .maybeSingle(),
       supabase
-        .from('mm3_market_blocks')
+        .from('mm3_mining_blocks')
         .select('block_key', { count: 'exact', head: true }),
       supabase
         .from('mm3_mined_blocks')
@@ -61,7 +61,7 @@ export async function POST(req) {
         .maybeSingle(),
       supabase
         .from('player_progress')
-        .select('level, market_nftji_key')
+        .select('level, mining_nftji_key')
         .eq('wallet', wallet)
         .maybeSingle(),
       supabase
@@ -71,7 +71,7 @@ export async function POST(req) {
     ]);
 
     if (reservedBlock) {
-      return Response.json({ ok: false, error: 'reserved_market_nftji', blockHex }, { status: 409 });
+      return Response.json({ ok: false, error: 'reserved_mining_nftji', blockHex }, { status: 409 });
     }
     if (existing) {
       return Response.json({ ok: false, error: 'already_mined', blockHex, owner: existing.wallet }, { status: 409 });
@@ -129,7 +129,7 @@ export async function POST(req) {
     const freePercent = Math.round((chain.length / freeBlocksTotal) * 10000) / 100;
     const walletMinedCount = chain.filter((row) => normalizeWallet(row.wallet) === wallet).length;
     const walletPercent = Math.round(
-      ((walletMinedCount + (progress?.market_nftji_key ? 1 : 0)) / TOTAL_BOARD_CELLS) * 10000
+      ((walletMinedCount + (progress?.mining_nftji_key ? 1 : 0)) / TOTAL_BOARD_CELLS) * 10000
     ) / 100;
     const code = buildBlockChainCode(chain);
     const ts = Date.now();
@@ -139,7 +139,7 @@ export async function POST(req) {
       .from('player_progress')
       .upsert({ wallet, block_chain_percent: walletPercent, updated_at: new Date().toISOString() }, { onConflict: 'wallet' });
 
-    await supabase.from('mm3_irc_messages').insert({
+    await supabase.from('mm3_relaying_messages').insert({
       wallet: 'system',
       text: trace,
       ts,

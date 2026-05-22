@@ -68,7 +68,7 @@ export async function GET(req) {
       .from('mm3_mined_blocks')
       .select('wallet'),
     supabase
-      .from('mm3_market_blocks')
+      .from('mm3_mining_blocks')
       .select('block_key', { count: 'exact', head: true }),
   ])
 

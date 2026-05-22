@@ -87,7 +87,7 @@ function Mm3Total() {
         .on('postgres_changes', { event: '*', schema: 'public', table: 'games' }, load)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'mm3_sell_transactions' }, load)
         .subscribe()
-    }, pathname === '/irc' ? 1000 : 60000)
+    }, pathname === '/relaying' ? 1000 : 60000)
 
     return () => {
       mounted = false
@@ -176,7 +176,7 @@ export default function Header() {
   }
 
   return (
-    <header className={`fixed top-0 left-0 right-0 z-50 bg-black/97 backdrop-blur-sm border-b border-cyan-900/30 ${pathname === '/trade-mm3' ? 'mm3-trade-header' : ''}`}>
+    <header className={`fixed top-0 left-0 right-0 z-50 bg-black/97 backdrop-blur-sm border-b border-cyan-900/30 ${pathname === '/trading' ? 'mm3-trade-header' : ''}`}>
       <div className="mm3-header-ticker flex h-7 sm:h-[34px] items-center overflow-hidden border-b border-green-400/20 bg-black/60">
         <MacroTicker />
       </div>

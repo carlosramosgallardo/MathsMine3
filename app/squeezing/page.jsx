@@ -25,7 +25,7 @@ export default function SqueezePage() {
 
   const handleMarketBlockClick = (blockKey) => {
     if (typeof window === 'undefined' || !blockKey) return;
-    window.location.href = `/market?block=${encodeURIComponent(blockKey)}`;
+    window.location.href = `/mining?block=${encodeURIComponent(blockKey)}`;
   };
 
   return (

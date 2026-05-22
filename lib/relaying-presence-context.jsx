@@ -46,7 +46,7 @@ export function IrcPresenceProvider({ children }) {
       }).subscribe((status) => {
         setChannelStatus(status);
       });
-    }, pathname === '/irc' ? 1000 : 60000);
+    }, pathname === '/relaying' ? 1000 : 60000);
 
     return () => {
       clearTimeout(timer);
@@ -82,10 +82,10 @@ export function IrcPresenceProvider({ children }) {
     let ch = null;
     const channelTimer = setTimeout(() => {
       ch = supabase
-        .channel('mm3-irc-presence-ctx')
+        .channel('mm3-relaying-presence-ctx')
         .on('postgres_changes', { event: '*', schema: 'public', table: 'mm3_wallet_presence' }, load)
         .subscribe();
-    }, pathname === '/irc' ? 1000 : 60000);
+    }, pathname === '/relaying' ? 1000 : 60000);
     return () => {
       clearInterval(t);
       clearTimeout(channelTimer);

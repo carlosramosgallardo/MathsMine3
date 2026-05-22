@@ -46,7 +46,7 @@ export default function MarketShortPage() {
       setLoading(true);
       try {
         const { data, error } = await supabase
-          .from('mm3_market_blocks')
+          .from('mm3_mining_blocks')
           .select('block_key, emoji, title_en, title_es, short_url, claimed_by, is_active')
           .eq('block_key', blockKey)
           .maybeSingle();
@@ -74,8 +74,8 @@ export default function MarketShortPage() {
 
   const embedUrl = normalizeShortUrl(block?.short_url);
   const title = language === 'es'
-    ? (block?.title_es || block?.title_en || t('podcast.template'))
-    : (block?.title_en || block?.title_es || t('podcast.template'));
+    ? (block?.title_es || block?.title_en || t('mining.template'))
+    : (block?.title_en || block?.title_es || t('mining.template'));
 
   return (
     <main className="w-full px-2 py-1" style={{ '--mm3-accent': frameAccent }}>
@@ -90,10 +90,10 @@ export default function MarketShortPage() {
             </div>
 
             <Link
-              href="/market"
+              href="/mining"
               className="rounded-xl border border-cyan-400/35 bg-black/70 px-4 py-3 text-[0.90rem] font-black uppercase tracking-[0.24em] text-cyan-200 transition hover:border-cyan-300 hover:text-cyan-100"
             >
-              {t('podcast.backToMarket')}
+              {t('mining.backToMarket')}
             </Link>
           </div>
 
@@ -109,13 +109,13 @@ export default function MarketShortPage() {
                 />
               ) : (
                 <div className="flex h-full items-center justify-center px-6 text-center text-[0.7rem] uppercase tracking-[0.2em] text-cyan-300/70">
-                  {loading ? t('podcast.loading') : block?.is_active ? t('podcast.pending') : t('podcast.offline')}
+                  {loading ? t('mining.loading') : block?.is_active ? t('mining.pending') : t('mining.offline')}
                 </div>
               )}
             </div>
 
             <div className="mt-4 text-center text-[0.75rem] uppercase tracking-[0.18em] text-cyan-300/70">
-              {block?.claimed_by ? `${t('podcast.owner')}: ${block.claimed_by}` : t('podcast.noWinner')}
+              {block?.claimed_by ? `${t('mining.owner')}: ${block.claimed_by}` : t('mining.noWinner')}
             </div>
           </section>
         </div>

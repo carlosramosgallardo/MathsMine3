@@ -26,13 +26,13 @@ async function getPublicMarketSnapshot(supabase) {
   if (!publicSnapshotPromise) {
     publicSnapshotPromise = Promise.all([
       supabase
-        .from('mm3_market_blocks')
+        .from('mm3_mining_blocks')
         .select('block_key, grid_row, grid_col, emoji, title_en, title_es, price_eur, short_url, is_active, first_purchased_at, market_command, hidden_cmd_min_level')
         .order('block_key', { ascending: true }),
       supabase
         .from('player_progress')
-        .select('wallet, market_nftji_key')
-        .not('market_nftji_key', 'is', null),
+        .select('wallet, mining_nftji_key')
+        .not('mining_nftji_key', 'is', null),
       supabase
         .from('mm3_mined_blocks')
         .select('block_hex, grid_row, grid_col, wallet, wallet_level, mm3_value, mm3_value_hex, chain_index, mined_at')
@@ -43,7 +43,7 @@ async function getPublicMarketSnapshot(supabase) {
         if (minedResponse.error && minedResponse.error.code !== '42P01') throw minedResponse.error;
         const minedBlocks = minedResponse.data || [];
         const ownedNftjiCount = new Set(
-          (ownersResponse.data || []).map((o) => o.market_nftji_key).filter(Boolean)
+          (ownersResponse.data || []).map((o) => o.mining_nftji_key).filter(Boolean)
         ).size;
         const totalCovered = minedBlocks.length + ownedNftjiCount;
         const payload = {
@@ -105,7 +105,7 @@ export async function GET(req) {
     wallet
       ? supabase
           .from('player_progress')
-          .select('level, mm3_sold, eur_earned, usd_earned, cny_earned, wallet_emojis, market_nftji_key, market_nftji_price')
+          .select('level, mm3_sold, eur_earned, usd_earned, cny_earned, wallet_emojis, mining_nftji_key, mining_nftji_price')
           .eq('wallet', wallet)
           .maybeSingle()
       : Promise.resolve({ data: null, error: null }),
@@ -118,7 +118,7 @@ export async function GET(req) {
       : Promise.resolve({ data: null, error: null }),
     includeDetails && blockKey
       ? supabase
-          .from('mm3_market_commands')
+          .from('mm3_mining_commands')
           .select('id, wallet, formula_x, reset_at')
           .eq('nftji_key', blockKey)
           .gt('reset_at', new Date().toISOString())
@@ -140,17 +140,17 @@ export async function GET(req) {
       : Promise.resolve({ data: null, error: null }),
     includeDetails && selectedEmoji
       ? supabase
-          .from('mm3_market_events')
+          .from('mm3_mining_events')
           .select('id', { count: 'exact', head: true })
           .eq('emoji', selectedEmoji)
-          .eq('event_type', 'market_buy')
+          .eq('event_type', 'mining_buy')
       : Promise.resolve({ count: 0, error: null }),
     includeDetails && selectedEmoji
       ? supabase
-          .from('mm3_market_events')
+          .from('mm3_mining_events')
           .select('id', { count: 'exact', head: true })
           .eq('emoji', selectedEmoji)
-          .eq('event_type', 'market_resell')
+          .eq('event_type', 'mining_resell')
       : Promise.resolve({ count: 0, error: null }),
   ]);
 
@@ -185,8 +185,8 @@ export async function GET(req) {
           mm3Sold: Number(progress?.mm3_sold) || 0,
           totalMm3: Number(stats?.total_eth) || 0,
           emojis: normalizeWalletDecorations(progress?.wallet_emojis),
-          marketNFTJIKey: progress?.market_nftji_key || null,
-          marketNFTJIPrice: Number(progress?.market_nftji_price) || 0,
+          miningNFTJIKey: progress?.mining_nftji_key || null,
+          miningNFTJIPrice: Number(progress?.mining_nftji_price) || 0,
         }
       : null,
     ...detailsPayload,

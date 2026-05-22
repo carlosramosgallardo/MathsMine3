@@ -61,7 +61,7 @@ export async function POST(req) {
         tone: 'realchain',
       };
 
-      const { error: insertError } = await supabase.from('mm3_irc_messages').insert({
+      const { error: insertError } = await supabase.from('mm3_relaying_messages').insert({
         wallet: ircPayload.wallet,
         text: ircPayload.text,
         ts: ircPayload.ts,

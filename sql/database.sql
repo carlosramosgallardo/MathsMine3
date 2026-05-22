@@ -23,15 +23,15 @@ DROP FUNCTION IF EXISTS mm3_pool_rank_from_level(integer);
 -- Drop tables
 DROP TABLE IF EXISTS mm3_command_penalties CASCADE;
 DROP TABLE IF EXISTS mm3_hidden_cmd_executions CASCADE;
-DROP TABLE IF EXISTS mm3_market_commands CASCADE;
+DROP TABLE IF EXISTS mm3_mining_commands CASCADE;
 DROP TABLE IF EXISTS mm3_sell_transactions CASCADE;
-DROP TABLE IF EXISTS mm3_market_events CASCADE;
-DROP TABLE IF EXISTS mm3_market_state CASCADE;
+DROP TABLE IF EXISTS mm3_mining_events CASCADE;
+DROP TABLE IF EXISTS mm3_mining_state CASCADE;
 DROP TABLE IF EXISTS mm3_macro_state CASCADE;
 DROP TABLE IF EXISTS mm3_wallet_presence CASCADE;
 DROP TABLE IF EXISTS mm3_pool_dispute_wallets CASCADE;
 DROP TABLE IF EXISTS mm3_pool_dispute_votes CASCADE;
-DROP TABLE IF EXISTS mm3_squeeze_launches CASCADE;
+DROP TABLE IF EXISTS mm3_squeezing_launches CASCADE;
 DROP TABLE IF EXISTS mm3_pool_disputes CASCADE;
 DROP TABLE IF EXISTS mm3_wallet_pool_cooldowns CASCADE;
 DROP TABLE IF EXISTS mm3_wallet_pool_members CASCADE;
@@ -44,17 +44,17 @@ DROP FUNCTION IF EXISTS mm3_dispute_resolve(bigint);
 DROP FUNCTION IF EXISTS mm3_dispute_can_leave(text);
 DROP FUNCTION IF EXISTS mm3_dispute_cancel(bigint);
 DROP FUNCTION IF EXISTS mm3_pool_max_wallets(integer);
-DROP TABLE IF EXISTS mm3_squeeze_nftji CASCADE;
-DROP FUNCTION IF EXISTS mm3_squeeze_nftji_take(bigint, text);
+DROP TABLE IF EXISTS mm3_squeezing_nftji CASCADE;
+DROP FUNCTION IF EXISTS mm3_squeezing_nftji_take(bigint, text);
 DROP TABLE IF EXISTS player_progress CASCADE;
 DROP TABLE IF EXISTS daily_task_claims CASCADE;
 DROP TABLE IF EXISTS leaderboard_data CASCADE;
 DROP TABLE IF EXISTS math_problems CASCADE;
 DROP TABLE IF EXISTS api_requests CASCADE;
 DROP TABLE IF EXISTS mm3_visual_state CASCADE;
-DROP TABLE IF EXISTS mm3_market_blocks CASCADE;
+DROP TABLE IF EXISTS mm3_mining_blocks CASCADE;
 DROP TABLE IF EXISTS mm3_mined_blocks CASCADE;
-DROP TABLE IF EXISTS mm3_irc_messages CASCADE;
+DROP TABLE IF EXISTS mm3_relaying_messages CASCADE;
 DROP TABLE IF EXISTS mm3_chain_solve_attempts CASCADE;
 DROP TABLE IF EXISTS mm3_game_winner CASCADE;
 DROP TABLE IF EXISTS games CASCADE;
@@ -120,9 +120,9 @@ CREATE TABLE player_progress (
   eur_earned NUMERIC NOT NULL DEFAULT 0,
   usd_earned NUMERIC NOT NULL DEFAULT 0,
   wallet_emojis TEXT[] NOT NULL DEFAULT '{}',
-  market_nftji_key TEXT,
-  market_nftji_price NUMERIC NOT NULL DEFAULT 0,
-  market_nftji_since TIMESTAMPTZ,
+  mining_nftji_key TEXT,
+  mining_nftji_price NUMERIC NOT NULL DEFAULT 0,
+  mining_nftji_since TIMESTAMPTZ,
   life_used BOOLEAN NOT NULL DEFAULT FALSE,
   lucky_50_claimed BOOLEAN NOT NULL DEFAULT FALSE,
   lucky_100_claimed BOOLEAN NOT NULL DEFAULT FALSE,
@@ -132,7 +132,7 @@ CREATE TABLE player_progress (
   lucky_100_level INTEGER NOT NULL DEFAULT -1,
   lucky_500_level INTEGER NOT NULL DEFAULT -1,
   lucky_1000_level INTEGER NOT NULL DEFAULT -1,
-  market_nftji_levels JSONB NOT NULL DEFAULT '{}',
+  mining_nftji_levels JSONB NOT NULL DEFAULT '{}',
   sell_rate_cny NUMERIC NOT NULL DEFAULT 0,
   sell_quote_cny NUMERIC NOT NULL DEFAULT 0,
   sell_quote_eur NUMERIC NOT NULL DEFAULT 0,
@@ -202,7 +202,7 @@ CREATE TABLE mm3_pool_disputes (
   ch_mm3_sum            NUMERIC NOT NULL DEFAULT 0,
   ch_eur_sum            NUMERIC NOT NULL DEFAULT 0,
   ch_nftji_count           INT NOT NULL DEFAULT 0,
-  ch_market_nftji_count    INT NOT NULL DEFAULT 0,
+  ch_mining_nftji_count    INT NOT NULL DEFAULT 0,
   ch_penalty_count         INT NOT NULL DEFAULT 0,
   ch_exec_count            INT NOT NULL DEFAULT 0,
   ch_score                 NUMERIC,
@@ -211,7 +211,7 @@ CREATE TABLE mm3_pool_disputes (
   df_mm3_sum               NUMERIC NOT NULL DEFAULT 0,
   df_eur_sum               NUMERIC NOT NULL DEFAULT 0,
   df_nftji_count           INT NOT NULL DEFAULT 0,
-  df_market_nftji_count    INT NOT NULL DEFAULT 0,
+  df_mining_nftji_count    INT NOT NULL DEFAULT 0,
   df_penalty_count         INT NOT NULL DEFAULT 0,
   df_exec_count         INT NOT NULL DEFAULT 0,
   df_score              NUMERIC,
@@ -222,7 +222,7 @@ CREATE TABLE mm3_pool_disputes (
   df_squeeze_atk_sum    INT NOT NULL DEFAULT 0
 );
 
-CREATE TABLE mm3_squeeze_launches (
+CREATE TABLE mm3_squeezing_launches (
   id                    BIGSERIAL PRIMARY KEY,
   wallet                TEXT NOT NULL,
   challenger_pool_code  TEXT NOT NULL,
@@ -255,8 +255,8 @@ CREATE TABLE mm3_pool_dispute_wallets (
   cny_snap        NUMERIC NOT NULL DEFAULT 0,
   exec_snap       INT     NOT NULL DEFAULT 0,
   nftji_snap      INT     NOT NULL DEFAULT 0,
-  market_nftji_snap TEXT,
-  market_nftji_level_snap INTEGER NOT NULL DEFAULT 0,
+  mining_nftji_snap TEXT,
+  mining_nftji_level_snap INTEGER NOT NULL DEFAULT 0,
   has_penalty     BOOLEAN NOT NULL DEFAULT FALSE,
   eur_stake       NUMERIC NOT NULL DEFAULT 0,
   mm3_stake       NUMERIC NOT NULL DEFAULT 0,
@@ -268,7 +268,7 @@ CREATE TABLE mm3_pool_dispute_wallets (
   UNIQUE (dispute_id, wallet)
 );
 
-CREATE TABLE mm3_squeeze_nftji (
+CREATE TABLE mm3_squeezing_nftji (
   wallet         TEXT PRIMARY KEY,
   equipped       TEXT CHECK (equipped IN ('attack', 'defense')),
   attack_level   SMALLINT NOT NULL DEFAULT -1,
@@ -276,7 +276,7 @@ CREATE TABLE mm3_squeeze_nftji (
   updated_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE TABLE mm3_market_state (
+CREATE TABLE mm3_mining_state (
   id SMALLINT PRIMARY KEY DEFAULT 1 CHECK (id = 1),
   commission_mm3 NUMERIC NOT NULL DEFAULT 0,
   commission_cny NUMERIC NOT NULL DEFAULT 0,
@@ -306,10 +306,10 @@ CREATE TABLE mm3_sell_transactions (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE TABLE mm3_market_events (
+CREATE TABLE mm3_mining_events (
   id BIGSERIAL PRIMARY KEY,
   wallet TEXT NOT NULL,
-  event_type TEXT NOT NULL CHECK (event_type IN ('life_continue', 'nftji_claim', 'market_buy', 'market_resell', 'nftji_level_up')),
+  event_type TEXT NOT NULL CHECK (event_type IN ('life_continue', 'nftji_claim', 'mining_buy', 'mining_resell', 'nftji_level_up')),
   delta_mm3 NUMERIC NOT NULL DEFAULT 0,
   emoji TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -350,7 +350,7 @@ CREATE TABLE mm3_visual_state (
 );
 
 -- Market NFTJI blocks (formerly mm3_podcast_pixels)
-CREATE TABLE mm3_market_blocks (
+CREATE TABLE mm3_mining_blocks (
   id BIGSERIAL PRIMARY KEY,
   block_key TEXT NOT NULL UNIQUE,
   grid_row INTEGER NOT NULL,
@@ -408,7 +408,7 @@ CREATE TABLE mm3_game_winner (
   won_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE TABLE mm3_market_commands (
+CREATE TABLE mm3_mining_commands (
   id BIGSERIAL PRIMARY KEY,
   wallet TEXT NOT NULL,
   nftji_key TEXT NOT NULL,
@@ -422,7 +422,7 @@ CREATE TABLE mm3_market_commands (
 CREATE TABLE mm3_command_penalties (
   id BIGSERIAL PRIMARY KEY,
   wallet TEXT NOT NULL,
-  command_id BIGINT REFERENCES mm3_market_commands(id) ON DELETE CASCADE,
+  command_id BIGINT REFERENCES mm3_mining_commands(id) ON DELETE CASCADE,
   nftji_key TEXT NOT NULL DEFAULT '',
   penalty_code TEXT NOT NULL,
   penalty_effect TEXT NOT NULL DEFAULT 'money' CHECK (penalty_effect IN ('money', 'mm3')),
@@ -445,7 +445,7 @@ CREATE TABLE mm3_hidden_cmd_executions (
 );
 
 -- IRC Messages table (permanent — no retention policy)
-CREATE TABLE mm3_irc_messages (
+CREATE TABLE mm3_relaying_messages (
   id BIGSERIAL PRIMARY KEY,
   wallet TEXT NOT NULL,
   text TEXT NOT NULL,
@@ -478,29 +478,29 @@ CREATE INDEX idx_mm3_wallet_pool_invitations_wallet ON mm3_wallet_pool_invitatio
 CREATE INDEX idx_mm3_wallet_pool_cooldowns_expires ON mm3_wallet_pool_cooldowns(wallet, expires_at);
 CREATE INDEX idx_mm3_pool_disputes_status         ON mm3_pool_disputes(status);
 CREATE INDEX idx_mm3_pool_disputes_pools          ON mm3_pool_disputes(challenger_pool_code, defender_pool_code);
-CREATE INDEX idx_mm3_squeeze_launches_wallet_created ON mm3_squeeze_launches(wallet, created_at DESC);
+CREATE INDEX idx_mm3_squeezing_launches_wallet_created ON mm3_squeezing_launches(wallet, created_at DESC);
 CREATE INDEX idx_mm3_pool_dispute_votes_pairing   ON mm3_pool_dispute_votes(challenger_pool_code, defender_pool_code);
 CREATE INDEX idx_mm3_pool_dispute_wallets_dispute ON mm3_pool_dispute_wallets(dispute_id, side);
 CREATE INDEX idx_mm3_pool_dispute_wallets_wallet  ON mm3_pool_dispute_wallets(wallet);
-CREATE INDEX idx_mm3_squeeze_nftji_wallet          ON mm3_squeeze_nftji(wallet);
-CREATE INDEX idx_mm3_squeeze_nftji_equipped        ON mm3_squeeze_nftji(equipped) WHERE equipped IS NOT NULL;
+CREATE INDEX idx_mm3_squeezing_nftji_wallet          ON mm3_squeezing_nftji(wallet);
+CREATE INDEX idx_mm3_squeezing_nftji_equipped        ON mm3_squeezing_nftji(equipped) WHERE equipped IS NOT NULL;
 CREATE INDEX idx_mm3_sell_transactions_wallet ON mm3_sell_transactions(wallet);
 CREATE INDEX idx_mm3_sell_transactions_created_at ON mm3_sell_transactions(created_at DESC);
-CREATE INDEX idx_mm3_market_events_wallet ON mm3_market_events(wallet);
-CREATE INDEX idx_mm3_market_events_created_at ON mm3_market_events(created_at DESC);
-CREATE INDEX idx_mm3_market_blocks_claimed_by ON mm3_market_blocks(claimed_by);
+CREATE INDEX idx_mm3_mining_events_wallet ON mm3_mining_events(wallet);
+CREATE INDEX idx_mm3_mining_events_created_at ON mm3_mining_events(created_at DESC);
+CREATE INDEX idx_mm3_mining_blocks_claimed_by ON mm3_mining_blocks(claimed_by);
 CREATE INDEX idx_mm3_mined_blocks_chain_index ON mm3_mined_blocks(chain_index);
 CREATE INDEX idx_mm3_mined_blocks_wallet ON mm3_mined_blocks(wallet);
-CREATE INDEX idx_player_progress_market_nftji_key ON player_progress(market_nftji_key) WHERE market_nftji_key IS NOT NULL;
-CREATE INDEX idx_mm3_market_commands_wallet ON mm3_market_commands(wallet);
-CREATE INDEX idx_mm3_market_commands_nftji_key_reset ON mm3_market_commands(nftji_key, reset_at DESC);
+CREATE INDEX idx_player_progress_mining_nftji_key ON player_progress(mining_nftji_key) WHERE mining_nftji_key IS NOT NULL;
+CREATE INDEX idx_mm3_mining_commands_wallet ON mm3_mining_commands(wallet);
+CREATE INDEX idx_mm3_mining_commands_nftji_key_reset ON mm3_mining_commands(nftji_key, reset_at DESC);
 CREATE INDEX idx_mm3_command_penalties_wallet ON mm3_command_penalties(wallet);
 CREATE INDEX idx_mm3_command_penalties_active ON mm3_command_penalties(wallet, reset_at DESC) WHERE redeemed_at IS NULL;
 CREATE INDEX idx_mm3_hidden_cmd_executions_wallet_block ON mm3_hidden_cmd_executions(wallet, block_key, executed_at DESC);
-CREATE INDEX idx_mm3_irc_messages_wallet ON mm3_irc_messages(wallet);
-CREATE INDEX idx_mm3_irc_messages_ts ON mm3_irc_messages(ts DESC);
-CREATE INDEX idx_mm3_irc_messages_created_at ON mm3_irc_messages(created_at DESC);
-ALTER TABLE mm3_irc_messages REPLICA IDENTITY FULL;
+CREATE INDEX idx_mm3_relaying_messages_wallet ON mm3_relaying_messages(wallet);
+CREATE INDEX idx_mm3_relaying_messages_ts ON mm3_relaying_messages(ts DESC);
+CREATE INDEX idx_mm3_relaying_messages_created_at ON mm3_relaying_messages(created_at DESC);
+ALTER TABLE mm3_relaying_messages REPLICA IDENTITY FULL;
 
 -- ==============================================
 -- PHASE 4: CREATE FUNCTIONS
@@ -641,9 +641,9 @@ LIMIT 1;
 CREATE OR REPLACE VIEW token_value AS
 SELECT
   COALESCE(SUM(mining_reward), 0)
-    + COALESCE((SELECT commission_mm3 FROM mm3_market_state WHERE id = 1), 0)
-    + COALESCE((SELECT SUM(delta_mm3) FROM mm3_market_events), 0) AS total_eth,
-  COALESCE((SELECT commission_mm3 FROM mm3_market_state WHERE id = 1), 0) AS commission_pool_mm3,
+    + COALESCE((SELECT commission_mm3 FROM mm3_mining_state WHERE id = 1), 0)
+    + COALESCE((SELECT SUM(delta_mm3) FROM mm3_mining_events), 0) AS total_eth,
+  COALESCE((SELECT commission_mm3 FROM mm3_mining_state WHERE id = 1), 0) AS commission_pool_mm3,
   (SELECT COUNT(*) FROM games WHERE is_correct = TRUE) as total_correct_answers,
   (SELECT COUNT(DISTINCT wallet) FROM games) as total_players
 FROM games
@@ -662,7 +662,7 @@ WITH raw_events AS (
   GROUP BY date_trunc('hour', created_at)
   UNION ALL
   SELECT date_trunc('hour', created_at) AS hour, SUM(delta_mm3) AS delta_mm3
-  FROM mm3_market_events
+  FROM mm3_mining_events
   GROUP BY date_trunc('hour', created_at)
 ),
 hour_series AS (
@@ -832,7 +832,7 @@ BEGIN
         INSERT INTO mm3_pool_dispute_wallets(
           dispute_id, wallet, pool_code, side,
           level_snap, mm3_snap, eur_snap, usd_snap, cny_snap,
-          exec_snap, nftji_snap, market_nftji_snap, market_nftji_level_snap, has_penalty,
+          exec_snap, nftji_snap, mining_nftji_snap, mining_nftji_level_snap, has_penalty,
           eur_stake, mm3_stake,
           squeeze_nftji_equipped, squeeze_nftji_level
         )
@@ -846,9 +846,9 @@ BEGIN
            CASE WHEN pp.lucky_500_level >= 0 THEN pp.lucky_500_level + 1 ELSE 0 END +
            CASE WHEN pp.lucky_1000_level >= 0 THEN pp.lucky_1000_level + 1 ELSE 0 END +
            CASE WHEN pp.life_used THEN 1 ELSE 0 END),
-          pp.market_nftji_key,
-          CASE WHEN pp.market_nftji_key IS NOT NULL
-            THEN GREATEST(0, COALESCE((pp.market_nftji_levels->>pp.market_nftji_key)::integer, 0))
+          pp.mining_nftji_key,
+          CASE WHEN pp.mining_nftji_key IS NOT NULL
+            THEN GREATEST(0, COALESCE((pp.mining_nftji_levels->>pp.mining_nftji_key)::integer, 0))
             ELSE 0 END,
           v_has_penalty,
           ROUND(COALESCE(pp.eur_earned, 0) * 0.05, 4),
@@ -858,7 +858,7 @@ BEGIN
                WHEN sn.equipped = 'defense' THEN sn.defense_level
                ELSE -1 END
         FROM player_progress pp
-        LEFT JOIN mm3_squeeze_nftji sn ON sn.wallet = v_member
+        LEFT JOIN mm3_squeezing_nftji sn ON sn.wallet = v_member
         WHERE pp.wallet = v_member
         ON CONFLICT (dispute_id, wallet) DO NOTHING;
       END LOOP;
@@ -881,7 +881,7 @@ BEGIN
         INSERT INTO mm3_pool_dispute_wallets(
           dispute_id, wallet, pool_code, side,
           level_snap, mm3_snap, eur_snap, usd_snap, cny_snap,
-          exec_snap, nftji_snap, market_nftji_snap, market_nftji_level_snap, has_penalty,
+          exec_snap, nftji_snap, mining_nftji_snap, mining_nftji_level_snap, has_penalty,
           eur_stake, mm3_stake,
           squeeze_nftji_equipped, squeeze_nftji_level
         )
@@ -895,9 +895,9 @@ BEGIN
            CASE WHEN pp.lucky_500_level >= 0 THEN pp.lucky_500_level + 1 ELSE 0 END +
            CASE WHEN pp.lucky_1000_level >= 0 THEN pp.lucky_1000_level + 1 ELSE 0 END +
            CASE WHEN pp.life_used THEN 1 ELSE 0 END),
-          pp.market_nftji_key,
-          CASE WHEN pp.market_nftji_key IS NOT NULL
-            THEN GREATEST(0, COALESCE((pp.market_nftji_levels->>pp.market_nftji_key)::integer, 0))
+          pp.mining_nftji_key,
+          CASE WHEN pp.mining_nftji_key IS NOT NULL
+            THEN GREATEST(0, COALESCE((pp.mining_nftji_levels->>pp.mining_nftji_key)::integer, 0))
             ELSE 0 END,
           v_has_penalty,
           ROUND(COALESCE(pp.eur_earned, 0) * 0.05, 4),
@@ -907,7 +907,7 @@ BEGIN
                WHEN sn.equipped = 'defense' THEN sn.defense_level
                ELSE -1 END
         FROM player_progress pp
-        LEFT JOIN mm3_squeeze_nftji sn ON sn.wallet = v_member
+        LEFT JOIN mm3_squeezing_nftji sn ON sn.wallet = v_member
         WHERE pp.wallet = v_member
         ON CONFLICT (dispute_id, wallet) DO NOTHING;
       END LOOP;
@@ -986,7 +986,7 @@ BEGIN
   INSERT INTO mm3_pool_dispute_wallets(
     dispute_id, wallet, pool_code, side,
     level_snap, mm3_snap, eur_snap, usd_snap, cny_snap,
-    exec_snap, nftji_snap, market_nftji_snap, market_nftji_level_snap, has_penalty,
+    exec_snap, nftji_snap, mining_nftji_snap, mining_nftji_level_snap, has_penalty,
     eur_stake, mm3_stake,
     squeeze_nftji_equipped, squeeze_nftji_level
   )
@@ -1003,9 +1003,9 @@ BEGIN
      CASE WHEN pp.lucky_500_level >= 0 THEN pp.lucky_500_level + 1 ELSE 0 END +
      CASE WHEN pp.lucky_1000_level >= 0 THEN pp.lucky_1000_level + 1 ELSE 0 END +
      CASE WHEN pp.life_used THEN 1 ELSE 0 END),
-    pp.market_nftji_key,
-    CASE WHEN pp.market_nftji_key IS NOT NULL
-      THEN GREATEST(0, COALESCE((pp.market_nftji_levels->>pp.market_nftji_key)::integer, 0))
+    pp.mining_nftji_key,
+    CASE WHEN pp.mining_nftji_key IS NOT NULL
+      THEN GREATEST(0, COALESCE((pp.mining_nftji_levels->>pp.mining_nftji_key)::integer, 0))
       ELSE 0 END,
     v_has_penalty,
     ROUND(COALESCE(pp.eur_earned, 0) * 0.05, 4),
@@ -1015,7 +1015,7 @@ BEGIN
          WHEN sn.equipped = 'defense' THEN sn.defense_level
          ELSE -1 END
   FROM player_progress pp
-  LEFT JOIN mm3_squeeze_nftji sn ON sn.wallet = p_wallet
+  LEFT JOIN mm3_squeezing_nftji sn ON sn.wallet = p_wallet
   WHERE pp.wallet = p_wallet
   ON CONFLICT (dispute_id, wallet) DO NOTHING;
 
@@ -1069,7 +1069,7 @@ BEGIN
     COALESCE(SUM(mm3_snap), 0)       AS mm3_sum,
     COALESCE(SUM(eur_snap), 0)       AS eur_sum,
     COALESCE(SUM(nftji_snap), 0)     AS nftji_count,
-    COALESCE(SUM(market_nftji_level_snap + 1) FILTER (WHERE market_nftji_snap IS NOT NULL), 0) AS market_nftji_count,
+    COALESCE(SUM(mining_nftji_level_snap + 1) FILTER (WHERE mining_nftji_snap IS NOT NULL), 0) AS mining_nftji_count,
     COUNT(*) FILTER (WHERE has_penalty)  AS penalty_count,
     COALESCE(SUM(exec_snap), 0)      AS exec_count,
     COALESCE(SUM(CASE WHEN squeeze_nftji_equipped = 'attack' AND squeeze_nftji_level >= 0
@@ -1085,7 +1085,7 @@ BEGIN
     COALESCE(SUM(mm3_snap), 0)       AS mm3_sum,
     COALESCE(SUM(eur_snap), 0)       AS eur_sum,
     COALESCE(SUM(nftji_snap), 0)     AS nftji_count,
-    COALESCE(SUM(market_nftji_level_snap + 1) FILTER (WHERE market_nftji_snap IS NOT NULL), 0) AS market_nftji_count,
+    COALESCE(SUM(mining_nftji_level_snap + 1) FILTER (WHERE mining_nftji_snap IS NOT NULL), 0) AS mining_nftji_count,
     COUNT(*) FILTER (WHERE has_penalty)  AS penalty_count,
     COALESCE(SUM(exec_snap), 0)      AS exec_count,
     COALESCE(SUM(CASE WHEN squeeze_nftji_equipped = 'attack' AND squeeze_nftji_level >= 0
@@ -1105,7 +1105,7 @@ BEGIN
       + LN(v_ch.mm3_sum / v_ch.wallet_count + 1) * 20
       + (v_ch.exec_count::numeric / v_ch.wallet_count) * 12
       + (v_ch.nftji_count::numeric / v_ch.wallet_count) * 8
-      + (v_ch.market_nftji_count::numeric / v_ch.wallet_count) * 15
+      + (v_ch.mining_nftji_count::numeric / v_ch.wallet_count) * 15
       + (v_ch.squeeze_atk_sum::numeric / v_ch.wallet_count) * 20
       - (v_ch.penalty_count::numeric / v_ch.wallet_count) * 20;
   ELSE
@@ -1118,7 +1118,7 @@ BEGIN
       + LN(v_df.mm3_sum / v_df.wallet_count + 1) * 20
       + (v_df.exec_count::numeric / v_df.wallet_count) * 12
       + (v_df.nftji_count::numeric / v_df.wallet_count) * 8
-      + (v_df.market_nftji_count::numeric / v_df.wallet_count) * 15
+      + (v_df.mining_nftji_count::numeric / v_df.wallet_count) * 15
       + (v_df.squeeze_atk_sum::numeric / v_df.wallet_count) * 20
       - (v_df.penalty_count::numeric / v_df.wallet_count) * 20;
   ELSE
@@ -1148,7 +1148,7 @@ BEGIN
     ch_mm3_sum           = v_ch.mm3_sum,
     ch_eur_sum           = v_ch.eur_sum,
     ch_nftji_count       = v_ch.nftji_count,
-    ch_market_nftji_count = v_ch.market_nftji_count,
+    ch_mining_nftji_count = v_ch.mining_nftji_count,
     ch_penalty_count     = v_ch.penalty_count,
     ch_exec_count        = v_ch.exec_count,
     ch_score             = ROUND(v_ch_score, 4),
@@ -1158,7 +1158,7 @@ BEGIN
     df_mm3_sum           = v_df.mm3_sum,
     df_eur_sum           = v_df.eur_sum,
     df_nftji_count       = v_df.nftji_count,
-    df_market_nftji_count = v_df.market_nftji_count,
+    df_mining_nftji_count = v_df.mining_nftji_count,
     df_penalty_count     = v_df.penalty_count,
     df_exec_count        = v_df.exec_count,
     df_score             = ROUND(v_df_score, 4),
@@ -1355,7 +1355,7 @@ $$;
 -- Same type = level +1. Different type = swap equipped, level +1 for new type.
 -- Level starts at 0 on first acquisition.
 
-CREATE OR REPLACE FUNCTION public.mm3_squeeze_nftji_take(
+CREATE OR REPLACE FUNCTION public.mm3_squeezing_nftji_take(
   p_dispute_id BIGINT,
   p_wallet     TEXT
 )
@@ -1412,13 +1412,13 @@ BEGIN
 
   -- Get current NFTJI state for this wallet
   SELECT attack_level, defense_level INTO v_cur_atk, v_cur_def
-  FROM mm3_squeeze_nftji WHERE wallet = p_wallet;
+  FROM mm3_squeezing_nftji WHERE wallet = p_wallet;
 
   IF NOT FOUND THEN
     -- First ever drop for this wallet
     v_new_atk := CASE WHEN v_drop_type = 'attack'  THEN 0 ELSE -1 END;
     v_new_def := CASE WHEN v_drop_type = 'defense' THEN 0 ELSE -1 END;
-    INSERT INTO mm3_squeeze_nftji(wallet, equipped, attack_level, defense_level)
+    INSERT INTO mm3_squeezing_nftji(wallet, equipped, attack_level, defense_level)
     VALUES (p_wallet, v_drop_type, v_new_atk, v_new_def);
   ELSE
     IF v_drop_type = 'attack' THEN
@@ -1428,7 +1428,7 @@ BEGIN
       v_new_atk := v_cur_atk;
       v_new_def := CASE WHEN v_cur_def < 0 THEN 0 ELSE v_cur_def + 1 END;
     END IF;
-    UPDATE mm3_squeeze_nftji SET
+    UPDATE mm3_squeezing_nftji SET
       equipped      = v_drop_type,
       attack_level  = v_new_atk,
       defense_level = v_new_def,
@@ -1484,28 +1484,28 @@ ALTER TABLE games ENABLE ROW LEVEL SECURITY;
 ALTER TABLE math_problems ENABLE ROW LEVEL SECURITY;
 ALTER TABLE leaderboard_data ENABLE ROW LEVEL SECURITY;
 ALTER TABLE player_progress ENABLE ROW LEVEL SECURITY;
-ALTER TABLE mm3_market_state ENABLE ROW LEVEL SECURITY;
+ALTER TABLE mm3_mining_state ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mm3_macro_state ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mm3_wallet_presence ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mm3_wallet_pools ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mm3_wallet_pool_members ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mm3_wallet_pool_invitations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mm3_sell_transactions ENABLE ROW LEVEL SECURITY;
-ALTER TABLE mm3_market_events ENABLE ROW LEVEL SECURITY;
+ALTER TABLE mm3_mining_events ENABLE ROW LEVEL SECURITY;
 ALTER TABLE api_requests ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mm3_visual_state ENABLE ROW LEVEL SECURITY;
-ALTER TABLE mm3_market_blocks ENABLE ROW LEVEL SECURITY;
+ALTER TABLE mm3_mining_blocks ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mm3_mined_blocks ENABLE ROW LEVEL SECURITY;
-ALTER TABLE mm3_market_commands ENABLE ROW LEVEL SECURITY;
+ALTER TABLE mm3_mining_commands ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mm3_command_penalties ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mm3_hidden_cmd_executions ENABLE ROW LEVEL SECURITY;
-ALTER TABLE mm3_irc_messages ENABLE ROW LEVEL SECURITY;
+ALTER TABLE mm3_relaying_messages ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mm3_wallet_pool_cooldowns    ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mm3_pool_disputes            ENABLE ROW LEVEL SECURITY;
-ALTER TABLE mm3_squeeze_launches         ENABLE ROW LEVEL SECURITY;
+ALTER TABLE mm3_squeezing_launches         ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mm3_pool_dispute_votes       ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mm3_pool_dispute_wallets     ENABLE ROW LEVEL SECURITY;
-ALTER TABLE mm3_squeeze_nftji            ENABLE ROW LEVEL SECURITY;
+ALTER TABLE mm3_squeezing_nftji            ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mm3_chain_solve_attempts     ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mm3_game_winner              ENABLE ROW LEVEL SECURITY;
 
@@ -1538,8 +1538,8 @@ CREATE POLICY "public_insert_player_progress" ON player_progress FOR INSERT TO p
 DROP POLICY IF EXISTS "public_update_player_progress" ON player_progress;
 CREATE POLICY "public_update_player_progress" ON player_progress FOR UPDATE TO public USING (true) WITH CHECK (level >= 0 AND level <= 100);
 
-DROP POLICY IF EXISTS "public_read_mm3_market_state" ON mm3_market_state;
-CREATE POLICY "public_read_mm3_market_state" ON mm3_market_state FOR SELECT TO public USING (true);
+DROP POLICY IF EXISTS "public_read_mm3_mining_state" ON mm3_mining_state;
+CREATE POLICY "public_read_mm3_mining_state" ON mm3_mining_state FOR SELECT TO public USING (true);
 
 DROP POLICY IF EXISTS "public_read_mm3_macro_state" ON mm3_macro_state;
 CREATE POLICY "public_read_mm3_macro_state" ON mm3_macro_state FOR SELECT TO public USING (true);
@@ -1575,11 +1575,11 @@ CREATE POLICY "public_read_mm3_wallet_pool_invitations" ON mm3_wallet_pool_invit
 CREATE POLICY "public_insert_mm3_wallet_pool_invitations" ON mm3_wallet_pool_invitations FOR INSERT TO public WITH CHECK (wallet <> '' AND invited_by <> '' AND pool_code <> '');
 CREATE POLICY "public_update_mm3_wallet_pool_invitations" ON mm3_wallet_pool_invitations FOR UPDATE TO public USING (true) WITH CHECK (wallet <> '' AND invited_by <> '' AND pool_code <> '');
 
-DROP POLICY IF EXISTS "public_insert_mm3_market_state" ON mm3_market_state;
-CREATE POLICY "public_insert_mm3_market_state" ON mm3_market_state FOR INSERT TO public WITH CHECK (id = 1);
+DROP POLICY IF EXISTS "public_insert_mm3_mining_state" ON mm3_mining_state;
+CREATE POLICY "public_insert_mm3_mining_state" ON mm3_mining_state FOR INSERT TO public WITH CHECK (id = 1);
 
-DROP POLICY IF EXISTS "public_update_mm3_market_state" ON mm3_market_state;
-CREATE POLICY "public_update_mm3_market_state" ON mm3_market_state FOR UPDATE TO public USING (id = 1) WITH CHECK (id = 1);
+DROP POLICY IF EXISTS "public_update_mm3_mining_state" ON mm3_mining_state;
+CREATE POLICY "public_update_mm3_mining_state" ON mm3_mining_state FOR UPDATE TO public USING (id = 1) WITH CHECK (id = 1);
 
 DROP POLICY IF EXISTS "public_read_mm3_sell_transactions" ON mm3_sell_transactions;
 CREATE POLICY "public_read_mm3_sell_transactions" ON mm3_sell_transactions FOR SELECT TO public USING (true);
@@ -1587,11 +1587,11 @@ CREATE POLICY "public_read_mm3_sell_transactions" ON mm3_sell_transactions FOR S
 DROP POLICY IF EXISTS "public_insert_mm3_sell_transactions" ON mm3_sell_transactions;
 CREATE POLICY "public_insert_mm3_sell_transactions" ON mm3_sell_transactions FOR INSERT TO public WITH CHECK (level >= 0 AND level <= 100);
 
-DROP POLICY IF EXISTS "public_read_mm3_market_events" ON mm3_market_events;
-CREATE POLICY "public_read_mm3_market_events" ON mm3_market_events FOR SELECT TO public USING (true);
+DROP POLICY IF EXISTS "public_read_mm3_mining_events" ON mm3_mining_events;
+CREATE POLICY "public_read_mm3_mining_events" ON mm3_mining_events FOR SELECT TO public USING (true);
 
-DROP POLICY IF EXISTS "public_insert_mm3_market_events" ON mm3_market_events;
-CREATE POLICY "public_insert_mm3_market_events" ON mm3_market_events FOR INSERT TO public WITH CHECK (event_type IN ('life_continue', 'nftji_claim', 'market_buy', 'market_resell'));
+DROP POLICY IF EXISTS "public_insert_mm3_mining_events" ON mm3_mining_events;
+CREATE POLICY "public_insert_mm3_mining_events" ON mm3_mining_events FOR INSERT TO public WITH CHECK (event_type IN ('life_continue', 'nftji_claim', 'mining_buy', 'mining_resell'));
 
 -- API Requests policies
 DROP POLICY IF EXISTS "public_read_api_requests" ON api_requests;
@@ -1610,23 +1610,23 @@ CREATE POLICY "public_insert_visual_state" ON mm3_visual_state FOR INSERT TO ano
 DROP POLICY IF EXISTS "public_update_visual_state" ON mm3_visual_state;
 CREATE POLICY "public_update_visual_state" ON mm3_visual_state FOR UPDATE TO anon USING (id = 1) WITH CHECK (id = 1);
 
-DROP POLICY IF EXISTS "public_read_mm3_market_blocks" ON mm3_market_blocks;
-CREATE POLICY "public_read_mm3_market_blocks" ON mm3_market_blocks FOR SELECT TO public USING (true);
+DROP POLICY IF EXISTS "public_read_mm3_mining_blocks" ON mm3_mining_blocks;
+CREATE POLICY "public_read_mm3_mining_blocks" ON mm3_mining_blocks FOR SELECT TO public USING (true);
 
-DROP POLICY IF EXISTS "public_update_mm3_market_blocks" ON mm3_market_blocks;
-CREATE POLICY "public_update_mm3_market_blocks" ON mm3_market_blocks FOR UPDATE TO public USING (true) WITH CHECK (true);
+DROP POLICY IF EXISTS "public_update_mm3_mining_blocks" ON mm3_mining_blocks;
+CREATE POLICY "public_update_mm3_mining_blocks" ON mm3_mining_blocks FOR UPDATE TO public USING (true) WITH CHECK (true);
 
 DROP POLICY IF EXISTS "public_read_mm3_mined_blocks" ON mm3_mined_blocks;
 CREATE POLICY "public_read_mm3_mined_blocks" ON mm3_mined_blocks FOR SELECT TO public USING (true);
 
-DROP POLICY IF EXISTS "public_read_mm3_market_commands" ON mm3_market_commands;
-CREATE POLICY "public_read_mm3_market_commands" ON mm3_market_commands FOR SELECT TO anon USING (true);
+DROP POLICY IF EXISTS "public_read_mm3_mining_commands" ON mm3_mining_commands;
+CREATE POLICY "public_read_mm3_mining_commands" ON mm3_mining_commands FOR SELECT TO anon USING (true);
 
-DROP POLICY IF EXISTS "public_insert_mm3_market_commands" ON mm3_market_commands;
-CREATE POLICY "public_insert_mm3_market_commands" ON mm3_market_commands FOR INSERT TO anon WITH CHECK (wallet <> '' AND nftji_key <> '' AND command <> '');
+DROP POLICY IF EXISTS "public_insert_mm3_mining_commands" ON mm3_mining_commands;
+CREATE POLICY "public_insert_mm3_mining_commands" ON mm3_mining_commands FOR INSERT TO anon WITH CHECK (wallet <> '' AND nftji_key <> '' AND command <> '');
 
-DROP POLICY IF EXISTS "public_update_mm3_market_commands" ON mm3_market_commands;
-CREATE POLICY "public_update_mm3_market_commands" ON mm3_market_commands FOR UPDATE TO anon USING (wallet <> '') WITH CHECK (wallet <> '');
+DROP POLICY IF EXISTS "public_update_mm3_mining_commands" ON mm3_mining_commands;
+CREATE POLICY "public_update_mm3_mining_commands" ON mm3_mining_commands FOR UPDATE TO anon USING (wallet <> '') WITH CHECK (wallet <> '');
 
 DROP POLICY IF EXISTS "public_read_mm3_command_penalties" ON mm3_command_penalties;
 CREATE POLICY "public_read_mm3_command_penalties" ON mm3_command_penalties FOR SELECT TO public USING (true);
@@ -1644,14 +1644,14 @@ DROP POLICY IF EXISTS "public_insert_mm3_hidden_cmd_executions" ON mm3_hidden_cm
 CREATE POLICY "public_insert_mm3_hidden_cmd_executions" ON mm3_hidden_cmd_executions FOR INSERT TO public WITH CHECK (wallet <> '' AND block_key <> '');
 
 -- IRC Messages policies
-DROP POLICY IF EXISTS "public_read_mm3_irc_messages" ON mm3_irc_messages;
-CREATE POLICY "public_read_mm3_irc_messages" ON mm3_irc_messages FOR SELECT TO public USING (true);
+DROP POLICY IF EXISTS "public_read_mm3_relaying_messages" ON mm3_relaying_messages;
+CREATE POLICY "public_read_mm3_relaying_messages" ON mm3_relaying_messages FOR SELECT TO public USING (true);
 
-DROP POLICY IF EXISTS "public_insert_mm3_irc_messages" ON mm3_irc_messages;
-CREATE POLICY "public_insert_mm3_irc_messages" ON mm3_irc_messages FOR INSERT TO public WITH CHECK (wallet <> '' AND text <> '');
+DROP POLICY IF EXISTS "public_insert_mm3_relaying_messages" ON mm3_relaying_messages;
+CREATE POLICY "public_insert_mm3_relaying_messages" ON mm3_relaying_messages FOR INSERT TO public WITH CHECK (wallet <> '' AND text <> '');
 
-DROP POLICY IF EXISTS "public_delete_mm3_irc_messages" ON mm3_irc_messages;
-CREATE POLICY "public_delete_mm3_irc_messages" ON mm3_irc_messages FOR DELETE TO public USING (true);
+DROP POLICY IF EXISTS "public_delete_mm3_relaying_messages" ON mm3_relaying_messages;
+CREATE POLICY "public_delete_mm3_relaying_messages" ON mm3_relaying_messages FOR DELETE TO public USING (true);
 
 DROP POLICY IF EXISTS "public_read_mm3_wallet_pool_cooldowns" ON mm3_wallet_pool_cooldowns;
 CREATE POLICY "public_read_mm3_wallet_pool_cooldowns" ON mm3_wallet_pool_cooldowns FOR SELECT TO public USING (true);
@@ -1659,8 +1659,8 @@ CREATE POLICY "public_read_mm3_wallet_pool_cooldowns" ON mm3_wallet_pool_cooldow
 DROP POLICY IF EXISTS "public_read_mm3_pool_disputes"        ON mm3_pool_disputes;
 CREATE POLICY "public_read_mm3_pool_disputes" ON mm3_pool_disputes FOR SELECT TO public USING (true);
 
-DROP POLICY IF EXISTS "public_read_mm3_squeeze_launches" ON mm3_squeeze_launches;
-CREATE POLICY "public_read_mm3_squeeze_launches" ON mm3_squeeze_launches FOR SELECT TO public USING (true);
+DROP POLICY IF EXISTS "public_read_mm3_squeezing_launches" ON mm3_squeezing_launches;
+CREATE POLICY "public_read_mm3_squeezing_launches" ON mm3_squeezing_launches FOR SELECT TO public USING (true);
 
 DROP POLICY IF EXISTS "public_read_mm3_pool_dispute_votes"   ON mm3_pool_dispute_votes;
 CREATE POLICY "public_read_mm3_pool_dispute_votes" ON mm3_pool_dispute_votes FOR SELECT TO public USING (true);
@@ -1668,8 +1668,8 @@ CREATE POLICY "public_read_mm3_pool_dispute_votes" ON mm3_pool_dispute_votes FOR
 DROP POLICY IF EXISTS "public_read_mm3_pool_dispute_wallets" ON mm3_pool_dispute_wallets;
 CREATE POLICY "public_read_mm3_pool_dispute_wallets" ON mm3_pool_dispute_wallets FOR SELECT TO public USING (true);
 
-DROP POLICY IF EXISTS "public_read_mm3_squeeze_nftji" ON mm3_squeeze_nftji;
-CREATE POLICY "public_read_mm3_squeeze_nftji" ON mm3_squeeze_nftji FOR SELECT TO public USING (true);
+DROP POLICY IF EXISTS "public_read_mm3_squeezing_nftji" ON mm3_squeezing_nftji;
+CREATE POLICY "public_read_mm3_squeezing_nftji" ON mm3_squeezing_nftji FOR SELECT TO public USING (true);
 
 -- daily_task_claims
 DROP POLICY IF EXISTS "public_read_daily_task_claims" ON daily_task_claims;
@@ -1722,7 +1722,7 @@ ON CONFLICT (id) DO UPDATE SET
   ticker_message_es = EXCLUDED.ticker_message_es,
   updated_at        = NOW();
 
-INSERT INTO mm3_market_blocks (
+INSERT INTO mm3_mining_blocks (
   block_key,
   grid_row,
   grid_col,
@@ -1863,14 +1863,14 @@ ON CONFLICT (block_key) DO UPDATE SET
   title_es         = EXCLUDED.title_es,
   answer_hash      = EXCLUDED.answer_hash,
   price_eur        = EXCLUDED.price_eur,
-  short_url        = COALESCE(NULLIF(mm3_market_blocks.short_url, ''), EXCLUDED.short_url),
+  short_url        = COALESCE(NULLIF(mm3_mining_blocks.short_url, ''), EXCLUDED.short_url),
   is_active        = EXCLUDED.is_active,
   market_command   = EXCLUDED.market_command,
   formula_x        = EXCLUDED.formula_x,
   formula_result_5d = EXCLUDED.formula_result_5d,
   updated_at       = NOW();
 
-INSERT INTO mm3_market_blocks (
+INSERT INTO mm3_mining_blocks (
   block_key,
   grid_row,
   grid_col,
@@ -1901,11 +1901,11 @@ ON CONFLICT (block_key) DO UPDATE SET
   title_es             = EXCLUDED.title_es,
   answer_hash          = EXCLUDED.answer_hash,
   price_eur            = EXCLUDED.price_eur,
-  short_url            = COALESCE(mm3_market_blocks.short_url, EXCLUDED.short_url),
+  short_url            = COALESCE(mm3_mining_blocks.short_url, EXCLUDED.short_url),
   is_active            = EXCLUDED.is_active,
   updated_at           = NOW();
 
-UPDATE mm3_market_blocks AS b
+UPDATE mm3_mining_blocks AS b
 SET market_command = v.market_command,
     formula_x = 123,
     formula_result_5d = v.formula_result_5d,
@@ -1960,26 +1960,26 @@ GRANT SELECT, INSERT           ON games                        TO anon;
 GRANT SELECT                   ON math_problems                TO anon;
 GRANT SELECT                   ON leaderboard_data             TO anon;
 GRANT SELECT, INSERT, UPDATE   ON player_progress              TO anon;
-GRANT SELECT, INSERT, UPDATE   ON mm3_market_state             TO anon;
+GRANT SELECT, INSERT, UPDATE   ON mm3_mining_state             TO anon;
 GRANT SELECT, INSERT, UPDATE   ON mm3_macro_state              TO anon;
 GRANT SELECT, INSERT, UPDATE   ON mm3_wallet_presence          TO anon;
 GRANT SELECT, INSERT, UPDATE   ON mm3_wallet_pools             TO anon;
 GRANT SELECT, INSERT           ON mm3_wallet_pool_members      TO anon;
 GRANT SELECT, INSERT, UPDATE   ON mm3_wallet_pool_invitations  TO anon;
 GRANT SELECT, INSERT           ON mm3_sell_transactions        TO anon;
-GRANT SELECT, INSERT           ON mm3_market_events            TO anon;
+GRANT SELECT, INSERT           ON mm3_mining_events            TO anon;
 GRANT SELECT, INSERT           ON api_requests                 TO anon;
 GRANT SELECT, INSERT, UPDATE   ON mm3_visual_state             TO anon;
-GRANT SELECT, UPDATE           ON mm3_market_blocks            TO anon;
+GRANT SELECT, UPDATE           ON mm3_mining_blocks            TO anon;
 GRANT SELECT                   ON mm3_mined_blocks             TO anon;
-GRANT SELECT, INSERT, UPDATE   ON mm3_market_commands          TO anon;
+GRANT SELECT, INSERT, UPDATE   ON mm3_mining_commands          TO anon;
 GRANT SELECT, INSERT, UPDATE   ON mm3_command_penalties        TO anon;
 GRANT SELECT, INSERT           ON mm3_hidden_cmd_executions    TO anon;
-GRANT SELECT, INSERT           ON mm3_irc_messages             TO anon;
-GRANT DELETE                   ON mm3_irc_messages             TO anon;
+GRANT SELECT, INSERT           ON mm3_relaying_messages             TO anon;
+GRANT DELETE                   ON mm3_relaying_messages             TO anon;
 GRANT SELECT, INSERT           ON daily_task_claims            TO anon;
-GRANT SELECT                   ON mm3_squeeze_launches         TO anon;
-GRANT SELECT                   ON mm3_squeeze_nftji            TO anon;
+GRANT SELECT                   ON mm3_squeezing_launches         TO anon;
+GRANT SELECT                   ON mm3_squeezing_nftji            TO anon;
 
 -- Views
 GRANT SELECT ON top_positive_miner       TO anon;
@@ -2043,9 +2043,9 @@ COMMIT;
 --        usd_earned           = 0,
 --        cny_earned           = 0,
 --        wallet_emojis        = '{}'::text[],
---        market_nftji_key     = NULL,
---        market_nftji_price   = 0,
---        market_nftji_since   = NULL,
+--        mining_nftji_key     = NULL,
+--        mining_nftji_price   = 0,
+--        mining_nftji_since   = NULL,
 --        life_used            = false,
 --        lucky_50_claimed     = false,
 --        lucky_100_claimed    = false,
@@ -2058,7 +2058,7 @@ COMMIT;
 --        updated_at           = now();
 --
 -- -- 4. Active market commands
--- DELETE FROM mm3_market_commands;
+-- DELETE FROM mm3_mining_commands;
 --
 -- -- 5. Penalties, hidden executions, daily claims
 -- DELETE FROM mm3_command_penalties;
@@ -2093,13 +2093,13 @@ COMMIT;
 -- DELETE FROM mm3_sell_transactions;
 --
 -- -- 7. Market events
--- DELETE FROM mm3_market_events;
+-- DELETE FROM mm3_mining_events;
 --
 -- -- 8. IRC messages: donations/realchain traces preserved
--- -- DELETE FROM mm3_irc_messages;
+-- -- DELETE FROM mm3_relaying_messages;
 --
 -- -- 9. Trade commissions
--- UPDATE mm3_market_state
+-- UPDATE mm3_mining_state
 -- SET    commission_mm3 = 0,
 --        commission_cny = 0,
 --        commission_eur = 0,
@@ -2115,7 +2115,7 @@ COMMIT;
 -- WHERE  id = 1;
 --
 -- -- 10. Market NFTJI blocks: reset ownership
--- UPDATE mm3_market_blocks
+-- UPDATE mm3_mining_blocks
 -- SET    first_purchased_at = NULL,
 --        claimed_by         = NULL,
 --        claimed_source     = NULL,

@@ -1,7 +1,7 @@
 export const dynamic = 'force-dynamic';
 
 import { createClient } from '@supabase/supabase-js';
-import { insertSqueezeIrcTrace } from '@/lib/squeeze-irc';
+import { insertSqueezeIrcTrace } from '@/lib/squeezing-relay';
 
 export async function POST(req) {
   let body;

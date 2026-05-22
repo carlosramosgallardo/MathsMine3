@@ -5,7 +5,7 @@ import supabase from '@/lib/supabaseClient';
 import { normalizeMacroState } from '@/lib/mm3-macro';
 import { useI18n } from '@/lib/i18n-context';
 import { useDice } from '@/lib/dice-context';
-import { useIrcPresence } from '@/lib/irc-presence-context';
+import { useIrcPresence } from '@/lib/relaying-presence-context';
 
 export default function GlobalPulseBar() {
   const { language } = useI18n();

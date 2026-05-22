@@ -26,7 +26,7 @@ export async function GET(req) {
     { data: tvRow },
   ] = await Promise.all([
     supabase.from('mm3_game_winner').select('wallet, won_at').eq('id', 1).maybeSingle(),
-    supabase.from('mm3_market_events').select('id', { count: 'exact', head: true }),
+    supabase.from('mm3_mining_events').select('id', { count: 'exact', head: true }),
     supabase.from('mm3_mined_blocks').select('id', { count: 'exact', head: true }),
     supabase.from('token_value').select('total_eth').maybeSingle(),
   ]);

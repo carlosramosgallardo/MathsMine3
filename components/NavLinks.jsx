@@ -13,19 +13,19 @@ export default function NavLinks({ className = '' }) {
   const { t } = useI18n()
 
   const links = [
-    { href: '/',          label: t('nav.play') },
-    { href: '/market',    label: t('nav.podcast') },
-    { href: '/trade-mm3', label: t('nav.trade') },
-    { href: '/ranking',   label: t('nav.leaderboard') },
-    { href: '/squeeze',   label: t('nav.squeeze') },
-    { href: '/irc',       label: t('nav.irc') },
+    { href: '/',          label: t('nav.training') },
+    { href: '/mining',    label: t('nav.mining') },
+    { href: '/trading', label: t('nav.trading') },
+    { href: '/ranking',   label: t('nav.ranking') },
+    { href: '/squeezing',   label: t('nav.squeezing') },
+    { href: '/relaying',       label: t('nav.relaying') },
   ]
 
   return (
     <div className={`flex w-max items-center justify-center gap-0 mx-auto ${className}`}>
       {links.map(({ href, label }) => {
         const isActive = pathname === href
-        if (href === '/market') {
+        if (href === '/mining') {
           return (
             <a
               key={href}

@@ -4,10 +4,10 @@ export const maxDuration = 60;
 import { createClient } from '@supabase/supabase-js';
 import { getSellQuote, getBuyQuote, getSellRateCny, getCommissionRate, CNY_TO_EUR, CNY_TO_USD, clampLevel } from '@/lib/sell-offer';
 import { WALLET_DECORATIONS, SQUEEZE_NFTJIS, appendWalletDecoration, getWalletMarketDelta, MARKET_EVENT_TYPE_LIFE } from '@/lib/wallet-decorations';
-import { marketCommandFromBlock, computeMarketCommandCode, getUtcDayWindow } from '@/lib/market-commands';
+import { marketCommandFromBlock, computeMarketCommandCode, getUtcDayWindow } from '@/lib/mining-commands';
 import { getChallengerRegistrationState, SQUEEZE_REGISTER_MS } from '@/lib/squeeze-transitions';
 import { getDiceState } from '@/lib/dice';
-import { insertSqueezeIrcTrace } from '@/lib/squeeze-irc';
+import { insertSqueezeIrcTrace } from '@/lib/squeezing-relay';
 import {
   MM3_BLOCK_CHAIN_REQUIREMENTS,
   MM3_BLOCK_REQUIREMENT_BY_HEX,
@@ -37,7 +37,7 @@ const BOT_POOL_MAP = new Map([
 const BOT_STRATEGIES = new Map([
   ['0xcab10d0e0650d45cb0b7482370a1ca93d5bf5528', 'sell_mm3'],   // aggressive seller
   ['0xcb4ccfa7de7bf861ff0383b668e682d2ee20e202', 'buy_mm3'],    // accumulator / buyer
-  ['0xd6c6c15060b27406d956c7e99e520cc810b44233', 'market_buy'], // premium market collector
+  ['0xd6c6c15060b27406d956c7e99e520cc810b44233', 'mining_buy'], // premium market collector
   ['0xd89413f5f444cd420b448cda3bc096ea9c46e8ab', 'market_sell'],// market flipper
 ]);
 
@@ -45,7 +45,7 @@ const BOT_STRATEGIES = new Map([
 const STRATEGY_SQUEEZE_PROB = {
   sell_mm3:    0.90,
   market_sell: 0.80,
-  market_buy:  0.55,
+  mining_buy:  0.55,
   buy_mm3:     0.15,
 };
 
@@ -61,7 +61,7 @@ const SQUEEZE_DROP_SPECIALIZATION = new Map([
 const STRATEGY_NFTJI_PAYMENT = new Map([
   ['sell_mm3',    'money'],  // earns EUR selling MM3 → buys money NFTJIs
   ['buy_mm3',     'mm3'],    // accumulates MM3 → buys mm3 NFTJIs
-  ['market_buy',  'money'],  // collector → money NFTJIs
+  ['mining_buy',  'money'],  // collector → money NFTJIs
   ['market_sell', 'mm3'],    // flipper → mm3 NFTJIs
 ]);
 
@@ -76,7 +76,7 @@ const POOL_TIME_WINDOWS = {
 const STRATEGY_TRADE_WINDOWS = {
   sell_mm3:    [[0, 12]],
   market_sell: [[6, 18]],
-  market_buy:  [[12, 24]],
+  mining_buy:  [[12, 24]],
   buy_mm3:     [[18, 24], [0, 6]],
 };
 
@@ -171,7 +171,7 @@ function getReviveCostOption(meta) {
 async function getSqueezePoolLaunchInfo(supabase, challengerPool) {
   const windowStart = new Date(Date.now() - SQUEEZE_LAUNCH_WINDOW_MS).toISOString();
   const { data } = await supabase
-    .from('mm3_squeeze_launches')
+    .from('mm3_squeezing_launches')
     .select('created_at')
     .eq('challenger_pool_code', String(challengerPool || '').toUpperCase())
     .gte('created_at', windowStart)
@@ -186,7 +186,7 @@ async function getSqueezePoolLaunchInfo(supabase, challengerPool) {
 async function getSqueezeWalletLaunchCount(supabase, wallet) {
   const windowStart = new Date(Date.now() - SQUEEZE_LAUNCH_WINDOW_MS).toISOString();
   const { count } = await supabase
-    .from('mm3_squeeze_launches')
+    .from('mm3_squeezing_launches')
     .select('id', { count: 'exact', head: true })
     .eq('wallet', normalizeWallet(wallet))
     .gte('created_at', windowStart);
@@ -222,7 +222,7 @@ function getDailyNftjiTarget({ buyableBlocks, currentMarketKey, currentMarketPri
   if (affordable.length === 0) return null;
 
   let ranked;
-  if (strategy === 'market_buy') {
+  if (strategy === 'mining_buy') {
     // Collector: prefer highest-level / most expensive
     ranked = [...affordable].sort((a, b) => {
       const la = Number(marketLevels?.[a.block_key] ?? -1);
@@ -259,7 +259,7 @@ function getDailyNftjiTarget({ buyableBlocks, currentMarketKey, currentMarketPri
 async function insertBotPresenceTrace(supabase, wallet, tone) {
   const normalized = normalizeWallet(wallet);
   if (!normalized || !['join', 'leave'].includes(tone)) return;
-  await supabase.from('mm3_irc_messages').insert({
+  await supabase.from('mm3_relaying_messages').insert({
     wallet: 'system',
     text: `${normalized} ${tone === 'join' ? 'entered relay' : 'left relay'}`,
     ts: Date.now(),
@@ -486,7 +486,7 @@ async function autoClaimBotSqueezeDrops(supabase) {
     const dropSpec = SQUEEZE_DROP_SPECIALIZATION.get(normalizeWallet(row.wallet)) || 'both';
     if (dropSpec !== 'both' && dispute.drop_type !== dropSpec) continue;
 
-    const { data } = await supabase.rpc('mm3_squeeze_nftji_take', {
+    const { data } = await supabase.rpc('mm3_squeezing_nftji_take', {
       p_dispute_id: row.dispute_id,
       p_wallet: row.wallet,
     });
@@ -516,7 +516,7 @@ async function autoClaimBotSqueezeDrops(supabase) {
       const squeezeDice = getDiceState();
       const squeezeDm = squeezeDice.active ? squeezeDice.modifier : 0;
       const squeezeDropDelta = shouldFlip ? -2 * totalMm3 * (1 + squeezeDm) : 0;
-      await supabase.from('mm3_market_events').insert({
+      await supabase.from('mm3_mining_events').insert({
         wallet: row.wallet,
         event_type: 'nftji_claim',
         delta_mm3: squeezeDropDelta,
@@ -695,7 +695,7 @@ async function maybeLaunchBotSqueeze(supabase) {
   }
   if (!error && !data?.error) {
     if (data?.proposing && data?.dispute_id) {
-      await supabase.from('mm3_squeeze_launches').insert({
+      await supabase.from('mm3_squeezing_launches').insert({
         wallet: challenger.wallet,
         challenger_pool_code: challenger.poolCode,
         defender_pool_code: defender.poolCode,
@@ -747,7 +747,7 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
     { data: marketBlocks },
   ] = await Promise.all([
     supabase.from('player_progress')
-      .select('level, mm3_sold, eur_earned, usd_earned, cny_earned, wallet_emojis, life_used, lucky_50_claimed, lucky_100_claimed, lucky_500_claimed, lucky_1000_claimed, lucky_50_level, lucky_100_level, lucky_500_level, lucky_1000_level, market_nftji_key, market_nftji_price, market_nftji_levels')
+      .select('level, mm3_sold, eur_earned, usd_earned, cny_earned, wallet_emojis, life_used, lucky_50_claimed, lucky_100_claimed, lucky_500_claimed, lucky_1000_claimed, lucky_50_level, lucky_100_level, lucky_500_level, lucky_1000_level, mining_nftji_key, mining_nftji_price, mining_nftji_levels')
       .eq('wallet', wallet).maybeSingle(),
     supabase.from('leaderboard_data')
       .select('total_eth').eq('wallet', wallet).maybeSingle(),
@@ -762,7 +762,7 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
     supabase.from('math_problems')
       .select('id, question, correct_answer, difficulty, problem_type')
       .limit(200),
-    supabase.from('mm3_market_blocks')
+    supabase.from('mm3_mining_blocks')
       .select('block_key, emoji, price_eur, is_active, market_command, grid_row, grid_col, title_en, first_purchased_at')
       .order('price_eur', { ascending: true }),
   ]);
@@ -961,7 +961,7 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
         const marketDelta = getWalletMarketDelta(d.emoji);
         if (marketDelta !== 0) {
           const dropDelta = Math.abs(totalMm3Global * marketDelta);
-          await supabase.from('mm3_market_events').insert({
+          await supabase.from('mm3_mining_events').insert({
             wallet, event_type: 'nftji_claim',
             delta_mm3: dropDelta, emoji: d.emoji,
           });
@@ -975,7 +975,7 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
             if (l > 0) levelUpDelta += totalMm3Global * basePct * l;
           }
           if (levelUpDelta > 0) {
-            await supabase.from('mm3_market_events').insert({
+            await supabase.from('mm3_mining_events').insert({
               wallet, event_type: 'nftji_level_up',
               delta_mm3: levelUpDelta, emoji: d.emoji,
             });
@@ -993,7 +993,7 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
         .maybeSingle();
       const totalMm3Global = Number(tokenValueRow?.total_eth) || 0;
       const lifeDelta = -Math.abs(totalMm3Global * 0.25);
-      await supabase.from('mm3_market_events').insert({
+      await supabase.from('mm3_mining_events').insert({
         wallet,
         event_type: MARKET_EVENT_TYPE_LIFE,
         delta_mm3: lifeDelta,
@@ -1018,9 +1018,9 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
         return !!marketCommandFromBlock(b);
       })
     : [];
-  const preTradeMarketKey = progressRow?.market_nftji_key || null;
-  const preTradeMarketPrice = Number(progressRow?.market_nftji_price) || 0;
-  const preTradeMarketLevels = progressRow?.market_nftji_levels || {};
+  const preTradeMarketKey = progressRow?.mining_nftji_key || null;
+  const preTradeMarketPrice = Number(progressRow?.mining_nftji_price) || 0;
+  const preTradeMarketLevels = progressRow?.mining_nftji_levels || {};
   const nftjiPayment = STRATEGY_NFTJI_PAYMENT.get(strategy) || 'money';
   const preTradeRateCny = getSellRateCny(level);
   const dailyNftjiTarget = getDailyNftjiTarget({
@@ -1088,8 +1088,8 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
           created_at: new Date(Date.now() + tradesTodayCount * 120_000).toISOString(),
         });
 
-        await supabase.from('mm3_market_events').insert({
-          wallet, event_type: 'market_buy', delta_mm3: buyQuote.grossMm3, emoji: '📈',
+        await supabase.from('mm3_mining_events').insert({
+          wallet, event_type: 'mining_buy', delta_mm3: buyQuote.grossMm3, emoji: '📈',
         });
         mm3GlobalDelta += buyQuote.grossMm3;
 
@@ -1116,14 +1116,14 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
         botFunds.usd_earned = Math.max(0, botFunds.usd_earned - spentUsd);
       }
     } else if (availableMm3 > 0.000001) {
-      // ── SELL MM3 strategy (sell_mm3, market_buy, market_sell) ──
+      // ── SELL MM3 strategy (sell_mm3, mining_buy, market_sell) ──
       let currentEur = botFunds.eur_earned;
       let currentCny = botFunds.cny_earned;
       let currentUsd = botFunds.usd_earned;
       let currentMm3Sold = mm3Sold;
 
       // Bear keeps minimal reserve; Collector holds half; Flipper keeps a quarter
-      const reserveFraction = strategy === 'market_buy' ? 0.50 : strategy === 'sell_mm3' ? 0.15 : 0.25;
+      const reserveFraction = strategy === 'mining_buy' ? 0.50 : strategy === 'sell_mm3' ? 0.15 : 0.25;
       const mm3Reserve = availableMm3 * reserveFraction;
 
       let tradesThisTick = 0;
@@ -1157,8 +1157,8 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
           created_at: new Date(Date.now() + tradesTodayCount * 120_000).toISOString(),
         });
 
-        await supabase.from('mm3_market_events').insert({
-          wallet, event_type: 'market_resell', delta_mm3: -sellMm3, emoji: '📉',
+        await supabase.from('mm3_mining_events').insert({
+          wallet, event_type: 'mining_resell', delta_mm3: -sellMm3, emoji: '📉',
         });
         mm3GlobalDelta += -sellMm3;
 
@@ -1216,22 +1216,22 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
   }
 
   // ── MARKET NFTJI (buy / upgrade+resell) ──────────────────
-  let currentMarketKey = progressRow?.market_nftji_key || null;
-  let currentMarketPrice = Number(progressRow?.market_nftji_price) || 0;
+  let currentMarketKey = progressRow?.mining_nftji_key || null;
+  let currentMarketPrice = Number(progressRow?.mining_nftji_price) || 0;
   let didBuyOrResell = false;
 
   // Bots prefer dice window for market ops; skip most ticks when inactive
   if (marketBlocks && marketBlocks.length > 0 && (diceState.active || Math.random() < 0.20)) {
     const { data: freshProg } = await supabase
       .from('player_progress')
-      .select('eur_earned, cny_earned, usd_earned, mm3_sold, market_nftji_levels')
+      .select('eur_earned, cny_earned, usd_earned, mm3_sold, mining_nftji_levels')
       .eq('wallet', wallet)
       .maybeSingle();
 
     let botEur = Number(freshProg?.eur_earned) || 0;
     let botCny = Number(freshProg?.cny_earned) || 0;
     let botUsd = Number(freshProg?.usd_earned) || 0;
-    const currentLevels = freshProg?.market_nftji_levels || progressRow?.market_nftji_levels || {};
+    const currentLevels = freshProg?.mining_nftji_levels || progressRow?.mining_nftji_levels || {};
     const rateCny = getSellRateCny(level);
 
     // Use the pre-computed daily target; only switch if not already holding today's block
@@ -1266,7 +1266,7 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
         const returnCny = returnEur / CNY_TO_EUR;
         const returnUsd = returnCny * CNY_TO_USD;
 
-        await supabase.from('mm3_market_commands')
+        await supabase.from('mm3_mining_commands')
           .update({ reset_at: new Date(Date.now() - 1000).toISOString() })
           .eq('wallet', wallet).eq('nftji_key', currentMarketKey).gt('reset_at', now);
         await supabase.from('mm3_command_penalties')
@@ -1275,14 +1275,14 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
 
         const resoldBlock = marketBlocks.find((b) => b.block_key === currentMarketKey);
         const resellDelta = -(returnEur / (rateCny * CNY_TO_EUR));
-        await supabase.from('mm3_market_events').insert({
-          wallet, event_type: 'market_resell', delta_mm3: resellDelta,
+        await supabase.from('mm3_mining_events').insert({
+          wallet, event_type: 'mining_resell', delta_mm3: resellDelta,
           emoji: String(resoldBlock?.emoji || currentMarketKey),
         });
         mm3GlobalDelta += resellDelta;
 
         botEur += returnEur; botCny += returnCny; botUsd += returnUsd;
-        actions.push({ type: 'market_resell', blockKey: currentMarketKey, blockLabel: getMarketBlockLabel(resoldBlock, currentMarketKey), returnEur });
+        actions.push({ type: 'mining_resell', blockKey: currentMarketKey, blockLabel: getMarketBlockLabel(resoldBlock, currentMarketKey), returnEur });
         didBuyOrResell = true;
       }
 
@@ -1303,9 +1303,9 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
           ? { mm3_sold: freshMm3Sold + mm3PurchaseAmount }
           : { eur_earned: botEur, cny_earned: botCny, usd_earned: botUsd }
         ),
-        market_nftji_key: targetBlock.block_key, market_nftji_price: newPrice,
-        market_nftji_since: now,
-        market_nftji_levels: {
+        mining_nftji_key: targetBlock.block_key, mining_nftji_price: newPrice,
+        mining_nftji_since: now,
+        mining_nftji_levels: {
           ...currentLevels,
           [targetBlock.block_key]: Number(currentLevels[targetBlock.block_key] ?? -1) + 1,
         },
@@ -1314,8 +1314,8 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
       }, { onConflict: 'wallet', ignoreDuplicates: false });
       checkAndAwardChainWinner(supabase).catch(() => {});
 
-      await supabase.from('mm3_market_events').insert({
-        wallet, event_type: 'market_buy', delta_mm3: buyDelta,
+      await supabase.from('mm3_mining_events').insert({
+        wallet, event_type: 'mining_buy', delta_mm3: buyDelta,
         emoji: String(targetBlock.emoji || targetBlock.block_key),
       });
       mm3GlobalDelta += buyDelta;
@@ -1326,7 +1326,7 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
         const totalMm3ForLevel = Number(tvRow?.total_eth) || 0;
         const marketLevelUpDelta = totalMm3ForLevel * MARKET_NFTJI_LEVEL_BASE_PCT * marketNewLevel;
         if (marketLevelUpDelta > 0) {
-          await supabase.from('mm3_market_events').insert({
+          await supabase.from('mm3_mining_events').insert({
             wallet, event_type: 'nftji_level_up',
             delta_mm3: marketLevelUpDelta, emoji: String(targetBlock.emoji || targetBlock.block_key),
           });
@@ -1335,14 +1335,14 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
       }
 
       if (!targetBlock.first_purchased_at) {
-        await supabase.from('mm3_market_blocks')
+        await supabase.from('mm3_mining_blocks')
           .update({ first_purchased_at: now }).eq('block_key', targetBlock.block_key);
       }
 
       currentMarketKey = targetBlock.block_key;
       currentMarketPrice = newPrice;
       didBuyOrResell = true;
-      actions.push({ type: 'market_buy', blockKey: targetBlock.block_key, blockLabel: getMarketBlockLabel(targetBlock, targetBlock.block_key), priceEur: newPrice, isMm3Payment, mm3Amount: mm3PurchaseAmount });
+      actions.push({ type: 'mining_buy', blockKey: targetBlock.block_key, blockLabel: getMarketBlockLabel(targetBlock, targetBlock.block_key), priceEur: newPrice, isMm3Payment, mm3Amount: mm3PurchaseAmount });
     }
   }
 
@@ -1355,7 +1355,7 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
       const cmdEntry = marketCommandFromBlock(ownedBlock);
       if (cmdEntry) {
         const { data: existingCmd } = await supabase
-          .from('mm3_market_commands').select('id')
+          .from('mm3_mining_commands').select('id')
           .eq('nftji_key', currentMarketKey).gt('reset_at', now)
           .limit(1).maybeSingle();
 
@@ -1364,7 +1364,7 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
           const { x, code } = computeMarketCommandCode(cmdEntry, wallet, dayWindow.dayKey, Date.now());
 
           const { data: insertedCommand, error: cmdErr } = await supabase
-            .from('mm3_market_commands')
+            .from('mm3_mining_commands')
             .insert({
               wallet, nftji_key: currentMarketKey, command: cmdEntry.command,
               numeric_code: code, formula_x: x, reset_at: dayWindow.resetAt,
@@ -1374,11 +1374,11 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
           if (!cmdErr && insertedCommand) {
             const { data: allProgress } = await supabase
               .from('player_progress')
-              .select('wallet, level, market_nftji_key, eur_earned, usd_earned, cny_earned, mm3_sold')
+              .select('wallet, level, mining_nftji_key, eur_earned, usd_earned, cny_earned, mm3_sold')
               .limit(1000);
 
             const priceEurBase = Number(ownedBlock.price_eur) || 0;
-            const nftjiLevels = progressRow?.market_nftji_levels || {};
+            const nftjiLevels = progressRow?.mining_nftji_levels || {};
             const nftjiLevel = Math.max(0, Number(nftjiLevels[currentMarketKey] ?? 0));
             const levelMultiplier = 1 + nftjiLevel * 0.25;
             const priceEur = priceEurBase * levelMultiplier;
@@ -1409,7 +1409,7 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
               // owning the attacking block means participating in its command economy.
               // This applies regardless of pool membership (a rival bot owning the same
               // block is not penalized, even if it's in the opposing pool).
-              if (row.market_nftji_key === currentMarketKey) continue;
+              if (row.mining_nftji_key === currentMarketKey) continue;
 
               if (isMm3Cmd) {
                 penalties.push({
@@ -1501,7 +1501,7 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
   if (!claimedTasks.has('market_chain') && Math.random() < 0.55) {
     const [{ data: alreadyMined }, { data: marketReserved }, { data: tvRow }] = await Promise.all([
       supabase.from('mm3_mined_blocks').select('block_hex'),
-      supabase.from('mm3_market_blocks').select('grid_row, grid_col'),
+      supabase.from('mm3_mining_blocks').select('grid_row, grid_col'),
       supabase.from('token_value').select('total_eth').maybeSingle(),
     ]);
     const minedSet = new Set((alreadyMined || []).map((r) => r.block_hex));
@@ -1532,13 +1532,13 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
       if (!mineErr) {
         const [{ data: allMined }, { count: reservedCount }, { data: freshBotProg }] = await Promise.all([
           supabase.from('mm3_mined_blocks').select('wallet, chain_index'),
-          supabase.from('mm3_market_blocks').select('block_key', { count: 'exact', head: true }),
-          supabase.from('player_progress').select('market_nftji_key').eq('wallet', wallet).maybeSingle(),
+          supabase.from('mm3_mining_blocks').select('block_key', { count: 'exact', head: true }),
+          supabase.from('player_progress').select('mining_nftji_key').eq('wallet', wallet).maybeSingle(),
         ]);
         const freeBlocksTotal = Math.max(1, MM3_BLOCK_CHAIN_REQUIREMENTS.length - (Number(reservedCount) || 0));
         const walletMinedCount = (allMined || []).filter((r) => String(r.wallet || '').toLowerCase() === wallet).length;
         const walletPct = Math.round(
-          ((walletMinedCount + (freshBotProg?.market_nftji_key ? 1 : 0)) / TOTAL_BOARD_CELLS) * 10000
+          ((walletMinedCount + (freshBotProg?.mining_nftji_key ? 1 : 0)) / TOTAL_BOARD_CELLS) * 10000
         ) / 100;
         const freeChainPct = Math.round(((allMined || []).length / freeBlocksTotal) * 10000) / 100;
 
@@ -1547,7 +1547,7 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
         }, { onConflict: 'wallet', ignoreDuplicates: false });
 
         const trace = `MM3 BLOCK CHAIN IN PROGRESS >> mined ${pick.blockHex} by ${formatWalletLabel(wallet)} >> ${(allMined || []).length}/${freeBlocksTotal} ${freeChainPct.toFixed(2)}%`;
-        await supabase.from('mm3_irc_messages').insert({
+        await supabase.from('mm3_relaying_messages').insert({
           wallet: 'system', text: trace, ts: Date.now(), kind: 'system', tone: 'market',
         });
 
@@ -1565,12 +1565,12 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
   for (const [taskKey, { target, rewardEur }] of Object.entries(dailyTargets)) {
     if (claimedTasks.has(taskKey)) continue;
     let count;
-    if (taskKey === 'mining') count = newGamesToday;
+    if (taskKey === 'training') count = newGamesToday;
     else if (taskKey === 'trading') count = newTradesToday;
-    else if (taskKey === 'market') count = didBuyOrResell ? 1 : 0;
-    else if (taskKey === 'irc') count = didMarketCommand ? 1 : 0;
-    else if (taskKey === 'squeeze') count = await getSqueezeWalletLaunchCount(supabase, wallet);
-    else if (taskKey === 'market_chain') continue; // claimed separately after chain mine
+    else if (taskKey === 'mining') count = didBuyOrResell ? 1 : 0;
+    else if (taskKey === 'relaying') count = didMarketCommand ? 1 : 0;
+    else if (taskKey === 'squeezing') count = await getSqueezeWalletLaunchCount(supabase, wallet);
+    else if (taskKey === 'mining_chain') continue; // claimed separately after chain mine
     else continue;
     if (count < target) continue;
 
@@ -1582,8 +1582,8 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
     const gamesAction = actions.find((a) => a.type === 'games');
     const tradeActions = actions.filter((a) => a.type === 'trade');
     const claimActions = actions.filter((a) => a.type === 'daily_claim');
-    const marketBuyAction = actions.find((a) => a.type === 'market_buy');
-    const marketResellAction = actions.find((a) => a.type === 'market_resell');
+    const marketBuyAction = actions.find((a) => a.type === 'mining_buy');
+    const marketResellAction = actions.find((a) => a.type === 'mining_resell');
     const marketCmdAction = actions.find((a) => a.type === 'market_command');
     const squeezeDropAction = actions.find((a) => a.type === 'squeeze_drop_claimed');
     const squeezeProposeAction = actions.find((a) => a.type === 'squeeze_proposed');
@@ -1665,7 +1665,7 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
     if (tasksCompleted.length > 0) botMsg += ` :: tasks:${tasksCompleted.join(' ')}`;
 
     const msgTs = Date.now();
-    await supabase.from('mm3_irc_messages').insert({
+    await supabase.from('mm3_relaying_messages').insert({
       wallet,
       text: botMsg,
       ts: msgTs,
@@ -1708,8 +1708,8 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
   if (tradesTodayCount >= DAILY_TRADE_LIMIT) idleReasons.push('daily_trade_limit_reached');
   else if (tradesToRun <= 0) idleReasons.push('trades_waiting_next_paced_tick');
   if (claimedTasks.size >= Object.keys(dailyTargets).length) idleReasons.push('daily_tasks_already_claimed');
-  if (currentMarketKey && !actions.some((a) => a.type === 'market_buy' || a.type === 'market_resell' || a.type === 'market_command')) {
-    idleReasons.push('market_nftji_held_no_upgrade_or_command_available');
+  if (currentMarketKey && !actions.some((a) => a.type === 'mining_buy' || a.type === 'mining_resell' || a.type === 'market_command')) {
+    idleReasons.push('mining_nftji_held_no_upgrade_or_command_available');
   }
   if (!currentMarketKey && marketBlocksCount <= 0) idleReasons.push('no_market_blocks_loaded');
 

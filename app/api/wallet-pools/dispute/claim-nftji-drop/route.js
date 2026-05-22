@@ -17,7 +17,7 @@ export async function POST(req) {
   );
 
   try {
-    const { data, error } = await supabase.rpc('mm3_squeeze_nftji_take', {
+    const { data, error } = await supabase.rpc('mm3_squeezing_nftji_take', {
       p_dispute_id: disputeId,
       p_wallet: wallet,
     });
@@ -38,7 +38,7 @@ export async function POST(req) {
         (dropType === 'defense' && totalMm3 > 0);
       const liveDice = getDiceState();
       const dm = liveDice.active ? liveDice.modifier : 0;
-      await supabase.from('mm3_market_events').insert({
+      await supabase.from('mm3_mining_events').insert({
         wallet,
         event_type: 'nftji_claim',
         delta_mm3: shouldFlip ? -2 * totalMm3 * (1 + dm) : 0,

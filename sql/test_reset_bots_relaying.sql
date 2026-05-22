@@ -1,13 +1,13 @@
 -- ============================================================
--- MM3 BOT IRC RESET
--- Deletes only the bots' chat messages from mm3_irc_messages.
+-- MM3 BOT RELAYING RESET
+-- Deletes only the bots' chat messages from mm3_relaying_messages.
 -- Donations (realchain) and other users' messages are untouched.
 -- Also forces the bots offline immediately and recreates the two test pools:
 --   #FHNN6: bots F5528 + E202
 --   #8FR49: bots 44233 + E8AB
 -- ============================================================
 
-DELETE FROM mm3_irc_messages
+DELETE FROM mm3_relaying_messages
 WHERE  wallet IN (
   '0xcab10d0e0650d45cb0b7482370a1ca93d5bf5528',
   '0xcb4ccfa7de7bf861ff0383b668e682d2ee20e202',
@@ -17,7 +17,7 @@ WHERE  wallet IN (
   AND  kind   = 'chat'
   AND  tone   IN ('neutral', 'bot');
 
-DELETE FROM mm3_irc_messages
+DELETE FROM mm3_relaying_messages
 WHERE  wallet = 'system'
   AND  kind   = 'system'
   AND  tone   IN ('join', 'leave')

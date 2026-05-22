@@ -2,7 +2,7 @@ export const dynamic = 'force-dynamic';
 
 import { createClient } from '@supabase/supabase-js';
 import { clampRankLevel } from '@/lib/ranks';
-import { getMarketCommandForKey } from '@/lib/market-commands';
+import { getMarketCommandForKey } from '@/lib/mining-commands';
 import { formatWalletLabel } from '@/lib/wallet-format';
 
 function getBlockHex(row, col) {
@@ -27,7 +27,7 @@ export async function POST(req) {
 
   // 1. Look up the block with this hidden_command value
   const { data: block, error: blockError } = await supabase
-    .from('mm3_market_blocks')
+    .from('mm3_mining_blocks')
     .select('block_key, emoji, grid_row, grid_col, price_eur, hidden_cmd_min_level')
     .eq('hidden_command', command)
     .maybeSingle();
@@ -46,7 +46,7 @@ export async function POST(req) {
   // 2. Check executor level
   const { data: executorProgress } = await supabase
     .from('player_progress')
-    .select('level, mm3_sold, eur_earned, usd_earned, cny_earned, market_nftji_levels')
+    .select('level, mm3_sold, eur_earned, usd_earned, cny_earned, mining_nftji_levels')
     .eq('wallet', wallet)
     .maybeSingle();
 
@@ -55,14 +55,14 @@ export async function POST(req) {
     return Response.json({ ok: false, error: 'level_too_low' }, { status: 403 });
   }
 
-  const nftjiLevels = executorProgress?.market_nftji_levels || {};
+  const nftjiLevels = executorProgress?.mining_nftji_levels || {};
   const nftjiLevel = Math.max(0, Number(nftjiLevels[block.block_key] ?? 0));
   const levelMultiplier = 1 + nftjiLevel * 0.25;
 
   // 3. Check public command active today for this block
   const nowIso = new Date().toISOString();
   const { data: activeCommand } = await supabase
-    .from('mm3_market_commands')
+    .from('mm3_mining_commands')
     .select('id')
     .gt('reset_at', nowIso)
     .eq('nftji_key', block.block_key)

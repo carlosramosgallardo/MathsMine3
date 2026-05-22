@@ -29,7 +29,7 @@ const BOT_POOLS = [
       {
         key: 'collector',
         wallet: '0xd6c6c15060b27406d956c7e99e520cc810b44233',
-        tags: ['market_buy', 'squeeze 55%', 'balanced', 'chain_mine'],
+        tags: ['mining_buy', 'squeeze 55%', 'balanced', 'chain_mine'],
       },
       {
         key: 'flipper',

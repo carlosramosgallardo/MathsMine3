@@ -12,7 +12,7 @@ function getUtcDay() {
 }
 
 // ── Formula ──────────────────────────────────────────────────────────────────
-// A = total mm3_market_events rows (all time)
+// A = total mm3_mining_events rows (all time)
 // B = total mm3_mined_blocks rows (chain blocks solved)
 // C = Math.round(|mm3_global_value| × 100)  — integer, floored at 50
 // Ω(A, B, C) = (A + B) % max(C, 50) + 1
@@ -82,7 +82,7 @@ async function handleAttempt(req) {
     { count: B },
     { data: tvRow },
   ] = await Promise.all([
-    supabase.from('mm3_market_events').select('id', { count: 'exact', head: true }),
+    supabase.from('mm3_mining_events').select('id', { count: 'exact', head: true }),
     supabase.from('mm3_mined_blocks').select('id', { count: 'exact', head: true }),
     supabase.from('token_value').select('total_eth').maybeSingle(),
   ]);
@@ -127,7 +127,7 @@ async function handleAttempt(req) {
   const winnerLabel = formatWalletLabel(wallet);
   const winMsg = `⬡ MM3 BLOCK CHAIN SOLVED ⬡ ${winnerLabel} cracked the prime lattice — the chain is complete. Game over. Congratulations.`;
 
-  await supabase.from('mm3_irc_messages').insert({
+  await supabase.from('mm3_relaying_messages').insert({
     wallet: 'system',
     text: winMsg,
     ts: Date.now(),

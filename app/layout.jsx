@@ -14,7 +14,7 @@ import { CurrencyProvider } from '@/lib/currency-context';
 import { SoundProvider } from '@/lib/sound-context';
 import { GoogleAuthProvider } from '@/lib/google-auth-context';
 import { DiceProvider } from '@/lib/dice-context';
-import { IrcPresenceProvider } from '@/lib/irc-presence-context';
+import { IrcPresenceProvider } from '@/lib/relaying-presence-context';
 
 export const metadata = {
   title: { default: 'MathsMine3', template: '%s · MathsMine3' },

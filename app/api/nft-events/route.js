@@ -33,7 +33,7 @@ export async function GET() {
     { data: timeseries, error: e2 },
   ] = await Promise.all([
     supabase
-      .from('mm3_market_events')
+      .from('mm3_mining_events')
       .select('wallet, event_type, delta_mm3, created_at, emoji')
       .order('created_at', { ascending: false })
       .limit(2000),

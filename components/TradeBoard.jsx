@@ -285,11 +285,11 @@ export default function TradeBoard({ account, isVirtualWallet = false }) {
         const [{ data: progress }, { data: stats }, { data: marketBlockRows }] = await Promise.all([
           supabase
             .from('player_progress')
-            .select('level, mm3_sold, cny_earned, eur_earned, usd_earned, wallet_emojis, market_nftji_key, lucky_50_level, lucky_100_level, lucky_500_level, lucky_1000_level')
+            .select('level, mm3_sold, cny_earned, eur_earned, usd_earned, wallet_emojis, mining_nftji_key, lucky_50_level, lucky_100_level, lucky_500_level, lucky_1000_level')
             .eq('wallet', wallet)
             .maybeSingle(),
           supabase.from('leaderboard_data').select('total_eth').eq('wallet', wallet).maybeSingle(),
-          supabase.from('mm3_market_blocks').select('block_key, emoji'),
+          supabase.from('mm3_mining_blocks').select('block_key, emoji'),
         ]);
         setLevel(progress?.level ?? 0);
         const totalMm3 = Number(stats?.total_eth) || 0;
@@ -308,7 +308,7 @@ export default function TradeBoard({ account, isVirtualWallet = false }) {
           lucky1000: Number(progress?.lucky_1000_level ?? -1),
         });
         const blockEmojiMap = new Map((marketBlockRows || []).map(b => [b.block_key, b.emoji]));
-        const nftjiKey = progress?.market_nftji_key || null;
+        const nftjiKey = progress?.mining_nftji_key || null;
         setMarketNftjiEmoji(nftjiKey ? (blockEmojiMap.get(nftjiKey) || null) : null);
         await loadDailyTxCount(wallet);
       } catch (error) {
@@ -426,7 +426,7 @@ export default function TradeBoard({ account, isVirtualWallet = false }) {
           .eq('wallet', wallet)
           .maybeSingle(),
         supabase
-          .from('mm3_market_state')
+          .from('mm3_mining_state')
           .select('id, commission_mm3, commission_cny, commission_eur, commission_usd')
           .eq('id', 1)
           .maybeSingle(),
@@ -510,7 +510,7 @@ export default function TradeBoard({ account, isVirtualWallet = false }) {
       if (progressError) throw progressError;
 
       const { error: marketError } = await supabase
-        .from('mm3_market_state')
+        .from('mm3_mining_state')
         .upsert(
           {
             id: 1,
@@ -548,9 +548,9 @@ export default function TradeBoard({ account, isVirtualWallet = false }) {
         ? Number(liveTradeQuote.grossMm3 || 0)
         : -Number(liveTradeQuote.totalMm3 || 0);
       if (tradeDelta !== 0) {
-        await supabase.from('mm3_market_events').insert({
+        await supabase.from('mm3_mining_events').insert({
           wallet,
-          event_type: mode === 'buy' ? 'market_buy' : 'market_resell',
+          event_type: mode === 'buy' ? 'mining_buy' : 'mining_resell',
           delta_mm3: tradeDelta,
           emoji: mode === 'buy' ? '📈' : '📉',
         }).catch(() => {});

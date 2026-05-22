@@ -15,7 +15,7 @@ import {
 import { useSound } from '@/lib/sound-context';
 import { getDiceState } from '@/lib/dice';
 import { useDice } from '@/lib/dice-context';
-import { commandKey, getMarketCommandForKey, marketCommandFromBlock } from '@/lib/market-commands';
+import { commandKey, getMarketCommandForKey, marketCommandFromBlock } from '@/lib/mining-commands';
 import { formatWalletLabel } from '@/lib/wallet-format';
 import {
   BLOCK_CHAIN_TITLE,
@@ -313,8 +313,8 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
     mm3Sold: 0,
     totalMm3: 0,
     emojis: [],
-    marketNFTJIKey: null,
-    marketNFTJIPrice: 0,
+    miningNFTJIKey: null,
+    miningNFTJIPrice: 0,
   });
 
   useEffect(() => {
@@ -339,7 +339,7 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
   const applyBlockRows = (blockData, ownersData) => {
     const currentOwnersByKey = new Map();
     for (const entry of ownersData || []) {
-      const key = entry.market_nftji_key;
+      const key = entry.mining_nftji_key;
       const wallet = String(entry.wallet || '').toLowerCase();
       if (!key || !wallet) continue;
       if (!currentOwnersByKey.has(key)) currentOwnersByKey.set(key, []);
@@ -372,13 +372,13 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
     try {
       const [{ data: blockData, error }, { data: ownersData }] = await Promise.all([
         supabase
-          .from('mm3_market_blocks')
+          .from('mm3_mining_blocks')
           .select('block_key, grid_row, grid_col, emoji, title_en, title_es, price_eur, short_url, is_active, first_purchased_at, market_command, hidden_cmd_min_level')
           .order('block_key', { ascending: true }),
         supabase
           .from('player_progress')
-          .select('wallet, market_nftji_key')
-          .not('market_nftji_key', 'is', null),
+          .select('wallet, mining_nftji_key')
+          .not('mining_nftji_key', 'is', null),
       ]);
 
       if (error) throw error;
@@ -401,8 +401,8 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
         mm3Sold: 0,
         totalMm3: 0,
         emojis: [],
-        marketNFTJIKey: null,
-        marketNFTJIPrice: 0,
+        miningNFTJIKey: null,
+        miningNFTJIPrice: 0,
       });
       return;
     }
@@ -412,7 +412,7 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
       const [{ data: progress }, { data: stats }] = await Promise.all([
         supabase
           .from('player_progress')
-          .select('level, mm3_sold, eur_earned, usd_earned, cny_earned, wallet_emojis, market_nftji_key, market_nftji_price')
+          .select('level, mm3_sold, eur_earned, usd_earned, cny_earned, wallet_emojis, mining_nftji_key, mining_nftji_price')
           .eq('wallet', wallet)
           .maybeSingle(),
         supabase.from('leaderboard_data').select('total_eth').eq('wallet', wallet).maybeSingle(),
@@ -428,8 +428,8 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
         mm3Sold: Number(progress?.mm3_sold) || 0,
         totalMm3: Number(stats?.total_eth) || 0,
         emojis: normalizeWalletDecorations(progress?.wallet_emojis),
-        marketNFTJIKey: progress?.market_nftji_key || null,
-        marketNFTJIPrice: Number(progress?.market_nftji_price) || 0,
+        miningNFTJIKey: progress?.mining_nftji_key || null,
+        miningNFTJIPrice: Number(progress?.mining_nftji_price) || 0,
       });
     } catch (err) {
       console.error('market wallet load:', err);
@@ -450,7 +450,7 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
       if (blockKey && !blockKey.startsWith('ph-')) params.set('details', '1');
 
       const response = await fetch(
-        `/api/market-snapshot?${params.toString()}`,
+        `/api/mining-snapshot?${params.toString()}`,
         account ? { cache: 'no-store' } : undefined
       );
       if (!response.ok) throw new Error(`market snapshot ${response.status}`);
@@ -463,7 +463,7 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
       setMinedBlocks(nextMinedBlocks);
       setBlockChain(snapshot.blockChain || (() => {
         const ownedNftjiCount = new Set(
-          (snapshot.owners || []).map((o) => o.market_nftji_key).filter(Boolean)
+          (snapshot.owners || []).map((o) => o.mining_nftji_key).filter(Boolean)
         ).size;
         const totalCovered = nextMinedBlocks.length + ownedNftjiCount;
         const boardTotal = GRID_ROWS * GRID_COLS;
@@ -486,8 +486,8 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
           mm3Sold: 0,
           totalMm3: 0,
           emojis: [],
-          marketNFTJIKey: null,
-          marketNFTJIPrice: 0,
+          miningNFTJIKey: null,
+          miningNFTJIPrice: 0,
         });
       }
       if ('activeBlockCommand' in snapshot) setActiveBlockCommand(snapshot.activeBlockCommand || null);
@@ -515,7 +515,7 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
     if (!blockKey || blockKey.startsWith('ph-')) { setActiveBlockCommand(null); return; }
     try {
       const { data } = await supabase
-        .from('mm3_market_commands')
+        .from('mm3_mining_commands')
         .select('id, wallet, formula_x, reset_at')
         .eq('nftji_key', blockKey)
         .gt('reset_at', new Date().toISOString())
@@ -578,7 +578,7 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
     const price = prices[Math.floor(Math.random() * prices.length)];
 
     try {
-      await supabase.from('mm3_market_blocks').insert({
+      await supabase.from('mm3_mining_blocks').insert({
         block_key: pixelKey,
         grid_row: cell.row,
         grid_col: cell.col,
@@ -589,7 +589,7 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
         price_eur: price,
         is_active: true,
       });
-      notify(`${t('podcast.newBlock')} ${emoji}`, 'info');
+      notify(`${t('mining.newBlock')} ${emoji}`, 'info');
     } catch {
       // silent — spawn failure does not block the buy
     }
@@ -624,7 +624,7 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
 
     const channel = supabase
       .channel('mm3-market-live')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'mm3_market_blocks' }, refresh)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'mm3_mining_blocks' }, refresh)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'mm3_mined_blocks' }, refresh)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'mm3_command_penalties' }, refresh)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'mm3_game_winner' }, (payload) => {
@@ -710,8 +710,8 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
     currency === 'USD' ? priceUsd : currency === 'CNY' ? priceCny : priceEur;
   const enoughFunds = isMm3MarketBlock ? availableMm3 >= priceEur : activeFunds >= activePrice;
 
-  const ownsSelected = Boolean(account) && walletState.marketNFTJIKey === selectedBlock?.block_key;
-  const hasOtherNFTJI = Boolean(account) && Boolean(walletState.marketNFTJIKey) && walletState.marketNFTJIKey !== selectedBlock?.block_key;
+  const ownsSelected = Boolean(account) && walletState.miningNFTJIKey === selectedBlock?.block_key;
+  const hasOtherNFTJI = Boolean(account) && Boolean(walletState.miningNFTJIKey) && walletState.miningNFTJIKey !== selectedBlock?.block_key;
 
   const canBuy =
     Boolean(account) &&
@@ -727,8 +727,8 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
   const canLaunchIrc = ownsSelected && !activeBlockCommand;
 
   const selectedTitle = language === 'es'
-    ? (selectedBlock?.title_es || selectedBlock?.title_en || t('podcast.template'))
-    : (selectedBlock?.title_en || selectedBlock?.title_es || t('podcast.template'));
+    ? (selectedBlock?.title_es || selectedBlock?.title_en || t('mining.template'))
+    : (selectedBlock?.title_en || selectedBlock?.title_es || t('mining.template'));
 
   const currentOwners = Array.isArray(selectedBlock?.current_owners) ? selectedBlock.current_owners : [];
   const hasCurrentOwners = currentOwners.length > 0;
@@ -775,14 +775,14 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
   const handleBlockClick = useCallback((blockKey) => {
     setSelectedKey(blockKey);
     const block = blockMap.get(blockKey);
-    if (!block?.short_url && !block?.isMineable) notify(block?.isPlaceholder ? t('podcast.offline') : t('podcast.unavailable'), 'info');
+    if (!block?.short_url && !block?.isMineable) notify(block?.isPlaceholder ? t('mining.offline') : t('mining.unavailable'), 'info');
   }, [blockMap, t]);
 
   const handleBuy = async () => {
-    if (!account) { notify(t('podcast.noWallet'), 'error'); return; }
-    if (!enoughFunds) { notify(t('podcast.fundsLow'), 'error'); return; }
-    if (!dbReady) { notify(t('podcast.dbMissing'), 'error'); return; }
-    if (!selectedBlock?.is_active || selectedBlock?.isPlaceholder) { notify(t('podcast.offline'), 'info'); return; }
+    if (!account) { notify(t('mining.noWallet'), 'error'); return; }
+    if (!enoughFunds) { notify(t('mining.fundsLow'), 'error'); return; }
+    if (!dbReady) { notify(t('mining.dbMissing'), 'error'); return; }
+    if (!selectedBlock?.is_active || selectedBlock?.isPlaceholder) { notify(t('mining.offline'), 'info'); return; }
 
     setProcessing(true);
     try {
@@ -790,21 +790,21 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
 
       const [{ data: blockRow, error: blockError }, { data: progressRow }, { data: statsRow }, { count: walletMinedCountBuy }] = await Promise.all([
         supabase
-          .from('mm3_market_blocks')
+          .from('mm3_mining_blocks')
           .select('block_key, emoji, price_eur, is_active, first_purchased_at, market_command')
           .eq('block_key', selectedBlock.block_key)
           .maybeSingle(),
         supabase
           .from('player_progress')
-          .select('level, mm3_sold, eur_earned, usd_earned, cny_earned, wallet_emojis, life_used, lucky_50_claimed, lucky_100_claimed, lucky_500_claimed, lucky_1000_claimed, market_nftji_key, market_nftji_price, market_nftji_levels')
+          .select('level, mm3_sold, eur_earned, usd_earned, cny_earned, wallet_emojis, life_used, lucky_50_claimed, lucky_100_claimed, lucky_500_claimed, lucky_1000_claimed, mining_nftji_key, mining_nftji_price, mining_nftji_levels')
           .eq('wallet', wallet)
           .maybeSingle(),
         supabase.from('leaderboard_data').select('total_eth').eq('wallet', wallet).maybeSingle(),
         supabase.from('mm3_mined_blocks').select('id', { count: 'exact', head: true }).eq('wallet', wallet),
       ]);
 
-      if (blockError || !blockRow) throw blockError || new Error(t('podcast.dbMissing'));
-      if (!blockRow.is_active) { await loadBlocks(); notify(t('podcast.offline'), 'info'); return; }
+      if (blockError || !blockRow) throw blockError || new Error(t('mining.dbMissing'));
+      if (!blockRow.is_active) { await loadBlocks(); notify(t('mining.offline'), 'info'); return; }
 
       const priceE = Number(blockRow.price_eur) || 0;
       const priceU = toUsdFromEur(priceE);
@@ -822,15 +822,15 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
       const totalMm3 = Number(statsRow?.total_eth) || 0;
       const availableMm3Live = Math.max(0, totalMm3 - soldMm3);
       if (paysWithMm3) {
-        if (availableMm3Live < priceE) { notify(t('podcast.fundsLow'), 'error'); return; }
+        if (availableMm3Live < priceE) { notify(t('mining.fundsLow'), 'error'); return; }
       } else if (activeFundsCheck < activePriceCheck) {
-        notify(t('podcast.fundsLow'), 'error');
+        notify(t('mining.fundsLow'), 'error');
         return;
       }
       const currentDecorations = normalizeWalletDecorations(progressRow?.wallet_emojis);
 
-      if (progressRow?.market_nftji_key && progressRow.market_nftji_key !== selectedBlock.block_key) {
-        notify(t('podcast.alreadyOwnsOther'), 'error');
+      if (progressRow?.mining_nftji_key && progressRow.mining_nftji_key !== selectedBlock.block_key) {
+        notify(t('mining.alreadyOwnsOther'), 'error');
         return;
       }
 
@@ -871,21 +871,21 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
           sell_quote_cny: liveQuote.netCny,
           sell_quote_eur: liveQuote.netEur,
           sell_quote_usd: liveQuote.netUsd,
-          market_nftji_key: selectedBlock.block_key,
-          market_nftji_price: priceE,
-          market_nftji_since: now,
-          market_nftji_levels: {
-            ...(progressRow?.market_nftji_levels || {}),
-            [selectedBlock.block_key]: Number((progressRow?.market_nftji_levels || {})[selectedBlock.block_key] ?? -1) + 1,
+          mining_nftji_key: selectedBlock.block_key,
+          mining_nftji_price: priceE,
+          mining_nftji_since: now,
+          mining_nftji_levels: {
+            ...(progressRow?.mining_nftji_levels || {}),
+            [selectedBlock.block_key]: Number((progressRow?.mining_nftji_levels || {})[selectedBlock.block_key] ?? -1) + 1,
           },
           block_chain_percent: Math.round(((Number(walletMinedCountBuy) || 0) + 1) / (GRID_ROWS * GRID_COLS) * 10000) / 100,
           updated_at: now,
         }, { onConflict: 'wallet', ignoreDuplicates: false });
       if (progressError) throw progressError;
 
-      await supabase.from('mm3_market_events').insert({
+      await supabase.from('mm3_mining_events').insert({
         wallet,
-        event_type: 'market_buy',
+        event_type: 'mining_buy',
         delta_mm3: buyDelta,
         emoji: String(blockRow.emoji || selectedBlock.block_key),
       });
@@ -893,7 +893,7 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
       // First-ever purchase: mark block and spawn a mystery block
       if (!blockRow.first_purchased_at) {
         await supabase
-          .from('mm3_market_blocks')
+          .from('mm3_mining_blocks')
           .update({ first_purchased_at: now })
           .eq('block_key', selectedBlock.block_key);
         await spawnNewBlock(blocks);
@@ -902,7 +902,7 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
       fetch('/api/chain-check', { method: 'POST' }).catch(() => {});
 
       playMarketClaim();
-      notify(`${t('podcast.buySuccess')} ${blockRow.emoji}`, 'success');
+      notify(`${t('mining.buySuccess')} ${blockRow.emoji}`, 'success');
 
       if (typeof window !== 'undefined') {
         localStorage.setItem('lb_dirty_at', String(Date.now()));
@@ -912,15 +912,15 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
       await Promise.all([loadBlocks(), loadWalletState()]);
     } catch (err) {
       console.error('market buy:', err);
-      notify(err?.message || t('podcast.claimFailed'), 'error');
+      notify(err?.message || t('mining.claimFailed'), 'error');
     } finally {
       setProcessing(false);
     }
   };
 
   const handleResell = async () => {
-    if (!account) { notify(t('podcast.noWallet'), 'error'); return; }
-    if (!dbReady) { notify(t('podcast.dbMissing'), 'error'); return; }
+    if (!account) { notify(t('mining.noWallet'), 'error'); return; }
+    if (!dbReady) { notify(t('mining.dbMissing'), 'error'); return; }
 
     setProcessing(true);
     try {
@@ -929,16 +929,16 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
       const [{ data: progressRow }, { data: statsRow }, { count: walletMinedCountResell }] = await Promise.all([
         supabase
           .from('player_progress')
-          .select('level, mm3_sold, eur_earned, usd_earned, cny_earned, wallet_emojis, life_used, lucky_50_claimed, lucky_100_claimed, lucky_500_claimed, lucky_1000_claimed, market_nftji_key, market_nftji_price, market_nftji_levels')
+          .select('level, mm3_sold, eur_earned, usd_earned, cny_earned, wallet_emojis, life_used, lucky_50_claimed, lucky_100_claimed, lucky_500_claimed, lucky_1000_claimed, mining_nftji_key, mining_nftji_price, mining_nftji_levels')
           .eq('wallet', wallet)
           .maybeSingle(),
         supabase.from('leaderboard_data').select('total_eth').eq('wallet', wallet).maybeSingle(),
         supabase.from('mm3_mined_blocks').select('id', { count: 'exact', head: true }).eq('wallet', wallet),
       ]);
 
-      if (!progressRow?.market_nftji_key || progressRow.market_nftji_key !== selectedBlock.block_key) {
+      if (!progressRow?.mining_nftji_key || progressRow.mining_nftji_key !== selectedBlock.block_key) {
         await loadWalletState();
-        notify(t('podcast.notOwned'), 'info');
+        notify(t('mining.notOwned'), 'info');
         return;
       }
 
@@ -947,13 +947,13 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
       const totalMm3 = Number(statsRow?.total_eth) || 0;
       const currentDecorations = normalizeWalletDecorations(progressRow?.wallet_emojis);
 
-      const oldPrice = Number(progressRow.market_nftji_price) || 0;
+      const oldPrice = Number(progressRow.mining_nftji_price) || 0;
       const liveDiceResell = getDiceState();
       const liveDiceModifierResell = liveDiceResell.active ? liveDiceResell.modifier : 0;
       const returnEur = oldPrice * 0.5 * (1 + liveDiceModifierResell);
       const returnUsd = toUsdFromEur(returnEur);
       const returnCny = toCnyFromEur(returnEur);
-      const paysWithMm3 = (marketCommandFromBlock(blocks.find((b) => b.block_key === progressRow.market_nftji_key)) || getMarketCommandForKey(progressRow.market_nftji_key))?.payment === 'mm3';
+      const paysWithMm3 = (marketCommandFromBlock(blocks.find((b) => b.block_key === progressRow.mining_nftji_key)) || getMarketCommandForKey(progressRow.mining_nftji_key))?.payment === 'mm3';
 
       const fundsEur = Number(progressRow.eur_earned) || 0;
       const fundsUsd = Number(progressRow.usd_earned) || 0;
@@ -983,19 +983,19 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
           sell_quote_cny: liveQuote.netCny,
           sell_quote_eur: liveQuote.netEur,
           sell_quote_usd: liveQuote.netUsd,
-          market_nftji_key: null,
-          market_nftji_price: 0,
-          market_nftji_since: null,
-          market_nftji_levels: progressRow.market_nftji_levels || {},
+          mining_nftji_key: null,
+          mining_nftji_price: 0,
+          mining_nftji_since: null,
+          mining_nftji_levels: progressRow.mining_nftji_levels || {},
           block_chain_percent: Math.round((Number(walletMinedCountResell) || 0) / (GRID_ROWS * GRID_COLS) * 10000) / 100,
           updated_at: now,
         }, { onConflict: 'wallet', ignoreDuplicates: false });
       if (progressError) throw progressError;
 
       // Cancel active IRC command and its penalties when the owner resells
-      const resoldKey = progressRow.market_nftji_key;
+      const resoldKey = progressRow.mining_nftji_key;
       await supabase
-        .from('mm3_market_commands')
+        .from('mm3_mining_commands')
         .update({ reset_at: new Date(Date.now() - 1000).toISOString() })
         .eq('wallet', wallet)
         .eq('nftji_key', resoldKey)
@@ -1007,15 +1007,15 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
         .is('redeemed_at', null);
 
       const resoldBlock = blocks.find((b) => b.block_key === resoldKey);
-      await supabase.from('mm3_market_events').insert({
+      await supabase.from('mm3_mining_events').insert({
         wallet,
-        event_type: 'market_resell',
+        event_type: 'mining_resell',
         delta_mm3: resellDelta,
         emoji: String(resoldBlock?.emoji || resoldKey),
       });
 
       notify(
-        `${t('podcast.resellSuccess')} ${paysWithMm3 ? `${returnEur.toFixed(8).replace(/\.?0+$/, '') || '0'} MM3` : formatMoney(returnEur, 'EUR')}`,
+        `${t('mining.resellSuccess')} ${paysWithMm3 ? `${returnEur.toFixed(8).replace(/\.?0+$/, '') || '0'} MM3` : formatMoney(returnEur, 'EUR')}`,
         'success'
       );
 
@@ -1027,7 +1027,7 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
       await Promise.all([loadBlocks(), loadWalletState()]);
     } catch (err) {
       console.error('market resell:', err);
-      notify(err?.message || t('podcast.claimFailed'), 'error');
+      notify(err?.message || t('mining.claimFailed'), 'error');
     } finally {
       setProcessing(false);
     }
@@ -1035,11 +1035,11 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
 
   const handleRedeemPenalty = async () => {
     if (!activePenalty) {
-      notify(t('podcast.noPenalty'), 'info');
+      notify(t('mining.noPenalty'), 'info');
       return;
     }
     if (activePenalty.attempted_at) {
-      notify(t('podcast.numericUsed'), 'info');
+      notify(t('mining.numericUsed'), 'info');
       return;
     }
 
@@ -1104,7 +1104,7 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
           kind: 'system',
           tone: 'market',
         };
-        await supabase.from('mm3_irc_messages').insert({
+        await supabase.from('mm3_relaying_messages').insert({
           wallet: ircPayload.wallet,
           text: ircPayload.text,
           ts: ircPayload.ts,
@@ -1115,7 +1115,7 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
         await broadcastIrcMarketRefresh();
       }
 
-      notify(isCorrect ? t('podcast.numericSuccess') : t('podcast.numericWrong'), isCorrect ? 'success' : 'error');
+      notify(isCorrect ? t('mining.numericSuccess') : t('mining.numericWrong'), isCorrect ? 'success' : 'error');
       setNumericCode('');
       await loadActivePenalty(selectedBlock?.block_key);
       if (typeof window !== 'undefined') {
@@ -1124,7 +1124,7 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
       }
     } catch (err) {
       console.error('market penalty redeem:', err);
-      notify(err?.message || t('podcast.claimFailed'), 'error');
+      notify(err?.message || t('mining.claimFailed'), 'error');
     } finally {
       setProcessing(false);
     }
@@ -1134,7 +1134,7 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
 
   return (
     <div className="w-full font-mono text-cyan-100">
-      {loading && <PageLoading label={t('podcast.loading')} />}
+      {loading && <PageLoading label={t('mining.loading')} />}
 
       <div className="mx-auto w-full max-w-[1080px] px-2 lg:px-3">
         <div className="mm3-market-chain w-full rounded border border-emerald-500/20 bg-black/40 px-3 py-2 text-center shadow-[0_0_18px_rgba(74,222,128,0.06),inset_0_0_20px_rgba(74,222,128,0.03)] lg:px-5 lg:py-3">
@@ -1238,25 +1238,25 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
                 type="button"
                 onClick={() => move('up')}
                 className="mm3-market-nav absolute left-1/2 top-0 z-10 flex h-7 w-7 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded border border-cyan-500/20 bg-black/90 text-[0.82rem] text-cyan-200 transition hover:border-cyan-400/45 hover:text-cyan-100"
-                aria-label={t('podcast.panUp')}
+                aria-label={t('mining.panUp')}
               >▲</button>
               <button
                 type="button"
                 onClick={() => move('left')}
                 className="mm3-market-nav absolute left-0 top-1/2 z-10 flex h-7 w-7 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded border border-cyan-500/20 bg-black/90 text-[0.82rem] text-cyan-200 transition hover:border-cyan-400/45 hover:text-cyan-100"
-                aria-label={t('podcast.panLeft')}
+                aria-label={t('mining.panLeft')}
               >◀</button>
               <button
                 type="button"
                 onClick={() => move('right')}
                 className="mm3-market-nav absolute right-0 top-1/2 z-10 flex h-7 w-7 translate-x-1/2 -translate-y-1/2 items-center justify-center rounded border border-cyan-500/20 bg-black/90 text-[0.82rem] text-cyan-200 transition hover:border-cyan-400/45 hover:text-cyan-100"
-                aria-label={t('podcast.panRight')}
+                aria-label={t('mining.panRight')}
               >▶</button>
               <button
                 type="button"
                 onClick={() => move('down')}
                 className="mm3-market-nav absolute bottom-0 left-1/2 z-10 flex h-7 w-7 -translate-x-1/2 translate-y-1/2 items-center justify-center rounded border border-cyan-500/20 bg-black/90 text-[0.82rem] text-cyan-200 transition hover:border-cyan-400/45 hover:text-cyan-100"
-                aria-label={t('podcast.panDown')}
+                aria-label={t('mining.panDown')}
               >▼</button>
 
               <div className="mm3-market-board-frame overflow-hidden rounded border border-cyan-500/18 bg-black/40 p-1.5 shadow-[inset_0_0_24px_rgba(0,0,0,0.6),0_0_12px_rgba(34,211,238,0.06)]">
@@ -1303,7 +1303,7 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
               <div className="flex items-center gap-1.5">
                 <span className="text-base leading-none">{selectedBlock?.emoji}</span>
                 {!selectedBlock?.isPlaceholder ? (
-                  <Link href={`/market-short/${selectedBlock?.block_key}`} className="text-[0.82rem] font-black uppercase tracking-[0.18em] text-cyan-100 hover:text-cyan-300 hover:underline lg:text-[0.75rem]">{selectedTitle}</Link>
+                  <Link href={`/mining-short/${selectedBlock?.block_key}`} className="text-[0.82rem] font-black uppercase tracking-[0.18em] text-cyan-100 hover:text-cyan-300 hover:underline lg:text-[0.75rem]">{selectedTitle}</Link>
                 ) : (
                   <span className="text-[0.82rem] font-black uppercase tracking-[0.18em] text-cyan-100 lg:text-[0.75rem]">{selectedTitle}</span>
                 )}
@@ -1317,20 +1317,20 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
                 color: isMineBlockMined || hasCurrentOwners ? '#4ade80' : '#67e8f9',
               }}
             >
-              {isMineBlock ? (isMineBlockMined ? 'mined block' : 'open block') : hasCurrentOwners ? t('podcast.sealed') : selectedBlock?.is_active ? t('podcast.live') : t('podcast.template')}
+              {isMineBlock ? (isMineBlockMined ? 'mined block' : 'open block') : hasCurrentOwners ? t('mining.sealed') : selectedBlock?.is_active ? t('mining.live') : t('mining.template')}
             </span>
           </div>
 
           {/* ── Price + Owner — same row ── */}
           <div className={`col-span-1 flex gap-1.5 lg:col-span-2 ${isMineBlock ? 'flex-col' : ''}`}>
             <div className={`mm3-market-detail-card rounded border px-2 py-1 lg:px-2.5 lg:py-2 ${isMineBlock ? 'w-full border-emerald-500/20 bg-emerald-950/8' : 'shrink-0 border-amber-400/14 bg-amber-950/8'}`}>
-              <div className={`text-[0.66rem] uppercase tracking-[0.16em] lg:text-[0.68rem] lg:tracking-[0.18em] ${isMineBlock ? 'text-emerald-400/65' : 'text-amber-300/65'}`}>{isMineBlock ? 'req' : t('podcast.price')}</div>
+              <div className={`text-[0.66rem] uppercase tracking-[0.16em] lg:text-[0.68rem] lg:tracking-[0.18em] ${isMineBlock ? 'text-emerald-400/65' : 'text-amber-300/65'}`}>{isMineBlock ? 'req' : t('mining.price')}</div>
               <div className={`${isMineBlock ? 'text-[0.7rem] leading-snug text-emerald-200' : 'text-[1.05rem] leading-none text-amber-300 lg:text-lg'} mt-0.5 font-black lg:mt-1`}>
                 {isMineBlock ? formatBlockRequirement(selectedMineRequirement) : displayPrice}
               </div>
             </div>
             <div className={`mm3-market-detail-card min-w-0 flex-1 rounded border px-2 py-1 lg:px-2.5 lg:py-2 ${isMineBlock ? 'w-full border-emerald-500/12 bg-emerald-950/5' : 'border-cyan-500/12 bg-black/45'}`}>
-              <div className={`text-[0.66rem] uppercase tracking-[0.16em] lg:text-[0.68rem] lg:tracking-[0.18em] ${isMineBlock ? 'text-emerald-400/65' : 'text-cyan-300/65'}`}>{isMineBlock ? 'miner shell' : t('podcast.owner')}</div>
+              <div className={`text-[0.66rem] uppercase tracking-[0.16em] lg:text-[0.68rem] lg:tracking-[0.18em] ${isMineBlock ? 'text-emerald-400/65' : 'text-cyan-300/65'}`}>{isMineBlock ? 'miner shell' : t('mining.owner')}</div>
               <div className={`mt-0.5 flex flex-col gap-1 overflow-y-auto pr-1 lg:mt-1 ${isMineBlock ? 'max-h-10' : 'max-h-12 lg:max-h-20'}`}>
               {isMineBlockMined ? (
                 <button
@@ -1360,7 +1360,7 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
                 })
               ) : (
                 <span className="text-[0.88rem] lg:text-[0.95rem]" style={{ color: '#cffafe', textShadow: '0 0 10px #cffafe33' }}>
-                  {t('podcast.noWinner')}
+                  {t('mining.noWinner')}
                 </span>
               )}
             </div>
@@ -1398,18 +1398,18 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
             selectedBlock?.short_url ? (
               <div className="mm3-market-short-panel overflow-hidden rounded border border-cyan-500/10 bg-black/45 lg:col-span-2">
                 <Link
-                  href={`/market-short/${selectedBlock?.block_key}`}
+                  href={`/mining-short/${selectedBlock?.block_key}`}
                   className="mm3-market-short-cta grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 px-2 py-1.5 transition hover:bg-cyan-950/10"
-                  aria-label={`${t('podcast.openShort')} ${selectedTitle}`}
+                  aria-label={`${t('mining.openShort')} ${selectedTitle}`}
                 >
                   <span className="flex h-7 w-7 items-center justify-center rounded border border-cyan-400/20 bg-black/50 text-[0.9rem] text-cyan-200">YT</span>
                   <span className="min-w-0">
-                    <span className="block text-[0.66rem] font-black uppercase tracking-[0.14em] text-cyan-200/90">{t('podcast.openShort')}</span>
-                    <span className="block truncate text-[0.52rem] uppercase tracking-[0.1em] text-cyan-600/60">{t('podcast.revealedInShort')}</span>
+                    <span className="block text-[0.66rem] font-black uppercase tracking-[0.14em] text-cyan-200/90">{t('mining.openShort')}</span>
+                    <span className="block truncate text-[0.52rem] uppercase tracking-[0.1em] text-cyan-600/60">{t('mining.revealedInShort')}</span>
                   </span>
                   {hasSecretLevel && (
                     <span className="rounded border border-amber-300/20 bg-amber-950/15 px-1.5 py-1 text-[0.58rem] font-black uppercase tracking-[0.12em] text-amber-300/80">
-                      {t('podcast.minLevel')} {hiddenCmdMinLevel}+
+                      {t('mining.minLevel')} {hiddenCmdMinLevel}+
                     </span>
                   )}
                 </Link>
@@ -1425,24 +1425,24 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
               </div>
             ) : (
               <Link
-                href={`/market-short/${selectedBlock?.block_key}`}
+                href={`/mining-short/${selectedBlock?.block_key}`}
                 className="mm3-market-short-panel grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded border border-cyan-500/10 bg-black/25 px-2 py-1.5 transition hover:border-cyan-500/25 hover:bg-black/40 lg:col-span-2"
               >
                 {hasSecretLevel ? (
                   <>
                     <span className="flex h-7 w-7 items-center justify-center rounded border border-cyan-400/15 bg-black/40 text-[0.9rem] text-cyan-500/70">YT</span>
                     <span className="min-w-0">
-                      <span className="block text-[0.62rem] font-black uppercase tracking-[0.14em] text-cyan-500/70">{t('podcast.secretCmd')}</span>
-                      <span className="block truncate text-[0.52rem] uppercase tracking-[0.1em] text-cyan-700/55">{t('podcast.shortPending')}</span>
+                      <span className="block text-[0.62rem] font-black uppercase tracking-[0.14em] text-cyan-500/70">{t('mining.secretCmd')}</span>
+                      <span className="block truncate text-[0.52rem] uppercase tracking-[0.1em] text-cyan-700/55">{t('mining.shortPending')}</span>
                     </span>
                     <span className="rounded border border-amber-300/15 bg-amber-950/10 px-1.5 py-1 text-[0.58rem] font-black uppercase tracking-[0.12em] text-amber-400/65">
-                      {t('podcast.minLevel')} {hiddenCmdMinLevel}+
+                      {t('mining.minLevel')} {hiddenCmdMinLevel}+
                     </span>
                   </>
                 ) : (
                   <>
                     <span className="flex h-7 w-7 items-center justify-center rounded border border-cyan-400/15 bg-black/40 text-[0.9rem] text-cyan-500/70">YT</span>
-                    <span className="text-[0.62rem] font-black uppercase tracking-[0.14em] text-cyan-500/70">{t('podcast.videoSoon')}</span>
+                    <span className="text-[0.62rem] font-black uppercase tracking-[0.14em] text-cyan-500/70">{t('mining.videoSoon')}</span>
                     <span />
                   </>
                 )}
@@ -1458,7 +1458,7 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
               {selectedMarketCommand && (
                 <>
                   <div className="mb-1 flex items-center justify-between gap-2">
-                    <div className="text-[0.78rem] uppercase tracking-[0.16em] text-cyan-300/65">{t('podcast.ircCommand')}</div>
+                    <div className="text-[0.78rem] uppercase tracking-[0.16em] text-cyan-300/65">{t('mining.ircCommand')}</div>
                     {activeBlockCommand && (
                       <div className="flex items-center gap-1 rounded border border-amber-400/30 bg-amber-950/20 px-1.5 py-0.5">
                         <span className="text-[0.5rem] uppercase tracking-[0.1em] text-amber-400/70">nonce</span>
@@ -1471,14 +1471,14 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
                   </div>
                   {canLaunchIrc ? (
                     <Link
-                      href={`/irc?command=${encodeURIComponent(commandKey(selectedMarketCommand.command))}`}
+                      href={`/relaying?command=${encodeURIComponent(commandKey(selectedMarketCommand.command))}`}
                       className="flex items-center justify-center rounded border border-cyan-500/28 bg-black/30 px-2 py-1 text-[0.76rem] font-black uppercase tracking-[0.14em] text-cyan-400/90 transition hover:border-cyan-400/55 hover:text-cyan-200"
                     >
-                      {t('podcast.launchIrcCommand')}
+                      {t('mining.launchIrcCommand')}
                     </Link>
                   ) : (
                     <div className="flex items-center justify-center rounded border border-slate-700/30 bg-black/20 px-2 py-1 text-[0.76rem] font-black uppercase tracking-[0.14em] text-slate-700 cursor-not-allowed select-none">
-                      {t('podcast.ircLocked')}
+                      {t('mining.ircLocked')}
                     </div>
                   )}
                 </>
@@ -1489,13 +1489,13 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
                 <>
                   {selectedMarketCommand && <hr className="my-1.5 border-fuchsia-400/15" />}
                   <div className="flex items-center justify-between gap-2 mb-1">
-                    <div className="text-[0.78rem] uppercase tracking-[0.16em] text-fuchsia-300/65">{t('podcast.numericPrompt')}</div>
+                    <div className="text-[0.78rem] uppercase tracking-[0.16em] text-fuchsia-300/65">{t('mining.numericPrompt')}</div>
                     <div className="text-[0.80rem] font-black uppercase tracking-[0.12em] text-fuchsia-200/75">
                       -{activePenaltyValue.toFixed(8).replace(/\.?0+$/, '') || '0'} {activePenaltyEffect === 'mm3' ? 'MM3' : 'EUR'}
                     </div>
                   </div>
                   {activePenalty.attempted_at ? (
-                    <div className="text-[0.78rem] uppercase tracking-[0.12em] text-fuchsia-500/70">{t('podcast.numericUsed')}</div>
+                    <div className="text-[0.78rem] uppercase tracking-[0.12em] text-fuchsia-500/70">{t('mining.numericUsed')}</div>
                   ) : (
                     <div className="flex gap-1">
                       <input
@@ -1504,7 +1504,7 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
                         disabled={processing}
                         inputMode="numeric"
                         maxLength={5}
-                        placeholder={t('podcast.numericCodeHint')}
+                        placeholder={t('mining.numericCodeHint')}
                         className="mm3-market-answer-input min-w-0 flex-1 rounded border border-fuchsia-400/18 bg-black/70 px-1.5 py-1 text-[0.82rem] text-fuchsia-100 outline-none placeholder:text-fuchsia-800/60 disabled:opacity-35"
                       />
                       <button
@@ -1527,12 +1527,12 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
           {!selectedBlock?.isPlaceholder && (
             <div className="col-span-1 flex items-center gap-3 px-0.5 lg:col-span-2">
               <div className="flex items-center gap-1">
-                <span className="text-[0.55rem] uppercase tracking-[0.12em] text-slate-600">{t('podcast.statBuys')}</span>
+                <span className="text-[0.55rem] uppercase tracking-[0.12em] text-slate-600">{t('mining.statBuys')}</span>
                 <span className="text-[0.82rem] font-black text-cyan-400/60">{selectedEventCounts.emoji === selectedBlock?.emoji ? selectedEventCounts.buys : 0}</span>
               </div>
               <span className="text-[0.78rem] text-slate-700">//</span>
               <div className="flex items-center gap-1">
-                <span className="text-[0.55rem] uppercase tracking-[0.12em] text-slate-600">{t('podcast.statResells')}</span>
+                <span className="text-[0.55rem] uppercase tracking-[0.12em] text-slate-600">{t('mining.statResells')}</span>
                 <span className="text-[0.82rem] font-black text-fuchsia-400/60">{selectedEventCounts.emoji === selectedBlock?.emoji ? selectedEventCounts.resells : 0}</span>
               </div>
             </div>
@@ -1541,7 +1541,7 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
           {/* ── Auto-resell warning ── */}
           {hasOtherNFTJI && !ownsSelected && !selectedBlock?.isPlaceholder && (
             <div className="rounded border border-red-400/25 bg-red-950/10 px-2 py-1 text-[0.78rem] uppercase tracking-[0.12em] text-red-400/70 lg:col-span-2">
-              {t('podcast.autoResoldHint')}
+              {t('mining.autoResoldHint')}
             </div>
           )}
 
@@ -1565,7 +1565,7 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
                 disabled={processing}
                 className="mm3-market-claim w-full rounded border border-green-400/35 bg-black/70 px-2.5 py-1.5 text-[0.68rem] font-black uppercase tracking-[0.18em] text-green-300 transition hover:border-green-300 hover:text-green-100 disabled:cursor-not-allowed disabled:opacity-35 lg:px-3 lg:py-2 lg:text-[0.75rem] lg:tracking-[0.22em]"
               >
-                {processing ? '[ sync ]' : t('podcast.resell')}
+                {processing ? '[ sync ]' : t('mining.resell')}
               </button>
             ) : (
               <button
@@ -1574,7 +1574,7 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
                 disabled={!canBuy}
                 className="mm3-market-claim w-full rounded border border-cyan-400/28 bg-black/70 px-2.5 py-1.5 text-[0.68rem] font-black uppercase tracking-[0.18em] text-cyan-200 transition hover:border-cyan-300 hover:text-cyan-100 disabled:cursor-not-allowed disabled:opacity-35 lg:px-3 lg:py-2 lg:text-[0.75rem] lg:tracking-[0.22em]"
               >
-                {processing ? '[ sync ]' : t('podcast.buy')}
+                {processing ? '[ sync ]' : t('mining.buy')}
               </button>
             )}
           </div>

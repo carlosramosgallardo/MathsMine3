@@ -13,16 +13,16 @@ import {
   marketCommandFromBlock,
   normalizeCommandText,
   getUtcDayWindow,
-} from '@/lib/market-commands';
+} from '@/lib/mining-commands';
 import { formatBlockRequirement, MM3_BLOCK_REQUIREMENT_BY_HEX, normalizeBlockHex } from '@/lib/mm3-block-chain';
-import { useIrcPresence } from '@/lib/irc-presence-context';
+import { useIrcPresence } from '@/lib/relaying-presence-context';
 import { colorFromAddress, colorFromPool } from '@/lib/wallet-colors';
 import { formatWalletLabel } from '@/lib/wallet-format';
 
 const ACTIVE_WINDOW_MS = 90_000;
 const MAX_SESSION_MESSAGES = 500;
 const MAX_CHAT_HISTORY = 500;
-const IRC_FILTER_TYPES = ['welcome', 'market', 'mainframe', 'squeeze', 'donations', 'bots'];
+const IRC_FILTER_TYPES = ['welcome', 'mining', 'mainframe', 'squeezing', 'donations', 'bots'];
 const DEFAULT_IRC_FILTERS = IRC_FILTER_TYPES.reduce((acc, key) => ({ ...acc, [key]: false }), {});
 
 function flagImgUrl(cc) {
@@ -163,8 +163,8 @@ function formatChatAuthor(wallet, normalizedWallet, youLabel) {
 
 function formatSystemAuthor(tone) {
   if (tone === 'realchain') return 'MathsMine3@ETH·:~$';
-  if (tone === 'market') return 'market@MM3·:~$';
-  if (tone === 'squeeze') return 'squeeze@MM3·:~$';
+  if (tone === 'market') return 'mining@MM3·:~$';
+  if (tone === 'squeeze') return 'squeezing@MM3·:~$';
   if (tone === 'ghost' || tone === 'join' || tone === 'leave') return 'mainframe@MM3·:~$';
   if (tone === 'command') return 'cmd@MM3·:~$';
   if (tone === 'accent') return 'welcome@MM3·:~$';
@@ -175,8 +175,8 @@ function getMessageFilterType(message) {
   if (message?.tone === 'bot' || IRC_BOT_WALLETS.has(String(message?.wallet || '').toLowerCase())) return 'bots';
   if (message?.kind !== 'system') return null;
   if (message.tone === 'accent') return 'welcome';
-  if (message.tone === 'market') return 'market';
-  if (message.tone === 'squeeze') return 'squeeze';
+  if (message.tone === 'market') return 'mining';
+  if (message.tone === 'squeeze') return 'squeezing';
   if (message.tone === 'realchain') return 'donations';
   if (message.tone === 'ghost' || message.tone === 'join' || message.tone === 'leave') return 'mainframe';
   return null;
@@ -320,7 +320,7 @@ function renderIrcTextLinks(displayText, tone, onWalletClick, blockMap, onBlockC
   return <>{parts}</>;
 }
 
-export default function IrcTerminal({ accent = '#22d3ee' }) {
+export default function RelayingTerminal({ accent = '#22d3ee' }) {
   const { t, language } = useI18n();
   const router = useRouter();
   const { account } = useActiveWallet();
@@ -380,17 +380,17 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
     language === 'es'
       ? {
           welcome: 'welcome',
-          market: 'market',
+          mining: 'mining',
           mainframe: 'mainframe',
-          squeeze: 'squeeze',
+          squeezing: 'squeezing',
           donations: 'donations ETH',
           bots: 'bots',
         }
       : {
           welcome: 'welcome',
-          market: 'market',
+          mining: 'mining',
           mainframe: 'mainframe',
-          squeeze: 'squeeze',
+          squeezing: 'squeezing',
           donations: 'donations ETH',
           bots: 'bots',
         }
@@ -465,7 +465,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
     const commandEntryByKey = new Map(commandEntries.map((entry) => [entry.key, entry]));
     const ownerWalletsByKey = new Map();
     for (const entry of ownersData || []) {
-      const key = entry.market_nftji_key;
+      const key = entry.mining_nftji_key;
       const wallet = String(entry.wallet || '').toLowerCase();
       if (!key || !wallet) continue;
       if (!ownerWalletsByKey.has(key)) ownerWalletsByKey.set(key, []);
@@ -504,7 +504,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
       const affectedWallets = penaltiesByCommandId.get(command.id) || penaltiesByKey.get(key) || [];
       const affected = affectedWallets.map(formatWalletLabel).join(' · ') || '0';
       activeLines.push(
-        `${label.active} >> ${emoji} ${hex} >> ${t('irc.by')} ${formatWalletLabel(command.wallet)} >> ${label.affected}: ${affected} >> ${label.reset} ${formatResetIn(command.reset_at, language)}`
+        `${label.active} >> ${emoji} ${hex} >> ${t('relaying.by')} ${formatWalletLabel(command.wallet)} >> ${label.affected}: ${affected} >> ${label.reset} ${formatResetIn(command.reset_at, language)}`
       );
     }
 
@@ -521,7 +521,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
       readyLines.push(`${label.ready} >> ${entry.emoji} ${hex} >> ${label.wallets}: ${readyWallets}`);
     }
 
-    return readyLines.length > 0 ? readyLines : [t('irc.marketNoPenalties')];
+    return readyLines.length > 0 ? readyLines : [t('relaying.marketNoPenalties')];
   }, [language, t]);
 
   // Derive stable anon ID from external IP (client-only, no DB, cached in sessionStorage)
@@ -615,7 +615,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
     lastRelayStatusRef.current = '';
 
     const loadWelcome = async () => {
-      let welcomeText = t('irc.welcomeFallback');
+      let welcomeText = t('relaying.welcomeFallback');
       const marketMessages = [];
       let chatHistory = [];
 
@@ -624,12 +624,12 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
         // Separate queries: if macro or owners fail, we still want the chat history
         const [ircRes, squeezeRes, macroRes, ownersRes, commandsRes, blocksRes, penaltiesRes] = await Promise.all([
           supabase
-            .from('mm3_irc_messages')
+            .from('mm3_relaying_messages')
             .select('wallet, text, ts, kind, tone')
             .order('ts', { ascending: false })
             .limit(MAX_CHAT_HISTORY),
           supabase
-            .from('mm3_irc_messages')
+            .from('mm3_relaying_messages')
             .select('wallet, text, ts, kind, tone')
             .eq('tone', 'squeeze')
             .order('ts', { ascending: false })
@@ -641,14 +641,14 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
             .maybeSingle(),
           supabase
             .from('player_progress')
-            .select('wallet, market_nftji_key')
-            .not('market_nftji_key', 'is', null),
+            .select('wallet, mining_nftji_key')
+            .not('mining_nftji_key', 'is', null),
           supabase
-            .from('mm3_market_commands')
+            .from('mm3_mining_commands')
             .select('id, nftji_key, formula_x, reset_at, wallet')
             .gt('reset_at', nowIso),
           supabase
-            .from('mm3_market_blocks')
+            .from('mm3_mining_blocks')
             .select('block_key, emoji, grid_row, grid_col, title_en, title_es, price_eur, market_command, is_active'),
           supabase
             .from('mm3_command_penalties')
@@ -827,10 +827,10 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
       const [{ data: ownersData, error }, { data: blocksData }] = await Promise.all([
         supabase
           .from('player_progress')
-          .select('wallet, market_nftji_key')
-          .not('market_nftji_key', 'is', null),
+          .select('wallet, mining_nftji_key')
+          .not('mining_nftji_key', 'is', null),
         supabase
-          .from('mm3_market_blocks')
+          .from('mm3_mining_blocks')
           .select('block_key, emoji'),
       ]);
       if (error) throw error;
@@ -843,7 +843,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
       const nextClaims = {};
       for (const entry of ownersData || []) {
         const wallet = String(entry.wallet || '').toLowerCase();
-        const key = entry.market_nftji_key;
+        const key = entry.mining_nftji_key;
         const emoji = emojiByKey.get(key);
         if (!wallet || !emoji) continue;
         nextClaims[wallet] = [emoji];
@@ -953,7 +953,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
     loadPresence();
     const timer = setInterval(loadPresence, 10_000);
     const channel = supabase
-      .channel('mm3-irc-presence-watch')
+      .channel('mm3-relaying-presence-watch')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'mm3_wallet_presence' }, loadPresence)
       .subscribe();
 
@@ -982,10 +982,10 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
       if (!presenceReady) return;
       const walletParts = connectedWallets.map((u) => formatWalletLabel(u.wallet));
       const n = walletParts.length;
-      const walletLabel = t('irc.wallets');
+      const walletLabel = t('relaying.wallets');
       const listPart = n === 0
-        ? t('irc.mainframeQuiet')
-        : t('irc.mainframeNodes').replace('{count}', n).replace('{walletLabel}', walletLabel) + walletParts.join(' · ');
+        ? t('relaying.mainframeQuiet')
+        : t('relaying.mainframeNodes').replace('{count}', n).replace('{walletLabel}', walletLabel) + walletParts.join(' · ');
 
       const { joined, left } = presenceDeltaRef.current;
       presenceDeltaRef.current = { joined: [], left: [] };
@@ -1025,14 +1025,14 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
       const [{ data: ownersData }, { data: commandsData }, { data: blocksData }, { data: penaltiesData }] = await Promise.all([
         supabase
           .from('player_progress')
-          .select('wallet, market_nftji_key')
-          .not('market_nftji_key', 'is', null),
+          .select('wallet, mining_nftji_key')
+          .not('mining_nftji_key', 'is', null),
           supabase
-            .from('mm3_market_commands')
+            .from('mm3_mining_commands')
             .select('id, nftji_key, formula_x, reset_at, wallet')
             .gt('reset_at', nowIso),
         supabase
-          .from('mm3_market_blocks')
+          .from('mm3_mining_blocks')
           .select('block_key, emoji, grid_row, grid_col, title_en, title_es, price_eur, market_command, is_active'),
         supabase
           .from('mm3_command_penalties')
@@ -1115,7 +1115,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
 
     const channel = supabase
       .channel('mm3-irc-market-commands-watch')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'mm3_market_commands' }, ({ new: rec }) => {
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'mm3_mining_commands' }, ({ new: rec }) => {
         const { emoji, hex } = resolveBlock(rec.nftji_key);
         const reset = formatResetIn(rec.reset_at, language);
         scheduleTimeout(async () => {
@@ -1129,7 +1129,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
               id: `market-event:on:${rec.id}`,
               kind: 'system',
               wallet: 'system',
-              text: `${traceLabel.exec} >> ${emoji} ${hex} >> ${t('irc.by')} ${formatWalletLabel(rec.wallet)} >> ${traceLabel.affected}: ${affected} >> reset ${reset}`,
+              text: `${traceLabel.exec} >> ${emoji} ${hex} >> ${t('relaying.by')} ${formatWalletLabel(rec.wallet)} >> ${traceLabel.affected}: ${affected} >> reset ${reset}`,
               ts: Date.now(),
               tone: 'market',
             }), { silent: false });
@@ -1137,7 +1137,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
           refreshMarketStatus();
         }, 3000);
       })
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'mm3_market_commands' }, async ({ new: rec }) => {
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'mm3_mining_commands' }, async ({ new: rec }) => {
         if (new Date(rec.reset_at) > new Date()) return;
         const { emoji, hex } = resolveBlock(rec.nftji_key);
         let releasedInfo = '0';
@@ -1153,7 +1153,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
           id: `market-event:off:${rec.id}`,
           kind: 'system',
           wallet: 'system',
-          text: `${traceLabel.reset} >> ${emoji} ${hex} >> ${releasedInfo} ${t('irc.walletsReleased')}`,
+          text: `${traceLabel.reset} >> ${emoji} ${hex} >> ${releasedInfo} ${t('relaying.walletsReleased')}`,
           ts: Date.now(),
           tone: 'market',
         };
@@ -1161,14 +1161,14 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
         // After detail trace, refresh grouped market status for all users
         scheduleTimeout(() => refreshMarketStatus(), 500);
       })
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'mm3_market_events' }, ({ new: rec }) => {
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'mm3_mining_events' }, ({ new: rec }) => {
         if (rec?.event_type === 'nftji_claim') {
           window.dispatchEvent(new CustomEvent('mm3-db-updated'));
           return;
         }
-        if (!['market_buy', 'market_resell'].includes(rec?.event_type)) return;
+        if (!['mining_buy', 'mining_resell'].includes(rec?.event_type)) return;
         const { emoji, hex } = resolveBlockByEmoji(rec.emoji);
-        const action = rec.event_type === 'market_buy' ? traceLabel.buy : traceLabel.resell;
+        const action = rec.event_type === 'mining_buy' ? traceLabel.buy : traceLabel.resell;
         appendAndBroadcastMessage(makeMessage({
           id: `market-event:${rec.event_type}:${rec.id || rec.created_at || Date.now()}`,
           kind: 'system',
@@ -1179,7 +1179,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
         }), { silent: false });
         scheduleTimeout(() => refreshMarketStatus(), 500);
       })
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'mm3_irc_messages', filter: 'tone=eq.market' }, ({ new: rec }) => {
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'mm3_relaying_messages', filter: 'tone=eq.market' }, ({ new: rec }) => {
         const text = normalizeRelayMessage(rec?.text);
         if (!text) return;
         appendMessage(makeMessage({
@@ -1192,7 +1192,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
         }), { silent: false });
         scheduleTimeout(() => refreshMarketStatus(), 500);
       })
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'mm3_irc_messages', filter: 'tone=eq.realchain' }, ({ new: rec }) => {
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'mm3_relaying_messages', filter: 'tone=eq.realchain' }, ({ new: rec }) => {
         const text = normalizeRelayMessage(rec?.text);
         if (!text) return;
         appendMessage(makeMessage({
@@ -1204,7 +1204,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
           tone: rec.tone || 'realchain',
         }), { silent: false });
       })
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'mm3_irc_messages', filter: 'tone=eq.squeeze' }, ({ new: rec }) => {
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'mm3_relaying_messages', filter: 'tone=eq.squeeze' }, ({ new: rec }) => {
         const text = normalizeRelayMessage(rec?.text);
         if (!text) return;
         appendMessage(makeMessage({
@@ -1216,7 +1216,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
           tone: 'squeeze',
         }), { silent: false });
       })
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'mm3_irc_messages', filter: 'tone=eq.join' }, ({ new: rec }) => {
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'mm3_relaying_messages', filter: 'tone=eq.join' }, ({ new: rec }) => {
         const text = normalizeRelayMessage(rec?.text);
         if (!text) return;
         appendMessage(makeMessage({
@@ -1228,7 +1228,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
           tone: 'join',
         }), { silent: false });
       })
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'mm3_irc_messages', filter: 'tone=eq.leave' }, ({ new: rec }) => {
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'mm3_relaying_messages', filter: 'tone=eq.leave' }, ({ new: rec }) => {
         const text = normalizeRelayMessage(rec?.text);
         if (!text) return;
         appendMessage(makeMessage({
@@ -1240,7 +1240,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
           tone: 'leave',
         }), { silent: false });
       })
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'mm3_irc_messages', filter: 'tone=eq.bot' }, ({ new: rec }) => {
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'mm3_relaying_messages', filter: 'tone=eq.bot' }, ({ new: rec }) => {
         const text = normalizeRelayMessage(rec?.text);
         if (!text) return;
         appendMessage(makeMessage({
@@ -1296,7 +1296,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
 
   const loadMarketCommandEntries = useCallback(async () => {
     const { data, error } = await supabase
-      .from('mm3_market_blocks')
+      .from('mm3_mining_blocks')
       .select('block_key, emoji, grid_row, grid_col, title_en, title_es, price_eur, market_command, is_active')
       .not('market_command', 'is', null);
     if (error) throw error;
@@ -1381,11 +1381,11 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
       const [{ data: launcher }, { data: existingCommand }, { data: blockRow }] = await Promise.all([
         supabase
           .from('player_progress')
-          .select('wallet, market_nftji_key, mm3_sold')
+          .select('wallet, mining_nftji_key, mm3_sold')
           .eq('wallet', normalizedWallet)
           .maybeSingle(),
         supabase
-          .from('mm3_market_commands')
+          .from('mm3_mining_commands')
           .select('id, wallet, reset_at')
           .eq('nftji_key', commandEntry.key)
           .gt('reset_at', nowIso)
@@ -1393,33 +1393,33 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
           .limit(1)
           .maybeSingle(),
         supabase
-          .from('mm3_market_blocks')
+          .from('mm3_mining_blocks')
           .select('block_key, emoji, grid_row, grid_col, title_en, title_es, price_eur, market_command')
           .eq('block_key', commandEntry.key)
           .maybeSingle(),
       ]);
 
-      if (launcher?.market_nftji_key !== commandEntry.key) {
+      if (launcher?.mining_nftji_key !== commandEntry.key) {
         const hex = blockRow ? getBlockHex(blockRow.grid_row, blockRow.grid_col) : commandEntry.key;
         const emoji = blockRow?.emoji || commandEntry.emoji;
-        await broadcastSystemMessage(`${t('irc.commandRejected')} >> ${formatWalletLabel(normalizedWallet)} ${t('irc.doesNotOwn')} ${hex}${emoji}`, 'command');
+        await broadcastSystemMessage(`${t('relaying.commandRejected')} >> ${formatWalletLabel(normalizedWallet)} ${t('relaying.doesNotOwn')} ${hex}${emoji}`, 'command');
         return true;
       }
 
       if (existingCommand) {
         const reset = formatResetIn(existingCommand.reset_at, language);
-        await broadcastSystemMessage(`${commandEntry.emoji} ${t('podcast.launchLocked')} ${reset}`, 'command');
+        await broadcastSystemMessage(`${commandEntry.emoji} ${t('mining.launchLocked')} ${reset}`, 'command');
         return true;
       }
 
       if (!blockRow) {
-        await broadcastSystemMessage(`${t('irc.commandRejected')} >> ${t('irc.noBlock')} ${commandEntry.key}`, 'command');
+        await broadcastSystemMessage(`${t('relaying.commandRejected')} >> ${t('relaying.noBlock')} ${commandEntry.key}`, 'command');
         return true;
       }
 
       const { x, code } = computeMarketCommandCode(commandEntry, normalizedWallet, dayWindow.dayKey, now.getTime());
       const { data: insertedCommand, error: commandError } = await supabase
-        .from('mm3_market_commands')
+        .from('mm3_mining_commands')
         .insert({
           wallet: normalizedWallet,
           nftji_key: commandEntry.key,
@@ -1434,7 +1434,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
 
       const { data: allProgress, error: progressError } = await supabase
         .from('player_progress')
-        .select('wallet, level, market_nftji_key, eur_earned, usd_earned, cny_earned, mm3_sold')
+        .select('wallet, level, mining_nftji_key, eur_earned, usd_earned, cny_earned, mm3_sold')
         .limit(1000);
       if (progressError) throw new Error(`allProgress: ${progressError.message}`);
 
@@ -1459,7 +1459,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
       for (const row of allProgress || []) {
         const wallet = String(row.wallet || '').toLowerCase();
         if (!wallet || exemptWallets.has(wallet)) continue;
-        if (row.market_nftji_key === commandEntry.key) continue;
+        if (row.mining_nftji_key === commandEntry.key) continue;
         if (isMm3Command) {
           const soldMm3 = Number(row.mm3_sold) || 0;
           penalties.push({
@@ -1520,14 +1520,14 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
       }
 
       await broadcastSystemMessage(
-        `exec >> ${blockRow.emoji || commandEntry.emoji} >> cmd=${commandEntry.command} >> nonce=${x} >> ${penalties.length} ${t('podcast.walletsPenalized')} >> reset ${formatResetIn(dayWindow.resetAt, language)}`,
+        `exec >> ${blockRow.emoji || commandEntry.emoji} >> cmd=${commandEntry.command} >> nonce=${x} >> ${penalties.length} ${t('mining.walletsPenalized')} >> reset ${formatResetIn(dayWindow.resetAt, language)}`,
         'market'
       );
       relayRef.current?.send({ type: 'broadcast', event: 'market-status-refresh', payload: { ts: Date.now() } }).catch(() => {});
       return true;
     } catch (err) {
       console.error('market command:', err);
-      await broadcastSystemMessage(`${t('podcast.commandFailed')} >> ${err?.message || 'market daemon non-zero'}`, 'command');
+      await broadcastSystemMessage(`${t('mining.commandFailed')} >> ${err?.message || 'market daemon non-zero'}`, 'command');
       return true;
     }
   }, [broadcastSystemMessage, findMarketCommandInDb, language, normalizedWallet, t]);
@@ -1584,7 +1584,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
       already_mined: language === 'es'
         ? `mine block rechazado :: ${blockHex} ya minado por ${formatWalletLabel(data.owner || '')}`
         : `mine block rejected :: ${blockHex} already mined by ${formatWalletLabel(data.owner || '')}`,
-      reserved_market_nftji: language === 'es'
+      reserved_mining_nftji: language === 'es'
         ? `mine block rechazado :: ${blockHex} reservado para NFTJI de Market`
         : `mine block rejected :: ${blockHex} is reserved for a Market NFTJI`,
       block_chain_not_installed: language === 'es'
@@ -1644,7 +1644,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
             : `ERR: system hack attempt >> wallet=${formatWalletLabel(normalizedWallet)} >> input=${text} >> expected=${malformedPublicCommand.command}`;
           await broadcastSystemMessage(hackText, 'command');
           try {
-            await supabase.from('mm3_irc_messages').insert({
+            await supabase.from('mm3_relaying_messages').insert({
               wallet: 'system', text: hackText, ts: Date.now(), kind: 'system', tone: 'command',
             });
           } catch {}
@@ -1665,7 +1665,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
             const trace = language === 'es' ? data.trace_es : data.trace_en;
             await broadcastSystemMessage(trace, 'command');
             try {
-              await supabase.from('mm3_irc_messages').insert({
+              await supabase.from('mm3_relaying_messages').insert({
                 wallet: 'system', text: trace, ts: Date.now(), kind: 'system', tone: 'command',
               });
             } catch {}
@@ -1718,7 +1718,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
     appendMessage(makeMessage(payload), { silent: false });
 
     try {
-      await supabase.from('mm3_irc_messages').insert({
+      await supabase.from('mm3_relaying_messages').insert({
         wallet: normalizedWallet,
         text,
         ts: payload.ts,
@@ -2071,7 +2071,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
             <div className="shrink-0 text-[0.70rem] sm:text-[0.80rem] uppercase tracking-[0.16em] text-slate-500">#relay-mainframe</div>
             <div className="flex min-w-0 items-center gap-1.5 sm:gap-3">
               <span className={`shrink-0 text-[0.65rem] sm:text-[0.75rem] uppercase tracking-[0.16em] ${normalizedWallet ? 'text-cyan-700' : 'text-amber-700/70'}`}>
-                {!normalizedWallet ? t('irc.readOnly') : (relayReady ? t('irc.live') : t('irc.syncing'))}
+                {!normalizedWallet ? t('relaying.readOnly') : (relayReady ? t('relaying.live') : t('relaying.syncing'))}
               </span>
               <span className={`truncate text-[0.72rem] sm:text-[0.82rem] ${normalizedWallet ? 'text-cyan-200' : 'text-slate-500'}`}>
                 {formatIrcWalletLabel(actorId)}
@@ -2100,7 +2100,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
               const ownedMarketEmojis = message.kind === 'chat' ? (marketClaimsByWallet[message.wallet] || []) : [];
               const author = isSystem
                 ? formatSystemAuthor(message.tone)
-                : formatChatAuthor(message.wallet, normalizedWallet, t('irc.you'));
+                : formatChatAuthor(message.wallet, normalizedWallet, t('relaying.you'));
               const displayText = isSystem
                 ? `#${localizeLegacySystemPromptText(message.text, language)}`
                 : `#${message.text}`;
@@ -2116,7 +2116,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
                 router.push('/ranking');
               };
               const handleBlockHexClick = (blockKey) => {
-                router.push(`/market?block=${blockKey}`);
+                router.push(`/mining?block=${blockKey}`);
               };
               const handleChainClick = message.wallet && message.wallet !== 'system' ? async () => {
                 try {
@@ -2129,7 +2129,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
                     .maybeSingle();
                   if (data?.block_hex) {
                     const idx = parseInt(String(data.block_hex).replace(/^#/, ''), 16);
-                    if (Number.isFinite(idx)) router.push(`/market?block=ph-${Math.floor(idx / 28)}-${idx % 28}`);
+                    if (Number.isFinite(idx)) router.push(`/mining?block=ph-${Math.floor(idx / 28)}-${idx % 28}`);
                   }
                 } catch (e) { console.error('chain click:', e); }
               } : undefined;
@@ -2189,7 +2189,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
               <div className="px-1 py-2 text-[0.88rem] uppercase tracking-[0.14em] text-slate-500">
                 {messages.length > 0
                   ? (language === 'es' ? 'activa filtros para ver trazas del sistema' : 'enable filters to show system traces')
-                  : t('irc.empty')}
+                  : t('relaying.empty')}
               </div>
             )}
             <div ref={endRef} />
@@ -2201,7 +2201,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
                 ref={inputRef}
                 value={draft}
                 onChange={(event) => setDraft(event.target.value)}
-                placeholder={t('irc.inputPlaceholder')}
+                placeholder={t('relaying.inputPlaceholder')}
                 className="min-w-0 flex-1 rounded-sm border border-cyan-500/15 bg-black/80 px-2.5 py-1.5 font-mono text-[0.95rem] text-cyan-100 outline-none transition placeholder:text-slate-600 focus:border-cyan-400/45 focus:shadow-[0_0_18px_rgba(34,211,238,0.08)]"
                 maxLength={280}
                 autoComplete="off"
@@ -2212,13 +2212,13 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
                 className="mm3-irc-submit rounded-sm border border-cyan-500/35 px-3 py-1.5 font-mono text-[0.75rem] font-black uppercase tracking-[0.22em] text-cyan-200 transition hover:border-cyan-300 hover:text-cyan-100"
                 disabled={!relayReady || !normalizeRelayMessage(draft)}
               >
-                {t('irc.send')}
+                {t('relaying.send')}
               </button>
             </form>
           ) : (
             <div className="mt-2 flex items-center gap-2 border border-amber-500/12 bg-amber-950/10 px-2.5 py-1.5 font-mono">
               <span className="text-amber-600/70 text-[0.5rem]">▶</span>
-              <span className="text-[0.80rem] uppercase tracking-[0.2em] text-amber-700/60">{t('irc.readOnlyHint')}</span>
+              <span className="text-[0.80rem] uppercase tracking-[0.2em] text-amber-700/60">{t('relaying.readOnlyHint')}</span>
             </div>
           )}
         </section>
@@ -2243,7 +2243,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
                   const isYou = entry.wallet === actorId;
                   const isAnon = entry.source === 'anon' || entry.wallet.startsWith('anon:');
                   const label = isYou
-                    ? `${formatIrcWalletLabel(entry.wallet)} (${t('irc.you')})`
+                    ? `${formatIrcWalletLabel(entry.wallet)} (${t('relaying.you')})`
                     : formatIrcWalletLabel(entry.wallet);
                   const emojis = isAnon ? [] : (marketClaimsByWallet[entry.wallet] || []);
                   const srcLabel = isAnon ? 'A' : (entry.source === 'google' ? 'G' : 'W');
@@ -2253,7 +2253,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
                       key={entry.wallet}
                       className={`mm3-irc-peer-row${isAnon && !isYou ? ' is-anon' : ''}`}
                       style={peerColor ? { color: peerColor } : undefined}
-                      title={isAnon ? t('irc.readOnly') : entry.wallet}
+                      title={isAnon ? t('relaying.readOnly') : entry.wallet}
                     >
                       <span className="mm3-irc-peer-chevron">{isAnon ? '○' : '▶'}</span>
                       {!isAnon && <FlagImg cc={walletFlags[entry.wallet]} style={{ marginRight: '0.18rem' }} />}
@@ -2270,7 +2270,7 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
                     className="mm3-irc-show-more"
                     onClick={() => setVisibleCount((v) => v + 5)}
                   >
-                    {`+ ${Math.min(5, connectedWallets.length - visibleCount)} ${t('irc.more')}`}
+                    {`+ ${Math.min(5, connectedWallets.length - visibleCount)} ${t('relaying.more')}`}
                   </button>
                 )}
                 {visibleCount > 5 && connectedWallets.length <= visibleCount && (
@@ -2278,25 +2278,25 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
                     className="mm3-irc-show-more"
                     onClick={() => setVisibleCount(5)}
                   >
-                    ▲ {t('irc.collapse')}
+                    ▲ {t('relaying.collapse')}
                   </button>
                 )}
               </>
             ) : (
               <div className="pt-1 font-mono text-[0.75rem] uppercase tracking-[0.16em] text-slate-600">
-                {t('irc.empty')}
+                {t('relaying.empty')}
               </div>
             )}
             {anonUsers.length > 0 && (
               <>
-                <div className="mm3-irc-anon-label">{t('irc.anonSectLabel')}</div>
+                <div className="mm3-irc-anon-label">{t('relaying.anonSectLabel')}</div>
                 {anonUsers.slice(0, anonVisibleCount).map((entry) => {
                   const isYou = entry.anonId === actorId;
                   return (
                     <div
                       key={entry.anonId}
                       className={`mm3-irc-peer-row is-anon${isYou ? ' is-you' : ''}`}
-                      title={t('irc.readOnly')}
+                      title={t('relaying.readOnly')}
                     >
                       <span className="mm3-irc-peer-chevron">○</span>
                       <FlagImg cc={entry.flag} style={{ marginRight: '0.18rem' }} />
@@ -2307,12 +2307,12 @@ export default function IrcTerminal({ accent = '#22d3ee' }) {
                 })}
                 {anonVisibleCount < anonUsers.length && (
                   <button className="mm3-irc-show-more" onClick={() => setAnonVisibleCount((v) => v + 5)}>
-                    {`+ ${Math.min(5, anonUsers.length - anonVisibleCount)} ${t('irc.more')}`}
+                    {`+ ${Math.min(5, anonUsers.length - anonVisibleCount)} ${t('relaying.more')}`}
                   </button>
                 )}
                 {anonVisibleCount > 5 && anonUsers.length <= anonVisibleCount && (
                   <button className="mm3-irc-show-more" onClick={() => setAnonVisibleCount(5)}>
-                    ▲ {t('irc.collapse')}
+                    ▲ {t('relaying.collapse')}
                   </button>
                 )}
               </>
