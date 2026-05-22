@@ -32,11 +32,11 @@
 - [NFTJIs](#nftjis)
 - [Trade MM3](#trade-mm3)
 - [Dice](#dice)
-- [Market](#market)
+- [Mining](#mining)
 - [Solve the Chain](#solve-the-chain)
 - [Pools](#pools)
-- [Squeeze](#squeeze)
-- [IRC Relay](#irc-relay)
+- [Squeezing](#squeezing)
+- [Relaying](#relaying)
 - [Ranking](#ranking)
 - [Bots](#bots)
 - [API](#api)
@@ -68,7 +68,7 @@
 
 MathsMine3 turns math into pressure, reward, memory, risk, and ritual.
 
-It is not a classroom skin. It is a terminal-world game: train under time pressure, mine the 784-cell board, climb ranks, lose level when you fail, trade inside a fictional exchange, collect NFTJIs, fire Mining commands, take part in IRC chat, and return after every reset sharper than before.
+It is not a classroom skin. It is a terminal-world game: train under time pressure, mine the 784-cell board, climb ranks, lose level when you fail, trade inside a fictional exchange, collect NFTJIs, fire Mining commands, take part in Relaying chat, and return after every reset sharper than before.
 
 The useful idea is simple: **math becomes action**. Every problem solved is not just a score event; it moves a wallet, a rank, a fictional market, and a shared public state. The board has a finish line: 784 cells, one winner.
 
@@ -76,7 +76,7 @@ The useful idea is simple: **math becomes action**. Every problem solved is not 
 
 ## Objective
 
-The goal is to complete the MM3 mining board and win. The board has **784 cells** — 20 Market NFTJI cells and 764 free chain cells. Both types count toward your Mining %. There are two ways to win: **complete the board** — the wallet at #1 when all 784 cells are covered (764 chain blocks permanently mined + all 20 NFTJIs owned by at least one wallet) wins — or **solve the chain directly** by submitting the correct answer to the secret function `Ω(α, β, γ)`, which triggers an immediate win regardless of board state.
+The goal is to complete the MM3 mining board and win. The board has **784 cells** — 20 Mining NFTJI cells and 764 free chain cells. Both types count toward your Mining %. There are two ways to win: **complete the board** — the wallet at #1 when all 784 cells are covered (764 chain blocks permanently mined + all 20 NFTJIs owned by at least one wallet) wins — or **solve the chain directly** by submitting the correct answer to the secret function `Ω(α, β, γ)`, which triggers an immediate win regardless of board state.
 
 ### Why reaching #1 is genuinely hard
 
@@ -90,7 +90,7 @@ The goal is to complete the MM3 mining board and win. The board has **784 cells*
 
 **Alternating signs.** Block requirements flip between positive and negative `mm3_global_value` by block index. You cannot skip ahead: if the next qualifying block demands a negative global value and the economy is running positive, you wait.
 
-**Rival pressure.** Without pool cover, any wallet that owns a Market NFTJI can fire its daily command and drain rivals' fiat or MM3 in a single shot. Those losses can erase the reserves needed to meet a block threshold or rebuy MM3 at the exchange.
+**Rival pressure.** Without pool cover, any wallet that owns a Mining NFTJI can fire its daily command and drain rivals' fiat or MM3 in a single shot. Those losses can erase the reserves needed to meet a block threshold or rebuy MM3 at the exchange.
 
 **The real scale.** 784 board cells. 764 permanent chain blocks + 20 NFTJI cells (temporary, covered only while owned). Hundreds of timed training problems under maximum pressure. Days or weeks of sustained LEGEND-level performance. Active bots. World-state conditions outside your control. Rivals targeting your economy. The wallet that reaches #1 will have earned it.
 
@@ -105,11 +105,11 @@ The goal is to complete the MM3 mining board and win. The board has **784 cells*
 | Training | Answer math problems as fast and accurately as possible. Aim for 25 correct answers per day. This earns MM3 and raises your level — both required to mine the board. Speed earns more MM3; a correct but slow answer earns negative MM3. Wrong answers cost levels — slow to recover at high tiers. |
 | Trading | Sell MM3 to build fiat reserves. Do 5 EXECs per day for the TRADING daily reward and a permanent +1 training slot. Buy rate is 18% above sell rate, so sell into strength and only rebuy when needed. |
 | Ranking and Pools | Your Mining % across all 784 board cells is the only number that decides the winner — watch it. Join a pool: pool members are immune to each other's Mining commands, which matters more as penalties scale up with NFTJI level. |
-| Squeeze | Once in a pool, initiate Squeezes from the Squeeze page to earn fiat and drop Squeeze NFTJIs. Watch 🔥 War and 🎲 Dice before launching — they directly shift the outcome formula. |
-| Mining board | 784-cell board, 3 ways to mine: (1) buy a Market NFTJI — that cell counts in your Mining % while you own it, and unlocks a daily IRC attack command; (2) mine free chain cells permanently with `/mine block #XXX` in IRC; (3) submit the correct `Ω(α, β, γ)` for an immediate win. Selling an NFTJI removes that cell from your count. |
-| IRC | Your board mining terminal. Type `/mine block #XXX` to attempt a chain cell. Fire your daily Mining command if you own a Market NFTJI. Watch events, penalties, and world state shifts here in real time. |
+| Squeeze | Once in a pool, initiate Squeezes from the Squeezing page to earn fiat and drop Squeeze NFTJIs. Watch 🔥 War and 🎲 Dice before launching — they directly shift the outcome formula. |
+| Mining board | 784-cell board, 3 ways to mine: (1) buy a Mining NFTJI — that cell counts in your Mining % while you own it, and unlocks a daily Relaying attack command; (2) mine free chain cells permanently with `/mine block #XXX` in Relaying; (3) submit the correct `Ω(α, β, γ)` for an immediate win. Selling an NFTJI removes that cell from your count. |
+| Relaying | Your main action terminal. Type `/mine block #XXX` to attempt a chain cell. Fire your daily Mining command if you own a Mining NFTJI. Watch events, penalties, and world state shifts here in real time. |
 | MM3 | The global MM3 value determines which chain cells you can mine — requirements alternate positive and negative by cell index. Watch the MM3 chart and only attempt a cell when the sign and magnitude match its requirement. |
-| Daily rewards | Check the daily panel every session and manually claim each completed task before UTC midnight — unclaimed rewards disappear. Mining one Market block chain cell pays €10. Maximum daily total: €17.50. |
+| Daily rewards | Check the daily panel every session and manually claim each completed task before UTC midnight — unclaimed rewards disappear. Mining one block chain cell pays €10. Maximum daily total: €17.50. |
 
 ---
 
@@ -188,9 +188,9 @@ All quotas reset 24h after they are launched.
 
 | Resource | Base | Bonus | Purpose |
 |---|---:|---:|---|
-| DRILL SLOTS | 100/day | +1 permanent per all-time EXEC | Mining attempts |
+| DRILL SLOTS | 100/day | +1 permanent per all-time EXEC | Training attempts |
 | Trade EXECs | 5/day | None | Fictional exchange actions |
-| Market command | 1/day | Per owned Market NFTJI | IRC command launch |
+| Mining command | 1/day | Per owned Mining NFTJI | Relaying command launch |
 | Numeric-code attempt | 1/day | Per received penalty | Cancel command penalty |
 
 ```txt
@@ -207,13 +207,13 @@ Daily rewards are wallet-bound tasks that pay fictional in-game money when claim
 
 | Task | Daily Target | Reward | Counts From | Why It Matters |
 |---|---:|---:|---|---|
-| MINING | 25 correct mining games | 0.25 EUR | Correct rows in `games` for the current UTC day | Rewards sustained math play, not idle presence. |
+| TRAINING | 25 correct Training games | 0.25 EUR | Correct rows in `games` for the current UTC day | Rewards sustained math play, not idle presence. |
 | TRADING | 5 buy/sell operations | 0.50 EUR | Daily rows in `mm3_sell_transactions` | Pushes the player to use the exchange loop and understand MM3 value. |
-| MARKET | 1 Market buy or resell | 0.75 EUR | `market_buy` or `market_resell` events | Makes the 28x28 board part of the daily economy. |
-| IRC | 1 public Market command | 1.00 EUR | Daily rows in `mm3_market_commands` | Rewards social command activity from owned Market NFTJIs. |
-| SQUEEZE | 1 Squeeze launched against a wallet pool | 1.25 EUR | Daily rows in `mm3_pool_dispute_votes` | Rewards initiating pool-vs-pool combat. |
-| HIDDEN IRC | 1 hidden command | 5.00 EUR | Daily rows in `mm3_hidden_cmd_executions` | High-value reward for discovering and executing hidden command paths. |
-| MARKET BLOCK CHAIN | Mine 1 Market board block chain cell | 10.00 EUR | Rows in `mm3_mined_blocks` for the current UTC day | Top reward for advancing the 764-block shared chain race. |
+| MINING | 1 Mining buy or resell | 0.75 EUR | `mining_buy` or `mining_resell` events | Makes the 28x28 board part of the daily economy. |
+| RELAYING | 1 public Mining command | 1.00 EUR | Daily rows in `mm3_mining_commands` | Rewards social command activity from owned Mining NFTJIs. |
+| SQUEEZING | 1 Squeeze launched against a wallet pool | 1.25 EUR | Daily rows in `mm3_pool_dispute_votes` | Rewards initiating pool-vs-pool combat. |
+| RELAYING (SECRET) | 1 hidden command | 5.00 EUR | Daily rows in `mm3_hidden_cmd_executions` | High-value reward for discovering and executing hidden command paths. |
+| MINING CHAIN | Mine 1 Mining board block chain cell | 10.00 EUR | Rows in `mm3_mined_blocks` for the current UTC day | Top reward for advancing the 764-block shared chain race. |
 
 | Rule | Explanation |
 |---|---|
@@ -256,7 +256,7 @@ NFTJIs are wallet-bound game objects.
 |---|---|---|
 | Mining drop | Rare roll after correct answers | Collection and economy shocks |
 | Heart revive | One-time emergency option | Cancels one failure penalty |
-| Market NFTJI | Bought or resold on the Market board | Unlocks daily IRC command |
+| Mining NFTJI | Bought or resold on the Mining board | Unlocks daily Mining command |
 | Squeeze NFTJI | Drops from Squeeze battles (1/5 chance) | ⚔️ boosts pool Squeeze score · 🛡️ protects EUR stake |
 
 ### Mining Drops
@@ -282,7 +282,7 @@ NFTJI levels are gameplay power, not cosmetic-only badges:
 
 - In **Trade MM3**, levelled mining NFTJIs multiply their trade effect on buy/sell quotes.
 - In **Squeeze**, levelled NFTJI power is snapshotted and summed into pool scoring; Squeeze Attack/Defense NFTJIs also scale their own attack/protection formulas by level.
-- **Level-up MM3 events**: each time a mining NFTJI gains a level, a `nftji_level_up` event is emitted that raises the global MM3 value. Each Market NFTJI re-purchase that increases its level does the same at a fixed rate.
+- **Level-up MM3 events**: each time a mining NFTJI gains a level, a `nftji_level_up` event is emitted that raises the global MM3 value. Each Mining NFTJI re-purchase that increases its level does the same at a fixed rate.
 
 | NFTJI | Level-up rate |
 |:---:|---:|
@@ -290,7 +290,7 @@ NFTJI levels are gameplay power, not cosmetic-only badges:
 | 🍀 Fortune Leaf | +0.2% of global MM3 per level |
 | 🎰 Jackpot Engine | +0.5% of global MM3 per level |
 | 🧿 Fate Singularity | +1% of global MM3 per level |
-| Market NFTJI *(re-purchase)* | +0.3% of global MM3 per level |
+| Mining NFTJI *(re-purchase)* | +0.3% of global MM3 per level |
 
 The delta is `total_mm3 × rate × new_level`. Higher levels and rarer NFTJIs produce larger positive shocks to the shared economy.
 
@@ -306,11 +306,11 @@ Trade, Ranking (wallet and pool views) show **6 NFTJI slots** side by side per w
 |:---:|---|---|
 | 1–4 | Mining drops — 🔮 🍀 🎰 🧿 | Wallet rank color |
 | 5 | Life Toll — ❤️ | Rose |
-| 6 | Market NFTJI *(one per wallet)* | Amber / gold |
+| 6 | Mining NFTJI *(one per wallet)* | Amber / gold |
 
 Empty slots remain visible with a faint border of their type's color.  
-Slot 6 shows the emoji of the wallet's owned Market block. Only one Market NFTJI is possible at a time per wallet.  
-In Pool views, slot 6 shows a count overlay (×N) if multiple pool members hold a Market NFTJI.
+Slot 6 shows the emoji of the wallet's owned Market block. Only one Mining NFTJI is possible at a time per wallet.  
+In Pool views, slot 6 shows a count overlay (×N) if multiple pool members hold a Mining NFTJI.
 
 ---
 
@@ -351,8 +351,8 @@ The modifier is a continuous value in **[−0.50, +0.50]** (1 % precision). It m
 |---|---|---|---|
 | Trading commission (buy & sell) | `commissionRate × (1 + dm)` | Higher commission | Lower commission |
 | Mining NFTJi drop rates | `prob × (1 + dm)` | More drops | Fewer drops |
-| Market NFTJI buy MM3 delta | `buyDelta × (1 + dm)` | Larger MM3 boost | Smaller MM3 boost |
-| Market NFTJI resell return | `price × 0.5 × (1 + dm)` | Up to 75% returned | Down to 25% returned |
+| Mining NFTJI buy MM3 delta | `buyDelta × (1 + dm)` | Larger MM3 boost | Smaller MM3 boost |
+| Mining NFTJI resell return | `price × 0.5 × (1 + dm)` | Up to 75% returned | Down to 25% returned |
 | Squeeze drop MM3 flip magnitude | `−2 × MM3 × (1 + dm)` | Larger flip | Smaller flip |
 
 The modifier is read live at the moment each operation executes (`getDiceState()` in `lib/dice.js`). The UI shows a 🎲 chip in orange (positive) or cyan (negative) wherever the dice affects an active action — TradeBoard, MarketBoard.
@@ -361,45 +361,45 @@ The modifier is read live at the moment each operation executes (`getDiceState()
 
 ## Mining
 
-> Three ways to mine the board: (1) buy a Market NFTJI — that cell counts in your Mining % while you own it, and grants a daily attack command; (2) mine free chain cells permanently with `/mine block #XXX` in IRC; (3) submit the correct `Ω(α, β, γ)` for an immediate win. Selling an NFTJI removes that cell from your count.
+> Three ways to mine the board: (1) buy a Mining NFTJI — that cell counts in your Mining % while you own it, and grants a daily attack command; (2) mine free chain cells permanently with `/mine block #XXX` in Relaying; (3) submit the correct `Ω(α, β, γ)` for an immediate win. Selling an NFTJI removes that cell from your count.
 
 The Mining board is a 28×28 grid: **784 cells total**, fully minable. All 784 cells count toward each wallet's Mining %. Two cell types:
 
 | Cell type | Count | How mined | Permanent? |
 |---|---:|---|---|
-| Market NFTJI cells | 20 | Buy the NFTJI | No — lost when sold |
-| Free chain cells | 764 | `/mine block #XXX` in IRC | Yes — locked to first miner |
+| Mining NFTJI cells | 20 | Buy the NFTJI | No — lost when sold |
+| Free chain cells | 764 | `/mine block #XXX` in Relaying | Yes — locked to first miner |
 
 | Rail | Price Basis | Main Use |
 |---|---|---|
 | Money rail | Fictional fiat value | Buy with in-game balances |
 | MM3 rail | MM3 value | Buy directly with mined MM3 |
 
-Each Market NFTJI includes:
+Each Mining NFTJI includes:
 
 - Board coordinate
 - Price and sale state
 - Owner state
-- Public IRC command
+- Public Relaying command
 - Command formula
 - Hidden YouTube Short command
 - Resale path (50% of purchase price returned, before dice)
 
-Owning a Market NFTJI unlocks one daily IRC command.
+Owning a Mining NFTJI unlocks one daily Relaying command.
 
 > **🎲 Dice window:** scales buy delta and resell return by `(1 + diceModifier)`. Positive (orange) = larger MM3 boost / up to 75% returned on resell. Negative (cyan) = smaller boost / down to 25% returned.
 
 > **Penalty cancellation:** every command hit generates a 5-digit code from the formula and daily nonce. The targeted wallet can enter it to cancel the penalty (1 attempt per day, per received penalty).
 
-> **Penalty level scaling:** `penalty × (1 + level × 0.25)`. Lv.0 = base; Lv.1 = ×1.25; Lv.2 = ×1.50, etc. Level = repurchase count. Applies to both public IRC commands and hidden commands.
+> **Penalty level scaling:** `penalty × (1 + level × 0.25)`. Lv.0 = base; Lv.1 = ×1.25; Lv.2 = ×1.50, etc. Level = repurchase count. Applies to both public Relaying commands and hidden commands.
 
-> **Secret command:** each NFTJI has a hidden command unlocked at the wallet level shown in the Emoji Catalog (`Secret lv.` column). Executing it from IRC earns the **HIDDEN IRC** daily reward (€5.00) and triggers a steal effect — the executor gains what rivals lose.
+> **Secret command:** each NFTJI has a hidden command unlocked at the wallet level shown in the Emoji Catalog (`Secret lv.` column). Executing it from Relaying earns the **RELAYING (SECRET)** daily reward (€5.00) and triggers a steal effect — the executor gains what rivals lose.
 
 ### MM3 Block Chain
 
-> Open the block card to see its requirements (min level + required MM3 global value). When both conditions are met, go to IRC and type `/mine block #XXX`. First wallet to meet the requirement claims the block permanently.
+> Open the block card to see its requirements (min level + required MM3 global value). When both conditions are met, go to Relaying and type `/mine block #XXX`. First wallet to meet the requirement claims the block permanently.
 
-Cells that are not fixed Market NFTJIs are **open blocks**. They are not bought, sold, resold, linked to YouTube, or tied to Market formulas. Instead, they can be mined from IRC with:
+Cells that are not fixed Mining NFTJIs are **open blocks**. They are not bought, sold, resold, linked to YouTube, or tied to Mining formulas. Instead, they can be mined from Relaying with:
 
 ```txt
 /mine block #029
@@ -427,10 +427,10 @@ The hex suffix is the global MM3 value at mining time, scaled by 100 and encoded
 The Mining board shows **MM3 BLOCK CHAIN IN PROGRESS** with a percentage:
 
 ```txt
-(mined free blocks + distinct Market NFTJIs currently owned) / 784
+(mined free blocks + distinct Mining NFTJIs currently owned) / 784
 ```
 
-All 784 cells count. Free chain cells are permanently mined; Market NFTJI cells count only while at least one wallet owns them. When all 784 cells are covered, the chain reaches 100% and the generated code becomes final game history.
+All 784 cells count. Free chain cells are permanently mined; Mining NFTJI cells count only while at least one wallet owns them. When all 784 cells are covered, the chain reaches 100% and the generated code becomes final game history.
 
 ### Block Requirements
 
@@ -450,25 +450,27 @@ The block detail card for an open/mined block shows:
 | Req | Minimum wallet level and required global MM3 value |
 | Miner shell | Empty while open; miner wallet after success |
 
-Market NFTJI controls such as buy, sell, command formula, numeric code, secret command, and short links do not appear for MM3 Block Chain cells.
+Mining NFTJI controls such as buy, sell, command formula, numeric code, secret command, and short links do not appear for MM3 Block Chain cells.
 
-### IRC Mining Responses
+### Relaying Mining Responses
 
-The command is handled from the IRC terminal:
+The command is handled from the Relaying terminal:
 
 | Input | Result |
 |---|---|
 | `/mine block #029` | Attempts to mine block `#029` |
-| Requirement missing | IRC returns the exact requirement, e.g. `min wallet lvl. 88; mm3_global_value 88.00` |
-| Already mined | IRC returns the wallet that mined it |
-| Market NFTJI cell | IRC rejects it as reserved for a Market NFTJI |
-| Success | A persistent Market trace is written to IRC |
+| Requirement missing | Relaying returns the exact requirement, e.g. `min wallet lvl. 88; mm3_global_value 88.00` |
+| Already mined | Relaying returns the wallet that mined it |
+| Mining NFTJI cell | Relaying rejects it as reserved for a Mining NFTJI |
+| Success | A persistent Mining trace is written to Relaying |
 
-The success trace is stored in `mm3_irc_messages` as `kind=system`, `tone=market`. It is appended once, keeps its original timestamp, is never edited by status refreshes, and is only cleared by running the database reset SQL.
+The success trace is stored in `mm3_relaying_messages` as `kind=system`, `tone=mining`. It is appended once, keeps its original timestamp, is never edited by status refreshes, and is only cleared by running the database reset SQL.
 
 ```txt
 MM3 BLOCK CHAIN IN PROGRESS >> mined #029 by 0xa...123 >> 1/764 0.13% >> #0xabc...#029#D6D8C0
 ```
+
+> **Note:** `1/764` tracks **chain blocks only** — the 20 NFTJI cells are separate. Board completeness for the win condition = 764 mined chain blocks + all 20 Mining NFTJIs owned simultaneously.
 
 ---
 
@@ -480,7 +482,7 @@ One per-game challenge open to all connected wallets. The objective: compute a s
 
 | Variable | Symbol | Source |
 |---|:---:|---|
-| Total market events (all time) | α | `mm3_market_events` row count |
+| Total market events (all time) | α | `mm3_mining_events` row count |
 | Total chain blocks mined (all time) | β | `mm3_mined_blocks` row count |
 | MM3 global value scaled ×100 (absolute, integer) | γ | `\|mm3_global\| × 100` |
 
@@ -531,15 +533,15 @@ Pool rank is calculated from the combined level sum of all active members. Max p
 | 600–799 | VOID SYNDICATE | 🏴‍☠️ |
 | 800–1000 | DRAGON MAINNET | 🐉 |
 
-Pool membership and rank are visible in Ranking and IRC. Invite chips appear inline in the Ranking header bar and update in real time.
+Pool membership and rank are visible in Ranking and Relaying. Invite chips appear inline in the Ranking header bar and update in real time.
 
-**Command immunity:** market commands and hidden commands fired by any pool member never affect other wallets in the same pool. Penalties only land on wallets from rival pools or on wallets with no pool affiliation.
+**Command immunity:** mining commands and hidden commands fired by any pool member never affect other wallets in the same pool. Penalties only land on wallets from rival pools or on wallets with no pool affiliation.
 
 ---
 
-## Squeeze
+## Squeezing
 
-> Initiate from the Squeeze page once you are in a pool. Check 🔥 War and 🎲 Dice before launching — they shift the outcome formula. Win to earn fiat and chance a Squeeze NFTJI drop.
+> Initiate from the Squeezing page once you are in a pool. Check 🔥 War and 🎲 Dice before launching — they shift the outcome formula. Win to earn fiat and chance a Squeeze NFTJI drop.
 
 Two pools enter a **Squeeze** — a scored combat with EUR stakes and world state modifiers. The loser burns 45% of their staked funds into the void.
 
@@ -558,7 +560,7 @@ base = (Σlevel / n) × 40
      + ln(ΣMM3 / n + 1) × 20
      + (exec_count / n) × 12
      + (nftji_count / n) × 8
-     + (market_nftji_count / n) × 15
+     + (mining_nftji_count / n) × 15
      + (⚔️_atk_sum / n) × 20          ← Squeeze Attack NFTJI contribution
      - (penalty_count / n) × 20
 ```
@@ -598,7 +600,7 @@ df_score = MAX(0.01, base_df)
 
 **Squeeze NFTJI — ⚔️ Attack & 🛡️ Defense:**
 
-Two rare NFTJIs drop exclusively from Squeeze battles (1/5 probability per resolution; 50/50 Attack or Defense). Unlike Market NFTJIs, they cannot be bought or sold.
+Two rare NFTJIs drop exclusively from Squeeze battles (1/5 probability per resolution; 50/50 Attack or Defense). Unlike Mining NFTJIs, they cannot be bought or sold.
 
 - **⚔️ Attack** — each equipped wallet contributes `(level+1)` units to its pool's `⚔️_atk_sum`. Weight ×20 in the base formula.
 - **🛡️ Defense** — reduces personal EUR stake loss on defeat: `min(50%, (level+1)×5%)` recovered. Level 9 = maximum 50% protection.
@@ -614,7 +616,7 @@ When any wallet claims a Squeeze NFTJi drop, the global MM3 value is flipped to 
 | 🛡️ Defense | MM3 > 0 (positive) | MM3 flipped to negative (same absolute value) |
 | 🛡️ Defense | MM3 ≤ 0 (negative or zero) | No change |
 
-The flip is applied by inserting a `nftji_claim` event into `mm3_market_events` with `delta = −2 × total_eth × (1 + diceModifier)`. If multiple wallets claim the same drop type in the same Squeeze, only the first claim triggers the flip (subsequent claims find MM3 already in the correct polarity and do nothing). Implemented in `claim-nftji-drop/route.js` (real users) and `autoClaimBotSqueezeDrops` inside `bot/tick/route.js` (bots).
+The flip is applied by inserting a `nftji_claim` event into `mm3_mining_events` with `delta = −2 × total_eth × (1 + diceModifier)`. If multiple wallets claim the same drop type in the same Squeeze, only the first claim triggers the flip (subsequent claims find MM3 already in the correct polarity and do nothing). Implemented in `claim-nftji-drop/route.js` (real users) and `autoClaimBotSqueezeDrops` inside `bot/tick/route.js` (bots).
 
 > **🎲 Dice window:** the magnitude of the flip is scaled by the active dice modifier at claim time. Positive modifier (orange) amplifies the flip; negative modifier (cyan) reduces it.
 
@@ -646,34 +648,34 @@ third same  → level 2   (no cap)
 
 ---
 
-## IRC Relay
+## Relaying
 
-> Your main action terminal. Type `/mine block #XXX` to attempt a block. Fire your daily Market command if you own a Market NFTJI. Watch events to read the state of the game.
+> Your main action terminal. Type `/mine block #XXX` to attempt a block. Fire your daily Mining command if you own a Mining NFTJI. Watch events to read the state of the game.
 
-IRC is the shared terminal layer.
+Relaying is the shared terminal layer.
 
 | Signal | Meaning |
 |---|---|
 | Wallet presence | Who is currently active |
-| Country flag / 👻 | Optional location signal; 👻 marks an IRC connection without an assignable country flag |
+| Country flag / 👻 | Optional location signal; 👻 marks a Relaying connection without an assignable country flag |
 | Ghost mode | Anonymous temporary presence |
 | Chat history | Persistent social log |
-| Market badges | Owned NFTJIs shown beside authors |
+| Mining badges | Owned NFTJIs shown beside authors |
 | Command events | Public command and penalty activity |
-| MM3 Block Chain | Persistent `tone=market` traces for each mined board block |
+| MM3 Block Chain | Persistent `tone=mining` traces for each mined board block |
 | Blockchain trace | Real ETH transactions confirmed on-chain via Alchemy webhook |
 
 ```txt
 wallet@MM3:~$       hello mainframe
-market@MM3:~$       command fired
-market@MM3:~$       MM3 BLOCK CHAIN IN PROGRESS >> mined #029...
+mining@MM3:~$       command fired
+mining@MM3:~$       MM3 BLOCK CHAIN IN PROGRESS >> mined #029...
 system@MM3:~$       value mutated
 MathsMine3@ETH·:~$  0.01 ETH donation confirmed · tx 0xabc…def
 ```
 
-The `MathsMine3@ETH·:~$` line appears when a real Ethereum transaction is received by the Alchemy webhook. The event is written directly to the IRC log with `tone=realchain`, making on-chain activity visible inside the terminal without any player action.
+The `MathsMine3@ETH·:~$` line appears when a real Ethereum transaction is received by the Alchemy webhook. The event is written directly to the Relaying log with `tone=realchain`, making on-chain activity visible inside the terminal without any player action.
 
-IRC help (`/?`) includes `/mine block #029` as the short form for mining free Market board cells.
+Relay help (`/?`) includes `/mine block #029` as the short form for mining free Mining board cells.
 
 ---
 
@@ -683,7 +685,7 @@ IRC help (`/?`) includes `/mine block #029` as the short form for mining free Ma
 
 Ranking is public memory for the game and defines its end state.
 
-The first ranking column is **Mining %**: each wallet's share of the 784-cell board — permanently mined chain cells plus any Market NFTJI currently owned. **Ranking sorts by this column.** Win paths: be at #1 when all 784 cells are covered, or submit the correct `Ω(α, β, γ)` for an immediate win — see [Objective](#objective) and [Solve the Chain](#solve-the-chain).
+The first ranking column is **Mining %**: each wallet's share of the 784-cell board — permanently mined chain cells plus any Mining NFTJI currently owned. **Ranking sorts by this column.** Win paths: be at #1 when all 784 cells are covered, or submit the correct `Ω(α, β, γ)` for an immediate win — see [Objective](#objective) and [Solve the Chain](#solve-the-chain).
 
 Pool ranking sums the Mining % of current members.
 
@@ -707,12 +709,12 @@ Each pool's Squeeze aggression is driven by its most aggressive member's strateg
 |--------|----------|--------------------|--------------------|
 | `0xcab…5528` | `sell_mm3` | 90 % | attack only |
 | `0xcb4…0202` | `buy_mm3` | 15 % | defense only |
-| `0xd6c…4233` | `market_buy` | 55 % | balanced |
+| `0xd6c…4233` | `mining_buy` | 55 % | balanced |
 | `0xd89…e8ab` | `market_sell` | 80 % | balanced |
 
 ### Strategy Details
 
-| Wallet | MM3 Trading | MM3 Reserve | Market NFTJI | Squeeze window |
+| Wallet | MM3 Trading | MM3 Reserve | Mining NFTJI | Squeeze window |
 |--------|-------------|-------------|--------------|----------------|
 | `0xcab…5528` | Dumps MM3 — 10–30 % slices per trade | 15 % | Rotates daily among cheapest options | Active 00–06 UTC and 12–18 UTC |
 | `0xcb4…0202` | Buys MM3 with fiat (skips MM3 trades when NFTJI purchase pending) | — | Rotates daily among cheapest options | Active 00–06 UTC and 12–18 UTC |
@@ -723,7 +725,7 @@ Each pool's Squeeze aggression is driven by its most aggressive member's strateg
 
 All four bots run up to 100 mining games per day at a win rate of ~92 % (decreasing with level) and are capped by the same daily limits as real players: 5 trades, 20 Squeeze launches per 24 h.
 
-**Bots mine Market board blocks.** Each bot tick has a 55 % chance of mining one qualifying chain cell (wallet level and global MM3 must meet the block's requirement). Bots apply the same chain-mining rules as real players and update `block_chain_percent` in `player_progress`. They also claim the MARKET BLOCK CHAIN daily reward (€10) automatically after a successful mine.
+**Bots mine Mining board blocks.** Each bot tick has a 55 % chance of mining one qualifying chain cell (wallet level and global MM3 must meet the block's requirement). Bots apply the same chain-mining rules as real players and update `block_chain_percent` in `player_progress`. They also claim the MINING CHAIN daily reward (€10) automatically after a successful mine.
 
 **Bots redeem their own penalties.** When a bot wallet is under an active command penalty, each subsequent tick has a 40 % chance of entering the penalty code to cancel it — the same flow a real player would use in the Market block detail.
 
@@ -736,8 +738,8 @@ All four bots run up to 100 mining games per day at a win rate of ~92 % (decreas
 | Any market buy / resell event | Moves the MM3 curve — visible in the chart |
 | Squeeze launched by bot pool | Penalty risk for the targeted pool (same rules as any Squeeze) |
 | ⚔️ / 🛡️ drop claimed | MM3 polarity flip scaled by active Dice modifier; always appears in chart |
-| Chain block mined | Advances the shared 784-cell block chain race; bot IRC message shows `chain:X.XX%` |
-| Penalty redeemed | Bot cancels its own active penalty; IRC message shows `pen:redeemed(N)` |
+| Chain block mined | Advances the shared 784-cell block chain race; bot Relaying message shows `chain:X.XX%` |
+| Penalty redeemed | Bot cancels its own active penalty; Relaying message shows `pen:redeemed(N)` |
 
 ---
 
@@ -791,7 +793,7 @@ Public API routes expose the readable state of the simulation.
 | 3 | 🎰 | Jackpot Engine | Mining drop |
 | 4 | 🧿 | Fate Singularity | Mining drop |
 | 5 | ❤️ | Life Toll | Emergency revive |
-| 6 | *(variable)* | Market NFTJI | Market board purchase |
+| 6 | *(variable)* | Mining NFTJI | Mining board purchase |
 
 Slot 6 border is **amber**. Slot 5 border is **rose**. Slots 1–4 share the wallet's rank color.
 
@@ -845,7 +847,7 @@ Secret effect: steals MM3 → executor. `x = daily nonce (100–799)`.
 |:---:|---|---|
 | 🔥 | War | Global conflict modifier — affects atmosphere and trade rates |
 | 🌪️ | Nature | Nature modifier |
-| 🎲 | Dice | Hourly random modifier — active ~15 min/hour. Scales trading commissions, mining NFTJi drop rates, Market NFTJI buy impact and resell return, and Squeeze drop flip magnitude by `(1 + modifier)`. Modifier range: −50% (cyan, cheaper/smaller) to +50% (orange, pricier/larger). |
+| 🎲 | Dice | Hourly random modifier — active ~15 min/hour. Scales trading commissions, mining NFTJi drop rates, Mining NFTJI buy impact and resell return, and Squeeze drop flip magnitude by `(1 + modifier)`. Modifier range: −50% (cyan, cheaper/smaller) to +50% (orange, pricier/larger). |
 | 📜 | Manifest | Manifesto page |
 | 🤖 | AI Team | FreakingAI — in-game AI entity |
 
@@ -948,11 +950,11 @@ Read:
 - [NFTJIs](#nftjis)
 - [Trade MM3](#trade-mm3)
 - [Dado](#dado)
-- [Market](#market)
+- [Mining](#mining)
 - [Resolver la Cadena](#resolver-la-cadena)
 - [Pools](#pools)
-- [Squeeze](#squeeze)
-- [IRC Relay](#irc-relay)
+- [Squeezing](#squeezing)
+- [Relaying](#relaying)
 - [Ranking](#ranking)
 - [Bots](#bots-1)
 - [API](#api)
@@ -984,7 +986,7 @@ Read:
 
 MathsMine3 convierte las matemáticas en presión, recompensa, memoria, riesgo y ritual.
 
-No es una clase con skin. Es un juego-mundo de terminal: entrena bajo presión, mina las 784 celdas del tablero, sube de rango, pierde nivel cuando fallas, comercia dentro de un exchange ficticio, colecciona NFTJIs, dispara comandos de Mining, participa en el chat IRC y vuelve después de cada reset más afilado que antes.
+No es una clase con skin. Es un juego-mundo de terminal: entrena bajo presión, mina las 784 celdas del tablero, sube de rango, pierde nivel cuando fallas, comercia dentro de un exchange ficticio, colecciona NFTJIs, dispara comandos de Mining, participa en el chat de Relaying y vuelve después de cada reset más afilado que antes.
 
 La idea útil es simple: **la matemática se convierte en acción**. Cada problema resuelto no es solo puntuación; mueve una wallet, un rango, un mercado ficticio y un estado público compartido. El tablero tiene una línea de llegada: 784 celdas, un solo ganador.
 
@@ -992,7 +994,7 @@ La idea útil es simple: **la matemática se convierte en acción**. Cada proble
 
 ## Objetivo
 
-El objetivo es completar el tablero de Mining y ganar. El tablero tiene **784 celdas** — 20 celdas de NFTJI del Market y 764 celdas libres de la cadena. Ambos tipos cuentan en tu % de Minado. Hay dos formas de ganar: **completar el tablero** — gana la wallet en el puesto #1 cuando todas las 784 celdas estén cubiertas (764 bloques de cadena minados permanentemente + los 20 NFTJIs con al menos un dueño en ese momento) — o **resolver la cadena directamente** enviando la respuesta correcta a la función secreta `Ω(α, β, γ)`, lo que activa una victoria inmediata.
+El objetivo es completar el tablero de Mining y ganar. El tablero tiene **784 celdas** — 20 celdas de NFTJI de Mining y 764 celdas libres de la cadena. Ambos tipos cuentan en tu % de Minado. Hay dos formas de ganar: **completar el tablero** — gana la wallet en el puesto #1 cuando todas las 784 celdas estén cubiertas (764 bloques de cadena minados permanentemente + los 20 NFTJIs con al menos un dueño en ese momento) — o **resolver la cadena directamente** enviando la respuesta correcta a la función secreta `Ω(α, β, γ)`, lo que activa una victoria inmediata.
 
 ### Por qué llegar al #1 es genuinamente difícil
 
@@ -1006,7 +1008,7 @@ El objetivo es completar el tablero de Mining y ganar. El tablero tiene **784 ce
 
 **Signos alternos.** Los requisitos de bloque alternan entre `mm3_global_value` positivo y negativo según el índice del bloque. No puedes saltarte bloques: si el siguiente que puedes alcanzar exige valor global negativo y la economía está en positivo, esperas.
 
-**Presión rival.** Sin cobertura de pool, cualquier wallet que posea un NFTJI de Market puede disparar su comando diario y drenar fiat o MM3 de los rivales de un solo golpe. Esas pérdidas pueden borrar las reservas necesarias para cumplir un umbral de bloque o recomprar MM3 en el exchange.
+**Presión rival.** Sin cobertura de pool, cualquier wallet que posea un NFTJI de Mining puede disparar su comando diario y drenar fiat o MM3 de los rivales de un solo golpe. Esas pérdidas pueden borrar las reservas necesarias para cumplir un umbral de bloque o recomprar MM3 en el exchange.
 
 **La escala real.** 784 celdas. 764 bloques permanentes + 20 celdas NFTJI (temporales, cubiertas solo mientras se posean). Cientos de problemas de training cronometrados bajo presión máxima. Días o semanas de rendimiento sostenido a nivel LEGEND. Bots activos. Condiciones del estado del mundo fuera de tu control. Rivales apuntando a tu economía. La wallet que llegue al #1 se lo habrá ganado.
 
@@ -1021,9 +1023,9 @@ El objetivo es completar el tablero de Mining y ganar. El tablero tiene **784 ce
 | Training | Responde preguntas de mates lo más rápido y con la mayor precisión posible. Apunta a 25 respuestas correctas al día. Esto genera MM3 y sube tu nivel — ambos necesarios para minar el tablero. La velocidad genera más MM3; acertar tarde genera MM3 negativo. Los fallos cuestan niveles, lentos de recuperar en rangos altos. |
 | Trading | Vende MM3 para acumular fiat. Haz 5 EXECs al día para la recompensa diaria de TRADING y un +1 permanente de training slot. La tasa de compra es un 18% mayor que la de venta: vende cuando puedas y recompra solo cuando lo necesites. |
 | Ranking y Pools | Tu % de Minado sobre las 784 celdas del tablero es el único número que decide quién gana — obsérvalo. Únete a un pool cuanto antes: los miembros del mismo pool son inmunes a los comandos de Mining entre sí, lo que importa más a medida que las penalizaciones escalan con el nivel del NFTJI. |
-| Squeeze | Una vez en un pool, inicia Squeezes desde la página de Squeeze para ganar fiat y conseguir NFTJIs de Squeeze. Consulta 🔥 War y 🎲 Dice antes de lanzar — afectan directamente a la fórmula de resultado. |
-| Tablero de Mining | 784 celdas, 3 formas de minar: (1) compra un NFTJI del Market — esa celda cuenta en tu % de Minado mientras lo tengas, y desbloquea un comando diario de ataque en el IRC; (2) mina celdas libres de la cadena permanentemente con `/mine block #XXX` en el IRC; (3) envía el `Ω(α, β, γ)` correcto para ganar de inmediato. Vender un NFTJI elimina esa celda de tu conteo. |
-| IRC | Tu terminal de acción principal. Escribe `/mine block #XXX` para intentar minar una celda de la cadena. Dispara tu comando diario de Mining si tienes un NFTJI. Observa los eventos para leer el estado del juego en tiempo real. |
+| Squeeze | Una vez en un pool, inicia Squeezes desde la página de Squeezing para ganar fiat y conseguir NFTJIs de Squeeze. Consulta 🔥 War y 🎲 Dice antes de lanzar — afectan directamente a la fórmula de resultado. |
+| Tablero de Mining | 784 celdas, 3 formas de minar: (1) compra un NFTJI de Mining — esa celda cuenta en tu % de Minado mientras lo tengas, y desbloquea un comando diario de ataque en Relaying; (2) mina celdas libres de la cadena permanentemente con `/mine block #XXX` en Relaying; (3) envía el `Ω(α, β, γ)` correcto para ganar de inmediato. Vender un NFTJI elimina esa celda de tu conteo. |
+| Relaying | Tu terminal de acción principal. Escribe `/mine block #XXX` para intentar minar una celda de la cadena. Dispara tu comando diario de Mining si tienes un NFTJI de Mining. Observa los eventos para leer el estado del juego en tiempo real. |
 | MM3 | El valor global del MM3 determina qué celdas libres puedes minar — los requisitos alternan entre positivo y negativo por índice de celda. Mira el gráfico MM3 y solo intenta minar cuando el signo y la magnitud coincidan con el requisito. |
 | Recompensas diarias | Revisa el panel diario en cada sesión y reclama manualmente cada tarea completada antes de la medianoche UTC — las recompensas no reclamadas se pierden. Minar una celda de la cadena paga €10. Máximo diario total: €17,50. |
 
@@ -1104,9 +1106,9 @@ Todas las cuotas se reinician a las 24h desde su lanzamiento.
 
 | Recurso | Base | Bonus | Uso |
 |---|---:|---:|---|
-| DRILL SLOTS | 100/día | +1 permanente por EXEC histórico | Intentos de mining |
+| DRILL SLOTS | 100/día | +1 permanente por EXEC histórico | Intentos de Training |
 | EXECs de Trade | 5/día | Ninguno | Acciones del exchange ficticio |
-| Comando del Market | 1/día | Por NFTJI del Market poseído | Lanzamiento de comando IRC |
+| Comando de Mining | 1/día | Por NFTJI de Mining poseído | Lanzamiento de comando Relaying |
 | Intento de código | 1/día | Por penalización recibida | Cancelar penalización de comando |
 
 ```txt
@@ -1123,13 +1125,13 @@ Las recompensas diarias son tareas asociadas a la wallet que pagan dinero fictic
 
 | Tarea | Objetivo Diario | Recompensa | Cuenta Desde | Por Qué Importa |
 |---|---:|---:|---|---|
-| MINING | 25 partidas correctas de mining | 0.25 EUR | Filas correctas en `games` durante el día UTC actual | Premia juego matemático sostenido, no presencia pasiva. |
+| TRAINING | 25 partidas correctas de Training | 0.25 EUR | Filas correctas en `games` durante el día UTC actual | Premia juego matemático sostenido, no presencia pasiva. |
 | TRADING | 5 operaciones de compra/venta | 0.50 EUR | Filas diarias en `mm3_sell_transactions` | Empuja a usar el exchange y entender el valor de MM3. |
-| MARKET | 1 compra o reventa en Market | 0.75 EUR | Eventos `market_buy` o `market_resell` | Hace que el tablero 28x28 forme parte de la economía diaria. |
-| IRC | 1 comando público de Market | 1.00 EUR | Filas diarias en `mm3_market_commands` | Recompensa actividad social de comandos desde NFTJIs del Market. |
-| SQUEEZE | 1 Squeeze lanzado contra un pool de wallets | 1.25 EUR | Filas diarias en `mm3_pool_dispute_votes` | Recompensa iniciar combate pool-vs-pool. |
-| HIDDEN IRC | 1 comando oculto | 5.00 EUR | Filas diarias en `mm3_hidden_cmd_executions` | Recompensa de alto valor por descubrir y ejecutar rutas ocultas. |
-| MARKET BLOCK CHAIN | Minar 1 celda de la cadena del tablero Market | 10.00 EUR | Filas en `mm3_mined_blocks` durante el día UTC actual | Máxima recompensa por avanzar en la carrera compartida de 764 bloques. |
+| MINING | 1 compra o reventa de Mining NFTJI | 0.75 EUR | Eventos `mining_buy` o `mining_resell` | Hace que el tablero 28x28 forme parte de la economía diaria. |
+| RELAYING | 1 comando público de Mining | 1.00 EUR | Filas diarias en `mm3_mining_commands` | Recompensa actividad social de comandos desde NFTJIs de Mining. |
+| SQUEEZING | 1 Squeeze lanzado contra un pool de wallets | 1.25 EUR | Filas diarias en `mm3_pool_dispute_votes` | Recompensa iniciar combate pool-vs-pool. |
+| RELAYING (SECRET) | 1 comando oculto | 5.00 EUR | Filas diarias en `mm3_hidden_cmd_executions` | Recompensa de alto valor por descubrir y ejecutar rutas ocultas. |
+| MINING CHAIN | Minar 1 celda de la cadena del tablero de Mining | 10.00 EUR | Filas en `mm3_mined_blocks` durante el día UTC actual | Máxima recompensa por avanzar en la carrera compartida de 764 bloques. |
 
 | Regla | Explicación |
 |---|---|
@@ -1172,7 +1174,7 @@ Los NFTJIs son objetos de juego asociados a la wallet.
 |---|---|---|
 | NFTJI de mining | Tirada rara tras respuestas correctas | Colección y shocks económicos |
 | Heart revive | Opción de emergencia de un uso | Cancela una penalización por fallo |
-| NFTJI de Market | Compra o reventa en el Market board | Desbloquea comando IRC diario |
+| NFTJI de Mining | Compra o reventa en el Mining board | Desbloquea comando de Relaying diario |
 | NFTJI de Squeeze | Cae en combates Squeeze (probabilidad 1/5) | ⚔️ mejora score del pool en Squeeze · 🛡️ protege el stake EUR |
 
 ### NFTJIs de Mining
@@ -1198,7 +1200,7 @@ Los niveles de NFTJI son poder de juego, no solo badges visuales:
 
 - En **Trade MM3**, los NFTJIs de mining con nivel multiplican su efecto en las cotizaciones de compra/venta.
 - En **Squeeze**, el poder de los NFTJIs con nivel se captura en el snapshot y se suma al score del pool; los NFTJIs de Squeeze Ataque/Defensa también escalan sus fórmulas de ataque/protección por nivel.
-- **Eventos level-up de MM3**: cada vez que un NFTJI de mining sube de nivel, se emite un evento `nftji_level_up` que aumenta el valor global de MM3. Cada recompra de NFTJI del Market que sube su nivel hace lo mismo a una tasa fija.
+- **Eventos level-up de MM3**: cada vez que un NFTJI de mining sube de nivel, se emite un evento `nftji_level_up` que aumenta el valor global de MM3. Cada recompra de NFTJI de Mining que sube su nivel hace lo mismo a una tasa fija.
 
 | NFTJI | Tasa por nivel |
 |:---:|---:|
@@ -1206,7 +1208,7 @@ Los niveles de NFTJI son poder de juego, no solo badges visuales:
 | 🍀 Fortune Leaf | +0,2% del MM3 global por nivel |
 | 🎰 Jackpot Engine | +0,5% del MM3 global por nivel |
 | 🧿 Fate Singularity | +1% del MM3 global por nivel |
-| NFTJI de Market *(recompra)* | +0,3% del MM3 global por nivel |
+| NFTJI de Mining *(recompra)* | +0,3% del MM3 global por nivel |
 
 El delta es `total_mm3 × tasa × nuevo_nivel`. Niveles más altos y NFTJIs más raros producen shocks positivos mayores en la economía compartida.
 
@@ -1222,11 +1224,11 @@ Trade, Ranking (wallets y pools) muestran **6 casillas NFTJI** en fila por walle
 |:---:|---|---|
 | 1–4 | Drops de mining — 🔮 🍀 🎰 🧿 | Color del rango de la wallet |
 | 5 | Life Toll — ❤️ | Rosa |
-| 6 | NFTJI del Market *(una por wallet)* | Ámbar / dorado |
+| 6 | NFTJI de Mining *(una por wallet)* | Ámbar / dorado |
 
 Las casillas vacías mantienen un borde tenue de su color de tipo.  
-La casilla 6 muestra el emoji del bloque del Market que posee la wallet. Solo es posible un NFTJI del Market a la vez por wallet.  
-En vistas de Pool, la casilla 6 muestra un contador (×N) si varios miembros del pool poseen un NFTJI del Market.
+La casilla 6 muestra el emoji del bloque del Market que posee la wallet. Solo es posible un NFTJI de Mining a la vez por wallet.  
+En vistas de Pool, la casilla 6 muestra un contador (×N) si varios miembros del pool poseen un NFTJI de Mining.
 
 ---
 
@@ -1267,8 +1269,8 @@ El modificador es un valor continuo en **[−0.50, +0.50]** (precisión del 1 %)
 |---|---|---|---|
 | Comisión de trading (compra y venta) | `commissionRate × (1 + dm)` | Comisión más alta | Comisión más baja |
 | Tasas de drop de NFTJi de mining | `prob × (1 + dm)` | Más drops | Menos drops |
-| Delta MM3 de compra en Market NFTJI | `buyDelta × (1 + dm)` | Mayor impulso MM3 | Menor impulso MM3 |
-| Retorno de reventa de Market NFTJI | `precio × 0.5 × (1 + dm)` | Hasta 75% devuelto | Hasta 25% devuelto |
+| Delta MM3 de compra en Mining NFTJI | `buyDelta × (1 + dm)` | Mayor impulso MM3 | Menor impulso MM3 |
+| Retorno de reventa de Mining NFTJI | `precio × 0.5 × (1 + dm)` | Hasta 75% devuelto | Hasta 25% devuelto |
 | Magnitud del volteo MM3 por drop de Squeeze | `−2 × MM3 × (1 + dm)` | Volteo mayor | Volteo menor |
 
 El modificador se lee en vivo en el momento en que se ejecuta cada operación (`getDiceState()` en `lib/dice.js`). La UI muestra un chip 🎲 en naranja (positivo) o cyan (negativo) donde el dado afecta a una acción activa — TradeBoard, MarketBoard.
@@ -1277,45 +1279,45 @@ El modificador se lee en vivo en el momento en que se ejecuta cada operación (`
 
 ## Mining
 
-> Tres formas de minar el tablero: (1) compra un NFTJI del Market — esa celda cuenta en tu % de Minado mientras lo tengas, y otorga un comando de ataque diario; (2) mina celdas libres de la cadena permanentemente con `/mine block #XXX` en el IRC; (3) envía el `Ω(α, β, γ)` correcto para ganar de inmediato. Vender un NFTJI elimina esa celda de tu conteo.
+> Tres formas de minar el tablero: (1) compra un NFTJI de Mining — esa celda cuenta en tu % de Minado mientras lo tengas, y otorga un comando de ataque diario; (2) mina celdas libres de la cadena permanentemente con `/mine block #XXX` en Relaying; (3) envía el `Ω(α, β, γ)` correcto para ganar de inmediato. Vender un NFTJI elimina esa celda de tu conteo.
 
 El tablero de Mining es una cuadrícula 28×28: **784 celdas en total**, todas minables. Las 784 celdas cuentan para el % de Minado de cada wallet. Dos tipos de celda:
 
 | Tipo de celda | Cantidad | Cómo se mina | ¿Permanente? |
 |---|---:|---|---|
-| Celdas de NFTJI del Market | 20 | Comprando el NFTJI | No — se pierde al vender |
-| Celdas libres de la cadena | 764 | `/mine block #XXX` en IRC | Sí — bloqueadas al primer minero |
+| Celdas de NFTJI de Mining | 20 | Comprando el NFTJI | No — se pierde al vender |
+| Celdas libres de la cadena | 764 | `/mine block #XXX` en Relaying | Sí — bloqueadas al primer minero |
 
 | Rail | Base de Precio | Uso Principal |
 |---|---|---|
 | Money rail | Valor fiat ficticio | Comprar con balances de juego |
 | MM3 rail | Valor MM3 | Comprar directamente con MM3 minado |
 
-Cada NFTJI del Market incluye:
+Cada NFTJI de Mining incluye:
 
 - Coordenada en el tablero
 - Precio y estado de venta
 - Estado de owner
-- Comando público de IRC
+- Comando público de Relaying
 - Fórmula de comando
 - Comando oculto de YouTube Short
 - Ruta de reventa (50% del precio de compra devuelto, antes del dado)
 
-Tener un NFTJI del Market desbloquea un comando IRC diario.
+Tener un NFTJI de Mining desbloquea un comando de Relaying diario.
 
 > **🎲 Dado:** escala el delta de compra y el retorno de reventa por `(1 + diceModifier)`. Positivo (naranja) = mayor impulso MM3 / hasta 75% devuelto en reventa. Negativo (cyan) = menor impulso / hasta 25% devuelto.
 
 > **Cancelación de penalización:** cada golpe de comando genera un código de 5 dígitos a partir de la fórmula y el nonce diario. La wallet afectada puede introducirlo para cancelar la penalización (1 intento por día, por penalización recibida).
 
-> **Escalado por nivel:** `penalización × (1 + nivel × 0.25)`. Lv.0 = base; Lv.1 = ×1.25; Lv.2 = ×1.50, etc. Nivel = número de recompras. Aplica tanto a comandos IRC públicos como a comandos ocultos.
+> **Escalado por nivel:** `penalización × (1 + nivel × 0.25)`. Lv.0 = base; Lv.1 = ×1.25; Lv.2 = ×1.50, etc. Nivel = número de recompras. Aplica tanto a comandos públicos de Relaying como a comandos ocultos.
 
-> **Comando secreto:** cada NFTJI tiene un comando oculto desbloqueado al nivel de wallet indicado en el Catálogo de Emojis (columna `Nivel secreto`). Ejecutarlo desde IRC otorga la recompensa diaria **HIDDEN IRC** (€5.00) y activa un efecto de robo — el ejecutor gana lo que los rivales pierden.
+> **Comando secreto:** cada NFTJI tiene un comando oculto desbloqueado al nivel de wallet indicado en el Catálogo de Emojis (columna `Nivel secreto`). Ejecutarlo desde Relaying otorga la recompensa diaria **RELAYING (SECRET)** (€5.00) y activa un efecto de robo — el ejecutor gana lo que los rivales pierden.
 
 ### MM3 Block Chain
 
-> Abre la card del bloque para ver sus requisitos (nivel mínimo + valor MM3 global requerido). Cuando ambas condiciones se cumplan, ve al IRC y escribe `/mine block #XXX`. La primera wallet que lo intente con los requisitos cumplidos se queda el bloque para siempre.
+> Abre la card del bloque para ver sus requisitos (nivel mínimo + valor MM3 global requerido). Cuando ambas condiciones se cumplan, ve a Relaying y escribe `/mine block #XXX`. La primera wallet que lo intente con los requisitos cumplidos se queda el bloque para siempre.
 
-Las celdas que no son NFTJI fijos del Market son **open blocks**. No se compran, no se venden, no se revenden, no enlazan a YouTube y no usan fórmulas de Market. Se minan desde IRC con:
+Las celdas que no son NFTJI fijos de Mining son **open blocks**. No se compran, no se venden, no se revenden, no enlazan a YouTube y no usan fórmulas de Mining. Se minan desde Relaying con:
 
 ```txt
 /mine block #029
@@ -1343,10 +1345,10 @@ El sufijo hex es el valor MM3 global en el momento del minado, escalado ×100 y 
 El tablero de Mining muestra **MM3 BLOCK CHAIN IN PROGRESS** con un porcentaje:
 
 ```txt
-(bloques libres minados + NFTJIs del Market con al menos un dueño) / 784
+(bloques libres minados + NFTJIs de Mining con al menos un dueño) / 784
 ```
 
-Las 784 celdas cuentan. Las celdas libres se minan permanentemente; las celdas de NFTJI del Market cuentan solo mientras al menos una wallet las posea. Cuando las 784 celdas están cubiertas, la cadena llega al 100% y el código generado queda como historia final del juego.
+Las 784 celdas cuentan. Las celdas libres se minan permanentemente; las celdas de NFTJI de Mining cuentan solo mientras al menos una wallet las posea. Cuando las 784 celdas están cubiertas, la cadena llega al 100% y el código generado queda como historia final del juego.
 
 ### Requisitos de Bloque
 
@@ -1366,25 +1368,27 @@ La tarjeta de detalle para un bloque abierto/minado muestra:
 | Req | Nivel mínimo de wallet y valor global MM3 requerido |
 | Miner shell | Vacío si está abierto; wallet minera tras el éxito |
 
-Los controles propios de NFTJI de Market como comprar, vender, fórmula, numeric code, secreto y short link no aparecen en celdas de MM3 Block Chain.
+Los controles propios de NFTJI de Mining como comprar, vender, fórmula, numeric code, secreto y short link no aparecen en celdas de MM3 Block Chain.
 
-### Respuestas IRC de Minado
+### Respuestas de Relaying al Minado
 
-El comando se gestiona desde el terminal IRC:
+El comando se gestiona desde el terminal de Relaying:
 
 | Input | Resultado |
 |---|---|
 | `/mine block #029` | Intenta minar el bloque `#029` |
-| No cumple requisito | IRC devuelve el requisito exacto, ej. `min wallet lvl. 88; mm3_global_value 88.00` |
-| Ya minado | IRC devuelve la wallet que lo minó |
-| Celda NFTJI Market | IRC lo rechaza como reservado para NFTJI de Market |
-| Éxito | Se escribe una traza persistente de Market en IRC |
+| No cumple requisito | Relaying devuelve el requisito exacto, ej. `min wallet lvl. 88; mm3_global_value 88.00` |
+| Ya minado | Relaying devuelve la wallet que lo minó |
+| Celda NFTJI Mining | Relaying lo rechaza como reservado para NFTJI de Mining |
+| Éxito | Se escribe una traza persistente de Mining en Relaying |
 
-La traza de éxito se guarda en `mm3_irc_messages` como `kind=system`, `tone=market`. Se añade una vez, mantiene su hora original, no se edita por los refrescos de estado y solo se borra al ejecutar el reset SQL de la base de datos.
+La traza de éxito se guarda en `mm3_relaying_messages` como `kind=system`, `tone=mining`. Se añade una vez, mantiene su hora original, no se edita por los refrescos de estado y solo se borra al ejecutar el reset SQL de la base de datos.
 
 ```txt
 MM3 BLOCK CHAIN IN PROGRESS >> mined #029 by 0xa...123 >> 1/764 0.13% >> #0xabc...#029#D6D8C0
 ```
+
+> **Nota:** `1/764` cuenta únicamente los **bloques de cadena** — las 20 celdas NFTJI son independientes. La condición de victoria = 764 bloques minados + las 20 NFTJIs de Mining en posesión simultánea.
 
 ---
 
@@ -1396,7 +1400,7 @@ Desafío único por partida abierto a todas las wallets conectadas. El objetivo:
 
 | Variable | Símbolo | Origen |
 |---|:---:|---|
-| Total de eventos de market (histórico) | α | Conteo de filas en `mm3_market_events` |
+| Total de eventos de market (histórico) | α | Conteo de filas en `mm3_mining_events` |
 | Total de bloques de cadena minados (histórico) | β | Conteo de filas en `mm3_mined_blocks` |
 | Valor global MM3 escalado ×100 (valor absoluto, entero) | γ | `\|mm3_global\| × 100` |
 
@@ -1447,15 +1451,15 @@ El rango del Pool se calcula a partir de la suma de niveles de todos sus miembro
 | 600–799 | VOID SYNDICATE | 🏴‍☠️ |
 | 800–1000 | DRAGON MAINNET | 🐉 |
 
-La membresía y el rango del Pool son visibles en el Ranking y en el IRC. Los chips de invitación aparecen en la barra de cabecera del Ranking y se actualizan en tiempo real.
+La membresía y el rango del Pool son visibles en el Ranking y en Relaying. Los chips de invitación aparecen en la barra de cabecera del Ranking y se actualizan en tiempo real.
 
-**Inmunidad de pool:** los comandos de market y los comandos ocultos lanzados por cualquier miembro de un pool nunca penalizan a otras wallets del mismo pool. Las penalizaciones solo alcanzan a wallets de pools rivales o a wallets sin afiliación a ningún pool.
+**Inmunidad de pool:** los comandos de mining y los comandos ocultos lanzados por cualquier miembro de un pool nunca penalizan a otras wallets del mismo pool. Las penalizaciones solo alcanzan a wallets de pools rivales o a wallets sin afiliación a ningún pool.
 
 ---
 
-## Squeeze
+## Squeezing
 
-> Inicia desde la página de Squeeze una vez que estés en un pool. Consulta 🔥 War y 🎲 Dice antes de lanzar — afectan directamente a la fórmula de resultado. Ganar da fiat y la posibilidad de obtener un NFTJI de Squeeze.
+> Inicia desde la página de Squeezing una vez que estés en un pool. Consulta 🔥 War y 🎲 Dice antes de lanzar — afectan directamente a la fórmula de resultado. Ganar da fiat y la posibilidad de obtener un NFTJI de Squeeze.
 
 Dos pools entran en un **Squeeze** — combate con stakes EUR y modificadores del estado del mundo. El perdedor quema el 45% de sus fondos apostados al vacío.
 
@@ -1474,7 +1478,7 @@ base = (Σnivel / n) × 40
      + ln(ΣMM3 / n + 1) × 20
      + (exec_count / n) × 12
      + (nftji_count / n) × 8
-     + (market_nftji_count / n) × 15
+     + (mining_nftji_count / n) × 15
      + (⚔️_atk_sum / n) × 20          ← aporte NFTJI Ataque de Squeeze
      - (penalty_count / n) × 20
 ```
@@ -1514,7 +1518,7 @@ El dado `🎲` es **determinista por Squeeze**: `hashtext(dispute_id || 'dice')`
 
 **NFTJI Squeeze — ⚔️ Ataque & 🛡️ Defensa:**
 
-Dos NFTJIs raros caen exclusivamente en combates Squeeze (probabilidad 1/5 por resolución; 50/50 Ataque o Defensa). A diferencia de los NFTJIs del Market, no se compran ni venden.
+Dos NFTJIs raros caen exclusivamente en combates Squeeze (probabilidad 1/5 por resolución; 50/50 Ataque o Defensa). A diferencia de los NFTJIs de Mining, no se compran ni venden.
 
 - **⚔️ Ataque** — cada wallet con él equipado contribuye `(nivel+1)` unidades al `⚔️_atk_sum` del pool. Peso ×20 en la fórmula base.
 - **🛡️ Defensa** — reduce la pérdida personal de stake en derrota: `min(50%, (nivel+1)×5%)` recuperado. Nivel 9 = protección máxima del 50%.
@@ -1530,7 +1534,7 @@ Cuando cualquier wallet reclama un drop de NFTJI Squeeze, el valor global de MM3
 | 🛡️ Defensa | MM3 > 0 (positivo) | MM3 pasa a negativo (mismo valor absoluto) |
 | 🛡️ Defensa | MM3 ≤ 0 (negativo o cero) | Sin cambio |
 
-El volteo se aplica insertando un evento `nftji_claim` en `mm3_market_events` con `delta = −2 × total_eth × (1 + diceModifier)`. Si varias wallets reclaman el mismo tipo de drop en el mismo Squeeze, solo la primera reclamación dispara el volteo (las siguientes encuentran MM3 ya en la polaridad correcta y no hacen nada). Implementado en `claim-nftji-drop/route.js` (usuarios reales) y `autoClaimBotSqueezeDrops` dentro de `bot/tick/route.js` (bots).
+El volteo se aplica insertando un evento `nftji_claim` en `mm3_mining_events` con `delta = −2 × total_eth × (1 + diceModifier)`. Si varias wallets reclaman el mismo tipo de drop en el mismo Squeeze, solo la primera reclamación dispara el volteo (las siguientes encuentran MM3 ya en la polaridad correcta y no hacen nada). Implementado en `claim-nftji-drop/route.js` (usuarios reales) y `autoClaimBotSqueezeDrops` dentro de `bot/tick/route.js` (bots).
 
 > **🎲 Ventana del dado:** la magnitud del volteo se escala con el modificador del dado activo en el momento de la reclamación. Modificador positivo (naranja) amplifica el volteo; negativo (cyan) lo reduce.
 
@@ -1562,34 +1566,34 @@ tercero mismo → nivel 2   (sin tope)
 
 ---
 
-## IRC Relay
+## Relaying
 
-> Tu terminal de acción principal. Escribe `/mine block #XXX` para intentar minar un bloque. Dispara tu comando diario del Market si tienes un NFTJI. Observa los eventos para leer el estado del juego en tiempo real.
+> Tu terminal de acción principal. Escribe `/mine block #XXX` para intentar minar un bloque. Dispara tu comando diario de Mining si tienes un NFTJI de Mining. Observa los eventos para leer el estado del juego en tiempo real.
 
-IRC es la capa terminal compartida.
+Relaying es la capa terminal compartida.
 
 | Señal | Significado |
 |---|---|
 | Presencia wallet | Quién está activo |
-| Bandera de país / 👻 | Señal opcional de ubicación; 👻 marca una conexión IRC sin bandera de país asignable |
+| Bandera de país / 👻 | Señal opcional de ubicación; 👻 marca una conexión de Relaying sin bandera de país asignable |
 | Modo ghost | Presencia anónima temporal |
 | Historial de chat | Log social persistente |
-| Badges del Market | NFTJIs poseídos junto al autor |
+| Mining badges | NFTJIs poseídos junto al autor |
 | Eventos de comandos | Actividad pública de comandos y penalizaciones |
-| MM3 Block Chain | Trazas persistentes `tone=market` por cada bloque minado |
+| MM3 Block Chain | Trazas persistentes `tone=mining` por cada bloque minado |
 | Traza blockchain | Transacciones ETH reales confirmadas on-chain vía Alchemy webhook |
 
 ```txt
 wallet@MM3:~$       hola mainframe
-market@MM3:~$       comando disparado
-market@MM3:~$       MM3 BLOCK CHAIN IN PROGRESS >> mined #029...
+mining@MM3:~$       comando disparado
+mining@MM3:~$       MM3 BLOCK CHAIN IN PROGRESS >> mined #029...
 system@MM3:~$       valor mutado
 MathsMine3@ETH·:~$  0.01 ETH donación confirmada · tx 0xabc…def
 ```
 
-La línea `MathsMine3@ETH·:~$` aparece cuando el webhook de Alchemy recibe una transacción real de Ethereum. El evento se escribe directamente en el log IRC con `tone=realchain`, haciendo visible la actividad on-chain dentro del terminal sin ninguna acción del jugador.
+La línea `MathsMine3@ETH·:~$` aparece cuando el webhook de Alchemy recibe una transacción real de Ethereum. El evento se escribe directamente en el log de Relaying con `tone=realchain`, haciendo visible la actividad on-chain dentro del terminal sin ninguna acción del jugador.
 
-La ayuda IRC (`/?`) incluye `/mine block #029` como forma corta para minar celdas libres del tablero Market.
+La ayuda de Relaying (`/?`) incluye `/mine block #029` como forma corta para minar celdas libres del tablero de Mining.
 
 ---
 
@@ -1599,7 +1603,7 @@ La ayuda IRC (`/?`) incluye `/mine block #029` como forma corta para minar celda
 
 El Ranking es la memoria pública del juego y define su estado final.
 
-La primera columna del ranking es **% de Minado**: la parte del tablero de 784 celdas que corresponde a cada wallet — celdas libres minadas permanentemente más cualquier NFTJI del Market que posea en ese momento. **El ranking ordena por esta columna.** Caminos de victoria: ser #1 cuando todas las 784 celdas estén cubiertas, o enviar el `Ω(α, β, γ)` correcto para ganar de inmediato — ver [Objetivo](#objetivo) y [Resolver la Cadena](#resolver-la-cadena).
+La primera columna del ranking es **% de Minado**: la parte del tablero de 784 celdas que corresponde a cada wallet — celdas libres minadas permanentemente más cualquier NFTJI de Mining que posea en ese momento. **El ranking ordena por esta columna.** Caminos de victoria: ser #1 cuando todas las 784 celdas estén cubiertas, o enviar el `Ω(α, β, γ)` correcto para ganar de inmediato — ver [Objetivo](#objetivo) y [Resolver la Cadena](#resolver-la-cadena).
 
 El ranking de pools suma el % de Minado de sus miembros actuales.
 
@@ -1623,12 +1627,12 @@ La agresividad Squeeze de cada pool la marca la estrategia del miembro más agre
 |--------|------------|-------------------|-----------------------|
 | `0xcab…5528` | `sell_mm3` | 90 % | solo ataque |
 | `0xcb4…0202` | `buy_mm3` | 15 % | solo defensa |
-| `0xd6c…4233` | `market_buy` | 55 % | equilibrado |
+| `0xd6c…4233` | `mining_buy` | 55 % | equilibrado |
 | `0xd89…e8ab` | `market_sell` | 80 % | equilibrado |
 
 ### Detalle de Estrategias
 
-| Wallet | Trading MM3 | Reserva MM3 | Market NFTJI | Ventana Squeeze |
+| Wallet | Trading MM3 | Reserva MM3 | Mining NFTJI | Ventana Squeeze |
 |--------|-------------|-------------|--------------|-----------------|
 | `0xcab…5528` | Vende MM3 — tramos del 10–30 % por trade | 15 % | Rota diariamente entre opciones más baratas | Activo 00–06 UTC y 12–18 UTC |
 | `0xcb4…0202` | Compra MM3 con fiat (omite trades MM3 si hay compra NFTJI pendiente) | — | Rota diariamente entre opciones más baratas | Activo 00–06 UTC y 12–18 UTC |
@@ -1639,7 +1643,7 @@ La agresividad Squeeze de cada pool la marca la estrategia del miembro más agre
 
 Los cuatro bots ejecutan hasta 100 partidas de mining al día con una tasa de acierto de ~92 % (decreciente con el nivel) y están sujetos a los mismos límites diarios que los jugadores reales: 5 trades, 20 lanzamientos de Squeeze por ventana de 24 h.
 
-**Los bots minan bloques del Market board.** Cada tick tiene un 55 % de probabilidad de minar una celda de la cadena que cumpla los requisitos (el nivel de wallet y el valor global MM3 deben satisfacer las condiciones del bloque). Los bots aplican las mismas reglas de minado que los jugadores reales y actualizan `block_chain_percent` en `player_progress`. También reclaman automáticamente la recompensa diaria MARKET BLOCK CHAIN tras un mine exitoso.
+**Los bots minan bloques del tablero de Mining.** Cada tick tiene un 55 % de probabilidad de minar una celda de la cadena que cumpla los requisitos (el nivel de wallet y el valor global MM3 deben satisfacer las condiciones del bloque). Los bots aplican las mismas reglas de minado que los jugadores reales y actualizan `block_chain_percent` en `player_progress`. También reclaman automáticamente la recompensa diaria MINING CHAIN tras un mine exitoso.
 
 **Los bots redimen sus propias penalizaciones.** Cuando una wallet de bot tiene una penalización de comando activa, cada tick siguiente tiene un 40 % de probabilidad de introducir el código para cancelarla — el mismo flujo que usaría un jugador real en el detalle del bloque Market.
 
@@ -1652,8 +1656,8 @@ Los cuatro bots ejecutan hasta 100 partidas de mining al día con una tasa de ac
 | Cualquier evento de compra / reventa en Market | Mueve la curva de MM3 — visible en el gráfico |
 | Squeeze lanzado por pool de bots | Riesgo de penalización para el pool objetivo (mismas reglas que cualquier Squeeze) |
 | Drop ⚔️ / 🛡️ reclamado | Volteo de polaridad MM3 escalado por el modificador del Dado activo; siempre aparece en el gráfico |
-| Bloque de cadena minado | Avanza la carrera compartida de 784 celdas; el mensaje IRC del bot muestra `chain:X.XX%` |
-| Penalización redimida | El bot cancela su propia penalización activa; el mensaje IRC muestra `pen:redeemed(N)` |
+| Bloque de cadena minado | Avanza la carrera compartida de 784 celdas; el mensaje de Relaying del bot muestra `chain:X.XX%` |
+| Penalización redimida | El bot cancela su propia penalización activa; el mensaje de Relaying muestra `pen:redeemed(N)` |
 
 ---
 
@@ -1669,7 +1673,7 @@ Las rutas públicas exponen el estado legible de la simulación.
 | `/api/token-history-minutes` | Datos recientes por minuto |
 | `/api/leaderboard` | Datos del Ranking |
 | `/api/market-snapshot` | Estado de bloques del Market |
-| `/api/mine-block` | Mina un bloque libre del Market desde el flujo de comando IRC |
+| `/api/mine-block` | Mina un bloque libre del Mining board desde el flujo de comando de Relaying |
 | `/api/nft-events` | Eventos NFTJI y revive |
 
 `/api/leaderboard` incluye `block_chain_percent` y `mined_block_count`. `/api/market-snapshot` incluye `minedBlocks` y datos de progreso/código en `blockChain`.
@@ -1707,7 +1711,7 @@ Las rutas públicas exponen el estado legible de la simulación.
 | 3 | 🎰 | Jackpot Engine | Drop de mining |
 | 4 | 🧿 | Fate Singularity | Drop de mining |
 | 5 | ❤️ | Life Toll | Revive de emergencia |
-| 6 | *(variable)* | NFTJI del Market | Compra en el Market board |
+| 6 | *(variable)* | NFTJI de Mining | Compra en el Mining board |
 
 Borde de casilla 6: **ámbar**. Casilla 5: **rosa**. Casillas 1–4 comparten el color del rango de la wallet.
 
@@ -1761,7 +1765,7 @@ Efecto secreto: roba MM3 → wallet ejecutora. `x = nonce diario (100–799)`.
 |:---:|---|---|
 | 🔥 | War | Modificador de conflicto global — afecta atmósfera y tasas |
 | 🌪️ | Naturaleza | Modificador de naturaleza |
-| 🎲 | Dado | Modificador aleatorio horario — activo ~15 min/hora. Escala comisiones de trading, tasas de drop de NFTJi de mining, impacto de compra y retorno de reventa de Market NFTJI, y la magnitud del volteo de drop de Squeeze por `(1 + modifier)`. Rango: −50% (cyan, más barato/menor) a +50% (naranja, más caro/mayor). |
+| 🎲 | Dado | Modificador aleatorio horario — activo ~15 min/hora. Escala comisiones de trading, tasas de drop de NFTJi de mining, impacto de compra y retorno de reventa de Mining NFTJI, y la magnitud del volteo de drop de Squeeze por `(1 + modifier)`. Rango: −50% (cyan, más barato/menor) a +50% (naranja, más caro/mayor). |
 | 📜 | Manifest | Página del Manifiesto |
 | 🤖 | AI Team | FreakingAI — entidad IA del juego |
 
@@ -1784,7 +1788,7 @@ Efecto secreto: roba MM3 → wallet ejecutora. `x = nonce diario (100–799)`.
 
 ```txt
 app/                 Rutas, layouts, API handlers
-components/          UI, Market, chart, wallet, IRC, shell
+components/          UI, Market, chart, wallet, Relaying, shell
 lib/                 Lógica de juego, i18n, wallet helpers, macro, dice
 sql/                 Schema Supabase y scripts de mantenimiento
 public/              Imágenes, metadata, manifest, sitemap, robots
