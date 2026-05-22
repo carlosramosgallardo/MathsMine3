@@ -58,8 +58,8 @@
 | Identity | Ethereum wallet or deterministic Google virtual wallet |
 | Persistence | Supabase player, market, chart, chat, and event state |
 | Languages | English and Spanish |
-| Core routes | Mining, Trade MM3, Ranking, Squeeze, Market, IRC, MM3 Value, Manifesto, API |
-| Win condition | Be #1 in MM3 Chain % when the chain hits 100%, OR submit the correct `Ω(α, β, γ)` for an immediate win |
+| Core routes | Training, Trade MM3, Ranking, Squeeze, Mining, IRC, MM3 Value, Manifesto, API |
+| Win condition | Be #1 in Mining % when all 784 board cells are covered (764 chain blocks mined + all 20 NFTJIs owned), OR submit the correct `Ω(α, β, γ)` for an immediate win |
 | Legal status | No real mining, no real token, no payout, no investment |
 
 ---
@@ -68,21 +68,21 @@
 
 MathsMine3 turns math into pressure, reward, memory, risk, and ritual.
 
-It is not a classroom skin. It is a terminal-world game: solve fast, mine fake MM3, climb ranks, lose level when you fail, trade inside a fictional exchange, collect NFTJIs, fire Market commands, take part in IRC chat, and return after every reset sharper than before.
+It is not a classroom skin. It is a terminal-world game: train under time pressure, mine the 784-cell board, climb ranks, lose level when you fail, trade inside a fictional exchange, collect NFTJIs, fire Mining commands, take part in IRC chat, and return after every reset sharper than before.
 
-The useful idea is simple: **math becomes action**. Every problem solved is not just a score event; it moves a wallet, a rank, a fictional market, and a shared public state. The chain has a finish line: 764 blocks, one winner.
+The useful idea is simple: **math becomes action**. Every problem solved is not just a score event; it moves a wallet, a rank, a fictional market, and a shared public state. The board has a finish line: 784 cells, one winner.
 
 ---
 
 ## Objective
 
-The goal is to complete the MM3 blockchain and win. There are two paths: **mine the most blocks** — the wallet at #1 when all 764 blocks are mined wins — or **solve the chain directly** by submitting the correct answer to the secret function `Ω(α, β, γ)`, which triggers an immediate win regardless of block count.
+The goal is to complete the MM3 mining board and win. The board has **784 cells** — 20 Market NFTJI cells and 764 free chain cells. Both types count toward your Mining %. There are two ways to win: **complete the board** — the wallet at #1 when all 784 cells are covered (764 chain blocks permanently mined + all 20 NFTJIs owned by at least one wallet) wins — or **solve the chain directly** by submitting the correct answer to the secret function `Ω(α, β, γ)`, which triggers an immediate win regardless of board state.
 
 ### Why reaching #1 is genuinely hard
 
 **Level wall.** Most blocks in the upper half of the 28×28 grid require wallet level 80–100 (LEGEND rank). At level 100 you have 1500 ms per problem. One wrong answer at level 95+ costs 5 levels. Recovering takes at least three consecutive correct answers under that same pressure. Getting there and *staying* there is the first filter most wallets never pass.
 
-**Block scarcity.** Each of the 764 free blocks is mined once and never again. Bots compete actively. Any block another wallet claims first is gone from your count permanently.
+**Block scarcity.** Each of the 764 free chain cells is mined once and never again. Bots compete actively. Any cell another wallet claims first is gone from your count permanently. The 20 NFTJI cells can be owned simultaneously by multiple wallets — but only while you hold the NFTJI; selling it removes that cell from your count.
 
 **Daily drill cap.** The base limit is 100 mining games per day — rising +1 for each all-time Trade EXEC. Even flawless play only translates to a handful of qualifying blocks per session, because qualifying for late-chain blocks requires both your wallet level and the shared global MM3 value to meet escalating thresholds at the same time.
 
@@ -92,7 +92,7 @@ The goal is to complete the MM3 blockchain and win. There are two paths: **mine 
 
 **Rival pressure.** Without pool cover, any wallet that owns a Market NFTJI can fire its daily command and drain rivals' fiat or MM3 in a single shot. Those losses can erase the reserves needed to meet a block threshold or rebuy MM3 at the exchange.
 
-**The real scale.** 764 blocks. One per miner. Hundreds of timed problems under maximum pressure. Days or weeks of sustained LEGEND-level performance. Active bots. World-state conditions outside your control. Rivals targeting your economy. The wallet that reaches #1 will have earned it.
+**The real scale.** 784 board cells. 764 permanent chain blocks + 20 NFTJI cells (temporary, covered only while owned). Hundreds of timed training problems under maximum pressure. Days or weeks of sustained LEGEND-level performance. Active bots. World-state conditions outside your control. Rivals targeting your economy. The wallet that reaches #1 will have earned it.
 
 ---
 
@@ -100,22 +100,22 @@ The goal is to complete the MM3 blockchain and win. There are two paths: **mine 
 
 | System | What To Do |
 |---|---|
-| Login vs. Anonymous | Log in with Google for a free wallet — required to claim daily rewards and mine chain blocks. Anonymous mode lets you practice mining but nothing you do counts toward the ranking. |
-| World stats | Watch 🔥 War, 🌪️ Nature, and 🎲 Dice. Dice is the most actionable: during its ~15 min/hour window, trading commissions and NFTJI drop rates shift. Time your trades and Market actions around it. |
-| Mining | Answer math problems as fast and accurately as possible. Aim for 25 correct answers per day to complete the MINING daily task. Speed earns more MM3; a correct but slow answer earns negative MM3. Wrong answers cost levels — and levels are slow to recover at high tiers. |
-| Trading | Sell MM3 to build fiat reserves. Do 5 EXECs per day for the TRADING daily reward and a permanent +1 drill slot. Buy rate is 18% above sell rate, so sell into strength and only rebuy when needed. |
-| Ranking and Pools | Your MM3 Chain % is the only number that decides the winner — watch it. Join a pool: pool members are immune to each other's Market commands, which matters more as penalties scale up with NFTJI level. |
+| Login vs. Anonymous | Log in with Google for a free wallet — required to claim daily rewards and mine the board. Anonymous mode lets you practice Training but nothing counts toward the ranking. |
+| World stats | Watch 🔥 War, 🌪️ Nature, and 🎲 Dice. Dice is the most actionable: during its ~15 min/hour window, trading commissions and NFTJI drop rates shift. Time your trades and Mining actions around it. |
+| Training | Answer math problems as fast and accurately as possible. Aim for 25 correct answers per day. This earns MM3 and raises your level — both required to mine the board. Speed earns more MM3; a correct but slow answer earns negative MM3. Wrong answers cost levels — slow to recover at high tiers. |
+| Trading | Sell MM3 to build fiat reserves. Do 5 EXECs per day for the TRADING daily reward and a permanent +1 training slot. Buy rate is 18% above sell rate, so sell into strength and only rebuy when needed. |
+| Ranking and Pools | Your Mining % across all 784 board cells is the only number that decides the winner — watch it. Join a pool: pool members are immune to each other's Mining commands, which matters more as penalties scale up with NFTJI level. |
 | Squeeze | Once in a pool, initiate Squeezes from the Squeeze page to earn fiat and drop Squeeze NFTJIs. Watch 🔥 War and 🎲 Dice before launching — they directly shift the outcome formula. |
-| Market board | Two distinct actions: (1) buy a Market NFTJI to unlock one daily IRC command that targets rival wallets; (2) mine free board blocks by typing `/mine block #XXX` in IRC — that is the core competition. Check the block card for its level and MM3 value requirements before attempting. |
-| IRC | Your block mining terminal. Type `/mine block #XXX` to attempt a chain block. Fire your daily Market command if you own one. Watch events, penalties, and world state shifts here in real time. |
-| MM3 | The global MM3 value determines which blocks you can mine — requirements alternate positive and negative by block index. Watch the MM3 chart and only attempt a block when the sign and magnitude match its requirement. |
+| Mining board | 784-cell board, 3 ways to mine: (1) buy a Market NFTJI — that cell counts in your Mining % while you own it, and unlocks a daily IRC attack command; (2) mine free chain cells permanently with `/mine block #XXX` in IRC; (3) submit the correct `Ω(α, β, γ)` for an immediate win. Selling an NFTJI removes that cell from your count. |
+| IRC | Your board mining terminal. Type `/mine block #XXX` to attempt a chain cell. Fire your daily Mining command if you own a Market NFTJI. Watch events, penalties, and world state shifts here in real time. |
+| MM3 | The global MM3 value determines which chain cells you can mine — requirements alternate positive and negative by cell index. Watch the MM3 chart and only attempt a cell when the sign and magnitude match its requirement. |
 | Daily rewards | Check the daily panel every session and manually claim each completed task before UTC midnight — unclaimed rewards disappear. Mining one Market block chain cell pays €10. Maximum daily total: €17.50. |
 
 ---
 
-## Mining
+## Training
 
-> Answer problems as fast as possible. Aim for 25 correct per day. Speed earns MM3; accuracy keeps your level.
+> Answer problems as fast as possible. Aim for 25 correct per day. Speed earns MM3; accuracy keeps your level. Training does not mine the board directly — it builds the level and MM3 reserves needed to do so.
 
 ### Problem Families
 
@@ -359,11 +359,16 @@ The modifier is read live at the moment each operation executes (`getDiceState()
 
 ---
 
-## Market
+## Mining
 
-> Two separate goals here: (1) own a Market NFTJI to fire one daily command in IRC; (2) mine free board cells with `/mine block #XXX` in IRC to advance your MM3 Chain %.
+> Three ways to mine the board: (1) buy a Market NFTJI — that cell counts in your Mining % while you own it, and grants a daily attack command; (2) mine free chain cells permanently with `/mine block #XXX` in IRC; (3) submit the correct `Ω(α, β, γ)` for an immediate win. Selling an NFTJI removes that cell from your count.
 
-The Market is a 28x28 command board: 784 cells, 20 fixed NFTJI blocks, and a mineable MM3 Block Chain across every remaining free board cell.
+The Mining board is a 28×28 grid: **784 cells total**, fully minable. All 784 cells count toward each wallet's Mining %. Two cell types:
+
+| Cell type | Count | How mined | Permanent? |
+|---|---:|---|---|
+| Market NFTJI cells | 20 | Buy the NFTJI | No — lost when sold |
+| Free chain cells | 764 | `/mine block #XXX` in IRC | Yes — locked to first miner |
 
 | Rail | Price Basis | Main Use |
 |---|---|---|
@@ -492,9 +497,9 @@ The three live inputs are captured at the **exact moment** you submit. The funct
 | Condition | Winner |
 |---|---|
 | A wallet submits the correct `Ω(α, β, γ)` | That wallet — immediate win |
-| All chain blocks are mined (chain 100%) | Wallet with the most blocks mined (tie-break: earliest last block) |
+| All 784 board cells are covered (764 chain blocks mined + all 20 NFTJIs owned) | Wallet with the highest Mining % (tie-break: earliest last chain block) |
 
-In both cases the board locks, all blocks are shown as sealed, the ticker announces the winner, and the game is permanently over.
+In both cases the board locks, all cells are shown as sealed, the ticker announces the winner, and the game is permanently over.
 
 The values of α, β, and γ are visible on the card in real time. The rest is up to you.
 
@@ -502,7 +507,7 @@ The values of α, β, and γ are visible on the card in real time. The rest is u
 
 ## Pools
 
-> Join a pool as soon as possible. Pool members are immune to each other's Market commands — without one, any NFTJI owner can drain your fiat daily.
+> Join a pool as soon as possible. Pool members are immune to each other's Mining commands — without one, any NFTJI owner can drain your fiat daily.
 
 Wallets can form coalitions. Each Pool is identified by a 5-character alphanumeric code.
 
@@ -674,15 +679,15 @@ IRC help (`/?`) includes `/mine block #029` as the short form for mining free Ma
 
 ## Ranking
 
-> Your MM3 Chain % is the only number that decides who wins. Everything else — level, MM3 balance, NFTJIs — is context that explains why you are where you are.
+> Your Mining % is the only number that decides who wins. Everything else — level, MM3 balance, NFTJIs — is context that explains why you are where you are.
 
 Ranking is public memory for the game and defines its end state.
 
-The first ranking column is **MM3 Chain**: the share of 764 free Market board blocks mined per wallet. **Ranking sorts by this column.** Win paths: be at #1 when the chain hits 100%, or submit the correct `Ω(α, β, γ)` for an immediate win — see [Objective](#objective) and [Solve the Chain](#solve-the-chain).
+The first ranking column is **Mining %**: each wallet's share of the 784-cell board — permanently mined chain cells plus any Market NFTJI currently owned. **Ranking sorts by this column.** Win paths: be at #1 when all 784 cells are covered, or submit the correct `Ω(α, β, γ)` for an immediate win — see [Objective](#objective) and [Solve the Chain](#solve-the-chain).
 
-Pool ranking sums the MM3 Chain percentages of current members. The sum cannot exceed 100%.
+Pool ranking sums the Mining % of current members.
 
-All other visible data — level, MM3 balance, trade activity, NFTJI ownership, Market presence, active penalties — shows the context behind the chain percentages.
+All other visible data — level, MM3 balance, trade activity, NFTJI ownership, Mining board presence, active penalties — shows the context behind the mining percentages.
 
 ---
 
@@ -969,8 +974,8 @@ Read:
 | Identidad | Wallet de Ethereum o wallet virtual determinista de Google |
 | Persistencia | Estado de jugadores, Market, gráfico, chat y eventos en Supabase |
 | Idiomas | Inglés y español |
-| Rutas principales | Mining, Trade MM3, Ranking, Squeeze, Market, IRC, MM3 Value, Manifiesto, API |
-| Condición de victoria | Ser #1 en % MM3 Chain cuando la cadena llegue al 100%, O enviar el `Ω(α, β, γ)` correcto para ganar de inmediato |
+| Rutas principales | Training, Trade MM3, Ranking, Squeeze, Mining, IRC, MM3 Value, Manifiesto, API |
+| Condición de victoria | Ser #1 en % de Minado cuando las 784 celdas estén cubiertas (764 bloques minados + los 20 NFTJIs con dueño), O enviar el `Ω(α, β, γ)` correcto para ganar de inmediato |
 | Estado legal | Sin minería real, sin token real, sin pagos, sin inversión |
 
 ---
@@ -979,21 +984,21 @@ Read:
 
 MathsMine3 convierte las matemáticas en presión, recompensa, memoria, riesgo y ritual.
 
-No es una clase con skin. Es un juego-mundo de terminal: resuelve rápido, mina MM3 falso, sube de rango, pierde nivel cuando fallas, comercia dentro de un exchange ficticio, colecciona NFTJIs, dispara comandos del Market, participa en el chat IRC y vuelve después de cada reset más afilado que antes.
+No es una clase con skin. Es un juego-mundo de terminal: entrena bajo presión, mina las 784 celdas del tablero, sube de rango, pierde nivel cuando fallas, comercia dentro de un exchange ficticio, colecciona NFTJIs, dispara comandos de Mining, participa en el chat IRC y vuelve después de cada reset más afilado que antes.
 
-La idea útil es simple: **la matemática se convierte en acción**. Cada problema resuelto no es solo puntuación; mueve una wallet, un rango, un mercado ficticio y un estado público compartido. La cadena tiene una línea de llegada: 764 bloques, un solo ganador.
+La idea útil es simple: **la matemática se convierte en acción**. Cada problema resuelto no es solo puntuación; mueve una wallet, un rango, un mercado ficticio y un estado público compartido. El tablero tiene una línea de llegada: 784 celdas, un solo ganador.
 
 ---
 
 ## Objetivo
 
-El objetivo es completar la blockchain MM3 y ganar. Hay dos caminos: **minar el mayor número de bloques** — gana la wallet en el puesto #1 cuando los 764 bloques están minados — o **resolver la cadena directamente** enviando la respuesta correcta a la función secreta `Ω(α, β, γ)`, lo que activa una victoria inmediata sin importar el conteo de bloques.
+El objetivo es completar el tablero de Mining y ganar. El tablero tiene **784 celdas** — 20 celdas de NFTJI del Market y 764 celdas libres de la cadena. Ambos tipos cuentan en tu % de Minado. Hay dos formas de ganar: **completar el tablero** — gana la wallet en el puesto #1 cuando todas las 784 celdas estén cubiertas (764 bloques de cadena minados permanentemente + los 20 NFTJIs con al menos un dueño en ese momento) — o **resolver la cadena directamente** enviando la respuesta correcta a la función secreta `Ω(α, β, γ)`, lo que activa una victoria inmediata.
 
 ### Por qué llegar al #1 es genuinamente difícil
 
 **Barrera de nivel.** La mayoría de los bloques de la mitad superior del grid 28×28 requieren nivel de wallet 80–100 (rango LEGEND). Al nivel 100 tienes 1500 ms por problema. Un fallo en el nivel 95+ cuesta 5 niveles. Recuperarse exige al menos tres respuestas correctas consecutivas bajo esa misma presión. Llegar ahí *y mantenerse* es el primer filtro que la mayoría de wallets nunca superan.
 
-**Escasez de bloques.** Cada uno de los 764 bloques libres se mina una sola vez y nunca vuelve a estar disponible. Los bots compiten activamente. Cualquier bloque que otra wallet reclame primero desaparece de tu conteo para siempre.
+**Escasez de bloques.** Cada una de las 764 celdas libres se mina una sola vez y nunca vuelve a estar disponible. Los bots compiten activamente. Cualquier celda que otra wallet reclame primero desaparece de tu conteo para siempre. Las 20 celdas de NFTJI pueden ser poseídas simultáneamente por varias wallets, pero solo mientras tengas el NFTJI — si lo vendes, esa celda sale de tu conteo.
 
 **Tope diario de drill.** El límite base es 100 partidas de mining por día — sube +1 por cada EXEC histórico de Trade. Incluso jugando a la perfección, eso solo se traduce en un puñado de bloques cualificados por sesión, ya que minar bloques avanzados requiere que tu nivel de wallet y el `mm3_global_value` compartido cumplan umbrales crecientes al mismo tiempo.
 
@@ -1003,7 +1008,7 @@ El objetivo es completar la blockchain MM3 y ganar. Hay dos caminos: **minar el 
 
 **Presión rival.** Sin cobertura de pool, cualquier wallet que posea un NFTJI de Market puede disparar su comando diario y drenar fiat o MM3 de los rivales de un solo golpe. Esas pérdidas pueden borrar las reservas necesarias para cumplir un umbral de bloque o recomprar MM3 en el exchange.
 
-**La escala real.** 764 bloques. Uno por minero. Cientos de problemas cronometrados bajo presión máxima. Días o semanas de rendimiento sostenido a nivel LEGEND. Bots activos. Condiciones del estado del mundo fuera de tu control. Rivales apuntando a tu economía. La wallet que llegue al #1 se lo habrá ganado.
+**La escala real.** 784 celdas. 764 bloques permanentes + 20 celdas NFTJI (temporales, cubiertas solo mientras se posean). Cientos de problemas de training cronometrados bajo presión máxima. Días o semanas de rendimiento sostenido a nivel LEGEND. Bots activos. Condiciones del estado del mundo fuera de tu control. Rivales apuntando a tu economía. La wallet que llegue al #1 se lo habrá ganado.
 
 ---
 
@@ -1011,22 +1016,22 @@ El objetivo es completar la blockchain MM3 y ganar. Hay dos caminos: **minar el 
 
 | Sistema | Qué Hacer |
 |---|---|
-| Login vs. Anónimo | Loguéate con Google para obtener una wallet gratuita — necesaria para reclamar recompensas diarias y minar bloques de la cadena. El modo anónimo solo sirve para practicar. |
-| Stats del mundo | Vigila 🔥 War, 🌪️ Naturaleza y 🎲 Dice. El Dice es el más accionable: durante su ventana de ~15 min/hora, las comisiones y las tasas de drop de NFTJI cambian. Ajusta tus trades y acciones del Market en función de ello. |
-| Mining | Responde preguntas de mates lo más rápido y con la mayor precisión posible. Apunta a 25 respuestas correctas al día para completar la tarea diaria de MINING. La velocidad genera más MM3; acertar pero tarde genera MM3 negativo. Los fallos cuestan niveles, y recuperarlos en rangos altos es lento. |
-| Trading | Vende MM3 para acumular fiat. Haz 5 EXECs al día para la recompensa diaria de TRADING y un +1 permanente de drill slot. La tasa de compra es un 18% mayor que la de venta: vende cuando puedas y recompra solo cuando lo necesites. |
-| Ranking y Pools | Tu % de MM3 Chain es el único número que decide quién gana — obsérvalo. Únete a un pool cuanto antes: los miembros del mismo pool son inmunes a los comandos del Market entre sí, lo que importa más a medida que las penalizaciones escalan con el nivel del NFTJI. |
+| Login vs. Anónimo | Loguéate con Google para obtener una wallet gratuita — necesaria para reclamar recompensas diarias y minar el tablero. El modo anónimo solo sirve para practicar Training. |
+| Stats del mundo | Vigila 🔥 War, 🌪️ Naturaleza y 🎲 Dice. El Dice es el más accionable: durante su ventana de ~15 min/hora, las comisiones y las tasas de drop de NFTJI cambian. Ajusta tus trades y acciones de Mining en función de ello. |
+| Training | Responde preguntas de mates lo más rápido y con la mayor precisión posible. Apunta a 25 respuestas correctas al día. Esto genera MM3 y sube tu nivel — ambos necesarios para minar el tablero. La velocidad genera más MM3; acertar tarde genera MM3 negativo. Los fallos cuestan niveles, lentos de recuperar en rangos altos. |
+| Trading | Vende MM3 para acumular fiat. Haz 5 EXECs al día para la recompensa diaria de TRADING y un +1 permanente de training slot. La tasa de compra es un 18% mayor que la de venta: vende cuando puedas y recompra solo cuando lo necesites. |
+| Ranking y Pools | Tu % de Minado sobre las 784 celdas del tablero es el único número que decide quién gana — obsérvalo. Únete a un pool cuanto antes: los miembros del mismo pool son inmunes a los comandos de Mining entre sí, lo que importa más a medida que las penalizaciones escalan con el nivel del NFTJI. |
 | Squeeze | Una vez en un pool, inicia Squeezes desde la página de Squeeze para ganar fiat y conseguir NFTJIs de Squeeze. Consulta 🔥 War y 🎲 Dice antes de lanzar — afectan directamente a la fórmula de resultado. |
-| Market board | Dos acciones distintas: (1) compra un NFTJI del Market para desbloquear un comando IRC diario que afecta a wallets rivales; (2) mina celdas libres del tablero escribiendo `/mine block #XXX` en el IRC — esa es la competición central. Abre la card del bloque para ver sus requisitos antes de intentarlo. |
-| IRC | Tu terminal de acción principal. Escribe `/mine block #XXX` para intentar minar un bloque de la cadena. Dispara tu comando diario del Market si tienes un NFTJI. Observa los eventos para leer el estado del juego en tiempo real. |
-| MM3 | El valor global del MM3 determina qué bloques puedes minar — los requisitos alternan entre positivo y negativo por índice de bloque. Mira el gráfico MM3 y solo intenta minar un bloque cuando el signo y la magnitud coincidan con el requisito. |
-| Recompensas diarias | Revisa el panel diario en cada sesión y reclama manualmente cada tarea completada antes de la medianoche UTC — las recompensas no reclamadas se pierden. Minar una celda de la block chain del Market paga €10. Máximo diario total: €17,50. |
+| Tablero de Mining | 784 celdas, 3 formas de minar: (1) compra un NFTJI del Market — esa celda cuenta en tu % de Minado mientras lo tengas, y desbloquea un comando diario de ataque en el IRC; (2) mina celdas libres de la cadena permanentemente con `/mine block #XXX` en el IRC; (3) envía el `Ω(α, β, γ)` correcto para ganar de inmediato. Vender un NFTJI elimina esa celda de tu conteo. |
+| IRC | Tu terminal de acción principal. Escribe `/mine block #XXX` para intentar minar una celda de la cadena. Dispara tu comando diario de Mining si tienes un NFTJI. Observa los eventos para leer el estado del juego en tiempo real. |
+| MM3 | El valor global del MM3 determina qué celdas libres puedes minar — los requisitos alternan entre positivo y negativo por índice de celda. Mira el gráfico MM3 y solo intenta minar cuando el signo y la magnitud coincidan con el requisito. |
+| Recompensas diarias | Revisa el panel diario en cada sesión y reclama manualmente cada tarea completada antes de la medianoche UTC — las recompensas no reclamadas se pierden. Minar una celda de la cadena paga €10. Máximo diario total: €17,50. |
 
 ---
 
-## Mining
+## Training
 
-> Responde lo más rápido posible. Apunta a 25 respuestas correctas al día. La velocidad genera MM3; la precisión mantiene tu nivel.
+> Responde lo más rápido posible. Apunta a 25 respuestas correctas al día. La velocidad genera MM3; la precisión mantiene tu nivel. El Training no mina el tablero directamente — genera el nivel y el MM3 necesarios para hacerlo.
 
 ### Familias de Problemas
 
@@ -1270,11 +1275,16 @@ El modificador se lee en vivo en el momento en que se ejecuta cada operación (`
 
 ---
 
-## Market
+## Mining
 
-> Dos objetivos distintos aquí: (1) poseer un NFTJI del Market para disparar un comando diario en el IRC; (2) minar celdas libres del tablero con `/mine block #XXX` en el IRC para avanzar tu % de MM3 Chain.
+> Tres formas de minar el tablero: (1) compra un NFTJI del Market — esa celda cuenta en tu % de Minado mientras lo tengas, y otorga un comando de ataque diario; (2) mina celdas libres de la cadena permanentemente con `/mine block #XXX` en el IRC; (3) envía el `Ω(α, β, γ)` correcto para ganar de inmediato. Vender un NFTJI elimina esa celda de tu conteo.
 
-El Market es un tablero de comandos 28x28: 784 celdas, 20 bloques NFTJI fijos y una MM3 Block Chain minable en todas las demás celdas libres.
+El tablero de Mining es una cuadrícula 28×28: **784 celdas en total**, todas minables. Las 784 celdas cuentan para el % de Minado de cada wallet. Dos tipos de celda:
+
+| Tipo de celda | Cantidad | Cómo se mina | ¿Permanente? |
+|---|---:|---|---|
+| Celdas de NFTJI del Market | 20 | Comprando el NFTJI | No — se pierde al vender |
+| Celdas libres de la cadena | 764 | `/mine block #XXX` en IRC | Sí — bloqueadas al primer minero |
 
 | Rail | Base de Precio | Uso Principal |
 |---|---|---|
@@ -1403,9 +1413,9 @@ Las tres variables se capturan en el **momento exacto** del envío. La función 
 | Condición | Ganador |
 |---|---|
 | Una wallet envía el `Ω(α, β, γ)` correcto | Esa wallet — victoria inmediata |
-| Todos los bloques de la cadena son minados (cadena al 100%) | Wallet con más bloques minados (desempate: último bloque más temprano) |
+| Las 784 celdas del tablero están cubiertas (764 bloques minados + los 20 NFTJIs con dueño) | Wallet con el mayor % de Minado (desempate: último bloque de cadena más temprano) |
 
-En ambos casos el tablero se bloquea, todos los bloques aparecen sellados, el ticker anuncia al ganador y la partida termina de forma permanente.
+En ambos casos el tablero se bloquea, todas las celdas aparecen selladas, el ticker anuncia al ganador y la partida termina de forma permanente.
 
 Los valores de α, β y γ son visibles en la tarjeta en tiempo real. El resto depende de ti.
 
@@ -1413,7 +1423,7 @@ Los valores de α, β y γ son visibles en la tarjeta en tiempo real. El resto d
 
 ## Pools
 
-> Únete a un pool cuanto antes. Los miembros del mismo pool son inmunes a los comandos del Market entre sí — sin pool, cualquier propietario de NFTJI puede drenearte el fiat cada día.
+> Únete a un pool cuanto antes. Los miembros del mismo pool son inmunes a los comandos de Mining entre sí — sin pool, cualquier propietario de NFTJI puede drenearte el fiat cada día.
 
 Las wallets pueden formar coaliciones. Cada Pool se identifica con un código alfanumérico de 5 caracteres.
 
@@ -1585,15 +1595,15 @@ La ayuda IRC (`/?`) incluye `/mine block #029` como forma corta para minar celda
 
 ## Ranking
 
-> Tu % de MM3 Chain es el único número que decide quién gana. Todo lo demás — nivel, balance MM3, NFTJIs — es contexto que explica por qué estás donde estás.
+> Tu % de Minado es el único número que decide quién gana. Todo lo demás — nivel, balance MM3, NFTJIs — es contexto que explica por qué estás donde estás.
 
 El Ranking es la memoria pública del juego y define su estado final.
 
-La primera columna del ranking es **MM3 Chain**: el porcentaje de los 764 bloques libres del Market minados por cada wallet. **El ranking ordena por esta columna.** Caminos de victoria: ser #1 cuando la cadena llegue al 100%, o enviar el `Ω(α, β, γ)` correcto para ganar de inmediato — ver [Objetivo](#objetivo) y [Resolver la Cadena](#resolver-la-cadena).
+La primera columna del ranking es **% de Minado**: la parte del tablero de 784 celdas que corresponde a cada wallet — celdas libres minadas permanentemente más cualquier NFTJI del Market que posea en ese momento. **El ranking ordena por esta columna.** Caminos de victoria: ser #1 cuando todas las 784 celdas estén cubiertas, o enviar el `Ω(α, β, γ)` correcto para ganar de inmediato — ver [Objetivo](#objetivo) y [Resolver la Cadena](#resolver-la-cadena).
 
-El ranking de pools suma los porcentajes MM3 Chain de sus miembros actuales. La suma nunca supera el 100%.
+El ranking de pools suma el % de Minado de sus miembros actuales.
 
-El resto de datos visibles — nivel, balance MM3, actividad de Trade, propiedad de NFTJIs, presencia en Market, penalizaciones activas — muestra el contexto detrás de los porcentajes de cadena.
+El resto de datos visibles — nivel, balance MM3, actividad de Trade, propiedad de NFTJIs, presencia en el tablero de Mining, penalizaciones activas — muestra el contexto detrás de los porcentajes de minado.
 
 ---
 

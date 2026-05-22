@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic';
 import { createClient } from '@supabase/supabase-js';
 import { normalizeWalletDecorations } from '@/lib/wallet-decorations';
 import { buildBlockChainCode, MM3_BLOCK_CHAIN_REQUIREMENTS } from '@/lib/mm3-block-chain';
+import { TOTAL_BOARD_CELLS } from '@/lib/chain-winner';
 
 const PUBLIC_CACHE_MS = 10_000;
 let publicSnapshotCache = null;
@@ -41,18 +42,21 @@ async function getPublicMarketSnapshot(supabase) {
         if (blocksResponse.error) throw blocksResponse.error;
         if (minedResponse.error && minedResponse.error.code !== '42P01') throw minedResponse.error;
         const minedBlocks = minedResponse.data || [];
-        const mineableTotal = Math.max(1, MM3_BLOCK_CHAIN_REQUIREMENTS.length - (blocksResponse.data || []).length);
+        const ownedNftjiCount = new Set(
+          (ownersResponse.data || []).map((o) => o.market_nftji_key).filter(Boolean)
+        ).size;
+        const totalCovered = minedBlocks.length + ownedNftjiCount;
         const payload = {
           blocks: blocksResponse.data || [],
           owners: ownersResponse.data || [],
           minedBlocks,
           blockChain: {
             title: 'MM3 BLOCK CHAIN IN PROGRESS',
-            mined: minedBlocks.length,
-            total: mineableTotal,
-            percent: mineableTotal > 0
-              ? Math.round((minedBlocks.length / mineableTotal) * 10000) / 100
-              : 0,
+            mined: totalCovered,
+            total: TOTAL_BOARD_CELLS,
+            percent: Math.round((totalCovered / TOTAL_BOARD_CELLS) * 10000) / 100,
+            freeBlocksMined: minedBlocks.length,
+            nftjiCovered: ownedNftjiCount,
             code: buildBlockChainCode(minedBlocks),
           },
         };

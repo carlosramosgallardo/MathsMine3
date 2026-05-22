@@ -12,6 +12,7 @@ import {
   normalizeBlockHex,
 } from '@/lib/mm3-block-chain';
 import { formatWalletLabel } from '@/lib/wallet-format';
+import { checkAndAwardChainWinner, TOTAL_BOARD_CELLS } from '@/lib/chain-winner';
 
 function normalizeWallet(value) {
   return String(value || '').trim().toLowerCase();
@@ -60,7 +61,7 @@ export async function POST(req) {
         .maybeSingle(),
       supabase
         .from('player_progress')
-        .select('level')
+        .select('level, market_nftji_key')
         .eq('wallet', wallet)
         .maybeSingle(),
       supabase
@@ -124,17 +125,15 @@ export async function POST(req) {
       .select('block_hex, wallet, mm3_value_hex, chain_index')
       .order('chain_index', { ascending: true });
     const chain = chainRows || [mined];
-    const mineableTotal = Math.max(1, MM3_BLOCK_CHAIN_REQUIREMENTS.length - (Number(reservedCount) || 0));
-    const percent = mineableTotal > 0
-      ? Math.round((chain.length / mineableTotal) * 10000) / 100
-      : 0;
+    const freeBlocksTotal = Math.max(1, MM3_BLOCK_CHAIN_REQUIREMENTS.length - (Number(reservedCount) || 0));
+    const freePercent = Math.round((chain.length / freeBlocksTotal) * 10000) / 100;
     const walletMinedCount = chain.filter((row) => normalizeWallet(row.wallet) === wallet).length;
-    const walletPercent = mineableTotal > 0
-      ? Math.round((walletMinedCount / mineableTotal) * 10000) / 100
-      : 0;
+    const walletPercent = Math.round(
+      ((walletMinedCount + (progress?.market_nftji_key ? 1 : 0)) / TOTAL_BOARD_CELLS) * 10000
+    ) / 100;
     const code = buildBlockChainCode(chain);
     const ts = Date.now();
-    const trace = `MM3 BLOCK CHAIN IN PROGRESS >> mined ${blockHex} by ${formatWalletLabel(wallet)} >> ${chain.length}/${mineableTotal} ${percent.toFixed(2)}% >> ${code}`;
+    const trace = `MM3 BLOCK CHAIN IN PROGRESS >> mined ${blockHex} by ${formatWalletLabel(wallet)} >> ${chain.length}/${freeBlocksTotal} ${freePercent.toFixed(2)}% >> ${code}`;
 
     await supabase
       .from('player_progress')
@@ -148,41 +147,11 @@ export async function POST(req) {
       tone: 'market',
     });
 
-    // Chain complete — award winner by most blocks if no winner yet
-    if (chain.length >= mineableTotal) {
-      const { data: existingWinner } = await supabase
-        .from('mm3_game_winner').select('wallet').eq('id', 1).maybeSingle();
-      if (!existingWinner) {
-        const stats = {};
-        for (const row of chain) {
-          const w = normalizeWallet(row.wallet);
-          if (!stats[w]) stats[w] = { count: 0, lastIndex: 0 };
-          stats[w].count++;
-          stats[w].lastIndex = Math.max(stats[w].lastIndex, row.chain_index);
-        }
-        const topWallet = Object.entries(stats)
-          .sort(([, a], [, b]) => b.count - a.count || a.lastIndex - b.lastIndex)[0]?.[0];
-        if (topWallet) {
-          const wonAt = new Date().toISOString();
-          await supabase.from('mm3_game_winner')
-            .insert({ id: 1, wallet: topWallet, won_at: wonAt }).catch(() => {});
-          const winnerLabel = formatWalletLabel(topWallet);
-          await supabase.from('mm3_irc_messages').insert({
-            wallet: 'system',
-            text: `⬡ MM3 BLOCK CHAIN COMPLETE ⬡ ${winnerLabel} sealed the chain with the most blocks mined. Game over. Congratulations.`,
-            ts: Date.now(), kind: 'system', tone: 'market',
-          });
-          await supabase.from('mm3_macro_state').update({
-            ticker_message: `⬡ CHAIN COMPLETE · WINNER: ${topWallet.toUpperCase()} ⬡ MM3 BLOCK CHAIN SEALED ⬡`,
-            ticker_message_en: `⬡ CHAIN COMPLETE · WINNER: ${winnerLabel.toUpperCase()} ⬡ MM3 BLOCK CHAIN SEALED ⬡`,
-            ticker_message_es: `⬡ CADENA SELLADA · GANADOR: ${winnerLabel.toUpperCase()} ⬡ MM3 BLOCK CHAIN COMPLETA ⬡`,
-            updated_at: wonAt,
-          }).eq('id', 1);
-        }
-      }
+    if (chain.length >= freeBlocksTotal) {
+      await checkAndAwardChainWinner(supabase);
     }
 
-    return Response.json({ ok: true, mined, trace, percent, code, ts });
+    return Response.json({ ok: true, mined, trace, percent: freePercent, code, ts });
   } catch (error) {
     console.error('mine block error:', error);
     const missingTable = error?.code === '42P01';

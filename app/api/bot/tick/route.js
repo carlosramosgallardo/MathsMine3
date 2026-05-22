@@ -16,6 +16,7 @@ import {
   mm3ValueToHex,
 } from '@/lib/mm3-block-chain';
 import { formatWalletLabel } from '@/lib/wallet-format';
+import { checkAndAwardChainWinner, TOTAL_BOARD_CELLS } from '@/lib/chain-winner';
 
 const BOT_WALLETS = [
   '0xcab10d0e0650d45cb0b7482370a1ca93d5bf5528',
@@ -1293,6 +1294,9 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
       const buyDelta = (newPrice / (rateCny * CNY_TO_EUR)) * (1 + marketDm);
 
       const freshMm3Sold = Number(freshProg?.mm3_sold) || 0;
+      const { count: botMinedCount } = await supabase
+        .from('mm3_mined_blocks').select('id', { count: 'exact', head: true }).eq('wallet', wallet);
+      const botBuyPct = Math.round(((Number(botMinedCount) || 0) + 1) / TOTAL_BOARD_CELLS * 10000) / 100;
       await supabase.from('player_progress').upsert({
         wallet, is_bot: true,
         ...(isMm3Payment
@@ -1305,8 +1309,10 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
           ...currentLevels,
           [targetBlock.block_key]: Number(currentLevels[targetBlock.block_key] ?? -1) + 1,
         },
+        block_chain_percent: botBuyPct,
         updated_at: now,
       }, { onConflict: 'wallet', ignoreDuplicates: false });
+      checkAndAwardChainWinner(supabase).catch(() => {});
 
       await supabase.from('mm3_market_events').insert({
         wallet, event_type: 'market_buy', delta_mm3: buyDelta,
@@ -1524,55 +1530,29 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
       });
 
       if (!mineErr) {
-        const { data: allMined } = await supabase.from('mm3_mined_blocks').select('wallet, chain_index');
-        const { count: reservedCount } = await supabase.from('mm3_market_blocks')
-          .select('block_key', { count: 'exact', head: true });
-        const mineableTotal = Math.max(1, MM3_BLOCK_CHAIN_REQUIREMENTS.length - (Number(reservedCount) || 0));
+        const [{ data: allMined }, { count: reservedCount }, { data: freshBotProg }] = await Promise.all([
+          supabase.from('mm3_mined_blocks').select('wallet, chain_index'),
+          supabase.from('mm3_market_blocks').select('block_key', { count: 'exact', head: true }),
+          supabase.from('player_progress').select('market_nftji_key').eq('wallet', wallet).maybeSingle(),
+        ]);
+        const freeBlocksTotal = Math.max(1, MM3_BLOCK_CHAIN_REQUIREMENTS.length - (Number(reservedCount) || 0));
         const walletMinedCount = (allMined || []).filter((r) => String(r.wallet || '').toLowerCase() === wallet).length;
-        const walletPct = Math.round((walletMinedCount / mineableTotal) * 10000) / 100;
-        const chainPct = Math.round(((allMined || []).length / mineableTotal) * 10000) / 100;
+        const walletPct = Math.round(
+          ((walletMinedCount + (freshBotProg?.market_nftji_key ? 1 : 0)) / TOTAL_BOARD_CELLS) * 10000
+        ) / 100;
+        const freeChainPct = Math.round(((allMined || []).length / freeBlocksTotal) * 10000) / 100;
 
         await supabase.from('player_progress').upsert({
           wallet, is_bot: true, block_chain_percent: walletPct, updated_at: now,
         }, { onConflict: 'wallet', ignoreDuplicates: false });
 
-        const trace = `MM3 BLOCK CHAIN IN PROGRESS >> mined ${pick.blockHex} by ${formatWalletLabel(wallet)} >> ${(allMined || []).length}/${mineableTotal} ${chainPct.toFixed(2)}%`;
+        const trace = `MM3 BLOCK CHAIN IN PROGRESS >> mined ${pick.blockHex} by ${formatWalletLabel(wallet)} >> ${(allMined || []).length}/${freeBlocksTotal} ${freeChainPct.toFixed(2)}%`;
         await supabase.from('mm3_irc_messages').insert({
           wallet: 'system', text: trace, ts: Date.now(), kind: 'system', tone: 'market',
         });
 
-        // Chain complete — award winner by most blocks if no winner yet
-        if ((allMined || []).length >= mineableTotal) {
-          const { data: existingWinner } = await supabase
-            .from('mm3_game_winner').select('wallet').eq('id', 1).maybeSingle();
-          if (!existingWinner) {
-            const stats = {};
-            for (const row of allMined || []) {
-              const w = String(row.wallet || '').toLowerCase();
-              if (!stats[w]) stats[w] = { count: 0, lastIndex: 0 };
-              stats[w].count++;
-              stats[w].lastIndex = Math.max(stats[w].lastIndex, row.chain_index || 0);
-            }
-            const topWallet = Object.entries(stats)
-              .sort(([, a], [, b]) => b.count - a.count || a.lastIndex - b.lastIndex)[0]?.[0];
-            if (topWallet) {
-              const wonAt = new Date().toISOString();
-              await supabase.from('mm3_game_winner')
-                .insert({ id: 1, wallet: topWallet, won_at: wonAt }).catch(() => {});
-              const winnerLabel = formatWalletLabel(topWallet);
-              await supabase.from('mm3_irc_messages').insert({
-                wallet: 'system',
-                text: `⬡ MM3 BLOCK CHAIN COMPLETE ⬡ ${winnerLabel} sealed the chain with the most blocks mined. Game over. Congratulations.`,
-                ts: Date.now(), kind: 'system', tone: 'market',
-              });
-              await supabase.from('mm3_macro_state').update({
-                ticker_message: `⬡ CHAIN COMPLETE · WINNER: ${topWallet.toUpperCase()} ⬡ MM3 BLOCK CHAIN SEALED ⬡`,
-                ticker_message_en: `⬡ CHAIN COMPLETE · WINNER: ${winnerLabel.toUpperCase()} ⬡ MM3 BLOCK CHAIN SEALED ⬡`,
-                ticker_message_es: `⬡ CADENA SELLADA · GANADOR: ${winnerLabel.toUpperCase()} ⬡ MM3 BLOCK CHAIN COMPLETA ⬡`,
-                updated_at: wonAt,
-              }).eq('id', 1);
-            }
-          }
+        if ((allMined || []).length >= freeBlocksTotal) {
+          await checkAndAwardChainWinner(supabase);
         }
 
         actions.push({ type: 'chain_mine', blockHex: pick.blockHex, chainPct });
