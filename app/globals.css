@@ -75,11 +75,9 @@ body {
   height: 100%;
   overflow: hidden;
   background-image:
-    radial-gradient(circle at 50% -20%, rgba(34,211,238,.07), transparent 38rem),
-    linear-gradient(rgba(34,211,238,.034) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(34,211,238,.024) 1px, transparent 1px);
-  background-size: auto, 24px 24px, 24px 24px;
-  background-repeat: no-repeat, repeat, repeat;
+    radial-gradient(circle at 50% -20%, rgba(34,211,238,.07), transparent 38rem);
+  background-size: auto;
+  background-repeat: no-repeat;
   -webkit-font-smoothing: antialiased;
 }
 

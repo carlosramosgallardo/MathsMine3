@@ -130,9 +130,8 @@ export default function ChainSolveCard({ wallet, onWinner }) {
         <div
           className="rounded border px-3 py-3 text-center"
           style={{
-            borderColor: 'rgba(74,222,128,0.6)',
-            background: 'linear-gradient(180deg, rgba(0,20,10,0.97) 0%, rgba(0,10,5,0.95) 100%)',
-            boxShadow: '0 0 40px rgba(74,222,128,0.18), inset 0 0 30px rgba(74,222,128,0.05)',
+            borderColor: 'rgba(74,222,128,0.5)',
+            background: '#070b0f',
           }}
         >
           <div className="text-[0.72rem] font-black uppercase tracking-[0.28em] text-emerald-300 mb-1">
@@ -182,8 +181,7 @@ export default function ChainSolveCard({ wallet, onWinner }) {
         className="rounded border px-3 py-2.5 lg:px-4 lg:py-3"
         style={{
           borderColor: 'rgba(74,222,128,0.18)',
-          background: 'linear-gradient(180deg, rgba(0,12,6,0.96) 0%, rgba(0,5,3,0.92) 100%)',
-          boxShadow: '0 0 18px rgba(74,222,128,0.05), inset 0 0 20px rgba(74,222,128,0.02)',
+          background: '#070b0f',
         }}
       >
         {/* Header row */}
