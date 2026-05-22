@@ -24,7 +24,7 @@
 - [Manifesto](#manifesto)
 - [Objective](#objective)
 - [How to Play](#how-to-play)
-- [Mining](#mining)
+- [Training](#training)
 - [Daily Limits](#daily-limits)
 - [Daily Rewards](#daily-rewards)
 - [Ranks](#ranks)
@@ -56,7 +56,7 @@
 | Genre | Math-mining RPG / pool strategy — crypto freak terminal |
 | Economy | Fully simulated, fictional MM3 token |
 | Identity | Ethereum wallet or deterministic Google virtual wallet |
-| Persistence | Supabase player, market, chart, chat, and event state |
+| Persistence | Supabase player, mining, chart, chat, and event state |
 | Languages | English and Spanish |
 | Core routes | Training, Mining, Trading, Ranking, Squeezing, Relaying, MM3 Value, Manifesto, API |
 | Win condition | Be #1 in Mining % when all 784 board cells are covered (764 chain blocks mined + all 20 NFTJIs owned), OR submit the correct `Ω(α, β, γ)` for an immediate win |
@@ -86,7 +86,7 @@ The goal is to complete the MM3 mining board and win. The board has **784 cells*
 
 **Daily drill cap.** The base limit is 100 Training games per day — rising +1 for each all-time Trade EXEC. Even flawless play only translates to a handful of qualifying blocks per session, because qualifying for late-chain blocks requires both your wallet level and the shared global MM3 value to meet escalating thresholds at the same time.
 
-**Shared global state.** The `mm3_global_value` required by advanced blocks is not yours to control. It is shaped by the whole economy — trades, Market commands, Squeeze stakes burned. You may reach the right level only to find the global condition unmet.
+**Shared global state.** The `mm3_global_value` required by advanced blocks is not yours to control. It is shaped by the whole economy — trades, Mining commands, Squeeze stakes burned. You may reach the right level only to find the global condition unmet.
 
 **Alternating signs.** Block requirements flip between positive and negative `mm3_global_value` by block index. You can attempt any block — but only those whose sign matches the current global value are valid. If every available block demands a negative global value and the economy is running positive, you wait.
 
@@ -316,7 +316,7 @@ In Pool views, slot 6 shows a count overlay (×N) if multiple pool members hold 
 
 ## Trade MM3
 
-> Sell MM3 to build fiat reserves. Do 5 EXECs per day. Each EXEC also grants a permanent +1 drill slot, which increases your daily mining attempts forever.
+> Sell MM3 to build fiat reserves. Do 5 EXECs per day. Each EXEC also grants a permanent +1 drill slot, which increases your daily Training attempts forever.
 
 Trade MM3 is a fictional exchange terminal. Players can sell mined MM3 into in-game CNY / EUR / USD, or buy MM3 back using fictional balances.
 
@@ -355,7 +355,7 @@ The modifier is a continuous value in **[−0.50, +0.50]** (1 % precision). It m
 | Mining NFTJI resell return | `price × 0.5 × (1 + dm)` | Up to 75% returned | Down to 25% returned |
 | Squeeze drop MM3 flip magnitude | `−2 × MM3 × (1 + dm)` | Larger flip | Smaller flip |
 
-The modifier is read live at the moment each operation executes (`getDiceState()` in `lib/dice.js`). The UI shows a 🎲 chip in orange (positive) or cyan (negative) wherever the dice affects an active action — TradeBoard, MarketBoard.
+The modifier is read live at the moment each operation executes (`getDiceState()` in `lib/dice.js`). The UI shows a 🎲 chip in orange (positive) or cyan (negative) wherever the dice affects an active action — TradeBoard, MiningBoard.
 
 ---
 
@@ -942,7 +942,7 @@ Read:
 - [Manifiesto](#manifiesto)
 - [Objetivo](#objetivo)
 - [Cómo Jugar](#cómo-jugar)
-- [Mining](#mining)
+- [Training](#training)
 - [Límites Diarios](#limites-diarios)
 - [Recompensas Diarias](#recompensas-diarias)
 - [Rangos](#rangos)
@@ -1004,7 +1004,7 @@ El objetivo es completar el tablero de Mining y ganar. El tablero tiene **784 ce
 
 **Tope diario de drill.** El límite base es 100 partidas de Training por día — sube +1 por cada EXEC histórico de Trade. Incluso jugando a la perfección, eso solo se traduce en un puñado de bloques cualificados por sesión, ya que minar bloques avanzados requiere que tu nivel de wallet y el `mm3_global_value` compartido cumplan umbrales crecientes al mismo tiempo.
 
-**Estado global compartido.** El `mm3_global_value` requerido por los bloques avanzados no está bajo tu control. Lo moldea toda la economía — trades, comandos del Market, stakes quemados en Squeeze. Puedes alcanzar el nivel correcto y encontrar que la condición global no se cumple.
+**Estado global compartido.** El `mm3_global_value` requerido por los bloques avanzados no está bajo tu control. Lo moldea toda la economía — trades, comandos de Mining, stakes quemados en Squeeze. Puedes alcanzar el nivel correcto y encontrar que la condición global no se cumple.
 
 **Signos alternos.** Los requisitos de bloque alternan entre `mm3_global_value` positivo y negativo según el índice del bloque. Puedes intentar cualquier bloque — pero solo son válidos aquellos cuyo signo coincide con el valor global actual. Si todos los bloques disponibles exigen valor global negativo y la economía está en positivo, esperas.
 
@@ -1227,14 +1227,14 @@ Trade, Ranking (wallets y pools) muestran **6 casillas NFTJI** en fila por walle
 | 6 | NFTJI de Mining *(una por wallet)* | Ámbar / dorado |
 
 Las casillas vacías mantienen un borde tenue de su color de tipo.  
-La casilla 6 muestra el emoji del bloque del Market que posee la wallet. Solo es posible un NFTJI de Mining a la vez por wallet.  
+La casilla 6 muestra el emoji del bloque de Mining que posee la wallet. Solo es posible un NFTJI de Mining a la vez por wallet.  
 En vistas de Pool, la casilla 6 muestra un contador (×N) si varios miembros del pool poseen un NFTJI de Mining.
 
 ---
 
 ## Trade MM3
 
-> Vende MM3 para acumular fiat. Haz 5 EXECs al día. Cada EXEC suma un +1 permanente de drill slot, lo que aumenta tus intentos de mining para siempre.
+> Vende MM3 para acumular fiat. Haz 5 EXECs al día. Cada EXEC suma un +1 permanente de drill slot, lo que aumenta tus intentos de Training para siempre.
 
 Trade MM3 es un exchange ficticio. Los jugadores pueden vender MM3 minado a CNY / EUR / USD dentro del juego, o recomprar MM3 usando balances ficticios.
 
@@ -1273,7 +1273,7 @@ El modificador es un valor continuo en **[−0.50, +0.50]** (precisión del 1 %)
 | Retorno de reventa de Mining NFTJI | `precio × 0.5 × (1 + dm)` | Hasta 75% devuelto | Hasta 25% devuelto |
 | Magnitud del volteo MM3 por drop de Squeeze | `−2 × MM3 × (1 + dm)` | Volteo mayor | Volteo menor |
 
-El modificador se lee en vivo en el momento en que se ejecuta cada operación (`getDiceState()` en `lib/dice.js`). La UI muestra un chip 🎲 en naranja (positivo) o cyan (negativo) donde el dado afecta a una acción activa — TradeBoard, MarketBoard.
+El modificador se lee en vivo en el momento en que se ejecuta cada operación (`getDiceState()` en `lib/dice.js`). La UI muestra un chip 🎲 en naranja (positivo) o cyan (negativo) donde el dado afecta a una acción activa — TradeBoard, MiningBoard.
 
 ---
 
@@ -1645,7 +1645,7 @@ Los cuatro bots ejecutan hasta 100 partidas de mining al día con una tasa de ac
 
 **Los bots minan bloques del tablero de Mining.** Cada tick tiene un 55 % de probabilidad de minar una celda de la cadena que cumpla los requisitos (el nivel de wallet y el valor global MM3 deben satisfacer las condiciones del bloque). Los bots aplican las mismas reglas de minado que los jugadores reales y actualizan `block_chain_percent` en `player_progress`. También reclaman automáticamente la recompensa diaria MINING CHAIN tras un mine exitoso.
 
-**Los bots redimen sus propias penalizaciones.** Cuando una wallet de bot tiene una penalización de comando activa, cada tick siguiente tiene un 40 % de probabilidad de introducir el código para cancelarla — el mismo flujo que usaría un jugador real en el detalle del bloque Market.
+**Los bots redimen sus propias penalizaciones.** Cuando una wallet de bot tiene una penalización de comando activa, cada tick siguiente tiene un 40 % de probabilidad de introducir el código para cancelarla — el mismo flujo que usaría un jugador real en el detalle del bloque de Mining.
 
 ### Impacto en los Jugadores Reales
 
@@ -1672,11 +1672,11 @@ Las rutas públicas exponen el estado legible de la simulación.
 | `/api/token-history` | Histórico de valor MM3 |
 | `/api/token-history-minutes` | Datos recientes por minuto |
 | `/api/leaderboard` | Datos del Ranking |
-| `/api/market-snapshot` | Estado de bloques del Market |
+| `/api/mining-snapshot` | Estado de bloques del Mining board |
 | `/api/mine-block` | Mina un bloque libre del Mining board desde el flujo de comando de Relaying |
 | `/api/nft-events` | Eventos NFTJI y revive |
 
-`/api/leaderboard` incluye `block_chain_percent` y `mined_block_count`. `/api/market-snapshot` incluye `minedBlocks` y datos de progreso/código en `blockChain`.
+`/api/leaderboard` incluye `block_chain_percent` y `mined_block_count`. `/api/mining-snapshot` incluye `minedBlocks` y datos de progreso/código en `blockChain`.
 
 ---
 
