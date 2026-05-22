@@ -100,20 +100,22 @@ The goal is to complete the MM3 blockchain and win. There are two paths: **mine 
 
 | System | What To Do |
 |---|---|
-| Login vs. Anonymous | Feel free to play anonymously in MINING and browse the portal. Bots are actively competing in the ranking. When you decide to log in, if you do not want to use a real wallet, use Google so the system generates an exclusive MathsMine3 wallet for you. |
-| World stats | War, Nature, and Dice affect and are affected by the different operations performed in the game. They are worth watching at all times. |
-| Mining | Mine MM3 by answering different kinds of math questions and leveling up. If you answer correctly but too slowly, you mine negative MM3. If you fail, you lose level unless you have enough money to buy Life Toll, which can only be bought and used once. Sometimes, when you answer correctly, you obtain NFTJIs that accumulate and boost your progression. |
-| Trading | When you have enough MM3, you can sell it for money. When you need more MM3, you can buy it back. But watch the interest. |
-| Ranking and Pools | Check your position, funds, and NFTJIs, and compare yourself against other wallets and pools. Join one or work alone. Your call. |
-| Squeeze | Dispute pool vs pool. Understand the applied formula to win together with trusted wallets, if you can trust anyone. Sometimes, when your pool wins, you obtain NFTJIs that accumulate and can catapult your alliance. |
-| Market board | 28x28 grid: 20 fixed Market NFTJI blocks (commands, penalties, resale) + 764 free MM3 Block Chain cells mineable from IRC. Mining those free cells is the core competition — the wallet with the highest mined percentage leads the chain and wins. |
-| IRC | Persistent social terminal with wallet presence and events. Even if you are not logged in, you can watch what is cooking day by day until you feel like trying it. |
-| MM3 | Global value history fed by game events. Your own or shared funds matter, but so does the value of MM3. The question is, why? |
-| Daily rewards | Complete as many daily MINING, TRADING, SQUEEZE, and IRC tasks as possible to get some extra money, which will come in handy. |
+| Login vs. Anonymous | Log in with Google for a free wallet — required to claim daily rewards and mine chain blocks. Anonymous mode lets you practice mining but nothing you do counts toward the ranking. |
+| World stats | Watch 🔥 War, 🌪️ Nature, and 🎲 Dice. Dice is the most actionable: during its ~15 min/hour window, trading commissions and NFTJI drop rates shift. Time your trades and Market actions around it. |
+| Mining | Answer math problems as fast and accurately as possible. Aim for 25 correct answers per day to complete the MINING daily task. Speed earns more MM3; a correct but slow answer earns negative MM3. Wrong answers cost levels — and levels are slow to recover at high tiers. |
+| Trading | Sell MM3 to build fiat reserves. Do 5 EXECs per day for the TRADING daily reward and a permanent +1 drill slot. Buy rate is 18% above sell rate, so sell into strength and only rebuy when needed. |
+| Ranking and Pools | Your MM3 Chain % is the only number that decides the winner — watch it. Join a pool: pool members are immune to each other's Market commands, which matters more as penalties scale up with NFTJI level. |
+| Squeeze | Once in a pool, initiate Squeezes from the Squeeze page to earn fiat and drop Squeeze NFTJIs. Watch 🔥 War and 🎲 Dice before launching — they directly shift the outcome formula. |
+| Market board | Two distinct actions: (1) buy a Market NFTJI to unlock one daily IRC command that targets rival wallets; (2) mine free board blocks by typing `/mine block #XXX` in IRC — that is the core competition. Check the block card for its level and MM3 value requirements before attempting. |
+| IRC | Your block mining terminal. Type `/mine block #XXX` to attempt a chain block. Fire your daily Market command if you own one. Watch events, penalties, and world state shifts here in real time. |
+| MM3 | The global MM3 value determines which blocks you can mine — requirements alternate positive and negative by block index. Watch the MM3 chart and only attempt a block when the sign and magnitude match its requirement. |
+| Daily rewards | Check the daily panel every session and manually claim each completed task before UTC midnight — unclaimed rewards disappear. Mining one Market block chain cell pays €10. Maximum daily total: €17.50. |
 
 ---
 
 ## Mining
+
+> Answer problems as fast as possible. Aim for 25 correct per day. Speed earns MM3; accuracy keeps your level.
 
 ### Problem Families
 
@@ -198,6 +200,8 @@ dailySlots = 100 + allTimeExecs
 ---
 
 ## Daily Rewards
+
+> Check the daily panel every session. Claim each completed task before UTC midnight — unclaimed rewards are lost permanently.
 
 Daily rewards are wallet-bound tasks that pay fictional in-game money when claimed. They reset at UTC midnight, and unclaimed rewards disappear.
 
@@ -312,6 +316,8 @@ In Pool views, slot 6 shows a count overlay (×N) if multiple pool members hold 
 
 ## Trade MM3
 
+> Sell MM3 to build fiat reserves. Do 5 EXECs per day. Each EXEC also grants a permanent +1 drill slot, which increases your daily mining attempts forever.
+
 Trade MM3 is a fictional exchange terminal. Players can sell mined MM3 into in-game CNY / EUR / USD, or buy MM3 back using fictional balances.
 
 ```txt
@@ -355,6 +361,8 @@ The modifier is read live at the moment each operation executes (`getDiceState()
 
 ## Market
 
+> Two separate goals here: (1) own a Market NFTJI to fire one daily command in IRC; (2) mine free board cells with `/mine block #XXX` in IRC to advance your MM3 Chain %.
+
 The Market is a 28x28 command board: 784 cells, 20 fixed NFTJI blocks, and a mineable MM3 Block Chain across every remaining free board cell.
 
 | Rail | Price Basis | Main Use |
@@ -383,6 +391,8 @@ Owning a Market NFTJI unlocks one daily IRC command.
 > **Secret command:** each NFTJI has a hidden command unlocked at the wallet level shown in the Emoji Catalog (`Secret lv.` column). Executing it from IRC earns the **HIDDEN IRC** daily reward (€5.00) and triggers a steal effect — the executor gains what rivals lose.
 
 ### MM3 Block Chain
+
+> Open the block card to see its requirements (min level + required MM3 global value). When both conditions are met, go to IRC and type `/mine block #XXX`. First wallet to meet the requirement claims the block permanently.
 
 Cells that are not fixed Market NFTJIs are **open blocks**. They are not bought, sold, resold, linked to YouTube, or tied to Market formulas. Instead, they can be mined from IRC with:
 
@@ -459,6 +469,8 @@ MM3 BLOCK CHAIN IN PROGRESS >> mined #029 by 0xa...123 >> 1/764 0.13% >> #0xabc.
 
 ## Solve the Chain
 
+> Once per day, visit this card and submit your best guess. α, β, and γ are shown live on the card. The function Ω is secret — observe, deduce, try.
+
 One per-game challenge open to all connected wallets. The objective: compute a secret function `Ω(α, β, γ)` and submit the correct integer answer.
 
 | Variable | Symbol | Source |
@@ -490,6 +502,8 @@ The values of α, β, and γ are visible on the card in real time. The rest is u
 
 ## Pools
 
+> Join a pool as soon as possible. Pool members are immune to each other's Market commands — without one, any NFTJI owner can drain your fiat daily.
+
 Wallets can form coalitions. Each Pool is identified by a 5-character alphanumeric code.
 
 | Action | Description |
@@ -519,6 +533,8 @@ Pool membership and rank are visible in Ranking and IRC. Invite chips appear inl
 ---
 
 ## Squeeze
+
+> Initiate from the Squeeze page once you are in a pool. Check 🔥 War and 🎲 Dice before launching — they shift the outcome formula. Win to earn fiat and chance a Squeeze NFTJI drop.
 
 Two pools enter a **Squeeze** — a scored combat with EUR stakes and world state modifiers. The loser burns 45% of their staked funds into the void.
 
@@ -627,6 +643,8 @@ third same  → level 2   (no cap)
 
 ## IRC Relay
 
+> Your main action terminal. Type `/mine block #XXX` to attempt a block. Fire your daily Market command if you own a Market NFTJI. Watch events to read the state of the game.
+
 IRC is the shared terminal layer.
 
 | Signal | Meaning |
@@ -655,6 +673,8 @@ IRC help (`/?`) includes `/mine block #029` as the short form for mining free Ma
 ---
 
 ## Ranking
+
+> Your MM3 Chain % is the only number that decides who wins. Everything else — level, MM3 balance, NFTJIs — is context that explains why you are where you are.
 
 Ranking is public memory for the game and defines its end state.
 
@@ -991,20 +1011,22 @@ El objetivo es completar la blockchain MM3 y ganar. Hay dos caminos: **minar el 
 
 | Sistema | Qué Hacer |
 |---|---|
-| Login vs. Anónimo | Siéntete libre de jugar de forma anónima en MINING y navegar por el portal. Los bots compiten activamente en el ranking. Cuando te decidas, si no quieres usar una wallet real, usa Google para que el sistema te genere una wallet exclusiva en MathsMine3. |
-| Stats del mundo | War, Naturaleza y Dice afectan y son afectados por las diferentes operaciones que se realizan en el juego. Merece la pena tenerlos en cuenta en todo momento |
-| Mining | Mina MM3 acertando preguntas de mates de diferentes tipos y subiendo de nivel. Si tardas en contestar y aciertas, minarás en negativo. Si fallas, bajarás de nivel, a no ser que tengas el dinero necesario para comprar la vida, pero solo la podrás comprar y usar una vez. En ocasiones, si aciertas, obtendrás NFTJIs que irás acumulando y potenciarán tu progresión. |
-| Trading | Cuando tengas suficiente MM3, puedes venderlo por dinero. Y cuando necesites más MM3, puedes comprarlo. Pero ¡ojo a los intereses! |
-| Ranking y Pools | Comprueba tu posición, fondos y NFTJIs y compárate con el resto de Wallets y de pools. Forma parte de uno o trabaja de manera autónoma. Tú decides |
-| Squeeze | Disputa pool vs pool. Comprende la fórmula aplicada para ser ganador, junto con tus wallets de confianza, si es que te puedes fiar de alguien. En ocasiones, si tu pool gana, obtendréis NFTJIs que iréis acumulando y catapultarán vuestra alianza. |
-| Market board | Grid 28x28: 20 bloques NFTJI fijos (comandos, penalizaciones, reventa) + 764 celdas libres de la MM3 Block Chain minables desde IRC. Minar esas celdas libres es la competición central — la wallet con el mayor porcentaje minado lidera la cadena y gana. |
-| IRC | Terminal social persistente con presencia de wallets y eventos. Aunque no estés logado puedes ver lo que se va cociendo día a día hasta que te animes a probarlo |
-| MM3 | Histórico de valor global alimentado por eventos del juego. Tan importante son los fondos propios o compartidados como lo es el valor del MM3. La pregunta es, ¿por qué? |
-| Recompensas diarias | Completa el máximo de tareas cada día de MINING, TRADING, SQUEEZE e IRC, para obtener algo de dinero extra, que no te vendrá mal |
+| Login vs. Anónimo | Loguéate con Google para obtener una wallet gratuita — necesaria para reclamar recompensas diarias y minar bloques de la cadena. El modo anónimo solo sirve para practicar. |
+| Stats del mundo | Vigila 🔥 War, 🌪️ Naturaleza y 🎲 Dice. El Dice es el más accionable: durante su ventana de ~15 min/hora, las comisiones y las tasas de drop de NFTJI cambian. Ajusta tus trades y acciones del Market en función de ello. |
+| Mining | Responde preguntas de mates lo más rápido y con la mayor precisión posible. Apunta a 25 respuestas correctas al día para completar la tarea diaria de MINING. La velocidad genera más MM3; acertar pero tarde genera MM3 negativo. Los fallos cuestan niveles, y recuperarlos en rangos altos es lento. |
+| Trading | Vende MM3 para acumular fiat. Haz 5 EXECs al día para la recompensa diaria de TRADING y un +1 permanente de drill slot. La tasa de compra es un 18% mayor que la de venta: vende cuando puedas y recompra solo cuando lo necesites. |
+| Ranking y Pools | Tu % de MM3 Chain es el único número que decide quién gana — obsérvalo. Únete a un pool cuanto antes: los miembros del mismo pool son inmunes a los comandos del Market entre sí, lo que importa más a medida que las penalizaciones escalan con el nivel del NFTJI. |
+| Squeeze | Una vez en un pool, inicia Squeezes desde la página de Squeeze para ganar fiat y conseguir NFTJIs de Squeeze. Consulta 🔥 War y 🎲 Dice antes de lanzar — afectan directamente a la fórmula de resultado. |
+| Market board | Dos acciones distintas: (1) compra un NFTJI del Market para desbloquear un comando IRC diario que afecta a wallets rivales; (2) mina celdas libres del tablero escribiendo `/mine block #XXX` en el IRC — esa es la competición central. Abre la card del bloque para ver sus requisitos antes de intentarlo. |
+| IRC | Tu terminal de acción principal. Escribe `/mine block #XXX` para intentar minar un bloque de la cadena. Dispara tu comando diario del Market si tienes un NFTJI. Observa los eventos para leer el estado del juego en tiempo real. |
+| MM3 | El valor global del MM3 determina qué bloques puedes minar — los requisitos alternan entre positivo y negativo por índice de bloque. Mira el gráfico MM3 y solo intenta minar un bloque cuando el signo y la magnitud coincidan con el requisito. |
+| Recompensas diarias | Revisa el panel diario en cada sesión y reclama manualmente cada tarea completada antes de la medianoche UTC — las recompensas no reclamadas se pierden. Minar una celda de la block chain del Market paga €10. Máximo diario total: €17,50. |
 
 ---
 
 ## Mining
+
+> Responde lo más rápido posible. Apunta a 25 respuestas correctas al día. La velocidad genera MM3; la precisión mantiene tu nivel.
 
 ### Familias de Problemas
 
@@ -1089,6 +1111,8 @@ dailySlots = 100 + allTimeExecs
 ---
 
 ## Recompensas Diarias
+
+> Revisa el panel diario en cada sesión. Reclama cada tarea completada antes de la medianoche UTC — las recompensas no reclamadas se pierden.
 
 Las recompensas diarias son tareas asociadas a la wallet que pagan dinero ficticio dentro del juego al reclamarlas. Se reinician a medianoche UTC, y las recompensas no reclamadas se pierden.
 
@@ -1203,6 +1227,8 @@ En vistas de Pool, la casilla 6 muestra un contador (×N) si varios miembros del
 
 ## Trade MM3
 
+> Vende MM3 para acumular fiat. Haz 5 EXECs al día. Cada EXEC suma un +1 permanente de drill slot, lo que aumenta tus intentos de mining para siempre.
+
 Trade MM3 es un exchange ficticio. Los jugadores pueden vender MM3 minado a CNY / EUR / USD dentro del juego, o recomprar MM3 usando balances ficticios.
 
 ```txt
@@ -1246,6 +1272,8 @@ El modificador se lee en vivo en el momento en que se ejecuta cada operación (`
 
 ## Market
 
+> Dos objetivos distintos aquí: (1) poseer un NFTJI del Market para disparar un comando diario en el IRC; (2) minar celdas libres del tablero con `/mine block #XXX` en el IRC para avanzar tu % de MM3 Chain.
+
 El Market es un tablero de comandos 28x28: 784 celdas, 20 bloques NFTJI fijos y una MM3 Block Chain minable en todas las demás celdas libres.
 
 | Rail | Base de Precio | Uso Principal |
@@ -1274,6 +1302,8 @@ Tener un NFTJI del Market desbloquea un comando IRC diario.
 > **Comando secreto:** cada NFTJI tiene un comando oculto desbloqueado al nivel de wallet indicado en el Catálogo de Emojis (columna `Nivel secreto`). Ejecutarlo desde IRC otorga la recompensa diaria **HIDDEN IRC** (€5.00) y activa un efecto de robo — el ejecutor gana lo que los rivales pierden.
 
 ### MM3 Block Chain
+
+> Abre la card del bloque para ver sus requisitos (nivel mínimo + valor MM3 global requerido). Cuando ambas condiciones se cumplan, ve al IRC y escribe `/mine block #XXX`. La primera wallet que lo intente con los requisitos cumplidos se queda el bloque para siempre.
 
 Las celdas que no son NFTJI fijos del Market son **open blocks**. No se compran, no se venden, no se revenden, no enlazan a YouTube y no usan fórmulas de Market. Se minan desde IRC con:
 
@@ -1350,6 +1380,8 @@ MM3 BLOCK CHAIN IN PROGRESS >> mined #029 by 0xa...123 >> 1/764 0.13% >> #0xabc.
 
 ## Resolver la Cadena
 
+> Una vez al día, visita esta card y envía tu mejor intento. Los valores α, β y γ se muestran en tiempo real. La función Ω es secreta — observa, deduce, prueba.
+
 Desafío único por partida abierto a todas las wallets conectadas. El objetivo: calcular una función secreta `Ω(α, β, γ)` y enviar el entero correcto.
 
 | Variable | Símbolo | Origen |
@@ -1381,6 +1413,8 @@ Los valores de α, β y γ son visibles en la tarjeta en tiempo real. El resto d
 
 ## Pools
 
+> Únete a un pool cuanto antes. Los miembros del mismo pool son inmunes a los comandos del Market entre sí — sin pool, cualquier propietario de NFTJI puede drenearte el fiat cada día.
+
 Las wallets pueden formar coaliciones. Cada Pool se identifica con un código alfanumérico de 5 caracteres.
 
 | Acción | Descripción |
@@ -1410,6 +1444,8 @@ La membresía y el rango del Pool son visibles en el Ranking y en el IRC. Los ch
 ---
 
 ## Squeeze
+
+> Inicia desde la página de Squeeze una vez que estés en un pool. Consulta 🔥 War y 🎲 Dice antes de lanzar — afectan directamente a la fórmula de resultado. Ganar da fiat y la posibilidad de obtener un NFTJI de Squeeze.
 
 Dos pools entran en un **Squeeze** — combate con stakes EUR y modificadores del estado del mundo. El perdedor quema el 45% de sus fondos apostados al vacío.
 
@@ -1518,6 +1554,8 @@ tercero mismo → nivel 2   (sin tope)
 
 ## IRC Relay
 
+> Tu terminal de acción principal. Escribe `/mine block #XXX` para intentar minar un bloque. Dispara tu comando diario del Market si tienes un NFTJI. Observa los eventos para leer el estado del juego en tiempo real.
+
 IRC es la capa terminal compartida.
 
 | Señal | Significado |
@@ -1546,6 +1584,8 @@ La ayuda IRC (`/?`) incluye `/mine block #029` como forma corta para minar celda
 ---
 
 ## Ranking
+
+> Tu % de MM3 Chain es el único número que decide quién gana. Todo lo demás — nivel, balance MM3, NFTJIs — es contexto que explica por qué estás donde estás.
 
 El Ranking es la memoria pública del juego y define su estado final.
 
