@@ -200,6 +200,12 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
   const [sortConfig, setSortConfig] = useState(() => getStoredLeaderboardSort(getInitialLeaderboardViewMode()));
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [squeezeLimitsByPool, setSqueezeLimitsByPool] = useState({});
+  const [expandedCardIds, setExpandedCardIds] = useState(new Set());
+  const toggleCard = (id) => setExpandedCardIds((prev) => {
+    const next = new Set(prev);
+    next.has(id) ? next.delete(id) : next.add(id);
+    return next;
+  });
   const { account } = useActiveWallet();
   const pathname = usePathname();
   const router = useRouter();
@@ -1500,6 +1506,26 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
           const totalPenaltyMm3 = Number(entry.total_penalties_mm3 || 0);
           const totalPenaltyMoney = convertPenaltyEur(entry.total_penalties_money_eur || 0, quoteCurrency);
 
+          const poolCardId = `pool:${entry.pool_code}`;
+          const poolExpanded = expandedCardIds.has(poolCardId);
+          if (!poolExpanded) return (
+            <button
+              key={entry.pool_code}
+              type="button"
+              onClick={() => toggleCard(poolCardId)}
+              className="lb-card w-full text-left flex items-center gap-2 px-2 py-1.5 font-mono"
+              style={{ fontSize: '0.72rem' }}
+            >
+              <span className={`rank-badge ${rankCls} shrink-0`}>{formatBlockChainPercent(entry.block_chain_percent)}</span>
+              <span className="font-black truncate" style={{ color: colorFromPool(String(entry.pool_code || '')) }}>#{entry.pool_code}</span>
+              <span className="text-slate-600">·</span>
+              <span style={{ color: tier.color }}>{tier.emoji} {lvl}</span>
+              <span className="text-slate-600">·</span>
+              <span className="text-cyan-400">{entry.member_count}w</span>
+              <span className="ml-auto text-slate-500">{formatCompactMoney(sellValue, quoteCurrency)}</span>
+              <span className="text-slate-600 shrink-0">▼</span>
+            </button>
+          );
           return (
             <article key={entry.pool_code} className="lb-card p-2">
               <div className="mb-1.5 flex items-center gap-2">
@@ -1533,6 +1559,7 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
                   </button>
                 ) : null}
                 <span className="lb-status-chip online shrink-0">{entry.member_count} {labels.members}</span>
+                <button type="button" onClick={() => toggleCard(poolCardId)} className="shrink-0 bg-transparent border-0 text-slate-600 font-mono text-[0.65rem] cursor-pointer px-1 leading-none hover:text-slate-400">▲</button>
               </div>
               <div className="grid grid-cols-3 gap-1 text-[0.78rem] uppercase tracking-[0.1em] text-cyan-700">
                 <div className="rounded border border-cyan-500/10 bg-black/60 px-1.5 py-1">
@@ -1710,7 +1737,28 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
           const ownedEmojis = normalizeWalletDecorations(entry.wallet_emojis);
           const marketBlocks = Array.isArray(entry.market_blocks) ? entry.market_blocks : [];
           const activePenalty = entry.active_penalty;
-
+          const walletCardId = `wallet:${normalizedWallet}`;
+          const walletExpanded = expandedCardIds.has(walletCardId);
+          if (!walletExpanded) return (
+            <button
+              key={entry.wallet}
+              type="button"
+              onClick={() => toggleCard(walletCardId)}
+              className={`lb-card w-full text-left flex items-center gap-2 px-2 py-1.5 font-mono${isActiveWallet ? ' wallet-active' : ''}${isSelectedWallet ? ' wallet-selected' : ''}`}
+              style={{ fontSize: '0.72rem' }}
+            >
+              <span className={`rank-badge ${rankCls} shrink-0`}>{formatBlockChainPercent(entry.block_chain_percent)}</span>
+              <span className="font-semibold truncate" style={{ color: walletColor }}>{formatWalletLabel(entry.wallet)}</span>
+              {entry.pool_code ? (
+                <span className="shrink-0 font-black text-[0.6rem]" style={{ color: colorFromPool(String(entry.pool_code || '')) }}>#{entry.pool_code}</span>
+              ) : null}
+              <span className="text-slate-600">·</span>
+              <span style={{ color: tier.color }}>{tier.emoji} {lvl}</span>
+              <span className={`lb-status-chip ${isOnline ? 'online' : 'offline'} shrink-0`}>{isOnline ? '●' : '○'}</span>
+              <span className="ml-auto text-slate-500">{formatCompactMoney(sellValue, quoteCurrency)}</span>
+              <span className="text-slate-600 shrink-0">▼</span>
+            </button>
+          );
           return (
             <article key={entry.wallet} className={`lb-card p-2${isActiveWallet ? ' wallet-active' : ''}${isSelectedWallet ? ' wallet-selected' : ''}`}>
               <div className="mb-1.5 flex items-center gap-2">
@@ -1756,6 +1804,7 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
                 <span className={`lb-status-chip ${isOnline ? 'online' : 'offline'} shrink-0`}>
                   {isOnline ? t('ranking.online') : t('ranking.offline')}
                 </span>
+                <button type="button" onClick={() => toggleCard(walletCardId)} className="shrink-0 bg-transparent border-0 text-slate-600 font-mono text-[0.65rem] cursor-pointer px-1 leading-none hover:text-slate-400">▲</button>
               </div>
 
               <div className="grid grid-cols-3 gap-1 text-[0.78rem] uppercase tracking-[0.1em] text-cyan-700 mb-1.5">

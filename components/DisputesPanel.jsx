@@ -335,33 +335,11 @@ function DisputeCard({ dispute, activeWallet, poolCode, language, currency, onJo
       padding: '14px 16px',
       marginBottom: 12,
       background: 'rgba(2,6,23,0.7)',
-      position: 'relative',
     }}>
-      {onToggle && (
-        <button
-          type="button"
-          onClick={onToggle}
-          title={lang === 'es' ? 'Colapsar' : 'Collapse'}
-          style={{
-            position: 'absolute',
-            top: 8,
-            right: 10,
-            background: 'none',
-            border: 'none',
-            color: '#334155',
-            cursor: 'pointer',
-            fontFamily: 'monospace',
-            fontSize: '0.65rem',
-            padding: '0 2px',
-          }}
-        >▲</button>
-      )}
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 10 }}>
         <PoolLink poolCode={dispute.challenger_pool_code} color="#22d3ee" onPoolClick={onPoolClick} style={{ fontSize: '0.95rem' }} />
-        <span style={{ color: '#64748b', fontSize: '0.8rem' }}>
-          {lang === 'es' ? 'vs' : 'vs'}
-        </span>
+        <span style={{ color: '#64748b', fontSize: '0.8rem' }}>vs</span>
         <PoolLink poolCode={dispute.defender_pool_code} color="#f59e0b" onPoolClick={onPoolClick} style={{ fontSize: '0.95rem' }} />
         <span style={{
           marginLeft: 'auto',
@@ -375,6 +353,23 @@ function DisputeCard({ dispute, activeWallet, poolCode, language, currency, onJo
         }}>
           {statusMeta[lang]}
         </span>
+        {onToggle && (
+          <button
+            type="button"
+            onClick={onToggle}
+            title={lang === 'es' ? 'Colapsar' : 'Collapse'}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: '#334155',
+              cursor: 'pointer',
+              fontFamily: 'monospace',
+              fontSize: '0.65rem',
+              padding: '0 2px',
+              flexShrink: 0,
+            }}
+          >▲</button>
+        )}
       </div>
       <div style={{
         display: 'flex',
