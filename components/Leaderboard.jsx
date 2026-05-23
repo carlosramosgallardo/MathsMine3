@@ -1619,6 +1619,25 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
               </div>
               <div className="mt-1.5 flex items-center gap-1.5 flex-wrap">
                 <div className="flex items-center gap-0.5 shrink-0">
+                  {Object.entries(entry.market_emoji_counts || {}).length === 0 ? (
+                    <div className="flex items-center justify-center rounded border"
+                      title="Mining NFTJI — none"
+                      style={{ width: '1.5rem', height: '1.5rem', borderColor: 'rgba(250,204,21,0.22)', background: 'rgba(2,6,23,0.4)', color: 'rgba(100,116,139,0.35)' }} />
+                  ) : Object.entries(entry.market_emoji_counts || {}).map(([emoji, count]) => (
+                    (() => {
+                      const lvlSum = Number(entry.market_emoji_level_sums?.[emoji] || 0);
+                      return (
+                        <div key={`mkt-${emoji}`}
+                          title={`Mining NFTJI ${emoji} — Lv.${lvlSum}`}
+                          className="relative flex h-6 w-6 flex-col items-center justify-center rounded border"
+                          style={{ borderColor: 'rgba(250,204,21,0.6)', background: tier.bg, color: '#fef08a', boxShadow: '0 0 8px rgba(250,204,21,0.25)' }}
+                        >
+                          <span style={{ fontSize: '0.72rem', lineHeight: 1 }}>{emoji}</span>
+                          <span className="font-mono text-[0.48rem] font-black leading-none text-cyan-100/90">Lv.{lvlSum}</span>
+                        </div>
+                      );
+                    })()
+                  ))}
                   {TRADE_SLOT_ORDER.map((slot) => {
                     const owned = ownedEmojis.includes(slot.emoji);
                     const isLife = slot.key === 'revive';
@@ -1668,25 +1687,6 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
                       </div>
                     );
                   })}
-                  {Object.entries(entry.market_emoji_counts || {}).length === 0 ? (
-                    <div className="flex items-center justify-center rounded border"
-                      title="Market NFTJI — none"
-                      style={{ width: '1.5rem', height: '1.5rem', borderColor: 'rgba(250,204,21,0.22)', background: 'rgba(2,6,23,0.4)', color: 'rgba(100,116,139,0.35)' }} />
-                  ) : Object.entries(entry.market_emoji_counts || {}).map(([emoji, count]) => (
-                    (() => {
-                      const lvlSum = Number(entry.market_emoji_level_sums?.[emoji] || 0);
-                      return (
-                        <div key={`mkt-${emoji}`}
-                          title={`Market NFTJI ${emoji} — Lv.${lvlSum}`}
-                          className="relative flex h-6 w-6 flex-col items-center justify-center rounded border"
-                          style={{ borderColor: 'rgba(250,204,21,0.6)', background: tier.bg, color: '#fef08a', boxShadow: '0 0 8px rgba(250,204,21,0.25)' }}
-                        >
-                          <span style={{ fontSize: '0.72rem', lineHeight: 1 }}>{emoji}</span>
-                          <span className="font-mono text-[0.48rem] font-black leading-none text-cyan-100/90">Lv.{lvlSum}</span>
-                        </div>
-                      );
-                    })()
-                  ))}
                   {(() => {
                     const relayMembers = (entry.members || []).filter((m) => (m.walletEmojis || []).includes(WALLET_DECORATIONS.relay));
                     const relayOwned = relayMembers.length > 0;
@@ -1704,7 +1704,7 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
                           boxShadow: relayOwned ? `0 0 8px ${relayColor}25` : 'none',
                         }}
                       >
-                        <span style={{ fontSize: relayOwned ? '0.72rem' : '0.88rem', lineHeight: 1 }}>{relayOwned ? WALLET_DECORATIONS.relay : ''}</span>
+                        <span style={{ fontSize: relayOwned ? '0.78rem' : '0.88rem', lineHeight: 1, filter: relayOwned ? 'drop-shadow(0 0 3px #6ee7b7)' : 'none' }}>{relayOwned ? WALLET_DECORATIONS.relay : ''}</span>
                         {relayOwned && <span style={{ fontSize: '0.48rem', fontFamily: 'monospace', color: relayColor, fontWeight: 800, lineHeight: 1 }}>Lv.{bestLevel}</span>}
                       </div>
                     );
@@ -1860,6 +1860,29 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
 
               <div className="flex items-center gap-1.5 flex-wrap">
                 <div className="flex items-center gap-0.5 shrink-0">
+                  {(() => {
+                    const mBlock = marketBlocks[0] || null;
+                    const mOwned = !!mBlock;
+                    const mLevel = Math.max(0, Number(mBlock?.level) || 0);
+                    return (
+                      <button
+                        type="button"
+                        onClick={mOwned ? () => openMarketBlock(mBlock.block_key) : undefined}
+                        title={mOwned ? `Mining NFTJI — ${mBlock.emoji} ${mBlock.hex} Lv.${mLevel}` : 'Mining NFTJI — none'}
+                        className="relative flex h-6 w-6 flex-col items-center justify-center rounded border transition"
+                        style={{
+                          borderColor: mOwned ? 'rgba(250,204,21,0.6)' : 'rgba(250,204,21,0.22)',
+                          background: mOwned ? tier.bg : 'rgba(2,6,23,0.4)',
+                          color: mOwned ? '#fef08a' : 'rgba(100,116,139,0.35)',
+                          boxShadow: mOwned ? '0 0 8px rgba(250,204,21,0.25)' : 'none',
+                          cursor: mOwned ? 'pointer' : 'default',
+                        }}
+                      >
+                        <span style={{ fontSize: mOwned ? '0.72rem' : '0.88rem', lineHeight: 1 }}>{mOwned ? mBlock.emoji : ''}</span>
+                        {mOwned && <span style={{ fontSize: '0.48rem', fontFamily: 'monospace', color: '#fef08a', fontWeight: 800, lineHeight: 1 }}>Lv.{mLevel}</span>}
+                      </button>
+                    );
+                  })()}
                   {TRADE_SLOT_ORDER.map((slot) => {
                     const owned = ownedEmojis.includes(slot.emoji);
                     const isLife = slot.key === 'revive';
@@ -1909,29 +1932,6 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
                     );
                   })}
                   {(() => {
-                    const mBlock = marketBlocks[0] || null;
-                    const mOwned = !!mBlock;
-                    const mLevel = Math.max(0, Number(mBlock?.level) || 0);
-                    return (
-                      <button
-                        type="button"
-                        onClick={mOwned ? () => openMarketBlock(mBlock.block_key) : undefined}
-                        title={mOwned ? `Market NFTJI — ${mBlock.emoji} ${mBlock.hex} Lv.${mLevel}` : 'Market NFTJI — none'}
-                        className="relative flex h-6 w-6 flex-col items-center justify-center rounded border transition"
-                        style={{
-                          borderColor: mOwned ? 'rgba(250,204,21,0.6)' : 'rgba(250,204,21,0.22)',
-                          background: mOwned ? tier.bg : 'rgba(2,6,23,0.4)',
-                          color: mOwned ? '#fef08a' : 'rgba(100,116,139,0.35)',
-                          boxShadow: mOwned ? '0 0 8px rgba(250,204,21,0.25)' : 'none',
-                          cursor: mOwned ? 'pointer' : 'default',
-                        }}
-                      >
-                        <span style={{ fontSize: mOwned ? '0.72rem' : '0.88rem', lineHeight: 1 }}>{mOwned ? mBlock.emoji : ''}</span>
-                        {mOwned && <span style={{ fontSize: '0.48rem', fontFamily: 'monospace', color: '#fef08a', fontWeight: 800, lineHeight: 1 }}>Lv.{mLevel}</span>}
-                      </button>
-                    );
-                  })()}
-                  {(() => {
                     const relayOwned = ownedEmojis.includes(WALLET_DECORATIONS.relay);
                     const relayLvl = computeRelayLevel(entry.relayExecCount || 0, entry.relayExecCount || 0);
                     const relayColor = '#6ee7b7';
@@ -1947,7 +1947,7 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
                           boxShadow: relayOwned ? `0 0 8px ${relayColor}25` : 'none',
                         }}
                       >
-                        <span style={{ fontSize: relayOwned ? '0.72rem' : '0.88rem', lineHeight: 1 }}>{relayOwned ? WALLET_DECORATIONS.relay : ''}</span>
+                        <span style={{ fontSize: relayOwned ? '0.78rem' : '0.88rem', lineHeight: 1, filter: relayOwned ? 'drop-shadow(0 0 3px #6ee7b7)' : 'none' }}>{relayOwned ? WALLET_DECORATIONS.relay : ''}</span>
                         {relayOwned && <span style={{ fontSize: '0.48rem', fontFamily: 'monospace', color: relayColor, fontWeight: 800, lineHeight: 1 }}>Lv.{relayLvl}</span>}
                       </div>
                     );
@@ -2113,6 +2113,23 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
                   </td>
                   <td style={{ textAlign:'center' }}>
                     <div className="flex items-center justify-center gap-1">
+                      {Object.entries(entry.market_emoji_counts || {}).length === 0 ? (
+                        <div className="lb-slot-cell flex items-center justify-center rounded-md border text-[0.95rem]"
+                          title="Mining NFTJI — none"
+                          style={{ borderColor: 'rgba(250,204,21,0.22)', background: 'rgba(2,6,23,0.4)', color: 'rgba(100,116,139,0.35)' }} />
+                      ) : Object.entries(entry.market_emoji_counts || {}).map(([emoji, count]) => {
+                        const lvlSum = Number(entry.market_emoji_level_sums?.[emoji] || 0);
+                        return (
+                          <div key={`mkt-${emoji}`}
+                            title={`Mining NFTJI ${emoji} — Lv.${lvlSum}`}
+                            className="lb-slot-cell relative flex flex-col items-center justify-center rounded-md border"
+                            style={{ borderColor: 'rgba(250,204,21,0.6)', background: tier.bg, color: '#fef08a', boxShadow: '0 0 12px rgba(250,204,21,0.25)' }}
+                          >
+                            <span style={{ fontSize: '0.78rem', lineHeight: 1 }}>{emoji}</span>
+                            <span className="font-mono text-[0.52rem] font-black leading-none text-cyan-200">Lv.{lvlSum}</span>
+                          </div>
+                        );
+                      })}
                       {TRADE_SLOT_ORDER.map((slot) => {
                         const count = Number(entry.wallet_emoji_counts?.[slot.emoji] || 0);
                         const owned = count > 0;
@@ -2169,23 +2186,6 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
                           </div>
                         );
                       })}
-                      {Object.entries(entry.market_emoji_counts || {}).length === 0 ? (
-                        <div className="lb-slot-cell flex items-center justify-center rounded-md border text-[0.95rem]"
-                          title="Market NFTJI — none"
-                          style={{ borderColor: 'rgba(250,204,21,0.22)', background: 'rgba(2,6,23,0.4)', color: 'rgba(100,116,139,0.35)' }} />
-                      ) : Object.entries(entry.market_emoji_counts || {}).map(([emoji, count]) => {
-                        const lvlSum = Number(entry.market_emoji_level_sums?.[emoji] || 0);
-                        return (
-                          <div key={`mkt-${emoji}`}
-                            title={`Market NFTJI ${emoji} — Lv.${lvlSum}`}
-                            className="lb-slot-cell relative flex flex-col items-center justify-center rounded-md border"
-                            style={{ borderColor: 'rgba(250,204,21,0.6)', background: tier.bg, color: '#fef08a', boxShadow: '0 0 12px rgba(250,204,21,0.25)' }}
-                          >
-                            <span style={{ fontSize: '0.78rem', lineHeight: 1 }}>{emoji}</span>
-                            <span className="font-mono text-[0.52rem] font-black leading-none text-cyan-200">Lv.{lvlSum}</span>
-                          </div>
-                        );
-                      })}
                       {(() => {
                         const relayMembers = (entry.members || []).filter((m) => (m.walletEmojis || []).includes(WALLET_DECORATIONS.relay));
                         const relayOwned = relayMembers.length > 0;
@@ -2202,7 +2202,7 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
                               boxShadow: relayOwned ? `0 0 12px ${relayColor}25` : 'none',
                             }}
                           >
-                            <span style={{ fontSize: relayOwned ? '0.78rem' : '0.95rem', lineHeight: 1 }}>{relayOwned ? WALLET_DECORATIONS.relay : ''}</span>
+                            <span style={{ fontSize: relayOwned ? '0.84rem' : '0.95rem', lineHeight: 1, filter: relayOwned ? 'drop-shadow(0 0 3px #6ee7b7)' : 'none' }}>{relayOwned ? WALLET_DECORATIONS.relay : ''}</span>
                             {relayOwned && (
                               <span style={{
                                 fontSize: '0.52rem', fontFamily: 'monospace',
@@ -2356,6 +2356,35 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
                   </td>
                   <td style={{ textAlign:'center' }}>
                     <div className="flex items-center justify-center gap-1">
+                      {(() => {
+                        const mBlock = marketBlocks[0] || null;
+                        const mOwned = !!mBlock;
+                        const mLevel = Math.max(0, Number(mBlock?.level) || 0);
+                        return (
+                          <button
+                            type="button"
+                            onClick={mOwned ? () => openMarketBlock(mBlock.block_key) : undefined}
+                            title={mOwned ? `Mining NFTJI — ${mBlock.emoji} ${mBlock.hex} Lv.${mLevel}` : 'Mining NFTJI — none'}
+                            className="lb-slot-cell flex flex-col items-center justify-center rounded-md border transition"
+                            style={{
+                              borderColor: mOwned ? 'rgba(250,204,21,0.6)' : 'rgba(250,204,21,0.22)',
+                              background: mOwned ? tier.bg : 'rgba(2,6,23,0.4)',
+                              color: mOwned ? '#fef08a' : 'rgba(100,116,139,0.35)',
+                              boxShadow: mOwned ? '0 0 12px rgba(250,204,21,0.25)' : 'none',
+                              cursor: mOwned ? 'pointer' : 'default',
+                            }}
+                          >
+                            <span style={{ fontSize: mOwned ? '0.78rem' : '0.95rem', lineHeight: 1 }}>{mOwned ? mBlock.emoji : ''}</span>
+                            {mOwned && (
+                              <span style={{
+                                fontSize: '0.52rem', fontFamily: 'monospace',
+                                color: '#fef08a', fontWeight: 800, lineHeight: 1,
+                                textShadow: '0 0 3px rgba(250,204,21,0.75)',
+                              }}>Lv.{mLevel}</span>
+                            )}
+                          </button>
+                        );
+                      })()}
                       {TRADE_SLOT_ORDER.map((slot) => {
                         const owned = ownedEmojis.includes(slot.emoji);
                         const isLife = slot.key === 'revive';
@@ -2415,35 +2444,6 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
                         );
                       })}
                       {(() => {
-                        const mBlock = marketBlocks[0] || null;
-                        const mOwned = !!mBlock;
-                        const mLevel = Math.max(0, Number(mBlock?.level) || 0);
-                        return (
-                          <button
-                            type="button"
-                            onClick={mOwned ? () => openMarketBlock(mBlock.block_key) : undefined}
-                            title={mOwned ? `Market NFTJI — ${mBlock.emoji} ${mBlock.hex} Lv.${mLevel}` : 'Market NFTJI — none'}
-                            className="lb-slot-cell flex flex-col items-center justify-center rounded-md border transition"
-                            style={{
-                              borderColor: mOwned ? 'rgba(250,204,21,0.6)' : 'rgba(250,204,21,0.22)',
-                              background: mOwned ? tier.bg : 'rgba(2,6,23,0.4)',
-                              color: mOwned ? '#fef08a' : 'rgba(100,116,139,0.35)',
-                              boxShadow: mOwned ? '0 0 12px rgba(250,204,21,0.25)' : 'none',
-                              cursor: mOwned ? 'pointer' : 'default',
-                            }}
-                          >
-                            <span style={{ fontSize: mOwned ? '0.78rem' : '0.95rem', lineHeight: 1 }}>{mOwned ? mBlock.emoji : ''}</span>
-                            {mOwned && (
-                              <span style={{
-                                fontSize: '0.52rem', fontFamily: 'monospace',
-                                color: '#fef08a', fontWeight: 800, lineHeight: 1,
-                                textShadow: '0 0 3px rgba(250,204,21,0.75)',
-                              }}>Lv.{mLevel}</span>
-                            )}
-                          </button>
-                        );
-                      })()}
-                      {(() => {
                         const relayOwned = ownedEmojis.includes(WALLET_DECORATIONS.relay);
                         const relayLvl = computeRelayLevel(entry.relayExecCount || 0, entry.relayExecCount || 0);
                         const relayColor = '#6ee7b7';
@@ -2458,7 +2458,7 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
                               boxShadow: relayOwned ? `0 0 12px ${relayColor}25` : 'none',
                             }}
                           >
-                            <span style={{ fontSize: relayOwned ? '0.78rem' : '0.95rem', lineHeight: 1 }}>{relayOwned ? WALLET_DECORATIONS.relay : ''}</span>
+                            <span style={{ fontSize: relayOwned ? '0.84rem' : '0.95rem', lineHeight: 1, filter: relayOwned ? 'drop-shadow(0 0 3px #6ee7b7)' : 'none' }}>{relayOwned ? WALLET_DECORATIONS.relay : ''}</span>
                             {relayOwned && (
                               <span style={{
                                 fontSize: '0.52rem', fontFamily: 'monospace',
