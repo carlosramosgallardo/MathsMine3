@@ -1687,6 +1687,28 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
                       );
                     })()
                   ))}
+                  {(() => {
+                    const relayMembers = (entry.members || []).filter((m) => (m.walletEmojis || []).includes(WALLET_DECORATIONS.relay));
+                    const relayOwned = relayMembers.length > 0;
+                    const bestLevel = relayOwned ? Math.max(...relayMembers.map((m) => computeRelayLevel(m.relayExecCount || 0, m.relayExecCount || 0))) : 0;
+                    const relayColor = '#6ee7b7';
+                    return (
+                      <div
+                        title={relayOwned ? `Relay Link — ${relayMembers.length} member(s) · best Lv.${bestLevel}` : 'Relay Link — none'}
+                        className="relative flex flex-col items-center justify-center rounded border"
+                        style={{
+                          width: '1.5rem', height: '1.5rem',
+                          borderColor: relayOwned ? `${relayColor}99` : `${relayColor}33`,
+                          background: relayOwned ? `${relayColor}18` : 'rgba(2,6,23,0.4)',
+                          color: relayOwned ? relayColor : 'rgba(100,116,139,0.35)',
+                          boxShadow: relayOwned ? `0 0 8px ${relayColor}25` : 'none',
+                        }}
+                      >
+                        <span style={{ fontSize: relayOwned ? '0.72rem' : '0.88rem', lineHeight: 1 }}>{relayOwned ? WALLET_DECORATIONS.relay : ''}</span>
+                        {relayOwned && <span style={{ fontSize: '0.48rem', fontFamily: 'monospace', color: relayColor, fontWeight: 800, lineHeight: 1 }}>Lv.{bestLevel}</span>}
+                      </div>
+                    );
+                  })()}
                 </div>
                 <div className="flex flex-wrap items-center gap-1">
                   {totalPenaltyMm3 > 0 ? (
@@ -1822,11 +1844,8 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
                 </div>
                 <div className="rounded border border-cyan-500/10 bg-black/60 px-1.5 py-1">
                   <div>{t('ranking.execs')}</div>
-                  <div className="mt-0.5 flex items-center gap-1 font-mono text-[0.7rem] font-semibold tracking-normal text-cyan-300">
+                  <div className="mt-0.5 font-mono text-[0.7rem] font-semibold tracking-normal text-cyan-300">
                     #{(Number(entry.execs_count || 0)).toString(16).toUpperCase()}
-                    {ownedEmojis.includes(WALLET_DECORATIONS.relay) && (
-                      <span title={`Relay Link Lv.${computeRelayLevel(entry.relayExecCount || 0, entry.relayExecCount || 0)}`} className="text-[0.7rem]">🔁</span>
-                    )}
                   </div>
                 </div>
                 <div className="rounded border border-cyan-500/10 bg-black/60 px-1.5 py-1">
@@ -1910,6 +1929,27 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
                         <span style={{ fontSize: mOwned ? '0.72rem' : '0.88rem', lineHeight: 1 }}>{mOwned ? mBlock.emoji : ''}</span>
                         {mOwned && <span style={{ fontSize: '0.48rem', fontFamily: 'monospace', color: '#fef08a', fontWeight: 800, lineHeight: 1 }}>Lv.{mLevel}</span>}
                       </button>
+                    );
+                  })()}
+                  {(() => {
+                    const relayOwned = ownedEmojis.includes(WALLET_DECORATIONS.relay);
+                    const relayLvl = computeRelayLevel(entry.relayExecCount || 0, entry.relayExecCount || 0);
+                    const relayColor = '#6ee7b7';
+                    return (
+                      <div
+                        title={relayOwned ? `Relay Link — partner: ${entry.relayPartner ? entry.relayPartner.slice(0,6)+'…' : '?'} · Lv.${relayLvl}` : 'Relay Link — none'}
+                        className="relative flex flex-col items-center justify-center rounded border"
+                        style={{
+                          width: '1.5rem', height: '1.5rem',
+                          borderColor: relayOwned ? `${relayColor}99` : `${relayColor}33`,
+                          background: relayOwned ? `${relayColor}18` : 'rgba(2,6,23,0.4)',
+                          color: relayOwned ? relayColor : 'rgba(100,116,139,0.35)',
+                          boxShadow: relayOwned ? `0 0 8px ${relayColor}25` : 'none',
+                        }}
+                      >
+                        <span style={{ fontSize: relayOwned ? '0.72rem' : '0.88rem', lineHeight: 1 }}>{relayOwned ? WALLET_DECORATIONS.relay : ''}</span>
+                        {relayOwned && <span style={{ fontSize: '0.48rem', fontFamily: 'monospace', color: relayColor, fontWeight: 800, lineHeight: 1 }}>Lv.{relayLvl}</span>}
+                      </div>
                     );
                   })()}
                 </div>
@@ -2146,20 +2186,39 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
                           </div>
                         );
                       })}
+                      {(() => {
+                        const relayMembers = (entry.members || []).filter((m) => (m.walletEmojis || []).includes(WALLET_DECORATIONS.relay));
+                        const relayOwned = relayMembers.length > 0;
+                        const bestLevel = relayOwned ? Math.max(...relayMembers.map((m) => computeRelayLevel(m.relayExecCount || 0, m.relayExecCount || 0))) : 0;
+                        const relayColor = '#6ee7b7';
+                        return (
+                          <div
+                            title={relayOwned ? `Relay Link — ${relayMembers.length} member(s) · best Lv.${bestLevel}` : 'Relay Link — none'}
+                            className="lb-slot-cell flex flex-col items-center justify-center rounded-md border"
+                            style={{
+                              borderColor: relayOwned ? `${relayColor}99` : `${relayColor}33`,
+                              background: relayOwned ? `${relayColor}18` : 'rgba(2,6,23,0.4)',
+                              color: relayOwned ? relayColor : 'rgba(100,116,139,0.35)',
+                              boxShadow: relayOwned ? `0 0 12px ${relayColor}25` : 'none',
+                            }}
+                          >
+                            <span style={{ fontSize: relayOwned ? '0.78rem' : '0.95rem', lineHeight: 1 }}>{relayOwned ? WALLET_DECORATIONS.relay : ''}</span>
+                            {relayOwned && (
+                              <span style={{
+                                fontSize: '0.52rem', fontFamily: 'monospace',
+                                color: relayColor, fontWeight: 800, lineHeight: 1,
+                                textShadow: `0 0 3px ${relayColor}`,
+                              }}>Lv.{bestLevel}</span>
+                            )}
+                          </div>
+                        );
+                      })()}
                     </div>
                   </td>
                   <td style={{ textAlign:'center' }}>
-                    <div className="flex flex-col items-center gap-0.5">
-                      <span className="font-mono font-black text-[0.95rem] text-cyan-300">
-                        #{(Number(entry.total_execs || 0)).toString(16).toUpperCase()}
-                      </span>
-                      {(() => {
-                        const relayMembers = (entry.members || []).filter((m) => (m.walletEmojis || []).includes(WALLET_DECORATIONS.relay));
-                        if (!relayMembers.length) return null;
-                        const bestLevel = Math.max(...relayMembers.map((m) => computeRelayLevel(m.relayExecCount || 0, m.relayExecCount || 0)));
-                        return <span title={`Relay Link Lv.${bestLevel}`} className="text-[0.68rem] leading-none">🔁<span className="font-mono text-[0.52rem] font-black text-emerald-300">Lv.{bestLevel}</span></span>;
-                      })()}
-                    </div>
+                    <span className="font-mono font-black text-[0.95rem] text-cyan-300">
+                      #{(Number(entry.total_execs || 0)).toString(16).toUpperCase()}
+                    </span>
                   </td>
                   <td style={{ textAlign:'center' }}>
                     <div className="flex flex-wrap items-center justify-center gap-1">
@@ -2384,19 +2443,38 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
                           </button>
                         );
                       })()}
+                      {(() => {
+                        const relayOwned = ownedEmojis.includes(WALLET_DECORATIONS.relay);
+                        const relayLvl = computeRelayLevel(entry.relayExecCount || 0, entry.relayExecCount || 0);
+                        const relayColor = '#6ee7b7';
+                        return (
+                          <div
+                            title={relayOwned ? `Relay Link — partner: ${entry.relayPartner ? entry.relayPartner.slice(0,6)+'…' : '?'} · Lv.${relayLvl}` : 'Relay Link — none'}
+                            className="lb-slot-cell flex flex-col items-center justify-center rounded-md border"
+                            style={{
+                              borderColor: relayOwned ? `${relayColor}99` : `${relayColor}33`,
+                              background: relayOwned ? `${relayColor}18` : 'rgba(2,6,23,0.4)',
+                              color: relayOwned ? relayColor : 'rgba(100,116,139,0.35)',
+                              boxShadow: relayOwned ? `0 0 12px ${relayColor}25` : 'none',
+                            }}
+                          >
+                            <span style={{ fontSize: relayOwned ? '0.78rem' : '0.95rem', lineHeight: 1 }}>{relayOwned ? WALLET_DECORATIONS.relay : ''}</span>
+                            {relayOwned && (
+                              <span style={{
+                                fontSize: '0.52rem', fontFamily: 'monospace',
+                                color: relayColor, fontWeight: 800, lineHeight: 1,
+                                textShadow: `0 0 3px ${relayColor}`,
+                              }}>Lv.{relayLvl}</span>
+                            )}
+                          </div>
+                        );
+                      })()}
                     </div>
                   </td>
                   <td style={{ textAlign:'center' }}>
-                    <div className="flex flex-col items-center gap-0.5">
-                      <span className="font-mono font-black text-[0.95rem] text-cyan-300">
-                        #{(Number(entry.execs_count || 0)).toString(16).toUpperCase()}
-                      </span>
-                      {ownedEmojis.includes(WALLET_DECORATIONS.relay) && (() => {
-                        const partnerExecs = entry.relayExecCount || 0;
-                        const lvl = computeRelayLevel(partnerExecs, partnerExecs);
-                        return <span title={`Relay Link — partner: ${entry.relayPartner ? entry.relayPartner.slice(0,6)+'…' : '?'} · Lv.${lvl}`} className="text-[0.68rem] leading-none">🔁<span className="font-mono text-[0.52rem] font-black text-emerald-300">Lv.{lvl}</span></span>;
-                      })()}
-                    </div>
+                    <span className="font-mono font-black text-[0.95rem] text-cyan-300">
+                      #{(Number(entry.execs_count || 0)).toString(16).toUpperCase()}
+                    </span>
                   </td>
                   <td style={{ textAlign:'center' }}>
                     <div className="flex flex-wrap items-center justify-center gap-1">
