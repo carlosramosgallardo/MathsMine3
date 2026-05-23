@@ -155,6 +155,13 @@ export default function DailyTasks({ framed = true }) {
     }
   };
 
+  const [expandedTaskKeys, setExpandedTaskKeys] = useState(new Set());
+  const toggleTask = (key) => setExpandedTaskKeys((prev) => {
+    const next = new Set(prev);
+    next.has(key) ? next.delete(key) : next.add(key);
+    return next;
+  });
+
   const taskRows = DAILY_TASKS.map((task) => {
     const value = counts[task.key] || 0;
     const filled = Math.min(100, Math.round((value / task.target) * 100));
@@ -189,14 +196,33 @@ export default function DailyTasks({ framed = true }) {
         <div className="grid grid-cols-1 gap-2.5 font-mono md:grid-cols-2">
           {taskRows.map((task) => {
             const isFinal = task.key === 'mining_chain';
+            if (task.claimed && !expandedTaskKeys.has(task.key)) return (
+              <button
+                key={task.key}
+                type="button"
+                onClick={() => toggleTask(task.key)}
+                className={`flex items-center gap-2 rounded-md border px-3 py-2 text-left font-mono text-[0.72rem] transition hover:brightness-110 ${isFinal ? 'md:col-span-2 border-emerald-500/20 bg-black/70' : 'border-cyan-500/10 bg-black/70'}`}
+              >
+                <span className="text-emerald-400">✓</span>
+                <span className="font-black uppercase tracking-[0.18em] text-slate-400">{t(`dailyTasks.tasks.${task.translationKey}.name`)}</span>
+                <span className="text-slate-600">·</span>
+                <span className="text-emerald-300/70">+{formatReward(task.rewardEur, currency)}</span>
+                <span className="ml-auto text-slate-600">▼</span>
+              </button>
+            );
             return (
             <div
               key={task.key}
               className={`rounded-md border p-3 ${isFinal ? 'md:col-span-2 border-emerald-500/30 bg-black/70 shadow-[0_0_22px_rgba(74,222,128,0.07),inset_0_0_18px_rgba(74,222,128,0.03)]' : 'border-cyan-500/15 bg-black/70 shadow-[0_0_18px_rgba(34,211,238,0.04)]'}`}
             >
                 <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  <div>
-                    <div className={`text-xs uppercase tracking-[0.24em] ${isFinal ? 'text-emerald-400/80' : 'text-fuchsia-300'}`}>{t(`dailyTasks.tasks.${task.translationKey}.name`)}</div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <div className={`text-xs uppercase tracking-[0.24em] ${isFinal ? 'text-emerald-400/80' : 'text-fuchsia-300'}`}>{t(`dailyTasks.tasks.${task.translationKey}.name`)}</div>
+                      {task.claimed && (
+                        <button type="button" onClick={() => toggleTask(task.key)} className="bg-transparent border-0 text-slate-600 font-mono text-[0.65rem] cursor-pointer leading-none hover:text-slate-400 px-0">▲</button>
+                      )}
+                    </div>
                     <div className="mt-1 text-[0.92rem] font-black text-slate-100">{t(`dailyTasks.tasks.${task.translationKey}.hint`)}</div>
                   </div>
                   <div className="flex flex-col items-start gap-2 sm:items-end">

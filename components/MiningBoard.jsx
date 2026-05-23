@@ -305,6 +305,7 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
   const [numericCode, setNumericCode] = useState('');
   const [activePenalty, setActivePenalty] = useState(null);
   const [activeBlockCommand, setActiveBlockCommand] = useState(null);
+  const [showIrcCard, setShowIrcCard] = useState(false);
   const pendingSnapshotKeyRef = useRef('');
   const lastSnapshotKeyRef = useRef('');
   const [walletState, setWalletState] = useState({
@@ -1451,7 +1452,23 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
 
           {/* ── IRC Command + Penalty redemption — unified card ── */}
           {(selectedMarketCommand || activePenalty) && (
-            <div className="mm3-mining-detail-card col-span-1 rounded border border-cyan-500/14 bg-black/45 px-2 py-1.5 lg:col-span-2 lg:px-2.5 lg:py-2">
+            <div className="mm3-mining-detail-card col-span-1 rounded border border-cyan-500/14 bg-black/45 lg:col-span-2">
+              {!showIrcCard ? (
+                <button
+                  type="button"
+                  onClick={() => setShowIrcCard(true)}
+                  className="flex w-full items-center gap-2 px-2 py-1.5 font-mono text-[0.68rem] uppercase tracking-[0.14em] text-cyan-500/60 hover:text-cyan-400/80 transition"
+                >
+                  {selectedMarketCommand && <span>⚡ {t('mining.ircCommand')}</span>}
+                  {selectedMarketCommand && activePenalty && <span className="text-cyan-700">·</span>}
+                  {activePenalty && <span className="text-fuchsia-400/70">{t('mining.numericPrompt')}</span>}
+                  <span className="ml-auto text-cyan-700">▼</span>
+                </button>
+              ) : (
+                <div className="px-2 py-1.5 lg:px-2.5 lg:py-2">
+                  <div className="mb-1.5 flex justify-end">
+                    <button type="button" onClick={() => setShowIrcCard(false)} className="bg-transparent border-0 font-mono text-[0.65rem] text-slate-600 cursor-pointer hover:text-slate-400 leading-none">▲</button>
+                  </div>
 
               {/* Command zone */}
               {selectedMarketCommand && (
@@ -1519,6 +1536,8 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
                 </>
               )}
 
+                </div>
+              )}
             </div>
           )}
 
