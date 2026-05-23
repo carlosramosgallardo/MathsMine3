@@ -20,7 +20,7 @@ const UP   = '#4ade80'
 const DN   = '#f97316'
 const RANGES = ['1h', '24h', '7d', '30d', '360d', 'all']
 
-const CHART_FILTER_KEYS = ['dice', 'mining', 'trading', 'squeeze', 'market']
+const CHART_FILTER_KEYS = ['dice', 'trading', 'squeeze']
 const DEFAULT_CHART_FILTERS = { dice: true, mining: true, trading: true, squeeze: true, market: true }
 const CHART_FILTER_LABELS = { dice: 'dice', mining: 'mining', trading: 'trading', squeeze: 'squeezing', market: 'market' }
 
