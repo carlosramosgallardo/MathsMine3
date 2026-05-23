@@ -116,18 +116,16 @@ export async function POST(req) {
       delta_target: RELAY_EXEC_DELTA,
     }).then(({ error }) => error),
 
-    relayDelta !== 0
-      ? supabase.from('mm3_mining_events').insert({
-          wallet,
-          event_type: 'relaying',
-          delta_mm3: relayDelta,
-          emoji: WALLET_DECORATIONS.relay,
-        }).then(({ error }) => error)
-      : Promise.resolve(null),
+    supabase.from('mm3_mining_events').insert({
+      wallet,
+      event_type: 'relaying',
+      delta_mm3: relayDelta,
+      emoji: WALLET_DECORATIONS.relay,
+    }).then(({ error }) => error),
   ]);
 
-  if (originErr || targetErr || logErr) {
-    console.error('relay/exec errors:', { originErr, targetErr, logErr });
+  if (originErr || targetErr || logErr || eventErr) {
+    console.error('relay/exec errors:', { originErr, targetErr, logErr, eventErr });
     return Response.json({ ok: false, error: 'db_error' }, { status: 500 });
   }
 
