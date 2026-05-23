@@ -733,7 +733,7 @@ export default function TradeBoard({ account, isVirtualWallet = false }) {
                     className="mm3-trade-limit rounded-lg border bg-black/70 px-3 py-2 text-[0.82rem] font-black uppercase tracking-[0.18em]"
                     style={{ borderColor: `${tier.glow}99`, color: canTradeToday ? tier.color : '#fca5a5' }}
                   >
-                    {visibleTxCount}/{DAILY_TX_LIMIT}
+                    #{visibleTxCount.toString(16).toUpperCase()}/#{DAILY_TX_LIMIT.toString(16).toUpperCase()}
                     {!canTradeToday ? (
                       <span className="ml-2 text-[0.76rem] text-amber-300">{t('tradeBoard.resetIn')} {resetCountdown}</span>
                     ) : null}

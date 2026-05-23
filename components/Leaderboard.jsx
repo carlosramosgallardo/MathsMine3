@@ -1818,7 +1818,7 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
                 </div>
                 <div className="rounded border border-cyan-500/10 bg-black/60 px-1.5 py-1">
                   <div>{t('ranking.execs')}</div>
-                  <div className="mt-0.5 font-mono text-[0.7rem] font-semibold tracking-normal text-cyan-300">{Number(entry.execs_count || 0)}</div>
+                  <div className="mt-0.5 font-mono text-[0.7rem] font-semibold tracking-normal text-cyan-300">#{(Number(entry.execs_count || 0)).toString(16).toUpperCase()}</div>
                 </div>
                 <div className="rounded border border-cyan-500/10 bg-black/60 px-1.5 py-1">
                   <div>{t('ranking.mm3Earned')}</div>
@@ -2141,7 +2141,7 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
                   </td>
                   <td style={{ textAlign:'center' }}>
                     <span className="font-mono font-black text-[0.95rem] text-cyan-300">
-                      {Number(entry.total_execs || 0)}
+                      #{(Number(entry.total_execs || 0)).toString(16).toUpperCase()}
                     </span>
                   </td>
                   <td style={{ textAlign:'center' }}>

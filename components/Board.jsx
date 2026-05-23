@@ -2565,7 +2565,7 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
                   className="text-[0.98rem] font-black font-mono truncate leading-none"
                   style={{ color: noSlotsLeft ? '#fb7185' : tier.color }}
                 >
-                  {dailyMineLeft}/{dailyMineTotal}
+                  #{dailyMineLeft.toString(16).toUpperCase()}/{execsCount > 0 ? `100+#${execsCount.toString(16).toUpperCase()}` : '#64'}
                 </div>
               </div>
             )}
