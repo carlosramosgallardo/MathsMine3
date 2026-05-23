@@ -30,7 +30,6 @@ function chartEventCategory(ev) {
   if (et === 'relaying' || emoji === '🔁') return 'relaying'
   if (emoji === '⚔️' || emoji === '🔰') return 'squeeze'
   if (emoji === '📈' || emoji === '📉') return 'trading'
-  if (et === 'nftji_level_up' || (et === 'mining_buy' && emoji !== '📈') || (et === 'mining_resell' && emoji !== '📉')) return 'market'
   return 'mining'
 }
 

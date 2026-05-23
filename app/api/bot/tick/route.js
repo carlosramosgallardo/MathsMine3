@@ -3,7 +3,7 @@ export const maxDuration = 60;
 
 import { createClient } from '@supabase/supabase-js';
 import { getSellQuote, getBuyQuote, getSellRateCny, getCommissionRate, CNY_TO_EUR, CNY_TO_USD, clampLevel } from '@/lib/sell-offer';
-import { WALLET_DECORATIONS, SQUEEZE_NFTJIS, appendWalletDecoration, getWalletMarketDelta, MARKET_EVENT_TYPE_LIFE } from '@/lib/wallet-decorations';
+import { WALLET_DECORATIONS, SQUEEZE_NFTJIS, appendWalletDecoration, getWalletMarketDelta, MARKET_EVENT_TYPE_LIFE, computeRelayLevel } from '@/lib/wallet-decorations';
 import { marketCommandFromBlock, computeMarketCommandCode, getUtcDayWindow } from '@/lib/mining-commands';
 import { getChallengerRegistrationState, SQUEEZE_REGISTER_MS } from '@/lib/squeeze-transitions';
 import { getDiceState } from '@/lib/dice';
@@ -90,6 +90,10 @@ const SQUEEZE_LAUNCH_WINDOW_MS = 24 * 60 * 60 * 1000;
 const REVIVE_COST_EUR = 1;
 const REVIVE_COST_USD = REVIVE_COST_EUR * (CNY_TO_USD / CNY_TO_EUR);
 const REVIVE_COST_CNY = REVIVE_COST_EUR / CNY_TO_EUR;
+const BOT_ACTIVE_WINDOW_MS = 90_000;
+const RELAY_EXEC_DELTA = 1;
+const RELAY_EXEC_PROB = 0.35;
+const RELAY_COOLDOWN_MS = 24 * 60 * 60 * 1000;
 const BOT_CRON_INTERVAL_MINUTES = Math.max(1, Number(process.env.BOT_CRON_INTERVAL_MINUTES) || 5);
 const BOT_MAX_DRILLS_PER_TICK = Math.max(1, Number(process.env.BOT_MAX_DRILLS_PER_TICK) || 4);
 const BOT_MAX_TRADES_PER_TICK = Math.max(1, Number(process.env.BOT_MAX_TRADES_PER_TICK) || 1);
@@ -1496,6 +1500,108 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
     }
   }
 
+  // ── RELAY EXEC ───────────────────────────────────────────
+  // Each bot execs its pool partner once per 24h cooldown window.
+  // Only the lexicographically smaller wallet initiates to avoid concurrent duplicate execs.
+  if (Math.random() < RELAY_EXEC_PROB) {
+    const myPool = BOT_POOL_MAP.get(wallet);
+    const poolPartners = myPool
+      ? BOT_WALLETS.filter((w) => w !== wallet && BOT_POOL_MAP.get(w) === myPool)
+      : [];
+
+    if (poolPartners.length > 0 && wallet < poolPartners[0]) {
+      const targetWallet = poolPartners[0];
+      const relayCooldownSince = new Date(Date.now() - RELAY_COOLDOWN_MS).toISOString();
+
+      const { data: recentRelayLog } = await supabase
+        .from('mm3_relay_exec_log')
+        .select('id')
+        .or(`and(wallet_origin.eq.${wallet},wallet_target.eq.${targetWallet}),and(wallet_origin.eq.${targetWallet},wallet_target.eq.${wallet})`)
+        .gte('created_at', relayCooldownSince)
+        .limit(1)
+        .maybeSingle();
+
+      if (!recentRelayLog) {
+        const presenceSince = new Date(Date.now() - BOT_ACTIVE_WINDOW_MS).toISOString();
+        const { data: targetPresence } = await supabase
+          .from('mm3_wallet_presence')
+          .select('wallet')
+          .eq('wallet', targetWallet)
+          .gte('last_seen', presenceSince)
+          .maybeSingle();
+
+        if (targetPresence) {
+          const [{ data: relayOriginProg }, { data: relayTargetProg }, { data: relayTvRow }] = await Promise.all([
+            supabase.from('player_progress')
+              .select('relay_exec_count, wallet_emojis, relay_nftji_acquired_at')
+              .eq('wallet', wallet).maybeSingle(),
+            supabase.from('player_progress')
+              .select('relay_exec_count, wallet_emojis, relay_nftji_acquired_at')
+              .eq('wallet', targetWallet).maybeSingle(),
+            supabase.from('token_value').select('total_eth').limit(1).maybeSingle(),
+          ]);
+
+          const relayOriginExecs = (Number(relayOriginProg?.relay_exec_count) || 0) + RELAY_EXEC_DELTA;
+          const relayTargetExecs = (Number(relayTargetProg?.relay_exec_count) || 0) + RELAY_EXEC_DELTA;
+          const relayMm3Global = Number(relayTvRow?.total_eth) || 0;
+          const relayDeltaMm3 = relayMm3Global * 0.01 * RELAY_EXEC_DELTA;
+          const relayNow = new Date().toISOString();
+          const relayLevel = computeRelayLevel(relayOriginExecs, relayTargetExecs);
+
+          const relayOriginEmojis = appendWalletDecoration(
+            Array.isArray(relayOriginProg?.wallet_emojis) ? relayOriginProg.wallet_emojis : [],
+            WALLET_DECORATIONS.relay,
+          );
+          const relayTargetEmojis = appendWalletDecoration(
+            Array.isArray(relayTargetProg?.wallet_emojis) ? relayTargetProg.wallet_emojis : [],
+            WALLET_DECORATIONS.relay,
+          );
+
+          const [relayErr1, relayErr2, relayErr3] = await Promise.all([
+            supabase.from('player_progress').upsert({
+              wallet,
+              is_bot: true,
+              relay_exec_count: relayOriginExecs,
+              ...(!relayOriginProg?.relay_nftji_acquired_at ? { relay_nftji_partner: targetWallet } : {}),
+              relay_nftji_acquired_at: relayOriginProg?.relay_nftji_acquired_at || relayNow,
+              wallet_emojis: relayOriginEmojis,
+              updated_at: relayNow,
+            }, { onConflict: 'wallet', ignoreDuplicates: false }).then(({ error }) => error),
+
+            supabase.from('player_progress').upsert({
+              wallet: targetWallet,
+              is_bot: true,
+              relay_exec_count: relayTargetExecs,
+              ...(!relayTargetProg?.relay_nftji_acquired_at ? { relay_nftji_partner: wallet } : {}),
+              relay_nftji_acquired_at: relayTargetProg?.relay_nftji_acquired_at || relayNow,
+              wallet_emojis: relayTargetEmojis,
+              updated_at: relayNow,
+            }, { onConflict: 'wallet', ignoreDuplicates: false }).then(({ error }) => error),
+
+            supabase.from('mm3_relay_exec_log').insert({
+              wallet_origin: wallet,
+              wallet_target: targetWallet,
+              delta_origin: RELAY_EXEC_DELTA,
+              delta_target: RELAY_EXEC_DELTA,
+            }).then(({ error }) => error),
+
+            supabase.from('mm3_mining_events').insert({
+              wallet,
+              event_type: 'relaying',
+              delta_mm3: relayDeltaMm3,
+              emoji: WALLET_DECORATIONS.relay,
+            }).catch(() => null),
+          ]);
+
+          if (!relayErr1 && !relayErr2 && !relayErr3) {
+            mm3GlobalDelta += relayDeltaMm3;
+            actions.push({ type: 'relay_exec', targetWallet, level: relayLevel, relayDelta: relayDeltaMm3 });
+          }
+        }
+      }
+    }
+  }
+
   // ── MARKET BLOCK CHAIN MINING ─────────────────────────────
   // Bots mine a qualifying block if one is available (max 1 per tick)
   if (!claimedTasks.has('market_chain') && Math.random() < 0.55) {
@@ -1589,6 +1695,7 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
     const squeezeProposeAction = actions.find((a) => a.type === 'squeeze_proposed');
     const penaltyRedeemedActions = actions.filter((a) => a.type === 'penalty_redeemed');
     const chainMineAction = actions.find((a) => a.type === 'chain_mine');
+    const relayExecAction = actions.find((a) => a.type === 'relay_exec');
 
     const gamesCount = gamesAction?.count || 0;
     const mm3Mined = gamesAction?.total_mining_reward || 0;
@@ -1660,6 +1767,9 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
 
     // ── market block chain
     if (chainMineAction) botMsg += ` :: chain:${chainMineAction.chainPct.toFixed(2)}%`;
+
+    // ── relay exec
+    if (relayExecAction) botMsg += ` :: relay→${formatWalletLabel(relayExecAction.targetWallet)} Lv.${relayExecAction.level}`;
 
     // ── tasks
     if (tasksCompleted.length > 0) botMsg += ` :: tasks:${tasksCompleted.join(' ')}`;
