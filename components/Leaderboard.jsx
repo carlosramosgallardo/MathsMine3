@@ -209,7 +209,7 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
   const refreshTimersRef = useRef([]);
   const loadedOnceRef = useRef(false);
   const skipSortPersistRef = useRef(false);
-  const CACHE_MS = 2_000;
+  const CACHE_MS = 60_000;
   const labels = language === 'es'
     ? {
         pool: 'Pool',
@@ -1193,10 +1193,6 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
       localStorage.removeItem('lb_data');
       localStorage.removeItem('lb_fetch_time');
       fetchLeaderboard({ ignoreCache: true });
-      refreshTimersRef.current = [
-        setTimeout(() => fetchLeaderboard({ ignoreCache: true }), 400),
-        setTimeout(() => fetchLeaderboard({ ignoreCache: true }), 1500),
-      ];
     };
 
     const refreshWhenVisible = () => {
@@ -1376,12 +1372,12 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
   return (
     <div className="w-full">
       <style>{`
-        .lb-row { transition: all .25s ease; border: 1px solid rgba(34,211,238,.15); }
-        .lb-row:hover { background: rgba(34,211,238,.05); border-color: rgba(34,211,238,.4); transform: translateX(2px); }
-        .lb-row.wallet-active { background: linear-gradient(90deg, rgba(74,222,128,.11), rgba(34,211,238,.05)); border-color: rgba(74,222,128,.55); box-shadow: inset 0 0 18px rgba(74,222,128,.12); }
-        .lb-row.wallet-selected { background: linear-gradient(90deg, rgba(34,211,238,.16), rgba(74,222,128,.08)); border-color: rgba(34,211,238,.75); box-shadow: inset 0 0 22px rgba(34,211,238,.16), 0 0 14px rgba(34,211,238,.12); }
-        .lb-tbl { border-collapse: collapse; border: 2px solid rgba(34,211,238,.25); border-radius: 12px; overflow: hidden; }
-        .lb-tbl thead { background: linear-gradient(135deg,#0b0f19,#050810); border-bottom: 2px solid rgba(34,211,238,.3); }
+        .lb-row { transition: background-color .15s, border-color .15s; border: 1px solid rgba(34,211,238,.15); }
+        .lb-row:hover { background: rgba(34,211,238,.05); border-color: rgba(34,211,238,.4); }
+        .lb-row.wallet-active { background: rgba(74,222,128,.08); border-color: rgba(74,222,128,.55); }
+        .lb-row.wallet-selected { background: rgba(34,211,238,.10); border-color: rgba(34,211,238,.75); }
+        .lb-tbl { border-collapse: collapse; border: 1px solid rgba(34,211,238,.25); border-radius: 0; overflow: hidden; }
+        .lb-tbl thead { background: #02060b; border-bottom: 1px solid rgba(34,211,238,.3); }
         .lb-tbl thead th { color:#22d3ee; font-weight:700; padding:.34rem .3rem; text-align:left; border-right:1px solid rgba(34,211,238,.15); font-size:.58rem; letter-spacing:.05em; }
         @media(min-width:640px){ .lb-tbl thead th { padding:.42rem .4rem; font-size:.64rem; } }
         .lb-tbl thead th:last-child { border-right:none; }
@@ -1393,11 +1389,11 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
         .rank-badge.r1 { color:#facc15; text-shadow:0 0 10px rgba(250,204,21,.32); }
         .rank-badge.r2 { color:#67e8f9; text-shadow:0 0 10px rgba(103,232,249,.32); }
         .rank-badge.r3 { color:#f472b6; text-shadow:0 0 10px rgba(244,114,182,.32); }
-        .lb-card { border:1px solid rgba(34,211,238,.18); background:linear-gradient(135deg, rgba(2,6,23,.94), rgba(0,0,0,.96)); box-shadow:0 0 18px rgba(34,211,238,.06); }
-        .lb-card.wallet-active { border-color:rgba(74,222,128,.55); box-shadow:0 0 18px rgba(74,222,128,.14), inset 0 0 18px rgba(74,222,128,.08); }
-        .lb-card.wallet-selected { border-color:rgba(34,211,238,.75); box-shadow:0 0 22px rgba(34,211,238,.16), inset 0 0 18px rgba(34,211,238,.1); }
+        .lb-card { border:1px solid rgba(34,211,238,.18); background:rgba(2,6,11,.94); }
+        .lb-card.wallet-active { border-color:rgba(74,222,128,.55); }
+        .lb-card.wallet-selected { border-color:rgba(34,211,238,.75); }
         .lb-status-chip { display:inline-flex; align-items:center; justify-content:center; min-width:4.2rem; padding:.16rem .34rem; border:1px solid rgba(34,211,238,.18); background:rgba(0,0,0,.45); font-size:.5rem; font-weight:900; letter-spacing:.14em; text-transform:uppercase; }
-        .lb-status-chip.online { border-color:rgba(74,222,128,.34); color:#4ade80; box-shadow:0 0 12px rgba(74,222,128,.12) inset; }
+        .lb-status-chip.online { border-color:rgba(74,222,128,.34); color:#4ade80; }
         .lb-status-chip.offline { border-color:rgba(148,163,184,.2); color:#64748b; }
         .lb-slot-cell { width:1.95rem; height:1.95rem; }
         .lb-block-cell { width:2rem; height:2rem; }

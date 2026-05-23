@@ -87,7 +87,7 @@ export default function NotificationChips() {
 
   useEffect(() => {
     fetchInvites();
-    const poll = setInterval(fetchInvites, 5_000);
+    const poll = setInterval(fetchInvites, 30_000);
     return () => clearInterval(poll);
   }, [activeWallet, fetchInvites]);
 
@@ -120,7 +120,7 @@ export default function NotificationChips() {
         .catch(() => {});
     };
     load();
-    const poll = setInterval(load, 5_000);
+    const poll = setInterval(load, 30_000);
     return () => clearInterval(poll);
   }, [myPool, activeWallet]);
 
