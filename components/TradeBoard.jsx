@@ -714,7 +714,7 @@ export default function TradeBoard({ account, isVirtualWallet = false }) {
                     );
                   })}
                   <div
-                    title={marketNftjiEmoji ? `Market NFTJI — ${marketNftjiEmoji}` : 'Market NFTJI — none'}
+                    title={marketNftjiEmoji ? `Mining NFTJI — ${marketNftjiEmoji}` : 'Mining NFTJI — none'}
                     className="mm3-trade-slot flex h-8 w-8 items-center justify-center rounded-md border text-base"
                     style={{
                       borderColor: marketNftjiEmoji ? 'rgba(250,204,21,0.6)' : 'rgba(250,204,21,0.22)',

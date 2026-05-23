@@ -624,7 +624,7 @@ function DisputeCard({ dispute, activeWallet, poolCode, language, currency, onJo
                           blockKey={marketBlockKey}
                           level={w.mining_nftji_level_snap}
                           onMarketBlockClick={onMarketBlockClick}
-                          title={marketLabel ? `Market NFTJI — ${marketLabel}` : `Market NFTJI — ${marketEmoji}`}
+                          title={marketLabel ? `Mining NFTJI — ${marketLabel}` : `Mining NFTJI — ${marketEmoji}`}
                         />
                         {isWinnerDropWallet && (
                           <SqueezeDropSlot
@@ -749,7 +749,7 @@ function DisputeCard({ dispute, activeWallet, poolCode, language, currency, onJo
                   {' + '}
                   <span title="(NFTJIs/n)×8">nftji {fmt(terms.nftjis, 2)}</span>
                   {' + '}
-                  <span title="(Market NFTJI power/n)×15">market {fmt(terms.market, 2)}</span>
+                  <span title="(Mining NFTJI power/n)×15">mining {fmt(terms.market, 2)}</span>
                   {' + '}
                   <span title="(Squeeze attack power/n)×20">atk {fmt(terms.attack, 2)}</span>
                   {' '}
