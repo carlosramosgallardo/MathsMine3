@@ -594,7 +594,7 @@ export default function TradeBoard({ account, isVirtualWallet = false }) {
     <div className={`mm3-trade-board mx-auto w-full max-w-full md:max-w-4xl xl:max-w-6xl font-mono ${showTransactions ? 'mm3-trade-board-open' : 'mm3-trade-board-closed'}`}>
       {loading && <PageLoading label={t('tradeBoard.loading')} />}
 
-      <div className="p-1" style={{ background: '#050810' }}>
+      <div className="rounded-xl border border-cyan-500/10 bg-black/70 p-1">
           <style>{`
             .mm3-trade-board-closed .mm3-trade-toolbar {
               margin-bottom: 0.5rem;

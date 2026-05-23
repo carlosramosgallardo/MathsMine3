@@ -2578,10 +2578,10 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
                 style={{
                   borderColor: wrongFeedbackActive ? '#fb7185' : correctFeedbackActive ? '#4ade80' : levelFlash === 'down' ? '#ef444470' : tier.color + '40',
                   background: wrongFeedbackActive
-                    ? 'radial-gradient(ellipse at 50% 0%, rgba(251,113,133,.16) 0%, rgba(0,0,0,.96) 68%)'
+                    ? 'rgba(24, 5, 8, 0.96)'
                     : correctFeedbackActive
-                      ? 'radial-gradient(ellipse at 50% 0%, rgba(74,222,128,.14) 0%, rgba(0,0,0,.96) 68%)'
-                    : `radial-gradient(ellipse at 50% 0%, ${tier.color}08 0%, #000 65%)`,
+                      ? 'rgba(2, 18, 8, 0.96)'
+                    : '#000',
                   boxShadow: wrongFeedbackActive
                     ? '0 0 28px rgba(251,113,133,.45), inset 0 0 26px rgba(127,29,29,.26)'
                     : correctFeedbackActive

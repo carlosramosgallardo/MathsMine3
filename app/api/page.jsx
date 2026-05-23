@@ -66,10 +66,9 @@ export default function ApiPage() {
             }
             #api-section code,
             #api-section pre {
-              border: none !important;
+              border: 1px solid rgba(34,211,238,0.16) !important;
               border-radius: 0 !important;
-              background: linear-gradient(180deg, rgba(5,8,16,0.98) 0%, rgba(2,6,23,0.92) 100%) !important;
-              box-shadow: inset 0 0 22px rgba(34,211,238,0.05);
+              background: #02060b !important;
             }
             #api-section a {
               color: #22d3ee;

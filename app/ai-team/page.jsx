@@ -76,10 +76,10 @@ export default function AITeamPage() {
           to   { opacity: 1; transform: translateY(0); }
         }
         .pool-section { animation: float-in 0.5s ease-out both; }
-        .bot-card { transition: box-shadow 0.2s, transform 0.2s; }
-        .bot-card:hover { transform: translateY(-2px); }
+        .bot-card { transition: border-color 0.15s, background-color 0.15s; }
+        .bot-card:hover { border-color: rgba(34,211,238,0.38); }
         #ai-team-section .mm3-ai-panel {
-          background: linear-gradient(180deg, rgba(5,8,16,0.96) 0%, rgba(2,6,23,0.9) 100%);
+          background: rgba(2,6,11,0.96);
           border: 1px solid rgba(34,211,238,0.18);
         }
         .bot-tag {
@@ -147,8 +147,8 @@ export default function AITeamPage() {
                           background: `${color}08`,
                           border: `1px solid ${color}25`,
                         }}
-                        onMouseEnter={(e) => { e.currentTarget.style.boxShadow = `0 0 16px ${color}20`; }}
-                        onMouseLeave={(e) => { e.currentTarget.style.boxShadow = 'none'; }}
+                        onMouseEnter={(e) => { e.currentTarget.style.borderColor = `${color}60`; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.borderColor = `${color}25`; }}
                       >
                         {/* Wallet identity */}
                         <div className="mb-3">

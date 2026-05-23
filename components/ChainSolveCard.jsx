@@ -130,8 +130,8 @@ export default function ChainSolveCard({ wallet, onWinner }) {
         <div
           className="rounded border px-3 py-3 text-center"
           style={{
-            borderColor: 'rgba(74,222,128,0.5)',
-            background: '#070b0f',
+            borderColor: 'rgba(74,222,128,0.6)',
+            background: 'rgba(0,12,6,0.96)',
           }}
         >
           <div className="text-[0.72rem] font-black uppercase tracking-[0.28em] text-emerald-300 mb-1">
@@ -181,7 +181,7 @@ export default function ChainSolveCard({ wallet, onWinner }) {
         className="rounded border px-2.5 py-1.5"
         style={{
           borderColor: 'rgba(74,222,128,0.18)',
-          background: '#070b0f',
+          background: 'rgba(0,8,4,0.94)',
         }}
       >
         {/* Header row: formula + live stats inline */}

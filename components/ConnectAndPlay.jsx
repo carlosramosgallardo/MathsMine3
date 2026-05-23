@@ -28,8 +28,8 @@ if (!_web3ModalReady) {
     '--w3m-background': '#0b0f1a',
     '--w3m-surface': '#050810',
     '--w3m-font-family': 'Consolas, monospace',
-    '--w3m-border-radius-master': '12px',
-    '--w3m-button-border-radius': '8px',
+    '--w3m-border-radius-master': '0px',
+    '--w3m-button-border-radius': '0px',
     '--w3m-text': '#e2e8f0',
     '--w3m-secondary-button-bg-color': '#1e293b'
   },
@@ -78,10 +78,8 @@ function RetroButtonBase({
   longPressMs = 500
 }) {
   const { r, g, b } = hexToRgb(accent)
-  const accentSoft = `rgba(${r}, ${g}, ${b}, 0.35)`
   const accentBorder = `rgba(${r}, ${g}, ${b}, 0.75)`
   const accentBorderDisabled = `rgba(${r}, ${g}, ${b}, 0.35)`
-  const innerGlow = `inset 0 0 6px rgba(${r}, ${g}, ${b}, 0.45)`
   const isCoarse = useIsCoarsePointer()
 
   const [showTip, setShowTip] = useState(false)
@@ -135,29 +133,24 @@ function RetroButtonBase({
         disabled={disabled}
         title={title}
         aria-label={ariaLabel || title}
-        className={`relative inline-flex items-center px-4 sm:px-5 py-2 rounded-2xl font-mono text-sm
-                    border bg-black/70 transition-all duration-200
-                    ${disabled ? 'cursor-not-allowed opacity-70' : 'hover:bg-black/80 active:scale-[0.99]'}
+        className={`relative inline-flex items-center px-4 sm:px-5 py-2 font-mono text-sm
+                    border bg-black/80 transition-colors duration-150
+                    ${disabled ? 'cursor-not-allowed opacity-70' : 'hover:bg-black'}
                     ${className}`}
         style={{
-          backdropFilter: 'blur(2px)',
           borderColor: disabled ? accentBorderDisabled : accentBorder,
           color: accent,
-          boxShadow: disabled ? 'none' : `0 0 22px ${accentSoft}`
+          backgroundImage: disabled ? 'none' : `repeating-linear-gradient(180deg, rgba(${r}, ${g}, ${b}, 0.10) 0, rgba(${r}, ${g}, ${b}, 0.10) 1px, transparent 1px, transparent 4px)`
         }}
         aria-disabled={disabled ? 'true' : 'false'}
       >
-        <span aria-hidden="true" className="pointer-events-none absolute inset-0 rounded-2xl opacity-10"
-          style={{ backgroundImage: `repeating-linear-gradient(180deg, ${accent} 0, ${accent} 1px, transparent 2px, transparent 4px)` }}
-        />
-        <span aria-hidden="true" className="absolute inset-0 rounded-2xl" style={{ boxShadow: innerGlow }} />
         <span className="relative z-10 font-semibold tracking-wide whitespace-nowrap">{children}</span>
       </button>
 
       {isCoarse && mobileTooltip && showTip && (
         <div
           role="tooltip"
-          className="absolute left-1/2 -translate-x-1/2 mt-2 max-w-[88vw] z-50 rounded-md border px-3 py-2 text-xs font-mono shadow-lg"
+          className="absolute left-1/2 -translate-x-1/2 mt-2 max-w-[88vw] z-50 border px-3 py-2 text-xs font-mono"
           style={{ backgroundColor: 'rgba(0,0,0,0.85)', borderColor: accentBorder, color: accent }}
         >
           {mobileTooltip}

@@ -329,9 +329,8 @@ export default function ManifestoClient({ enContent, esContent }) {
         <div className="mm3-readable-scroll mx-auto max-w-5xl px-1 py-1 text-sm font-mono text-gray-400 break-words overflow-x-hidden">
           <style>{`
             #manifesto-section .mm3-manifesto-panel {
-              background: linear-gradient(180deg, rgba(5,8,16,0.96) 0%, rgba(2,6,23,0.9) 100%);
+              background: rgba(2, 6, 11, 0.96);
               border: 1px solid rgba(34, 211, 238, 0.22);
-              box-shadow: inset 0 0 24px rgba(34,211,238,0.05), 0 0 18px rgba(34,211,238,0.06);
             }
             #manifesto-section .mm3-markdown-doc {
               color: rgba(226, 232, 240, 0.9);
