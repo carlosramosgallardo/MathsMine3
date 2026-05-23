@@ -241,7 +241,7 @@ function SqueezeDropSlot({ emoji, color, level, claimable, claimed, busy, lang, 
   );
 }
 
-function DisputeCard({ dispute, activeWallet, poolCode, language, currency, onJoin, onClaimDrop, claimBusy, onWalletClick, onPoolClick, onMarketBlockClick, emojiByWallet, sqzNftjiByWallet }) {
+function DisputeCard({ dispute, activeWallet, poolCode, language, currency, onJoin, onClaimDrop, claimBusy, onWalletClick, onPoolClick, onMarketBlockClick, emojiByWallet, sqzNftjiByWallet, collapsed, onToggle }) {
   const lang = language === 'es' ? 'es' : 'en';
   const statusMeta = STATUS_LABELS[dispute.status] || STATUS_LABELS.resolved;
   const isProposing   = dispute.status === 'proposing';
@@ -280,6 +280,54 @@ function DisputeCard({ dispute, activeWallet, poolCode, language, currency, onJo
     : winner === 'challenger' ? '#22d3ee'
     : '#f59e0b';
 
+  if (collapsed) {
+    const icon = isCancelled ? '💨' : dispute.winner === 'draw' ? '⚖️' : dispute.winner === 'challenger' ? '🏆' : '🛡️';
+    const chScore = Number(dispute.ch_score || 0);
+    const dfScore = Number(dispute.df_score || 0);
+    const transfer = dispute.result_summary?.transfer_eur;
+    return (
+      <button
+        type="button"
+        onClick={onToggle}
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8,
+          width: '100%',
+          textAlign: 'left',
+          border: `1px solid ${statusMeta.color}33`,
+          borderRadius: 0,
+          padding: '6px 10px',
+          marginBottom: 6,
+          background: 'rgba(2,6,23,0.5)',
+          cursor: 'pointer',
+          fontFamily: 'monospace',
+          fontSize: '0.7rem',
+          color: '#64748b',
+        }}
+      >
+        <span style={{ fontSize: '0.85rem', flexShrink: 0 }}>{icon}</span>
+        <span style={{ color: '#22d3ee', fontWeight: 700 }}>{dispute.challenger_pool_code}</span>
+        <span style={{ color: '#475569' }}>vs</span>
+        <span style={{ color: '#f59e0b', fontWeight: 700 }}>{dispute.defender_pool_code}</span>
+        {!isCancelled && (
+          <>
+            <span style={{ color: '#334155', marginLeft: 4 }}>·</span>
+            <span style={{ color: '#94a3b8', fontFamily: 'monospace' }}>{fmt(chScore, 2)} – {fmt(dfScore, 2)}</span>
+          </>
+        )}
+        {transfer > 0 && (
+          <>
+            <span style={{ color: '#334155' }}>·</span>
+            <span style={{ color: '#4ade80' }}>+{formatEurAsCurrency(transfer, currency)}</span>
+          </>
+        )}
+        <span style={{ marginLeft: 'auto', color: '#334155', fontSize: '0.65rem' }}>{formatUtc(trace.value)}</span>
+        <span style={{ color: '#475569', fontSize: '0.65rem', flexShrink: 0 }}>▼</span>
+      </button>
+    );
+  }
+
   return (
     <div style={{
       border: `1px solid ${statusMeta.color}44`,
@@ -289,6 +337,25 @@ function DisputeCard({ dispute, activeWallet, poolCode, language, currency, onJo
       background: 'rgba(2,6,23,0.7)',
       position: 'relative',
     }}>
+      {onToggle && (
+        <button
+          type="button"
+          onClick={onToggle}
+          title={lang === 'es' ? 'Colapsar' : 'Collapse'}
+          style={{
+            position: 'absolute',
+            top: 8,
+            right: 10,
+            background: 'none',
+            border: 'none',
+            color: '#334155',
+            cursor: 'pointer',
+            fontFamily: 'monospace',
+            fontSize: '0.65rem',
+            padding: '0 2px',
+          }}
+        >▲</button>
+      )}
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 10 }}>
         <PoolLink poolCode={dispute.challenger_pool_code} color="#22d3ee" onPoolClick={onPoolClick} style={{ fontSize: '0.95rem' }} />
@@ -732,6 +799,7 @@ export default function DisputesPanel({ wallet, poolCode, language, onWalletClic
   const [joinBusy, setJoinBusy] = useState(false);
   const [claimBusy, setClaimBusy] = useState(null);
   const [historyPage, setHistoryPage] = useState(1);
+  const [expandedHistoryIds, setExpandedHistoryIds] = useState(new Set());
   const [emojiByWallet, setEmojiByWallet] = useState({});
   const [sqzNftjiByWallet, setSqzNftjiByWallet] = useState({});
   const pollingRef = useRef(null);
@@ -997,22 +1065,19 @@ export default function DisputesPanel({ wallet, poolCode, language, onWalletClic
 
   return (
     <div style={{ padding: '0 4px' }}>
-      <div style={{
-        fontFamily: 'monospace',
-        fontSize: '0.7rem',
-        color: '#475569',
-        letterSpacing: '0.1em',
-        marginBottom: 14,
-        borderBottom: '1px solid rgba(71,85,105,0.3)',
-        paddingBottom: 6,
-      }}>
-        {'SQUEEZE'}
-        {activeDisputes.length > 0 && (
-          <span style={{ marginLeft: 10, color: '#22d3ee' }}>
-            {activeDisputes.length} {lang === 'es' ? 'activo(s)' : 'active'}
-          </span>
-        )}
-      </div>
+      {activeDisputes.length > 0 && (
+        <div style={{
+          fontFamily: 'monospace',
+          fontSize: '0.7rem',
+          color: '#22d3ee',
+          letterSpacing: '0.1em',
+          marginBottom: 14,
+          borderBottom: '1px solid rgba(71,85,105,0.3)',
+          paddingBottom: 6,
+        }}>
+          {activeDisputes.length} {lang === 'es' ? 'activo(s)' : 'active'}
+        </div>
+      )}
 
       {activeDisputes.length === 0 && historyDisputes.length === 0 && (
         <div style={{ color: '#475569', fontSize: '0.8rem', textAlign: 'center', padding: '24px 0' }}>
@@ -1041,9 +1106,6 @@ export default function DisputesPanel({ wallet, poolCode, language, onWalletClic
 
       {historyDisputes.length > 0 && (
         <>
-          <div style={{ fontSize: '0.68rem', color: '#334155', letterSpacing: '0.08em', marginTop: 8, marginBottom: 8 }}>
-            {lang === 'es' ? 'HISTORIAL' : 'HISTORY'}
-          </div>
           {visibleHistoryDisputes.map((d) => (
             <DisputeCard
               key={d.id}
@@ -1060,6 +1122,13 @@ export default function DisputesPanel({ wallet, poolCode, language, onWalletClic
               onMarketBlockClick={onMarketBlockClick}
               emojiByWallet={emojiByWallet}
               sqzNftjiByWallet={sqzNftjiByWallet}
+              collapsed={!expandedHistoryIds.has(d.id)}
+              onToggle={() => setExpandedHistoryIds((prev) => {
+                const next = new Set(prev);
+                if (next.has(d.id)) next.delete(d.id);
+                else next.add(d.id);
+                return next;
+              })}
             />
           ))}
           {historyTotalPages > 1 && (
