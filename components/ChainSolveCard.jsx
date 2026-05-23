@@ -110,7 +110,7 @@ export default function ChainSolveCard({ wallet, onWinner }) {
   if (!status) {
     return (
       <div className="mm3-chain-solve-card w-full max-w-[1080px] mx-auto px-2 lg:px-3 mt-2">
-        <div className="rounded border border-emerald-500/20 bg-black/40 px-3 py-3 text-center">
+        <div className="rounded border border-emerald-500/20 bg-black/40 px-3 py-2 text-center">
           <span className="text-[0.6rem] font-mono uppercase tracking-[0.2em] text-emerald-400/30 animate-pulse">
             {t('chainSolve.loadingOracle')}
           </span>
@@ -128,11 +128,10 @@ export default function ChainSolveCard({ wallet, onWinner }) {
     return (
       <div className="mm3-chain-solve-card w-full max-w-[1080px] mx-auto px-2 lg:px-3 mt-2">
         <div
-          className="rounded border px-3 py-4 text-center"
+          className="rounded border px-3 py-3 text-center"
           style={{
-            borderColor: 'rgba(74,222,128,0.6)',
-            background: 'linear-gradient(180deg, rgba(0,20,10,0.97) 0%, rgba(0,10,5,0.95) 100%)',
-            boxShadow: '0 0 40px rgba(74,222,128,0.18), inset 0 0 30px rgba(74,222,128,0.05)',
+            borderColor: 'rgba(74,222,128,0.5)',
+            background: '#070b0f',
           }}
         >
           <div className="text-[0.72rem] font-black uppercase tracking-[0.28em] text-emerald-300 mb-1">
@@ -179,65 +178,49 @@ export default function ChainSolveCard({ wallet, onWinner }) {
       `}</style>
 
       <div
-        className="rounded border px-3 py-3 lg:px-5 lg:py-4"
+        className="rounded border px-2.5 py-1.5"
         style={{
           borderColor: 'rgba(74,222,128,0.18)',
-          background: 'linear-gradient(180deg, rgba(0,12,6,0.96) 0%, rgba(0,5,3,0.92) 100%)',
-          boxShadow: '0 0 18px rgba(74,222,128,0.05), inset 0 0 20px rgba(74,222,128,0.02)',
+          background: '#070b0f',
         }}
       >
-        {/* Header row */}
-        <div className="grid grid-cols-2 gap-2 items-start mb-3">
-
-          {/* Left: formula hint */}
-          <div>
-            <div className="text-[0.58rem] font-mono uppercase tracking-[0.14em] text-emerald-400/40 leading-relaxed">
-              Ω(α, β, γ) ∈ [1, {effectiveGamma}] · {t('chainSolve.formulaHint')}
-            </div>
+        {/* Header row: formula + live stats inline */}
+        <div className="flex items-center justify-between gap-3 flex-wrap mb-1">
+          <div className="text-[0.54rem] font-mono uppercase tracking-[0.12em] text-emerald-400/40 leading-tight">
+            Ω(α, β, γ) ∈ [1, {effectiveGamma}] · {t('chainSolve.formulaHint')}
           </div>
-
-          {/* Right: live variables */}
           <div
-            className="rounded px-3 py-2 font-mono"
-            style={{
-              background: 'rgba(74,222,128,0.03)',
-              border: '1px solid rgba(74,222,128,0.10)',
-            }}
+            className="flex items-center gap-1.5 font-mono px-2 py-0.5 shrink-0"
+            style={{ border: '1px solid rgba(74,222,128,0.10)', background: 'rgba(74,222,128,0.03)' }}
           >
-            <div className="text-[0.55rem] uppercase tracking-[0.18em] text-emerald-500/40 mb-1.5">
+            <span className="text-[0.46rem] uppercase tracking-[0.16em] text-emerald-500/40 mr-0.5">
               {t('chainSolve.liveLabel')}
-            </div>
-            <div className="grid grid-cols-3 gap-1 text-center">
-              {[
-                { sym: 'α', label: t('chainSolve.labelMarket'), val: alpha },
-                { sym: 'β', label: t('chainSolve.labelChain'), val: beta },
-                { sym: 'γ', label: t('chainSolve.labelGamma'), val: gamma },
-              ].map(({ sym, label, val }) => (
-                <div key={sym}>
-                  <div
-                    className="text-[0.78rem] font-black"
-                    style={{ color: '#4ade80', textShadow: '0 0 8px rgba(74,222,128,0.3)' }}
-                  >
-                    {sym}
-                  </div>
-                  <div className="text-[0.68rem] font-black text-emerald-200">{val}</div>
-                  <div className="text-[0.52rem] text-emerald-500/40">{label}</div>
-                </div>
-              ))}
-            </div>
-            <div className="mt-1.5 text-center text-[0.52rem] text-emerald-500/25 font-mono">
-              mm3 global: {mm3Display} · γ = |{mm3Display}|×100→int
-            </div>
+            </span>
+            {[
+              { sym: 'α', label: t('chainSolve.labelMarket'), val: alpha },
+              { sym: 'β', label: t('chainSolve.labelChain'), val: beta },
+              { sym: 'γ', label: t('chainSolve.labelGamma'), val: gamma },
+            ].map(({ sym, label, val }, i) => (
+              <span key={sym} className="flex items-baseline gap-0.5">
+                {i > 0 && <span className="text-emerald-700/30 text-[0.46rem] mx-0.5">·</span>}
+                <span className="text-[0.64rem] font-black" style={{ color: '#4ade80' }}>{sym}</span>
+                <span className="text-[0.6rem] font-black text-emerald-200 ml-0.5">{val}</span>
+                <span className="text-[0.44rem] text-emerald-500/35 ml-0.5">{label}</span>
+              </span>
+            ))}
           </div>
+        </div>
+        <div className="text-[0.44rem] text-emerald-500/25 font-mono mb-1">
+          mm3 global: {mm3Display} · γ = |{mm3Display}|×100→int
         </div>
 
         {/* Input row */}
         {!wallet ? (
-          <div className="text-center text-[0.64rem] font-mono uppercase tracking-[0.18em] text-emerald-500/40 py-1">
+          <div className="text-center text-[0.62rem] font-mono uppercase tracking-[0.18em] text-emerald-500/40 py-0.5">
             {t('chainSolve.connectWallet')}
           </div>
         ) : !canAttempt && countdown ? (
-          <div className="flex items-center justify-center gap-3 py-1">
+          <div className="flex items-center justify-center gap-3 py-0.5">
             <span className="text-[0.6rem] font-mono uppercase tracking-[0.18em] text-emerald-500/40">
               {t('chainSolve.nextAttemptIn')}
             </span>
@@ -263,14 +246,14 @@ export default function ChainSolveCard({ wallet, onWinner }) {
               onKeyDown={handleKey}
               placeholder={`Ω(α, β, γ) ∈ [1, ${effectiveGamma}]`}
               disabled={submitting}
-              className="chain-solve-input flex-1 bg-black/60 border border-emerald-500/20 text-emerald-200 font-mono text-[0.76rem] px-3 py-2 outline-none focus:border-emerald-400/50 placeholder:text-emerald-600/30"
+              className="chain-solve-input flex-1 bg-black/60 border border-emerald-500/20 text-emerald-200 font-mono text-[0.74rem] px-3 py-1.5 outline-none focus:border-emerald-400/50 placeholder:text-emerald-600/30"
               style={{ minWidth: 0 }}
             />
             <button
               type="button"
               onClick={handleSubmit}
               disabled={submitting || !input.trim()}
-              className="shrink-0 px-4 py-2 font-black font-mono text-[0.72rem] uppercase tracking-widest transition-all"
+              className="shrink-0 px-4 py-1.5 font-black font-mono text-[0.7rem] uppercase tracking-widest transition-all"
               style={{
                 color: submitting || !input.trim() ? 'rgba(74,222,128,0.25)' : '#4ade80',
                 background: submitting || !input.trim() ? 'rgba(74,222,128,0.03)' : 'rgba(74,222,128,0.08)',

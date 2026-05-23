@@ -8,11 +8,11 @@ import { CNY_TO_EUR, CNY_TO_USD, formatMoney } from '@/lib/sell-offer';
 import { formatWalletLabel } from '@/lib/wallet-format';
 
 const STATUS_LABELS = {
-  proposing:    { es: 'PROPUESTA',      en: 'PROPOSAL',     color: '#a78bfa' },
+  proposing:    { es: 'PROPUESTA',      en: 'PROPOSAL',     color: '#64748b' },
   registering:  { es: 'REGISTRANDO',    en: 'REGISTERING',  color: '#22d3ee' },
-  battle_start: { es: 'INICIO DISPUTA', en: 'BATTLE START', color: '#f59e0b' },
+  battle_start: { es: 'INICIO DISPUTA', en: 'BATTLE START', color: '#22d3ee' },
   resolved:     { es: 'RESUELTO',       en: 'RESOLVED',     color: '#4ade80' },
-  cancelled:    { es: 'CANCELADO',      en: 'CANCELLED',    color: '#475569' },
+  cancelled:    { es: 'CANCELADO',      en: 'CANCELLED',    color: '#334155' },
 };
 
 const WINNER_LABELS = {
@@ -126,8 +126,8 @@ function ScoreBar({ chScore, dfScore }) {
   if (total <= 0) return null;
   const chPct = Math.round(((Number(chScore) || 0) / total) * 100);
   return (
-    <div style={{ margin: '8px 0', background: 'rgba(255,255,255,0.07)', borderRadius: 4, height: 8, overflow: 'hidden' }}>
-      <div style={{ width: `${chPct}%`, height: '100%', background: 'linear-gradient(90deg, #22d3ee, #3b82f6)', transition: 'width 0.8s' }} />
+    <div style={{ margin: '8px 0', background: 'rgba(255,255,255,0.07)', borderRadius: 0, height: 8, overflow: 'hidden' }}>
+      <div style={{ width: `${chPct}%`, height: '100%', background: '#22d3ee', transition: 'width 0.8s' }} />
     </div>
   );
 }
@@ -168,7 +168,7 @@ function NftjiLevelSlot({ emoji, color, level, title, onClick, empty = false }) 
         width: '1.5rem',
         height: '1.5rem',
         border: `1px solid ${empty ? `${color}33` : `${color}99`}`,
-        borderRadius: 4,
+        borderRadius: 0,
         background: empty ? 'rgba(2,6,23,0.4)' : `${color}18`,
         color: empty ? 'rgba(100,116,139,0.35)' : color,
         display: 'inline-flex',
@@ -220,7 +220,7 @@ function SqueezeDropSlot({ emoji, color, level, claimable, claimed, busy, lang, 
         width: '1.5rem',
         height: '1.5rem',
         border: `1px solid ${color}${claimable ? 'aa' : '66'}`,
-        borderRadius: 4,
+        borderRadius: 0,
         background: claimed ? 'rgba(2,6,23,0.42)' : `${color}18`,
         color,
         display: 'inline-flex',
@@ -283,7 +283,7 @@ function DisputeCard({ dispute, activeWallet, poolCode, language, currency, onJo
   return (
     <div style={{
       border: `1px solid ${statusMeta.color}44`,
-      borderRadius: 8,
+      borderRadius: 0,
       padding: '14px 16px',
       marginBottom: 12,
       background: 'rgba(2,6,23,0.7)',
@@ -303,7 +303,7 @@ function DisputeCard({ dispute, activeWallet, poolCode, language, currency, onJo
           letterSpacing: '0.08em',
           color: statusMeta.color,
           border: `1px solid ${statusMeta.color}66`,
-          borderRadius: 4,
+          borderRadius: 0,
           padding: '1px 7px',
         }}>
           {statusMeta[lang]}
@@ -342,12 +342,12 @@ function DisputeCard({ dispute, activeWallet, poolCode, language, currency, onJo
       {/* Proposing: waiting for a 2nd wallet */}
       {isProposing && proposalDeadline && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8, flexWrap: 'wrap' }}>
-          <span style={{ color: '#a78bfa', fontSize: '0.75rem' }}>
+          <span style={{ color: '#64748b', fontSize: '0.75rem' }}>
             {lang === 'es'
               ? 'esperando a una wallet más del pool o se cancelará en'
               : 'waiting for another wallet from the pool or cancels in'}
           </span>
-          <CountdownBadge targetMs={proposalDeadline} color="#a78bfa" />
+          <CountdownBadge targetMs={proposalDeadline} color="#64748b" />
         </div>
       )}
 
@@ -355,7 +355,7 @@ function DisputeCard({ dispute, activeWallet, poolCode, language, currency, onJo
       {isCancelled && (
         <div style={{
           border: '1px solid rgba(71,85,105,0.4)',
-          borderRadius: 6,
+          borderRadius: 0,
           padding: '8px 12px',
           marginBottom: 10,
           background: 'rgba(15,23,42,0.6)',
@@ -401,7 +401,7 @@ function DisputeCard({ dispute, activeWallet, poolCode, language, currency, onJo
               style={{
                 marginLeft: 'auto',
                 padding: '3px 12px',
-                borderRadius: 4,
+                borderRadius: 0,
                 border: '1px solid rgba(34,211,238,0.5)',
                 background: 'rgba(34,211,238,0.1)',
                 color: '#22d3ee',
@@ -470,7 +470,7 @@ function DisputeCard({ dispute, activeWallet, poolCode, language, currency, onJo
       {isResolved && winner && (
         <div style={{
           border: `1px solid ${winnerColor}55`,
-          borderRadius: 6,
+          borderRadius: 0,
           padding: '8px 12px',
           marginBottom: 10,
           background: `${winnerColor}11`,
@@ -637,7 +637,7 @@ function DisputeCard({ dispute, activeWallet, poolCode, language, currency, onJo
             padding: '8px 10px',
             background: 'rgba(2,6,23,0.6)',
             border: '1px solid rgba(71,85,105,0.25)',
-            borderRadius: 5,
+            borderRadius: 0,
             fontSize: '0.65rem',
             fontFamily: 'monospace',
             color: '#475569',
@@ -1007,9 +1007,11 @@ export default function DisputesPanel({ wallet, poolCode, language, onWalletClic
         paddingBottom: 6,
       }}>
         {'SQUEEZE'}
-        <span style={{ marginLeft: 10, color: '#334155' }}>
-          {activeDisputes.length > 0 ? `${activeDisputes.length} ${lang === 'es' ? 'activo(s)' : 'active'}` : lang === 'es' ? 'sin combates activos' : 'none active'}
-        </span>
+        {activeDisputes.length > 0 && (
+          <span style={{ marginLeft: 10, color: '#22d3ee' }}>
+            {activeDisputes.length} {lang === 'es' ? 'activo(s)' : 'active'}
+          </span>
+        )}
       </div>
 
       {activeDisputes.length === 0 && historyDisputes.length === 0 && (
@@ -1068,7 +1070,7 @@ export default function DisputesPanel({ wallet, poolCode, language, onWalletClic
                 disabled={safeHistoryPage <= 1}
                 style={{
                   border: '1px solid rgba(34,211,238,0.35)',
-                  borderRadius: 4,
+                  borderRadius: 0,
                   background: 'rgba(2,6,23,0.7)',
                   color: '#22d3ee',
                   padding: '3px 9px',
@@ -1089,7 +1091,7 @@ export default function DisputesPanel({ wallet, poolCode, language, onWalletClic
                 disabled={safeHistoryPage >= historyTotalPages}
                 style={{
                   border: '1px solid rgba(34,211,238,0.35)',
-                  borderRadius: 4,
+                  borderRadius: 0,
                   background: 'rgba(2,6,23,0.7)',
                   color: '#22d3ee',
                   padding: '3px 9px',

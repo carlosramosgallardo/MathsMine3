@@ -1886,7 +1886,7 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
             </article>
           );
         }) : (
-          <div className="rounded-xl border border-cyan-500/20 bg-black/80 p-5 text-center text-xs text-gray-500">
+          <div className="border border-cyan-500/20 bg-black/80 p-5 text-center text-xs text-gray-500">
             {viewMode === 'pools' ? labels.noPools : t('ranking.noMiners')}
           </div>
         )}

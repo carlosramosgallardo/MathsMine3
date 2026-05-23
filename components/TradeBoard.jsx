@@ -594,7 +594,7 @@ export default function TradeBoard({ account, isVirtualWallet = false }) {
     <div className={`mm3-trade-board mx-auto w-full max-w-full md:max-w-4xl xl:max-w-6xl font-mono ${showTransactions ? 'mm3-trade-board-open' : 'mm3-trade-board-closed'}`}>
       {loading && <PageLoading label={t('tradeBoard.loading')} />}
 
-      <div className="rounded-xl p-1" style={{ background: 'linear-gradient(180deg,#050810 0%, #08110d 100%)' }}>
+      <div className="p-1" style={{ background: '#050810' }}>
           <style>{`
             .mm3-trade-board-closed .mm3-trade-toolbar {
               margin-bottom: 0.5rem;
@@ -959,7 +959,7 @@ export default function TradeBoard({ account, isVirtualWallet = false }) {
                       <button
                         onClick={() => setShowTransactions(false)}
                         className="rounded-md border px-3 py-1.5 text-[0.82rem] font-black uppercase tracking-[0.18em]"
-                        style={{ borderColor: '#f472b6', color: '#f9a8d4' }}
+                        style={{ borderColor: 'rgba(34,211,238,.35)', color: '#94a3b8' }}
                       >
                         {t('tradeBoard.closeLog')}
                       </button>
