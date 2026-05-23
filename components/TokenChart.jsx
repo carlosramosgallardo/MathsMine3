@@ -20,13 +20,14 @@ const UP   = '#4ade80'
 const DN   = '#f97316'
 const RANGES = ['1h', '24h', '7d', '30d', '360d', 'all']
 
-const CHART_FILTER_KEYS = ['dice', 'mining', 'trading', 'squeeze']
-const DEFAULT_CHART_FILTERS = { dice: true, mining: true, trading: true, squeeze: true, market: true }
-const CHART_FILTER_LABELS = { dice: 'dice', mining: 'mining', trading: 'trading', squeeze: 'squeezing', market: 'market' }
+const CHART_FILTER_KEYS = ['dice', 'mining', 'trading', 'squeeze', 'relaying']
+const DEFAULT_CHART_FILTERS = { dice: true, mining: true, trading: true, squeeze: true, market: true, relaying: true }
+const CHART_FILTER_LABELS = { dice: 'dice', mining: 'mining', trading: 'trading', squeeze: 'squeezing', market: 'market', relaying: 'relaying' }
 
 function chartEventCategory(ev) {
   const emoji = ev.emoji
   const et = ev.event_type
+  if (et === 'relaying' || emoji === '🔁') return 'relaying'
   if (emoji === '⚔️' || emoji === '🔰') return 'squeeze'
   if (emoji === '📈' || emoji === '📉') return 'trading'
   if (et === 'nftji_level_up' || (et === 'mining_buy' && emoji !== '📈') || (et === 'mining_resell' && emoji !== '📉')) return 'market'

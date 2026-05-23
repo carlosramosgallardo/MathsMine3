@@ -188,8 +188,8 @@ All quotas reset 24h after they are launched.
 
 | Resource | Base | Bonus | Purpose |
 |---|---:|---:|---|
-| DRILL SLOTS | 100/day | +1 permanent per all-time EXEC | Training attempts |
-| Trade EXECs | 5/day | None | Fictional exchange actions |
+| DRILL SLOTS | 100/day | +1 permanent per all-time EXEC | Training attempts (displayed as `#HEX_left / 100+#HEX_extra`) |
+| Trade EXECs | 5/day | None | Fictional exchange actions (displayed as `#HEX/#5`) |
 | Mining command | 1/day | Per owned Mining NFTJI | Relaying command launch |
 | Numeric-code attempt | 1/day | Per received penalty | Cancel command penalty |
 
@@ -258,6 +258,7 @@ NFTJIs are wallet-bound game objects.
 | Heart revive | One-time emergency option | Cancels one failure penalty |
 | Mining NFTJI | Bought or resold on the Mining board | Unlocks daily Mining command |
 | Squeeze NFTJI | Drops from Squeeze battles (1/5 chance) | ⚔️ boosts pool Squeeze score · 🛡️ protects EUR stake |
+| Relay Link 🔁 | Acquired via `/exec @wallet` in Relaying | Level = ⌊log₂(exec_A + exec_B + 1)⌋ · fires MM3 global event on each exec |
 
 ### Mining Drops
 
@@ -675,7 +676,25 @@ MathsMine3@ETH·:~$  0.01 ETH donation confirmed · tx 0xabc…def
 
 The `MathsMine3@ETH·:~$` line appears when a real Ethereum transaction is received by the Alchemy webhook. The event is written directly to the Relaying log with `tone=realchain`, making on-chain activity visible inside the terminal without any player action.
 
-Relay help (`/?`) includes `/mine block #029` as the short form for mining free Mining board cells.
+Relay help (`/?`) includes `/mine block #029` as the short form for mining free Mining board cells, and `/exec @wallet` for relay executions.
+
+### Relay Exec (`/exec @wallet`)
+
+`/exec @wallet` links two wallets via a **Relay Link 🔁** NFTJI.
+
+- Both wallets must be currently logged in to Relaying (shows in `@` autocomplete, offline wallets do not appear)
+- One exec per pair per 24 hours (cooldown is bidirectional — `A→B` and `B→A` share the same cooldown window)
+- Both wallets gain +1 `relay_exec_count` and receive the 🔁 NFTJI on their first exec
+- **Level formula:** `⌊log₂(exec_A + exec_B + 1)⌋` — non-linear, grows fast early, decelerates as execs accumulate
+- The level is shared and recalculates automatically every time either wallet's exec count changes
+- **MM3 global effect:** +1% of the current global MM3 value is emitted as a `relaying` event on each exec (appears in the MM3 Value chart)
+- 1 Relay Link NFTJI per wallet, maximum — retained forever (even if exec count later falls to 0)
+- Level and relay partner are visible in Ranking next to the exec count column
+
+```txt
+/exec @0x1abc...def   — exec relay (tab-complete from online wallets)
+/?                    — shows /exec in the command index
+```
 
 ---
 

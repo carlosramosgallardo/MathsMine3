@@ -7,7 +7,7 @@ import supabase from '@/lib/supabaseClient';
 import { CNY_TO_EUR, CNY_TO_USD, formatMoney, formatCompactNum } from '@/lib/sell-offer';
 import { clampRankLevel, getRankTier } from '@/lib/ranks';
 import { colorFromAddress, colorFromPool } from '@/lib/wallet-colors';
-import { normalizeWalletDecorations, getEmojiTitle, TRADE_SLOT_ORDER, SQUEEZE_SLOT_ORDER } from '@/lib/wallet-decorations';
+import { normalizeWalletDecorations, getEmojiTitle, TRADE_SLOT_ORDER, SQUEEZE_SLOT_ORDER, WALLET_DECORATIONS, computeRelayLevel } from '@/lib/wallet-decorations';
 import { useCurrency } from '@/lib/currency-context';
 import { useActiveWallet } from '@/lib/use-active-wallet';
 import { formatWalletLabel } from '@/lib/wallet-format';
@@ -332,7 +332,7 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
           .select('wallet, total_eth'),
         supabase
           .from('player_progress')
-          .select('wallet, level, block_chain_percent, mm3_sold, cny_earned, eur_earned, usd_earned, wallet_emojis, is_bot, lucky_50_level, lucky_100_level, lucky_500_level, lucky_1000_level, mining_nftji_levels'),
+          .select('wallet, level, block_chain_percent, mm3_sold, cny_earned, eur_earned, usd_earned, wallet_emojis, is_bot, lucky_50_level, lucky_100_level, lucky_500_level, lucky_1000_level, mining_nftji_levels, relay_exec_count, relay_nftji_partner'),
         supabase
           .from('player_progress')
           .select('wallet, mining_nftji_key')
@@ -394,6 +394,8 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
               lucky1000: Number(entry.lucky_1000_level ?? -1),
             },
             miningNftjiLevels: entry.mining_nftji_levels || {},
+            relayExecCount: Number(entry.relay_exec_count) || 0,
+            relayPartner: String(entry.relay_nftji_partner || '').toLowerCase(),
           },
         ])
       );
@@ -559,6 +561,8 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
             is_bot: progress.is_bot || false,
             nftjiLevels: progress.nftjiLevels || { lucky50: -1, lucky100: -1, lucky500: -1, lucky1000: -1 },
             miningNftjiLevels: progress.miningNftjiLevels || {},
+            relayExecCount: progress.relayExecCount || 0,
+            relayPartner: progress.relayPartner || '',
           };
         })
         .sort((a, b) => {
@@ -1818,7 +1822,12 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
                 </div>
                 <div className="rounded border border-cyan-500/10 bg-black/60 px-1.5 py-1">
                   <div>{t('ranking.execs')}</div>
-                  <div className="mt-0.5 font-mono text-[0.7rem] font-semibold tracking-normal text-cyan-300">#{(Number(entry.execs_count || 0)).toString(16).toUpperCase()}</div>
+                  <div className="mt-0.5 flex items-center gap-1 font-mono text-[0.7rem] font-semibold tracking-normal text-cyan-300">
+                    #{(Number(entry.execs_count || 0)).toString(16).toUpperCase()}
+                    {ownedEmojis.includes(WALLET_DECORATIONS.relay) && (
+                      <span title={`Relay Link Lv.${computeRelayLevel(entry.relayExecCount || 0, entry.relayExecCount || 0)}`} className="text-[0.7rem]">🔁</span>
+                    )}
+                  </div>
                 </div>
                 <div className="rounded border border-cyan-500/10 bg-black/60 px-1.5 py-1">
                   <div>{t('ranking.mm3Earned')}</div>
@@ -2140,9 +2149,17 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
                     </div>
                   </td>
                   <td style={{ textAlign:'center' }}>
-                    <span className="font-mono font-black text-[0.95rem] text-cyan-300">
-                      #{(Number(entry.total_execs || 0)).toString(16).toUpperCase()}
-                    </span>
+                    <div className="flex flex-col items-center gap-0.5">
+                      <span className="font-mono font-black text-[0.95rem] text-cyan-300">
+                        #{(Number(entry.total_execs || 0)).toString(16).toUpperCase()}
+                      </span>
+                      {(() => {
+                        const relayMembers = (entry.members || []).filter((m) => (m.walletEmojis || []).includes(WALLET_DECORATIONS.relay));
+                        if (!relayMembers.length) return null;
+                        const bestLevel = Math.max(...relayMembers.map((m) => computeRelayLevel(m.relayExecCount || 0, m.relayExecCount || 0)));
+                        return <span title={`Relay Link Lv.${bestLevel}`} className="text-[0.68rem] leading-none">🔁<span className="font-mono text-[0.52rem] font-black text-emerald-300">Lv.{bestLevel}</span></span>;
+                      })()}
+                    </div>
                   </td>
                   <td style={{ textAlign:'center' }}>
                     <div className="flex flex-wrap items-center justify-center gap-1">
@@ -2370,9 +2387,16 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
                     </div>
                   </td>
                   <td style={{ textAlign:'center' }}>
-                    <span className="font-mono font-black text-[0.95rem] text-cyan-300">
-                      {Number(entry.execs_count || 0)}
-                    </span>
+                    <div className="flex flex-col items-center gap-0.5">
+                      <span className="font-mono font-black text-[0.95rem] text-cyan-300">
+                        #{(Number(entry.execs_count || 0)).toString(16).toUpperCase()}
+                      </span>
+                      {ownedEmojis.includes(WALLET_DECORATIONS.relay) && (() => {
+                        const partnerExecs = entry.relayExecCount || 0;
+                        const lvl = computeRelayLevel(partnerExecs, partnerExecs);
+                        return <span title={`Relay Link — partner: ${entry.relayPartner ? entry.relayPartner.slice(0,6)+'…' : '?'} · Lv.${lvl}`} className="text-[0.68rem] leading-none">🔁<span className="font-mono text-[0.52rem] font-black text-emerald-300">Lv.{lvl}</span></span>;
+                      })()}
+                    </div>
                   </td>
                   <td style={{ textAlign:'center' }}>
                     <div className="flex flex-wrap items-center justify-center gap-1">

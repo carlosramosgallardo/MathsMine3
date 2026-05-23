@@ -352,6 +352,8 @@ export default function RelayingTerminal({ accent = '#22d3ee' }) {
   const filterStorageKey = useMemo(() => filterKeyForWallet(actorId), [actorId]);
 
   const [draft, setDraft] = useState('');
+  const [atSuggestions, setAtSuggestions] = useState([]);
+  const [atSuggestIdx, setAtSuggestIdx] = useState(0);
   const [messages, setMessages] = useState([]);
   const [messageFilters, setMessageFilters] = useState(DEFAULT_IRC_FILTERS);
   const [connectedWallets, setConnectedWallets] = useState([]);
@@ -1336,6 +1338,7 @@ export default function RelayingTerminal({ accent = '#22d3ee' }) {
         language === 'es'
           ? `chain :: mina 1 bloque de la cadena Market hoy >> recompensa €10 diaria`
           : `chain :: mine 1 Market block chain cell today >> €10 daily reward`,
+        t('relaying.execCmd'),
         language === 'es'
           ? `── MONEY RAIL ─── penalización en fiat ──────────────────────`
           : `── MONEY RAIL ─── penalty debits fiat ───────────────────────`,
@@ -1617,6 +1620,69 @@ export default function RelayingTerminal({ accent = '#22d3ee' }) {
       // /? — local command index (not broadcast)
       if (afterSlash === '?' || cmdName === 'help') {
         await showMarketCommandHelp();
+        return;
+      }
+
+      // /exec @wallet — relay exec link
+      if (cmdName === 'exec') {
+        const match = afterSlash.match(/^exec\s+@(\S+)/i);
+        if (!match) {
+          appendMessage(makeMessage({
+            id: `sys:exec:${Date.now()}`,
+            kind: 'system', wallet: 'system', ts: Date.now(), tone: 'command',
+            text: language === 'es' ? 'uso: /exec @wallet' : 'usage: /exec @wallet',
+          }), { silent: true });
+          return;
+        }
+        const targetRaw = match[1].toLowerCase();
+        const targetWallet = targetRaw.startsWith('0x') ? targetRaw : null;
+        const onlineWallet = connectedWallets.find((u) => u.wallet === targetWallet || formatWalletLabel(u.wallet) === targetRaw);
+        if (!onlineWallet) {
+          appendMessage(makeMessage({
+            id: `sys:exec:${Date.now()}`,
+            kind: 'system', wallet: 'system', ts: Date.now(), tone: 'command',
+            text: t('relaying.execTargetOffline'),
+          }), { silent: true });
+          return;
+        }
+        try {
+          const res = await fetch('/api/relay/exec', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ wallet: normalizedWallet, targetWallet: onlineWallet.wallet }),
+          });
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok || !data.ok) {
+            const errMap = {
+              exec_self: t('relaying.execSelf'),
+              target_offline: t('relaying.execTargetOffline'),
+              cooldown_active: t('relaying.execCooldown'),
+            };
+            appendMessage(makeMessage({
+              id: `sys:exec:${Date.now()}`,
+              kind: 'system', wallet: 'system', ts: Date.now(), tone: 'command',
+              text: errMap[data.error] || t('relaying.execFailed'),
+            }), { silent: true });
+          } else {
+            const trace = `🔁 relay exec >> ${formatWalletLabel(normalizedWallet)} → ${formatWalletLabel(onlineWallet.wallet)} >> execs: #${data.originExecs.toString(16).toUpperCase()} + #${data.targetExecs.toString(16).toUpperCase()} >> lv.${data.level} >> Δmm3:${data.relayDelta >= 0 ? '+' : ''}${Number(data.relayDelta || 0).toFixed(6)}`;
+            await broadcastSystemMessage(trace, 'market');
+            try {
+              await supabase.from('mm3_relaying_messages').insert({
+                wallet: 'system', text: trace, ts: Date.now(), kind: 'system', tone: 'market',
+              });
+            } catch {}
+            if (typeof window !== 'undefined') {
+              localStorage.setItem('lb_dirty_at', String(Date.now()));
+              window.dispatchEvent(new CustomEvent('mm3-db-updated', { detail: { wallet: normalizedWallet, relayExec: true } }));
+            }
+          }
+        } catch {
+          appendMessage(makeMessage({
+            id: `sys:exec:${Date.now()}`,
+            kind: 'system', wallet: 'system', ts: Date.now(), tone: 'command',
+            text: t('relaying.execFailed'),
+          }), { silent: true });
+        }
         return;
       }
 
@@ -2191,24 +2257,76 @@ export default function RelayingTerminal({ accent = '#22d3ee' }) {
           </div>
 
           {normalizedWallet ? (
-            <form onSubmit={handleSend} className="mt-2 flex gap-1.5">
-              <input
-                ref={inputRef}
-                value={draft}
-                onChange={(event) => setDraft(event.target.value)}
-                placeholder={t('relaying.inputPlaceholder')}
-                className="min-w-0 flex-1 rounded-sm border border-cyan-500/15 bg-black/80 px-2.5 py-1.5 font-mono text-[0.95rem] text-cyan-100 outline-none transition placeholder:text-slate-600 focus:border-cyan-400/45 focus:shadow-[0_0_18px_rgba(34,211,238,0.08)]"
-                maxLength={280}
-                autoComplete="off"
-                spellCheck={false}
-              />
-              <button
-                type="submit"
-                className="mm3-irc-submit rounded-sm border border-cyan-500/35 px-3 py-1.5 font-mono text-[0.75rem] font-black uppercase tracking-[0.22em] text-cyan-200 transition hover:border-cyan-300 hover:text-cyan-100"
-                disabled={!relayReady || !normalizeRelayMessage(draft)}
-              >
-                {t('relaying.send')}
-              </button>
+            <form onSubmit={handleSend} className="mt-2 flex flex-col gap-1">
+              {atSuggestions.length > 0 && (
+                <div className="flex flex-wrap gap-1 rounded-sm border border-cyan-500/20 bg-black/90 px-2 py-1">
+                  {atSuggestions.map((w, i) => (
+                    <button
+                      key={w}
+                      type="button"
+                      onClick={() => {
+                        const parts = draft.split('@');
+                        const newDraft = parts.slice(0, -1).join('@') + `@${w} `;
+                        setDraft(newDraft);
+                        setAtSuggestions([]);
+                        inputRef.current?.focus();
+                      }}
+                      className="font-mono text-[0.68rem] uppercase tracking-[0.12em] transition"
+                      style={{ color: i === atSuggestIdx ? '#22d3ee' : 'rgba(100,116,139,0.75)', background: 'transparent', border: 'none', cursor: 'pointer', padding: '0 0.2rem' }}
+                    >
+                      @{formatWalletLabel(w)}
+                    </button>
+                  ))}
+                </div>
+              )}
+              <div className="flex gap-1.5">
+                <input
+                  ref={inputRef}
+                  value={draft}
+                  onChange={(event) => {
+                    const val = event.target.value;
+                    setDraft(val);
+                    const atMatch = val.match(/@(\S*)$/);
+                    if (atMatch) {
+                      const query = atMatch[1].toLowerCase();
+                      const suggestions = connectedWallets
+                        .filter((u) => u.wallet !== normalizedWallet && (query === '' || u.wallet.includes(query) || formatWalletLabel(u.wallet).toLowerCase().includes(query)))
+                        .slice(0, 6)
+                        .map((u) => u.wallet);
+                      setAtSuggestions(suggestions);
+                      setAtSuggestIdx(0);
+                    } else {
+                      setAtSuggestions([]);
+                    }
+                  }}
+                  onKeyDown={(event) => {
+                    if (atSuggestions.length === 0) return;
+                    if (event.key === 'ArrowDown') { event.preventDefault(); setAtSuggestIdx((i) => (i + 1) % atSuggestions.length); }
+                    else if (event.key === 'ArrowUp') { event.preventDefault(); setAtSuggestIdx((i) => (i - 1 + atSuggestions.length) % atSuggestions.length); }
+                    else if (event.key === 'Tab' || event.key === 'Enter' && atSuggestions.length > 0) {
+                      event.preventDefault();
+                      const w = atSuggestions[atSuggestIdx];
+                      const parts = draft.split('@');
+                      setDraft(parts.slice(0, -1).join('@') + `@${w} `);
+                      setAtSuggestions([]);
+                    } else if (event.key === 'Escape') {
+                      setAtSuggestions([]);
+                    }
+                  }}
+                  placeholder={t('relaying.inputPlaceholder')}
+                  className="min-w-0 flex-1 rounded-sm border border-cyan-500/15 bg-black/80 px-2.5 py-1.5 font-mono text-[0.95rem] text-cyan-100 outline-none transition placeholder:text-slate-600 focus:border-cyan-400/45 focus:shadow-[0_0_18px_rgba(34,211,238,0.08)]"
+                  maxLength={280}
+                  autoComplete="off"
+                  spellCheck={false}
+                />
+                <button
+                  type="submit"
+                  className="mm3-irc-submit rounded-sm border border-cyan-500/35 px-3 py-1.5 font-mono text-[0.75rem] font-black uppercase tracking-[0.22em] text-cyan-200 transition hover:border-cyan-300 hover:text-cyan-100"
+                  disabled={!relayReady || !normalizeRelayMessage(draft)}
+                >
+                  {t('relaying.send')}
+                </button>
+              </div>
             </form>
           ) : (
             <div className="mt-2 flex items-center gap-2 border border-amber-500/12 bg-amber-950/10 px-2.5 py-1.5 font-mono">
