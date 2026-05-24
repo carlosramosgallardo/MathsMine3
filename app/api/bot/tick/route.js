@@ -1204,16 +1204,16 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
   const newTradesToday = tradesTodayCount;
 
   const dailyTargets = {
-    mining: { target: 25, rewardEur: 0.25 },
+    training: { target: 25, rewardEur: 0.25 },
     trading: { target: 5, rewardEur: 0.5 },
-    market: { target: 1, rewardEur: 0.75 },
-    irc: { target: 1, rewardEur: 1.0 },
-    squeeze: { target: 5, rewardEur: 2.5 },
-    market_chain: { target: 1, rewardEur: 10 },
+    mining: { target: 1, rewardEur: 0.75 },
+    relaying: { target: 1, rewardEur: 1.0 },
+    squeezing: { target: 5, rewardEur: 2.5 },
+    mining_chain: { target: 1, rewardEur: 10 },
   };
 
-  if (newGamesToday >= dailyTargets.mining.target) {
-    await claimDailyReward('mining', dailyTargets.mining.rewardEur);
+  if (newGamesToday >= dailyTargets.training.target) {
+    await claimDailyReward('training', dailyTargets.training.rewardEur);
   }
   if (newTradesToday >= dailyTargets.trading.target) {
     await claimDailyReward('trading', dailyTargets.trading.rewardEur);
@@ -1604,7 +1604,7 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
 
   // ── MARKET BLOCK CHAIN MINING ─────────────────────────────
   // Bots mine a qualifying block if one is available (max 1 per tick)
-  if (!claimedTasks.has('market_chain') && Math.random() < 0.55) {
+  if (!claimedTasks.has('mining_chain') && Math.random() < 0.55) {
     const [{ data: alreadyMined }, { data: marketReserved }, { data: tvRow }] = await Promise.all([
       supabase.from('mm3_mined_blocks').select('block_hex'),
       supabase.from('mm3_mining_blocks').select('grid_row, grid_col'),
@@ -1661,8 +1661,8 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
           await checkAndAwardChainWinner(supabase);
         }
 
-        actions.push({ type: 'chain_mine', blockHex: pick.blockHex, chainPct });
-        await claimDailyReward('market_chain', dailyTargets.market_chain.rewardEur);
+        actions.push({ type: 'chain_mine', blockHex: pick.blockHex, chainPct: freeChainPct });
+        await claimDailyReward('mining_chain', dailyTargets.mining_chain.rewardEur);
       }
     }
   }
