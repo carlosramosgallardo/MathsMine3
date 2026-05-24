@@ -740,6 +740,7 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
     await new Promise((resolve) => setTimeout(resolve, BOT_PRESENCE_SETTLE_MS));
   }
 
+  // Phase 1: cheap queries only (5 are count-only, no row data transferred)
   const [
     { data: progressRow },
     { data: leaderboardRow },
@@ -747,8 +748,6 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
     { count: totalExecs },
     { count: tradesToday },
     { data: claimsData },
-    { data: problems },
-    { data: marketBlocks },
   ] = await Promise.all([
     supabase.from('player_progress')
       .select('level, mm3_sold, eur_earned, usd_earned, cny_earned, wallet_emojis, life_used, lucky_50_claimed, lucky_100_claimed, lucky_500_claimed, lucky_1000_claimed, lucky_50_level, lucky_100_level, lucky_500_level, lucky_1000_level, mining_nftji_key, mining_nftji_price, mining_nftji_levels')
@@ -763,12 +762,6 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
       .eq('wallet', wallet).gte('created_at', startIso).lt('created_at', endIso),
     supabase.from('daily_task_claims').select('task_key')
       .eq('wallet', wallet).eq('day', dayKey),
-    supabase.from('math_problems')
-      .select('id, question, correct_answer, difficulty, problem_type')
-      .limit(200),
-    supabase.from('mm3_mining_blocks')
-      .select('block_key, emoji, price_eur, is_active, market_command, grid_row, grid_col, title_en, first_purchased_at')
-      .order('price_eur', { ascending: true }),
   ]);
 
   let level = clampLevel(progressRow?.level ?? 0);
@@ -788,9 +781,33 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
   const tradesToRun = !diceState.active && Math.random() < 0.80
     ? 0
     : Math.min(DAILY_TRADE_LIMIT - tradesTodayCount, pacedTradesAvailable, BOT_MAX_TRADES_PER_TICK);
+  const claimedTasks = new Set((claimsData || []).map((r) => r.task_key));
+
+  // Phase 2: only fetch heavy tables if this tick will actually use them
+  // problems: only needed when there are drills to run (saves ~91% of ticks after daily quota fills)
+  // marketBlocks: skip only when all market-related tasks are already claimed and no block is held
+  const needsProblems = drillsToRun > 0;
+  const needsMarketBlocks =
+    !claimedTasks.has('mining') ||
+    !claimedTasks.has('mining_chain') ||
+    Boolean(progressRow?.mining_nftji_key);
+  const [problems, marketBlocks] = await Promise.all([
+    needsProblems
+      ? supabase.from('math_problems')
+          .select('id, question, correct_answer, difficulty, problem_type')
+          .limit(20)
+          .then(({ data }) => data)
+      : Promise.resolve(null),
+    needsMarketBlocks
+      ? supabase.from('mm3_mining_blocks')
+          .select('block_key, emoji, price_eur, is_active, market_command, grid_row, grid_col, title_en, first_purchased_at')
+          .order('price_eur', { ascending: true })
+          .then(({ data }) => data)
+      : Promise.resolve(null),
+  ]);
+
   let actualGamesPlayed = 0;
   const walletEmojis = Array.isArray(progressRow?.wallet_emojis) ? progressRow.wallet_emojis : [];
-  const claimedTasks = new Set((claimsData || []).map((r) => r.task_key));
   const pool = problems?.length ? problems : null;
   const problemsCount = Array.isArray(problems) ? problems.length : 0;
   const marketBlocksCount = Array.isArray(marketBlocks) ? marketBlocks.length : 0;
