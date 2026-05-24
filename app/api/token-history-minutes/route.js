@@ -124,7 +124,7 @@ export async function GET() {
     status: 200,
     headers: {
       'Content-Type': 'application/json',
-      'Cache-Control': 'no-store, max-age=0',
+      'Cache-Control': 'public, s-maxage=12, stale-while-revalidate=3',
     },
   })
 }

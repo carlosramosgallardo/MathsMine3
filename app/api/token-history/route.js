@@ -22,7 +22,10 @@ export async function GET() {
 
   // Volvemos a ordenar ascendente para el gráfico
   const sorted = data.sort((a, b) => new Date(a.hour) - new Date(b.hour))
-  const windowStart = sorted[0]?.hour
+  // Cap detail queries to last 30 days — older data is already aggregated in timeseries
+  const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
+  const rawStart = sorted[0]?.hour
+  const windowStart = rawStart && rawStart > thirtyDaysAgo ? rawStart : thirtyDaysAgo
   const breakdownByHour = {}
   const sourceByWallet = new Map()
 
@@ -62,15 +65,18 @@ export async function GET() {
         .select('created_at, mining_reward')
         .eq('is_correct', true)
         .gte('created_at', windowStart)
-        .order('created_at'),
+        .order('created_at')
+        .limit(100000),
       supabase.from('mm3_sell_transactions')
         .select('wallet, source, created_at, mm3_commission')
         .gte('created_at', windowStart)
-        .order('created_at'),
+        .order('created_at')
+        .limit(50000),
       supabase.from('mm3_mining_events')
         .select('created_at, event_type, delta_mm3')
         .gte('created_at', windowStart)
-        .order('created_at'),
+        .order('created_at')
+        .limit(100000),
       supabase.from('mm3_wallet_presence')
         .select('wallet, source'),
     ])
@@ -113,7 +119,7 @@ export async function GET() {
     status: 200,
     headers: {
       'Content-Type': 'application/json',
-      'Cache-Control': 'no-store, max-age=0'
+      'Cache-Control': 'public, s-maxage=25, stale-while-revalidate=5',
     }
   })
 }

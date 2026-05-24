@@ -180,19 +180,23 @@ function useIsMobile() {
 function useRawHistory() {
   const [raw, setRaw] = useState([])
   useEffect(() => {
-    const load = () =>
-      fetch('/api/token-history', { cache: 'no-store' })
+    let lastFetch = 0
+    const load = () => {
+      lastFetch = Date.now()
+      fetch('/api/token-history')
         .then(r => r.json())
         .then(j => Array.isArray(j) && setIfChanged(setRaw, j))
         .catch(() => {})
+    }
+    const onFocus = () => { if (Date.now() - lastFetch > 25_000) load() }
     load()
     const id = setInterval(load, 30_000)
-    window.addEventListener('focus', load)
-    window.addEventListener('mm3-db-updated', load)
+    window.addEventListener('focus', onFocus)
+    window.addEventListener('mm3-db-updated', onFocus)
     return () => {
       clearInterval(id)
-      window.removeEventListener('focus', load)
-      window.removeEventListener('mm3-db-updated', load)
+      window.removeEventListener('focus', onFocus)
+      window.removeEventListener('mm3-db-updated', onFocus)
     }
   }, [])
   return raw
@@ -203,19 +207,23 @@ function useRawMinutes(enabled) {
   const [raw, setRaw] = useState([])
   useEffect(() => {
     if (!enabled) return
-    const load = () =>
-      fetch('/api/token-history-minutes', { cache: 'no-store' })
+    let lastFetch = 0
+    const load = () => {
+      lastFetch = Date.now()
+      fetch('/api/token-history-minutes')
         .then(r => r.json())
         .then(j => Array.isArray(j) && setIfChanged(setRaw, j))
         .catch(() => {})
+    }
+    const onFocus = () => { if (Date.now() - lastFetch > 12_000) load() }
     load()
     const id = setInterval(load, 15_000)
-    window.addEventListener('focus', load)
-    window.addEventListener('mm3-db-updated', load)
+    window.addEventListener('focus', onFocus)
+    window.addEventListener('mm3-db-updated', onFocus)
     return () => {
       clearInterval(id)
-      window.removeEventListener('focus', load)
-      window.removeEventListener('mm3-db-updated', load)
+      window.removeEventListener('focus', onFocus)
+      window.removeEventListener('mm3-db-updated', onFocus)
     }
   }, [enabled])
   return raw
@@ -364,19 +372,23 @@ function useChartData(rawHourly, rawMinutes, range) {
 function useNftEvents(range) {
   const [rawEvts, setRawEvts] = useState([])
   useEffect(() => {
-    const load = () =>
-      fetch('/api/nft-events', { cache: 'no-store' })
+    let lastFetch = 0
+    const load = () => {
+      lastFetch = Date.now()
+      fetch('/api/nft-events')
         .then(r => r.json())
         .then(j => Array.isArray(j) && setIfChanged(setRawEvts, j))
         .catch(() => {})
+    }
+    const onFocus = () => { if (Date.now() - lastFetch > 55_000) load() }
     load()
     const id = setInterval(load, 15_000)
-    window.addEventListener('focus', load)
-    window.addEventListener('mm3-db-updated', load)
+    window.addEventListener('focus', onFocus)
+    window.addEventListener('mm3-db-updated', onFocus)
     return () => {
       clearInterval(id)
-      window.removeEventListener('focus', load)
-      window.removeEventListener('mm3-db-updated', load)
+      window.removeEventListener('focus', onFocus)
+      window.removeEventListener('mm3-db-updated', onFocus)
     }
   }, [])
 
