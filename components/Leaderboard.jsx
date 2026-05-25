@@ -1056,7 +1056,7 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
 
   useEffect(() => {
     fetchInvites();
-    const poll = setInterval(fetchInvites, 5_000);
+    const poll = setInterval(fetchInvites, 60_000);
     return () => clearInterval(poll);
   }, [activeWallet, fetchInvites]);
 
@@ -1112,7 +1112,7 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
         .catch(() => {});
     };
     fetchDisputeState();
-    const poll = setInterval(fetchDisputeState, 5_000);
+    const poll = setInterval(fetchDisputeState, 30_000);
     return () => clearInterval(poll);
   }, [activeWalletPool, activeWallet]);
 
