@@ -138,6 +138,9 @@ CREATE TABLE player_progress (
   sell_quote_eur NUMERIC NOT NULL DEFAULT 0,
   sell_quote_usd NUMERIC NOT NULL DEFAULT 0,
   is_bot BOOLEAN NOT NULL DEFAULT FALSE,
+  relay_exec_count        INTEGER    NOT NULL DEFAULT 0,
+  relay_nftji_acquired_at TIMESTAMPTZ,
+  relay_nftji_partner     TEXT,
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
@@ -455,6 +458,15 @@ CREATE TABLE mm3_relaying_messages (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+CREATE TABLE mm3_relay_exec_log (
+  id             BIGSERIAL    PRIMARY KEY,
+  wallet_origin  TEXT         NOT NULL,
+  wallet_target  TEXT         NOT NULL,
+  delta_origin   INTEGER      NOT NULL DEFAULT 1,
+  delta_target   INTEGER      NOT NULL DEFAULT 1,
+  created_at     TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+);
+
 -- ==============================================
 -- PHASE 3: CREATE INDEXES
 -- ==============================================
@@ -500,6 +512,9 @@ CREATE INDEX idx_mm3_hidden_cmd_executions_wallet_block ON mm3_hidden_cmd_execut
 CREATE INDEX idx_mm3_relaying_messages_wallet ON mm3_relaying_messages(wallet);
 CREATE INDEX idx_mm3_relaying_messages_ts ON mm3_relaying_messages(ts DESC);
 CREATE INDEX idx_mm3_relaying_messages_created_at ON mm3_relaying_messages(created_at DESC);
+CREATE INDEX idx_relay_exec_log_origin  ON mm3_relay_exec_log(wallet_origin);
+CREATE INDEX idx_relay_exec_log_target  ON mm3_relay_exec_log(wallet_target);
+CREATE INDEX idx_relay_exec_log_created ON mm3_relay_exec_log(created_at DESC);
 ALTER TABLE mm3_relaying_messages REPLICA IDENTITY FULL;
 
 -- ==============================================
@@ -1500,6 +1515,7 @@ ALTER TABLE mm3_mining_commands ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mm3_command_penalties ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mm3_hidden_cmd_executions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mm3_relaying_messages ENABLE ROW LEVEL SECURITY;
+ALTER TABLE mm3_relay_exec_log ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mm3_wallet_pool_cooldowns    ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mm3_pool_disputes            ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mm3_squeezing_launches         ENABLE ROW LEVEL SECURITY;
@@ -1692,6 +1708,13 @@ CREATE POLICY "public_insert_chain_solve_attempts" ON mm3_chain_solve_attempts F
 -- mm3_game_winner policies
 DROP POLICY IF EXISTS "public_read_game_winner" ON mm3_game_winner;
 CREATE POLICY "public_read_game_winner" ON mm3_game_winner FOR SELECT TO public USING (true);
+
+-- mm3_relay_exec_log policies
+DROP POLICY IF EXISTS "public_read_relay_exec_log" ON mm3_relay_exec_log;
+CREATE POLICY "public_read_relay_exec_log" ON mm3_relay_exec_log FOR SELECT TO public USING (true);
+
+DROP POLICY IF EXISTS "public_insert_relay_exec_log" ON mm3_relay_exec_log;
+CREATE POLICY "public_insert_relay_exec_log" ON mm3_relay_exec_log FOR INSERT TO public WITH CHECK (wallet_origin <> '' AND wallet_target <> '');
 
 -- ==============================================
 -- PHASE 9: INSERT INITIAL DATA
@@ -1976,6 +1999,8 @@ GRANT SELECT, INSERT, UPDATE   ON mm3_mining_commands          TO anon;
 GRANT SELECT, INSERT, UPDATE   ON mm3_command_penalties        TO anon;
 GRANT SELECT, INSERT           ON mm3_hidden_cmd_executions    TO anon;
 GRANT SELECT, INSERT           ON mm3_relaying_messages             TO anon;
+GRANT SELECT, INSERT           ON mm3_relay_exec_log                TO anon;
+GRANT USAGE, SELECT            ON SEQUENCE mm3_relay_exec_log_id_seq TO anon;
 GRANT DELETE                   ON mm3_relaying_messages             TO anon;
 GRANT SELECT, INSERT           ON daily_task_claims            TO anon;
 GRANT SELECT                   ON mm3_squeezing_launches         TO anon;
