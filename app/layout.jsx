@@ -16,12 +16,33 @@ import { GoogleAuthProvider } from '@/lib/google-auth-context';
 import { DiceProvider } from '@/lib/dice-context';
 import { IrcPresenceProvider } from '@/lib/relaying-presence-context';
 
+const OG_IMAGE = { url: '/og-image.jpg', width: 1200, height: 630, alt: 'MathsMine3 — Solve Math, Mine Crypto' };
+
 export const metadata = {
-  title: { default: 'MathsMine3', template: '%s · MathsMine3' },
-  description: 'Solve math problems to mine MM3 tokens, climb the ranking, and watch your impact on a live token chart. A crypto-freak game powered by @FreakingAI.',
+  title: {
+    default: 'MathsMine3 — Solve Math, Mine Crypto | Free Browser Game',
+    template: '%s | MathsMine3',
+  },
+  description: 'Free browser game where you earn MM3 tokens by solving math problems in real time. No download, no gas fees — play as guest or connect your wallet. Live rankings, pool battles, and NFT rewards.',
   metadataBase: new URL('https://mathsmine3.xyz'),
   alternates: { canonical: '/' },
   authors: [{ name: 'FreakingAI', url: 'https://mathsmine3.xyz' }],
+  keywords: ['math game earn crypto', 'earn tokens solving math', 'crypto mining math puzzle', 'play to earn math game', 'free browser crypto game', 'math quiz blockchain', 'MM3 token game', 'math mining game'],
+  openGraph: {
+    type: 'website',
+    url: 'https://mathsmine3.xyz',
+    title: 'MathsMine3 — Solve Math, Mine Crypto',
+    description: 'Earn MM3 tokens by solving math problems in real time. Free browser game — no download, no gas fees. Live rankings & NFT rewards.',
+    siteName: 'MathsMine3',
+    images: [OG_IMAGE],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'MathsMine3 — Solve Math, Mine Crypto',
+    description: 'Earn MM3 tokens by solving math problems in real time. Free browser game — no download needed.',
+    images: ['/og-image.jpg'],
+  },
+  robots: { index: true, follow: true, googleBot: { index: true, follow: true } },
 };
 
 export default function RootLayout({ children }) {
@@ -38,6 +59,22 @@ export default function RootLayout({ children }) {
         <link rel="dns-prefetch" href="https://verify.walletconnect.com" />
         <link rel="dns-prefetch" href="https://relay.walletconnect.com" />
         <link rel="dns-prefetch" href="https://www.anthropic.com" />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify({
+            '@context': 'https://schema.org',
+            '@type': 'VideoGame',
+            name: 'MathsMine3',
+            description: 'Free browser game where you earn MM3 tokens by solving math problems in real time. No download, no gas fees — play as guest or connect your wallet.',
+            url: 'https://mathsmine3.xyz',
+            genre: ['Puzzle', 'Educational', 'Casual'],
+            applicationCategory: 'Game',
+            operatingSystem: 'Any (browser-based)',
+            offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
+            author: { '@type': 'Organization', name: 'FreakingAI', url: 'https://mathsmine3.xyz' },
+            image: 'https://mathsmine3.xyz/og-image.jpg',
+          }) }}
+        />
       </head>
       <body className="h-full bg-[#070b0f] text-white font-mono">
         <I18nProvider>
