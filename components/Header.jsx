@@ -204,10 +204,8 @@ export default function Header() {
 
       <div className="mm3-header-wallet-row relative z-[40] flex h-7 items-center justify-center gap-1.5 sm:gap-2 border-b border-cyan-900/10 px-2 sm:px-4 overflow-x-auto no-scrollbar">
         <UtcClock className="font-mono text-[0.65rem] sm:text-[0.80rem] font-black tracking-[0.08em] sm:tracking-[0.14em] text-cyan-300 shrink-0" />
-        <Link href="/manifesto" className="shrink-0 px-1 text-[0.82rem] leading-none transition hover:opacity-70" title="Manifesto" aria-label="Manifesto">📜</Link>
         <DailyTaskLink />
         <Mm3Total />
-        <Link href="/ai-team" className="shrink-0 text-[0.82rem] leading-none transition hover:opacity-70 px-1" title="AI Team">🤖</Link>
         <AuthBar mode="wallet" />
       </div>
 
