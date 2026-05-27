@@ -96,9 +96,16 @@ function PenaltyGroup({ penalties, type, currency, onOpen }) {
   const borderCls = isMm3 ? 'border-rose-400/30' : 'border-amber-400/30';
   const bgCls = isMm3 ? 'bg-rose-950/20' : 'bg-amber-950/20';
   const textCls = isMm3 ? 'text-rose-300' : 'text-amber-300';
+  const seen = new Set();
+  const uniquePenalties = penalties.filter((p) => {
+    const key = p.block?.hex || p.nftji_key || '?';
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
   return (
     <div className={`inline-flex flex-wrap items-center gap-0.5 rounded border ${borderCls} ${bgCls} px-1.5 py-0.5`}>
-      {penalties.map((p, i) => (
+      {uniquePenalties.map((p, i) => (
         <button
           key={i}
           type="button"
