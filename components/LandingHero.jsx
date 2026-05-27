@@ -21,8 +21,8 @@ const SECTIONS = {
     { href: '/manifesto',  icon: '📜',  name: 'Manifesto',   desc: 'The philosophy behind MathsMine3 — why math is the proof of work.' },
     { href: '/ai-team',    icon: '🤖',  name: 'AI Team',     desc: 'Meet the bot wallets running 24/7 on the board alongside human miners.' },
     { href: '/daily-tasks', icon: '🎯', name: 'Daily Tasks', desc: 'Complete daily objectives to earn MM3 and fictional EUR. Resets every UTC midnight.', daily: true },
-    { href: null, icon: '⚡', name: 'COMING SOON', desc: '// SYSTEM LOCKED — CLEARANCE REQUIRED — STAND BY //', comingSoon: true },
-    { href: null, icon: '🔮', name: 'COMING SOON', desc: '??? ENCRYPTED ??? ACCESS DENIED ??? STAY TUNED ???', comingSoon: true },
+    { href: null, icon: null, name: 'UNDER CONSTRUCTION', desc: '// work in progress — check back later //', comingSoon: true },
+    { href: null, icon: null, name: 'UNDER CONSTRUCTION', desc: '// work in progress — check back later //', comingSoon: true },
   ],
   es: [
     { href: '/',           icon: '⛏',  name: 'Training',    desc: 'Resuelve problemas contra el reloj. 100/día, 13 tipos. Velocidad = más MM3.' },
@@ -35,8 +35,8 @@ const SECTIONS = {
     { href: '/manifesto',  icon: '📜',  name: 'Manifiesto',  desc: 'La filosofía detrás de MathsMine3 — por qué las matemáticas son la prueba de trabajo.' },
     { href: '/ai-team',    icon: '🤖',  name: 'AI Team',     desc: 'Conoce los bots que corren 24/7 en el tablero junto a los mineros humanos.' },
     { href: '/daily-tasks', icon: '🎯', name: 'Daily Tasks', desc: 'Completa objetivos diarios para ganar MM3 y EUR ficticio. Reinicia cada medianoche UTC.', daily: true },
-    { href: null, icon: '⚡', name: 'COMING SOON', desc: '// SISTEMA BLOQUEADO — AUTORIZACIÓN REQUERIDA — EN ESPERA //', comingSoon: true },
-    { href: null, icon: '🔮', name: 'COMING SOON', desc: '??? CIFRADO ??? ACCESO DENEGADO ??? MANTENTE AL TANTO ???', comingSoon: true },
+    { href: null, icon: null, name: 'UNDER CONSTRUCTION', desc: '// trabajo en progreso — vuelve pronto //', comingSoon: true },
+    { href: null, icon: null, name: 'UNDER CONSTRUCTION', desc: '// trabajo en progreso — vuelve pronto //', comingSoon: true },
   ],
 };
 
@@ -110,7 +110,7 @@ export default function LandingHero() {
             const inner = (
               <>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', position: 'relative' }}>
-                  <span style={{ fontSize: '0.95rem', lineHeight: 1, flexShrink: 0, opacity: isCs ? 0.3 : 1 }}>{icon}</span>
+                  {icon && <span style={{ fontSize: '0.95rem', lineHeight: 1, flexShrink: 0, opacity: isCs ? 0.3 : 1 }}>{icon}</span>}
                   <span style={{ color: nameColor, fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '0.1em', fontWeight: 'bold' }}>{name}</span>
                   {daily && count > 0 && (
                     <span style={{
