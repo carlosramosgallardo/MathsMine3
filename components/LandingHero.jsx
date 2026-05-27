@@ -156,9 +156,12 @@ export default function LandingHero() {
         borderTop: `1px solid ${C}1a`,
         padding: '2.5rem 1rem 3.5rem',
         marginTop: '1rem',
+        width: '100%',
+        boxSizing: 'border-box',
+        overflowX: 'hidden',
       }}
     >
-      <div style={{ maxWidth: '920px', margin: '0 auto' }}>
+      <div style={{ maxWidth: '920px', margin: '0 auto', width: '100%', boxSizing: 'border-box', minWidth: 0 }}>
 
         {/* ── Tagline ── */}
         <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
@@ -177,9 +180,9 @@ export default function LandingHero() {
         <h2 style={{ color: `${C}55`, fontSize: '0.65rem', letterSpacing: '0.22em', textTransform: 'uppercase', textAlign: 'center', marginBottom: '1rem' }}>
           {tx.modesTitle}
         </h2>
-        <ul style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '0.75rem', listStyle: 'none', padding: 0, marginBottom: '2rem' }}>
+        <ul style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(240px, 100%), 1fr))', gap: '0.75rem', listStyle: 'none', padding: 0, marginBottom: '2rem' }}>
           {tx.modes.map(({ icon, name, desc, pills }) => (
-            <li key={name} style={{ background: '#0b1015', border: `1px solid ${C}15`, borderRadius: '8px', padding: '1rem' }}>
+            <li key={name} style={{ background: '#0b1015', border: `1px solid ${C}15`, borderRadius: '8px', padding: '1rem', minWidth: 0 }}>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.5rem', marginBottom: '0.35rem' }}>
                 <span style={{ color: C, fontSize: '0.9rem', minWidth: '1.2rem' }}>{icon}</span>
                 <span style={{ color: '#e2e8f0', fontSize: '0.82rem', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{name}</span>
@@ -187,7 +190,7 @@ export default function LandingHero() {
               <p style={{ color: '#475569', fontSize: '0.76rem', margin: '0 0 0.6rem', lineHeight: '1.5' }}>{desc}</p>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem' }}>
                 {pills.map(p => (
-                  <span key={p} style={{ background: `${C}0d`, border: `1px solid ${C}20`, borderRadius: '3px', padding: '0.15rem 0.45rem', fontSize: '0.68rem', color: '#94a3b8', whiteSpace: 'nowrap' }}>
+                  <span key={p} style={{ background: `${C}0d`, border: `1px solid ${C}20`, borderRadius: '3px', padding: '0.15rem 0.45rem', fontSize: '0.68rem', color: '#94a3b8', wordBreak: 'break-word' }}>
                     {p}
                   </span>
                 ))}
@@ -197,7 +200,7 @@ export default function LandingHero() {
         </ul>
 
         {/* ── Win conditions + Ranks (2-col) ── */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '0.75rem', marginBottom: '2rem' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(260px, 100%), 1fr))', gap: '0.75rem', marginBottom: '2rem' }}>
 
           {/* Win conditions */}
           <div style={{ background: '#0b1015', border: `1px solid ${C}15`, borderRadius: '8px', padding: '1rem' }}>
