@@ -201,27 +201,23 @@ export default function AITeamPage() {
           <p className="text-center text-[0.68rem] uppercase tracking-[0.28em] text-cyan-400/40 mb-3 font-mono">
             {t('aiTeam.builtWith')}
           </p>
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-            <a href="https://www.anthropic.com" target="_blank" rel="noopener noreferrer"
-              className="group flex items-center gap-3 p-3 transition-all" style={{ background: 'rgba(201,115,85,0.04)' }}>
-              <div className="shrink-0 flex h-8 w-8 items-center justify-center" style={{ background: 'rgba(201,115,85,0.12)' }}>
-                <img src="https://www.anthropic.com/favicon.ico" alt="Anthropic" width={18} height={18} loading="lazy" className="rounded-sm" />
-              </div>
-              <div className="min-w-0">
-                <div className="text-xs font-black text-white group-hover:text-[#c97355] transition-colors">Claude</div>
-                <div className="text-[0.62rem] font-mono uppercase tracking-widest text-gray-500">Anthropic · claude-sonnet-4-6</div>
-              </div>
-            </a>
-            <a href="https://openai.com/codex" target="_blank" rel="noopener noreferrer"
-              className="group flex items-center gap-3 p-3 transition-all" style={{ background: 'rgba(255,255,255,0.02)' }}>
-              <div className="shrink-0 flex h-8 w-8 items-center justify-center" style={{ background: 'rgba(255,255,255,0.06)' }}>
-                <img src="https://openai.com/favicon.ico" alt="OpenAI" width={18} height={18} loading="lazy" className="rounded-sm" style={{ filter: 'invert(1) brightness(0.85)' }} />
-              </div>
-              <div className="min-w-0">
-                <div className="text-xs font-black text-white group-hover:text-gray-300 transition-colors">Codex</div>
-                <div className="text-[0.62rem] font-mono uppercase tracking-widest text-gray-500">OpenAI · Codex CLI</div>
-              </div>
-            </a>
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+            {[
+              { href: 'https://www.anthropic.com', logo: 'https://www.anthropic.com/favicon.ico', name: 'Claude', company: 'Anthropic', alt: 'Anthropic', filter: '' },
+              { href: 'https://openai.com', logo: 'https://openai.com/favicon.ico', name: 'Codex', company: 'OpenAI', alt: 'OpenAI', filter: 'invert(1) brightness(0.85)' },
+              { href: 'https://github.com/features/copilot', logo: 'https://github.com/favicon.ico', name: 'Copilot', company: 'GitHub', alt: 'GitHub', filter: 'invert(1) brightness(0.85)' },
+            ].map(({ href, logo, name, company, alt, filter }) => (
+              <a key={name} href={href} target="_blank" rel="noopener noreferrer"
+                className="group flex items-center gap-3 p-3 transition-opacity hover:opacity-75">
+                <div className="shrink-0 flex h-8 w-8 items-center justify-center rounded" style={{ background: 'rgba(255,255,255,0.06)' }}>
+                  <img src={logo} alt={alt} width={18} height={18} loading="lazy" className="rounded-sm" style={{ filter }} />
+                </div>
+                <div className="min-w-0">
+                  <div className="text-xs font-black text-white">{name}</div>
+                  <div className="text-[0.62rem] font-mono uppercase tracking-widest text-gray-500">{company}</div>
+                </div>
+              </a>
+            ))}
           </div>
         </section>
 
