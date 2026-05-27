@@ -56,14 +56,20 @@ html {
   html {
     font-size: 20px;
   }
+  /* header = 34px ticker + 3.5rem identity + 1.75rem wallet + 52px nav + ~3px borders
+     = 5.25rem variable rows + 89px fixed rows; add 6px buffer */
+  .mm3-shell-main {
+    padding-top: calc(5.25rem + 95px);
+  }
 }
 
 @media (min-width: 1800px) {
   html {
     font-size: 22px;
   }
+  /* same formula — at 22px font: 5.25*22+95 ≈ 210px, header ≈ 202px */
   .mm3-shell-main {
-    padding-top: 170px;
+    padding-top: calc(5.25rem + 95px);
   }
 }
 
@@ -778,7 +784,7 @@ footer.bg-black\/97,
   }
 
   .mm3-shell-main {
-    padding-top: clamp(130px, 22dvh, 172px);
+    padding-top: clamp(185px, 24dvh, 215px);
   }
 }
 
