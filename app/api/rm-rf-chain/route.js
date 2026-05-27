@@ -75,7 +75,7 @@ export async function POST(request) {
       text: traceEn,
       ts: Date.now(),
       kind: 'system',
-      tone: 'realchain',
+      tone: 'kernelpanic',
     });
 
     return NextResponse.json({ ok: true, trace_en: traceEn, trace_es: traceEs });

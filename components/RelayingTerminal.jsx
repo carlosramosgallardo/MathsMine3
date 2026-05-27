@@ -162,6 +162,7 @@ function formatChatAuthor(wallet, normalizedWallet, youLabel) {
 }
 
 function formatSystemAuthor(tone) {
+  if (tone === 'kernelpanic') return 'root@mm3';
   if (tone === 'realchain') return 'MathsMine3@ETH·:~$';
   if (tone === 'market') return 'mining@MM3·:~$';
   if (tone === 'squeeze') return 'squeezing@MM3·:~$';
@@ -1206,6 +1207,18 @@ export default function RelayingTerminal({ accent = '#22d3ee' }) {
           tone: rec.tone || 'realchain',
         }), { silent: false });
       })
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'mm3_relaying_messages', filter: 'tone=eq.kernelpanic' }, ({ new: rec }) => {
+        const text = normalizeRelayMessage(rec?.text);
+        if (!text) return;
+        appendMessage(makeMessage({
+          id: `db:${rec.wallet || 'system'}:${rec.ts || rec.created_at || Date.now()}`,
+          kind: rec.kind || 'system',
+          wallet: String(rec.wallet || 'system').toLowerCase(),
+          text,
+          ts: isNaN(Number(rec.ts)) ? new Date(rec.ts || rec.created_at || Date.now()).getTime() : Number(rec.ts),
+          tone: 'kernelpanic',
+        }), { silent: false });
+      })
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'mm3_relaying_messages', filter: 'tone=eq.squeeze' }, ({ new: rec }) => {
         const text = normalizeRelayMessage(rec?.text);
         if (!text) return;
@@ -1661,7 +1674,7 @@ export default function RelayingTerminal({ accent = '#22d3ee' }) {
             }), { silent: true });
           } else {
             const trace = language === 'es' ? data.trace_es : data.trace_en;
-            await broadcastSystemMessage(trace, 'realchain');
+            await broadcastSystemMessage(trace, 'kernelpanic');
             if (typeof window !== 'undefined') {
               window.dispatchEvent(new CustomEvent('mm3-db-updated', { detail: { chainReset: true } }));
             }
@@ -2008,6 +2021,10 @@ export default function RelayingTerminal({ accent = '#22d3ee' }) {
         .mm3-irc-line.system[data-tone='realchain'] {
           color: #a78bfa;
           text-shadow: 0 0 10px rgba(167, 139, 250, 0.28);
+        }
+        .mm3-irc-line.system[data-tone='kernelpanic'] {
+          color: #ef4444;
+          text-shadow: 0 0 12px rgba(239, 68, 68, 0.45);
         }
         .mm3-irc-line.system[data-tone='command']  {
           color: #4ade80;
