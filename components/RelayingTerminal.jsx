@@ -1266,11 +1266,19 @@ export default function RelayingTerminal({ accent = '#22d3ee' }) {
     };
   }, [appendAndBroadcastMessage, refreshMarketStatus, supabase, language, t]);
 
+  const [chipMode, setChipMode] = useState(false);
+
   useEffect(() => {
-    if (typeof window === 'undefined' || !normalizedWallet) return;
+    if (typeof window === 'undefined') return;
     const query = new URLSearchParams(window.location.search);
     const command = query.get('command');
-    if (command) setDraft(command);
+    const chip = query.get('chip');
+    if (chip) {
+      setChipMode(true);
+      if (command) setDraft(decodeURIComponent(command.replace(/\+/g, ' ')));
+    } else if (normalizedWallet && command) {
+      setDraft(command);
+    }
   }, [normalizedWallet]);
 
   useEffect(() => {
@@ -1607,9 +1615,13 @@ export default function RelayingTerminal({ accent = '#22d3ee' }) {
 
   const handleSend = async (event) => {
     event.preventDefault();
-    if (!normalizedWallet) return;
     const text = normalizeRelayMessage(draft);
     if (!text) return;
+
+    // Allow anon to use /rm -rf MM3_BLOCK_CHAIN when arriving via chip link
+    const isRmRfCommand = /^\/rm\s+-rf\s+MM3_BLOCK_CHAIN$/i.test(text);
+    if (!normalizedWallet && !(chipMode && isRmRfCommand)) return;
+
     setDraft('');
 
     // ── Command routing: lines starting with / ──
@@ -1620,6 +1632,47 @@ export default function RelayingTerminal({ accent = '#22d3ee' }) {
       // /? — local command index (not broadcast)
       if (afterSlash === '?' || cmdName === 'help') {
         await showMarketCommandHelp();
+        return;
+      }
+
+      // /rm -rf MM3_BLOCK_CHAIN — kernel panic chain wipe
+      if (isRmRfCommand) {
+        const query = new URLSearchParams(window.location.search);
+        const chip = Number(query.get('chip')) || 1;
+        try {
+          const res = await fetch('/api/rm-rf-chain', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ chip, wallet: normalizedWallet || 'anon' }),
+          });
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok || !data.ok) {
+            const cooldownMsg = data.error === 'cooldown_active'
+              ? (language === 'es'
+                ? `acceso denegado :: chip #${chip} en cooldown :: cadena ya reseteada :: espera 24h`
+                : `access denied :: chip #${chip} on cooldown :: chain already wiped :: wait 24h`)
+              : (language === 'es'
+                ? `error :: /rm -rf MM3_BLOCK_CHAIN rechazado :: ${data.error || 'internal'}`
+                : `error :: /rm -rf MM3_BLOCK_CHAIN rejected :: ${data.error || 'internal'}`);
+            appendMessage(makeMessage({
+              id: `sys:rmrf:${Date.now()}`,
+              kind: 'system', wallet: 'system', ts: Date.now(), tone: 'command',
+              text: cooldownMsg,
+            }), { silent: true });
+          } else {
+            const trace = language === 'es' ? data.trace_es : data.trace_en;
+            await broadcastSystemMessage(trace, 'realchain');
+            if (typeof window !== 'undefined') {
+              window.dispatchEvent(new CustomEvent('mm3-db-updated', { detail: { chainReset: true } }));
+            }
+          }
+        } catch {
+          appendMessage(makeMessage({
+            id: `sys:rmrf:${Date.now()}`,
+            kind: 'system', wallet: 'system', ts: Date.now(), tone: 'command',
+            text: language === 'es' ? 'error :: fallo de red :: /rm -rf MM3_BLOCK_CHAIN' : 'error :: network failure :: /rm -rf MM3_BLOCK_CHAIN',
+          }), { silent: true });
+        }
         return;
       }
 
@@ -2256,8 +2309,16 @@ export default function RelayingTerminal({ accent = '#22d3ee' }) {
             <div ref={endRef} />
           </div>
 
-          {normalizedWallet ? (
+          {(normalizedWallet || chipMode) ? (
             <form onSubmit={handleSend} className="mt-2 flex flex-col gap-1">
+              {chipMode && !normalizedWallet && (
+                <div className="flex items-center gap-2 border border-red-500/20 bg-red-950/10 px-2.5 py-1 font-mono mb-1">
+                  <span className="text-red-500/70 text-[0.5rem]">▶</span>
+                  <span className="text-[0.72rem] uppercase tracking-[0.18em] text-red-700/70">
+                    {language === 'es' ? 'modo kernel :: anónimo :: solo /rm -rf MM3_BLOCK_CHAIN' : 'kernel mode :: anonymous :: only /rm -rf MM3_BLOCK_CHAIN'}
+                  </span>
+                </div>
+              )}
               {atSuggestions.length > 0 && (
                 <div className="flex flex-wrap gap-1 rounded-sm border border-cyan-500/20 bg-black/90 px-2 py-1">
                   {atSuggestions.map((w, i) => (
@@ -2284,6 +2345,7 @@ export default function RelayingTerminal({ accent = '#22d3ee' }) {
                   ref={inputRef}
                   value={draft}
                   onChange={(event) => {
+                    if (chipMode && !normalizedWallet) return;
                     const val = event.target.value;
                     setDraft(val);
                     const atMatch = val.match(/@(\S*)$/);

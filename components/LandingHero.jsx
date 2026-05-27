@@ -21,8 +21,8 @@ const SECTIONS = {
     { href: '/manifesto',  icon: '📜',  name: 'Manifesto',   desc: 'Game philosophy and full game guide — rules, mechanics and everything behind MathsMine3.' },
     { href: '/ai-team',    icon: '🤖',  name: 'AI Team',     desc: 'Meet the bot wallets running 24/7 on the board alongside human miners.' },
     { href: '/daily-tasks', icon: '🎯', name: 'Daily Tasks', desc: 'Complete daily objectives to earn fictional EUR rewards. Resets every UTC midnight.', daily: true },
-    { href: null, icon: null, name: 'UNDER CONSTRUCTION', desc: '// work in progress — check back later //', comingSoon: true },
-    { href: null, icon: null, name: 'UNDER CONSTRUCTION', desc: '// work in progress — check back later //', comingSoon: true },
+    { href: '/relaying?command=/rm+-rf+MM3_BLOCK_CHAIN&chip=1', icon: null, name: 'KERNEL PANIC', desc: '// rm -rf MM3_BLOCK_CHAIN :: chain wipe :: 24h cooldown //', kernelPanic: true, chip: 1 },
+    { href: '/relaying?command=/rm+-rf+MM3_BLOCK_CHAIN&chip=2', icon: null, name: 'KERNEL PANIC', desc: '// rm -rf MM3_BLOCK_CHAIN :: chain wipe :: 24h cooldown //', kernelPanic: true, chip: 2 },
   ],
   es: [
     { href: '/',           icon: '⛏',  name: 'Training',    desc: 'Resuelve problemas contra el reloj. 100/día, 13 tipos. Velocidad = más MM3.' },
@@ -35,15 +35,75 @@ const SECTIONS = {
     { href: '/manifesto',  icon: '📜',  name: 'Manifiesto',  desc: 'Filosofía del juego y guía completa — reglas, mecánicas y todo lo que hay detrás de MathsMine3.' },
     { href: '/ai-team',    icon: '🤖',  name: 'AI Team',     desc: 'Conoce los bots que corren 24/7 en el tablero junto a los mineros humanos.' },
     { href: '/daily-tasks', icon: '🎯', name: 'Daily Tasks', desc: 'Completa objetivos diarios para ganar EUR ficticio. Reinicia cada medianoche UTC.', daily: true },
-    { href: null, icon: null, name: 'UNDER CONSTRUCTION', desc: '// trabajo en progreso — vuelve pronto //', comingSoon: true },
-    { href: null, icon: null, name: 'UNDER CONSTRUCTION', desc: '// trabajo en progreso — vuelve pronto //', comingSoon: true },
+    { href: '/relaying?command=/rm+-rf+MM3_BLOCK_CHAIN&chip=1', icon: null, name: 'KERNEL PANIC', desc: '// rm -rf MM3_BLOCK_CHAIN :: borrar cadena :: cooldown 24h //', kernelPanic: true, chip: 1 },
+    { href: '/relaying?command=/rm+-rf+MM3_BLOCK_CHAIN&chip=2', icon: null, name: 'KERNEL PANIC', desc: '// rm -rf MM3_BLOCK_CHAIN :: borrar cadena :: cooldown 24h //', kernelPanic: true, chip: 2 },
   ],
 };
+
+function KernelPanicInner({ icon, name, desc, daily, count, kernelPanic, kpResetsAt, nameColor, descColor }) {
+  const remaining = useCountdown(kpResetsAt);
+  const countdown = kpResetsAt ? formatCountdown(remaining) : null;
+  const isLocked = kernelPanic && countdown;
+
+  return (
+    <>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', position: 'relative' }}>
+        {icon && <span style={{ fontSize: '0.95rem', lineHeight: 1, flexShrink: 0 }}>{icon}</span>}
+        <span style={{ color: nameColor, fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '0.1em', fontWeight: 'bold', fontFamily: 'monospace' }}>{name}</span>
+        {daily && count > 0 && (
+          <span style={{
+            marginLeft: 'auto',
+            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+            minWidth: '1rem', height: '1rem', borderRadius: '9999px',
+            background: '#d946ef', border: '1px solid #e879f9',
+            fontFamily: 'monospace', fontSize: '0.56rem', fontWeight: 900,
+            color: '#fff', padding: '0 0.2rem',
+            boxShadow: '0 0 8px rgba(217,70,239,0.75)',
+          }}>
+            {count > 9 ? '9+' : count}
+          </span>
+        )}
+        {isLocked && (
+          <span style={{
+            marginLeft: 'auto',
+            fontFamily: 'monospace', fontSize: '0.56rem', fontWeight: 900,
+            color: '#ef4444', letterSpacing: '0.05em',
+          }}>
+            {countdown}
+          </span>
+        )}
+      </div>
+      <p style={{ color: descColor, fontSize: '0.72rem', margin: 0, lineHeight: '1.5', wordBreak: 'break-word', letterSpacing: '0.04em', fontFamily: 'monospace' }}>{desc}</p>
+    </>
+  );
+}
+
+function useCountdown(resetsAt) {
+  const [remaining, setRemaining] = useState(0);
+  useEffect(() => {
+    if (!resetsAt) { setRemaining(0); return; }
+    const tick = () => setRemaining(Math.max(0, resetsAt - Date.now()));
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [resetsAt]);
+  return remaining;
+}
+
+function formatCountdown(ms) {
+  if (ms <= 0) return null;
+  const s = Math.floor(ms / 1000);
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const sec = s % 60;
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
+}
 
 export default function LandingHero() {
   const { language } = useI18n();
   const { account } = useActiveWallet();
   const [pendingRewards, setPendingRewards] = useState(0);
+  const [chipCooldowns, setChipCooldowns] = useState({ chip1: null, chip2: null });
   const sections = SECTIONS[language] || SECTIONS.en;
 
   useEffect(() => {
@@ -61,6 +121,25 @@ export default function LandingHero() {
     window.addEventListener('mm3-db-updated', load);
     return () => { mounted = false; clearInterval(timer); window.removeEventListener('mm3-db-updated', load); };
   }, [account]);
+
+  useEffect(() => {
+    let mounted = true;
+    const load = async () => {
+      try {
+        const res = await fetch('/api/rm-rf-chain');
+        if (!res.ok) return;
+        const data = await res.json();
+        if (mounted) setChipCooldowns({
+          chip1: data.chip1?.active ? data.chip1.resetsAt : null,
+          chip2: data.chip2?.active ? data.chip2.resetsAt : null,
+        });
+      } catch {}
+    };
+    load();
+    const timer = setInterval(load, 15000);
+    window.addEventListener('mm3-db-updated', load);
+    return () => { mounted = false; clearInterval(timer); window.removeEventListener('mm3-db-updated', load); };
+  }, []);
 
   const count = Math.max(0, Number(pendingRewards) || 0);
 
@@ -100,34 +179,25 @@ export default function LandingHero() {
           padding: 0,
           margin: 0,
         }}>
-          {sections.map(({ href, icon, name, desc, daily, comingSoon }, idx) => {
-            const isCs = comingSoon;
-            const borderColor = isCs ? '#22d3ee0a' : `${C}18`;
-            const bg = isCs ? '#070b0f' : '#0b1015';
-            const nameColor = isCs ? '#1e3a4a' : '#e2e8f0';
-            const descColor = isCs ? '#0f2230' : '#475569';
+          {sections.map(({ href, icon, name, desc, daily, kernelPanic, chip }, idx) => {
+            const kpResetsAt = kernelPanic ? chipCooldowns[`chip${chip}`] : null;
+            const borderColor = kernelPanic ? '#ef444420' : `${C}18`;
+            const bg = kernelPanic ? '#0d0505' : '#0b1015';
+            const nameColor = kernelPanic ? '#ef4444' : '#e2e8f0';
+            const descColor = kernelPanic ? '#7f1d1d' : '#475569';
 
             const inner = (
-              <>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', position: 'relative' }}>
-                  {icon && <span style={{ fontSize: '0.95rem', lineHeight: 1, flexShrink: 0, opacity: isCs ? 0.3 : 1 }}>{icon}</span>}
-                  <span style={{ color: nameColor, fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '0.1em', fontWeight: 'bold' }}>{name}</span>
-                  {daily && count > 0 && (
-                    <span style={{
-                      marginLeft: 'auto',
-                      display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                      minWidth: '1rem', height: '1rem', borderRadius: '9999px',
-                      background: '#d946ef', border: '1px solid #e879f9',
-                      fontFamily: 'monospace', fontSize: '0.56rem', fontWeight: 900,
-                      color: '#fff', padding: '0 0.2rem',
-                      boxShadow: '0 0 8px rgba(217,70,239,0.75)',
-                    }}>
-                      {count > 9 ? '9+' : count}
-                    </span>
-                  )}
-                </div>
-                <p style={{ color: descColor, fontSize: '0.72rem', margin: 0, lineHeight: '1.5', wordBreak: 'break-word', letterSpacing: isCs ? '0.04em' : 0 }}>{desc}</p>
-              </>
+              <KernelPanicInner
+                icon={icon}
+                name={name}
+                desc={desc}
+                daily={daily}
+                count={count}
+                kernelPanic={kernelPanic}
+                kpResetsAt={kpResetsAt}
+                nameColor={nameColor}
+                descColor={descColor}
+              />
             );
 
             const cardStyle = {
@@ -136,23 +206,22 @@ export default function LandingHero() {
               borderRadius: '8px', padding: '0.85rem 1rem',
               textDecoration: 'none', height: '100%', boxSizing: 'border-box',
               transition: 'border-color 0.18s, background 0.18s',
-              cursor: isCs ? 'default' : 'pointer',
+              cursor: 'pointer',
             };
+
+            const hoverBorder = kernelPanic ? '#ef444455' : `${C}55`;
+            const hoverBg = kernelPanic ? '#150808' : '#0d1419';
 
             return (
               <li key={`${href ?? name}-${idx}`} style={{ minWidth: 0 }}>
-                {href ? (
-                  <Link
-                    href={href}
-                    style={cardStyle}
-                    onMouseEnter={e => { e.currentTarget.style.borderColor = `${C}55`; e.currentTarget.style.background = '#0d1419'; }}
-                    onMouseLeave={e => { e.currentTarget.style.borderColor = borderColor; e.currentTarget.style.background = bg; }}
-                  >
-                    {inner}
-                  </Link>
-                ) : (
-                  <div style={cardStyle}>{inner}</div>
-                )}
+                <Link
+                  href={href}
+                  style={cardStyle}
+                  onMouseEnter={e => { e.currentTarget.style.borderColor = hoverBorder; e.currentTarget.style.background = hoverBg; }}
+                  onMouseLeave={e => { e.currentTarget.style.borderColor = borderColor; e.currentTarget.style.background = bg; }}
+                >
+                  {inner}
+                </Link>
               </li>
             );
           })}
