@@ -1,7 +1,6 @@
 'use client';
 
 import SectionFrame from '@/components/SectionFrame';
-import DailyTasks from '@/components/DailyTasks';
 import { useMm3Accent } from '@/lib/use-mm3-accent';
 import { useI18n } from '@/lib/i18n-context';
 
@@ -495,7 +494,6 @@ export default function ManifestoClient({ enContent, esContent }) {
             }
           `}</style>
 
-          <DailyTasks framed={false} />
           <ReadmeTerminal readmeText={manifestoContent} />
         </div>
       </SectionFrame>

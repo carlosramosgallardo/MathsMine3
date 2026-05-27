@@ -1,7 +1,11 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useI18n } from '@/lib/i18n-context';
+import { useActiveWallet } from '@/lib/use-active-wallet';
+import { loadDailyTaskProgress } from '@/lib/daily-tasks';
+import supabase from '@/lib/supabaseClient';
 
 const C = '#22d3ee';
 
@@ -13,9 +17,12 @@ const SECTIONS = {
     { href: '/ranking',    icon: '🏆',  name: 'Ranking',     desc: 'Live wallet & pool leaderboard. Mining %, level, EXECs and penalty log.' },
     { href: '/squeezing',  icon: '⚔',  name: 'Squeezing',   desc: 'Pool-vs-pool combat. Stakes burned, NFTJI drops, formula shifts.' },
     { href: '/relaying',   icon: '>_', name: 'Relaying',    desc: 'Main action terminal. /mine commands, world events, live chain log.' },
-    { href: '/mm3-value',  icon: '📈',  name: 'MM3 Chart',   desc: 'Real-time MM3 token value chart across EUR, USD and CNY.' },
+    { href: '/mm3-value',  icon: '📈',  name: 'MM3 Chart',   desc: 'Global MM3 token value — live chart filterable by EUR, USD or CNY to see exchange impact.' },
     { href: '/manifesto',  icon: '📜',  name: 'Manifesto',   desc: 'The philosophy behind MathsMine3 — why math is the proof of work.' },
     { href: '/ai-team',    icon: '🤖',  name: 'AI Team',     desc: 'Meet the bot wallets running 24/7 on the board alongside human miners.' },
+    { href: '/daily-tasks', icon: '🎯', name: 'Daily Tasks', desc: 'Complete daily objectives to earn MM3 and fictional EUR. Resets every UTC midnight.', daily: true },
+    { href: null, icon: '⚡', name: 'COMING SOON', desc: '// SYSTEM LOCKED — CLEARANCE REQUIRED — STAND BY //', comingSoon: true },
+    { href: null, icon: '🔮', name: 'COMING SOON', desc: '??? ENCRYPTED ??? ACCESS DENIED ??? STAY TUNED ???', comingSoon: true },
   ],
   es: [
     { href: '/',           icon: '⛏',  name: 'Training',    desc: 'Resuelve problemas contra el reloj. 100/día, 13 tipos. Velocidad = más MM3.' },
@@ -24,15 +31,38 @@ const SECTIONS = {
     { href: '/ranking',    icon: '🏆',  name: 'Ranking',     desc: 'Clasificación en vivo de wallets y pools. Mining %, nivel, EXECs y penalizaciones.' },
     { href: '/squeezing',  icon: '⚔',  name: 'Squeezing',   desc: 'Combate pool-vs-pool. Stakes quemados, drops de NFTJI, la fórmula cambia.' },
     { href: '/relaying',   icon: '>_', name: 'Relaying',    desc: 'Terminal de acción. Comandos /mine, eventos del mundo, log de cadena en vivo.' },
-    { href: '/mm3-value',  icon: '📈',  name: 'MM3 Chart',   desc: 'Gráfica del valor del token MM3 en tiempo real en EUR, USD y CNY.' },
+    { href: '/mm3-value',  icon: '📈',  name: 'MM3 Chart',   desc: 'Valor global del token MM3 — gráfica en vivo filtrable por EUR, USD o CNY para ver el impacto.' },
     { href: '/manifesto',  icon: '📜',  name: 'Manifiesto',  desc: 'La filosofía detrás de MathsMine3 — por qué las matemáticas son la prueba de trabajo.' },
     { href: '/ai-team',    icon: '🤖',  name: 'AI Team',     desc: 'Conoce los bots que corren 24/7 en el tablero junto a los mineros humanos.' },
+    { href: '/daily-tasks', icon: '🎯', name: 'Daily Tasks', desc: 'Completa objetivos diarios para ganar MM3 y EUR ficticio. Reinicia cada medianoche UTC.', daily: true },
+    { href: null, icon: '⚡', name: 'COMING SOON', desc: '// SISTEMA BLOQUEADO — AUTORIZACIÓN REQUERIDA — EN ESPERA //', comingSoon: true },
+    { href: null, icon: '🔮', name: 'COMING SOON', desc: '??? CIFRADO ??? ACCESO DENEGADO ??? MANTENTE AL TANTO ???', comingSoon: true },
   ],
 };
 
 export default function LandingHero() {
   const { language } = useI18n();
+  const { account } = useActiveWallet();
+  const [pendingRewards, setPendingRewards] = useState(0);
   const sections = SECTIONS[language] || SECTIONS.en;
+
+  useEffect(() => {
+    const wallet = String(account || '').toLowerCase();
+    if (!wallet) { setPendingRewards(0); return; }
+    let mounted = true;
+    const load = async () => {
+      try {
+        const state = await loadDailyTaskProgress(supabase, wallet);
+        if (mounted) setPendingRewards(state.pendingRewards || 0);
+      } catch { if (mounted) setPendingRewards(0); }
+    };
+    load();
+    const timer = setInterval(load, 30000);
+    window.addEventListener('mm3-db-updated', load);
+    return () => { mounted = false; clearInterval(timer); window.removeEventListener('mm3-db-updated', load); };
+  }, [account]);
+
+  const count = Math.max(0, Number(pendingRewards) || 0);
 
   return (
     <section
@@ -70,40 +100,62 @@ export default function LandingHero() {
           padding: 0,
           margin: 0,
         }}>
-          {sections.map(({ href, icon, name, desc }) => (
-            <li key={href} style={{ minWidth: 0 }}>
-              <Link
-                href={href}
-                style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '0.35rem',
-                  background: '#0b1015',
-                  border: `1px solid ${C}18`,
-                  borderRadius: '8px',
-                  padding: '0.85rem 1rem',
-                  textDecoration: 'none',
-                  transition: 'border-color 0.18s, background 0.18s',
-                  height: '100%',
-                  boxSizing: 'border-box',
-                }}
-                onMouseEnter={e => {
-                  e.currentTarget.style.borderColor = `${C}55`;
-                  e.currentTarget.style.background = '#0d1419';
-                }}
-                onMouseLeave={e => {
-                  e.currentTarget.style.borderColor = `${C}18`;
-                  e.currentTarget.style.background = '#0b1015';
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <span style={{ fontSize: '0.95rem', lineHeight: 1, flexShrink: 0 }}>{icon}</span>
-                  <span style={{ color: '#e2e8f0', fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '0.1em', fontWeight: 'bold' }}>{name}</span>
+          {sections.map(({ href, icon, name, desc, daily, comingSoon }, idx) => {
+            const isCs = comingSoon;
+            const borderColor = isCs ? '#22d3ee0a' : `${C}18`;
+            const bg = isCs ? '#070b0f' : '#0b1015';
+            const nameColor = isCs ? '#1e3a4a' : '#e2e8f0';
+            const descColor = isCs ? '#0f2230' : '#475569';
+
+            const inner = (
+              <>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', position: 'relative' }}>
+                  <span style={{ fontSize: '0.95rem', lineHeight: 1, flexShrink: 0, opacity: isCs ? 0.3 : 1 }}>{icon}</span>
+                  <span style={{ color: nameColor, fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '0.1em', fontWeight: 'bold' }}>{name}</span>
+                  {daily && count > 0 && (
+                    <span style={{
+                      marginLeft: 'auto',
+                      display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                      minWidth: '1rem', height: '1rem', borderRadius: '9999px',
+                      background: '#d946ef', border: '1px solid #e879f9',
+                      fontFamily: 'monospace', fontSize: '0.56rem', fontWeight: 900,
+                      color: '#fff', padding: '0 0.2rem',
+                      boxShadow: '0 0 8px rgba(217,70,239,0.75)',
+                    }}>
+                      {count > 9 ? '9+' : count}
+                    </span>
+                  )}
                 </div>
-                <p style={{ color: '#475569', fontSize: '0.72rem', margin: 0, lineHeight: '1.5', wordBreak: 'break-word' }}>{desc}</p>
-              </Link>
-            </li>
-          ))}
+                <p style={{ color: descColor, fontSize: '0.72rem', margin: 0, lineHeight: '1.5', wordBreak: 'break-word', letterSpacing: isCs ? '0.04em' : 0 }}>{desc}</p>
+              </>
+            );
+
+            const cardStyle = {
+              display: 'flex', flexDirection: 'column', gap: '0.35rem',
+              background: bg, border: `1px solid ${borderColor}`,
+              borderRadius: '8px', padding: '0.85rem 1rem',
+              textDecoration: 'none', height: '100%', boxSizing: 'border-box',
+              transition: 'border-color 0.18s, background 0.18s',
+              cursor: isCs ? 'default' : 'pointer',
+            };
+
+            return (
+              <li key={`${href ?? name}-${idx}`} style={{ minWidth: 0 }}>
+                {href ? (
+                  <Link
+                    href={href}
+                    style={cardStyle}
+                    onMouseEnter={e => { e.currentTarget.style.borderColor = `${C}55`; e.currentTarget.style.background = '#0d1419'; }}
+                    onMouseLeave={e => { e.currentTarget.style.borderColor = borderColor; e.currentTarget.style.background = bg; }}
+                  >
+                    {inner}
+                  </Link>
+                ) : (
+                  <div style={cardStyle}>{inner}</div>
+                )}
+              </li>
+            );
+          })}
         </ul>
 
         <p style={{ textAlign: 'center', color: '#1e293b', fontSize: '0.65rem', letterSpacing: '0.04em', marginTop: '2rem' }}>
