@@ -13,6 +13,7 @@ import {
   MM3_BLOCK_REQUIREMENT_BY_HEX,
   blockHexToGrid,
   doesGlobalValueMeetRequirement,
+  gridToBlockHex,
   mm3ValueToHex,
 } from '@/lib/mm3-block-chain';
 import { formatWalletLabel } from '@/lib/wallet-format';
@@ -1358,6 +1359,46 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
       if (!targetBlock.first_purchased_at) {
         await supabase.from('mm3_mining_blocks')
           .update({ first_purchased_at: now }).eq('block_key', targetBlock.block_key);
+      }
+
+      // Add NFTJI block to chain when no chain entry exists yet (first buyer adds it)
+      if (targetBlock.grid_row != null && targetBlock.grid_col != null) {
+        const nftjiBlockHex = gridToBlockHex(targetBlock.grid_row, targetBlock.grid_col);
+        const { data: existingNftjiEntry } = await supabase
+          .from('mm3_mined_blocks').select('id').eq('block_hex', nftjiBlockHex).maybeSingle();
+        if (!existingNftjiEntry) {
+          const { data: lastChainForNftji } = await supabase
+            .from('mm3_mined_blocks')
+            .select('chain_index')
+            .order('chain_index', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          await supabase.from('mm3_mined_blocks').insert({
+            block_hex: nftjiBlockHex,
+            grid_row: targetBlock.grid_row,
+            grid_col: targetBlock.grid_col,
+            wallet,
+            wallet_level: level,
+            mm3_value: 0,
+            mm3_value_hex: '0',
+            chain_index: (Number(lastChainForNftji?.chain_index) || 0) + 1,
+          }).catch(() => {});
+        }
+      }
+
+      // Remove resold NFTJI from chain if nobody owns it anymore
+      if (preTradeMarketKey && preTradeMarketKey !== targetBlock.block_key) {
+        const { count: remainingOwnersOld } = await supabase
+          .from('player_progress')
+          .select('wallet', { count: 'exact', head: true })
+          .eq('mining_nftji_key', preTradeMarketKey);
+        if ((remainingOwnersOld || 0) === 0) {
+          const oldBlock = marketBlocks?.find((b) => b.block_key === preTradeMarketKey);
+          if (oldBlock?.grid_row != null && oldBlock?.grid_col != null) {
+            const oldNftjiHex = gridToBlockHex(oldBlock.grid_row, oldBlock.grid_col);
+            await supabase.from('mm3_mined_blocks').delete().eq('block_hex', oldNftjiHex).catch(() => {});
+          }
+        }
       }
 
       currentMarketKey = targetBlock.block_key;

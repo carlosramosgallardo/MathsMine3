@@ -21,6 +21,7 @@ import {
   BLOCK_CHAIN_TITLE,
   buildBlockChainCode,
   formatBlockRequirement,
+  gridToBlockHex,
   MM3_BLOCK_GRID_COLS,
   MM3_BLOCK_GRID_ROWS,
   MM3_BLOCK_REQUIREMENT_BY_HEX,
@@ -900,6 +901,34 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
         await spawnNewBlock(blocks);
       }
 
+      // Add NFTJI block to chain when no chain entry exists yet (first buyer adds it)
+      if (selectedBlock.grid_row != null && selectedBlock.grid_col != null) {
+        const nftjiBlockHex = gridToBlockHex(selectedBlock.grid_row, selectedBlock.grid_col);
+        const { data: existingNftjiEntry } = await supabase
+          .from('mm3_mined_blocks')
+          .select('id')
+          .eq('block_hex', nftjiBlockHex)
+          .maybeSingle();
+        if (!existingNftjiEntry) {
+          const { data: lastChainEntry } = await supabase
+            .from('mm3_mined_blocks')
+            .select('chain_index')
+            .order('chain_index', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          await supabase.from('mm3_mined_blocks').insert({
+            block_hex: nftjiBlockHex,
+            grid_row: selectedBlock.grid_row,
+            grid_col: selectedBlock.grid_col,
+            wallet,
+            wallet_level: level,
+            mm3_value: 0,
+            mm3_value_hex: '0',
+            chain_index: (Number(lastChainEntry?.chain_index) || 0) + 1,
+          }).catch(() => {});
+        }
+      }
+
       fetch('/api/chain-check', { method: 'POST' }).catch(() => {});
 
       playMarketClaim();
@@ -1014,6 +1043,18 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
         delta_mm3: resellDelta,
         emoji: String(resoldBlock?.emoji || resoldKey),
       });
+
+      // Remove NFTJI from chain if nobody owns it anymore (player_progress already cleared above)
+      if (resoldBlock?.grid_row != null && resoldBlock?.grid_col != null) {
+        const { count: remainingOwners } = await supabase
+          .from('player_progress')
+          .select('wallet', { count: 'exact', head: true })
+          .eq('mining_nftji_key', resoldKey);
+        if ((remainingOwners || 0) === 0) {
+          const nftjiBlockHex = gridToBlockHex(resoldBlock.grid_row, resoldBlock.grid_col);
+          await supabase.from('mm3_mined_blocks').delete().eq('block_hex', nftjiBlockHex);
+        }
+      }
 
       notify(
         `${t('mining.resellSuccess')} ${paysWithMm3 ? `${returnEur.toFixed(8).replace(/\.?0+$/, '') || '0'} MM3` : formatMoney(returnEur, 'EUR')}`,
