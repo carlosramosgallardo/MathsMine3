@@ -119,7 +119,7 @@ export async function GET() {
     status: 200,
     headers: {
       'Content-Type': 'application/json',
-      'Cache-Control': 'public, s-maxage=25, stale-while-revalidate=5',
+      'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=60',
     }
   })
 }

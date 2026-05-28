@@ -169,7 +169,7 @@ export async function GET(req) {
     status: 200,
     headers: {
       'Content-Type': 'application/json',
-      'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=120',
+      'Cache-Control': 'public, s-maxage=120, stale-while-revalidate=300',
       ...getRateLimitHeaders((count ?? 0) + 1)
     }
   })

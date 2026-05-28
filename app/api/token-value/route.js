@@ -16,10 +16,6 @@ export async function GET(req) {
     req.headers.get('x-forwarded-for') ?? req.headers.get('x-real-ip') ?? 'unknown'
   const endpoint = '/api/token-value'
 
-
-  await supabase.from('api_requests').insert({ ip, endpoint })
-
-
   const since = new Date(Date.now() - RATE_LIMIT_WINDOW_MS).toISOString()
 
   const { count, error: countError } = await supabase
@@ -40,7 +36,7 @@ export async function GET(req) {
     })
   }
 
-  if (count >= RATE_LIMIT_MAX) {
+  if ((count ?? 0) >= RATE_LIMIT_MAX) {
     return new Response(JSON.stringify({ error: 'Rate limit exceeded. Try again later.' }), {
       status: 429,
       headers: {
@@ -49,6 +45,8 @@ export async function GET(req) {
       }
     })
   }
+
+  await supabase.from('api_requests').insert({ ip, endpoint })
 
 
   const { data, error } = await supabase
