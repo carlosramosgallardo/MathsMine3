@@ -464,17 +464,22 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
       const nextMinedBlocks = Array.isArray(snapshot.minedBlocks) ? snapshot.minedBlocks : [];
       setMinedBlocks(nextMinedBlocks);
       setBlockChain(snapshot.blockChain || (() => {
+        const nftjiHxsFallback = new Set(
+          (snapshot.blocks || []).filter(b => b.grid_row != null && b.grid_col != null)
+            .map(b => gridToBlockHex(b.grid_row, b.grid_col))
+        );
+        const freeMinedCount = nextMinedBlocks.filter(b => !nftjiHxsFallback.has(b.block_hex)).length;
         const ownedNftjiCount = new Set(
           (snapshot.owners || []).map((o) => o.mining_nftji_key).filter(Boolean)
         ).size;
-        const totalCovered = nextMinedBlocks.length + ownedNftjiCount;
+        const totalCovered = freeMinedCount + ownedNftjiCount;
         const boardTotal = GRID_ROWS * GRID_COLS;
         return {
           title: BLOCK_CHAIN_TITLE,
           mined: totalCovered,
           total: boardTotal,
           percent: Math.round((totalCovered / boardTotal) * 10000) / 100,
-          freeBlocksMined: nextMinedBlocks.length,
+          freeBlocksMined: freeMinedCount,
           nftjiCovered: ownedNftjiCount,
           code: buildBlockChainCode(nextMinedBlocks),
         };
@@ -790,7 +795,7 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
     try {
       const wallet = account.toLowerCase();
 
-      const [{ data: blockRow, error: blockError }, { data: progressRow }, { data: statsRow }, { count: walletMinedCountBuy }] = await Promise.all([
+      const [{ data: blockRow, error: blockError }, { data: progressRow }, { data: statsRow }, { data: walletMinedRowsBuy }] = await Promise.all([
         supabase
           .from('mm3_mining_blocks')
           .select('block_key, emoji, price_eur, is_active, first_purchased_at, market_command')
@@ -802,7 +807,7 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
           .eq('wallet', wallet)
           .maybeSingle(),
         supabase.from('leaderboard_data').select('total_eth').eq('wallet', wallet).maybeSingle(),
-        supabase.from('mm3_mined_blocks').select('id', { count: 'exact', head: true }).eq('wallet', wallet),
+        supabase.from('mm3_mined_blocks').select('block_hex').eq('wallet', wallet),
       ]);
 
       if (blockError || !blockRow) throw blockError || new Error(t('mining.dbMissing'));
@@ -880,7 +885,11 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
             ...(progressRow?.mining_nftji_levels || {}),
             [selectedBlock.block_key]: Number((progressRow?.mining_nftji_levels || {})[selectedBlock.block_key] ?? -1) + 1,
           },
-          block_chain_percent: Math.round(((Number(walletMinedCountBuy) || 0) + 1) / (GRID_ROWS * GRID_COLS) * 10000) / 100,
+          block_chain_percent: (() => {
+            const nftjiHxs = new Set(blocks.filter(b => b.grid_row != null && b.grid_col != null).map(b => gridToBlockHex(b.grid_row, b.grid_col)));
+            const freeMined = (walletMinedRowsBuy || []).filter(r => !nftjiHxs.has(r.block_hex)).length;
+            return Math.round((freeMined + 1) / (GRID_ROWS * GRID_COLS) * 10000) / 100;
+          })(),
           updated_at: now,
         }, { onConflict: 'wallet', ignoreDuplicates: false });
       if (progressError) throw progressError;
@@ -956,14 +965,14 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
     try {
       const wallet = account.toLowerCase();
 
-      const [{ data: progressRow }, { data: statsRow }, { count: walletMinedCountResell }] = await Promise.all([
+      const [{ data: progressRow }, { data: statsRow }, { data: walletMinedRowsResell }] = await Promise.all([
         supabase
           .from('player_progress')
           .select('level, mm3_sold, eur_earned, usd_earned, cny_earned, wallet_emojis, life_used, lucky_50_claimed, lucky_100_claimed, lucky_500_claimed, lucky_1000_claimed, mining_nftji_key, mining_nftji_price, mining_nftji_levels')
           .eq('wallet', wallet)
           .maybeSingle(),
         supabase.from('leaderboard_data').select('total_eth').eq('wallet', wallet).maybeSingle(),
-        supabase.from('mm3_mined_blocks').select('id', { count: 'exact', head: true }).eq('wallet', wallet),
+        supabase.from('mm3_mined_blocks').select('block_hex').eq('wallet', wallet),
       ]);
 
       if (!progressRow?.mining_nftji_key || progressRow.mining_nftji_key !== selectedBlock.block_key) {
@@ -1017,7 +1026,11 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
           mining_nftji_price: 0,
           mining_nftji_since: null,
           mining_nftji_levels: progressRow.mining_nftji_levels || {},
-          block_chain_percent: Math.round((Number(walletMinedCountResell) || 0) / (GRID_ROWS * GRID_COLS) * 10000) / 100,
+          block_chain_percent: (() => {
+            const nftjiHxs = new Set(blocks.filter(b => b.grid_row != null && b.grid_col != null).map(b => gridToBlockHex(b.grid_row, b.grid_col)));
+            const freeMined = (walletMinedRowsResell || []).filter(r => !nftjiHxs.has(r.block_hex)).length;
+            return Math.round(freeMined / (GRID_ROWS * GRID_COLS) * 10000) / 100;
+          })(),
           updated_at: now,
         }, { onConflict: 'wallet', ignoreDuplicates: false });
       if (progressError) throw progressError;

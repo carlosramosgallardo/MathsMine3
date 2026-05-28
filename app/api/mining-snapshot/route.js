@@ -2,7 +2,7 @@ export const dynamic = 'force-dynamic';
 
 import { createClient } from '@supabase/supabase-js';
 import { normalizeWalletDecorations } from '@/lib/wallet-decorations';
-import { buildBlockChainCode, MM3_BLOCK_CHAIN_REQUIREMENTS } from '@/lib/mm3-block-chain';
+import { buildBlockChainCode, gridToBlockHex, MM3_BLOCK_CHAIN_REQUIREMENTS } from '@/lib/mm3-block-chain';
 import { TOTAL_BOARD_CELLS } from '@/lib/chain-winner';
 
 const PUBLIC_CACHE_MS = 10_000;
@@ -42,10 +42,17 @@ async function getPublicMarketSnapshot(supabase) {
         if (blocksResponse.error) throw blocksResponse.error;
         if (minedResponse.error && minedResponse.error.code !== '42P01') throw minedResponse.error;
         const minedBlocks = minedResponse.data || [];
+        // Compute reserved NFTJI block hexes to exclude them from free-mined coverage count
+        const nftjiHexes = new Set(
+          (blocksResponse.data || [])
+            .filter(b => b.grid_row != null && b.grid_col != null)
+            .map(b => gridToBlockHex(b.grid_row, b.grid_col))
+        );
+        const freeMinedBlocks = minedBlocks.filter(b => !nftjiHexes.has(b.block_hex));
         const ownedNftjiCount = new Set(
           (ownersResponse.data || []).map((o) => o.mining_nftji_key).filter(Boolean)
         ).size;
-        const totalCovered = minedBlocks.length + ownedNftjiCount;
+        const totalCovered = freeMinedBlocks.length + ownedNftjiCount;
         const payload = {
           blocks: blocksResponse.data || [],
           owners: ownersResponse.data || [],
@@ -55,7 +62,7 @@ async function getPublicMarketSnapshot(supabase) {
             mined: totalCovered,
             total: TOTAL_BOARD_CELLS,
             percent: Math.round((totalCovered / TOTAL_BOARD_CELLS) * 10000) / 100,
-            freeBlocksMined: minedBlocks.length,
+            freeBlocksMined: freeMinedBlocks.length,
             nftjiCovered: ownedNftjiCount,
             code: buildBlockChainCode(minedBlocks),
           },

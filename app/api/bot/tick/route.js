@@ -1316,9 +1316,14 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
       const buyDelta = (newPrice / (rateCny * CNY_TO_EUR)) * (1 + marketDm);
 
       const freshMm3Sold = Number(freshProg?.mm3_sold) || 0;
-      const { count: botMinedCount } = await supabase
-        .from('mm3_mined_blocks').select('id', { count: 'exact', head: true }).eq('wallet', wallet);
-      const botBuyPct = Math.round(((Number(botMinedCount) || 0) + 1) / TOTAL_BOARD_CELLS * 10000) / 100;
+      const nftjiHexesBuy = new Set(
+        (marketBlocks || []).filter(b => b.grid_row != null && b.grid_col != null)
+          .map(b => gridToBlockHex(b.grid_row, b.grid_col))
+      );
+      const { data: botMinedRows } = await supabase
+        .from('mm3_mined_blocks').select('block_hex').eq('wallet', wallet);
+      const botMinedCount = (botMinedRows || []).filter(r => !nftjiHexesBuy.has(r.block_hex)).length;
+      const botBuyPct = Math.round((botMinedCount + 1) / TOTAL_BOARD_CELLS * 10000) / 100;
       await supabase.from('player_progress').upsert({
         wallet, is_bot: true,
         ...(isMm3Payment
@@ -1694,28 +1699,33 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
       });
 
       if (!mineErr) {
-        const [{ data: allMined }, { count: reservedCount }, { data: freshBotProg }] = await Promise.all([
-          supabase.from('mm3_mined_blocks').select('wallet, chain_index'),
-          supabase.from('mm3_mining_blocks').select('block_key', { count: 'exact', head: true }),
+        const [{ data: allMined }, { data: nftjiPositionsMine, count: reservedCount }, { data: freshBotProg }] = await Promise.all([
+          supabase.from('mm3_mined_blocks').select('wallet, chain_index, block_hex'),
+          supabase.from('mm3_mining_blocks').select('grid_row, grid_col', { count: 'exact' }),
           supabase.from('player_progress').select('mining_nftji_key').eq('wallet', wallet).maybeSingle(),
         ]);
+        const nftjiHexesMine = new Set(
+          (nftjiPositionsMine || []).filter(b => b.grid_row != null && b.grid_col != null)
+            .map(b => gridToBlockHex(b.grid_row, b.grid_col))
+        );
+        const freeMinedRows = (allMined || []).filter(r => !nftjiHexesMine.has(r.block_hex));
         const freeBlocksTotal = Math.max(1, MM3_BLOCK_CHAIN_REQUIREMENTS.length - (Number(reservedCount) || 0));
-        const walletMinedCount = (allMined || []).filter((r) => String(r.wallet || '').toLowerCase() === wallet).length;
+        const walletMinedCount = freeMinedRows.filter((r) => String(r.wallet || '').toLowerCase() === wallet).length;
         const walletPct = Math.round(
           ((walletMinedCount + (freshBotProg?.mining_nftji_key ? 1 : 0)) / TOTAL_BOARD_CELLS) * 10000
         ) / 100;
-        const freeChainPct = Math.round(((allMined || []).length / freeBlocksTotal) * 10000) / 100;
+        const freeChainPct = Math.round((freeMinedRows.length / freeBlocksTotal) * 10000) / 100;
 
         await supabase.from('player_progress').upsert({
           wallet, is_bot: true, block_chain_percent: walletPct, updated_at: now,
         }, { onConflict: 'wallet', ignoreDuplicates: false });
 
-        const trace = `MM3 BLOCK CHAIN IN PROGRESS >> mined ${pick.blockHex} by ${formatWalletLabel(wallet)} >> ${(allMined || []).length}/${freeBlocksTotal} ${freeChainPct.toFixed(2)}%`;
+        const trace = `MM3 BLOCK CHAIN IN PROGRESS >> mined ${pick.blockHex} by ${formatWalletLabel(wallet)} >> ${freeMinedRows.length}/${freeBlocksTotal} ${freeChainPct.toFixed(2)}%`;
         await supabase.from('mm3_relaying_messages').insert({
           wallet: 'system', text: trace, ts: Date.now(), kind: 'system', tone: 'market',
         });
 
-        if ((allMined || []).length >= freeBlocksTotal) {
+        if (freeMinedRows.length >= freeBlocksTotal) {
           await checkAndAwardChainWinner(supabase);
         }
 

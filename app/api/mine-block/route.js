@@ -6,6 +6,7 @@ import {
   buildBlockChainCode,
   doesGlobalValueMeetRequirement,
   formatBlockRequirement,
+  gridToBlockHex,
   MM3_BLOCK_REQUIREMENT_BY_HEX,
   MM3_BLOCK_CHAIN_REQUIREMENTS,
   mm3ValueToHex,
@@ -44,7 +45,7 @@ export async function POST(req) {
   );
 
   try {
-    const [{ data: reservedBlock }, { count: reservedCount }, { data: existing }, { data: progress }, { data: tokenValue }] = await Promise.all([
+    const [{ data: reservedBlock }, { data: nftjiBlocks, count: reservedCount }, { data: existing }, { data: progress }, { data: tokenValue }] = await Promise.all([
       supabase
         .from('mm3_mining_blocks')
         .select('block_key, emoji')
@@ -53,7 +54,7 @@ export async function POST(req) {
         .maybeSingle(),
       supabase
         .from('mm3_mining_blocks')
-        .select('block_key', { count: 'exact', head: true }),
+        .select('grid_row, grid_col', { count: 'exact' }),
       supabase
         .from('mm3_mined_blocks')
         .select('block_hex, wallet')
@@ -125,15 +126,20 @@ export async function POST(req) {
       .select('block_hex, wallet, mm3_value_hex, chain_index')
       .order('chain_index', { ascending: true });
     const chain = chainRows || [mined];
+    const nftjiHexes = new Set(
+      (nftjiBlocks || []).filter(b => b.grid_row != null && b.grid_col != null)
+        .map(b => gridToBlockHex(b.grid_row, b.grid_col))
+    );
+    const freeChain = chain.filter(r => !nftjiHexes.has(r.block_hex));
     const freeBlocksTotal = Math.max(1, MM3_BLOCK_CHAIN_REQUIREMENTS.length - (Number(reservedCount) || 0));
-    const freePercent = Math.round((chain.length / freeBlocksTotal) * 10000) / 100;
-    const walletMinedCount = chain.filter((row) => normalizeWallet(row.wallet) === wallet).length;
+    const freePercent = Math.round((freeChain.length / freeBlocksTotal) * 10000) / 100;
+    const walletMinedCount = freeChain.filter((row) => normalizeWallet(row.wallet) === wallet).length;
     const walletPercent = Math.round(
       ((walletMinedCount + (progress?.mining_nftji_key ? 1 : 0)) / TOTAL_BOARD_CELLS) * 10000
     ) / 100;
     const code = buildBlockChainCode(chain);
     const ts = Date.now();
-    const trace = `MM3 BLOCK CHAIN IN PROGRESS >> mined ${blockHex} by ${formatWalletLabel(wallet)} >> ${chain.length}/${freeBlocksTotal} ${freePercent.toFixed(2)}% >> ${code}`;
+    const trace = `MM3 BLOCK CHAIN IN PROGRESS >> mined ${blockHex} by ${formatWalletLabel(wallet)} >> ${freeChain.length}/${freeBlocksTotal} ${freePercent.toFixed(2)}% >> ${code}`;
 
     await supabase
       .from('player_progress')
@@ -147,7 +153,7 @@ export async function POST(req) {
       tone: 'market',
     });
 
-    if (chain.length >= freeBlocksTotal) {
+    if (freeChain.length >= freeBlocksTotal) {
       await checkAndAwardChainWinner(supabase);
     }
 
