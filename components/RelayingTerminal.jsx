@@ -625,7 +625,7 @@ export default function RelayingTerminal({ accent = '#22d3ee' }) {
       try {
         const nowIso = new Date().toISOString();
         // Separate queries: if macro or owners fail, we still want the chat history
-        const [ircRes, squeezeRes, macroRes, ownersRes, commandsRes, blocksRes, penaltiesRes] = await Promise.all([
+        const [ircRes, squeezeRes, kernelpanicRes, macroRes, ownersRes, commandsRes, blocksRes, penaltiesRes] = await Promise.all([
           supabase
             .from('mm3_relaying_messages')
             .select('wallet, text, ts, kind, tone')
@@ -637,6 +637,12 @@ export default function RelayingTerminal({ accent = '#22d3ee' }) {
             .eq('tone', 'squeeze')
             .order('ts', { ascending: false })
             .limit(100),
+          supabase
+            .from('mm3_relaying_messages')
+            .select('wallet, text, ts, kind, tone')
+            .eq('tone', 'kernelpanic')
+            .order('ts', { ascending: false })
+            .limit(20),
           supabase
             .from('mm3_macro_state')
             .select('ticker_message, ticker_message_en, ticker_message_es')
@@ -661,12 +667,16 @@ export default function RelayingTerminal({ accent = '#22d3ee' }) {
         ]);
 
         const dbMessages = ircRes.data || [];
-        // Merge squeeze traces (fetched independently so they never get buried by bot messages)
+        // Merge squeeze and kernelpanic traces (fetched independently so they never get buried by bot messages)
         const squeezeMessages = squeezeRes.data || [];
+        const kernelpanicMessages = kernelpanicRes.data || [];
         const allDbMessages = [...dbMessages];
         const existingTs = new Set(dbMessages.map((m) => String(m.ts)));
         for (const m of squeezeMessages) {
           if (!existingTs.has(String(m.ts))) allDbMessages.push(m);
+        }
+        for (const m of kernelpanicMessages) {
+          if (!existingTs.has(String(m.ts))) { existingTs.add(String(m.ts)); allDbMessages.push(m); }
         }
         allDbMessages.sort((a, b) => Number(a.ts) - Number(b.ts));
         chatHistory = allDbMessages;
