@@ -13,7 +13,7 @@ export default function NavLinks({ className = '' }) {
   const { t } = useI18n()
 
   const links = [
-    { href: '/',          label: t('nav.training') },
+    { href: '/training',  label: t('nav.training') },
     { href: '/mining',    label: t('nav.mining') },
     { href: '/trading', label: t('nav.trading') },
     { href: '/ranking',   label: t('nav.ranking') },

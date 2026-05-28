@@ -1,4 +1,3 @@
-import HomePageClient from '@/components/HomePageClient';
 import LandingHero from '@/components/LandingHero';
 
 export const metadata = {
@@ -14,10 +13,5 @@ export const metadata = {
 };
 
 export default function Page() {
-  return (
-    <>
-      <HomePageClient />
-      <LandingHero />
-    </>
-  );
+  return <LandingHero />;
 }

@@ -11,7 +11,7 @@ const C = '#22d3ee';
 
 const SECTIONS = {
   en: [
-    { href: '/',           icon: '⛏',  name: 'Training',    desc: 'Solve math problems against the clock. 100/day, 13 types. Speed earns more MM3.' },
+    { href: '/training',   icon: '⛏',  name: 'Training',    desc: 'Solve math problems against the clock. 100/day, 13 types. Speed earns more MM3.' },
     { href: '/mining',     icon: '⬛',  name: 'Mining',      desc: '784-cell 28×28 board. Race to claim cells permanently with NFTJIs.' },
     { href: '/trading',    icon: '💱',  name: 'Trading',     desc: 'Buy and sell MM3 in fictional EUR / USD / CNY. 5 EXECs/day — dice shifts rates.' },
     { href: '/ranking',    icon: '🏆',  name: 'Ranking',     desc: 'Live wallet & pool leaderboard. Mining %, level, EXECs and penalty log.' },
@@ -25,7 +25,7 @@ const SECTIONS = {
     { href: '/relaying?command=/rm+-rf+MM3_BLOCK_CHAIN&chip=2', icon: null, name: 'KERNEL PANIC', desc: '// rm -rf MM3_BLOCK_CHAIN :: chain wipe :: 24h cooldown //', kernelPanic: true, chip: 2 },
   ],
   es: [
-    { href: '/',           icon: '⛏',  name: 'Training',    desc: 'Resuelve problemas contra el reloj. 100/día, 13 tipos. Velocidad = más MM3.' },
+    { href: '/training',   icon: '⛏',  name: 'Training',    desc: 'Resuelve problemas contra el reloj. 100/día, 13 tipos. Velocidad = más MM3.' },
     { href: '/mining',     icon: '⬛',  name: 'Mining',      desc: 'Tablero 28×28 de 784 celdas. Carrera por reclamarlas con NFTJIs.' },
     { href: '/trading',    icon: '💱',  name: 'Trading',     desc: 'Compra y vende MM3 en EUR / USD / CNY ficticios. 5 EXECs/día — dados afectan tasas.' },
     { href: '/ranking',    icon: '🏆',  name: 'Ranking',     desc: 'Clasificación en vivo de wallets y pools. Mining %, nivel, EXECs y penalizaciones.' },
