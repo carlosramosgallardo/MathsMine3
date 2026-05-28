@@ -14,7 +14,7 @@
 
 [![MathsMine3 Portal](https://mathsmine3.xyz/og-image.jpg)](https://mathsmine3.xyz)
 
-**Live:** [mathsmine3.xyz](https://mathsmine3.xyz) · [Manifesto](https://mathsmine3.xyz/manifesto) · [Trading](https://mathsmine3.xyz/trading) · [Ranking](https://mathsmine3.xyz/ranking) · [Squeezing](https://mathsmine3.xyz/squeezing) · [Mining](https://mathsmine3.xyz/mining) · [Relaying](https://mathsmine3.xyz/relaying) · [API](https://mathsmine3.xyz/api)
+**Live:** [mathsmine3.xyz](https://mathsmine3.xyz) · [Training](https://mathsmine3.xyz/training) · [Manifesto](https://mathsmine3.xyz/manifesto) · [Trading](https://mathsmine3.xyz/trading) · [Ranking](https://mathsmine3.xyz/ranking) · [Squeezing](https://mathsmine3.xyz/squeezing) · [Mining](https://mathsmine3.xyz/mining) · [Relaying](https://mathsmine3.xyz/relaying) · [API](https://mathsmine3.xyz/api)
 
 ---
 
@@ -433,6 +433,8 @@ The Mining board shows **MM3 BLOCK CHAIN IN PROGRESS** with a percentage:
 
 All 784 cells count. Free chain cells are permanently mined; Mining NFTJI cells count only while at least one wallet owns them. When all 784 cells are covered, the chain reaches 100% and the generated code becomes final game history.
 
+> **NFTJI entries in the chain display:** when the first wallet buys a Mining NFTJI (no chain entry for that cell exists yet), the buyer's wallet address and the current global MM3 value are appended to the chain — same format as a free-mined block. If the last owner sells (nobody holds it anymore), that entry is removed from the chain. NFTJI entries appear in the chain string alongside free-mined blocks but are **not** counted in the coverage percentage — their board coverage is tracked separately through active NFTJI ownership.
+
 ### Block Requirements
 
 Every free block has a requirement based on its board position. Requirements scale proportionally across the 28x28 grid:
@@ -471,7 +473,7 @@ The success trace is stored in `mm3_relaying_messages` as `kind=system`, `tone=m
 MM3 BLOCK CHAIN IN PROGRESS >> mined #029 by 0xa...123 >> 1/764 0.13% >> #0xabc...#029#D6D8C0
 ```
 
-> **Note:** `1/764` tracks **chain blocks only** — the 20 NFTJI cells are separate. Board completeness for the win condition = 764 mined chain blocks + all 20 Mining NFTJIs owned simultaneously.
+> **Note:** the `1/764` counter tracks **free chain blocks only**. The chain string may also contain NFTJI entries (see above), but those are excluded from this counter — their coverage is tracked via active ownership. Board completeness for the win condition = 764 free chain blocks mined + all 20 Mining NFTJIs currently owned.
 
 ---
 
@@ -694,6 +696,21 @@ Relay help (`/?`) includes `/mine block #029` as the short form for mining free 
 ```txt
 /exec @0x1abc...def   — exec relay (tab-complete from online wallets)
 /?                    — shows /exec in the command index
+```
+
+### Kernel Panic (`/rm -rf MM3_BLOCK_CHAIN`)
+
+Two **Kernel Panic** chips on the landing page expose a global chain reset command. Each chip has an independent 24-hour cooldown shared across all players.
+
+- Available to any wallet — including anonymous sessions arriving via chip link
+- Executes from the Relaying terminal: `/rm -rf MM3_BLOCK_CHAIN`
+- **Wipes the entire `mm3_mined_blocks` table** — all free chain blocks and NFTJI chain entries are deleted; chain progress resets to 0%
+- Mining NFTJI market blocks (`mm3_mining_blocks`) and player state are **not** affected
+- A `tone=kernelpanic` trace is broadcast to Relaying on success and is always visible to all players
+- After a reset, that chip enters a 24-hour cooldown; the other chip is independent
+
+```txt
+/rm -rf MM3_BLOCK_CHAIN   — kernel panic chain wipe (requires landing page chip access)
 ```
 
 ---
@@ -951,7 +968,7 @@ Read:
 
 [![MathsMine3 Portal](https://mathsmine3.xyz/og-image.jpg)](https://mathsmine3.xyz)
 
-**Live:** [mathsmine3.xyz](https://mathsmine3.xyz) · [Manifiesto](https://mathsmine3.xyz/manifesto) · [Trading](https://mathsmine3.xyz/trading) · [Ranking](https://mathsmine3.xyz/ranking) · [Squeezing](https://mathsmine3.xyz/squeezing) · [Mining](https://mathsmine3.xyz/mining) · [Relaying](https://mathsmine3.xyz/relaying) · [API](https://mathsmine3.xyz/api)
+**Live:** [mathsmine3.xyz](https://mathsmine3.xyz) · [Training](https://mathsmine3.xyz/training) · [Manifiesto](https://mathsmine3.xyz/manifesto) · [Trading](https://mathsmine3.xyz/trading) · [Ranking](https://mathsmine3.xyz/ranking) · [Squeezing](https://mathsmine3.xyz/squeezing) · [Mining](https://mathsmine3.xyz/mining) · [Relaying](https://mathsmine3.xyz/relaying) · [API](https://mathsmine3.xyz/api)
 
 ---
 
@@ -1369,6 +1386,8 @@ El tablero de Mining muestra **MM3 BLOCK CHAIN IN PROGRESS** con un porcentaje:
 
 Las 784 celdas cuentan. Las celdas libres se minan permanentemente; las celdas de NFTJI de Mining cuentan solo mientras al menos una wallet las posea. Cuando las 784 celdas están cubiertas, la cadena llega al 100% y el código generado queda como historia final del juego.
 
+> **Entradas NFTJI en la cadena:** cuando la primera wallet compra un NFTJI de Mining (no existe aún una entrada de cadena para esa celda), la dirección de la wallet compradora y el valor MM3 global en ese momento se añaden a la cadena — mismo formato que un bloque libre minado. Si el último dueño lo vende (nadie lo tiene), esa entrada se elimina de la cadena. Las entradas NFTJI aparecen en el string de la cadena junto a los bloques libres, pero **no** se cuentan en el porcentaje de cobertura — esa cobertura se rastrea de forma independiente a través de la propiedad activa del NFTJI.
+
 ### Requisitos de Bloque
 
 Cada bloque libre tiene un requisito basado en su posición en el tablero. Los requisitos escalan proporcionalmente en el grid 28x28:
@@ -1407,7 +1426,7 @@ La traza de éxito se guarda en `mm3_relaying_messages` como `kind=system`, `ton
 MM3 BLOCK CHAIN IN PROGRESS >> mined #029 by 0xa...123 >> 1/764 0.13% >> #0xabc...#029#D6D8C0
 ```
 
-> **Nota:** `1/764` cuenta únicamente los **bloques de cadena** — las 20 celdas NFTJI son independientes. La condición de victoria = 764 bloques minados + las 20 NFTJIs de Mining en posesión simultánea.
+> **Nota:** el contador `1/764` cuenta únicamente los **bloques libres de cadena**. El string de la cadena puede contener también entradas NFTJI (ver arriba), pero se excluyen de este contador — su cobertura se rastrea por propiedad activa. Condición de victoria = 764 bloques libres minados + los 20 NFTJIs de Mining con dueño en ese momento.
 
 ---
 
@@ -1612,7 +1631,40 @@ MathsMine3@ETH·:~$  0.01 ETH donación confirmada · tx 0xabc…def
 
 La línea `MathsMine3@ETH·:~$` aparece cuando el webhook de Alchemy recibe una transacción real de Ethereum. El evento se escribe directamente en el log de Relaying con `tone=realchain`, haciendo visible la actividad on-chain dentro del terminal sin ninguna acción del jugador.
 
-La ayuda de Relaying (`/?`) incluye `/mine block #029` como forma corta para minar celdas libres del tablero de Mining.
+La ayuda de Relaying (`/?`) incluye `/mine block #029` como forma corta para minar celdas libres del tablero de Mining, y `/exec @wallet` para ejecuciones de relay.
+
+### Relay Exec (`/exec @wallet`)
+
+`/exec @wallet` vincula dos wallets mediante un NFTJI **Relay Link 🔁**.
+
+- Ambas wallets deben estar conectadas a Relaying en ese momento (aparecen en el autocompletado de `@`; las offline no aparecen)
+- Un exec por par cada 24 horas (el cooldown es bidireccional — `A→B` y `B→A` comparten la misma ventana)
+- Ambas wallets ganan +1 `relay_exec_count` y reciben el NFTJI 🔁 en el primer exec
+- **Fórmula de nivel:** `⌊log₂(exec_A + exec_B + 1)⌋` — no lineal, crece rápido al inicio y desacelera
+- El nivel es compartido y se recalcula automáticamente cada vez que cambia el conteo de exec de cualquiera de las dos wallets
+- **Efecto global en MM3:** se emite +1% del valor global de MM3 como evento `relaying` en cada exec
+- 1 Relay Link NFTJI por wallet, máximo — se conserva para siempre
+- Nivel y pareja de relay visibles en Ranking junto a la columna de exec
+
+```txt
+/exec @0x1abc...def   — exec de relay (tab-completado desde wallets online)
+/?                    — muestra /exec en el índice de comandos
+```
+
+### Kernel Panic (`/rm -rf MM3_BLOCK_CHAIN`)
+
+Dos chips **Kernel Panic** en la landing page exponen un comando de reset global de la cadena. Cada chip tiene un cooldown independiente de 24 horas compartido entre todos los jugadores.
+
+- Disponible para cualquier wallet — incluyendo sesiones anónimas que lleguen por el link del chip
+- Se ejecuta desde el terminal de Relaying: `/rm -rf MM3_BLOCK_CHAIN`
+- **Borra toda la tabla `mm3_mined_blocks`** — todos los bloques libres minados y las entradas NFTJI se eliminan; el progreso de la cadena vuelve a 0%
+- Los bloques del mercado de Mining NFTJIs (`mm3_mining_blocks`) y el estado del jugador **no** se ven afectados
+- Se emite una traza `tone=kernelpanic` a Relaying al completarse, siempre visible para todos
+- Tras el reset, ese chip entra en cooldown 24h; el otro chip es independiente
+
+```txt
+/rm -rf MM3_BLOCK_CHAIN   — kernel panic, wipe de cadena (requiere acceso por chip de landing)
+```
 
 ---
 
@@ -1807,7 +1859,7 @@ Efecto secreto: roba MM3 → wallet ejecutora. `x = nonce diario (100–799)`.
 
 ```txt
 app/                 Rutas, layouts, API handlers
-components/          UI, Market, chart, wallet, Relaying, shell
+components/          UI, mining, chart, wallet, Relaying, shell
 lib/                 Lógica de juego, i18n, wallet helpers, macro, dice
 sql/                 Schema Supabase y scripts de mantenimiento
 public/              Imágenes, metadata, manifest, sitemap, robots
