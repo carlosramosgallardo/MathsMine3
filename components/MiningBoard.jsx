@@ -25,6 +25,7 @@ import {
   MM3_BLOCK_GRID_COLS,
   MM3_BLOCK_GRID_ROWS,
   MM3_BLOCK_REQUIREMENT_BY_HEX,
+  mm3ValueToHex,
 } from '@/lib/mm3-block-chain';
 
 const GENESIS_BLOCK_KEY = 'mm3-023';
@@ -931,8 +932,8 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
             grid_col: selectedBlock.grid_col,
             wallet,
             wallet_level: level,
-            mm3_value: 0,
-            mm3_value_hex: '0',
+            mm3_value: totalMm3,
+            mm3_value_hex: mm3ValueToHex(totalMm3),
             chain_index: (Number(lastChainEntry?.chain_index) || 0) + 1,
           }).catch(() => {});
         }

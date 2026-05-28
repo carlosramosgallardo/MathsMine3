@@ -1384,8 +1384,8 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
             grid_col: targetBlock.grid_col,
             wallet,
             wallet_level: level,
-            mm3_value: 0,
-            mm3_value_hex: '0',
+            mm3_value: totalMm3ForLevel,
+            mm3_value_hex: mm3ValueToHex(totalMm3ForLevel),
             chain_index: (Number(lastChainForNftji?.chain_index) || 0) + 1,
           }).catch(() => {});
         }
