@@ -858,3 +858,17 @@ footer.bg-black\/97,
 .mm3-btn-success {
   --mm3-accent: #4ade80;
 }
+
+.landing-grid {
+  grid-template-columns: repeat(4, 1fr) !important;
+}
+@media (max-width: 768px) {
+  .landing-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+}
+@media (max-width: 400px) {
+  .landing-grid {
+    grid-template-columns: 1fr !important;
+  }
+}

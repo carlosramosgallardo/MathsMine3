@@ -171,9 +171,8 @@ export default function LandingHero() {
           {language === 'es' ? 'Las matemáticas son la prueba de trabajo.' : 'Math is the proof of work.'}
         </p>
 
-        <ul style={{
+        <ul className="landing-grid" style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(min(240px, 100%), 1fr))',
           gap: '0.6rem',
           listStyle: 'none',
           padding: 0,
