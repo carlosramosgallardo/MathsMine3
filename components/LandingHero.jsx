@@ -168,7 +168,7 @@ export default function LandingHero() {
           textAlign: 'center',
           marginBottom: '1.75rem',
         }}>
-          {language === 'es' ? 'Las matemáticas son la prueba de trabajo.' : 'Math is the proof of work.'}
+          {language === 'es' ? 'Matemáticas contra el reloj. Minería ficticia. Identidad wallet. Economía terminal. MM3 es un token ficticio. Sin minería real, sin pagos reales, sin inversión.' : 'Timed math. Fictional mining. Wallet identity. Terminal economy. MM3 is a fictional token. No real mining, no real payout, no investment.'}
         </p>
 
         <ul className="landing-grid" style={{
@@ -226,11 +226,6 @@ export default function LandingHero() {
           })}
         </ul>
 
-        <p style={{ textAlign: 'center', color: '#1e293b', fontSize: '0.65rem', letterSpacing: '0.04em', marginTop: '2rem' }}>
-          {language === 'es'
-            ? 'MM3 es un token ficticio. Sin minería real, sin pagos reales, sin inversión.'
-            : 'MM3 is a fictional token. No real mining, no real payout, no investment.'}
-        </p>
 
       </div>
     </section>
