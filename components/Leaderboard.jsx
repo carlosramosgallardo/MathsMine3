@@ -650,7 +650,7 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
     };
 
     loadPresence();
-    const timer = setInterval(loadPresence, 10_000);
+    const timer = setInterval(loadPresence, 60_000);
     window.addEventListener('focus', loadPresence);
     window.addEventListener('mm3-presence-changed', loadPresence);
     const channel = supabase

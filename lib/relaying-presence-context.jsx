@@ -78,7 +78,7 @@ export function IrcPresenceProvider({ children }) {
       } catch { setActiveWallets([]); }
     };
     load();
-    const t  = setInterval(load, 10_000);
+    const t  = setInterval(load, 60_000);
     let ch = null;
     const channelTimer = setTimeout(() => {
       ch = supabase
@@ -104,7 +104,7 @@ export function IrcPresenceProvider({ children }) {
       } catch {}
     };
     load();
-    const t = setInterval(load, 60_000);
+    const t = setInterval(load, 300_000);
     return () => clearInterval(t);
   }, []);
 

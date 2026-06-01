@@ -49,11 +49,18 @@ export async function GET(req) {
   await supabase.from('api_requests').insert({ ip, endpoint })
 
 
-  const { data, error } = await supabase
-    .from('token_value_timeseries')
-    .select('cumulative_reward, hour')
-    .order('hour', { ascending: false })
-    .limit(1)
+  const [{ data, error }, { data: tvRow }] = await Promise.all([
+    supabase
+      .from('token_value_timeseries')
+      .select('cumulative_reward, hour')
+      .order('hour', { ascending: false })
+      .limit(1),
+    supabase
+      .from('token_value')
+      .select('total_eth')
+      .limit(1)
+      .maybeSingle(),
+  ])
 
   if (error || !data || data.length === 0) {
     return new Response(JSON.stringify({ error: 'Token value not available.' }), {
@@ -68,7 +75,8 @@ export async function GET(req) {
   return new Response(
     JSON.stringify({
       value: parseFloat(data[0].cumulative_reward),
-      updatedAt: data[0].hour
+      updatedAt: data[0].hour,
+      total_eth: Number(tvRow?.total_eth) || 0,
     }),
     {
       headers: {

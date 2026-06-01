@@ -64,38 +64,23 @@ function Mm3Total() {
 
     const load = async () => {
       try {
-        const { data, error } = await supabase
-          .from('token_value')
-          .select('total_eth')
-          .limit(1)
-          .maybeSingle()
-        if (error) throw error
-        if (mounted) setValue(Number(data?.total_eth) || 0)
+        const res = await fetch('/api/token-value')
+        if (!res.ok) throw new Error('fetch failed')
+        const json = await res.json()
+        if (mounted) setValue(Number(json?.total_eth ?? json?.value) || 0)
       } catch {}
     }
 
     load()
-    const timer = setInterval(load, 15000)
+    const timer = setInterval(load, 60_000)
     window.addEventListener('focus', load)
     window.addEventListener('mm3-db-updated', load)
-
-    let channel = null
-    const channelTimer = window.setTimeout(() => {
-      if (!mounted) return
-      channel = supabase
-        .channel('mm3-header-total-live')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'games' }, load)
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'mm3_sell_transactions' }, load)
-        .subscribe()
-    }, pathname === '/relaying' ? 1000 : 60000)
 
     return () => {
       mounted = false
       clearInterval(timer)
-      window.clearTimeout(channelTimer)
       window.removeEventListener('focus', load)
       window.removeEventListener('mm3-db-updated', load)
-      if (channel) supabase.removeChannel(channel)
     }
   }, [pathname])
 
