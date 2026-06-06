@@ -614,6 +614,7 @@ RETURNS TABLE(
 )
 LANGUAGE sql
 IMMUTABLE
+SET search_path TO public
 AS $$
   SELECT *
   FROM (
@@ -642,7 +643,7 @@ EXECUTE FUNCTION trigger_update_leaderboard_fn();
 -- ==============================================
 
 -- Top Positive Miner (used by use-mm3-accent.js)
-CREATE OR REPLACE VIEW top_positive_miner AS
+CREATE OR REPLACE VIEW top_positive_miner WITH (security_invoker = true) AS
 SELECT
   wallet,
   total_eth as pos_total,
@@ -653,7 +654,7 @@ ORDER BY total_eth DESC
 LIMIT 1;
 
 -- Token Value
-CREATE OR REPLACE VIEW token_value AS
+CREATE OR REPLACE VIEW token_value WITH (security_invoker = true) AS
 SELECT
   COALESCE(SUM(mining_reward), 0)
     + COALESCE((SELECT commission_mm3 FROM mm3_mining_state WHERE id = 1), 0)
@@ -665,7 +666,7 @@ FROM games
 WHERE is_correct = TRUE;
 
 -- Token Value Timeseries
-CREATE OR REPLACE VIEW token_value_timeseries AS
+CREATE OR REPLACE VIEW token_value_timeseries WITH (security_invoker = true) AS
 WITH raw_events AS (
   SELECT date_trunc('hour', created_at) AS hour, SUM(mining_reward) AS delta_mm3
   FROM games
@@ -720,6 +721,7 @@ CREATE OR REPLACE FUNCTION public.mm3_pool_max_wallets(p_avg_level integer)
 RETURNS integer
 LANGUAGE sql
 IMMUTABLE
+SET search_path TO public
 AS $$
   SELECT CASE
     WHEN p_avg_level >= 800 THEN 25
@@ -745,6 +747,7 @@ CREATE OR REPLACE FUNCTION public.mm3_dispute_vote(
 RETURNS jsonb
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = public
 AS $$
 DECLARE
   v_in_pool           BOOLEAN;
@@ -958,6 +961,7 @@ CREATE OR REPLACE FUNCTION public.mm3_dispute_join(
 RETURNS jsonb
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = public
 AS $$
 DECLARE
   v_dispute RECORD;
@@ -1046,6 +1050,7 @@ CREATE OR REPLACE FUNCTION public.mm3_dispute_start_battle(p_dispute_id bigint)
 RETURNS jsonb
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = public
 AS $$
 DECLARE
   v_dispute       RECORD;
@@ -1200,6 +1205,7 @@ CREATE OR REPLACE FUNCTION public.mm3_dispute_resolve(p_dispute_id bigint)
 RETURNS jsonb
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = public
 AS $$
 DECLARE
   v_dispute      RECORD;
@@ -1334,6 +1340,7 @@ CREATE OR REPLACE FUNCTION public.mm3_dispute_cancel(p_dispute_id bigint)
 RETURNS jsonb
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = public
 AS $$
 DECLARE
   v_dispute RECORD;
@@ -1377,6 +1384,7 @@ CREATE OR REPLACE FUNCTION public.mm3_squeezing_nftji_take(
 RETURNS jsonb
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = public
 AS $$
 DECLARE
   v_dispute     RECORD;
@@ -1470,6 +1478,7 @@ RETURNS boolean
 LANGUAGE plpgsql
 SECURITY DEFINER
 STABLE
+SET search_path = public
 AS $$
 DECLARE
   v_pool_code text;
@@ -1548,8 +1557,8 @@ CREATE POLICY "public_read_leaderboard_data" ON leaderboard_data FOR SELECT TO p
 DROP POLICY IF EXISTS "public_read_player_progress" ON player_progress;
 CREATE POLICY "public_read_player_progress" ON player_progress FOR SELECT TO public USING (true);
 
+-- INSERT only via /api/create-account (service role). No anon inserts allowed.
 DROP POLICY IF EXISTS "public_insert_player_progress" ON player_progress;
-CREATE POLICY "public_insert_player_progress" ON player_progress FOR INSERT TO public WITH CHECK (level >= 0 AND level <= 100);
 
 DROP POLICY IF EXISTS "public_update_player_progress" ON player_progress;
 CREATE POLICY "public_update_player_progress" ON player_progress FOR UPDATE TO public USING (true) WITH CHECK (level >= 0 AND level <= 100);
@@ -1629,8 +1638,8 @@ CREATE POLICY "public_update_visual_state" ON mm3_visual_state FOR UPDATE TO ano
 DROP POLICY IF EXISTS "public_read_mm3_mining_blocks" ON mm3_mining_blocks;
 CREATE POLICY "public_read_mm3_mining_blocks" ON mm3_mining_blocks FOR SELECT TO public USING (true);
 
+-- No anon UPDATE on mining_blocks: only the bot (service role) modifies blocks
 DROP POLICY IF EXISTS "public_update_mm3_mining_blocks" ON mm3_mining_blocks;
-CREATE POLICY "public_update_mm3_mining_blocks" ON mm3_mining_blocks FOR UPDATE TO public USING (true) WITH CHECK (true);
 
 DROP POLICY IF EXISTS "public_read_mm3_mined_blocks" ON mm3_mined_blocks;
 CREATE POLICY "public_read_mm3_mined_blocks" ON mm3_mined_blocks FOR SELECT TO public USING (true);
@@ -1651,7 +1660,9 @@ DROP POLICY IF EXISTS "public_insert_mm3_command_penalties" ON mm3_command_penal
 CREATE POLICY "public_insert_mm3_command_penalties" ON mm3_command_penalties FOR INSERT TO public WITH CHECK (wallet <> '' AND nftji_key <> '' AND penalty_code <> '');
 
 DROP POLICY IF EXISTS "public_update_mm3_command_penalties" ON mm3_command_penalties;
-CREATE POLICY "public_update_mm3_command_penalties" ON mm3_command_penalties FOR UPDATE TO public USING (true) WITH CHECK (true);
+CREATE POLICY "public_update_mm3_command_penalties" ON mm3_command_penalties FOR UPDATE TO public
+  USING (redeemed_at IS NULL)
+  WITH CHECK (wallet <> '' AND nftji_key <> '' AND penalty_code <> '');
 
 DROP POLICY IF EXISTS "public_read_mm3_hidden_cmd_executions" ON mm3_hidden_cmd_executions;
 CREATE POLICY "public_read_mm3_hidden_cmd_executions" ON mm3_hidden_cmd_executions FOR SELECT TO public USING (true);
@@ -1666,8 +1677,8 @@ CREATE POLICY "public_read_mm3_relaying_messages" ON mm3_relaying_messages FOR S
 DROP POLICY IF EXISTS "public_insert_mm3_relaying_messages" ON mm3_relaying_messages;
 CREATE POLICY "public_insert_mm3_relaying_messages" ON mm3_relaying_messages FOR INSERT TO public WITH CHECK (wallet <> '' AND text <> '');
 
+-- No anon DELETE on relaying_messages: pruning is server-side only (service role)
 DROP POLICY IF EXISTS "public_delete_mm3_relaying_messages" ON mm3_relaying_messages;
-CREATE POLICY "public_delete_mm3_relaying_messages" ON mm3_relaying_messages FOR DELETE TO public USING (true);
 
 DROP POLICY IF EXISTS "public_read_mm3_wallet_pool_cooldowns" ON mm3_wallet_pool_cooldowns;
 CREATE POLICY "public_read_mm3_wallet_pool_cooldowns" ON mm3_wallet_pool_cooldowns FOR SELECT TO public USING (true);
@@ -1993,7 +2004,7 @@ GRANT SELECT, INSERT           ON mm3_sell_transactions        TO anon;
 GRANT SELECT, INSERT           ON mm3_mining_events            TO anon;
 GRANT SELECT, INSERT           ON api_requests                 TO anon;
 GRANT SELECT, INSERT, UPDATE   ON mm3_visual_state             TO anon;
-GRANT SELECT, UPDATE           ON mm3_mining_blocks            TO anon;
+GRANT SELECT                   ON mm3_mining_blocks            TO anon;
 GRANT SELECT                   ON mm3_mined_blocks             TO anon;
 GRANT SELECT, INSERT, UPDATE   ON mm3_mining_commands          TO anon;
 GRANT SELECT, INSERT, UPDATE   ON mm3_command_penalties        TO anon;
@@ -2001,7 +2012,7 @@ GRANT SELECT, INSERT           ON mm3_hidden_cmd_executions    TO anon;
 GRANT SELECT, INSERT           ON mm3_relaying_messages             TO anon;
 GRANT SELECT, INSERT           ON mm3_relay_exec_log                TO anon;
 GRANT USAGE, SELECT            ON SEQUENCE mm3_relay_exec_log_id_seq TO anon;
-GRANT DELETE                   ON mm3_relaying_messages             TO anon;
+-- REVOKED: anon DELETE on relaying_messages (server-side only via service role)
 GRANT SELECT, INSERT           ON daily_task_claims            TO anon;
 GRANT SELECT                   ON mm3_squeezing_launches         TO anon;
 GRANT SELECT                   ON mm3_squeezing_nftji            TO anon;
@@ -2018,8 +2029,9 @@ GRANT SELECT                   ON mm3_game_winner             TO anon;
 GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO anon;
 
 -- Functions
-GRANT EXECUTE ON FUNCTION public.update_leaderboard()              TO anon;
-GRANT EXECUTE ON FUNCTION public.trigger_update_leaderboard_fn()   TO anon;
+-- REVOKED: these are trigger-only functions, never called directly by anon
+-- GRANT EXECUTE ON FUNCTION public.update_leaderboard()              TO anon;
+-- GRANT EXECUTE ON FUNCTION public.trigger_update_leaderboard_fn()   TO anon;
 GRANT EXECUTE ON FUNCTION public.mm3_leave_wallet_pool(text)       TO anon;
 GRANT EXECUTE ON FUNCTION public.mm3_leave_wallet_pool(text)       TO authenticated;
 GRANT EXECUTE ON FUNCTION public.mm3_pool_rank_from_level(integer) TO anon;
@@ -2159,3 +2171,16 @@ COMMIT;
 --        updated_at = now();
 --
 -- COMMIT;
+
+-- ── Chain reset log ───────────────────────────────────────────────────────────
+-- Registra resets de cadena via kernel panic chips.
+-- RLS activo sin políticas públicas → solo accesible via service role key.
+
+DROP TABLE IF EXISTS mm3_chain_reset_log CASCADE;
+CREATE TABLE mm3_chain_reset_log (
+  id         bigserial PRIMARY KEY,
+  chip       integer NOT NULL CHECK (chip IN (1, 2)),
+  wallet     text NOT NULL DEFAULT 'anon',
+  created_at timestamptz DEFAULT now() NOT NULL
+);
+ALTER TABLE mm3_chain_reset_log ENABLE ROW LEVEL SECURITY;

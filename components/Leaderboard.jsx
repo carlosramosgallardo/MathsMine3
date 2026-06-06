@@ -384,7 +384,6 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
           .from('mm3_command_penalties')
           .select('wallet, nftji_key, penalty_value, penalty_eur, penalty_effect, reset_at, created_at')
           .is('redeemed_at', null)
-          .gt('reset_at', new Date().toISOString())
           .order('created_at', { ascending: false }),
         supabase
           .from('mm3_wallet_pool_members')

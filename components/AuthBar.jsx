@@ -442,7 +442,7 @@ function SplitConnectButton({ onGoogleClick, onWalletClick, googleBusy, walletBu
 function AuthBarWithGoogle({ mode = 'full' }) {
   const { address, isConnected } = useAccount()
   const { disconnect } = useDisconnect()
-  const { googleWallet, setGoogleSub, signOut: googleSignOut } = useGoogleAuth()
+  const { googleWallet, loginWithGoogle, signOut: googleSignOut } = useGoogleAuth()
   const { t } = useI18n()
   const [googleBusy, setGoogleBusy] = useState(false)
   const [walletBusy, setWalletBusy] = useState(false)
@@ -454,11 +454,7 @@ function AuthBarWithGoogle({ mode = 'full' }) {
     onSuccess: async (res) => {
       setGoogleBusy(true)
       try {
-        const r = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
-          headers: { Authorization: `Bearer ${res.access_token}` },
-        })
-        const { sub } = await r.json()
-        await setGoogleSub(sub)
+        await loginWithGoogle(res.access_token)
       } catch { setErr(true); setTimeout(() => setErr(false), 3000) }
       finally { setGoogleBusy(false) }
     },

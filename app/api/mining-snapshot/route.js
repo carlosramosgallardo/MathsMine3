@@ -140,7 +140,6 @@ export async function GET(req) {
           .eq('wallet', wallet)
           .eq('nftji_key', blockKey)
           .is('redeemed_at', null)
-          .gt('reset_at', new Date().toISOString())
           .order('created_at', { ascending: false })
           .limit(1)
           .maybeSingle()

@@ -662,8 +662,7 @@ export default function RelayingTerminal({ accent = '#22d3ee' }) {
           supabase
             .from('mm3_command_penalties')
             .select('command_id, nftji_key, wallet')
-            .is('redeemed_at', null)
-            .gt('reset_at', nowIso),
+            .is('redeemed_at', null),
         ]);
 
         const dbMessages = ircRes.data || [];
@@ -1050,8 +1049,7 @@ export default function RelayingTerminal({ accent = '#22d3ee' }) {
         supabase
           .from('mm3_command_penalties')
           .select('command_id, nftji_key, wallet')
-          .is('redeemed_at', null)
-          .gt('reset_at', nowIso),
+          .is('redeemed_at', null),
       ]);
       marketMessages.push(...buildMarketStatusLines({ ownersData, commandsData, blocksData, penaltiesData }));
     } catch {}

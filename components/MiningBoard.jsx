@@ -547,7 +547,6 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
         .eq('wallet', account.toLowerCase())
         .eq('nftji_key', blockKey)
         .is('redeemed_at', null)
-        .gt('reset_at', new Date().toISOString())
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle();

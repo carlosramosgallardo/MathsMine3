@@ -1,11 +1,10 @@
 'use client';
 
 import { createContext, useContext, useState, useCallback, useEffect } from 'react';
-import { deriveVirtualWallet } from './virtual-wallet';
 
 const GoogleAuthCtx = createContext({
   googleWallet: null,
-  setGoogleSub: async () => {},
+  loginWithGoogle: async () => {},
   signOut: () => {},
 });
 
@@ -19,10 +18,22 @@ export function GoogleAuthProvider({ children }) {
     if (stored) setGoogleWallet(stored);
   }, []);
 
-  const setGoogleSub = useCallback(async (sub) => {
-    const wallet = await deriveVirtualWallet(sub);
+  const loginWithGoogle = useCallback(async (accessToken) => {
+    const res = await fetch('/api/create-account', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'google', access_token: accessToken }),
+    });
+
+    if (!res.ok) {
+      const { error } = await res.json().catch(() => ({}));
+      throw new Error(error || 'create_account_failed');
+    }
+
+    const { wallet } = await res.json();
     setGoogleWallet(wallet);
     localStorage.setItem('mm3_gw', wallet);
+    return wallet;
   }, []);
 
   const signOut = useCallback(() => {
@@ -31,7 +42,7 @@ export function GoogleAuthProvider({ children }) {
   }, []);
 
   return (
-    <GoogleAuthCtx.Provider value={{ googleWallet, setGoogleSub, signOut }}>
+    <GoogleAuthCtx.Provider value={{ googleWallet, loginWithGoogle, signOut }}>
       {children}
     </GoogleAuthCtx.Provider>
   );
