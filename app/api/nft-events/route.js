@@ -30,13 +30,21 @@ export async function GET() {
   )
   const [
     { data: rawEvents,  error: e1 },
+    { data: relayEvents, error: e3 },
     { data: timeseries, error: e2 },
   ] = await Promise.all([
     supabase
       .from('mm3_mining_events')
       .select('wallet, event_type, delta_mm3, created_at, emoji')
+      .neq('event_type', 'relaying')
       .order('created_at', { ascending: false })
       .limit(2000),
+    supabase
+      .from('mm3_mining_events')
+      .select('wallet, event_type, delta_mm3, created_at, emoji')
+      .eq('event_type', 'relaying')
+      .order('created_at', { ascending: false })
+      .limit(500),
     supabase
       .from('token_value_timeseries')
       .select('hour, cumulative_reward')
@@ -44,14 +52,14 @@ export async function GET() {
       .limit(2000),
   ])
 
-  if (e1 || e2) {
-    return new Response(JSON.stringify({ error: (e1 || e2).message }), {
+  if (e1 || e2 || e3) {
+    return new Response(JSON.stringify({ error: (e1 || e2 || e3).message }), {
       status: 500, headers: { 'Content-Type': 'application/json' },
     })
   }
 
   // Sort ascending so positional emoji assignment works chronologically
-  const events = (rawEvents ?? []).slice().sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
+  const events = [...(rawEvents ?? []), ...(relayEvents ?? [])].sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
 
   // Collect wallets whose old events need fallback from wallet_emojis
   const needsFallback = new Set()
