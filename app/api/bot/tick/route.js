@@ -83,20 +83,20 @@ const STRATEGY_TRADE_WINDOWS = {
 
 // Minimum ms between consecutive squeeze launches from the same pool
 const SQUEEZE_COOLDOWN_MS = 2 * 60 * 60 * 1000;
-const DAILY_MINE_BASE = 100;
+const DAILY_MINE_BASE = 25;
 const PRICE = Number(process.env.NEXT_PUBLIC_FAKE_MINING_PRICE) || 0.00001;
-const DAILY_TRADE_LIMIT = 5;
-const SQUEEZE_LAUNCH_LIMIT = 20;
+const DAILY_TRADE_LIMIT = 1;
+const SQUEEZE_LAUNCH_LIMIT = 5;
 const SQUEEZE_LAUNCH_WINDOW_MS = 24 * 60 * 60 * 1000;
 const REVIVE_COST_EUR = 1;
 const REVIVE_COST_USD = REVIVE_COST_EUR * (CNY_TO_USD / CNY_TO_EUR);
 const REVIVE_COST_CNY = REVIVE_COST_EUR / CNY_TO_EUR;
 const BOT_ACTIVE_WINDOW_MS = 90_000;
 const RELAY_EXEC_DELTA = 1;
-const RELAY_EXEC_PROB = 0.35;
+const RELAY_EXEC_PROB = 0.09;
 const RELAY_COOLDOWN_MS = 24 * 60 * 60 * 1000;
 const BOT_CRON_INTERVAL_MINUTES = Math.max(1, Number(process.env.BOT_CRON_INTERVAL_MINUTES) || 5);
-const BOT_MAX_DRILLS_PER_TICK = Math.max(1, Number(process.env.BOT_MAX_DRILLS_PER_TICK) || 4);
+const BOT_MAX_DRILLS_PER_TICK = Math.max(1, Number(process.env.BOT_MAX_DRILLS_PER_TICK) || 1);
 const BOT_MAX_TRADES_PER_TICK = Math.max(1, Number(process.env.BOT_MAX_TRADES_PER_TICK) || 1);
 const BOT_PRESENCE_SETTLE_MS = Math.max(0, Math.min(3000, Number(process.env.BOT_PRESENCE_SETTLE_MS) || 1500));
 const SQUEEZE_BATTLE_SETTLE_MS = 5200;
@@ -626,7 +626,7 @@ async function maybeLaunchBotSqueeze(supabase) {
   const nowHour = new Date().getUTCHours();
   const squeezeDice = getDiceState();
   const wantToChallenge = availablePools.filter(p => {
-    if (!squeezeDice.active && Math.random() < 0.75) return false;
+    if (!squeezeDice.active && Math.random() < 0.94) return false;
     const { prob } = poolStrategyMap.get(p) || { prob: 0.5 };
     const info = poolLaunchInfo.get(p) || { count: 0, lastLaunchMs: 0 };
     if (Date.now() - info.lastLaunchMs < SQUEEZE_COOLDOWN_MS) return false;
@@ -779,7 +779,7 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
   const pacedTradesAvailable = getPacedAllowance(DAILY_TRADE_LIMIT, tradesTodayCount, startIso, endIso);
   const diceState = getDiceState();
   // Bots prefer the dice window; skip most ticks when inactive (same strategy as any real player)
-  const tradesToRun = !diceState.active && Math.random() < 0.80
+  const tradesToRun = !diceState.active && Math.random() < 0.95
     ? 0
     : Math.min(DAILY_TRADE_LIMIT - tradesTodayCount, pacedTradesAvailable, BOT_MAX_TRADES_PER_TICK);
   const claimedTasks = new Set((claimsData || []).map((r) => r.task_key));
@@ -1243,7 +1243,7 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
   let didBuyOrResell = false;
 
   // Bots prefer dice window for market ops; skip most ticks when inactive
-  if (marketBlocks && marketBlocks.length > 0 && (diceState.active || Math.random() < 0.20)) {
+  if (marketBlocks && marketBlocks.length > 0 && (diceState.active || Math.random() < 0.05)) {
     const { data: freshProg } = await supabase
       .from('player_progress')
       .select('eur_earned, cny_earned, usd_earned, mm3_sold, mining_nftji_levels')
@@ -1524,7 +1524,7 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
 
   // ── PENALTY REDEMPTION ───────────────────────────────────
   // Bots redeem their own penalties within the 24h window (probabilistic per tick)
-  if (Math.random() < 0.40) {
+  if (Math.random() < 0.10) {
     const { data: activePenalties } = await supabase
       .from('mm3_command_penalties')
       .select('id, penalty_code, penalty_value, penalty_eur, penalty_effect')
@@ -1667,7 +1667,7 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
 
   // ── MARKET BLOCK CHAIN MINING ─────────────────────────────
   // Bots mine a qualifying block if one is available (max 1 per tick)
-  if (!claimedTasks.has('mining_chain') && Math.random() < 0.55) {
+  if (!claimedTasks.has('mining_chain') && Math.random() < 0.14) {
     const [{ data: alreadyMined }, { data: marketReserved }, { data: tvRow }] = await Promise.all([
       supabase.from('mm3_mined_blocks').select('block_hex'),
       supabase.from('mm3_mining_blocks').select('grid_row, grid_col'),
