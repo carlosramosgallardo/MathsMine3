@@ -1620,7 +1620,7 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
             WALLET_DECORATIONS.relay,
           );
 
-          const [relayErr1, relayErr2, relayErr3] = await Promise.all([
+          const [relayErr1, relayErr2, relayErr3, relayErr4] = await Promise.all([
             supabase.from('player_progress').upsert({
               wallet,
               is_bot: true,
@@ -1653,10 +1653,10 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
               event_type: 'relaying',
               delta_mm3: relayDeltaMm3,
               emoji: WALLET_DECORATIONS.relay,
-            }).catch(() => null),
+            }).then(({ error }) => error),
           ]);
 
-          if (!relayErr1 && !relayErr2 && !relayErr3) {
+          if (!relayErr1 && !relayErr2 && !relayErr3 && !relayErr4) {
             mm3GlobalDelta += relayDeltaMm3;
             actions.push({ type: 'relay_exec', targetWallet, level: relayLevel, relayDelta: relayDeltaMm3 });
           }
