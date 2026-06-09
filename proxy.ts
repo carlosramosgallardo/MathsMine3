@@ -18,7 +18,7 @@ const BOT_UA_PATTERNS = [
   /serpstatbot/i,
 ]
 
-export function middleware(req: NextRequest) {
+export function proxy(req: NextRequest) {
   const ua = req.headers.get('user-agent') ?? ''
   if (BOT_UA_PATTERNS.some(p => p.test(ua))) {
     return new NextResponse('Forbidden', { status: 403 })
