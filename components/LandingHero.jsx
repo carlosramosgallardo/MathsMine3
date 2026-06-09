@@ -11,6 +11,7 @@ const C = '#22d3ee';
 
 const SECTIONS = {
   en: [
+    { href: '/security',   icon: '🔐',  name: 'Security',    desc: 'AI-powered security audit. OSV vulnerability scan, header analysis, auth probing — full report & PDF export.', secCard: true },
     { href: '/training',   icon: '⛏',  name: 'Training',    desc: 'Solve math problems against the clock. 100/day, 13 types. Speed earns more MM3.' },
     { href: '/mining',     icon: '⬛',  name: 'Mining',      desc: '784-cell 28×28 board. Race to claim cells permanently with NFTJIs.' },
     { href: '/trading',    icon: '💱',  name: 'Trading',     desc: 'Buy and sell MM3 in fictional EUR / USD / CNY. 5 EXECs/day — dice shifts rates.' },
@@ -20,12 +21,11 @@ const SECTIONS = {
     { href: '/mm3-value',  icon: '📈',  name: 'MM3 Chart',   desc: 'Global MM3 token value over time — hourly chart with mining, trade and market event overlays.' },
     { href: '/manifesto',  icon: '📜',  name: 'Manifesto',   desc: 'Game philosophy and full game guide — rules, mechanics and everything behind MathsMine3.' },
     { href: '/ai-team',    icon: '🤖',  name: 'AI Team',     desc: 'Meet the bot wallets running 24/7 on the board alongside human miners.' },
-    { href: '/security',   icon: '🔐',  name: 'Security',    desc: 'AI-powered security audit. OSV vulnerability scan, header analysis, auth probing — full report & PDF export.' },
     { href: '/daily-tasks', icon: '🎯', name: 'Daily Tasks', desc: 'Complete daily objectives to earn fictional EUR rewards. Resets every UTC midnight.', daily: true },
     { href: '/relaying?command=/rm+-rf+MM3_BLOCK_CHAIN&chip=1', icon: null, name: 'KERNEL PANIC', desc: '// rm -rf MM3_BLOCK_CHAIN :: chain wipe :: 24h cooldown //', kernelPanic: true, chip: 1 },
-    { href: '/relaying?command=/rm+-rf+MM3_BLOCK_CHAIN&chip=2', icon: null, name: 'KERNEL PANIC', desc: '// rm -rf MM3_BLOCK_CHAIN :: chain wipe :: 24h cooldown //', kernelPanic: true, chip: 2 },
   ],
   es: [
+    { href: '/security',   icon: '🔐',  name: 'Security',    desc: 'Auditoría de seguridad con IA. Escaneo OSV, análisis de cabeceras, sondeo de autenticación — informe completo y PDF.', secCard: true },
     { href: '/training',   icon: '⛏',  name: 'Training',    desc: 'Resuelve problemas contra el reloj. 100/día, 13 tipos. Velocidad = más MM3.' },
     { href: '/mining',     icon: '⬛',  name: 'Mining',      desc: 'Tablero 28×28 de 784 celdas. Carrera por reclamarlas con NFTJIs.' },
     { href: '/trading',    icon: '💱',  name: 'Trading',     desc: 'Compra y vende MM3 en EUR / USD / CNY ficticios. 5 EXECs/día — dados afectan tasas.' },
@@ -35,10 +35,8 @@ const SECTIONS = {
     { href: '/mm3-value',  icon: '📈',  name: 'MM3 Chart',   desc: 'Valor global del token MM3 a lo largo del tiempo — gráfica horaria con overlays de mining, trade y mercado.' },
     { href: '/manifesto',  icon: '📜',  name: 'Manifiesto',  desc: 'Filosofía del juego y guía completa — reglas, mecánicas y todo lo que hay detrás de MathsMine3.' },
     { href: '/ai-team',    icon: '🤖',  name: 'AI Team',     desc: 'Conoce los bots que corren 24/7 en el tablero junto a los mineros humanos.' },
-    { href: '/security',   icon: '🔐',  name: 'Security',    desc: 'Auditoría de seguridad con IA. Escaneo OSV, análisis de cabeceras, sondeo de autenticación — informe completo y PDF.' },
     { href: '/daily-tasks', icon: '🎯', name: 'Daily Tasks', desc: 'Completa objetivos diarios para ganar EUR ficticio. Reinicia cada medianoche UTC.', daily: true },
     { href: '/relaying?command=/rm+-rf+MM3_BLOCK_CHAIN&chip=1', icon: null, name: 'KERNEL PANIC', desc: '// rm -rf MM3_BLOCK_CHAIN :: borrar cadena :: cooldown 24h //', kernelPanic: true, chip: 1 },
-    { href: '/relaying?command=/rm+-rf+MM3_BLOCK_CHAIN&chip=2', icon: null, name: 'KERNEL PANIC', desc: '// rm -rf MM3_BLOCK_CHAIN :: borrar cadena :: cooldown 24h //', kernelPanic: true, chip: 2 },
   ],
 };
 
@@ -180,12 +178,13 @@ export default function LandingHero() {
           padding: 0,
           margin: 0,
         }}>
-          {sections.map(({ href, icon, name, desc, daily, kernelPanic, chip }, idx) => {
+          {sections.map(({ href, icon, name, desc, daily, kernelPanic, chip, secCard }, idx) => {
             const kpResetsAt = kernelPanic ? chipCooldowns[`chip${chip}`] : null;
-            const borderColor = kernelPanic ? '#ef444420' : `${C}18`;
-            const bg = kernelPanic ? '#0d0505' : '#0b1015';
-            const nameColor = kernelPanic ? '#ef4444' : '#e2e8f0';
-            const descColor = kernelPanic ? '#7f1d1d' : '#475569';
+            const SEC = '#a855f7';
+            const borderColor = kernelPanic ? '#ef444420' : secCard ? `${SEC}28` : `${C}18`;
+            const bg = kernelPanic ? '#0d0505' : secCard ? '#0d0a14' : '#0b1015';
+            const nameColor = kernelPanic ? '#ef4444' : secCard ? SEC : '#e2e8f0';
+            const descColor = kernelPanic ? '#7f1d1d' : secCard ? '#5b3a7a' : '#475569';
 
             const inner = (
               <KernelPanicInner
@@ -210,8 +209,8 @@ export default function LandingHero() {
               cursor: 'pointer',
             };
 
-            const hoverBorder = kernelPanic ? '#ef444455' : `${C}55`;
-            const hoverBg = kernelPanic ? '#150808' : '#0d1419';
+            const hoverBorder = kernelPanic ? '#ef444455' : secCard ? `${SEC}66` : `${C}55`;
+            const hoverBg = kernelPanic ? '#150808' : secCard ? '#130a1a' : '#0d1419';
 
             return (
               <li key={`${href ?? name}-${idx}`} style={{ minWidth: 0 }}>
