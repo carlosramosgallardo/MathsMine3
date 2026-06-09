@@ -17,13 +17,13 @@ function getRolling24hWindow(now = new Date()) {
 }
 
 const TASKS = {
-  mining: { target: 25, rewardEur: 0.25 },
+  training: { target: 25, rewardEur: 0.25 },
   trading: { target: 5, rewardEur: 0.5 },
-  market: { target: 1, rewardEur: 0.75 },
-  irc: { target: 1, rewardEur: 1 },
-  squeeze: { target: 5, rewardEur: 2.5 },
-  ircHidden: { target: 1, rewardEur: 5 },
-  market_chain: { target: 1, rewardEur: 10 },
+  mining: { target: 1, rewardEur: 0.75 },
+  relaying: { target: 1, rewardEur: 1 },
+  squeezing: { target: 5, rewardEur: 2.5 },
+  relayingHidden: { target: 1, rewardEur: 5 },
+  mining_chain: { target: 1, rewardEur: 10 },
 };
 
 const noOp = { count: 0, error: null };
@@ -111,13 +111,13 @@ export async function POST(req) {
   }
 
   const progress = {
-    mining: countValue(miningRes),
+    training: countValue(miningRes),
     trading: countValue(tradingRes),
-    market: countValue(marketRes),
-    irc: countValue(ircRes),
-    squeeze: countValue(squeezeRes),
-    ircHidden: countValue(hiddenRes),
-    market_chain: countValue(chainRes),
+    mining: countValue(marketRes),
+    relaying: countValue(ircRes),
+    squeezing: countValue(squeezeRes),
+    relayingHidden: countValue(hiddenRes),
+    mining_chain: countValue(chainRes),
   };
 
   const completed = progress[taskKey] >= task.target;
