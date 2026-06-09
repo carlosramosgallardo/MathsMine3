@@ -1656,7 +1656,9 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
             }).then(({ error }) => error),
           ]);
 
-          if (!relayErr1 && !relayErr2 && !relayErr3 && !relayErr4) {
+          if (relayErr1 || relayErr2 || relayErr3 || relayErr4) {
+            console.error('[relay] exec errors:', { relayErr1: relayErr1?.message, relayErr2: relayErr2?.message, relayErr3: relayErr3?.message, relayErr4: relayErr4?.message, wallet, targetWallet });
+          } else {
             mm3GlobalDelta += relayDeltaMm3;
             actions.push({ type: 'relay_exec', targetWallet, level: relayLevel, relayDelta: relayDeltaMm3 });
           }
