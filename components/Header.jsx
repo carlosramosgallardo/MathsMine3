@@ -170,10 +170,10 @@ export default function Header() {
         <div className="flex h-12 items-center justify-center gap-1.5 px-3 sm:h-14 sm:gap-2.5 sm:px-4 max-sm:portrait:h-auto max-sm:portrait:min-h-12 max-sm:portrait:flex-wrap max-sm:portrait:gap-x-2 max-sm:portrait:gap-y-1 max-sm:portrait:py-1.5">
           <GlobalPulseBar />
           <Link
-            href="/"
-            onClick={triggerHomeLoading}
-            aria-label="MathsMine3 home"
+            href="/security"
+            aria-label="MathsMine3 security audit"
             className="shrink-0 block focus:outline-none transition-opacity duration-150 hover:opacity-85 mx-0.5 sm:mx-1"
+            title="Security Audit"
           >
             <Image src="/og-image.jpg" alt="MM3" width={38} height={38} priority />
           </Link>

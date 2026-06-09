@@ -7,10 +7,12 @@ const PASS = '#4ade80'
 const WARN = '#fb923c'
 const FAIL = '#ef4444'
 const GRAY = '#475569'
+const DIM  = '#1e293b'
 
 const statusColor = s => ({ pass: PASS, warn: WARN, fail: FAIL, error: FAIL }[s] ?? GRAY)
 const statusLabel = s => ({ pass: '✓ PASS', warn: '⚠ WARN', fail: '✗ FAIL', error: '✗ ERROR', running: '⟳ RUNNING' }[s] ?? s?.toUpperCase())
 const scoreColor  = n => n >= 80 ? PASS : n >= 50 ? WARN : FAIL
+const sevColor    = s => ({ CRITICAL: FAIL, HIGH: FAIL, MEDIUM: WARN, LOW: GRAY }[s] ?? GRAY)
 
 function ScoreBadge({ score }) {
   const color = scoreColor(score)
@@ -33,8 +35,139 @@ function ScoreBadge({ score }) {
   )
 }
 
-function CheckCard({ check }) {
+function ProbePanel({ probe }) {
+  if (!probe) return null
+  const entries = Object.entries(probe).filter(([, v]) => v !== null && v !== undefined)
+  return (
+    <div style={{ background: '#020608', border: `1px solid ${DIM}`, borderRadius: 4, padding: '8px 10px', marginTop: 4 }}>
+      {entries.map(([key, val]) => {
+        const display = Array.isArray(val)
+          ? val.map((v, i) => (
+              <div key={i} style={{ color: '#64748b', fontSize: '0.62rem', paddingLeft: 8, marginTop: 1 }}>
+                {typeof v === 'object' ? JSON.stringify(v) : String(v)}
+              </div>
+            ))
+          : typeof val === 'object'
+            ? <span style={{ color: '#64748b' }}>{JSON.stringify(val)}</span>
+            : <span style={{ color: '#94a3b8' }}>{String(val)}</span>
+        return (
+          <div key={key} style={{ display: 'flex', gap: 6, marginBottom: 2, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+            <span style={{ color: C, fontSize: '0.62rem', fontWeight: 600, minWidth: 110, flexShrink: 0, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+              {key.replace(/([A-Z])/g, ' $1').toLowerCase()}:
+            </span>
+            <span style={{ color: '#94a3b8', fontSize: '0.62rem', flex: 1, wordBreak: 'break-all' }}>
+              {display}
+            </span>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+function FindingRow({ f }) {
   const [open, setOpen] = useState(false)
+  const borderColor = f.status === 'fail' || f.severity === 'CRITICAL' || f.severity === 'HIGH'
+    ? FAIL : f.status === 'present' || f.status === 'pass' ? PASS : WARN
+
+  const hasExtra = f.rationale || f.attacks || f.recommended || f.aliases?.length ||
+    f.cvss || f.fixedIn || f.affectedRange || f.responsePreview || f.requestBody != null
+
+  return (
+    <div style={{ background: '#0a1020', borderRadius: 4, borderLeft: `3px solid ${borderColor}`, overflow: 'hidden' }}>
+      <div
+        style={{ padding: '6px 10px', cursor: hasExtra ? 'pointer' : 'default' }}
+        onClick={() => hasExtra && setOpen(o => !o)}
+      >
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+          {f.severity && f.status !== 'present' && f.status !== 'pass' && (
+            <span style={{ color: sevColor(f.severity), fontSize: '0.62rem', fontWeight: 700, border: `1px solid ${sevColor(f.severity)}44`, borderRadius: 3, padding: '0 4px' }}>
+              {f.severity}
+            </span>
+          )}
+          {(f.status === 'pass' || f.status === 'present') && (
+            <span style={{ color: PASS, fontSize: '0.62rem', fontWeight: 700 }}>✓</span>
+          )}
+          <span style={{ color: '#e2e8f0', fontSize: '0.75rem', fontWeight: 600 }}>
+            {f.label || f.package || f.endpoint || f.header || f.id}
+          </span>
+          {f.version && <span style={{ color: GRAY, fontSize: '0.65rem' }}>v{f.version}</span>}
+          {f.cvss && <span style={{ color: sevColor(f.severity), fontSize: '0.62rem' }}>CVSS {f.cvss}</span>}
+          {f.fixedIn && <span style={{ color: PASS, fontSize: '0.62rem' }}>fix: v{f.fixedIn}</span>}
+          {f.scoreImpact && <span style={{ color: FAIL, fontSize: '0.62rem', marginLeft: 'auto' }}>{f.scoreImpact}</span>}
+          {f.responseMs > 0 && (
+            <span style={{ color: GRAY, fontSize: '0.62rem', marginLeft: 'auto' }}>{f.responseMs}ms</span>
+          )}
+          {hasExtra && <span style={{ color: GRAY, fontSize: '0.6rem', marginLeft: 4 }}>{open ? '▲' : '▼'}</span>}
+        </div>
+        {f.summary && <div style={{ color: '#64748b', fontSize: '0.68rem', marginTop: 2 }}>{f.summary}</div>}
+        {f.value && <div style={{ color: '#475569', fontSize: '0.63rem', marginTop: 2, wordBreak: 'break-all', fontStyle: 'italic' }}>{f.value}</div>}
+        {f.actual != null && (
+          <div style={{ color: GRAY, fontSize: '0.63rem', marginTop: 2 }}>
+            HTTP <span style={{ color: f.status === 'pass' ? PASS : FAIL }}>{f.actual}</span>
+            {' '}(expected: <span style={{ color: '#94a3b8' }}>{Array.isArray(f.expected) ? f.expected.join(' / ') : f.expected}</span>)
+          </div>
+        )}
+        {f.aliases?.length > 0 && (
+          <div style={{ color: GRAY, fontSize: '0.63rem', marginTop: 2 }}>
+            CVE: {f.aliases.join(', ')}
+          </div>
+        )}
+        {f.url && (
+          <a href={f.url} target="_blank" rel="noopener noreferrer"
+            style={{ color: C, fontSize: '0.62rem', display: 'block', marginTop: 2 }} onClick={e => e.stopPropagation()}>
+            {f.url}
+          </a>
+        )}
+      </div>
+
+      {open && hasExtra && (
+        <div style={{ background: '#060c18', borderTop: `1px solid ${DIM}`, padding: '6px 10px' }}>
+          {f.rationale && (
+            <div style={{ marginBottom: 4 }}>
+              <span style={{ color: C, fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.08em' }}>WHY IT MATTERS · </span>
+              <span style={{ color: '#94a3b8', fontSize: '0.65rem' }}>{f.rationale}</span>
+            </div>
+          )}
+          {f.attacks && (
+            <div style={{ marginBottom: 4 }}>
+              <span style={{ color: FAIL, fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.08em' }}>ATTACK VECTORS · </span>
+              <span style={{ color: '#94a3b8', fontSize: '0.65rem' }}>{f.attacks}</span>
+            </div>
+          )}
+          {f.recommended && (
+            <div style={{ marginBottom: 4 }}>
+              <span style={{ color: PASS, fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.08em' }}>RECOMMENDED · </span>
+              <span style={{ color: '#64748b', fontSize: '0.63rem', fontFamily: 'monospace', wordBreak: 'break-all' }}>{f.recommended}</span>
+            </div>
+          )}
+          {f.affectedRange && (
+            <div style={{ marginBottom: 4 }}>
+              <span style={{ color: WARN, fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.08em' }}>AFFECTED RANGE · </span>
+              <span style={{ color: '#94a3b8', fontSize: '0.63rem', fontFamily: 'monospace' }}>{f.affectedRange}</span>
+            </div>
+          )}
+          {f.requestBody !== null && f.requestBody !== undefined && (
+            <div style={{ marginBottom: 4 }}>
+              <span style={{ color: GRAY, fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.08em' }}>REQUEST BODY · </span>
+              <span style={{ color: '#64748b', fontSize: '0.63rem', fontFamily: 'monospace' }}>{f.requestBody || '(none)'}</span>
+            </div>
+          )}
+          {f.responsePreview && (
+            <div>
+              <span style={{ color: GRAY, fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.08em' }}>RESPONSE PREVIEW · </span>
+              <span style={{ color: '#64748b', fontSize: '0.63rem', fontFamily: 'monospace', wordBreak: 'break-all' }}>{f.responsePreview}</span>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function CheckCard({ check }) {
+  const [open, setOpen]         = useState(false)
+  const [showProbe, setShowProbe] = useState(false)
   const color = statusColor(check.status)
   return (
     <div style={{ border: `1px solid ${color}44`, borderRadius: 8, overflow: 'hidden', marginBottom: 8 }}>
@@ -58,45 +191,30 @@ function CheckCard({ check }) {
 
       {open && (
         <div style={{ background: '#060c18', padding: '10px 14px', borderTop: `1px solid ${color}33` }}>
-          <div style={{ color: GRAY, fontSize: '0.7rem', marginBottom: 8 }}>
+          <div style={{ color: GRAY, fontSize: '0.7rem', marginBottom: 6 }}>
             SOURCE: <span style={{ color: '#94a3b8' }}>{check.source}</span>
           </div>
           <div style={{ color: '#94a3b8', fontSize: '0.78rem', marginBottom: 10 }}>{check.summary}</div>
 
+          {check.probeDetails && (
+            <div style={{ marginBottom: 12 }}>
+              <button
+                onClick={() => setShowProbe(o => !o)}
+                style={{
+                  background: 'transparent', border: `1px solid ${DIM}`, borderRadius: 4,
+                  color: GRAY, fontFamily: 'monospace', fontSize: '0.62rem', cursor: 'pointer',
+                  padding: '3px 8px', letterSpacing: '0.1em', display: 'flex', alignItems: 'center', gap: 6,
+                }}
+              >
+                <span style={{ color: C }}>⌥</span> PROBE METHODOLOGY {showProbe ? '▲' : '▼'}
+              </button>
+              {showProbe && <ProbePanel probe={check.probeDetails} />}
+            </div>
+          )}
+
           {check.findings?.length > 0 && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-              {check.findings.map((f, i) => (
-                <div key={i} style={{
-                  display: 'flex', alignItems: 'flex-start', gap: 8,
-                  background: '#0a1020', borderRadius: 4, padding: '6px 10px',
-                  borderLeft: `3px solid ${f.status === 'fail' || f.severity === 'CRITICAL' || f.severity === 'HIGH' ? FAIL : f.status === 'present' || f.status === 'pass' ? PASS : WARN}`,
-                }}>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-                      {f.severity && f.status !== 'present' && f.status !== 'pass' && (
-                        <span style={{ color: f.severity === 'CRITICAL' || f.severity === 'HIGH' ? FAIL : WARN, fontSize: '0.65rem', fontWeight: 700 }}>
-                          [{f.severity}]
-                        </span>
-                      )}
-                      <span style={{ color: '#e2e8f0', fontSize: '0.75rem' }}>
-                        {f.label || f.package || f.endpoint || f.header || f.id}
-                      </span>
-                      {f.version && <span style={{ color: GRAY, fontSize: '0.65rem' }}>{f.version}</span>}
-                    </div>
-                    {f.summary && <div style={{ color: GRAY, fontSize: '0.7rem', marginTop: 2 }}>{f.summary}</div>}
-                    {f.value && <div style={{ color: GRAY, fontSize: '0.65rem', marginTop: 2, wordBreak: 'break-all' }}>{f.value}</div>}
-                    {f.url && (
-                      <a href={f.url} target="_blank" rel="noopener noreferrer"
-                        style={{ color: C, fontSize: '0.65rem', display: 'block', marginTop: 2 }}>{f.url}</a>
-                    )}
-                    {f.actual != null && (
-                      <div style={{ color: GRAY, fontSize: '0.65rem', marginTop: 2 }}>
-                        HTTP {f.actual} (expected: {Array.isArray(f.expected) ? f.expected.join('/') : f.expected})
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ))}
+              {check.findings.map((f, i) => <FindingRow key={i} f={f} />)}
             </div>
           )}
         </div>
@@ -132,15 +250,11 @@ async function exportPDF(scan) {
   const hex2rgb = h => { const n = parseInt(h.slice(1), 16); return [n >> 16, (n >> 8) & 255, n & 255] }
   const setColor = (h, type = 'text') => { const [r,g,b] = hex2rgb(h); type === 'text' ? doc.setTextColor(r,g,b) : doc.setFillColor(r,g,b) }
 
-  // Background
   doc.setFillColor(6, 9, 24)
   doc.rect(0, 0, W, 297, 'F')
-
-  // Header bar
   doc.setFillColor(10, 15, 26)
   doc.rect(0, 0, W, 28, 'F')
 
-  // Title
   setColor(cStr, 'text')
   doc.setFontSize(14)
   doc.setFont('helvetica', 'bold')
@@ -150,9 +264,8 @@ async function exportPDF(scan) {
   doc.setFontSize(7)
   doc.setFont('helvetica', 'normal')
   doc.text(`Powered by AI Security Scanner  ·  ${new Date(scan.triggered_at).toLocaleString()}  ·  Triggered by: ${scan.triggered_by?.toUpperCase()}`, M, 19)
-  if (scan.duration_ms) doc.text(`Duration: ${(scan.duration_ms / 1000).toFixed(1)}s`, M, 24)
+  if (scan.duration_ms) doc.text(`Duration: ${(scan.duration_ms / 1000).toFixed(1)}s  ·  Scan #${scan.id}`, M, 24)
 
-  // Score badge
   const grade = (scan.score ?? 0) >= 90 ? 'A' : (scan.score ?? 0) >= 80 ? 'B' : (scan.score ?? 0) >= 70 ? 'C' : (scan.score ?? 0) >= 50 ? 'D' : 'F'
   const scoreHex = (scan.score ?? 0) >= 80 ? passStr : (scan.score ?? 0) >= 50 ? warnStr : failStr
   setColor(scoreHex, 'text')
@@ -168,7 +281,8 @@ async function exportPDF(scan) {
   for (const check of checks) {
     const color = check.status === 'pass' ? passStr : check.status === 'warn' ? warnStr : failStr
 
-    // Check header
+    if (y > 260) { doc.addPage(); doc.setFillColor(6, 9, 24); doc.rect(0, 0, W, 297, 'F'); y = 14 }
+
     doc.setFillColor(10, 15, 26)
     doc.rect(M - 2, y - 3, CW + 4, 9, 'F')
     setColor(color, 'text')
@@ -183,47 +297,72 @@ async function exportPDF(scan) {
     doc.text(`${check.score ?? 0}/100`, W - M, y + 3, { align: 'right' })
     y += 10
 
-    // Summary
     setColor('#64748b', 'text')
     doc.setFontSize(6.5)
-    doc.text(check.summary ?? '', M, y)
+    const summaryLines = doc.splitTextToSize(check.summary ?? '', CW)
+    doc.text(summaryLines, M, y)
+    y += summaryLines.length * 4 + 2
+
+    // Source line
+    setColor('#334155', 'text')
+    doc.setFontSize(5.5)
+    doc.text(`SOURCE: ${check.source ?? ''}`, M, y)
     y += 5
 
-    // Findings
-    for (const f of (check.findings ?? []).slice(0, 15)) {
+    for (const f of (check.findings ?? []).slice(0, 20)) {
       if (y > 275) { doc.addPage(); doc.setFillColor(6, 9, 24); doc.rect(0, 0, W, 297, 'F'); y = 14 }
       const fColor = (f.status === 'fail' || f.severity === 'CRITICAL' || f.severity === 'HIGH') ? failStr
+        : f.severity === 'MEDIUM' ? warnStr
         : (f.status === 'present' || f.status === 'pass') ? passStr : warnStr
       doc.setFillColor(10, 16, 32)
-      doc.rect(M, y - 2, CW, 7, 'F')
+      doc.rect(M, y - 2, CW, f.rationale ? 14 : 7, 'F')
       setColor(fColor, 'text')
       doc.setFontSize(6)
       doc.setFont('helvetica', 'bold')
-      const label = f.label || f.package || f.endpoint || f.id || ''
-      doc.text(label.slice(0, 45), M + 1, y + 3)
+      const label = (f.label || f.package || f.endpoint || f.id || '').slice(0, 55)
+      doc.text(label, M + 1, y + 3)
       if (f.severity && f.status !== 'present' && f.status !== 'pass') {
-        setColor(fColor, 'text')
-        doc.text(`[${f.severity}]`, M + 90, y + 3)
+        doc.text(`[${f.severity}]`, M + 105, y + 3)
+      }
+      if (f.cvss) {
+        setColor('#94a3b8', 'text')
+        doc.text(`CVSS ${f.cvss}`, M + 125, y + 3)
+      }
+      if (f.fixedIn) {
+        setColor(passStr, 'text')
+        doc.text(`fix: v${f.fixedIn}`, M + 145, y + 3)
       }
       if (f.summary) {
         setColor('#475569', 'text')
         doc.setFont('helvetica', 'normal')
-        doc.text(f.summary.slice(0, 60), M + 1, y + 6.5)
-        y += 10
+        doc.text(f.summary.slice(0, 80), M + 1, y + 6.5)
+        y += f.rationale ? 12 : 10
       } else {
-        y += 8
+        y += f.rationale ? 10 : 8
+      }
+      if (f.rationale) {
+        setColor('#334155', 'text')
+        doc.setFontSize(5.5)
+        const rLines = doc.splitTextToSize(`⚡ ${f.rationale}`, CW - 2)
+        doc.text(rLines.slice(0, 2), M + 1, y - 4)
+        y += 2
+      }
+      if (f.attacks) {
+        setColor('#3d1515', 'text')
+        doc.setFontSize(5)
+        doc.text(`Attacks: ${f.attacks.slice(0, 90)}`, M + 1, y - 2)
+        y += 2
       }
     }
-    if (check.findings?.length > 15) {
+    if (check.findings?.length > 20) {
       setColor('#475569', 'text')
       doc.setFontSize(6)
-      doc.text(`  ... and ${check.findings.length - 15} more findings`, M, y)
+      doc.text(`  ... and ${check.findings.length - 20} more findings`, M, y)
       y += 5
     }
-    y += 4
+    y += 6
   }
 
-  // Footer
   setColor('#1e293b', 'text')
   doc.setFontSize(6)
   doc.text('MathsMine3 · AI-Powered Security Audit · mathsmine3.xyz', W / 2, 292, { align: 'center' })
@@ -232,11 +371,11 @@ async function exportPDF(scan) {
 }
 
 export default function SecurityPage() {
-  const [history, setHistory]       = useState([])
-  const [selected, setSelected]     = useState(null)
-  const [scanning, setScanning]     = useState(false)
-  const [scanMsg, setScanMsg]       = useState('')
-  const [loadingId, setLoadingId]   = useState(null)
+  const [history, setHistory]     = useState([])
+  const [selected, setSelected]   = useState(null)
+  const [scanning, setScanning]   = useState(false)
+  const [scanMsg, setScanMsg]     = useState('')
+  const [loadingId, setLoadingId] = useState(null)
 
   const loadHistory = useCallback(async () => {
     const res = await fetch('/api/security/history')
@@ -283,18 +422,16 @@ export default function SecurityPage() {
     <div style={{ ...mono, background: '#060918', minHeight: '100vh', color: '#cbd5e1', padding: '24px 16px' }}>
       <div style={{ maxWidth: 860, margin: '0 auto' }}>
 
-        {/* Header */}
         <div style={{ marginBottom: 24 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
             <span style={{ color: C, fontSize: '1.1rem', fontWeight: 700, letterSpacing: '0.1em' }}>🔐 SECURITY AUDIT</span>
             <span style={{ color: GRAY, fontSize: '0.7rem', border: `1px solid ${GRAY}44`, borderRadius: 4, padding: '1px 6px' }}>AI-POWERED</span>
           </div>
           <div style={{ color: GRAY, fontSize: '0.75rem' }}>
-            Automated security scans · OSV · Direct API testing · mathsmine3.xyz
+            OSV vulnerability scan · Security headers · API authentication probing · mathsmine3.xyz
           </div>
         </div>
 
-        {/* Trigger */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24, flexWrap: 'wrap' }}>
           <button
             onClick={triggerScan}
@@ -313,7 +450,6 @@ export default function SecurityPage() {
           {scanMsg && <span style={{ color: scanMsg.startsWith('✓') ? PASS : scanMsg.startsWith('⏳') ? WARN : FAIL, fontSize: '0.78rem' }}>{scanMsg}</span>}
         </div>
 
-        {/* History list */}
         {history.length > 0 && (
           <div style={{ marginBottom: 24 }}>
             <div style={{ color: GRAY, fontSize: '0.65rem', letterSpacing: '0.15em', marginBottom: 8 }}>SCAN HISTORY</div>
@@ -363,7 +499,6 @@ export default function SecurityPage() {
           </div>
         )}
 
-        {/* Detail */}
         {selected && selected.status === 'completed' && (
           <div style={{ border: `1px solid ${C}33`, borderRadius: 8, padding: 16, background: '#080d1a' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 8 }}>
