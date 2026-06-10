@@ -84,7 +84,8 @@ function drawMinimap(ctx, gr, gc, angle, cellMap, presenceMap, myWallet, W, H) {
   const isMobile = W < 600
   const SZ = isMobile ? Math.min(W*0.38, 110) : Math.min(130, W*0.2)
   const CS = SZ/ROWS
-  const MX = W-SZ-6, MY = H-SZ-6
+  // On mobile, lift minimap up more to avoid browser chrome overlap
+  const MX = W-SZ-6, MY = H-SZ-(isMobile ? 22 : 6)
 
   ctx.fillStyle = 'rgba(0,0,0,0.85)'
   ctx.fillRect(MX-1,MY-1,SZ+2,SZ+2)
@@ -404,6 +405,7 @@ export default function MiningChain3DFPV({
   cellMap, presenceMap, myWallet, myColor,
   initRow, initCol, jumpToCell,
   onPositionChange, onFacingChange, onWantNavigate, onPositionRealtime,
+  onPvpHit, onAnonReset,
   es,
 }) {
   const canvasRef    = useRef(null)
@@ -438,6 +440,13 @@ export default function MiningChain3DFPV({
   const mineTargetRef   = useRef(null)
   const mineTypeRef     = useRef('empty')
   const facingDataRef   = useRef({ mx:-1, my:-1, cell:null })
+  // PvP
+  const enemyTargetRef  = useRef(null)   // { wallet, dist, isAnon }
+  const anonHitsRef     = useRef({})     // { anonKey → hitCount } per session
+  const pvpFlashRef     = useRef(0)      // timestamp of last pvp strike (for red flash)
+  const pvpGainRef      = useRef(null)   // { text, at } for "+X EUR" popup
+  const onPvpHitRef     = useRef(onPvpHit)
+  const onAnonResetRef  = useRef(onAnonReset)
 
   // Keep refs in sync with props
   useEffect(()=>{ cellMapRef.current=cellMap },[cellMap])
@@ -445,6 +454,8 @@ export default function MiningChain3DFPV({
   useEffect(()=>{ myWalletRef.current=myWallet },[myWallet])
   useEffect(()=>{ esRef.current=es },[es])
   useEffect(()=>{ onWantNavRef.current=onWantNavigate },[onWantNavigate])
+  useEffect(()=>{ onPvpHitRef.current=onPvpHit },[onPvpHit])
+  useEffect(()=>{ onAnonResetRef.current=onAnonReset },[onAnonReset])
 
   const onPositionRealtimeRef = useRef(onPositionRealtime)
   useEffect(()=>{ onPositionRealtimeRef.current=onPositionRealtime },[onPositionRealtime])
@@ -844,6 +855,46 @@ export default function MiningChain3DFPV({
     drawPickaxe(ctx, W, H, swT, walkDistRef.current)
     drawMineProgress(ctx, W, H, mineProgressRef.current, mineTypeRef.current)
 
+    // ── Enemy in crosshair indicator ──────────────────────────────────────
+    const enemy = enemyTargetRef.current
+    if (enemy?.wallet) {
+      ctx.globalAlpha = 0.55
+      ctx.strokeStyle = '#ef4444'; ctx.lineWidth = 1.5
+      const xh = W/2, yh = H * HORIZON_RATIO
+      const r2 = 18
+      ctx.beginPath(); ctx.arc(xh, yh, r2, 0, Math.PI*2); ctx.stroke()
+      ctx.globalAlpha = 0.40
+      ctx.fillStyle = '#ef4444'
+      ctx.font = 'bold 8px monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'top'
+      ctx.fillText('⚔', xh, yh + r2 + 3)
+      ctx.globalAlpha = 1
+    }
+
+    // ── PvP hit flash (red screen vignette) ───────────────────────────────
+    const flashAge = performance.now() - pvpFlashRef.current
+    if (flashAge < 280) {
+      const fa = (1 - flashAge / 280) * 0.28
+      const rg = ctx.createRadialGradient(W/2,H/2,H*0.2, W/2,H/2,H*0.8)
+      rg.addColorStop(0, 'rgba(0,0,0,0)')
+      rg.addColorStop(1, `rgba(220,30,30,${fa.toFixed(3)})`)
+      ctx.globalAlpha = 1
+      ctx.fillStyle = rg
+      ctx.fillRect(0, 0, W, H)
+    }
+
+    // ── PvP gain popup ("+X EUR") ─────────────────────────────────────────
+    const gain = pvpGainRef.current
+    if (gain) {
+      const ga = (performance.now() - gain.at) / 1200
+      if (ga < 1) {
+        ctx.globalAlpha = 1 - ga
+        ctx.font = 'bold 13px monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
+        ctx.fillStyle = '#4ade80'
+        ctx.fillText(gain.text, W/2, H * HORIZON_RATIO - 40 - ga*20)
+        ctx.globalAlpha = 1
+      } else pvpGainRef.current = null
+    }
+
     drawMinimap(ctx,gr,gc,angle,cellMap,presence,myWallet,W,H)
   }, [])
 
@@ -983,6 +1034,24 @@ export default function MiningChain3DFPV({
         }
       }
 
+      // ── Enemy sprite targeting ─────────────────────────────────────────────
+      const camGX = p.x / CELL_SIZE, camGY = p.y / CELL_SIZE
+      let closestEnemy = null, closestDist = Infinity
+      const myW = myWalletRef.current
+      for (const [w, pres] of Object.entries(presenceRef.current || {})) {
+        const isMe = w.toLowerCase() === (myW || '').toLowerCase()
+        if (isMe) continue
+        const sgx = pres.gx ?? ((pres.col ?? 0) + 0.5)
+        const sgy = pres.gy ?? ((pres.row ?? 0) + 0.5)
+        const rx = sgx - camGX, ry = sgy - camGY
+        const tY = Math.cos(p.angle)*rx + Math.sin(p.angle)*ry
+        if (tY < 0.15 || tY > 3.5) continue
+        const tX = Math.sin(p.angle)*rx - Math.cos(p.angle)*ry
+        if (Math.abs(tX / tY) > 0.28) continue
+        if (tY < closestDist) { closestDist = tY; closestEnemy = { wallet: w, dist: tY, isAnon: w.startsWith('anon-') } }
+      }
+      enemyTargetRef.current = closestEnemy
+
       // Facing detection + action URL + mine type update
       const {cell:fc,mx:fmx,my:fmy}=castRay(p.x,p.y,p.angle,cellMapRef.current)
       const newKey=`${fmy},${fmx}`
@@ -1024,19 +1093,46 @@ export default function MiningChain3DFPV({
       if(swinging) needsRender=true
       if(swinging&&swingElapsed/SWING_DUR>=0.45&&!hitDoneRef.current){
         hitDoneRef.current=true
-        const {mx,my}=facingDataRef.current
-        const tk=mx>=0&&my>=0?`${my},${mx}`:null
-        if(tk!==mineTargetRef.current){mineProgressRef.current=0;mineTargetRef.current=tk}
-        if(!tk||mineTypeRef.current==='empty'){
-          playPickHit(audioCtxRef,'empty')
+        const myWallet = myWalletRef.current
+        const enemy = enemyTargetRef.current
+
+        if(enemy?.wallet && myWallet && !myWallet.startsWith('anon-')){
+          // ── PvP hit ──────────────────────────────────────────────────────
+          playPickHit(audioCtxRef,'nftji')
+          pvpFlashRef.current = performance.now()
+
+          if(enemy.isAnon){
+            // Anon: track local hits, reset at 5
+            const prev = anonHitsRef.current[enemy.wallet] || 0
+            const next = prev + 1
+            anonHitsRef.current[enemy.wallet] = next
+            if(next >= 5){
+              anonHitsRef.current[enemy.wallet] = 0
+              onAnonResetRef.current?.(enemy.wallet)
+            }
+            pvpGainRef.current = { text: enemy.isAnon ? '👊 +0 EUR (anon)' : '⚔ hit!', at: performance.now() }
+          } else {
+            // Logged wallet: call API for steal + daily task
+            pvpGainRef.current = { text: '⚔ +0.10 EUR', at: performance.now() }
+            onPvpHitRef.current?.({ attacker: myWallet, victim: enemy.wallet, victimIsAnon: false })
+          }
+
         } else {
-          mineProgressRef.current=Math.min(1,mineProgressRef.current+1/HITS_NEEDED)
-          playPickHit(audioCtxRef,mineTypeRef.current)
-          if(mineProgressRef.current>=1){
-            playPickHit(audioCtxRef,'complete')
-            mineProgressRef.current=0
-            const url=actionUrlRef.current
-            if(url) setTimeout(()=>onWantNavRef.current?.(url),120)
+          // ── Block mine hit ───────────────────────────────────────────────
+          const {mx,my}=facingDataRef.current
+          const tk=mx>=0&&my>=0?`${my},${mx}`:null
+          if(tk!==mineTargetRef.current){mineProgressRef.current=0;mineTargetRef.current=tk}
+          if(!tk||mineTypeRef.current==='empty'){
+            playPickHit(audioCtxRef,'empty')
+          } else {
+            mineProgressRef.current=Math.min(1,mineProgressRef.current+1/HITS_NEEDED)
+            playPickHit(audioCtxRef,mineTypeRef.current)
+            if(mineProgressRef.current>=1){
+              playPickHit(audioCtxRef,'complete')
+              mineProgressRef.current=0
+              const url=actionUrlRef.current
+              if(url) setTimeout(()=>onWantNavRef.current?.(url),120)
+            }
           }
         }
         needsRender=true
@@ -1081,7 +1177,7 @@ export default function MiningChain3DFPV({
       {/* Mobile D-pad + action */}
       <div style={{
         position:'absolute',
-        bottom:'calc(12px + env(safe-area-inset-bottom, 0px))',
+        bottom:'calc(56px + env(safe-area-inset-bottom, 0px))',
         left:12,
         display:'flex',alignItems:'center',gap:8,
         pointerEvents:'auto',userSelect:'none',
@@ -1117,7 +1213,7 @@ export default function MiningChain3DFPV({
       </div>
       <p style={{
         position:'absolute',
-        bottom:'calc(2px + env(safe-area-inset-bottom, 0px))',
+        bottom:'calc(46px + env(safe-area-inset-bottom, 0px))',
         left:12,
         margin:0,color:'#22d3ee18',fontSize:'0.52rem',
         fontFamily:'monospace',letterSpacing:'0.06em',pointerEvents:'none',

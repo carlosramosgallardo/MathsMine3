@@ -24,6 +24,7 @@ const TASKS = {
   squeezing: { target: 5, rewardEur: 2.5 },
   relayingHidden: { target: 1, rewardEur: 5 },
   mining_chain: { target: 1, rewardEur: 10 },
+  pvp_hit: { target: 100, rewardEur: 100 },
 };
 
 const noOp = { count: 0, error: null };
@@ -53,7 +54,7 @@ export async function POST(req) {
   const { startIso, endIso, dayKey } = getUtcDayBounds();
   const { startIso: rollingStartIso, endIso: rollingEndIso } = getRolling24hWindow();
 
-  const [miningRes, tradingRes, marketRes, ircRes, squeezeRes, hiddenRes, chainRes, claimsRes] = await Promise.all([
+  const [miningRes, tradingRes, marketRes, ircRes, squeezeRes, hiddenRes, chainRes, pvpRes, claimsRes] = await Promise.all([
     supabase
       .from('games')
       .select('id', { count: 'exact', head: true })
@@ -99,6 +100,11 @@ export async function POST(req) {
       .gte('mined_at', startIso)
       .lt('mined_at', endIso),
     supabase
+      .from('mm3_pvp_hits')
+      .select('hit_count')
+      .eq('attacker_wallet', wallet)
+      .eq('day_key', dayKey),
+    supabase
       .from('daily_task_claims')
       .select('task_key')
       .eq('wallet', wallet)
@@ -110,6 +116,8 @@ export async function POST(req) {
     return Response.json({ ok: false, error: 'db_error' }, { status: 500 });
   }
 
+  const pvpHits = (pvpRes.data || []).reduce((s, r) => s + (Number(r.hit_count) || 0), 0);
+
   const progress = {
     training: countValue(miningRes),
     trading: countValue(tradingRes),
@@ -118,6 +126,7 @@ export async function POST(req) {
     squeezing: countValue(squeezeRes),
     relayingHidden: countValue(hiddenRes),
     mining_chain: countValue(chainRes),
+    pvp_hit: pvpHits,
   };
 
   const completed = progress[taskKey] >= task.target;

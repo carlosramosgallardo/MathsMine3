@@ -2199,3 +2199,24 @@ ALTER TABLE mm3_player_positions ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "read_positions"   ON mm3_player_positions FOR SELECT USING (true);
 CREATE POLICY "insert_positions" ON mm3_player_positions FOR INSERT WITH CHECK (true);
 CREATE POLICY "update_positions" ON mm3_player_positions FOR UPDATE USING (true) WITH CHECK (true);
+
+-- ── PvP hits (daily 100-hit limit per attacker-victim pair) ──────────────────
+DROP TABLE IF EXISTS mm3_pvp_hits CASCADE;
+CREATE TABLE mm3_pvp_hits (
+  id              UUID         DEFAULT gen_random_uuid() PRIMARY KEY,
+  attacker_wallet TEXT         NOT NULL,
+  victim_wallet   TEXT         NOT NULL,
+  day_key         TEXT         NOT NULL,
+  hit_count       INTEGER      NOT NULL DEFAULT 0,
+  eur_stolen      NUMERIC(12,6) NOT NULL DEFAULT 0,
+  first_hit_at    TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+  last_hit_at     TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+  UNIQUE (attacker_wallet, victim_wallet, day_key)
+);
+CREATE INDEX mm3_pvp_hits_attacker_idx ON mm3_pvp_hits(attacker_wallet, day_key);
+CREATE INDEX mm3_pvp_hits_victim_idx   ON mm3_pvp_hits(victim_wallet,   day_key);
+ALTER TABLE mm3_pvp_hits ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "pvp_hits_select" ON mm3_pvp_hits FOR SELECT TO public USING (true);
+CREATE POLICY "pvp_hits_insert" ON mm3_pvp_hits FOR INSERT TO public WITH CHECK (true);
+CREATE POLICY "pvp_hits_update" ON mm3_pvp_hits FOR UPDATE TO public USING (true);
+GRANT SELECT, INSERT, UPDATE ON mm3_pvp_hits TO anon;

@@ -9,6 +9,7 @@ import { colorFromAddress } from '@/lib/wallet-colors'
 import {
   gridToBlockHex, blockHexToGrid,
   MM3_BLOCK_REQUIREMENT_BY_HEX,
+  MM3_BLOCK_GRID_ROWS, MM3_BLOCK_GRID_COLS,
 } from '@/lib/mm3-block-chain'
 import supabase from '@/lib/supabaseClient'
 import MiningChain3DFPV from './MiningChain3DFPV'
@@ -26,17 +27,29 @@ export default function MiningChain3D() {
   const myWallet = account?.toLowerCase() || null
   const myColor  = myWallet ? colorFromAddress(myWallet) : '#888888'
 
+  // Compute initial spawn once: random for logged-in, center for anon
+  const initialPos = useMemo(() => {
+    if (!myWallet) return { row: 14, col: 14 }
+    return {
+      row: 2 + Math.floor(Math.random() * (MM3_BLOCK_GRID_ROWS - 4)),
+      col: 2 + Math.floor(Math.random() * (MM3_BLOCK_GRID_COLS - 4)),
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []) // Only on mount
+
   // Refs: avoid stale closures in channel callbacks and game loop
   const channelRef     = useRef(null)
   const myWalletRef    = useRef(myWallet)
-  const myPosRef       = useRef({ row: 14, col: 14 })
+  const myPosRef       = useRef(initialPos)
+  const myKeyRef       = useRef(null)     // presence key (wallet or 'anon-XXXX')
   const lastDbWriteRef = useRef(0)
 
   // Keep refs current each render
   myWalletRef.current = myWallet
 
   const [cellMap,       setCellMap]       = useState(new Map())
-  const [myPos,         setMyPos]         = useState({ row: 14, col: 14 })
+  const [myPos,         setMyPos]         = useState(initialPos)
+  const [jumpToCell,    setJumpToCell]    = useState(null)
   // positions: wallet → { gx, gy, row, col } — populated from presence payload, broadcast, and DB
   const [positions,     setPositions]     = useState({})
   // onlineWallets: who is currently in the channel (from presence sync)
@@ -109,8 +122,21 @@ export default function MiningChain3D() {
   // ── Supabase: presence (join/leave) + broadcast (real-time position) ─────────
   useEffect(() => {
     const key = myWallet || `anon-${Math.random().toString(36).slice(2, 8)}`
+    myKeyRef.current = key
     const ch = supabase.channel(CHAIN3D_CHANNEL, {
       config: { broadcast: { self: false }, presence: { key } },
+    })
+
+    // Anon reset: if I'm the target anon, teleport to center
+    ch.on('broadcast', { event: 'anon-reset' }, ({ payload }) => {
+      if (payload?.target === key && !myWalletRef.current) {
+        setMyPos({ row: 14, col: 14 })
+        setJumpToCell({ row: 14, col: 14 })
+        // Clear our DB position entry
+        supabase.from('mm3_player_positions')
+          .upsert({ wallet: key, gx: 14.5, gy: 14.5, updated_at: new Date().toISOString() })
+          .then(null, () => {})
+      }
     })
 
     // High-frequency position updates (~8/sec) via broadcast — low latency
@@ -191,6 +217,21 @@ export default function MiningChain3D() {
 
   const handleFacingChange = useCallback((row, col, cell) => setFacingCell({ row, col, cell }), [])
   const handleWantNavigate = useCallback((url) => router.push(url), [router])
+
+  const handlePvpHit = useCallback(({ attacker, victim, victimIsAnon }) => {
+    fetch('/api/pvp-hit', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ attacker, victim, victimIsAnon }),
+    }).catch(() => {})
+  }, [])
+
+  const handleAnonReset = useCallback((anonKey) => {
+    channelRef.current?.send({
+      type: 'broadcast', event: 'anon-reset',
+      payload: { target: anonKey },
+    })?.catch(() => {})
+  }, [])
 
   const handlePositionRealtime = useCallback((gx, gy) => {
     const myW = myWalletRef.current
@@ -280,10 +321,13 @@ export default function MiningChain3D() {
             myColor={myColor}
             initRow={myPos.row}
             initCol={myPos.col}
+            jumpToCell={jumpToCell}
             onPositionChange={handlePositionChange}
             onFacingChange={handleFacingChange}
             onWantNavigate={handleWantNavigate}
             onPositionRealtime={handlePositionRealtime}
+            onPvpHit={handlePvpHit}
+            onAnonReset={handleAnonReset}
             es={es}
           />
         )}
