@@ -934,7 +934,7 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
             mm3_value: totalMm3,
             mm3_value_hex: mm3ValueToHex(totalMm3),
             chain_index: (Number(lastChainEntry?.chain_index) || 0) + 1,
-          }).catch(() => {});
+          }).then(null, () => {});
         }
       }
 

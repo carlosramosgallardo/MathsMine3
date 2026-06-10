@@ -209,7 +209,7 @@ export default function MiningChain3D() {
       lastDbWriteRef.current = now
       supabase.from('mm3_player_positions')
         .upsert({ wallet: myW, gx, gy, updated_at: new Date().toISOString() })
-        .catch(() => {})
+        .then(null, () => {})
     }
   }, [])
 

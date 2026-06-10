@@ -554,7 +554,7 @@ export default function TradeBoard({ account, isVirtualWallet = false }) {
           event_type: mode === 'buy' ? 'mining_buy' : 'mining_resell',
           delta_mm3: tradeDelta,
           emoji: mode === 'buy' ? '📈' : '📉',
-        }).catch(() => {});
+        }).then(null, () => {});
       }
 
       pushToast(

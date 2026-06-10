@@ -704,6 +704,8 @@ export default function MiningChain3DFPV({
   // Game loop
   useEffect(()=>{
     const loop=()=>{
+      // Schedule next frame FIRST so the loop survives any exception in the body
+      animRef.current=requestAnimationFrame(loop)
       const k=keysRef.current, p=playerRef.current
       let needsRender=false
 
@@ -786,8 +788,6 @@ export default function MiningChain3DFPV({
         w => w.toLowerCase() !== (myWalletRef.current||'').toLowerCase()
       )
       if(needsRender||hasRemotes) renderRef.current?.()
-
-      animRef.current=requestAnimationFrame(loop)
     }
     animRef.current=requestAnimationFrame(loop)
     return ()=>cancelAnimationFrame(animRef.current)

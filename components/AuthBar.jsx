@@ -111,7 +111,7 @@ async function insertIrcPresenceTrace(wallet, tone, text) {
     ts: Date.now(),
     kind: 'system',
     tone,
-  }).catch(() => {})
+  }).then(null, () => {})
 }
 
 /* ── Connected state — same visual for both auth methods ── */
