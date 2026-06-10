@@ -6,10 +6,8 @@ import { useI18n } from '@/lib/i18n-context'
 import { useActiveWallet } from '@/lib/use-active-wallet'
 import { colorFromAddress } from '@/lib/wallet-colors'
 import {
-  gridToBlockHex,
-  blockHexToGrid,
-  MM3_BLOCK_GRID_ROWS,
-  MM3_BLOCK_GRID_COLS,
+  gridToBlockHex, blockHexToGrid,
+  MM3_BLOCK_GRID_ROWS, MM3_BLOCK_GRID_COLS,
   MM3_BLOCK_REQUIREMENT_BY_HEX,
 } from '@/lib/mm3-block-chain'
 import supabase from '@/lib/supabaseClient'
@@ -29,8 +27,11 @@ export default function MiningHotel() {
   const [presenceMap, setPresenceMap] = useState({})
   const [loading,     setLoading]     = useState(true)
   const [onlineCount, setOnlineCount] = useState(0)
-  const [viewMode,    setViewMode]    = useState('3p')  // '3p' | 'fpv'
   const [facingCell,  setFacingCell]  = useState(null)  // { row, col, cell }
+  const [jumpTarget,  setJumpTarget]  = useState(null)  // { row, col }
+  const [searchVal,   setSearchVal]   = useState('')
+  const [searchErr,   setSearchErr]   = useState(false)
+  const [copied,      setCopied]      = useState(false)
 
   const myWallet = account?.toLowerCase() || null
   const myColor  = myWallet ? colorFromAddress(myWallet) : '#888888'
@@ -39,14 +40,18 @@ export default function MiningHotel() {
   useEffect(() => {
     let mounted = true
     async function load() {
-      const [{ data: mined }, { data: market }, { data: owners }] = await Promise.all([
+      const [
+        { data: mined },
+        { data: market },
+        { data: owners },
+      ] = await Promise.all([
         supabase.from('mm3_mined_blocks').select('block_hex, wallet'),
         supabase.from('mm3_mining_blocks').select('block_key, grid_row, grid_col, emoji, title_en, title_es, price_eur'),
         supabase.from('player_progress').select('wallet, mining_nftji_key').not('mining_nftji_key', 'is', null),
       ])
       if (!mounted) return
-      const map = new Map()
 
+      const map = new Map()
       for (const m of mined || []) {
         const pos = blockHexToGrid(m.block_hex)
         if (!pos) continue
@@ -113,11 +118,32 @@ export default function MiningHotel() {
   const handlePositionChange = useCallback((row, col) => setMyPos({ row, col }), [])
   const handleFacingChange   = useCallback((row, col, cell) => setFacingCell({ row, col, cell }), [])
 
-  // Facing cell info
+  // ── Block search / jump ──────────────────────────────────────────────────────
+  const doJump = useCallback((raw) => {
+    const val = raw.trim().toUpperCase().replace(/^0X/,'0x') || raw.trim()
+    const pos  = blockHexToGrid(val)
+    if (!pos) { setSearchErr(true); setTimeout(() => setSearchErr(false), 1200); return }
+    setJumpTarget({ ...pos, _t: Date.now() })  // _t forces useEffect to re-fire for same cell
+    setSearchVal('')
+    setSearchErr(false)
+  }, [])
+
+  // Copy hex to clipboard
+  const copyHex = useCallback(async (hex) => {
+    try { await navigator.clipboard.writeText(hex) } catch {}
+    setCopied(true); setTimeout(() => setCopied(false), 1400)
+  }, [])
+
+  // Derived facing cell info
   const fc     = facingCell?.cell
   const fcHex  = facingCell ? gridToBlockHex(facingCell.row, facingCell.col) : null
   const fcReq  = fcHex ? MM3_BLOCK_REQUIREMENT_BY_HEX.get(fcHex) : null
-  const fcOwnerColor = fc?.owner ? colorFromAddress(fc.owner) : null
+  const fcOwnColor = fc?.owner ? colorFromAddress(fc.owner) : null
+  const isMine = myWallet && fc?.owner?.toLowerCase() === myWallet
+  const isClaimable = !fc?.owner  // unclaimed block (may still need level req)
+  const mineUrl = fcHex
+    ? `/relaying?command=${encodeURIComponent(`/mine ${fcHex}`)}`
+    : '/relaying'
 
   const mono = { fontFamily: 'Consolas, monospace' }
 
@@ -126,42 +152,49 @@ export default function MiningHotel() {
 
       {/* ── Header ─────────────────────────────────────────────────────────── */}
       <div style={{
-        display:'flex', alignItems:'center', gap:12, padding:'8px 16px',
+        display:'flex', alignItems:'center', gap:10, padding:'7px 14px',
         borderBottom:`1px solid ${C}22`, background:'#06091a', flexShrink:0, flexWrap:'wrap',
+        rowGap:6,
       }}>
-        <span style={{ color:C, fontWeight:700, fontSize:'0.9rem', letterSpacing:'0.12em' }}>
+        <span style={{ color:C, fontWeight:700, fontSize:'0.88rem', letterSpacing:'0.12em', whiteSpace:'nowrap' }}>
           🏨 {es ? 'HOTEL MM3' : 'MM3 HOTEL'}
         </span>
 
-        <div style={{ display:'flex', gap:4, marginLeft:8 }}>
-          {[
-            { id:'3p',  label: es ? '👤 3ª P' : '👤 3P'  },
-            { id:'fpv', label: es ? '👁 1ª P' : '👁 FPV' },
-          ].map(({ id, label }) => (
-            <button key={id} onClick={() => setViewMode(id)} style={{
-              ...btnStyle,
-              ...(viewMode===id ? { borderColor:C, color:C, background:`${C}11` } : {}),
-            }}>{label}</button>
-          ))}
-        </div>
+        {/* Block search / jump */}
+        <form onSubmit={e=>{ e.preventDefault(); doJump(searchVal) }}
+          style={{ display:'flex', gap:4, alignItems:'center', marginLeft:8 }}>
+          <input
+            value={searchVal}
+            onChange={e=>setSearchVal(e.target.value)}
+            placeholder={es ? '0x… buscar bloque' : '0x… jump to block'}
+            style={{
+              background:'#0a111f', border:`1px solid ${searchErr ? '#ef4444' : C+'33'}`,
+              borderRadius:4, color: searchErr ? '#ef4444' : '#94a3b8',
+              padding:'3px 8px', fontSize:'0.65rem', fontFamily:'Consolas,monospace',
+              width:150, outline:'none',
+              transition:'border-color 0.2s',
+            }}
+          />
+          <button type="submit" style={{ ...btnSm, color:C, borderColor:`${C}44` }}>↵</button>
+        </form>
 
-        <div style={{ display:'flex', gap:12, marginLeft:'auto', alignItems:'center', flexWrap:'wrap' }}>
+        <div style={{ display:'flex', gap:10, marginLeft:'auto', alignItems:'center', flexWrap:'wrap' }}>
           {onlineCount > 0 && (
-            <span style={{ color:'#4ade80', fontSize:'0.65rem', letterSpacing:'0.08em' }}>
-              ● {onlineCount} {es ? 'en línea' : 'online'}
+            <span style={{ color:'#4ade80', fontSize:'0.63rem', letterSpacing:'0.07em', whiteSpace:'nowrap' }}>
+              ● {onlineCount} {es?'en línea':'online'}
             </span>
           )}
           {myWallet ? (
-            <span style={{ color:myColor, fontSize:'0.65rem', border:`1px solid ${myColor}44`, borderRadius:4, padding:'2px 8px' }}>
+            <span style={{ color:myColor, fontSize:'0.63rem', border:`1px solid ${myColor}44`, borderRadius:4, padding:'2px 7px', whiteSpace:'nowrap' }}>
               {myWallet.slice(0,6)}…{myWallet.slice(-4)}
             </span>
           ) : (
-            <span style={{ color:'#334155', fontSize:'0.65rem' }}>
-              {es ? 'conecta wallet para moverte' : 'connect wallet to move'}
+            <span style={{ color:'#334155', fontSize:'0.63rem', whiteSpace:'nowrap' }}>
+              {es?'sin wallet':'no wallet'}
             </span>
           )}
-          <Link href="/mining" style={{ color:'#475569', fontSize:'0.65rem', textDecoration:'none', border:'1px solid #1e293b', borderRadius:4, padding:'2px 8px' }}>
-            ← {es ? 'Tablero 2D' : '2D Board'}
+          <Link href="/mining" style={{ color:'#475569', fontSize:'0.63rem', textDecoration:'none', border:'1px solid #1e293b', borderRadius:4, padding:'2px 7px', whiteSpace:'nowrap' }}>
+            ← {es?'Tablero':'Board'}
           </Link>
         </div>
       </div>
@@ -170,7 +203,7 @@ export default function MiningHotel() {
       <div style={{ flex:1, position:'relative', overflow:'hidden' }}>
         {loading ? (
           <div style={{ position:'absolute', inset:0, display:'flex', alignItems:'center', justifyContent:'center', color:C, fontSize:'0.75rem', letterSpacing:'0.12em' }}>
-            {es ? '⟳ CARGANDO HOTEL…' : '⟳ LOADING HOTEL…'}
+            {es?'⟳ CARGANDO…':'⟳ LOADING…'}
           </div>
         ) : (
           <MiningHotelFPV
@@ -180,84 +213,110 @@ export default function MiningHotel() {
             myColor={myColor}
             initRow={myPos.row}
             initCol={myPos.col}
+            jumpToCell={jumpTarget}
             onPositionChange={handlePositionChange}
             onFacingChange={handleFacingChange}
             es={es}
-            mode={viewMode}
           />
         )}
       </div>
 
-      {/* ── Facing cell info panel ────────────────────────────────────────── */}
+      {/* ── Facing-block info panel ───────────────────────────────────────── */}
       <div style={{
         flexShrink:0, borderTop:`1px solid ${C}18`, background:'#060c18',
-        padding:'8px 16px', minHeight:54, display:'flex', alignItems:'center',
-        gap:14, flexWrap:'wrap',
+        padding:'7px 14px', minHeight:52, display:'flex', alignItems:'center',
+        gap:12, flexWrap:'wrap', rowGap:6,
       }}>
         {facingCell ? (
           <>
-            {/* Hex + emoji */}
-            <div style={{ display:'flex', alignItems:'center', gap:6 }}>
-              {fc?.emoji && <span style={{ fontSize:'1.2rem' }}>{fc.emoji}</span>}
-              <span style={{ color: fc?.color||C, fontWeight:700, fontSize:'0.72rem', letterSpacing:'0.08em' }}>
+            {/* Identity */}
+            <div style={{ display:'flex', alignItems:'center', gap:6, minWidth:0 }}>
+              {fc?.emoji && <span style={{ fontSize:'1.1rem', flexShrink:0 }}>{fc.emoji}</span>}
+              <span style={{ color:fc?.color||C, fontWeight:700, fontSize:'0.7rem', letterSpacing:'0.08em', whiteSpace:'nowrap' }}>
                 {fcHex}
               </span>
-              <span style={{ color:'#1e3a50', fontSize:'0.6rem' }}>
+              <span style={{ color:'#1a3040', fontSize:'0.58rem', whiteSpace:'nowrap' }}>
                 [{facingCell.row},{facingCell.col}]
               </span>
             </div>
 
             {/* Title */}
             {fc?.isMarket && (
-              <span style={{ color:'#cbd5e1', fontSize:'0.68rem' }}>
-                {es ? (fc.titleEs||fc.titleEn) : (fc.titleEn||fc.titleEs)}
+              <span style={{ color:'#c4d4e0', fontSize:'0.67rem', minWidth:0 }}>
+                {es?(fc.titleEs||fc.titleEn):(fc.titleEn||fc.titleEs)}
               </span>
             )}
 
             {/* Owner */}
             {fc?.owner ? (
               <span style={{
-                color: fcOwnerColor, fontSize:'0.63rem',
-                border:`1px solid ${fcOwnerColor}33`, borderRadius:3, padding:'1px 6px',
+                color: isMine ? C : fcOwnColor,
+                fontSize:'0.62rem',
+                border:`1px solid ${(isMine?C:fcOwnColor)+'33'}`,
+                borderRadius:3, padding:'1px 6px', whiteSpace:'nowrap',
               }}>
-                {fc.owner.slice(0,8)}…{fc.owner.slice(-5)}
+                {isMine ? (es?'🔑 tuyo':'🔑 yours') : `${fc.owner.slice(0,8)}…${fc.owner.slice(-5)}`}
               </span>
             ) : (
-              <span style={{ color:'#1e3a50', fontSize:'0.63rem' }}>
-                {es ? 'sin reclamar' : 'unclaimed'}
+              <span style={{ color:'#1a3040', fontSize:'0.62rem' }}>
+                {es?'sin reclamar':'unclaimed'}
               </span>
             )}
 
             {/* Level req */}
-            {fcReq && (
-              <span style={{ color:'#334155', fontSize:'0.6rem' }}>
-                {es ? `nivel mín. ${fcReq.minLevel}` : `min level ${fcReq.minLevel}`}
+            {fcReq?.minLevel > 0 && (
+              <span style={{ color:'#2a4560', fontSize:'0.58rem', whiteSpace:'nowrap' }}>
+                {es?`lvl≥${fcReq.minLevel}`:`lvl≥${fcReq.minLevel}`}
               </span>
             )}
 
             {/* Price */}
             {fc?.priceEur > 0 && (
-              <span style={{ color:'#fb923c', fontSize:'0.63rem', fontWeight:600 }}>
+              <span style={{ color:'#fb923c', fontSize:'0.62rem', fontWeight:600, whiteSpace:'nowrap' }}>
                 {fc.priceEur} EUR
               </span>
             )}
 
-            {/* Action link */}
-            <Link href="/mining" style={{
-              marginLeft:'auto', display:'inline-flex', alignItems:'center', gap:5,
-              color:C, fontSize:'0.65rem', textDecoration:'none',
-              border:`1px solid ${C}33`, borderRadius:4, padding:'4px 12px',
-              background:`${C}08`, letterSpacing:'0.07em',
-              whiteSpace:'nowrap',
-            }}>
-              ⛏ {es ? 'Abrir en tablero' : 'Open in board'}
-            </Link>
+            {/* Action buttons */}
+            <div style={{ display:'flex', gap:6, marginLeft:'auto', flexWrap:'wrap', alignItems:'center' }}>
+              {/* Copy hex */}
+              <button onClick={()=>fcHex&&copyHex(fcHex)} style={{
+                ...btnSm, color: copied?'#4ade80':C+'88', borderColor: copied?'#4ade8033':`${C}22`,
+              }}>
+                {copied ? '✓' : '⎘'} {fcHex}
+              </button>
+
+              {/* Mine this block (unclaimed or owned by me = re-mine not applicable, show only unclaimed) */}
+              {isClaimable && (
+                <Link href={mineUrl} style={{
+                  ...actionLink, background:`${C}0c`, borderColor:`${C}44`, color:C,
+                }}>
+                  ⛏ {es?'Minar bloque':'Mine block'}
+                </Link>
+              )}
+
+              {/* Market block: link to relaying with buy command */}
+              {fc?.isMarket && !fc.owner && fc.blockKey && (
+                <Link href={`/relaying?command=${encodeURIComponent(`/buy ${fc.blockKey}`)}`} style={{
+                  ...actionLink, background:'#fb923c0c', borderColor:'#fb923c44', color:'#fb923c',
+                }}>
+                  🛒 {es?'Comprar':'Buy'}
+                </Link>
+              )}
+
+              {/* View on 2D board */}
+              <Link href="/mining" style={{
+                ...actionLink, background:'#1e293b', borderColor:'#334155', color:'#94a3b8',
+              }}>
+                {es?'Tablero 2D':'2D Board'}
+              </Link>
+            </div>
           </>
         ) : (
-          <span style={{ color:'#1e3a50', fontSize:'0.62rem', letterSpacing:'0.1em' }}>
+          <span style={{ color:'#1a3040', fontSize:'0.61rem', letterSpacing:'0.09em' }}>
             {es
-              ? 'MUÉVETE CON WASD O LAS FLECHAS · APUNTA A UNA SALA PARA VER SU INFO'
-              : 'MOVE WITH WASD OR ARROWS · AIM AT A ROOM TO SEE ITS INFO'}
+              ? 'WASD / FLECHAS → MOVER · DRAG → ROTAR · APUNTA A UNA SALA PARA VER SU INFO'
+              : 'WASD / ARROWS → MOVE · DRAG → LOOK · AIM AT A ROOM TO INSPECT IT'}
           </span>
         )}
       </div>
@@ -265,8 +324,16 @@ export default function MiningHotel() {
   )
 }
 
-const btnStyle = {
+const btnSm = {
   background:'transparent', border:'1px solid #1e293b', color:'#475569',
   padding:'2px 8px', borderRadius:4, cursor:'pointer',
-  fontFamily:'Consolas, monospace', fontSize:'0.7rem',
+  fontFamily:'Consolas,monospace', fontSize:'0.65rem', whiteSpace:'nowrap',
+}
+
+const actionLink = {
+  display:'inline-flex', alignItems:'center', gap:4,
+  fontSize:'0.64rem', textDecoration:'none',
+  border:'1px solid transparent', borderRadius:4, padding:'3px 10px',
+  fontFamily:'Consolas,monospace', whiteSpace:'nowrap',
+  letterSpacing:'0.05em',
 }
