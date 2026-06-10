@@ -311,8 +311,8 @@ export default function MiningChain3D() {
               {es?'sin wallet':'no wallet'}
             </span>
           )}
-          <Link href="/mining" style={{ color:'#475569', fontSize:'0.63rem', textDecoration:'none', border:'1px solid #1e293b', borderRadius:4, padding:'2px 7px', whiteSpace:'nowrap' }}>
-            ← {es?'Tablero':'Board'}
+          <Link href="/" style={{ color:'#475569', fontSize:'0.63rem', textDecoration:'none', border:'1px solid #1e293b', borderRadius:4, padding:'2px 7px', whiteSpace:'nowrap' }}>
+            ← {es?'Inicio':'Home'}
           </Link>
         </div>
       </div>
