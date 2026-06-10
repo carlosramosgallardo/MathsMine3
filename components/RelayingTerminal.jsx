@@ -1359,14 +1359,14 @@ export default function RelayingTerminal({ accent = '#22d3ee' }) {
           ? `índice cmd :: ${entries.length} cmds cargados :: /?`
           : `cmd index :: ${entries.length} cmds loaded :: /?`,
         language === 'es'
-          ? `numeric_code :: código 5 dígitos >> introducir en bloque Market para cancelar penalización`
-          : `numeric_code :: 5-digit code >> enter in Market block detail to redeem penalty`,
+          ? `numeric_code :: código 5 dígitos >> introducir en bloque Mining para cancelar penalización`
+          : `numeric_code :: 5-digit code >> enter in Mining block detail to redeem penalty`,
         language === 'es'
           ? `mine block :: /mine block #029 >> mina un bloque libre si tu wallet y el valor global MM3 cumplen el requisito`
           : `mine block :: /mine block #029 >> mine a free board block if wallet level and global MM3 value meet the requirement`,
         language === 'es'
-          ? `chain :: mina 1 bloque de la cadena Market hoy >> recompensa €10 diaria`
-          : `chain :: mine 1 Market block chain cell today >> €10 daily reward`,
+          ? `chain :: mina 1 bloque de la cadena Mining hoy >> recompensa €10 diaria`
+          : `chain :: mine 1 Mining block chain cell today >> €10 daily reward`,
         t('relaying.execCmd'),
         language === 'es'
           ? `── MONEY RAIL ─── penalización en fiat ──────────────────────`
@@ -1395,8 +1395,8 @@ export default function RelayingTerminal({ accent = '#22d3ee' }) {
         ts: Date.now(),
         tone: 'command',
         text: language === 'es'
-          ? `índice cmd no disponible :: ${err?.message || 'market DB offline'}`
-          : `cmd index unavailable :: ${err?.message || 'market DB offline'}`,
+          ? `índice cmd no disponible :: ${err?.message || 'mining DB offline'}`
+          : `cmd index unavailable :: ${err?.message || 'mining DB offline'}`,
       }), { silent: true });
     }
   }, [appendMessage, language, loadMarketCommandEntries]);
@@ -1559,7 +1559,7 @@ export default function RelayingTerminal({ accent = '#22d3ee' }) {
       return true;
     } catch (err) {
       console.error('market command:', err);
-      await broadcastSystemMessage(`${t('mining.commandFailed')} >> ${err?.message || 'market daemon non-zero'}`, 'command');
+      await broadcastSystemMessage(`${t('mining.commandFailed')} >> ${err?.message || 'mining daemon non-zero'}`, 'command');
       return true;
     }
   }, [broadcastSystemMessage, findMarketCommandInDb, language, normalizedWallet, t]);
@@ -1616,9 +1616,15 @@ export default function RelayingTerminal({ accent = '#22d3ee' }) {
       already_mined: language === 'es'
         ? `mine block rechazado :: ${blockHex} ya minado por ${formatWalletLabel(data.owner || '')}`
         : `mine block rejected :: ${blockHex} already mined by ${formatWalletLabel(data.owner || '')}`,
-      reserved_mining_nftji: language === 'es'
-        ? `mine block rechazado :: ${blockHex} reservado para NFTJI de Market`
-        : `mine block rejected :: ${blockHex} is reserved for a Market NFTJI`,
+      nftji_offline: language === 'es'
+        ? `mine block offline :: NFTJI no activo`
+        : `mine block offline :: NFTJI inactive`,
+      already_owns_nftji: language === 'es'
+        ? `mine block rechazado :: revende tu NFTJI antes de minar otro`
+        : `mine block rejected :: resell your NFTJI before mining another`,
+      insufficient_funds: language === 'es'
+        ? `mine block rechazado :: fondos insuficientes para este NFTJI`
+        : `mine block rejected :: insufficient funds for this NFTJI`,
       block_chain_not_installed: language === 'es'
         ? `mine block offline :: tabla mm3_mined_blocks no instalada`
         : `mine block offline :: mm3_mined_blocks table not installed`,
@@ -1764,7 +1770,7 @@ export default function RelayingTerminal({ accent = '#22d3ee' }) {
         return;
       }
 
-      // Public Market commands are loaded from DB and can use any slash name.
+      // Public Mining commands are loaded from DB and can use any slash name.
       if (await processMarketCommand(text)) {
         return;
       }
@@ -1817,12 +1823,12 @@ export default function RelayingTerminal({ accent = '#22d3ee' }) {
             const errorMsg = language === 'es'
               ? ({
                   level_too_low: `acceso denegado :: nivel insuficiente para /${cmdName}`,
-                  command_not_active: 'acceso denegado :: comando Market público no activo hoy para este bloque',
+                  command_not_active: 'acceso denegado :: comando Mining público no activo hoy para este bloque',
                   already_executed_today: 'acceso denegado :: cuota diaria del comando agotada',
                 }[data.error] || `acceso denegado :: /${cmdName} rechazado`)
               : ({
                   level_too_low: `access denied :: level insufficient for /${cmdName}`,
-                  command_not_active: 'access denied :: public Market command not active for this block today',
+                  command_not_active: 'access denied :: public Mining command not active for this block today',
                   already_executed_today: 'access denied :: command quota exhausted for today',
                 }[data.error] || `access denied :: /${cmdName} rejected`);
             appendMessage(makeMessage({

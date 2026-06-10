@@ -3,7 +3,6 @@
 import { useEffect, useRef, useCallback } from 'react'
 import { colorFromAddress } from '@/lib/wallet-colors'
 import { MM3_BLOCK_GRID_ROWS, MM3_BLOCK_GRID_COLS, gridToBlockHex } from '@/lib/mm3-block-chain'
-import { getMarketCommandForKey, marketCommandFromBlock } from '@/lib/mining-commands'
 
 const ROWS = MM3_BLOCK_GRID_ROWS
 const COLS = MM3_BLOCK_GRID_COLS
@@ -56,7 +55,7 @@ function wallRgb(cell, dist, side, myWallet) {
       base = [Math.min(255,r*1.15|0), Math.min(255,g*1.15|0), Math.min(255,b*1.15|0)]
     }
   } else if (cell?.isMarket) {
-    // Unowned market block (has NFTJI slot): amber/gold — draws attention
+    // Unowned NFTJI block: amber/gold draws attention.
     base = [200, 110, 20]
   } else if (cell) {
     // Unclaimed regular block: slate-blue, mineable
@@ -169,44 +168,42 @@ function drawFacingHUD(ctx, W, H, fwdCell, fwdMx, fwdMy, myWallet, es) {
 
   const lines = []
   const epfx  = fwdCell?.emoji ? `${fwdCell.emoji}  ` : ''
-  lines.push({ text: `${epfx}${hex}`, size: 11, weight: 'bold', col: color })
-  if (title) lines.push({ text: title, size: 9, col: '#b8ccd8' })
+  lines.push({ text: `${epfx}${hex}`, size: 13, weight: 'bold', col: color })
+  if (title) lines.push({ text: title, size: 11, col: '#c7d8e2' })
 
   if (owner) {
     lines.push({
       text: isMine
         ? (es ? '🔑 Tu bloque' : '🔑 Yours')
         : `◈ ${owner.slice(0,6)}…${owner.slice(-4)}`,
-      size: 9, col: isMine ? C : color + 'cc',
+      size: 11, col: isMine ? C : color + 'dd',
     })
   } else if (fwdCell?.isMarket) {
-    lines.push({ text: es ? '○ Libre / En venta' : '○ Unclaimed / For sale', size: 9, col: '#1f4a60' })
+    lines.push({ text: es ? '○ NFTJI libre' : '○ Free NFTJI', size: 11, col: '#5b8aa3' })
   } else if (fwdCell) {
-    lines.push({ text: es ? '○ Sin reclamar' : '○ Unclaimed', size: 9, col: '#1a3040' })
+    lines.push({ text: es ? '○ Sin reclamar' : '○ Unclaimed', size: 11, col: '#5b7890' })
   } else {
     // Unclaimed block not in DB (never touched)
-    lines.push({ text: es ? '○ Sin reclamar' : '○ Unclaimed', size: 9, col: '#1a3040' })
+    lines.push({ text: es ? '○ Sin reclamar' : '○ Unclaimed', size: 11, col: '#5b7890' })
   }
 
   if (fwdCell?.priceEur > 0) {
-    lines.push({ text: `${fwdCell.priceEur} EUR`, size: 9, weight: 'bold', col: '#fb923c' })
+    lines.push({ text: `${fwdCell.priceEur} EUR`, size: 11, weight: 'bold', col: '#fb923c' })
   }
 
-  if (!owner && fwdCell?.isMarket) {
-    lines.push({ text: es ? '↵ · Comprar NFTJI' : '↵ · Buy NFTJI', size: 8, col: '#fb923c99' })
-  } else if (!owner) {
-    // Mine: unclaimed cells (in DB or not in DB)
-    lines.push({ text: es ? '↵ · Minar bloque' : '↵ · Mine block', size: 8, col: C + '99' })
+  if (!owner) {
+    // Mine: unclaimed cells and NFTJI rooms are both claimed with the pickaxe.
+    lines.push({ text: es ? '↵ · Minar bloque' : '↵ · Mine block', size: 10, col: C + 'cc' })
   } else if (owner && fwdCell?.isMarket) {
     const isMineWall = myWallet && owner.toLowerCase() === myWallet.toLowerCase()
     if (isMineWall) {
-      lines.push({ text: es ? '↵ · Revender NFTJI' : '↵ · Resell NFTJI', size: 8, col: '#4ade8099' })
+      lines.push({ text: es ? '↵ · Revender NFTJI' : '↵ · Resell NFTJI', size: 10, col: '#4ade80cc' })
     }
   }
 
-  const lineH = 14, padX = 8, padY = 7
+  const lineH = 16, padX = 9, padY = 8
   const ph = lines.length * lineH + padY * 2
-  const pw = Math.min(W * 0.27, 200)
+  const pw = Math.min(W * 0.32, 240)
   const px = W - pw - 8
   const py = 8
 
@@ -396,7 +393,7 @@ function drawMineProgress(ctx, W, H, progress, type) {
   ctx.lineCap = 'butt'
 
   ctx.globalAlpha = 0.65
-  ctx.fillStyle = col; ctx.font = 'bold 8px monospace'
+  ctx.fillStyle = col; ctx.font = 'bold 10px monospace'
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
   ctx.fillText(`${Math.round(progress * 100)}%`, cx, cy + r + 10)
   ctx.globalAlpha = 1
@@ -416,8 +413,8 @@ function drawChainStats(ctx, W, H, stats, es) {
     { label: es ? 'Sin reclamar' : 'Unclaimed', val: String(unclaimed < 0 ? 0 : unclaimed) },
   ]
 
-  const LINE_H = 11, PAD_X = 7, PAD_Y = 5
-  const pw = 130, ph = lines.length * LINE_H + PAD_Y * 2 + 8
+  const LINE_H = 13, PAD_X = 8, PAD_Y = 6
+  const pw = 158, ph = lines.length * LINE_H + PAD_Y * 2 + 9
   const isMobile = W < 600
   const px = 6
   const py = H - ph - (isMobile ? 210 : 170)
@@ -443,18 +440,18 @@ function drawChainStats(ctx, W, H, stats, es) {
     const { label, val, header } = lines[i]
     const ly = py + PAD_Y + i * LINE_H
     if (header) {
-      ctx.font = 'bold 7px monospace'; ctx.textAlign = 'left'
+      ctx.font = 'bold 9px monospace'; ctx.textAlign = 'left'
       ctx.fillStyle = C + 'cc'
       ctx.fillText(label, px + PAD_X, ly)
-      ctx.font = 'bold 7px monospace'; ctx.textAlign = 'right'
+      ctx.font = 'bold 9px monospace'; ctx.textAlign = 'right'
       ctx.fillStyle = '#4ade80cc'
       ctx.fillText(`${pct}%`, px + pw - PAD_X, ly)
     } else {
-      ctx.font = '7px monospace'; ctx.textAlign = 'left'
-      ctx.fillStyle = '#475569'
+      ctx.font = '9px monospace'; ctx.textAlign = 'left'
+      ctx.fillStyle = '#70879c'
       ctx.fillText(label, px + PAD_X, ly)
       ctx.textAlign = 'right'
-      ctx.fillStyle = '#94a3b8'
+      ctx.fillStyle = '#c2d2de'
       ctx.fillText(val, px + pw - PAD_X, ly)
     }
   }
@@ -480,9 +477,9 @@ function drawOnlineList(ctx, W, H, presenceMap, myWallet, pvpStolen) {
   const list   = [...logged, ...anon]
   if (!list.length) return
 
-  const HEADER_H = 13
-  const LINE_H   = 11
-  const PAD_X    = 6, PAD_Y = 4
+  const HEADER_H = 15
+  const LINE_H   = 13
+  const PAD_X    = 7, PAD_Y = 5
   const pw  = SZ + 2
   const ph  = HEADER_H + list.length * LINE_H + PAD_Y * 2
   const px  = MX - 1
@@ -495,8 +492,8 @@ function drawOnlineList(ctx, W, H, presenceMap, myWallet, pvpStolen) {
   ctx.strokeStyle = C + '33'; ctx.lineWidth = 0.5
   ctx.strokeRect(px, py, pw, ph)
 
-  ctx.font = 'bold 7px monospace'; ctx.textAlign = 'left'; ctx.textBaseline = 'top'
-  ctx.fillStyle = C + '88'
+  ctx.font = 'bold 9px monospace'; ctx.textAlign = 'left'; ctx.textBaseline = 'top'
+  ctx.fillStyle = C + 'bb'
   ctx.fillText('ONLINE', px + PAD_X, py + PAD_Y)
 
   for (let i = 0; i < list.length; i++) {
@@ -507,14 +504,14 @@ function drawOnlineList(ctx, W, H, presenceMap, myWallet, pvpStolen) {
     const label = isAnon
       ? (isMe ? `${w.slice(0, 10)}…` : `anon`)
       : `${w.slice(0, 6)}…${w.slice(-3)}`
-    ctx.font = `${isMe ? 'bold ' : ''}7px monospace`
+    ctx.font = `${isMe ? 'bold ' : ''}9px monospace`
     ctx.textAlign = 'left'
     ctx.fillStyle = col
     ctx.fillText(label, px + PAD_X, ly)
     if (stolen > 0) {
       ctx.fillStyle = '#4ade8099'
       ctx.textAlign = 'right'
-      ctx.font = '7px monospace'
+      ctx.font = '9px monospace'
       ctx.fillText(`+${stolen.toFixed(2)}`, px + pw - PAD_X, ly)
     }
   }
@@ -635,8 +632,12 @@ export default function MiningChain3DFPV({
     const canvas = canvasRef.current
     if (!canvas) return
     const ctx = canvas.getContext('2d')
-    const W=canvas.width, H=canvas.height
+    const dpr = Number(canvas.dataset.dpr) || 1
+    const W = Math.round(canvas.width / dpr)
+    const H = Math.round(canvas.height / dpr)
     if (!W||!H) return
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+    ctx.imageSmoothingEnabled = false
 
     const cellMap  = cellMapRef.current
     const presence = presenceRef.current
@@ -711,10 +712,10 @@ export default function MiningChain3DFPV({
       ctx.fillStyle=`rgb(${rw},${gw},${bw})`
       ctx.fillRect(col*STRIP_W,wTop,STRIP_W,wallH)
 
-      // Market block patterns
+      // NFTJI block patterns
       if (cell?.isMarket) {
         if (!cell.owner) {
-          // Unowned market: amber diagonal stripes — clearly "for sale"
+          // Unowned NFTJI: amber diagonal stripes.
           const stripeH = Math.max(3, Math.round(wallH/6))
           for (let sy=wTop; sy<wTop+wallH; sy+=stripeH*2) {
             ctx.fillStyle = 'rgba(251,146,60,0.22)'
@@ -723,7 +724,7 @@ export default function MiningChain3DFPV({
         } else {
           const isMe = myWallet && cell.owner.toLowerCase() === myWallet.toLowerCase()
           if (isMe) {
-            // My market block: cyan shimmer
+            // My NFTJI block: cyan shimmer
             ctx.fillStyle = 'rgba(34,211,238,0.18)'
             ctx.fillRect(col*STRIP_W, wTop, STRIP_W, wallH)
           } else {
@@ -876,7 +877,7 @@ export default function MiningChain3DFPV({
 
       if (tY < 7.0) {
         const lAlpha = Math.max(0, (7.0-tY)/7.0)*0.88
-        const lSize  = Math.max(8, Math.round(11/Math.max(0.5, tY)))
+        const lSize  = Math.max(10, Math.round(13/Math.max(0.5, tY)))
         const pres   = (presence||{})[w]
         const pool   = pres?.poolCode
         ctx.globalAlpha = lAlpha * 0.45
@@ -889,7 +890,7 @@ export default function MiningChain3DFPV({
         ctx.fillText(`${w.slice(0,6)}…${w.slice(-4)}`, scrX, topY-2)
         // Pool badge above wallet address
         if (pool && tY < 5.0) {
-          const pSize = Math.max(6, lSize - 2)
+          const pSize = Math.max(8, lSize - 2)
           ctx.globalAlpha = lAlpha * 0.75
           ctx.font = `bold ${pSize}px monospace`
           ctx.fillStyle = '#f59e0b'
@@ -909,7 +910,7 @@ export default function MiningChain3DFPV({
     if (fwdTitle && fwdDist < 6.5) {
       const a   = Math.min(0.82, Math.max(0.05, (6.5-fwdDist)/6.5))
       const wH  = Math.min(H*1.8, H*PROJ_DIST/Math.max(0.1,fwdDist))
-      const fs  = Math.max(7, Math.round(11*PROJ_DIST/Math.max(0.5,fwdDist)))
+      const fs  = Math.max(9, Math.round(13*PROJ_DIST/Math.max(0.5,fwdDist)))
       ctx.globalAlpha = a
       ctx.font = `bold ${fs}px monospace`
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
@@ -923,7 +924,7 @@ export default function MiningChain3DFPV({
     if (fwdHex && fwdDist < 4.0) {
       const a   = Math.max(0,(4.0-fwdDist)/4.0)*0.52
       const wH  = Math.min(H*1.8,H*PROJ_DIST/Math.max(0.1,fwdDist))
-      const fs  = Math.max(7,Math.round(12*PROJ_DIST/Math.max(0.3,fwdDist)))
+      const fs  = Math.max(9,Math.round(14*PROJ_DIST/Math.max(0.3,fwdDist)))
       ctx.globalAlpha = a
       ctx.font = `bold ${fs}px monospace`
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
@@ -939,7 +940,7 @@ export default function MiningChain3DFPV({
         : `[ ${fwdCell.owner.slice(0,6)}…${fwdCell.owner.slice(-4)} ]`
       const a   = Math.max(0, (3.8-fwdDist)/3.8)*0.68
       const wH  = Math.min(H*1.8,H*PROJ_DIST/Math.max(0.1,fwdDist))
-      const fs  = Math.max(6, Math.round(9*PROJ_DIST/Math.max(0.4,fwdDist)))
+      const fs  = Math.max(8, Math.round(11*PROJ_DIST/Math.max(0.4,fwdDist)))
       ctx.globalAlpha = a
       ctx.font = `${fs}px monospace`
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
@@ -952,7 +953,7 @@ export default function MiningChain3DFPV({
     if (fwdCell?.priceEur > 0 && !fwdCell.owner && fwdDist < 4.5) {
       const a   = Math.max(0,(4.5-fwdDist)/4.5)*0.72
       const wH  = Math.min(H*1.8,H*PROJ_DIST/Math.max(0.1,fwdDist))
-      const fs  = Math.max(7,Math.round(10*PROJ_DIST/Math.max(0.5,fwdDist)))
+      const fs  = Math.max(9,Math.round(12*PROJ_DIST/Math.max(0.5,fwdDist)))
       ctx.globalAlpha = a
       ctx.font = `bold ${fs}px monospace`
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
@@ -963,7 +964,7 @@ export default function MiningChain3DFPV({
 
     // Inspect prompt when very close
     if (fwdDist < 0.9 && fwdCell && !fwdCell.owner) {
-      ctx.font = '11px monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'top'
+      ctx.font = 'bold 12px monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'top'
       ctx.fillStyle = C + 'cc'
       ctx.fillText(es ? '[ ↵ MINAR BLOQUE ]' : '[ ↵ MINE BLOCK ]', W/2, horizon+18)
     }
@@ -1005,7 +1006,7 @@ export default function MiningChain3DFPV({
     // ── HUD: current room (top-left) ──────────────────────────────────────────
     const curHex = gridToBlockHex(gr,gc)
     ctx.textAlign='left'; ctx.textBaseline='top'
-    ctx.fillStyle = C+'99'; ctx.font='bold 10px monospace'
+    ctx.fillStyle = C+'dd'; ctx.font='bold 12px monospace'
     ctx.fillText(curHex, 10, 10)
     if (curCell?.emoji) {
       ctx.font='12px serif'; ctx.fillText(curCell.emoji, 10, 24)
@@ -1013,12 +1014,12 @@ export default function MiningChain3DFPV({
     if (curCell?.owner) {
       const ownLabel = myWallet && curCell.owner.toLowerCase()===myWallet.toLowerCase()
         ? (es?'🔑 TUYO':'🔑 YOURS') : `${curCell.owner.slice(0,6)}…${curCell.owner.slice(-4)}`
-      ctx.fillStyle = curCell.color+'88'; ctx.font='9px monospace'
+      ctx.fillStyle = curCell.color+'cc'; ctx.font='11px monospace'
       ctx.fillText(ownLabel, 10, curCell.emoji ? 40 : 24)
     }
 
     // Controls hint (very dim, top-center)
-    ctx.textAlign='center'; ctx.fillStyle='#152230'; ctx.font='8px monospace'
+    ctx.textAlign='center'; ctx.fillStyle='#28465c'; ctx.font='bold 9px monospace'
     ctx.fillText(
       es ? 'WASD·mover  Q/E·girar  drag·rotar  ↵·acción'
          : 'WASD·move  Q/E·turn  drag·look  ↵·action',
@@ -1044,7 +1045,7 @@ export default function MiningChain3DFPV({
       ctx.beginPath(); ctx.arc(xh, yh, r2, 0, Math.PI*2); ctx.stroke()
       ctx.globalAlpha = 0.40
       ctx.fillStyle = '#ef4444'
-      ctx.font = 'bold 8px monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'top'
+      ctx.font = 'bold 10px monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'top'
       ctx.fillText('⚔', xh, yh + r2 + 3)
       ctx.globalAlpha = 1
     }
@@ -1087,7 +1088,14 @@ export default function MiningChain3DFPV({
     if (!canvas||!container) return
     const resize=()=>{
       const {width,height}=container.getBoundingClientRect()
-      canvas.width=Math.round(width); canvas.height=Math.round(height)
+      const cssW = Math.max(1, Math.round(width))
+      const cssH = Math.max(1, Math.round(height))
+      const dpr = Math.min(2, Math.max(1, window.devicePixelRatio || 1))
+      canvas.dataset.dpr = String(dpr)
+      canvas.width = Math.round(cssW * dpr)
+      canvas.height = Math.round(cssH * dpr)
+      canvas.style.width = `${cssW}px`
+      canvas.style.height = `${cssH}px`
       zBufferRef.current=null
       renderRef.current?.()
     }
@@ -1248,20 +1256,8 @@ export default function MiningChain3DFPV({
             const myW=myWalletRef.current
             const ownerIsMe=myW&&fc.owner?.toLowerCase()===myW
             if(!fc.owner){
-              if(fc.isMarket){
-                // Buy NFTJI: navigate to relaying with the block's buy command
-                const cmdEntry = fc.blockKey
-                  ? (marketCommandFromBlock(fc) || getMarketCommandForKey(fc.blockKey))
-                  : null
-                const cmd = cmdEntry?.command
-                actionUrlRef.current = cmd
-                  ? `/relaying?command=${encodeURIComponent(cmd)}`
-                  : (fc.blockKey ? `/mining-short/${fc.blockKey}` : null)
-                mineTypeRef.current='nftji'
-              } else {
-                actionUrlRef.current=`/relaying?command=${encodeURIComponent(`/mine ${hex}`)}`;
-                mineTypeRef.current='mine'
-              }
+              actionUrlRef.current=`/relaying?command=${encodeURIComponent(`/mine block ${hex}`)}`;
+              mineTypeRef.current=fc.isMarket?'nftji':'mine'
             } else if(ownerIsMe&&fc.isMarket){
               // Resell my NFTJI: navigate to relaying with resell command
               actionUrlRef.current=`/relaying?command=${encodeURIComponent(`/resell ${hex}`)}`
@@ -1272,7 +1268,7 @@ export default function MiningChain3DFPV({
           } else if (fmx >= 0 && fmy >= 0 && fmx < COLS && fmy < ROWS) {
             // Unclaimed regular block (not in cellMap = never claimed)
             const hex = gridToBlockHex(fmy, fmx)
-            actionUrlRef.current = `/relaying?command=${encodeURIComponent(`/mine ${hex}`)}`
+            actionUrlRef.current = `/relaying?command=${encodeURIComponent(`/mine block ${hex}`)}`
             mineTypeRef.current = 'mine'
           } else {
             actionUrlRef.current=null; mineTypeRef.current='empty'
@@ -1352,9 +1348,9 @@ export default function MiningChain3DFPV({
     onPointerUp:  (e)=>{e.preventDefault();keysRef.current[key]=false},
     onPointerLeave:()=>{keysRef.current[key]=false},
     style:{
-      width:52,height:52,background:'rgba(34,211,238,0.08)',
-      border:'1px solid #22d3ee2a',borderRadius:10,color:'#22d3ee88',
-      fontSize:'1.2rem',cursor:'pointer',display:'flex',
+      width:58,height:58,background:'rgba(34,211,238,0.10)',
+      border:'1px solid #22d3ee3d',borderRadius:10,color:'#22d3eebb',
+      fontSize:'1.35rem',cursor:'pointer',display:'flex',
       alignItems:'center',justifyContent:'center',
       userSelect:'none',fontFamily:'monospace',touchAction:'none',
       WebkitTapHighlightColor:'transparent',
@@ -1397,11 +1393,11 @@ export default function MiningChain3DFPV({
             }
           }}
           style={{
-            width:58,height:58,
-            background:'rgba(251,146,60,0.10)',
-            border:'1px solid rgba(251,146,60,0.35)',
+            width:64,height:64,
+            background:'rgba(251,146,60,0.13)',
+            border:'1px solid rgba(251,146,60,0.48)',
             borderRadius:12,color:'rgba(251,146,60,0.80)',
-            fontSize:'1.5rem',cursor:'pointer',display:'flex',
+            fontSize:'1.65rem',cursor:'pointer',display:'flex',
             alignItems:'center',justifyContent:'center',
             userSelect:'none',touchAction:'none',
             WebkitTapHighlightColor:'transparent',
@@ -1412,7 +1408,7 @@ export default function MiningChain3DFPV({
         position:'absolute',
         bottom:'calc(46px + env(safe-area-inset-bottom, 0px))',
         left:12,
-        margin:0,color:'#22d3ee18',fontSize:'0.52rem',
+        margin:0,color:'#22d3ee55',fontSize:'0.68rem',
         fontFamily:'monospace',letterSpacing:'0.06em',pointerEvents:'none',
       }}>{es?'DRAG·ROTAR':'DRAG·LOOK'}</p>
     </div>
