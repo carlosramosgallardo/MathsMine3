@@ -1264,6 +1264,15 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
         </div>
       )}
 
+      <div className="mx-auto mt-2 w-full max-w-[1080px] px-2 lg:px-3 flex justify-end">
+        <Link
+          href="/hotel"
+          className="inline-flex items-center gap-1.5 rounded border border-cyan-500/20 bg-black/30 px-3 py-1 text-[0.65rem] font-mono uppercase tracking-[0.12em] text-cyan-600/70 transition-all hover:border-cyan-400/50 hover:text-cyan-300 hover:bg-cyan-950/30"
+        >
+          🏨 {language === 'es' ? 'Hotel MM3 · Modo 3D' : 'MM3 Hotel · 3D Mode'}
+        </Link>
+      </div>
+
       <div className="mm3-mining-shell mx-auto mt-2 grid w-full max-w-[1080px] gap-2 px-2 lg:mt-3 lg:grid-cols-[minmax(0,1fr)_minmax(300px,400px)] lg:items-start lg:gap-3 lg:px-3">
         <section className="mm3-mining-board-panel min-w-0 rounded border border-cyan-500/15 bg-black/20 p-2 shadow-[0_0_18px_rgba(34,211,238,0.04)]">
           <div className="mm3-mining-board-wrap mx-auto w-full max-w-[min(85vw,calc(100dvh-200px),520px)] lg:max-w-[min(100%,calc(100dvh-180px),500px)]">

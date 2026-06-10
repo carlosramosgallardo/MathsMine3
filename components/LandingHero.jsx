@@ -12,6 +12,7 @@ const C = '#22d3ee';
 const SECTIONS = {
   en: [
     { href: '/security',   icon: '🔐',  name: 'Security',    desc: 'AI-powered security audit. OSV vulnerability scan, header analysis, auth probing — full report & PDF export.', secCard: true },
+    { href: '/hotel',      icon: '🏨',  name: 'MM3 Hotel',   desc: 'Explore the 28×28 mining grid in real-time 3D isometric view. Your wallet is an avatar. See other miners live.' },
     { href: '/training',   icon: '⛏',  name: 'Training',    desc: 'Solve math problems against the clock. 100/day, 13 types. Speed earns more MM3.' },
     { href: '/mining',     icon: '⬛',  name: 'Mining',      desc: '784-cell 28×28 board. Race to claim cells permanently with NFTJIs.' },
     { href: '/trading',    icon: '💱',  name: 'Trading',     desc: 'Buy and sell MM3 in fictional EUR / USD / CNY. 5 EXECs/day — dice shifts rates.' },
@@ -26,6 +27,7 @@ const SECTIONS = {
   ],
   es: [
     { href: '/security',   icon: '🔐',  name: 'Security',    desc: 'Auditoría de seguridad con IA. Escaneo OSV, análisis de cabeceras, sondeo de autenticación — informe completo y PDF.', secCard: true },
+    { href: '/hotel',      icon: '🏨',  name: 'MM3 Hotel',   desc: 'Explora el tablero 28×28 en 3D isométrico en tiempo real. Tu wallet es tu avatar. Ve al resto de mineros en vivo.' },
     { href: '/training',   icon: '⛏',  name: 'Training',    desc: 'Resuelve problemas contra el reloj. 100/día, 13 tipos. Velocidad = más MM3.' },
     { href: '/mining',     icon: '⬛',  name: 'Mining',      desc: 'Tablero 28×28 de 784 celdas. Carrera por reclamarlas con NFTJIs.' },
     { href: '/trading',    icon: '💱',  name: 'Trading',     desc: 'Compra y vende MM3 en EUR / USD / CNY ficticios. 5 EXECs/día — dados afectan tasas.' },
