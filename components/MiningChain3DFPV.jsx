@@ -229,7 +229,7 @@ function playStep(audioCtxRef) {
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
-export default function MiningHotelFPV({
+export default function MiningChain3DFPV({
   cellMap, presenceMap, myWallet, myColor,
   initRow, initCol, jumpToCell,
   onPositionChange, onFacingChange, onWantNavigate, onPositionRealtime,

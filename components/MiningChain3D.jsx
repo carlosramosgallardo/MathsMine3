@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState, useCallback } from 'react'
+import { useEffect, useRef, useState, useCallback, useMemo } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useI18n } from '@/lib/i18n-context'
@@ -21,16 +21,32 @@ export default function MiningChain3D() {
   const es = language === 'es'
   const { account } = useActiveWallet()
   const router = useRouter()
-  const channelRef = useRef(null)
-  const lastRealtimeTrackRef = useRef(0)
+  const channelRef    = useRef(null)
+  const lastDbWriteRef = useRef(0)
 
-  const [cellMap,     setCellMap]     = useState(new Map())
-  const [myPos,       setMyPos]       = useState({ row: 14, col: 14 })
-  const [presenceMap, setPresenceMap] = useState({})
-  const [loading,     setLoading]     = useState(true)
-  const [onlineCount, setOnlineCount] = useState(0)
-  const [facingCell,  setFacingCell]  = useState(null)  // { row, col, cell }
-  const [copied,      setCopied]      = useState(false)
+  const [cellMap,       setCellMap]       = useState(new Map())
+  const [myPos,         setMyPos]         = useState({ row: 14, col: 14 })
+  // positions: wallet → { gx, gy, row, col }  (updated via broadcast)
+  const [positions,     setPositions]     = useState({})
+  // onlineWallets: Set of wallet keys currently present in the channel
+  const [onlineWallets, setOnlineWallets] = useState(new Set())
+  const [loading,       setLoading]       = useState(true)
+  const [onlineCount,   setOnlineCount]   = useState(0)
+  const [facingCell,    setFacingCell]    = useState(null)
+  const [copied,        setCopied]        = useState(false)
+
+  // FPV receives only wallets that are online + have a known position
+  const presenceMap = useMemo(() => {
+    const map = {}
+    for (const w of onlineWallets) {
+      const p = positions[w]
+      if (p) map[w] = p
+    }
+    // Always include self so minimap shows local player dot
+    if (myWallet && positions[myWallet]) map[myWallet] = positions[myWallet]
+    return map
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [positions, onlineWallets, myWallet])
 
   const myWallet = account?.toLowerCase() || null
   const myColor  = myWallet ? colorFromAddress(myWallet) : '#888888'
@@ -84,37 +100,90 @@ export default function MiningChain3D() {
     return () => { mounted = false }
   }, [])
 
-  // ── Supabase Presence ────────────────────────────────────────────────────────
+  // ── Supabase: presence (join/leave) + broadcast (position) ──────────────────
   useEffect(() => {
+    const key = myWallet || `anon-${Math.random().toString(36).slice(2,8)}`
     const ch = supabase.channel(CHAIN3D_CHANNEL, {
-      config: { presence: { key: myWallet || `anon-${Math.random().toString(36).slice(2,8)}` } },
+      config: { broadcast: { self: false }, presence: { key } },
     })
+
+    // High-frequency position updates from other players
+    ch.on('broadcast', { event: 'move' }, ({ payload }) => {
+      if (!payload?.wallet) return
+      setPositions(prev => ({
+        ...prev,
+        [payload.wallet]: {
+          gx: payload.gx, gy: payload.gy,
+          row: Math.floor(payload.gy), col: Math.floor(payload.gx),
+        },
+      }))
+    })
+
+    // Presence: who's online; prune stale positions on leave
     ch.on('presence', { event: 'sync' }, () => {
       const state = ch.presenceState()
-      const flat = {}
-      for (const [key, entries] of Object.entries(state)) {
-        if (entries?.[0]) flat[key] = entries[0]
-      }
-      setPresenceMap(flat)
-      setOnlineCount(Object.keys(flat).length)
+      const alive = new Set(Object.keys(state))
+      setOnlineWallets(alive)
+      setOnlineCount(alive.size)
+      setPositions(prev => {
+        const pruned = {}
+        for (const [w, p] of Object.entries(prev)) {
+          if (alive.has(w) || w === myWallet) pruned[w] = p
+        }
+        return pruned
+      })
     })
+
     ch.subscribe(async (status) => {
-      if (status === 'SUBSCRIBED' && myWallet) {
-        await ch.track({ wallet: myWallet, row: myPos.row, col: myPos.col })
+      if (status !== 'SUBSCRIBED') return
+      // Load last-known positions from DB so new joiners see others immediately
+      const { data } = await supabase
+        .from('mm3_player_positions')
+        .select('wallet, gx, gy')
+      if (data?.length) {
+        setPositions(prev => {
+          const next = { ...prev }
+          for (const r of data) {
+            if (!next[r.wallet]) {
+              next[r.wallet] = {
+                gx: r.gx, gy: r.gy,
+                row: Math.floor(r.gy), col: Math.floor(r.gx),
+              }
+            }
+          }
+          return next
+        })
       }
+      if (myWallet) await ch.track({ wallet: myWallet })
     })
+
     channelRef.current = ch
     return () => { supabase.removeChannel(ch); channelRef.current = null }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [myWallet])
 
-  const handlePositionChange   = useCallback((row, col) => setMyPos({ row, col }), [])
-  const handleFacingChange     = useCallback((row, col, cell) => setFacingCell({ row, col, cell }), [])
-  const handleWantNavigate     = useCallback((url) => router.push(url), [router])
+  const handlePositionChange = useCallback((row, col) => setMyPos({ row, col }), [])
+  const handleFacingChange   = useCallback((row, col, cell) => setFacingCell({ row, col, cell }), [])
+  const handleWantNavigate   = useCallback((url) => router.push(url), [router])
+
   const handlePositionRealtime = useCallback((gx, gy) => {
-    if (channelRef.current && myWallet) {
-      const row = Math.floor(gy), col = Math.floor(gx)
-      channelRef.current.track({ wallet: myWallet, row, col, gx, gy }).catch(() => {})
+    if (!myWallet) return
+    const row = Math.floor(gy), col = Math.floor(gx)
+    // Update own position locally so self-dot on minimap is accurate
+    setPositions(prev => ({ ...prev, [myWallet]: { gx, gy, row, col } }))
+    // Broadcast to others (low-latency, no presence overhead)
+    channelRef.current?.send({
+      type: 'broadcast',
+      event: 'move',
+      payload: { wallet: myWallet, gx, gy },
+    }).catch(() => {})
+    // Persist to DB throttled to 1/sec (fallback for new joiners)
+    const now = Date.now()
+    if (now - lastDbWriteRef.current > 1000) {
+      lastDbWriteRef.current = now
+      supabase.from('mm3_player_positions')
+        .upsert({ wallet: myWallet, gx, gy, updated_at: new Date().toISOString() })
+        .catch(() => {})
     }
   }, [myWallet])
 
