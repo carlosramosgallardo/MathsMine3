@@ -1,4 +1,4 @@
-import MiningHotel from '@/components/MiningHotel'
+import MiningChain3D from '@/components/MiningChain3D'
 
 export const metadata = {
   title: 'MM3 BLOCK CHAIN 3D',
@@ -6,5 +6,5 @@ export const metadata = {
 }
 
 export default function Chain3DPage() {
-  return <MiningHotel />
+  return <MiningChain3D />
 }

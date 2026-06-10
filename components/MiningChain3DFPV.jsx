@@ -78,8 +78,10 @@ function castRay(wx, wy, angle, cellMap) {
 
 // ── Minimap ───────────────────────────────────────────────────────────────────
 function drawMinimap(ctx, gr, gc, angle, cellMap, presenceMap, myWallet, W, H) {
-  const SZ = Math.min(120, W*0.19), CS = SZ/ROWS
-  const MX = W-SZ-10, MY = H-SZ-10
+  const isMobile = W < 600
+  const SZ = isMobile ? Math.min(W*0.38, 110) : Math.min(130, W*0.2)
+  const CS = SZ/ROWS
+  const MX = W-SZ-6, MY = H-SZ-6
 
   ctx.fillStyle = 'rgba(0,0,0,0.85)'
   ctx.fillRect(MX-1,MY-1,SZ+2,SZ+2)
@@ -108,11 +110,24 @@ function drawMinimap(ctx, gr, gc, angle, cellMap, presenceMap, myWallet, W, H) {
   ctx.stroke()
 
   for (const [w,p] of Object.entries(presenceMap||{})) {
-    if (p.row==null) continue
+    if (p.row==null && p.gy==null) continue
     const isMe = w.toLowerCase()===(myWallet||'').toLowerCase()
-    ctx.fillStyle = isMe ? C : colorFromAddress(w)
+    // Use sub-cell precision if available
+    const dotGX = p.gx ?? ((p.col??0) + 0.5)
+    const dotGY = p.gy ?? ((p.row??0) + 0.5)
+    const col = colorFromAddress(w)
+    const r = isMe ? CS*2.0 : CS*1.5
+    // Glow ring for others
+    if (!isMe) {
+      ctx.strokeStyle = col + 'aa'
+      ctx.lineWidth = 1.5
+      ctx.beginPath()
+      ctx.arc(MX+dotGX*CS, MY+dotGY*CS, r+1.5, 0, Math.PI*2)
+      ctx.stroke()
+    }
+    ctx.fillStyle = isMe ? C : col
     ctx.beginPath()
-    ctx.arc(MX+(p.col??0)*CS+CS/2, MY+(p.row??0)*CS+CS/2, isMe?CS*1.8:CS*1.1, 0, Math.PI*2)
+    ctx.arc(MX+dotGX*CS, MY+dotGY*CS, r, 0, Math.PI*2)
     ctx.fill()
   }
 }
@@ -217,7 +232,7 @@ function playStep(audioCtxRef) {
 export default function MiningHotelFPV({
   cellMap, presenceMap, myWallet, myColor,
   initRow, initCol, jumpToCell,
-  onPositionChange, onFacingChange, onWantNavigate,
+  onPositionChange, onFacingChange, onWantNavigate, onPositionRealtime,
   es,
 }) {
   const canvasRef    = useRef(null)
@@ -228,10 +243,11 @@ export default function MiningHotelFPV({
     y:((initRow??14)+0.5)*CELL_SIZE,
     angle:0,
   })
-  const walkDistRef  = useRef(0)
-  const audioCtxRef  = useRef(null)
-  const stepCountRef = useRef(0)
-  const notifRef     = useRef(null)
+  const walkDistRef        = useRef(0)
+  const audioCtxRef        = useRef(null)
+  const stepCountRef       = useRef(0)
+  const lastRealtimeRef    = useRef(0)
+  const notifRef           = useRef(null)
   const facingKeyRef = useRef(null)
   const actionUrlRef = useRef(null)
   const cellMapRef   = useRef(cellMap)
@@ -251,6 +267,9 @@ export default function MiningHotelFPV({
   useEffect(()=>{ myWalletRef.current=myWallet },[myWallet])
   useEffect(()=>{ esRef.current=es },[es])
   useEffect(()=>{ onWantNavRef.current=onWantNavigate },[onWantNavigate])
+
+  const onPositionRealtimeRef = useRef(onPositionRealtime)
+  useEffect(()=>{ onPositionRealtimeRef.current=onPositionRealtime },[onPositionRealtime])
 
   // External teleport
   useEffect(()=>{
@@ -317,6 +336,9 @@ export default function MiningHotelFPV({
     // Pre-compute forward cell
     const {mx:fwdMx,my:fwdMy,cell:fwdCell,perpDist:fwdDist} = castRay(px,py+bob,angle,cellMap)
 
+    // Collect cells with emoji visible on any wall face
+    const visibleWalls = new Map()
+
     // ── Wall strips + build zBuffer ───────────────────────────────────────────
     for (let col=0; col<strips; col++){
       const ra = angle - FOV/2 + (col+0.5)*FOV/strips
@@ -326,6 +348,18 @@ export default function MiningHotelFPV({
       const wTop  = Math.round(horizon-wallH/2)
 
       zBuffer[col] = dist
+
+      // Collect emoji cells (all visible wall faces, not just forward)
+      if (cell?.emoji && hitMx >= 0 && hitMy >= 0) {
+        const k = `${hitMx},${hitMy}`
+        const vw = visibleWalls.get(k)
+        if (!vw) {
+          visibleWalls.set(k, { x1:col*STRIP_W, x2:col*STRIP_W+STRIP_W, wTop, wallH, dist, cell })
+        } else {
+          vw.x2 = col*STRIP_W+STRIP_W
+          if (dist < vw.dist) { vw.dist=dist; vw.wTop=wTop; vw.wallH=wallH }
+        }
+      }
 
       const [rw,gw,bw] = wallRgb(cell,dist,side)
       ctx.fillStyle=`rgb(${rw},${gw},${bw})`
@@ -347,9 +381,16 @@ export default function MiningHotelFPV({
         }
       }
 
+      // Cube top highlight — bright ledge at wall top
+      if (wallH > 8) {
+        const hlH = Math.max(2, Math.round(wallH*0.035))
+        ctx.fillStyle = 'rgba(255,255,255,0.14)'
+        ctx.fillRect(col*STRIP_W, wTop, STRIP_W, hlH)
+      }
+
       // Ambient-occlusion edges
-      const edgeH = Math.max(2,Math.round(wallH*0.14))
-      ctx.fillStyle='rgba(0,0,0,0.24)'
+      const edgeH = Math.max(2,Math.round(wallH*0.12))
+      ctx.fillStyle='rgba(0,0,0,0.28)'
       ctx.fillRect(col*STRIP_W,wTop,STRIP_W,edgeH)
       ctx.fillRect(col*STRIP_W,wTop+wallH-edgeH,STRIP_W,edgeH)
 
@@ -364,17 +405,33 @@ export default function MiningHotelFPV({
       for (let sy=wTop;sy<wTop+wallH;sy+=4) ctx.fillRect(col*STRIP_W,sy,STRIP_W,1)
     }
 
+    // ── Emoji on all visible wall faces ──────────────────────────────────────
+    for (const vw of visibleWalls.values()) {
+      const scrX = (vw.x1 + vw.x2) / 2
+      const scrY = vw.wTop + vw.wallH / 2
+      const sz   = Math.max(14, Math.round(vw.wallH * 0.46))
+      const a    = Math.min(0.92, Math.max(0.1, 1 - vw.dist * 0.065))
+      ctx.globalAlpha = a
+      ctx.font = `${sz}px serif`
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
+      ctx.fillText(vw.cell.emoji, scrX, scrY)
+    }
+    ctx.globalAlpha = 1
+
     // ── Presence sprites ──────────────────────────────────────────────────────
     const camGX = px / CELL_SIZE, camGY = py / CELL_SIZE
     const sprites = []
     for (const [w, pres] of Object.entries(presence || {})) {
-      if (pres.row == null || pres.col == null) continue
+      if (pres.row == null && pres.gy == null) continue
       const isMe = w.toLowerCase() === (myWallet || '').toLowerCase()
       if (isMe) continue
-      const rx = (pres.col + 0.5) - camGX
-      const ry = (pres.row + 0.5) - camGY
+      // Sub-cell precision: use gx/gy if available, else cell center
+      const sgx = pres.gx ?? ((pres.col ?? 0) + 0.5)
+      const sgy = pres.gy ?? ((pres.row ?? 0) + 0.5)
+      const rx = sgx - camGX
+      const ry = sgy - camGY
       const tY = Math.cos(angle)*rx + Math.sin(angle)*ry
-      if (tY < 0.1) continue
+      if (tY < 0.08) continue
       const tX   = Math.sin(angle)*rx - Math.cos(angle)*ry
       const dist  = Math.sqrt(rx*rx + ry*ry)
       sprites.push({ w, tX, tY, dist, color: colorFromAddress(w) })
@@ -382,22 +439,33 @@ export default function MiningHotelFPV({
     sprites.sort((a,b) => b.dist - a.dist)
 
     for (const { w, tX, tY, color } of sprites) {
-      const sprH  = Math.min(H*1.6, H*PROJ_DIST/tY*1.1)
-      const sprW  = Math.round(sprH*0.42)
-      const scrX  = Math.round(W/2*(1+tX/tY))
-      const topY  = Math.round(horizon - sprH*0.80)
-      const headH = Math.round(sprH*0.32)
-      const bodyH = Math.round(sprH*0.52)
-      const headW = Math.round(sprW*0.72)
-      const bodyW = Math.round(sprW*0.58)
+      const sprH    = Math.min(H*1.6, H*PROJ_DIST/tY*1.2)
+      const sprW    = Math.round(sprH*0.44)
+      const scrX    = Math.round(W/2*(1+tX/tY))
+      const topY    = Math.round(horizon - sprH*0.82)
+      const headH   = Math.round(sprH*0.30)
+      const bodyH   = Math.round(sprH*0.50)
+      const headW   = Math.round(sprW*0.76)
+      const bodyW   = Math.round(sprW*0.60)
       const bodyTop = topY + headH
       const [cr,cg2,cb] = hexToRgb(color)
-      const fade  = Math.max(0.15, 1 - tY*0.07)
-      const alpha = Math.min(0.95, Math.max(0, 1.0 - tY*0.05))
+      const fade  = Math.max(0.30, 1 - tY*0.055)   // brighter at distance
+      const alpha = Math.min(0.98, Math.max(0, 1.0 - tY*0.04))
       const sprLeft  = scrX - Math.floor(sprW/2)
       const sprRight = scrX + Math.ceil(sprW/2)
       const hx1 = scrX - Math.floor(headW/2), hx2 = scrX + Math.ceil(headW/2)
       const bx1 = scrX - Math.floor(bodyW/2), bx2 = scrX + Math.ceil(bodyW/2)
+
+      // Outline glow (drawn 1px larger around the sprite)
+      for (let sx=sprLeft-1; sx<=sprRight; sx++) {
+        const zCol = Math.floor(sx/STRIP_W)
+        if (zCol < 0 || zCol >= strips) continue
+        if (tY >= zBuffer[zCol]) continue
+        ctx.globalAlpha = alpha * 0.35
+        ctx.fillStyle = color
+        if (sx >= hx1-1 && sx <= hx2) ctx.fillRect(sx, topY-1, 1, headH+2)
+        if (sx >= bx1-1 && sx <= bx2) ctx.fillRect(sx, bodyTop-1, 1, bodyH+2)
+      }
 
       for (let sx=sprLeft; sx<sprRight; sx++) {
         const zCol = Math.floor(sx/STRIP_W)
@@ -409,8 +477,8 @@ export default function MiningHotelFPV({
           ctx.fillRect(sx, topY, 1, headH)
         }
         if (sx >= bx1 && sx < bx2) {
-          ctx.globalAlpha = alpha*0.85
-          ctx.fillStyle = `rgb(${Math.round(cr*fade*0.55)},${Math.round(cg2*fade*0.55)},${Math.round(cb*fade*0.55)})`
+          ctx.globalAlpha = alpha*0.88
+          ctx.fillStyle = `rgb(${Math.round(cr*fade*0.60)},${Math.round(cg2*fade*0.60)},${Math.round(cb*fade*0.60)})`
           ctx.fillRect(sx, bodyTop, 1, bodyH)
         }
       }
@@ -428,31 +496,23 @@ export default function MiningHotelFPV({
         ctx.globalAlpha = 1
       }
 
-      if (tY < 4.5) {
-        const lAlpha = Math.max(0, (4.5-tY)/4.5)*0.78
-        const lSize  = Math.max(7, Math.round(10/Math.max(0.6, tY)))
-        ctx.globalAlpha = lAlpha
-        ctx.font = `${lSize}px monospace`
+      if (tY < 7.0) {
+        const lAlpha = Math.max(0, (7.0-tY)/7.0)*0.88
+        const lSize  = Math.max(8, Math.round(11/Math.max(0.5, tY)))
+        ctx.globalAlpha = lAlpha * 0.45
+        ctx.fillStyle = '#000'
+        ctx.font = `bold ${lSize}px monospace`
         ctx.textAlign = 'center'; ctx.textBaseline = 'bottom'
+        ctx.fillText(`${w.slice(0,6)}…${w.slice(-4)}`, scrX+1, topY-1)
+        ctx.globalAlpha = lAlpha
         ctx.fillStyle = color
-        ctx.fillText(`${w.slice(0,6)}…`, scrX, topY-2)
+        ctx.fillText(`${w.slice(0,6)}…${w.slice(-4)}`, scrX, topY-2)
         ctx.globalAlpha = 1
       }
     }
 
-    // ── Wall face overlays ────────────────────────────────────────────────────
+    // ── Wall face overlays (text only — emoji handled by visibleWalls loop) ──
     const isMineWall = myWallet && fwdCell?.owner?.toLowerCase() === myWallet.toLowerCase()
-
-    // Emoji — prominent, centered on wall face
-    if (fwdCell?.emoji) {
-      const sz  = Math.max(18, Math.round(H*PROJ_DIST/Math.max(0.1,fwdDist)*0.60))
-      const a   = Math.min(0.95, Math.max(0.18, 1 - fwdDist*0.11))
-      ctx.globalAlpha = a
-      ctx.font = `${sz}px serif`
-      ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
-      ctx.fillText(fwdCell.emoji, W/2, horizon - sz*0.08)
-      ctx.globalAlpha = 1
-    }
 
     // Block title on wall face (medium distance)
     const fwdTitle = fwdCell
@@ -672,9 +732,16 @@ export default function MiningHotelFPV({
         walkDistRef.current+=MOVE_SPD
         needsRender=true
 
-        // Footstep every ~1.8 walk units (~10 frames at 60fps → ~160ms interval)
+        // Footstep every ~1.8 walk units
         const steps=Math.floor(walkDistRef.current/1.8)
         if(steps!==stepCountRef.current){stepCountRef.current=steps;playStep(audioCtxRef)}
+
+        // Real-time sub-cell presence broadcast (throttled to ~8/sec)
+        const now=Date.now()
+        if(now-lastRealtimeRef.current>120){
+          lastRealtimeRef.current=now
+          onPositionRealtimeRef.current?.(p.x/CELL_SIZE, p.y/CELL_SIZE)
+        }
 
         const {row:newRow,col:newCol}=worldToGrid(p.x,p.y)
         const last=lastCellRef.current
@@ -719,7 +786,11 @@ export default function MiningHotelFPV({
       }
 
       if(notifRef.current&&(Date.now()-notifRef.current.startedAt)<2800) needsRender=true
-      if(needsRender) renderRef.current?.()
+      // Always render when remote players are present so their movement is visible
+      const hasRemotes = Object.keys(presenceRef.current||{}).some(
+        w => w.toLowerCase() !== (myWalletRef.current||'').toLowerCase()
+      )
+      if(needsRender||hasRemotes) renderRef.current?.()
 
       animRef.current=requestAnimationFrame(loop)
     }

@@ -11,12 +11,12 @@ import {
   MM3_BLOCK_REQUIREMENT_BY_HEX,
 } from '@/lib/mm3-block-chain'
 import supabase from '@/lib/supabaseClient'
-import MiningHotelFPV from './MiningHotelFPV'
+import MiningChain3DFPV from './MiningChain3DFPV'
 
 const C = '#22d3ee'
-const HOTEL_CHANNEL = 'mm3-hotel-v1'
+const CHAIN3D_CHANNEL = 'mm3-chain3d-v1'
 
-export default function MiningHotel() {
+export default function MiningChain3D() {
   const { language } = useI18n()
   const es = language === 'es'
   const { account } = useActiveWallet()
@@ -86,7 +86,7 @@ export default function MiningHotel() {
 
   // ── Supabase Presence ────────────────────────────────────────────────────────
   useEffect(() => {
-    const ch = supabase.channel(HOTEL_CHANNEL, {
+    const ch = supabase.channel(CHAIN3D_CHANNEL, {
       config: { presence: { key: myWallet || `anon-${Math.random().toString(36).slice(2,8)}` } },
     })
     ch.on('presence', { event: 'sync' }, () => {
@@ -178,7 +178,7 @@ export default function MiningHotel() {
             {es?'⟳ CARGANDO…':'⟳ LOADING…'}
           </div>
         ) : (
-          <MiningHotelFPV
+          <MiningChain3DFPV
             cellMap={cellMap}
             presenceMap={presenceMap}
             myWallet={myWallet}
