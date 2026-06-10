@@ -202,7 +202,7 @@ export default function MiningChain3D() {
     channelRef.current?.send({
       type: 'broadcast', event: 'move',
       payload: { wallet: myW, gx, gy },
-    }).catch(() => {})
+    })?.catch(() => {})
     // Persist to DB (throttled 1/sec) for players who join later
     const now = Date.now()
     if (now - lastDbWriteRef.current > 1000) {
