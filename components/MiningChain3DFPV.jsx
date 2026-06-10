@@ -279,11 +279,6 @@ export default function MiningChain3DFPV({
     renderRef.current?.()
   },[jumpToCell])
 
-  useEffect(()=>{
-    playerRef.current.x=((initCol??14)+0.5)*CELL_SIZE
-    playerRef.current.y=((initRow??14)+0.5)*CELL_SIZE
-  },[initRow,initCol])
-
   // ── Render ──────────────────────────────────────────────────────────────────
   const renderFrame = useCallback(()=>{
     const canvas = canvasRef.current

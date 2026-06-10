@@ -187,12 +187,6 @@ export default function MiningChain3D() {
   const handlePositionChange = useCallback((row, col) => {
     setMyPos({ row, col })
     myPosRef.current = { row, col }
-    // Update presence with new cell so new joiners see current coarse position
-    const myW = myWalletRef.current
-    if (myW && channelRef.current) {
-      channelRef.current.track({ wallet: myW, gx: col + 0.5, gy: row + 0.5, row, col })
-        .catch(() => {})
-    }
   }, [])
 
   const handleFacingChange = useCallback((row, col, cell) => setFacingCell({ row, col, cell }), [])
