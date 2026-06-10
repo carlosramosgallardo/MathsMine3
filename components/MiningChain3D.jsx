@@ -147,6 +147,7 @@ export default function MiningChain3D() {
         [payload.wallet]: {
           gx: payload.gx, gy: payload.gy,
           row: Math.floor(payload.gy), col: Math.floor(payload.gx),
+          poolCode: prev[payload.wallet]?.poolCode || null,  // preserve from presence
         },
       }))
     })
@@ -165,7 +166,7 @@ export default function MiningChain3D() {
           if (!p || next[w]) continue   // already have broadcast-precise position
           const gx = p.gx ?? ((p.col ?? 14) + 0.5)
           const gy = p.gy ?? ((p.row ?? 14) + 0.5)
-          next[w] = { gx, gy, row: Math.floor(gy), col: Math.floor(gx) }
+          next[w] = { gx, gy, row: Math.floor(gy), col: Math.floor(gx), poolCode: p.poolCode || null }
         }
         // Remove players who left (always keep self)
         const myW = myWalletRef.current
@@ -181,8 +182,11 @@ export default function MiningChain3D() {
       const myW = myWalletRef.current
       const { row, col } = myPosRef.current
 
-      // Run track + DB load in parallel
-      const [, { data }] = await Promise.all([
+      // Load pool code + last-known positions in parallel
+      const [poolRes, , { data }] = await Promise.all([
+        myW
+          ? supabase.from('mm3_wallet_pool_members').select('pool_code').eq('wallet', myW).limit(1).maybeSingle()
+          : Promise.resolve({ data: null }),
         // Track WITH position so other online clients know where we are immediately
         myW
           ? ch.track({ wallet: myW, gx: col + 0.5, gy: row + 0.5, row, col })
@@ -190,6 +194,12 @@ export default function MiningChain3D() {
         // Load last-known positions from DB (fallback for players who haven't moved yet)
         supabase.from('mm3_player_positions').select('wallet, gx, gy'),
       ])
+      const myPoolCode = poolRes?.data?.pool_code || null
+      // Re-track with pool code now that we have it
+      if (myW && myPoolCode) {
+        const { row: r2, col: c2 } = myPosRef.current
+        ch.track({ wallet: myW, gx: c2 + 0.5, gy: r2 + 0.5, row: r2, col: c2, poolCode: myPoolCode }).catch(() => {})
+      }
 
       if (data?.length) {
         setPositions(prev => {
@@ -399,11 +409,13 @@ export default function MiningChain3D() {
                 </Link>
               )}
 
-              <Link href="/mining" style={{
-                ...actionLink, background:'#1e293b', borderColor:'#334155', color:'#94a3b8',
-              }}>
-                {es?'Tablero 2D':'2D Board'}
-              </Link>
+              {fc?.blockKey && (
+                <Link href={`/mining-short/${fc.blockKey}`} style={{
+                  ...actionLink, background:'#0c1a0c', borderColor:'#22d3ee33', color:'#22d3ee88',
+                }}>
+                  🔍 {es?'Detalle':'Detail'}
+                </Link>
+              )}
             </div>
           </>
         ) : (

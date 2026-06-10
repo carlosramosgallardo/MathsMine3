@@ -3,6 +3,7 @@
 import { useEffect, useRef, useCallback } from 'react'
 import { colorFromAddress } from '@/lib/wallet-colors'
 import { MM3_BLOCK_GRID_ROWS, MM3_BLOCK_GRID_COLS, gridToBlockHex } from '@/lib/mm3-block-chain'
+import { getMarketCommandForKey, marketCommandFromBlock } from '@/lib/mining-commands'
 
 const ROWS = MM3_BLOCK_GRID_ROWS
 const COLS = MM3_BLOCK_GRID_COLS
@@ -42,11 +43,29 @@ function hexToRgb(hex) {
   return [parseInt(c.slice(0,2),16), parseInt(c.slice(2,4),16), parseInt(c.slice(4,6),16)]
 }
 
-function wallRgb(cell, dist, side) {
-  // Brighter base colors, less aggressive fog
-  const [r,g,b] = cell?.owner   ? hexToRgb(cell.color)
-    :              cell?.isMarket ? hexToRgb(cell.color || C)
-    :                               [22, 38, 78]
+function wallRgb(cell, dist, side, myWallet) {
+  let base
+  if (cell?.owner) {
+    const isMe = myWallet && cell.owner.toLowerCase() === myWallet.toLowerCase()
+    if (isMe) {
+      // My block: bright cyan-white
+      base = [60, 200, 230]
+    } else {
+      // Someone else's block: their wallet color, slightly saturated
+      const [r,g,b] = hexToRgb(cell.color)
+      base = [Math.min(255,r*1.15|0), Math.min(255,g*1.15|0), Math.min(255,b*1.15|0)]
+    }
+  } else if (cell?.isMarket) {
+    // Unowned market block (has NFTJI slot): amber/gold — draws attention
+    base = [200, 110, 20]
+  } else if (cell) {
+    // Unclaimed regular block: slate-blue, mineable
+    base = [30, 60, 130]
+  } else {
+    // Empty / void
+    base = [10, 18, 42]
+  }
+  const [r,g,b] = base
   const f = (side === 1 ? 0.72 : 1.0) * Math.max(0.14, 1 - dist * 0.065)
   return [Math.round(r*f), Math.round(g*f), Math.round(b*f)]
 }
@@ -170,8 +189,15 @@ function drawFacingHUD(ctx, W, H, fwdCell, fwdMx, fwdMy, myWallet, es) {
     lines.push({ text: `${fwdCell.priceEur} EUR`, size: 9, weight: 'bold', col: '#fb923c' })
   }
 
-  if (!owner && fwdCell) {
+  if (!owner && fwdCell?.isMarket) {
+    lines.push({ text: es ? '↵ · Comprar NFTJI' : '↵ · Buy NFTJI', size: 8, col: '#fb923c99' })
+  } else if (!owner && fwdCell) {
     lines.push({ text: es ? '↵ · Minar bloque' : '↵ · Mine block', size: 8, col: C + '99' })
+  } else if (owner && fwdCell?.isMarket) {
+    const isMineWall = myWallet && owner.toLowerCase() === myWallet.toLowerCase()
+    if (isMineWall) {
+      lines.push({ text: es ? '↵ · Revender NFTJI' : '↵ · Resell NFTJI', size: 8, col: '#4ade8099' })
+    }
   }
 
   const lineH = 14, padX = 8, padY = 7
@@ -545,23 +571,30 @@ export default function MiningChain3DFPV({
         }
       }
 
-      const [rw,gw,bw] = wallRgb(cell,dist,side)
+      const [rw,gw,bw] = wallRgb(cell,dist,side,myWallet)
       ctx.fillStyle=`rgb(${rw},${gw},${bw})`
       ctx.fillRect(col*STRIP_W,wTop,STRIP_W,wallH)
 
       // Market block patterns
       if (cell?.isMarket) {
         if (!cell.owner) {
-          // Unowned market: vivid cyan stripes
-          const stripeH = Math.max(4, Math.round(wallH/5))
+          // Unowned market: amber diagonal stripes — clearly "for sale"
+          const stripeH = Math.max(3, Math.round(wallH/6))
           for (let sy=wTop; sy<wTop+wallH; sy+=stripeH*2) {
-            ctx.fillStyle = 'rgba(34,211,238,0.13)'
+            ctx.fillStyle = 'rgba(251,146,60,0.22)'
             ctx.fillRect(col*STRIP_W, sy, STRIP_W, Math.min(stripeH, wTop+wallH-sy))
           }
         } else {
-          const [mr,mg,mb] = hexToRgb(cell.color)
-          ctx.fillStyle = `rgba(${mr},${mg},${mb},0.15)`
-          ctx.fillRect(col*STRIP_W, wTop, STRIP_W, wallH)
+          const isMe = myWallet && cell.owner.toLowerCase() === myWallet.toLowerCase()
+          if (isMe) {
+            // My market block: cyan shimmer
+            ctx.fillStyle = 'rgba(34,211,238,0.18)'
+            ctx.fillRect(col*STRIP_W, wTop, STRIP_W, wallH)
+          } else {
+            const [mr,mg,mb] = hexToRgb(cell.color)
+            ctx.fillStyle = `rgba(${mr},${mg},${mb},0.15)`
+            ctx.fillRect(col*STRIP_W, wTop, STRIP_W, wallH)
+          }
         }
       }
 
@@ -708,6 +741,8 @@ export default function MiningChain3DFPV({
       if (tY < 7.0) {
         const lAlpha = Math.max(0, (7.0-tY)/7.0)*0.88
         const lSize  = Math.max(8, Math.round(11/Math.max(0.5, tY)))
+        const pres   = (presence||{})[w]
+        const pool   = pres?.poolCode
         ctx.globalAlpha = lAlpha * 0.45
         ctx.fillStyle = '#000'
         ctx.font = `bold ${lSize}px monospace`
@@ -716,6 +751,14 @@ export default function MiningChain3DFPV({
         ctx.globalAlpha = lAlpha
         ctx.fillStyle = color
         ctx.fillText(`${w.slice(0,6)}…${w.slice(-4)}`, scrX, topY-2)
+        // Pool badge above wallet address
+        if (pool && tY < 5.0) {
+          const pSize = Math.max(6, lSize - 2)
+          ctx.globalAlpha = lAlpha * 0.75
+          ctx.font = `bold ${pSize}px monospace`
+          ctx.fillStyle = '#f59e0b'
+          ctx.fillText(`[${pool}]`, scrX, topY - 2 - lSize - 1)
+        }
         ctx.globalAlpha = 1
       }
     }
@@ -1068,13 +1111,23 @@ export default function MiningChain3DFPV({
             const ownerIsMe=myW&&fc.owner?.toLowerCase()===myW
             if(!fc.owner){
               if(fc.isMarket){
-                actionUrlRef.current='/mining'; mineTypeRef.current='nftji'
+                // Buy NFTJI: navigate to relaying with the block's buy command
+                const cmdEntry = fc.blockKey
+                  ? (marketCommandFromBlock(fc) || getMarketCommandForKey(fc.blockKey))
+                  : null
+                const cmd = cmdEntry?.command
+                actionUrlRef.current = cmd
+                  ? `/relaying?command=${encodeURIComponent(cmd)}`
+                  : (fc.blockKey ? `/mining-short/${fc.blockKey}` : null)
+                mineTypeRef.current='nftji'
               } else {
                 actionUrlRef.current=`/relaying?command=${encodeURIComponent(`/mine ${hex}`)}`;
                 mineTypeRef.current='mine'
               }
             } else if(ownerIsMe&&fc.isMarket){
-              actionUrlRef.current='/mining'; mineTypeRef.current='nftji'
+              // Resell my NFTJI: navigate to relaying with resell command
+              actionUrlRef.current=`/relaying?command=${encodeURIComponent(`/resell ${hex}`)}`
+              mineTypeRef.current='nftji'
             } else {
               actionUrlRef.current=null; mineTypeRef.current='empty'
             }

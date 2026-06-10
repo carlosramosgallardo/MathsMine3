@@ -1,16 +1,16 @@
 import MiningPageClient from '@/components/MiningPageClient';
 
 export const metadata = {
-  title: 'Mining — Solve Math Problems',
-  description: 'Mine MM3 tokens by solving math problems before time runs out. Each correct answer injects tokens into the global pool. No download, no gas fees — play as guest or connect your wallet.',
+  title: 'Mining — MM3 Block Chain 3D',
+  description: 'Explore the MM3 block chain in 3D FPV. Find blocks to mine, buy NFTJIs, and fight enemy wallets in real-time multiplayer. No download, no gas fees.',
   alternates: { canonical: '/mining' },
   openGraph: {
-    title: 'Mining — Solve Math Problems | MathsMine3',
-    description: 'Solve math problems to earn MM3 tokens. Speed and accuracy both count.',
+    title: 'Mining — MM3 Block Chain 3D | MathsMine3',
+    description: 'Explore the MM3 block chain in 3D. Find blocks, mine NFTJIs, and battle enemy wallets live.',
     url: 'https://mathsmine3.xyz/mining',
-    images: [{ url: '/og-image.jpg', width: 1200, height: 630, alt: 'MathsMine3 — Mining' }],
+    images: [{ url: '/og-image.jpg', width: 1200, height: 630, alt: 'MathsMine3 — Mining 3D' }],
   },
-  twitter: { card: 'summary_large_image', title: 'Mining | MathsMine3', images: ['/og-image.jpg'] },
+  twitter: { card: 'summary_large_image', title: 'Mining 3D | MathsMine3', images: ['/og-image.jpg'] },
 };
 
 export default function MiningPage() {
