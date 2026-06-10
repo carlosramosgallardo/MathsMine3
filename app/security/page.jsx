@@ -435,7 +435,7 @@ export default function SecurityPage() {
             <span style={{ color: GRAY, fontSize: '0.7rem', border: `1px solid ${GRAY}44`, borderRadius: 4, padding: '1px 6px' }}>AI-POWERED</span>
           </div>
           <div style={{ color: GRAY, fontSize: '0.75rem' }}>
-            OSV vulnerability scan · Security headers · API authentication probing · mathsmine3.xyz
+            20 automated checks · TLS &amp; certificate · HTTP security headers · CSP deep analysis · API auth (28 endpoints) · Web3 wallet signature · dependency CVEs (OSV) · client bundle secrets · injection &amp; prototype pollution · business logic · error disclosure · host injection · SRI · sensitive paths · open redirect · CORS · rate limiting · page health (15 pages) · results scored 0–100 and exportable as PDF
           </div>
         </div>
 
