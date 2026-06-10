@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { useI18n } from '@/lib/i18n-context'
 
 const C    = '#22d3ee'
 const PASS = '#4ade80'
@@ -15,6 +16,8 @@ const scoreColor  = n => n >= 80 ? PASS : n >= 50 ? WARN : FAIL
 const sevColor    = s => ({ CRITICAL: FAIL, HIGH: FAIL, MEDIUM: WARN, LOW: GRAY }[s] ?? GRAY)
 
 function ScoreBadge({ score }) {
+  const { language } = useI18n()
+  const es = language === 'es'
   const color = scoreColor(score)
   const grade = score >= 90 ? 'A' : score >= 80 ? 'B' : score >= 70 ? 'C' : score >= 50 ? 'D' : 'F'
   return (
@@ -29,7 +32,7 @@ function ScoreBadge({ score }) {
       </div>
       <div>
         <div style={{ color, fontSize: '2rem', fontWeight: 700 }}>{score}<span style={{ fontSize: '1rem', color: GRAY }}>/100</span></div>
-        <div style={{ color: GRAY, fontSize: '0.7rem', letterSpacing: '0.12em' }}>SECURITY SCORE</div>
+        <div style={{ color: GRAY, fontSize: '0.7rem', letterSpacing: '0.12em' }}>{es ? 'PUNTUACIÓN DE SEGURIDAD' : 'SECURITY SCORE'}</div>
       </div>
     </div>
   )
@@ -373,6 +376,8 @@ async function exportPDF(scan) {
 const PAGE_SIZE = 5
 
 export default function SecurityPage() {
+  const { language } = useI18n()
+  const es = language === 'es'
   const [history, setHistory]     = useState([])
   const [selected, setSelected]   = useState(null)
   const [scanning, setScanning]   = useState(false)
@@ -401,19 +406,19 @@ export default function SecurityPage() {
 
   async function triggerScan() {
     setScanning(true)
-    setScanMsg('Running security checks…')
+    setScanMsg(es ? 'Ejecutando comprobaciones de seguridad…' : 'Running security checks…')
     try {
       const res  = await fetch('/api/security/scan', { method: 'POST' })
       const data = await res.json()
       if (data.ok) {
-        setScanMsg(`✓ Scan complete — Score ${data.score}/100`)
+        setScanMsg(es ? `✓ Análisis completado — Puntuación ${data.score}/100` : `✓ Scan complete — Score ${data.score}/100`)
         await loadHistory()
         setHistPage(0)
         const detail = await fetch(`/api/security/history?id=${data.scanId}`)
         setSelected(await detail.json())
         setTimeout(() => detailRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 60)
       } else if (data.error === 'rate_limited') {
-        setScanMsg(`⏳ Rate limited — retry in ${Math.ceil(data.retryAfter / 60)} min`)
+        setScanMsg(es ? `⏳ Límite de velocidad — reintenta en ${Math.ceil(data.retryAfter / 60)} min` : `⏳ Rate limited — retry in ${Math.ceil(data.retryAfter / 60)} min`)
       } else {
         setScanMsg(`✗ Error: ${data.error}`)
       }
@@ -431,22 +436,21 @@ export default function SecurityPage() {
 
         <div style={{ marginBottom: 24 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
-            <span style={{ color: C, fontSize: '1.1rem', fontWeight: 700, letterSpacing: '0.1em' }}>🔐 SECURITY AUDIT</span>
+            <span style={{ color: C, fontSize: '1.1rem', fontWeight: 700, letterSpacing: '0.1em' }}>{es ? '🔐 AUDITORÍA DE SEGURIDAD' : '🔐 SECURITY AUDIT'}</span>
           </div>
           <div style={{ color: GRAY, fontSize: '0.72rem', lineHeight: '1.7' }}>
-            Automated security audit scoped exclusively to{' '}
+            {es ? 'Auditoría de seguridad automatizada dirigida exclusivamente a' : 'Automated security audit scoped exclusively to'}{' '}
             <a href="https://mathsmine3.xyz/" target="_blank" rel="noopener noreferrer" style={{ color: C }}>mathsmine3.xyz</a>
-            {' '}and its open-source codebase at{' '}
+            {es ? ' y su código fuente en ' : ' and its open-source codebase at '}
             <a href="https://github.com/carlosramosgallardo/MathsMine3" target="_blank" rel="noopener noreferrer" style={{ color: C }}>github.com/carlosramosgallardo/MathsMine3</a>.
-            {' '}No third-party systems, external APIs, or unrelated infrastructure are targeted at any point.
-            All 20 checks are read-only HTTP requests, TLS handshakes, and static analysis — no destructive operations,
-            no brute-force, no credential attacks, no denial-of-service attempts.
+            {' '}{es
+              ? 'No se apunta a sistemas de terceros, APIs externas ni infraestructura ajena. Las 20 comprobaciones son peticiones HTTP de solo lectura, handshakes TLS y análisis estático — sin operaciones destructivas, sin fuerza bruta, sin ataques a credenciales, sin intentos de denegación de servicio.'
+              : 'No third-party systems, external APIs, or unrelated infrastructure are targeted at any point. All 20 checks are read-only HTTP requests, TLS handshakes, and static analysis — no destructive operations, no brute-force, no credential attacks, no denial-of-service attempts.'}
           </div>
           <div style={{ color: '#334155', fontSize: '0.65rem', marginTop: 6, lineHeight: '1.6' }}>
-            Checks: TLS &amp; certificate · HTTP security headers · CSP deep analysis · API auth (28 endpoints) · Web3 wallet signature ·
-            dependency CVEs (OSV/Google) · client bundle secret scan · injection &amp; prototype pollution ·
-            business logic probes · error disclosure · host injection · SRI · sensitive paths ·
-            open redirect · CORS · rate limiting · page health (15 pages) · results scored 0–100 · PDF export
+            {es
+              ? <>Comprobaciones: TLS &amp; certificado · cabeceras de seguridad HTTP · análisis CSP · autenticación API (28 endpoints) · firma de wallet Web3 · CVEs de dependencias (OSV/Google) · escaneo de secretos en bundle · inyección &amp; contaminación de prototipo · lógica de negocio · divulgación de errores · inyección de host · SRI · rutas sensibles · redirección abierta · CORS · limitación de velocidad · salud de página (15 páginas) · puntuación 0–100 · exportación PDF</>
+              : <>Checks: TLS &amp; certificate · HTTP security headers · CSP deep analysis · API auth (28 endpoints) · Web3 wallet signature · dependency CVEs (OSV/Google) · client bundle secret scan · injection &amp; prototype pollution · business logic probes · error disclosure · host injection · SRI · sensitive paths · open redirect · CORS · rate limiting · page health (15 pages) · results scored 0–100 · PDF export</>}
           </div>
         </div>
 
@@ -463,7 +467,7 @@ export default function SecurityPage() {
               transition: 'all 0.2s',
             }}
           >
-            {scanning ? '⟳ SCANNING…' : '▶ RUN SCAN'}
+            {scanning ? (es ? '⟳ ANALIZANDO…' : '⟳ SCANNING…') : (es ? '▶ EJECUTAR ANÁLISIS' : '▶ RUN SCAN')}
           </button>
           {scanMsg && <span style={{ color: scanMsg.startsWith('✓') ? PASS : scanMsg.startsWith('⏳') ? WARN : FAIL, fontSize: '0.78rem' }}>{scanMsg}</span>}
         </div>
@@ -476,7 +480,7 @@ export default function SecurityPage() {
             <div style={{ marginBottom: 24 }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8, flexWrap: 'wrap', gap: 6 }}>
                 <div style={{ color: GRAY, fontSize: '0.65rem', letterSpacing: '0.15em' }}>
-                  SCAN HISTORY
+                  {es ? 'HISTORIAL DE ANÁLISIS' : 'SCAN HISTORY'}
                   <span style={{ color: DIM, marginLeft: 8 }}>({history.length} total)</span>
                 </div>
                 {totalPages > 1 && (
@@ -485,7 +489,7 @@ export default function SecurityPage() {
                       onClick={() => setHistPage(p => Math.max(0, p - 1))}
                       disabled={page === 0}
                       style={{ background: 'transparent', border: `1px solid ${page === 0 ? DIM : GRAY + '66'}`, color: page === 0 ? DIM : GRAY, padding: '2px 8px', borderRadius: 4, cursor: page === 0 ? 'default' : 'pointer', fontFamily: 'monospace', fontSize: '0.65rem' }}
-                    >← prev</button>
+                    >{es ? '← ant' : '← prev'}</button>
                     <span style={{ color: GRAY, fontSize: '0.65rem', minWidth: 60, textAlign: 'center' }}>
                       {page + 1} / {totalPages}
                     </span>
@@ -493,7 +497,7 @@ export default function SecurityPage() {
                       onClick={() => setHistPage(p => Math.min(totalPages - 1, p + 1))}
                       disabled={page === totalPages - 1}
                       style={{ background: 'transparent', border: `1px solid ${page === totalPages - 1 ? DIM : GRAY + '66'}`, color: page === totalPages - 1 ? DIM : GRAY, padding: '2px 8px', borderRadius: 4, cursor: page === totalPages - 1 ? 'default' : 'pointer', fontFamily: 'monospace', fontSize: '0.65rem' }}
-                    >next →</button>
+                    >{es ? 'sig →' : 'next →'}</button>
                   </div>
                 )}
               </div>
@@ -522,7 +526,7 @@ export default function SecurityPage() {
                           {s.triggered_by}
                         </span>
                         {s.summary && <span style={{ color: GRAY, fontSize: '0.65rem' }}>{s.summary}</span>}
-                        {loadingId === s.id && <span style={{ color: C, fontSize: '0.65rem' }}>loading…</span>}
+                        {loadingId === s.id && <span style={{ color: C, fontSize: '0.65rem' }}>{es ? 'cargando…' : 'loading…'}</span>}
                       </div>
                       {s.status === 'completed' && (
                         <button
@@ -547,7 +551,7 @@ export default function SecurityPage() {
         {selected && selected.status === 'completed' && (
           <div ref={detailRef} style={{ border: `1px solid ${C}33`, borderRadius: 8, padding: 16, background: '#080d1a', scrollMarginTop: 80 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 8 }}>
-              <span style={{ color: C, fontSize: '0.75rem', letterSpacing: '0.1em' }}>SCAN #{selected.id} DETAIL</span>
+              <span style={{ color: C, fontSize: '0.75rem', letterSpacing: '0.1em' }}>{es ? `ANÁLISIS #${selected.id} DETALLE` : `SCAN #${selected.id} DETAIL`}</span>
               <button
                 onClick={() => exportPDF(selected)}
                 style={{
@@ -556,7 +560,7 @@ export default function SecurityPage() {
                   fontFamily: 'monospace', fontSize: '0.72rem',
                 }}
               >
-                ↓ EXPORT PDF
+                {es ? '↓ EXPORTAR PDF' : '↓ EXPORT PDF'}
               </button>
             </div>
             <ScanDetail scan={selected} />
@@ -565,12 +569,12 @@ export default function SecurityPage() {
 
         {history.length === 0 && !scanning && (
           <div style={{ color: GRAY, fontSize: '0.78rem', textAlign: 'center', padding: 40, border: `1px dashed #1e293b`, borderRadius: 8 }}>
-            No scans yet — press RUN SCAN to start
+            {es ? 'Sin análisis aún — pulsa EJECUTAR ANÁLISIS para comenzar' : 'No scans yet — press RUN SCAN to start'}
           </div>
         )}
 
         <div style={{ color: '#1e293b', fontSize: '0.6rem', textAlign: 'center', marginTop: 32 }}>
-          Scoped to mathsmine3.xyz only · OSV (Google) · No third parties targeted · Read-only probes
+          {es ? 'Exclusivo a mathsmine3.xyz · OSV (Google) · Sin terceros afectados · Solo lectura' : 'Scoped to mathsmine3.xyz only · OSV (Google) · No third parties targeted · Read-only probes'}
         </div>
       </div>
     </div>
