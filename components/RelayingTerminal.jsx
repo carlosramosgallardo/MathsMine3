@@ -1922,13 +1922,25 @@ export default function RelayingTerminal({ accent = '#22d3ee' }) {
             min-height: 0;
             display: flex;
             flex-direction: column;
-            padding: 0.5rem 0.65rem;
+            padding: 0.5rem 0.65rem calc(0.5rem + env(safe-area-inset-bottom, 0px));
           }
           /* Section header and form: fixed size */
           .mm3-irc-shell > section > div:first-child,
           .mm3-irc-shell > section > form,
           .mm3-irc-shell > section > div:last-child {
             flex: 0 0 auto;
+          }
+          /* Compact send form on mobile */
+          .mm3-irc-shell > section > form { margin-top: 0.3rem; }
+          .mm3-irc-submit {
+            padding-top: 0.35rem !important;
+            padding-bottom: 0.35rem !important;
+            font-size: 0.65rem !important;
+          }
+          .mm3-irc-shell > section > form input {
+            padding-top: 0.35rem !important;
+            padding-bottom: 0.35rem !important;
+            font-size: 0.82rem !important;
           }
           /* Remove border-b from channel header row on mobile — avoids strikethrough appearance */
           .mm3-irc-header-row {

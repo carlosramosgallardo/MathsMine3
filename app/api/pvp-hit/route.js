@@ -71,9 +71,24 @@ export async function POST(req) {
     return Response.json({ ok: false, error: 'daily_limit', hits: currentHits }, { status: 429 })
   }
 
-  // ── Steal EUR from victim (skip for anon — they have no balance) ──────────
+  // ── EUR transfer: steal from logged victim OR bounty for anon kill ────────
   let stolenEur = 0
-  if (!victimIsAnon) {
+  if (victimIsAnon) {
+    // Anon kill bounty: attacker earns EUR_PER_HIT
+    const now = new Date().toISOString()
+    const { data: ap } = await sb
+      .from('player_progress')
+      .select('eur_earned')
+      .eq('wallet', attacker)
+      .maybeSingle()
+      .then(r => r, () => ({ data: null }))
+    const attackerBal = Math.max(0, Number(ap?.eur_earned) || 0)
+    stolenEur = EUR_PER_HIT
+    await sb.from('player_progress')
+      .upsert({ wallet: attacker, eur_earned: attackerBal + EUR_PER_HIT, updated_at: now },
+        { onConflict: 'wallet', ignoreDuplicates: false })
+      .then(null, () => {})
+  } else {
     const { data: vp } = await sb
       .from('player_progress')
       .select('eur_earned')

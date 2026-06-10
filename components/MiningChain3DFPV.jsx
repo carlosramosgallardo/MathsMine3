@@ -157,7 +157,7 @@ function drawMinimap(ctx, gr, gc, angle, cellMap, presenceMap, myWallet, W, H) {
 
 // ── Facing block HUD (top-right info card) ────────────────────────────────────
 function drawFacingHUD(ctx, W, H, fwdCell, fwdMx, fwdMy, myWallet, es) {
-  if (fwdMx < 0 || fwdMy < 0) return
+  if (fwdMx < 0 || fwdMy < 0 || fwdMx >= COLS || fwdMy >= ROWS) return
 
   const hex   = fwdCell?.blockHex || gridToBlockHex(fwdMy, fwdMx)
   const title = fwdCell
@@ -183,6 +183,9 @@ function drawFacingHUD(ctx, W, H, fwdCell, fwdMx, fwdMy, myWallet, es) {
     lines.push({ text: es ? '○ Libre / En venta' : '○ Unclaimed / For sale', size: 9, col: '#1f4a60' })
   } else if (fwdCell) {
     lines.push({ text: es ? '○ Sin reclamar' : '○ Unclaimed', size: 9, col: '#1a3040' })
+  } else {
+    // Unclaimed block not in DB (never touched)
+    lines.push({ text: es ? '○ Sin reclamar' : '○ Unclaimed', size: 9, col: '#1a3040' })
   }
 
   if (fwdCell?.priceEur > 0) {
@@ -191,7 +194,8 @@ function drawFacingHUD(ctx, W, H, fwdCell, fwdMx, fwdMy, myWallet, es) {
 
   if (!owner && fwdCell?.isMarket) {
     lines.push({ text: es ? '↵ · Comprar NFTJI' : '↵ · Buy NFTJI', size: 8, col: '#fb923c99' })
-  } else if (!owner && fwdCell) {
+  } else if (!owner) {
+    // Mine: unclaimed cells (in DB or not in DB)
     lines.push({ text: es ? '↵ · Minar bloque' : '↵ · Mine block', size: 8, col: C + '99' })
   } else if (owner && fwdCell?.isMarket) {
     const isMineWall = myWallet && owner.toLowerCase() === myWallet.toLowerCase()
@@ -398,6 +402,125 @@ function drawMineProgress(ctx, W, H, progress, type) {
   ctx.globalAlpha = 1
 }
 
+// ── MM3 Block Chain stats panel (bottom-left HUD) ───────────────────────────
+function drawChainStats(ctx, W, H, stats, es) {
+  if (!stats) return
+  const { owned, marketFree, marketOwned, total, pct } = stats
+  const unclaimed = total - owned - marketFree - marketOwned
+
+  const lines = [
+    { label: es ? 'CADENA MM3' : 'MM3 CHAIN', val: null, header: true },
+    { label: es ? 'Reclamados' : 'Claimed', val: `${owned} / ${total}` },
+    { label: es ? 'NFTJI libres' : 'Free NFTJI', val: String(marketFree) },
+    { label: es ? 'NFTJI vendidos' : 'Owned NFTJI', val: String(marketOwned) },
+    { label: es ? 'Sin reclamar' : 'Unclaimed', val: String(unclaimed < 0 ? 0 : unclaimed) },
+  ]
+
+  const LINE_H = 11, PAD_X = 7, PAD_Y = 5
+  const pw = 130, ph = lines.length * LINE_H + PAD_Y * 2 + 8
+  const isMobile = W < 600
+  const px = 6
+  const py = H - ph - (isMobile ? 210 : 170)
+
+  ctx.globalAlpha = 0.78
+  ctx.fillStyle = '#010709'
+  ctx.fillRect(px, py, pw, ph)
+  ctx.globalAlpha = 1
+  ctx.strokeStyle = C + '33'; ctx.lineWidth = 0.5
+  ctx.strokeRect(px, py, pw, ph)
+  ctx.fillStyle = C + '77'
+  ctx.fillRect(px, py, 2, ph)
+
+  // Progress bar for owned%
+  const barW = pw - PAD_X * 2
+  ctx.fillStyle = '#0a1a22'
+  ctx.fillRect(px + PAD_X, py + ph - PAD_Y - 4, barW, 4)
+  ctx.fillStyle = C + 'aa'
+  ctx.fillRect(px + PAD_X, py + ph - PAD_Y - 4, Math.round(barW * pct / 100), 4)
+
+  ctx.textBaseline = 'top'
+  for (let i = 0; i < lines.length; i++) {
+    const { label, val, header } = lines[i]
+    const ly = py + PAD_Y + i * LINE_H
+    if (header) {
+      ctx.font = 'bold 7px monospace'; ctx.textAlign = 'left'
+      ctx.fillStyle = C + 'cc'
+      ctx.fillText(label, px + PAD_X, ly)
+      ctx.font = 'bold 7px monospace'; ctx.textAlign = 'right'
+      ctx.fillStyle = '#4ade80cc'
+      ctx.fillText(`${pct}%`, px + pw - PAD_X, ly)
+    } else {
+      ctx.font = '7px monospace'; ctx.textAlign = 'left'
+      ctx.fillStyle = '#475569'
+      ctx.fillText(label, px + PAD_X, ly)
+      ctx.textAlign = 'right'
+      ctx.fillStyle = '#94a3b8'
+      ctx.fillText(val, px + pw - PAD_X, ly)
+    }
+  }
+  ctx.textAlign = 'left'; ctx.globalAlpha = 1
+}
+
+// ── Online players list (above minimap) ─────────────────────────────────────
+function drawOnlineList(ctx, W, H, presenceMap, myWallet, pvpStolen) {
+  const isMobile = W < 600
+  const SZ = isMobile ? Math.min(W * 0.38, 110) : Math.min(130, W * 0.2)
+  const MX = W - SZ - 6
+  const MY = H - SZ - (isMobile ? 22 : 6)
+
+  const all = []
+  for (const [w, pres] of Object.entries(presenceMap || {})) {
+    if (pres.row == null && pres.gy == null) continue
+    const isAnon = w.startsWith('anon-')
+    all.push({ w, isAnon, stolen: (pvpStolen || {})[w] || 0 })
+  }
+
+  const logged = all.filter(e => !e.isAnon).sort((a, b) => b.stolen - a.stolen).slice(0, 5)
+  const anon   = all.filter(e =>  e.isAnon).sort((a, b) => b.stolen - a.stolen).slice(0, 5)
+  const list   = [...logged, ...anon]
+  if (!list.length) return
+
+  const HEADER_H = 13
+  const LINE_H   = 11
+  const PAD_X    = 6, PAD_Y = 4
+  const pw  = SZ + 2
+  const ph  = HEADER_H + list.length * LINE_H + PAD_Y * 2
+  const px  = MX - 1
+  const py  = MY - ph - 5
+
+  ctx.globalAlpha = 0.82
+  ctx.fillStyle = '#010709'
+  ctx.fillRect(px, py, pw, ph)
+  ctx.globalAlpha = 1
+  ctx.strokeStyle = C + '33'; ctx.lineWidth = 0.5
+  ctx.strokeRect(px, py, pw, ph)
+
+  ctx.font = 'bold 7px monospace'; ctx.textAlign = 'left'; ctx.textBaseline = 'top'
+  ctx.fillStyle = C + '88'
+  ctx.fillText('ONLINE', px + PAD_X, py + PAD_Y)
+
+  for (let i = 0; i < list.length; i++) {
+    const { w, isAnon, stolen } = list[i]
+    const ly   = py + PAD_Y + HEADER_H + i * LINE_H
+    const isMe = w.toLowerCase() === (myWallet || '').toLowerCase()
+    const col  = isMe ? C : isAnon ? '#5a7080' : colorFromAddress(w)
+    const label = isAnon
+      ? (isMe ? `${w.slice(0, 10)}…` : `anon`)
+      : `${w.slice(0, 6)}…${w.slice(-3)}`
+    ctx.font = `${isMe ? 'bold ' : ''}7px monospace`
+    ctx.textAlign = 'left'
+    ctx.fillStyle = col
+    ctx.fillText(label, px + PAD_X, ly)
+    if (stolen > 0) {
+      ctx.fillStyle = '#4ade8099'
+      ctx.textAlign = 'right'
+      ctx.font = '7px monospace'
+      ctx.fillText(`+${stolen.toFixed(2)}`, px + pw - PAD_X, ly)
+    }
+  }
+  ctx.textAlign = 'left'; ctx.globalAlpha = 1
+}
+
 // ── Footstep sound (procedural via Web Audio API) ────────────────────────────
 function playStep(audioCtxRef) {
   try {
@@ -431,7 +554,7 @@ export default function MiningChain3DFPV({
   cellMap, presenceMap, myWallet, myColor,
   initRow, initCol, jumpToCell,
   onPositionChange, onFacingChange, onWantNavigate, onPositionRealtime,
-  onPvpHit, onAnonReset,
+  onPvpHit, onAnonReset, pvpStolen,
   es,
 }) {
   const canvasRef    = useRef(null)
@@ -473,6 +596,8 @@ export default function MiningChain3DFPV({
   const pvpGainRef      = useRef(null)   // { text, at } for "+X EUR" popup
   const onPvpHitRef     = useRef(onPvpHit)
   const onAnonResetRef  = useRef(onAnonReset)
+  const pvpStolenRef    = useRef(pvpStolen || {})
+  const chainStatsRef   = useRef(null)
 
   // Keep refs in sync with props
   useEffect(()=>{ cellMapRef.current=cellMap },[cellMap])
@@ -482,6 +607,17 @@ export default function MiningChain3DFPV({
   useEffect(()=>{ onWantNavRef.current=onWantNavigate },[onWantNavigate])
   useEffect(()=>{ onPvpHitRef.current=onPvpHit },[onPvpHit])
   useEffect(()=>{ onAnonResetRef.current=onAnonReset },[onAnonReset])
+  useEffect(()=>{ pvpStolenRef.current=pvpStolen||{} },[pvpStolen])
+
+  useEffect(()=>{
+    let owned=0, marketFree=0, marketOwned=0
+    for (const cell of cellMap.values()) {
+      if (cell.owner) { owned++; if (cell.isMarket) marketOwned++ }
+      else if (cell.isMarket) marketFree++
+    }
+    const total = ROWS * COLS
+    chainStatsRef.current = { owned, marketFree, marketOwned, total, pct: Math.round(owned/total*100) }
+  },[cellMap])
 
   const onPositionRealtimeRef = useRef(onPositionRealtime)
   useEffect(()=>{ onPositionRealtimeRef.current=onPositionRealtime },[onPositionRealtime])
@@ -939,6 +1075,8 @@ export default function MiningChain3DFPV({
     }
 
     drawMinimap(ctx,gr,gc,angle,cellMap,presence,myWallet,W,H)
+    drawOnlineList(ctx,W,H,presence,myWallet,pvpStolenRef.current)
+    drawChainStats(ctx,W,H,chainStatsRef.current,es)
   }, [])
 
   useEffect(()=>{ renderRef.current=renderFrame },[renderFrame])
@@ -1131,6 +1269,11 @@ export default function MiningChain3DFPV({
             } else {
               actionUrlRef.current=null; mineTypeRef.current='empty'
             }
+          } else if (fmx >= 0 && fmy >= 0 && fmx < COLS && fmy < ROWS) {
+            // Unclaimed regular block (not in cellMap = never claimed)
+            const hex = gridToBlockHex(fmy, fmx)
+            actionUrlRef.current = `/relaying?command=${encodeURIComponent(`/mine ${hex}`)}`
+            mineTypeRef.current = 'mine'
           } else {
             actionUrlRef.current=null; mineTypeRef.current='empty'
           }
@@ -1155,7 +1298,7 @@ export default function MiningChain3DFPV({
           pvpFlashRef.current = performance.now()
 
           if(enemy.isAnon){
-            // Anon: track local hits, reset at 5
+            // Anon: track local hits for reset, and call API for +0.10 EUR bounty
             const prev = anonHitsRef.current[enemy.wallet] || 0
             const next = prev + 1
             anonHitsRef.current[enemy.wallet] = next
@@ -1163,7 +1306,8 @@ export default function MiningChain3DFPV({
               anonHitsRef.current[enemy.wallet] = 0
               onAnonResetRef.current?.(enemy.wallet)
             }
-            pvpGainRef.current = { text: enemy.isAnon ? '👊 +0 EUR (anon)' : '⚔ hit!', at: performance.now() }
+            onPvpHitRef.current?.({ attacker: myWallet, victim: enemy.wallet, victimIsAnon: true })
+            pvpGainRef.current = { text: '👊 +0.10 EUR', at: performance.now() }
           } else {
             // Logged wallet: call API for steal + daily task
             pvpGainRef.current = { text: '⚔ +0.10 EUR', at: performance.now() }

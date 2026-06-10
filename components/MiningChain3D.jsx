@@ -11,6 +11,7 @@ import {
   MM3_BLOCK_REQUIREMENT_BY_HEX,
   MM3_BLOCK_GRID_ROWS, MM3_BLOCK_GRID_COLS,
 } from '@/lib/mm3-block-chain'
+import { getMarketCommandForKey, marketCommandFromBlock } from '@/lib/mining-commands'
 import supabase from '@/lib/supabaseClient'
 import MiningChain3DFPV from './MiningChain3DFPV'
 
@@ -50,6 +51,8 @@ export default function MiningChain3D() {
   const [cellMap,       setCellMap]       = useState(new Map())
   const [myPos,         setMyPos]         = useState(initialPos)
   const [jumpToCell,    setJumpToCell]    = useState(null)
+  const [pvpStolen,     setPvpStolen]     = useState({})
+  const [showDetail,    setShowDetail]    = useState(false)
   // positions: wallet → { gx, gy, row, col } — populated from presence payload, broadcast, and DB
   const [positions,     setPositions]     = useState({})
   // onlineWallets: who is currently in the channel (from presence sync)
@@ -236,6 +239,26 @@ export default function MiningChain3D() {
     }).catch(() => {})
   }, [])
 
+  // Load PvP stolen amounts (refreshed every 60s for online player list)
+  const loadPvpStolen = useCallback(async () => {
+    const dk = new Date().toISOString().slice(0, 10)
+    const { data } = await supabase
+      .from('mm3_pvp_hits')
+      .select('attacker_wallet, eur_stolen')
+      .eq('day_key', dk)
+      .then(r => r, () => ({ data: [] }))
+    if (!data?.length) return
+    const map = {}
+    for (const r of data) map[r.attacker_wallet] = (map[r.attacker_wallet] || 0) + Number(r.eur_stolen)
+    setPvpStolen(map)
+  }, [])
+
+  useEffect(() => {
+    loadPvpStolen()
+    const t = setInterval(loadPvpStolen, 60000)
+    return () => clearInterval(t)
+  }, [loadPvpStolen])
+
   const handleAnonReset = useCallback((anonKey) => {
     channelRef.current?.send({
       type: 'broadcast', event: 'anon-reset',
@@ -280,6 +303,14 @@ export default function MiningChain3D() {
   const mineUrl    = fcHex
     ? `/relaying?command=${encodeURIComponent(`/mine ${fcHex}`)}`
     : '/relaying'
+  // NFTJI buy/resell URLs for the detail overlay
+  const nftjiCmdEntry = fc?.blockKey ? (marketCommandFromBlock(fc) || getMarketCommandForKey(fc.blockKey)) : null
+  const nftjiBuyUrl = nftjiCmdEntry?.command
+    ? `/relaying?command=${encodeURIComponent(nftjiCmdEntry.command)}`
+    : (fc?.blockKey ? `/mining-short/${fc.blockKey}` : null)
+  const nftjiResellUrl = fcHex
+    ? `/relaying?command=${encodeURIComponent(`/resell ${fcHex}`)}`
+    : null
 
   const mono = { fontFamily: 'Consolas, monospace' }
 
@@ -292,10 +323,6 @@ export default function MiningChain3D() {
         borderBottom:`1px solid ${C}22`, background:'#06091a', flexShrink:0, flexWrap:'wrap',
         rowGap:4,
       }}>
-        <span style={{ color:C, fontWeight:700, fontSize:'0.78rem', letterSpacing:'0.12em', whiteSpace:'nowrap' }}>
-          🔷 MM3 BLOCK CHAIN 3D
-        </span>
-
         <div style={{ display:'flex', gap:10, marginLeft:'auto', alignItems:'center', flexWrap:'wrap' }}>
           {onlineCount > 0 && (
             <span style={{ color:'#4ade80', fontSize:'0.63rem', letterSpacing:'0.07em', whiteSpace:'nowrap' }}>
@@ -338,6 +365,7 @@ export default function MiningChain3D() {
             onPositionRealtime={handlePositionRealtime}
             onPvpHit={handlePvpHit}
             onAnonReset={handleAnonReset}
+            pvpStolen={pvpStolen}
             es={es}
           />
         )}
@@ -409,12 +437,12 @@ export default function MiningChain3D() {
                 </Link>
               )}
 
-              {fc?.blockKey && (
-                <Link href={`/mining-short/${fc.blockKey}`} style={{
-                  ...actionLink, background:'#0c1a0c', borderColor:'#22d3ee33', color:'#22d3ee88',
+              {facingCell && (
+                <button onClick={()=>setShowDetail(true)} style={{
+                  ...actionLink, background:'#0c1a1a', borderColor:`${C}33`, color:`${C}88`, cursor:'pointer',
                 }}>
                   🔍 {es?'Detalle':'Detail'}
-                </Link>
+                </button>
               )}
             </div>
           </>
@@ -426,6 +454,100 @@ export default function MiningChain3D() {
           </span>
         )}
       </div>
+
+      {/* ── Block detail overlay ──────────────────────────────────────────── */}
+      {showDetail && facingCell && (
+        <div style={{
+          position:'absolute', inset:0, display:'flex', alignItems:'center', justifyContent:'center',
+          background:'rgba(0,0,0,0.72)', zIndex:50,
+        }} onClick={()=>setShowDetail(false)}>
+          <div onClick={e=>e.stopPropagation()} style={{
+            background:'#060c18', border:`1px solid ${C}44`, borderRadius:10,
+            padding:'18px 22px', minWidth:260, maxWidth:340,
+            fontFamily:'Consolas,monospace', color:'#c4d4e0',
+          }}>
+            {/* Header */}
+            <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:12 }}>
+              {fc?.emoji && <span style={{ fontSize:'1.5rem' }}>{fc.emoji}</span>}
+              <div style={{ flex:1 }}>
+                <div style={{ color:fc?.color||C, fontWeight:700, fontSize:'0.8rem', letterSpacing:'0.1em' }}>
+                  {fcHex}
+                </div>
+                {(fc?.titleEn||fc?.titleEs) && (
+                  <div style={{ color:'#94a3b8', fontSize:'0.67rem', marginTop:2 }}>
+                    {es?(fc.titleEs||fc.titleEn):(fc.titleEn||fc.titleEs)}
+                  </div>
+                )}
+              </div>
+              <button onClick={()=>setShowDetail(false)} style={{
+                background:'none', border:'none', color:'#475569', cursor:'pointer', fontSize:'1rem',
+              }}>✕</button>
+            </div>
+
+            {/* Owner */}
+            <div style={{ fontSize:'0.65rem', marginBottom:8 }}>
+              {fc?.owner ? (
+                <span style={{ color: isMine ? C : (fcOwnColor||'#94a3b8') }}>
+                  {isMine ? (es?'🔑 Tu bloque':'🔑 Yours') : `◈ ${fc.owner.slice(0,10)}…${fc.owner.slice(-6)}`}
+                </span>
+              ) : (
+                <span style={{ color:'#334155' }}>{es?'Sin reclamar':'Unclaimed'}</span>
+              )}
+            </div>
+
+            {/* Price */}
+            {fc?.priceEur > 0 && (
+              <div style={{ color:'#fb923c', fontWeight:700, fontSize:'0.72rem', marginBottom:8 }}>
+                {fc.priceEur} EUR
+              </div>
+            )}
+
+            {/* Level requirement */}
+            {fcReq?.minLevel > 0 && (
+              <div style={{ color:'#2a4560', fontSize:'0.62rem', marginBottom:8 }}>
+                {es?`Nivel mínimo: ${fcReq.minLevel}`:`Min level: ${fcReq.minLevel}`}
+              </div>
+            )}
+
+            {/* Coords */}
+            <div style={{ color:'#1e3a52', fontSize:'0.58rem', marginBottom:12 }}>
+              [{facingCell.row},{facingCell.col}]
+            </div>
+
+            {/* Actions */}
+            <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
+              {!fc?.owner && fc?.isMarket && nftjiBuyUrl && (
+                <Link href={nftjiBuyUrl} style={{
+                  ...actionLink, background:'#1a0c00', borderColor:'#fb923c44', color:'#fb923c',
+                }} onClick={()=>setShowDetail(false)}>
+                  🛒 {es?'Comprar NFTJI':'Buy NFTJI'}
+                </Link>
+              )}
+              {(!fc || !fc.owner) && !fc?.isMarket && (
+                <Link href={mineUrl} style={{
+                  ...actionLink, background:`${C}0c`, borderColor:`${C}44`, color:C,
+                }} onClick={()=>setShowDetail(false)}>
+                  ⛏ {es?'Minar':'Mine'}
+                </Link>
+              )}
+              {isMine && fc?.isMarket && nftjiResellUrl && (
+                <Link href={nftjiResellUrl} style={{
+                  ...actionLink, background:'#001a0c', borderColor:'#4ade8044', color:'#4ade80',
+                }} onClick={()=>setShowDetail(false)}>
+                  💰 {es?'Revender':'Resell'}
+                </Link>
+              )}
+              {fc?.blockKey && (
+                <Link href={`/mining-short/${fc.blockKey}`} style={{
+                  ...actionLink, background:'transparent', borderColor:'#1e293b', color:'#475569',
+                }} onClick={()=>setShowDetail(false)}>
+                  → {es?'Ficha completa':'Full detail'}
+                </Link>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
