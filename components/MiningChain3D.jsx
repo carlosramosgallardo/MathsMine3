@@ -233,7 +233,7 @@ export default function MiningChain3D() {
   const mono = { fontFamily: 'Consolas, monospace' }
 
   return (
-    <div style={{ display:'flex', flexDirection:'column', height:'100%', background:'#04080f', ...mono }}>
+    <div style={{ display:'flex', flexDirection:'column', height:'100dvh', maxHeight:'100dvh', overflow:'hidden', background:'#04080f', ...mono }}>
 
       {/* ── Header ─────────────────────────────────────────────────────────── */}
       <div style={{
@@ -267,7 +267,7 @@ export default function MiningChain3D() {
       </div>
 
       {/* ── 3D view ─────────────────────────────────────────────────────────── */}
-      <div style={{ flex:1, position:'relative', overflow:'hidden' }}>
+      <div style={{ flex:1, position:'relative', overflow:'hidden', minHeight:0 }}>
         {loading ? (
           <div style={{ position:'absolute', inset:0, display:'flex', alignItems:'center', justifyContent:'center', color:C, fontSize:'0.75rem', letterSpacing:'0.12em' }}>
             {es?'⟳ CARGANDO…':'⟳ LOADING…'}

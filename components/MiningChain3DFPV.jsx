@@ -8,19 +8,22 @@ const ROWS = MM3_BLOCK_GRID_ROWS
 const COLS = MM3_BLOCK_GRID_COLS
 const C    = '#22d3ee'
 
-const CELL_SIZE     = 4
+const CELL_SIZE     = 40     // world units per grid cell — large for future in-cell building
 const WORLD_W       = COLS * CELL_SIZE
 const WORLD_H       = ROWS * CELL_SIZE
 const STRIP_W       = 3
 const FOV           = Math.PI / 2
 const PROJ_DIST     = 0.65
-const MOVE_SPD      = 0.18
+const MOVE_SPD      = 4.0    // world units/frame → ~10 frames to cross a cell
 const TURN_SPD      = 0.040
 const DOOR_FRAC     = 0.45
 const HORIZON_RATIO = 0.42
 const PLAYER_R      = 0.20   // collision radius in grid units (1 unit = 1 cell)
 const DOOR_LO       = (1 - DOOR_FRAC) / 2   // 0.275
 const DOOR_HI       = (1 + DOOR_FRAC) / 2   // 0.725
+const FOOTSTEP_DIST = MOVE_SPD * 10         // footstep every ~10 movement frames
+const SWING_DUR     = 340    // ms per pickaxe swing
+const HITS_NEEDED   = 5      // swings to complete mining action
 
 // ── Wall collision: returns true if position (grid units) hits a solid wall ──
 function hitsSolidWall(gx, gy) {
@@ -200,6 +203,165 @@ function drawFacingHUD(ctx, W, H, fwdCell, fwdMx, fwdMy, myWallet, es) {
   }
 }
 
+// ── Pickaxe sounds ──────────────────────────────────────────────────────────
+function playPickHit(audioCtxRef, type) {
+  try {
+    if (!audioCtxRef.current)
+      audioCtxRef.current = new (window.AudioContext || window.webkitAudioContext)()
+    const ctx = audioCtxRef.current
+    if (ctx.state === 'suspended') ctx.resume().catch(()=>{})
+    const t = ctx.currentTime
+
+    if (type === 'nftji') {
+      // Metallic ring: two sine waves
+      [[1300, 0.20], [2000, 0.07]].forEach(([freq, vol], i) => {
+        const osc = ctx.createOscillator(), g = ctx.createGain()
+        osc.type = 'sine'
+        osc.frequency.setValueAtTime(freq, t)
+        osc.frequency.exponentialRampToValueAtTime(freq * 0.55, t + 0.22)
+        g.gain.setValueAtTime(vol, t)
+        g.gain.exponentialRampToValueAtTime(0.001, t + 0.26)
+        osc.connect(g); g.connect(ctx.destination)
+        osc.start(t); osc.stop(t + 0.28)
+      })
+    } else if (type === 'mine') {
+      // Rock thud: noise burst through low bandpass
+      const sr = ctx.sampleRate
+      const buf = ctx.createBuffer(1, Math.ceil(sr * 0.14), sr)
+      const d   = buf.getChannelData(0)
+      for (let i = 0; i < d.length; i++)
+        d[i] = (Math.random()*2-1) * Math.pow(1 - i/d.length, 1.4)
+      const src = ctx.createBufferSource(); src.buffer = buf
+      const f = ctx.createBiquadFilter(); f.type='bandpass'; f.frequency.value=160; f.Q.value=4
+      const g = ctx.createGain(); g.gain.value = 0.45
+      src.connect(f); f.connect(g); g.connect(ctx.destination); src.start()
+    } else if (type === 'complete') {
+      // Ascending chime
+      [523, 659, 784, 1047].forEach((freq, i) => {
+        const ts = t + i * 0.09
+        const osc = ctx.createOscillator(), g = ctx.createGain()
+        osc.type = 'triangle'; osc.frequency.value = freq
+        g.gain.setValueAtTime(0.14, ts)
+        g.gain.exponentialRampToValueAtTime(0.001, ts + 0.22)
+        osc.connect(g); g.connect(ctx.destination)
+        osc.start(ts); osc.stop(ts + 0.25)
+      })
+    } else {
+      // Empty swing: dry click
+      const sr = ctx.sampleRate
+      const buf = ctx.createBuffer(1, Math.ceil(sr * 0.03), sr)
+      const d   = buf.getChannelData(0)
+      for (let i = 0; i < d.length; i++)
+        d[i] = (Math.random()*2-1) * Math.pow(1 - i/d.length, 7)
+      const src = ctx.createBufferSource(); src.buffer = buf
+      const g = ctx.createGain(); g.gain.value = 0.06
+      src.connect(g); g.connect(ctx.destination); src.start()
+    }
+  } catch {}
+}
+
+// ── Pickaxe (first-person weapon) ───────────────────────────────────────────
+function drawPickaxe(ctx, W, H, swingT, walkDist) {
+  // swingT 0→1→0 over SWING_DUR ms
+  const bob     = Math.sin(walkDist * 0.5) * H * 0.010 + Math.cos(walkDist * 0.25) * W * 0.003
+  const L       = Math.min(H * 0.30, W * 0.17)
+  const hw      = Math.max(2.5, L * 0.048)
+  const ax      = W * 0.74 + bob * 0.4
+  const ay      = H * 0.90 + Math.abs(bob) * 0.5
+
+  // Angle: rest=-2.2 rad (pointing upper-left), swings toward wall on hit
+  const swingPhase = Math.sin(swingT * Math.PI)
+  const a = -2.2 + swingPhase * 1.65
+
+  ctx.save()
+  ctx.globalAlpha = 0.92
+  ctx.translate(ax, ay)
+  ctx.rotate(a)
+
+  // Handle shadow
+  ctx.fillStyle = 'rgba(0,0,0,0.38)'
+  ctx.fillRect(hw * 0.3, hw * 0.6, L, hw * 1.8)
+
+  // Handle (wood)
+  const hg = ctx.createLinearGradient(0, -hw, L, hw)
+  hg.addColorStop(0, '#7a4f20'); hg.addColorStop(0.35, '#a06b30')
+  hg.addColorStop(0.7, '#7a4f20'); hg.addColorStop(1, '#3d2510')
+  ctx.fillStyle = hg
+  ctx.fillRect(0, -hw, L, hw * 2)
+
+  // Wood grain
+  ctx.strokeStyle = 'rgba(0,0,0,0.18)'; ctx.lineWidth = 0.5
+  for (let i = 0; i < 3; i++) {
+    const gx = L * (0.18 + i * 0.26)
+    ctx.beginPath(); ctx.moveTo(gx, -hw * 0.7); ctx.lineTo(gx + L * 0.03, hw * 0.7); ctx.stroke()
+  }
+
+  // Head
+  ctx.translate(L, 0)
+  const hh   = hw * 3.4
+  const hext = hw * 3.8
+  const mg   = ctx.createLinearGradient(-hext, -hh, hext * 0.8, hh)
+  mg.addColorStop(0, '#dceaf6'); mg.addColorStop(0.28, '#98afc2')
+  mg.addColorStop(0.65, '#5d7080'); mg.addColorStop(1, '#374249')
+  ctx.fillStyle = mg; ctx.strokeStyle = '#aac8dc'; ctx.lineWidth = 0.8
+
+  // Long mining spike (left) — main striking end
+  ctx.beginPath()
+  ctx.moveTo(-hw * 0.3, -hh * 0.58)
+  ctx.lineTo(-hext * 1.0, -hh * 0.72)
+  ctx.lineTo(-hext * 1.28, hh * 0.04)
+  ctx.lineTo(-hext * 1.0, hh * 0.52)
+  ctx.lineTo(-hw * 0.3, hh * 0.58)
+  ctx.closePath(); ctx.fill(); ctx.stroke()
+
+  // Center body
+  ctx.fillRect(-hw * 0.35, -hh * 0.75, hw * 0.7, hh * 1.5)
+  ctx.strokeRect(-hw * 0.35, -hh * 0.75, hw * 0.7, hh * 1.5)
+
+  // Short blunt end (right)
+  ctx.beginPath()
+  ctx.moveTo(hw * 0.3, -hh * 0.48)
+  ctx.lineTo(hext * 0.78, -hh * 0.68)
+  ctx.lineTo(hext * 0.92, 0)
+  ctx.lineTo(hext * 0.78, hh * 0.48)
+  ctx.lineTo(hw * 0.3, hh * 0.48)
+  ctx.closePath(); ctx.fill(); ctx.stroke()
+
+  // Highlight on spike tip
+  ctx.fillStyle = 'rgba(235,248,255,0.72)'
+  ctx.beginPath()
+  ctx.moveTo(-hext * 0.88, -hh * 0.48)
+  ctx.lineTo(-hext * 1.22, hh * 0.02)
+  ctx.lineTo(-hext * 0.96, -hh * 0.42)
+  ctx.closePath(); ctx.fill()
+
+  ctx.restore()
+}
+
+// ── Mining progress arc ──────────────────────────────────────────────────────
+function drawMineProgress(ctx, W, H, progress, type) {
+  if (progress <= 0) return
+  const cx = W / 2, cy = H * HORIZON_RATIO
+  const r   = 24
+  const col = type === 'nftji' ? '#fb923c' : C
+  const s   = -Math.PI / 2
+
+  ctx.globalAlpha = 0.28
+  ctx.strokeStyle = col; ctx.lineWidth = 2.5
+  ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.stroke()
+
+  ctx.globalAlpha = 0.88
+  ctx.strokeStyle = col; ctx.lineWidth = 2.5; ctx.lineCap = 'round'
+  ctx.beginPath(); ctx.arc(cx, cy, r, s, s + progress * Math.PI * 2); ctx.stroke()
+  ctx.lineCap = 'butt'
+
+  ctx.globalAlpha = 0.65
+  ctx.fillStyle = col; ctx.font = 'bold 8px monospace'
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
+  ctx.fillText(`${Math.round(progress * 100)}%`, cx, cy + r + 10)
+  ctx.globalAlpha = 1
+}
+
 // ── Footstep sound (procedural via Web Audio API) ────────────────────────────
 function playStep(audioCtxRef) {
   try {
@@ -248,18 +410,25 @@ export default function MiningChain3DFPV({
   const stepCountRef       = useRef(0)
   const lastRealtimeRef    = useRef(0)
   const notifRef           = useRef(null)
-  const facingKeyRef = useRef(null)
-  const actionUrlRef = useRef(null)
-  const cellMapRef   = useRef(cellMap)
-  const presenceRef  = useRef(presenceMap)
-  const myWalletRef  = useRef(myWallet)
-  const esRef        = useRef(es)
-  const onWantNavRef = useRef(onWantNavigate)
-  const dragRef      = useRef(null)
-  const animRef      = useRef(null)
-  const renderRef    = useRef(null)
-  const lastCellRef  = useRef({row:initRow??14,col:initCol??14})
-  const zBufferRef   = useRef(null)
+  const facingKeyRef  = useRef(null)
+  const actionUrlRef  = useRef(null)
+  const cellMapRef    = useRef(cellMap)
+  const presenceRef   = useRef(presenceMap)
+  const myWalletRef   = useRef(myWallet)
+  const esRef         = useRef(es)
+  const onWantNavRef  = useRef(onWantNavigate)
+  const dragRef       = useRef(null)
+  const animRef       = useRef(null)
+  const renderRef     = useRef(null)
+  const lastCellRef   = useRef({row:initRow??14,col:initCol??14})
+  const zBufferRef    = useRef(null)
+  // Pickaxe / mining
+  const swingStartRef   = useRef(-9999)
+  const hitDoneRef      = useRef(false)
+  const mineProgressRef = useRef(0)
+  const mineTargetRef   = useRef(null)
+  const mineTypeRef     = useRef('empty')
+  const facingDataRef   = useRef({ mx:-1, my:-1, cell:null })
 
   // Keep refs in sync with props
   useEffect(()=>{ cellMapRef.current=cellMap },[cellMap])
@@ -479,6 +648,31 @@ export default function MiningChain3DFPV({
       }
       ctx.globalAlpha = 1
 
+      // Pickaxe held by remote character (simple diagonal handle + head)
+      {
+        const pkAlpha = Math.min(alpha, Math.max(0, 1 - tY * 0.06))
+        if (pkAlpha > 0.05) {
+          const pkX = scrX + Math.floor(bodyW * 0.32)
+          const pkY = bodyTop + Math.floor(bodyH * 0.22)
+          const pkL = Math.max(3, Math.floor(bodyH * 0.42))
+          ctx.globalAlpha = pkAlpha * 0.86
+          // Handle
+          ctx.strokeStyle = '#8B5E3C'; ctx.lineWidth = Math.max(1, pkL * 0.12)
+          ctx.beginPath()
+          ctx.moveTo(pkX, pkY)
+          ctx.lineTo(pkX + Math.round(Math.cos(-2.2) * pkL), pkY + Math.round(Math.sin(-2.2) * pkL))
+          ctx.stroke()
+          // Head
+          const tipX = pkX + Math.round(Math.cos(-2.2) * pkL)
+          const tipY = pkY + Math.round(Math.sin(-2.2) * pkL)
+          ctx.fillStyle = '#9ab8cc'
+          ctx.beginPath()
+          ctx.arc(tipX, tipY, Math.max(1.5, pkL * 0.18), 0, Math.PI * 2)
+          ctx.fill()
+          ctx.globalAlpha = 1
+        }
+      }
+
       if (tY < 5.0) {
         const sAlpha = Math.max(0, (5.0-tY)/5.0)*0.32
         const sw = Math.max(4, Math.round(sprW*0.9))
@@ -635,6 +829,12 @@ export default function MiningChain3DFPV({
     // ── Facing block info HUD (top-right) ─────────────────────────────────────
     drawFacingHUD(ctx, W, H, fwdCell, fwdMx, fwdMy, myWallet, es)
 
+    // ── First-person pickaxe ───────────────────────────────────────────────
+    const swE  = performance.now() - swingStartRef.current
+    const swT  = swE < SWING_DUR ? swE / SWING_DUR : 0
+    drawPickaxe(ctx, W, H, swT, walkDistRef.current)
+    drawMineProgress(ctx, W, H, mineProgressRef.current, mineTypeRef.current)
+
     drawMinimap(ctx,gr,gc,angle,cellMap,presence,myWallet,W,H)
   }, [])
 
@@ -672,6 +872,12 @@ export default function MiningChain3DFPV({
         if(url) onWantNavRef.current?.(url)
         e.preventDefault()
       }
+      if(e.key===' '||e.code==='Space'){
+        if(performance.now()-swingStartRef.current>SWING_DUR){
+          swingStartRef.current=performance.now(); hitDoneRef.current=false
+        }
+        e.preventDefault()
+      }
     }
     const up=(e)=>{
       const k=keysRef.current
@@ -686,20 +892,30 @@ export default function MiningChain3DFPV({
     return ()=>{ window.removeEventListener('keydown',dn); window.removeEventListener('keyup',up) }
   },[])
 
-  // Pointer drag → rotate
+  // Pointer drag → rotate, tap → pickaxe swing
   const handlePointerDown = useCallback((e)=>{
     canvasRef.current?.setPointerCapture(e.pointerId)
-    dragRef.current = { x: e.clientX, type: e.pointerType }
+    dragRef.current = { x: e.clientX, type: e.pointerType, moved: 0 }
   },[])
   const handlePointerMove = useCallback((e)=>{
     if (!dragRef.current) return
     const dx = e.clientX - dragRef.current.x
     dragRef.current.x = e.clientX
+    dragRef.current.moved = (dragRef.current.moved||0) + Math.abs(dx)
     const sens = dragRef.current.type === 'touch' ? 0.006 : 0.003
     playerRef.current.angle += dx * sens
     renderRef.current?.()
   },[])
-  const handlePointerUp = useCallback(()=>{ dragRef.current=null },[])
+  const handlePointerUp = useCallback(()=>{
+    if (dragRef.current && (dragRef.current.moved||0) < 8) {
+      // Tap/click with minimal movement → swing pickaxe
+      if (performance.now()-swingStartRef.current > SWING_DUR) {
+        swingStartRef.current = performance.now()
+        hitDoneRef.current = false
+      }
+    }
+    dragRef.current = null
+  },[])
 
   // Game loop
   useEffect(()=>{
@@ -729,8 +945,8 @@ export default function MiningChain3DFPV({
         walkDistRef.current+=MOVE_SPD
         needsRender=true
 
-        // Footstep every ~1.8 walk units
-        const steps=Math.floor(walkDistRef.current/1.8)
+        // Footstep every ~10 movement frames regardless of CELL_SIZE
+        const steps=Math.floor(walkDistRef.current/FOOTSTEP_DIST)
         if(steps!==stepCountRef.current){stepCountRef.current=steps;playStep(audioCtxRef)}
 
         // Real-time sub-cell presence broadcast (throttled to ~8/sec)
@@ -758,29 +974,65 @@ export default function MiningChain3DFPV({
         }
       }
 
-      // Facing detection + action URL update
+      // Facing detection + action URL + mine type update
       const {cell:fc,mx:fmx,my:fmy}=castRay(p.x,p.y,p.angle,cellMapRef.current)
       const newKey=`${fmy},${fmx}`
+      facingDataRef.current={mx:fmx,my:fmy,cell:fc}
       if(newKey!==facingKeyRef.current){
         facingKeyRef.current=newKey
+        // Reset progress when target changes
+        mineProgressRef.current=0; mineTargetRef.current=null
         if(fmx>=0&&fmy>=0){
           onFacingChange?.(fmy,fmx,fc)
-          // Compute action URL for Enter key
           if(fc){
             const hex=fc.blockHex||gridToBlockHex(fmy,fmx)
+            const myW=myWalletRef.current
+            const ownerIsMe=myW&&fc.owner?.toLowerCase()===myW
             if(!fc.owner){
-              actionUrlRef.current=`/relaying?command=${encodeURIComponent(`/mine ${hex}`)}`
+              if(fc.isMarket){
+                actionUrlRef.current='/mining'; mineTypeRef.current='nftji'
+              } else {
+                actionUrlRef.current=`/relaying?command=${encodeURIComponent(`/mine ${hex}`)}`;
+                mineTypeRef.current='mine'
+              }
+            } else if(ownerIsMe&&fc.isMarket){
+              actionUrlRef.current='/mining'; mineTypeRef.current='nftji'
             } else {
-              actionUrlRef.current=null
+              actionUrlRef.current=null; mineTypeRef.current='empty'
             }
           } else {
-            actionUrlRef.current=null
+            actionUrlRef.current=null; mineTypeRef.current='empty'
           }
         } else {
-          actionUrlRef.current=null
+          actionUrlRef.current=null; mineTypeRef.current='empty'
         }
         needsRender=true
       }
+
+      // ── Swing hit detection ─────────────────────────────────────────────────
+      const swingElapsed=performance.now()-swingStartRef.current
+      const swinging=swingElapsed<SWING_DUR
+      if(swinging) needsRender=true
+      if(swinging&&swingElapsed/SWING_DUR>=0.45&&!hitDoneRef.current){
+        hitDoneRef.current=true
+        const {mx,my}=facingDataRef.current
+        const tk=mx>=0&&my>=0?`${my},${mx}`:null
+        if(tk!==mineTargetRef.current){mineProgressRef.current=0;mineTargetRef.current=tk}
+        if(!tk||mineTypeRef.current==='empty'){
+          playPickHit(audioCtxRef,'empty')
+        } else {
+          mineProgressRef.current=Math.min(1,mineProgressRef.current+1/HITS_NEEDED)
+          playPickHit(audioCtxRef,mineTypeRef.current)
+          if(mineProgressRef.current>=1){
+            playPickHit(audioCtxRef,'complete')
+            mineProgressRef.current=0
+            const url=actionUrlRef.current
+            if(url) setTimeout(()=>onWantNavRef.current?.(url),120)
+          }
+        }
+        needsRender=true
+      }
+      if(!swinging) hitDoneRef.current=false
 
       if(notifRef.current&&(Date.now()-notifRef.current.startedAt)<2800) needsRender=true
       // Always render when remote players are present so their movement is visible
@@ -817,24 +1069,50 @@ export default function MiningChain3DFPV({
         onPointerUp={handlePointerUp}
         onPointerCancel={handlePointerUp}
       />
-      {/* Mobile D-pad */}
+      {/* Mobile D-pad + action */}
       <div style={{
-        position:'absolute',bottom:16,left:16,
-        display:'flex',flexDirection:'column',gap:4,
+        position:'absolute',
+        bottom:'calc(12px + env(safe-area-inset-bottom, 0px))',
+        left:12,
+        display:'flex',alignItems:'center',gap:8,
         pointerEvents:'auto',userSelect:'none',
       }}>
-        <div style={{display:'flex',justifyContent:'center'}}><button {...dBtn('w','▲')} /></div>
-        <div style={{display:'flex',gap:4}}>
-          <button {...dBtn('a','◀')} />
-          <button {...dBtn('s','▼')} />
-          <button {...dBtn('d','▶')} />
+        {/* D-pad */}
+        <div style={{display:'flex',flexDirection:'column',gap:4}}>
+          <div style={{display:'flex',justifyContent:'center'}}><button {...dBtn('w','▲')} /></div>
+          <div style={{display:'flex',gap:4}}>
+            <button {...dBtn('a','◀')} />
+            <button {...dBtn('s','▼')} />
+            <button {...dBtn('d','▶')} />
+          </div>
         </div>
-        <p style={{
-          margin:'4px 0 0',textAlign:'center',
-          color:'#22d3ee22',fontSize:'0.55rem',
-          fontFamily:'monospace',letterSpacing:'0.06em',pointerEvents:'none',
-        }}>{es?'DRAG·ROTAR':'DRAG·LOOK'}</p>
+        {/* Pickaxe swing button */}
+        <button
+          onPointerDown={(e)=>{
+            e.preventDefault()
+            if(performance.now()-swingStartRef.current>SWING_DUR){
+              swingStartRef.current=performance.now(); hitDoneRef.current=false
+            }
+          }}
+          style={{
+            width:58,height:58,
+            background:'rgba(251,146,60,0.10)',
+            border:'1px solid rgba(251,146,60,0.35)',
+            borderRadius:12,color:'rgba(251,146,60,0.80)',
+            fontSize:'1.5rem',cursor:'pointer',display:'flex',
+            alignItems:'center',justifyContent:'center',
+            userSelect:'none',touchAction:'none',
+            WebkitTapHighlightColor:'transparent',
+          }}
+        >⛏</button>
       </div>
+      <p style={{
+        position:'absolute',
+        bottom:'calc(2px + env(safe-area-inset-bottom, 0px))',
+        left:12,
+        margin:0,color:'#22d3ee18',fontSize:'0.52rem',
+        fontFamily:'monospace',letterSpacing:'0.06em',pointerEvents:'none',
+      }}>{es?'DRAG·ROTAR':'DRAG·LOOK'}</p>
     </div>
   )
 }
