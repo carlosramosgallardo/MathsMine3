@@ -1481,6 +1481,7 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
                     src={normalizeShortUrl(selectedBlock.short_url)}
                     className="aspect-video w-full border-t border-cyan-500/10"
                     loading="lazy"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                     allowFullScreen
                     title={selectedTitle}
                   />
