@@ -4,6 +4,11 @@ const nextConfig = {
   experimental: {
     optimizePackageImports: ['recharts'],
   },
+  async redirects() {
+    return [
+      { source: '/hotel', destination: '/chain3d', permanent: true },
+    ]
+  },
   webpack: (config) => {
     config.resolve.fallback = {
       ...config.resolve.fallback,

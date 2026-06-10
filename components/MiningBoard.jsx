@@ -1266,10 +1266,10 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
 
       <div className="mx-auto mt-2 w-full max-w-[1080px] px-2 lg:px-3 flex justify-end">
         <Link
-          href="/hotel"
+          href="/chain3d"
           className="inline-flex items-center gap-1.5 rounded border border-cyan-500/20 bg-black/30 px-3 py-1 text-[0.65rem] font-mono uppercase tracking-[0.12em] text-cyan-600/70 transition-all hover:border-cyan-400/50 hover:text-cyan-300 hover:bg-cyan-950/30"
         >
-          🏨 {language === 'es' ? 'Hotel MM3 · Modo 3D' : 'MM3 Hotel · 3D Mode'}
+          🔷 {language === 'es' ? 'MM3 BLOCK CHAIN 3D' : 'MM3 BLOCK CHAIN 3D'}
         </Link>
       </div>
 

@@ -159,8 +159,8 @@ export default function MiningHotel() {
         borderBottom:`1px solid ${C}22`, background:'#06091a', flexShrink:0, flexWrap:'wrap',
         rowGap:4,
       }}>
-        <span style={{ color:C, fontWeight:700, fontSize:'0.88rem', letterSpacing:'0.12em', whiteSpace:'nowrap' }}>
-          🏨 {es ? 'HOTEL MM3' : 'MM3 HOTEL'}
+        <span style={{ color:C, fontWeight:700, fontSize:'0.78rem', letterSpacing:'0.12em', whiteSpace:'nowrap' }}>
+          🔷 MM3 BLOCK CHAIN 3D
         </span>
 
         {/* Block search / jump */}
@@ -296,15 +296,6 @@ export default function MiningHotel() {
                   ...actionLink, background:`${C}0c`, borderColor:`${C}44`, color:C,
                 }}>
                   ⛏ {es?'Minar bloque':'Mine block'}
-                </Link>
-              )}
-
-              {/* Market block: link to relaying with buy command */}
-              {fc?.isMarket && !fc.owner && fc.blockKey && (
-                <Link href={`/relaying?command=${encodeURIComponent(`/buy ${fc.blockKey}`)}`} style={{
-                  ...actionLink, background:'#fb923c0c', borderColor:'#fb923c44', color:'#fb923c',
-                }}>
-                  🛒 {es?'Comprar':'Buy'}
                 </Link>
               )}
 

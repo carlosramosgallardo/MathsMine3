@@ -18,6 +18,20 @@ const MOVE_SPD      = 0.18
 const TURN_SPD      = 0.040
 const DOOR_FRAC     = 0.45
 const HORIZON_RATIO = 0.42
+const PLAYER_R      = 0.20   // collision radius in grid units (1 unit = 1 cell)
+const DOOR_LO       = (1 - DOOR_FRAC) / 2   // 0.275
+const DOOR_HI       = (1 + DOOR_FRAC) / 2   // 0.725
+
+// ── Wall collision: returns true if position (grid units) hits a solid wall ──
+function hitsSolidWall(gx, gy) {
+  const fx = gx - Math.floor(gx)
+  const fy = gy - Math.floor(gy)
+  if (fx < PLAYER_R)     { if (fy < DOOR_LO || fy > DOOR_HI) return true }
+  if (fx > 1-PLAYER_R)   { if (fy < DOOR_LO || fy > DOOR_HI) return true }
+  if (fy < PLAYER_R)     { if (fx < DOOR_LO || fx > DOOR_HI) return true }
+  if (fy > 1-PLAYER_R)   { if (fx < DOOR_LO || fx > DOOR_HI) return true }
+  return false
+}
 
 // ── Pure helpers ──────────────────────────────────────────────────────────────
 function hexToRgb(hex) {
@@ -138,10 +152,7 @@ function drawFacingHUD(ctx, W, H, fwdCell, fwdMx, fwdMy, myWallet, es) {
   }
 
   if (!owner && fwdCell) {
-    const hint = fwdCell.isMarket
-      ? (es ? '↵ · Comprar / Minar' : '↵ · Buy / Mine')
-      : (es ? '↵ · Minar' : '↵ · Mine')
-    lines.push({ text: hint, size: 8, col: C + '99' })
+    lines.push({ text: es ? '↵ · Minar bloque' : '↵ · Mine block', size: 8, col: C + '99' })
   }
 
   const lineH = 14, padX = 8, padY = 7
@@ -503,10 +514,10 @@ export default function MiningHotelFPV({
     }
 
     // Inspect prompt when very close
-    if (fwdDist < 0.9 && fwdCell) {
+    if (fwdDist < 0.9 && fwdCell && !fwdCell.owner) {
       ctx.font = '11px monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'top'
       ctx.fillStyle = C + 'cc'
-      ctx.fillText(es ? '[ ↵ VER DETALLE ]' : '[ ↵ INSPECT ]', W/2, horizon+18)
+      ctx.fillText(es ? '[ ↵ MINAR BLOQUE ]' : '[ ↵ MINE BLOCK ]', W/2, horizon+18)
     }
 
     // ── Gap crosshair (Doom-style) ────────────────────────────────────────────
@@ -648,8 +659,16 @@ export default function MiningHotelFPV({
       if(fwd||str){
         const nx=p.x+(Math.cos(p.angle)*fwd+Math.cos(p.angle+Math.PI/2)*str)*MOVE_SPD
         const ny=p.y+(Math.sin(p.angle)*fwd+Math.sin(p.angle+Math.PI/2)*str)*MOVE_SPD
-        if(nx>0.5&&nx<WORLD_W-0.5) p.x=nx
-        if(ny>0.5&&ny<WORLD_H-0.5) p.y=ny
+        const R=PLAYER_R*CELL_SIZE
+        const inBX=nx>R&&nx<WORLD_W-R, inBY=ny>R&&ny<WORLD_H-R
+        const ngx=nx/CELL_SIZE, ngy=ny/CELL_SIZE
+        const cgx=p.x/CELL_SIZE, cgy=p.y/CELL_SIZE
+        // Full move, else wall-slide on each axis independently
+        if(inBX&&inBY&&!hitsSolidWall(ngx,ngy)){ p.x=nx; p.y=ny }
+        else{
+          if(inBX&&!hitsSolidWall(ngx,cgy)) p.x=nx
+          if(inBY&&!hitsSolidWall(cgx,ngy)) p.y=ny
+        }
         walkDistRef.current+=MOVE_SPD
         needsRender=true
 
@@ -685,9 +704,7 @@ export default function MiningHotelFPV({
           // Compute action URL for Enter key
           if(fc){
             const hex=fc.blockHex||gridToBlockHex(fmy,fmx)
-            if(!fc.owner && fc.isMarket && fc.blockKey){
-              actionUrlRef.current=`/relaying?command=${encodeURIComponent(`/buy ${fc.blockKey}`)}`
-            } else if(!fc.owner){
+            if(!fc.owner){
               actionUrlRef.current=`/relaying?command=${encodeURIComponent(`/mine ${hex}`)}`
             } else {
               actionUrlRef.current=null
