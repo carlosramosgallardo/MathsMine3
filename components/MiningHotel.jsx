@@ -13,6 +13,7 @@ import {
   MM3_BLOCK_REQUIREMENT_BY_HEX,
 } from '@/lib/mm3-block-chain'
 import supabase from '@/lib/supabaseClient'
+import MiningHotelFPV from './MiningHotelFPV'
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 const ROWS = MM3_BLOCK_GRID_ROWS   // 28
@@ -282,6 +283,7 @@ export default function MiningHotel() {
   const [dragState,    setDragState]    = useState(null) // { startX, startY, startPanX, startPanY }
   const [loading,      setLoading]      = useState(true)
   const [onlineCount,  setOnlineCount]  = useState(0)
+  const [viewMode,     setViewMode]     = useState('iso') // 'iso' | '3p' | 'fpv'
 
   const myWallet = account?.toLowerCase() || null
   const myColor  = myWallet ? colorFromAddress(myWallet) : '#888888'
@@ -553,19 +555,36 @@ export default function MiningHotel() {
           🏨 {es ? 'HOTEL MM3 · MINERÍA 3D' : 'MM3 MINING HOTEL'}
         </span>
 
-        <div style={{ display: 'flex', gap: 6, marginLeft: 8 }}>
-          <button onClick={() => setZoom(z => Math.min(2.5, z + 0.15))}
-            style={{ ...btnStyle }}>+</button>
-          <span style={{ color: '#475569', fontSize: '0.65rem', alignSelf: 'center', minWidth: 36, textAlign: 'center' }}>
-            {Math.round(zoom * 100)}%
-          </span>
-          <button onClick={() => setZoom(z => Math.max(0.3, z - 0.15))}
-            style={{ ...btnStyle }}>−</button>
-          <button onClick={() => { setZoom(0.85); setPan({ x: 0, y: 0 }) }}
-            style={{ ...btnStyle, fontSize: '0.6rem' }}>
-            {es ? 'AJUSTAR' : 'FIT'}
-          </button>
+        {/* View mode toggle */}
+        <div style={{ display: 'flex', gap: 4, marginLeft: 4 }}>
+          {[
+            { id: 'iso', label: es ? '🗺 ISO' : '🗺 ISO' },
+            { id: '3p',  label: es ? '👤 3ª P' : '👤 3P' },
+            { id: 'fpv', label: es ? '👁 1ª P' : '👁 FPV' },
+          ].map(({ id, label }) => (
+            <button key={id} onClick={() => setViewMode(id)} style={{
+              ...btnStyle,
+              ...(viewMode === id ? { borderColor: C, color: C, background: `${C}11` } : {}),
+            }}>{label}</button>
+          ))}
         </div>
+
+        {/* Zoom controls — ISO only */}
+        {viewMode === 'iso' && (
+          <div style={{ display: 'flex', gap: 6, marginLeft: 8 }}>
+            <button onClick={() => setZoom(z => Math.min(2.5, z + 0.15))}
+              style={{ ...btnStyle }}>+</button>
+            <span style={{ color: '#475569', fontSize: '0.65rem', alignSelf: 'center', minWidth: 36, textAlign: 'center' }}>
+              {Math.round(zoom * 100)}%
+            </span>
+            <button onClick={() => setZoom(z => Math.max(0.3, z - 0.15))}
+              style={{ ...btnStyle }}>−</button>
+            <button onClick={() => { setZoom(0.85); setPan({ x: 0, y: 0 }) }}
+              style={{ ...btnStyle, fontSize: '0.6rem' }}>
+              {es ? 'AJUSTAR' : 'FIT'}
+            </button>
+          </div>
+        )}
 
         <div style={{ display: 'flex', gap: 12, marginLeft: 'auto', alignItems: 'center', flexWrap: 'wrap' }}>
           {onlineCount > 0 && (
@@ -589,38 +608,58 @@ export default function MiningHotel() {
       </div>
 
       {/* ── Canvas area ──────────────────────────────────────────────────────── */}
-      <div ref={containerRef} style={{ flex: 1, position: 'relative', overflow: 'hidden', cursor: dragState ? 'grabbing' : 'crosshair' }}>
+      <div ref={containerRef} style={{ flex: 1, position: 'relative', overflow: 'hidden', cursor: viewMode === 'iso' ? (dragState ? 'grabbing' : 'crosshair') : 'default' }}>
         {loading && (
-          <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: C, fontSize: '0.75rem', letterSpacing: '0.12em' }}>
+          <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: C, fontSize: '0.75rem', letterSpacing: '0.12em', zIndex: 10 }}>
             {es ? '⟳ CARGANDO HOTEL…' : '⟳ LOADING HOTEL…'}
           </div>
         )}
-        <canvas
-          ref={canvasRef}
-          tabIndex={0}
-          style={{ display: 'block', outline: 'none' }}
-          onMouseMove={onMouseMove}
-          onMouseDown={onMouseDown}
-          onMouseUp={onMouseUp}
-          onMouseLeave={() => setHoveredCell(null)}
-        />
 
-        {/* Controls hint (bottom-right of canvas) */}
-        <div style={{
-          position: 'absolute', bottom: 8, right: 12,
-          color: '#1e293b', fontSize: '0.58rem', letterSpacing: '0.06em', textAlign: 'right', pointerEvents: 'none',
-        }}>
-          {es ? 'WASD / ↑↓←→ · click → mover · rueda → zoom · alt+drag → pan' : 'WASD / arrows · click → move · wheel → zoom · alt+drag → pan'}
-        </div>
+        {/* ISO view */}
+        {viewMode === 'iso' && (
+          <>
+            <canvas
+              ref={canvasRef}
+              tabIndex={0}
+              style={{ display: 'block', outline: 'none' }}
+              onMouseMove={onMouseMove}
+              onMouseDown={onMouseDown}
+              onMouseUp={onMouseUp}
+              onMouseLeave={() => setHoveredCell(null)}
+            />
+            <div style={{
+              position: 'absolute', bottom: 8, right: 12,
+              color: '#1e293b', fontSize: '0.58rem', letterSpacing: '0.06em', textAlign: 'right', pointerEvents: 'none',
+            }}>
+              {es ? 'WASD / ↑↓←→ · click → mover · rueda → zoom · alt+drag → pan' : 'WASD / arrows · click → move · wheel → zoom · alt+drag → pan'}
+            </div>
+            {hoveredCell && !selectedCell && (
+              <div style={{
+                position: 'absolute', top: 10, left: 12,
+                color: '#475569', fontSize: '0.62rem', letterSpacing: '0.08em', pointerEvents: 'none',
+              }}>
+                {gridToBlockHex(hoveredCell.row, hoveredCell.col)} [{hoveredCell.row},{hoveredCell.col}]
+              </div>
+            )}
+          </>
+        )}
 
-        {/* Hovered cell quick info */}
-        {hoveredCell && !selectedCell && (
-          <div style={{
-            position: 'absolute', top: 10, left: 12,
-            color: '#475569', fontSize: '0.62rem', letterSpacing: '0.08em', pointerEvents: 'none',
-          }}>
-            {gridToBlockHex(hoveredCell.row, hoveredCell.col)} [{hoveredCell.row},{hoveredCell.col}]
-          </div>
+        {/* 3rd-person / FPV view */}
+        {(viewMode === '3p' || viewMode === 'fpv') && !loading && (
+          <MiningHotelFPV
+            cellMap={cellMap}
+            presenceMap={presenceMap}
+            myWallet={myWallet}
+            myColor={myColor}
+            initRow={myPos.row}
+            initCol={myPos.col}
+            onPositionChange={(row, col) => {
+              setMyPos({ row, col })
+              setSelectedCell(null)
+            }}
+            es={es}
+            mode={viewMode === '3p' ? 'tpv' : 'fpv'}
+          />
         )}
       </div>
 
