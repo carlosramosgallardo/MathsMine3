@@ -8,7 +8,6 @@ import { useActiveWallet } from '@/lib/use-active-wallet'
 import { colorFromAddress } from '@/lib/wallet-colors'
 import {
   gridToBlockHex, blockHexToGrid,
-  MM3_BLOCK_GRID_ROWS, MM3_BLOCK_GRID_COLS,
   MM3_BLOCK_REQUIREMENT_BY_HEX,
 } from '@/lib/mm3-block-chain'
 import supabase from '@/lib/supabaseClient'
@@ -31,9 +30,6 @@ export default function MiningHotel() {
   const [loading,     setLoading]     = useState(true)
   const [onlineCount, setOnlineCount] = useState(0)
   const [facingCell,  setFacingCell]  = useState(null)  // { row, col, cell }
-  const [jumpTarget,  setJumpTarget]  = useState(null)  // { row, col }
-  const [searchVal,   setSearchVal]   = useState('')
-  const [searchErr,   setSearchErr]   = useState(false)
   const [copied,      setCopied]      = useState(false)
 
   const myWallet = account?.toLowerCase() || null
@@ -112,34 +108,15 @@ export default function MiningHotel() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [myWallet])
 
-  useEffect(() => {
-    if (channelRef.current && myWallet) {
-      channelRef.current.track({ wallet: myWallet, row: myPos.row, col: myPos.col }).catch(() => {})
-    }
-  }, [myPos, myWallet])
-
-  const handlePositionChange    = useCallback((row, col) => setMyPos({ row, col }), [])
-  const handleFacingChange      = useCallback((row, col, cell) => setFacingCell({ row, col, cell }), [])
-  const handleWantNavigate      = useCallback((url) => router.push(url), [router])
-  const handlePositionRealtime  = useCallback((gx, gy) => {
-    const now = Date.now()
-    if (now - lastRealtimeTrackRef.current < 120) return
-    lastRealtimeTrackRef.current = now
+  const handlePositionChange   = useCallback((row, col) => setMyPos({ row, col }), [])
+  const handleFacingChange     = useCallback((row, col, cell) => setFacingCell({ row, col, cell }), [])
+  const handleWantNavigate     = useCallback((url) => router.push(url), [router])
+  const handlePositionRealtime = useCallback((gx, gy) => {
     if (channelRef.current && myWallet) {
       const row = Math.floor(gy), col = Math.floor(gx)
       channelRef.current.track({ wallet: myWallet, row, col, gx, gy }).catch(() => {})
     }
   }, [myWallet])
-
-  // ── Block search / jump ──────────────────────────────────────────────────────
-  const doJump = useCallback((raw) => {
-    const val = raw.trim().toUpperCase().replace(/^0X/,'0x') || raw.trim()
-    const pos  = blockHexToGrid(val)
-    if (!pos) { setSearchErr(true); setTimeout(() => setSearchErr(false), 1200); return }
-    setJumpTarget({ ...pos, _t: Date.now() })  // _t forces useEffect to re-fire for same cell
-    setSearchVal('')
-    setSearchErr(false)
-  }, [])
 
   // Copy hex to clipboard
   const copyHex = useCallback(async (hex) => {
@@ -172,24 +149,6 @@ export default function MiningHotel() {
         <span style={{ color:C, fontWeight:700, fontSize:'0.78rem', letterSpacing:'0.12em', whiteSpace:'nowrap' }}>
           🔷 MM3 BLOCK CHAIN 3D
         </span>
-
-        {/* Block search / jump */}
-        <form onSubmit={e=>{ e.preventDefault(); doJump(searchVal) }}
-          style={{ display:'flex', gap:4, alignItems:'center', marginLeft:8 }}>
-          <input
-            value={searchVal}
-            onChange={e=>setSearchVal(e.target.value)}
-            placeholder={es ? '0x… buscar bloque' : '0x… jump to block'}
-            style={{
-              background:'#0a111f', border:`1px solid ${searchErr ? '#ef4444' : C+'33'}`,
-              borderRadius:4, color: searchErr ? '#ef4444' : '#94a3b8',
-              padding:'3px 8px', fontSize:'0.65rem', fontFamily:'Consolas,monospace',
-              width:150, outline:'none',
-              transition:'border-color 0.2s',
-            }}
-          />
-          <button type="submit" style={{ ...btnSm, color:C, borderColor:`${C}44` }}>↵</button>
-        </form>
 
         <div style={{ display:'flex', gap:10, marginLeft:'auto', alignItems:'center', flexWrap:'wrap' }}>
           {onlineCount > 0 && (
@@ -226,7 +185,6 @@ export default function MiningHotel() {
             myColor={myColor}
             initRow={myPos.row}
             initCol={myPos.col}
-            jumpToCell={jumpTarget}
             onPositionChange={handlePositionChange}
             onFacingChange={handleFacingChange}
             onWantNavigate={handleWantNavigate}
