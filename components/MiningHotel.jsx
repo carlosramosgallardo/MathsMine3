@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { useI18n } from '@/lib/i18n-context'
 import { useActiveWallet } from '@/lib/use-active-wallet'
 import { colorFromAddress } from '@/lib/wallet-colors'
@@ -20,6 +21,7 @@ export default function MiningHotel() {
   const { language } = useI18n()
   const es = language === 'es'
   const { account } = useActiveWallet()
+  const router = useRouter()
   const channelRef = useRef(null)
 
   const [cellMap,     setCellMap]     = useState(new Map())
@@ -117,6 +119,7 @@ export default function MiningHotel() {
 
   const handlePositionChange = useCallback((row, col) => setMyPos({ row, col }), [])
   const handleFacingChange   = useCallback((row, col, cell) => setFacingCell({ row, col, cell }), [])
+  const handleWantNavigate   = useCallback((url) => router.push(url), [router])
 
   // ── Block search / jump ──────────────────────────────────────────────────────
   const doJump = useCallback((raw) => {
@@ -216,6 +219,7 @@ export default function MiningHotel() {
             jumpToCell={jumpTarget}
             onPositionChange={handlePositionChange}
             onFacingChange={handleFacingChange}
+            onWantNavigate={handleWantNavigate}
             es={es}
           />
         )}
