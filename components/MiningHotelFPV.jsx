@@ -17,7 +17,6 @@ const PROJ_DIST  = 0.65
 const MOVE_SPD   = 0.16
 const TURN_SPD   = 0.038
 const DOOR_FRAC  = 0.45
-// Horizon slightly above centre: more floor visible = grounded feel
 const HORIZON_RATIO = 0.42
 
 // ── Pure helpers ──────────────────────────────────────────────────────────────
@@ -65,17 +64,29 @@ function castRay(wx, wy, angle, cellMap) {
 function drawMinimap(ctx, gr, gc, angle, cellMap, presenceMap, myWallet, W, H) {
   const SZ = Math.min(120, W*0.19), CS = SZ/ROWS
   const MX = W-SZ-10, MY = H-SZ-10
+
   ctx.fillStyle = 'rgba(0,0,0,0.85)'
   ctx.fillRect(MX-1,MY-1,SZ+2,SZ+2)
-  ctx.strokeStyle = C+'33'; ctx.lineWidth=0.5; ctx.strokeRect(MX-1,MY-1,SZ+2,SZ+2)
+  ctx.strokeStyle = C+'33'; ctx.lineWidth=0.5
+  ctx.strokeRect(MX-1,MY-1,SZ+2,SZ+2)
+
   for (let r=0;r<ROWS;r++) for (let c=0;c<COLS;c++) {
     const cell = cellMap.get(`${r},${c}`)
     ctx.fillStyle = cell?.owner ? cell.color+'bb' : cell?.isMarket ? C+'55' : '#081420'
     ctx.fillRect(MX+c*CS, MY+r*CS, Math.ceil(CS), Math.ceil(CS))
+    // Highlight blocks owned by current wallet
+    const isMyBlock = cell?.owner && myWallet && cell.owner.toLowerCase() === myWallet.toLowerCase()
+    if (isMyBlock) {
+      ctx.strokeStyle = '#ffffffbb'
+      ctx.lineWidth = 0.7
+      ctx.strokeRect(MX+c*CS+0.5, MY+r*CS+0.5, Math.max(1, Math.ceil(CS)-1), Math.max(1, Math.ceil(CS)-1))
+    }
   }
+
   // Current cell ring
   ctx.strokeStyle = C+'cc'; ctx.lineWidth=0.8
   ctx.strokeRect(MX+gc*CS, MY+gr*CS, Math.ceil(CS), Math.ceil(CS))
+
   // FOV cone
   const pvx=MX+gc*CS+CS/2, pvy=MY+gr*CS+CS/2, cl=SZ*0.32
   ctx.strokeStyle=C+'aa'; ctx.lineWidth=1
@@ -83,6 +94,7 @@ function drawMinimap(ctx, gr, gc, angle, cellMap, presenceMap, myWallet, W, H) {
   ctx.moveTo(pvx,pvy); ctx.lineTo(pvx+Math.cos(angle-FOV/2)*cl,pvy+Math.sin(angle-FOV/2)*cl)
   ctx.moveTo(pvx,pvy); ctx.lineTo(pvx+Math.cos(angle+FOV/2)*cl,pvy+Math.sin(angle+FOV/2)*cl)
   ctx.stroke()
+
   // Presence dots
   for (const [w,p] of Object.entries(presenceMap||{})) {
     if (p.row==null) continue
@@ -112,13 +124,19 @@ export default function MiningHotelFPV({
   const notifRef     = useRef(null)
   const facingKeyRef = useRef(null)
   const cellMapRef   = useRef(cellMap)
+  const presenceRef  = useRef(presenceMap)
+  const myWalletRef  = useRef(myWallet)
   const esRef        = useRef(es)
-  const dragRef      = useRef(null)   // pointer drag state for rotation
+  const dragRef      = useRef(null)
   const animRef      = useRef(null)
   const renderRef    = useRef(null)
   const lastCellRef  = useRef({row:initRow??14,col:initCol??14})
+  const zBufferRef   = useRef(null)   // Float32Array, pre-allocated per canvas width
 
+  // Keep refs in sync with props
   useEffect(()=>{ cellMapRef.current=cellMap },[cellMap])
+  useEffect(()=>{ presenceRef.current=presenceMap },[presenceMap])
+  useEffect(()=>{ myWalletRef.current=myWallet },[myWallet])
   useEffect(()=>{ esRef.current=es },[es])
 
   // External teleport (from search input)
@@ -135,6 +153,7 @@ export default function MiningHotelFPV({
   },[initRow,initCol])
 
   // ── Render ──────────────────────────────────────────────────────────────────
+  // All volatile values read from refs → stable [] deps, never recreated
   const renderFrame = useCallback(()=>{
     const canvas = canvasRef.current
     if (!canvas) return
@@ -142,9 +161,20 @@ export default function MiningHotelFPV({
     const W=canvas.width, H=canvas.height
     if (!W||!H) return
 
+    const cellMap  = cellMapRef.current
+    const presence = presenceRef.current
+    const myWallet = myWalletRef.current
+    const es       = esRef.current
+
     const {x:px,y:py,angle} = playerRef.current
     const horizon = H * HORIZON_RATIO
     const strips  = Math.ceil(W/STRIP_W)
+
+    // Pre-allocate / resize zBuffer; fill with large sentinel
+    if (!zBufferRef.current || zBufferRef.current.length !== strips) {
+      zBufferRef.current = new Float32Array(strips)
+    }
+    const zBuffer = zBufferRef.current
 
     // Head bob
     const bob = Math.sin(walkDistRef.current*0.12)*0.03*CELL_SIZE
@@ -166,7 +196,6 @@ export default function MiningHotelFPV({
     fg.addColorStop(0,`rgb(${Math.round(10+ar*AT)},${Math.round(16+ag*AT)},${Math.round(34+ab*AT)})`)
     fg.addColorStop(1,`rgb(${Math.round(2+ar*AT*.5)},${Math.round(5+ag*AT*.5)},${Math.round(10+ab*AT*.5)})`)
     ctx.fillStyle=fg; ctx.fillRect(0,horizon,W,H-horizon)
-    // Perspective floor grid lines
     const ls=Math.max(2,Math.round((H-horizon)/12))
     for (let fy=Math.round(horizon);fy<H;fy+=ls){
       ctx.fillStyle=`rgba(${34+Math.round(ar*.15)},${180+Math.round(ag*.04)},${200+Math.round(ab*.04)},0.04)`
@@ -176,26 +205,45 @@ export default function MiningHotelFPV({
     // Pre-compute forward cell for wall highlighting
     const {mx:fwdMx,my:fwdMy,cell:fwdCell,perpDist:fwdDist} = castRay(px,py+bob,angle,cellMap)
 
-    // Wall strips
+    // ── Wall strips + build zBuffer ───────────────────────────────────────────
     for (let col=0; col<strips; col++){
       const ra = angle - FOV/2 + (col+0.5)*FOV/strips
       const {perpDist,cell,side,mx:hitMx,my:hitMy} = castRay(px,py+bob,ra,cellMap)
       const dist  = perpDist*Math.cos(ra-angle)
       const wallH = Math.min(H*1.8, H*PROJ_DIST/Math.max(0.01,dist))
       const wTop  = Math.round(horizon-wallH/2)
+
+      zBuffer[col] = dist  // fisheye-corrected depth for sprite clipping
+
       const [rw,gw,bw] = wallRgb(cell,dist,side)
       ctx.fillStyle=`rgb(${rw},${gw},${bw})`
       ctx.fillRect(col*STRIP_W,wTop,STRIP_W,wallH)
 
-      // Ambient-occlusion: darken top/bottom of each wall face
+      // Market block wall patterns
+      if (cell?.isMarket) {
+        if (!cell.owner) {
+          // Unowned: cyan diagonal stripes (availability signal)
+          const stripeH = Math.max(4, Math.round(wallH/6))
+          for (let sy=wTop; sy<wTop+wallH; sy+=stripeH*2) {
+            ctx.fillStyle = 'rgba(34,211,238,0.09)'
+            ctx.fillRect(col*STRIP_W, sy, STRIP_W, Math.min(stripeH, wTop+wallH-sy))
+          }
+        } else {
+          // Owned: owner-color glow overlay
+          const [mr,mg,mb] = hexToRgb(cell.color)
+          ctx.fillStyle = `rgba(${mr},${mg},${mb},0.12)`
+          ctx.fillRect(col*STRIP_W, wTop, STRIP_W, wallH)
+        }
+      }
+
+      // Ambient-occlusion: darken top/bottom edges
       const edgeH = Math.max(2,Math.round(wallH*0.18))
       ctx.fillStyle='rgba(0,0,0,0.28)'
       ctx.fillRect(col*STRIP_W,wTop,STRIP_W,edgeH)
       ctx.fillRect(col*STRIP_W,wTop+wallH-edgeH,STRIP_W,edgeH)
 
       // Forward-cell selection glow
-      const isForward = hitMx===fwdMx && hitMy===fwdMy && fwdMx>=0 && cell
-      if (isForward){
+      if (hitMx===fwdMx && hitMy===fwdMy && fwdMx>=0 && cell){
         ctx.fillStyle='rgba(34,211,238,0.10)'
         ctx.fillRect(col*STRIP_W,wTop,STRIP_W,wallH)
       }
@@ -205,7 +253,99 @@ export default function MiningHotelFPV({
       for (let sy=wTop;sy<wTop+wallH;sy+=4) ctx.fillRect(col*STRIP_W,sy,STRIP_W,1)
     }
 
-    // Emoji on forward wall
+    // ── Presence sprites (other wallets as 3D humanoid figures) ───────────────
+    // Camera-space transform for FOV=90°:
+    //   camGridX = px/CELL_SIZE, camGridY = py/CELL_SIZE  (camera in grid units)
+    //   rx = spriteGridX - camGridX,  ry = spriteGridY - camGridY
+    //   transformY (depth)  = cos(a)*rx + sin(a)*ry   (invDet=1 for 90° FOV)
+    //   transformX (horiz)  = sin(a)*rx - cos(a)*ry
+    //   screenX = W/2 * (1 + transformX/transformY)
+    const camGX = px / CELL_SIZE, camGY = py / CELL_SIZE
+    const sprites = []
+    for (const [w, pres] of Object.entries(presence || {})) {
+      if (pres.row == null || pres.col == null) continue
+      const isMe = w.toLowerCase() === (myWallet || '').toLowerCase()
+      if (isMe) continue
+      const rx = (pres.col + 0.5) - camGX
+      const ry = (pres.row + 0.5) - camGY
+      const tY = Math.cos(angle)*rx + Math.sin(angle)*ry
+      if (tY < 0.1) continue  // behind camera
+      const tX  = Math.sin(angle)*rx - Math.cos(angle)*ry
+      const dist = Math.sqrt(rx*rx + ry*ry)
+      sprites.push({ w, tX, tY, dist, color: colorFromAddress(w) })
+    }
+    sprites.sort((a,b) => b.dist - a.dist)  // painter's order: furthest first
+
+    for (const { w, tX, tY, color } of sprites) {
+      const sprH  = Math.min(H*1.6, H*PROJ_DIST/tY*1.1)
+      const sprW  = Math.round(sprH*0.42)
+      const scrX  = Math.round(W/2*(1+tX/tY))
+      const topY  = Math.round(horizon - sprH*0.80)
+      const headH = Math.round(sprH*0.32)
+      const bodyH = Math.round(sprH*0.52)
+      const headW = Math.round(sprW*0.72)
+      const bodyW = Math.round(sprW*0.58)
+      const bodyTop = topY + headH
+
+      const [cr,cg2,cb] = hexToRgb(color)
+      const fade  = Math.max(0.15, 1 - tY*0.07)
+      const alpha = Math.min(0.95, Math.max(0, 1.0 - tY*0.05))
+
+      // Per-pixel vertical columns for zBuffer depth clipping
+      const sprLeft  = scrX - Math.floor(sprW/2)
+      const sprRight = scrX + Math.ceil(sprW/2)
+      const hx1 = scrX - Math.floor(headW/2), hx2 = scrX + Math.ceil(headW/2)
+      const bx1 = scrX - Math.floor(bodyW/2), bx2 = scrX + Math.ceil(bodyW/2)
+
+      for (let sx=sprLeft; sx<sprRight; sx++) {
+        const zCol = Math.floor(sx/STRIP_W)
+        if (zCol < 0 || zCol >= strips) continue
+        if (tY >= zBuffer[zCol]) continue  // wall is in front
+
+        // Head
+        if (sx >= hx1 && sx < hx2) {
+          ctx.globalAlpha = alpha
+          ctx.fillStyle = `rgb(${Math.round(cr*fade)},${Math.round(cg2*fade)},${Math.round(cb*fade)})`
+          ctx.fillRect(sx, topY, 1, headH)
+        }
+        // Body (darker shade)
+        if (sx >= bx1 && sx < bx2) {
+          ctx.globalAlpha = alpha*0.85
+          ctx.fillStyle = `rgb(${Math.round(cr*fade*0.55)},${Math.round(cg2*fade*0.55)},${Math.round(cb*fade*0.55)})`
+          ctx.fillRect(sx, bodyTop, 1, bodyH)
+        }
+      }
+      ctx.globalAlpha = 1
+
+      // Ground shadow
+      if (tY < 5.0) {
+        const sAlpha = Math.max(0, (5.0-tY)/5.0)*0.32
+        const sw = Math.max(4, Math.round(sprW*0.9))
+        const sh = Math.max(2, Math.round(sw*0.25))
+        ctx.globalAlpha = sAlpha
+        ctx.fillStyle = '#000'
+        ctx.beginPath()
+        ctx.ellipse(scrX, horizon+sh, sw/2, sh, 0, 0, Math.PI*2)
+        ctx.fill()
+        ctx.globalAlpha = 1
+      }
+
+      // Wallet label (fades in when close)
+      if (tY < 4.5) {
+        const lAlpha = Math.max(0, (4.5-tY)/4.5)*0.78
+        const lSize  = Math.max(7, Math.round(10/Math.max(0.6, tY)))
+        ctx.globalAlpha = lAlpha
+        ctx.font = `${lSize}px monospace`
+        ctx.textAlign = 'center'
+        ctx.textBaseline = 'bottom'
+        ctx.fillStyle = color
+        ctx.fillText(`${w.slice(0,6)}…`, scrX, topY-2)
+        ctx.globalAlpha = 1
+      }
+    }
+
+    // ── Overlays on forward wall ──────────────────────────────────────────────
+    // Emoji
     if (fwdCell?.emoji){
       const sz=Math.max(16,Math.round(H*PROJ_DIST/Math.max(0.1,fwdDist)*0.58))
       ctx.font=`${sz}px serif`
@@ -215,7 +355,7 @@ export default function MiningHotelFPV({
       ctx.globalAlpha=1
     }
 
-    // Hex label on forward wall (scales with proximity)
+    // Hex address label (scales with proximity)
     const fwdHex = fwdMx>=0&&fwdMy>=0 ? (fwdCell?.blockHex||gridToBlockHex(fwdMy,fwdMx)) : null
     if (fwdHex && fwdDist<3.5){
       const a = Math.max(0,(3.5-fwdDist)/3.5)*0.5
@@ -229,7 +369,7 @@ export default function MiningHotelFPV({
       ctx.globalAlpha=1
     }
 
-    // Inspect prompt when close to a wall
+    // Inspect prompt when very close to wall
     if (fwdDist<0.85){
       ctx.font='11px monospace'; ctx.textAlign='center'; ctx.textBaseline='top'
       ctx.fillStyle=C+'bb'
@@ -249,10 +389,9 @@ export default function MiningHotelFPV({
       const elapsed=Date.now()-notif.startedAt, fadeMs=2800
       if (elapsed<fadeMs){
         const t=elapsed/fadeMs
-        const alpha=t<0.12?t/0.12:t<0.7?1:1-(t-0.7)/0.3
-        ctx.globalAlpha=alpha
-        ctx.font='bold 12px monospace'; ctx.textAlign='center'
-        ctx.textBaseline='middle'
+        const a=t<0.12?t/0.12:t<0.7?1:1-(t-0.7)/0.3
+        ctx.globalAlpha=a
+        ctx.font='bold 12px monospace'; ctx.textAlign='center'; ctx.textBaseline='middle'
         const tw=Math.min(ctx.measureText(notif.text).width+28,W*0.72)
         const bx=W/2-tw/2, by=horizon-60, bh=24
         ctx.fillStyle='rgba(0,0,0,0.80)'; ctx.fillRect(bx,by,tw,bh)
@@ -262,7 +401,7 @@ export default function MiningHotelFPV({
       } else notifRef.current=null
     }
 
-    // HUD top-left
+    // HUD: current room info (top-left)
     const curHex=gridToBlockHex(gr,gc)
     ctx.textAlign='left'; ctx.textBaseline='top'
     ctx.fillStyle=C+'88'; ctx.font='bold 10px monospace'
@@ -271,21 +410,23 @@ export default function MiningHotelFPV({
       ctx.fillStyle=curCell.color+'88'; ctx.font='9px monospace'
       ctx.fillText(`${curCell.owner.slice(0,6)}…${curCell.owner.slice(-4)}`,10,22)
     }
+    // Controls hint (top-right, very dim)
     ctx.textAlign='right'; ctx.fillStyle='#152230'; ctx.font='8px monospace'
     ctx.fillText(es?'WASD·mover  Q/E·girar  drag·rotar':'WASD·move  Q/E·turn  drag·look',W-10,10)
 
-    drawMinimap(ctx,gr,gc,angle,cellMap,presenceMap,myWallet,W,H)
-  },[cellMap,presenceMap,myWallet,myColor,es])
+    drawMinimap(ctx,gr,gc,angle,cellMap,presence,myWallet,W,H)
+  }, [])  // stable — all live values are read from refs inside
 
   useEffect(()=>{ renderRef.current=renderFrame },[renderFrame])
 
-  // Canvas resize
+  // Canvas resize observer
   useEffect(()=>{
     const canvas=canvasRef.current, container=containerRef.current
     if (!canvas||!container) return
     const resize=()=>{
       const {width,height}=container.getBoundingClientRect()
       canvas.width=Math.round(width); canvas.height=Math.round(height)
+      zBufferRef.current=null  // force reallocation on next frame
       renderRef.current?.()
     }
     resize()
@@ -293,6 +434,7 @@ export default function MiningHotelFPV({
     return ()=>ro.disconnect()
   },[])
 
+  // Re-render when data changes
   useEffect(()=>{ renderRef.current?.() },[cellMap,presenceMap])
 
   // Keyboard
@@ -301,8 +443,8 @@ export default function MiningHotelFPV({
       const k=keysRef.current
       if(e.key==='w'||e.key==='W'||e.key==='ArrowUp')   {k.w=true;e.preventDefault()}
       if(e.key==='s'||e.key==='S'||e.key==='ArrowDown') {k.s=true;e.preventDefault()}
-      if(e.key==='a'||e.key==='A')                         k.a=true
-      if(e.key==='d'||e.key==='D')                         k.d=true
+      if(e.key==='a'||e.key==='A')                        k.a=true
+      if(e.key==='d'||e.key==='D')                        k.d=true
       if(e.key==='q'||e.key==='Q'||e.key==='ArrowLeft') {k.q=true;e.preventDefault()}
       if(e.key==='e'||e.key==='E'||e.key==='ArrowRight'){k.e=true;e.preventDefault()}
     }
@@ -319,7 +461,7 @@ export default function MiningHotelFPV({
     return ()=>{ window.removeEventListener('keydown',dn); window.removeEventListener('keyup',up) }
   },[])
 
-  // Pointer drag → rotate (mouse + touch, whole canvas except D-pad area)
+  // Pointer drag → rotate (mouse + touch)
   const handlePointerDown = useCallback((e)=>{
     canvasRef.current?.setPointerCapture(e.pointerId)
     dragRef.current = { x: e.clientX, type: e.pointerType }
@@ -328,7 +470,6 @@ export default function MiningHotelFPV({
     if (!dragRef.current) return
     const dx = e.clientX - dragRef.current.x
     dragRef.current.x = e.clientX
-    // Touch: slightly higher sensitivity (smaller screen, same rotation feel)
     const sens = dragRef.current.type === 'touch' ? 0.006 : 0.003
     playerRef.current.angle += dx * sens
     renderRef.current?.()
@@ -362,7 +503,7 @@ export default function MiningHotelFPV({
           const hex=gridToBlockHex(newRow,newCol)
           const loc=esRef.current
           const title=loc?(entered?.titleEs||entered?.titleEn||''):(entered?.titleEn||entered?.titleEs||'')
-          const who = entered?.owner ? `${entered.owner.slice(0,6)}…` : (loc?'libre':'unclaimed')
+          const who=entered?.owner?`${entered.owner.slice(0,6)}…`:(loc?'libre':'unclaimed')
           notifRef.current={
             text:[entered?.emoji,hex,title||who].filter(Boolean).join(' · '),
             color:entered?.color||C,
@@ -371,7 +512,7 @@ export default function MiningHotelFPV({
         }
       }
 
-      // Facing detection (fires on rotation too, not just movement)
+      // Facing detection (fires on rotation too)
       const {cell:fc,mx:fmx,my:fmy}=castRay(p.x,p.y,p.angle,cellMapRef.current)
       const newKey=`${fmy},${fmx}`
       if(newKey!==facingKeyRef.current){
@@ -380,8 +521,7 @@ export default function MiningHotelFPV({
         needsRender=true
       }
 
-      const hasNotif=notifRef.current&&(Date.now()-notifRef.current.startedAt)<2800
-      if(hasNotif) needsRender=true
+      if(notifRef.current&&(Date.now()-notifRef.current.startedAt)<2800) needsRender=true
       if(needsRender) renderRef.current?.()
 
       animRef.current=requestAnimationFrame(loop)
