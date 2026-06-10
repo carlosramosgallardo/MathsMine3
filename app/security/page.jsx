@@ -365,7 +365,7 @@ async function exportPDF(scan) {
 
   setColor('#1e293b', 'text')
   doc.setFontSize(6)
-  doc.text('MathsMine3 · AI-Powered Security Audit · mathsmine3.xyz', W / 2, 292, { align: 'center' })
+  doc.text('MathsMine3 Security Audit · mathsmine3.xyz · Scoped exclusively to mathsmine3.xyz — no third parties targeted', W / 2, 292, { align: 'center' })
 
   doc.save(`security-audit-${scan.id}-${new Date(scan.triggered_at).toISOString().slice(0,10)}.pdf`)
 }
@@ -430,12 +430,23 @@ export default function SecurityPage() {
       <div style={{ maxWidth: 860, margin: '0 auto' }}>
 
         <div style={{ marginBottom: 24 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
             <span style={{ color: C, fontSize: '1.1rem', fontWeight: 700, letterSpacing: '0.1em' }}>🔐 SECURITY AUDIT</span>
-            <span style={{ color: GRAY, fontSize: '0.7rem', border: `1px solid ${GRAY}44`, borderRadius: 4, padding: '1px 6px' }}>AI-POWERED</span>
           </div>
-          <div style={{ color: GRAY, fontSize: '0.75rem' }}>
-            20 automated checks · TLS &amp; certificate · HTTP security headers · CSP deep analysis · API auth (28 endpoints) · Web3 wallet signature · dependency CVEs (OSV) · client bundle secrets · injection &amp; prototype pollution · business logic · error disclosure · host injection · SRI · sensitive paths · open redirect · CORS · rate limiting · page health (15 pages) · results scored 0–100 and exportable as PDF
+          <div style={{ color: GRAY, fontSize: '0.72rem', lineHeight: '1.7' }}>
+            Automated security audit scoped exclusively to{' '}
+            <a href="https://mathsmine3.xyz/" target="_blank" rel="noopener noreferrer" style={{ color: C }}>mathsmine3.xyz</a>
+            {' '}and its open-source codebase at{' '}
+            <a href="https://github.com/carlosramosgallardo/MathsMine3" target="_blank" rel="noopener noreferrer" style={{ color: C }}>github.com/carlosramosgallardo/MathsMine3</a>.
+            {' '}No third-party systems, external APIs, or unrelated infrastructure are targeted at any point.
+            All 20 checks are read-only HTTP requests, TLS handshakes, and static analysis — no destructive operations,
+            no brute-force, no credential attacks, no denial-of-service attempts.
+          </div>
+          <div style={{ color: '#334155', fontSize: '0.65rem', marginTop: 6, lineHeight: '1.6' }}>
+            Checks: TLS &amp; certificate · HTTP security headers · CSP deep analysis · API auth (28 endpoints) · Web3 wallet signature ·
+            dependency CVEs (OSV/Google) · client bundle secret scan · injection &amp; prototype pollution ·
+            business logic probes · error disclosure · host injection · SRI · sensitive paths ·
+            open redirect · CORS · rate limiting · page health (15 pages) · results scored 0–100 · PDF export
           </div>
         </div>
 
@@ -559,7 +570,7 @@ export default function SecurityPage() {
         )}
 
         <div style={{ color: '#1e293b', fontSize: '0.6rem', textAlign: 'center', marginTop: 32 }}>
-          AI-Powered Security · OSV (Google) · mathsmine3.xyz
+          Scoped to mathsmine3.xyz only · OSV (Google) · No third parties targeted · Read-only probes
         </div>
       </div>
     </div>

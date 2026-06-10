@@ -177,7 +177,36 @@ export default function TermsPage() {
 
           <section className="mb-6">
             <h2 className="text-base font-bold text-[#22d3ee] mb-2">
-              {es ? '12. Contacto' : '12. Contact'}
+              {es ? '12. Herramienta de Auditoría de Seguridad' : '12. Security Audit Tool'}
+            </h2>
+            <p className="leading-relaxed text-gray-400">
+              {es
+                ? <>
+                    El escáner de seguridad disponible en <a href="https://mathsmine3.xyz/security" className="text-cyan-700 hover:text-cyan-400 underline">/security</a> realiza pruebas automatizadas
+                    exclusivamente sobre <strong className="text-gray-300">mathsmine3.xyz</strong> y su código fuente público en{' '}
+                    <a href="https://github.com/carlosramosgallardo/MathsMine3" target="_blank" rel="noopener noreferrer" className="text-cyan-700 hover:text-cyan-400 underline">github.com/carlosramosgallardo/MathsMine3</a>.
+                    Todas las comprobaciones consisten en peticiones HTTP de solo lectura, handshakes TLS y análisis estático.
+                    No se realizan acciones destructivas, ataques de fuerza bruta, ataques de denegación de servicio ni pruebas sobre sistemas de terceros.
+                    Los resultados se almacenan en nuestra base de datos con carácter informativo y son accesibles desde la propia página de auditoría.
+                    El uso de esta herramienta está sujeto a estos Términos; queda prohibido cualquier intento de usar o modificar la herramienta
+                    para atacar sistemas externos al alcance definido.
+                  </>
+                : <>
+                    The security scanner available at <a href="https://mathsmine3.xyz/security" className="text-cyan-700 hover:text-cyan-400 underline">/security</a> runs automated checks
+                    exclusively against <strong className="text-gray-300">mathsmine3.xyz</strong> and its public codebase at{' '}
+                    <a href="https://github.com/carlosramosgallardo/MathsMine3" target="_blank" rel="noopener noreferrer" className="text-cyan-700 hover:text-cyan-400 underline">github.com/carlosramosgallardo/MathsMine3</a>.
+                    All checks consist of read-only HTTP requests, TLS handshakes, and static analysis.
+                    No destructive actions, brute-force attacks, denial-of-service attempts, or probes against third-party systems are performed at any point.
+                    Scan results are stored in our database for informational purposes and are accessible from the audit page.
+                    Use of this tool is subject to these Terms; any attempt to repurpose or modify the tool
+                    to target systems outside the defined scope is strictly prohibited.
+                  </>}
+            </p>
+          </section>
+
+          <section className="mb-6">
+            <h2 className="text-base font-bold text-[#22d3ee] mb-2">
+              {es ? '13. Contacto' : '13. Contact'}
             </h2>
             <p className="leading-relaxed text-gray-400">
               {es ? 'Consultas sobre estos términos:' : 'Questions about these terms:'}{' '}

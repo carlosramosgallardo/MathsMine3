@@ -177,7 +177,34 @@ export default function PrivacyPage() {
 
           <section className="mb-6">
             <h2 className="text-base font-bold text-[#22d3ee] mb-2">
-              {es ? '9. Contacto' : '9. Contact'}
+              {es ? '9. Datos de la Auditoría de Seguridad' : '9. Security Audit Data'}
+            </h2>
+            <p className="leading-relaxed text-gray-400">
+              {es
+                ? <>
+                    El escáner de <a href="/security" className="text-cyan-700 hover:text-cyan-400 underline">/security</a> almacena en Supabase los resultados de cada ejecución:
+                    puntuación, resumen de hallazgos, estado por comprobación y marca de tiempo.
+                    Estos datos son accesibles desde la propia página de auditoría y exportables como PDF.
+                    Las sondas del escáner <strong className="text-gray-300">no recopilan datos de usuarios</strong>; consisten únicamente en peticiones HTTP de solo lectura
+                    y análisis estático dirigidos exclusivamente a <strong className="text-gray-300">mathsmine3.xyz</strong>.
+                    No se transmite información de terceros ni se almacenan datos externos durante el proceso.
+                    Los resultados de escaneo se conservan de forma indefinida como historial de auditoría.
+                  </>
+                : <>
+                    The <a href="/security" className="text-cyan-700 hover:text-cyan-400 underline">/security</a> scanner stores each scan result in Supabase:
+                    score, findings summary, per-check status, and timestamp.
+                    These results are accessible from the audit page and exportable as PDF.
+                    Scanner probes <strong className="text-gray-300">do not collect user data</strong>; they consist solely of read-only HTTP requests
+                    and static analysis directed exclusively at <strong className="text-gray-300">mathsmine3.xyz</strong>.
+                    No third-party data is transmitted or stored during scanning.
+                    Scan results are retained indefinitely as an audit history.
+                  </>}
+            </p>
+          </section>
+
+          <section className="mb-6">
+            <h2 className="text-base font-bold text-[#22d3ee] mb-2">
+              {es ? '10. Contacto' : '10. Contact'}
             </h2>
             <p className="leading-relaxed text-gray-400">
               {es ? 'Consultas de privacidad:' : 'Privacy inquiries:'}{' '}
