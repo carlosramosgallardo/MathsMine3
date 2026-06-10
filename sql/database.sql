@@ -2184,3 +2184,18 @@ CREATE TABLE mm3_chain_reset_log (
   created_at timestamptz DEFAULT now() NOT NULL
 );
 ALTER TABLE mm3_chain_reset_log ENABLE ROW LEVEL SECURITY;
+
+-- ── Chain3D player positions (real-time presence persistence) ─────────────────
+-- Stores last known position of each player in the 3D block chain view.
+-- Used to seed positions for new joiners before they receive a broadcast.
+DROP TABLE IF EXISTS mm3_player_positions CASCADE;
+CREATE TABLE mm3_player_positions (
+  wallet      text        PRIMARY KEY,
+  gx          float8      NOT NULL DEFAULT 14.5,
+  gy          float8      NOT NULL DEFAULT 14.5,
+  updated_at  timestamptz NOT NULL DEFAULT now()
+);
+ALTER TABLE mm3_player_positions ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "read_positions"   ON mm3_player_positions FOR SELECT USING (true);
+CREATE POLICY "insert_positions" ON mm3_player_positions FOR INSERT WITH CHECK (true);
+CREATE POLICY "update_positions" ON mm3_player_positions FOR UPDATE USING (true) WITH CHECK (true);
