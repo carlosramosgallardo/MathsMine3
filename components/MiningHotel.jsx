@@ -23,6 +23,7 @@ export default function MiningHotel() {
   const { account } = useActiveWallet()
   const router = useRouter()
   const channelRef = useRef(null)
+  const lastRealtimeTrackRef = useRef(0)
 
   const [cellMap,     setCellMap]     = useState(new Map())
   const [myPos,       setMyPos]       = useState({ row: 14, col: 14 })
@@ -117,9 +118,18 @@ export default function MiningHotel() {
     }
   }, [myPos, myWallet])
 
-  const handlePositionChange = useCallback((row, col) => setMyPos({ row, col }), [])
-  const handleFacingChange   = useCallback((row, col, cell) => setFacingCell({ row, col, cell }), [])
-  const handleWantNavigate   = useCallback((url) => router.push(url), [router])
+  const handlePositionChange    = useCallback((row, col) => setMyPos({ row, col }), [])
+  const handleFacingChange      = useCallback((row, col, cell) => setFacingCell({ row, col, cell }), [])
+  const handleWantNavigate      = useCallback((url) => router.push(url), [router])
+  const handlePositionRealtime  = useCallback((gx, gy) => {
+    const now = Date.now()
+    if (now - lastRealtimeTrackRef.current < 120) return
+    lastRealtimeTrackRef.current = now
+    if (channelRef.current && myWallet) {
+      const row = Math.floor(gy), col = Math.floor(gx)
+      channelRef.current.track({ wallet: myWallet, row, col, gx, gy }).catch(() => {})
+    }
+  }, [myWallet])
 
   // ── Block search / jump ──────────────────────────────────────────────────────
   const doJump = useCallback((raw) => {
@@ -220,6 +230,7 @@ export default function MiningHotel() {
             onPositionChange={handlePositionChange}
             onFacingChange={handleFacingChange}
             onWantNavigate={handleWantNavigate}
+            onPositionRealtime={handlePositionRealtime}
             es={es}
           />
         )}
