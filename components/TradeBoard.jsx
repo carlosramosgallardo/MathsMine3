@@ -575,7 +575,7 @@ export default function TradeBoard({ account, isVirtualWallet = false }) {
       fetch('/api/nudge-macro', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ war_percent: newWar, nature_percent: newNature }),
+        body: JSON.stringify({ war_percent: newWar, nature_percent: newNature, wallet }),
       }).then((r) => r.ok && setMacroState({ war_percent: newWar, nature_percent: newNature }))
         .catch(() => {});
 

@@ -938,7 +938,7 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
         }
       }
 
-      fetch('/api/chain-check', { method: 'POST' }).catch(() => {});
+      fetch('/api/chain-check', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ wallet }) }).catch(() => {});
 
       playMarketClaim();
       notify(`${t('mining.buySuccess')} ${blockRow.emoji}`, 'success');

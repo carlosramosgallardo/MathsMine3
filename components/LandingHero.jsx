@@ -112,11 +112,15 @@ export default function LandingHero() {
 
   useEffect(() => {
     let mounted = true;
-    fetch('/api/security/scan')
-      .then(r => r.ok ? r.json() : null)
-      .then(data => { if (mounted && data) setLastScan(data); })
-      .catch(() => {});
-    return () => { mounted = false; };
+    const fetchLastScan = () => {
+      fetch('/api/security/scan')
+        .then(r => r.ok ? r.json() : null)
+        .then(data => { if (mounted && data) setLastScan(data); })
+        .catch(() => {});
+    };
+    fetchLastScan();
+    const timer = setInterval(fetchLastScan, 30_000);
+    return () => { mounted = false; clearInterval(timer); };
   }, []);
 
   useEffect(() => {
@@ -232,10 +236,10 @@ export default function LandingHero() {
             const hoverBg = kernelPanic ? '#150808' : secCard ? '#130a1a' : '#0d1419';
 
             return (
-              <li key={`${href ?? name}-${idx}`} style={{ minWidth: 0 }}>
+              <li key={`${href ?? name}-${idx}`} style={{ minWidth: 0, display: 'flex', flexDirection: 'column' }}>
                 <Link
                   href={href}
-                  style={cardStyle}
+                  style={{ ...cardStyle, flex: 1 }}
                   onMouseEnter={e => { e.currentTarget.style.borderColor = hoverBorder; e.currentTarget.style.background = hoverBg; }}
                   onMouseLeave={e => { e.currentTarget.style.borderColor = borderColor; e.currentTarget.style.background = bg; }}
                 >

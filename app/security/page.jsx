@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 
 const C    = '#22d3ee'
 const PASS = '#4ade80'
@@ -370,12 +370,16 @@ async function exportPDF(scan) {
   doc.save(`security-audit-${scan.id}-${new Date(scan.triggered_at).toISOString().slice(0,10)}.pdf`)
 }
 
+const PAGE_SIZE = 5
+
 export default function SecurityPage() {
   const [history, setHistory]     = useState([])
   const [selected, setSelected]   = useState(null)
   const [scanning, setScanning]   = useState(false)
   const [scanMsg, setScanMsg]     = useState('')
   const [loadingId, setLoadingId] = useState(null)
+  const [histPage, setHistPage]   = useState(0)
+  const detailRef                 = useRef(null)
 
   const loadHistory = useCallback(async () => {
     const res = await fetch('/api/security/history')
@@ -392,6 +396,7 @@ export default function SecurityPage() {
     const data = await res.json()
     setSelected(data)
     setLoadingId(null)
+    setTimeout(() => detailRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 60)
   }
 
   async function triggerScan() {
@@ -403,8 +408,10 @@ export default function SecurityPage() {
       if (data.ok) {
         setScanMsg(`✓ Scan complete — Score ${data.score}/100`)
         await loadHistory()
+        setHistPage(0)
         const detail = await fetch(`/api/security/history?id=${data.scanId}`)
         setSelected(await detail.json())
+        setTimeout(() => detailRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 60)
       } else if (data.error === 'rate_limited') {
         setScanMsg(`⏳ Rate limited — retry in ${Math.ceil(data.retryAfter / 60)} min`)
       } else {
@@ -450,57 +457,84 @@ export default function SecurityPage() {
           {scanMsg && <span style={{ color: scanMsg.startsWith('✓') ? PASS : scanMsg.startsWith('⏳') ? WARN : FAIL, fontSize: '0.78rem' }}>{scanMsg}</span>}
         </div>
 
-        {history.length > 0 && (
-          <div style={{ marginBottom: 24 }}>
-            <div style={{ color: GRAY, fontSize: '0.65rem', letterSpacing: '0.15em', marginBottom: 8 }}>SCAN HISTORY</div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-              {history.map(s => {
-                const isSelected = selected?.id === s.id
-                const color = s.status === 'completed' ? scoreColor(s.score ?? 0) : s.status === 'running' ? C : GRAY
-                return (
-                  <div key={s.id}
-                    style={{
-                      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                      background: isSelected ? '#0a1628' : '#080d1a',
-                      border: `1px solid ${isSelected ? color + '88' : '#1e293b'}`,
-                      borderRadius: 6, padding: '8px 12px', flexWrap: 'wrap', gap: 8,
-                      cursor: 'pointer', transition: 'border-color 0.2s',
-                    }}
-                  >
-                    <div onClick={() => loadDetail(s.id)} style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-                      <span style={{ color, fontWeight: 700, fontSize: '0.75rem', minWidth: 42 }}>
-                        {s.status === 'completed' ? `${s.score}/100` : statusLabel(s.status)}
-                      </span>
-                      <span style={{ color: '#94a3b8', fontSize: '0.72rem' }}>
-                        {new Date(s.triggered_at).toLocaleString()}
-                      </span>
-                      <span style={{ color: GRAY, fontSize: '0.65rem', border: `1px solid #1e293b`, borderRadius: 3, padding: '1px 5px' }}>
-                        {s.triggered_by}
-                      </span>
-                      {s.summary && <span style={{ color: GRAY, fontSize: '0.65rem' }}>{s.summary}</span>}
-                      {loadingId === s.id && <span style={{ color: C, fontSize: '0.65rem' }}>loading…</span>}
-                    </div>
-                    {s.status === 'completed' && (
-                      <button
-                        onClick={async e => { e.stopPropagation(); const d = selected?.id === s.id ? selected : await fetch(`/api/security/history?id=${s.id}`).then(r => r.json()); exportPDF(d) }}
-                        style={{
-                          background: 'transparent', border: `1px solid ${GRAY}66`, color: GRAY,
-                          padding: '2px 8px', borderRadius: 4, cursor: 'pointer',
-                          fontFamily: 'monospace', fontSize: '0.65rem',
-                        }}
-                      >
-                        ↓ PDF
-                      </button>
-                    )}
+        {history.length > 0 && (() => {
+          const totalPages = Math.ceil(history.length / PAGE_SIZE)
+          const page       = Math.min(histPage, totalPages - 1)
+          const pageItems  = history.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE)
+          return (
+            <div style={{ marginBottom: 24 }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8, flexWrap: 'wrap', gap: 6 }}>
+                <div style={{ color: GRAY, fontSize: '0.65rem', letterSpacing: '0.15em' }}>
+                  SCAN HISTORY
+                  <span style={{ color: DIM, marginLeft: 8 }}>({history.length} total)</span>
+                </div>
+                {totalPages > 1 && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <button
+                      onClick={() => setHistPage(p => Math.max(0, p - 1))}
+                      disabled={page === 0}
+                      style={{ background: 'transparent', border: `1px solid ${page === 0 ? DIM : GRAY + '66'}`, color: page === 0 ? DIM : GRAY, padding: '2px 8px', borderRadius: 4, cursor: page === 0 ? 'default' : 'pointer', fontFamily: 'monospace', fontSize: '0.65rem' }}
+                    >← prev</button>
+                    <span style={{ color: GRAY, fontSize: '0.65rem', minWidth: 60, textAlign: 'center' }}>
+                      {page + 1} / {totalPages}
+                    </span>
+                    <button
+                      onClick={() => setHistPage(p => Math.min(totalPages - 1, p + 1))}
+                      disabled={page === totalPages - 1}
+                      style={{ background: 'transparent', border: `1px solid ${page === totalPages - 1 ? DIM : GRAY + '66'}`, color: page === totalPages - 1 ? DIM : GRAY, padding: '2px 8px', borderRadius: 4, cursor: page === totalPages - 1 ? 'default' : 'pointer', fontFamily: 'monospace', fontSize: '0.65rem' }}
+                    >next →</button>
                   </div>
-                )
-              })}
+                )}
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                {pageItems.map(s => {
+                  const isSelected = selected?.id === s.id
+                  const color = s.status === 'completed' ? scoreColor(s.score ?? 0) : s.status === 'running' ? C : GRAY
+                  return (
+                    <div key={s.id}
+                      style={{
+                        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                        background: isSelected ? '#0a1628' : '#080d1a',
+                        border: `1px solid ${isSelected ? color + '88' : '#1e293b'}`,
+                        borderRadius: 6, padding: '8px 12px', flexWrap: 'wrap', gap: 8,
+                        cursor: 'pointer', transition: 'border-color 0.2s',
+                      }}
+                    >
+                      <div onClick={() => loadDetail(s.id)} style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                        <span style={{ color, fontWeight: 700, fontSize: '0.75rem', minWidth: 42 }}>
+                          {s.status === 'completed' ? `${s.score}/100` : statusLabel(s.status)}
+                        </span>
+                        <span style={{ color: '#94a3b8', fontSize: '0.72rem' }}>
+                          {new Date(s.triggered_at).toLocaleString()}
+                        </span>
+                        <span style={{ color: GRAY, fontSize: '0.65rem', border: `1px solid #1e293b`, borderRadius: 3, padding: '1px 5px' }}>
+                          {s.triggered_by}
+                        </span>
+                        {s.summary && <span style={{ color: GRAY, fontSize: '0.65rem' }}>{s.summary}</span>}
+                        {loadingId === s.id && <span style={{ color: C, fontSize: '0.65rem' }}>loading…</span>}
+                      </div>
+                      {s.status === 'completed' && (
+                        <button
+                          onClick={async e => { e.stopPropagation(); const d = selected?.id === s.id ? selected : await fetch(`/api/security/history?id=${s.id}`).then(r => r.json()); exportPDF(d) }}
+                          style={{
+                            background: 'transparent', border: `1px solid ${GRAY}66`, color: GRAY,
+                            padding: '2px 8px', borderRadius: 4, cursor: 'pointer',
+                            fontFamily: 'monospace', fontSize: '0.65rem',
+                          }}
+                        >
+                          ↓ PDF
+                        </button>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
             </div>
-          </div>
-        )}
+          )
+        })()}
 
         {selected && selected.status === 'completed' && (
-          <div style={{ border: `1px solid ${C}33`, borderRadius: 8, padding: 16, background: '#080d1a' }}>
+          <div ref={detailRef} style={{ border: `1px solid ${C}33`, borderRadius: 8, padding: 16, background: '#080d1a', scrollMarginTop: 80 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 8 }}>
               <span style={{ color: C, fontSize: '0.75rem', letterSpacing: '0.1em' }}>SCAN #{selected.id} DETAIL</span>
               <button

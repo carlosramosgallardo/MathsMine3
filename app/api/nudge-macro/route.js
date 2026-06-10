@@ -3,9 +3,16 @@ export const dynamic = 'force-dynamic';
 import { createClient } from '@supabase/supabase-js';
 import { clampMacroPercent } from '@/lib/mm3-macro';
 
+const WALLET_RE = /^0x[0-9a-fA-F]{40}$/
+
 export async function POST(req) {
   let body;
   try { body = await req.json(); } catch { return Response.json({ ok: false, error: 'bad json' }, { status: 400 }); }
+
+  const wallet = String(body.wallet || '').trim()
+  if (!WALLET_RE.test(wallet)) {
+    return Response.json({ ok: false, error: 'wallet required' }, { status: 401 })
+  }
 
   const war_percent     = clampMacroPercent(body.war_percent);
   const nature_percent  = clampMacroPercent(body.nature_percent);
