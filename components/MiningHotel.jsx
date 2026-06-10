@@ -151,13 +151,13 @@ export default function MiningHotel() {
   const mono = { fontFamily: 'Consolas, monospace' }
 
   return (
-    <div style={{ display:'flex', flexDirection:'column', height:'100vh', background:'#04080f', ...mono }}>
+    <div style={{ display:'flex', flexDirection:'column', height:'100%', background:'#04080f', ...mono }}>
 
       {/* ── Header ─────────────────────────────────────────────────────────── */}
       <div style={{
-        display:'flex', alignItems:'center', gap:10, padding:'7px 14px',
+        display:'flex', alignItems:'center', gap:8, padding:'5px 10px',
         borderBottom:`1px solid ${C}22`, background:'#06091a', flexShrink:0, flexWrap:'wrap',
-        rowGap:6,
+        rowGap:4,
       }}>
         <span style={{ color:C, fontWeight:700, fontSize:'0.88rem', letterSpacing:'0.12em', whiteSpace:'nowrap' }}>
           🏨 {es ? 'HOTEL MM3' : 'MM3 HOTEL'}
@@ -228,8 +228,8 @@ export default function MiningHotel() {
       {/* ── Facing-block info panel ───────────────────────────────────────── */}
       <div style={{
         flexShrink:0, borderTop:`1px solid ${C}18`, background:'#060c18',
-        padding:'7px 14px', minHeight:52, display:'flex', alignItems:'center',
-        gap:12, flexWrap:'wrap', rowGap:6,
+        padding:'5px 10px', minHeight:44, display:'flex', alignItems:'center',
+        gap:8, flexWrap:'wrap', rowGap:4,
       }}>
         {facingCell ? (
           <>

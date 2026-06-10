@@ -174,6 +174,34 @@ function drawFacingHUD(ctx, W, H, fwdCell, fwdMx, fwdMy, myWallet, es) {
   }
 }
 
+// ── Footstep sound (procedural via Web Audio API) ────────────────────────────
+function playStep(audioCtxRef) {
+  try {
+    if (!audioCtxRef.current) {
+      audioCtxRef.current = new (window.AudioContext || window.webkitAudioContext)()
+    }
+    const ctx = audioCtxRef.current
+    if (ctx.state === 'suspended') ctx.resume().catch(() => {})
+    const sr  = ctx.sampleRate
+    const dur = 0.055
+    const buf = ctx.createBuffer(1, Math.ceil(sr * dur), sr)
+    const d   = buf.getChannelData(0)
+    // Short noise burst with fast exponential decay → soft floor thud
+    for (let i = 0; i < d.length; i++) {
+      d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / d.length, 2.4)
+    }
+    const src  = ctx.createBufferSource()
+    src.buffer = buf
+    const filt = ctx.createBiquadFilter()
+    filt.type  = 'lowpass'
+    filt.frequency.value = 210
+    const gain = ctx.createGain()
+    gain.gain.value = 0.09
+    src.connect(filt); filt.connect(gain); gain.connect(ctx.destination)
+    src.start()
+  } catch {}
+}
+
 // ── Component ─────────────────────────────────────────────────────────────────
 export default function MiningHotelFPV({
   cellMap, presenceMap, myWallet, myColor,
@@ -190,6 +218,8 @@ export default function MiningHotelFPV({
     angle:0,
   })
   const walkDistRef  = useRef(0)
+  const audioCtxRef  = useRef(null)
+  const stepCountRef = useRef(0)
   const notifRef     = useRef(null)
   const facingKeyRef = useRef(null)
   const actionUrlRef = useRef(null)
@@ -622,6 +652,10 @@ export default function MiningHotelFPV({
         if(ny>0.5&&ny<WORLD_H-0.5) p.y=ny
         walkDistRef.current+=MOVE_SPD
         needsRender=true
+
+        // Footstep every ~1.8 walk units (~10 frames at 60fps → ~160ms interval)
+        const steps=Math.floor(walkDistRef.current/1.8)
+        if(steps!==stepCountRef.current){stepCountRef.current=steps;playStep(audioCtxRef)}
 
         const {row:newRow,col:newCol}=worldToGrid(p.x,p.y)
         const last=lastCellRef.current
