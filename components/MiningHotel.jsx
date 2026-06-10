@@ -20,7 +20,7 @@ const ROWS = MM3_BLOCK_GRID_ROWS   // 28
 const COLS = MM3_BLOCK_GRID_COLS   // 28
 const BASE_TW = 32                 // tile diamond width (pixels at zoom=1)
 const BASE_TH = 16                 // tile diamond height
-const BASE_WH = 10                 // wall height
+const BASE_WH = 20                 // wall height — taller rooms for hotel feel
 const C       = '#22d3ee'
 const HOTEL_CHANNEL = 'mm3-hotel-v1'
 const LABEL_MAX_ZOOM = 0.75        // show wallet labels above this zoom
