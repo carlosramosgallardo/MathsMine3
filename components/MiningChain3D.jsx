@@ -21,35 +21,41 @@ export default function MiningChain3D() {
   const es = language === 'es'
   const { account } = useActiveWallet()
   const router = useRouter()
-  const channelRef    = useRef(null)
+
+  // myWallet MUST be declared before any hook that references it
+  const myWallet = account?.toLowerCase() || null
+  const myColor  = myWallet ? colorFromAddress(myWallet) : '#888888'
+
+  // Refs: avoid stale closures in channel callbacks and game loop
+  const channelRef     = useRef(null)
+  const myWalletRef    = useRef(myWallet)
+  const myPosRef       = useRef({ row: 14, col: 14 })
   const lastDbWriteRef = useRef(0)
+
+  // Keep refs current each render
+  myWalletRef.current = myWallet
 
   const [cellMap,       setCellMap]       = useState(new Map())
   const [myPos,         setMyPos]         = useState({ row: 14, col: 14 })
-  // positions: wallet → { gx, gy, row, col }  (updated via broadcast)
+  // positions: wallet → { gx, gy, row, col } — populated from presence payload, broadcast, and DB
   const [positions,     setPositions]     = useState({})
-  // onlineWallets: Set of wallet keys currently present in the channel
+  // onlineWallets: who is currently in the channel (from presence sync)
   const [onlineWallets, setOnlineWallets] = useState(new Set())
   const [loading,       setLoading]       = useState(true)
   const [onlineCount,   setOnlineCount]   = useState(0)
   const [facingCell,    setFacingCell]    = useState(null)
   const [copied,        setCopied]        = useState(false)
 
-  // FPV receives only wallets that are online + have a known position
+  // FPV gets wallets that are online AND have a known position (or self)
   const presenceMap = useMemo(() => {
     const map = {}
     for (const w of onlineWallets) {
       const p = positions[w]
       if (p) map[w] = p
     }
-    // Always include self so minimap shows local player dot
     if (myWallet && positions[myWallet]) map[myWallet] = positions[myWallet]
     return map
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [positions, onlineWallets, myWallet])
-
-  const myWallet = account?.toLowerCase() || null
-  const myColor  = myWallet ? colorFromAddress(myWallet) : '#888888'
 
   // ── Load cell data ───────────────────────────────────────────────────────────
   useEffect(() => {
@@ -100,16 +106,16 @@ export default function MiningChain3D() {
     return () => { mounted = false }
   }, [])
 
-  // ── Supabase: presence (join/leave) + broadcast (position) ──────────────────
+  // ── Supabase: presence (join/leave) + broadcast (real-time position) ─────────
   useEffect(() => {
-    const key = myWallet || `anon-${Math.random().toString(36).slice(2,8)}`
+    const key = myWallet || `anon-${Math.random().toString(36).slice(2, 8)}`
     const ch = supabase.channel(CHAIN3D_CHANNEL, {
       config: { broadcast: { self: false }, presence: { key } },
     })
 
-    // High-frequency position updates from other players
+    // High-frequency position updates (~8/sec) via broadcast — low latency
     ch.on('broadcast', { event: 'move' }, ({ payload }) => {
-      if (!payload?.wallet) return
+      if (!payload?.wallet || payload.gx == null) return
       setPositions(prev => ({
         ...prev,
         [payload.wallet]: {
@@ -119,42 +125,57 @@ export default function MiningChain3D() {
       }))
     })
 
-    // Presence: who's online; prune stale positions on leave
+    // Presence sync: who's online + seed initial positions from track() payload
     ch.on('presence', { event: 'sync' }, () => {
       const state = ch.presenceState()
       const alive = new Set(Object.keys(state))
       setOnlineWallets(alive)
       setOnlineCount(alive.size)
       setPositions(prev => {
-        const pruned = {}
-        for (const [w, p] of Object.entries(prev)) {
-          if (alive.has(w) || w === myWallet) pruned[w] = p
+        const next = { ...prev }
+        // Seed position for players we haven't received a broadcast from yet
+        for (const [w, entries] of Object.entries(state)) {
+          const p = entries?.[0]
+          if (!p || next[w]) continue   // already have broadcast-precise position
+          const gx = p.gx ?? ((p.col ?? 14) + 0.5)
+          const gy = p.gy ?? ((p.row ?? 14) + 0.5)
+          next[w] = { gx, gy, row: Math.floor(gy), col: Math.floor(gx) }
         }
-        return pruned
+        // Remove players who left (always keep self)
+        const myW = myWalletRef.current
+        for (const w of Object.keys(next)) {
+          if (!alive.has(w) && w !== myW) delete next[w]
+        }
+        return next
       })
     })
 
     ch.subscribe(async (status) => {
       if (status !== 'SUBSCRIBED') return
-      // Load last-known positions from DB so new joiners see others immediately
-      const { data } = await supabase
-        .from('mm3_player_positions')
-        .select('wallet, gx, gy')
+      const myW = myWalletRef.current
+      const { row, col } = myPosRef.current
+
+      // Run track + DB load in parallel
+      const [, { data }] = await Promise.all([
+        // Track WITH position so other online clients know where we are immediately
+        myW
+          ? ch.track({ wallet: myW, gx: col + 0.5, gy: row + 0.5, row, col })
+          : Promise.resolve(),
+        // Load last-known positions from DB (fallback for players who haven't moved yet)
+        supabase.from('mm3_player_positions').select('wallet, gx, gy'),
+      ])
+
       if (data?.length) {
         setPositions(prev => {
           const next = { ...prev }
           for (const r of data) {
             if (!next[r.wallet]) {
-              next[r.wallet] = {
-                gx: r.gx, gy: r.gy,
-                row: Math.floor(r.gy), col: Math.floor(r.gx),
-              }
+              next[r.wallet] = { gx: r.gx, gy: r.gy, row: Math.floor(r.gy), col: Math.floor(r.gx) }
             }
           }
           return next
         })
       }
-      if (myWallet) await ch.track({ wallet: myWallet })
     })
 
     channelRef.current = ch
@@ -162,30 +183,41 @@ export default function MiningChain3D() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [myWallet])
 
-  const handlePositionChange = useCallback((row, col) => setMyPos({ row, col }), [])
-  const handleFacingChange   = useCallback((row, col, cell) => setFacingCell({ row, col, cell }), [])
-  const handleWantNavigate   = useCallback((url) => router.push(url), [router])
+  // useCallback with no deps — reads live values via refs so game loop never restarts
+  const handlePositionChange = useCallback((row, col) => {
+    setMyPos({ row, col })
+    myPosRef.current = { row, col }
+    // Update presence with new cell so new joiners see current coarse position
+    const myW = myWalletRef.current
+    if (myW && channelRef.current) {
+      channelRef.current.track({ wallet: myW, gx: col + 0.5, gy: row + 0.5, row, col })
+        .catch(() => {})
+    }
+  }, [])
+
+  const handleFacingChange = useCallback((row, col, cell) => setFacingCell({ row, col, cell }), [])
+  const handleWantNavigate = useCallback((url) => router.push(url), [router])
 
   const handlePositionRealtime = useCallback((gx, gy) => {
-    if (!myWallet) return
+    const myW = myWalletRef.current
+    if (!myW) return
     const row = Math.floor(gy), col = Math.floor(gx)
-    // Update own position locally so self-dot on minimap is accurate
-    setPositions(prev => ({ ...prev, [myWallet]: { gx, gy, row, col } }))
-    // Broadcast to others (low-latency, no presence overhead)
+    // Update own dot on minimap
+    setPositions(prev => ({ ...prev, [myW]: { gx, gy, row, col } }))
+    // Broadcast to others
     channelRef.current?.send({
-      type: 'broadcast',
-      event: 'move',
-      payload: { wallet: myWallet, gx, gy },
+      type: 'broadcast', event: 'move',
+      payload: { wallet: myW, gx, gy },
     }).catch(() => {})
-    // Persist to DB throttled to 1/sec (fallback for new joiners)
+    // Persist to DB (throttled 1/sec) for players who join later
     const now = Date.now()
     if (now - lastDbWriteRef.current > 1000) {
       lastDbWriteRef.current = now
       supabase.from('mm3_player_positions')
-        .upsert({ wallet: myWallet, gx, gy, updated_at: new Date().toISOString() })
+        .upsert({ wallet: myW, gx, gy, updated_at: new Date().toISOString() })
         .catch(() => {})
     }
-  }, [myWallet])
+  }, [])
 
   // Copy hex to clipboard
   const copyHex = useCallback(async (hex) => {
@@ -194,13 +226,13 @@ export default function MiningChain3D() {
   }, [])
 
   // Derived facing cell info
-  const fc     = facingCell?.cell
-  const fcHex  = facingCell ? gridToBlockHex(facingCell.row, facingCell.col) : null
-  const fcReq  = fcHex ? MM3_BLOCK_REQUIREMENT_BY_HEX.get(fcHex) : null
+  const fc         = facingCell?.cell
+  const fcHex      = facingCell ? gridToBlockHex(facingCell.row, facingCell.col) : null
+  const fcReq      = fcHex ? MM3_BLOCK_REQUIREMENT_BY_HEX.get(fcHex) : null
   const fcOwnColor = fc?.owner ? colorFromAddress(fc.owner) : null
-  const isMine = myWallet && fc?.owner?.toLowerCase() === myWallet
-  const isClaimable = !fc?.owner  // unclaimed block (may still need level req)
-  const mineUrl = fcHex
+  const isMine     = myWallet && fc?.owner?.toLowerCase() === myWallet
+  const isClaimable = !fc?.owner
+  const mineUrl    = fcHex
     ? `/relaying?command=${encodeURIComponent(`/mine ${fcHex}`)}`
     : '/relaying'
 
@@ -271,7 +303,6 @@ export default function MiningChain3D() {
       }}>
         {facingCell ? (
           <>
-            {/* Identity */}
             <div style={{ display:'flex', alignItems:'center', gap:6, minWidth:0 }}>
               {fc?.emoji && <span style={{ fontSize:'1.1rem', flexShrink:0 }}>{fc.emoji}</span>}
               <span style={{ color:fc?.color||C, fontWeight:700, fontSize:'0.7rem', letterSpacing:'0.08em', whiteSpace:'nowrap' }}>
@@ -282,14 +313,12 @@ export default function MiningChain3D() {
               </span>
             </div>
 
-            {/* Title */}
             {fc?.isMarket && (
               <span style={{ color:'#c4d4e0', fontSize:'0.67rem', minWidth:0 }}>
                 {es?(fc.titleEs||fc.titleEn):(fc.titleEn||fc.titleEs)}
               </span>
             )}
 
-            {/* Owner */}
             {fc?.owner ? (
               <span style={{
                 color: isMine ? C : fcOwnColor,
@@ -305,30 +334,25 @@ export default function MiningChain3D() {
               </span>
             )}
 
-            {/* Level req */}
             {fcReq?.minLevel > 0 && (
               <span style={{ color:'#2a4560', fontSize:'0.58rem', whiteSpace:'nowrap' }}>
                 {es?`lvl≥${fcReq.minLevel}`:`lvl≥${fcReq.minLevel}`}
               </span>
             )}
 
-            {/* Price */}
             {fc?.priceEur > 0 && (
               <span style={{ color:'#fb923c', fontSize:'0.62rem', fontWeight:600, whiteSpace:'nowrap' }}>
                 {fc.priceEur} EUR
               </span>
             )}
 
-            {/* Action buttons */}
             <div style={{ display:'flex', gap:6, marginLeft:'auto', flexWrap:'wrap', alignItems:'center' }}>
-              {/* Copy hex */}
               <button onClick={()=>fcHex&&copyHex(fcHex)} style={{
                 ...btnSm, color: copied?'#4ade80':C+'88', borderColor: copied?'#4ade8033':`${C}22`,
               }}>
                 {copied ? '✓' : '⎘'} {fcHex}
               </button>
 
-              {/* Mine this block (unclaimed or owned by me = re-mine not applicable, show only unclaimed) */}
               {isClaimable && (
                 <Link href={mineUrl} style={{
                   ...actionLink, background:`${C}0c`, borderColor:`${C}44`, color:C,
@@ -337,7 +361,6 @@ export default function MiningChain3D() {
                 </Link>
               )}
 
-              {/* View on 2D board */}
               <Link href="/mining" style={{
                 ...actionLink, background:'#1e293b', borderColor:'#334155', color:'#94a3b8',
               }}>
