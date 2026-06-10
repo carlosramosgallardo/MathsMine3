@@ -262,26 +262,25 @@ function playPickHit(audioCtxRef, type) {
 
 // ── Pickaxe (first-person weapon) ───────────────────────────────────────────
 function drawPickaxe(ctx, W, H, swingT, walkDist) {
-  // Responsive sizing: cap handle so it never overflows the canvas
-  const mobile = W < 600
-  const L  = Math.min(mobile ? 62 : 100, H * (mobile ? 0.14 : 0.19), W * 0.13)
-  const hw = Math.max(1.8, L * 0.044)
+  // Responsive sizing — mobile uses H (portrait) so the handle is substantial
+  const mobile = W < 640
+  const L  = mobile
+    ? Math.min(130, H * 0.20)          // mobile: up to 20% of screen height
+    : Math.min(150, Math.min(W,H) * 0.22)  // desktop: up to 22% of shorter dim
+  const hw = Math.max(2.5, L * 0.048)
 
-  // Walk bob — tiny so it doesn't push out of bounds
-  const bob = Math.sin(walkDist * 0.5) * (mobile ? 2 : 4)
+  const bob = Math.sin(walkDist * 0.5) * (mobile ? 3 : 5)
 
-  // Anchor = "hand", placed so the head is always inside the canvas.
-  // Head is at anchor + cos(a)*L, anchor + sin(a)*L.
-  // At rest angle -2.3 rad: cos≈-0.67, sin≈-0.74.
-  // We want head at ~(W*0.68, H*0.79), so anchor = head - (cos*L, sin*L)
-  //   anchorX = W*0.68 + 0.67*L, anchorY = H*0.79 + 0.74*L
+  // Anchor derived from head target so the HEAD is always inside the canvas.
+  // At rest baseA=-2.3 rad: cos≈-0.667, sin≈-0.746
+  // head = anchor + cos(baseA)*L, sin(baseA)*L  →  anchor = head - that offset
   const baseA = -2.3
-  const headTargetX = W * (mobile ? 0.62 : 0.68)
-  const headTargetY = H * (mobile ? 0.76 : 0.79)
-  const ax = headTargetX - Math.cos(baseA) * L + bob * 0.3
-  const ay = headTargetY - Math.sin(baseA) * L + Math.abs(bob) * 0.4
+  // Target: lower-center for mobile (very visible), lower-right for desktop
+  const headTargetX = W * (mobile ? 0.50 : 0.60) + bob * 0.3
+  const headTargetY = H * (mobile ? 0.68 : 0.70) + Math.abs(bob) * 0.4
+  const ax = headTargetX - Math.cos(baseA) * L
+  const ay = headTargetY - Math.sin(baseA) * L
 
-  // Swing: angle goes from baseA toward baseA+1.55 (more horizontal = strike)
   const swingPhase = Math.sin(swingT * Math.PI)
   const a = baseA + swingPhase * 1.55
 
