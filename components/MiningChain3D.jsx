@@ -17,6 +17,17 @@ import MiningChain3DFPV from './MiningChain3DFPV'
 const C = '#22d3ee'
 const CHAIN3D_CHANNEL = 'mm3-chain3d-v1'
 
+function getRandomLoggedSpawn() {
+  return {
+    row: 2 + Math.floor(Math.random() * (MM3_BLOCK_GRID_ROWS - 4)),
+    col: 2 + Math.floor(Math.random() * (MM3_BLOCK_GRID_COLS - 4)),
+  }
+}
+
+function getSpawnForWallet(wallet) {
+  return wallet ? getRandomLoggedSpawn() : { row: 14, col: 14 }
+}
+
 export default function MiningChain3D() {
   const { language } = useI18n()
   const es = language === 'es'
@@ -28,14 +39,7 @@ export default function MiningChain3D() {
   const myColor  = myWallet ? colorFromAddress(myWallet) : '#888888'
 
   // Compute initial spawn once: random for logged-in, center for anon
-  const initialPos = useMemo(() => {
-    if (!myWallet) return { row: 14, col: 14 }
-    return {
-      row: 2 + Math.floor(Math.random() * (MM3_BLOCK_GRID_ROWS - 4)),
-      col: 2 + Math.floor(Math.random() * (MM3_BLOCK_GRID_COLS - 4)),
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []) // Only on mount
+  const initialPos = useMemo(() => getSpawnForWallet(myWallet), [])
 
   // Refs: avoid stale closures in channel callbacks and game loop
   const channelRef     = useRef(null)
@@ -121,6 +125,20 @@ export default function MiningChain3D() {
     return () => { mounted = false }
   }, [])
 
+  useEffect(() => {
+    const spawn = getSpawnForWallet(myWallet)
+    setMyPos(spawn)
+    myPosRef.current = spawn
+    setJumpToCell(spawn)
+    setPositions(prev => {
+      const next = { ...prev }
+      const oldKey = myKeyRef.current
+      if (oldKey) delete next[oldKey]
+      if (myWallet) next[myWallet] = { gx: spawn.col + 0.5, gy: spawn.row + 0.5, row: spawn.row, col: spawn.col }
+      return next
+    })
+  }, [myWallet])
+
   // ── Supabase: presence (join/leave) + broadcast (real-time position) ─────────
   useEffect(() => {
     const key = myWallet || `anon-${Math.random().toString(36).slice(2, 8)}`
@@ -182,6 +200,7 @@ export default function MiningChain3D() {
     ch.subscribe(async (status) => {
       if (status !== 'SUBSCRIBED') return
       const myW = myWalletRef.current
+      const selfKey = myKeyRef.current
       const { row, col } = myPosRef.current
 
       // Load pool code + last-known positions in parallel
@@ -190,9 +209,7 @@ export default function MiningChain3D() {
           ? supabase.from('mm3_wallet_pool_members').select('pool_code').eq('wallet', myW).limit(1).maybeSingle()
           : Promise.resolve({ data: null }),
         // Track WITH position so other online clients know where we are immediately
-        myW
-          ? ch.track({ wallet: myW, gx: col + 0.5, gy: row + 0.5, row, col })
-          : Promise.resolve(),
+        ch.track({ wallet: selfKey, gx: col + 0.5, gy: row + 0.5, row, col }),
         // Load last-known positions from DB (fallback for players who haven't moved yet)
         supabase.from('mm3_player_positions').select('wallet, gx, gy'),
       ])
@@ -207,6 +224,7 @@ export default function MiningChain3D() {
         setPositions(prev => {
           const next = { ...prev }
           for (const r of data) {
+            if (r.wallet === myW || r.wallet === selfKey || String(r.wallet || '').startsWith('anon-')) continue
             if (!next[r.wallet]) {
               next[r.wallet] = { gx: r.gx, gy: r.gy, row: Math.floor(r.gy), col: Math.floor(r.gx) }
             }
@@ -314,33 +332,6 @@ export default function MiningChain3D() {
 
   return (
     <div style={{ display:'flex', flexDirection:'column', height:'100%', overflow:'hidden', background:'#04080f', ...mono }}>
-
-      {/* ── Header ─────────────────────────────────────────────────────────── */}
-      <div style={{
-        display:'flex', alignItems:'center', gap:8, padding:'5px 10px',
-        borderBottom:`1px solid ${C}22`, background:'#06091a', flexShrink:0, flexWrap:'wrap',
-        rowGap:4,
-      }}>
-        <div style={{ display:'flex', gap:10, marginLeft:'auto', alignItems:'center', flexWrap:'wrap' }}>
-          {onlineCount > 0 && (
-            <span style={{ color:'#4ade80', fontSize:'0.76rem', letterSpacing:'0.06em', whiteSpace:'nowrap' }}>
-              ● {onlineCount} {es?'en línea':'online'}
-            </span>
-          )}
-          {myWallet ? (
-            <span style={{ color:myColor, fontSize:'0.76rem', border:`1px solid ${myColor}55`, borderRadius:4, padding:'3px 8px', whiteSpace:'nowrap' }}>
-              {myWallet.slice(0,6)}…{myWallet.slice(-4)}
-            </span>
-          ) : (
-            <span style={{ color:'#64748b', fontSize:'0.76rem', whiteSpace:'nowrap' }}>
-              {es?'sin wallet':'no wallet'}
-            </span>
-          )}
-          <Link href="/" style={{ color:'#64748b', fontSize:'0.76rem', textDecoration:'none', border:'1px solid #26364f', borderRadius:4, padding:'3px 8px', whiteSpace:'nowrap' }}>
-            ← {es?'Inicio':'Home'}
-          </Link>
-        </div>
-      </div>
 
       {/* ── 3D view ─────────────────────────────────────────────────────────── */}
       <div style={{ flex:1, position:'relative', overflow:'hidden', minHeight:0 }}>

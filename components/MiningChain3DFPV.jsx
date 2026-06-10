@@ -102,8 +102,8 @@ function drawMinimap(ctx, gr, gc, angle, cellMap, presenceMap, myWallet, W, H) {
   const isMobile = W < 600
   const SZ = isMobile ? Math.min(W*0.38, 110) : Math.min(130, W*0.2)
   const CS = SZ/ROWS
-  // On mobile, lift minimap up more to avoid browser chrome overlap
-  const MX = W-SZ-6, MY = H-SZ-(isMobile ? 22 : 6)
+  const MX = W - SZ - 6
+  const MY = 8
 
   ctx.fillStyle = 'rgba(0,0,0,0.85)'
   ctx.fillRect(MX-1,MY-1,SZ+2,SZ+2)
@@ -403,14 +403,12 @@ function drawMineProgress(ctx, W, H, progress, type) {
 function drawChainStats(ctx, W, H, stats, es) {
   if (!stats) return
   const { owned, marketFree, marketOwned, total, pct } = stats
-  const unclaimed = total - owned - marketFree - marketOwned
 
   const lines = [
     { label: es ? 'CADENA MM3' : 'MM3 CHAIN', val: null, header: true },
     { label: es ? 'Reclamados' : 'Claimed', val: `${owned} / ${total}` },
     { label: es ? 'NFTJI libres' : 'Free NFTJI', val: String(marketFree) },
     { label: es ? 'NFTJI vendidos' : 'Owned NFTJI', val: String(marketOwned) },
-    { label: es ? 'Sin reclamar' : 'Unclaimed', val: String(unclaimed < 0 ? 0 : unclaimed) },
   ]
 
   const LINE_H = 13, PAD_X = 8, PAD_Y = 6
@@ -458,12 +456,12 @@ function drawChainStats(ctx, W, H, stats, es) {
   ctx.textAlign = 'left'; ctx.globalAlpha = 1
 }
 
-// ── Online players list (above minimap) ─────────────────────────────────────
+// ── Online players list (below minimap) ─────────────────────────────────────
 function drawOnlineList(ctx, W, H, presenceMap, myWallet, pvpStolen) {
   const isMobile = W < 600
   const SZ = isMobile ? Math.min(W * 0.38, 110) : Math.min(130, W * 0.2)
   const MX = W - SZ - 6
-  const MY = H - SZ - (isMobile ? 22 : 6)
+  const MY = 8
 
   const all = []
   for (const [w, pres] of Object.entries(presenceMap || {})) {
@@ -483,7 +481,7 @@ function drawOnlineList(ctx, W, H, presenceMap, myWallet, pvpStolen) {
   const pw  = SZ + 2
   const ph  = HEADER_H + list.length * LINE_H + PAD_Y * 2
   const px  = MX - 1
-  const py  = MY - ph - 5
+  const py  = MY + SZ + 5
 
   ctx.globalAlpha = 0.82
   ctx.fillStyle = '#010709'
@@ -1367,15 +1365,14 @@ export default function MiningChain3DFPV({
         onPointerUp={handlePointerUp}
         onPointerCancel={handlePointerUp}
       />
-      {/* Mobile D-pad + action */}
+      {/* Mobile D-pad */}
       <div style={{
         position:'absolute',
         bottom:'calc(56px + env(safe-area-inset-bottom, 0px))',
         left:12,
-        display:'flex',alignItems:'center',gap:8,
+        display:'flex',alignItems:'center',
         pointerEvents:'auto',userSelect:'none',
       }}>
-        {/* D-pad */}
         <div style={{display:'flex',flexDirection:'column',gap:4}}>
           <div style={{display:'flex',justifyContent:'center'}}><button {...dBtn('w','▲')} /></div>
           <div style={{display:'flex',gap:4}}>
@@ -1384,25 +1381,6 @@ export default function MiningChain3DFPV({
             <button {...dBtn('d','▶')} />
           </div>
         </div>
-        {/* Pickaxe swing button */}
-        <button
-          onPointerDown={(e)=>{
-            e.preventDefault()
-            if(performance.now()-swingStartRef.current>SWING_DUR){
-              swingStartRef.current=performance.now(); hitDoneRef.current=false
-            }
-          }}
-          style={{
-            width:64,height:64,
-            background:'rgba(251,146,60,0.13)',
-            border:'1px solid rgba(251,146,60,0.48)',
-            borderRadius:12,color:'rgba(251,146,60,0.80)',
-            fontSize:'1.65rem',cursor:'pointer',display:'flex',
-            alignItems:'center',justifyContent:'center',
-            userSelect:'none',touchAction:'none',
-            WebkitTapHighlightColor:'transparent',
-          }}
-        >⛏</button>
       </div>
       <p style={{
         position:'absolute',
