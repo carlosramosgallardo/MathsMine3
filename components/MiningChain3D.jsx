@@ -233,7 +233,7 @@ export default function MiningChain3D() {
   const mono = { fontFamily: 'Consolas, monospace' }
 
   return (
-    <div style={{ display:'flex', flexDirection:'column', height:'100dvh', maxHeight:'100dvh', overflow:'hidden', background:'#04080f', ...mono }}>
+    <div style={{ display:'flex', flexDirection:'column', height:'100%', overflow:'hidden', background:'#04080f', ...mono }}>
 
       {/* ── Header ─────────────────────────────────────────────────────────── */}
       <div style={{

@@ -262,22 +262,20 @@ function playPickHit(audioCtxRef, type) {
 
 // ── Pickaxe (first-person weapon) ───────────────────────────────────────────
 function drawPickaxe(ctx, W, H, swingT, walkDist) {
-  // Responsive sizing — mobile uses H (portrait) so the handle is substantial
-  const mobile = W < 640
-  const L  = mobile
-    ? Math.min(130, H * 0.20)          // mobile: up to 20% of screen height
-    : Math.min(150, Math.min(W,H) * 0.22)  // desktop: up to 22% of shorter dim
-  const hw = Math.max(2.5, L * 0.048)
+  // Size: 28% of the shorter canvas dimension, capped at 170px
+  const BASE = Math.min(W, H)
+  const L    = Math.min(BASE * 0.28, 170)
+  const hw   = Math.max(3, L * 0.052)
 
-  const bob = Math.sin(walkDist * 0.5) * (mobile ? 3 : 5)
+  const bob = Math.sin(walkDist * 0.5) * 5
 
-  // Anchor derived from head target so the HEAD is always inside the canvas.
-  // At rest baseA=-2.3 rad: cos≈-0.667, sin≈-0.746
-  // head = anchor + cos(baseA)*L, sin(baseA)*L  →  anchor = head - that offset
+  // At rest angle -2.3 rad: cos≈-0.667, sin≈-0.746.
+  // We target the HEAD at (headX, headY) and derive anchor from that.
   const baseA = -2.3
-  // Target: lower-center for mobile (very visible), lower-right for desktop
-  const headTargetX = W * (mobile ? 0.50 : 0.60) + bob * 0.3
-  const headTargetY = H * (mobile ? 0.68 : 0.70) + Math.abs(bob) * 0.4
+  const mobile = W < 640
+  // Head sits at 58% width / 60% height — clearly visible, not too close to any edge
+  const headTargetX = W * (mobile ? 0.50 : 0.58) + bob * 0.25
+  const headTargetY = H * (mobile ? 0.60 : 0.62) + Math.abs(bob) * 0.3
   const ax = headTargetX - Math.cos(baseA) * L
   const ay = headTargetY - Math.sin(baseA) * L
 
