@@ -262,16 +262,28 @@ function playPickHit(audioCtxRef, type) {
 
 // ── Pickaxe (first-person weapon) ───────────────────────────────────────────
 function drawPickaxe(ctx, W, H, swingT, walkDist) {
-  // swingT 0→1→0 over SWING_DUR ms
-  const bob     = Math.sin(walkDist * 0.5) * H * 0.010 + Math.cos(walkDist * 0.25) * W * 0.003
-  const L       = Math.min(H * 0.30, W * 0.17)
-  const hw      = Math.max(2.5, L * 0.048)
-  const ax      = W * 0.74 + bob * 0.4
-  const ay      = H * 0.90 + Math.abs(bob) * 0.5
+  // Responsive sizing: cap handle so it never overflows the canvas
+  const mobile = W < 600
+  const L  = Math.min(mobile ? 62 : 100, H * (mobile ? 0.14 : 0.19), W * 0.13)
+  const hw = Math.max(1.8, L * 0.044)
 
-  // Angle: rest=-2.2 rad (pointing upper-left), swings toward wall on hit
+  // Walk bob — tiny so it doesn't push out of bounds
+  const bob = Math.sin(walkDist * 0.5) * (mobile ? 2 : 4)
+
+  // Anchor = "hand", placed so the head is always inside the canvas.
+  // Head is at anchor + cos(a)*L, anchor + sin(a)*L.
+  // At rest angle -2.3 rad: cos≈-0.67, sin≈-0.74.
+  // We want head at ~(W*0.68, H*0.79), so anchor = head - (cos*L, sin*L)
+  //   anchorX = W*0.68 + 0.67*L, anchorY = H*0.79 + 0.74*L
+  const baseA = -2.3
+  const headTargetX = W * (mobile ? 0.62 : 0.68)
+  const headTargetY = H * (mobile ? 0.76 : 0.79)
+  const ax = headTargetX - Math.cos(baseA) * L + bob * 0.3
+  const ay = headTargetY - Math.sin(baseA) * L + Math.abs(bob) * 0.4
+
+  // Swing: angle goes from baseA toward baseA+1.55 (more horizontal = strike)
   const swingPhase = Math.sin(swingT * Math.PI)
-  const a = -2.2 + swingPhase * 1.65
+  const a = baseA + swingPhase * 1.55
 
   ctx.save()
   ctx.globalAlpha = 0.92
