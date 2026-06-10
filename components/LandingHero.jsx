@@ -40,7 +40,7 @@ const SECTIONS = {
   ],
 };
 
-function KernelPanicInner({ icon, name, desc, daily, count, kernelPanic, kpResetsAt, nameColor, descColor }) {
+function KernelPanicInner({ icon, name, desc, scanDate, daily, count, kernelPanic, kpResetsAt, nameColor, descColor }) {
   const remaining = useCountdown(kpResetsAt);
   const countdown = kpResetsAt ? formatCountdown(remaining) : null;
   const isLocked = kernelPanic && countdown;
@@ -74,6 +74,9 @@ function KernelPanicInner({ icon, name, desc, daily, count, kernelPanic, kpReset
         )}
       </div>
       <p style={{ color: descColor, fontSize: '0.72rem', margin: 0, lineHeight: '1.5', wordBreak: 'break-word', letterSpacing: '0.04em', fontFamily: 'monospace' }}>{desc}</p>
+      {scanDate && (
+        <p style={{ color: '#4a2d66', fontSize: '0.62rem', margin: 0, lineHeight: '1.4', fontFamily: 'monospace', letterSpacing: '0.03em' }}>{scanDate}</p>
+      )}
     </>
   );
 }
@@ -104,7 +107,17 @@ export default function LandingHero() {
   const { account } = useActiveWallet();
   const [pendingRewards, setPendingRewards] = useState(0);
   const [chipCooldowns, setChipCooldowns] = useState({ chip1: null, chip2: null });
+  const [lastScan, setLastScan] = useState(null);
   const sections = SECTIONS[language] || SECTIONS.en;
+
+  useEffect(() => {
+    let mounted = true;
+    fetch('/api/security/scan')
+      .then(r => r.ok ? r.json() : null)
+      .then(data => { if (mounted && data) setLastScan(data); })
+      .catch(() => {});
+    return () => { mounted = false; };
+  }, []);
 
   useEffect(() => {
     const wallet = String(account || '').toLowerCase();
@@ -186,11 +199,17 @@ export default function LandingHero() {
             const nameColor = kernelPanic ? '#ef4444' : secCard ? SEC : '#e2e8f0';
             const descColor = kernelPanic ? '#7f1d1d' : secCard ? '#5b3a7a' : '#475569';
 
+            const effectiveDesc = secCard && lastScan?.summary ? lastScan.summary : desc;
+            const scanDate = secCard && lastScan?.triggered_at
+              ? new Date(lastScan.triggered_at).toLocaleString()
+              : null;
+
             const inner = (
               <KernelPanicInner
                 icon={icon}
                 name={name}
-                desc={desc}
+                desc={effectiveDesc}
+                scanDate={scanDate}
                 daily={daily}
                 count={count}
                 kernelPanic={kernelPanic}
