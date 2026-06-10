@@ -74,6 +74,20 @@ export default function sitemap() {
       changeFrequency: 'monthly',
       priority: 0.6,
     },
+    {
+      url: `${BASE}/api`,
+      lastModified: TODAY,
+      changeFrequency: 'monthly',
+      priority: 0.6,
+    },
+
+    // ── Security audit ────────────────────────────────────────────────────────
+    {
+      url: `${BASE}/security`,
+      lastModified: TODAY,
+      changeFrequency: 'weekly',
+      priority: 0.7,
+    },
 
     // ── Legal ─────────────────────────────────────────────────────────────────
     {

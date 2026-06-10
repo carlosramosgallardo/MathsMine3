@@ -10,11 +10,11 @@
 
 # MathsMine3 `v1.0`
 
-> Timed math. Fictional mining. Wallet identity. Terminal economy.
+> Timed math. Fictional mining. Wallet identity. Terminal economy. Live security audit.
 
 [![MathsMine3 Portal](https://mathsmine3.xyz/og-image.jpg)](https://mathsmine3.xyz)
 
-**Live:** [mathsmine3.xyz](https://mathsmine3.xyz) · [Training](https://mathsmine3.xyz/training) · [Manifesto](https://mathsmine3.xyz/manifesto) · [Trading](https://mathsmine3.xyz/trading) · [Ranking](https://mathsmine3.xyz/ranking) · [Squeezing](https://mathsmine3.xyz/squeezing) · [Mining](https://mathsmine3.xyz/mining) · [Relaying](https://mathsmine3.xyz/relaying) · [API](https://mathsmine3.xyz/api)
+**Live:** [mathsmine3.xyz](https://mathsmine3.xyz) · [Training](https://mathsmine3.xyz/training) · [Manifesto](https://mathsmine3.xyz/manifesto) · [Trading](https://mathsmine3.xyz/trading) · [Ranking](https://mathsmine3.xyz/ranking) · [Squeezing](https://mathsmine3.xyz/squeezing) · [Mining](https://mathsmine3.xyz/mining) · [Relaying](https://mathsmine3.xyz/relaying) · [API](https://mathsmine3.xyz/api) · [Security Audit](https://mathsmine3.xyz/security)
 
 ---
 
@@ -40,6 +40,7 @@
 - [Ranking](#ranking)
 - [Bots](#bots)
 - [API](#api)
+- [Security Audit](#security-audit)
 - [Emoji Catalog](#emoji-catalog)
 - [Tech Stack](#tech-stack)
 - [Run Locally](#run-locally)
@@ -58,7 +59,7 @@
 | Identity | Ethereum wallet or deterministic Google virtual wallet |
 | Persistence | Supabase player, mining, chart, chat, and event state |
 | Languages | English and Spanish |
-| Core routes | Training, Mining, Trading, Ranking, Squeezing, Relaying, MM3 Value, Manifesto, API |
+| Core routes | Training, Mining, Trading, Ranking, Squeezing, Relaying, MM3 Value, Manifesto, API, Security Audit |
 | Win condition | Be #1 in Mining % when all 784 board cells are covered (764 chain blocks mined + all 20 NFTJIs owned), OR submit the correct `Ω(α, β, γ)` for an immediate win |
 | Legal status | No real mining, no real token, no payout, no investment |
 
@@ -798,6 +799,26 @@ Public API routes expose the readable state of the simulation.
 
 ---
 
+## Security Audit
+
+Live automated security scanner for the full MathsMine3 portal — available at [/security](https://mathsmine3.xyz/security).
+
+Executes 15 parallel checks across the entire application surface on every scan:
+
+| Category | Checks |
+|---|---|
+| Dependency & Supply Chain | npm vulnerability scan (OSV/Google) · client bundle secret scan |
+| HTTP Security Headers | Security headers presence · CSP deep analysis |
+| Authentication | API auth across all 28 endpoints · Web3 wallet signature enforcement · Cookie flags |
+| Page Health | HTTP status + sensitive data leak detection across all 15 app pages |
+| Injection & Input | 21 injection probes (PostgREST, SQL, NoSQL, XSS, prototype pollution, integer bounds) · 12 business logic probes |
+| Information Disclosure | 37 sensitive path checks · open redirect detection |
+| Network & Protocol | CORS policy · HTTP method security (TRACE/XST) · rate limiting detection |
+
+Each scan produces a weighted security score (0–100) with per-finding detail, attack vectors, and remediation guidance. Results are stored historically and exportable as PDF.
+
+---
+
 ## Emoji Catalog
 
 ### Ranks — Individual
@@ -964,11 +985,11 @@ Read:
 
 # MathsMine3 `v1.0`
 
-> Matemáticas contra reloj. Minería ficticia. Identidad wallet. Economía de terminal.
+> Matemáticas contra reloj. Minería ficticia. Identidad wallet. Economía de terminal. Análisis de seguridad en vivo.
 
 [![MathsMine3 Portal](https://mathsmine3.xyz/og-image.jpg)](https://mathsmine3.xyz)
 
-**Live:** [mathsmine3.xyz](https://mathsmine3.xyz) · [Training](https://mathsmine3.xyz/training) · [Manifiesto](https://mathsmine3.xyz/manifesto) · [Trading](https://mathsmine3.xyz/trading) · [Ranking](https://mathsmine3.xyz/ranking) · [Squeezing](https://mathsmine3.xyz/squeezing) · [Mining](https://mathsmine3.xyz/mining) · [Relaying](https://mathsmine3.xyz/relaying) · [API](https://mathsmine3.xyz/api)
+**Live:** [mathsmine3.xyz](https://mathsmine3.xyz) · [Training](https://mathsmine3.xyz/training) · [Manifiesto](https://mathsmine3.xyz/manifesto) · [Trading](https://mathsmine3.xyz/trading) · [Ranking](https://mathsmine3.xyz/ranking) · [Squeezing](https://mathsmine3.xyz/squeezing) · [Mining](https://mathsmine3.xyz/mining) · [Relaying](https://mathsmine3.xyz/relaying) · [API](https://mathsmine3.xyz/api) · [Seguridad](https://mathsmine3.xyz/security)
 
 ---
 
@@ -994,6 +1015,7 @@ Read:
 - [Ranking](#ranking)
 - [Bots](#bots-1)
 - [API](#api)
+- [Análisis de Seguridad](#analisis-de-seguridad)
 - [Catálogo de Emojis](#catalogo-de-emojis)
 - [Stack Técnico](#stack-tecnico)
 - [Ejecución Local](#ejecucion-local)
@@ -1012,7 +1034,7 @@ Read:
 | Identidad | Wallet de Ethereum o wallet virtual determinista de Google |
 | Persistencia | Estado de jugadores, Market, gráfico, chat y eventos en Supabase |
 | Idiomas | Inglés y español |
-| Rutas principales | Training, Mining, Trading, Ranking, Squeezing, Relaying, MM3 Value, Manifiesto, API |
+| Rutas principales | Training, Mining, Trading, Ranking, Squeezing, Relaying, MM3 Value, Manifiesto, API, Análisis de Seguridad |
 | Condición de victoria | Ser #1 en % de Minado cuando las 784 celdas estén cubiertas (764 bloques minados + los 20 NFTJIs con dueño), O enviar el `Ω(α, β, γ)` correcto para ganar de inmediato |
 | Estado legal | Sin minería real, sin token real, sin pagos, sin inversión |
 
@@ -1748,6 +1770,26 @@ Las rutas públicas exponen el estado legible de la simulación.
 | `/api/nft-events` | Eventos NFTJI y revive |
 
 `/api/leaderboard` incluye `block_chain_percent` y `mined_block_count`. `/api/mining-snapshot` incluye `minedBlocks` y datos de progreso/código en `blockChain`.
+
+---
+
+## Análisis de Seguridad
+
+Escáner de seguridad automatizado y en vivo para todo el portal MathsMine3 — disponible en [/security](https://mathsmine3.xyz/security).
+
+Ejecuta 15 comprobaciones en paralelo sobre toda la superficie de la aplicación en cada análisis:
+
+| Categoría | Comprobaciones |
+|---|---|
+| Dependencias y cadena de suministro | Análisis de vulnerabilidades npm (OSV/Google) · escaneo de secretos en bundles de cliente |
+| Cabeceras HTTP de seguridad | Presencia de cabeceras de seguridad · análisis profundo de CSP |
+| Autenticación | Auth de API en los 28 endpoints · firma de wallet Web3 · flags de cookies |
+| Salud de páginas | Estado HTTP + detección de fugas de datos sensibles en las 15 páginas de la app |
+| Inyección e inputs | 21 sondas de inyección (PostgREST, SQL, NoSQL, XSS, prototype pollution, bounds enteros) · 12 sondas de lógica de negocio |
+| Exposición de información | 37 rutas sensibles · detección de open redirect |
+| Red y protocolo | Política CORS · seguridad de métodos HTTP (TRACE/XST) · detección de rate limiting |
+
+Cada análisis produce una puntuación de seguridad ponderada (0–100) con detalle por hallazgo, vectores de ataque y recomendaciones de remediación. Los resultados se almacenan históricamente y son exportables en PDF.
 
 ---
 
