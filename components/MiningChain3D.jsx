@@ -67,7 +67,7 @@ export default function MiningChain3D() {
   const [loading,       setLoading]       = useState(true)
   const [onlineCount,   setOnlineCount]   = useState(0)
   const [facingCell,    setFacingCell]    = useState(null)
-  const [copied,        setCopied]        = useState(false)
+  const [receivedHitAt, setReceivedHitAt] = useState(0)
 
   // FPV gets wallets that are online AND have a known position (or self)
   const presenceMap = useMemo(() => {
@@ -175,6 +175,14 @@ export default function MiningChain3D() {
       }
     })
 
+    // PvP hit: victim sees the red flash effect too
+    ch.on('broadcast', { event: 'pvp-hit' }, ({ payload }) => {
+      const myK = myKeyRef.current, myW = myWalletRef.current
+      if (payload?.victim && (payload.victim === myK || (myW && payload.victim === myW))) {
+        setReceivedHitAt(Date.now())
+      }
+    })
+
     // High-frequency position updates (~8/sec) via broadcast — low latency
     ch.on('broadcast', { event: 'move' }, ({ payload }) => {
       if (!payload?.wallet || payload.gx == null) return
@@ -270,6 +278,11 @@ export default function MiningChain3D() {
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ attacker, victim, victimIsAnon }),
     }).catch(() => {})
+    // Broadcast hit so the victim's screen also flashes red
+    channelRef.current?.send({
+      type: 'broadcast', event: 'pvp-hit',
+      payload: { victim },
+    })?.catch(() => {})
   }, [])
 
   // Load PvP stolen amounts (refreshed every 60s for online player list)
@@ -330,12 +343,6 @@ export default function MiningChain3D() {
     }
   }, [])
 
-  // Copy hex to clipboard
-  const copyHex = useCallback(async (hex) => {
-    try { await navigator.clipboard.writeText(hex) } catch {}
-    setCopied(true); setTimeout(() => setCopied(false), 1400)
-  }, [])
-
   // Interaction range (must be within 2.5 cells to act on a block/element)
   const INTERACT_DIST = 2.5
   const isInRange = !facingCell?.dist || facingCell.dist <= INTERACT_DIST
@@ -386,6 +393,7 @@ export default function MiningChain3D() {
             onAnonReset={handleAnonReset}
             pvpStolen={pvpStolen}
             onChainSolveOpen={handleChainSolveOpen}
+            externalPvpFlash={receivedHitAt}
             es={es}
           />
         )}
@@ -394,100 +402,97 @@ export default function MiningChain3D() {
       {/* ── Facing-block info panel ───────────────────────────────────────── */}
       <div style={{
         flexShrink:0, borderTop:`1px solid ${C}18`, background:'#060c18',
-        padding:'7px 12px', minHeight:52, display:'flex', alignItems:'center',
+        padding:'6px 12px', minHeight:46, display:'flex', alignItems:'center',
         gap:8, flexWrap:'wrap', rowGap:4,
       }}>
         {facingCell ? (
           <>
-            <div style={{ display:'flex', alignItems:'center', gap:6, minWidth:0 }}>
-              {fc?.emoji && <span style={{ fontSize:'1.2rem', flexShrink:0 }}>{fc.emoji}</span>}
-              <span style={{ color:fc?.color||C, fontWeight:700, fontSize:'0.86rem', letterSpacing:'0.06em', whiteSpace:'nowrap' }}>
+            {/* Block identity: emoji + hex + title */}
+            <div style={{ display:'flex', alignItems:'center', gap:5, minWidth:0, flex:'0 0 auto' }}>
+              {fc?.emoji && <span style={{ fontSize:'1.1rem', flexShrink:0 }}>{fc.emoji}</span>}
+              <span style={{ color:fc?.color||C, fontWeight:700, fontSize:'0.82rem', letterSpacing:'0.06em', whiteSpace:'nowrap' }}>
                 {fcHex}
               </span>
-              <span style={{ color:'#51677e', fontSize:'0.74rem', whiteSpace:'nowrap' }}>
-                [{facingCell.row},{facingCell.col}]
-              </span>
+              {(fc?.titleEn||fc?.titleEs) && (
+                <span style={{ color:'#7a90a3', fontSize:'0.76rem', whiteSpace:'nowrap', minWidth:0, overflow:'hidden', textOverflow:'ellipsis', maxWidth:140 }}>
+                  {es?(fc.titleEs||fc.titleEn):(fc.titleEn||fc.titleEs)}
+                </span>
+              )}
             </div>
 
-            {fc?.isMarket && (
-              <span style={{ color:'#d1dee8', fontSize:'0.80rem', minWidth:0 }}>
-                {es?(fc.titleEs||fc.titleEn):(fc.titleEn||fc.titleEs)}
-              </span>
-            )}
-
+            {/* Owner status */}
             {fc?.owner ? (
               <span style={{
                 color: isMine ? C : fcOwnColor,
-                fontSize:'0.76rem',
+                fontSize:'0.74rem',
                 border:`1px solid ${(isMine?C:fcOwnColor)+'33'}`,
-                borderRadius:3, padding:'1px 6px', whiteSpace:'nowrap',
+                borderRadius:3, padding:'1px 5px', whiteSpace:'nowrap', flex:'0 0 auto',
               }}>
-                {isMine ? (es?'🔑 tuyo':'🔑 yours') : `${fc.owner.slice(0,8)}…${fc.owner.slice(-5)}`}
+                {isMine ? (es?'🔑 tuyo':'🔑 yours') : `${fc.owner.slice(0,6)}…${fc.owner.slice(-4)}`}
               </span>
-            ) : (
-              <span style={{ color:'#51677e', fontSize:'0.76rem' }}>
-                {es?'sin reclamar':'unclaimed'}
+            ) : !fc?.isChainNode && (
+              <span style={{ color:'#3d5468', fontSize:'0.74rem', flex:'0 0 auto' }}>
+                {es?'libre':'unclaimed'}
               </span>
             )}
 
             {fcReq?.minLevel > 0 && (
-              <span style={{ color:'#6d849a', fontSize:'0.74rem', whiteSpace:'nowrap' }}>
-                {es?`lvl≥${fcReq.minLevel}`:`lvl≥${fcReq.minLevel}`}
+              <span style={{ color:'#4d6a7e', fontSize:'0.72rem', whiteSpace:'nowrap', flex:'0 0 auto' }}>
+                lvl≥{fcReq.minLevel}
               </span>
             )}
 
             {fc?.priceEur > 0 && (
-              <span style={{ color:'#fb923c', fontSize:'0.76rem', fontWeight:700, whiteSpace:'nowrap' }}>
+              <span style={{ color:'#fb923c', fontSize:'0.76rem', fontWeight:700, whiteSpace:'nowrap', flex:'0 0 auto' }}>
                 {fc.priceEur} EUR
               </span>
             )}
 
-            <div style={{ display:'flex', gap:6, marginLeft:'auto', flexWrap:'wrap', alignItems:'center' }}>
-              <button onClick={()=>fcHex&&copyHex(fcHex)} style={{
-                ...btnSm, color: copied?'#4ade80':C+'88', borderColor: copied?'#4ade8033':`${C}22`,
-              }}>
-                {copied ? '✓' : '⎘'} {fcHex}
-              </button>
-
+            {/* Action buttons — pushed to the right */}
+            <div style={{ display:'flex', gap:6, marginLeft:'auto', flexWrap:'wrap', alignItems:'center', flex:'0 0 auto' }}>
               {isClaimable && !fc?.isChainNode && isInRange && (
                 <Link href={mineUrl} style={{
                   ...actionLink, background:`${C}0c`, borderColor:`${C}44`, color:C,
                 }}>
-                  ⛏ {es?'Minar bloque':'Mine block'}
+                  ⛏ {es?'Minar':'Mine'}
                 </Link>
               )}
               {isClaimable && !fc?.isChainNode && !isInRange && (
-                <span style={{ color:`${C}44`, fontSize:'0.74rem', fontFamily:'monospace' }}>
-                  {es?'· acércate para minar':'· move closer to mine'}
+                <span style={{ color:`${C}33`, fontSize:'0.72rem', fontFamily:'monospace', fontStyle:'italic' }}>
+                  {es?'acércate':'get closer'}
                 </span>
               )}
               {fc?.isChainNode && isInRange && (
                 <button onClick={() => setShowChainSolve(true)} style={{
                   ...actionLink, background:'#1a1000', borderColor:'#ffd70044', color:'#ffd700', cursor:'pointer',
                 }}>
-                  ⬡ {es?'Resolver cadena':'Solve formula chain'}
+                  ⬡ {es?'Cadena':'Chain'}
                 </button>
               )}
               {fc?.isChainNode && !isInRange && (
-                <span style={{ color:'#ffd70044', fontSize:'0.74rem', fontFamily:'monospace' }}>
-                  {es?'· acércate para interactuar':'· move closer to interact'}
+                <span style={{ color:'#ffd70033', fontSize:'0.72rem', fontFamily:'monospace', fontStyle:'italic' }}>
+                  {es?'acércate':'get closer'}
                 </span>
               )}
-
-              {facingCell && (
-                <button onClick={()=>setShowDetail(true)} style={{
-                  ...actionLink, background:'#0c1a1a', borderColor:`${C}33`, color:`${C}88`, cursor:'pointer',
+              {isMine && fc?.isMarket && nftjiResellUrl && (
+                <Link href={nftjiResellUrl} style={{
+                  ...actionLink, background:'#001a0c', borderColor:'#4ade8044', color:'#4ade80',
                 }}>
-                  🔍 {es?'Detalle':'Detail'}
-                </button>
+                  💰 {es?'Revender':'Resell'}
+                </Link>
               )}
+              <button onClick={()=>setShowDetail(true)} style={{
+                ...actionLink, background:'transparent', borderColor:`${C}22`, color:`${C}55`, cursor:'pointer',
+              }}>
+                {es?'Detalle':'Detail'}
+              </button>
             </div>
           </>
         ) : (
-          <span style={{ color:'#51677e', fontSize:'0.74rem', letterSpacing:'0.07em' }}>
+          <span style={{ color:'#3a5060', fontSize:'0.72rem', letterSpacing:'0.06em' }}>
             {es
-              ? 'WASD / FLECHAS → MOVER · DRAG → ROTAR · APUNTA A UNA SALA PARA VER SU INFO'
-              : 'WASD / ARROWS → MOVE · DRAG → LOOK · AIM AT A ROOM TO INSPECT IT'}
+              ? 'WASD · MOVER  ·  DRAG · ROTAR  ·  ↵ · ACCIÓN'
+              : 'WASD · MOVE  ·  DRAG · LOOK  ·  ↵ · ACTION'}
           </span>
         )}
       </div>
@@ -554,11 +559,6 @@ export default function MiningChain3D() {
                 {es?`Nivel mínimo: ${fcReq.minLevel}`:`Min level: ${fcReq.minLevel}`}
               </div>
             )}
-
-            {/* Coords */}
-            <div style={{ color:'#60768b', fontSize:'0.72rem', marginBottom:12 }}>
-              [{facingCell.row},{facingCell.col}]
-            </div>
 
             {/* Actions */}
             <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
@@ -653,12 +653,6 @@ export default function MiningChain3D() {
       )}
     </div>
   )
-}
-
-const btnSm = {
-  background:'transparent', border:'1px solid #26364f', color:'#7b8fa5',
-  padding:'4px 9px', borderRadius:4, cursor:'pointer',
-  fontFamily:'Consolas,monospace', fontSize:'0.78rem', whiteSpace:'nowrap',
 }
 
 const actionLink = {

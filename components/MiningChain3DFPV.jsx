@@ -303,6 +303,11 @@ function drawFacingHUD(ctx, W, H, fwdCell, fwdMx, fwdMy, myWallet, es, dist) {
     lines.push({ text: `${fwdCell.priceEur} EUR`, size: 11, weight: 'bold', col: '#fb923c' })
   }
 
+  if (dist != null && !fwdCell?.isObstacle) {
+    const distCol = dist <= INTERACT_DIST ? '#4ade8077' : '#3d5a6a'
+    lines.push({ text: `${dist.toFixed(1)} cells`, size: 9, col: distCol })
+  }
+
   if (!owner) {
     const inRange = dist == null || dist <= INTERACT_DIST
     if (fwdCell?.isChainNode) {
@@ -670,7 +675,7 @@ export default function MiningChain3DFPV({
   initRow, initCol, jumpToCell,
   onPositionChange, onFacingChange, onWantNavigate, onPositionRealtime,
   onPvpHit, onAnonReset, pvpStolen,
-  onChainSolveOpen,
+  onChainSolveOpen, externalPvpFlash,
   es,
 }) {
   const canvasRef    = useRef(null)
@@ -730,6 +735,8 @@ export default function MiningChain3DFPV({
   useEffect(()=>{ onAnonResetRef.current=onAnonReset },[onAnonReset])
   useEffect(()=>{ pvpStolenRef.current=pvpStolen||{} },[pvpStolen])
   useEffect(()=>{ onChainSolveOpenRef.current=onChainSolveOpen },[onChainSolveOpen])
+  // External hit flash (victim sees red screen when struck by another player)
+  useEffect(()=>{ if(externalPvpFlash) pvpFlashRef.current=performance.now() },[externalPvpFlash])
 
   // Recompute valid obstacles and chain node position whenever cellMap changes
   useEffect(() => {
@@ -962,18 +969,19 @@ export default function MiningChain3DFPV({
     sprites.sort((a,b) => b.dist - a.dist)
 
     for (const { w, tX, tY, color } of sprites) {
-      const sprH    = Math.min(H*1.6, H*PROJ_DIST/tY*1.2)
-      const scrX    = Math.round(W/2*(1+tX/tY))
+      const scrX = Math.round(W/2*(1+tX/tY))
       const [cr,cg2,cb] = hexToRgb(color)
-      const fade    = Math.max(0.30, 1 - tY*0.055)
-      const alpha   = Math.min(0.98, Math.max(0, 1.0 - tY*0.04))
+      const fade  = Math.max(0.30, 1 - tY*0.055)
+      const alpha = Math.min(0.98, Math.max(0, 1.0 - tY*0.04))
 
-      // Retro wallet shape — grounded at horizon (feet = horizon)
-      const walletH  = Math.round(sprH * 0.54)
-      const walletW  = Math.round(sprH * 0.46)
-      const billsH   = Math.round(sprH * 0.18)
-      const billsW   = Math.round(walletW * 0.44)
-      const bottomY  = Math.round(horizon)
+      // Perspective-correct grounding: cellScale = 1-cell pixel height at tY distance
+      // bottomY = floor level at this depth (same formula as wall bottom = horizon + wallH/2)
+      const cellScale = Math.min(H*1.8, H*PROJ_DIST/Math.max(0.05, tY))
+      const bottomY   = Math.min(H+30, Math.round(horizon + cellScale * 0.50))
+      const walletH   = Math.round(cellScale * 0.58)
+      const walletW   = Math.round(cellScale * 0.50)
+      const billsH    = Math.round(cellScale * 0.20)
+      const billsW    = Math.round(walletW * 0.44)
       const walletTop = bottomY - walletH
       const billsTop  = walletTop - billsH
       const foldY     = Math.round(walletTop + walletH * 0.44)
@@ -987,112 +995,109 @@ export default function MiningChain3DFPV({
       const fullRight = Math.max(wx2, bx2)
 
       // Glow outline pass
-      for (let sx = fullLeft - 1; sx <= fullRight; sx++) {
+      for (let sx = fullLeft-1; sx <= fullRight; sx++) {
         const zCol = Math.floor(sx / STRIP_W)
         if (zCol < 0 || zCol >= strips) continue
         if (tY >= zBuffer[zCol]) continue
-        ctx.globalAlpha = alpha * 0.28
-        ctx.fillStyle = color
-        if (sx >= bx1-1 && sx <= bx2)  ctx.fillRect(sx, billsTop-1, 1, billsH+1)
-        if (sx >= wx1-1 && sx <= wx2)   ctx.fillRect(sx, walletTop-1, 1, walletH+2)
+        ctx.globalAlpha = alpha * 0.28; ctx.fillStyle = color
+        if (sx >= bx1-1 && sx <= bx2) ctx.fillRect(sx, billsTop-1, 1, billsH+1)
+        if (sx >= wx1-1 && sx <= wx2)  ctx.fillRect(sx, walletTop-1, 1, walletH+2)
       }
 
-      // Main wallet draw (column-by-column for zBuffer depth correctness)
+      // Wallet body (column-by-column depth-correct)
       for (let sx = fullLeft; sx < fullRight; sx++) {
         const zCol = Math.floor(sx / STRIP_W)
         if (zCol < 0 || zCol >= strips) continue
         if (tY >= zBuffer[zCol]) continue
-
         const inWallet = sx >= wx1 && sx < wx2
         const inBills  = sx >= bx1 && sx < bx2
 
-        // Bills / cards sticking up from wallet top
         if (inBills) {
           ctx.globalAlpha = alpha * 0.88
           ctx.fillStyle = `rgb(${Math.min(255,Math.round(cr*fade*1.28))},${Math.min(255,Math.round(cg2*fade*1.28))},${Math.min(255,Math.round(cb*fade*1.28))})`
           ctx.fillRect(sx, billsTop, 1, billsH)
           if (billsH > 4) {
-            ctx.globalAlpha = alpha * 0.38
-            ctx.fillStyle = 'rgba(255,255,255,0.55)'
+            ctx.globalAlpha = alpha * 0.38; ctx.fillStyle = 'rgba(255,255,255,0.55)'
             ctx.fillRect(sx, billsTop + Math.round(billsH*0.22), 1, Math.max(1, Math.round(billsH*0.18)))
           }
         }
-
-        // Wallet body
         if (inWallet) {
           const isEdge = sx === wx1 || sx === wx2 - 1
           const relX   = (sx - wx1) / Math.max(1, walletW - 1)
-
-          // Upper half (lighter) — card area
           ctx.globalAlpha = alpha
           ctx.fillStyle = `rgb(${Math.round(cr*fade*0.90)},${Math.round(cg2*fade*0.90)},${Math.round(cb*fade*0.90)})`
           ctx.fillRect(sx, walletTop, 1, foldY - walletTop)
-
-          // Card-slot stripe highlight
-          ctx.globalAlpha = alpha * 0.48
-          ctx.fillStyle = 'rgba(255,255,255,0.30)'
+          ctx.globalAlpha = alpha * 0.48; ctx.fillStyle = 'rgba(255,255,255,0.30)'
           ctx.fillRect(sx, walletTop + Math.round(walletH*0.12), 1, Math.max(1, Math.round(walletH*0.09)))
-
-          // Lower half (darker) — main pocket
           ctx.globalAlpha = alpha
           ctx.fillStyle = `rgb(${Math.round(cr*fade*0.58)},${Math.round(cg2*fade*0.58)},${Math.round(cb*fade*0.58)})`
           ctx.fillRect(sx, foldY, 1, bottomY - foldY)
-
-          // Fold / stitching line
-          ctx.globalAlpha = alpha * 0.72
-          ctx.fillStyle = 'rgba(0,0,0,0.60)'
-          ctx.fillRect(sx, foldY - 1, 1, 2)
-
-          // Brass clasp in center band
+          ctx.globalAlpha = alpha * 0.72; ctx.fillStyle = 'rgba(0,0,0,0.60)'
+          ctx.fillRect(sx, foldY-1, 1, 2)
           if (relX > 0.30 && relX < 0.70) {
-            ctx.globalAlpha = alpha * 0.90
-            ctx.fillStyle = 'rgba(255,195,45,0.90)'
+            ctx.globalAlpha = alpha * 0.90; ctx.fillStyle = 'rgba(255,195,45,0.90)'
             ctx.fillRect(sx, claspY, 1, claspH)
           }
-
-          // Edge shadow for depth
           if (isEdge) {
-            ctx.globalAlpha = alpha * 0.62
-            ctx.fillStyle = 'rgba(0,0,0,0.72)'
+            ctx.globalAlpha = alpha * 0.62; ctx.fillStyle = 'rgba(0,0,0,0.72)'
             ctx.fillRect(sx, walletTop, 1, walletH)
           }
         }
       }
       ctx.globalAlpha = 1
 
-      // Floor shadow ellipse
+      // Pickaxe (vector draw, depth-checked at wallet center)
+      const pkZCol = Math.floor(scrX / STRIP_W)
+      if (pkZCol >= 0 && pkZCol < strips && tY < zBuffer[pkZCol]) {
+        const pkBX = scrX + Math.round(walletW * 0.58)
+        const pkBY = Math.round(foldY + walletH * 0.05)
+        const pkL  = Math.max(5, Math.round(walletH * 0.55))
+        const pkA  = -2.05
+        const pkTX = pkBX + Math.cos(pkA)*pkL, pkTY = pkBY + Math.sin(pkA)*pkL
+        ctx.globalAlpha = alpha * 0.82
+        ctx.strokeStyle = '#8B5E3C'
+        ctx.lineWidth = Math.max(1.5, pkL*0.09); ctx.lineCap = 'round'
+        ctx.beginPath(); ctx.moveTo(pkBX, pkBY); ctx.lineTo(pkTX, pkTY); ctx.stroke()
+        ctx.lineCap = 'butt'
+        const hs = Math.max(2, pkL*0.22)
+        ctx.fillStyle = '#aac4d4'
+        ctx.beginPath()
+        ctx.moveTo(pkTX, pkTY - hs*0.6)
+        ctx.lineTo(pkTX - hs*1.1, pkTY + hs*0.2)
+        ctx.lineTo(pkTX - hs*0.5, pkTY + hs*0.9)
+        ctx.lineTo(pkTX + hs*0.4, pkTY + hs*0.5)
+        ctx.closePath(); ctx.fill()
+        ctx.globalAlpha = 1
+      }
+
+      // Floor shadow ellipse (at actual floor level)
       if (tY < 5.0) {
         const sAlpha = Math.max(0, (5.0-tY)/5.0)*0.28
         const sw = Math.max(4, Math.round(walletW*0.85))
         const sh = Math.max(2, Math.round(sw*0.18))
-        ctx.globalAlpha = sAlpha
-        ctx.fillStyle = '#000'
+        ctx.globalAlpha = sAlpha; ctx.fillStyle = '#000'
         ctx.beginPath()
-        ctx.ellipse(scrX, horizon+sh, sw/2, sh, 0, 0, Math.PI*2)
-        ctx.fill()
-        ctx.globalAlpha = 1
+        ctx.ellipse(scrX, bottomY + sh*0.5, sw/2, sh, 0, 0, Math.PI*2)
+        ctx.fill(); ctx.globalAlpha = 1
       }
 
-      // Wallet address label above bills
+      // Wallet label above bills
       if (tY < 7.0) {
         const lAlpha = Math.max(0, (7.0-tY)/7.0)*0.88
         const lSize  = Math.max(10, Math.round(13/Math.max(0.5, tY)))
         const pres   = (presence||{})[w]
         const pool   = pres?.poolCode
-        ctx.globalAlpha = lAlpha * 0.45
-        ctx.fillStyle = '#000'
+        ctx.globalAlpha = lAlpha * 0.45; ctx.fillStyle = '#000'
         ctx.font = `bold ${lSize}px monospace`
         ctx.textAlign = 'center'; ctx.textBaseline = 'bottom'
         ctx.fillText(`${w.slice(0,6)}…${w.slice(-4)}`, scrX+1, billsTop-1)
-        ctx.globalAlpha = lAlpha
-        ctx.fillStyle = color
+        ctx.globalAlpha = lAlpha; ctx.fillStyle = color
         ctx.fillText(`${w.slice(0,6)}…${w.slice(-4)}`, scrX, billsTop-2)
         if (pool && tY < 5.0) {
-          const pSize = Math.max(8, lSize - 2)
-          ctx.globalAlpha = lAlpha * 0.75
-          ctx.font = `bold ${pSize}px monospace`
+          const pSize = Math.max(8, lSize-2)
+          ctx.globalAlpha = lAlpha*0.75; ctx.font = `bold ${pSize}px monospace`
           ctx.fillStyle = '#f59e0b'
-          ctx.fillText(`[${pool}]`, scrX, billsTop - 2 - lSize - 1)
+          ctx.fillText(`[${pool}]`, scrX, billsTop-2-lSize-1)
         }
         ctx.globalAlpha = 1
       }
@@ -1172,11 +1177,14 @@ export default function MiningChain3DFPV({
       }
     }
 
-    // ── Gap crosshair (Doom-style) ────────────────────────────────────────────
-    const hasTarget = fwdMx >= 0 && fwdMy >= 0 && fwdCell !== null
-    const xhCol  = hasTarget ? ((fwdCell?.owner ? fwdCell.color : C) + 'cc') : (C + '44')
-    const xhLen  = 9, xhGap = 3
-    ctx.strokeStyle = xhCol; ctx.lineWidth = 1
+    // ── Crosshair — brightens and expands when in interaction range ───────────
+    const hasTarget  = fwdMx >= 0 && fwdMy >= 0 && fwdCell !== null
+    const inXHRange  = hasTarget && !fwdCell?.isObstacle && fwdDist <= INTERACT_DIST
+    const xhBase     = fwdCell?.isChainNode ? '#ffd700' : (fwdCell?.owner ? fwdCell.color : C)
+    const xhCol      = inXHRange ? xhBase+'ee' : hasTarget ? xhBase+'55' : C+'33'
+    const xhLen      = inXHRange ? 12 : 9
+    const xhGap      = inXHRange ? 2 : 3
+    ctx.strokeStyle = xhCol; ctx.lineWidth = inXHRange ? 1.4 : 1
     ctx.beginPath()
     ctx.moveTo(W/2-xhLen-xhGap, horizon); ctx.lineTo(W/2-xhGap, horizon)
     ctx.moveTo(W/2+xhGap, horizon);       ctx.lineTo(W/2+xhLen+xhGap, horizon)
@@ -1185,7 +1193,39 @@ export default function MiningChain3DFPV({
     ctx.stroke()
     if (hasTarget) {
       ctx.fillStyle = xhCol
-      ctx.beginPath(); ctx.arc(W/2, horizon, 1.5, 0, Math.PI*2); ctx.fill()
+      ctx.beginPath(); ctx.arc(W/2, horizon, inXHRange ? 2.5 : 1.5, 0, Math.PI*2); ctx.fill()
+    }
+    if (inXHRange) {
+      ctx.globalAlpha = 0.18; ctx.strokeStyle = xhBase; ctx.lineWidth = 1
+      ctx.beginPath(); ctx.arc(W/2, horizon, 22, 0, Math.PI*2); ctx.stroke()
+      ctx.globalAlpha = 1
+    }
+
+    // ── Chain node compass (when within 13 cells, not facing it) ─────────────
+    {
+      const cnPos = chainNodePosRef.current
+      const cnDX  = (cnPos.col+0.5) - px/CELL_SIZE
+      const cnDY  = (cnPos.row+0.5) - py/CELL_SIZE
+      const cnD   = Math.sqrt(cnDX*cnDX+cnDY*cnDY)
+      if (cnD < 13 && !fwdCell?.isChainNode) {
+        const cnA    = Math.atan2(cnDY, cnDX)
+        const relA   = ((cnA - angle + Math.PI) % (2*Math.PI)) - Math.PI
+        const prox   = Math.max(0, 1 - cnD/13)
+        const cmpA   = 0.18 + prox * 0.52
+        ctx.globalAlpha = cmpA
+        ctx.font = 'bold 10px monospace'; ctx.fillStyle = '#ffd700'
+        ctx.textBaseline = 'middle'
+        if (Math.abs(relA) > FOV/2 + 0.05) {
+          // Off-screen: show directional arrow at screen edge
+          ctx.textAlign = relA > 0 ? 'right' : 'left'
+          ctx.fillText(`${relA > 0 ? '→' : '←'} ⬡ ${cnD.toFixed(1)}`, relA > 0 ? W-10 : 10, H*0.35)
+        } else {
+          // In FOV but not targeted: subtle below-crosshair label
+          ctx.textAlign = 'center'
+          ctx.fillText(`⬡ ${cnD.toFixed(1)}`, W/2, horizon+32)
+        }
+        ctx.globalAlpha = 1; ctx.textBaseline = 'top'
+      }
     }
 
     // ── Room entry notification ───────────────────────────────────────────────
