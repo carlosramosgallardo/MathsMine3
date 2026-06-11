@@ -16,6 +16,8 @@ import MiningChain3DFPV from './MiningChain3DFPV'
 
 const C = '#22d3ee'
 const CHAIN3D_CHANNEL = 'mm3-chain3d-v1'
+const CHAIN_NODE_ROW = 13
+const CHAIN_NODE_COL = 13
 
 function getRandomLoggedSpawn() {
   return {
@@ -118,6 +120,18 @@ export default function MiningChain3D() {
           isMarket: true, isMined: Boolean(ownerWallet),
         })
       }
+      // Chain Node: fixed special cell at grid center, always present
+      map.set(`${CHAIN_NODE_ROW},${CHAIN_NODE_COL}`, {
+        blockHex: gridToBlockHex(CHAIN_NODE_ROW, CHAIN_NODE_COL),
+        isChainNode: true,
+        isMarket: false,
+        isMined: false,
+        owner: null,
+        color: '#ffd700',
+        emoji: '⬡',
+        titleEn: 'MM3 BLOCK CHAIN',
+        titleEs: 'MM3 BLOCK CHAIN',
+      })
       setCellMap(map)
       setLoading(false)
     }
@@ -418,11 +432,18 @@ export default function MiningChain3D() {
                 {copied ? '✓' : '⎘'} {fcHex}
               </button>
 
-              {isClaimable && (
+              {isClaimable && !fc?.isChainNode && (
                 <Link href={mineUrl} style={{
                   ...actionLink, background:`${C}0c`, borderColor:`${C}44`, color:C,
                 }}>
                   ⛏ {es?'Minar bloque':'Mine block'}
+                </Link>
+              )}
+              {fc?.isChainNode && (
+                <Link href="/training" style={{
+                  ...actionLink, background:'#1a1000', borderColor:'#ffd70044', color:'#ffd700',
+                }}>
+                  ⬡ {es?'Resolver cadena':'Solve formula chain'}
                 </Link>
               )}
 
@@ -484,6 +505,15 @@ export default function MiningChain3D() {
               )}
             </div>
 
+            {/* Chain node description */}
+            {fc?.isChainNode && (
+              <div style={{ color:'#ffb020', fontSize:'0.76rem', marginBottom:8 }}>
+                {es
+                  ? 'Resuelve fórmulas para minar todos los bloques de la cadena.'
+                  : 'Solve formulas to mine all blocks in the chain.'}
+              </div>
+            )}
+
             {/* Price */}
             {fc?.priceEur > 0 && (
               <div style={{ color:'#fb923c', fontWeight:700, fontSize:'0.86rem', marginBottom:8 }}>
@@ -505,11 +535,18 @@ export default function MiningChain3D() {
 
             {/* Actions */}
             <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
-              {(!fc || !fc.owner) && (
+              {(!fc?.owner && !fc?.isChainNode) && (
                 <Link href={mineUrl} style={{
                   ...actionLink, background:`${C}0c`, borderColor:`${C}44`, color:C,
                 }} onClick={()=>setShowDetail(false)}>
                   ⛏ {es?'Minar':'Mine'}
+                </Link>
+              )}
+              {fc?.isChainNode && (
+                <Link href="/training" style={{
+                  ...actionLink, background:'#1a1000', borderColor:'#ffd70044', color:'#ffd700',
+                }} onClick={()=>setShowDetail(false)}>
+                  ⬡ {es?'Resolver cadena':'Solve chain'}
                 </Link>
               )}
               {isMine && fc?.isMarket && nftjiResellUrl && (

@@ -12,7 +12,6 @@ const C = '#22d3ee';
 const SECTIONS = {
   en: [
     { href: '/security',   icon: '🔐',  name: 'Security',    desc: 'AI-powered security audit. OSV vulnerability scan, header analysis, auth probing — full report & PDF export.', secCard: true },
-    { href: '/chain3d',    icon: '🔷',  name: 'MM3 BLOCK CHAIN 3D', desc: 'Explore the 28×28 block chain in real-time FPV 3D. Each block is a room. Your wallet is an avatar. See other miners live.' },
     { href: '/training',   icon: '⛏',  name: 'Training',    desc: 'Solve math problems against the clock. 100/day, 13 types. Speed earns more MM3.' },
     { href: '/mining',     icon: '⬛',  name: 'Mining',      desc: '3D FPV block explorer. Find blocks, buy NFTJIs, mine cells, and fight enemy wallets live.' },
     { href: '/trading',    icon: '💱',  name: 'Trading',     desc: 'Buy and sell MM3 in fictional EUR / USD / CNY. 5 EXECs/day — dice shifts rates.' },
@@ -27,7 +26,6 @@ const SECTIONS = {
   ],
   es: [
     { href: '/security',   icon: '🔐',  name: 'Security',    desc: 'Auditoría de seguridad con IA. Escaneo OSV, análisis de cabeceras, sondeo de autenticación — informe completo y PDF.', secCard: true },
-    { href: '/chain3d',    icon: '🔷',  name: 'MM3 BLOCK CHAIN 3D', desc: 'Explora la block chain 28×28 en 3D FPV en tiempo real. Cada bloque es una sala. Tu wallet es tu avatar. Ve otros mineros en vivo.' },
     { href: '/training',   icon: '⛏',  name: 'Training',    desc: 'Resuelve problemas contra el reloj. 100/día, 13 tipos. Velocidad = más MM3.' },
     { href: '/mining',     icon: '⬛',  name: 'Mining',      desc: 'Explorador 3D FPV de bloques. Encuentra bloques, compra NFTJIs, mina celdas y combate wallets enemigas en vivo.' },
     { href: '/trading',    icon: '💱',  name: 'Trading',     desc: 'Compra y vende MM3 en EUR / USD / CNY ficticios. 5 EXECs/día — dados afectan tasas.' },

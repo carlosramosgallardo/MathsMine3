@@ -24,6 +24,8 @@ const DOOR_HI       = (1 + DOOR_FRAC) / 2   // 0.725
 const FOOTSTEP_DIST = MOVE_SPD * 10         // footstep every ~10 movement frames
 const SWING_DUR     = 340    // ms per pickaxe swing
 const HITS_NEEDED   = 5      // swings to complete mining action
+const CHAIN_NODE_ROW = 13
+const CHAIN_NODE_COL = 13
 
 // ── Wall collision: returns true if position (grid units) hits a solid wall ──
 function hitsSolidWall(gx, gy) {
@@ -43,6 +45,11 @@ function hexToRgb(hex) {
 }
 
 function wallRgb(cell, dist, side, myWallet) {
+  if (cell?.isChainNode) {
+    const pulse = 0.60 + Math.sin(Date.now() / 300) * 0.40
+    const f = (side === 1 ? 0.72 : 1.0) * Math.max(0.18, 1 - dist * 0.06) * pulse
+    return [Math.round(255 * f), Math.round(180 * f), 0]
+  }
   let base
   if (cell?.owner) {
     const isMe = myWallet && cell.owner.toLowerCase() === myWallet.toLowerCase()
@@ -152,6 +159,18 @@ function drawMinimap(ctx, gr, gc, angle, cellMap, presenceMap, myWallet, W, H) {
     ctx.arc(MX+dotGX*CS, MY+dotGY*CS, r, 0, Math.PI*2)
     ctx.fill()
   }
+
+  // Chain node: pulsing gold beacon
+  const cnPulse = 0.45 + Math.sin(Date.now() / 350) * 0.55
+  const cnx = MX + (CHAIN_NODE_COL + 0.5) * CS
+  const cny = MY + (CHAIN_NODE_ROW + 0.5) * CS
+  ctx.globalAlpha = cnPulse * 0.5
+  ctx.fillStyle = '#ffd700'
+  ctx.beginPath(); ctx.arc(cnx, cny, CS * 2.4, 0, Math.PI * 2); ctx.fill()
+  ctx.globalAlpha = Math.max(0.4, cnPulse)
+  ctx.fillStyle = '#fff8dc'
+  ctx.beginPath(); ctx.arc(cnx, cny, CS * 1.1, 0, Math.PI * 2); ctx.fill()
+  ctx.globalAlpha = 1
 }
 
 // ── Facing block HUD (top-right info card) ────────────────────────────────────
@@ -192,8 +211,11 @@ function drawFacingHUD(ctx, W, H, fwdCell, fwdMx, fwdMy, myWallet, es) {
   }
 
   if (!owner) {
-    // Mine: unclaimed cells and NFTJI rooms are both claimed with the pickaxe.
-    lines.push({ text: es ? '↵ · Minar bloque' : '↵ · Mine block', size: 10, col: C + 'cc' })
+    if (fwdCell?.isChainNode) {
+      lines.push({ text: es ? '↵ · Resolver cadena' : '↵ · Solve formula chain', size: 10, col: '#ffd700cc' })
+    } else {
+      lines.push({ text: es ? '↵ · Minar bloque' : '↵ · Mine block', size: 10, col: C + 'cc' })
+    }
   } else if (owner && fwdCell?.isMarket) {
     const isMineWall = myWallet && owner.toLowerCase() === myWallet.toLowerCase()
     if (isMineWall) {
@@ -746,6 +768,13 @@ export default function MiningChain3DFPV({
       ctx.fillRect(col*STRIP_W,wTop,STRIP_W,edgeH)
       ctx.fillRect(col*STRIP_W,wTop+wallH-edgeH,STRIP_W,edgeH)
 
+      // Chain node shimmer
+      if (cell?.isChainNode) {
+        const a = (0.14 + Math.sin(Date.now() / 420) * 0.10).toFixed(3)
+        ctx.fillStyle = `rgba(255,220,0,${a})`
+        ctx.fillRect(col*STRIP_W, wTop, STRIP_W, wallH)
+      }
+
       // Forward-cell selection glow
       if (hitMx===fwdMx && hitMy===fwdMy && fwdMx>=0 && cell){
         ctx.fillStyle='rgba(34,211,238,0.11)'
@@ -963,8 +992,13 @@ export default function MiningChain3DFPV({
     // Inspect prompt when very close
     if (fwdDist < 0.9 && fwdCell && !fwdCell.owner) {
       ctx.font = 'bold 12px monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'top'
-      ctx.fillStyle = C + 'cc'
-      ctx.fillText(es ? '[ ↵ MINAR BLOQUE ]' : '[ ↵ MINE BLOCK ]', W/2, horizon+18)
+      if (fwdCell.isChainNode) {
+        ctx.fillStyle = '#ffd700cc'
+        ctx.fillText(es ? '[ ↵ RESOLVER CADENA ]' : '[ ↵ SOLVE FORMULA CHAIN ]', W/2, horizon+18)
+      } else {
+        ctx.fillStyle = C + 'cc'
+        ctx.fillText(es ? '[ ↵ MINAR BLOQUE ]' : '[ ↵ MINE BLOCK ]', W/2, horizon+18)
+      }
     }
 
     // ── Gap crosshair (Doom-style) ────────────────────────────────────────────
@@ -1250,18 +1284,22 @@ export default function MiningChain3DFPV({
         if(fmx>=0&&fmy>=0){
           onFacingChange?.(fmy,fmx,fc)
           if(fc){
-            const hex=fc.blockHex||gridToBlockHex(fmy,fmx)
-            const myW=myWalletRef.current
-            const ownerIsMe=myW&&fc.owner?.toLowerCase()===myW
-            if(!fc.owner){
-              actionUrlRef.current=`/relaying?command=${encodeURIComponent(`/mine block ${hex}`)}`;
-              mineTypeRef.current=fc.isMarket?'nftji':'mine'
-            } else if(ownerIsMe&&fc.isMarket){
-              // Resell my NFTJI: navigate to relaying with resell command
-              actionUrlRef.current=`/relaying?command=${encodeURIComponent(`/resell ${hex}`)}`
-              mineTypeRef.current='nftji'
+            if(fc.isChainNode){
+              actionUrlRef.current='/training'
+              mineTypeRef.current='empty'
             } else {
-              actionUrlRef.current=null; mineTypeRef.current='empty'
+              const hex=fc.blockHex||gridToBlockHex(fmy,fmx)
+              const myW=myWalletRef.current
+              const ownerIsMe=myW&&fc.owner?.toLowerCase()===myW
+              if(!fc.owner){
+                actionUrlRef.current=`/relaying?command=${encodeURIComponent(`/mine block ${hex}`)}`;
+                mineTypeRef.current=fc.isMarket?'nftji':'mine'
+              } else if(ownerIsMe&&fc.isMarket){
+                actionUrlRef.current=`/relaying?command=${encodeURIComponent(`/resell ${hex}`)}`
+                mineTypeRef.current='nftji'
+              } else {
+                actionUrlRef.current=null; mineTypeRef.current='empty'
+              }
             }
           } else if (fmx >= 0 && fmy >= 0 && fmx < COLS && fmy < ROWS) {
             // Unclaimed regular block (not in cellMap = never claimed)
