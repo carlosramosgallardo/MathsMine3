@@ -30,84 +30,84 @@ const CHAIN_NODE_COL = 4
 
 // ── Decorative obstacles: solid walls, no doorways, not mineable ──────────────
 // Five visual types: monolith (violet), pylon (teal), ruin (rust), steel wall, bunker
+// Stone wall shades: light stone, slate, sandstone, dark concrete
+const W_STONE = [115, 108, 100]   // warm stone
+const W_SLATE = [90,  95, 105]    // cool slate
+const W_SAND  = [105, 98,  88]    // sandstone
+const W_DARK  = [65,  70,  78]    // dark concrete
+
 const OBSTACLE_MAP = new Map([
-  // Violet monoliths — outer zone corners
-  ['5,5',   { base:[120,40,200], label:'MONOLITH' }],
-  ['5,22',  { base:[120,40,200], label:'MONOLITH' }],
-  ['22,5',  { base:[120,40,200], label:'MONOLITH' }],
-  ['22,22', { base:[120,40,200], label:'MONOLITH' }],
-  // Teal pylons — inner ring landmarks
-  ['10,14', { base:[30,150,140], label:'TECH PYLON' }],
-  ['14,9',  { base:[30,150,140], label:'TECH PYLON' }],
-  ['17,14', { base:[30,150,140], label:'TECH PYLON' }],
-  ['14,19', { base:[30,150,140], label:'TECH PYLON' }],
-  // Rust ruins — scattered mid-zones
-  ['8,18',  { base:[160,60,20],  label:'ANCIENT RUIN' }],
-  ['19,9',  { base:[160,60,20],  label:'ANCIENT RUIN' }],
-  ['9,8',   { base:[160,60,20],  label:'ANCIENT RUIN' }],
-  ['20,20', { base:[160,60,20],  label:'ANCIENT RUIN' }],
+  // Outer wall segments — cool slate, form loose frame with gaps
+  ['2,7',   { base:W_SLATE, label:'WALL' }],
+  ['2,8',   { base:W_SLATE, label:'WALL' }],
+  ['2,9',   { base:W_SLATE, label:'WALL' }],
+  ['2,17',  { base:W_SLATE, label:'WALL' }],
+  ['2,18',  { base:W_SLATE, label:'WALL' }],
+  ['2,19',  { base:W_SLATE, label:'WALL' }],
+  ['25,7',  { base:W_SLATE, label:'WALL' }],
+  ['25,8',  { base:W_SLATE, label:'WALL' }],
+  ['25,9',  { base:W_SLATE, label:'WALL' }],
+  ['25,17', { base:W_SLATE, label:'WALL' }],
+  ['25,18', { base:W_SLATE, label:'WALL' }],
+  ['25,19', { base:W_SLATE, label:'WALL' }],
+  ['7,2',   { base:W_SLATE, label:'WALL' }],
+  ['8,2',   { base:W_SLATE, label:'WALL' }],
+  ['9,2',   { base:W_SLATE, label:'WALL' }],
+  ['17,2',  { base:W_SLATE, label:'WALL' }],
+  ['18,2',  { base:W_SLATE, label:'WALL' }],
+  ['19,2',  { base:W_SLATE, label:'WALL' }],
+  ['7,25',  { base:W_SLATE, label:'WALL' }],
+  ['8,25',  { base:W_SLATE, label:'WALL' }],
+  ['9,25',  { base:W_SLATE, label:'WALL' }],
+  ['17,25', { base:W_SLATE, label:'WALL' }],
+  ['18,25', { base:W_SLATE, label:'WALL' }],
+  ['19,25', { base:W_SLATE, label:'WALL' }],
 
-  // Steel walls — horizontal outer segments (gaps at center for passage)
-  ['2,7',   { base:[100,110,135], label:'STEEL WALL' }],
-  ['2,8',   { base:[100,110,135], label:'STEEL WALL' }],
-  ['2,9',   { base:[100,110,135], label:'STEEL WALL' }],
-  ['2,17',  { base:[100,110,135], label:'STEEL WALL' }],
-  ['2,18',  { base:[100,110,135], label:'STEEL WALL' }],
-  ['2,19',  { base:[100,110,135], label:'STEEL WALL' }],
-  ['25,7',  { base:[100,110,135], label:'STEEL WALL' }],
-  ['25,8',  { base:[100,110,135], label:'STEEL WALL' }],
-  ['25,9',  { base:[100,110,135], label:'STEEL WALL' }],
-  ['25,17', { base:[100,110,135], label:'STEEL WALL' }],
-  ['25,18', { base:[100,110,135], label:'STEEL WALL' }],
-  ['25,19', { base:[100,110,135], label:'STEEL WALL' }],
+  // Inner maze corridors — dark concrete
+  ['8,10',  { base:W_DARK, label:'WALL' }],
+  ['8,11',  { base:W_DARK, label:'WALL' }],
+  ['8,16',  { base:W_DARK, label:'WALL' }],
+  ['8,17',  { base:W_DARK, label:'WALL' }],
+  ['19,10', { base:W_DARK, label:'WALL' }],
+  ['19,11', { base:W_DARK, label:'WALL' }],
+  ['19,16', { base:W_DARK, label:'WALL' }],
+  ['19,17', { base:W_DARK, label:'WALL' }],
+  ['10,8',  { base:W_DARK, label:'WALL' }],
+  ['11,8',  { base:W_DARK, label:'WALL' }],
+  ['16,8',  { base:W_DARK, label:'WALL' }],
+  ['17,8',  { base:W_DARK, label:'WALL' }],
+  ['10,19', { base:W_DARK, label:'WALL' }],
+  ['11,19', { base:W_DARK, label:'WALL' }],
+  ['16,19', { base:W_DARK, label:'WALL' }],
+  ['17,19', { base:W_DARK, label:'WALL' }],
 
-  // Steel walls — vertical outer segments (gaps at center)
-  ['7,2',   { base:[100,110,135], label:'STEEL WALL' }],
-  ['8,2',   { base:[100,110,135], label:'STEEL WALL' }],
-  ['9,2',   { base:[100,110,135], label:'STEEL WALL' }],
-  ['17,2',  { base:[100,110,135], label:'STEEL WALL' }],
-  ['18,2',  { base:[100,110,135], label:'STEEL WALL' }],
-  ['19,2',  { base:[100,110,135], label:'STEEL WALL' }],
-  ['7,25',  { base:[100,110,135], label:'STEEL WALL' }],
-  ['8,25',  { base:[100,110,135], label:'STEEL WALL' }],
-  ['9,25',  { base:[100,110,135], label:'STEEL WALL' }],
-  ['17,25', { base:[100,110,135], label:'STEEL WALL' }],
-  ['18,25', { base:[100,110,135], label:'STEEL WALL' }],
-  ['19,25', { base:[100,110,135], label:'STEEL WALL' }],
+  // Mid-zone pocket walls — warm stone
+  ['5,5',   { base:W_STONE, label:'WALL' }],
+  ['5,22',  { base:W_STONE, label:'WALL' }],
+  ['22,5',  { base:W_STONE, label:'WALL' }],
+  ['22,22', { base:W_STONE, label:'WALL' }],
+  ['11,11', { base:W_STONE, label:'WALL' }],
+  ['11,16', { base:W_STONE, label:'WALL' }],
+  ['16,11', { base:W_STONE, label:'WALL' }],
+  ['16,16', { base:W_STONE, label:'WALL' }],
 
-  // Bunker walls — inner maze cross-corridor segments
-  ['8,10',  { base:[55,60,70],    label:'BUNKER WALL' }],
-  ['8,11',  { base:[55,60,70],    label:'BUNKER WALL' }],
-  ['8,16',  { base:[55,60,70],    label:'BUNKER WALL' }],
-  ['8,17',  { base:[55,60,70],    label:'BUNKER WALL' }],
-  ['19,10', { base:[55,60,70],    label:'BUNKER WALL' }],
-  ['19,11', { base:[55,60,70],    label:'BUNKER WALL' }],
-  ['19,16', { base:[55,60,70],    label:'BUNKER WALL' }],
-  ['19,17', { base:[55,60,70],    label:'BUNKER WALL' }],
-  ['10,8',  { base:[55,60,70],    label:'BUNKER WALL' }],
-  ['11,8',  { base:[55,60,70],    label:'BUNKER WALL' }],
-  ['16,8',  { base:[55,60,70],    label:'BUNKER WALL' }],
-  ['17,8',  { base:[55,60,70],    label:'BUNKER WALL' }],
-  ['10,19', { base:[55,60,70],    label:'BUNKER WALL' }],
-  ['11,19', { base:[55,60,70],    label:'BUNKER WALL' }],
-  ['16,19', { base:[55,60,70],    label:'BUNKER WALL' }],
-  ['17,19', { base:[55,60,70],    label:'BUNKER WALL' }],
-
-  // Void walls — inner pocket walls creating dead-ends around center
-  ['11,11', { base:[80,30,120],   label:'VOID WALL' }],
-  ['11,16', { base:[80,30,120],   label:'VOID WALL' }],
-  ['16,11', { base:[80,30,120],   label:'VOID WALL' }],
-  ['16,16', { base:[80,30,120],   label:'VOID WALL' }],
-
-  // Barrier beacons — scattered mid-field singles (orange — easy to spot)
-  ['4,13',  { base:[210,95,10],   label:'BARRIER' }],
-  ['4,14',  { base:[210,95,10],   label:'BARRIER' }],
-  ['23,13', { base:[210,95,10],   label:'BARRIER' }],
-  ['23,14', { base:[210,95,10],   label:'BARRIER' }],
-  ['13,4',  { base:[210,95,10],   label:'BARRIER' }],
-  ['14,4',  { base:[210,95,10],   label:'BARRIER' }],
-  ['13,23', { base:[210,95,10],   label:'BARRIER' }],
-  ['14,23', { base:[210,95,10],   label:'BARRIER' }],
+  // Sandstone singles — axial choke points
+  ['4,13',  { base:W_SAND, label:'WALL' }],
+  ['4,14',  { base:W_SAND, label:'WALL' }],
+  ['23,13', { base:W_SAND, label:'WALL' }],
+  ['23,14', { base:W_SAND, label:'WALL' }],
+  ['13,4',  { base:W_SAND, label:'WALL' }],
+  ['14,4',  { base:W_SAND, label:'WALL' }],
+  ['13,23', { base:W_SAND, label:'WALL' }],
+  ['14,23', { base:W_SAND, label:'WALL' }],
+  ['10,14', { base:W_SAND, label:'WALL' }],
+  ['14,9',  { base:W_SAND, label:'WALL' }],
+  ['17,14', { base:W_SAND, label:'WALL' }],
+  ['14,19', { base:W_SAND, label:'WALL' }],
+  ['8,18',  { base:W_SAND, label:'WALL' }],
+  ['19,9',  { base:W_SAND, label:'WALL' }],
+  ['9,8',   { base:W_SAND, label:'WALL' }],
+  ['20,20', { base:W_SAND, label:'WALL' }],
 ])
 
 // ── Wall collision: returns true if position (grid units) hits a solid wall ──
@@ -309,21 +309,17 @@ function drawMinimap(ctx, gr, gc, angle, cellMap, presenceMap, myWallet, W, H, c
 function drawFacingHUD(ctx, W, H, fwdCell, fwdMx, fwdMy, myWallet, es, dist) {
   if (fwdMx < 0 || fwdMy < 0 || fwdMx >= COLS || fwdMy >= ROWS) return
 
-  // Decorative obstacle: show type name, no interaction
+  // Decorative obstacle: minimal label, no interaction
   if (fwdCell?.isObstacle) {
-    const hex = gridToBlockHex(fwdMy, fwdMx)
-    const [or,og,ob] = fwdCell.base || [40,25,65]
-    const color = `rgb(${or},${og},${ob})`
     const lines = [
-      { text: `⬙  ${hex}`, size: 13, weight: 'bold', col: color },
-      { text: fwdCell.label || 'STRUCTURE', size: 11, col: '#c7d8e2' },
-      { text: es ? '· no interactivo' : '· non-interactive', size: 10, col: '#5b7890' },
+      { text: es ? 'PARED' : 'WALL', size: 12, weight: 'bold', col: '#90a0b0' },
+      { text: es ? '· no interactivo' : '· non-interactive', size: 10, col: '#445566' },
     ]
-    const lineH=16, padX=9, padY=8, ph=lines.length*lineH+padY*2
-    const pw=Math.min(W*0.32,240), px=W-pw-8, py=8
-    ctx.globalAlpha=0.90; ctx.fillStyle='#010709'; ctx.fillRect(px,py,pw,ph); ctx.globalAlpha=1
-    ctx.lineWidth=1; ctx.strokeStyle=color+'55'; ctx.strokeRect(px,py,pw,ph)
-    ctx.fillStyle=color+'77'; ctx.fillRect(px,py,2,ph)
+    const lineH=15, padX=9, padY=7, ph=lines.length*lineH+padY*2
+    const pw=Math.min(W*0.32,180), px=W-pw-8, py=8
+    ctx.globalAlpha=0.80; ctx.fillStyle='#010709'; ctx.fillRect(px,py,pw,ph); ctx.globalAlpha=1
+    ctx.lineWidth=0.5; ctx.strokeStyle='#90a0b033'; ctx.strokeRect(px,py,pw,ph)
+    ctx.fillStyle='#90a0b055'; ctx.fillRect(px,py,2,ph)
     ctx.textAlign='left'; ctx.textBaseline='top'
     for (let i=0;i<lines.length;i++){
       const l=lines[i]; ctx.font=`${l.weight||'normal'} ${l.size}px monospace`
@@ -899,11 +895,12 @@ export default function MiningChain3DFPV({
 
     // Dynamic obstacles: deterministic scatter across entire open space (~10%)
     // Avoids perimeter, blocks, static obstacles, and anon spawn zone (center 5×5)
+    // Stone/concrete shades — visually distinct from colored market blocks
     const DYN = [
-      { base:[220,110,20],  label:'BARRIER' },    // bright orange
-      { base:[110,60,190],  label:'PILLAR' },     // bright purple
-      { base:[20,160,140],  label:'COLUMN' },     // bright teal
-      { base:[180,70,30],   label:'STRUT' },      // bright rust
+      { base:W_STONE, label:'WALL' },
+      { base:W_SLATE, label:'WALL' },
+      { base:W_SAND,  label:'WALL' },
+      { base:W_DARK,  label:'WALL' },
     ]
     for (let r = 2; r < ROWS-2; r++) {
       for (let c = 2; c < COLS-2; c++) {
