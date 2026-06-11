@@ -911,7 +911,8 @@ export default function MiningChain3DFPV({
           const wc = isHoriz ? c + i : c
           if (wr < 2 || wr >= ROWS-2 || wc < 2 || wc >= COLS-2) break
           const key = `${wr},${wc}`
-          if (!cellMap.has(key) && !valid.has(key)) valid.set(key, wallData)
+          // Owned blocks are respected; unclaimed/empty positions become walls
+          if (!cellMap.get(key)?.owner && !valid.has(key)) valid.set(key, wallData)
         }
       }
     }

@@ -71,7 +71,8 @@ export default function MiningChain3D() {
   const [playerLevel,   setPlayerLevel]   = useState(0)
   const [playerNftjiCount, setPlayerNftjiCount] = useState(0)
   const [myNftjis,      setMyNftjis]      = useState([])  // [{ emoji, level, blockKey, isActive }]
-  const marketRef = useRef([])  // persisted market data for NFTJI level lookups
+  const marketRef = useRef([])
+  const [marketLoaded, setMarketLoaded] = useState(false)
   const [facingCell,    setFacingCell]    = useState(null)
   const [receivedHitAt, setReceivedHitAt] = useState(0)
   const [swingMap,      setSwingMap]      = useState({})
@@ -144,6 +145,7 @@ export default function MiningChain3D() {
       })
       setCellMap(map)
       marketRef.current = market || []
+      setMarketLoaded(true)
 
       // Build wallet → { emoji, title } map for NFTJI panel
       const nftjis = {}
@@ -160,6 +162,7 @@ export default function MiningChain3D() {
   }, [])
 
   // Fetch own level + NFTJI collection for crit chance + ability bar
+  // Re-runs when market loads (marketLoaded) to resolve emojis correctly
   useEffect(() => {
     if (!myWallet) { setPlayerLevel(0); setPlayerNftjiCount(0); setMyNftjis([]); return }
     let mounted = true
@@ -175,15 +178,14 @@ export default function MiningChain3D() {
         const nftjis = Object.entries(levels)
           .map(([blockKey, level]) => {
             const mb = marketRef.current.find(m => m.block_key === blockKey)
-            return mb ? { emoji: mb.emoji || '⬡', level: Number(level) || 0, blockKey, isActive: blockKey === activeKey } : null
+            return { emoji: mb?.emoji || '⬡', level: Number(level) || 0, blockKey, isActive: blockKey === activeKey }
           })
-          .filter(Boolean)
           .sort((a, b) => b.level - a.level)
         setMyNftjis(nftjis)
         setPlayerNftjiCount(nftjis.length)
       }, () => {})
     return () => { mounted = false }
-  }, [myWallet])
+  }, [myWallet, marketLoaded])
 
   useEffect(() => {
     const spawn = getSpawnForWallet(myWallet)
