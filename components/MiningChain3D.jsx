@@ -68,6 +68,7 @@ export default function MiningChain3D() {
   const [onlineCount,   setOnlineCount]   = useState(0)
   const [facingCell,    setFacingCell]    = useState(null)
   const [receivedHitAt, setReceivedHitAt] = useState(0)
+  const [swingMap,      setSwingMap]      = useState({})
 
   // FPV gets wallets that are online AND have a known position (or self)
   const presenceMap = useMemo(() => {
@@ -175,11 +176,14 @@ export default function MiningChain3D() {
       }
     })
 
-    // PvP hit: victim sees the red flash effect too
+    // PvP hit: victim sees red flash; all spectators see attacker swing animation
     ch.on('broadcast', { event: 'pvp-hit' }, ({ payload }) => {
       const myK = myKeyRef.current, myW = myWalletRef.current
       if (payload?.victim && (payload.victim === myK || (myW && payload.victim === myW))) {
         setReceivedHitAt(Date.now())
+      }
+      if (payload?.attacker) {
+        setSwingMap(prev => ({ ...prev, [payload.attacker]: Date.now() }))
       }
     })
 
@@ -278,10 +282,10 @@ export default function MiningChain3D() {
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ attacker, victim, victimIsAnon }),
     }).catch(() => {})
-    // Broadcast hit so the victim's screen also flashes red
+    // Broadcast hit: victim flashes red, spectators see attacker swing
     channelRef.current?.send({
       type: 'broadcast', event: 'pvp-hit',
-      payload: { victim },
+      payload: { victim, attacker },
     })?.catch(() => {})
   }, [])
 
@@ -394,6 +398,7 @@ export default function MiningChain3D() {
             pvpStolen={pvpStolen}
             onChainSolveOpen={handleChainSolveOpen}
             externalPvpFlash={receivedHitAt}
+            swingMap={swingMap}
             es={es}
           />
         )}

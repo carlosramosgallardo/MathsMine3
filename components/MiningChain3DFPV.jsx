@@ -676,6 +676,7 @@ export default function MiningChain3DFPV({
   onPositionChange, onFacingChange, onWantNavigate, onPositionRealtime,
   onPvpHit, onAnonReset, pvpStolen,
   onChainSolveOpen, externalPvpFlash,
+  swingMap,
   es,
 }) {
   const canvasRef    = useRef(null)
@@ -720,6 +721,7 @@ export default function MiningChain3DFPV({
   const pvpStolenRef         = useRef(pvpStolen || {})
   const chainStatsRef        = useRef(null)
   const onChainSolveOpenRef  = useRef(onChainSolveOpen)
+  const swingMapRef          = useRef(swingMap || {})
   // Precomputed from cellMap: obstacle positions valid (≥2 cells from any block)
   // and the actual chain node grid position
   const validObstaclesRef   = useRef(new Set(OBSTACLE_MAP.keys()))
@@ -735,6 +737,7 @@ export default function MiningChain3DFPV({
   useEffect(()=>{ onAnonResetRef.current=onAnonReset },[onAnonReset])
   useEffect(()=>{ pvpStolenRef.current=pvpStolen||{} },[pvpStolen])
   useEffect(()=>{ onChainSolveOpenRef.current=onChainSolveOpen },[onChainSolveOpen])
+  useEffect(()=>{ swingMapRef.current=swingMap||{} },[swingMap])
   // External hit flash (victim sees red screen when struck by another player)
   useEffect(()=>{ if(externalPvpFlash) pvpFlashRef.current=performance.now() },[externalPvpFlash])
 
@@ -1052,7 +1055,9 @@ export default function MiningChain3DFPV({
         const pkBX = scrX + Math.round(walletW * 0.58)
         const pkBY = Math.round(foldY + walletH * 0.05)
         const pkL  = Math.max(5, Math.round(walletH * 0.55))
-        const pkA  = -2.05
+        const remoteSwingAge = Date.now() - (swingMapRef.current[w] || 0)
+        const remoteSwingT   = remoteSwingAge < SWING_DUR ? remoteSwingAge / SWING_DUR : 0
+        const pkA  = -2.05 + Math.sin(remoteSwingT * Math.PI) * 1.55
         const pkTX = pkBX + Math.cos(pkA)*pkL, pkTY = pkBY + Math.sin(pkA)*pkL
         ctx.globalAlpha = alpha * 0.82
         ctx.strokeStyle = '#8B5E3C'
@@ -1596,6 +1601,11 @@ export default function MiningChain3DFPV({
       if(!swinging) hitDoneRef.current=false
 
       if(notifRef.current&&(Date.now()-notifRef.current.startedAt)<2800) needsRender=true
+      // Keep rendering while any remote wallet swing animation is still playing
+      const now2=Date.now()
+      for(const t of Object.values(swingMapRef.current||{})){
+        if(now2-t<SWING_DUR){needsRender=true;break}
+      }
       // Always render when remote players are present so their movement is visible
       const hasRemotes = Object.keys(presenceRef.current||{}).some(
         w => w.toLowerCase() !== (myWalletRef.current||'').toLowerCase()
