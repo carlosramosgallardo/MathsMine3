@@ -30,11 +30,11 @@ const CHAIN_NODE_COL = 4
 
 // ── Decorative obstacles: solid walls, no doorways, not mineable ──────────────
 // Five visual types: monolith (violet), pylon (teal), ruin (rust), steel wall, bunker
-// Stone wall shades: light stone, slate, sandstone, dark concrete
-const W_STONE = [115, 108, 100]   // warm stone
-const W_SLATE = [90,  95, 105]    // cool slate
-const W_SAND  = [105, 98,  88]    // sandstone
-const W_DARK  = [65,  70,  78]    // dark concrete
+// Pure neutral grays — clearly "wall", nothing like the amber market blocks
+const W_STONE = [122, 120, 118]   // neutral mid-gray
+const W_SLATE = [85,  92, 105]    // blue-gray (cool)
+const W_SAND  = [108, 106, 102]   // warm gray
+const W_DARK  = [58,  62,  70]    // dark gray
 
 const OBSTACLE_MAP = new Map([
   // Outer wall segments — cool slate, form loose frame with gaps
@@ -893,22 +893,29 @@ export default function MiningChain3DFPV({
       if (!cellMap.has(key)) valid.set(key, data)
     }
 
-    // Dynamic obstacles: deterministic scatter across entire open space (~10%)
-    // Avoids perimeter, blocks, static obstacles, and anon spawn zone (center 5×5)
-    // Stone/concrete shades — visually distinct from colored market blocks
+    // Dynamic wall segments: sampled on a 4-cell grid, ~22% become wall origins
+    // Each origin spawns a 2–4 cell segment (horiz or vert) → looks like maze walls
     const DYN = [
       { base:W_STONE, label:'WALL' },
       { base:W_SLATE, label:'WALL' },
       { base:W_SAND,  label:'WALL' },
       { base:W_DARK,  label:'WALL' },
     ]
-    for (let r = 2; r < ROWS-2; r++) {
-      for (let c = 2; c < COLS-2; c++) {
-        if (Math.abs(r-14) <= 2 && Math.abs(c-14) <= 2) continue  // keep center spawn clear
-        const key = `${r},${c}`
-        if (cellMap.has(key) || valid.has(key)) continue
+    for (let r = 4; r < ROWS-4; r += 4) {
+      for (let c = 4; c < COLS-4; c += 4) {
+        if (Math.abs(r-14) <= 5 && Math.abs(c-14) <= 5) continue  // keep center zone free
         const h = (((r * 31 + c * 17) ^ (r * c * 7)) % 100 + 100) % 100
-        if (h < 10) valid.set(key, DYN[(r + c) % 4])
+        if (h >= 22) continue  // ~22% become wall origins
+        const isHoriz = ((r * 13 + c * 7) & 1) === 0
+        const len = 2 + ((r * 7 + c * 11) % 3)  // 2–4 cells
+        const wallData = DYN[(r + c) % 4]
+        for (let i = 0; i < len; i++) {
+          const wr = isHoriz ? r : r + i
+          const wc = isHoriz ? c + i : c
+          if (wr < 2 || wr >= ROWS-2 || wc < 2 || wc >= COLS-2) break
+          const key = `${wr},${wc}`
+          if (!cellMap.has(key) && !valid.has(key)) valid.set(key, wallData)
+        }
       }
     }
     validObstaclesRef.current = valid
