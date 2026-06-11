@@ -583,7 +583,8 @@ function drawMineProgress(ctx, W, H, progress, type) {
 }
 
 // ── MM3 Block Chain stats panel (bottom-left HUD) ───────────────────────────
-// ── Online wallets NFTJI panel (above chain stats, left side) ───────────────
+// ── NFTJI ability panel (above chain stats, left side) ───────────────────────
+// Shows each online wallet's equipped NFTJI — owning one unlocks crit hits
 function drawNftjiPanel(ctx, W, H, walletNftjis, presenceMap, es) {
   const items = []
   for (const [wallet, pres] of Object.entries(presenceMap || {})) {
@@ -591,49 +592,57 @@ function drawNftjiPanel(ctx, W, H, walletNftjis, presenceMap, es) {
     const isAnon = wallet.startsWith('anon-')
     const info = isAnon ? null : (walletNftjis || {})[wallet]
     items.push({
-      label: isAnon ? wallet.slice(0, 12) : `${wallet.slice(0,6)}…${wallet.slice(-4)}`,
+      label: isAnon ? wallet.slice(0, 10) : `${wallet.slice(0,6)}…${wallet.slice(-4)}`,
       emoji: info?.emoji || null,
+      title: info?.title || null,
       isAnon,
     })
   }
   if (!items.length) return
 
-  const LINE_H = 13, PAD_X = 8, PAD_Y = 5
+  const LINE_H = 15, PAD_X = 8, PAD_Y = 5
   const pw = 158
   const ph = (items.length + 1) * LINE_H + PAD_Y * 2
   const px = 6
   const isMobile = W < 600
-  const chainPh = 4 * 13 + 6 * 2 + 9  // matches drawChainStats height
+  const chainPh = 4 * 13 + 6 * 2 + 9
   const chainPy = H - chainPh - (isMobile ? 210 : 170)
   const py = chainPy - ph - 5
   if (py < 0) return
 
-  ctx.globalAlpha = 0.78
+  ctx.globalAlpha = 0.82
   ctx.fillStyle = '#010709'
   ctx.fillRect(px, py, pw, ph)
   ctx.globalAlpha = 1
   ctx.strokeStyle = '#fb923c33'; ctx.lineWidth = 0.5
   ctx.strokeRect(px, py, pw, ph)
-  ctx.fillStyle = '#fb923c88'
+  ctx.fillStyle = '#fb923c99'
   ctx.fillRect(px, py, 2, ph)
 
   ctx.font = 'bold 9px monospace'; ctx.textAlign = 'left'; ctx.textBaseline = 'top'
   ctx.fillStyle = '#fb923ccc'
-  ctx.fillText(es ? 'WALLETS ONLINE' : 'ONLINE WALLETS', px + PAD_X, py + PAD_Y)
+  ctx.fillText(es ? 'NFTJI · HABILIDADES' : 'NFTJI · ABILITIES', px + PAD_X, py + PAD_Y)
 
   for (let i = 0; i < items.length; i++) {
     const { label, emoji, isAnon } = items[i]
     const ly = py + PAD_Y + (i + 1) * LINE_H
+
     ctx.font = '9px monospace'; ctx.textAlign = 'left'
-    ctx.fillStyle = isAnon ? '#445566' : '#70879c'
+    ctx.fillStyle = isAnon ? '#334455' : (emoji ? '#90aabb' : '#556677')
     ctx.fillText(label, px + PAD_X, ly)
+
+    ctx.textAlign = 'right'
     if (emoji) {
-      ctx.font = '10px monospace'; ctx.textAlign = 'right'
-      ctx.fillStyle = '#fb923c'
-      ctx.fillText(emoji, px + pw - PAD_X, ly)
+      // Has NFTJI: show emoji + crit indicator
+      ctx.font = '11px serif'
+      ctx.fillStyle = '#ffffffff'
+      ctx.fillText(emoji, px + pw - PAD_X - 18, ly + 1)
+      ctx.font = 'bold 7px monospace'
+      ctx.fillStyle = '#ffd700cc'
+      ctx.fillText('CRIT', px + pw - PAD_X, ly + 3)
     } else if (!isAnon) {
-      ctx.font = '8px monospace'; ctx.textAlign = 'right'
-      ctx.fillStyle = '#334455'
+      ctx.font = '8px monospace'
+      ctx.fillStyle = '#2a3a4a'
       ctx.fillText('—', px + pw - PAD_X, ly)
     }
   }
@@ -1279,7 +1288,10 @@ export default function MiningChain3DFPV({
       }
     }
 
-    // ── Wall face overlays (text only — emoji handled by visibleWalls loop) ──
+    // ── Wall face overlays — ONLY for mineable blocks, never for structural walls ──
+    if (fwdCell?.isObstacle) {
+      // Structural wall: no labels, no hex, no prompts
+    } else {
     const isMineWall = myWallet && fwdCell?.owner?.toLowerCase() === myWallet.toLowerCase()
 
     // Block title on wall face (medium distance)
@@ -1342,7 +1354,7 @@ export default function MiningChain3DFPV({
     }
 
     // Inspect prompt when very close
-    if (fwdDist < 0.9 && fwdCell && !fwdCell.owner && !fwdCell.isObstacle) {
+    if (fwdDist < 0.9 && fwdCell && !fwdCell.owner) {
       ctx.font = 'bold 12px monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'top'
       if (fwdCell.isChainNode) {
         ctx.fillStyle = '#ffd700cc'
@@ -1352,6 +1364,8 @@ export default function MiningChain3DFPV({
         ctx.fillText(es ? '[ ↵ MINAR BLOQUE ]' : '[ ↵ MINE BLOCK ]', W/2, horizon+18)
       }
     }
+
+    } // end: block-only overlays (not obstacles)
 
     // ── Crosshair — brightens and expands when in interaction range ───────────
     const hasTarget  = fwdMx >= 0 && fwdMy >= 0 && fwdCell !== null
