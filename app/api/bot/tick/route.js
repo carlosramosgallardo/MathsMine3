@@ -102,6 +102,20 @@ const BOT_PRESENCE_SETTLE_MS = Math.max(0, Math.min(3000, Number(process.env.BOT
 const SQUEEZE_BATTLE_SETTLE_MS = 5200;
 const MARKET_NFTJI_LEVEL_BASE_PCT = 0.003;
 
+// ── 3D map bot session constants ──────────────────────────────────────────────
+const BOT_MAP_CHANNEL       = 'mm3-chain3d-v1';
+const BOT_MAP_STEPS_MIN     = 10;
+const BOT_MAP_STEPS_MAX     = 18;
+const BOT_MAP_STEP_MS_MIN   = 110;
+const BOT_MAP_STEP_MS_MAX   = 470;
+const BOT_MAP_PAUSE_CHANCE  = 0.18;  // probability of a longer human-like pause
+const BOT_MAP_PAUSE_MS_MIN  = 600;
+const BOT_MAP_PAUSE_MS_MAX  = 1800;
+const BOT_MAP_FINAL_MS_MIN  = 700;
+const BOT_MAP_FINAL_MS_MAX  = 1600;
+const BOT_MAP_SUBSCRIBE_TIMEOUT_MS = 5000;
+const BOT_MAP_SPAWN_MIN_DIST = 5;    // grid cells away from target to spawn
+
 function getMiningNftjiLevelBasePct(emoji) {
   if (emoji === WALLET_DECORATIONS.lucky1000) return 0.01;
   if (emoji === WALLET_DECORATIONS.lucky500) return 0.005;
@@ -271,6 +285,120 @@ async function insertBotPresenceTrace(supabase, wallet, tone) {
     kind: 'system',
     tone,
   });
+}
+
+// ── Bot 3D map presence simulation ───────────────────────────────────────────
+// Makes the bot visible in the 3D FPV view while it walks toward a block and
+// mines or buys it.  Uses a dedicated Supabase client so channel state doesn't
+// clash with the shared service client.
+async function simulateBotMapSession(supabase, wallet, targetRow, targetCol, poolCode) {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const svcKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !svcKey) return;
+
+  // Dedicated realtime client per session (avoids channel key conflicts)
+  const rtClient = createClient(url, svcKey);
+  rtClient.realtime.setAuth(svcKey);
+
+  // Spawn at a random position at least BOT_MAP_SPAWN_MIN_DIST cells away
+  let gx, gy;
+  let tries = 0;
+  do {
+    gx = 1.5 + Math.random() * 25;
+    gy = 1.5 + Math.random() * 25;
+    tries++;
+  } while (
+    Math.hypot(gx - (targetCol + 0.5), gy - (targetRow + 0.5)) < BOT_MAP_SPAWN_MIN_DIST &&
+    tries < 20
+  );
+
+  const key = wallet;
+  const ch = rtClient.channel(BOT_MAP_CHANNEL, {
+    config: { broadcast: { self: false }, presence: { key } },
+  });
+
+  let subscribed = false;
+  await new Promise((resolve) => {
+    const timer = setTimeout(resolve, BOT_MAP_SUBSCRIBE_TIMEOUT_MS);
+    ch.subscribe(async (status) => {
+      if (status === 'SUBSCRIBED') {
+        subscribed = true;
+        clearTimeout(timer);
+        await ch.track({
+          wallet: key,
+          gx: Math.round(gx * 100) / 100,
+          gy: Math.round(gy * 100) / 100,
+          row: Math.floor(gy),
+          col: Math.floor(gx),
+          poolCode: poolCode || null,
+        }).catch(() => {});
+        resolve();
+      } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+        clearTimeout(timer);
+        resolve();
+      }
+    });
+  });
+
+  if (!subscribed) {
+    rtClient.removeAllChannels();
+    return;
+  }
+
+  // Seed position in DB for late-joiners
+  await supabase.from('mm3_player_positions').upsert(
+    { wallet: key, gx: Math.round(gx * 100) / 100, gy: Math.round(gy * 100) / 100, updated_at: new Date().toISOString() },
+    { onConflict: 'wallet', ignoreDuplicates: false }
+  ).catch(() => {});
+
+  const broadcastPos = async () => {
+    const rx = Math.round(gx * 100) / 100;
+    const ry = Math.round(gy * 100) / 100;
+    await Promise.all([
+      ch.send({ type: 'broadcast', event: 'move', payload: { wallet: key, gx: rx, gy: ry } }).catch(() => {}),
+      supabase.from('mm3_player_positions').upsert(
+        { wallet: key, gx: rx, gy: ry, updated_at: new Date().toISOString() },
+        { onConflict: 'wallet', ignoreDuplicates: false }
+      ).catch(() => {}),
+    ]);
+  };
+
+  const steps = BOT_MAP_STEPS_MIN + Math.floor(Math.random() * (BOT_MAP_STEPS_MAX - BOT_MAP_STEPS_MIN + 1));
+  // Aim slightly off-center for a natural stopping position
+  const tgx = targetCol + 0.2 + Math.random() * 0.6;
+  const tgy = targetRow + 0.2 + Math.random() * 0.6;
+
+  for (let i = 0; i < steps; i++) {
+    const dx = tgx - gx, dy = tgy - gy;
+    const dist = Math.hypot(dx, dy);
+
+    if (dist > 1.0) {
+      // Walking toward target with noise
+      const speed = 0.55 + Math.random() * 0.85;
+      gx = Math.max(0.5, Math.min(27.5, gx + (dx / dist) * speed + (Math.random() - 0.5) * 0.55));
+      gy = Math.max(0.5, Math.min(27.5, gy + (dy / dist) * speed + (Math.random() - 0.5) * 0.55));
+    } else {
+      // Near target: small fidget
+      gx = Math.max(0.5, Math.min(27.5, gx + (Math.random() - 0.5) * 0.45));
+      gy = Math.max(0.5, Math.min(27.5, gy + (Math.random() - 0.5) * 0.45));
+    }
+
+    await broadcastPos();
+
+    const isPause = Math.random() < BOT_MAP_PAUSE_CHANCE;
+    const ms = isPause
+      ? BOT_MAP_PAUSE_MS_MIN + Math.floor(Math.random() * (BOT_MAP_PAUSE_MS_MAX - BOT_MAP_PAUSE_MS_MIN))
+      : BOT_MAP_STEP_MS_MIN + Math.floor(Math.random() * (BOT_MAP_STEP_MS_MAX - BOT_MAP_STEP_MS_MIN));
+    await new Promise(r => setTimeout(r, ms));
+  }
+
+  // Pause at destination — bot is "interacting" with the block
+  await new Promise(r => setTimeout(r,
+    BOT_MAP_FINAL_MS_MIN + Math.floor(Math.random() * (BOT_MAP_FINAL_MS_MAX - BOT_MAP_FINAL_MS_MIN))
+  ));
+
+  await ch.untrack().catch(() => {});
+  rtClient.removeAllChannels();
 }
 
 async function acceptPendingPoolInvites(supabase, wallet) {
@@ -726,6 +854,10 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
 
   const { startIso, endIso, dayKey } = getUtcDayBounds();
   const now = new Date().toISOString();
+
+  // 3D map session: one per tick max; pool code for friendly-fire grouping
+  let didMapSession = false;
+  const botMapPoolCode = BOT_POOL_MAP.get(normalizeWallet(wallet)) || null;
 
   // Mark bot as online at the start of execution
   await supabase.from('mm3_wallet_presence').upsert({
@@ -1272,6 +1404,12 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
     }
 
     if (targetBlock) {
+      // Bot enters the 3D map and walks to the target block before buying
+      if (!didMapSession && targetBlock.grid_row != null && targetBlock.grid_col != null) {
+        didMapSession = true;
+        await simulateBotMapSession(supabase, wallet, targetBlock.grid_row, targetBlock.grid_col, botMapPoolCode).catch(() => {});
+      }
+
       const targetCmdEntry = marketCommandFromBlock(targetBlock);
       const isMm3Payment = targetCmdEntry?.payment === 'mm3';
       const newPrice = Number(targetBlock.price_eur);
@@ -1690,6 +1828,13 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
     if (qualifying.length > 0) {
       const pick = qualifying[Math.floor(Math.random() * Math.min(qualifying.length, 10))];
       const grid = blockHexToGrid(pick.blockHex);
+
+      // Bot enters the 3D map and walks to the target block before mining
+      if (!didMapSession) {
+        didMapSession = true;
+        await simulateBotMapSession(supabase, wallet, grid.row, grid.col, botMapPoolCode).catch(() => {});
+      }
+
       const { data: lastChainRow } = await supabase.from('mm3_mined_blocks')
         .select('chain_index').order('chain_index', { ascending: false }).limit(1).maybeSingle();
       const chainIndex = (Number(lastChainRow?.chain_index) || 0) + 1;

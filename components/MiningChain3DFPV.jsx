@@ -1276,8 +1276,10 @@ export default function MiningChain3DFPV({
       W/2, 10
     )
 
-    // ── Facing block info HUD (top-right) ─────────────────────────────────────
-    drawFacingHUD(ctx, W, H, fwdCell, fwdMx, fwdMy, myWallet, es, fwdDist)
+    // ── Facing block info HUD (top-right) — only within 4 cells ──────────────
+    if (fwdDist <= 4.0) {
+      drawFacingHUD(ctx, W, H, fwdCell, fwdMx, fwdMy, myWallet, es, fwdDist)
+    }
 
     // ── First-person pickaxe ───────────────────────────────────────────────
     const swE  = performance.now() - swingStartRef.current
