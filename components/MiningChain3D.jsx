@@ -349,8 +349,8 @@ export default function MiningChain3D() {
     }
   }, [])
 
-  // Interaction range (must be within 2.5 cells to act on a block/element)
-  const INTERACT_DIST = 2.5
+  // Interaction range (must be within 2 cells to act on or inspect a block)
+  const INTERACT_DIST = 2.0
   const isInRange = !facingCell?.dist || facingCell.dist <= INTERACT_DIST
 
   // Derived facing cell info
@@ -413,7 +413,7 @@ export default function MiningChain3D() {
         padding:'6px 12px', minHeight:46, display:'flex', alignItems:'center',
         gap:8, flexWrap:'wrap', rowGap:4,
       }}>
-        {facingCell ? (
+        {facingCell && isInRange ? (
           <>
             {/* Block identity: emoji + hex + title */}
             <div style={{ display:'flex', alignItems:'center', gap:5, minWidth:0, flex:'0 0 auto' }}>

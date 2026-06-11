@@ -816,13 +816,13 @@ export default function MiningChain3DFPV({
       }
     }
     chainNodePosRef.current = { row: cnRow, col: cnCol }
-    // Keep only obstacles that have ≥2 cell clearance from every block
+    // Keep only obstacles that have ≥1 cell clearance from every block
     const valid = new Set()
     for (const [key] of OBSTACLE_MAP) {
       const [or, oc] = key.split(',').map(Number)
       let clear = true
-      outer: for (let dr = -2; dr <= 2; dr++) {
-        for (let dc = -2; dc <= 2; dc++) {
+      outer: for (let dr = -1; dr <= 1; dr++) {
+        for (let dc = -1; dc <= 1; dc++) {
           const nk = `${or+dr},${oc+dc}`
           if (cellMap.has(nk)) { clear = false; break outer }
         }
