@@ -29,7 +29,7 @@ export async function POST(req) {
   )
   const now = new Date().toISOString()
 
-  // Award kill bonus — rate-limited naturally by the 50-hit requirement per kill
+  // Award kill bonus — rate-limited naturally by the 100-hit requirement per kill
   const { data: ap } = await sb
     .from('player_progress')
     .select('eur_earned')

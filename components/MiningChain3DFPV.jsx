@@ -587,6 +587,63 @@ function drawMineProgress(ctx, W, H, progress, type) {
 }
 
 // ── MM3 Block Chain stats panel (bottom-left HUD) ───────────────────────────
+// ── Online wallets NFTJI panel (above chain stats, left side) ───────────────
+function drawNftjiPanel(ctx, W, H, walletNftjis, presenceMap, es) {
+  const items = []
+  for (const [wallet, pres] of Object.entries(presenceMap || {})) {
+    if (pres.row == null && pres.gy == null) continue
+    const isAnon = wallet.startsWith('anon-')
+    const info = isAnon ? null : (walletNftjis || {})[wallet]
+    items.push({
+      label: isAnon ? wallet.slice(0, 12) : `${wallet.slice(0,6)}…${wallet.slice(-4)}`,
+      emoji: info?.emoji || null,
+      isAnon,
+    })
+  }
+  if (!items.length) return
+
+  const LINE_H = 13, PAD_X = 8, PAD_Y = 5
+  const pw = 158
+  const ph = (items.length + 1) * LINE_H + PAD_Y * 2
+  const px = 6
+  const isMobile = W < 600
+  const chainPh = 4 * 13 + 6 * 2 + 9  // matches drawChainStats height
+  const chainPy = H - chainPh - (isMobile ? 210 : 170)
+  const py = chainPy - ph - 5
+  if (py < 0) return
+
+  ctx.globalAlpha = 0.78
+  ctx.fillStyle = '#010709'
+  ctx.fillRect(px, py, pw, ph)
+  ctx.globalAlpha = 1
+  ctx.strokeStyle = '#fb923c33'; ctx.lineWidth = 0.5
+  ctx.strokeRect(px, py, pw, ph)
+  ctx.fillStyle = '#fb923c88'
+  ctx.fillRect(px, py, 2, ph)
+
+  ctx.font = 'bold 9px monospace'; ctx.textAlign = 'left'; ctx.textBaseline = 'top'
+  ctx.fillStyle = '#fb923ccc'
+  ctx.fillText(es ? 'WALLETS ONLINE' : 'ONLINE WALLETS', px + PAD_X, py + PAD_Y)
+
+  for (let i = 0; i < items.length; i++) {
+    const { label, emoji, isAnon } = items[i]
+    const ly = py + PAD_Y + (i + 1) * LINE_H
+    ctx.font = '9px monospace'; ctx.textAlign = 'left'
+    ctx.fillStyle = isAnon ? '#445566' : '#70879c'
+    ctx.fillText(label, px + PAD_X, ly)
+    if (emoji) {
+      ctx.font = '10px monospace'; ctx.textAlign = 'right'
+      ctx.fillStyle = '#fb923c'
+      ctx.fillText(emoji, px + pw - PAD_X, ly)
+    } else if (!isAnon) {
+      ctx.font = '8px monospace'; ctx.textAlign = 'right'
+      ctx.fillStyle = '#334455'
+      ctx.fillText('—', px + pw - PAD_X, ly)
+    }
+  }
+  ctx.textAlign = 'left'; ctx.globalAlpha = 1
+}
+
 function drawChainStats(ctx, W, H, stats, es) {
   if (!stats) return
   const { owned, marketFree, marketOwned, total, pct } = stats
@@ -740,6 +797,7 @@ export default function MiningChain3DFPV({
   onChainSolveOpen, externalPvpFlash,
   swingMap, myPoolCode,
   anonKillMsg,
+  playerLevel, playerNftjiCount, walletNftjis,
   es,
 }) {
   const canvasRef    = useRef(null)
@@ -789,6 +847,10 @@ export default function MiningChain3DFPV({
   // Precomputed from cellMap: Map<key,{base,label}> of currently active obstacles
   const validObstaclesRef   = useRef(new Map(OBSTACLE_MAP))
   const chainNodePosRef     = useRef({ row: CHAIN_NODE_ROW, col: CHAIN_NODE_COL })
+  // Critical hit system
+  const critChanceRef       = useRef(0.05)
+  const critFlashRef        = useRef(-9999)
+  const walletNftjisRef     = useRef(walletNftjis || {})
 
   // Keep refs in sync with props
   useEffect(()=>{ cellMapRef.current=cellMap },[cellMap])
@@ -802,6 +864,14 @@ export default function MiningChain3DFPV({
   useEffect(()=>{ onChainSolveOpenRef.current=onChainSolveOpen },[onChainSolveOpen])
   useEffect(()=>{ swingMapRef.current=swingMap||{} },[swingMap])
   useEffect(()=>{ myPoolCodeRef.current=myPoolCode||null },[myPoolCode])
+  useEffect(()=>{ walletNftjisRef.current=walletNftjis||{} },[walletNftjis])
+  // Recompute crit chance from level + NFTJI count
+  useEffect(()=>{
+    const base = 0.05
+    const lvlBonus = Math.min(0.25, (playerLevel||0) * 0.001)
+    const nftBonus = Math.min(0.20, (playerNftjiCount||0) * 0.02)
+    critChanceRef.current = Math.min(0.50, base + lvlBonus + nftBonus)
+  },[playerLevel, playerNftjiCount])
   // External hit flash (victim sees red screen when struck by another player)
   useEffect(()=>{ if(externalPvpFlash) pvpFlashRef.current=performance.now() },[externalPvpFlash])
   // Kill notification from other players (spectator kill feed)
@@ -827,29 +897,39 @@ export default function MiningChain3DFPV({
       if (!cellMap.has(key)) valid.set(key, data)
     }
 
-    // Dynamic obstacles: fill empty cells that are 2-3 cells from each block
-    // Deterministic hash so layout is stable; ~18% of eligible cells
+    // Dynamic obstacles: deterministic scatter across entire open space (~10%)
+    // Avoids perimeter, blocks, static obstacles, and anon spawn zone (center 5×5)
     const DYN = [
-      { base:[68,78,92],  label:'STRUCTURE' },
-      { base:[52,58,68],  label:'STRUCTURE' },
-      { base:[78,65,48],  label:'STRUCTURE' },
+      { base:[220,110,20],  label:'BARRIER' },    // bright orange
+      { base:[110,60,190],  label:'PILLAR' },     // bright purple
+      { base:[20,160,140],  label:'COLUMN' },     // bright teal
+      { base:[180,70,30],   label:'STRUT' },      // bright rust
     ]
-    for (const [bKey] of cellMap) {
-      const [br, bc] = bKey.split(',').map(Number)
-      for (let dr = -3; dr <= 3; dr++) {
-        for (let dc = -3; dc <= 3; dc++) {
-          const ad = Math.abs(dr), ac = Math.abs(dc)
-          if (ad <= 1 && ac <= 1) continue // skip cells too close to block
-          const r = br + dr, c = bc + dc
-          if (r < 1 || r >= ROWS-1 || c < 1 || c >= COLS-1) continue
-          const key = `${r},${c}`
-          if (cellMap.has(key) || valid.has(key)) continue
-          const h = (((r * 31 + c * 17) ^ (r * c * 7)) % 100 + 100) % 100
-          if (h < 18) valid.set(key, DYN[(r + c) % 3])
-        }
+    for (let r = 2; r < ROWS-2; r++) {
+      for (let c = 2; c < COLS-2; c++) {
+        if (Math.abs(r-14) <= 2 && Math.abs(c-14) <= 2) continue  // keep center spawn clear
+        const key = `${r},${c}`
+        if (cellMap.has(key) || valid.has(key)) continue
+        const h = (((r * 31 + c * 17) ^ (r * c * 7)) % 100 + 100) % 100
+        if (h < 10) valid.set(key, DYN[(r + c) % 4])
       }
     }
     validObstaclesRef.current = valid
+
+    // Safety: ensure player is not spawned inside an obstacle after generation
+    const sgx = playerRef.current.x / CELL_SIZE
+    const sgy = playerRef.current.y / CELL_SIZE
+    if (valid.has(`${Math.floor(sgy)},${Math.floor(sgx)}`)) {
+      for (const [dr, dc] of [[0,0.7],[0,-0.7],[0.7,0],[-0.7,0],[0.7,0.7],[-0.7,0.7],[0.7,-0.7],[-0.7,-0.7]]) {
+        const nr = Math.floor(sgy+dr), nc = Math.floor(sgx+dc)
+        const tk = `${nr},${nc}`
+        if (!valid.has(tk) && !cellMap.has(tk)) {
+          playerRef.current.x = (sgx + dc) * CELL_SIZE
+          playerRef.current.y = (sgy + dr) * CELL_SIZE
+          break
+        }
+      }
+    }
   }, [cellMap])
 
   useEffect(()=>{
@@ -1400,6 +1480,24 @@ export default function MiningChain3DFPV({
       ctx.fillRect(0, 0, W, H)
     }
 
+    // ── Critical hit flash (gold screen vignette + CRIT! text) ────────────
+    const critAge = performance.now() - critFlashRef.current
+    if (critAge < 420) {
+      const ca = Math.max(0, 1 - critAge / 420)
+      const cg = ctx.createRadialGradient(W/2,H/2,H*0.05, W/2,H/2,H*0.65)
+      cg.addColorStop(0, `rgba(255,220,0,${(ca*0.22).toFixed(3)})`)
+      cg.addColorStop(1, `rgba(200,90,0,${(ca*0.35).toFixed(3)})`)
+      ctx.globalAlpha = 1
+      ctx.fillStyle = cg
+      ctx.fillRect(0, 0, W, H)
+      ctx.globalAlpha = ca
+      ctx.font = `bold ${Math.round(16 + ca * 6)}px monospace`
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
+      ctx.fillStyle = '#ffd700'
+      ctx.fillText('💥 CRIT!', W/2, H * HORIZON_RATIO - 58 - (1-ca)*18)
+      ctx.globalAlpha = 1
+    }
+
     // ── PvP gain popup ("+X EUR") ─────────────────────────────────────────
     const gain = pvpGainRef.current
     if (gain) {
@@ -1415,6 +1513,7 @@ export default function MiningChain3DFPV({
 
     drawMinimap(ctx,gr,gc,angle,cellMap,presence,myWallet,W,H,chainNodePosRef.current,validObstaclesRef.current)
     drawOnlineList(ctx,W,H,presence,myWallet,pvpStolenRef.current)
+    drawNftjiPanel(ctx,W,H,walletNftjisRef.current,presence,es)
     drawChainStats(ctx,W,H,chainStatsRef.current,es)
   }, [])
 
@@ -1655,18 +1754,23 @@ export default function MiningChain3DFPV({
           pvpFlashRef.current = performance.now()
 
           if(enemy.isAnon){
-            // Anon: track hits toward kill threshold (50), give small bounty per hit
+            // Crit roll: chance based on player level + NFTJI count
+            const isCrit = Math.random() < critChanceRef.current
+            const hitDmg = isCrit ? 3 : 1
+            if (isCrit) critFlashRef.current = performance.now()
+
             const prev = anonHitsRef.current[enemy.wallet] || 0
-            const next = prev + 1
+            const next = prev + hitDmg
             anonHitsRef.current[enemy.wallet] = next
             onPvpHitRef.current?.({ attacker: myWallet, victim: enemy.wallet, victimIsAnon: true })
-            if(next >= 50){
+            if(next >= 100){
               anonHitsRef.current[enemy.wallet] = 0
               onAnonKillRef.current?.(enemy.wallet)
               pvpGainRef.current = { text: '💀 KILL +2 EUR', at: performance.now() }
             } else {
-              const remaining = 50 - next
-              pvpGainRef.current = { text: `👊 +0.10  [${remaining} to kill]`, at: performance.now() }
+              const remaining = Math.max(0, 100 - next)
+              const prefix = isCrit ? '💥 CRIT! ' : '👊 '
+              pvpGainRef.current = { text: `${prefix}+0.10  [${remaining} to kill]`, at: performance.now() }
             }
           } else {
             // Logged wallet: call API for steal + daily task

@@ -67,6 +67,9 @@ export default function MiningChain3D() {
   const [loading,       setLoading]       = useState(true)
   const [onlineCount,   setOnlineCount]   = useState(0)
   const [anonKillMsg,   setAnonKillMsg]   = useState(null)
+  const [walletNftjis,  setWalletNftjis]  = useState({})
+  const [playerLevel,   setPlayerLevel]   = useState(0)
+  const [playerNftjiCount, setPlayerNftjiCount] = useState(0)
   const [facingCell,    setFacingCell]    = useState(null)
   const [receivedHitAt, setReceivedHitAt] = useState(0)
   const [swingMap,      setSwingMap]      = useState({})
@@ -138,11 +141,36 @@ export default function MiningChain3D() {
         titleEs: 'MM3 BLOCK CHAIN',
       })
       setCellMap(map)
+
+      // Build wallet → { emoji, title } map for NFTJI panel
+      const nftjis = {}
+      for (const o of owners || []) {
+        if (!o.mining_nftji_key) continue
+        const mb = (market || []).find(m => m.block_key === o.mining_nftji_key)
+        if (mb) nftjis[o.wallet.toLowerCase()] = { emoji: mb.emoji || '⬡', title: mb.title_en || o.mining_nftji_key }
+      }
+      setWalletNftjis(nftjis)
       setLoading(false)
     }
     load()
     return () => { mounted = false }
   }, [])
+
+  // Fetch own level + NFTJI count for crit chance calculation
+  useEffect(() => {
+    if (!myWallet) { setPlayerLevel(0); setPlayerNftjiCount(0); return }
+    let mounted = true
+    supabase.from('player_progress')
+      .select('level, mining_nftji_key')
+      .eq('wallet', myWallet)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (!mounted || !data) return
+        setPlayerLevel(Number(data.level) || 0)
+        setPlayerNftjiCount(data.mining_nftji_key ? 1 : 0)
+      }, () => {})
+    return () => { mounted = false }
+  }, [myWallet])
 
   useEffect(() => {
     const spawn = getSpawnForWallet(myWallet)
@@ -425,6 +453,9 @@ export default function MiningChain3D() {
             swingMap={swingMap}
             myPoolCode={myPoolCode}
             anonKillMsg={anonKillMsg}
+            playerLevel={playerLevel}
+            playerNftjiCount={playerNftjiCount}
+            walletNftjis={walletNftjis}
             es={es}
           />
         )}
