@@ -24,13 +24,38 @@ const DOOR_HI       = (1 + DOOR_FRAC) / 2   // 0.725
 const FOOTSTEP_DIST = MOVE_SPD * 10         // footstep every ~10 movement frames
 const SWING_DUR     = 340    // ms per pickaxe swing
 const HITS_NEEDED   = 5      // swings to complete mining action
-const CHAIN_NODE_ROW = 13
-const CHAIN_NODE_COL = 13
+const CHAIN_NODE_ROW = 4
+const CHAIN_NODE_COL = 4
+
+// ── Decorative obstacles: solid walls, no doorways, not mineable ──────────────
+// Three visual types: monolith (violet), pylon (teal), ruin (rust)
+const OBSTACLE_MAP = new Map([
+  // Violet monoliths — outer corners
+  ['5,5',   { base:[120,40,200], label:'MONOLITH' }],
+  ['5,22',  { base:[120,40,200], label:'MONOLITH' }],
+  ['22,5',  { base:[120,40,200], label:'MONOLITH' }],
+  ['22,22', { base:[120,40,200], label:'MONOLITH' }],
+  // Teal pylons — inner ring
+  ['10,14', { base:[30,150,140], label:'TECH PYLON' }],
+  ['14,9',  { base:[30,150,140], label:'TECH PYLON' }],
+  ['17,14', { base:[30,150,140], label:'TECH PYLON' }],
+  ['14,19', { base:[30,150,140], label:'TECH PYLON' }],
+  // Rust ruins — scattered mid-zones
+  ['8,18',  { base:[160,60,20],  label:'ANCIENT RUIN' }],
+  ['19,9',  { base:[160,60,20],  label:'ANCIENT RUIN' }],
+  ['9,8',   { base:[160,60,20],  label:'ANCIENT RUIN' }],
+  ['20,20', { base:[160,60,20],  label:'ANCIENT RUIN' }],
+])
 
 // ── Wall collision: returns true if position (grid units) hits a solid wall ──
-function hitsSolidWall(gx, gy) {
-  const fx = gx - Math.floor(gx)
-  const fy = gy - Math.floor(gy)
+// cellMap needed to distinguish empty corridors (passable) from block cells (doorways)
+function hitsSolidWall(gx, gy, cellMap) {
+  const col = Math.floor(gx), row = Math.floor(gy)
+  const key = `${row},${col}`
+  if (OBSTACLE_MAP.has(key)) return true   // Decorative obstacle: always solid
+  if (!cellMap?.has(key)) return false     // Empty corridor: always passable
+  // Block cell with data: standard centre-doorway collision
+  const fx = gx - col, fy = gy - row
   if (fx < PLAYER_R)     { if (fy < DOOR_LO || fy > DOOR_HI) return true }
   if (fx > 1-PLAYER_R)   { if (fy < DOOR_LO || fy > DOOR_HI) return true }
   if (fy < PLAYER_R)     { if (fx < DOOR_LO || fx > DOOR_HI) return true }
@@ -45,6 +70,11 @@ function hexToRgb(hex) {
 }
 
 function wallRgb(cell, dist, side, myWallet) {
+  if (cell?.isObstacle) {
+    const [r,g,b] = cell.base || [40,25,65]
+    const f = (side === 1 ? 0.72 : 1.0) * Math.max(0.14, 1 - dist * 0.055)
+    return [Math.round(r*f), Math.round(g*f), Math.round(b*f)]
+  }
   if (cell?.isChainNode) {
     const pulse = 0.60 + Math.sin(Date.now() / 300) * 0.40
     const f = (side === 1 ? 0.72 : 1.0) * Math.max(0.18, 1 - dist * 0.06) * pulse
@@ -97,9 +127,18 @@ function castRay(wx, wy, angle, cellMap) {
     else         { sdy+=ddy; my+=sy; side=1; perpDist=sdy-ddy }
     perpDist = Math.max(0.05, perpDist)
     if (mx<0||mx>=COLS||my<0||my>=ROWS) return {perpDist,cell:null,side,mx,my}
+    const key = `${my},${mx}`
+    // Decorative obstacle: solid wall, no doorway — always a hit
+    const obsData = OBSTACLE_MAP.get(key)
+    if (obsData) return {perpDist, cell:{isObstacle:true,base:obsData.base,label:obsData.label}, side, mx, my}
+    // Doorway check for block cells
     const hitFrac = (((side===0?py+perpDist*dy:px+perpDist*dx)%1.0)+1.0)%1.0
     const lo=(1-DOOR_FRAC)/2, hi=(1+DOOR_FRAC)/2
-    if (hitFrac<lo||hitFrac>hi) return {perpDist, cell:cellMap.get(`${my},${mx}`)||null, side, mx, my}
+    if (hitFrac<lo||hitFrac>hi) {
+      const cell = cellMap.get(key) || null
+      if (!cell) continue  // Empty corridor: ray passes through
+      return {perpDist, cell, side, mx, my}
+    }
   }
   return {perpDist:ROWS+COLS, cell:null, side:0, mx:-1, my:-1}
 }
@@ -118,8 +157,21 @@ function drawMinimap(ctx, gr, gc, angle, cellMap, presenceMap, myWallet, W, H) {
   ctx.strokeRect(MX-1,MY-1,SZ+2,SZ+2)
 
   for (let r=0;r<ROWS;r++) for (let c=0;c<COLS;c++) {
-    const cell = cellMap.get(`${r},${c}`)
-    ctx.fillStyle = cell?.owner ? cell.color+'bb' : cell?.isMarket ? C+'55' : '#0a1828'
+    const key = `${r},${c}`
+    const cell = cellMap.get(key)
+    const obs  = OBSTACLE_MAP.get(key)
+    if (obs) {
+      const [or,og,ob] = obs.base
+      ctx.fillStyle = `rgba(${or>>1},${og>>1},${ob>>1},0.85)`
+    } else if (cell?.owner) {
+      ctx.fillStyle = cell.color+'bb'
+    } else if (cell?.isMarket) {
+      ctx.fillStyle = C+'55'
+    } else if (cell?.isChainNode) {
+      ctx.fillStyle = '#ffd70033'
+    } else {
+      ctx.fillStyle = '#050810'  // open corridor: very dark
+    }
     ctx.fillRect(MX+c*CS, MY+r*CS, Math.ceil(CS), Math.ceil(CS))
     const isMyBlock = cell?.owner && myWallet && cell.owner.toLowerCase() === myWallet.toLowerCase()
     if (isMyBlock) {
@@ -176,6 +228,29 @@ function drawMinimap(ctx, gr, gc, angle, cellMap, presenceMap, myWallet, W, H) {
 // ── Facing block HUD (top-right info card) ────────────────────────────────────
 function drawFacingHUD(ctx, W, H, fwdCell, fwdMx, fwdMy, myWallet, es) {
   if (fwdMx < 0 || fwdMy < 0 || fwdMx >= COLS || fwdMy >= ROWS) return
+
+  // Decorative obstacle: show type name, no interaction
+  if (fwdCell?.isObstacle) {
+    const hex = gridToBlockHex(fwdMy, fwdMx)
+    const [or,og,ob] = fwdCell.base || [40,25,65]
+    const color = `rgb(${or},${og},${ob})`
+    const lines = [
+      { text: `⬙  ${hex}`, size: 13, weight: 'bold', col: color },
+      { text: fwdCell.label || 'STRUCTURE', size: 11, col: '#c7d8e2' },
+      { text: es ? '· no interactivo' : '· non-interactive', size: 10, col: '#5b7890' },
+    ]
+    const lineH=16, padX=9, padY=8, ph=lines.length*lineH+padY*2
+    const pw=Math.min(W*0.32,240), px=W-pw-8, py=8
+    ctx.globalAlpha=0.90; ctx.fillStyle='#010709'; ctx.fillRect(px,py,pw,ph); ctx.globalAlpha=1
+    ctx.lineWidth=1; ctx.strokeStyle=color+'55'; ctx.strokeRect(px,py,pw,ph)
+    ctx.fillStyle=color+'77'; ctx.fillRect(px,py,2,ph)
+    ctx.textAlign='left'; ctx.textBaseline='top'
+    for (let i=0;i<lines.length;i++){
+      const l=lines[i]; ctx.font=`${l.weight||'normal'} ${l.size}px monospace`
+      ctx.fillStyle=l.col; ctx.fillText(l.text,px+padX,py+padY+i*lineH,pw-padX*2)
+    }
+    return
+  }
 
   const hex   = fwdCell?.blockHex || gridToBlockHex(fwdMy, fwdMx)
   const title = fwdCell
@@ -771,6 +846,16 @@ export default function MiningChain3DFPV({
       ctx.fillRect(col*STRIP_W,wTop,STRIP_W,edgeH)
       ctx.fillRect(col*STRIP_W,wTop+wallH-edgeH,STRIP_W,edgeH)
 
+      // Obstacle structural pattern (horizontal panel lines)
+      if (cell?.isObstacle) {
+        const [or,og,ob] = cell.base || [40,25,65]
+        const panelH = Math.max(4, Math.round(wallH / 5))
+        for (let sy = wTop; sy < wTop + wallH; sy += panelH) {
+          ctx.fillStyle = `rgba(${Math.round(or*0.35)},${Math.round(og*0.35)},${Math.round(ob*0.35)},0.5)`
+          ctx.fillRect(col*STRIP_W, sy, STRIP_W, 1)
+        }
+      }
+
       // Chain node shimmer
       if (cell?.isChainNode) {
         const a = (0.14 + Math.sin(Date.now() / 420) * 0.10).toFixed(3)
@@ -1227,11 +1312,12 @@ export default function MiningChain3DFPV({
         const inBX=nx>R&&nx<WORLD_W-R, inBY=ny>R&&ny<WORLD_H-R
         const ngx=nx/CELL_SIZE, ngy=ny/CELL_SIZE
         const cgx=p.x/CELL_SIZE, cgy=p.y/CELL_SIZE
+        const cm=cellMapRef.current
         // Full move, else wall-slide on each axis independently
-        if(inBX&&inBY&&!hitsSolidWall(ngx,ngy)){ p.x=nx; p.y=ny }
+        if(inBX&&inBY&&!hitsSolidWall(ngx,ngy,cm)){ p.x=nx; p.y=ny }
         else{
-          if(inBX&&!hitsSolidWall(ngx,cgy)) p.x=nx
-          if(inBY&&!hitsSolidWall(cgx,ngy)) p.y=ny
+          if(inBX&&!hitsSolidWall(ngx,cgy,cm)) p.x=nx
+          if(inBY&&!hitsSolidWall(cgx,ngy,cm)) p.y=ny
         }
         walkDistRef.current+=MOVE_SPD
         needsRender=true
@@ -1292,8 +1378,10 @@ export default function MiningChain3DFPV({
         // Reset progress when target changes
         mineProgressRef.current=0; mineTargetRef.current=null
         if(fmx>=0&&fmy>=0){
-          onFacingChange?.(fmy,fmx,fc)
-          if(fc){
+          if(!fc?.isObstacle) onFacingChange?.(fmy,fmx,fc)
+          if(fc?.isObstacle){
+            actionUrlRef.current=null; mineTypeRef.current='empty'
+          } else if(fc){
             if(fc.isChainNode){
               actionUrlRef.current=null
               mineTypeRef.current='empty'

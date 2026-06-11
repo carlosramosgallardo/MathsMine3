@@ -17,8 +17,8 @@ import ChainSolveCard from './ChainSolveCard'
 
 const C = '#22d3ee'
 const CHAIN3D_CHANNEL = 'mm3-chain3d-v1'
-const CHAIN_NODE_ROW = 13
-const CHAIN_NODE_COL = 13
+const CHAIN_NODE_ROW = 4
+const CHAIN_NODE_COL = 4
 
 function getRandomLoggedSpawn() {
   return {
