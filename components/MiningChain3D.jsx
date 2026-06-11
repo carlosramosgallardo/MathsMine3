@@ -69,6 +69,7 @@ export default function MiningChain3D() {
   const [facingCell,    setFacingCell]    = useState(null)
   const [receivedHitAt, setReceivedHitAt] = useState(0)
   const [swingMap,      setSwingMap]      = useState({})
+  const [myPoolCode,    setMyPoolCode]    = useState(null)
 
   // FPV gets wallets that are online AND have a known position (or self)
   const presenceMap = useMemo(() => {
@@ -242,6 +243,7 @@ export default function MiningChain3D() {
         supabase.from('mm3_player_positions').select('wallet, gx, gy'),
       ])
       const myPoolCode = poolRes?.data?.pool_code || null
+      setMyPoolCode(myPoolCode)
       // Re-track with pool code now that we have it
       if (myW && myPoolCode) {
         const { row: r2, col: c2 } = myPosRef.current
@@ -399,6 +401,7 @@ export default function MiningChain3D() {
             onChainSolveOpen={handleChainSolveOpen}
             externalPvpFlash={receivedHitAt}
             swingMap={swingMap}
+            myPoolCode={myPoolCode}
             es={es}
           />
         )}

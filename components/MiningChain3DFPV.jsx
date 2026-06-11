@@ -676,7 +676,7 @@ export default function MiningChain3DFPV({
   onPositionChange, onFacingChange, onWantNavigate, onPositionRealtime,
   onPvpHit, onAnonReset, pvpStolen,
   onChainSolveOpen, externalPvpFlash,
-  swingMap,
+  swingMap, myPoolCode,
   es,
 }) {
   const canvasRef    = useRef(null)
@@ -722,6 +722,7 @@ export default function MiningChain3DFPV({
   const chainStatsRef        = useRef(null)
   const onChainSolveOpenRef  = useRef(onChainSolveOpen)
   const swingMapRef          = useRef(swingMap || {})
+  const myPoolCodeRef        = useRef(myPoolCode || null)
   // Precomputed from cellMap: obstacle positions valid (≥2 cells from any block)
   // and the actual chain node grid position
   const validObstaclesRef   = useRef(new Set(OBSTACLE_MAP.keys()))
@@ -738,6 +739,7 @@ export default function MiningChain3DFPV({
   useEffect(()=>{ pvpStolenRef.current=pvpStolen||{} },[pvpStolen])
   useEffect(()=>{ onChainSolveOpenRef.current=onChainSolveOpen },[onChainSolveOpen])
   useEffect(()=>{ swingMapRef.current=swingMap||{} },[swingMap])
+  useEffect(()=>{ myPoolCodeRef.current=myPoolCode||null },[myPoolCode])
   // External hit flash (victim sees red screen when struck by another player)
   useEffect(()=>{ if(externalPvpFlash) pvpFlashRef.current=performance.now() },[externalPvpFlash])
 
@@ -1286,15 +1288,17 @@ export default function MiningChain3DFPV({
     // ── Enemy in crosshair indicator ──────────────────────────────────────
     const enemy = enemyTargetRef.current
     if (enemy?.wallet) {
+      const isTeam = enemy.isTeammate
+      const ringCol = isTeam ? '#4ade80' : '#ef4444'
       ctx.globalAlpha = 0.55
-      ctx.strokeStyle = '#ef4444'; ctx.lineWidth = 1.5
+      ctx.strokeStyle = ringCol; ctx.lineWidth = 1.5
       const xh = W/2, yh = H * HORIZON_RATIO
       const r2 = 18
       ctx.beginPath(); ctx.arc(xh, yh, r2, 0, Math.PI*2); ctx.stroke()
       ctx.globalAlpha = 0.40
-      ctx.fillStyle = '#ef4444'
+      ctx.fillStyle = ringCol
       ctx.font = 'bold 10px monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'top'
-      ctx.fillText('⚔', xh, yh + r2 + 3)
+      ctx.fillText(isTeam ? '🛡' : '⚔', xh, yh + r2 + 3)
       ctx.globalAlpha = 1
     }
 
@@ -1497,7 +1501,10 @@ export default function MiningChain3DFPV({
         if (tY < 0.15 || tY > INTERACT_DIST) continue
         const tX = -Math.sin(p.angle)*rx + Math.cos(p.angle)*ry
         if (Math.abs(tX / tY) > 0.28) continue
-        if (tY < closestDist) { closestDist = tY; closestEnemy = { wallet: w, dist: tY, isAnon: w.startsWith('anon-') } }
+        const enemyPool    = presenceRef.current[w]?.poolCode || null
+        const myPool       = myPoolCodeRef.current
+        const isTeammate   = !!(myPool && enemyPool && myPool === enemyPool)
+        if (tY < closestDist) { closestDist = tY; closestEnemy = { wallet: w, dist: tY, isAnon: w.startsWith('anon-'), isTeammate } }
       }
       enemyTargetRef.current = closestEnemy
 
@@ -1556,7 +1563,7 @@ export default function MiningChain3DFPV({
         const myWallet = myWalletRef.current
         const enemy = enemyTargetRef.current
 
-        if(enemy?.wallet && myWallet && !myWallet.startsWith('anon-')){
+        if(enemy?.wallet && myWallet && !myWallet.startsWith('anon-') && !enemy.isTeammate){
           // ── PvP hit ──────────────────────────────────────────────────────
           playPickHit(audioCtxRef,'nftji')
           pvpFlashRef.current = performance.now()
