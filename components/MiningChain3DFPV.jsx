@@ -1314,17 +1314,21 @@ export default function MiningChain3DFPV({
     }
 
     // Hex address label (scales with proximity)
-    const fwdHex = fwdMx>=0&&fwdMy>=0 ? (fwdCell?.blockHex||gridToBlockHex(fwdMy,fwdMx)) : null
+    // Only draw when fwdCell has real data AND label position stays below the obstacle ceiling zone
+    const fwdHex = fwdMx>=0&&fwdMy>=0&&fwdCell ? (fwdCell.blockHex||gridToBlockHex(fwdMy,fwdMx)) : null
     if (fwdHex && fwdDist < 2.0) {
       const a   = Math.max(0,(2.0-fwdDist)/2.0)*0.52
       const wH  = Math.min(H*1.8,H*PROJ_DIST/Math.max(0.1,fwdDist))
-      const fs  = Math.max(9,Math.round(14*PROJ_DIST/Math.max(0.3,fwdDist)))
-      ctx.globalAlpha = a
-      ctx.font = `bold ${fs}px monospace`
-      ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
-      ctx.fillStyle = fwdCell?.color || C
-      ctx.fillText(fwdHex, W/2, horizon - wH*0.32)
-      ctx.globalAlpha = 1
+      const labelY = horizon - wH*0.32
+      if (labelY > H * 0.12) {  // skip if label would land in the top 12% (obstacle ceiling zone)
+        const fs  = Math.max(9,Math.round(14*PROJ_DIST/Math.max(0.3,fwdDist)))
+        ctx.globalAlpha = a
+        ctx.font = `bold ${fs}px monospace`
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
+        ctx.fillStyle = fwdCell.color || C
+        ctx.fillText(fwdHex, W/2, labelY)
+        ctx.globalAlpha = 1
+      }
     }
 
     // Owner label on wall (near distance)
