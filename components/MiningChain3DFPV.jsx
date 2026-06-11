@@ -1058,25 +1058,24 @@ export default function MiningChain3DFPV({
         }
       }
 
-      // Cube top highlight — bright ledge at wall top
-      if (wallH > 8) {
-        const hlH = Math.max(2, Math.round(wallH*0.035))
-        ctx.fillStyle = 'rgba(255,255,255,0.14)'
-        ctx.fillRect(col*STRIP_W, wTop, STRIP_W, hlH)
-      }
-
-      // Ambient-occlusion edges
-      const edgeH = Math.max(2,Math.round(wallH*0.12))
-      ctx.fillStyle='rgba(0,0,0,0.28)'
-      ctx.fillRect(col*STRIP_W,wTop,STRIP_W,edgeH)
-      ctx.fillRect(col*STRIP_W,wTop+wallH-edgeH,STRIP_W,edgeH)
-
-      // Obstacle structural pattern (horizontal panel lines)
-      if (cell?.isObstacle) {
-        const [or,og,ob] = cell.base || [40,25,65]
-        const panelH = Math.max(4, Math.round(wallH / 5))
+      if (!cell?.isObstacle) {
+        // Cube top highlight — bright ledge (blocks only, not walls)
+        if (wallH > 8) {
+          const hlH = Math.max(2, Math.round(wallH*0.035))
+          ctx.fillStyle = 'rgba(255,255,255,0.14)'
+          ctx.fillRect(col*STRIP_W, wTop, STRIP_W, hlH)
+        }
+        // Ambient-occlusion edges (blocks only — walls are continuous, no float)
+        const edgeH = Math.max(2,Math.round(wallH*0.12))
+        ctx.fillStyle='rgba(0,0,0,0.28)'
+        ctx.fillRect(col*STRIP_W,wTop,STRIP_W,edgeH)
+        ctx.fillRect(col*STRIP_W,wTop+wallH-edgeH,STRIP_W,edgeH)
+      } else {
+        // Obstacle wall: horizontal mortar lines only — looks like stone/concrete
+        const [or,og,ob] = cell.base
+        const panelH = Math.max(5, Math.round(wallH / 4))
         for (let sy = wTop; sy < wTop + wallH; sy += panelH) {
-          ctx.fillStyle = `rgba(${Math.round(or*0.35)},${Math.round(og*0.35)},${Math.round(ob*0.35)},0.5)`
+          ctx.fillStyle = `rgba(${Math.round(or*0.25)},${Math.round(og*0.25)},${Math.round(ob*0.25)},0.6)`
           ctx.fillRect(col*STRIP_W, sy, STRIP_W, 1)
         }
       }
@@ -1088,15 +1087,17 @@ export default function MiningChain3DFPV({
         ctx.fillRect(col*STRIP_W, wTop, STRIP_W, wallH)
       }
 
-      // Forward-cell selection glow
-      if (hitMx===fwdMx && hitMy===fwdMy && fwdMx>=0 && cell){
+      // Forward-cell selection glow — blocks only, never walls
+      if (hitMx===fwdMx && hitMy===fwdMy && fwdMx>=0 && cell && !cell.isObstacle){
         ctx.fillStyle='rgba(34,211,238,0.11)'
         ctx.fillRect(col*STRIP_W,wTop,STRIP_W,wallH)
       }
 
-      // CRT scanlines on walls
-      ctx.fillStyle='rgba(0,0,0,0.10)'
-      for (let sy=wTop;sy<wTop+wallH;sy+=4) ctx.fillRect(col*STRIP_W,sy,STRIP_W,1)
+      // CRT scanlines on blocks only (not structural walls)
+      if (!cell?.isObstacle) {
+        ctx.fillStyle='rgba(0,0,0,0.10)'
+        for (let sy=wTop;sy<wTop+wallH;sy+=4) ctx.fillRect(col*STRIP_W,sy,STRIP_W,1)
+      }
     }
 
     // ── Emoji on all visible wall faces ──────────────────────────────────────
@@ -1334,7 +1335,7 @@ export default function MiningChain3DFPV({
     }
 
     // Inspect prompt when very close
-    if (fwdDist < 0.9 && fwdCell && !fwdCell.owner) {
+    if (fwdDist < 0.9 && fwdCell && !fwdCell.owner && !fwdCell.isObstacle) {
       ctx.font = 'bold 12px monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'top'
       if (fwdCell.isChainNode) {
         ctx.fillStyle = '#ffd700cc'
