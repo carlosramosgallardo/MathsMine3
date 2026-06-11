@@ -976,16 +976,18 @@ export default function MiningChain3DFPV({
     for (const { w, tX, tY, color } of sprites) {
       const scrX = Math.round(W/2*(1+tX/tY))
       const [cr,cg2,cb] = hexToRgb(color)
-      const fade  = Math.max(0.30, 1 - tY*0.055)
-      const alpha = Math.min(0.98, Math.max(0, 1.0 - tY*0.04))
+      const fade  = Math.max(0.32, 1 - tY*0.038)   // slower darkening at distance
+      const alpha = Math.min(0.98, Math.max(0.12, 1.0 - tY*0.028)) // visible up to ~30 cells
 
       // Perspective-correct grounding: cellScale = 1-cell pixel height at tY distance
       // bottomY = floor level at this depth (same formula as wall bottom = horizon + wallH/2)
+      // sScale boosts sprite size 40% above wall-cell scale for better distance visibility
       const cellScale = Math.min(H*1.8, H*PROJ_DIST/Math.max(0.05, tY))
       const bottomY   = Math.min(H+30, Math.round(horizon + cellScale * 0.50))
-      const walletH   = Math.round(cellScale * 0.58)
-      const walletW   = Math.round(cellScale * 0.50)
-      const billsH    = Math.round(cellScale * 0.20)
+      const sScale    = cellScale * 1.40
+      const walletH   = Math.round(sScale * 0.58)
+      const walletW   = Math.round(sScale * 0.50)
+      const billsH    = Math.round(sScale * 0.20)
       const billsW    = Math.round(walletW * 0.44)
       const walletTop = bottomY - walletH
       const billsTop  = walletTop - billsH
@@ -1078,8 +1080,8 @@ export default function MiningChain3DFPV({
       }
 
       // Floor shadow ellipse (at actual floor level)
-      if (tY < 5.0) {
-        const sAlpha = Math.max(0, (5.0-tY)/5.0)*0.28
+      if (tY < 8.0) {
+        const sAlpha = Math.max(0, (8.0-tY)/8.0)*0.28
         const sw = Math.max(4, Math.round(walletW*0.85))
         const sh = Math.max(2, Math.round(sw*0.18))
         ctx.globalAlpha = sAlpha; ctx.fillStyle = '#000'
@@ -1089,8 +1091,8 @@ export default function MiningChain3DFPV({
       }
 
       // Wallet label above bills
-      if (tY < 7.0) {
-        const lAlpha = Math.max(0, (7.0-tY)/7.0)*0.88
+      if (tY < 10.0) {
+        const lAlpha = Math.max(0, (10.0-tY)/10.0)*0.88
         const lSize  = Math.max(10, Math.round(13/Math.max(0.5, tY)))
         const pres   = (presence||{})[w]
         const pool   = pres?.poolCode
@@ -1100,7 +1102,7 @@ export default function MiningChain3DFPV({
         ctx.fillText(`${w.slice(0,6)}…${w.slice(-4)}`, scrX+1, billsTop-1)
         ctx.globalAlpha = lAlpha; ctx.fillStyle = color
         ctx.fillText(`${w.slice(0,6)}…${w.slice(-4)}`, scrX, billsTop-2)
-        if (pool && tY < 5.0) {
+        if (pool && tY < 7.0) {
           const pSize = Math.max(8, lSize-2)
           ctx.globalAlpha = lAlpha*0.75; ctx.font = `bold ${pSize}px monospace`
           ctx.fillStyle = '#f59e0b'
