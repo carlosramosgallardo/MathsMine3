@@ -17,6 +17,15 @@ import ChainSolveCard from './ChainSolveCard'
 
 const C = '#22d3ee'
 const CHAIN3D_CHANNEL = 'mm3-chain3d-v1'
+
+// Trade/wallet NFTJIs — matches TRADE_SLOT_ORDER in wallet-decorations.js
+const TRADE_NFTJI_DEFS = [
+  { key: 'lucky50',   emoji: '🔮', field: 'lucky_50_level'   },
+  { key: 'lucky100',  emoji: '🍀', field: 'lucky_100_level'  },
+  { key: 'lucky500',  emoji: '🎰', field: 'lucky_500_level'  },
+  { key: 'lucky1000', emoji: '🧿', field: 'lucky_1000_level' },
+  { key: 'revive',    emoji: '❤️', field: null                },
+]
 const CHAIN_NODE_ROW = 4
 const CHAIN_NODE_COL = 4
 
@@ -161,29 +170,52 @@ export default function MiningChain3D() {
     return () => { mounted = false }
   }, [])
 
-  // Fetch own level + NFTJI collection for crit chance + ability bar
-  // Re-runs when market loads (marketLoaded) to resolve emojis correctly
+  // Fetch own level + ALL NFTJIs (trade, mining, squeeze) for crit chance + ability bar
+  // Re-runs when market loads (marketLoaded) to resolve mining NFTJI emojis correctly
   useEffect(() => {
     if (!myWallet) { setPlayerLevel(0); setPlayerNftjiCount(0); setMyNftjis([]); return }
     let mounted = true
-    supabase.from('player_progress')
-      .select('level, mining_nftji_key, mining_nftji_levels')
-      .eq('wallet', myWallet)
-      .maybeSingle()
-      .then(({ data }) => {
-        if (!mounted || !data) return
-        setPlayerLevel(Number(data.level) || 0)
-        const levels = data.mining_nftji_levels || {}
-        const activeKey = data.mining_nftji_key || null
-        const nftjis = Object.entries(levels)
-          .map(([blockKey, level]) => {
-            const mb = marketRef.current.find(m => m.block_key === blockKey)
-            return { emoji: mb?.emoji || '⬡', level: Number(level) || 0, blockKey, isActive: blockKey === activeKey }
-          })
-          .sort((a, b) => b.level - a.level)
-        setMyNftjis(nftjis)
-        setPlayerNftjiCount(nftjis.length)
-      }, () => {})
+    ;(async () => {
+      const [{ data: pp }, { data: sq }] = await Promise.all([
+        supabase.from('player_progress')
+          .select('level,mining_nftji_key,mining_nftji_levels,wallet_emojis,lucky_50_level,lucky_100_level,lucky_500_level,lucky_1000_level')
+          .eq('wallet', myWallet).maybeSingle(),
+        supabase.from('mm3_squeezing_nftji')
+          .select('equipped,attack_level,defense_level')
+          .eq('wallet', myWallet).maybeSingle(),
+      ])
+      if (!mounted || !pp) return
+      setPlayerLevel(Number(pp.level) || 0)
+
+      // Mining NFTJIs (from mm3_mining_blocks claimed blocks)
+      const levels = pp.mining_nftji_levels || {}
+      const activeKey = pp.mining_nftji_key || null
+      const miningNftjis = Object.entries(levels)
+        .map(([blockKey, level]) => {
+          const mb = marketRef.current.find(m => m.block_key === blockKey)
+          return { emoji: mb?.emoji || '⬡', level: Number(level) || 0, blockKey, isActive: blockKey === activeKey }
+        })
+        .sort((a, b) => b.level - a.level)
+
+      // Trade/wallet NFTJIs (🔮🍀🎰🧿❤️ from wallet_emojis)
+      const walletEmojis = Array.isArray(pp.wallet_emojis) ? pp.wallet_emojis : []
+      const tradeNftjis = TRADE_NFTJI_DEFS
+        .filter(s => walletEmojis.includes(s.emoji))
+        .map(s => ({ emoji: s.emoji, level: s.field ? Math.max(0, Number(pp[s.field] ?? 0)) : 0, blockKey: s.key, isActive: false }))
+
+      // Squeeze NFTJIs (⚔️🔰 from mm3_squeezing_nftji)
+      const squeezeNftjis = []
+      if (sq) {
+        if ((sq.attack_level ?? -1) >= 0)
+          squeezeNftjis.push({ emoji: '⚔️', level: Math.max(0, Number(sq.attack_level ?? 0)), blockKey: 'sq-atk', isActive: sq.equipped === 'attack' })
+        if ((sq.defense_level ?? -1) >= 0)
+          squeezeNftjis.push({ emoji: '🔰', level: Math.max(0, Number(sq.defense_level ?? 0)), blockKey: 'sq-def', isActive: sq.equipped === 'defense' })
+      }
+
+      const allNftjis = [...tradeNftjis, ...miningNftjis, ...squeezeNftjis]
+      setMyNftjis(allNftjis)
+      setPlayerNftjiCount(allNftjis.length)
+    })()
     return () => { mounted = false }
   }, [myWallet, marketLoaded])
 

@@ -911,8 +911,8 @@ export default function MiningChain3DFPV({
           const wc = isHoriz ? c + i : c
           if (wr < 2 || wr >= ROWS-2 || wc < 2 || wc >= COLS-2) break
           const key = `${wr},${wc}`
-          // Owned blocks are respected; unclaimed/empty positions become walls
-          if (!cellMap.get(key)?.owner && !valid.has(key)) valid.set(key, wallData)
+          // Only fill truly empty positions — never override NFTJI/mined blocks
+          if (!cellMap.has(key) && !valid.has(key)) valid.set(key, wallData)
         }
       }
     }
@@ -1009,7 +1009,13 @@ export default function MiningChain3DFPV({
     }
 
     // Pre-compute forward cell
-    const {mx:fwdMx,my:fwdMy,cell:fwdCell,perpDist:fwdDist} = castRay(px,py+bob,angle,cellMap,validObstaclesRef.current)
+    const {mx:fwdMx,my:fwdMy,cell:fwdCell,perpDist:fwdDist,side:fwdSide} = castRay(px,py+bob,angle,cellMap,validObstaclesRef.current)
+    // Only fire HUD when the ray hit a clearly solid face (not near the doorway boundary).
+    // Near-doorway hits produce thin slivers the player barely notices — suppress the HUD there.
+    const _fgx=px/CELL_SIZE,_fgy=(py+bob)/CELL_SIZE
+    const _fR=fwdSide===0?(_fgy+fwdDist*Math.sin(angle)):(_fgx+fwdDist*Math.cos(angle))
+    const _fHF=((_fR%1)+1)%1
+    const fwdFaceSolid=_fHF<(DOOR_LO-0.08)||_fHF>(DOOR_HI+0.08)
 
     // Collect cells with emoji visible on any wall face
     const visibleWalls = new Map()
@@ -1281,7 +1287,7 @@ export default function MiningChain3DFPV({
     const fwdIsObs = fwdCell?.isObstacle || validObstaclesRef.current?.has(`${fwdMy},${fwdMx}`)
     if (fwdIsObs) {
       // Structural wall: no labels, no hex, no prompts
-    } else {
+    } else if (fwdFaceSolid) {
     const isMineWall = myWallet && fwdCell?.owner?.toLowerCase() === myWallet.toLowerCase()
 
     // Block title on wall face (medium distance)
@@ -1455,7 +1461,13 @@ export default function MiningChain3DFPV({
 
     // ── Facing block info HUD (top-right) — only within 2 cells ──────────────
     if (fwdDist <= 2.0) {
-      drawFacingHUD(ctx, W, H, fwdCell, fwdMx, fwdMy, myWallet, es, fwdDist, validObstaclesRef.current)
+      const _isObsHUD = fwdCell?.isObstacle || validObstaclesRef.current?.has(`${fwdMy},${fwdMx}`)
+      // Free market/NFTJI blocks only show the HUD when the player is very close (1.5 cells).
+      // This prevents the top-right card from appearing for ambient NFTJI blocks all over the map.
+      const _maxHudDist = (!_isObsHUD && fwdCell?.isMarket && !fwdCell?.owner) ? 1.5 : 2.0
+      if ((_isObsHUD || fwdFaceSolid) && fwdDist <= _maxHudDist) {
+        drawFacingHUD(ctx, W, H, fwdCell, fwdMx, fwdMy, myWallet, es, fwdDist, validObstaclesRef.current)
+      }
     }
 
     // ── First-person pickaxe ───────────────────────────────────────────────
