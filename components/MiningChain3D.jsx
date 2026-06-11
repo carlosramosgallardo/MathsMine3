@@ -261,7 +261,7 @@ export default function MiningChain3D() {
     myPosRef.current = { row, col }
   }, [])
 
-  const handleFacingChange = useCallback((row, col, cell) => setFacingCell({ row, col, cell }), [])
+  const handleFacingChange = useCallback((row, col, cell, dist) => setFacingCell({ row, col, cell, dist }), [])
   const handleWantNavigate = useCallback((url) => router.push(url), [router])
 
   const handlePvpHit = useCallback(({ attacker, victim, victimIsAnon }) => {
@@ -335,6 +335,10 @@ export default function MiningChain3D() {
     try { await navigator.clipboard.writeText(hex) } catch {}
     setCopied(true); setTimeout(() => setCopied(false), 1400)
   }, [])
+
+  // Interaction range (must be within 2.5 cells to act on a block/element)
+  const INTERACT_DIST = 2.5
+  const isInRange = !facingCell?.dist || facingCell.dist <= INTERACT_DIST
 
   // Derived facing cell info
   const fc         = facingCell?.cell
@@ -445,19 +449,29 @@ export default function MiningChain3D() {
                 {copied ? '✓' : '⎘'} {fcHex}
               </button>
 
-              {isClaimable && !fc?.isChainNode && (
+              {isClaimable && !fc?.isChainNode && isInRange && (
                 <Link href={mineUrl} style={{
                   ...actionLink, background:`${C}0c`, borderColor:`${C}44`, color:C,
                 }}>
                   ⛏ {es?'Minar bloque':'Mine block'}
                 </Link>
               )}
-              {fc?.isChainNode && (
+              {isClaimable && !fc?.isChainNode && !isInRange && (
+                <span style={{ color:`${C}44`, fontSize:'0.74rem', fontFamily:'monospace' }}>
+                  {es?'· acércate para minar':'· move closer to mine'}
+                </span>
+              )}
+              {fc?.isChainNode && isInRange && (
                 <button onClick={() => setShowChainSolve(true)} style={{
                   ...actionLink, background:'#1a1000', borderColor:'#ffd70044', color:'#ffd700', cursor:'pointer',
                 }}>
                   ⬡ {es?'Resolver cadena':'Solve formula chain'}
                 </button>
+              )}
+              {fc?.isChainNode && !isInRange && (
+                <span style={{ color:'#ffd70044', fontSize:'0.74rem', fontFamily:'monospace' }}>
+                  {es?'· acércate para interactuar':'· move closer to interact'}
+                </span>
               )}
 
               {facingCell && (
@@ -548,14 +562,14 @@ export default function MiningChain3D() {
 
             {/* Actions */}
             <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
-              {(!fc?.owner && !fc?.isChainNode) && (
+              {(!fc?.owner && !fc?.isChainNode && isInRange) && (
                 <Link href={mineUrl} style={{
                   ...actionLink, background:`${C}0c`, borderColor:`${C}44`, color:C,
                 }} onClick={()=>setShowDetail(false)}>
                   ⛏ {es?'Minar':'Mine'}
                 </Link>
               )}
-              {fc?.isChainNode && (
+              {(fc?.isChainNode && isInRange) && (
                 <button onClick={() => { setShowDetail(false); setShowChainSolve(true); }} style={{
                   ...actionLink, background:'#1a1000', borderColor:'#ffd70044', color:'#ffd700', cursor:'pointer',
                 }}>

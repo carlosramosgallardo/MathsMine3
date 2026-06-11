@@ -24,7 +24,8 @@ const DOOR_HI       = (1 + DOOR_FRAC) / 2   // 0.725
 const FOOTSTEP_DIST = MOVE_SPD * 10         // footstep every ~10 movement frames
 const SWING_DUR     = 340    // ms per pickaxe swing
 const HITS_NEEDED   = 5      // swings to complete mining action
-const CHAIN_NODE_ROW = 4
+const INTERACT_DIST = 2.5    // grid cells — max distance for block interaction
+const CHAIN_NODE_ROW = 4     // fallback; runtime position comes from cellMap
 const CHAIN_NODE_COL = 4
 
 // ── Decorative obstacles: solid walls, no doorways, not mineable ──────────────
@@ -48,11 +49,11 @@ const OBSTACLE_MAP = new Map([
 ])
 
 // ── Wall collision: returns true if position (grid units) hits a solid wall ──
-// cellMap needed to distinguish empty corridors (passable) from block cells (doorways)
-function hitsSolidWall(gx, gy, cellMap) {
+// cellMap + obsSet distinguish empty corridors (passable) from block/obstacle cells
+function hitsSolidWall(gx, gy, cellMap, obsSet) {
   const col = Math.floor(gx), row = Math.floor(gy)
   const key = `${row},${col}`
-  if (OBSTACLE_MAP.has(key)) return true   // Decorative obstacle: always solid
+  if (obsSet?.has(key)) return true   // Decorative obstacle: always solid
   if (!cellMap?.has(key)) return false     // Empty corridor: always passable
   // Block cell with data: standard centre-doorway collision
   const fx = gx - col, fy = gy - row
@@ -111,7 +112,7 @@ function worldToGrid(wx, wy) {
 }
 
 // ── DDA with centre-doorways ──────────────────────────────────────────────────
-function castRay(wx, wy, angle, cellMap) {
+function castRay(wx, wy, angle, cellMap, obsSet) {
   const px = wx / CELL_SIZE, py = wy / CELL_SIZE
   const dx = Math.cos(angle), dy = Math.sin(angle)
   let mx = Math.floor(px), my = Math.floor(py)
@@ -129,7 +130,7 @@ function castRay(wx, wy, angle, cellMap) {
     if (mx<0||mx>=COLS||my<0||my>=ROWS) return {perpDist,cell:null,side,mx,my}
     const key = `${my},${mx}`
     // Decorative obstacle: solid wall, no doorway — always a hit
-    const obsData = OBSTACLE_MAP.get(key)
+    const obsData = obsSet?.has(key) ? OBSTACLE_MAP.get(key) : null
     if (obsData) return {perpDist, cell:{isObstacle:true,base:obsData.base,label:obsData.label}, side, mx, my}
     // Doorway check for block cells
     const hitFrac = (((side===0?py+perpDist*dy:px+perpDist*dx)%1.0)+1.0)%1.0
@@ -144,7 +145,7 @@ function castRay(wx, wy, angle, cellMap) {
 }
 
 // ── Minimap ───────────────────────────────────────────────────────────────────
-function drawMinimap(ctx, gr, gc, angle, cellMap, presenceMap, myWallet, W, H) {
+function drawMinimap(ctx, gr, gc, angle, cellMap, presenceMap, myWallet, W, H, chainNodePos) {
   const isMobile = W < 600
   const SZ = isMobile ? Math.min(W*0.38, 110) : Math.min(130, W*0.2)
   const CS = SZ/ROWS
@@ -212,21 +213,38 @@ function drawMinimap(ctx, gr, gc, angle, cellMap, presenceMap, myWallet, W, H) {
     ctx.fill()
   }
 
-  // Chain node: pulsing gold beacon
-  const cnPulse = 0.45 + Math.sin(Date.now() / 350) * 0.55
-  const cnx = MX + (CHAIN_NODE_COL + 0.5) * CS
-  const cny = MY + (CHAIN_NODE_ROW + 0.5) * CS
-  ctx.globalAlpha = cnPulse * 0.5
+  // Chain node: diamond crosshair — visually distinct landmark (static, not a dot)
+  const cnPos   = chainNodePos || { row: CHAIN_NODE_ROW, col: CHAIN_NODE_COL }
+  const cnPulse = 0.55 + Math.sin(Date.now() / 600) * 0.45
+  const cnx = MX + (cnPos.col + 0.5) * CS
+  const cny = MY + (cnPos.row + 0.5) * CS
+  const armLen = CS * 2.8
+  const gapR   = CS * 0.85
+  // Outer pulsing ring
+  ctx.globalAlpha = cnPulse * 0.28
+  ctx.strokeStyle = '#ffd700'; ctx.lineWidth = 0.8
+  ctx.beginPath(); ctx.arc(cnx, cny, CS * 2.1, 0, Math.PI*2); ctx.stroke()
+  // Four crosshair arms with gap
+  ctx.globalAlpha = Math.max(0.55, cnPulse)
+  ctx.strokeStyle = '#ffd700'; ctx.lineWidth = 0.9
+  ctx.beginPath()
+  ctx.moveTo(cnx - gapR, cny); ctx.lineTo(cnx - armLen, cny)
+  ctx.moveTo(cnx + gapR, cny); ctx.lineTo(cnx + armLen, cny)
+  ctx.moveTo(cnx, cny - gapR); ctx.lineTo(cnx, cny - armLen)
+  ctx.moveTo(cnx, cny + gapR); ctx.lineTo(cnx, cny + armLen)
+  ctx.stroke()
+  // Center diamond (rotated square)
+  ctx.globalAlpha = Math.max(0.70, cnPulse)
   ctx.fillStyle = '#ffd700'
-  ctx.beginPath(); ctx.arc(cnx, cny, CS * 2.4, 0, Math.PI * 2); ctx.fill()
-  ctx.globalAlpha = Math.max(0.4, cnPulse)
-  ctx.fillStyle = '#fff8dc'
-  ctx.beginPath(); ctx.arc(cnx, cny, CS * 1.1, 0, Math.PI * 2); ctx.fill()
+  ctx.save(); ctx.translate(cnx, cny); ctx.rotate(Math.PI / 4)
+  const ds = CS * 0.52
+  ctx.fillRect(-ds, -ds, ds*2, ds*2)
+  ctx.restore()
   ctx.globalAlpha = 1
 }
 
 // ── Facing block HUD (top-right info card) ────────────────────────────────────
-function drawFacingHUD(ctx, W, H, fwdCell, fwdMx, fwdMy, myWallet, es) {
+function drawFacingHUD(ctx, W, H, fwdCell, fwdMx, fwdMy, myWallet, es, dist) {
   if (fwdMx < 0 || fwdMy < 0 || fwdMx >= COLS || fwdMy >= ROWS) return
 
   // Decorative obstacle: show type name, no interaction
@@ -286,10 +304,15 @@ function drawFacingHUD(ctx, W, H, fwdCell, fwdMx, fwdMy, myWallet, es) {
   }
 
   if (!owner) {
+    const inRange = dist == null || dist <= INTERACT_DIST
     if (fwdCell?.isChainNode) {
-      lines.push({ text: es ? '↵ · Resolver cadena' : '↵ · Solve formula chain', size: 10, col: '#ffd700cc' })
+      lines.push(inRange
+        ? { text: es ? '↵ · Resolver cadena' : '↵ · Solve formula chain', size: 10, col: '#ffd700cc' }
+        : { text: es ? '· acercarse para interactuar' : '· move closer to interact', size: 9, col: '#ffd70055' })
     } else {
-      lines.push({ text: es ? '↵ · Minar bloque' : '↵ · Mine block', size: 10, col: C + 'cc' })
+      lines.push(inRange
+        ? { text: es ? '↵ · Minar bloque' : '↵ · Mine block', size: 10, col: C + 'cc' }
+        : { text: es ? '· acercarse para minar' : '· move closer to mine', size: 9, col: C + '55' })
     }
   } else if (owner && fwdCell?.isMarket) {
     const isMineWall = myWallet && owner.toLowerCase() === myWallet.toLowerCase()
@@ -692,6 +715,10 @@ export default function MiningChain3DFPV({
   const pvpStolenRef         = useRef(pvpStolen || {})
   const chainStatsRef        = useRef(null)
   const onChainSolveOpenRef  = useRef(onChainSolveOpen)
+  // Precomputed from cellMap: obstacle positions valid (≥2 cells from any block)
+  // and the actual chain node grid position
+  const validObstaclesRef   = useRef(new Set(OBSTACLE_MAP.keys()))
+  const chainNodePosRef     = useRef({ row: CHAIN_NODE_ROW, col: CHAIN_NODE_COL })
 
   // Keep refs in sync with props
   useEffect(()=>{ cellMapRef.current=cellMap },[cellMap])
@@ -703,6 +730,33 @@ export default function MiningChain3DFPV({
   useEffect(()=>{ onAnonResetRef.current=onAnonReset },[onAnonReset])
   useEffect(()=>{ pvpStolenRef.current=pvpStolen||{} },[pvpStolen])
   useEffect(()=>{ onChainSolveOpenRef.current=onChainSolveOpen },[onChainSolveOpen])
+
+  // Recompute valid obstacles and chain node position whenever cellMap changes
+  useEffect(() => {
+    // Find chain node position from cellMap
+    let cnRow = CHAIN_NODE_ROW, cnCol = CHAIN_NODE_COL
+    for (const [key, cell] of cellMap) {
+      if (cell.isChainNode) {
+        const [r,c] = key.split(',').map(Number)
+        cnRow = r; cnCol = c; break
+      }
+    }
+    chainNodePosRef.current = { row: cnRow, col: cnCol }
+    // Keep only obstacles that have ≥2 cell clearance from every block
+    const valid = new Set()
+    for (const [key] of OBSTACLE_MAP) {
+      const [or, oc] = key.split(',').map(Number)
+      let clear = true
+      outer: for (let dr = -2; dr <= 2; dr++) {
+        for (let dc = -2; dc <= 2; dc++) {
+          const nk = `${or+dr},${oc+dc}`
+          if (cellMap.has(nk)) { clear = false; break outer }
+        }
+      }
+      if (clear) valid.add(key)
+    }
+    validObstaclesRef.current = valid
+  }, [cellMap])
 
   useEffect(()=>{
     let owned=0, marketFree=0, marketOwned=0
@@ -779,7 +833,7 @@ export default function MiningChain3DFPV({
     }
 
     // Pre-compute forward cell
-    const {mx:fwdMx,my:fwdMy,cell:fwdCell,perpDist:fwdDist} = castRay(px,py+bob,angle,cellMap)
+    const {mx:fwdMx,my:fwdMy,cell:fwdCell,perpDist:fwdDist} = castRay(px,py+bob,angle,cellMap,validObstaclesRef.current)
 
     // Collect cells with emoji visible on any wall face
     const visibleWalls = new Map()
@@ -787,7 +841,7 @@ export default function MiningChain3DFPV({
     // ── Wall strips + build zBuffer ───────────────────────────────────────────
     for (let col=0; col<strips; col++){
       const ra = angle - FOV/2 + (col+0.5)*FOV/strips
-      const {perpDist,cell,side,mx:hitMx,my:hitMy} = castRay(px,py+bob,ra,cellMap)
+      const {perpDist,cell,side,mx:hitMx,my:hitMy} = castRay(px,py+bob,ra,cellMap,validObstaclesRef.current)
       const dist  = perpDist*Math.cos(ra-angle)
       const wallH = Math.min(H*1.8, H*PROJ_DIST/Math.max(0.01,dist))
       const wTop  = Math.round(horizon-wallH/2)
@@ -887,21 +941,21 @@ export default function MiningChain3DFPV({
     }
     ctx.globalAlpha = 1
 
-    // ── Presence sprites ──────────────────────────────────────────────────────
+    // ── Presence sprites (retro wallet shape, grounded to floor) ────────────────
     const camGX = px / CELL_SIZE, camGY = py / CELL_SIZE
     const sprites = []
     for (const [w, pres] of Object.entries(presence || {})) {
       if (pres.row == null && pres.gy == null) continue
       const isMe = w.toLowerCase() === (myWallet || '').toLowerCase()
       if (isMe) continue
-      // Sub-cell precision: use gx/gy if available, else cell center
       const sgx = pres.gx ?? ((pres.col ?? 0) + 0.5)
       const sgy = pres.gy ?? ((pres.row ?? 0) + 0.5)
       const rx = sgx - camGX
       const ry = sgy - camGY
       const tY = Math.cos(angle)*rx + Math.sin(angle)*ry
       if (tY < 0.08) continue
-      const tX   = Math.sin(angle)*rx - Math.cos(angle)*ry
+      // Fixed sign: right vector is (-sin, cos) so tX = -sin*rx + cos*ry
+      const tX   = -Math.sin(angle)*rx + Math.cos(angle)*ry
       const dist  = Math.sqrt(rx*rx + ry*ry)
       sprites.push({ w, tX, tY, dist, color: colorFromAddress(w) })
     }
@@ -909,79 +963,108 @@ export default function MiningChain3DFPV({
 
     for (const { w, tX, tY, color } of sprites) {
       const sprH    = Math.min(H*1.6, H*PROJ_DIST/tY*1.2)
-      const sprW    = Math.round(sprH*0.44)
       const scrX    = Math.round(W/2*(1+tX/tY))
-      const topY    = Math.round(horizon - sprH*0.82)
-      const headH   = Math.round(sprH*0.30)
-      const bodyH   = Math.round(sprH*0.50)
-      const headW   = Math.round(sprW*0.76)
-      const bodyW   = Math.round(sprW*0.60)
-      const bodyTop = topY + headH
       const [cr,cg2,cb] = hexToRgb(color)
-      const fade  = Math.max(0.30, 1 - tY*0.055)   // brighter at distance
-      const alpha = Math.min(0.98, Math.max(0, 1.0 - tY*0.04))
-      const sprLeft  = scrX - Math.floor(sprW/2)
-      const sprRight = scrX + Math.ceil(sprW/2)
-      const hx1 = scrX - Math.floor(headW/2), hx2 = scrX + Math.ceil(headW/2)
-      const bx1 = scrX - Math.floor(bodyW/2), bx2 = scrX + Math.ceil(bodyW/2)
+      const fade    = Math.max(0.30, 1 - tY*0.055)
+      const alpha   = Math.min(0.98, Math.max(0, 1.0 - tY*0.04))
 
-      // Outline glow (drawn 1px larger around the sprite)
-      for (let sx=sprLeft-1; sx<=sprRight; sx++) {
-        const zCol = Math.floor(sx/STRIP_W)
+      // Retro wallet shape — grounded at horizon (feet = horizon)
+      const walletH  = Math.round(sprH * 0.54)
+      const walletW  = Math.round(sprH * 0.46)
+      const billsH   = Math.round(sprH * 0.18)
+      const billsW   = Math.round(walletW * 0.44)
+      const bottomY  = Math.round(horizon)
+      const walletTop = bottomY - walletH
+      const billsTop  = walletTop - billsH
+      const foldY     = Math.round(walletTop + walletH * 0.44)
+      const claspH    = Math.max(2, Math.round(walletH * 0.16))
+      const claspY    = Math.round(walletTop + walletH * 0.28)
+      const wx1 = scrX - Math.floor(walletW / 2)
+      const wx2 = scrX + Math.ceil(walletW / 2)
+      const bx1 = scrX - Math.floor(billsW / 2)
+      const bx2 = scrX + Math.ceil(billsW / 2)
+      const fullLeft  = Math.min(wx1, bx1)
+      const fullRight = Math.max(wx2, bx2)
+
+      // Glow outline pass
+      for (let sx = fullLeft - 1; sx <= fullRight; sx++) {
+        const zCol = Math.floor(sx / STRIP_W)
         if (zCol < 0 || zCol >= strips) continue
         if (tY >= zBuffer[zCol]) continue
-        ctx.globalAlpha = alpha * 0.35
+        ctx.globalAlpha = alpha * 0.28
         ctx.fillStyle = color
-        if (sx >= hx1-1 && sx <= hx2) ctx.fillRect(sx, topY-1, 1, headH+2)
-        if (sx >= bx1-1 && sx <= bx2) ctx.fillRect(sx, bodyTop-1, 1, bodyH+2)
+        if (sx >= bx1-1 && sx <= bx2)  ctx.fillRect(sx, billsTop-1, 1, billsH+1)
+        if (sx >= wx1-1 && sx <= wx2)   ctx.fillRect(sx, walletTop-1, 1, walletH+2)
       }
 
-      for (let sx=sprLeft; sx<sprRight; sx++) {
-        const zCol = Math.floor(sx/STRIP_W)
+      // Main wallet draw (column-by-column for zBuffer depth correctness)
+      for (let sx = fullLeft; sx < fullRight; sx++) {
+        const zCol = Math.floor(sx / STRIP_W)
         if (zCol < 0 || zCol >= strips) continue
         if (tY >= zBuffer[zCol]) continue
-        if (sx >= hx1 && sx < hx2) {
-          ctx.globalAlpha = alpha
-          ctx.fillStyle = `rgb(${Math.round(cr*fade)},${Math.round(cg2*fade)},${Math.round(cb*fade)})`
-          ctx.fillRect(sx, topY, 1, headH)
+
+        const inWallet = sx >= wx1 && sx < wx2
+        const inBills  = sx >= bx1 && sx < bx2
+
+        // Bills / cards sticking up from wallet top
+        if (inBills) {
+          ctx.globalAlpha = alpha * 0.88
+          ctx.fillStyle = `rgb(${Math.min(255,Math.round(cr*fade*1.28))},${Math.min(255,Math.round(cg2*fade*1.28))},${Math.min(255,Math.round(cb*fade*1.28))})`
+          ctx.fillRect(sx, billsTop, 1, billsH)
+          if (billsH > 4) {
+            ctx.globalAlpha = alpha * 0.38
+            ctx.fillStyle = 'rgba(255,255,255,0.55)'
+            ctx.fillRect(sx, billsTop + Math.round(billsH*0.22), 1, Math.max(1, Math.round(billsH*0.18)))
+          }
         }
-        if (sx >= bx1 && sx < bx2) {
-          ctx.globalAlpha = alpha*0.88
-          ctx.fillStyle = `rgb(${Math.round(cr*fade*0.60)},${Math.round(cg2*fade*0.60)},${Math.round(cb*fade*0.60)})`
-          ctx.fillRect(sx, bodyTop, 1, bodyH)
+
+        // Wallet body
+        if (inWallet) {
+          const isEdge = sx === wx1 || sx === wx2 - 1
+          const relX   = (sx - wx1) / Math.max(1, walletW - 1)
+
+          // Upper half (lighter) — card area
+          ctx.globalAlpha = alpha
+          ctx.fillStyle = `rgb(${Math.round(cr*fade*0.90)},${Math.round(cg2*fade*0.90)},${Math.round(cb*fade*0.90)})`
+          ctx.fillRect(sx, walletTop, 1, foldY - walletTop)
+
+          // Card-slot stripe highlight
+          ctx.globalAlpha = alpha * 0.48
+          ctx.fillStyle = 'rgba(255,255,255,0.30)'
+          ctx.fillRect(sx, walletTop + Math.round(walletH*0.12), 1, Math.max(1, Math.round(walletH*0.09)))
+
+          // Lower half (darker) — main pocket
+          ctx.globalAlpha = alpha
+          ctx.fillStyle = `rgb(${Math.round(cr*fade*0.58)},${Math.round(cg2*fade*0.58)},${Math.round(cb*fade*0.58)})`
+          ctx.fillRect(sx, foldY, 1, bottomY - foldY)
+
+          // Fold / stitching line
+          ctx.globalAlpha = alpha * 0.72
+          ctx.fillStyle = 'rgba(0,0,0,0.60)'
+          ctx.fillRect(sx, foldY - 1, 1, 2)
+
+          // Brass clasp in center band
+          if (relX > 0.30 && relX < 0.70) {
+            ctx.globalAlpha = alpha * 0.90
+            ctx.fillStyle = 'rgba(255,195,45,0.90)'
+            ctx.fillRect(sx, claspY, 1, claspH)
+          }
+
+          // Edge shadow for depth
+          if (isEdge) {
+            ctx.globalAlpha = alpha * 0.62
+            ctx.fillStyle = 'rgba(0,0,0,0.72)'
+            ctx.fillRect(sx, walletTop, 1, walletH)
+          }
         }
       }
       ctx.globalAlpha = 1
 
-      // Pickaxe held by remote character (simple diagonal handle + head)
-      {
-        const pkAlpha = Math.min(alpha, Math.max(0, 1 - tY * 0.06))
-        if (pkAlpha > 0.05) {
-          const pkX = scrX + Math.floor(bodyW * 0.32)
-          const pkY = bodyTop + Math.floor(bodyH * 0.22)
-          const pkL = Math.max(3, Math.floor(bodyH * 0.42))
-          ctx.globalAlpha = pkAlpha * 0.86
-          // Handle
-          ctx.strokeStyle = '#8B5E3C'; ctx.lineWidth = Math.max(1, pkL * 0.12)
-          ctx.beginPath()
-          ctx.moveTo(pkX, pkY)
-          ctx.lineTo(pkX + Math.round(Math.cos(-2.2) * pkL), pkY + Math.round(Math.sin(-2.2) * pkL))
-          ctx.stroke()
-          // Head
-          const tipX = pkX + Math.round(Math.cos(-2.2) * pkL)
-          const tipY = pkY + Math.round(Math.sin(-2.2) * pkL)
-          ctx.fillStyle = '#9ab8cc'
-          ctx.beginPath()
-          ctx.arc(tipX, tipY, Math.max(1.5, pkL * 0.18), 0, Math.PI * 2)
-          ctx.fill()
-          ctx.globalAlpha = 1
-        }
-      }
-
+      // Floor shadow ellipse
       if (tY < 5.0) {
-        const sAlpha = Math.max(0, (5.0-tY)/5.0)*0.32
-        const sw = Math.max(4, Math.round(sprW*0.9))
-        const sh = Math.max(2, Math.round(sw*0.25))
+        const sAlpha = Math.max(0, (5.0-tY)/5.0)*0.28
+        const sw = Math.max(4, Math.round(walletW*0.85))
+        const sh = Math.max(2, Math.round(sw*0.18))
         ctx.globalAlpha = sAlpha
         ctx.fillStyle = '#000'
         ctx.beginPath()
@@ -990,6 +1073,7 @@ export default function MiningChain3DFPV({
         ctx.globalAlpha = 1
       }
 
+      // Wallet address label above bills
       if (tY < 7.0) {
         const lAlpha = Math.max(0, (7.0-tY)/7.0)*0.88
         const lSize  = Math.max(10, Math.round(13/Math.max(0.5, tY)))
@@ -999,17 +1083,16 @@ export default function MiningChain3DFPV({
         ctx.fillStyle = '#000'
         ctx.font = `bold ${lSize}px monospace`
         ctx.textAlign = 'center'; ctx.textBaseline = 'bottom'
-        ctx.fillText(`${w.slice(0,6)}…${w.slice(-4)}`, scrX+1, topY-1)
+        ctx.fillText(`${w.slice(0,6)}…${w.slice(-4)}`, scrX+1, billsTop-1)
         ctx.globalAlpha = lAlpha
         ctx.fillStyle = color
-        ctx.fillText(`${w.slice(0,6)}…${w.slice(-4)}`, scrX, topY-2)
-        // Pool badge above wallet address
+        ctx.fillText(`${w.slice(0,6)}…${w.slice(-4)}`, scrX, billsTop-2)
         if (pool && tY < 5.0) {
           const pSize = Math.max(8, lSize - 2)
           ctx.globalAlpha = lAlpha * 0.75
           ctx.font = `bold ${pSize}px monospace`
           ctx.fillStyle = '#f59e0b'
-          ctx.fillText(`[${pool}]`, scrX, topY - 2 - lSize - 1)
+          ctx.fillText(`[${pool}]`, scrX, billsTop - 2 - lSize - 1)
         }
         ctx.globalAlpha = 1
       }
@@ -1147,7 +1230,7 @@ export default function MiningChain3DFPV({
     )
 
     // ── Facing block info HUD (top-right) ─────────────────────────────────────
-    drawFacingHUD(ctx, W, H, fwdCell, fwdMx, fwdMy, myWallet, es)
+    drawFacingHUD(ctx, W, H, fwdCell, fwdMx, fwdMy, myWallet, es, fwdDist)
 
     // ── First-person pickaxe ───────────────────────────────────────────────
     const swE  = performance.now() - swingStartRef.current
@@ -1195,7 +1278,7 @@ export default function MiningChain3DFPV({
       } else pvpGainRef.current = null
     }
 
-    drawMinimap(ctx,gr,gc,angle,cellMap,presence,myWallet,W,H)
+    drawMinimap(ctx,gr,gc,angle,cellMap,presence,myWallet,W,H,chainNodePosRef.current)
     drawOnlineList(ctx,W,H,presence,myWallet,pvpStolenRef.current)
     drawChainStats(ctx,W,H,chainStatsRef.current,es)
   }, [])
@@ -1240,11 +1323,15 @@ export default function MiningChain3DFPV({
       if(e.key==='q'||e.key==='Q'||e.key==='ArrowLeft') {k.q=true;e.preventDefault()}
       if(e.key==='e'||e.key==='E'||e.key==='ArrowRight'){k.e=true;e.preventDefault()}
       if(e.key==='Enter'){
-        if(facingDataRef.current?.cell?.isChainNode){
-          onChainSolveOpenRef.current?.()
-        } else {
-          const url=actionUrlRef.current
-          if(url) onWantNavRef.current?.(url)
+        const fData=facingDataRef.current||{}
+        const inRange=fData.dist==null||fData.dist<=INTERACT_DIST
+        if(inRange){
+          if(fData.cell?.isChainNode){
+            onChainSolveOpenRef.current?.()
+          } else {
+            const url=actionUrlRef.current
+            if(url) onWantNavRef.current?.(url)
+          }
         }
         e.preventDefault()
       }
@@ -1312,12 +1399,12 @@ export default function MiningChain3DFPV({
         const inBX=nx>R&&nx<WORLD_W-R, inBY=ny>R&&ny<WORLD_H-R
         const ngx=nx/CELL_SIZE, ngy=ny/CELL_SIZE
         const cgx=p.x/CELL_SIZE, cgy=p.y/CELL_SIZE
-        const cm=cellMapRef.current
+        const cm=cellMapRef.current, obs=validObstaclesRef.current
         // Full move, else wall-slide on each axis independently
-        if(inBX&&inBY&&!hitsSolidWall(ngx,ngy,cm)){ p.x=nx; p.y=ny }
+        if(inBX&&inBY&&!hitsSolidWall(ngx,ngy,cm,obs)){ p.x=nx; p.y=ny }
         else{
-          if(inBX&&!hitsSolidWall(ngx,cgy,cm)) p.x=nx
-          if(inBY&&!hitsSolidWall(cgx,ngy,cm)) p.y=ny
+          if(inBX&&!hitsSolidWall(ngx,cgy,cm,obs)) p.x=nx
+          if(inBY&&!hitsSolidWall(cgx,ngy,cm,obs)) p.y=ny
         }
         walkDistRef.current+=MOVE_SPD
         needsRender=true
@@ -1362,23 +1449,23 @@ export default function MiningChain3DFPV({
         const sgy = pres.gy ?? ((pres.row ?? 0) + 0.5)
         const rx = sgx - camGX, ry = sgy - camGY
         const tY = Math.cos(p.angle)*rx + Math.sin(p.angle)*ry
-        if (tY < 0.15 || tY > 3.5) continue
-        const tX = Math.sin(p.angle)*rx - Math.cos(p.angle)*ry
+        if (tY < 0.15 || tY > INTERACT_DIST) continue
+        const tX = -Math.sin(p.angle)*rx + Math.cos(p.angle)*ry
         if (Math.abs(tX / tY) > 0.28) continue
         if (tY < closestDist) { closestDist = tY; closestEnemy = { wallet: w, dist: tY, isAnon: w.startsWith('anon-') } }
       }
       enemyTargetRef.current = closestEnemy
 
       // Facing detection + action URL + mine type update
-      const {cell:fc,mx:fmx,my:fmy}=castRay(p.x,p.y,p.angle,cellMapRef.current)
+      const {cell:fc,mx:fmx,my:fmy,perpDist:fcDist}=castRay(p.x,p.y,p.angle,cellMapRef.current,validObstaclesRef.current)
       const newKey=`${fmy},${fmx}`
-      facingDataRef.current={mx:fmx,my:fmy,cell:fc}
+      facingDataRef.current={mx:fmx,my:fmy,cell:fc,dist:fcDist}
       if(newKey!==facingKeyRef.current){
         facingKeyRef.current=newKey
         // Reset progress when target changes
         mineProgressRef.current=0; mineTargetRef.current=null
         if(fmx>=0&&fmy>=0){
-          if(!fc?.isObstacle) onFacingChange?.(fmy,fmx,fc)
+          if(!fc?.isObstacle) onFacingChange?.(fmy,fmx,fc,fcDist)
           if(fc?.isObstacle){
             actionUrlRef.current=null; mineTypeRef.current='empty'
           } else if(fc){
@@ -1407,6 +1494,8 @@ export default function MiningChain3DFPV({
           } else {
             actionUrlRef.current=null; mineTypeRef.current='empty'
           }
+          // Disable action URL if block is beyond interaction range
+          if(fcDist > INTERACT_DIST) actionUrlRef.current=null
         } else {
           actionUrlRef.current=null; mineTypeRef.current='empty'
         }
