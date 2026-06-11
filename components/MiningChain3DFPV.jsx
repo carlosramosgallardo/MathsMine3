@@ -307,6 +307,7 @@ function drawMinimap(ctx, gr, gc, angle, cellMap, presenceMap, myWallet, W, H, c
 
 // ── Facing block HUD (top-right info card) ────────────────────────────────────
 function drawFacingHUD(ctx, W, H, fwdCell, fwdMx, fwdMy, myWallet, es, dist) {
+  if (W < 600) return  // HTML panel below canvas handles this on mobile
   if (fwdMx < 0 || fwdMy < 0 || fwdMx >= COLS || fwdMy >= ROWS) return
 
   // Decorative obstacle: minimal label, no interaction
@@ -585,29 +586,19 @@ function drawMineProgress(ctx, W, H, progress, type) {
 // ── MM3 Block Chain stats panel (bottom-left HUD) ───────────────────────────
 // ── NFTJI ability panel (above chain stats, left side) ───────────────────────
 // Shows each online wallet's equipped NFTJI — owning one unlocks crit hits
-function drawNftjiPanel(ctx, W, H, walletNftjis, presenceMap, es) {
-  const items = []
-  for (const [wallet, pres] of Object.entries(presenceMap || {})) {
-    if (pres.row == null && pres.gy == null) continue
-    const isAnon = wallet.startsWith('anon-')
-    const info = isAnon ? null : (walletNftjis || {})[wallet]
-    items.push({
-      label: isAnon ? wallet.slice(0, 10) : `${wallet.slice(0,6)}…${wallet.slice(-4)}`,
-      emoji: info?.emoji || null,
-      title: info?.title || null,
-      isAnon,
-    })
-  }
-  if (!items.length) return
+function drawNftjiPanel(ctx, W, H, myNftjis, es) {
+  if (W < 600) return  // no room on mobile; HTML panel handles block info
+  if (!myNftjis || !myNftjis.length) return
 
-  const LINE_H = 15, PAD_X = 8, PAD_Y = 5
-  const pw = 158
-  const ph = (items.length + 1) * LINE_H + PAD_Y * 2
-  const px = 6
-  const isMobile = W < 600
+  const SLOT_W = 30, SLOT_H = 38, GAP = 3, PAD_X = 6, PAD_Y = 5, HEADER_H = 13
+  const maxSlots = Math.min(myNftjis.length, 7)
+  const pw = PAD_X * 2 + maxSlots * (SLOT_W + GAP) - GAP
+  const ph = PAD_Y * 2 + HEADER_H + SLOT_H + (myNftjis.length > 7 ? 10 : 0)
+
   const chainPh = 4 * 13 + 6 * 2 + 9
-  const chainPy = H - chainPh - (isMobile ? 210 : 170)
+  const chainPy = H - chainPh - 170
   const py = chainPy - ph - 5
+  const px = 6
   if (py < 0) return
 
   ctx.globalAlpha = 0.82
@@ -619,33 +610,43 @@ function drawNftjiPanel(ctx, W, H, walletNftjis, presenceMap, es) {
   ctx.fillStyle = '#fb923c99'
   ctx.fillRect(px, py, 2, ph)
 
-  ctx.font = 'bold 9px monospace'; ctx.textAlign = 'left'; ctx.textBaseline = 'top'
+  ctx.font = 'bold 8px monospace'; ctx.textAlign = 'left'; ctx.textBaseline = 'top'
   ctx.fillStyle = '#fb923ccc'
-  ctx.fillText(es ? 'NFTJI · HABILIDADES' : 'NFTJI · ABILITIES', px + PAD_X, py + PAD_Y)
+  ctx.fillText(es ? 'HABILIDADES · NFTJI' : 'ABILITIES · NFTJI', px + PAD_X, py + PAD_Y)
 
-  for (let i = 0; i < items.length; i++) {
-    const { label, emoji, isAnon } = items[i]
-    const ly = py + PAD_Y + (i + 1) * LINE_H
+  const slotY = py + PAD_Y + HEADER_H
+  for (let i = 0; i < maxSlots; i++) {
+    const { emoji, level, isActive } = myNftjis[i]
+    const sx = px + PAD_X + i * (SLOT_W + GAP)
 
-    ctx.font = '9px monospace'; ctx.textAlign = 'left'
-    ctx.fillStyle = isAnon ? '#334455' : (emoji ? '#90aabb' : '#556677')
-    ctx.fillText(label, px + PAD_X, ly)
+    // Slot background
+    ctx.fillStyle = isActive ? '#0e2010' : '#080e18'
+    ctx.fillRect(sx, slotY, SLOT_W, SLOT_H)
+    ctx.strokeStyle = isActive ? '#4ade80aa' : '#fb923c22'
+    ctx.lineWidth = isActive ? 1 : 0.5
+    ctx.strokeRect(sx, slotY, SLOT_W, SLOT_H)
 
-    ctx.textAlign = 'right'
-    if (emoji) {
-      // Has NFTJI: show emoji + crit indicator
-      ctx.font = '11px serif'
-      ctx.fillStyle = '#ffffffff'
-      ctx.fillText(emoji, px + pw - PAD_X - 18, ly + 1)
-      ctx.font = 'bold 7px monospace'
-      ctx.fillStyle = '#ffd700cc'
-      ctx.fillText('CRIT', px + pw - PAD_X, ly + 3)
-    } else if (!isAnon) {
-      ctx.font = '8px monospace'
-      ctx.fillStyle = '#2a3a4a'
-      ctx.fillText('—', px + pw - PAD_X, ly)
-    }
+    // Emoji centered
+    ctx.font = '15px serif'
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.fillStyle = '#ffffff'
+    ctx.fillText(emoji || '⬡', sx + SLOT_W / 2, slotY + SLOT_H / 2 - 5)
+
+    // Level badge at bottom
+    ctx.font = `bold 7px monospace`
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'bottom'
+    ctx.fillStyle = isActive ? '#4ade80dd' : '#fb923c99'
+    ctx.fillText(`Lv${level}`, sx + SLOT_W / 2, slotY + SLOT_H - 1)
   }
+
+  if (myNftjis.length > 7) {
+    ctx.font = '8px monospace'; ctx.textAlign = 'left'; ctx.textBaseline = 'top'
+    ctx.fillStyle = '#556677'
+    ctx.fillText(`+${myNftjis.length - 7} more`, px + PAD_X, slotY + SLOT_H + 2)
+  }
+
   ctx.textAlign = 'left'; ctx.globalAlpha = 1
 }
 
@@ -664,7 +665,7 @@ function drawChainStats(ctx, W, H, stats, es) {
   const pw = 158, ph = lines.length * LINE_H + PAD_Y * 2 + 9
   const isMobile = W < 600
   const px = 6
-  const py = H - ph - (isMobile ? 210 : 170)
+  const py = H - ph - (isMobile ? 20 : 170)
 
   ctx.globalAlpha = 0.78
   ctx.fillStyle = '#010709'
@@ -802,7 +803,7 @@ export default function MiningChain3DFPV({
   onChainSolveOpen, externalPvpFlash,
   swingMap, myPoolCode,
   anonKillMsg,
-  playerLevel, playerNftjiCount, walletNftjis,
+  playerLevel, playerNftjiCount, walletNftjis, myNftjis,
   es,
 }) {
   const canvasRef    = useRef(null)
@@ -856,6 +857,7 @@ export default function MiningChain3DFPV({
   const critChanceRef       = useRef(0.05)
   const critFlashRef        = useRef(-9999)
   const walletNftjisRef     = useRef(walletNftjis || {})
+  const myNftjisRef         = useRef(myNftjis || [])
 
   // Keep refs in sync with props
   useEffect(()=>{ cellMapRef.current=cellMap },[cellMap])
@@ -870,6 +872,7 @@ export default function MiningChain3DFPV({
   useEffect(()=>{ swingMapRef.current=swingMap||{} },[swingMap])
   useEffect(()=>{ myPoolCodeRef.current=myPoolCode||null },[myPoolCode])
   useEffect(()=>{ walletNftjisRef.current=walletNftjis||{} },[walletNftjis])
+  useEffect(()=>{ myNftjisRef.current=myNftjis||[] },[myNftjis])
   // Recompute crit chance from level + NFTJI count
   useEffect(()=>{
     const base = 0.05
@@ -1532,7 +1535,7 @@ export default function MiningChain3DFPV({
 
     drawMinimap(ctx,gr,gc,angle,cellMap,presence,myWallet,W,H,chainNodePosRef.current,validObstaclesRef.current)
     drawOnlineList(ctx,W,H,presence,myWallet,pvpStolenRef.current)
-    drawNftjiPanel(ctx,W,H,walletNftjisRef.current,presence,es)
+    drawNftjiPanel(ctx,W,H,myNftjisRef.current,es)
     drawChainStats(ctx,W,H,chainStatsRef.current,es)
   }, [])
 

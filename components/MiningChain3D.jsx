@@ -70,6 +70,8 @@ export default function MiningChain3D() {
   const [walletNftjis,  setWalletNftjis]  = useState({})
   const [playerLevel,   setPlayerLevel]   = useState(0)
   const [playerNftjiCount, setPlayerNftjiCount] = useState(0)
+  const [myNftjis,      setMyNftjis]      = useState([])  // [{ emoji, level, blockKey, isActive }]
+  const marketRef = useRef([])  // persisted market data for NFTJI level lookups
   const [facingCell,    setFacingCell]    = useState(null)
   const [receivedHitAt, setReceivedHitAt] = useState(0)
   const [swingMap,      setSwingMap]      = useState({})
@@ -141,6 +143,7 @@ export default function MiningChain3D() {
         titleEs: 'MM3 BLOCK CHAIN',
       })
       setCellMap(map)
+      marketRef.current = market || []
 
       // Build wallet → { emoji, title } map for NFTJI panel
       const nftjis = {}
@@ -156,18 +159,28 @@ export default function MiningChain3D() {
     return () => { mounted = false }
   }, [])
 
-  // Fetch own level + NFTJI count for crit chance calculation
+  // Fetch own level + NFTJI collection for crit chance + ability bar
   useEffect(() => {
-    if (!myWallet) { setPlayerLevel(0); setPlayerNftjiCount(0); return }
+    if (!myWallet) { setPlayerLevel(0); setPlayerNftjiCount(0); setMyNftjis([]); return }
     let mounted = true
     supabase.from('player_progress')
-      .select('level, mining_nftji_key')
+      .select('level, mining_nftji_key, mining_nftji_levels')
       .eq('wallet', myWallet)
       .maybeSingle()
       .then(({ data }) => {
         if (!mounted || !data) return
         setPlayerLevel(Number(data.level) || 0)
-        setPlayerNftjiCount(data.mining_nftji_key ? 1 : 0)
+        const levels = data.mining_nftji_levels || {}
+        const activeKey = data.mining_nftji_key || null
+        const nftjis = Object.entries(levels)
+          .map(([blockKey, level]) => {
+            const mb = marketRef.current.find(m => m.block_key === blockKey)
+            return mb ? { emoji: mb.emoji || '⬡', level: Number(level) || 0, blockKey, isActive: blockKey === activeKey } : null
+          })
+          .filter(Boolean)
+          .sort((a, b) => b.level - a.level)
+        setMyNftjis(nftjis)
+        setPlayerNftjiCount(nftjis.length)
       }, () => {})
     return () => { mounted = false }
   }, [myWallet])
@@ -456,6 +469,7 @@ export default function MiningChain3D() {
             playerLevel={playerLevel}
             playerNftjiCount={playerNftjiCount}
             walletNftjis={walletNftjis}
+            myNftjis={myNftjis}
             es={es}
           />
         )}
