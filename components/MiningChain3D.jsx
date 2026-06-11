@@ -66,6 +66,7 @@ export default function MiningChain3D() {
   const [onlineWallets, setOnlineWallets] = useState(new Set())
   const [loading,       setLoading]       = useState(true)
   const [onlineCount,   setOnlineCount]   = useState(0)
+  const [anonKillMsg,   setAnonKillMsg]   = useState(null)
   const [facingCell,    setFacingCell]    = useState(null)
   const [receivedHitAt, setReceivedHitAt] = useState(0)
   const [swingMap,      setSwingMap]      = useState({})
@@ -170,11 +171,18 @@ export default function MiningChain3D() {
       if (payload?.target === key && !myWalletRef.current) {
         setMyPos({ row: 14, col: 14 })
         setJumpToCell({ row: 14, col: 14 })
-        // Clear our DB position entry
         supabase.from('mm3_player_positions')
           .upsert({ wallet: key, gx: 14.5, gy: 14.5, updated_at: new Date().toISOString() })
           .then(null, () => {})
       }
+    })
+
+    ch.on('broadcast', { event: 'anon-kill' }, ({ payload }) => {
+      if (!payload?.attacker || !payload?.anonKey) return
+      const killerLabel = payload.attacker.startsWith('anon-')
+        ? 'anon'
+        : `${payload.attacker.slice(0,6)}…${payload.attacker.slice(-4)}`
+      setAnonKillMsg(`💀 ${killerLabel} killed ${payload.anonKey.slice(0,10)}… +2 EUR`)
     })
 
     // PvP hit: victim sees red flash; all spectators see attacker swing animation
@@ -321,11 +329,25 @@ export default function MiningChain3D() {
     return () => window.removeEventListener('keydown', onKey)
   }, [showChainSolve])
 
-  const handleAnonReset = useCallback((anonKey) => {
+  const handleAnonKill = useCallback((anonKey) => {
+    const killer = myWalletRef.current
+    if (!killer) return
+    // Broadcast kill event so all spectators see the notification
+    channelRef.current?.send({
+      type: 'broadcast', event: 'anon-kill',
+      payload: { attacker: killer, anonKey },
+    })?.catch(() => {})
+    // Also trigger respawn for the anon (if they're on the same client)
     channelRef.current?.send({
       type: 'broadcast', event: 'anon-reset',
       payload: { target: anonKey },
     })?.catch(() => {})
+    // Award kill bonus to the attacker
+    fetch('/api/pvp-anon-kill', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ attacker: killer, anonKey }),
+    }).catch(() => {})
   }, [])
 
   const handlePositionRealtime = useCallback((gx, gy) => {
@@ -396,12 +418,13 @@ export default function MiningChain3D() {
             onWantNavigate={handleWantNavigate}
             onPositionRealtime={handlePositionRealtime}
             onPvpHit={handlePvpHit}
-            onAnonReset={handleAnonReset}
+            onAnonKill={handleAnonKill}
             pvpStolen={pvpStolen}
             onChainSolveOpen={handleChainSolveOpen}
             externalPvpFlash={receivedHitAt}
             swingMap={swingMap}
             myPoolCode={myPoolCode}
+            anonKillMsg={anonKillMsg}
             es={es}
           />
         )}
@@ -598,7 +621,7 @@ export default function MiningChain3D() {
                   YT {es?'Comando oculto':'Hidden command'}
                 </Link>
               )}
-              {nftjiPanelUrl && (
+              {nftjiPanelUrl && isMine && (
                 <Link href={nftjiPanelUrl} style={{
                   ...actionLink, background:'transparent', borderColor:'#a21caf44', color:'#e879f9',
                 }} onClick={()=>setShowDetail(false)}>

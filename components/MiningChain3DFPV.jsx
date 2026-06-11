@@ -192,7 +192,7 @@ function castRay(wx, wy, angle, cellMap, obsSet) {
     if (mx<0||mx>=COLS||my<0||my>=ROWS) return {perpDist,cell:null,side,mx,my}
     const key = `${my},${mx}`
     // Decorative obstacle: solid wall, no doorway — always a hit
-    const obsData = obsSet?.has(key) ? OBSTACLE_MAP.get(key) : null
+    const obsData = obsSet?.get?.(key) || null
     if (obsData) return {perpDist, cell:{isObstacle:true,base:obsData.base,label:obsData.label}, side, mx, my}
     // Doorway check for block cells
     const hitFrac = (((side===0?py+perpDist*dy:px+perpDist*dx)%1.0)+1.0)%1.0
@@ -207,7 +207,7 @@ function castRay(wx, wy, angle, cellMap, obsSet) {
 }
 
 // ── Minimap ───────────────────────────────────────────────────────────────────
-function drawMinimap(ctx, gr, gc, angle, cellMap, presenceMap, myWallet, W, H, chainNodePos) {
+function drawMinimap(ctx, gr, gc, angle, cellMap, presenceMap, myWallet, W, H, chainNodePos, validObs) {
   const isMobile = W < 600
   const SZ = isMobile ? Math.min(W*0.38, 110) : Math.min(130, W*0.2)
   const CS = SZ/ROWS
@@ -222,7 +222,7 @@ function drawMinimap(ctx, gr, gc, angle, cellMap, presenceMap, myWallet, W, H, c
   for (let r=0;r<ROWS;r++) for (let c=0;c<COLS;c++) {
     const key = `${r},${c}`
     const cell = cellMap.get(key)
-    const obs  = OBSTACLE_MAP.get(key)
+    const obs  = validObs?.get(key) || null
     if (obs) {
       const [or,og,ob] = obs.base
       ctx.fillStyle = `rgba(${or>>1},${og>>1},${ob>>1},0.85)`
@@ -736,9 +736,10 @@ export default function MiningChain3DFPV({
   cellMap, presenceMap, myWallet, myColor,
   initRow, initCol, jumpToCell,
   onPositionChange, onFacingChange, onWantNavigate, onPositionRealtime,
-  onPvpHit, onAnonReset, pvpStolen,
+  onPvpHit, onAnonKill, pvpStolen,
   onChainSolveOpen, externalPvpFlash,
   swingMap, myPoolCode,
+  anonKillMsg,
   es,
 }) {
   const canvasRef    = useRef(null)
@@ -779,15 +780,14 @@ export default function MiningChain3DFPV({
   const pvpFlashRef     = useRef(0)      // timestamp of last pvp strike (for red flash)
   const pvpGainRef      = useRef(null)   // { text, at } for "+X EUR" popup
   const onPvpHitRef          = useRef(onPvpHit)
-  const onAnonResetRef       = useRef(onAnonReset)
+  const onAnonKillRef        = useRef(onAnonKill)
   const pvpStolenRef         = useRef(pvpStolen || {})
   const chainStatsRef        = useRef(null)
   const onChainSolveOpenRef  = useRef(onChainSolveOpen)
   const swingMapRef          = useRef(swingMap || {})
   const myPoolCodeRef        = useRef(myPoolCode || null)
-  // Precomputed from cellMap: obstacle positions valid (≥2 cells from any block)
-  // and the actual chain node grid position
-  const validObstaclesRef   = useRef(new Set(OBSTACLE_MAP.keys()))
+  // Precomputed from cellMap: Map<key,{base,label}> of currently active obstacles
+  const validObstaclesRef   = useRef(new Map(OBSTACLE_MAP))
   const chainNodePosRef     = useRef({ row: CHAIN_NODE_ROW, col: CHAIN_NODE_COL })
 
   // Keep refs in sync with props
@@ -797,15 +797,19 @@ export default function MiningChain3DFPV({
   useEffect(()=>{ esRef.current=es },[es])
   useEffect(()=>{ onWantNavRef.current=onWantNavigate },[onWantNavigate])
   useEffect(()=>{ onPvpHitRef.current=onPvpHit },[onPvpHit])
-  useEffect(()=>{ onAnonResetRef.current=onAnonReset },[onAnonReset])
+  useEffect(()=>{ onAnonKillRef.current=onAnonKill },[onAnonKill])
   useEffect(()=>{ pvpStolenRef.current=pvpStolen||{} },[pvpStolen])
   useEffect(()=>{ onChainSolveOpenRef.current=onChainSolveOpen },[onChainSolveOpen])
   useEffect(()=>{ swingMapRef.current=swingMap||{} },[swingMap])
   useEffect(()=>{ myPoolCodeRef.current=myPoolCode||null },[myPoolCode])
   // External hit flash (victim sees red screen when struck by another player)
   useEffect(()=>{ if(externalPvpFlash) pvpFlashRef.current=performance.now() },[externalPvpFlash])
+  // Kill notification from other players (spectator kill feed)
+  useEffect(()=>{
+    if(anonKillMsg) notifRef.current = { text: anonKillMsg, color: '#f97316', startedAt: Date.now() }
+  },[anonKillMsg])
 
-  // Recompute valid obstacles and chain node position whenever cellMap changes
+  // Recompute valid obstacles (Map<key,data>) and chain node position whenever cellMap changes
   useEffect(() => {
     // Find chain node position from cellMap
     let cnRow = CHAIN_NODE_ROW, cnCol = CHAIN_NODE_COL
@@ -816,18 +820,34 @@ export default function MiningChain3DFPV({
       }
     }
     chainNodePosRef.current = { row: cnRow, col: cnCol }
-    // Keep only obstacles that have ≥1 cell clearance from every block
-    const valid = new Set()
-    for (const [key] of OBSTACLE_MAP) {
-      const [or, oc] = key.split(',').map(Number)
-      let clear = true
-      outer: for (let dr = -1; dr <= 1; dr++) {
-        for (let dc = -1; dc <= 1; dc++) {
-          const nk = `${or+dr},${oc+dc}`
-          if (cellMap.has(nk)) { clear = false; break outer }
+
+    // Static obstacles: include unless the exact cell is a block
+    const valid = new Map()
+    for (const [key, data] of OBSTACLE_MAP) {
+      if (!cellMap.has(key)) valid.set(key, data)
+    }
+
+    // Dynamic obstacles: fill empty cells that are 2-3 cells from each block
+    // Deterministic hash so layout is stable; ~18% of eligible cells
+    const DYN = [
+      { base:[68,78,92],  label:'STRUCTURE' },
+      { base:[52,58,68],  label:'STRUCTURE' },
+      { base:[78,65,48],  label:'STRUCTURE' },
+    ]
+    for (const [bKey] of cellMap) {
+      const [br, bc] = bKey.split(',').map(Number)
+      for (let dr = -3; dr <= 3; dr++) {
+        for (let dc = -3; dc <= 3; dc++) {
+          const ad = Math.abs(dr), ac = Math.abs(dc)
+          if (ad <= 1 && ac <= 1) continue // skip cells too close to block
+          const r = br + dr, c = bc + dc
+          if (r < 1 || r >= ROWS-1 || c < 1 || c >= COLS-1) continue
+          const key = `${r},${c}`
+          if (cellMap.has(key) || valid.has(key)) continue
+          const h = (((r * 31 + c * 17) ^ (r * c * 7)) % 100 + 100) % 100
+          if (h < 18) valid.set(key, DYN[(r + c) % 3])
         }
       }
-      if (clear) valid.add(key)
     }
     validObstaclesRef.current = valid
   }, [cellMap])
@@ -1393,7 +1413,7 @@ export default function MiningChain3DFPV({
       } else pvpGainRef.current = null
     }
 
-    drawMinimap(ctx,gr,gc,angle,cellMap,presence,myWallet,W,H,chainNodePosRef.current)
+    drawMinimap(ctx,gr,gc,angle,cellMap,presence,myWallet,W,H,chainNodePosRef.current,validObstaclesRef.current)
     drawOnlineList(ctx,W,H,presence,myWallet,pvpStolenRef.current)
     drawChainStats(ctx,W,H,chainStatsRef.current,es)
   }, [])
@@ -1635,16 +1655,19 @@ export default function MiningChain3DFPV({
           pvpFlashRef.current = performance.now()
 
           if(enemy.isAnon){
-            // Anon: track local hits for reset, and call API for +0.10 EUR bounty
+            // Anon: track hits toward kill threshold (50), give small bounty per hit
             const prev = anonHitsRef.current[enemy.wallet] || 0
             const next = prev + 1
             anonHitsRef.current[enemy.wallet] = next
-            if(next >= 5){
-              anonHitsRef.current[enemy.wallet] = 0
-              onAnonResetRef.current?.(enemy.wallet)
-            }
             onPvpHitRef.current?.({ attacker: myWallet, victim: enemy.wallet, victimIsAnon: true })
-            pvpGainRef.current = { text: '👊 +0.10 EUR', at: performance.now() }
+            if(next >= 50){
+              anonHitsRef.current[enemy.wallet] = 0
+              onAnonKillRef.current?.(enemy.wallet)
+              pvpGainRef.current = { text: '💀 KILL +2 EUR', at: performance.now() }
+            } else {
+              const remaining = 50 - next
+              pvpGainRef.current = { text: `👊 +0.10  [${remaining} to kill]`, at: performance.now() }
+            }
           } else {
             // Logged wallet: call API for steal + daily task
             pvpGainRef.current = { text: '⚔ +0.10 EUR', at: performance.now() }
