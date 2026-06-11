@@ -29,14 +29,14 @@ const CHAIN_NODE_ROW = 4     // fallback; runtime position comes from cellMap
 const CHAIN_NODE_COL = 4
 
 // ── Decorative obstacles: solid walls, no doorways, not mineable ──────────────
-// Three visual types: monolith (violet), pylon (teal), ruin (rust)
+// Five visual types: monolith (violet), pylon (teal), ruin (rust), steel wall, bunker
 const OBSTACLE_MAP = new Map([
-  // Violet monoliths — outer corners
+  // Violet monoliths — outer zone corners
   ['5,5',   { base:[120,40,200], label:'MONOLITH' }],
   ['5,22',  { base:[120,40,200], label:'MONOLITH' }],
   ['22,5',  { base:[120,40,200], label:'MONOLITH' }],
   ['22,22', { base:[120,40,200], label:'MONOLITH' }],
-  // Teal pylons — inner ring
+  // Teal pylons — inner ring landmarks
   ['10,14', { base:[30,150,140], label:'TECH PYLON' }],
   ['14,9',  { base:[30,150,140], label:'TECH PYLON' }],
   ['17,14', { base:[30,150,140], label:'TECH PYLON' }],
@@ -46,6 +46,68 @@ const OBSTACLE_MAP = new Map([
   ['19,9',  { base:[160,60,20],  label:'ANCIENT RUIN' }],
   ['9,8',   { base:[160,60,20],  label:'ANCIENT RUIN' }],
   ['20,20', { base:[160,60,20],  label:'ANCIENT RUIN' }],
+
+  // Steel walls — horizontal outer segments (gaps at center for passage)
+  ['2,7',   { base:[100,110,135], label:'STEEL WALL' }],
+  ['2,8',   { base:[100,110,135], label:'STEEL WALL' }],
+  ['2,9',   { base:[100,110,135], label:'STEEL WALL' }],
+  ['2,17',  { base:[100,110,135], label:'STEEL WALL' }],
+  ['2,18',  { base:[100,110,135], label:'STEEL WALL' }],
+  ['2,19',  { base:[100,110,135], label:'STEEL WALL' }],
+  ['25,7',  { base:[100,110,135], label:'STEEL WALL' }],
+  ['25,8',  { base:[100,110,135], label:'STEEL WALL' }],
+  ['25,9',  { base:[100,110,135], label:'STEEL WALL' }],
+  ['25,17', { base:[100,110,135], label:'STEEL WALL' }],
+  ['25,18', { base:[100,110,135], label:'STEEL WALL' }],
+  ['25,19', { base:[100,110,135], label:'STEEL WALL' }],
+
+  // Steel walls — vertical outer segments (gaps at center)
+  ['7,2',   { base:[100,110,135], label:'STEEL WALL' }],
+  ['8,2',   { base:[100,110,135], label:'STEEL WALL' }],
+  ['9,2',   { base:[100,110,135], label:'STEEL WALL' }],
+  ['17,2',  { base:[100,110,135], label:'STEEL WALL' }],
+  ['18,2',  { base:[100,110,135], label:'STEEL WALL' }],
+  ['19,2',  { base:[100,110,135], label:'STEEL WALL' }],
+  ['7,25',  { base:[100,110,135], label:'STEEL WALL' }],
+  ['8,25',  { base:[100,110,135], label:'STEEL WALL' }],
+  ['9,25',  { base:[100,110,135], label:'STEEL WALL' }],
+  ['17,25', { base:[100,110,135], label:'STEEL WALL' }],
+  ['18,25', { base:[100,110,135], label:'STEEL WALL' }],
+  ['19,25', { base:[100,110,135], label:'STEEL WALL' }],
+
+  // Bunker walls — inner maze cross-corridor segments
+  ['8,10',  { base:[55,60,70],    label:'BUNKER WALL' }],
+  ['8,11',  { base:[55,60,70],    label:'BUNKER WALL' }],
+  ['8,16',  { base:[55,60,70],    label:'BUNKER WALL' }],
+  ['8,17',  { base:[55,60,70],    label:'BUNKER WALL' }],
+  ['19,10', { base:[55,60,70],    label:'BUNKER WALL' }],
+  ['19,11', { base:[55,60,70],    label:'BUNKER WALL' }],
+  ['19,16', { base:[55,60,70],    label:'BUNKER WALL' }],
+  ['19,17', { base:[55,60,70],    label:'BUNKER WALL' }],
+  ['10,8',  { base:[55,60,70],    label:'BUNKER WALL' }],
+  ['11,8',  { base:[55,60,70],    label:'BUNKER WALL' }],
+  ['16,8',  { base:[55,60,70],    label:'BUNKER WALL' }],
+  ['17,8',  { base:[55,60,70],    label:'BUNKER WALL' }],
+  ['10,19', { base:[55,60,70],    label:'BUNKER WALL' }],
+  ['11,19', { base:[55,60,70],    label:'BUNKER WALL' }],
+  ['16,19', { base:[55,60,70],    label:'BUNKER WALL' }],
+  ['17,19', { base:[55,60,70],    label:'BUNKER WALL' }],
+
+  // Void walls — inner pocket walls creating dead-ends around center
+  ['11,11', { base:[80,30,120],   label:'VOID WALL' }],
+  ['11,16', { base:[80,30,120],   label:'VOID WALL' }],
+  ['16,11', { base:[80,30,120],   label:'VOID WALL' }],
+  ['16,16', { base:[80,30,120],   label:'VOID WALL' }],
+
+  // Barrier beacons — scattered mid-field singles (orange — easy to spot)
+  ['4,13',  { base:[210,95,10],   label:'BARRIER' }],
+  ['4,14',  { base:[210,95,10],   label:'BARRIER' }],
+  ['23,13', { base:[210,95,10],   label:'BARRIER' }],
+  ['23,14', { base:[210,95,10],   label:'BARRIER' }],
+  ['13,4',  { base:[210,95,10],   label:'BARRIER' }],
+  ['14,4',  { base:[210,95,10],   label:'BARRIER' }],
+  ['13,23', { base:[210,95,10],   label:'BARRIER' }],
+  ['14,23', { base:[210,95,10],   label:'BARRIER' }],
 ])
 
 // ── Wall collision: returns true if position (grid units) hits a solid wall ──
