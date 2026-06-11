@@ -24,7 +24,7 @@ const DOOR_HI       = (1 + DOOR_FRAC) / 2   // 0.725
 const FOOTSTEP_DIST = MOVE_SPD * 10         // footstep every ~10 movement frames
 const SWING_DUR     = 340    // ms per pickaxe swing
 const HITS_NEEDED   = 5      // swings to complete mining action
-const INTERACT_DIST = 2.5    // grid cells — max distance for block interaction
+const INTERACT_DIST = 2.0    // grid cells — max distance for block interaction
 const CHAIN_NODE_ROW = 4     // fallback; runtime position comes from cellMap
 const CHAIN_NODE_COL = 4
 
@@ -1119,8 +1119,8 @@ export default function MiningChain3DFPV({
     const fwdTitle = fwdCell
       ? (es ? (fwdCell.titleEs||fwdCell.titleEn||'') : (fwdCell.titleEn||fwdCell.titleEs||''))
       : ''
-    if (fwdTitle && fwdDist < 6.5) {
-      const a   = Math.min(0.82, Math.max(0.05, (6.5-fwdDist)/6.5))
+    if (fwdTitle && fwdDist < 2.0) {
+      const a   = Math.min(0.82, Math.max(0.05, (2.0-fwdDist)/2.0))
       const wH  = Math.min(H*1.8, H*PROJ_DIST/Math.max(0.1,fwdDist))
       const fs  = Math.max(9, Math.round(13*PROJ_DIST/Math.max(0.5,fwdDist)))
       ctx.globalAlpha = a
@@ -1133,8 +1133,8 @@ export default function MiningChain3DFPV({
 
     // Hex address label (scales with proximity)
     const fwdHex = fwdMx>=0&&fwdMy>=0 ? (fwdCell?.blockHex||gridToBlockHex(fwdMy,fwdMx)) : null
-    if (fwdHex && fwdDist < 4.0) {
-      const a   = Math.max(0,(4.0-fwdDist)/4.0)*0.52
+    if (fwdHex && fwdDist < 2.0) {
+      const a   = Math.max(0,(2.0-fwdDist)/2.0)*0.52
       const wH  = Math.min(H*1.8,H*PROJ_DIST/Math.max(0.1,fwdDist))
       const fs  = Math.max(9,Math.round(14*PROJ_DIST/Math.max(0.3,fwdDist)))
       ctx.globalAlpha = a
@@ -1146,11 +1146,11 @@ export default function MiningChain3DFPV({
     }
 
     // Owner label on wall (near distance)
-    if (fwdCell?.owner && fwdDist < 3.8) {
+    if (fwdCell?.owner && fwdDist < 2.0) {
       const ownerText = isMineWall
         ? (es ? '[ TUYO ]' : '[ YOURS ]')
         : `[ ${fwdCell.owner.slice(0,6)}…${fwdCell.owner.slice(-4)} ]`
-      const a   = Math.max(0, (3.8-fwdDist)/3.8)*0.68
+      const a   = Math.max(0, (2.0-fwdDist)/2.0)*0.68
       const wH  = Math.min(H*1.8,H*PROJ_DIST/Math.max(0.1,fwdDist))
       const fs  = Math.max(8, Math.round(11*PROJ_DIST/Math.max(0.4,fwdDist)))
       ctx.globalAlpha = a
@@ -1162,8 +1162,8 @@ export default function MiningChain3DFPV({
     }
 
     // Price tag on wall
-    if (fwdCell?.priceEur > 0 && !fwdCell.owner && fwdDist < 4.5) {
-      const a   = Math.max(0,(4.5-fwdDist)/4.5)*0.72
+    if (fwdCell?.priceEur > 0 && !fwdCell.owner && fwdDist < 2.0) {
+      const a   = Math.max(0,(2.0-fwdDist)/2.0)*0.72
       const wH  = Math.min(H*1.8,H*PROJ_DIST/Math.max(0.1,fwdDist))
       const fs  = Math.max(9,Math.round(12*PROJ_DIST/Math.max(0.5,fwdDist)))
       ctx.globalAlpha = a
@@ -1190,7 +1190,7 @@ export default function MiningChain3DFPV({
     const hasTarget  = fwdMx >= 0 && fwdMy >= 0 && fwdCell !== null
     const inXHRange  = hasTarget && !fwdCell?.isObstacle && fwdDist <= INTERACT_DIST
     const xhBase     = fwdCell?.isChainNode ? '#ffd700' : (fwdCell?.owner ? fwdCell.color : C)
-    const xhCol      = inXHRange ? xhBase+'ee' : hasTarget ? xhBase+'55' : C+'33'
+    const xhCol      = inXHRange ? xhBase+'ee' : C+'33'
     const xhLen      = inXHRange ? 12 : 9
     const xhGap      = inXHRange ? 2 : 3
     ctx.strokeStyle = xhCol; ctx.lineWidth = inXHRange ? 1.4 : 1
@@ -1278,8 +1278,8 @@ export default function MiningChain3DFPV({
       W/2, 10
     )
 
-    // ── Facing block info HUD (top-right) — only within 4 cells ──────────────
-    if (fwdDist <= 4.0) {
+    // ── Facing block info HUD (top-right) — only within 2 cells ──────────────
+    if (fwdDist <= 2.0) {
       drawFacingHUD(ctx, W, H, fwdCell, fwdMx, fwdMy, myWallet, es, fwdDist)
     }
 
