@@ -13,6 +13,7 @@ import {
 } from '@/lib/mm3-block-chain'
 import supabase from '@/lib/supabaseClient'
 import MiningChain3DFPV from './MiningChain3DFPV'
+import ChainSolveCard from './ChainSolveCard'
 
 const C = '#22d3ee'
 const CHAIN3D_CHANNEL = 'mm3-chain3d-v1'
@@ -58,6 +59,7 @@ export default function MiningChain3D() {
   const [jumpToCell,    setJumpToCell]    = useState(null)
   const [pvpStolen,     setPvpStolen]     = useState({})
   const [showDetail,    setShowDetail]    = useState(false)
+  const [showChainSolve, setShowChainSolve] = useState(false)
   // positions: wallet → { gx, gy, row, col } — populated from presence payload, broadcast, and DB
   const [positions,     setPositions]     = useState({})
   // onlineWallets: who is currently in the channel (from presence sync)
@@ -290,6 +292,16 @@ export default function MiningChain3D() {
     return () => clearInterval(t)
   }, [loadPvpStolen])
 
+  const handleChainSolveOpen = useCallback(() => setShowChainSolve(true), [])
+
+  // Close ChainSolve overlay with Escape
+  useEffect(() => {
+    if (!showChainSolve) return
+    const onKey = (e) => { if (e.key === 'Escape') setShowChainSolve(false) }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [showChainSolve])
+
   const handleAnonReset = useCallback((anonKey) => {
     channelRef.current?.send({
       type: 'broadcast', event: 'anon-reset',
@@ -369,6 +381,7 @@ export default function MiningChain3D() {
             onPvpHit={handlePvpHit}
             onAnonReset={handleAnonReset}
             pvpStolen={pvpStolen}
+            onChainSolveOpen={handleChainSolveOpen}
             es={es}
           />
         )}
@@ -440,11 +453,11 @@ export default function MiningChain3D() {
                 </Link>
               )}
               {fc?.isChainNode && (
-                <Link href="/training" style={{
-                  ...actionLink, background:'#1a1000', borderColor:'#ffd70044', color:'#ffd700',
+                <button onClick={() => setShowChainSolve(true)} style={{
+                  ...actionLink, background:'#1a1000', borderColor:'#ffd70044', color:'#ffd700', cursor:'pointer',
                 }}>
                   ⬡ {es?'Resolver cadena':'Solve formula chain'}
-                </Link>
+                </button>
               )}
 
               {facingCell && (
@@ -543,11 +556,11 @@ export default function MiningChain3D() {
                 </Link>
               )}
               {fc?.isChainNode && (
-                <Link href="/training" style={{
-                  ...actionLink, background:'#1a1000', borderColor:'#ffd70044', color:'#ffd700',
-                }} onClick={()=>setShowDetail(false)}>
+                <button onClick={() => { setShowDetail(false); setShowChainSolve(true); }} style={{
+                  ...actionLink, background:'#1a1000', borderColor:'#ffd70044', color:'#ffd700', cursor:'pointer',
+                }}>
                   ⬡ {es?'Resolver cadena':'Solve chain'}
-                </Link>
+                </button>
               )}
               {isMine && fc?.isMarket && nftjiResellUrl && (
                 <Link href={nftjiResellUrl} style={{
@@ -570,6 +583,56 @@ export default function MiningChain3D() {
                   # {es?'Código fórmula':'Formula code'}
                 </Link>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── MM3 Block Chain formula overlay ──────────────────────────────── */}
+      {showChainSolve && (
+        <div
+          style={{
+            position:'absolute', inset:0, display:'flex', alignItems:'center', justifyContent:'center',
+            background:'rgba(0,0,0,0.90)', zIndex:60,
+          }}
+          onClick={() => setShowChainSolve(false)}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{
+              background:'#020d06', border:'1px solid rgba(74,222,128,0.30)',
+              borderRadius:10, padding:'20px 24px', width:'min(520px,94vw)',
+              fontFamily:'Consolas,monospace',
+            }}
+          >
+            {/* Header */}
+            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:14 }}>
+              <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                <span style={{ color:'#ffd700', fontSize:'1.1rem' }}>⬡</span>
+                <div>
+                  <div style={{ color:'#4ade80', fontWeight:700, fontSize:'0.88rem', letterSpacing:'0.1em' }}>
+                    MM3 BLOCK CHAIN
+                  </div>
+                  <div style={{ color:'rgba(74,222,128,0.4)', fontSize:'0.62rem', letterSpacing:'0.14em', marginTop:1 }}>
+                    {es ? 'FÓRMULA GLOBAL · 1 INTENTO/DÍA' : 'GLOBAL FORMULA · 1 ATTEMPT/DAY'}
+                  </div>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowChainSolve(false)}
+                style={{ background:'none', border:'none', color:'#475569', cursor:'pointer', fontSize:'1.1rem', lineHeight:1 }}
+              >
+                ✕
+              </button>
+            </div>
+
+            <ChainSolveCard
+              wallet={myWallet}
+              onWinner={() => setShowChainSolve(false)}
+            />
+
+            <div style={{ textAlign:'center', marginTop:12, color:'rgba(74,222,128,0.25)', fontSize:'0.58rem', letterSpacing:'0.12em' }}>
+              {es ? 'ESC O CLIC FUERA PARA CERRAR' : 'ESC OR CLICK OUTSIDE TO CLOSE'}
             </div>
           </div>
         </div>

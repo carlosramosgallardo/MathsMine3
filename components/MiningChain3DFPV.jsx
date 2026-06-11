@@ -572,6 +572,7 @@ export default function MiningChain3DFPV({
   initRow, initCol, jumpToCell,
   onPositionChange, onFacingChange, onWantNavigate, onPositionRealtime,
   onPvpHit, onAnonReset, pvpStolen,
+  onChainSolveOpen,
   es,
 }) {
   const canvasRef    = useRef(null)
@@ -611,10 +612,11 @@ export default function MiningChain3DFPV({
   const anonHitsRef     = useRef({})     // { anonKey → hitCount } per session
   const pvpFlashRef     = useRef(0)      // timestamp of last pvp strike (for red flash)
   const pvpGainRef      = useRef(null)   // { text, at } for "+X EUR" popup
-  const onPvpHitRef     = useRef(onPvpHit)
-  const onAnonResetRef  = useRef(onAnonReset)
-  const pvpStolenRef    = useRef(pvpStolen || {})
-  const chainStatsRef   = useRef(null)
+  const onPvpHitRef          = useRef(onPvpHit)
+  const onAnonResetRef       = useRef(onAnonReset)
+  const pvpStolenRef         = useRef(pvpStolen || {})
+  const chainStatsRef        = useRef(null)
+  const onChainSolveOpenRef  = useRef(onChainSolveOpen)
 
   // Keep refs in sync with props
   useEffect(()=>{ cellMapRef.current=cellMap },[cellMap])
@@ -625,6 +627,7 @@ export default function MiningChain3DFPV({
   useEffect(()=>{ onPvpHitRef.current=onPvpHit },[onPvpHit])
   useEffect(()=>{ onAnonResetRef.current=onAnonReset },[onAnonReset])
   useEffect(()=>{ pvpStolenRef.current=pvpStolen||{} },[pvpStolen])
+  useEffect(()=>{ onChainSolveOpenRef.current=onChainSolveOpen },[onChainSolveOpen])
 
   useEffect(()=>{
     let owned=0, marketFree=0, marketOwned=0
@@ -1141,6 +1144,9 @@ export default function MiningChain3DFPV({
   // Keyboard
   useEffect(()=>{
     const dn=(e)=>{
+      // Don't capture game keys while the user is typing in an overlay input
+      const tag = document.activeElement?.tagName
+      if(tag==='INPUT'||tag==='TEXTAREA') return
       const k=keysRef.current
       if(e.key==='w'||e.key==='W'||e.key==='ArrowUp')   {k.w=true;e.preventDefault()}
       if(e.key==='s'||e.key==='S'||e.key==='ArrowDown') {k.s=true;e.preventDefault()}
@@ -1149,8 +1155,12 @@ export default function MiningChain3DFPV({
       if(e.key==='q'||e.key==='Q'||e.key==='ArrowLeft') {k.q=true;e.preventDefault()}
       if(e.key==='e'||e.key==='E'||e.key==='ArrowRight'){k.e=true;e.preventDefault()}
       if(e.key==='Enter'){
-        const url=actionUrlRef.current
-        if(url) onWantNavRef.current?.(url)
+        if(facingDataRef.current?.cell?.isChainNode){
+          onChainSolveOpenRef.current?.()
+        } else {
+          const url=actionUrlRef.current
+          if(url) onWantNavRef.current?.(url)
+        }
         e.preventDefault()
       }
       if(e.key===' '||e.code==='Space'){
@@ -1285,7 +1295,7 @@ export default function MiningChain3DFPV({
           onFacingChange?.(fmy,fmx,fc)
           if(fc){
             if(fc.isChainNode){
-              actionUrlRef.current='/training'
+              actionUrlRef.current=null
               mineTypeRef.current='empty'
             } else {
               const hex=fc.blockHex||gridToBlockHex(fmy,fmx)
