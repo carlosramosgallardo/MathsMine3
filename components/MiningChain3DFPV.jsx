@@ -1023,8 +1023,8 @@ export default function MiningChain3DFPV({
     const es       = esRef.current
 
     const {x:px,y:py,angle,z:pz=0} = playerRef.current
-    // Downward camera tilt grows with height: more ground/block-tops visible from air
-    const horizon = Math.max(H * 0.10, H * HORIZON_RATIO - pz * H * 0.15)
+    // Sky grows as player rises → going-up feel; horizon below screen center = natural downward tilt
+    const horizon = Math.min(H * 0.72, H * HORIZON_RATIO + pz * H * 0.10)
     const strips  = Math.ceil(W/STRIP_W)
 
     if (!zBufferRef.current || zBufferRef.current.length !== strips) {
