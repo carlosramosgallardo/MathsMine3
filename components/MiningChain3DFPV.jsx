@@ -1003,7 +1003,7 @@ export default function MiningChain3DFPV({
     const es       = esRef.current
 
     const {x:px,y:py,angle,z:pz=0} = playerRef.current
-    const horizon = Math.max(H*0.05, H * HORIZON_RATIO - pz * H * 0.18)
+    const horizon = H * HORIZON_RATIO
     const strips  = Math.ceil(W/STRIP_W)
 
     if (!zBufferRef.current || zBufferRef.current.length !== strips) {
@@ -1056,7 +1056,8 @@ export default function MiningChain3DFPV({
       const {perpDist,cell,side,mx:hitMx,my:hitMy} = castRay(px,py+bob,ra,cellMap,validObstaclesRef.current)
       const dist  = perpDist*Math.cos(ra-angle)
       const wallH = Math.min(H*1.8, H*PROJ_DIST/Math.max(0.01,dist))
-      const wTop  = Math.round(horizon-wallH/2)
+      // pz shifts walls DOWN on screen (eye is higher → blocks appear below)
+      const wTop  = Math.round(horizon - wallH/2 + pz * wallH)
 
       zBuffer[col] = dist
 
@@ -1488,13 +1489,29 @@ export default function MiningChain3DFPV({
       ctx.fillText(ownLabel, 174, curCell.emoji ? 40 : 24)
     }
 
-    // Controls hint (very dim, top-center)
-    ctx.textAlign='center'; ctx.fillStyle='#28465c'; ctx.font='bold 9px monospace'
-    ctx.fillText(
-      es ? 'WASD·mover  Q/E·girar  drag·rotar  ↵·acción'
-         : 'WASD·move  Q/E·turn  drag·look  ↵·action',
-      W/2, 10
-    )
+    // Controls hint — contextual (top-center, very dim)
+    {
+      ctx.textAlign='center'; ctx.font='bold 9px monospace'
+      const _act = fwdCell && !fwdCell.isObstacle && fwdDist <= INTERACT_DIST
+      let _hint, _hcol
+      if (_act) {
+        _hcol = '#3a6a7a'
+        if (fwdCell.isChainNode)
+          _hint = es ? '↵ · resolver cadena' : '↵ · solve chain'
+        else if (fwdCell.isMarket && !fwdCell.owner)
+          _hint = es ? '↵ · comprar NFTJI' : '↵ · buy NFTJI'
+        else if (fwdCell.isMarket && myWallet && fwdCell.owner?.toLowerCase()===myWallet.toLowerCase())
+          _hint = es ? '↵ · liberar NFTJI' : '↵ · resell NFTJI'
+        else if (!fwdCell.owner)
+          _hint = es ? '↵ · minar bloque' : '↵ · mine block'
+      }
+      if (!_hint) {
+        _hcol = '#28465c'
+        _hint = es ? 'WASD·mover  Q/E·girar  drag·rotar  SPC·saltar'
+                   : 'WASD·move  Q/E·turn  drag·look  SPC·jump'
+      }
+      ctx.fillStyle = _hcol; ctx.fillText(_hint, W/2, 10)
+    }
 
     // ── Facing block info HUD (top-right) — only within 2 cells ──────────────
     if (fwdDist <= 2.0) {
