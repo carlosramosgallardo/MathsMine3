@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, useCallback, useMemo } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useI18n } from '@/lib/i18n-context'
+import { useCurrency } from '@/lib/currency-context'
 import { useActiveWallet } from '@/lib/use-active-wallet'
 import { colorFromAddress } from '@/lib/wallet-colors'
 import {
@@ -42,6 +43,7 @@ function getSpawnForWallet(wallet) {
 
 export default function MiningChain3D() {
   const { language } = useI18n()
+  const { currency } = useCurrency()
   const es = language === 'es'
   const { account } = useActiveWallet()
   const router = useRouter()
@@ -291,6 +293,11 @@ export default function MiningChain3D() {
       setHealthMap(prev => ({ ...prev, [payload.victim]: Number(payload.health ?? 100) }))
       if (payload.victim === myKeyRef.current || payload.victim === myWalletRef.current) {
         setReceivedHitAt(Date.now())
+        if (myWalletRef.current) {
+          window.dispatchEvent(new CustomEvent('mm3-db-updated', {
+            detail: { pvp: true, wallet: myWalletRef.current },
+          }))
+        }
         if (payload.killed) {
           const spawn = myWalletRef.current ? getRandomLoggedSpawn() : { row: 14, col: 14 }
           setTimeout(() => {
@@ -543,6 +550,7 @@ export default function MiningChain3D() {
             walletNftjis={walletNftjis}
             myNftjis={myNftjis}
             healthMap={healthMap}
+            currency={currency}
             es={es}
           />
         )}

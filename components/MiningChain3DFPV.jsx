@@ -562,11 +562,11 @@ function drawFirstPersonTool(ctx, W, H, color, swingT, walkDist) {
   ctx.restore()
 }
 
-function drawThirdPersonPlayer(ctx,W,H,color,swingT,walkDist,hasSkills){
+function drawThirdPersonPlayer(ctx,W,H,color,swingT,walkDist,dockTop){
   const mobile=W<640,scale=mobile ? .76 : Math.max(.86,Math.min(1.1,H/590))
   const bodyW=62*scale,bodyH=82*scale,headW=39*scale,headH=25*scale
-  const reserve=hasSkills&&!mobile?72:18,bob=Math.sin(walkDist*.18)*2.2*scale
-  const cx=W/2,bottomY=H-reserve+bob,bodyTop=bottomY-bodyH,headTop=bodyTop-headH+4*scale
+  const bob=Math.sin(walkDist*.18)*2.2*scale
+  const cx=W/2,bottomY=(dockTop??(H-18))+bob,bodyTop=bottomY-bodyH,headTop=bodyTop-headH+4*scale
   const [r,g,b]=hexToRgb(color||C)
   ctx.save();ctx.globalAlpha=.98
   ctx.fillStyle='rgba(0,0,0,.38)';ctx.beginPath();ctx.ellipse(cx,bottomY+3,bodyW*.58,7*scale,0,0,Math.PI*2);ctx.fill()
@@ -581,16 +581,6 @@ function drawThirdPersonPlayer(ctx,W,H,color,swingT,walkDist,hasSkills){
   const pickA=-.92-Math.sin(swingT*Math.PI)*1.25,tipX=handX+Math.cos(pickA)*pickL,tipY=handY+Math.sin(pickA)*pickL
   ctx.strokeStyle='#8b5e3c';ctx.lineWidth=4*scale;ctx.beginPath();ctx.moveTo(handX,handY);ctx.lineTo(tipX,tipY);ctx.stroke()
   const hs=10*scale;ctx.fillStyle='#b8cfdd';ctx.beginPath();ctx.moveTo(tipX-hs*.25,tipY-hs*.7);ctx.lineTo(tipX+hs*1.15,tipY-hs*.18);ctx.lineTo(tipX+hs*.42,tipY+hs*.28);ctx.lineTo(tipX-hs*.72,tipY+hs*.54);ctx.closePath();ctx.fill();ctx.restore()
-}
-
-function drawHealthHud(ctx,W,H,health,es){
-  const hp=Math.max(0,Math.min(100,Number(health??100))),w=Math.min(220,W*.36),h=13,x=W/2-w/2,y=42
-  ctx.fillStyle='rgba(1,7,14,.86)';ctx.fillRect(x-5,y-5,w+10,h+22)
-  ctx.fillStyle='#19070b';ctx.fillRect(x,y,w,h)
-  const col=hp>60?'#4ade80':hp>25?'#facc15':'#fb7185'
-  ctx.fillStyle=col;ctx.fillRect(x,y,w*hp/100,h);ctx.strokeStyle=col+'aa';ctx.strokeRect(x,y,w,h)
-  ctx.fillStyle='#dffaff';ctx.font='bold 10px monospace';ctx.textAlign='center';ctx.textBaseline='top'
-  ctx.fillText(`${es?'VIDA':'HEALTH'} ${hp}/100`,W/2,y+h+3)
 }
 
 // ── Mining progress arc ──────────────────────────────────────────────────────
@@ -619,18 +609,32 @@ function drawMineProgress(ctx, W, H, progress, type) {
 
 // ── MM3 Block Chain stats panel (bottom-left HUD) ───────────────────────────
 // ── NFTJI skills panel (bottom-center, below pickaxe) ────────────────────────
-function drawNftjiPanel(ctx, W, H, myNftjis, es) {
-  if (W < 600) return
-  if (!myNftjis || !myNftjis.length) return
-
+function drawWalletDock(ctx, W, H, myNftjis, health, es) {
+  const mobile = W < 600
   const SLOT_W = 32, SLOT_H = 40, GAP = 4, PAD_X = 8, PAD_Y = 5, HEADER_H = 13
-  const count = myNftjis.length
-  const pw = PAD_X * 2 + count * (SLOT_W + GAP) - GAP
-  const ph = PAD_Y * 2 + HEADER_H + SLOT_H
+  const count = mobile ? 0 : (myNftjis?.length || 0)
+  const skillsW = count ? PAD_X * 2 + count * (SLOT_W + GAP) - GAP : 0
+  const pw = mobile ? Math.min(158, W * .46) : Math.max(178, skillsW)
+  const ph = count ? PAD_Y * 2 + HEADER_H + SLOT_H : (mobile ? 12 : 24)
 
   const px = Math.round(W / 2 - pw / 2)
   const py = H - ph - 8
-  if (py < H / 2) return
+  if (py < H / 2) return null
+
+  const hp = Math.max(0, Math.min(100, Number(health ?? 100)))
+  const hpColor = hp > 60 ? '#4ade80' : hp > 25 ? '#facc15' : '#fb7185'
+  const healthY = py - 10
+
+  ctx.globalAlpha = .94
+  ctx.fillStyle = '#17070b'
+  ctx.fillRect(px, healthY, pw, 10)
+  ctx.fillStyle = hpColor
+  ctx.fillRect(px, healthY, pw * hp / 100, 10)
+  ctx.strokeStyle = hpColor + 'aa'; ctx.lineWidth = .75
+  ctx.strokeRect(px, healthY, pw, 10)
+  ctx.fillStyle = '#e8fbff'; ctx.font = 'bold 8px monospace'
+  ctx.textAlign = 'left'; ctx.textBaseline = 'middle'
+  ctx.fillText(`${es ? 'VIDA' : 'HP'} ${hp}/100`, px + 5, healthY + 5)
 
   ctx.globalAlpha = 0.85
   ctx.fillStyle = '#010709'
@@ -639,12 +643,12 @@ function drawNftjiPanel(ctx, W, H, myNftjis, es) {
   ctx.strokeStyle = '#fb923c44'; ctx.lineWidth = 0.5
   ctx.strokeRect(px, py, pw, ph)
   // top accent bar (horizontal)
-  ctx.fillStyle = '#fb923c88'
+  ctx.fillStyle = hpColor + 'aa'
   ctx.fillRect(px, py, pw, 2)
 
   ctx.font = 'bold 8px monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'top'
   ctx.fillStyle = '#fb923ccc'
-  ctx.fillText(es ? 'HABILIDADES' : 'SKILLS', px + pw / 2, py + PAD_Y)
+  if (!mobile) ctx.fillText(count ? (es ? 'WALLET · HABILIDADES' : 'WALLET · SKILLS') : 'WALLET', px + pw / 2, py + PAD_Y)
 
   const slotY = py + PAD_Y + HEADER_H
   for (let i = 0; i < count; i++) {
@@ -669,6 +673,7 @@ function drawNftjiPanel(ctx, W, H, myNftjis, es) {
   }
 
   ctx.textAlign = 'left'; ctx.globalAlpha = 1
+  return { top: healthY, centerX: W / 2 }
 }
 
 function drawChainStats(ctx, W, H, stats, es) {
@@ -825,11 +830,12 @@ export default function MiningChain3DFPV({
   anonKillMsg,
   playerLevel, playerNftjiCount, walletNftjis, myNftjis,
   healthMap,
+  currency = 'EUR',
   es,
 }) {
   const canvasRef    = useRef(null)
   const containerRef = useRef(null)
-  const [pointerLocked, setPointerLocked] = useState(false)
+  const [, setPointerLocked] = useState(false)
   const keysRef      = useRef({w:false,s:false,a:false,d:false,q:false,e:false,space:false,shift:false})
   const playerRef    = useRef({
     x:((initCol??14)+0.5)*CELL_SIZE,
@@ -848,6 +854,7 @@ export default function MiningChain3DFPV({
   const cellMapRef    = useRef(cellMap)
   const presenceRef   = useRef(presenceMap)
   const myWalletRef   = useRef(myWallet)
+  const currencyRef   = useRef(currency)
   const presenceKeyRef = useRef(presenceKey||myWallet)
   const esRef         = useRef(es)
   const onWantNavRef  = useRef(onWantNavigate)
@@ -894,6 +901,7 @@ export default function MiningChain3DFPV({
   useEffect(()=>{ cellMapRef.current=cellMap },[cellMap])
   useEffect(()=>{ presenceRef.current=presenceMap },[presenceMap])
   useEffect(()=>{ myWalletRef.current=myWallet },[myWallet])
+  useEffect(()=>{ currencyRef.current=currency },[currency])
   useEffect(()=>{ presenceKeyRef.current=presenceKey||myWallet },[presenceKey,myWallet])
   useEffect(()=>{ esRef.current=es },[es])
   useEffect(()=>{ onWantNavRef.current=onWantNavigate },[onWantNavigate])
@@ -1682,10 +1690,9 @@ export default function MiningChain3DFPV({
       }
     }
 
-    // ── Local third-person avatar ──────────────────────────────────────────
+    // ── Local third-person wallet avatar ──────────────────────────────────
     const swE  = performance.now() - swingStartRef.current
     const swT  = swE < SWING_DUR ? swE / SWING_DUR : 0
-    drawThirdPersonPlayer(ctx,W,H,colorFromAddress(myIdentity||'local-player'),swT,walkDistRef.current,myNftjisRef.current.length>0)
     drawMineProgress(ctx, W, H, mineProgressRef.current, mineTypeRef.current)
 
     // ── Enemy in crosshair indicator ──────────────────────────────────────
@@ -1750,9 +1757,9 @@ export default function MiningChain3DFPV({
 
     drawMinimap(ctx,gr,gc,angle,cellMap,presence,myIdentity,W,H,chainNodePosRef.current,validObstaclesRef.current)
     drawOnlineList(ctx,W,H,presence,myIdentity,pvpStolenRef.current)
-    drawNftjiPanel(ctx,W,H,myNftjisRef.current,es)
+    const walletDock = drawWalletDock(ctx,W,H,myNftjisRef.current,healthMapRef.current[myIdentity]??100,es)
+    drawThirdPersonPlayer(ctx,W,H,colorFromAddress(myIdentity||'local-player'),swT,walkDistRef.current,walletDock?.top)
     drawChainStats(ctx,W,H,chainStatsRef.current,es)
-    drawHealthHud(ctx,W,H,healthMapRef.current[myIdentity]??100,es)
   }, [])
 
   useEffect(()=>{ renderRef.current=renderFrame },[renderFrame])
@@ -2093,10 +2100,13 @@ export default function MiningChain3DFPV({
             .then(result=>{
               if(!result?.ok) return
               if(result.critical) critFlashRef.current=performance.now()
-              const money=Number(result.stolen_eur)||0
+              const activeCurrency=currencyRef.current
+              const moneyKey=`stolen_${String(activeCurrency).toLowerCase()}`
+              const money=Number(result[moneyKey])||0
+              const moneySymbol={EUR:'EUR',USD:'USD',CNY:'CNY'}[activeCurrency]||activeCurrency
               const hit=result.critical?'💥 CRIT':'⚔ HIT'
               pvpGainRef.current={
-                text:result.killed?`💀 KILL  ${hit}`:`${hit} -${result.damage} HP${money>0?` +${money.toFixed(2)} EUR`:''}`,
+                text:result.killed?`💀 KILL  ${hit}`:`${hit} -${result.damage} HP${money>0?` +${money.toFixed(2)} ${moneySymbol}`:''}`,
                 at:performance.now(),
               }
             })
@@ -2168,16 +2178,6 @@ export default function MiningChain3DFPV({
         onPointerUp={handlePointerUp}
         onPointerCancel={handlePointerUp}
       />
-      <div className="mm3-desktop-controls" style={{
-        position:'absolute',left:'50%',top:12,transform:'translateX(-50%)',
-        padding:'6px 10px',background:'rgba(1,7,14,.78)',border:`1px solid ${C}30`,
-        color:pointerLocked?'#4ade80cc':`${C}bb`,font:'10px Consolas,monospace',letterSpacing:'.08em',
-        pointerEvents:'none',whiteSpace:'nowrap',
-      }}>
-        {pointerLocked
-          ? (es?'WASD MOVER · SHIFT CORRER · CLIC GOLPEAR · ESC LIBERAR':'WASD MOVE · SHIFT SPRINT · CLICK SWING · ESC RELEASE')
-          : (es?'CLIC PARA CONTROLAR LA CÁMARA':'CLICK TO CONTROL CAMERA')}
-      </div>
       {/* Mobile D-pad */}
       <div className="mm3-touch-controls" style={{
         position:'absolute',
