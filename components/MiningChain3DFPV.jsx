@@ -612,7 +612,7 @@ function drawMineProgress(ctx, W, H, progress, type) {
 function drawWalletDock(ctx, W, H, myNftjis, health, es, isLoggedWallet) {
   const mobile = W < 600
   const SLOT_W = mobile ? 28 : 32, SLOT_H = mobile ? 34 : 40
-  const GAP = 4, PAD_X = 8, PAD_Y = 5, HEADER_H = 13
+  const GAP = 4, PAD_X = 8, PAD_Y = 5, HEADER_H = 3
   const skills = myNftjis || []
   const minimumSlots = isLoggedWallet ? (mobile ? 3 : 4) : 0
   const slotCount = Math.max(skills.length, minimumSlots)
@@ -648,14 +648,6 @@ function drawWalletDock(ctx, W, H, myNftjis, health, es, isLoggedWallet) {
   // top accent bar (horizontal)
   ctx.fillStyle = hpColor + 'aa'
   ctx.fillRect(px, py, pw, 2)
-
-  ctx.font = 'bold 8px monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'top'
-  ctx.fillStyle = '#fb923ccc'
-  if (slotCount) {
-    ctx.fillText(es ? 'WALLET · HABILIDADES' : 'WALLET · SKILLS', px + pw / 2, py + PAD_Y)
-  } else if (!mobile) {
-    ctx.fillText('WALLET', px + pw / 2, py + PAD_Y)
-  }
 
   const slotY = py + PAD_Y + HEADER_H
   for (let i = 0; i < slotCount; i++) {
@@ -1733,7 +1725,8 @@ export default function MiningChain3DFPV({
     const enemy = enemyTargetRef.current
     if (enemy?.wallet) {
       const isTeam = enemy.isTeammate
-      const ringCol = isTeam ? '#4ade80' : '#ef4444'
+      const isHead = enemy.hitZone === 'head'
+      const ringCol = isTeam ? '#4ade80' : isHead ? '#facc15' : '#ef4444'
       ctx.globalAlpha = 0.55
       ctx.strokeStyle = ringCol; ctx.lineWidth = 1.5
       const xh = W/2, yh = H * HORIZON_RATIO
@@ -1742,7 +1735,7 @@ export default function MiningChain3DFPV({
       ctx.globalAlpha = 0.40
       ctx.fillStyle = ringCol
       ctx.font = 'bold 10px monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'top'
-      ctx.fillText(isTeam ? '🛡' : '⚔', xh, yh + r2 + 3)
+      ctx.fillText(isTeam ? '🛡' : isHead ? 'HEAD' : 'BODY', xh, yh + r2 + 3)
       ctx.globalAlpha = 1
     }
 
@@ -2059,11 +2052,24 @@ export default function MiningChain3DFPV({
         const tY = Math.cos(p.angle)*rx + Math.sin(p.angle)*ry
         if (tY < 0.15 || tY > INTERACT_DIST) continue
         const tX = -Math.sin(p.angle)*rx + Math.cos(p.angle)*ry
-        if (Math.abs(tX / tY) > 0.28) continue
+        const targetBaseZ = Number(pres.z) || 0
+        const aimZ = p.z + CAMERA_EYE_Z - tY * Math.tan(p.pitch || 0)
+        const relativeAimZ = aimZ - targetBaseZ
+        const hitZone = relativeAimZ >= 0.56 && relativeAimZ <= 0.84
+          ? 'head'
+          : relativeAimZ >= 0 && relativeAimZ < 0.56
+            ? 'body'
+            : null
+        if (!hitZone) continue
+        const halfWidth = hitZone === 'head' ? 0.16 : 0.29
+        if (Math.abs(tX) > halfWidth) continue
         const enemyPool    = presenceRef.current[w]?.poolCode || null
         const myPool       = myPoolCodeRef.current
         const isTeammate   = !!(myPool && enemyPool && myPool === enemyPool)
-        if (tY < closestDist) { closestDist = tY; closestEnemy = { wallet: w, dist: tY, isAnon: w.startsWith('anon-'), isTeammate } }
+        if (tY < closestDist) {
+          closestDist = tY
+          closestEnemy = { wallet: w, dist: tY, isAnon: w.startsWith('anon-'), isTeammate, hitZone }
+        }
       }
       enemyTargetRef.current = closestEnemy
 
@@ -2132,15 +2138,17 @@ export default function MiningChain3DFPV({
           playPickHit(audioCtxRef,'nftji')
           pvpFlashRef.current = performance.now()
 
-          Promise.resolve(onPvpHitRef.current?.({ attacker:myWallet,victim:enemy.wallet,victimIsAnon:enemy.isAnon }))
+          Promise.resolve(onPvpHitRef.current?.({
+            attacker:myWallet,victim:enemy.wallet,victimIsAnon:enemy.isAnon,hitZone:enemy.hitZone,
+          }))
             .then(result=>{
               if(!result?.ok) return
-              if(result.critical) critFlashRef.current=performance.now()
+              if(result.critical||result.headshot) critFlashRef.current=performance.now()
               const activeCurrency=currencyRef.current
               const moneyKey=`stolen_${String(activeCurrency).toLowerCase()}`
               const money=Number(result[moneyKey])||0
               const moneySymbol={EUR:'EUR',USD:'USD',CNY:'CNY'}[activeCurrency]||activeCurrency
-              const hit=result.critical?'💥 CRIT':'⚔ HIT'
+              const hit=result.headshot?'🎯 HEADSHOT':result.critical?'💥 CRIT':'⚔ HIT'
               pvpGainRef.current={
                 text:result.killed?`💀 KILL  ${hit}`:`${hit} -${result.damage} HP${money>0?` +${money.toFixed(2)} ${moneySymbol}`:''}`,
                 at:performance.now(),

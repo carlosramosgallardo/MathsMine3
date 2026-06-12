@@ -24,6 +24,7 @@ export async function POST(req) {
   }
   const attacker = String(body.attacker || '').toLowerCase().trim()
   const victim = String(body.victim || '').toLowerCase().trim()
+  const hitZone = body.hitZone === 'head' ? 'head' : 'body'
   const victimIsAnon = victim.startsWith('anon-') || Boolean(body.victimIsAnon)
   if (!attacker || !victim || attacker === victim) {
     return Response.json({ ok: false, error: 'invalid_params' }, { status: 400 })
@@ -38,7 +39,8 @@ export async function POST(req) {
   const hasHeart = Array.isArray(attackerProgress?.wallet_emojis)
     && attackerProgress.wallet_emojis.includes('❤️')
   const critical = hasHeart && Math.random() < 0.05
-  const damage = critical ? 5 : 1
+  const headshot = hitZone === 'head'
+  const damage = headshot || critical ? 5 : 1
 
   const { data, error } = await sb.rpc('apply_mm3_pvp_hit', {
     p_attacker: attacker,
@@ -52,5 +54,5 @@ export async function POST(req) {
       : error.message.includes('anon_cannot_attack') ? 403 : 500
     return Response.json({ ok: false, error: error.message }, { status: code })
   }
-  return Response.json({ ok: true, critical, ...data })
+  return Response.json({ ok: true, critical, headshot, hitZone, ...data })
 }

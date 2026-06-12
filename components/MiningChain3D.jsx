@@ -434,11 +434,11 @@ export default function MiningChain3D() {
   const handleFacingChange = useCallback((row, col, cell, dist) => setFacingCell({ row, col, cell, dist }), [])
   const handleWantNavigate = useCallback((url) => router.push(url), [router])
 
-  const handlePvpHit = useCallback(async ({ attacker, victim, victimIsAnon }) => {
+  const handlePvpHit = useCallback(async ({ attacker, victim, victimIsAnon, hitZone }) => {
     const response = await fetch('/api/pvp-hit', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ attacker, victim, victimIsAnon }),
+      body: JSON.stringify({ attacker, victim, victimIsAnon, hitZone }),
     }).then(r => r.json()).catch(() => null)
     if (!response?.ok) return response
     setHealthMap(prev => ({ ...prev, [victim]: Number(response.health ?? 100) }))
