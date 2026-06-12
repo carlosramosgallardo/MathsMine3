@@ -27,6 +27,10 @@ const HITS_NEEDED   = 5      // swings to complete mining action
 const INTERACT_DIST = 2.0    // grid cells — max distance for block interaction
 const CHAIN_NODE_ROW = 4     // fallback; runtime position comes from cellMap
 const CHAIN_NODE_COL = 4
+const JUMP_VZ   = 0.12       // jump impulse (grid units / frame, ~60fps)
+const GRAVITY_A = 0.008      // gravity acceleration (grid units / frame²)
+const BLOCK_TOP = 1.0        // block/obstacle height in grid units
+const MAX_JUMPS = 5          // max chained jumps before landing resets count
 
 // ── Decorative obstacles: solid walls, no doorways, not mineable ──────────────
 // Five visual types: monolith (violet), pylon (teal), ruin (rust), steel wall, bunker
@@ -825,6 +829,7 @@ export default function MiningChain3DFPV({
     x:((initCol??14)+0.5)*CELL_SIZE,
     y:((initRow??14)+0.5)*CELL_SIZE,
     angle:0,
+    z:0, vz:0, jumps:0,
   })
   const walkDistRef        = useRef(0)
   const audioCtxRef        = useRef(null)
@@ -997,8 +1002,8 @@ export default function MiningChain3DFPV({
     const myWallet = myWalletRef.current
     const es       = esRef.current
 
-    const {x:px,y:py,angle} = playerRef.current
-    const horizon = H * HORIZON_RATIO
+    const {x:px,y:py,angle,z:pz=0} = playerRef.current
+    const horizon = Math.max(H*0.05, H * HORIZON_RATIO - pz * H * 0.18)
     const strips  = Math.ceil(W/STRIP_W)
 
     if (!zBufferRef.current || zBufferRef.current.length !== strips) {
@@ -1006,7 +1011,7 @@ export default function MiningChain3DFPV({
     }
     const zBuffer = zBufferRef.current
 
-    const bob = Math.sin(walkDistRef.current*0.12)*0.03*CELL_SIZE
+    const bob = pz > 0 ? 0 : Math.sin(walkDistRef.current*0.12)*0.03*CELL_SIZE
 
     // Atmospheric tint from current room
     const {row:gr,col:gc} = worldToGrid(px,py)
@@ -1627,9 +1632,8 @@ export default function MiningChain3DFPV({
         e.preventDefault()
       }
       if(e.key===' '||e.code==='Space'){
-        if(performance.now()-swingStartRef.current>SWING_DUR){
-          swingStartRef.current=performance.now(); hitDoneRef.current=false
-        }
+        const _p=playerRef.current
+        if(_p.jumps<MAX_JUMPS){ _p.vz=Math.max(0,_p.vz)+JUMP_VZ; _p.jumps++ }
         e.preventDefault()
       }
     }
@@ -1691,11 +1695,17 @@ export default function MiningChain3DFPV({
         const ngx=nx/CELL_SIZE, ngy=ny/CELL_SIZE
         const cgx=p.x/CELL_SIZE, cgy=p.y/CELL_SIZE
         const cm=cellMapRef.current, obs=validObstaclesRef.current
-        // Full move, else wall-slide on each axis independently
-        if(inBX&&inBY&&!hitsSolidWall(ngx,ngy,cm,obs)){ p.x=nx; p.y=ny }
-        else{
-          if(inBX&&!hitsSolidWall(ngx,cgy,cm,obs)) p.x=nx
-          if(inBY&&!hitsSolidWall(cgx,ngy,cm,obs)) p.y=ny
+        if(p.z >= BLOCK_TOP){
+          // Above block height: walk freely on top of everything
+          if(inBX) p.x=nx
+          if(inBY) p.y=ny
+        } else {
+          // Full move, else wall-slide on each axis independently
+          if(inBX&&inBY&&!hitsSolidWall(ngx,ngy,cm,obs)){ p.x=nx; p.y=ny }
+          else{
+            if(inBX&&!hitsSolidWall(ngx,cgy,cm,obs)) p.x=nx
+            if(inBY&&!hitsSolidWall(cgx,ngy,cm,obs)) p.y=ny
+          }
         }
         walkDistRef.current+=MOVE_SPD
         needsRender=true
@@ -1718,6 +1728,24 @@ export default function MiningChain3DFPV({
           onPositionChange?.(newRow,newCol)
           // no mid-screen popup on cell change — top-left HUD already shows current hex
         }
+      }
+
+      // ── Vertical physics (jump / gravity) ────────────────────────────────
+      if(p.z > 0 || p.vz > 0){
+        p.vz -= GRAVITY_A
+        const nz = p.z + p.vz
+        if(nz <= 0){
+          p.z = 0; p.vz = 0; p.jumps = 0
+        } else if(p.vz < 0){
+          // Falling: land on block/obstacle top if crossing BLOCK_TOP threshold
+          const bc = Math.floor(p.x/CELL_SIZE), br = Math.floor(p.y/CELL_SIZE)
+          const bk = `${br},${bc}`
+          if((validObstaclesRef.current.has(bk)||cellMapRef.current.has(bk)) &&
+              p.z >= BLOCK_TOP && nz < BLOCK_TOP){
+            p.z = BLOCK_TOP; p.vz = 0; p.jumps = 0
+          } else { p.z = nz }
+        } else { p.z = nz }
+        needsRender = true
       }
 
       // ── Enemy sprite targeting ─────────────────────────────────────────────
@@ -1917,6 +1945,36 @@ export default function MiningChain3DFPV({
         margin:0,color:'#22d3ee55',fontSize:'0.68rem',
         fontFamily:'monospace',letterSpacing:'0.06em',pointerEvents:'none',
       }}>{es?'DRAG·ROTAR':'DRAG·LOOK'}</p>
+
+      {/* Mobile jump button */}
+      <div style={{
+        position:'absolute',
+        bottom:'calc(56px + env(safe-area-inset-bottom, 0px))',
+        right:12,
+        pointerEvents:'auto',
+      }}>
+        <button
+          onPointerDown={(e)=>{
+            e.preventDefault()
+            const jp=playerRef.current
+            if(jp.jumps<MAX_JUMPS){ jp.vz=Math.max(0,jp.vz)+JUMP_VZ; jp.jumps++ }
+          }}
+          onPointerUp={(e)=>e.preventDefault()}
+          onPointerLeave={(e)=>e.preventDefault()}
+          style={{
+            width:66,height:66,background:'rgba(34,211,238,0.12)',
+            border:'1px solid #22d3ee44',borderRadius:33,color:'#22d3eedd',
+            fontSize:'1.6rem',cursor:'pointer',display:'flex',
+            alignItems:'center',justifyContent:'center',
+            userSelect:'none',fontFamily:'monospace',touchAction:'none',
+            WebkitTapHighlightColor:'transparent',
+          }}
+        >↑</button>
+        <p style={{
+          margin:'4px 0 0',color:'#22d3ee55',fontSize:'0.68rem',textAlign:'center',
+          fontFamily:'monospace',letterSpacing:'0.06em',pointerEvents:'none',
+        }}>{es?'SALTAR':'JUMP'}</p>
+      </div>
     </div>
   )
 }
