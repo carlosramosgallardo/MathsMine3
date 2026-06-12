@@ -14,21 +14,23 @@ const WORLD_H       = ROWS * CELL_SIZE
 const STRIP_W       = 3
 const FOV           = Math.PI / 2
 const PROJ_DIST     = 0.65
-const MOVE_SPD      = 4.0    // world units/frame → ~10 frames to cross a cell
-const TURN_SPD      = 0.040
+const MOVE_SPD      = 2.5    // world units/frame (~4 cells/sec at 60fps)
+const TURN_SPD      = 0.030
 const DOOR_FRAC     = 0.45
 const HORIZON_RATIO = 0.42
 const PLAYER_R      = 0.20   // collision radius in grid units (1 unit = 1 cell)
 const DOOR_LO       = (1 - DOOR_FRAC) / 2   // 0.275
 const DOOR_HI       = (1 + DOOR_FRAC) / 2   // 0.725
-const FOOTSTEP_DIST = MOVE_SPD * 10         // footstep every ~10 movement frames
+const FOOTSTEP_DIST = MOVE_SPD * 14         // footstep cadence
 const SWING_DUR     = 340    // ms per pickaxe swing
 const HITS_NEEDED   = 5      // swings to complete mining action
 const INTERACT_DIST = 2.0    // grid cells — max distance for block interaction
 const CHAIN_NODE_ROW = 4     // fallback; runtime position comes from cellMap
 const CHAIN_NODE_COL = 4
-const JUMP_VZ   = 0.12       // jump impulse (grid units / frame, ~60fps)
-const GRAVITY_A = 0.008      // gravity acceleration (grid units / frame²)
+// Jump: single jump peaks at ~0.6 (below block top), 2 jumps reach ~1.2 (above)
+// Half gravity = ~0.7s air time per jump — enough window to chain presses
+const JUMP_VZ   = 0.07       // jump impulse (grid units / frame, ~60fps)
+const GRAVITY_A = 0.004      // gravity (grid units / frame²) — half for floaty feel
 const BLOCK_TOP = 1.0        // block/obstacle height in grid units
 const MAX_JUMPS = 5          // max chained jumps before landing resets count
 
@@ -840,7 +842,7 @@ export default function MiningChain3DFPV({
 }) {
   const canvasRef    = useRef(null)
   const containerRef = useRef(null)
-  const keysRef      = useRef({w:false,s:false,a:false,d:false,q:false,e:false})
+  const keysRef      = useRef({w:false,s:false,a:false,d:false,q:false,e:false,space:false})
   const playerRef    = useRef({
     x:((initCol??14)+0.5)*CELL_SIZE,
     y:((initRow??14)+0.5)*CELL_SIZE,
@@ -1658,7 +1660,8 @@ export default function MiningChain3DFPV({
         e.preventDefault()
       }
       if(e.key===' '||e.code==='Space'){
-        if(!e.repeat){  // each jump needs a fresh keydown, not key-hold repeat
+        if(!keysRef.current.space){  // fire once per physical press, not on key-hold repeat
+          keysRef.current.space=true
           const _p=playerRef.current
           if(_p.jumps<MAX_JUMPS){ _p.vz=Math.max(0,_p.vz)+JUMP_VZ; _p.jumps++ }
         }
@@ -1673,6 +1676,7 @@ export default function MiningChain3DFPV({
       if(e.key==='d'||e.key==='D')                        k.d=false
       if(e.key==='q'||e.key==='Q'||e.key==='ArrowLeft')  k.q=false
       if(e.key==='e'||e.key==='E'||e.key==='ArrowRight') k.e=false
+      if(e.key===' '||e.code==='Space')                   k.space=false
     }
     window.addEventListener('keydown',dn); window.addEventListener('keyup',up)
     return ()=>{ window.removeEventListener('keydown',dn); window.removeEventListener('keyup',up) }
