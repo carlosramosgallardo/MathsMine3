@@ -493,7 +493,14 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
       } else if (minedBlocksResponse.error?.code !== '42P01') {
         console.error('Leaderboard mined blocks fetch:', minedBlocksResponse.error);
       }
-      const minedBlockTotal = Math.max(1, MM3_BLOCK_CHAIN_REQUIREMENTS.length - (blocksResponse?.data || []).length);
+      // Denominator = full grid (28×28 = 784), same as mining HUD. Includes NFTJI blocks.
+      const minedBlockTotal = MM3_BLOCK_CHAIN_REQUIREMENTS.length;
+
+      // Wallets that own an NFTJI block — used as fallback when mm3_mined_blocks is empty
+      // (NFTJI blocks are also inserted into mm3_mined_blocks on purchase, so no double-count when table has data)
+      const nftjiOwnerSet = new Set(
+        (marketOwnersResponse?.data || []).map((e) => normalizeWallet(e.wallet)).filter(Boolean)
+      );
 
       const penaltiesByWallet = new Map();
       for (const entry of penaltiesResponse?.data || []) {
@@ -571,9 +578,10 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
           const availableMm3 = totalMm3 - progress.mm3Sold;
           const minedBlockCount = Number(minedCountByWallet.get(normalizedWallet) || 0);
           const firstMinedBlock = firstMinedBlockByWallet.get(normalizedWallet) || null;
-          const blockChainPercent = minedBlockCount > 0
-            ? Math.round((minedBlockCount / minedBlockTotal) * 10000) / 100
-            : Number(progress.blockChainPercent) || 0;
+          // If mm3_mined_blocks was wiped (count=0) but wallet still owns an NFTJI, count it as 1.
+          // When the table has data, NFTJI is already in mm3_mined_blocks so no double-count.
+          const nftjiOwned = (minedBlockCount === 0 && nftjiOwnerSet.has(normalizedWallet)) ? 1 : 0;
+          const blockChainPercent = Math.round(((minedBlockCount + nftjiOwned) / minedBlockTotal) * 10000) / 100;
 
           return {
             wallet: lbRow?.wallet || normalizedWallet,
