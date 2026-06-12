@@ -618,6 +618,246 @@ const OBSTACLE_MAP = new Map([
   ['54,18',  { base:W_SLATE, label:'WALL' }],
   ['54,24',  { base:W_SLATE, label:'WALL' }],
   ['54,25',  { base:W_SLATE, label:'WALL' }],
+
+  // ─── Top-right sector — additional density fill ───────────────────────────────
+  ['2,31',   { base:W_DARK,  label:'WALL' }],
+  ['2,32',   { base:W_DARK,  label:'WALL' }],
+  ['2,38',   { base:W_DARK,  label:'WALL' }],
+  ['2,39',   { base:W_DARK,  label:'WALL' }],
+  ['2,45',   { base:W_DARK,  label:'WALL' }],
+  ['2,46',   { base:W_DARK,  label:'WALL' }],
+  ['2,52',   { base:W_DARK,  label:'WALL' }],
+  ['2,53',   { base:W_DARK,  label:'WALL' }],
+  ['4,30',   { base:W_STONE, label:'WALL' }],
+  ['4,31',   { base:W_STONE, label:'WALL' }],
+  ['4,36',   { base:W_STONE, label:'WALL' }],
+  ['4,37',   { base:W_STONE, label:'WALL' }],
+  ['4,43',   { base:W_STONE, label:'WALL' }],
+  ['4,44',   { base:W_STONE, label:'WALL' }],
+  ['4,49',   { base:W_STONE, label:'WALL' }],
+  ['4,50',   { base:W_STONE, label:'WALL' }],
+  ['6,29',   { base:W_DARK,  label:'WALL' }],
+  ['6,33',   { base:W_DARK,  label:'WALL' }],
+  ['6,34',   { base:W_DARK,  label:'WALL' }],
+  ['6,40',   { base:W_DARK,  label:'WALL' }],
+  ['6,41',   { base:W_DARK,  label:'WALL' }],
+  ['6,47',   { base:W_DARK,  label:'WALL' }],
+  ['6,48',   { base:W_DARK,  label:'WALL' }],
+  ['6,53',   { base:W_DARK,  label:'WALL' }],
+  ['8,29',   { base:W_SLATE, label:'WALL' }],
+  ['8,30',   { base:W_SLATE, label:'WALL' }],
+  ['8,34',   { base:W_SLATE, label:'WALL' }],
+  ['8,35',   { base:W_SLATE, label:'WALL' }],
+  ['8,41',   { base:W_SLATE, label:'WALL' }],
+  ['8,42',   { base:W_SLATE, label:'WALL' }],
+  ['8,48',   { base:W_SLATE, label:'WALL' }],
+  ['8,49',   { base:W_SLATE, label:'WALL' }],
+  ['11,30',  { base:W_STONE, label:'WALL' }],
+  ['11,31',  { base:W_STONE, label:'WALL' }],
+  ['11,37',  { base:W_STONE, label:'WALL' }],
+  ['11,38',  { base:W_STONE, label:'WALL' }],
+  ['11,44',  { base:W_STONE, label:'WALL' }],
+  ['11,45',  { base:W_STONE, label:'WALL' }],
+  ['11,52',  { base:W_STONE, label:'WALL' }],
+  ['11,53',  { base:W_STONE, label:'WALL' }],
+  ['13,29',  { base:W_DARK,  label:'WALL' }],
+  ['13,30',  { base:W_DARK,  label:'WALL' }],
+  ['13,35',  { base:W_DARK,  label:'WALL' }],
+  ['13,36',  { base:W_DARK,  label:'WALL' }],
+  ['13,42',  { base:W_DARK,  label:'WALL' }],
+  ['13,43',  { base:W_DARK,  label:'WALL' }],
+  ['13,49',  { base:W_DARK,  label:'WALL' }],
+  ['13,50',  { base:W_DARK,  label:'WALL' }],
+  ['16,30',  { base:W_SLATE, label:'WALL' }],
+  ['16,31',  { base:W_SLATE, label:'WALL' }],
+  ['16,36',  { base:W_SLATE, label:'WALL' }],
+  ['16,37',  { base:W_SLATE, label:'WALL' }],
+  ['16,44',  { base:W_SLATE, label:'WALL' }],
+  ['16,45',  { base:W_SLATE, label:'WALL' }],
+  ['16,51',  { base:W_SLATE, label:'WALL' }],
+  ['16,52',  { base:W_SLATE, label:'WALL' }],
+  ['18,29',  { base:W_STONE, label:'WALL' }],
+  ['18,30',  { base:W_STONE, label:'WALL' }],
+  ['18,35',  { base:W_STONE, label:'WALL' }],
+  ['18,36',  { base:W_STONE, label:'WALL' }],
+  ['18,43',  { base:W_STONE, label:'WALL' }],
+  ['18,44',  { base:W_STONE, label:'WALL' }],
+  ['18,50',  { base:W_STONE, label:'WALL' }],
+  ['18,51',  { base:W_STONE, label:'WALL' }],
+  ['21,30',  { base:W_DARK,  label:'WALL' }],
+  ['21,31',  { base:W_DARK,  label:'WALL' }],
+  ['21,37',  { base:W_DARK,  label:'WALL' }],
+  ['21,38',  { base:W_DARK,  label:'WALL' }],
+  ['21,44',  { base:W_DARK,  label:'WALL' }],
+  ['21,45',  { base:W_DARK,  label:'WALL' }],
+  ['21,51',  { base:W_DARK,  label:'WALL' }],
+  ['21,52',  { base:W_DARK,  label:'WALL' }],
+  ['23,29',  { base:W_SLATE, label:'WALL' }],
+  ['23,30',  { base:W_SLATE, label:'WALL' }],
+  ['23,36',  { base:W_SLATE, label:'WALL' }],
+  ['23,37',  { base:W_SLATE, label:'WALL' }],
+  ['23,42',  { base:W_SLATE, label:'WALL' }],
+  ['23,43',  { base:W_SLATE, label:'WALL' }],
+  ['23,49',  { base:W_SLATE, label:'WALL' }],
+  ['23,50',  { base:W_SLATE, label:'WALL' }],
+  ['27,30',  { base:W_STONE, label:'WALL' }],
+  ['27,31',  { base:W_STONE, label:'WALL' }],
+  ['27,36',  { base:W_STONE, label:'WALL' }],
+  ['27,37',  { base:W_STONE, label:'WALL' }],
+  ['27,43',  { base:W_STONE, label:'WALL' }],
+  ['27,44',  { base:W_STONE, label:'WALL' }],
+  ['27,50',  { base:W_STONE, label:'WALL' }],
+  ['27,51',  { base:W_STONE, label:'WALL' }],
+
+  // ─── Bottom-left sector — additional density fill ─────────────────────────────
+  ['30,2',   { base:W_DARK,  label:'WALL' }],
+  ['30,3',   { base:W_DARK,  label:'WALL' }],
+  ['30,7',   { base:W_DARK,  label:'WALL' }],
+  ['30,8',   { base:W_DARK,  label:'WALL' }],
+  ['30,13',  { base:W_DARK,  label:'WALL' }],
+  ['30,14',  { base:W_DARK,  label:'WALL' }],
+  ['30,19',  { base:W_DARK,  label:'WALL' }],
+  ['30,20',  { base:W_DARK,  label:'WALL' }],
+  ['30,24',  { base:W_DARK,  label:'WALL' }],
+  ['30,25',  { base:W_DARK,  label:'WALL' }],
+  ['32,4',   { base:W_STONE, label:'WALL' }],
+  ['32,5',   { base:W_STONE, label:'WALL' }],
+  ['32,10',  { base:W_STONE, label:'WALL' }],
+  ['32,11',  { base:W_STONE, label:'WALL' }],
+  ['32,15',  { base:W_STONE, label:'WALL' }],
+  ['32,16',  { base:W_STONE, label:'WALL' }],
+  ['32,21',  { base:W_STONE, label:'WALL' }],
+  ['32,22',  { base:W_STONE, label:'WALL' }],
+  ['35,2',   { base:W_SLATE, label:'WALL' }],
+  ['35,3',   { base:W_SLATE, label:'WALL' }],
+  ['35,8',   { base:W_SLATE, label:'WALL' }],
+  ['35,9',   { base:W_SLATE, label:'WALL' }],
+  ['35,15',  { base:W_SLATE, label:'WALL' }],
+  ['35,16',  { base:W_SLATE, label:'WALL' }],
+  ['35,21',  { base:W_SLATE, label:'WALL' }],
+  ['35,22',  { base:W_SLATE, label:'WALL' }],
+  ['35,26',  { base:W_SLATE, label:'WALL' }],
+  ['37,4',   { base:W_DARK,  label:'WALL' }],
+  ['37,5',   { base:W_DARK,  label:'WALL' }],
+  ['37,10',  { base:W_DARK,  label:'WALL' }],
+  ['37,11',  { base:W_DARK,  label:'WALL' }],
+  ['37,16',  { base:W_DARK,  label:'WALL' }],
+  ['37,17',  { base:W_DARK,  label:'WALL' }],
+  ['37,22',  { base:W_DARK,  label:'WALL' }],
+  ['37,23',  { base:W_DARK,  label:'WALL' }],
+  ['40,2',   { base:W_STONE, label:'WALL' }],
+  ['40,3',   { base:W_STONE, label:'WALL' }],
+  ['40,8',   { base:W_STONE, label:'WALL' }],
+  ['40,9',   { base:W_STONE, label:'WALL' }],
+  ['40,13',  { base:W_STONE, label:'WALL' }],
+  ['40,14',  { base:W_STONE, label:'WALL' }],
+  ['40,19',  { base:W_STONE, label:'WALL' }],
+  ['40,20',  { base:W_STONE, label:'WALL' }],
+  ['40,24',  { base:W_STONE, label:'WALL' }],
+  ['40,25',  { base:W_STONE, label:'WALL' }],
+  ['42,4',   { base:W_SLATE, label:'WALL' }],
+  ['42,5',   { base:W_SLATE, label:'WALL' }],
+  ['42,10',  { base:W_SLATE, label:'WALL' }],
+  ['42,11',  { base:W_SLATE, label:'WALL' }],
+  ['42,16',  { base:W_SLATE, label:'WALL' }],
+  ['42,17',  { base:W_SLATE, label:'WALL' }],
+  ['42,22',  { base:W_SLATE, label:'WALL' }],
+  ['42,23',  { base:W_SLATE, label:'WALL' }],
+  ['44,2',   { base:W_DARK,  label:'WALL' }],
+  ['44,3',   { base:W_DARK,  label:'WALL' }],
+  ['44,8',   { base:W_DARK,  label:'WALL' }],
+  ['44,9',   { base:W_DARK,  label:'WALL' }],
+  ['44,14',  { base:W_DARK,  label:'WALL' }],
+  ['44,15',  { base:W_DARK,  label:'WALL' }],
+  ['44,20',  { base:W_DARK,  label:'WALL' }],
+  ['44,21',  { base:W_DARK,  label:'WALL' }],
+  ['44,26',  { base:W_DARK,  label:'WALL' }],
+  ['46,3',   { base:W_STONE, label:'WALL' }],
+  ['46,4',   { base:W_STONE, label:'WALL' }],
+  ['46,9',   { base:W_STONE, label:'WALL' }],
+  ['46,10',  { base:W_STONE, label:'WALL' }],
+  ['46,15',  { base:W_STONE, label:'WALL' }],
+  ['46,16',  { base:W_STONE, label:'WALL' }],
+  ['46,21',  { base:W_STONE, label:'WALL' }],
+  ['46,22',  { base:W_STONE, label:'WALL' }],
+  ['48,2',   { base:W_SLATE, label:'WALL' }],
+  ['48,3',   { base:W_SLATE, label:'WALL' }],
+  ['48,8',   { base:W_SLATE, label:'WALL' }],
+  ['48,9',   { base:W_SLATE, label:'WALL' }],
+  ['48,14',  { base:W_SLATE, label:'WALL' }],
+  ['48,15',  { base:W_SLATE, label:'WALL' }],
+  ['48,20',  { base:W_SLATE, label:'WALL' }],
+  ['48,21',  { base:W_SLATE, label:'WALL' }],
+  ['48,25',  { base:W_SLATE, label:'WALL' }],
+  ['50,3',   { base:W_DARK,  label:'WALL' }],
+  ['50,4',   { base:W_DARK,  label:'WALL' }],
+  ['50,9',   { base:W_DARK,  label:'WALL' }],
+  ['50,10',  { base:W_DARK,  label:'WALL' }],
+  ['50,15',  { base:W_DARK,  label:'WALL' }],
+  ['50,16',  { base:W_DARK,  label:'WALL' }],
+  ['50,21',  { base:W_DARK,  label:'WALL' }],
+  ['50,22',  { base:W_DARK,  label:'WALL' }],
+  ['52,4',   { base:W_STONE, label:'WALL' }],
+  ['52,5',   { base:W_STONE, label:'WALL' }],
+  ['52,10',  { base:W_STONE, label:'WALL' }],
+  ['52,11',  { base:W_STONE, label:'WALL' }],
+  ['52,16',  { base:W_STONE, label:'WALL' }],
+  ['52,17',  { base:W_STONE, label:'WALL' }],
+  ['52,22',  { base:W_STONE, label:'WALL' }],
+  ['52,23',  { base:W_STONE, label:'WALL' }],
+  ['52,26',  { base:W_STONE, label:'WALL' }],
+
+  // ─── Outer zone (28-55, 28-55) — additional fill between portal clusters ──────
+  ['28,32',  { base:W_DARK,  label:'WALL' }],
+  ['28,33',  { base:W_DARK,  label:'WALL' }],
+  ['28,40',  { base:W_DARK,  label:'WALL' }],
+  ['28,41',  { base:W_DARK,  label:'WALL' }],
+  ['28,48',  { base:W_DARK,  label:'WALL' }],
+  ['28,49',  { base:W_DARK,  label:'WALL' }],
+  ['30,32',  { base:W_STONE, label:'WALL' }],
+  ['30,33',  { base:W_STONE, label:'WALL' }],
+  ['30,40',  { base:W_STONE, label:'WALL' }],
+  ['30,41',  { base:W_STONE, label:'WALL' }],
+  ['30,48',  { base:W_STONE, label:'WALL' }],
+  ['30,49',  { base:W_STONE, label:'WALL' }],
+  ['33,31',  { base:W_DARK,  label:'WALL' }],
+  ['33,32',  { base:W_DARK,  label:'WALL' }],
+  ['33,38',  { base:W_DARK,  label:'WALL' }],
+  ['33,39',  { base:W_DARK,  label:'WALL' }],
+  ['33,46',  { base:W_DARK,  label:'WALL' }],
+  ['33,47',  { base:W_DARK,  label:'WALL' }],
+  ['33,50',  { base:W_DARK,  label:'WALL' }],
+  ['33,51',  { base:W_DARK,  label:'WALL' }],
+  ['38,33',  { base:W_STONE, label:'WALL' }],
+  ['38,34',  { base:W_STONE, label:'WALL' }],
+  ['38,37',  { base:W_STONE, label:'WALL' }],
+  ['38,45',  { base:W_STONE, label:'WALL' }],
+  ['38,46',  { base:W_STONE, label:'WALL' }],
+  ['38,50',  { base:W_STONE, label:'WALL' }],
+  ['38,51',  { base:W_STONE, label:'WALL' }],
+  ['46,33',  { base:W_DARK,  label:'WALL' }],
+  ['46,34',  { base:W_DARK,  label:'WALL' }],
+  ['46,37',  { base:W_DARK,  label:'WALL' }],
+  ['46,43',  { base:W_DARK,  label:'WALL' }],
+  ['46,44',  { base:W_DARK,  label:'WALL' }],
+  ['46,50',  { base:W_DARK,  label:'WALL' }],
+  ['46,51',  { base:W_DARK,  label:'WALL' }],
+  ['50,31',  { base:W_STONE, label:'WALL' }],
+  ['50,32',  { base:W_STONE, label:'WALL' }],
+  ['50,36',  { base:W_STONE, label:'WALL' }],
+  ['50,37',  { base:W_STONE, label:'WALL' }],
+  ['50,43',  { base:W_STONE, label:'WALL' }],
+  ['50,44',  { base:W_STONE, label:'WALL' }],
+  ['50,46',  { base:W_STONE, label:'WALL' }],
+  ['50,47',  { base:W_STONE, label:'WALL' }],
+  ['52,33',  { base:W_DARK,  label:'WALL' }],
+  ['52,34',  { base:W_DARK,  label:'WALL' }],
+  ['52,43',  { base:W_DARK,  label:'WALL' }],
+  ['52,44',  { base:W_DARK,  label:'WALL' }],
+  ['52,46',  { base:W_DARK,  label:'WALL' }],
+  ['52,47',  { base:W_DARK,  label:'WALL' }],
+  ['52,50',  { base:W_DARK,  label:'WALL' }],
+  ['52,51',  { base:W_DARK,  label:'WALL' }],
 ])
 
 // ── Wall collision: returns true if position (grid units) hits a solid wall ──
@@ -802,29 +1042,53 @@ function drawMinimap(ctx, gr, gc, angle, cellMap, presenceMap, myWallet, W, H, c
   for (const [w,p] of Object.entries(presenceMap||{})) {
     if (p.row==null && p.gy==null) continue
     const isMe = w.toLowerCase()===(myWallet||'').toLowerCase()
-    // Use sub-cell precision if available
+    const isBot = Boolean(p.isBot)
     const dotGX = p.gx ?? ((p.col??0) + 0.5)
     const dotGY = p.gy ?? ((p.row??0) + 0.5)
     const col = colorFromAddress(w)
-    const r = Math.max(1.8,isMe?CS*0.82:CS*0.68)
     const dx=MX+dotGX*CS, dy=MY+dotGY*CS
-    // Glow ring for others
-    if (!isMe) {
-      ctx.strokeStyle = col + 'aa'
+    const heading=Number(p.angle)||0
+
+    if (isBot && !isMe) {
+      // Bots: large square marker so they're clearly visible on a 56-cell minimap
+      const bs = Math.max(4, CS * 0.95)
+      // Pulsing outer ring
+      ctx.strokeStyle = col + 'bb'
       ctx.lineWidth = 1
+      ctx.strokeRect(dx - bs, dy - bs, bs * 2, bs * 2)
+      // Filled interior
+      ctx.fillStyle = col + '44'
+      ctx.fillRect(dx - bs + 1, dy - bs + 1, bs * 2 - 2, bs * 2 - 2)
+      // Inner cross
+      ctx.strokeStyle = col + 'ff'
+      ctx.lineWidth = 0.8
       ctx.beginPath()
-      ctx.arc(dx,dy,r+1.5,0,Math.PI*2)
+      ctx.moveTo(dx - bs * 0.55, dy); ctx.lineTo(dx + bs * 0.55, dy)
+      ctx.moveTo(dx, dy - bs * 0.55); ctx.lineTo(dx, dy + bs * 0.55)
+      ctx.stroke()
+      // Direction line
+      ctx.strokeStyle = col + 'cc'; ctx.lineWidth = 1
+      ctx.beginPath(); ctx.moveTo(dx, dy)
+      ctx.lineTo(dx + Math.cos(heading) * CS * 2.2, dy + Math.sin(heading) * CS * 2.2)
+      ctx.stroke()
+    } else {
+      const r = Math.max(2.2, isMe ? CS * 0.82 : CS * 0.72)
+      if (!isMe) {
+        ctx.strokeStyle = col + 'aa'
+        ctx.lineWidth = 1
+        ctx.beginPath()
+        ctx.arc(dx, dy, r + 1.5, 0, Math.PI * 2)
+        ctx.stroke()
+      }
+      ctx.fillStyle = isMe ? C : col
+      ctx.beginPath()
+      ctx.arc(dx, dy, r, 0, Math.PI * 2)
+      ctx.fill()
+      ctx.strokeStyle = (isMe ? C : col) + 'cc'; ctx.lineWidth = 1
+      ctx.beginPath(); ctx.moveTo(dx, dy)
+      ctx.lineTo(dx + Math.cos(heading) * CS * 1.8, dy + Math.sin(heading) * CS * 1.8)
       ctx.stroke()
     }
-    ctx.fillStyle = isMe ? C : col
-    ctx.beginPath()
-    ctx.arc(dx,dy,r,0,Math.PI*2)
-    ctx.fill()
-    const heading=Number(p.angle)||0
-    ctx.strokeStyle=(isMe?C:col)+'cc'; ctx.lineWidth=1
-    ctx.beginPath(); ctx.moveTo(dx,dy)
-    ctx.lineTo(dx+Math.cos(heading)*CS*1.8,dy+Math.sin(heading)*CS*1.8)
-    ctx.stroke()
   }
 
   // Chain node: diamond crosshair — visually distinct landmark (static, not a dot)
