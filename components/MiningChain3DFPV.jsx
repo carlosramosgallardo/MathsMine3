@@ -130,6 +130,19 @@ function hitsSolidWall(gx, gy, cellMap, obsSet) {
   return false
 }
 
+function findRandomFreeCell(cellMap, validObs) {
+  const free = []
+  for (let r = 1; r < ROWS - 1; r++) {
+    for (let c = 1; c < COLS - 1; c++) {
+      const k = `${r},${c}`
+      if (!cellMap.has(k) && !validObs.has(k)) free.push([r, c])
+    }
+  }
+  if (!free.length) return { row: 14, col: 14 }
+  const idx = Math.floor(Math.random() * free.length)
+  return { row: free[idx][0], col: free[idx][1] }
+}
+
 // ── Pure helpers ──────────────────────────────────────────────────────────────
 function hexToRgb(hex) {
   const c = (hex || '#000').replace('#', '').padStart(6, '0')
@@ -951,19 +964,13 @@ export default function MiningChain3DFPV({
     }
     validObstaclesRef.current = valid
 
-    // Safety: ensure player is not spawned inside an obstacle after generation
-    const sgx = playerRef.current.x / CELL_SIZE
-    const sgy = playerRef.current.y / CELL_SIZE
-    if (valid.has(`${Math.floor(sgy)},${Math.floor(sgx)}`)) {
-      for (const [dr, dc] of [[0,0.7],[0,-0.7],[0.7,0],[-0.7,0],[0.7,0.7],[-0.7,0.7],[0.7,-0.7],[-0.7,-0.7]]) {
-        const nr = Math.floor(sgy+dr), nc = Math.floor(sgx+dc)
-        const tk = `${nr},${nc}`
-        if (!valid.has(tk) && !cellMap.has(tk)) {
-          playerRef.current.x = (sgx + dc) * CELL_SIZE
-          playerRef.current.y = (sgy + dr) * CELL_SIZE
-          break
-        }
-      }
+    // Safety: if player is inside an obstacle or block, teleport to a random free cell
+    const sgr = Math.floor(playerRef.current.y / CELL_SIZE)
+    const sgc = Math.floor(playerRef.current.x / CELL_SIZE)
+    if (valid.has(`${sgr},${sgc}`) || cellMap.has(`${sgr},${sgc}`)) {
+      const free = findRandomFreeCell(cellMap, valid)
+      playerRef.current.x = (free.col + 0.5) * CELL_SIZE
+      playerRef.current.y = (free.row + 0.5) * CELL_SIZE
     }
   }, [cellMap])
 
@@ -980,11 +987,20 @@ export default function MiningChain3DFPV({
   const onPositionRealtimeRef = useRef(onPositionRealtime)
   useEffect(()=>{ onPositionRealtimeRef.current=onPositionRealtime },[onPositionRealtime])
 
-  // External teleport
+  // External teleport — fallback to random free cell if target is blocked
   useEffect(()=>{
     if (!jumpToCell) return
-    playerRef.current.x = (jumpToCell.col+0.5)*CELL_SIZE
-    playerRef.current.y = (jumpToCell.row+0.5)*CELL_SIZE
+    const obs = validObstaclesRef.current
+    const cm  = cellMapRef.current
+    const k   = `${jumpToCell.row},${jumpToCell.col}`
+    if (obs.has(k) || cm.has(k)) {
+      const free = findRandomFreeCell(cm, obs)
+      playerRef.current.x = (free.col + 0.5) * CELL_SIZE
+      playerRef.current.y = (free.row + 0.5) * CELL_SIZE
+    } else {
+      playerRef.current.x = (jumpToCell.col + 0.5) * CELL_SIZE
+      playerRef.current.y = (jumpToCell.row + 0.5) * CELL_SIZE
+    }
     renderRef.current?.()
   },[jumpToCell])
 
@@ -1642,8 +1658,10 @@ export default function MiningChain3DFPV({
         e.preventDefault()
       }
       if(e.key===' '||e.code==='Space'){
-        const _p=playerRef.current
-        if(_p.jumps<MAX_JUMPS){ _p.vz=Math.max(0,_p.vz)+JUMP_VZ; _p.jumps++ }
+        if(!e.repeat){  // each jump needs a fresh keydown, not key-hold repeat
+          const _p=playerRef.current
+          if(_p.jumps<MAX_JUMPS){ _p.vz=Math.max(0,_p.vz)+JUMP_VZ; _p.jumps++ }
+        }
         e.preventDefault()
       }
     }
