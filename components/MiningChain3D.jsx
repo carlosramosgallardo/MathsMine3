@@ -30,6 +30,21 @@ const TRADE_NFTJI_DEFS = [
 const CHAIN_NODE_ROW = 4
 const CHAIN_NODE_COL = 4
 
+// Portal navigation nodes in the outer 56×56 area (rows 30+, cols 30+)
+const PORTAL_NODES = [
+  { row:31, col:31, emoji:'🔒', titleEn:'SECURITY',    titleEs:'SEGURIDAD',  navUrl:'/security',    color:'#22d3ee' },
+  { row:31, col:39, emoji:'🎮', titleEn:'TRAINING',    titleEs:'ENTRENAMIENTO', navUrl:'/training', color:'#4ade80' },
+  { row:31, col:47, emoji:'💹', titleEn:'TRADING',     titleEs:'TRADING',    navUrl:'/trading',     color:'#fb923c' },
+  { row:39, col:31, emoji:'📈', titleEn:'MM3 CHART',   titleEs:'GRÁFICO MM3', navUrl:'/mm3-value',  color:'#a78bfa' },
+  { row:39, col:39, emoji:'🏆', titleEn:'RANKING',     titleEs:'RANKING',    navUrl:'/ranking',     color:'#ffd700' },
+  { row:39, col:47, emoji:'💥', titleEn:'SQUEEZING',   titleEs:'SQUEEZING',  navUrl:'/squeezing',   color:'#fb7185' },
+  { row:47, col:31, emoji:'🔗', titleEn:'RELAYING',    titleEs:'RELAYING',   navUrl:'/relaying',    color:'#60a5fa' },
+  { row:47, col:39, emoji:'🤖', titleEn:'AI TEAM',     titleEs:'EQUIPO IA',  navUrl:'/ai-team',     color:'#bef264' },
+  { row:47, col:47, emoji:'📜', titleEn:'MANIFESTO',   titleEs:'MANIFIESTO', navUrl:'/manifesto',   color:'#f472b6' },
+  { row:53, col:31, emoji:'✅', titleEn:'DAILY TASKS', titleEs:'TAREAS',     navUrl:'/daily-tasks', color:'#2dd4bf' },
+  { row:53, col:39, emoji:'☠️', titleEn:'KERNEL PANIC',titleEs:'KERNEL PANIC',navUrl:'/relaying',   color:'#f97316' },
+]
+
 function getRandomLoggedSpawn() {
   return {
     row: 2 + Math.floor(Math.random() * (MM3_BLOCK_GRID_ROWS - 4)),
@@ -87,6 +102,7 @@ export default function MiningChain3D() {
   const [facingCell,    setFacingCell]    = useState(null)
   const [receivedHitAt, setReceivedHitAt] = useState(0)
   const [receivedHitFrom, setReceivedHitFrom] = useState(null)
+  const [externalPush, setExternalPush] = useState(null)
   const [swingMap,      setSwingMap]      = useState({})
   const [myPoolCode,    setMyPoolCode]    = useState(null)
   const [presenceKey,   setPresenceKey]   = useState(myWallet)
@@ -182,6 +198,20 @@ export default function MiningChain3D() {
         titleEn: 'MM3 BLOCK CHAIN',
         titleEs: 'MM3 BLOCK CHAIN',
       })
+      // Portal navigation nodes in the outer area
+      for (const node of PORTAL_NODES) {
+        map.set(`${node.row},${node.col}`, {
+          isPortalNode: true,
+          isMarket: false,
+          isMined: false,
+          owner: null,
+          color: node.color,
+          emoji: node.emoji,
+          titleEn: node.titleEn,
+          titleEs: node.titleEs,
+          navUrl: node.navUrl,
+        })
+      }
       setCellMap(map)
       marketRef.current = market || []
       setMarketLoaded(true)
@@ -329,6 +359,13 @@ export default function MiningChain3D() {
       }
     })
 
+    // Anon collision push: target anon receives a velocity impulse
+    ch.on('broadcast', { event: 'collision-push' }, ({ payload }) => {
+      if (!payload?.target || !myKeyRef.current) return
+      if (payload.target !== myKeyRef.current) return
+      setExternalPush({ dx: Number(payload.dx) || 0, dy: Number(payload.dy) || 0, at: Date.now() })
+    })
+
     // High-frequency position updates (~8/sec) via broadcast — low latency
     ch.on('broadcast', { event: 'move' }, ({ payload }) => {
       if (!payload?.wallet || payload.gx == null) return
@@ -437,6 +474,13 @@ export default function MiningChain3D() {
 
   const handleFacingChange = useCallback((row, col, cell, dist) => setFacingCell({ row, col, cell, dist }), [])
   const handleWantNavigate = useCallback((url) => router.push(url), [router])
+
+  const handleCollisionPush = useCallback(({ key, dx, dy }) => {
+    channelRef.current?.send({
+      type: 'broadcast', event: 'collision-push',
+      payload: { target: key, dx, dy },
+    })?.catch(() => {})
+  }, [])
 
   const handlePvpHit = useCallback(async ({ attacker, victim, victimIsAnon, hitZone }) => {
     const response = await fetch('/api/pvp-hit', {
@@ -572,6 +616,8 @@ export default function MiningChain3D() {
             onChainSolveOpen={handleChainSolveOpen}
             externalPvpFlash={receivedHitAt}
             externalKnockback={receivedHitFrom}
+            externalPush={externalPush}
+            onCollisionPush={handleCollisionPush}
             swingMap={swingMap}
             myPoolCode={myPoolCode}
             anonKillMsg={anonKillMsg}

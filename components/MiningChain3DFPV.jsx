@@ -5,8 +5,8 @@ import { colorFromAddress } from '@/lib/wallet-colors'
 import { MM3_BLOCK_GRID_ROWS, MM3_BLOCK_GRID_COLS, gridToBlockHex } from '@/lib/mm3-block-chain'
 import { groupPresenceEntries } from '@/lib/presence-display'
 
-const ROWS = MM3_BLOCK_GRID_ROWS
-const COLS = MM3_BLOCK_GRID_COLS
+const ROWS = 56   // FPV world size — double the inner mining grid for free walking space
+const COLS = 56
 const C    = '#22d3ee'
 
 const CELL_SIZE     = 40     // world units per grid cell — large for future in-cell building
@@ -166,6 +166,12 @@ function wallRgb(cell, dist, side, myWallet) {
     const pulse = 0.60 + Math.sin(Date.now() / 300) * 0.40
     const f = (side === 1 ? 0.72 : 1.0) * Math.max(0.18, 1 - dist * 0.06) * pulse
     return [Math.round(255 * f), Math.round(180 * f), 0]
+  }
+  if (cell?.isPortalNode) {
+    const [pr, pg, pb] = hexToRgb(cell.color || C)
+    const pulse = 0.55 + Math.sin(Date.now() / 400) * 0.45
+    const f = (side === 1 ? 0.72 : 1.0) * Math.max(0.18, 1 - dist * 0.06) * pulse
+    return [Math.round(pr * f), Math.round(pg * f), Math.round(pb * f)]
   }
   let base
   if (cell?.owner) {
@@ -350,6 +356,21 @@ function drawMinimap(ctx, gr, gc, angle, cellMap, presenceMap, myWallet, W, H, c
   ctx.fillRect(-ds, -ds, ds*2, ds*2)
   ctx.restore()
   ctx.globalAlpha = 1
+
+  // Portal navigation nodes — pulsing colored dots
+  for (const [key, cell] of cellMap) {
+    if (!cell?.isPortalNode) continue
+    const [rr, cc] = key.split(',').map(Number)
+    const px2 = MX + (cc + 0.5) * CS
+    const py2 = MY + (rr + 0.5) * CS
+    const pPulse = 0.60 + Math.sin(Date.now() / 500 + cc * 0.4) * 0.40
+    ctx.globalAlpha = Math.max(0.55, pPulse) * 0.9
+    ctx.fillStyle = cell.color || C
+    ctx.beginPath()
+    ctx.arc(px2, py2, Math.max(2, CS * 0.75), 0, Math.PI * 2)
+    ctx.fill()
+    ctx.globalAlpha = 1
+  }
 }
 
 // ── Facing block HUD (top-right info card) ────────────────────────────────────
@@ -376,6 +397,33 @@ function drawFacingHUD(ctx, W, H, fwdCell, fwdMx, fwdMy, myWallet, es, dist, obs
     for (let i=0;i<lines.length;i++){
       const l=lines[i]; ctx.font=`${l.weight||'normal'} ${l.size}px monospace`
       ctx.fillStyle=l.col; ctx.fillText(l.text,px+padX,py+padY+i*lineH,pw-padX*2)
+    }
+    return
+  }
+
+  if (fwdCell?.isPortalNode) {
+    const inRange = dist == null || dist <= INTERACT_DIST
+    const col = fwdCell.color || C
+    const pLines = [
+      { text: `${fwdCell.emoji || '⬡'}  ${fwdCell.titleEn || 'PORTAL'}`, size: 13, weight: 'bold', col },
+      { text: fwdCell.navUrl || '', size: 10, col: '#5b8aa3' },
+      inRange
+        ? { text: es ? '↵ · Ir a sección' : '↵ · Go to section', size: 10, col: col + 'cc' }
+        : { text: es ? '· acércate para acceder' : '· move closer to access', size: 9, col: col + '55' },
+    ]
+    const _lineH = 16, _padX = 9, _padY = 8
+    const _ph = pLines.length * _lineH + _padY * 2
+    const _pw = Math.min(_mapLeft - 16, 240)
+    const _px = _mapLeft - _pw - 6
+    ctx.globalAlpha = 0.90; ctx.fillStyle = '#010709'; ctx.fillRect(_px, 8, _pw, _ph); ctx.globalAlpha = 1
+    ctx.lineWidth = 1; ctx.strokeStyle = col + '55'; ctx.strokeRect(_px, 8, _pw, _ph)
+    ctx.fillStyle = col + '77'; ctx.fillRect(_px, 8, 2, _ph)
+    ctx.textAlign = 'left'; ctx.textBaseline = 'top'
+    for (let i = 0; i < pLines.length; i++) {
+      const l = pLines[i]
+      ctx.font = `${l.weight || 'normal'} ${l.size}px monospace`
+      ctx.fillStyle = l.col
+      ctx.fillText(l.text, _px + _padX, 8 + _padY + i * _lineH, _pw - _padX * 2)
     }
     return
   }
@@ -845,7 +893,7 @@ export default function MiningChain3DFPV({
   initRow, initCol, jumpToCell,
   onPositionChange, onFacingChange, onWantNavigate, onPositionRealtime,
   onPvpHit, pvpStolen,
-  onChainSolveOpen, externalPvpFlash, externalKnockback,
+  onChainSolveOpen, externalPvpFlash, externalKnockback, externalPush, onCollisionPush,
   swingMap, myPoolCode,
   anonKillMsg,
   playerLevel, playerNftjiCount, walletNftjis, myNftjis,
@@ -910,6 +958,9 @@ export default function MiningChain3DFPV({
   // Precomputed from cellMap: Map<key,{base,label}> of currently active obstacles
   const validObstaclesRef   = useRef(new Map(OBSTACLE_MAP))
   const chainNodePosRef     = useRef({ row: CHAIN_NODE_ROW, col: CHAIN_NODE_COL })
+  // Anon collision push
+  const onCollisionPushRef      = useRef(onCollisionPush)
+  const collisionPushThrottleRef = useRef(new Map())
   // Critical hit system
   const critChanceRef       = useRef(0.05)
   const critFlashRef        = useRef(-9999)
@@ -928,6 +979,7 @@ export default function MiningChain3DFPV({
   useEffect(()=>{ onPvpHitRef.current=onPvpHit },[onPvpHit])
   useEffect(()=>{ pvpStolenRef.current=pvpStolen||{} },[pvpStolen])
   useEffect(()=>{ onChainSolveOpenRef.current=onChainSolveOpen },[onChainSolveOpen])
+  useEffect(()=>{ onCollisionPushRef.current=onCollisionPush },[onCollisionPush])
   useEffect(()=>{ swingMapRef.current=swingMap||{} },[swingMap])
   useEffect(()=>{ myPoolCodeRef.current=myPoolCode||null },[myPoolCode])
   useEffect(()=>{ walletNftjisRef.current=walletNftjis||{} },[walletNftjis])
@@ -953,6 +1005,12 @@ export default function MiningChain3DFPV({
     velocityRef.current.x+=(dx/len)*160
     velocityRef.current.y+=(dy/len)*160
   },[externalKnockback])
+  // Anon collision push: apply velocity impulse in the received direction
+  useEffect(()=>{
+    if(!externalPush) return
+    velocityRef.current.x += (externalPush.dx || 0) * 100
+    velocityRef.current.y += (externalPush.dy || 0) * 100
+  },[externalPush])
   // Kill notification from other players (spectator kill feed)
   useEffect(()=>{
     if(anonKillMsg) notifRef.current = { text: anonKillMsg, color: '#f97316', startedAt: Date.now() }
@@ -984,8 +1042,8 @@ export default function MiningChain3DFPV({
       { base:W_SAND,  label:'WALL' },
       { base:W_DARK,  label:'WALL' },
     ]
-    for (let r = 4; r < ROWS-4; r += 4) {
-      for (let c = 4; c < COLS-4; c += 4) {
+    for (let r = 4; r < MM3_BLOCK_GRID_ROWS-4; r += 4) {
+      for (let c = 4; c < MM3_BLOCK_GRID_COLS-4; c += 4) {
         if (Math.abs(r-14) <= 5 && Math.abs(c-14) <= 5) continue  // keep center zone free
         const h = (((r * 31 + c * 17) ^ (r * c * 7)) % 100 + 100) % 100
         if (h >= 22) continue  // ~22% become wall origins
@@ -995,7 +1053,7 @@ export default function MiningChain3DFPV({
         for (let i = 0; i < len; i++) {
           const wr = isHoriz ? r : r + i
           const wc = isHoriz ? c + i : c
-          if (wr < 2 || wr >= ROWS-2 || wc < 2 || wc >= COLS-2) break
+          if (wr < 2 || wr >= MM3_BLOCK_GRID_ROWS-2 || wc < 2 || wc >= MM3_BLOCK_GRID_COLS-2) break
           const key = `${wr},${wc}`
           // Only fill truly empty positions — never override NFTJI/mined blocks
           if (!cellMap.has(key) && !valid.has(key)) valid.set(key, wallData)
@@ -1020,7 +1078,7 @@ export default function MiningChain3DFPV({
       if (cell.owner) { owned++; if (cell.isMarket) marketOwned++ }
       else if (cell.isMarket) marketFree++
     }
-    const total = ROWS * COLS
+    const total = MM3_BLOCK_GRID_ROWS * MM3_BLOCK_GRID_COLS
     chainStatsRef.current = { owned, marketFree, marketOwned, total, pct: Math.round(owned/total*100) }
   },[cellMap])
 
@@ -1866,6 +1924,9 @@ export default function MiningChain3DFPV({
         if(inRange){
           if(fData.cell?.isChainNode){
             onChainSolveOpenRef.current?.()
+          } else if(fData.cell?.isPortalNode){
+            const url=fData.cell.navUrl
+            if(url) onWantNavRef.current?.(url)
           } else {
             const url=actionUrlRef.current
             if(url) onWantNavRef.current?.(url)
@@ -1985,6 +2046,15 @@ export default function MiningChain3DFPV({
           const overlap=(AVATAR_R*2-repD)/(AVATAR_R*2)
           const bump=80*overlap
           vel.x+=(repX/repD)*bump; vel.y+=(repY/repD)*bump
+          // For anonymous players: broadcast a push so their client also moves
+          if(w.startsWith('anon-')){
+            const throttle=collisionPushThrottleRef.current
+            const lastPush=throttle.get(w)||0
+            if(Date.now()-lastPush>300){
+              throttle.set(w,Date.now())
+              onCollisionPushRef.current?.({ key:w, dx:-repX/repD, dy:-repY/repD })
+            }
+          }
         }
       }
       const movedDist=Math.hypot(vel.x,vel.y)*dt
@@ -2128,6 +2198,9 @@ export default function MiningChain3DFPV({
             if(fc.isChainNode){
               actionUrlRef.current=null
               mineTypeRef.current='empty'
+            } else if(fc.isPortalNode){
+              actionUrlRef.current=fc.navUrl||null
+              mineTypeRef.current='portal'
             } else {
               const hex=fc.blockHex||gridToBlockHex(fmy,fmx)
               const myW=myWalletRef.current
@@ -2147,8 +2220,8 @@ export default function MiningChain3DFPV({
                 actionUrlRef.current=null; mineTypeRef.current='empty'
               }
             }
-          } else if (fmx >= 0 && fmy >= 0 && fmx < COLS && fmy < ROWS) {
-            // Unclaimed regular block (not in cellMap = never claimed)
+          } else if (fmx >= 0 && fmy >= 0 && fmx < MM3_BLOCK_GRID_COLS && fmy < MM3_BLOCK_GRID_ROWS) {
+            // Unclaimed regular block (not in cellMap = never claimed, inner grid only)
             const hex = gridToBlockHex(fmy, fmx)
             actionUrlRef.current = `/relaying?command=${encodeURIComponent(`/mine block ${hex}`)}`
             mineTypeRef.current = 'mine'
@@ -2201,6 +2274,12 @@ export default function MiningChain3DFPV({
           if(tk!==mineTargetRef.current){mineProgressRef.current=0;mineTargetRef.current=tk}
           if(!tk||mineTypeRef.current==='empty'){
             playPickHit(audioCtxRef,'empty')
+          } else if(mineTypeRef.current==='portal'){
+            // Portal: 1-hit navigation
+            playPickHit(audioCtxRef,'nftji')
+            playPickHit(audioCtxRef,'complete')
+            const url=actionUrlRef.current
+            if(url) setTimeout(()=>onWantNavRef.current?.(url),120)
           } else {
             mineProgressRef.current=Math.min(1,mineProgressRef.current+1/HITS_NEEDED)
             playPickHit(audioCtxRef,mineTypeRef.current)
