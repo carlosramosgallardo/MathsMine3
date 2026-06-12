@@ -1024,7 +1024,8 @@ export default function MiningChain3DFPV({
     const es       = esRef.current
 
     const {x:px,y:py,angle,z:pz=0} = playerRef.current
-    const horizon = H * HORIZON_RATIO
+    // Camera tilts down as player rises: horizon shifts up (more floor visible)
+    const horizon = Math.max(H * 0.06, H * HORIZON_RATIO - pz * H * 0.28)
     const strips  = Math.ceil(W/STRIP_W)
 
     if (!zBufferRef.current || zBufferRef.current.length !== strips) {
@@ -1046,10 +1047,24 @@ export default function MiningChain3DFPV({
     cg.addColorStop(1,`rgb(${Math.round(16+ar*AT)},${Math.round(26+ag*AT)},${Math.round(62+ab*AT)})`)
     ctx.fillStyle=cg; ctx.fillRect(0,0,W,horizon)
 
-    // Floor — brighter base + subtle grid lines
+    // Floor — changes color when standing on a block's top surface
+    const _obsBlock = pz >= BLOCK_TOP ? validObstaclesRef.current.get(`${gr},${gc}`) : null
+    const _onBlockSurface = _obsBlock != null || (pz >= BLOCK_TOP && curCell != null)
+    let [_fr, _fg2, _fb] = [22+Math.round(ar*AT), 36+Math.round(ag*AT), 72+Math.round(ab*AT)]
+    let [_fr2, _fg3, _fb2] = [6+Math.round(ar*AT*.5), 10+Math.round(ag*AT*.5), 20+Math.round(ab*AT*.5)]
+    if (_onBlockSurface) {
+      if (_obsBlock?.base) {
+        ;[_fr, _fg2, _fb] = _obsBlock.base.map(v => Math.min(255, v + 50))
+        ;[_fr2, _fg3, _fb2] = _obsBlock.base
+      } else if (curCell?.color) {
+        const [cr,cg_,cb_] = hexToRgb(curCell.color)
+        ;[_fr, _fg2, _fb] = [Math.min(255,cr+50), Math.min(255,cg_+50), Math.min(255,cb_+50)]
+        ;[_fr2, _fg3, _fb2] = [cr, cg_, cb_]
+      }
+    }
     const fg = ctx.createLinearGradient(0,horizon,0,H)
-    fg.addColorStop(0,`rgb(${Math.round(22+ar*AT)},${Math.round(36+ag*AT)},${Math.round(72+ab*AT)})`)
-    fg.addColorStop(1,`rgb(${Math.round(6+ar*AT*.5)},${Math.round(10+ag*AT*.5)},${Math.round(20+ab*AT*.5)})`)
+    fg.addColorStop(0,`rgb(${_fr},${_fg2},${_fb})`)
+    fg.addColorStop(1,`rgb(${_fr2},${_fg3},${_fb2})`)
     ctx.fillStyle=fg; ctx.fillRect(0,horizon,W,H-horizon)
 
     // Scanline floor accent
@@ -1077,8 +1092,7 @@ export default function MiningChain3DFPV({
       const {perpDist,cell,side,mx:hitMx,my:hitMy} = castRay(px,py+bob,ra,cellMap,validObstaclesRef.current)
       const dist  = perpDist*Math.cos(ra-angle)
       const wallH = Math.min(H*1.8, H*PROJ_DIST/Math.max(0.01,dist))
-      // pz shifts walls DOWN on screen (eye is higher → blocks appear below)
-      const wTop  = Math.round(horizon - wallH/2 + pz * wallH)
+      const wTop  = Math.round(horizon - wallH/2)
 
       zBuffer[col] = dist
 
@@ -1095,18 +1109,6 @@ export default function MiningChain3DFPV({
       }
 
       const [rw,gw,bw] = wallRgb(cell,dist,side,myWallet)
-
-      // Block top face — visible when player is above mid-block height (pz > 0.5)
-      if (pz > 0 && wTop > horizon && cell) {
-        const topH = Math.min(wTop, H) - horizon
-        if (topH > 0) {
-          ctx.fillStyle=`rgb(${Math.min(255,Math.round(rw*1.5))},${Math.min(255,Math.round(gw*1.5))},${Math.min(255,Math.round(bw*1.5))})`
-          ctx.fillRect(col*STRIP_W,horizon,STRIP_W,topH)
-          // Seam between top face and front face
-          ctx.fillStyle='rgba(0,0,0,0.4)'
-          ctx.fillRect(col*STRIP_W,Math.min(wTop-1,H-1),STRIP_W,2)
-        }
-      }
 
       ctx.fillStyle=`rgb(${rw},${gw},${bw})`
       ctx.fillRect(col*STRIP_W,wTop,STRIP_W,wallH)
@@ -1764,10 +1766,12 @@ export default function MiningChain3DFPV({
 
       // ── Vertical physics (jump / gravity) ────────────────────────────────
       {
-        // Floor under player: BLOCK_TOP when already elevated over a block, else 0
-        const _br = Math.floor(p.y/CELL_SIZE), _bc = Math.floor(p.x/CELL_SIZE)
-        const _onBlock = validObstaclesRef.current.has(`${_br},${_bc}`) ||
-                         cellMapRef.current.has(`${_br},${_bc}`)
+        // Multi-point footprint check: center + 4 cardinal offsets at PLAYER_R
+        let _onBlock = false
+        for(const [dr,dc] of [[0,0],[PLAYER_R,0],[-PLAYER_R,0],[0,PLAYER_R],[0,-PLAYER_R]]){
+          const bk=`${Math.floor(p.y/CELL_SIZE+dr)},${Math.floor(p.x/CELL_SIZE+dc)}`
+          if(validObstaclesRef.current.has(bk)||cellMapRef.current.has(bk)){_onBlock=true;break}
+        }
         const floorZ = (_onBlock && p.z >= BLOCK_TOP) ? BLOCK_TOP : 0
         if(p.z > floorZ || p.vz > 0){
           p.vz -= GRAVITY_A
