@@ -1074,6 +1074,19 @@ export default function MiningChain3DFPV({
       }
 
       const [rw,gw,bw] = wallRgb(cell,dist,side,myWallet)
+
+      // Block top face — visible when player is above mid-block height (pz > 0.5)
+      if (pz > 0 && wTop > horizon && cell) {
+        const topH = Math.min(wTop, H) - horizon
+        if (topH > 0) {
+          ctx.fillStyle=`rgb(${Math.min(255,Math.round(rw*1.5))},${Math.min(255,Math.round(gw*1.5))},${Math.min(255,Math.round(bw*1.5))})`
+          ctx.fillRect(col*STRIP_W,horizon,STRIP_W,topH)
+          // Seam between top face and front face
+          ctx.fillStyle='rgba(0,0,0,0.4)'
+          ctx.fillRect(col*STRIP_W,Math.min(wTop-1,H-1),STRIP_W,2)
+        }
+      }
+
       ctx.fillStyle=`rgb(${rw},${gw},${bw})`
       ctx.fillRect(col*STRIP_W,wTop,STRIP_W,wallH)
 
@@ -1489,29 +1502,6 @@ export default function MiningChain3DFPV({
       ctx.fillText(ownLabel, 174, curCell.emoji ? 40 : 24)
     }
 
-    // Controls hint — contextual (top-center, very dim)
-    {
-      ctx.textAlign='center'; ctx.font='bold 9px monospace'
-      const _act = fwdCell && !fwdCell.isObstacle && fwdDist <= INTERACT_DIST
-      let _hint, _hcol
-      if (_act) {
-        _hcol = '#3a6a7a'
-        if (fwdCell.isChainNode)
-          _hint = es ? '↵ · resolver cadena' : '↵ · solve chain'
-        else if (fwdCell.isMarket && !fwdCell.owner)
-          _hint = es ? '↵ · comprar NFTJI' : '↵ · buy NFTJI'
-        else if (fwdCell.isMarket && myWallet && fwdCell.owner?.toLowerCase()===myWallet.toLowerCase())
-          _hint = es ? '↵ · liberar NFTJI' : '↵ · resell NFTJI'
-        else if (!fwdCell.owner)
-          _hint = es ? '↵ · minar bloque' : '↵ · mine block'
-      }
-      if (!_hint) {
-        _hcol = '#28465c'
-        _hint = es ? 'WASD·mover  Q/E·girar  drag·rotar  SPC·saltar'
-                   : 'WASD·move  Q/E·turn  drag·look  SPC·jump'
-      }
-      ctx.fillStyle = _hcol; ctx.fillText(_hint, W/2, 10)
-    }
 
     // ── Facing block info HUD (top-right) — only within 2 cells ──────────────
     if (fwdDist <= 2.0) {
