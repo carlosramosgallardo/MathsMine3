@@ -41,8 +41,8 @@ const OBSTACLE_MAP = new Map([
   ['2,7',   { base:W_SLATE, label:'WALL' }],
   ['2,8',   { base:W_SLATE, label:'WALL' }],
   ['2,9',   { base:W_SLATE, label:'WALL' }],
+  ['2,16',  { base:W_SLATE, label:'WALL' }],
   ['2,17',  { base:W_SLATE, label:'WALL' }],
-  ['2,18',  { base:W_SLATE, label:'WALL' }],
   ['2,19',  { base:W_SLATE, label:'WALL' }],
   ['25,7',  { base:W_SLATE, label:'WALL' }],
   ['25,8',  { base:W_SLATE, label:'WALL' }],
@@ -82,9 +82,9 @@ const OBSTACLE_MAP = new Map([
   ['17,19', { base:W_DARK, label:'WALL' }],
 
   // Mid-zone pocket walls — warm stone
-  ['5,5',   { base:W_STONE, label:'WALL' }],
+  ['5,4',   { base:W_STONE, label:'WALL' }],
   ['5,22',  { base:W_STONE, label:'WALL' }],
-  ['22,5',  { base:W_STONE, label:'WALL' }],
+  ['22,4',  { base:W_STONE, label:'WALL' }],
   ['22,22', { base:W_STONE, label:'WALL' }],
   ['11,11', { base:W_STONE, label:'WALL' }],
   ['11,16', { base:W_STONE, label:'WALL' }],
@@ -107,7 +107,7 @@ const OBSTACLE_MAP = new Map([
   ['8,18',  { base:W_SAND, label:'WALL' }],
   ['19,9',  { base:W_SAND, label:'WALL' }],
   ['9,8',   { base:W_SAND, label:'WALL' }],
-  ['20,20', { base:W_SAND, label:'WALL' }],
+  ['20,21', { base:W_SAND, label:'WALL' }],
 ])
 
 // ── Wall collision: returns true if position (grid units) hits a solid wall ──

@@ -6,7 +6,7 @@ import { normalizeWalletDecorations } from '@/lib/wallet-decorations';
 import { getMarketCommandForKey, marketCommandFromBlock } from '@/lib/mining-commands';
 import {
   blockHexToGrid, gridToBlockHex, normalizeBlockHex,
-  MM3_BLOCK_GRID_ROWS, MM3_BLOCK_GRID_COLS,
+  MM3_MINE_BLOCK_TOTAL,
 } from '@/lib/mm3-block-chain';
 import { getDiceState } from '@/lib/dice';
 
@@ -94,7 +94,8 @@ export async function POST(req) {
         .map(b => gridToBlockHex(b.grid_row, b.grid_col))
     );
     const freeMined = (walletMinedRows || []).filter(r => !nftjiHxs.has(r.block_hex)).length;
-    const blockChainPercent = Math.round(freeMined / (MM3_BLOCK_GRID_ROWS * MM3_BLOCK_GRID_COLS) * 10000) / 100;
+    const freeMineDenom = Math.max(1, MM3_MINE_BLOCK_TOTAL - nftjiHxs.size); // 699 regular mine blocks
+    const blockChainPercent = Math.round(freeMined / freeMineDenom * 10000) / 100;
 
     const { error: progressError } = await supabase
       .from('player_progress')

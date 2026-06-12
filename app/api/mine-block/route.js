@@ -11,7 +11,7 @@ import {
   formatBlockRequirement,
   gridToBlockHex,
   MM3_BLOCK_REQUIREMENT_BY_HEX,
-  MM3_BLOCK_CHAIN_REQUIREMENTS,
+  MM3_MINE_BLOCK_TOTAL,
   mm3ValueToHex,
   normalizeBlockHex,
 } from '@/lib/mm3-block-chain';
@@ -255,7 +255,7 @@ export async function POST(req) {
         .map(b => gridToBlockHex(b.grid_row, b.grid_col))
     );
     const freeChain = chain.filter(r => !nftjiHexes.has(r.block_hex));
-    const freeBlocksTotal = Math.max(1, MM3_BLOCK_CHAIN_REQUIREMENTS.length - (Number(reservedCount) || 0));
+    const freeBlocksTotal = Math.max(1, MM3_MINE_BLOCK_TOTAL - (Number(reservedCount) || 0)); // 719 - nftji = 699
     const freePercent = Math.round((freeChain.length / freeBlocksTotal) * 10000) / 100;
     const walletMinedCount = freeChain.filter((row) => normalizeWallet(row.wallet) === wallet).length;
     const walletNftjiCount = progress?.mining_nftji_key || nftjiClaimed ? 1 : 0;
