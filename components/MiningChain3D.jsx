@@ -634,8 +634,8 @@ export default function MiningChain3D() {
         ) : (
           <span style={{ color:'#3a5060', fontSize:'0.72rem', letterSpacing:'0.06em' }}>
             {es
-              ? 'WASD · MOVER  ·  DRAG · ROTAR  ·  SPC · SALTAR'
-              : 'WASD · MOVE  ·  DRAG · LOOK  ·  SPC · JUMP'}
+              ? 'WASD · MOVER  ·  RATÓN/DRAG · MIRAR  ·  SHIFT · CORRER  ·  SPC · SALTAR'
+              : 'WASD · MOVE  ·  MOUSE/DRAG · LOOK  ·  SHIFT · SPRINT  ·  SPC · JUMP'}
           </span>
         )}
       </div>

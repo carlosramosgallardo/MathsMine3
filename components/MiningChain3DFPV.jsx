@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useCallback } from 'react'
+import { useEffect, useRef, useCallback, useState } from 'react'
 import { colorFromAddress } from '@/lib/wallet-colors'
 import { MM3_BLOCK_GRID_ROWS, MM3_BLOCK_GRID_COLS, gridToBlockHex } from '@/lib/mm3-block-chain'
 
@@ -12,28 +12,30 @@ const CELL_SIZE     = 40     // world units per grid cell — large for future i
 const WORLD_W       = COLS * CELL_SIZE
 const WORLD_H       = ROWS * CELL_SIZE
 const STRIP_W       = 3
-const FOV           = Math.PI / 2
-const PROJ_DIST     = 0.65
-const CAMERA_EYE_Z  = 0.55   // eye height above the surface the player stands on
+const FOV           = Math.PI * 0.43
+const PROJ_DIST     = 0.72
+const CAMERA_EYE_Z  = 0.68   // eye height above the surface the player stands on
 const MAX_PITCH     = Math.PI / 2 - 0.02
-const MOVE_SPD      = 0.72   // world units/frame (~1.1 cells/sec at 60fps)
-const TURN_SPD      = 0.018
+const MOVE_SPD      = 43     // world units / second (~1.1 cells/sec)
+const SPRINT_SPD    = 67
+const MOVE_ACCEL    = 11
+const TURN_SPD      = 1.35   // radians / second
 const DOOR_FRAC     = 0.45
-const HORIZON_RATIO = 0.46
+const HORIZON_RATIO = 0.50
 const PLAYER_R      = 0.20   // collision radius in grid units (1 unit = 1 cell)
 const DOOR_LO       = (1 - DOOR_FRAC) / 2   // 0.275
 const DOOR_HI       = (1 + DOOR_FRAC) / 2   // 0.725
-const FOOTSTEP_DIST = MOVE_SPD * 14         // footstep cadence
+const FOOTSTEP_DIST = CELL_SIZE * 0.42       // footstep cadence
 const SWING_DUR     = 340    // ms per pickaxe swing
 const HITS_NEEDED   = 5      // swings to complete mining action
 const INTERACT_DIST = 2.0    // grid cells — max distance for block interaction
 const CHAIN_NODE_ROW = 4     // fallback; runtime position comes from cellMap
 const CHAIN_NODE_COL = 4
 // Jump: single jump peaks at ~1.25 (above block top), 2 jumps reach ~2.5
-const JUMP_VZ   = 0.10       // jump impulse (grid units / frame, ~60fps)
-const GRAVITY_A = 0.004      // gravity (grid units / frame²)
+const JUMP_VZ   = 5.7        // jump impulse (grid units / second)
+const GRAVITY_A = 13.5       // gravity (grid units / second²)
 const BLOCK_TOP = 1.0        // block/obstacle height in grid units
-const MAX_JUMPS = 5          // max chained jumps before landing resets count
+const MAX_JUMPS = 1
 
 // ── Decorative obstacles: solid walls, no doorways, not mineable ──────────────
 // Five visual types: monolith (violet), pylon (teal), ruin (rust), steel wall, bunker
@@ -521,62 +523,30 @@ function playPickHit(audioCtxRef, type) {
   } catch {}
 }
 
-// ── Local player (third-person, back view) ──────────────────────────────────
-function drawThirdPersonPlayer(ctx, W, H, color, swingT, walkDist, hasSkills) {
+// ── First-person pickaxe ────────────────────────────────────────────────────
+function drawFirstPersonTool(ctx, W, H, color, swingT, walkDist) {
   const mobile = W < 640
-  const scale = mobile ? 0.78 : Math.max(0.9, Math.min(1.15, H / 560))
-  const bodyW = Math.round(66 * scale)
-  const bodyH = Math.round(88 * scale)
-  const headW = Math.round(42 * scale)
-  const headH = Math.round(27 * scale)
-  const reserve = hasSkills && !mobile ? 74 : 22
-  const bob = Math.sin(walkDist * 0.18) * 2.5 * scale
-  const cx = W / 2
-  const bottomY = H - reserve + bob
-  const bodyTop = bottomY - bodyH
-  const headTop = bodyTop - headH + 4 * scale
+  const scale = mobile ? 0.72 : Math.max(0.82, Math.min(1.15, H / 620))
+  const bob = Math.sin(walkDist * 0.16) * 3 * scale
+  const swing = Math.sin(Math.min(1, swingT) * Math.PI)
+  const handX = W * (mobile ? 0.83 : 0.77) - swing * 74 * scale
+  const handY = H + 18 * scale - swing * 88 * scale + bob
   const [r,g,b] = hexToRgb(color || C)
 
   ctx.save()
-  ctx.globalAlpha = 0.98
+  ctx.globalAlpha = 0.96
+  ctx.strokeStyle = `rgb(${Math.round(r*.62)},${Math.round(g*.62)},${Math.round(b*.62)})`
+  ctx.lineWidth = Math.max(12, 18*scale); ctx.lineCap = 'round'
+  ctx.beginPath(); ctx.moveTo(W + 18, H + 18); ctx.lineTo(handX, handY); ctx.stroke()
 
-  // Grounding shadow.
-  ctx.fillStyle = 'rgba(0,0,0,0.36)'
-  ctx.beginPath(); ctx.ellipse(cx, bottomY + 3*scale, bodyW*0.58, 7*scale, 0, 0, Math.PI*2); ctx.fill()
-
-  // Back of the wallet body.
-  ctx.fillStyle = `rgb(${Math.round(r*.52)},${Math.round(g*.52)},${Math.round(b*.52)})`
-  ctx.strokeStyle = `rgb(${Math.min(255,Math.round(r*1.12))},${Math.min(255,Math.round(g*1.12))},${Math.min(255,Math.round(b*1.12))})`
-  ctx.lineWidth = Math.max(1, scale)
-  ctx.fillRect(cx-bodyW/2, bodyTop, bodyW, bodyH)
-  ctx.strokeRect(cx-bodyW/2, bodyTop, bodyW, bodyH)
-  ctx.fillStyle = `rgba(${r},${g},${b},0.34)`
-  ctx.fillRect(cx-bodyW/2+4*scale, bodyTop+8*scale, bodyW-8*scale, 9*scale)
-  ctx.fillStyle = 'rgba(0,0,0,0.28)'
-  ctx.fillRect(cx-bodyW/2, bodyTop+bodyH*.58, bodyW, 2*scale)
-
-  // Head / notes seen from behind.
-  ctx.fillStyle = `rgb(${Math.min(255,Math.round(r*.82+35))},${Math.min(255,Math.round(g*.82+35))},${Math.min(255,Math.round(b*.82+35))})`
-  ctx.fillRect(cx-headW/2, headTop, headW, headH)
-  ctx.strokeRect(cx-headW/2, headTop, headW, headH)
-  ctx.fillStyle = 'rgba(255,255,255,0.22)'
-  ctx.fillRect(cx-headW/2+3*scale, headTop+3*scale, headW-6*scale, 3*scale)
-
-  // Right arm and pickaxe stay on the character's screen-right side.
-  const handX = cx + bodyW*.47
-  const handY = bodyTop + bodyH*.43
-  ctx.strokeStyle = `rgb(${Math.round(r*.72)},${Math.round(g*.72)},${Math.round(b*.72)})`
-  ctx.lineWidth = Math.max(4, 7*scale); ctx.lineCap = 'round'
-  ctx.beginPath(); ctx.moveTo(cx+bodyW*.34, bodyTop+bodyH*.28); ctx.lineTo(handX, handY); ctx.stroke()
-
-  const pickL = 62 * scale
-  const pickA = -0.92 - Math.sin(swingT*Math.PI)*1.25
+  const pickL = 128 * scale
+  const pickA = -2.02 - swing * 0.92
   const tipX = handX + Math.cos(pickA)*pickL
   const tipY = handY + Math.sin(pickA)*pickL
-  ctx.strokeStyle = '#8b5e3c'; ctx.lineWidth = Math.max(3, 5*scale)
+  ctx.strokeStyle = '#8b5e3c'; ctx.lineWidth = Math.max(5, 8*scale)
   ctx.beginPath(); ctx.moveTo(handX,handY); ctx.lineTo(tipX,tipY); ctx.stroke()
   ctx.lineCap = 'butt'
-  const hs = 10*scale
+  const hs = 17*scale
   ctx.fillStyle = '#9fb8c9'; ctx.strokeStyle = '#d7e8f3'; ctx.lineWidth = Math.max(.7,scale)
   ctx.beginPath()
   ctx.moveTo(tipX-hs*.25,tipY-hs*.7); ctx.lineTo(tipX+hs*1.15,tipY-hs*.18)
@@ -820,7 +790,8 @@ export default function MiningChain3DFPV({
 }) {
   const canvasRef    = useRef(null)
   const containerRef = useRef(null)
-  const keysRef      = useRef({w:false,s:false,a:false,d:false,q:false,e:false,space:false})
+  const [pointerLocked, setPointerLocked] = useState(false)
+  const keysRef      = useRef({w:false,s:false,a:false,d:false,q:false,e:false,space:false,shift:false})
   const playerRef    = useRef({
     x:((initCol??14)+0.5)*CELL_SIZE,
     y:((initRow??14)+0.5)*CELL_SIZE,
@@ -842,6 +813,8 @@ export default function MiningChain3DFPV({
   const onWantNavRef  = useRef(onWantNavigate)
   const dragRef       = useRef(null)
   const animRef       = useRef(null)
+  const lastFrameRef  = useRef(0)
+  const velocityRef   = useRef({x:0,y:0})
   const renderRef     = useRef(null)
   const lastCellRef   = useRef({row:initRow??14,col:initCol??14})
   const zBufferRef    = useRef(null)
@@ -1567,13 +1540,10 @@ export default function MiningChain3DFPV({
       }
     }
 
-    // ── Local third-person avatar ──────────────────────────────────────────
+    // ── First-person tool ──────────────────────────────────────────────────
     const swE  = performance.now() - swingStartRef.current
     const swT  = swE < SWING_DUR ? swE / SWING_DUR : 0
-    drawThirdPersonPlayer(
-      ctx, W, H, colorFromAddress(myWallet || 'local-player'), swT,
-      walkDistRef.current, myNftjisRef.current.length > 0,
-    )
+    drawFirstPersonTool(ctx,W,H,colorFromAddress(myWallet||'local-player'),swT,walkDistRef.current)
     drawMineProgress(ctx, W, H, mineProgressRef.current, mineTypeRef.current)
 
     // ── Enemy in crosshair indicator ──────────────────────────────────────
@@ -1681,6 +1651,7 @@ export default function MiningChain3DFPV({
       if(e.key==='d'||e.key==='D')                        k.d=true
       if(e.key==='q'||e.key==='Q'||e.key==='ArrowLeft') {k.q=true;e.preventDefault()}
       if(e.key==='e'||e.key==='E'||e.key==='ArrowRight'){k.e=true;e.preventDefault()}
+      if(e.key==='Shift') k.shift=true
       if(e.key==='Enter'){
         const fData=facingDataRef.current||{}
         const inRange=fData.dist==null||fData.dist<=INTERACT_DIST
@@ -1711,14 +1682,39 @@ export default function MiningChain3DFPV({
       if(e.key==='d'||e.key==='D')                        k.d=false
       if(e.key==='q'||e.key==='Q'||e.key==='ArrowLeft')  k.q=false
       if(e.key==='e'||e.key==='E'||e.key==='ArrowRight') k.e=false
+      if(e.key==='Shift') k.shift=false
       if(e.key===' '||e.code==='Space')                   k.space=false
     }
-    window.addEventListener('keydown',dn); window.addEventListener('keyup',up)
-    return ()=>{ window.removeEventListener('keydown',dn); window.removeEventListener('keyup',up) }
+    const reset=()=>{
+      for(const key of Object.keys(keysRef.current)) keysRef.current[key]=false
+      velocityRef.current={x:0,y:0}
+    }
+    window.addEventListener('keydown',dn); window.addEventListener('keyup',up); window.addEventListener('blur',reset)
+    return ()=>{ window.removeEventListener('keydown',dn); window.removeEventListener('keyup',up); window.removeEventListener('blur',reset) }
+  },[])
+
+  // Desktop FPS look uses Pointer Lock; touch keeps drag-to-look.
+  useEffect(()=>{
+    const onLock=()=>setPointerLocked(document.pointerLockElement===canvasRef.current)
+    const onMouseMove=(e)=>{
+      if(document.pointerLockElement!==canvasRef.current) return
+      const sens=0.00175
+      playerRef.current.angle += e.movementX*sens
+      playerRef.current.pitch = Math.max(-MAX_PITCH,Math.min(MAX_PITCH,playerRef.current.pitch-e.movementY*sens))
+      renderRef.current?.()
+    }
+    document.addEventListener('pointerlockchange',onLock)
+    document.addEventListener('mousemove',onMouseMove)
+    return ()=>{ document.removeEventListener('pointerlockchange',onLock); document.removeEventListener('mousemove',onMouseMove) }
   },[])
 
   // Pointer drag → rotate, tap → pickaxe swing
   const handlePointerDown = useCallback((e)=>{
+    if(e.pointerType==='mouse'){
+      if(document.pointerLockElement!==canvasRef.current){ canvasRef.current?.requestPointerLock?.(); return }
+      if(performance.now()-swingStartRef.current>SWING_DUR){ swingStartRef.current=performance.now(); hitDoneRef.current=false }
+      return
+    }
     canvasRef.current?.setPointerCapture(e.pointerId)
     dragRef.current = { x: e.clientX, y: e.clientY, type: e.pointerType, moved: 0 }
   },[])
@@ -1731,7 +1727,7 @@ export default function MiningChain3DFPV({
     dragRef.current.moved = (dragRef.current.moved||0) + Math.abs(dx) + Math.abs(dy)
     const sens = dragRef.current.type === 'touch' ? 0.0038 : 0.0019
     playerRef.current.angle += dx * sens
-    playerRef.current.pitch = Math.max(-MAX_PITCH, Math.min(MAX_PITCH, playerRef.current.pitch + dy * sens))
+    playerRef.current.pitch = Math.max(-MAX_PITCH, Math.min(MAX_PITCH, playerRef.current.pitch - dy * sens))
     renderRef.current?.()
   },[])
   const handlePointerUp = useCallback(()=>{
@@ -1751,15 +1747,27 @@ export default function MiningChain3DFPV({
       // Schedule next frame FIRST so the loop survives any exception in the body
       animRef.current=requestAnimationFrame(loop)
       const k=keysRef.current, p=playerRef.current
+      const nowMs=performance.now()
+      const dt=lastFrameRef.current ? Math.min(0.05,(nowMs-lastFrameRef.current)/1000) : 1/60
+      lastFrameRef.current=nowMs
       let needsRender=false
 
-      if(k.q){p.angle-=TURN_SPD;needsRender=true}
-      if(k.e){p.angle+=TURN_SPD;needsRender=true}
+      if(k.q){p.angle-=TURN_SPD*dt;needsRender=true}
+      if(k.e){p.angle+=TURN_SPD*dt;needsRender=true}
 
       const fwd=(k.w?1:0)-(k.s?1:0), str=(k.d?1:0)-(k.a?1:0)
-      if(fwd||str){
-        const nx=p.x+(Math.cos(p.angle)*fwd+Math.cos(p.angle+Math.PI/2)*str)*MOVE_SPD
-        const ny=p.y+(Math.sin(p.angle)*fwd+Math.sin(p.angle+Math.PI/2)*str)*MOVE_SPD
+      const inputLen=Math.hypot(fwd,str)||1
+      const targetSpeed=k.shift?SPRINT_SPD:MOVE_SPD
+      const targetVX=(Math.cos(p.angle)*(fwd/inputLen)+Math.cos(p.angle+Math.PI/2)*(str/inputLen))*targetSpeed
+      const targetVY=(Math.sin(p.angle)*(fwd/inputLen)+Math.sin(p.angle+Math.PI/2)*(str/inputLen))*targetSpeed
+      const blend=1-Math.exp(-MOVE_ACCEL*dt)
+      const vel=velocityRef.current
+      vel.x+=(targetVX-vel.x)*blend; vel.y+=(targetVY-vel.y)*blend
+      if(!fwd&&!str&&Math.hypot(vel.x,vel.y)<0.5){vel.x=0;vel.y=0}
+      const movedDist=Math.hypot(vel.x,vel.y)*dt
+      if(movedDist>0.001){
+        const nx=p.x+vel.x*dt
+        const ny=p.y+vel.y*dt
         const R=PLAYER_R*CELL_SIZE
         const inBX=nx>R&&nx<WORLD_W-R, inBY=ny>R&&ny<WORLD_H-R
         const ngx=nx/CELL_SIZE, ngy=ny/CELL_SIZE
@@ -1777,7 +1785,7 @@ export default function MiningChain3DFPV({
             if(inBY&&!hitsSolidWall(cgx,ngy,cm,obs)) p.y=ny
           }
         }
-        walkDistRef.current+=MOVE_SPD
+        walkDistRef.current+=movedDist
         needsRender=true
 
         // Footstep every ~10 movement frames regardless of CELL_SIZE
@@ -1810,8 +1818,8 @@ export default function MiningChain3DFPV({
         }
         const floorZ = (_onBlock && p.z >= BLOCK_TOP) ? BLOCK_TOP : 0
         if(p.z > floorZ || p.vz > 0){
-          p.vz -= GRAVITY_A
-          const nz = p.z + p.vz
+          p.vz -= GRAVITY_A*dt
+          const nz = p.z + p.vz*dt
           if(nz <= floorZ){
             p.z = floorZ; p.vz = 0; p.jumps = 0   // land on floor or block top
           } else {
@@ -1966,8 +1974,9 @@ export default function MiningChain3DFPV({
       )
       if(needsRender||hasRemotes) renderRef.current?.()
     }
+    lastFrameRef.current=0
     animRef.current=requestAnimationFrame(loop)
-    return ()=>cancelAnimationFrame(animRef.current)
+    return ()=>{ cancelAnimationFrame(animRef.current); lastFrameRef.current=0 }
   },[onPositionChange,onFacingChange])
 
   const dBtn=(key,lbl)=>({
@@ -1987,15 +1996,25 @@ export default function MiningChain3DFPV({
 
   return (
     <div ref={containerRef} style={{width:'100%',height:'100%',position:'relative',background:'#020610'}}>
-      <canvas ref={canvasRef} tabIndex={0}
+      <canvas ref={canvasRef} tabIndex={0} aria-label={es?'Vista 3D de minería. Haz clic para capturar el ratón.':'3D mining view. Click to capture the mouse.'}
         style={{display:'block',width:'100%',height:'100%',outline:'none',touchAction:'none'}}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
         onPointerCancel={handlePointerUp}
       />
+      <div className="mm3-desktop-controls" style={{
+        position:'absolute',left:'50%',top:12,transform:'translateX(-50%)',
+        padding:'6px 10px',background:'rgba(1,7,14,.78)',border:`1px solid ${C}30`,
+        color:pointerLocked?'#4ade80cc':`${C}bb`,font:'10px Consolas,monospace',letterSpacing:'.08em',
+        pointerEvents:'none',whiteSpace:'nowrap',
+      }}>
+        {pointerLocked
+          ? (es?'WASD MOVER · SHIFT CORRER · CLIC GOLPEAR · ESC LIBERAR':'WASD MOVE · SHIFT SPRINT · CLICK SWING · ESC RELEASE')
+          : (es?'CLIC PARA CONTROLAR LA CÁMARA':'CLICK TO CONTROL CAMERA')}
+      </div>
       {/* Mobile D-pad */}
-      <div style={{
+      <div className="mm3-touch-controls" style={{
         position:'absolute',
         bottom:'calc(56px + env(safe-area-inset-bottom, 0px))',
         left:12,
@@ -2011,7 +2030,7 @@ export default function MiningChain3DFPV({
           </div>
         </div>
       </div>
-      <p style={{
+      <p className="mm3-touch-controls" style={{
         position:'absolute',
         bottom:'calc(46px + env(safe-area-inset-bottom, 0px))',
         left:12,
@@ -2020,7 +2039,7 @@ export default function MiningChain3DFPV({
       }}>{es?'DRAG·ROTAR':'DRAG·LOOK'}</p>
 
       {/* Mobile jump button */}
-      <div style={{
+      <div className="mm3-touch-controls" style={{
         position:'absolute',
         bottom:'calc(56px + env(safe-area-inset-bottom, 0px))',
         right:12,

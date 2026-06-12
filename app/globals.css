@@ -100,6 +100,13 @@ button {
 }
 button:disabled { opacity: .4; cursor: not-allowed; }
 
+.mm3-touch-controls { display: flex !important; }
+.mm3-desktop-controls { display: none !important; }
+@media (min-width: 768px) {
+  .mm3-touch-controls { display: none !important; }
+  .mm3-desktop-controls { display: block !important; }
+}
+
 /* ── Portal discipline: square, thin, terminal-first ── */
 .mm3-portal-shell *,
 .mm3-portal-shell *::before,
