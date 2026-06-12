@@ -1024,8 +1024,7 @@ export default function MiningChain3DFPV({
     const es       = esRef.current
 
     const {x:px,y:py,angle,z:pz=0} = playerRef.current
-    // Camera tilts down as player rises: horizon shifts up (more floor visible)
-    const horizon = Math.max(H * 0.06, H * HORIZON_RATIO - pz * H * 0.28)
+    const horizon = H * HORIZON_RATIO
     const strips  = Math.ceil(W/STRIP_W)
 
     if (!zBufferRef.current || zBufferRef.current.length !== strips) {
@@ -1092,7 +1091,8 @@ export default function MiningChain3DFPV({
       const {perpDist,cell,side,mx:hitMx,my:hitMy} = castRay(px,py+bob,ra,cellMap,validObstaclesRef.current)
       const dist  = perpDist*Math.cos(ra-angle)
       const wallH = Math.min(H*1.8, H*PROJ_DIST/Math.max(0.01,dist))
-      const wTop  = Math.round(horizon - wallH/2)
+      // Uniform vertical shift as player rises — no distance-proportional stretch
+      const wTop  = Math.round(horizon - wallH/2 + pz * H * 0.25)
 
       zBuffer[col] = dist
 
