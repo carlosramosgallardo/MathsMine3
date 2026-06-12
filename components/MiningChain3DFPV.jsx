@@ -14,10 +14,11 @@ const WORLD_H       = ROWS * CELL_SIZE
 const STRIP_W       = 3
 const FOV           = Math.PI / 2
 const PROJ_DIST     = 0.65
-const MOVE_SPD      = 1.25   // world units/frame (~2 cells/sec at 60fps)
-const TURN_SPD      = 0.030
+const CAMERA_EYE_Z  = 0.55   // eye height above the surface the player stands on
+const MOVE_SPD      = 0.72   // world units/frame (~1.1 cells/sec at 60fps)
+const TURN_SPD      = 0.018
 const DOOR_FRAC     = 0.45
-const HORIZON_RATIO = 0.42
+const HORIZON_RATIO = 0.46
 const PLAYER_R      = 0.20   // collision radius in grid units (1 unit = 1 cell)
 const DOOR_LO       = (1 - DOOR_FRAC) / 2   // 0.275
 const DOOR_HI       = (1 + DOOR_FRAC) / 2   // 0.725
@@ -1023,8 +1024,7 @@ export default function MiningChain3DFPV({
     const es       = esRef.current
 
     const {x:px,y:py,angle,z:pz=0} = playerRef.current
-    // Sky grows as player rises → going-up feel; horizon below screen center = natural downward tilt
-    const horizon = Math.min(H * 0.72, H * HORIZON_RATIO + pz * H * 0.10)
+    const horizon = H * HORIZON_RATIO
     const strips  = Math.ceil(W/STRIP_W)
 
     if (!zBufferRef.current || zBufferRef.current.length !== strips) {
@@ -1032,7 +1032,12 @@ export default function MiningChain3DFPV({
     }
     const zBuffer = zBufferRef.current
 
-    const bob = pz > 0 ? 0 : Math.sin(walkDistRef.current*0.12)*0.03*CELL_SIZE
+    const cameraBobZ = pz > 0 ? 0 : Math.sin(walkDistRef.current*0.12) * 0.012
+    const cameraZ = pz + CAMERA_EYE_Z + cameraBobZ
+    const projectionScale = H * PROJ_DIST
+    const projectY = (worldZ, depth) => (
+      horizon - (worldZ - cameraZ) * projectionScale / Math.max(0.01, depth)
+    )
 
     // Atmospheric tint from current room
     const {row:gr,col:gc} = worldToGrid(px,py)
@@ -1084,10 +1089,10 @@ export default function MiningChain3DFPV({
     }
 
     // Pre-compute forward cell
-    const {mx:fwdMx,my:fwdMy,cell:fwdCell,perpDist:fwdDist,side:fwdSide} = castRay(px,py+bob,angle,cellMap,validObstaclesRef.current)
+    const {mx:fwdMx,my:fwdMy,cell:fwdCell,perpDist:fwdDist,side:fwdSide} = castRay(px,py,angle,cellMap,validObstaclesRef.current)
     // Only fire HUD when the ray hit a clearly solid face (not near the doorway boundary).
     // Near-doorway hits produce thin slivers the player barely notices — suppress the HUD there.
-    const _fgx=px/CELL_SIZE,_fgy=(py+bob)/CELL_SIZE
+    const _fgx=px/CELL_SIZE,_fgy=py/CELL_SIZE
     const _fR=fwdSide===0?(_fgy+fwdDist*Math.sin(angle)):(_fgx+fwdDist*Math.cos(angle))
     const _fHF=((_fR%1)+1)%1
     const fwdFaceSolid=_fHF<(DOOR_LO-0.08)||_fHF>(DOOR_HI+0.08)
@@ -1098,12 +1103,12 @@ export default function MiningChain3DFPV({
     // ── Wall strips + build zBuffer ───────────────────────────────────────────
     for (let col=0; col<strips; col++){
       const ra = angle - FOV/2 + (col+0.5)*FOV/strips
-      const {perpDist,cell,side,mx:hitMx,my:hitMy} = castRay(px,py+bob,ra,cellMap,validObstaclesRef.current)
+      const {perpDist,cell,side,mx:hitMx,my:hitMy} = castRay(px,py,ra,cellMap,validObstaclesRef.current)
       const dist  = perpDist*Math.cos(ra-angle)
-      const wallH = Math.min(H*1.8, H*PROJ_DIST/Math.max(0.01,dist))
-      // Physically-correct elevation shift, capped for walls <1 cell away to prevent stretch
-      const pzShift = Math.min(pz * wallH, pz * H * 0.60)
-      const wTop  = Math.round(horizon - wallH/2 + pzShift)
+      const projectedTop = projectY(BLOCK_TOP, dist)
+      const projectedBottom = projectY(0, dist)
+      const wTop = Math.round(projectedTop)
+      const wallH = Math.min(H * 2.4, Math.max(1, projectedBottom - projectedTop))
 
       zBuffer[col] = dist
 
@@ -1121,15 +1126,11 @@ export default function MiningChain3DFPV({
 
       const [rw,gw,bw] = wallRgb(cell,dist,side,myWallet)
 
-      // Block top face: project back-edge of block (1 cell deeper) → start of top face
-      // screenY = horizon + (pz - 0.5) * projDist/backDist  (Codex §3 formula)
-      // Previously anchored to rHorizon for all blocks → fixed horizontal "ceiling" band.
-      const rHorizon = Math.round(horizon)
-      if (cell) {
-        const backWallH = H * PROJ_DIST / Math.max(0.01, dist + 1.0)
-        const yBackTop  = Math.round(horizon - backWallH * 0.5 + pz * backWallH)
+      // A horizontal top is visible only when the eye is above the block.
+      if (cell && cameraZ > BLOCK_TOP) {
+        const yBackTop  = Math.round(projectY(BLOCK_TOP, dist + 1.0))
         const yFrontTop = Math.min(Math.round(wTop), H)
-        const ty0  = Math.max(yBackTop, rHorizon, 0)
+        const ty0  = Math.max(yBackTop, 0)
         const topH = yFrontTop - ty0
         if (topH > 0) {
           const th1 = Math.max(1, Math.ceil(topH * 0.45))
@@ -1255,11 +1256,10 @@ export default function MiningChain3DFPV({
       const fade  = Math.max(0.32, 1 - tY*0.038)   // slower darkening at distance
       const alpha = Math.min(0.98, Math.max(0.12, 1.0 - tY*0.028)) // visible up to ~30 cells
 
-      // Perspective-correct grounding: cellScale = 1-cell pixel height at tY distance
-      // bottomY = floor level at this depth (same formula as wall bottom = horizon + wallH/2)
+      // Perspective-correct grounding using the same camera projection as walls.
       // sScale boosts sprite size 40% above wall-cell scale for better distance visibility
-      const cellScale = Math.min(H*1.8, H*PROJ_DIST/Math.max(0.05, tY))
-      const bottomY   = Math.min(H+30, Math.round(horizon + cellScale * 0.50))
+      const cellScale = Math.min(H*1.8, projectionScale/Math.max(0.05, tY))
+      const bottomY   = Math.min(H+30, Math.round(projectY(0, tY)))
       const sScale    = cellScale * 1.40
       const walletH   = Math.round(sScale * 0.58)
       const walletW   = Math.round(sScale * 0.50)
@@ -1732,7 +1732,7 @@ export default function MiningChain3DFPV({
     const dx = e.clientX - dragRef.current.x
     dragRef.current.x = e.clientX
     dragRef.current.moved = (dragRef.current.moved||0) + Math.abs(dx)
-    const sens = dragRef.current.type === 'touch' ? 0.006 : 0.003
+    const sens = dragRef.current.type === 'touch' ? 0.0038 : 0.0019
     playerRef.current.angle += dx * sens
     renderRef.current?.()
   },[])
