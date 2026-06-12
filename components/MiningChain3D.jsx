@@ -86,6 +86,7 @@ export default function MiningChain3D() {
   const [receivedHitAt, setReceivedHitAt] = useState(0)
   const [swingMap,      setSwingMap]      = useState({})
   const [myPoolCode,    setMyPoolCode]    = useState(null)
+  const [presenceKey,   setPresenceKey]   = useState(myWallet)
 
   // FPV gets wallets that are online AND have a known position (or self)
   const presenceMap = useMemo(() => {
@@ -237,6 +238,7 @@ export default function MiningChain3D() {
   useEffect(() => {
     const key = myWallet || `anon-${Math.random().toString(36).slice(2, 8)}`
     myKeyRef.current = key
+    setPresenceKey(key)
     const ch = supabase.channel(CHAIN3D_CHANNEL, {
       config: { broadcast: { self: false }, presence: { key } },
     })
@@ -280,7 +282,11 @@ export default function MiningChain3D() {
         [w]: {
           gx: payload.gx, gy: payload.gy,
           row: Math.floor(payload.gy), col: Math.floor(payload.gx),
-          poolCode: prev[w]?.poolCode || null,
+          z: Number(payload.z) || 0,
+          angle: Number(payload.angle) || 0,
+          pitch: Number(payload.pitch) || 0,
+          swingAt: Number(payload.swingAt) || prev[w]?.swingAt || 0,
+          poolCode: payload.poolCode || prev[w]?.poolCode || null,
         },
       }))
       // Ensure the wallet is visible even if presence sync hasn't fired yet
@@ -314,6 +320,7 @@ export default function MiningChain3D() {
 
     ch.subscribe(async (status) => {
       if (status !== 'SUBSCRIBED') return
+      channelRef.current = ch
       const myW = myWalletRef.current
       const selfKey = myKeyRef.current
       const { row, col } = myPosRef.current
@@ -350,7 +357,6 @@ export default function MiningChain3D() {
       }
     })
 
-    channelRef.current = ch
     return () => { supabase.removeChannel(ch); channelRef.current = null }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [myWallet])
@@ -428,16 +434,24 @@ export default function MiningChain3D() {
     }).catch(() => {})
   }, [])
 
-  const handlePositionRealtime = useCallback((gx, gy) => {
-    const myW = myWalletRef.current
+  const handlePositionRealtime = useCallback((gx, gy, avatar = {}) => {
+    const myW = myKeyRef.current || myWalletRef.current
     if (!myW) return
     const row = Math.floor(gy), col = Math.floor(gx)
+    const nextPosition = {
+      gx, gy, row, col,
+      z: Number(avatar.z) || 0,
+      angle: Number(avatar.angle) || 0,
+      pitch: Number(avatar.pitch) || 0,
+      swingAt: Number(avatar.swingAt) || 0,
+      poolCode: myPoolCode || null,
+    }
     // Update own dot on minimap
-    setPositions(prev => ({ ...prev, [myW]: { gx, gy, row, col } }))
+    setPositions(prev => ({ ...prev, [myW]: nextPosition }))
     // Broadcast to others
     channelRef.current?.send({
       type: 'broadcast', event: 'move',
-      payload: { wallet: myW, gx, gy },
+      payload: { wallet: myW, ...nextPosition },
     })?.catch(() => {})
     // Persist to DB (throttled 1/sec) for players who join later
     const now = Date.now()
@@ -447,7 +461,7 @@ export default function MiningChain3D() {
         .upsert({ wallet: myW, gx, gy, updated_at: new Date().toISOString() })
         .then(null, () => {})
     }
-  }, [])
+  }, [myPoolCode])
 
   // Interaction range (must be within 2 cells to act on or inspect a block)
   const INTERACT_DIST = 2.0
@@ -490,6 +504,7 @@ export default function MiningChain3D() {
             cellMap={cellMap}
             presenceMap={presenceMap}
             myWallet={myWallet}
+            presenceKey={presenceKey}
             myColor={myColor}
             initRow={myPos.row}
             initCol={myPos.col}

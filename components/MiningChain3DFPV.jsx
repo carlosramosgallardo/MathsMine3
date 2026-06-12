@@ -299,19 +299,25 @@ function drawMinimap(ctx, gr, gc, angle, cellMap, presenceMap, myWallet, W, H, c
     const dotGX = p.gx ?? ((p.col??0) + 0.5)
     const dotGY = p.gy ?? ((p.row??0) + 0.5)
     const col = colorFromAddress(w)
-    const r = isMe ? CS*2.0 : CS*1.5
+    const r = Math.max(1.8,isMe?CS*0.82:CS*0.68)
+    const dx=MX+dotGX*CS, dy=MY+dotGY*CS
     // Glow ring for others
     if (!isMe) {
       ctx.strokeStyle = col + 'aa'
-      ctx.lineWidth = 1.5
+      ctx.lineWidth = 1
       ctx.beginPath()
-      ctx.arc(MX+dotGX*CS, MY+dotGY*CS, r+1.5, 0, Math.PI*2)
+      ctx.arc(dx,dy,r+1.5,0,Math.PI*2)
       ctx.stroke()
     }
     ctx.fillStyle = isMe ? C : col
     ctx.beginPath()
-    ctx.arc(MX+dotGX*CS, MY+dotGY*CS, r, 0, Math.PI*2)
+    ctx.arc(dx,dy,r,0,Math.PI*2)
     ctx.fill()
+    const heading=Number(p.angle)||0
+    ctx.strokeStyle=(isMe?C:col)+'cc'; ctx.lineWidth=1
+    ctx.beginPath(); ctx.moveTo(dx,dy)
+    ctx.lineTo(dx+Math.cos(heading)*CS*1.8,dy+Math.sin(heading)*CS*1.8)
+    ctx.stroke()
   }
 
   // Chain node: diamond crosshair — visually distinct landmark (static, not a dot)
@@ -778,7 +784,7 @@ function playStep(audioCtxRef) {
 
 // ── Component ─────────────────────────────────────────────────────────────────
 export default function MiningChain3DFPV({
-  cellMap, presenceMap, myWallet, myColor,
+  cellMap, presenceMap, myWallet, presenceKey, myColor,
   initRow, initCol, jumpToCell,
   onPositionChange, onFacingChange, onWantNavigate, onPositionRealtime,
   onPvpHit, onAnonKill, pvpStolen,
@@ -809,12 +815,17 @@ export default function MiningChain3DFPV({
   const cellMapRef    = useRef(cellMap)
   const presenceRef   = useRef(presenceMap)
   const myWalletRef   = useRef(myWallet)
+  const presenceKeyRef = useRef(presenceKey||myWallet)
   const esRef         = useRef(es)
   const onWantNavRef  = useRef(onWantNavigate)
   const dragRef       = useRef(null)
   const animRef       = useRef(null)
   const lastFrameRef  = useRef(0)
   const velocityRef   = useRef({x:0,y:0})
+  const lastSentStateRef = useRef(null)
+  const swingEpochRef = useRef(0)
+  const remoteVisualsRef = useRef(new Map())
+  const lastRemoteFrameRef = useRef(0)
   const renderRef     = useRef(null)
   const lastCellRef   = useRef({row:initRow??14,col:initCol??14})
   const zBufferRef    = useRef(null)
@@ -850,6 +861,7 @@ export default function MiningChain3DFPV({
   useEffect(()=>{ cellMapRef.current=cellMap },[cellMap])
   useEffect(()=>{ presenceRef.current=presenceMap },[presenceMap])
   useEffect(()=>{ myWalletRef.current=myWallet },[myWallet])
+  useEffect(()=>{ presenceKeyRef.current=presenceKey||myWallet },[presenceKey,myWallet])
   useEffect(()=>{ esRef.current=es },[es])
   useEffect(()=>{ onWantNavRef.current=onWantNavigate },[onWantNavigate])
   useEffect(()=>{ onPvpHitRef.current=onPvpHit },[onPvpHit])
@@ -971,9 +983,35 @@ export default function MiningChain3DFPV({
     ctx.imageSmoothingEnabled = false
 
     const cellMap  = cellMapRef.current
-    const presence = presenceRef.current
+    const rawPresence = presenceRef.current
     const myWallet = myWalletRef.current
+    const myIdentity = presenceKeyRef.current||myWallet
     const es       = esRef.current
+
+    // Smooth network updates once per rendered frame. World sprites and the
+    // minimap consume this same map, so they cannot drift apart visually.
+    const remoteNow = performance.now()
+    const remoteDt = lastRemoteFrameRef.current
+      ? Math.min(0.05,(remoteNow-lastRemoteFrameRef.current)/1000)
+      : 1/60
+    lastRemoteFrameRef.current = remoteNow
+    const remoteBlend = 1-Math.exp(-14*remoteDt)
+    const visuals = remoteVisualsRef.current
+    for(const [w,target] of Object.entries(rawPresence||{})){
+      const tx=target.gx??((target.col??0)+0.5), ty=target.gy??((target.row??0)+0.5)
+      let current=visuals.get(w)
+      if(!current){ current={...target,gx:tx,gy:ty,z:Number(target.z)||0}; visuals.set(w,current) }
+      current.gx += (tx-current.gx)*remoteBlend
+      current.gy += (ty-current.gy)*remoteBlend
+      current.z += ((Number(target.z)||0)-current.z)*remoteBlend
+      current.row=Math.floor(current.gy); current.col=Math.floor(current.gx)
+      current.angle=Number(target.angle)||0
+      current.pitch=Number(target.pitch)||0
+      current.swingAt=Number(target.swingAt)||current.swingAt||0
+      current.poolCode=target.poolCode||null
+    }
+    for(const w of visuals.keys()) if(!rawPresence?.[w]) visuals.delete(w)
+    const presence=Object.fromEntries(visuals)
 
     const {x:px,y:py,angle,pitch=0,z:pz=0} = playerRef.current
     const viewCenterY = H * HORIZON_RATIO
@@ -1191,7 +1229,7 @@ export default function MiningChain3DFPV({
     const sprites = []
     for (const [w, pres] of Object.entries(presence || {})) {
       if (pres.row == null && pres.gy == null) continue
-      const isMe = w.toLowerCase() === (myWallet || '').toLowerCase()
+      const isMe = w.toLowerCase() === (myIdentity || '').toLowerCase()
       if (isMe) continue
       const sgx = pres.gx ?? ((pres.col ?? 0) + 0.5)
       const sgy = pres.gy ?? ((pres.row ?? 0) + 0.5)
@@ -1202,24 +1240,25 @@ export default function MiningChain3DFPV({
       // Fixed sign: right vector is (-sin, cos) so tX = -sin*rx + cos*ry
       const tX   = -Math.sin(angle)*rx + Math.cos(angle)*ry
       const dist  = Math.sqrt(rx*rx + ry*ry)
-      sprites.push({ w, tX, tY, dist, color: colorFromAddress(w) })
+      sprites.push({ w, tX, tY, dist, z:Number(pres.z)||0, angle:Number(pres.angle)||0, swingAt:Number(pres.swingAt)||0, color: colorFromAddress(w) })
     }
     sprites.sort((a,b) => b.dist - a.dist)
 
-    for (const { w, tX, tY, color } of sprites) {
+    for (const { w, tX, tY, z:remoteZ, angle:remoteAngle, swingAt, color } of sprites) {
       const groundCamera = cameraPoint(0, tY)
       if (groundCamera.rotatedDepth <= 0.05) continue
-      const scrX = Math.round(W/2 + tX * (W/2) / groundCamera.rotatedDepth)
+      const horizontalProjection = W/(2*Math.tan(FOV/2))
+      const scrX = Math.round(W/2 + tX*horizontalProjection/groundCamera.rotatedDepth)
       const [cr,cg2,cb] = hexToRgb(color)
       const fade  = Math.max(0.32, 1 - tY*0.038)   // slower darkening at distance
       const alpha = Math.min(0.98, Math.max(0.12, 1.0 - tY*0.028)) // visible up to ~30 cells
 
       // Perspective-correct grounding. Remote avatars use the same visual scale
       // as the local third-person avatar and are capped at close range.
-      const cellScale = Math.min(H*1.8, projectionScale/Math.max(0.05, tY))
-      const bottomY   = Math.min(H+30, Math.round(projectY(0, tY)))
-      const localAvatarH = 115 * (W < 640 ? 0.78 : Math.max(0.9, Math.min(1.15, H / 560)))
-      const sScale    = Math.min(cellScale, localAvatarH / 0.78)
+      const stableDepth = Math.max(0.72,groundCamera.rotatedDepth)
+      const cellScale = projectionScale/stableDepth
+      const bottomY   = Math.min(H+30,Math.round(projectY(remoteZ,tY)))
+      const sScale    = Math.min(cellScale,150)
       const walletH   = Math.round(sScale * 0.58)
       const walletW   = Math.round(sScale * 0.50)
       const billsH    = Math.round(sScale * 0.20)
@@ -1293,12 +1332,14 @@ export default function MiningChain3DFPV({
       if (pkZCol >= 0 && pkZCol < strips && tY < zBuffer[pkZCol]) {
         // The remote is seen from the front, so its anatomical right appears
         // on our screen-left (mirror relation between facing characters).
-        const pkBX = scrX - Math.round(walletW * 0.54)
+        const relativeFacing=Math.sin(remoteAngle-angle)
+        const pickSide=relativeFacing>=0?-1:1
+        const pkBX = scrX + pickSide*Math.round(walletW*0.54)
         const pkBY = Math.round(foldY + walletH * 0.05)
         const pkL  = Math.max(5, Math.round(walletH * 0.55))
-        const remoteSwingAge = Date.now() - (swingMapRef.current[w] || 0)
+        const remoteSwingAge = Date.now()-(swingAt||swingMapRef.current[w]||0)
         const remoteSwingT   = remoteSwingAge < SWING_DUR ? remoteSwingAge / SWING_DUR : 0
-        const pkA  = -Math.PI + 0.92 + Math.sin(remoteSwingT * Math.PI) * 1.25
+        const pkA=-Math.PI/2+pickSide*0.66+pickSide*Math.sin(remoteSwingT*Math.PI)*1.05
         const pkTX = pkBX + Math.cos(pkA)*pkL, pkTY = pkBY + Math.sin(pkA)*pkL
         ctx.globalAlpha = alpha * 0.82
         ctx.strokeStyle = '#8B5E3C'
@@ -1323,7 +1364,8 @@ export default function MiningChain3DFPV({
         const sh = Math.max(2, Math.round(sw*0.18))
         ctx.globalAlpha = sAlpha; ctx.fillStyle = '#000'
         ctx.beginPath()
-        ctx.ellipse(scrX, bottomY + sh*0.5, sw/2, sh, 0, 0, Math.PI*2)
+        const shadowY=Math.min(H+30,Math.round(projectY(0,tY)))
+        ctx.ellipse(scrX,shadowY+sh*0.5,sw/2,sh,0,0,Math.PI*2)
         ctx.fill(); ctx.globalAlpha = 1
       }
 
@@ -1606,8 +1648,8 @@ export default function MiningChain3DFPV({
       } else pvpGainRef.current = null
     }
 
-    drawMinimap(ctx,gr,gc,angle,cellMap,presence,myWallet,W,H,chainNodePosRef.current,validObstaclesRef.current)
-    drawOnlineList(ctx,W,H,presence,myWallet,pvpStolenRef.current)
+    drawMinimap(ctx,gr,gc,angle,cellMap,presence,myIdentity,W,H,chainNodePosRef.current,validObstaclesRef.current)
+    drawOnlineList(ctx,W,H,presence,myIdentity,pvpStolenRef.current)
     drawNftjiPanel(ctx,W,H,myNftjisRef.current,es)
     drawChainStats(ctx,W,H,chainStatsRef.current,es)
   }, [])
@@ -1700,7 +1742,7 @@ export default function MiningChain3DFPV({
       if(document.pointerLockElement!==canvasRef.current) return
       const sens=0.00175
       playerRef.current.angle += e.movementX*sens
-      playerRef.current.pitch = Math.max(-MAX_PITCH,Math.min(MAX_PITCH,playerRef.current.pitch-e.movementY*sens))
+      playerRef.current.pitch = Math.max(-MAX_PITCH,Math.min(MAX_PITCH,playerRef.current.pitch+e.movementY*sens))
       renderRef.current?.()
     }
     document.addEventListener('pointerlockchange',onLock)
@@ -1712,7 +1754,9 @@ export default function MiningChain3DFPV({
   const handlePointerDown = useCallback((e)=>{
     if(e.pointerType==='mouse'){
       if(document.pointerLockElement!==canvasRef.current){ canvasRef.current?.requestPointerLock?.(); return }
-      if(performance.now()-swingStartRef.current>SWING_DUR){ swingStartRef.current=performance.now(); hitDoneRef.current=false }
+      if(performance.now()-swingStartRef.current>SWING_DUR){
+        swingStartRef.current=performance.now(); swingEpochRef.current=Date.now(); hitDoneRef.current=false
+      }
       return
     }
     canvasRef.current?.setPointerCapture(e.pointerId)
@@ -1727,7 +1771,7 @@ export default function MiningChain3DFPV({
     dragRef.current.moved = (dragRef.current.moved||0) + Math.abs(dx) + Math.abs(dy)
     const sens = dragRef.current.type === 'touch' ? 0.0038 : 0.0019
     playerRef.current.angle += dx * sens
-    playerRef.current.pitch = Math.max(-MAX_PITCH, Math.min(MAX_PITCH, playerRef.current.pitch - dy * sens))
+    playerRef.current.pitch = Math.max(-MAX_PITCH, Math.min(MAX_PITCH, playerRef.current.pitch + dy * sens))
     renderRef.current?.()
   },[])
   const handlePointerUp = useCallback(()=>{
@@ -1735,6 +1779,7 @@ export default function MiningChain3DFPV({
       // Tap/click with minimal movement → swing pickaxe
       if (performance.now()-swingStartRef.current > SWING_DUR) {
         swingStartRef.current = performance.now()
+        swingEpochRef.current = Date.now()
         hitDoneRef.current = false
       }
     }
@@ -1792,13 +1837,6 @@ export default function MiningChain3DFPV({
         const steps=Math.floor(walkDistRef.current/FOOTSTEP_DIST)
         if(steps!==stepCountRef.current){stepCountRef.current=steps;playStep(audioCtxRef)}
 
-        // Real-time sub-cell presence broadcast (throttled to ~8/sec)
-        const now=Date.now()
-        if(now-lastRealtimeRef.current>120){
-          lastRealtimeRef.current=now
-          onPositionRealtimeRef.current?.(p.x/CELL_SIZE, p.y/CELL_SIZE)
-        }
-
         const {row:newRow,col:newCol}=worldToGrid(p.x,p.y)
         const last=lastCellRef.current
         if(newRow!==last.row||newCol!==last.col){
@@ -1829,12 +1867,35 @@ export default function MiningChain3DFPV({
         }
       }
 
+      // Replicate the full avatar state. This also runs while stationary so
+      // mouse look, jumps and pickaxe swings remain visible to every client.
+      {
+        const now=Date.now()
+        const nextState={
+          gx:p.x/CELL_SIZE,gy:p.y/CELL_SIZE,z:p.z,
+          angle:p.angle,pitch:p.pitch,swingAt:swingEpochRef.current,
+        }
+        const prev=lastSentStateRef.current
+        const changed=!prev
+          || Math.hypot(nextState.gx-prev.gx,nextState.gy-prev.gy)>0.004
+          || Math.abs(nextState.z-prev.z)>0.004
+          || Math.abs(nextState.angle-prev.angle)>0.008
+          || Math.abs(nextState.pitch-prev.pitch)>0.008
+          || nextState.swingAt!==prev.swingAt
+        if(now-lastRealtimeRef.current>80&&(changed||now-(prev?.sentAt||0)>1000)){
+          lastRealtimeRef.current=now
+          lastSentStateRef.current={...nextState,sentAt:now}
+          onPositionRealtimeRef.current?.(nextState.gx,nextState.gy,nextState)
+        }
+      }
+
       // ── Enemy sprite targeting ─────────────────────────────────────────────
       const camGX = p.x / CELL_SIZE, camGY = p.y / CELL_SIZE
       let closestEnemy = null, closestDist = Infinity
       const myW = myWalletRef.current
-      for (const [w, pres] of Object.entries(presenceRef.current || {})) {
-        const isMe = w.toLowerCase() === (myW || '').toLowerCase()
+      const myIdentity = presenceKeyRef.current||myW
+      for (const [w, pres] of remoteVisualsRef.current.entries()) {
+        const isMe = w.toLowerCase() === (myIdentity || '').toLowerCase()
         if (isMe) continue
         const sgx = pres.gx ?? ((pres.col ?? 0) + 0.5)
         const sgy = pres.gy ?? ((pres.row ?? 0) + 0.5)
@@ -1970,7 +2031,7 @@ export default function MiningChain3DFPV({
       }
       // Always render when remote players are present so their movement is visible
       const hasRemotes = Object.keys(presenceRef.current||{}).some(
-        w => w.toLowerCase() !== (myWalletRef.current||'').toLowerCase()
+        w => w.toLowerCase() !== (presenceKeyRef.current||myWalletRef.current||'').toLowerCase()
       )
       if(needsRender||hasRemotes) renderRef.current?.()
     }
