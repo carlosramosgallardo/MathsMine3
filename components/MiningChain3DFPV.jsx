@@ -23,6 +23,7 @@ const TURN_SPD      = 1.35   // radians / second
 const DOOR_FRAC     = 0.45
 const HORIZON_RATIO = 0.50
 const PLAYER_R      = 0.20   // collision radius in grid units (1 unit = 1 cell)
+const AVATAR_R      = 0.30
 const DOOR_LO       = (1 - DOOR_FRAC) / 2   // 0.275
 const DOOR_HI       = (1 + DOOR_FRAC) / 2   // 0.725
 const FOOTSTEP_DIST = CELL_SIZE * 0.42       // footstep cadence
@@ -561,6 +562,37 @@ function drawFirstPersonTool(ctx, W, H, color, swingT, walkDist) {
   ctx.restore()
 }
 
+function drawThirdPersonPlayer(ctx,W,H,color,swingT,walkDist,hasSkills){
+  const mobile=W<640,scale=mobile ? .76 : Math.max(.86,Math.min(1.1,H/590))
+  const bodyW=62*scale,bodyH=82*scale,headW=39*scale,headH=25*scale
+  const reserve=hasSkills&&!mobile?72:18,bob=Math.sin(walkDist*.18)*2.2*scale
+  const cx=W/2,bottomY=H-reserve+bob,bodyTop=bottomY-bodyH,headTop=bodyTop-headH+4*scale
+  const [r,g,b]=hexToRgb(color||C)
+  ctx.save();ctx.globalAlpha=.98
+  ctx.fillStyle='rgba(0,0,0,.38)';ctx.beginPath();ctx.ellipse(cx,bottomY+3,bodyW*.58,7*scale,0,0,Math.PI*2);ctx.fill()
+  ctx.fillStyle=`rgb(${r*.52|0},${g*.52|0},${b*.52|0})`;ctx.strokeStyle=color||C;ctx.lineWidth=1
+  ctx.fillRect(cx-bodyW/2,bodyTop,bodyW,bodyH);ctx.strokeRect(cx-bodyW/2,bodyTop,bodyW,bodyH)
+  ctx.fillStyle=`rgba(${r},${g},${b},.34)`;ctx.fillRect(cx-bodyW/2+4,bodyTop+8,bodyW-8,8*scale)
+  ctx.fillStyle=`rgb(${Math.min(255,r*.82+35)|0},${Math.min(255,g*.82+35)|0},${Math.min(255,b*.82+35)|0})`
+  ctx.fillRect(cx-headW/2,headTop,headW,headH);ctx.strokeRect(cx-headW/2,headTop,headW,headH)
+  const handX=cx+bodyW*.47,handY=bodyTop+bodyH*.43,pickL=60*scale
+  ctx.strokeStyle=`rgb(${r*.72|0},${g*.72|0},${b*.72|0})`;ctx.lineWidth=6*scale;ctx.lineCap='round'
+  ctx.beginPath();ctx.moveTo(cx+bodyW*.34,bodyTop+bodyH*.28);ctx.lineTo(handX,handY);ctx.stroke()
+  const pickA=-.92-Math.sin(swingT*Math.PI)*1.25,tipX=handX+Math.cos(pickA)*pickL,tipY=handY+Math.sin(pickA)*pickL
+  ctx.strokeStyle='#8b5e3c';ctx.lineWidth=4*scale;ctx.beginPath();ctx.moveTo(handX,handY);ctx.lineTo(tipX,tipY);ctx.stroke()
+  const hs=10*scale;ctx.fillStyle='#b8cfdd';ctx.beginPath();ctx.moveTo(tipX-hs*.25,tipY-hs*.7);ctx.lineTo(tipX+hs*1.15,tipY-hs*.18);ctx.lineTo(tipX+hs*.42,tipY+hs*.28);ctx.lineTo(tipX-hs*.72,tipY+hs*.54);ctx.closePath();ctx.fill();ctx.restore()
+}
+
+function drawHealthHud(ctx,W,H,health,es){
+  const hp=Math.max(0,Math.min(100,Number(health??100))),w=Math.min(220,W*.36),h=13,x=W/2-w/2,y=42
+  ctx.fillStyle='rgba(1,7,14,.86)';ctx.fillRect(x-5,y-5,w+10,h+22)
+  ctx.fillStyle='#19070b';ctx.fillRect(x,y,w,h)
+  const col=hp>60?'#4ade80':hp>25?'#facc15':'#fb7185'
+  ctx.fillStyle=col;ctx.fillRect(x,y,w*hp/100,h);ctx.strokeStyle=col+'aa';ctx.strokeRect(x,y,w,h)
+  ctx.fillStyle='#dffaff';ctx.font='bold 10px monospace';ctx.textAlign='center';ctx.textBaseline='top'
+  ctx.fillText(`${es?'VIDA':'HEALTH'} ${hp}/100`,W/2,y+h+3)
+}
+
 // ── Mining progress arc ──────────────────────────────────────────────────────
 function drawMineProgress(ctx, W, H, progress, type) {
   if (progress <= 0) return
@@ -787,11 +819,12 @@ export default function MiningChain3DFPV({
   cellMap, presenceMap, myWallet, presenceKey, myColor,
   initRow, initCol, jumpToCell,
   onPositionChange, onFacingChange, onWantNavigate, onPositionRealtime,
-  onPvpHit, onAnonKill, pvpStolen,
+  onPvpHit, pvpStolen,
   onChainSolveOpen, externalPvpFlash,
   swingMap, myPoolCode,
   anonKillMsg,
   playerLevel, playerNftjiCount, walletNftjis, myNftjis,
+  healthMap,
   es,
 }) {
   const canvasRef    = useRef(null)
@@ -839,11 +872,9 @@ export default function MiningChain3DFPV({
   const facingDataRef   = useRef({ mx:-1, my:-1, cell:null })
   // PvP
   const enemyTargetRef  = useRef(null)   // { wallet, dist, isAnon }
-  const anonHitsRef     = useRef({})     // { anonKey → hitCount } per session
   const pvpFlashRef     = useRef(0)      // timestamp of last pvp strike (for red flash)
   const pvpGainRef      = useRef(null)   // { text, at } for "+X EUR" popup
   const onPvpHitRef          = useRef(onPvpHit)
-  const onAnonKillRef        = useRef(onAnonKill)
   const pvpStolenRef         = useRef(pvpStolen || {})
   const chainStatsRef        = useRef(null)
   const onChainSolveOpenRef  = useRef(onChainSolveOpen)
@@ -857,6 +888,7 @@ export default function MiningChain3DFPV({
   const critFlashRef        = useRef(-9999)
   const walletNftjisRef     = useRef(walletNftjis || {})
   const myNftjisRef         = useRef(myNftjis || [])
+  const healthMapRef        = useRef(healthMap||{})
 
   // Keep refs in sync with props
   useEffect(()=>{ cellMapRef.current=cellMap },[cellMap])
@@ -866,13 +898,13 @@ export default function MiningChain3DFPV({
   useEffect(()=>{ esRef.current=es },[es])
   useEffect(()=>{ onWantNavRef.current=onWantNavigate },[onWantNavigate])
   useEffect(()=>{ onPvpHitRef.current=onPvpHit },[onPvpHit])
-  useEffect(()=>{ onAnonKillRef.current=onAnonKill },[onAnonKill])
   useEffect(()=>{ pvpStolenRef.current=pvpStolen||{} },[pvpStolen])
   useEffect(()=>{ onChainSolveOpenRef.current=onChainSolveOpen },[onChainSolveOpen])
   useEffect(()=>{ swingMapRef.current=swingMap||{} },[swingMap])
   useEffect(()=>{ myPoolCodeRef.current=myPoolCode||null },[myPoolCode])
   useEffect(()=>{ walletNftjisRef.current=walletNftjis||{} },[walletNftjis])
   useEffect(()=>{ myNftjisRef.current=myNftjis||[] },[myNftjis])
+  useEffect(()=>{ healthMapRef.current=healthMap||{} },[healthMap])
   // Crit chance: 5% if player owns a ❤️ NFTJI (heart skill), 0% otherwise
   useEffect(()=>{
     const hasHeart = (myNftjis||[]).some(n => n.emoji === '❤️')
@@ -1448,6 +1480,13 @@ export default function MiningChain3DFPV({
           ctx.fillStyle = '#f59e0b'
           ctx.fillText(`[${pool}]`, scrX, billsTop-2-lSize-1)
         }
+        const hp=Math.max(0,Math.min(100,Number(healthMapRef.current[w]??100)))
+        const barW=Math.max(22,Math.min(86,walletW*1.15)),barH=Math.max(3,Math.min(7,walletH*.06))
+        const barY=billsTop-2-lSize-(pool&&tY<7?lSize:0)-barH-5
+        ctx.globalAlpha=lAlpha;ctx.fillStyle='#24070d';ctx.fillRect(scrX-barW/2,barY,barW,barH)
+        ctx.fillStyle=hp>60?'#4ade80':hp>25?'#facc15':'#fb7185'
+        ctx.fillRect(scrX-barW/2,barY,barW*hp/100,barH)
+        ctx.strokeStyle='rgba(255,255,255,.36)';ctx.lineWidth=.5;ctx.strokeRect(scrX-barW/2,barY,barW,barH)
         ctx.globalAlpha = 1
       }
     }
@@ -1643,10 +1682,10 @@ export default function MiningChain3DFPV({
       }
     }
 
-    // ── First-person tool ──────────────────────────────────────────────────
+    // ── Local third-person avatar ──────────────────────────────────────────
     const swE  = performance.now() - swingStartRef.current
     const swT  = swE < SWING_DUR ? swE / SWING_DUR : 0
-    drawFirstPersonTool(ctx,W,H,colorFromAddress(myWallet||'local-player'),swT,walkDistRef.current)
+    drawThirdPersonPlayer(ctx,W,H,colorFromAddress(myIdentity||'local-player'),swT,walkDistRef.current,myNftjisRef.current.length>0)
     drawMineProgress(ctx, W, H, mineProgressRef.current, mineTypeRef.current)
 
     // ── Enemy in crosshair indicator ──────────────────────────────────────
@@ -1713,6 +1752,7 @@ export default function MiningChain3DFPV({
     drawOnlineList(ctx,W,H,presence,myIdentity,pvpStolenRef.current)
     drawNftjiPanel(ctx,W,H,myNftjisRef.current,es)
     drawChainStats(ctx,W,H,chainStatsRef.current,es)
+    drawHealthHud(ctx,W,H,healthMapRef.current[myIdentity]??100,es)
   }, [])
 
   useEffect(()=>{ renderRef.current=renderFrame },[renderFrame])
@@ -1881,16 +1921,26 @@ export default function MiningChain3DFPV({
         const ngx=nx/CELL_SIZE, ngy=ny/CELL_SIZE
         const cgx=p.x/CELL_SIZE, cgy=p.y/CELL_SIZE
         const cm=cellMapRef.current, obs=validObstaclesRef.current
+        const avatarBlocked=(gx,gy)=>{
+          for(const [w,remote] of remoteVisualsRef.current){
+            if(w.toLowerCase()===(presenceKeyRef.current||myWalletRef.current||'').toLowerCase()) continue
+            if(Math.abs((Number(remote.z)||0)-p.z)>.85) continue
+            const nextDist=Math.hypot(gx-remote.gx,gy-remote.gy)
+            const currentDist=Math.hypot(p.x/CELL_SIZE-remote.gx,p.y/CELL_SIZE-remote.gy)
+            if(nextDist<AVATAR_R*2&&nextDist<currentDist) return true
+          }
+          return false
+        }
         if(p.z >= BLOCK_TOP){
           // Above block height: walk freely on top of everything
-          if(inBX) p.x=nx
-          if(inBY) p.y=ny
+          if(inBX&&!avatarBlocked(ngx,cgy)) p.x=nx
+          if(inBY&&!avatarBlocked(p.x/CELL_SIZE,ngy)) p.y=ny
         } else {
           // Full move, else wall-slide on each axis independently
-          if(inBX&&inBY&&!hitsSolidWall(ngx,ngy,cm,obs)){ p.x=nx; p.y=ny }
+          if(inBX&&inBY&&!hitsSolidWall(ngx,ngy,cm,obs)&&!avatarBlocked(ngx,ngy)){ p.x=nx; p.y=ny }
           else{
-            if(inBX&&!hitsSolidWall(ngx,cgy,cm,obs)) p.x=nx
-            if(inBY&&!hitsSolidWall(cgx,ngy,cm,obs)) p.y=ny
+            if(inBX&&!hitsSolidWall(ngx,cgy,cm,obs)&&!avatarBlocked(ngx,cgy)) p.x=nx
+            if(inBY&&!hitsSolidWall(cgx,ngy,cm,obs)&&!avatarBlocked(cgx,ngy)) p.y=ny
           }
         }
         walkDistRef.current+=movedDist
@@ -2039,30 +2089,17 @@ export default function MiningChain3DFPV({
           playPickHit(audioCtxRef,'nftji')
           pvpFlashRef.current = performance.now()
 
-          if(enemy.isAnon){
-            // Crit roll: chance based on player level + NFTJI count
-            const isCrit = Math.random() < critChanceRef.current
-            const hitDmg = isCrit ? 5 : 1
-            if (isCrit) critFlashRef.current = performance.now()
-
-            const prev = anonHitsRef.current[enemy.wallet] || 0
-            const next = prev + hitDmg
-            anonHitsRef.current[enemy.wallet] = next
-            onPvpHitRef.current?.({ attacker: myWallet, victim: enemy.wallet, victimIsAnon: true })
-            if(next >= 100){
-              anonHitsRef.current[enemy.wallet] = 0
-              onAnonKillRef.current?.(enemy.wallet)
-              pvpGainRef.current = { text: '💀 KILL +2 EUR', at: performance.now() }
-            } else {
-              const remaining = Math.max(0, 100 - next)
-              const prefix = isCrit ? '💥 CRIT! ' : '👊 '
-              pvpGainRef.current = { text: `${prefix}+0.10  [${remaining} to kill]`, at: performance.now() }
-            }
-          } else {
-            // Logged wallet: call API for steal + daily task
-            pvpGainRef.current = { text: '⚔ +0.10 EUR', at: performance.now() }
-            onPvpHitRef.current?.({ attacker: myWallet, victim: enemy.wallet, victimIsAnon: false })
-          }
+          Promise.resolve(onPvpHitRef.current?.({ attacker:myWallet,victim:enemy.wallet,victimIsAnon:enemy.isAnon }))
+            .then(result=>{
+              if(!result?.ok) return
+              if(result.critical) critFlashRef.current=performance.now()
+              const money=Number(result.stolen_eur)||0
+              const hit=result.critical?'💥 CRIT':'⚔ HIT'
+              pvpGainRef.current={
+                text:result.killed?`💀 KILL  ${hit}`:`${hit} -${result.damage} HP${money>0?` +${money.toFixed(2)} EUR`:''}`,
+                at:performance.now(),
+              }
+            })
 
         } else {
           // ── Block mine hit ───────────────────────────────────────────────

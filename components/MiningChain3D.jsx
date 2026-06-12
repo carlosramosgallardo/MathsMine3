@@ -87,6 +87,7 @@ export default function MiningChain3D() {
   const [swingMap,      setSwingMap]      = useState({})
   const [myPoolCode,    setMyPoolCode]    = useState(null)
   const [presenceKey,   setPresenceKey]   = useState(myWallet)
+  const [healthMap,     setHealthMap]     = useState({})
 
   // FPV gets wallets that are online AND have a known position (or self)
   const presenceMap = useMemo(() => {
@@ -98,6 +99,18 @@ export default function MiningChain3D() {
     if (myWallet && positions[myWallet]) map[myWallet] = positions[myWallet]
     return map
   }, [positions, onlineWallets, myWallet])
+
+  useEffect(() => {
+    if (!presenceKey) return
+    if (presenceKey.startsWith('anon-')) {
+      setHealthMap(prev => ({ ...prev, [presenceKey]: prev[presenceKey] ?? 100 }))
+      return
+    }
+    fetch(`/api/pvp-hit?wallet=${encodeURIComponent(presenceKey)}`)
+      .then(r => r.json()).then(r => {
+        if (r?.ok) setHealthMap(prev => ({ ...prev, [presenceKey]: Number(r.health ?? 100) }))
+      }).catch(() => {})
+  }, [presenceKey])
 
   // ── Load cell data ───────────────────────────────────────────────────────────
   useEffect(() => {
@@ -273,6 +286,25 @@ export default function MiningChain3D() {
       }
     })
 
+    ch.on('broadcast', { event: 'pvp-result' }, ({ payload }) => {
+      if (!payload?.victim) return
+      setHealthMap(prev => ({ ...prev, [payload.victim]: Number(payload.health ?? 100) }))
+      if (payload.victim === myKeyRef.current || payload.victim === myWalletRef.current) {
+        setReceivedHitAt(Date.now())
+        if (payload.killed) {
+          const spawn = myWalletRef.current ? getRandomLoggedSpawn() : { row: 14, col: 14 }
+          setTimeout(() => {
+            setMyPos(spawn); myPosRef.current = spawn; setJumpToCell(spawn)
+            setHealthMap(prev => ({ ...prev, [payload.victim]: 100 }))
+            channelRef.current?.send({
+              type:'broadcast',event:'pvp-result',
+              payload:{victim:payload.victim,health:100,killed:false,respawn:true},
+            })?.catch(() => {})
+          }, 450)
+        }
+      }
+    })
+
     // High-frequency position updates (~8/sec) via broadcast — low latency
     ch.on('broadcast', { event: 'move' }, ({ payload }) => {
       if (!payload?.wallet || payload.gx == null) return
@@ -370,17 +402,24 @@ export default function MiningChain3D() {
   const handleFacingChange = useCallback((row, col, cell, dist) => setFacingCell({ row, col, cell, dist }), [])
   const handleWantNavigate = useCallback((url) => router.push(url), [router])
 
-  const handlePvpHit = useCallback(({ attacker, victim, victimIsAnon }) => {
-    fetch('/api/pvp-hit', {
+  const handlePvpHit = useCallback(async ({ attacker, victim, victimIsAnon }) => {
+    const response = await fetch('/api/pvp-hit', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ attacker, victim, victimIsAnon }),
-    }).catch(() => {})
-    // Broadcast hit: victim flashes red, spectators see attacker swing
+    }).then(r => r.json()).catch(() => null)
+    if (!response?.ok) return response
+    setHealthMap(prev => ({ ...prev, [victim]: Number(response.health ?? 100) }))
     channelRef.current?.send({
       type: 'broadcast', event: 'pvp-hit',
       payload: { victim, attacker },
     })?.catch(() => {})
+    channelRef.current?.send({
+      type: 'broadcast', event: 'pvp-result',
+      payload: { victim, attacker, ...response },
+    })?.catch(() => {})
+    window.dispatchEvent(new CustomEvent('mm3-db-updated', { detail: { pvp: true, wallet: attacker } }))
+    return response
   }, [])
 
   // Load PvP stolen amounts (refreshed every 60s for online player list)
@@ -412,27 +451,6 @@ export default function MiningChain3D() {
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [showChainSolve])
-
-  const handleAnonKill = useCallback((anonKey) => {
-    const killer = myWalletRef.current
-    if (!killer) return
-    // Broadcast kill event so all spectators see the notification
-    channelRef.current?.send({
-      type: 'broadcast', event: 'anon-kill',
-      payload: { attacker: killer, anonKey },
-    })?.catch(() => {})
-    // Also trigger respawn for the anon (if they're on the same client)
-    channelRef.current?.send({
-      type: 'broadcast', event: 'anon-reset',
-      payload: { target: anonKey },
-    })?.catch(() => {})
-    // Award kill bonus to the attacker
-    fetch('/api/pvp-anon-kill', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ attacker: killer, anonKey }),
-    }).catch(() => {})
-  }, [])
 
   const handlePositionRealtime = useCallback((gx, gy, avatar = {}) => {
     const myW = myKeyRef.current || myWalletRef.current
@@ -514,7 +532,6 @@ export default function MiningChain3D() {
             onWantNavigate={handleWantNavigate}
             onPositionRealtime={handlePositionRealtime}
             onPvpHit={handlePvpHit}
-            onAnonKill={handleAnonKill}
             pvpStolen={pvpStolen}
             onChainSolveOpen={handleChainSolveOpen}
             externalPvpFlash={receivedHitAt}
@@ -525,6 +542,7 @@ export default function MiningChain3D() {
             playerNftjiCount={playerNftjiCount}
             walletNftjis={walletNftjis}
             myNftjis={myNftjis}
+            healthMap={healthMap}
             es={es}
           />
         )}
