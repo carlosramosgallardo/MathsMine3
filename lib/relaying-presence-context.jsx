@@ -61,16 +61,20 @@ export function IrcPresenceProvider({ children }) {
     const load = async () => {
       try {
         const since = new Date(Date.now() - ACTIVE_WINDOW_MS).toISOString();
-        const { data } = await supabase
-          .from('mm3_wallet_presence')
-          .select('wallet, source, last_seen')
-          .gte('last_seen', since)
-          .order('last_seen', { ascending: false });
+        const [{ data }, { data: rankingRows }] = await Promise.all([
+          supabase
+            .from('mm3_wallet_presence')
+            .select('wallet, source, last_seen')
+            .gte('last_seen', since)
+            .order('last_seen', { ascending: false }),
+          supabase.from('leaderboard_data').select('wallet'),
+        ]);
+        const ranked = new Set((rankingRows || []).map((row) => String(row.wallet || '').toLowerCase()));
         const seen = new Set();
         const unique = [];
         for (const entry of data || []) {
           const wallet = String(entry.wallet || '').toLowerCase();
-          if (!wallet || seen.has(wallet)) continue;
+          if (!wallet || !ranked.has(wallet) || seen.has(wallet)) continue;
           seen.add(wallet);
           unique.push({ wallet, source: entry.source || 'wallet', last_seen: entry.last_seen });
         }
@@ -98,7 +102,7 @@ export function IrcPresenceProvider({ children }) {
     const load = async () => {
       try {
         const { count } = await supabase
-          .from('player_progress')
+          .from('leaderboard_data')
           .select('wallet', { count: 'exact', head: true });
         if (count != null) setTotalWallets(count);
       } catch {}

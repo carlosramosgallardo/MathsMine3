@@ -10,7 +10,7 @@ import { useIrcPresence } from '@/lib/relaying-presence-context';
 export default function GlobalPulseBar() {
   const { language } = useI18n();
   const dice = useDice();
-  const { activeWallets, totalWallets, anonIrcUsers } = useIrcPresence();
+  const { activeWallets, totalWallets } = useIrcPresence();
 
   const [macro, setMacro] = useState(() => normalizeMacroState());
 
@@ -31,8 +31,6 @@ export default function GlobalPulseBar() {
   }, []);
 
   const isSpanish = language === 'es';
-  const ircConnectedCount = activeWallets.length + anonIrcUsers.length;
-
   const items = [
     { emoji: '🔥', value: macro.war_percent,    color: '#fb7185' },
     { emoji: '🌪️', value: macro.nature_percent, color: '#67e8f9' },
@@ -68,17 +66,14 @@ export default function GlobalPulseBar() {
         className="group relative flex h-7 items-center gap-[3px] px-0.5 sm:px-1 font-mono text-[0.82rem] font-black sm:h-9 sm:text-[0.90rem]"
         title={
           isSpanish
-            ? `logados: ${activeWallets.length} / wallets: ${totalWallets} · IRC: ${ircConnectedCount}`
-            : `online: ${activeWallets.length} / wallets: ${totalWallets} · IRC: ${ircConnectedCount}`
+            ? `wallets online: ${activeWallets.length} / creadas en ranking: ${totalWallets}`
+            : `wallets online: ${activeWallets.length} / ranking wallets: ${totalWallets}`
         }
       >
         <span className="text-emerald-400 tabular-nums">{activeWallets.length}</span>
         <span className="text-slate-600 text-[0.70rem]">/</span>
         <span className="text-slate-500 tabular-nums">{totalWallets}</span>
         <span className="text-slate-600 text-[0.65rem]">wal</span>
-        <span className="text-slate-700 mx-[1px]">·</span>
-        <span className="text-cyan-700 tabular-nums">{ircConnectedCount}</span>
-        <span className="text-cyan-900 text-[0.65rem]">irc</span>
       </div>
     </div>
   );

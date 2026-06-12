@@ -16,6 +16,7 @@ import {
 } from '@/lib/mining-commands';
 import { formatBlockRequirement, MM3_BLOCK_REQUIREMENT_BY_HEX, normalizeBlockHex } from '@/lib/mm3-block-chain';
 import { useIrcPresence } from '@/lib/relaying-presence-context';
+import { groupPresenceEntries } from '@/lib/presence-display';
 import { colorFromAddress, colorFromPool } from '@/lib/wallet-colors';
 import { formatWalletLabel } from '@/lib/wallet-format';
 
@@ -326,24 +327,9 @@ export default function RelayingTerminal({ accent = '#22d3ee' }) {
   const router = useRouter();
   const { account } = useActiveWallet();
   const { playIrcMessage } = useSound();
-  // Stable anon ID initialization - check all sources for maximum stability
-  const initAnonId = (() => {
-    if (typeof window === 'undefined') return 'anon:000000';
-    const k = 'mm3-anon-session';
-    const sessionStored = sessionStorage.getItem(k);
-    if (sessionStored?.startsWith('anon:')) return sessionStored;
-    // Try meta cache (has IP-based stable ID)
-    try {
-      const cached = JSON.parse(sessionStorage.getItem('mm3-anon-meta') || '{}');
-      if (cached.id?.startsWith('anon:')) return cached.id;
-    } catch {}
-    // Generate new random as last resort
-    return `anon:${Math.random().toString(36).slice(2, 8)}`;
-  })();
-
   const normalizedWallet = useMemo(() => String(account || '').toLowerCase(), [account]);
   const { anonIrcUsers: anonUsers, trackAnon, untrackAnon, channelStatus } = useIrcPresence();
-  const [anonId, setAnonId] = useState(initAnonId);
+  const [anonId, setAnonId] = useState('anon:000000');
   const [anonFlag, setAnonFlag] = useState('');
   const [anonVisibleCount, setAnonVisibleCount] = useState(5);
   const [walletFlag, setWalletFlag] = useState('');
@@ -362,8 +348,8 @@ export default function RelayingTerminal({ accent = '#22d3ee' }) {
   const [poolCodes, setPoolCodes] = useState(() => new Set());
   const [relayReady, setRelayReady] = useState(false);
   const [presenceReady, setPresenceReady] = useState(false);
-  const [totalWallets, setTotalWallets] = useState(0);
   const [visibleCount, setVisibleCount] = useState(5);
+  const relayGroups = useMemo(() => groupPresenceEntries(connectedWallets, (entry) => entry.wallet), [connectedWallets]);
 
   const relayRef = useRef(null);
   const previousPresenceRef = useRef(new Set());
@@ -531,6 +517,11 @@ export default function RelayingTerminal({ accent = '#22d3ee' }) {
   useEffect(() => {
     if (normalizedWallet || typeof window === 'undefined') return;
     const META_KEY = 'mm3-anon-meta';
+    const sessionId = sessionStorage.getItem('mm3-anon-session');
+    const fallbackId = sessionId?.startsWith('anon:')
+      ? sessionId
+      : `anon:${Math.random().toString(36).slice(2, 8)}`;
+    setAnonId(fallbackId);
     try {
       const cached = JSON.parse(sessionStorage.getItem(META_KEY) || '{}');
       if (cached.id?.startsWith('anon:') && cached.flag) {
@@ -547,7 +538,7 @@ export default function RelayingTerminal({ accent = '#22d3ee' }) {
       .then((data) => {
         const ip = String(data.ip || '');
         const cc = String(data.country_code || '');
-        const id = ip ? hashIpToId(ip) : anonId;
+        const id = ip ? hashIpToId(ip) : fallbackId;
         const flag = cc.length === 2 ? cc.toUpperCase() : '';
         setAnonId(id);
         setAnonFlag(flag);
@@ -974,20 +965,6 @@ export default function RelayingTerminal({ accent = '#22d3ee' }) {
       supabase.removeChannel(channel);
     };
   }, [loadPresence]);
-
-  useEffect(() => {
-    const load = async () => {
-      try {
-        const { count } = await supabase
-          .from('player_progress')
-          .select('wallet', { count: 'exact', head: true });
-        if (count != null) setTotalWallets(count);
-      } catch {}
-    };
-    load();
-    const timer = setInterval(load, 60_000);
-    return () => clearInterval(timer);
-  }, []);
 
   useEffect(() => {
     const build = () => {
@@ -2078,7 +2055,7 @@ export default function RelayingTerminal({ accent = '#22d3ee' }) {
             padding-bottom: 0.08rem;
             font-size: 0.60rem;
           }
-          .mm3-irc-anon-label {
+          .mm3-irc-group-label {
             margin-top: 0.15rem;
             font-size: 0.48rem;
           }
@@ -2226,7 +2203,7 @@ export default function RelayingTerminal({ accent = '#22d3ee' }) {
         .mm3-irc-peer-row:last-child { border-bottom: none; }
         .mm3-irc-peer-row.is-you { color: #4ade80; }
         .mm3-irc-peer-row.is-anon { color: #78716c; opacity: 0.7; }
-        .mm3-irc-anon-label {
+        .mm3-irc-group-label {
           font-family: monospace;
           font-size: 0.42rem;
           letter-spacing: 0.16em;
@@ -2557,21 +2534,20 @@ export default function RelayingTerminal({ accent = '#22d3ee' }) {
 
         <aside className="mm3-relaying-panel rounded-sm p-2.5">
           <div className="border-b border-cyan-500/12 pb-1.5 font-mono">
-            <div className="flex items-baseline justify-end gap-[3px] text-[0.75rem] font-black tabular-nums">
-              <span className="text-emerald-400">{connectedWallets.length}</span>
-              <span className="text-slate-600 text-[0.65rem]">/</span>
-              <span className="text-slate-500">{totalWallets}</span>
-              <span className="text-slate-600 text-[0.60rem]">wal</span>
+            <div className="flex items-baseline justify-end gap-[3px] text-[0.70rem] font-black tabular-nums">
+              <span className="text-slate-600 text-[0.58rem]">WALLETS</span>
+              <span className="text-emerald-400">{relayGroups.wallets.length}</span>
               <span className="text-slate-700 mx-[1px]">·</span>
-              <span className="text-cyan-700">{connectedWallets.length + anonUsers.length}</span>
-              <span className="text-cyan-900 text-[0.60rem]">irc</span>
+              <span className="text-slate-600 text-[0.58rem]">ANON</span>
+              <span className="text-cyan-700">{anonUsers.length}</span>
             </div>
           </div>
 
           <div className="mm3-irc-aside-inner mt-1.5">
-            {connectedWallets.length > 0 ? (
+            {relayGroups.wallets.length > 0 ? (
               <>
-                {connectedWallets.slice(0, visibleCount).map((entry) => {
+                <div className="mm3-irc-group-label">WALLETS</div>
+                {relayGroups.wallets.slice(0, visibleCount).map((entry) => {
                   const isYou = entry.wallet === actorId;
                   const isAnon = entry.source === 'anon' || entry.wallet.startsWith('anon:');
                   const label = isYou
@@ -2597,15 +2573,15 @@ export default function RelayingTerminal({ accent = '#22d3ee' }) {
                     </div>
                   );
                 })}
-                {visibleCount < connectedWallets.length && (
+                {visibleCount < relayGroups.wallets.length && (
                   <button
                     className="mm3-irc-show-more"
                     onClick={() => setVisibleCount((v) => v + 5)}
                   >
-                    {`+ ${Math.min(5, connectedWallets.length - visibleCount)} ${t('relaying.more')}`}
+                    {`+ ${Math.min(5, relayGroups.wallets.length - visibleCount)} ${t('relaying.more')}`}
                   </button>
                 )}
-                {visibleCount > 5 && connectedWallets.length <= visibleCount && (
+                {visibleCount > 5 && relayGroups.wallets.length <= visibleCount && (
                   <button
                     className="mm3-irc-show-more"
                     onClick={() => setVisibleCount(5)}
@@ -2621,7 +2597,7 @@ export default function RelayingTerminal({ accent = '#22d3ee' }) {
             )}
             {anonUsers.length > 0 && (
               <>
-                <div className="mm3-irc-anon-label">{t('relaying.anonSectLabel')}</div>
+                <div className="mm3-irc-group-label">ANONYMOUS</div>
                 {anonUsers.slice(0, anonVisibleCount).map((entry) => {
                   const isYou = entry.anonId === actorId;
                   return (

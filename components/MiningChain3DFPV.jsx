@@ -3,6 +3,7 @@
 import { useEffect, useRef, useCallback, useState } from 'react'
 import { colorFromAddress } from '@/lib/wallet-colors'
 import { MM3_BLOCK_GRID_ROWS, MM3_BLOCK_GRID_COLS, gridToBlockHex } from '@/lib/mm3-block-chain'
+import { groupPresenceEntries } from '@/lib/presence-display'
 
 const ROWS = MM3_BLOCK_GRID_ROWS
 const COLS = MM3_BLOCK_GRID_COLS
@@ -751,16 +752,21 @@ function drawOnlineList(ctx, W, H, presenceMap, myWallet, pvpStolen) {
     all.push({ w, isAnon, isBot: Boolean(pres.isBot), stolen: (pvpStolen || {})[w] || 0 })
   }
 
-  const logged = all.filter(e => !e.isAnon).sort((a, b) => b.stolen - a.stolen).slice(0, 5)
-  const anon   = all.filter(e =>  e.isAnon).sort((a, b) => b.stolen - a.stolen).slice(0, 5)
-  const list   = [...logged, ...anon]
-  if (!list.length) return
+  const grouped = groupPresenceEntries(all, (entry) => entry.w)
+  const loggedTotal = grouped.wallets.length
+  const anonTotal = grouped.anonymous.length
+  const logged = grouped.wallets.sort((a, b) => b.stolen - a.stolen).slice(0, 5)
+  const anon = grouped.anonymous.sort((a, b) => a.w.localeCompare(b.w)).slice(0, 5)
+  if (!logged.length && !anon.length) return
 
   const HEADER_H = 15
   const LINE_H   = 13
+  const GROUP_H  = 11
   const PAD_X    = 7, PAD_Y = 5
   const pw  = SZ + 2
-  const ph  = HEADER_H + list.length * LINE_H + PAD_Y * 2
+  const ph  = HEADER_H + PAD_Y * 2
+    + (logged.length ? GROUP_H + logged.length * LINE_H : 0)
+    + (anon.length ? GROUP_H + anon.length * LINE_H : 0)
   const px  = MX - 1
   const py  = MY + SZ + 5
 
@@ -773,15 +779,19 @@ function drawOnlineList(ctx, W, H, presenceMap, myWallet, pvpStolen) {
 
   ctx.font = 'bold 9px monospace'; ctx.textAlign = 'left'; ctx.textBaseline = 'top'
   ctx.fillStyle = C + 'bb'
-  ctx.fillText('ONLINE', px + PAD_X, py + PAD_Y)
+  ctx.fillText(`WALLETS ${loggedTotal} · ANON ${anonTotal}`, px + PAD_X, py + PAD_Y)
 
-  for (let i = 0; i < list.length; i++) {
-    const { w, isAnon, isBot, stolen } = list[i]
-    const ly   = py + PAD_Y + HEADER_H + i * LINE_H
+  let ly = py + PAD_Y + HEADER_H
+  const drawGroup = (label, entries) => {
+    if (!entries.length) return
+    ctx.font = 'bold 7px monospace'; ctx.fillStyle = '#526172'; ctx.textAlign = 'left'
+    ctx.fillText(label, px + PAD_X, ly)
+    ly += GROUP_H
+    for (const { w, isAnon, isBot, stolen } of entries) {
     const isMe = w.toLowerCase() === (myWallet || '').toLowerCase()
     const col  = isMe ? C : isAnon ? '#5a7080' : colorFromAddress(w)
     const label = isAnon
-      ? (isMe ? `${w.slice(0, 10)}…` : `anon`)
+      ? w
       : `${w.slice(0, 6)}…${w.slice(-3)}${isBot ? ' B' : ''}`
     ctx.font = `${isMe ? 'bold ' : ''}9px monospace`
     ctx.textAlign = 'left'
@@ -793,7 +803,11 @@ function drawOnlineList(ctx, W, H, presenceMap, myWallet, pvpStolen) {
       ctx.font = '9px monospace'
       ctx.fillText(`+${stolen.toFixed(2)}`, px + pw - PAD_X, ly)
     }
+      ly += LINE_H
+    }
   }
+  drawGroup('WALLETS', logged)
+  drawGroup('ANONYMOUS', anon)
   ctx.textAlign = 'left'; ctx.globalAlpha = 1
 }
 
