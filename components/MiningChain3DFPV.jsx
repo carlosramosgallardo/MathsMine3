@@ -27,10 +27,9 @@ const HITS_NEEDED   = 5      // swings to complete mining action
 const INTERACT_DIST = 2.0    // grid cells — max distance for block interaction
 const CHAIN_NODE_ROW = 4     // fallback; runtime position comes from cellMap
 const CHAIN_NODE_COL = 4
-// Jump: single jump peaks at ~0.6 (below block top), 2 jumps reach ~1.2 (above)
-// Half gravity = ~0.7s air time per jump — enough window to chain presses
-const JUMP_VZ   = 0.07       // jump impulse (grid units / frame, ~60fps)
-const GRAVITY_A = 0.004      // gravity (grid units / frame²) — half for floaty feel
+// Jump: single jump peaks at ~1.25 (above block top), 2 jumps reach ~2.5
+const JUMP_VZ   = 0.10       // jump impulse (grid units / frame, ~60fps)
+const GRAVITY_A = 0.004      // gravity (grid units / frame²)
 const BLOCK_TOP = 1.0        // block/obstacle height in grid units
 const MAX_JUMPS = 5          // max chained jumps before landing resets count
 
@@ -1024,7 +1023,8 @@ export default function MiningChain3DFPV({
     const es       = esRef.current
 
     const {x:px,y:py,angle,z:pz=0} = playerRef.current
-    const horizon = H * HORIZON_RATIO
+    // Subtle downward tilt from current height: more floor visible the higher you are
+    const horizon = Math.max(H * 0.18, H * HORIZON_RATIO - pz * H * 0.08)
     const strips  = Math.ceil(W/STRIP_W)
 
     if (!zBufferRef.current || zBufferRef.current.length !== strips) {
