@@ -2211,6 +2211,7 @@ CREATE TABLE mm3_pvp_hits (
   victim_wallet   TEXT         NOT NULL,
   day_key         TEXT         NOT NULL,
   hit_count       INTEGER      NOT NULL DEFAULT 0,
+  elim_count      INTEGER      NOT NULL DEFAULT 0,
   eur_stolen      NUMERIC(12,6) NOT NULL DEFAULT 0,
   first_hit_at    TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
   last_hit_at     TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
@@ -2274,6 +2275,14 @@ BEGIN
   VALUES(p_attacker,p_victim,v_day_key,1,v_stolen_eur,NOW(),NOW())
   ON CONFLICT(attacker_wallet,victim_wallet,day_key) DO UPDATE SET
     hit_count=mm3_pvp_hits.hit_count+1,eur_stolen=mm3_pvp_hits.eur_stolen+EXCLUDED.eur_stolen,last_hit_at=NOW();
+  -- On kill: credit the killer + top damage dealer (assist) as eliminations
+  IF v_killed AND NOT p_victim_is_anon THEN
+    UPDATE mm3_pvp_hits SET elim_count=elim_count+1
+      WHERE attacker_wallet=p_attacker AND victim_wallet=p_victim AND day_key=v_day_key;
+    UPDATE mm3_pvp_hits SET elim_count=elim_count+1
+      WHERE victim_wallet=p_victim AND day_key=v_day_key AND attacker_wallet!=p_attacker
+        AND hit_count=(SELECT MAX(hit_count) FROM mm3_pvp_hits WHERE victim_wallet=p_victim AND day_key=v_day_key AND attacker_wallet!=p_attacker);
+  END IF;
   SELECT COALESCE(eur_earned,0),COALESCE(usd_earned,0),COALESCE(cny_earned,0) INTO v_attacker_eur,v_attacker_usd,v_attacker_cny FROM player_progress WHERE wallet=p_attacker;
   IF NOT p_victim_is_anon THEN SELECT COALESCE(eur_earned,0),COALESCE(usd_earned,0),COALESCE(cny_earned,0) INTO v_victim_eur,v_victim_usd,v_victim_cny FROM player_progress WHERE wallet=p_victim; END IF;
   RETURN jsonb_build_object('health',CASE WHEN v_killed THEN 0 ELSE v_health END,'respawn_health',CASE WHEN v_killed THEN 100 ELSE v_health END,'killed',v_killed,'damage',p_damage,'stolen_eur',v_stolen_eur,'stolen_usd',v_stolen_usd,'stolen_cny',v_stolen_cny,'attacker_balances',jsonb_build_object('EUR',v_attacker_eur,'USD',v_attacker_usd,'CNY',v_attacker_cny),'victim_balances',CASE WHEN p_victim_is_anon THEN NULL ELSE jsonb_build_object('EUR',v_victim_eur,'USD',v_victim_usd,'CNY',v_victim_cny) END);

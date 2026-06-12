@@ -663,7 +663,7 @@ function drawWalletDock(ctx, W, H, myNftjis, health, es, isLoggedWallet) {
   const SLOT_W = mobile ? 28 : 32, SLOT_H = mobile ? 34 : 40
   const GAP = 4, PAD_X = 8, PAD_Y = 5, HEADER_H = 3
   const skills = myNftjis || []
-  const minimumSlots = isLoggedWallet ? (mobile ? 3 : 4) : 0
+  const minimumSlots = mobile ? 3 : 4
   const slotCount = Math.max(skills.length, minimumSlots)
   const skillsW = slotCount ? PAD_X * 2 + slotCount * (SLOT_W + GAP) - GAP : 0
   const pw = slotCount ? skillsW : (mobile ? Math.min(158, W * .46) : 178)
