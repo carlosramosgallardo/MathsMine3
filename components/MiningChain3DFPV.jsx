@@ -1091,8 +1091,9 @@ export default function MiningChain3DFPV({
       const {perpDist,cell,side,mx:hitMx,my:hitMy} = castRay(px,py+bob,ra,cellMap,validObstaclesRef.current)
       const dist  = perpDist*Math.cos(ra-angle)
       const wallH = Math.min(H*1.8, H*PROJ_DIST/Math.max(0.01,dist))
-      // Uniform vertical shift as player rises — no distance-proportional stretch
-      const wTop  = Math.round(horizon - wallH/2 + pz * H * 0.25)
+      // Physically-correct elevation shift, capped for walls <1 cell away to prevent stretch
+      const pzShift = Math.min(pz * wallH, pz * H * 0.60)
+      const wTop  = Math.round(horizon - wallH/2 + pzShift)
 
       zBuffer[col] = dist
 
