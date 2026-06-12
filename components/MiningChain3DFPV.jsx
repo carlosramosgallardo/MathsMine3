@@ -1023,8 +1023,8 @@ export default function MiningChain3DFPV({
     const es       = esRef.current
 
     const {x:px,y:py,angle,z:pz=0} = playerRef.current
-    // Subtle downward tilt from current height: more floor visible the higher you are
-    const horizon = Math.max(H * 0.18, H * HORIZON_RATIO - pz * H * 0.08)
+    // Downward camera tilt grows with height: more ground/block-tops visible from air
+    const horizon = Math.max(H * 0.10, H * HORIZON_RATIO - pz * H * 0.15)
     const strips  = Math.ceil(W/STRIP_W)
 
     if (!zBufferRef.current || zBufferRef.current.length !== strips) {
@@ -1109,6 +1109,19 @@ export default function MiningChain3DFPV({
       }
 
       const [rw,gw,bw] = wallRgb(cell,dist,side,myWallet)
+
+      // Block top face: visible when elevated enough to look down at a block's roof
+      const rHorizon = Math.round(horizon)
+      if (wTop > rHorizon && cell) {
+        const topH = Math.min(Math.round(wTop), H) - rHorizon
+        if (topH > 0) {
+          ctx.fillStyle=`rgb(${Math.min(255,Math.round(rw*1.5))},${Math.min(255,Math.round(gw*1.5))},${Math.min(255,Math.round(bw*1.5))})`
+          ctx.fillRect(col*STRIP_W, rHorizon, STRIP_W, topH)
+          // Seam line between top face and front face
+          ctx.fillStyle='rgba(0,0,0,0.35)'
+          ctx.fillRect(col*STRIP_W, Math.min(Math.round(wTop)-1, H-1), STRIP_W, 2)
+        }
+      }
 
       ctx.fillStyle=`rgb(${rw},${gw},${bw})`
       ctx.fillRect(col*STRIP_W,wTop,STRIP_W,wallH)
