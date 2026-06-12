@@ -229,7 +229,7 @@ function drawMinimap(ctx, gr, gc, angle, cellMap, presenceMap, myWallet, W, H, c
     } else if (cell?.owner) {
       ctx.fillStyle = cell.color+'bb'
     } else if (cell?.isMarket) {
-      ctx.fillStyle = C+'55'
+      ctx.fillStyle = cell.owner ? '#4ade8044' : '#fb923c55'
     } else if (cell?.isChainNode) {
       ctx.fillStyle = '#ffd70033'
     } else {
@@ -241,6 +241,23 @@ function drawMinimap(ctx, gr, gc, angle, cellMap, presenceMap, myWallet, W, H, c
       ctx.strokeStyle = '#ffffffbb'; ctx.lineWidth = 0.7
       ctx.strokeRect(MX+c*CS+0.5, MY+r*CS+0.5, Math.max(1,Math.ceil(CS)-1), Math.max(1,Math.ceil(CS)-1))
     }
+  }
+
+  // NFTJI block markers — amber diamond (free) or green diamond (owned)
+  for (const [key, cell] of cellMap) {
+    if (!cell?.isMarket) continue
+    const obs = validObs?.get(key)
+    if (obs) continue  // hidden behind static wall, skip
+    const [rr, cc] = key.split(',').map(Number)
+    const mx2 = MX + (cc + 0.5) * CS
+    const my2 = MY + (rr + 0.5) * CS
+    const ds = Math.max(1.2, CS * 0.36)
+    ctx.save()
+    ctx.translate(mx2, my2)
+    ctx.rotate(Math.PI / 4)
+    ctx.fillStyle = cell.owner ? '#4ade80cc' : '#fb923ccc'
+    ctx.fillRect(-ds, -ds, ds*2, ds*2)
+    ctx.restore()
   }
 
   ctx.strokeStyle = C+'cc'; ctx.lineWidth=0.8
