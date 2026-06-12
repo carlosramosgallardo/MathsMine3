@@ -274,14 +274,17 @@ export default function MiningChain3D() {
     // High-frequency position updates (~8/sec) via broadcast — low latency
     ch.on('broadcast', { event: 'move' }, ({ payload }) => {
       if (!payload?.wallet || payload.gx == null) return
+      const w = payload.wallet
       setPositions(prev => ({
         ...prev,
-        [payload.wallet]: {
+        [w]: {
           gx: payload.gx, gy: payload.gy,
           row: Math.floor(payload.gy), col: Math.floor(payload.gx),
-          poolCode: prev[payload.wallet]?.poolCode || null,  // preserve from presence
+          poolCode: prev[w]?.poolCode || null,
         },
       }))
+      // Ensure the wallet is visible even if presence sync hasn't fired yet
+      setOnlineWallets(prev => prev.has(w) ? prev : new Set([...prev, w]))
     })
 
     // Presence sync: who's online + seed initial positions from track() payload
@@ -460,9 +463,12 @@ export default function MiningChain3D() {
   const mineUrl    = fcHex
     ? `/relaying?command=${encodeURIComponent(`/mine block ${fcHex}`)}`
     : '/relaying'
-  // NFTJI utility URLs for the detail overlay
+  // NFTJI utility URLs for the detail overlay and actions
   const nftjiResellUrl = fcHex
     ? `/relaying?command=${encodeURIComponent(`/resell ${fcHex}`)}`
+    : null
+  const nftjiBuyUrl = fcHex
+    ? `/relaying?command=${encodeURIComponent(`/buy ${fcHex}`)}`
     : null
   const nftjiPanelUrl = fc?.blockKey
     ? `/mining?block=${encodeURIComponent(fc.blockKey)}`
@@ -560,18 +566,7 @@ export default function MiningChain3D() {
 
             {/* Action buttons — pushed to the right */}
             <div style={{ display:'flex', gap:6, marginLeft:'auto', flexWrap:'wrap', alignItems:'center', flex:'0 0 auto' }}>
-              {isClaimable && !fc?.isChainNode && isInRange && (
-                <Link href={mineUrl} style={{
-                  ...actionLink, background:`${C}0c`, borderColor:`${C}44`, color:C,
-                }}>
-                  ⛏ {es?'Minar':'Mine'}
-                </Link>
-              )}
-              {isClaimable && !fc?.isChainNode && !isInRange && (
-                <span style={{ color:`${C}33`, fontSize:'0.72rem', fontFamily:'monospace', fontStyle:'italic' }}>
-                  {es?'acércate':'get closer'}
-                </span>
-              )}
+              {/* Chain node */}
               {fc?.isChainNode && isInRange && (
                 <button onClick={() => setShowChainSolve(true)} style={{
                   ...actionLink, background:'#1a1000', borderColor:'#ffd70044', color:'#ffd700', cursor:'pointer',
@@ -584,12 +579,50 @@ export default function MiningChain3D() {
                   {es?'acércate':'get closer'}
                 </span>
               )}
-              {isMine && fc?.isMarket && nftjiResellUrl && (
-                <Link href={nftjiResellUrl} style={{
-                  ...actionLink, background:'#001a0c', borderColor:'#4ade8044', color:'#4ade80',
+              {/* NFTJI block: always show both buy + resell options */}
+              {fc?.isMarket && !fc?.isChainNode && isInRange && (
+                <>
+                  {isClaimable ? (
+                    <Link href={nftjiBuyUrl || '#'} style={{
+                      ...actionLink, background:'#1a0800', borderColor:'#fb923c55', color:'#fb923c',
+                    }}>
+                      ⛏ {es?'Comprar':'Buy'}
+                    </Link>
+                  ) : (
+                    <span style={{ ...actionLink, borderColor:'#fb923c11', color:'#fb923c33' }}>
+                      ⛏ {es?'Comprar':'Buy'}
+                    </span>
+                  )}
+                  {isMine && nftjiResellUrl ? (
+                    <Link href={nftjiResellUrl} style={{
+                      ...actionLink, background:'#001a0c', borderColor:'#4ade8055', color:'#4ade80',
+                    }}>
+                      💰 {es?'Liberar':'Resell'}
+                    </Link>
+                  ) : (
+                    <span style={{ ...actionLink, borderColor:'#4ade8011', color:'#4ade8033' }}>
+                      💰 {es?'Liberar':'Resell'}
+                    </span>
+                  )}
+                </>
+              )}
+              {fc?.isMarket && !fc?.isChainNode && !isInRange && (
+                <span style={{ color:`${C}33`, fontSize:'0.72rem', fontFamily:'monospace', fontStyle:'italic' }}>
+                  {es?'acércate':'get closer'}
+                </span>
+              )}
+              {/* Regular free block */}
+              {!fc?.isMarket && isClaimable && !fc?.isChainNode && isInRange && (
+                <Link href={mineUrl} style={{
+                  ...actionLink, background:`${C}0c`, borderColor:`${C}44`, color:C,
                 }}>
-                  💰 {es?'Revender':'Resell'}
+                  ⛏ {es?'Minar':'Mine'}
                 </Link>
+              )}
+              {!fc?.isMarket && isClaimable && !fc?.isChainNode && !isInRange && (
+                <span style={{ color:`${C}33`, fontSize:'0.72rem', fontFamily:'monospace', fontStyle:'italic' }}>
+                  {es?'acércate':'get closer'}
+                </span>
               )}
               <button onClick={()=>setShowDetail(true)} style={{
                 ...actionLink, background:'transparent', borderColor:`${C}22`, color:`${C}55`, cursor:'pointer',

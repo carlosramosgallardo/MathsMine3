@@ -1365,6 +1365,12 @@ export default function RelayingTerminal({ accent = '#22d3ee' }) {
           ? `mine block :: /mine block #029 >> mina un bloque libre si tu wallet y el valor global MM3 cumplen el requisito`
           : `mine block :: /mine block #029 >> mine a free board block if wallet level and global MM3 value meet the requirement`,
         language === 'es'
+          ? `buy :: /buy #029 >> compra un bloque NFTJI libre (máx 1 por wallet)`
+          : `buy :: /buy #029 >> purchase a free NFTJI block (max 1 per wallet)`,
+        language === 'es'
+          ? `resell :: /resell #029 >> revende el NFTJI que posees y recupera el 50% del precio`
+          : `resell :: /resell #029 >> resell the NFTJI you own and recover 50% of the price`,
+        language === 'es'
           ? `chain :: mina 1 bloque de la cadena Mining hoy >> recompensa €10 diaria`
           : `chain :: mine 1 Mining block chain cell today >> €10 daily reward`,
         t('relaying.execCmd'),
@@ -1563,6 +1569,106 @@ export default function RelayingTerminal({ accent = '#22d3ee' }) {
       return true;
     }
   }, [broadcastSystemMessage, findMarketCommandInDb, language, normalizedWallet, t]);
+
+  // /buy #hex — purchase a free NFTJI mining block (same backend as mine block)
+  const processBuyNftjiCommand = useCallback(async (text) => {
+    const match = String(text || '').trim().match(/^\/buy\s+(#?[0-9a-f]{1,3})$/i);
+    if (!match || !normalizedWallet) return false;
+
+    const blockHex = normalizeBlockHex(match[1]);
+    const res = await fetch('/api/mine-block', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ wallet: normalizedWallet, blockHex }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (data.ok) {
+      if (data.trace) {
+        appendAndBroadcastMessage(makeMessage({
+          id: `db:system:${data.ts || Date.now()}`,
+          kind: 'system', wallet: 'system',
+          ts: Number(data.ts) || Date.now(),
+          tone: 'market', text: data.trace,
+        }), { silent: false });
+        relayRef.current?.send({ type: 'broadcast', event: 'market-status-refresh', payload: { ts: Date.now() } }).catch(() => {});
+      }
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('lb_dirty_at', String(Date.now()));
+        window.dispatchEvent(new CustomEvent('mm3-db-updated', { detail: { wallet: normalizedWallet, minedBlock: blockHex } }));
+      }
+      return true;
+    }
+    const errMap = {
+      requirements_not_met: language === 'es'
+        ? `buy rechazado :: ${blockHex} requiere nivel o MM3 insuficiente`
+        : `buy rejected :: ${blockHex} requires higher level or MM3`,
+      already_mined: language === 'es'
+        ? `buy rechazado :: ${blockHex} ya tiene dueño`
+        : `buy rejected :: ${blockHex} already owned`,
+      nftji_offline: language === 'es'
+        ? `buy offline :: NFTJI no activo`
+        : `buy offline :: NFTJI inactive`,
+      already_owns_nftji: language === 'es'
+        ? `buy rechazado :: revende tu NFTJI antes de comprar otro`
+        : `buy rejected :: resell your NFTJI before buying another`,
+      insufficient_funds: language === 'es'
+        ? `buy rechazado :: fondos insuficientes`
+        : `buy rejected :: insufficient funds`,
+      block_not_mineable: language === 'es'
+        ? `buy rechazado :: ${blockHex} no es un bloque NFTJI`
+        : `buy rejected :: ${blockHex} is not an NFTJI block`,
+    };
+    appendMessage(makeMessage({
+      id: `sys:buy:${Date.now()}`, kind: 'system', wallet: 'system',
+      ts: Date.now(), tone: 'command',
+      text: errMap[data.error] || (language === 'es' ? `buy rechazado :: ${blockHex}` : `buy rejected :: ${blockHex}`),
+    }), { silent: true });
+    return true;
+  }, [appendAndBroadcastMessage, appendMessage, language, normalizedWallet]);
+
+  // /resell #hex — resell an owned NFTJI mining block
+  const processResellNftjiCommand = useCallback(async (text) => {
+    const match = String(text || '').trim().match(/^\/resell\s+(#?[0-9a-f]{1,3})$/i);
+    if (!match || !normalizedWallet) return false;
+
+    const blockHex = normalizeBlockHex(match[1]);
+    const res = await fetch('/api/resell-nftji', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ wallet: normalizedWallet, blockHex }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (data.ok) {
+      if (data.trace) {
+        appendAndBroadcastMessage(makeMessage({
+          id: `db:system:${data.ts || Date.now()}`,
+          kind: 'system', wallet: 'system',
+          ts: Number(data.ts) || Date.now(),
+          tone: 'market', text: data.trace,
+        }), { silent: false });
+        relayRef.current?.send({ type: 'broadcast', event: 'market-status-refresh', payload: { ts: Date.now() } }).catch(() => {});
+      }
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('lb_dirty_at', String(Date.now()));
+        window.dispatchEvent(new CustomEvent('mm3-db-updated', { detail: { wallet: normalizedWallet, special: true, market: true } }));
+      }
+      return true;
+    }
+    const errMap = {
+      not_owned: language === 'es'
+        ? `resell rechazado :: ${blockHex} no es tuyo`
+        : `resell rejected :: ${blockHex} not owned by you`,
+      block_not_nftji: language === 'es'
+        ? `resell rechazado :: ${blockHex} no es un bloque NFTJI`
+        : `resell rejected :: ${blockHex} is not an NFTJI block`,
+    };
+    appendMessage(makeMessage({
+      id: `sys:resell:${Date.now()}`, kind: 'system', wallet: 'system',
+      ts: Date.now(), tone: 'command',
+      text: errMap[data.error] || (language === 'es' ? `resell rechazado :: ${blockHex}` : `resell rejected :: ${blockHex}`),
+    }), { silent: true });
+    return true;
+  }, [appendAndBroadcastMessage, appendMessage, language, normalizedWallet]);
 
   const processMineBlockCommand = useCallback(async (text) => {
     const match = String(text || '').trim().match(/^\/mine\s+block\s+(#?[0-9a-f]{1,3})$/i);
@@ -1763,6 +1869,14 @@ export default function RelayingTerminal({ accent = '#22d3ee' }) {
             text: t('relaying.execFailed'),
           }), { silent: true });
         }
+        return;
+      }
+
+      if (await processBuyNftjiCommand(text)) {
+        return;
+      }
+
+      if (await processResellNftjiCommand(text)) {
         return;
       }
 

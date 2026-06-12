@@ -374,6 +374,12 @@ function drawFacingHUD(ctx, W, H, fwdCell, fwdMx, fwdMy, myWallet, es, dist, obs
       lines.push(inRange
         ? { text: es ? '↵ · Resolver cadena' : '↵ · Solve formula chain', size: 10, col: '#ffd700cc' }
         : { text: es ? '· acercarse para interactuar' : '· move closer to interact', size: 9, col: '#ffd70055' })
+    } else if (fwdCell?.isMarket) {
+      // Free NFTJI block — 2 options
+      lines.push(inRange
+        ? { text: es ? '↵ · Comprar NFTJI  /buy' : '↵ · Buy NFTJI  /buy', size: 10, col: '#fb923ccc' }
+        : { text: es ? '· acercarse para comprar' : '· move closer to buy', size: 9, col: '#fb923c55' })
+      lines.push({ text: es ? '· Liberar /resell  (sin dueño)' : '· Resell /resell  (no owner)', size: 9, col: '#4ade8033' })
     } else {
       lines.push(inRange
         ? { text: es ? '↵ · Minar bloque' : '↵ · Mine block', size: 10, col: C + 'cc' }
@@ -382,7 +388,9 @@ function drawFacingHUD(ctx, W, H, fwdCell, fwdMx, fwdMy, myWallet, es, dist, obs
   } else if (owner && fwdCell?.isMarket) {
     const isMineWall = myWallet && owner.toLowerCase() === myWallet.toLowerCase()
     if (isMineWall) {
-      lines.push({ text: es ? '↵ · Revender NFTJI' : '↵ · Resell NFTJI', size: 10, col: '#4ade80cc' })
+      // My NFTJI block — 2 options
+      lines.push({ text: es ? '· Comprar /buy  (ya posees)' : '· Buy /buy  (already owned)', size: 9, col: '#fb923c33' })
+      lines.push({ text: es ? '↵ · Liberar NFTJI  /resell' : '↵ · Resell NFTJI  /resell', size: 10, col: '#4ade80cc' })
     }
   }
 
@@ -1354,12 +1362,19 @@ export default function MiningChain3DFPV({
     }
 
     // Inspect prompt when very close
-    if (fwdDist < 0.9 && fwdCell && !fwdCell.owner) {
+    if (fwdDist < 0.9 && fwdCell) {
       ctx.font = 'bold 12px monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'top'
+      const isMineWall2 = myWallet && fwdCell.owner?.toLowerCase() === myWallet.toLowerCase()
       if (fwdCell.isChainNode) {
         ctx.fillStyle = '#ffd700cc'
         ctx.fillText(es ? '[ ↵ RESOLVER CADENA ]' : '[ ↵ SOLVE FORMULA CHAIN ]', W/2, horizon+18)
-      } else {
+      } else if (!fwdCell.owner && fwdCell.isMarket) {
+        ctx.fillStyle = '#fb923ccc'
+        ctx.fillText(es ? '[ ↵ COMPRAR NFTJI ]' : '[ ↵ BUY NFTJI ]', W/2, horizon+18)
+      } else if (isMineWall2 && fwdCell.isMarket) {
+        ctx.fillStyle = '#4ade80cc'
+        ctx.fillText(es ? '[ ↵ LIBERAR NFTJI ]' : '[ ↵ RESELL NFTJI ]', W/2, horizon+18)
+      } else if (!fwdCell.owner) {
         ctx.fillStyle = C + 'cc'
         ctx.fillText(es ? '[ ↵ MINAR BLOQUE ]' : '[ ↵ MINE BLOCK ]', W/2, horizon+18)
       }
@@ -1684,16 +1699,7 @@ export default function MiningChain3DFPV({
         if(newRow!==last.row||newCol!==last.col){
           lastCellRef.current={row:newRow,col:newCol}
           onPositionChange?.(newRow,newCol)
-          const entered=cellMapRef.current.get(`${newRow},${newCol}`)
-          const hex=gridToBlockHex(newRow,newCol)
-          const loc=esRef.current
-          const title=loc?(entered?.titleEs||entered?.titleEn||''):(entered?.titleEn||entered?.titleEs||'')
-          const who=entered?.owner?`${entered.owner.slice(0,6)}…`:(loc?'libre':'unclaimed')
-          notifRef.current={
-            text:[entered?.emoji,hex,title||who].filter(Boolean).join(' · '),
-            color:entered?.color||C,
-            startedAt:Date.now(),
-          }
+          // no mid-screen popup on cell change — top-left HUD already shows current hex
         }
       }
 
@@ -1739,8 +1745,13 @@ export default function MiningChain3DFPV({
               const myW=myWalletRef.current
               const ownerIsMe=myW&&fc.owner?.toLowerCase()===myW
               if(!fc.owner){
-                actionUrlRef.current=`/relaying?command=${encodeURIComponent(`/mine block ${hex}`)}`;
-                mineTypeRef.current=fc.isMarket?'nftji':'mine'
+                if(fc.isMarket){
+                  actionUrlRef.current=`/relaying?command=${encodeURIComponent(`/buy ${hex}`)}`
+                  mineTypeRef.current='nftji'
+                } else {
+                  actionUrlRef.current=`/relaying?command=${encodeURIComponent(`/mine block ${hex}`)}`
+                  mineTypeRef.current='mine'
+                }
               } else if(ownerIsMe&&fc.isMarket){
                 actionUrlRef.current=`/relaying?command=${encodeURIComponent(`/resell ${hex}`)}`
                 mineTypeRef.current='nftji'
