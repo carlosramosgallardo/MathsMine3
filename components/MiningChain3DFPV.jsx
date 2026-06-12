@@ -1121,20 +1121,25 @@ export default function MiningChain3DFPV({
 
       const [rw,gw,bw] = wallRgb(cell,dist,side,myWallet)
 
-      // Block top face: depth-graded — far part dim, near part bright (horizontal surface cue)
+      // Block top face: project back-edge of block (1 cell deeper) → start of top face
+      // screenY = horizon + (pz - 0.5) * projDist/backDist  (Codex §3 formula)
+      // Previously anchored to rHorizon for all blocks → fixed horizontal "ceiling" band.
       const rHorizon = Math.round(horizon)
-      if (wTop > rHorizon && cell) {
-        const topH = Math.min(Math.round(wTop), H) - rHorizon
+      if (cell) {
+        const backWallH = H * PROJ_DIST / Math.max(0.01, dist + 1.0)
+        const yBackTop  = Math.round(horizon - backWallH * 0.5 + pz * backWallH)
+        const yFrontTop = Math.min(Math.round(wTop), H)
+        const ty0  = Math.max(yBackTop, rHorizon, 0)
+        const topH = yFrontTop - ty0
         if (topH > 0) {
-          const th1 = Math.max(1, Math.ceil(topH * 0.45))  // far portion (upper)
-          const th2 = topH - th1                            // near portion (lower)
+          const th1 = Math.max(1, Math.ceil(topH * 0.45))
+          const th2 = topH - th1
           ctx.fillStyle=`rgb(${Math.min(255,Math.round(rw*1.15))},${Math.min(255,Math.round(gw*1.15))},${Math.min(255,Math.round(bw*1.15))})`
-          ctx.fillRect(col*STRIP_W, rHorizon, STRIP_W, th1)
+          ctx.fillRect(col*STRIP_W, ty0, STRIP_W, th1)
           if (th2 > 0) {
             ctx.fillStyle=`rgb(${Math.min(255,Math.round(rw*1.85))},${Math.min(255,Math.round(gw*1.85))},${Math.min(255,Math.round(bw*1.85))})`
-            ctx.fillRect(col*STRIP_W, rHorizon+th1, STRIP_W, th2)
+            ctx.fillRect(col*STRIP_W, ty0+th1, STRIP_W, th2)
           }
-          // Edge highlight: bright top + dark shadow bottom = 3D cube arête
           const seamY = Math.min(Math.round(wTop), H-2)
           ctx.fillStyle='rgba(255,255,255,0.22)'
           ctx.fillRect(col*STRIP_W, seamY, STRIP_W, 1)
