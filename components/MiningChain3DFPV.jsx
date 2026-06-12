@@ -333,13 +333,16 @@ function drawFacingHUD(ctx, W, H, fwdCell, fwdMx, fwdMy, myWallet, es, dist, obs
 
   // Double-check: use both cell flag and obsMap to catch any desync
   const isObs = fwdCell?.isObstacle || obsMap?.has(`${fwdMy},${fwdMx}`)
+  // Position cards to the left of the minimap (SZ matches drawMinimap for W>=600)
+  const _mapSZ = Math.min(130, W * 0.2)
+  const _mapLeft = W - _mapSZ - 6
   if (isObs) {
     const lines = [
       { text: es ? 'PARED' : 'WALL', size: 12, weight: 'bold', col: '#90a0b0' },
       { text: es ? '· no interactivo' : '· non-interactive', size: 10, col: '#445566' },
     ]
     const lineH=15, padX=9, padY=7, ph=lines.length*lineH+padY*2
-    const pw=Math.min(W*0.32,180), px=W-pw-8, py=8
+    const pw=Math.min(_mapLeft-16,180), px=_mapLeft-pw-6, py=8
     ctx.globalAlpha=0.80; ctx.fillStyle='#010709'; ctx.fillRect(px,py,pw,ph); ctx.globalAlpha=1
     ctx.lineWidth=0.5; ctx.strokeStyle='#90a0b033'; ctx.strokeRect(px,py,pw,ph)
     ctx.fillStyle='#90a0b055'; ctx.fillRect(px,py,2,ph)
@@ -417,8 +420,8 @@ function drawFacingHUD(ctx, W, H, fwdCell, fwdMx, fwdMy, myWallet, es, dist, obs
 
   const lineH = 16, padX = 9, padY = 8
   const ph = lines.length * lineH + padY * 2
-  const pw = Math.min(W * 0.32, 240)
-  const px = W - pw - 8
+  const pw = Math.min(_mapLeft - 16, 240)
+  const px = _mapLeft - pw - 6
   const py = 8
 
   // Background
