@@ -102,7 +102,7 @@ export function IrcPresenceProvider({ children }) {
     const load = async () => {
       try {
         const { count } = await supabase
-          .from('leaderboard_data')
+          .from('player_progress')
           .select('wallet', { count: 'exact', head: true });
         if (count != null) setTotalWallets(count);
       } catch {}
