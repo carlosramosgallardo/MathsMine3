@@ -115,6 +115,7 @@ const BOT_MAP_FINAL_MS_MIN  = 700;
 const BOT_MAP_FINAL_MS_MAX  = 1600;
 const BOT_MAP_SUBSCRIBE_TIMEOUT_MS = 5000;
 const BOT_MAP_SPAWN_MIN_DIST = 5;    // grid cells away from target to spawn
+const BOT_MAP_SWING_MS = 340;
 
 function getMiningNftjiLevelBasePct(emoji) {
   if (emoji === WALLET_DECORATIONS.lucky1000) return 0.01;
@@ -291,7 +292,7 @@ async function insertBotPresenceTrace(supabase, wallet, tone) {
 // Makes the bot visible in the 3D FPV view while it walks toward a block and
 // mines or buys it.  Uses a dedicated Supabase client so channel state doesn't
 // clash with the shared service client.
-async function simulateBotMapSession(supabase, wallet, targetRow, targetCol, poolCode) {
+async function simulateBotMapSession(supabase, wallet, targetRow, targetCol, poolCode, task = {}) {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const svcKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!url || !svcKey) return;
@@ -313,8 +314,18 @@ async function simulateBotMapSession(supabase, wallet, targetRow, targetCol, poo
   );
 
   const key = wallet;
+  const taskType = String(task.type || 'mining');
+  const taskLabel = String(task.label || 'MINING').slice(0, 32);
+  let taskPhase = 'moving';
+  let pendingRespawn = false;
   const ch = rtClient.channel(BOT_MAP_CHANNEL, {
     config: { broadcast: { self: false }, presence: { key } },
+  });
+
+  ch.on('broadcast', { event: 'pvp-result' }, ({ payload }) => {
+    if (normalizeWallet(payload?.victim) === normalizeWallet(wallet) && payload?.killed) {
+      pendingRespawn = true;
+    }
   });
 
   let subscribed = false;
@@ -331,6 +342,10 @@ async function simulateBotMapSession(supabase, wallet, targetRow, targetCol, poo
           row: Math.floor(gy),
           col: Math.floor(gx),
           poolCode: poolCode || null,
+          isBot: true,
+          task: taskType,
+          taskLabel,
+          taskPhase,
         }).catch(() => {});
         resolve();
       } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
@@ -351,11 +366,20 @@ async function simulateBotMapSession(supabase, wallet, targetRow, targetCol, poo
     { onConflict: 'wallet', ignoreDuplicates: false }
   ).catch(() => {});
 
-  const broadcastPos = async () => {
+  const broadcastPos = async ({ swing = false } = {}) => {
     const rx = Math.round(gx * 100) / 100;
     const ry = Math.round(gy * 100) / 100;
+    const dx = (targetCol + 0.5) - gx;
+    const dy = (targetRow + 0.5) - gy;
+    const angle = Math.atan2(dy, dx);
+    const payload = {
+      wallet: key, gx: rx, gy: ry, angle,
+      poolCode: poolCode || null,
+      isBot: true, task: taskType, taskLabel, taskPhase,
+      swingAt: swing ? Date.now() : 0,
+    };
     await Promise.all([
-      ch.send({ type: 'broadcast', event: 'move', payload: { wallet: key, gx: rx, gy: ry } }).catch(() => {}),
+      ch.send({ type: 'broadcast', event: 'move', payload }).catch(() => {}),
       supabase.from('mm3_player_positions').upsert(
         { wallet: key, gx: rx, gy: ry, updated_at: new Date().toISOString() },
         { onConflict: 'wallet', ignoreDuplicates: false }
@@ -364,11 +388,37 @@ async function simulateBotMapSession(supabase, wallet, targetRow, targetCol, poo
   };
 
   const steps = BOT_MAP_STEPS_MIN + Math.floor(Math.random() * (BOT_MAP_STEPS_MAX - BOT_MAP_STEPS_MIN + 1));
-  // Aim slightly off-center for a natural stopping position
-  const tgx = targetCol + 0.2 + Math.random() * 0.6;
-  const tgy = targetRow + 0.2 + Math.random() * 0.6;
+  // Stop outside the solid target cell, on the side closest to the spawn.
+  // The bot still faces the block center while acting, like a real player.
+  const targetCenterX = targetCol + 0.5;
+  const targetCenterY = targetRow + 0.5;
+  const spawnDx = gx - targetCenterX;
+  const spawnDy = gy - targetCenterY;
+  let tgx = targetCenterX;
+  let tgy = targetCenterY;
+  if (Math.abs(spawnDx) >= Math.abs(spawnDy)) {
+    tgx += spawnDx >= 0 ? 0.88 : -0.88;
+  } else {
+    tgy += spawnDy >= 0 ? 0.88 : -0.88;
+  }
 
   for (let i = 0; i < steps; i++) {
+    if (pendingRespawn) {
+      pendingRespawn = false;
+      taskPhase = 'respawning';
+      gx = 14.5;
+      gy = 14.5;
+      await broadcastPos();
+      await ch.send({
+        type: 'broadcast', event: 'pvp-result',
+        payload: { victim: wallet, health: 100, killed: false, respawn: true },
+      }).catch(() => {});
+      await new Promise(r => setTimeout(r, 650));
+      taskPhase = 'moving';
+      i = -1;
+      continue;
+    }
+
     const dx = tgx - gx, dy = tgy - gy;
     const dist = Math.hypot(dx, dy);
 
@@ -392,7 +442,40 @@ async function simulateBotMapSession(supabase, wallet, targetRow, targetCol, poo
     await new Promise(r => setTimeout(r, ms));
   }
 
-  // Pause at destination — bot is "interacting" with the block
+  // Act at the destination. Repeated swing broadcasts make the task visible
+  // to every player, using the same remote pickaxe animation as human wallets.
+  taskPhase = 'acting';
+  const actionBursts = taskType === 'trade' ? 2 : 4;
+  for (let i = 0; i < actionBursts; i++) {
+    if (pendingRespawn) {
+      pendingRespawn = false;
+      taskPhase = 'respawning';
+      gx = 14.5;
+      gy = 14.5;
+      await broadcastPos();
+      await ch.send({
+        type: 'broadcast', event: 'pvp-result',
+        payload: { victim: wallet, health: 100, killed: false, respawn: true },
+      }).catch(() => {});
+      await new Promise(r => setTimeout(r, 650));
+      taskPhase = 'moving';
+      for (let recovery = 0; recovery < BOT_MAP_STEPS_MAX; recovery++) {
+        const dx = tgx - gx, dy = tgy - gy;
+        const dist = Math.hypot(dx, dy);
+        if (dist <= 1.0 || pendingRespawn) break;
+        const speed = 0.75 + Math.random() * 0.65;
+        gx = Math.max(0.5, Math.min(27.5, gx + (dx / dist) * speed));
+        gy = Math.max(0.5, Math.min(27.5, gy + (dy / dist) * speed));
+        await broadcastPos();
+        await new Promise(r => setTimeout(r, BOT_MAP_STEP_MS_MIN + 80));
+      }
+      i = -1;
+      continue;
+    }
+    taskPhase = 'acting';
+    await broadcastPos({ swing: true });
+    await new Promise(r => setTimeout(r, BOT_MAP_SWING_MS + 120));
+  }
   await new Promise(r => setTimeout(r,
     BOT_MAP_FINAL_MS_MIN + Math.floor(Math.random() * (BOT_MAP_FINAL_MS_MAX - BOT_MAP_FINAL_MS_MIN))
   ));
@@ -1407,7 +1490,18 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
       // Bot enters the 3D map and walks to the target block before buying
       if (!didMapSession && targetBlock.grid_row != null && targetBlock.grid_col != null) {
         didMapSession = true;
-        await simulateBotMapSession(supabase, wallet, targetBlock.grid_row, targetBlock.grid_col, botMapPoolCode).catch(() => {});
+        const currentLabel = currentMarketKey ? getMarketBlockLabel(
+          marketBlocks.find((b) => b.block_key === currentMarketKey), currentMarketKey
+        ) : null;
+        await simulateBotMapSession(
+          supabase, wallet, targetBlock.grid_row, targetBlock.grid_col, botMapPoolCode,
+          {
+            type: currentMarketKey ? 'nftji_swap' : 'nftji_buy',
+            label: currentMarketKey
+              ? `RESELL ${currentLabel} + BUY ${getMarketBlockLabel(targetBlock, targetBlock.block_key)}`
+              : `BUY NFTJI ${getMarketBlockLabel(targetBlock, targetBlock.block_key)}`,
+          }
+        ).catch(() => {});
       }
 
       const targetCmdEntry = marketCommandFromBlock(targetBlock);
@@ -1565,6 +1659,13 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
           .limit(1).maybeSingle();
 
         if (!existingCmd) {
+          if (!didMapSession && ownedBlock.grid_row != null && ownedBlock.grid_col != null) {
+            didMapSession = true;
+            await simulateBotMapSession(
+              supabase, wallet, ownedBlock.grid_row, ownedBlock.grid_col, botMapPoolCode,
+              { type: 'market_command', label: `EXEC ${getMarketBlockLabel(ownedBlock, currentMarketKey)}` }
+            ).catch(() => {});
+          }
           const dayWindow = getUtcDayWindow(new Date());
           const { x, code } = computeMarketCommandCode(cmdEntry, wallet, dayWindow.dayKey, Date.now());
 
@@ -1832,7 +1933,10 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
       // Bot enters the 3D map and walks to the target block before mining
       if (!didMapSession) {
         didMapSession = true;
-        await simulateBotMapSession(supabase, wallet, grid.row, grid.col, botMapPoolCode).catch(() => {});
+        await simulateBotMapSession(
+          supabase, wallet, grid.row, grid.col, botMapPoolCode,
+          { type: 'chain_mine', label: `MINE BLOCK ${pick.blockHex}` }
+        ).catch(() => {});
       }
 
       const { data: lastChainRow } = await supabase.from('mm3_mined_blocks')
@@ -1896,6 +2000,23 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
     if (count < target) continue;
 
     await claimDailyReward(taskKey, rewardEur);
+  }
+
+  // If no block-specific map session was needed, still represent the bot's
+  // actual work in Mining so online players can see and engage it.
+  if (!didMapSession && actualGamesPlayed > 0) {
+    didMapSession = true;
+    await simulateBotMapSession(
+      supabase, wallet, 14, 14, botMapPoolCode,
+      { type: 'drilling', label: `DRILLING ${actualGamesPlayed} TASK${actualGamesPlayed === 1 ? '' : 'S'}` }
+    ).catch(() => {});
+  } else if (!didMapSession && actions.some((action) => action.type === 'trade')) {
+    didMapSession = true;
+    const tradeAction = actions.find((action) => action.type === 'trade');
+    await simulateBotMapSession(
+      supabase, wallet, 4, 4, botMapPoolCode,
+      { type: 'trade', label: tradeAction?.mm3_bought ? 'BUY MM3' : 'SELL MM3' }
+    ).catch(() => {});
   }
 
   // ── IRC GREETING ─────────────────────────────────────────

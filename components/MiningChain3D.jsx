@@ -90,6 +90,19 @@ export default function MiningChain3D() {
   const [myPoolCode,    setMyPoolCode]    = useState(null)
   const [presenceKey,   setPresenceKey]   = useState(myWallet)
   const [healthMap,     setHealthMap]     = useState({})
+  const healthRequestedRef = useRef(new Set())
+
+  const loadRemoteHealth = useCallback((wallet) => {
+    const key = String(wallet || '').toLowerCase()
+    if (!key || key.startsWith('anon-') || healthRequestedRef.current.has(key)) return
+    healthRequestedRef.current.add(key)
+    fetch(`/api/pvp-hit?wallet=${encodeURIComponent(key)}`)
+      .then(r => r.json())
+      .then(r => {
+        if (r?.ok) setHealthMap(prev => ({ ...prev, [key]: Number(r.health ?? 100) }))
+      })
+      .catch(() => { healthRequestedRef.current.delete(key) })
+  }, [])
 
   // FPV gets wallets that are online AND have a known position (or self)
   const presenceMap = useMemo(() => {
@@ -316,6 +329,7 @@ export default function MiningChain3D() {
     ch.on('broadcast', { event: 'move' }, ({ payload }) => {
       if (!payload?.wallet || payload.gx == null) return
       const w = payload.wallet
+      if (payload.isBot) loadRemoteHealth(w)
       setPositions(prev => ({
         ...prev,
         [w]: {
@@ -326,6 +340,10 @@ export default function MiningChain3D() {
           pitch: Number(payload.pitch) || 0,
           swingAt: Number(payload.swingAt) || prev[w]?.swingAt || 0,
           poolCode: payload.poolCode || prev[w]?.poolCode || null,
+          isBot: Boolean(payload.isBot || prev[w]?.isBot),
+          task: payload.task || prev[w]?.task || null,
+          taskLabel: payload.taskLabel || prev[w]?.taskLabel || null,
+          taskPhase: payload.taskPhase || prev[w]?.taskPhase || null,
         },
       }))
       // Ensure the wallet is visible even if presence sync hasn't fired yet
@@ -336,6 +354,9 @@ export default function MiningChain3D() {
     ch.on('presence', { event: 'sync' }, () => {
       const state = ch.presenceState()
       const alive = new Set(Object.keys(state))
+      for (const [wallet, entries] of Object.entries(state)) {
+        if (entries?.[0]?.isBot) loadRemoteHealth(wallet)
+      }
       setOnlineWallets(alive)
       setOnlineCount(alive.size)
       setPositions(prev => {
@@ -346,7 +367,11 @@ export default function MiningChain3D() {
           if (!p || next[w]) continue   // already have broadcast-precise position
           const gx = p.gx ?? ((p.col ?? 14) + 0.5)
           const gy = p.gy ?? ((p.row ?? 14) + 0.5)
-          next[w] = { gx, gy, row: Math.floor(gy), col: Math.floor(gx), poolCode: p.poolCode || null }
+          next[w] = {
+            gx, gy, row: Math.floor(gy), col: Math.floor(gx), poolCode: p.poolCode || null,
+            isBot: Boolean(p.isBot), task: p.task || null,
+            taskLabel: p.taskLabel || null, taskPhase: p.taskPhase || null,
+          }
         }
         // Remove players who left (always keep self)
         const myW = myWalletRef.current

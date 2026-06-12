@@ -742,7 +742,7 @@ function drawOnlineList(ctx, W, H, presenceMap, myWallet, pvpStolen) {
   for (const [w, pres] of Object.entries(presenceMap || {})) {
     if (pres.row == null && pres.gy == null) continue
     const isAnon = w.startsWith('anon-')
-    all.push({ w, isAnon, stolen: (pvpStolen || {})[w] || 0 })
+    all.push({ w, isAnon, isBot: Boolean(pres.isBot), stolen: (pvpStolen || {})[w] || 0 })
   }
 
   const logged = all.filter(e => !e.isAnon).sort((a, b) => b.stolen - a.stolen).slice(0, 5)
@@ -770,13 +770,13 @@ function drawOnlineList(ctx, W, H, presenceMap, myWallet, pvpStolen) {
   ctx.fillText('ONLINE', px + PAD_X, py + PAD_Y)
 
   for (let i = 0; i < list.length; i++) {
-    const { w, isAnon, stolen } = list[i]
+    const { w, isAnon, isBot, stolen } = list[i]
     const ly   = py + PAD_Y + HEADER_H + i * LINE_H
     const isMe = w.toLowerCase() === (myWallet || '').toLowerCase()
     const col  = isMe ? C : isAnon ? '#5a7080' : colorFromAddress(w)
     const label = isAnon
       ? (isMe ? `${w.slice(0, 10)}…` : `anon`)
-      : `${w.slice(0, 6)}…${w.slice(-3)}`
+      : `${w.slice(0, 6)}…${w.slice(-3)}${isBot ? ' B' : ''}`
     ctx.font = `${isMe ? 'bold ' : ''}9px monospace`
     ctx.textAlign = 'left'
     ctx.fillStyle = col
@@ -1050,6 +1050,10 @@ export default function MiningChain3DFPV({
       current.pitch=Number(target.pitch)||0
       current.swingAt=Number(target.swingAt)||current.swingAt||0
       current.poolCode=target.poolCode||null
+      current.isBot=Boolean(target.isBot)
+      current.task=target.task||null
+      current.taskLabel=target.taskLabel||null
+      current.taskPhase=target.taskPhase||null
     }
     for(const w of visuals.keys()) if(!rawPresence?.[w]) visuals.delete(w)
     const presence=Object.fromEntries(visuals)
@@ -1342,11 +1346,16 @@ export default function MiningChain3DFPV({
       const dist  = Math.sqrt(rx*rx + ry*ry)
       const remoteZ=Number(pres.z)||0
       const supportZ=remoteZ>=BLOCK_TOP&&solidAt(sgx,sgy)?BLOCK_TOP:0
-      sprites.push({ w, tX, tY, dist, z:remoteZ, supportZ, angle:Number(pres.angle)||0, swingAt:Number(pres.swingAt)||0, color: colorFromAddress(w) })
+      sprites.push({
+        w, tX, tY, dist, z:remoteZ, supportZ,
+        angle:Number(pres.angle)||0, swingAt:Number(pres.swingAt)||0,
+        isBot:Boolean(pres.isBot), taskLabel:pres.taskLabel||null, taskPhase:pres.taskPhase||null,
+        color: colorFromAddress(w),
+      })
     }
     sprites.sort((a,b) => b.dist - a.dist)
 
-    for (const { w, tX, tY, z:remoteZ, supportZ, angle:remoteAngle, swingAt, color } of sprites) {
+    for (const { w, tX, tY, z:remoteZ, supportZ, angle:remoteAngle, swingAt, isBot, taskLabel, taskPhase, color } of sprites) {
       const groundCamera = cameraPoint(0, tY)
       if (groundCamera.rotatedDepth <= 0.05) continue
       const scrX = Math.round(W/2 + tX*horizontalProjection/groundCamera.rotatedDepth)
@@ -1479,18 +1488,29 @@ export default function MiningChain3DFPV({
         ctx.globalAlpha = lAlpha * 0.45; ctx.fillStyle = '#000'
         ctx.font = `bold ${lSize}px monospace`
         ctx.textAlign = 'center'; ctx.textBaseline = 'bottom'
-        ctx.fillText(`${w.slice(0,6)}…${w.slice(-4)}`, scrX+1, billsTop-1)
+        const walletLabel = `${w.slice(0,6)}…${w.slice(-4)}${isBot ? ' (BOT)' : ''}`
+        ctx.fillText(walletLabel, scrX+1, billsTop-1)
         ctx.globalAlpha = lAlpha; ctx.fillStyle = color
-        ctx.fillText(`${w.slice(0,6)}…${w.slice(-4)}`, scrX, billsTop-2)
+        ctx.fillText(walletLabel, scrX, billsTop-2)
+        let nextLabelY = billsTop - 3 - lSize
         if (pool && tY < 7.0) {
           const pSize = Math.max(8, lSize-2)
           ctx.globalAlpha = lAlpha*0.75; ctx.font = `bold ${pSize}px monospace`
           ctx.fillStyle = '#f59e0b'
-          ctx.fillText(`[${pool}]`, scrX, billsTop-2-lSize-1)
+          ctx.fillText(`[${pool}]`, scrX, nextLabelY)
+          nextLabelY -= pSize + 2
+        }
+        if (isBot && taskLabel && tY < 8.5) {
+          const taskSize = Math.max(8,lSize-2)
+          ctx.globalAlpha = lAlpha * .92
+          ctx.font = `bold ${taskSize}px monospace`
+          ctx.fillStyle = taskPhase === 'respawning' ? '#fb7185' : taskPhase === 'acting' ? '#facc15' : '#67e8f9'
+          ctx.fillText(`[${taskLabel}]`, scrX, nextLabelY)
+          nextLabelY -= taskSize + 2
         }
         const hp=Math.max(0,Math.min(100,Number(healthMapRef.current[w]??100)))
         const barW=Math.max(22,Math.min(86,walletW*1.15)),barH=Math.max(3,Math.min(7,walletH*.06))
-        const barY=billsTop-2-lSize-(pool&&tY<7?lSize:0)-barH-5
+        const barY=nextLabelY-barH-3
         ctx.globalAlpha=lAlpha;ctx.fillStyle='#24070d';ctx.fillRect(scrX-barW/2,barY,barW,barH)
         ctx.fillStyle=hp>60?'#4ade80':hp>25?'#facc15':'#fb7185'
         ctx.fillRect(scrX-barW/2,barY,barW*hp/100,barH)
