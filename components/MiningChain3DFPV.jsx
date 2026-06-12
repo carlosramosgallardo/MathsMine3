@@ -1040,6 +1040,22 @@ export default function MiningChain3DFPV({
     }
     const horizon = viewCenterY - Math.tan(pitch) * projectionScale
     const sceneSplitY = Math.max(0, Math.min(H, horizon))
+    const horizontalProjection = W/(2*Math.tan(FOV/2))
+    const floorPointAt = (sx,sy,worldZ) => {
+      const v=(viewCenterY-sy)/projectionScale
+      const denom=v*pitchCos-pitchSin
+      if(Math.abs(denom)<1e-5) return null
+      const relZ=worldZ-cameraZ
+      const depth=relZ*(pitchCos+v*pitchSin)/denom
+      const rotatedDepth=depth*pitchCos-relZ*pitchSin
+      if(depth<=0.01||rotatedDepth<=0.01) return null
+      const lateral=(sx-W/2)*rotatedDepth/horizontalProjection
+      return {
+        depth,rotatedDepth,
+        gx:px/CELL_SIZE+(Math.cos(angle)*depth-Math.sin(angle)*lateral),
+        gy:py/CELL_SIZE+(Math.sin(angle)*depth+Math.cos(angle)*lateral),
+      }
+    }
 
     // Atmospheric tint from current room
     const {row:gr,col:gc} = worldToGrid(px,py)
@@ -1056,8 +1072,7 @@ export default function MiningChain3DFPV({
     cg.addColorStop(1,`rgb(${Math.round(16+ar*AT)},${Math.round(26+ag*AT)},${Math.round(62+ab*AT)})`)
     ctx.fillStyle=cg; ctx.fillRect(0,0,W,sceneSplitY)
 
-    // The base floor is a world plane. Block materials are rendered only on
-    // their projected faces, never as a full-screen replacement floor.
+    // Base fill behind the projected world floor.
     const [_fr, _fg2, _fb] = [22+Math.round(ar*AT), 36+Math.round(ag*AT), 72+Math.round(ab*AT)]
     const [_fr2, _fg3, _fb2] = [6+Math.round(ar*AT*.5), 10+Math.round(ag*AT*.5), 20+Math.round(ab*AT*.5)]
     // Floor: darker at horizon (far), brighter near feet (near-lit mine)
@@ -1066,19 +1081,43 @@ export default function MiningChain3DFPV({
     fg.addColorStop(1,`rgb(${_fr},${_fg2},${_fb})`)
     ctx.fillStyle=fg; ctx.fillRect(0,sceneSplitY,W,H-sceneSplitY)
 
-    // Perspective grid on floor — horizontal lines denser near feet
-    const _floorH = H - Math.round(sceneSplitY)
-    if (_floorH > 4) {
-      const ls = Math.max(2, Math.round(_floorH / 10))
-      for (let fy = Math.round(sceneSplitY); fy < H; fy += ls) {
-        const t = (fy - sceneSplitY) / _floorH  // 0=far 1=near
-        ctx.fillStyle = `rgba(0,0,0,${(0.06 + t * 0.14).toFixed(2)})`
-        ctx.fillRect(0, fy, W, 1)
-      }
-      const vs = Math.max(10, Math.round(W / 28))
-      for (let fx = 0; fx < W; fx += vs) {
-        ctx.fillStyle = 'rgba(0,0,0,0.07)'
-        ctx.fillRect(fx, Math.round(sceneSplitY), 1, _floorH)
+    // World-space floor casting. Each sample resolves against z=0 and against
+    // block tops at z=1, so platforms remain visible beneath the player.
+    const floorStep=W<600?3:2
+    const solidAt=(gx,gy)=>{
+      const row=Math.floor(gy),col=Math.floor(gx),key=`${row},${col}`
+      return validObstaclesRef.current.has(key)||cellMap.has(key)
+    }
+    for(let sy=Math.max(0,Math.floor(sceneSplitY));sy<H;sy+=floorStep){
+      for(let sx=0;sx<W;sx+=floorStep){
+        const top=floorPointAt(sx+floorStep/2,sy+floorStep/2,BLOCK_TOP)
+        const ground=floorPointAt(sx+floorStep/2,sy+floorStep/2,0)
+        let point=ground,isTop=false
+        if(top&&solidAt(top.gx,top.gy)){point=top;isTop=true}
+        if(!point) continue
+        const fracX=((point.gx%1)+1)%1,fracY=((point.gy%1)+1)%1
+        const edge=Math.min(fracX,1-fracX,fracY,1-fracY)
+        const fade=Math.max(0.18,1-point.depth*0.035)
+        const checker=(Math.floor(point.gx)+Math.floor(point.gy))&1
+        if(isTop){
+          const key=`${Math.floor(point.gy)},${Math.floor(point.gx)}`
+          const obs=validObstaclesRef.current.get(key)
+          const cell=cellMap.get(key)
+          const base=obs?.base||(cell?.color?hexToRgb(cell.color):cell?.isChainNode?[220,170,25]:[48,82,142])
+          const light=(checker?0.88:0.98)*Math.max(0.42,fade)
+          ctx.fillStyle=`rgb(${Math.round(base[0]*light)},${Math.round(base[1]*light)},${Math.round(base[2]*light)})`
+        }else{
+          const light=(checker?0.92:1.0)*Math.max(0.36,fade)
+          ctx.fillStyle=`rgb(${Math.round(_fr*light)},${Math.round(_fg2*light)},${Math.round(_fb*light)})`
+        }
+        ctx.fillRect(sx,sy,floorStep,floorStep)
+        const panelEdge=isTop&&Math.min(Math.abs(fracX-.5),Math.abs(fracY-.5))<0.018
+        if((edge<0.028||panelEdge)&&point.depth<15){
+          ctx.fillStyle=isTop
+            ? (edge<0.028?'rgba(225,242,255,.30)':'rgba(0,0,0,.16)')
+            : 'rgba(34,211,238,.11)'
+          ctx.fillRect(sx,sy,floorStep,floorStep)
+        }
       }
     }
 
@@ -1119,29 +1158,6 @@ export default function MiningChain3DFPV({
       }
 
       const [rw,gw,bw] = wallRgb(cell,dist,side,myWallet)
-
-      // A horizontal top is visible only when the eye is above the block.
-      if (cell && cameraZ > BLOCK_TOP) {
-        const yBackTop  = Math.round(projectY(BLOCK_TOP, dist + 1.0))
-        const yFrontTop = Math.min(Math.round(projectedTop), H)
-        const ty0  = Math.max(yBackTop, 0)
-        const topH = yFrontTop - ty0
-        if (topH > 0) {
-          const th1 = Math.max(1, Math.ceil(topH * 0.55))
-          const th2 = topH - th1
-          ctx.fillStyle=`rgb(${Math.min(255,Math.round(rw*1.12))},${Math.min(255,Math.round(gw*1.12))},${Math.min(255,Math.round(bw*1.12))})`
-          ctx.fillRect(col*STRIP_W, ty0, STRIP_W, th1)
-          if (th2 > 0) {
-            ctx.fillStyle=`rgb(${Math.min(255,Math.round(rw*1.28))},${Math.min(255,Math.round(gw*1.28))},${Math.min(255,Math.round(bw*1.28))})`
-            ctx.fillRect(col*STRIP_W, ty0+th1, STRIP_W, th2)
-          }
-          const seamY = Math.min(Math.round(wTop), H-2)
-          ctx.fillStyle='rgba(255,255,255,0.22)'
-          ctx.fillRect(col*STRIP_W, seamY, STRIP_W, 1)
-          ctx.fillStyle='rgba(0,0,0,0.40)'
-          ctx.fillRect(col*STRIP_W, seamY+1, STRIP_W, 1)
-        }
-      }
 
       ctx.fillStyle=`rgb(${rw},${gw},${bw})`
       ctx.fillRect(col*STRIP_W,wTop,STRIP_W,wallH)
@@ -1240,14 +1256,15 @@ export default function MiningChain3DFPV({
       // Fixed sign: right vector is (-sin, cos) so tX = -sin*rx + cos*ry
       const tX   = -Math.sin(angle)*rx + Math.cos(angle)*ry
       const dist  = Math.sqrt(rx*rx + ry*ry)
-      sprites.push({ w, tX, tY, dist, z:Number(pres.z)||0, angle:Number(pres.angle)||0, swingAt:Number(pres.swingAt)||0, color: colorFromAddress(w) })
+      const remoteZ=Number(pres.z)||0
+      const supportZ=remoteZ>=BLOCK_TOP&&solidAt(sgx,sgy)?BLOCK_TOP:0
+      sprites.push({ w, tX, tY, dist, z:remoteZ, supportZ, angle:Number(pres.angle)||0, swingAt:Number(pres.swingAt)||0, color: colorFromAddress(w) })
     }
     sprites.sort((a,b) => b.dist - a.dist)
 
-    for (const { w, tX, tY, z:remoteZ, angle:remoteAngle, swingAt, color } of sprites) {
+    for (const { w, tX, tY, z:remoteZ, supportZ, angle:remoteAngle, swingAt, color } of sprites) {
       const groundCamera = cameraPoint(0, tY)
       if (groundCamera.rotatedDepth <= 0.05) continue
-      const horizontalProjection = W/(2*Math.tan(FOV/2))
       const scrX = Math.round(W/2 + tX*horizontalProjection/groundCamera.rotatedDepth)
       const [cr,cg2,cb] = hexToRgb(color)
       const fade  = Math.max(0.32, 1 - tY*0.038)   // slower darkening at distance
@@ -1364,7 +1381,7 @@ export default function MiningChain3DFPV({
         const sh = Math.max(2, Math.round(sw*0.18))
         ctx.globalAlpha = sAlpha; ctx.fillStyle = '#000'
         ctx.beginPath()
-        const shadowY=Math.min(H+30,Math.round(projectY(0,tY)))
+        const shadowY=Math.min(H+30,Math.round(projectY(supportZ,tY)))
         ctx.ellipse(scrX,shadowY+sh*0.5,sw/2,sh,0,0,Math.PI*2)
         ctx.fill(); ctx.globalAlpha = 1
       }
