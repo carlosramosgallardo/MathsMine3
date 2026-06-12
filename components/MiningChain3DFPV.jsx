@@ -1061,16 +1061,26 @@ export default function MiningChain3DFPV({
         ;[_fr2, _fg3, _fb2] = [cr, cg_, cb_]
       }
     }
+    // Floor: darker at horizon (far), brighter near feet (near-lit mine)
     const fg = ctx.createLinearGradient(0,horizon,0,H)
-    fg.addColorStop(0,`rgb(${_fr},${_fg2},${_fb})`)
-    fg.addColorStop(1,`rgb(${_fr2},${_fg3},${_fb2})`)
+    fg.addColorStop(0,`rgb(${_fr2},${_fg3},${_fb2})`)
+    fg.addColorStop(1,`rgb(${_fr},${_fg2},${_fb})`)
     ctx.fillStyle=fg; ctx.fillRect(0,horizon,W,H-horizon)
 
-    // Scanline floor accent
-    const ls=Math.max(2,Math.round((H-horizon)/12))
-    for (let fy=Math.round(horizon);fy<H;fy+=ls){
-      ctx.fillStyle=`rgba(${34+Math.round(ar*.15)},${180+Math.round(ag*.04)},${200+Math.round(ab*.04)},0.05)`
-      ctx.fillRect(0,fy,W,1)
+    // Perspective grid on floor — horizontal lines denser near feet
+    const _floorH = H - Math.round(horizon)
+    if (_floorH > 4) {
+      const ls = Math.max(2, Math.round(_floorH / 10))
+      for (let fy = Math.round(horizon); fy < H; fy += ls) {
+        const t = (fy - horizon) / _floorH  // 0=far 1=near
+        ctx.fillStyle = `rgba(0,0,0,${(0.06 + t * 0.14).toFixed(2)})`
+        ctx.fillRect(0, fy, W, 1)
+      }
+      const vs = Math.max(10, Math.round(W / 28))
+      for (let fx = 0; fx < W; fx += vs) {
+        ctx.fillStyle = 'rgba(0,0,0,0.07)'
+        ctx.fillRect(fx, Math.round(horizon), 1, _floorH)
+      }
     }
 
     // Pre-compute forward cell
@@ -1111,16 +1121,25 @@ export default function MiningChain3DFPV({
 
       const [rw,gw,bw] = wallRgb(cell,dist,side,myWallet)
 
-      // Block top face: visible when elevated enough to look down at a block's roof
+      // Block top face: depth-graded — far part dim, near part bright (horizontal surface cue)
       const rHorizon = Math.round(horizon)
       if (wTop > rHorizon && cell) {
         const topH = Math.min(Math.round(wTop), H) - rHorizon
         if (topH > 0) {
-          ctx.fillStyle=`rgb(${Math.min(255,Math.round(rw*1.5))},${Math.min(255,Math.round(gw*1.5))},${Math.min(255,Math.round(bw*1.5))})`
-          ctx.fillRect(col*STRIP_W, rHorizon, STRIP_W, topH)
-          // Seam line between top face and front face
-          ctx.fillStyle='rgba(0,0,0,0.35)'
-          ctx.fillRect(col*STRIP_W, Math.min(Math.round(wTop)-1, H-1), STRIP_W, 2)
+          const th1 = Math.max(1, Math.ceil(topH * 0.45))  // far portion (upper)
+          const th2 = topH - th1                            // near portion (lower)
+          ctx.fillStyle=`rgb(${Math.min(255,Math.round(rw*1.15))},${Math.min(255,Math.round(gw*1.15))},${Math.min(255,Math.round(bw*1.15))})`
+          ctx.fillRect(col*STRIP_W, rHorizon, STRIP_W, th1)
+          if (th2 > 0) {
+            ctx.fillStyle=`rgb(${Math.min(255,Math.round(rw*1.85))},${Math.min(255,Math.round(gw*1.85))},${Math.min(255,Math.round(bw*1.85))})`
+            ctx.fillRect(col*STRIP_W, rHorizon+th1, STRIP_W, th2)
+          }
+          // Edge highlight: bright top + dark shadow bottom = 3D cube arête
+          const seamY = Math.min(Math.round(wTop), H-2)
+          ctx.fillStyle='rgba(255,255,255,0.22)'
+          ctx.fillRect(col*STRIP_W, seamY, STRIP_W, 1)
+          ctx.fillStyle='rgba(0,0,0,0.40)'
+          ctx.fillRect(col*STRIP_W, seamY+1, STRIP_W, 1)
         }
       }
 
