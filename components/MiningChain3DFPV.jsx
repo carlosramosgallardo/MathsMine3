@@ -609,13 +609,16 @@ function drawMineProgress(ctx, W, H, progress, type) {
 
 // ── MM3 Block Chain stats panel (bottom-left HUD) ───────────────────────────
 // ── NFTJI skills panel (bottom-center, below pickaxe) ────────────────────────
-function drawWalletDock(ctx, W, H, myNftjis, health, es) {
+function drawWalletDock(ctx, W, H, myNftjis, health, es, isLoggedWallet) {
   const mobile = W < 600
-  const SLOT_W = 32, SLOT_H = 40, GAP = 4, PAD_X = 8, PAD_Y = 5, HEADER_H = 13
-  const count = mobile ? 0 : (myNftjis?.length || 0)
-  const skillsW = count ? PAD_X * 2 + count * (SLOT_W + GAP) - GAP : 0
-  const pw = mobile ? Math.min(158, W * .46) : Math.max(178, skillsW)
-  const ph = count ? PAD_Y * 2 + HEADER_H + SLOT_H : (mobile ? 12 : 24)
+  const SLOT_W = mobile ? 28 : 32, SLOT_H = mobile ? 34 : 40
+  const GAP = 4, PAD_X = 8, PAD_Y = 5, HEADER_H = 13
+  const skills = myNftjis || []
+  const minimumSlots = isLoggedWallet ? (mobile ? 3 : 4) : 0
+  const slotCount = Math.max(skills.length, minimumSlots)
+  const skillsW = slotCount ? PAD_X * 2 + slotCount * (SLOT_W + GAP) - GAP : 0
+  const pw = slotCount ? skillsW : (mobile ? Math.min(158, W * .46) : 178)
+  const ph = slotCount ? PAD_Y * 2 + HEADER_H + SLOT_H : (mobile ? 12 : 24)
 
   const px = Math.round(W / 2 - pw / 2)
   const py = H - ph - 8
@@ -648,18 +651,29 @@ function drawWalletDock(ctx, W, H, myNftjis, health, es) {
 
   ctx.font = 'bold 8px monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'top'
   ctx.fillStyle = '#fb923ccc'
-  if (!mobile) ctx.fillText(count ? (es ? 'WALLET · HABILIDADES' : 'WALLET · SKILLS') : 'WALLET', px + pw / 2, py + PAD_Y)
+  if (slotCount) {
+    ctx.fillText(es ? 'WALLET · HABILIDADES' : 'WALLET · SKILLS', px + pw / 2, py + PAD_Y)
+  } else if (!mobile) {
+    ctx.fillText('WALLET', px + pw / 2, py + PAD_Y)
+  }
 
   const slotY = py + PAD_Y + HEADER_H
-  for (let i = 0; i < count; i++) {
-    const { emoji, level, isActive } = myNftjis[i]
+  for (let i = 0; i < slotCount; i++) {
+    const skill = skills[i]
+    const { emoji, level, isActive } = skill || {}
     const sx = px + PAD_X + i * (SLOT_W + GAP)
 
-    ctx.fillStyle = isActive ? '#0e2010' : '#080e18'
+    ctx.fillStyle = skill ? (isActive ? '#0e2010' : '#080e18') : '#050a12'
     ctx.fillRect(sx, slotY, SLOT_W, SLOT_H)
-    ctx.strokeStyle = isActive ? '#4ade80aa' : '#fb923c22'
+    ctx.strokeStyle = skill ? (isActive ? '#4ade80aa' : '#fb923c22') : '#52617255'
     ctx.lineWidth = isActive ? 1 : 0.5
     ctx.strokeRect(sx, slotY, SLOT_W, SLOT_H)
+
+    if (!skill) {
+      ctx.fillStyle = '#52617222'
+      ctx.fillRect(sx + 5, slotY + 6, SLOT_W - 10, SLOT_H - 12)
+      continue
+    }
 
     ctx.font = '17px serif'
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
@@ -1777,7 +1791,9 @@ export default function MiningChain3DFPV({
 
     drawMinimap(ctx,gr,gc,angle,cellMap,presence,myIdentity,W,H,chainNodePosRef.current,validObstaclesRef.current)
     drawOnlineList(ctx,W,H,presence,myIdentity,pvpStolenRef.current)
-    const walletDock = drawWalletDock(ctx,W,H,myNftjisRef.current,healthMapRef.current[myIdentity]??100,es)
+    const walletDock = drawWalletDock(
+      ctx,W,H,myNftjisRef.current,healthMapRef.current[myIdentity]??100,es,Boolean(myWallet)
+    )
     drawThirdPersonPlayer(ctx,W,H,colorFromAddress(myIdentity||'local-player'),swT,walkDistRef.current,walletDock?.top)
     drawChainStats(ctx,W,H,chainStatsRef.current,es)
   }, [])
