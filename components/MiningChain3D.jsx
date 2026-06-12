@@ -86,6 +86,7 @@ export default function MiningChain3D() {
   const [marketLoaded, setMarketLoaded] = useState(false)
   const [facingCell,    setFacingCell]    = useState(null)
   const [receivedHitAt, setReceivedHitAt] = useState(0)
+  const [receivedHitFrom, setReceivedHitFrom] = useState(null)
   const [swingMap,      setSwingMap]      = useState({})
   const [myPoolCode,    setMyPoolCode]    = useState(null)
   const [presenceKey,   setPresenceKey]   = useState(myWallet)
@@ -306,6 +307,9 @@ export default function MiningChain3D() {
       setHealthMap(prev => ({ ...prev, [payload.victim]: Number(payload.health ?? 100) }))
       if (payload.victim === myKeyRef.current || payload.victim === myWalletRef.current) {
         setReceivedHitAt(Date.now())
+        if (payload.attacker && !payload.killed) {
+          setReceivedHitFrom({ attacker: payload.attacker, at: Date.now() })
+        }
         if (myWalletRef.current) {
           window.dispatchEvent(new CustomEvent('mm3-db-updated', {
             detail: { pvp: true, wallet: myWalletRef.current },
@@ -567,6 +571,7 @@ export default function MiningChain3D() {
             pvpStolen={pvpStolen}
             onChainSolveOpen={handleChainSolveOpen}
             externalPvpFlash={receivedHitAt}
+            externalKnockback={receivedHitFrom}
             swingMap={swingMap}
             myPoolCode={myPoolCode}
             anonKillMsg={anonKillMsg}

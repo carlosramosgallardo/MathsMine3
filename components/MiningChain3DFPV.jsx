@@ -845,7 +845,7 @@ export default function MiningChain3DFPV({
   initRow, initCol, jumpToCell,
   onPositionChange, onFacingChange, onWantNavigate, onPositionRealtime,
   onPvpHit, pvpStolen,
-  onChainSolveOpen, externalPvpFlash,
+  onChainSolveOpen, externalPvpFlash, externalKnockback,
   swingMap, myPoolCode,
   anonKillMsg,
   playerLevel, playerNftjiCount, walletNftjis, myNftjis,
@@ -940,6 +940,19 @@ export default function MiningChain3DFPV({
   },[myNftjis])
   // External hit flash (victim sees red screen when struck by another player)
   useEffect(()=>{ if(externalPvpFlash) pvpFlashRef.current=performance.now() },[externalPvpFlash])
+  // PvP knockback: apply velocity impulse away from attacker when hit
+  useEffect(()=>{
+    if(!externalKnockback) return
+    const p=playerRef.current
+    const attPos=remoteVisualsRef.current.get(externalKnockback.attacker)
+    const myGX=p.x/CELL_SIZE, myGY=p.y/CELL_SIZE
+    let dx,dy
+    if(attPos){ dx=myGX-attPos.gx; dy=myGY-attPos.gy }
+    else { dx=-Math.cos(p.angle); dy=-Math.sin(p.angle) }
+    const len=Math.hypot(dx,dy)||1
+    velocityRef.current.x+=(dx/len)*160
+    velocityRef.current.y+=(dy/len)*160
+  },[externalKnockback])
   // Kill notification from other players (spectator kill feed)
   useEffect(()=>{
     if(anonKillMsg) notifRef.current = { text: anonKillMsg, color: '#f97316', startedAt: Date.now() }
@@ -1962,6 +1975,18 @@ export default function MiningChain3DFPV({
       const vel=velocityRef.current
       vel.x+=(targetVX-vel.x)*blend; vel.y+=(targetVY-vel.y)*blend
       if(!fwd&&!str&&Math.hypot(vel.x,vel.y)<0.5){vel.x=0;vel.y=0}
+      // Physical collision repulsion: push away from nearby players (no health damage)
+      for(const [w,remote] of remoteVisualsRef.current.entries()){
+        if(w.toLowerCase()===(presenceKeyRef.current||myWalletRef.current||'').toLowerCase()) continue
+        if(Math.abs((Number(remote.z)||0)-p.z)>.85) continue
+        const repX=p.x/CELL_SIZE-remote.gx, repY=p.y/CELL_SIZE-remote.gy
+        const repD=Math.hypot(repX,repY)
+        if(repD<AVATAR_R*2&&repD>.01){
+          const overlap=(AVATAR_R*2-repD)/(AVATAR_R*2)
+          const bump=80*overlap
+          vel.x+=(repX/repD)*bump; vel.y+=(repY/repD)*bump
+        }
+      }
       const movedDist=Math.hypot(vel.x,vel.y)*dt
       if(movedDist>0.001){
         const nx=p.x+vel.x*dt
