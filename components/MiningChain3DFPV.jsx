@@ -15,6 +15,7 @@ const STRIP_W       = 3
 const FOV           = Math.PI / 2
 const PROJ_DIST     = 0.65
 const CAMERA_EYE_Z  = 0.55   // eye height above the surface the player stands on
+const MAX_PITCH     = Math.PI / 2 - 0.02
 const MOVE_SPD      = 0.72   // world units/frame (~1.1 cells/sec at 60fps)
 const TURN_SPD      = 0.018
 const DOOR_FRAC     = 0.45
@@ -520,90 +521,67 @@ function playPickHit(audioCtxRef, type) {
   } catch {}
 }
 
-// ── Pickaxe (first-person weapon) ───────────────────────────────────────────
-function drawPickaxe(ctx, W, H, swingT, walkDist) {
-  // Size: 28% of the shorter canvas dimension, capped at 170px
-  const BASE = Math.min(W, H)
-  const L    = Math.min(BASE * 0.28, 170)
-  const hw   = Math.max(3, L * 0.052)
-
-  const bob = Math.sin(walkDist * 0.5) * 5
-
-  // At rest angle -2.3 rad: cos≈-0.667, sin≈-0.746.
-  // We target the HEAD at (headX, headY) and derive anchor from that.
-  const baseA = -2.3
+// ── Local player (third-person, back view) ──────────────────────────────────
+function drawThirdPersonPlayer(ctx, W, H, color, swingT, walkDist, hasSkills) {
   const mobile = W < 640
-  // Head sits at 58% width / 60% height — clearly visible, not too close to any edge
-  const headTargetX = W * (mobile ? 0.50 : 0.58) + bob * 0.25
-  const headTargetY = H * (mobile ? 0.60 : 0.62) + Math.abs(bob) * 0.3
-  const ax = headTargetX - Math.cos(baseA) * L
-  const ay = headTargetY - Math.sin(baseA) * L
-
-  const swingPhase = Math.sin(swingT * Math.PI)
-  const a = baseA + swingPhase * 1.55
+  const scale = mobile ? 0.78 : Math.max(0.9, Math.min(1.15, H / 560))
+  const bodyW = Math.round(66 * scale)
+  const bodyH = Math.round(88 * scale)
+  const headW = Math.round(42 * scale)
+  const headH = Math.round(27 * scale)
+  const reserve = hasSkills && !mobile ? 74 : 22
+  const bob = Math.sin(walkDist * 0.18) * 2.5 * scale
+  const cx = W / 2
+  const bottomY = H - reserve + bob
+  const bodyTop = bottomY - bodyH
+  const headTop = bodyTop - headH + 4 * scale
+  const [r,g,b] = hexToRgb(color || C)
 
   ctx.save()
-  ctx.globalAlpha = 0.92
-  ctx.translate(ax, ay)
-  ctx.rotate(a)
+  ctx.globalAlpha = 0.98
 
-  // Handle shadow
-  ctx.fillStyle = 'rgba(0,0,0,0.38)'
-  ctx.fillRect(hw * 0.3, hw * 0.6, L, hw * 1.8)
+  // Grounding shadow.
+  ctx.fillStyle = 'rgba(0,0,0,0.36)'
+  ctx.beginPath(); ctx.ellipse(cx, bottomY + 3*scale, bodyW*0.58, 7*scale, 0, 0, Math.PI*2); ctx.fill()
 
-  // Handle (wood)
-  const hg = ctx.createLinearGradient(0, -hw, L, hw)
-  hg.addColorStop(0, '#7a4f20'); hg.addColorStop(0.35, '#a06b30')
-  hg.addColorStop(0.7, '#7a4f20'); hg.addColorStop(1, '#3d2510')
-  ctx.fillStyle = hg
-  ctx.fillRect(0, -hw, L, hw * 2)
+  // Back of the wallet body.
+  ctx.fillStyle = `rgb(${Math.round(r*.52)},${Math.round(g*.52)},${Math.round(b*.52)})`
+  ctx.strokeStyle = `rgb(${Math.min(255,Math.round(r*1.12))},${Math.min(255,Math.round(g*1.12))},${Math.min(255,Math.round(b*1.12))})`
+  ctx.lineWidth = Math.max(1, scale)
+  ctx.fillRect(cx-bodyW/2, bodyTop, bodyW, bodyH)
+  ctx.strokeRect(cx-bodyW/2, bodyTop, bodyW, bodyH)
+  ctx.fillStyle = `rgba(${r},${g},${b},0.34)`
+  ctx.fillRect(cx-bodyW/2+4*scale, bodyTop+8*scale, bodyW-8*scale, 9*scale)
+  ctx.fillStyle = 'rgba(0,0,0,0.28)'
+  ctx.fillRect(cx-bodyW/2, bodyTop+bodyH*.58, bodyW, 2*scale)
 
-  // Wood grain
-  ctx.strokeStyle = 'rgba(0,0,0,0.18)'; ctx.lineWidth = 0.5
-  for (let i = 0; i < 3; i++) {
-    const gx = L * (0.18 + i * 0.26)
-    ctx.beginPath(); ctx.moveTo(gx, -hw * 0.7); ctx.lineTo(gx + L * 0.03, hw * 0.7); ctx.stroke()
-  }
+  // Head / notes seen from behind.
+  ctx.fillStyle = `rgb(${Math.min(255,Math.round(r*.82+35))},${Math.min(255,Math.round(g*.82+35))},${Math.min(255,Math.round(b*.82+35))})`
+  ctx.fillRect(cx-headW/2, headTop, headW, headH)
+  ctx.strokeRect(cx-headW/2, headTop, headW, headH)
+  ctx.fillStyle = 'rgba(255,255,255,0.22)'
+  ctx.fillRect(cx-headW/2+3*scale, headTop+3*scale, headW-6*scale, 3*scale)
 
-  // Head
-  ctx.translate(L, 0)
-  const hh   = hw * 3.4
-  const hext = hw * 3.8
-  const mg   = ctx.createLinearGradient(-hext, -hh, hext * 0.8, hh)
-  mg.addColorStop(0, '#dceaf6'); mg.addColorStop(0.28, '#98afc2')
-  mg.addColorStop(0.65, '#5d7080'); mg.addColorStop(1, '#374249')
-  ctx.fillStyle = mg; ctx.strokeStyle = '#aac8dc'; ctx.lineWidth = 0.8
+  // Right arm and pickaxe stay on the character's screen-right side.
+  const handX = cx + bodyW*.47
+  const handY = bodyTop + bodyH*.43
+  ctx.strokeStyle = `rgb(${Math.round(r*.72)},${Math.round(g*.72)},${Math.round(b*.72)})`
+  ctx.lineWidth = Math.max(4, 7*scale); ctx.lineCap = 'round'
+  ctx.beginPath(); ctx.moveTo(cx+bodyW*.34, bodyTop+bodyH*.28); ctx.lineTo(handX, handY); ctx.stroke()
 
-  // Long mining spike (left) — main striking end
+  const pickL = 62 * scale
+  const pickA = -0.92 - Math.sin(swingT*Math.PI)*1.25
+  const tipX = handX + Math.cos(pickA)*pickL
+  const tipY = handY + Math.sin(pickA)*pickL
+  ctx.strokeStyle = '#8b5e3c'; ctx.lineWidth = Math.max(3, 5*scale)
+  ctx.beginPath(); ctx.moveTo(handX,handY); ctx.lineTo(tipX,tipY); ctx.stroke()
+  ctx.lineCap = 'butt'
+  const hs = 10*scale
+  ctx.fillStyle = '#9fb8c9'; ctx.strokeStyle = '#d7e8f3'; ctx.lineWidth = Math.max(.7,scale)
   ctx.beginPath()
-  ctx.moveTo(-hw * 0.3, -hh * 0.58)
-  ctx.lineTo(-hext * 1.0, -hh * 0.72)
-  ctx.lineTo(-hext * 1.28, hh * 0.04)
-  ctx.lineTo(-hext * 1.0, hh * 0.52)
-  ctx.lineTo(-hw * 0.3, hh * 0.58)
+  ctx.moveTo(tipX-hs*.25,tipY-hs*.7); ctx.lineTo(tipX+hs*1.15,tipY-hs*.18)
+  ctx.lineTo(tipX+hs*.42,tipY+hs*.28); ctx.lineTo(tipX-hs*.72,tipY+hs*.54)
   ctx.closePath(); ctx.fill(); ctx.stroke()
-
-  // Center body
-  ctx.fillRect(-hw * 0.35, -hh * 0.75, hw * 0.7, hh * 1.5)
-  ctx.strokeRect(-hw * 0.35, -hh * 0.75, hw * 0.7, hh * 1.5)
-
-  // Short blunt end (right)
-  ctx.beginPath()
-  ctx.moveTo(hw * 0.3, -hh * 0.48)
-  ctx.lineTo(hext * 0.78, -hh * 0.68)
-  ctx.lineTo(hext * 0.92, 0)
-  ctx.lineTo(hext * 0.78, hh * 0.48)
-  ctx.lineTo(hw * 0.3, hh * 0.48)
-  ctx.closePath(); ctx.fill(); ctx.stroke()
-
-  // Highlight on spike tip
-  ctx.fillStyle = 'rgba(235,248,255,0.72)'
-  ctx.beginPath()
-  ctx.moveTo(-hext * 0.88, -hh * 0.48)
-  ctx.lineTo(-hext * 1.22, hh * 0.02)
-  ctx.lineTo(-hext * 0.96, -hh * 0.42)
-  ctx.closePath(); ctx.fill()
-
   ctx.restore()
 }
 
@@ -847,6 +825,7 @@ export default function MiningChain3DFPV({
     x:((initCol??14)+0.5)*CELL_SIZE,
     y:((initRow??14)+0.5)*CELL_SIZE,
     angle:0,
+    pitch:0,
     z:0, vz:0, jumps:0,
   })
   const walkDistRef        = useRef(0)
@@ -1023,8 +1002,8 @@ export default function MiningChain3DFPV({
     const myWallet = myWalletRef.current
     const es       = esRef.current
 
-    const {x:px,y:py,angle,z:pz=0} = playerRef.current
-    const horizon = H * HORIZON_RATIO
+    const {x:px,y:py,angle,pitch=0,z:pz=0} = playerRef.current
+    const viewCenterY = H * HORIZON_RATIO
     const strips  = Math.ceil(W/STRIP_W)
 
     if (!zBufferRef.current || zBufferRef.current.length !== strips) {
@@ -1035,9 +1014,21 @@ export default function MiningChain3DFPV({
     const cameraBobZ = pz > 0 ? 0 : Math.sin(walkDistRef.current*0.12) * 0.012
     const cameraZ = pz + CAMERA_EYE_Z + cameraBobZ
     const projectionScale = H * PROJ_DIST
-    const projectY = (worldZ, depth) => (
-      horizon - (worldZ - cameraZ) * projectionScale / Math.max(0.01, depth)
-    )
+    const pitchSin = Math.sin(pitch)
+    const pitchCos = Math.cos(pitch)
+    const cameraPoint = (worldZ, depth) => {
+      const relZ = worldZ - cameraZ
+      const rotatedDepth = depth * pitchCos - relZ * pitchSin
+      const rotatedVertical = relZ * pitchCos + depth * pitchSin
+      return { rotatedDepth, rotatedVertical }
+    }
+    const projectY = (worldZ, depth) => {
+      const { rotatedDepth, rotatedVertical } = cameraPoint(worldZ, depth)
+      if (rotatedDepth <= 0.01) return rotatedVertical > 0 ? -H * 4 : H * 4
+      return viewCenterY - rotatedVertical * projectionScale / rotatedDepth
+    }
+    const horizon = viewCenterY - Math.tan(pitch) * projectionScale
+    const sceneSplitY = Math.max(0, Math.min(H, horizon))
 
     // Atmospheric tint from current room
     const {row:gr,col:gc} = worldToGrid(px,py)
@@ -1046,45 +1037,55 @@ export default function MiningChain3DFPV({
     const AT = 0.18
 
     // Ceiling — brighter base values
-    const cg = ctx.createLinearGradient(0,0,0,horizon)
+    const cg = ctx.createLinearGradient(0,0,0,Math.max(1,sceneSplitY))
     cg.addColorStop(0,`rgb(${Math.round(8+ar*AT)},${Math.round(13+ag*AT)},${Math.round(34+ab*AT)})`)
     cg.addColorStop(1,`rgb(${Math.round(16+ar*AT)},${Math.round(26+ag*AT)},${Math.round(62+ab*AT)})`)
-    ctx.fillStyle=cg; ctx.fillRect(0,0,W,horizon)
+    ctx.fillStyle=cg; ctx.fillRect(0,0,W,sceneSplitY)
 
-    // Floor — changes color when standing on a block's top surface
-    const _obsBlock = pz >= BLOCK_TOP ? validObstaclesRef.current.get(`${gr},${gc}`) : null
-    const _onBlockSurface = _obsBlock != null || (pz >= BLOCK_TOP && curCell != null)
+    // Floor — changes color when any part of the player's footprint rests on a block top.
+    let _obsBlock = null
+    let _surfaceCell = null
+    if (pz >= BLOCK_TOP) {
+      const gx = px / CELL_SIZE, gy = py / CELL_SIZE
+      for (const [dr,dc] of [[0,0],[PLAYER_R,0],[-PLAYER_R,0],[0,PLAYER_R],[0,-PLAYER_R]]) {
+        const key = `${Math.floor(gy+dr)},${Math.floor(gx+dc)}`
+        _obsBlock = validObstaclesRef.current.get(key) || null
+        _surfaceCell = cellMap.get(key) || null
+        if (_obsBlock || _surfaceCell) break
+      }
+    }
+    const _onBlockSurface = _obsBlock != null || _surfaceCell != null
     let [_fr, _fg2, _fb] = [22+Math.round(ar*AT), 36+Math.round(ag*AT), 72+Math.round(ab*AT)]
     let [_fr2, _fg3, _fb2] = [6+Math.round(ar*AT*.5), 10+Math.round(ag*AT*.5), 20+Math.round(ab*AT*.5)]
     if (_onBlockSurface) {
       if (_obsBlock?.base) {
         ;[_fr, _fg2, _fb] = _obsBlock.base.map(v => Math.min(255, v + 50))
         ;[_fr2, _fg3, _fb2] = _obsBlock.base
-      } else if (curCell?.color) {
-        const [cr,cg_,cb_] = hexToRgb(curCell.color)
+      } else if (_surfaceCell?.color) {
+        const [cr,cg_,cb_] = hexToRgb(_surfaceCell.color)
         ;[_fr, _fg2, _fb] = [Math.min(255,cr+50), Math.min(255,cg_+50), Math.min(255,cb_+50)]
         ;[_fr2, _fg3, _fb2] = [cr, cg_, cb_]
       }
     }
     // Floor: darker at horizon (far), brighter near feet (near-lit mine)
-    const fg = ctx.createLinearGradient(0,horizon,0,H)
+    const fg = ctx.createLinearGradient(0,sceneSplitY,0,H)
     fg.addColorStop(0,`rgb(${_fr2},${_fg3},${_fb2})`)
     fg.addColorStop(1,`rgb(${_fr},${_fg2},${_fb})`)
-    ctx.fillStyle=fg; ctx.fillRect(0,horizon,W,H-horizon)
+    ctx.fillStyle=fg; ctx.fillRect(0,sceneSplitY,W,H-sceneSplitY)
 
     // Perspective grid on floor — horizontal lines denser near feet
-    const _floorH = H - Math.round(horizon)
+    const _floorH = H - Math.round(sceneSplitY)
     if (_floorH > 4) {
       const ls = Math.max(2, Math.round(_floorH / 10))
-      for (let fy = Math.round(horizon); fy < H; fy += ls) {
-        const t = (fy - horizon) / _floorH  // 0=far 1=near
+      for (let fy = Math.round(sceneSplitY); fy < H; fy += ls) {
+        const t = (fy - sceneSplitY) / _floorH  // 0=far 1=near
         ctx.fillStyle = `rgba(0,0,0,${(0.06 + t * 0.14).toFixed(2)})`
         ctx.fillRect(0, fy, W, 1)
       }
       const vs = Math.max(10, Math.round(W / 28))
       for (let fx = 0; fx < W; fx += vs) {
         ctx.fillStyle = 'rgba(0,0,0,0.07)'
-        ctx.fillRect(fx, Math.round(horizon), 1, _floorH)
+        ctx.fillRect(fx, Math.round(sceneSplitY), 1, _floorH)
       }
     }
 
@@ -1107,8 +1108,8 @@ export default function MiningChain3DFPV({
       const dist  = perpDist*Math.cos(ra-angle)
       const projectedTop = projectY(BLOCK_TOP, dist)
       const projectedBottom = projectY(0, dist)
-      const wTop = Math.round(projectedTop)
-      const wallH = Math.min(H * 2.4, Math.max(1, projectedBottom - projectedTop))
+      const wTop = Math.round(Math.min(projectedTop, projectedBottom))
+      const wallH = Math.min(H * 8, Math.max(1, Math.abs(projectedBottom - projectedTop)))
 
       zBuffer[col] = dist
 
@@ -1129,7 +1130,7 @@ export default function MiningChain3DFPV({
       // A horizontal top is visible only when the eye is above the block.
       if (cell && cameraZ > BLOCK_TOP) {
         const yBackTop  = Math.round(projectY(BLOCK_TOP, dist + 1.0))
-        const yFrontTop = Math.min(Math.round(wTop), H)
+        const yFrontTop = Math.min(Math.round(projectedTop), H)
         const ty0  = Math.max(yBackTop, 0)
         const topH = yFrontTop - ty0
         if (topH > 0) {
@@ -1251,7 +1252,9 @@ export default function MiningChain3DFPV({
     sprites.sort((a,b) => b.dist - a.dist)
 
     for (const { w, tX, tY, color } of sprites) {
-      const scrX = Math.round(W/2*(1+tX/tY))
+      const groundCamera = cameraPoint(0, tY)
+      if (groundCamera.rotatedDepth <= 0.05) continue
+      const scrX = Math.round(W/2 + tX * (W/2) / groundCamera.rotatedDepth)
       const [cr,cg2,cb] = hexToRgb(color)
       const fade  = Math.max(0.32, 1 - tY*0.038)   // slower darkening at distance
       const alpha = Math.min(0.98, Math.max(0.12, 1.0 - tY*0.028)) // visible up to ~30 cells
@@ -1332,12 +1335,12 @@ export default function MiningChain3DFPV({
       // Pickaxe (vector draw, depth-checked at wallet center)
       const pkZCol = Math.floor(scrX / STRIP_W)
       if (pkZCol >= 0 && pkZCol < strips && tY < zBuffer[pkZCol]) {
-        const pkBX = scrX + Math.round(walletW * 0.58)
+        const pkBX = scrX + Math.round(walletW * 0.54)
         const pkBY = Math.round(foldY + walletH * 0.05)
         const pkL  = Math.max(5, Math.round(walletH * 0.55))
         const remoteSwingAge = Date.now() - (swingMapRef.current[w] || 0)
         const remoteSwingT   = remoteSwingAge < SWING_DUR ? remoteSwingAge / SWING_DUR : 0
-        const pkA  = -2.05 + Math.sin(remoteSwingT * Math.PI) * 1.55
+        const pkA  = -0.92 - Math.sin(remoteSwingT * Math.PI) * 1.25
         const pkTX = pkBX + Math.cos(pkA)*pkL, pkTY = pkBY + Math.sin(pkA)*pkL
         ctx.globalAlpha = alpha * 0.82
         ctx.strokeStyle = '#8B5E3C'
@@ -1389,10 +1392,14 @@ export default function MiningChain3DFPV({
     }
 
     // ── Wall face overlays — ONLY for mineable blocks, never for structural walls ──
+    const fwdProjectedTop = projectY(BLOCK_TOP, fwdDist)
+    const fwdProjectedBottom = projectY(0, fwdDist)
+    const crosshairHitsFace = viewCenterY >= Math.min(fwdProjectedTop, fwdProjectedBottom)
+      && viewCenterY <= Math.max(fwdProjectedTop, fwdProjectedBottom)
     const fwdIsObs = fwdCell?.isObstacle || validObstaclesRef.current?.has(`${fwdMy},${fwdMx}`)
     if (fwdIsObs) {
       // Structural wall: no labels, no hex, no prompts
-    } else if (fwdFaceSolid) {
+    } else if (fwdFaceSolid && crosshairHitsFace) {
     const isMineWall = myWallet && fwdCell?.owner?.toLowerCase() === myWallet.toLowerCase()
 
     // Block title on wall face (medium distance)
@@ -1407,7 +1414,7 @@ export default function MiningChain3DFPV({
       ctx.font = `bold ${fs}px monospace`
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
       ctx.fillStyle = fwdCell.color || C
-      ctx.fillText(fwdTitle, W/2, horizon + wH*0.14)
+      ctx.fillText(fwdTitle, W/2, (fwdProjectedTop + fwdProjectedBottom)/2 + wH*0.14)
       ctx.globalAlpha = 1
     }
 
@@ -1417,7 +1424,7 @@ export default function MiningChain3DFPV({
     if (fwdHex && fwdDist < 2.0) {
       const a   = Math.max(0,(2.0-fwdDist)/2.0)*0.52
       const wH  = Math.min(H*1.8,H*PROJ_DIST/Math.max(0.1,fwdDist))
-      const labelY = horizon - wH*0.32
+      const labelY = (fwdProjectedTop + fwdProjectedBottom)/2 - wH*0.32
       if (labelY > H * 0.12) {  // skip if label would land in the top 12% (obstacle ceiling zone)
         const fs  = Math.max(9,Math.round(14*PROJ_DIST/Math.max(0.3,fwdDist)))
         ctx.globalAlpha = a
@@ -1441,7 +1448,7 @@ export default function MiningChain3DFPV({
       ctx.font = `${fs}px monospace`
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
       ctx.fillStyle = fwdCell.color
-      ctx.fillText(ownerText, W/2, horizon - wH*0.46)
+      ctx.fillText(ownerText, W/2, (fwdProjectedTop + fwdProjectedBottom)/2 - wH*0.46)
       ctx.globalAlpha = 1
     }
 
@@ -1454,7 +1461,7 @@ export default function MiningChain3DFPV({
       ctx.font = `bold ${fs}px monospace`
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
       ctx.fillStyle = '#fb923c'
-      ctx.fillText(`${fwdCell.priceEur} EUR`, W/2, horizon + wH*0.30)
+      ctx.fillText(`${fwdCell.priceEur} EUR`, W/2, (fwdProjectedTop + fwdProjectedBottom)/2 + wH*0.30)
       ctx.globalAlpha = 1
     }
 
@@ -1464,23 +1471,23 @@ export default function MiningChain3DFPV({
       const isMineWall2 = myWallet && fwdCell.owner?.toLowerCase() === myWallet.toLowerCase()
       if (fwdCell.isChainNode) {
         ctx.fillStyle = '#ffd700cc'
-        ctx.fillText(es ? '[ ↵ RESOLVER CADENA ]' : '[ ↵ SOLVE FORMULA CHAIN ]', W/2, horizon+18)
+        ctx.fillText(es ? '[ ↵ RESOLVER CADENA ]' : '[ ↵ SOLVE FORMULA CHAIN ]', W/2, viewCenterY+18)
       } else if (!fwdCell.owner && fwdCell.isMarket) {
         ctx.fillStyle = '#fb923ccc'
-        ctx.fillText(es ? '[ ↵ COMPRAR NFTJI ]' : '[ ↵ BUY NFTJI ]', W/2, horizon+18)
+        ctx.fillText(es ? '[ ↵ COMPRAR NFTJI ]' : '[ ↵ BUY NFTJI ]', W/2, viewCenterY+18)
       } else if (isMineWall2 && fwdCell.isMarket) {
         ctx.fillStyle = '#4ade80cc'
-        ctx.fillText(es ? '[ ↵ LIBERAR NFTJI ]' : '[ ↵ RESELL NFTJI ]', W/2, horizon+18)
+        ctx.fillText(es ? '[ ↵ LIBERAR NFTJI ]' : '[ ↵ RESELL NFTJI ]', W/2, viewCenterY+18)
       } else if (!fwdCell.owner) {
         ctx.fillStyle = C + 'cc'
-        ctx.fillText(es ? '[ ↵ MINAR BLOQUE ]' : '[ ↵ MINE BLOCK ]', W/2, horizon+18)
+        ctx.fillText(es ? '[ ↵ MINAR BLOQUE ]' : '[ ↵ MINE BLOCK ]', W/2, viewCenterY+18)
       }
     }
 
     } // end: block-only overlays (not obstacles)
 
     // ── Crosshair — brightens and expands when in interaction range ───────────
-    const hasTarget  = fwdMx >= 0 && fwdMy >= 0 && fwdCell !== null
+    const hasTarget  = fwdMx >= 0 && fwdMy >= 0 && fwdCell !== null && crosshairHitsFace
     const inXHRange  = hasTarget && !fwdCell?.isObstacle && fwdDist <= INTERACT_DIST
     const xhBase     = fwdCell?.isChainNode ? '#ffd700' : (fwdCell?.owner ? fwdCell.color : C)
     const xhCol      = inXHRange ? xhBase+'ee' : C+'33'
@@ -1488,18 +1495,18 @@ export default function MiningChain3DFPV({
     const xhGap      = inXHRange ? 2 : 3
     ctx.strokeStyle = xhCol; ctx.lineWidth = inXHRange ? 1.4 : 1
     ctx.beginPath()
-    ctx.moveTo(W/2-xhLen-xhGap, horizon); ctx.lineTo(W/2-xhGap, horizon)
-    ctx.moveTo(W/2+xhGap, horizon);       ctx.lineTo(W/2+xhLen+xhGap, horizon)
-    ctx.moveTo(W/2, horizon-xhLen-xhGap); ctx.lineTo(W/2, horizon-xhGap)
-    ctx.moveTo(W/2, horizon+xhGap);       ctx.lineTo(W/2, horizon+xhLen+xhGap)
+    ctx.moveTo(W/2-xhLen-xhGap, viewCenterY); ctx.lineTo(W/2-xhGap, viewCenterY)
+    ctx.moveTo(W/2+xhGap, viewCenterY);       ctx.lineTo(W/2+xhLen+xhGap, viewCenterY)
+    ctx.moveTo(W/2, viewCenterY-xhLen-xhGap); ctx.lineTo(W/2, viewCenterY-xhGap)
+    ctx.moveTo(W/2, viewCenterY+xhGap);       ctx.lineTo(W/2, viewCenterY+xhLen+xhGap)
     ctx.stroke()
     if (hasTarget) {
       ctx.fillStyle = xhCol
-      ctx.beginPath(); ctx.arc(W/2, horizon, inXHRange ? 2.5 : 1.5, 0, Math.PI*2); ctx.fill()
+      ctx.beginPath(); ctx.arc(W/2, viewCenterY, inXHRange ? 2.5 : 1.5, 0, Math.PI*2); ctx.fill()
     }
     if (inXHRange) {
       ctx.globalAlpha = 0.18; ctx.strokeStyle = xhBase; ctx.lineWidth = 1
-      ctx.beginPath(); ctx.arc(W/2, horizon, 22, 0, Math.PI*2); ctx.stroke()
+      ctx.beginPath(); ctx.arc(W/2, viewCenterY, 22, 0, Math.PI*2); ctx.stroke()
       ctx.globalAlpha = 1
     }
 
@@ -1524,7 +1531,7 @@ export default function MiningChain3DFPV({
         } else {
           // In FOV but not targeted: subtle below-crosshair label
           ctx.textAlign = 'center'
-          ctx.fillText(`⬡ ${cnD.toFixed(1)}`, W/2, horizon+32)
+          ctx.fillText(`⬡ ${cnD.toFixed(1)}`, W/2, viewCenterY+32)
         }
         ctx.globalAlpha = 1; ctx.textBaseline = 'top'
       }
@@ -1540,7 +1547,7 @@ export default function MiningChain3DFPV({
         ctx.globalAlpha=a
         ctx.font='bold 12px monospace'; ctx.textAlign='center'; ctx.textBaseline='middle'
         const tw=Math.min(ctx.measureText(notif.text).width+28,W*0.72)
-        const bx=W/2-tw/2, by=horizon-62, bh=24
+        const bx=W/2-tw/2, by=viewCenterY-62, bh=24
         ctx.fillStyle='rgba(0,0,0,0.82)'; ctx.fillRect(bx,by,tw,bh)
         ctx.strokeStyle=notif.color; ctx.lineWidth=1; ctx.strokeRect(bx,by,tw,bh)
         ctx.fillStyle=notif.color; ctx.fillText(notif.text,W/2,by+bh/2)
@@ -1575,10 +1582,13 @@ export default function MiningChain3DFPV({
       }
     }
 
-    // ── First-person pickaxe ───────────────────────────────────────────────
+    // ── Local third-person avatar ──────────────────────────────────────────
     const swE  = performance.now() - swingStartRef.current
     const swT  = swE < SWING_DUR ? swE / SWING_DUR : 0
-    drawPickaxe(ctx, W, H, swT, walkDistRef.current)
+    drawThirdPersonPlayer(
+      ctx, W, H, colorFromAddress(myWallet || 'local-player'), swT,
+      walkDistRef.current, myNftjisRef.current.length > 0,
+    )
     drawMineProgress(ctx, W, H, mineProgressRef.current, mineTypeRef.current)
 
     // ── Enemy in crosshair indicator ──────────────────────────────────────
@@ -1725,15 +1735,18 @@ export default function MiningChain3DFPV({
   // Pointer drag → rotate, tap → pickaxe swing
   const handlePointerDown = useCallback((e)=>{
     canvasRef.current?.setPointerCapture(e.pointerId)
-    dragRef.current = { x: e.clientX, type: e.pointerType, moved: 0 }
+    dragRef.current = { x: e.clientX, y: e.clientY, type: e.pointerType, moved: 0 }
   },[])
   const handlePointerMove = useCallback((e)=>{
     if (!dragRef.current) return
     const dx = e.clientX - dragRef.current.x
+    const dy = e.clientY - dragRef.current.y
     dragRef.current.x = e.clientX
-    dragRef.current.moved = (dragRef.current.moved||0) + Math.abs(dx)
+    dragRef.current.y = e.clientY
+    dragRef.current.moved = (dragRef.current.moved||0) + Math.abs(dx) + Math.abs(dy)
     const sens = dragRef.current.type === 'touch' ? 0.0038 : 0.0019
     playerRef.current.angle += dx * sens
+    playerRef.current.pitch = Math.max(-MAX_PITCH, Math.min(MAX_PITCH, playerRef.current.pitch + dy * sens))
     renderRef.current?.()
   },[])
   const handlePointerUp = useCallback(()=>{
