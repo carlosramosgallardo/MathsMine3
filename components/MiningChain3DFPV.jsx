@@ -1033,7 +1033,10 @@ export default function MiningChain3DFPV({
     // Atmospheric tint from current room
     const {row:gr,col:gc} = worldToGrid(px,py)
     const curCell = cellMap.get(`${gr},${gc}`)
-    const [ar,ag,ab] = curCell?.color ? hexToRgb(curCell.color) : [0,0,0]
+    // A cell directly below the player is a platform, not the room containing
+    // the camera. Do not recolor the whole scene when landing on top of it.
+    const atmosphereCell = pz < BLOCK_TOP ? curCell : null
+    const [ar,ag,ab] = atmosphereCell?.color ? hexToRgb(atmosphereCell.color) : [0,0,0]
     const AT = 0.18
 
     // Ceiling — brighter base values
@@ -1042,31 +1045,10 @@ export default function MiningChain3DFPV({
     cg.addColorStop(1,`rgb(${Math.round(16+ar*AT)},${Math.round(26+ag*AT)},${Math.round(62+ab*AT)})`)
     ctx.fillStyle=cg; ctx.fillRect(0,0,W,sceneSplitY)
 
-    // Floor — changes color when any part of the player's footprint rests on a block top.
-    let _obsBlock = null
-    let _surfaceCell = null
-    if (pz >= BLOCK_TOP) {
-      const gx = px / CELL_SIZE, gy = py / CELL_SIZE
-      for (const [dr,dc] of [[0,0],[PLAYER_R,0],[-PLAYER_R,0],[0,PLAYER_R],[0,-PLAYER_R]]) {
-        const key = `${Math.floor(gy+dr)},${Math.floor(gx+dc)}`
-        _obsBlock = validObstaclesRef.current.get(key) || null
-        _surfaceCell = cellMap.get(key) || null
-        if (_obsBlock || _surfaceCell) break
-      }
-    }
-    const _onBlockSurface = _obsBlock != null || _surfaceCell != null
-    let [_fr, _fg2, _fb] = [22+Math.round(ar*AT), 36+Math.round(ag*AT), 72+Math.round(ab*AT)]
-    let [_fr2, _fg3, _fb2] = [6+Math.round(ar*AT*.5), 10+Math.round(ag*AT*.5), 20+Math.round(ab*AT*.5)]
-    if (_onBlockSurface) {
-      if (_obsBlock?.base) {
-        ;[_fr, _fg2, _fb] = _obsBlock.base.map(v => Math.min(255, v + 50))
-        ;[_fr2, _fg3, _fb2] = _obsBlock.base
-      } else if (_surfaceCell?.color) {
-        const [cr,cg_,cb_] = hexToRgb(_surfaceCell.color)
-        ;[_fr, _fg2, _fb] = [Math.min(255,cr+50), Math.min(255,cg_+50), Math.min(255,cb_+50)]
-        ;[_fr2, _fg3, _fb2] = [cr, cg_, cb_]
-      }
-    }
+    // The base floor is a world plane. Block materials are rendered only on
+    // their projected faces, never as a full-screen replacement floor.
+    const [_fr, _fg2, _fb] = [22+Math.round(ar*AT), 36+Math.round(ag*AT), 72+Math.round(ab*AT)]
+    const [_fr2, _fg3, _fb2] = [6+Math.round(ar*AT*.5), 10+Math.round(ag*AT*.5), 20+Math.round(ab*AT*.5)]
     // Floor: darker at horizon (far), brighter near feet (near-lit mine)
     const fg = ctx.createLinearGradient(0,sceneSplitY,0,H)
     fg.addColorStop(0,`rgb(${_fr2},${_fg3},${_fb2})`)
@@ -1134,12 +1116,12 @@ export default function MiningChain3DFPV({
         const ty0  = Math.max(yBackTop, 0)
         const topH = yFrontTop - ty0
         if (topH > 0) {
-          const th1 = Math.max(1, Math.ceil(topH * 0.45))
+          const th1 = Math.max(1, Math.ceil(topH * 0.55))
           const th2 = topH - th1
-          ctx.fillStyle=`rgb(${Math.min(255,Math.round(rw*1.15))},${Math.min(255,Math.round(gw*1.15))},${Math.min(255,Math.round(bw*1.15))})`
+          ctx.fillStyle=`rgb(${Math.min(255,Math.round(rw*1.12))},${Math.min(255,Math.round(gw*1.12))},${Math.min(255,Math.round(bw*1.12))})`
           ctx.fillRect(col*STRIP_W, ty0, STRIP_W, th1)
           if (th2 > 0) {
-            ctx.fillStyle=`rgb(${Math.min(255,Math.round(rw*1.85))},${Math.min(255,Math.round(gw*1.85))},${Math.min(255,Math.round(bw*1.85))})`
+            ctx.fillStyle=`rgb(${Math.min(255,Math.round(rw*1.28))},${Math.min(255,Math.round(gw*1.28))},${Math.min(255,Math.round(bw*1.28))})`
             ctx.fillRect(col*STRIP_W, ty0+th1, STRIP_W, th2)
           }
           const seamY = Math.min(Math.round(wTop), H-2)
@@ -1259,11 +1241,12 @@ export default function MiningChain3DFPV({
       const fade  = Math.max(0.32, 1 - tY*0.038)   // slower darkening at distance
       const alpha = Math.min(0.98, Math.max(0.12, 1.0 - tY*0.028)) // visible up to ~30 cells
 
-      // Perspective-correct grounding using the same camera projection as walls.
-      // sScale boosts sprite size 40% above wall-cell scale for better distance visibility
+      // Perspective-correct grounding. Remote avatars use the same visual scale
+      // as the local third-person avatar and are capped at close range.
       const cellScale = Math.min(H*1.8, projectionScale/Math.max(0.05, tY))
       const bottomY   = Math.min(H+30, Math.round(projectY(0, tY)))
-      const sScale    = cellScale * 1.40
+      const localAvatarH = 115 * (W < 640 ? 0.78 : Math.max(0.9, Math.min(1.15, H / 560)))
+      const sScale    = Math.min(cellScale, localAvatarH / 0.78)
       const walletH   = Math.round(sScale * 0.58)
       const walletW   = Math.round(sScale * 0.50)
       const billsH    = Math.round(sScale * 0.20)
@@ -1335,12 +1318,14 @@ export default function MiningChain3DFPV({
       // Pickaxe (vector draw, depth-checked at wallet center)
       const pkZCol = Math.floor(scrX / STRIP_W)
       if (pkZCol >= 0 && pkZCol < strips && tY < zBuffer[pkZCol]) {
-        const pkBX = scrX + Math.round(walletW * 0.54)
+        // The remote is seen from the front, so its anatomical right appears
+        // on our screen-left (mirror relation between facing characters).
+        const pkBX = scrX - Math.round(walletW * 0.54)
         const pkBY = Math.round(foldY + walletH * 0.05)
         const pkL  = Math.max(5, Math.round(walletH * 0.55))
         const remoteSwingAge = Date.now() - (swingMapRef.current[w] || 0)
         const remoteSwingT   = remoteSwingAge < SWING_DUR ? remoteSwingAge / SWING_DUR : 0
-        const pkA  = -0.92 - Math.sin(remoteSwingT * Math.PI) * 1.25
+        const pkA  = -Math.PI + 0.92 + Math.sin(remoteSwingT * Math.PI) * 1.25
         const pkTX = pkBX + Math.cos(pkA)*pkL, pkTY = pkBY + Math.sin(pkA)*pkL
         ctx.globalAlpha = alpha * 0.82
         ctx.strokeStyle = '#8B5E3C'
