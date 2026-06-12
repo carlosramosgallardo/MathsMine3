@@ -14,7 +14,7 @@ const WORLD_H       = ROWS * CELL_SIZE
 const STRIP_W       = 3
 const FOV           = Math.PI / 2
 const PROJ_DIST     = 0.65
-const MOVE_SPD      = 2.5    // world units/frame (~4 cells/sec at 60fps)
+const MOVE_SPD      = 1.25   // world units/frame (~2 cells/sec at 60fps)
 const TURN_SPD      = 0.030
 const DOOR_FRAC     = 0.45
 const HORIZON_RATIO = 0.42
@@ -1763,21 +1763,22 @@ export default function MiningChain3DFPV({
       }
 
       // ── Vertical physics (jump / gravity) ────────────────────────────────
-      if(p.z > 0 || p.vz > 0){
-        p.vz -= GRAVITY_A
-        const nz = p.z + p.vz
-        if(nz <= 0){
-          p.z = 0; p.vz = 0; p.jumps = 0
-        } else if(p.vz < 0){
-          // Falling: land on block/obstacle top if crossing BLOCK_TOP threshold
-          const bc = Math.floor(p.x/CELL_SIZE), br = Math.floor(p.y/CELL_SIZE)
-          const bk = `${br},${bc}`
-          if((validObstaclesRef.current.has(bk)||cellMapRef.current.has(bk)) &&
-              p.z >= BLOCK_TOP && nz < BLOCK_TOP){
-            p.z = BLOCK_TOP; p.vz = 0; p.jumps = 0
-          } else { p.z = nz }
-        } else { p.z = nz }
-        needsRender = true
+      {
+        // Floor under player: BLOCK_TOP when already elevated over a block, else 0
+        const _br = Math.floor(p.y/CELL_SIZE), _bc = Math.floor(p.x/CELL_SIZE)
+        const _onBlock = validObstaclesRef.current.has(`${_br},${_bc}`) ||
+                         cellMapRef.current.has(`${_br},${_bc}`)
+        const floorZ = (_onBlock && p.z >= BLOCK_TOP) ? BLOCK_TOP : 0
+        if(p.z > floorZ || p.vz > 0){
+          p.vz -= GRAVITY_A
+          const nz = p.z + p.vz
+          if(nz <= floorZ){
+            p.z = floorZ; p.vz = 0; p.jumps = 0   // land on floor or block top
+          } else {
+            p.z = nz
+          }
+          needsRender = true
+        }
       }
 
       // ── Enemy sprite targeting ─────────────────────────────────────────────
