@@ -826,6 +826,7 @@ export default function MiningChain3DFPV({
   const swingEpochRef = useRef(0)
   const remoteVisualsRef = useRef(new Map())
   const lastRemoteFrameRef = useRef(0)
+  const lastAmbientRenderRef = useRef(0)
   const renderRef     = useRef(null)
   const lastCellRef   = useRef({row:initRow??14,col:initCol??14})
   const zBufferRef    = useRef(null)
@@ -1015,7 +1016,8 @@ export default function MiningChain3DFPV({
 
     const {x:px,y:py,angle,pitch=0,z:pz=0} = playerRef.current
     const viewCenterY = H * HORIZON_RATIO
-    const strips  = Math.ceil(W/STRIP_W)
+    const stripW=W>=1600?4:STRIP_W
+    const strips=Math.ceil(W/stripW)
 
     if (!zBufferRef.current || zBufferRef.current.length !== strips) {
       zBufferRef.current = new Float32Array(strips)
@@ -1041,20 +1043,48 @@ export default function MiningChain3DFPV({
     const horizon = viewCenterY - Math.tan(pitch) * projectionScale
     const sceneSplitY = Math.max(0, Math.min(H, horizon))
     const horizontalProjection = W/(2*Math.tan(FOV/2))
-    const floorPointAt = (sx,sy,worldZ) => {
-      const v=(viewCenterY-sy)/projectionScale
-      const denom=v*pitchCos-pitchSin
-      if(Math.abs(denom)<1e-5) return null
+    const cameraVertex=(gx,gy,worldZ)=>{
+      const rx=gx-px/CELL_SIZE,ry=gy-py/CELL_SIZE
+      const depth=Math.cos(angle)*rx+Math.sin(angle)*ry
+      const lateral=-Math.sin(angle)*rx+Math.cos(angle)*ry
       const relZ=worldZ-cameraZ
-      const depth=relZ*(pitchCos+v*pitchSin)/denom
-      const rotatedDepth=depth*pitchCos-relZ*pitchSin
-      if(depth<=0.01||rotatedDepth<=0.01) return null
-      const lateral=(sx-W/2)*rotatedDepth/horizontalProjection
       return {
-        depth,rotatedDepth,
-        gx:px/CELL_SIZE+(Math.cos(angle)*depth-Math.sin(angle)*lateral),
-        gy:py/CELL_SIZE+(Math.sin(angle)*depth+Math.cos(angle)*lateral),
+        lateral,
+        depth:depth*pitchCos-relZ*pitchSin,
+        vertical:relZ*pitchCos+depth*pitchSin,
       }
+    }
+    const clipNear=(vertices,near=0.06)=>{
+      const out=[]
+      for(let i=0;i<vertices.length;i++){
+        const a=vertices[i],b=vertices[(i+1)%vertices.length]
+        const aIn=a.depth>near,bIn=b.depth>near
+        if(aIn) out.push(a)
+        if(aIn!==bIn){
+          const t=(near-a.depth)/(b.depth-a.depth)
+          out.push({
+            lateral:a.lateral+(b.lateral-a.lateral)*t,
+            depth:near,
+            vertical:a.vertical+(b.vertical-a.vertical)*t,
+          })
+        }
+      }
+      return out
+    }
+    const screenVertex=v=>({
+      x:W/2+v.lateral*horizontalProjection/v.depth,
+      y:viewCenterY-v.vertical*projectionScale/v.depth,
+    })
+    const projectSegment=(a,b)=>{
+      let va=cameraVertex(...a),vb=cameraVertex(...b)
+      const near=0.06
+      if(va.depth<=near&&vb.depth<=near) return null
+      if(va.depth<=near||vb.depth<=near){
+        const t=(near-va.depth)/(vb.depth-va.depth)
+        const mid={lateral:va.lateral+(vb.lateral-va.lateral)*t,depth:near,vertical:va.vertical+(vb.vertical-va.vertical)*t}
+        if(va.depth<=near) va=mid; else vb=mid
+      }
+      return [screenVertex(va),screenVertex(vb),Math.min(va.depth,vb.depth)]
     }
 
     // Atmospheric tint from current room
@@ -1081,43 +1111,57 @@ export default function MiningChain3DFPV({
     fg.addColorStop(1,`rgb(${_fr},${_fg2},${_fb})`)
     ctx.fillStyle=fg; ctx.fillRect(0,sceneSplitY,W,H-sceneSplitY)
 
-    // World-space floor casting. Each sample resolves against z=0 and against
-    // block tops at z=1, so platforms remain visible beneath the player.
-    const floorStep=W<600?3:2
+    // World-space grid made from projected cell edges. This is dramatically
+    // cheaper than per-pixel floor casting and remains stable during motion.
     const solidAt=(gx,gy)=>{
       const row=Math.floor(gy),col=Math.floor(gx),key=`${row},${col}`
       return validObstaclesRef.current.has(key)||cellMap.has(key)
     }
-    for(let sy=Math.max(0,Math.floor(sceneSplitY));sy<H;sy+=floorStep){
-      for(let sx=0;sx<W;sx+=floorStep){
-        const top=floorPointAt(sx+floorStep/2,sy+floorStep/2,BLOCK_TOP)
-        const ground=floorPointAt(sx+floorStep/2,sy+floorStep/2,0)
-        let point=ground,isTop=false
-        if(top&&solidAt(top.gx,top.gy)){point=top;isTop=true}
-        if(!point) continue
-        const fracX=((point.gx%1)+1)%1,fracY=((point.gy%1)+1)%1
-        const edge=Math.min(fracX,1-fracX,fracY,1-fracY)
-        const fade=Math.max(0.18,1-point.depth*0.035)
-        const checker=(Math.floor(point.gx)+Math.floor(point.gy))&1
-        if(isTop){
-          const key=`${Math.floor(point.gy)},${Math.floor(point.gx)}`
-          const obs=validObstaclesRef.current.get(key)
-          const cell=cellMap.get(key)
-          const base=obs?.base||(cell?.color?hexToRgb(cell.color):cell?.isChainNode?[220,170,25]:[48,82,142])
-          const light=(checker?0.88:0.98)*Math.max(0.42,fade)
-          ctx.fillStyle=`rgb(${Math.round(base[0]*light)},${Math.round(base[1]*light)},${Math.round(base[2]*light)})`
-        }else{
-          const light=(checker?0.92:1.0)*Math.max(0.36,fade)
-          ctx.fillStyle=`rgb(${Math.round(_fr*light)},${Math.round(_fg2*light)},${Math.round(_fb*light)})`
-        }
-        ctx.fillRect(sx,sy,floorStep,floorStep)
-        const panelEdge=isTop&&Math.min(Math.abs(fracX-.5),Math.abs(fracY-.5))<0.018
-        if((edge<0.028||panelEdge)&&point.depth<15){
-          ctx.fillStyle=isTop
-            ? (edge<0.028?'rgba(225,242,255,.30)':'rgba(0,0,0,.16)')
-            : 'rgba(34,211,238,.11)'
-          ctx.fillRect(sx,sy,floorStep,floorStep)
-        }
+    ctx.globalAlpha=.12;ctx.strokeStyle=C;ctx.lineWidth=1;ctx.beginPath()
+    for(let c=0;c<=COLS;c++){
+      const seg=projectSegment([c,0,0],[c,ROWS,0]); if(!seg) continue
+      const [a,b,d]=seg;if((a.y<sceneSplitY&&b.y<sceneSplitY)||d>34) continue
+      ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y)
+    }
+    for(let r=0;r<=ROWS;r++){
+      const seg=projectSegment([0,r,0],[COLS,r,0]); if(!seg) continue
+      const [a,b,d]=seg;if((a.y<sceneSplitY&&b.y<sceneSplitY)||d>34) continue
+      ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y)
+    }
+    ctx.stroke();ctx.globalAlpha=1
+
+    // Visible block tops are clipped polygons and are rendered before walls;
+    // wall strips therefore occlude them cleanly without jagged overlaps.
+    const tops=[]
+    if(cameraZ>BLOCK_TOP+.015) for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++){
+      if(!solidAt(c+.5,r+.5)) continue
+      const verts=clipNear([
+        cameraVertex(c,r,BLOCK_TOP),cameraVertex(c+1,r,BLOCK_TOP),
+        cameraVertex(c+1,r+1,BLOCK_TOP),cameraVertex(c,r+1,BLOCK_TOP),
+      ])
+      if(verts.length<3) continue
+      const points=verts.map(screenVertex)
+      if(points.every(p=>p.x<-2||p.x>W+2||p.y<-2||p.y>H+2)) continue
+      const depth=verts.reduce((sum,v)=>sum+v.depth,0)/verts.length
+      tops.push({r,c,points,depth})
+    }
+    tops.sort((a,b)=>b.depth-a.depth)
+    for(const top of tops){
+      const key=`${top.r},${top.c}`,obs=validObstaclesRef.current.get(key),cell=cellMap.get(key)
+      const base=obs?.base||(cell?.color?hexToRgb(cell.color):cell?.isChainNode?[220,170,25]:[48,82,142])
+      const light=Math.max(.48,1-top.depth*.025)
+      ctx.fillStyle=`rgb(${Math.round(base[0]*light)},${Math.round(base[1]*light)},${Math.round(base[2]*light)})`
+      ctx.strokeStyle='rgba(220,240,255,.32)';ctx.lineWidth=1
+      ctx.beginPath();ctx.moveTo(top.points[0].x,top.points[0].y)
+      for(let i=1;i<top.points.length;i++)ctx.lineTo(top.points[i].x,top.points[i].y)
+      ctx.closePath();ctx.fill();ctx.stroke()
+      if(top.depth<10){
+        const a=projectSegment([top.c+.5,top.r,BLOCK_TOP+.003],[top.c+.5,top.r+1,BLOCK_TOP+.003])
+        const b=projectSegment([top.c,top.r+.5,BLOCK_TOP+.003],[top.c+1,top.r+.5,BLOCK_TOP+.003])
+        ctx.strokeStyle='rgba(0,0,0,.16)';ctx.beginPath()
+        if(a){ctx.moveTo(a[0].x,a[0].y);ctx.lineTo(a[1].x,a[1].y)}
+        if(b){ctx.moveTo(b[0].x,b[0].y);ctx.lineTo(b[1].x,b[1].y)}
+        ctx.stroke()
       }
     }
 
@@ -1150,9 +1194,9 @@ export default function MiningChain3DFPV({
         const k = `${hitMx},${hitMy}`
         const vw = visibleWalls.get(k)
         if (!vw) {
-          visibleWalls.set(k, { x1:col*STRIP_W, x2:col*STRIP_W+STRIP_W, wTop, wallH, dist, cell })
+          visibleWalls.set(k, { x1:col*stripW, x2:col*stripW+stripW, wTop, wallH, dist, cell })
         } else {
-          vw.x2 = col*STRIP_W+STRIP_W
+          vw.x2 = col*stripW+stripW
           if (dist < vw.dist) { vw.dist=dist; vw.wTop=wTop; vw.wallH=wallH }
         }
       }
@@ -1160,7 +1204,7 @@ export default function MiningChain3DFPV({
       const [rw,gw,bw] = wallRgb(cell,dist,side,myWallet)
 
       ctx.fillStyle=`rgb(${rw},${gw},${bw})`
-      ctx.fillRect(col*STRIP_W,wTop,STRIP_W,wallH)
+      ctx.fillRect(col*stripW,wTop,stripW,wallH)
 
       // NFTJI block patterns
       if (cell?.isMarket) {
@@ -1169,18 +1213,18 @@ export default function MiningChain3DFPV({
           const stripeH = Math.max(3, Math.round(wallH/6))
           for (let sy=wTop; sy<wTop+wallH; sy+=stripeH*2) {
             ctx.fillStyle = 'rgba(251,146,60,0.22)'
-            ctx.fillRect(col*STRIP_W, sy, STRIP_W, Math.min(stripeH, wTop+wallH-sy))
+            ctx.fillRect(col*stripW, sy, stripW, Math.min(stripeH, wTop+wallH-sy))
           }
         } else {
           const isMe = myWallet && cell.owner.toLowerCase() === myWallet.toLowerCase()
           if (isMe) {
             // My NFTJI block: cyan shimmer
             ctx.fillStyle = 'rgba(34,211,238,0.18)'
-            ctx.fillRect(col*STRIP_W, wTop, STRIP_W, wallH)
+            ctx.fillRect(col*stripW, wTop, stripW, wallH)
           } else {
             const [mr,mg,mb] = hexToRgb(cell.color)
             ctx.fillStyle = `rgba(${mr},${mg},${mb},0.15)`
-            ctx.fillRect(col*STRIP_W, wTop, STRIP_W, wallH)
+            ctx.fillRect(col*stripW, wTop, stripW, wallH)
           }
         }
       }
@@ -1190,20 +1234,20 @@ export default function MiningChain3DFPV({
         if (wallH > 8) {
           const hlH = Math.max(2, Math.round(wallH*0.035))
           ctx.fillStyle = 'rgba(255,255,255,0.14)'
-          ctx.fillRect(col*STRIP_W, wTop, STRIP_W, hlH)
+          ctx.fillRect(col*stripW, wTop, stripW, hlH)
         }
         // Ambient-occlusion edges (blocks only — walls are continuous, no float)
         const edgeH = Math.max(2,Math.round(wallH*0.12))
         ctx.fillStyle='rgba(0,0,0,0.28)'
-        ctx.fillRect(col*STRIP_W,wTop,STRIP_W,edgeH)
-        ctx.fillRect(col*STRIP_W,wTop+wallH-edgeH,STRIP_W,edgeH)
-      } else {
+        ctx.fillRect(col*stripW,wTop,stripW,edgeH)
+        ctx.fillRect(col*stripW,wTop+wallH-edgeH,stripW,edgeH)
+      } else if(col%3===0) {
         // Obstacle wall: horizontal mortar lines only — looks like stone/concrete
         const [or,og,ob] = cell.base
         const panelH = Math.max(5, Math.round(wallH / 4))
         for (let sy = wTop; sy < wTop + wallH; sy += panelH) {
           ctx.fillStyle = `rgba(${Math.round(or*0.25)},${Math.round(og*0.25)},${Math.round(ob*0.25)},0.6)`
-          ctx.fillRect(col*STRIP_W, sy, STRIP_W, 1)
+          ctx.fillRect(col*stripW, sy, stripW*3, 1)
         }
       }
 
@@ -1211,19 +1255,19 @@ export default function MiningChain3DFPV({
       if (cell?.isChainNode) {
         const a = (0.14 + Math.sin(Date.now() / 420) * 0.10).toFixed(3)
         ctx.fillStyle = `rgba(255,220,0,${a})`
-        ctx.fillRect(col*STRIP_W, wTop, STRIP_W, wallH)
+        ctx.fillRect(col*stripW, wTop, stripW, wallH)
       }
 
       // Forward-cell selection glow — blocks only, never walls
       if (hitMx===fwdMx && hitMy===fwdMy && fwdMx>=0 && cell && !cell.isObstacle){
         ctx.fillStyle='rgba(34,211,238,0.11)'
-        ctx.fillRect(col*STRIP_W,wTop,STRIP_W,wallH)
+        ctx.fillRect(col*stripW,wTop,stripW,wallH)
       }
 
       // CRT scanlines on blocks only (not structural walls)
-      if (!cell?.isObstacle) {
+      if (!cell?.isObstacle&&col%3===0) {
         ctx.fillStyle='rgba(0,0,0,0.10)'
-        for (let sy=wTop;sy<wTop+wallH;sy+=4) ctx.fillRect(col*STRIP_W,sy,STRIP_W,1)
+        for (let sy=wTop;sy<wTop+wallH;sy+=5) ctx.fillRect(col*stripW,sy,stripW*3,1)
       }
     }
 
@@ -1294,7 +1338,7 @@ export default function MiningChain3DFPV({
 
       // Glow outline pass
       for (let sx = fullLeft-1; sx <= fullRight; sx++) {
-        const zCol = Math.floor(sx / STRIP_W)
+        const zCol = Math.floor(sx / stripW)
         if (zCol < 0 || zCol >= strips) continue
         if (tY >= zBuffer[zCol]) continue
         ctx.globalAlpha = alpha * 0.28; ctx.fillStyle = color
@@ -1304,7 +1348,7 @@ export default function MiningChain3DFPV({
 
       // Wallet body (column-by-column depth-correct)
       for (let sx = fullLeft; sx < fullRight; sx++) {
-        const zCol = Math.floor(sx / STRIP_W)
+        const zCol = Math.floor(sx / stripW)
         if (zCol < 0 || zCol >= strips) continue
         if (tY >= zBuffer[zCol]) continue
         const inWallet = sx >= wx1 && sx < wx2
@@ -1345,7 +1389,7 @@ export default function MiningChain3DFPV({
       ctx.globalAlpha = 1
 
       // Pickaxe (vector draw, depth-checked at wallet center)
-      const pkZCol = Math.floor(scrX / STRIP_W)
+      const pkZCol = Math.floor(scrX / stripW)
       if (pkZCol >= 0 && pkZCol < strips && tY < zBuffer[pkZCol]) {
         // The remote is seen from the front, so its anatomical right appears
         // on our screen-left (mirror relation between facing characters).
@@ -1681,7 +1725,9 @@ export default function MiningChain3DFPV({
       const {width,height}=container.getBoundingClientRect()
       const cssW = Math.max(1, Math.round(width))
       const cssH = Math.max(1, Math.round(height))
-      const dpr = Math.min(2, Math.max(1, window.devicePixelRatio || 1))
+      const pixels=cssW*cssH
+      const dprCap=pixels>900000?1:1.35
+      const dpr = Math.min(dprCap,Math.max(1,window.devicePixelRatio||1))
       canvas.dataset.dpr = String(dpr)
       canvas.width = Math.round(cssW * dpr)
       canvas.height = Math.round(cssH * dpr)
@@ -2050,7 +2096,11 @@ export default function MiningChain3DFPV({
       const hasRemotes = Object.keys(presenceRef.current||{}).some(
         w => w.toLowerCase() !== (presenceKeyRef.current||myWalletRef.current||'').toLowerCase()
       )
-      if(needsRender||hasRemotes) renderRef.current?.()
+      const ambientDue=hasRemotes&&nowMs-lastAmbientRenderRef.current>33
+      if(needsRender||ambientDue){
+        if(ambientDue) lastAmbientRenderRef.current=nowMs
+        renderRef.current?.()
+      }
     }
     lastFrameRef.current=0
     animRef.current=requestAnimationFrame(loop)
