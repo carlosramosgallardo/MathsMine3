@@ -994,15 +994,17 @@ function drawMinimap(ctx, gr, gc, angle, cellMap, presenceMap, myWallet, W, H, c
   const mapX = (col) => MX + (col-originCol)*CS
   const mapY = (row) => MY + (row-originRow)*CS
   const visible = (row,col,pad=0) => col>=originCol-pad&&col<=originCol+viewCells+pad&&row>=originRow-pad&&row<=originRow+viewCells+pad
-  const drawMapEmoji = (emoji,x,y,color) => {
+  const drawMapEmoji = (emoji,x,y,color,shape='circle') => {
     const fontSize = isMobile ? 9 : 10
     const radius = fontSize * .53
     ctx.save()
     ctx.globalAlpha = .96
     ctx.fillStyle = 'rgba(1,7,14,.88)'
-    ctx.beginPath();ctx.arc(x,y,radius,0,Math.PI*2);ctx.fill()
     ctx.strokeStyle = (color || C) + 'cc';ctx.lineWidth = 1.25
-    ctx.beginPath();ctx.arc(x,y,radius,0,Math.PI*2);ctx.stroke()
+    ctx.beginPath()
+    if(shape==='square') ctx.roundRect(x-radius,y-radius,radius*2,radius*2,Math.max(1,radius*.18))
+    else ctx.arc(x,y,radius,0,Math.PI*2)
+    ctx.fill();ctx.stroke()
     ctx.font = `${fontSize}px serif`;ctx.textAlign='center';ctx.textBaseline='middle'
     ctx.fillStyle='#fff';ctx.fillText(emoji||'◆',x,y+fontSize*.03)
     ctx.restore()
@@ -1058,7 +1060,7 @@ function drawMinimap(ctx, gr, gc, angle, cellMap, presenceMap, myWallet, W, H, c
     ctx.fillRect(-ds, -ds, ds*2, ds*2)
     ctx.restore()
     if(cell.emoji){
-      drawMapEmoji(cell.emoji,mx2,my2,cell.owner?'#4ade80':'#fb923c')
+      drawMapEmoji(cell.emoji,mx2,my2,cell.owner?'#4ade80':'#fb923c','square')
     }
   }
 
@@ -1167,7 +1169,7 @@ function drawMinimap(ctx, gr, gc, angle, cellMap, presenceMap, myWallet, W, H, c
     ctx.beginPath()
     ctx.arc(px2, py2, Math.max(2, CS * 0.75), 0, Math.PI * 2)
     ctx.fill()
-    drawMapEmoji(cell.emoji||'◆',px2,py2,cell.color||C)
+    drawMapEmoji(cell.emoji||'◆',px2,py2,cell.color||C,'circle')
     ctx.globalAlpha = 1
   }
 
