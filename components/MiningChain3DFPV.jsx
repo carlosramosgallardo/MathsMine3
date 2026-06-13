@@ -3473,11 +3473,23 @@ export default function MiningChain3DFPV({
         }
       }
 
-      // ── Enemy sprite targeting ─────────────────────────────────────────────
+      // ── Enemy sprite targeting (screen-space, zoom-invariant) ─────────────
       const camGX = p.x / CELL_SIZE, camGY = p.y / CELL_SIZE
       let closestEnemy = null, closestDist = Infinity
       const myW = myWalletRef.current
       const myIdentity = presenceKeyRef.current||myW
+      // Derive canvas dimensions — same formula as the draw function so the
+      // crosshair check uses the identical coordinate system.
+      const _cvs = canvasRef.current
+      const _dpr = _cvs ? (Number(_cvs.dataset.dpr) || 1) : 1
+      const _W   = _cvs ? Math.round(_cvs.width  / _dpr) : 640
+      const _H   = _cvs ? Math.round(_cvs.height / _dpr) : 400
+      const _projScale  = _H * PROJ_DIST
+      const _hProj      = _W / (2 * Math.tan(FOV / 2))
+      const _viewCY     = _H * HORIZON_RATIO
+      const _pitch      = p.pitch || 0
+      const _cosP = Math.cos(_pitch), _sinP = Math.sin(_pitch)
+      const _cx = _W / 2, _cy = _viewCY   // crosshair screen position
       for (const [w, pres] of remoteVisualsRef.current.entries()) {
         const isMe = w.toLowerCase() === (myIdentity || '').toLowerCase()
         if (isMe) continue
@@ -3487,20 +3499,30 @@ export default function MiningChain3DFPV({
         const tY = Math.cos(p.angle)*rx + Math.sin(p.angle)*ry
         if (tY < 0.15 || tY > INTERACT_DIST) continue
         const tX = -Math.sin(p.angle)*rx + Math.cos(p.angle)*ry
-        const targetBaseZ = Number(pres.z) || 0
-        const aimZ = p.z + CAMERA_EYE_Z - tY * Math.tan(p.pitch || 0)
-        const relativeAimZ = aimZ - targetBaseZ
-        const hitZone = relativeAimZ >= 0.56 && relativeAimZ <= 0.84
-          ? 'head'
-          : relativeAimZ >= 0 && relativeAimZ < 0.56
-            ? 'body'
-            : null
+        // Project the sprite to screen-space using the same math as the renderer.
+        const remoteZ = Number(pres.z) || 0
+        const relZ    = remoteZ - (p.z + CAMERA_EYE_Z)
+        const rotV    = relZ * _cosP + tY * _sinP
+        const rotD    = tY  * _cosP - relZ * _sinP
+        if (rotD <= 0.05) continue
+        const scrX    = Math.round(_cx + tX * _hProj / rotD)
+        const bottomY = Math.min(_H+30, Math.round(_viewCY - rotV * _projScale / rotD))
+        const sScale  = Math.min(_projScale / Math.max(0.72, tY), 150)
+        const walletH = Math.round(sScale * 0.58)
+        const walletW = Math.round(sScale * 0.50)
+        const billsH  = Math.round(sScale * 0.20)
+        const walletTop = bottomY - walletH
+        const billsTop  = walletTop - billsH
+        // Horizontal: crosshair must be within sprite width (+10% tolerance)
+        if (Math.abs(_cx - scrX) > walletW * 0.60) continue
+        // Vertical: determine zone from screen Y of crosshair vs sprite bands
+        const hitZone = _cy >= billsTop && _cy <= walletTop ? 'head'
+                      : _cy >  walletTop && _cy <= bottomY  ? 'body'
+                      : null
         if (!hitZone) continue
-        const halfWidth = hitZone === 'head' ? 0.16 : 0.29
-        if (Math.abs(tX) > halfWidth) continue
-        const enemyPool    = presenceRef.current[w]?.poolCode || null
-        const myPool       = myPoolCodeRef.current
-        const isTeammate   = !!(myPool && enemyPool && myPool === enemyPool)
+        const enemyPool  = presenceRef.current[w]?.poolCode || null
+        const myPool     = myPoolCodeRef.current
+        const isTeammate = !!(myPool && enemyPool && myPool === enemyPool)
         if (tY < closestDist) {
           closestDist = tY
           closestEnemy = { wallet: w, dist: tY, isAnon: w.startsWith('anon-'), isTeammate, hitZone }
