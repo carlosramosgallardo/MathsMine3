@@ -1721,8 +1721,11 @@ function drawFirstPersonTool(ctx, W, H, color, swingT, walkDist) {
   const scale = mobile ? 0.72 : Math.max(0.82, Math.min(1.15, H / 620))
   const bob = Math.sin(walkDist * 0.16) * 3 * scale
   const swing = Math.sin(Math.min(1, swingT) * Math.PI)
-  const handX = W * (mobile ? 0.83 : 0.77) - swing * 74 * scale
-  const handY = H + 18 * scale - swing * 88 * scale + bob
+  const baseX = W * (mobile ? 0.82 : 0.76)
+  const baseY = H + 20 * scale + bob
+  // Thrust hand toward crosshair (W/2, H*HORIZON_RATIO) during swing
+  const handX = baseX - swing * (baseX - W*0.52) * 0.65
+  const handY = baseY - swing * (baseY - H*HORIZON_RATIO) * 0.50
   const [r,g,b] = hexToRgb(color || C)
 
   ctx.save()
@@ -1731,25 +1734,53 @@ function drawFirstPersonTool(ctx, W, H, color, swingT, walkDist) {
   ctx.lineWidth = Math.max(12, 18*scale); ctx.lineCap = 'round'
   ctx.beginPath(); ctx.moveTo(W + 18, H + 18); ctx.lineTo(handX, handY); ctx.stroke()
 
-  const pickL = 128 * scale
-  const pickA = -2.02 - swing * 0.92
-  drawFreakDrillPick(ctx,handX,handY,pickL,pickA,scale)
+  // Weapon always aimed toward crosshair; thrust extends length at apex
+  const pickA = Math.atan2(H*HORIZON_RATIO - handY, W*0.50 - handX)
+  const pickL = (108 + swing*26) * scale
+  drawFreakUsbPen(ctx,handX,handY,pickL,pickA,scale)
   ctx.restore()
 }
 
-function drawFreakDrillPick(ctx,handX,handY,length,angle,scale=1,alpha=1){
-  const tipX=handX+Math.cos(angle)*length,tipY=handY+Math.sin(angle)*length
+function drawFreakUsbPen(ctx,handX,handY,length,angle,scale=1,alpha=1){
   ctx.save();ctx.globalAlpha*=alpha;ctx.lineCap='round'
-  ctx.strokeStyle='#70462d';ctx.lineWidth=Math.max(2,5*scale)
-  ctx.beginPath();ctx.moveTo(handX,handY);ctx.lineTo(tipX,tipY);ctx.stroke()
-  const nx=-Math.sin(angle),ny=Math.cos(angle),headL=15*scale
-  ctx.lineCap='butt';ctx.fillStyle='#172b38';ctx.strokeStyle='#67e8f9';ctx.lineWidth=Math.max(.7,scale)
-  ctx.beginPath();ctx.moveTo(tipX+nx*headL,tipY+ny*headL);ctx.lineTo(tipX-nx*headL*.8,tipY-ny*headL*.8)
-  ctx.lineTo(tipX-nx*headL*.48-Math.cos(angle)*headL*.8,tipY-ny*headL*.48-Math.sin(angle)*headL*.8)
-  ctx.lineTo(tipX+nx*headL*.55-Math.cos(angle)*headL*.45,tipY+ny*headL*.55-Math.sin(angle)*headL*.45);ctx.closePath();ctx.fill();ctx.stroke()
-  ctx.fillStyle='#facc15';ctx.beginPath();ctx.arc(tipX,tipY,3.2*scale,0,Math.PI*2);ctx.fill()
-  ctx.strokeStyle='#22d3ee';ctx.lineWidth=Math.max(1,1.5*scale);ctx.beginPath()
-  ctx.moveTo(tipX+nx*headL,tipY+ny*headL);ctx.lineTo(tipX+nx*headL*1.45-Math.cos(angle)*headL*.18,tipY+ny*headL*1.45-Math.sin(angle)*headL*.18);ctx.stroke()
+  const nx=-Math.sin(angle),ny=Math.cos(angle)
+  const tipX=handX+Math.cos(angle)*length,tipY=handY+Math.sin(angle)*length
+  // Grip (first 30%)
+  const gX=handX+Math.cos(angle)*length*.30,gY=handY+Math.sin(angle)*length*.30
+  ctx.strokeStyle='#060d17';ctx.lineWidth=Math.max(4.5,7*scale)
+  ctx.beginPath();ctx.moveTo(handX,handY);ctx.lineTo(gX,gY);ctx.stroke()
+  // Grip rings
+  ctx.strokeStyle='#22d3ee';ctx.lineWidth=Math.max(0.8,1.1*scale)
+  const rh=Math.max(2.8,4.2*scale)
+  ;[.07,.15,.23].forEach(t=>{
+    const rx=handX+Math.cos(angle)*length*t,ry=handY+Math.sin(angle)*length*t
+    ctx.beginPath();ctx.moveTo(rx-nx*rh,ry-ny*rh);ctx.lineTo(rx+nx*rh,ry+ny*rh);ctx.stroke()
+  })
+  // Fuchsia node at grip end
+  ctx.fillStyle='#d946ef'
+  ctx.beginPath();ctx.arc(gX,gY,Math.max(1.4,2.2*scale),0,Math.PI*2);ctx.fill()
+  // Shaft (30-88%)
+  const sX=handX+Math.cos(angle)*length*.88,sY=handY+Math.sin(angle)*length*.88
+  ctx.strokeStyle='#0c2030';ctx.lineWidth=Math.max(2,3*scale)
+  ctx.beginPath();ctx.moveTo(gX,gY);ctx.lineTo(sX,sY);ctx.stroke()
+  // Cyan highlight stripe
+  ctx.save();ctx.globalAlpha*=.55;ctx.strokeStyle='#22d3ee';ctx.lineWidth=Math.max(.5,.75*scale)
+  ctx.beginPath();ctx.moveTo(gX+nx*1.5,gY+ny*1.5);ctx.lineTo(sX+nx*1.5,sY+ny*1.5);ctx.stroke()
+  ctx.restore()
+  // USB Type-A head
+  const hLen=Math.max(6,9*scale),hW=Math.max(3.5,5*scale)
+  ctx.save();ctx.translate(tipX,tipY);ctx.rotate(angle)
+  ctx.fillStyle='#b0c4d4';ctx.fillRect(0,-hW/2,hLen,hW)
+  ctx.strokeStyle='#4d6880';ctx.lineWidth=Math.max(.4,.6*scale);ctx.strokeRect(0,-hW/2,hLen,hW)
+  ctx.fillStyle='#050f18';ctx.fillRect(hLen*.08,-hW*.22,hLen*.84,hW*.44)
+  ctx.fillStyle='#facc15';[.18,.42,.66].forEach(t=>ctx.fillRect(hLen*t,-hW*.15,hLen*.13,hW*.30))
+  ctx.restore()
+  // Tip glow
+  ctx.save();ctx.globalAlpha*=.75;ctx.fillStyle='#22d3ee'
+  ctx.beginPath();ctx.arc(tipX,tipY,Math.max(1.8,2.8*scale),0,Math.PI*2);ctx.fill()
+  ctx.globalAlpha*=.30;ctx.strokeStyle='#22d3ee';ctx.lineWidth=Math.max(.4,.7*scale)
+  ctx.beginPath();ctx.arc(tipX,tipY,Math.max(3.5,5*scale),0,Math.PI*2);ctx.stroke()
+  ctx.restore()
   ctx.restore()
 }
 
@@ -1781,11 +1812,15 @@ function drawThirdPersonPlayer(ctx,W,H,color,swingT,walkDist,dockTop){
   ctx.fillStyle='#071722';ctx.fillRect(cx-headW*.36,headTop+headH*.28,headW*.72,headH*.34)
   ctx.fillStyle='#67e8f9';ctx.fillRect(cx-headW*.28,headTop+headH*.36,headW*.56,2*scale)
   ctx.fillStyle=color||C;ctx.fillRect(cx-4*scale,headTop-5*scale,8*scale,5*scale)
-  const handX=cx+bodyW*.47,handY=bodyTop+bodyH*.43,pickL=64*scale
+  const handX=cx+bodyW*.47,handY=bodyTop+bodyH*.43
   ctx.strokeStyle=`rgb(${r*.72|0},${g*.72|0},${b*.72|0})`;ctx.lineWidth=6*scale;ctx.lineCap='round'
   ctx.beginPath();ctx.moveTo(cx+bodyW*.34,bodyTop+bodyH*.28);ctx.lineTo(handX,handY);ctx.stroke()
-  const pickA=-.92-Math.sin(swingT*Math.PI)*1.25
-  drawFreakDrillPick(ctx,handX,handY,pickL,pickA,scale)
+  // Thrust toward crosshair: rest is pulled back 0.72rad from target direction
+  const sProg3 = Math.sin(swingT*Math.PI)
+  const toTarget3 = Math.atan2(H*HORIZON_RATIO - handY, W/2 - handX)
+  const pickA = toTarget3 + (1 - sProg3) * 0.72
+  const pickL = (64 + sProg3*16) * scale
+  drawFreakUsbPen(ctx,handX,handY,pickL,pickA,scale)
   ctx.restore()
 }
 
@@ -2875,7 +2910,7 @@ export default function MiningChain3DFPV({
         ctx.globalAlpha=1
       }
 
-      // Freak Drill-Pick (same tool and swing timing as the local avatar)
+      // Freak USB Pen (same tool and swing timing as the local avatar)
       const pkZCol = Math.floor(scrX / stripW)
       if (pkZCol >= 0 && pkZCol < strips && tY < zBuffer[pkZCol]) {
         // The remote is seen from the front, so its anatomical right appears
@@ -2884,11 +2919,14 @@ export default function MiningChain3DFPV({
         const pickSide=relativeFacing>=0?-1:1
         const pkBX = scrX + pickSide*Math.round(walletW*0.54)
         const pkBY = Math.round(foldY + walletH * 0.05)
-        const pkL  = Math.max(5, Math.round(walletH * 0.55))
         const remoteSwingAge = Date.now()-(swingAt||swingMapRef.current[w]||0)
         const remoteSwingT   = remoteSwingAge < SWING_DUR ? remoteSwingAge / SWING_DUR : 0
-        const pkA=-Math.PI/2+pickSide*0.66+pickSide*Math.sin(remoteSwingT*Math.PI)*1.05
-        drawFreakDrillPick(ctx,pkBX,pkBY,pkL,pkA,Math.max(.28,pkL/64),alpha*.9)
+        const rsProg = Math.sin(remoteSwingT*Math.PI)
+        // At rest: weapon angled back from viewer; at apex: points at viewer's crosshair
+        const pkAbase = Math.atan2(H*HORIZON_RATIO - pkBY, W/2 - pkBX)
+        const pkA = pkAbase + (1 - rsProg) * pickSide * 0.72
+        const pkL = Math.max(5, Math.round(walletH * (0.55 + rsProg*0.12)))
+        drawFreakUsbPen(ctx,pkBX,pkBY,pkL,pkA,Math.max(.28,pkL/64),alpha*.9)
       }
 
       // Wallet label above bills
