@@ -29,7 +29,6 @@ const SWING_DUR     = 340    // ms per pickaxe swing
 const HITS_NEEDED   = 5      // swings to complete mining action
 const INTERACT_DIST = 2.0    // grid cells — max distance for block interaction
 const VISUAL_RANGE  = 18     // far plane in cells; physics still uses the full map
-const TOP_RANGE     = 14     // keep nearby elevated structures visually complete
 const FLOOR_GRID_RANGE = 12  // distant grid lines merge into unstable horizon bands
 const RADAR_RANGE   = 18     // square local map using the same camera frustum
 const CHAIN_NODE_ROW = 4     // fallback; runtime position comes from cellMap
@@ -2751,21 +2750,25 @@ export default function MiningChain3DFPV({
     ctx.restore()
     ctx.globalAlpha=1
 
-    // Visible block tops are clipped polygons and are rendered before walls;
-    // wall strips therefore occlude them cleanly without jagged overlaps.
-    const tops=[]
+    // Horizontal surfaces are bidirectional: platforms are visible from above
+    // and suspended bridges expose a proper underside from below. Near-plane
+    // clipping keeps the cell beneath the player stable instead of hiding it.
+    const surfaces=[]
     for(let r=viewMinRow;r<=viewMaxRow;r++) for(let c=viewMinCol;c<=viewMaxCol;c++){
-      const topCamera=horizontalCameraPoint(c+.5,r+.5)
-      if(topCamera.dist>TOP_RANGE||topCamera.depth<-.65) continue
-      if(Math.abs(topCamera.lateral)>Math.max(1.15,topCamera.depth*Math.tan(FOV/2)+.9)) continue
-      const topHeight=solidHeightAt(c+.5,r+.5)
-      if(!topHeight||cameraZ<=topHeight+.015) continue
-      // Never project the platform directly under the camera. Its near-clipped
-      // polygon otherwise expands across the screen when the player climbs it.
-      if(r===gr&&c===gc&&pz>=topHeight-.03) continue
+      const cameraCell=horizontalCameraPoint(c+.5,r+.5)
+      if(cameraCell.dist>VISUAL_RANGE||cameraCell.depth<-1.1) continue
+      if(Math.abs(cameraCell.lateral)>Math.max(1.7,cameraCell.depth*tanHalfFov+1.5)) continue
+      const key=`${r},${c}`,obs=validObstaclesRef.current.get(key),cell=cellMap.get(key)
+      if(!obs&&!cell) continue
+      const topHeight=obs?obstacleTop(obs):BLOCK_TOP
+      const bottomHeight=obs?obstacleBottom(obs):0
+      const isTop=cameraZ>topHeight+.015
+      const isUnderside=bottomHeight>0&&cameraZ<bottomHeight-.015
+      if(!isTop&&!isUnderside) continue
+      const surfaceZ=isTop?topHeight:bottomHeight
       const verts=clipCameraPolygon([
-        cameraVertex(c,r,topHeight),cameraVertex(c+1,r,topHeight),
-        cameraVertex(c+1,r+1,topHeight),cameraVertex(c,r+1,topHeight),
+        cameraVertex(c,r,surfaceZ),cameraVertex(c+1,r,surfaceZ),
+        cameraVertex(c+1,r+1,surfaceZ),cameraVertex(c,r+1,surfaceZ),
       ])
       if(verts.length<3) continue
       const points=verts.map(screenVertex)
@@ -2775,37 +2778,41 @@ export default function MiningChain3DFPV({
       },0))*.5
       const minY=Math.min(...points.map(point=>point.y))
       const maxY=Math.max(...points.map(point=>point.y))
-      const minX=Math.min(...points.map(point=>point.x))
-      const maxX=Math.max(...points.map(point=>point.x))
-      const projectedWidth=maxX-minX
       const projectedHeight=maxY-minY
-      if(!Number.isFinite(area)||area<0.5||area>W*H*.72) continue
+      if(!Number.isFinite(area)||area<0.35) continue
       const depth=verts.reduce((sum,v)=>sum+v.depth,0)/verts.length
-      if(depth>3&&projectedWidth>projectedHeight*22) continue
-      // Smooth fade for nearly edge-on tops instead of hard cutoff
-      const edgeAlpha=projectedHeight<5?projectedHeight/5:1
-      const areaAlpha=area<4?area/4:1
-      tops.push({r,c,points,depth,topHeight,area,alpha:edgeAlpha*areaAlpha})
+      const edgeAlpha=projectedHeight<3?Math.max(.25,projectedHeight/3):1
+      const areaAlpha=area<3?Math.max(.3,area/3):1
+      surfaces.push({r,c,points,depth,surfaceZ,area,alpha:edgeAlpha*areaAlpha,isTop,obs,cell})
     }
-    tops.sort((a,b)=>b.depth-a.depth)
-    for(const top of tops){
-      const key=`${top.r},${top.c}`,obs=validObstaclesRef.current.get(key),cell=cellMap.get(key)
+    surfaces.sort((a,b)=>b.depth-a.depth)
+    for(const surface of surfaces){
+      const {obs,cell}=surface
       const base=obs?.base||(cell?.color?hexToRgb(cell.color):cell?.isChainNode?[220,170,25]:[48,82,142])
-      // Top faces receive overhead light: brighter than side faces (side=0 at 1.0x, side=1 at 0.72x)
-      const light=Math.max(.55,1-top.depth*.022)
-      const topMul=obs?1.08:1.22  // obstacle tops slightly brighter, block tops clearly brighter
-      const [tr,tg,tb]=[Math.min(255,Math.round(base[0]*light*topMul)),Math.min(255,Math.round(base[1]*light*topMul)),Math.min(255,Math.round(base[2]*light*topMul))]
+      const light=Math.max(.50,1-surface.depth*.022)
+      const faceMul=surface.isTop?(obs?1.16:1.30):.48
+      const [tr,tg,tb]=[Math.min(255,Math.round(base[0]*light*faceMul)),Math.min(255,Math.round(base[1]*light*faceMul)),Math.min(255,Math.round(base[2]*light*faceMul))]
       ctx.save()
-      ctx.globalAlpha=top.alpha??1
+      ctx.globalAlpha=surface.alpha??1
       ctx.fillStyle=`rgb(${tr},${tg},${tb})`
-      ctx.strokeStyle=top.area>10?'rgba(220,240,255,.28)':'rgba(220,240,255,.12)';ctx.lineWidth=1
-      ctx.beginPath();ctx.moveTo(top.points[0].x,top.points[0].y)
-      for(let i=1;i<top.points.length;i++)ctx.lineTo(top.points[i].x,top.points[i].y)
+      ctx.strokeStyle=!surface.isTop?'rgba(34,211,238,.34)'
+        :obs?.isRouteStair?'rgba(250,204,21,.88)'
+        :obs?.isRoute?'rgba(103,232,249,.82)'
+        :obs?.isRouteWall?'rgba(232,121,249,.70)'
+        :'rgba(220,248,255,.44)'
+      ctx.lineWidth=obs?.isRoute||obs?.isRouteStair?1.35:1
+      ctx.beginPath();ctx.moveTo(surface.points[0].x,surface.points[0].y)
+      for(let i=1;i<surface.points.length;i++)ctx.lineTo(surface.points[i].x,surface.points[i].y)
       ctx.closePath();ctx.fill();ctx.stroke()
-      if(top.depth<7&&top.area>20){
-        const a=projectSegment([top.c+.5,top.r,top.topHeight+.003],[top.c+.5,top.r+1,top.topHeight+.003])
-        const b=projectSegment([top.c,top.r+.5,top.topHeight+.003],[top.c+1,top.r+.5,top.topHeight+.003])
-        ctx.strokeStyle='rgba(0,0,0,.18)';ctx.beginPath()
+      if(surface.depth<10&&surface.area>12){
+        const offset=surface.isTop ? .003 : -.003
+        const a=projectSegment([surface.c+.5,surface.r,surface.surfaceZ+offset],[surface.c+.5,surface.r+1,surface.surfaceZ+offset])
+        const b=projectSegment([surface.c,surface.r+.5,surface.surfaceZ+offset],[surface.c+1,surface.r+.5,surface.surfaceZ+offset])
+        ctx.strokeStyle=!surface.isTop?'rgba(34,211,238,.28)'
+          :obs?.isRouteStair?'rgba(120,53,15,.55)'
+          :obs?.isRoute?'rgba(1,20,30,.38)'
+          :'rgba(0,0,0,.24)'
+        ctx.beginPath()
         if(a){ctx.moveTo(a[0].x,a[0].y);ctx.lineTo(a[1].x,a[1].y)}
         if(b){ctx.moveTo(b[0].x,b[0].y);ctx.lineTo(b[1].x,b[1].y)}
         ctx.stroke()
