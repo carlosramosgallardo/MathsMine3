@@ -11,55 +11,38 @@ const C = '#22d3ee';
 
 const SECTIONS = {
   en: [
-    { href: '/mining',     icon: '⬡',  name: 'Mining',      desc: '3D FPV block explorer. Find blocks, buy NFTJIs, mine cells, and fight enemy wallets live.', miningCard: true },
-    { href: '/training',   icon: '⛏',  name: 'Training',    desc: 'Solve math problems against the clock. 100/day, 13 types. Speed earns more MM3.' },
-    { href: '/trading',    icon: '💱',  name: 'Trading',     desc: 'Buy and sell MM3 in fictional EUR / USD / CNY. 5 EXECs/day — dice shifts rates.' },
-    { href: '/ranking',    icon: '🏆',  name: 'Ranking',     desc: 'Live wallet & pool leaderboard. Mining %, level, EXECs and penalty log.' },
-    { href: '/squeezing',  icon: '⚔',  name: 'Squeezing',   desc: 'Pool-vs-pool combat. Stakes burned, NFTJI drops, formula shifts.' },
-    { href: '/relaying',   icon: '>_', name: 'Relaying',    desc: 'Main action terminal. /mine commands, world events, live chain log.' },
-    { href: '/mm3-value',  icon: '📈',  name: 'MM3 Chart',   desc: 'Global MM3 token value over time — hourly chart with mining, trade and market event overlays.' },
-    { href: '/manifesto',  icon: '📜',  name: 'Manifesto',   desc: 'Game philosophy and full game guide — rules, mechanics and everything behind MathsMine3.' },
-    { href: '/ai-team',    icon: '🤖',  name: 'AI Team',     desc: 'Meet the bot wallets running 24/7 on the board alongside human miners.' },
-    { href: '/daily-tasks', icon: '🎯', name: 'Daily Tasks', desc: 'Complete daily objectives to earn fictional EUR rewards. Resets every UTC midnight.', daily: true },
+    {
+      href: '/mining', icon: '⬡', name: 'ENTER 3D MINING', kicker: 'MM3 BLOCK CHAIN · LIVE MULTIPLAYER',
+      desc: '3D FPV block explorer. Find blocks, buy NFTJIs, mine cells, and fight enemy wallets live.',
+      cta: 'PLAY NOW →', accent: '#22d3ee', hero: true,
+    },
+    { href: '/training',   icon: '⛏',  name: 'Training',    desc: 'Solve math problems against the clock. 100/day, 13 types. Speed earns more MM3.',           accent: '#f59e0b' },
+    { href: '/trading',    icon: '💱',  name: 'Trading',     desc: 'Buy and sell MM3 in fictional EUR / USD / CNY. 5 EXECs/day — dice shifts rates.',             accent: '#4ade80' },
+    { href: '/ranking',    icon: '🏆',  name: 'Ranking',     desc: 'Live wallet & pool leaderboard. Mining %, level, EXECs and penalty log.',                     accent: '#fbbf24' },
+    { href: '/squeezing',  icon: '⚔',  name: 'Squeezing',   desc: 'Pool-vs-pool combat. Stakes burned, NFTJI drops, formula shifts.',                            accent: '#f87171' },
+    { href: '/relaying',   icon: '>_', name: 'Relaying',    desc: 'Main action terminal. /mine commands, world events, live chain log.',                          accent: '#22d3ee' },
+    { href: '/mm3-value',  icon: '📈',  name: 'MM3 Chart',   desc: 'Global MM3 token value over time — hourly chart with mining, trade and market event overlays.', accent: '#a78bfa' },
+    { href: '/manifesto',  icon: '📜',  name: 'Manifesto',   desc: 'Game philosophy and full game guide — rules, mechanics and everything behind MathsMine3.',     accent: '#94a3b8' },
+    { href: '/ai-team',    icon: '🤖',  name: 'AI Team',     desc: 'Meet the bot wallets running 24/7 on the board alongside human miners.',                       accent: '#86efac' },
+    { href: '/daily-tasks', icon: '🎯', name: 'Daily Tasks', desc: 'Complete daily objectives to earn fictional EUR rewards. Resets every UTC midnight.',          accent: '#e879f9', daily: true },
   ],
   es: [
-    { href: '/mining',     icon: '⬡',  name: 'Mining',      desc: 'Explorador 3D FPV de bloques. Encuentra bloques, compra NFTJIs, mina celdas y combate wallets enemigas en vivo.', miningCard: true },
-    { href: '/training',   icon: '⛏',  name: 'Training',    desc: 'Resuelve problemas contra el reloj. 100/día, 13 tipos. Velocidad = más MM3.' },
-    { href: '/trading',    icon: '💱',  name: 'Trading',     desc: 'Compra y vende MM3 en EUR / USD / CNY ficticios. 5 EXECs/día — dados afectan tasas.' },
-    { href: '/ranking',    icon: '🏆',  name: 'Ranking',     desc: 'Clasificación en vivo de wallets y pools. Mining %, nivel, EXECs y penalizaciones.' },
-    { href: '/squeezing',  icon: '⚔',  name: 'Squeezing',   desc: 'Combate pool-vs-pool. Stakes quemados, drops de NFTJI, la fórmula cambia.' },
-    { href: '/relaying',   icon: '>_', name: 'Relaying',    desc: 'Terminal de acción. Comandos /mine, eventos del mundo, log de cadena en vivo.' },
-    { href: '/mm3-value',  icon: '📈',  name: 'MM3 Chart',   desc: 'Valor global del token MM3 a lo largo del tiempo — gráfica horaria con overlays de mining, trade y mercado.' },
-    { href: '/manifesto',  icon: '📜',  name: 'Manifiesto',  desc: 'Filosofía del juego y guía completa — reglas, mecánicas y todo lo que hay detrás de MathsMine3.' },
-    { href: '/ai-team',    icon: '🤖',  name: 'AI Team',     desc: 'Conoce los bots que corren 24/7 en el tablero junto a los mineros humanos.' },
-    { href: '/daily-tasks', icon: '🎯', name: 'Daily Tasks', desc: 'Completa objetivos diarios para ganar EUR ficticio. Reinicia cada medianoche UTC.', daily: true },
+    {
+      href: '/mining', icon: '⬡', name: 'ENTRA A MINING 3D', kicker: 'MM3 BLOCK CHAIN · MULTIJUGADOR EN VIVO',
+      desc: 'Explorador 3D FPV de bloques. Encuentra bloques, compra NFTJIs, mina celdas y combate wallets enemigas en vivo.',
+      cta: 'JUGAR AHORA →', accent: '#22d3ee', hero: true,
+    },
+    { href: '/training',   icon: '⛏',  name: 'Training',    desc: 'Resuelve problemas contra el reloj. 100/día, 13 tipos. Velocidad = más MM3.',                  accent: '#f59e0b' },
+    { href: '/trading',    icon: '💱',  name: 'Trading',     desc: 'Compra y vende MM3 en EUR / USD / CNY ficticios. 5 EXECs/día — dados afectan tasas.',          accent: '#4ade80' },
+    { href: '/ranking',    icon: '🏆',  name: 'Ranking',     desc: 'Clasificación en vivo de wallets y pools. Mining %, nivel, EXECs y penalizaciones.',           accent: '#fbbf24' },
+    { href: '/squeezing',  icon: '⚔',  name: 'Squeezing',   desc: 'Combate pool-vs-pool. Stakes quemados, drops de NFTJI, la fórmula cambia.',                    accent: '#f87171' },
+    { href: '/relaying',   icon: '>_', name: 'Relaying',    desc: 'Terminal de acción. Comandos /mine, eventos del mundo, log de cadena en vivo.',                 accent: '#22d3ee' },
+    { href: '/mm3-value',  icon: '📈',  name: 'MM3 Chart',   desc: 'Valor global del token MM3 a lo largo del tiempo — gráfica horaria con overlays.',             accent: '#a78bfa' },
+    { href: '/manifesto',  icon: '📜',  name: 'Manifiesto',  desc: 'Filosofía del juego y guía completa — reglas, mecánicas y todo lo que hay detrás.',            accent: '#94a3b8' },
+    { href: '/ai-team',    icon: '🤖',  name: 'AI Team',     desc: 'Conoce los bots que corren 24/7 en el tablero junto a los mineros humanos.',                   accent: '#86efac' },
+    { href: '/daily-tasks', icon: '🎯', name: 'Daily Tasks', desc: 'Completa objetivos diarios para ganar EUR ficticio. Reinicia cada medianoche UTC.',            accent: '#e879f9', daily: true },
   ],
 };
-
-function SectionCardInner({ icon, name, desc, daily, count, nameColor, descColor }) {
-  return (
-    <>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', position: 'relative' }}>
-        {icon && <span style={{ fontSize: '0.95rem', lineHeight: 1, flexShrink: 0 }}>{icon}</span>}
-        <span style={{ color: nameColor, fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '0.1em', fontWeight: 'bold', fontFamily: 'monospace' }}>{name}</span>
-        {daily && count > 0 && (
-          <span style={{
-            marginLeft: 'auto',
-            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-            minWidth: '1rem', height: '1rem', borderRadius: '9999px',
-            background: '#d946ef', border: '1px solid #e879f9',
-            fontFamily: 'monospace', fontSize: '0.56rem', fontWeight: 900,
-            color: '#fff', padding: '0 0.2rem',
-            boxShadow: '0 0 8px rgba(217,70,239,0.75)',
-          }}>
-            {count > 9 ? '9+' : count}
-          </span>
-        )}
-      </div>
-      <p style={{ color: descColor, fontSize: '0.72rem', margin: 0, lineHeight: '1.5', wordBreak: 'break-word', letterSpacing: '0.04em', fontFamily: 'monospace' }}>{desc}</p>
-    </>
-  );
-}
 
 export default function LandingHero() {
   const { language } = useI18n();
@@ -84,111 +67,59 @@ export default function LandingHero() {
   }, [account]);
 
   const count = Math.max(0, Number(pendingRewards) || 0);
+  const hero = sections[0];
+  const cards = sections.slice(1);
 
   return (
     <section
       aria-label={language === 'es' ? 'Sobre MathsMine3' : 'About MathsMine3'}
-      style={{
-        fontFamily: 'Consolas, "Courier New", monospace',
-        background: '#060a0d',
-        borderTop: `1px solid ${C}1a`,
-        padding: '2rem 1rem 3rem',
-        marginTop: '1rem',
-        width: '100%',
-        boxSizing: 'border-box',
-        overflowX: 'hidden',
-      }}
+      style={{ fontFamily: 'Consolas,"Courier New",monospace', background: '#060a0d', borderTop: `1px solid ${C}1a`, padding: '2.5rem 1rem 4rem', width: '100%', boxSizing: 'border-box', overflowX: 'hidden' }}
     >
-      <div style={{ maxWidth: '920px', margin: '0 auto', width: '100%', boxSizing: 'border-box', minWidth: 0 }}>
+      <div style={{ maxWidth: '1040px', margin: '0 auto', width: '100%', boxSizing: 'border-box' }}>
 
-        <p style={{
-          color: C,
-          fontSize: 'clamp(0.9rem, 2vw, 1.2rem)',
-          textShadow: `0 0 20px ${C}55`,
-          letterSpacing: '0.08em',
-          textTransform: 'uppercase',
-          textAlign: 'center',
-          marginBottom: '1.75rem',
-        }}>
-          {language === 'es' ? 'Matemáticas contra el reloj. Minería ficticia. Identidad wallet. Economía terminal. MM3 es un token ficticio. Sin minería real, sin pagos reales, sin inversión.' : 'Timed math. Fictional mining. Wallet identity. Terminal economy. MM3 is a fictional token. No real mining, no real payout, no investment.'}
+        {/* Disclaimer */}
+        <p style={{ color: `${C}88`, fontSize: 'clamp(0.72rem,1.4vw,0.88rem)', letterSpacing: '0.06em', textTransform: 'uppercase', textAlign: 'center', marginBottom: '2.5rem', lineHeight: 1.7 }}>
+          {language === 'es'
+            ? 'Matemáticas contra el reloj · Minería ficticia · Identidad wallet · Economía terminal · MM3 es un token ficticio · Sin minería real, sin pagos reales, sin inversión.'
+            : 'Timed math · Fictional mining · Wallet identity · Terminal economy · MM3 is a fictional token · No real mining, no real payout, no investment.'}
         </p>
 
-        <ul className="landing-grid" style={{
-          display: 'grid',
-          gap: '0.6rem',
-          listStyle: 'none',
-          padding: 0,
-          margin: 0,
-        }}>
-          {sections.map(({ href, icon, name, desc, daily, miningCard }, idx) => {
-            const borderColor = miningCard ? '#22d3ee88' : `${C}18`;
-            const bg = miningCard ? 'linear-gradient(135deg,#061923 0%,#0b1020 55%,#17102a 100%)' : '#0b1015';
-            const nameColor = miningCard ? '#67e8f9' : '#e2e8f0';
-            const descColor = miningCard ? '#7dd3fc' : '#475569';
+        {/* ── Hero: Mining 3D ─────────────────────────────── */}
+        <Link href={hero.href} className="lh-hero-card">
+          <span className="lh-hero-scan" aria-hidden="true" />
+          <div className="lh-hero-body">
+            <div className="lh-hero-icon">⬡</div>
+            <div className="lh-hero-text">
+              <div className="lh-hero-kicker">{hero.kicker}</div>
+              <div className="lh-hero-title">{hero.name}</div>
+              <p className="lh-hero-desc">{hero.desc}</p>
+            </div>
+          </div>
+          <div className="lh-hero-cta">{hero.cta}</div>
+        </Link>
 
-            const inner = miningCard ? (
-              <div className="mm3-home-mining-inner">
-                <span className="mm3-home-mining-icon">{icon}</span>
-                <div>
-                  <div className="mm3-home-mining-kicker">MM3 BLOCK CHAIN · LIVE MULTIPLAYER</div>
-                  <div className="mm3-home-mining-title">{language === 'es' ? 'ENTRA A MINING 3D' : 'ENTER 3D MINING'}</div>
-                  <p className="mm3-home-mining-desc">{desc}</p>
-                </div>
-                <span className="mm3-home-mining-cta">{language === 'es' ? 'JUGAR AHORA →' : 'PLAY NOW →'}</span>
-              </div>
-            ) : (
-              <SectionCardInner
-                icon={icon}
-                name={name}
-                desc={desc}
-                daily={daily}
-                count={count}
-                nameColor={nameColor}
-                descColor={descColor}
-              />
-            );
-
-            const cardStyle = {
-              display: 'flex', flexDirection: 'column', gap: '0.35rem',
-              background: bg, border: `1px solid ${borderColor}`,
-              borderRadius: '8px', padding: '0.85rem 1rem',
-              textDecoration: 'none', height: '100%', boxSizing: 'border-box',
-              transition: 'border-color 0.18s, background 0.18s',
-              cursor: 'pointer',
-              boxShadow: miningCard ? '0 0 24px rgba(34,211,238,.14), inset 0 0 22px rgba(168,85,247,.08)' : 'none',
-            };
-
-            const hoverBorder = miningCard ? '#67e8f9' : `${C}55`;
-            const hoverBg = miningCard ? 'linear-gradient(135deg,#08242f 0%,#10142b 55%,#21123a 100%)' : '#0d1419';
-
-            return (
-              <li
-                className={miningCard ? 'mm3-home-mining-feature' : 'mm3-home-orbit-item'}
-                key={`${href ?? name}-${idx}`}
-                style={{
-                  minWidth: 0,
-                  display: 'flex',
-                  flexDirection: 'column',
-                  ...(miningCard ? {} : {
-                    '--orbit-angle': `${-90 + (idx - 1) * 40}deg`,
-                    '--orbit-counter-angle': `${90 - (idx - 1) * 40}deg`,
-                  }),
-                }}
+        {/* ── Section cards ───────────────────────────────── */}
+        <ul className="lh-grid" aria-label="Sections">
+          {cards.map(({ href, icon, name, desc, accent, daily }, i) => (
+            <li key={href} style={{ '--lh-accent': accent }}>
+              <Link href={href} className="lh-card"
+                onMouseEnter={e => { e.currentTarget.style.borderColor = `${accent}55`; e.currentTarget.style.transform = 'translateY(-2px)'; }}
+                onMouseLeave={e => { e.currentTarget.style.borderColor = `${accent}18`; e.currentTarget.style.transform = 'none'; }}
               >
-                <Link
-                  href={href}
-                  className={miningCard ? 'mm3-home-mining-card' : undefined}
-                  style={{ ...cardStyle, flex: 1 }}
-                  onMouseEnter={e => { e.currentTarget.style.borderColor = hoverBorder; e.currentTarget.style.background = hoverBg; }}
-                  onMouseLeave={e => { e.currentTarget.style.borderColor = borderColor; e.currentTarget.style.background = bg; }}
-                >
-                  {inner}
-                </Link>
-              </li>
-            );
-          })}
+                <div className="lh-card-icon" style={{ color: accent, textShadow: `0 0 14px ${accent}66` }}>{icon}</div>
+                <div className="lh-card-name" style={{ color: accent }}>
+                  {name}
+                  {daily && count > 0 && (
+                    <span style={{ marginLeft: '0.4rem', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: '1rem', height: '1rem', borderRadius: '9999px', background: '#d946ef', border: '1px solid #e879f9', fontFamily: 'monospace', fontSize: '0.54rem', fontWeight: 900, color: '#fff', padding: '0 0.18rem', boxShadow: '0 0 8px rgba(217,70,239,.75)' }}>
+                      {count > 9 ? '9+' : count}
+                    </span>
+                  )}
+                </div>
+                <p className="lh-card-desc">{desc}</p>
+              </Link>
+            </li>
+          ))}
         </ul>
-
 
       </div>
     </section>

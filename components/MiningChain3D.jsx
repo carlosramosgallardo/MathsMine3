@@ -303,12 +303,13 @@ export default function MiningChain3D() {
       // Mining NFTJIs (from mm3_mining_blocks claimed blocks)
       const levels = pp.mining_nftji_levels || {}
       const activeKey = pp.mining_nftji_key || null
-      const miningNftjis = Object.entries(levels)
-        .map(([blockKey, level]) => {
-          const mb = marketRef.current.find(m => m.block_key === blockKey)
-          return { emoji: mb?.emoji || '⬡', level: Number(level) || 0, blockKey, isActive: blockKey === activeKey }
-        })
-        .sort((a, b) => b.level - a.level)
+      // Only the currently held mining NFTJI — one at a time per wallet
+      const miningNftjis = activeKey
+        ? (() => {
+            const mb = marketRef.current.find(m => m.block_key === activeKey)
+            return [{ emoji: mb?.emoji || '⬡', level: Number(levels[activeKey] ?? 0), blockKey: activeKey, isActive: true }]
+          })()
+        : []
 
       // Trade/wallet NFTJIs (🔮🍀🎰🧿❤️ from wallet_emojis)
       const walletEmojis = Array.isArray(pp.wallet_emojis) ? pp.wallet_emojis : []
