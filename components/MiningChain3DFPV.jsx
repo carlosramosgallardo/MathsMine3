@@ -146,6 +146,52 @@ const OBSTACLE_MAP = new Map([
   ['9,8',   { base:W_SAND, label:'WALL' }],
   ['20,21', { base:W_SAND, label:'WALL' }],
 
+  // ─── Inner world — extra maze density for defined corridors ───────────────────
+  // NW sub-quadrant L-pair
+  ['4,6',   { base:W_DARK,  label:'WALL' }],
+  ['4,7',   { base:W_DARK,  label:'WALL' }],
+  ['6,5',   { base:W_SLATE, label:'WALL' }],
+  ['6,6',   { base:W_SLATE, label:'WALL' }],
+  // NE sub-quadrant L-pair
+  ['4,19',  { base:W_DARK,  label:'WALL' }],
+  ['4,20',  { base:W_DARK,  label:'WALL' }],
+  ['6,20',  { base:W_SLATE, label:'WALL' }],
+  ['6,21',  { base:W_SLATE, label:'WALL' }],
+  // SW sub-quadrant L-pair
+  ['21,5',  { base:W_DARK,  label:'WALL' }],
+  ['21,6',  { base:W_DARK,  label:'WALL' }],
+  ['23,5',  { base:W_SLATE, label:'WALL' }],
+  ['23,6',  { base:W_SLATE, label:'WALL' }],
+  // SE sub-quadrant L-pair
+  ['21,20', { base:W_DARK,  label:'WALL' }],
+  ['21,21', { base:W_DARK,  label:'WALL' }],
+  ['23,20', { base:W_SLATE, label:'WALL' }],
+  ['23,21', { base:W_SLATE, label:'WALL' }],
+  // N/S center-approach gatekeepers (extend existing sandstone chokes)
+  ['6,13',  { base:W_SAND,  label:'WALL' }],
+  ['6,14',  { base:W_SAND,  label:'WALL' }],
+  ['21,13', { base:W_SAND,  label:'WALL' }],
+  ['21,14', { base:W_SAND,  label:'WALL' }],
+  // W/E center corridor gate posts
+  ['13,6',  { base:W_STONE, label:'WALL' }],
+  ['14,6',  { base:W_STONE, label:'WALL' }],
+  ['13,21', { base:W_STONE, label:'WALL' }],
+  ['14,21', { base:W_STONE, label:'WALL' }],
+  // Mid-quadrant approach definition (creates chokepoints mid-way)
+  ['12,5',  { base:W_STONE, label:'WALL' }],
+  ['12,6',  { base:W_STONE, label:'WALL' }],
+  ['12,21', { base:W_STONE, label:'WALL' }],
+  ['12,22', { base:W_STONE, label:'WALL' }],
+  ['15,5',  { base:W_STONE, label:'WALL' }],
+  ['15,6',  { base:W_STONE, label:'WALL' }],
+  ['15,21', { base:W_STONE, label:'WALL' }],
+  ['15,22', { base:W_STONE, label:'WALL' }],
+  // Diagonal pillar set — breaks up the open quadrant diagonals
+  ['9,9',   { base:W_SAND,  label:'WALL' }],
+  ['9,18',  { base:W_SAND,  label:'WALL' }],
+  ['18,9',  { base:W_SAND,  label:'WALL' }],
+  ['18,18', { base:W_SAND,  label:'WALL' }],
+
   // ─── Outer world labyrinth (rows 28-55, cols 28-55) ──────────────────────────
   // Entry gateway pillars (rows 29-30) — funnel from inner world into outer zone
   ['29,33',  { base:W_SLATE, label:'WALL' }],
@@ -1192,16 +1238,18 @@ function drawMinimap(ctx, gr, gc, angle, cellMap, presenceMap, myWallet, W, H, c
   const SZ = minimapSize(W)
   const MX = W - SZ - 6
   const MY = 8
-  // The terrain remains camera-aware, but destinations use a stable global
-  // coordinate system so every emoji is always useful for navigation.
-  const viewCells = Math.max(ROWS, COLS)
-  const originCol = 0
-  const originRow = 0
-  const CS = SZ/viewCells
-  const mapX = (col) => MX + (col-originCol)*CS
-  const mapY = (row) => MY + (row-originRow)*CS
-  // Use exact sub-cell position for view cone and ray accuracy
+
+  // Local centered view — show VIEW_R cells in every direction from player
+  const VIEW_R = 11
+  const CS = SZ / (VIEW_R * 2)
   const camX = gx ?? (gc + .5), camY = gy ?? (gr + .5)
+
+  // Pixel coords relative to player center
+  const mapX = (col) => MX + (col - camX + VIEW_R) * CS
+  const mapY = (row) => MY + (row - camY + VIEW_R) * CS
+  const pvx = MX + VIEW_R * CS   // player is always at map center
+  const pvy = MY + VIEW_R * CS
+
   const inCameraView = (row,col,pad=0) => {
     const vx=col-camX,vy=row-camY
     const dist=Math.hypot(vx,vy)
@@ -1241,29 +1289,31 @@ function drawMinimap(ctx, gr, gc, angle, cellMap, presenceMap, myWallet, W, H, c
 
   ctx.save()
   ctx.beginPath();ctx.rect(MX,MY,SZ,SZ);ctx.clip()
-  // Use exact sub-cell player position for accurate vision cone
-  const pvx=mapX(camX),pvy=mapY(camY)
+
+  // Vision cone rays (capped to local view radius)
   const visionEdge=[]
   const visionRays=isMobile?24:36
   for(let i=0;i<=visionRays;i++){
     const rayAngle=angle-FOV/2+(i/visionRays)*FOV
-    const ray=castRay(camX*CELL_SIZE,camY*CELL_SIZE,rayAngle,cellMap,validObs,RADAR_RANGE)
-    const rayDist=Math.min(RADAR_RANGE,ray.perpDist+.04)
+    const ray=castRay(camX*CELL_SIZE,camY*CELL_SIZE,rayAngle,cellMap,validObs,Math.min(RADAR_RANGE,VIEW_R))
+    const rayDist=Math.min(VIEW_R,ray.perpDist+.04)
     visionEdge.push({
       x:mapX(camX+Math.cos(rayAngle)*rayDist),
       y:mapY(camY+Math.sin(rayAngle)*rayDist),
     })
   }
-  const r0=0,r1=ROWS
-  const c0=0,c1=COLS
+
+  // Render only cells within local window — each cell is now ~8px wide, obstacles readable
+  const r0=Math.max(0,Math.floor(camY-VIEW_R)), r1=Math.min(ROWS,Math.ceil(camY+VIEW_R+1))
+  const c0=Math.max(0,Math.floor(camX-VIEW_R)), c1=Math.min(COLS,Math.ceil(camX+VIEW_R+1))
   for (let r=r0;r<r1;r++) for (let c=c0;c<c1;c++) {
     const key = `${r},${c}`
     const cell = cellMap.get(key)
     const obs  = validObs?.get(key) || null
-    const seen=inCameraView(r+.5,c+.5)
+    const seen = inCameraView(r+.5,c+.5)
     if (obs) {
       const [or,og,ob] = obs.base
-      ctx.fillStyle = seen ? `rgba(${or>>1},${og>>1},${ob>>1},0.85)` : `rgba(${or>>2},${og>>2},${ob>>2},0.34)`
+      ctx.fillStyle = seen ? `rgba(${or>>1},${og>>1},${ob>>1},0.92)` : `rgba(${or>>2},${og>>2},${ob>>2},0.48)`
     } else if (cell?.owner) {
       ctx.fillStyle = seen ? cell.color+'99' : '#101827'
     } else if (cell?.isMarket) {
@@ -1276,57 +1326,53 @@ function drawMinimap(ctx, gr, gc, angle, cellMap, presenceMap, myWallet, W, H, c
       ctx.fillStyle = seen ? '#07101d' : '#03070d'
     }
     ctx.fillRect(mapX(c), mapY(r), Math.ceil(CS), Math.ceil(CS))
-    const isMyBlock = inCameraView(r+.5,c+.5) && cell?.owner && myWallet && cell.owner.toLowerCase() === myWallet.toLowerCase()
+    const isMyBlock = seen && cell?.owner && myWallet && cell.owner.toLowerCase() === myWallet.toLowerCase()
     if (isMyBlock) {
       ctx.strokeStyle = '#ffffffbb'; ctx.lineWidth = 0.7
       ctx.strokeRect(mapX(c)+0.5, mapY(r)+0.5, Math.max(1,Math.ceil(CS)-1), Math.max(1,Math.ceil(CS)-1))
     }
   }
 
-  // NFTJI block markers — amber diamond (free) or green diamond (owned)
+  // NFTJI block markers — only those visible in local window
   for (const [key, cell] of cellMap) {
     if (!cell?.isMarket) continue
-    const obs = validObs?.get(key)
-    if (obs) continue  // hidden behind static wall, skip
     const [rr, cc] = key.split(',').map(Number)
-    const mx2 = mapX(cc + 0.5)
-    const my2 = mapY(rr + 0.5)
+    if (Math.abs(rr - camY) > VIEW_R + .5 || Math.abs(cc - camX) > VIEW_R + .5) continue
+    const obs = validObs?.get(key)
+    if (obs) continue
+    const mx2 = mapX(cc + 0.5), my2 = mapY(rr + 0.5)
     const ds = Math.max(1.2, CS * 0.36)
     ctx.save()
-    ctx.translate(mx2, my2)
-    ctx.rotate(Math.PI / 4)
+    ctx.translate(mx2, my2); ctx.rotate(Math.PI / 4)
     ctx.fillStyle = cell.owner ? '#4ade80cc' : '#fb923ccc'
     ctx.fillRect(-ds, -ds, ds*2, ds*2)
     ctx.restore()
-    if(cell.emoji){
-      drawMapEmoji(cell.emoji,mx2,my2,cell.owner?'#4ade80':'#fb923c','square')
-    }
+    if(cell.emoji) drawMapEmoji(cell.emoji,mx2,my2,cell.owner?'#4ade80':'#fb923c','square')
   }
 
-  // Vision cone fill (transparent, rendered first so everything draws on top)
+  // Vision cone fill
   ctx.fillStyle='rgba(34,211,238,.045)'
   ctx.beginPath();ctx.moveTo(pvx,pvy)
   for(const point of visionEdge)ctx.lineTo(point.x,point.y)
   ctx.closePath();ctx.fill()
 
-  // Chain node: diamond crosshair — static landmark, below player markers
-  const cnPos   = chainNodePos || { row: CHAIN_NODE_ROW, col: CHAIN_NODE_COL }
-  {
+  // Chain node: draw in-place if in view, edge arrow if outside
+  const cnPos = chainNodePos || { row: CHAIN_NODE_ROW, col: CHAIN_NODE_COL }
+  const cnInView = Math.abs(cnPos.row - camY) <= VIEW_R && Math.abs(cnPos.col - camX) <= VIEW_R
+  if (cnInView) {
     const cnPulse = 0.55 + Math.sin(Date.now() / 600) * 0.45
-    const cnx = mapX(cnPos.col + 0.5)
-    const cny = mapY(cnPos.row + 0.5)
-    const armLen = CS * 2.8
-    const gapR   = CS * 0.85
+    const cnx = mapX(cnPos.col + 0.5), cny = mapY(cnPos.row + 0.5)
+    const armLen = CS * 2.8, gapR = CS * 0.85
     ctx.globalAlpha = cnPulse * 0.28
     ctx.strokeStyle = '#ffd700'; ctx.lineWidth = 0.8
     ctx.beginPath(); ctx.arc(cnx, cny, CS * 2.1, 0, Math.PI*2); ctx.stroke()
     ctx.globalAlpha = Math.max(0.55, cnPulse)
     ctx.strokeStyle = '#ffd700'; ctx.lineWidth = 0.9
     ctx.beginPath()
-    ctx.moveTo(cnx - gapR, cny); ctx.lineTo(cnx - armLen, cny)
-    ctx.moveTo(cnx + gapR, cny); ctx.lineTo(cnx + armLen, cny)
-    ctx.moveTo(cnx, cny - gapR); ctx.lineTo(cnx, cny - armLen)
-    ctx.moveTo(cnx, cny + gapR); ctx.lineTo(cnx, cny + armLen)
+    ctx.moveTo(cnx-gapR, cny); ctx.lineTo(cnx-armLen, cny)
+    ctx.moveTo(cnx+gapR, cny); ctx.lineTo(cnx+armLen, cny)
+    ctx.moveTo(cnx, cny-gapR); ctx.lineTo(cnx, cny-armLen)
+    ctx.moveTo(cnx, cny+gapR); ctx.lineTo(cnx, cny+armLen)
     ctx.stroke()
     ctx.globalAlpha = Math.max(0.70, cnPulse)
     ctx.fillStyle = '#ffd700'
@@ -1335,27 +1381,45 @@ function drawMinimap(ctx, gr, gc, angle, cellMap, presenceMap, myWallet, W, H, c
     ctx.fillRect(-ds, -ds, ds*2, ds*2)
     ctx.restore()
     ctx.globalAlpha = 1
+  } else {
+    // Edge arrow toward chain node
+    const edgePulse = 0.55 + Math.sin(Date.now() / 600) * 0.45
+    const a = Math.atan2(cnPos.row - camY, cnPos.col - camX)
+    const edge = SZ * 0.46
+    const ax = pvx + Math.cos(a) * edge, ay = pvy + Math.sin(a) * edge
+    ctx.save(); ctx.globalAlpha = Math.max(0.5, edgePulse)
+    ctx.fillStyle = '#ffd700'
+    ctx.translate(ax, ay); ctx.rotate(a)
+    ctx.beginPath(); ctx.moveTo(5,0); ctx.lineTo(-3.5,-2.8); ctx.lineTo(-3.5,2.8); ctx.closePath(); ctx.fill()
+    ctx.restore(); ctx.globalAlpha = 1
   }
 
-  // Portal navigation nodes — pulsing colored dots, below player markers
+  // Portal nodes — in local view only; edge arrow otherwise
   for (const [key, cell] of cellMap) {
     if (!cell?.isPortalNode) continue
     const [rr, cc] = key.split(',').map(Number)
-    const px2 = mapX(cc + 0.5)
-    const py2 = mapY(rr + 0.5)
-    const pPulse = 0.60 + Math.sin(Date.now() / 500 + cc * 0.4) * 0.40
-    ctx.globalAlpha = Math.max(0.55, pPulse) * 0.9
-    ctx.fillStyle = cell.color || C
-    ctx.beginPath()
-    ctx.arc(px2, py2, Math.max(2, CS * 0.75), 0, Math.PI * 2)
-    ctx.fill()
-    drawMapEmoji(cell.emoji||'◆',px2,py2,cell.color||C,'circle')
-    ctx.globalAlpha = 1
+    const inLocalView = Math.abs(rr - camY) <= VIEW_R + .5 && Math.abs(cc - camX) <= VIEW_R + .5
+    if (inLocalView) {
+      const px2 = mapX(cc + 0.5), py2 = mapY(rr + 0.5)
+      const pPulse = 0.60 + Math.sin(Date.now() / 500 + cc * 0.4) * 0.40
+      ctx.globalAlpha = Math.max(0.55, pPulse) * 0.9
+      ctx.fillStyle = cell.color || C
+      ctx.beginPath(); ctx.arc(px2, py2, Math.max(2, CS * 0.75), 0, Math.PI*2); ctx.fill()
+      drawMapEmoji(cell.emoji||'◆',px2,py2,cell.color||C,'circle')
+      ctx.globalAlpha = 1
+    } else {
+      const a = Math.atan2(rr - camY, cc - camX)
+      const edge = SZ * 0.44
+      const ax = pvx + Math.cos(a) * edge, ay = pvy + Math.sin(a) * edge
+      ctx.save(); ctx.globalAlpha = 0.50
+      ctx.fillStyle = cell.color || C
+      ctx.translate(ax, ay); ctx.rotate(a)
+      ctx.beginPath(); ctx.moveTo(4,0); ctx.lineTo(-3,-2); ctx.lineTo(-3,2); ctx.closePath(); ctx.fill()
+      ctx.restore(); ctx.globalAlpha = 1
+    }
   }
 
   // ── Wallet markers — rendered last so they always appear on top ───────────────
-  // Three tiers: ACTIVE (in view + line of sight), NEAR (in FOV but behind wall),
-  // GHOST (off-camera). Every wallet shows on the minimap at all times.
   const nowMs = Date.now()
   for (const [w,p] of Object.entries(presenceMap||{})) {
     if (p.row==null && p.gy==null) continue
@@ -1365,21 +1429,35 @@ function drawMinimap(ctx, gr, gc, angle, cellMap, presenceMap, myWallet, W, H, c
     const dotGX = p.gx ?? ((p.col??0) + 0.5)
     const dotGY = p.gy ?? ((p.row??0) + 0.5)
     const col = colorFromAddress(w)
-    const dx = mapX(dotGX), dy = mapY(dotGY)
     const heading = Number(p.angle)||0
 
-    // Visibility tier computation (used for styling, NOT for culling)
     const vx = dotGX - camX, vy = dotGY - camY
     const walletDist = Math.hypot(vx, vy)
     const relAngle = Math.atan2(Math.sin(Math.atan2(vy,vx)-angle), Math.cos(Math.atan2(vy,vx)-angle))
     const inFOV = walletDist <= 2.5 || Math.abs(relAngle) <= FOV/2 + 0.12
     const inView = inFOV && visibleFromCamera(dotGY, dotGX, 1)
     const pulse = 0.5 + Math.sin(nowMs/680 + dotGX*1.9 + dotGY*1.3) * 0.5
+    const inLocalView = Math.abs(vx) <= VIEW_R + .5 && Math.abs(vy) <= VIEW_R + .5
 
     ctx.save()
 
+    if (!inLocalView) {
+      // Edge arrow for out-of-range wallets
+      const a = Math.atan2(vy, vx)
+      const edge = SZ * 0.43
+      const ax = pvx + Math.cos(a) * edge, ay = pvy + Math.sin(a) * edge
+      ctx.globalAlpha = 0.28 + pulse * 0.14
+      ctx.fillStyle = col
+      ctx.translate(ax, ay); ctx.rotate(a)
+      ctx.beginPath(); ctx.moveTo(3.5,0); ctx.lineTo(-2.5,-2); ctx.lineTo(-2.5,2); ctx.closePath(); ctx.fill()
+      ctx.restore()
+      continue
+    }
+
+    const dx = mapX(dotGX), dy = mapY(dotGY)
+
     if (isBot) {
-      // ── BOT: square + crosshair, always present ─────────────────────────────
+      // ── BOT: square + crosshair ──────────────────────────────────────────────
       const baseAlpha = inView ? 0.95 : inFOV ? 0.60 : 0.35
       const bs = Math.max(3.2, CS * 0.90)
       ctx.globalAlpha = baseAlpha
