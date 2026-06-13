@@ -36,7 +36,7 @@ const CHAIN_NODE_COL = 4
 // Jump: a player can mount mining blocks, but structural walls stay impassable.
 const JUMP_VZ   = 5.7        // jump impulse (grid units / second)
 const GRAVITY_A = 13.5       // gravity (grid units / second²)
-const BLOCK_TOP = 1.0        // interactive/mining block height in grid units
+const BLOCK_TOP = 1.0        // fallback height; chain blocks use deterministic tiers
 const OBSTACLE_TOP = 2.35    // above the maximum single-jump apex
 const BRIDGE_BOTTOM = 1.42   // enough clearance for a wallet walking below
 const BRIDGE_TOP = 1.82      // unreachable from the floor without stairs
@@ -68,6 +68,20 @@ function chainObstacle(key,data) {
 function obstacleTop(data) {
   const height = Number(data?.height)
   return Number.isFinite(height) && height > 0 ? height : OBSTACLE_TOP
+}
+
+function blockTop(cell,row=0,col=0) {
+  if(!cell) return 0
+  if(cell.isPortalNode||cell.isChainNode) return 1.0
+  const raw=String(cell.blockHex||gridToBlockHex(row,col)||'').replace('#','')
+  const index=Number.parseInt(raw,16)
+  if(!Number.isFinite(index)) return cell.isMarket?1.16:BLOCK_TOP
+  // The immutable #hex selects a visual/physical tier without changing chain
+  // identity. Roughly 1/4 remain vaultable; the rest break rooftop shortcuts.
+  const tier=Math.abs((index*17+row*7+col*11)%8)
+  if(tier<2) return 1.0
+  if(tier<6) return 1.38
+  return 1.68
 }
 
 function obstacleBottom(data) {
@@ -1173,6 +1187,27 @@ function addDenseMaze(valid,reserved,cellMap){
       label:'CHAIN PYLON',height:2.7,isArchitecture:true,isPylon:true,
     }))
   })
+
+  // Irregular ruin compounds fill otherwise empty pockets with L-shaped walls,
+  // staggered towers and small courtyards. Patterns rotate per anchor so the
+  // four districts do not feel stamped from the same template.
+  const ruinPatterns=[
+    [[0,0],[1,0],[2,0],[2,1],[2,2],[0,3],[1,3]],
+    [[0,0],[0,1],[0,2],[1,2],[2,2],[3,0],[3,1]],
+    [[0,0],[1,0],[1,1],[1,2],[2,2],[3,2],[3,3]],
+    [[0,1],[1,1],[2,1],[2,2],[2,3],[0,3],[3,0]],
+  ]
+  const anchors=[[5,5],[5,19],[5,34],[8,47],[17,8],[18,34],[32,5],[34,19],[32,34],[35,47],[46,7],[46,34],[48,47]]
+  anchors.forEach(([baseRow,baseCol],compoundIndex)=>{
+    const pattern=ruinPatterns[compoundIndex%ruinPatterns.length]
+    pattern.forEach(([dr,dc],partIndex)=>place(baseRow+dr,baseCol+dc,{
+      base:partIndex%3===0?[48,64,78]:[66,70,78],
+      glow:partIndex%3===0?[34,211,238]:[103,232,249],
+      kind:partIndex%3===0?'data':'hash',label:'CHAIN RUIN',
+      height:partIndex%4===0?2.8:2.05+(partIndex%2)*.35,
+      isArchitecture:true,isRuin:true,
+    }))
+  })
 }
 
 function ensureInteractiveConnectivity(valid,cellMap){
@@ -1279,14 +1314,14 @@ function solidTopAt(row, col, cellMap, obsSet) {
   const key = `${row},${col}`
   const obstacle = obsSet?.get?.(key)
   if (obstacle) return obstacleTop(obstacle)
-  return cellMap?.has(key) ? BLOCK_TOP : 0
+  return cellMap?.has(key) ? blockTop(cellMap.get(key),row,col) : 0
 }
 
 function solidSpanAt(row, col, cellMap, obsSet) {
   const key=`${row},${col}`
   const obstacle=obsSet?.get?.(key)
   if(obstacle) return {bottom:obstacleBottom(obstacle),top:obstacleTop(obstacle)}
-  if(cellMap?.has(key)) return {bottom:0,top:BLOCK_TOP}
+  if(cellMap?.has(key)) return {bottom:0,top:blockTop(cellMap.get(key),row,col)}
   return null
 }
 
@@ -1458,9 +1493,10 @@ function castRayLayers(wx, wy, angle, cellMap, obsSet, maxDist = VISUAL_RANGE) {
       continue
     }
     const cell=cellMap.get(key)||null
-    if(cell&&BLOCK_TOP>highestNearTop+.01){
+    const cellTop=cell?blockTop(cell,my,mx):0
+    if(cell&&cellTop>highestNearTop+.01){
       hits.push({perpDist,cell,side,mx,my,hit:true})
-      highestNearTop=BLOCK_TOP
+      highestNearTop=cellTop
     }
   }
   return hits
@@ -2577,10 +2613,18 @@ export default function MiningChain3DFPV({
     // Interactive/mining cells are immutable landmarks. Obstacles may shape
     // corridors around them, but can never replace them or block every approach.
     const reserved = new Set()
-    for(const [key] of cellMap){
+    for(const [key,cell] of cellMap){
       const [r,c]=key.split(',').map(Number)
       reserved.add(key)
-      for(const [dr,dc] of [[1,0],[-1,0],[0,1],[0,-1]]) reserved.add(`${r+dr},${c+dc}`)
+      const approaches=[[1,0],[-1,0],[0,1],[0,-1]]
+      if(cell.isPortalNode||cell.isChainNode||cell.isMarket){
+        for(const [dr,dc] of approaches) reserved.add(`${r+dr},${c+dc}`)
+      }else{
+        const raw=String(cell.blockHex||gridToBlockHex(r,c)||'').replace('#','')
+        const index=Number.parseInt(raw,16)||0
+        const [dr,dc]=approaches[Math.abs(index+r*3+c*5)%approaches.length]
+        reserved.add(`${r+dr},${c+dc}`)
+      }
     }
     const valid = new Map()
     for (const [key, data] of OBSTACLE_MAP) {
@@ -2873,7 +2917,7 @@ export default function MiningChain3DFPV({
     const curCell = cellMap.get(`${gr},${gc}`)
     // A cell directly below the player is a platform, not the room containing
     // the camera. Do not recolor the whole scene when landing on top of it.
-    const atmosphereCell = pz < BLOCK_TOP ? curCell : null
+    const atmosphereCell = pz < blockTop(curCell,gr,gc) ? curCell : null
     const [ar,ag,ab] = atmosphereCell?.color ? hexToRgb(atmosphereCell.color) : [0,0,0]
     const AT = 0.18
 
@@ -2906,7 +2950,7 @@ export default function MiningChain3DFPV({
     const solidHeightAt=(gx,gy)=>{
       const row=Math.floor(gy),col=Math.floor(gx),key=`${row},${col}`
       if(validObstaclesRef.current.has(key)) return obstacleTop(validObstaclesRef.current.get(key))
-      if(cellMap.has(key)) return BLOCK_TOP
+      if(cellMap.has(key)) return blockTop(cellMap.get(key),row,col)
       return 0
     }
     ctx.save()
@@ -2936,7 +2980,7 @@ export default function MiningChain3DFPV({
       if(Math.abs(cameraCell.lateral)>Math.max(1.7,cameraCell.depth*tanHalfFov+1.5)) continue
       const key=`${r},${c}`,obs=validObstaclesRef.current.get(key),cell=cellMap.get(key)
       if(!obs&&!cell) continue
-      const topHeight=obs?obstacleTop(obs):BLOCK_TOP
+      const topHeight=obs?obstacleTop(obs):blockTop(cell,r,c)
       const bottomHeight=obs?obstacleBottom(obs):0
       const isTop=cameraZ>topHeight+.015
       const isUnderside=bottomHeight>0&&cameraZ<bottomHeight-.015
@@ -3012,7 +3056,7 @@ export default function MiningChain3DFPV({
       for(let layerIndex=layers.length-1;layerIndex>=0;layerIndex--){
       const {perpDist,cell,side,mx:hitMx,my:hitMy}=layers[layerIndex]
       const dist=perpDist*Math.cos(ra-angle)
-      const wallTop = cell?.isObstacle ? obstacleTop(cell) : BLOCK_TOP
+      const wallTop = cell?.isObstacle ? obstacleTop(cell) : blockTop(cell,hitMy,hitMx)
       const wallBase = cell?.isObstacle ? obstacleBottom(cell) : 0
       const projectedTop = projectY(wallTop, dist)
       const projectedBottom = projectY(wallBase, dist)
@@ -3357,7 +3401,7 @@ export default function MiningChain3DFPV({
 
     // ── Wall face overlays — ONLY for mineable blocks, never for structural walls ──
     // Use the actual wall top height so the crosshair activates across the full obstacle face
-    const fwdWallTopH = fwdCell?.isObstacle ? obstacleTop(fwdCell) : BLOCK_TOP
+    const fwdWallTopH = fwdCell?.isObstacle ? obstacleTop(fwdCell) : blockTop(fwdCell,fwdMy,fwdMx)
     const fwdWallBottomH = fwdCell?.isObstacle ? obstacleBottom(fwdCell) : 0
     const fwdProjectedTop = projectY(fwdWallTopH, fwdDist)
     const fwdProjectedBottom = projectY(fwdWallBottomH, fwdDist)
