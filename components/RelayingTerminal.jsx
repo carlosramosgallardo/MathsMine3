@@ -1937,24 +1937,26 @@ export default function RelayingTerminal({ accent = '#22d3ee' }) {
         @media (max-width: 899px) and (orientation: portrait) {
           .mm3-irc-shell {
             max-height: calc(100svh - 17rem);
+            overflow: hidden;
           }
-          /* Aside: shrink to content, floated above chat */
+          /* Aside: one-line strip showing only the wallet count */
           .mm3-irc-shell > aside {
             order: -1;
             flex: 0 0 auto;
-            padding: 0.4rem 0.6rem;
+            padding: 0.22rem 0.5rem;
           }
+          /* Hide the wallet name list — only the count header stays */
           .mm3-irc-aside-inner {
-            max-height: 4rem;
-            overflow-y: auto;
+            display: none;
           }
           /* Chat section: grows to fill remaining height */
           .mm3-irc-shell > section {
             flex: 1 1 0;
             min-height: 0;
+            overflow: hidden;
             display: flex;
             flex-direction: column;
-            padding: 0.5rem 0.65rem calc(0.5rem + env(safe-area-inset-bottom, 0px));
+            padding: 0.4rem 0.55rem calc(0.4rem + env(safe-area-inset-bottom, 0px));
           }
           /* Section header and form: fixed size */
           .mm3-irc-shell > section > div:first-child,
@@ -1962,19 +1964,29 @@ export default function RelayingTerminal({ accent = '#22d3ee' }) {
           .mm3-irc-shell > section > div:last-child {
             flex: 0 0 auto;
           }
+          /* Filters: single scrollable row — no line wrap */
+          .mm3-irc-filters {
+            flex-wrap: nowrap;
+            overflow-x: auto;
+            scrollbar-width: none;
+            gap: 0.22rem;
+            margin: 0 0 0.28rem;
+            padding: 0 0.1rem 0.22rem;
+          }
+          .mm3-irc-filters::-webkit-scrollbar { display: none; }
           /* Compact send form on mobile */
-          .mm3-irc-shell > section > form { margin-top: 0.3rem; }
+          .mm3-irc-shell > section > form { margin-top: 0.25rem; }
           .mm3-irc-submit {
-            padding-top: 0.35rem !important;
-            padding-bottom: 0.35rem !important;
-            font-size: 0.65rem !important;
+            padding-top: 0.3rem !important;
+            padding-bottom: 0.3rem !important;
+            font-size: 0.63rem !important;
           }
           .mm3-irc-shell > section > form input {
-            padding-top: 0.35rem !important;
-            padding-bottom: 0.35rem !important;
-            font-size: 0.82rem !important;
+            padding-top: 0.3rem !important;
+            padding-bottom: 0.3rem !important;
+            font-size: 0.80rem !important;
           }
-          /* Remove border-b from channel header row on mobile — avoids strikethrough appearance */
+          /* Remove border-b from channel header row on mobile */
           .mm3-irc-header-row {
             border-bottom: none !important;
             padding-bottom: 0.4rem;
@@ -1984,15 +1996,16 @@ export default function RelayingTerminal({ accent = '#22d3ee' }) {
             flex: 1 1 0;
             min-height: 0;
             max-height: none;
+            overflow-y: auto;
           }
           .mm3-irc-peer-row {
-            padding-top: 0.08rem;
-            padding-bottom: 0.08rem;
-            font-size: 0.60rem;
+            padding-top: 0.06rem;
+            padding-bottom: 0.06rem;
+            font-size: 0.58rem;
           }
           .mm3-irc-group-label {
-            margin-top: 0.15rem;
-            font-size: 0.48rem;
+            margin-top: 0.12rem;
+            font-size: 0.46rem;
           }
         }
         .mm3-relaying-panel {
