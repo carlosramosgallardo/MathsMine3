@@ -17,8 +17,7 @@ const FOV           = Math.PI * 0.43
 const PROJ_DIST     = 0.72
 const CAMERA_EYE_Z  = 0.68   // eye height above the surface the player stands on
 const MAX_PITCH     = 1.08    // ~62deg: avoids projection collapse at extreme look angles
-const MOVE_SPD      = 43     // world units / second (~1.1 cells/sec)
-const SPRINT_SPD    = 67
+const MOVE_SPD      = 47     // world units / second (~1.2 cells/sec)
 const MOVE_ACCEL    = 11
 const TURN_SPD      = 1.35   // radians / second
 const HORIZON_RATIO = 0.50
@@ -2093,7 +2092,7 @@ export default function MiningChain3DFPV({
   const canvasRef    = useRef(null)
   const containerRef = useRef(null)
   const [, setPointerLocked] = useState(false)
-  const keysRef      = useRef({w:false,s:false,a:false,d:false,q:false,e:false,space:false,shift:false})
+  const keysRef      = useRef({w:false,s:false,a:false,d:false,q:false,e:false,space:false})
   const playerRef    = useRef({
     x:((initCol??14)+0.5)*CELL_SIZE,
     y:((initRow??14)+0.5)*CELL_SIZE,
@@ -2155,8 +2154,9 @@ export default function MiningChain3DFPV({
   // Anon collision push
   const onCollisionPushRef      = useRef(onCollisionPush)
   const collisionPushThrottleRef = useRef(new Map())
-  // Critical hit system
-  const critChanceRef       = useRef(0.05)
+  // Skill system
+  const critChanceRef       = useRef(0)
+  const speedRef            = useRef(MOVE_SPD)
   const critFlashRef        = useRef(-9999)
   const walletNftjisRef     = useRef(walletNftjis || {})
   const myNftjisRef         = useRef(myNftjis || [])
@@ -2179,10 +2179,11 @@ export default function MiningChain3DFPV({
   useEffect(()=>{ walletNftjisRef.current=walletNftjis||{} },[walletNftjis])
   useEffect(()=>{ myNftjisRef.current=myNftjis||[] },[myNftjis])
   useEffect(()=>{ healthMapRef.current=healthMap||{} },[healthMap])
-  // Crit chance: 5% if player owns a ❤️ NFTJI (heart skill), 0% otherwise
+  // NFTJI skills: ❤️ → +5% crit chance · ⚔️ (sq-atk) → +10% movement speed
   useEffect(()=>{
-    const hasHeart = (myNftjis||[]).some(n => n.emoji === '❤️')
-    critChanceRef.current = hasHeart ? 0.05 : 0
+    const nfts = myNftjis || []
+    critChanceRef.current = nfts.some(n => n.emoji === '❤️') ? 0.05 : 0
+    speedRef.current      = nfts.some(n => n.emoji === '⚔️') ? MOVE_SPD * 1.10 : MOVE_SPD
   },[myNftjis])
   // External hit flash (victim sees red screen when struck by another player)
   useEffect(()=>{ if(externalPvpFlash) pvpFlashRef.current=performance.now() },[externalPvpFlash])
@@ -3282,7 +3283,6 @@ export default function MiningChain3DFPV({
       if(e.key==='d'||e.key==='D')                        k.d=true
       if(e.key==='q'||e.key==='Q'||e.key==='ArrowLeft') {k.q=true;e.preventDefault()}
       if(e.key==='e'||e.key==='E'||e.key==='ArrowRight'){k.e=true;e.preventDefault()}
-      if(e.key==='Shift') k.shift=true
       if(e.key==='Enter'){
         const fData=facingDataRef.current||{}
         const inRange=fData.dist==null||fData.dist<=INTERACT_DIST
@@ -3316,7 +3316,6 @@ export default function MiningChain3DFPV({
       if(e.key==='d'||e.key==='D')                        k.d=false
       if(e.key==='q'||e.key==='Q'||e.key==='ArrowLeft')  k.q=false
       if(e.key==='e'||e.key==='E'||e.key==='ArrowRight') k.e=false
-      if(e.key==='Shift') k.shift=false
       if(e.key===' '||e.code==='Space')                   k.space=false
     }
     const reset=()=>{
@@ -3395,7 +3394,7 @@ export default function MiningChain3DFPV({
       const joy=joystickRef.current
       const fwd=(k.w?1:0)-(k.s?1:0)-joy.y, str=(k.d?1:0)-(k.a?1:0)+joy.x
       const inputLen=Math.hypot(fwd,str)||1
-      const targetSpeed=k.shift?SPRINT_SPD:MOVE_SPD
+      const targetSpeed=speedRef.current
       const targetVX=(Math.cos(p.angle)*(fwd/inputLen)+Math.cos(p.angle+Math.PI/2)*(str/inputLen))*targetSpeed
       const targetVY=(Math.sin(p.angle)*(fwd/inputLen)+Math.sin(p.angle+Math.PI/2)*(str/inputLen))*targetSpeed
       const blend=1-Math.exp(-MOVE_ACCEL*dt)
