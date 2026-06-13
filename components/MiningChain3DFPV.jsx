@@ -42,6 +42,12 @@ const OBSTACLE_TOP = 2.35    // above the maximum single-jump apex
 const STAIR_HEIGHTS = [0.58, 1.16, 1.74]
 const MAX_STAIRCASES = 8
 const MAX_JUMPS = 1
+const STRUCTURE_ZONES = [
+  { r0:2,  r1:25, c0:2,  c1:25 },
+  { r0:2,  r1:25, c0:30, c1:53 },
+  { r0:30, r1:53, c0:2,  c1:25 },
+  { r0:30, r1:53, c0:30, c1:53 },
+]
 
 // ── Decorative obstacles: solid walls, no doorways, not mineable ──────────────
 // Five visual types: monolith (violet), pylon (teal), ruin (rust), steel wall, bunker
@@ -881,6 +887,126 @@ const OBSTACLE_MAP = new Map([
   ['52,51',  { base:W_DARK,  label:'WALL' }],
 ])
 
+function addRetroStructures(valid, reserved, cellMap) {
+  const isFree = (row,col) => {
+    const key=`${row},${col}`
+    return row>1&&row<ROWS-1&&col>1&&col<COLS-1&&
+      !reserved.has(key)&&!cellMap.has(key)&&!valid.has(key)
+  }
+  const place = (cells, makeData) => {
+    if(!cells.every(({row,col})=>isFree(row,col))) return false
+    cells.forEach((cell,index)=>{
+      const key=`${cell.row},${cell.col}`
+      valid.set(key,chainObstacle(key,{...makeData(cell,index),isStructure:true}))
+    })
+    return true
+  }
+  const findLine = (zone,length,horizontal,accept) => {
+    for(let row=zone.r0;row<=zone.r1;row++) for(let col=zone.c0;col<=zone.c1;col++){
+      const cells=Array.from({length},(_,index)=>({
+        row:row+(horizontal?0:index),
+        col:col+(horizontal?index:0),
+      }))
+      if(cells.at(-1).row>zone.r1||cells.at(-1).col>zone.c1) continue
+      if(cells.every(({row:r,col:c})=>isFree(r,c))&&(!accept||accept(cells))) return cells
+    }
+    return null
+  }
+
+  const bridgeHeights=[0.58,1.16,1.74,1.74,1.74,1.74,1.74,1.16,0.58]
+  const bridgeCandidates=[
+    {row:26,col:3,dr:0,dc:1},{row:26,col:43,dr:0,dc:1},
+    {row:14,col:29,dr:1,dc:0},{row:33,col:27,dr:1,dc:0},
+  ]
+  for(const candidate of bridgeCandidates){
+    const cells=bridgeHeights.map((_height,index)=>({
+      row:candidate.row+candidate.dr*index,
+      col:candidate.col+candidate.dc*index,
+    }))
+    place(cells,(_cell,index)=>({
+      base:[34,82,104],glow:[34,211,238],kind:'hash',label:'DATA BRIDGE',
+      height:bridgeHeights[index],isBridge:true,
+    }))
+  }
+
+  const wallCandidates=[
+    {row:29,col:5,dr:0,dc:1},{row:34,col:26,dr:1,dc:0},
+  ]
+  for(const candidate of wallCandidates){
+    const line=Array.from({length:13},(_,index)=>({
+      row:candidate.row+candidate.dr*index,
+      col:candidate.col+candidate.dc*index,
+      index,
+    }))
+    if(!line.every(({row,col})=>isFree(row,col))) continue
+    const solids=line.filter(({index})=>index!==4&&index!==8)
+    place(solids,(_cell,index)=>({
+      base:[82,45,96],glow:[217,70,239],kind:'consensus',label:'CONSENSUS GATE',
+      height:index===0||index===solids.length-1?2.75:OBSTACLE_TOP,isWall:true,
+    }))
+  }
+
+  const trailCandidates=[
+    {row:27,col:14,dr:0,dc:1},{row:28,col:34,dr:0,dc:1},
+  ]
+  const trailHeights=[0.32,0.52,0.74,0.96,0.74,0.52,0.32]
+  for(const candidate of trailCandidates){
+    const cells=trailHeights.map((_height,index)=>({
+      row:candidate.row+candidate.dr*index,
+      col:candidate.col+candidate.dc*index,
+    }))
+    place(cells,(_cell,index)=>({
+      base:[96,78,48],glow:[250,204,21],kind:'ledger',label:'LEDGER RUN',
+      height:trailHeights[index],isTrail:true,
+    }))
+  }
+
+  STRUCTURE_ZONES.forEach((zone,zoneIndex)=>{
+    // Elevated data bridge: low ramps at both ends and a broad traversable deck.
+    const horizontal=zoneIndex%2===0
+    const bridge=findLine(zone,9,horizontal)
+    if(bridge) place(bridge,(_cell,index)=>({
+      base:[34,82,104],glow:[34,211,238],kind:'hash',label:'DATA BRIDGE',
+      height:bridgeHeights[index],
+      isBridge:true,
+    }))
+
+    // Monumental firewall with two real gates. Towers frame the entrances but
+    // the omitted cells keep the quadrant connected on foot.
+    const wall=findLine(zone,13,!horizontal,cells=>cells.every(({row,col})=>{
+      const halo=[[1,0],[-1,0],[0,1],[0,-1]]
+      return halo.some(([dr,dc])=>isFree(row+dr,col+dc))
+    }))
+    if(wall){
+      const solids=wall.filter((_cell,index)=>index!==4&&index!==8)
+      place(solids,(_cell,index)=>({
+        base:[82,45,96],glow:[217,70,239],kind:'consensus',label:'CONSENSUS GATE',
+        height:index===0||index===solids.length-1?2.75:OBSTACLE_TOP,
+        isWall:true,
+      }))
+    }
+  })
+
+  // Two compact raised plazas provide combat/mining vantage points. Their
+  // three-cell approach is part of the same atomic placement.
+  let plazas=0
+  for(const zone of STRUCTURE_ZONES.slice().reverse()){
+    if(plazas>=2) break
+    for(let row=zone.r0;row<=zone.r1-2&&plazas<2;row++){
+      for(let col=zone.c0;col<=zone.c1-5&&plazas<2;col++){
+        const deck=[]
+        for(let dr=0;dr<3;dr++) for(let dc=0;dc<3;dc++) deck.push({row:row+dr,col:col+dc})
+        const stairs=[{row:row+1,col:col+3},{row:row+1,col:col+4},{row:row+1,col:col+5}]
+        const all=[...deck,...stairs]
+        if(!all.every(({row:r,col:c})=>isFree(r,c))) continue
+        place(deck,()=>({base:[38,88,76],glow:[45,212,191],kind:'data',label:'HASH PLAZA',height:1.16,isPlaza:true}))
+        place(stairs,(_cell,index)=>({base:[38,88,76],glow:[45,212,191],kind:'data',label:'PLAZA STEP',height:[0.87,0.58,0.29][index],isStair:true}))
+        plazas++
+      }
+    }
+  }
+}
+
 function circleTouchesCell(gx, gy, row, col, radius = PLAYER_R) {
   const closestX = Math.max(col, Math.min(gx, col + 1))
   const closestY = Math.max(row, Math.min(gy, row + 1))
@@ -1031,9 +1157,11 @@ function drawMinimap(ctx, gr, gc, angle, cellMap, presenceMap, myWallet, W, H, c
   const SZ = minimapSize(W)
   const MX = W - SZ - 6
   const MY = 8
-  const viewCells = RADAR_RANGE * 2 + 1
-  const originCol = gc - RADAR_RANGE
-  const originRow = gr - RADAR_RANGE
+  // The terrain remains camera-aware, but destinations use a stable global
+  // coordinate system so every emoji is always useful for navigation.
+  const viewCells = Math.max(ROWS, COLS)
+  const originCol = 0
+  const originRow = 0
   const CS = SZ/viewCells
   const mapX = (col) => MX + (col-originCol)*CS
   const mapY = (row) => MY + (row-originRow)*CS
@@ -1088,8 +1216,8 @@ function drawMinimap(ctx, gr, gc, angle, cellMap, presenceMap, myWallet, W, H, c
       y:mapY(gr+.5+Math.sin(rayAngle)*rayDist),
     })
   }
-  const r0=Math.max(0,Math.floor(originRow)),r1=Math.min(ROWS,Math.ceil(originRow+viewCells))
-  const c0=Math.max(0,Math.floor(originCol)),c1=Math.min(COLS,Math.ceil(originCol+viewCells))
+  const r0=0,r1=ROWS
+  const c0=0,c1=COLS
   for (let r=r0;r<r1;r++) for (let c=c0;c<c1;c++) {
     const key = `${r},${c}`
     const cell = cellMap.get(key)
@@ -1123,7 +1251,6 @@ function drawMinimap(ctx, gr, gc, angle, cellMap, presenceMap, myWallet, W, H, c
     const obs = validObs?.get(key)
     if (obs) continue  // hidden behind static wall, skip
     const [rr, cc] = key.split(',').map(Number)
-    if(!visibleFromCamera(rr+.5,cc+.5)) continue
     const mx2 = mapX(cc + 0.5)
     const my2 = mapY(rr + 0.5)
     const ds = Math.max(1.2, CS * 0.36)
@@ -1209,7 +1336,7 @@ function drawMinimap(ctx, gr, gc, angle, cellMap, presenceMap, myWallet, W, H, c
 
   // Chain node: diamond crosshair — visually distinct landmark (static, not a dot)
   const cnPos   = chainNodePos || { row: CHAIN_NODE_ROW, col: CHAIN_NODE_COL }
-  if(visibleFromCamera(cnPos.row+.5,cnPos.col+.5)){
+  {
     const cnPulse = 0.55 + Math.sin(Date.now() / 600) * 0.45
     const cnx = mapX(cnPos.col + 0.5)
     const cny = mapY(cnPos.row + 0.5)
@@ -1239,7 +1366,6 @@ function drawMinimap(ctx, gr, gc, angle, cellMap, presenceMap, myWallet, W, H, c
   for (const [key, cell] of cellMap) {
     if (!cell?.isPortalNode) continue
     const [rr, cc] = key.split(',').map(Number)
-    if(!visibleFromCamera(rr+.5,cc+.5)) continue
     const px2 = mapX(cc + 0.5)
     const py2 = mapY(rr + 0.5)
     const pPulse = 0.60 + Math.sin(Date.now() / 500 + cc * 0.4) * 0.40
@@ -1964,6 +2090,10 @@ export default function MiningChain3DFPV({
       if(!reserved.has(key)) valid.set(key, chainObstacle(key,data))
     }
 
+    // Authored traversal landmarks get first choice of genuinely empty space;
+    // procedural maze walls then fill only what remains.
+    addRetroStructures(valid,reserved,cellMap)
+
     // Dynamic wall segments: sampled on a 4-cell grid, ~22% become wall origins
     // Each origin spawns a 2–4 cell segment (horiz or vert) → looks like maze walls
     const DYN = [
@@ -1998,7 +2128,8 @@ export default function MiningChain3DFPV({
     const directions = [[1,0],[0,1],[-1,0],[0,-1]]
     const tallObstacles = [...valid.entries()].sort(([a],[b]) => a.localeCompare(b))
     for (const [anchorKey, anchor] of tallObstacles) {
-      if (staircases >= MAX_STAIRCASES || anchor?.isStair) break
+      if (staircases >= MAX_STAIRCASES) break
+      if (anchor?.isStair || anchor?.isStructure) continue
       const [anchorRow, anchorCol] = anchorKey.split(',').map(Number)
       const directionOffset = Math.abs(anchorRow * 19 + anchorCol * 23) % directions.length
       let placed = false
