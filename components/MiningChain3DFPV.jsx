@@ -21,12 +21,9 @@ const MOVE_SPD      = 43     // world units / second (~1.1 cells/sec)
 const SPRINT_SPD    = 67
 const MOVE_ACCEL    = 11
 const TURN_SPD      = 1.35   // radians / second
-const DOOR_FRAC     = 0.45
 const HORIZON_RATIO = 0.50
 const PLAYER_R      = 0.20   // collision radius in grid units (1 unit = 1 cell)
 const AVATAR_R      = 0.30
-const DOOR_LO       = (1 - DOOR_FRAC) / 2   // 0.275
-const DOOR_HI       = (1 + DOOR_FRAC) / 2   // 0.725
 const FOOTSTEP_DIST = CELL_SIZE * 0.42       // footstep cadence
 const SWING_DUR     = 340    // ms per pickaxe swing
 const HITS_NEEDED   = 5      // swings to complete mining action
@@ -42,6 +39,8 @@ const JUMP_VZ   = 5.7        // jump impulse (grid units / second)
 const GRAVITY_A = 13.5       // gravity (grid units / second²)
 const BLOCK_TOP = 1.0        // interactive/mining block height in grid units
 const OBSTACLE_TOP = 2.35    // above the maximum single-jump apex
+const STAIR_HEIGHTS = [0.58, 1.16, 1.74]
+const MAX_STAIRCASES = 8
 const MAX_JUMPS = 1
 
 // ── Decorative obstacles: solid walls, no doorways, not mineable ──────────────
@@ -62,6 +61,11 @@ function chainObstacle(key,data) {
   const [row,col]=key.split(',').map(Number)
   const material=CHAIN_MATERIALS[Math.abs((row*17+col*31+row*col*3)%CHAIN_MATERIALS.length)]
   return { ...data, ...material }
+}
+
+function obstacleTop(data) {
+  const height = Number(data?.height)
+  return Number.isFinite(height) && height > 0 ? height : OBSTACLE_TOP
 }
 
 const OBSTACLE_MAP = new Map([
@@ -877,21 +881,49 @@ const OBSTACLE_MAP = new Map([
   ['52,51',  { base:W_DARK,  label:'WALL' }],
 ])
 
-// ── Wall collision: returns true if position (grid units) hits a solid wall ──
-// cellMap + obsSet distinguish empty corridors (passable) from block/obstacle cells
-function hitsSolidWall(gx, gy, cellMap, obsSet, playerZ = 0) {
-  const col = Math.floor(gx), row = Math.floor(gy)
+function circleTouchesCell(gx, gy, row, col, radius = PLAYER_R) {
+  const closestX = Math.max(col, Math.min(gx, col + 1))
+  const closestY = Math.max(row, Math.min(gy, row + 1))
+  const dx = gx - closestX
+  const dy = gy - closestY
+  return dx * dx + dy * dy < radius * radius
+}
+
+function solidTopAt(row, col, cellMap, obsSet) {
   const key = `${row},${col}`
-  if (obsSet?.has(key)) return playerZ < OBSTACLE_TOP
-  if (!cellMap?.has(key)) return false     // Empty corridor: always passable
-  if (playerZ >= BLOCK_TOP) return false
-  // Block cell with data: standard centre-doorway collision
-  const fx = gx - col, fy = gy - row
-  if (fx < PLAYER_R)     { if (fy < DOOR_LO || fy > DOOR_HI) return true }
-  if (fx > 1-PLAYER_R)   { if (fy < DOOR_LO || fy > DOOR_HI) return true }
-  if (fy < PLAYER_R)     { if (fx < DOOR_LO || fx > DOOR_HI) return true }
-  if (fy > 1-PLAYER_R)   { if (fx < DOOR_LO || fx > DOOR_HI) return true }
+  const obstacle = obsSet?.get?.(key)
+  if (obstacle) return obstacleTop(obstacle)
+  return cellMap?.has(key) ? BLOCK_TOP : 0
+}
+
+// Circular player footprint against complete solid cells. Checking the whole
+// body, rather than only its centre, prevents clipping into corners and walls.
+function hitsSolidWall(gx, gy, cellMap, obsSet, playerZ = 0) {
+  const minRow = Math.floor(gy - PLAYER_R)
+  const maxRow = Math.floor(gy + PLAYER_R)
+  const minCol = Math.floor(gx - PLAYER_R)
+  const maxCol = Math.floor(gx + PLAYER_R)
+  for (let row = minRow; row <= maxRow; row++) {
+    for (let col = minCol; col <= maxCol; col++) {
+      const top = solidTopAt(row, col, cellMap, obsSet)
+      if (top && playerZ < top - 0.04 && circleTouchesCell(gx, gy, row, col)) return true
+    }
+  }
   return false
+}
+
+function supportHeightAt(gx, gy, playerZ, cellMap, obsSet) {
+  let height = 0
+  const radius = PLAYER_R * 0.82
+  for (let row = Math.floor(gy - radius); row <= Math.floor(gy + radius); row++) {
+    for (let col = Math.floor(gx - radius); col <= Math.floor(gx + radius); col++) {
+      const top = solidTopAt(row, col, cellMap, obsSet)
+      if (top && playerZ >= top - 0.04 && circleTouchesCell(gx, gy, row, col, radius)) {
+        height = Math.max(height, top)
+      }
+    }
+  }
+  return height
 }
 
 function findRandomFreeCell(cellMap, validObs) {
@@ -960,7 +992,7 @@ function worldToGrid(wx, wy) {
   return { row: Math.floor(wy / CELL_SIZE), col: Math.floor(wx / CELL_SIZE) }
 }
 
-// ── DDA with centre-doorways ──────────────────────────────────────────────────
+// ── DDA through complete solid cells ─────────────────────────────────────────
 function castRay(wx, wy, angle, cellMap, obsSet, maxDist = VISUAL_RANGE) {
   const px = wx / CELL_SIZE, py = wy / CELL_SIZE
   const dx = Math.cos(angle), dy = Math.sin(angle)
@@ -982,14 +1014,9 @@ function castRay(wx, wy, angle, cellMap, obsSet, maxDist = VISUAL_RANGE) {
     // Decorative obstacle: solid wall, no doorway — always a hit
     const obsData = obsSet?.get?.(key) || null
     if (obsData) return {perpDist, cell:{isObstacle:true,...obsData}, side, mx, my, hit:true}
-    // Doorway check for block cells
-    const hitFrac = (((side===0?py+perpDist*dy:px+perpDist*dx)%1.0)+1.0)%1.0
-    const lo=(1-DOOR_FRAC)/2, hi=(1+DOOR_FRAC)/2
-    if (hitFrac<lo||hitFrac>hi) {
-      const cell = cellMap.get(key) || null
-      if (!cell) continue  // Empty corridor: ray passes through
-      return {perpDist, cell, side, mx, my, hit:true}
-    }
+    const cell = cellMap.get(key) || null
+    if (!cell) continue  // Empty corridor: ray passes through
+    return {perpDist, cell, side, mx, my, hit:true}
   }
   return {perpDist:maxDist, cell:null, side:0, mx:-1, my:-1, hit:false}
 }
@@ -1963,6 +1990,46 @@ export default function MiningChain3DFPV({
         }
       }
     }
+
+    // Build a small number of deterministic staircases beside isolated tall
+    // obstacles. Each cube is a real collision/support surface, so players can
+    // reach the roof through three normal jumps without adding moving geometry.
+    let staircases = 0
+    const directions = [[1,0],[0,1],[-1,0],[0,-1]]
+    const tallObstacles = [...valid.entries()].sort(([a],[b]) => a.localeCompare(b))
+    for (const [anchorKey, anchor] of tallObstacles) {
+      if (staircases >= MAX_STAIRCASES || anchor?.isStair) break
+      const [anchorRow, anchorCol] = anchorKey.split(',').map(Number)
+      const directionOffset = Math.abs(anchorRow * 19 + anchorCol * 23) % directions.length
+      let placed = false
+      for (let d = 0; d < directions.length && !placed; d++) {
+        const [dr,dc] = directions[(d + directionOffset) % directions.length]
+        const cells = [1,2,3].map(distance => ({
+          row: anchorRow + dr * distance,
+          col: anchorCol + dc * distance,
+          key: `${anchorRow + dr * distance},${anchorCol + dc * distance}`,
+        }))
+        const clear = cells.every(({row,col,key}) =>
+          row > 1 && row < MM3_BLOCK_GRID_ROWS - 1 &&
+          col > 1 && col < MM3_BLOCK_GRID_COLS - 1 &&
+          !reserved.has(key) && !valid.has(key) && !cellMap.has(key)
+        )
+        if (!clear) continue
+        for (let index = 0; index < cells.length; index++) {
+          const {key} = cells[index]
+          const height = STAIR_HEIGHTS[STAIR_HEIGHTS.length - 1 - index]
+          valid.set(key, {
+            ...anchor,
+            height,
+            isStair:true,
+            label:'CHAIN STEP',
+            glow:anchor.glow || [34,211,238],
+          })
+        }
+        staircases++
+        placed = true
+      }
+    }
     validObstaclesRef.current = valid
 
     // Safety: if player is inside an obstacle or block, teleport to a random free cell
@@ -2200,7 +2267,7 @@ export default function MiningChain3DFPV({
     // cheaper than per-pixel floor casting and remains stable during motion.
     const solidHeightAt=(gx,gy)=>{
       const row=Math.floor(gy),col=Math.floor(gx),key=`${row},${col}`
-      if(validObstaclesRef.current.has(key)) return OBSTACLE_TOP
+      if(validObstaclesRef.current.has(key)) return obstacleTop(validObstaclesRef.current.get(key))
       if(cellMap.has(key)) return BLOCK_TOP
       return 0
     }
@@ -2271,13 +2338,8 @@ export default function MiningChain3DFPV({
     }
 
     // Pre-compute forward cell
-    const {mx:fwdMx,my:fwdMy,cell:fwdCell,perpDist:fwdDist,side:fwdSide} = castRay(px,py,angle,cellMap,validObstaclesRef.current)
-    // Only fire HUD when the ray hit a clearly solid face (not near the doorway boundary).
-    // Near-doorway hits produce thin slivers the player barely notices — suppress the HUD there.
-    const _fgx=px/CELL_SIZE,_fgy=py/CELL_SIZE
-    const _fR=fwdSide===0?(_fgy+fwdDist*Math.sin(angle)):(_fgx+fwdDist*Math.cos(angle))
-    const _fHF=((_fR%1)+1)%1
-    const fwdFaceSolid=_fHF<(DOOR_LO-0.08)||_fHF>(DOOR_HI+0.08)
+    const {mx:fwdMx,my:fwdMy,cell:fwdCell,perpDist:fwdDist} = castRay(px,py,angle,cellMap,validObstaclesRef.current)
+    const fwdFaceSolid=Boolean(fwdCell)
 
     // Collect cells with emoji visible on any wall face
     const visibleWalls = new Map()
@@ -2289,7 +2351,7 @@ export default function MiningChain3DFPV({
       const dist  = perpDist*Math.cos(ra-angle)
       zBuffer[col] = dist
       if(!hit||!cell) continue
-      const wallTop = cell?.isObstacle ? OBSTACLE_TOP : BLOCK_TOP
+      const wallTop = cell?.isObstacle ? obstacleTop(cell) : BLOCK_TOP
       const projectedTop = projectY(wallTop, dist)
       const projectedBottom = projectY(0, dist)
       const rawTop=Math.min(projectedTop,projectedBottom)
@@ -3111,13 +3173,13 @@ export default function MiningChain3DFPV({
 
       // ── Vertical physics (jump / gravity) ────────────────────────────────
       {
-        // Multi-point footprint check: center + 4 cardinal offsets at PLAYER_R
-        let supportHeight = 0
-        for(const [dr,dc] of [[0,0],[PLAYER_R,0],[-PLAYER_R,0],[0,PLAYER_R],[0,-PLAYER_R]]){
-          const bk=`${Math.floor(p.y/CELL_SIZE+dr)},${Math.floor(p.x/CELL_SIZE+dc)}`
-          if(validObstaclesRef.current.has(bk)) supportHeight=Math.max(supportHeight,OBSTACLE_TOP)
-          else if(cellMapRef.current.has(bk)) supportHeight=Math.max(supportHeight,BLOCK_TOP)
-        }
+        const supportHeight = supportHeightAt(
+          p.x/CELL_SIZE,
+          p.y/CELL_SIZE,
+          p.z,
+          cellMapRef.current,
+          validObstaclesRef.current,
+        )
         const floorZ = supportHeight&&p.z>=supportHeight ? supportHeight : 0
         if(p.z > floorZ || p.vz > 0){
           p.vz -= GRAVITY_A*dt
