@@ -2598,22 +2598,159 @@ function makeRampGeometry(direction='east') {
   return geometry
 }
 
+function biomeForCell(row,col) {
+  if(row<ROWS/2&&col<COLS/2) return 'mountain'
+  if(row<ROWS/2) return 'coast'
+  if(col<COLS/2) return 'ice'
+  return 'inferno'
+}
+
+const BIOME_STYLE={
+  mountain:{ground:'#18283d',block:'#5d7893',accent:'#67e8f9'},
+  coast:{ground:'#544a32',block:'#d8ad68',accent:'#22d3ee'},
+  ice:{ground:'#18334f',block:'#9ddff4',accent:'#e0f2fe'},
+  inferno:{ground:'#351016',block:'#8e2924',accent:'#fb923c'},
+}
+
+function seededUnit(seed) {
+  const value=Math.sin(seed*12.9898+78.233)*43758.5453
+  return value-Math.floor(value)
+}
+
+function addNightDome(scene) {
+  const dome=new THREE.Mesh(
+    new THREE.SphereGeometry(72,24,16),
+    new THREE.MeshBasicMaterial({color:'#020617',side:THREE.BackSide,fog:false}),
+  )
+  dome.position.set(COLS/2,5,ROWS/2);scene.add(dome)
+  const starCount=420,positions=new Float32Array(starCount*3),colors=new Float32Array(starCount*3)
+  for(let index=0;index<starCount;index++){
+    const theta=seededUnit(index+1)*Math.PI*2,phi=.12+seededUnit(index+51)*Math.PI*.43,radius=55+seededUnit(index+91)*12
+    positions[index*3]=COLS/2+Math.cos(theta)*Math.sin(phi)*radius
+    positions[index*3+1]=5+Math.cos(phi)*radius
+    positions[index*3+2]=ROWS/2+Math.sin(theta)*Math.sin(phi)*radius
+    const blue=.72+seededUnit(index+131)*.28
+    colors[index*3]=blue;colors[index*3+1]=.84+blue*.16;colors[index*3+2]=1
+  }
+  const geometry=new THREE.BufferGeometry()
+  geometry.setAttribute('position',new THREE.BufferAttribute(positions,3))
+  geometry.setAttribute('color',new THREE.BufferAttribute(colors,3))
+  const stars=new THREE.Points(geometry,new THREE.PointsMaterial({size:.12,sizeAttenuation:true,vertexColors:true,transparent:true,opacity:.92,fog:false}))
+  scene.add(stars)
+  const moon=new THREE.Mesh(new THREE.SphereGeometry(1.45,16,12),new THREE.MeshBasicMaterial({color:'#b9e6ff',fog:false}))
+  moon.position.set(42,24,12);scene.add(moon)
+}
+
+function addBiomeGround(world) {
+  const quadrantSize=ROWS/2
+  for(const [biome,cx,cz] of [['mountain',14,14],['coast',42,14],['ice',14,42],['inferno',42,42]]){
+    const material=new THREE.MeshStandardMaterial({color:BIOME_STYLE[biome].ground,roughness:biome==='ice'?.35:.94,metalness:biome==='ice'?.22:.04})
+    const plane=new THREE.Mesh(new THREE.PlaneGeometry(quadrantSize-.12,quadrantSize-.12),material)
+    plane.rotation.x=-Math.PI/2;plane.position.set(cx,-.018,cz);world.add(plane)
+  }
+  const routeMaterial=new THREE.MeshBasicMaterial({color:'#22d3ee',transparent:true,opacity:.18,depthWrite:false})
+  const routeA=new THREE.Mesh(new THREE.PlaneGeometry(COLS,.42),routeMaterial)
+  routeA.rotation.x=-Math.PI/2;routeA.position.set(COLS/2,.006,ROWS/2);world.add(routeA)
+  const routeB=new THREE.Mesh(new THREE.PlaneGeometry(.42,ROWS),routeMaterial)
+  routeB.rotation.x=-Math.PI/2;routeB.position.set(COLS/2,.007,ROWS/2);world.add(routeB)
+}
+
+function addBiomeLandmarks(world) {
+  const addParticles=(centerX,centerZ,color,seedOffset,height=4)=>{
+    const count=70,positions=new Float32Array(count*3)
+    for(let index=0;index<count;index++){
+      positions[index*3]=centerX+(seededUnit(index+seedOffset)-.5)*24
+      positions[index*3+1]=.35+seededUnit(index+seedOffset+80)*height
+      positions[index*3+2]=centerZ+(seededUnit(index+seedOffset+160)-.5)*24
+    }
+    const geometry=new THREE.BufferGeometry();geometry.setAttribute('position',new THREE.BufferAttribute(positions,3))
+    world.add(new THREE.Points(geometry,new THREE.PointsMaterial({color,size:.055,transparent:true,opacity:.72,depthWrite:false})))
+  }
+  addParticles(14,42,'#bae6fd',620,3.2)
+  addParticles(42,42,'#fb6a24',940,4.8)
+  addParticles(42,14,'#67e8f9',1180,2.2)
+
+  const rockMaterial=new THREE.MeshStandardMaterial({color:'#253d59',roughness:.96,flatShading:true})
+  for(let index=0;index<22;index++){
+    const height=2.5+seededUnit(index+220)*5.4
+    const rock=new THREE.Mesh(new THREE.ConeGeometry(1.4+height*.17,height,5+index%3),rockMaterial)
+    const onNorth=index%2===0
+    rock.position.set(onNorth?seededUnit(index+205)*25:-1.4,height*.5-.02,onNorth?-1.4:seededUnit(index+206)*25)
+    rock.rotation.y=seededUnit(index+230)*Math.PI;world.add(rock)
+  }
+  const peak=new THREE.Mesh(new THREE.ConeGeometry(5.4,12,7),new THREE.MeshStandardMaterial({color:'#314967',roughness:1,flatShading:true}))
+  peak.position.set(-1.5,5.9,-1.5);world.add(peak)
+  const snowCap=new THREE.Mesh(new THREE.ConeGeometry(2.05,3.1,7),new THREE.MeshStandardMaterial({color:'#b9dff4',roughness:.72,flatShading:true}))
+  snowCap.position.set(-1.5,10.35,-1.5);world.add(snowCap)
+
+  const water=new THREE.Mesh(new THREE.PlaneGeometry(25.4,12.2,18,8),new THREE.MeshPhysicalMaterial({color:'#087b9f',transparent:true,opacity:.68,roughness:.18,metalness:.12,clearcoat:.65,side:THREE.DoubleSide}))
+  water.rotation.x=-Math.PI/2;water.position.set(42,.018,-1.2);water.userData.biomeSurface='water';world.add(water)
+  const sand=new THREE.Mesh(new THREE.PlaneGeometry(25.4,6.2),new THREE.MeshStandardMaterial({color:'#b78a50',roughness:1}))
+  sand.rotation.x=-Math.PI/2;sand.position.set(42,-.008,3.1);world.add(sand)
+  for(let index=0;index<14;index++){
+    const crystal=new THREE.Mesh(new THREE.OctahedronGeometry(.16+seededUnit(index+310)*.18),new THREE.MeshBasicMaterial({color:index%2?'#22d3ee':'#facc15'}))
+    crystal.position.set(30+seededUnit(index+320)*24,.18,.4+seededUnit(index+330)*5.4);world.add(crystal)
+  }
+
+  const iceMaterial=new THREE.MeshPhysicalMaterial({color:'#7dd3fc',transparent:true,opacity:.72,roughness:.18,metalness:.12,clearcoat:.82})
+  for(let index=0;index<18;index++){
+    const height=.7+seededUnit(index+400)*2.8
+    const shard=new THREE.Mesh(new THREE.ConeGeometry(.18+height*.10,height,4),iceMaterial)
+    shard.position.set(-.7-seededUnit(index+410)*1.8,height*.5,30+seededUnit(index+420)*25)
+    shard.rotation.z=(seededUnit(index+430)-.5)*.28;world.add(shard)
+  }
+  const glacier=new THREE.Mesh(new THREE.DodecahedronGeometry(3.5,1),new THREE.MeshStandardMaterial({color:'#5ca9d1',roughness:.42,flatShading:true}))
+  glacier.scale.set(1.7,1,.9);glacier.position.set(-1.2,1.2,48);world.add(glacier)
+
+  const lava=new THREE.Mesh(new THREE.PlaneGeometry(24,7.2),new THREE.MeshBasicMaterial({color:'#ff3d0a',transparent:true,opacity:.78}))
+  lava.rotation.x=-Math.PI/2;lava.position.set(42,.012,58.4);lava.userData.biomeSurface='lava';world.add(lava)
+  for(let index=0;index<20;index++){
+    const height=.8+seededUnit(index+500)*3.8
+    const spire=new THREE.Mesh(new THREE.ConeGeometry(.24+height*.14,height,5),new THREE.MeshStandardMaterial({color:index%3?'#3b1014':'#6f1d1b',emissive:index%3?'#180205':'#481007',emissiveIntensity:.55,roughness:.88,flatShading:true}))
+    const onSouth=index%2===0
+    spire.position.set(onSouth?30+seededUnit(index+510)*25:56.7,height*.5,onSouth?56.7:30+seededUnit(index+520)*25);world.add(spire)
+  }
+  const portalRing=new THREE.Mesh(new THREE.TorusGeometry(2.1,.22,8,28),new THREE.MeshBasicMaterial({color:'#ff5b1a'}))
+  portalRing.position.set(55.4,2.5,49);portalRing.rotation.y=Math.PI/4;world.add(portalRing)
+
+  for(const [x,z,color] of [[14,14,'#67e8f9'],[42,14,'#2dd4bf'],[14,42,'#e0f2fe'],[42,42,'#fb4b1f']]){
+    const beacon=new THREE.Group()
+    const ringA=new THREE.Mesh(new THREE.TorusGeometry(.62,.045,6,18),new THREE.MeshBasicMaterial({color,transparent:true,opacity:.58}))
+    const ringB=ringA.clone();ringA.rotation.x=Math.PI/2;ringB.rotation.y=Math.PI/2
+    const core=new THREE.Mesh(new THREE.OctahedronGeometry(.18),new THREE.MeshBasicMaterial({color}))
+    beacon.add(ringA,ringB,core);beacon.position.set(x,4.6,z);world.add(beacon)
+  }
+}
+
 function rebuildThreeWorld(state,cellMap,obstacles) {
   if(!state) return
   if(state.world){state.scene.remove(state.world);disposeThreeObject(state.world)}
   const world=new THREE.Group(),matrix=new THREE.Matrix4(),position=new THREE.Vector3()
   const scale=new THREE.Vector3(),quaternion=new THREE.Quaternion()
+  addBiomeGround(world)
+  addBiomeLandmarks(world)
   const blockEntries=[...cellMap.entries()]
-  const blockMesh=new THREE.InstancedMesh(new THREE.BoxGeometry(1,1,1),new THREE.MeshStandardMaterial({roughness:.78,metalness:.18,vertexColors:true}),blockEntries.length)
+  const blockMaterial=new THREE.MeshStandardMaterial({roughness:.58,metalness:.34,vertexColors:true,emissive:'#061522',emissiveIntensity:.18})
+  const blockMesh=new THREE.InstancedMesh(new THREE.BoxGeometry(1,1,1),blockMaterial,blockEntries.length)
+  const pedestalMesh=new THREE.InstancedMesh(new THREE.BoxGeometry(1,1,1),new THREE.MeshStandardMaterial({roughness:.88,metalness:.16,vertexColors:true}),blockEntries.length)
   blockEntries.forEach(([key,cell],index)=>{
     const [row,col]=key.split(',').map(Number),height=blockTop(cell,row,col)
-    position.set(col+.5,height*.5,row+.5);scale.set(.97,height,.97)
+    const cubeSide=.88,cubeBottom=Math.max(0,height-cubeSide)
+    position.set(col+.5,cubeBottom+cubeSide*.5,row+.5);scale.set(cubeSide,cubeSide,cubeSide)
     matrix.compose(position,quaternion,scale);blockMesh.setMatrixAt(index,matrix)
-    blockMesh.setColorAt(index,new THREE.Color(cell.color||(cell.isChainNode?'#d6a91e':'#31598d')))
+    const biome=biomeForCell(row,col)
+    const color=new THREE.Color(cell.color||(cell.isChainNode?'#d6a91e':BIOME_STYLE[biome].block))
+    blockMesh.setColorAt(index,color)
+    const pedestalHeight=Math.max(.035,cubeBottom)
+    position.set(col+.5,pedestalHeight*.5,row+.5);scale.set(.66,pedestalHeight,.66)
+    matrix.compose(position,quaternion,scale);pedestalMesh.setMatrixAt(index,matrix)
+    pedestalMesh.setColorAt(index,color.clone().multiplyScalar(.42))
   })
   blockMesh.instanceMatrix.needsUpdate=true
   if(blockMesh.instanceColor) blockMesh.instanceColor.needsUpdate=true
-  world.add(blockMesh)
+  pedestalMesh.instanceMatrix.needsUpdate=true
+  if(pedestalMesh.instanceColor) pedestalMesh.instanceColor.needsUpdate=true
+  world.add(pedestalMesh,blockMesh)
 
   const boxEntries=[...obstacles.entries()].filter(([,obstacle])=>!isOrganicShape(obstacle))
   const obstacleMesh=new THREE.InstancedMesh(new THREE.BoxGeometry(1,1,1),new THREE.MeshStandardMaterial({roughness:.86,metalness:.12,vertexColors:true}),boxEntries.length)
@@ -2621,8 +2758,9 @@ function rebuildThreeWorld(state,cellMap,obstacles) {
     const [row,col]=key.split(',').map(Number),bottom=obstacleBottom(obstacle),height=obstacleTop(obstacle)-bottom
     position.set(col+.5,bottom+height*.5,row+.5);scale.set(.985,height,.985)
     matrix.compose(position,quaternion,scale);obstacleMesh.setMatrixAt(index,matrix)
-    const [r,g,b]=obstacle.base||W_SLATE
-    obstacleMesh.setColorAt(index,new THREE.Color(r/255,g/255,b/255))
+    const biomeColor=new THREE.Color(BIOME_STYLE[biomeForCell(row,col)].block)
+    const [r,g,b]=obstacle.base||W_SLATE,authoredColor=new THREE.Color(r/255,g/255,b/255)
+    obstacleMesh.setColorAt(index,authoredColor.lerp(biomeColor,.46))
   })
   obstacleMesh.instanceMatrix.needsUpdate=true
   if(obstacleMesh.instanceColor) obstacleMesh.instanceColor.needsUpdate=true
@@ -2648,7 +2786,10 @@ function rebuildThreeWorld(state,cellMap,obstacles) {
       core.position.y=1.34;tree.add(core);tree.position.set(col+.5,0,row+.5);world.add(tree)
     }
   }
-  state.world=world;state.scene.add(world)
+  state.world=world
+  state.biomeSurfaces=[]
+  world.traverse(object=>{if(object.userData.biomeSurface) state.biomeSurfaces.push(object)})
+  state.scene.add(world)
 }
 
 function syncThreeAvatars(state,presence,myIdentity) {
@@ -2786,17 +2927,18 @@ export default function MiningChain3DFPV({
     renderer.toneMapping=THREE.ACESFilmicToneMapping
     renderer.toneMappingExposure=1.08
     const scene=new THREE.Scene()
-    scene.background=new THREE.Color('#07132c')
-    scene.fog=new THREE.FogExp2('#07132c',.032)
+    scene.background=new THREE.Color('#020617')
+    scene.fog=new THREE.FogExp2('#07132c',.026)
     const camera=new THREE.PerspectiveCamera(58,1,.05,VISUAL_RANGE+8)
     const hemi=new THREE.HemisphereLight('#9bdcff','#071020',1.35);scene.add(hemi)
     const key=new THREE.DirectionalLight('#d7f4ff',1.65);key.position.set(-8,16,-10);scene.add(key)
     const rim=new THREE.DirectionalLight('#22d3ee',.45);rim.position.set(12,5,14);scene.add(rim)
-    const floor=new THREE.Mesh(new THREE.PlaneGeometry(COLS,ROWS),new THREE.MeshStandardMaterial({color:'#0b1b39',roughness:.94,metalness:.04}))
+    const floor=new THREE.Mesh(new THREE.PlaneGeometry(COLS,ROWS),new THREE.MeshStandardMaterial({color:'#07101f',roughness:.98,metalness:.02}))
     floor.rotation.x=-Math.PI/2;floor.position.set(COLS/2,-.012,ROWS/2);scene.add(floor)
     const grid=new THREE.GridHelper(Math.max(COLS,ROWS),Math.max(COLS,ROWS),'#176080','#12334f')
-    grid.position.set(COLS/2,0,ROWS/2);grid.material.transparent=true;grid.material.opacity=.42;scene.add(grid)
-    const state={renderer,scene,camera,world:null,avatars:new Map(),pixelRatio:0,size:new THREE.Vector2()}
+    grid.position.set(COLS/2,.004,ROWS/2);grid.material.transparent=true;grid.material.opacity=.22;scene.add(grid)
+    addNightDome(scene)
+    const state={renderer,scene,camera,world:null,avatars:new Map(),pixelRatio:0,size:new THREE.Vector2(),hemi,key,rim}
     threeStateRef.current=state
     rebuildThreeRef.current=()=>rebuildThreeWorld(state,cellMapRef.current,validObstaclesRef.current)
     rebuildThreeRef.current()
@@ -3087,6 +3229,17 @@ export default function MiningChain3DFPV({
         const renderSize=threeState.renderer.getSize(threeState.size)
         if(Math.round(renderSize.x)!==W||Math.round(renderSize.y)!==H) threeState.renderer.setSize(W,H,false)
         const gx=px/CELL_SIZE,gy=py/CELL_SIZE,lookDistance=5
+        const biome=biomeForCell(Math.floor(gy),Math.floor(gx))
+        const atmosphere={
+          mountain:{fog:'#081426',sky:'#020617',hemi:'#a7d8ff',rim:'#22d3ee'},
+          coast:{fog:'#09263a',sky:'#031528',hemi:'#9fe8ff',rim:'#2dd4bf'},
+          ice:{fog:'#102b46',sky:'#06162b',hemi:'#d9f5ff',rim:'#7dd3fc'},
+          inferno:{fog:'#25070c',sky:'#120208',hemi:'#ffba8a',rim:'#ff4d16'},
+        }[biome]
+        threeState.scene.background.set(atmosphere.sky)
+        threeState.scene.fog.color.set(atmosphere.fog)
+        threeState.hemi.color.set(atmosphere.hemi)
+        threeState.rim.color.set(atmosphere.rim)
         threeState.camera.position.set(gx,cameraZ,gy)
         threeState.camera.lookAt(
           gx+Math.cos(angle)*Math.cos(pitch)*lookDistance,
@@ -3094,6 +3247,15 @@ export default function MiningChain3DFPV({
           gy+Math.sin(angle)*Math.cos(pitch)*lookDistance,
         )
         syncThreeAvatars(threeState,presence,myIdentity)
+        const time=performance.now()*.001
+        for(const object of threeState.biomeSurfaces||[]){
+          if(object.userData.biomeSurface==='water'){
+            object.position.y=.018+Math.sin(time*1.4)*.012
+            object.material.opacity=.62+Math.sin(time*.8)*.06
+          }else if(object.userData.biomeSurface==='lava'){
+            object.material.opacity=.72+Math.sin(time*2.1)*.12
+          }
+        }
         threeState.renderer.render(threeState.scene,threeState.camera)
       }catch{
         threeStateRef.current=null;threeState=null
