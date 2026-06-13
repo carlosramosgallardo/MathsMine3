@@ -995,6 +995,19 @@ function drawMinimap(ctx, gr, gc, angle, cellMap, presenceMap, myWallet, W, H, c
   const mapX = (col) => MX + (col-originCol)*CS
   const mapY = (row) => MY + (row-originRow)*CS
   const visible = (row,col,pad=0) => col>=originCol-pad&&col<=originCol+viewCells+pad&&row>=originRow-pad&&row<=originRow+viewCells+pad
+  const drawMapEmoji = (emoji,x,y,color) => {
+    const fontSize = safeZoom === 4 ? 26 : safeZoom === 2 ? 19 : 12
+    const radius = fontSize * .56
+    ctx.save()
+    ctx.globalAlpha = .96
+    ctx.fillStyle = 'rgba(1,7,14,.88)'
+    ctx.beginPath();ctx.arc(x,y,radius,0,Math.PI*2);ctx.fill()
+    ctx.strokeStyle = (color || C) + 'cc';ctx.lineWidth = safeZoom === 4 ? 1.5 : 1
+    ctx.beginPath();ctx.arc(x,y,radius,0,Math.PI*2);ctx.stroke()
+    ctx.font = `${fontSize}px serif`;ctx.textAlign='center';ctx.textBaseline='middle'
+    ctx.fillStyle='#fff';ctx.fillText(emoji||'◆',x,y+fontSize*.03)
+    ctx.restore()
+  }
 
   ctx.fillStyle = 'rgba(0,0,0,0.85)'
   ctx.fillRect(MX-1,MY-1,SZ+2,SZ+2)
@@ -1046,8 +1059,7 @@ function drawMinimap(ctx, gr, gc, angle, cellMap, presenceMap, myWallet, W, H, c
     ctx.fillRect(-ds, -ds, ds*2, ds*2)
     ctx.restore()
     if(safeZoom>=2&&cell.emoji){
-      ctx.font=`${Math.max(8,Math.min(14,CS*.9))}px serif`;ctx.textAlign='center';ctx.textBaseline='middle'
-      ctx.fillStyle='#fff';ctx.fillText(cell.emoji,mx2,my2)
+      drawMapEmoji(cell.emoji,mx2,my2,cell.owner?'#4ade80':'#fb923c')
     }
   }
 
@@ -1157,8 +1169,7 @@ function drawMinimap(ctx, gr, gc, angle, cellMap, presenceMap, myWallet, W, H, c
     ctx.arc(px2, py2, Math.max(2, CS * 0.75), 0, Math.PI * 2)
     ctx.fill()
     if(safeZoom>=2){
-      ctx.font=`${Math.max(9,Math.min(15,CS))}px serif`;ctx.textAlign='center';ctx.textBaseline='middle'
-      ctx.fillStyle='#fff';ctx.fillText(cell.emoji||'◆',px2,py2)
+      drawMapEmoji(cell.emoji||'◆',px2,py2,cell.color||C)
     }
     ctx.globalAlpha = 1
   }
