@@ -867,15 +867,44 @@ footer.bg-black\/97,
 }
 
 .landing-grid {
-  grid-template-columns: repeat(4, 1fr) !important;
+  position: relative;
+  display: block !important;
+  height: 840px;
+  max-width: 920px;
+  margin-inline: auto !important;
 }
 .mm3-home-mining-feature {
-  grid-column: 1 / -1;
+  position: absolute;
+  z-index: 3;
+  left: 50%;
+  top: 50%;
+  width: min(430px, 48%);
+  height: 350px;
+  transform: translate(-50%,-50%);
+}
+.mm3-home-orbit-item {
+  --orbit-radius: 350px;
+  position: absolute;
+  z-index: 2;
+  left: 50%;
+  top: 50%;
+  width: 174px;
+  height: 132px;
+  transform: translate(-50%,-50%) rotate(var(--orbit-angle)) translateX(var(--orbit-radius)) rotate(var(--orbit-counter-angle));
+}
+.mm3-home-orbit-item > a {
+  overflow: hidden;
+  padding: .72rem .8rem !important;
+  background: rgba(7,14,20,.94) !important;
+  box-shadow: 0 8px 24px rgba(0,0,0,.22);
+}
+.mm3-home-orbit-item > a:hover {
+  transform: translateY(-2px);
 }
 .mm3-home-mining-card {
   position: relative;
   overflow: hidden;
-  min-height: 150px;
+  min-height: 350px;
   padding: 1.35rem 1.6rem !important;
   animation: mm3-mining-card-pulse 2.8s ease-in-out infinite;
 }
@@ -883,7 +912,7 @@ footer.bg-black\/97,
   position: relative;
   z-index: 1;
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
   gap: 1.4rem;
   height: 100%;
@@ -920,6 +949,10 @@ footer.bg-black\/97,
   letter-spacing: .035em;
 }
 .mm3-home-mining-cta {
+  grid-column: 1 / -1;
+  justify-self: center;
+  min-width: 170px;
+  text-align: center;
   border: 1px solid rgba(103,232,249,.65);
   padding: .75rem 1rem;
   background: rgba(6,25,35,.82);
@@ -951,16 +984,32 @@ footer.bg-black\/97,
   .mm3-home-mining-card,
   .mm3-home-mining-card::after { animation: none; }
 }
-@media (max-width: 768px) {
+@media (max-width: 960px) {
   .landing-grid {
+    display: grid !important;
+    position: static;
+    height: auto;
     grid-template-columns: repeat(2, 1fr) !important;
+  }
+  .mm3-home-mining-feature {
+    position: static;
+    width: auto;
+    height: auto;
+    transform: none;
+    grid-column: 1 / -1;
+  }
+  .mm3-home-orbit-item {
+    position: static;
+    width: auto;
+    height: auto;
+    transform: none;
   }
   .mm3-home-mining-inner {
     grid-template-columns: auto minmax(0,1fr);
     gap: 1rem;
   }
   .mm3-home-mining-icon { width: 58px; height: 58px; font-size: 2rem; }
-  .mm3-home-mining-cta { grid-column: 1 / -1; text-align: center; }
+  .mm3-home-mining-card { min-height: 0; }
 }
 @media (max-width: 400px) {
   .landing-grid {

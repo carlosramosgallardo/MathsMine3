@@ -162,7 +162,19 @@ export default function LandingHero() {
             const hoverBg = miningCard ? 'linear-gradient(135deg,#08242f 0%,#10142b 55%,#21123a 100%)' : '#0d1419';
 
             return (
-              <li className={miningCard ? 'mm3-home-mining-feature' : undefined} key={`${href ?? name}-${idx}`} style={{ minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+              <li
+                className={miningCard ? 'mm3-home-mining-feature' : 'mm3-home-orbit-item'}
+                key={`${href ?? name}-${idx}`}
+                style={{
+                  minWidth: 0,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  ...(miningCard ? {} : {
+                    '--orbit-angle': `${-90 + (idx - 1) * 40}deg`,
+                    '--orbit-counter-angle': `${90 - (idx - 1) * 40}deg`,
+                  }),
+                }}
+              >
                 <Link
                   href={href}
                   className={miningCard ? 'mm3-home-mining-card' : undefined}
