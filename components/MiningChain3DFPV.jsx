@@ -4433,10 +4433,10 @@ export default function MiningChain3DFPV({
       return
     }
     canvasRef.current?.setPointerCapture(e.pointerId)
-    dragRef.current = { x: e.clientX, y: e.clientY, type: e.pointerType, moved: 0 }
+    dragRef.current = { pointerId:e.pointerId,x:e.clientX,y:e.clientY,type:e.pointerType,moved:0 }
   },[])
   const handlePointerMove = useCallback((e)=>{
-    if (!dragRef.current) return
+    if (!dragRef.current||dragRef.current.pointerId!==e.pointerId) return
     const dx = e.clientX - dragRef.current.x
     const dy = e.clientY - dragRef.current.y
     dragRef.current.x = e.clientX
@@ -4447,8 +4447,9 @@ export default function MiningChain3DFPV({
     playerRef.current.pitch = Math.max(-MAX_PITCH, Math.min(MAX_PITCH, playerRef.current.pitch + dy * sens))
     renderRef.current?.()
   },[])
-  const handlePointerUp = useCallback(()=>{
-    if (dragRef.current && (dragRef.current.moved||0) < 8) {
+  const handlePointerUp = useCallback((e)=>{
+    if(!dragRef.current||dragRef.current.pointerId!==e.pointerId) return
+    if (dragRef.current.type!=='touch' && (dragRef.current.moved||0) < 8) {
       // Tap/click with minimal movement → swing pickaxe
       if (performance.now()-swingStartRef.current > SWING_DUR) {
         swingStartRef.current = performance.now()
@@ -4814,6 +4815,17 @@ export default function MiningChain3DFPV({
     joystickRef.current={x:0,y:0,pointerId:null}
     if(joystickKnobRef.current)joystickKnobRef.current.style.transform='translate(0px,0px)'
   },[])
+  const triggerJump=useCallback(()=>{
+    const player=playerRef.current
+    if(player.jumps>=MAX_JUMPS) return
+    player.vz=Math.max(0,player.vz)+JUMP_VZ;player.jumps++
+    renderRef.current?.()
+  },[])
+  const triggerAttack=useCallback(()=>{
+    if(performance.now()-swingStartRef.current<=SWING_DUR) return
+    swingStartRef.current=performance.now();swingEpochRef.current=Date.now();hitDoneRef.current=false
+    renderRef.current?.()
+  },[])
 
   return (
     <div ref={containerRef} style={{width:'100%',height:'100%',position:'relative',background:'#020610'}}>
@@ -4828,11 +4840,10 @@ export default function MiningChain3DFPV({
       {/* Mobile analog movement pad */}
       <div ref={joystickPadRef} className="mm3-touch-controls" style={{
         position:'absolute',
-        bottom:'calc(112px + env(safe-area-inset-bottom, 0px))',
-        left:12,
-        width:112,height:112,borderRadius:56,display:'flex',alignItems:'center',justifyContent:'center',
-        background:'radial-gradient(circle,rgba(34,211,238,.11),rgba(2,8,18,.62))',
-        border:'1px solid rgba(34,211,238,.25)',boxShadow:'inset 0 0 20px rgba(34,211,238,.08)',
+        zIndex:5,bottom:'calc(72px + env(safe-area-inset-bottom, 0px))',left:16,
+        width:126,height:126,borderRadius:63,display:'flex',alignItems:'center',justifyContent:'center',
+        background:'radial-gradient(circle,rgba(34,211,238,.18),rgba(2,8,18,.72))',
+        border:'1px solid rgba(103,232,249,.48)',boxShadow:'0 0 22px rgba(34,211,238,.12),inset 0 0 24px rgba(34,211,238,.12)',
         pointerEvents:'auto',userSelect:'none',touchAction:'none',WebkitTapHighlightColor:'transparent',
       }}
         onPointerDown={(e)=>{e.preventDefault();e.currentTarget.setPointerCapture(e.pointerId);joystickRef.current.pointerId=e.pointerId;updateJoystick(e.clientX,e.clientY)}}
@@ -4840,8 +4851,8 @@ export default function MiningChain3DFPV({
         onPointerUp={stopJoystick} onPointerCancel={stopJoystick}
       >
         <div ref={joystickKnobRef} style={{
-          width:46,height:46,borderRadius:23,background:'rgba(34,211,238,.22)',
-          border:'1px solid rgba(103,232,249,.55)',boxShadow:'0 0 16px rgba(34,211,238,.18)',
+          width:52,height:52,borderRadius:26,background:'rgba(34,211,238,.34)',
+          border:'2px solid rgba(165,243,252,.78)',boxShadow:'0 0 18px rgba(34,211,238,.34)',
           pointerEvents:'none',willChange:'transform',
         }}/>
         <span style={{
@@ -4850,30 +4861,31 @@ export default function MiningChain3DFPV({
         }}>{es?'MOVER':'MOVE'}</span>
       </div>
 
-      {/* Mobile jump button */}
-      <div className="mm3-touch-controls" style={{
-        position:'absolute',
-        bottom:'calc(124px + env(safe-area-inset-bottom, 0px))',
-        right:12,
-        pointerEvents:'auto',
-      }}>
+      <div className="mm3-touch-controls" style={{position:'absolute',zIndex:5,bottom:'calc(144px + env(safe-area-inset-bottom, 0px))',right:18,pointerEvents:'auto'}}>
         <button
-          onPointerDown={(e)=>{
-            e.preventDefault()
-            const jp=playerRef.current
-            if(jp.jumps<MAX_JUMPS){ jp.vz=Math.max(0,jp.vz)+JUMP_VZ; jp.jumps++ }
-          }}
+          aria-label={es?'Saltar':'Jump'}
+          onPointerDown={(e)=>{e.preventDefault();e.stopPropagation();triggerJump()}}
           onPointerUp={(e)=>e.preventDefault()}
-          onPointerLeave={(e)=>e.preventDefault()}
           style={{
-            width:72,height:72,background:'rgba(34,211,238,0.12)',
-            border:'1px solid #22d3ee44',borderRadius:36,color:'#22d3eedd',
+            width:72,height:72,background:'radial-gradient(circle,rgba(34,211,238,.36),rgba(4,18,34,.82))',
+            border:'2px solid #67e8f9aa',borderRadius:36,color:'#cffafe',boxShadow:'0 0 20px rgba(34,211,238,.28)',
             fontSize:'1.5rem',cursor:'pointer',display:'flex',flexDirection:'column',gap:1,
             alignItems:'center',justifyContent:'center',
             userSelect:'none',fontFamily:'monospace',touchAction:'none',
             WebkitTapHighlightColor:'transparent',
           }}
         ><span aria-hidden="true">↑</span><span style={{fontSize:8,fontWeight:700,letterSpacing:'0.1em'}}>{es?'SALTAR':'JUMP'}</span></button>
+      </div>
+      <div className="mm3-touch-controls" style={{position:'absolute',zIndex:5,bottom:'calc(66px + env(safe-area-inset-bottom, 0px))',right:26,pointerEvents:'auto'}}>
+        <button aria-label={es?'Atacar o minar':'Attack or mine'}
+          onPointerDown={(e)=>{e.preventDefault();e.stopPropagation();triggerAttack()}}
+          style={{
+            width:82,height:82,borderRadius:41,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:1,
+            color:'#ffedd5',background:'radial-gradient(circle,rgba(249,115,22,.42),rgba(44,12,5,.88))',
+            border:'2px solid #fb923cbb',boxShadow:'0 0 22px rgba(249,115,22,.30)',fontFamily:'monospace',
+            userSelect:'none',touchAction:'none',WebkitTapHighlightColor:'transparent',
+          }}
+        ><span aria-hidden="true" style={{fontSize:22}}>⛏</span><span style={{fontSize:8,fontWeight:700,letterSpacing:'.1em'}}>{es?'GOLPE':'HIT'}</span></button>
       </div>
     </div>
   )
