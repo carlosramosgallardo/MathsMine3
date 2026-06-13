@@ -31,14 +31,15 @@ export async function POST(req) {
   }
 
   const sb = serviceClient()
-  const { data: attackerProgress } = await sb
-    .from('player_progress').select('wallet_emojis').eq('wallet', attacker).maybeSingle()
+  const [{ data: attackerProgress }, { data: squeezeNftji }] = await Promise.all([
+    sb.from('player_progress').select('wallet').eq('wallet', attacker).maybeSingle(),
+    sb.from('mm3_squeezing_nftji').select('attack_level').eq('wallet', attacker).maybeSingle(),
+  ])
   if (!attackerProgress) {
     return Response.json({ ok: false, error: 'attacker_not_found' }, { status: 403 })
   }
-  const hasHeart = Array.isArray(attackerProgress?.wallet_emojis)
-    && attackerProgress.wallet_emojis.includes('❤️')
-  const critical = hasHeart && Math.random() < 0.05
+  const hasAttackNftji = Number(squeezeNftji?.attack_level ?? -1) >= 0
+  const critical = hasAttackNftji && Math.random() < 0.05
   const headshot = hitZone === 'head'
   const damage = headshot || critical ? 5 : 1
 
