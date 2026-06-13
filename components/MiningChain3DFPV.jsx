@@ -1304,35 +1304,57 @@ function drawMinimap(ctx, gr, gc, angle, cellMap, presenceMap, myWallet, W, H, c
     }
   }
 
+  // Vision cone fill (transparent, rendered first so everything draws on top)
   ctx.fillStyle='rgba(34,211,238,.045)'
   ctx.beginPath();ctx.moveTo(pvx,pvy)
   for(const point of visionEdge)ctx.lineTo(point.x,point.y)
   ctx.closePath();ctx.fill()
 
-  // ── Local player marker: cyan crosshair with heading arrow ────────────────
+  // Chain node: diamond crosshair — static landmark, below player markers
+  const cnPos   = chainNodePos || { row: CHAIN_NODE_ROW, col: CHAIN_NODE_COL }
   {
-    const selfPulse = 0.62 + Math.sin(Date.now()/520) * 0.38
-    const sr = Math.max(2.4, CS * 0.78)
-    // Outer pulsing ring
-    ctx.globalAlpha = selfPulse * 0.55
-    ctx.strokeStyle = C; ctx.lineWidth = 1
-    ctx.beginPath(); ctx.arc(pvx, pvy, sr+2.8+selfPulse*1.2, 0, Math.PI*2); ctx.stroke()
-    // Filled circle
-    ctx.globalAlpha = 0.96
-    ctx.fillStyle = C
-    ctx.beginPath(); ctx.arc(pvx, pvy, sr, 0, Math.PI*2); ctx.fill()
-    // White specular
-    ctx.fillStyle = 'rgba(255,255,255,0.60)'
-    ctx.beginPath(); ctx.arc(pvx-sr*0.22, pvy-sr*0.22, sr*0.34, 0, Math.PI*2); ctx.fill()
-    // Heading arrow
-    ctx.strokeStyle = C + 'dd'; ctx.lineWidth = 1.2
-    ctx.beginPath(); ctx.moveTo(pvx, pvy)
-    ctx.lineTo(pvx+Math.cos(angle)*CS*2.5, pvy+Math.sin(angle)*CS*2.5)
+    const cnPulse = 0.55 + Math.sin(Date.now() / 600) * 0.45
+    const cnx = mapX(cnPos.col + 0.5)
+    const cny = mapY(cnPos.row + 0.5)
+    const armLen = CS * 2.8
+    const gapR   = CS * 0.85
+    ctx.globalAlpha = cnPulse * 0.28
+    ctx.strokeStyle = '#ffd700'; ctx.lineWidth = 0.8
+    ctx.beginPath(); ctx.arc(cnx, cny, CS * 2.1, 0, Math.PI*2); ctx.stroke()
+    ctx.globalAlpha = Math.max(0.55, cnPulse)
+    ctx.strokeStyle = '#ffd700'; ctx.lineWidth = 0.9
+    ctx.beginPath()
+    ctx.moveTo(cnx - gapR, cny); ctx.lineTo(cnx - armLen, cny)
+    ctx.moveTo(cnx + gapR, cny); ctx.lineTo(cnx + armLen, cny)
+    ctx.moveTo(cnx, cny - gapR); ctx.lineTo(cnx, cny - armLen)
+    ctx.moveTo(cnx, cny + gapR); ctx.lineTo(cnx, cny + armLen)
     ctx.stroke()
+    ctx.globalAlpha = Math.max(0.70, cnPulse)
+    ctx.fillStyle = '#ffd700'
+    ctx.save(); ctx.translate(cnx, cny); ctx.rotate(Math.PI / 4)
+    const ds = CS * 0.52
+    ctx.fillRect(-ds, -ds, ds*2, ds*2)
+    ctx.restore()
     ctx.globalAlpha = 1
   }
 
-  // ── Wallet markers — always visible regardless of camera view ────────────────
+  // Portal navigation nodes — pulsing colored dots, below player markers
+  for (const [key, cell] of cellMap) {
+    if (!cell?.isPortalNode) continue
+    const [rr, cc] = key.split(',').map(Number)
+    const px2 = mapX(cc + 0.5)
+    const py2 = mapY(rr + 0.5)
+    const pPulse = 0.60 + Math.sin(Date.now() / 500 + cc * 0.4) * 0.40
+    ctx.globalAlpha = Math.max(0.55, pPulse) * 0.9
+    ctx.fillStyle = cell.color || C
+    ctx.beginPath()
+    ctx.arc(px2, py2, Math.max(2, CS * 0.75), 0, Math.PI * 2)
+    ctx.fill()
+    drawMapEmoji(cell.emoji||'◆',px2,py2,cell.color||C,'circle')
+    ctx.globalAlpha = 1
+  }
+
+  // ── Wallet markers — rendered last so they always appear on top ───────────────
   // Three tiers: ACTIVE (in view + line of sight), NEAR (in FOV but behind wall),
   // GHOST (off-camera). Every wallet shows on the minimap at all times.
   const nowMs = Date.now()
@@ -1363,7 +1385,6 @@ function drawMinimap(ctx, gr, gc, angle, cellMap, presenceMap, myWallet, W, H, c
       const bs = Math.max(3.2, CS * 0.90)
       ctx.globalAlpha = baseAlpha
       if (inView) {
-        // Outer pulsing ring
         ctx.strokeStyle = col + Math.round((0.28+pulse*0.48)*255).toString(16).padStart(2,'0')
         ctx.lineWidth = 0.8
         ctx.strokeRect(dx-bs-1.8, dy-bs-1.8, (bs+1.8)*2, (bs+1.8)*2)
@@ -1389,65 +1410,49 @@ function drawMinimap(ctx, gr, gc, angle, cellMap, presenceMap, myWallet, W, H, c
       const r = Math.max(2.0, CS * 0.70)
 
       if (inView) {
-        // ACTIVE tier: filled neon circle + pulse ring + heading arrow
         ctx.globalAlpha = 0.94
-        // Outer glow ring
         const ringR = r + 2.2 + pulse * 1.4
         ctx.strokeStyle = col + Math.round((0.18+pulse*0.52)*255).toString(16).padStart(2,'0')
         ctx.lineWidth = 1.1
         ctx.beginPath(); ctx.arc(dx, dy, ringR, 0, Math.PI*2); ctx.stroke()
-        // Fill
         ctx.fillStyle = col
         ctx.beginPath(); ctx.arc(dx, dy, r, 0, Math.PI*2); ctx.fill()
-        // Bright center specular
         ctx.fillStyle = 'rgba(255,255,255,0.48)'
         ctx.beginPath(); ctx.arc(dx-r*0.22, dy-r*0.22, r*0.36, 0, Math.PI*2); ctx.fill()
-        // Heading arrow
         ctx.strokeStyle = col + 'cc'; ctx.lineWidth = 1
         ctx.beginPath(); ctx.moveTo(dx,dy)
         ctx.lineTo(dx+Math.cos(heading)*CS*2.1, dy+Math.sin(heading)*CS*2.1)
         ctx.stroke()
 
       } else if (inFOV) {
-        // NEAR tier: outlined circle — in FOV but wall blocks line of sight
         ctx.globalAlpha = 0.60
-        ctx.strokeStyle = col + 'cc'
-        ctx.lineWidth = 1.1
+        ctx.strokeStyle = col + 'cc'; ctx.lineWidth = 1.1
         ctx.beginPath(); ctx.arc(dx, dy, r, 0, Math.PI*2); ctx.stroke()
         ctx.fillStyle = col + '2a'
         ctx.beginPath(); ctx.arc(dx, dy, r, 0, Math.PI*2); ctx.fill()
-        // Dashed inner ring (manually simulated with two arcs)
-        ctx.strokeStyle = col + '66'
-        ctx.lineWidth = 0.7
-        ctx.beginPath()
-        ctx.arc(dx, dy, r+1.8, 0, Math.PI*0.9); ctx.stroke()
-        ctx.beginPath()
-        ctx.arc(dx, dy, r+1.8, Math.PI, Math.PI*1.9); ctx.stroke()
+        ctx.strokeStyle = col + '66'; ctx.lineWidth = 0.7
+        ctx.beginPath(); ctx.arc(dx, dy, r+1.8, 0, Math.PI*0.9); ctx.stroke()
+        ctx.beginPath(); ctx.arc(dx, dy, r+1.8, Math.PI, Math.PI*1.9); ctx.stroke()
 
       } else {
-        // GHOST tier: diamond (◆) — off-camera, always trackable
         ctx.globalAlpha = 0.42 + pulse * 0.08
         const dr = Math.max(1.8, r * 0.80)
-        // Diamond outline
-        ctx.strokeStyle = col + 'bb'
-        ctx.lineWidth = 0.9
+        ctx.strokeStyle = col + 'bb'; ctx.lineWidth = 0.9
         ctx.beginPath()
         ctx.moveTo(dx, dy-dr); ctx.lineTo(dx+dr, dy)
         ctx.lineTo(dx, dy+dr); ctx.lineTo(dx-dr, dy)
         ctx.closePath(); ctx.stroke()
-        // Faint fill
         ctx.fillStyle = col + '28'
         ctx.beginPath()
         ctx.moveTo(dx, dy-dr); ctx.lineTo(dx+dr, dy)
         ctx.lineTo(dx, dy+dr); ctx.lineTo(dx-dr, dy)
         ctx.closePath(); ctx.fill()
-        // Center pixel
         ctx.fillStyle = col + '99'
         ctx.beginPath(); ctx.arc(dx, dy, dr*0.30, 0, Math.PI*2); ctx.fill()
       }
     }
 
-    // Short wallet label for all wallets within 7 cells (desktop only)
+    // Short wallet label for nearby wallets (desktop only)
     if (!isMobile && walletDist < 7.5) {
       const labelFade = Math.max(0, 1 - walletDist/7.5) * (inView ? 0.88 : 0.44)
       ctx.globalAlpha = labelFade
@@ -1463,56 +1468,26 @@ function drawMinimap(ctx, gr, gc, angle, cellMap, presenceMap, myWallet, W, H, c
     ctx.restore()
   }
 
-  // Chain node: diamond crosshair — visually distinct landmark (static, not a dot)
-  const cnPos   = chainNodePos || { row: CHAIN_NODE_ROW, col: CHAIN_NODE_COL }
+  // ── Local player marker: rendered absolutely last — always on top ─────────────
   {
-    const cnPulse = 0.55 + Math.sin(Date.now() / 600) * 0.45
-    const cnx = mapX(cnPos.col + 0.5)
-    const cny = mapY(cnPos.row + 0.5)
-    const armLen = CS * 2.8
-    const gapR   = CS * 0.85
-    ctx.globalAlpha = cnPulse * 0.28
-    ctx.strokeStyle = '#ffd700'; ctx.lineWidth = 0.8
-    ctx.beginPath(); ctx.arc(cnx, cny, CS * 2.1, 0, Math.PI*2); ctx.stroke()
-    ctx.globalAlpha = Math.max(0.55, cnPulse)
-    ctx.strokeStyle = '#ffd700'; ctx.lineWidth = 0.9
-    ctx.beginPath()
-    ctx.moveTo(cnx - gapR, cny); ctx.lineTo(cnx - armLen, cny)
-    ctx.moveTo(cnx + gapR, cny); ctx.lineTo(cnx + armLen, cny)
-    ctx.moveTo(cnx, cny - gapR); ctx.lineTo(cnx, cny - armLen)
-    ctx.moveTo(cnx, cny + gapR); ctx.lineTo(cnx, cny + armLen)
+    const selfPulse = 0.62 + Math.sin(Date.now()/520) * 0.38
+    const sr = Math.max(2.4, CS * 0.78)
+    ctx.globalAlpha = selfPulse * 0.55
+    ctx.strokeStyle = C; ctx.lineWidth = 1
+    ctx.beginPath(); ctx.arc(pvx, pvy, sr+2.8+selfPulse*1.2, 0, Math.PI*2); ctx.stroke()
+    ctx.globalAlpha = 0.96
+    ctx.fillStyle = C
+    ctx.beginPath(); ctx.arc(pvx, pvy, sr, 0, Math.PI*2); ctx.fill()
+    ctx.fillStyle = 'rgba(255,255,255,0.60)'
+    ctx.beginPath(); ctx.arc(pvx-sr*0.22, pvy-sr*0.22, sr*0.34, 0, Math.PI*2); ctx.fill()
+    ctx.strokeStyle = C + 'dd'; ctx.lineWidth = 1.2
+    ctx.beginPath(); ctx.moveTo(pvx, pvy)
+    ctx.lineTo(pvx+Math.cos(angle)*CS*2.5, pvy+Math.sin(angle)*CS*2.5)
     ctx.stroke()
-    ctx.globalAlpha = Math.max(0.70, cnPulse)
-    ctx.fillStyle = '#ffd700'
-    ctx.save(); ctx.translate(cnx, cny); ctx.rotate(Math.PI / 4)
-    const ds = CS * 0.52
-    ctx.fillRect(-ds, -ds, ds*2, ds*2)
-    ctx.restore()
-    ctx.globalAlpha = 1
-  }
-
-  // Portal navigation nodes — pulsing colored dots
-  for (const [key, cell] of cellMap) {
-    if (!cell?.isPortalNode) continue
-    const [rr, cc] = key.split(',').map(Number)
-    const px2 = mapX(cc + 0.5)
-    const py2 = mapY(rr + 0.5)
-    const pPulse = 0.60 + Math.sin(Date.now() / 500 + cc * 0.4) * 0.40
-    ctx.globalAlpha = Math.max(0.55, pPulse) * 0.9
-    ctx.fillStyle = cell.color || C
-    ctx.beginPath()
-    ctx.arc(px2, py2, Math.max(2, CS * 0.75), 0, Math.PI * 2)
-    ctx.fill()
-    drawMapEmoji(cell.emoji||'◆',px2,py2,cell.color||C,'circle')
     ctx.globalAlpha = 1
   }
 
   ctx.restore()
-  const playerRadius=Math.max(3,CS*.9)
-  ctx.fillStyle=C;ctx.beginPath();ctx.arc(pvx,pvy,playerRadius,0,Math.PI*2);ctx.fill()
-  ctx.strokeStyle='#e0fbff';ctx.lineWidth=1.2
-  ctx.beginPath();ctx.moveTo(pvx,pvy)
-  ctx.lineTo(pvx+Math.cos(angle)*CS*3,pvy+Math.sin(angle)*CS*3);ctx.stroke()
 }
 
 // ── Facing block HUD (top-right info card) ────────────────────────────────────
