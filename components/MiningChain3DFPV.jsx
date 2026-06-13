@@ -47,6 +47,18 @@ const W_STONE = [122, 120, 118]   // neutral mid-gray
 const W_SLATE = [85,  92, 105]    // blue-gray (cool)
 const W_SAND  = [108, 106, 102]   // warm gray
 const W_DARK  = [58,  62,  70]    // dark gray
+const CHAIN_MATERIALS = [
+  { kind:'hash',      base:[42,82,104],  glow:[34,211,238], label:'HASH WALL' },
+  { kind:'ledger',    base:[96,78,48],   glow:[250,204,21], label:'LEDGER' },
+  { kind:'consensus', base:[82,45,96],   glow:[217,70,239], label:'CONSENSUS' },
+  { kind:'data',      base:[38,88,76],   glow:[45,212,191], label:'DATA NODE' },
+]
+
+function chainObstacle(key,data) {
+  const [row,col]=key.split(',').map(Number)
+  const material=CHAIN_MATERIALS[Math.abs((row*17+col*31+row*col*3)%CHAIN_MATERIALS.length)]
+  return { ...data, ...material }
+}
 
 const OBSTACLE_MAP = new Map([
   // Outer wall segments — cool slate, form loose frame with gaps
@@ -964,7 +976,7 @@ function castRay(wx, wy, angle, cellMap, obsSet) {
     const key = `${my},${mx}`
     // Decorative obstacle: solid wall, no doorway — always a hit
     const obsData = obsSet?.get?.(key) || null
-    if (obsData) return {perpDist, cell:{isObstacle:true,base:obsData.base,label:obsData.label}, side, mx, my}
+    if (obsData) return {perpDist, cell:{isObstacle:true,...obsData}, side, mx, my}
     // Doorway check for block cells
     const hitFrac = (((side===0?py+perpDist*dy:px+perpDist*dx)%1.0)+1.0)%1.0
     const lo=(1-DOOR_FRAC)/2, hi=(1+DOOR_FRAC)/2
@@ -1877,7 +1889,7 @@ export default function MiningChain3DFPV({
     }
     const valid = new Map()
     for (const [key, data] of OBSTACLE_MAP) {
-      if(!reserved.has(key)) valid.set(key, data)
+      if(!reserved.has(key)) valid.set(key, chainObstacle(key,data))
     }
 
     // Dynamic wall segments: sampled on a 4-cell grid, ~22% become wall origins
@@ -1902,7 +1914,7 @@ export default function MiningChain3DFPV({
           if (wr < 2 || wr >= MM3_BLOCK_GRID_ROWS-2 || wc < 2 || wc >= MM3_BLOCK_GRID_COLS-2) break
           const key = `${wr},${wc}`
           // Only fill truly empty positions — never override NFTJI/mined blocks
-          if (!reserved.has(key) && !valid.has(key)) valid.set(key, wallData)
+          if (!reserved.has(key) && !valid.has(key)) valid.set(key, chainObstacle(key,wallData))
         }
       }
     }
@@ -2234,12 +2246,30 @@ export default function MiningChain3DFPV({
         ctx.fillRect(col*stripW,wTop,stripW,edgeH)
         ctx.fillRect(col*stripW,wTop+wallH-edgeH,stripW,edgeH)
       } else if(col%3===0) {
-        // Obstacle wall: horizontal mortar lines only — looks like stone/concrete
+        // Blockchain architecture: each obstacle family has a cheap strip-based
+        // material pattern, keeping the maze varied without textures or meshes.
         const [or,og,ob] = cell.base
+        const [lr,lg,lb] = cell.glow || [34,211,238]
         const panelH = Math.max(5, Math.round(wallH / 4))
-        for (let sy = wTop; sy < wTop + wallH; sy += panelH) {
-          ctx.fillStyle = `rgba(${Math.round(or*0.25)},${Math.round(og*0.25)},${Math.round(ob*0.25)},0.6)`
-          ctx.fillRect(col*stripW, sy, stripW*3, 1)
+        if(cell.kind==='hash'){
+          for(let sy=wTop;sy<wTop+wallH;sy+=panelH){
+            ctx.fillStyle=`rgba(${lr},${lg},${lb},.28)`;ctx.fillRect(col*stripW,sy,stripW*3,1)
+          }
+          if(((col/3)|0)%4===0){ctx.fillStyle=`rgba(${lr},${lg},${lb},.20)`;ctx.fillRect(col*stripW,wTop,1,wallH)}
+        } else if(cell.kind==='ledger'){
+          for(let sy=wTop+panelH*.35;sy<wTop+wallH;sy+=panelH){
+            ctx.fillStyle='rgba(2,8,18,.42)';ctx.fillRect(col*stripW,sy,stripW*3,2)
+            ctx.fillStyle=`rgba(${lr},${lg},${lb},.20)`;ctx.fillRect(col*stripW,sy+2,stripW*3,1)
+          }
+        } else if(cell.kind==='consensus'){
+          const pulse=.16+(Math.sin(Date.now()/420+hitMx*.7+hitMy)*.5+.5)*.18
+          ctx.fillStyle=`rgba(${lr},${lg},${lb},${pulse})`;ctx.fillRect(col*stripW,wTop,stripW*3,wallH)
+          for(let sy=wTop+panelH;sy<wTop+wallH;sy+=panelH*2){ctx.fillStyle='rgba(2,8,18,.48)';ctx.fillRect(col*stripW,sy,stripW*3,2)}
+        } else {
+          for(let sy=wTop+panelH*.5;sy<wTop+wallH;sy+=panelH){
+            ctx.fillStyle=`rgba(${lr},${lg},${lb},.32)`;ctx.fillRect(col*stripW,sy,Math.max(1,stripW),2)
+          }
+          if(((col/3)|0)%3===0){ctx.fillStyle=`rgba(${lr},${lg},${lb},.26)`;ctx.fillRect(col*stripW+1,wTop,1,wallH)}
         }
       }
 

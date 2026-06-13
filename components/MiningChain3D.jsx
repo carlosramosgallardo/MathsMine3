@@ -32,18 +32,26 @@ const CHAIN_NODE_COL = 27
 
 // Portal nodes are spread across all four quarters of the 56x56 world.
 const PORTAL_NODES = [
-  { row:5,  col:5,  emoji:'🔒', titleEn:'SECURITY',    titleEs:'SEGURIDAD',  navUrl:'/security',    color:'#22d3ee' },
-  { row:7,  col:20, emoji:'🎮', titleEn:'TRAINING',    titleEs:'ENTRENAMIENTO', navUrl:'/training', color:'#4ade80' },
-  { row:20, col:7,  emoji:'💹', titleEn:'TRADING',     titleEs:'TRADING',    navUrl:'/trading',     color:'#fb923c' },
-  { row:5,  col:35, emoji:'📈', titleEn:'MM3 CHART',   titleEs:'GRÁFICO MM3', navUrl:'/mm3-value',  color:'#a78bfa' },
-  { row:7,  col:50, emoji:'🏆', titleEn:'RANKING',     titleEs:'RANKING',    navUrl:'/ranking',     color:'#ffd700' },
-  { row:20, col:47, emoji:'💥', titleEn:'SQUEEZING',   titleEs:'SQUEEZING',  navUrl:'/squeezing',   color:'#fb7185' },
-  { row:35, col:5,  emoji:'🔗', titleEn:'RELAYING',    titleEs:'RELAYING',   navUrl:'/relaying',    color:'#60a5fa' },
-  { row:50, col:7,  emoji:'🤖', titleEn:'AI TEAM',     titleEs:'EQUIPO IA',  navUrl:'/ai-team',     color:'#bef264' },
-  { row:47, col:20, emoji:'📜', titleEn:'MANIFESTO',   titleEs:'MANIFIESTO', navUrl:'/manifesto',   color:'#f472b6' },
-  { row:35, col:35, emoji:'✅', titleEn:'DAILY TASKS', titleEs:'TAREAS',     navUrl:'/daily-tasks', color:'#2dd4bf' },
-  { row:50, col:50, emoji:'☠️', titleEn:'KERNEL PANIC',titleEs:'KERNEL PANIC',navUrl:'/relaying',   color:'#f97316' },
+  { row:5,  col:5,  emoji:'🎮', titleEn:'TRAINING',    titleEs:'ENTRENAMIENTO', navUrl:'/training', color:'#4ade80' },
+  { row:5,  col:50, emoji:'💹', titleEn:'TRADING',     titleEs:'TRADING',    navUrl:'/trading',     color:'#fb923c' },
+  { row:18, col:14, emoji:'📈', titleEn:'MM3 CHART',   titleEs:'GRÁFICO MM3', navUrl:'/mm3-value',  color:'#a78bfa' },
+  { row:18, col:42, emoji:'🏆', titleEn:'RANKING',     titleEs:'RANKING',    navUrl:'/ranking',     color:'#ffd700' },
+  { row:32, col:50, emoji:'💥', titleEn:'SQUEEZING',   titleEs:'SQUEEZING',  navUrl:'/squeezing',   color:'#fb7185' },
+  { row:50, col:50, emoji:'🔗', titleEn:'RELAYING',    titleEs:'RELAYING',   navUrl:'/relaying',    color:'#60a5fa' },
+  { row:50, col:5,  emoji:'🤖', titleEn:'AI TEAM',     titleEs:'EQUIPO IA',  navUrl:'/ai-team',     color:'#bef264' },
+  { row:32, col:5,  emoji:'📜', titleEn:'MANIFESTO',   titleEs:'MANIFIESTO', navUrl:'/manifesto',   color:'#f472b6' },
+  { row:50, col:28, emoji:'✅', titleEn:'DAILY TASKS', titleEs:'TAREAS',     navUrl:'/daily-tasks', color:'#2dd4bf' },
+  { row:32, col:28, emoji:'☠️', titleEn:'KERNEL PANIC',titleEs:'KERNEL PANIC',navUrl:'/relaying',   color:'#f97316' },
 ]
+
+const MARKET_LANDMARK_POSITIONS = [
+  [4,14],[4,27],[4,41],
+  [12,4],[12,26],[12,52],
+  [23,8],[23,19],[23,36],[23,48],
+  [36,15],[36,40],
+  [44,4],[44,18],[44,38],[44,52],
+  [52,16],[52,40],
+].map(([row,col]) => ({ row, col }))
 
 const VISUAL_BLOCK_REGIONS = [
   { row:3,  col:3,  size:22 },
@@ -54,6 +62,7 @@ const VISUAL_BLOCK_REGIONS = [
 
 const VISUAL_BLOCK_POSITIONS = (() => {
   const occupied = new Set(PORTAL_NODES.map(node => `${node.row},${node.col}`))
+  MARKET_LANDMARK_POSITIONS.forEach(pos => occupied.add(`${pos.row},${pos.col}`))
   occupied.add(`${CHAIN_NODE_ROW},${CHAIN_NODE_COL}`)
   const positions = new Map()
   for (let index = 0; index < MM3_BLOCK_GRID_ROWS * MM3_BLOCK_GRID_COLS; index++) {
@@ -222,8 +231,14 @@ export default function MiningChain3D() {
           isMarket: true, isMined: Boolean(ownerWallet),
         })
       }
+      const marketPositions = new Map(
+        [...blocksByHex.values()]
+          .filter(block => block.isMarket)
+          .sort((a,b) => a.blockHex.localeCompare(b.blockHex))
+          .map((block,index) => [block.blockHex, MARKET_LANDMARK_POSITIONS[index]])
+      )
       for (const [, block] of [...blocksByHex.entries()].sort(([a],[b]) => a.localeCompare(b))) {
-        const pos = placeDistributedBlock(block.blockHex)
+        const pos = marketPositions.get(block.blockHex) || placeDistributedBlock(block.blockHex)
         if (pos) map.set(`${pos.row},${pos.col}`, block)
       }
       // Chain Node: fixed special cell at grid center, always present

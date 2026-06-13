@@ -11,9 +11,8 @@ const C = '#22d3ee';
 
 const SECTIONS = {
   en: [
-    { href: '/security',   icon: '🔐',  name: 'Security',    desc: 'AI-powered security audit. OSV vulnerability scan, header analysis, auth probing — full report & PDF export.', secCard: true },
     { href: '/training',   icon: '⛏',  name: 'Training',    desc: 'Solve math problems against the clock. 100/day, 13 types. Speed earns more MM3.' },
-    { href: '/mining',     icon: '⬛',  name: 'Mining',      desc: '3D FPV block explorer. Find blocks, buy NFTJIs, mine cells, and fight enemy wallets live.' },
+    { href: '/mining',     icon: '⬡',  name: 'Mining',      desc: '3D FPV block explorer. Find blocks, buy NFTJIs, mine cells, and fight enemy wallets live.', miningCard: true },
     { href: '/trading',    icon: '💱',  name: 'Trading',     desc: 'Buy and sell MM3 in fictional EUR / USD / CNY. 5 EXECs/day — dice shifts rates.' },
     { href: '/ranking',    icon: '🏆',  name: 'Ranking',     desc: 'Live wallet & pool leaderboard. Mining %, level, EXECs and penalty log.' },
     { href: '/squeezing',  icon: '⚔',  name: 'Squeezing',   desc: 'Pool-vs-pool combat. Stakes burned, NFTJI drops, formula shifts.' },
@@ -25,9 +24,8 @@ const SECTIONS = {
     { href: '/relaying?command=/rm+-rf+%24MM3_BLOCK_CHAIN&chip=1', icon: null, name: 'KERNEL PANIC', desc: '<!-- /rm -rf $MM3_BLOCK_CHAIN -->', kernelPanic: true, chip: 1 },
   ],
   es: [
-    { href: '/security',   icon: '🔐',  name: 'Security',    desc: 'Auditoría de seguridad con IA. Escaneo OSV, análisis de cabeceras, sondeo de autenticación — informe completo y PDF.', secCard: true },
     { href: '/training',   icon: '⛏',  name: 'Training',    desc: 'Resuelve problemas contra el reloj. 100/día, 13 tipos. Velocidad = más MM3.' },
-    { href: '/mining',     icon: '⬛',  name: 'Mining',      desc: 'Explorador 3D FPV de bloques. Encuentra bloques, compra NFTJIs, mina celdas y combate wallets enemigas en vivo.' },
+    { href: '/mining',     icon: '⬡',  name: 'Mining',      desc: 'Explorador 3D FPV de bloques. Encuentra bloques, compra NFTJIs, mina celdas y combate wallets enemigas en vivo.', miningCard: true },
     { href: '/trading',    icon: '💱',  name: 'Trading',     desc: 'Compra y vende MM3 en EUR / USD / CNY ficticios. 5 EXECs/día — dados afectan tasas.' },
     { href: '/ranking',    icon: '🏆',  name: 'Ranking',     desc: 'Clasificación en vivo de wallets y pools. Mining %, nivel, EXECs y penalizaciones.' },
     { href: '/squeezing',  icon: '⚔',  name: 'Squeezing',   desc: 'Combate pool-vs-pool. Stakes quemados, drops de NFTJI, la fórmula cambia.' },
@@ -107,21 +105,7 @@ export default function LandingHero() {
   const { account } = useActiveWallet();
   const [pendingRewards, setPendingRewards] = useState(0);
   const [chipCooldowns, setChipCooldowns] = useState({ chip1: null, chip2: null });
-  const [lastScan, setLastScan] = useState(null);
   const sections = SECTIONS[language] || SECTIONS.en;
-
-  useEffect(() => {
-    let mounted = true;
-    const fetchLastScan = () => {
-      fetch('/api/security/scan')
-        .then(r => r.ok ? r.json() : null)
-        .then(data => { if (mounted && data) setLastScan(data); })
-        .catch(() => {});
-    };
-    fetchLastScan();
-    const timer = setInterval(fetchLastScan, 30_000);
-    return () => { mounted = false; clearInterval(timer); };
-  }, []);
 
   useEffect(() => {
     const wallet = String(account || '').toLowerCase();
@@ -195,25 +179,19 @@ export default function LandingHero() {
           padding: 0,
           margin: 0,
         }}>
-          {sections.map(({ href, icon, name, desc, daily, kernelPanic, chip, secCard }, idx) => {
+          {sections.map(({ href, icon, name, desc, daily, kernelPanic, chip, miningCard }, idx) => {
             const kpResetsAt = kernelPanic ? chipCooldowns[`chip${chip}`] : null;
-            const SEC = '#a855f7';
-            const borderColor = kernelPanic ? '#ef444420' : secCard ? `${SEC}28` : `${C}18`;
-            const bg = kernelPanic ? '#0d0505' : secCard ? '#0d0a14' : '#0b1015';
-            const nameColor = kernelPanic ? '#ef4444' : secCard ? SEC : '#e2e8f0';
-            const descColor = kernelPanic ? '#7f1d1d' : secCard ? '#5b3a7a' : '#475569';
-
-            const effectiveDesc = secCard && lastScan?.summary ? lastScan.summary : desc;
-            const scanDate = secCard && lastScan?.triggered_at
-              ? new Date(lastScan.triggered_at).toLocaleString()
-              : null;
+            const borderColor = kernelPanic ? '#ef444420' : miningCard ? '#22d3ee88' : `${C}18`;
+            const bg = kernelPanic ? '#0d0505' : miningCard ? 'linear-gradient(135deg,#061923 0%,#0b1020 55%,#17102a 100%)' : '#0b1015';
+            const nameColor = kernelPanic ? '#ef4444' : miningCard ? '#67e8f9' : '#e2e8f0';
+            const descColor = kernelPanic ? '#7f1d1d' : miningCard ? '#7dd3fc' : '#475569';
 
             const inner = (
               <KernelPanicInner
                 icon={icon}
                 name={name}
-                desc={effectiveDesc}
-                scanDate={scanDate}
+                desc={desc}
+                scanDate={null}
                 daily={daily}
                 count={count}
                 kernelPanic={kernelPanic}
@@ -230,15 +208,17 @@ export default function LandingHero() {
               textDecoration: 'none', height: '100%', boxSizing: 'border-box',
               transition: 'border-color 0.18s, background 0.18s',
               cursor: 'pointer',
+              boxShadow: miningCard ? '0 0 24px rgba(34,211,238,.14), inset 0 0 22px rgba(168,85,247,.08)' : 'none',
             };
 
-            const hoverBorder = kernelPanic ? '#ef444455' : secCard ? `${SEC}66` : `${C}55`;
-            const hoverBg = kernelPanic ? '#150808' : secCard ? '#130a1a' : '#0d1419';
+            const hoverBorder = kernelPanic ? '#ef444455' : miningCard ? '#67e8f9' : `${C}55`;
+            const hoverBg = kernelPanic ? '#150808' : miningCard ? 'linear-gradient(135deg,#08242f 0%,#10142b 55%,#21123a 100%)' : '#0d1419';
 
             return (
               <li key={`${href ?? name}-${idx}`} style={{ minWidth: 0, display: 'flex', flexDirection: 'column' }}>
                 <Link
                   href={href}
+                  className={miningCard ? 'mm3-home-mining-card' : undefined}
                   style={{ ...cardStyle, flex: 1 }}
                   onMouseEnter={e => { e.currentTarget.style.borderColor = hoverBorder; e.currentTarget.style.background = hoverBg; }}
                   onMouseLeave={e => { e.currentTarget.style.borderColor = borderColor; e.currentTarget.style.background = bg; }}

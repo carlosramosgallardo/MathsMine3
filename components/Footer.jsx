@@ -102,6 +102,7 @@ export default function Footer() {
         )}
         <span className="select-none text-gray-800">|</span>
         <Link href="/api" className={touchClass}>API</Link>
+        <Link href="/security" className={touchClass} title={es ? 'Seguridad' : 'Security'}>SEC</Link>
         <Link href="/privacy" className={touchClass}>{es ? 'Privacidad' : 'Privacy'}</Link>
         <Link href="/terms" className={touchClass}>{es ? 'Términos' : 'Terms'}</Link>
         <span className="select-none text-gray-800">|</span>

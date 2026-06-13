@@ -869,6 +869,33 @@ footer.bg-black\/97,
 .landing-grid {
   grid-template-columns: repeat(4, 1fr) !important;
 }
+.mm3-home-mining-card {
+  position: relative;
+  overflow: hidden;
+  animation: mm3-mining-card-pulse 2.8s ease-in-out infinite;
+}
+.mm3-home-mining-card::after {
+  content: '';
+  position: absolute;
+  inset: -55% auto -55% -28%;
+  width: 28%;
+  transform: rotate(18deg);
+  background: linear-gradient(90deg, transparent, rgba(103,232,249,.18), transparent);
+  animation: mm3-mining-card-scan 3.8s linear infinite;
+  pointer-events: none;
+}
+@keyframes mm3-mining-card-pulse {
+  0%, 100% { box-shadow: 0 0 18px rgba(34,211,238,.12), inset 0 0 18px rgba(168,85,247,.06); }
+  50% { box-shadow: 0 0 30px rgba(34,211,238,.25), inset 0 0 26px rgba(168,85,247,.12); }
+}
+@keyframes mm3-mining-card-scan {
+  from { left: -35%; }
+  to { left: 125%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mm3-home-mining-card,
+  .mm3-home-mining-card::after { animation: none; }
+}
 @media (max-width: 768px) {
   .landing-grid {
     grid-template-columns: repeat(2, 1fr) !important;
