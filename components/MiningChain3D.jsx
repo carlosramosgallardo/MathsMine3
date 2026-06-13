@@ -17,6 +17,7 @@ import MiningChain3DFPV from './MiningChain3DFPV'
 import ChainSolveCard from './ChainSolveCard'
 
 const C = '#22d3ee'
+const NETWORK_VISUAL_RANGE = 22
 const CHAIN3D_CHANNEL = 'mm3-chain3d-v1'
 
 // Trade/wallet NFTJIs — matches TRADE_SLOT_ORDER in wallet-decorations.js
@@ -430,6 +431,20 @@ export default function MiningChain3D() {
     ch.on('broadcast', { event: 'move' }, ({ payload }) => {
       if (!payload?.wallet || payload.gx == null) return
       const w = payload.wallet
+      const mine = myPosRef.current
+      const remoteDist = Math.hypot(
+        Number(payload.gx) - (Number(mine?.col) + 0.5),
+        Number(payload.gy) - (Number(mine?.row) + 0.5),
+      )
+      if (remoteDist > NETWORK_VISUAL_RANGE) {
+        setPositions(prev => {
+          if (!prev[w]) return prev
+          const next = { ...prev }
+          delete next[w]
+          return next
+        })
+        return
+      }
       if (payload.isBot) loadRemoteHealth(w)
       setPositions(prev => ({
         ...prev,
@@ -455,19 +470,20 @@ export default function MiningChain3D() {
     ch.on('presence', { event: 'sync' }, () => {
       const state = ch.presenceState()
       const alive = new Set(Object.keys(state))
-      for (const [wallet, entries] of Object.entries(state)) {
-        if (entries?.[0]?.isBot) loadRemoteHealth(wallet)
-      }
       setOnlineWallets(alive)
       setOnlineCount(alive.size)
       setPositions(prev => {
         const next = { ...prev }
+        const myW = myWalletRef.current
         // Seed position for players we haven't received a broadcast from yet
         for (const [w, entries] of Object.entries(state)) {
           const p = entries?.[0]
           if (!p || next[w]) continue   // already have broadcast-precise position
           const gx = p.gx ?? ((p.col ?? 14) + 0.5)
           const gy = p.gy ?? ((p.row ?? 14) + 0.5)
+          const mine = myPosRef.current
+          if (w !== myW && Math.hypot(gx-(Number(mine?.col)+.5),gy-(Number(mine?.row)+.5)) > NETWORK_VISUAL_RANGE) continue
+          if (p.isBot) loadRemoteHealth(w)
           next[w] = {
             gx, gy, row: Math.floor(gy), col: Math.floor(gx), poolCode: p.poolCode || null,
             isBot: Boolean(p.isBot), task: p.task || null,
@@ -475,9 +491,15 @@ export default function MiningChain3D() {
           }
         }
         // Remove players who left (always keep self)
-        const myW = myWalletRef.current
         for (const w of Object.keys(next)) {
-          if (!alive.has(w) && w !== myW) delete next[w]
+          if (w === myW) continue
+          const remote = next[w]
+          const mine = myPosRef.current
+          const tooFar = remote && Math.hypot(
+            Number(remote.gx)-(Number(mine?.col)+.5),
+            Number(remote.gy)-(Number(mine?.row)+.5),
+          ) > NETWORK_VISUAL_RANGE
+          if (!alive.has(w) || tooFar) delete next[w]
         }
         return next
       })

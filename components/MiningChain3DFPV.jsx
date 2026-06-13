@@ -31,6 +31,8 @@ const FOOTSTEP_DIST = CELL_SIZE * 0.42       // footstep cadence
 const SWING_DUR     = 340    // ms per pickaxe swing
 const HITS_NEEDED   = 5      // swings to complete mining action
 const INTERACT_DIST = 2.0    // grid cells — max distance for block interaction
+const VISUAL_RANGE  = 20     // cells rendered around the player
+const RADAR_RANGE   = 20     // local minimap radius; distant world stays hidden
 const CHAIN_NODE_ROW = 4     // fallback; runtime position comes from cellMap
 const CHAIN_NODE_COL = 4
 // Jump: a player can mount mining blocks, but structural walls stay impassable.
@@ -957,7 +959,7 @@ function worldToGrid(wx, wy) {
 }
 
 // ── DDA with centre-doorways ──────────────────────────────────────────────────
-function castRay(wx, wy, angle, cellMap, obsSet) {
+function castRay(wx, wy, angle, cellMap, obsSet, maxDist = VISUAL_RANGE) {
   const px = wx / CELL_SIZE, py = wy / CELL_SIZE
   const dx = Math.cos(angle), dy = Math.sin(angle)
   let mx = Math.floor(px), my = Math.floor(py)
@@ -968,25 +970,26 @@ function castRay(wx, wy, angle, cellMap, obsSet) {
   let sdy = (dy<0?py-my:my+1-py)*ddy
   let side=0, perpDist=0
 
-  for (let step=0; step<(ROWS+COLS)*2; step++) {
+  for (let step=0; step<Math.ceil(maxDist * 2.2); step++) {
     if (sdx<sdy) { sdx+=ddx; mx+=sx; side=0; perpDist=sdx-ddx }
     else         { sdy+=ddy; my+=sy; side=1; perpDist=sdy-ddy }
     perpDist = Math.max(0.05, perpDist)
-    if (mx<0||mx>=COLS||my<0||my>=ROWS) return {perpDist,cell:null,side,mx,my}
+    if (perpDist > maxDist) return {perpDist:maxDist,cell:null,side,mx,my,hit:false}
+    if (mx<0||mx>=COLS||my<0||my>=ROWS) return {perpDist:Math.min(perpDist,maxDist),cell:null,side,mx,my,hit:false}
     const key = `${my},${mx}`
     // Decorative obstacle: solid wall, no doorway — always a hit
     const obsData = obsSet?.get?.(key) || null
-    if (obsData) return {perpDist, cell:{isObstacle:true,...obsData}, side, mx, my}
+    if (obsData) return {perpDist, cell:{isObstacle:true,...obsData}, side, mx, my, hit:true}
     // Doorway check for block cells
     const hitFrac = (((side===0?py+perpDist*dy:px+perpDist*dx)%1.0)+1.0)%1.0
     const lo=(1-DOOR_FRAC)/2, hi=(1+DOOR_FRAC)/2
     if (hitFrac<lo||hitFrac>hi) {
       const cell = cellMap.get(key) || null
       if (!cell) continue  // Empty corridor: ray passes through
-      return {perpDist, cell, side, mx, my}
+      return {perpDist, cell, side, mx, my, hit:true}
     }
   }
-  return {perpDist:ROWS+COLS, cell:null, side:0, mx:-1, my:-1}
+  return {perpDist:maxDist, cell:null, side:0, mx:-1, my:-1, hit:false}
 }
 
 // ── Minimap ───────────────────────────────────────────────────────────────────
@@ -999,13 +1002,13 @@ function drawMinimap(ctx, gr, gc, angle, cellMap, presenceMap, myWallet, W, H, c
   const SZ = minimapSize(W)
   const MX = W - SZ - 6
   const MY = 8
-  const viewCells = ROWS
-  const originCol = 0
-  const originRow = 0
+  const viewCells = RADAR_RANGE * 2 + 1
+  const originCol = gc - RADAR_RANGE
+  const originRow = gr - RADAR_RANGE
   const CS = SZ/viewCells
   const mapX = (col) => MX + (col-originCol)*CS
   const mapY = (row) => MY + (row-originRow)*CS
-  const visible = (row,col,pad=0) => col>=originCol-pad&&col<=originCol+viewCells+pad&&row>=originRow-pad&&row<=originRow+viewCells+pad
+  const visible = (row,col,pad=0) => Math.hypot(col-gc,row-gr) <= RADAR_RANGE+pad
   const drawMapEmoji = (emoji,x,y,color,shape='circle') => {
     const fontSize = isMobile ? 9 : 10
     const radius = fontSize * .53
@@ -1026,16 +1029,21 @@ function drawMinimap(ctx, gr, gc, angle, cellMap, presenceMap, myWallet, W, H, c
   ctx.fillRect(MX-1,MY-1,SZ+2,SZ+2)
   ctx.strokeStyle = C+'33'; ctx.lineWidth=0.5
   ctx.strokeRect(MX-1,MY-1,SZ+2,SZ+2)
+  ctx.strokeStyle=C+'66';ctx.lineWidth=1
+  ctx.beginPath();ctx.arc(MX+SZ/2,MY+SZ/2,SZ/2-1,0,Math.PI*2);ctx.stroke()
 
   ctx.save()
-  ctx.beginPath();ctx.rect(MX,MY,SZ,SZ);ctx.clip()
+  const radarRadius = SZ / 2
+  ctx.beginPath();ctx.arc(MX+radarRadius,MY+radarRadius,radarRadius,0,Math.PI*2);ctx.clip()
   const r0=Math.max(0,Math.floor(originRow)),r1=Math.min(ROWS,Math.ceil(originRow+viewCells))
   const c0=Math.max(0,Math.floor(originCol)),c1=Math.min(COLS,Math.ceil(originCol+viewCells))
   for (let r=r0;r<r1;r++) for (let c=c0;c<c1;c++) {
     const key = `${r},${c}`
     const cell = cellMap.get(key)
     const obs  = validObs?.get(key) || null
-    if (obs) {
+    if (!visible(r+.5,c+.5)) {
+      ctx.fillStyle = '#01040a'
+    } else if (obs) {
       const [or,og,ob] = obs.base
       ctx.fillStyle = `rgba(${or>>1},${og>>1},${ob>>1},0.85)`
     } else if (cell?.owner) {
@@ -1095,6 +1103,15 @@ function drawMinimap(ctx, gr, gc, angle, cellMap, presenceMap, myWallet, W, H, c
     const dotGX = p.gx ?? ((p.col??0) + 0.5)
     const dotGY = p.gy ?? ((p.row??0) + 0.5)
     if(!visible(dotGY,dotGX,1)) continue
+    if(!isMe){
+      const vx=dotGX-(gc+.5),vy=dotGY-(gr+.5)
+      const walletDist=Math.hypot(vx,vy)
+      const walletAngle=Math.atan2(vy,vx)
+      const relAngle=Math.atan2(Math.sin(walletAngle-angle),Math.cos(walletAngle-angle))
+      if(walletDist>2.5&&Math.abs(relAngle)>FOV/2+.08) continue
+      const sight=castRay((gc+.5)*CELL_SIZE,(gr+.5)*CELL_SIZE,walletAngle,cellMap,validObs,Math.min(RADAR_RANGE,walletDist))
+      if(sight.hit&&sight.perpDist<walletDist-.35) continue
+    }
     const col = colorFromAddress(w)
     const dx=mapX(dotGX), dy=mapY(dotGY)
     const heading=Number(p.angle)||0
@@ -1143,32 +1160,31 @@ function drawMinimap(ctx, gr, gc, angle, cellMap, presenceMap, myWallet, W, H, c
 
   // Chain node: diamond crosshair — visually distinct landmark (static, not a dot)
   const cnPos   = chainNodePos || { row: CHAIN_NODE_ROW, col: CHAIN_NODE_COL }
-  const cnPulse = 0.55 + Math.sin(Date.now() / 600) * 0.45
-  const cnx = mapX(cnPos.col + 0.5)
-  const cny = mapY(cnPos.row + 0.5)
-  const armLen = CS * 2.8
-  const gapR   = CS * 0.85
-  // Outer pulsing ring
-  ctx.globalAlpha = visible(cnPos.row,cnPos.col) ? cnPulse * 0.28 : 0
-  ctx.strokeStyle = '#ffd700'; ctx.lineWidth = 0.8
-  ctx.beginPath(); ctx.arc(cnx, cny, CS * 2.1, 0, Math.PI*2); ctx.stroke()
-  // Four crosshair arms with gap
-  ctx.globalAlpha = Math.max(0.55, cnPulse)
-  ctx.strokeStyle = '#ffd700'; ctx.lineWidth = 0.9
-  ctx.beginPath()
-  ctx.moveTo(cnx - gapR, cny); ctx.lineTo(cnx - armLen, cny)
-  ctx.moveTo(cnx + gapR, cny); ctx.lineTo(cnx + armLen, cny)
-  ctx.moveTo(cnx, cny - gapR); ctx.lineTo(cnx, cny - armLen)
-  ctx.moveTo(cnx, cny + gapR); ctx.lineTo(cnx, cny + armLen)
-  ctx.stroke()
-  // Center diamond (rotated square)
-  ctx.globalAlpha = Math.max(0.70, cnPulse)
-  ctx.fillStyle = '#ffd700'
-  ctx.save(); ctx.translate(cnx, cny); ctx.rotate(Math.PI / 4)
-  const ds = CS * 0.52
-  ctx.fillRect(-ds, -ds, ds*2, ds*2)
-  ctx.restore()
-  ctx.globalAlpha = 1
+  if(visible(cnPos.row,cnPos.col)){
+    const cnPulse = 0.55 + Math.sin(Date.now() / 600) * 0.45
+    const cnx = mapX(cnPos.col + 0.5)
+    const cny = mapY(cnPos.row + 0.5)
+    const armLen = CS * 2.8
+    const gapR   = CS * 0.85
+    ctx.globalAlpha = cnPulse * 0.28
+    ctx.strokeStyle = '#ffd700'; ctx.lineWidth = 0.8
+    ctx.beginPath(); ctx.arc(cnx, cny, CS * 2.1, 0, Math.PI*2); ctx.stroke()
+    ctx.globalAlpha = Math.max(0.55, cnPulse)
+    ctx.strokeStyle = '#ffd700'; ctx.lineWidth = 0.9
+    ctx.beginPath()
+    ctx.moveTo(cnx - gapR, cny); ctx.lineTo(cnx - armLen, cny)
+    ctx.moveTo(cnx + gapR, cny); ctx.lineTo(cnx + armLen, cny)
+    ctx.moveTo(cnx, cny - gapR); ctx.lineTo(cnx, cny - armLen)
+    ctx.moveTo(cnx, cny + gapR); ctx.lineTo(cnx, cny + armLen)
+    ctx.stroke()
+    ctx.globalAlpha = Math.max(0.70, cnPulse)
+    ctx.fillStyle = '#ffd700'
+    ctx.save(); ctx.translate(cnx, cny); ctx.rotate(Math.PI / 4)
+    const ds = CS * 0.52
+    ctx.fillRect(-ds, -ds, ds*2, ds*2)
+    ctx.restore()
+    ctx.globalAlpha = 1
+  }
 
   // Portal navigation nodes — pulsing colored dots
   for (const [key, cell] of cellMap) {
@@ -2018,7 +2034,9 @@ export default function MiningChain3DFPV({
     cameraVisual.pitch+=(rawPitch-cameraVisual.pitch)*cameraBlend
     const pz=cameraVisual.z,pitch=cameraVisual.pitch
     const viewCenterY = H * HORIZON_RATIO
-    const stripW=W>=1600?4:STRIP_W
+    // Capped rays make finer ultrawide strips affordable without traversing
+    // the whole 56-cell world for every screen column.
+    const stripW=STRIP_W
     const strips=Math.ceil(W/stripW)
 
     if (!zBufferRef.current || zBufferRef.current.length !== strips) {
@@ -2091,6 +2109,10 @@ export default function MiningChain3DFPV({
 
     // Atmospheric tint from current room
     const {row:gr,col:gc} = worldToGrid(px,py)
+    const viewMinRow=Math.max(0,gr-VISUAL_RANGE)
+    const viewMaxRow=Math.min(ROWS-1,gr+VISUAL_RANGE)
+    const viewMinCol=Math.max(0,gc-VISUAL_RANGE)
+    const viewMaxCol=Math.min(COLS-1,gc+VISUAL_RANGE)
     const curCell = cellMap.get(`${gr},${gc}`)
     // A cell directly below the player is a platform, not the room containing
     // the camera. Do not recolor the whole scene when landing on top of it.
@@ -2122,14 +2144,14 @@ export default function MiningChain3DFPV({
       return 0
     }
     ctx.globalAlpha=.12;ctx.strokeStyle=C;ctx.lineWidth=1;ctx.beginPath()
-    for(let c=0;c<=COLS;c++){
-      const seg=projectSegment([c,0,0],[c,ROWS,0]); if(!seg) continue
-      const [a,b,d]=seg;if((a.y<sceneSplitY&&b.y<sceneSplitY)||d>34) continue
+    for(let c=viewMinCol;c<=viewMaxCol+1;c++){
+      const seg=projectSegment([c,viewMinRow,0],[c,viewMaxRow+1,0]); if(!seg) continue
+      const [a,b,d]=seg;if((a.y<sceneSplitY&&b.y<sceneSplitY)||d>VISUAL_RANGE) continue
       ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y)
     }
-    for(let r=0;r<=ROWS;r++){
-      const seg=projectSegment([0,r,0],[COLS,r,0]); if(!seg) continue
-      const [a,b,d]=seg;if((a.y<sceneSplitY&&b.y<sceneSplitY)||d>34) continue
+    for(let r=viewMinRow;r<=viewMaxRow+1;r++){
+      const seg=projectSegment([viewMinCol,r,0],[viewMaxCol+1,r,0]); if(!seg) continue
+      const [a,b,d]=seg;if((a.y<sceneSplitY&&b.y<sceneSplitY)||d>VISUAL_RANGE) continue
       ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y)
     }
     ctx.stroke();ctx.globalAlpha=1
@@ -2137,7 +2159,8 @@ export default function MiningChain3DFPV({
     // Visible block tops are clipped polygons and are rendered before walls;
     // wall strips therefore occlude them cleanly without jagged overlaps.
     const tops=[]
-    for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++){
+    for(let r=viewMinRow;r<=viewMaxRow;r++) for(let c=viewMinCol;c<=viewMaxCol;c++){
+      if(Math.hypot(c+.5-(px/CELL_SIZE),r+.5-(py/CELL_SIZE))>VISUAL_RANGE) continue
       const topHeight=solidHeightAt(c+.5,r+.5)
       if(!topHeight||cameraZ<=topHeight+.015) continue
       const verts=clipNear([
@@ -2185,15 +2208,15 @@ export default function MiningChain3DFPV({
     // ── Wall strips + build zBuffer ───────────────────────────────────────────
     for (let col=0; col<strips; col++){
       const ra = angle - FOV/2 + (col+0.5)*FOV/strips
-      const {perpDist,cell,side,mx:hitMx,my:hitMy} = castRay(px,py,ra,cellMap,validObstaclesRef.current)
+      const {perpDist,cell,side,mx:hitMx,my:hitMy,hit} = castRay(px,py,ra,cellMap,validObstaclesRef.current,VISUAL_RANGE)
       const dist  = perpDist*Math.cos(ra-angle)
+      zBuffer[col] = dist
+      if(!hit||!cell) continue
       const wallTop = cell?.isObstacle ? OBSTACLE_TOP : BLOCK_TOP
       const projectedTop = projectY(wallTop, dist)
       const projectedBottom = projectY(0, dist)
       const wTop = Math.round(Math.min(projectedTop, projectedBottom))
       const wallH = Math.min(H * 8, Math.max(1, Math.abs(projectedBottom - projectedTop)))
-
-      zBuffer[col] = dist
 
       // Collect emoji cells (all visible wall faces, not just forward)
       if (cell?.emoji && hitMx >= 0 && hitMy >= 0) {
@@ -2324,6 +2347,7 @@ export default function MiningChain3DFPV({
       // Fixed sign: right vector is (-sin, cos) so tX = -sin*rx + cos*ry
       const tX   = -Math.sin(angle)*rx + Math.cos(angle)*ry
       const dist  = Math.sqrt(rx*rx + ry*ry)
+      if (dist > VISUAL_RANGE) continue
       const remoteZ=Number(pres.z)||0
       const solidHeight=solidHeightAt(sgx,sgy)
       const supportZ=solidHeight&&remoteZ>=solidHeight?solidHeight:0
