@@ -2111,6 +2111,7 @@ export default function MiningChain3DFPV({
   const chainStatsRef        = useRef(null)
   const onChainSolveOpenRef  = useRef(onChainSolveOpen)
   const swingMapRef          = useRef(swingMap || {})
+  const walkStateRef         = useRef({})
   const myPoolCodeRef        = useRef(myPoolCode || null)
   // Precomputed from cellMap: Map<key,{base,label}> of currently active obstacles
   const validObstaclesRef   = useRef(new Map(OBSTACLE_MAP))
@@ -2750,7 +2751,7 @@ export default function MiningChain3DFPV({
       const solidHeight=solidHeightAt(sgx,sgy)
       const supportZ=solidHeight&&remoteZ>=solidHeight?solidHeight:0
       sprites.push({
-        w, tX, tY, dist, z:remoteZ, supportZ,
+        w, tX, tY, dist, gx: sgx, gy: sgy, z:remoteZ, supportZ,
         angle:Number(pres.angle)||0, swingAt:Number(pres.swingAt)||0,
         isBot:Boolean(pres.isBot), taskLabel:pres.taskLabel||null, taskPhase:pres.taskPhase||null,
         color: colorFromAddress(w),
@@ -2758,18 +2759,28 @@ export default function MiningChain3DFPV({
     }
     sprites.sort((a,b) => b.dist - a.dist)
 
-    for (const { w, tX, tY, z:remoteZ, supportZ, angle:remoteAngle, swingAt, isBot, taskLabel, taskPhase, color } of sprites) {
+    for (const { w, tX, tY, gx, gy, z:remoteZ, supportZ, angle:remoteAngle, swingAt, isBot, taskLabel, taskPhase, color } of sprites) {
       const groundCamera = cameraPoint(0, tY)
       if (groundCamera.rotatedDepth <= 0.05) continue
       const scrX = Math.round(W/2 + tX*horizontalProjection/groundCamera.rotatedDepth)
       const [cr,cg2,cb] = hexToRgb(color)
-      const fade  = Math.max(0.32, 1 - tY*0.038)   // slower darkening at distance
-      const alpha = Math.min(0.98, Math.max(0.12, 1.0 - tY*0.028)) // visible up to ~30 cells
+      const fade  = Math.max(0.32, 1 - tY*0.038)
+      const alpha = Math.min(0.98, Math.max(0.12, 1.0 - tY*0.028))
 
-      // Perspective-correct grounding. Remote avatars use the same visual scale
-      // as the local third-person avatar and are capped at close range.
-      const stableDepth = Math.max(0.72,groundCamera.rotatedDepth)
-      const cellScale = projectionScale/stableDepth
+      // Walk state: detect server-side position change to enable foot animation
+      const wsEntry = walkStateRef.current[w] || (walkStateRef.current[w] = { gx, gy, lastMove: 0 })
+      if (Math.abs(gx - wsEntry.gx) > 0.005 || Math.abs(gy - wsEntry.gy) > 0.005) {
+        wsEntry.gx = gx; wsEntry.gy = gy; wsEntry.lastMove = Date.now()
+      }
+      const isWalking = (Date.now() - wsEntry.lastMove) < 600
+      const walkPhase = isWalking ? Date.now() / 280 + (w.charCodeAt(2) || 0) * 0.7 : 0
+      const liftL = isWalking ? Math.round(Math.sin(walkPhase) * 2) : 0
+      const liftR = isWalking ? Math.round(Math.sin(walkPhase + Math.PI) * 2) : 0
+
+      // Use 2D floor distance (tY) for scale so all players at the same distance
+      // appear identically sized regardless of pitch angle.
+      const stableDepth = Math.max(0.72, tY)
+      const cellScale = projectionScale / stableDepth
       const bottomY   = Math.min(H+30,Math.round(projectY(remoteZ,tY)))
       const sScale    = Math.min(cellScale,150)
       const walletH   = Math.round(sScale * 0.58)
@@ -2858,8 +2869,8 @@ export default function MiningChain3DFPV({
         ctx.fillStyle='rgba(2,8,18,.82)';ctx.fillRect(wx1,beltY,walletW,Math.max(2,Math.round(walletH*.06)))
         const bootH=Math.max(2,Math.round(walletH*.09)),bootW=Math.max(3,Math.round(walletW*.28))
         ctx.fillStyle=`rgb(${Math.round(cr*fade*.30)},${Math.round(cg2*fade*.30)},${Math.round(cb*fade*.30)})`
-        ctx.fillRect(scrX-Math.round(walletW*.34),bottomY-bootH,bootW,bootH)
-        ctx.fillRect(scrX+Math.round(walletW*.06),bottomY-bootH,bootW,bootH)
+        ctx.fillRect(scrX-Math.round(walletW*.34),bottomY-bootH-liftL,bootW,bootH)
+        ctx.fillRect(scrX+Math.round(walletW*.06),bottomY-bootH-liftR,bootW,bootH)
         ctx.globalAlpha=1
       }
 
@@ -2877,18 +2888,6 @@ export default function MiningChain3DFPV({
         const remoteSwingT   = remoteSwingAge < SWING_DUR ? remoteSwingAge / SWING_DUR : 0
         const pkA=-Math.PI/2+pickSide*0.66+pickSide*Math.sin(remoteSwingT*Math.PI)*1.05
         drawFreakDrillPick(ctx,pkBX,pkBY,pkL,pkA,Math.max(.28,pkL/64),alpha*.9)
-      }
-
-      // Floor shadow ellipse (at actual floor level)
-      if (tY < 8.0) {
-        const sAlpha = Math.max(0, (8.0-tY)/8.0)*0.28
-        const sw = Math.max(4, Math.round(walletW*0.85))
-        const sh = Math.max(2, Math.round(sw*0.18))
-        ctx.globalAlpha = sAlpha; ctx.fillStyle = '#000'
-        ctx.beginPath()
-        const shadowY=Math.min(H+30,Math.round(projectY(supportZ,tY)))
-        ctx.ellipse(scrX,shadowY+sh*0.5,sw/2,sh,0,0,Math.PI*2)
-        ctx.fill(); ctx.globalAlpha = 1
       }
 
       // Wallet label above bills

@@ -948,51 +948,90 @@ footer.bg-black\/97,
   box-shadow: 0 0 28px rgba(34,211,238,.28);
 }
 
-/* ── Section card grid ────────────────────────────────────── */
-.lh-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: .75rem;
-  list-style: none;
-  padding: 0;
-  margin: 0;
-}
-.lh-grid > li { display: flex; flex-direction: column; }
-.lh-card {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: .45rem;
-  padding: 1.1rem 1.1rem 1rem;
-  background: #090e14;
-  border: 1px solid rgba(34,211,238,.12);
-  border-color: color-mix(in srgb, var(--lh-accent, #22d3ee) 18%, transparent);
-  border-radius: 10px;
-  text-decoration: none;
-  transition: border-color .18s, transform .18s, box-shadow .18s;
-  box-shadow: none;
-}
-.lh-card:hover { box-shadow: 0 4px 24px rgba(0,0,0,.28); }
-.lh-card-icon {
-  font-size: 1.5rem;
-  line-height: 1;
-  margin-bottom: .2rem;
-}
-.lh-card-name {
+/* ── Section carousel ──────────────────────────────────────── */
+.lh-carousel-wrap {
   display: flex;
   align-items: center;
-  font: 800 .72rem/1 monospace;
-  letter-spacing: .1em;
-  text-transform: uppercase;
+  gap: 6px;
+  margin-top: 0.75rem;
 }
-.lh-card-desc {
-  margin: 0;
-  color: #3d5166;
-  font: .7rem/1.55 monospace;
-  letter-spacing: .03em;
+.lh-car-btn {
+  flex-shrink: 0;
+  width: 26px;
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(34,211,238,.06);
+  border: 1px solid rgba(34,211,238,.18);
+  border-radius: 6px;
+  color: rgba(34,211,238,.7);
+  font-size: 1.1rem;
+  cursor: pointer;
+  transition: background .15s, border-color .15s, color .15s;
+  padding: 0;
+  line-height: 1;
+  font-family: monospace;
+}
+.lh-car-btn:hover {
+  background: rgba(34,211,238,.14);
+  border-color: rgba(34,211,238,.44);
+  color: #22d3ee;
+}
+.lh-carousel {
   flex: 1;
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scroll-behavior: smooth;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+  padding: 2px 0;
 }
-.lh-card:hover .lh-card-desc { color: #546880; }
+.lh-carousel::-webkit-scrollbar { display: none; }
+.lh-car-card {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  width: 100px;
+  height: 64px;
+  background: #090e14;
+  border: 1px solid rgba(34,211,238,.12);
+  border-color: color-mix(in srgb, var(--lh-accent, #22d3ee) 16%, transparent);
+  border-radius: 8px;
+  text-decoration: none;
+  scroll-snap-align: start;
+  transition: border-color .15s, transform .15s, box-shadow .15s;
+  box-shadow: none;
+  position: relative;
+  overflow: hidden;
+}
+.lh-car-card:hover {
+  border-color: color-mix(in srgb, var(--lh-accent, #22d3ee) 52%, transparent);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 18px rgba(0,0,0,.32);
+}
+.lh-car-icon {
+  font-size: 1.35rem;
+  line-height: 1;
+}
+.lh-car-name {
+  display: flex;
+  align-items: center;
+  gap: 0.2rem;
+  font: 700 0.57rem/1 monospace;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  text-align: center;
+  max-width: 88px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 
 @keyframes lh-hero-pulse {
   0%,100% { box-shadow: 0 0 22px rgba(34,211,238,.1), inset 0 0 22px rgba(168,85,247,.05); }
@@ -1007,13 +1046,12 @@ footer.bg-black\/97,
   .lh-hero-scan { display: none; }
 }
 @media (max-width: 860px) {
-  .lh-grid { grid-template-columns: repeat(2, 1fr); }
   .lh-hero-body { gap: 1.2rem; }
 }
 @media (max-width: 540px) {
-  .lh-grid { grid-template-columns: 1fr; }
   .lh-hero-icon { width: 60px; height: 60px; font-size: 2rem; }
   .lh-hero-card { padding: 1.4rem 1.2rem; }
+  .lh-car-card { width: 88px; height: 60px; }
 }
 
 /* Legacy orbit classes kept as stubs to avoid build errors */

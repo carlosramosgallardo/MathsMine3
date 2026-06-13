@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useI18n } from '@/lib/i18n-context';
 import { useActiveWallet } from '@/lib/use-active-wallet';
@@ -69,6 +69,12 @@ export default function LandingHero() {
   const count = Math.max(0, Number(pendingRewards) || 0);
   const hero = sections[0];
   const cards = sections.slice(1);
+  const carRef = useRef(null);
+  const scroll = (dir) => {
+    const el = carRef.current;
+    if (!el) return;
+    el.scrollBy({ left: dir * 320, behavior: 'smooth' });
+  };
 
   return (
     <section
@@ -98,28 +104,26 @@ export default function LandingHero() {
           <div className="lh-hero-cta">{hero.cta}</div>
         </Link>
 
-        {/* ── Section cards ───────────────────────────────── */}
-        <ul className="lh-grid" aria-label="Sections">
-          {cards.map(({ href, icon, name, desc, accent, daily }, i) => (
-            <li key={href} style={{ '--lh-accent': accent }}>
-              <Link href={href} className="lh-card"
-                onMouseEnter={e => { e.currentTarget.style.borderColor = `${accent}55`; e.currentTarget.style.transform = 'translateY(-2px)'; }}
-                onMouseLeave={e => { e.currentTarget.style.borderColor = `${accent}18`; e.currentTarget.style.transform = 'none'; }}
-              >
-                <div className="lh-card-icon" style={{ color: accent, textShadow: `0 0 14px ${accent}66` }}>{icon}</div>
-                <div className="lh-card-name" style={{ color: accent }}>
+        {/* ── Section carousel ─────────────────────────────── */}
+        <div className="lh-carousel-wrap">
+          <button className="lh-car-btn" onClick={() => scroll(-1)} aria-label="Previous">‹</button>
+          <div className="lh-carousel" ref={carRef}>
+            {cards.map(({ href, icon, name, accent, daily }) => (
+              <Link key={href} href={href} className="lh-car-card" style={{ '--lh-accent': accent }}>
+                <span className="lh-car-icon" style={{ color: accent, textShadow: `0 0 12px ${accent}66` }}>{icon}</span>
+                <span className="lh-car-name" style={{ color: accent }}>
                   {name}
                   {daily && count > 0 && (
-                    <span style={{ marginLeft: '0.4rem', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: '1rem', height: '1rem', borderRadius: '9999px', background: '#d946ef', border: '1px solid #e879f9', fontFamily: 'monospace', fontSize: '0.54rem', fontWeight: 900, color: '#fff', padding: '0 0.18rem', boxShadow: '0 0 8px rgba(217,70,239,.75)' }}>
+                    <span style={{ marginLeft: '0.3rem', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: '0.9rem', height: '0.9rem', borderRadius: '9999px', background: '#d946ef', border: '1px solid #e879f9', fontFamily: 'monospace', fontSize: '0.50rem', fontWeight: 900, color: '#fff', padding: '0 0.15rem', boxShadow: '0 0 8px rgba(217,70,239,.75)' }}>
                       {count > 9 ? '9+' : count}
                     </span>
                   )}
-                </div>
-                <p className="lh-card-desc">{desc}</p>
+                </span>
               </Link>
-            </li>
-          ))}
-        </ul>
+            ))}
+          </div>
+          <button className="lh-car-btn" onClick={() => scroll(1)} aria-label="Next">›</button>
+        </div>
 
       </div>
     </section>
