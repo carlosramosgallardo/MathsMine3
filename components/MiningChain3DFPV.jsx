@@ -2183,7 +2183,7 @@ function drawMineProgress(ctx, W, H, progress, type) {
 // ── Fixed NFTJI skills HUD (top-left, independent from player movement) ──────
 function drawWalletDock(ctx, W, H, myNftjis, health, es, isLoggedWallet) {
   const mobile = W < 600
-  const SLOT_W = mobile ? 28 : 32, SLOT_H = mobile ? 34 : 40
+  const SLOT_W = mobile ? 30 : 36, SLOT_H = mobile ? 42 : 48
   const GAP = 4, PAD_X = 8, PAD_Y = 5, HEADER_H = 3
   const skills = myNftjis || []
   const minimumSlots = mobile ? 3 : 4
@@ -2222,13 +2222,18 @@ function drawWalletDock(ctx, W, H, myNftjis, health, es, isLoggedWallet) {
   const slotY = py + PAD_Y + HEADER_H
   for (let i = 0; i < slotCount; i++) {
     const skill = skills[i]
-    const { emoji, level, isActive } = skill || {}
+    const { emoji, level, isActive, blockKey } = skill || {}
     const sx = px + PAD_X + i * (SLOT_W + GAP)
+    const ability = emoji === '❤️'
+      ? { label:'CRIT', bonus:'+5%', color:'#fb7185' }
+      : (emoji === '⚔️' || blockKey === 'sq-atk')
+        ? { label:'SPEED', bonus:'+10%', color:'#67e8f9' }
+        : null
 
-    ctx.fillStyle = skill ? (isActive ? '#0e2010' : '#080e18') : '#050a12'
+    ctx.fillStyle = skill ? (ability ? '#100b18' : isActive ? '#0e2010' : '#080e18') : '#050a12'
     ctx.fillRect(sx, slotY, SLOT_W, SLOT_H)
-    ctx.strokeStyle = skill ? (isActive ? '#4ade80aa' : '#fb923c22') : '#52617255'
-    ctx.lineWidth = isActive ? 1 : 0.5
+    ctx.strokeStyle = skill ? (ability ? ability.color+'dd' : isActive ? '#4ade80aa' : '#fb923c22') : '#52617255'
+    ctx.lineWidth = ability ? 1.25 : isActive ? 1 : 0.5
     ctx.strokeRect(sx, slotY, SLOT_W, SLOT_H)
 
     if (!skill) {
@@ -2237,14 +2242,27 @@ function drawWalletDock(ctx, W, H, myNftjis, health, es, isLoggedWallet) {
       continue
     }
 
+    if (ability) {
+      const pulse=.12+(Math.sin(Date.now()/420+i)*.5+.5)*.10
+      ctx.fillStyle=ability.color
+      ctx.globalAlpha=pulse
+      ctx.fillRect(sx+1,slotY+1,SLOT_W-2,SLOT_H-2)
+      ctx.globalAlpha=1
+      ctx.fillStyle=ability.color
+      ctx.fillRect(sx,slotY,SLOT_W,8)
+      ctx.fillStyle='#02060b';ctx.font='bold 6px monospace'
+      ctx.textAlign='center';ctx.textBaseline='middle'
+      ctx.fillText(`${ability.label} ${ability.bonus}`,sx+SLOT_W/2,slotY+4.5)
+    }
+
     ctx.font = '17px serif'
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
     ctx.fillStyle = '#ffffff'
-    ctx.fillText(emoji || '⬡', sx + SLOT_W / 2, slotY + SLOT_H / 2 - 5)
+    ctx.fillText(emoji || '⬡', sx + SLOT_W / 2, slotY + SLOT_H / 2 - (ability ? 2 : 5))
 
     ctx.font = 'bold 7px monospace'
     ctx.textAlign = 'center'; ctx.textBaseline = 'bottom'
-    ctx.fillStyle = isActive ? '#4ade80dd' : '#fb923c99'
+    ctx.fillStyle = ability ? ability.color : isActive ? '#4ade80dd' : '#fb923c99'
     ctx.fillText(`Lv${level}`, sx + SLOT_W / 2, slotY + SLOT_H - 1)
   }
 
