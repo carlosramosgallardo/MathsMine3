@@ -2370,9 +2370,9 @@ function drawWalletDock(ctx, W, H, myNftjis, health, es, isLoggedWallet) {
     const { emoji, level, isActive, blockKey } = skill || {}
     const sx = px + PAD_X + i * (SLOT_W + GAP)
     const ability = emoji === '❤️'
-      ? { label:'CRIT', bonus:'+5%', color:'#fb7185' }
+      ? { lines:['CRIT +5%'], color:'#fb7185' }
       : (emoji === '⚔️' || blockKey === 'sq-atk')
-        ? { label:'SPEED', bonus:'+10%', color:'#67e8f9' }
+        ? { lines:['SPEED +10%','LONG +10%'], color:'#67e8f9' }
         : null
 
     ctx.fillStyle = skill ? (ability ? '#100b18' : isActive ? '#0e2010' : '#080e18') : '#050a12'
@@ -2394,10 +2394,13 @@ function drawWalletDock(ctx, W, H, myNftjis, health, es, isLoggedWallet) {
       ctx.fillRect(sx+1,slotY+1,SLOT_W-2,SLOT_H-2)
       ctx.globalAlpha=1
       ctx.fillStyle=ability.color
-      ctx.fillRect(sx,slotY,SLOT_W,8)
+      const abilityHeaderH=ability.lines.length>1?14:8
+      ctx.fillRect(sx,slotY,SLOT_W,abilityHeaderH)
       ctx.fillStyle='#02060b';ctx.font='bold 6px monospace'
       ctx.textAlign='center';ctx.textBaseline='middle'
-      ctx.fillText(`${ability.label} ${ability.bonus}`,sx+SLOT_W/2,slotY+4.5)
+      ability.lines.forEach((line,lineIndex)=>{
+        ctx.fillText(line,sx+SLOT_W/2,slotY+4.5+lineIndex*6)
+      })
     }
 
     ctx.font = '17px serif'
@@ -2653,6 +2656,7 @@ export default function MiningChain3DFPV({
   // Skill system
   const critChanceRef       = useRef(0)
   const speedRef            = useRef(MOVE_SPD)
+  const longJumpRef         = useRef(1)
   const critFlashRef        = useRef(-9999)
   const walletNftjisRef     = useRef(walletNftjis || {})
   const myNftjisRef         = useRef(myNftjis || [])
@@ -2675,11 +2679,13 @@ export default function MiningChain3DFPV({
   useEffect(()=>{ walletNftjisRef.current=walletNftjis||{} },[walletNftjis])
   useEffect(()=>{ myNftjisRef.current=myNftjis||[] },[myNftjis])
   useEffect(()=>{ healthMapRef.current=healthMap||{} },[healthMap])
-  // NFTJI skills: ❤️ → +5% crit chance · ⚔️ (sq-atk) → +10% movement speed
+  // NFTJI skills: ❤️ → +5% crit · ⚔️ (sq-atk) → +10% speed and air travel.
   useEffect(()=>{
     const nfts = myNftjis || []
+    const hasAttackNftji=nfts.some(n=>n.emoji==='⚔️'||n.blockKey==='sq-atk')
     critChanceRef.current = nfts.some(n => n.emoji === '❤️') ? 0.05 : 0
-    speedRef.current      = nfts.some(n => n.emoji === '⚔️') ? MOVE_SPD * 1.10 : MOVE_SPD
+    speedRef.current      = hasAttackNftji ? MOVE_SPD * 1.10 : MOVE_SPD
+    longJumpRef.current   = hasAttackNftji ? 1.10 : 1
   },[myNftjis])
   // External hit flash (victim sees red screen when struck by another player)
   useEffect(()=>{ if(externalPvpFlash) pvpFlashRef.current=performance.now() },[externalPvpFlash])
@@ -4022,7 +4028,7 @@ export default function MiningChain3DFPV({
       const joy=joystickRef.current
       const fwd=(k.w?1:0)-(k.s?1:0)-joy.y, str=(k.d?1:0)-(k.a?1:0)+joy.x
       const inputLen=Math.hypot(fwd,str)||1
-      const targetSpeed=speedRef.current
+      const targetSpeed=speedRef.current*(p.z>.04?longJumpRef.current:1)
       const targetVX=(Math.cos(p.angle)*(fwd/inputLen)+Math.cos(p.angle+Math.PI/2)*(str/inputLen))*targetSpeed
       const targetVY=(Math.sin(p.angle)*(fwd/inputLen)+Math.sin(p.angle+Math.PI/2)*(str/inputLen))*targetSpeed
       const blend=1-Math.exp(-MOVE_ACCEL*dt)
