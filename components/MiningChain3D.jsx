@@ -314,7 +314,7 @@ export default function MiningChain3D() {
       const miningNftjis = activeKey
         ? (() => {
             const mb = marketRef.current.find(m => m.block_key === activeKey)
-            return [{ emoji: mb?.emoji || '⬡', level: Number(levels[activeKey] ?? 0), blockKey: activeKey, isActive: true }]
+            return [{ emoji: mb?.emoji || '⬡', level: Number(levels[activeKey] ?? 0), blockKey: activeKey, isActive: true, source:'mining' }]
           })()
         : []
 
@@ -322,15 +322,15 @@ export default function MiningChain3D() {
       const walletEmojis = Array.isArray(pp.wallet_emojis) ? pp.wallet_emojis : []
       const tradeNftjis = TRADE_NFTJI_DEFS
         .filter(s => walletEmojis.includes(s.emoji))
-        .map(s => ({ emoji: s.emoji, level: s.field ? Math.max(0, Number(pp[s.field] ?? 0)) : 0, blockKey: s.key, isActive: false }))
+        .map(s => ({ emoji: s.emoji, level: s.field ? Math.max(0, Number(pp[s.field] ?? 0)) : 0, blockKey: s.key, isActive: false, source:'trade' }))
 
       // Squeeze NFTJIs (⚔️🔰 from mm3_squeezing_nftji)
       const squeezeNftjis = []
       if (sq) {
         if ((sq.attack_level ?? -1) >= 0)
-          squeezeNftjis.push({ emoji: '⚔️', level: Math.max(0, Number(sq.attack_level ?? 0)), blockKey: 'sq-atk', isActive: sq.equipped === 'attack' })
+          squeezeNftjis.push({ emoji: '⚔️', level: Math.max(0, Number(sq.attack_level ?? 0)), blockKey: 'sq-atk', isActive: sq.equipped === 'attack', source:'squeeze' })
         if ((sq.defense_level ?? -1) >= 0)
-          squeezeNftjis.push({ emoji: '🔰', level: Math.max(0, Number(sq.defense_level ?? 0)), blockKey: 'sq-def', isActive: sq.equipped === 'defense' })
+          squeezeNftjis.push({ emoji: '🔰', level: Math.max(0, Number(sq.defense_level ?? 0)), blockKey: 'sq-def', isActive: sq.equipped === 'defense', source:'squeeze' })
       }
 
       const allNftjis = [...tradeNftjis, ...miningNftjis, ...squeezeNftjis]

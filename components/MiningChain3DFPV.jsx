@@ -2367,12 +2367,14 @@ function drawWalletDock(ctx, W, H, myNftjis, health, es, isLoggedWallet) {
   const slotY = py + PAD_Y + HEADER_H
   for (let i = 0; i < slotCount; i++) {
     const skill = skills[i]
-    const { emoji, level, isActive, blockKey } = skill || {}
+    const { emoji, level, isActive, blockKey, source } = skill || {}
     const sx = px + PAD_X + i * (SLOT_W + GAP)
     const ability = emoji === '❤️'
-      ? { lines:['CRIT +5%'], color:'#fb7185' }
+      ? { lines:['SPEED +10%'], color:'#fb7185' }
       : (emoji === '⚔️' || blockKey === 'sq-atk')
-        ? { lines:['SPEED +10%','LONG +10%'], color:'#67e8f9' }
+        ? { lines:['CRIT +5%'], color:'#facc15' }
+        : source==='mining'
+          ? { lines:['LONG +10%'], color:'#4ade80' }
         : null
 
     ctx.fillStyle = skill ? (ability ? '#100b18' : isActive ? '#0e2010' : '#080e18') : '#050a12'
@@ -2679,13 +2681,15 @@ export default function MiningChain3DFPV({
   useEffect(()=>{ walletNftjisRef.current=walletNftjis||{} },[walletNftjis])
   useEffect(()=>{ myNftjisRef.current=myNftjis||[] },[myNftjis])
   useEffect(()=>{ healthMapRef.current=healthMap||{} },[healthMap])
-  // NFTJI skills: ❤️ → +5% crit · ⚔️ (sq-atk) → +10% speed and air travel.
+  // Mining skills: ❤️ speed · held mining NFTJI air travel · squeeze attack crit.
   useEffect(()=>{
     const nfts = myNftjis || []
-    const hasAttackNftji=nfts.some(n=>n.emoji==='⚔️'||n.blockKey==='sq-atk')
-    critChanceRef.current = nfts.some(n => n.emoji === '❤️') ? 0.05 : 0
-    speedRef.current      = hasAttackNftji ? MOVE_SPD * 1.10 : MOVE_SPD
-    longJumpRef.current   = hasAttackNftji ? 1.10 : 1
+    const hasHeart=nfts.some(n=>n.emoji==='❤️')
+    const hasMiningNftji=nfts.some(n=>n.source==='mining')
+    const hasAttackNftji=nfts.some(n=>n.blockKey==='sq-atk')
+    critChanceRef.current = hasAttackNftji ? 0.05 : 0
+    speedRef.current      = hasHeart ? MOVE_SPD * 1.10 : MOVE_SPD
+    longJumpRef.current   = hasMiningNftji ? 1.10 : 1
   },[myNftjis])
   // External hit flash (victim sees red screen when struck by another player)
   useEffect(()=>{ if(externalPvpFlash) pvpFlashRef.current=performance.now() },[externalPvpFlash])
