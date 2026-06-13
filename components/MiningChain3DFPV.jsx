@@ -1599,7 +1599,7 @@ function castRayLayers(wx, wy, angle, cellMap, obsSet, maxDist = VISUAL_RANGE) {
 
 // ── Minimap ───────────────────────────────────────────────────────────────────
 function minimapSize(W) {
-  return W < 600 ? Math.min(W * 0.44, 128) : Math.min(176, W * 0.22)
+  return W < 600 ? Math.min(W * 0.48, 150) : Math.min(220, W * 0.24)
 }
 
 function drawMinimap(ctx, gr, gc, angle, cellMap, presenceMap, myWallet, W, H, chainNodePos, validObs, gx, gy) {
@@ -1607,365 +1607,185 @@ function drawMinimap(ctx, gr, gc, angle, cellMap, presenceMap, myWallet, W, H, c
   const SZ = minimapSize(W)
   const MX = W - SZ - 6
   const MY = 8
+  const CS = SZ / COLS
+  const mapX = (col) => MX + col * CS
+  const mapY = (row) => MY + row * CS
+  const now = Date.now()
+  const myId = (myWallet || '').toLowerCase()
 
-  // Local centered view — show VIEW_R cells in every direction from player
-  const VIEW_R = 11
-  const CS = SZ / (VIEW_R * 2)
-  const camX = gx ?? (gc + .5), camY = gy ?? (gr + .5)
-
-  // Pixel coords relative to player center
-  const mapX = (col) => MX + (col - camX + VIEW_R) * CS
-  const mapY = (row) => MY + (row - camY + VIEW_R) * CS
-  const pvx = MX + VIEW_R * CS   // player is always at map center
-  const pvy = MY + VIEW_R * CS
-
-  const inCameraView = (row,col,pad=0) => {
-    const vx=col-camX,vy=row-camY
-    const dist=Math.hypot(vx,vy)
-    if(dist<=2.15+pad) return true
-    if(dist>RADAR_RANGE+pad) return false
-    const rel=Math.atan2(Math.sin(Math.atan2(vy,vx)-angle),Math.cos(Math.atan2(vy,vx)-angle))
-    return Math.abs(rel)<=FOV/2+.035+pad*.01
-  }
-  const visibleFromCamera = (row,col,pad=0) => {
-    if(!inCameraView(row,col,pad)) return false
-    const vx=col-camX,vy=row-camY
-    const dist=Math.hypot(vx,vy)
-    if(dist<=2.15+pad) return true
-    const ray=castRay(camX*CELL_SIZE,camY*CELL_SIZE,Math.atan2(vy,vx),cellMap,validObs,Math.min(RADAR_RANGE,dist))
-    return !ray.hit||ray.perpDist>=dist-.35
-  }
-  const drawMapEmoji = (emoji,x,y,color,shape='circle') => {
-    const fontSize = isMobile ? 9 : 10
-    const radius = fontSize * .53
+  const drawMapEmoji = (emoji, x, y, color, shape = 'circle') => {
+    const fontSize = isMobile ? 7.5 : 9
+    const radius = fontSize * .62
     ctx.save()
-    ctx.globalAlpha = .96
-    ctx.fillStyle = 'rgba(1,7,14,.88)'
-    ctx.strokeStyle = (color || C) + 'cc';ctx.lineWidth = 1.25
+    ctx.shadowColor = color || C
+    ctx.shadowBlur = 4
+    ctx.fillStyle = 'rgba(1,7,14,.94)'
+    ctx.strokeStyle = color || C
+    ctx.lineWidth = 1
     ctx.beginPath()
-    if(shape==='square') ctx.roundRect(x-radius,y-radius,radius*2,radius*2,Math.max(1,radius*.18))
-    else ctx.arc(x,y,radius,0,Math.PI*2)
-    ctx.fill();ctx.stroke()
-    ctx.font = `${fontSize}px serif`;ctx.textAlign='center';ctx.textBaseline='middle'
-    ctx.fillStyle='#fff';ctx.fillText(emoji||'◆',x,y+fontSize*.03)
+    if (shape === 'square') ctx.rect(x - radius, y - radius, radius * 2, radius * 2)
+    else ctx.arc(x, y, radius, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.stroke()
+    ctx.shadowBlur = 0
+    ctx.font = `${fontSize}px "Apple Color Emoji","Segoe UI Emoji",serif`
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.fillStyle = '#fff'
+    ctx.fillText(emoji || '◆', x, y + .25)
     ctx.restore()
   }
 
-  ctx.fillStyle = 'rgba(0,0,0,0.85)'
-  ctx.fillRect(MX-1,MY-1,SZ+2,SZ+2)
-  ctx.strokeStyle = C+'33'; ctx.lineWidth=0.5
-  ctx.strokeRect(MX-1,MY-1,SZ+2,SZ+2)
+  const drawPlayerArrow = (worldX, worldY, heading, color, isMe = false, isBot = false) => {
+    const x = mapX(worldX)
+    const y = mapY(worldY)
+    const size = isMe ? (isMobile ? 5.2 : 6.2) : (isMobile ? 4 : 4.8)
+    const pulse = .72 + Math.sin(now / 420 + worldX * .8 + worldY) * .18
+    ctx.save()
+    ctx.translate(x, y)
+    ctx.rotate(Number(heading) || 0)
+    ctx.globalAlpha = isMe ? 1 : .9
+    ctx.shadowColor = color
+    ctx.shadowBlur = isMe ? 9 : 5
+    ctx.fillStyle = color
+    ctx.strokeStyle = isMe ? '#f8fafc' : 'rgba(255,255,255,.72)'
+    ctx.lineWidth = isMe ? 1.1 : .7
+    ctx.beginPath()
+    ctx.moveTo(size * 1.12, 0)
+    ctx.lineTo(-size * .62, size * .58)
+    ctx.lineTo(-size * .28, 0)
+    ctx.lineTo(-size * .62, -size * .58)
+    ctx.closePath()
+    ctx.fill()
+    ctx.stroke()
+    ctx.shadowBlur = 0
+    ctx.fillStyle = isBot ? '#facc15' : '#041019'
+    ctx.beginPath()
+    ctx.arc(-size * .10, 0, Math.max(1, size * .18), 0, Math.PI * 2)
+    ctx.fill()
+    if (isMe) {
+      ctx.globalAlpha = pulse
+      ctx.strokeStyle = '#facc15'
+      ctx.lineWidth = .8
+      ctx.beginPath()
+      ctx.arc(0, 0, size * 1.38, 0, Math.PI * 2)
+      ctx.stroke()
+    }
+    ctx.restore()
+  }
+
+  ctx.fillStyle = 'rgba(1,6,14,.96)'
+  ctx.fillRect(MX - 2, MY - 2, SZ + 4, SZ + 4)
+  ctx.strokeStyle = C + '66'
+  ctx.lineWidth = 1
+  ctx.strokeRect(MX - 2, MY - 2, SZ + 4, SZ + 4)
 
   ctx.save()
-  ctx.beginPath();ctx.rect(MX,MY,SZ,SZ);ctx.clip()
+  ctx.beginPath()
+  ctx.rect(MX, MY, SZ, SZ)
+  ctx.clip()
 
-  // Vision cone rays (capped to local view radius)
-  const visionEdge=[]
-  const visionRays=isMobile?24:36
-  for(let i=0;i<=visionRays;i++){
-    const rayAngle=angle-FOV/2+(i/visionRays)*FOV
-    const ray=castRay(camX*CELL_SIZE,camY*CELL_SIZE,rayAngle,cellMap,validObs,Math.min(RADAR_RANGE,VIEW_R))
-    const rayDist=Math.min(VIEW_R,ray.perpDist+.04)
-    visionEdge.push({
-      x:mapX(camX+Math.cos(rayAngle)*rayDist),
-      y:mapY(camY+Math.sin(rayAngle)*rayDist),
-    })
+  const half = SZ / 2
+  ctx.fillStyle = 'rgba(46,86,118,.13)'
+  ctx.fillRect(MX, MY, half, half)
+  ctx.fillStyle = 'rgba(173,117,55,.12)'
+  ctx.fillRect(MX + half, MY, half, half)
+  ctx.fillStyle = 'rgba(68,151,190,.13)'
+  ctx.fillRect(MX, MY + half, half, half)
+  ctx.fillStyle = 'rgba(157,48,31,.13)'
+  ctx.fillRect(MX + half, MY + half, half, half)
+
+  ctx.strokeStyle = 'rgba(67,194,220,.08)'
+  ctx.lineWidth = .5
+  for (let n = 7; n < COLS; n += 7) {
+    ctx.beginPath()
+    ctx.moveTo(mapX(n), MY)
+    ctx.lineTo(mapX(n), MY + SZ)
+    ctx.moveTo(MX, mapY(n))
+    ctx.lineTo(MX + SZ, mapY(n))
+    ctx.stroke()
   }
 
-  // Render only cells within local window — each cell is now ~8px wide, obstacles readable
-  const r0=Math.max(0,Math.floor(camY-VIEW_R)), r1=Math.min(ROWS,Math.ceil(camY+VIEW_R+1))
-  const c0=Math.max(0,Math.floor(camX-VIEW_R)), c1=Math.min(COLS,Math.ceil(camX+VIEW_R+1))
-  for (let r=r0;r<r1;r++) for (let c=c0;c<c1;c++) {
-    const key = `${r},${c}`
-    const cell = cellMap.get(key)
-    const obs  = validObs?.get(key) || null
-    const seen = inCameraView(r+.5,c+.5)
-    if (obs?.isRouteStair) {
-      ctx.fillStyle='rgba(250,204,21,.98)'
-    } else if(obs?.shape==='ramp'){
-      ctx.fillStyle='rgba(103,232,249,.82)'
-    } else if(obs?.shape==='sphere'){
-      ctx.fillStyle='rgba(217,70,239,.82)'
-    } else if(obs?.shape==='tree'){
-      ctx.fillStyle='rgba(45,212,191,.82)'
-    } else if (obs?.isRoute) {
-      ctx.fillStyle = obs.routeIndex ? 'rgba(45,212,191,.96)' : 'rgba(34,211,238,.96)'
-    } else if (obs?.isRouteWall) {
-      ctx.fillStyle = 'rgba(126,34,206,.88)'
-    } else if (obs) {
-      const [or,og,ob] = obs.base
-      ctx.fillStyle = seen ? `rgba(${or>>1},${og>>1},${ob>>1},0.92)` : `rgba(${or>>2},${og>>2},${ob>>2},0.48)`
-    } else if (cell?.owner) {
-      ctx.fillStyle = seen ? cell.color+'99' : '#101827'
-    } else if (cell?.isMarket) {
-      ctx.fillStyle = seen ? (cell.owner ? '#4ade8044' : '#fb923c55') : '#0d1522'
-    } else if (cell?.isChainNode) {
-      ctx.fillStyle = seen ? '#ffd70033' : '#0d1522'
-    } else if (cell && !cell.isPortalNode) {
-      ctx.fillStyle = seen ? '#0e1e2e' : '#09111d'
+  for (const [key, obstacle] of validObs || []) {
+    const [row, col] = key.split(',').map(Number)
+    const x = mapX(col)
+    const y = mapY(row)
+    const inset = Math.max(.12, CS * .12)
+    let fill = 'rgba(105,132,154,.22)'
+    if (obstacle.isRouteStair) fill = 'rgba(226,190,88,.30)'
+    else if (obstacle.isRoute) fill = 'rgba(82,176,184,.25)'
+    else if (obstacle.isRouteWall) fill = 'rgba(130,83,157,.22)'
+    else if (obstacle.shape === 'ramp') fill = 'rgba(104,177,190,.25)'
+    else if (obstacle.shape === 'sphere') fill = 'rgba(151,94,169,.23)'
+    else if (obstacle.shape === 'tree') fill = 'rgba(73,151,116,.23)'
+    else if (Array.isArray(obstacle.base)) {
+      const [r, g, b] = obstacle.base
+      fill = `rgba(${r},${g},${b},.18)`
+    }
+    ctx.fillStyle = fill
+    if (obstacle.shape === 'sphere' || obstacle.shape === 'tree') {
+      ctx.beginPath()
+      ctx.arc(mapX(col + .5), mapY(row + .5), Math.max(.75, CS * .34), 0, Math.PI * 2)
+      ctx.fill()
     } else {
-      ctx.fillStyle = seen ? '#07101d' : '#03070d'
-    }
-    ctx.fillRect(mapX(c), mapY(r), Math.ceil(CS), Math.ceil(CS))
-    if(obs?.isRouteStair){
-      ctx.fillStyle='rgba(255,255,255,.92)'
-      ctx.fillRect(mapX(c)+CS*.28,mapY(r)+CS*.28,CS*.44,CS*.44)
-    } else if(obs?.isRoute){
-      ctx.fillStyle='rgba(224,255,255,.82)'
-      const marker=Math.max(1,CS*.18)
-      ctx.fillRect(mapX(c)+CS*.5-marker*.5,mapY(r)+CS*.5-marker*.5,marker,marker)
-    } else if(obs?.isRouteWall){
-      ctx.strokeStyle='rgba(232,121,249,.72)';ctx.lineWidth=.7
-      ctx.strokeRect(mapX(c)+.5,mapY(r)+.5,Math.max(1,CS-1),Math.max(1,CS-1))
-    } else if(obs?.shape==='sphere'){
-      ctx.fillStyle='rgba(250,232,255,.92)';ctx.beginPath()
-      ctx.arc(mapX(c+.5),mapY(r+.5),Math.max(1.5,CS*.28),0,Math.PI*2);ctx.fill()
-    } else if(obs?.shape==='tree'){
-      ctx.fillStyle='rgba(153,246,228,.96)';ctx.beginPath()
-      ctx.arc(mapX(c+.5),mapY(r+.5),Math.max(1.5,CS*.30),0,Math.PI*2);ctx.fill()
-      ctx.fillStyle='rgba(120,53,15,.95)';ctx.fillRect(mapX(c+.5)-.5,mapY(r+.5),1,Math.max(1,CS*.28))
-    } else if(obs?.shape==='ramp'){
-      ctx.fillStyle='rgba(224,255,255,.94)';ctx.beginPath()
-      ctx.moveTo(mapX(c+.22),mapY(r+.78));ctx.lineTo(mapX(c+.78),mapY(r+.5));ctx.lineTo(mapX(c+.22),mapY(r+.22));ctx.closePath();ctx.fill()
-    }
-    const isMyBlock = seen && cell?.owner && myWallet && cell.owner.toLowerCase() === myWallet.toLowerCase()
-    if (isMyBlock) {
-      ctx.strokeStyle = '#ffffffbb'; ctx.lineWidth = 0.7
-      ctx.strokeRect(mapX(c)+0.5, mapY(r)+0.5, Math.max(1,Math.ceil(CS)-1), Math.max(1,Math.ceil(CS)-1))
+      ctx.fillRect(x + inset, y + inset, Math.max(.65, CS - inset * 2), Math.max(.65, CS - inset * 2))
     }
   }
 
-  // NFTJI block markers — only those visible in local window
+  for (const [key, cell] of cellMap) {
+    if (cell?.isPortalNode || cell?.isMarket || cell?.isChainNode) continue
+    const [row, col] = key.split(',').map(Number)
+    const x = mapX(col)
+    const y = mapY(row)
+    const owned = Boolean(cell?.owner)
+    ctx.fillStyle = owned ? (cell.color || '#38bdf8') + 'b8' : 'rgba(72,139,172,.50)'
+    ctx.fillRect(x + CS * .18, y + CS * .18, Math.max(.8, CS * .64), Math.max(.8, CS * .64))
+    if (owned && myId && cell.owner?.toLowerCase() === myId) {
+      ctx.strokeStyle = 'rgba(255,255,255,.78)'
+      ctx.lineWidth = .55
+      ctx.strokeRect(x + CS * .12, y + CS * .12, Math.max(1, CS * .76), Math.max(1, CS * .76))
+    }
+  }
+
   for (const [key, cell] of cellMap) {
     if (!cell?.isMarket) continue
-    const [rr, cc] = key.split(',').map(Number)
-    if (Math.abs(rr - camY) > VIEW_R + .5 || Math.abs(cc - camX) > VIEW_R + .5) continue
-    const obs = validObs?.get(key)
-    if (obs) continue
-    const mx2 = mapX(cc + 0.5), my2 = mapY(rr + 0.5)
-    const ds = Math.max(1.2, CS * 0.36)
-    ctx.save()
-    ctx.translate(mx2, my2); ctx.rotate(Math.PI / 4)
-    ctx.fillStyle = cell.owner ? '#4ade80cc' : '#fb923ccc'
-    ctx.fillRect(-ds, -ds, ds*2, ds*2)
-    ctx.restore()
-    if(cell.emoji) drawMapEmoji(cell.emoji,mx2,my2,cell.owner?'#4ade80':'#fb923c','square')
+    const [row, col] = key.split(',').map(Number)
+    const color = cell.owner ? '#4ade80' : '#fb923c'
+    drawMapEmoji(cell.emoji || '◆', mapX(col + .5), mapY(row + .5), color, 'square')
   }
 
-  // Vision cone fill
-  ctx.fillStyle='rgba(34,211,238,.045)'
-  ctx.beginPath();ctx.moveTo(pvx,pvy)
-  for(const point of visionEdge)ctx.lineTo(point.x,point.y)
-  ctx.closePath();ctx.fill()
-
-  // Chain node: draw in-place if in view, edge arrow if outside
-  const cnPos = chainNodePos || { row: CHAIN_NODE_ROW, col: CHAIN_NODE_COL }
-  const cnInView = Math.abs(cnPos.row - camY) <= VIEW_R && Math.abs(cnPos.col - camX) <= VIEW_R
-  if (cnInView) {
-    const cnPulse = 0.55 + Math.sin(Date.now() / 600) * 0.45
-    const cnx = mapX(cnPos.col + 0.5), cny = mapY(cnPos.row + 0.5)
-    const armLen = CS * 2.8, gapR = CS * 0.85
-    ctx.globalAlpha = cnPulse * 0.28
-    ctx.strokeStyle = '#ffd700'; ctx.lineWidth = 0.8
-    ctx.beginPath(); ctx.arc(cnx, cny, CS * 2.1, 0, Math.PI*2); ctx.stroke()
-    ctx.globalAlpha = Math.max(0.55, cnPulse)
-    ctx.strokeStyle = '#ffd700'; ctx.lineWidth = 0.9
-    ctx.beginPath()
-    ctx.moveTo(cnx-gapR, cny); ctx.lineTo(cnx-armLen, cny)
-    ctx.moveTo(cnx+gapR, cny); ctx.lineTo(cnx+armLen, cny)
-    ctx.moveTo(cnx, cny-gapR); ctx.lineTo(cnx, cny-armLen)
-    ctx.moveTo(cnx, cny+gapR); ctx.lineTo(cnx, cny+armLen)
-    ctx.stroke()
-    ctx.globalAlpha = Math.max(0.70, cnPulse)
-    ctx.fillStyle = '#ffd700'
-    ctx.save(); ctx.translate(cnx, cny); ctx.rotate(Math.PI / 4)
-    const ds = CS * 0.52
-    ctx.fillRect(-ds, -ds, ds*2, ds*2)
-    ctx.restore()
-    ctx.globalAlpha = 1
-  } else {
-    // Edge arrow toward chain node
-    const edgePulse = 0.55 + Math.sin(Date.now() / 600) * 0.45
-    const a = Math.atan2(cnPos.row - camY, cnPos.col - camX)
-    const edge = SZ * 0.46
-    const ax = pvx + Math.cos(a) * edge, ay = pvy + Math.sin(a) * edge
-    ctx.save(); ctx.globalAlpha = Math.max(0.5, edgePulse)
-    ctx.fillStyle = '#ffd700'
-    ctx.translate(ax, ay); ctx.rotate(a)
-    ctx.beginPath(); ctx.moveTo(5,0); ctx.lineTo(-3.5,-2.8); ctx.lineTo(-3.5,2.8); ctx.closePath(); ctx.fill()
-    ctx.restore(); ctx.globalAlpha = 1
-  }
-
-  // Portal nodes — in local view only; edge arrow otherwise
   for (const [key, cell] of cellMap) {
     if (!cell?.isPortalNode) continue
-    const [rr, cc] = key.split(',').map(Number)
-    const inLocalView = Math.abs(rr - camY) <= VIEW_R + .5 && Math.abs(cc - camX) <= VIEW_R + .5
-    if (inLocalView) {
-      const px2 = mapX(cc + 0.5), py2 = mapY(rr + 0.5)
-      const pPulse = 0.60 + Math.sin(Date.now() / 500 + cc * 0.4) * 0.40
-      ctx.globalAlpha = Math.max(0.55, pPulse) * 0.9
-      ctx.fillStyle = cell.color || C
-      ctx.beginPath(); ctx.arc(px2, py2, Math.max(2, CS * 0.75), 0, Math.PI*2); ctx.fill()
-      drawMapEmoji(cell.emoji||'◆',px2,py2,cell.color||C,'circle')
-      ctx.globalAlpha = 1
-    } else {
-      const a = Math.atan2(rr - camY, cc - camX)
-      const edge = SZ * 0.44
-      const ax = pvx + Math.cos(a) * edge, ay = pvy + Math.sin(a) * edge
-      ctx.save(); ctx.globalAlpha = 0.50
-      ctx.fillStyle = cell.color || C
-      ctx.translate(ax, ay); ctx.rotate(a)
-      ctx.beginPath(); ctx.moveTo(4,0); ctx.lineTo(-3,-2); ctx.lineTo(-3,2); ctx.closePath(); ctx.fill()
-      ctx.restore(); ctx.globalAlpha = 1
-    }
+    const [row, col] = key.split(',').map(Number)
+    drawMapEmoji(cell.emoji || '◆', mapX(col + .5), mapY(row + .5), cell.color || C, 'circle')
   }
 
-  // ── Wallet markers — rendered last so they always appear on top ───────────────
-  const nowMs = Date.now()
-  for (const [w,p] of Object.entries(presenceMap||{})) {
-    if (p.row==null && p.gy==null) continue
-    const isMe = w.toLowerCase()===(myWallet||'').toLowerCase()
-    if(isMe) continue
-    const isBot = Boolean(p.isBot)
-    const dotGX = p.gx ?? ((p.col??0) + 0.5)
-    const dotGY = p.gy ?? ((p.row??0) + 0.5)
-    const col = colorFromAddress(w)
-    const heading = Number(p.angle)||0
-
-    const vx = dotGX - camX, vy = dotGY - camY
-    const walletDist = Math.hypot(vx, vy)
-    const relAngle = Math.atan2(Math.sin(Math.atan2(vy,vx)-angle), Math.cos(Math.atan2(vy,vx)-angle))
-    const inFOV = walletDist <= 2.5 || Math.abs(relAngle) <= FOV/2 + 0.12
-    const inView = inFOV && visibleFromCamera(dotGY, dotGX, 1)
-    const pulse = 0.5 + Math.sin(nowMs/680 + dotGX*1.9 + dotGY*1.3) * 0.5
-    const inLocalView = Math.abs(vx) <= VIEW_R + .5 && Math.abs(vy) <= VIEW_R + .5
-
-    ctx.save()
-
-    if (!inLocalView) {
-      // Edge arrow for out-of-range wallets
-      const a = Math.atan2(vy, vx)
-      const edge = SZ * 0.43
-      const ax = pvx + Math.cos(a) * edge, ay = pvy + Math.sin(a) * edge
-      ctx.globalAlpha = 0.28 + pulse * 0.14
-      ctx.fillStyle = col
-      ctx.translate(ax, ay); ctx.rotate(a)
-      ctx.beginPath(); ctx.moveTo(3.5,0); ctx.lineTo(-2.5,-2); ctx.lineTo(-2.5,2); ctx.closePath(); ctx.fill()
-      ctx.restore()
-      continue
-    }
-
-    const dx = mapX(dotGX), dy = mapY(dotGY)
-
-    if (isBot) {
-      // ── BOT: square + crosshair ──────────────────────────────────────────────
-      const baseAlpha = inView ? 0.95 : inFOV ? 0.60 : 0.35
-      const bs = Math.max(3.2, CS * 0.90)
-      ctx.globalAlpha = baseAlpha
-      if (inView) {
-        ctx.strokeStyle = col + Math.round((0.28+pulse*0.48)*255).toString(16).padStart(2,'0')
-        ctx.lineWidth = 0.8
-        ctx.strokeRect(dx-bs-1.8, dy-bs-1.8, (bs+1.8)*2, (bs+1.8)*2)
-      }
-      ctx.fillStyle = col + (inView ? '50' : '20')
-      ctx.fillRect(dx-bs, dy-bs, bs*2, bs*2)
-      ctx.strokeStyle = col + (inView ? 'ff' : '77')
-      ctx.lineWidth = inView ? 0.9 : 0.6
-      ctx.strokeRect(dx-bs, dy-bs, bs*2, bs*2)
-      ctx.lineWidth = 0.7
-      ctx.beginPath()
-      ctx.moveTo(dx-bs*0.5, dy); ctx.lineTo(dx+bs*0.5, dy)
-      ctx.moveTo(dx, dy-bs*0.5); ctx.lineTo(dx, dy+bs*0.5)
-      ctx.stroke()
-      if (inView) {
-        ctx.strokeStyle = col + 'cc'; ctx.lineWidth = 1
-        ctx.beginPath(); ctx.moveTo(dx,dy)
-        ctx.lineTo(dx+Math.cos(heading)*CS*2.2, dy+Math.sin(heading)*CS*2.2)
-        ctx.stroke()
-      }
-    } else {
-      // ── HUMAN WALLET: three-tier freak design ─────────────────────────────
-      const r = Math.max(2.0, CS * 0.70)
-
-      if (inView) {
-        ctx.globalAlpha = 0.94
-        const ringR = r + 2.2 + pulse * 1.4
-        ctx.strokeStyle = col + Math.round((0.18+pulse*0.52)*255).toString(16).padStart(2,'0')
-        ctx.lineWidth = 1.1
-        ctx.beginPath(); ctx.arc(dx, dy, ringR, 0, Math.PI*2); ctx.stroke()
-        ctx.fillStyle = col
-        ctx.beginPath(); ctx.arc(dx, dy, r, 0, Math.PI*2); ctx.fill()
-        ctx.fillStyle = 'rgba(255,255,255,0.48)'
-        ctx.beginPath(); ctx.arc(dx-r*0.22, dy-r*0.22, r*0.36, 0, Math.PI*2); ctx.fill()
-        ctx.strokeStyle = col + 'cc'; ctx.lineWidth = 1
-        ctx.beginPath(); ctx.moveTo(dx,dy)
-        ctx.lineTo(dx+Math.cos(heading)*CS*2.1, dy+Math.sin(heading)*CS*2.1)
-        ctx.stroke()
-
-      } else if (inFOV) {
-        ctx.globalAlpha = 0.60
-        ctx.strokeStyle = col + 'cc'; ctx.lineWidth = 1.1
-        ctx.beginPath(); ctx.arc(dx, dy, r, 0, Math.PI*2); ctx.stroke()
-        ctx.fillStyle = col + '2a'
-        ctx.beginPath(); ctx.arc(dx, dy, r, 0, Math.PI*2); ctx.fill()
-        ctx.strokeStyle = col + '66'; ctx.lineWidth = 0.7
-        ctx.beginPath(); ctx.arc(dx, dy, r+1.8, 0, Math.PI*0.9); ctx.stroke()
-        ctx.beginPath(); ctx.arc(dx, dy, r+1.8, Math.PI, Math.PI*1.9); ctx.stroke()
-
-      } else {
-        ctx.globalAlpha = 0.42 + pulse * 0.08
-        const dr = Math.max(1.8, r * 0.80)
-        ctx.strokeStyle = col + 'bb'; ctx.lineWidth = 0.9
-        ctx.beginPath()
-        ctx.moveTo(dx, dy-dr); ctx.lineTo(dx+dr, dy)
-        ctx.lineTo(dx, dy+dr); ctx.lineTo(dx-dr, dy)
-        ctx.closePath(); ctx.stroke()
-        ctx.fillStyle = col + '28'
-        ctx.beginPath()
-        ctx.moveTo(dx, dy-dr); ctx.lineTo(dx+dr, dy)
-        ctx.lineTo(dx, dy+dr); ctx.lineTo(dx-dr, dy)
-        ctx.closePath(); ctx.fill()
-        ctx.fillStyle = col + '99'
-        ctx.beginPath(); ctx.arc(dx, dy, dr*0.30, 0, Math.PI*2); ctx.fill()
-      }
-    }
-
-    // Short wallet label for nearby wallets (desktop only)
-    if (!isMobile && walletDist < 7.5) {
-      const labelFade = Math.max(0, 1 - walletDist/7.5) * (inView ? 0.88 : 0.44)
-      ctx.globalAlpha = labelFade
-      const lSize = Math.max(5.5, Math.min(7.5, CS * 1.55))
-      ctx.font = `bold ${lSize}px monospace`
-      ctx.fillStyle = col
-      ctx.textAlign = 'center'; ctx.textBaseline = 'top'
-      const label = isBot ? 'BOT' : w.slice(2, 6)
-      const markerR = isBot ? Math.max(3.2, CS*0.90) : Math.max(2.0, CS*0.70)
-      ctx.fillText(label, dx, dy + markerR + 1.2)
-    }
-
-    ctx.restore()
+  let chainDrawn = false
+  for (const [key, cell] of cellMap) {
+    if (!cell?.isChainNode) continue
+    const [row, col] = key.split(',').map(Number)
+    drawMapEmoji(cell.emoji || '⬡', mapX(col + .5), mapY(row + .5), '#facc15', 'circle')
+    chainDrawn = true
+  }
+  if (!chainDrawn && chainNodePos) {
+    drawMapEmoji('⬡', mapX(chainNodePos.col + .5), mapY(chainNodePos.row + .5), '#facc15', 'circle')
   }
 
-  // ── Local player marker: rendered absolutely last — always on top ─────────────
-  {
-    const selfPulse = 0.62 + Math.sin(Date.now()/520) * 0.38
-    const sr = Math.max(2.4, CS * 0.78)
-    ctx.globalAlpha = selfPulse * 0.55
-    ctx.strokeStyle = C; ctx.lineWidth = 1
-    ctx.beginPath(); ctx.arc(pvx, pvy, sr+2.8+selfPulse*1.2, 0, Math.PI*2); ctx.stroke()
-    ctx.globalAlpha = 0.96
-    ctx.fillStyle = C
-    ctx.beginPath(); ctx.arc(pvx, pvy, sr, 0, Math.PI*2); ctx.fill()
-    ctx.fillStyle = 'rgba(255,255,255,0.60)'
-    ctx.beginPath(); ctx.arc(pvx-sr*0.22, pvy-sr*0.22, sr*0.34, 0, Math.PI*2); ctx.fill()
-    ctx.strokeStyle = C + 'dd'; ctx.lineWidth = 1.2
-    ctx.beginPath(); ctx.moveTo(pvx, pvy)
-    ctx.lineTo(pvx+Math.cos(angle)*CS*2.5, pvy+Math.sin(angle)*CS*2.5)
-    ctx.stroke()
-    ctx.globalAlpha = 1
+  for (const [wallet, player] of Object.entries(presenceMap || {})) {
+    if (player.row == null && player.gy == null) continue
+    const identity = wallet.toLowerCase()
+    if (identity === myId) continue
+    drawPlayerArrow(
+      player.gx ?? ((player.col ?? 0) + .5),
+      player.gy ?? ((player.row ?? 0) + .5),
+      Number(player.angle) || 0,
+      colorFromAddress(wallet),
+      false,
+      Boolean(player.isBot),
+    )
   }
 
+  drawPlayerArrow(gx ?? (gc + .5), gy ?? (gr + .5), angle, C, true, false)
   ctx.restore()
 }
 
@@ -1976,8 +1796,8 @@ function drawFacingHUD(ctx, W, H, fwdCell, fwdMx, fwdMy, myWallet, es, dist, obs
 
   // Double-check: use both cell flag and obsMap to catch any desync
   const isObs = fwdCell?.isObstacle || obsMap?.has(`${fwdMy},${fwdMx}`)
-  // Position cards to the left of the minimap (SZ matches drawMinimap for W>=600)
-  const _mapSZ = Math.min(130, W * 0.2)
+  // Keep contextual cards clear of the full-world minimap.
+  const _mapSZ = minimapSize(W)
   const _mapLeft = W - _mapSZ - 6
   if (isObs) {
     const lines = [
@@ -2582,7 +2402,10 @@ function disposeThreeObject(root) {
   root?.traverse?.(object=>{
     object.geometry?.dispose?.()
     const materials=Array.isArray(object.material)?object.material:[object.material]
-    materials.filter(Boolean).forEach(material=>material.dispose?.())
+    materials.filter(Boolean).forEach(material=>{
+      if(material.userData?.ownedMap) material.map?.dispose?.()
+      material.dispose?.()
+    })
   })
 }
 
@@ -2811,6 +2634,30 @@ function addBiomeLandmarks(world,textures) {
   }
 }
 
+function makeEmojiSprite(emoji,color) {
+  const canvas=document.createElement('canvas')
+  canvas.width=128;canvas.height=128
+  const context=canvas.getContext('2d')
+  context.clearRect(0,0,128,128)
+  context.shadowColor=color;context.shadowBlur=20
+  context.fillStyle='rgba(1,7,14,.92)'
+  context.strokeStyle=color;context.lineWidth=7
+  context.beginPath();context.rect(8,8,112,112);context.fill();context.stroke()
+  context.shadowBlur=0
+  context.font='72px "Apple Color Emoji","Segoe UI Emoji",sans-serif'
+  context.textAlign='center';context.textBaseline='middle'
+  context.fillText(emoji||'◆',64,67)
+  const texture=new THREE.CanvasTexture(canvas)
+  texture.colorSpace=THREE.SRGBColorSpace
+  texture.minFilter=THREE.LinearFilter
+  texture.generateMipmaps=false
+  const material=new THREE.SpriteMaterial({map:texture,transparent:true,depthWrite:false,alphaTest:.04})
+  material.userData.ownedMap=true
+  const sprite=new THREE.Sprite(material)
+  sprite.scale.set(.72,.72,1)
+  return sprite
+}
+
 function addInteractiveBeacon(world,row,col,cell,height) {
   const color=cell.isChainNode?'#facc15':cell.isPortalNode?(cell.color||'#22d3ee'):cell.isMarket?(cell.owner?'#4ade80':'#fb923c'):'#22d3ee'
   const beacon=new THREE.Group()
@@ -2825,6 +2672,11 @@ function addInteractiveBeacon(world,row,col,cell,height) {
   const marker=new THREE.Mesh(markerGeometry,new THREE.MeshBasicMaterial({color}))
   marker.position.y=height+.38
   beacon.add(ring,ring2,column,marker)
+  if(cell.isMarket&&cell.emoji){
+    const emojiSprite=makeEmojiSprite(cell.emoji,color)
+    emojiSprite.position.y=height+.82
+    beacon.add(emojiSprite)
+  }
   beacon.position.set(col+.5,0,row+.5)
   beacon.userData.interactive=true;beacon.userData.phase=seededUnit(row*71+col*113)*Math.PI*2
   world.add(beacon)
