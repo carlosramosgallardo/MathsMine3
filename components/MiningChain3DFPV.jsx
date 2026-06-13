@@ -74,6 +74,10 @@ function obstacleBottom(data) {
   return Number.isFinite(bottom) && bottom > 0 ? bottom : 0
 }
 
+function blocksGround(data) {
+  return obstacleBottom(data) < PLAYER_BODY_H - .04
+}
+
 const OBSTACLE_MAP = new Map([
   // Outer wall segments — cool slate, form loose frame with gaps
   ['2,7',   { base:W_SLATE, label:'WALL' }],
@@ -1117,6 +1121,142 @@ function addRetroStructures(valid, reserved, cellMap) {
       if(!built) continue
     }
   })
+}
+
+function addDenseMaze(valid,reserved,cellMap){
+  const materials=[
+    {base:W_DARK,label:'MAZE WALL'},
+    {base:W_SLATE,label:'MAZE WALL'},
+    {base:W_STONE,label:'MAZE WALL'},
+    {base:W_SAND,label:'MAZE WALL'},
+  ]
+  const place=(row,col,data)=>{
+    const key=`${row},${col}`
+    if(row<2||row>=ROWS-2||col<2||col>=COLS-2) return
+    if(reserved.has(key)||cellMap.has(key)||valid.has(key)) return
+    valid.set(key,chainObstacle(key,{...data,isMaze:true}))
+  }
+
+  // Alternating horizontal and vertical rails form readable chambers. Every
+  // rail has deterministic gates, avoiding featureless solid curtains.
+  for(let row=4;row<ROWS-3;row+=4){
+    const phase=(row*7)%9
+    for(let col=2;col<COLS-2;col++){
+      if((col+phase)%9<2) continue
+      place(row,col,materials[(row+col)%materials.length])
+    }
+  }
+  for(let col=6;col<COLS-3;col+=6){
+    const phase=(col*5)%11
+    for(let row=2;row<ROWS-2;row++){
+      if((row+phase)%11<3) continue
+      place(row,col,materials[(row+col+1)%materials.length])
+    }
+  }
+
+  // Short offset baffles make straight-line traversal rare without filling
+  // every open square or increasing database/realtime usage.
+  for(let row=3;row<ROWS-3;row+=5){
+    for(let col=3;col<COLS-3;col+=5){
+      const horizontal=((row*13+col*17)&1)===0
+      const length=2+Math.abs((row*3+col*5)%3)
+      for(let step=0;step<length;step++){
+        place(row+(horizontal?0:step),col+(horizontal?step:0),materials[(row+col)%materials.length])
+      }
+    }
+  }
+}
+
+function ensureInteractiveConnectivity(valid,cellMap){
+  const keyOf=(row,col)=>`${row},${col}`
+  const parse=key=>key.split(',').map(Number)
+  const directions=[[1,0],[-1,0],[0,1],[0,-1]]
+  const heapPush=(heap,node)=>{
+    heap.push(node)
+    for(let index=heap.length-1;index>0;){
+      const parent=(index-1)>>1
+      if(heap[parent].cost<=node.cost) break
+      heap[index]=heap[parent];index=parent;heap[index]=node
+    }
+  }
+  const heapPop=heap=>{
+    const first=heap[0],last=heap.pop()
+    if(heap.length&&last){
+      heap[0]=last
+      for(let index=0;;){
+        const left=index*2+1,right=left+1
+        if(left>=heap.length) break
+        const child=right<heap.length&&heap[right].cost<heap[left].cost?right:left
+        if(heap[index].cost<=heap[child].cost) break
+        ;[heap[index],heap[child]]=[heap[child],heap[index]];index=child
+      }
+    }
+    return first
+  }
+  const passable=(row,col)=>{
+    const key=keyOf(row,col),obstacle=valid.get(key)
+    return row>0&&row<ROWS-1&&col>0&&col<COLS-1&&!cellMap.has(key)&&(!obstacle||!blocksGround(obstacle))
+  }
+  const approaches=[]
+  for(const key of cellMap.keys()){
+    const [row,col]=parse(key)
+    const candidates=directions.map(([dr,dc])=>({row:row+dr,col:col+dc,key:keyOf(row+dr,col+dc)}))
+      .filter(({row:r,col:c})=>r>0&&r<ROWS-1&&c>0&&c<COLS-1&&!cellMap.has(keyOf(r,c)))
+    if(candidates.length) approaches.push(candidates)
+  }
+  let seed=approaches.flat().find(({row,col})=>passable(row,col))||null
+  if(!seed){
+    for(let row=1;row<ROWS-1&&!seed;row++) for(let col=1;col<COLS-1;col++){
+      if(passable(row,col)){seed={row,col};break}
+    }
+  }
+  if(!seed) return
+
+  const flood=()=>{
+    const seen=new Set(),queue=[]
+    if(passable(seed.row,seed.col)){seen.add(keyOf(seed.row,seed.col));queue.push(seed)}
+    for(let cursor=0;cursor<queue.length;cursor++){
+      const current=queue[cursor]
+      for(const [dr,dc] of directions){
+        const row=current.row+dr,col=current.col+dc,key=keyOf(row,col)
+        if(seen.has(key)||!passable(row,col)) continue
+        seen.add(key);queue.push({row,col})
+      }
+    }
+    return seen
+  }
+
+  let reachable=flood()
+  for(const candidates of approaches){
+    if(candidates.some(({key})=>reachable.has(key))) continue
+    // Dijkstra with a low cost for open cells and a higher cost for removable
+    // maze walls. Structural routes/stairs remain immutable.
+    const queue=[],costs=new Map(),parents=new Map()
+    for(const key of reachable){
+      const [row,col]=parse(key),node={row,col,cost:0}
+      costs.set(key,0);heapPush(queue,node)
+    }
+    let target=null
+    while(queue.length){
+      const current=heapPop(queue),currentKey=keyOf(current.row,current.col)
+      if(current.cost!==costs.get(currentKey)) continue
+      if(candidates.some(({key})=>key===currentKey)){target=current;break}
+      for(const [dr,dc] of directions){
+        const row=current.row+dr,col=current.col+dc,key=keyOf(row,col)
+        if(row<=0||row>=ROWS-1||col<=0||col>=COLS-1||cellMap.has(key)) continue
+        const obstacle=valid.get(key)
+        if(obstacle?.isStructure&&blocksGround(obstacle)) continue
+        const nextCost=current.cost+(obstacle&&blocksGround(obstacle)?5:1)
+        if(nextCost>=(costs.get(key)??Infinity)) continue
+        costs.set(key,nextCost);parents.set(key,currentKey);heapPush(queue,{row,col,cost:nextCost})
+      }
+    }
+    if(!target) continue
+    for(let key=keyOf(target.row,target.col);key&&!reachable.has(key);key=parents.get(key)){
+      if(valid.has(key)&&!valid.get(key)?.isStructure) valid.delete(key)
+    }
+    reachable=flood()
+  }
 }
 
 function circleTouchesCell(gx, gy, row, col, radius = PLAYER_R) {
@@ -2452,6 +2592,8 @@ export default function MiningChain3DFPV({
       }
     }
 
+    addDenseMaze(valid,reserved,cellMap)
+
     // Build a small number of deterministic staircases beside isolated tall
     // obstacles. Each cube is a real collision/support surface, so players can
     // reach the roof through three normal jumps without adding moving geometry.
@@ -2492,12 +2634,11 @@ export default function MiningChain3DFPV({
         placed = true
       }
     }
+    ensureInteractiveConnectivity(valid,cellMap)
     validObstaclesRef.current = valid
 
     // Safety: if player is inside an obstacle or block, teleport to a random free cell
-    const sgr = Math.floor(playerRef.current.y / CELL_SIZE)
-    const sgc = Math.floor(playerRef.current.x / CELL_SIZE)
-    if (valid.has(`${sgr},${sgc}`) || cellMap.has(`${sgr},${sgc}`)) {
+    if (hitsSolidWall(playerRef.current.x/CELL_SIZE,playerRef.current.y/CELL_SIZE,cellMap,valid,playerRef.current.z)) {
       const free = findRandomFreeCell(cellMap, valid)
       playerRef.current.x = (free.col + 0.5) * CELL_SIZE
       playerRef.current.y = (free.row + 0.5) * CELL_SIZE
@@ -2522,8 +2663,8 @@ export default function MiningChain3DFPV({
     if (!jumpToCell) return
     const obs = validObstaclesRef.current
     const cm  = cellMapRef.current
-    const k   = `${jumpToCell.row},${jumpToCell.col}`
-    if (obs.has(k) || cm.has(k)) {
+    const targetGX=jumpToCell.col+.5,targetGY=jumpToCell.row+.5
+    if (hitsSolidWall(targetGX,targetGY,cm,obs,0)) {
       const free = findRandomFreeCell(cm, obs)
       playerRef.current.x = (free.col + 0.5) * CELL_SIZE
       playerRef.current.y = (free.row + 0.5) * CELL_SIZE
