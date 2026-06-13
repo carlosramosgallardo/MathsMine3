@@ -45,6 +45,7 @@ const STAIR_HEIGHTS = [0.58, 1.16, 1.74]
 const MAX_STAIRCASES = 22
 const MAX_JUMPS = 1
 const REMOTE_AVATAR_VISUAL_SCALE = .48
+const REMOTE_AVATAR_MODEL_HEIGHT = 1.10
 const ORGANIC_SHAPES = new Set(['ramp','sphere','tree'])
 
 // ── Decorative obstacles: solid walls, no doorways, not mineable ──────────────
@@ -2087,78 +2088,20 @@ function drawFreakUsbPen(ctx,handX,handY,length,angle,scale=1,alpha=1){
   ctx.restore()
 }
 
-function drawThirdPersonPlayer(ctx,W,H,color,swingT,walkDist,dockTop){
-  const mobile=W<640,scale=mobile ? .76 : Math.max(.86,Math.min(1.1,H/590))
-  const bodyW=66*scale,bodyH=76*scale,headW=43*scale,headH=28*scale
-  const bob=Math.sin(walkDist*.18)*2.2*scale
-  // Keep the camera reticle centered while composing the local wallet slightly
-  // left. At the strike apex the drill-pick crosses the reticle instead of the
-  // avatar covering both the sight and the impact point.
-  const cx=W/2-(mobile?12:18)*scale
-  const bottomY=(dockTop??(H-18))+bob,bodyTop=bottomY-bodyH,headTop=bodyTop-headH+4*scale
-  const [r,g,b]=hexToRgb(color||C)
-  const localLiftL=walkDist>0.1?Math.round(Math.sin(walkDist*.16)*2.2*scale):0
-  const localLiftR=walkDist>0.1?Math.round(Math.sin(walkDist*.16+Math.PI)*2.2*scale):0
-  ctx.save();ctx.globalAlpha=.98
-  ctx.fillStyle=`rgb(${r*.35|0},${g*.35|0},${b*.35|0})`;ctx.strokeStyle=color||C;ctx.lineWidth=1.2
-  ctx.fillRect(cx-bodyW*.42,bodyTop,bodyW*.84,bodyH);ctx.strokeRect(cx-bodyW*.42,bodyTop,bodyW*.84,bodyH)
-  ctx.fillStyle=`rgb(${r*.48|0},${g*.48|0},${b*.48|0})`
-  ctx.fillRect(cx-bodyW*.54,bodyTop+9*scale,bodyW*.12,bodyH*.28);ctx.fillRect(cx+bodyW*.42,bodyTop+9*scale,bodyW*.12,bodyH*.28)
-  ctx.fillStyle=`rgba(${r},${g},${b},.38)`;ctx.fillRect(cx-bodyW*.35,bodyTop+8,bodyW*.7,7*scale)
-  ctx.fillStyle='#09131d';ctx.fillRect(cx-bodyW*.25,bodyTop+bodyH*.29,bodyW*.5,bodyH*.22)
-  ctx.strokeStyle='#67e8f966';ctx.strokeRect(cx-bodyW*.25,bodyTop+bodyH*.29,bodyW*.5,bodyH*.22)
-  ctx.fillStyle='#facc15';ctx.fillRect(cx-5*scale,bodyTop+bodyH*.34,10*scale,7*scale)
-  ctx.fillStyle='#071019';ctx.fillRect(cx-bodyW*.42,bodyTop+bodyH*.70,bodyW*.84,6*scale)
-  // Pixel armor, ports and status lights keep the wallet readable at close range.
-  ctx.fillStyle=`rgb(${r*.58|0},${g*.58|0},${b*.58|0})`
-  ctx.fillRect(cx-bodyW*.39,bodyTop+bodyH*.10,bodyW*.12,bodyH*.18)
-  ctx.fillRect(cx+bodyW*.27,bodyTop+bodyH*.10,bodyW*.12,bodyH*.18)
-  ctx.fillStyle='#22d3ee';ctx.fillRect(cx-bodyW*.34,bodyTop+bodyH*.76,4*scale,3*scale)
-  ctx.fillStyle='#d946ef';ctx.fillRect(cx+bodyW*.28,bodyTop+bodyH*.76,4*scale,3*scale)
-  ctx.strokeStyle='rgba(103,232,249,.45)';ctx.lineWidth=Math.max(.6,scale)
-  ctx.strokeRect(cx-bodyW*.33,bodyTop+bodyH*.55,bodyW*.66,bodyH*.10)
-  ctx.fillStyle=`rgb(${r*.28|0},${g*.28|0},${b*.28|0})`;ctx.fillRect(cx-bodyW*.34,bottomY-9*scale-localLiftL,bodyW*.25,9*scale);ctx.fillRect(cx+bodyW*.09,bottomY-9*scale-localLiftR,bodyW*.25,9*scale)
-  ctx.fillStyle=`rgb(${Math.min(255,r*.82+35)|0},${Math.min(255,g*.82+35)|0},${Math.min(255,b*.82+35)|0})`
-  ctx.fillRect(cx-headW/2,headTop,headW,headH);ctx.strokeRect(cx-headW/2,headTop,headW,headH)
-  ctx.fillStyle='#071722';ctx.fillRect(cx-headW*.36,headTop+headH*.28,headW*.72,headH*.34)
-  ctx.fillStyle='#67e8f9';ctx.fillRect(cx-headW*.28,headTop+headH*.36,headW*.56,2*scale)
-  ctx.fillStyle='#ffffff';ctx.fillRect(cx-headW*.22,headTop+headH*.36,4*scale,2*scale)
-  ctx.fillStyle=color||C;ctx.fillRect(cx-4*scale,headTop-5*scale,8*scale,5*scale)
-  ctx.strokeStyle='#071019';ctx.lineWidth=2*scale
-  ctx.beginPath();ctx.moveTo(cx+headW*.20,headTop);ctx.lineTo(cx+headW*.20,headTop-8*scale);ctx.stroke()
-  ctx.fillStyle='#d946ef';ctx.fillRect(cx+headW*.20-2*scale,headTop-11*scale,4*scale,4*scale)
-  ctx.fillStyle=`rgb(${r*.48|0},${g*.48|0},${b*.48|0})`
-  ctx.fillRect(cx-headW*.62,headTop+headH*.30,headW*.12,headH*.42)
-  ctx.fillRect(cx+headW*.50,headTop+headH*.30,headW*.12,headH*.42)
-  const handX=cx+bodyW*.47,handY=bodyTop+bodyH*.43
-  ctx.strokeStyle=`rgb(${r*.72|0},${g*.72|0},${b*.72|0})`;ctx.lineWidth=6*scale;ctx.lineCap='round'
-  ctx.beginPath();ctx.moveTo(cx+bodyW*.34,bodyTop+bodyH*.28);ctx.lineTo(handX,handY);ctx.stroke()
-  // Thrust toward crosshair: rest is pulled back 0.72rad from target direction
-  const sProg3 = Math.sin(swingT*Math.PI)
-  const toTarget3 = Math.atan2(H*HORIZON_RATIO - handY, W/2 - handX)
-  const pickA = toTarget3 + (1 - sProg3) * 0.72
-  const pickL = (64 + sProg3*16) * scale
-  drawFreakUsbPen(ctx,handX,handY,pickL,pickA,scale)
-  ctx.restore()
-}
-
 // ── Mining progress arc ──────────────────────────────────────────────────────
 function drawMineProgress(ctx, W, H, progress, type) {
   if (progress <= 0) return
   const cx = W / 2, cy = H * HORIZON_RATIO
-  const r   = 24
+  const r = 24
   const col = type === 'nftji' ? '#fb923c' : C
-  const s   = -Math.PI / 2
-
+  const start = -Math.PI / 2
   ctx.globalAlpha = 0.28
   ctx.strokeStyle = col; ctx.lineWidth = 2.5
   ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.stroke()
-
   ctx.globalAlpha = 0.88
-  ctx.strokeStyle = col; ctx.lineWidth = 2.5; ctx.lineCap = 'round'
-  ctx.beginPath(); ctx.arc(cx, cy, r, s, s + progress * Math.PI * 2); ctx.stroke()
+  ctx.strokeStyle = col; ctx.lineCap = 'round'
+  ctx.beginPath(); ctx.arc(cx, cy, r, start, start + progress * Math.PI * 2); ctx.stroke()
   ctx.lineCap = 'butt'
-
   ctx.globalAlpha = 0.65
   ctx.fillStyle = col; ctx.font = 'bold 10px monospace'
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
@@ -2884,10 +2827,19 @@ function syncThreeAvatars(state,presence,myIdentity) {
     if(!avatar){
       avatar=createThreeWalletAvatar(wallet)
       state.avatars.set(wallet,avatar);state.scene.add(avatar)
-      avatar.scale.setScalar(REMOTE_AVATAR_VISUAL_SCALE)
     }
     avatar.position.set(Number(data.gx??((data.col??0)+.5)),Number(data.z)||0,Number(data.gy??((data.row??0)+.5)))
     avatar.rotation.y=-(Number(data.angle)||0)-Math.PI/2
+    // The local avatar is a screen-space HUD model. Cap remote projected size
+    // to the same visual height so nearby wallets never become giants.
+    const cameraSpace=avatar.position.clone().applyMatrix4(state.camera.matrixWorldInverse)
+    const depth=Math.max(.08,-cameraSpace.z)
+    const viewportHeight=Math.max(1,state.size.y||600)
+    const viewportWidth=Math.max(1,state.size.x||900)
+    const targetPixels=viewportWidth<640?86:Math.max(96,Math.min(112,viewportHeight*.19))
+    const focalPixels=viewportHeight/(2*Math.tan(THREE.MathUtils.degToRad(state.camera.fov)*.5))
+    const screenMatchedScale=(targetPixels*depth)/(REMOTE_AVATAR_MODEL_HEIGHT*focalPixels)
+    avatar.scale.setScalar(Math.min(REMOTE_AVATAR_VISUAL_SCALE,screenMatchedScale))
     const swingAge=Date.now()-(Number(data.swingAt)||0)
     const swing=swingAge<SWING_DUR?Math.sin(swingAge/SWING_DUR*Math.PI):0
     avatar.userData.tool.rotation.z=swing*1.05
@@ -2899,6 +2851,29 @@ function syncThreeAvatars(state,presence,myIdentity) {
     if(active.has(wallet)) continue
     state.scene.remove(avatar);disposeThreeObject(avatar);state.avatars.delete(wallet)
   }
+}
+
+function syncThreeLocalAvatar(state,identity,swingT,walkDist,W,H) {
+  const avatarId=identity||'local-player'
+  if(!state.localAvatar||state.localAvatarId!==avatarId){
+    if(state.localAvatar){state.hudScene.remove(state.localAvatar);disposeThreeObject(state.localAvatar)}
+    state.localAvatar=createThreeWalletAvatar(avatarId)
+    state.localAvatarId=avatarId
+    state.localAvatar.rotation.y=0
+    state.hudScene.add(state.localAvatar)
+  }
+  const aspect=W/Math.max(1,H)
+  state.hudCamera.left=-aspect;state.hudCamera.right=aspect
+  state.hudCamera.top=1;state.hudCamera.bottom=-1
+  state.hudCamera.updateProjectionMatrix()
+  const targetPixels=W<640?86:Math.max(96,Math.min(112,H*.19))
+  const scale=Math.max(.24,Math.min(.72,(targetPixels*2)/(Math.max(1,H)*REMOTE_AVATAR_MODEL_HEIGHT)))
+  state.localAvatar.scale.setScalar(scale)
+  state.localAvatar.position.set(-.065*aspect,-.96,0)
+  state.localAvatar.userData.tool.rotation.z=Math.sin(Math.min(1,swingT)*Math.PI)*1.05
+  const stride=walkDist*.18
+  if(state.localAvatar.userData.leftFoot) state.localAvatar.userData.leftFoot.position.y=.075+Math.max(0,Math.sin(stride))*.045
+  if(state.localAvatar.userData.rightFoot) state.localAvatar.userData.rightFoot.position.y=.075+Math.max(0,Math.sin(stride+Math.PI))*.045
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -3006,6 +2981,12 @@ export default function MiningChain3DFPV({
     scene.background=new THREE.Color('#020617')
     scene.fog=new THREE.FogExp2('#07132c',.018)
     const camera=new THREE.PerspectiveCamera(58,1,.05,100)
+    const hudScene=new THREE.Scene()
+    const hudCamera=new THREE.OrthographicCamera(-1,1,1,-1,.1,10)
+    hudCamera.position.set(0,0,-5);hudCamera.lookAt(0,0,0)
+    hudScene.add(new THREE.HemisphereLight('#e5f7ff','#111827',2.5))
+    const hudKey=new THREE.DirectionalLight('#ffffff',2.8);hudKey.position.set(-2,4,-4);hudScene.add(hudKey)
+    const hudRim=new THREE.DirectionalLight('#22d3ee',1.4);hudRim.position.set(3,2,2);hudScene.add(hudRim)
     const hemi=new THREE.HemisphereLight('#d9f2ff','#18213a',2.15);scene.add(hemi)
     const key=new THREE.DirectionalLight('#fff4d6',2.35);key.position.set(-8,16,-10);scene.add(key)
     const rim=new THREE.DirectionalLight('#22d3ee',1.1);rim.position.set(12,5,14);scene.add(rim)
@@ -3021,13 +3002,14 @@ export default function MiningChain3DFPV({
       mountain:createProceduralTexture('mountain'),coast:createProceduralTexture('coast'),
       ice:createProceduralTexture('ice'),inferno:createProceduralTexture('inferno'),crypto:createProceduralTexture('crypto'),
     }
-    const state={renderer,scene,camera,world:null,avatars:new Map(),pixelRatio:0,size:new THREE.Vector2(),hemi,key,rim,textures}
+    const state={renderer,scene,camera,hudScene,hudCamera,localAvatar:null,localAvatarId:null,world:null,avatars:new Map(),pixelRatio:0,size:new THREE.Vector2(),hemi,key,rim,textures}
     threeStateRef.current=state
     rebuildThreeRef.current=()=>rebuildThreeWorld(state,cellMapRef.current,validObstaclesRef.current)
     rebuildThreeRef.current()
     return ()=>{
       rebuildThreeRef.current=null
       disposeThreeObject(scene)
+      disposeThreeObject(hudScene)
       Object.values(textures).forEach(texture=>texture.dispose())
       scene.userData.skyTexture?.dispose?.()
       renderer.dispose();threeStateRef.current=null
@@ -3364,7 +3346,14 @@ export default function MiningChain3DFPV({
             orbital.rotation.y=time*.025;orbital.rotation.z=Math.sin(time*.04)*.08
           }
         }
+        const localSwingAge=performance.now()-swingStartRef.current
+        const localSwingT=localSwingAge<SWING_DUR?localSwingAge/SWING_DUR:0
+        syncThreeLocalAvatar(threeState,myIdentity,localSwingT,walkDistRef.current,W,H)
         threeState.renderer.render(threeState.scene,threeState.camera)
+        threeState.renderer.autoClear=false
+        threeState.renderer.clearDepth()
+        threeState.renderer.render(threeState.hudScene,threeState.hudCamera)
+        threeState.renderer.autoClear=true
       }catch{
         threeStateRef.current=null;threeState=null
       }
@@ -4271,9 +4260,6 @@ export default function MiningChain3DFPV({
       }
     }
 
-    // ── Local third-person wallet avatar ──────────────────────────────────
-    const swE  = performance.now() - swingStartRef.current
-    const swT  = swE < SWING_DUR ? swE / SWING_DUR : 0
     drawMineProgress(ctx, W, H, mineProgressRef.current, mineTypeRef.current)
 
     // ── Enemy in crosshair indicator ──────────────────────────────────────
@@ -4342,7 +4328,6 @@ export default function MiningChain3DFPV({
     const walletDock = drawWalletDock(
       ctx,W,H,myNftjisRef.current,healthMapRef.current[myIdentity]??100,es,Boolean(myWallet)
     )
-    drawThirdPersonPlayer(ctx,W,H,colorFromAddress(myIdentity||'local-player'),swT,walkDistRef.current,H-18)
     drawChainStats(ctx,W,H,chainStatsRef.current,es,(walletDock?.bottom||8)+6)
   }, [])
 
