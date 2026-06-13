@@ -44,6 +44,7 @@ const BRIDGE_TOP = 1.82      // unreachable from the floor without stairs
 const STAIR_HEIGHTS = [0.58, 1.16, 1.74]
 const MAX_STAIRCASES = 22
 const MAX_JUMPS = 1
+const REMOTE_AVATAR_VISUAL_SCALE = .48
 const ORGANIC_SHAPES = new Set(['ramp','sphere','tree'])
 
 // ── Decorative obstacles: solid walls, no doorways, not mineable ──────────────
@@ -2697,6 +2698,21 @@ function addNightDome(scene) {
   const moon=new THREE.Mesh(new THREE.SphereGeometry(1.45,16,12),new THREE.MeshBasicMaterial({color:'#d8f4ff',fog:false}))
   moon.position.set(42,24,12);scene.add(moon)
   const moonGlow=new THREE.PointLight('#8dd8ff',18,42,1.5);moonGlow.position.copy(moon.position);scene.add(moonGlow)
+
+  const planet=new THREE.Group()
+  const planetBody=new THREE.Mesh(new THREE.SphereGeometry(3.2,20,14),new THREE.MeshStandardMaterial({color:'#7c3aed',emissive:'#29105f',emissiveIntensity:.8,roughness:.72,fog:false}))
+  const planetRing=new THREE.Mesh(new THREE.TorusGeometry(4.4,.20,8,42),new THREE.MeshBasicMaterial({color:'#f0abfc',transparent:true,opacity:.66,fog:false}))
+  planetRing.rotation.x=1.12;planet.add(planetBody,planetRing);planet.position.set(-30,18,38);planet.userData.orbital='planet';scene.add(planet)
+
+  const ship=new THREE.Group()
+  const hull=new THREE.Mesh(new THREE.ConeGeometry(.42,1.9,5),new THREE.MeshStandardMaterial({color:'#dbeafe',metalness:.72,roughness:.24,fog:false}))
+  hull.rotation.z=-Math.PI/2
+  const cockpit=new THREE.Mesh(new THREE.SphereGeometry(.26,8,6),new THREE.MeshBasicMaterial({color:'#22d3ee',fog:false}));cockpit.position.set(.25,.18,0)
+  const wingGeometry=new THREE.BoxGeometry(.85,.08,.55)
+  const wings=new THREE.Mesh(wingGeometry,new THREE.MeshStandardMaterial({color:'#f97316',metalness:.5,roughness:.36,fog:false}));wings.position.x=-.15
+  const engine=new THREE.PointLight('#22d3ee',5,8,2);engine.position.set(-1,0,0)
+  ship.add(hull,cockpit,wings,engine);ship.position.set(COLS/2,15,ROWS/2);ship.userData.orbital='ship';scene.add(ship)
+  scene.userData.orbitals=[planet,ship]
 }
 
 function addBiomeGround(world,textures) {
@@ -2708,7 +2724,7 @@ function addBiomeGround(world,textures) {
       emissive:biome==='inferno'?'#3b0904':biome==='ice'?'#09243a':'#000000',emissiveIntensity:biome==='inferno'?.48:.12,
     })
     const plane=new THREE.Mesh(new THREE.PlaneGeometry(quadrantSize-.12,quadrantSize-.12),material)
-    plane.rotation.x=-Math.PI/2;plane.position.set(cx,-.018,cz);world.add(plane)
+    plane.rotation.x=-Math.PI/2;plane.position.set(cx,.002,cz);world.add(plane)
   }
   const routeMaterial=new THREE.MeshBasicMaterial({color:'#22d3ee',transparent:true,opacity:.18,depthWrite:false})
   const routeA=new THREE.Mesh(new THREE.PlaneGeometry(COLS,.42),routeMaterial)
@@ -2795,6 +2811,25 @@ function addBiomeLandmarks(world,textures) {
   }
 }
 
+function addInteractiveBeacon(world,row,col,cell,height) {
+  const color=cell.isChainNode?'#facc15':cell.isPortalNode?(cell.color||'#22d3ee'):cell.isMarket?(cell.owner?'#4ade80':'#fb923c'):'#22d3ee'
+  const beacon=new THREE.Group()
+  const ringMaterial=new THREE.MeshBasicMaterial({color,transparent:true,opacity:.78,depthWrite:false})
+  const ring=new THREE.Mesh(new THREE.TorusGeometry(.58,.035,6,24),ringMaterial)
+  ring.rotation.x=Math.PI/2;ring.position.y=height+.14
+  const ring2=new THREE.Mesh(new THREE.TorusGeometry(.45,.025,6,20),ringMaterial.clone())
+  ring2.rotation.y=Math.PI/2;ring2.position.y=height*.58
+  const column=new THREE.Mesh(new THREE.CylinderGeometry(.035,.11,height+.42,8),new THREE.MeshBasicMaterial({color,transparent:true,opacity:.22,depthWrite:false}))
+  column.position.y=(height+.42)*.5
+  const markerGeometry=cell.isPortalNode?new THREE.OctahedronGeometry(.16):cell.isMarket?new THREE.DodecahedronGeometry(.15):new THREE.TetrahedronGeometry(.18)
+  const marker=new THREE.Mesh(markerGeometry,new THREE.MeshBasicMaterial({color}))
+  marker.position.y=height+.38
+  beacon.add(ring,ring2,column,marker)
+  beacon.position.set(col+.5,0,row+.5)
+  beacon.userData.interactive=true;beacon.userData.phase=seededUnit(row*71+col*113)*Math.PI*2
+  world.add(beacon)
+}
+
 function rebuildThreeWorld(state,cellMap,obstacles) {
   if(!state) return
   if(state.world){state.scene.remove(state.world);disposeThreeObject(state.world)}
@@ -2805,12 +2840,16 @@ function rebuildThreeWorld(state,cellMap,obstacles) {
   const blockEntries=[...cellMap.entries()]
   const blockMaterial=new THREE.MeshStandardMaterial({map:state.textures.crypto,roughness:.48,metalness:.38,vertexColors:true,emissive:'#09233a',emissiveIntensity:.22})
   const blockMesh=new THREE.InstancedMesh(new THREE.BoxGeometry(1,1,1),blockMaterial,blockEntries.length)
+  const blockGlowMaterial=new THREE.MeshBasicMaterial({color:'#67e8f9',wireframe:true,transparent:true,opacity:.20,depthWrite:false})
+  const blockGlowMesh=new THREE.InstancedMesh(new THREE.BoxGeometry(1,1,1),blockGlowMaterial,blockEntries.length)
   const pedestalMesh=new THREE.InstancedMesh(new THREE.BoxGeometry(1,1,1),new THREE.MeshStandardMaterial({roughness:.88,metalness:.16,vertexColors:true}),blockEntries.length)
   blockEntries.forEach(([key,cell],index)=>{
     const [row,col]=key.split(',').map(Number),height=blockTop(cell,row,col)
     const cubeSide=.88,cubeBottom=Math.max(0,height-cubeSide)
     position.set(col+.5,cubeBottom+cubeSide*.5,row+.5);scale.set(cubeSide,cubeSide,cubeSide)
     matrix.compose(position,quaternion,scale);blockMesh.setMatrixAt(index,matrix)
+    scale.set(cubeSide+0.035,cubeSide+0.035,cubeSide+0.035)
+    matrix.compose(position,quaternion,scale);blockGlowMesh.setMatrixAt(index,matrix)
     const biome=biomeForCell(row,col)
     const color=new THREE.Color(cell.color||(cell.isChainNode?'#d6a91e':BIOME_STYLE[biome].block))
     blockMesh.setColorAt(index,color)
@@ -2820,10 +2859,17 @@ function rebuildThreeWorld(state,cellMap,obstacles) {
     pedestalMesh.setColorAt(index,color.clone().multiplyScalar(.42))
   })
   blockMesh.instanceMatrix.needsUpdate=true
+  blockGlowMesh.instanceMatrix.needsUpdate=true
   if(blockMesh.instanceColor) blockMesh.instanceColor.needsUpdate=true
   pedestalMesh.instanceMatrix.needsUpdate=true
   if(pedestalMesh.instanceColor) pedestalMesh.instanceColor.needsUpdate=true
-  world.add(pedestalMesh,blockMesh)
+  blockGlowMesh.userData.blockGlow=true
+  world.add(pedestalMesh,blockMesh,blockGlowMesh)
+  for(const [key,cell] of blockEntries){
+    if(!cell.isMarket&&!cell.isPortalNode&&!cell.isChainNode) continue
+    const [row,col]=key.split(',').map(Number)
+    addInteractiveBeacon(world,row,col,cell,blockTop(cell,row,col))
+  }
 
   const boxGroups={mountain:[],coast:[],ice:[],inferno:[]}
   for(const entry of obstacles.entries()){
@@ -2870,7 +2916,11 @@ function rebuildThreeWorld(state,cellMap,obstacles) {
   }
   state.world=world
   state.biomeSurfaces=[]
-  world.traverse(object=>{if(object.userData.biomeSurface) state.biomeSurfaces.push(object)})
+  state.interactiveVisuals=[]
+  world.traverse(object=>{
+    if(object.userData.biomeSurface) state.biomeSurfaces.push(object)
+    if(object.userData.interactive||object.userData.blockGlow) state.interactiveVisuals.push(object)
+  })
   state.scene.add(world)
 }
 
@@ -2895,6 +2945,7 @@ function syncThreeAvatars(state,presence,myIdentity) {
       const shaft=new THREE.Mesh(new THREE.CylinderGeometry(.025,.025,.66,6),new THREE.MeshStandardMaterial({color:'#9a6438'}));shaft.rotation.z=-.62;shaft.position.set(.18,.24,0);tool.add(shaft)
       const tip=new THREE.Mesh(new THREE.ConeGeometry(.10,.25,5),new THREE.MeshStandardMaterial({color:'#a5f3fc',metalness:.55,roughness:.35}));tip.rotation.z=-Math.PI/2;tip.position.set(.39,.46,0);tool.add(tip)
       avatar.add(tool);avatar.userData.tool=tool;state.avatars.set(wallet,avatar);state.scene.add(avatar)
+      avatar.scale.setScalar(REMOTE_AVATAR_VISUAL_SCALE)
     }
     avatar.position.set(Number(data.gx??((data.col??0)+.5)),Number(data.z)||0,Number(data.gy??((data.row??0)+.5)))
     avatar.rotation.y=-(Number(data.angle)||0)-Math.PI/2
@@ -3011,7 +3062,7 @@ export default function MiningChain3DFPV({
     const scene=new THREE.Scene()
     scene.background=new THREE.Color('#020617')
     scene.fog=new THREE.FogExp2('#07132c',.018)
-    const camera=new THREE.PerspectiveCamera(58,1,.05,VISUAL_RANGE+8)
+    const camera=new THREE.PerspectiveCamera(58,1,.05,100)
     const hemi=new THREE.HemisphereLight('#d9f2ff','#18213a',2.15);scene.add(hemi)
     const key=new THREE.DirectionalLight('#fff4d6',2.35);key.position.set(-8,16,-10);scene.add(key)
     const rim=new THREE.DirectionalLight('#22d3ee',1.1);rim.position.set(12,5,14);scene.add(rim)
@@ -3349,6 +3400,25 @@ export default function MiningChain3DFPV({
             const pulse=.86+Math.sin(time*7+object.userData.phase)*.14
             object.scale.set(pulse,1.04+(pulse-.86)*.9,pulse)
             object.rotation.y=time*.9+object.userData.phase
+          }
+        }
+        for(const object of threeState.interactiveVisuals||[]){
+          if(object.userData.blockGlow){
+            object.material.opacity=.14+(Math.sin(time*2.4)*.5+.5)*.16
+          }else{
+            const pulse=1+Math.sin(time*2.8+object.userData.phase)*.08
+            object.scale.setScalar(pulse)
+            object.rotation.y=time*.72+object.userData.phase
+            object.position.y=Math.sin(time*2.1+object.userData.phase)*.045
+          }
+        }
+        for(const orbital of threeState.scene.userData.orbitals||[]){
+          if(orbital.userData.orbital==='ship'){
+            const orbit=time*.055
+            orbital.position.set(COLS/2+Math.cos(orbit)*39,13+Math.sin(time*.18)*2.2,ROWS/2+Math.sin(orbit)*39)
+            orbital.rotation.y=-orbit+.2
+          }else{
+            orbital.rotation.y=time*.025;orbital.rotation.z=Math.sin(time*.04)*.08
           }
         }
         threeState.renderer.render(threeState.scene,threeState.camera)
@@ -4034,7 +4104,7 @@ export default function MiningChain3DFPV({
     if(threeState){
       ctx.clearRect(0,0,W,H)
       for(const sprite of sprites){
-        const point=cameraVertex(sprite.gx,sprite.gy,(sprite.z||0)+1.10)
+        const point=cameraVertex(sprite.gx,sprite.gy,(sprite.z||0)+.58)
         if(point.depth<=.12) continue
         const screen=screenVertex(point)
         if(screen.x<-80||screen.x>W+80||screen.y<-40||screen.y>H+40) continue
@@ -4641,9 +4711,9 @@ export default function MiningChain3DFPV({
         const scrX    = Math.round(_cx + tX * _hProj / rotD)
         const bottomY = Math.min(_H+30, Math.round(_viewCY - rotV * _projScale / rotD))
         const sScale  = Math.min(_projScale / Math.max(0.72, tY), 150)
-        const walletH = Math.round(sScale * 0.58)
-        const walletW = Math.round(sScale * 0.50)
-        const billsH  = Math.round(sScale * 0.20)
+        const walletH = Math.round(sScale * 0.58 * REMOTE_AVATAR_VISUAL_SCALE)
+        const walletW = Math.round(sScale * 0.50 * REMOTE_AVATAR_VISUAL_SCALE)
+        const billsH  = Math.round(sScale * 0.20 * REMOTE_AVATAR_VISUAL_SCALE)
         const walletTop = bottomY - walletH
         const billsTop  = walletTop - billsH
         // Horizontal: crosshair must be within sprite width (+10% tolerance)
