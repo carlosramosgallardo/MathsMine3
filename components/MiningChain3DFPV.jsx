@@ -1763,8 +1763,9 @@ function drawThirdPersonPlayer(ctx,W,H,color,swingT,walkDist,dockTop){
   const cx=W/2-(mobile?12:18)*scale
   const bottomY=(dockTop??(H-18))+bob,bodyTop=bottomY-bodyH,headTop=bodyTop-headH+4*scale
   const [r,g,b]=hexToRgb(color||C)
+  const localLiftL=walkDist>0.1?Math.round(Math.sin(walkDist*.16)*2.2*scale):0
+  const localLiftR=walkDist>0.1?Math.round(Math.sin(walkDist*.16+Math.PI)*2.2*scale):0
   ctx.save();ctx.globalAlpha=.98
-  ctx.fillStyle='rgba(0,0,0,.42)';ctx.beginPath();ctx.ellipse(cx,bottomY+4,bodyW*.62,7*scale,0,0,Math.PI*2);ctx.fill()
   ctx.fillStyle=`rgb(${r*.35|0},${g*.35|0},${b*.35|0})`;ctx.strokeStyle=color||C;ctx.lineWidth=1.2
   ctx.fillRect(cx-bodyW*.42,bodyTop,bodyW*.84,bodyH);ctx.strokeRect(cx-bodyW*.42,bodyTop,bodyW*.84,bodyH)
   ctx.fillStyle=`rgb(${r*.48|0},${g*.48|0},${b*.48|0})`
@@ -1774,7 +1775,7 @@ function drawThirdPersonPlayer(ctx,W,H,color,swingT,walkDist,dockTop){
   ctx.strokeStyle='#67e8f966';ctx.strokeRect(cx-bodyW*.25,bodyTop+bodyH*.29,bodyW*.5,bodyH*.22)
   ctx.fillStyle='#facc15';ctx.fillRect(cx-5*scale,bodyTop+bodyH*.34,10*scale,7*scale)
   ctx.fillStyle='#071019';ctx.fillRect(cx-bodyW*.42,bodyTop+bodyH*.70,bodyW*.84,6*scale)
-  ctx.fillStyle=`rgb(${r*.28|0},${g*.28|0},${b*.28|0})`;ctx.fillRect(cx-bodyW*.34,bottomY-9*scale,bodyW*.25,9*scale);ctx.fillRect(cx+bodyW*.09,bottomY-9*scale,bodyW*.25,9*scale)
+  ctx.fillStyle=`rgb(${r*.28|0},${g*.28|0},${b*.28|0})`;ctx.fillRect(cx-bodyW*.34,bottomY-9*scale-localLiftL,bodyW*.25,9*scale);ctx.fillRect(cx+bodyW*.09,bottomY-9*scale-localLiftR,bodyW*.25,9*scale)
   ctx.fillStyle=`rgb(${Math.min(255,r*.82+35)|0},${Math.min(255,g*.82+35)|0},${Math.min(255,b*.82+35)|0})`
   ctx.fillRect(cx-headW/2,headTop,headW,headH);ctx.strokeRect(cx-headW/2,headTop,headW,headH)
   ctx.fillStyle='#071722';ctx.fillRect(cx-headW*.36,headTop+headH*.28,headW*.72,headH*.34)
