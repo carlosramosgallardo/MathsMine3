@@ -995,7 +995,7 @@ function drawMinimap(ctx, gr, gc, angle, cellMap, presenceMap, myWallet, W, H, c
   const mapY = (row) => MY + (row-originRow)*CS
   const visible = (row,col,pad=0) => col>=originCol-pad&&col<=originCol+viewCells+pad&&row>=originRow-pad&&row<=originRow+viewCells+pad
   const drawMapEmoji = (emoji,x,y,color) => {
-    const fontSize = isMobile ? 18 : 20
+    const fontSize = isMobile ? 9 : 10
     const radius = fontSize * .53
     ctx.save()
     ctx.globalAlpha = .96
@@ -1492,8 +1492,7 @@ function drawMineProgress(ctx, W, H, progress, type) {
   ctx.globalAlpha = 1
 }
 
-// ── MM3 Block Chain stats panel (bottom-left HUD) ───────────────────────────
-// ── NFTJI skills panel (bottom-center, below pickaxe) ────────────────────────
+// ── Fixed NFTJI skills HUD (top-left, independent from player movement) ──────
 function drawWalletDock(ctx, W, H, myNftjis, health, es, isLoggedWallet) {
   const mobile = W < 600
   const SLOT_W = mobile ? 28 : 32, SLOT_H = mobile ? 34 : 40
@@ -1505,14 +1504,12 @@ function drawWalletDock(ctx, W, H, myNftjis, health, es, isLoggedWallet) {
   const pw = slotCount ? skillsW : (mobile ? Math.min(158, W * .46) : 178)
   const ph = slotCount ? PAD_Y * 2 + HEADER_H + SLOT_H : (mobile ? 12 : 24)
 
-  const px = Math.round(W / 2 - pw / 2)
-  const py = H - ph - 8
-  if (py < H / 2) return null
+  const px = 6
+  const healthY = 8
+  const py = healthY + 10
 
   const hp = Math.max(0, Math.min(100, Number(health ?? 100)))
   const hpColor = hp > 60 ? '#4ade80' : hp > 25 ? '#facc15' : '#fb7185'
-  const healthY = py - 10
-
   ctx.globalAlpha = .94
   ctx.fillStyle = '#17070b'
   ctx.fillRect(px, healthY, pw, 10)
@@ -1564,10 +1561,10 @@ function drawWalletDock(ctx, W, H, myNftjis, health, es, isLoggedWallet) {
   }
 
   ctx.textAlign = 'left'; ctx.globalAlpha = 1
-  return { top: healthY, centerX: W / 2 }
+  return { top: healthY, bottom: py + ph, width: pw }
 }
 
-function drawChainStats(ctx, W, H, stats, es) {
+function drawChainStats(ctx, W, H, stats, es, top = 8) {
   if (!stats) return
   const { owned, marketFree, marketOwned, total, pct } = stats
 
@@ -1581,7 +1578,7 @@ function drawChainStats(ctx, W, H, stats, es) {
   const LINE_H = 13, PAD_X = 8, PAD_Y = 6
   const pw = 158, ph = lines.length * LINE_H + PAD_Y * 2 + 9
   const px = 6
-  const py = 8
+  const py = top
 
   ctx.globalAlpha = 0.78
   ctx.fillStyle = '#010709'
@@ -2740,8 +2737,8 @@ export default function MiningChain3DFPV({
     const walletDock = drawWalletDock(
       ctx,W,H,myNftjisRef.current,healthMapRef.current[myIdentity]??100,es,Boolean(myWallet)
     )
-    drawThirdPersonPlayer(ctx,W,H,colorFromAddress(myIdentity||'local-player'),swT,walkDistRef.current,walletDock?.top)
-    drawChainStats(ctx,W,H,chainStatsRef.current,es)
+    drawThirdPersonPlayer(ctx,W,H,colorFromAddress(myIdentity||'local-player'),swT,walkDistRef.current,H-18)
+    drawChainStats(ctx,W,H,chainStatsRef.current,es,(walletDock?.bottom||8)+6)
   }, [])
 
   useEffect(()=>{ renderRef.current=renderFrame },[renderFrame])
