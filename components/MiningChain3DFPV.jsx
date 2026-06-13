@@ -2504,7 +2504,9 @@ export default function MiningChain3DFPV({
 
     // Hex address label (scales with proximity)
     // Only draw when fwdCell has real data AND label position stays below the obstacle ceiling zone
-    const fwdHex = fwdMx>=0&&fwdMy>=0&&fwdCell&&!fwdCell.isChainNode ? (fwdCell.blockHex||gridToBlockHex(fwdMy,fwdMx)) : null
+    const fwdHex = fwdMx>=0&&fwdMy>=0&&fwdCell&&!fwdCell.isChainNode&&!fwdCell.isPortalNode
+      ? (fwdCell.blockHex||gridToBlockHex(fwdMy,fwdMx))
+      : null
     if (fwdHex && fwdDist < 2.0) {
       const a   = Math.max(0,(2.0-fwdDist)/2.0)*0.52
       const wH  = Math.min(H*1.8,H*PROJ_DIST/Math.max(0.1,fwdDist))
@@ -2640,7 +2642,7 @@ export default function MiningChain3DFPV({
     }
 
     // ── HUD: current room (right of chain stats panel, top-left area) ───────
-    const curHex = curCell?.isChainNode ? null : (curCell?.blockHex || gridToBlockHex(gr,gc))
+    const curHex = curCell?.isChainNode||curCell?.isPortalNode ? null : (curCell?.blockHex || gridToBlockHex(gr,gc))
     ctx.textAlign='left'; ctx.textBaseline='top'
     ctx.fillStyle = C+'dd'; ctx.font='bold 12px monospace'
     if(curHex) ctx.fillText(curHex, 174, 10)

@@ -606,11 +606,15 @@ export default function MiningChain3D() {
 
   // Derived facing cell info
   const fc         = facingCell?.cell
-  const fcHex      = fc?.isChainNode ? null : (fc?.blockHex || (facingCell ? gridToBlockHex(facingCell.row, facingCell.col) : null))
+  const isStaticInteraction = Boolean(fc?.isChainNode || fc?.isPortalNode)
+  const fcHex      = isStaticInteraction ? null : (fc?.blockHex || (facingCell ? gridToBlockHex(facingCell.row, facingCell.col) : null))
   const fcReq      = fcHex ? MM3_BLOCK_REQUIREMENT_BY_HEX.get(fcHex) : null
   const fcOwnColor = fc?.owner ? colorFromAddress(fc.owner) : null
   const isMine     = myWallet && fc?.owner?.toLowerCase() === myWallet
-  const isClaimable = !fc?.owner
+  const isClaimable = Boolean(fc && !fc.owner && !isStaticInteraction)
+  const portalTitle = fc?.isPortalNode
+    ? (es ? (fc.titleEs || fc.titleEn) : (fc.titleEn || fc.titleEs))
+    : null
   const mineUrl    = fcHex
     ? `/relaying?command=${encodeURIComponent(`/mine block ${fcHex}`)}`
     : '/relaying'
@@ -702,7 +706,7 @@ export default function MiningChain3D() {
               }}>
                 {isMine ? (es?'🔑 tuyo':'🔑 yours') : `${fc.owner.slice(0,6)}…${fc.owner.slice(-4)}`}
               </span>
-            ) : !fc?.isChainNode && (
+            ) : !isStaticInteraction && (
               <span style={{ color:'#3d5468', fontSize:'0.74rem', flex:'0 0 auto' }}>
                 {es?'libre':'unclaimed'}
               </span>
@@ -734,6 +738,13 @@ export default function MiningChain3D() {
                 <span style={{ color:'#ffd70033', fontSize:'0.72rem', fontFamily:'monospace', fontStyle:'italic' }}>
                   {es?'acércate':'get closer'}
                 </span>
+              )}
+              {fc?.isPortalNode && fc?.navUrl && (
+                <button onClick={() => router.push(fc.navUrl)} style={{
+                  ...actionLink, background:`${fc.color || C}12`, borderColor:`${fc.color || C}55`, color:fc.color || C, cursor:'pointer',
+                }}>
+                  {fc.emoji || '◆'} {es ? `Ir a ${portalTitle}` : `Go to ${portalTitle}`}
+                </button>
               )}
               {/* NFTJI block: always show both buy + resell options */}
               {fc?.isMarket && !fc?.isChainNode && isInRange && (
@@ -768,14 +779,14 @@ export default function MiningChain3D() {
                 </span>
               )}
               {/* Regular free block */}
-              {!fc?.isMarket && isClaimable && !fc?.isChainNode && isInRange && (
+              {!fc?.isMarket && isClaimable && isInRange && (
                 <Link href={mineUrl} style={{
                   ...actionLink, background:`${C}0c`, borderColor:`${C}44`, color:C,
                 }}>
                   ⛏ {es?'Minar':'Mine'}
                 </Link>
               )}
-              {!fc?.isMarket && isClaimable && !fc?.isChainNode && !isInRange && (
+              {!fc?.isMarket && isClaimable && !isInRange && (
                 <span style={{ color:`${C}33`, fontSize:'0.72rem', fontFamily:'monospace', fontStyle:'italic' }}>
                   {es?'acércate':'get closer'}
                 </span>
@@ -826,7 +837,7 @@ export default function MiningChain3D() {
             </div>
 
             {/* Owner */}
-            <div style={{ fontSize:'0.78rem', marginBottom:8 }}>
+            {!isStaticInteraction && <div style={{ fontSize:'0.78rem', marginBottom:8 }}>
               {fc?.owner ? (
                 <span style={{ color: isMine ? C : (fcOwnColor||'#94a3b8') }}>
                   {isMine ? (es?'🔑 Tu bloque':'🔑 Yours') : `◈ ${fc.owner.slice(0,10)}…${fc.owner.slice(-6)}`}
@@ -834,7 +845,7 @@ export default function MiningChain3D() {
               ) : (
                 <span style={{ color:'#64748b' }}>{es?'Sin reclamar':'Unclaimed'}</span>
               )}
-            </div>
+            </div>}
 
             {/* Chain node description */}
             {fc?.isChainNode && (
@@ -842,6 +853,14 @@ export default function MiningChain3D() {
                 {es
                   ? 'Resuelve fórmulas para minar todos los bloques de la cadena.'
                   : 'Solve formulas to mine all blocks in the chain.'}
+              </div>
+            )}
+
+            {fc?.isPortalNode && (
+              <div style={{ color:fc.color || C, fontSize:'0.76rem', marginBottom:8 }}>
+                {es
+                  ? `Acceso directo al apartado ${portalTitle} del portal.`
+                  : `Direct access to the ${portalTitle} portal section.`}
               </div>
             )}
 
@@ -861,7 +880,7 @@ export default function MiningChain3D() {
 
             {/* Actions */}
             <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
-              {(!fc?.owner && !fc?.isChainNode && isInRange) && (
+              {isClaimable && isInRange && (
                 <Link href={mineUrl} style={{
                   ...actionLink, background:`${C}0c`, borderColor:`${C}44`, color:C,
                 }} onClick={()=>setShowDetail(false)}>
@@ -873,6 +892,13 @@ export default function MiningChain3D() {
                   ...actionLink, background:'#1a1000', borderColor:'#ffd70044', color:'#ffd700', cursor:'pointer',
                 }}>
                   ⬡ {es?'Resolver cadena':'Solve chain'}
+                </button>
+              )}
+              {fc?.isPortalNode && fc?.navUrl && isInRange && (
+                <button onClick={() => { setShowDetail(false); router.push(fc.navUrl); }} style={{
+                  ...actionLink, background:`${fc.color || C}12`, borderColor:`${fc.color || C}55`, color:fc.color || C, cursor:'pointer',
+                }}>
+                  {fc.emoji || '◆'} {es ? `Ir a ${portalTitle}` : `Go to ${portalTitle}`}
                 </button>
               )}
               {isMine && fc?.isMarket && nftjiResellUrl && (
