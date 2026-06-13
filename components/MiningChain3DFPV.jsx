@@ -16,7 +16,7 @@ const STRIP_W       = 3
 const FOV           = Math.PI * 0.43
 const PROJ_DIST     = 0.72
 const CAMERA_EYE_Z  = 0.68   // eye height above the surface the player stands on
-const MAX_PITCH     = Math.PI / 2 - 0.02
+const MAX_PITCH     = 1.08    // ~62deg: avoids projection collapse at extreme look angles
 const MOVE_SPD      = 43     // world units / second (~1.1 cells/sec)
 const SPRINT_SPD    = 67
 const MOVE_ACCEL    = 11
@@ -976,19 +976,30 @@ function castRay(wx, wy, angle, cellMap, obsSet) {
 }
 
 // ── Minimap ───────────────────────────────────────────────────────────────────
-function drawMinimap(ctx, gr, gc, angle, cellMap, presenceMap, myWallet, W, H, chainNodePos, validObs) {
+function drawMinimap(ctx, gr, gc, angle, cellMap, presenceMap, myWallet, W, H, chainNodePos, validObs, zoom = 1) {
   const isMobile = W < 600
   const SZ = isMobile ? Math.min(W*0.38, 110) : Math.min(130, W*0.2)
-  const CS = SZ/ROWS
   const MX = W - SZ - 6
   const MY = 8
+  const safeZoom = [1,2,4].includes(zoom) ? zoom : 1
+  const viewCells = ROWS / safeZoom
+  const originCol = Math.max(0, Math.min(COLS-viewCells, gc+.5-viewCells/2))
+  const originRow = Math.max(0, Math.min(ROWS-viewCells, gr+.5-viewCells/2))
+  const CS = SZ/viewCells
+  const mapX = (col) => MX + (col-originCol)*CS
+  const mapY = (row) => MY + (row-originRow)*CS
+  const visible = (row,col,pad=0) => col>=originCol-pad&&col<=originCol+viewCells+pad&&row>=originRow-pad&&row<=originRow+viewCells+pad
 
   ctx.fillStyle = 'rgba(0,0,0,0.85)'
   ctx.fillRect(MX-1,MY-1,SZ+2,SZ+2)
   ctx.strokeStyle = C+'33'; ctx.lineWidth=0.5
   ctx.strokeRect(MX-1,MY-1,SZ+2,SZ+2)
 
-  for (let r=0;r<ROWS;r++) for (let c=0;c<COLS;c++) {
+  ctx.save()
+  ctx.beginPath();ctx.rect(MX,MY,SZ,SZ);ctx.clip()
+  const r0=Math.max(0,Math.floor(originRow)),r1=Math.min(ROWS,Math.ceil(originRow+viewCells))
+  const c0=Math.max(0,Math.floor(originCol)),c1=Math.min(COLS,Math.ceil(originCol+viewCells))
+  for (let r=r0;r<r1;r++) for (let c=c0;c<c1;c++) {
     const key = `${r},${c}`
     const cell = cellMap.get(key)
     const obs  = validObs?.get(key) || null
@@ -1004,11 +1015,11 @@ function drawMinimap(ctx, gr, gc, angle, cellMap, presenceMap, myWallet, W, H, c
     } else {
       ctx.fillStyle = '#050810'  // open corridor: very dark
     }
-    ctx.fillRect(MX+c*CS, MY+r*CS, Math.ceil(CS), Math.ceil(CS))
+    ctx.fillRect(mapX(c), mapY(r), Math.ceil(CS), Math.ceil(CS))
     const isMyBlock = cell?.owner && myWallet && cell.owner.toLowerCase() === myWallet.toLowerCase()
     if (isMyBlock) {
       ctx.strokeStyle = '#ffffffbb'; ctx.lineWidth = 0.7
-      ctx.strokeRect(MX+c*CS+0.5, MY+r*CS+0.5, Math.max(1,Math.ceil(CS)-1), Math.max(1,Math.ceil(CS)-1))
+      ctx.strokeRect(mapX(c)+0.5, mapY(r)+0.5, Math.max(1,Math.ceil(CS)-1), Math.max(1,Math.ceil(CS)-1))
     }
   }
 
@@ -1018,8 +1029,9 @@ function drawMinimap(ctx, gr, gc, angle, cellMap, presenceMap, myWallet, W, H, c
     const obs = validObs?.get(key)
     if (obs) continue  // hidden behind static wall, skip
     const [rr, cc] = key.split(',').map(Number)
-    const mx2 = MX + (cc + 0.5) * CS
-    const my2 = MY + (rr + 0.5) * CS
+    if(!visible(rr,cc)) continue
+    const mx2 = mapX(cc + 0.5)
+    const my2 = mapY(rr + 0.5)
     const ds = Math.max(1.2, CS * 0.36)
     ctx.save()
     ctx.translate(mx2, my2)
@@ -1027,12 +1039,16 @@ function drawMinimap(ctx, gr, gc, angle, cellMap, presenceMap, myWallet, W, H, c
     ctx.fillStyle = cell.owner ? '#4ade80cc' : '#fb923ccc'
     ctx.fillRect(-ds, -ds, ds*2, ds*2)
     ctx.restore()
+    if(safeZoom>=2&&cell.emoji){
+      ctx.font=`${Math.max(8,Math.min(14,CS*.9))}px serif`;ctx.textAlign='center';ctx.textBaseline='middle'
+      ctx.fillStyle='#fff';ctx.fillText(cell.emoji,mx2,my2)
+    }
   }
 
   ctx.strokeStyle = C+'cc'; ctx.lineWidth=0.8
-  ctx.strokeRect(MX+gc*CS, MY+gr*CS, Math.ceil(CS), Math.ceil(CS))
+  ctx.strokeRect(mapX(gc), mapY(gr), Math.ceil(CS), Math.ceil(CS))
 
-  const pvx=MX+gc*CS+CS/2, pvy=MY+gr*CS+CS/2, cl=SZ*0.32
+  const pvx=mapX(gc+.5), pvy=mapY(gr+.5), cl=Math.min(SZ*.32,CS*8)
   ctx.strokeStyle=C+'aa'; ctx.lineWidth=1
   ctx.beginPath()
   ctx.moveTo(pvx,pvy); ctx.lineTo(pvx+Math.cos(angle-FOV/2)*cl,pvy+Math.sin(angle-FOV/2)*cl)
@@ -1045,8 +1061,9 @@ function drawMinimap(ctx, gr, gc, angle, cellMap, presenceMap, myWallet, W, H, c
     const isBot = Boolean(p.isBot)
     const dotGX = p.gx ?? ((p.col??0) + 0.5)
     const dotGY = p.gy ?? ((p.row??0) + 0.5)
+    if(!visible(dotGY,dotGX,1)) continue
     const col = colorFromAddress(w)
-    const dx=MX+dotGX*CS, dy=MY+dotGY*CS
+    const dx=mapX(dotGX), dy=mapY(dotGY)
     const heading=Number(p.angle)||0
 
     if (isBot && !isMe) {
@@ -1094,12 +1111,12 @@ function drawMinimap(ctx, gr, gc, angle, cellMap, presenceMap, myWallet, W, H, c
   // Chain node: diamond crosshair — visually distinct landmark (static, not a dot)
   const cnPos   = chainNodePos || { row: CHAIN_NODE_ROW, col: CHAIN_NODE_COL }
   const cnPulse = 0.55 + Math.sin(Date.now() / 600) * 0.45
-  const cnx = MX + (cnPos.col + 0.5) * CS
-  const cny = MY + (cnPos.row + 0.5) * CS
+  const cnx = mapX(cnPos.col + 0.5)
+  const cny = mapY(cnPos.row + 0.5)
   const armLen = CS * 2.8
   const gapR   = CS * 0.85
   // Outer pulsing ring
-  ctx.globalAlpha = cnPulse * 0.28
+  ctx.globalAlpha = visible(cnPos.row,cnPos.col) ? cnPulse * 0.28 : 0
   ctx.strokeStyle = '#ffd700'; ctx.lineWidth = 0.8
   ctx.beginPath(); ctx.arc(cnx, cny, CS * 2.1, 0, Math.PI*2); ctx.stroke()
   // Four crosshair arms with gap
@@ -1124,16 +1141,38 @@ function drawMinimap(ctx, gr, gc, angle, cellMap, presenceMap, myWallet, W, H, c
   for (const [key, cell] of cellMap) {
     if (!cell?.isPortalNode) continue
     const [rr, cc] = key.split(',').map(Number)
-    const px2 = MX + (cc + 0.5) * CS
-    const py2 = MY + (rr + 0.5) * CS
+    if(!visible(rr,cc)) continue
+    const px2 = mapX(cc + 0.5)
+    const py2 = mapY(rr + 0.5)
     const pPulse = 0.60 + Math.sin(Date.now() / 500 + cc * 0.4) * 0.40
     ctx.globalAlpha = Math.max(0.55, pPulse) * 0.9
     ctx.fillStyle = cell.color || C
     ctx.beginPath()
     ctx.arc(px2, py2, Math.max(2, CS * 0.75), 0, Math.PI * 2)
     ctx.fill()
+    if(safeZoom>=2){
+      ctx.font=`${Math.max(9,Math.min(15,CS))}px serif`;ctx.textAlign='center';ctx.textBaseline='middle'
+      ctx.fillStyle='#fff';ctx.fillText(cell.emoji||'◆',px2,py2)
+    }
     ctx.globalAlpha = 1
   }
+
+  // Fixed mining cells keep their original #hex; zoom reveals their code.
+  if(safeZoom>=2){
+    for(const [key,cell] of cellMap){
+      if(cell?.isMarket||cell?.isPortalNode||cell?.isChainNode||!cell?.blockHex) continue
+      const [rr,cc]=key.split(',').map(Number)
+      if(!visible(rr,cc)) continue
+      ctx.font=`bold ${Math.max(6,Math.min(9,CS*.46))}px monospace`
+      ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillStyle='#67e8f9cc'
+      ctx.fillText(cell.blockHex,mapX(cc+.5),mapY(rr+.5))
+    }
+  }
+  ctx.restore()
+
+  ctx.fillStyle='rgba(1,7,14,.88)';ctx.fillRect(MX+3,MY+3,24,12)
+  ctx.fillStyle=C+'cc';ctx.font='bold 8px monospace';ctx.textAlign='left';ctx.textBaseline='top'
+  ctx.fillText(`${safeZoom}×`,MX+7,MY+5)
 }
 
 // ── Facing block HUD (top-right info card) ────────────────────────────────────
@@ -1667,6 +1706,7 @@ export default function MiningChain3DFPV({
   const canvasRef    = useRef(null)
   const containerRef = useRef(null)
   const [, setPointerLocked] = useState(false)
+  const [minimapZoom, setMinimapZoom] = useState(1)
   const keysRef      = useRef({w:false,s:false,a:false,d:false,q:false,e:false,space:false,shift:false})
   const playerRef    = useRef({
     x:((initCol??14)+0.5)*CELL_SIZE,
@@ -1690,6 +1730,11 @@ export default function MiningChain3DFPV({
   const esRef         = useRef(es)
   const onWantNavRef  = useRef(onWantNavigate)
   const dragRef       = useRef(null)
+  const minimapZoomRef = useRef(1)
+  const joystickRef   = useRef({x:0,y:0,pointerId:null})
+  const joystickPadRef = useRef(null)
+  const joystickKnobRef = useRef(null)
+  const cameraVisualRef = useRef({z:0,pitch:0,last:0})
   const animRef       = useRef(null)
   const lastFrameRef  = useRef(0)
   const velocityRef   = useRef({x:0,y:0})
@@ -1736,6 +1781,7 @@ export default function MiningChain3DFPV({
   useEffect(()=>{ presenceRef.current=presenceMap },[presenceMap])
   useEffect(()=>{ myWalletRef.current=myWallet },[myWallet])
   useEffect(()=>{ currencyRef.current=currency },[currency])
+  useEffect(()=>{ minimapZoomRef.current=minimapZoom;renderRef.current?.() },[minimapZoom])
   useEffect(()=>{ presenceKeyRef.current=presenceKey||myWallet },[presenceKey,myWallet])
   useEffect(()=>{ esRef.current=es },[es])
   useEffect(()=>{ onWantNavRef.current=onWantNavigate },[onWantNavigate])
@@ -1791,10 +1837,17 @@ export default function MiningChain3DFPV({
     }
     chainNodePosRef.current = { row: cnRow, col: cnCol }
 
-    // Static obstacles are permanent world structure — always override block data
+    // Interactive/mining cells are immutable landmarks. Obstacles may shape
+    // corridors around them, but can never replace them or block every approach.
+    const reserved = new Set()
+    for(const [key] of cellMap){
+      const [r,c]=key.split(',').map(Number)
+      reserved.add(key)
+      for(const [dr,dc] of [[1,0],[-1,0],[0,1],[0,-1]]) reserved.add(`${r+dr},${c+dc}`)
+    }
     const valid = new Map()
     for (const [key, data] of OBSTACLE_MAP) {
-      valid.set(key, data)
+      if(!reserved.has(key)) valid.set(key, data)
     }
 
     // Dynamic wall segments: sampled on a 4-cell grid, ~22% become wall origins
@@ -1819,7 +1872,7 @@ export default function MiningChain3DFPV({
           if (wr < 2 || wr >= MM3_BLOCK_GRID_ROWS-2 || wc < 2 || wc >= MM3_BLOCK_GRID_COLS-2) break
           const key = `${wr},${wc}`
           // Only fill truly empty positions — never override NFTJI/mined blocks
-          if (!cellMap.has(key) && !valid.has(key)) valid.set(key, wallData)
+          if (!reserved.has(key) && !valid.has(key)) valid.set(key, wallData)
         }
       }
     }
@@ -1912,7 +1965,14 @@ export default function MiningChain3DFPV({
     for(const w of visuals.keys()) if(!rawPresence?.[w]) visuals.delete(w)
     const presence=Object.fromEntries(visuals)
 
-    const {x:px,y:py,angle,pitch=0,z:pz=0} = playerRef.current
+    const {x:px,y:py,angle,pitch:rawPitch=0,z:rawZ=0} = playerRef.current
+    const cameraNow=performance.now(),cameraVisual=cameraVisualRef.current
+    const cameraDt=cameraVisual.last?Math.min(.05,(cameraNow-cameraVisual.last)/1000):1/60
+    cameraVisual.last=cameraNow
+    const cameraBlend=1-Math.exp(-18*cameraDt)
+    cameraVisual.z+=(rawZ-cameraVisual.z)*cameraBlend
+    cameraVisual.pitch+=(rawPitch-cameraVisual.pitch)*cameraBlend
+    const pz=cameraVisual.z,pitch=cameraVisual.pitch
     const viewCenterY = H * HORIZON_RATIO
     const stripW=W>=1600?4:STRIP_W
     const strips=Math.ceil(W/stripW)
@@ -2630,7 +2690,7 @@ export default function MiningChain3DFPV({
       } else pvpGainRef.current = null
     }
 
-    drawMinimap(ctx,gr,gc,angle,cellMap,presence,myIdentity,W,H,chainNodePosRef.current,validObstaclesRef.current)
+    drawMinimap(ctx,gr,gc,angle,cellMap,presence,myIdentity,W,H,chainNodePosRef.current,validObstaclesRef.current,minimapZoomRef.current)
     drawOnlineList(ctx,W,H,presence,myIdentity,pvpStolenRef.current)
     const walletDock = drawWalletDock(
       ctx,W,H,myNftjisRef.current,healthMapRef.current[myIdentity]??100,es,Boolean(myWallet)
@@ -2790,7 +2850,8 @@ export default function MiningChain3DFPV({
       if(k.q){p.angle-=TURN_SPD*dt;needsRender=true}
       if(k.e){p.angle+=TURN_SPD*dt;needsRender=true}
 
-      const fwd=(k.w?1:0)-(k.s?1:0), str=(k.d?1:0)-(k.a?1:0)
+      const joy=joystickRef.current
+      const fwd=(k.w?1:0)-(k.s?1:0)-joy.y, str=(k.d?1:0)-(k.a?1:0)+joy.x
       const inputLen=Math.hypot(fwd,str)||1
       const targetSpeed=k.shift?SPRINT_SPD:MOVE_SPD
       const targetVX=(Math.cos(p.angle)*(fwd/inputLen)+Math.cos(p.angle+Math.PI/2)*(str/inputLen))*targetSpeed
@@ -3079,20 +3140,24 @@ export default function MiningChain3DFPV({
     return ()=>{ cancelAnimationFrame(animRef.current); lastFrameRef.current=0 }
   },[onPositionChange,onFacingChange])
 
-  const dBtn=(key,lbl)=>({
-    onPointerDown:(e)=>{e.preventDefault();keysRef.current[key]=true},
-    onPointerUp:  (e)=>{e.preventDefault();keysRef.current[key]=false},
-    onPointerLeave:()=>{keysRef.current[key]=false},
-    style:{
-      width:58,height:58,background:'rgba(34,211,238,0.10)',
-      border:'1px solid #22d3ee3d',borderRadius:10,color:'#22d3eebb',
-      fontSize:'1.35rem',cursor:'pointer',display:'flex',
-      alignItems:'center',justifyContent:'center',
-      userSelect:'none',fontFamily:'monospace',touchAction:'none',
-      WebkitTapHighlightColor:'transparent',
-    },
-    children:lbl,
-  })
+  const updateJoystick=useCallback((clientX,clientY)=>{
+    const rect=joystickPadRef.current?.getBoundingClientRect()
+    if(!rect)return
+    const radius=rect.width*.34
+    let dx=clientX-(rect.left+rect.width/2),dy=clientY-(rect.top+rect.height/2)
+    const dist=Math.hypot(dx,dy)
+    if(dist>radius){dx=dx/dist*radius;dy=dy/dist*radius}
+    const dead=.12
+    let x=dx/radius,y=dy/radius
+    if(Math.hypot(x,y)<dead){x=0;y=0}
+    joystickRef.current.x=x;joystickRef.current.y=y
+    if(joystickKnobRef.current)joystickKnobRef.current.style.transform=`translate(${dx}px,${dy}px)`
+  },[])
+  const stopJoystick=useCallback((e)=>{
+    if(e&&joystickRef.current.pointerId!==null&&e.pointerId!==joystickRef.current.pointerId)return
+    joystickRef.current={x:0,y:0,pointerId:null}
+    if(joystickKnobRef.current)joystickKnobRef.current.style.transform='translate(0px,0px)'
+  },[])
 
   return (
     <div ref={containerRef} style={{width:'100%',height:'100%',position:'relative',background:'#020610'}}>
@@ -3103,35 +3168,44 @@ export default function MiningChain3DFPV({
         onPointerUp={handlePointerUp}
         onPointerCancel={handlePointerUp}
       />
-      {/* Mobile D-pad */}
-      <div className="mm3-touch-controls" style={{
+      {/* Mobile analog movement pad */}
+      <div ref={joystickPadRef} className="mm3-touch-controls" style={{
         position:'absolute',
-        bottom:'calc(56px + env(safe-area-inset-bottom, 0px))',
+        bottom:'calc(112px + env(safe-area-inset-bottom, 0px))',
         left:12,
-        display:'flex',alignItems:'center',
-        pointerEvents:'auto',userSelect:'none',
-      }}>
-        <div style={{display:'flex',flexDirection:'column',gap:4}}>
-          <div style={{display:'flex',justifyContent:'center'}}><button {...dBtn('w','▲')} /></div>
-          <div style={{display:'flex',gap:4}}>
-            <button {...dBtn('a','◀')} />
-            <button {...dBtn('s','▼')} />
-            <button {...dBtn('d','▶')} />
-          </div>
-        </div>
+        width:112,height:112,borderRadius:56,display:'flex',alignItems:'center',justifyContent:'center',
+        background:'radial-gradient(circle,rgba(34,211,238,.11),rgba(2,8,18,.62))',
+        border:'1px solid rgba(34,211,238,.25)',boxShadow:'inset 0 0 20px rgba(34,211,238,.08)',
+        pointerEvents:'auto',userSelect:'none',touchAction:'none',WebkitTapHighlightColor:'transparent',
+      }}
+        onPointerDown={(e)=>{e.preventDefault();e.currentTarget.setPointerCapture(e.pointerId);joystickRef.current.pointerId=e.pointerId;updateJoystick(e.clientX,e.clientY)}}
+        onPointerMove={(e)=>{if(joystickRef.current.pointerId===e.pointerId)updateJoystick(e.clientX,e.clientY)}}
+        onPointerUp={stopJoystick} onPointerCancel={stopJoystick}
+      >
+        <div ref={joystickKnobRef} style={{
+          width:46,height:46,borderRadius:23,background:'rgba(34,211,238,.22)',
+          border:'1px solid rgba(103,232,249,.55)',boxShadow:'0 0 16px rgba(34,211,238,.18)',
+          pointerEvents:'none',willChange:'transform',
+        }}/>
+        <span style={{
+          position:'absolute',bottom:9,left:0,right:0,textAlign:'center',
+          color:'#67e8f977',font:'bold 8px monospace',letterSpacing:'0.12em',pointerEvents:'none',
+        }}>{es?'MOVER':'MOVE'}</span>
       </div>
-      <p className="mm3-touch-controls" style={{
-        position:'absolute',
-        bottom:'calc(46px + env(safe-area-inset-bottom, 0px))',
-        left:12,
-        margin:0,color:'#22d3ee55',fontSize:'0.68rem',
-        fontFamily:'monospace',letterSpacing:'0.06em',pointerEvents:'none',
-      }}>{es?'DRAG·ROTAR':'DRAG·LOOK'}</p>
+
+      {/* Minimap zoom controls */}
+      <div style={{position:'absolute',right:9,top:12,display:'flex',flexDirection:'column',gap:3,pointerEvents:'auto'}}>
+        {[1,2,4].map(z=><button key={z} onClick={()=>setMinimapZoom(z)} style={{
+          width:25,height:20,padding:0,border:`1px solid ${minimapZoom===z?C:'#22d3ee33'}`,
+          background:minimapZoom===z?'rgba(34,211,238,.20)':'rgba(1,7,14,.82)',
+          color:minimapZoom===z?'#a5f3fc':'#527080',font:'bold 8px monospace',cursor:'pointer',
+        }}>{z}×</button>)}
+      </div>
 
       {/* Mobile jump button */}
       <div className="mm3-touch-controls" style={{
         position:'absolute',
-        bottom:'calc(56px + env(safe-area-inset-bottom, 0px))',
+        bottom:'calc(124px + env(safe-area-inset-bottom, 0px))',
         right:12,
         pointerEvents:'auto',
       }}>
@@ -3144,18 +3218,14 @@ export default function MiningChain3DFPV({
           onPointerUp={(e)=>e.preventDefault()}
           onPointerLeave={(e)=>e.preventDefault()}
           style={{
-            width:66,height:66,background:'rgba(34,211,238,0.12)',
-            border:'1px solid #22d3ee44',borderRadius:33,color:'#22d3eedd',
-            fontSize:'1.6rem',cursor:'pointer',display:'flex',
+            width:72,height:72,background:'rgba(34,211,238,0.12)',
+            border:'1px solid #22d3ee44',borderRadius:36,color:'#22d3eedd',
+            fontSize:'1.5rem',cursor:'pointer',display:'flex',flexDirection:'column',gap:1,
             alignItems:'center',justifyContent:'center',
             userSelect:'none',fontFamily:'monospace',touchAction:'none',
             WebkitTapHighlightColor:'transparent',
           }}
-        >↑</button>
-        <p style={{
-          margin:'4px 0 0',color:'#22d3ee55',fontSize:'0.68rem',textAlign:'center',
-          fontFamily:'monospace',letterSpacing:'0.06em',pointerEvents:'none',
-        }}>{es?'SALTAR':'JUMP'}</p>
+        ><span aria-hidden="true">↑</span><span style={{fontSize:8,fontWeight:700,letterSpacing:'0.1em'}}>{es?'SALTAR':'JUMP'}</span></button>
       </div>
     </div>
   )
