@@ -1690,7 +1690,11 @@ function drawThirdPersonPlayer(ctx,W,H,color,swingT,walkDist,dockTop){
   const mobile=W<640,scale=mobile ? .76 : Math.max(.86,Math.min(1.1,H/590))
   const bodyW=66*scale,bodyH=76*scale,headW=43*scale,headH=28*scale
   const bob=Math.sin(walkDist*.18)*2.2*scale
-  const cx=W/2,bottomY=(dockTop??(H-18))+bob,bodyTop=bottomY-bodyH,headTop=bodyTop-headH+4*scale
+  // Keep the camera reticle centered while composing the local wallet slightly
+  // left. At the strike apex the drill-pick crosses the reticle instead of the
+  // avatar covering both the sight and the impact point.
+  const cx=W/2-(mobile?12:18)*scale
+  const bottomY=(dockTop??(H-18))+bob,bodyTop=bottomY-bodyH,headTop=bodyTop-headH+4*scale
   const [r,g,b]=hexToRgb(color||C)
   ctx.save();ctx.globalAlpha=.98
   ctx.fillStyle='rgba(0,0,0,.42)';ctx.beginPath();ctx.ellipse(cx,bottomY+4,bodyW*.62,7*scale,0,0,Math.PI*2);ctx.fill()
