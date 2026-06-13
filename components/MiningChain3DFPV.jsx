@@ -43,6 +43,7 @@ const BRIDGE_TOP = 1.82      // unreachable from the floor without stairs
 const STAIR_HEIGHTS = [0.58, 1.16, 1.74]
 const MAX_STAIRCASES = 22
 const MAX_JUMPS = 1
+const ORGANIC_SHAPES = new Set(['ramp','sphere','tree'])
 
 // ── Decorative obstacles: solid walls, no doorways, not mineable ──────────────
 // Five visual types: monolith (violet), pylon (teal), ruin (rust), steel wall, bunker
@@ -91,6 +92,21 @@ function obstacleBottom(data) {
 
 function blocksGround(data) {
   return obstacleBottom(data) < PLAYER_BODY_H - .04
+}
+
+function isOrganicShape(data) {
+  return ORGANIC_SHAPES.has(data?.shape)
+}
+
+function rampHeightAt(data,gx,gy,row,col) {
+  const fx=Math.max(0,Math.min(1,gx-col)),fy=Math.max(0,Math.min(1,gy-row))
+  const progress=data?.direction==='west'?1-fx:data?.direction==='south'?fy:data?.direction==='north'?1-fy:fx
+  return obstacleBottom(data)+Math.max(0,obstacleTop(data)-obstacleBottom(data))*progress
+}
+
+function circleTouchesRoundObstacle(gx,gy,row,col,obstacle,playerRadius=PLAYER_R) {
+  const radius=Number(obstacle?.radius)||(obstacle?.shape==='tree' ? .25 : .34)
+  return Math.hypot(gx-(col+.5),gy-(row+.5))<radius+playerRadius
 }
 
 const OBSTACLE_MAP = new Map([
@@ -1210,6 +1226,52 @@ function addDenseMaze(valid,reserved,cellMap){
   })
 }
 
+function addOrganicObstacles(valid,reserved,cellMap){
+  const free=(row,col,clearance=0)=>{
+    if(row<2||row>=ROWS-2||col<2||col>=COLS-2) return false
+    for(let dr=-clearance;dr<=clearance;dr++) for(let dc=-clearance;dc<=clearance;dc++){
+      const key=`${row+dr},${col+dc}`
+      if(reserved.has(key)||cellMap.has(key)||valid.has(key)) return false
+    }
+    return true
+  }
+  const candidates=[]
+  for(let row=4;row<ROWS-4;row+=3) for(let col=4;col<COLS-4;col+=3){
+    const score=Math.abs((row*73+col*41+row*col*11)%997)
+    candidates.push({row,col,score})
+  }
+  candidates.sort((a,b)=>a.score-b.score)
+  const totals={ramp:0,sphere:0,tree:0}
+  const limits={ramp:12,sphere:14,tree:12}
+  for(const {row,col,score} of candidates){
+    const shape=score%5<2?'ramp':score%5===2?'sphere':'tree'
+    if(totals[shape]>=limits[shape]||!free(row,col)) continue
+    const key=`${row},${col}`
+    if(shape==='ramp'){
+      const direction=['east','south','west','north'][score%4]
+      valid.set(key,chainObstacle(key,{
+        shape,direction,height:.82,bottom:0,radius:.46,
+        base:[58,92,112],glow:[103,232,249],kind:'hash',label:'DATA RAMP',
+        isOrganic:true,
+      }))
+    }else if(shape==='sphere'){
+      valid.set(key,chainObstacle(key,{
+        shape,height:.76,radius:.34,
+        base:[78,44,112],glow:[217,70,239],kind:'consensus',label:'CONSENSUS ORB',
+        isOrganic:true,
+      }))
+    }else{
+      valid.set(key,chainObstacle(key,{
+        shape,height:2.05,radius:.25,
+        base:[42,88,70],glow:[45,212,191],kind:'data',label:'HASH TREE',
+        isOrganic:true,
+      }))
+    }
+    totals[shape]++
+    if(Object.keys(totals).every(name=>totals[name]>=limits[name])) break
+  }
+}
+
 function ensureInteractiveConnectivity(valid,cellMap){
   const keyOf=(row,col)=>`${row},${col}`
   const parse=key=>key.split(',').map(Number)
@@ -1313,14 +1375,14 @@ function circleTouchesCell(gx, gy, row, col, radius = PLAYER_R) {
 function solidTopAt(row, col, cellMap, obsSet) {
   const key = `${row},${col}`
   const obstacle = obsSet?.get?.(key)
-  if (obstacle) return obstacleTop(obstacle)
+  if (obstacle) return isOrganicShape(obstacle) ? 0 : obstacleTop(obstacle)
   return cellMap?.has(key) ? blockTop(cellMap.get(key),row,col) : 0
 }
 
 function solidSpanAt(row, col, cellMap, obsSet) {
   const key=`${row},${col}`
   const obstacle=obsSet?.get?.(key)
-  if(obstacle) return {bottom:obstacleBottom(obstacle),top:obstacleTop(obstacle)}
+  if(obstacle&&!isOrganicShape(obstacle)) return {bottom:obstacleBottom(obstacle),top:obstacleTop(obstacle)}
   if(cellMap?.has(key)) return {bottom:0,top:blockTop(cellMap.get(key),row,col)}
   return null
 }
@@ -1334,6 +1396,19 @@ function hitsSolidWall(gx, gy, cellMap, obsSet, playerZ = 0) {
   const maxCol = Math.floor(gx + PLAYER_R)
   for (let row = minRow; row <= maxRow; row++) {
     for (let col = minCol; col <= maxCol; col++) {
+      const obstacle=obsSet?.get?.(`${row},${col}`)
+      if(obstacle?.shape==='sphere'||obstacle?.shape==='tree'){
+        const top=obstacleTop(obstacle)
+        if(playerZ<top-.04&&circleTouchesRoundObstacle(gx,gy,row,col,obstacle)) return true
+        continue
+      }
+      if(obstacle?.shape==='ramp'){
+        if(circleTouchesCell(gx,gy,row,col)){
+          const localTop=rampHeightAt(obstacle,gx,gy,row,col)
+          if(localTop>playerZ+.24) return true
+        }
+        continue
+      }
       const span=solidSpanAt(row,col,cellMap,obsSet)
       const overlapsHeight=span&&playerZ<span.top-.04&&playerZ+PLAYER_BODY_H>span.bottom+.04
       if(overlapsHeight&&circleTouchesCell(gx,gy,row,col)) return true
@@ -1347,6 +1422,12 @@ function supportHeightAt(gx, gy, playerZ, cellMap, obsSet) {
   const radius = PLAYER_R * 0.82
   for (let row = Math.floor(gy - radius); row <= Math.floor(gy + radius); row++) {
     for (let col = Math.floor(gx - radius); col <= Math.floor(gx + radius); col++) {
+      const obstacle=obsSet?.get?.(`${row},${col}`)
+      if(obstacle?.shape==='ramp'&&circleTouchesCell(gx,gy,row,col,radius)){
+        const localTop=rampHeightAt(obstacle,gx,gy,row,col)
+        if(playerZ>=localTop-.24) height=Math.max(height,localTop)
+        continue
+      }
       const top = solidTopAt(row, col, cellMap, obsSet)
       if (top && playerZ >= top - 0.04 && circleTouchesCell(gx, gy, row, col, radius)) {
         height = Math.max(height, top)
@@ -1456,6 +1537,17 @@ function castRay(wx, wy, angle, cellMap, obsSet, maxDist = VISUAL_RANGE) {
     const key = `${my},${mx}`
     // Decorative obstacle: solid wall, no doorway — always a hit
     const obsData = obsSet?.get?.(key) || null
+    if(obsData?.shape==='ramp') continue
+    if(obsData?.shape==='sphere'||obsData?.shape==='tree'){
+      const cx=mx+.5,cy=my+.5,radius=Number(obsData.radius)||.3
+      const along=(cx-px)*dx+(cy-py)*dy
+      const lateralSq=(cx-px)*(cx-px)+(cy-py)*(cy-py)-along*along
+      if(along>0&&lateralSq<radius*radius){
+        const hitDist=Math.max(.05,along-Math.sqrt(radius*radius-lateralSq))
+        return {perpDist:hitDist,cell:{isObstacle:true,...obsData},side,mx,my,hit:true}
+      }
+      continue
+    }
     if (obsData) return {perpDist, cell:{isObstacle:true,...obsData}, side, mx, my, hit:true}
     const cell = cellMap.get(key) || null
     if (!cell) continue  // Empty corridor: ray passes through
@@ -1487,6 +1579,7 @@ function castRayLayers(wx, wy, angle, cellMap, obsSet, maxDist = VISUAL_RANGE) {
     const key=`${my},${mx}`
     const obstacle=obsSet?.get?.(key)||null
     if(obstacle){
+      if(isOrganicShape(obstacle)) continue
       const cell={isObstacle:true,...obstacle}
       const top=obstacleTop(cell)
       if(top>highestNearTop+.01){hits.push({perpDist,cell,side,mx,my,hit:true});highestNearTop=top}
@@ -1587,6 +1680,12 @@ function drawMinimap(ctx, gr, gc, angle, cellMap, presenceMap, myWallet, W, H, c
     const seen = inCameraView(r+.5,c+.5)
     if (obs?.isRouteStair) {
       ctx.fillStyle='rgba(250,204,21,.98)'
+    } else if(obs?.shape==='ramp'){
+      ctx.fillStyle='rgba(103,232,249,.82)'
+    } else if(obs?.shape==='sphere'){
+      ctx.fillStyle='rgba(217,70,239,.82)'
+    } else if(obs?.shape==='tree'){
+      ctx.fillStyle='rgba(45,212,191,.82)'
     } else if (obs?.isRoute) {
       ctx.fillStyle = obs.routeIndex ? 'rgba(45,212,191,.96)' : 'rgba(34,211,238,.96)'
     } else if (obs?.isRouteWall) {
@@ -1616,6 +1715,16 @@ function drawMinimap(ctx, gr, gc, angle, cellMap, presenceMap, myWallet, W, H, c
     } else if(obs?.isRouteWall){
       ctx.strokeStyle='rgba(232,121,249,.72)';ctx.lineWidth=.7
       ctx.strokeRect(mapX(c)+.5,mapY(r)+.5,Math.max(1,CS-1),Math.max(1,CS-1))
+    } else if(obs?.shape==='sphere'){
+      ctx.fillStyle='rgba(250,232,255,.92)';ctx.beginPath()
+      ctx.arc(mapX(c+.5),mapY(r+.5),Math.max(1.5,CS*.28),0,Math.PI*2);ctx.fill()
+    } else if(obs?.shape==='tree'){
+      ctx.fillStyle='rgba(153,246,228,.96)';ctx.beginPath()
+      ctx.arc(mapX(c+.5),mapY(r+.5),Math.max(1.5,CS*.30),0,Math.PI*2);ctx.fill()
+      ctx.fillStyle='rgba(120,53,15,.95)';ctx.fillRect(mapX(c+.5)-.5,mapY(r+.5),1,Math.max(1,CS*.28))
+    } else if(obs?.shape==='ramp'){
+      ctx.fillStyle='rgba(224,255,255,.94)';ctx.beginPath()
+      ctx.moveTo(mapX(c+.22),mapY(r+.78));ctx.lineTo(mapX(c+.78),mapY(r+.5));ctx.lineTo(mapX(c+.22),mapY(r+.22));ctx.closePath();ctx.fill()
     }
     const isMyBlock = seen && cell?.owner && myWallet && cell.owner.toLowerCase() === myWallet.toLowerCase()
     if (isMyBlock) {
@@ -2663,6 +2772,7 @@ export default function MiningChain3DFPV({
     }
 
     addDenseMaze(valid,reserved,cellMap)
+    addOrganicObstacles(valid,reserved,cellMap)
 
     // Build a small number of deterministic staircases beside isolated tall
     // obstacles. Each cube is a real collision/support surface, so players can
@@ -2672,7 +2782,7 @@ export default function MiningChain3DFPV({
     const tallObstacles = [...valid.entries()].sort(([a],[b]) => a.localeCompare(b))
     for (const [anchorKey, anchor] of tallObstacles) {
       if (staircases >= MAX_STAIRCASES) break
-      if (anchor?.isStair || anchor?.isStructure) continue
+      if (anchor?.isStair || anchor?.isStructure || anchor?.isOrganic) continue
       const [anchorRow, anchorCol] = anchorKey.split(',').map(Number)
       const directionOffset = Math.abs(anchorRow * 19 + anchorCol * 23) % directions.length
       let placed = false
@@ -2949,7 +3059,12 @@ export default function MiningChain3DFPV({
     // cheaper than per-pixel floor casting and remains stable during motion.
     const solidHeightAt=(gx,gy)=>{
       const row=Math.floor(gy),col=Math.floor(gx),key=`${row},${col}`
-      if(validObstaclesRef.current.has(key)) return obstacleTop(validObstaclesRef.current.get(key))
+      if(validObstaclesRef.current.has(key)){
+        const obstacle=validObstaclesRef.current.get(key)
+        if(obstacle?.shape==='ramp') return rampHeightAt(obstacle,gx,gy,row,col)
+        if(isOrganicShape(obstacle)) return 0
+        return obstacleTop(obstacle)
+      }
       if(cellMap.has(key)) return blockTop(cellMap.get(key),row,col)
       return 0
     }
@@ -2980,6 +3095,7 @@ export default function MiningChain3DFPV({
       if(Math.abs(cameraCell.lateral)>Math.max(1.7,cameraCell.depth*tanHalfFov+1.5)) continue
       const key=`${r},${c}`,obs=validObstaclesRef.current.get(key),cell=cellMap.get(key)
       if(!obs&&!cell) continue
+      if(isOrganicShape(obs)) continue
       const topHeight=obs?obstacleTop(obs):blockTop(cell,r,c)
       const bottomHeight=obs?obstacleBottom(obs):0
       const isTop=cameraZ>topHeight+.015
@@ -3180,6 +3296,88 @@ export default function MiningChain3DFPV({
         ctx.fillStyle='rgba(0,0,0,0.10)'
         for (let sy=wTop;sy<wTop+wallH;sy+=5) ctx.fillRect(col*stripW,sy,stripW*3,1)
       }
+      }
+    }
+
+    // Curved and sloped props are projected separately from the cell raycaster.
+    // This keeps their silhouette honest and avoids invisible cube collision.
+    const organic=[]
+    for(let r=viewMinRow;r<=viewMaxRow;r++) for(let c=viewMinCol;c<=viewMaxCol;c++){
+      const obstacle=validObstaclesRef.current.get(`${r},${c}`)
+      if(!isOrganicShape(obstacle)) continue
+      const cameraCell=horizontalCameraPoint(c+.5,r+.5)
+      if(cameraCell.depth<=.12||cameraCell.dist>VISUAL_RANGE) continue
+      if(Math.abs(cameraCell.lateral)>cameraCell.depth*tanHalfFov+1.2) continue
+      organic.push({r,c,obstacle,...cameraCell})
+    }
+    organic.sort((a,b)=>b.depth-a.depth)
+    const organicVisible=(screenX,depth)=>{
+      const zCol=Math.floor(screenX/stripW)
+      return zCol>=0&&zCol<strips&&depth<zBuffer[zCol]+.12
+    }
+    const fillProjectedFace=(vertices,fill,stroke)=>{
+      const clipped=clipCameraPolygon(vertices.map(vertex=>cameraVertex(...vertex)))
+      if(clipped.length<3) return
+      const points=clipped.map(screenVertex)
+      ctx.fillStyle=fill;ctx.strokeStyle=stroke;ctx.lineWidth=1
+      ctx.beginPath();ctx.moveTo(points[0].x,points[0].y)
+      for(let index=1;index<points.length;index++) ctx.lineTo(points[index].x,points[index].y)
+      ctx.closePath();ctx.fill();ctx.stroke()
+    }
+    for(const item of organic){
+      const {r,c,obstacle,depth}=item
+      const centerVertex=cameraVertex(c+.5,r+.5,obstacle.shape==='tree'?1.05:obstacleTop(obstacle)*.5)
+      if(centerVertex.depth<=.16) continue
+      const center=screenVertex(centerVertex)
+      if(!organicVisible(center.x,depth)) continue
+      const fade=Math.max(.42,1-depth*.035)
+      const [br,bg,bb]=obstacle.base
+      const [lr,lg,lb]=obstacle.glow||[34,211,238]
+      if(obstacle.shape==='ramp'){
+        const heights={
+          nw:rampHeightAt(obstacle,c,r,r,c),ne:rampHeightAt(obstacle,c+1,r,r,c),
+          se:rampHeightAt(obstacle,c+1,r+1,r,c),sw:rampHeightAt(obstacle,c,r+1,r,c),
+        }
+        const top=[[c,r,heights.nw],[c+1,r,heights.ne],[c+1,r+1,heights.se],[c,r+1,heights.sw]]
+        const faces=[
+          {v:[[c,r,0],[c+1,r,0],[c+1,r,heights.ne],[c,r,heights.nw]],m:.68},
+          {v:[[c+1,r,0],[c+1,r+1,0],[c+1,r+1,heights.se],[c+1,r,heights.ne]],m:.78},
+          {v:[[c+1,r+1,0],[c,r+1,0],[c,r+1,heights.sw],[c+1,r+1,heights.se]],m:.60},
+          {v:[[c,r+1,0],[c,r,0],[c,r,heights.nw],[c,r+1,heights.sw]],m:.72},
+        ]
+        faces.forEach(face=>fillProjectedFace(face.v,`rgba(${Math.round(br*face.m*fade)},${Math.round(bg*face.m*fade)},${Math.round(bb*face.m*fade)},.98)`,`rgba(${lr},${lg},${lb},.34)`))
+        fillProjectedFace(top,`rgba(${Math.round(br*1.28*fade)},${Math.round(bg*1.28*fade)},${Math.round(bb*1.28*fade)},.99)`,`rgba(${lr},${lg},${lb},.82)`)
+        const low=obstacle.direction==='west'?[c+1,r+.5,.02]:obstacle.direction==='north'?[c+.5,r+1,.02]:obstacle.direction==='south'?[c+.5,r,.02]:[c,r+.5,.02]
+        const high=obstacle.direction==='west'?[c,r+.5,obstacleTop(obstacle)]:obstacle.direction==='north'?[c+.5,r,obstacleTop(obstacle)]:obstacle.direction==='south'?[c+.5,r+1,obstacleTop(obstacle)]:[c+1,r+.5,obstacleTop(obstacle)]
+        const stripe=projectSegment(low,high)
+        if(stripe){ctx.strokeStyle=`rgba(${lr},${lg},${lb},.72)`;ctx.beginPath();ctx.moveTo(stripe[0].x,stripe[0].y);ctx.lineTo(stripe[1].x,stripe[1].y);ctx.stroke()}
+      }else if(obstacle.shape==='sphere'){
+        const radius=Math.max(3,projectionScale*(obstacle.radius||.34)/centerVertex.depth)
+        const groundY=projectY(0,depth)
+        ctx.fillStyle='rgba(0,3,12,.34)';ctx.beginPath();ctx.ellipse(center.x,groundY,radius*.88,radius*.22,0,0,Math.PI*2);ctx.fill()
+        const gradient=ctx.createRadialGradient(center.x-radius*.30,center.y-radius*.34,radius*.05,center.x,center.y,radius)
+        gradient.addColorStop(0,`rgba(${Math.min(255,lr+70)},${Math.min(255,lg+55)},${Math.min(255,lb+35)},1)`)
+        gradient.addColorStop(.45,`rgba(${lr},${lg},${lb},.98)`)
+        gradient.addColorStop(1,`rgba(${Math.round(br*.38)},${Math.round(bg*.38)},${Math.round(bb*.38)},1)`)
+        ctx.fillStyle=gradient;ctx.strokeStyle=`rgba(${lr},${lg},${lb},.92)`;ctx.lineWidth=Math.max(1,radius*.045)
+        ctx.beginPath();ctx.arc(center.x,center.y,radius,0,Math.PI*2);ctx.fill();ctx.stroke()
+        ctx.strokeStyle='rgba(255,255,255,.25)';ctx.lineWidth=1;ctx.beginPath();ctx.arc(center.x,center.y,radius*.68,-2.45,-.55);ctx.stroke()
+      }else{
+        const groundY=projectY(0,depth)
+        const trunkTop=screenVertex(cameraVertex(c+.5,r+.5,.92))
+        const trunkW=Math.max(3,projectionScale*.17/centerVertex.depth)
+        ctx.fillStyle='rgba(0,3,12,.32)';ctx.beginPath();ctx.ellipse(center.x,groundY,trunkW*1.8,Math.max(2,trunkW*.42),0,0,Math.PI*2);ctx.fill()
+        ctx.fillStyle=`rgb(${Math.round(92*fade)},${Math.round(58*fade)},${Math.round(35*fade)})`
+        ctx.strokeStyle='rgba(250,204,21,.42)';ctx.lineWidth=1
+        ctx.beginPath();ctx.moveTo(center.x-trunkW,groundY);ctx.lineTo(center.x-trunkW*.62,trunkTop.y);ctx.lineTo(center.x+trunkW*.62,trunkTop.y);ctx.lineTo(center.x+trunkW,groundY);ctx.closePath();ctx.fill();ctx.stroke()
+        const canopyRadius=Math.max(6,projectionScale*.48/centerVertex.depth)
+        const canopyY=screenVertex(cameraVertex(c+.5,r+.5,1.38)).y
+        for(const [ox,oy,scale] of [[0,-.34,.78],[-.48,.08,.68],[.48,.08,.68],[0,.27,.82]]){
+          ctx.fillStyle=`rgba(${Math.round(br*(1+oy*.25)*fade)},${Math.round(bg*1.24*fade)},${Math.round(bb*fade)},.98)`
+          ctx.strokeStyle=`rgba(${lr},${lg},${lb},.68)`
+          ctx.beginPath();ctx.arc(center.x+canopyRadius*ox,canopyY+canopyRadius*oy,canopyRadius*scale,0,Math.PI*2);ctx.fill();ctx.stroke()
+        }
+        ctx.fillStyle=`rgba(${lr},${lg},${lb},.82)`;ctx.fillRect(center.x-1,canopyY-canopyRadius*.95,2,canopyRadius*1.7)
       }
     }
 
@@ -3903,7 +4101,10 @@ export default function MiningChain3DFPV({
           cellMapRef.current,
           validObstaclesRef.current,
         )
-        const floorZ = supportHeight&&p.z>=supportHeight ? supportHeight : 0
+        const floorZ = supportHeight&&p.z>=supportHeight-.24 ? supportHeight : 0
+        if(floorZ>p.z&&floorZ-p.z<=.24&&p.vz<=0){
+          p.z=floorZ;p.vz=0;p.jumps=0;needsRender=true
+        }
         if(p.z > floorZ || p.vz > 0){
           p.vz -= GRAVITY_A*dt
           let nz = p.z + p.vz*dt
