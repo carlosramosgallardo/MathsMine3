@@ -240,6 +240,13 @@ export default function MiningChain3D() {
         const pos = marketPositions.get(block.blockHex) || placeDistributedBlock(block.blockHex)
         if (pos) map.set(`${pos.row},${pos.col}`, block)
       }
+      // All unclaimed mining blocks — visible as mineable walls even without an owner
+      for (const [blockHex, pos] of VISUAL_BLOCK_POSITIONS) {
+        const key = `${pos.row},${pos.col}`
+        if (!map.has(key)) {
+          map.set(key, { blockHex, owner: null, isMined: false, isMarket: false, color: null })
+        }
+      }
       // Chain Node: fixed special cell at grid center, always present
       map.set(`${CHAIN_NODE_ROW},${CHAIN_NODE_COL}`, {
         isChainNode: true,

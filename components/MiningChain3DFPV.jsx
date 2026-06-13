@@ -1044,8 +1044,10 @@ function drawMinimap(ctx, gr, gc, angle, cellMap, presenceMap, myWallet, W, H, c
       ctx.fillStyle = cell.owner ? '#4ade8044' : '#fb923c55'
     } else if (cell?.isChainNode) {
       ctx.fillStyle = '#ffd70033'
+    } else if (cell && !cell.isPortalNode) {
+      ctx.fillStyle = '#0e1e2e'  // unclaimed mining block: dim blue, distinguishable from void
     } else {
-      ctx.fillStyle = '#050810'  // open corridor: very dark
+      ctx.fillStyle = '#050810'  // open corridor / void
     }
     ctx.fillRect(mapX(c), mapY(r), Math.ceil(CS), Math.ceil(CS))
     const isMyBlock = cell?.owner && myWallet && cell.owner.toLowerCase() === myWallet.toLowerCase()
@@ -3116,11 +3118,6 @@ export default function MiningChain3DFPV({
                 actionUrlRef.current=null; mineTypeRef.current='empty'
               }
             }
-          } else if (fmx >= 0 && fmy >= 0 && fmx < MM3_BLOCK_GRID_COLS && fmy < MM3_BLOCK_GRID_ROWS) {
-            // Unclaimed regular block (not in cellMap = never claimed, inner grid only)
-            const hex = gridToBlockHex(fmy, fmx)
-            actionUrlRef.current = `/relaying?command=${encodeURIComponent(`/mine block ${hex}`)}`
-            mineTypeRef.current = 'mine'
           } else {
             actionUrlRef.current=null; mineTypeRef.current='empty'
           }
