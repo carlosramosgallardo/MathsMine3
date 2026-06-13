@@ -29,7 +29,7 @@ const SWING_DUR     = 340    // ms per pickaxe swing
 const HITS_NEEDED   = 5      // swings to complete mining action
 const INTERACT_DIST = 2.0    // grid cells — max distance for block interaction
 const VISUAL_RANGE  = 18     // far plane in cells; physics still uses the full map
-const TOP_RANGE     = 9      // horizontal faces become noisy before vertical silhouettes do
+const TOP_RANGE     = 14     // keep nearby elevated structures visually complete
 const FLOOR_GRID_RANGE = 12  // distant grid lines merge into unstable horizon bands
 const RADAR_RANGE   = 18     // square local map using the same camera frustum
 const CHAIN_NODE_ROW = 4     // fallback; runtime position comes from cellMap
@@ -1145,6 +1145,43 @@ function castRay(wx, wy, angle, cellMap, obsSet, maxDist = VISUAL_RANGE) {
     return {perpDist, cell, side, mx, my, hit:true}
   }
   return {perpDist:maxDist, cell:null, side:0, mx:-1, my:-1, hit:false}
+}
+
+// Returns several solid faces along one ray. Rendering these back-to-front
+// lets a tall nearby structure remain visible above a shorter foreground one.
+function castRayLayers(wx, wy, angle, cellMap, obsSet, maxDist = VISUAL_RANGE) {
+  const px = wx / CELL_SIZE, py = wy / CELL_SIZE
+  const dx = Math.cos(angle), dy = Math.sin(angle)
+  let mx = Math.floor(px), my = Math.floor(py)
+  const sx = dx>0?1:-1, sy = dy>0?1:-1
+  const ddx = Math.abs(dx)<1e-7?1e30:Math.abs(1/dx)
+  const ddy = Math.abs(dy)<1e-7?1e30:Math.abs(1/dy)
+  let sdx = (dx<0?px-mx:mx+1-px)*ddx
+  let sdy = (dy<0?py-my:my+1-py)*ddy
+  let side=0, perpDist=0
+  const hits=[]
+  let highestNearTop=0
+
+  for(let step=0;step<Math.ceil(maxDist*2.2);step++){
+    if(sdx<sdy){sdx+=ddx;mx+=sx;side=0;perpDist=sdx-ddx}
+    else{sdy+=ddy;my+=sy;side=1;perpDist=sdy-ddy}
+    perpDist=Math.max(.05,perpDist)
+    if(perpDist>maxDist||mx<0||mx>=COLS||my<0||my>=ROWS) break
+    const key=`${my},${mx}`
+    const obstacle=obsSet?.get?.(key)||null
+    if(obstacle){
+      const cell={isObstacle:true,...obstacle}
+      const top=obstacleTop(cell)
+      if(top>highestNearTop+.01){hits.push({perpDist,cell,side,mx,my,hit:true});highestNearTop=top}
+      continue
+    }
+    const cell=cellMap.get(key)||null
+    if(cell&&BLOCK_TOP>highestNearTop+.01){
+      hits.push({perpDist,cell,side,mx,my,hit:true})
+      highestNearTop=BLOCK_TOP
+    }
+  }
+  return hits
 }
 
 // ── Minimap ───────────────────────────────────────────────────────────────────
@@ -2478,10 +2515,12 @@ export default function MiningChain3DFPV({
     // ── Wall strips + build zBuffer ───────────────────────────────────────────
     for (let col=0; col<strips; col++){
       const ra = angle - FOV/2 + (col+0.5)*FOV/strips
-      const {perpDist,cell,side,mx:hitMx,my:hitMy,hit} = castRay(px,py,ra,cellMap,validObstaclesRef.current,VISUAL_RANGE)
-      const dist  = perpDist*Math.cos(ra-angle)
-      zBuffer[col] = dist
-      if(!hit||!cell) continue
+      const layers=castRayLayers(px,py,ra,cellMap,validObstaclesRef.current,VISUAL_RANGE)
+      const nearest=layers[0]
+      zBuffer[col]=nearest?nearest.perpDist*Math.cos(ra-angle):VISUAL_RANGE
+      for(let layerIndex=layers.length-1;layerIndex>=0;layerIndex--){
+      const {perpDist,cell,side,mx:hitMx,my:hitMy}=layers[layerIndex]
+      const dist=perpDist*Math.cos(ra-angle)
       const wallTop = cell?.isObstacle ? obstacleTop(cell) : BLOCK_TOP
       const projectedTop = projectY(wallTop, dist)
       const projectedBottom = projectY(0, dist)
@@ -2590,6 +2629,7 @@ export default function MiningChain3DFPV({
       if (!cell?.isObstacle&&col%3===0) {
         ctx.fillStyle='rgba(0,0,0,0.10)'
         for (let sy=wTop;sy<wTop+wallH;sy+=5) ctx.fillRect(col*stripW,sy,stripW*3,1)
+      }
       }
     }
 
