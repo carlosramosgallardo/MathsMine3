@@ -39,7 +39,7 @@ const GRAVITY_A = 13.5       // gravity (grid units / second²)
 const BLOCK_TOP = 1.0        // interactive/mining block height in grid units
 const OBSTACLE_TOP = 2.35    // above the maximum single-jump apex
 const STAIR_HEIGHTS = [0.58, 1.16, 1.74]
-const MAX_STAIRCASES = 8
+const MAX_STAIRCASES = 22
 const MAX_JUMPS = 1
 const STRUCTURE_ZONES = [
   { r0:2,  r1:25, c0:2,  c1:25 },
@@ -191,6 +191,80 @@ const OBSTACLE_MAP = new Map([
   ['9,18',  { base:W_SAND,  label:'WALL' }],
   ['18,9',  { base:W_SAND,  label:'WALL' }],
   ['18,18', { base:W_SAND,  label:'WALL' }],
+
+  // ─── Inner zone bridge network — traversable elevated paths ──────────────────
+  // Bridge 1: E-W deck at row 8, joins (8,10-11) wall pair to (8,16-17) wall pair
+  ['8,12',  { base:W_DARK, label:'WALL', height:1.74 }],
+  ['8,13',  { base:W_DARK, label:'WALL', height:1.74 }],
+  ['8,14',  { base:W_DARK, label:'WALL', height:1.74 }],
+  ['8,15',  { base:W_DARK, label:'WALL', height:1.74 }],
+  // Bridge 1 approach from south (col 13)
+  ['9,13',  { base:W_DARK, label:'WALL', height:1.16 }],
+  ['10,13', { base:W_DARK, label:'WALL', height:0.58 }],
+  // Bridge 1 approach from north (col 12)
+  ['7,12',  { base:W_DARK, label:'WALL', height:1.16 }],
+  ['6,12',  { base:W_DARK, label:'WALL', height:0.58 }],
+
+  // Bridge 2: E-W deck at row 19, joins (19,10-11) to (19,16-17)
+  ['19,12', { base:W_DARK, label:'WALL', height:1.74 }],
+  ['19,13', { base:W_DARK, label:'WALL', height:1.74 }],
+  ['19,14', { base:W_DARK, label:'WALL', height:1.74 }],
+  ['19,15', { base:W_DARK, label:'WALL', height:1.74 }],
+  // Bridge 2 approach from north (col 13)
+  ['18,13', { base:W_DARK, label:'WALL', height:1.16 }],
+  ['17,13', { base:W_DARK, label:'WALL', height:0.58 }],
+  // Bridge 2 approach from south (col 15)
+  ['20,15', { base:W_DARK, label:'WALL', height:1.16 }],
+  ['21,15', { base:W_DARK, label:'WALL', height:0.58 }],
+
+  // Bridge 3: N-S deck at col 8, fills gap rows 12-15 between (11,8) and (16,8)
+  ['12,8',  { base:W_DARK, label:'WALL', height:1.74 }],
+  ['13,8',  { base:W_DARK, label:'WALL', height:1.74 }],
+  ['14,8',  { base:W_DARK, label:'WALL', height:1.74 }],
+  ['15,8',  { base:W_DARK, label:'WALL', height:1.74 }],
+  // Bridge 3 approach from east (row 13)
+  ['13,9',  { base:W_DARK, label:'WALL', height:1.16 }],
+  ['13,10', { base:W_DARK, label:'WALL', height:0.58 }],
+
+  // Bridge 4: N-S deck at col 19, fills gap rows 12-15 between (11,19) and (16,19)
+  ['12,19', { base:W_DARK, label:'WALL', height:1.74 }],
+  ['13,19', { base:W_DARK, label:'WALL', height:1.74 }],
+  ['15,19', { base:W_DARK, label:'WALL', height:1.74 }],
+  // Bridge 4 approach from west (row 12)
+  ['12,18', { base:W_DARK, label:'WALL', height:1.16 }],
+  ['12,17', { base:W_DARK, label:'WALL', height:0.58 }],
+  // Bridge 4 second approach (row 15)
+  ['15,18', { base:W_DARK, label:'WALL', height:1.16 }],
+  ['15,17', { base:W_DARK, label:'WALL', height:0.58 }],
+
+  // ─── Inner zone — extra dense labyrinth walls (all OBSTACLE_TOP) ─────────────
+  // Outer-approach blockers that force winding paths to N/S/E/W entrances
+  ['3,5',   { base:W_DARK,  label:'WALL' }],
+  ['3,6',   { base:W_DARK,  label:'WALL' }],
+  ['3,20',  { base:W_DARK,  label:'WALL' }],
+  ['3,21',  { base:W_DARK,  label:'WALL' }],
+  ['24,5',  { base:W_DARK,  label:'WALL' }],
+  ['24,6',  { base:W_DARK,  label:'WALL' }],
+  ['24,20', { base:W_DARK,  label:'WALL' }],
+  ['24,21', { base:W_DARK,  label:'WALL' }],
+  // E-W inner approach gates
+  ['7,4',   { base:W_SLATE, label:'WALL' }],
+  ['7,5',   { base:W_SLATE, label:'WALL' }],
+  ['7,21',  { base:W_SLATE, label:'WALL' }],
+  ['7,22',  { base:W_SLATE, label:'WALL' }],
+  ['20,4',  { base:W_SLATE, label:'WALL' }],
+  ['20,5',  { base:W_SLATE, label:'WALL' }],
+  ['20,22', { base:W_SLATE, label:'WALL' }],
+  ['20,23', { base:W_SLATE, label:'WALL' }],
+  // Axial approach choke extensions
+  ['3,13',  { base:W_STONE, label:'WALL' }],
+  ['3,14',  { base:W_STONE, label:'WALL' }],
+  ['24,13', { base:W_STONE, label:'WALL' }],
+  ['24,14', { base:W_STONE, label:'WALL' }],
+  ['13,3',  { base:W_STONE, label:'WALL' }],
+  ['14,3',  { base:W_STONE, label:'WALL' }],
+  ['13,24', { base:W_STONE, label:'WALL' }],
+  ['14,24', { base:W_STONE, label:'WALL' }],
 
   // ─── Outer world labyrinth (rows 28-55, cols 28-55) ──────────────────────────
   // Entry gateway pillars (rows 29-30) — funnel from inner world into outer zone
@@ -962,6 +1036,10 @@ function addRetroStructures(valid, reserved, cellMap) {
   const bridgeCandidates=[
     {row:26,col:3,dr:0,dc:1},{row:26,col:43,dr:0,dc:1},
     {row:14,col:29,dr:1,dc:0},{row:33,col:27,dr:1,dc:0},
+    {row:5,col:29,dr:0,dc:1},{row:22,col:29,dr:0,dc:1},
+    {row:5,col:37,dr:0,dc:1},{row:22,col:37,dr:0,dc:1},
+    {row:38,col:3,dr:0,dc:1},{row:38,col:14,dr:0,dc:1},
+    {row:46,col:3,dr:0,dc:1},{row:46,col:14,dr:0,dc:1},
   ]
   for(const candidate of bridgeCandidates){
     const cells=bridgeHeights.map((_height,index)=>({
@@ -993,6 +1071,8 @@ function addRetroStructures(valid, reserved, cellMap) {
 
   const trailCandidates=[
     {row:27,col:14,dr:0,dc:1},{row:28,col:34,dr:0,dc:1},
+    {row:14,col:27,dr:0,dc:1},{row:27,col:40,dr:1,dc:0},
+    {row:40,col:14,dr:0,dc:1},{row:14,col:40,dr:1,dc:0},
   ]
   const trailHeights=[0.32,0.52,0.74,0.96,0.74,0.52,0.32]
   for(const candidate of trailCandidates){
@@ -1036,7 +1116,7 @@ function addRetroStructures(valid, reserved, cellMap) {
   // three-cell approach is part of the same atomic placement.
   let plazas=0
   for(const zone of STRUCTURE_ZONES.slice().reverse()){
-    if(plazas>=2) break
+    if(plazas>=5) break
     for(let row=zone.r0;row<=zone.r1-2&&plazas<2;row++){
       for(let col=zone.c0;col<=zone.c1-5&&plazas<2;col++){
         const deck=[]
