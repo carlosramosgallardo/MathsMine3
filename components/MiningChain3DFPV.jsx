@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useCallback, useState } from 'react'
+import * as THREE from 'three'
 import { colorFromAddress } from '@/lib/wallet-colors'
 import { MM3_BLOCK_GRID_ROWS, MM3_BLOCK_GRID_COLS, gridToBlockHex } from '@/lib/mm3-block-chain'
 import { groupPresenceEntries } from '@/lib/presence-display'
@@ -2576,6 +2577,113 @@ function playStep(audioCtxRef) {
   } catch {}
 }
 
+function disposeThreeObject(root) {
+  root?.traverse?.(object=>{
+    object.geometry?.dispose?.()
+    const materials=Array.isArray(object.material)?object.material:[object.material]
+    materials.filter(Boolean).forEach(material=>{material.map?.dispose?.();material.dispose?.()})
+  })
+}
+
+function makeRampGeometry(direction='east') {
+  const heightAt=(x,z)=>direction==='west'?1-x:direction==='south'?z:direction==='north'?1-z:x
+  const vertices=new Float32Array([
+    0,0,0, 1,0,0, 1,0,1, 0,0,1,
+    0,heightAt(0,0),0, 1,heightAt(1,0),0, 1,heightAt(1,1),1, 0,heightAt(0,1),1,
+  ])
+  const geometry=new THREE.BufferGeometry()
+  geometry.setAttribute('position',new THREE.BufferAttribute(vertices,3))
+  geometry.setIndex([0,2,1,0,3,2,4,5,6,4,6,7,0,1,5,0,5,4,1,2,6,1,6,5,2,3,7,2,7,6,3,0,4,3,4,7])
+  geometry.computeVertexNormals()
+  return geometry
+}
+
+function rebuildThreeWorld(state,cellMap,obstacles) {
+  if(!state) return
+  if(state.world){state.scene.remove(state.world);disposeThreeObject(state.world)}
+  const world=new THREE.Group(),matrix=new THREE.Matrix4(),position=new THREE.Vector3()
+  const scale=new THREE.Vector3(),quaternion=new THREE.Quaternion()
+  const blockEntries=[...cellMap.entries()]
+  const blockMesh=new THREE.InstancedMesh(new THREE.BoxGeometry(1,1,1),new THREE.MeshStandardMaterial({roughness:.78,metalness:.18,vertexColors:true}),blockEntries.length)
+  blockEntries.forEach(([key,cell],index)=>{
+    const [row,col]=key.split(',').map(Number),height=blockTop(cell,row,col)
+    position.set(col+.5,height*.5,row+.5);scale.set(.97,height,.97)
+    matrix.compose(position,quaternion,scale);blockMesh.setMatrixAt(index,matrix)
+    blockMesh.setColorAt(index,new THREE.Color(cell.color||(cell.isChainNode?'#d6a91e':'#31598d')))
+  })
+  blockMesh.instanceMatrix.needsUpdate=true
+  if(blockMesh.instanceColor) blockMesh.instanceColor.needsUpdate=true
+  world.add(blockMesh)
+
+  const boxEntries=[...obstacles.entries()].filter(([,obstacle])=>!isOrganicShape(obstacle))
+  const obstacleMesh=new THREE.InstancedMesh(new THREE.BoxGeometry(1,1,1),new THREE.MeshStandardMaterial({roughness:.86,metalness:.12,vertexColors:true}),boxEntries.length)
+  boxEntries.forEach(([key,obstacle],index)=>{
+    const [row,col]=key.split(',').map(Number),bottom=obstacleBottom(obstacle),height=obstacleTop(obstacle)-bottom
+    position.set(col+.5,bottom+height*.5,row+.5);scale.set(.985,height,.985)
+    matrix.compose(position,quaternion,scale);obstacleMesh.setMatrixAt(index,matrix)
+    const [r,g,b]=obstacle.base||W_SLATE
+    obstacleMesh.setColorAt(index,new THREE.Color(r/255,g/255,b/255))
+  })
+  obstacleMesh.instanceMatrix.needsUpdate=true
+  if(obstacleMesh.instanceColor) obstacleMesh.instanceColor.needsUpdate=true
+  world.add(obstacleMesh)
+
+  for(const [key,obstacle] of obstacles){
+    if(!isOrganicShape(obstacle)) continue
+    const [row,col]=key.split(',').map(Number),[r,g,b]=obstacle.base||W_SLATE
+    const material=new THREE.MeshStandardMaterial({color:new THREE.Color(r/255,g/255,b/255),roughness:.72,metalness:.16})
+    if(obstacle.shape==='ramp'){
+      const mesh=new THREE.Mesh(makeRampGeometry(obstacle.direction),material)
+      mesh.position.set(col,0,row);mesh.scale.y=obstacleTop(obstacle);world.add(mesh)
+    }else if(obstacle.shape==='sphere'){
+      const radius=obstacle.radius||.34,mesh=new THREE.Mesh(new THREE.IcosahedronGeometry(radius,2),material)
+      mesh.position.set(col+.5,radius,row+.5);world.add(mesh)
+    }else{
+      const tree=new THREE.Group()
+      const trunk=new THREE.Mesh(new THREE.CylinderGeometry(.13,.19,.92,7),new THREE.MeshStandardMaterial({color:'#6b4423',roughness:1}))
+      trunk.position.y=.46;tree.add(trunk)
+      const crown=new THREE.Mesh(new THREE.IcosahedronGeometry(.52,1),material)
+      crown.scale.set(1,1.35,1);crown.position.y=1.32;tree.add(crown)
+      const core=new THREE.Mesh(new THREE.OctahedronGeometry(.13),new THREE.MeshBasicMaterial({color:'#5eead4'}))
+      core.position.y=1.34;tree.add(core);tree.position.set(col+.5,0,row+.5);world.add(tree)
+    }
+  }
+  state.world=world;state.scene.add(world)
+}
+
+function syncThreeAvatars(state,presence,myIdentity) {
+  if(!state) return
+  const active=new Set()
+  for(const [wallet,data] of Object.entries(presence||{})){
+    if(wallet.toLowerCase()===(myIdentity||'').toLowerCase()) continue
+    active.add(wallet)
+    let avatar=state.avatars.get(wallet)
+    if(!avatar){
+      avatar=new THREE.Group()
+      const color=new THREE.Color(colorFromAddress(wallet)),bodyMat=new THREE.MeshStandardMaterial({color,roughness:.68,metalness:.22})
+      const darkMat=new THREE.MeshStandardMaterial({color:color.clone().multiplyScalar(.48),roughness:.8})
+      const body=new THREE.Mesh(new THREE.BoxGeometry(.52,.62,.26),bodyMat);body.position.y=.36;avatar.add(body)
+      const head=new THREE.Mesh(new THREE.BoxGeometry(.30,.25,.24),bodyMat);head.position.y=.81;avatar.add(head)
+      const visor=new THREE.Mesh(new THREE.BoxGeometry(.20,.055,.015),new THREE.MeshBasicMaterial({color:'#67e8f9'}));visor.position.set(0,.84,-.138);avatar.add(visor)
+      const core=new THREE.Mesh(new THREE.BoxGeometry(.13,.09,.02),new THREE.MeshBasicMaterial({color:'#facc15'}));core.position.set(0,.42,-.152);avatar.add(core)
+      const footL=new THREE.Mesh(new THREE.BoxGeometry(.18,.10,.24),darkMat);footL.position.set(-.15,.05,0);avatar.add(footL)
+      const footR=footL.clone();footR.position.x=.15;avatar.add(footR)
+      const tool=new THREE.Group();tool.position.set(.34,.48,0)
+      const shaft=new THREE.Mesh(new THREE.CylinderGeometry(.025,.025,.66,6),new THREE.MeshStandardMaterial({color:'#9a6438'}));shaft.rotation.z=-.62;shaft.position.set(.18,.24,0);tool.add(shaft)
+      const tip=new THREE.Mesh(new THREE.ConeGeometry(.10,.25,5),new THREE.MeshStandardMaterial({color:'#a5f3fc',metalness:.55,roughness:.35}));tip.rotation.z=-Math.PI/2;tip.position.set(.39,.46,0);tool.add(tip)
+      avatar.add(tool);avatar.userData.tool=tool;state.avatars.set(wallet,avatar);state.scene.add(avatar)
+    }
+    avatar.position.set(Number(data.gx??((data.col??0)+.5)),Number(data.z)||0,Number(data.gy??((data.row??0)+.5)))
+    avatar.rotation.y=-(Number(data.angle)||0)-Math.PI/2
+    const swingAge=Date.now()-(Number(data.swingAt)||0)
+    avatar.userData.tool.rotation.z=swingAge<SWING_DUR?Math.sin(swingAge/SWING_DUR*Math.PI)*1.05:0
+  }
+  for(const [wallet,avatar] of state.avatars){
+    if(active.has(wallet)) continue
+    state.scene.remove(avatar);disposeThreeObject(avatar);state.avatars.delete(wallet)
+  }
+}
+
 // ── Component ─────────────────────────────────────────────────────────────────
 export default function MiningChain3DFPV({
   cellMap, presenceMap, myWallet, presenceKey, myColor,
@@ -2591,6 +2699,7 @@ export default function MiningChain3DFPV({
   es,
 }) {
   const canvasRef    = useRef(null)
+  const webglCanvasRef = useRef(null)
   const containerRef = useRef(null)
   const [, setPointerLocked] = useState(false)
   const keysRef      = useRef({w:false,s:false,a:false,d:false,q:false,e:false,space:false})
@@ -2663,6 +2772,40 @@ export default function MiningChain3DFPV({
   const walletNftjisRef     = useRef(walletNftjis || {})
   const myNftjisRef         = useRef(myNftjis || [])
   const healthMapRef        = useRef(healthMap||{})
+  const threeStateRef       = useRef(null)
+  const rebuildThreeRef     = useRef(null)
+
+  useEffect(()=>{
+    const canvas=webglCanvasRef.current
+    if(!canvas) return
+    let renderer
+    try{
+      renderer=new THREE.WebGLRenderer({canvas,antialias:true,powerPreference:'high-performance'})
+    }catch{return}
+    renderer.outputColorSpace=THREE.SRGBColorSpace
+    renderer.toneMapping=THREE.ACESFilmicToneMapping
+    renderer.toneMappingExposure=1.08
+    const scene=new THREE.Scene()
+    scene.background=new THREE.Color('#07132c')
+    scene.fog=new THREE.FogExp2('#07132c',.032)
+    const camera=new THREE.PerspectiveCamera(58,1,.05,VISUAL_RANGE+8)
+    const hemi=new THREE.HemisphereLight('#9bdcff','#071020',1.35);scene.add(hemi)
+    const key=new THREE.DirectionalLight('#d7f4ff',1.65);key.position.set(-8,16,-10);scene.add(key)
+    const rim=new THREE.DirectionalLight('#22d3ee',.45);rim.position.set(12,5,14);scene.add(rim)
+    const floor=new THREE.Mesh(new THREE.PlaneGeometry(COLS,ROWS),new THREE.MeshStandardMaterial({color:'#0b1b39',roughness:.94,metalness:.04}))
+    floor.rotation.x=-Math.PI/2;floor.position.set(COLS/2,-.012,ROWS/2);scene.add(floor)
+    const grid=new THREE.GridHelper(Math.max(COLS,ROWS),Math.max(COLS,ROWS),'#176080','#12334f')
+    grid.position.set(COLS/2,0,ROWS/2);grid.material.transparent=true;grid.material.opacity=.42;scene.add(grid)
+    const state={renderer,scene,camera,world:null,avatars:new Map(),pixelRatio:0,size:new THREE.Vector2()}
+    threeStateRef.current=state
+    rebuildThreeRef.current=()=>rebuildThreeWorld(state,cellMapRef.current,validObstaclesRef.current)
+    rebuildThreeRef.current()
+    return ()=>{
+      rebuildThreeRef.current=null
+      disposeThreeObject(scene)
+      renderer.dispose();threeStateRef.current=null
+    }
+  },[])
 
   // Keep refs in sync with props
   useEffect(()=>{ cellMapRef.current=cellMap },[cellMap])
@@ -2826,6 +2969,7 @@ export default function MiningChain3DFPV({
     }
     ensureInteractiveConnectivity(valid,cellMap)
     validObstaclesRef.current = valid
+    rebuildThreeRef.current?.()
 
     // Safety: if player is inside an obstacle or block, teleport to a random free cell
     if (hitsSolidWall(playerRef.current.x/CELL_SIZE,playerRef.current.y/CELL_SIZE,cellMap,valid,playerRef.current.z)) {
@@ -2923,8 +3067,8 @@ export default function MiningChain3DFPV({
     const viewCenterY = H * HORIZON_RATIO
     // Capped rays make finer ultrawide strips affordable without traversing
     // the whole 56-cell world for every screen column.
-    const stripW=W<=1600?2:STRIP_W
-    const strips=Math.ceil(W/stripW)
+    const stripW=threeStateRef.current?W:(W<=1600?2:STRIP_W)
+    const strips=threeStateRef.current?1:Math.ceil(W/stripW)
 
     if (!zBufferRef.current || zBufferRef.current.length !== strips) {
       zBufferRef.current = new Float32Array(strips)
@@ -2933,6 +3077,28 @@ export default function MiningChain3DFPV({
 
     const cameraBobZ = pz > 0 ? 0 : Math.sin(walkDistRef.current*0.12) * 0.012
     const cameraZ = pz + CAMERA_EYE_Z + cameraBobZ
+    let threeState=threeStateRef.current
+    if(threeState){
+      try{
+        const aspect=W/Math.max(1,H)
+        const verticalFov=THREE.MathUtils.radToDeg(2*Math.atan(Math.tan(FOV/2)/aspect))
+        threeState.camera.fov=verticalFov;threeState.camera.aspect=aspect;threeState.camera.updateProjectionMatrix()
+        if(threeState.pixelRatio!==dpr){threeState.renderer.setPixelRatio(dpr);threeState.pixelRatio=dpr}
+        const renderSize=threeState.renderer.getSize(threeState.size)
+        if(Math.round(renderSize.x)!==W||Math.round(renderSize.y)!==H) threeState.renderer.setSize(W,H,false)
+        const gx=px/CELL_SIZE,gy=py/CELL_SIZE,lookDistance=5
+        threeState.camera.position.set(gx,cameraZ,gy)
+        threeState.camera.lookAt(
+          gx+Math.cos(angle)*Math.cos(pitch)*lookDistance,
+          cameraZ-Math.sin(pitch)*lookDistance,
+          gy+Math.sin(angle)*Math.cos(pitch)*lookDistance,
+        )
+        syncThreeAvatars(threeState,presence,myIdentity)
+        threeState.renderer.render(threeState.scene,threeState.camera)
+      }catch{
+        threeStateRef.current=null;threeState=null
+      }
+    }
     const projectionScale = H * PROJ_DIST
     const pitchSin = Math.sin(pitch)
     const pitchCos = Math.cos(pitch)
@@ -3026,10 +3192,11 @@ export default function MiningChain3DFPV({
 
     // Atmospheric tint from current room
     const {row:gr,col:gc} = worldToGrid(px,py)
-    const viewMinRow=Math.max(0,gr-VISUAL_RANGE)
-    const viewMaxRow=Math.min(ROWS-1,gr+VISUAL_RANGE)
-    const viewMinCol=Math.max(0,gc-VISUAL_RANGE)
-    const viewMaxCol=Math.min(COLS-1,gc+VISUAL_RANGE)
+    const renderCellRange=threeState?1:VISUAL_RANGE
+    const viewMinRow=Math.max(0,gr-renderCellRange)
+    const viewMaxRow=Math.min(ROWS-1,gr+renderCellRange)
+    const viewMinCol=Math.max(0,gc-renderCellRange)
+    const viewMaxCol=Math.min(COLS-1,gc+renderCellRange)
     const gridMinRow=Math.max(0,gr-FLOOR_GRID_RANGE)
     const gridMaxRow=Math.min(ROWS-1,gr+FLOOR_GRID_RANGE)
     const gridMinCol=Math.max(0,gc-FLOOR_GRID_RANGE)
@@ -3604,6 +3771,26 @@ export default function MiningChain3DFPV({
         ctx.fillRect(scrX-barW/2,barY,barW*hp/100,barH)
         ctx.strokeStyle='rgba(255,255,255,.36)';ctx.lineWidth=.5;ctx.strokeRect(scrX-barW/2,barY,barW,barH)
         ctx.globalAlpha = 1
+      }
+    }
+
+    if(threeState){
+      ctx.clearRect(0,0,W,H)
+      for(const sprite of sprites){
+        const point=cameraVertex(sprite.gx,sprite.gy,(sprite.z||0)+1.10)
+        if(point.depth<=.12) continue
+        const screen=screenVertex(point)
+        if(screen.x<-80||screen.x>W+80||screen.y<-40||screen.y>H+40) continue
+        const hp=Math.max(0,Math.min(100,Number(healthMapRef.current[sprite.w]??100)))
+        const label=sprite.isBot?`${sprite.w.slice(0,6)}…${sprite.w.slice(-4)} (BOT)`:`${sprite.w.slice(0,6)}…${sprite.w.slice(-4)}`
+        const alpha=Math.max(.28,1-sprite.dist*.045)
+        ctx.globalAlpha=alpha;ctx.textAlign='center';ctx.textBaseline='bottom';ctx.font='bold 10px monospace'
+        ctx.fillStyle='rgba(0,0,0,.72)';ctx.fillText(label,screen.x+1,screen.y-5)
+        ctx.fillStyle=sprite.color;ctx.fillText(label,screen.x,screen.y-6)
+        const barW=42,barY=screen.y-3
+        ctx.fillStyle='#26070e';ctx.fillRect(screen.x-barW/2,barY,barW,4)
+        ctx.fillStyle=hp>60?'#4ade80':hp>25?'#facc15':'#fb7185';ctx.fillRect(screen.x-barW/2,barY,barW*hp/100,4)
+        ctx.globalAlpha=1
       }
     }
 
@@ -4373,8 +4560,9 @@ export default function MiningChain3DFPV({
 
   return (
     <div ref={containerRef} style={{width:'100%',height:'100%',position:'relative',background:'#020610'}}>
+      <canvas ref={webglCanvasRef} aria-hidden="true" style={{position:'absolute',inset:0,width:'100%',height:'100%',display:'block',pointerEvents:'none'}} />
       <canvas ref={canvasRef} tabIndex={0} aria-label={es?'Vista 3D de minería. Haz clic para capturar el ratón.':'3D mining view. Click to capture the mouse.'}
-        style={{display:'block',width:'100%',height:'100%',outline:'none',touchAction:'none'}}
+        style={{position:'relative',zIndex:1,display:'block',width:'100%',height:'100%',outline:'none',touchAction:'none'}}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
