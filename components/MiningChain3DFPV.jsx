@@ -31,8 +31,9 @@ const FOOTSTEP_DIST = CELL_SIZE * 0.42       // footstep cadence
 const SWING_DUR     = 340    // ms per pickaxe swing
 const HITS_NEEDED   = 5      // swings to complete mining action
 const INTERACT_DIST = 2.0    // grid cells — max distance for block interaction
-const VISUAL_RANGE  = 20     // cells rendered around the player
-const RADAR_RANGE   = 20     // local minimap radius; distant world stays hidden
+const VISUAL_RANGE  = 18     // far plane in cells; physics still uses the full map
+const TOP_RANGE     = 14     // elevated surfaces need a tighter LOD to avoid horizon noise
+const RADAR_RANGE   = 18     // square local map using the same camera frustum
 const CHAIN_NODE_ROW = 4     // fallback; runtime position comes from cellMap
 const CHAIN_NODE_COL = 4
 // Jump: a player can mount mining blocks, but structural walls stay impassable.
@@ -1008,7 +1009,14 @@ function drawMinimap(ctx, gr, gc, angle, cellMap, presenceMap, myWallet, W, H, c
   const CS = SZ/viewCells
   const mapX = (col) => MX + (col-originCol)*CS
   const mapY = (row) => MY + (row-originRow)*CS
-  const visible = (row,col,pad=0) => Math.hypot(col-gc,row-gr) <= RADAR_RANGE+pad
+  const inCameraView = (row,col,pad=0) => {
+    const vx=col-(gc+.5),vy=row-(gr+.5)
+    const dist=Math.hypot(vx,vy)
+    if(dist<=2.15+pad) return true
+    if(dist>RADAR_RANGE+pad) return false
+    const rel=Math.atan2(Math.sin(Math.atan2(vy,vx)-angle),Math.cos(Math.atan2(vy,vx)-angle))
+    return Math.abs(rel)<=FOV/2+.035+pad*.01
+  }
   const drawMapEmoji = (emoji,x,y,color,shape='circle') => {
     const fontSize = isMobile ? 9 : 10
     const radius = fontSize * .53
@@ -1029,19 +1037,33 @@ function drawMinimap(ctx, gr, gc, angle, cellMap, presenceMap, myWallet, W, H, c
   ctx.fillRect(MX-1,MY-1,SZ+2,SZ+2)
   ctx.strokeStyle = C+'33'; ctx.lineWidth=0.5
   ctx.strokeRect(MX-1,MY-1,SZ+2,SZ+2)
-  ctx.strokeStyle=C+'66';ctx.lineWidth=1
-  ctx.beginPath();ctx.arc(MX+SZ/2,MY+SZ/2,SZ/2-1,0,Math.PI*2);ctx.stroke()
 
   ctx.save()
-  const radarRadius = SZ / 2
-  ctx.beginPath();ctx.arc(MX+radarRadius,MY+radarRadius,radarRadius,0,Math.PI*2);ctx.clip()
+  ctx.beginPath();ctx.rect(MX,MY,SZ,SZ);ctx.clip()
+  const pvx=mapX(gc+.5),pvy=mapY(gr+.5)
+  const visionEdge=[]
+  const visionRays=isMobile?36:56
+  for(let i=0;i<=visionRays;i++){
+    const rayAngle=angle-FOV/2+(i/visionRays)*FOV
+    const ray=castRay((gc+.5)*CELL_SIZE,(gr+.5)*CELL_SIZE,rayAngle,cellMap,validObs,RADAR_RANGE)
+    const rayDist=Math.min(RADAR_RANGE,ray.perpDist+.04)
+    visionEdge.push({
+      x:mapX(gc+.5+Math.cos(rayAngle)*rayDist),
+      y:mapY(gr+.5+Math.sin(rayAngle)*rayDist),
+    })
+  }
+  ctx.beginPath()
+  ctx.arc(pvx,pvy,CS*2.15,0,Math.PI*2)
+  ctx.moveTo(pvx,pvy)
+  for(const point of visionEdge)ctx.lineTo(point.x,point.y)
+  ctx.closePath();ctx.clip()
   const r0=Math.max(0,Math.floor(originRow)),r1=Math.min(ROWS,Math.ceil(originRow+viewCells))
   const c0=Math.max(0,Math.floor(originCol)),c1=Math.min(COLS,Math.ceil(originCol+viewCells))
   for (let r=r0;r<r1;r++) for (let c=c0;c<c1;c++) {
     const key = `${r},${c}`
     const cell = cellMap.get(key)
     const obs  = validObs?.get(key) || null
-    if (!visible(r+.5,c+.5)) {
+    if (!inCameraView(r+.5,c+.5)) {
       ctx.fillStyle = '#01040a'
     } else if (obs) {
       const [or,og,ob] = obs.base
@@ -1058,7 +1080,7 @@ function drawMinimap(ctx, gr, gc, angle, cellMap, presenceMap, myWallet, W, H, c
       ctx.fillStyle = '#050810'  // open corridor / void
     }
     ctx.fillRect(mapX(c), mapY(r), Math.ceil(CS), Math.ceil(CS))
-    const isMyBlock = cell?.owner && myWallet && cell.owner.toLowerCase() === myWallet.toLowerCase()
+    const isMyBlock = inCameraView(r+.5,c+.5) && cell?.owner && myWallet && cell.owner.toLowerCase() === myWallet.toLowerCase()
     if (isMyBlock) {
       ctx.strokeStyle = '#ffffffbb'; ctx.lineWidth = 0.7
       ctx.strokeRect(mapX(c)+0.5, mapY(r)+0.5, Math.max(1,Math.ceil(CS)-1), Math.max(1,Math.ceil(CS)-1))
@@ -1071,7 +1093,7 @@ function drawMinimap(ctx, gr, gc, angle, cellMap, presenceMap, myWallet, W, H, c
     const obs = validObs?.get(key)
     if (obs) continue  // hidden behind static wall, skip
     const [rr, cc] = key.split(',').map(Number)
-    if(!visible(rr,cc)) continue
+    if(!inCameraView(rr+.5,cc+.5)) continue
     const mx2 = mapX(cc + 0.5)
     const my2 = mapY(rr + 0.5)
     const ds = Math.max(1.2, CS * 0.36)
@@ -1089,20 +1111,19 @@ function drawMinimap(ctx, gr, gc, angle, cellMap, presenceMap, myWallet, W, H, c
   ctx.strokeStyle = C+'cc'; ctx.lineWidth=0.8
   ctx.strokeRect(mapX(gc), mapY(gr), Math.ceil(CS), Math.ceil(CS))
 
-  const pvx=mapX(gc+.5), pvy=mapY(gr+.5), cl=Math.min(SZ*.32,CS*8)
-  ctx.strokeStyle=C+'aa'; ctx.lineWidth=1
-  ctx.beginPath()
-  ctx.moveTo(pvx,pvy); ctx.lineTo(pvx+Math.cos(angle-FOV/2)*cl,pvy+Math.sin(angle-FOV/2)*cl)
-  ctx.moveTo(pvx,pvy); ctx.lineTo(pvx+Math.cos(angle+FOV/2)*cl,pvy+Math.sin(angle+FOV/2)*cl)
-  ctx.stroke()
+  ctx.fillStyle='rgba(34,211,238,.045)'
+  ctx.beginPath();ctx.moveTo(pvx,pvy)
+  for(const point of visionEdge)ctx.lineTo(point.x,point.y)
+  ctx.closePath();ctx.fill()
 
   for (const [w,p] of Object.entries(presenceMap||{})) {
     if (p.row==null && p.gy==null) continue
     const isMe = w.toLowerCase()===(myWallet||'').toLowerCase()
+    if(isMe) continue
     const isBot = Boolean(p.isBot)
     const dotGX = p.gx ?? ((p.col??0) + 0.5)
     const dotGY = p.gy ?? ((p.row??0) + 0.5)
-    if(!visible(dotGY,dotGX,1)) continue
+    if(!inCameraView(dotGY,dotGX,1)) continue
     if(!isMe){
       const vx=dotGX-(gc+.5),vy=dotGY-(gr+.5)
       const walletDist=Math.hypot(vx,vy)
@@ -1160,7 +1181,7 @@ function drawMinimap(ctx, gr, gc, angle, cellMap, presenceMap, myWallet, W, H, c
 
   // Chain node: diamond crosshair — visually distinct landmark (static, not a dot)
   const cnPos   = chainNodePos || { row: CHAIN_NODE_ROW, col: CHAIN_NODE_COL }
-  if(visible(cnPos.row,cnPos.col)){
+  if(inCameraView(cnPos.row+.5,cnPos.col+.5)){
     const cnPulse = 0.55 + Math.sin(Date.now() / 600) * 0.45
     const cnx = mapX(cnPos.col + 0.5)
     const cny = mapY(cnPos.row + 0.5)
@@ -1190,7 +1211,7 @@ function drawMinimap(ctx, gr, gc, angle, cellMap, presenceMap, myWallet, W, H, c
   for (const [key, cell] of cellMap) {
     if (!cell?.isPortalNode) continue
     const [rr, cc] = key.split(',').map(Number)
-    if(!visible(rr,cc)) continue
+    if(!inCameraView(rr+.5,cc+.5)) continue
     const px2 = mapX(cc + 0.5)
     const py2 = mapY(rr + 0.5)
     const pPulse = 0.60 + Math.sin(Date.now() / 500 + cc * 0.4) * 0.40
@@ -1204,6 +1225,15 @@ function drawMinimap(ctx, gr, gc, angle, cellMap, presenceMap, myWallet, W, H, c
   }
 
   ctx.restore()
+  ctx.strokeStyle=C+'aa';ctx.lineWidth=1
+  ctx.beginPath();ctx.moveTo(pvx,pvy)
+  for(const point of visionEdge)ctx.lineTo(point.x,point.y)
+  ctx.closePath();ctx.stroke()
+  const playerRadius=Math.max(3,CS*.9)
+  ctx.fillStyle=C;ctx.beginPath();ctx.arc(pvx,pvy,playerRadius,0,Math.PI*2);ctx.fill()
+  ctx.strokeStyle='#e0fbff';ctx.lineWidth=1.2
+  ctx.beginPath();ctx.moveTo(pvx,pvy)
+  ctx.lineTo(pvx+Math.cos(angle)*CS*3,pvy+Math.sin(angle)*CS*3);ctx.stroke()
 }
 
 // ── Facing block HUD (top-right info card) ────────────────────────────────────
@@ -2036,7 +2066,7 @@ export default function MiningChain3DFPV({
     const viewCenterY = H * HORIZON_RATIO
     // Capped rays make finer ultrawide strips affordable without traversing
     // the whole 56-cell world for every screen column.
-    const stripW=STRIP_W
+    const stripW=W<=1600?2:STRIP_W
     const strips=Math.ceil(W/stripW)
 
     if (!zBufferRef.current || zBufferRef.current.length !== strips) {
@@ -2072,6 +2102,14 @@ export default function MiningChain3DFPV({
         lateral,
         depth:depth*pitchCos-relZ*pitchSin,
         vertical:relZ*pitchCos+depth*pitchSin,
+      }
+    }
+    const horizontalCameraPoint=(gx,gy)=>{
+      const rx=gx-px/CELL_SIZE,ry=gy-py/CELL_SIZE
+      return {
+        depth:Math.cos(angle)*rx+Math.sin(angle)*ry,
+        lateral:-Math.sin(angle)*rx+Math.cos(angle)*ry,
+        dist:Math.hypot(rx,ry),
       }
     }
     const clipNear=(vertices,near=0.06)=>{
@@ -2160,9 +2198,14 @@ export default function MiningChain3DFPV({
     // wall strips therefore occlude them cleanly without jagged overlaps.
     const tops=[]
     for(let r=viewMinRow;r<=viewMaxRow;r++) for(let c=viewMinCol;c<=viewMaxCol;c++){
-      if(Math.hypot(c+.5-(px/CELL_SIZE),r+.5-(py/CELL_SIZE))>VISUAL_RANGE) continue
+      const topCamera=horizontalCameraPoint(c+.5,r+.5)
+      if(topCamera.dist>TOP_RANGE||topCamera.depth<-.65) continue
+      if(Math.abs(topCamera.lateral)>Math.max(1.15,topCamera.depth*Math.tan(FOV/2)+.9)) continue
       const topHeight=solidHeightAt(c+.5,r+.5)
       if(!topHeight||cameraZ<=topHeight+.015) continue
+      // Never project the platform directly under the camera. Its near-clipped
+      // polygon otherwise expands across the screen when the player climbs it.
+      if(r===gr&&c===gc&&pz>=topHeight-.03) continue
       const verts=clipNear([
         cameraVertex(c,r,topHeight),cameraVertex(c+1,r,topHeight),
         cameraVertex(c+1,r+1,topHeight),cameraVertex(c,r+1,topHeight),
@@ -2812,7 +2855,9 @@ export default function MiningChain3DFPV({
       const cssW = Math.max(1, Math.round(width))
       const cssH = Math.max(1, Math.round(height))
       const pixels=cssW*cssH
-      const dprCap=pixels>900000?1:1.35
+      // Local-frustum culling leaves enough headroom to avoid the visibly
+      // coarse 1x fallback on wide screens.
+      const dprCap=pixels>1600000?1.1:1.3
       const dpr = Math.min(dprCap,Math.max(1,window.devicePixelRatio||1))
       canvas.dataset.dpr = String(dpr)
       canvas.width = Math.round(cssW * dpr)
