@@ -22,6 +22,7 @@ const MOVE_ACCEL    = 11
 const TURN_SPD      = 1.35   // radians / second
 const HORIZON_RATIO = 0.50
 const PLAYER_R      = 0.20   // collision radius in grid units (1 unit = 1 cell)
+const PLAYER_BODY_H = 1.02   // physical body height for bridges and overhangs
 const AVATAR_R      = 0.30
 const FOOTSTEP_DIST = CELL_SIZE * 0.42       // footstep cadence
 const SWING_DUR     = 340    // ms per pickaxe swing
@@ -38,6 +39,8 @@ const JUMP_VZ   = 5.7        // jump impulse (grid units / second)
 const GRAVITY_A = 13.5       // gravity (grid units / second²)
 const BLOCK_TOP = 1.0        // interactive/mining block height in grid units
 const OBSTACLE_TOP = 2.35    // above the maximum single-jump apex
+const BRIDGE_BOTTOM = 1.42   // enough clearance for a wallet walking below
+const BRIDGE_TOP = 1.82      // unreachable from the floor without stairs
 const STAIR_HEIGHTS = [0.58, 1.16, 1.74]
 const MAX_STAIRCASES = 22
 const MAX_JUMPS = 1
@@ -65,6 +68,11 @@ function chainObstacle(key,data) {
 function obstacleTop(data) {
   const height = Number(data?.height)
   return Number.isFinite(height) && height > 0 ? height : OBSTACLE_TOP
+}
+
+function obstacleBottom(data) {
+  const bottom = Number(data?.bottom)
+  return Number.isFinite(bottom) && bottom > 0 ? bottom : 0
 }
 
 const OBSTACLE_MAP = new Map([
@@ -1052,7 +1060,8 @@ function addRetroStructures(valid, reserved, cellMap) {
       const key=keyOf(row,col)
       valid.set(key,chainObstacle(key,{
         base:routeIndex?[28,104,98]:[34,82,104],glow:[34,211,238],kind:'hash',
-        label:routeIndex?'NORTH-SOUTH PATH':'EAST-WEST PATH',height:.82,
+        label:routeIndex?'NORTH-SOUTH BRIDGE':'EAST-WEST BRIDGE',
+        bottom:BRIDGE_BOTTOM,height:BRIDGE_TOP,
         isStructure:true,isRoute:true,routeIndex,
       }))
     })
@@ -1074,6 +1083,41 @@ function addRetroStructures(valid, reserved, cellMap) {
       }))
     }
   }))
+
+  // Deliberate stair access. The bridge cannot be mounted from ground level:
+  // players must find one of these entrances on the minimap and climb it.
+  const stairHeights=[1.36,.90,.45]
+  routes.forEach((path,routeIndex)=>{
+    const accessIndexes=[5,16,27,38,path.length-6].filter((value,index,list)=>
+      value>2&&value<path.length-3&&list.indexOf(value)===index
+    )
+    for(const index of accessIndexes){
+      const cell=path[index]
+      const previous=path[index-1],next=path[index+1]
+      const dr=Math.sign(next.row-previous.row),dc=Math.sign(next.col-previous.col)
+      const sides=[[-dc,dr],[dc,-dr]]
+      let built=false
+      for(const [sr,sc] of sides){
+        const stairs=stairHeights.map((_height,step)=>({
+          row:cell.row+sr*(step+1),col:cell.col+sc*(step+1),step,
+        }))
+        const clear=stairs.every(({row,col})=>
+          routeFree(row,col)&&!routeKeys.has(keyOf(row,col))&&!reserved.has(keyOf(row,col))
+        )
+        if(!clear) continue
+        for(const {row,col,step} of stairs){
+          const key=keyOf(row,col)
+          valid.set(key,chainObstacle(key,{
+            base:[96,78,48],glow:[250,204,21],kind:'ledger',label:'BRIDGE ACCESS',
+            height:stairHeights[step],isStructure:true,isRouteStair:true,routeIndex,
+          }))
+        }
+        built=true
+        break
+      }
+      if(!built) continue
+    }
+  })
 }
 
 function circleTouchesCell(gx, gy, row, col, radius = PLAYER_R) {
@@ -1091,6 +1135,14 @@ function solidTopAt(row, col, cellMap, obsSet) {
   return cellMap?.has(key) ? BLOCK_TOP : 0
 }
 
+function solidSpanAt(row, col, cellMap, obsSet) {
+  const key=`${row},${col}`
+  const obstacle=obsSet?.get?.(key)
+  if(obstacle) return {bottom:obstacleBottom(obstacle),top:obstacleTop(obstacle)}
+  if(cellMap?.has(key)) return {bottom:0,top:BLOCK_TOP}
+  return null
+}
+
 // Circular player footprint against complete solid cells. Checking the whole
 // body, rather than only its centre, prevents clipping into corners and walls.
 function hitsSolidWall(gx, gy, cellMap, obsSet, playerZ = 0) {
@@ -1100,8 +1152,9 @@ function hitsSolidWall(gx, gy, cellMap, obsSet, playerZ = 0) {
   const maxCol = Math.floor(gx + PLAYER_R)
   for (let row = minRow; row <= maxRow; row++) {
     for (let col = minCol; col <= maxCol; col++) {
-      const top = solidTopAt(row, col, cellMap, obsSet)
-      if (top && playerZ < top - 0.04 && circleTouchesCell(gx, gy, row, col)) return true
+      const span=solidSpanAt(row,col,cellMap,obsSet)
+      const overlapsHeight=span&&playerZ<span.top-.04&&playerZ+PLAYER_BODY_H>span.bottom+.04
+      if(overlapsHeight&&circleTouchesCell(gx,gy,row,col)) return true
     }
   }
   return false
@@ -1119,6 +1172,20 @@ function supportHeightAt(gx, gy, playerZ, cellMap, obsSet) {
     }
   }
   return height
+}
+
+function ceilingBottomAt(gx,gy,playerZ,cellMap,obsSet){
+  let ceiling=Infinity
+  const radius=PLAYER_R*.82
+  for(let row=Math.floor(gy-radius);row<=Math.floor(gy+radius);row++){
+    for(let col=Math.floor(gx-radius);col<=Math.floor(gx+radius);col++){
+      const span=solidSpanAt(row,col,cellMap,obsSet)
+      if(span?.bottom>playerZ+PLAYER_BODY_H-.04&&circleTouchesCell(gx,gy,row,col,radius)){
+        ceiling=Math.min(ceiling,span.bottom)
+      }
+    }
+  }
+  return Number.isFinite(ceiling)?ceiling:0
 }
 
 function findRandomFreeCell(cellMap, validObs) {
@@ -1335,7 +1402,9 @@ function drawMinimap(ctx, gr, gc, angle, cellMap, presenceMap, myWallet, W, H, c
     const cell = cellMap.get(key)
     const obs  = validObs?.get(key) || null
     const seen = inCameraView(r+.5,c+.5)
-    if (obs?.isRoute) {
+    if (obs?.isRouteStair) {
+      ctx.fillStyle='rgba(250,204,21,.98)'
+    } else if (obs?.isRoute) {
       ctx.fillStyle = obs.routeIndex ? 'rgba(45,212,191,.96)' : 'rgba(34,211,238,.96)'
     } else if (obs?.isRouteWall) {
       ctx.fillStyle = 'rgba(126,34,206,.88)'
@@ -1354,7 +1423,10 @@ function drawMinimap(ctx, gr, gc, angle, cellMap, presenceMap, myWallet, W, H, c
       ctx.fillStyle = seen ? '#07101d' : '#03070d'
     }
     ctx.fillRect(mapX(c), mapY(r), Math.ceil(CS), Math.ceil(CS))
-    if(obs?.isRoute){
+    if(obs?.isRouteStair){
+      ctx.fillStyle='rgba(255,255,255,.92)'
+      ctx.fillRect(mapX(c)+CS*.28,mapY(r)+CS*.28,CS*.44,CS*.44)
+    } else if(obs?.isRoute){
       ctx.fillStyle='rgba(224,255,255,.82)'
       const marker=Math.max(1,CS*.18)
       ctx.fillRect(mapX(c)+CS*.5-marker*.5,mapY(r)+CS*.5-marker*.5,marker,marker)
@@ -2758,8 +2830,9 @@ export default function MiningChain3DFPV({
       const {perpDist,cell,side,mx:hitMx,my:hitMy}=layers[layerIndex]
       const dist=perpDist*Math.cos(ra-angle)
       const wallTop = cell?.isObstacle ? obstacleTop(cell) : BLOCK_TOP
+      const wallBase = cell?.isObstacle ? obstacleBottom(cell) : 0
       const projectedTop = projectY(wallTop, dist)
-      const projectedBottom = projectY(0, dist)
+      const projectedBottom = projectY(wallBase, dist)
       const rawTop=Math.min(projectedTop,projectedBottom)
       const rawBottom=Math.max(projectedTop,projectedBottom)
       if(!Number.isFinite(rawTop)||!Number.isFinite(rawBottom)||rawBottom<0||rawTop>H) continue
@@ -3087,8 +3160,9 @@ export default function MiningChain3DFPV({
     // ── Wall face overlays — ONLY for mineable blocks, never for structural walls ──
     // Use the actual wall top height so the crosshair activates across the full obstacle face
     const fwdWallTopH = fwdCell?.isObstacle ? obstacleTop(fwdCell) : BLOCK_TOP
+    const fwdWallBottomH = fwdCell?.isObstacle ? obstacleBottom(fwdCell) : 0
     const fwdProjectedTop = projectY(fwdWallTopH, fwdDist)
-    const fwdProjectedBottom = projectY(0, fwdDist)
+    const fwdProjectedBottom = projectY(fwdWallBottomH, fwdDist)
     const crosshairHitsFace = viewCenterY >= Math.min(fwdProjectedTop, fwdProjectedBottom)
       && viewCenterY <= Math.max(fwdProjectedTop, fwdProjectedBottom)
     const fwdIsObs = fwdCell?.isObstacle || validObstaclesRef.current?.has(`${fwdMy},${fwdMx}`)
@@ -3590,7 +3664,15 @@ export default function MiningChain3DFPV({
         const floorZ = supportHeight&&p.z>=supportHeight ? supportHeight : 0
         if(p.z > floorZ || p.vz > 0){
           p.vz -= GRAVITY_A*dt
-          const nz = p.z + p.vz*dt
+          let nz = p.z + p.vz*dt
+          const ceilingBottom=ceilingBottomAt(
+            p.x/CELL_SIZE,p.y/CELL_SIZE,p.z,
+            cellMapRef.current,validObstaclesRef.current,
+          )
+          if(p.vz>0&&ceilingBottom&&nz+PLAYER_BODY_H>=ceilingBottom){
+            nz=ceilingBottom-PLAYER_BODY_H-.02
+            p.vz=0
+          }
           if(nz <= floorZ){
             p.z = floorZ; p.vz = 0; p.jumps = 0   // land on floor or block top
           } else {
@@ -3652,6 +3734,8 @@ export default function MiningChain3DFPV({
         const tX = -Math.sin(p.angle)*rx + Math.cos(p.angle)*ry
         // Project the sprite to screen-space using the same math as the renderer.
         const remoteZ = Number(pres.z) || 0
+        const verticalGap=Math.abs(remoteZ-p.z)
+        if(verticalGap>.90||Math.hypot(tY,verticalGap)>INTERACT_DIST) continue
         const relZ    = remoteZ - (p.z + CAMERA_EYE_Z)
         const rotV    = relZ * _cosP + tY * _sinP
         const rotD    = tY  * _cosP - relZ * _sinP
