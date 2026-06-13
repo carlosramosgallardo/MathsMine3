@@ -41,12 +41,6 @@ const OBSTACLE_TOP = 2.35    // above the maximum single-jump apex
 const STAIR_HEIGHTS = [0.58, 1.16, 1.74]
 const MAX_STAIRCASES = 22
 const MAX_JUMPS = 1
-const STRUCTURE_ZONES = [
-  { r0:2,  r1:25, c0:2,  c1:25 },
-  { r0:2,  r1:25, c0:30, c1:53 },
-  { r0:30, r1:53, c0:2,  c1:25 },
-  { r0:30, r1:53, c0:30, c1:53 },
-]
 
 // ── Decorative obstacles: solid walls, no doorways, not mineable ──────────────
 // Five visual types: monolith (violet), pylon (teal), ruin (rust), steel wall, bunker
@@ -1007,129 +1001,79 @@ const OBSTACLE_MAP = new Map([
 ])
 
 function addRetroStructures(valid, reserved, cellMap) {
-  const isFree = (row,col) => {
-    const key=`${row},${col}`
-    return row>1&&row<ROWS-1&&col>1&&col<COLS-1&&
-      !reserved.has(key)&&!cellMap.has(key)&&!valid.has(key)
-  }
-  const place = (cells, makeData) => {
-    if(!cells.every(({row,col})=>isFree(row,col))) return false
-    cells.forEach((cell,index)=>{
-      const key=`${cell.row},${cell.col}`
-      valid.set(key,chainObstacle(key,{...makeData(cell,index),isStructure:true}))
-    })
-    return true
-  }
-  const findLine = (zone,length,horizontal,accept) => {
-    for(let row=zone.r0;row<=zone.r1;row++) for(let col=zone.c0;col<=zone.c1;col++){
-      const cells=Array.from({length},(_,index)=>({
-        row:row+(horizontal?0:index),
-        col:col+(horizontal?index:0),
-      }))
-      if(cells.at(-1).row>zone.r1||cells.at(-1).col>zone.c1) continue
-      if(cells.every(({row:r,col:c})=>isFree(r,c))&&(!accept||accept(cells))) return cells
+  const keyOf=(row,col)=>`${row},${col}`
+  const routeFree=(row,col)=>row>1&&row<ROWS-2&&col>1&&col<COLS-2&&!cellMap.has(keyOf(row,col))
+  const findCrossing=(starts,isGoal,directions)=>{
+    const queue=[],parents=new Map()
+    for(const start of starts){
+      const key=keyOf(start.row,start.col)
+      if(!routeFree(start.row,start.col)||parents.has(key)) continue
+      parents.set(key,null);queue.push(start)
     }
-    return null
-  }
-
-  const bridgeHeights=[0.58,1.16,1.74,1.74,1.74,1.74,1.74,1.16,0.58]
-  const bridgeCandidates=[
-    {row:26,col:3,dr:0,dc:1},{row:26,col:43,dr:0,dc:1},
-    {row:14,col:29,dr:1,dc:0},{row:33,col:27,dr:1,dc:0},
-    {row:5,col:29,dr:0,dc:1},{row:22,col:29,dr:0,dc:1},
-    {row:5,col:37,dr:0,dc:1},{row:22,col:37,dr:0,dc:1},
-    {row:38,col:3,dr:0,dc:1},{row:38,col:14,dr:0,dc:1},
-    {row:46,col:3,dr:0,dc:1},{row:46,col:14,dr:0,dc:1},
-  ]
-  for(const candidate of bridgeCandidates){
-    const cells=bridgeHeights.map((_height,index)=>({
-      row:candidate.row+candidate.dr*index,
-      col:candidate.col+candidate.dc*index,
-    }))
-    place(cells,(_cell,index)=>({
-      base:[34,82,104],glow:[34,211,238],kind:'hash',label:'DATA BRIDGE',
-      height:bridgeHeights[index],isBridge:true,
-    }))
-  }
-
-  const wallCandidates=[
-    {row:29,col:5,dr:0,dc:1},{row:34,col:26,dr:1,dc:0},
-  ]
-  for(const candidate of wallCandidates){
-    const line=Array.from({length:13},(_,index)=>({
-      row:candidate.row+candidate.dr*index,
-      col:candidate.col+candidate.dc*index,
-      index,
-    }))
-    if(!line.every(({row,col})=>isFree(row,col))) continue
-    const solids=line.filter(({index})=>index!==4&&index!==8)
-    place(solids,(_cell,index)=>({
-      base:[82,45,96],glow:[217,70,239],kind:'consensus',label:'CONSENSUS GATE',
-      height:index===0||index===solids.length-1?2.75:OBSTACLE_TOP,isWall:true,
-    }))
-  }
-
-  const trailCandidates=[
-    {row:27,col:14,dr:0,dc:1},{row:28,col:34,dr:0,dc:1},
-    {row:14,col:27,dr:0,dc:1},{row:27,col:40,dr:1,dc:0},
-    {row:40,col:14,dr:0,dc:1},{row:14,col:40,dr:1,dc:0},
-  ]
-  const trailHeights=[0.32,0.52,0.74,0.96,0.74,0.52,0.32]
-  for(const candidate of trailCandidates){
-    const cells=trailHeights.map((_height,index)=>({
-      row:candidate.row+candidate.dr*index,
-      col:candidate.col+candidate.dc*index,
-    }))
-    place(cells,(_cell,index)=>({
-      base:[96,78,48],glow:[250,204,21],kind:'ledger',label:'LEDGER RUN',
-      height:trailHeights[index],isTrail:true,
-    }))
-  }
-
-  STRUCTURE_ZONES.forEach((zone,zoneIndex)=>{
-    // Elevated data bridge: low ramps at both ends and a broad traversable deck.
-    const horizontal=zoneIndex%2===0
-    const bridge=findLine(zone,9,horizontal)
-    if(bridge) place(bridge,(_cell,index)=>({
-      base:[34,82,104],glow:[34,211,238],kind:'hash',label:'DATA BRIDGE',
-      height:bridgeHeights[index],
-      isBridge:true,
-    }))
-
-    // Monumental firewall with two real gates. Towers frame the entrances but
-    // the omitted cells keep the quadrant connected on foot.
-    const wall=findLine(zone,13,!horizontal,cells=>cells.every(({row,col})=>{
-      const halo=[[1,0],[-1,0],[0,1],[0,-1]]
-      return halo.some(([dr,dc])=>isFree(row+dr,col+dc))
-    }))
-    if(wall){
-      const solids=wall.filter((_cell,index)=>index!==4&&index!==8)
-      place(solids,(_cell,index)=>({
-        base:[82,45,96],glow:[217,70,239],kind:'consensus',label:'CONSENSUS GATE',
-        height:index===0||index===solids.length-1?2.75:OBSTACLE_TOP,
-        isWall:true,
-      }))
-    }
-  })
-
-  // Two compact raised plazas provide combat/mining vantage points. Their
-  // three-cell approach is part of the same atomic placement.
-  let plazas=0
-  for(const zone of STRUCTURE_ZONES.slice().reverse()){
-    if(plazas>=5) break
-    for(let row=zone.r0;row<=zone.r1-2&&plazas<2;row++){
-      for(let col=zone.c0;col<=zone.c1-5&&plazas<2;col++){
-        const deck=[]
-        for(let dr=0;dr<3;dr++) for(let dc=0;dc<3;dc++) deck.push({row:row+dr,col:col+dc})
-        const stairs=[{row:row+1,col:col+3},{row:row+1,col:col+4},{row:row+1,col:col+5}]
-        const all=[...deck,...stairs]
-        if(!all.every(({row:r,col:c})=>isFree(r,c))) continue
-        place(deck,()=>({base:[38,88,76],glow:[45,212,191],kind:'data',label:'HASH PLAZA',height:1.16,isPlaza:true}))
-        place(stairs,(_cell,index)=>({base:[38,88,76],glow:[45,212,191],kind:'data',label:'PLAZA STEP',height:[0.87,0.58,0.29][index],isStair:true}))
-        plazas++
+    let goal=null
+    for(let cursor=0;cursor<queue.length;cursor++){
+      const current=queue[cursor]
+      if(isGoal(current)){goal=current;break}
+      for(const [dr,dc] of directions){
+        const next={row:current.row+dr,col:current.col+dc}
+        const key=keyOf(next.row,next.col)
+        if(!routeFree(next.row,next.col)||parents.has(key)) continue
+        parents.set(key,current);queue.push(next)
       }
     }
+    if(!goal) return []
+    const path=[]
+    for(let current=goal;current;current=parents.get(keyOf(current.row,current.col))) path.push(current)
+    return path.reverse()
   }
+  const centerOut=(size)=>Array.from({length:size},(_,index)=>{
+    const offset=Math.ceil(index/2)*(index%2?1:-1)
+    return Math.floor(size/2)+offset
+  }).filter(value=>value>=2&&value<=size-3)
+
+  const horizontal=findCrossing(
+    centerOut(ROWS).map(row=>({row,col:2})),
+    ({col})=>col===COLS-3,
+    [[0,1],[1,0],[-1,0],[0,-1]],
+  )
+  const vertical=findCrossing(
+    centerOut(COLS).map(col=>({row:2,col})),
+    ({row})=>row===ROWS-3,
+    [[1,0],[0,1],[0,-1],[-1,0]],
+  )
+  const routes=[horizontal,vertical].filter(path=>path.length)
+  const routeKeys=new Set(routes.flatMap(path=>path.map(({row,col})=>keyOf(row,col))))
+
+  // Clear pre-existing decorative obstacles from the calculated crossings and
+  // replace them with one continuous raised network.
+  for(const key of routeKeys) valid.delete(key)
+  for(const [routeIndex,path] of routes.entries()){
+    path.forEach(({row,col},index)=>{
+      const key=keyOf(row,col)
+      valid.set(key,chainObstacle(key,{
+        base:routeIndex?[28,104,98]:[34,82,104],glow:[34,211,238],kind:'hash',
+        label:routeIndex?'NORTH-SOUTH PATH':'EAST-WEST PATH',height:.82,
+        isStructure:true,isRoute:true,routeIndex,
+      }))
+    })
+  }
+
+  // High side walls turn the platforms into readable corridors. Regular gaps
+  // and landmark safety zones remain open as entrances and exits.
+  routes.forEach((path,routeIndex)=>path.forEach((cell,index)=>{
+    const previous=path[Math.max(0,index-1)],next=path[Math.min(path.length-1,index+1)]
+    const dr=Math.sign(next.row-previous.row),dc=Math.sign(next.col-previous.col)
+    const isGate=index<3||index>path.length-4||index%11===5
+    for(const [wr,wc] of [[cell.row-dc,cell.col+dr],[cell.row+dc,cell.col-dr]]){
+      const key=keyOf(wr,wc)
+      if(!routeFree(wr,wc)||routeKeys.has(key)||reserved.has(key)) continue
+      if(isGate){valid.delete(key);continue}
+      valid.set(key,chainObstacle(key,{
+        base:[58,35,78],glow:[217,70,239],kind:'consensus',label:'ROUTE LIMIT',
+        height:2.75,isStructure:true,isRouteWall:true,routeIndex,
+      }))
+    }
+  }))
 }
 
 function circleTouchesCell(gx, gy, row, col, radius = PLAYER_R) {
@@ -1391,7 +1335,11 @@ function drawMinimap(ctx, gr, gc, angle, cellMap, presenceMap, myWallet, W, H, c
     const cell = cellMap.get(key)
     const obs  = validObs?.get(key) || null
     const seen = inCameraView(r+.5,c+.5)
-    if (obs) {
+    if (obs?.isRoute) {
+      ctx.fillStyle = obs.routeIndex ? 'rgba(45,212,191,.96)' : 'rgba(34,211,238,.96)'
+    } else if (obs?.isRouteWall) {
+      ctx.fillStyle = 'rgba(126,34,206,.88)'
+    } else if (obs) {
       const [or,og,ob] = obs.base
       ctx.fillStyle = seen ? `rgba(${or>>1},${og>>1},${ob>>1},0.92)` : `rgba(${or>>2},${og>>2},${ob>>2},0.48)`
     } else if (cell?.owner) {
@@ -1406,6 +1354,14 @@ function drawMinimap(ctx, gr, gc, angle, cellMap, presenceMap, myWallet, W, H, c
       ctx.fillStyle = seen ? '#07101d' : '#03070d'
     }
     ctx.fillRect(mapX(c), mapY(r), Math.ceil(CS), Math.ceil(CS))
+    if(obs?.isRoute){
+      ctx.fillStyle='rgba(224,255,255,.82)'
+      const marker=Math.max(1,CS*.18)
+      ctx.fillRect(mapX(c)+CS*.5-marker*.5,mapY(r)+CS*.5-marker*.5,marker,marker)
+    } else if(obs?.isRouteWall){
+      ctx.strokeStyle='rgba(232,121,249,.72)';ctx.lineWidth=.7
+      ctx.strokeRect(mapX(c)+.5,mapY(r)+.5,Math.max(1,CS-1),Math.max(1,CS-1))
+    }
     const isMyBlock = seen && cell?.owner && myWallet && cell.owner.toLowerCase() === myWallet.toLowerCase()
     if (isMyBlock) {
       ctx.strokeStyle = '#ffffffbb'; ctx.lineWidth = 0.7
