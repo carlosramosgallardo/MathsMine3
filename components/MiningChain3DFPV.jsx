@@ -1072,45 +1072,44 @@ function hexToRgb(hex) {
 }
 
 function wallRgb(cell, dist, side, myWallet) {
+  // Unified fog rate across all surface types. Side 0 (E/W faces) full brightness,
+  // side 1 (N/S faces) 72% to simulate directional ambient light.
+  const sideMul = side === 1 ? 0.72 : 1.0
+  const fog = Math.max(0.12, 1 - dist * 0.058)
   if (cell?.isObstacle) {
     const [r,g,b] = cell.base || [40,25,65]
-    const f = (side === 1 ? 0.72 : 1.0) * Math.max(0.14, 1 - dist * 0.055)
+    const f = sideMul * fog
     return [Math.round(r*f), Math.round(g*f), Math.round(b*f)]
   }
   if (cell?.isChainNode) {
     const pulse = 0.60 + Math.sin(Date.now() / 300) * 0.40
-    const f = (side === 1 ? 0.72 : 1.0) * Math.max(0.18, 1 - dist * 0.06) * pulse
+    const f = sideMul * Math.max(0.18, 1 - dist * 0.058) * pulse
     return [Math.round(255 * f), Math.round(180 * f), 0]
   }
   if (cell?.isPortalNode) {
     const [pr, pg, pb] = hexToRgb(cell.color || C)
     const pulse = 0.55 + Math.sin(Date.now() / 400) * 0.45
-    const f = (side === 1 ? 0.72 : 1.0) * Math.max(0.18, 1 - dist * 0.06) * pulse
+    const f = sideMul * Math.max(0.18, 1 - dist * 0.058) * pulse
     return [Math.round(pr * f), Math.round(pg * f), Math.round(pb * f)]
   }
   let base
   if (cell?.owner) {
     const isMe = myWallet && cell.owner.toLowerCase() === myWallet.toLowerCase()
     if (isMe) {
-      // My block: bright cyan-white
       base = [60, 200, 230]
     } else {
-      // Someone else's block: their wallet color, slightly saturated
       const [r,g,b] = hexToRgb(cell.color)
       base = [Math.min(255,r*1.15|0), Math.min(255,g*1.15|0), Math.min(255,b*1.15|0)]
     }
   } else if (cell?.isMarket) {
-    // Unowned NFTJI block: amber/gold draws attention.
     base = [200, 110, 20]
   } else if (cell) {
-    // Unclaimed regular block: slate-blue, mineable
     base = [30, 60, 130]
   } else {
-    // Empty / void
     base = [10, 18, 42]
   }
   const [r,g,b] = base
-  const f = (side === 1 ? 0.72 : 1.0) * Math.max(0.14, 1 - dist * 0.065)
+  const f = sideMul * fog
   return [Math.round(r*f), Math.round(g*f), Math.round(b*f)]
 }
 
@@ -1189,7 +1188,7 @@ function minimapSize(W) {
   return W < 600 ? Math.min(W * 0.44, 128) : Math.min(176, W * 0.22)
 }
 
-function drawMinimap(ctx, gr, gc, angle, cellMap, presenceMap, myWallet, W, H, chainNodePos, validObs) {
+function drawMinimap(ctx, gr, gc, angle, cellMap, presenceMap, myWallet, W, H, chainNodePos, validObs, gx, gy) {
   const isMobile = W < 600
   const SZ = minimapSize(W)
   const MX = W - SZ - 6
@@ -1202,8 +1201,10 @@ function drawMinimap(ctx, gr, gc, angle, cellMap, presenceMap, myWallet, W, H, c
   const CS = SZ/viewCells
   const mapX = (col) => MX + (col-originCol)*CS
   const mapY = (row) => MY + (row-originRow)*CS
+  // Use exact sub-cell position for view cone and ray accuracy
+  const camX = gx ?? (gc + .5), camY = gy ?? (gr + .5)
   const inCameraView = (row,col,pad=0) => {
-    const vx=col-(gc+.5),vy=row-(gr+.5)
+    const vx=col-camX,vy=row-camY
     const dist=Math.hypot(vx,vy)
     if(dist<=2.15+pad) return true
     if(dist>RADAR_RANGE+pad) return false
@@ -1212,10 +1213,10 @@ function drawMinimap(ctx, gr, gc, angle, cellMap, presenceMap, myWallet, W, H, c
   }
   const visibleFromCamera = (row,col,pad=0) => {
     if(!inCameraView(row,col,pad)) return false
-    const vx=col-(gc+.5),vy=row-(gr+.5)
+    const vx=col-camX,vy=row-camY
     const dist=Math.hypot(vx,vy)
     if(dist<=2.15+pad) return true
-    const ray=castRay((gc+.5)*CELL_SIZE,(gr+.5)*CELL_SIZE,Math.atan2(vy,vx),cellMap,validObs,Math.min(RADAR_RANGE,dist))
+    const ray=castRay(camX*CELL_SIZE,camY*CELL_SIZE,Math.atan2(vy,vx),cellMap,validObs,Math.min(RADAR_RANGE,dist))
     return !ray.hit||ray.perpDist>=dist-.35
   }
   const drawMapEmoji = (emoji,x,y,color,shape='circle') => {
@@ -2443,18 +2444,22 @@ export default function MiningChain3DFPV({
       if(cellMap.has(key)) return BLOCK_TOP
       return 0
     }
+    ctx.save()
+    ctx.beginPath(); ctx.rect(0, Math.max(0, sceneSplitY - 1), W, H); ctx.clip()
     ctx.globalAlpha=.12;ctx.strokeStyle=C;ctx.lineWidth=1;ctx.beginPath()
     for(let c=gridMinCol;c<=gridMaxCol+1;c++){
       const seg=projectSegment([c,gridMinRow,0],[c,gridMaxRow+1,0]); if(!seg) continue
-      const [a,b,d]=seg;if((a.y<sceneSplitY&&b.y<sceneSplitY)||d>FLOOR_GRID_RANGE) continue
+      const [a,b,d]=seg; if(d>FLOOR_GRID_RANGE) continue
       ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y)
     }
     for(let r=gridMinRow;r<=gridMaxRow+1;r++){
       const seg=projectSegment([gridMinCol,r,0],[gridMaxCol+1,r,0]); if(!seg) continue
-      const [a,b,d]=seg;if((a.y<sceneSplitY&&b.y<sceneSplitY)||d>FLOOR_GRID_RANGE) continue
+      const [a,b,d]=seg; if(d>FLOOR_GRID_RANGE) continue
       ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y)
     }
-    ctx.stroke();ctx.globalAlpha=1
+    ctx.stroke()
+    ctx.restore()
+    ctx.globalAlpha=1
 
     // Visible block tops are clipped polygons and are rendered before walls;
     // wall strips therefore occlude them cleanly without jagged overlaps.
@@ -2484,29 +2489,38 @@ export default function MiningChain3DFPV({
       const maxX=Math.max(...points.map(point=>point.x))
       const projectedWidth=maxX-minX
       const projectedHeight=maxY-minY
-      if(!Number.isFinite(area)||area<3||area>W*H*.72||projectedHeight<2.25) continue
+      if(!Number.isFinite(area)||area<0.5||area>W*H*.72) continue
       const depth=verts.reduce((sum,v)=>sum+v.depth,0)/verts.length
-      if(depth>3&&projectedWidth>projectedHeight*14) continue
-      tops.push({r,c,points,depth,topHeight,area})
+      if(depth>3&&projectedWidth>projectedHeight*22) continue
+      // Smooth fade for nearly edge-on tops instead of hard cutoff
+      const edgeAlpha=projectedHeight<5?projectedHeight/5:1
+      const areaAlpha=area<4?area/4:1
+      tops.push({r,c,points,depth,topHeight,area,alpha:edgeAlpha*areaAlpha})
     }
     tops.sort((a,b)=>b.depth-a.depth)
     for(const top of tops){
       const key=`${top.r},${top.c}`,obs=validObstaclesRef.current.get(key),cell=cellMap.get(key)
       const base=obs?.base||(cell?.color?hexToRgb(cell.color):cell?.isChainNode?[220,170,25]:[48,82,142])
-      const light=Math.max(.48,1-top.depth*.025)
-      ctx.fillStyle=`rgb(${Math.round(base[0]*light)},${Math.round(base[1]*light)},${Math.round(base[2]*light)})`
-      ctx.strokeStyle=top.area>10?'rgba(220,240,255,.22)':'rgba(220,240,255,.10)';ctx.lineWidth=1
+      // Top faces receive overhead light: brighter than side faces (side=0 at 1.0x, side=1 at 0.72x)
+      const light=Math.max(.55,1-top.depth*.022)
+      const topMul=obs?1.08:1.22  // obstacle tops slightly brighter, block tops clearly brighter
+      const [tr,tg,tb]=[Math.min(255,Math.round(base[0]*light*topMul)),Math.min(255,Math.round(base[1]*light*topMul)),Math.min(255,Math.round(base[2]*light*topMul))]
+      ctx.save()
+      ctx.globalAlpha=top.alpha??1
+      ctx.fillStyle=`rgb(${tr},${tg},${tb})`
+      ctx.strokeStyle=top.area>10?'rgba(220,240,255,.28)':'rgba(220,240,255,.12)';ctx.lineWidth=1
       ctx.beginPath();ctx.moveTo(top.points[0].x,top.points[0].y)
       for(let i=1;i<top.points.length;i++)ctx.lineTo(top.points[i].x,top.points[i].y)
       ctx.closePath();ctx.fill();ctx.stroke()
-      if(top.depth<7&&top.area>28){
+      if(top.depth<7&&top.area>20){
         const a=projectSegment([top.c+.5,top.r,top.topHeight+.003],[top.c+.5,top.r+1,top.topHeight+.003])
         const b=projectSegment([top.c,top.r+.5,top.topHeight+.003],[top.c+1,top.r+.5,top.topHeight+.003])
-        ctx.strokeStyle='rgba(0,0,0,.16)';ctx.beginPath()
+        ctx.strokeStyle='rgba(0,0,0,.18)';ctx.beginPath()
         if(a){ctx.moveTo(a[0].x,a[0].y);ctx.lineTo(a[1].x,a[1].y)}
         if(b){ctx.moveTo(b[0].x,b[0].y);ctx.lineTo(b[1].x,b[1].y)}
         ctx.stroke()
       }
+      ctx.restore()
     }
 
     // Pre-compute forward cell
@@ -2577,17 +2591,16 @@ export default function MiningChain3DFPV({
       }
 
       if (!cell?.isObstacle) {
-        // Cube top highlight — bright ledge (blocks only, not walls)
-        if (wallH > 8) {
-          const hlH = Math.max(2, Math.round(wallH*0.035))
-          ctx.fillStyle = 'rgba(255,255,255,0.14)'
+        // Top edge: bright highlight where the top face meets the side face
+        if (wallH > 6) {
+          const hlH = Math.max(2, Math.round(wallH*0.08))
+          ctx.fillStyle = 'rgba(255,255,255,0.22)'
           ctx.fillRect(col*stripW, wTop, stripW, hlH)
         }
-        // Ambient-occlusion edges (blocks only — walls are continuous, no float)
-        const edgeH = Math.max(2,Math.round(wallH*0.12))
-        ctx.fillStyle='rgba(0,0,0,0.28)'
-        ctx.fillRect(col*stripW,wTop,stripW,edgeH)
-        ctx.fillRect(col*stripW,wTop+wallH-edgeH,stripW,edgeH)
+        // Bottom AO: contact shadow where block sits on the floor
+        const edgeH = Math.max(2, Math.round(wallH*0.10))
+        ctx.fillStyle = 'rgba(0,0,0,0.32)'
+        ctx.fillRect(col*stripW, wTop+wallH-edgeH, stripW, edgeH)
       } else if(col%3===0) {
         // Blockchain architecture: each obstacle family has a cheap strip-based
         // material pattern, keeping the maze varied without textures or meshes.
@@ -2853,7 +2866,9 @@ export default function MiningChain3DFPV({
     }
 
     // ── Wall face overlays — ONLY for mineable blocks, never for structural walls ──
-    const fwdProjectedTop = projectY(BLOCK_TOP, fwdDist)
+    // Use the actual wall top height so the crosshair activates across the full obstacle face
+    const fwdWallTopH = fwdCell?.isObstacle ? obstacleTop(fwdCell) : BLOCK_TOP
+    const fwdProjectedTop = projectY(fwdWallTopH, fwdDist)
     const fwdProjectedBottom = projectY(0, fwdDist)
     const crosshairHitsFace = viewCenterY >= Math.min(fwdProjectedTop, fwdProjectedBottom)
       && viewCenterY <= Math.max(fwdProjectedTop, fwdProjectedBottom)
@@ -3111,7 +3126,7 @@ export default function MiningChain3DFPV({
       } else pvpGainRef.current = null
     }
 
-    drawMinimap(ctx,gr,gc,angle,cellMap,presence,myIdentity,W,H,chainNodePosRef.current,validObstaclesRef.current)
+    drawMinimap(ctx,gr,gc,angle,cellMap,presence,myIdentity,W,H,chainNodePosRef.current,validObstaclesRef.current,px/CELL_SIZE,py/CELL_SIZE)
     drawOnlineList(ctx,W,H,presence,myIdentity,pvpStolenRef.current)
     const walletDock = drawWalletDock(
       ctx,W,H,myNftjisRef.current,healthMapRef.current[myIdentity]??100,es,Boolean(myWallet)
