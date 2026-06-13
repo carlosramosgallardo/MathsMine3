@@ -29,7 +29,6 @@ const TRADE_NFTJI_DEFS = [
 ]
 const CHAIN_NODE_ROW = 27
 const CHAIN_NODE_COL = 27
-const CHAIN_NODE_BLOCK_HEX = gridToBlockHex(4, 4)
 
 // Portal nodes are spread across all four quarters of the 56x56 world.
 const PORTAL_NODES = [
@@ -59,7 +58,6 @@ const VISUAL_BLOCK_POSITIONS = (() => {
   const positions = new Map()
   for (let index = 0; index < MM3_BLOCK_GRID_ROWS * MM3_BLOCK_GRID_COLS; index++) {
     const blockHex = `#${index.toString(16).toUpperCase().padStart(3, '0')}`
-    if (blockHex === CHAIN_NODE_BLOCK_HEX) continue
     const region = VISUAL_BLOCK_REGIONS[index % VISUAL_BLOCK_REGIONS.length]
     const slots = region.size * region.size
     for (let probe = 0; probe < slots; probe++) {
@@ -224,14 +222,12 @@ export default function MiningChain3D() {
           isMarket: true, isMined: Boolean(ownerWallet),
         })
       }
-      blocksByHex.delete(CHAIN_NODE_BLOCK_HEX)
       for (const [, block] of [...blocksByHex.entries()].sort(([a],[b]) => a.localeCompare(b))) {
         const pos = placeDistributedBlock(block.blockHex)
         if (pos) map.set(`${pos.row},${pos.col}`, block)
       }
       // Chain Node: fixed special cell at grid center, always present
       map.set(`${CHAIN_NODE_ROW},${CHAIN_NODE_COL}`, {
-        blockHex: CHAIN_NODE_BLOCK_HEX,
         isChainNode: true,
         isMarket: false,
         isMined: false,
@@ -610,7 +606,7 @@ export default function MiningChain3D() {
 
   // Derived facing cell info
   const fc         = facingCell?.cell
-  const fcHex      = fc?.blockHex || (facingCell ? gridToBlockHex(facingCell.row, facingCell.col) : null)
+  const fcHex      = fc?.isChainNode ? null : (fc?.blockHex || (facingCell ? gridToBlockHex(facingCell.row, facingCell.col) : null))
   const fcReq      = fcHex ? MM3_BLOCK_REQUIREMENT_BY_HEX.get(fcHex) : null
   const fcOwnColor = fc?.owner ? colorFromAddress(fc.owner) : null
   const isMine     = myWallet && fc?.owner?.toLowerCase() === myWallet
@@ -686,9 +682,9 @@ export default function MiningChain3D() {
             {/* Block identity: emoji + hex + title */}
             <div style={{ display:'flex', alignItems:'center', gap:5, minWidth:0, flex:'0 0 auto' }}>
               {fc?.emoji && <span style={{ fontSize:'1.1rem', flexShrink:0 }}>{fc.emoji}</span>}
-              <span style={{ color:fc?.color||C, fontWeight:700, fontSize:'0.82rem', letterSpacing:'0.06em', whiteSpace:'nowrap' }}>
+              {fcHex && <span style={{ color:fc?.color||C, fontWeight:700, fontSize:'0.82rem', letterSpacing:'0.06em', whiteSpace:'nowrap' }}>
                 {fcHex}
-              </span>
+              </span>}
               {(fc?.titleEn||fc?.titleEs) && (
                 <span style={{ color:'#7a90a3', fontSize:'0.76rem', whiteSpace:'nowrap', minWidth:0, overflow:'hidden', textOverflow:'ellipsis', maxWidth:140 }}>
                   {es?(fc.titleEs||fc.titleEn):(fc.titleEn||fc.titleEs)}
@@ -815,9 +811,9 @@ export default function MiningChain3D() {
             <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:12 }}>
               {fc?.emoji && <span style={{ fontSize:'1.5rem' }}>{fc.emoji}</span>}
               <div style={{ flex:1 }}>
-                <div style={{ color:fc?.color||C, fontWeight:700, fontSize:'0.94rem', letterSpacing:'0.08em' }}>
+                {fcHex && <div style={{ color:fc?.color||C, fontWeight:700, fontSize:'0.94rem', letterSpacing:'0.08em' }}>
                   {fcHex}
-                </div>
+                </div>}
                 {(fc?.titleEn||fc?.titleEs) && (
                   <div style={{ color:'#b8c7d4', fontSize:'0.80rem', marginTop:2 }}>
                     {es?(fc.titleEs||fc.titleEn):(fc.titleEn||fc.titleEs)}

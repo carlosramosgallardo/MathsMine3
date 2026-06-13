@@ -1236,6 +1236,25 @@ function drawFacingHUD(ctx, W, H, fwdCell, fwdMx, fwdMy, myWallet, es, dist, obs
     return
   }
 
+  if (fwdCell?.isChainNode) {
+    const inRange = dist == null || dist <= INTERACT_DIST
+    const col = fwdCell.color || '#ffd700'
+    const title = es ? (fwdCell.titleEs || 'NODO CENTRAL') : (fwdCell.titleEn || 'CENTRAL NODE')
+    const lines = [
+      { text: `${fwdCell.emoji || '⬡'}  ${title}`, size: 13, weight: 'bold', col },
+      { text: es ? 'Terminal estático de la cadena' : 'Static chain terminal', size: 10, col: '#8b7f52' },
+      inRange
+        ? { text: es ? '↵ · Resolver cadena' : '↵ · Solve formula chain', size: 10, col: col + 'cc' }
+        : { text: es ? '· acércate para interactuar' : '· move closer to interact', size: 9, col: col + '55' },
+    ]
+    const lineH=16,padX=9,padY=8,ph=lines.length*lineH+padY*2,pw=Math.min(_mapLeft-16,240),px=_mapLeft-pw-6
+    ctx.globalAlpha=.9;ctx.fillStyle='#010709';ctx.fillRect(px,8,pw,ph);ctx.globalAlpha=1
+    ctx.strokeStyle=col+'55';ctx.strokeRect(px,8,pw,ph);ctx.fillStyle=col+'77';ctx.fillRect(px,8,2,ph)
+    ctx.textAlign='left';ctx.textBaseline='top'
+    lines.forEach((line,i)=>{ctx.font=`${line.weight||'normal'} ${line.size}px monospace`;ctx.fillStyle=line.col;ctx.fillText(line.text,px+padX,8+padY+i*lineH,pw-padX*2)})
+    return
+  }
+
   const hex   = fwdCell?.blockHex || gridToBlockHex(fwdMy, fwdMx)
   const title = fwdCell
     ? (es ? (fwdCell.titleEs || fwdCell.titleEn || '') : (fwdCell.titleEn || fwdCell.titleEs || ''))
@@ -1405,39 +1424,55 @@ function drawFirstPersonTool(ctx, W, H, color, swingT, walkDist) {
 
   const pickL = 128 * scale
   const pickA = -2.02 - swing * 0.92
-  const tipX = handX + Math.cos(pickA)*pickL
-  const tipY = handY + Math.sin(pickA)*pickL
-  ctx.strokeStyle = '#8b5e3c'; ctx.lineWidth = Math.max(5, 8*scale)
-  ctx.beginPath(); ctx.moveTo(handX,handY); ctx.lineTo(tipX,tipY); ctx.stroke()
-  ctx.lineCap = 'butt'
-  const hs = 17*scale
-  ctx.fillStyle = '#9fb8c9'; ctx.strokeStyle = '#d7e8f3'; ctx.lineWidth = Math.max(.7,scale)
-  ctx.beginPath()
-  ctx.moveTo(tipX-hs*.25,tipY-hs*.7); ctx.lineTo(tipX+hs*1.15,tipY-hs*.18)
-  ctx.lineTo(tipX+hs*.42,tipY+hs*.28); ctx.lineTo(tipX-hs*.72,tipY+hs*.54)
-  ctx.closePath(); ctx.fill(); ctx.stroke()
+  drawFreakDrillPick(ctx,handX,handY,pickL,pickA,scale)
+  ctx.restore()
+}
+
+function drawFreakDrillPick(ctx,handX,handY,length,angle,scale=1,alpha=1){
+  const tipX=handX+Math.cos(angle)*length,tipY=handY+Math.sin(angle)*length
+  ctx.save();ctx.globalAlpha*=alpha;ctx.lineCap='round'
+  ctx.strokeStyle='#70462d';ctx.lineWidth=Math.max(2,5*scale)
+  ctx.beginPath();ctx.moveTo(handX,handY);ctx.lineTo(tipX,tipY);ctx.stroke()
+  const nx=-Math.sin(angle),ny=Math.cos(angle),headL=15*scale
+  ctx.lineCap='butt';ctx.fillStyle='#172b38';ctx.strokeStyle='#67e8f9';ctx.lineWidth=Math.max(.7,scale)
+  ctx.beginPath();ctx.moveTo(tipX+nx*headL,tipY+ny*headL);ctx.lineTo(tipX-nx*headL*.8,tipY-ny*headL*.8)
+  ctx.lineTo(tipX-nx*headL*.48-Math.cos(angle)*headL*.8,tipY-ny*headL*.48-Math.sin(angle)*headL*.8)
+  ctx.lineTo(tipX+nx*headL*.55-Math.cos(angle)*headL*.45,tipY+ny*headL*.55-Math.sin(angle)*headL*.45);ctx.closePath();ctx.fill();ctx.stroke()
+  ctx.fillStyle='#facc15';ctx.beginPath();ctx.arc(tipX,tipY,3.2*scale,0,Math.PI*2);ctx.fill()
+  ctx.strokeStyle='#22d3ee';ctx.lineWidth=Math.max(1,1.5*scale);ctx.beginPath()
+  ctx.moveTo(tipX+nx*headL,tipY+ny*headL);ctx.lineTo(tipX+nx*headL*1.45-Math.cos(angle)*headL*.18,tipY+ny*headL*1.45-Math.sin(angle)*headL*.18);ctx.stroke()
   ctx.restore()
 }
 
 function drawThirdPersonPlayer(ctx,W,H,color,swingT,walkDist,dockTop){
   const mobile=W<640,scale=mobile ? .76 : Math.max(.86,Math.min(1.1,H/590))
-  const bodyW=62*scale,bodyH=82*scale,headW=39*scale,headH=25*scale
+  const bodyW=66*scale,bodyH=76*scale,headW=43*scale,headH=28*scale
   const bob=Math.sin(walkDist*.18)*2.2*scale
   const cx=W/2,bottomY=(dockTop??(H-18))+bob,bodyTop=bottomY-bodyH,headTop=bodyTop-headH+4*scale
   const [r,g,b]=hexToRgb(color||C)
   ctx.save();ctx.globalAlpha=.98
-  ctx.fillStyle='rgba(0,0,0,.38)';ctx.beginPath();ctx.ellipse(cx,bottomY+3,bodyW*.58,7*scale,0,0,Math.PI*2);ctx.fill()
-  ctx.fillStyle=`rgb(${r*.52|0},${g*.52|0},${b*.52|0})`;ctx.strokeStyle=color||C;ctx.lineWidth=1
-  ctx.fillRect(cx-bodyW/2,bodyTop,bodyW,bodyH);ctx.strokeRect(cx-bodyW/2,bodyTop,bodyW,bodyH)
-  ctx.fillStyle=`rgba(${r},${g},${b},.34)`;ctx.fillRect(cx-bodyW/2+4,bodyTop+8,bodyW-8,8*scale)
+  ctx.fillStyle='rgba(0,0,0,.42)';ctx.beginPath();ctx.ellipse(cx,bottomY+4,bodyW*.62,7*scale,0,0,Math.PI*2);ctx.fill()
+  ctx.fillStyle=`rgb(${r*.35|0},${g*.35|0},${b*.35|0})`;ctx.strokeStyle=color||C;ctx.lineWidth=1.2
+  ctx.fillRect(cx-bodyW*.42,bodyTop,bodyW*.84,bodyH);ctx.strokeRect(cx-bodyW*.42,bodyTop,bodyW*.84,bodyH)
+  ctx.fillStyle=`rgb(${r*.48|0},${g*.48|0},${b*.48|0})`
+  ctx.fillRect(cx-bodyW*.54,bodyTop+9*scale,bodyW*.12,bodyH*.28);ctx.fillRect(cx+bodyW*.42,bodyTop+9*scale,bodyW*.12,bodyH*.28)
+  ctx.fillStyle=`rgba(${r},${g},${b},.38)`;ctx.fillRect(cx-bodyW*.35,bodyTop+8,bodyW*.7,7*scale)
+  ctx.fillStyle='#09131d';ctx.fillRect(cx-bodyW*.25,bodyTop+bodyH*.29,bodyW*.5,bodyH*.22)
+  ctx.strokeStyle='#67e8f966';ctx.strokeRect(cx-bodyW*.25,bodyTop+bodyH*.29,bodyW*.5,bodyH*.22)
+  ctx.fillStyle='#facc15';ctx.fillRect(cx-5*scale,bodyTop+bodyH*.34,10*scale,7*scale)
+  ctx.fillStyle='#071019';ctx.fillRect(cx-bodyW*.42,bodyTop+bodyH*.70,bodyW*.84,6*scale)
+  ctx.fillStyle=`rgb(${r*.28|0},${g*.28|0},${b*.28|0})`;ctx.fillRect(cx-bodyW*.34,bottomY-9*scale,bodyW*.25,9*scale);ctx.fillRect(cx+bodyW*.09,bottomY-9*scale,bodyW*.25,9*scale)
   ctx.fillStyle=`rgb(${Math.min(255,r*.82+35)|0},${Math.min(255,g*.82+35)|0},${Math.min(255,b*.82+35)|0})`
   ctx.fillRect(cx-headW/2,headTop,headW,headH);ctx.strokeRect(cx-headW/2,headTop,headW,headH)
-  const handX=cx+bodyW*.47,handY=bodyTop+bodyH*.43,pickL=60*scale
+  ctx.fillStyle='#071722';ctx.fillRect(cx-headW*.36,headTop+headH*.28,headW*.72,headH*.34)
+  ctx.fillStyle='#67e8f9';ctx.fillRect(cx-headW*.28,headTop+headH*.36,headW*.56,2*scale)
+  ctx.fillStyle=color||C;ctx.fillRect(cx-4*scale,headTop-5*scale,8*scale,5*scale)
+  const handX=cx+bodyW*.47,handY=bodyTop+bodyH*.43,pickL=64*scale
   ctx.strokeStyle=`rgb(${r*.72|0},${g*.72|0},${b*.72|0})`;ctx.lineWidth=6*scale;ctx.lineCap='round'
   ctx.beginPath();ctx.moveTo(cx+bodyW*.34,bodyTop+bodyH*.28);ctx.lineTo(handX,handY);ctx.stroke()
-  const pickA=-.92-Math.sin(swingT*Math.PI)*1.25,tipX=handX+Math.cos(pickA)*pickL,tipY=handY+Math.sin(pickA)*pickL
-  ctx.strokeStyle='#8b5e3c';ctx.lineWidth=4*scale;ctx.beginPath();ctx.moveTo(handX,handY);ctx.lineTo(tipX,tipY);ctx.stroke()
-  const hs=10*scale;ctx.fillStyle='#b8cfdd';ctx.beginPath();ctx.moveTo(tipX-hs*.25,tipY-hs*.7);ctx.lineTo(tipX+hs*1.15,tipY-hs*.18);ctx.lineTo(tipX+hs*.42,tipY+hs*.28);ctx.lineTo(tipX-hs*.72,tipY+hs*.54);ctx.closePath();ctx.fill();ctx.restore()
+  const pickA=-.92-Math.sin(swingT*Math.PI)*1.25
+  drawFreakDrillPick(ctx,handX,handY,pickL,pickA,scale)
+  ctx.restore()
 }
 
 // ── Mining progress arc ──────────────────────────────────────────────────────
@@ -2362,7 +2397,30 @@ export default function MiningChain3DFPV({
       }
       ctx.globalAlpha = 1
 
-      // Pickaxe (vector draw, depth-checked at wallet center)
+      // Shared Freak wallet details: visor, energy core, belt and grounded feet.
+      const centerZCol=Math.floor(scrX/stripW)
+      if(centerZCol>=0&&centerZCol<strips&&tY<zBuffer[centerZCol]){
+        ctx.globalAlpha=alpha
+        const visorY=billsTop+Math.round(billsH*.34),visorW=Math.max(4,Math.round(billsW*.68))
+        ctx.fillStyle='#071722';ctx.fillRect(scrX-Math.floor(visorW/2),visorY,visorW,Math.max(2,Math.round(billsH*.28)))
+        ctx.fillStyle='#67e8f9';ctx.fillRect(scrX-Math.floor(visorW*.36),visorY+1,Math.max(2,Math.round(visorW*.72)),1)
+        const shoulderY=walletTop+Math.round(walletH*.10),shoulderW=Math.max(2,Math.round(walletW*.12))
+        ctx.fillStyle=`rgb(${Math.round(cr*fade*.48)},${Math.round(cg2*fade*.48)},${Math.round(cb*fade*.48)})`
+        ctx.fillRect(wx1-shoulderW,shoulderY,shoulderW,Math.max(3,Math.round(walletH*.24)))
+        ctx.fillRect(wx2,shoulderY,shoulderW,Math.max(3,Math.round(walletH*.24)))
+        const coreW=Math.max(3,Math.round(walletW*.20)),coreH=Math.max(2,Math.round(walletH*.10))
+        ctx.fillStyle='#06131c';ctx.fillRect(scrX-coreW,claspY-1,coreW*2,coreH+2)
+        ctx.fillStyle='#facc15';ctx.fillRect(scrX-Math.floor(coreW*.55),claspY,Math.max(2,Math.round(coreW*1.1)),coreH)
+        const beltY=walletTop+Math.round(walletH*.70)
+        ctx.fillStyle='rgba(2,8,18,.82)';ctx.fillRect(wx1,beltY,walletW,Math.max(2,Math.round(walletH*.06)))
+        const bootH=Math.max(2,Math.round(walletH*.09)),bootW=Math.max(3,Math.round(walletW*.28))
+        ctx.fillStyle=`rgb(${Math.round(cr*fade*.30)},${Math.round(cg2*fade*.30)},${Math.round(cb*fade*.30)})`
+        ctx.fillRect(scrX-Math.round(walletW*.34),bottomY-bootH,bootW,bootH)
+        ctx.fillRect(scrX+Math.round(walletW*.06),bottomY-bootH,bootW,bootH)
+        ctx.globalAlpha=1
+      }
+
+      // Freak Drill-Pick (same tool and swing timing as the local avatar)
       const pkZCol = Math.floor(scrX / stripW)
       if (pkZCol >= 0 && pkZCol < strips && tY < zBuffer[pkZCol]) {
         // The remote is seen from the front, so its anatomical right appears
@@ -2375,21 +2433,7 @@ export default function MiningChain3DFPV({
         const remoteSwingAge = Date.now()-(swingAt||swingMapRef.current[w]||0)
         const remoteSwingT   = remoteSwingAge < SWING_DUR ? remoteSwingAge / SWING_DUR : 0
         const pkA=-Math.PI/2+pickSide*0.66+pickSide*Math.sin(remoteSwingT*Math.PI)*1.05
-        const pkTX = pkBX + Math.cos(pkA)*pkL, pkTY = pkBY + Math.sin(pkA)*pkL
-        ctx.globalAlpha = alpha * 0.82
-        ctx.strokeStyle = '#8B5E3C'
-        ctx.lineWidth = Math.max(1.5, pkL*0.09); ctx.lineCap = 'round'
-        ctx.beginPath(); ctx.moveTo(pkBX, pkBY); ctx.lineTo(pkTX, pkTY); ctx.stroke()
-        ctx.lineCap = 'butt'
-        const hs = Math.max(2, pkL*0.22)
-        ctx.fillStyle = '#aac4d4'
-        ctx.beginPath()
-        ctx.moveTo(pkTX, pkTY - hs*0.6)
-        ctx.lineTo(pkTX - hs*1.1, pkTY + hs*0.2)
-        ctx.lineTo(pkTX - hs*0.5, pkTY + hs*0.9)
-        ctx.lineTo(pkTX + hs*0.4, pkTY + hs*0.5)
-        ctx.closePath(); ctx.fill()
-        ctx.globalAlpha = 1
+        drawFreakDrillPick(ctx,pkBX,pkBY,pkL,pkA,Math.max(.28,pkL/64),alpha*.9)
       }
 
       // Floor shadow ellipse (at actual floor level)
@@ -2473,7 +2517,7 @@ export default function MiningChain3DFPV({
 
     // Hex address label (scales with proximity)
     // Only draw when fwdCell has real data AND label position stays below the obstacle ceiling zone
-    const fwdHex = fwdMx>=0&&fwdMy>=0&&fwdCell ? (fwdCell.blockHex||gridToBlockHex(fwdMy,fwdMx)) : null
+    const fwdHex = fwdMx>=0&&fwdMy>=0&&fwdCell&&!fwdCell.isChainNode ? (fwdCell.blockHex||gridToBlockHex(fwdMy,fwdMx)) : null
     if (fwdHex && fwdDist < 2.0) {
       const a   = Math.max(0,(2.0-fwdDist)/2.0)*0.52
       const wH  = Math.min(H*1.8,H*PROJ_DIST/Math.max(0.1,fwdDist))
@@ -2609,10 +2653,10 @@ export default function MiningChain3DFPV({
     }
 
     // ── HUD: current room (right of chain stats panel, top-left area) ───────
-    const curHex = gridToBlockHex(gr,gc)
+    const curHex = curCell?.isChainNode ? null : (curCell?.blockHex || gridToBlockHex(gr,gc))
     ctx.textAlign='left'; ctx.textBaseline='top'
     ctx.fillStyle = C+'dd'; ctx.font='bold 12px monospace'
-    ctx.fillText(curHex, 174, 10)
+    if(curHex) ctx.fillText(curHex, 174, 10)
     if (curCell?.emoji) {
       ctx.font='12px serif'; ctx.fillText(curCell.emoji, 174, 24)
     }
