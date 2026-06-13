@@ -61,7 +61,8 @@ const CHAIN_MATERIALS = [
 function chainObstacle(key,data) {
   const [row,col]=key.split(',').map(Number)
   const material=CHAIN_MATERIALS[Math.abs((row*17+col*31+row*col*3)%CHAIN_MATERIALS.length)]
-  return { ...data, ...material }
+  // Explicit landmark/structure materials win over the deterministic fallback.
+  return { ...material, ...data }
 }
 
 function obstacleTop(data) {
@@ -1137,34 +1138,41 @@ function addDenseMaze(valid,reserved,cellMap){
     valid.set(key,chainObstacle(key,{...data,isMaze:true}))
   }
 
-  // Alternating horizontal and vertical rails form readable chambers. Every
-  // rail has deterministic gates, avoiding featureless solid curtains.
-  for(let row=4;row<ROWS-3;row+=4){
-    const phase=(row*7)%9
-    for(let col=2;col<COLS-2;col++){
-      if((col+phase)%9<2) continue
-      place(row,col,materials[(row+col)%materials.length])
-    }
-  }
-  for(let col=6;col<COLS-3;col+=6){
-    const phase=(col*5)%11
-    for(let row=2;row<ROWS-2;row++){
-      if((row+phase)%11<3) continue
-      place(row,col,materials[(row+col+1)%materials.length])
-    }
-  }
-
-  // Short offset baffles make straight-line traversal rare without filling
-  // every open square or increasing database/realtime usage.
-  for(let row=3;row<ROWS-3;row+=5){
-    for(let col=3;col<COLS-3;col+=5){
-      const horizontal=((row*13+col*17)&1)===0
-      const length=2+Math.abs((row*3+col*5)%3)
-      for(let step=0;step<length;step++){
-        place(row+(horizontal?0:step),col+(horizontal?step:0),materials[(row+col)%materials.length])
+  // Four architectural districts. Long empty avenues alternate with compact
+  // wall runs, gateway pylons and occasional courtyards, producing a believable
+  // place instead of a uniform obstacle field.
+  const districts=[
+    {r0:3,r1:25,c0:3,c1:25,axis:'h'},
+    {r0:3,r1:25,c0:30,c1:52,axis:'v'},
+    {r0:30,r1:52,c0:3,c1:25,axis:'v'},
+    {r0:30,r1:52,c0:30,c1:52,axis:'h'},
+  ]
+  districts.forEach((district,districtIndex)=>{
+    const horizontal=district.axis==='h'
+    const lanes=horizontal
+      ? [district.r0+5,district.r0+13]
+      : [district.c0+5,district.c0+13]
+    lanes.forEach((lane,laneIndex)=>{
+      const start=horizontal?district.c0:district.r0
+      const end=horizontal?district.c1:district.r1
+      for(let cursor=start;cursor<=end;cursor++){
+        const local=cursor-start
+        // Wide gates every 8 cells keep sightlines and circulation legible.
+        if(local%9<3) continue
+        const row=horizontal?lane:cursor,col=horizontal?cursor:lane
+        place(row,col,{...materials[(districtIndex+laneIndex)%materials.length],height:2.15+laneIndex*.25,isArchitecture:true})
       }
-    }
-  }
+    })
+
+    // Paired pylons mark district entrances and intersections.
+    const pylons=horizontal
+      ? [[district.r0+4,district.c0+3],[district.r0+6,district.c0+3],[district.r0+12,district.c1-3],[district.r0+14,district.c1-3]]
+      : [[district.r0+3,district.c0+4],[district.r0+3,district.c0+6],[district.r1-3,district.c0+12],[district.r1-3,district.c0+14]]
+    pylons.forEach(([row,col],index)=>place(row,col,{
+      base:index%2?[38,88,76]:[42,82,104],glow:[34,211,238],kind:'data',
+      label:'CHAIN PYLON',height:2.7,isArchitecture:true,isPylon:true,
+    }))
+  })
 }
 
 function ensureInteractiveConnectivity(valid,cellMap){
@@ -1347,25 +1355,27 @@ function hexToRgb(hex) {
 }
 
 function wallRgb(cell, dist, side, myWallet) {
-  // Unified fog rate across all surface types. Side 0 (E/W faces) full brightness,
-  // side 1 (N/S faces) 72% to simulate directional ambient light.
+  // Directional light plus blue atmospheric perspective. Blending into the
+  // scene colour preserves silhouettes much better than multiplying to black.
   const sideMul = side === 1 ? 0.72 : 1.0
-  const fog = Math.max(0.12, 1 - dist * 0.058)
+  const visibility = Math.max(0.18, 1 - dist * 0.047)
+  const fogColor=[8,18,42]
+  const finish=([r,g,b],emissive=0)=>{
+    const lit=[r*sideMul,g*sideMul,b*sideMul]
+    const fogMix=Math.max(0,Math.min(.78,1-visibility-emissive))
+    return lit.map((value,index)=>Math.round(value*(1-fogMix)+fogColor[index]*fogMix))
+  }
   if (cell?.isObstacle) {
-    const [r,g,b] = cell.base || [40,25,65]
-    const f = sideMul * fog
-    return [Math.round(r*f), Math.round(g*f), Math.round(b*f)]
+    return finish(cell.base || [40,25,65],cell.isRoute?.12:0)
   }
   if (cell?.isChainNode) {
     const pulse = 0.60 + Math.sin(Date.now() / 300) * 0.40
-    const f = sideMul * Math.max(0.18, 1 - dist * 0.058) * pulse
-    return [Math.round(255 * f), Math.round(180 * f), 0]
+    return finish([255*pulse,180*pulse,0],.28)
   }
   if (cell?.isPortalNode) {
     const [pr, pg, pb] = hexToRgb(cell.color || C)
     const pulse = 0.55 + Math.sin(Date.now() / 400) * 0.45
-    const f = sideMul * Math.max(0.18, 1 - dist * 0.058) * pulse
-    return [Math.round(pr * f), Math.round(pg * f), Math.round(pb * f)]
+    return finish([pr*pulse,pg*pulse,pb*pulse],.24)
   }
   let base
   if (cell?.owner) {
@@ -1383,9 +1393,7 @@ function wallRgb(cell, dist, side, myWallet) {
   } else {
     base = [10, 18, 42]
   }
-  const [r,g,b] = base
-  const f = sideMul * fog
-  return [Math.round(r*f), Math.round(g*f), Math.round(b*f)]
+  return finish(base,cell?.owner ? .08 : 0)
 }
 
 function worldToGrid(wx, wy) {
@@ -2866,6 +2874,15 @@ export default function MiningChain3DFPV({
     fg.addColorStop(1,`rgb(${_fr},${_fg2},${_fb})`)
     ctx.fillStyle=fg; ctx.fillRect(0,sceneSplitY,W,H-sceneSplitY)
 
+    // Thin atmospheric band separates silhouettes from the horizon without
+    // adding geometry or texture fetches.
+    const hazeH=Math.max(18,Math.min(72,H*.10))
+    const haze=ctx.createLinearGradient(0,sceneSplitY-hazeH,0,sceneSplitY+hazeH)
+    haze.addColorStop(0,'rgba(28,64,104,0)')
+    haze.addColorStop(.5,'rgba(38,94,132,.16)')
+    haze.addColorStop(1,'rgba(10,28,58,0)')
+    ctx.fillStyle=haze;ctx.fillRect(0,sceneSplitY-hazeH,W,hazeH*2)
+
     // World-space grid made from projected cell edges. This is dramatically
     // cheaper than per-pixel floor casting and remains stable during motion.
     const solidHeightAt=(gx,gy)=>{
@@ -3005,6 +3022,21 @@ export default function MiningChain3DFPV({
 
       ctx.fillStyle=`rgb(${rw},${gw},${bw})`
       ctx.fillRect(col*stripW,wTop,stripW,wallH)
+
+      // Cheap volumetric lighting: a lit cap, a grounded contact shadow and a
+      // soft center lift make flat raycast strips read as solid architecture.
+      if(wallH>5){
+        const capH=Math.max(1,Math.min(4,Math.round(wallH*.035)))
+        ctx.fillStyle=cell?.isObstacle?'rgba(220,245,255,.16)':'rgba(255,255,255,.20)'
+        ctx.fillRect(col*stripW,wTop,stripW,capH)
+        const baseH=Math.max(2,Math.min(10,Math.round(wallH*.10)))
+        ctx.fillStyle=wallBase<=.01?'rgba(0,2,10,.34)':'rgba(0,8,18,.18)'
+        ctx.fillRect(col*stripW,wTop+wallH-baseH,stripW,baseH)
+        if(col%4===0&&dist<11){
+          ctx.fillStyle='rgba(180,235,255,.035)'
+          ctx.fillRect(col*stripW,wTop+capH,stripW,Math.max(1,wallH-capH-baseH))
+        }
+      }
 
       // NFTJI block patterns
       if (cell?.isMarket) {
