@@ -3063,7 +3063,7 @@ export default function MiningChain3DFPV({
           } else if(fc){
             if(fc.isChainNode){
               actionUrlRef.current=null
-              mineTypeRef.current='empty'
+              mineTypeRef.current=fcDist<=INTERACT_DIST?'chain':'empty'
             } else if(fc.isPortalNode){
               actionUrlRef.current=fc.navUrl||null
               mineTypeRef.current='portal'
@@ -3140,6 +3140,11 @@ export default function MiningChain3DFPV({
           if(tk!==mineTargetRef.current){mineProgressRef.current=0;mineTargetRef.current=tk}
           if(!tk||mineTypeRef.current==='empty'){
             playPickHit(audioCtxRef,'empty')
+          } else if(mineTypeRef.current==='chain'){
+            // Central chain terminal: one hit opens the formula card.
+            playPickHit(audioCtxRef,'nftji')
+            playPickHit(audioCtxRef,'complete')
+            onChainSolveOpenRef.current?.()
           } else if(mineTypeRef.current==='portal'){
             // Portal: 1-hit navigation
             playPickHit(audioCtxRef,'nftji')
