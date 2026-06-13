@@ -1242,16 +1242,17 @@ function drawMinimap(ctx, gr, gc, angle, cellMap, presenceMap, myWallet, W, H, c
 
   ctx.save()
   ctx.beginPath();ctx.rect(MX,MY,SZ,SZ);ctx.clip()
-  const pvx=mapX(gc+.5),pvy=mapY(gr+.5)
+  // Use exact sub-cell player position for accurate vision cone
+  const pvx=mapX(camX),pvy=mapY(camY)
   const visionEdge=[]
   const visionRays=isMobile?24:36
   for(let i=0;i<=visionRays;i++){
     const rayAngle=angle-FOV/2+(i/visionRays)*FOV
-    const ray=castRay((gc+.5)*CELL_SIZE,(gr+.5)*CELL_SIZE,rayAngle,cellMap,validObs,RADAR_RANGE)
+    const ray=castRay(camX*CELL_SIZE,camY*CELL_SIZE,rayAngle,cellMap,validObs,RADAR_RANGE)
     const rayDist=Math.min(RADAR_RANGE,ray.perpDist+.04)
     visionEdge.push({
-      x:mapX(gc+.5+Math.cos(rayAngle)*rayDist),
-      y:mapY(gr+.5+Math.sin(rayAngle)*rayDist),
+      x:mapX(camX+Math.cos(rayAngle)*rayDist),
+      y:mapY(camY+Math.sin(rayAngle)*rayDist),
     })
   }
   const r0=0,r1=ROWS
@@ -1303,14 +1304,38 @@ function drawMinimap(ctx, gr, gc, angle, cellMap, presenceMap, myWallet, W, H, c
     }
   }
 
-  ctx.strokeStyle = C+'cc'; ctx.lineWidth=0.8
-  ctx.strokeRect(mapX(gc), mapY(gr), Math.ceil(CS), Math.ceil(CS))
-
   ctx.fillStyle='rgba(34,211,238,.045)'
   ctx.beginPath();ctx.moveTo(pvx,pvy)
   for(const point of visionEdge)ctx.lineTo(point.x,point.y)
   ctx.closePath();ctx.fill()
 
+  // ── Local player marker: cyan crosshair with heading arrow ────────────────
+  {
+    const selfPulse = 0.62 + Math.sin(Date.now()/520) * 0.38
+    const sr = Math.max(2.4, CS * 0.78)
+    // Outer pulsing ring
+    ctx.globalAlpha = selfPulse * 0.55
+    ctx.strokeStyle = C; ctx.lineWidth = 1
+    ctx.beginPath(); ctx.arc(pvx, pvy, sr+2.8+selfPulse*1.2, 0, Math.PI*2); ctx.stroke()
+    // Filled circle
+    ctx.globalAlpha = 0.96
+    ctx.fillStyle = C
+    ctx.beginPath(); ctx.arc(pvx, pvy, sr, 0, Math.PI*2); ctx.fill()
+    // White specular
+    ctx.fillStyle = 'rgba(255,255,255,0.60)'
+    ctx.beginPath(); ctx.arc(pvx-sr*0.22, pvy-sr*0.22, sr*0.34, 0, Math.PI*2); ctx.fill()
+    // Heading arrow
+    ctx.strokeStyle = C + 'dd'; ctx.lineWidth = 1.2
+    ctx.beginPath(); ctx.moveTo(pvx, pvy)
+    ctx.lineTo(pvx+Math.cos(angle)*CS*2.5, pvy+Math.sin(angle)*CS*2.5)
+    ctx.stroke()
+    ctx.globalAlpha = 1
+  }
+
+  // ── Wallet markers — always visible regardless of camera view ────────────────
+  // Three tiers: ACTIVE (in view + line of sight), NEAR (in FOV but behind wall),
+  // GHOST (off-camera). Every wallet shows on the minimap at all times.
+  const nowMs = Date.now()
   for (const [w,p] of Object.entries(presenceMap||{})) {
     if (p.row==null && p.gy==null) continue
     const isMe = w.toLowerCase()===(myWallet||'').toLowerCase()
@@ -1318,58 +1343,124 @@ function drawMinimap(ctx, gr, gc, angle, cellMap, presenceMap, myWallet, W, H, c
     const isBot = Boolean(p.isBot)
     const dotGX = p.gx ?? ((p.col??0) + 0.5)
     const dotGY = p.gy ?? ((p.row??0) + 0.5)
-    if(!visibleFromCamera(dotGY,dotGX,1)) continue
-    if(!isMe){
-      const vx=dotGX-(gc+.5),vy=dotGY-(gr+.5)
-      const walletDist=Math.hypot(vx,vy)
-      const walletAngle=Math.atan2(vy,vx)
-      const relAngle=Math.atan2(Math.sin(walletAngle-angle),Math.cos(walletAngle-angle))
-      if(walletDist>2.5&&Math.abs(relAngle)>FOV/2+.08) continue
-    }
     const col = colorFromAddress(w)
-    const dx=mapX(dotGX), dy=mapY(dotGY)
-    const heading=Number(p.angle)||0
+    const dx = mapX(dotGX), dy = mapY(dotGY)
+    const heading = Number(p.angle)||0
 
-    if (isBot && !isMe) {
-      // Bots: large square marker so they're clearly visible on a 56-cell minimap
-      const bs = Math.max(4, CS * 0.95)
-      // Pulsing outer ring
-      ctx.strokeStyle = col + 'bb'
-      ctx.lineWidth = 1
-      ctx.strokeRect(dx - bs, dy - bs, bs * 2, bs * 2)
-      // Filled interior
-      ctx.fillStyle = col + '44'
-      ctx.fillRect(dx - bs + 1, dy - bs + 1, bs * 2 - 2, bs * 2 - 2)
-      // Inner cross
-      ctx.strokeStyle = col + 'ff'
-      ctx.lineWidth = 0.8
+    // Visibility tier computation (used for styling, NOT for culling)
+    const vx = dotGX - camX, vy = dotGY - camY
+    const walletDist = Math.hypot(vx, vy)
+    const relAngle = Math.atan2(Math.sin(Math.atan2(vy,vx)-angle), Math.cos(Math.atan2(vy,vx)-angle))
+    const inFOV = walletDist <= 2.5 || Math.abs(relAngle) <= FOV/2 + 0.12
+    const inView = inFOV && visibleFromCamera(dotGY, dotGX, 1)
+    const pulse = 0.5 + Math.sin(nowMs/680 + dotGX*1.9 + dotGY*1.3) * 0.5
+
+    ctx.save()
+
+    if (isBot) {
+      // ── BOT: square + crosshair, always present ─────────────────────────────
+      const baseAlpha = inView ? 0.95 : inFOV ? 0.60 : 0.35
+      const bs = Math.max(3.2, CS * 0.90)
+      ctx.globalAlpha = baseAlpha
+      if (inView) {
+        // Outer pulsing ring
+        ctx.strokeStyle = col + Math.round((0.28+pulse*0.48)*255).toString(16).padStart(2,'0')
+        ctx.lineWidth = 0.8
+        ctx.strokeRect(dx-bs-1.8, dy-bs-1.8, (bs+1.8)*2, (bs+1.8)*2)
+      }
+      ctx.fillStyle = col + (inView ? '50' : '20')
+      ctx.fillRect(dx-bs, dy-bs, bs*2, bs*2)
+      ctx.strokeStyle = col + (inView ? 'ff' : '77')
+      ctx.lineWidth = inView ? 0.9 : 0.6
+      ctx.strokeRect(dx-bs, dy-bs, bs*2, bs*2)
+      ctx.lineWidth = 0.7
       ctx.beginPath()
-      ctx.moveTo(dx - bs * 0.55, dy); ctx.lineTo(dx + bs * 0.55, dy)
-      ctx.moveTo(dx, dy - bs * 0.55); ctx.lineTo(dx, dy + bs * 0.55)
+      ctx.moveTo(dx-bs*0.5, dy); ctx.lineTo(dx+bs*0.5, dy)
+      ctx.moveTo(dx, dy-bs*0.5); ctx.lineTo(dx, dy+bs*0.5)
       ctx.stroke()
-      // Direction line
-      ctx.strokeStyle = col + 'cc'; ctx.lineWidth = 1
-      ctx.beginPath(); ctx.moveTo(dx, dy)
-      ctx.lineTo(dx + Math.cos(heading) * CS * 2.2, dy + Math.sin(heading) * CS * 2.2)
-      ctx.stroke()
-    } else {
-      const r = Math.max(2.2, isMe ? CS * 0.82 : CS * 0.72)
-      if (!isMe) {
-        ctx.strokeStyle = col + 'aa'
-        ctx.lineWidth = 1
-        ctx.beginPath()
-        ctx.arc(dx, dy, r + 1.5, 0, Math.PI * 2)
+      if (inView) {
+        ctx.strokeStyle = col + 'cc'; ctx.lineWidth = 1
+        ctx.beginPath(); ctx.moveTo(dx,dy)
+        ctx.lineTo(dx+Math.cos(heading)*CS*2.2, dy+Math.sin(heading)*CS*2.2)
         ctx.stroke()
       }
-      ctx.fillStyle = isMe ? C : col
-      ctx.beginPath()
-      ctx.arc(dx, dy, r, 0, Math.PI * 2)
-      ctx.fill()
-      ctx.strokeStyle = (isMe ? C : col) + 'cc'; ctx.lineWidth = 1
-      ctx.beginPath(); ctx.moveTo(dx, dy)
-      ctx.lineTo(dx + Math.cos(heading) * CS * 1.8, dy + Math.sin(heading) * CS * 1.8)
-      ctx.stroke()
+    } else {
+      // ── HUMAN WALLET: three-tier freak design ─────────────────────────────
+      const r = Math.max(2.0, CS * 0.70)
+
+      if (inView) {
+        // ACTIVE tier: filled neon circle + pulse ring + heading arrow
+        ctx.globalAlpha = 0.94
+        // Outer glow ring
+        const ringR = r + 2.2 + pulse * 1.4
+        ctx.strokeStyle = col + Math.round((0.18+pulse*0.52)*255).toString(16).padStart(2,'0')
+        ctx.lineWidth = 1.1
+        ctx.beginPath(); ctx.arc(dx, dy, ringR, 0, Math.PI*2); ctx.stroke()
+        // Fill
+        ctx.fillStyle = col
+        ctx.beginPath(); ctx.arc(dx, dy, r, 0, Math.PI*2); ctx.fill()
+        // Bright center specular
+        ctx.fillStyle = 'rgba(255,255,255,0.48)'
+        ctx.beginPath(); ctx.arc(dx-r*0.22, dy-r*0.22, r*0.36, 0, Math.PI*2); ctx.fill()
+        // Heading arrow
+        ctx.strokeStyle = col + 'cc'; ctx.lineWidth = 1
+        ctx.beginPath(); ctx.moveTo(dx,dy)
+        ctx.lineTo(dx+Math.cos(heading)*CS*2.1, dy+Math.sin(heading)*CS*2.1)
+        ctx.stroke()
+
+      } else if (inFOV) {
+        // NEAR tier: outlined circle — in FOV but wall blocks line of sight
+        ctx.globalAlpha = 0.60
+        ctx.strokeStyle = col + 'cc'
+        ctx.lineWidth = 1.1
+        ctx.beginPath(); ctx.arc(dx, dy, r, 0, Math.PI*2); ctx.stroke()
+        ctx.fillStyle = col + '2a'
+        ctx.beginPath(); ctx.arc(dx, dy, r, 0, Math.PI*2); ctx.fill()
+        // Dashed inner ring (manually simulated with two arcs)
+        ctx.strokeStyle = col + '66'
+        ctx.lineWidth = 0.7
+        ctx.beginPath()
+        ctx.arc(dx, dy, r+1.8, 0, Math.PI*0.9); ctx.stroke()
+        ctx.beginPath()
+        ctx.arc(dx, dy, r+1.8, Math.PI, Math.PI*1.9); ctx.stroke()
+
+      } else {
+        // GHOST tier: diamond (◆) — off-camera, always trackable
+        ctx.globalAlpha = 0.42 + pulse * 0.08
+        const dr = Math.max(1.8, r * 0.80)
+        // Diamond outline
+        ctx.strokeStyle = col + 'bb'
+        ctx.lineWidth = 0.9
+        ctx.beginPath()
+        ctx.moveTo(dx, dy-dr); ctx.lineTo(dx+dr, dy)
+        ctx.lineTo(dx, dy+dr); ctx.lineTo(dx-dr, dy)
+        ctx.closePath(); ctx.stroke()
+        // Faint fill
+        ctx.fillStyle = col + '28'
+        ctx.beginPath()
+        ctx.moveTo(dx, dy-dr); ctx.lineTo(dx+dr, dy)
+        ctx.lineTo(dx, dy+dr); ctx.lineTo(dx-dr, dy)
+        ctx.closePath(); ctx.fill()
+        // Center pixel
+        ctx.fillStyle = col + '99'
+        ctx.beginPath(); ctx.arc(dx, dy, dr*0.30, 0, Math.PI*2); ctx.fill()
+      }
     }
+
+    // Short wallet label for all wallets within 7 cells (desktop only)
+    if (!isMobile && walletDist < 7.5) {
+      const labelFade = Math.max(0, 1 - walletDist/7.5) * (inView ? 0.88 : 0.44)
+      ctx.globalAlpha = labelFade
+      const lSize = Math.max(5.5, Math.min(7.5, CS * 1.55))
+      ctx.font = `bold ${lSize}px monospace`
+      ctx.fillStyle = col
+      ctx.textAlign = 'center'; ctx.textBaseline = 'top'
+      const label = isBot ? 'BOT' : w.slice(2, 6)
+      const markerR = isBot ? Math.max(3.2, CS*0.90) : Math.max(2.0, CS*0.70)
+      ctx.fillText(label, dx, dy + markerR + 1.2)
+    }
+
+    ctx.restore()
   }
 
   // Chain node: diamond crosshair — visually distinct landmark (static, not a dot)
