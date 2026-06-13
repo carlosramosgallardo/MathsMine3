@@ -26,7 +26,7 @@ const PLAYER_R      = 0.20   // collision radius in grid units (1 unit = 1 cell)
 const PLAYER_BODY_H = 1.02   // physical body height for bridges and overhangs
 const AVATAR_R      = 0.30
 const FOOTSTEP_DIST = CELL_SIZE * 0.42       // footstep cadence
-const SWING_DUR     = 340    // ms per pickaxe swing
+const SWING_DUR     = 340    // ms per USB staff swing
 const HITS_NEEDED   = 5      // swings to complete mining action
 const INTERACT_DIST = 2.0    // grid cells — max distance for block interaction
 const VISUAL_RANGE  = 18     // far plane in cells; physics still uses the full map
@@ -2014,7 +2014,7 @@ function playPickHit(audioCtxRef, type) {
   } catch {}
 }
 
-// ── First-person pickaxe ────────────────────────────────────────────────────
+// ── First-person retro USB staff ────────────────────────────────────────────
 function drawFirstPersonTool(ctx, W, H, color, swingT, walkDist) {
   const mobile = W < 640
   const scale = mobile ? 0.72 : Math.max(0.82, Math.min(1.15, H / 620))
@@ -2043,7 +2043,6 @@ function drawFirstPersonTool(ctx, W, H, color, swingT, walkDist) {
 function drawFreakUsbPen(ctx,handX,handY,length,angle,scale=1,alpha=1){
   ctx.save();ctx.globalAlpha*=alpha;ctx.lineCap='round'
   const nx=-Math.sin(angle),ny=Math.cos(angle)
-  const tipX=handX+Math.cos(angle)*length,tipY=handY+Math.sin(angle)*length
   // Grip (first 30%)
   const gX=handX+Math.cos(angle)*length*.30,gY=handY+Math.sin(angle)*length*.30
   ctx.strokeStyle='#060d17';ctx.lineWidth=Math.max(4.5,7*scale)
@@ -2058,27 +2057,32 @@ function drawFreakUsbPen(ctx,handX,handY,length,angle,scale=1,alpha=1){
   // Fuchsia node at grip end
   ctx.fillStyle='#d946ef'
   ctx.beginPath();ctx.arc(gX,gY,Math.max(1.4,2.2*scale),0,Math.PI*2);ctx.fill()
-  // Shaft (30-88%)
-  const sX=handX+Math.cos(angle)*length*.88,sY=handY+Math.sin(angle)*length*.88
-  ctx.strokeStyle='#0c2030';ctx.lineWidth=Math.max(2,3*scale)
+  // Segmented data staff (30-84%)
+  const sX=handX+Math.cos(angle)*length*.84,sY=handY+Math.sin(angle)*length*.84
+  ctx.strokeStyle='#071722';ctx.lineWidth=Math.max(3,4.2*scale)
   ctx.beginPath();ctx.moveTo(gX,gY);ctx.lineTo(sX,sY);ctx.stroke()
   // Cyan highlight stripe
   ctx.save();ctx.globalAlpha*=.55;ctx.strokeStyle='#22d3ee';ctx.lineWidth=Math.max(.5,.75*scale)
   ctx.beginPath();ctx.moveTo(gX+nx*1.5,gY+ny*1.5);ctx.lineTo(sX+nx*1.5,sY+ny*1.5);ctx.stroke()
   ctx.restore()
-  // USB Type-A head
-  const hLen=Math.max(6,9*scale),hW=Math.max(3.5,5*scale)
-  ctx.save();ctx.translate(tipX,tipY);ctx.rotate(angle)
-  ctx.fillStyle='#b0c4d4';ctx.fillRect(0,-hW/2,hLen,hW)
-  ctx.strokeStyle='#4d6880';ctx.lineWidth=Math.max(.4,.6*scale);ctx.strokeRect(0,-hW/2,hLen,hW)
-  ctx.fillStyle='#050f18';ctx.fillRect(hLen*.08,-hW*.22,hLen*.84,hW*.44)
-  ctx.fillStyle='#facc15';[.18,.42,.66].forEach(t=>ctx.fillRect(hLen*t,-hW*.15,hLen*.13,hW*.30))
+  // Oversized retro USB head: readable at distance and never axe-shaped.
+  const neckX=handX+Math.cos(angle)*length*.90,neckY=handY+Math.sin(angle)*length*.90
+  ctx.strokeStyle='#22d3ee';ctx.lineWidth=Math.max(2.2,3.2*scale)
+  ctx.beginPath();ctx.moveTo(sX,sY);ctx.lineTo(neckX,neckY);ctx.stroke()
+  const hLen=Math.max(10,15*scale),hW=Math.max(7,10*scale)
+  ctx.save();ctx.translate(neckX,neckY);ctx.rotate(angle)
+  ctx.fillStyle='#d8e7ef';ctx.fillRect(0,-hW/2,hLen,hW)
+  ctx.strokeStyle='#22d3ee';ctx.lineWidth=Math.max(.8,1.2*scale);ctx.strokeRect(0,-hW/2,hLen,hW)
+  ctx.fillStyle='#07121c';ctx.fillRect(hLen*.10,-hW*.30,hLen*.78,hW*.60)
+  ctx.fillStyle='#facc15';[.20,.43,.66].forEach(t=>ctx.fillRect(hLen*t,-hW*.20,hLen*.12,hW*.40))
+  ctx.fillStyle='#d946ef';ctx.fillRect(-Math.max(2,3*scale),-hW*.35,Math.max(2,3*scale),hW*.70)
   ctx.restore()
   // Tip glow
+  const plugEndX=neckX+Math.cos(angle)*hLen,plugEndY=neckY+Math.sin(angle)*hLen
   ctx.save();ctx.globalAlpha*=.75;ctx.fillStyle='#22d3ee'
-  ctx.beginPath();ctx.arc(tipX,tipY,Math.max(1.8,2.8*scale),0,Math.PI*2);ctx.fill()
+  ctx.beginPath();ctx.arc(plugEndX,plugEndY,Math.max(2.2,3.4*scale),0,Math.PI*2);ctx.fill()
   ctx.globalAlpha*=.30;ctx.strokeStyle='#22d3ee';ctx.lineWidth=Math.max(.4,.7*scale)
-  ctx.beginPath();ctx.arc(tipX,tipY,Math.max(3.5,5*scale),0,Math.PI*2);ctx.stroke()
+  ctx.beginPath();ctx.arc(plugEndX,plugEndY,Math.max(3.5,5*scale),0,Math.PI*2);ctx.stroke()
   ctx.restore()
   ctx.restore()
 }
@@ -2105,12 +2109,27 @@ function drawThirdPersonPlayer(ctx,W,H,color,swingT,walkDist,dockTop){
   ctx.strokeStyle='#67e8f966';ctx.strokeRect(cx-bodyW*.25,bodyTop+bodyH*.29,bodyW*.5,bodyH*.22)
   ctx.fillStyle='#facc15';ctx.fillRect(cx-5*scale,bodyTop+bodyH*.34,10*scale,7*scale)
   ctx.fillStyle='#071019';ctx.fillRect(cx-bodyW*.42,bodyTop+bodyH*.70,bodyW*.84,6*scale)
+  // Pixel armor, ports and status lights keep the wallet readable at close range.
+  ctx.fillStyle=`rgb(${r*.58|0},${g*.58|0},${b*.58|0})`
+  ctx.fillRect(cx-bodyW*.39,bodyTop+bodyH*.10,bodyW*.12,bodyH*.18)
+  ctx.fillRect(cx+bodyW*.27,bodyTop+bodyH*.10,bodyW*.12,bodyH*.18)
+  ctx.fillStyle='#22d3ee';ctx.fillRect(cx-bodyW*.34,bodyTop+bodyH*.76,4*scale,3*scale)
+  ctx.fillStyle='#d946ef';ctx.fillRect(cx+bodyW*.28,bodyTop+bodyH*.76,4*scale,3*scale)
+  ctx.strokeStyle='rgba(103,232,249,.45)';ctx.lineWidth=Math.max(.6,scale)
+  ctx.strokeRect(cx-bodyW*.33,bodyTop+bodyH*.55,bodyW*.66,bodyH*.10)
   ctx.fillStyle=`rgb(${r*.28|0},${g*.28|0},${b*.28|0})`;ctx.fillRect(cx-bodyW*.34,bottomY-9*scale-localLiftL,bodyW*.25,9*scale);ctx.fillRect(cx+bodyW*.09,bottomY-9*scale-localLiftR,bodyW*.25,9*scale)
   ctx.fillStyle=`rgb(${Math.min(255,r*.82+35)|0},${Math.min(255,g*.82+35)|0},${Math.min(255,b*.82+35)|0})`
   ctx.fillRect(cx-headW/2,headTop,headW,headH);ctx.strokeRect(cx-headW/2,headTop,headW,headH)
   ctx.fillStyle='#071722';ctx.fillRect(cx-headW*.36,headTop+headH*.28,headW*.72,headH*.34)
   ctx.fillStyle='#67e8f9';ctx.fillRect(cx-headW*.28,headTop+headH*.36,headW*.56,2*scale)
+  ctx.fillStyle='#ffffff';ctx.fillRect(cx-headW*.22,headTop+headH*.36,4*scale,2*scale)
   ctx.fillStyle=color||C;ctx.fillRect(cx-4*scale,headTop-5*scale,8*scale,5*scale)
+  ctx.strokeStyle='#071019';ctx.lineWidth=2*scale
+  ctx.beginPath();ctx.moveTo(cx+headW*.20,headTop);ctx.lineTo(cx+headW*.20,headTop-8*scale);ctx.stroke()
+  ctx.fillStyle='#d946ef';ctx.fillRect(cx+headW*.20-2*scale,headTop-11*scale,4*scale,4*scale)
+  ctx.fillStyle=`rgb(${r*.48|0},${g*.48|0},${b*.48|0})`
+  ctx.fillRect(cx-headW*.62,headTop+headH*.30,headW*.12,headH*.42)
+  ctx.fillRect(cx+headW*.50,headTop+headH*.30,headW*.12,headH*.42)
   const handX=cx+bodyW*.47,handY=bodyTop+bodyH*.43
   ctx.strokeStyle=`rgb(${r*.72|0},${g*.72|0},${b*.72|0})`;ctx.lineWidth=6*scale;ctx.lineCap='round'
   ctx.beginPath();ctx.moveTo(cx+bodyW*.34,bodyTop+bodyH*.28);ctx.lineTo(handX,handY);ctx.stroke()
@@ -2776,6 +2795,85 @@ function rebuildThreeWorld(state,cellMap,obstacles) {
   state.scene.add(world)
 }
 
+function createThreeWalletAvatar(wallet) {
+  const avatar=new THREE.Group()
+  const color=new THREE.Color(colorFromAddress(wallet))
+  const bright=color.clone().lerp(new THREE.Color('#ffffff'),.20)
+  const dark=color.clone().multiplyScalar(.30)
+  const mid=color.clone().multiplyScalar(.62)
+  const bodyMat=new THREE.MeshStandardMaterial({color,roughness:.48,metalness:.34})
+  const brightMat=new THREE.MeshStandardMaterial({color:bright,roughness:.38,metalness:.42})
+  const darkMat=new THREE.MeshStandardMaterial({color:dark,roughness:.72,metalness:.28})
+  const midMat=new THREE.MeshStandardMaterial({color:mid,roughness:.58,metalness:.30})
+  const cyanMat=new THREE.MeshBasicMaterial({color:'#67e8f9'})
+  const goldMat=new THREE.MeshBasicMaterial({color:'#facc15'})
+  const magentaMat=new THREE.MeshBasicMaterial({color:'#d946ef'})
+
+  const torso=new THREE.Mesh(new THREE.BoxGeometry(.46,.48,.27),bodyMat)
+  torso.position.y=.39;avatar.add(torso)
+  const chestPlate=new THREE.Mesh(new THREE.BoxGeometry(.31,.22,.025),darkMat)
+  chestPlate.position.set(0,.43,-.151);avatar.add(chestPlate)
+  const chestInset=new THREE.Mesh(new THREE.BoxGeometry(.20,.105,.014),new THREE.MeshBasicMaterial({color:'#03121c'}))
+  chestInset.position.set(0,.44,-.168);avatar.add(chestInset)
+  const core=new THREE.Mesh(new THREE.BoxGeometry(.095,.055,.014),goldMat)
+  core.position.set(0,.44,-.178);avatar.add(core)
+  const belt=new THREE.Mesh(new THREE.BoxGeometry(.48,.065,.29),darkMat)
+  belt.position.y=.20;avatar.add(belt)
+  const beltNode=new THREE.Mesh(new THREE.BoxGeometry(.08,.06,.025),cyanMat)
+  beltNode.position.set(0,.20,-.166);avatar.add(beltNode)
+
+  const shoulderGeometry=new THREE.BoxGeometry(.13,.20,.25)
+  const shoulderL=new THREE.Mesh(shoulderGeometry,midMat);shoulderL.position.set(-.295,.51,0);avatar.add(shoulderL)
+  const shoulderR=shoulderL.clone();shoulderR.position.x=.295;avatar.add(shoulderR)
+  const armGeometry=new THREE.BoxGeometry(.09,.25,.11)
+  const armL=new THREE.Mesh(armGeometry,darkMat);armL.position.set(-.30,.36,0);avatar.add(armL)
+  const armR=armL.clone();armR.position.x=.30;avatar.add(armR)
+  const hand=new THREE.Mesh(new THREE.BoxGeometry(.10,.10,.12),brightMat);hand.position.set(.31,.22,-.01);avatar.add(hand)
+
+  const neck=new THREE.Mesh(new THREE.BoxGeometry(.13,.07,.13),darkMat);neck.position.y=.68;avatar.add(neck)
+  const head=new THREE.Mesh(new THREE.BoxGeometry(.34,.25,.25),brightMat);head.position.y=.82;avatar.add(head)
+  const headFrame=new THREE.Mesh(new THREE.BoxGeometry(.27,.105,.018),darkMat);headFrame.position.set(0,.84,-.139);avatar.add(headFrame)
+  const visor=new THREE.Mesh(new THREE.BoxGeometry(.205,.045,.012),cyanMat);visor.position.set(0,.84,-.153);avatar.add(visor)
+  const visorPixel=new THREE.Mesh(new THREE.BoxGeometry(.035,.025,.008),new THREE.MeshBasicMaterial({color:'#ffffff'}));visorPixel.position.set(-.067,.846,-.161);avatar.add(visorPixel)
+  const earL=new THREE.Mesh(new THREE.BoxGeometry(.07,.11,.17),midMat);earL.position.set(-.205,.81,0);avatar.add(earL)
+  const earR=earL.clone();earR.position.x=.205;avatar.add(earR)
+  const antennaStem=new THREE.Mesh(new THREE.CylinderGeometry(.012,.012,.12,5),darkMat);antennaStem.position.set(.08,1.005,0);avatar.add(antennaStem)
+  const antennaTip=new THREE.Mesh(new THREE.OctahedronGeometry(.027),magentaMat);antennaTip.position.set(.08,1.075,0);avatar.add(antennaTip)
+
+  const footGeometry=new THREE.BoxGeometry(.18,.11,.28)
+  const footL=new THREE.Mesh(footGeometry,darkMat);footL.position.set(-.14,.075,-.025);avatar.add(footL)
+  const footR=footL.clone();footR.position.x=.14;avatar.add(footR)
+  const soleGeometry=new THREE.BoxGeometry(.19,.025,.30)
+  const soleL=new THREE.Mesh(soleGeometry,midMat);soleL.position.set(-.14,.014,-.025);avatar.add(soleL)
+  const soleR=soleL.clone();soleR.position.x=.14;avatar.add(soleR)
+
+  // Retro USB staff. The connector is a rectangular Type-A plug, never a pick head.
+  const tool=new THREE.Group();tool.position.set(.31,.25,-.01)
+  const toolAngle=-.58
+  const shaft=new THREE.Mesh(new THREE.CylinderGeometry(.024,.030,.62,8),darkMat)
+  shaft.rotation.z=toolAngle;shaft.position.set(.17,.255,0);tool.add(shaft)
+  const dataRail=new THREE.Mesh(new THREE.CylinderGeometry(.009,.009,.48,6),cyanMat)
+  dataRail.rotation.z=toolAngle;dataRail.position.set(.185,.285,-.031);tool.add(dataRail)
+  const grip=new THREE.Mesh(new THREE.CylinderGeometry(.045,.045,.19,8),new THREE.MeshStandardMaterial({color:'#07121c',roughness:.55,metalness:.55}))
+  grip.rotation.z=toolAngle;grip.position.set(.055,.085,0);tool.add(grip)
+  const gripRing=new THREE.Mesh(new THREE.TorusGeometry(.046,.009,5,12),magentaMat)
+  gripRing.rotation.x=Math.PI/2;gripRing.rotation.y=toolAngle;gripRing.position.set(.11,.17,0);tool.add(gripRing)
+  const plug=new THREE.Group();plug.position.set(.36,.535,0);plug.rotation.z=toolAngle
+  const plugShell=new THREE.Mesh(new THREE.BoxGeometry(.15,.22,.095),new THREE.MeshStandardMaterial({color:'#d8e7ef',metalness:.78,roughness:.20}))
+  plug.add(plugShell)
+  const plugFace=new THREE.Mesh(new THREE.BoxGeometry(.105,.012,.061),new THREE.MeshBasicMaterial({color:'#041019'}));plugFace.position.y=.116;plug.add(plugFace)
+  for(const x of [-.034,0,.034]){
+    const contact=new THREE.Mesh(new THREE.BoxGeometry(.018,.008,.034),goldMat);contact.position.set(x,.124,0);plug.add(contact)
+  }
+  const plugCollar=new THREE.Mesh(new THREE.BoxGeometry(.17,.055,.11),magentaMat);plugCollar.position.y=-.13;plug.add(plugCollar)
+  tool.add(plug)
+  avatar.add(tool)
+  avatar.userData.tool=tool
+  avatar.userData.leftFoot=footL
+  avatar.userData.rightFoot=footR
+  return avatar
+}
+
 function syncThreeAvatars(state,presence,myIdentity) {
   if(!state) return
   const active=new Set()
@@ -2784,25 +2882,18 @@ function syncThreeAvatars(state,presence,myIdentity) {
     active.add(wallet)
     let avatar=state.avatars.get(wallet)
     if(!avatar){
-      avatar=new THREE.Group()
-      const color=new THREE.Color(colorFromAddress(wallet)),bodyMat=new THREE.MeshStandardMaterial({color,roughness:.68,metalness:.22})
-      const darkMat=new THREE.MeshStandardMaterial({color:color.clone().multiplyScalar(.48),roughness:.8})
-      const body=new THREE.Mesh(new THREE.BoxGeometry(.52,.62,.26),bodyMat);body.position.y=.36;avatar.add(body)
-      const head=new THREE.Mesh(new THREE.BoxGeometry(.30,.25,.24),bodyMat);head.position.y=.81;avatar.add(head)
-      const visor=new THREE.Mesh(new THREE.BoxGeometry(.20,.055,.015),new THREE.MeshBasicMaterial({color:'#67e8f9'}));visor.position.set(0,.84,-.138);avatar.add(visor)
-      const core=new THREE.Mesh(new THREE.BoxGeometry(.13,.09,.02),new THREE.MeshBasicMaterial({color:'#facc15'}));core.position.set(0,.42,-.152);avatar.add(core)
-      const footL=new THREE.Mesh(new THREE.BoxGeometry(.18,.10,.24),darkMat);footL.position.set(-.15,.05,0);avatar.add(footL)
-      const footR=footL.clone();footR.position.x=.15;avatar.add(footR)
-      const tool=new THREE.Group();tool.position.set(.34,.48,0)
-      const shaft=new THREE.Mesh(new THREE.CylinderGeometry(.025,.025,.66,6),new THREE.MeshStandardMaterial({color:'#9a6438'}));shaft.rotation.z=-.62;shaft.position.set(.18,.24,0);tool.add(shaft)
-      const tip=new THREE.Mesh(new THREE.ConeGeometry(.10,.25,5),new THREE.MeshStandardMaterial({color:'#a5f3fc',metalness:.55,roughness:.35}));tip.rotation.z=-Math.PI/2;tip.position.set(.39,.46,0);tool.add(tip)
-      avatar.add(tool);avatar.userData.tool=tool;state.avatars.set(wallet,avatar);state.scene.add(avatar)
+      avatar=createThreeWalletAvatar(wallet)
+      state.avatars.set(wallet,avatar);state.scene.add(avatar)
       avatar.scale.setScalar(REMOTE_AVATAR_VISUAL_SCALE)
     }
     avatar.position.set(Number(data.gx??((data.col??0)+.5)),Number(data.z)||0,Number(data.gy??((data.row??0)+.5)))
     avatar.rotation.y=-(Number(data.angle)||0)-Math.PI/2
     const swingAge=Date.now()-(Number(data.swingAt)||0)
-    avatar.userData.tool.rotation.z=swingAge<SWING_DUR?Math.sin(swingAge/SWING_DUR*Math.PI)*1.05:0
+    const swing=swingAge<SWING_DUR?Math.sin(swingAge/SWING_DUR*Math.PI):0
+    avatar.userData.tool.rotation.z=swing*1.05
+    const walk=Number(data.walkDist)||0
+    if(avatar.userData.leftFoot) avatar.userData.leftFoot.position.y=.075+Math.max(0,Math.sin(walk*.18))*.045
+    if(avatar.userData.rightFoot) avatar.userData.rightFoot.position.y=.075+Math.max(0,Math.sin(walk*.18+Math.PI))*.045
   }
   for(const [wallet,avatar] of state.avatars){
     if(active.has(wallet)) continue
@@ -3878,6 +3969,11 @@ export default function MiningChain3DFPV({
         const visorY=billsTop+Math.round(billsH*.34),visorW=Math.max(4,Math.round(billsW*.68))
         ctx.fillStyle='#071722';ctx.fillRect(scrX-Math.floor(visorW/2),visorY,visorW,Math.max(2,Math.round(billsH*.28)))
         ctx.fillStyle='#67e8f9';ctx.fillRect(scrX-Math.floor(visorW*.36),visorY+1,Math.max(2,Math.round(visorW*.72)),1)
+        if(visorW>7){ctx.fillStyle='#fff';ctx.fillRect(scrX-Math.floor(visorW*.28),visorY+1,Math.max(1,Math.round(visorW*.12)),1)}
+        const antennaH=Math.max(2,Math.round(billsH*.34))
+        ctx.strokeStyle='#071019';ctx.lineWidth=Math.max(1,Math.round(walletW*.025))
+        ctx.beginPath();ctx.moveTo(scrX+Math.round(billsW*.22),billsTop);ctx.lineTo(scrX+Math.round(billsW*.22),billsTop-antennaH);ctx.stroke()
+        ctx.fillStyle='#d946ef';ctx.fillRect(scrX+Math.round(billsW*.22)-1,billsTop-antennaH-2,3,3)
         const shoulderY=walletTop+Math.round(walletH*.10),shoulderW=Math.max(2,Math.round(walletW*.12))
         ctx.fillStyle=`rgb(${Math.round(cr*fade*.48)},${Math.round(cg2*fade*.48)},${Math.round(cb*fade*.48)})`
         ctx.fillRect(wx1-shoulderW,shoulderY,shoulderW,Math.max(3,Math.round(walletH*.24)))
@@ -3887,6 +3983,12 @@ export default function MiningChain3DFPV({
         ctx.fillStyle='#facc15';ctx.fillRect(scrX-Math.floor(coreW*.55),claspY,Math.max(2,Math.round(coreW*1.1)),coreH)
         const beltY=walletTop+Math.round(walletH*.70)
         ctx.fillStyle='rgba(2,8,18,.82)';ctx.fillRect(wx1,beltY,walletW,Math.max(2,Math.round(walletH*.06)))
+        if(walletW>12){
+          ctx.strokeStyle='rgba(103,232,249,.50)';ctx.lineWidth=1
+          ctx.strokeRect(scrX-Math.round(walletW*.28),walletTop+Math.round(walletH*.54),Math.round(walletW*.56),Math.max(2,Math.round(walletH*.09)))
+          ctx.fillStyle='#22d3ee';ctx.fillRect(wx1+Math.max(2,Math.round(walletW*.08)),beltY+1,Math.max(1,Math.round(walletW*.06)),Math.max(1,Math.round(walletH*.035)))
+          ctx.fillStyle='#d946ef';ctx.fillRect(wx2-Math.max(3,Math.round(walletW*.14)),beltY+1,Math.max(1,Math.round(walletW*.06)),Math.max(1,Math.round(walletH*.035)))
+        }
         const bootH=Math.max(2,Math.round(walletH*.09)),bootW=Math.max(3,Math.round(walletW*.28))
         ctx.fillStyle=`rgb(${Math.round(cr*fade*.30)},${Math.round(cg2*fade*.30)},${Math.round(cb*fade*.30)})`
         ctx.fillRect(scrX-Math.round(walletW*.34),bottomY-bootH-liftL,bootW,bootH)
@@ -4345,7 +4447,7 @@ export default function MiningChain3DFPV({
     return ()=>{ document.removeEventListener('pointerlockchange',onLock); document.removeEventListener('mousemove',onMouseMove) }
   },[])
 
-  // Pointer drag → rotate, tap → pickaxe swing
+  // Pointer drag rotates; tapping swings the USB staff.
   const handlePointerDown = useCallback((e)=>{
     if(e.pointerType==='mouse'){
       if(document.pointerLockElement!==canvasRef.current){ canvasRef.current?.requestPointerLock?.(); return }
@@ -4372,7 +4474,7 @@ export default function MiningChain3DFPV({
   const handlePointerUp = useCallback((e)=>{
     if(!dragRef.current||dragRef.current.pointerId!==e.pointerId) return
     if (dragRef.current.type!=='touch' && (dragRef.current.moved||0) < 8) {
-      // Tap/click with minimal movement → swing pickaxe
+      // Tap/click with minimal movement swings the USB staff.
       if (performance.now()-swingStartRef.current > SWING_DUR) {
         swingStartRef.current = performance.now()
         swingEpochRef.current = Date.now()
@@ -4503,7 +4605,7 @@ export default function MiningChain3DFPV({
       }
 
       // Replicate the full avatar state. This also runs while stationary so
-      // mouse look, jumps and pickaxe swings remain visible to every client.
+      // Mouse look, jumps and USB staff swings remain visible to every client.
       {
         const now=Date.now()
         const nextState={
