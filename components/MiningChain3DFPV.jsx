@@ -33,10 +33,11 @@ const HITS_NEEDED   = 5      // swings to complete mining action
 const INTERACT_DIST = 2.0    // grid cells — max distance for block interaction
 const CHAIN_NODE_ROW = 4     // fallback; runtime position comes from cellMap
 const CHAIN_NODE_COL = 4
-// Jump: single jump peaks at ~1.25 (above block top), 2 jumps reach ~2.5
+// Jump: a player can mount mining blocks, but structural walls stay impassable.
 const JUMP_VZ   = 5.7        // jump impulse (grid units / second)
 const GRAVITY_A = 13.5       // gravity (grid units / second²)
-const BLOCK_TOP = 1.0        // block/obstacle height in grid units
+const BLOCK_TOP = 1.0        // interactive/mining block height in grid units
+const OBSTACLE_TOP = 2.35    // above the maximum single-jump apex
 const MAX_JUMPS = 1
 
 // ── Decorative obstacles: solid walls, no doorways, not mineable ──────────────
@@ -862,11 +863,12 @@ const OBSTACLE_MAP = new Map([
 
 // ── Wall collision: returns true if position (grid units) hits a solid wall ──
 // cellMap + obsSet distinguish empty corridors (passable) from block/obstacle cells
-function hitsSolidWall(gx, gy, cellMap, obsSet) {
+function hitsSolidWall(gx, gy, cellMap, obsSet, playerZ = 0) {
   const col = Math.floor(gx), row = Math.floor(gy)
   const key = `${row},${col}`
-  if (obsSet?.has(key)) return true   // Decorative obstacle: always solid
+  if (obsSet?.has(key)) return playerZ < OBSTACLE_TOP
   if (!cellMap?.has(key)) return false     // Empty corridor: always passable
+  if (playerZ >= BLOCK_TOP) return false
   // Block cell with data: standard centre-doorway collision
   const fx = gx - col, fy = gy - row
   if (fx < PLAYER_R)     { if (fy < DOOR_LO || fy > DOOR_HI) return true }
@@ -976,9 +978,13 @@ function castRay(wx, wy, angle, cellMap, obsSet) {
 }
 
 // ── Minimap ───────────────────────────────────────────────────────────────────
+function minimapSize(W) {
+  return W < 600 ? Math.min(W * 0.44, 128) : Math.min(176, W * 0.22)
+}
+
 function drawMinimap(ctx, gr, gc, angle, cellMap, presenceMap, myWallet, W, H, chainNodePos, validObs, zoom = 1) {
   const isMobile = W < 600
-  const SZ = isMobile ? Math.min(W*0.38, 110) : Math.min(130, W*0.2)
+  const SZ = minimapSize(W)
   const MX = W - SZ - 6
   const MY = 8
   const safeZoom = [1,2,4].includes(zoom) ? zoom : 1
@@ -1591,7 +1597,7 @@ function drawChainStats(ctx, W, H, stats, es) {
 // ── Online players list (below minimap) ─────────────────────────────────────
 function drawOnlineList(ctx, W, H, presenceMap, myWallet, pvpStolen) {
   const isMobile = W < 600
-  const SZ = isMobile ? Math.min(W * 0.38, 110) : Math.min(130, W * 0.2)
+  const SZ = minimapSize(W)
   const MX = W - SZ - 6
   const MY = 8
 
@@ -2071,9 +2077,11 @@ export default function MiningChain3DFPV({
 
     // World-space grid made from projected cell edges. This is dramatically
     // cheaper than per-pixel floor casting and remains stable during motion.
-    const solidAt=(gx,gy)=>{
+    const solidHeightAt=(gx,gy)=>{
       const row=Math.floor(gy),col=Math.floor(gx),key=`${row},${col}`
-      return validObstaclesRef.current.has(key)||cellMap.has(key)
+      if(validObstaclesRef.current.has(key)) return OBSTACLE_TOP
+      if(cellMap.has(key)) return BLOCK_TOP
+      return 0
     }
     ctx.globalAlpha=.12;ctx.strokeStyle=C;ctx.lineWidth=1;ctx.beginPath()
     for(let c=0;c<=COLS;c++){
@@ -2091,17 +2099,18 @@ export default function MiningChain3DFPV({
     // Visible block tops are clipped polygons and are rendered before walls;
     // wall strips therefore occlude them cleanly without jagged overlaps.
     const tops=[]
-    if(cameraZ>BLOCK_TOP+.015) for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++){
-      if(!solidAt(c+.5,r+.5)) continue
+    for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++){
+      const topHeight=solidHeightAt(c+.5,r+.5)
+      if(!topHeight||cameraZ<=topHeight+.015) continue
       const verts=clipNear([
-        cameraVertex(c,r,BLOCK_TOP),cameraVertex(c+1,r,BLOCK_TOP),
-        cameraVertex(c+1,r+1,BLOCK_TOP),cameraVertex(c,r+1,BLOCK_TOP),
+        cameraVertex(c,r,topHeight),cameraVertex(c+1,r,topHeight),
+        cameraVertex(c+1,r+1,topHeight),cameraVertex(c,r+1,topHeight),
       ])
       if(verts.length<3) continue
       const points=verts.map(screenVertex)
       if(points.every(p=>p.x<-2||p.x>W+2||p.y<-2||p.y>H+2)) continue
       const depth=verts.reduce((sum,v)=>sum+v.depth,0)/verts.length
-      tops.push({r,c,points,depth})
+      tops.push({r,c,points,depth,topHeight})
     }
     tops.sort((a,b)=>b.depth-a.depth)
     for(const top of tops){
@@ -2114,8 +2123,8 @@ export default function MiningChain3DFPV({
       for(let i=1;i<top.points.length;i++)ctx.lineTo(top.points[i].x,top.points[i].y)
       ctx.closePath();ctx.fill();ctx.stroke()
       if(top.depth<10){
-        const a=projectSegment([top.c+.5,top.r,BLOCK_TOP+.003],[top.c+.5,top.r+1,BLOCK_TOP+.003])
-        const b=projectSegment([top.c,top.r+.5,BLOCK_TOP+.003],[top.c+1,top.r+.5,BLOCK_TOP+.003])
+        const a=projectSegment([top.c+.5,top.r,top.topHeight+.003],[top.c+.5,top.r+1,top.topHeight+.003])
+        const b=projectSegment([top.c,top.r+.5,top.topHeight+.003],[top.c+1,top.r+.5,top.topHeight+.003])
         ctx.strokeStyle='rgba(0,0,0,.16)';ctx.beginPath()
         if(a){ctx.moveTo(a[0].x,a[0].y);ctx.lineTo(a[1].x,a[1].y)}
         if(b){ctx.moveTo(b[0].x,b[0].y);ctx.lineTo(b[1].x,b[1].y)}
@@ -2140,7 +2149,8 @@ export default function MiningChain3DFPV({
       const ra = angle - FOV/2 + (col+0.5)*FOV/strips
       const {perpDist,cell,side,mx:hitMx,my:hitMy} = castRay(px,py,ra,cellMap,validObstaclesRef.current)
       const dist  = perpDist*Math.cos(ra-angle)
-      const projectedTop = projectY(BLOCK_TOP, dist)
+      const wallTop = cell?.isObstacle ? OBSTACLE_TOP : BLOCK_TOP
+      const projectedTop = projectY(wallTop, dist)
       const projectedBottom = projectY(0, dist)
       const wTop = Math.round(Math.min(projectedTop, projectedBottom))
       const wallH = Math.min(H * 8, Math.max(1, Math.abs(projectedBottom - projectedTop)))
@@ -2259,7 +2269,8 @@ export default function MiningChain3DFPV({
       const tX   = -Math.sin(angle)*rx + Math.cos(angle)*ry
       const dist  = Math.sqrt(rx*rx + ry*ry)
       const remoteZ=Number(pres.z)||0
-      const supportZ=remoteZ>=BLOCK_TOP&&solidAt(sgx,sgy)?BLOCK_TOP:0
+      const solidHeight=solidHeightAt(sgx,sgy)
+      const supportZ=solidHeight&&remoteZ>=solidHeight?solidHeight:0
       sprites.push({
         w, tX, tY, dist, z:remoteZ, supportZ,
         angle:Number(pres.angle)||0, swingAt:Number(pres.swingAt)||0,
@@ -2900,17 +2911,12 @@ export default function MiningChain3DFPV({
           }
           return false
         }
-        if(p.z >= BLOCK_TOP){
-          // Above block height: walk freely on top of everything
-          if(inBX&&!avatarBlocked(ngx,cgy)) p.x=nx
-          if(inBY&&!avatarBlocked(p.x/CELL_SIZE,ngy)) p.y=ny
-        } else {
-          // Full move, else wall-slide on each axis independently
-          if(inBX&&inBY&&!hitsSolidWall(ngx,ngy,cm,obs)&&!avatarBlocked(ngx,ngy)){ p.x=nx; p.y=ny }
-          else{
-            if(inBX&&!hitsSolidWall(ngx,cgy,cm,obs)&&!avatarBlocked(ngx,cgy)) p.x=nx
-            if(inBY&&!hitsSolidWall(cgx,ngy,cm,obs)&&!avatarBlocked(cgx,ngy)) p.y=ny
-          }
+        // Full move, else wall-slide. Mining blocks can be crossed from their
+        // top, while taller structural walls remain solid at jump height.
+        if(inBX&&inBY&&!hitsSolidWall(ngx,ngy,cm,obs,p.z)&&!avatarBlocked(ngx,ngy)){ p.x=nx; p.y=ny }
+        else{
+          if(inBX&&!hitsSolidWall(ngx,cgy,cm,obs,p.z)&&!avatarBlocked(ngx,cgy)) p.x=nx
+          if(inBY&&!hitsSolidWall(cgx,ngy,cm,obs,p.z)&&!avatarBlocked(cgx,ngy)) p.y=ny
         }
         walkDistRef.current+=movedDist
         needsRender=true
@@ -2931,12 +2937,13 @@ export default function MiningChain3DFPV({
       // ── Vertical physics (jump / gravity) ────────────────────────────────
       {
         // Multi-point footprint check: center + 4 cardinal offsets at PLAYER_R
-        let _onBlock = false
+        let supportHeight = 0
         for(const [dr,dc] of [[0,0],[PLAYER_R,0],[-PLAYER_R,0],[0,PLAYER_R],[0,-PLAYER_R]]){
           const bk=`${Math.floor(p.y/CELL_SIZE+dr)},${Math.floor(p.x/CELL_SIZE+dc)}`
-          if(validObstaclesRef.current.has(bk)||cellMapRef.current.has(bk)){_onBlock=true;break}
+          if(validObstaclesRef.current.has(bk)) supportHeight=Math.max(supportHeight,OBSTACLE_TOP)
+          else if(cellMapRef.current.has(bk)) supportHeight=Math.max(supportHeight,BLOCK_TOP)
         }
-        const floorZ = (_onBlock && p.z >= BLOCK_TOP) ? BLOCK_TOP : 0
+        const floorZ = supportHeight&&p.z>=supportHeight ? supportHeight : 0
         if(p.z > floorZ || p.vz > 0){
           p.vz -= GRAVITY_A*dt
           const nz = p.z + p.vz*dt

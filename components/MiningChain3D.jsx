@@ -27,23 +27,61 @@ const TRADE_NFTJI_DEFS = [
   { key: 'lucky1000', emoji: '🧿', field: 'lucky_1000_level' },
   { key: 'revive',    emoji: '❤️', field: null                },
 ]
-const CHAIN_NODE_ROW = 4
-const CHAIN_NODE_COL = 4
+const CHAIN_NODE_ROW = 27
+const CHAIN_NODE_COL = 27
+const CHAIN_NODE_BLOCK_HEX = gridToBlockHex(4, 4)
 
-// Portal navigation nodes in the outer 56×56 area (rows 30+, cols 30+)
+// Portal nodes are spread across all four quarters of the 56x56 world.
 const PORTAL_NODES = [
-  { row:31, col:31, emoji:'🔒', titleEn:'SECURITY',    titleEs:'SEGURIDAD',  navUrl:'/security',    color:'#22d3ee' },
-  { row:31, col:39, emoji:'🎮', titleEn:'TRAINING',    titleEs:'ENTRENAMIENTO', navUrl:'/training', color:'#4ade80' },
-  { row:31, col:47, emoji:'💹', titleEn:'TRADING',     titleEs:'TRADING',    navUrl:'/trading',     color:'#fb923c' },
-  { row:39, col:31, emoji:'📈', titleEn:'MM3 CHART',   titleEs:'GRÁFICO MM3', navUrl:'/mm3-value',  color:'#a78bfa' },
-  { row:39, col:39, emoji:'🏆', titleEn:'RANKING',     titleEs:'RANKING',    navUrl:'/ranking',     color:'#ffd700' },
-  { row:39, col:47, emoji:'💥', titleEn:'SQUEEZING',   titleEs:'SQUEEZING',  navUrl:'/squeezing',   color:'#fb7185' },
-  { row:47, col:31, emoji:'🔗', titleEn:'RELAYING',    titleEs:'RELAYING',   navUrl:'/relaying',    color:'#60a5fa' },
-  { row:47, col:39, emoji:'🤖', titleEn:'AI TEAM',     titleEs:'EQUIPO IA',  navUrl:'/ai-team',     color:'#bef264' },
-  { row:47, col:47, emoji:'📜', titleEn:'MANIFESTO',   titleEs:'MANIFIESTO', navUrl:'/manifesto',   color:'#f472b6' },
-  { row:53, col:31, emoji:'✅', titleEn:'DAILY TASKS', titleEs:'TAREAS',     navUrl:'/daily-tasks', color:'#2dd4bf' },
-  { row:53, col:39, emoji:'☠️', titleEn:'KERNEL PANIC',titleEs:'KERNEL PANIC',navUrl:'/relaying',   color:'#f97316' },
+  { row:5,  col:5,  emoji:'🔒', titleEn:'SECURITY',    titleEs:'SEGURIDAD',  navUrl:'/security',    color:'#22d3ee' },
+  { row:7,  col:20, emoji:'🎮', titleEn:'TRAINING',    titleEs:'ENTRENAMIENTO', navUrl:'/training', color:'#4ade80' },
+  { row:20, col:7,  emoji:'💹', titleEn:'TRADING',     titleEs:'TRADING',    navUrl:'/trading',     color:'#fb923c' },
+  { row:5,  col:35, emoji:'📈', titleEn:'MM3 CHART',   titleEs:'GRÁFICO MM3', navUrl:'/mm3-value',  color:'#a78bfa' },
+  { row:7,  col:50, emoji:'🏆', titleEn:'RANKING',     titleEs:'RANKING',    navUrl:'/ranking',     color:'#ffd700' },
+  { row:20, col:47, emoji:'💥', titleEn:'SQUEEZING',   titleEs:'SQUEEZING',  navUrl:'/squeezing',   color:'#fb7185' },
+  { row:35, col:5,  emoji:'🔗', titleEn:'RELAYING',    titleEs:'RELAYING',   navUrl:'/relaying',    color:'#60a5fa' },
+  { row:50, col:7,  emoji:'🤖', titleEn:'AI TEAM',     titleEs:'EQUIPO IA',  navUrl:'/ai-team',     color:'#bef264' },
+  { row:47, col:20, emoji:'📜', titleEn:'MANIFESTO',   titleEs:'MANIFIESTO', navUrl:'/manifesto',   color:'#f472b6' },
+  { row:35, col:35, emoji:'✅', titleEn:'DAILY TASKS', titleEs:'TAREAS',     navUrl:'/daily-tasks', color:'#2dd4bf' },
+  { row:50, col:50, emoji:'☠️', titleEn:'KERNEL PANIC',titleEs:'KERNEL PANIC',navUrl:'/relaying',   color:'#f97316' },
 ]
+
+const VISUAL_BLOCK_REGIONS = [
+  { row:3,  col:3,  size:22 },
+  { row:3,  col:31, size:22 },
+  { row:31, col:3,  size:22 },
+  { row:31, col:31, size:22 },
+]
+
+const VISUAL_BLOCK_POSITIONS = (() => {
+  const occupied = new Set(PORTAL_NODES.map(node => `${node.row},${node.col}`))
+  occupied.add(`${CHAIN_NODE_ROW},${CHAIN_NODE_COL}`)
+  const positions = new Map()
+  for (let index = 0; index < MM3_BLOCK_GRID_ROWS * MM3_BLOCK_GRID_COLS; index++) {
+    const blockHex = `#${index.toString(16).toUpperCase().padStart(3, '0')}`
+    if (blockHex === CHAIN_NODE_BLOCK_HEX) continue
+    const region = VISUAL_BLOCK_REGIONS[index % VISUAL_BLOCK_REGIONS.length]
+    const slots = region.size * region.size
+    for (let probe = 0; probe < slots; probe++) {
+      const slot = (Math.floor(index / 4) * 137 + (index % 4) * 17 + probe * 53) % slots
+      const row = region.row + Math.floor(slot / region.size)
+      const col = region.col + (slot % region.size)
+      const key = `${row},${col}`
+      if (!occupied.has(key)) {
+        occupied.add(key)
+        positions.set(blockHex, { row, col })
+        break
+      }
+    }
+  }
+  return positions
+})()
+
+function placeDistributedBlock(blockHex) {
+  const index = Number.parseInt(String(blockHex || '').replace('#', ''), 16)
+  const normalized = Number.isFinite(index) ? `#${index.toString(16).toUpperCase().padStart(3, '0')}` : ''
+  return VISUAL_BLOCK_POSITIONS.get(normalized) || blockHexToGrid(blockHex)
+}
 
 function getRandomLoggedSpawn() {
   return {
@@ -160,10 +198,10 @@ export default function MiningChain3D() {
       if (!mounted) return
 
       const map = new Map()
+      const blocksByHex = new Map()
       for (const m of mined || []) {
-        const pos = blockHexToGrid(m.block_hex)
-        if (!pos) continue
-        map.set(`${pos.row},${pos.col}`, {
+        if (!blockHexToGrid(m.block_hex)) continue
+        blocksByHex.set(m.block_hex, {
           blockHex: m.block_hex, owner: m.wallet,
           color: colorFromAddress(m.wallet), isMined: true,
         })
@@ -174,21 +212,26 @@ export default function MiningChain3D() {
       }
       for (const m of market || []) {
         if (m.grid_row == null || m.grid_col == null) continue
-        const key = `${m.grid_row},${m.grid_col}`
+        const blockHex = gridToBlockHex(m.grid_row, m.grid_col)
         const ownerWallet = ownersByKey.get(m.block_key) || null
-        map.set(key, {
-          ...map.get(key),
+        blocksByHex.set(blockHex, {
+          ...blocksByHex.get(blockHex),
           blockKey: m.block_key,
-          blockHex: gridToBlockHex(m.grid_row, m.grid_col),
+          blockHex,
           emoji: m.emoji, titleEn: m.title_en, titleEs: m.title_es, priceEur: m.price_eur,
           owner: ownerWallet,
           color: ownerWallet ? colorFromAddress(ownerWallet) : C,
           isMarket: true, isMined: Boolean(ownerWallet),
         })
       }
+      blocksByHex.delete(CHAIN_NODE_BLOCK_HEX)
+      for (const [, block] of [...blocksByHex.entries()].sort(([a],[b]) => a.localeCompare(b))) {
+        const pos = placeDistributedBlock(block.blockHex)
+        if (pos) map.set(`${pos.row},${pos.col}`, block)
+      }
       // Chain Node: fixed special cell at grid center, always present
       map.set(`${CHAIN_NODE_ROW},${CHAIN_NODE_COL}`, {
-        blockHex: gridToBlockHex(CHAIN_NODE_ROW, CHAIN_NODE_COL),
+        blockHex: CHAIN_NODE_BLOCK_HEX,
         isChainNode: true,
         isMarket: false,
         isMined: false,
@@ -567,7 +610,7 @@ export default function MiningChain3D() {
 
   // Derived facing cell info
   const fc         = facingCell?.cell
-  const fcHex      = facingCell ? gridToBlockHex(facingCell.row, facingCell.col) : null
+  const fcHex      = fc?.blockHex || (facingCell ? gridToBlockHex(facingCell.row, facingCell.col) : null)
   const fcReq      = fcHex ? MM3_BLOCK_REQUIREMENT_BY_HEX.get(fcHex) : null
   const fcOwnColor = fc?.owner ? colorFromAddress(fc.owner) : null
   const isMine     = myWallet && fc?.owner?.toLowerCase() === myWallet
