@@ -87,15 +87,23 @@ export default function NotificationChips() {
 
   useEffect(() => {
     fetchInvites();
-    const poll = setInterval(fetchInvites, 30_000);
-    return () => clearInterval(poll);
+    const poll = setInterval(fetchInvites, 300_000);
+    window.addEventListener('focus', fetchInvites);
+    window.addEventListener('mm3-db-updated', fetchInvites);
+    return () => {
+      clearInterval(poll);
+      window.removeEventListener('focus', fetchInvites);
+      window.removeEventListener('mm3-db-updated', fetchInvites);
+    };
   }, [activeWallet, fetchInvites]);
 
   useEffect(() => {
     if (!activeWallet) return;
     const ch = supabase
       .channel('mm3-notif-chips-invites')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'mm3_wallet_pool_invitations' }, fetchInvites)
+      .on('postgres_changes', {
+        event: '*', schema: 'public', table: 'mm3_wallet_pool_invitations', filter: `wallet=eq.${activeWallet}`,
+      }, fetchInvites)
       .subscribe();
     return () => supabase.removeChannel(ch);
   }, [activeWallet, fetchInvites]);
@@ -120,8 +128,14 @@ export default function NotificationChips() {
         .catch(() => {});
     };
     load();
-    const poll = setInterval(load, 30_000);
-    return () => clearInterval(poll);
+    const poll = setInterval(load, 120_000);
+    window.addEventListener('focus', load);
+    window.addEventListener('mm3-db-updated', load);
+    return () => {
+      clearInterval(poll);
+      window.removeEventListener('focus', load);
+      window.removeEventListener('mm3-db-updated', load);
+    };
   }, [myPool, activeWallet]);
 
   const handleAccept = async (inviteId) => {

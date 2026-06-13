@@ -86,7 +86,7 @@ export default function DailyTasks({ framed = true }) {
     };
 
     loadProgress();
-    const interval = window.setInterval(loadProgress, 30_000);
+    const interval = window.setInterval(loadProgress, 120_000);
     return () => window.clearInterval(interval);
   }, [account, t]);
 

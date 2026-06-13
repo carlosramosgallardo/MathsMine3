@@ -3038,7 +3038,9 @@ export default function MiningChain3DFPV({
           || Math.abs(nextState.angle-prev.angle)>0.008
           || Math.abs(nextState.pitch-prev.pitch)>0.008
           || nextState.swingAt!==prev.swingAt
-        if(now-lastRealtimeRef.current>80&&(changed||now-(prev?.sentAt||0)>1000)){
+        // 6-7 updates/sec remains smooth after interpolation while cutting
+        // Realtime fan-out almost in half. Idle heartbeats are deliberately rare.
+        if(now-lastRealtimeRef.current>150&&(changed||now-(prev?.sentAt||0)>2500)){
           lastRealtimeRef.current=now
           lastSentStateRef.current={...nextState,sentAt:now}
           onPositionRealtimeRef.current?.(nextState.gx,nextState.gy,nextState)

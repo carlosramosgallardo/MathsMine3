@@ -53,7 +53,7 @@ export default function MacroTicker() {
       } catch {}
     };
     load();
-    const timer = setInterval(load, 30_000);
+    const timer = setInterval(load, 300_000);
     return () => clearInterval(timer);
   }, []);
 

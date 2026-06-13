@@ -61,7 +61,7 @@ export default function LandingHero() {
       } catch { if (mounted) setPendingRewards(0); }
     };
     load();
-    const timer = setInterval(load, 30000);
+    const timer = setInterval(load, 120_000);
     window.addEventListener('mm3-db-updated', load);
     return () => { mounted = false; clearInterval(timer); window.removeEventListener('mm3-db-updated', load); };
   }, [account]);

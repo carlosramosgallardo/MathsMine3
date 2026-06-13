@@ -148,7 +148,9 @@ function ConnectedBar({ address, isRealWallet, onDisconnect, mode = 'full' }) {
         window.dispatchEvent(new CustomEvent('mm3-presence-changed'));
     });
     insertIrcPresenceTrace(wallet, 'join', tRef.current('relaying.joined'));
-    const timer = setInterval(beat, 25_000);
+    // The online window is 90s; a 45s heartbeat keeps two chances to renew it
+    // while nearly halving presence writes compared with the old 25s cadence.
+    const timer = setInterval(beat, 45_000);
 
     return () => {
       mounted = false;

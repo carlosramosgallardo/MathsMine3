@@ -119,7 +119,6 @@ export default function MiningChain3D() {
   const myWalletRef    = useRef(myWallet)
   const myPosRef       = useRef(initialPos)
   const myKeyRef       = useRef(null)     // presence key (wallet or 'anon-XXXX')
-  const lastDbWriteRef = useRef(0)
 
   // Keep refs current each render
   myWalletRef.current = myWallet
@@ -368,9 +367,6 @@ export default function MiningChain3D() {
       if (payload?.target === key && !myWalletRef.current) {
         setMyPos({ row: 14, col: 14 })
         setJumpToCell({ row: 14, col: 14 })
-        supabase.from('mm3_player_positions')
-          .upsert({ wallet: key, gx: 14.5, gy: 14.5, updated_at: new Date().toISOString() })
-          .then(null, () => {})
       }
     })
 
@@ -395,6 +391,9 @@ export default function MiningChain3D() {
 
     ch.on('broadcast', { event: 'pvp-result' }, ({ payload }) => {
       if (!payload?.victim) return
+      if (payload?.attacker) {
+        setSwingMap(prev => ({ ...prev, [payload.attacker]: Date.now() }))
+      }
       setHealthMap(prev => ({ ...prev, [payload.victim]: Number(payload.health ?? 100) }))
       if (payload.victim === myKeyRef.current || payload.victim === myWalletRef.current) {
         setReceivedHitAt(Date.now())
@@ -427,7 +426,7 @@ export default function MiningChain3D() {
       setExternalPush({ dx: Number(payload.dx) || 0, dy: Number(payload.dy) || 0, at: Date.now() })
     })
 
-    // High-frequency position updates (~8/sec) via broadcast — low latency
+    // Low-latency position updates via broadcast.
     ch.on('broadcast', { event: 'move' }, ({ payload }) => {
       if (!payload?.wallet || payload.gx == null) return
       const w = payload.wallet
@@ -491,15 +490,14 @@ export default function MiningChain3D() {
       const selfKey = myKeyRef.current
       const { row, col } = myPosRef.current
 
-      // Load pool code + last-known positions in parallel
-      const [poolRes, , { data }] = await Promise.all([
+      // Presence contains the spawn position; subsequent broadcasts carry the
+      // live state, so joining mining does not need a positions-table scan.
+      const [poolRes] = await Promise.all([
         myW
           ? supabase.from('mm3_wallet_pool_members').select('pool_code').eq('wallet', myW).limit(1).maybeSingle()
           : Promise.resolve({ data: null }),
-        // Track WITH position so other online clients know where we are immediately
+        // Track with position so other online clients know where we are immediately.
         ch.track({ wallet: selfKey, gx: col + 0.5, gy: row + 0.5, row, col }),
-        // Load last-known positions from DB (fallback for players who haven't moved yet)
-        supabase.from('mm3_player_positions').select('wallet, gx, gy'),
       ])
       const myPoolCode = poolRes?.data?.pool_code || null
       setMyPoolCode(myPoolCode)
@@ -507,19 +505,6 @@ export default function MiningChain3D() {
       if (myW && myPoolCode) {
         const { row: r2, col: c2 } = myPosRef.current
         ch.track({ wallet: myW, gx: c2 + 0.5, gy: r2 + 0.5, row: r2, col: c2, poolCode: myPoolCode }).catch(() => {})
-      }
-
-      if (data?.length) {
-        setPositions(prev => {
-          const next = { ...prev }
-          for (const r of data) {
-            if (r.wallet === myW || r.wallet === selfKey || String(r.wallet || '').startsWith('anon-')) continue
-            if (!next[r.wallet]) {
-              next[r.wallet] = { gx: r.gx, gy: r.gy, row: Math.floor(r.gy), col: Math.floor(r.gx) }
-            }
-          }
-          return next
-        })
       }
     })
 
@@ -551,10 +536,6 @@ export default function MiningChain3D() {
     }).then(r => r.json()).catch(() => null)
     if (!response?.ok) return response
     setHealthMap(prev => ({ ...prev, [victim]: Number(response.health ?? 100) }))
-    channelRef.current?.send({
-      type: 'broadcast', event: 'pvp-hit',
-      payload: { victim, attacker },
-    })?.catch(() => {})
     channelRef.current?.send({
       type: 'broadcast', event: 'pvp-result',
       payload: { victim, attacker, ...response },
@@ -612,14 +593,6 @@ export default function MiningChain3D() {
       type: 'broadcast', event: 'move',
       payload: { wallet: myW, ...nextPosition },
     })?.catch(() => {})
-    // Persist to DB (throttled 1/sec) for players who join later
-    const now = Date.now()
-    if (now - lastDbWriteRef.current > 1000) {
-      lastDbWriteRef.current = now
-      supabase.from('mm3_player_positions')
-        .upsert({ wallet: myW, gx, gy, updated_at: new Date().toISOString() })
-        .then(null, () => {})
-    }
   }, [myPoolCode])
 
   // Interaction range (must be within 2 cells to act on or inspect a block)

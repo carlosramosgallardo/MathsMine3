@@ -360,12 +360,6 @@ async function simulateBotMapSession(supabase, wallet, targetRow, targetCol, poo
     return;
   }
 
-  // Seed position in DB for late-joiners
-  await supabase.from('mm3_player_positions').upsert(
-    { wallet: key, gx: Math.round(gx * 100) / 100, gy: Math.round(gy * 100) / 100, updated_at: new Date().toISOString() },
-    { onConflict: 'wallet', ignoreDuplicates: false }
-  ).catch(() => {});
-
   const broadcastPos = async ({ swing = false } = {}) => {
     const rx = Math.round(gx * 100) / 100;
     const ry = Math.round(gy * 100) / 100;
@@ -378,13 +372,7 @@ async function simulateBotMapSession(supabase, wallet, targetRow, targetCol, poo
       isBot: true, task: taskType, taskLabel, taskPhase,
       swingAt: swing ? Date.now() : 0,
     };
-    await Promise.all([
-      ch.send({ type: 'broadcast', event: 'move', payload }).catch(() => {}),
-      supabase.from('mm3_player_positions').upsert(
-        { wallet: key, gx: rx, gy: ry, updated_at: new Date().toISOString() },
-        { onConflict: 'wallet', ignoreDuplicates: false }
-      ).catch(() => {}),
-    ]);
+    await ch.send({ type: 'broadcast', event: 'move', payload }).catch(() => {});
   };
 
   const steps = BOT_MAP_STEPS_MIN + Math.floor(Math.random() * (BOT_MAP_STEPS_MAX - BOT_MAP_STEPS_MIN + 1));

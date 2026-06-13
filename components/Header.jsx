@@ -121,7 +121,7 @@ function DailyTaskLink() {
     }
 
     load()
-    const timer = setInterval(load, 30000)
+    const timer = setInterval(load, 120_000)
     window.addEventListener('focus', load)
     window.addEventListener('mm3-db-updated', load)
 

@@ -24,6 +24,11 @@ export function IrcPresenceProvider({ children }) {
 
   /* ── Single mm3-irc-anon-presence subscription ── */
   useEffect(() => {
+    if (pathname !== '/relaying') {
+      setAnonIrcUsers([]);
+      setChannelStatus('OFFLINE');
+      return undefined;
+    }
     let ch = null;
     const timer = setTimeout(() => {
       ch = supabase.channel('mm3-irc-anon-presence');
@@ -46,7 +51,7 @@ export function IrcPresenceProvider({ children }) {
       }).subscribe((status) => {
         setChannelStatus(status);
       });
-    }, pathname === '/relaying' ? 1000 : 60000);
+    }, 250);
 
     return () => {
       clearTimeout(timer);
@@ -82,18 +87,13 @@ export function IrcPresenceProvider({ children }) {
       } catch { setActiveWallets([]); }
     };
     load();
-    const t  = setInterval(load, 60_000);
-    let ch = null;
-    const channelTimer = setTimeout(() => {
-      ch = supabase
-        .channel('mm3-relaying-presence-ctx')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'mm3_wallet_presence' }, load)
-        .subscribe();
-    }, pathname === '/relaying' ? 1000 : 60000);
+    const t = setInterval(load, pathname === '/relaying' ? 60_000 : 120_000);
+    window.addEventListener('focus', load);
+    window.addEventListener('mm3-presence-changed', load);
     return () => {
       clearInterval(t);
-      clearTimeout(channelTimer);
-      if (ch) supabase.removeChannel(ch);
+      window.removeEventListener('focus', load);
+      window.removeEventListener('mm3-presence-changed', load);
     };
   }, [pathname]);
 

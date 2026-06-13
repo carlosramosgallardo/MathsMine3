@@ -859,13 +859,13 @@ export default function RelayingTerminal({ accent = '#22d3ee' }) {
 
   useEffect(() => {
     loadMarketClaims();
-    const channel = supabase
-      .channel('mm3-irc-market-claims')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'player_progress' }, loadMarketClaims)
-      .subscribe();
-
+    const timer = setInterval(loadMarketClaims, 120_000);
+    window.addEventListener('focus', loadMarketClaims);
+    window.addEventListener('mm3-db-updated', loadMarketClaims);
     return () => {
-      supabase.removeChannel(channel);
+      clearInterval(timer);
+      window.removeEventListener('focus', loadMarketClaims);
+      window.removeEventListener('mm3-db-updated', loadMarketClaims);
     };
   }, [loadMarketClaims]);
 
@@ -883,14 +883,13 @@ export default function RelayingTerminal({ accent = '#22d3ee' }) {
 
   useEffect(() => {
     loadPoolCodes();
-    const channel = supabase
-      .channel('mm3-irc-pool-links')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'mm3_wallet_pools' }, loadPoolCodes)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'mm3_wallet_pool_members' }, loadPoolCodes)
-      .subscribe();
-
+    const timer = setInterval(loadPoolCodes, 300_000);
+    window.addEventListener('focus', loadPoolCodes);
+    window.addEventListener('mm3-db-updated', loadPoolCodes);
     return () => {
-      supabase.removeChannel(channel);
+      clearInterval(timer);
+      window.removeEventListener('focus', loadPoolCodes);
+      window.removeEventListener('mm3-db-updated', loadPoolCodes);
     };
   }, [loadPoolCodes]);
 
@@ -954,15 +953,14 @@ export default function RelayingTerminal({ accent = '#22d3ee' }) {
     if (typeof window === 'undefined') return;
 
     loadPresence();
-    const timer = setInterval(loadPresence, 10_000);
-    const channel = supabase
-      .channel('mm3-relaying-presence-watch')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'mm3_wallet_presence' }, loadPresence)
-      .subscribe();
+    const timer = setInterval(loadPresence, 30_000);
+    window.addEventListener('focus', loadPresence);
+    window.addEventListener('mm3-presence-changed', loadPresence);
 
     return () => {
       clearInterval(timer);
-      supabase.removeChannel(channel);
+      window.removeEventListener('focus', loadPresence);
+      window.removeEventListener('mm3-presence-changed', loadPresence);
     };
   }, [loadPresence]);
 
@@ -1167,90 +1165,27 @@ export default function RelayingTerminal({ accent = '#22d3ee' }) {
         }), { silent: false });
         scheduleTimeout(() => refreshMarketStatus(), 500);
       })
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'mm3_relaying_messages', filter: 'tone=eq.market' }, ({ new: rec }) => {
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'mm3_relaying_messages',
+        filter: 'tone=in.(market,realchain,kernelpanic,squeeze,join,leave,bot)',
+      }, ({ new: rec }) => {
+        const sourceTone = String(rec?.tone || '').toLowerCase();
+        if (!['market', 'realchain', 'kernelpanic', 'squeeze', 'join', 'leave', 'bot'].includes(sourceTone)) return;
         const text = normalizeRelayMessage(rec?.text);
         if (!text) return;
+        const isBot = sourceTone === 'bot';
+        const fallbackWallet = sourceTone === 'realchain' ? 'realchain' : 'system';
         appendMessage(makeMessage({
-          id: `db:${rec.wallet || 'system'}:${rec.ts || rec.created_at || Date.now()}`,
-          kind: rec.kind || 'system',
-          wallet: String(rec.wallet || 'system').toLowerCase(),
+          id: `db:${rec.wallet || fallbackWallet}:${rec.ts || rec.created_at || Date.now()}`,
+          kind: isBot ? 'chat' : (rec.kind || 'system'),
+          wallet: String(rec.wallet || fallbackWallet).toLowerCase(),
           text,
           ts: isNaN(Number(rec.ts)) ? new Date(rec.ts || rec.created_at || Date.now()).getTime() : Number(rec.ts),
-          tone: rec.tone || 'market',
+          tone: isBot ? 'neutral' : sourceTone,
         }), { silent: false });
-        scheduleTimeout(() => refreshMarketStatus(), 500);
-      })
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'mm3_relaying_messages', filter: 'tone=eq.realchain' }, ({ new: rec }) => {
-        const text = normalizeRelayMessage(rec?.text);
-        if (!text) return;
-        appendMessage(makeMessage({
-          id: `db:${rec.wallet || 'realchain'}:${rec.ts || rec.created_at || Date.now()}`,
-          kind: rec.kind || 'system',
-          wallet: String(rec.wallet || 'realchain').toLowerCase(),
-          text,
-          ts: isNaN(Number(rec.ts)) ? new Date(rec.ts || rec.created_at || Date.now()).getTime() : Number(rec.ts),
-          tone: rec.tone || 'realchain',
-        }), { silent: false });
-      })
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'mm3_relaying_messages', filter: 'tone=eq.kernelpanic' }, ({ new: rec }) => {
-        const text = normalizeRelayMessage(rec?.text);
-        if (!text) return;
-        appendMessage(makeMessage({
-          id: `db:${rec.wallet || 'system'}:${rec.ts || rec.created_at || Date.now()}`,
-          kind: rec.kind || 'system',
-          wallet: String(rec.wallet || 'system').toLowerCase(),
-          text,
-          ts: isNaN(Number(rec.ts)) ? new Date(rec.ts || rec.created_at || Date.now()).getTime() : Number(rec.ts),
-          tone: 'kernelpanic',
-        }), { silent: false });
-      })
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'mm3_relaying_messages', filter: 'tone=eq.squeeze' }, ({ new: rec }) => {
-        const text = normalizeRelayMessage(rec?.text);
-        if (!text) return;
-        appendMessage(makeMessage({
-          id: `db:${rec.wallet || 'system'}:${rec.ts || rec.created_at || Date.now()}`,
-          kind: rec.kind || 'system',
-          wallet: String(rec.wallet || 'system').toLowerCase(),
-          text,
-          ts: isNaN(Number(rec.ts)) ? new Date(rec.ts || rec.created_at || Date.now()).getTime() : Number(rec.ts),
-          tone: 'squeeze',
-        }), { silent: false });
-      })
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'mm3_relaying_messages', filter: 'tone=eq.join' }, ({ new: rec }) => {
-        const text = normalizeRelayMessage(rec?.text);
-        if (!text) return;
-        appendMessage(makeMessage({
-          id: `db:${rec.wallet || 'system'}:${rec.ts || rec.created_at || Date.now()}`,
-          kind: rec.kind || 'system',
-          wallet: String(rec.wallet || 'system').toLowerCase(),
-          text,
-          ts: isNaN(Number(rec.ts)) ? new Date(rec.ts || rec.created_at || Date.now()).getTime() : Number(rec.ts),
-          tone: 'join',
-        }), { silent: false });
-      })
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'mm3_relaying_messages', filter: 'tone=eq.leave' }, ({ new: rec }) => {
-        const text = normalizeRelayMessage(rec?.text);
-        if (!text) return;
-        appendMessage(makeMessage({
-          id: `db:${rec.wallet || 'system'}:${rec.ts || rec.created_at || Date.now()}`,
-          kind: rec.kind || 'system',
-          wallet: String(rec.wallet || 'system').toLowerCase(),
-          text,
-          ts: isNaN(Number(rec.ts)) ? new Date(rec.ts || rec.created_at || Date.now()).getTime() : Number(rec.ts),
-          tone: 'leave',
-        }), { silent: false });
-      })
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'mm3_relaying_messages', filter: 'tone=eq.bot' }, ({ new: rec }) => {
-        const text = normalizeRelayMessage(rec?.text);
-        if (!text) return;
-        appendMessage(makeMessage({
-          id: `db:${rec.wallet}:${rec.ts || rec.created_at || Date.now()}`,
-          kind: 'chat',
-          wallet: String(rec.wallet || '').toLowerCase(),
-          text,
-          ts: isNaN(Number(rec.ts)) ? new Date(rec.ts || rec.created_at || Date.now()).getTime() : Number(rec.ts),
-          tone: 'neutral',
-        }), { silent: false });
+        if (sourceTone === 'market') scheduleTimeout(() => refreshMarketStatus(), 500);
       })
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'mm3_command_penalties' }, ({ new: rec }) => {
         if (!rec?.redeemed_at || !rec?.attempted_at) return;
