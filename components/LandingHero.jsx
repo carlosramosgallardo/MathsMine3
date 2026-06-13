@@ -11,8 +11,8 @@ const C = '#22d3ee';
 
 const SECTIONS = {
   en: [
-    { href: '/training',   icon: '⛏',  name: 'Training',    desc: 'Solve math problems against the clock. 100/day, 13 types. Speed earns more MM3.' },
     { href: '/mining',     icon: '⬡',  name: 'Mining',      desc: '3D FPV block explorer. Find blocks, buy NFTJIs, mine cells, and fight enemy wallets live.', miningCard: true },
+    { href: '/training',   icon: '⛏',  name: 'Training',    desc: 'Solve math problems against the clock. 100/day, 13 types. Speed earns more MM3.' },
     { href: '/trading',    icon: '💱',  name: 'Trading',     desc: 'Buy and sell MM3 in fictional EUR / USD / CNY. 5 EXECs/day — dice shifts rates.' },
     { href: '/ranking',    icon: '🏆',  name: 'Ranking',     desc: 'Live wallet & pool leaderboard. Mining %, level, EXECs and penalty log.' },
     { href: '/squeezing',  icon: '⚔',  name: 'Squeezing',   desc: 'Pool-vs-pool combat. Stakes burned, NFTJI drops, formula shifts.' },
@@ -21,11 +21,10 @@ const SECTIONS = {
     { href: '/manifesto',  icon: '📜',  name: 'Manifesto',   desc: 'Game philosophy and full game guide — rules, mechanics and everything behind MathsMine3.' },
     { href: '/ai-team',    icon: '🤖',  name: 'AI Team',     desc: 'Meet the bot wallets running 24/7 on the board alongside human miners.' },
     { href: '/daily-tasks', icon: '🎯', name: 'Daily Tasks', desc: 'Complete daily objectives to earn fictional EUR rewards. Resets every UTC midnight.', daily: true },
-    { href: '/relaying?command=/rm+-rf+%24MM3_BLOCK_CHAIN&chip=1', icon: null, name: 'KERNEL PANIC', desc: '<!-- /rm -rf $MM3_BLOCK_CHAIN -->', kernelPanic: true, chip: 1 },
   ],
   es: [
-    { href: '/training',   icon: '⛏',  name: 'Training',    desc: 'Resuelve problemas contra el reloj. 100/día, 13 tipos. Velocidad = más MM3.' },
     { href: '/mining',     icon: '⬡',  name: 'Mining',      desc: 'Explorador 3D FPV de bloques. Encuentra bloques, compra NFTJIs, mina celdas y combate wallets enemigas en vivo.', miningCard: true },
+    { href: '/training',   icon: '⛏',  name: 'Training',    desc: 'Resuelve problemas contra el reloj. 100/día, 13 tipos. Velocidad = más MM3.' },
     { href: '/trading',    icon: '💱',  name: 'Trading',     desc: 'Compra y vende MM3 en EUR / USD / CNY ficticios. 5 EXECs/día — dados afectan tasas.' },
     { href: '/ranking',    icon: '🏆',  name: 'Ranking',     desc: 'Clasificación en vivo de wallets y pools. Mining %, nivel, EXECs y penalizaciones.' },
     { href: '/squeezing',  icon: '⚔',  name: 'Squeezing',   desc: 'Combate pool-vs-pool. Stakes quemados, drops de NFTJI, la fórmula cambia.' },
@@ -34,15 +33,10 @@ const SECTIONS = {
     { href: '/manifesto',  icon: '📜',  name: 'Manifiesto',  desc: 'Filosofía del juego y guía completa — reglas, mecánicas y todo lo que hay detrás de MathsMine3.' },
     { href: '/ai-team',    icon: '🤖',  name: 'AI Team',     desc: 'Conoce los bots que corren 24/7 en el tablero junto a los mineros humanos.' },
     { href: '/daily-tasks', icon: '🎯', name: 'Daily Tasks', desc: 'Completa objetivos diarios para ganar EUR ficticio. Reinicia cada medianoche UTC.', daily: true },
-    { href: '/relaying?command=/rm+-rf+%24MM3_BLOCK_CHAIN&chip=1', icon: null, name: 'KERNEL PANIC', desc: '<!-- /rm -rf $MM3_BLOCK_CHAIN -->', kernelPanic: true, chip: 1 },
   ],
 };
 
-function KernelPanicInner({ icon, name, desc, scanDate, daily, count, kernelPanic, kpResetsAt, nameColor, descColor }) {
-  const remaining = useCountdown(kpResetsAt);
-  const countdown = kpResetsAt ? formatCountdown(remaining) : null;
-  const isLocked = kernelPanic && countdown;
-
+function SectionCardInner({ icon, name, desc, daily, count, nameColor, descColor }) {
   return (
     <>
       <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', position: 'relative' }}>
@@ -61,50 +55,16 @@ function KernelPanicInner({ icon, name, desc, scanDate, daily, count, kernelPani
             {count > 9 ? '9+' : count}
           </span>
         )}
-        {isLocked && (
-          <span style={{
-            marginLeft: 'auto',
-            fontFamily: 'monospace', fontSize: '0.56rem', fontWeight: 900,
-            color: '#ef4444', letterSpacing: '0.05em',
-          }}>
-            {countdown}
-          </span>
-        )}
       </div>
       <p style={{ color: descColor, fontSize: '0.72rem', margin: 0, lineHeight: '1.5', wordBreak: 'break-word', letterSpacing: '0.04em', fontFamily: 'monospace' }}>{desc}</p>
-      {scanDate && (
-        <p style={{ color: '#4a2d66', fontSize: '0.62rem', margin: 0, lineHeight: '1.4', fontFamily: 'monospace', letterSpacing: '0.03em' }}>{scanDate}</p>
-      )}
     </>
   );
-}
-
-function useCountdown(resetsAt) {
-  const [remaining, setRemaining] = useState(0);
-  useEffect(() => {
-    if (!resetsAt) { setRemaining(0); return; }
-    const tick = () => setRemaining(Math.max(0, resetsAt - Date.now()));
-    tick();
-    const id = setInterval(tick, 1000);
-    return () => clearInterval(id);
-  }, [resetsAt]);
-  return remaining;
-}
-
-function formatCountdown(ms) {
-  if (ms <= 0) return null;
-  const s = Math.floor(ms / 1000);
-  const h = Math.floor(s / 3600);
-  const m = Math.floor((s % 3600) / 60);
-  const sec = s % 60;
-  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
 }
 
 export default function LandingHero() {
   const { language } = useI18n();
   const { account } = useActiveWallet();
   const [pendingRewards, setPendingRewards] = useState(0);
-  const [chipCooldowns, setChipCooldowns] = useState({ chip1: null, chip2: null });
   const sections = SECTIONS[language] || SECTIONS.en;
 
   useEffect(() => {
@@ -122,25 +82,6 @@ export default function LandingHero() {
     window.addEventListener('mm3-db-updated', load);
     return () => { mounted = false; clearInterval(timer); window.removeEventListener('mm3-db-updated', load); };
   }, [account]);
-
-  useEffect(() => {
-    let mounted = true;
-    const load = async () => {
-      try {
-        const res = await fetch('/api/rm-rf-chain');
-        if (!res.ok) return;
-        const data = await res.json();
-        if (mounted) setChipCooldowns({
-          chip1: data.chip1?.active ? data.chip1.resetsAt : null,
-          chip2: data.chip2?.active ? data.chip2.resetsAt : null,
-        });
-      } catch {}
-    };
-    load();
-    const timer = setInterval(load, 15000);
-    window.addEventListener('mm3-db-updated', load);
-    return () => { mounted = false; clearInterval(timer); window.removeEventListener('mm3-db-updated', load); };
-  }, []);
 
   const count = Math.max(0, Number(pendingRewards) || 0);
 
@@ -179,23 +120,29 @@ export default function LandingHero() {
           padding: 0,
           margin: 0,
         }}>
-          {sections.map(({ href, icon, name, desc, daily, kernelPanic, chip, miningCard }, idx) => {
-            const kpResetsAt = kernelPanic ? chipCooldowns[`chip${chip}`] : null;
-            const borderColor = kernelPanic ? '#ef444420' : miningCard ? '#22d3ee88' : `${C}18`;
-            const bg = kernelPanic ? '#0d0505' : miningCard ? 'linear-gradient(135deg,#061923 0%,#0b1020 55%,#17102a 100%)' : '#0b1015';
-            const nameColor = kernelPanic ? '#ef4444' : miningCard ? '#67e8f9' : '#e2e8f0';
-            const descColor = kernelPanic ? '#7f1d1d' : miningCard ? '#7dd3fc' : '#475569';
+          {sections.map(({ href, icon, name, desc, daily, miningCard }, idx) => {
+            const borderColor = miningCard ? '#22d3ee88' : `${C}18`;
+            const bg = miningCard ? 'linear-gradient(135deg,#061923 0%,#0b1020 55%,#17102a 100%)' : '#0b1015';
+            const nameColor = miningCard ? '#67e8f9' : '#e2e8f0';
+            const descColor = miningCard ? '#7dd3fc' : '#475569';
 
-            const inner = (
-              <KernelPanicInner
+            const inner = miningCard ? (
+              <div className="mm3-home-mining-inner">
+                <span className="mm3-home-mining-icon">{icon}</span>
+                <div>
+                  <div className="mm3-home-mining-kicker">MM3 BLOCK CHAIN · LIVE MULTIPLAYER</div>
+                  <div className="mm3-home-mining-title">{language === 'es' ? 'ENTRA A MINING 3D' : 'ENTER 3D MINING'}</div>
+                  <p className="mm3-home-mining-desc">{desc}</p>
+                </div>
+                <span className="mm3-home-mining-cta">{language === 'es' ? 'JUGAR AHORA →' : 'PLAY NOW →'}</span>
+              </div>
+            ) : (
+              <SectionCardInner
                 icon={icon}
                 name={name}
                 desc={desc}
-                scanDate={null}
                 daily={daily}
                 count={count}
-                kernelPanic={kernelPanic}
-                kpResetsAt={kpResetsAt}
                 nameColor={nameColor}
                 descColor={descColor}
               />
@@ -211,11 +158,11 @@ export default function LandingHero() {
               boxShadow: miningCard ? '0 0 24px rgba(34,211,238,.14), inset 0 0 22px rgba(168,85,247,.08)' : 'none',
             };
 
-            const hoverBorder = kernelPanic ? '#ef444455' : miningCard ? '#67e8f9' : `${C}55`;
-            const hoverBg = kernelPanic ? '#150808' : miningCard ? 'linear-gradient(135deg,#08242f 0%,#10142b 55%,#21123a 100%)' : '#0d1419';
+            const hoverBorder = miningCard ? '#67e8f9' : `${C}55`;
+            const hoverBg = miningCard ? 'linear-gradient(135deg,#08242f 0%,#10142b 55%,#21123a 100%)' : '#0d1419';
 
             return (
-              <li key={`${href ?? name}-${idx}`} style={{ minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+              <li className={miningCard ? 'mm3-home-mining-feature' : undefined} key={`${href ?? name}-${idx}`} style={{ minWidth: 0, display: 'flex', flexDirection: 'column' }}>
                 <Link
                   href={href}
                   className={miningCard ? 'mm3-home-mining-card' : undefined}

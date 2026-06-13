@@ -869,10 +869,65 @@ footer.bg-black\/97,
 .landing-grid {
   grid-template-columns: repeat(4, 1fr) !important;
 }
+.mm3-home-mining-feature {
+  grid-column: 1 / -1;
+}
 .mm3-home-mining-card {
   position: relative;
   overflow: hidden;
+  min-height: 150px;
+  padding: 1.35rem 1.6rem !important;
   animation: mm3-mining-card-pulse 2.8s ease-in-out infinite;
+}
+.mm3-home-mining-inner {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 1.4rem;
+  height: 100%;
+}
+.mm3-home-mining-icon {
+  display: grid;
+  place-items: center;
+  width: 78px;
+  height: 78px;
+  border: 1px solid rgba(103,232,249,.65);
+  background: rgba(2,8,18,.72);
+  color: #67e8f9;
+  font-size: 2.6rem;
+  box-shadow: 0 0 24px rgba(34,211,238,.2), inset 0 0 18px rgba(168,85,247,.12);
+  clip-path: polygon(50% 0,100% 50%,50% 100%,0 50%);
+}
+.mm3-home-mining-kicker {
+  color: rgba(217,70,239,.8);
+  font: 700 .65rem/1.4 monospace;
+  letter-spacing: .16em;
+}
+.mm3-home-mining-title {
+  margin-top: .2rem;
+  color: #e6fbff;
+  font: 900 clamp(1.25rem,3vw,2rem)/1.1 monospace;
+  letter-spacing: .08em;
+  text-shadow: 0 0 18px rgba(34,211,238,.42);
+}
+.mm3-home-mining-desc {
+  max-width: 620px;
+  margin: .55rem 0 0;
+  color: #7dd3fc;
+  font: .78rem/1.55 monospace;
+  letter-spacing: .035em;
+}
+.mm3-home-mining-cta {
+  border: 1px solid rgba(103,232,249,.65);
+  padding: .75rem 1rem;
+  background: rgba(6,25,35,.82);
+  color: #a5f3fc;
+  font: 900 .72rem/1 monospace;
+  letter-spacing: .1em;
+  white-space: nowrap;
+  box-shadow: 0 0 18px rgba(34,211,238,.14);
 }
 .mm3-home-mining-card::after {
   content: '';
@@ -900,6 +955,12 @@ footer.bg-black\/97,
   .landing-grid {
     grid-template-columns: repeat(2, 1fr) !important;
   }
+  .mm3-home-mining-inner {
+    grid-template-columns: auto minmax(0,1fr);
+    gap: 1rem;
+  }
+  .mm3-home-mining-icon { width: 58px; height: 58px; font-size: 2rem; }
+  .mm3-home-mining-cta { grid-column: 1 / -1; text-align: center; }
 }
 @media (max-width: 400px) {
   .landing-grid {
