@@ -41,7 +41,6 @@ const PORTAL_NODES = [
   { row:50, col:5,  emoji:'🤖', titleEn:'AI TEAM',     titleEs:'EQUIPO IA',  navUrl:'/ai-team',     color:'#bef264' },
   { row:32, col:5,  emoji:'📜', titleEn:'MANIFESTO',   titleEs:'MANIFIESTO', navUrl:'/manifesto',   color:'#f472b6' },
   { row:50, col:28, emoji:'✅', titleEn:'DAILY TASKS', titleEs:'TAREAS',     navUrl:'/daily-tasks', color:'#2dd4bf' },
-  { row:32, col:28, emoji:'☠️', titleEn:'KERNEL PANIC',titleEs:'KERNEL PANIC',navUrl:'/relaying',   color:'#f97316' },
 ]
 
 const MARKET_LANDMARK_POSITIONS = [
