@@ -982,27 +982,26 @@ function minimapSize(W) {
   return W < 600 ? Math.min(W * 0.44, 128) : Math.min(176, W * 0.22)
 }
 
-function drawMinimap(ctx, gr, gc, angle, cellMap, presenceMap, myWallet, W, H, chainNodePos, validObs, zoom = 1) {
+function drawMinimap(ctx, gr, gc, angle, cellMap, presenceMap, myWallet, W, H, chainNodePos, validObs) {
   const isMobile = W < 600
   const SZ = minimapSize(W)
   const MX = W - SZ - 6
   const MY = 8
-  const safeZoom = [1,2,4].includes(zoom) ? zoom : 1
-  const viewCells = ROWS / safeZoom
-  const originCol = Math.max(0, Math.min(COLS-viewCells, gc+.5-viewCells/2))
-  const originRow = Math.max(0, Math.min(ROWS-viewCells, gr+.5-viewCells/2))
+  const viewCells = ROWS
+  const originCol = 0
+  const originRow = 0
   const CS = SZ/viewCells
   const mapX = (col) => MX + (col-originCol)*CS
   const mapY = (row) => MY + (row-originRow)*CS
   const visible = (row,col,pad=0) => col>=originCol-pad&&col<=originCol+viewCells+pad&&row>=originRow-pad&&row<=originRow+viewCells+pad
   const drawMapEmoji = (emoji,x,y,color) => {
-    const fontSize = safeZoom === 4 ? 26 : safeZoom === 2 ? 19 : 12
-    const radius = fontSize * .56
+    const fontSize = isMobile ? 18 : 20
+    const radius = fontSize * .53
     ctx.save()
     ctx.globalAlpha = .96
     ctx.fillStyle = 'rgba(1,7,14,.88)'
     ctx.beginPath();ctx.arc(x,y,radius,0,Math.PI*2);ctx.fill()
-    ctx.strokeStyle = (color || C) + 'cc';ctx.lineWidth = safeZoom === 4 ? 1.5 : 1
+    ctx.strokeStyle = (color || C) + 'cc';ctx.lineWidth = 1.25
     ctx.beginPath();ctx.arc(x,y,radius,0,Math.PI*2);ctx.stroke()
     ctx.font = `${fontSize}px serif`;ctx.textAlign='center';ctx.textBaseline='middle'
     ctx.fillStyle='#fff';ctx.fillText(emoji||'◆',x,y+fontSize*.03)
@@ -1058,7 +1057,7 @@ function drawMinimap(ctx, gr, gc, angle, cellMap, presenceMap, myWallet, W, H, c
     ctx.fillStyle = cell.owner ? '#4ade80cc' : '#fb923ccc'
     ctx.fillRect(-ds, -ds, ds*2, ds*2)
     ctx.restore()
-    if(safeZoom>=2&&cell.emoji){
+    if(cell.emoji){
       drawMapEmoji(cell.emoji,mx2,my2,cell.owner?'#4ade80':'#fb923c')
     }
   }
@@ -1168,28 +1167,11 @@ function drawMinimap(ctx, gr, gc, angle, cellMap, presenceMap, myWallet, W, H, c
     ctx.beginPath()
     ctx.arc(px2, py2, Math.max(2, CS * 0.75), 0, Math.PI * 2)
     ctx.fill()
-    if(safeZoom>=2){
-      drawMapEmoji(cell.emoji||'◆',px2,py2,cell.color||C)
-    }
+    drawMapEmoji(cell.emoji||'◆',px2,py2,cell.color||C)
     ctx.globalAlpha = 1
   }
 
-  // Fixed mining cells keep their original #hex; zoom reveals their code.
-  if(safeZoom>=2){
-    for(const [key,cell] of cellMap){
-      if(cell?.isMarket||cell?.isPortalNode||cell?.isChainNode||!cell?.blockHex) continue
-      const [rr,cc]=key.split(',').map(Number)
-      if(!visible(rr,cc)) continue
-      ctx.font=`bold ${Math.max(6,Math.min(9,CS*.46))}px monospace`
-      ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillStyle='#67e8f9cc'
-      ctx.fillText(cell.blockHex,mapX(cc+.5),mapY(rr+.5))
-    }
-  }
   ctx.restore()
-
-  ctx.fillStyle='rgba(1,7,14,.88)';ctx.fillRect(MX+3,MY+3,24,12)
-  ctx.fillStyle=C+'cc';ctx.font='bold 8px monospace';ctx.textAlign='left';ctx.textBaseline='top'
-  ctx.fillText(`${safeZoom}×`,MX+7,MY+5)
 }
 
 // ── Facing block HUD (top-right info card) ────────────────────────────────────
@@ -1758,7 +1740,6 @@ export default function MiningChain3DFPV({
   const canvasRef    = useRef(null)
   const containerRef = useRef(null)
   const [, setPointerLocked] = useState(false)
-  const [minimapZoom, setMinimapZoom] = useState(1)
   const keysRef      = useRef({w:false,s:false,a:false,d:false,q:false,e:false,space:false,shift:false})
   const playerRef    = useRef({
     x:((initCol??14)+0.5)*CELL_SIZE,
@@ -1782,7 +1763,6 @@ export default function MiningChain3DFPV({
   const esRef         = useRef(es)
   const onWantNavRef  = useRef(onWantNavigate)
   const dragRef       = useRef(null)
-  const minimapZoomRef = useRef(1)
   const joystickRef   = useRef({x:0,y:0,pointerId:null})
   const joystickPadRef = useRef(null)
   const joystickKnobRef = useRef(null)
@@ -1833,7 +1813,6 @@ export default function MiningChain3DFPV({
   useEffect(()=>{ presenceRef.current=presenceMap },[presenceMap])
   useEffect(()=>{ myWalletRef.current=myWallet },[myWallet])
   useEffect(()=>{ currencyRef.current=currency },[currency])
-  useEffect(()=>{ minimapZoomRef.current=minimapZoom;renderRef.current?.() },[minimapZoom])
   useEffect(()=>{ presenceKeyRef.current=presenceKey||myWallet },[presenceKey,myWallet])
   useEffect(()=>{ esRef.current=es },[es])
   useEffect(()=>{ onWantNavRef.current=onWantNavigate },[onWantNavigate])
@@ -2756,7 +2735,7 @@ export default function MiningChain3DFPV({
       } else pvpGainRef.current = null
     }
 
-    drawMinimap(ctx,gr,gc,angle,cellMap,presence,myIdentity,W,H,chainNodePosRef.current,validObstaclesRef.current,minimapZoomRef.current)
+    drawMinimap(ctx,gr,gc,angle,cellMap,presence,myIdentity,W,H,chainNodePosRef.current,validObstaclesRef.current)
     drawOnlineList(ctx,W,H,presence,myIdentity,pvpStolenRef.current)
     const walletDock = drawWalletDock(
       ctx,W,H,myNftjisRef.current,healthMapRef.current[myIdentity]??100,es,Boolean(myWallet)
@@ -3253,15 +3232,6 @@ export default function MiningChain3DFPV({
           position:'absolute',bottom:9,left:0,right:0,textAlign:'center',
           color:'#67e8f977',font:'bold 8px monospace',letterSpacing:'0.12em',pointerEvents:'none',
         }}>{es?'MOVER':'MOVE'}</span>
-      </div>
-
-      {/* Minimap zoom controls */}
-      <div style={{position:'absolute',right:9,top:12,display:'flex',flexDirection:'column',gap:3,pointerEvents:'auto'}}>
-        {[1,2,4].map(z=><button key={z} onClick={()=>setMinimapZoom(z)} style={{
-          width:25,height:20,padding:0,border:`1px solid ${minimapZoom===z?C:'#22d3ee33'}`,
-          background:minimapZoom===z?'rgba(34,211,238,.20)':'rgba(1,7,14,.82)',
-          color:minimapZoom===z?'#a5f3fc':'#527080',font:'bold 8px monospace',cursor:'pointer',
-        }}>{z}×</button>)}
       </div>
 
       {/* Mobile jump button */}
