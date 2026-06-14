@@ -3362,9 +3362,9 @@ export default function MiningChain3DFPV({
         {
           const mobile=W<640
           const vpW=mobile?88:148, vpH=mobile?108:182
-          const vpX=mobile?12:14
-          // On mobile the joystick pad sits at bottom-left; place avatar above it
-          const vpY=mobile?210:14
+          // Bottom-right: away from left-side stats HUD
+          const vpX=W-vpW-(mobile?12:14)
+          const vpY=mobile?14:14
           threeState.renderer.autoClear=false
           threeState.renderer.clearDepth()
           threeState.renderer.setScissorTest(true)
