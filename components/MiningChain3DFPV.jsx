@@ -185,125 +185,47 @@ const OBSTACLE_MAP = new Map([
   ['9,8',   { base:W_SAND, label:'WALL' }],
   ['20,21', { base:W_SAND, label:'WALL' }],
 
-  // ─── Inner world — extra maze density for defined corridors ───────────────────
-  // NW sub-quadrant L-pair
-  ['4,6',   { base:W_DARK,  label:'WALL' }],
-  ['4,7',   { base:W_DARK,  label:'WALL' }],
-  ['6,5',   { base:W_SLATE, label:'WALL' }],
-  ['6,6',   { base:W_SLATE, label:'WALL' }],
-  // NE sub-quadrant L-pair
-  ['4,19',  { base:W_DARK,  label:'WALL' }],
-  ['4,20',  { base:W_DARK,  label:'WALL' }],
-  ['6,20',  { base:W_SLATE, label:'WALL' }],
-  ['6,21',  { base:W_SLATE, label:'WALL' }],
-  // SW sub-quadrant L-pair
-  ['21,5',  { base:W_DARK,  label:'WALL' }],
-  ['21,6',  { base:W_DARK,  label:'WALL' }],
-  ['23,5',  { base:W_SLATE, label:'WALL' }],
-  ['23,6',  { base:W_SLATE, label:'WALL' }],
-  // SE sub-quadrant L-pair
-  ['21,20', { base:W_DARK,  label:'WALL' }],
-  ['21,21', { base:W_DARK,  label:'WALL' }],
-  ['23,20', { base:W_SLATE, label:'WALL' }],
-  ['23,21', { base:W_SLATE, label:'WALL' }],
-  // N/S center-approach gatekeepers (extend existing sandstone chokes)
-  ['6,13',  { base:W_SAND,  label:'WALL' }],
-  ['6,14',  { base:W_SAND,  label:'WALL' }],
-  ['21,13', { base:W_SAND,  label:'WALL' }],
-  ['21,14', { base:W_SAND,  label:'WALL' }],
-  // W/E center corridor gate posts
-  ['13,6',  { base:W_STONE, label:'WALL' }],
-  ['14,6',  { base:W_STONE, label:'WALL' }],
-  ['13,21', { base:W_STONE, label:'WALL' }],
-  ['14,21', { base:W_STONE, label:'WALL' }],
-  // Mid-quadrant approach definition (creates chokepoints mid-way)
-  ['12,5',  { base:W_STONE, label:'WALL' }],
-  ['12,6',  { base:W_STONE, label:'WALL' }],
-  ['12,21', { base:W_STONE, label:'WALL' }],
-  ['12,22', { base:W_STONE, label:'WALL' }],
-  ['15,5',  { base:W_STONE, label:'WALL' }],
-  ['15,6',  { base:W_STONE, label:'WALL' }],
-  ['15,21', { base:W_STONE, label:'WALL' }],
-  ['15,22', { base:W_STONE, label:'WALL' }],
-  // Diagonal pillar set — breaks up the open quadrant diagonals
-  ['9,9',   { base:W_SAND,  label:'WALL' }],
-  ['9,18',  { base:W_SAND,  label:'WALL' }],
-  ['18,9',  { base:W_SAND,  label:'WALL' }],
-  ['18,18', { base:W_SAND,  label:'WALL' }],
+  // ─── Inner zone — four bridges + single-step access stones ──────────────────
+  // Each bridge is a clean 4-cell deck at h=1.74.  One h=0.58 step-stone per
+  // side lets players jump onto the deck (from 0.58 the apex is 1.78 > 1.74).
+  // No multi-step staircase clusters: those were causing player-stuck zones.
 
-  // ─── Inner zone bridge network — traversable elevated paths ──────────────────
-  // Bridge 1: E-W deck at row 8, joins (8,10-11) wall pair to (8,16-17) wall pair
-  ['8,12',  { base:W_DARK, label:'WALL', height:1.74 }],
-  ['8,13',  { base:W_DARK, label:'WALL', height:1.74 }],
-  ['8,14',  { base:W_DARK, label:'WALL', height:1.74 }],
-  ['8,15',  { base:W_DARK, label:'WALL', height:1.74 }],
-  // Bridge 1 approach from south (col 13)
-  ['9,13',  { base:W_DARK, label:'WALL', height:1.16 }],
-  ['10,13', { base:W_DARK, label:'WALL', height:0.58 }],
-  // Bridge 1 approach from north (col 12)
-  ['7,12',  { base:W_DARK, label:'WALL', height:1.16 }],
-  ['6,12',  { base:W_DARK, label:'WALL', height:0.58 }],
+  // Bridge 1: E-W deck at row 8 (between dark-wall pairs at cols 10-11 and 16-17)
+  ['8,12',  { base:W_DARK, label:'WALL', height:1.74, isBridge:true }],
+  ['8,13',  { base:W_DARK, label:'WALL', height:1.74, isBridge:true }],
+  ['8,14',  { base:W_DARK, label:'WALL', height:1.74, isBridge:true }],
+  ['8,15',  { base:W_DARK, label:'WALL', height:1.74, isBridge:true }],
+  ['9,13',  { base:W_DARK, label:'WALL', height:0.58 }],  // S step
+  ['7,14',  { base:W_DARK, label:'WALL', height:0.58 }],  // N step
 
-  // Bridge 2: E-W deck at row 19, joins (19,10-11) to (19,16-17)
-  ['19,12', { base:W_DARK, label:'WALL', height:1.74 }],
-  ['19,13', { base:W_DARK, label:'WALL', height:1.74 }],
-  ['19,14', { base:W_DARK, label:'WALL', height:1.74 }],
-  ['19,15', { base:W_DARK, label:'WALL', height:1.74 }],
-  // Bridge 2 approach from north (col 13)
-  ['18,13', { base:W_DARK, label:'WALL', height:1.16 }],
-  ['17,13', { base:W_DARK, label:'WALL', height:0.58 }],
-  // Bridge 2 approach from south (col 15)
-  ['20,15', { base:W_DARK, label:'WALL', height:1.16 }],
-  ['21,15', { base:W_DARK, label:'WALL', height:0.58 }],
+  // Bridge 2: E-W deck at row 19
+  ['19,12', { base:W_DARK, label:'WALL', height:1.74, isBridge:true }],
+  ['19,13', { base:W_DARK, label:'WALL', height:1.74, isBridge:true }],
+  ['19,14', { base:W_DARK, label:'WALL', height:1.74, isBridge:true }],
+  ['19,15', { base:W_DARK, label:'WALL', height:1.74, isBridge:true }],
+  ['18,14', { base:W_DARK, label:'WALL', height:0.58 }],  // N step
+  ['20,13', { base:W_DARK, label:'WALL', height:0.58 }],  // S step
 
-  // Bridge 3: N-S deck at col 8, fills gap rows 12-15 between (11,8) and (16,8)
-  ['12,8',  { base:W_DARK, label:'WALL', height:1.74 }],
-  ['13,8',  { base:W_DARK, label:'WALL', height:1.74 }],
-  ['14,8',  { base:W_DARK, label:'WALL', height:1.74 }],
-  ['15,8',  { base:W_DARK, label:'WALL', height:1.74 }],
-  // Bridge 3 approach from east (row 13)
-  ['13,9',  { base:W_DARK, label:'WALL', height:1.16 }],
-  ['13,10', { base:W_DARK, label:'WALL', height:0.58 }],
+  // Bridge 3: N-S deck at col 8 (between dark-wall pairs at rows 10-11 and 16-17)
+  ['12,8',  { base:W_DARK, label:'WALL', height:1.74, isBridge:true }],
+  ['13,8',  { base:W_DARK, label:'WALL', height:1.74, isBridge:true }],
+  ['14,8',  { base:W_DARK, label:'WALL', height:1.74, isBridge:true }],
+  ['15,8',  { base:W_DARK, label:'WALL', height:1.74, isBridge:true }],
+  ['13,9',  { base:W_DARK, label:'WALL', height:0.58 }],  // E step
+  ['14,7',  { base:W_DARK, label:'WALL', height:0.58 }],  // W step
 
-  // Bridge 4: N-S deck at col 19, fills gap rows 12-15 between (11,19) and (16,19)
-  ['12,19', { base:W_DARK, label:'WALL', height:1.74 }],
-  ['13,19', { base:W_DARK, label:'WALL', height:1.74 }],
-  ['15,19', { base:W_DARK, label:'WALL', height:1.74 }],
-  // Bridge 4 approach from west (row 12)
-  ['12,18', { base:W_DARK, label:'WALL', height:1.16 }],
-  ['12,17', { base:W_DARK, label:'WALL', height:0.58 }],
-  // Bridge 4 second approach (row 15)
-  ['15,18', { base:W_DARK, label:'WALL', height:1.16 }],
-  ['15,17', { base:W_DARK, label:'WALL', height:0.58 }],
+  // Bridge 4: N-S deck at col 19 (skips row 14 which carries existing W_SAND wall)
+  ['12,19', { base:W_DARK, label:'WALL', height:1.74, isBridge:true }],
+  ['13,19', { base:W_DARK, label:'WALL', height:1.74, isBridge:true }],
+  ['15,19', { base:W_DARK, label:'WALL', height:1.74, isBridge:true }],
+  ['13,18', { base:W_DARK, label:'WALL', height:0.58 }],  // W step
+  ['12,20', { base:W_DARK, label:'WALL', height:0.58 }],  // E step
 
-  // ─── Inner zone — extra dense labyrinth walls (all OBSTACLE_TOP) ─────────────
-  // Outer-approach blockers that force winding paths to N/S/E/W entrances
-  ['3,5',   { base:W_DARK,  label:'WALL' }],
-  ['3,6',   { base:W_DARK,  label:'WALL' }],
-  ['3,20',  { base:W_DARK,  label:'WALL' }],
-  ['3,21',  { base:W_DARK,  label:'WALL' }],
-  ['24,5',  { base:W_DARK,  label:'WALL' }],
-  ['24,6',  { base:W_DARK,  label:'WALL' }],
-  ['24,20', { base:W_DARK,  label:'WALL' }],
-  ['24,21', { base:W_DARK,  label:'WALL' }],
-  // E-W inner approach gates
-  ['7,4',   { base:W_SLATE, label:'WALL' }],
-  ['7,5',   { base:W_SLATE, label:'WALL' }],
-  ['7,21',  { base:W_SLATE, label:'WALL' }],
-  ['7,22',  { base:W_SLATE, label:'WALL' }],
-  ['20,4',  { base:W_SLATE, label:'WALL' }],
-  ['20,5',  { base:W_SLATE, label:'WALL' }],
-  ['20,22', { base:W_SLATE, label:'WALL' }],
-  ['20,23', { base:W_SLATE, label:'WALL' }],
-  // Axial approach choke extensions
-  ['3,13',  { base:W_STONE, label:'WALL' }],
-  ['3,14',  { base:W_STONE, label:'WALL' }],
-  ['24,13', { base:W_STONE, label:'WALL' }],
-  ['24,14', { base:W_STONE, label:'WALL' }],
-  ['13,3',  { base:W_STONE, label:'WALL' }],
-  ['14,3',  { base:W_STONE, label:'WALL' }],
-  ['13,24', { base:W_STONE, label:'WALL' }],
-  ['14,24', { base:W_STONE, label:'WALL' }],
+  // Sub-quadrant landmark pylons — single-cell visual anchors, no wall clusters
+  ['7,7',   { base:W_SLATE, label:'WALL' }],
+  ['7,20',  { base:W_SLATE, label:'WALL' }],
+  ['20,7',  { base:W_SLATE, label:'WALL' }],
+  ['20,20', { base:W_SLATE, label:'WALL' }],
 
   // ─── Outer world labyrinth (rows 28-55, cols 28-55) ──────────────────────────
   // Entry gateway pillars (rows 29-30) — funnel from inner world into outer zone
@@ -1158,12 +1080,6 @@ function addRetroStructures(valid, reserved, cellMap) {
 }
 
 function addDenseMaze(valid,reserved,cellMap){
-  const materials=[
-    {base:W_DARK,label:'MAZE WALL'},
-    {base:W_SLATE,label:'MAZE WALL'},
-    {base:W_STONE,label:'MAZE WALL'},
-    {base:W_SAND,label:'MAZE WALL'},
-  ]
   const place=(row,col,data)=>{
     const key=`${row},${col}`
     if(row<2||row>=ROWS-2||col<2||col>=COLS-2) return
@@ -1171,60 +1087,75 @@ function addDenseMaze(valid,reserved,cellMap){
     valid.set(key,chainObstacle(key,{...data,isMaze:true}))
   }
 
-  // Four architectural districts. Long empty avenues alternate with compact
-  // wall runs, gateway pylons and occasional courtyards, producing a believable
-  // place instead of a uniform obstacle field.
-  const districts=[
-    {r0:3,r1:25,c0:3,c1:25,axis:'h'},
-    {r0:3,r1:25,c0:30,c1:52,axis:'v'},
-    {r0:30,r1:52,c0:3,c1:25,axis:'v'},
-    {r0:30,r1:52,c0:30,c1:52,axis:'h'},
-  ]
-  districts.forEach((district,districtIndex)=>{
-    const horizontal=district.axis==='h'
-    const lanes=horizontal
-      ? [district.r0+5,district.r0+13]
-      : [district.c0+5,district.c0+13]
-    lanes.forEach((lane,laneIndex)=>{
-      const start=horizontal?district.c0:district.r0
-      const end=horizontal?district.c1:district.r1
-      for(let cursor=start;cursor<=end;cursor++){
-        const local=cursor-start
-        // Wide gates every 8 cells keep sightlines and circulation legible.
-        if(local%9<3) continue
-        const row=horizontal?lane:cursor,col=horizontal?cursor:lane
-        place(row,col,{...materials[(districtIndex+laneIndex)%materials.length],height:2.15+laneIndex*.25,isArchitecture:true})
-      }
-    })
+  // ── District 0: GENESIS ZONE (NW inner, rows 3-25, cols 3-25) ───────────────
+  // Inner zone already has rich OBSTACLE_MAP structure — no extra lane walls.
+  // Only gateway pylons at cardinal borders to frame the arena.
+  [[4,3],[6,3],[4,24],[6,24],[12,3],[14,3],[12,24],[14,24]].forEach(([row,col])=>
+    place(row,col,{base:W_DARK,glow:[34,211,238],kind:'data',label:'GENESIS PYLON',
+      height:2.8,isArchitecture:true,isPylon:true})
+  )
 
-    // Paired pylons mark district entrances and intersections.
-    const pylons=horizontal
-      ? [[district.r0+4,district.c0+3],[district.r0+6,district.c0+3],[district.r0+12,district.c1-3],[district.r0+14,district.c1-3]]
-      : [[district.r0+3,district.c0+4],[district.r0+3,district.c0+6],[district.r1-3,district.c0+12],[district.r1-3,district.c0+14]]
-    pylons.forEach(([row,col],index)=>place(row,col,{
-      base:index%2?[38,88,76]:[42,82,104],glow:[34,211,238],kind:'data',
-      label:'CHAIN PYLON',height:2.7,isArchitecture:true,isPylon:true,
-    }))
+  // ── District 1: DATA VAULT (NE outer, rows 3-25, cols 30-52) ─────────────────
+  // Ordered blue-slate N-S lanes — a data archive, medium height, wide open rows.
+  ;[35,44].forEach((lane,laneIndex)=>{
+    for(let row=3;row<=25;row++){
+      if((row-3)%10<3) continue
+      place(row,lane,{base:W_SLATE,label:'VAULT WALL',height:1.9+laneIndex*.28,isArchitecture:true})
+    }
   })
+  [[4,31],[6,31],[4,51],[6,51],[14,31],[16,31],[14,51],[16,51]].forEach(([row,col])=>
+    place(row,col,{base:[48,72,112],glow:[103,232,249],kind:'hash',label:'VAULT PYLON',
+      height:2.5,isArchitecture:true,isPylon:true})
+  )
 
-  // Irregular ruin compounds fill otherwise empty pockets with L-shaped walls,
-  // staggered towers and small courtyards. Patterns rotate per anchor so the
-  // four districts do not feel stamped from the same template.
-  const ruinPatterns=[
-    [[0,0],[1,0],[2,0],[2,1],[2,2],[0,3],[1,3]],
-    [[0,0],[0,1],[0,2],[1,2],[2,2],[3,0],[3,1]],
-    [[0,0],[1,0],[1,1],[1,2],[2,2],[3,2],[3,3]],
-    [[0,1],[1,1],[2,1],[2,2],[2,3],[0,3],[3,0]],
+  // ── District 2: LEGACY CHAIN (SW outer, rows 30-52, cols 3-25) ───────────────
+  // Warm sand N-S lanes at lower height — ancient ruins, worn and irregular.
+  ;[8,17].forEach((lane,laneIndex)=>{
+    for(let row=30;row<=52;row++){
+      if((row-30)%10<3) continue
+      place(row,lane,{base:W_SAND,label:'LEGACY WALL',height:1.6+laneIndex*.22,isArchitecture:true})
+    }
+  })
+  [[31,3],[33,3],[31,24],[33,24],[44,3],[46,3],[44,24],[46,24]].forEach(([row,col])=>
+    place(row,col,{base:[98,82,52],glow:[250,204,21],kind:'ledger',label:'LEGACY PYLON',
+      height:2.1,isArchitecture:true,isPylon:true})
+  )
+
+  // ── District 3: CONSENSUS NEXUS (SE outer, rows 30-52, cols 30-52) ───────────
+  // Ceremonial E-W lanes — tallest walls, narrower gates, purple-glowing pylons.
+  ;[35,44].forEach((lane,laneIndex)=>{
+    for(let col=30;col<=52;col++){
+      if((col-30)%8<3) continue
+      place(lane,col,{base:W_STONE,label:'NEXUS WALL',height:2.4+laneIndex*.32,isArchitecture:true})
+    }
+  })
+  [[31,31],[33,31],[31,51],[33,51],[44,31],[46,31],[44,51],[46,51]].forEach(([row,col])=>
+    place(row,col,{base:[78,42,102],glow:[217,70,239],kind:'consensus',label:'NEXUS PYLON',
+      height:3.1,isArchitecture:true,isPylon:true})
+  )
+
+  // ── Ruin compounds — shape and material per district ────────────────────────
+  const genesisRuin =[[0,0],[1,0],[2,0],[2,1]]            // compact L
+  const vaultRuin   =[[0,0],[0,1],[0,2],[1,2],[2,2]]      // shelf / Z-bar
+  const legacyRuin  =[[0,0],[1,0],[1,1],[2,1],[2,2]]      // diagonal S
+  const nexusRuin   =[[0,1],[1,0],[1,1],[1,2],[2,1]]      // + cross
+
+  const ruinDefs=[
+    {anchor:[6,6],   shape:genesisRuin, base:W_DARK,  glow:[34,211,238],  kind:'data',      label:'GENESIS RUIN', hBase:2.4},
+    {anchor:[6,18],  shape:genesisRuin, base:W_DARK,  glow:[34,211,238],  kind:'data',      label:'GENESIS RUIN', hBase:2.2},
+    {anchor:[7,34],  shape:vaultRuin,   base:W_SLATE, glow:[103,232,249], kind:'hash',      label:'VAULT RUIN',   hBase:2.0},
+    {anchor:[10,47], shape:vaultRuin,   base:W_SLATE, glow:[103,232,249], kind:'hash',      label:'VAULT RUIN',   hBase:1.9},
+    {anchor:[18,38], shape:vaultRuin,   base:W_SLATE, glow:[103,232,249], kind:'hash',      label:'VAULT RUIN',   hBase:2.1},
+    {anchor:[33,7],  shape:legacyRuin,  base:W_SAND,  glow:[250,204,21],  kind:'ledger',    label:'LEGACY RUIN',  hBase:1.7},
+    {anchor:[38,15], shape:legacyRuin,  base:W_SAND,  glow:[250,204,21],  kind:'ledger',    label:'LEGACY RUIN',  hBase:1.6},
+    {anchor:[46,8],  shape:legacyRuin,  base:W_SAND,  glow:[250,204,21],  kind:'ledger',    label:'LEGACY RUIN',  hBase:1.8},
+    {anchor:[33,33], shape:nexusRuin,   base:W_STONE, glow:[217,70,239],  kind:'consensus', label:'NEXUS RUIN',   hBase:2.6},
+    {anchor:[38,47], shape:nexusRuin,   base:W_STONE, glow:[217,70,239],  kind:'consensus', label:'NEXUS RUIN',   hBase:2.5},
+    {anchor:[46,38], shape:nexusRuin,   base:W_STONE, glow:[217,70,239],  kind:'consensus', label:'NEXUS RUIN',   hBase:2.7},
   ]
-  const anchors=[[5,5],[5,19],[5,34],[8,47],[17,8],[18,34],[32,5],[34,19],[32,34],[35,47],[46,7],[46,34],[48,47]]
-  anchors.forEach(([baseRow,baseCol],compoundIndex)=>{
-    const pattern=ruinPatterns[compoundIndex%ruinPatterns.length]
-    pattern.forEach(([dr,dc],partIndex)=>place(baseRow+dr,baseCol+dc,{
-      base:partIndex%3===0?[48,64,78]:[66,70,78],
-      glow:partIndex%3===0?[34,211,238]:[103,232,249],
-      kind:partIndex%3===0?'data':'hash',label:'CHAIN RUIN',
-      height:partIndex%4===0?2.8:2.05+(partIndex%2)*.35,
-      isArchitecture:true,isRuin:true,
+  ruinDefs.forEach(({anchor:[baseRow,baseCol],shape,base,glow,kind,label,hBase})=>{
+    shape.forEach(([dr,dc],i)=>place(baseRow+dr,baseCol+dc,{
+      base,glow,kind,label,height:hBase+(i%2)*0.3,isArchitecture:true,isRuin:true,
     }))
   })
 }
@@ -1238,6 +1169,30 @@ function addOrganicObstacles(valid,reserved,cellMap){
     }
     return true
   }
+
+  // Zone-themed organic obstacle appearances: [Genesis, DataVault, LegacyChain, Nexus]
+  const zoneThemes=[
+    {ramp:{base:[48,72,82], glow:[34,211,238], kind:'data',      label:'GENESIS RAMP'  },
+     sphere:{base:[38,62,72],glow:[34,211,238], kind:'data',      label:'GENESIS NODE'  },
+     tree: {base:[42,68,72], glow:[34,211,238], kind:'data',      label:'HASH TREE',  h:2.1}},
+    {ramp:{base:[52,78,112],glow:[103,232,249],kind:'hash',      label:'VAULT RAMP'   },
+     sphere:{base:[42,82,122],glow:[103,232,249],kind:'hash',     label:'DATA ORB'     },
+     tree: {base:[46,78,108],glow:[103,232,249],kind:'hash',      label:'VAULT SPIRE', h:2.1}},
+    {ramp:{base:[108,92,62],glow:[250,204,21], kind:'ledger',    label:'LEGACY RAMP'  },
+     sphere:{base:[98,82,52], glow:[250,204,21], kind:'ledger',   label:'CHAIN STONE'  },
+     tree: {base:[92,78,48],  glow:[250,180,21], kind:'ledger',   label:'RUIN PILLAR', h:1.85}},
+    {ramp:{base:[78,42,102], glow:[217,70,239], kind:'consensus', label:'NEXUS RAMP'   },
+     sphere:{base:[88,52,112],glow:[217,70,239], kind:'consensus',label:'VOTE ORB'     },
+     tree: {base:[82,46,108], glow:[217,70,239], kind:'consensus',label:'NEXUS SPIRE', h:1.85}},
+  ]
+
+  const districtOf=(row,col)=>{
+    if(row<28&&col<28) return 0
+    if(row<28)         return 1
+    if(col<28)         return 2
+    return 3
+  }
+
   const candidates=[]
   for(let row=4;row<ROWS-4;row+=3) for(let col=4;col<COLS-4;col+=3){
     const score=Math.abs((row*73+col*41+row*col*11)%997)
@@ -1250,24 +1205,19 @@ function addOrganicObstacles(valid,reserved,cellMap){
     const shape=score%5<2?'ramp':score%5===2?'sphere':'tree'
     if(totals[shape]>=limits[shape]||!free(row,col)) continue
     const key=`${row},${col}`
+    const t=zoneThemes[districtOf(row,col)]
     if(shape==='ramp'){
-      const direction=['east','south','west','north'][score%4]
       valid.set(key,chainObstacle(key,{
-        shape,direction,height:.82,bottom:0,radius:.46,
-        base:[58,92,112],glow:[103,232,249],kind:'hash',label:'DATA RAMP',
-        isOrganic:true,
+        ...t.ramp,shape,direction:['east','south','west','north'][score%4],
+        height:.82,bottom:0,radius:.46,isOrganic:true,
       }))
     }else if(shape==='sphere'){
       valid.set(key,chainObstacle(key,{
-        shape,height:.76,radius:.34,
-        base:[78,44,112],glow:[217,70,239],kind:'consensus',label:'CONSENSUS ORB',
-        isOrganic:true,
+        ...t.sphere,shape,height:.76,radius:.34,isOrganic:true,
       }))
     }else{
       valid.set(key,chainObstacle(key,{
-        shape,height:2.05,radius:.25,
-        base:[42,88,70],glow:[45,212,191],kind:'data',label:'HASH TREE',
-        isOrganic:true,
+        ...t.tree,shape,height:t.tree.h,radius:.25,isOrganic:true,
       }))
     }
     totals[shape]++
