@@ -2846,17 +2846,18 @@ function syncThreeLocalAvatar(state,identity,swingT,walkDist,W,H) {
     if(state.localAvatar){state.hudScene.remove(state.localAvatar);disposeThreeObject(state.localAvatar)}
     state.localAvatar=createThreeWalletAvatar(avatarId)
     state.localAvatarId=avatarId
-    state.localAvatar.rotation.y=0
+    // 3/4 hero pose: slightly turned so both front and right face are visible
+    state.localAvatar.rotation.y=-0.32
     state.hudScene.add(state.localAvatar)
   }
-  const aspect=W/Math.max(1,H)
-  state.hudCamera.left=-aspect;state.hudCamera.right=aspect
-  state.hudCamera.top=1;state.hudCamera.bottom=-1
+  // Perspective camera: update aspect to match the scissor viewport proportions
+  const mobile=W<640
+  const vpW=mobile?88:148, vpH=mobile?108:182
+  state.hudCamera.aspect=vpW/Math.max(1,vpH)
   state.hudCamera.updateProjectionMatrix()
-  const targetPixels=W<640?86:Math.max(96,Math.min(112,H*.19))
-  const scale=Math.max(.24,Math.min(.72,(targetPixels*2)/(Math.max(1,H)*REMOTE_AVATAR_MODEL_HEIGHT)))
-  state.localAvatar.scale.setScalar(scale)
-  state.localAvatar.position.set(-.065*aspect,-.96,0)
+  // Real-world scale — perspective takes care of size
+  state.localAvatar.scale.setScalar(1)
+  state.localAvatar.position.set(0,0,0)
   state.localAvatar.userData.tool.rotation.z=Math.sin(Math.min(1,swingT)*Math.PI)*1.05
   const stride=walkDist*.18
   if(state.localAvatar.userData.leftFoot) state.localAvatar.userData.leftFoot.position.y=.075+Math.max(0,Math.sin(stride))*.045
@@ -2976,11 +2977,14 @@ export default function MiningChain3DFPV({
     scene.fog=new THREE.FogExp2('#07132c',.018)
     const camera=new THREE.PerspectiveCamera(58,1,.05,100)
     const hudScene=new THREE.Scene()
-    const hudCamera=new THREE.OrthographicCamera(-1,1,1,-1,.1,10)
-    hudCamera.position.set(0,0,-5);hudCamera.lookAt(0,0,0)
+    // Perspective camera for 3D avatar — positioned slightly above-right-front for a 3/4 hero pose
+    const hudCamera=new THREE.PerspectiveCamera(42,1,0.05,10)
+    hudCamera.position.set(0.36,1.08,-2.10);hudCamera.lookAt(0,0.38,0)
     hudScene.add(new THREE.HemisphereLight('#e5f7ff','#111827',2.5))
     const hudKey=new THREE.DirectionalLight('#ffffff',2.8);hudKey.position.set(-2,4,-4);hudScene.add(hudKey)
     const hudRim=new THREE.DirectionalLight('#22d3ee',1.4);hudRim.position.set(3,2,2);hudScene.add(hudRim)
+    // Extra fill from the front so the face is readable
+    const hudFront=new THREE.DirectionalLight('#b0f0ff',1.1);hudFront.position.set(0,0,-4);hudScene.add(hudFront)
     const hemi=new THREE.HemisphereLight('#d9f2ff','#18213a',2.15);scene.add(hemi)
     const key=new THREE.DirectionalLight('#fff4d6',2.35);key.position.set(-8,16,-10);scene.add(key)
     const rim=new THREE.DirectionalLight('#22d3ee',1.1);rim.position.set(12,5,14);scene.add(rim)
@@ -3354,10 +3358,23 @@ export default function MiningChain3DFPV({
         const localSwingT=localSwingAge<SWING_DUR?localSwingAge/SWING_DUR:0
         syncThreeLocalAvatar(threeState,myIdentity,localSwingT,walkDistRef.current,W,H)
         threeState.renderer.render(threeState.scene,threeState.camera)
-        threeState.renderer.autoClear=false
-        threeState.renderer.clearDepth()
-        threeState.renderer.render(threeState.hudScene,threeState.hudCamera)
-        threeState.renderer.autoClear=true
+        // Avatar 3D: render in bottom-left scissor viewport so perspective depth is visible
+        {
+          const mobile=W<640
+          const vpW=mobile?88:148, vpH=mobile?108:182
+          const vpX=mobile?12:14
+          // On mobile the joystick pad sits at bottom-left; place avatar above it
+          const vpY=mobile?210:14
+          threeState.renderer.autoClear=false
+          threeState.renderer.clearDepth()
+          threeState.renderer.setScissorTest(true)
+          threeState.renderer.setScissor(vpX,vpY,vpW,vpH)
+          threeState.renderer.setViewport(vpX,vpY,vpW,vpH)
+          threeState.renderer.render(threeState.hudScene,threeState.hudCamera)
+          threeState.renderer.setScissorTest(false)
+          threeState.renderer.setViewport(0,0,W,H)
+          threeState.renderer.autoClear=true
+        }
       }catch{
         threeStateRef.current=null;threeState=null
       }
