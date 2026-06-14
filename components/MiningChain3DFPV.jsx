@@ -4989,29 +4989,38 @@ export default function MiningChain3DFPV({
                     flexWrap:'wrap',
                   }}>
                     {skills.map((sk,i) => {
-                      const isAbility = sk.emoji==='❤️'||sk.emoji==='⚔️'||sk.source==='mining'
+                      const abilityLabel = sk.emoji==='❤️' ? 'SPEED +10%'
+                        : (sk.emoji==='⚔️'||sk.blockKey==='sq-atk') ? 'CRIT +5%'
+                        : sk.source==='mining' ? 'LONG +10%'
+                        : null
                       const slotAccent = sk.emoji==='❤️' ? '#fb7185'
-                        : sk.emoji==='⚔️' ? '#facc15'
+                        : (sk.emoji==='⚔️'||sk.blockKey==='sq-atk') ? '#facc15'
                         : sk.source==='mining' ? '#4ade80'
                         : '#fb923c'
                       return (
                         <div key={i} style={{
-                          width:38,height:50,borderRadius:5,
-                          background:isAbility?'#100b18':'#080e18',
-                          border:`1px solid ${isAbility?slotAccent+'cc':'#fb923c33'}`,
+                          width:44,height:58,borderRadius:5,
+                          background:abilityLabel?'#100b18':'#080e18',
+                          border:`1px solid ${abilityLabel?slotAccent+'cc':'#fb923c33'}`,
                           display:'flex',flexDirection:'column',alignItems:'center',
-                          justifyContent:'center',gap:2,position:'relative',
-                          boxShadow:isAbility?`0 0 8px ${slotAccent}55`:'none',
+                          justifyContent:'center',gap:2,position:'relative',overflow:'hidden',
+                          boxShadow:abilityLabel?`0 0 8px ${slotAccent}55`:'none',
                         }}>
-                          {isAbility && (
+                          {abilityLabel && (
                             <div style={{
-                              position:'absolute',top:0,left:0,right:0,height:5,
-                              background:slotAccent,borderRadius:'5px 5px 0 0',opacity:.85,
-                            }}/>
+                              position:'absolute',top:0,left:0,right:0,
+                              background:slotAccent,padding:'2px 1px',
+                              display:'flex',alignItems:'center',justifyContent:'center',
+                            }}>
+                              <span style={{
+                                fontSize:'0.44rem',fontWeight:700,color:'#02060b',
+                                letterSpacing:'.03em',lineHeight:1,whiteSpace:'nowrap',
+                              }}>{abilityLabel}</span>
+                            </div>
                           )}
-                          <span style={{fontSize:'1.05rem',lineHeight:1}}>{sk.emoji||'⬡'}</span>
+                          <span style={{fontSize:'1.1rem',lineHeight:1,marginTop:abilityLabel?6:0}}>{sk.emoji||'⬡'}</span>
                           <span style={{
-                            fontSize:'0.55rem',color:isAbility?slotAccent:'#fb923c99',
+                            fontSize:'0.55rem',color:abilityLabel?slotAccent:'#fb923c99',
                             fontWeight:700,letterSpacing:'.04em',
                           }}>Lv{sk.level}</span>
                         </div>
