@@ -2880,7 +2880,7 @@ export default function MiningChain3DFPV({
   const canvasRef    = useRef(null)
   const webglCanvasRef = useRef(null)
   const containerRef = useRef(null)
-  const [, setPointerLocked] = useState(false)
+  const [pointerLocked, setPointerLocked] = useState(false)
   const keysRef      = useRef({w:false,s:false,a:false,d:false,q:false,e:false,space:false})
   const playerRef    = useRef({
     x:((initCol??14)+0.5)*CELL_SIZE,
@@ -2952,6 +2952,13 @@ export default function MiningChain3DFPV({
   const myNftjisRef         = useRef(myNftjis || [])
   const healthMapRef        = useRef(healthMap||{})
   const threeStateRef       = useRef(null)
+  // FPS camera feel
+  const cameraRollRef   = useRef(0)      // lean on strafe (radians)
+  const landImpactRef   = useRef(0)      // landing punch (0-1, decays)
+  const dynamicFovRef   = useRef(0)      // extra FOV radians when sprinting
+  const breathPhaseRef  = useRef(0)      // idle breathing oscillator
+  const prevJumpsRef    = useRef(0)      // detect landing edge
+  const landVzRef       = useRef(0)      // vertical speed at landing (for impact strength)
   const rebuildThreeRef     = useRef(null)
 
   useEffect(()=>{
@@ -3271,13 +3278,19 @@ export default function MiningChain3DFPV({
     }
     const zBuffer = zBufferRef.current
 
-    const cameraBobZ = pz > 0 ? 0 : Math.sin(walkDistRef.current*0.12) * 0.012
+    // Compose all camera feel effects
+    const roll      = cameraRollRef.current
+    const landPitch = landImpactRef.current * 0.11     // max ~6.3° pitch-down on hard landing
+    const breath    = Math.sin(breathPhaseRef.current) * 0.0045   // ±0.26° idle breathing
+    const cameraBobZ = pz > 0 ? 0 : (Math.sin(walkDistRef.current*0.12) * 0.012 + breath)
     const cameraZ = pz + CAMERA_EYE_Z + cameraBobZ
+    const effectivePitch = pitch + landPitch
     let threeState=threeStateRef.current
     if(threeState){
       try{
         const aspect=W/Math.max(1,H)
-        const verticalFov=THREE.MathUtils.radToDeg(2*Math.atan(Math.tan(FOV/2)/aspect))
+        const fovRad = FOV + dynamicFovRef.current
+        const verticalFov=THREE.MathUtils.radToDeg(2*Math.atan(Math.tan(fovRad/2)/aspect))
         threeState.camera.fov=verticalFov;threeState.camera.aspect=aspect;threeState.camera.updateProjectionMatrix()
         if(threeState.pixelRatio!==dpr){threeState.renderer.setPixelRatio(dpr);threeState.pixelRatio=dpr}
         const renderSize=threeState.renderer.getSize(threeState.size)
@@ -3295,10 +3308,14 @@ export default function MiningChain3DFPV({
         threeState.hemi.color.set(atmosphere.hemi)
         threeState.rim.color.set(atmosphere.rim)
         threeState.camera.position.set(gx,cameraZ,gy)
+        // Camera roll: tilt the up-vector around the forward axis before lookAt
+        // up_rolled = (0,1,0)*cos(roll) + right*sin(roll), right=(-sin(a),0,cos(a))
+        const cosRoll=Math.cos(roll),sinRoll=Math.sin(roll)
+        threeState.camera.up.set(-Math.sin(angle)*sinRoll, cosRoll, Math.cos(angle)*sinRoll)
         threeState.camera.lookAt(
-          gx+Math.cos(angle)*Math.cos(pitch)*lookDistance,
-          cameraZ-Math.sin(pitch)*lookDistance,
-          gy+Math.sin(angle)*Math.cos(pitch)*lookDistance,
+          gx+Math.cos(angle)*Math.cos(effectivePitch)*lookDistance,
+          cameraZ-Math.sin(effectivePitch)*lookDistance,
+          gy+Math.sin(angle)*Math.cos(effectivePitch)*lookDistance,
         )
         syncThreeAvatars(threeState,presence,myIdentity)
         const time=performance.now()*.001
@@ -3346,8 +3363,8 @@ export default function MiningChain3DFPV({
       }
     }
     const projectionScale = H * PROJ_DIST
-    const pitchSin = Math.sin(pitch)
-    const pitchCos = Math.cos(pitch)
+    const pitchSin = Math.sin(effectivePitch)
+    const pitchCos = Math.cos(effectivePitch)
     const cameraPoint = (worldZ, depth) => {
       const relZ = worldZ - cameraZ
       const rotatedDepth = depth * pitchCos - relZ * pitchSin
@@ -3359,7 +3376,7 @@ export default function MiningChain3DFPV({
       if (rotatedDepth <= 0.01) return rotatedVertical > 0 ? -H * 4 : H * 4
       return viewCenterY - rotatedVertical * projectionScale / rotatedDepth
     }
-    const horizon = viewCenterY - Math.tan(pitch) * projectionScale
+    const horizon = viewCenterY - Math.tan(effectivePitch) * projectionScale
     const sceneSplitY = Math.max(0, Math.min(H, horizon))
     const horizontalProjection = W/(2*Math.tan(FOV/2))
     const cameraVertex=(gx,gy,worldZ)=>{
@@ -4406,17 +4423,36 @@ export default function MiningChain3DFPV({
 
   // Desktop FPS look uses Pointer Lock; touch keeps drag-to-look.
   useEffect(()=>{
+    const canvas=canvasRef.current
     const onLock=()=>setPointerLocked(document.pointerLockElement===canvasRef.current)
     const onMouseMove=(e)=>{
       if(document.pointerLockElement!==canvasRef.current) return
-      const sens=0.00175
-      playerRef.current.angle += e.movementX*sens
-      playerRef.current.pitch = Math.max(-MAX_PITCH,Math.min(MAX_PITCH,playerRef.current.pitch+e.movementY*sens))
+      // Acceleration curve: raw pixels → scaled with sqrt for precise slow / fast fast
+      const BASE_SENS=0.00155
+      const applyAccel=(raw)=>{
+        const sign=raw<0?-1:1
+        const abs=Math.abs(raw)
+        // linear below 5px/frame, sqrt-blended above — feel precise at low speed, natural at high
+        return sign*BASE_SENS*(abs<5 ? abs : 5+Math.sqrt((abs-5)*3.4))
+      }
+      playerRef.current.angle += applyAccel(e.movementX)
+      playerRef.current.pitch = Math.max(-MAX_PITCH,Math.min(MAX_PITCH,
+        playerRef.current.pitch + applyAccel(e.movementY)*0.92))
       renderRef.current?.()
     }
+    // Prevent wheel from scrolling the page while the game canvas is in view
+    const onWheel=(e)=>{ e.preventDefault() }
+    const onCtx=(e)=>{ e.preventDefault() }
     document.addEventListener('pointerlockchange',onLock)
     document.addEventListener('mousemove',onMouseMove)
-    return ()=>{ document.removeEventListener('pointerlockchange',onLock); document.removeEventListener('mousemove',onMouseMove) }
+    canvas?.addEventListener('wheel',onWheel,{passive:false})
+    canvas?.addEventListener('contextmenu',onCtx)
+    return ()=>{
+      document.removeEventListener('pointerlockchange',onLock)
+      document.removeEventListener('mousemove',onMouseMove)
+      canvas?.removeEventListener('wheel',onWheel)
+      canvas?.removeEventListener('contextmenu',onCtx)
+    }
   },[])
 
   // Pointer drag rotates; tapping swings the USB staff.
@@ -4568,11 +4604,50 @@ export default function MiningChain3DFPV({
             p.vz=0
           }
           if(nz <= floorZ){
+            // Detect landing impact: store pre-landing vertical speed
+            if(prevJumpsRef.current>0&&p.vz<-0.8){
+              landVzRef.current=Math.abs(p.vz)
+              landImpactRef.current=Math.min(1,Math.abs(p.vz)/JUMP_VZ)
+            }
             p.z = floorZ; p.vz = 0; p.jumps = 0   // land on floor or block top
           } else {
             p.z = nz
           }
           needsRender = true
+        }
+      }
+      prevJumpsRef.current = p.jumps
+
+      // ── FPS camera feel ──────────────────────────────────────────────────────
+      {
+        const joy=joystickRef.current
+        const strInput=(keysRef.current.d?1:0)-(keysRef.current.a?1:0)+joy.x
+        const speedNow=Math.hypot(velocityRef.current.x,velocityRef.current.y)
+        const isMoving=speedNow>2
+
+        // Camera roll: lean into strafe — max ~2.2°
+        const rollTarget=-strInput*0.038
+        cameraRollRef.current+=(rollTarget-cameraRollRef.current)*(1-Math.exp(-9*dt))
+
+        // Dynamic FOV: swell when running (+5° max)
+        const fovBoost=Math.min(speedNow/(MOVE_SPD*CELL_SIZE),1)*0.087
+        dynamicFovRef.current+=(fovBoost-dynamicFovRef.current)*(1-Math.exp(-5*dt))
+
+        // Landing impact: brief downward pitch punch, decays quickly
+        if(landImpactRef.current>0.01){
+          landImpactRef.current*=Math.exp(-14*dt)
+          needsRender=true
+        }else{
+          landImpactRef.current=0
+        }
+
+        // Idle breathing: slow sinusoidal swell when not moving
+        if(!isMoving){
+          breathPhaseRef.current+=dt*0.55
+          needsRender=true
+        }else{
+          // Fade breath phase back to zero without popping
+          breathPhaseRef.current*=Math.exp(-3*dt)
         }
       }
 
@@ -4833,6 +4908,33 @@ export default function MiningChain3DFPV({
         onPointerUp={handlePointerUp}
         onPointerCancel={handlePointerUp}
       />
+      {/* FPS pointer-lock overlay — desktop only, hidden once locked */}
+      {!pointerLocked && (
+        <div
+          onClick={()=>canvasRef.current?.requestPointerLock?.()}
+          style={{
+            position:'absolute',inset:0,zIndex:10,display:'flex',flexDirection:'column',
+            alignItems:'center',justifyContent:'center',
+            background:'rgba(2,6,16,0.68)',backdropFilter:'blur(2px)',
+            cursor:'crosshair',userSelect:'none',pointerEvents:'auto',
+          }}
+          className="mm3-desktop-only"
+        >
+          <div style={{
+            border:'1px solid rgba(34,211,238,.45)',borderRadius:8,padding:'1.4rem 2.4rem',
+            textAlign:'center',fontFamily:'Consolas,"Courier New",monospace',
+            background:'rgba(2,6,16,.82)',boxShadow:'0 0 32px rgba(34,211,238,.18)',
+          }}>
+            <div style={{fontSize:'2rem',marginBottom:'.5rem',filter:'drop-shadow(0 0 8px #22d3ee)'}}>⬡</div>
+            <div style={{color:'#22d3ee',fontSize:'1.05rem',letterSpacing:'.12em',textTransform:'uppercase',marginBottom:'.35rem'}}>
+              {es?'Haz clic para jugar':'Click to play'}
+            </div>
+            <div style={{color:'rgba(34,211,238,.55)',fontSize:'.72rem',letterSpacing:'.06em'}}>
+              {es?'WASD · ratón · ESC para salir':'WASD · mouse · ESC to release'}
+            </div>
+          </div>
+        </div>
+      )}
       {/* Mobile analog movement pad */}
       <div ref={joystickPadRef} className="mm3-touch-controls" style={{
         position:'absolute',

@@ -102,9 +102,11 @@ button:disabled { opacity: .4; cursor: not-allowed; }
 
 .mm3-touch-controls { display: flex !important; }
 .mm3-desktop-controls { display: none !important; }
+.mm3-desktop-only { display: none !important; }
 @media (hover: hover) and (pointer: fine) {
   .mm3-touch-controls { display: none !important; }
   .mm3-desktop-controls { display: block !important; }
+  .mm3-desktop-only { display: flex !important; }
 }
 
 /* ── Portal discipline: square, thin, terminal-first ── */
