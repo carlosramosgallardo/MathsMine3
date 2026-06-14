@@ -3331,15 +3331,19 @@ export default function MiningChain3DFPV({
           const rb=threeState._v3b.set(camX,cameraZ+aboveOffset,camZworld)
           const dir=threeState._v3c.copy(rb).sub(ra)
           const dist=dir.length()
-          dir.divideScalar(dist)
-          threeState.camRaycaster.set(ra,dir)
-          threeState.camRaycaster.near=0.05
-          threeState.camRaycaster.far=dist
-          const hits=threeState.world?threeState.camRaycaster.intersectObject(threeState.world,true):[]
-          if(hits.length>0){
-            const safe=Math.max(0.22,hits[0].distance-0.15)
-            rb.copy(ra).addScaledVector(dir,safe)
-          }
+          try {
+            if(dist>0.05&&threeState.world){
+              dir.divideScalar(dist)
+              threeState.camRaycaster.set(ra,dir)
+              threeState.camRaycaster.near=0.05
+              threeState.camRaycaster.far=dist
+              const hits=threeState.camRaycaster.intersectObject(threeState.world,true)
+              if(hits.length>0){
+                const safe=Math.max(0.22,hits[0].distance-0.15)
+                rb.copy(ra).addScaledVector(dir,safe)
+              }
+            }
+          } catch(_) { /* spring arm non-critical — fall through to default cam pos */ }
           threeState.camera.position.copy(rb)
         }
         threeState.camera.lookAt(
