@@ -4925,24 +4925,114 @@ export default function MiningChain3DFPV({
           style={{
             position:'absolute',inset:0,zIndex:10,display:'flex',flexDirection:'column',
             alignItems:'center',justifyContent:'center',
-            background:'rgba(2,6,16,0.68)',backdropFilter:'blur(2px)',
+            background:'rgba(2,6,16,0.72)',backdropFilter:'blur(3px)',
             cursor:'crosshair',userSelect:'none',pointerEvents:'auto',
           }}
           className="mm3-desktop-only"
         >
-          <div style={{
-            border:'1px solid rgba(34,211,238,.45)',borderRadius:8,padding:'1.4rem 2.4rem',
-            textAlign:'center',fontFamily:'Consolas,"Courier New",monospace',
-            background:'rgba(2,6,16,.82)',boxShadow:'0 0 32px rgba(34,211,238,.18)',
-          }}>
-            <div style={{fontSize:'2rem',marginBottom:'.5rem',filter:'drop-shadow(0 0 8px #22d3ee)'}}>⬡</div>
-            <div style={{color:'#22d3ee',fontSize:'1.05rem',letterSpacing:'.12em',textTransform:'uppercase',marginBottom:'.35rem'}}>
-              {es?'Haz clic para jugar':'Click to play'}
-            </div>
-            <div style={{color:'rgba(34,211,238,.55)',fontSize:'.72rem',letterSpacing:'.06em'}}>
-              {es?'WASD · ratón · ESC para salir':'WASD · mouse · ESC to release'}
-            </div>
-          </div>
+          {(() => {
+            const identity = presenceKey || myWallet
+            const hp = Math.max(0, Math.min(100, Number((healthMap||{})[identity] ?? 100)))
+            const hpColor = hp > 60 ? '#4ade80' : hp > 25 ? '#facc15' : '#fb7185'
+            const accent = myColor || '#22d3ee'
+            const skills = myNftjis || []
+            const shortAddr = identity
+              ? (identity.startsWith('anon-') ? identity : `${identity.slice(0,6)}…${identity.slice(-4)}`)
+              : null
+            return (
+              <div style={{
+                border:`1px solid ${accent}55`,borderRadius:10,
+                padding:'1.2rem 1.6rem 1.1rem',
+                textAlign:'center',fontFamily:'Consolas,"Courier New",monospace',
+                background:'rgba(2,6,16,.90)',
+                boxShadow:`0 0 36px ${accent}22, 0 0 80px rgba(0,0,0,.6)`,
+                minWidth:220,
+              }}>
+                {/* wallet address / identity */}
+                {shortAddr && (
+                  <div style={{
+                    color:accent,fontSize:'.68rem',letterSpacing:'.10em',marginBottom:'.55rem',
+                    padding:'2px 8px',borderRadius:4,display:'inline-block',
+                    background:`${accent}18`,border:`1px solid ${accent}33`,
+                  }}>{shortAddr}</div>
+                )}
+                {/* HP bar */}
+                <div style={{marginBottom:'.75rem'}}>
+                  <div style={{
+                    display:'flex',justifyContent:'space-between',alignItems:'center',
+                    marginBottom:3,
+                  }}>
+                    <span style={{color:hpColor,fontSize:'.65rem',letterSpacing:'.08em',fontWeight:700}}>
+                      {es?'VIDA':'HP'}
+                    </span>
+                    <span style={{color:hpColor,fontSize:'.65rem',letterSpacing:'.06em'}}>
+                      {hp}/100
+                    </span>
+                  </div>
+                  <div style={{
+                    width:'100%',height:8,background:'rgba(255,255,255,.08)',
+                    borderRadius:4,overflow:'hidden',
+                    border:`1px solid ${hpColor}44`,
+                  }}>
+                    <div style={{
+                      width:`${hp}%`,height:'100%',background:hpColor,
+                      borderRadius:4,
+                      boxShadow:`0 0 6px ${hpColor}`,
+                      transition:'width .4s ease',
+                    }}/>
+                  </div>
+                </div>
+                {/* skill slots */}
+                {skills.length > 0 && (
+                  <div style={{
+                    display:'flex',gap:5,justifyContent:'center',marginBottom:'.8rem',
+                    flexWrap:'wrap',
+                  }}>
+                    {skills.map((sk,i) => {
+                      const isAbility = sk.emoji==='❤️'||sk.emoji==='⚔️'||sk.source==='mining'
+                      const slotAccent = sk.emoji==='❤️' ? '#fb7185'
+                        : sk.emoji==='⚔️' ? '#facc15'
+                        : sk.source==='mining' ? '#4ade80'
+                        : '#fb923c'
+                      return (
+                        <div key={i} style={{
+                          width:38,height:50,borderRadius:5,
+                          background:isAbility?'#100b18':'#080e18',
+                          border:`1px solid ${isAbility?slotAccent+'cc':'#fb923c33'}`,
+                          display:'flex',flexDirection:'column',alignItems:'center',
+                          justifyContent:'center',gap:2,position:'relative',
+                          boxShadow:isAbility?`0 0 8px ${slotAccent}55`:'none',
+                        }}>
+                          {isAbility && (
+                            <div style={{
+                              position:'absolute',top:0,left:0,right:0,height:5,
+                              background:slotAccent,borderRadius:'5px 5px 0 0',opacity:.85,
+                            }}/>
+                          )}
+                          <span style={{fontSize:'1.05rem',lineHeight:1}}>{sk.emoji||'⬡'}</span>
+                          <span style={{
+                            fontSize:'0.55rem',color:isAbility?slotAccent:'#fb923c99',
+                            fontWeight:700,letterSpacing:'.04em',
+                          }}>Lv{sk.level}</span>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+                {/* CTA */}
+                <div style={{
+                  color:accent,fontSize:'.95rem',letterSpacing:'.14em',
+                  textTransform:'uppercase',marginBottom:'.3rem',fontWeight:700,
+                  textShadow:`0 0 12px ${accent}`,
+                }}>
+                  {es?'Haz clic para jugar':'Click to play'}
+                </div>
+                <div style={{color:`${accent}66`,fontSize:'.68rem',letterSpacing:'.06em'}}>
+                  {es?'WASD · ratón · ESC para salir':'WASD · mouse · ESC to release'}
+                </div>
+              </div>
+            )
+          })()}
         </div>
       )}
       {/* Mobile analog movement pad */}
