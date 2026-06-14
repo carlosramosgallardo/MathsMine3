@@ -231,79 +231,47 @@ const OBSTACLE_MAP = new Map([
   ['18,9',  { base:W_SAND,  label:'WALL' }],
   ['18,18', { base:W_SAND,  label:'WALL' }],
 
-  // ─── Inner zone bridge network — traversable elevated paths ──────────────────
-  // Bridge 1: E-W deck at row 8, joins (8,10-11) wall pair to (8,16-17) wall pair
+  // ─── Inner zone — bridges with single step-stone access each side ───────────
+  // One h=0.58 step per bridge side: from that height the jump apex (~1.78) just
+  // clears the 1.74 deck.  No double-step stacks — those were creating narrow
+  // corridors that trapped the player.
+
+  // Bridge 1: E-W at row 8
   ['8,12',  { base:W_DARK, label:'WALL', height:1.74 }],
   ['8,13',  { base:W_DARK, label:'WALL', height:1.74 }],
   ['8,14',  { base:W_DARK, label:'WALL', height:1.74 }],
   ['8,15',  { base:W_DARK, label:'WALL', height:1.74 }],
-  // Bridge 1 approach from south (col 13)
-  ['9,13',  { base:W_DARK, label:'WALL', height:1.16 }],
-  ['10,13', { base:W_DARK, label:'WALL', height:0.58 }],
-  // Bridge 1 approach from north (col 12)
-  ['7,12',  { base:W_DARK, label:'WALL', height:1.16 }],
-  ['6,12',  { base:W_DARK, label:'WALL', height:0.58 }],
+  ['9,13',  { base:W_DARK, label:'WALL', height:0.58 }],  // S step
+  ['7,14',  { base:W_DARK, label:'WALL', height:0.58 }],  // N step
 
-  // Bridge 2: E-W deck at row 19, joins (19,10-11) to (19,16-17)
+  // Bridge 2: E-W at row 19
   ['19,12', { base:W_DARK, label:'WALL', height:1.74 }],
   ['19,13', { base:W_DARK, label:'WALL', height:1.74 }],
   ['19,14', { base:W_DARK, label:'WALL', height:1.74 }],
   ['19,15', { base:W_DARK, label:'WALL', height:1.74 }],
-  // Bridge 2 approach from north (col 13)
-  ['18,13', { base:W_DARK, label:'WALL', height:1.16 }],
-  ['17,13', { base:W_DARK, label:'WALL', height:0.58 }],
-  // Bridge 2 approach from south (col 15)
-  ['20,15', { base:W_DARK, label:'WALL', height:1.16 }],
-  ['21,15', { base:W_DARK, label:'WALL', height:0.58 }],
+  ['18,14', { base:W_DARK, label:'WALL', height:0.58 }],  // N step
+  ['20,13', { base:W_DARK, label:'WALL', height:0.58 }],  // S step
 
-  // Bridge 3: N-S deck at col 8, fills gap rows 12-15 between (11,8) and (16,8)
+  // Bridge 3: N-S at col 8
   ['12,8',  { base:W_DARK, label:'WALL', height:1.74 }],
   ['13,8',  { base:W_DARK, label:'WALL', height:1.74 }],
   ['14,8',  { base:W_DARK, label:'WALL', height:1.74 }],
   ['15,8',  { base:W_DARK, label:'WALL', height:1.74 }],
-  // Bridge 3 approach from east (row 13)
-  ['13,9',  { base:W_DARK, label:'WALL', height:1.16 }],
-  ['13,10', { base:W_DARK, label:'WALL', height:0.58 }],
+  ['13,9',  { base:W_DARK, label:'WALL', height:0.58 }],  // E step
+  ['14,7',  { base:W_DARK, label:'WALL', height:0.58 }],  // W step
 
-  // Bridge 4: N-S deck at col 19, fills gap rows 12-15 between (11,19) and (16,19)
+  // Bridge 4: N-S at col 19 (skips row 14 — existing W_SAND wall there)
   ['12,19', { base:W_DARK, label:'WALL', height:1.74 }],
   ['13,19', { base:W_DARK, label:'WALL', height:1.74 }],
   ['15,19', { base:W_DARK, label:'WALL', height:1.74 }],
-  // Bridge 4 approach from west (row 12)
-  ['12,18', { base:W_DARK, label:'WALL', height:1.16 }],
-  ['12,17', { base:W_DARK, label:'WALL', height:0.58 }],
-  // Bridge 4 second approach (row 15)
-  ['15,18', { base:W_DARK, label:'WALL', height:1.16 }],
-  ['15,17', { base:W_DARK, label:'WALL', height:0.58 }],
+  ['13,18', { base:W_DARK, label:'WALL', height:0.58 }],  // W step
+  ['12,20', { base:W_DARK, label:'WALL', height:0.58 }],  // E step
 
-  // ─── Inner zone — extra dense labyrinth walls (all OBSTACLE_TOP) ─────────────
-  // Outer-approach blockers that force winding paths to N/S/E/W entrances
-  ['3,5',   { base:W_DARK,  label:'WALL' }],
-  ['3,6',   { base:W_DARK,  label:'WALL' }],
-  ['3,20',  { base:W_DARK,  label:'WALL' }],
-  ['3,21',  { base:W_DARK,  label:'WALL' }],
-  ['24,5',  { base:W_DARK,  label:'WALL' }],
-  ['24,6',  { base:W_DARK,  label:'WALL' }],
-  ['24,20', { base:W_DARK,  label:'WALL' }],
-  ['24,21', { base:W_DARK,  label:'WALL' }],
-  // E-W inner approach gates
-  ['7,4',   { base:W_SLATE, label:'WALL' }],
-  ['7,5',   { base:W_SLATE, label:'WALL' }],
-  ['7,21',  { base:W_SLATE, label:'WALL' }],
-  ['7,22',  { base:W_SLATE, label:'WALL' }],
-  ['20,4',  { base:W_SLATE, label:'WALL' }],
-  ['20,5',  { base:W_SLATE, label:'WALL' }],
-  ['20,22', { base:W_SLATE, label:'WALL' }],
-  ['20,23', { base:W_SLATE, label:'WALL' }],
-  // Axial approach choke extensions
-  ['3,13',  { base:W_STONE, label:'WALL' }],
-  ['3,14',  { base:W_STONE, label:'WALL' }],
-  ['24,13', { base:W_STONE, label:'WALL' }],
-  ['24,14', { base:W_STONE, label:'WALL' }],
-  ['13,3',  { base:W_STONE, label:'WALL' }],
-  ['14,3',  { base:W_STONE, label:'WALL' }],
-  ['13,24', { base:W_STONE, label:'WALL' }],
-  ['14,24', { base:W_STONE, label:'WALL' }],
+  // Sub-quadrant landmark pylons — single isolated cells, no wall clusters
+  ['7,7',   { base:W_SLATE, label:'WALL' }],
+  ['7,20',  { base:W_SLATE, label:'WALL' }],
+  ['20,7',  { base:W_SLATE, label:'WALL' }],
+  ['20,20', { base:W_SLATE, label:'WALL' }],
 
   // ─── Outer world labyrinth (rows 28-55, cols 28-55) ──────────────────────────
   // Entry gateway pillars (rows 29-30) — funnel from inner world into outer zone
@@ -1238,6 +1206,29 @@ function addOrganicObstacles(valid,reserved,cellMap){
     }
     return true
   }
+
+  // Each quadrant gets its own palette so environments look distinct.
+  // 0=Genesis(NW), 1=DataVault(NE), 2=Legacy(SW), 3=Nexus(SE)
+  const zoneOf=(row,col)=>(row<28&&col<28)?0:(row<28?1:(col<28?2:3))
+  const rampStyle =[
+    {base:[48,72,82], glow:[34,211,238], kind:'data',      label:'GENESIS RAMP'  },
+    {base:[52,78,112],glow:[103,232,249],kind:'hash',      label:'VAULT RAMP'    },
+    {base:[108,92,62],glow:[250,204,21], kind:'ledger',    label:'LEGACY RAMP'   },
+    {base:[78,42,102],glow:[217,70,239], kind:'consensus', label:'NEXUS RAMP'    },
+  ]
+  const sphereStyle=[
+    {base:[38,62,72], glow:[34,211,238], kind:'data',      label:'GENESIS NODE'  },
+    {base:[42,82,122],glow:[103,232,249],kind:'hash',      label:'DATA ORB'      },
+    {base:[98,82,52], glow:[250,204,21], kind:'ledger',    label:'CHAIN STONE'   },
+    {base:[88,52,112],glow:[217,70,239], kind:'consensus', label:'VOTE ORB'      },
+  ]
+  const treeStyle =[
+    {base:[42,68,72], glow:[34,211,238], kind:'data',      label:'HASH TREE'     },
+    {base:[46,78,108],glow:[103,232,249],kind:'hash',      label:'VAULT SPIRE'   },
+    {base:[92,78,48], glow:[250,180,21], kind:'ledger',    label:'RUIN PILLAR'   },
+    {base:[82,46,108],glow:[217,70,239], kind:'consensus', label:'NEXUS SPIRE'   },
+  ]
+
   const candidates=[]
   for(let row=4;row<ROWS-4;row+=3) for(let col=4;col<COLS-4;col+=3){
     const score=Math.abs((row*73+col*41+row*col*11)%997)
@@ -1250,24 +1241,20 @@ function addOrganicObstacles(valid,reserved,cellMap){
     const shape=score%5<2?'ramp':score%5===2?'sphere':'tree'
     if(totals[shape]>=limits[shape]||!free(row,col)) continue
     const key=`${row},${col}`
+    const z=zoneOf(row,col)
     if(shape==='ramp'){
-      const direction=['east','south','west','north'][score%4]
       valid.set(key,chainObstacle(key,{
-        shape,direction,height:.82,bottom:0,radius:.46,
-        base:[58,92,112],glow:[103,232,249],kind:'hash',label:'DATA RAMP',
-        isOrganic:true,
+        ...rampStyle[z],shape,
+        direction:['east','south','west','north'][score%4],
+        height:.82,bottom:0,radius:.46,isOrganic:true,
       }))
     }else if(shape==='sphere'){
       valid.set(key,chainObstacle(key,{
-        shape,height:.76,radius:.34,
-        base:[78,44,112],glow:[217,70,239],kind:'consensus',label:'CONSENSUS ORB',
-        isOrganic:true,
+        ...sphereStyle[z],shape,height:.76,radius:.34,isOrganic:true,
       }))
     }else{
       valid.set(key,chainObstacle(key,{
-        shape,height:2.05,radius:.25,
-        base:[42,88,70],glow:[45,212,191],kind:'data',label:'HASH TREE',
-        isOrganic:true,
+        ...treeStyle[z],shape,height:2.05,radius:.25,isOrganic:true,
       }))
     }
     totals[shape]++
