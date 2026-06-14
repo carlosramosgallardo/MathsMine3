@@ -3003,7 +3003,8 @@ export default function MiningChain3DFPV({
       mountain:createProceduralTexture('mountain'),coast:createProceduralTexture('coast'),
       ice:createProceduralTexture('ice'),inferno:createProceduralTexture('inferno'),crypto:createProceduralTexture('crypto'),
     }
-    const state={renderer,scene,camera,hudScene,hudCamera,localAvatar:null,localAvatarId:null,world:null,avatars:new Map(),pixelRatio:0,size:new THREE.Vector2(),hemi,key,rim,textures}
+    const state={renderer,scene,camera,hudScene,hudCamera,localAvatar:null,localAvatarId:null,world:null,avatars:new Map(),pixelRatio:0,size:new THREE.Vector2(),hemi,key,rim,textures,
+      camRaycaster:new THREE.Raycaster(),_v3a:new THREE.Vector3(),_v3b:new THREE.Vector3(),_v3c:new THREE.Vector3()}
     threeStateRef.current=state
     rebuildThreeRef.current=()=>rebuildThreeWorld(state,cellMapRef.current,validObstaclesRef.current)
     rebuildThreeRef.current()
@@ -3323,7 +3324,24 @@ export default function MiningChain3DFPV({
         const camZworld=gy - sinA*behindDist + rightZ*shoulderR
         const cosRoll=Math.cos(roll*0.4),sinRoll=Math.sin(roll*0.4)  // subtle roll in TPS
         threeState.camera.up.set(-sinA*sinRoll, cosRoll, cosA*sinRoll)
-        threeState.camera.position.set(camX, cameraZ+aboveOffset, camZworld)
+        // Spring arm: pull camera toward player when world geometry occludes the avatar
+        {
+          const eyeY=cameraZ+0.5
+          const ra=threeState._v3a.set(gx,eyeY,gy)
+          const rb=threeState._v3b.set(camX,cameraZ+aboveOffset,camZworld)
+          const dir=threeState._v3c.copy(rb).sub(ra)
+          const dist=dir.length()
+          dir.divideScalar(dist)
+          threeState.camRaycaster.set(ra,dir)
+          threeState.camRaycaster.near=0.05
+          threeState.camRaycaster.far=dist
+          const hits=threeState.world?threeState.camRaycaster.intersectObject(threeState.world,true):[]
+          if(hits.length>0){
+            const safe=Math.max(0.22,hits[0].distance-0.15)
+            rb.copy(ra).addScaledVector(dir,safe)
+          }
+          threeState.camera.position.copy(rb)
+        }
         threeState.camera.lookAt(
           gx + cosA*lookFwd,
           cameraZ - Math.sin(effectivePitch)*lookFwd*0.6 + 0.18,
