@@ -2829,7 +2829,9 @@ function syncThreeAvatars(state,presence,myIdentity) {
     avatar.scale.setScalar(Math.min(REMOTE_AVATAR_VISUAL_SCALE,screenMatchedScale))
     const swingAge=Date.now()-(Number(data.swingAt)||0)
     const swing=swingAge<SWING_DUR?Math.sin(swingAge/SWING_DUR*Math.PI):0
-    avatar.userData.tool.rotation.z=swing*1.05
+    // Forward strike: tool pitches toward target (rotation.x), slight side sweep
+    avatar.userData.tool.rotation.x=-swing*1.15
+    avatar.userData.tool.rotation.z=swing*0.28
     const walk=Number(data.walkDist)||0
     if(avatar.userData.leftFoot) avatar.userData.leftFoot.position.y=.075+Math.max(0,Math.sin(walk*.18))*.045
     if(avatar.userData.rightFoot) avatar.userData.rightFoot.position.y=.075+Math.max(0,Math.sin(walk*.18+Math.PI))*.045
@@ -2840,25 +2842,26 @@ function syncThreeAvatars(state,presence,myIdentity) {
   }
 }
 
-function syncThreeLocalAvatar(state,identity,swingT,walkDist,W,H) {
+function syncThreeLocalAvatar(state,identity,swingT,walkDist,gx,gy,playerZ,heading) {
   const avatarId=identity||'local-player'
   if(!state.localAvatar||state.localAvatarId!==avatarId){
-    if(state.localAvatar){state.hudScene.remove(state.localAvatar);disposeThreeObject(state.localAvatar)}
+    if(state.localAvatar){
+      state.hudScene.remove(state.localAvatar)
+      state.scene.remove(state.localAvatar)
+      disposeThreeObject(state.localAvatar)
+    }
     state.localAvatar=createThreeWalletAvatar(avatarId)
     state.localAvatarId=avatarId
-    // 3/4 hero pose: slightly turned so both front and right face are visible
-    state.localAvatar.rotation.y=-0.32
-    state.hudScene.add(state.localAvatar)
+    state.scene.add(state.localAvatar)   // in the 3D world, not HUD
   }
-  // Perspective camera: update aspect to match the scissor viewport proportions
-  const mobile=W<640
-  const vpW=mobile?88:148, vpH=mobile?108:182
-  state.hudCamera.aspect=vpW/Math.max(1,vpH)
-  state.hudCamera.updateProjectionMatrix()
-  // Real-world scale — perspective takes care of size
-  state.localAvatar.scale.setScalar(1)
-  state.localAvatar.position.set(0,0,0)
-  state.localAvatar.userData.tool.rotation.z=Math.sin(Math.min(1,swingT)*Math.PI)*1.05
+  // World position and heading — same as remote avatars
+  state.localAvatar.position.set(gx, playerZ, gy)
+  state.localAvatar.rotation.y=-heading-Math.PI/2
+  state.localAvatar.scale.setScalar(REMOTE_AVATAR_VISUAL_SCALE)
+  // Forward strike toward crosshair
+  const swing=Math.sin(Math.min(1,swingT)*Math.PI)
+  state.localAvatar.userData.tool.rotation.x=-swing*1.15
+  state.localAvatar.userData.tool.rotation.z=swing*0.28
   const stride=walkDist*.18
   if(state.localAvatar.userData.leftFoot) state.localAvatar.userData.leftFoot.position.y=.075+Math.max(0,Math.sin(stride))*.045
   if(state.localAvatar.userData.rightFoot) state.localAvatar.userData.rightFoot.position.y=.075+Math.max(0,Math.sin(stride+Math.PI))*.045
@@ -3311,15 +3314,20 @@ export default function MiningChain3DFPV({
         threeState.scene.fog.color.set(atmosphere.fog)
         threeState.hemi.color.set(atmosphere.hemi)
         threeState.rim.color.set(atmosphere.rim)
-        threeState.camera.position.set(gx,cameraZ,gy)
-        // Camera roll: tilt the up-vector around the forward axis before lookAt
-        // up_rolled = (0,1,0)*cos(roll) + right*sin(roll), right=(-sin(a),0,cos(a))
-        const cosRoll=Math.cos(roll),sinRoll=Math.sin(roll)
-        threeState.camera.up.set(-Math.sin(angle)*sinRoll, cosRoll, Math.cos(angle)*sinRoll)
+        // 3rd-person over-shoulder camera
+        const behindDist=2.55, aboveOffset=1.15, lookFwd=2.4, shoulderR=0.30
+        const cosA=Math.cos(angle),sinA=Math.sin(angle)
+        // Perpendicular right vector (horizontal plane)
+        const rightX=Math.cos(angle+Math.PI/2), rightZ=Math.sin(angle+Math.PI/2)
+        const camX=gx - cosA*behindDist + rightX*shoulderR
+        const camZworld=gy - sinA*behindDist + rightZ*shoulderR
+        const cosRoll=Math.cos(roll*0.4),sinRoll=Math.sin(roll*0.4)  // subtle roll in TPS
+        threeState.camera.up.set(-sinA*sinRoll, cosRoll, cosA*sinRoll)
+        threeState.camera.position.set(camX, cameraZ+aboveOffset, camZworld)
         threeState.camera.lookAt(
-          gx+Math.cos(angle)*Math.cos(effectivePitch)*lookDistance,
-          cameraZ-Math.sin(effectivePitch)*lookDistance,
-          gy+Math.sin(angle)*Math.cos(effectivePitch)*lookDistance,
+          gx + cosA*lookFwd,
+          cameraZ - Math.sin(effectivePitch)*lookFwd*0.6 + 0.18,
+          gy + sinA*lookFwd,
         )
         syncThreeAvatars(threeState,presence,myIdentity)
         const time=performance.now()*.001
@@ -3356,25 +3364,10 @@ export default function MiningChain3DFPV({
         }
         const localSwingAge=performance.now()-swingStartRef.current
         const localSwingT=localSwingAge<SWING_DUR?localSwingAge/SWING_DUR:0
-        syncThreeLocalAvatar(threeState,myIdentity,localSwingT,walkDistRef.current,W,H)
+        // Local avatar lives in the main 3D scene — sync position before render
+        syncThreeLocalAvatar(threeState,myIdentity,localSwingT,walkDistRef.current,gx,gy,rawZ,angle)
         threeState.renderer.render(threeState.scene,threeState.camera)
-        // Avatar 3D: render in bottom-left scissor viewport so perspective depth is visible
-        {
-          const mobile=W<640
-          const vpW=mobile?88:148, vpH=mobile?108:182
-          // Bottom-right: away from left-side stats HUD
-          const vpX=W-vpW-(mobile?12:14)
-          const vpY=mobile?14:14
-          threeState.renderer.autoClear=false
-          threeState.renderer.clearDepth()
-          threeState.renderer.setScissorTest(true)
-          threeState.renderer.setScissor(vpX,vpY,vpW,vpH)
-          threeState.renderer.setViewport(vpX,vpY,vpW,vpH)
-          threeState.renderer.render(threeState.hudScene,threeState.hudCamera)
-          threeState.renderer.setScissorTest(false)
-          threeState.renderer.setViewport(0,0,W,H)
-          threeState.renderer.autoClear=true
-        }
+        // No separate HUD avatar pass: local player is now a scene object
       }catch{
         threeStateRef.current=null;threeState=null
       }
