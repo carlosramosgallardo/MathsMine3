@@ -53,11 +53,13 @@ const MARKET_LANDMARK_POSITIONS = [
   [52,16],[52,40],
 ].map(([row,col]) => ({ row, col }))
 
+// Each quadrant is 26×26 (676 slots) for ~196 blocks → ~29% density,
+// down from the previous 22×22 (484 slots) / 40%.  Blocks spread further apart.
 const VISUAL_BLOCK_REGIONS = [
-  { row:3,  col:3,  size:22 },
-  { row:3,  col:31, size:22 },
-  { row:31, col:3,  size:22 },
-  { row:31, col:31, size:22 },
+  { row:2,  col:2,  size:26 },
+  { row:2,  col:29, size:26 },
+  { row:29, col:2,  size:26 },
+  { row:29, col:29, size:26 },
 ]
 
 const VISUAL_BLOCK_POSITIONS = (() => {
@@ -226,7 +228,7 @@ export default function MiningChain3D() {
           blockHex,
           emoji: m.emoji, titleEn: m.title_en, titleEs: m.title_es, priceEur: m.price_eur,
           owner: ownerWallet,
-          color: ownerWallet ? colorFromAddress(ownerWallet) : C,
+          color: ownerWallet ? colorFromAddress(ownerWallet) : '#fb923c',  // amber for unowned NFTJI (matches beacon ring)
           isMarket: true, isMined: Boolean(ownerWallet),
         })
       }

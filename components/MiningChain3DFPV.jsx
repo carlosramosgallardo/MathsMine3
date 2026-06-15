@@ -1493,9 +1493,9 @@ function wallRgb(cell, dist, side, myWallet) {
       base = [Math.min(255,r*1.15|0), Math.min(255,g*1.15|0), Math.min(255,b*1.15|0)]
     }
   } else if (cell?.isMarket) {
-    base = [200, 110, 20]
+    base = [210, 125, 20]   // amber/orange — NFTJI block
   } else if (cell) {
-    base = [30, 60, 130]
+    base = [18, 88, 62]     // dark teal — free mineable block (distinct from NFTJI amber)
   } else {
     base = [10, 18, 42]
   }
@@ -3688,24 +3688,29 @@ export default function MiningChain3DFPV({
         }
       }
 
-      // NFTJI block patterns
+      // NFTJI block patterns — amber overlays clearly separate them from teal free blocks
       if (cell?.isMarket) {
         if (!cell.owner) {
-          // Unowned NFTJI: amber diagonal stripes.
-          const stripeH = Math.max(3, Math.round(wallH/6))
+          // Unowned NFTJI: amber diagonal stripes (more visible)
+          const stripeH = Math.max(3, Math.round(wallH/5))
           for (let sy=wTop; sy<wTop+wallH; sy+=stripeH*2) {
-            ctx.fillStyle = 'rgba(251,146,60,0.22)'
+            ctx.fillStyle = 'rgba(251,146,60,0.38)'
             ctx.fillRect(col*stripW, sy, stripW, Math.min(stripeH, wTop+wallH-sy))
+          }
+          // Amber top-cap highlight so the NFTJI stands out at any distance
+          if (wallH > 4) {
+            ctx.fillStyle = 'rgba(255,180,50,0.30)'
+            ctx.fillRect(col*stripW, wTop, stripW, Math.max(2, Math.round(wallH*0.12)))
           }
         } else {
           const isMe = myWallet && cell.owner.toLowerCase() === myWallet.toLowerCase()
           if (isMe) {
             // My NFTJI block: cyan shimmer
-            ctx.fillStyle = 'rgba(34,211,238,0.18)'
+            ctx.fillStyle = 'rgba(34,211,238,0.24)'
             ctx.fillRect(col*stripW, wTop, stripW, wallH)
           } else {
             const [mr,mg,mb] = hexToRgb(cell.color)
-            ctx.fillStyle = `rgba(${mr},${mg},${mb},0.15)`
+            ctx.fillStyle = `rgba(${mr},${mg},${mb},0.20)`
             ctx.fillRect(col*stripW, wTop, stripW, wallH)
           }
         }
