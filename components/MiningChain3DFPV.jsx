@@ -37,7 +37,7 @@ const CHAIN_NODE_COL = 4
 // Jump: a player can mount mining blocks, but structural walls stay impassable.
 const JUMP_VZ   = 5.7        // jump impulse (grid units / second)
 const GRAVITY_A = 13.5       // gravity (grid units / second²)
-const BLOCK_TOP = 1.0        // fallback height; chain blocks use deterministic tiers
+const BLOCK_TOP = 0.50       // fallback height for mining blocks (50 % — keeps them jumpable)
 const OBSTACLE_TOP = 2.35    // above the maximum single-jump apex
 const BRIDGE_BOTTOM = 1.42   // enough clearance for a wallet walking below
 const BRIDGE_TOP = 1.82      // unreachable from the floor without stairs
@@ -79,13 +79,13 @@ function blockTop(cell,row=0,col=0) {
   if(cell.isPortalNode||cell.isChainNode) return 1.0
   const raw=String(cell.blockHex||gridToBlockHex(row,col)||'').replace('#','')
   const index=Number.parseInt(raw,16)
-  if(!Number.isFinite(index)) return cell.isMarket?1.16:BLOCK_TOP
-  // The immutable #hex selects a visual/physical tier without changing chain
-  // identity. Roughly 1/4 remain vaultable; the rest break rooftop shortcuts.
+  if(!Number.isFinite(index)) return cell.isMarket?0.58:BLOCK_TOP
+  // The immutable #hex selects a visual/physical tier without changing chain identity.
+  // All heights kept below the jump apex (~1.20 u) so the player can vault any block.
   const tier=Math.abs((index*17+row*7+col*11)%8)
-  if(tier<2) return 1.0
-  if(tier<6) return 1.38
-  return 1.68
+  if(tier<2) return 0.50
+  if(tier<6) return 0.69
+  return 0.84
 }
 
 function obstacleBottom(data) {
@@ -2667,14 +2667,14 @@ function rebuildThreeWorld(state,cellMap,obstacles) {
   }
 
   // Helper: place cube block + pedestal into a group at row,col
-  function placeBlock(group, index, row, col, cell, cubeSide=.88, glowPad=0.035) {
+  function placeBlock(group, index, row, col, cell, cubeSide=.44, glowPad=0.018) {
     const height=blockTop(cell,row,col),cubeBottom=Math.max(0,height-cubeSide)
     position.set(col+.5,cubeBottom+cubeSide*.5,row+.5);scale.set(cubeSide,cubeSide,cubeSide)
     matrix.compose(position,quaternion,scale);group.mesh.setMatrixAt(index,matrix)
     scale.set(cubeSide+glowPad,cubeSide+glowPad,cubeSide+glowPad)
     matrix.compose(position,quaternion,scale);group.glow.setMatrixAt(index,matrix)
-    const ph=Math.max(.035,cubeBottom)
-    position.set(col+.5,ph*.5,row+.5);scale.set(.66,ph,.66)
+    const pw=cubeSide*0.75,ph=Math.max(.02,cubeBottom)
+    position.set(col+.5,ph*.5,row+.5);scale.set(pw,ph,pw)
     matrix.compose(position,quaternion,scale);group.ped.setMatrixAt(index,matrix)
   }
   function flushGroup(g) {
@@ -2700,7 +2700,7 @@ function rebuildThreeWorld(state,cellMap,obstacles) {
     '#ffb347',.40)
   nftjiEntries.forEach(([key,cell],i)=>{
     const [row,col]=key.split(',').map(Number)
-    placeBlock(nftjiGroup,i,row,col,cell,.88,.045)
+    placeBlock(nftjiGroup,i,row,col,cell,.44,.02)
     nftjiGroup.ped.setColorAt(i,new THREE.Color('#7a3800'))
   });flushGroup(nftjiGroup)
 
