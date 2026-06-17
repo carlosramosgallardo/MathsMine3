@@ -697,8 +697,8 @@ export default function MiningChain3D() {
       {/* ── Facing-block info panel ───────────────────────────────────────── */}
       <div style={{
         flexShrink:0, borderTop:`1px solid ${C}18`, background:'#060c18',
-        padding:'6px 12px', minHeight:46, display:'flex', alignItems:'center',
-        gap:8, flexWrap:'wrap', rowGap:4,
+        padding:'4px 10px', minHeight:36, display:'flex', alignItems:'center',
+        gap:6, flexWrap:'wrap', rowGap:3,
       }}>
         {facingCell && isInRange ? (
           <>

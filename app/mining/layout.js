@@ -19,7 +19,7 @@ export default function MiningLayout({ children }) {
     <>
       <style>{`
         html:has(.mm3-mining3d-root) .mm3-shell-main {
-          padding-bottom: 0 !important;
+          padding-bottom: 32px !important;
           overflow: hidden !important;
         }
       `}</style>
