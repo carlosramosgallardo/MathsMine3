@@ -2638,13 +2638,20 @@ function rebuildThreeWorld(state,cellMap,obstacles) {
   const scale=new THREE.Vector3(),quaternion=new THREE.Quaternion()
   addBiomeGround(world,state.textures)
   addBiomeLandmarks(world,state.textures)
-  const blockEntries=[...cellMap.entries()]
+  // Blocks are split into two InstancedMesh groups so each gets its own material:
+  // - nftjiEntries: unowned market blocks → no dark crypto texture, bright amber emissive
+  // - otherEntries: owned blocks, chain nodes, free mineable blocks → crypto texture + biome vertex color
+  const allBlockEntries=[...cellMap.entries()]
+  const nftjiEntries=allBlockEntries.filter(([,c])=>c.isMarket&&!c.owner)
+  const otherEntries=allBlockEntries.filter(([,c])=>!(c.isMarket&&!c.owner))
+
+  // Regular blocks (dark crypto texture, biome-tinted vertex colors)
   const blockMaterial=new THREE.MeshStandardMaterial({map:state.textures.crypto,roughness:.48,metalness:.38,vertexColors:true,emissive:'#09233a',emissiveIntensity:.22})
-  const blockMesh=new THREE.InstancedMesh(new THREE.BoxGeometry(1,1,1),blockMaterial,blockEntries.length)
+  const blockMesh=new THREE.InstancedMesh(new THREE.BoxGeometry(1,1,1),blockMaterial,otherEntries.length||1)
   const blockGlowMaterial=new THREE.MeshBasicMaterial({color:'#67e8f9',wireframe:true,transparent:true,opacity:.20,depthWrite:false})
-  const blockGlowMesh=new THREE.InstancedMesh(new THREE.BoxGeometry(1,1,1),blockGlowMaterial,blockEntries.length)
-  const pedestalMesh=new THREE.InstancedMesh(new THREE.BoxGeometry(1,1,1),new THREE.MeshStandardMaterial({roughness:.88,metalness:.16,vertexColors:true}),blockEntries.length)
-  blockEntries.forEach(([key,cell],index)=>{
+  const blockGlowMesh=new THREE.InstancedMesh(new THREE.BoxGeometry(1,1,1),blockGlowMaterial,otherEntries.length||1)
+  const pedestalMesh=new THREE.InstancedMesh(new THREE.BoxGeometry(1,1,1),new THREE.MeshStandardMaterial({roughness:.88,metalness:.16,vertexColors:true}),otherEntries.length||1)
+  otherEntries.forEach(([key,cell],index)=>{
     const [row,col]=key.split(',').map(Number),height=blockTop(cell,row,col)
     const cubeSide=.88,cubeBottom=Math.max(0,height-cubeSide)
     position.set(col+.5,cubeBottom+cubeSide*.5,row+.5);scale.set(cubeSide,cubeSide,cubeSide)
@@ -2665,8 +2672,32 @@ function rebuildThreeWorld(state,cellMap,obstacles) {
   pedestalMesh.instanceMatrix.needsUpdate=true
   if(pedestalMesh.instanceColor) pedestalMesh.instanceColor.needsUpdate=true
   blockGlowMesh.userData.blockGlow=true
-  world.add(pedestalMesh,blockMesh,blockGlowMesh)
-  for(const [key,cell] of blockEntries){
+
+  // Unowned NFTJI blocks — no texture so vertex color is not multiplied down to black
+  const nftjiMat=new THREE.MeshStandardMaterial({color:'#ff9900',roughness:.50,metalness:.30,emissive:'#b84500',emissiveIntensity:.55})
+  const nftjiMesh=new THREE.InstancedMesh(new THREE.BoxGeometry(1,1,1),nftjiMat,nftjiEntries.length||1)
+  const nftjiGlowMat=new THREE.MeshBasicMaterial({color:'#ffb347',wireframe:true,transparent:true,opacity:.38,depthWrite:false})
+  const nftjiGlowMesh=new THREE.InstancedMesh(new THREE.BoxGeometry(1,1,1),nftjiGlowMat,nftjiEntries.length||1)
+  const nftjiPedestalMat=new THREE.MeshStandardMaterial({color:'#7a3800',roughness:.88,metalness:.16})
+  const nftjiPedestalMesh=new THREE.InstancedMesh(new THREE.BoxGeometry(1,1,1),nftjiPedestalMat,nftjiEntries.length||1)
+  nftjiEntries.forEach(([key],index)=>{
+    const [row,col]=key.split(',').map(Number),height=blockTop(cellMap.get(key),row,col)
+    const cubeSide=.88,cubeBottom=Math.max(0,height-cubeSide)
+    position.set(col+.5,cubeBottom+cubeSide*.5,row+.5);scale.set(cubeSide,cubeSide,cubeSide)
+    matrix.compose(position,quaternion,scale);nftjiMesh.setMatrixAt(index,matrix)
+    scale.set(cubeSide+0.045,cubeSide+0.045,cubeSide+0.045)
+    matrix.compose(position,quaternion,scale);nftjiGlowMesh.setMatrixAt(index,matrix)
+    const pedestalHeight=Math.max(.035,cubeBottom)
+    position.set(col+.5,pedestalHeight*.5,row+.5);scale.set(.66,pedestalHeight,.66)
+    matrix.compose(position,quaternion,scale);nftjiPedestalMesh.setMatrixAt(index,matrix)
+  })
+  nftjiMesh.instanceMatrix.needsUpdate=true
+  nftjiGlowMesh.instanceMatrix.needsUpdate=true
+  nftjiPedestalMesh.instanceMatrix.needsUpdate=true
+  nftjiGlowMesh.userData.blockGlow=true
+
+  world.add(pedestalMesh,blockMesh,blockGlowMesh,nftjiPedestalMesh,nftjiMesh,nftjiGlowMesh)
+  for(const [key,cell] of allBlockEntries){
     if(!cell.isMarket&&!cell.isPortalNode&&!cell.isChainNode) continue
     const [row,col]=key.split(',').map(Number)
     addInteractiveBeacon(world,row,col,cell,blockTop(cell,row,col))
@@ -3221,6 +3252,11 @@ export default function MiningChain3DFPV({
   },[jumpToCell])
 
   // ── Render ──────────────────────────────────────────────────────────────────
+  // Dual-canvas architecture:
+  //   webglCanvasRef → Three.js renders the 3D world (always active, spring-arm camera)
+  //   canvasRef (2D)  → draws HUD on top: minimap, health, skills, crosshair, notifications
+  //                     When Three.js is active strips=1 so the raycaster wall loop is a no-op.
+  //                     The raycaster is a pure fallback if Three.js fails to initialise.
   const renderFrame = useCallback(()=>{
     const canvas = canvasRef.current
     if (!canvas) return
