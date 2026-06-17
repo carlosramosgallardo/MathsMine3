@@ -1493,13 +1493,13 @@ function wallRgb(cell, dist, side, myWallet) {
       base = [Math.min(255,r*1.15|0), Math.min(255,g*1.15|0), Math.min(255,b*1.15|0)]
     }
   } else if (cell?.isMarket) {
-    base = [220, 145, 35]   // gold — block with NFTJI (purchasable)
+    base = [255, 195, 50]   // bright gold — block with NFTJI (purchasable)
   } else if (cell) {
-    base = [35, 80, 210]    // blue — free mineable block (no NFTJI)
+    base = [55, 115, 245]   // bright blue — free mineable block (no NFTJI)
   } else {
     base = [10, 18, 42]
   }
-  return finish(base, cell?.isMarket ? .14 : cell && !cell.owner ? .06 : cell?.owner ? .08 : 0)
+  return finish(base, cell?.isMarket ? .25 : cell && !cell.owner ? .14 : cell?.owner ? .08 : 0)
 }
 
 function worldToGrid(wx, wy) {
@@ -3688,32 +3688,20 @@ export default function MiningChain3DFPV({
         }
       }
 
-      // NFTJI block patterns — amber overlays clearly separate them from teal free blocks
-      if (cell?.isMarket) {
-        if (!cell.owner) {
-          // Unowned NFTJI: amber diagonal stripes (more visible)
-          const stripeH = Math.max(3, Math.round(wallH/5))
-          for (let sy=wTop; sy<wTop+wallH; sy+=stripeH*2) {
-            ctx.fillStyle = 'rgba(251,146,60,0.38)'
-            ctx.fillRect(col*stripW, sy, stripW, Math.min(stripeH, wTop+wallH-sy))
-          }
-          // Amber top-cap highlight so the NFTJI stands out at any distance
-          if (wallH > 4) {
-            ctx.fillStyle = 'rgba(255,180,50,0.30)'
-            ctx.fillRect(col*stripW, wTop, stripW, Math.max(2, Math.round(wallH*0.12)))
-          }
-        } else {
-          const isMe = myWallet && cell.owner.toLowerCase() === myWallet.toLowerCase()
-          if (isMe) {
-            // My NFTJI block: cyan shimmer
-            ctx.fillStyle = 'rgba(34,211,238,0.24)'
-            ctx.fillRect(col*stripW, wTop, stripW, wallH)
-          } else {
-            const [mr,mg,mb] = hexToRgb(cell.color)
-            ctx.fillStyle = `rgba(${mr},${mg},${mb},0.20)`
-            ctx.fillRect(col*stripW, wTop, stripW, wallH)
-          }
+      // NFTJI vs free block visual distinction
+      if (cell?.isMarket && !cell.owner) {
+        // Unowned NFTJI: strong amber/gold full overlay so it stays warm even through fog
+        ctx.fillStyle = 'rgba(255,155,20,0.52)'
+        ctx.fillRect(col*stripW, wTop, stripW, wallH)
+        // Bold top-cap to mark it clearly from a distance
+        if (wallH > 3) {
+          ctx.fillStyle = 'rgba(255,210,60,0.72)'
+          ctx.fillRect(col*stripW, wTop, stripW, Math.max(2, Math.round(wallH*0.10)))
         }
+      } else if (cell?.isMarket && cell.owner) {
+        const isMe = myWallet && cell.owner.toLowerCase() === myWallet.toLowerCase()
+        ctx.fillStyle = isMe ? 'rgba(34,211,238,0.28)' : `rgba(${hexToRgb(cell.color).join(',')},0.22)`
+        ctx.fillRect(col*stripW, wTop, stripW, wallH)
       }
 
       if (!cell?.isObstacle) {
