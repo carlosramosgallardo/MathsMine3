@@ -2638,48 +2638,88 @@ function rebuildThreeWorld(state,cellMap,obstacles) {
   const scale=new THREE.Vector3(),quaternion=new THREE.Quaternion()
   addBiomeGround(world,state.textures)
   addBiomeLandmarks(world,state.textures)
-  // Blocks are split into two InstancedMesh groups so each gets its own material:
-  // - nftjiEntries: unowned market blocks → no dark crypto texture, bright amber emissive
-  // - otherEntries: owned blocks, chain nodes, free mineable blocks → crypto texture + biome vertex color
+  // Three block groups, each with its own material so colors are not killed by texture multiplication:
+  //   freeEntries   → no owner, no NFTJI  → blue/biome solid color
+  //   nftjiEntries  → has NFTJI, no owner → bright amber solid color
+  //   ownedEntries  → has owner           → wallet color (solid, no dark texture)
   const allBlockEntries=[...cellMap.entries()]
-  const nftjiEntries=allBlockEntries.filter(([,c])=>c.isMarket&&!c.owner)
-  const otherEntries=allBlockEntries.filter(([,c])=>!(c.isMarket&&!c.owner))
+  const freeEntries  =allBlockEntries.filter(([,c])=>!c.owner&&!c.isMarket&&!c.isChainNode)
+  const nftjiEntries =allBlockEntries.filter(([,c])=>c.isMarket&&!c.owner)
+  const ownedEntries =allBlockEntries.filter(([,c])=>c.owner||c.isChainNode)
 
-  // Regular blocks (dark crypto texture, biome-tinted vertex colors)
-  const blockMaterial=new THREE.MeshStandardMaterial({map:state.textures.crypto,roughness:.48,metalness:.38,vertexColors:true,emissive:'#09233a',emissiveIntensity:.22})
-  const blockMesh=new THREE.InstancedMesh(new THREE.BoxGeometry(1,1,1),blockMaterial,otherEntries.length||1)
-  const blockGlowMaterial=new THREE.MeshBasicMaterial({color:'#67e8f9',wireframe:true,transparent:true,opacity:.20,depthWrite:false})
-  const blockGlowMesh=new THREE.InstancedMesh(new THREE.BoxGeometry(1,1,1),blockGlowMaterial,otherEntries.length||1)
-  const pedestalMesh=new THREE.InstancedMesh(new THREE.BoxGeometry(1,1,1),new THREE.MeshStandardMaterial({roughness:.88,metalness:.16,vertexColors:true}),otherEntries.length||1)
-  otherEntries.forEach(([key,cell],index)=>{
+  // Helper: build an InstancedMesh group (block + glow wireframe + pedestal)
+  function makeBlockGroup(count, mat, glowColor, glowOpacity) {
+    const geom=new THREE.BoxGeometry(1,1,1)
+    const mesh=new THREE.InstancedMesh(geom,mat,count||1)
+    const glow=new THREE.InstancedMesh(geom,new THREE.MeshBasicMaterial({color:glowColor,wireframe:true,transparent:true,opacity:glowOpacity,depthWrite:false}),count||1)
+    const ped=new THREE.InstancedMesh(geom,new THREE.MeshStandardMaterial({roughness:.88,metalness:.16,vertexColors:true}),count||1)
+    glow.userData.blockGlow=true
+    return {mesh,glow,ped}
+  }
+
+  // Free mineable blocks — solid blue (no crypto texture so color shows correctly)
+  const freeMat=new THREE.MeshStandardMaterial({roughness:.52,metalness:.22,vertexColors:true,emissive:'#0a1a40',emissiveIntensity:.35})
+  const freeGroup=makeBlockGroup(freeEntries.length,freeMat,'#4488ff',.22)
+  freeEntries.forEach(([key,cell],index)=>{
+    const [row,col]=key.split(',').map(Number),height=blockTop(cell,row,col)
+    const cubeSide=.88,cubeBottom=Math.max(0,height-cubeSide)
+    position.set(col+.5,cubeBottom+cubeSide*.5,row+.5);scale.set(cubeSide,cubeSide,cubeSide)
+    matrix.compose(position,quaternion,scale);freeGroup.mesh.setMatrixAt(index,matrix)
+    scale.set(cubeSide+0.035,cubeSide+0.035,cubeSide+0.035)
+    matrix.compose(position,quaternion,scale);freeGroup.glow.setMatrixAt(index,matrix)
+    const color=new THREE.Color(BIOME_STYLE[biomeForCell(row,col)].block)
+    freeGroup.mesh.setColorAt(index,color)
+    const pedestalHeight=Math.max(.035,cubeBottom)
+    position.set(col+.5,pedestalHeight*.5,row+.5);scale.set(.66,pedestalHeight,.66)
+    matrix.compose(position,quaternion,scale);freeGroup.ped.setMatrixAt(index,matrix)
+    freeGroup.ped.setColorAt(index,color.clone().multiplyScalar(.38))
+  })
+  freeGroup.mesh.instanceMatrix.needsUpdate=true;freeGroup.glow.instanceMatrix.needsUpdate=true
+  if(freeGroup.mesh.instanceColor) freeGroup.mesh.instanceColor.needsUpdate=true
+  freeGroup.ped.instanceMatrix.needsUpdate=true;if(freeGroup.ped.instanceColor) freeGroup.ped.instanceColor.needsUpdate=true
+
+  // Unowned NFTJI blocks — bright amber, strong emissive so they glow clearly
+  const nftjiMat=new THREE.MeshStandardMaterial({color:'#ff9900',roughness:.48,metalness:.32,emissive:'#c05000',emissiveIntensity:.60})
+  const nftjiGroup=makeBlockGroup(nftjiEntries.length,nftjiMat,'#ffb347',.40)
+  nftjiEntries.forEach(([key],index)=>{
+    const [row,col]=key.split(',').map(Number),height=blockTop(cellMap.get(key),row,col)
+    const cubeSide=.88,cubeBottom=Math.max(0,height-cubeSide)
+    position.set(col+.5,cubeBottom+cubeSide*.5,row+.5);scale.set(cubeSide,cubeSide,cubeSide)
+    matrix.compose(position,quaternion,scale);nftjiGroup.mesh.setMatrixAt(index,matrix)
+    scale.set(cubeSide+0.045,cubeSide+0.045,cubeSide+0.045)
+    matrix.compose(position,quaternion,scale);nftjiGroup.glow.setMatrixAt(index,matrix)
+    const pedestalHeight=Math.max(.035,cubeBottom)
+    position.set(col+.5,pedestalHeight*.5,row+.5);scale.set(.66,pedestalHeight,.66)
+    matrix.compose(position,quaternion,scale);nftjiGroup.ped.setMatrixAt(index,matrix)
+    nftjiGroup.ped.setColorAt(index,new THREE.Color('#7a3800'))
+  })
+  nftjiGroup.mesh.instanceMatrix.needsUpdate=true;nftjiGroup.glow.instanceMatrix.needsUpdate=true
+  nftjiGroup.ped.instanceMatrix.needsUpdate=true;if(nftjiGroup.ped.instanceColor) nftjiGroup.ped.instanceColor.needsUpdate=true
+
+  // Owned blocks (NFTJI with owner + chain nodes) — wallet color, solid no dark texture
+  const ownedMat=new THREE.MeshStandardMaterial({roughness:.46,metalness:.38,vertexColors:true,emissive:'#000000',emissiveIntensity:.18})
+  const ownedGroup=makeBlockGroup(ownedEntries.length,ownedMat,'#67e8f9',.20)
+  const blockMesh=ownedGroup.mesh, blockGlowMesh=ownedGroup.glow, pedestalMesh=ownedGroup.ped
+  ownedEntries.forEach(([key,cell],index)=>{
     const [row,col]=key.split(',').map(Number),height=blockTop(cell,row,col)
     const cubeSide=.88,cubeBottom=Math.max(0,height-cubeSide)
     position.set(col+.5,cubeBottom+cubeSide*.5,row+.5);scale.set(cubeSide,cubeSide,cubeSide)
     matrix.compose(position,quaternion,scale);blockMesh.setMatrixAt(index,matrix)
     scale.set(cubeSide+0.035,cubeSide+0.035,cubeSide+0.035)
     matrix.compose(position,quaternion,scale);blockGlowMesh.setMatrixAt(index,matrix)
-    const biome=biomeForCell(row,col)
-    const color=new THREE.Color(cell.color||(cell.isChainNode?'#d6a91e':BIOME_STYLE[biome].block))
+    const color=new THREE.Color(cell.color||(cell.isChainNode?'#d6a91e':BIOME_STYLE[biomeForCell(row,col)].block))
     blockMesh.setColorAt(index,color)
     const pedestalHeight=Math.max(.035,cubeBottom)
     position.set(col+.5,pedestalHeight*.5,row+.5);scale.set(.66,pedestalHeight,.66)
     matrix.compose(position,quaternion,scale);pedestalMesh.setMatrixAt(index,matrix)
     pedestalMesh.setColorAt(index,color.clone().multiplyScalar(.42))
   })
-  blockMesh.instanceMatrix.needsUpdate=true
-  blockGlowMesh.instanceMatrix.needsUpdate=true
+  blockMesh.instanceMatrix.needsUpdate=true;blockGlowMesh.instanceMatrix.needsUpdate=true
   if(blockMesh.instanceColor) blockMesh.instanceColor.needsUpdate=true
-  pedestalMesh.instanceMatrix.needsUpdate=true
-  if(pedestalMesh.instanceColor) pedestalMesh.instanceColor.needsUpdate=true
-  blockGlowMesh.userData.blockGlow=true
+  pedestalMesh.instanceMatrix.needsUpdate=true;if(pedestalMesh.instanceColor) pedestalMesh.instanceColor.needsUpdate=true
 
-  // Unowned NFTJI blocks — no texture so vertex color is not multiplied down to black
-  const nftjiMat=new THREE.MeshStandardMaterial({color:'#ff9900',roughness:.50,metalness:.30,emissive:'#b84500',emissiveIntensity:.55})
-  const nftjiMesh=new THREE.InstancedMesh(new THREE.BoxGeometry(1,1,1),nftjiMat,nftjiEntries.length||1)
-  const nftjiGlowMat=new THREE.MeshBasicMaterial({color:'#ffb347',wireframe:true,transparent:true,opacity:.38,depthWrite:false})
-  const nftjiGlowMesh=new THREE.InstancedMesh(new THREE.BoxGeometry(1,1,1),nftjiGlowMat,nftjiEntries.length||1)
-  const nftjiPedestalMat=new THREE.MeshStandardMaterial({color:'#7a3800',roughness:.88,metalness:.16})
-  const nftjiPedestalMesh=new THREE.InstancedMesh(new THREE.BoxGeometry(1,1,1),nftjiPedestalMat,nftjiEntries.length||1)
+  // (kept as aliases so beacon loop below can still reference them)
+  const nftjiMesh=nftjiGroup.mesh, nftjiGlowMesh=nftjiGroup.glow, nftjiPedestalMesh=nftjiGroup.ped
   nftjiEntries.forEach(([key],index)=>{
     const [row,col]=key.split(',').map(Number),height=blockTop(cellMap.get(key),row,col)
     const cubeSide=.88,cubeBottom=Math.max(0,height-cubeSide)
@@ -2691,12 +2731,11 @@ function rebuildThreeWorld(state,cellMap,obstacles) {
     position.set(col+.5,pedestalHeight*.5,row+.5);scale.set(.66,pedestalHeight,.66)
     matrix.compose(position,quaternion,scale);nftjiPedestalMesh.setMatrixAt(index,matrix)
   })
-  nftjiMesh.instanceMatrix.needsUpdate=true
-  nftjiGlowMesh.instanceMatrix.needsUpdate=true
-  nftjiPedestalMesh.instanceMatrix.needsUpdate=true
-  nftjiGlowMesh.userData.blockGlow=true
-
-  world.add(pedestalMesh,blockMesh,blockGlowMesh,nftjiPedestalMesh,nftjiMesh,nftjiGlowMesh)
+  world.add(
+    freeGroup.ped, freeGroup.mesh, freeGroup.glow,
+    nftjiPedestalMesh, nftjiMesh, nftjiGlowMesh,
+    pedestalMesh, blockMesh, blockGlowMesh,
+  )
   for(const [key,cell] of allBlockEntries){
     if(!cell.isMarket&&!cell.isPortalNode&&!cell.isChainNode) continue
     const [row,col]=key.split(',').map(Number)
