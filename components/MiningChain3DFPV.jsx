@@ -3420,7 +3420,11 @@ export default function MiningChain3DFPV({
         const camZworld=gy - sinA*behindDist + rightZ*shoulderR
         const cosRoll=Math.cos(roll*0.4),sinRoll=Math.sin(roll*0.4)  // subtle roll in TPS
         threeState.camera.up.set(-sinA*sinRoll, cosRoll, cosA*sinRoll)
-        // Spring arm: pull camera toward player when world geometry occludes the avatar
+        // Spring arm: pull camera toward player when world geometry occludes the avatar.
+        // Phase 1 — horizontal pull-in along the player→camera ray.
+        // Phase 2 — vertical escape: if still too close after pull-in, rise over the
+        //           blocking geometry in 0.7-unit steps (max +4.2 units) until a clear
+        //           sightline is found.  Camera always prioritises seeing the player.
         {
           const eyeY=cameraZ+0.5
           const ra=threeState._v3a.set(gx,eyeY,gy)
@@ -3437,6 +3441,28 @@ export default function MiningChain3DFPV({
               if(hits.length>0){
                 const safe=Math.max(0.22,hits[0].distance-0.15)
                 rb.copy(ra).addScaledVector(dir,safe)
+              }
+              // Phase 2 — vertical escape when pull-in left camera < 1.5 units from player
+              if(rb.distanceTo(ra)<1.5){
+                let bestDist=rb.distanceTo(ra)
+                for(let extraY=0.7;extraY<=4.2;extraY+=0.7){
+                  const testY=cameraZ+aboveOffset+extraY
+                  threeState._v3c.set(camX-gx, testY-eyeY, camZworld-gy)
+                  const elevDist=threeState._v3c.length()
+                  threeState._v3c.divideScalar(elevDist)
+                  threeState.camRaycaster.set(ra,threeState._v3c)
+                  threeState.camRaycaster.near=0.05
+                  threeState.camRaycaster.far=elevDist
+                  const h2=threeState.camRaycaster.intersectObject(threeState.world,true)
+                  if(h2.length===0){
+                    rb.set(camX,testY,camZworld); break
+                  }
+                  const s2=Math.max(0.22,h2[0].distance-0.15)
+                  if(s2>bestDist){
+                    rb.copy(ra).addScaledVector(threeState._v3c,s2)
+                    bestDist=s2
+                  }
+                }
               }
             }
           } catch(_) { /* spring arm non-critical — fall through to default cam pos */ }
