@@ -1493,13 +1493,13 @@ function wallRgb(cell, dist, side, myWallet) {
       base = [Math.min(255,r*1.15|0), Math.min(255,g*1.15|0), Math.min(255,b*1.15|0)]
     }
   } else if (cell?.isMarket) {
-    base = [210, 125, 20]   // amber/orange — NFTJI block
+    base = [220, 145, 35]   // gold — block with NFTJI (purchasable)
   } else if (cell) {
-    base = [18, 88, 62]     // dark teal — free mineable block (distinct from NFTJI amber)
+    base = [35, 80, 210]    // blue — free mineable block (no NFTJI)
   } else {
     base = [10, 18, 42]
   }
-  return finish(base,cell?.owner ? .08 : 0)
+  return finish(base, cell?.isMarket ? .14 : cell && !cell.owner ? .06 : cell?.owner ? .08 : 0)
 }
 
 function worldToGrid(wx, wy) {

@@ -1936,7 +1936,7 @@ export default function RelayingTerminal({ accent = '#22d3ee' }) {
         }
         @media (max-width: 899px) and (orientation: portrait) {
           .mm3-irc-shell {
-            max-height: calc(100svh - 17rem);
+            height: calc(100svh - 18.5rem);
             overflow: hidden;
           }
           /* Aside: one-line strip showing only the wallet count */
