@@ -4068,7 +4068,7 @@ export default function MiningChain3DFPV({
         w, tX, tY, dist, gx: sgx, gy: sgy, z:remoteZ, supportZ,
         angle:Number(pres.angle)||0, swingAt:Number(pres.swingAt)||0,
         isBot:Boolean(pres.isBot), taskLabel:pres.taskLabel||null, taskPhase:pres.taskPhase||null,
-        color: colorFromAddress(w),
+        color: colorFromAddress(w), poolCode: pres.poolCode||null,
       })
     }
     sprites.sort((a,b) => b.dist - a.dist)
@@ -4260,21 +4260,35 @@ export default function MiningChain3DFPV({
     }
 
     if(threeState){
-      // Canvas was already cleared early; just draw wallet name labels over the 3D scene.
+      // Use Three.js camera projection so labels track the 3D avatar exactly,
+      // regardless of spring-arm position or pitch changes.
+      const _sv=threeState._v3a
       for(const sprite of sprites){
-        const point=cameraVertex(sprite.gx,sprite.gy,(sprite.z||0)+.58)
-        if(point.depth<=.12) continue
-        const screen=screenVertex(point)
-        if(screen.x<-80||screen.x>W+80||screen.y<-40||screen.y>H+40) continue
+        // Project the avatar head-top in Three.js world space (X=gx, Y=height, Z=gy)
+        _sv.set(sprite.gx,(sprite.z||0)+1.05,sprite.gy)
+        _sv.project(threeState.camera)
+        if(_sv.z>1) continue  // behind camera
+        const sx=(_sv.x+1)/2*W
+        const sy=(-_sv.y+1)/2*H
+        if(sx<-80||sx>W+80||sy<-40||sy>H+40) continue
         const hp=Math.max(0,Math.min(100,Number(healthMapRef.current[sprite.w]??100)))
         const label=sprite.isBot?`${sprite.w.slice(0,6)}…${sprite.w.slice(-4)} (BOT)`:`${sprite.w.slice(0,6)}…${sprite.w.slice(-4)}`
         const alpha=Math.max(.28,1-sprite.dist*.045)
-        ctx.globalAlpha=alpha;ctx.textAlign='center';ctx.textBaseline='bottom';ctx.font='bold 10px monospace'
-        ctx.fillStyle='rgba(0,0,0,.72)';ctx.fillText(label,screen.x+1,screen.y-5)
-        ctx.fillStyle=sprite.color;ctx.fillText(label,screen.x,screen.y-6)
-        const barW=42,barY=screen.y-3
-        ctx.fillStyle='#26070e';ctx.fillRect(screen.x-barW/2,barY,barW,4)
-        ctx.fillStyle=hp>60?'#4ade80':hp>25?'#facc15':'#fb7185';ctx.fillRect(screen.x-barW/2,barY,barW*hp/100,4)
+        ctx.globalAlpha=alpha;ctx.textAlign='center';ctx.textBaseline='top'
+        let nextY=sy
+        if(sprite.poolCode){
+          ctx.font='bold 9px monospace'
+          ctx.fillStyle='rgba(0,0,0,.65)';ctx.fillText(`[${sprite.poolCode}]`,sx+1,nextY+1)
+          ctx.fillStyle='#f59e0b';ctx.fillText(`[${sprite.poolCode}]`,sx,nextY)
+          nextY+=12
+        }
+        ctx.font='bold 10px monospace'
+        ctx.fillStyle='rgba(0,0,0,.72)';ctx.fillText(label,sx+1,nextY+1)
+        ctx.fillStyle=sprite.color;ctx.fillText(label,sx,nextY)
+        nextY+=13
+        const barW=42
+        ctx.fillStyle='#26070e';ctx.fillRect(sx-barW/2,nextY,barW,4)
+        ctx.fillStyle=hp>60?'#4ade80':hp>25?'#facc15':'#fb7185';ctx.fillRect(sx-barW/2,nextY,barW*hp/100,4)
         ctx.globalAlpha=1
       }
     }
