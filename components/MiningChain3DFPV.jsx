@@ -4575,7 +4575,7 @@ export default function MiningChain3DFPV({
     const chainStatsBottom = drawChainStats(ctx,W,H,chainStatsRef.current,es,(walletDock?.bottom||8)+6)
 
     // ── Facing block info HUD — left side, below MM3 BLOCK CHAIN panel ────────
-    if (fwdDist <= 2.0) {
+    if (fwdDist <= 2.0 && !enemyTargetRef.current?.wallet) {
       const _isObsHUD = fwdCell?.isObstacle || validObstaclesRef.current?.has(`${fwdMy},${fwdMx}`)
       const _maxHudDist = (!_isObsHUD && fwdCell?.isMarket && !fwdCell?.owner) ? 1.5 : 2.0
       if ((_isObsHUD || fwdFaceSolid) && fwdDist <= _maxHudDist) {
