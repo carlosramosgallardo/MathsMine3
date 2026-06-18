@@ -88,7 +88,7 @@ export default function RootLayout({ children }) {
                     <RouteShell>
                       <Header />
                       <GlobalRouteLoading />
-                      <main className="mm3-shell-main pt-[148px] max-sm:portrait:pt-[200px] sm:pt-[170px] lg:pt-[192px] pb-[64px] max-sm:pb-[80px] h-screen overflow-y-auto">
+                      <main className="mm3-shell-main pt-[104px] max-sm:portrait:pt-[156px] sm:pt-[118px] lg:pt-[140px] pb-[64px] max-sm:pb-[80px] h-screen overflow-y-auto">
                         <NotificationChips />
                         {children}
                       </main>

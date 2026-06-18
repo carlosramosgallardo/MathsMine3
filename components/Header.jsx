@@ -194,11 +194,6 @@ export default function Header() {
         <AuthBar mode="wallet" />
       </div>
 
-      <nav className="mm3-header-nav relative z-[30] h-11 sm:h-[52px] overflow-x-auto no-scrollbar px-3 sm:px-0">
-        <div className="mm3-header-nav-inner mx-auto max-w-5xl h-full">
-          <NavLinks className="h-full justify-start sm:justify-center" />
-        </div>
-      </nav>
     </header>
   )
 }
