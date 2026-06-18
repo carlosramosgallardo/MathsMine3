@@ -1627,17 +1627,18 @@ function drawMinimap(ctx, gr, gc, angle, cellMap, presenceMap, myWallet, W, H, c
   const drawPlayerArrow = (worldX, worldY, heading, color, isMe = false, isBot = false) => {
     const x = mapX(worldX)
     const y = mapY(worldY)
-    const size = isMe ? (isMobile ? 5.2 : 6.2) : (isMobile ? 4 : 4.8)
+    const size = isMe ? (isMobile ? 6.5 : 7.8) : (isMobile ? 5.2 : 6.2)
     const pulse = .72 + Math.sin(now / 420 + worldX * .8 + worldY) * .18
     ctx.save()
     ctx.translate(x, y)
     ctx.rotate(Number(heading) || 0)
-    ctx.globalAlpha = isMe ? 1 : .9
+    ctx.globalAlpha = 1
+    // Double-pass glow: wide soft halo first, then sharp inner glow
     ctx.shadowColor = color
-    ctx.shadowBlur = isMe ? 9 : 5
+    ctx.shadowBlur = isMe ? 28 : 18
     ctx.fillStyle = color
-    ctx.strokeStyle = isMe ? '#f8fafc' : 'rgba(255,255,255,.72)'
-    ctx.lineWidth = isMe ? 1.1 : .7
+    ctx.strokeStyle = isMe ? '#ffffff' : 'rgba(255,255,255,.92)'
+    ctx.lineWidth = isMe ? 1.6 : 1.2
     ctx.beginPath()
     ctx.moveTo(size * 1.12, 0)
     ctx.lineTo(-size * .62, size * .58)
@@ -1645,16 +1646,29 @@ function drawMinimap(ctx, gr, gc, angle, cellMap, presenceMap, myWallet, W, H, c
     ctx.lineTo(-size * .62, -size * .58)
     ctx.closePath()
     ctx.fill()
+    ctx.shadowBlur = isMe ? 12 : 7
     ctx.stroke()
     ctx.shadowBlur = 0
-    ctx.fillStyle = isBot ? '#facc15' : '#041019'
+    ctx.fillStyle = isBot ? '#facc15' : '#ffffff'
     ctx.beginPath()
-    ctx.arc(-size * .10, 0, Math.max(1, size * .18), 0, Math.PI * 2)
+    ctx.arc(-size * .10, 0, Math.max(1, size * .22), 0, Math.PI * 2)
     ctx.fill()
     if (isMe) {
       ctx.globalAlpha = pulse
+      ctx.shadowColor = '#facc15'
+      ctx.shadowBlur = 10
       ctx.strokeStyle = '#facc15'
-      ctx.lineWidth = .8
+      ctx.lineWidth = 1.2
+      ctx.beginPath()
+      ctx.arc(0, 0, size * 1.45, 0, Math.PI * 2)
+      ctx.stroke()
+    } else {
+      // Subtle ring for remote players too so they pop against the map
+      ctx.globalAlpha = .55
+      ctx.shadowColor = color
+      ctx.shadowBlur = 8
+      ctx.strokeStyle = color
+      ctx.lineWidth = .9
       ctx.beginPath()
       ctx.arc(0, 0, size * 1.38, 0, Math.PI * 2)
       ctx.stroke()
