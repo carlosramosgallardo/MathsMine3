@@ -1160,13 +1160,29 @@ footer.bg-black\/97,
   .mm3-splash-scanlines { display: none; }
 }
 
-/* mobile tweaks */
+/* home badge in header */
+.mm3-home-badge {
+  font: 700 .44rem/1 monospace;
+  letter-spacing: .14em;
+  color: rgba(34,211,238,.48);
+  text-transform: uppercase;
+  user-select: none;
+}
+a:hover .mm3-home-badge { color: rgba(34,211,238,.80); }
+
+/* mobile tweaks — everything fits in one screen */
 @media (max-width:480px) {
-  .mm3-splash { min-height: calc(100vh - 156px); padding: 2rem 1rem 4rem; }
-  .mm3-portal-grid { grid-template-columns: repeat(3, 1fr); gap: .5rem; }
-  .mm3-portal-card { padding: .75rem .4rem .7rem; }
-  .mm3-portal-icon { font-size: 1.25rem; }
-  .mm3-portal-name { font-size: .55rem; }
+  .mm3-splash { padding: .9rem 1rem 1rem; }
+  .mm3-splash-kicker { margin-bottom: .45rem; font-size: .58rem; }
+  .mm3-splash-title { font-size: clamp(1.75rem,8vw,2.4rem); margin-bottom: .35rem; }
+  .mm3-splash-sub { font-size: .62rem; margin-bottom: .9rem; letter-spacing: .09em; }
+  .mm3-splash-cta { padding: .6rem 1.5rem; font-size: .78rem; }
+  .mm3-splash-disclaimer { margin-top: .55rem; font-size: .52rem; }
+  .mm3-portal { padding: .7rem .7rem 1rem; }
+  .mm3-portal-grid { grid-template-columns: repeat(3, 1fr); gap: .4rem; }
+  .mm3-portal-card { padding: .55rem .3rem .5rem; gap: .2rem; }
+  .mm3-portal-icon { font-size: 1.1rem; }
+  .mm3-portal-name { font-size: .52rem; }
 }
 
 /* legacy lh-* stubs (used nowhere now, but kept to avoid any residual reference) */

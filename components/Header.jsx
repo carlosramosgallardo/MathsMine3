@@ -173,9 +173,10 @@ export default function Header() {
             href="/"
             onClick={triggerHomeLoading}
             aria-label="MathsMine3 home"
-            className="shrink-0 block focus:outline-none transition-opacity duration-150 hover:opacity-85 mx-0.5 sm:mx-1"
+            className="shrink-0 flex flex-col items-center gap-[2px] focus:outline-none transition-opacity duration-150 hover:opacity-85 mx-0.5 sm:mx-1"
           >
             <Image src="/og-image.jpg" alt="MM3" width={38} height={38} priority />
+            <span className="mm3-home-badge">⬡ HOME</span>
           </Link>
           <div aria-hidden="true" className="hidden basis-full max-sm:portrait:block max-sm:portrait:h-0" />
           <div className="contents max-sm:portrait:flex max-sm:portrait:w-full max-sm:portrait:items-center max-sm:portrait:justify-center max-sm:portrait:gap-2">
