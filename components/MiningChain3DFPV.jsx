@@ -2584,6 +2584,13 @@ function addBiomeLandmarks(world,textures) {
     const core=new THREE.Mesh(new THREE.OctahedronGeometry(.18),new THREE.MeshBasicMaterial({color}))
     beacon.add(ringA,ringB,core);beacon.position.set(x,4.6,z);world.add(beacon)
   }
+  // Mark every landmark mesh so the occlusion X-ray never touches them.
+  // Obstacle geometry (ramps/spheres/trees) is added to world AFTER this call
+  // and will correctly remain eligible for transparency.
+  world.traverse(obj=>{
+    if(obj.isMesh&&!obj.userData.biomeSurface&&!obj.userData.skipOcclusion)
+      obj.userData.skipOcclusion=true
+  })
 }
 
 function makeEmojiSprite(emoji,color) {
