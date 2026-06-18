@@ -3407,7 +3407,7 @@ export default function MiningChain3DFPV({
     // Capped rays make finer ultrawide strips affordable without traversing
     // the whole 56-cell world for every screen column.
     const stripW=threeStateRef.current?W:(W<=1600?2:STRIP_W)
-    const strips=threeStateRef.current?1:Math.ceil(W/stripW)
+    const strips=threeStateRef.current?0:Math.ceil(W/stripW)
 
     if (!zBufferRef.current || zBufferRef.current.length !== strips) {
       zBufferRef.current = new Float32Array(strips)
@@ -3716,6 +3716,10 @@ export default function MiningChain3DFPV({
     const [ar,ag,ab] = atmosphereCell?.color ? hexToRgb(atmosphereCell.color) : [0,0,0]
     const AT = 0.18
 
+    if(threeState){
+      // Three.js owns the scene — clear 2D canvas immediately so WebGL canvas shows through.
+      ctx.clearRect(0,0,W,H)
+    } else {
     // Ceiling — brighter base values
     const cg = ctx.createLinearGradient(0,0,0,Math.max(1,sceneSplitY))
     cg.addColorStop(0,`rgb(${Math.round(8+ar*AT)},${Math.round(13+ag*AT)},${Math.round(34+ab*AT)})`)
@@ -3739,6 +3743,7 @@ export default function MiningChain3DFPV({
     haze.addColorStop(.5,'rgba(38,94,132,.16)')
     haze.addColorStop(1,'rgba(10,28,58,0)')
     ctx.fillStyle=haze;ctx.fillRect(0,sceneSplitY-hazeH,W,hazeH*2)
+    } // end !threeState (backgrounds)
 
     // World-space grid made from projected cell edges. This is dramatically
     // cheaper than per-pixel floor casting and remains stable during motion.
@@ -3753,6 +3758,7 @@ export default function MiningChain3DFPV({
       if(cellMap.has(key)) return blockTop(cellMap.get(key),row,col)
       return 0
     }
+    if(!threeState){
     ctx.save()
     ctx.beginPath(); ctx.rect(0, Math.max(0, sceneSplitY - 1), W, H); ctx.clip()
     ctx.globalAlpha=.12;ctx.strokeStyle=C;ctx.lineWidth=1;ctx.beginPath()
@@ -3769,7 +3775,9 @@ export default function MiningChain3DFPV({
     ctx.stroke()
     ctx.restore()
     ctx.globalAlpha=1
+    } // end !threeState (floor grid)
 
+    if(!threeState){
     // Horizontal surfaces are bidirectional: platforms are visible from above
     // and suspended bridges expose a proper underside from below. Near-plane
     // clipping keeps the cell beneath the player stable instead of hiding it.
@@ -3840,6 +3848,7 @@ export default function MiningChain3DFPV({
       }
       ctx.restore()
     }
+    } // end !threeState (surfaces)
 
     // Pre-compute forward cell
     const {mx:fwdMx,my:fwdMy,cell:fwdCell,perpDist:fwdDist} = castRay(px,py,angle,cellMap,validObstaclesRef.current)
@@ -4059,6 +4068,7 @@ export default function MiningChain3DFPV({
       }
     }
 
+    if(!threeState){
     // ── Emoji on all visible wall faces ──────────────────────────────────────
     for (const vw of visibleWalls.values()) {
       const scrX = (vw.x1 + vw.x2) / 2
@@ -4071,6 +4081,7 @@ export default function MiningChain3DFPV({
       ctx.fillText(vw.cell.emoji, scrX, scrY)
     }
     ctx.globalAlpha = 1
+    } // end !threeState (emoji)
 
     // ── Presence sprites (retro wallet shape, grounded to floor) ────────────────
     const camGX = px / CELL_SIZE, camGY = py / CELL_SIZE
@@ -4101,6 +4112,7 @@ export default function MiningChain3DFPV({
     }
     sprites.sort((a,b) => b.dist - a.dist)
 
+    if(!threeState)
     for (const { w, tX, tY, gx, gy, z:remoteZ, supportZ, angle:remoteAngle, swingAt, isBot, taskLabel, taskPhase, color } of sprites) {
       const groundCamera = cameraPoint(0, tY)
       if (groundCamera.rotatedDepth <= 0.05) continue
@@ -4287,7 +4299,7 @@ export default function MiningChain3DFPV({
     }
 
     if(threeState){
-      ctx.clearRect(0,0,W,H)
+      // Canvas was already cleared early; just draw wallet name labels over the 3D scene.
       for(const sprite of sprites){
         const point=cameraVertex(sprite.gx,sprite.gy,(sprite.z||0)+.58)
         if(point.depth<=.12) continue
