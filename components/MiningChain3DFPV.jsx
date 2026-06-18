@@ -3095,7 +3095,7 @@ export default function MiningChain3DFPV({
       ice:createProceduralTexture('ice'),inferno:createProceduralTexture('inferno'),crypto:createProceduralTexture('crypto'),
     }
     const state={renderer,scene,camera,hudScene,hudCamera,localAvatar:null,localAvatarId:null,world:null,avatars:new Map(),pixelRatio:0,size:new THREE.Vector2(),hemi,key,rim,textures,
-      camRaycaster:new THREE.Raycaster(),_v3a:new THREE.Vector3(),_v3b:new THREE.Vector3(),_v3c:new THREE.Vector3()}
+      camRaycaster:new THREE.Raycaster(),_v3a:new THREE.Vector3(),_v3b:new THREE.Vector3(),_v3c:new THREE.Vector3(),_v3d:new THREE.Vector3(),_v3e:new THREE.Vector3()}
     threeStateRef.current=state
     rebuildThreeRef.current=()=>rebuildThreeWorld(state,cellMapRef.current,validObstaclesRef.current)
     rebuildThreeRef.current()
@@ -3421,48 +3421,58 @@ export default function MiningChain3DFPV({
         const cosRoll=Math.cos(roll*0.4),sinRoll=Math.sin(roll*0.4)  // subtle roll in TPS
         threeState.camera.up.set(-sinA*sinRoll, cosRoll, cosA*sinRoll)
         // Spring arm: pull camera toward player when world geometry occludes the avatar.
-        // Phase 1 — horizontal pull-in along the player→camera ray.
-        // Phase 2 — vertical escape: if still too close after pull-in, rise over the
-        //           blocking geometry in 0.7-unit steps (max +4.2 units) until a clear
-        //           sightline is found.  Camera always prioritises seeing the player.
+        // Casts a ray from the player eye to each candidate position; if blocked, the
+        // camera is pulled to just in front of the hit.  When the primary position is
+        // too close (<1.5 u) alternative positions are tried in priority order:
+        //   1. rise vertically at primary angle   2. centre (no shoulder offset)
+        //   3. opposite shoulder                  (each also tried elevated)
+        // The candidate that achieves the greatest clear distance from the player wins.
         {
           const eyeY=cameraZ+0.5
           const ra=threeState._v3a.set(gx,eyeY,gy)
           const rb=threeState._v3b.set(camX,cameraZ+aboveOffset,camZworld)
-          const dir=threeState._v3c.copy(rb).sub(ra)
-          const dist=dir.length()
+          // Cast ray from player to (cx,cy,cz); update rb to achieved safe position.
+          // Returns the clear distance achieved (possibly < ideal if blocked).
+          const tryCam=(cx,cy,cz)=>{
+            threeState._v3d.set(cx,cy,cz)
+            threeState._v3c.copy(threeState._v3d).sub(ra)
+            const d=threeState._v3c.length()
+            if(d<0.05){ rb.copy(ra); return 0 }
+            threeState._v3c.divideScalar(d)
+            threeState.camRaycaster.set(ra,threeState._v3c)
+            threeState.camRaycaster.near=0.05
+            threeState.camRaycaster.far=d
+            const hits=threeState.camRaycaster.intersectObject(threeState.world,true)
+            if(hits.length===0){ rb.copy(threeState._v3d); return d }
+            const safe=Math.max(0.22,hits[0].distance-0.15)
+            rb.copy(ra).addScaledVector(threeState._v3c,safe)
+            return safe
+          }
           try {
-            if(dist>0.05&&threeState.world){
-              dir.divideScalar(dist)
-              threeState.camRaycaster.set(ra,dir)
-              threeState.camRaycaster.near=0.05
-              threeState.camRaycaster.far=dist
-              const hits=threeState.camRaycaster.intersectObject(threeState.world,true)
-              if(hits.length>0){
-                const safe=Math.max(0.22,hits[0].distance-0.15)
-                rb.copy(ra).addScaledVector(dir,safe)
-              }
-              // Phase 2 — vertical escape when pull-in left camera < 1.5 units from player
+            if(threeState.world){
+              // Phase 1 — primary position
+              tryCam(camX,cameraZ+aboveOffset,camZworld)
+              // Phase 2 — try alternatives when camera is still too close to player
               if(rb.distanceTo(ra)<1.5){
                 let bestDist=rb.distanceTo(ra)
-                for(let extraY=0.7;extraY<=4.2;extraY+=0.7){
-                  const testY=cameraZ+aboveOffset+extraY
-                  threeState._v3c.set(camX-gx, testY-eyeY, camZworld-gy)
-                  const elevDist=threeState._v3c.length()
-                  threeState._v3c.divideScalar(elevDist)
-                  threeState.camRaycaster.set(ra,threeState._v3c)
-                  threeState.camRaycaster.near=0.05
-                  threeState.camRaycaster.far=elevDist
-                  const h2=threeState.camRaycaster.intersectObject(threeState.world,true)
-                  if(h2.length===0){
-                    rb.set(camX,testY,camZworld); break
-                  }
-                  const s2=Math.max(0.22,h2[0].distance-0.15)
-                  if(s2>bestDist){
-                    rb.copy(ra).addScaledVector(threeState._v3c,s2)
-                    bestDist=s2
-                  }
+                const bestPos=threeState._v3e.copy(rb)
+                const cx0=gx-cosA*behindDist,              cz0=gy-sinA*behindDist
+                const cxOpp=gx-cosA*behindDist-rightX*shoulderR, czOpp=gy-sinA*behindDist-rightZ*shoulderR
+                const baseY=cameraZ+aboveOffset
+                const candidates=[
+                  [camX, baseY+0.7,camZworld],[camX,baseY+1.4,camZworld],[camX,baseY+2.1,camZworld],
+                  [camX, baseY+2.8,camZworld],[camX,baseY+3.5,camZworld],[camX,baseY+4.2,camZworld],
+                  [cx0,  baseY,    cz0      ],[cx0, baseY+0.7,cz0      ],[cx0, baseY+1.4,cz0      ],
+                  [cx0,  baseY+2.1,cz0      ],[cx0, baseY+2.8,cz0      ],
+                  [cxOpp,baseY,    czOpp    ],[cxOpp,baseY+0.7,czOpp   ],[cxOpp,baseY+1.4,czOpp   ],
+                  [cxOpp,baseY+2.1,czOpp    ],[cxOpp,baseY+2.8,czOpp   ],
+                ]
+                for(const [cx,cy,cz] of candidates){
+                  const d=tryCam(cx,cy,cz)
+                  if(d>bestDist){ bestDist=d; bestPos.copy(rb) }
+                  if(bestDist>=1.5) break  // good enough — stop searching
                 }
+                rb.copy(bestPos)
               }
             }
           } catch(_) { /* spring arm non-critical — fall through to default cam pos */ }
@@ -4575,7 +4585,7 @@ export default function MiningChain3DFPV({
     const onMouseMove=(e)=>{
       if(document.pointerLockElement!==canvasRef.current) return
       // Acceleration curve: raw pixels → scaled with sqrt for precise slow / fast fast
-      const BASE_SENS=0.00155
+      const BASE_SENS=0.0026
       const applyAccel=(raw)=>{
         const sign=raw<0?-1:1
         const abs=Math.abs(raw)
@@ -4810,12 +4820,12 @@ export default function MiningChain3DFPV({
         const changed=!prev
           || Math.hypot(nextState.gx-prev.gx,nextState.gy-prev.gy)>0.004
           || Math.abs(nextState.z-prev.z)>0.004
-          || Math.abs(nextState.angle-prev.angle)>0.008
-          || Math.abs(nextState.pitch-prev.pitch)>0.008
+          || Math.abs(nextState.angle-prev.angle)>0.03
+          || Math.abs(nextState.pitch-prev.pitch)>0.03
           || nextState.swingAt!==prev.swingAt
-        // 6-7 updates/sec remains smooth after interpolation while cutting
-        // Realtime fan-out almost in half. Idle heartbeats are deliberately rare.
-        if(now-lastRealtimeRef.current>150&&(changed||now-(prev?.sentAt||0)>2500)){
+        // ~4 updates/sec keeps movement smooth after interpolation.
+        // Idle heartbeats every 6 s — enough to keep other clients in sync.
+        if(now-lastRealtimeRef.current>250&&(changed||now-(prev?.sentAt||0)>6000)){
           lastRealtimeRef.current=now
           lastSentStateRef.current={...nextState,sentAt:now}
           onPositionRealtimeRef.current?.(nextState.gx,nextState.gy,nextState)

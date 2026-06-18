@@ -1253,6 +1253,14 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
       if (!document.hidden) refresh();
     };
 
+    // Debounced version for postgres_changes — DB batch updates fire many events in quick
+    // succession; coalesce them into a single fetch after 1 s to cut realtime message cost.
+    let _dbDebounce = null;
+    const refreshDebounced = () => {
+      clearTimeout(_dbDebounce);
+      _dbDebounce = setTimeout(refresh, 1000);
+    };
+
     window.addEventListener('mm3-db-updated', refresh);
     window.addEventListener('mm3-correct', refresh);
     window.addEventListener('focus', refreshWhenVisible);
@@ -1261,20 +1269,21 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
     const poll = setInterval(refreshWhenVisible, 5_000);
     const channel = supabase
       .channel('mm3-leaderboard-live')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'player_progress' }, refresh)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'leaderboard_data' }, refresh)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'mm3_command_penalties' }, refresh)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'mm3_wallet_pools' }, refresh)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'mm3_wallet_pool_members' }, refresh)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'mm3_squeezing_nftji' }, refresh)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'mm3_mined_blocks' }, refresh)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'mm3_pool_disputes' }, refresh)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'mm3_pool_dispute_wallets' }, refresh)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'mm3_pool_dispute_votes' }, refresh)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'player_progress' }, refreshDebounced)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'leaderboard_data' }, refreshDebounced)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'mm3_command_penalties' }, refreshDebounced)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'mm3_wallet_pools' }, refreshDebounced)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'mm3_wallet_pool_members' }, refreshDebounced)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'mm3_squeezing_nftji' }, refreshDebounced)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'mm3_mined_blocks' }, refreshDebounced)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'mm3_pool_disputes' }, refreshDebounced)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'mm3_pool_dispute_wallets' }, refreshDebounced)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'mm3_pool_dispute_votes' }, refreshDebounced)
       .subscribe();
 
     return () => {
       clearRefreshTimers();
+      clearTimeout(_dbDebounce);
       clearInterval(poll);
       supabase.removeChannel(channel);
       window.removeEventListener('mm3-db-updated', refresh);

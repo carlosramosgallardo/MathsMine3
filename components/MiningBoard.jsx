@@ -46,64 +46,40 @@ function notify(msg, type = 'info') {
   }
 }
 
-async function broadcastIrcMessage(payload) {
-  const channel = supabase.channel('mm3-irc-relay');
-  try {
-    await new Promise((resolve) => {
-      let settled = false;
-      const done = () => {
-        if (settled) return;
-        settled = true;
-        resolve();
-      };
-      const timer = setTimeout(done, 1500);
-      channel.subscribe(async (status) => {
-        if (status === 'SUBSCRIBED') {
-          clearTimeout(timer);
-          await channel.send({ type: 'broadcast', event: 'message', payload }).catch(() => {});
-          done();
-        }
-        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
-          clearTimeout(timer);
-          done();
-        }
-      });
+// Persistent send-only channel — avoids a subscribe handshake per IRC call.
+// Messages are queued while the channel is connecting and flushed on SUBSCRIBED.
+let _ircSendCh = null;
+let _ircSendStatus = 'CLOSED';
+const _ircSendQueue = [];
+
+function _flushIrcQueue() {
+  if (_ircSendStatus !== 'SUBSCRIBED' || !_ircSendQueue.length) return;
+  _ircSendQueue.splice(0).forEach((msg) => _ircSendCh.send(msg).catch(() => {}));
+}
+
+function _ircSend(msg) {
+  if (!_ircSendCh) {
+    _ircSendCh = supabase.channel('mm3-irc-relay');
+    _ircSendStatus = 'JOINING';
+    _ircSendCh.subscribe((status) => {
+      _ircSendStatus = status;
+      if (status === 'SUBSCRIBED') _flushIrcQueue();
+      if (status === 'CHANNEL_ERROR' || status === 'CLOSED') {
+        _ircSendCh = null;
+        _ircSendStatus = 'CLOSED';
+      }
     });
-  } finally {
-    supabase.removeChannel(channel);
   }
+  if (_ircSendStatus === 'SUBSCRIBED') _ircSendCh.send(msg).catch(() => {});
+  else _ircSendQueue.push(msg);
+}
+
+async function broadcastIrcMessage(payload) {
+  _ircSend({ type: 'broadcast', event: 'message', payload });
 }
 
 async function broadcastIrcMarketRefresh() {
-  const channel = supabase.channel('mm3-irc-relay');
-  try {
-    await new Promise((resolve) => {
-      let settled = false;
-      const done = () => {
-        if (settled) return;
-        settled = true;
-        resolve();
-      };
-      const timer = setTimeout(done, 1500);
-      channel.subscribe(async (status) => {
-        if (status === 'SUBSCRIBED') {
-          clearTimeout(timer);
-          await channel.send({
-            type: 'broadcast',
-            event: 'market-status-refresh',
-            payload: { ts: Date.now() },
-          }).catch(() => {});
-          done();
-        }
-        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
-          clearTimeout(timer);
-          done();
-        }
-      });
-    });
-  } finally {
-    supabase.removeChannel(channel);
-  }
+  _ircSend({ type: 'broadcast', event: 'market-status-refresh', payload: { ts: Date.now() } });
 }
 
 function openRankingWallet(wallet) {
