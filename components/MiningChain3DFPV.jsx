@@ -2115,12 +2115,12 @@ function drawWalletDock(ctx, W, H, myNftjis, health, es, isLoggedWallet) {
   const mobile = W < 600
   const SLOT_W = mobile ? 30 : 36, SLOT_H = mobile ? 42 : 48
   const GAP = 4, PAD_X = 8, PAD_Y = 5, HEADER_H = 3
+  const COLS = 3                                     // max 3 slots per row
   const skills = myNftjis || []
-  const minimumSlots = mobile ? 3 : 4
-  const slotCount = Math.max(skills.length, minimumSlots)
-  const skillsW = slotCount ? PAD_X * 2 + slotCount * (SLOT_W + GAP) - GAP : 0
-  const pw = slotCount ? skillsW : (mobile ? Math.min(158, W * .46) : 178)
-  const ph = slotCount ? PAD_Y * 2 + HEADER_H + SLOT_H : (mobile ? 12 : 24)
+  const slotCount = Math.max(skills.length, COLS)    // at least one full row
+  const rowCount = Math.ceil(slotCount / COLS)
+  const pw = PAD_X * 2 + COLS * (SLOT_W + GAP) - GAP
+  const ph = PAD_Y * 2 + HEADER_H + rowCount * (SLOT_H + GAP) - GAP
 
   const px = 6
   const healthY = 8
@@ -2149,11 +2149,14 @@ function drawWalletDock(ctx, W, H, myNftjis, health, es, isLoggedWallet) {
   ctx.fillStyle = hpColor + 'aa'
   ctx.fillRect(px, py, pw, 2)
 
-  const slotY = py + PAD_Y + HEADER_H
+  const baseSlotY = py + PAD_Y + HEADER_H
   for (let i = 0; i < slotCount; i++) {
     const skill = skills[i]
     const { emoji, level, isActive, blockKey, source } = skill || {}
-    const sx = px + PAD_X + i * (SLOT_W + GAP)
+    const col = i % COLS
+    const row = Math.floor(i / COLS)
+    const sx = px + PAD_X + col * (SLOT_W + GAP)
+    const slotY = baseSlotY + row * (SLOT_H + GAP)
     const ability = emoji === '❤️'
       ? { lines:['SPEED +10%'], color:'#fb7185' }
       : (emoji === '⚔️' || blockKey === 'sq-atk')
