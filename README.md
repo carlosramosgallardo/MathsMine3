@@ -399,6 +399,17 @@ Owning a Mining NFTJI unlocks one daily Relaying command.
 
 ### MM3 Block Chain
 
+The 3D mining HUD displays a **MM3 BLOCK CHAIN** stats panel with two block type counters:
+
+| Counter | Label | Mined (X) | Free (Y) |
+|---|---|---|---|
+| Regular Blocks | `Regular Blocks X / Y` | Cell has an owner and is **not** an NFTJI — permanently locked to first miner | Cell has no owner and is **not** an NFTJI — never yet mined |
+| NFTJI Blocks | `NFTJI Blocks X / Y` | Cell is an NFTJI and is **currently owned** by at least 1 wallet | Cell is an NFTJI with **no current owner** (was resold or never bought) |
+
+**Regular Blocks** are mono-owner: once a wallet mines one, that cell is locked permanently. The owner never changes and the block can never be freed. There is no resell mechanic for Regular Blocks.
+
+**NFTJI Blocks** are multi-owner over time: any wallet can buy an NFTJI block, resell it (removing their ownership), and a different wallet can buy it later. The counter reflects the **current** owner state — if at least 1 wallet holds it right now, it counts as mined; if no wallet holds it, it counts as free.
+
 > Open the block card to see its requirements (min level + required MM3 global value). When both conditions are met, go to Relaying and type `/mine block #XXX`. First wallet to meet the requirement claims the block permanently.
 
 Cells that are not fixed Mining NFTJIs are **open blocks**. They are not bought, sold, resold, linked to YouTube, or tied to Mining formulas. Instead, they can be mined from Relaying with:
@@ -1372,6 +1383,17 @@ Tener un NFTJI de Mining desbloquea un comando de Relaying diario.
 > **Comando secreto:** cada NFTJI tiene un comando oculto desbloqueado al nivel de wallet indicado en el Catálogo de Emojis (columna `Nivel secreto`). Ejecutarlo desde Relaying otorga la recompensa diaria **RELAYING (SECRET)** (€5.00) y activa un efecto de robo — el ejecutor gana lo que los rivales pierden.
 
 ### MM3 Block Chain
+
+El HUD del mundo 3D muestra un panel **MM3 BLOCK CHAIN** con dos contadores de tipo de bloque:
+
+| Contador | Etiqueta | Minado (X) | Libre (Y) |
+|---|---|---|---|
+| Bloques regulares | `Regular Blocks X / Y` | Celda con owner que **no** es NFTJI — bloqueada permanentemente al primer minero | Celda sin owner que **no** es NFTJI — nunca minada |
+| Bloques NFTJI | `NFTJI Blocks X / Y` | Celda NFTJI **actualmente con dueño** (al menos 1 wallet) | Celda NFTJI **sin dueño actual** (revendida o nunca comprada) |
+
+**Regular Blocks** son mono-owner: una vez que una wallet mina uno, esa celda queda bloqueada para siempre. El owner no cambia jamás y el bloque nunca puede liberarse. No existe mecánica de reventa para Regular Blocks.
+
+**NFTJI Blocks** son multi-owner en el tiempo: cualquier wallet puede comprar un bloque NFTJI, revenderlo (eliminando su propiedad) y otra wallet puede comprarlo después. El contador refleja el estado **actual** del owner — si al menos 1 wallet lo tiene ahora, cuenta como minado; si ninguna wallet lo tiene, cuenta como libre.
 
 > Abre la card del bloque para ver sus requisitos (nivel mínimo + valor MM3 global requerido). Cuando ambas condiciones se cumplan, ve a Relaying y escribe `/mine block #XXX`. La primera wallet que lo intente con los requisitos cumplidos se queda el bloque para siempre.
 

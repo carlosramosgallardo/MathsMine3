@@ -2215,9 +2215,9 @@ function drawChainStats(ctx, W, H, stats, es, top = 8) {
   const blocksFree  = total - owned - marketFree   // regular blocks without owner
 
   const lines = [
-    { label: es ? 'CADENA MM3' : 'MM3 CHAIN', val: null, header: true },
-    { label: es ? 'Bloques' : 'Blocks', val: `${blocksMined} / ${blocksFree}` },
-    { label: 'NFTJI',                    val: `${marketOwned} / ${marketFree}` },
+    { label: 'MM3 BLOCK CHAIN',    val: null, header: true },
+    { label: 'Regular Blocks',     val: `${blocksMined} / ${blocksFree}` },
+    { label: 'NFTJI Blocks',       val: `${marketOwned} / ${marketFree}` },
   ]
 
   const LINE_H = 13, PAD_X = 8, PAD_Y = 6
