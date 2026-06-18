@@ -878,7 +878,7 @@ footer.bg-black\/97,
   align-items: center;
   justify-content: center;
   min-height: calc(100vh - 104px);
-  padding: 3rem 1.5rem 5rem;
+  padding: 1.8rem 1.5rem 3.5rem;
   overflow: hidden;
   background: radial-gradient(ellipse 80% 60% at 50% 40%, #071828 0%, #04080e 55%, #030508 100%);
   font-family: Consolas,'Courier New',monospace;
@@ -941,7 +941,7 @@ footer.bg-black\/97,
   font: 600 0.62rem/1 monospace;
   letter-spacing: .18em;
   text-transform: uppercase;
-  margin-bottom: 1.4rem;
+  margin-bottom: 0.9rem;
 }
 .mm3-splash-live {
   display: inline-block;
@@ -977,7 +977,7 @@ footer.bg-black\/97,
   letter-spacing: .06em;
   color: #e6fbff;
   text-shadow: 0 0 40px rgba(34,211,238,.30), 0 0 80px rgba(34,211,238,.12);
-  margin: 0 0 1rem;
+  margin: 0 0 0.65rem;
 }
 
 /* tagline */
@@ -985,7 +985,7 @@ footer.bg-black\/97,
   font: 600 clamp(0.65rem,1.8vw,0.88rem)/1.2 monospace;
   letter-spacing: .15em;
   color: rgba(148,197,220,.65);
-  margin: 0 0 2.2rem;
+  margin: 0 0 1.5rem;
 }
 .mm3-dot {
   margin: 0 .55em;
@@ -1052,7 +1052,7 @@ footer.bg-black\/97,
 
 /* disclaimer */
 .mm3-splash-disclaimer {
-  margin-top: 1.6rem;
+  margin-top: 1rem;
   font: .58rem/1.5 monospace;
   letter-spacing: .06em;
   color: rgba(34,211,238,.28);

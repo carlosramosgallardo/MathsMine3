@@ -37,7 +37,6 @@ export default function LandingHero() {
   const { account } = useActiveWallet();
   const [pendingRewards, setPendingRewards] = useState(0);
   const [onlineCount, setOnlineCount] = useState(null);
-  const [mm3Value, setMm3Value] = useState(null);
   const scrollRef = useRef(null);
 
   const portal = PORTAL[language] || PORTAL.en;
@@ -73,22 +72,7 @@ export default function LandingHero() {
     return () => { try { ch?.unsubscribe(); } catch { /* */ } };
   }, []);
 
-  // MM3 token value
-  useEffect(() => {
-    fetch('/api/token-value')
-      .then(r => r.json())
-      .then(d => setMm3Value(Number(d?.total_eth ?? d?.value) || null))
-      .catch(() => { });
-  }, []);
-
   const count = Math.max(0, Number(pendingRewards) || 0);
-
-  const fmtMm3 = v => {
-    if (!v) return null;
-    if (v >= 1e6) return `${(v / 1e6).toFixed(2)}M`;
-    if (v >= 1e3) return `${(v / 1e3).toFixed(1)}K`;
-    return v.toFixed(2);
-  };
 
   return (
     <>
@@ -114,9 +98,6 @@ export default function LandingHero() {
               : 'MM3 · BLOCKCHAIN GAME'}
           </div>
 
-          {/* big hex icon */}
-          <div className="mm3-splash-hex" aria-hidden="true">⬡</div>
-
           {/* title */}
           <h1 className="mm3-splash-title">MATHSMINE3</h1>
 
@@ -132,14 +113,6 @@ export default function LandingHero() {
             {es ? 'ENTRAR AL MINE' : 'ENTER THE MINE'}
             <span className="mm3-splash-arrow">→</span>
           </Link>
-
-          {/* token value stat */}
-          {mm3Value && (
-            <Link href="/mm3-value" className="mm3-splash-stat">
-              <span className="mm3-splash-stat-label">MM3</span>
-              <span className="mm3-splash-stat-val">{fmtMm3(mm3Value)}</span>
-            </Link>
-          )}
 
           {/* disclaimer */}
           <p className="mm3-splash-disclaimer">
