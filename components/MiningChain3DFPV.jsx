@@ -2216,8 +2216,8 @@ function drawChainStats(ctx, W, H, stats, es, top = 8) {
 
   const lines = [
     { label: es ? 'CADENA MM3' : 'MM3 CHAIN', val: null, header: true },
-    { label: es ? 'Bloques' : 'Blocks', val: `${blocksMined} min · ${blocksFree} lib` },
-    { label: 'NFTJI',                    val: `${marketOwned} min · ${marketFree} lib` },
+    { label: es ? 'Bloques' : 'Blocks', val: `${blocksMined} / ${blocksFree}` },
+    { label: 'NFTJI',                    val: `${marketOwned} / ${marketFree}` },
   ]
 
   const LINE_H = 13, PAD_X = 8, PAD_Y = 6
