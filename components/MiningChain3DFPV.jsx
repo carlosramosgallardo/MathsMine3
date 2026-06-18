@@ -4304,20 +4304,23 @@ export default function MiningChain3DFPV({
       ctx.globalAlpha = 1
     }
 
-    // Inspect prompt when very close
-    if (fwdDist < 0.9 && fwdCell) {
+    // Inspect prompt when very close — suppressed when a player is in the crosshair
+    if (fwdDist < 0.9 && fwdCell && !enemyTargetRef.current?.wallet) {
       ctx.font = 'bold 12px monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'top'
       const isMineWall2 = myWallet && fwdCell.owner?.toLowerCase() === myWallet.toLowerCase()
       if (fwdCell.isChainNode) {
         ctx.fillStyle = '#ffd700cc'
         ctx.fillText(es ? '[ ↵ RESOLVER CADENA ]' : '[ ↵ SOLVE FORMULA CHAIN ]', W/2, viewCenterY+18)
+      } else if (fwdCell.isPortalNode) {
+        ctx.fillStyle = '#22d3eecc'
+        ctx.fillText(es ? '[ ↵ IR ]' : '[ ↵ GO ]', W/2, viewCenterY+18)
       } else if (!fwdCell.owner && fwdCell.isMarket) {
         ctx.fillStyle = '#fb923ccc'
         ctx.fillText(es ? '[ ↵ COMPRAR NFTJI ]' : '[ ↵ BUY NFTJI ]', W/2, viewCenterY+18)
       } else if (isMineWall2 && fwdCell.isMarket) {
         ctx.fillStyle = '#4ade80cc'
         ctx.fillText(es ? '[ ↵ LIBERAR NFTJI ]' : '[ ↵ RESELL NFTJI ]', W/2, viewCenterY+18)
-      } else if (!fwdCell.owner) {
+      } else if (!fwdCell.owner && !fwdCell.isPortalNode) {
         ctx.fillStyle = C + 'cc'
         ctx.fillText(es ? '[ ↵ MINAR BLOQUE ]' : '[ ↵ MINE BLOCK ]', W/2, viewCenterY+18)
       }
@@ -4326,8 +4329,10 @@ export default function MiningChain3DFPV({
     } // end: block-only overlays (not obstacles)
 
     // ── Crosshair — brightens and expands when in interaction range ───────────
+    // Block-range indicators are suppressed while a player is in the crosshair.
     const hasTarget  = fwdMx >= 0 && fwdMy >= 0 && fwdCell !== null && crosshairHitsFace
-    const inXHRange  = hasTarget && !fwdCell?.isObstacle && fwdDist <= INTERACT_DIST
+    const playerInXH = Boolean(enemyTargetRef.current?.wallet)
+    const inXHRange  = !playerInXH && hasTarget && !fwdCell?.isObstacle && fwdDist <= INTERACT_DIST
     const xhBase     = fwdCell?.isChainNode ? '#ffd700' : (fwdCell?.owner ? fwdCell.color : C)
     const xhCol      = inXHRange ? xhBase+'ee' : C+'33'
     const xhLen      = inXHRange ? 12 : 9
@@ -4339,7 +4344,7 @@ export default function MiningChain3DFPV({
     ctx.moveTo(W/2, viewCenterY-xhLen-xhGap); ctx.lineTo(W/2, viewCenterY-xhGap)
     ctx.moveTo(W/2, viewCenterY+xhGap);       ctx.lineTo(W/2, viewCenterY+xhLen+xhGap)
     ctx.stroke()
-    if (hasTarget) {
+    if (hasTarget && !playerInXH) {
       ctx.fillStyle = xhCol
       ctx.beginPath(); ctx.arc(W/2, viewCenterY, inXHRange ? 2.5 : 1.5, 0, Math.PI*2); ctx.fill()
     }
@@ -4536,17 +4541,20 @@ export default function MiningChain3DFPV({
       if(e.key==='q'||e.key==='Q'||e.key==='ArrowLeft') {k.q=true;e.preventDefault()}
       if(e.key==='e'||e.key==='E'||e.key==='ArrowRight'){k.e=true;e.preventDefault()}
       if(e.key==='Enter'){
-        const fData=facingDataRef.current||{}
-        const inRange=fData.dist==null||fData.dist<=INTERACT_DIST
-        if(inRange){
-          if(fData.cell?.isChainNode){
-            onChainSolveOpenRef.current?.()
-          } else if(fData.cell?.isPortalNode){
-            const url=fData.cell.navUrl
-            if(url) onWantNavRef.current?.(url)
-          } else {
-            const url=actionUrlRef.current
-            if(url) onWantNavRef.current?.(url)
+        // Player in crosshair takes priority — Enter triggers swing instead of block action
+        if(!enemyTargetRef.current?.wallet){
+          const fData=facingDataRef.current||{}
+          const inRange=fData.dist==null||fData.dist<=INTERACT_DIST
+          if(inRange){
+            if(fData.cell?.isChainNode){
+              onChainSolveOpenRef.current?.()
+            } else if(fData.cell?.isPortalNode){
+              const url=fData.cell.navUrl
+              if(url) onWantNavRef.current?.(url)
+            } else {
+              const url=actionUrlRef.current
+              if(url) onWantNavRef.current?.(url)
+            }
           }
         }
         e.preventDefault()
