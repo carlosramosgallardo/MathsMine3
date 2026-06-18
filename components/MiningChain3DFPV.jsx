@@ -2496,13 +2496,16 @@ function addBiomeGround(world,textures) {
       emissive:biome==='inferno'?'#3b0904':biome==='ice'?'#09243a':'#000000',emissiveIntensity:biome==='inferno'?.48:.12,
     })
     const plane=new THREE.Mesh(new THREE.PlaneGeometry(quadrantSize-.12,quadrantSize-.12),material)
-    plane.rotation.x=-Math.PI/2;plane.position.set(cx,.002,cz);world.add(plane)
+    plane.rotation.x=-Math.PI/2;plane.position.set(cx,.002,cz)
+    plane.userData.skipOcclusion=true;world.add(plane)
   }
   const routeMaterial=new THREE.MeshBasicMaterial({color:'#22d3ee',transparent:true,opacity:.18,depthWrite:false})
   const routeA=new THREE.Mesh(new THREE.PlaneGeometry(COLS,.42),routeMaterial)
-  routeA.rotation.x=-Math.PI/2;routeA.position.set(COLS/2,.006,ROWS/2);world.add(routeA)
+  routeA.rotation.x=-Math.PI/2;routeA.position.set(COLS/2,.006,ROWS/2)
+  routeA.userData.skipOcclusion=true;world.add(routeA)
   const routeB=new THREE.Mesh(new THREE.PlaneGeometry(.42,ROWS),routeMaterial)
-  routeB.rotation.x=-Math.PI/2;routeB.position.set(COLS/2,.007,ROWS/2);world.add(routeB)
+  routeB.rotation.x=-Math.PI/2;routeB.position.set(COLS/2,.007,ROWS/2)
+  routeB.userData.skipOcclusion=true;world.add(routeB)
 }
 
 function addBiomeLandmarks(world,textures) {
@@ -2536,7 +2539,7 @@ function addBiomeLandmarks(world,textures) {
   const water=new THREE.Mesh(new THREE.PlaneGeometry(25.4,12.2,18,8),new THREE.MeshPhysicalMaterial({color:'#0aa9d6',transparent:true,opacity:.74,roughness:.08,metalness:.18,clearcoat:1,clearcoatRoughness:.08,side:THREE.DoubleSide,emissive:'#043b56',emissiveIntensity:.28}))
   water.rotation.x=-Math.PI/2;water.position.set(42,.018,-1.2);water.userData.biomeSurface='water';world.add(water)
   const sand=new THREE.Mesh(new THREE.PlaneGeometry(25.4,6.2),new THREE.MeshStandardMaterial({map:textures.coast,color:'#ffe0a0',roughness:.92}))
-  sand.rotation.x=-Math.PI/2;sand.position.set(42,-.008,3.1);world.add(sand)
+  sand.rotation.x=-Math.PI/2;sand.position.set(42,-.008,3.1);sand.userData.skipOcclusion=true;world.add(sand)
   for(let index=0;index<14;index++){
     const crystal=new THREE.Mesh(new THREE.OctahedronGeometry(.16+seededUnit(index+310)*.18),new THREE.MeshBasicMaterial({color:index%2?'#22d3ee':'#facc15'}))
     crystal.position.set(30+seededUnit(index+320)*24,.18,.4+seededUnit(index+330)*5.4);world.add(crystal)
@@ -2633,6 +2636,13 @@ function addInteractiveBeacon(world,row,col,cell,height) {
 
 function rebuildThreeWorld(state,cellMap,obstacles) {
   if(!state) return
+  // Restore any occluded materials before disposing old world to avoid leaking clones
+  for(const occSet of [state._occA,state._occB]){
+    for(const obj of (occSet||[])){
+      if(obj.userData._matOrig){ obj.material=obj.userData._matOrig; obj.userData._matOrig=undefined }
+    }
+    occSet?.clear()
+  }
   if(state.world){state.scene.remove(state.world);disposeThreeObject(state.world)}
   const world=new THREE.Group(),matrix=new THREE.Matrix4(),position=new THREE.Vector3()
   const scale=new THREE.Vector3(),quaternion=new THREE.Quaternion()
@@ -3113,7 +3123,8 @@ export default function MiningChain3DFPV({
       ice:createProceduralTexture('ice'),inferno:createProceduralTexture('inferno'),crypto:createProceduralTexture('crypto'),
     }
     const state={renderer,scene,camera,hudScene,hudCamera,localAvatar:null,localAvatarId:null,world:null,avatars:new Map(),pixelRatio:0,size:new THREE.Vector2(),hemi,key,rim,textures,
-      camRaycaster:new THREE.Raycaster(),_v3a:new THREE.Vector3(),_v3b:new THREE.Vector3(),_v3c:new THREE.Vector3(),_v3d:new THREE.Vector3(),_v3e:new THREE.Vector3()}
+      camRaycaster:new THREE.Raycaster(),_v3a:new THREE.Vector3(),_v3b:new THREE.Vector3(),_v3c:new THREE.Vector3(),_v3d:new THREE.Vector3(),_v3e:new THREE.Vector3(),
+      _occA:new Set(),_occB:new Set()}
     threeStateRef.current=state
     rebuildThreeRef.current=()=>rebuildThreeWorld(state,cellMapRef.current,validObstaclesRef.current)
     rebuildThreeRef.current()
@@ -3504,6 +3515,52 @@ export default function MiningChain3DFPV({
           cameraZ - Math.sin(effectivePitch)*lookFwd*0.6 + 0.18,
           gy + sinA*lookFwd,
         )
+
+        // ── Occlusion X-ray: make geometry between camera and player see-through ──
+        // Swap double-buffer sets (GC-free each frame after first occlude).
+        {
+          const prevOcc=threeState._occA
+          const nextOcc=threeState._occB
+          nextOcc.clear()
+          // Ray from camera position to player body centre
+          const playerCenter=threeState._v3a.set(gx,rawZ+0.45,gy)
+          const camPos=threeState.camera.position
+          const occDir=threeState._v3c.copy(playerCenter).sub(camPos)
+          const occDist=occDir.length()
+          if(occDist>0.15&&threeState.world){
+            occDir.divideScalar(occDist)
+            threeState.camRaycaster.set(camPos,occDir)
+            threeState.camRaycaster.near=0.05
+            threeState.camRaycaster.far=occDist-0.08
+            const hits=threeState.camRaycaster.intersectObject(threeState.world,true)
+            for(const hit of hits){
+              const obj=hit.object
+              // Skip: non-mesh (Points/Lines), floor planes, animated bio surfaces, the glow wireframes
+              if(!obj.isMesh||obj.userData.skipOcclusion||obj.userData.biomeSurface||obj.userData.blockGlow) continue
+              nextOcc.add(obj)
+            }
+          }
+          // Restore objects that are clear this frame
+          for(const obj of prevOcc){
+            if(!nextOcc.has(obj)&&obj.userData._matOrig){
+              obj.material=obj.userData._matOrig
+              obj.userData._matOrig=undefined
+            }
+          }
+          // Make newly occluding objects transparent (clone material once per object)
+          for(const obj of nextOcc){
+            if(!obj.userData._matOrig){
+              const clone=obj.material.clone()
+              clone.transparent=true;clone.depthWrite=false
+              obj.userData._matOrig=obj.material
+              obj.userData._matClone=clone
+            }
+            obj.userData._matClone.opacity=0.13
+            obj.material=obj.userData._matClone
+          }
+          threeState._occA=nextOcc;threeState._occB=prevOcc
+        }
+
         syncThreeAvatars(threeState,presence,myIdentity)
         const time=performance.now()*.001
         for(const object of threeState.biomeSurfaces||[]){
