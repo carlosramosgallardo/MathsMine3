@@ -4399,29 +4399,46 @@ export default function MiningChain3DFPV({
 
     } // end: block-only overlays (not obstacles)
 
-    // ── Crosshair — brightens and expands when in interaction range ───────────
-    // Block-range indicators are suppressed while a player is in the crosshair.
+    // ── Crosshair — always visible, brightens on target ──────────────────────
     const hasTarget  = fwdMx >= 0 && fwdMy >= 0 && fwdCell !== null && crosshairHitsFace
     const playerInXH = Boolean(enemyTargetRef.current?.wallet)
     const inXHRange  = !playerInXH && hasTarget && !fwdCell?.isObstacle && fwdDist <= INTERACT_DIST
-    const xhBase     = fwdCell?.isChainNode ? '#ffd700' : (fwdCell?.owner ? fwdCell.color : C)
-    const xhCol      = inXHRange ? xhBase+'ee' : C+'33'
-    const xhLen      = inXHRange ? 12 : 9
-    const xhGap      = inXHRange ? 2 : 3
-    ctx.strokeStyle = xhCol; ctx.lineWidth = inXHRange ? 1.4 : 1
-    ctx.beginPath()
-    ctx.moveTo(W/2-xhLen-xhGap, viewCenterY); ctx.lineTo(W/2-xhGap, viewCenterY)
-    ctx.moveTo(W/2+xhGap, viewCenterY);       ctx.lineTo(W/2+xhLen+xhGap, viewCenterY)
-    ctx.moveTo(W/2, viewCenterY-xhLen-xhGap); ctx.lineTo(W/2, viewCenterY-xhGap)
-    ctx.moveTo(W/2, viewCenterY+xhGap);       ctx.lineTo(W/2, viewCenterY+xhLen+xhGap)
-    ctx.stroke()
-    if (hasTarget && !playerInXH) {
-      ctx.fillStyle = xhCol
-      ctx.beginPath(); ctx.arc(W/2, viewCenterY, inXHRange ? 2.5 : 1.5, 0, Math.PI*2); ctx.fill()
+    const xhBase     = playerInXH ? '#ef4444'
+                     : fwdCell?.isChainNode ? '#ffd700'
+                     : (fwdCell?.owner ? fwdCell.color : C)
+    const xhFgCol    = playerInXH ? '#ff6b6b'
+                     : inXHRange  ? xhBase
+                     : '#ffffff'
+    const xhLen      = playerInXH ? 14 : inXHRange ? 13 : 10
+    const xhGap      = playerInXH ? 3  : inXHRange ? 2  : 3
+    const xhLW       = playerInXH ? 2.2 : inXHRange ? 1.8 : 1.4
+    // Draw dark outline first so crosshair is readable on any background
+    const drawXH = () => {
+      ctx.beginPath()
+      ctx.moveTo(W/2-xhLen-xhGap, viewCenterY); ctx.lineTo(W/2-xhGap, viewCenterY)
+      ctx.moveTo(W/2+xhGap, viewCenterY);       ctx.lineTo(W/2+xhLen+xhGap, viewCenterY)
+      ctx.moveTo(W/2, viewCenterY-xhLen-xhGap); ctx.lineTo(W/2, viewCenterY-xhGap)
+      ctx.moveTo(W/2, viewCenterY+xhGap);       ctx.lineTo(W/2, viewCenterY+xhLen+xhGap)
+      ctx.stroke()
     }
+    ctx.strokeStyle = 'rgba(0,0,0,0.65)'; ctx.lineWidth = xhLW + 1.8; drawXH()
+    ctx.strokeStyle = xhFgCol; ctx.lineWidth = xhLW;
+    ctx.globalAlpha = playerInXH ? 1 : inXHRange ? 0.95 : 0.82
+    drawXH()
+    ctx.globalAlpha = 1
+    // Centre dot
+    ctx.fillStyle = xhFgCol
+    ctx.beginPath(); ctx.arc(W/2, viewCenterY, playerInXH ? 3 : inXHRange ? 2.5 : 2, 0, Math.PI*2); ctx.fill()
+    // Ring when on block target or player
     if (inXHRange) {
-      ctx.globalAlpha = 0.18; ctx.strokeStyle = xhBase; ctx.lineWidth = 1
-      ctx.beginPath(); ctx.arc(W/2, viewCenterY, 22, 0, Math.PI*2); ctx.stroke()
+      ctx.globalAlpha = 0.22; ctx.strokeStyle = xhBase; ctx.lineWidth = 1
+      ctx.beginPath(); ctx.arc(W/2, viewCenterY, 24, 0, Math.PI*2); ctx.stroke()
+      ctx.globalAlpha = 1
+    }
+    if (playerInXH) {
+      const pulse = 0.55 + Math.sin(Date.now()/180)*0.20
+      ctx.globalAlpha = pulse; ctx.strokeStyle = '#ef4444'; ctx.lineWidth = 1.5
+      ctx.beginPath(); ctx.arc(W/2, viewCenterY, 20, 0, Math.PI*2); ctx.stroke()
       ctx.globalAlpha = 1
     }
 
@@ -4928,6 +4945,7 @@ export default function MiningChain3DFPV({
       const _pitch      = p.pitch || 0
       const _cosP = Math.cos(_pitch), _sinP = Math.sin(_pitch)
       const _cx = _W / 2, _cy = _viewCY   // crosshair screen position
+      const _threeState = threeStateRef.current
       for (const [w, pres] of remoteVisualsRef.current.entries()) {
         const isMe = w.toLowerCase() === (myIdentity || '').toLowerCase()
         if (isMe) continue
@@ -4936,33 +4954,56 @@ export default function MiningChain3DFPV({
         const rx = sgx - camGX, ry = sgy - camGY
         const tY = Math.cos(p.angle)*rx + Math.sin(p.angle)*ry
         if (tY < 0.15 || tY > INTERACT_DIST) continue
-        const tX = -Math.sin(p.angle)*rx + Math.cos(p.angle)*ry
-        // Project the sprite to screen-space using the same math as the renderer.
         const remoteZ = Number(pres.z) || 0
-        const verticalGap=Math.abs(remoteZ-p.z)
-        if(verticalGap>.90||Math.hypot(tY,verticalGap)>INTERACT_DIST) continue
-        const relZ    = remoteZ - (p.z + CAMERA_EYE_Z)
-        const rotV    = relZ * _cosP + tY * _sinP
-        const rotD    = tY  * _cosP - relZ * _sinP
-        if (rotD <= 0.05) continue
-        const scrX    = Math.round(_cx + tX * _hProj / rotD)
-        const bottomY = Math.min(_H+30, Math.round(_viewCY - rotV * _projScale / rotD))
-        const sScale  = Math.min(_projScale / Math.max(0.72, tY), 150)
-        const walletH = Math.round(sScale * 0.58 * REMOTE_AVATAR_VISUAL_SCALE)
-        const walletW = Math.round(sScale * 0.50 * REMOTE_AVATAR_VISUAL_SCALE)
-        const billsH  = Math.round(sScale * 0.20 * REMOTE_AVATAR_VISUAL_SCALE)
-        const walletTop = bottomY - walletH
-        const billsTop  = walletTop - billsH
-        // Horizontal: crosshair must be within sprite width (+10% tolerance)
-        if (Math.abs(_cx - scrX) > walletW * 0.60) continue
-        // Vertical: determine zone from screen Y of crosshair vs sprite bands
-        const hitZone = _cy >= billsTop && _cy <= walletTop ? 'head'
-                      : _cy >  walletTop && _cy <= bottomY  ? 'body'
-                      : null
-        if (!hitZone) continue
+        const verticalGap = Math.abs(remoteZ - p.z)
+        if (verticalGap > 0.90 || Math.hypot(tY, verticalGap) > INTERACT_DIST) continue
         const enemyPool  = presenceRef.current[w]?.poolCode || null
         const myPool     = myPoolCodeRef.current
         const isTeammate = !!(myPool && enemyPool && myPool === enemyPool)
+        let hitZone = null
+
+        if (_threeState) {
+          // In 3D mode: use Three.js camera projection for exact spring-arm accuracy.
+          // The 2D raycaster projection uses the player eye, not the spring-arm camera,
+          // so it diverges when the camera is pulled back — causing missed/wrong detections.
+          const sv = _threeState._v3a
+          sv.set(sgx, remoteZ + 0.85, sgy); sv.project(_threeState.camera)
+          if (sv.z > 1) continue
+          const pxHead = (sv.x + 1) / 2 * _W, pyHead = (-sv.y + 1) / 2 * _H
+          sv.set(sgx, remoteZ + 0.42, sgy); sv.project(_threeState.camera)
+          const pxMid  = (sv.x + 1) / 2 * _W, pyMid  = (-sv.y + 1) / 2 * _H
+          sv.set(sgx, remoteZ + 0.05, sgy); sv.project(_threeState.camera)
+          const pyFeet = (-sv.y + 1) / 2 * _H
+          // Bounding box with generous tolerance so click-feel matches the visual
+          const pad = 14
+          const minX = Math.min(pxHead, pxMid) - pad
+          const maxX = Math.max(pxHead, pxMid) + pad
+          const minY = Math.min(pyHead, pyFeet) - 4
+          const maxY = Math.max(pyHead, pyFeet) + 4
+          if (_cx < minX || _cx > maxX || _cy < minY || _cy > maxY) continue
+          hitZone = _cy <= pyMid ? 'head' : 'body'
+        } else {
+          // 2D raycaster mode: project with player-eye math (same as the renderer).
+          const tX = -Math.sin(p.angle)*rx + Math.cos(p.angle)*ry
+          const relZ  = remoteZ - (p.z + CAMERA_EYE_Z)
+          const rotV  = relZ * _cosP + tY * _sinP
+          const rotD  = tY  * _cosP - relZ * _sinP
+          if (rotD <= 0.05) continue
+          const scrX    = Math.round(_cx + tX * _hProj / rotD)
+          const bottomY = Math.min(_H+30, Math.round(_viewCY - rotV * _projScale / rotD))
+          const sScale  = Math.min(_projScale / Math.max(0.72, tY), 150)
+          const walletH = Math.round(sScale * 0.58 * REMOTE_AVATAR_VISUAL_SCALE)
+          const walletW = Math.round(sScale * 0.50 * REMOTE_AVATAR_VISUAL_SCALE)
+          const billsH  = Math.round(sScale * 0.20 * REMOTE_AVATAR_VISUAL_SCALE)
+          const walletTop = bottomY - walletH
+          const billsTop  = walletTop - billsH
+          if (Math.abs(_cx - scrX) > walletW * 0.60) continue
+          hitZone = _cy >= billsTop && _cy <= walletTop ? 'head'
+                  : _cy >  walletTop && _cy <= bottomY  ? 'body'
+                  : null
+          if (!hitZone) continue
+        }
+
         if (tY < closestDist) {
           closestDist = tY
           closestEnemy = { wallet: w, dist: tY, isAnon: w.startsWith('anon-'), isTeammate, hitZone }
