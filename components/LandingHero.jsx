@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useI18n } from '@/lib/i18n-context';
 import { useActiveWallet } from '@/lib/use-active-wallet';
@@ -37,7 +37,6 @@ export default function LandingHero() {
   const { account } = useActiveWallet();
   const [pendingRewards, setPendingRewards] = useState(0);
   const [onlineCount, setOnlineCount] = useState(null);
-  const scrollRef = useRef(null);
 
   const portal = PORTAL[language] || PORTAL.en;
   const es = language === 'es';
@@ -121,21 +120,10 @@ export default function LandingHero() {
               : 'Fictional token · No real investment · No real payout'}
           </p>
         </div>
-
-        {/* scroll hint */}
-        <button
-          className="mm3-splash-scroll"
-          aria-label={es ? 'Ver secciones' : 'See sections'}
-          onClick={() => scrollRef.current?.scrollIntoView({ behavior: 'smooth' })}
-        >▾</button>
       </section>
 
       {/* ── PORTAL GRID ──────────────────────────────────────────────────── */}
-      <section ref={scrollRef} className="mm3-portal">
-        <div className="mm3-portal-label" aria-hidden="true">
-          <span />THE PORTAL<span />
-        </div>
-
+      <section className="mm3-portal">
         <div className="mm3-portal-grid">
           {portal.map(({ href, icon, name, desc, accent, daily }) => (
             <Link
