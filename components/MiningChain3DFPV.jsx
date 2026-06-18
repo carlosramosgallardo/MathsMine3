@@ -1792,22 +1792,22 @@ function drawMinimap(ctx, gr, gc, angle, cellMap, presenceMap, myWallet, W, H, c
 }
 
 // ── Facing block HUD (top-right info card) ────────────────────────────────────
-function drawFacingHUD(ctx, W, H, fwdCell, fwdMx, fwdMy, myWallet, es, dist, obsMap) {
+function drawFacingHUD(ctx, W, H, fwdCell, fwdMx, fwdMy, myWallet, es, dist, obsMap, chainStatsBottom = 72) {
   if (W < 600) return  // HTML panel below canvas handles this on mobile
   if (fwdMx < 0 || fwdMy < 0 || fwdMx >= COLS || fwdMy >= ROWS) return
 
   // Double-check: use both cell flag and obsMap to catch any desync
   const isObs = fwdCell?.isObstacle || obsMap?.has(`${fwdMy},${fwdMx}`)
-  // Keep contextual cards clear of the full-world minimap.
-  const _mapSZ = minimapSize(W)
-  const _mapLeft = W - _mapSZ - 6
+  const CARD_PW = 164
+  const CARD_PX = 6
+  const CARD_PY = chainStatsBottom + 4
   if (isObs) {
     const lines = [
       { text: es ? 'PARED' : 'WALL', size: 12, weight: 'bold', col: '#90a0b0' },
       { text: es ? '· no interactivo' : '· non-interactive', size: 10, col: '#445566' },
     ]
     const lineH=15, padX=9, padY=7, ph=lines.length*lineH+padY*2
-    const pw=Math.min(_mapLeft-16,180), px=_mapLeft-pw-6, py=8
+    const pw=CARD_PW, px=CARD_PX, py=CARD_PY
     ctx.globalAlpha=0.80; ctx.fillStyle='#010709'; ctx.fillRect(px,py,pw,ph); ctx.globalAlpha=1
     ctx.lineWidth=0.5; ctx.strokeStyle='#90a0b033'; ctx.strokeRect(px,py,pw,ph)
     ctx.fillStyle='#90a0b055'; ctx.fillRect(px,py,2,ph)
@@ -1831,17 +1831,16 @@ function drawFacingHUD(ctx, W, H, fwdCell, fwdMx, fwdMy, myWallet, es, dist, obs
     ]
     const _lineH = 16, _padX = 9, _padY = 8
     const _ph = pLines.length * _lineH + _padY * 2
-    const _pw = Math.min(_mapLeft - 16, 240)
-    const _px = _mapLeft - _pw - 6
-    ctx.globalAlpha = 0.90; ctx.fillStyle = '#010709'; ctx.fillRect(_px, 8, _pw, _ph); ctx.globalAlpha = 1
-    ctx.lineWidth = 1; ctx.strokeStyle = col + '55'; ctx.strokeRect(_px, 8, _pw, _ph)
-    ctx.fillStyle = col + '77'; ctx.fillRect(_px, 8, 2, _ph)
+    const _pw = CARD_PW, _px = CARD_PX, _py = CARD_PY
+    ctx.globalAlpha = 0.90; ctx.fillStyle = '#010709'; ctx.fillRect(_px, _py, _pw, _ph); ctx.globalAlpha = 1
+    ctx.lineWidth = 1; ctx.strokeStyle = col + '55'; ctx.strokeRect(_px, _py, _pw, _ph)
+    ctx.fillStyle = col + '77'; ctx.fillRect(_px, _py, 2, _ph)
     ctx.textAlign = 'left'; ctx.textBaseline = 'top'
     for (let i = 0; i < pLines.length; i++) {
       const l = pLines[i]
       ctx.font = `${l.weight || 'normal'} ${l.size}px monospace`
       ctx.fillStyle = l.col
-      ctx.fillText(l.text, _px + _padX, 8 + _padY + i * _lineH, _pw - _padX * 2)
+      ctx.fillText(l.text, _px + _padX, _py + _padY + i * _lineH, _pw - _padX * 2)
     }
     return
   }
@@ -1857,11 +1856,11 @@ function drawFacingHUD(ctx, W, H, fwdCell, fwdMx, fwdMy, myWallet, es, dist, obs
         ? { text: es ? '↵ · Resolver cadena' : '↵ · Solve formula chain', size: 10, col: col + 'cc' }
         : { text: es ? '· acércate para interactuar' : '· move closer to interact', size: 9, col: col + '55' },
     ]
-    const lineH=16,padX=9,padY=8,ph=lines.length*lineH+padY*2,pw=Math.min(_mapLeft-16,240),px=_mapLeft-pw-6
-    ctx.globalAlpha=.9;ctx.fillStyle='#010709';ctx.fillRect(px,8,pw,ph);ctx.globalAlpha=1
-    ctx.strokeStyle=col+'55';ctx.strokeRect(px,8,pw,ph);ctx.fillStyle=col+'77';ctx.fillRect(px,8,2,ph)
+    const lineH=16,padX=9,padY=8,ph=lines.length*lineH+padY*2,pw=CARD_PW,px=CARD_PX,py=CARD_PY
+    ctx.globalAlpha=.9;ctx.fillStyle='#010709';ctx.fillRect(px,py,pw,ph);ctx.globalAlpha=1
+    ctx.strokeStyle=col+'55';ctx.strokeRect(px,py,pw,ph);ctx.fillStyle=col+'77';ctx.fillRect(px,py,2,ph)
     ctx.textAlign='left';ctx.textBaseline='top'
-    lines.forEach((line,i)=>{ctx.font=`${line.weight||'normal'} ${line.size}px monospace`;ctx.fillStyle=line.col;ctx.fillText(line.text,px+padX,8+padY+i*lineH,pw-padX*2)})
+    lines.forEach((line,i)=>{ctx.font=`${line.weight||'normal'} ${line.size}px monospace`;ctx.fillStyle=line.col;ctx.fillText(line.text,px+padX,py+padY+i*lineH,pw-padX*2)})
     return
   }
 
@@ -1931,9 +1930,9 @@ function drawFacingHUD(ctx, W, H, fwdCell, fwdMx, fwdMy, myWallet, es, dist, obs
 
   const lineH = 16, padX = 9, padY = 8
   const ph = lines.length * lineH + padY * 2
-  const pw = Math.min(_mapLeft - 16, 240)
-  const px = _mapLeft - pw - 6
-  const py = 8
+  const pw = CARD_PW
+  const px = CARD_PX
+  const py = CARD_PY
 
   // Background
   ctx.globalAlpha = 0.90
@@ -2262,6 +2261,7 @@ function drawChainStats(ctx, W, H, stats, es, top = 8) {
     }
   }
   ctx.textAlign = 'left'; ctx.globalAlpha = 1
+  return py + ph
 }
 
 // ── Online players list (below minimap) ─────────────────────────────────────
@@ -4504,17 +4504,6 @@ export default function MiningChain3DFPV({
     }
 
 
-    // ── Facing block info HUD (top-right) — only within 2 cells ──────────────
-    if (fwdDist <= 2.0) {
-      const _isObsHUD = fwdCell?.isObstacle || validObstaclesRef.current?.has(`${fwdMy},${fwdMx}`)
-      // Free market/NFTJI blocks only show the HUD when the player is very close (1.5 cells).
-      // This prevents the top-right card from appearing for ambient NFTJI blocks all over the map.
-      const _maxHudDist = (!_isObsHUD && fwdCell?.isMarket && !fwdCell?.owner) ? 1.5 : 2.0
-      if ((_isObsHUD || fwdFaceSolid) && fwdDist <= _maxHudDist) {
-        drawFacingHUD(ctx, W, H, fwdCell, fwdMx, fwdMy, myWallet, es, fwdDist, validObstaclesRef.current)
-      }
-    }
-
     drawMineProgress(ctx, W, H, mineProgressRef.current, mineTypeRef.current)
 
     // ── Enemy in crosshair indicator ──────────────────────────────────────
@@ -4583,7 +4572,16 @@ export default function MiningChain3DFPV({
     const walletDock = drawWalletDock(
       ctx,W,H,myNftjisRef.current,healthMapRef.current[myIdentity]??100,es,Boolean(myWallet)
     )
-    drawChainStats(ctx,W,H,chainStatsRef.current,es,(walletDock?.bottom||8)+6)
+    const chainStatsBottom = drawChainStats(ctx,W,H,chainStatsRef.current,es,(walletDock?.bottom||8)+6)
+
+    // ── Facing block info HUD — left side, below MM3 BLOCK CHAIN panel ────────
+    if (fwdDist <= 2.0) {
+      const _isObsHUD = fwdCell?.isObstacle || validObstaclesRef.current?.has(`${fwdMy},${fwdMx}`)
+      const _maxHudDist = (!_isObsHUD && fwdCell?.isMarket && !fwdCell?.owner) ? 1.5 : 2.0
+      if ((_isObsHUD || fwdFaceSolid) && fwdDist <= _maxHudDist) {
+        drawFacingHUD(ctx, W, H, fwdCell, fwdMx, fwdMy, myWallet, es, fwdDist, validObstaclesRef.current, chainStatsBottom ?? 72)
+      }
+    }
   }, [])
 
   useEffect(()=>{ renderRef.current=renderFrame },[renderFrame])
