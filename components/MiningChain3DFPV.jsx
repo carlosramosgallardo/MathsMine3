@@ -1793,7 +1793,6 @@ function drawMinimap(ctx, gr, gc, angle, cellMap, presenceMap, myWallet, W, H, c
 
 // ── Facing block HUD (top-right info card) ────────────────────────────────────
 function drawFacingHUD(ctx, W, H, fwdCell, fwdMx, fwdMy, myWallet, es, dist, obsMap, chainStatsBottom = 72) {
-  if (W < 600) return  // HTML panel below canvas handles this on mobile
   if (fwdMx < 0 || fwdMy < 0 || fwdMx >= COLS || fwdMy >= ROWS) return
 
   // Double-check: use both cell flag and obsMap to catch any desync
