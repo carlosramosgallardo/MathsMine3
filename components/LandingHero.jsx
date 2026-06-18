@@ -1,46 +1,34 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useI18n } from '@/lib/i18n-context';
 import { useActiveWallet } from '@/lib/use-active-wallet';
 import { loadDailyTaskProgress } from '@/lib/daily-tasks';
 import supabase from '@/lib/supabaseClient';
 
-const C = '#22d3ee';
-
-const SECTIONS = {
+const PORTAL = {
   en: [
-    {
-      href: '/mining', icon: '⬡', name: 'ENTER 3D MINING', kicker: 'MM3 BLOCK CHAIN · LIVE MULTIPLAYER',
-      desc: '3D walkable world. Find blocks, buy NFTJIs, mine cells, fight enemy wallets live.',
-      cta: 'PLAY NOW →', accent: '#22d3ee', hero: true,
-    },
-    { href: '/training',    icon: '⛏',  name: 'Training',     desc: 'Solve math problems against the clock. 100/day, 13 types. Speed earns more MM3.',                accent: '#f59e0b' },
-    { href: '/trading',     icon: '💱',  name: 'Trading',      desc: 'Buy and sell MM3 in fictional EUR / USD / CNY. 5 EXECs/day — dice shifts rates.',                accent: '#4ade80' },
-    { href: '/ranking',     icon: '🏆',  name: 'Ranking',      desc: 'Live wallet & pool leaderboard. Mining %, level, EXECs and penalty log.',                        accent: '#fbbf24' },
-    { href: '/squeezing',   icon: '⚔',  name: 'Squeezing',    desc: 'Pool-vs-pool combat. Stakes burned, NFTJI drops, formula shifts.',                               accent: '#f87171' },
-    { href: '/relaying',    icon: '>_', name: 'Relaying',     desc: 'Main action terminal. /mine commands, world events, live chain log.',                             accent: '#22d3ee' },
-    { href: '/mm3-value',   icon: '📈',  name: 'MM3 Chart',    desc: 'Global MM3 token value over time — hourly chart with mining, trade and market event overlays.',   accent: '#a78bfa' },
-    { href: '/daily-tasks', icon: '🎯',  name: 'Daily Tasks',  desc: 'Complete daily objectives to earn fictional EUR rewards. Resets every UTC midnight.',             accent: '#e879f9', daily: true },
-    { href: '/ai-team',     icon: '🤖',  name: 'AI Team',      desc: 'Meet the bot wallets running 24/7 on the board alongside human miners.',                         accent: '#86efac' },
-    { href: '/manifesto',   icon: '📜',  name: 'Manifesto',    desc: 'Game philosophy and full game guide — rules, mechanics and everything behind MathsMine3.',       accent: '#94a3b8' },
+    { href: '/training',    icon: '⛏',  name: 'Training',    desc: 'Solve math under pressure. 100 problems/day, 13 types.',    accent: '#f59e0b' },
+    { href: '/trading',     icon: '💱',  name: 'Trading',     desc: 'Buy & sell MM3 in EUR/USD/CNY. 5 EXECs/day.',               accent: '#4ade80' },
+    { href: '/ranking',     icon: '🏆',  name: 'Ranking',     desc: 'Live leaderboard. Mining %, level, pool battles.',          accent: '#fbbf24' },
+    { href: '/squeezing',   icon: '⚔',  name: 'Squeezing',   desc: 'Pool-vs-pool combat. Burn stakes, win NFTJIs.',             accent: '#f87171' },
+    { href: '/relaying',    icon: '>_', name: 'Relaying',    desc: 'Action terminal. /mine, world events, chain log.',          accent: '#22d3ee' },
+    { href: '/mm3-value',   icon: '📈',  name: 'MM3 Chart',   desc: 'Token price over time — hourly chart.',                    accent: '#a78bfa' },
+    { href: '/daily-tasks', icon: '🎯',  name: 'Daily Tasks', desc: 'Daily objectives → fictional EUR rewards.',                accent: '#e879f9', daily: true },
+    { href: '/ai-team',     icon: '🤖',  name: 'AI Team',     desc: '24/7 bot wallets mining alongside humans.',                accent: '#86efac' },
+    { href: '/manifesto',   icon: '📜',  name: 'Manifesto',   desc: 'Full game guide — rules, mechanics, philosophy.',          accent: '#94a3b8' },
   ],
   es: [
-    {
-      href: '/mining', icon: '⬡', name: 'ENTRA A MINING 3D', kicker: 'MM3 BLOCK CHAIN · MULTIJUGADOR EN VIVO',
-      desc: 'Mundo 3D explorable. Encuentra bloques, compra NFTJIs, mina celdas y combate wallets enemigas en vivo.',
-      cta: 'JUGAR AHORA →', accent: '#22d3ee', hero: true,
-    },
-    { href: '/training',    icon: '⛏',  name: 'Training',     desc: 'Resuelve problemas contra el reloj. 100/día, 13 tipos. Velocidad = más MM3.',                     accent: '#f59e0b' },
-    { href: '/trading',     icon: '💱',  name: 'Trading',      desc: 'Compra y vende MM3 en EUR / USD / CNY ficticios. 5 EXECs/día — dados afectan tasas.',             accent: '#4ade80' },
-    { href: '/ranking',     icon: '🏆',  name: 'Ranking',      desc: 'Clasificación en vivo de wallets y pools. Mining %, nivel, EXECs y penalizaciones.',              accent: '#fbbf24' },
-    { href: '/squeezing',   icon: '⚔',  name: 'Squeezing',    desc: 'Combate pool-vs-pool. Stakes quemados, drops de NFTJI, la fórmula cambia.',                       accent: '#f87171' },
-    { href: '/relaying',    icon: '>_', name: 'Relaying',     desc: 'Terminal de acción. Comandos /mine, eventos del mundo, log de cadena en vivo.',                   accent: '#22d3ee' },
-    { href: '/mm3-value',   icon: '📈',  name: 'MM3 Chart',    desc: 'Valor global del token MM3 a lo largo del tiempo — gráfica horaria con overlays.',                accent: '#a78bfa' },
-    { href: '/daily-tasks', icon: '🎯',  name: 'Daily Tasks',  desc: 'Completa objetivos diarios para ganar EUR ficticio. Reinicia cada medianoche UTC.',               accent: '#e879f9', daily: true },
-    { href: '/ai-team',     icon: '🤖',  name: 'AI Team',      desc: 'Conoce los bots que corren 24/7 en el tablero junto a los mineros humanos.',                     accent: '#86efac' },
-    { href: '/manifesto',   icon: '📜',  name: 'Manifiesto',   desc: 'Filosofía del juego y guía completa — reglas, mecánicas y todo lo que hay detrás.',              accent: '#94a3b8' },
+    { href: '/training',    icon: '⛏',  name: 'Training',    desc: 'Matemáticas bajo presión. 100 problemas/día.',              accent: '#f59e0b' },
+    { href: '/trading',     icon: '💱',  name: 'Trading',     desc: 'Compra y vende MM3. 5 EXECs/día.',                         accent: '#4ade80' },
+    { href: '/ranking',     icon: '🏆',  name: 'Ranking',     desc: 'Clasificación en vivo. Mining %, nivel, pools.',            accent: '#fbbf24' },
+    { href: '/squeezing',   icon: '⚔',  name: 'Squeezing',   desc: 'Combate pool-vs-pool. Quema stakes, gana NFTJIs.',          accent: '#f87171' },
+    { href: '/relaying',    icon: '>_', name: 'Relaying',    desc: 'Terminal de acción. /mine, eventos, log.',                 accent: '#22d3ee' },
+    { href: '/mm3-value',   icon: '📈',  name: 'MM3 Chart',   desc: 'Valor del token en el tiempo — gráfica horaria.',          accent: '#a78bfa' },
+    { href: '/daily-tasks', icon: '🎯',  name: 'Daily Tasks', desc: 'Objetivos diarios → EUR ficticio.',                        accent: '#e879f9', daily: true },
+    { href: '/ai-team',     icon: '🤖',  name: 'AI Team',     desc: 'Bots 24/7 minando junto a humanos.',                       accent: '#86efac' },
+    { href: '/manifesto',   icon: '📜',  name: 'Manifiesto',  desc: 'Guía completa — reglas, mecánicas, filosofía.',            accent: '#94a3b8' },
   ],
 };
 
@@ -48,75 +36,153 @@ export default function LandingHero() {
   const { language } = useI18n();
   const { account } = useActiveWallet();
   const [pendingRewards, setPendingRewards] = useState(0);
-  const sections = SECTIONS[language] || SECTIONS.en;
+  const [onlineCount, setOnlineCount] = useState(null);
+  const [mm3Value, setMm3Value] = useState(null);
+  const scrollRef = useRef(null);
 
+  const portal = PORTAL[language] || PORTAL.en;
+  const es = language === 'es';
+
+  // Daily tasks badge
   useEffect(() => {
     const wallet = String(account || '').toLowerCase();
     if (!wallet) { setPendingRewards(0); return; }
-    let mounted = true;
+    let alive = true;
     const load = async () => {
       try {
-        const state = await loadDailyTaskProgress(supabase, wallet);
-        if (mounted) setPendingRewards(state.pendingRewards || 0);
-      } catch { if (mounted) setPendingRewards(0); }
+        const s = await loadDailyTaskProgress(supabase, wallet);
+        if (alive) setPendingRewards(s.pendingRewards || 0);
+      } catch { /* */ }
     };
     load();
-    const timer = setInterval(load, 120_000);
+    const t = setInterval(load, 120_000);
     window.addEventListener('mm3-db-updated', load);
-    return () => { mounted = false; clearInterval(timer); window.removeEventListener('mm3-db-updated', load); };
+    return () => { alive = false; clearInterval(t); window.removeEventListener('mm3-db-updated', load); };
   }, [account]);
 
+  // Online wallet count via presence channel
+  useEffect(() => {
+    let ch;
+    try {
+      ch = supabase.channel('mm3-chain3d-v1');
+      ch.on('presence', { event: 'sync' }, () => {
+        const state = ch.presenceState();
+        setOnlineCount(Object.keys(state).length);
+      }).subscribe();
+    } catch { /* */ }
+    return () => { try { ch?.unsubscribe(); } catch { /* */ } };
+  }, []);
+
+  // MM3 token value
+  useEffect(() => {
+    fetch('/api/token-value')
+      .then(r => r.json())
+      .then(d => setMm3Value(Number(d?.total_eth ?? d?.value) || null))
+      .catch(() => { });
+  }, []);
+
   const count = Math.max(0, Number(pendingRewards) || 0);
-  const hero = sections[0];
-  const cards = sections.slice(1);
+
+  const fmtMm3 = v => {
+    if (!v) return null;
+    if (v >= 1e6) return `${(v / 1e6).toFixed(2)}M`;
+    if (v >= 1e3) return `${(v / 1e3).toFixed(1)}K`;
+    return v.toFixed(2);
+  };
 
   return (
-    <section
-      aria-label={language === 'es' ? 'Sobre MathsMine3' : 'About MathsMine3'}
-      style={{ fontFamily: 'Consolas,"Courier New",monospace', background: '#060a0d', borderTop: `1px solid ${C}1a`, padding: '2rem 1rem 4rem', width: '100%', boxSizing: 'border-box', overflowX: 'hidden' }}
-    >
-      <div style={{ maxWidth: '1040px', margin: '0 auto', width: '100%', boxSizing: 'border-box' }}>
+    <>
+      {/* ── HERO ─────────────────────────────────────────────────────────── */}
+      <section className="mm3-splash">
 
-        {/* Disclaimer */}
-        <p style={{ color: `${C}88`, fontSize: 'clamp(0.68rem,1.4vw,0.82rem)', letterSpacing: '0.06em', textTransform: 'uppercase', textAlign: 'center', marginBottom: '2rem', lineHeight: 1.7 }}>
-          {language === 'es'
-            ? 'Matemáticas contra el reloj · Minería ficticia · Identidad wallet · Economía terminal · MM3 es un token ficticio · Sin minería real, sin pagos reales, sin inversión.'
-            : 'Timed math · Fictional mining · Wallet identity · Terminal economy · MM3 is a fictional token · No real mining, no real payout, no investment.'}
-        </p>
+        {/* animated hex grid bg */}
+        <div className="mm3-splash-grid" aria-hidden="true" />
 
-        {/* ── Hero: Mining 3D ─────────────────────────────── */}
-        <Link href={hero.href} className="lh-hero-card">
-          <span className="lh-hero-scan" aria-hidden="true" />
-          <div className="lh-hero-body">
-            <div className="lh-hero-icon">⬡</div>
-            <div className="lh-hero-text">
-              <div className="lh-hero-kicker">{hero.kicker}</div>
-              <div className="lh-hero-title">{hero.name}</div>
-              <p className="lh-hero-desc">{hero.desc}</p>
-            </div>
+        {/* big background glow orb */}
+        <div className="mm3-splash-orb" aria-hidden="true" />
+
+        {/* scan line overlay */}
+        <div className="mm3-splash-scanlines" aria-hidden="true" />
+
+        <div className="mm3-splash-body">
+
+          {/* kicker */}
+          <div className="mm3-splash-kicker">
+            <span className="mm3-splash-live" />
+            {onlineCount !== null
+              ? (es ? `${onlineCount} wallets en línea` : `${onlineCount} wallets online`)
+              : 'MM3 · BLOCKCHAIN GAME'}
           </div>
-          <div className="lh-hero-cta">{hero.cta}</div>
-        </Link>
 
-        {/* ── All sections grid — every section visible at once ── */}
-        <div className="lh-grid">
-          {cards.map(({ href, icon, name, desc, accent, daily }) => (
-            <Link key={href} href={href} className="lh-grid-card" style={{ '--lh-accent': accent }}>
-              <span className="lh-grid-icon">{icon}</span>
-              <div className="lh-grid-body">
-                <div className="lh-grid-name">
-                  {name}
-                  {daily && count > 0 && (
-                    <span className="lh-daily-badge">{count > 9 ? '9+' : count}</span>
-                  )}
-                </div>
-                <p className="lh-grid-desc">{desc}</p>
-              </div>
+          {/* big hex icon */}
+          <div className="mm3-splash-hex" aria-hidden="true">⬡</div>
+
+          {/* title */}
+          <h1 className="mm3-splash-title">MATHSMINE3</h1>
+
+          {/* tagline */}
+          <p className="mm3-splash-sub">
+            {es
+              ? <>3D WORLD <span className="mm3-dot">·</span> RESUELVE MATEMÁTICAS <span className="mm3-dot">·</span> MINA TOKENS</>
+              : <>3D WORLD <span className="mm3-dot">·</span> SOLVE MATH <span className="mm3-dot">·</span> MINE TOKENS</>}
+          </p>
+
+          {/* CTA */}
+          <Link href="/mining" className="mm3-splash-cta">
+            {es ? 'ENTRAR AL MINE' : 'ENTER THE MINE'}
+            <span className="mm3-splash-arrow">→</span>
+          </Link>
+
+          {/* token value stat */}
+          {mm3Value && (
+            <Link href="/mm3-value" className="mm3-splash-stat">
+              <span className="mm3-splash-stat-label">MM3</span>
+              <span className="mm3-splash-stat-val">{fmtMm3(mm3Value)}</span>
+            </Link>
+          )}
+
+          {/* disclaimer */}
+          <p className="mm3-splash-disclaimer">
+            {es
+              ? 'Token ficticio · Sin inversión real · Sin pagos reales'
+              : 'Fictional token · No real investment · No real payout'}
+          </p>
+        </div>
+
+        {/* scroll hint */}
+        <button
+          className="mm3-splash-scroll"
+          aria-label={es ? 'Ver secciones' : 'See sections'}
+          onClick={() => scrollRef.current?.scrollIntoView({ behavior: 'smooth' })}
+        >▾</button>
+      </section>
+
+      {/* ── PORTAL GRID ──────────────────────────────────────────────────── */}
+      <section ref={scrollRef} className="mm3-portal">
+        <div className="mm3-portal-label" aria-hidden="true">
+          <span />THE PORTAL<span />
+        </div>
+
+        <div className="mm3-portal-grid">
+          {portal.map(({ href, icon, name, desc, accent, daily }) => (
+            <Link
+              key={href}
+              href={href}
+              className="mm3-portal-card"
+              style={{ '--ac': accent }}
+            >
+              <span className="mm3-portal-icon">{icon}</span>
+              <span className="mm3-portal-name">
+                {name}
+                {daily && count > 0 && (
+                  <span className="mm3-portal-badge">{count > 9 ? '9+' : count}</span>
+                )}
+              </span>
+              <span className="mm3-portal-desc">{desc}</span>
             </Link>
           ))}
         </div>
-
-      </div>
-    </section>
+      </section>
+    </>
   );
 }
