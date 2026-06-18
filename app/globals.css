@@ -1162,13 +1162,24 @@ footer.bg-black\/97,
 
 /* home badge in header */
 .mm3-home-badge {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  border: 1px solid rgba(34,211,238,.28);
+  border-radius: 3px;
+  padding: 3px 4px 4px;
+  transition: border-color .18s;
+}
+.mm3-home-badge span {
   font: 700 .44rem/1 monospace;
   letter-spacing: .14em;
-  color: rgba(34,211,238,.48);
+  color: rgba(34,211,238,.52);
   text-transform: uppercase;
   user-select: none;
 }
-a:hover .mm3-home-badge { color: rgba(34,211,238,.80); }
+a:hover .mm3-home-badge { border-color: rgba(34,211,238,.60); }
+a:hover .mm3-home-badge span { color: rgba(34,211,238,.85); }
 
 /* mobile tweaks — everything fits in one screen */
 @media (max-width:480px) {
