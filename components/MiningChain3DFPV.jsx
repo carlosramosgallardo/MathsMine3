@@ -2211,12 +2211,13 @@ function drawWalletDock(ctx, W, H, myNftjis, health, es, isLoggedWallet) {
 function drawChainStats(ctx, W, H, stats, es, top = 8) {
   if (!stats) return
   const { owned, marketFree, marketOwned, total, pct } = stats
+  const blocksMined = owned - marketOwned          // regular blocks with owner
+  const blocksFree  = total - owned - marketFree   // regular blocks without owner
 
   const lines = [
     { label: es ? 'CADENA MM3' : 'MM3 CHAIN', val: null, header: true },
-    { label: es ? 'Reclamados' : 'Claimed', val: `${owned} / ${total}` },
-    { label: es ? 'NFTJI libres' : 'Free NFTJI', val: String(marketFree) },
-    { label: es ? 'NFTJI vendidos' : 'Owned NFTJI', val: String(marketOwned) },
+    { label: es ? 'Bloques' : 'Blocks', val: `${blocksMined} min · ${blocksFree} lib` },
+    { label: 'NFTJI',                    val: `${marketOwned} min · ${marketFree} lib` },
   ]
 
   const LINE_H = 13, PAD_X = 8, PAD_Y = 6
