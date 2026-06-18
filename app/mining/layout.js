@@ -21,6 +21,8 @@ export default function MiningLayout({ children }) {
         html:has(.mm3-mining3d-root) .mm3-shell-main {
           padding-bottom: 32px !important;
           overflow: hidden !important;
+          height: 100vh;
+          height: 100dvh;
         }
       `}</style>
       <div className="mm3-mining3d-root h-full overflow-hidden" style={{ maxWidth: 768, margin: '0 auto' }}>
