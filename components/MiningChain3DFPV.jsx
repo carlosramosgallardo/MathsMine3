@@ -2976,6 +2976,9 @@ export default function MiningChain3DFPV({
   const webglCanvasRef = useRef(null)
   const containerRef = useRef(null)
   const [pointerLocked, setPointerLocked] = useState(false)
+  // Incrementing this key re-runs the Three.js init effect (recovery from context loss / crash)
+  const [threeKey, setThreeKey] = useState(0)
+  const threeReinitRef = useRef(null)
   const keysRef      = useRef({w:false,s:false,a:false,d:false,q:false,e:false,space:false})
   const playerRef    = useRef({
     x:((initCol??14)+0.5)*CELL_SIZE,
@@ -3056,6 +3059,21 @@ export default function MiningChain3DFPV({
   const landVzRef       = useRef(0)      // vertical speed at landing (for impact strength)
   const rebuildThreeRef     = useRef(null)
 
+  // Expose reinit trigger to refs so it can be called from the render loop or context handlers
+  useEffect(()=>{ threeReinitRef.current=()=>setThreeKey(k=>k+1) },[])
+
+  // WebGL context loss / restore — browser can reclaim GPU memory when tab is backgrounded
+  useEffect(()=>{
+    const canvas=webglCanvasRef.current
+    if(!canvas) return
+    const onLost=(e)=>{ e.preventDefault(); threeStateRef.current=null }
+    const onRestored=()=>{ setTimeout(()=>threeReinitRef.current?.(),200) }
+    canvas.addEventListener('webglcontextlost',onLost)
+    canvas.addEventListener('webglcontextrestored',onRestored)
+    return ()=>{ canvas.removeEventListener('webglcontextlost',onLost); canvas.removeEventListener('webglcontextrestored',onRestored) }
+  },[])
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(()=>{
     const canvas=webglCanvasRef.current
     if(!canvas) return
@@ -3101,13 +3119,16 @@ export default function MiningChain3DFPV({
     rebuildThreeRef.current()
     return ()=>{
       rebuildThreeRef.current=null
-      disposeThreeObject(scene)
-      disposeThreeObject(hudScene)
-      Object.values(textures).forEach(texture=>texture.dispose())
-      scene.userData.skyTexture?.dispose?.()
-      renderer.dispose();threeStateRef.current=null
+      try{ disposeThreeObject(scene) }catch{}
+      try{ disposeThreeObject(hudScene) }catch{}
+      try{ Object.values(textures).forEach(texture=>texture.dispose()) }catch{}
+      try{ scene.userData.skyTexture?.dispose?.() }catch{}
+      try{ renderer.dispose() }catch{}
+      threeStateRef.current=null
     }
-  },[])
+  // threeKey intentionally drives re-runs of this effect for WebGL recovery
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[threeKey])
 
   // Keep refs in sync with props
   useEffect(()=>{ cellMapRef.current=cellMap },[cellMap])
@@ -3522,8 +3543,11 @@ export default function MiningChain3DFPV({
         syncThreeLocalAvatar(threeState,myIdentity,localSwingT,walkDistRef.current,gx,gy,rawZ,angle)
         threeState.renderer.render(threeState.scene,threeState.camera)
         // No separate HUD avatar pass: local player is now a scene object
-      }catch{
+      }catch(err){
+        console.warn('[mm3 three] render error — scheduling reinit:',err)
         threeStateRef.current=null;threeState=null
+        // Schedule recovery: re-run the init effect to rebuild the renderer
+        setTimeout(()=>threeReinitRef.current?.(),1500)
       }
     }
     const projectionScale = H * PROJ_DIST
