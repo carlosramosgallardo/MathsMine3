@@ -2584,13 +2584,6 @@ function addBiomeLandmarks(world,textures) {
     const core=new THREE.Mesh(new THREE.OctahedronGeometry(.18),new THREE.MeshBasicMaterial({color}))
     beacon.add(ringA,ringB,core);beacon.position.set(x,4.6,z);world.add(beacon)
   }
-  // Mark every landmark mesh so the occlusion X-ray never touches them.
-  // Obstacle geometry (ramps/spheres/trees) is added to world AFTER this call
-  // and will correctly remain eligible for transparency.
-  world.traverse(obj=>{
-    if(obj.isMesh&&!obj.userData.biomeSurface&&!obj.userData.skipOcclusion)
-      obj.userData.skipOcclusion=true
-  })
 }
 
 function makeEmojiSprite(emoji,color) {
@@ -2643,13 +2636,6 @@ function addInteractiveBeacon(world,row,col,cell,height) {
 
 function rebuildThreeWorld(state,cellMap,obstacles) {
   if(!state) return
-  // Restore any occluded materials before disposing old world to avoid leaking clones
-  for(const occSet of [state._occA,state._occB]){
-    for(const obj of (occSet||[])){
-      if(obj.userData._matOrig){ obj.material=obj.userData._matOrig; obj.userData._matOrig=undefined }
-    }
-    occSet?.clear()
-  }
   if(state.world){state.scene.remove(state.world);disposeThreeObject(state.world)}
   const world=new THREE.Group(),matrix=new THREE.Matrix4(),position=new THREE.Vector3()
   const scale=new THREE.Vector3(),quaternion=new THREE.Quaternion()
@@ -3130,8 +3116,7 @@ export default function MiningChain3DFPV({
       ice:createProceduralTexture('ice'),inferno:createProceduralTexture('inferno'),crypto:createProceduralTexture('crypto'),
     }
     const state={renderer,scene,camera,hudScene,hudCamera,localAvatar:null,localAvatarId:null,world:null,avatars:new Map(),pixelRatio:0,size:new THREE.Vector2(),hemi,key,rim,textures,
-      camRaycaster:new THREE.Raycaster(),_v3a:new THREE.Vector3(),_v3b:new THREE.Vector3(),_v3c:new THREE.Vector3(),_v3d:new THREE.Vector3(),_v3e:new THREE.Vector3(),
-      _occA:new Set(),_occB:new Set()}
+      camRaycaster:new THREE.Raycaster(),_v3a:new THREE.Vector3(),_v3b:new THREE.Vector3(),_v3c:new THREE.Vector3(),_v3d:new THREE.Vector3(),_v3e:new THREE.Vector3()}
     threeStateRef.current=state
     rebuildThreeRef.current=()=>rebuildThreeWorld(state,cellMapRef.current,validObstaclesRef.current)
     rebuildThreeRef.current()
@@ -3522,51 +3507,6 @@ export default function MiningChain3DFPV({
           cameraZ - Math.sin(effectivePitch)*lookFwd*0.6 + 0.18,
           gy + sinA*lookFwd,
         )
-
-        // ── Occlusion X-ray: make geometry between camera and player see-through ──
-        // Swap double-buffer sets (GC-free each frame after first occlude).
-        {
-          const prevOcc=threeState._occA
-          const nextOcc=threeState._occB
-          nextOcc.clear()
-          // Ray from camera position to player body centre
-          const playerCenter=threeState._v3a.set(gx,rawZ+0.45,gy)
-          const camPos=threeState.camera.position
-          const occDir=threeState._v3c.copy(playerCenter).sub(camPos)
-          const occDist=occDir.length()
-          if(occDist>0.15&&threeState.world){
-            occDir.divideScalar(occDist)
-            threeState.camRaycaster.set(camPos,occDir)
-            threeState.camRaycaster.near=0.05
-            threeState.camRaycaster.far=occDist-0.08
-            const hits=threeState.camRaycaster.intersectObject(threeState.world,true)
-            for(const hit of hits){
-              const obj=hit.object
-              // Skip: non-mesh (Points/Lines), floor planes, animated bio surfaces, the glow wireframes
-              if(!obj.isMesh||obj.isInstancedMesh||obj.userData.skipOcclusion||obj.userData.biomeSurface||obj.userData.blockGlow) continue
-              nextOcc.add(obj)
-            }
-          }
-          // Restore objects that are clear this frame
-          for(const obj of prevOcc){
-            if(!nextOcc.has(obj)&&obj.userData._matOrig){
-              obj.material=obj.userData._matOrig
-              obj.userData._matOrig=undefined
-            }
-          }
-          // Make newly occluding objects transparent (clone material once per object)
-          for(const obj of nextOcc){
-            if(!obj.userData._matOrig){
-              const clone=obj.material.clone()
-              clone.transparent=true;clone.depthWrite=false
-              obj.userData._matOrig=obj.material
-              obj.userData._matClone=clone
-            }
-            obj.userData._matClone.opacity=0.13
-            obj.material=obj.userData._matClone
-          }
-          threeState._occA=nextOcc;threeState._occB=prevOcc
-        }
 
         syncThreeAvatars(threeState,presence,myIdentity)
         const time=performance.now()*.001
