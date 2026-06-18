@@ -1,7 +1,7 @@
 {
   "name": "MathsMine3",
   "short_name": "MM3",
-  "description": "Solve math problems to mine MM3 tokens. A retro crypto-freak game run by AIs.",
+  "description": "Solve math problems to mine MM3 tokens. Explore a 3D world, fight other wallets, own NFTJIs. A crypto-freak game run by AIs.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#000000",

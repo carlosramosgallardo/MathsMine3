@@ -107,7 +107,7 @@ The goal is to complete the MM3 mining board and win. The board has **784 cells*
 | Trading | Sell MM3 to build fiat reserves. Do 5 EXECs per day for the TRADING daily reward and a permanent +1 training slot. Buy rate is 18% above sell rate, so sell into strength and only rebuy when needed. |
 | Ranking and Pools | Your Mining % across all 784 board cells is the only number that decides the winner — watch it. Join a pool: pool members are immune to each other's Mining commands, which matters more as penalties scale up with NFTJI level. |
 | Squeeze | Once in a pool, initiate Squeezes from the Squeezing page to earn fiat and drop Squeeze NFTJIs. Watch 🔥 War and 🎲 Dice before launching — they directly shift the outcome formula. |
-| Mining board | 784-cell board, 3 ways to mine: (1) buy a Mining NFTJI — that cell counts in your Mining % while you own it, and unlocks a daily Relaying attack command; (2) mine free chain cells permanently with `/mine block #XXX` in Relaying; (3) submit the correct `Ω(α, β, γ)` for an immediate win. Selling an NFTJI removes that cell from your count. |
+| Mining world | A 3D walkable world built over the 784-cell board. Explore four biomes (mountain, coast, ice, inferno) in third-person view with WASD/joystick, jump, and PvP. 3 ways to mine: (1) buy a Mining NFTJI — that cell counts in your Mining % while you own it, and unlocks a daily Relaying attack command; (2) mine free chain cells permanently with `/mine block #XXX` in Relaying; (3) submit the correct `Ω(α, β, γ)` for an immediate win. Selling an NFTJI removes that cell from your count. |
 | Relaying | Your main action terminal. Type `/mine block #XXX` to attempt a chain cell. Fire your daily Mining command if you own a Mining NFTJI. Watch events, penalties, and world state shifts here in real time. |
 | MM3 | The global MM3 value determines which chain cells you can mine — requirements alternate positive and negative by cell index. Watch the MM3 chart and only attempt a cell when the sign and magnitude match its requirement. |
 | Daily rewards | Check the daily panel every session and manually claim each completed task before UTC midnight — unclaimed rewards disappear. Mining one block chain cell pays €10. Maximum daily total: €17.50. |
@@ -363,9 +363,9 @@ The modifier is read live at the moment each operation executes (`getDiceState()
 
 ## Mining
 
-> Three ways to mine the board: (1) buy a Mining NFTJI — that cell counts in your Mining % while you own it, and grants a daily attack command; (2) mine free chain cells permanently with `/mine block #XXX` in Relaying; (3) submit the correct `Ω(α, β, γ)` for an immediate win. Selling an NFTJI removes that cell from your count.
+> Three ways to mine the world: (1) buy a Mining NFTJI — that cell counts in your Mining % while you own it, and grants a daily attack command; (2) mine free chain cells permanently with `/mine block #XXX` in Relaying; (3) submit the correct `Ω(α, β, γ)` for an immediate win. Selling an NFTJI removes that cell from your count.
 
-The Mining board is a 28×28 grid: **784 cells total**, fully minable. All 784 cells count toward each wallet's Mining %. Two cell types:
+The Mining world is a **3D walkable space** built over the 28×28 logical grid. Explore it in third-person view: WASD or joystick to move, spacebar to jump, PvP interactions with other wallets. Four biomes (mountain, coast, ice, inferno) each have distinct block colors, obstacles, landmarks, and atmosphere. The underlying grid has **784 cells total**, fully minable. All 784 cells count toward each wallet's Mining %. Two cell types:
 
 | Cell type | Count | How mined | Permanent? |
 |---|---:|---|---|
@@ -1082,7 +1082,7 @@ El objetivo es completar el tablero de Mining y ganar. El tablero tiene **784 ce
 | Trading | Vende MM3 para acumular fiat. Haz 5 EXECs al día para la recompensa diaria de TRADING y un +1 permanente de training slot. La tasa de compra es un 18% mayor que la de venta: vende cuando puedas y recompra solo cuando lo necesites. |
 | Ranking y Pools | Tu % de Minado sobre las 784 celdas del tablero es el único número que decide quién gana — obsérvalo. Únete a un pool cuanto antes: los miembros del mismo pool son inmunes a los comandos de Mining entre sí, lo que importa más a medida que las penalizaciones escalan con el nivel del NFTJI. |
 | Squeeze | Una vez en un pool, inicia Squeezes desde la página de Squeezing para ganar fiat y conseguir NFTJIs de Squeeze. Consulta 🔥 War y 🎲 Dice antes de lanzar — afectan directamente a la fórmula de resultado. |
-| Tablero de Mining | 784 celdas, 3 formas de minar: (1) compra un NFTJI de Mining — esa celda cuenta en tu % de Minado mientras lo tengas, y desbloquea un comando diario de ataque en Relaying; (2) mina celdas libres de la cadena permanentemente con `/mine block #XXX` en Relaying; (3) envía el `Ω(α, β, γ)` correcto para ganar de inmediato. Vender un NFTJI elimina esa celda de tu conteo. |
+| Mundo de Mining | Mundo 3D explorable sobre las 784 celdas del tablero. Explora cuatro biomas en tercera persona con WASD/joystick, salto y PvP. 3 formas de minar: (1) compra un NFTJI de Mining — esa celda cuenta en tu % de Minado mientras lo tengas, y desbloquea un comando diario de ataque en Relaying; (2) mina celdas libres de la cadena permanentemente con `/mine block #XXX` en Relaying; (3) envía el `Ω(α, β, γ)` correcto para ganar de inmediato. Vender un NFTJI elimina esa celda de tu conteo. |
 | Relaying | Tu terminal de acción principal. Escribe `/mine block #XXX` para intentar minar una celda de la cadena. Dispara tu comando diario de Mining si tienes un NFTJI de Mining. Observa los eventos para leer el estado del juego en tiempo real. |
 | MM3 | El valor global del MM3 determina qué celdas libres puedes minar — los requisitos alternan entre positivo y negativo por índice de celda. Mira el gráfico MM3 y solo intenta minar cuando el signo y la magnitud coincidan con el requisito. |
 | Recompensas diarias | Revisa el panel diario en cada sesión y reclama manualmente cada tarea completada antes de la medianoche UTC — las recompensas no reclamadas se pierden. Minar una celda de la cadena paga €10. Máximo diario total: €17,50. |
@@ -1337,9 +1337,9 @@ El modificador se lee en vivo en el momento en que se ejecuta cada operación (`
 
 ## Mining
 
-> Tres formas de minar el tablero: (1) compra un NFTJI de Mining — esa celda cuenta en tu % de Minado mientras lo tengas, y otorga un comando de ataque diario; (2) mina celdas libres de la cadena permanentemente con `/mine block #XXX` en Relaying; (3) envía el `Ω(α, β, γ)` correcto para ganar de inmediato. Vender un NFTJI elimina esa celda de tu conteo.
+> Tres formas de minar el mundo: (1) compra un NFTJI de Mining — esa celda cuenta en tu % de Minado mientras lo tengas, y otorga un comando de ataque diario; (2) mina celdas libres de la cadena permanentemente con `/mine block #XXX` en Relaying; (3) envía el `Ω(α, β, γ)` correcto para ganar de inmediato. Vender un NFTJI elimina esa celda de tu conteo.
 
-El tablero de Mining es una cuadrícula 28×28: **784 celdas en total**, todas minables. Las 784 celdas cuentan para el % de Minado de cada wallet. Dos tipos de celda:
+El mundo de Mining es un **espacio 3D explorable** construido sobre la cuadrícula lógica 28×28. Explóralo en vista en tercera persona: WASD o joystick para moverte, espacio para saltar, interacciones PvP con otras wallets. Cuatro biomas (montaña, costa, hielo, infierno) con colores de bloques, obstáculos, landmarks y atmósfera distintos. La cuadrícula subyacente tiene **784 celdas en total**, todas minables. Las 784 celdas cuentan para el % de Minado de cada wallet. Dos tipos de celda:
 
 | Tipo de celda | Cantidad | Cómo se mina | ¿Permanente? |
 |---|---:|---|---|

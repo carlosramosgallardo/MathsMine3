@@ -3536,7 +3536,7 @@ export default function MiningChain3DFPV({
             for(const hit of hits){
               const obj=hit.object
               // Skip: non-mesh (Points/Lines), floor planes, animated bio surfaces, the glow wireframes
-              if(!obj.isMesh||obj.userData.skipOcclusion||obj.userData.biomeSurface||obj.userData.blockGlow) continue
+              if(!obj.isMesh||obj.isInstancedMesh||obj.userData.skipOcclusion||obj.userData.biomeSurface||obj.userData.blockGlow) continue
               nextOcc.add(obj)
             }
           }
