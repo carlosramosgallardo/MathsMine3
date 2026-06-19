@@ -11,8 +11,6 @@
 # MathsMine3 `v1.0`
 
 > Timed math. Fictional mining. Wallet identity. Terminal economy. Real-time 3D multiplayer world.
->
-> *Matemáticas a contrarreloj. Mining ficticio. Identidad de wallet. Economía terminal. Mundo 3D multijugador en tiempo real.*
 
 [![MathsMine3 Portal](https://mathsmine3.xyz/og-image.jpg)](https://mathsmine3.xyz)
 
