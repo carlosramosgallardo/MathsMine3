@@ -7,6 +7,9 @@ import { useActiveWallet } from '@/lib/use-active-wallet';
 import { loadDailyTaskProgress } from '@/lib/daily-tasks';
 import supabase from '@/lib/supabaseClient';
 
+// Interactive portal cards disabled during the 5-minute death cooldown
+const INTERACTIVE_HREFS = new Set(['/training', '/trading', '/squeezing', '/relaying', '/daily-tasks', '/mining'])
+
 const PORTAL = {
   en: [
     { href: '/training',    icon: '⛏',  name: 'Training',    desc: 'Solve math under pressure. 100 problems/day, 13 types.',    accent: '#f59e0b' },
@@ -37,6 +40,8 @@ export default function LandingHero() {
   const { account } = useActiveWallet();
   const [pendingRewards, setPendingRewards] = useState(0);
   const [onlineCount, setOnlineCount] = useState(null);
+  const [deadUntil, setDeadUntil] = useState(null)  // ms timestamp or null
+  const [nowMs, setNowMs] = useState(() => Date.now())
 
   const portal = PORTAL[language] || PORTAL.en;
   const es = language === 'es';
@@ -71,7 +76,47 @@ export default function LandingHero() {
     return () => { try { ch?.unsubscribe(); } catch { /* */ } };
   }, []);
 
+  // Check death state from localStorage (works for both anon and logged-in wallets)
+  useEffect(() => {
+    const check = () => {
+      try {
+        const raw = localStorage.getItem('mm3_pvp_dead')
+        if (!raw) { setDeadUntil(null); return }
+        const data = JSON.parse(raw)
+        const until = Number(data?.until)
+        if (!until || until <= Date.now()) {
+          localStorage.removeItem('mm3_pvp_dead')
+          setDeadUntil(null)
+        } else {
+          setDeadUntil(until)
+        }
+      } catch { setDeadUntil(null) }
+    }
+    check()
+    const t = setInterval(check, 5000)
+    window.addEventListener('mm3-pvp-death', check)
+    return () => { clearInterval(t); window.removeEventListener('mm3-pvp-death', check) }
+  }, [])
+
+  // Tick clock every second while dead so countdown updates
+  useEffect(() => {
+    if (!deadUntil) return
+    const t = setInterval(() => setNowMs(Date.now()), 1000)
+    return () => clearInterval(t)
+  }, [deadUntil])
+
   const count = Math.max(0, Number(pendingRewards) || 0);
+
+  const isDead = deadUntil && deadUntil > nowMs
+  let deadCountdown = ''
+  if (isDead) {
+    const msLeft = Math.max(0, deadUntil - nowMs)
+    const totalSec = Math.ceil(msLeft / 1000)
+    const hh = String(Math.floor(totalSec / 3600)).padStart(2, '0')
+    const mm = String(Math.floor((totalSec % 3600) / 60)).padStart(2, '0')
+    const ss = String(totalSec % 60).padStart(2, '0')
+    deadCountdown = `${hh}:${mm}:${ss}`
+  }
 
   return (
     <>
@@ -125,23 +170,42 @@ export default function LandingHero() {
       {/* ── PORTAL GRID ──────────────────────────────────────────────────── */}
       <section className="mm3-portal">
         <div className="mm3-portal-grid">
-          {portal.map(({ href, icon, name, desc, accent, daily }) => (
-            <Link
-              key={href}
-              href={href}
-              className="mm3-portal-card"
-              style={{ '--ac': accent }}
-            >
-              <span className="mm3-portal-icon">{icon}</span>
-              <span className="mm3-portal-name">
-                {name}
-                {daily && count > 0 && (
-                  <span className="mm3-portal-badge">{count > 9 ? '9+' : count}</span>
-                )}
-              </span>
-              <span className="mm3-portal-desc">{desc}</span>
-            </Link>
-          ))}
+          {portal.map(({ href, icon, name, desc, accent, daily }) => {
+            const blocked = isDead && INTERACTIVE_HREFS.has(href)
+            if (blocked) {
+              return (
+                <div
+                  key={href}
+                  className="mm3-portal-card"
+                  style={{ '--ac': '#6b7280', opacity: 0.5, cursor: 'not-allowed', pointerEvents: 'none', userSelect: 'none' }}
+                  aria-disabled="true"
+                >
+                  <span className="mm3-portal-icon">💀</span>
+                  <span className="mm3-portal-name">{name}</span>
+                  <span className="mm3-portal-desc">
+                    {es ? `MUERTO · revives en ${deadCountdown}` : `DEAD · revives in ${deadCountdown}`}
+                  </span>
+                </div>
+              )
+            }
+            return (
+              <Link
+                key={href}
+                href={href}
+                className="mm3-portal-card"
+                style={{ '--ac': accent }}
+              >
+                <span className="mm3-portal-icon">{icon}</span>
+                <span className="mm3-portal-name">
+                  {name}
+                  {daily && count > 0 && (
+                    <span className="mm3-portal-badge">{count > 9 ? '9+' : count}</span>
+                  )}
+                </span>
+                <span className="mm3-portal-desc">{desc}</span>
+              </Link>
+            )
+          })}
         </div>
       </section>
     </>

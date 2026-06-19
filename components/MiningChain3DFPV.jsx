@@ -1777,9 +1777,21 @@ function drawMinimap(ctx, gr, gc, angle, cellMap, presenceMap, myWallet, W, H, c
     if (player.row == null && player.gy == null) continue
     const identity = wallet.toLowerCase()
     if (identity === myId) continue
+    const pgx = player.gx ?? ((player.col ?? 0) + .5)
+    const pgy = player.gy ?? ((player.row ?? 0) + .5)
+    if (player.isDead) {
+      // Dead player: draw skull on minimap instead of direction arrow
+      const mx = mapX(pgx), my = mapY(pgy)
+      ctx.save()
+      ctx.font = `${Math.max(7, Math.round(CS * 0.7))}px "Apple Color Emoji","Segoe UI Emoji",serif`
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
+      ctx.globalAlpha = 0.82
+      ctx.fillText('\u{1F480}', mx, my)
+      ctx.restore()
+      continue
+    }
     drawPlayerArrow(
-      player.gx ?? ((player.col ?? 0) + .5),
-      player.gy ?? ((player.row ?? 0) + .5),
+      pgx, pgy,
       Number(player.angle) || 0,
       colorFromAddress(wallet),
       false,
@@ -2992,6 +3004,8 @@ export default function MiningChain3DFPV({
   healthMap,
   currency = 'EUR',
   es,
+  myDeadUntil = null,
+  myDeadPos   = null,
 }) {
   const canvasRef    = useRef(null)
   const webglCanvasRef = useRef(null)
@@ -3079,6 +3093,8 @@ export default function MiningChain3DFPV({
   const prevJumpsRef    = useRef(0)      // detect landing edge
   const landVzRef       = useRef(0)      // vertical speed at landing (for impact strength)
   const hitPunchRef     = useRef(0)      // view punch on pvp hit / collision (0-1, decays)
+  const myDeadUntilRef  = useRef(null)  // ms timestamp or null — synced from prop
+  const myDeadPosRef    = useRef(null)  // { gx, gy } or null
   const rebuildThreeRef     = useRef(null)
 
   // Expose reinit trigger to refs so it can be called from the render loop or context handlers
@@ -3205,6 +3221,9 @@ export default function MiningChain3DFPV({
   useEffect(()=>{
     if(anonKillMsg) notifRef.current = { text: anonKillMsg, color: '#f97316', startedAt: Date.now() }
   },[anonKillMsg])
+  // Sync death state refs from parent props
+  useEffect(()=>{ myDeadUntilRef.current = myDeadUntil },[myDeadUntil])
+  useEffect(()=>{ myDeadPosRef.current   = myDeadPos   },[myDeadPos])
 
   // Recompute valid obstacles (Map<key,data>) and chain node position whenever cellMap changes
   useEffect(() => {
@@ -4076,18 +4095,50 @@ export default function MiningChain3DFPV({
         angle:Number(pres.angle)||0, swingAt:Number(pres.swingAt)||0,
         isBot:Boolean(pres.isBot), taskLabel:pres.taskLabel||null, taskPhase:pres.taskPhase||null,
         color: colorFromAddress(w), poolCode: pres.poolCode||null,
+        isDead: Boolean(pres.isDead), deadUntil: pres.deadUntil ?? null,
       })
     }
     sprites.sort((a,b) => b.dist - a.dist)
 
     if(!threeState)
-    for (const { w, tX, tY, gx, gy, z:remoteZ, supportZ, angle:remoteAngle, swingAt, isBot, taskLabel, taskPhase, color } of sprites) {
+    for (const { w, tX, tY, gx, gy, z:remoteZ, supportZ, angle:remoteAngle, swingAt, isBot, taskLabel, taskPhase, color, isDead, deadUntil } of sprites) {
       const groundCamera = cameraPoint(0, tY)
       if (groundCamera.rotatedDepth <= 0.05) continue
       const scrX = Math.round(W/2 + tX*horizontalProjection/groundCamera.rotatedDepth)
       const [cr,cg2,cb] = hexToRgb(color)
       const fade  = Math.max(0.32, 1 - tY*0.038)
       const alpha = Math.min(0.98, Math.max(0.12, 1.0 - tY*0.028))
+
+      // Dead body: draw horizontal corpse + countdown, skip upright sprite
+      if (isDead) {
+        const zCol = Math.floor(scrX / stripW)
+        if (zCol >= 0 && zCol < strips && tY < zBuffer[zCol]) {
+          const bodyW = Math.round(Math.min(projectionScale / Math.max(0.72, tY), 150) * 0.86)
+          const bodyH = Math.max(3, Math.round(bodyW * 0.22))
+          const bodyY = Math.round(projectY(remoteZ, tY)) - bodyH
+          ctx.globalAlpha = alpha * 0.92
+          ctx.fillStyle = color
+          ctx.fillRect(scrX - Math.floor(bodyW/2), bodyY, bodyW, bodyH)
+          ctx.globalAlpha = alpha * 0.55; ctx.fillStyle = '#000'
+          ctx.fillRect(scrX - Math.floor(bodyW*0.35), bodyY + Math.floor(bodyH*0.15), Math.floor(bodyW*0.70), Math.max(1,Math.floor(bodyH*0.70)))
+          if (tY < 10.0 && deadUntil) {
+            const msLeft = Math.max(0, deadUntil - Date.now())
+            const totalSec = Math.ceil(msLeft / 1000)
+            const hh = String(Math.floor(totalSec/3600)).padStart(2,'0')
+            const mm = String(Math.floor((totalSec%3600)/60)).padStart(2,'0')
+            const ss = String(totalSec%60).padStart(2,'0')
+            const lAlpha = Math.max(0, (10.0-tY)/10.0) * 0.92
+            const lSize  = Math.max(8, Math.round(11/Math.max(0.5, tY)))
+            ctx.font = `bold ${lSize}px monospace`; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom'
+            ctx.globalAlpha = lAlpha * 0.45; ctx.fillStyle = '#000'
+            ctx.fillText(`\u{1F480} ${hh}:${mm}:${ss}`, scrX+1, bodyY)
+            ctx.globalAlpha = lAlpha; ctx.fillStyle = '#fb7185'
+            ctx.fillText(`\u{1F480} ${hh}:${mm}:${ss}`, scrX, bodyY-1)
+          }
+          ctx.globalAlpha = 1
+        }
+        continue
+      }
 
       // Walk state: detect server-side position change to enable foot animation
       const wsEntry = walkStateRef.current[w] || (walkStateRef.current[w] = { gx, gy, lastMove: 0 })
@@ -4283,6 +4334,22 @@ export default function MiningChain3DFPV({
         const alpha=Math.max(.28,1-sprite.dist*.045)
         ctx.globalAlpha=alpha;ctx.textAlign='center';ctx.textBaseline='top'
         let nextY=sy
+        if(sprite.isDead){
+          let countdown=''
+          if(sprite.deadUntil){
+            const msLeft=Math.max(0,sprite.deadUntil-Date.now())
+            const totalSec=Math.ceil(msLeft/1000)
+            const hh=String(Math.floor(totalSec/3600)).padStart(2,'0')
+            const mm=String(Math.floor((totalSec%3600)/60)).padStart(2,'0')
+            const ss=String(totalSec%60).padStart(2,'0')
+            countdown=` ${hh}:${mm}:${ss}`
+          }
+          ctx.font='bold 10px monospace'
+          ctx.fillStyle='rgba(0,0,0,.72)';ctx.fillText(`\u{1F480}${countdown}`,sx+1,nextY+1)
+          ctx.fillStyle='#fb7185';ctx.fillText(`\u{1F480}${countdown}`,sx,nextY)
+          ctx.globalAlpha=1
+          continue
+        }
         if(sprite.poolCode){
           ctx.font='bold 9px monospace'
           ctx.fillStyle='rgba(0,0,0,.65)';ctx.fillText(`[${sprite.poolCode}]`,sx+1,nextY+1)
@@ -4570,6 +4637,33 @@ export default function MiningChain3DFPV({
       } else pvpGainRef.current = null
     }
 
+    // ── Death HUD overlay (own player dead) ──────────────────────────────────
+    const deadUntilMs = myDeadUntilRef.current
+    if (deadUntilMs && deadUntilMs > Date.now()) {
+      const msLeft = Math.max(0, deadUntilMs - Date.now())
+      const totalSec = Math.ceil(msLeft / 1000)
+      const hh = String(Math.floor(totalSec / 3600)).padStart(2, '0')
+      const mm = String(Math.floor((totalSec % 3600) / 60)).padStart(2, '0')
+      const ss = String(totalSec % 60).padStart(2, '0')
+      // Dark red vignette
+      const dg = ctx.createRadialGradient(W/2,H/2,H*0.08, W/2,H/2,H*0.72)
+      dg.addColorStop(0,'rgba(0,0,0,0)')
+      dg.addColorStop(1,'rgba(100,0,0,0.62)')
+      ctx.globalAlpha=1; ctx.fillStyle=dg; ctx.fillRect(0,0,W,H)
+      // Skull + countdown
+      ctx.textAlign='center'; ctx.textBaseline='middle'
+      ctx.font=`bold ${Math.round(H*0.11)}px monospace`
+      ctx.globalAlpha=0.92; ctx.fillStyle='#fb7185'
+      ctx.fillText('\u{1F480}', W/2, H*0.38)
+      ctx.font=`bold ${Math.round(H*0.055)}px monospace`
+      ctx.fillStyle='#fca5a5'
+      ctx.fillText('YOU WERE KILLED', W/2, H*0.52)
+      ctx.font=`bold ${Math.round(H*0.048)}px monospace`
+      ctx.fillStyle='#fff'
+      ctx.fillText(`REVIVE IN  ${hh}:${mm}:${ss}`, W/2, H*0.60)
+      ctx.globalAlpha=1
+    }
+
     drawMinimap(ctx,gr,gc,angle,cellMap,presence,myIdentity,W,H,chainNodePosRef.current,validObstaclesRef.current,px/CELL_SIZE,py/CELL_SIZE)
     drawOnlineList(ctx,W,H,presence,myIdentity,pvpStolenRef.current)
     const walletDock = drawWalletDock(
@@ -4758,11 +4852,20 @@ export default function MiningChain3DFPV({
       lastFrameRef.current=nowMs
       let needsRender=false
 
+      // When dead: lock position, block movement, still allow look-around
+      const myDead = myDeadUntilRef.current && myDeadUntilRef.current > Date.now()
+      if (myDead && myDeadPosRef.current) {
+        const dp = myDeadPosRef.current
+        p.x = dp.gx * CELL_SIZE; p.y = dp.gy * CELL_SIZE
+        p.z = 0; p.vz = 0
+        velocityRef.current.x = 0; velocityRef.current.y = 0
+      }
+
       if(k.q){p.angle-=TURN_SPD*dt;needsRender=true}
       if(k.e){p.angle+=TURN_SPD*dt;needsRender=true}
 
       const joy=joystickRef.current
-      const fwd=(k.w?1:0)-(k.s?1:0)-joy.y, str=(k.d?1:0)-(k.a?1:0)+joy.x
+      const fwd=myDead?0:(k.w?1:0)-(k.s?1:0)-joy.y, str=myDead?0:(k.d?1:0)-(k.a?1:0)+joy.x
       const inputLen=Math.hypot(fwd,str)||1
       const targetSpeed=speedRef.current*(p.z>.04?longJumpRef.current:1)
       const targetVX=(Math.cos(p.angle)*(fwd/inputLen)+Math.cos(p.angle+Math.PI/2)*(str/inputLen))*targetSpeed
@@ -5136,6 +5239,8 @@ export default function MiningChain3DFPV({
       if(!swinging) hitDoneRef.current=false
 
       if(notifRef.current&&(Date.now()-notifRef.current.startedAt)<2800) needsRender=true
+      // Keep rendering while dead so countdown ticks every frame
+      if(myDeadUntilRef.current && myDeadUntilRef.current > Date.now()) needsRender=true
       // Keep rendering while any remote wallet swing animation is still playing
       const now2=Date.now()
       for(const t of Object.values(swingMapRef.current||{})){

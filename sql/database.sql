@@ -2223,8 +2223,15 @@ CREATE TABLE mm3_pvp_health (
   wallet TEXT PRIMARY KEY,
   health INTEGER NOT NULL DEFAULT 100 CHECK (health BETWEEN 0 AND 100),
   deaths INTEGER NOT NULL DEFAULT 0,
+  pvp_dead_until TIMESTAMPTZ,
+  pvp_dead_gx FLOAT,
+  pvp_dead_gy FLOAT,
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+-- Migration (run once on existing DB):
+-- ALTER TABLE mm3_pvp_health ADD COLUMN IF NOT EXISTS pvp_dead_until TIMESTAMPTZ;
+-- ALTER TABLE mm3_pvp_health ADD COLUMN IF NOT EXISTS pvp_dead_gx FLOAT;
+-- ALTER TABLE mm3_pvp_health ADD COLUMN IF NOT EXISTS pvp_dead_gy FLOAT;
 ALTER TABLE mm3_pvp_hits ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "pvp_hits_select" ON mm3_pvp_hits FOR SELECT TO public USING (true);
 GRANT SELECT ON mm3_pvp_hits TO anon;

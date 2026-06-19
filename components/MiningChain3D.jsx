@@ -153,6 +153,11 @@ export default function MiningChain3D() {
   const [presenceKey,   setPresenceKey]   = useState(myWallet)
   const [healthMap,     setHealthMap]     = useState({})
   const healthRequestedRef = useRef(new Set())
+  // Death / respawn state — ms timestamp (null = alive)
+  const [myDeadUntil,   setMyDeadUntil]   = useState(null)
+  const [myDeadPos,     setMyDeadPos]     = useState(null)
+  const myDeadUntilRef = useRef(null)
+  const respawnTimerRef = useRef(null)
 
   const loadRemoteHealth = useCallback((wallet) => {
     const key = String(wallet || '').toLowerCase()
@@ -164,6 +169,61 @@ export default function MiningChain3D() {
         if (r?.ok) setHealthMap(prev => ({ ...prev, [key]: Number(r.health ?? 100) }))
       })
       .catch(() => { healthRequestedRef.current.delete(key) })
+  }, [])
+
+  // ── Death / respawn helpers ─────────────────────────────────────────────────
+  const triggerRespawn = useCallback(() => {
+    const spawn = getSpawnForWallet(myWalletRef.current)
+    setMyPos(spawn); myPosRef.current = spawn; setJumpToCell(spawn)
+    setMyDeadUntil(null); setMyDeadPos(null)
+    myDeadUntilRef.current = null
+    localStorage.removeItem('mm3_pvp_dead')
+    if (myWalletRef.current) {
+      fetch(`/api/pvp-death?wallet=${encodeURIComponent(myWalletRef.current)}`, { method: 'DELETE' }).catch(() => {})
+    }
+    setHealthMap(prev => ({ ...prev, [myKeyRef.current]: 100 }))
+    const ch = channelRef.current
+    if (ch) {
+      const { row, col } = spawn
+      ch.track({ wallet: myKeyRef.current, isDead: false, gx: col + 0.5, gy: row + 0.5, row, col }).catch?.(() => {})
+      ch.send({ type: 'broadcast', event: 'pvp-result', payload: { victim: myKeyRef.current, health: 100, killed: false, respawn: true } }).catch?.(() => {})
+    }
+  }, [])
+
+  const scheduleRespawn = useCallback((delayMs) => {
+    if (respawnTimerRef.current) clearTimeout(respawnTimerRef.current)
+    respawnTimerRef.current = setTimeout(triggerRespawn, Math.max(0, delayMs))
+  }, [triggerRespawn])
+
+  // On mount: restore death state that survived a page refresh
+  useEffect(() => {
+    const stored = (() => { try { return JSON.parse(localStorage.getItem('mm3_pvp_dead') || 'null') } catch { return null } })()
+    if (stored?.until && stored.until > Date.now()) {
+      setMyDeadUntil(stored.until)
+      setMyDeadPos({ gx: stored.gx, gy: stored.gy })
+      myDeadUntilRef.current = stored.until
+      scheduleRespawn(stored.until - Date.now())
+    } else if (stored) {
+      localStorage.removeItem('mm3_pvp_dead')
+    }
+    // Also verify against DB for logged-in wallets
+    if (myWallet) {
+      fetch(`/api/pvp-death?wallet=${encodeURIComponent(myWallet)}`)
+        .then(r => r.json())
+        .then(r => {
+          if (!r.dead) return
+          const until = new Date(r.deadUntil).getTime()
+          if (until <= Date.now()) return
+          if (myDeadUntilRef.current && myDeadUntilRef.current >= until) return // localStorage already covers it
+          setMyDeadUntil(until)
+          setMyDeadPos({ gx: r.gx, gy: r.gy })
+          myDeadUntilRef.current = until
+          localStorage.setItem('mm3_pvp_dead', JSON.stringify({ until, gx: r.gx, gy: r.gy }))
+          scheduleRespawn(until - Date.now())
+        })
+        .catch(() => {})
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   // FPV gets wallets that are online AND have a known position (or self)
@@ -397,6 +457,14 @@ export default function MiningChain3D() {
         setSwingMap(prev => ({ ...prev, [payload.attacker]: Date.now() }))
       }
       setHealthMap(prev => ({ ...prev, [payload.victim]: Number(payload.health ?? 100) }))
+      // Respawn: clear dead state from that player's position entry
+      if (payload.respawn) {
+        setPositions(prev => {
+          const p = prev[payload.victim]
+          if (!p?.isDead) return prev
+          return { ...prev, [payload.victim]: { ...p, isDead: false, deadUntil: null } }
+        })
+      }
       if (payload.victim === myKeyRef.current || payload.victim === myWalletRef.current) {
         setReceivedHitAt(Date.now())
         if (payload.attacker && !payload.killed) {
@@ -408,17 +476,37 @@ export default function MiningChain3D() {
           }))
         }
         if (payload.killed) {
-          const spawn = myWalletRef.current ? getRandomLoggedSpawn() : { row: 14, col: 14 }
-          setTimeout(() => {
-            setMyPos(spawn); myPosRef.current = spawn; setJumpToCell(spawn)
-            setHealthMap(prev => ({ ...prev, [payload.victim]: 100 }))
-            channelRef.current?.send({
-              type:'broadcast',event:'pvp-result',
-              payload:{victim:payload.victim,health:100,killed:false,respawn:true},
-            })?.catch(() => {})
-          }, 450)
+          // Enter 5-minute death state instead of instant respawn
+          const myP = myPosRef.current
+          const deadGX = (myP?.col ?? 14) + 0.5
+          const deadGY = (myP?.row ?? 14) + 0.5
+          const deadUntil = Date.now() + 5 * 60 * 1000
+          setMyDeadUntil(deadUntil)
+          setMyDeadPos({ gx: deadGX, gy: deadGY })
+          myDeadUntilRef.current = deadUntil
+          localStorage.setItem('mm3_pvp_dead', JSON.stringify({ until: deadUntil, gx: deadGX, gy: deadGY }))
+          try { window.dispatchEvent(new Event('mm3-pvp-death')) } catch {}
+          if (myWalletRef.current) {
+            fetch('/api/pvp-death', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ wallet: myWalletRef.current, gx: deadGX, gy: deadGY }) }).catch(() => {})
+          }
+          // Notify others of the corpse position via broadcast
+          const deadUntilIso = new Date(deadUntil).toISOString()
+          channelRef.current?.send({ type: 'broadcast', event: 'player-death', payload: { victim: payload.victim, gx: deadGX, gy: deadGY, deadUntil: deadUntilIso } })?.catch(() => {})
+          channelRef.current?.track({ wallet: myKeyRef.current, isDead: true, deadUntil: deadUntilIso, gx: deadGX, gy: deadGY, row: myP?.row ?? 14, col: myP?.col ?? 14 })?.catch?.(() => {})
+          scheduleRespawn(5 * 60 * 1000)
         }
       }
+    })
+
+    // Other players died — update their position to show corpse
+    ch.on('broadcast', { event: 'player-death' }, ({ payload }) => {
+      const w = payload?.victim
+      if (!w) return
+      setPositions(prev => ({
+        ...prev,
+        [w]: { ...(prev[w] || {}), gx: Number(payload.gx), gy: Number(payload.gy), row: Math.floor(Number(payload.gy)), col: Math.floor(Number(payload.gx)), isDead: true, deadUntil: payload.deadUntil },
+      }))
+      setOnlineWallets(prev => prev.has(w) ? prev : new Set([...prev, w]))
     })
 
     // Anon collision push: target anon receives a velocity impulse
@@ -461,6 +549,8 @@ export default function MiningChain3D() {
           task: payload.task || prev[w]?.task || null,
           taskLabel: payload.taskLabel || prev[w]?.taskLabel || null,
           taskPhase: payload.taskPhase || prev[w]?.taskPhase || null,
+          isDead: Boolean(payload.isDead),
+          deadUntil: payload.deadUntil || null,
         },
       }))
       // Ensure the wallet is visible even if presence sync hasn't fired yet
@@ -660,6 +750,8 @@ export default function MiningChain3D() {
             healthMap={healthMap}
             currency={currency}
             es={es}
+            myDeadUntil={myDeadUntil}
+            myDeadPos={myDeadPos}
           />
         )}
       </div>
