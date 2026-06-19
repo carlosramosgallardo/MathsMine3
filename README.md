@@ -93,7 +93,7 @@ The goal is to complete the MM3 mining board and win. The board has **784 cells*
 
 **Rival pressure.** Without pool cover, any wallet that owns a Mining NFTJI can fire its daily command and drain rivals' fiat or MM3 in a single shot. Those losses can erase the reserves needed to meet a block threshold or rebuy MM3 at the exchange.
 
-**The real scale.** 784 board cells. 764 permanent chain blocks + 20 NFTJI cells (temporary, covered only while owned). Hundreds of timed training problems under maximum pressure. Days or weeks of sustained LEGEND-level performance. Active bots. World-state conditions outside your control. Rivals targeting your economy. The wallet that reaches #1 will have earned it.
+**The real scale.** A live 3D world — 784 block cells on the ground floor of the MM3 BLOCK CHAIN. 764 chain blocks glow as open targets when unclaimed; once mined, sealed permanently by whoever got there first. 20 NFTJI blocks float in amber: free until purchased, owned only as long as you hold the NFTJI. Other wallets walk the same world as avatars in real time — racing the same open chain blocks, able to attack you directly. Hundreds of timed training problems under maximum pressure. Days or weeks of sustained LEGEND-level performance. Active bots. World-state conditions outside your control. Rivals targeting your economy. The wallet that reaches #1 will have earned it.
 
 ---
 
