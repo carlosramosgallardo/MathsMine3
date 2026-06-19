@@ -3491,8 +3491,9 @@ export default function MiningChain3DFPV({
         threeState.scene.fog.color.set(atmosphere.fog)
         threeState.hemi.color.set(atmosphere.hemi)
         threeState.rim.color.set(atmosphere.rim)
-        // 3rd-person over-shoulder camera
-        const behindDist=2.55, aboveOffset=1.15, lookFwd=2.4, shoulderR=0.30
+        // 3rd-person over-shoulder camera — drop to ground level when dead
+        const localDead=myDeadUntilRef.current&&myDeadUntilRef.current>Date.now()
+        const behindDist=localDead?1.20:2.55, aboveOffset=localDead?-0.45:1.15, lookFwd=2.4, shoulderR=localDead?0:0.30
         const cosA=Math.cos(angle),sinA=Math.sin(angle)
         // Perpendicular right vector (horizontal plane)
         const rightX=Math.cos(angle+Math.PI/2), rightZ=Math.sin(angle+Math.PI/2)
@@ -4782,7 +4783,8 @@ export default function MiningChain3DFPV({
         if(!keysRef.current.space){  // fire once per physical press, not on key-hold repeat
           keysRef.current.space=true
           const _p=playerRef.current
-          if(_p.jumps<MAX_JUMPS){ _p.vz=Math.max(0,_p.vz)+JUMP_VZ; _p.jumps++ }
+          const _dead=myDeadUntilRef.current&&myDeadUntilRef.current>Date.now()
+          if(!_dead&&_p.jumps<MAX_JUMPS){ _p.vz=Math.max(0,_p.vz)+JUMP_VZ; _p.jumps++ }
         }
         e.preventDefault()
       }
@@ -4843,7 +4845,8 @@ export default function MiningChain3DFPV({
   const handlePointerDown = useCallback((e)=>{
     if(e.pointerType==='mouse'){
       if(document.pointerLockElement!==canvasRef.current){ canvasRef.current?.requestPointerLock?.(); return }
-      if(performance.now()-swingStartRef.current>SWING_DUR){
+      const nowDead=myDeadUntilRef.current&&myDeadUntilRef.current>Date.now()
+      if(!nowDead&&performance.now()-swingStartRef.current>SWING_DUR){
         swingStartRef.current=performance.now(); swingEpochRef.current=Date.now(); hitDoneRef.current=false
       }
       return
@@ -4867,7 +4870,8 @@ export default function MiningChain3DFPV({
     if(!dragRef.current||dragRef.current.pointerId!==e.pointerId) return
     if (dragRef.current.type!=='touch' && (dragRef.current.moved||0) < 8) {
       // Tap/click with minimal movement swings the USB staff.
-      if (performance.now()-swingStartRef.current > SWING_DUR) {
+      const nowDead=myDeadUntilRef.current&&myDeadUntilRef.current>Date.now()
+      if (!nowDead && performance.now()-swingStartRef.current > SWING_DUR) {
         swingStartRef.current = performance.now()
         swingEpochRef.current = Date.now()
         hitDoneRef.current = false
@@ -4910,7 +4914,7 @@ export default function MiningChain3DFPV({
       vel.x+=(targetVX-vel.x)*blend; vel.y+=(targetVY-vel.y)*blend
       if(!fwd&&!str&&Math.hypot(vel.x,vel.y)<0.5){vel.x=0;vel.y=0}
       // Physical collision repulsion: push away from nearby players (no health damage)
-      for(const [w,remote] of remoteVisualsRef.current.entries()){
+      if(!myDead) for(const [w,remote] of remoteVisualsRef.current.entries()){
         if(w.toLowerCase()===(presenceKeyRef.current||myWalletRef.current||'').toLowerCase()) continue
         if(Math.abs((Number(remote.z)||0)-p.z)>.85) continue
         const repX=p.x/CELL_SIZE-remote.gx, repY=p.y/CELL_SIZE-remote.gy
@@ -5108,6 +5112,7 @@ export default function MiningChain3DFPV({
       }
 
       // ── Enemy sprite targeting (screen-space, zoom-invariant) ─────────────
+      if(myDead){ enemyTargetRef.current=null; actionUrlRef.current=null; mineTypeRef.current='empty' }
       const camGX = p.x / CELL_SIZE, camGY = p.y / CELL_SIZE
       let closestEnemy = null, closestDist = Infinity
       const myW = myWalletRef.current
@@ -5125,7 +5130,7 @@ export default function MiningChain3DFPV({
       const _cosP = Math.cos(_pitch), _sinP = Math.sin(_pitch)
       const _cx = _W / 2, _cy = _viewCY   // crosshair screen position
       const _threeState = threeStateRef.current
-      for (const [w, pres] of remoteVisualsRef.current.entries()) {
+      for (const [w, pres] of myDead ? [] : remoteVisualsRef.current.entries()) {
         const isMe = w.toLowerCase() === (myIdentity || '').toLowerCase()
         if (isMe) continue
         if (pres.isDead) continue  // dead players are not targetable
@@ -5191,8 +5196,9 @@ export default function MiningChain3DFPV({
       }
       enemyTargetRef.current = closestEnemy
 
-      // Facing detection + action URL + mine type update
-      const {cell:fc,mx:fmx,my:fmy,perpDist:fcDist}=castRay(p.x,p.y,p.angle,cellMapRef.current,validObstaclesRef.current)
+      // Facing detection + action URL + mine type update (skipped when dead)
+      if(myDead){ facingKeyRef.current=null }
+      const {cell:fc,mx:fmx,my:fmy,perpDist:fcDist}=myDead?{cell:null,mx:-1,my:-1,perpDist:0}:castRay(p.x,p.y,p.angle,cellMapRef.current,validObstaclesRef.current)
       const newKey=`${fmy},${fmx}`
       facingDataRef.current={mx:fmx,my:fmy,cell:fc,dist:fcDist}
       if(newKey!==facingKeyRef.current){
@@ -5242,7 +5248,7 @@ export default function MiningChain3DFPV({
 
       // ── Swing hit detection ─────────────────────────────────────────────────
       const swingElapsed=performance.now()-swingStartRef.current
-      const swinging=swingElapsed<SWING_DUR
+      const swinging=!myDead&&swingElapsed<SWING_DUR
       if(swinging) needsRender=true
       if(swinging&&swingElapsed/SWING_DUR>=0.45&&!hitDoneRef.current){
         hitDoneRef.current=true
@@ -5353,12 +5359,14 @@ export default function MiningChain3DFPV({
     if(joystickKnobRef.current)joystickKnobRef.current.style.transform='translate(0px,0px)'
   },[])
   const triggerJump=useCallback(()=>{
+    if(myDeadUntilRef.current&&myDeadUntilRef.current>Date.now()) return
     const player=playerRef.current
     if(player.jumps>=MAX_JUMPS) return
     player.vz=Math.max(0,player.vz)+JUMP_VZ;player.jumps++
     renderRef.current?.()
   },[])
   const triggerAttack=useCallback(()=>{
+    if(myDeadUntilRef.current&&myDeadUntilRef.current>Date.now()) return
     if(performance.now()-swingStartRef.current<=SWING_DUR) return
     swingStartRef.current=performance.now();swingEpochRef.current=Date.now();hitDoneRef.current=false
     renderRef.current?.()
