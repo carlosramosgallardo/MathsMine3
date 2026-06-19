@@ -2321,7 +2321,8 @@ function drawOnlineList(ctx, W, H, presenceMap, myWallet, pvpStolen) {
     ctx.font = `${isMe ? 'bold ' : ''}9px monospace`
     ctx.textAlign = 'left'
     ctx.fillStyle = col
-    ctx.fillText(label, px + PAD_X, ly)
+    ctx.fillRect(px + PAD_X, ly + 2, 3, 3)
+    ctx.fillText(label, px + PAD_X + 6, ly)
     if (stolen > 0) {
       ctx.fillStyle = '#4ade8099'
       ctx.textAlign = 'right'
@@ -3077,6 +3078,7 @@ export default function MiningChain3DFPV({
   const breathPhaseRef  = useRef(0)      // idle breathing oscillator
   const prevJumpsRef    = useRef(0)      // detect landing edge
   const landVzRef       = useRef(0)      // vertical speed at landing (for impact strength)
+  const hitPunchRef     = useRef(0)      // view punch on pvp hit / collision (0-1, decays)
   const rebuildThreeRef     = useRef(null)
 
   // Expose reinit trigger to refs so it can be called from the render loop or context handlers
@@ -3191,6 +3193,7 @@ export default function MiningChain3DFPV({
     const len=Math.hypot(dx,dy)||1
     velocityRef.current.x+=(dx/len)*160
     velocityRef.current.y+=(dy/len)*160
+    hitPunchRef.current=0.7
   },[externalKnockback])
   // Anon collision push: apply velocity impulse in the received direction
   useEffect(()=>{
@@ -3426,10 +3429,11 @@ export default function MiningChain3DFPV({
     // Compose all camera feel effects
     const roll      = cameraRollRef.current
     const landPitch = landImpactRef.current * 0.11     // max ~6.3° pitch-down on hard landing
+    const hitPunch  = hitPunchRef.current * 0.09       // brief pitch kick on pvp hit / collision
     const breath    = Math.sin(breathPhaseRef.current) * 0.0045   // ±0.26° idle breathing
     const cameraBobZ = pz > 0 ? 0 : (Math.sin(walkDistRef.current*0.12) * 0.012 + breath)
     const cameraZ = pz + CAMERA_EYE_Z + cameraBobZ
-    const effectivePitch = pitch + landPitch
+    const effectivePitch = pitch + landPitch + hitPunch
     let threeState=threeStateRef.current
     if(threeState){
       try{
@@ -4777,6 +4781,7 @@ export default function MiningChain3DFPV({
           const overlap=(AVATAR_R*2-repD)/(AVATAR_R*2)
           const bump=80*overlap
           vel.x+=(repX/repD)*bump; vel.y+=(repY/repD)*bump
+          hitPunchRef.current=Math.max(hitPunchRef.current,overlap*0.4)
           // For anonymous players: broadcast a push so their client also moves
           if(w.startsWith('anon-')){
             const throttle=collisionPushThrottleRef.current
@@ -4890,6 +4895,14 @@ export default function MiningChain3DFPV({
           needsRender=true
         }else{
           landImpactRef.current=0
+        }
+
+        // Hit punch: brief view kick on pvp hit / collision, decays fast
+        if(hitPunchRef.current>0.01){
+          hitPunchRef.current*=Math.exp(-12*dt)
+          needsRender=true
+        }else{
+          hitPunchRef.current=0
         }
 
         // Idle breathing: slow sinusoidal swell when not moving
