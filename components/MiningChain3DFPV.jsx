@@ -22,7 +22,7 @@ const MOVE_SPD      = 47     // world units / second (~1.2 cells/sec)
 const MOVE_ACCEL    = 11
 const TURN_SPD      = 1.35   // radians / second
 const HORIZON_RATIO = 0.50
-const PLAYER_R      = 0.20   // collision radius in grid units (1 unit = 1 cell)
+const PLAYER_R      = 0.28   // collision radius in grid units — matches visual avatar half-width so body doesn't clip walls
 const PLAYER_BODY_H = 1.02   // physical body height for bridges and overhangs
 const AVATAR_R      = 0.30
 const FOOTSTEP_DIST = CELL_SIZE * 0.42       // footstep cadence
