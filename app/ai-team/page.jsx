@@ -98,7 +98,7 @@ export default function AITeamPage() {
         .bot-link:hover { opacity: 0.65; }
       `}</style>
 
-      <main className="w-full px-2 py-1 flex-1 flex flex-col" style={{ '--mm3-accent': frameAccent }}>
+      <main className="w-full px-2 py-1 min-h-full flex flex-col" style={{ '--mm3-accent': frameAccent }}>
       <SectionFrame accent={frameAccent} id="ai-team-section" stretch>
       <div className="mm3-readable-scroll max-w-3xl mx-auto px-1 py-1">
 

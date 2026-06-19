@@ -323,7 +323,7 @@ export default function ManifestoClient({ enContent, esContent }) {
     : (enContent || esContent);
 
   return (
-    <main className="w-full px-2 py-1 flex-1 flex flex-col" style={{ '--mm3-accent': frameAccent }}>
+    <main className="w-full px-2 py-1 min-h-full flex flex-col" style={{ '--mm3-accent': frameAccent }}>
       <SectionFrame accent={frameAccent} id="manifesto-section" stretch>
         <div className="mm3-readable-scroll mx-auto max-w-5xl px-1 py-1 text-sm font-mono text-gray-400 break-words overflow-x-hidden">
           <style>{`
