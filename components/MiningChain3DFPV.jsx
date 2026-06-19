@@ -4896,6 +4896,7 @@ export default function MiningChain3DFPV({
           }
         }
       }
+      const cm=cellMapRef.current, obs=validObstaclesRef.current
       const movedDist=Math.hypot(vel.x,vel.y)*dt
       if(movedDist>0.001){
         const nx=p.x+vel.x*dt
@@ -4904,7 +4905,6 @@ export default function MiningChain3DFPV({
         const inBX=nx>R&&nx<WORLD_W-R, inBY=ny>R&&ny<WORLD_H-R
         const ngx=nx/CELL_SIZE, ngy=ny/CELL_SIZE
         const cgx=p.x/CELL_SIZE, cgy=p.y/CELL_SIZE
-        const cm=cellMapRef.current, obs=validObstaclesRef.current
         const avatarBlocked=(gx,gy)=>{
           for(const [w,remote] of remoteVisualsRef.current){
             if(w.toLowerCase()===(presenceKeyRef.current||myWalletRef.current||'').toLowerCase()) continue
@@ -4919,8 +4919,14 @@ export default function MiningChain3DFPV({
         // top, while taller structural walls remain solid at jump height.
         if(inBX&&inBY&&!hitsSolidWall(ngx,ngy,cm,obs,p.z)&&!avatarBlocked(ngx,ngy)){ p.x=nx; p.y=ny }
         else{
+          const prevX=p.x, prevY=p.y
           if(inBX&&!hitsSolidWall(ngx,cgy,cm,obs,p.z)&&!avatarBlocked(ngx,cgy)) p.x=nx
           if(inBY&&!hitsSolidWall(cgx,ngy,cm,obs,p.z)&&!avatarBlocked(cgx,ngy)) p.y=ny
+          // Corner-clip guard: both axes slid into a combined position that is
+          // itself solid (diagonal block corner). Revert to avoid penetration.
+          if(p.x!==prevX&&p.y!==prevY&&hitsSolidWall(p.x/CELL_SIZE,p.y/CELL_SIZE,cm,obs,p.z)){
+            p.x=prevX; p.y=prevY
+          }
         }
         walkDistRef.current+=movedDist
         needsRender=true
@@ -4976,6 +4982,30 @@ export default function MiningChain3DFPV({
         }
       }
       prevJumpsRef.current = p.jumps
+
+      // ── Stuck-in-solid recovery ──────────────────────────────────────────────
+      // If the player somehow ended up inside a solid cell (e.g. world update),
+      // eject them to the nearest free cell centre so they can always move.
+      {
+        const sGX=p.x/CELL_SIZE, sGY=p.y/CELL_SIZE
+        if(hitsSolidWall(sGX,sGY,cm,obs,p.z)){
+          const r0=Math.floor(sGY), c0=Math.floor(sGX)
+          let ejected=false
+          outer: for(let d=0;d<=3;d++){
+            for(let dr=-d;dr<=d&&!ejected;dr++){
+              for(let dc=-d;dc<=d&&!ejected;dc++){
+                if(d>0&&Math.abs(dr)<d&&Math.abs(dc)<d) continue
+                const ex=c0+dc+0.5, ey=r0+dr+0.5
+                if(!hitsSolidWall(ex,ey,cm,obs,p.z)){
+                  p.x=ex*CELL_SIZE; p.y=ey*CELL_SIZE
+                  vel.x=0; vel.y=0
+                  ejected=true
+                }
+              }
+            }
+          }
+        }
+      }
 
       // ── FPS camera feel ──────────────────────────────────────────────────────
       {
