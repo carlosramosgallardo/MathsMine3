@@ -31,21 +31,26 @@ export async function POST(req) {
   }
 
   const sb = serviceClient()
-  const [{ data: attackerProgress }, { data: squeezeNftji }, { data: victimSqueezeNftji }] = await Promise.all([
+  const [{ data: attackerProgress }, { data: squeezeNftji }, { data: victimSqueezeNftji }, { data: victimHealth }] = await Promise.all([
     sb.from('player_progress').select('wallet').eq('wallet', attacker).maybeSingle(),
     sb.from('mm3_squeezing_nftji').select('equipped, attack_level').eq('wallet', attacker).maybeSingle(),
     sb.from('mm3_squeezing_nftji').select('equipped, defense_level').eq('wallet', victim).maybeSingle(),
+    victimIsAnon ? Promise.resolve({ data: null }) : sb.from('mm3_pvp_health').select('health, pvp_dead_until').eq('wallet', victim).maybeSingle(),
   ])
   if (!attackerProgress) {
     return Response.json({ ok: false, error: 'attacker_not_found' }, { status: 403 })
+  }
+
+  // Reject hit if victim is currently dead (5-min cooldown active in DB)
+  if (!victimIsAnon && victimHealth?.pvp_dead_until && new Date(victimHealth.pvp_dead_until) > new Date()) {
+    return Response.json({ ok: false, error: 'victim_is_dead' }, { status: 409 })
   }
 
   // Defense NFTJI (🔰): 10% dodge chance when victim has it equipped
   const hasDefenseNftji = victimSqueezeNftji?.equipped === 'defense'
     && Number(victimSqueezeNftji?.defense_level ?? -1) >= 0
   if (!victimIsAnon && hasDefenseNftji && Math.random() < 0.10) {
-    const { data: hd } = await sb.from('mm3_pvp_health').select('health').eq('wallet', victim).maybeSingle()
-    return Response.json({ ok: true, dodged: true, damage: 0, health: Number(hd?.health ?? 100), killed: false })
+    return Response.json({ ok: true, dodged: true, damage: 0, health: Number(victimHealth?.health ?? 100), killed: false })
   }
 
   const hasAttackNftji = squeezeNftji?.equipped === 'attack'

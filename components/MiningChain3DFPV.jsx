@@ -2941,8 +2941,18 @@ function syncThreeAvatars(state,presence,myIdentity) {
       avatar=createThreeWalletAvatar(wallet)
       state.avatars.set(wallet,avatar);state.scene.add(avatar)
     }
-    avatar.position.set(Number(data.gx??((data.col??0)+.5)),Number(data.z)||0,Number(data.gy??((data.row??0)+.5)))
+    const baseZ=Number(data.z)||0
+    avatar.position.set(Number(data.gx??((data.col??0)+.5)),baseZ,Number(data.gy??((data.row??0)+.5)))
     avatar.rotation.y=-(Number(data.angle)||0)-Math.PI/2
+    if(data.isDead){
+      // Lie flat: tilt 90° forward, raise slightly so body sits on the ground
+      avatar.rotation.x=Math.PI/2
+      avatar.position.y=baseZ+0.14
+      avatar.userData.tool.rotation.x=0; avatar.userData.tool.rotation.z=0
+      if(avatar.userData.leftFoot) avatar.userData.leftFoot.position.y=.075
+      if(avatar.userData.rightFoot) avatar.userData.rightFoot.position.y=.075
+    } else {
+      avatar.rotation.x=0
     // The local avatar is a screen-space HUD model. Cap remote projected size
     // to the same visual height so nearby wallets never become giants.
     const cameraSpace=avatar.position.clone().applyMatrix4(state.camera.matrixWorldInverse)
@@ -2961,6 +2971,7 @@ function syncThreeAvatars(state,presence,myIdentity) {
     const walk=Number(data.walkDist)||0
     if(avatar.userData.leftFoot) avatar.userData.leftFoot.position.y=.075+Math.max(0,Math.sin(walk*.18))*.045
     if(avatar.userData.rightFoot) avatar.userData.rightFoot.position.y=.075+Math.max(0,Math.sin(walk*.18+Math.PI))*.045
+    }
   }
   for(const [wallet,avatar] of state.avatars){
     if(active.has(wallet)) continue
@@ -5117,6 +5128,7 @@ export default function MiningChain3DFPV({
       for (const [w, pres] of remoteVisualsRef.current.entries()) {
         const isMe = w.toLowerCase() === (myIdentity || '').toLowerCase()
         if (isMe) continue
+        if (pres.isDead) continue  // dead players are not targetable
         const sgx = pres.gx ?? ((pres.col ?? 0) + 0.5)
         const sgy = pres.gy ?? ((pres.row ?? 0) + 0.5)
         const rx = sgx - camGX, ry = sgy - camGY

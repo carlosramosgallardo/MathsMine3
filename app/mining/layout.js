@@ -5,7 +5,7 @@
 // making the game visibly slower on older / integrated-GPU hardware.
 export const metadata = {
   title: 'Mining',
-  description: 'The MathsMine3 Mining board — a 28×28 block grid. Buy and resell NFTJI blocks, unlock daily Relaying commands, and penalise competing wallets.',
+  description: 'The MathsMine3 3D mining world — a 28×28 block grid you can walk through in real time. Buy and resell NFTJI blocks, unlock daily Relaying commands, and penalise competing wallets.',
   openGraph: {
     title: 'Mining · MathsMine3',
     description: '28×28 NFTJI block board. Buy, resell, and fire daily Relaying commands.',

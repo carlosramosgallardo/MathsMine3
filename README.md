@@ -69,15 +69,15 @@
 
 MathsMine3 turns math into pressure, reward, memory, risk, and ritual.
 
-It is not a classroom skin. It is a terminal-world game: train under time pressure, mine the 784-cell board, climb ranks, lose level when you fail, trade inside a fictional exchange, collect NFTJIs, fire Mining commands, take part in Relaying chat, and return after every reset sharper than before.
+It is not a classroom skin. It is a terminal-world game: train under time pressure, mine the 784-block 3D world, climb ranks, lose level when you fail, trade inside a fictional exchange, collect NFTJIs, fire Mining commands, take part in Relaying chat, and return after every reset sharper than before.
 
-The useful idea is simple: **math becomes action**. Every problem solved is not just a score event; it moves a wallet, a rank, a fictional market, and a shared public state. The board has a finish line: 784 cells, one winner.
+The useful idea is simple: **math becomes action**. Every problem solved is not just a score event; it moves a wallet, a rank, a fictional market, and a shared public state. The 3D world has a finish line: 784 blocks, one winner.
 
 ---
 
 ## Objective
 
-The goal is to complete the MM3 mining board and win. The board has **784 cells** — 20 Mining NFTJI cells and 764 free chain cells. Both types count toward your Mining %. There are two ways to win: **complete the board** — the wallet at #1 when all 784 cells are covered (764 chain blocks permanently mined + all 20 NFTJIs owned by at least one wallet) wins — or **solve the chain directly** by submitting the correct answer to the secret function `Ω(α, β, γ)`, which triggers an immediate win regardless of board state.
+The goal is to complete the MM3 3D mining world and win. The 3D world has **784 blocks** — 20 NFTJI blocks and 764 free chain blocks. Both types count toward your Mining %. There are two ways to win: **complete the 3D world** — the wallet at #1 when all 784 blocks are covered (764 chain blocks permanently mined + all 20 NFTJI blocks owned by at least one wallet) wins — or **solve the chain directly** by submitting the correct answer to the secret function `Ω(α, β, γ)`, which triggers an immediate win regardless of world state.
 
 ### Why reaching #1 is genuinely hard
 
@@ -105,9 +105,9 @@ The goal is to complete the MM3 mining board and win. The board has **784 cells*
 | World stats | Watch 🔥 War, 🌪️ Nature, and 🎲 Dice. Dice is the most actionable: during its ~15 min/hour window, trading commissions and NFTJI drop rates shift. Time your trades and Mining actions around it. |
 | Training | Answer math problems as fast and accurately as possible. Aim for 25 correct answers per day. This earns MM3 and raises your level — both required to mine the board. Speed earns more MM3; a correct but slow answer earns negative MM3. Wrong answers cost levels — slow to recover at high tiers. |
 | Trading | Sell MM3 to build fiat reserves. Do 5 EXECs per day for the TRADING daily reward and a permanent +1 training slot. Buy rate is 18% above sell rate, so sell into strength and only rebuy when needed. |
-| Ranking and Pools | Your Mining % across all 784 board cells is the only number that decides the winner — watch it. Join a pool: pool members are immune to each other's Mining commands, which matters more as penalties scale up with NFTJI level. |
+| Ranking and Pools | Your Mining % across all 784 blocks is the only number that decides the winner — watch it. Join a pool: pool members are immune to each other's Mining commands, which matters more as penalties scale up with NFTJI level. |
 | Squeeze | Once in a pool, initiate Squeezes from the Squeezing page to earn fiat and drop Squeeze NFTJIs. Watch 🔥 War and 🎲 Dice before launching — they directly shift the outcome formula. |
-| Mining world | A 3D walkable world built over the 784-cell board. Explore four biomes (mountain, coast, ice, inferno) in third-person view with WASD/joystick, jump, and PvP. 3 ways to mine: (1) buy a Mining NFTJI — that cell counts in your Mining % while you own it, and unlocks a daily Relaying attack command; (2) mine free chain cells permanently with `/mine block #XXX` in Relaying; (3) submit the correct `Ω(α, β, γ)` for an immediate win. Selling an NFTJI removes that cell from your count. |
+| Mining world | A 3D walkable world with 784 blocks across four biomes (mountain, coast, ice, inferno). Explore in third-person view with WASD/joystick, jump, and PvP. 3 ways to mine: (1) buy a Mining NFTJI — that NFTJI block counts in your Mining % while you own it, and unlocks a daily Relaying attack command; (2) mine free chain blocks permanently with `/mine block #XXX` in Relaying; (3) submit the correct `Ω(α, β, γ)` for an immediate win. Selling an NFTJI removes that block from your count. |
 | Relaying | Your main action terminal. Type `/mine block #XXX` to attempt a chain cell. Fire your daily Mining command if you own a Mining NFTJI. Watch events, penalties, and world state shifts here in real time. |
 | MM3 | The global MM3 value determines which chain cells you can mine — requirements alternate positive and negative by cell index. Watch the MM3 chart and only attempt a cell when the sign and magnitude match its requirement. |
 | Daily rewards | Check the daily panel every session and manually claim each completed task before UTC midnight — unclaimed rewards disappear. Mining one block chain cell pays €10. Maximum daily total: €17.50. |
@@ -214,7 +214,7 @@ Daily rewards are wallet-bound tasks that pay fictional in-game money when claim
 | RELAYING | 1 public Mining command | 1.00 EUR | Daily rows in `mm3_mining_commands` | Rewards social command activity from owned Mining NFTJIs. |
 | SQUEEZING | 1 Squeeze launched against a wallet pool | 1.25 EUR | Daily rows in `mm3_pool_dispute_votes` | Rewards initiating pool-vs-pool combat. |
 | RELAYING (SECRET) | 1 hidden command | 5.00 EUR | Daily rows in `mm3_hidden_cmd_executions` | High-value reward for discovering and executing hidden command paths. |
-| MINING CHAIN | Mine 1 Mining board block chain cell | 10.00 EUR | Rows in `mm3_mined_blocks` for the current UTC day | Top reward for advancing the 764-block shared chain race. |
+| MINING CHAIN | Mine 1 chain block in the 3D world | 10.00 EUR | Rows in `mm3_mined_blocks` for the current UTC day | Top reward for advancing the 764-block shared chain race. |
 
 | Rule | Explanation |
 |---|---|
@@ -257,7 +257,7 @@ NFTJIs are wallet-bound game objects.
 |---|---|---|
 | Mining drop | Rare roll after correct answers | Collection and economy shocks |
 | Heart revive | One-time emergency option | Cancels one failure penalty |
-| Mining NFTJI | Bought or resold on the Mining board | Unlocks daily Mining command |
+| Mining NFTJI | Bought or resold in the 3D mining world | Unlocks daily Mining command |
 | Squeeze NFTJI | Drops from Squeeze battles (1/5 chance) | ⚔️ boosts pool Squeeze score · 🛡️ protects EUR stake |
 | Relay Link 🔁 | Acquired via `/exec @wallet` in Relaying | Level = ⌊log₂(exec_A + exec_B + 1)⌋ · fires MM3 global event on each exec |
 
@@ -363,14 +363,14 @@ The modifier is read live at the moment each operation executes (`getDiceState()
 
 ## Mining
 
-> Three ways to mine the world: (1) buy a Mining NFTJI — that cell counts in your Mining % while you own it, and grants a daily attack command; (2) mine free chain cells permanently with `/mine block #XXX` in Relaying; (3) submit the correct `Ω(α, β, γ)` for an immediate win. Selling an NFTJI removes that cell from your count.
+> Three ways to mine the 3D world: (1) buy a Mining NFTJI — that NFTJI block counts in your Mining % while you own it, and grants a daily attack command; (2) mine free chain blocks permanently with `/mine block #XXX` in Relaying; (3) submit the correct `Ω(α, β, γ)` for an immediate win. Selling an NFTJI removes that block from your count.
 
-The Mining world is a **3D walkable space** built over the 28×28 logical grid. Explore it in third-person view: WASD or joystick to move, spacebar to jump, PvP interactions with other wallets. Four biomes (mountain, coast, ice, inferno) each have distinct block colors, obstacles, landmarks, and atmosphere. The underlying grid has **784 cells total**, fully minable. All 784 cells count toward each wallet's Mining %. Two cell types:
+The Mining world is a **3D walkable space** built over the 28×28 logical grid. Explore it in third-person view: WASD or joystick to move, spacebar to jump, PvP interactions with other wallets. Four biomes (mountain, coast, ice, inferno) each have distinct block colors, obstacles, landmarks, and atmosphere. The 3D world has **784 blocks total**, fully minable. All 784 blocks count toward each wallet's Mining %. Two block types:
 
-| Cell type | Count | How mined | Permanent? |
+| Block type | Count | How mined | Permanent? |
 |---|---:|---|---|
-| Mining NFTJI cells | 20 | Buy the NFTJI | No — lost when sold |
-| Free chain cells | 764 | `/mine block #XXX` in Relaying | Yes — locked to first miner |
+| NFTJI blocks | 20 | Buy the NFTJI | No — lost when sold |
+| Chain blocks | 764 | `/mine block #XXX` in Relaying | Yes — locked to first miner |
 
 | Rail | Price Basis | Main Use |
 |---|---|---|
@@ -437,13 +437,13 @@ The full chain is ordered by mining time:
 
 The hex suffix is the global MM3 value at mining time, scaled by 100 and encoded as hexadecimal (e.g. `4D` = 0.77, `-52` = −0.82).
 
-The Mining board shows **MM3 BLOCK CHAIN IN PROGRESS** with a percentage:
+The 3D mining world shows **MM3 BLOCK CHAIN IN PROGRESS** with a percentage:
 
 ```txt
 (mined free blocks + distinct Mining NFTJIs currently owned) / 784
 ```
 
-All 784 cells count. Free chain cells are permanently mined; Mining NFTJI cells count only while at least one wallet owns them. When all 784 cells are covered, the chain reaches 100% and the generated code becomes final game history.
+All 784 blocks count. Chain blocks are permanently mined; NFTJI blocks count only while at least one wallet owns them. When all 784 blocks are covered, the chain reaches 100% and the generated code becomes final game history.
 
 > **NFTJI entries in the chain display:** when the first wallet buys a Mining NFTJI (no chain entry for that cell exists yet), the buyer's wallet address and the current global MM3 value are appended to the chain — same format as a free-mined block. If the last owner sells (nobody holds it anymore), that entry is removed from the chain. NFTJI entries appear in the chain string alongside free-mined blocks but are **not** counted in the coverage percentage — their board coverage is tracked separately through active NFTJI ownership.
 
@@ -690,7 +690,7 @@ MathsMine3@ETH·:~$  0.01 ETH donation confirmed · tx 0xabc…def
 
 The `MathsMine3@ETH·:~$` line appears when a real Ethereum transaction is received by the Alchemy webhook. The event is written directly to the Relaying log with `tone=realchain`, making on-chain activity visible inside the terminal without any player action.
 
-Relay help (`/?`) includes `/mine block #029` as the short form for mining free Mining board cells, and `/exec @wallet` for relay executions.
+Relay help (`/?`) includes `/mine block #029` as the short form for mining free chain blocks in the 3D world, and `/exec @wallet` for relay executions.
 
 ### Relay Exec (`/exec @wallet`)
 
@@ -733,11 +733,11 @@ Two **Kernel Panic** chips on the landing page expose a global chain reset comma
 
 Ranking is public memory for the game and defines its end state.
 
-The first ranking column is **Mining %**: each wallet's share of the 784-cell board — permanently mined chain cells plus any Mining NFTJI currently owned. **Ranking sorts by this column.** Win paths: be at #1 when all 784 cells are covered, or submit the correct `Ω(α, β, γ)` for an immediate win — see [Objective](#objective) and [Solve the Chain](#solve-the-chain).
+The first ranking column is **Mining %**: each wallet's share of the 784-block 3D world — permanently mined chain blocks plus any NFTJI blocks currently owned. **Ranking sorts by this column.** Win paths: be at #1 when all 784 blocks are covered, or submit the correct `Ω(α, β, γ)` for an immediate win — see [Objective](#objective) and [Solve the Chain](#solve-the-chain).
 
 Pool ranking sums the Mining % of current members.
 
-All other visible data — level, MM3 balance, trade activity, NFTJI ownership, Mining board presence, active penalties — shows the context behind the mining percentages.
+All other visible data — level, MM3 balance, trade activity, NFTJI ownership, 3D world presence, active penalties — shows the context behind the mining percentages.
 
 ---
 
@@ -773,7 +773,7 @@ Each pool's Squeeze aggression is driven by its most aggressive member's strateg
 
 All four bots run up to 100 mining games per day at a win rate of ~92 % (decreasing with level) and are capped by the same daily limits as real players: 5 trades, 20 Squeeze launches per 24 h.
 
-**Bots mine Mining board blocks.** Each bot tick has a 55 % chance of mining one qualifying chain cell (wallet level and global MM3 must meet the block's requirement). Bots apply the same chain-mining rules as real players and update `block_chain_percent` in `player_progress`. They also claim the MINING CHAIN daily reward (€10) automatically after a successful mine.
+**Bots mine chain blocks in the 3D world.** Each bot tick has a 55 % chance of mining one qualifying chain block (wallet level and global MM3 must meet the block's requirement). Bots apply the same chain-mining rules as real players and update `block_chain_percent` in `player_progress`. They also claim the MINING CHAIN daily reward (€10) automatically after a successful mine.
 
 **Bots redeem their own penalties.** When a bot wallet is under an active command penalty, each subsequent tick has a 40 % chance of entering the penalty code to cancel it — the same flow a real player would use in the Market block detail.
 
@@ -786,7 +786,7 @@ All four bots run up to 100 mining games per day at a win rate of ~92 % (decreas
 | Any market buy / resell event | Moves the MM3 curve — visible in the chart |
 | Squeeze launched by bot pool | Penalty risk for the targeted pool (same rules as any Squeeze) |
 | ⚔️ / 🛡️ drop claimed | MM3 polarity flip scaled by active Dice modifier; always appears in chart |
-| Chain block mined | Advances the shared 784-cell block chain race; bot Relaying message shows `chain:X.XX%` |
+| Chain block mined | Advances the shared 784-block chain race; bot Relaying message shows `chain:X.XX%` |
 | Penalty redeemed | Bot cancels its own active penalty; Relaying message shows `pen:redeemed(N)` |
 
 ---
@@ -803,7 +803,7 @@ Public API routes expose the readable state of the simulation.
 | `/api/token-history-minutes` | Recent minute-level chart data |
 | `/api/leaderboard` | Ranking data |
 | `/api/mining-snapshot` | Mining block state |
-| `/api/mine-block` | Mine a free Mining board block from Relaying command flow |
+| `/api/mine-block` | Mine a free chain block in the 3D world from Relaying command flow |
 | `/api/nft-events` | NFTJI and revive events |
 
 `/api/leaderboard` includes `block_chain_percent` and `mined_block_count`. `/api/mining-snapshot` includes `minedBlocks` and `blockChain` progress/code data.
@@ -861,7 +861,7 @@ Each scan produces a weighted security score (0–100) with per-finding detail, 
 | 3 | 🎰 | Jackpot Engine | Mining drop |
 | 4 | 🧿 | Fate Singularity | Mining drop |
 | 5 | ❤️ | Life Toll | Emergency revive |
-| 6 | *(variable)* | Mining NFTJI | Mining board purchase |
+| 6 | *(variable)* | Mining NFTJI | 3D world NFTJI purchase |
 
 Slot 6 border is **amber**. Slot 5 border is **rose**. Slots 1–4 share the wallet's rank color.
 
@@ -1055,15 +1055,15 @@ Read:
 
 MathsMine3 convierte las matemáticas en presión, recompensa, memoria, riesgo y ritual.
 
-No es una clase con skin. Es un juego-mundo de terminal: entrena bajo presión, mina las 784 celdas del tablero, sube de rango, pierde nivel cuando fallas, comercia dentro de un exchange ficticio, colecciona NFTJIs, dispara comandos de Mining, participa en el chat de Relaying y vuelve después de cada reset más afilado que antes.
+No es una clase con skin. Es un juego-mundo de terminal: entrena bajo presión, mina los 784 bloques del mundo 3D, sube de rango, pierde nivel cuando fallas, comercia dentro de un exchange ficticio, colecciona NFTJIs, dispara comandos de Mining, participa en el chat de Relaying y vuelve después de cada reset más afilado que antes.
 
-La idea útil es simple: **la matemática se convierte en acción**. Cada problema resuelto no es solo puntuación; mueve una wallet, un rango, un mercado ficticio y un estado público compartido. El tablero tiene una línea de llegada: 784 celdas, un solo ganador.
+La idea útil es simple: **la matemática se convierte en acción**. Cada problema resuelto no es solo puntuación; mueve una wallet, un rango, un mercado ficticio y un estado público compartido. El mundo 3D tiene una línea de llegada: 784 bloques, un solo ganador.
 
 ---
 
 ## Objetivo
 
-El objetivo es completar el tablero de Mining y ganar. El tablero tiene **784 celdas** — 20 celdas de NFTJI de Mining y 764 celdas libres de la cadena. Ambos tipos cuentan en tu % de Minado. Hay dos formas de ganar: **completar el tablero** — gana la wallet en el puesto #1 cuando todas las 784 celdas estén cubiertas (764 bloques de cadena minados permanentemente + los 20 NFTJIs con al menos un dueño en ese momento) — o **resolver la cadena directamente** enviando la respuesta correcta a la función secreta `Ω(α, β, γ)`, lo que activa una victoria inmediata.
+El objetivo es completar el mundo 3D de Mining y ganar. El mundo 3D tiene **784 bloques** — 20 bloques NFTJI y 764 bloques libres de cadena. Ambos tipos cuentan en tu % de Minado. Hay dos formas de ganar: **completar el mundo 3D** — gana la wallet en el puesto #1 cuando todos los 784 bloques estén cubiertos (764 bloques de cadena minados permanentemente + los 20 bloques NFTJI con al menos un dueño en ese momento) — o **resolver la cadena directamente** enviando la respuesta correcta a la función secreta `Ω(α, β, γ)`, lo que activa una victoria inmediata.
 
 ### Por qué llegar al #1 es genuinamente difícil
 
@@ -1091,9 +1091,9 @@ El objetivo es completar el tablero de Mining y ganar. El tablero tiene **784 ce
 | Stats del mundo | Vigila 🔥 War, 🌪️ Naturaleza y 🎲 Dice. El Dice es el más accionable: durante su ventana de ~15 min/hora, las comisiones y las tasas de drop de NFTJI cambian. Ajusta tus trades y acciones de Mining en función de ello. |
 | Training | Responde preguntas de mates lo más rápido y con la mayor precisión posible. Apunta a 25 respuestas correctas al día. Esto genera MM3 y sube tu nivel — ambos necesarios para minar el tablero. La velocidad genera más MM3; acertar tarde genera MM3 negativo. Los fallos cuestan niveles, lentos de recuperar en rangos altos. |
 | Trading | Vende MM3 para acumular fiat. Haz 5 EXECs al día para la recompensa diaria de TRADING y un +1 permanente de training slot. La tasa de compra es un 18% mayor que la de venta: vende cuando puedas y recompra solo cuando lo necesites. |
-| Ranking y Pools | Tu % de Minado sobre las 784 celdas del tablero es el único número que decide quién gana — obsérvalo. Únete a un pool cuanto antes: los miembros del mismo pool son inmunes a los comandos de Mining entre sí, lo que importa más a medida que las penalizaciones escalan con el nivel del NFTJI. |
+| Ranking y Pools | Tu % de Minado sobre los 784 bloques del mundo 3D es el único número que decide quién gana — obsérvalo. Únete a un pool cuanto antes: los miembros del mismo pool son inmunes a los comandos de Mining entre sí, lo que importa más a medida que las penalizaciones escalan con el nivel del NFTJI. |
 | Squeeze | Una vez en un pool, inicia Squeezes desde la página de Squeezing para ganar fiat y conseguir NFTJIs de Squeeze. Consulta 🔥 War y 🎲 Dice antes de lanzar — afectan directamente a la fórmula de resultado. |
-| Mundo de Mining | Mundo 3D explorable sobre las 784 celdas del tablero. Explora cuatro biomas en tercera persona con WASD/joystick, salto y PvP. 3 formas de minar: (1) compra un NFTJI de Mining — esa celda cuenta en tu % de Minado mientras lo tengas, y desbloquea un comando diario de ataque en Relaying; (2) mina celdas libres de la cadena permanentemente con `/mine block #XXX` en Relaying; (3) envía el `Ω(α, β, γ)` correcto para ganar de inmediato. Vender un NFTJI elimina esa celda de tu conteo. |
+| Mundo de Mining | Mundo 3D explorable con 784 bloques en cuatro biomas. Explora en tercera persona con WASD/joystick, salto y PvP. 3 formas de minar: (1) compra un NFTJI de Mining — ese bloque NFTJI cuenta en tu % de Minado mientras lo tengas, y desbloquea un comando diario de ataque en Relaying; (2) mina bloques libres de la cadena permanentemente con `/mine block #XXX` en Relaying; (3) envía el `Ω(α, β, γ)` correcto para ganar de inmediato. Vender un NFTJI elimina ese bloque de tu conteo. |
 | Relaying | Tu terminal de acción principal. Escribe `/mine block #XXX` para intentar minar una celda de la cadena. Dispara tu comando diario de Mining si tienes un NFTJI de Mining. Observa los eventos para leer el estado del juego en tiempo real. |
 | MM3 | El valor global del MM3 determina qué celdas libres puedes minar — los requisitos alternan entre positivo y negativo por índice de celda. Mira el gráfico MM3 y solo intenta minar cuando el signo y la magnitud coincidan con el requisito. |
 | Recompensas diarias | Revisa el panel diario en cada sesión y reclama manualmente cada tarea completada antes de la medianoche UTC — las recompensas no reclamadas se pierden. Minar una celda de la cadena paga €10. Máximo diario total: €17,50. |
@@ -1196,11 +1196,11 @@ Las recompensas diarias son tareas asociadas a la wallet que pagan dinero fictic
 |---|---:|---:|---|---|
 | TRAINING | 25 partidas correctas de Training | 0.25 EUR | Filas correctas en `games` durante el día UTC actual | Premia juego matemático sostenido, no presencia pasiva. |
 | TRADING | 5 operaciones de compra/venta | 0.50 EUR | Filas diarias en `mm3_sell_transactions` | Empuja a usar el exchange y entender el valor de MM3. |
-| MINING | 1 compra o reventa de Mining NFTJI | 0.75 EUR | Eventos `mining_buy` o `mining_resell` | Hace que el tablero 28x28 forme parte de la economía diaria. |
+| MINING | 1 compra o reventa de Mining NFTJI | 0.75 EUR | Eventos `mining_buy` o `mining_resell` | Hace que el mundo 3D de Mining forme parte de la economía diaria. |
 | RELAYING | 1 comando público de Mining | 1.00 EUR | Filas diarias en `mm3_mining_commands` | Recompensa actividad social de comandos desde NFTJIs de Mining. |
 | SQUEEZING | 1 Squeeze lanzado contra un pool de wallets | 1.25 EUR | Filas diarias en `mm3_pool_dispute_votes` | Recompensa iniciar combate pool-vs-pool. |
 | RELAYING (SECRET) | 1 comando oculto | 5.00 EUR | Filas diarias en `mm3_hidden_cmd_executions` | Recompensa de alto valor por descubrir y ejecutar rutas ocultas. |
-| MINING CHAIN | Minar 1 celda de la cadena del tablero de Mining | 10.00 EUR | Filas en `mm3_mined_blocks` durante el día UTC actual | Máxima recompensa por avanzar en la carrera compartida de 764 bloques. |
+| MINING CHAIN | Minar 1 bloque de cadena en el mundo 3D | 10.00 EUR | Filas en `mm3_mined_blocks` durante el día UTC actual | Máxima recompensa por avanzar en la carrera compartida de 764 bloques. |
 
 | Regla | Explicación |
 |---|---|
@@ -1243,7 +1243,7 @@ Los NFTJIs son objetos de juego asociados a la wallet.
 |---|---|---|
 | NFTJI de mining | Tirada rara tras respuestas correctas | Colección y shocks económicos |
 | Heart revive | Opción de emergencia de un uso | Cancela una penalización por fallo |
-| NFTJI de Mining | Compra o reventa en el Mining board | Desbloquea comando de Relaying diario |
+| NFTJI de Mining | Compra o reventa en el mundo 3D de Mining | Desbloquea comando de Relaying diario |
 | NFTJI de Squeeze | Cae en combates Squeeze (probabilidad 1/5) | ⚔️ mejora score del pool en Squeeze · 🛡️ protege el stake EUR |
 
 ### NFTJIs de Mining
@@ -1348,14 +1348,14 @@ El modificador se lee en vivo en el momento en que se ejecuta cada operación (`
 
 ## Mining
 
-> Tres formas de minar el mundo: (1) compra un NFTJI de Mining — esa celda cuenta en tu % de Minado mientras lo tengas, y otorga un comando de ataque diario; (2) mina celdas libres de la cadena permanentemente con `/mine block #XXX` en Relaying; (3) envía el `Ω(α, β, γ)` correcto para ganar de inmediato. Vender un NFTJI elimina esa celda de tu conteo.
+> Tres formas de minar el mundo 3D: (1) compra un NFTJI de Mining — ese bloque NFTJI cuenta en tu % de Minado mientras lo tengas, y otorga un comando de ataque diario; (2) mina bloques libres de la cadena permanentemente con `/mine block #XXX` en Relaying; (3) envía el `Ω(α, β, γ)` correcto para ganar de inmediato. Vender un NFTJI elimina ese bloque de tu conteo.
 
-El mundo de Mining es un **espacio 3D explorable** construido sobre la cuadrícula lógica 28×28. Explóralo en vista en tercera persona: WASD o joystick para moverte, espacio para saltar, interacciones PvP con otras wallets. Cuatro biomas (montaña, costa, hielo, infierno) con colores de bloques, obstáculos, landmarks y atmósfera distintos. La cuadrícula subyacente tiene **784 celdas en total**, todas minables. Las 784 celdas cuentan para el % de Minado de cada wallet. Dos tipos de celda:
+El mundo de Mining es un **espacio 3D explorable** construido sobre la cuadrícula lógica 28×28. Explóralo en vista en tercera persona: WASD o joystick para moverte, espacio para saltar, interacciones PvP con otras wallets. Cuatro biomas (montaña, costa, hielo, infierno) con colores de bloques, obstáculos, landmarks y atmósfera distintos. El mundo 3D tiene **784 bloques en total**, todos minables. Los 784 bloques cuentan para el % de Minado de cada wallet. Dos tipos de bloque:
 
-| Tipo de celda | Cantidad | Cómo se mina | ¿Permanente? |
+| Tipo de bloque | Cantidad | Cómo se mina | ¿Permanente? |
 |---|---:|---|---|
-| Celdas de NFTJI de Mining | 20 | Comprando el NFTJI | No — se pierde al vender |
-| Celdas libres de la cadena | 764 | `/mine block #XXX` en Relaying | Sí — bloqueadas al primer minero |
+| Bloques NFTJI | 20 | Comprando el NFTJI | No — se pierde al vender |
+| Bloques libres de cadena | 764 | `/mine block #XXX` en Relaying | Sí — bloqueados al primer minero |
 
 | Rail | Base de Precio | Uso Principal |
 |---|---|---|
@@ -1422,13 +1422,13 @@ La cadena completa queda ordenada por momento de minado:
 
 El sufijo hex es el valor MM3 global en el momento del minado, escalado ×100 y codificado en hexadecimal (ej. `4D` = 0.77, `-52` = −0.82).
 
-El tablero de Mining muestra **MM3 BLOCK CHAIN IN PROGRESS** con un porcentaje:
+El mundo 3D de Mining muestra **MM3 BLOCK CHAIN IN PROGRESS** con un porcentaje:
 
 ```txt
 (bloques libres minados + NFTJIs de Mining con al menos un dueño) / 784
 ```
 
-Las 784 celdas cuentan. Las celdas libres se minan permanentemente; las celdas de NFTJI de Mining cuentan solo mientras al menos una wallet las posea. Cuando las 784 celdas están cubiertas, la cadena llega al 100% y el código generado queda como historia final del juego.
+Los 784 bloques cuentan. Los bloques de cadena se minan permanentemente; los bloques NFTJI cuentan solo mientras al menos una wallet los posea. Cuando los 784 bloques están cubiertos, la cadena llega al 100% y el código generado queda como historia final del juego.
 
 > **Entradas NFTJI en la cadena:** cuando la primera wallet compra un NFTJI de Mining (no existe aún una entrada de cadena para esa celda), la dirección de la wallet compradora y el valor MM3 global en ese momento se añaden a la cadena — mismo formato que un bloque libre minado. Si el último dueño lo vende (nadie lo tiene), esa entrada se elimina de la cadena. Las entradas NFTJI aparecen en el string de la cadena junto a los bloques libres, pero **no** se cuentan en el porcentaje de cobertura — esa cobertura se rastrea de forma independiente a través de la propiedad activa del NFTJI.
 
@@ -1675,7 +1675,7 @@ MathsMine3@ETH·:~$  0.01 ETH donación confirmada · tx 0xabc…def
 
 La línea `MathsMine3@ETH·:~$` aparece cuando el webhook de Alchemy recibe una transacción real de Ethereum. El evento se escribe directamente en el log de Relaying con `tone=realchain`, haciendo visible la actividad on-chain dentro del terminal sin ninguna acción del jugador.
 
-La ayuda de Relaying (`/?`) incluye `/mine block #029` como forma corta para minar celdas libres del tablero de Mining, y `/exec @wallet` para ejecuciones de relay.
+La ayuda de Relaying (`/?`) incluye `/mine block #029` como forma corta para minar bloques libres de cadena del mundo 3D, y `/exec @wallet` para ejecuciones de relay.
 
 ### Relay Exec (`/exec @wallet`)
 
@@ -1718,11 +1718,11 @@ Dos chips **Kernel Panic** en la landing page exponen un comando de reset global
 
 El Ranking es la memoria pública del juego y define su estado final.
 
-La primera columna del ranking es **% de Minado**: la parte del tablero de 784 celdas que corresponde a cada wallet — celdas libres minadas permanentemente más cualquier NFTJI de Mining que posea en ese momento. **El ranking ordena por esta columna.** Caminos de victoria: ser #1 cuando todas las 784 celdas estén cubiertas, o enviar el `Ω(α, β, γ)` correcto para ganar de inmediato — ver [Objetivo](#objetivo) y [Resolver la Cadena](#resolver-la-cadena).
+La primera columna del ranking es **% de Minado**: la parte del mundo 3D de 784 bloques que corresponde a cada wallet — bloques de cadena minados permanentemente más cualquier bloque NFTJI que posea en ese momento. **El ranking ordena por esta columna.** Caminos de victoria: ser #1 cuando todos los 784 bloques estén cubiertos, o enviar el `Ω(α, β, γ)` correcto para ganar de inmediato — ver [Objetivo](#objetivo) y [Resolver la Cadena](#resolver-la-cadena).
 
 El ranking de pools suma el % de Minado de sus miembros actuales.
 
-El resto de datos visibles — nivel, balance MM3, actividad de Trade, propiedad de NFTJIs, presencia en el tablero de Mining, penalizaciones activas — muestra el contexto detrás de los porcentajes de minado.
+El resto de datos visibles — nivel, balance MM3, actividad de Trade, propiedad de NFTJIs, presencia en el mundo 3D, penalizaciones activas — muestra el contexto detrás de los porcentajes de minado.
 
 ---
 
@@ -1758,7 +1758,7 @@ La agresividad Squeeze de cada pool la marca la estrategia del miembro más agre
 
 Los cuatro bots ejecutan hasta 100 partidas de mining al día con una tasa de acierto de ~92 % (decreciente con el nivel) y están sujetos a los mismos límites diarios que los jugadores reales: 5 trades, 20 lanzamientos de Squeeze por ventana de 24 h.
 
-**Los bots minan bloques del tablero de Mining.** Cada tick tiene un 55 % de probabilidad de minar una celda de la cadena que cumpla los requisitos (el nivel de wallet y el valor global MM3 deben satisfacer las condiciones del bloque). Los bots aplican las mismas reglas de minado que los jugadores reales y actualizan `block_chain_percent` en `player_progress`. También reclaman automáticamente la recompensa diaria MINING CHAIN tras un mine exitoso.
+**Los bots minan bloques de cadena del mundo 3D.** Cada tick tiene un 55 % de probabilidad de minar un bloque de cadena que cumpla los requisitos (el nivel de wallet y el valor global MM3 deben satisfacer las condiciones del bloque). Los bots aplican las mismas reglas de minado que los jugadores reales y actualizan `block_chain_percent` en `player_progress`. También reclaman automáticamente la recompensa diaria MINING CHAIN tras un mine exitoso.
 
 **Los bots redimen sus propias penalizaciones.** Cuando una wallet de bot tiene una penalización de comando activa, cada tick siguiente tiene un 40 % de probabilidad de introducir el código para cancelarla — el mismo flujo que usaría un jugador real en el detalle del bloque de Mining.
 
@@ -1787,8 +1787,8 @@ Las rutas públicas exponen el estado legible de la simulación.
 | `/api/token-history` | Histórico de valor MM3 |
 | `/api/token-history-minutes` | Datos recientes por minuto |
 | `/api/leaderboard` | Datos del Ranking |
-| `/api/mining-snapshot` | Estado de bloques del Mining board |
-| `/api/mine-block` | Mina un bloque libre del Mining board desde el flujo de comando de Relaying |
+| `/api/mining-snapshot` | Estado de bloques del mundo 3D |
+| `/api/mine-block` | Mina un bloque libre de cadena del mundo 3D desde el flujo de comando de Relaying |
 | `/api/nft-events` | Eventos NFTJI y revive |
 
 `/api/leaderboard` incluye `block_chain_percent` y `mined_block_count`. `/api/mining-snapshot` incluye `minedBlocks` y datos de progreso/código en `blockChain`.
@@ -1846,7 +1846,7 @@ Cada análisis produce una puntuación de seguridad ponderada (0–100) con deta
 | 3 | 🎰 | Jackpot Engine | Drop de mining |
 | 4 | 🧿 | Fate Singularity | Drop de mining |
 | 5 | ❤️ | Life Toll | Revive de emergencia |
-| 6 | *(variable)* | NFTJI de Mining | Compra en el Mining board |
+| 6 | *(variable)* | NFTJI de Mining | Compra en el mundo 3D de Mining |
 
 Borde de casilla 6: **ámbar**. Casilla 5: **rosa**. Casillas 1–4 comparten el color del rango de la wallet.
 
