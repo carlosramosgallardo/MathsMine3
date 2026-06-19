@@ -2171,9 +2171,11 @@ function drawWalletDock(ctx, W, H, myNftjis, health, es, isLoggedWallet) {
       ? { lines:['SPEED +10%'], color:'#fb7185' }
       : (emoji === '⚔️' || blockKey === 'sq-atk')
         ? { lines:['CRIT +5%'], color:'#facc15' }
-        : source==='mining'
-          ? { lines:['LONG +10%'], color:'#4ade80' }
-        : null
+        : (emoji === '🔰' || blockKey === 'sq-def')
+          ? { lines:['DODGE 10%'], color:'#22d3ee' }
+          : source==='mining'
+            ? { lines:['LONG +10%'], color:'#4ade80' }
+          : null
 
     ctx.fillStyle = skill ? (ability ? '#100b18' : isActive ? '#0e2010' : '#080e18') : '#050a12'
     ctx.fillRect(sx, slotY, SLOT_W, SLOT_H)
@@ -2997,7 +2999,7 @@ export default function MiningChain3DFPV({
   initRow, initCol, jumpToCell,
   onPositionChange, onFacingChange, onWantNavigate, onPositionRealtime,
   onPvpHit, pvpStolen,
-  onChainSolveOpen, externalPvpFlash, externalKnockback, externalPush, onCollisionPush,
+  onChainSolveOpen, externalPvpFlash, externalDodgeFlash = 0, externalKnockback, externalPush, onCollisionPush,
   swingMap, myPoolCode,
   anonKillMsg,
   playerLevel, playerNftjiCount, walletNftjis, myNftjis,
@@ -3062,6 +3064,7 @@ export default function MiningChain3DFPV({
   // PvP
   const enemyTargetRef  = useRef(null)   // { wallet, dist, isAnon }
   const pvpFlashRef     = useRef(0)      // timestamp of last pvp strike (for red flash)
+  const dodgeFlashRef   = useRef(0)      // timestamp of last successful dodge (cyan flash)
   const pvpGainRef      = useRef(null)   // { text, at } for "+X EUR" popup
   const onPvpHitRef          = useRef(onPvpHit)
   const pvpStolenRef         = useRef(pvpStolen || {})
@@ -3197,6 +3200,7 @@ export default function MiningChain3DFPV({
   },[myNftjis])
   // External hit flash (victim sees red screen when struck by another player)
   useEffect(()=>{ if(externalPvpFlash) pvpFlashRef.current=performance.now() },[externalPvpFlash])
+  useEffect(()=>{ if(externalDodgeFlash) dodgeFlashRef.current=performance.now() },[externalDodgeFlash])
   // PvP knockback: apply velocity impulse away from attacker when hit
   useEffect(()=>{
     if(!externalKnockback) return
@@ -4604,6 +4608,27 @@ export default function MiningChain3DFPV({
       ctx.globalAlpha = 1
       ctx.fillStyle = rg
       ctx.fillRect(0, 0, W, H)
+      needsRender = true
+    }
+
+    // ── Dodge flash (cyan vignette + text) — victim successfully dodged ───
+    const dodgeAge = performance.now() - dodgeFlashRef.current
+    if (dodgeAge < 500) {
+      const da = (1 - dodgeAge / 500) * 0.32
+      const dg = ctx.createRadialGradient(W/2,H/2,H*0.15, W/2,H/2,H*0.75)
+      dg.addColorStop(0, `rgba(34,211,238,${(da*0.4).toFixed(3)})`)
+      dg.addColorStop(1, `rgba(6,182,212,${da.toFixed(3)})`)
+      ctx.globalAlpha = 1
+      ctx.fillStyle = dg
+      ctx.fillRect(0, 0, W, H)
+      const dt = Math.max(0, 1 - dodgeAge / 500)
+      ctx.globalAlpha = dt
+      ctx.font = `bold ${Math.round(14 + dt * 4)}px monospace`
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
+      ctx.fillStyle = '#22d3ee'
+      ctx.fillText('🛡 DODGED!', W/2, H * HORIZON_RATIO - 58 - (1-dt)*14)
+      ctx.globalAlpha = 1
+      needsRender = true
     }
 
     // ── Critical hit flash (gold screen vignette + CRIT! text) ────────────
@@ -5223,6 +5248,10 @@ export default function MiningChain3DFPV({
           }))
             .then(result=>{
               if(!result?.ok) return
+              if(result.dodged){
+                pvpGainRef.current={ text:'🛡 DODGE', at:performance.now() }
+                return
+              }
               if(result.critical||result.headshot) critFlashRef.current=performance.now()
               const activeCurrency=currencyRef.current
               const moneyKey=`stolen_${String(activeCurrency).toLowerCase()}`
@@ -5404,10 +5433,12 @@ export default function MiningChain3DFPV({
                     {skills.map((sk,i) => {
                       const abilityLabel = sk.emoji==='❤️' ? 'SPEED +10%'
                         : (sk.emoji==='⚔️'||sk.blockKey==='sq-atk') ? 'CRIT +5%'
+                        : (sk.emoji==='🔰'||sk.blockKey==='sq-def') ? 'DODGE 10%'
                         : sk.source==='mining' ? 'LONG +10%'
                         : null
                       const slotAccent = sk.emoji==='❤️' ? '#fb7185'
                         : (sk.emoji==='⚔️'||sk.blockKey==='sq-atk') ? '#facc15'
+                        : (sk.emoji==='🔰'||sk.blockKey==='sq-def') ? '#22d3ee'
                         : sk.source==='mining' ? '#4ade80'
                         : '#fb923c'
                       return (

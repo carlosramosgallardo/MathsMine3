@@ -12,6 +12,7 @@ import {
   MM3_BLOCK_REQUIREMENT_BY_HEX,
   MM3_BLOCK_GRID_ROWS, MM3_BLOCK_GRID_COLS,
 } from '@/lib/mm3-block-chain'
+import { computeRelayLevel } from '@/lib/wallet-decorations'
 import supabase from '@/lib/supabaseClient'
 import MiningChain3DFPV from './MiningChain3DFPV'
 import ChainSolveCard from './ChainSolveCard'
@@ -147,6 +148,7 @@ export default function MiningChain3D() {
   const [facingCell,    setFacingCell]    = useState(null)
   const [receivedHitAt, setReceivedHitAt] = useState(0)
   const [receivedHitFrom, setReceivedHitFrom] = useState(null)
+  const [receivedDodgeAt, setReceivedDodgeAt] = useState(0)
   const [externalPush, setExternalPush] = useState(null)
   const [swingMap,      setSwingMap]      = useState({})
   const [myPoolCode,    setMyPoolCode]    = useState(null)
@@ -359,7 +361,7 @@ export default function MiningChain3D() {
     ;(async () => {
       const [{ data: pp }, { data: sq }] = await Promise.all([
         supabase.from('player_progress')
-          .select('level,mining_nftji_key,mining_nftji_levels,wallet_emojis,lucky_50_level,lucky_100_level,lucky_500_level,lucky_1000_level')
+          .select('level,mining_nftji_key,mining_nftji_levels,wallet_emojis,lucky_50_level,lucky_100_level,lucky_500_level,lucky_1000_level,relay_exec_count')
           .eq('wallet', myWallet).maybeSingle(),
         supabase.from('mm3_squeezing_nftji')
           .select('equipped,attack_level,defense_level')
@@ -394,7 +396,12 @@ export default function MiningChain3D() {
           squeezeNftjis.push({ emoji: '🔰', level: Math.max(0, Number(sq.defense_level ?? 0)), blockKey: 'sq-def', isActive: true, source:'squeeze' })
       }
 
-      const allNftjis = [...tradeNftjis, ...miningNftjis, ...squeezeNftjis]
+      // Relay NFTJI (🔁 from wallet_emojis + relay_exec_count)
+      const relayNftjis = walletEmojis.includes('🔁')
+        ? [{ emoji: '🔁', level: computeRelayLevel(pp.relay_exec_count ?? 0, pp.relay_exec_count ?? 0), blockKey: 'relay', isActive: true, source: 'relay' }]
+        : []
+
+      const allNftjis = [...tradeNftjis, ...miningNftjis, ...squeezeNftjis, ...relayNftjis]
       setMyNftjis(allNftjis)
       setPlayerNftjiCount(allNftjis.length)
     })()
@@ -466,9 +473,13 @@ export default function MiningChain3D() {
         })
       }
       if (payload.victim === myKeyRef.current || payload.victim === myWalletRef.current) {
-        setReceivedHitAt(Date.now())
-        if (payload.attacker && !payload.killed) {
-          setReceivedHitFrom({ attacker: payload.attacker, at: Date.now() })
+        if (payload.dodged) {
+          setReceivedDodgeAt(Date.now())
+        } else {
+          setReceivedHitAt(Date.now())
+          if (payload.attacker && !payload.killed) {
+            setReceivedHitFrom({ attacker: payload.attacker, at: Date.now() })
+          }
         }
         if (myWalletRef.current) {
           window.dispatchEvent(new CustomEvent('mm3-db-updated', {
@@ -737,6 +748,7 @@ export default function MiningChain3D() {
             pvpStolen={pvpStolen}
             onChainSolveOpen={handleChainSolveOpen}
             externalPvpFlash={receivedHitAt}
+            externalDodgeFlash={receivedDodgeAt}
             externalKnockback={receivedHitFrom}
             externalPush={externalPush}
             onCollisionPush={handleCollisionPush}
