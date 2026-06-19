@@ -998,7 +998,7 @@ Read:
 
 # MathsMine3 `v1.0`
 
-> Matemáticas contra reloj. Minería ficticia. Identidad wallet. Economía de terminal. Análisis de seguridad en vivo.
+> Matemáticas a contrarreloj. Mining ficticio. Identidad de wallet. Economía terminal. Mundo 3D multijugador en tiempo real.
 
 [![MathsMine3 Portal](https://mathsmine3.xyz/og-image.jpg)](https://mathsmine3.xyz)
 
