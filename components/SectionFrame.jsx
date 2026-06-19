@@ -1,10 +1,10 @@
 'use client';
 
-export default function SectionFrame({ title, accent = '#22d3ee', children, id }) {
+export default function SectionFrame({ title, accent = '#22d3ee', children, id, stretch = false }) {
   return (
-    <section id={id} className="relative">
+    <section id={id} className={`relative${stretch ? ' flex-1 flex flex-col' : ''}`}>
       <div
-        className="mm3-section-shell section-frame relative rounded-xl"
+        className={`mm3-section-shell section-frame relative rounded-xl${stretch ? ' flex-1 flex flex-col' : ''}`}
         style={{ ['--mm3-accent']: accent }}
       >
         {title && (
@@ -18,7 +18,7 @@ export default function SectionFrame({ title, accent = '#22d3ee', children, id }
           </>
         )}
 
-        <div className="relative">
+        <div className={`relative${stretch ? ' flex-1' : ''}`}>
           {children}
         </div>
       </div>
