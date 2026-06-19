@@ -4609,7 +4609,6 @@ export default function MiningChain3DFPV({
       ctx.globalAlpha = 1
       ctx.fillStyle = rg
       ctx.fillRect(0, 0, W, H)
-      needsRender = true
     }
 
     // ── Dodge flash (cyan vignette + text) — victim successfully dodged ───
@@ -4629,7 +4628,6 @@ export default function MiningChain3DFPV({
       ctx.fillStyle = '#22d3ee'
       ctx.fillText('🛡 DODGED!', W/2, H * HORIZON_RATIO - 58 - (1-dt)*14)
       ctx.globalAlpha = 1
-      needsRender = true
     }
 
     // ── Critical hit flash (gold screen vignette + CRIT! text) ────────────
@@ -5301,6 +5299,9 @@ export default function MiningChain3DFPV({
       if(notifRef.current&&(Date.now()-notifRef.current.startedAt)<2800) needsRender=true
       // Keep rendering while dead so countdown ticks every frame
       if(myDeadUntilRef.current && myDeadUntilRef.current > Date.now()) needsRender=true
+      // Keep rendering while pvp/dodge flash animations are active
+      if(pvpFlashRef.current && nowMs-pvpFlashRef.current<280) needsRender=true
+      if(dodgeFlashRef.current && nowMs-dodgeFlashRef.current<500) needsRender=true
       // Keep rendering while any remote wallet swing animation is still playing
       const now2=Date.now()
       for(const t of Object.values(swingMapRef.current||{})){
