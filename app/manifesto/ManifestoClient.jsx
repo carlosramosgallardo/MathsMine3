@@ -268,25 +268,6 @@ export default function ManifestoClient({ enContent, esContent }) {
         }
       `}</style>
 
-      {/* ── Hero (same structure as Home) ─────────────────────────────── */}
-      <section className="mm3-splash">
-        <div className="mm3-splash-grid" aria-hidden="true" />
-        <div className="mm3-splash-orb" aria-hidden="true" />
-        <div className="mm3-splash-scanlines" aria-hidden="true" />
-        <div className="mm3-splash-body">
-          <div className="mm3-splash-kicker">
-            <span className="mm3-splash-live" />
-            MM3 · {es ? 'MANIFIESTO' : 'MANIFESTO'}
-          </div>
-          <h1 className="mm3-splash-title">{es ? 'MANIFIESTO' : 'MANIFESTO'}</h1>
-          <p className="mm3-splash-sub">
-            {es
-              ? <>EL PROPÓSITO <span className="mm3-dot">·</span> LAS REGLAS <span className="mm3-dot">·</span> EL JUEGO</>
-              : <>THE PURPOSE <span className="mm3-dot">·</span> THE RULES <span className="mm3-dot">·</span> THE GAME</>}
-          </p>
-        </div>
-      </section>
-
       {/* ── Content ───────────────────────────────────────────────────── */}
       <section className="mm3-portal">
         <div className="mm3-manifesto-doc mx-auto max-w-5xl text-sm font-mono text-gray-400 break-words overflow-x-hidden">
