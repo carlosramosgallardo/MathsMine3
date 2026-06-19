@@ -1804,7 +1804,7 @@ function drawMinimap(ctx, gr, gc, angle, cellMap, presenceMap, myWallet, W, H, c
 }
 
 // ── Facing block HUD (top-right info card) ────────────────────────────────────
-function drawFacingHUD(ctx, W, H, fwdCell, fwdMx, fwdMy, myWallet, es, dist, obsMap, chainStatsBottom = 72) {
+function drawFacingHUD(ctx, W, H, fwdCell, fwdMx, fwdMy, myWallet, es, dist, obsMap, chainStatsBottom = 72, mineProgress = 0) {
   if (fwdMx < 0 || fwdMy < 0 || fwdMx >= COLS || fwdMy >= ROWS) return
 
   // Double-check: use both cell flag and obsMap to catch any desync
@@ -1882,6 +1882,7 @@ function drawFacingHUD(ctx, W, H, fwdCell, fwdMx, fwdMy, myWallet, es, dist, obs
   const owner  = fwdCell?.owner || null
   const isMine = myWallet && owner?.toLowerCase() === myWallet.toLowerCase()
   const color  = fwdCell?.color || C
+  const isAnon = !myWallet || myWallet.startsWith('anon-')
 
   const lines = []
   const epfx  = fwdCell?.emoji ? `${fwdCell.emoji}  ` : ''
@@ -1896,11 +1897,11 @@ function drawFacingHUD(ctx, W, H, fwdCell, fwdMx, fwdMy, myWallet, es, dist, obs
       size: 11, col: isMine ? C : color + 'dd',
     })
   } else if (fwdCell?.isMarket) {
-    lines.push({ text: es ? '○ NFTJI libre' : '○ Free NFTJI', size: 11, col: '#5b8aa3' })
+    lines.push({ text: es ? '○ Bloque NFTJI' : '○ NFTJI block', size: 11, col: '#5b8aa3' })
+    lines.push({ text: es ? '  ataque · defensa PvP' : '  attack · defense PvP', size: 9, col: '#3a6a80' })
   } else if (fwdCell) {
     lines.push({ text: es ? '○ Sin reclamar' : '○ Unclaimed', size: 11, col: '#5b7890' })
   } else {
-    // Unclaimed block not in DB (never touched)
     lines.push({ text: es ? '○ Sin reclamar' : '○ Unclaimed', size: 11, col: '#5b7890' })
   }
 
@@ -1920,22 +1921,35 @@ function drawFacingHUD(ctx, W, H, fwdCell, fwdMx, fwdMy, myWallet, es, dist, obs
         ? { text: es ? '↵ · Resolver cadena' : '↵ · Solve formula chain', size: 10, col: '#ffd700cc' }
         : { text: es ? '· acercarse para interactuar' : '· move closer to interact', size: 9, col: '#ffd70055' })
     } else if (fwdCell?.isMarket) {
-      // Free NFTJI block — 2 options
+      // NFTJI block — buy via relaying
       lines.push(inRange
-        ? { text: es ? '↵ · Comprar NFTJI  /buy' : '↵ · Buy NFTJI  /buy', size: 10, col: '#fb923ccc' }
+        ? { text: es ? `↵ /buy ${hex}` : `↵ /buy ${hex}`, size: 10, col: '#fb923ccc' }
         : { text: es ? '· acercarse para comprar' : '· move closer to buy', size: 9, col: '#fb923c55' })
-      lines.push({ text: es ? '· Liberar /resell  (sin dueño)' : '· Resell /resell  (no owner)', size: 9, col: '#4ade8033' })
+      lines.push({ text: es ? '  vía Relaying (1 slot/día)' : '  via Relaying (1 slot/day)', size: 9, col: '#fb923c55' })
+      if (isAnon) {
+        lines.push({ text: es ? '⚠ Wallet requerida' : '⚠ Wallet required', size: 9, col: '#f59e0b99' })
+      }
     } else {
+      // Regular mineable block
+      if (mineProgress > 0) {
+        const done = Math.round(mineProgress * HITS_NEEDED)
+        lines.push({ text: es ? `⛏ ${done}/${HITS_NEEDED} golpes` : `⛏ ${done}/${HITS_NEEDED} hits`, size: 9, col: C + 'bb' })
+      } else {
+        lines.push({ text: es ? `⛏ ${HITS_NEEDED} golpes · /mine block` : `⛏ ${HITS_NEEDED} hits · /mine block`, size: 9, col: '#3a6a7a' })
+      }
       lines.push(inRange
         ? { text: es ? '↵ · Minar bloque' : '↵ · Mine block', size: 10, col: C + 'cc' }
         : { text: es ? '· acercarse para minar' : '· move closer to mine', size: 9, col: C + '55' })
+      lines.push({ text: es ? '  vía Relaying (1 slot/día)' : '  via Relaying (1 slot/day)', size: 9, col: C + '44' })
+      if (isAnon) {
+        lines.push({ text: es ? '⚠ Wallet requerida' : '⚠ Wallet required', size: 9, col: '#f59e0b99' })
+      }
     }
   } else if (owner && fwdCell?.isMarket) {
     const isMineWall = myWallet && owner.toLowerCase() === myWallet.toLowerCase()
     if (isMineWall) {
-      // My NFTJI block — 2 options
-      lines.push({ text: es ? '· Comprar /buy  (ya posees)' : '· Buy /buy  (already owned)', size: 9, col: '#fb923c33' })
-      lines.push({ text: es ? '↵ · Liberar NFTJI  /resell' : '↵ · Resell NFTJI  /resell', size: 10, col: '#4ade80cc' })
+      lines.push({ text: es ? `↵ /resell ${hex}` : `↵ /resell ${hex}`, size: 10, col: '#4ade80cc' })
+      lines.push({ text: es ? '  vía Relaying (1 slot/día)' : '  via Relaying (1 slot/day)', size: 9, col: '#4ade8044' })
     }
   }
 
@@ -4712,7 +4726,7 @@ export default function MiningChain3DFPV({
       const _isObsHUD = fwdCell?.isObstacle || validObstaclesRef.current?.has(`${fwdMy},${fwdMx}`)
       const _maxHudDist = (!_isObsHUD && fwdCell?.isMarket && !fwdCell?.owner) ? 1.5 : 2.0
       if ((_isObsHUD || fwdFaceSolid) && fwdDist <= _maxHudDist) {
-        drawFacingHUD(ctx, W, H, fwdCell, fwdMx, fwdMy, myWallet, es, fwdDist, validObstaclesRef.current, chainStatsBottom ?? 72)
+        drawFacingHUD(ctx, W, H, fwdCell, fwdMx, fwdMy, myWallet, es, fwdDist, validObstaclesRef.current, chainStatsBottom ?? 72, mineProgressRef.current)
       }
     }
   }, [])
