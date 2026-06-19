@@ -2958,6 +2958,8 @@ function syncThreeAvatars(state,presence,myIdentity) {
     const baseZ=Number(data.z)||0
     avatar.position.set(Number(data.gx??((data.col??0)+.5)),baseZ,Number(data.gy??((data.row??0)+.5)))
     avatar.rotation.y=-(Number(data.angle)||0)-Math.PI/2
+    // Track whether depthTest changed so we only traverse when needed
+    const wasDead=avatar.userData.wasDead||false
     if(data.isDead){
       // Lie flat: tilt 90° forward, raise slightly so body sits on the ground
       avatar.rotation.x=Math.PI/2
@@ -2965,8 +2967,28 @@ function syncThreeAvatars(state,presence,myIdentity) {
       avatar.userData.tool.rotation.x=0; avatar.userData.tool.rotation.z=0
       if(avatar.userData.leftFoot) avatar.userData.leftFoot.position.y=.075
       if(avatar.userData.rightFoot) avatar.userData.rightFoot.position.y=.075
+      // Dead bodies render over obstacle walls so they stay visible when clipping
+      if(!wasDead){
+        avatar.userData.wasDead=true
+        avatar.traverse(obj=>{
+          if(!obj.isMesh) return
+          obj.renderOrder=2
+          const mats=Array.isArray(obj.material)?obj.material:[obj.material]
+          mats.forEach(m=>{ m.depthTest=false })
+        })
+      }
     } else {
       avatar.rotation.x=0
+      // Restore normal depth for living players
+      if(wasDead){
+        avatar.userData.wasDead=false
+        avatar.traverse(obj=>{
+          if(!obj.isMesh) return
+          obj.renderOrder=0
+          const mats=Array.isArray(obj.material)?obj.material:[obj.material]
+          mats.forEach(m=>{ m.depthTest=true })
+        })
+      }
     // The local avatar is a screen-space HUD model. Cap remote projected size
     // to the same visual height so nearby wallets never become giants.
     const cameraSpace=avatar.position.clone().applyMatrix4(state.camera.matrixWorldInverse)
