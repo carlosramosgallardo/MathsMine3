@@ -3015,7 +3015,7 @@ function syncThreeAvatars(state,presence,myIdentity) {
   }
 }
 
-function syncThreeLocalAvatar(state,identity,swingT,walkDist,gx,gy,playerZ,heading) {
+function syncThreeLocalAvatar(state,identity,swingT,walkDist,gx,gy,playerZ,heading,isDead) {
   const avatarId=identity||'local-player'
   if(!state.localAvatar||state.localAvatarId!==avatarId){
     if(state.localAvatar){
@@ -3025,19 +3025,27 @@ function syncThreeLocalAvatar(state,identity,swingT,walkDist,gx,gy,playerZ,headi
     }
     state.localAvatar=createThreeWalletAvatar(avatarId)
     state.localAvatarId=avatarId
-    state.scene.add(state.localAvatar)   // in the 3D world, not HUD
+    state.scene.add(state.localAvatar)
   }
-  // World position and heading — same as remote avatars
-  state.localAvatar.position.set(gx, playerZ, gy)
   state.localAvatar.rotation.y=-heading-Math.PI/2
   state.localAvatar.scale.setScalar(REMOTE_AVATAR_VISUAL_SCALE)
-  // Forward strike toward crosshair
-  const swing=Math.sin(Math.min(1,swingT)*Math.PI)
-  state.localAvatar.userData.tool.rotation.x=-swing*1.15
-  state.localAvatar.userData.tool.rotation.z=swing*0.28
-  const stride=walkDist*.18
-  if(state.localAvatar.userData.leftFoot) state.localAvatar.userData.leftFoot.position.y=.075+Math.max(0,Math.sin(stride))*.045
-  if(state.localAvatar.userData.rightFoot) state.localAvatar.userData.rightFoot.position.y=.075+Math.max(0,Math.sin(stride+Math.PI))*.045
+  if(isDead){
+    state.localAvatar.position.set(gx,playerZ+0.14,gy)
+    state.localAvatar.rotation.x=Math.PI/2
+    state.localAvatar.userData.tool.rotation.x=0
+    state.localAvatar.userData.tool.rotation.z=0
+    if(state.localAvatar.userData.leftFoot) state.localAvatar.userData.leftFoot.position.y=.075
+    if(state.localAvatar.userData.rightFoot) state.localAvatar.userData.rightFoot.position.y=.075
+  }else{
+    state.localAvatar.position.set(gx,playerZ,gy)
+    state.localAvatar.rotation.x=0
+    const swing=Math.sin(Math.min(1,swingT)*Math.PI)
+    state.localAvatar.userData.tool.rotation.x=-swing*1.15
+    state.localAvatar.userData.tool.rotation.z=swing*0.28
+    const stride=walkDist*.18
+    if(state.localAvatar.userData.leftFoot) state.localAvatar.userData.leftFoot.position.y=.075+Math.max(0,Math.sin(stride))*.045
+    if(state.localAvatar.userData.rightFoot) state.localAvatar.userData.rightFoot.position.y=.075+Math.max(0,Math.sin(stride+Math.PI))*.045
+  }
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -3474,6 +3482,8 @@ export default function MiningChain3DFPV({
       current.task=target.task||null
       current.taskLabel=target.taskLabel||null
       current.taskPhase=target.taskPhase||null
+      current.isDead=Boolean(target.isDead)
+      current.deadUntil=target.deadUntil??null
     }
     for(const w of visuals.keys()) if(!rawPresence?.[w]) visuals.delete(w)
     const presence=Object.fromEntries(visuals)
@@ -3637,7 +3647,7 @@ export default function MiningChain3DFPV({
         const localSwingAge=performance.now()-swingStartRef.current
         const localSwingT=localSwingAge<SWING_DUR?localSwingAge/SWING_DUR:0
         // Local avatar lives in the main 3D scene — sync position before render
-        syncThreeLocalAvatar(threeState,myIdentity,localSwingT,walkDistRef.current,gx,gy,rawZ,angle)
+        syncThreeLocalAvatar(threeState,myIdentity,localSwingT,walkDistRef.current,gx,gy,rawZ,angle,localDead)
         threeState.renderer.render(threeState.scene,threeState.camera)
         // No separate HUD avatar pass: local player is now a scene object
       }catch(err){
@@ -4148,7 +4158,10 @@ export default function MiningChain3DFPV({
         angle:Number(pres.angle)||0, swingAt:Number(pres.swingAt)||0,
         isBot:Boolean(pres.isBot), taskLabel:pres.taskLabel||null, taskPhase:pres.taskPhase||null,
         color: colorFromAddress(w), poolCode: pres.poolCode||null,
-        isDead: Boolean(pres.isDead), deadUntil: pres.deadUntil ?? null,
+        isDead: Boolean(pres.isDead),
+        deadUntil: pres.deadUntil
+          ? (typeof pres.deadUntil === 'number' ? pres.deadUntil : new Date(pres.deadUntil).getTime())
+          : null,
       })
     }
     sprites.sort((a,b) => b.dist - a.dist)
@@ -4174,13 +4187,13 @@ export default function MiningChain3DFPV({
           ctx.fillRect(scrX - Math.floor(bodyW/2), bodyY, bodyW, bodyH)
           ctx.globalAlpha = alpha * 0.55; ctx.fillStyle = '#000'
           ctx.fillRect(scrX - Math.floor(bodyW*0.35), bodyY + Math.floor(bodyH*0.15), Math.floor(bodyW*0.70), Math.max(1,Math.floor(bodyH*0.70)))
-          if (tY < 10.0 && deadUntil) {
+          if (tY < 25.0 && deadUntil) {
             const msLeft = Math.max(0, deadUntil - Date.now())
             const totalSec = Math.ceil(msLeft / 1000)
             const hh = String(Math.floor(totalSec/3600)).padStart(2,'0')
             const mm = String(Math.floor((totalSec%3600)/60)).padStart(2,'0')
             const ss = String(totalSec%60).padStart(2,'0')
-            const lAlpha = Math.max(0, (10.0-tY)/10.0) * 0.92
+            const lAlpha = Math.max(0, (25.0-tY)/25.0) * 0.92
             const lSize  = Math.max(8, Math.round(11/Math.max(0.5, tY)))
             ctx.font = `bold ${lSize}px monospace`; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom'
             ctx.globalAlpha = lAlpha * 0.45; ctx.fillStyle = '#000'
