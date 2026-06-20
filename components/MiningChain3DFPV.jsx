@@ -5175,6 +5175,8 @@ export default function MiningChain3DFPV({
         const nextState={
           gx:p.x/CELL_SIZE,gy:p.y/CELL_SIZE,z:p.z,
           angle:p.angle,pitch:p.pitch,swingAt:swingEpochRef.current,
+          isDead:Boolean(myDead),
+          deadUntil:myDeadUntilRef.current||null,
         }
         const prev=lastSentStateRef.current
         const changed=!prev

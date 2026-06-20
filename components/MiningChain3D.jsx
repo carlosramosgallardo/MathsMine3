@@ -590,6 +590,8 @@ export default function MiningChain3D() {
             gx, gy, row: Math.floor(gy), col: Math.floor(gx), poolCode: p.poolCode || null,
             isBot: Boolean(p.isBot), task: p.task || null,
             taskLabel: p.taskLabel || null, taskPhase: p.taskPhase || null,
+            isDead: Boolean(p.isDead),
+            deadUntil: p.deadUntil || null,
           }
         }
         // Remove players who left (always keep self)
@@ -709,6 +711,8 @@ export default function MiningChain3D() {
       pitch: Number(avatar.pitch) || 0,
       swingAt: Number(avatar.swingAt) || 0,
       poolCode: myPoolCode || null,
+      isDead: Boolean(avatar.isDead),
+      deadUntil: avatar.deadUntil || null,
     }
     // Update own dot on minimap
     setPositions(prev => ({ ...prev, [myW]: nextPosition }))

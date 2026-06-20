@@ -24,7 +24,7 @@ const TASKS = {
   squeezing: { target: 5, rewardEur: 2.5 },
   relayingHidden: { target: 1, rewardEur: 5 },
   mining_chain: { target: 1, rewardEur: 10 },
-  pvp_hit: { target: 100, rewardEur: 100 },
+  pvp_hit: { target: 1, rewardEur: 100 },
 };
 
 const noOp = { count: 0, error: null };
@@ -101,7 +101,7 @@ export async function POST(req) {
       .lt('mined_at', endIso),
     supabase
       .from('mm3_pvp_hits')
-      .select('hit_count')
+      .select('elim_count')
       .eq('attacker_wallet', wallet)
       .eq('day_key', dayKey),
     supabase
@@ -111,12 +111,12 @@ export async function POST(req) {
       .eq('day', dayKey),
   ]);
 
-  if (miningRes.error || tradingRes.error || marketRes.error || ircRes.error || squeezeRes.error || hiddenRes.error || chainRes.error || claimsRes.error) {
-    console.error('daily task claim load error:', miningRes.error || tradingRes.error || marketRes.error || ircRes.error || squeezeRes.error || hiddenRes.error || claimsRes.error);
+  if (miningRes.error || tradingRes.error || marketRes.error || ircRes.error || squeezeRes.error || hiddenRes.error || chainRes.error || pvpRes.error || claimsRes.error) {
+    console.error('daily task claim load error:', miningRes.error || tradingRes.error || marketRes.error || ircRes.error || squeezeRes.error || hiddenRes.error || chainRes.error || pvpRes.error || claimsRes.error);
     return Response.json({ ok: false, error: 'db_error' }, { status: 500 });
   }
 
-  const pvpHits = (pvpRes.data || []).reduce((s, r) => s + (Number(r.hit_count) || 0), 0);
+  const pvpHits = (pvpRes.data || []).reduce((s, r) => s + (Number(r.elim_count) || 0), 0);
 
   const progress = {
     training: countValue(miningRes),
