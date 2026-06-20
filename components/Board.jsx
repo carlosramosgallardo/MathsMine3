@@ -948,6 +948,14 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
             supabase.from('player_progress').select('level').eq('wallet', wallet).maybeSingle(),
             supabase.from('leaderboard_data').select('total_eth').eq('wallet', wallet).maybeSingle(),
           ]);
+          if (!progress) {
+            // No DB row yet — create it via server-side route (bypasses INSERT RLS restriction)
+            await fetch('/api/create-account', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ type: 'wallet', wallet }),
+            }).catch(() => {});
+          }
           loadedLevel = clampLevel(progress?.level ?? 0);
           setLevel(loadedLevel);
           setTotalMined(parseFloat(stats?.total_eth) || 0);
@@ -1914,7 +1922,8 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
 
     const { error: progressError } = await supabase
       .from('player_progress')
-      .upsert(progressPayload, { onConflict: 'wallet', ignoreDuplicates: false });
+      .update(progressPayload)
+      .eq('wallet', wallet);
     if (progressError) throw progressError;
 
     if (marketDelta !== 0) {
@@ -2007,7 +2016,8 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
 
     const { error: progressError } = await supabase
       .from('player_progress')
-      .upsert(progressPayload, { onConflict: 'wallet', ignoreDuplicates: false });
+      .update(progressPayload)
+      .eq('wallet', wallet);
     if (progressError) throw progressError;
 
     const totalMm3 = Number(tokenValueRow?.total_eth) || 0;
@@ -2084,7 +2094,8 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
 
     const { error: progressError } = await supabase
       .from('player_progress')
-      .upsert(progressPayload, { onConflict: 'wallet', ignoreDuplicates: false });
+      .update(progressPayload)
+      .eq('wallet', wallet);
     if (progressError) throw progressError;
 
     const marketDelta = getWalletMarketDelta(emoji);

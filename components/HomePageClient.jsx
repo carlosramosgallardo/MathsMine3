@@ -57,18 +57,15 @@ export default function HomePageClient() {
           const quote = getSellQuote(progress_level, Math.max(0, walletMm3 - soldMm3));
           const { error: progressError } = await supabase
             .from('player_progress')
-            .upsert(
-              {
-                wallet,
-                level: Math.max(0, Math.min(100, progress_level)),
-                sell_rate_cny: quote.rateCny,
-                sell_quote_cny: quote.netCny,
-                sell_quote_eur: quote.netEur,
-                sell_quote_usd: quote.netUsd,
-                updated_at: new Date().toISOString(),
-              },
-              { onConflict: 'wallet', ignoreDuplicates: false }
-            );
+            .update({
+              level: Math.max(0, Math.min(100, progress_level)),
+              sell_rate_cny: quote.rateCny,
+              sell_quote_cny: quote.netCny,
+              sell_quote_eur: quote.netEur,
+              sell_quote_usd: quote.netUsd,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('wallet', wallet);
           if (progressError) console.error('player_progress upsert error:', progressError.message);
         }
 
