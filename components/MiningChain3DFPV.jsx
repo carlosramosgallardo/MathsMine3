@@ -3,7 +3,8 @@
 import { useEffect, useRef, useCallback, useState } from 'react'
 import * as THREE from 'three'
 import { colorFromAddress } from '@/lib/wallet-colors'
-import { MM3_BLOCK_GRID_ROWS, MM3_BLOCK_GRID_COLS, gridToBlockHex } from '@/lib/mm3-block-chain'
+import { MM3_BLOCK_GRID_ROWS, MM3_BLOCK_GRID_COLS, gridToBlockHex, MM3_BLOCK_REQUIREMENT_BY_HEX, doesGlobalValueMeetRequirement } from '@/lib/mm3-block-chain'
+import supabase from '@/lib/supabaseClient'
 import { groupPresenceEntries } from '@/lib/presence-display'
 
 const ROWS = 56   // FPV world size — double the inner mining grid for free walking space
@@ -1804,7 +1805,7 @@ function drawMinimap(ctx, gr, gc, angle, cellMap, presenceMap, myWallet, W, H, c
 }
 
 // ── Facing block HUD (top-right info card) ────────────────────────────────────
-function drawFacingHUD(ctx, W, H, fwdCell, fwdMx, fwdMy, myWallet, es, dist, obsMap, chainStatsBottom = 72, mineProgress = 0) {
+function drawFacingHUD(ctx, W, H, fwdCell, fwdMx, fwdMy, myWallet, es, dist, obsMap, chainStatsBottom = 72, mineProgress = 0, playerLevel = 0, globalMm3 = 0) {
   if (fwdMx < 0 || fwdMy < 0 || fwdMx >= COLS || fwdMy >= ROWS) return
 
   // Double-check: use both cell flag and obsMap to catch any desync
@@ -1912,6 +1913,22 @@ function drawFacingHUD(ctx, W, H, fwdCell, fwdMx, fwdMy, myWallet, es, dist, obs
   if (dist != null && !fwdCell?.isObstacle) {
     const distCol = dist <= INTERACT_DIST ? '#4ade8077' : '#3d5a6a'
     lines.push({ text: `${dist.toFixed(1)} cells`, size: 9, col: distCol })
+  }
+
+  // Mining requirements derived from block position
+  if (!owner) {
+    const req = MM3_BLOCK_REQUIREMENT_BY_HEX.get(hex)
+    if (req) {
+      const hasLvl = playerLevel >= req.minLevel
+      const lvlCol = isAnon ? '#4a6a7a' : hasLvl ? '#4ade8099' : '#fb718599'
+      lines.push({ text: `  lvl ≥ ${req.minLevel}`, size: 9, col: lvlCol })
+      if (req.requiredMm3 !== 0) {
+        const hasMm3 = doesGlobalValueMeetRequirement(globalMm3, req.requiredMm3)
+        const mm3Col = hasMm3 ? '#4ade8099' : '#fb718599'
+        const sign = req.requiredMm3 > 0 ? '≥' : '≤'
+        lines.push({ text: `  mm3 ${sign} ${Number(req.requiredMm3).toFixed(2)}`, size: 9, col: mm3Col })
+      }
+    }
   }
 
   if (!owner) {
@@ -3124,6 +3141,8 @@ export default function MiningChain3DFPV({
   const onPvpHitRef          = useRef(onPvpHit)
   const pvpStolenRef         = useRef(pvpStolen || {})
   const chainStatsRef        = useRef(null)
+  const playerLevelRef       = useRef(playerLevel ?? 0)
+  const globalMm3Ref         = useRef(0)
   const onChainSolveOpenRef  = useRef(onChainSolveOpen)
   const swingMapRef          = useRef(swingMap || {})
   const walkStateRef         = useRef({})
@@ -3284,6 +3303,19 @@ export default function MiningChain3DFPV({
   // Sync death state refs from parent props
   useEffect(()=>{ myDeadUntilRef.current = myDeadUntil },[myDeadUntil])
   useEffect(()=>{ myDeadPosRef.current   = myDeadPos   },[myDeadPos])
+  // Keep player level in sync for drawFacingHUD requirement check
+  useEffect(()=>{ playerLevelRef.current = playerLevel ?? 0 },[playerLevel])
+  // Fetch global MM3 value (token_value.total_eth) on mount and after any DB update
+  useEffect(()=>{
+    const fetch = () =>
+      supabase.from('token_value').select('total_eth').limit(1).maybeSingle()
+        .then(({ data }) => { if (data) globalMm3Ref.current = Number(data.total_eth) || 0 })
+        .catch(()=>{})
+    fetch()
+    const handler = () => fetch()
+    window.addEventListener('mm3-db-updated', handler)
+    return () => window.removeEventListener('mm3-db-updated', handler)
+  },[])
 
   // Recompute valid obstacles (Map<key,data>) and chain node position whenever cellMap changes
   useEffect(() => {
@@ -4761,7 +4793,7 @@ export default function MiningChain3DFPV({
       const _isObsHUD = fwdCell?.isObstacle || validObstaclesRef.current?.has(`${fwdMy},${fwdMx}`)
       const _maxHudDist = (!_isObsHUD && fwdCell?.isMarket && !fwdCell?.owner) ? 1.5 : 2.0
       if ((_isObsHUD || fwdFaceSolid) && fwdDist <= _maxHudDist) {
-        drawFacingHUD(ctx, W, H, fwdCell, fwdMx, fwdMy, myWallet, es, fwdDist, validObstaclesRef.current, chainStatsBottom ?? 72, mineProgressRef.current)
+        drawFacingHUD(ctx, W, H, fwdCell, fwdMx, fwdMy, myWallet, es, fwdDist, validObstaclesRef.current, chainStatsBottom ?? 72, mineProgressRef.current, playerLevelRef.current, globalMm3Ref.current)
       }
     }
   }, [])
