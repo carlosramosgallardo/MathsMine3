@@ -3480,6 +3480,14 @@ export default function MiningChain3DFPV({
       if(!reserved.has(key)) valid.set(key, chainObstacle(key,data))
     }
 
+    // Keep the arena floor clear — block all procedural functions from placing
+    // obstacles inside the Crypto Colosseum (rows 22-32, cols 22-32).
+    for (let r = 22; r <= 32; r++) {
+      for (let c = 22; c <= 32; c++) {
+        reserved.add(`${r},${c}`)
+      }
+    }
+
     // Authored traversal landmarks get first choice of genuinely empty space;
     // procedural maze walls then fill only what remains.
     addRetroStructures(valid,reserved,cellMap)
