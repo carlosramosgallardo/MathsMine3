@@ -486,7 +486,18 @@ export default function MiningChain3D() {
   }, [myWallet, marketLoaded])
 
   useEffect(() => {
-    const spawn = getSpawnForWallet(myWallet)
+    // Use persisted position when alive; fall back to random spawn
+    let spawn
+    try {
+      const dead = JSON.parse(localStorage.getItem('mm3_pvp_dead') || 'null')
+      const isAlive = !dead?.until || dead.until <= Date.now()
+      if (isAlive) {
+        const posKey = myWallet ? `mm3_mining_pos_${myWallet}` : 'mm3_mining_pos_anon'
+        const saved = JSON.parse(localStorage.getItem(posKey) || 'null')
+        if (saved && typeof saved.row === 'number' && typeof saved.col === 'number') spawn = saved
+      }
+    } catch { /* */ }
+    if (!spawn) spawn = getSpawnForWallet(myWallet)
     setMyPos(spawn)
     myPosRef.current = spawn
     setJumpToCell(spawn)
