@@ -142,9 +142,6 @@ export default function LandingHero() {
               : 'MM3 · BLOCKCHAIN GAME'}
           </div>
 
-          {/* title */}
-          <h1 className="mm3-splash-title">MATHSMINE3</h1>
-
           {/* tagline */}
           <p className="mm3-splash-sub">
             {es

@@ -877,7 +877,7 @@ footer.bg-black\/97,
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 2.4rem 1.5rem 2.8rem;
+  padding: 1.1rem 1.5rem 1.2rem;
   overflow: hidden;
   background: radial-gradient(ellipse 80% 60% at 50% 40%, #071828 0%, #04080e 55%, #030508 100%);
   font-family: Consolas,'Courier New',monospace;
@@ -940,7 +940,7 @@ footer.bg-black\/97,
   font: 600 0.62rem/1 monospace;
   letter-spacing: .18em;
   text-transform: uppercase;
-  margin-bottom: 0.9rem;
+  margin-bottom: 0.45rem;
 }
 .mm3-splash-live {
   display: inline-block;
@@ -984,7 +984,7 @@ footer.bg-black\/97,
   font: 600 clamp(0.65rem,1.8vw,0.88rem)/1.2 monospace;
   letter-spacing: .15em;
   color: rgba(148,197,220,.65);
-  margin: 0 0 1.5rem;
+  margin: 0 0 0.85rem;
 }
 .mm3-dot {
   margin: 0 .55em;
@@ -1051,7 +1051,7 @@ footer.bg-black\/97,
 
 /* disclaimer */
 .mm3-splash-disclaimer {
-  margin-top: 1rem;
+  margin-top: 0.5rem;
   font: .58rem/1.5 monospace;
   letter-spacing: .06em;
   color: rgba(34,211,238,.28);
@@ -1061,7 +1061,7 @@ footer.bg-black\/97,
 
 /* ── PORTAL GRID ──────────────────────────────────────────── */
 .mm3-portal {
-  padding: 1.2rem 1.2rem 3rem;
+  padding: 0.6rem 1.2rem 0.8rem;
   background: #04080e;
   font-family: Consolas,'Courier New',monospace;
 }
@@ -1069,7 +1069,7 @@ footer.bg-black\/97,
 .mm3-portal-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: .65rem;
+  gap: .45rem;
   max-width: 1040px;
   margin: 0 auto;
 }
@@ -1080,14 +1080,14 @@ footer.bg-black\/97,
   display: flex;
   justify-content: center;
   flex-wrap: wrap;
-  gap: .65rem;
+  gap: .45rem;
   max-width: 1040px;
-  margin: .65rem auto 0;
+  margin: .45rem auto 0;
 }
 @media (min-width: 640px) {
   .mm3-portal-row2 .mm3-portal-card {
-    width: calc((1040px - 4 * .65rem) / 5);
-    flex: 0 0 calc((1040px - 4 * .65rem) / 5);
+    width: calc((1040px - 4 * .45rem) / 5);
+    flex: 0 0 calc((1040px - 4 * .45rem) / 5);
   }
 }
 
@@ -1097,8 +1097,8 @@ footer.bg-black\/97,
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: .38rem;
-  padding: 1rem .6rem .85rem;
+  gap: .25rem;
+  padding: .6rem .6rem .55rem;
   background: rgba(2,8,16,.78);
   border: 1px solid color-mix(in srgb, var(--ac,#22d3ee) 15%, transparent);
   border-radius: 8px;
@@ -1123,7 +1123,7 @@ footer.bg-black\/97,
 .mm3-portal-card:hover::after { transform: scaleX(1); }
 
 .mm3-portal-icon {
-  font-size: 1.5rem;
+  font-size: 1.25rem;
   line-height: 1;
   filter: drop-shadow(0 0 8px var(--ac,#22d3ee));
   transition: filter .18s;
