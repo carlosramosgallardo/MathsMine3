@@ -1045,9 +1045,40 @@ const OBSTACLE_MAP = new Map([
   ['29,33', { base:W_DARK, label:'ARENA GATE', height:2.0 }],
 ])
 
+function addColosseumBridge(valid) {
+  const centerX=MINING_CHAIN_NODE_POSITION.col+.5
+  const centerZ=MINING_CHAIN_NODE_POSITION.row+.5
+  for(let row=18;row<=37;row++){
+    for(let col=18;col<=37;col++){
+      const distance=Math.hypot(col+.5-centerX,row+.5-centerZ)
+      if(distance<7.45||distance>8.55) continue
+      const key=`${row},${col}`
+      valid.set(key,chainObstacle(key,{
+        base:[34,82,104],glow:[34,211,238],kind:'hash',label:'COLOSSEUM RING',
+        bottom:BRIDGE_BOTTOM,height:BRIDGE_TOP,
+        isStructure:true,isRoute:true,isColosseumBridge:true,
+      }))
+    }
+  }
+
+  const stairHeights=[.45,.90,1.36]
+  for(const [dr,dc] of [[-1,0],[1,0],[0,-1],[0,1]]){
+    stairHeights.forEach((height,index)=>{
+      const distance=5+index
+      const row=MINING_CHAIN_NODE_POSITION.row+dr*distance
+      const col=MINING_CHAIN_NODE_POSITION.col+dc*distance
+      const key=`${row},${col}`
+      valid.set(key,chainObstacle(key,{
+        base:[96,78,48],glow:[250,204,21],kind:'ledger',label:'RING ACCESS',
+        height,isStructure:true,isRouteStair:true,isColosseumAccess:true,
+      }))
+    })
+  }
+}
+
 function addRetroStructures(valid, reserved, cellMap) {
   const keyOf=(row,col)=>`${row},${col}`
-  const routeFree=(row,col)=>row>1&&row<ROWS-2&&col>1&&col<COLS-2&&!cellMap.has(keyOf(row,col))
+  const routeFree=(row,col)=>row>1&&row<ROWS-2&&col>1&&col<COLS-2&&!cellMap.has(keyOf(row,col))&&!reserved.has(keyOf(row,col))
   const findCrossing=(starts,isGoal,directions)=>{
     const queue=[],parents=new Map()
     for(const start of starts){
@@ -1155,6 +1186,7 @@ function addRetroStructures(valid, reserved, cellMap) {
       if(!built) continue
     }
   })
+  addColosseumBridge(valid)
 }
 
 function addDenseMaze(valid,reserved,cellMap){
@@ -2699,6 +2731,28 @@ function addCryptoColosseum(world) {
   halo.rotation.x=Math.PI/2;halo.position.set(centerX,2.35,centerZ);arena.add(halo)
   const haloCross=halo.clone();haloCross.rotation.set(0,0,Math.PI/2);arena.add(haloCross)
 
+  const bridgeMaterial=new THREE.MeshStandardMaterial({
+    color:'#123d56',roughness:.42,metalness:.68,
+    emissive:'#08263a',emissiveIntensity:.72,side:THREE.DoubleSide,
+  })
+  const bridgeTop=new THREE.Mesh(new THREE.RingGeometry(7.55,8.45,96),bridgeMaterial)
+  bridgeTop.rotation.x=-Math.PI/2;bridgeTop.position.set(centerX,BRIDGE_TOP,centerZ);arena.add(bridgeTop)
+  const bridgeBottom=new THREE.Mesh(new THREE.RingGeometry(7.55,8.45,96),bridgeMaterial.clone())
+  bridgeBottom.rotation.x=Math.PI/2;bridgeBottom.position.set(centerX,BRIDGE_BOTTOM,centerZ);arena.add(bridgeBottom)
+  const bridgeOuter=new THREE.Mesh(
+    new THREE.CylinderGeometry(8.45,8.45,BRIDGE_TOP-BRIDGE_BOTTOM,96,1,true),bridgeMaterial.clone(),
+  )
+  bridgeOuter.position.set(centerX,(BRIDGE_TOP+BRIDGE_BOTTOM)*.5,centerZ);arena.add(bridgeOuter)
+  const bridgeInnerMaterial=bridgeMaterial.clone();bridgeInnerMaterial.side=THREE.BackSide
+  const bridgeInner=new THREE.Mesh(
+    new THREE.CylinderGeometry(7.55,7.55,BRIDGE_TOP-BRIDGE_BOTTOM,96,1,true),bridgeInnerMaterial,
+  )
+  bridgeInner.position.copy(bridgeOuter.position);arena.add(bridgeInner)
+  for(const [radius,color] of [[7.55,'#d946ef'],[8.45,'#22d3ee']]){
+    const rim=new THREE.Mesh(new THREE.TorusGeometry(radius,.055,6,96),new THREE.MeshBasicMaterial({color}))
+    rim.rotation.x=Math.PI/2;rim.position.set(centerX,BRIDGE_TOP+.025,centerZ);arena.add(rim)
+  }
+
   const northBanner=makeColosseumBanner();northBanner.position.set(centerX,3.25,22.15)
   const southBanner=makeColosseumBanner();southBanner.position.set(centerX,3.25,32.85)
   arena.add(northBanner,southBanner)
@@ -2972,7 +3026,7 @@ function rebuildThreeWorld(state,cellMap,obstacles) {
 
   const boxGroups={mountain:[],coast:[],ice:[],inferno:[]}
   for(const entry of obstacles.entries()){
-    if(isOrganicShape(entry[1])) continue
+    if(isOrganicShape(entry[1])||entry[1].isColosseumBridge) continue
     const [row,col]=entry[0].split(',').map(Number);boxGroups[biomeForCell(row,col)].push(entry)
   }
   for(const [biome,entries] of Object.entries(boxGroups)){
