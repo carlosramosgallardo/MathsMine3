@@ -1075,6 +1075,22 @@ footer.bg-black\/97,
 }
 @media (min-width: 640px)  { .mm3-portal-grid { grid-template-columns: repeat(5, 1fr); } }
 
+/* second row — 4 items centered at same card width as 5-col grid */
+.mm3-portal-row2 {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: .65rem;
+  max-width: 1040px;
+  margin: .65rem auto 0;
+}
+@media (min-width: 640px) {
+  .mm3-portal-row2 .mm3-portal-card {
+    width: calc((1040px - 4 * .65rem) / 5);
+    flex: 0 0 calc((1040px - 4 * .65rem) / 5);
+  }
+}
+
 /* card */
 .mm3-portal-card {
   position: relative;

@@ -506,12 +506,8 @@ export default function MiningChain3D() {
           }))
         }
         if (payload.killed) {
-          const anonSelf=!myWalletRef.current&&myKeyRef.current?.startsWith('anon-')
-          if(anonSelf){
-            triggerRespawn()
-            return
-          }
-          // Enter 5-minute death state instead of instant respawn
+          // Enter 5-minute death state — same for logged wallets and anon.
+          // For anon: myWalletRef.current is null so the DB call below is skipped automatically.
           const myP = myPosRef.current
           const deadGX = (myP?.col ?? 14) + 0.5
           const deadGY = (myP?.row ?? 14) + 0.5

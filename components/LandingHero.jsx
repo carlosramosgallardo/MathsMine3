@@ -16,8 +16,8 @@ const PORTAL = {
     { href: '/trading',     icon: '💱',  name: 'Trading',     desc: 'Buy & sell MM3 in EUR/USD/CNY. 5 EXECs/day.',               accent: '#4ade80' },
     { href: '/squeezing',   icon: '⚔',  name: 'Squeezing',   desc: 'Pool-vs-pool combat. Burn stakes, win NFTJIs.',             accent: '#f87171' },
     { href: '/relaying',    icon: '>_', name: 'Relaying',    desc: 'Action terminal. /mine, world events, chain log.',          accent: '#22d3ee' },
-    { href: '/mm3-value',   icon: '📈',  name: 'MM3 Chart',   desc: 'Token price over time — hourly chart.',                    accent: '#a78bfa' },
     { href: '/daily-tasks', icon: '🎯',  name: 'Daily Tasks', desc: 'Daily objectives → fictional EUR rewards.',                accent: '#e879f9', daily: true },
+    { href: '/mm3-value',   icon: '📈',  name: 'MM3 Chart',   desc: 'Token price over time — hourly chart.',                    accent: '#a78bfa' },
     { href: '/ranking',     icon: '🏆',  name: 'Ranking',     desc: 'Live leaderboard. Mining %, level, pool battles.',          accent: '#fbbf24' },
     { href: '/ai-team',     icon: '🤖',  name: 'AI Team',     desc: '24/7 bot wallets mining alongside humans.',                accent: '#86efac' },
     { href: '/manifesto',   icon: '📜',  name: 'Manifesto',   desc: 'Full game guide — rules, mechanics, philosophy.',          accent: '#94a3b8' },
@@ -27,8 +27,8 @@ const PORTAL = {
     { href: '/trading',     icon: '💱',  name: 'Trading',     desc: 'Compra y vende MM3. 5 EXECs/día.',                         accent: '#4ade80' },
     { href: '/squeezing',   icon: '⚔',  name: 'Squeezing',   desc: 'Combate pool-vs-pool. Quema stakes, gana NFTJIs.',          accent: '#f87171' },
     { href: '/relaying',    icon: '>_', name: 'Relaying',    desc: 'Terminal de acción. /mine, eventos, log.',                 accent: '#22d3ee' },
-    { href: '/mm3-value',   icon: '📈',  name: 'MM3 Chart',   desc: 'Valor del token en el tiempo — gráfica horaria.',          accent: '#a78bfa' },
     { href: '/daily-tasks', icon: '🎯',  name: 'Daily Tasks', desc: 'Objetivos diarios → EUR ficticio.',                        accent: '#e879f9', daily: true },
+    { href: '/mm3-value',   icon: '📈',  name: 'MM3 Chart',   desc: 'Valor del token en el tiempo — gráfica horaria.',          accent: '#a78bfa' },
     { href: '/ranking',     icon: '🏆',  name: 'Ranking',     desc: 'Clasificación en vivo. Mining %, nivel, pools.',            accent: '#fbbf24' },
     { href: '/ai-team',     icon: '🤖',  name: 'AI Team',     desc: 'Bots 24/7 minando junto a humanos.',                       accent: '#86efac' },
     { href: '/manifesto',   icon: '📜',  name: 'Manifiesto',  desc: 'Guía completa — reglas, mecánicas, filosofía.',            accent: '#94a3b8' },
@@ -169,8 +169,8 @@ export default function LandingHero() {
 
       {/* ── PORTAL GRID ──────────────────────────────────────────────────── */}
       <section className="mm3-portal">
-        <div className="mm3-portal-grid">
-          {portal.map(({ href, icon, name, desc, accent, daily }) => {
+        {(() => {
+          const renderCard = ({ href, icon, name, desc, accent, daily }) => {
             const blocked = isDead && INTERACTIVE_HREFS.has(href)
             if (blocked) {
               return (
@@ -189,12 +189,7 @@ export default function LandingHero() {
               )
             }
             return (
-              <Link
-                key={href}
-                href={href}
-                className="mm3-portal-card"
-                style={{ '--ac': accent }}
-              >
+              <Link key={href} href={href} className="mm3-portal-card" style={{ '--ac': accent }}>
                 <span className="mm3-portal-icon">{icon}</span>
                 <span className="mm3-portal-name">
                   {name}
@@ -205,8 +200,14 @@ export default function LandingHero() {
                 <span className="mm3-portal-desc">{desc}</span>
               </Link>
             )
-          })}
-        </div>
+          }
+          return (
+            <>
+              <div className="mm3-portal-grid">{portal.slice(0, 5).map(renderCard)}</div>
+              <div className="mm3-portal-row2">{portal.slice(5).map(renderCard)}</div>
+            </>
+          )
+        })()}
       </section>
     </>
   );
