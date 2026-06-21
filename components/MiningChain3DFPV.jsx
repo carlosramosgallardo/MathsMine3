@@ -166,7 +166,6 @@ const OBSTACLE_MAP = new Map([
   ['5,4',   { base:W_STONE, label:'WALL' }],
   ['5,22',  { base:W_STONE, label:'WALL' }],
   ['22,4',  { base:W_STONE, label:'WALL' }],
-  ['22,22', { base:W_STONE, label:'WALL' }],
   ['11,11', { base:W_STONE, label:'WALL' }],
   ['11,16', { base:W_STONE, label:'WALL' }],
   ['16,11', { base:W_STONE, label:'WALL' }],
@@ -288,8 +287,6 @@ const OBSTACLE_MAP = new Map([
   ['29,45',  { base:W_SLATE, label:'WALL' }],
   ['29,49',  { base:W_SLATE, label:'WALL' }],
   ['29,52',  { base:W_SLATE, label:'WALL' }],
-  ['30,29',  { base:W_SLATE, label:'WALL' }],
-  ['30,30',  { base:W_SLATE, label:'WALL' }],
   ['30,53',  { base:W_SLATE, label:'WALL' }],
   ['30,54',  { base:W_SLATE, label:'WALL' }],
 
@@ -584,8 +581,6 @@ const OBSTACLE_MAP = new Map([
   ['20,49',  { base:W_DARK, label:'WALL' }],
   ['20,53',  { base:W_DARK, label:'WALL' }],
   ['20,54',  { base:W_DARK, label:'WALL' }],
-  ['22,31',  { base:W_STONE, label:'WALL' }],
-  ['22,32',  { base:W_STONE, label:'WALL' }],
   ['22,37',  { base:W_STONE, label:'WALL' }],
   ['22,38',  { base:W_STONE, label:'WALL' }],
   ['22,44',  { base:W_STONE, label:'WALL' }],
@@ -593,8 +588,6 @@ const OBSTACLE_MAP = new Map([
   ['22,50',  { base:W_STONE, label:'WALL' }],
   ['22,51',  { base:W_STONE, label:'WALL' }],
   ['22,52',  { base:W_STONE, label:'WALL' }],
-  ['24,30',  { base:W_DARK, label:'WALL' }],
-  ['24,31',  { base:W_DARK, label:'WALL' }],
   ['24,36',  { base:W_DARK, label:'WALL' }],
   ['24,37',  { base:W_DARK, label:'WALL' }],
   ['24,38',  { base:W_DARK, label:'WALL' }],
@@ -603,16 +596,12 @@ const OBSTACLE_MAP = new Map([
   ['24,50',  { base:W_DARK, label:'WALL' }],
   ['24,51',  { base:W_DARK, label:'WALL' }],
   // Band 6 (rows 25-27)
-  ['25,32',  { base:W_SLATE, label:'WALL' }],
-  ['25,33',  { base:W_SLATE, label:'WALL' }],
   ['25,39',  { base:W_SLATE, label:'WALL' }],
   ['25,40',  { base:W_SLATE, label:'WALL' }],
   ['25,46',  { base:W_SLATE, label:'WALL' }],
   ['25,47',  { base:W_SLATE, label:'WALL' }],
   ['25,53',  { base:W_SLATE, label:'WALL' }],
   ['25,54',  { base:W_SLATE, label:'WALL' }],
-  ['26,29',  { base:W_STONE, label:'WALL' }],
-  ['26,30',  { base:W_STONE, label:'WALL' }],
   ['26,35',  { base:W_STONE, label:'WALL' }],
   ['26,36',  { base:W_STONE, label:'WALL' }],
   ['26,42',  { base:W_STONE, label:'WALL' }],
@@ -630,16 +619,12 @@ const OBSTACLE_MAP = new Map([
   ['29,14',  { base:W_SLATE, label:'WALL' }],
   ['29,19',  { base:W_SLATE, label:'WALL' }],
   ['29,20',  { base:W_SLATE, label:'WALL' }],
-  ['29,24',  { base:W_SLATE, label:'WALL' }],
-  ['29,25',  { base:W_SLATE, label:'WALL' }],
   ['31,4',   { base:W_DARK, label:'WALL' }],
   ['31,5',   { base:W_DARK, label:'WALL' }],
   ['31,10',  { base:W_DARK, label:'WALL' }],
   ['31,11',  { base:W_DARK, label:'WALL' }],
   ['31,16',  { base:W_DARK, label:'WALL' }],
   ['31,17',  { base:W_DARK, label:'WALL' }],
-  ['31,22',  { base:W_DARK, label:'WALL' }],
-  ['31,23',  { base:W_DARK, label:'WALL' }],
   ['33,2',   { base:W_STONE, label:'WALL' }],
   ['33,3',   { base:W_STONE, label:'WALL' }],
   ['33,7',   { base:W_STONE, label:'WALL' }],
@@ -850,16 +835,12 @@ const OBSTACLE_MAP = new Map([
   ['21,45',  { base:W_DARK,  label:'WALL' }],
   ['21,51',  { base:W_DARK,  label:'WALL' }],
   ['21,52',  { base:W_DARK,  label:'WALL' }],
-  ['23,29',  { base:W_SLATE, label:'WALL' }],
-  ['23,30',  { base:W_SLATE, label:'WALL' }],
   ['23,36',  { base:W_SLATE, label:'WALL' }],
   ['23,37',  { base:W_SLATE, label:'WALL' }],
   ['23,42',  { base:W_SLATE, label:'WALL' }],
   ['23,43',  { base:W_SLATE, label:'WALL' }],
   ['23,49',  { base:W_SLATE, label:'WALL' }],
   ['23,50',  { base:W_SLATE, label:'WALL' }],
-  ['27,30',  { base:W_STONE, label:'WALL' }],
-  ['27,31',  { base:W_STONE, label:'WALL' }],
   ['27,36',  { base:W_STONE, label:'WALL' }],
   ['27,37',  { base:W_STONE, label:'WALL' }],
   ['27,43',  { base:W_STONE, label:'WALL' }],
@@ -876,8 +857,6 @@ const OBSTACLE_MAP = new Map([
   ['30,14',  { base:W_DARK,  label:'WALL' }],
   ['30,19',  { base:W_DARK,  label:'WALL' }],
   ['30,20',  { base:W_DARK,  label:'WALL' }],
-  ['30,24',  { base:W_DARK,  label:'WALL' }],
-  ['30,25',  { base:W_DARK,  label:'WALL' }],
   ['32,4',   { base:W_STONE, label:'WALL' }],
   ['32,5',   { base:W_STONE, label:'WALL' }],
   ['32,10',  { base:W_STONE, label:'WALL' }],
@@ -885,7 +864,6 @@ const OBSTACLE_MAP = new Map([
   ['32,15',  { base:W_STONE, label:'WALL' }],
   ['32,16',  { base:W_STONE, label:'WALL' }],
   ['32,21',  { base:W_STONE, label:'WALL' }],
-  ['32,22',  { base:W_STONE, label:'WALL' }],
   ['35,2',   { base:W_SLATE, label:'WALL' }],
   ['35,3',   { base:W_SLATE, label:'WALL' }],
   ['35,8',   { base:W_SLATE, label:'WALL' }],
@@ -966,13 +944,11 @@ const OBSTACLE_MAP = new Map([
   ['52,26',  { base:W_STONE, label:'WALL' }],
 
   // ─── Outer zone (28-55, 28-55) — additional fill between portal clusters ──────
-  ['28,32',  { base:W_DARK,  label:'WALL' }],
   ['28,33',  { base:W_DARK,  label:'WALL' }],
   ['28,40',  { base:W_DARK,  label:'WALL' }],
   ['28,41',  { base:W_DARK,  label:'WALL' }],
   ['28,48',  { base:W_DARK,  label:'WALL' }],
   ['28,49',  { base:W_DARK,  label:'WALL' }],
-  ['30,32',  { base:W_STONE, label:'WALL' }],
   ['30,33',  { base:W_STONE, label:'WALL' }],
   ['30,40',  { base:W_STONE, label:'WALL' }],
   ['30,41',  { base:W_STONE, label:'WALL' }],
@@ -1016,6 +992,60 @@ const OBSTACLE_MAP = new Map([
   ['52,47',  { base:W_DARK,  label:'WALL' }],
   ['52,50',  { base:W_DARK,  label:'WALL' }],
   ['52,51',  { base:W_DARK,  label:'WALL' }],
+
+  // ─── CRYPTO COLOSSEUM — PvP arena centered on chain node (27,27) ─────────────
+  // Square perimeter at rows 22,32 / cols 22,32.  Arena floor rows 23-31, cols 23-31 cleared.
+  // Entrance gaps 3 cells wide (centered on row/col 27): rows 26-28 or cols 26-28.
+  // Inner ring height=1.1 → barely jump-clearable (apex ≈ 1.20).  Pylons height=2.2.
+  // Gate pillars height=2.0 flank each entrance just outside the ring.
+
+  // Corner pylons — imposing dark towers at the four arena corners
+  ['22,22', { base:W_DARK, label:'ARENA PYLON', height:2.2 }],
+  ['22,32', { base:W_DARK, label:'ARENA PYLON', height:2.2 }],
+  ['32,22', { base:W_DARK, label:'ARENA PYLON', height:2.2 }],
+  ['32,32', { base:W_DARK, label:'ARENA PYLON', height:2.2 }],
+
+  // North arc (row 22) — gap at cols 26-28
+  ['22,23', { base:W_SAND, label:'ARENA WALL', height:1.1 }],
+  ['22,24', { base:W_SAND, label:'ARENA WALL', height:1.1 }],
+  ['22,25', { base:W_SAND, label:'ARENA WALL', height:1.1 }],
+  ['22,29', { base:W_SAND, label:'ARENA WALL', height:1.1 }],
+  ['22,30', { base:W_SAND, label:'ARENA WALL', height:1.1 }],
+  ['22,31', { base:W_SAND, label:'ARENA WALL', height:1.1 }],
+
+  // South arc (row 32) — gap at cols 26-28
+  ['32,23', { base:W_SAND, label:'ARENA WALL', height:1.1 }],
+  ['32,24', { base:W_SAND, label:'ARENA WALL', height:1.1 }],
+  ['32,25', { base:W_SAND, label:'ARENA WALL', height:1.1 }],
+  ['32,29', { base:W_SAND, label:'ARENA WALL', height:1.1 }],
+  ['32,30', { base:W_SAND, label:'ARENA WALL', height:1.1 }],
+  ['32,31', { base:W_SAND, label:'ARENA WALL', height:1.1 }],
+
+  // West arc (col 22) — gap at rows 26-28
+  ['23,22', { base:W_SAND, label:'ARENA WALL', height:1.1 }],
+  ['24,22', { base:W_SAND, label:'ARENA WALL', height:1.1 }],
+  ['25,22', { base:W_SAND, label:'ARENA WALL', height:1.1 }],
+  ['29,22', { base:W_SAND, label:'ARENA WALL', height:1.1 }],
+  ['30,22', { base:W_SAND, label:'ARENA WALL', height:1.1 }],
+  ['31,22', { base:W_SAND, label:'ARENA WALL', height:1.1 }],
+
+  // East arc (col 32) — gap at rows 26-28
+  ['23,32', { base:W_SAND, label:'ARENA WALL', height:1.1 }],
+  ['24,32', { base:W_SAND, label:'ARENA WALL', height:1.1 }],
+  ['25,32', { base:W_SAND, label:'ARENA WALL', height:1.1 }],
+  ['29,32', { base:W_SAND, label:'ARENA WALL', height:1.1 }],
+  ['30,32', { base:W_SAND, label:'ARENA WALL', height:1.1 }],
+  ['31,32', { base:W_SAND, label:'ARENA WALL', height:1.1 }],
+
+  // Gate pillars — flank each entrance just outside the ring (override any existing entry)
+  ['21,25', { base:W_DARK, label:'ARENA GATE', height:2.0 }],
+  ['21,29', { base:W_DARK, label:'ARENA GATE', height:2.0 }],
+  ['33,25', { base:W_DARK, label:'ARENA GATE', height:2.0 }],
+  ['33,29', { base:W_DARK, label:'ARENA GATE', height:2.0 }],
+  ['25,21', { base:W_DARK, label:'ARENA GATE', height:2.0 }],
+  ['29,21', { base:W_DARK, label:'ARENA GATE', height:2.0 }],
+  ['25,33', { base:W_DARK, label:'ARENA GATE', height:2.0 }],
+  ['29,33', { base:W_DARK, label:'ARENA GATE', height:2.0 }],
 ])
 
 function addRetroStructures(valid, reserved, cellMap) {
