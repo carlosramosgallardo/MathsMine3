@@ -24,8 +24,15 @@ export default function MiningLayout({ children }) {
           height: 100vh;
           height: 100dvh;
         }
+        @media (min-width: 900px) {
+          .mm3-mining3d-root {
+            max-width: 512px;
+            margin-left: auto;
+            margin-right: auto;
+          }
+        }
       `}</style>
-      <div className="mm3-mining3d-root h-full overflow-hidden" style={{ maxWidth: 512, margin: '0 auto' }}>
+      <div className="mm3-mining3d-root h-full overflow-hidden">
         {children}
       </div>
     </>
