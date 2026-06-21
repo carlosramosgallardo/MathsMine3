@@ -2430,6 +2430,12 @@ function drawOnlineList(ctx, W, H, presenceMap, myWallet, pvpStolen) {
     const label = isAnon
       ? w
       : `${w.slice(0, 6)}…${w.slice(-3)}${isBot ? ' B' : ''}`
+    if (isMe) {
+      ctx.fillStyle = col + '1a'
+      ctx.fillRect(px + 1, ly - 2, pw - 2, LINE_H)
+      ctx.fillStyle = col + 'bb'
+      ctx.fillRect(px + 1, ly - 2, 2, LINE_H)
+    }
     const skullW = isDead ? 9 : 0
     if (isDead) {
       ctx.font = '8px monospace'; ctx.textAlign = 'left'; ctx.fillStyle = '#fb7185'
