@@ -36,6 +36,26 @@ const TRADE_NFTJI_DEFS = [
 const CHAIN_NODE_ROW = MINING_CHAIN_NODE_POSITION.row
 const CHAIN_NODE_COL = MINING_CHAIN_NODE_POSITION.col
 
+const ANON_KEY_STORAGE = 'mm3_anon_key'
+
+// Hash an IP string into a stable anon-XXXXXX key (same algorithm as relaying)
+function hashIpToAnonKey(ip) {
+  let h = 0x811c9dc5
+  for (let i = 0; i < ip.length; i++) h = Math.imul(h ^ ip.charCodeAt(i), 0x01000193) >>> 0
+  return `anon-${h.toString(36).slice(0, 6).padStart(6, '0')}`
+}
+
+// Return a stable anon key: localStorage → fresh random (saved for next time)
+function getOrCreateAnonKey() {
+  try {
+    const saved = localStorage.getItem(ANON_KEY_STORAGE)
+    if (saved?.startsWith('anon-')) return saved
+  } catch { /* */ }
+  const fresh = `anon-${Math.random().toString(36).slice(2, 8)}`
+  try { localStorage.setItem(ANON_KEY_STORAGE, fresh) } catch { /* */ }
+  return fresh
+}
+
 // Portal nodes are spread across all four quarters of the 56x56 world.
 const PORTAL_NODES = [
   { row:5,  col:5,  emoji:'🎮', titleEn:'TRAINING',    titleEs:'ENTRENAMIENTO', navUrl:'/training', color:'#4ade80' },
@@ -261,6 +281,30 @@ export default function MiningChain3D() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  // Background: upgrade anon key to IP-derived stable hash (like relaying does)
+  // Runs once; saves result to localStorage so next load uses it immediately
+  useEffect(() => {
+    if (myWallet) return // logged-in, no need
+    // If key was already set by a previous IP fetch (marked), skip re-fetching
+    const current = (() => { try { return localStorage.getItem(ANON_KEY_STORAGE) } catch {} })()
+    if (current && localStorage.getItem(ANON_KEY_STORAGE + '_src') === 'ip') return
+    const ctrl = new AbortController()
+    const timer = setTimeout(() => ctrl.abort(), 4000)
+    fetch('https://ipapi.co/json/', { signal: ctrl.signal })
+      .then(r => r.json())
+      .then(data => {
+        const ip = String(data.ip || '')
+        if (!ip) return
+        const ipKey = hashIpToAnonKey(ip)
+        try {
+          localStorage.setItem(ANON_KEY_STORAGE, ipKey)
+          localStorage.setItem(ANON_KEY_STORAGE + '_src', 'ip')
+        } catch { /* */ }
+      })
+      .catch(() => { /* silently ignore — random key stays */ })
+      .finally(() => clearTimeout(timer))
+  }, [myWallet]) // eslint-disable-line react-hooks/exhaustive-deps
+
   // FPV gets wallets that are online AND have a known position (or self)
   const presenceMap = useMemo(() => {
     const map = {}
@@ -457,7 +501,7 @@ export default function MiningChain3D() {
 
   // ── Supabase: presence (join/leave) + broadcast (real-time position) ─────────
   useEffect(() => {
-    const key = myWallet || `anon-${Math.random().toString(36).slice(2, 8)}`
+    const key = myWallet || getOrCreateAnonKey()
     myKeyRef.current = key
     setPresenceKey(key)
     const ch = supabase.channel(CHAIN3D_CHANNEL, {
