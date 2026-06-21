@@ -2422,7 +2422,7 @@ function drawOnlineList(ctx, W, H, presenceMap, myWallet, pvpStolen) {
     ly += GROUP_H
     for (const { w, isAnon, isBot, stolen } of entries) {
     const isMe = w.toLowerCase() === (myWallet || '').toLowerCase()
-    const col  = isMe ? C : isAnon ? '#5a7080' : colorFromAddress(w)
+    const col  = colorFromAddress(w)
     const label = isAnon
       ? w
       : `${w.slice(0, 6)}…${w.slice(-3)}${isBot ? ' B' : ''}`
