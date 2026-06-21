@@ -58,6 +58,8 @@ const MAX_JUMPS = 1
 const REMOTE_AVATAR_VISUAL_SCALE = .48
 const REMOTE_AVATAR_MODEL_HEIGHT = 1.10
 const ORGANIC_SHAPES = new Set(['ramp','sphere','tree'])
+const COLOSSEUM_STAND_TOPS = [1.10,1.42,1.74]
+const COLOSSEUM_SEAT_HEIGHT = .16
 
 // ── Decorative obstacles: solid walls, no doorways, not mineable ──────────────
 // Five visual types: monolith (violet), pylon (teal), ruin (rust), steel wall, bunker
@@ -127,7 +129,7 @@ function makeColosseumStandEntries() {
   const entries=[]
   const seatCoords=[23,24,25,29,30,31]
   for(let tier=0;tier<3;tier++){
-    const low=22-tier,high=32+tier,height=1.10+tier*.32
+    const low=22-tier,high=32+tier,height=COLOSSEUM_STAND_TOPS[tier]
     const data={base:W_SAND,label:'ARENA STAND',height,isArenaStand:true}
     for(const coord of seatCoords){
       entries.push([`${low},${coord}`,data],[`${high},${coord}`,data])
@@ -2654,7 +2656,8 @@ function addCryptoColosseum(world) {
   const sideEntries={cyan:[],magenta:[]}
   const seatCoords=[23,24,25,29,30,31]
   for(let tier=0;tier<3;tier++){
-    const offset=tier,height=.20+tier*.03,y=1.16+tier*.32
+    const offset=tier,height=COLOSSEUM_SEAT_HEIGHT
+    const y=COLOSSEUM_STAND_TOPS[tier]-height*.5
     for(const coord of seatCoords){
       sideEntries.cyan.push({x:coord+.5,y,z:22.5-offset,sx:.82,sz:.28,height})
       sideEntries.cyan.push({x:coord+.5,y,z:32.5+offset,sx:.82,sz:.28,height})
@@ -2667,7 +2670,10 @@ function addCryptoColosseum(world) {
     const color=side==='cyan'?'#22d3ee':'#d946ef'
     const seats=new THREE.InstancedMesh(
       seatGeometry,
-      new THREE.MeshStandardMaterial({color,roughness:.38,metalness:.72,emissive:color,emissiveIntensity:.34}),
+      new THREE.MeshStandardMaterial({
+        color,roughness:.38,metalness:.72,emissive:color,emissiveIntensity:.34,
+        polygonOffset:true,polygonOffsetFactor:-1,polygonOffsetUnits:-1,
+      }),
       entries.length,
     )
     entries.forEach((entry,index)=>{
