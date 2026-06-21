@@ -10,6 +10,8 @@ import { groupPresenceEntries } from '@/lib/presence-display'
 const ROWS = 56   // FPV world size — double the inner mining grid for free walking space
 const COLS = 56
 const C    = '#22d3ee'
+const QUALITY_STORAGE_KEY = 'mm3-mining-quality'
+const QUALITY_MODES = ['auto','high','low']
 
 const CELL_SIZE     = 40     // world units per grid cell — large for future in-cell building
 const WORLD_W       = COLS * CELL_SIZE
@@ -3087,6 +3089,8 @@ export default function MiningChain3DFPV({
   const webglCanvasRef = useRef(null)
   const containerRef = useRef(null)
   const [pointerLocked, setPointerLocked] = useState(false)
+  const [qualityMode, setQualityMode] = useState('auto')
+  const [qualityTier, setQualityTier] = useState('balanced')
   // Incrementing this key re-runs the Three.js init effect (recovery from context loss / crash)
   const [threeKey, setThreeKey] = useState(0)
   const threeReinitRef = useRef(null)
@@ -3125,6 +3129,11 @@ export default function MiningChain3DFPV({
   const remoteVisualsRef = useRef(new Map())
   const lastRemoteFrameRef = useRef(0)
   const lastAmbientRenderRef = useRef(0)
+  const lastQualityRenderRef = useRef(0)
+  const qualityModeRef = useRef('auto')
+  const qualityTierRef = useRef('balanced')
+  const qualityProbeRef = useRef({startedAt:0,frames:0,complete:false})
+  const qualityMountedRef = useRef(false)
   const renderRef     = useRef(null)
   const lastCellRef   = useRef({row:initRow??14,col:initCol??14})
   const zBufferRef    = useRef(null)
@@ -3180,6 +3189,31 @@ export default function MiningChain3DFPV({
   // Expose reinit trigger to refs so it can be called from the render loop or context handlers
   useEffect(()=>{ threeReinitRef.current=()=>setThreeKey(k=>k+1) },[])
 
+  useEffect(()=>{
+    const saved=window.localStorage.getItem(QUALITY_STORAGE_KEY)
+    if(!QUALITY_MODES.includes(saved)) return
+    qualityModeRef.current=saved
+    setQualityMode(saved)
+    const tier=saved==='high'?'high':saved==='low'?'performance':'balanced'
+    qualityTierRef.current=tier
+    setQualityTier(tier)
+  },[])
+
+  useEffect(()=>{
+    qualityModeRef.current=qualityMode
+    window.localStorage.setItem(QUALITY_STORAGE_KEY,qualityMode)
+    qualityProbeRef.current={startedAt:0,frames:0,complete:qualityMode!=='auto'}
+    const tier=qualityMode==='high'?'high':qualityMode==='low'?'performance':'balanced'
+    qualityTierRef.current=tier
+    setQualityTier(tier)
+  },[qualityMode])
+
+  useEffect(()=>{
+    qualityTierRef.current=qualityTier
+    if(!qualityMountedRef.current){ qualityMountedRef.current=true; return }
+    setThreeKey(key=>key+1)
+  },[qualityTier])
+
   // WebGL context loss / restore — browser can reclaim GPU memory when tab is backgrounded
   useEffect(()=>{
     const canvas=webglCanvasRef.current
@@ -3197,7 +3231,7 @@ export default function MiningChain3DFPV({
     if(!canvas) return
     let renderer
     try{
-      renderer=new THREE.WebGLRenderer({canvas,antialias:true,powerPreference:'high-performance'})
+      renderer=new THREE.WebGLRenderer({canvas,antialias:qualityTierRef.current==='high',powerPreference:'high-performance'})
     }catch{return}
     renderer.outputColorSpace=THREE.SRGBColorSpace
     renderer.toneMapping=THREE.ACESFilmicToneMapping
@@ -4815,16 +4849,18 @@ export default function MiningChain3DFPV({
       // so the raycaster casts fewer strips and CSS upscales the result.
       // Mobile is narrower than 540px so it keeps normal full resolution.
       const isPortraitTablet = cssW >= 540 && cssH > cssW
+      const tier=qualityTierRef.current
       let physW, physH, dpr
       if (isPortraitTablet) {
-        physW = Math.round(cssW * 0.65)
-        physH = Math.round(cssH * 0.65)
-        dpr = 1  // canvas logical coords == physical coords; CSS stretches to cssW×cssH
+        const scale=tier==='performance'?0.55:0.65
+        physW = Math.round(cssW * scale)
+        physH = Math.round(cssH * scale)
+        dpr = scale
       } else {
         const pixels = cssW * cssH
         // Local-frustum culling leaves enough headroom to avoid the visibly
         // coarse 1x fallback on wide screens.
-        const dprCap = pixels > 1600000 ? 1.1 : 1.3
+        const dprCap = tier==='performance'?0.75:tier==='balanced'?1:(pixels > 1600000 ? 1.1 : 1.3)
         dpr = Math.min(dprCap, Math.max(1, window.devicePixelRatio || 1))
         physW = Math.round(cssW * dpr)
         physH = Math.round(cssH * dpr)
@@ -4840,7 +4876,7 @@ export default function MiningChain3DFPV({
     resize()
     const ro=new ResizeObserver(resize); ro.observe(container)
     return ()=>ro.disconnect()
-  },[])
+  },[qualityTier])
 
   useEffect(()=>{ renderRef.current?.() },[cellMap,presenceMap])
 
@@ -4987,6 +5023,20 @@ export default function MiningChain3DFPV({
       const dt=lastFrameRef.current ? Math.min(0.05,(nowMs-lastFrameRef.current)/1000) : 1/60
       lastFrameRef.current=nowMs
       let needsRender=false
+
+      const probe=qualityProbeRef.current
+      if(qualityModeRef.current==='auto'&&!probe.complete&&document.visibilityState==='visible'){
+        if(!probe.startedAt) probe.startedAt=nowMs
+        probe.frames++
+        const elapsed=nowMs-probe.startedAt
+        if(elapsed>=4000){
+          const fps=probe.frames*1000/elapsed
+          const tier=fps<40?'performance':fps>55?'high':'balanced'
+          probe.complete=true
+          qualityTierRef.current=tier
+          setQualityTier(tier)
+        }
+      }
 
       // When dead: lock position, block movement, still allow look-around
       const myDead = myDeadUntilRef.current && myDeadUntilRef.current > Date.now()
@@ -5437,8 +5487,10 @@ export default function MiningChain3DFPV({
         w => w.toLowerCase() !== (presenceKeyRef.current||myWalletRef.current||'').toLowerCase()
       )
       const ambientDue=hasRemotes&&nowMs-lastAmbientRenderRef.current>33
-      if(needsRender||ambientDue){
+      const qualityDue=qualityTierRef.current!=='performance'||nowMs-lastQualityRenderRef.current>=33
+      if((needsRender||ambientDue)&&qualityDue){
         if(ambientDue) lastAmbientRenderRef.current=nowMs
+        lastQualityRenderRef.current=nowMs
         renderRef.current?.()
       }
     }
@@ -5478,6 +5530,9 @@ export default function MiningChain3DFPV({
     swingStartRef.current=performance.now();swingEpochRef.current=Date.now();hitDoneRef.current=false
     renderRef.current?.()
   },[])
+  const cycleQuality=useCallback(()=>{
+    setQualityMode(current=>QUALITY_MODES[(QUALITY_MODES.indexOf(current)+1)%QUALITY_MODES.length])
+  },[])
 
   return (
     <div ref={containerRef} style={{width:'100%',height:'100%',position:'relative',background:'#020610'}}>
@@ -5489,6 +5544,20 @@ export default function MiningChain3DFPV({
         onPointerUp={handlePointerUp}
         onPointerCancel={handlePointerUp}
       />
+      <button
+        type="button"
+        onClick={(event)=>{event.stopPropagation();cycleQuality()}}
+        aria-label={es?'Cambiar calidad gráfica':'Change graphics quality'}
+        title={es?'Calidad gráfica: pulsa para cambiar':'Graphics quality: click to change'}
+        style={{
+          position:'absolute',top:8,right:8,zIndex:12,padding:'4px 7px',borderRadius:4,
+          border:'1px solid rgba(34,211,238,.35)',background:'rgba(2,8,18,.78)',color:'#a5f3fc',
+          font:'700 9px Consolas,monospace',letterSpacing:'.08em',cursor:'pointer',
+          backdropFilter:'blur(2px)',touchAction:'manipulation',
+        }}
+      >
+        {qualityMode.toUpperCase()}{qualityMode==='auto'?` · ${qualityTier==='performance'?'LOW':qualityTier.toUpperCase()}`:''}
+      </button>
       {/* FPS pointer-lock overlay — desktop only, hidden once locked */}
       {!pointerLocked && (
         <div
