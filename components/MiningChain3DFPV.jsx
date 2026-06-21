@@ -35,7 +35,8 @@ const AVATAR_R      = 0.30
 const FOOTSTEP_DIST = CELL_SIZE * 0.42       // footstep cadence
 const SWING_DUR     = 340    // ms per USB staff swing
 const HITS_NEEDED   = 5      // swings to complete mining action
-const INTERACT_DIST = 1.3    // grid cells — max distance for block interaction
+const INTERACT_DIST       = 1.3   // grid cells — max distance for block interaction
+const CHAIN_INTERACT_DIST = 0.55  // grid cells — must be almost touching the chain node
 const PVP_HIT_RANGE   = 1.3  // grid cells — max distance to land a PvP hit (shorter = harder to spam, easier to dodge)
 const PVP_SIGHT_RANGE = 2.5  // grid cells — wider cone: enemy visible in crosshair but out of hit range → MISS
 const VISUAL_RANGE  = 18     // far plane in cells; physics still uses the full map
@@ -1919,15 +1920,15 @@ function drawFacingHUD(ctx, W, H, fwdCell, fwdMx, fwdMy, myWallet, es, dist, obs
   }
 
   if (fwdCell?.isChainNode) {
-    const inRange = dist == null || dist <= INTERACT_DIST
+    const inRange = dist != null && dist <= CHAIN_INTERACT_DIST
     const col = fwdCell.color || '#ffd700'
     const title = es ? (fwdCell.titleEs || 'NODO CENTRAL') : (fwdCell.titleEn || 'CENTRAL NODE')
     const lines = [
       { text: `${fwdCell.emoji || '⬡'}  ${title}`, size: 13, weight: 'bold', col },
       { text: es ? 'Terminal estático de la cadena' : 'Static chain terminal', size: 10, col: '#8b7f52' },
       inRange
-        ? { text: es ? '↵ · Resolver cadena' : '↵ · Solve formula chain', size: 10, col: col + 'cc' }
-        : { text: es ? '· acércate para interactuar' : '· move closer to interact', size: 9, col: col + '55' },
+        ? { text: es ? '⛏ 5 golpes · Resolver cadena' : '⛏ 5 hits · Solve chain formula', size: 10, col: col + 'cc' }
+        : { text: es ? '· acércate muy cerca para interactuar' : '· get very close to interact', size: 9, col: col + '55' },
     ]
     const lineH=16,padX=9,padY=8,ph=lines.length*lineH+padY*2,pw=CARD_PW,px=CARD_PX,py=CARD_PY
     ctx.globalAlpha=.9;ctx.fillStyle='#010709';ctx.fillRect(px,py,pw,ph);ctx.globalAlpha=1
@@ -5631,6 +5632,8 @@ export default function MiningChain3DFPV({
       const crossedInteractionRange=(previousFacing?.dist<=INTERACT_DIST)!==(fcDist<=INTERACT_DIST)
       // Reset mine progress whenever the player is out of interaction range
       if(fcDist > INTERACT_DIST){ mineProgressRef.current=0; mineTargetRef.current=null }
+      // Reset chain progress if the player steps back beyond the tight chain range
+      if(mineTypeRef.current==='chain' && fcDist > CHAIN_INTERACT_DIST){ mineProgressRef.current=0 }
       if(newKey!==facingKeyRef.current||crossedInteractionRange){
         facingKeyRef.current=newKey
         // Reset progress when target changes
@@ -5642,7 +5645,7 @@ export default function MiningChain3DFPV({
           } else if(fc){
             if(fc.isChainNode){
               actionUrlRef.current=null
-              mineTypeRef.current=fcDist<=INTERACT_DIST?'chain':'empty'
+              mineTypeRef.current=fcDist<=CHAIN_INTERACT_DIST?'chain':'empty'
             } else if(fc.isPortalNode){
               actionUrlRef.current=fc.navUrl||null
               mineTypeRef.current='portal'
@@ -5727,10 +5730,13 @@ export default function MiningChain3DFPV({
           if(!tk||mineTypeRef.current==='empty'||(blockDist!=null&&blockDist>INTERACT_DIST)){
             playPickHit(audioCtxRef,'empty')
           } else if(mineTypeRef.current==='chain'){
-            // Central chain terminal: one hit opens the formula card.
+            mineProgressRef.current=Math.min(1,mineProgressRef.current+1/HITS_NEEDED)
             playPickHit(audioCtxRef,'nftji')
-            playPickHit(audioCtxRef,'complete')
-            onChainSolveOpenRef.current?.()
+            if(mineProgressRef.current>=1){
+              playPickHit(audioCtxRef,'complete')
+              mineProgressRef.current=0
+              onChainSolveOpenRef.current?.()
+            }
           } else if(mineTypeRef.current==='portal'){
             // Portal: 1-hit navigation
             playPickHit(audioCtxRef,'nftji')
