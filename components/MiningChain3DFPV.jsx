@@ -4811,14 +4811,27 @@ export default function MiningChain3DFPV({
       const {width,height}=container.getBoundingClientRect()
       const cssW = Math.max(1, Math.round(width))
       const cssH = Math.max(1, Math.round(height))
-      const pixels=cssW*cssH
-      // Local-frustum culling leaves enough headroom to avoid the visibly
-      // coarse 1x fallback on wide screens.
-      const dprCap=pixels>1600000?1.1:1.3
-      const dpr = Math.min(dprCap,Math.max(1,window.devicePixelRatio||1))
+      // Portrait tablet (≥540px wide, taller than wide): render at 65% resolution
+      // so the raycaster casts fewer strips and CSS upscales the result.
+      // Mobile is narrower than 540px so it keeps normal full resolution.
+      const isPortraitTablet = cssW >= 540 && cssH > cssW
+      let physW, physH, dpr
+      if (isPortraitTablet) {
+        physW = Math.round(cssW * 0.65)
+        physH = Math.round(cssH * 0.65)
+        dpr = 1  // canvas logical coords == physical coords; CSS stretches to cssW×cssH
+      } else {
+        const pixels = cssW * cssH
+        // Local-frustum culling leaves enough headroom to avoid the visibly
+        // coarse 1x fallback on wide screens.
+        const dprCap = pixels > 1600000 ? 1.1 : 1.3
+        dpr = Math.min(dprCap, Math.max(1, window.devicePixelRatio || 1))
+        physW = Math.round(cssW * dpr)
+        physH = Math.round(cssH * dpr)
+      }
       canvas.dataset.dpr = String(dpr)
-      canvas.width = Math.round(cssW * dpr)
-      canvas.height = Math.round(cssH * dpr)
+      canvas.width = physW
+      canvas.height = physH
       canvas.style.width = `${cssW}px`
       canvas.style.height = `${cssH}px`
       zBufferRef.current=null

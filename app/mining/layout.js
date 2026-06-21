@@ -19,10 +19,15 @@ export default function MiningLayout({ children }) {
     <>
       <style>{`
         html:has(.mm3-mining3d-root) .mm3-shell-main {
-          padding-bottom: 32px !important;
+          padding-bottom: 0 !important;
+          padding-left: 0 !important;
+          padding-right: 0 !important;
           overflow: hidden !important;
           height: 100vh;
           height: 100dvh;
+        }
+        .mm3-mining3d-root {
+          width: 100%;
         }
         @media (min-width: 900px) {
           .mm3-mining3d-root {
