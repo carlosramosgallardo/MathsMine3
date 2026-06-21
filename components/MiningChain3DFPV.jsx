@@ -30,6 +30,7 @@ const FOOTSTEP_DIST = CELL_SIZE * 0.42       // footstep cadence
 const SWING_DUR     = 340    // ms per USB staff swing
 const HITS_NEEDED   = 5      // swings to complete mining action
 const INTERACT_DIST = 2.0    // grid cells — max distance for block interaction
+const PVP_HIT_RANGE = 1.3    // grid cells — max distance to land a PvP hit (shorter = harder to spam, easier to dodge)
 const VISUAL_RANGE  = 18     // far plane in cells; physics still uses the full map
 const FLOOR_GRID_RANGE = 12  // distant grid lines merge into unstable horizon bands
 const RADAR_RANGE   = 18     // square local map using the same camera frustum
@@ -5221,10 +5222,10 @@ export default function MiningChain3DFPV({
         const sgy = pres.gy ?? ((pres.row ?? 0) + 0.5)
         const rx = sgx - camGX, ry = sgy - camGY
         const tY = Math.cos(p.angle)*rx + Math.sin(p.angle)*ry
-        if (tY < 0.15 || tY > INTERACT_DIST) continue
+        if (tY < 0.15 || tY > PVP_HIT_RANGE) continue
         const remoteZ = Number(pres.z) || 0
         const verticalGap = Math.abs(remoteZ - p.z)
-        if (verticalGap > 0.90 || Math.hypot(tY, verticalGap) > INTERACT_DIST) continue
+        if (verticalGap > 0.90 || Math.hypot(tY, verticalGap) > PVP_HIT_RANGE) continue
         const enemyPool  = presenceRef.current[w]?.poolCode || null
         const myPool     = myPoolCodeRef.current
         const isTeammate = !!(myPool && enemyPool && myPool === enemyPool)
