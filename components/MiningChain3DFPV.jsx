@@ -30,7 +30,8 @@ const FOOTSTEP_DIST = CELL_SIZE * 0.42       // footstep cadence
 const SWING_DUR     = 340    // ms per USB staff swing
 const HITS_NEEDED   = 5      // swings to complete mining action
 const INTERACT_DIST = 2.0    // grid cells — max distance for block interaction
-const PVP_HIT_RANGE = 1.3    // grid cells — max distance to land a PvP hit (shorter = harder to spam, easier to dodge)
+const PVP_HIT_RANGE   = 1.3  // grid cells — max distance to land a PvP hit (shorter = harder to spam, easier to dodge)
+const PVP_SIGHT_RANGE = 2.5  // grid cells — wider cone: enemy visible in crosshair but out of hit range → MISS
 const VISUAL_RANGE  = 18     // far plane in cells; physics still uses the full map
 const FLOOR_GRID_RANGE = 12  // distant grid lines merge into unstable horizon bands
 const RADAR_RANGE   = 18     // square local map using the same camera frustum
@@ -3135,7 +3136,8 @@ export default function MiningChain3DFPV({
   const mineTypeRef     = useRef('empty')
   const facingDataRef   = useRef({ mx:-1, my:-1, cell:null })
   // PvP
-  const enemyTargetRef  = useRef(null)   // { wallet, dist, isAnon }
+  const enemyTargetRef  = useRef(null)   // { wallet, dist, isAnon } — within PVP_HIT_RANGE
+  const enemyInSightRef = useRef(null)   // closest enemy in crosshair within PVP_SIGHT_RANGE (may be out of hit range)
   const pvpFlashRef     = useRef(0)      // timestamp of last pvp strike (for red flash)
   const dodgeFlashRef   = useRef(0)      // timestamp of last successful dodge (cyan flash)
   const pvpGainRef      = useRef(null)   // { text, at } for "+X EUR" popup
@@ -4749,7 +4751,7 @@ export default function MiningChain3DFPV({
       if (ga < 1) {
         ctx.globalAlpha = 1 - ga
         ctx.font = 'bold 13px monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
-        ctx.fillStyle = '#4ade80'
+        ctx.fillStyle = gain.color || '#4ade80'
         ctx.fillText(gain.text, W/2, H * HORIZON_RATIO - 40 - ga*20)
         ctx.globalAlpha = 1
       } else pvpGainRef.current = null
@@ -5196,9 +5198,10 @@ export default function MiningChain3DFPV({
       }
 
       // ── Enemy sprite targeting (screen-space, zoom-invariant) ─────────────
-      if(myDead){ enemyTargetRef.current=null; actionUrlRef.current=null; mineTypeRef.current='empty' }
+      if(myDead){ enemyTargetRef.current=null; enemyInSightRef.current=null; actionUrlRef.current=null; mineTypeRef.current='empty' }
       const camGX = p.x / CELL_SIZE, camGY = p.y / CELL_SIZE
       let closestEnemy = null, closestDist = Infinity
+      let closestInSight = null, closestInSightDist = Infinity
       const myW = myWalletRef.current
       const myIdentity = presenceKeyRef.current||myW
       // Derive canvas dimensions — same formula as the draw function so the
@@ -5222,10 +5225,10 @@ export default function MiningChain3DFPV({
         const sgy = pres.gy ?? ((pres.row ?? 0) + 0.5)
         const rx = sgx - camGX, ry = sgy - camGY
         const tY = Math.cos(p.angle)*rx + Math.sin(p.angle)*ry
-        if (tY < 0.15 || tY > PVP_HIT_RANGE) continue
+        if (tY < 0.15 || tY > PVP_SIGHT_RANGE) continue
         const remoteZ = Number(pres.z) || 0
         const verticalGap = Math.abs(remoteZ - p.z)
-        if (verticalGap > 0.90 || Math.hypot(tY, verticalGap) > PVP_HIT_RANGE) continue
+        if (verticalGap > 0.90 || Math.hypot(tY, verticalGap) > PVP_SIGHT_RANGE) continue
         const enemyPool  = presenceRef.current[w]?.poolCode || null
         const myPool     = myPoolCodeRef.current
         const isTeammate = !!(myPool && enemyPool && myPool === enemyPool)
@@ -5273,12 +5276,13 @@ export default function MiningChain3DFPV({
           if (!hitZone) continue
         }
 
-        if (tY < closestDist) {
-          closestDist = tY
-          closestEnemy = { wallet: w, dist: tY, isAnon: w.startsWith('anon-'), isTeammate, hitZone }
-        }
+        const inHitRange = tY <= PVP_HIT_RANGE && Math.hypot(tY, verticalGap) <= PVP_HIT_RANGE
+        const entry = { wallet: w, dist: tY, isAnon: w.startsWith('anon-'), isTeammate, hitZone }
+        if (inHitRange && tY < closestDist) { closestDist = tY; closestEnemy = entry }
+        if (tY < closestInSightDist) { closestInSightDist = tY; closestInSight = entry }
       }
       enemyTargetRef.current = closestEnemy
+      enemyInSightRef.current = closestInSight
 
       // Facing detection + action URL + mine type update (skipped when dead)
       if(myDead){ facingKeyRef.current=null }
@@ -5339,7 +5343,13 @@ export default function MiningChain3DFPV({
         const myWallet = myWalletRef.current
         const enemy = enemyTargetRef.current
 
-        if(enemy?.wallet && myWallet && !myWallet.startsWith('anon-') && !enemy.isTeammate){
+        const inSight = enemyInSightRef.current
+        if(inSight?.wallet && !enemy?.wallet && myWallet && !myWallet.startsWith('anon-') && !inSight.isTeammate){
+          // ── Swing at enemy but out of range → MISS ───────────────────────
+          playPickHit(audioCtxRef,'empty')
+          pvpGainRef.current={ text:'✗ MISS', at:performance.now(), color:'#fb7185' }
+
+        } else if(enemy?.wallet && myWallet && !myWallet.startsWith('anon-') && !enemy.isTeammate){
           // ── PvP hit ──────────────────────────────────────────────────────
           playPickHit(audioCtxRef,'nftji')
           pvpFlashRef.current = performance.now()
