@@ -2593,14 +2593,17 @@ function addBiomeLandmarks(world,textures) {
   const rockMaterial=new THREE.MeshStandardMaterial({map:textures.mountain,color:'#8aa5bd',roughness:.82,flatShading:true})
   for(let index=0;index<22;index++){
     const height=2.5+seededUnit(index+220)*5.4
-    const rock=new THREE.Mesh(new THREE.ConeGeometry(1.4+height*.17,height,5+index%3),rockMaterial)
+    const rock=new THREE.Mesh(new THREE.ConeGeometry(1.4+height*.17,height,5+index%3),rockMaterial.clone())
+    rock.userData.avatarFadeOccluder=true
     const onNorth=index%2===0
     rock.position.set(onNorth?seededUnit(index+205)*25:-1.4,height*.5-.02,onNorth?-1.4:seededUnit(index+206)*25)
     rock.rotation.y=seededUnit(index+230)*Math.PI;world.add(rock)
   }
   const peak=new THREE.Mesh(new THREE.ConeGeometry(5.4,12,7),new THREE.MeshStandardMaterial({map:textures.mountain,color:'#7892aa',roughness:.84,flatShading:true}))
+  peak.userData.avatarFadeOccluder=true
   peak.position.set(-1.5,5.9,-1.5);world.add(peak)
   const snowCap=new THREE.Mesh(new THREE.ConeGeometry(2.05,3.1,7),new THREE.MeshStandardMaterial({color:'#b9dff4',roughness:.72,flatShading:true}))
+  snowCap.userData.avatarFadeOccluder=true
   snowCap.position.set(-1.5,10.35,-1.5);world.add(snowCap)
 
   const water=new THREE.Mesh(new THREE.PlaneGeometry(25.4,12.2,18,8),new THREE.MeshPhysicalMaterial({color:'#0aa9d6',transparent:true,opacity:.74,roughness:.08,metalness:.18,clearcoat:1,clearcoatRoughness:.08,side:THREE.DoubleSide,emissive:'#043b56',emissiveIntensity:.28}))
@@ -2615,11 +2618,13 @@ function addBiomeLandmarks(world,textures) {
   const iceMaterial=new THREE.MeshPhysicalMaterial({map:textures.ice,color:'#c6f5ff',transparent:true,opacity:.82,roughness:.10,metalness:.22,clearcoat:1,clearcoatRoughness:.05,emissive:'#0d4c72',emissiveIntensity:.36})
   for(let index=0;index<18;index++){
     const height=.7+seededUnit(index+400)*2.8
-    const shard=new THREE.Mesh(new THREE.ConeGeometry(.18+height*.10,height,4),iceMaterial)
+    const shard=new THREE.Mesh(new THREE.ConeGeometry(.18+height*.10,height,4),iceMaterial.clone())
+    shard.userData.avatarFadeOccluder=true
     shard.position.set(-.7-seededUnit(index+410)*1.8,height*.5,30+seededUnit(index+420)*25)
     shard.rotation.z=(seededUnit(index+430)-.5)*.28;world.add(shard)
   }
   const glacier=new THREE.Mesh(new THREE.DodecahedronGeometry(3.5,1),new THREE.MeshPhysicalMaterial({map:textures.ice,color:'#bdefff',roughness:.16,metalness:.18,clearcoat:1,emissive:'#0b4268',emissiveIntensity:.28,flatShading:true}))
+  glacier.userData.avatarFadeOccluder=true
   glacier.scale.set(1.7,1,.9);glacier.position.set(-1.2,1.2,48);world.add(glacier)
 
   const lava=new THREE.Mesh(new THREE.PlaneGeometry(24,7.2),new THREE.MeshStandardMaterial({map:textures.inferno,color:'#ff6b13',emissive:'#ff2600',emissiveIntensity:2.2,roughness:.48,transparent:true,opacity:.92}))
@@ -2638,6 +2643,7 @@ function addBiomeLandmarks(world,textures) {
   for(let index=0;index<20;index++){
     const height=.8+seededUnit(index+500)*3.8
     const spire=new THREE.Mesh(new THREE.ConeGeometry(.24+height*.14,height,5),new THREE.MeshStandardMaterial({map:textures.inferno,color:index%3?'#5c191d':'#a53120',emissive:index%3?'#260307':'#8c1705',emissiveIntensity:.9,roughness:.74,flatShading:true}))
+    spire.userData.avatarFadeOccluder=true
     const onSouth=index%2===0
     spire.position.set(onSouth?30+seededUnit(index+510)*25:56.7,height*.5,onSouth?56.7:30+seededUnit(index+520)*25);world.add(spire)
   }
@@ -2862,15 +2868,19 @@ function rebuildThreeWorld(state,cellMap,obstacles) {
     const material=new THREE.MeshStandardMaterial({map:state.textures[biome],color:BIOME_STYLE[biome].block,roughness:biome==='ice'?.14:.66,metalness:biome==='ice'?.28:.14,emissive:biome==='inferno'?'#681205':biome==='ice'?'#0a4a70':'#000000',emissiveIntensity:biome==='inferno'?.82:.22})
     if(obstacle.shape==='ramp'){
       const mesh=new THREE.Mesh(makeRampGeometry(obstacle.direction),material)
+      mesh.userData.avatarFadeOccluder=true
       mesh.position.set(col,0,row);mesh.scale.y=obstacleTop(obstacle);world.add(mesh)
     }else if(obstacle.shape==='sphere'){
       const radius=obstacle.radius||.34,mesh=new THREE.Mesh(new THREE.IcosahedronGeometry(radius,2),material)
+      mesh.userData.avatarFadeOccluder=true
       mesh.position.set(col+.5,radius,row+.5);world.add(mesh)
     }else{
       const tree=new THREE.Group()
       const trunk=new THREE.Mesh(new THREE.CylinderGeometry(.13,.19,.92,7),new THREE.MeshStandardMaterial({color:'#6b4423',roughness:1}))
+      trunk.userData.avatarFadeOccluder=true
       trunk.position.y=.46;tree.add(trunk)
       const crown=new THREE.Mesh(new THREE.IcosahedronGeometry(.52,1),material)
+      crown.userData.avatarFadeOccluder=true
       crown.scale.set(1,1.35,1);crown.position.y=1.32;tree.add(crown)
       const core=new THREE.Mesh(new THREE.OctahedronGeometry(.13),new THREE.MeshBasicMaterial({color:'#5eead4'}))
       core.position.y=1.34;tree.add(core);tree.position.set(col+.5,0,row+.5);world.add(tree)
@@ -2879,9 +2889,17 @@ function rebuildThreeWorld(state,cellMap,obstacles) {
   state.world=world
   state.biomeSurfaces=[]
   state.interactiveVisuals=[]
+  state.avatarFadeOccluders=[]
   world.traverse(object=>{
     if(object.userData.biomeSurface) state.biomeSurfaces.push(object)
     if(object.userData.interactive||object.userData.blockGlow) state.interactiveVisuals.push(object)
+    if(object.userData.avatarFadeOccluder){
+      const materials=Array.isArray(object.material)?object.material:[object.material]
+      object.userData.avatarFadeMaterials=materials.filter(Boolean).map(material=>({
+        material,opacity:material.opacity,transparent:material.transparent,depthWrite:material.depthWrite,
+      }))
+      state.avatarFadeOccluders.push(object)
+    }
   })
   state.scene.add(world)
 }
@@ -3033,6 +3051,47 @@ function syncThreeAvatars(state,presence,myIdentity) {
   for(const [wallet,avatar] of state.avatars){
     if(active.has(wallet)) continue
     state.scene.remove(avatar);disposeThreeObject(avatar);state.avatars.delete(wallet)
+  }
+}
+
+function updateAvatarOccluders(state) {
+  const occluders=state?.avatarFadeOccluders||[]
+  if(!occluders.length) return
+  const faded=new Set()
+  const origin=state.camera.position
+  for(const avatar of state.avatars.values()){
+    if(avatar.userData.wasDead) continue
+    const target=state._occlusionTarget.copy(avatar.position)
+    target.y+=Math.max(.18,avatar.scale.y*.58)
+    const direction=state._occlusionDirection.copy(target).sub(origin)
+    const distance=direction.length()
+    if(distance<=.1) continue
+    state.occlusionRaycaster.set(origin,direction.divideScalar(distance))
+    state.occlusionRaycaster.near=.05
+    state.occlusionRaycaster.far=Math.max(.05,distance-.08)
+    for(const hit of state.occlusionRaycaster.intersectObjects(occluders,false)) faded.add(hit.object)
+  }
+  for(const object of occluders){
+    const shouldFade=faded.has(object)
+    for(const entry of object.userData.avatarFadeMaterials||[]){
+      const {material}=entry
+      if(shouldFade){
+        if(!material.transparent||material.depthWrite){
+          material.transparent=true
+          material.depthWrite=false
+          material.needsUpdate=true
+        }
+        material.opacity=Math.min(entry.opacity,.24)
+      }else{
+        material.opacity=entry.opacity
+        if(material.transparent!==entry.transparent||material.depthWrite!==entry.depthWrite){
+          material.transparent=entry.transparent
+          material.depthWrite=entry.depthWrite
+          material.needsUpdate=true
+        }
+      }
+    }
+    object.renderOrder=shouldFade?1:0
   }
 }
 
@@ -3265,8 +3324,10 @@ export default function MiningChain3DFPV({
       ice:createProceduralTexture('ice'),inferno:createProceduralTexture('inferno'),crypto:createProceduralTexture('crypto'),
     }
     const camRaycaster=new THREE.Raycaster(); camRaycaster.camera=camera
+    const occlusionRaycaster=new THREE.Raycaster()
     const state={renderer,scene,camera,hudScene,hudCamera,localAvatar:null,localAvatarId:null,world:null,avatars:new Map(),pixelRatio:0,size:new THREE.Vector2(),hemi,key,rim,textures,
-      camRaycaster,_v3a:new THREE.Vector3(),_v3b:new THREE.Vector3(),_v3c:new THREE.Vector3(),_v3d:new THREE.Vector3(),_v3e:new THREE.Vector3()}
+      camRaycaster,occlusionRaycaster,_occlusionTarget:new THREE.Vector3(),_occlusionDirection:new THREE.Vector3(),
+      _v3a:new THREE.Vector3(),_v3b:new THREE.Vector3(),_v3c:new THREE.Vector3(),_v3d:new THREE.Vector3(),_v3e:new THREE.Vector3()}
     threeStateRef.current=state
     rebuildThreeRef.current=()=>rebuildThreeWorld(state,cellMapRef.current,validObstaclesRef.current)
     rebuildThreeRef.current()
@@ -3681,6 +3742,7 @@ export default function MiningChain3DFPV({
         )
 
         syncThreeAvatars(threeState,presence,myIdentity)
+        updateAvatarOccluders(threeState)
         const time=performance.now()*.001
         for(const object of threeState.biomeSurfaces||[]){
           if(object.userData.biomeSurface==='water'){
