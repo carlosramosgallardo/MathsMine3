@@ -3059,7 +3059,9 @@ function updateAvatarOccluders(state) {
   if(!occluders.length) return
   const faded=new Set()
   const origin=state.camera.position
-  for(const avatar of state.avatars.values()){
+  const avatars=[...state.avatars.values()]
+  if(state.localAvatar) avatars.push(state.localAvatar)
+  for(const avatar of avatars){
     if(avatar.userData.wasDead) continue
     const target=state._occlusionTarget.copy(avatar.position)
     target.y+=Math.max(.18,avatar.scale.y*.58)
@@ -3742,7 +3744,6 @@ export default function MiningChain3DFPV({
         )
 
         syncThreeAvatars(threeState,presence,myIdentity)
-        updateAvatarOccluders(threeState)
         const time=performance.now()*.001
         for(const object of threeState.biomeSurfaces||[]){
           if(object.userData.biomeSurface==='water'){
@@ -3779,6 +3780,7 @@ export default function MiningChain3DFPV({
         const localSwingT=localSwingAge<SWING_DUR?localSwingAge/SWING_DUR:0
         // Local avatar lives in the main 3D scene — sync position before render
         syncThreeLocalAvatar(threeState,myIdentity,localSwingT,walkDistRef.current,gx,gy,rawZ,angle,localDead)
+        updateAvatarOccluders(threeState)
         threeState.renderer.render(threeState.scene,threeState.camera)
         // No separate HUD avatar pass: local player is now a scene object
       }catch(err){
