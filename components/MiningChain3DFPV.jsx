@@ -5352,6 +5352,8 @@ export default function MiningChain3DFPV({
       const {cell:fc,mx:fmx,my:fmy,perpDist:fcDist}=myDead?{cell:null,mx:-1,my:-1,perpDist:0}:castRay(p.x,p.y,p.angle,cellMapRef.current,validObstaclesRef.current)
       const newKey=`${fmy},${fmx}`
       facingDataRef.current={mx:fmx,my:fmy,cell:fc,dist:fcDist}
+      // Reset mine progress whenever the player is out of interaction range
+      if(fcDist > INTERACT_DIST){ mineProgressRef.current=0; mineTargetRef.current=null }
       if(newKey!==facingKeyRef.current){
         facingKeyRef.current=newKey
         // Reset progress when target changes
@@ -5440,10 +5442,10 @@ export default function MiningChain3DFPV({
 
         } else {
           // ── Block mine hit ───────────────────────────────────────────────
-          const {mx,my}=facingDataRef.current
+          const {mx,my,dist:blockDist}=facingDataRef.current
           const tk=mx>=0&&my>=0?`${my},${mx}`:null
           if(tk!==mineTargetRef.current){mineProgressRef.current=0;mineTargetRef.current=tk}
-          if(!tk||mineTypeRef.current==='empty'){
+          if(!tk||mineTypeRef.current==='empty'||(blockDist!=null&&blockDist>INTERACT_DIST)){
             playPickHit(audioCtxRef,'empty')
           } else if(mineTypeRef.current==='chain'){
             // Central chain terminal: one hit opens the formula card.
