@@ -2382,7 +2382,11 @@ function drawOnlineList(ctx, W, H, presenceMap, myWallet, pvpStolen) {
   for (const [w, pres] of Object.entries(presenceMap || {})) {
     if (pres.row == null && pres.gy == null) continue
     const isAnon = w.startsWith('anon-')
-    all.push({ w, isAnon, isBot: Boolean(pres.isBot), stolen: (pvpStolen || {})[w] || 0 })
+    const deadUntilMs = pres.deadUntil
+      ? (typeof pres.deadUntil === 'number' ? pres.deadUntil : new Date(pres.deadUntil).getTime())
+      : 0
+    const isDead = Boolean(pres.isDead) && deadUntilMs > Date.now()
+    all.push({ w, isAnon, isBot: Boolean(pres.isBot), stolen: (pvpStolen || {})[w] || 0, isDead })
   }
 
   const grouped = groupPresenceEntries(all, (entry) => entry.w)
@@ -2420,17 +2424,22 @@ function drawOnlineList(ctx, W, H, presenceMap, myWallet, pvpStolen) {
     ctx.font = 'bold 7px monospace'; ctx.fillStyle = '#526172'; ctx.textAlign = 'left'
     ctx.fillText(label, px + PAD_X, ly)
     ly += GROUP_H
-    for (const { w, isAnon, isBot, stolen } of entries) {
+    for (const { w, isAnon, isBot, stolen, isDead } of entries) {
     const isMe = w.toLowerCase() === (myWallet || '').toLowerCase()
     const col  = colorFromAddress(w)
     const label = isAnon
       ? w
       : `${w.slice(0, 6)}…${w.slice(-3)}${isBot ? ' B' : ''}`
+    const skullW = isDead ? 9 : 0
+    if (isDead) {
+      ctx.font = '8px monospace'; ctx.textAlign = 'left'; ctx.fillStyle = '#fb7185'
+      ctx.fillText('☠', px + PAD_X, ly)
+    }
     ctx.font = `${isMe ? 'bold ' : ''}9px monospace`
     ctx.textAlign = 'left'
     ctx.fillStyle = col
-    ctx.fillRect(px + PAD_X, ly + 2, 3, 3)
-    ctx.fillText(label, px + PAD_X + 6, ly)
+    ctx.fillRect(px + PAD_X + skullW, ly + 2, 3, 3)
+    ctx.fillText(label, px + PAD_X + skullW + 6, ly)
     if (stolen > 0) {
       ctx.fillStyle = '#4ade8099'
       ctx.textAlign = 'right'
