@@ -58,8 +58,9 @@ const MAX_JUMPS = 1
 const REMOTE_AVATAR_VISUAL_SCALE = .48
 const REMOTE_AVATAR_MODEL_HEIGHT = 1.10
 const ORGANIC_SHAPES = new Set(['ramp','sphere','tree'])
-const COLOSSEUM_STAND_TOPS = [1.10,1.42,1.74]
-const COLOSSEUM_SEAT_HEIGHT = .16
+const COLOSSEUM_STAND_BASE_TOPS = [1.00,1.32,1.64]
+const COLOSSEUM_SEAT_HEIGHT = .18
+const COLOSSEUM_STAND_TOPS = COLOSSEUM_STAND_BASE_TOPS.map(top=>top+COLOSSEUM_SEAT_HEIGHT)
 
 // ── Decorative obstacles: solid walls, no doorways, not mineable ──────────────
 // Five visual types: monolith (violet), pylon (teal), ruin (rust), steel wall, bunker
@@ -130,7 +131,10 @@ function makeColosseumStandEntries() {
   const seatCoords=[23,24,25,29,30,31]
   for(let tier=0;tier<3;tier++){
     const low=22-tier,high=32+tier,height=COLOSSEUM_STAND_TOPS[tier]
-    const data={base:W_SAND,label:'ARENA STAND',height,isArenaStand:true}
+    const data={
+      base:W_SAND,label:'ARENA STAND',height,
+      visualHeight:COLOSSEUM_STAND_BASE_TOPS[tier],isArenaStand:true,
+    }
     for(const coord of seatCoords){
       entries.push([`${low},${coord}`,data],[`${high},${coord}`,data])
       entries.push([`${coord},${low}`,data],[`${coord},${high}`,data])
@@ -2657,7 +2661,7 @@ function addCryptoColosseum(world) {
   const seatCoords=[23,24,25,29,30,31]
   for(let tier=0;tier<3;tier++){
     const offset=tier,height=COLOSSEUM_SEAT_HEIGHT
-    const y=COLOSSEUM_STAND_TOPS[tier]-height*.5
+    const y=COLOSSEUM_STAND_BASE_TOPS[tier]+height*.5
     for(const coord of seatCoords){
       sideEntries.cyan.push({x:coord+.5,y,z:22.5-offset,sx:.82,sz:.28,height})
       sideEntries.cyan.push({x:coord+.5,y,z:32.5+offset,sx:.82,sz:.28,height})
@@ -2983,7 +2987,9 @@ function rebuildThreeWorld(state,cellMap,obstacles) {
     const mesh=new THREE.InstancedMesh(new THREE.BoxGeometry(1,1,1),material,entries.length)
     entries.forEach(([key,obstacle],index)=>{
       const [row,col]=key.split(',').map(Number),bottom=obstacleBottom(obstacle),height=obstacleTop(obstacle)-bottom
-      position.set(col+.5,bottom+height*.5,row+.5);scale.set(.985,height,.985)
+      const visualTop=Number(obstacle.visualHeight)||obstacleTop(obstacle)
+      const visualHeight=Math.max(.02,visualTop-bottom)
+      position.set(col+.5,bottom+visualHeight*.5,row+.5);scale.set(.985,visualHeight,.985)
       matrix.compose(position,quaternion,scale);mesh.setMatrixAt(index,matrix)
     })
     mesh.instanceMatrix.needsUpdate=true;world.add(mesh)

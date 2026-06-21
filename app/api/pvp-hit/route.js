@@ -25,7 +25,7 @@ export async function POST(req) {
   const attacker = String(body.attacker || '').toLowerCase().trim()
   const victim = String(body.victim || '').toLowerCase().trim()
   const hitZone = body.hitZone === 'head' ? 'head' : 'body'
-  const victimIsAnon = victim.startsWith('anon-') || Boolean(body.victimIsAnon)
+  const victimIsAnon = victim.startsWith('anon-')
   const attackerIsAnon = attacker.startsWith('anon-')
   if (!attacker || !victim || attacker === victim) {
     return Response.json({ ok: false, error: 'invalid_params' }, { status: 400 })
@@ -38,7 +38,7 @@ export async function POST(req) {
   const [{ data: attackerProgress }, { data: squeezeNftji }, { data: victimSqueezeNftji }, { data: victimHealth }] = await Promise.all([
     attackerIsAnon ? Promise.resolve({ data: null }) : sb.from('player_progress').select('wallet').eq('wallet', attacker).maybeSingle(),
     attackerIsAnon ? Promise.resolve({ data: null }) : sb.from('mm3_squeezing_nftji').select('equipped, attack_level').eq('wallet', attacker).maybeSingle(),
-    sb.from('mm3_squeezing_nftji').select('equipped, defense_level').eq('wallet', victim).maybeSingle(),
+    victimIsAnon ? Promise.resolve({ data: null }) : sb.from('mm3_squeezing_nftji').select('equipped, defense_level').eq('wallet', victim).maybeSingle(),
     victimIsAnon ? Promise.resolve({ data: null }) : sb.from('mm3_pvp_health').select('health, pvp_dead_until').eq('wallet', victim).maybeSingle(),
   ])
   if (!attackerProgress && !attackerIsAnon) {

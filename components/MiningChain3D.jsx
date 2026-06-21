@@ -451,11 +451,10 @@ export default function MiningChain3D() {
       config: { broadcast: { self: false }, presence: { key } },
     })
 
-    // Anon reset: if I'm the target anon, teleport to center
+    // Legacy anon reset events also use the current arena respawn policy.
     ch.on('broadcast', { event: 'anon-reset' }, ({ payload }) => {
       if (payload?.target === key && !myWalletRef.current) {
-        setMyPos({ row: 14, col: 14 })
-        setJumpToCell({ row: 14, col: 14 })
+        triggerRespawn()
       }
     })
 
@@ -464,7 +463,7 @@ export default function MiningChain3D() {
       const killerLabel = payload.attacker.startsWith('anon-')
         ? 'anon'
         : `${payload.attacker.slice(0,6)}…${payload.attacker.slice(-4)}`
-      setAnonKillMsg(`💀 ${killerLabel} killed ${payload.anonKey.slice(0,10)}… +2 EUR`)
+      setAnonKillMsg(`💀 ${killerLabel} killed ${payload.anonKey.slice(0,10)}…`)
     })
 
     // PvP hit: victim sees red flash; all spectators see attacker swing animation
@@ -507,6 +506,11 @@ export default function MiningChain3D() {
           }))
         }
         if (payload.killed) {
+          const anonSelf=!myWalletRef.current&&myKeyRef.current?.startsWith('anon-')
+          if(anonSelf){
+            triggerRespawn()
+            return
+          }
           // Enter 5-minute death state instead of instant respawn
           const myP = myPosRef.current
           const deadGX = (myP?.col ?? 14) + 0.5
@@ -686,7 +690,14 @@ export default function MiningChain3D() {
       type: 'broadcast', event: 'pvp-result',
       payload: { victim, attacker, ...response },
     })?.catch(() => {})
-    window.dispatchEvent(new CustomEvent('mm3-db-updated', { detail: { pvp: true, wallet: attacker } }))
+    if(response.killed&&victimIsAnon){
+      channelRef.current?.send({
+        type:'broadcast',event:'anon-kill',payload:{attacker,anonKey:victim},
+      })?.catch(()=>{})
+    }
+    if(!attacker.startsWith('anon-')){
+      window.dispatchEvent(new CustomEvent('mm3-db-updated', { detail: { pvp: true, wallet: attacker } }))
+    }
     return response
   }, [])
 
