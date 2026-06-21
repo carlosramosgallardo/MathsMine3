@@ -135,17 +135,9 @@ export default function MiningChain3D() {
   const myWallet = account?.toLowerCase() || null
   const myColor  = myWallet ? colorFromAddress(myWallet) : '#888888'
 
-  // Compute initial spawn once: restore persisted position when alive, otherwise random
-  const initialPos = useMemo(() => {
-    try {
-      const dead = JSON.parse(localStorage.getItem('mm3_pvp_dead') || 'null')
-      if (dead?.until && dead.until > Date.now()) return getSpawnForWallet(myWallet) // dead — useEffect restores dead pos
-      const posKey = myWallet ? `mm3_mining_pos_${myWallet}` : 'mm3_mining_pos_anon'
-      const saved = JSON.parse(localStorage.getItem(posKey) || 'null')
-      if (saved && typeof saved.row === 'number' && typeof saved.col === 'number') return { row: saved.row, col: saved.col }
-    } catch { /* */ }
-    return getSpawnForWallet(myWallet)
-  }, [])
+  // Initial spawn is always random — useEffect restores persisted position client-side
+  // (useMemo runs on server during SSR where localStorage doesn't exist)
+  const initialPos = useMemo(() => getSpawnForWallet(myWallet), [])
 
   // Refs: avoid stale closures in channel callbacks and game loop
   const channelRef     = useRef(null)
@@ -236,8 +228,18 @@ export default function MiningChain3D() {
       setMyDeadPos({ gx: stored.gx, gy: stored.gy })
       myDeadUntilRef.current = stored.until
       scheduleRespawn(stored.until - Date.now())
-    } else if (stored) {
-      localStorage.removeItem('mm3_pvp_dead')
+    } else {
+      if (stored) localStorage.removeItem('mm3_pvp_dead')
+      // Alive — restore persisted position so refresh doesn't change location
+      try {
+        const posKey = myWallet ? `mm3_mining_pos_${myWallet}` : 'mm3_mining_pos_anon'
+        const saved = JSON.parse(localStorage.getItem(posKey) || 'null')
+        if (saved && typeof saved.row === 'number' && typeof saved.col === 'number') {
+          setMyPos({ row: saved.row, col: saved.col })
+          myPosRef.current = { row: saved.row, col: saved.col }
+          setJumpToCell({ row: saved.row, col: saved.col })
+        }
+      } catch { /* */ }
     }
     // Also verify against DB for logged-in wallets
     if (myWallet) {
