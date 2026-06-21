@@ -5867,7 +5867,7 @@ export default function MiningChain3DFPV({
         aria-label={es?'Cambiar calidad gráfica':'Change graphics quality'}
         title={es?'Calidad gráfica: pulsa para cambiar':'Graphics quality: click to change'}
         style={{
-          position:'absolute',top:8,right:8,zIndex:12,padding:'4px 7px',borderRadius:4,
+          position:'absolute',top:'50%',right:8,transform:'translateY(-50%)',zIndex:12,padding:'4px 7px',borderRadius:4,
           border:'1px solid rgba(34,211,238,.35)',background:'rgba(2,8,18,.78)',color:'#a5f3fc',
           font:'700 9px Consolas,monospace',letterSpacing:'.08em',cursor:'pointer',
           backdropFilter:'blur(2px)',touchAction:'manipulation',
