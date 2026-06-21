@@ -13,6 +13,10 @@ import {
   MM3_BLOCK_GRID_ROWS, MM3_BLOCK_GRID_COLS,
 } from '@/lib/mm3-block-chain'
 import { computeRelayLevel } from '@/lib/wallet-decorations'
+import {
+  CRYPTO_COLOSSEUM_BOUNDS,
+  MINING_CHAIN_NODE_POSITION,
+} from '@/lib/mining-world-layout'
 import supabase from '@/lib/supabaseClient'
 import MiningChain3DFPV from './MiningChain3DFPV'
 import ChainSolveCard from './ChainSolveCard'
@@ -29,8 +33,8 @@ const TRADE_NFTJI_DEFS = [
   { key: 'lucky1000', emoji: '🧿', field: 'lucky_1000_level' },
   { key: 'revive',    emoji: '❤️', field: null                },
 ]
-const CHAIN_NODE_ROW = 27
-const CHAIN_NODE_COL = 27
+const CHAIN_NODE_ROW = MINING_CHAIN_NODE_POSITION.row
+const CHAIN_NODE_COL = MINING_CHAIN_NODE_POSITION.col
 
 // Portal nodes are spread across all four quarters of the 56x56 world.
 const PORTAL_NODES = [
@@ -66,6 +70,11 @@ const VISUAL_BLOCK_REGIONS = [
 const VISUAL_BLOCK_POSITIONS = (() => {
   const occupied = new Set(PORTAL_NODES.map(node => `${node.row},${node.col}`))
   MARKET_LANDMARK_POSITIONS.forEach(pos => occupied.add(`${pos.row},${pos.col}`))
+  for(let row=CRYPTO_COLOSSEUM_BOUNDS.minRow;row<=CRYPTO_COLOSSEUM_BOUNDS.maxRow;row++){
+    for(let col=CRYPTO_COLOSSEUM_BOUNDS.minCol;col<=CRYPTO_COLOSSEUM_BOUNDS.maxCol;col++){
+      occupied.add(`${row},${col}`)
+    }
+  }
   occupied.add(`${CHAIN_NODE_ROW},${CHAIN_NODE_COL}`)
   const positions = new Map()
   for (let index = 0; index < MM3_BLOCK_GRID_ROWS * MM3_BLOCK_GRID_COLS; index++) {
@@ -824,5 +833,4 @@ export default function MiningChain3D() {
     </div>
   )
 }
-
 

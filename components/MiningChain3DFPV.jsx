@@ -6,9 +6,15 @@ import { colorFromAddress } from '@/lib/wallet-colors'
 import { MM3_BLOCK_GRID_ROWS, MM3_BLOCK_GRID_COLS, gridToBlockHex, MM3_BLOCK_REQUIREMENT_BY_HEX, doesGlobalValueMeetRequirement } from '@/lib/mm3-block-chain'
 import supabase from '@/lib/supabaseClient'
 import { groupPresenceEntries } from '@/lib/presence-display'
+import {
+  CRYPTO_COLOSSEUM_BOUNDS,
+  MINING_CHAIN_NODE_POSITION,
+  MINING_WORLD_COLS,
+  MINING_WORLD_ROWS,
+} from '@/lib/mining-world-layout'
 
-const ROWS = 56   // FPV world size — double the inner mining grid for free walking space
-const COLS = 56
+const ROWS = MINING_WORLD_ROWS   // double the inner mining grid for free walking space
+const COLS = MINING_WORLD_COLS
 const C    = '#22d3ee'
 const QUALITY_STORAGE_KEY = 'mm3-mining-quality'
 const QUALITY_MODES = ['auto','high','low']
@@ -37,8 +43,8 @@ const PVP_SIGHT_RANGE = 2.5  // grid cells — wider cone: enemy visible in cros
 const VISUAL_RANGE  = 18     // far plane in cells; physics still uses the full map
 const FLOOR_GRID_RANGE = 12  // distant grid lines merge into unstable horizon bands
 const RADAR_RANGE   = 18     // square local map using the same camera frustum
-const CHAIN_NODE_ROW = 4     // fallback; runtime position comes from cellMap
-const CHAIN_NODE_COL = 4
+const CHAIN_NODE_ROW = MINING_CHAIN_NODE_POSITION.row
+const CHAIN_NODE_COL = MINING_CHAIN_NODE_POSITION.col
 // Jump: a player can mount mining blocks, but structural walls stay impassable.
 const JUMP_VZ   = 5.7        // jump impulse (grid units / second)
 const GRAVITY_A = 13.5       // gravity (grid units / second²)
@@ -3480,10 +3486,10 @@ export default function MiningChain3DFPV({
       if(!reserved.has(key)) valid.set(key, chainObstacle(key,data))
     }
 
-    // Keep the arena floor clear — block all procedural functions from placing
-    // obstacles inside the Crypto Colosseum (rows 22-32, cols 22-32).
-    for (let r = 22; r <= 32; r++) {
-      for (let c = 22; c <= 32; c++) {
+    // Keep the full arena footprint clear of procedural geometry. Authored
+    // Colosseum walls were loaded above and remain in the valid obstacle map.
+    for (let r = CRYPTO_COLOSSEUM_BOUNDS.minRow; r <= CRYPTO_COLOSSEUM_BOUNDS.maxRow; r++) {
+      for (let c = CRYPTO_COLOSSEUM_BOUNDS.minCol; c <= CRYPTO_COLOSSEUM_BOUNDS.maxCol; c++) {
         reserved.add(`${r},${c}`)
       }
     }
