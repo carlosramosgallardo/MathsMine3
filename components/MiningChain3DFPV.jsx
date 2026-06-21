@@ -2634,23 +2634,77 @@ function addBiomeGround(world,textures) {
   routeB.userData.skipOcclusion=true;world.add(routeB)
 }
 
-function makeColosseumBanner() {
-  const canvas=document.createElement('canvas')
-  canvas.width=512;canvas.height=96
-  const context=canvas.getContext('2d')
-  context.fillStyle='rgba(2,6,18,.92)';context.fillRect(0,0,512,96)
-  context.strokeStyle='#22d3ee';context.lineWidth=5;context.strokeRect(3,3,506,90)
-  context.shadowColor='#d946ef';context.shadowBlur=14
-  context.fillStyle='#f0abfc';context.font='700 31px Consolas, monospace'
-  context.textAlign='center';context.textBaseline='middle'
-  context.fillText('MM3 // PVP COLOSSEUM',256,49)
-  const texture=new THREE.CanvasTexture(canvas)
-  texture.colorSpace=THREE.SRGBColorSpace;texture.generateMipmaps=false
-  const material=new THREE.SpriteMaterial({map:texture,transparent:true,depthWrite:false,alphaTest:.04})
-  material.userData.ownedMap=true
-  const sprite=new THREE.Sprite(material)
-  sprite.scale.set(5.4,1.02,1)
-  return sprite
+function addArenaWeapon(arena, cx, cz) {
+  const bladeMat=new THREE.MeshStandardMaterial({
+    color:'#d4d8e0',roughness:.12,metalness:.96,
+    emissive:'#22d3ee',emissiveIntensity:.18,
+  })
+  const guardMat=new THREE.MeshStandardMaterial({
+    color:'#facc15',roughness:.22,metalness:.90,
+    emissive:'#ca8a04',emissiveIntensity:.42,
+  })
+  const handleMat=new THREE.MeshStandardMaterial({
+    color:'#1e293b',roughness:.78,metalness:.14,
+    emissive:'#0f172a',emissiveIntensity:.18,
+  })
+
+  // blade
+  const blade=new THREE.Mesh(new THREE.BoxGeometry(.09,2.40,.16),bladeMat)
+  blade.position.set(cx,2.55,cz)
+  // edge bevel lines
+  const edgeL=new THREE.Mesh(new THREE.BoxGeometry(.015,2.40,.005),
+    new THREE.MeshBasicMaterial({color:'#ffffff',transparent:true,opacity:.55}))
+  edgeL.position.set(cx-.04,2.55,cz-.08)
+  const edgeR=edgeL.clone();edgeR.position.set(cx+.04,2.55,cz-.08)
+  arena.add(blade,edgeL,edgeR)
+
+  // tip (diamond cross-section cone)
+  const tip=new THREE.Mesh(new THREE.ConeGeometry(.065,.52,4),bladeMat.clone())
+  tip.rotation.y=Math.PI/4;tip.position.set(cx,3.82,cz)
+  arena.add(tip)
+
+  // cross-guard
+  const guard=new THREE.Mesh(new THREE.BoxGeometry(.82,.10,.22),guardMat)
+  guard.position.set(cx,1.33,cz)
+  const guardEnd1=new THREE.Mesh(new THREE.SphereGeometry(.10,10,7),guardMat.clone())
+  guardEnd1.position.set(cx-.42,1.33,cz)
+  const guardEnd2=guardEnd1.clone();guardEnd2.position.set(cx+.42,1.33,cz)
+  arena.add(guard,guardEnd1,guardEnd2)
+
+  // handle — two toned wrapping
+  const grip=new THREE.Mesh(new THREE.CylinderGeometry(.055,.065,.74,8),handleMat)
+  grip.position.set(cx,.92,cz)
+  const wrap1=new THREE.Mesh(new THREE.TorusGeometry(.07,.018,6,16),
+    new THREE.MeshStandardMaterial({color:'#facc15',roughness:.3,metalness:.8,emissive:'#92400e',emissiveIntensity:.3}))
+  wrap1.rotation.x=Math.PI/2;wrap1.position.set(cx,1.08,cz)
+  const wrap2=wrap1.clone();wrap2.position.set(cx,.76,cz)
+  arena.add(grip,wrap1,wrap2)
+
+  // pommel
+  const pommel=new THREE.Mesh(new THREE.SphereGeometry(.13,12,8),guardMat.clone())
+  pommel.position.set(cx,.50,cz)
+  arena.add(pommel)
+
+  // ground spike
+  const spike=new THREE.Mesh(new THREE.CylinderGeometry(.04,.01,.22,6),bladeMat.clone())
+  spike.position.set(cx,.38,cz)
+  arena.add(spike)
+
+  // cyan glow ring at guard level
+  const glowRing=new THREE.Mesh(
+    new THREE.TorusGeometry(.14,.028,6,28),
+    new THREE.MeshBasicMaterial({color:'#22d3ee',transparent:true,opacity:.82,depthWrite:false}),
+  )
+  glowRing.rotation.x=Math.PI/2;glowRing.position.set(cx,1.33,cz)
+  arena.add(glowRing)
+
+  // magenta glow ring at blade mid
+  const glowRing2=new THREE.Mesh(
+    new THREE.TorusGeometry(.06,.018,6,24),
+    new THREE.MeshBasicMaterial({color:'#d946ef',transparent:true,opacity:.72,depthWrite:false}),
+  )
+  glowRing2.rotation.x=Math.PI/2;glowRing2.position.set(cx,2.55,cz)
+  arena.add(glowRing2)
 }
 
 function addCryptoColosseum(world) {
@@ -2753,9 +2807,7 @@ function addCryptoColosseum(world) {
     rim.rotation.x=Math.PI/2;rim.position.set(centerX,BRIDGE_TOP+.025,centerZ);arena.add(rim)
   }
 
-  const northBanner=makeColosseumBanner();northBanner.position.set(centerX,3.25,22.15)
-  const southBanner=makeColosseumBanner();southBanner.position.set(centerX,3.25,32.85)
-  arena.add(northBanner,southBanner)
+  addArenaWeapon(arena,centerX,centerZ)
   world.add(arena)
 }
 
