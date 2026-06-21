@@ -36,7 +36,9 @@ const FOOTSTEP_DIST = CELL_SIZE * 0.42       // footstep cadence
 const SWING_DUR     = 340    // ms per USB staff swing
 const HITS_NEEDED   = 5      // swings to complete mining action
 const INTERACT_DIST       = 1.3   // grid cells — max distance for block interaction
-const CHAIN_INTERACT_DIST = 0.55  // grid cells — must be almost touching the chain node
+// The chain node fills a solid cell, so PLAYER_R keeps the player's centre at
+// least 0.78 cells from its centre. Use the regular hit range so it is reachable.
+const CHAIN_INTERACT_DIST = INTERACT_DIST
 const PVP_HIT_RANGE   = 1.3  // grid cells — max distance to land a PvP hit (shorter = harder to spam, easier to dodge)
 const PVP_SIGHT_RANGE = 2.5  // grid cells — wider cone: enemy visible in crosshair but out of hit range → MISS
 const VISUAL_RANGE  = 18     // far plane in cells; physics still uses the full map
