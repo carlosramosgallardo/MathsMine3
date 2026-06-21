@@ -2611,6 +2611,105 @@ function addBiomeGround(world,textures) {
   routeB.userData.skipOcclusion=true;world.add(routeB)
 }
 
+function makeColosseumBanner() {
+  const canvas=document.createElement('canvas')
+  canvas.width=512;canvas.height=96
+  const context=canvas.getContext('2d')
+  context.fillStyle='rgba(2,6,18,.92)';context.fillRect(0,0,512,96)
+  context.strokeStyle='#22d3ee';context.lineWidth=5;context.strokeRect(3,3,506,90)
+  context.shadowColor='#d946ef';context.shadowBlur=14
+  context.fillStyle='#f0abfc';context.font='700 31px Consolas, monospace'
+  context.textAlign='center';context.textBaseline='middle'
+  context.fillText('MM3 // PVP COLOSSEUM',256,49)
+  const texture=new THREE.CanvasTexture(canvas)
+  texture.colorSpace=THREE.SRGBColorSpace;texture.generateMipmaps=false
+  const material=new THREE.SpriteMaterial({map:texture,transparent:true,depthWrite:false,alphaTest:.04})
+  material.userData.ownedMap=true
+  const sprite=new THREE.Sprite(material)
+  sprite.scale.set(5.4,1.02,1)
+  return sprite
+}
+
+function addCryptoColosseum(world) {
+  const centerX=MINING_CHAIN_NODE_POSITION.col+.5
+  const centerZ=MINING_CHAIN_NODE_POSITION.row+.5
+  const arena=new THREE.Group()
+  arena.userData.cryptoColosseum=true
+
+  const foundation=new THREE.Mesh(
+    new THREE.CylinderGeometry(5.25,5.25,.08,64),
+    new THREE.MeshStandardMaterial({
+      color:'#09061a',roughness:.64,metalness:.56,
+      emissive:'#160b35',emissiveIntensity:.58,
+    }),
+  )
+  foundation.position.set(centerX,.035,centerZ)
+  foundation.userData.skipOcclusion=true
+  arena.add(foundation)
+
+  const ringMaterial=new THREE.MeshBasicMaterial({color:'#22d3ee',transparent:true,opacity:.88,depthWrite:false})
+  for(const radius of [1.35,3.15,4.72]){
+    const ring=new THREE.Mesh(new THREE.TorusGeometry(radius,.045,6,64),ringMaterial.clone())
+    ring.rotation.x=Math.PI/2;ring.position.set(centerX,.09,centerZ);arena.add(ring)
+  }
+  const magentaRing=new THREE.Mesh(
+    new THREE.TorusGeometry(4.98,.065,6,64),
+    new THREE.MeshBasicMaterial({color:'#d946ef',transparent:true,opacity:.78,depthWrite:false}),
+  )
+  magentaRing.rotation.x=Math.PI/2;magentaRing.position.set(centerX,.095,centerZ);arena.add(magentaRing)
+
+  const laneMaterial=new THREE.MeshBasicMaterial({color:'#facc15',transparent:true,opacity:.30,depthWrite:false})
+  const laneA=new THREE.Mesh(new THREE.PlaneGeometry(8.7,.10),laneMaterial)
+  laneA.rotation.x=-Math.PI/2;laneA.position.set(centerX,.10,centerZ)
+  const laneB=new THREE.Mesh(new THREE.PlaneGeometry(.10,8.7),laneMaterial.clone())
+  laneB.rotation.x=-Math.PI/2;laneB.position.set(centerX,.105,centerZ)
+  arena.add(laneA,laneB)
+
+  const seatGeometry=new THREE.BoxGeometry(1,1,1)
+  const sideEntries={cyan:[],magenta:[]}
+  const seatCoords=[23,24,25,29,30,31]
+  for(let tier=0;tier<3;tier++){
+    const offset=tier*.36,height=.20+tier*.03,y=1.17+tier*.22
+    for(const coord of seatCoords){
+      sideEntries.cyan.push({x:coord+.5,y,z:22.48-offset,sx:.82,sz:.28,height})
+      sideEntries.cyan.push({x:coord+.5,y,z:32.52+offset,sx:.82,sz:.28,height})
+      sideEntries.magenta.push({x:22.48-offset,y,z:coord+.5,sx:.28,sz:.82,height})
+      sideEntries.magenta.push({x:32.52+offset,y,z:coord+.5,sx:.28,sz:.82,height})
+    }
+  }
+  const matrix=new THREE.Matrix4(),position=new THREE.Vector3(),scale=new THREE.Vector3(),rotation=new THREE.Quaternion()
+  for(const [side,entries] of Object.entries(sideEntries)){
+    const color=side==='cyan'?'#22d3ee':'#d946ef'
+    const seats=new THREE.InstancedMesh(
+      seatGeometry,
+      new THREE.MeshStandardMaterial({color,roughness:.38,metalness:.72,emissive:color,emissiveIntensity:.34}),
+      entries.length,
+    )
+    entries.forEach((entry,index)=>{
+      position.set(entry.x,entry.y,entry.z);scale.set(entry.sx,entry.height||.20,entry.sz)
+      matrix.compose(position,rotation,scale);seats.setMatrixAt(index,matrix)
+    })
+    seats.instanceMatrix.needsUpdate=true;arena.add(seats)
+  }
+
+  const beamMaterial=new THREE.MeshBasicMaterial({color:'#facc15',transparent:true,opacity:.38,depthWrite:false})
+  for(const [x,z] of [[22.5,22.5],[32.5,22.5],[22.5,32.5],[32.5,32.5]]){
+    const beam=new THREE.Mesh(new THREE.CylinderGeometry(.045,.12,4.2,8),beamMaterial.clone())
+    beam.position.set(x,2.1,z);arena.add(beam)
+    const crown=new THREE.Mesh(new THREE.TorusGeometry(.30,.045,6,20),new THREE.MeshBasicMaterial({color:'#facc15'}))
+    crown.rotation.x=Math.PI/2;crown.position.set(x,4.12,z);arena.add(crown)
+  }
+
+  const halo=new THREE.Mesh(new THREE.TorusGeometry(1.25,.055,6,40),new THREE.MeshBasicMaterial({color:'#facc15'}))
+  halo.rotation.x=Math.PI/2;halo.position.set(centerX,2.35,centerZ);arena.add(halo)
+  const haloCross=halo.clone();haloCross.rotation.set(0,0,Math.PI/2);arena.add(haloCross)
+
+  const northBanner=makeColosseumBanner();northBanner.position.set(centerX,3.25,22.15)
+  const southBanner=makeColosseumBanner();southBanner.position.set(centerX,3.25,32.85)
+  arena.add(northBanner,southBanner)
+  world.add(arena)
+}
+
 function addBiomeLandmarks(world,textures) {
   const addParticles=(centerX,centerZ,color,seedOffset,height=4)=>{
     const count=70,positions=new Float32Array(count*3)
@@ -2749,6 +2848,7 @@ function rebuildThreeWorld(state,cellMap,obstacles) {
   const world=new THREE.Group(),matrix=new THREE.Matrix4(),position=new THREE.Vector3()
   const scale=new THREE.Vector3(),quaternion=new THREE.Quaternion()
   addBiomeGround(world,state.textures)
+  addCryptoColosseum(world)
   addBiomeLandmarks(world,state.textures)
   // ── Block + node groups ───────────────────────────────────────────────────────
   // Each interactive type gets its own material & shape so players can tell them apart.
