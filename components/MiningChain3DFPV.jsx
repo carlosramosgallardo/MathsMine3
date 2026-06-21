@@ -5626,14 +5626,24 @@ export default function MiningChain3DFPV({
       // Facing detection + action URL + mine type update (skipped when dead)
       if(myDead){ facingKeyRef.current=null }
       const previousFacing=facingDataRef.current
-      const {cell:fc,mx:fmx,my:fmy,perpDist:fcDist}=myDead?{cell:null,mx:-1,my:-1,perpDist:0}:castRay(p.x,p.y,p.angle,cellMapRef.current,validObstaclesRef.current)
+      let {cell:fc,mx:fmx,my:fmy,perpDist:fcDist}=myDead?{cell:null,mx:-1,my:-1,perpDist:0}:castRay(p.x,p.y,p.angle,cellMapRef.current,validObstaclesRef.current)
+      // Direct distance to chain node center — castRay misses it when the player
+      // walks INTO its cell (DDA steps away immediately without checking own cell)
+      const cnPos=chainNodePosRef.current
+      const cnDist=myDead?Infinity:Math.hypot(p.x/CELL_SIZE-(cnPos.col+.5),p.y/CELL_SIZE-(cnPos.row+.5))
+      if(cnDist<=CHAIN_INTERACT_DIST){
+        const cnCell=cellMapRef.current?.get(`${cnPos.row},${cnPos.col}`)
+        fmx=cnPos.col;fmy=cnPos.row;fc=cnCell;fcDist=cnDist
+      }
       const newKey=`${fmy},${fmx}`
       facingDataRef.current={mx:fmx,my:fmy,cell:fc,dist:fcDist}
       const crossedInteractionRange=(previousFacing?.dist<=INTERACT_DIST)!==(fcDist<=INTERACT_DIST)
       // Reset mine progress whenever the player is out of interaction range
       if(fcDist > INTERACT_DIST){ mineProgressRef.current=0; mineTargetRef.current=null }
-      // Reset chain progress if the player steps back beyond the tight chain range
-      if(mineTypeRef.current==='chain' && fcDist > CHAIN_INTERACT_DIST){ mineProgressRef.current=0 }
+      // Reset chain progress when stepping out of the tight chain radius
+      if(cnDist > CHAIN_INTERACT_DIST && mineTypeRef.current==='chain'){ mineProgressRef.current=0 }
+      // Keep chain active every frame while player stays within range
+      if(cnDist<=CHAIN_INTERACT_DIST){ actionUrlRef.current=null; mineTypeRef.current='chain' }
       if(newKey!==facingKeyRef.current||crossedInteractionRange){
         facingKeyRef.current=newKey
         // Reset progress when target changes

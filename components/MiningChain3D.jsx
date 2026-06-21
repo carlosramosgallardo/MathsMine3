@@ -135,8 +135,17 @@ export default function MiningChain3D() {
   const myWallet = account?.toLowerCase() || null
   const myColor  = myWallet ? colorFromAddress(myWallet) : '#888888'
 
-  // Compute initial spawn once: random for logged-in, center for anon
-  const initialPos = useMemo(() => getSpawnForWallet(myWallet), [])
+  // Compute initial spawn once: restore persisted position when alive, otherwise random
+  const initialPos = useMemo(() => {
+    try {
+      const dead = JSON.parse(localStorage.getItem('mm3_pvp_dead') || 'null')
+      if (dead?.until && dead.until > Date.now()) return getSpawnForWallet(myWallet) // dead — useEffect restores dead pos
+      const posKey = myWallet ? `mm3_mining_pos_${myWallet}` : 'mm3_mining_pos_anon'
+      const saved = JSON.parse(localStorage.getItem(posKey) || 'null')
+      if (saved && typeof saved.row === 'number' && typeof saved.col === 'number') return { row: saved.row, col: saved.col }
+    } catch { /* */ }
+    return getSpawnForWallet(myWallet)
+  }, [])
 
   // Refs: avoid stale closures in channel callbacks and game loop
   const channelRef     = useRef(null)
@@ -200,6 +209,8 @@ export default function MiningChain3D() {
     setMyDeadUntil(null); setMyDeadPos(null)
     myDeadUntilRef.current = null
     localStorage.removeItem('mm3_pvp_dead')
+    const _posKey = myWalletRef.current ? `mm3_mining_pos_${myWalletRef.current}` : 'mm3_mining_pos_anon'
+    localStorage.removeItem(_posKey)
     if (myWalletRef.current) {
       fetch(`/api/pvp-death?wallet=${encodeURIComponent(myWalletRef.current)}`, { method: 'DELETE' }).catch(() => {})
     }
@@ -662,6 +673,11 @@ export default function MiningChain3D() {
   const handlePositionChange = useCallback((row, col) => {
     setMyPos({ row, col })
     myPosRef.current = { row, col }
+    // Persist position so a refresh or re-entry doesn't teleport the player
+    if (!myDeadUntilRef.current || myDeadUntilRef.current <= Date.now()) {
+      const posKey = myWalletRef.current ? `mm3_mining_pos_${myWalletRef.current}` : 'mm3_mining_pos_anon'
+      try { localStorage.setItem(posKey, JSON.stringify({ row, col })) } catch { /* */ }
+    }
   }, [])
 
   const handleFacingChange = useCallback((row, col, cell, dist) => setFacingCell({ row, col, cell, dist }), [])

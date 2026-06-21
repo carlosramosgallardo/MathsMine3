@@ -1205,11 +1205,11 @@ a:hover .mm3-home-badge span { color: rgba(34,211,238,.85); }
   .mm3-splash-sub { font-size: .62rem; margin-bottom: .9rem; letter-spacing: .09em; }
   .mm3-splash-cta { padding: .6rem 1.5rem; font-size: .78rem; }
   .mm3-splash-disclaimer { margin-top: .55rem; font-size: .52rem; }
-  .mm3-portal { padding: .7rem .7rem 1rem; }
-  .mm3-portal-grid { grid-template-columns: repeat(3, 1fr); gap: .4rem; }
-  .mm3-portal-card { padding: .55rem .3rem .5rem; gap: .2rem; }
-  .mm3-portal-icon { font-size: 1.1rem; }
-  .mm3-portal-name { font-size: .52rem; }
+  .mm3-portal { padding: .5rem .4rem .7rem; }
+  .mm3-portal-grid { grid-template-columns: repeat(5, 1fr); gap: .2rem; }
+  .mm3-portal-card { padding: .28rem .1rem .25rem; gap: .1rem; }
+  .mm3-portal-icon { font-size: .68rem; }
+  .mm3-portal-name { font-size: .38rem; letter-spacing: .03em; }
 }
 
 /* legacy lh-* stubs (used nowhere now, but kept to avoid any residual reference) */
