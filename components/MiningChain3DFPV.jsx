@@ -123,6 +123,20 @@ function circleTouchesRoundObstacle(gx,gy,row,col,obstacle,playerRadius=PLAYER_R
   return Math.hypot(gx-(col+.5),gy-(row+.5))<radius+playerRadius
 }
 
+function makeColosseumStandEntries() {
+  const entries=[]
+  const seatCoords=[23,24,25,29,30,31]
+  for(let tier=0;tier<3;tier++){
+    const low=22-tier,high=32+tier,height=1.10+tier*.32
+    const data={base:W_SAND,label:'ARENA STAND',height,isArenaStand:true}
+    for(const coord of seatCoords){
+      entries.push([`${low},${coord}`,data],[`${high},${coord}`,data])
+      entries.push([`${coord},${low}`,data],[`${coord},${high}`,data])
+    }
+  }
+  return entries
+}
+
 const OBSTACLE_MAP = new Map([
   // Outer wall segments — cool slate, form loose frame with gaps
   ['2,7',   { base:W_SLATE, label:'WALL' }],
@@ -1011,37 +1025,8 @@ const OBSTACLE_MAP = new Map([
   ['32,22', { base:W_DARK, label:'ARENA PYLON', height:2.2 }],
   ['32,32', { base:W_DARK, label:'ARENA PYLON', height:2.2 }],
 
-  // North arc (row 22) — gap at cols 26-28
-  ['22,23', { base:W_SAND, label:'ARENA WALL', height:1.1 }],
-  ['22,24', { base:W_SAND, label:'ARENA WALL', height:1.1 }],
-  ['22,25', { base:W_SAND, label:'ARENA WALL', height:1.1 }],
-  ['22,29', { base:W_SAND, label:'ARENA WALL', height:1.1 }],
-  ['22,30', { base:W_SAND, label:'ARENA WALL', height:1.1 }],
-  ['22,31', { base:W_SAND, label:'ARENA WALL', height:1.1 }],
-
-  // South arc (row 32) — gap at cols 26-28
-  ['32,23', { base:W_SAND, label:'ARENA WALL', height:1.1 }],
-  ['32,24', { base:W_SAND, label:'ARENA WALL', height:1.1 }],
-  ['32,25', { base:W_SAND, label:'ARENA WALL', height:1.1 }],
-  ['32,29', { base:W_SAND, label:'ARENA WALL', height:1.1 }],
-  ['32,30', { base:W_SAND, label:'ARENA WALL', height:1.1 }],
-  ['32,31', { base:W_SAND, label:'ARENA WALL', height:1.1 }],
-
-  // West arc (col 22) — gap at rows 26-28
-  ['23,22', { base:W_SAND, label:'ARENA WALL', height:1.1 }],
-  ['24,22', { base:W_SAND, label:'ARENA WALL', height:1.1 }],
-  ['25,22', { base:W_SAND, label:'ARENA WALL', height:1.1 }],
-  ['29,22', { base:W_SAND, label:'ARENA WALL', height:1.1 }],
-  ['30,22', { base:W_SAND, label:'ARENA WALL', height:1.1 }],
-  ['31,22', { base:W_SAND, label:'ARENA WALL', height:1.1 }],
-
-  // East arc (col 32) — gap at rows 26-28
-  ['23,32', { base:W_SAND, label:'ARENA WALL', height:1.1 }],
-  ['24,32', { base:W_SAND, label:'ARENA WALL', height:1.1 }],
-  ['25,32', { base:W_SAND, label:'ARENA WALL', height:1.1 }],
-  ['29,32', { base:W_SAND, label:'ARENA WALL', height:1.1 }],
-  ['30,32', { base:W_SAND, label:'ARENA WALL', height:1.1 }],
-  ['31,32', { base:W_SAND, label:'ARENA WALL', height:1.1 }],
+  // Three solid, climbable seating tiers with four three-cell entrances.
+  ...makeColosseumStandEntries(),
 
   // Gate pillars — flank each entrance just outside the ring (override any existing entry)
   ['21,25', { base:W_DARK, label:'ARENA GATE', height:2.0 }],
@@ -2669,12 +2654,12 @@ function addCryptoColosseum(world) {
   const sideEntries={cyan:[],magenta:[]}
   const seatCoords=[23,24,25,29,30,31]
   for(let tier=0;tier<3;tier++){
-    const offset=tier*.36,height=.20+tier*.03,y=1.17+tier*.22
+    const offset=tier,height=.20+tier*.03,y=1.16+tier*.32
     for(const coord of seatCoords){
-      sideEntries.cyan.push({x:coord+.5,y,z:22.48-offset,sx:.82,sz:.28,height})
-      sideEntries.cyan.push({x:coord+.5,y,z:32.52+offset,sx:.82,sz:.28,height})
-      sideEntries.magenta.push({x:22.48-offset,y,z:coord+.5,sx:.28,sz:.82,height})
-      sideEntries.magenta.push({x:32.52+offset,y,z:coord+.5,sx:.28,sz:.82,height})
+      sideEntries.cyan.push({x:coord+.5,y,z:22.5-offset,sx:.82,sz:.28,height})
+      sideEntries.cyan.push({x:coord+.5,y,z:32.5+offset,sx:.82,sz:.28,height})
+      sideEntries.magenta.push({x:22.5-offset,y,z:coord+.5,sx:.28,sz:.82,height})
+      sideEntries.magenta.push({x:32.5+offset,y,z:coord+.5,sx:.28,sz:.82,height})
     }
   }
   const matrix=new THREE.Matrix4(),position=new THREE.Vector3(),scale=new THREE.Vector3(),rotation=new THREE.Quaternion()
@@ -5557,12 +5542,14 @@ export default function MiningChain3DFPV({
 
       // Facing detection + action URL + mine type update (skipped when dead)
       if(myDead){ facingKeyRef.current=null }
+      const previousFacing=facingDataRef.current
       const {cell:fc,mx:fmx,my:fmy,perpDist:fcDist}=myDead?{cell:null,mx:-1,my:-1,perpDist:0}:castRay(p.x,p.y,p.angle,cellMapRef.current,validObstaclesRef.current)
       const newKey=`${fmy},${fmx}`
       facingDataRef.current={mx:fmx,my:fmy,cell:fc,dist:fcDist}
+      const crossedInteractionRange=(previousFacing?.dist<=INTERACT_DIST)!==(fcDist<=INTERACT_DIST)
       // Reset mine progress whenever the player is out of interaction range
       if(fcDist > INTERACT_DIST){ mineProgressRef.current=0; mineTargetRef.current=null }
-      if(newKey!==facingKeyRef.current){
+      if(newKey!==facingKeyRef.current||crossedInteractionRange){
         facingKeyRef.current=newKey
         // Reset progress when target changes
         mineProgressRef.current=0; mineTargetRef.current=null

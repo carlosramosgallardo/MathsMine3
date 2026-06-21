@@ -109,8 +109,19 @@ function getRandomLoggedSpawn() {
   }
 }
 
+const ANONYMOUS_ARENA_SPAWNS = [
+  { row: MINING_CHAIN_NODE_POSITION.row,     col: MINING_CHAIN_NODE_POSITION.col - 3 },
+  { row: MINING_CHAIN_NODE_POSITION.row,     col: MINING_CHAIN_NODE_POSITION.col + 3 },
+  { row: MINING_CHAIN_NODE_POSITION.row - 3, col: MINING_CHAIN_NODE_POSITION.col },
+  { row: MINING_CHAIN_NODE_POSITION.row + 3, col: MINING_CHAIN_NODE_POSITION.col },
+]
+
+function getAnonymousArenaSpawn() {
+  return ANONYMOUS_ARENA_SPAWNS[Math.floor(Math.random()*ANONYMOUS_ARENA_SPAWNS.length)]
+}
+
 function getSpawnForWallet(wallet) {
-  return wallet ? getRandomLoggedSpawn() : { row: 14, col: 14 }
+  return wallet ? getRandomLoggedSpawn() : getAnonymousArenaSpawn()
 }
 
 export default function MiningChain3D() {
@@ -833,4 +844,3 @@ export default function MiningChain3D() {
     </div>
   )
 }
-
