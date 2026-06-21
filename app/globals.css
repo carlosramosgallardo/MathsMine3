@@ -877,7 +877,7 @@ footer.bg-black\/97,
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 1.1rem 1.5rem 1.2rem;
+  padding: 0.6rem 1.5rem 0.7rem;
   overflow: hidden;
   background: radial-gradient(ellipse 80% 60% at 50% 40%, #071828 0%, #04080e 55%, #030508 100%);
   font-family: Consolas,'Courier New',monospace;
@@ -981,10 +981,10 @@ footer.bg-black\/97,
 
 /* tagline */
 .mm3-splash-sub {
-  font: 600 clamp(0.65rem,1.8vw,0.88rem)/1.2 monospace;
-  letter-spacing: .15em;
+  font: 600 clamp(0.6rem,1.5vw,0.78rem)/1.2 monospace;
+  letter-spacing: .13em;
   color: rgba(148,197,220,.65);
-  margin: 0 0 0.85rem;
+  margin: 0 0 0.55rem;
 }
 .mm3-dot {
   margin: 0 .55em;
@@ -995,14 +995,14 @@ footer.bg-black\/97,
 .mm3-splash-cta {
   display: inline-flex;
   align-items: center;
-  gap: 0.7rem;
-  padding: clamp(.75rem,2vw,1rem) clamp(1.8rem,5vw,3rem);
+  gap: 0.5rem;
+  padding: clamp(.5rem,1.4vw,.72rem) clamp(1.3rem,3.5vw,2.2rem);
   background: linear-gradient(135deg, rgba(34,211,238,.12) 0%, rgba(168,85,247,.07) 100%);
   border: 1.5px solid rgba(34,211,238,.65);
   border-radius: 4px;
   color: #a5f3fc;
-  font: 900 clamp(0.82rem,2.2vw,1.05rem)/1 monospace;
-  letter-spacing: .18em;
+  font: 900 clamp(0.74rem,1.8vw,0.9rem)/1 monospace;
+  letter-spacing: .16em;
   text-decoration: none;
   text-transform: uppercase;
   box-shadow: 0 0 28px rgba(34,211,238,.16), inset 0 0 20px rgba(34,211,238,.06);
@@ -1051,7 +1051,7 @@ footer.bg-black\/97,
 
 /* disclaimer */
 .mm3-splash-disclaimer {
-  margin-top: 0.5rem;
+  margin-top: 0.3rem;
   font: .58rem/1.5 monospace;
   letter-spacing: .06em;
   color: rgba(34,211,238,.28);

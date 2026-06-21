@@ -193,7 +193,6 @@ export default function Header() {
       <div className="mm3-header-wallet-row relative z-[40] flex h-7 items-center justify-center gap-1.5 sm:gap-2 border-b border-cyan-900/10 px-2 sm:px-4 overflow-x-auto no-scrollbar">
         <UtcClock className="font-mono text-[0.65rem] sm:text-[0.80rem] font-black tracking-[0.08em] sm:tracking-[0.14em] text-cyan-300 shrink-0" />
         <DailyTaskLink />
-        <Mm3Total />
         <AuthBar mode="wallet" />
       </div>
 
