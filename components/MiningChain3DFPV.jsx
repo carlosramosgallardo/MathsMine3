@@ -5607,21 +5607,23 @@ export default function MiningChain3DFPV({
       if(swinging&&swingElapsed/SWING_DUR>=0.45&&!hitDoneRef.current){
         hitDoneRef.current=true
         const myWallet = myWalletRef.current
+        const myIdentity = presenceKeyRef.current || myWallet
+        const myIsAnon = myIdentity?.startsWith('anon-')
         const enemy = enemyTargetRef.current
 
         const inSight = enemyInSightRef.current
-        if(inSight?.wallet && !enemy?.wallet && myWallet && !myWallet.startsWith('anon-') && !inSight.isTeammate){
+        if(inSight?.wallet && !enemy?.wallet && myIdentity && (!myIsAnon || inSight.isAnon) && !inSight.isTeammate){
           // ── Swing at enemy but out of range → MISS ───────────────────────
           playPickHit(audioCtxRef,'empty')
           pvpGainRef.current={ text:'✗ MISS', at:performance.now(), color:'#fb7185' }
 
-        } else if(enemy?.wallet && myWallet && !myWallet.startsWith('anon-') && !enemy.isTeammate){
+        } else if(enemy?.wallet && myIdentity && (!myIsAnon || enemy.isAnon) && !enemy.isTeammate){
           // ── PvP hit ──────────────────────────────────────────────────────
           playPickHit(audioCtxRef,'nftji')
           pvpFlashRef.current = performance.now()
 
           Promise.resolve(onPvpHitRef.current?.({
-            attacker:myWallet,victim:enemy.wallet,victimIsAnon:enemy.isAnon,hitZone:enemy.hitZone,
+            attacker:myIdentity,victim:enemy.wallet,victimIsAnon:enemy.isAnon,hitZone:enemy.hitZone,
           }))
             .then(result=>{
               if(!result?.ok) return
