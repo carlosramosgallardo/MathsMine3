@@ -2649,75 +2649,79 @@ function addBiomeGround(world,textures) {
 }
 
 function addArenaWeapon(arena, cx, cz) {
+  // Sword: inverted (tip down, pommel at top), very tall, thick blade ~= chain sphere radius
   const bladeMat=new THREE.MeshStandardMaterial({
-    color:'#d4d8e0',roughness:.12,metalness:.96,
-    emissive:'#22d3ee',emissiveIntensity:.18,
+    color:'#d4d8e0',roughness:.10,metalness:.97,
+    emissive:'#22d3ee',emissiveIntensity:.22,
   })
   const guardMat=new THREE.MeshStandardMaterial({
-    color:'#facc15',roughness:.22,metalness:.90,
-    emissive:'#ca8a04',emissiveIntensity:.42,
+    color:'#facc15',roughness:.20,metalness:.92,
+    emissive:'#ca8a04',emissiveIntensity:.48,
   })
   const handleMat=new THREE.MeshStandardMaterial({
-    color:'#1e293b',roughness:.78,metalness:.14,
+    color:'#1e293b',roughness:.72,metalness:.18,
     emissive:'#0f172a',emissiveIntensity:.18,
   })
 
-  // blade
-  const blade=new THREE.Mesh(new THREE.BoxGeometry(.09,2.40,.16),bladeMat)
-  blade.position.set(cx,2.55,cz)
-  // edge bevel lines
-  const edgeL=new THREE.Mesh(new THREE.BoxGeometry(.015,2.40,.005),
-    new THREE.MeshBasicMaterial({color:'#ffffff',transparent:true,opacity:.55}))
-  edgeL.position.set(cx-.04,2.55,cz-.08)
-  const edgeR=edgeL.clone();edgeR.position.set(cx+.04,2.55,cz-.08)
-  arena.add(blade,edgeL,edgeR)
-
-  // tip (diamond cross-section cone)
-  const tip=new THREE.Mesh(new THREE.ConeGeometry(.065,.52,4),bladeMat.clone())
-  tip.rotation.y=Math.PI/4;tip.position.set(cx,3.82,cz)
+  // tip at bottom — cone pointing DOWN (rotated 180°)
+  const TIP_H=0.64, TIP_Y=0.32
+  const tip=new THREE.Mesh(new THREE.ConeGeometry(.22,TIP_H,4),bladeMat.clone())
+  tip.rotation.x=Math.PI; tip.rotation.y=Math.PI/4
+  tip.position.set(cx,TIP_Y,cz)
   arena.add(tip)
 
-  // cross-guard
-  const guard=new THREE.Mesh(new THREE.BoxGeometry(.82,.10,.22),guardMat)
-  guard.position.set(cx,1.33,cz)
-  const guardEnd1=new THREE.Mesh(new THREE.SphereGeometry(.10,10,7),guardMat.clone())
-  guardEnd1.position.set(cx-.42,1.33,cz)
-  const guardEnd2=guardEnd1.clone();guardEnd2.position.set(cx+.42,1.33,cz)
+  // blade — tall and thick, sitting on top of tip
+  const BLADE_H=7.0, BLADE_W=0.44, BLADE_D=0.30
+  const BLADE_BOT=TIP_Y+TIP_H/2
+  const BLADE_Y=BLADE_BOT+BLADE_H/2
+  const blade=new THREE.Mesh(new THREE.BoxGeometry(BLADE_W,BLADE_H,BLADE_D),bladeMat)
+  blade.position.set(cx,BLADE_Y,cz)
+  // bright edge lines
+  const edgeL=new THREE.Mesh(new THREE.BoxGeometry(.025,BLADE_H,.006),
+    new THREE.MeshBasicMaterial({color:'#ffffff',transparent:true,opacity:.60}))
+  edgeL.position.set(cx-BLADE_W/2+.01,BLADE_Y,cz-BLADE_D/2+.01)
+  const edgeR=edgeL.clone();edgeR.position.set(cx+BLADE_W/2-.01,BLADE_Y,cz-BLADE_D/2+.01)
+  arena.add(blade,edgeL,edgeR)
+
+  // cross-guard above blade
+  const GUARD_Y=BLADE_BOT+BLADE_H+0.06
+  const guard=new THREE.Mesh(new THREE.BoxGeometry(1.50,.14,.38),guardMat)
+  guard.position.set(cx,GUARD_Y,cz)
+  const guardEnd1=new THREE.Mesh(new THREE.SphereGeometry(.20,10,7),guardMat.clone())
+  guardEnd1.position.set(cx-.76,GUARD_Y,cz)
+  const guardEnd2=guardEnd1.clone();guardEnd2.position.set(cx+.76,GUARD_Y,cz)
   arena.add(guard,guardEnd1,guardEnd2)
 
-  // handle — two toned wrapping
-  const grip=new THREE.Mesh(new THREE.CylinderGeometry(.055,.065,.74,8),handleMat)
-  grip.position.set(cx,.92,cz)
-  const wrap1=new THREE.Mesh(new THREE.TorusGeometry(.07,.018,6,16),
-    new THREE.MeshStandardMaterial({color:'#facc15',roughness:.3,metalness:.8,emissive:'#92400e',emissiveIntensity:.3}))
-  wrap1.rotation.x=Math.PI/2;wrap1.position.set(cx,1.08,cz)
-  const wrap2=wrap1.clone();wrap2.position.set(cx,.76,cz)
+  // grip above guard
+  const GRIP_H=0.90, GRIP_Y=GUARD_Y+0.08+GRIP_H/2
+  const grip=new THREE.Mesh(new THREE.CylinderGeometry(.14,.18,GRIP_H,8),handleMat)
+  grip.position.set(cx,GRIP_Y,cz)
+  const wrapMat=new THREE.MeshStandardMaterial({color:'#facc15',roughness:.28,metalness:.82,emissive:'#92400e',emissiveIntensity:.34})
+  const wrap1=new THREE.Mesh(new THREE.TorusGeometry(.19,.038,6,16),wrapMat)
+  wrap1.rotation.x=Math.PI/2;wrap1.position.set(cx,GRIP_Y+.24,cz)
+  const wrap2=wrap1.clone();wrap2.position.set(cx,GRIP_Y-.24,cz)
   arena.add(grip,wrap1,wrap2)
 
-  // pommel
-  const pommel=new THREE.Mesh(new THREE.SphereGeometry(.13,12,8),guardMat.clone())
-  pommel.position.set(cx,.50,cz)
+  // pommel at very top
+  const POMMEL_Y=GRIP_Y+GRIP_H/2+0.26
+  const pommel=new THREE.Mesh(new THREE.SphereGeometry(.28,12,8),guardMat.clone())
+  pommel.position.set(cx,POMMEL_Y,cz)
   arena.add(pommel)
 
-  // ground spike
-  const spike=new THREE.Mesh(new THREE.CylinderGeometry(.04,.01,.22,6),bladeMat.clone())
-  spike.position.set(cx,.38,cz)
-  arena.add(spike)
-
-  // cyan glow ring at guard level
+  // cyan glow ring at guard
   const glowRing=new THREE.Mesh(
-    new THREE.TorusGeometry(.14,.028,6,28),
-    new THREE.MeshBasicMaterial({color:'#22d3ee',transparent:true,opacity:.82,depthWrite:false}),
+    new THREE.TorusGeometry(.30,.055,6,28),
+    new THREE.MeshBasicMaterial({color:'#22d3ee',transparent:true,opacity:.80,depthWrite:false}),
   )
-  glowRing.rotation.x=Math.PI/2;glowRing.position.set(cx,1.33,cz)
+  glowRing.rotation.x=Math.PI/2;glowRing.position.set(cx,GUARD_Y,cz)
   arena.add(glowRing)
 
   // magenta glow ring at blade mid
   const glowRing2=new THREE.Mesh(
-    new THREE.TorusGeometry(.06,.018,6,24),
-    new THREE.MeshBasicMaterial({color:'#d946ef',transparent:true,opacity:.72,depthWrite:false}),
+    new THREE.TorusGeometry(.20,.040,6,24),
+    new THREE.MeshBasicMaterial({color:'#d946ef',transparent:true,opacity:.70,depthWrite:false}),
   )
-  glowRing2.rotation.x=Math.PI/2;glowRing2.position.set(cx,2.55,cz)
+  glowRing2.rotation.x=Math.PI/2;glowRing2.position.set(cx,BLADE_Y,cz)
   arena.add(glowRing2)
 }
 
@@ -5701,8 +5705,8 @@ export default function MiningChain3DFPV({
         const enemy = enemyTargetRef.current
 
         const inSight = enemyInSightRef.current
-        if(inSight?.wallet && !enemy?.wallet && myIdentity && (!myIsAnon || inSight.isAnon) && !inSight.isTeammate){
-          // ── Swing at enemy but out of range → MISS ───────────────────────
+        if(inSight?.wallet && !enemy?.wallet && myIdentity && (!myIsAnon || inSight.isAnon) && !inSight.isTeammate && mineTypeRef.current!=='chain'){
+          // ── Swing at enemy but out of range → MISS (skipped when hitting chain node) ──
           playPickHit(audioCtxRef,'empty')
           pvpGainRef.current={ text:'✗ MISS', at:performance.now(), color:'#fb7185' }
 
