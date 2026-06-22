@@ -342,15 +342,26 @@ export default function MiningChain3D() {
   useEffect(() => {
     let mounted = true
     async function load() {
-      const [
-        { data: mined },
-        { data: market },
-        { data: owners },
-      ] = await Promise.all([
-        supabase.from('mm3_mined_blocks').select('block_hex, wallet'),
-        supabase.from('mm3_mining_blocks').select('block_key, grid_row, grid_col, emoji, title_en, title_es, price_eur'),
-        supabase.from('player_progress').select('wallet, mining_nftji_key').not('mining_nftji_key', 'is', null),
-      ])
+      let mined=[]
+      let market=[]
+      let owners=[]
+      try {
+        const response=await fetch('/api/mining-snapshot')
+        const snapshot=await response.json()
+        if(!response.ok||!snapshot?.ok) throw new Error(snapshot?.error||'snapshot failed')
+        mined=snapshot.minedBlocks||[]
+        market=snapshot.blocks||[]
+        owners=snapshot.owners||[]
+      } catch {
+        const [minedResponse,marketResponse,ownersResponse]=await Promise.all([
+          supabase.from('mm3_mined_blocks').select('block_hex, wallet'),
+          supabase.from('mm3_mining_blocks').select('block_key, grid_row, grid_col, emoji, title_en, title_es, price_eur'),
+          supabase.from('player_progress').select('wallet, mining_nftji_key').not('mining_nftji_key', 'is', null),
+        ])
+        mined=minedResponse.data||[]
+        market=marketResponse.data||[]
+        owners=ownersResponse.data||[]
+      }
       if (!mounted) return
 
       const map = new Map()
@@ -428,9 +439,10 @@ export default function MiningChain3D() {
 
       // Build wallet → { emoji, title } map for NFTJI panel
       const nftjis = {}
+      const marketByKey=new Map((market||[]).map(block=>[block.block_key,block]))
       for (const o of owners || []) {
         if (!o.mining_nftji_key) continue
-        const mb = (market || []).find(m => m.block_key === o.mining_nftji_key)
+        const mb = marketByKey.get(o.mining_nftji_key)
         if (mb) nftjis[o.wallet.toLowerCase()] = { emoji: mb.emoji || '⬡', title: mb.title_en || o.mining_nftji_key }
       }
       setWalletNftjis(nftjis)
@@ -528,6 +540,56 @@ export default function MiningChain3D() {
     const ch = supabase.channel(CHAIN3D_CHANNEL, {
       config: { broadcast: { self: false }, presence: { key } },
     })
+    const pendingMoves=new Map()
+    let moveFlushFrame=null
+    const flushPendingMoves=()=>{
+      moveFlushFrame=null
+      if(!pendingMoves.size) return
+      const updates=[...pendingMoves.entries()]
+      pendingMoves.clear()
+      setPositions(prev=>{
+        let next=prev
+        for(const [wallet,payload] of updates){
+          if(!payload){
+            if(next[wallet]){
+              if(next===prev) next={...prev}
+              delete next[wallet]
+            }
+            continue
+          }
+          if(next===prev) next={...prev}
+          next[wallet]={
+            gx:payload.gx,gy:payload.gy,
+            row:Math.floor(payload.gy),col:Math.floor(payload.gx),
+            z:Number(payload.z)||0,
+            angle:Number(payload.angle)||0,
+            pitch:Number(payload.pitch)||0,
+            swingAt:Number(payload.swingAt)||prev[wallet]?.swingAt||0,
+            poolCode:payload.poolCode||prev[wallet]?.poolCode||null,
+            isBot:Boolean(payload.isBot||prev[wallet]?.isBot),
+            task:payload.task||prev[wallet]?.task||null,
+            taskLabel:payload.taskLabel||prev[wallet]?.taskLabel||null,
+            taskPhase:payload.taskPhase||prev[wallet]?.taskPhase||null,
+            isDead:Boolean(payload.isDead),
+            deadUntil:payload.deadUntil||null,
+          }
+        }
+        return next
+      })
+      const visibleWallets=updates.filter(([,payload])=>payload).map(([wallet])=>wallet)
+      if(visibleWallets.length){
+        setOnlineWallets(prev=>{
+          if(visibleWallets.every(wallet=>prev.has(wallet))) return prev
+          const next=new Set(prev)
+          visibleWallets.forEach(wallet=>next.add(wallet))
+          return next
+        })
+      }
+    }
+    const queueMove=(wallet,payload)=>{
+      pendingMoves.set(wallet,payload)
+      if(moveFlushFrame==null) moveFlushFrame=requestAnimationFrame(flushPendingMoves)
+    }
 
     // Legacy anon reset events also use the current arena respawn policy.
     ch.on('broadcast', { event: 'anon-reset' }, ({ payload }) => {
@@ -635,35 +697,11 @@ export default function MiningChain3D() {
         Number(payload.gy) - (Number(mine?.row) + 0.5),
       )
       if (remoteDist > NETWORK_VISUAL_RANGE) {
-        setPositions(prev => {
-          if (!prev[w]) return prev
-          const next = { ...prev }
-          delete next[w]
-          return next
-        })
+        queueMove(w,null)
         return
       }
       if (payload.isBot) loadRemoteHealth(w)
-      setPositions(prev => ({
-        ...prev,
-        [w]: {
-          gx: payload.gx, gy: payload.gy,
-          row: Math.floor(payload.gy), col: Math.floor(payload.gx),
-          z: Number(payload.z) || 0,
-          angle: Number(payload.angle) || 0,
-          pitch: Number(payload.pitch) || 0,
-          swingAt: Number(payload.swingAt) || prev[w]?.swingAt || 0,
-          poolCode: payload.poolCode || prev[w]?.poolCode || null,
-          isBot: Boolean(payload.isBot || prev[w]?.isBot),
-          task: payload.task || prev[w]?.task || null,
-          taskLabel: payload.taskLabel || prev[w]?.taskLabel || null,
-          taskPhase: payload.taskPhase || prev[w]?.taskPhase || null,
-          isDead: Boolean(payload.isDead),
-          deadUntil: payload.deadUntil || null,
-        },
-      }))
-      // Ensure the wallet is visible even if presence sync hasn't fired yet
-      setOnlineWallets(prev => prev.has(w) ? prev : new Set([...prev, w]))
+      queueMove(w,payload)
     })
 
     // Presence sync: who's online + seed initial positions from track() payload
@@ -732,7 +770,12 @@ export default function MiningChain3D() {
       }
     })
 
-    return () => { supabase.removeChannel(ch); channelRef.current = null }
+    return () => {
+      if(moveFlushFrame!=null) cancelAnimationFrame(moveFlushFrame)
+      pendingMoves.clear()
+      supabase.removeChannel(ch)
+      channelRef.current = null
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [myWallet])
 

@@ -1674,7 +1674,7 @@ function minimapSize(W) {
   return W < 600 ? Math.min(W * 0.48, 150) : Math.min(220, W * 0.24)
 }
 
-function drawMinimap(ctx, gr, gc, angle, cellMap, presenceMap, myWallet, W, H, chainNodePos, validObs, gx, gy) {
+function drawMinimap(ctx, gr, gc, angle, cellMap, presenceMap, myWallet, W, H, chainNodePos, validObs, gx, gy, staticCacheRef, dpr=1) {
   const isMobile = W < 600
   const SZ = minimapSize(W)
   const MX = W - SZ - 6
@@ -1760,16 +1760,24 @@ function drawMinimap(ctx, gr, gc, angle, cellMap, presenceMap, myWallet, W, H, c
     ctx.restore()
   }
 
-  ctx.fillStyle = 'rgba(1,6,14,.96)'
-  ctx.fillRect(MX - 2, MY - 2, SZ + 4, SZ + 4)
-  ctx.strokeStyle = C + '66'
-  ctx.lineWidth = 1
-  ctx.strokeRect(MX - 2, MY - 2, SZ + 4, SZ + 4)
+  const cached=staticCacheRef?.current
+  const cacheHit=cached&&cached.cellMap===cellMap&&cached.validObs===validObs&&cached.myId===myId&&cached.sz===SZ&&cached.dpr===dpr
+  if(cacheHit){
+    ctx.drawImage(cached.canvas,MX-2,MY-2,SZ+4,SZ+4)
+  }else{
+    ctx.fillStyle = 'rgba(1,6,14,.96)'
+    ctx.fillRect(MX - 2, MY - 2, SZ + 4, SZ + 4)
+    ctx.strokeStyle = C + '66'
+    ctx.lineWidth = 1
+    ctx.strokeRect(MX - 2, MY - 2, SZ + 4, SZ + 4)
+  }
 
   ctx.save()
   ctx.beginPath()
   ctx.rect(MX, MY, SZ, SZ)
   ctx.clip()
+
+  if(!cacheHit){
 
   const half = SZ / 2
   ctx.fillStyle = 'rgba(46,86,118,.13)'
@@ -1855,6 +1863,20 @@ function drawMinimap(ctx, gr, gc, angle, cellMap, presenceMap, myWallet, W, H, c
   }
   if (!chainDrawn && chainNodePos) {
     drawMapEmoji('⬡', mapX(chainNodePos.col + .5), mapY(chainNodePos.row + .5), '#facc15', 'circle')
+  }
+
+    if(staticCacheRef){
+      const cacheCanvas=document.createElement('canvas')
+      cacheCanvas.width=Math.max(1,Math.round((SZ+4)*dpr))
+      cacheCanvas.height=Math.max(1,Math.round((SZ+4)*dpr))
+      const cacheCtx=cacheCanvas.getContext('2d')
+      cacheCtx.drawImage(
+        ctx.canvas,
+        Math.round((MX-2)*dpr),Math.round((MY-2)*dpr),cacheCanvas.width,cacheCanvas.height,
+        0,0,cacheCanvas.width,cacheCanvas.height,
+      )
+      staticCacheRef.current={canvas:cacheCanvas,cellMap,validObs,myId,sz:SZ,dpr}
+    }
   }
 
   for (const [wallet, player] of Object.entries(presenceMap || {})) {
@@ -2545,6 +2567,12 @@ const BIOME_STYLE={
   ice:{ground:'#4a9bc7',block:'#b9ecff',accent:'#f0fbff'},
   inferno:{ground:'#671b18',block:'#d64b2a',accent:'#ffb11b'},
 }
+const BIOME_ATMOSPHERE={
+  mountain:{fog:'#102d49',sky:'#07152f',hemi:'#c7e7ff',rim:'#22d3ee'},
+  coast:{fog:'#0b4962',sky:'#06233d',hemi:'#d0f6ff',rim:'#2dd4bf'},
+  ice:{fog:'#286386',sky:'#0d3152',hemi:'#f0fcff',rim:'#91eaff'},
+  inferno:{fog:'#5a160f',sky:'#2b0709',hemi:'#ffd0a8',rim:'#ff641e'},
+}
 
 function seededUnit(seed) {
   const value=Math.sin(seed*12.9898+78.233)*43758.5453
@@ -2958,28 +2986,85 @@ function makeEmojiSprite(emoji,color) {
   return sprite
 }
 
-function addInteractiveBeacon(world,row,col,cell,height) {
+function addInteractiveBeaconEmoji(world,row,col,cell,height) {
+  if(!cell.isMarket||!cell.emoji) return
   const color=cell.isChainNode?'#facc15':cell.isPortalNode?(cell.color||'#22d3ee'):cell.isMarket?(cell.owner?'#4ade80':'#fb923c'):'#22d3ee'
   const beacon=new THREE.Group()
-  const ringMaterial=new THREE.MeshBasicMaterial({color,transparent:true,opacity:.78,depthWrite:false})
-  const ring=new THREE.Mesh(new THREE.TorusGeometry(.58,.035,6,24),ringMaterial)
-  ring.rotation.x=Math.PI/2;ring.position.y=height+.14
-  const ring2=new THREE.Mesh(new THREE.TorusGeometry(.45,.025,6,20),ringMaterial.clone())
-  ring2.rotation.y=Math.PI/2;ring2.position.y=height*.58
-  const column=new THREE.Mesh(new THREE.CylinderGeometry(.035,.11,height+.42,8),new THREE.MeshBasicMaterial({color,transparent:true,opacity:.22,depthWrite:false}))
-  column.position.y=(height+.42)*.5
-  const markerGeometry=cell.isPortalNode?new THREE.OctahedronGeometry(.16):cell.isMarket?new THREE.DodecahedronGeometry(.15):new THREE.TetrahedronGeometry(.18)
-  const marker=new THREE.Mesh(markerGeometry,new THREE.MeshBasicMaterial({color}))
-  marker.position.y=height+.38
-  beacon.add(ring,ring2,column,marker)
-  if(cell.isMarket&&cell.emoji){
-    const emojiSprite=makeEmojiSprite(cell.emoji,color)
-    emojiSprite.position.y=height+.82
-    beacon.add(emojiSprite)
-  }
+  const emojiSprite=makeEmojiSprite(cell.emoji,color)
+  emojiSprite.position.y=height+.82
+  beacon.add(emojiSprite)
   beacon.position.set(col+.5,0,row+.5)
   beacon.userData.interactive=true;beacon.userData.phase=seededUnit(row*71+col*113)*Math.PI*2
   world.add(beacon)
+}
+
+function addInteractiveBeaconBatch(world,entries) {
+  if(!entries.length) return null
+  const ringMaterial=new THREE.MeshBasicMaterial({vertexColors:true,transparent:true,opacity:.78,depthWrite:false})
+  const columnMaterial=new THREE.MeshBasicMaterial({vertexColors:true,transparent:true,opacity:.22,depthWrite:false})
+  const rings=new THREE.InstancedMesh(new THREE.TorusGeometry(.58,.035,6,24),ringMaterial,entries.length)
+  const ring2s=new THREE.InstancedMesh(new THREE.TorusGeometry(.45,.025,6,20),ringMaterial.clone(),entries.length)
+  const columns=new THREE.InstancedMesh(new THREE.CylinderGeometry(.035,.11,1,8),columnMaterial,entries.length)
+  const markerGroups={
+    portal:{geometry:new THREE.OctahedronGeometry(.16),entries:[]},
+    market:{geometry:new THREE.DodecahedronGeometry(.15),entries:[]},
+    chain:{geometry:new THREE.TetrahedronGeometry(.18),entries:[]},
+  }
+  entries.forEach((entry,index)=>{
+    const {cell}=entry
+    const color=new THREE.Color(cell.isChainNode?'#facc15':cell.isPortalNode?(cell.color||'#22d3ee'):cell.isMarket?(cell.owner?'#4ade80':'#fb923c'):'#22d3ee')
+    rings.setColorAt(index,color);ring2s.setColorAt(index,color);columns.setColorAt(index,color)
+    const markerKey=cell.isPortalNode?'portal':cell.isMarket?'market':'chain'
+    entry.markerKey=markerKey
+    entry.markerIndex=markerGroups[markerKey].entries.length
+    markerGroups[markerKey].entries.push(entry)
+  })
+  const markers={}
+  for(const [key,group] of Object.entries(markerGroups)){
+    if(!group.entries.length){group.geometry.dispose();continue}
+    const mesh=new THREE.InstancedMesh(group.geometry,new THREE.MeshBasicMaterial({vertexColors:true}),group.entries.length)
+    group.entries.forEach((entry,index)=>{
+      const {cell}=entry
+      mesh.setColorAt(index,new THREE.Color(cell.isChainNode?'#facc15':cell.isPortalNode?(cell.color||'#22d3ee'):cell.owner?'#4ade80':'#fb923c'))
+    })
+    if(mesh.instanceColor) mesh.instanceColor.needsUpdate=true
+    markers[key]=mesh
+    world.add(mesh)
+  }
+  for(const mesh of [rings,ring2s,columns]) if(mesh.instanceColor) mesh.instanceColor.needsUpdate=true
+  world.add(rings,ring2s,columns)
+  return {
+    entries,rings,ring2s,columns,markers,
+    parent:new THREE.Matrix4(),local:new THREE.Matrix4(),final:new THREE.Matrix4(),
+    position:new THREE.Vector3(),scale:new THREE.Vector3(),quaternion:new THREE.Quaternion(),
+    localPosition:new THREE.Vector3(),localScale:new THREE.Vector3(),localQuaternion:new THREE.Quaternion(),euler:new THREE.Euler(),
+  }
+}
+
+function updateInteractiveBeaconBatch(batch,time) {
+  if(!batch) return
+  const yAxis=THREE.Object3D.DEFAULT_UP
+  for(let index=0;index<batch.entries.length;index++){
+    const entry=batch.entries[index]
+    const pulse=1+Math.sin(time*2.8+entry.phase)*.08
+    batch.position.set(entry.col+.5,Math.sin(time*2.1+entry.phase)*.045,entry.row+.5)
+    batch.scale.setScalar(pulse)
+    batch.quaternion.setFromAxisAngle(yAxis,time*.72+entry.phase)
+    batch.parent.compose(batch.position,batch.quaternion,batch.scale)
+    const setInstance=(mesh,instanceIndex,y,rotationX,rotationY,scaleY=1)=>{
+      batch.localPosition.set(0,y,0)
+      batch.localScale.set(1,scaleY,1)
+      batch.localQuaternion.setFromEuler(batch.euler.set(rotationX,rotationY,0))
+      batch.local.compose(batch.localPosition,batch.localQuaternion,batch.localScale)
+      batch.final.multiplyMatrices(batch.parent,batch.local)
+      mesh.setMatrixAt(instanceIndex,batch.final)
+    }
+    setInstance(batch.rings,index,entry.height+.14,Math.PI/2,0)
+    setInstance(batch.ring2s,index,entry.height*.58,0,Math.PI/2)
+    setInstance(batch.columns,index,(entry.height+.42)*.5,0,0,entry.height+.42)
+    setInstance(batch.markers[entry.markerKey],entry.markerIndex,entry.height+.38,0,0)
+  }
+  for(const mesh of [batch.rings,batch.ring2s,batch.columns,...Object.values(batch.markers)]) mesh.instanceMatrix.needsUpdate=true
 }
 
 function rebuildThreeWorld(state,cellMap,obstacles) {
@@ -3109,11 +3194,16 @@ function rebuildThreeWorld(state,cellMap,obstacles) {
     ownedNftjiGroup.ped, ownedNftjiGroup.mesh,  ownedNftjiGroup.glow,
     chainMesh, portalMesh,
   )
+  const beaconEntries=[]
   for(const [key,cell] of allBlockEntries){
     if(!cell.isMarket&&!cell.isPortalNode&&!cell.isChainNode) continue
     const [row,col]=key.split(',').map(Number)
-    addInteractiveBeacon(world,row,col,cell,blockTop(cell,row,col))
+    const height=blockTop(cell,row,col)
+    beaconEntries.push({row,col,cell,height,phase:seededUnit(row*71+col*113)*Math.PI*2})
+    addInteractiveBeaconEmoji(world,row,col,cell,height)
   }
+  state.beaconBatch=addInteractiveBeaconBatch(world,beaconEntries)
+  updateInteractiveBeaconBatch(state.beaconBatch,performance.now()*.001)
 
   const boxGroups={mountain:[],coast:[],ice:[],inferno:[]}
   for(const entry of obstacles.entries()){
@@ -3165,6 +3255,7 @@ function rebuildThreeWorld(state,cellMap,obstacles) {
     }
   }
   state.world=world
+  state.cameraCollisionValid=false
   state.biomeSurfaces=[]
   state.interactiveVisuals=[]
   state.avatarFadeOccluders=[]
@@ -3178,6 +3269,17 @@ function rebuildThreeWorld(state,cellMap,obstacles) {
       }))
       state.avatarFadeOccluders.push(object)
     }
+  })
+  const animated=new Set([
+    ...(state.biomeSurfaces||[]),
+    ...(state.interactiveVisuals||[]),
+    ...Object.values(state.beaconBatch?.markers||{}),
+    state.beaconBatch?.rings,state.beaconBatch?.ring2s,state.beaconBatch?.columns,
+  ].filter(Boolean))
+  world.traverse(object=>{
+    if(object===world||animated.has(object)||object.userData.interactive) return
+    object.updateMatrix()
+    object.matrixAutoUpdate=false
   })
   state.scene.add(world)
 }
@@ -3263,8 +3365,10 @@ function createThreeWalletAvatar(wallet) {
 
 function syncThreeAvatars(state,presence,myIdentity) {
   if(!state) return
-  const active=new Set()
-  for(const [wallet,data] of Object.entries(presence||{})){
+  const active=state._activeAvatars
+  active.clear()
+  for(const wallet in presence||{}){
+    const data=presence[wallet]
     if(wallet.toLowerCase()===(myIdentity||'').toLowerCase()) continue
     active.add(wallet)
     let avatar=state.avatars.get(wallet)
@@ -3308,7 +3412,7 @@ function syncThreeAvatars(state,presence,myIdentity) {
       }
     // The local avatar is a screen-space HUD model. Cap remote projected size
     // to the same visual height so nearby wallets never become giants.
-    const cameraSpace=avatar.position.clone().applyMatrix4(state.camera.matrixWorldInverse)
+    const cameraSpace=state._avatarCameraSpace.copy(avatar.position).applyMatrix4(state.camera.matrixWorldInverse)
     const depth=Math.max(.08,-cameraSpace.z)
     const viewportHeight=Math.max(1,state.size.y||600)
     const viewportWidth=Math.max(1,state.size.x||900)
@@ -3335,9 +3439,12 @@ function syncThreeAvatars(state,presence,myIdentity) {
 function updateAvatarOccluders(state) {
   const occluders=state?.avatarFadeOccluders||[]
   if(!occluders.length) return
-  const faded=new Set()
+  const faded=state._fadedOccluders
+  faded.clear()
   const origin=state.camera.position
-  const avatars=[...state.avatars.values()]
+  const avatars=state._occlusionAvatars
+  avatars.length=0
+  for(const avatar of state.avatars.values()) avatars.push(avatar)
   if(state.localAvatar) avatars.push(state.localAvatar)
   for(const avatar of avatars){
     if(avatar.userData.wasDead) continue
@@ -3349,7 +3456,10 @@ function updateAvatarOccluders(state) {
     state.occlusionRaycaster.set(origin,direction.divideScalar(distance))
     state.occlusionRaycaster.near=.05
     state.occlusionRaycaster.far=Math.max(.05,distance-.08)
-    for(const hit of state.occlusionRaycaster.intersectObjects(occluders,false)) faded.add(hit.object)
+    const hits=state._occlusionHits
+    hits.length=0
+    state.occlusionRaycaster.intersectObjects(occluders,false,hits)
+    for(const hit of hits) faded.add(hit.object)
   }
   for(const object of occluders){
     const shouldFade=faded.has(object)
@@ -3464,11 +3574,13 @@ export default function MiningChain3DFPV({
   const lastSentStateRef = useRef(null)
   const swingEpochRef = useRef(0)
   const remoteVisualsRef = useRef(new Map())
+  const visualPresenceRef = useRef({})
   const lastRemoteFrameRef = useRef(0)
   const lastAmbientRenderRef = useRef(0)
   const renderRef     = useRef(null)
   const lastCellRef   = useRef({row:initRow??14,col:initCol??14})
   const zBufferRef    = useRef(null)
+  const minimapStaticRef = useRef(null)
   // Pickaxe / mining
   const swingStartRef   = useRef(-9999)
   const hitDoneRef      = useRef(false)
@@ -3517,6 +3629,7 @@ export default function MiningChain3DFPV({
   const myDeadUntilRef  = useRef(null)  // ms timestamp or null — synced from prop
   const myDeadPosRef    = useRef(null)  // { gx, gy } or null
   const rebuildThreeRef     = useRef(null)
+  const obstaclesReadyRef   = useRef(false)
 
   // Expose reinit trigger to refs so it can be called from the render loop or context handlers
   useEffect(()=>{ threeReinitRef.current=()=>setThreeKey(k=>k+1) },[])
@@ -3576,10 +3689,12 @@ export default function MiningChain3DFPV({
     const occlusionRaycaster=new THREE.Raycaster()
     const state={renderer,scene,camera,hudScene,hudCamera,localAvatar:null,localAvatarId:null,world:null,avatars:new Map(),pixelRatio:0,size:new THREE.Vector2(),hemi,key,rim,textures,
       camRaycaster,occlusionRaycaster,_occlusionTarget:new THREE.Vector3(),_occlusionDirection:new THREE.Vector3(),
-      _v3a:new THREE.Vector3(),_v3b:new THREE.Vector3(),_v3c:new THREE.Vector3(),_v3d:new THREE.Vector3(),_v3e:new THREE.Vector3()}
+      _v3a:new THREE.Vector3(),_v3b:new THREE.Vector3(),_v3c:new THREE.Vector3(),_v3d:new THREE.Vector3(),_v3e:new THREE.Vector3(),
+      _avatarCameraSpace:new THREE.Vector3(),_activeAvatars:new Set(),_fadedOccluders:new Set(),
+      _occlusionAvatars:[],_occlusionHits:[],viewWidth:0,viewHeight:0,viewDpr:0,viewFov:0,activeBiome:null}
     threeStateRef.current=state
     rebuildThreeRef.current=()=>rebuildThreeWorld(state,cellMapRef.current,validObstaclesRef.current)
-    rebuildThreeRef.current()
+    if(obstaclesReadyRef.current) rebuildThreeRef.current()
     return ()=>{
       rebuildThreeRef.current=null
       try{ disposeThreeObject(scene) }catch{}
@@ -3781,6 +3896,7 @@ export default function MiningChain3DFPV({
     }
     ensureInteractiveConnectivity(valid,cellMap)
     validObstaclesRef.current = valid
+    obstaclesReadyRef.current = true
     rebuildThreeRef.current?.()
 
     // Safety: if player is inside an obstacle or block, teleport to nearest free cell
@@ -3855,7 +3971,9 @@ export default function MiningChain3DFPV({
     lastRemoteFrameRef.current = remoteNow
     const remoteBlend = 1-Math.exp(-14*remoteDt)
     const visuals = remoteVisualsRef.current
-    for(const [w,target] of Object.entries(rawPresence||{})){
+    const presence=visualPresenceRef.current
+    for(const w in rawPresence||{}){
+      const target=rawPresence[w]
       const tx=target.gx??((target.col??0)+0.5), ty=target.gy??((target.row??0)+0.5)
       let current=visuals.get(w)
       if(!current){ current={...target,gx:tx,gy:ty,z:Number(target.z)||0}; visuals.set(w,current) }
@@ -3873,9 +3991,9 @@ export default function MiningChain3DFPV({
       current.taskPhase=target.taskPhase||null
       current.isDead=Boolean(target.isDead)
       current.deadUntil=target.deadUntil??null
+      presence[w]=current
     }
-    for(const w of visuals.keys()) if(!rawPresence?.[w]) visuals.delete(w)
-    const presence=Object.fromEntries(visuals)
+    for(const w of visuals.keys()) if(!rawPresence?.[w]){visuals.delete(w);delete presence[w]}
 
     const {x:px,y:py,angle,pitch:rawPitch=0,z:rawZ=0} = playerRef.current
     const cameraNow=performance.now(),cameraVisual=cameraVisualRef.current
@@ -3910,22 +4028,28 @@ export default function MiningChain3DFPV({
         const aspect=W/Math.max(1,H)
         const fovRad = FOV + dynamicFovRef.current
         const verticalFov=THREE.MathUtils.radToDeg(2*Math.atan(Math.tan(fovRad/2)/aspect))
-        threeState.camera.fov=verticalFov;threeState.camera.aspect=aspect;threeState.camera.updateProjectionMatrix()
-        if(threeState.pixelRatio!==dpr){threeState.renderer.setPixelRatio(dpr);threeState.pixelRatio=dpr}
-        const renderSize=threeState.renderer.getSize(threeState.size)
-        if(Math.round(renderSize.x)!==W||Math.round(renderSize.y)!==H) threeState.renderer.setSize(W,H,false)
+        const projectionChanged=threeState.viewWidth!==W||threeState.viewHeight!==H||Math.abs(threeState.viewFov-verticalFov)>.0001
+        const sizeChanged=threeState.viewWidth!==W||threeState.viewHeight!==H||threeState.viewDpr!==dpr
+        if(projectionChanged){
+          threeState.camera.fov=verticalFov;threeState.camera.aspect=aspect;threeState.camera.updateProjectionMatrix()
+          threeState.viewFov=verticalFov
+        }
+        if(sizeChanged){
+          threeState.renderer.setPixelRatio(dpr)
+          threeState.renderer.setSize(W,H,false)
+          threeState.pixelRatio=dpr;threeState.viewDpr=dpr;threeState.viewWidth=W;threeState.viewHeight=H
+          threeState.size.set(W,H)
+        }
         const gx=px/CELL_SIZE,gy=py/CELL_SIZE,lookDistance=5
         const biome=biomeForCell(Math.floor(gy),Math.floor(gx))
-        const atmosphere={
-          mountain:{fog:'#102d49',sky:'#07152f',hemi:'#c7e7ff',rim:'#22d3ee'},
-          coast:{fog:'#0b4962',sky:'#06233d',hemi:'#d0f6ff',rim:'#2dd4bf'},
-          ice:{fog:'#286386',sky:'#0d3152',hemi:'#f0fcff',rim:'#91eaff'},
-          inferno:{fog:'#5a160f',sky:'#2b0709',hemi:'#ffd0a8',rim:'#ff641e'},
-        }[biome]
-        threeState.scene.background.set(atmosphere.sky)
-        threeState.scene.fog.color.set(atmosphere.fog)
-        threeState.hemi.color.set(atmosphere.hemi)
-        threeState.rim.color.set(atmosphere.rim)
+        if(threeState.activeBiome!==biome){
+          const atmosphere=BIOME_ATMOSPHERE[biome]
+          threeState.scene.background.set(atmosphere.sky)
+          threeState.scene.fog.color.set(atmosphere.fog)
+          threeState.hemi.color.set(atmosphere.hemi)
+          threeState.rim.color.set(atmosphere.rim)
+          threeState.activeBiome=biome
+        }
         // 3rd-person over-shoulder camera — drop to ground level when dead
         const localDead=myDeadUntilRef.current&&myDeadUntilRef.current>Date.now()
         const behindDist=localDead?1.20:2.55, aboveOffset=localDead?-0.45:1.15, lookFwd=2.4, shoulderR=localDead?0:0.30
@@ -3964,8 +4088,13 @@ export default function MiningChain3DFPV({
             rb.copy(ra).addScaledVector(threeState._v3c,safe)
             return safe
           }
+          const lastCollision=threeState.cameraCollisionState
+          const collisionChanged=!threeState.cameraCollisionValid||!lastCollision
+            ||Math.abs(lastCollision.gx-gx)>.002||Math.abs(lastCollision.gy-gy)>.002
+            ||Math.abs(lastCollision.angle-angle)>.002||Math.abs(lastCollision.rawZ-rawZ)>.002
+            ||lastCollision.localDead!==Boolean(localDead)
           try {
-            if(threeState.world){
+            if(threeState.world&&collisionChanged){
               // Phase 1 — primary position
               tryCam(camX,cameraZ+aboveOffset,camZworld)
               // Phase 2 — try alternatives when camera is still too close to player
@@ -3990,6 +4119,13 @@ export default function MiningChain3DFPV({
                 }
                 rb.copy(bestPos)
               }
+              if(!threeState.cachedCameraPosition) threeState.cachedCameraPosition=new THREE.Vector3()
+              threeState.cachedCameraPosition.copy(rb)
+              threeState.cameraCollisionState={gx,gy,angle,rawZ,localDead:Boolean(localDead),cameraZ}
+              threeState.cameraCollisionValid=true
+            }else if(threeState.cachedCameraPosition&&lastCollision){
+              rb.copy(threeState.cachedCameraPosition)
+              rb.y+=cameraZ-lastCollision.cameraZ
             }
           } catch(_) { /* spring arm non-critical — fall through to default cam pos */ }
           threeState.camera.position.copy(rb)
@@ -4024,6 +4160,7 @@ export default function MiningChain3DFPV({
             object.position.y=Math.sin(time*2.1+object.userData.phase)*.045
           }
         }
+        updateInteractiveBeaconBatch(threeState.beaconBatch,time)
         for(const orbital of threeState.scene.userData.orbitals||[]){
           if(orbital.userData.orbital==='ship'){
             const orbit=time*.055
@@ -5139,7 +5276,7 @@ export default function MiningChain3DFPV({
       ctx.globalAlpha=1
     }
 
-    drawMinimap(ctx,gr,gc,angle,cellMap,presence,myIdentity,W,H,chainNodePosRef.current,validObstaclesRef.current,px/CELL_SIZE,py/CELL_SIZE)
+    drawMinimap(ctx,gr,gc,angle,cellMap,presence,myIdentity,W,H,chainNodePosRef.current,validObstaclesRef.current,px/CELL_SIZE,py/CELL_SIZE,minimapStaticRef,dpr)
     drawOnlineList(ctx,W,H,presence,myIdentity,pvpStolenRef.current)
     const walletDock = drawWalletDock(
       ctx,W,H,myNftjisRef.current,healthMapRef.current[myIdentity]??100,es,Boolean(myWallet)
@@ -5188,6 +5325,7 @@ export default function MiningChain3DFPV({
       canvas.style.width = `${cssW}px`
       canvas.style.height = `${cssH}px`
       zBufferRef.current=null
+      minimapStaticRef.current=null
       renderRef.current?.()
     }
     resize()
