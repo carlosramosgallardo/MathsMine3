@@ -439,9 +439,9 @@ export default function HomeMiningWorld3D() {
 
       scene = new THREE.Scene()
       scene.fog = new THREE.FogExp2('#010c18', .036)
-      const camera = new THREE.PerspectiveCamera(38, 2, .1, 50)
-      camera.position.set(7.50, 4.80, 11.80)
-      camera.lookAt(-.20, 0.60, 0)
+      const camera = new THREE.PerspectiveCamera(33, 2, .1, 50)
+      camera.position.set(8.20, 6.05, 12.30)
+      camera.lookAt(-.15, 1.72, 0)
 
       scene.add(new THREE.HemisphereLight('#c7e9ff', '#060e1a', 1.30))
       const key = new THREE.DirectionalLight('#fff8dc', 2.50)
