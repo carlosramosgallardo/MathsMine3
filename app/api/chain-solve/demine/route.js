@@ -26,6 +26,9 @@ async function handleDemine(req) {
   if (!wallet) {
     return Response.json({ ok: false, error: 'wallet_required' }, { status: 400 });
   }
+  if (wallet.startsWith('anon-')) {
+    return Response.json({ ok: false, error: 'anon_no_reward' }, { status: 403 });
+  }
 
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -79,7 +82,9 @@ async function handleDemine(req) {
 
   const newHitsRemaining = hitsRemaining - 1;
 
-  // Award 1 MM3 to hitter by reducing mm3_sold
+  // Award 1 MM3: reduce mm3_sold by 1 (allows negative — negative mm3_sold = pre-earned MM3 credit)
+  // available_mm3 = leaderboard_data.total_eth - player_progress.mm3_sold
+  // so mm3_sold going below 0 correctly adds to available balance
   const { data: hitterProgress } = await supabase
     .from('player_progress')
     .select('mm3_sold')
@@ -89,15 +94,9 @@ async function handleDemine(req) {
   const currentSold = Number(hitterProgress?.mm3_sold) || 0;
   await supabase.from('player_progress').upsert({
     wallet,
-    mm3_sold: Math.max(0, currentSold - 1),
+    mm3_sold: currentSold - 1,
     updated_at: new Date().toISOString(),
   }, { onConflict: 'wallet', ignoreDuplicates: false });
-
-  await supabase.from('mm3_mining_events').insert({
-    wallet,
-    event_type: 'chain_demine_hit',
-    delta_mm3: 1,
-  });
 
   if (newHitsRemaining <= 0 || total - toRemoveCount <= 0) {
     // All done — reset to normal mining mode

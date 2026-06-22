@@ -6028,10 +6028,14 @@ export default function MiningChain3DFPV({
             playPickHit(audioCtxRef,'empty')
           } else if(mineTypeRef.current==='chain'){
             if(chainDemineActiveRef.current){
-              // Demine mode: each hit demines a block and awards 1 MM3
-              playPickHit(audioCtxRef,'nftji')
-              const hitWallet = myWalletRef.current || presenceKeyRef.current
-              if(hitWallet){
+              // Demine mode: anon wallets always miss
+              const hitWallet = myWalletRef.current
+              if(!hitWallet || hitWallet.startsWith('anon-')){
+                playPickHit(audioCtxRef,'empty')
+                pvpGainRef.current={text:'✗ MISS — conecta wallet',at:performance.now(),color:'#fb923c55'}
+              } else {
+                // Logged wallet: each hit demines 1% and awards 1 MM3
+                playPickHit(audioCtxRef,'nftji')
                 fetch('/api/chain-solve/demine',{
                   method:'POST',
                   headers:{'Content-Type':'application/json'},
@@ -6047,7 +6051,7 @@ export default function MiningChain3DFPV({
                     }
                     onDemineHitRef.current?.()
                   }else{
-                    pvpGainRef.current={text:data.error==='demine_not_active'?'⛏ demine ended':'⛏ '+data.error,at:performance.now(),color:'#fb923c'}
+                    pvpGainRef.current={text:data.error==='demine_not_active'?'⛏ demine ended':'⛏ '+data.error,at:performance.now(),color:'#fb923c55'}
                   }
                 }).catch(()=>{})
               }
