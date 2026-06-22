@@ -22,6 +22,7 @@ import {
 import supabase from '@/lib/supabaseClient'
 import MiningChain3DFPV from './MiningChain3DFPV'
 import ChainSolveCard from './ChainSolveCard'
+import NftjiPenaltyCard from './NftjiPenaltyCard'
 
 const C = '#22d3ee'
 const NETWORK_VISUAL_RANGE = 22
@@ -130,6 +131,7 @@ export default function MiningChain3D() {
   const [jumpToCell,    setJumpToCell]    = useState(null)
   const [pvpStolen,     setPvpStolen]     = useState({})
   const [showChainSolve, setShowChainSolve] = useState(false)
+  const [nftjiPanel,    setNftjiPanel]    = useState(null) // null | { blockKey, blockHex, emoji, titleEn, titleEs, priceEur, owner }
   // positions: wallet → { gx, gy, row, col } — populated from presence payload, broadcast, and DB
   const [positions,     setPositions]     = useState({})
   // onlineWallets: who is currently in the channel (from presence sync)
@@ -821,6 +823,28 @@ export default function MiningChain3D() {
     return () => window.removeEventListener('keydown', onKey)
   }, [showChainSolve])
 
+  const handleNftjiPanelOpen = useCallback(({ cell, mx, my }) => {
+    if (!cell?.isMarket) return
+    const hex = cell.blockHex || gridToBlockHex(my, mx)
+    setNftjiPanel({
+      blockKey: cell.blockKey,
+      blockHex: hex,
+      emoji: cell.emoji,
+      titleEn: cell.titleEn,
+      titleEs: cell.titleEs,
+      priceEur: cell.priceEur,
+      owner: cell.owner || null,
+    })
+  }, [])
+
+  // Close NFTJI panel overlay with Escape
+  useEffect(() => {
+    if (!nftjiPanel) return
+    const onKey = (e) => { if (e.key === 'Escape') setNftjiPanel(null) }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [nftjiPanel])
+
   const handlePositionRealtime = useCallback((gx, gy, avatar = {}) => {
     const myW = myKeyRef.current || myWalletRef.current
     if (!myW) return
@@ -872,6 +896,7 @@ export default function MiningChain3D() {
             onPvpHit={handlePvpHit}
             pvpStolen={pvpStolen}
             onChainSolveOpen={handleChainSolveOpen}
+            onNftjiPanelOpen={handleNftjiPanelOpen}
             externalPvpFlash={receivedHitAt}
             externalDodgeFlash={receivedDodgeAt}
             externalKnockback={receivedHitFrom}
@@ -937,6 +962,64 @@ export default function MiningChain3D() {
             />
 
             <div style={{ textAlign:'center', marginTop:12, color:'rgba(74,222,128,0.25)', fontSize:'0.58rem', letterSpacing:'0.12em' }}>
+              {es ? 'ESC O CLIC FUERA PARA CERRAR' : 'ESC OR CLICK OUTSIDE TO CLOSE'}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── NFTJI penalty overlay ─────────────────────────────────────────── */}
+      {nftjiPanel && (
+        <div
+          style={{
+            position:'absolute', inset:0, display:'flex', alignItems:'center', justifyContent:'center',
+            background:'rgba(0,0,0,0.92)', zIndex:60,
+          }}
+          onClick={() => setNftjiPanel(null)}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{
+              background:'#080510', border:'1px solid rgba(217,70,239,0.28)',
+              borderRadius:10, padding:'20px 24px', width:'min(420px,94vw)',
+              fontFamily:'Consolas,monospace',
+            }}
+          >
+            {/* Header */}
+            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:16 }}>
+              <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                <span style={{ color:'#d946ef', fontSize:'1.0rem' }}>⚡</span>
+                <div>
+                  <div style={{ color:'#d946ef', fontWeight:700, fontSize:'0.82rem', letterSpacing:'0.1em' }}>
+                    {es ? 'BLOQUE NFTJI' : 'NFTJI BLOCK'}
+                  </div>
+                  <div style={{ color:'rgba(217,70,239,0.35)', fontSize:'0.6rem', letterSpacing:'0.14em', marginTop:1 }}>
+                    {es ? 'PENALIZACIÓN · CÓDIGO 5 DÍGITOS' : 'PENALTY · 5-DIGIT CODE'}
+                  </div>
+                </div>
+              </div>
+              <button
+                onClick={() => setNftjiPanel(null)}
+                style={{ background:'none', border:'none', color:'#475569', cursor:'pointer', fontSize:'1.1rem', lineHeight:1 }}
+              >
+                ✕
+              </button>
+            </div>
+
+            <NftjiPenaltyCard
+              wallet={myWallet}
+              blockKey={nftjiPanel.blockKey}
+              blockHex={nftjiPanel.blockHex}
+              blockEmoji={nftjiPanel.emoji}
+              blockTitleEn={nftjiPanel.titleEn}
+              blockTitleEs={nftjiPanel.titleEs}
+              blockPrice={nftjiPanel.priceEur}
+              isMine={Boolean(myWallet && nftjiPanel.owner?.toLowerCase() === myWallet?.toLowerCase())}
+              es={es}
+              onClose={() => setNftjiPanel(null)}
+            />
+
+            <div style={{ textAlign:'center', marginTop:12, color:'rgba(217,70,239,0.22)', fontSize:'0.58rem', letterSpacing:'0.12em' }}>
               {es ? 'ESC O CLIC FUERA PARA CERRAR' : 'ESC OR CLICK OUTSIDE TO CLOSE'}
             </div>
           </div>

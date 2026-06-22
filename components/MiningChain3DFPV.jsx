@@ -2002,6 +2002,12 @@ function drawFacingHUD(ctx, W, H, fwdCell, fwdMx, fwdMy, myWallet, es, dist, obs
         : `◈ ${owner.slice(0,6)}…${owner.slice(-4)}`,
       size: 11, col: isMine ? C : color + 'dd',
     })
+    if (isMine && fwdCell?.isMarket) {
+      const inRangeOwned = dist == null || dist <= INTERACT_DIST
+      lines.push(inRangeOwned
+        ? { text: es ? '↵ · Ficha NFTJI · /resell' : '↵ · NFTJI card · /resell', size: 10, col: '#fb923ccc' }
+        : { text: es ? '· acercarse para interactuar' : '· move closer to interact', size: 9, col: '#fb923c55' })
+    }
   } else if (fwdCell?.isMarket) {
     lines.push({ text: es ? '○ Bloque NFTJI' : '○ NFTJI block', size: 11, col: '#5b8aa3' })
     lines.push({ text: es ? '  ataque · defensa PvP' : '  attack · defense PvP', size: 9, col: '#3a6a80' })
@@ -2043,11 +2049,10 @@ function drawFacingHUD(ctx, W, H, fwdCell, fwdMx, fwdMy, myWallet, es, dist, obs
         ? { text: es ? '↵ · Resolver cadena' : '↵ · Solve formula chain', size: 10, col: '#ffd700cc' }
         : { text: es ? '· acercarse para interactuar' : '· move closer to interact', size: 9, col: '#ffd70055' })
     } else if (fwdCell?.isMarket) {
-      // NFTJI block — buy via relaying
+      // NFTJI market block — Enter opens the penalty/info panel
       lines.push(inRange
-        ? { text: es ? `↵ /buy ${hex}` : `↵ /buy ${hex}`, size: 10, col: '#fb923ccc' }
-        : { text: es ? '· acercarse para comprar' : '· move closer to buy', size: 9, col: '#fb923c55' })
-      lines.push({ text: es ? '  vía Relaying (1 slot/día)' : '  via Relaying (1 slot/day)', size: 9, col: '#fb923c55' })
+        ? { text: es ? '↵ · Ficha NFTJI · /buy' : '↵ · NFTJI card · /buy', size: 10, col: '#fb923ccc' }
+        : { text: es ? '· acercarse para interactuar' : '· move closer to interact', size: 9, col: '#fb923c55' })
       if (isAnon) {
         lines.push({ text: es ? '⚠ Wallet requerida' : '⚠ Wallet required', size: 9, col: '#f59e0b99' })
       }
@@ -3524,7 +3529,7 @@ export default function MiningChain3DFPV({
   initRow, initCol, jumpToCell,
   onPositionChange, onFacingChange, onWantNavigate, onPositionRealtime,
   onPvpHit, pvpStolen,
-  onChainSolveOpen, externalPvpFlash, externalDodgeFlash = 0, externalKnockback, externalPush, onCollisionPush,
+  onChainSolveOpen, onNftjiPanelOpen, externalPvpFlash, externalDodgeFlash = 0, externalKnockback, externalPush, onCollisionPush,
   swingMap, myPoolCode,
   anonKillMsg,
   playerLevel, playerNftjiCount, walletNftjis, myNftjis,
@@ -3600,6 +3605,7 @@ export default function MiningChain3DFPV({
   const playerLevelRef       = useRef(playerLevel ?? 0)
   const globalMm3Ref         = useRef(0)
   const onChainSolveOpenRef  = useRef(onChainSolveOpen)
+  const onNftjiPanelOpenRef  = useRef(onNftjiPanelOpen)
   const swingMapRef          = useRef(swingMap || {})
   const walkStateRef         = useRef({})
   const myPoolCodeRef        = useRef(myPoolCode || null)
@@ -3719,6 +3725,7 @@ export default function MiningChain3DFPV({
   useEffect(()=>{ onPvpHitRef.current=onPvpHit },[onPvpHit])
   useEffect(()=>{ pvpStolenRef.current=pvpStolen||{} },[pvpStolen])
   useEffect(()=>{ onChainSolveOpenRef.current=onChainSolveOpen },[onChainSolveOpen])
+  useEffect(()=>{ onNftjiPanelOpenRef.current=onNftjiPanelOpen },[onNftjiPanelOpen])
   useEffect(()=>{ onCollisionPushRef.current=onCollisionPush },[onCollisionPush])
   useEffect(()=>{ swingMapRef.current=swingMap||{} },[swingMap])
   useEffect(()=>{ myPoolCodeRef.current=myPoolCode||null },[myPoolCode])
@@ -5359,6 +5366,8 @@ export default function MiningChain3DFPV({
             } else if(fData.cell?.isPortalNode){
               const url=fData.cell.navUrl
               if(url) onWantNavRef.current?.(url)
+            } else if(fData.cell?.isMarket){
+              onNftjiPanelOpenRef.current?.({ cell:fData.cell, mx:fData.mx, my:fData.my })
             } else {
               const url=actionUrlRef.current
               if(url) onWantNavRef.current?.(url)
@@ -5918,6 +5927,16 @@ export default function MiningChain3DFPV({
             playPickHit(audioCtxRef,'complete')
             const url=actionUrlRef.current
             if(url) setTimeout(()=>onWantNavRef.current?.(url),120)
+          } else if(mineTypeRef.current==='nftji'){
+            // NFTJI market block — 5 hits opens the penalty/info panel
+            mineProgressRef.current=Math.min(1,mineProgressRef.current+1/HITS_NEEDED)
+            playPickHit(audioCtxRef,'nftji')
+            if(mineProgressRef.current>=1){
+              playPickHit(audioCtxRef,'complete')
+              mineProgressRef.current=0
+              const {cell:nCell,mx:nMx,my:nMy}=facingDataRef.current
+              setTimeout(()=>onNftjiPanelOpenRef.current?.({ cell:nCell, mx:nMx, my:nMy }),80)
+            }
           } else {
             mineProgressRef.current=Math.min(1,mineProgressRef.current+1/HITS_NEEDED)
             playPickHit(audioCtxRef,mineTypeRef.current)
