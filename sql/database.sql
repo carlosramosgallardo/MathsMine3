@@ -103,7 +103,7 @@ CREATE TABLE math_problems (
 
 -- Leaderboard data (denormalized for performance)
 CREATE TABLE leaderboard_data (
-  wallet TEXT PRIMARY KEY,
+  wallet TEXT PRIMARY KEY CHECK (lower(btrim(wallet)) !~ '^anon($|[-:])'),
   total_eth NUMERIC DEFAULT 0,
   total_correct INTEGER DEFAULT 0,
   total_games INTEGER DEFAULT 0,
@@ -115,7 +115,7 @@ CREATE TABLE leaderboard_data (
 
 -- Persistent player progress by wallet
 CREATE TABLE player_progress (
-  wallet TEXT PRIMARY KEY,
+  wallet TEXT PRIMARY KEY CHECK (lower(btrim(wallet)) !~ '^anon($|[-:])'),
   level INTEGER NOT NULL DEFAULT 0 CHECK (level >= 0 AND level <= 100),
   block_chain_percent NUMERIC NOT NULL DEFAULT 0 CHECK (block_chain_percent >= 0 AND block_chain_percent <= 100),
   mm3_sold NUMERIC NOT NULL DEFAULT 0,
@@ -583,6 +583,7 @@ BEGIN
     ROW_NUMBER() OVER (ORDER BY COALESCE(SUM(CASE WHEN g.is_correct THEN g.mining_reward ELSE 0 END), 0) DESC) as rank,
     NOW() as updated_at
   FROM public.games g
+  WHERE lower(btrim(g.wallet)) !~ '^anon($|[-:])'
   GROUP BY g.wallet
   ORDER BY 2 DESC;
 END;

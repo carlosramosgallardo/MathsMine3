@@ -8,6 +8,7 @@ import {
 } from '@/lib/rateLimitConfig'
 import { formatWalletLabel } from '@/lib/wallet-format'
 import { MM3_BLOCK_CHAIN_REQUIREMENTS } from '@/lib/mm3-block-chain'
+import { isAnonymousWallet } from '@/lib/is-anonymous-wallet'
 
 function clampLevel(level = 0) {
   return Math.max(0, Math.min(100, Number(level) || 0))
@@ -98,7 +99,7 @@ export async function GET(req) {
   const minedBlockTotal = Math.max(1, MM3_BLOCK_CHAIN_REQUIREMENTS.length - (Number(marketBlocksResponse?.count) || 0))
 
   const progressByWallet = new Map(
-    (progressRows || []).map((entry) => [
+    (progressRows || []).filter((entry) => !isAnonymousWallet(entry.wallet)).map((entry) => [
       String(entry.wallet || '').toLowerCase(),
       {
         level:       clampLevel(entry.level),
@@ -113,6 +114,7 @@ export async function GET(req) {
   )
 
   const merged = (leaderboardRows || [])
+    .filter((entry) => !isAnonymousWallet(entry.wallet))
     .map((entry) => {
       const progress = progressByWallet.get(String(entry.wallet || '').toLowerCase()) || {
         level: 0, blockChainPercent: 0, mm3Sold: 0, cny: 0, eur: 0, usd: 0, walletEmojis: [],
