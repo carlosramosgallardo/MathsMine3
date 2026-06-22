@@ -1943,7 +1943,9 @@ function drawFacingHUD(ctx, W, H, fwdCell, fwdMx, fwdMy, myWallet, es, dist, obs
       { text: `${fwdCell.emoji || '⬡'}  ${fwdCell.titleEn || 'PORTAL'}`, size: 13, weight: 'bold', col },
       { text: fwdCell.navUrl || '', size: 10, col: '#5b8aa3' },
       inRange
-        ? { text: es ? '↵ · Ir a sección' : '↵ · Go to section', size: 10, col: col + 'cc' }
+        ? (mineProgress > 0
+            ? { text: es ? `⛏ ${Math.round(mineProgress * HITS_NEEDED)}/${HITS_NEEDED} golpes` : `⛏ ${Math.round(mineProgress * HITS_NEEDED)}/${HITS_NEEDED} hits`, size: 10, col: col + 'cc' }
+            : { text: es ? '⛏ 5 golpes · Ir a sección' : '⛏ 5 hits · Go to section', size: 10, col: col + 'cc' })
         : { text: es ? '· acércate para acceder' : '· move closer to access', size: 9, col: col + '55' },
     ]
     const _lineH = 16, _padX = 9, _padY = 8
@@ -5928,11 +5930,15 @@ export default function MiningChain3DFPV({
               onChainSolveOpenRef.current?.()
             }
           } else if(mineTypeRef.current==='portal'){
-            // Portal: 1-hit navigation
+            // Portal: 5-hit navigation (same as chain node)
+            mineProgressRef.current=Math.min(1,mineProgressRef.current+1/HITS_NEEDED)
             playPickHit(audioCtxRef,'nftji')
-            playPickHit(audioCtxRef,'complete')
-            const url=actionUrlRef.current
-            if(url) setTimeout(()=>onWantNavRef.current?.(url),120)
+            if(mineProgressRef.current>=1){
+              playPickHit(audioCtxRef,'complete')
+              mineProgressRef.current=0
+              const url=actionUrlRef.current
+              if(url) setTimeout(()=>onWantNavRef.current?.(url),120)
+            }
           } else if(mineTypeRef.current==='nftji'){
             // NFTJI market block — 5 hits opens the penalty/info panel
             mineProgressRef.current=Math.min(1,mineProgressRef.current+1/HITS_NEEDED)
