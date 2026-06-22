@@ -1221,7 +1221,7 @@ export default function RelayingTerminal({ accent = '#22d3ee' }) {
   }, [normalizedWallet]);
 
   useEffect(() => {
-    endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+    endRef.current?.scrollIntoView({ behavior: 'instant', block: 'end' });
   }, [messages]);
 
   const broadcastSystemMessage = useCallback(async (text, tone = 'accent') => {
@@ -2294,8 +2294,9 @@ export default function RelayingTerminal({ accent = '#22d3ee' }) {
             ))}
           </div>
 
-          <div className="mm3-relaying-chat-log rounded-sm border border-cyan-500/12 px-2.5 py-1.5 font-mono">
-            {visibleMessages.length > 0 ? visibleMessages.map((message) => {
+          <div className="mm3-relaying-chat-log rounded-sm border border-cyan-500/12 px-2.5 py-1.5 font-mono" style={{ display:'flex', flexDirection:'column-reverse' }}>
+            <div ref={endRef} />
+            {visibleMessages.length > 0 ? [...visibleMessages].reverse().map((message) => {
               const isSelf = message.kind === 'chat' && message.wallet === normalizedWallet;
               const lineMode = message.kind === 'system' ? 'system' : isSelf ? 'self' : 'other';
               const isSystem = message.kind === 'system';
@@ -2394,7 +2395,6 @@ export default function RelayingTerminal({ accent = '#22d3ee' }) {
                   : t('relaying.empty')}
               </div>
             )}
-            <div ref={endRef} />
           </div>
 
           {(normalizedWallet || chipMode) ? (
