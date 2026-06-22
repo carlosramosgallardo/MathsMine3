@@ -1582,15 +1582,16 @@ footer.bg-black\/97,
   box-shadow:0 0 7px rgba(250,204,21,.36);
 }
 .mm3-home-arena-lane.is-x { transform:rotate(90deg); }
-/* ── Sword + chain node sphere: combined scene ──────────────── */
-.mm3-home-sword-scene {
+/* ── Chain node 3D canvas ──────────────────────────────────── */
+.mm3-home-chain3d {
   position:absolute;
   z-index:5;
-  left:calc(58% - 63px);
-  top:10px;
-  width:180px;
-  height:178px;
+  right:2%;
+  top:-10px;
+  width:220px;
+  height:220px;
   transform:translateZ(2px);
+  pointer-events:none;
 }
 .mm3-home-chain-node {
   position:absolute;
