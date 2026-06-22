@@ -1266,8 +1266,8 @@ footer.bg-black\/97,
   position: relative;
   display:block;
   box-sizing:border-box;
-  width:44px;
-  height:52px;
+  width:50px;
+  height:50px;
   border:0;
   padding:0;
   overflow:visible;
@@ -1281,7 +1281,7 @@ footer.bg-black\/97,
   z-index:2;
   left:0;
   top:0;
-  width:40px;
+  width:46px;
   height:4px;
   clip-path:polygon(8% 0,100% 0,92% 100%,0 100%);
   background:linear-gradient(90deg,rgba(103,232,249,.68),rgba(8,47,64,.88));
@@ -1292,10 +1292,10 @@ footer.bg-black\/97,
   content:'';
   position:absolute;
   z-index:2;
-  left:40px;
+  left:46px;
   top:4px;
   width:4px;
-  height:40px;
+  height:46px;
   clip-path:polygon(0 0,100% 8%,100% 92%,0 100%);
   background:linear-gradient(#063047,#010810);
   box-shadow:1px 0 0 rgba(34,211,238,.14);
@@ -1306,8 +1306,8 @@ footer.bg-black\/97,
   left:0;
   top:4px;
   display:block;
-  width:40px;
-  height:40px;
+  width:46px;
+  height:46px;
   object-fit:cover;
   border:1px solid rgba(250,204,21,.52);
   background:#02060b;
@@ -1317,20 +1317,22 @@ footer.bg-black\/97,
 .mm3-home-marker {
   position:absolute;
   z-index:3;
-  left:14px;
-  top:44px;
+  left:16px;
+  top:38px;
   display:grid;
   place-items:center;
-  width:13px;
-  height:9px;
-  color:rgba(165,243,252,.92);
-  filter:drop-shadow(0 0 3px rgba(34,211,238,.55));
+  width:15px;
+  height:11px;
+  border:1px solid rgba(250,204,21,.62);
+  background:rgba(1,7,13,.88);
+  color:#facc15;
+  box-shadow:0 0 5px rgba(250,204,21,.24),inset 0 0 4px rgba(34,211,238,.14);
   user-select: none;
 }
 .mm3-home-marker svg {
   display:block;
-  width:13px;
-  height:11px;
+  width:11px;
+  height:9px;
   overflow:visible;
   fill:rgba(1,9,16,.88);
   stroke:currentColor;
@@ -1345,7 +1347,7 @@ footer.bg-black\/97,
 .mm3-home-portal-link:hover .mm3-home-badge img,
 .mm3-home-portal-link.is-active .mm3-home-badge img { border-color:rgba(250,204,21,.82); }
 .mm3-home-portal-link:hover .mm3-home-marker,
-.mm3-home-portal-link.is-active .mm3-home-marker { color:#facc15; filter:drop-shadow(0 0 4px rgba(250,204,21,.72)); }
+.mm3-home-portal-link.is-active .mm3-home-marker { color:#fff4a3; border-color:#facc15; box-shadow:0 0 7px rgba(250,204,21,.58),inset 0 0 4px rgba(34,211,238,.18); }
 
 /* ── Home page wrapper — fills full available height, splits it 50/50 ── */
 .mm3-home {
