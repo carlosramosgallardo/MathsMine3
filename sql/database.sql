@@ -328,6 +328,8 @@ CREATE TABLE mm3_macro_state (
   ticker_message TEXT NOT NULL DEFAULT '## WELCOME TO MATHSMINE3 ## SOLVE FAST, MINE MM3, FEED THE RETRO MAINFRAME ##',
   ticker_message_en TEXT NOT NULL DEFAULT '## WELCOME TO MATHSMINE3 ## SOLVE FAST, MINE MM3, FEED THE RETRO MAINFRAME ##',
   ticker_message_es TEXT NOT NULL DEFAULT '## BIENVENIDO A MATHSMINE3 ## RESUELVE RAPIDO, MINA MM3 Y ALIMENTA EL MAINFRAME RETRO ##',
+  chain_demine_active BOOLEAN NOT NULL DEFAULT FALSE,
+  chain_demine_hits_remaining INTEGER NOT NULL DEFAULT 100,
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
@@ -412,6 +414,15 @@ CREATE TABLE mm3_game_winner (
   id SMALLINT PRIMARY KEY DEFAULT 1 CHECK (id = 1),
   wallet TEXT NOT NULL,
   won_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Registry of wallets that have completed 100% of the chain (formula or block-by-block)
+-- Powers the @MM3 badge displayed everywhere wallet labels appear
+CREATE TABLE mm3_chain_solvers (
+  id BIGSERIAL PRIMARY KEY,
+  wallet TEXT NOT NULL UNIQUE,
+  solved_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  formula_solved BOOLEAN NOT NULL DEFAULT FALSE
 );
 
 CREATE TABLE mm3_mining_commands (
@@ -1536,6 +1547,7 @@ ALTER TABLE mm3_pool_dispute_wallets     ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mm3_squeezing_nftji            ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mm3_chain_solve_attempts     ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mm3_game_winner              ENABLE ROW LEVEL SECURITY;
+ALTER TABLE mm3_chain_solvers            ENABLE ROW LEVEL SECURITY;
 
 -- ==============================================
 -- PHASE 8: CREATE ROW LEVEL SECURITY POLICIES
@@ -1722,6 +1734,10 @@ CREATE POLICY "public_insert_chain_solve_attempts" ON mm3_chain_solve_attempts F
 -- mm3_game_winner policies
 DROP POLICY IF EXISTS "public_read_game_winner" ON mm3_game_winner;
 CREATE POLICY "public_read_game_winner" ON mm3_game_winner FOR SELECT TO public USING (true);
+
+-- mm3_chain_solvers policies
+DROP POLICY IF EXISTS "public_read_chain_solvers" ON mm3_chain_solvers;
+CREATE POLICY "public_read_chain_solvers" ON mm3_chain_solvers FOR SELECT TO public USING (true);
 
 -- mm3_relay_exec_log policies
 DROP POLICY IF EXISTS "public_read_relay_exec_log" ON mm3_relay_exec_log;
@@ -2027,6 +2043,7 @@ GRANT SELECT ON token_value_timeseries   TO anon;
 
 GRANT SELECT, INSERT           ON mm3_chain_solve_attempts   TO anon;
 GRANT SELECT                   ON mm3_game_winner             TO anon;
+GRANT SELECT                   ON mm3_chain_solvers           TO anon;
 
 -- Sequences
 GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO anon;
