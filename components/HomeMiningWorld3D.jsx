@@ -98,7 +98,7 @@ function addMiningBot(THREE, scene) {
   tool.add(plug)
   avatar.add(tool)
 
-  avatar.position.set(-1.35, .12, .15)
+  avatar.position.set(-2.25, .12, .20)
   avatar.rotation.y = Math.PI
   avatar.scale.setScalar(3.44)
   scene.add(avatar)
@@ -159,7 +159,7 @@ function makeNftjiSprite(THREE) {
 
 function addNftjiMiningBlock(THREE, scene) {
   const group = new THREE.Group()
-  group.position.set(2.20, .12, .12)
+  group.position.set(3.20, .12, .08)
 
   const cubeSide = 1.25
   const pedestalHeight = .24
@@ -226,7 +226,7 @@ function addChainNodeAndSword(THREE, scene) {
   group.position.set(.55, .12, 0)
 
   const foundation = new THREE.Mesh(
-    new THREE.CylinderGeometry(3.10, 3.10, .07, 96),
+    new THREE.CylinderGeometry(4.30, 4.30, .07, 96),
     new THREE.MeshStandardMaterial({ color: '#09061a', roughness: .64, metalness: .56, emissive: '#160b35', emissiveIntensity: .58 }),
   )
   foundation.position.y = .035
