@@ -276,20 +276,15 @@ function addChainNodeAndSword(THREE, scene) {
 
   const foundation = new THREE.Mesh(
     new THREE.CylinderGeometry(4.30, 4.30, .07, 96),
-    new THREE.MeshStandardMaterial({ color: '#010c1a', roughness: .85, metalness: .28, emissive: '#020f22', emissiveIntensity: .50 }),
+    new THREE.MeshStandardMaterial({ color: '#100c2a', roughness: .58, metalness: .58, emissive: '#29105a', emissiveIntensity: .78 }),
   )
   foundation.position.y = .035
   foundation.receiveShadow = true
   group.add(foundation)
 
-  // Thick cyan curved track paths lying flat on the floor
-  for (const [radius, tube, color, opacity] of [
-    [.85, .045, '#22d3ee', .80],
-    [1.65, .070, '#22d3ee', .72],
-    [2.55, .055, '#22d3ee', .62],
-  ]) {
+  for (const [radius, color, opacity] of [[.72, '#facc15', .82], [1.25, '#22d3ee', .70], [1.85, '#d946ef', .66]]) {
     const ring = new THREE.Mesh(
-      new THREE.TorusGeometry(radius, tube, 10, 96),
+      new THREE.TorusGeometry(radius, .026, 10, 96),
       new THREE.MeshBasicMaterial({ color, transparent: true, opacity, depthWrite: false }),
     )
     ring.rotation.x = Math.PI / 2
@@ -297,17 +292,7 @@ function addChainNodeAndSword(THREE, scene) {
     group.add(ring)
   }
 
-  // Magenta outer border ring
-  const borderRing = new THREE.Mesh(
-    new THREE.TorusGeometry(3.80, .055, 10, 96),
-    new THREE.MeshBasicMaterial({ color: '#d946ef', transparent: true, opacity: .85, depthWrite: false }),
-  )
-  borderRing.rotation.x = Math.PI / 2
-  borderRing.position.y = .09
-  group.add(borderRing)
-
-  // Gold inner crosshair lanes
-  const laneMaterial = new THREE.MeshBasicMaterial({ color: '#facc15', transparent: true, opacity: .22, depthWrite: false })
+  const laneMaterial = new THREE.MeshBasicMaterial({ color: '#facc15', transparent: true, opacity: .25, depthWrite: false })
   const laneX = new THREE.Mesh(new THREE.PlaneGeometry(3.5, .055), laneMaterial)
   laneX.rotation.x = -Math.PI / 2
   laneX.position.y = .10
@@ -315,22 +300,6 @@ function addChainNodeAndSword(THREE, scene) {
   laneZ.rotation.x = -Math.PI / 2
   laneZ.position.y = .105
   group.add(laneX, laneZ)
-
-  // Yellow block walls around the perimeter
-  const wallMat = new THREE.MeshStandardMaterial({ color: '#eab308', roughness: .50, metalness: .55, emissive: '#78350f', emissiveIntensity: .35 })
-  const wallHeights = [.58, .34, .72, .42, .58, .38, .66, .44, .52, .36]
-  const wallRadii   = [3.58, 3.70, 3.55, 3.68, 3.52, 3.72, 3.56, 3.66, 3.58, 3.74]
-  for (let i = 0; i < 10; i++) {
-    const angle = (i / 10) * Math.PI * 2 + 0.28
-    const r = wallRadii[i]
-    const h = wallHeights[i]
-    const wx = Math.cos(angle) * r
-    const wz = Math.sin(angle) * r
-    const wall = new THREE.Mesh(new THREE.BoxGeometry(.44, h, .44), wallMat)
-    wall.position.set(wx, .07 + h / 2, wz)
-    wall.rotation.y = angle + Math.PI / 4
-    group.add(wall)
-  }
 
   // Same non-opaque spherical halo that surrounds the arena sword in Mining.
   const haloMaterial = new THREE.MeshBasicMaterial({ color: '#facc15' })
@@ -470,26 +439,23 @@ export default function HomeMiningWorld3D() {
       renderer.shadowMap.type = THREE.PCFSoftShadowMap
 
       scene = new THREE.Scene()
-      scene.fog = new THREE.FogExp2('#020c1c', .036)
-      const camera = new THREE.PerspectiveCamera(36, 2, .1, 50)
-      camera.position.set(7.0, 5.2, 11.2)
-      camera.lookAt(-.20, 0.80, 0)
+      scene.fog = new THREE.FogExp2('#041126', .038)
+      const camera = new THREE.PerspectiveCamera(33, 2, .1, 50)
+      camera.position.set(8.20, 6.05, 12.30)
+      camera.lookAt(-.15, 1.72, 0)
 
-      scene.add(new THREE.HemisphereLight('#c7e9ff', '#0a1628', 1.30))
-      const key = new THREE.DirectionalLight('#fffae8', 2.50)
+      scene.add(new THREE.HemisphereLight('#c7e9ff', '#160923', 1.48))
+      const key = new THREE.DirectionalLight('#fff8dc', 2.70)
       key.position.set(-3, 8, 6)
       key.castShadow = true
       key.shadow.mapSize.set(1024, 1024)
       scene.add(key)
-      const cyanFill = new THREE.PointLight('#22d3ee', 6.0, 14, 2)
-      cyanFill.position.set(-2.0, 1.5, 2)
+      const cyanFill = new THREE.PointLight('#38e8ff', 5.4, 13, 2)
+      cyanFill.position.set(-3.3, 2.5, 3)
       scene.add(cyanFill)
-      const goldFill = new THREE.PointLight('#fbbf24', 7.5, 12, 2)
+      const goldFill = new THREE.PointLight('#ffe34d', 7.0, 11, 2)
       goldFill.position.set(.55, 2.3, 2.1)
       scene.add(goldFill)
-      const magentaFill = new THREE.PointLight('#d946ef', 3.0, 10, 2)
-      magentaFill.position.set(3.5, 0.5, -1.5)
-      scene.add(magentaFill)
 
       const bot = addMiningBot(THREE, scene)
       const chain = addChainNodeAndSword(THREE, scene)

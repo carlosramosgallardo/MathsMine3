@@ -1033,23 +1033,23 @@ footer.bg-black\/97,
   content: '';
   position: absolute;
   left: -2px;
-  bottom: 100%;
-  width: calc(100% + 2px);
+  bottom: calc(100% + 2px);
+  width: calc(100% + 13px);
   height: 10px;
   background: linear-gradient(90deg, rgba(167,243,252,.52), rgba(34,211,238,.28));
-  clip-path: polygon(3% 0, 100% 0, 97% 100%, 0 100%);
+  clip-path: polygon(0 100%, 9px 0, 100% 0, calc(100% - 9px) 100%);
   border-top: 1px solid rgba(167,243,252,.80);
 }
 /* right side face */
 .mm3-splash-cta::after {
   content: '';
   position: absolute;
-  left: 100%;
-  top: -10px;
+  left: calc(100% + 2px);
+  top: -12px;
   width: 9px;
-  height: calc(100% + 12px);
+  height: calc(100% + 14px);
   background: linear-gradient(180deg, rgba(0,30,46,.96), rgba(0,14,22,.98));
-  clip-path: polygon(0 4%, 100% 0, 100% 97%, 0 100%);
+  clip-path: polygon(0 23%, 100% 0, 100% 77%, 0 100%);
 }
 .mm3-splash-cta:hover {
   transform: translate(-2px,-2px);
@@ -1852,21 +1852,21 @@ footer.bg-black\/97,
   content:'';
   position:absolute;
   left:-1px;
-  bottom:100%;
-  width:40px;
+  bottom:calc(100% + 1px);
+  width:48px;
   height:10px;
-  clip-path:polygon(20% 0,100% 0,97% 100%,0 100%);
+  clip-path:polygon(0 100%,17% 0,100% 0,83% 100%);
   background:color-mix(in srgb,var(--ac,#22d3ee) 34%,#172838);
   border-top:1px solid color-mix(in srgb,var(--ac,#22d3ee) 82%,white);
 }
 .mm3-portal-block::after {
   content:'';
   position:absolute;
-  left:100%;
-  top:-10px;
+  left:calc(100% + 1px);
+  top:-11px;
   width:8px;
-  height:calc(100% + 11px);
-  clip-path:polygon(0 23%,100% 0,100% 97%,0 100%);
+  height:44px;
+  clip-path:polygon(0 23%,100% 0,100% 77%,0 100%);
   background:color-mix(in srgb,var(--ac,#22d3ee) 12%,#01040a);
 }
 .mm3-home .mm3-portal-card:hover .mm3-portal-block {
@@ -1897,8 +1897,8 @@ footer.bg-black\/97,
   .mm3-home-bot3d { width:78px; height:78px; }
   .mm3-home .mm3-portal-card { min-height:55px; }
   .mm3-portal-block { width:25px; height:22px; margin:-.68rem 0 .08rem; box-shadow:2px 3px 0 color-mix(in srgb,var(--ac,#22d3ee) 12%,#010205); }
-  .mm3-portal-block::before { width:27px; height:6px; }
-  .mm3-portal-block::after { top:-6px; width:5px; height:calc(100% + 7px); }
+  .mm3-portal-block::before { width:32px; height:6px; }
+  .mm3-portal-block::after { top:-7px; width:5px; height:30px; }
   .mm3-home .mm3-portal-icon { font-size:.64rem; }
 }
 @media (max-height:500px) and (orientation:landscape) {
@@ -1909,8 +1909,8 @@ footer.bg-black\/97,
   .mm3-home-arena-bot { bottom:4px; transform:scale(.48); }
   .mm3-home .mm3-portal-card { min-height:42px; }
   .mm3-portal-block { width:24px; height:18px; margin:-.58rem 0 0; }
-  .mm3-portal-block::before { width:26px; height:5px; }
-  .mm3-portal-block::after { top:-5px; width:5px; height:calc(100% + 6px); }
+  .mm3-portal-block::before { width:31px; height:5px; }
+  .mm3-portal-block::after { top:-6px; width:5px; height:25px; }
 }
 @media (prefers-reduced-motion:reduce) {
   .mm3-home-arena { filter:none; }
