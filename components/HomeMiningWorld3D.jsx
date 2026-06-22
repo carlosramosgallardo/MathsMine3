@@ -246,10 +246,6 @@ function makeChainTargetSprite(THREE) {
   context.beginPath()
   context.arc(64, 64, 48, 0, Math.PI * 2)
   context.stroke()
-  context.fillStyle = '#050505'
-  context.beginPath()
-  context.arc(64, 64, 7, 0, Math.PI * 2)
-  context.fill()
   context.fillStyle = '#facc15'
   context.beginPath()
   context.arc(64, 64, 2.5, 0, Math.PI * 2)
@@ -276,7 +272,7 @@ function addChainNodeAndSword(THREE, scene) {
 
   const foundation = new THREE.Mesh(
     new THREE.CylinderGeometry(4.30, 4.30, .07, 96),
-    new THREE.MeshStandardMaterial({ color: '#100c2a', roughness: .58, metalness: .58, emissive: '#29105a', emissiveIntensity: .78 }),
+    new THREE.MeshStandardMaterial({ color: '#1a0d40', roughness: .62, metalness: .50, emissive: '#3d1280', emissiveIntensity: 1.40 }),
   )
   foundation.position.y = .035
   foundation.receiveShadow = true
