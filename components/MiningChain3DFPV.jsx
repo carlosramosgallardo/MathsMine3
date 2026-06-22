@@ -2995,7 +2995,7 @@ function makeEmojiSprite(emoji,color) {
 }
 
 function addInteractiveBeaconEmoji(world,row,col,cell,height) {
-  if(!cell.isMarket||!cell.emoji) return
+  if((!cell.isMarket&&!cell.isPortalNode)||!cell.emoji) return
   const color=cell.isChainNode?'#facc15':cell.isPortalNode?(cell.color||'#22d3ee'):cell.isMarket?(cell.owner?'#4ade80':'#fb923c'):'#22d3ee'
   const beacon=new THREE.Group()
   const emojiSprite=makeEmojiSprite(cell.emoji,color)
