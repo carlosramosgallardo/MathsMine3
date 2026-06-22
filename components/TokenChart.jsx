@@ -901,19 +901,26 @@ export default function TokenChart() {
 
       {/* ── Header ── */}
       <div className="flex flex-wrap items-center justify-between gap-y-1.5 mb-2 px-0.5">
-        <div className="min-w-0">
-          {stats ? (
-            <div className={`${isMobile ? 'text-[0.75rem]' : 'text-[0.85rem]'} font-bold flex items-center gap-1.5 flex-wrap`}>
-              <span style={{ color }}>
-                {stats.isUp ? '▲' : '▼'} {Math.abs(stats.change).toFixed(isMobile ? 6 : 8)}
-              </span>
-              <span className={`${isMobile ? 'px-1 py-px text-[0.78rem]' : 'px-1.5 py-px text-[0.88rem]'} font-black`}
-                style={{ background: `${color}22`, color }}>
-                {stats.isUp ? '+' : ''}{stats.pct.toFixed(2)}%
-              </span>
-              <span className={`text-gray-600 ${isMobile ? 'text-[0.72rem]' : 'text-[0.85rem]'}`}>{range.toUpperCase()}</span>
-            </div>
-          ) : null}
+        <div className="min-w-0 flex items-center gap-2">
+          <img src="/mm3-token.png" alt="MM3"
+            style={{ width: isMobile ? 22 : 28, height: isMobile ? 22 : 28, borderRadius: '50%', boxShadow: `0 0 8px ${C}66`, flexShrink: 0 }}
+          />
+          <div>
+            <div className={`font-black tracking-widest uppercase ${isMobile ? 'text-[0.68rem]' : 'text-[0.75rem]'}`}
+              style={{ color: C, lineHeight: 1.1 }}>MM3</div>
+            {stats ? (
+              <div className={`${isMobile ? 'text-[0.75rem]' : 'text-[0.85rem]'} font-bold flex items-center gap-1.5 flex-wrap`}>
+                <span style={{ color }}>
+                  {stats.isUp ? '▲' : '▼'} {Math.abs(stats.change).toFixed(isMobile ? 6 : 8)}
+                </span>
+                <span className={`${isMobile ? 'px-1 py-px text-[0.78rem]' : 'px-1.5 py-px text-[0.88rem]'} font-black`}
+                  style={{ background: `${color}22`, color }}>
+                  {stats.isUp ? '+' : ''}{stats.pct.toFixed(2)}%
+                </span>
+                <span className={`text-gray-600 ${isMobile ? 'text-[0.72rem]' : 'text-[0.85rem]'}`}>{range.toUpperCase()}</span>
+              </div>
+            ) : null}
+          </div>
         </div>
 
         {/* Range buttons */}
