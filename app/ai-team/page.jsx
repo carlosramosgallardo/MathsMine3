@@ -113,21 +113,6 @@ export default function AITeamPage() {
             })}
           </div>
 
-          <div className="ai-team-feature-block">
-            <div className="ai-team-feature-core" aria-hidden="true">F</div>
-            <div className="ai-team-feature-copy">
-              <h2>{t('aiTeam.freakingAI')}</h2>
-              <p>{t('aiTeam.freakingAIDesc')}</p>
-            </div>
-            <a
-              href="https://www.youtube.com/@FreakingAI"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="ai-team-feature-cta"
-            >
-              {t('aiTeam.subscribe')}
-            </a>
-          </div>
 
           <div className="ai-team-tools-block">
             <p className="ai-team-tools-label">{t('aiTeam.builtWith')}</p>
