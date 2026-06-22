@@ -1999,6 +1999,110 @@ footer.bg-black\/97,
 .ai-team-tool-block strong { display:block; font:900 .65rem/1 monospace; }
 .ai-team-tool-block span { display:block; margin-top:.25rem; color:rgba(148,163,184,.48); font:.52rem/1 monospace; letter-spacing:.12em; text-transform:uppercase; }
 
+/* Desktop zoom follows Home's fit-to-viewport rhythm. */
+@media (min-width:761px) {
+  .ai-team-hero {
+    flex:0 1 clamp(190px,42%,260px);
+    min-height:190px;
+  }
+  .ai-team-hero-inner {
+    height:100%;
+    min-height:0;
+    padding:clamp(.65rem,2dvh,1.5rem) 0;
+  }
+  .ai-team-forge { height:clamp(160px,26dvh,205px); }
+  .ai-team-content {
+    overflow:hidden;
+    padding:clamp(.55rem,1.65dvh,1rem) clamp(.8rem,3vw,2rem);
+  }
+  .ai-team-content-inner {
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+    height:100%;
+  }
+  .ai-team-pool-grid {
+    gap:clamp(.65rem,1.5dvh,1.35rem);
+    margin-bottom:clamp(.65rem,1.6dvh,1.5rem);
+  }
+  .ai-team-pool-block { padding:clamp(.55rem,1.35dvh,1rem); }
+  .ai-team-pool-head {
+    min-height:clamp(36px,5.3dvh,48px);
+    padding-bottom:clamp(.38rem,1dvh,.75rem);
+  }
+  .ai-team-bot-grid {
+    gap:clamp(.4rem,.9dvh,.75rem);
+    margin-top:clamp(.48rem,1.2dvh,1rem);
+  }
+  .ai-team-bot-block { padding:clamp(.42rem,1dvh,.75rem); }
+  .ai-team-tag-grid {
+    gap:clamp(.2rem,.45dvh,.3rem);
+    margin-top:clamp(.38rem,.85dvh,.72rem);
+  }
+  .ai-team-tag-grid span { padding:clamp(.16rem,.38dvh,.25rem) .3rem; }
+  .ai-team-feature-block {
+    gap:clamp(.65rem,1.1dvh,1rem);
+    margin-bottom:clamp(.62rem,1.5dvh,1.35rem);
+    padding:clamp(.5rem,1.15dvh,1rem) clamp(.7rem,1.3vw,1.15rem);
+  }
+  .ai-team-tools-block { padding:clamp(.5rem,1.15dvh,1rem) clamp(.7rem,1.3vw,1.15rem); }
+  .ai-team-tools-label { margin-bottom:clamp(.38rem,.9dvh,.8rem); }
+  .ai-team-tool-grid { gap:clamp(.4rem,.8dvh,.65rem); }
+  .ai-team-tool-block { padding:clamp(.4rem,.8dvh,.65rem); }
+}
+
+@media (min-width:761px) and (max-height:650px) {
+  .ai-team-hero { flex-basis:140px; min-height:140px; }
+  .ai-team-hero-inner { padding:.45rem 0; }
+  .ai-team-hero-copy h1 { font-size:clamp(2rem,5vw,3.25rem); }
+  .ai-team-hero-copy p {
+    display:-webkit-box;
+    overflow:hidden;
+    -webkit-box-orient:vertical;
+    -webkit-line-clamp:2;
+  }
+  .ai-team-kicker { margin-bottom:.4rem; }
+  .ai-team-live-strip { margin-top:.55rem; padding:.32rem .5rem; }
+  .ai-team-forge { height:128px; transform:scale(.76); }
+  .ai-team-content { padding:.45rem clamp(.7rem,2.4vw,1.5rem); }
+  .ai-team-pool-grid { gap:.55rem; margin-bottom:.55rem; }
+  .ai-team-pool-block { padding:.45rem; }
+  .ai-team-pool-head { min-height:32px; padding-bottom:.3rem; }
+  .ai-team-pool-cube { width:31px; height:28px; }
+  .ai-team-bot-grid { gap:.35rem; margin-top:.38rem; }
+  .ai-team-bot-block { padding:.34rem .42rem; }
+  .ai-team-tag-grid { margin-top:.3rem; gap:.18rem; }
+  .ai-team-tag-grid span { padding:.12rem .24rem; }
+  .ai-team-feature-block { gap:.5rem; margin-bottom:.5rem; padding:.4rem .65rem; }
+  .ai-team-feature-core { width:38px; height:34px; font-size:1rem; }
+  .ai-team-feature-cta { padding:.4rem .65rem; }
+  .ai-team-tools-block { padding:.4rem .65rem; }
+  .ai-team-tools-label { margin-bottom:.3rem; }
+  .ai-team-tool-grid { gap:.32rem; }
+  .ai-team-tool-block { gap:.45rem; padding:.32rem .42rem; }
+  .ai-team-tool-icon { width:27px; height:25px; }
+  .ai-team-tool-block span { display:none; }
+}
+
+@media (min-width:761px) and (min-height:651px) and (max-height:750px) {
+  .ai-team-hero { flex-basis:165px; min-height:165px; }
+  .ai-team-forge { height:151px; }
+  .ai-team-hero-copy p {
+    display:-webkit-box;
+    overflow:hidden;
+    -webkit-box-orient:vertical;
+    -webkit-line-clamp:2;
+  }
+}
+
+/* At high desktop zoom, let the shell own one predictable page scroll. */
+@media (min-width:761px) and (max-height:650px) {
+  .ai-team-world { height:auto; min-height:100%; overflow:visible; }
+  .ai-team-hero { flex:none; height:140px; }
+  .ai-team-content { flex:none; overflow:visible; }
+  .ai-team-content-inner { height:auto; }
+}
+
 @media (max-width:760px) {
   .ai-team-hero-inner { grid-template-columns:1fr; gap:.75rem; padding:1.1rem 0; }
   .ai-team-hero-copy { text-align:center; }
