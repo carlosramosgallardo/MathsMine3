@@ -136,6 +136,15 @@ function addChainNodeAndSword(THREE, scene) {
   laneZ.position.y = .105
   group.add(laneX, laneZ)
 
+  // Same non-opaque spherical halo that surrounds the arena sword in Mining.
+  const haloMaterial = new THREE.MeshBasicMaterial({ color: '#facc15' })
+  const halo = new THREE.Mesh(new THREE.TorusGeometry(1.25, .055, 10, 80), haloMaterial)
+  halo.rotation.x = Math.PI / 2
+  halo.position.y = 2.35
+  const haloCross = halo.clone()
+  haloCross.rotation.set(0, 0, Math.PI / 2)
+  group.add(halo, haloCross)
+
   const sphere = new THREE.Mesh(
     new THREE.SphereGeometry(.52, 32, 24),
     new THREE.MeshStandardMaterial({ color: '#facc15', roughness: .38, metalness: .58, emissive: '#a07000', emissiveIntensity: .70 }),
@@ -254,8 +263,8 @@ export default function HomeMiningWorld3D() {
       scene = new THREE.Scene()
       scene.fog = new THREE.FogExp2('#020916', .055)
       const camera = new THREE.PerspectiveCamera(33, 2, .1, 50)
-      camera.position.set(5.7, 4.45, 8.4)
-      camera.lookAt(-.15, 1.68, 0)
+      camera.position.set(6.55, 5.05, 9.8)
+      camera.lookAt(-.15, 1.72, 0)
 
       scene.add(new THREE.HemisphereLight('#9fd7ff', '#090312', 1.12))
       const key = new THREE.DirectionalLight('#fff8dc', 2.35)
