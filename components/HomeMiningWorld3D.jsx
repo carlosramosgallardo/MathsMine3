@@ -263,7 +263,7 @@ export default function HomeMiningWorld3D() {
       scene = new THREE.Scene()
       scene.fog = new THREE.FogExp2('#020916', .055)
       const camera = new THREE.PerspectiveCamera(33, 2, .1, 50)
-      camera.position.set(6.55, 5.05, 9.8)
+      camera.position.set(7.50, 5.55, 11.25)
       camera.lookAt(-.15, 1.72, 0)
 
       scene.add(new THREE.HemisphereLight('#9fd7ff', '#090312', 1.12))
