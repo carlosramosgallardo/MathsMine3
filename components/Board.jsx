@@ -40,6 +40,20 @@ const REVIVE_COST_USD = REVIVE_COST_EUR * (CNY_TO_USD / CNY_TO_EUR);
 const REVIVE_COST_CNY = REVIVE_COST_EUR / CNY_TO_EUR;
 const PROBLEM_CACHE_VERSION = 3;
 const DAILY_MINE_BASE = 100;
+const MINING_NFTJI_EMOJI_CACHE = new Map();
+
+async function getMiningNftjiEmoji(blockKey) {
+  if (!blockKey) return null;
+  if (MINING_NFTJI_EMOJI_CACHE.has(blockKey)) return MINING_NFTJI_EMOJI_CACHE.get(blockKey);
+  const { data } = await supabase
+    .from('mm3_mining_blocks')
+    .select('emoji')
+    .eq('block_key', blockKey)
+    .maybeSingle();
+  const emoji = data?.emoji || '⬡';
+  MINING_NFTJI_EMOJI_CACHE.set(blockKey, emoji);
+  return emoji;
+}
 
 const PROBLEM_FAMILY_LABELS = {
   en: {
@@ -733,6 +747,7 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
     lucky500Claimed: false,
     lucky1000Claimed: false,
     walletEmojis: [],
+    miningNftji: null,
   });
   const [postFailOffer, setPostFailOffer] = useState(null);
   const [postSuccessOffer, setPostSuccessOffer] = useState(null);
@@ -877,6 +892,7 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
         lucky500Claimed: false,
         lucky1000Claimed: false,
         walletEmojis: [],
+        miningNftji: null,
       });
       return;
     }
@@ -884,9 +900,12 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
     try {
       const { data: progress } = await supabase
         .from('player_progress')
-        .select('eur_earned, usd_earned, cny_earned, life_used, lucky_50_claimed, lucky_100_claimed, lucky_500_claimed, lucky_1000_claimed, lucky_50_level, lucky_100_level, lucky_500_level, lucky_1000_level, wallet_emojis')
+        .select('eur_earned, usd_earned, cny_earned, life_used, lucky_50_claimed, lucky_100_claimed, lucky_500_claimed, lucky_1000_claimed, lucky_50_level, lucky_100_level, lucky_500_level, lucky_1000_level, wallet_emojis, mining_nftji_key, mining_nftji_levels')
         .eq('wallet', wallet)
         .maybeSingle();
+
+      const miningNftjiKey = progress?.mining_nftji_key || null;
+      const miningNftjiEmoji = await getMiningNftjiEmoji(miningNftjiKey);
 
       setWalletMeta({
         eur: Number(progress?.eur_earned) || 0,
@@ -902,6 +921,11 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
         lucky500Level: Number(progress?.lucky_500_level ?? -1),
         lucky1000Level: Number(progress?.lucky_1000_level ?? -1),
         walletEmojis: Array.isArray(progress?.wallet_emojis) ? progress.wallet_emojis : [],
+        miningNftji: miningNftjiKey ? {
+          key: miningNftjiKey,
+          emoji: miningNftjiEmoji,
+          level: Math.max(0, Number(progress?.mining_nftji_levels?.[miningNftjiKey] ?? 0)),
+        } : null,
       });
     } catch (error) {
       console.error('wallet meta load:', error);
@@ -1941,7 +1965,8 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
     }
 
     setLevel(clampLevel(progressLevel));
-    setWalletMeta({
+    setWalletMeta((previous) => ({
+      ...previous,
       eur: nextFunds.eur_earned,
       usd: nextFunds.usd_earned,
       cny: nextFunds.cny_earned,
@@ -1951,7 +1976,7 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
       lucky500Claimed: emoji === WALLET_DECORATIONS.lucky500 ? true : Boolean(progressRow?.lucky_500_claimed),
       lucky1000Claimed: emoji === WALLET_DECORATIONS.lucky1000 ? true : Boolean(progressRow?.lucky_1000_claimed),
       walletEmojis: nextDecorations,
-    });
+    }));
 
     if (typeof window !== 'undefined') {
       localStorage.setItem('lb_dirty_at', String(Date.now()));
@@ -2115,7 +2140,8 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
       }
     }
 
-    setWalletMeta({
+    setWalletMeta((previous) => ({
+      ...previous,
       eur: progressPayload.eur_earned,
       usd: progressPayload.usd_earned,
       cny: progressPayload.cny_earned,
@@ -2129,7 +2155,7 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
       lucky500Level: progressPayload.lucky_500_level,
       lucky1000Level: progressPayload.lucky_1000_level,
       walletEmojis: nextDecorations,
-    });
+    }));
 
     if (typeof window !== 'undefined') {
       localStorage.setItem('lb_dirty_at', String(Date.now()));
@@ -2509,6 +2535,7 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
   const dailyMineLeft = Math.max(0, dailyMineTotal - dailyMineUsed);
   const noSlotsLeft = !!account && dailyMineLeft <= 0;
   const problemFamilyLabel = getProblemFamilyLabel(problem, language);
+  const activeMiningNftji = walletMeta.miningNftji;
   const stats = [
     { label: t('tradeBoard.levelRank').replace(/ *\(.*\)/, ''), value: `${level}` },
     { label: t('ranking.mm3Earned'),  value: formatCompactNum(totalMined) },
@@ -2578,6 +2605,23 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
                 >
                   #{dailyMineLeft.toString(16).toUpperCase()}/{execsCount > 0 ? `100+#${execsCount.toString(16).toUpperCase()}` : '#64'}
                 </div>
+              </div>
+            )}
+            {account && (
+              <div
+                className="flex h-[58px] w-11 flex-none flex-col items-center justify-center rounded-md border"
+                style={{
+                  background: activeMiningNftji ? tier.bg : 'rgba(2,6,23,0.4)',
+                  borderColor: activeMiningNftji ? 'rgba(250,204,21,0.6)' : 'rgba(250,204,21,0.22)',
+                  color: activeMiningNftji ? '#fef08a' : 'rgba(100,116,139,0.35)',
+                  boxShadow: activeMiningNftji ? '0 0 12px rgba(250,204,21,0.25)' : 'none',
+                }}
+                title={activeMiningNftji
+                  ? `Mining NFTJI — ${activeMiningNftji.emoji} | ${activeMiningNftji.key} | Lv.${activeMiningNftji.level}`
+                  : 'Mining NFTJI — none'}
+              >
+                <span className="text-[1.05rem] leading-none">{activeMiningNftji?.emoji || ''}</span>
+                {activeMiningNftji && <span className="mt-0.5 text-[0.52rem] font-black leading-none text-yellow-200">Lv{activeMiningNftji.level}</span>}
               </div>
             )}
           </div>

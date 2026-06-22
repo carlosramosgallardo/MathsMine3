@@ -7,7 +7,7 @@ import { useI18n } from '@/lib/i18n-context';
 import { useCurrency } from '@/lib/currency-context';
 import { normalizeMacroState } from '@/lib/mm3-macro';
 import { getRankTier } from '@/lib/ranks';
-import { TRADE_SLOT_ORDER, SQUEEZE_SLOT_ORDER, WALLET_DECORATIONS, getEmojiTitle, computeRelayLevel, normalizeWalletDecorations } from '@/lib/wallet-decorations';
+import { TRADE_SLOT_ORDER, SQUEEZE_SLOT_ORDER, WALLET_DECORATIONS, getEmojiTitle, computeRelayLevel, getWalletTradeMultiplier, normalizeWalletDecorations } from '@/lib/wallet-decorations';
 import { useDice } from '@/lib/dice-context';
 import { getDiceState } from '@/lib/dice';
 import { useSound } from '@/lib/sound-context';
@@ -110,32 +110,36 @@ function getTxLogStorageKey(account) {
   return `mm3-trade-txlog:${String(account || '').toLowerCase()}`;
 }
 
-function getTradeSlotTitle(slot, level, language) {
+function getTradeSlotImpact(slot, nftjiLevel = 0) {
+  if (slot.key === 'revive') return { label: 'FEE 0%', multiplier: slot.multiplier };
+  const safeNftjiLevel = Math.max(0, Number(nftjiLevel) || 0);
+  const multiplier = slot.multiplier * (1 + safeNftjiLevel * 0.05);
+  const impactPct = (multiplier - 1) * 100;
+  const precision = Math.abs(impactPct) < 10 ? 1 : 0;
+  return { label: `OUT +${impactPct.toFixed(precision)}%`, multiplier };
+}
+
+function getTradeSlotTitle(slot, level, nftjiLevel, language) {
   const safeLevel = Math.max(0, Math.min(100, Number(level) || 0));
   const levelMultiplier = 1 + safeLevel * 0.001;
   const levelPct = (safeLevel * 0.1).toFixed(1);
-  const slotPct = ((slot.multiplier - 1) * 100).toFixed(1);
-  const slotSign = slot.multiplier >= 1 ? '+' : '';
+  const impact = getTradeSlotImpact(slot, nftjiLevel);
 
   if (language === 'es') {
-    return `${slot.emoji} recibido x${slot.multiplier} | nftji ${slotSign}${slotPct}% | nivel x${levelMultiplier.toFixed(3)} (+${levelPct}% actual)`;
+    return `${slot.emoji} salida x${impact.multiplier.toFixed(3)} | nivel NFTJI ${Math.max(0, Number(nftjiLevel) || 0)} | nivel wallet x${levelMultiplier.toFixed(3)} (+${levelPct}%)${slot.key === 'revive' ? ' | comisión 0%' : ''}`;
   }
 
-  return `${slot.emoji} received x${slot.multiplier} | nftji ${slotSign}${slotPct}% | level x${levelMultiplier.toFixed(3)} (+${levelPct}% current)`;
+  return `${slot.emoji} output x${impact.multiplier.toFixed(3)} | NFTJI level ${Math.max(0, Number(nftjiLevel) || 0)} | wallet level x${levelMultiplier.toFixed(3)} (+${levelPct}%)${slot.key === 'revive' ? ' | zero commission' : ''}`;
 }
 
-function getTradeBoostBreakdown(value, level = 0) {
-  const owned = new Set(normalizeWalletDecorations(value));
-  const nftMultiplier = TRADE_SLOT_ORDER.reduce(
-    (acc, slot) => (owned.has(slot.emoji) ? acc * slot.multiplier : acc),
-    1
-  );
+function getTradeBoostBreakdown(value, level = 0, nftjiLevels = {}) {
   const safeLevel = Math.max(0, Math.min(100, Number(level) || 0));
   const levelMultiplier = 1 + safeLevel * 0.001;
+  const totalMultiplier = getWalletTradeMultiplier(value, safeLevel, nftjiLevels);
   return {
-    nftMultiplier,
+    nftMultiplier: levelMultiplier > 0 ? totalMultiplier / levelMultiplier : 1,
     levelMultiplier,
-    totalMultiplier: nftMultiplier * levelMultiplier,
+    totalMultiplier,
   };
 }
 
@@ -172,7 +176,7 @@ export default function TradeBoard({ account, isVirtualWallet = false }) {
   const [processing, setProcessing] = useState(false);
   const [walletDecorations, setWalletDecorations] = useState([]);
   const [nftjiLevels, setNftjiLevels] = useState({});
-  const [marketNftjiEmoji, setMarketNftjiEmoji] = useState(null);
+  const [marketNftji, setMarketNftji] = useState(null);
   const [squeezeNftji, setSqueezeNftji] = useState(null);
   const [relayExecCount, setRelayExecCount] = useState(0);
   const [macroState, setMacroState] = useState(() => normalizeMacroState());
@@ -257,6 +261,10 @@ export default function TradeBoard({ account, isVirtualWallet = false }) {
       setAvailableMm3(0);
       setFunds({ cny: 0, eur: 0, usd: 0 });
       setWalletDecorations([]);
+      setNftjiLevels({});
+      setMarketNftji(null);
+      setSqueezeNftji(null);
+      setRelayExecCount(0);
       setTransactions([]);
       setShowTransactions(false);
       setTransactionsPage(1);
@@ -269,6 +277,7 @@ export default function TradeBoard({ account, isVirtualWallet = false }) {
     setAvailableMm3(0);
     setFunds({ cny: 0, eur: 0, usd: 0 });
     setWalletDecorations([]);
+    setMarketNftji(null);
     setSqueezeNftji(null);
     setRelayExecCount(0);
     setTransactions([]);
@@ -287,7 +296,7 @@ export default function TradeBoard({ account, isVirtualWallet = false }) {
         const [{ data: progress }, { data: stats }, { data: marketBlockRows }, { data: sqData }] = await Promise.all([
           supabase
             .from('player_progress')
-            .select('level, mm3_sold, cny_earned, eur_earned, usd_earned, wallet_emojis, mining_nftji_key, lucky_50_level, lucky_100_level, lucky_500_level, lucky_1000_level, relay_exec_count')
+            .select('level, mm3_sold, cny_earned, eur_earned, usd_earned, wallet_emojis, mining_nftji_key, mining_nftji_levels, lucky_50_level, lucky_100_level, lucky_500_level, lucky_1000_level, relay_exec_count')
             .eq('wallet', wallet)
             .maybeSingle(),
           supabase.from('leaderboard_data').select('total_eth').eq('wallet', wallet).maybeSingle(),
@@ -312,7 +321,11 @@ export default function TradeBoard({ account, isVirtualWallet = false }) {
         });
         const blockEmojiMap = new Map((marketBlockRows || []).map(b => [b.block_key, b.emoji]));
         const nftjiKey = progress?.mining_nftji_key || null;
-        setMarketNftjiEmoji(nftjiKey ? (blockEmojiMap.get(nftjiKey) || null) : null);
+        setMarketNftji(nftjiKey ? {
+          key: nftjiKey,
+          emoji: blockEmojiMap.get(nftjiKey) || '⬡',
+          level: Math.max(0, Number(progress?.mining_nftji_levels?.[nftjiKey] ?? 0)),
+        } : null);
         setSqueezeNftji(sqData || null);
         setRelayExecCount(Number(progress?.relay_exec_count) || 0);
         await loadDailyTxCount(wallet);
@@ -386,8 +399,8 @@ export default function TradeBoard({ account, isVirtualWallet = false }) {
   const totalPages = Math.max(1, Math.ceil(transactionsTotal / TX_PAGE_SIZE));
   const visibleTxCount = Math.min(dailyTxCount, DAILY_TX_LIMIT);
   const boostBreakdown = useMemo(
-    () => getTradeBoostBreakdown(walletDecorations, level),
-    [walletDecorations, level]
+    () => getTradeBoostBreakdown(walletDecorations, level, nftjiLevels),
+    [walletDecorations, level, nftjiLevels]
   );
   const receiveAmount = mode === 'buy' ? activeQuote.netMm3 : Number(activeQuote[quoteField('net', currency)] || 0);
   const receiveBaseAmount = boostBreakdown.totalMultiplier > 0 ? receiveAmount / boostBreakdown.totalMultiplier : receiveAmount;
@@ -680,29 +693,38 @@ export default function TradeBoard({ account, isVirtualWallet = false }) {
                 >
                   {loading || processing ? '⟳ EXEC' : 'EXEC'}
                 </button>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center justify-center gap-1.5">
                   {TRADE_SLOT_ORDER.map((slot) => {
                     const owned = walletDecorations.includes(slot.emoji);
                     const isLife = slot.key === 'revive';
                     const slotLvl = Math.max(0, Number(nftjiLevels?.[slot.key] ?? 0) || 0);
                     const showLvl = owned && !isLife;
+                    const ability = getTradeSlotImpact(slot, slotLvl);
                     const borderColor = owned
                       ? (isLife ? 'rgba(251,113,133,0.6)' : tier.glow)
                       : (isLife ? 'rgba(251,113,133,0.22)' : 'rgba(148,163,184,0.22)');
                     return (
                       <div
                         key={slot.key}
-                        title={`${getTradeSlotTitle(slot, level, language)}${showLvl ? ` | Lv.${slotLvl}` : ''}`}
-                        className="mm3-trade-slot flex h-8 w-8 flex-col items-center justify-center rounded-md border"
+                        title={getTradeSlotTitle(slot, level, slotLvl, language)}
+                        className="mm3-trade-slot relative flex h-[58px] w-11 flex-col items-center justify-center overflow-hidden rounded-md border"
                         style={{
                           borderColor,
-                          background: owned ? tier.bg : 'rgba(2,6,23,0.4)',
+                          background: owned ? (isLife ? '#100b18' : tier.bg) : 'rgba(2,6,23,0.4)',
                           color: owned ? tier.color : 'rgba(100,116,139,0.35)',
                           boxShadow: owned ? `0 0 12px ${tier.color}22` : 'none',
                         }}
                       >
-                        <span style={{ fontSize: showLvl ? '0.82rem' : '1rem', lineHeight: 1 }}>{owned ? slot.emoji : ''}</span>
-                        {showLvl && (
+                        {owned && (
+                          <span
+                            className="absolute inset-x-0 top-0 px-px py-0.5 text-center text-[0.42rem] font-black leading-none tracking-tight text-[#02060b]"
+                            style={{ background: isLife ? '#fb7185' : tier.color }}
+                          >
+                            {ability.label}
+                          </span>
+                        )}
+                        <span style={{ fontSize: '1.05rem', lineHeight: 1, marginTop: owned ? 7 : 0 }}>{owned ? slot.emoji : ''}</span>
+                        {owned && (
                           <span style={{
                             fontSize: '0.52rem',
                             fontFamily: 'monospace',
@@ -711,7 +733,7 @@ export default function TradeBoard({ account, isVirtualWallet = false }) {
                             color: tier.color,
                             textShadow: `0 0 3px ${tier.color}`,
                           }}>
-                            {slotLvl}
+                            {showLvl ? `Lv${slotLvl}` : `×${ability.multiplier.toFixed(2)}`}
                           </span>
                         )}
                       </div>
@@ -726,7 +748,7 @@ export default function TradeBoard({ account, isVirtualWallet = false }) {
                       <div
                         key={emoji}
                         title={getEmojiTitle(emoji) + (relayLvl != null ? ` | Lv.${relayLvl}` : '')}
-                        className="mm3-trade-slot flex h-8 w-8 flex-col items-center justify-center rounded-md border"
+                        className="mm3-trade-slot flex h-[58px] w-11 flex-col items-center justify-center rounded-md border"
                         style={{
                           borderColor: owned ? tier.glow : 'rgba(148,163,184,0.22)',
                           background: owned ? tier.bg : 'rgba(2,6,23,0.4)',
@@ -734,10 +756,10 @@ export default function TradeBoard({ account, isVirtualWallet = false }) {
                           boxShadow: owned ? `0 0 12px ${tier.color}22` : 'none',
                         }}
                       >
-                        <span style={{ fontSize: relayLvl != null ? '0.82rem' : '1rem', lineHeight: 1 }}>{owned ? emoji : ''}</span>
+                        <span style={{ fontSize: relayLvl != null ? '1rem' : '1.05rem', lineHeight: 1 }}>{owned ? emoji : ''}</span>
                         {relayLvl != null && (
                           <span style={{ fontSize: '0.52rem', fontFamily: 'monospace', fontWeight: 800, lineHeight: 1, color: tier.color, textShadow: `0 0 3px ${tier.color}` }}>
-                            {relayLvl}
+                            Lv{relayLvl}
                           </span>
                         )}
                       </div>
@@ -753,7 +775,7 @@ export default function TradeBoard({ account, isVirtualWallet = false }) {
                       <div
                         key={slot.key}
                         title={getEmojiTitle(slot.emoji) + (owned ? ` | Lv.${lvl}` : '')}
-                        className="mm3-trade-slot flex h-8 w-8 flex-col items-center justify-center rounded-md border"
+                        className="mm3-trade-slot flex h-[58px] w-11 flex-col items-center justify-center rounded-md border"
                         style={{
                           borderColor: owned ? tier.glow : 'rgba(148,163,184,0.22)',
                           background: owned ? tier.bg : 'rgba(2,6,23,0.4)',
@@ -764,7 +786,7 @@ export default function TradeBoard({ account, isVirtualWallet = false }) {
                         <span style={{ fontSize: '0.82rem', lineHeight: 1 }}>{owned ? slot.emoji : ''}</span>
                         {owned && (
                           <span style={{ fontSize: '0.52rem', fontFamily: 'monospace', fontWeight: 800, lineHeight: 1, color: tier.color, textShadow: `0 0 3px ${tier.color}` }}>
-                            {lvl}
+                            Lv{lvl}
                           </span>
                         )}
                       </div>
@@ -772,16 +794,17 @@ export default function TradeBoard({ account, isVirtualWallet = false }) {
                   })}
                   {/* Mining NFTJI — block emoji */}
                   <div
-                    title={marketNftjiEmoji ? `Mining NFTJI — ${marketNftjiEmoji}` : 'Mining NFTJI — none'}
-                    className="mm3-trade-slot flex h-8 w-8 items-center justify-center rounded-md border text-base"
+                    title={marketNftji ? `Mining NFTJI — ${marketNftji.emoji} | ${marketNftji.key} | Lv.${marketNftji.level}` : 'Mining NFTJI — none'}
+                    className="mm3-trade-slot flex h-[58px] w-11 flex-col items-center justify-center rounded-md border"
                     style={{
-                      borderColor: marketNftjiEmoji ? 'rgba(250,204,21,0.6)' : 'rgba(250,204,21,0.22)',
-                      background: marketNftjiEmoji ? tier.bg : 'rgba(2,6,23,0.4)',
-                      color: marketNftjiEmoji ? '#fef08a' : 'rgba(100,116,139,0.35)',
-                      boxShadow: marketNftjiEmoji ? '0 0 12px rgba(250,204,21,0.25)' : 'none',
+                      borderColor: marketNftji ? 'rgba(250,204,21,0.6)' : 'rgba(250,204,21,0.22)',
+                      background: marketNftji ? tier.bg : 'rgba(2,6,23,0.4)',
+                      color: marketNftji ? '#fef08a' : 'rgba(100,116,139,0.35)',
+                      boxShadow: marketNftji ? '0 0 12px rgba(250,204,21,0.25)' : 'none',
                     }}
                   >
-                    {marketNftjiEmoji || ''}
+                    <span className="text-[1.05rem] leading-none">{marketNftji?.emoji || ''}</span>
+                    {marketNftji && <span className="mt-0.5 text-[0.52rem] font-black leading-none text-yellow-200">Lv{marketNftji.level}</span>}
                   </div>
                 </div>
               </div>
