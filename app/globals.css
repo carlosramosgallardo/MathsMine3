@@ -1406,12 +1406,11 @@ footer.bg-black\/97,
 .mm3-home .mm3-splash {
   flex: 1;
 }
-/* Portal expands to fill its half — centres the two card rows vertically */
 .mm3-home .mm3-portal {
   flex: 1;
   display: flex;
   flex-direction: column;
-  justify-content: center;
+  justify-content: flex-start;
 }
 
 /* ── Mobile portrait ≤480px — compact cubes, 5-col grid ─────────────── */
@@ -1811,7 +1810,6 @@ footer.bg-black\/97,
 }
 .mm3-home .mm3-portal {
   position: relative;
-  overflow: hidden;
   padding-top: 1.5rem;
   background:
     linear-gradient(rgba(34,211,238,.035) 1px,transparent 1px),
@@ -1918,7 +1916,6 @@ footer.bg-black\/97,
   .mm3-home .mm3-splash { flex:none; }
   .mm3-home-arena { height:175px; }
   .mm3-home .mm3-splash-body { min-height:130px; padding:.3rem 0; }
-  .mm3-home .mm3-portal { padding-top:.5rem; }
   .mm3-home .mm3-portal-card { min-height:55px; }
 }
 @media (prefers-reduced-motion:reduce) {
