@@ -17,6 +17,11 @@ function shortWallet(w) {
   return `${w.slice(0, 6)}…${w.slice(-4)}`;
 }
 
+function solverBadge(solver) {
+  const base = shortWallet(solver.wallet);
+  return base + '@MM3';
+}
+
 export default function ChainSolveCard({ wallet, onWinner }) {
   const { t } = useI18n();
   const [status, setStatus] = useState(null);
@@ -25,7 +30,6 @@ export default function ChainSolveCard({ wallet, onWinner }) {
   const [feedback, setFeedback] = useState(null);
   const [countdown, setCountdown] = useState('');
   const timerRef = useRef(null);
-  const inputRef = useRef(null);
 
   const fetchStatus = useCallback(async () => {
     try {
@@ -35,7 +39,7 @@ export default function ChainSolveCard({ wallet, onWinner }) {
       const data = await res.json();
       if (data.ok) {
         setStatus(data);
-        if (data.winner && onWinner) onWinner(data.winner);
+        if (data.solvers?.length && onWinner) onWinner(data.solvers[0]);
       }
     } catch {}
   }, [wallet, onWinner]);
@@ -83,18 +87,15 @@ export default function ChainSolveCard({ wallet, onWinner }) {
       if (!data.ok) {
         if (data.error === 'already_attempted_today') {
           setFeedback({ type: 'warn', msg: t('chainSolve.feedbackAlreadyAttempted') });
-        } else if (data.error === 'game_over') {
-          setFeedback({ type: 'info', msg: `${t('chainSolve.feedbackGameOver')} ${shortWallet(data.winner?.wallet)}.` });
+        } else if (data.error === 'already_solved_lifetime') {
+          setFeedback({ type: 'info', msg: '✓ Tu wallet ya ha resuelto la fórmula anteriormente.' });
         } else {
           setFeedback({ type: 'error', msg: data.error || t('chainSolve.feedbackNetwork') });
         }
         setInput('');
         await fetchStatus();
       } else if (data.correct) {
-        // Keep win message visible for 4 s before refreshing to winner state
-        setFeedback({ type: 'win', msg: t('chainSolve.feedbackWin') });
-        if (onWinner) onWinner(data.winner);
-        setStatus(prev => ({ ...prev, winner: data.winner, canAttempt: false }));
+        setFeedback({ type: 'win', msg: '⬡ FÓRMULA RESUELTA — chain al 100%, modo demine activo. +1000 MM3 a tu wallet.' });
         setInput('');
         setTimeout(fetchStatus, 4000);
       } else {
@@ -107,7 +108,7 @@ export default function ChainSolveCard({ wallet, onWinner }) {
     } finally {
       setSubmitting(false);
     }
-  }, [wallet, input, submitting, fetchStatus, onWinner]);
+  }, [wallet, input, submitting, fetchStatus, onWinner, status]);
 
   const handleKey = useCallback((e) => {
     if (e.key === 'Enter') handleSubmit();
@@ -125,83 +126,56 @@ export default function ChainSolveCard({ wallet, onWinner }) {
     );
   }
 
-  const { winner, canAttempt, alpha, beta, gamma, mm3Global } = status;
+  const { solvers = [], walletSolved, canAttempt, alpha, beta, gamma, mm3Global, chainDemineActive, chainDemineHitsRemaining } = status;
   const mm3Display = Number(mm3Global || 0).toFixed(2);
   const effectiveGamma = Math.max(Number(gamma) || 0, 50);
 
-  // ── GAME WON STATE ──────────────────────────────────────────
-  if (winner) {
-    return (
-      <div className="mm3-chain-solve-card w-full max-w-[1080px] mx-auto px-2 lg:px-3 mt-2">
-        <style>{`
-          @keyframes chain-win-pulse { 0%,100%{opacity:1;text-shadow:0 0 18px rgba(74,222,128,0.9)} 50%{opacity:0.75;text-shadow:0 0 36px rgba(74,222,128,1)} }
-          @keyframes chain-win-scan { 0%{background-position:0 0} 100%{background-position:0 100%} }
-        `}</style>
-        <div
-          className="rounded border px-4 py-4 text-center relative overflow-hidden"
-          style={{
-            borderColor: 'rgba(74,222,128,0.7)',
-            background: 'rgba(0,14,7,0.97)',
-            boxShadow: '0 0 32px rgba(74,222,128,0.15), inset 0 0 40px rgba(74,222,128,0.04)',
-          }}
-        >
-          {/* scanline accent */}
-          <div style={{ position:'absolute',inset:0,backgroundImage:'repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(74,222,128,0.015) 4px)',pointerEvents:'none' }} />
-          <div className="text-[0.56rem] font-mono uppercase tracking-[0.35em] text-emerald-500/50 mb-2">
-            ⬡ &nbsp; {t('chainSolve.solvedSubtitle')} &nbsp; ⬡
-          </div>
-          <div
-            className="text-[1.05rem] font-black uppercase tracking-[0.22em] text-emerald-300 mb-3"
-            style={{ animation:'chain-win-pulse 2.4s ease-in-out infinite', textShadow:'0 0 18px rgba(74,222,128,0.9)' }}
-          >
-            {t('chainSolve.solvedTitle')}
-          </div>
-          <div
-            className="inline-block px-5 py-2 text-[0.84rem] font-black font-mono mb-2"
-            style={{
-              color: '#4ade80',
-              background: 'rgba(74,222,128,0.10)',
-              border: '1px solid rgba(74,222,128,0.45)',
-              textShadow: '0 0 14px rgba(74,222,128,0.7)',
-              letterSpacing: '0.12em',
-            }}
-          >
-            {winner.wallet.length > 20 ? shortWallet(winner.wallet) : winner.wallet}
-          </div>
-          <div className="text-[0.56rem] font-mono text-emerald-500/35 mt-1">
-            100% BLOCKS MINED · {new Date(winner.won_at).toUTCString()}
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // ── FEEDBACK COLOR MAP ──────────────────────────────────────
   const feedbackColor = {
-    error: '#f87171',
-    warn: '#fbbf24',
-    info: '#22d3ee',
-    wrong: '#fb923c',
-    win: '#4ade80',
+    error: '#f87171', warn: '#fbbf24', info: '#22d3ee',
+    wrong: '#fb923c', win: '#4ade80',
   };
 
   return (
-    <div className="mm3-chain-solve-card w-full max-w-[1080px] mx-auto px-2 lg:px-3 mt-2">
+    <div className="mm3-chain-solve-card w-full max-w-[1080px] mx-auto px-2 lg:px-3 mt-2 space-y-2">
       <style>{`
         .chain-solve-input::-webkit-inner-spin-button,
         .chain-solve-input::-webkit-outer-spin-button { -webkit-appearance: none; }
         .chain-solve-input { -moz-appearance: textfield; }
         @keyframes chain-blink { 0%,100%{opacity:1} 50%{opacity:0.4} }
+        @keyframes chain-demine-pulse { 0%,100%{opacity:1;text-shadow:0 0 8px #fb923c88} 50%{opacity:0.8;text-shadow:0 0 22px #fb923ccc} }
+        @keyframes chain-win-pulse { 0%,100%{opacity:1;text-shadow:0 0 18px rgba(74,222,128,0.9)} 50%{opacity:0.75;text-shadow:0 0 36px rgba(74,222,128,1)} }
       `}</style>
 
+      {/* ── Demine mode banner ────────────────────────────────────────────── */}
+      {chainDemineActive && (
+        <div
+          className="rounded border px-3 py-2 text-center"
+          style={{ borderColor: 'rgba(251,146,60,0.55)', background: 'rgba(12,5,0,0.97)', boxShadow: '0 0 24px rgba(251,146,60,0.10)' }}
+        >
+          <div
+            className="text-[0.82rem] font-black font-mono uppercase tracking-[0.18em]"
+            style={{ color: '#fb923c', animation: 'chain-demine-pulse 2s ease-in-out infinite' }}
+          >
+            ⛏ MODO DEMINE ACTIVO
+          </div>
+          <div className="text-[0.6rem] font-mono text-orange-400/60 mt-1">
+            {chainDemineHitsRemaining} golpes restantes · Golpea el nodo de la chain en el juego · +1 MM3 por golpe
+          </div>
+          <div className="text-[0.54rem] font-mono text-orange-400/35 mt-0.5">
+            El minado de bloques está desactivado hasta que la chain llegue al 0%
+          </div>
+        </div>
+      )}
+
+      {/* ── Main formula card ─────────────────────────────────────────────── */}
       <div
         className="rounded border px-2.5 py-1.5"
         style={{
-          borderColor: 'rgba(74,222,128,0.18)',
+          borderColor: walletSolved ? 'rgba(74,222,128,0.40)' : 'rgba(74,222,128,0.18)',
           background: 'rgba(0,8,4,0.94)',
         }}
       >
-        {/* Header row: formula + live stats inline */}
+        {/* Header row */}
         <div className="flex items-center justify-between gap-3 flex-wrap mb-1">
           <div className="text-[0.54rem] font-mono uppercase tracking-[0.12em] text-emerald-400/40 leading-tight">
             Ω(α, β, γ) ∈ [1, {effectiveGamma}] · {t('chainSolve.formulaHint')}
@@ -231,10 +205,27 @@ export default function ChainSolveCard({ wallet, onWinner }) {
           mm3 global: {mm3Display} · γ = |{mm3Display}|×100→int
         </div>
 
+        {/* Wallet solved badge */}
+        {walletSolved && (
+          <div
+            className="flex items-center gap-2 mb-1.5 px-2 py-1"
+            style={{ border: '1px solid rgba(74,222,128,0.30)', background: 'rgba(74,222,128,0.06)' }}
+          >
+            <span className="text-[0.7rem]" style={{ animation: 'chain-win-pulse 2.4s ease-in-out infinite', color: '#4ade80' }}>⬡</span>
+            <span className="text-[0.62rem] font-black font-mono tracking-[0.14em]" style={{ color: '#4ade80' }}>
+              TU WALLET ES @MM3 — HAS RESUELTO LA CHAIN
+            </span>
+          </div>
+        )}
+
         {/* Input row */}
         {!wallet ? (
           <div className="text-center text-[0.62rem] font-mono uppercase tracking-[0.18em] text-emerald-500/40 py-0.5">
             {t('chainSolve.connectWallet')}
+          </div>
+        ) : walletSolved ? (
+          <div className="text-center text-[0.58rem] font-mono text-emerald-500/30 py-0.5">
+            Sólo puedes resolver la fórmula una vez en toda la vida del juego.
           </div>
         ) : !canAttempt && countdown ? (
           <div className="flex items-center justify-center gap-3 py-0.5">
@@ -243,10 +234,7 @@ export default function ChainSolveCard({ wallet, onWinner }) {
             </span>
             <span
               className="text-[0.82rem] font-black font-mono"
-              style={{
-                color: '#4ade80',
-                animation: 'chain-blink 2s ease-in-out infinite',
-              }}
+              style={{ color: '#4ade80', animation: 'chain-blink 2s ease-in-out infinite' }}
             >
               {countdown}
             </span>
@@ -254,7 +242,6 @@ export default function ChainSolveCard({ wallet, onWinner }) {
         ) : canAttempt ? (
           <div className="flex items-center gap-2">
             <input
-              ref={inputRef}
               type="number"
               min={1}
               max={effectiveGamma}
@@ -302,6 +289,37 @@ export default function ChainSolveCard({ wallet, onWinner }) {
           </div>
         )}
       </div>
+
+      {/* ── Chain solvers registry ────────────────────────────────────────── */}
+      {solvers.length > 0 && (
+        <div
+          className="rounded border px-2.5 py-2"
+          style={{ borderColor: 'rgba(74,222,128,0.14)', background: 'rgba(0,6,3,0.90)' }}
+        >
+          <div className="text-[0.5rem] font-mono uppercase tracking-[0.22em] text-emerald-500/40 mb-1.5">
+            ⬡ WALLETS @MM3 — CHAIN COMPLETADA AL 100%
+          </div>
+          <div className="space-y-0.5">
+            {solvers.map((s, i) => (
+              <div key={s.wallet} className="flex items-center gap-2">
+                <span className="text-[0.52rem] font-mono text-emerald-700/50 w-4 shrink-0">
+                  #{i + 1}
+                </span>
+                <a
+                  href={`/ranking?wallet=${encodeURIComponent(s.wallet)}`}
+                  className="text-[0.62rem] font-black font-mono tracking-[0.08em] hover:opacity-80 transition-opacity"
+                  style={{ color: '#4ade80', textDecoration: 'none' }}
+                >
+                  {shortWallet(s.wallet)}@MM3
+                </a>
+                <span className="text-[0.46rem] font-mono text-emerald-600/30 ml-auto shrink-0">
+                  {s.formula_solved ? '⚡formula' : '⛏bloques'} · {new Date(s.solved_at).toLocaleDateString()}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

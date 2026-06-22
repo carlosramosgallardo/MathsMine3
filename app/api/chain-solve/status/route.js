@@ -20,29 +20,37 @@ export async function GET(req) {
   );
 
   const [
-    { data: winnerRow },
+    { data: solversRows },
     { count: alpha },
     { count: beta },
     { data: tvRow },
+    { data: macroRow },
   ] = await Promise.all([
-    supabase.from('mm3_game_winner').select('wallet, won_at').eq('id', 1).maybeSingle(),
+    supabase.from('mm3_chain_solvers').select('wallet, solved_at, formula_solved').order('solved_at', { ascending: true }),
     supabase.from('mm3_mining_events').select('id', { count: 'exact', head: true }),
     supabase.from('mm3_mined_blocks').select('id', { count: 'exact', head: true }),
     supabase.from('token_value').select('total_eth').maybeSingle(),
+    supabase.from('mm3_macro_state').select('chain_demine_active, chain_demine_hits_remaining').eq('id', 1).maybeSingle(),
   ]);
 
   const mm3Global = Number(tvRow?.total_eth) || 0;
   const gamma = Math.round(Math.abs(mm3Global) * 100);
+  const solvers = solversRows || [];
+  const chainDemineActive = Boolean(macroRow?.chain_demine_active);
+  const chainDemineHitsRemaining = Number(macroRow?.chain_demine_hits_remaining ?? 100);
 
-  let canAttempt = Boolean(wallet) && !winnerRow;
+  // Wallet already solved lifetime → canAttempt = false forever
+  const walletSolved = wallet ? solvers.some(s => s.wallet === wallet) : false;
+
+  let canAttempt = Boolean(wallet) && !walletSolved;
   let attemptedAt = null;
   let resetAt = null;
 
-  if (wallet && !winnerRow) {
+  if (wallet && !walletSolved) {
     const day = getUtcDay();
     const { data: attempt } = await supabase
       .from('mm3_chain_solve_attempts')
-      .select('attempted_at, is_correct')
+      .select('attempted_at')
       .eq('wallet', wallet)
       .eq('day', day)
       .maybeSingle();
@@ -57,7 +65,10 @@ export async function GET(req) {
 
   return Response.json({
     ok: true,
-    winner: winnerRow || null,
+    solvers,
+    walletSolved,
+    chainDemineActive,
+    chainDemineHitsRemaining,
     canAttempt,
     attemptedAt,
     resetAt,

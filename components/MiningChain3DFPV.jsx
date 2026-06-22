@@ -1967,7 +1967,7 @@ function drawMinimap(ctx, gr, gc, angle, cellMap, presenceMap, myWallet, W, H, c
 }
 
 // ── Facing block HUD (top-right info card) ────────────────────────────────────
-function drawFacingHUD(ctx, W, H, fwdCell, fwdMx, fwdMy, myWallet, es, dist, obsMap, chainStatsBottom = 72, mineProgress = 0, playerLevel = 0, globalMm3 = 0) {
+function drawFacingHUD(ctx, W, H, fwdCell, fwdMx, fwdMy, myWallet, es, dist, obsMap, chainStatsBottom = 72, mineProgress = 0, playerLevel = 0, globalMm3 = 0, chainSolvers = [], chainDemineActive = false, chainDemineHits = 100) {
   if (fwdMx < 0 || fwdMy < 0 || fwdMx >= COLS || fwdMy >= ROWS) return
 
   // Double-check: use both cell flag and obsMap to catch any desync
@@ -2023,16 +2023,39 @@ function drawFacingHUD(ctx, W, H, fwdCell, fwdMx, fwdMy, myWallet, es, dist, obs
 
   if (fwdCell?.isChainNode) {
     const inRange = dist != null && dist <= CHAIN_INTERACT_DIST
-    const col = fwdCell.color || '#ffd700'
+    const col = chainDemineActive ? '#fb923c' : (fwdCell.color || '#ffd700')
     const title = es ? (fwdCell.titleEs || 'NODO CENTRAL') : (fwdCell.titleEn || 'CENTRAL NODE')
+
     const lines = [
       { text: `${fwdCell.emoji || '⬡'}  ${title}`, size: 13, weight: 'bold', col },
-      { text: es ? 'Terminal estático de la cadena' : 'Static chain terminal', size: 10, col: '#8b7f52' },
-      inRange
-        ? { text: es ? '⛏ 5 golpes · Resolver cadena' : '⛏ 5 hits · Solve chain formula', size: 10, col: col + 'cc' }
-        : { text: es ? '· acércate muy cerca para interactuar' : '· get very close to interact', size: 9, col: col + '55' },
     ]
-    const lineH=16,padX=9,padY=8,ph=lines.length*lineH+padY*2,pw=CARD_PW,px=CARD_PX,py=CARD_PY
+    if (chainDemineActive) {
+      lines.push({ text: es ? '⛏ MODO DEMINE ACTIVO' : '⛏ DEMINE MODE ACTIVE', size: 10, col: '#fb923ccc' })
+      lines.push(inRange
+        ? { text: es ? `⛏ 1 golpe = +1 MM3 · quedan ${chainDemineHits}` : `⛏ 1 hit = +1 MM3 · ${chainDemineHits} left`, size: 10, col: '#fb923caa' }
+        : { text: es ? '· acércate muy cerca para desminar' : '· get very close to demine', size: 9, col: '#fb923c55' })
+    } else {
+      lines.push({ text: es ? 'Terminal estático de la cadena' : 'Static chain terminal', size: 10, col: '#8b7f52' })
+      lines.push(inRange
+        ? (mineProgress > 0
+            ? { text: es ? `⛏ ${Math.round(mineProgress * HITS_NEEDED)}/${HITS_NEEDED} golpes` : `⛏ ${Math.round(mineProgress * HITS_NEEDED)}/${HITS_NEEDED} hits`, size: 10, col: col + 'cc' }
+            : { text: es ? '⛏ 5 golpes · Resolver cadena' : '⛏ 5 hits · Solve chain formula', size: 10, col: col + 'cc' })
+        : { text: es ? '· acércate muy cerca para interactuar' : '· get very close to interact', size: 9, col: col + '55' })
+    }
+
+    // Solvers list (last 3)
+    const topSolvers = (chainSolvers || []).slice(-3).reverse()
+    if (topSolvers.length) {
+      lines.push({ text: '─────────────────', size: 7, col: col + '33' })
+      lines.push({ text: es ? 'Wallets @MM3:' : '@MM3 Wallets:', size: 8, col: col + '77' })
+      for (const s of topSolvers) {
+        const w = String(s.wallet || '')
+        const label = (w.length > 10 ? `${w.slice(0,6)}…${w.slice(-3)}` : w) + '@MM3'
+        lines.push({ text: label, size: 8, col: '#4ade80cc' })
+      }
+    }
+
+    const lineH=14,padX=9,padY=7,ph=lines.length*lineH+padY*2,pw=CARD_PW,px=CARD_PX,py=CARD_PY
     ctx.globalAlpha=.9;ctx.fillStyle='#010709';ctx.fillRect(px,py,pw,ph);ctx.globalAlpha=1
     ctx.strokeStyle=col+'55';ctx.strokeRect(px,py,pw,ph);ctx.fillStyle=col+'77';ctx.fillRect(px,py,2,ph)
     ctx.textAlign='left';ctx.textBaseline='top'
@@ -2481,7 +2504,7 @@ function drawChainStats(ctx, W, H, stats, es, top = 8) {
 }
 
 // ── Online players list (below minimap) ─────────────────────────────────────
-function drawOnlineList(ctx, W, H, presenceMap, myWallet, pvpStolen) {
+function drawOnlineList(ctx, W, H, presenceMap, myWallet, pvpStolen, solverSet) {
   const isMobile = W < 600
   const SZ = minimapSize(W)
   const MX = W - SZ - 6
@@ -2536,9 +2559,10 @@ function drawOnlineList(ctx, W, H, presenceMap, myWallet, pvpStolen) {
     for (const { w, isAnon, isBot, stolen, isDead } of entries) {
     const isMe = w.toLowerCase() === (myWallet || '').toLowerCase()
     const col  = colorFromAddress(w)
+    const isMM3 = !isAnon && solverSet?.has(w.toLowerCase())
     const label = isAnon
       ? w
-      : `${w.slice(0, 6)}…${w.slice(-3)}${isBot ? ' B' : ''}`
+      : `${w.slice(0, 6)}…${w.slice(-3)}${isBot ? ' B' : ''}${isMM3 ? '@MM3' : ''}`
     if (isMe) {
       ctx.fillStyle = col + '1a'
       ctx.fillRect(px + 1, ly - 2, pw - 2, LINE_H)
@@ -3602,6 +3626,10 @@ export default function MiningChain3DFPV({
   es,
   myDeadUntil = null,
   myDeadPos   = null,
+  chainDemineActive = false,
+  chainDemineHitsRemaining = 100,
+  chainSolvers = [],
+  onDemineHit,
 }) {
   const canvasRef    = useRef(null)
   const webglCanvasRef = useRef(null)
@@ -3683,6 +3711,11 @@ export default function MiningChain3DFPV({
   const critChanceRef       = useRef(0)
   const speedRef            = useRef(MOVE_SPD)
   const longJumpRef         = useRef(1)
+  const chainDemineActiveRef       = useRef(chainDemineActive)
+  const chainDemineHitsRef         = useRef(chainDemineHitsRemaining)
+  const chainSolverSetRef          = useRef(new Set())
+  const chainSolversArrRef         = useRef([])
+  const onDemineHitRef             = useRef(onDemineHit)
   const critFlashRef        = useRef(-9999)
   const walletNftjisRef     = useRef(walletNftjis || {})
   const myNftjisRef         = useRef(myNftjis || [])
@@ -3796,6 +3829,13 @@ export default function MiningChain3DFPV({
   useEffect(()=>{ myPoolCodeRef.current=myPoolCode||null },[myPoolCode])
   useEffect(()=>{ walletNftjisRef.current=walletNftjis||{} },[walletNftjis])
   useEffect(()=>{ myNftjisRef.current=myNftjis||[] },[myNftjis])
+  useEffect(()=>{ chainDemineActiveRef.current=chainDemineActive },[chainDemineActive])
+  useEffect(()=>{ chainDemineHitsRef.current=chainDemineHitsRemaining },[chainDemineHitsRemaining])
+  useEffect(()=>{
+    chainSolverSetRef.current=new Set((chainSolvers||[]).map(s=>String(s.wallet||'').toLowerCase()))
+    chainSolversArrRef.current=chainSolvers||[]
+  },[chainSolvers])
+  useEffect(()=>{ onDemineHitRef.current=onDemineHit },[onDemineHit])
   useEffect(()=>{ healthMapRef.current=healthMap||{} },[healthMap])
   // Mining skills: ❤️ speed · held mining NFTJI air travel · squeeze attack crit.
   useEffect(()=>{
@@ -5354,7 +5394,7 @@ export default function MiningChain3DFPV({
     }
 
     drawMinimap(ctx,gr,gc,angle,cellMap,presence,myIdentity,W,H,chainNodePosRef.current,validObstaclesRef.current,px/CELL_SIZE,py/CELL_SIZE,minimapStaticRef,dpr)
-    drawOnlineList(ctx,W,H,presence,myIdentity,pvpStolenRef.current)
+    drawOnlineList(ctx,W,H,presence,myIdentity,pvpStolenRef.current,chainSolverSetRef.current)
     const walletDock = drawWalletDock(
       ctx,W,H,myNftjisRef.current,healthMapRef.current[myIdentity]??100,es,Boolean(myWallet)
     )
@@ -5365,7 +5405,7 @@ export default function MiningChain3DFPV({
       const _isObsHUD = fwdCell?.isObstacle || validObstaclesRef.current?.has(`${fwdMy},${fwdMx}`)
       const _maxHudDist = (!_isObsHUD && fwdCell?.isMarket && !fwdCell?.owner) ? 1.5 : 2.0
       if ((_isObsHUD || fwdFaceSolid) && fwdDist <= _maxHudDist) {
-        drawFacingHUD(ctx, W, H, fwdCell, fwdMx, fwdMy, myWallet, es, fwdDist, validObstaclesRef.current, chainStatsBottom ?? 72, mineProgressRef.current, playerLevelRef.current, globalMm3Ref.current)
+        drawFacingHUD(ctx, W, H, fwdCell, fwdMx, fwdMy, myWallet, es, fwdDist, validObstaclesRef.current, chainStatsBottom ?? 72, mineProgressRef.current, playerLevelRef.current, globalMm3Ref.current, chainSolversArrRef.current, chainDemineActiveRef.current, chainDemineHitsRef.current)
       }
     }
   }, [])
@@ -5987,12 +6027,38 @@ export default function MiningChain3DFPV({
           if(!tk||mineTypeRef.current==='empty'||(blockDist!=null&&blockDist>INTERACT_DIST)){
             playPickHit(audioCtxRef,'empty')
           } else if(mineTypeRef.current==='chain'){
-            mineProgressRef.current=Math.min(1,mineProgressRef.current+1/HITS_NEEDED)
-            playPickHit(audioCtxRef,'nftji')
-            if(mineProgressRef.current>=1){
-              playPickHit(audioCtxRef,'complete')
-              mineProgressRef.current=0
-              onChainSolveOpenRef.current?.()
+            if(chainDemineActiveRef.current){
+              // Demine mode: each hit demines a block and awards 1 MM3
+              playPickHit(audioCtxRef,'nftji')
+              const hitWallet = myWalletRef.current || presenceKeyRef.current
+              if(hitWallet){
+                fetch('/api/chain-solve/demine',{
+                  method:'POST',
+                  headers:{'Content-Type':'application/json'},
+                  body:JSON.stringify({wallet:hitWallet}),
+                }).then(r=>r.json()).then(data=>{
+                  if(data.ok){
+                    chainDemineHitsRef.current=data.hitsRemaining
+                    pvpGainRef.current={text:`⛏ +${data.mm3Awarded} MM3 · ${data.hitsRemaining} hits left`,at:performance.now(),color:'#fb923c'}
+                    if(data.chainReset){
+                      chainDemineActiveRef.current=false
+                      chainDemineHitsRef.current=100
+                      pvpGainRef.current={text:'⛏ DEMINE COMPLETE — mining reactivated!',at:performance.now(),color:'#4ade80'}
+                    }
+                    onDemineHitRef.current?.()
+                  }else{
+                    pvpGainRef.current={text:data.error==='demine_not_active'?'⛏ demine ended':'⛏ '+data.error,at:performance.now(),color:'#fb923c'}
+                  }
+                }).catch(()=>{})
+              }
+            }else{
+              mineProgressRef.current=Math.min(1,mineProgressRef.current+1/HITS_NEEDED)
+              playPickHit(audioCtxRef,'nftji')
+              if(mineProgressRef.current>=1){
+                playPickHit(audioCtxRef,'complete')
+                mineProgressRef.current=0
+                onChainSolveOpenRef.current?.()
+              }
             }
           } else if(mineTypeRef.current==='portal'){
             // Portal: 5-hit navigation (same as chain node)

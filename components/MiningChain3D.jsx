@@ -160,6 +160,9 @@ export default function MiningChain3D() {
   const [myDeadPos,     setMyDeadPos]     = useState(null)
   const myDeadUntilRef = useRef(null)
   const respawnTimerRef = useRef(null)
+  const [chainDemineActive, setChainDemineActive] = useState(false)
+  const [chainDemineHitsRemaining, setChainDemineHitsRemaining] = useState(100)
+  const [chainSolvers, setChainSolvers] = useState([])
 
   const loadRemoteHealth = useCallback((wallet) => {
     const key = String(wallet || '').toLowerCase()
@@ -813,6 +816,24 @@ export default function MiningChain3D() {
     return () => clearInterval(t)
   }, [loadPvpStolen])
 
+  const loadChainStatus = useCallback(async () => {
+    try {
+      const res = await fetch('/api/chain-solve/status', { cache: 'no-store' })
+      if (!res.ok) return
+      const data = await res.json()
+      if (!data.ok) return
+      setChainDemineActive(Boolean(data.chainDemineActive))
+      setChainDemineHitsRemaining(Number(data.chainDemineHitsRemaining ?? 100))
+      setChainSolvers(data.solvers || [])
+    } catch {}
+  }, [])
+
+  useEffect(() => {
+    loadChainStatus()
+    const t = setInterval(loadChainStatus, 30_000)
+    return () => clearInterval(t)
+  }, [loadChainStatus])
+
   const handleChainSolveOpen = useCallback(() => setShowChainSolve(true), [])
 
   // Close ChainSolve overlay with Escape
@@ -914,6 +935,10 @@ export default function MiningChain3D() {
             es={es}
             myDeadUntil={myDeadUntil}
             myDeadPos={myDeadPos}
+            chainDemineActive={chainDemineActive}
+            chainDemineHitsRemaining={chainDemineHitsRemaining}
+            chainSolvers={chainSolvers}
+            onDemineHit={loadChainStatus}
           />
         )}
       </div>

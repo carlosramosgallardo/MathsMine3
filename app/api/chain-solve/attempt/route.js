@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic';
 import { createClient } from '@supabase/supabase-js';
 import { formatWalletLabel } from '@/lib/wallet-format';
 import { MM3_BLOCK_GRID_ROWS, MM3_BLOCK_GRID_COLS, gridToBlockHex, mm3ValueToHex } from '@/lib/mm3-block-chain';
+import { activateDemineMode } from '@/lib/chain-winner';
 
 function normalizeWallet(value) {
   return String(value || '').trim().toLowerCase();
@@ -12,16 +13,11 @@ function getUtcDay() {
   return new Date().toISOString().slice(0, 10);
 }
 
-// ── Formula ──────────────────────────────────────────────────────────────────
-// A = total mm3_mining_events rows (all time)
-// B = total mm3_mined_blocks rows (chain blocks solved)
-// C = Math.round(|mm3_global_value| × 100)  — integer, floored at 50
 // Ω(A, B, C) = (A + B) % max(C, 50) + 1
 const GAMMA_FLOOR = 50;
 function computeCorrectAnswer(A, B, C) {
   return (A + B) % Math.max(C, GAMMA_FLOOR) + 1;
 }
-// ─────────────────────────────────────────────────────────────────────────────
 
 export async function POST(req) {
   try {
@@ -34,9 +30,7 @@ export async function POST(req) {
 
 async function handleAttempt(req) {
   let body;
-  try {
-    body = await req.json();
-  } catch {
+  try { body = await req.json(); } catch {
     return Response.json({ ok: false, error: 'bad_json' }, { status: 400 });
   }
 
@@ -52,18 +46,18 @@ async function handleAttempt(req) {
     process.env.SUPABASE_SERVICE_ROLE_KEY,
   );
 
-  // Check if game already won
-  const { data: existingWinner } = await supabase
-    .from('mm3_game_winner')
-    .select('wallet, won_at')
-    .eq('id', 1)
+  // Lifetime solve limit: wallet can only solve the formula once ever
+  const { data: existingSolver } = await supabase
+    .from('mm3_chain_solvers')
+    .select('wallet, solved_at')
+    .eq('wallet', wallet)
     .maybeSingle();
 
-  if (existingWinner) {
-    return Response.json({ ok: false, error: 'game_over', winner: existingWinner }, { status: 409 });
+  if (existingSolver) {
+    return Response.json({ ok: false, error: 'already_solved_lifetime', solvedAt: existingSolver.solved_at }, { status: 409 });
   }
 
-  // Check daily attempt limit
+  // Daily attempt limit (anti-brute-force for wrong answers)
   const day = getUtcDay();
   const { data: existingAttempt } = await supabase
     .from('mm3_chain_solve_attempts')
@@ -97,7 +91,7 @@ async function handleAttempt(req) {
   const isCorrect = answer === correctAnswer;
   const now = new Date().toISOString();
 
-  // Record attempt (ignore duplicate key — race condition safety)
+  // Record attempt
   await supabase.from('mm3_chain_solve_attempts').insert({
     wallet,
     day,
@@ -110,44 +104,9 @@ async function handleAttempt(req) {
     return Response.json({ ok: true, correct: false, resetAt });
   }
 
-  // ── WINNER ──────────────────────────────────────────────────────────────────
-  const { error: winnerError } = await supabase
-    .from('mm3_game_winner')
-    .insert({ id: 1, wallet, won_at: now });
-
-  if (winnerError && winnerError.code !== '23505') {
-    // Another wallet won in a race — not this one
-    const { data: actualWinner } = await supabase
-      .from('mm3_game_winner')
-      .select('wallet, won_at')
-      .eq('id', 1)
-      .maybeSingle();
-    return Response.json({ ok: false, error: 'game_over', winner: actualWinner }, { status: 409 });
-  }
-
-  const winnerLabel = formatWalletLabel(wallet);
-  const winMsg = `⬡ MM3 BLOCK CHAIN SOLVED ⬡ ${winnerLabel} cracked the prime lattice — the chain is complete. Game over. Congratulations.`;
-
-  await Promise.all([
-    supabase.from('mm3_relaying_messages').insert({
-      wallet: 'system',
-      text: winMsg,
-      ts: Date.now(),
-      kind: 'system',
-      tone: 'market',
-    }),
-    supabase.from('mm3_macro_state').update({
-      ticker_message: `⬡ CHAIN SOLVED BY ${wallet.toUpperCase()} ⬡ MM3 BLOCK CHAIN COMPLETE ⬡`,
-      ticker_message_en: `⬡ CHAIN SOLVED BY ${winnerLabel.toUpperCase()} ⬡ MM3 BLOCK CHAIN COMPLETE ⬡`,
-      ticker_message_es: `⬡ CHAIN RESUELTA POR ${winnerLabel.toUpperCase()} ⬡ MM3 BLOCK CHAIN COMPLETADA ⬡`,
-      updated_at: now,
-    }).eq('id', 1),
-  ]);
-
-  // ── AUTO-MINE: fill all remaining chain blocks ────────────────────────────────
-  // When the formula is solved, every unmined position in the 28×28 grid is
-  // instantly claimed by the winner. chain_index = 0 marks these as auto-mined
-  // so they can be cleanly deleted on reset (DELETE WHERE chain_index = 0).
+  // ── CORRECT ─────────────────────────────────────────────────────────────────
+  // Auto-mine all remaining blocks to the solver
+  let autoMinedCount = 0;
   try {
     const [{ data: existingMined }, { data: maxRow }] = await Promise.all([
       supabase.from('mm3_mined_blocks').select('block_hex'),
@@ -177,19 +136,43 @@ async function handleAttempt(req) {
         }
       }
     }
-
-    // Insert in batches of 100 to stay within Supabase payload limits
     for (let i = 0; i < toInsert.length; i += 100) {
       await supabase.from('mm3_mined_blocks').insert(toInsert.slice(i, i + 100));
     }
+    autoMinedCount = toInsert.length;
   } catch (autoMineErr) {
     console.error('[chain-solve/attempt] auto-mine failed (non-fatal):', autoMineErr);
   }
-  // ─────────────────────────────────────────────────────────────────────────────
+
+  // Update solver's block_chain_percent to 100
+  await supabase.from('player_progress').upsert({
+    wallet,
+    block_chain_percent: 100,
+    updated_at: now,
+  }, { onConflict: 'wallet', ignoreDuplicates: false });
+
+  // Activate demine mode (records solver, awards 1000 MM3, compensates block owners)
+  const { data: allMinedForDemine } = await supabase
+    .from('mm3_mined_blocks')
+    .select('wallet, mm3_value');
+
+  await activateDemineMode(supabase, wallet, allMinedForDemine || [], true);
+
+  const winnerLabel = formatWalletLabel(wallet, true);
+  const relayMsg = `⬡ CHAIN FORMULA SOLVED ⬡ ${winnerLabel} cracked Ω(${aVal},${bVal},${C}) = ${correctAnswer}. Auto-mined ${autoMinedCount} blocks. DEMINE MODE ACTIVE ⬡`;
+
+  await supabase.from('mm3_relaying_messages').insert({
+    wallet: 'system',
+    text: relayMsg,
+    ts: Date.now(),
+    kind: 'system',
+    tone: 'market',
+  });
 
   return Response.json({
     ok: true,
     correct: true,
-    winner: { wallet, won_at: now },
+    solver: { wallet, solved_at: now },
+    autoMinedCount,
   });
 }

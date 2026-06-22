@@ -56,7 +56,7 @@ export async function POST(req) {
   );
 
   try {
-    const [{ data: reservedBlock }, { data: nftjiBlocks, count: reservedCount }, { data: existing }, { data: progress }, { data: tokenValue }] = await Promise.all([
+    const [{ data: reservedBlock }, { data: nftjiBlocks, count: reservedCount }, { data: existing }, { data: progress }, { data: tokenValue }, { data: macroRow }] = await Promise.all([
       supabase
         .from('mm3_mining_blocks')
         .select('block_key, emoji, price_eur, is_active, first_purchased_at, market_command')
@@ -80,8 +80,16 @@ export async function POST(req) {
         .from('token_value')
         .select('total_eth')
         .maybeSingle(),
+      supabase
+        .from('mm3_macro_state')
+        .select('chain_demine_active')
+        .eq('id', 1)
+        .maybeSingle(),
     ]);
 
+    if (macroRow?.chain_demine_active) {
+      return Response.json({ ok: false, error: 'chain_demine_active' }, { status: 423 });
+    }
     if (existing) {
       return Response.json({ ok: false, error: 'already_mined', blockHex, owner: existing.wallet }, { status: 409 });
     }
