@@ -457,8 +457,8 @@ export default function HomeMiningWorld3D() {
       scene = new THREE.Scene()
       scene.fog = new THREE.FogExp2('#010c18', .036)
       const camera = new THREE.PerspectiveCamera(33, 2, .1, 50)
-      camera.position.set(9.8, 7.2, 15.0)
-      camera.lookAt(-.15, 1.40, 0)
+      camera.position.set(8.20, 6.05, 12.30)
+      camera.lookAt(-.15, 1.72, 0)
 
       scene.add(new THREE.HemisphereLight('#c7e9ff', '#060e1a', 1.30))
       const key = new THREE.DirectionalLight('#fff8dc', 2.50)
@@ -473,10 +473,9 @@ export default function HomeMiningWorld3D() {
       goldFill.position.set(.55, 2.3, 2.1)
       scene.add(goldFill)
 
-      const bot = addMiningBot(THREE, scene, { scale: 2.75 })
+      const bot = addMiningBot(THREE, scene)
       const chain = addChainNodeAndSword(THREE, scene)
-      chain.group.scale.setScalar(0.76)
-      const nftjiBlock = addNftjiMiningBlock(THREE, scene, { scale: 0.82 })
+      const nftjiBlock = addNftjiMiningBlock(THREE, scene)
 
       const resize = () => {
         const width = Math.max(1, canvas.clientWidth)

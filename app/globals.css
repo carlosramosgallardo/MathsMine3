@@ -1811,6 +1811,8 @@ footer.bg-black\/97,
 }
 .mm3-home .mm3-portal {
   position: relative;
+  overflow: hidden;
+  padding-top: 1.5rem;
   background:
     linear-gradient(rgba(34,211,238,.035) 1px,transparent 1px),
     linear-gradient(90deg,rgba(34,211,238,.035) 1px,transparent 1px),
