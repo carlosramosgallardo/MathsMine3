@@ -657,20 +657,14 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
     };
 
     loadPresence();
-    const timer = setInterval(loadPresence, 60_000);
+    const timer = setInterval(() => { if (!document.hidden) loadPresence(); }, 60_000);
     window.addEventListener('focus', loadPresence);
     window.addEventListener('mm3-presence-changed', loadPresence);
-    const channel = supabase
-      .channel('mm3-leaderboard-presence-live')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'mm3_wallet_presence' }, loadPresence)
-      .subscribe();
-
     return () => {
       mounted = false;
       clearInterval(timer);
       window.removeEventListener('focus', loadPresence);
       window.removeEventListener('mm3-presence-changed', loadPresence);
-      supabase.removeChannel(channel);
     };
   }, []);
 
@@ -1100,7 +1094,7 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
 
   useEffect(() => {
     fetchInvites();
-    const poll = setInterval(fetchInvites, 60_000);
+    const poll = setInterval(() => { if (!document.hidden) fetchInvites(); }, 300_000);
     return () => clearInterval(poll);
   }, [activeWallet, fetchInvites]);
 
@@ -1117,15 +1111,6 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
     const poll = setInterval(check, 30_000);
     return () => clearInterval(poll);
   }, [activeWallet]);
-
-  useEffect(() => {
-    if (!activeWallet) return;
-    const channel = supabase
-      .channel('mm3-invites-live')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'mm3_wallet_pool_invitations' }, fetchInvites)
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
-  }, [activeWallet, fetchInvites]);
 
   useEffect(() => {
     if (!activeWalletPool) {
@@ -1253,39 +1238,15 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
       if (!document.hidden) refresh();
     };
 
-    // Debounced version for postgres_changes — DB batch updates fire many events in quick
-    // succession; coalesce them into a single fetch after 1 s to cut realtime message cost.
-    let _dbDebounce = null;
-    const refreshDebounced = () => {
-      clearTimeout(_dbDebounce);
-      _dbDebounce = setTimeout(refresh, 1000);
-    };
-
     window.addEventListener('mm3-db-updated', refresh);
     window.addEventListener('mm3-correct', refresh);
     window.addEventListener('focus', refreshWhenVisible);
     document.addEventListener('visibilitychange', refreshWhenVisible);
 
-    const poll = setInterval(refreshWhenVisible, 5_000);
-    const channel = supabase
-      .channel('mm3-leaderboard-live')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'player_progress' }, refreshDebounced)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'leaderboard_data' }, refreshDebounced)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'mm3_command_penalties' }, refreshDebounced)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'mm3_wallet_pools' }, refreshDebounced)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'mm3_wallet_pool_members' }, refreshDebounced)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'mm3_squeezing_nftji' }, refreshDebounced)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'mm3_mined_blocks' }, refreshDebounced)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'mm3_pool_disputes' }, refreshDebounced)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'mm3_pool_dispute_wallets' }, refreshDebounced)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'mm3_pool_dispute_votes' }, refreshDebounced)
-      .subscribe();
-
+    const poll = setInterval(refreshWhenVisible, 60_000);
     return () => {
       clearRefreshTimers();
-      clearTimeout(_dbDebounce);
       clearInterval(poll);
-      supabase.removeChannel(channel);
       window.removeEventListener('mm3-db-updated', refresh);
       window.removeEventListener('mm3-correct', refresh);
       window.removeEventListener('focus', refreshWhenVisible);

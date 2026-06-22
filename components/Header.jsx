@@ -57,7 +57,6 @@ function SoundToggle() {
 
 function Mm3Total() {
   const [value, setValue] = useState(null)
-  const pathname = usePathname()
 
   useEffect(() => {
     let mounted = true
@@ -72,7 +71,7 @@ function Mm3Total() {
     }
 
     load()
-    const timer = setInterval(load, 60_000)
+    const timer = setInterval(() => { if (!document.hidden) load() }, 120_000)
     window.addEventListener('focus', load)
     window.addEventListener('mm3-db-updated', load)
 
@@ -82,7 +81,7 @@ function Mm3Total() {
       window.removeEventListener('focus', load)
       window.removeEventListener('mm3-db-updated', load)
     }
-  }, [pathname])
+  }, [])
 
   if (value === null) return null
 

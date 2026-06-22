@@ -240,17 +240,14 @@ export default function TradeBoard({ account, isVirtualWallet = false }) {
   useEffect(() => {
     const loadMacro = async () => {
       try {
-        const { data } = await supabase
-          .from('mm3_macro_state')
-          .select('war_percent, nature_percent')
-          .eq('id', 1)
-          .maybeSingle();
-        setMacroState(normalizeMacroState(data));
+        const response = await fetch('/api/portal-status');
+        const data = await response.json();
+        setMacroState(normalizeMacroState(data?.macro));
       } catch {}
     };
 
     loadMacro();
-    const timer = setInterval(loadMacro, 30_000);
+    const timer = setInterval(() => { if (!document.hidden) loadMacro(); }, 120_000);
     return () => clearInterval(timer);
   }, []);
 

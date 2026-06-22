@@ -190,7 +190,7 @@ function useRawHistory() {
     }
     const onFocus = () => { if (Date.now() - lastFetch > 25_000) load() }
     load()
-    const id = setInterval(load, 30_000)
+    const id = setInterval(() => { if (!document.hidden) load() }, 30_000)
     window.addEventListener('focus', onFocus)
     window.addEventListener('mm3-db-updated', onFocus)
     return () => {
@@ -217,7 +217,7 @@ function useRawMinutes(enabled) {
     }
     const onFocus = () => { if (Date.now() - lastFetch > 12_000) load() }
     load()
-    const id = setInterval(load, 15_000)
+    const id = setInterval(() => { if (!document.hidden) load() }, 15_000)
     window.addEventListener('focus', onFocus)
     window.addEventListener('mm3-db-updated', onFocus)
     return () => {
@@ -382,7 +382,7 @@ function useNftEvents(range) {
     }
     const onFocus = () => { if (Date.now() - lastFetch > 55_000) load() }
     load()
-    const id = setInterval(load, 15_000)
+    const id = setInterval(() => { if (!document.hidden) load() }, 60_000)
     window.addEventListener('focus', onFocus)
     window.addEventListener('mm3-db-updated', onFocus)
     return () => {

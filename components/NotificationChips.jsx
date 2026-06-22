@@ -5,7 +5,6 @@ import { useActiveWallet } from '@/lib/use-active-wallet';
 import { useI18n } from '@/lib/i18n-context';
 import { colorFromAddress, colorFromPool } from '@/lib/wallet-colors';
 import { formatWalletLabel } from '@/lib/wallet-format';
-import supabase from '@/lib/supabaseClient';
 
 function shortWallet(wallet) {
   const s = String(wallet || '').trim();
@@ -95,17 +94,6 @@ export default function NotificationChips() {
       window.removeEventListener('focus', fetchInvites);
       window.removeEventListener('mm3-db-updated', fetchInvites);
     };
-  }, [activeWallet, fetchInvites]);
-
-  useEffect(() => {
-    if (!activeWallet) return;
-    const ch = supabase
-      .channel('mm3-notif-chips-invites')
-      .on('postgres_changes', {
-        event: '*', schema: 'public', table: 'mm3_wallet_pool_invitations', filter: `wallet=eq.${activeWallet}`,
-      }, fetchInvites)
-      .subscribe();
-    return () => supabase.removeChannel(ch);
   }, [activeWallet, fetchInvites]);
 
   useEffect(() => {

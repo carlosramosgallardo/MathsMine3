@@ -1,7 +1,5 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import supabase from '@/lib/supabaseClient';
 import { normalizeMacroState } from '@/lib/mm3-macro';
 import { useI18n } from '@/lib/i18n-context';
 import { useDice } from '@/lib/dice-context';
@@ -10,25 +8,8 @@ import { useIrcPresence } from '@/lib/relaying-presence-context';
 export default function GlobalPulseBar() {
   const { language } = useI18n();
   const dice = useDice();
-  const { activeWallets, totalWallets } = useIrcPresence();
-
-  const [macro, setMacro] = useState(() => normalizeMacroState());
-
-  useEffect(() => {
-    const load = async () => {
-      try {
-        const { data } = await supabase
-          .from('mm3_macro_state')
-          .select('war_percent, nature_percent')
-          .eq('id', 1)
-          .maybeSingle();
-        setMacro(normalizeMacroState(data));
-      } catch {}
-    };
-    load();
-    const t = setInterval(load, 120_000);
-    return () => clearInterval(t);
-  }, []);
+  const { activeWalletCount, totalWallets, macro: rawMacro } = useIrcPresence();
+  const macro = normalizeMacroState(rawMacro || undefined);
 
   const isSpanish = language === 'es';
   const items = [
@@ -66,11 +47,11 @@ export default function GlobalPulseBar() {
         className="group relative flex h-7 items-center gap-[3px] px-0.5 sm:px-1 font-mono text-[0.82rem] font-black sm:h-9 sm:text-[0.90rem]"
         title={
           isSpanish
-            ? `wallets online: ${activeWallets.length} / creadas en ranking: ${totalWallets}`
-            : `wallets online: ${activeWallets.length} / ranking wallets: ${totalWallets}`
+            ? `wallets online: ${activeWalletCount} / creadas en ranking: ${totalWallets}`
+            : `wallets online: ${activeWalletCount} / ranking wallets: ${totalWallets}`
         }
       >
-        <span className="text-emerald-400 tabular-nums">{activeWallets.length}</span>
+        <span className="text-emerald-400 tabular-nums">{activeWalletCount}</span>
         <span className="text-slate-600 text-[0.70rem]">/</span>
         <span className="text-slate-500 tabular-nums">{totalWallets}</span>
         <span className="text-slate-600 text-[0.65rem]">wal</span>

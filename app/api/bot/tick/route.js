@@ -104,10 +104,10 @@ const MARKET_NFTJI_LEVEL_BASE_PCT = 0.003;
 
 // ── 3D map bot session constants ──────────────────────────────────────────────
 const BOT_MAP_CHANNEL       = 'mm3-chain3d-v1';
-const BOT_MAP_STEPS_MIN     = 10;
-const BOT_MAP_STEPS_MAX     = 18;
-const BOT_MAP_STEP_MS_MIN   = 110;
-const BOT_MAP_STEP_MS_MAX   = 470;
+const BOT_MAP_STEPS_MIN     = 8;
+const BOT_MAP_STEPS_MAX     = 12;
+const BOT_MAP_STEP_MS_MIN   = 500;
+const BOT_MAP_STEP_MS_MAX   = 850;
 const BOT_MAP_PAUSE_CHANCE  = 0.18;  // probability of a longer human-like pause
 const BOT_MAP_PAUSE_MS_MIN  = 600;
 const BOT_MAP_PAUSE_MS_MAX  = 1800;
@@ -433,7 +433,7 @@ async function simulateBotMapSession(supabase, wallet, targetRow, targetCol, poo
   // Act at the destination. Repeated swing broadcasts make the task visible
   // to every player, using the same remote pickaxe animation as human wallets.
   taskPhase = 'acting';
-  const actionBursts = taskType === 'trade' ? 2 : 4;
+  const actionBursts = taskType === 'trade' ? 1 : 2;
   for (let i = 0; i < actionBursts; i++) {
     if (pendingRespawn) {
       pendingRespawn = false;
@@ -2107,20 +2107,6 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
       tone: 'bot',
     });
 
-    // Broadcast via Supabase JS REST fallback — setAuth ensures the Bearer header is populated
-    supabase.realtime.setAuth(process.env.SUPABASE_SERVICE_ROLE_KEY);
-    await supabase.channel('mm3-irc-relay').send({
-      type: 'broadcast',
-      event: 'message',
-      payload: {
-        id: `db:${wallet}:${msgTs}`,
-        kind: 'chat',
-        wallet,
-        text: botMsg,
-        ts: msgTs,
-        tone: 'neutral',
-      },
-    }).catch(() => {});
   }
 
   // ── PRESENCE: mark offline when execution ends ───────────

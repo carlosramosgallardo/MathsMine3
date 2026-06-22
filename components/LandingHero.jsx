@@ -6,28 +6,10 @@ import { useI18n } from '@/lib/i18n-context';
 import { useActiveWallet } from '@/lib/use-active-wallet';
 import { loadDailyTaskProgress } from '@/lib/daily-tasks';
 import supabase from '@/lib/supabaseClient';
+import HomeMiningMinimap from '@/components/HomeMiningMinimap';
 
 // Interactive portal cards disabled during the 5-minute death cooldown
 const INTERACTIVE_HREFS = new Set(['/training', '/trading', '/squeezing', '/relaying', '/daily-tasks', '/mining'])
-
-const HOME_VOXELS = [
-  { x:0, y:0, z:0, tone:'#7c8da3', glow:'#22d3ee' },
-  { x:1, y:0, z:0, tone:'#8899ad', glow:'#22d3ee' },
-  { x:2, y:0, z:0, tone:'#d2b16d', glow:'#facc15' },
-  { x:3, y:0, z:1, tone:'#ca8745', glow:'#fb923c' },
-  { x:0, y:1, z:0, tone:'#80c9dc', glow:'#67e8f9' },
-  { x:1, y:1, z:1, tone:'#a8e7f2', glow:'#67e8f9' },
-  { x:2, y:1, z:0, tone:'#ae6a55', glow:'#f97316' },
-  { x:3, y:1, z:0, tone:'#d54b2c', glow:'#fb7185' },
-  { x:0, y:2, z:0, tone:'#6d7f94', glow:'#a78bfa' },
-  { x:1, y:2, z:0, tone:'#55758c', glow:'#22d3ee' },
-  { x:2, y:2, z:2, tone:'#d49c3f', glow:'#facc15', core:true },
-  { x:3, y:2, z:0, tone:'#8d3b31', glow:'#f97316' },
-  { x:0, y:3, z:1, tone:'#507a6b', glow:'#4ade80' },
-  { x:1, y:3, z:0, tone:'#70a58d', glow:'#4ade80' },
-  { x:2, y:3, z:0, tone:'#715e8f', glow:'#e879f9' },
-  { x:3, y:3, z:1, tone:'#894e8b', glow:'#e879f9' },
-]
 
 const PORTAL = {
   en: [
@@ -58,7 +40,6 @@ export default function LandingHero() {
   const { language } = useI18n();
   const { account } = useActiveWallet();
   const [pendingRewards, setPendingRewards] = useState(0);
-  const [onlineCount, setOnlineCount] = useState(null);
   const [deadUntil, setDeadUntil] = useState(null)  // ms timestamp or null
   const [nowMs, setNowMs] = useState(() => Date.now())
 
@@ -81,19 +62,6 @@ export default function LandingHero() {
     window.addEventListener('mm3-db-updated', load);
     return () => { alive = false; clearInterval(t); window.removeEventListener('mm3-db-updated', load); };
   }, [account]);
-
-  // Online wallet count via presence channel
-  useEffect(() => {
-    let ch;
-    try {
-      ch = supabase.channel('mm3-chain3d-v1');
-      ch.on('presence', { event: 'sync' }, () => {
-        const state = ch.presenceState();
-        setOnlineCount(Object.keys(state).length);
-      }).subscribe();
-    } catch { /* */ }
-    return () => { try { ch?.unsubscribe(); } catch { /* */ } };
-  }, []);
 
   // Check death state from localStorage (works for both anon and logged-in wallets)
   useEffect(() => {
@@ -158,9 +126,7 @@ export default function LandingHero() {
           {/* kicker */}
           <div className="mm3-splash-kicker">
             <span className="mm3-splash-live" />
-            {onlineCount !== null
-              ? (es ? `${onlineCount} wallets en línea` : `${onlineCount} wallets online`)
-              : 'MM3 · BLOCKCHAIN GAME'}
+            {es ? 'MM3 · MAPA REAL CACHEADO' : 'MM3 · CACHED REAL MAP'}
           </div>
 
           {/* tagline */}
@@ -184,33 +150,7 @@ export default function LandingHero() {
           </p>
           </div>
 
-          <div className="mm3-home-diorama" aria-hidden="true">
-            <div className="mm3-home-world-grid" />
-            <div className="mm3-home-voxel-field">
-              {HOME_VOXELS.map((block, index) => (
-                <span
-                  className={`mm3-home-voxel${block.core ? ' is-core' : ''}`}
-                  key={index}
-                  style={{
-                    '--voxel-x': `${(block.x - 1.5) * 36}px`,
-                    '--voxel-y': `${(block.y - 1.5) * 36}px`,
-                    '--voxel-z': `${block.z * 28}px`,
-                    '--voxel': block.tone,
-                    '--voxel-glow': block.glow,
-                  }}
-                >
-                  <span className="mm3-home-voxel-top" />
-                  <span className="mm3-home-voxel-front" />
-                  <span className="mm3-home-voxel-side" />
-                  {block.core && <span className="mm3-home-chain-core">⬡</span>}
-                </span>
-              ))}
-            </div>
-            <div className="mm3-home-world-label">
-              <span>MM3 WORLD</span>
-              <b>56 × 56</b>
-            </div>
-          </div>
+          <HomeMiningMinimap language={language} />
         </div>
       </section>
 

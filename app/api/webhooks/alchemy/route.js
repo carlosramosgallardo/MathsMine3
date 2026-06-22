@@ -73,12 +73,6 @@ export async function POST(req) {
         throw insertError;
       }
 
-      await supabase.channel('mm3-irc-relay').send({
-        type: 'broadcast',
-        event: 'message',
-        payload: ircPayload,
-      });
-
       inserted += 1;
     }
 

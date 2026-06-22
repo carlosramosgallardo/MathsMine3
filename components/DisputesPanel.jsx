@@ -886,16 +886,18 @@ export default function DisputesPanel({ wallet, poolCode, language, onWalletClic
         notifyResolvedSqueezes(nextDisputes);
         refreshEmojis(nextDisputes);
         refreshSqueezeNftji(nextDisputes);
+        return nextDisputes;
       } else setError(data.error || 'fetch_error');
     } catch {
       setError('network_error');
     } finally {
       setIsLoading(false);
     }
+    return [];
   }, [notifyResolvedSqueezes, refreshEmojis, refreshSqueezeNftji]);
 
 
-  // Poll every 3 seconds; trigger state transitions when timers expire
+  // Active battles stay responsive; idle pages back off to protect API/DB egress.
   const checkTransitions = useCallback(async (disputeList) => {
     const now = Date.now();
     for (const d of disputeList) {
@@ -945,11 +947,22 @@ export default function DisputesPanel({ wallet, poolCode, language, onWalletClic
   }, [fetchDisputes]);
 
   useEffect(() => {
-    fetchDisputes();
-    pollingRef.current = setInterval(async () => {
-      await fetchDisputes();
-    }, 3000);
-    return () => clearInterval(pollingRef.current);
+    let cancelled = false;
+    const poll = async () => {
+      const latest = await fetchDisputes();
+      if (cancelled) return;
+      const hasLiveTransition = latest.some((entry) =>
+        ['registering', 'battle_start'].includes(entry.status)
+      );
+      const hasProposal = latest.some((entry) => entry.status === 'proposing');
+      const delay = document.hidden ? 60_000 : hasLiveTransition ? 3_000 : hasProposal ? 10_000 : 30_000;
+      pollingRef.current = setTimeout(poll, delay);
+    };
+    poll();
+    return () => {
+      cancelled = true;
+      clearTimeout(pollingRef.current);
+    };
   }, [fetchDisputes]);
 
 

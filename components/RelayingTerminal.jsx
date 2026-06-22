@@ -445,6 +445,12 @@ export default function RelayingTerminal({ accent = '#22d3ee' }) {
     relayRef.current?.send({ type: 'broadcast', event: 'message', payload: message }).catch(() => {});
   }, [appendMessage]);
 
+  // Database events are already delivered to every subscriber. Re-broadcasting
+  // them from every browser creates quadratic fan-out as the room grows.
+  const appendDatabaseMessage = useCallback((message, options = {}) => {
+    appendMessage(message, options);
+  }, [appendMessage]);
+
   const buildMarketStatusLines = useCallback(({ ownersData = [], commandsData = [], blocksData = [], penaltiesData = [] }) => {
     const blocks = blocksData || [];
     const blockByKey = new Map(blocks.map((entry) => [entry.block_key, entry]));
@@ -859,7 +865,7 @@ export default function RelayingTerminal({ accent = '#22d3ee' }) {
 
   useEffect(() => {
     loadMarketClaims();
-    const timer = setInterval(loadMarketClaims, 120_000);
+    const timer = setInterval(() => { if (!document.hidden) loadMarketClaims(); }, 120_000);
     window.addEventListener('focus', loadMarketClaims);
     window.addEventListener('mm3-db-updated', loadMarketClaims);
     return () => {
@@ -883,7 +889,7 @@ export default function RelayingTerminal({ accent = '#22d3ee' }) {
 
   useEffect(() => {
     loadPoolCodes();
-    const timer = setInterval(loadPoolCodes, 300_000);
+    const timer = setInterval(() => { if (!document.hidden) loadPoolCodes(); }, 300_000);
     window.addEventListener('focus', loadPoolCodes);
     window.addEventListener('mm3-db-updated', loadPoolCodes);
     return () => {
@@ -953,7 +959,7 @@ export default function RelayingTerminal({ accent = '#22d3ee' }) {
     if (typeof window === 'undefined') return;
 
     loadPresence();
-    const timer = setInterval(loadPresence, 30_000);
+    const timer = setInterval(() => { if (!document.hidden) loadPresence(); }, 30_000);
     window.addEventListener('focus', loadPresence);
     window.addEventListener('mm3-presence-changed', loadPresence);
 
@@ -1002,7 +1008,7 @@ export default function RelayingTerminal({ accent = '#22d3ee' }) {
     };
 
     build();
-  }, [appendAndBroadcastMessage, appendMessage, connectedWallets, language, presenceReady, t]);
+  }, [appendMessage, connectedWallets, language, presenceReady, t]);
 
   // Generate all current market status messages
   const generateMarketStatusMessages = useCallback(async (actorIdForId) => {
@@ -1057,10 +1063,10 @@ export default function RelayingTerminal({ accent = '#22d3ee' }) {
           replaceGroup: 'market-status',
           replaceBatchId: `market:${signatureHash}`,
         };
-        appendAndBroadcastMessage(payload, { silent: false });
+        appendDatabaseMessage(payload, { silent: false });
       });
     }
-  }, [appendAndBroadcastMessage, generateMarketStatusMessages, actorId]);
+  }, [appendDatabaseMessage, generateMarketStatusMessages, actorId]);
 
   useEffect(() => {
     refreshMarketStatusRef.current = refreshMarketStatus;
@@ -1111,7 +1117,7 @@ export default function RelayingTerminal({ accent = '#22d3ee' }) {
               .select('wallet')
               .eq('command_id', rec.id);
             const affected = (penaltyRows || []).map((row) => formatWalletLabel(row.wallet)).join(' · ') || '0';
-            appendAndBroadcastMessage(makeMessage({
+            appendDatabaseMessage(makeMessage({
               id: `market-event:on:${rec.id}`,
               kind: 'system',
               wallet: 'system',
@@ -1143,7 +1149,7 @@ export default function RelayingTerminal({ accent = '#22d3ee' }) {
           ts: Date.now(),
           tone: 'market',
         };
-        appendAndBroadcastMessage(makeMessage(expiredPayload), { silent: false });
+        appendDatabaseMessage(makeMessage(expiredPayload), { silent: false });
         // After detail trace, refresh grouped market status for all users
         scheduleTimeout(() => refreshMarketStatus(), 500);
       })
@@ -1155,7 +1161,7 @@ export default function RelayingTerminal({ accent = '#22d3ee' }) {
         if (!['mining_buy', 'mining_resell'].includes(rec?.event_type)) return;
         const { emoji, hex } = resolveBlockByEmoji(rec.emoji);
         const action = rec.event_type === 'mining_buy' ? traceLabel.buy : traceLabel.resell;
-        appendAndBroadcastMessage(makeMessage({
+        appendDatabaseMessage(makeMessage({
           id: `market-event:${rec.event_type}:${rec.id || rec.created_at || Date.now()}`,
           kind: 'system',
           wallet: 'system',
@@ -1197,7 +1203,7 @@ export default function RelayingTerminal({ accent = '#22d3ee' }) {
       pendingTimeouts.forEach(clearTimeout);
       supabase.removeChannel(channel);
     };
-  }, [appendAndBroadcastMessage, refreshMarketStatus, supabase, language, t]);
+  }, [appendDatabaseMessage, refreshMarketStatus, supabase, language, t]);
 
   const [chipMode, setChipMode] = useState(false);
 

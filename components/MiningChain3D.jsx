@@ -13,10 +13,12 @@ import {
   MM3_BLOCK_GRID_ROWS, MM3_BLOCK_GRID_COLS,
 } from '@/lib/mm3-block-chain'
 import { computeRelayLevel } from '@/lib/wallet-decorations'
+import { MINING_CHAIN_NODE_POSITION } from '@/lib/mining-world-layout'
 import {
-  CRYPTO_COLOSSEUM_BOUNDS,
-  MINING_CHAIN_NODE_POSITION,
-} from '@/lib/mining-world-layout'
+  MINING_MARKET_LANDMARK_POSITIONS,
+  MINING_VISUAL_BLOCK_POSITIONS,
+  placeMiningVisualBlock,
+} from '@/lib/mining-visual-layout'
 import supabase from '@/lib/supabaseClient'
 import MiningChain3DFPV from './MiningChain3DFPV'
 import ChainSolveCard from './ChainSolveCard'
@@ -69,58 +71,12 @@ const PORTAL_NODES = [
   { row:50, col:28, emoji:'✅', titleEn:'DAILY TASKS', titleEs:'TAREAS',     navUrl:'/daily-tasks', color:'#2dd4bf' },
 ]
 
-const MARKET_LANDMARK_POSITIONS = [
-  [4,14],[4,27],[4,41],
-  [12,4],[12,26],[12,52],
-  [23,8],[23,19],[23,36],[23,48],
-  [36,15],[36,40],
-  [44,4],[44,18],[44,38],[44,52],
-  [52,16],[52,40],
-].map(([row,col]) => ({ row, col }))
-
-// Each quadrant is 26×26 (676 slots) for ~196 blocks → ~29% density,
-// down from the previous 22×22 (484 slots) / 40%.  Blocks spread further apart.
-const VISUAL_BLOCK_REGIONS = [
-  { row:2,  col:2,  size:26 },
-  { row:2,  col:29, size:26 },
-  { row:29, col:2,  size:26 },
-  { row:29, col:29, size:26 },
-]
-
-const VISUAL_BLOCK_POSITIONS = (() => {
-  const occupied = new Set(PORTAL_NODES.map(node => `${node.row},${node.col}`))
-  MARKET_LANDMARK_POSITIONS.forEach(pos => occupied.add(`${pos.row},${pos.col}`))
-  for(let row=CRYPTO_COLOSSEUM_BOUNDS.minRow;row<=CRYPTO_COLOSSEUM_BOUNDS.maxRow;row++){
-    for(let col=CRYPTO_COLOSSEUM_BOUNDS.minCol;col<=CRYPTO_COLOSSEUM_BOUNDS.maxCol;col++){
-      occupied.add(`${row},${col}`)
-    }
-  }
-  occupied.add(`${CHAIN_NODE_ROW},${CHAIN_NODE_COL}`)
-  const positions = new Map()
-  for (let index = 0; index < MM3_BLOCK_GRID_ROWS * MM3_BLOCK_GRID_COLS; index++) {
-    const blockHex = `#${index.toString(16).toUpperCase().padStart(3, '0')}`
-    const region = VISUAL_BLOCK_REGIONS[index % VISUAL_BLOCK_REGIONS.length]
-    const slots = region.size * region.size
-    for (let probe = 0; probe < slots; probe++) {
-      const slot = (Math.floor(index / 4) * 137 + (index % 4) * 17 + probe * 53) % slots
-      const row = region.row + Math.floor(slot / region.size)
-      const col = region.col + (slot % region.size)
-      const key = `${row},${col}`
-      if (!occupied.has(key)) {
-        occupied.add(key)
-        positions.set(blockHex, { row, col })
-        break
-      }
-    }
-  }
-  return positions
-})()
-
 function placeDistributedBlock(blockHex) {
-  const index = Number.parseInt(String(blockHex || '').replace('#', ''), 16)
-  const normalized = Number.isFinite(index) ? `#${index.toString(16).toUpperCase().padStart(3, '0')}` : ''
-  return VISUAL_BLOCK_POSITIONS.get(normalized) || blockHexToGrid(blockHex)
+  return placeMiningVisualBlock(blockHex)
 }
+
+const MARKET_LANDMARK_POSITIONS = MINING_MARKET_LANDMARK_POSITIONS
+const VISUAL_BLOCK_POSITIONS = MINING_VISUAL_BLOCK_POSITIONS
 
 function getRandomLoggedSpawn() {
   return {

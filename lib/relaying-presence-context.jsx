@@ -7,7 +7,9 @@ const ACTIVE_WINDOW_MS = 90_000;
 
 const IrcPresenceContext = createContext({
   activeWallets: [],
+  activeWalletCount: 0,
   totalWallets: 0,
+  macro: null,
   anonIrcUsers: [],
   channelStatus: 'JOINING',
   trackAnon: async () => {},
@@ -17,7 +19,9 @@ const IrcPresenceContext = createContext({
 export function IrcPresenceProvider({ children }) {
   const pathname = usePathname();
   const [activeWallets, setActiveWallets] = useState([]);
+  const [activeWalletCount, setActiveWalletCount] = useState(0);
   const [totalWallets, setTotalWallets]   = useState(0);
+  const [macro, setMacro] = useState(null);
   const [anonIrcUsers, setAnonIrcUsers]   = useState([]);
   const [channelStatus, setChannelStatus] = useState('JOINING');
   const channelRef = useRef(null);
@@ -65,29 +69,34 @@ export function IrcPresenceProvider({ children }) {
   useEffect(() => {
     const load = async () => {
       try {
+        const response = await fetch('/api/portal-status');
+        const status = await response.json();
+        if (status?.ok) {
+          setActiveWalletCount(Number(status.activeWalletCount) || 0);
+          setTotalWallets(Number(status.totalWallets) || 0);
+          setMacro(status.macro || null);
+        }
+        if (pathname !== '/relaying') { setActiveWallets([]); return; }
         const since = new Date(Date.now() - ACTIVE_WINDOW_MS).toISOString();
-        const [{ data }, { data: rankingRows }] = await Promise.all([
-          supabase
-            .from('mm3_wallet_presence')
-            .select('wallet, source, last_seen')
-            .gte('last_seen', since)
-            .order('last_seen', { ascending: false }),
-          supabase.from('leaderboard_data').select('wallet'),
-        ]);
-        const ranked = new Set((rankingRows || []).map((row) => String(row.wallet || '').toLowerCase()));
+        const { data } = await supabase
+          .from('mm3_wallet_presence')
+          .select('wallet, source, last_seen')
+          .gte('last_seen', since)
+          .order('last_seen', { ascending: false });
         const seen = new Set();
         const unique = [];
         for (const entry of data || []) {
           const wallet = String(entry.wallet || '').toLowerCase();
-          if (!wallet || !ranked.has(wallet) || seen.has(wallet)) continue;
+          if (!wallet || seen.has(wallet)) continue;
           seen.add(wallet);
           unique.push({ wallet, source: entry.source || 'wallet', last_seen: entry.last_seen });
         }
         setActiveWallets(unique);
+        setActiveWalletCount(unique.length);
       } catch { setActiveWallets([]); }
     };
     load();
-    const t = setInterval(load, pathname === '/relaying' ? 60_000 : 120_000);
+    const t = setInterval(() => { if (!document.hidden) load(); }, pathname === '/relaying' ? 60_000 : 300_000);
     window.addEventListener('focus', load);
     window.addEventListener('mm3-presence-changed', load);
     return () => {
@@ -96,21 +105,6 @@ export function IrcPresenceProvider({ children }) {
       window.removeEventListener('mm3-presence-changed', load);
     };
   }, [pathname]);
-
-  /* ── Total wallets count ── */
-  useEffect(() => {
-    const load = async () => {
-      try {
-        const { count } = await supabase
-          .from('player_progress')
-          .select('wallet', { count: 'exact', head: true });
-        if (count != null) setTotalWallets(count);
-      } catch {}
-    };
-    load();
-    const t = setInterval(load, 300_000);
-    return () => clearInterval(t);
-  }, []);
 
   const trackAnon = useCallback(async (anonId, flag) => {
     if (!channelRef.current) return;
@@ -124,7 +118,7 @@ export function IrcPresenceProvider({ children }) {
 
   return (
     <IrcPresenceContext.Provider
-      value={{ activeWallets, totalWallets, anonIrcUsers, channelStatus, trackAnon, untrackAnon }}
+      value={{ activeWallets, activeWalletCount, totalWallets, macro, anonIrcUsers, channelStatus, trackAnon, untrackAnon }}
     >
       {children}
     </IrcPresenceContext.Provider>
