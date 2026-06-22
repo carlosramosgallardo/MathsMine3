@@ -522,10 +522,15 @@ export default function TradeBoard({ account, isVirtualWallet = false }) {
               updated_at: new Date().toISOString(),
             };
 
-      const { error: progressError } = await supabase
-        .from('player_progress')
-        .upsert(nextProgress, { onConflict: 'wallet', ignoreDuplicates: false });
-      if (progressError) throw progressError;
+      const progressRes = await fetch('/api/trade/exec', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ wallet, progress: nextProgress }),
+      });
+      if (!progressRes.ok) {
+        const { error } = await progressRes.json().catch(() => ({}));
+        throw new Error(error || 'trade exec failed');
+      }
 
       const { error: marketError } = await supabase
         .from('mm3_mining_state')
