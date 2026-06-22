@@ -88,14 +88,20 @@ export default function ChainSolveCard({ wallet, onWinner }) {
         } else {
           setFeedback({ type: 'error', msg: data.error || t('chainSolve.feedbackNetwork') });
         }
+        setInput('');
+        await fetchStatus();
       } else if (data.correct) {
+        // Keep win message visible for 4 s before refreshing to winner state
         setFeedback({ type: 'win', msg: t('chainSolve.feedbackWin') });
         if (onWinner) onWinner(data.winner);
+        setStatus(prev => ({ ...prev, winner: data.winner, canAttempt: false }));
+        setInput('');
+        setTimeout(fetchStatus, 4000);
       } else {
         setFeedback({ type: 'wrong', msg: `${t('chainSolve.feedbackWrong')} ${answer}${t('chainSolve.feedbackWrongSuffix')}` });
+        setInput('');
+        await fetchStatus();
       }
-      setInput('');
-      await fetchStatus();
     } catch {
       setFeedback({ type: 'error', msg: t('chainSolve.feedbackNetwork') });
     } finally {
@@ -127,32 +133,43 @@ export default function ChainSolveCard({ wallet, onWinner }) {
   if (winner) {
     return (
       <div className="mm3-chain-solve-card w-full max-w-[1080px] mx-auto px-2 lg:px-3 mt-2">
+        <style>{`
+          @keyframes chain-win-pulse { 0%,100%{opacity:1;text-shadow:0 0 18px rgba(74,222,128,0.9)} 50%{opacity:0.75;text-shadow:0 0 36px rgba(74,222,128,1)} }
+          @keyframes chain-win-scan { 0%{background-position:0 0} 100%{background-position:0 100%} }
+        `}</style>
         <div
-          className="rounded border px-3 py-3 text-center"
+          className="rounded border px-4 py-4 text-center relative overflow-hidden"
           style={{
-            borderColor: 'rgba(74,222,128,0.6)',
-            background: 'rgba(0,12,6,0.96)',
+            borderColor: 'rgba(74,222,128,0.7)',
+            background: 'rgba(0,14,7,0.97)',
+            boxShadow: '0 0 32px rgba(74,222,128,0.15), inset 0 0 40px rgba(74,222,128,0.04)',
           }}
         >
-          <div className="text-[0.72rem] font-black uppercase tracking-[0.28em] text-emerald-300 mb-1">
-            {t('chainSolve.solvedTitle')}
-          </div>
-          <div className="text-[0.62rem] font-mono uppercase tracking-[0.18em] text-emerald-400/60 mb-2">
-            {t('chainSolve.solvedSubtitle')}
+          {/* scanline accent */}
+          <div style={{ position:'absolute',inset:0,backgroundImage:'repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(74,222,128,0.015) 4px)',pointerEvents:'none' }} />
+          <div className="text-[0.56rem] font-mono uppercase tracking-[0.35em] text-emerald-500/50 mb-2">
+            ⬡ &nbsp; {t('chainSolve.solvedSubtitle')} &nbsp; ⬡
           </div>
           <div
-            className="inline-block px-4 py-1.5 text-[0.78rem] font-black font-mono"
+            className="text-[1.05rem] font-black uppercase tracking-[0.22em] text-emerald-300 mb-3"
+            style={{ animation:'chain-win-pulse 2.4s ease-in-out infinite', textShadow:'0 0 18px rgba(74,222,128,0.9)' }}
+          >
+            {t('chainSolve.solvedTitle')}
+          </div>
+          <div
+            className="inline-block px-5 py-2 text-[0.84rem] font-black font-mono mb-2"
             style={{
               color: '#4ade80',
-              background: 'rgba(74,222,128,0.08)',
-              border: '1px solid rgba(74,222,128,0.3)',
-              textShadow: '0 0 12px rgba(74,222,128,0.6)',
+              background: 'rgba(74,222,128,0.10)',
+              border: '1px solid rgba(74,222,128,0.45)',
+              textShadow: '0 0 14px rgba(74,222,128,0.7)',
+              letterSpacing: '0.12em',
             }}
           >
-            {shortWallet(winner.wallet)}
+            {winner.wallet.length > 20 ? shortWallet(winner.wallet) : winner.wallet}
           </div>
-          <div className="mt-1 text-[0.58rem] font-mono text-emerald-500/40">
-            {new Date(winner.won_at).toUTCString()}
+          <div className="text-[0.56rem] font-mono text-emerald-500/35 mt-1">
+            100% BLOCKS MINED · {new Date(winner.won_at).toUTCString()}
           </div>
         </div>
       </div>

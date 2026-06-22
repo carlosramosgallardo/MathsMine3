@@ -2,6 +2,7 @@ export const dynamic = 'force-dynamic';
 
 import { createClient } from '@supabase/supabase-js';
 import { formatWalletLabel } from '@/lib/wallet-format';
+import { MM3_BLOCK_GRID_ROWS, MM3_BLOCK_GRID_COLS, gridToBlockHex, mm3ValueToHex } from '@/lib/mm3-block-chain';
 
 function normalizeWallet(value) {
   return String(value || '').trim().toLowerCase();
@@ -127,20 +128,64 @@ async function handleAttempt(req) {
   const winnerLabel = formatWalletLabel(wallet);
   const winMsg = `⬡ MM3 BLOCK CHAIN SOLVED ⬡ ${winnerLabel} cracked the prime lattice — the chain is complete. Game over. Congratulations.`;
 
-  await supabase.from('mm3_relaying_messages').insert({
-    wallet: 'system',
-    text: winMsg,
-    ts: Date.now(),
-    kind: 'system',
-    tone: 'market',
-  });
+  await Promise.all([
+    supabase.from('mm3_relaying_messages').insert({
+      wallet: 'system',
+      text: winMsg,
+      ts: Date.now(),
+      kind: 'system',
+      tone: 'market',
+    }),
+    supabase.from('mm3_macro_state').update({
+      ticker_message: `⬡ CHAIN SOLVED BY ${wallet.toUpperCase()} ⬡ MM3 BLOCK CHAIN COMPLETE ⬡`,
+      ticker_message_en: `⬡ CHAIN SOLVED BY ${winnerLabel.toUpperCase()} ⬡ MM3 BLOCK CHAIN COMPLETE ⬡`,
+      ticker_message_es: `⬡ CHAIN RESUELTA POR ${winnerLabel.toUpperCase()} ⬡ MM3 BLOCK CHAIN COMPLETADA ⬡`,
+      updated_at: now,
+    }).eq('id', 1),
+  ]);
 
-  await supabase.from('mm3_macro_state').update({
-    ticker_message: `⬡ CHAIN SOLVED BY ${wallet.toUpperCase()} ⬡ MM3 BLOCK CHAIN COMPLETE ⬡`,
-    ticker_message_en: `⬡ CHAIN SOLVED BY ${winnerLabel.toUpperCase()} ⬡ MM3 BLOCK CHAIN COMPLETE ⬡`,
-    ticker_message_es: `⬡ CHAIN RESUELTA POR ${winnerLabel.toUpperCase()} ⬡ MM3 BLOCK CHAIN COMPLETADA ⬡`,
-    updated_at: now,
-  }).eq('id', 1);
+  // ── AUTO-MINE: fill all remaining chain blocks ────────────────────────────────
+  // When the formula is solved, every unmined position in the 28×28 grid is
+  // instantly claimed by the winner. chain_index = 0 marks these as auto-mined
+  // so they can be cleanly deleted on reset (DELETE WHERE chain_index = 0).
+  try {
+    const [{ data: existingMined }, { data: maxRow }] = await Promise.all([
+      supabase.from('mm3_mined_blocks').select('block_hex'),
+      supabase.from('mm3_mined_blocks').select('chain_index').order('chain_index', { ascending: false }).limit(1),
+    ]);
+
+    const existingHexes = new Set((existingMined || []).map(r => r.block_hex));
+    let nextIndex = ((maxRow?.[0]?.chain_index) || 0) + 1;
+    const mm3Hex = mm3ValueToHex(mm3Global);
+
+    const toInsert = [];
+    for (let row = 0; row < MM3_BLOCK_GRID_ROWS; row++) {
+      for (let col = 0; col < MM3_BLOCK_GRID_COLS; col++) {
+        const blockHex = gridToBlockHex(row, col);
+        if (!existingHexes.has(blockHex)) {
+          toInsert.push({
+            block_hex: blockHex,
+            grid_row: row,
+            grid_col: col,
+            wallet,
+            wallet_level: 0,
+            mm3_value: mm3Global,
+            mm3_value_hex: mm3Hex,
+            chain_index: nextIndex++,
+            mined_at: now,
+          });
+        }
+      }
+    }
+
+    // Insert in batches of 100 to stay within Supabase payload limits
+    for (let i = 0; i < toInsert.length; i += 100) {
+      await supabase.from('mm3_mined_blocks').insert(toInsert.slice(i, i + 100));
+    }
+  } catch (autoMineErr) {
+    console.error('[chain-solve/attempt] auto-mine failed (non-fatal):', autoMineErr);
+  }
+  // ─────────────────────────────────────────────────────────────────────────────
 
   return Response.json({
     ok: true,
