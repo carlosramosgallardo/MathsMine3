@@ -47,7 +47,7 @@ export default function AITeamForge3D({ colors }) {
 
       scene = new THREE.Scene()
       const camera = new THREE.PerspectiveCamera(31, 2.4, .1, 40)
-      camera.position.set(7.4, 4.4, 10.8)
+      camera.position.set(6.0, 3.8, 9.2)
       camera.lookAt(0, 1.25, 0)
 
       scene.add(new THREE.HemisphereLight('#d8f5ff', '#06120c', 1.55))
@@ -86,12 +86,12 @@ export default function AITeamForge3D({ colors }) {
         color: colors[index],
         position: [x, .10, index % 2 ? .08 : .28],
         rotationY: Math.PI,
-        scale: 1.58,
+        scale: 2.05,
       }))
       const nftjiBlock = addNftjiMiningBlock(THREE, scene, {
         emoji: '⚡',
         position: [0, .10, .18],
-        scale: .84,
+        scale: 1.10,
       })
 
       const resize = () => {

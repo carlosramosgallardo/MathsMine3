@@ -3580,7 +3580,7 @@ function syncThreeAvatars(state,presence,myIdentity) {
     const depth=Math.max(.08,-cameraSpace.z)
     const viewportHeight=Math.max(1,state.size.y||600)
     const viewportWidth=Math.max(1,state.size.x||900)
-    const targetPixels=viewportWidth<640?86:Math.max(96,Math.min(112,viewportHeight*.19))
+    const targetPixels=viewportWidth<640?120:Math.max(180,Math.min(240,viewportHeight*.38))
     const focalPixels=viewportHeight/(2*Math.tan(THREE.MathUtils.degToRad(state.camera.fov)*.5))
     const screenMatchedScale=(targetPixels*depth)/(REMOTE_AVATAR_MODEL_HEIGHT*focalPixels)
     avatar.scale.setScalar(Math.min(REMOTE_AVATAR_VISUAL_SCALE,screenMatchedScale))
@@ -3603,7 +3603,7 @@ function syncThreeAvatars(state,presence,myIdentity) {
     const lcs=state._avatarCameraSpace.copy(state.localAvatar.position).applyMatrix4(state.camera.matrixWorldInverse)
     const ld=Math.max(.08,-lcs.z)
     const lvh=Math.max(1,state.size.y||600),lvw=Math.max(1,state.size.x||900)
-    const ltp=lvw<640?86:Math.max(96,Math.min(112,lvh*.19))
+    const ltp=lvw<640?120:Math.max(180,Math.min(240,lvh*.38))
     const lfp=lvh/(2*Math.tan(THREE.MathUtils.degToRad(state.camera.fov)*.5))
     state.localAvatar.scale.setScalar(Math.min(REMOTE_AVATAR_VISUAL_SCALE,(ltp*ld)/(REMOTE_AVATAR_MODEL_HEIGHT*lfp)))
   }
@@ -4342,7 +4342,7 @@ export default function MiningChain3DFPV({
           threeState.camera.position.copy(rb)
         }
         const pvpPitchResponse=0.60+pvpZoom*0.25
-        const pvpAimDrop=pvpZoom*0.10  // less drop needed — camera already at eye level
+        const pvpAimDrop=pvpZoom*0.50
         threeState.camera.lookAt(
           gx + cosA*lookFwd,
           cameraZ - Math.sin(effectivePitch)*lookFwd*pvpPitchResponse + 0.18 - pvpAimDrop,
@@ -5969,7 +5969,7 @@ export default function MiningChain3DFPV({
           sv.set(sgx, remoteZ + 0.85, sgy); sv.project(_threeState.camera)
           if (sv.z > 1) continue
           const pxHead = (sv.x + 1) / 2 * _W, pyHead = (-sv.y + 1) / 2 * _H
-          sv.set(sgx, remoteZ + 0.42, sgy); sv.project(_threeState.camera)
+          sv.set(sgx, remoteZ + 0.22, sgy); sv.project(_threeState.camera)
           const pxMid  = (sv.x + 1) / 2 * _W, pyMid  = (-sv.y + 1) / 2 * _H
           sv.set(sgx, remoteZ + 0.05, sgy); sv.project(_threeState.camera)
           const pyFeet = (-sv.y + 1) / 2 * _H
