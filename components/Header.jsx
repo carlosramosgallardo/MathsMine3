@@ -173,7 +173,7 @@ export default function Header() {
             href="/"
             onClick={triggerHomeLoading}
             aria-label="MathsMine3 home"
-            className="shrink-0 focus:outline-none transition-opacity duration-150 hover:opacity-85 mx-0.5 sm:mx-1"
+            className={`mm3-home-portal-link shrink-0 focus:outline-none mx-0.5 sm:mx-1 ${pathname === '/' ? 'is-active' : ''}`}
           >
             <span className="mm3-home-badge">
               <Image src="/og-image.jpg" alt="MM3" width={38} height={38} priority />

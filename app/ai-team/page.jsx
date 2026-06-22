@@ -44,158 +44,137 @@ function shortWallet(w) {
 export default function AITeamPage() {
   const { t, language } = useI18n();
   const es = language === 'es';
+  const allBots = BOT_POOLS.flatMap((pool) => pool.bots);
 
   return (
-    <>
-      <style>{`
-        @keyframes ai-float-in {
-          from { opacity: 0; transform: translateY(14px); }
-          to   { opacity: 1; transform: translateY(0); }
-        }
-        .ai-pool-section { animation: ai-float-in 0.5s ease-out both; }
-        .ai-bot-card {
-          transition: border-color 0.15s, background-color 0.15s;
-          border-radius: 6px;
-          padding: 1rem;
-        }
-        .ai-bot-link {
-          font-family: monospace;
-          font-size: 0.72rem;
-          text-decoration: none;
-          transition: opacity 0.15s;
-        }
-        .ai-bot-link:hover { opacity: 0.65; }
-        .ai-bot-tag {
-          font-family: monospace;
-          font-size: 0.65rem;
-          text-transform: uppercase;
-          letter-spacing: 0.08em;
-          padding: 2px 7px;
-          border-radius: 3px;
-        }
-        .ai-panel {
-          background: rgba(2,6,11,0.85);
-          border: 1px solid rgba(34,211,238,0.14);
-          border-radius: 8px;
-          padding: 1.25rem;
-        }
-      `}</style>
-
-      {/* ── Hero (same structure as Home) ─────────────────────────────── */}
-      <section className="mm3-splash">
-        <div className="mm3-splash-grid" aria-hidden="true" />
-        <div className="mm3-splash-orb" aria-hidden="true" />
-        <div className="mm3-splash-scanlines" aria-hidden="true" />
-        <div className="mm3-splash-body">
-          <p className="mm3-splash-sub">{t('aiTeam.subtitle')}</p>
+    <main className="ai-team-world">
+      <section className="ai-team-hero">
+        <div className="ai-team-grid" aria-hidden="true" />
+        <div className="ai-team-hero-inner">
+          <div className="ai-team-hero-copy">
+            <div className="ai-team-kicker"><span /> AUTONOMOUS WALLET NETWORK</div>
+            <h1>AI TEAM</h1>
+            <p>{t('aiTeam.subtitle')}</p>
+            <div className="ai-team-live-strip">
+              <b>04</b> {es ? 'WALLETS ACTIVAS' : 'ACTIVE WALLETS'}
+              <i>24 / 7</i>
+            </div>
+          </div>
+          <div className="ai-team-forge" aria-hidden="true">
+            <div className="ai-team-forge-floor" />
+            {allBots.map((bot, index) => (
+              <span
+                className="ai-team-forge-bot"
+                key={bot.wallet}
+                style={{
+                  '--bot-color': colorFromAddress(bot.wallet),
+                  '--bot-left': `${11 + index * 22}%`,
+                  '--bot-rise': `${index % 2 ? -13 : 0}px`,
+                }}
+              >
+                <span className="ai-team-forge-head"><i /></span>
+                <span className="ai-team-forge-body" />
+                <span className="ai-team-forge-shadow" />
+              </span>
+            ))}
+            <span className="ai-team-forge-core">AI</span>
+          </div>
         </div>
       </section>
 
-      {/* ── Content ───────────────────────────────────────────────────── */}
-      <section className="mm3-portal">
-        <div className="mx-auto max-w-5xl">
-
-          {/* Pools */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+      <section className="ai-team-content">
+        <div className="ai-team-content-inner">
+          <div className="ai-team-pool-grid">
             {BOT_POOLS.map((pool, pi) => {
               const poolColor = colorFromPool(pool.pool_code);
               return (
-                <div
+                <article
                   key={pool.pool_code}
-                  className="ai-panel ai-pool-section"
-                  style={{ animationDelay: `${pi * 0.1}s`, borderColor: `${poolColor}35` }}
+                  className="ai-team-pool-block"
+                  style={{ '--pool-color': poolColor, '--pool-delay': `${pi * 0.1}s` }}
                 >
-                  <div className="flex items-center gap-3 mb-4 pb-2" style={{ borderBottom: `1px solid ${poolColor}25` }}>
+                  <header className="ai-team-pool-head">
+                    <span className="ai-team-pool-cube" aria-hidden="true"><i>◈</i></span>
                     <Link
                       href="/ranking?view=pools"
-                      className="ai-bot-link font-bold text-sm uppercase tracking-widest"
-                      style={{ color: poolColor }}
+                      className="ai-team-pool-link"
                     >
-                      ◈ {pool.pool_code}
+                      POOL {pool.pool_code}
                     </Link>
-                    <span className="text-xs text-gray-500 font-mono">2 bots</span>
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <span className="ai-team-pool-count">02 NODES</span>
+                  </header>
+                  <div className="ai-team-bot-grid">
                     {pool.bots.map((bot) => {
                       const color = colorFromAddress(bot.wallet);
                       return (
-                        <div
+                        <div className="ai-team-bot-block"
                           key={bot.wallet}
-                          className="ai-bot-card"
-                          style={{ background: `${color}08`, border: `1px solid ${color}25` }}
-                          onMouseEnter={(e) => { e.currentTarget.style.borderColor = `${color}60`; }}
-                          onMouseLeave={(e) => { e.currentTarget.style.borderColor = `${color}25`; }}
+                          style={{ '--bot-color': color }}
                         >
-                          <div className="mb-3">
+                          <div className="ai-team-bot-face">
+                            <span className="ai-team-bot-avatar" aria-hidden="true"><i /></span>
+                            <div>
+                              <strong>{bot.key}</strong>
                             <Link
                               href={`/ranking?wallet=${bot.wallet}`}
-                              className="ai-bot-link font-bold"
-                              style={{ color }}
+                                className="ai-team-bot-link"
                               title={bot.wallet}
                             >
                               {shortWallet(bot.wallet)}
                             </Link>
+                            </div>
                           </div>
-                          <div className="flex flex-wrap gap-1">
+                          <div className="ai-team-tag-grid">
                             {bot.tags.map((tag) => (
-                              <span key={tag} className="ai-bot-tag" style={{ background: `${color}12`, color }}>
-                                {tag}
-                              </span>
+                              <span key={tag}>{tag}</span>
                             ))}
                           </div>
                         </div>
                       );
                     })}
                   </div>
-                </div>
+                </article>
               );
             })}
           </div>
 
-          {/* FreakingAI CTA */}
-          <div className="ai-panel text-center mb-4">
-            <h2 className="text-sm font-bold text-[#22d3ee] uppercase tracking-widest mb-2">
-              {t('aiTeam.freakingAI')}
-            </h2>
-            <p className="text-xs text-gray-400 mb-3">{t('aiTeam.freakingAIDesc')}</p>
+          <div className="ai-team-feature-block">
+            <div className="ai-team-feature-core" aria-hidden="true">F</div>
+            <div className="ai-team-feature-copy">
+              <h2>{t('aiTeam.freakingAI')}</h2>
+              <p>{t('aiTeam.freakingAIDesc')}</p>
+            </div>
             <a
               href="https://www.youtube.com/@FreakingAI"
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-block px-5 py-2 text-sm font-bold transition-colors"
-              style={{ color: '#22d3ee', background: 'rgba(34,211,238,0.08)', borderRadius: 4 }}
+              className="ai-team-feature-cta"
             >
               {t('aiTeam.subscribe')}
             </a>
           </div>
 
-          {/* Built with */}
-          <div className="ai-panel">
-            <p className="text-center text-[0.68rem] uppercase tracking-[0.28em] text-cyan-400/40 mb-3 font-mono">
-              {t('aiTeam.builtWith')}
-            </p>
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+          <div className="ai-team-tools-block">
+            <p className="ai-team-tools-label">{t('aiTeam.builtWith')}</p>
+            <div className="ai-team-tool-grid">
               {[
-                { href: 'https://www.anthropic.com', logo: 'https://www.anthropic.com/favicon.ico', name: 'Claude', company: 'Anthropic', alt: 'Anthropic', filter: '' },
-                { href: 'https://openai.com', logo: 'https://openai.com/favicon.ico', name: 'Codex', company: 'OpenAI', alt: 'OpenAI', filter: 'invert(1) brightness(0.85)' },
-                { href: 'https://github.com/features/copilot', logo: 'https://github.com/favicon.ico', name: 'Copilot', company: 'GitHub', alt: 'GitHub', filter: 'invert(1) brightness(0.85)' },
-              ].map(({ href, logo, name, company, alt, filter }) => (
+                { href: 'https://www.anthropic.com', mark: 'AN', name: 'Claude', company: 'Anthropic' },
+                { href: 'https://openai.com', mark: 'OP', name: 'Codex', company: 'OpenAI' },
+                { href: 'https://github.com/features/copilot', mark: 'GH', name: 'Copilot', company: 'GitHub' },
+              ].map(({ href, mark, name, company }) => (
                 <a key={name} href={href} target="_blank" rel="noopener noreferrer"
-                  className="group flex items-center gap-3 p-3 transition-opacity hover:opacity-75">
-                  <div className="shrink-0 flex h-8 w-8 items-center justify-center rounded" style={{ background: 'rgba(255,255,255,0.06)' }}>
-                    <img src={logo} alt={alt} width={18} height={18} loading="lazy" className="rounded-sm" style={{ filter }} />
-                  </div>
-                  <div className="min-w-0">
-                    <div className="text-xs font-black text-white">{name}</div>
-                    <div className="text-[0.62rem] font-mono uppercase tracking-widest text-gray-500">{company}</div>
+                  className="ai-team-tool-block">
+                  <div className="ai-team-tool-icon" aria-hidden="true">{mark}</div>
+                  <div>
+                    <strong>{name}</strong>
+                    <span>{company}</span>
                   </div>
                 </a>
               ))}
             </div>
           </div>
-
         </div>
       </section>
-    </>
+    </main>
   );
 }

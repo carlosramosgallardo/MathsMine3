@@ -10,6 +10,25 @@ import supabase from '@/lib/supabaseClient';
 // Interactive portal cards disabled during the 5-minute death cooldown
 const INTERACTIVE_HREFS = new Set(['/training', '/trading', '/squeezing', '/relaying', '/daily-tasks', '/mining'])
 
+const HOME_VOXELS = [
+  { x:0, y:0, z:0, tone:'#7c8da3', glow:'#22d3ee' },
+  { x:1, y:0, z:0, tone:'#8899ad', glow:'#22d3ee' },
+  { x:2, y:0, z:0, tone:'#d2b16d', glow:'#facc15' },
+  { x:3, y:0, z:1, tone:'#ca8745', glow:'#fb923c' },
+  { x:0, y:1, z:0, tone:'#80c9dc', glow:'#67e8f9' },
+  { x:1, y:1, z:1, tone:'#a8e7f2', glow:'#67e8f9' },
+  { x:2, y:1, z:0, tone:'#ae6a55', glow:'#f97316' },
+  { x:3, y:1, z:0, tone:'#d54b2c', glow:'#fb7185' },
+  { x:0, y:2, z:0, tone:'#6d7f94', glow:'#a78bfa' },
+  { x:1, y:2, z:0, tone:'#55758c', glow:'#22d3ee' },
+  { x:2, y:2, z:2, tone:'#d49c3f', glow:'#facc15', core:true },
+  { x:3, y:2, z:0, tone:'#8d3b31', glow:'#f97316' },
+  { x:0, y:3, z:1, tone:'#507a6b', glow:'#4ade80' },
+  { x:1, y:3, z:0, tone:'#70a58d', glow:'#4ade80' },
+  { x:2, y:3, z:0, tone:'#715e8f', glow:'#e879f9' },
+  { x:3, y:3, z:1, tone:'#894e8b', glow:'#e879f9' },
+]
+
 const PORTAL = {
   en: [
     { href: '/training',    icon: '⛏',  name: 'Training',    desc: 'Solve math under pressure. 100 problems/day, 13 types.',    accent: '#f59e0b' },
@@ -134,6 +153,8 @@ export default function LandingHero() {
 
         <div className="mm3-splash-body">
 
+          <div className="mm3-home-copy">
+
           {/* kicker */}
           <div className="mm3-splash-kicker">
             <span className="mm3-splash-live" />
@@ -161,6 +182,35 @@ export default function LandingHero() {
               ? 'Token ficticio · Sin inversión real · Sin pagos reales'
               : 'Fictional token · No real investment · No real payout'}
           </p>
+          </div>
+
+          <div className="mm3-home-diorama" aria-hidden="true">
+            <div className="mm3-home-world-grid" />
+            <div className="mm3-home-voxel-field">
+              {HOME_VOXELS.map((block, index) => (
+                <span
+                  className={`mm3-home-voxel${block.core ? ' is-core' : ''}`}
+                  key={index}
+                  style={{
+                    '--voxel-x': `${(block.x - 1.5) * 36}px`,
+                    '--voxel-y': `${(block.y - 1.5) * 36}px`,
+                    '--voxel-z': `${block.z * 28}px`,
+                    '--voxel': block.tone,
+                    '--voxel-glow': block.glow,
+                  }}
+                >
+                  <span className="mm3-home-voxel-top" />
+                  <span className="mm3-home-voxel-front" />
+                  <span className="mm3-home-voxel-side" />
+                  {block.core && <span className="mm3-home-chain-core">⬡</span>}
+                </span>
+              ))}
+            </div>
+            <div className="mm3-home-world-label">
+              <span>MM3 WORLD</span>
+              <b>56 × 56</b>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -177,7 +227,7 @@ export default function LandingHero() {
                   style={{ '--ac': '#6b7280', opacity: 0.5, cursor: 'not-allowed', pointerEvents: 'none', userSelect: 'none' }}
                   aria-disabled="true"
                 >
-                  <span className="mm3-portal-icon">💀</span>
+                  <span className="mm3-portal-block"><span className="mm3-portal-icon">💀</span></span>
                   <span className="mm3-portal-name">{name}</span>
                   <span className="mm3-portal-desc">
                     {es ? `MUERTO · revives en ${deadCountdown}` : `DEAD · revives in ${deadCountdown}`}
@@ -187,7 +237,7 @@ export default function LandingHero() {
             }
             return (
               <Link key={href} href={href} className="mm3-portal-card" style={{ '--ac': accent }}>
-                <span className="mm3-portal-icon">{icon}</span>
+                <span className="mm3-portal-block"><span className="mm3-portal-icon">{icon}</span></span>
                 <span className="mm3-portal-name">
                   {name}
                   {daily && count > 0 && (
