@@ -835,40 +835,47 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
       const liveQuote = getSellQuote(level, Math.max(0, totalMm3 - soldMm3), currentDecorations);
       const now = new Date().toISOString();
 
-      const { error: progressError } = await supabase
-        .from('player_progress')
-        .upsert({
+      const nftjiBuyRes = await fetch('/api/mining/nftji-buy', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
           wallet,
-          level,
-          mm3_sold: paysWithMm3 ? soldMm3 + priceE : soldMm3,
-          eur_earned: newFundsEur,
-          usd_earned: newFundsUsd,
-          cny_earned: newFundsCny,
-          wallet_emojis: currentDecorations,
-          life_used: Boolean(progressRow?.life_used),
-          lucky_50_claimed: Boolean(progressRow?.lucky_50_claimed),
-          lucky_100_claimed: Boolean(progressRow?.lucky_100_claimed),
-          lucky_500_claimed: Boolean(progressRow?.lucky_500_claimed),
-          lucky_1000_claimed: Boolean(progressRow?.lucky_1000_claimed),
-          sell_rate_cny: liveQuote.rateCny,
-          sell_quote_cny: liveQuote.netCny,
-          sell_quote_eur: liveQuote.netEur,
-          sell_quote_usd: liveQuote.netUsd,
-          mining_nftji_key: selectedBlock.block_key,
-          mining_nftji_price: priceE,
-          mining_nftji_since: now,
-          mining_nftji_levels: {
-            ...(progressRow?.mining_nftji_levels || {}),
-            [selectedBlock.block_key]: Number((progressRow?.mining_nftji_levels || {})[selectedBlock.block_key] ?? -1) + 1,
+          progress: {
+            level,
+            mm3_sold: paysWithMm3 ? soldMm3 + priceE : soldMm3,
+            eur_earned: newFundsEur,
+            usd_earned: newFundsUsd,
+            cny_earned: newFundsCny,
+            wallet_emojis: currentDecorations,
+            life_used: Boolean(progressRow?.life_used),
+            lucky_50_claimed: Boolean(progressRow?.lucky_50_claimed),
+            lucky_100_claimed: Boolean(progressRow?.lucky_100_claimed),
+            lucky_500_claimed: Boolean(progressRow?.lucky_500_claimed),
+            lucky_1000_claimed: Boolean(progressRow?.lucky_1000_claimed),
+            sell_rate_cny: liveQuote.rateCny,
+            sell_quote_cny: liveQuote.netCny,
+            sell_quote_eur: liveQuote.netEur,
+            sell_quote_usd: liveQuote.netUsd,
+            mining_nftji_key: selectedBlock.block_key,
+            mining_nftji_price: priceE,
+            mining_nftji_since: now,
+            mining_nftji_levels: {
+              ...(progressRow?.mining_nftji_levels || {}),
+              [selectedBlock.block_key]: Number((progressRow?.mining_nftji_levels || {})[selectedBlock.block_key] ?? -1) + 1,
+            },
+            block_chain_percent: (() => {
+              const nftjiHxs = new Set(blocks.filter(b => b.grid_row != null && b.grid_col != null).map(b => gridToBlockHex(b.grid_row, b.grid_col)));
+              const freeMined = (walletMinedRowsBuy || []).filter(r => !nftjiHxs.has(r.block_hex)).length;
+              return Math.round((freeMined + 1) / (GRID_ROWS * GRID_COLS) * 10000) / 100;
+            })(),
+            updated_at: now,
           },
-          block_chain_percent: (() => {
-            const nftjiHxs = new Set(blocks.filter(b => b.grid_row != null && b.grid_col != null).map(b => gridToBlockHex(b.grid_row, b.grid_col)));
-            const freeMined = (walletMinedRowsBuy || []).filter(r => !nftjiHxs.has(r.block_hex)).length;
-            return Math.round((freeMined + 1) / (GRID_ROWS * GRID_COLS) * 10000) / 100;
-          })(),
-          updated_at: now,
-        }, { onConflict: 'wallet', ignoreDuplicates: false });
-      if (progressError) throw progressError;
+        }),
+      });
+      if (!nftjiBuyRes.ok) {
+        const { error } = await nftjiBuyRes.json().catch(() => ({}));
+        throw new Error(error || 'nftji buy failed');
+      }
 
       await supabase.from('mm3_mining_events').insert({
         wallet,
