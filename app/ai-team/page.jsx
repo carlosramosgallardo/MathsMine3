@@ -9,12 +9,10 @@ const BOT_POOLS = [
     pool_code: 'FHNN6',
     bots: [
       {
-        key: 'bear',
         wallet: '0xcab10d0e0650d45cb0b7482370a1ca93d5bf5528',
         tags: ['sell_mm3', 'squeeze 90%', 'attack', 'chain_mine'],
       },
       {
-        key: 'bull',
         wallet: '0xcb4ccfa7de7bf861ff0383b668e682d2ee20e202',
         tags: ['buy_mm3', 'squeeze 15%', 'defense', 'chain_mine'],
       },
@@ -24,12 +22,10 @@ const BOT_POOLS = [
     pool_code: '8FR49',
     bots: [
       {
-        key: 'collector',
         wallet: '0xd6c6c15060b27406d956c7e99e520cc810b44233',
         tags: ['mining_buy', 'squeeze 55%', 'balanced', 'chain_mine'],
       },
       {
-        key: 'flipper',
         wallet: '0xd89413f5f444cd420b448cda3bc096ea9c46e8ab',
         tags: ['market_sell', 'squeeze 80%', 'balanced', 'chain_mine'],
       },
@@ -110,7 +106,6 @@ export default function AITeamPage() {
                           <div className="ai-team-bot-face">
                             <span className="ai-team-bot-avatar" aria-hidden="true"><i /></span>
                             <div>
-                              <strong>{bot.key}</strong>
                             <Link
                               href={`/ranking?wallet=${bot.wallet}`}
                                 className="ai-team-bot-link"
