@@ -2972,7 +2972,7 @@ function addBiomeLandmarks(world,textures) {
   }
 }
 
-function makeEmojiSprite(emoji,color) {
+function makeEmojiSprite(emoji,color,shape='square') {
   const canvas=document.createElement('canvas')
   canvas.width=128;canvas.height=128
   const context=canvas.getContext('2d')
@@ -2980,7 +2980,9 @@ function makeEmojiSprite(emoji,color) {
   context.shadowColor=color;context.shadowBlur=20
   context.fillStyle='rgba(1,7,14,.92)'
   context.strokeStyle=color;context.lineWidth=7
-  context.beginPath();context.rect(8,8,112,112);context.fill();context.stroke()
+  context.beginPath()
+  if(shape==='circle'){ context.arc(64,64,56,0,Math.PI*2) } else { context.rect(8,8,112,112) }
+  context.fill();context.stroke()
   context.shadowBlur=0
   context.font='72px "Apple Color Emoji","Segoe UI Emoji",sans-serif'
   context.textAlign='center';context.textBaseline='middle'
@@ -3000,7 +3002,7 @@ function addInteractiveBeaconEmoji(world,row,col,cell,height) {
   if((!cell.isMarket&&!cell.isPortalNode)||!cell.emoji) return
   const color=cell.isChainNode?'#facc15':cell.isPortalNode?(cell.color||'#22d3ee'):cell.isMarket?(cell.owner?'#4ade80':'#fb923c'):'#22d3ee'
   const beacon=new THREE.Group()
-  const emojiSprite=makeEmojiSprite(cell.emoji,color)
+  const emojiSprite=makeEmojiSprite(cell.emoji,color,cell.isPortalNode?'circle':'square')
   emojiSprite.position.y=height+.82
   beacon.add(emojiSprite)
   beacon.position.set(col+.5,0,row+.5)
