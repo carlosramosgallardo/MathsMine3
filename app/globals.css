@@ -1692,11 +1692,15 @@ footer.bg-black\/97,
 /* ── Pommel: gold sphere at top ── */
 .mm3-home-sword-pommel {
   top:0;
-  width:24px;
-  height:24px;
+  width:26px;
+  height:26px;
   border-radius:50%;
-  background:radial-gradient(circle at 36% 30%,#fef9c3 0%,#facc15 38%,#ca8a04 65%,#78350f 88%,#1c0700 100%);
-  box-shadow:0 0 14px rgba(250,204,21,.95),0 0 30px rgba(250,204,21,.45);
+  background:radial-gradient(circle at 37% 33%,#fef9c3 0%,#fde047 10%,#facc15 28%,#ca8a04 56%,#92400e 80%,#1c0700 100%);
+  box-shadow:
+    0 0 16px rgba(250,204,21,.95),
+    0 0 32px rgba(250,204,21,.45),
+    inset 0 2px 6px rgba(255,255,200,.20),
+    inset 0 -5px 12px rgba(0,0,0,.60);
 }
 /* ── Grip: dark cylinder with gold wraps ── */
 .mm3-home-sword-grip {
@@ -1724,11 +1728,14 @@ footer.bg-black\/97,
   position:absolute;
   top:50%;
   transform:translateY(-50%);
-  width:14px;
-  height:14px;
+  width:16px;
+  height:16px;
   border-radius:50%;
-  background:radial-gradient(circle at 35% 30%,#fef9c3,#facc15 55%,#78350f);
-  box-shadow:0 0 8px rgba(250,204,21,.80);
+  background:radial-gradient(circle at 37% 33%,#fef9c3 0%,#fde047 10%,#facc15 30%,#ca8a04 58%,#92400e 82%,#1c0700 100%);
+  box-shadow:
+    0 0 8px rgba(250,204,21,.85),
+    inset 0 2px 4px rgba(255,255,200,.18),
+    inset 0 -4px 8px rgba(0,0,0,.55);
 }
 .mm3-home-sword-guard::before { right:-8px; }
 .mm3-home-sword-guard::after  { left:-8px; }
