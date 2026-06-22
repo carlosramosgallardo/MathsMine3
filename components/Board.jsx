@@ -75,55 +75,59 @@ async function getMiningNftjiEmoji(blockKey) {
 function buildTrainingNftjis(progress, squeezeNftji, miningEmoji) {
   const walletEmojis = Array.isArray(progress?.wallet_emojis) ? progress.wallet_emojis : [];
   const owned = new Set(walletEmojis);
-  const handled = new Set();
   const roster = [];
 
+  // 1. Trade slots — fixed order, placeholder if not owned (mirrors Trading slot display)
   for (const slot of TRADE_SLOT_ORDER) {
-    if (!owned.has(slot.emoji)) continue;
-    handled.add(slot.emoji);
+    const isOwned = owned.has(slot.emoji);
     roster.push({
       key: `trade-${slot.key}`,
       emoji: slot.emoji,
-      level: slot.key === 'revive' ? 0 : Math.max(0, Number(progress?.[TRADE_NFTJI_LEVEL_FIELDS[slot.key]] ?? 0)),
+      level: isOwned && slot.key !== 'revive' ? Math.max(0, Number(progress?.[TRADE_NFTJI_LEVEL_FIELDS[slot.key]] ?? 0)) : 0,
       source: 'trade',
+      placeholder: !isOwned,
     });
   }
 
-  for (const emoji of walletEmojis) {
-    if (handled.has(emoji) || emoji === WALLET_DECORATIONS.relay) continue;
-    handled.add(emoji);
-    roster.push({ key: `wallet-${emoji}`, emoji, level: 0, source: 'wallet' });
-  }
+  // 2. Genesis + Relay — fixed order, placeholder if not owned
+  const hasGenesis = owned.has(WALLET_DECORATIONS.marketGenesis);
+  roster.push({ key: 'genesis', emoji: WALLET_DECORATIONS.marketGenesis, level: 0, source: 'wallet', placeholder: !hasGenesis });
 
-  if (owned.has(WALLET_DECORATIONS.relay)) {
-    const execCount = Number(progress?.relay_exec_count) || 0;
-    roster.push({
-      key: 'relay',
-      emoji: WALLET_DECORATIONS.relay,
-      level: computeRelayLevel(execCount, execCount),
-      source: 'relay',
-    });
-  }
+  const hasRelay = owned.has(WALLET_DECORATIONS.relay);
+  const execCount = Number(progress?.relay_exec_count) || 0;
+  roster.push({
+    key: 'relay',
+    emoji: WALLET_DECORATIONS.relay,
+    level: hasRelay ? computeRelayLevel(execCount, execCount) : 0,
+    source: 'relay',
+    placeholder: !hasRelay,
+  });
 
+  // 3. Squeeze slots — fixed order, placeholder if not equipped
   for (const slot of SQUEEZE_SLOT_ORDER) {
     const isAttack = slot.key === 'sq-atk';
     const equipped = isAttack ? 'attack' : 'defense';
-    if (squeezeNftji?.equipped !== equipped) continue;
+    const isOwned = squeezeNftji?.equipped === equipped && Number(isAttack ? squeezeNftji?.attack_level : squeezeNftji?.defense_level) >= 0;
     const rawLevel = isAttack ? squeezeNftji?.attack_level : squeezeNftji?.defense_level;
-    if (Number(rawLevel ?? -1) < 0) continue;
-    roster.push({ key: slot.key, emoji: slot.emoji, level: Math.max(0, Number(rawLevel) || 0), source: 'squeeze' });
-  }
-
-  const miningKey = progress?.mining_nftji_key || null;
-  if (miningKey) {
     roster.push({
-      key: `mining-${miningKey}`,
-      emoji: miningEmoji || '⬡',
-      level: Math.max(0, Number(progress?.mining_nftji_levels?.[miningKey] ?? 0)),
-      source: 'mining',
-      blockKey: miningKey,
+      key: slot.key,
+      emoji: slot.emoji,
+      level: isOwned ? Math.max(0, Number(rawLevel) || 0) : 0,
+      source: 'squeeze',
+      placeholder: !isOwned,
     });
   }
+
+  // 4. Mining NFTJI — always one slot
+  const miningKey = progress?.mining_nftji_key || null;
+  roster.push({
+    key: miningKey ? `mining-${miningKey}` : 'mining-empty',
+    emoji: miningKey ? (miningEmoji || '⬡') : '⬡',
+    level: miningKey ? Math.max(0, Number(progress?.mining_nftji_levels?.[miningKey] ?? 0)) : 0,
+    source: 'mining',
+    blockKey: miningKey || null,
+    placeholder: !miningKey,
+  });
 
   return roster;
 }
