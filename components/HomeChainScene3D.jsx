@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from 'react'
 
-export default function HomeChainScene3D({ size = 220 }) {
+export default function HomeChainScene3D({ width = 220, height = 280 }) {
   const mountRef = useRef(null)
 
   useEffect(() => {
@@ -11,15 +11,15 @@ export default function HomeChainScene3D({ size = 220 }) {
     if (!el) return
 
     import('three').then(THREE => {
-      const W = size, H = size
+      const W = width, H = height
       const renderer = new THREE.WebGLRenderer({ canvas: el, antialias: true, alpha: true })
       renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
       renderer.setSize(W, H)
       renderer.setClearColor(0x000000, 0)
 
       const scene = new THREE.Scene()
-      const camera = new THREE.PerspectiveCamera(38, 1, 0.1, 100)
-      camera.position.set(2.2, 3.8, 5.2)
+      const camera = new THREE.PerspectiveCamera(38, W / H, 0.1, 100)
+      camera.position.set(1.8, 3.2, 7.0)
       camera.lookAt(0, 1.8, 0)
 
       // Lighting
@@ -33,6 +33,7 @@ export default function HomeChainScene3D({ size = 220 }) {
       scene.add(fill)
 
       const group = new THREE.Group()
+      group.scale.set(0.70, 0.70, 0.70)
       scene.add(group)
 
       // ── Chain sphere ─────────────────────────────────────────────
@@ -141,9 +142,9 @@ export default function HomeChainScene3D({ size = 220 }) {
   return (
     <canvas
       ref={mountRef}
-      width={size}
-      height={size}
-      style={{ width: size, height: size, display: 'block' }}
+      width={width}
+      height={height}
+      style={{ width, height, display: 'block' }}
     />
   )
 }

@@ -25,10 +25,10 @@ export default function HomeBotScene3D({ size = 165 }) {
       const hemi = new THREE.HemisphereLight('#a0d8ff', '#0a180a', 1.0)
       scene.add(hemi)
       const key = new THREE.DirectionalLight('#ffffff', 1.8)
-      key.position.set(2, 5, 3)
+      key.position.set(1.5, 5, 4)
       scene.add(key)
-      const fill = new THREE.DirectionalLight('#22d3ee', 0.4)
-      fill.position.set(-3, 1, -2)
+      const fill = new THREE.DirectionalLight('#22d3ee', 0.5)
+      fill.position.set(-2, 2, 3)
       scene.add(fill)
 
       // ── Bot geometry (exact copy of createThreeWalletAvatar) ──────
@@ -107,8 +107,8 @@ export default function HomeBotScene3D({ size = 165 }) {
       tool.add(plug)
       avatar.add(tool)
 
-      // Face front, slight idle bob
-      avatar.rotation.y = 0
+      // Face toward camera (face geometry is at -Z in model space, rotate π to point +Z)
+      avatar.rotation.y = Math.PI
       scene.add(avatar)
 
       let t = 0

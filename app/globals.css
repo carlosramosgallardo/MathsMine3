@@ -1589,8 +1589,8 @@ footer.bg-black\/97,
   left:50%;
   bottom:-8px;
   transform:translateX(-50%) translateZ(2px);
-  width:130px;
-  height:130px;
+  width:110px;
+  height:230px;
   pointer-events:none;
 }
 .mm3-home-bot3d {
@@ -1872,13 +1872,13 @@ footer.bg-black\/97,
   .mm3-home-copy { padding-left:.2rem; }
   .mm3-home-arena { width:235px; height:130px; transform:scale(.9); }
   .mm3-home-arena-floor { height:100px; }
-  .mm3-home-chain3d { width:110px; height:110px; bottom:-6px; }
+  .mm3-home-chain3d { width:90px; height:190px; bottom:-6px; }
   .mm3-home-bot3d { width:90px; height:90px; }
 }
 @media (max-width:480px) {
   .mm3-home .mm3-splash-body { grid-template-columns:56% 44%; }
   .mm3-home-arena { width:185px; height:115px; margin-left:-12px; transform:scale(.9); }
-  .mm3-home-chain3d { width:95px; height:95px; }
+  .mm3-home-chain3d { width:78px; height:165px; }
   .mm3-home-bot3d { width:78px; height:78px; }
   .mm3-home .mm3-portal-card { min-height:55px; }
   .mm3-portal-block { width:25px; height:22px; margin:-.68rem 0 .08rem; box-shadow:2px 3px 0 color-mix(in srgb,var(--ac,#22d3ee) 12%,#010205); }

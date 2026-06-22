@@ -10,7 +10,7 @@ export default function HomeMiningScene() {
       </div>
 
       <div className="mm3-home-chain3d">
-        <HomeChainScene3D size={130} />
+        <HomeChainScene3D width={110} height={230} />
       </div>
 
       <div className="mm3-home-bot3d">
