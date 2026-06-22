@@ -1582,14 +1582,24 @@ footer.bg-black\/97,
   box-shadow:0 0 7px rgba(250,204,21,.36);
 }
 .mm3-home-arena-lane.is-x { transform:rotate(90deg); }
-/* ── Chain node 3D canvas ──────────────────────────────────── */
+/* ── 3D canvas elements ────────────────────────────────────── */
 .mm3-home-chain3d {
   position:absolute;
   z-index:5;
   right:2%;
-  top:-10px;
-  width:220px;
-  height:220px;
+  top:-5px;
+  width:165px;
+  height:165px;
+  transform:translateZ(2px);
+  pointer-events:none;
+}
+.mm3-home-bot3d {
+  position:absolute;
+  z-index:5;
+  left:10%;
+  bottom:0;
+  width:165px;
+  height:165px;
   transform:translateZ(2px);
   pointer-events:none;
 }
