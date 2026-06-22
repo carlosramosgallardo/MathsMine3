@@ -1,6 +1,7 @@
 'use client';
 
 import DisputesPanel from '@/components/DisputesPanel';
+import PoolSqueezeList from '@/components/PoolSqueezeList';
 import SectionFrame from '@/components/SectionFrame';
 import DeadGate from '@/components/DeadGate';
 import { useActiveWallet } from '@/lib/use-active-wallet';
@@ -33,6 +34,7 @@ export default function SqueezePage() {
     <DeadGate>
       <main className="w-full px-2 py-1" style={{ '--mm3-accent': frameAccent }}>
         <div className="mx-auto w-full max-w-4xl">
+          <PoolSqueezeList wallet={account?.toLowerCase() || ''} />
           <SectionFrame accent={frameAccent} id="squeeze-section">
             <DisputesPanel
               wallet={account?.toLowerCase() || ''}

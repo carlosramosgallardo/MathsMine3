@@ -50,7 +50,6 @@ export default function AITeamPage() {
         <div className="ai-team-hero-inner">
           <div className="ai-team-hero-copy">
             <div className="ai-team-kicker"><span /> AUTONOMOUS WALLET NETWORK</div>
-            <h1>AI TEAM</h1>
             <p>{t('aiTeam.subtitle')}</p>
           </div>
           <div className="ai-team-forge" aria-hidden="true">
