@@ -137,7 +137,7 @@ export default function HomeChainScene3D({ width = 220, height = 280 }) {
     return () => {
       cancelAnimationFrame(animId)
     }
-  }, [size])
+  }, [width, height])
 
   return (
     <canvas
