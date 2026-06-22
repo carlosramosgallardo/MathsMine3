@@ -31,13 +31,13 @@
   --mm3-magenta: #e879f9;
   --mm3-bg: #070b0f;
   --mm3-bg-deep: #030609;
-  --mm3-panel: #0a1016;
-  --mm3-panel-strong: #080d12;
-  --mm3-panel-soft: #0d151c;
-  --mm3-line: rgba(34,211,238,.24);
-  --mm3-line-dim: rgba(34,211,238,.14);
+  --mm3-panel: #0c141c;
+  --mm3-panel-strong: #0a1118;
+  --mm3-panel-soft: #101a23;
+  --mm3-line: rgba(34,211,238,.32);
+  --mm3-line-dim: rgba(34,211,238,.20);
   --mm3-text: #d7f9ff;
-  --mm3-muted: #7b8da3;
+  --mm3-muted: #91a2b7;
   --rank-novice: #22d3ee;
   --rank-miner: #4ade80;
   --rank-hacker: #facc15;
@@ -153,6 +153,15 @@ button:disabled { opacity: .4; cursor: not-allowed; }
 .mm3-portal-shell *::before,
 .mm3-portal-shell *::after {
   box-shadow: none !important;
+}
+
+/* Keep secondary copy readable on the near-black portal surfaces. */
+.mm3-portal-shell :is(.text-slate-600, .text-gray-600) {
+  color: #71839a !important;
+}
+
+.mm3-portal-shell :is(.text-slate-500, .text-gray-500) {
+  color: #8999ad !important;
 }
 
 .mm3-pixel-frame::before,
@@ -465,7 +474,7 @@ body.mm3-play-success-alert #board-section .section-frame::before {
 
 /* ── Shared portal surfaces ── */
 .mm3-portal-shell :is(section, aside, article, header, footer, nav, div)[class*="border"] {
-  border-color: color-mix(in srgb, var(--mm3-accent, #22d3ee) 18%, transparent);
+  border-color: color-mix(in srgb, var(--mm3-accent, #22d3ee) 24%, transparent);
 }
 
 .mm3-portal-shell :is(button, [role="button"], a[href]) {

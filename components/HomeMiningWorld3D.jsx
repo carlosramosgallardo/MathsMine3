@@ -279,7 +279,7 @@ function addChainNodeAndSword(THREE, scene) {
 
   const foundation = new THREE.Mesh(
     new THREE.CylinderGeometry(4.30, 4.30, .07, 96),
-    new THREE.MeshStandardMaterial({ color: '#09061a', roughness: .64, metalness: .56, emissive: '#160b35', emissiveIntensity: .58 }),
+    new THREE.MeshStandardMaterial({ color: '#100c2a', roughness: .58, metalness: .58, emissive: '#29105a', emissiveIntensity: .78 }),
   )
   foundation.position.y = .035
   foundation.receiveShadow = true
@@ -430,26 +430,26 @@ export default function HomeMiningWorld3D() {
       renderer.setClearColor(0x000000, 0)
       renderer.outputColorSpace = THREE.SRGBColorSpace
       renderer.toneMapping = THREE.ACESFilmicToneMapping
-      renderer.toneMappingExposure = 1.15
+      renderer.toneMappingExposure = 1.38
       renderer.shadowMap.enabled = true
       renderer.shadowMap.type = THREE.PCFSoftShadowMap
 
       scene = new THREE.Scene()
-      scene.fog = new THREE.FogExp2('#020916', .055)
+      scene.fog = new THREE.FogExp2('#041126', .038)
       const camera = new THREE.PerspectiveCamera(33, 2, .1, 50)
       camera.position.set(8.20, 6.05, 12.30)
       camera.lookAt(-.15, 1.72, 0)
 
-      scene.add(new THREE.HemisphereLight('#9fd7ff', '#090312', 1.12))
-      const key = new THREE.DirectionalLight('#fff8dc', 2.35)
+      scene.add(new THREE.HemisphereLight('#c7e9ff', '#160923', 1.48))
+      const key = new THREE.DirectionalLight('#fff8dc', 2.70)
       key.position.set(-3, 8, 6)
       key.castShadow = true
       key.shadow.mapSize.set(1024, 1024)
       scene.add(key)
-      const cyanFill = new THREE.PointLight('#22d3ee', 4.2, 12, 2)
+      const cyanFill = new THREE.PointLight('#38e8ff', 5.4, 13, 2)
       cyanFill.position.set(-3.3, 2.5, 3)
       scene.add(cyanFill)
-      const goldFill = new THREE.PointLight('#facc15', 5.4, 10, 2)
+      const goldFill = new THREE.PointLight('#ffe34d', 7.0, 11, 2)
       goldFill.position.set(.55, 2.3, 2.1)
       scene.add(goldFill)
 

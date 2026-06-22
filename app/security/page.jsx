@@ -7,8 +7,8 @@ const C    = '#22d3ee'
 const PASS = '#4ade80'
 const WARN = '#fb923c'
 const FAIL = '#ef4444'
-const GRAY = '#475569'
-const DIM  = '#1e293b'
+const GRAY = '#94a3b8'
+const DIM  = '#71839a'
 
 const statusColor = s => ({ pass: PASS, warn: WARN, fail: FAIL, error: FAIL }[s] ?? GRAY)
 const statusLabel = s => ({ pass: '✓ PASS', warn: '⚠ WARN', fail: '✗ FAIL', error: '✗ ERROR', running: '⟳ RUNNING' }[s] ?? s?.toUpperCase())
@@ -447,7 +447,7 @@ export default function SecurityPage() {
               ? 'No se apunta a sistemas de terceros, APIs externas ni infraestructura ajena. Las 20 comprobaciones son peticiones HTTP de solo lectura, handshakes TLS y análisis estático — sin operaciones destructivas, sin fuerza bruta, sin ataques a credenciales, sin intentos de denegación de servicio.'
               : 'No third-party systems, external APIs, or unrelated infrastructure are targeted at any point. All 20 checks are read-only HTTP requests, TLS handshakes, and static analysis — no destructive operations, no brute-force, no credential attacks, no denial-of-service attempts.'}
           </div>
-          <div style={{ color: '#334155', fontSize: '0.65rem', marginTop: 6, lineHeight: '1.6' }}>
+          <div style={{ color: '#71839a', fontSize: '0.65rem', marginTop: 6, lineHeight: '1.6' }}>
             {es
               ? <>Comprobaciones: TLS &amp; certificado · cabeceras de seguridad HTTP · análisis CSP · autenticación API (28 endpoints) · firma de wallet Web3 · CVEs de dependencias (OSV/Google) · escaneo de secretos en bundle · inyección &amp; contaminación de prototipo · lógica de negocio · divulgación de errores · inyección de host · SRI · rutas sensibles · redirección abierta · CORS · limitación de velocidad · salud de página (15 páginas) · puntuación 0–100 · exportación PDF</>
               : <>Checks: TLS &amp; certificate · HTTP security headers · CSP deep analysis · API auth (28 endpoints) · Web3 wallet signature · dependency CVEs (OSV/Google) · client bundle secret scan · injection &amp; prototype pollution · business logic probes · error disclosure · host injection · SRI · sensitive paths · open redirect · CORS · rate limiting · page health (15 pages) · results scored 0–100 · PDF export</>}
@@ -573,7 +573,7 @@ export default function SecurityPage() {
           </div>
         )}
 
-        <div style={{ color: '#1e293b', fontSize: '0.6rem', textAlign: 'center', marginTop: 32 }}>
+        <div style={{ color: DIM, fontSize: '0.6rem', textAlign: 'center', marginTop: 32 }}>
           {es ? 'Exclusivo a mathsmine3.xyz · OSV (Google) · Sin terceros afectados · Solo lectura' : 'Scoped to mathsmine3.xyz only · OSV (Google) · No third parties targeted · Read-only probes'}
         </div>
       </div>

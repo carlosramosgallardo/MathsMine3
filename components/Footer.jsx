@@ -106,7 +106,7 @@ export default function Footer() {
         <Link href="/privacy" className={touchClass}>{es ? 'Privacidad' : 'Privacy'}</Link>
         <Link href="/terms" className={touchClass}>{es ? 'Términos' : 'Terms'}</Link>
         <span className="select-none text-gray-800">|</span>
-        <span className="text-gray-700 select-none">&copy; 2026 FreakingAI</span>
+        <span className="text-gray-600 select-none">&copy; 2026 FreakingAI</span>
       </div>
     </footer>
   )
