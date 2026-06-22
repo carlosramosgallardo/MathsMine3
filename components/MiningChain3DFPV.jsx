@@ -4251,9 +4251,9 @@ export default function MiningChain3DFPV({
         }
         // 3rd-person over-shoulder camera — drop to ground level when dead
         const localDead=myDeadUntilRef.current&&myDeadUntilRef.current>Date.now()
-        const behindDist=localDead?1.20:2.55-pvpZoom*1.45
-        const aboveOffset=localDead?-0.45:1.15-pvpZoom*0.60
-        const lookFwd=2.4,shoulderR=localDead?0:0.30
+        const behindDist=localDead?1.20:2.55-pvpZoom*1.65   // 0.90 at full PvP zoom — closer, face-to-face
+        const aboveOffset=localDead?-0.45:1.15-pvpZoom*1.05  // 0.10 at full zoom — camera drops to eye level
+        const lookFwd=2.4,shoulderR=localDead?0:0.30,springArmMin=Math.min(1.5,Math.max(0.7,behindDist-0.1))
         const cosA=Math.cos(angle),sinA=Math.sin(angle)
         // Perpendicular right vector (horizontal plane)
         const rightX=Math.cos(angle+Math.PI/2), rightZ=Math.sin(angle+Math.PI/2)
@@ -4300,7 +4300,7 @@ export default function MiningChain3DFPV({
               // Phase 1 — primary position
               tryCam(camX,cameraZ+aboveOffset,camZworld)
               // Phase 2 — try alternatives when camera is still too close to player
-              if(rb.distanceTo(ra)<1.5){
+              if(rb.distanceTo(ra)<springArmMin){
                 let bestDist=rb.distanceTo(ra)
                 const bestPos=threeState._v3e.copy(rb)
                 const cx0=gx-cosA*behindDist,              cz0=gy-sinA*behindDist
@@ -4317,7 +4317,7 @@ export default function MiningChain3DFPV({
                 for(const [cx,cy,cz] of candidates){
                   const d=tryCam(cx,cy,cz)
                   if(d>bestDist){ bestDist=d; bestPos.copy(rb) }
-                  if(bestDist>=1.5) break  // good enough — stop searching
+                  if(bestDist>=springArmMin) break  // good enough — stop searching
                 }
                 rb.copy(bestPos)
               }
@@ -4333,7 +4333,7 @@ export default function MiningChain3DFPV({
           threeState.camera.position.copy(rb)
         }
         const pvpPitchResponse=0.60+pvpZoom*0.25
-        const pvpAimDrop=pvpZoom*0.34
+        const pvpAimDrop=pvpZoom*0.10  // less drop needed — camera already at eye level
         threeState.camera.lookAt(
           gx + cosA*lookFwd,
           cameraZ - Math.sin(effectivePitch)*lookFwd*pvpPitchResponse + 0.18 - pvpAimDrop,
