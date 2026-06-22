@@ -2002,10 +2002,13 @@ function drawFacingHUD(ctx, W, H, fwdCell, fwdMx, fwdMy, myWallet, es, dist, obs
         : `◈ ${owner.slice(0,6)}…${owner.slice(-4)}`,
       size: 11, col: isMine ? C : color + 'dd',
     })
-    if (isMine && fwdCell?.isMarket) {
+    if (fwdCell?.isMarket) {
       const inRangeOwned = dist == null || dist <= INTERACT_DIST
       lines.push(inRangeOwned
-        ? { text: es ? '↵ · Ficha NFTJI · /resell' : '↵ · NFTJI card · /resell', size: 10, col: '#fb923ccc' }
+        ? { text: isMine
+              ? (es ? '↵ · Ficha NFTJI · /resell' : '↵ · NFTJI card · /resell')
+              : (es ? '↵ · Ficha NFTJI · penalización' : '↵ · NFTJI card · penalty'),
+            size: 10, col: '#fb923ccc' }
         : { text: es ? '· acercarse para interactuar' : '· move closer to interact', size: 9, col: '#fb923c55' })
     }
   } else if (fwdCell?.isMarket) {
@@ -5848,6 +5851,9 @@ export default function MiningChain3DFPV({
               } else if(ownerIsMe&&fc.isMarket){
                 actionUrlRef.current=`/relaying?command=${encodeURIComponent(`/resell ${hex}`)}`
                 mineTypeRef.current='nftji'
+              } else if(fc.isMarket){
+                // Owned by another wallet — still openable for penalty checking
+                actionUrlRef.current=null; mineTypeRef.current='nftji'
               } else {
                 actionUrlRef.current=null; mineTypeRef.current='empty'
               }
