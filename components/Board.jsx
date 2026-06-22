@@ -51,6 +51,13 @@ const TRADE_NFTJI_LEVEL_FIELDS = {
   lucky500: 'lucky_500_level',
   lucky1000: 'lucky_1000_level',
 };
+const ANON_NFTJI_SLOTS = [
+  ...TRADE_SLOT_ORDER.map((slot) => ({ key: `anon-trade-${slot.key}`, emoji: slot.emoji, source: 'trade', placeholder: true })),
+  { key: 'anon-genesis', emoji: WALLET_DECORATIONS.marketGenesis, source: 'wallet', placeholder: true },
+  { key: 'anon-relay', emoji: WALLET_DECORATIONS.relay, source: 'relay', placeholder: true },
+  ...SQUEEZE_SLOT_ORDER.map((slot) => ({ key: `anon-${slot.key}`, emoji: slot.emoji, source: 'squeeze', placeholder: true })),
+  { key: 'anon-mining', emoji: '⬡', source: 'mining', placeholder: true },
+];
 
 async function getMiningNftjiEmoji(blockKey) {
   if (!blockKey) return null;
@@ -2605,6 +2612,7 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
   const noSlotsLeft = !!account && dailyMineLeft <= 0;
   const problemFamilyLabel = getProblemFamilyLabel(problem, language);
   const walletNftjis = Array.isArray(walletMeta.nftjis) ? walletMeta.nftjis : [];
+  const displayedNftjis = account ? walletNftjis : ANON_NFTJI_SLOTS;
   const stats = [
     { label: t('tradeBoard.levelRank').replace(/ *\(.*\)/, ''), value: `${level}` },
     { label: t('ranking.mm3Earned'),  value: formatCompactNum(totalMined) },
@@ -2632,10 +2640,9 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
       <div className="w-full">
         <div className="mx-auto max-w-lg px-2">
 
-          {account && (
-            <div className="mb-2 flex min-h-[54px] flex-wrap items-center justify-center gap-1.5 rounded-md border border-cyan-500/15 bg-black/70 px-2 py-1.5">
-              <span className="mr-1 font-mono text-[0.52rem] font-black uppercase tracking-[0.18em] text-cyan-300/55">NFTJI</span>
-              {walletNftjis.length ? walletNftjis.map((nftji) => {
+          <div className="mb-2 flex min-h-[48px] flex-wrap items-center justify-center gap-1 rounded-md border border-cyan-500/15 bg-black/70 px-2 py-1">
+              <span className="mr-0.5 font-mono text-[0.52rem] font-black uppercase tracking-[0.18em] text-cyan-300/55">NFTJI</span>
+              {displayedNftjis.length ? displayedNftjis.map((nftji) => {
                 const accent = nftji.source === 'mining'
                   ? '#facc15'
                   : nftji.source === 'relay'
@@ -2645,28 +2652,29 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
                       : nftji.source === 'wallet'
                         ? '#67e8f9'
                         : tier.color;
-                const title = `${getEmojiTitle(nftji.emoji)}${nftji.blockKey ? ` | ${nftji.blockKey}` : ''} | Lv.${nftji.level}`;
+                const title = nftji.placeholder
+                  ? (nftji.source === 'mining' ? 'Mining NFTJI — none' : `${getEmojiTitle(nftji.emoji)} — none`)
+                  : `${getEmojiTitle(nftji.emoji)}${nftji.blockKey ? ` | ${nftji.blockKey}` : ''} | Lv.${nftji.level}`;
                 return (
                   <div
                     key={nftji.key}
-                    className="flex h-11 w-10 flex-none flex-col items-center justify-center rounded-md border"
+                    className="flex h-10 w-7 flex-none flex-col items-center justify-center rounded border"
                     style={{
-                      borderColor: `${accent}99`,
-                      background: `${accent}12`,
-                      color: accent,
-                      boxShadow: `0 0 9px ${accent}20`,
+                      borderColor: nftji.placeholder ? `${accent}38` : `${accent}99`,
+                      background: nftji.placeholder ? 'rgba(2,6,23,0.4)' : `${accent}12`,
+                      color: nftji.placeholder ? 'rgba(100,116,139,0.35)' : accent,
+                      boxShadow: nftji.placeholder ? 'none' : `0 0 9px ${accent}20`,
                     }}
                     title={title}
                   >
-                    <span className="text-[0.92rem] leading-none">{nftji.emoji}</span>
-                    <span className="mt-0.5 font-mono text-[0.48rem] font-black leading-none">Lv.{nftji.level}</span>
+                    {!nftji.placeholder && <span className="text-[0.92rem] leading-none">{nftji.emoji}</span>}
+                    {!nftji.placeholder && <span className="mt-0.5 font-mono text-[0.48rem] font-black leading-none">Lv.{nftji.level}</span>}
                   </div>
                 );
               }) : (
                 <span className="font-mono text-[0.52rem] uppercase tracking-[0.14em] text-slate-700">NONE</span>
               )}
-            </div>
-          )}
+          </div>
 
           {/* Stats bar — pills */}
           <div
