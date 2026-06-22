@@ -235,9 +235,6 @@ function makeChainTargetSprite(THREE) {
     context.moveTo(64, 80); context.lineTo(64, 110)
     context.stroke()
   }
-  context.strokeStyle = 'rgba(0,0,0,.82)'
-  context.lineWidth = 13
-  drawCrosshair()
   context.strokeStyle = 'rgba(238,242,247,.92)'
   context.lineWidth = 4
   drawCrosshair()
