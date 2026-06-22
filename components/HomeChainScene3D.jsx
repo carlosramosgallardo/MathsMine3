@@ -19,8 +19,8 @@ export default function HomeChainScene3D({ size = 220 }) {
 
       const scene = new THREE.Scene()
       const camera = new THREE.PerspectiveCamera(38, 1, 0.1, 100)
-      camera.position.set(2.8, 6.2, 6.8)
-      camera.lookAt(0, 2.8, 0)
+      camera.position.set(2.2, 3.8, 5.2)
+      camera.lookAt(0, 1.8, 0)
 
       // Lighting
       const hemi = new THREE.HemisphereLight('#a0c8ff', '#1a0a00', 0.9)
@@ -74,7 +74,7 @@ export default function HomeChainScene3D({ size = 220 }) {
       tip.position.set(0, TIP_Y, 0)
       group.add(tip)
 
-      const BLADE_H = 5.6, BLADE_W = 0.44, BLADE_D = 0.30
+      const BLADE_H = 2.8, BLADE_W = 0.44, BLADE_D = 0.30
       const BLADE_BOT = TIP_Y + TIP_H / 2
       const BLADE_Y = BLADE_BOT + BLADE_H / 2
       const blade = new THREE.Mesh(new THREE.BoxGeometry(BLADE_W, BLADE_H, BLADE_D), bladeMat)

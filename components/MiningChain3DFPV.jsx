@@ -2730,7 +2730,7 @@ function addArenaWeapon(arena, cx, cz) {
   arena.add(tip)
 
   // blade — tall and thick, sitting on top of tip
-  const BLADE_H=7.0, BLADE_W=0.44, BLADE_D=0.30
+  const BLADE_H=3.5, BLADE_W=0.44, BLADE_D=0.30
   const BLADE_BOT=TIP_Y+TIP_H/2
   const BLADE_Y=BLADE_BOT+BLADE_H/2
   const blade=new THREE.Mesh(new THREE.BoxGeometry(BLADE_W,BLADE_H,BLADE_D),bladeMat)
