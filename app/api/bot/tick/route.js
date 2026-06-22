@@ -38,16 +38,16 @@ const BOT_POOL_MAP = new Map([
 const BOT_STRATEGIES = new Map([
   ['0xcab10d0e0650d45cb0b7482370a1ca93d5bf5528', 'sell_mm3'],   // aggressive seller
   ['0xcb4ccfa7de7bf861ff0383b668e682d2ee20e202', 'buy_mm3'],    // accumulator / buyer
-  ['0xd6c6c15060b27406d956c7e99e520cc810b44233', 'mining_buy'], // premium market collector
-  ['0xd89413f5f444cd420b448cda3bc096ea9c46e8ab', 'market_sell'],// market flipper
+  ['0xd6c6c15060b27406d956c7e99e520cc810b44233', 'nftji_collect'], // premium nftji collector
+  ['0xd89413f5f444cd420b448cda3bc096ea9c46e8ab', 'nftji_flip'],// market flipper
 ]);
 
 // Probability [0–1] that this strategy's pool initiates a squeeze on a given tick
 const STRATEGY_SQUEEZE_PROB = {
-  sell_mm3:    0.90,
-  market_sell: 0.80,
-  mining_buy:  0.55,
-  buy_mm3:     0.15,
+  sell_mm3:      0.90,
+  nftji_flip:    0.80,
+  nftji_collect: 0.55,
+  buy_mm3:       0.15,
 };
 
 // Squeeze drop specialization per bot: 'attack' | 'defense' | 'both'
@@ -60,10 +60,10 @@ const SQUEEZE_DROP_SPECIALIZATION = new Map([
 
 // NFTJi payment preference: 'mm3' → prefers mm3-priced market blocks; 'money' → EUR-priced blocks
 const STRATEGY_NFTJI_PAYMENT = new Map([
-  ['sell_mm3',    'money'],  // earns EUR selling MM3 → buys money NFTJIs
-  ['buy_mm3',     'mm3'],    // accumulates MM3 → buys mm3 NFTJIs
-  ['mining_buy',  'money'],  // collector → money NFTJIs
-  ['market_sell', 'mm3'],    // flipper → mm3 NFTJIs
+  ['sell_mm3',      'money'],  // earns EUR selling MM3 → buys money NFTJIs
+  ['buy_mm3',       'mm3'],    // accumulates MM3 → buys mm3 NFTJIs
+  ['nftji_collect', 'money'],  // collector → money NFTJIs
+  ['nftji_flip',    'mm3'],    // flipper → mm3 NFTJIs
 ]);
 
 // UTC hour windows [start, end) where each pool prefers to initiate squeezes
@@ -75,10 +75,10 @@ const POOL_TIME_WINDOWS = {
 // UTC hour windows [start, end) where each strategy prefers to execute trades.
 // Sellers active in the first half, buyers in the second — avoids same-tick cancellation.
 const STRATEGY_TRADE_WINDOWS = {
-  sell_mm3:    [[0, 12]],
-  market_sell: [[6, 18]],
-  mining_buy:  [[12, 24]],
-  buy_mm3:     [[18, 24], [0, 6]],
+  sell_mm3:      [[0, 12]],
+  nftji_flip:    [[6, 18]],
+  nftji_collect: [[12, 24]],
+  buy_mm3:       [[18, 24], [0, 6]],
 };
 
 // Minimum ms between consecutive squeeze launches from the same pool
@@ -100,7 +100,7 @@ const BOT_MAX_DRILLS_PER_TICK = Math.max(1, Number(process.env.BOT_MAX_DRILLS_PE
 const BOT_MAX_TRADES_PER_TICK = Math.max(1, Number(process.env.BOT_MAX_TRADES_PER_TICK) || 1);
 const BOT_PRESENCE_SETTLE_MS = Math.max(0, Math.min(3000, Number(process.env.BOT_PRESENCE_SETTLE_MS) || 1500));
 const SQUEEZE_BATTLE_SETTLE_MS = 5200;
-const MARKET_NFTJI_LEVEL_BASE_PCT = 0.003;
+const NFTJI_LEVEL_BASE_PCT = 0.003;
 
 // ── 3D map bot session constants ──────────────────────────────────────────────
 const BOT_MAP_CHANNEL       = 'mm3-chain3d-v1';
@@ -164,14 +164,14 @@ function normalizeWallet(value) {
   return String(value || '').trim().toLowerCase();
 }
 
-function getMarketBlockHex(block) {
+function getNftjiBlockHex(block) {
   if (block?.grid_row == null || block?.grid_col == null) return '';
   return '#' + ((Number(block.grid_row) || 0) * 28 + (Number(block.grid_col) || 0)).toString(16).toUpperCase().padStart(3, '0');
 }
 
-function getMarketBlockLabel(block, fallbackKey = '') {
+function getNftjiBlockLabel(block, fallbackKey = '') {
   if (!block) return fallbackKey || '';
-  const hex = getMarketBlockHex(block);
+  const hex = getNftjiBlockHex(block);
   return (hex || block.block_key || fallbackKey || '').trim();
 }
 
@@ -215,10 +215,10 @@ async function getSqueezeWalletLaunchCount(supabase, wallet) {
 
 // Daily NFTJI target: each bot rotates through its preferred block tier day by day.
 // The same wallet+dayKey always returns the same block so the bot holds it all day.
-function getDailyNftjiTarget({ buyableBlocks, currentMarketKey, currentMarketPrice, marketLevels, botEur, availableMm3, rateCny, wallet, dayKey, strategy, nftjiPayment }) {
+function getDailyNftjiTarget({ buyableBlocks, currentNftjiKey, currentNftjiPrice, nftjiLevels, botEur, availableMm3, rateCny, wallet, dayKey, strategy, nftjiPayment }) {
   if (!buyableBlocks || buyableBlocks.length === 0) return null;
 
-  const resellReturn = currentMarketKey ? currentMarketPrice * 0.5 : 0;
+  const resellReturn = currentNftjiKey ? currentNftjiPrice * 0.5 : 0;
 
   function blockAffordable(b) {
     const e = marketCommandFromBlock(b);
@@ -242,16 +242,16 @@ function getDailyNftjiTarget({ buyableBlocks, currentMarketKey, currentMarketPri
   if (affordable.length === 0) return null;
 
   let ranked;
-  if (strategy === 'mining_buy') {
+  if (strategy === 'nftji_collect') {
     // Collector: prefer highest-level / most expensive
     ranked = [...affordable].sort((a, b) => {
-      const la = Number(marketLevels?.[a.block_key] ?? -1);
-      const lb = Number(marketLevels?.[b.block_key] ?? -1);
+      const la = Number(nftjiLevels?.[a.block_key] ?? -1);
+      const lb = Number(nftjiLevels?.[b.block_key] ?? -1);
       if (lb !== la) return lb - la;
       if (Number(b.price_eur) !== Number(a.price_eur)) return Number(b.price_eur) - Number(a.price_eur);
       return String(a.block_key).localeCompare(String(b.block_key));
     });
-  } else if (strategy === 'market_sell') {
+  } else if (strategy === 'nftji_flip') {
     // Flipper: prefer cheapest
     ranked = [...affordable].sort((a, b) => {
       if (Number(a.price_eur) !== Number(b.price_eur)) return Number(a.price_eur) - Number(b.price_eur);
@@ -260,8 +260,8 @@ function getDailyNftjiTarget({ buyableBlocks, currentMarketKey, currentMarketPri
   } else {
     // Default: lowest-level / lowest-price
     ranked = [...affordable].sort((a, b) => {
-      const la = Number(marketLevels?.[a.block_key] ?? -1);
-      const lb = Number(marketLevels?.[b.block_key] ?? -1);
+      const la = Number(nftjiLevels?.[a.block_key] ?? -1);
+      const lb = Number(nftjiLevels?.[b.block_key] ?? -1);
       if (la !== lb) return la - lb;
       if (Number(a.price_eur) !== Number(b.price_eur)) return Number(a.price_eur) - Number(b.price_eur);
       return String(a.block_key).localeCompare(String(b.block_key));
@@ -989,20 +989,20 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
 
   // Phase 2: only fetch heavy tables if this tick will actually use them
   // problems: only needed when there are drills to run (saves ~91% of ticks after daily quota fills)
-  // marketBlocks: skip only when all market-related tasks are already claimed and no block is held
+  // nftjiBlocks: skip only when all market-related tasks are already claimed and no block is held
   const needsProblems = drillsToRun > 0;
-  const needsMarketBlocks =
+  const needsNftjiBlocks =
     !claimedTasks.has('mining') ||
     !claimedTasks.has('mining_chain') ||
     Boolean(progressRow?.mining_nftji_key);
-  const [problems, marketBlocks] = await Promise.all([
+  const [problems, nftjiBlocks] = await Promise.all([
     needsProblems
       ? supabase.from('math_problems')
           .select('id, question, correct_answer, difficulty, problem_type')
           .limit(20)
           .then(({ data }) => data)
       : Promise.resolve(null),
-    needsMarketBlocks
+    needsNftjiBlocks
       ? supabase.from('mm3_mining_blocks')
           .select('block_key, emoji, price_eur, is_active, market_command, grid_row, grid_col, title_en, first_purchased_at')
           .order('price_eur', { ascending: true })
@@ -1014,7 +1014,7 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
   const walletEmojis = Array.isArray(progressRow?.wallet_emojis) ? progressRow.wallet_emojis : [];
   const pool = problems?.length ? problems : null;
   const problemsCount = Array.isArray(problems) ? problems.length : 0;
-  const marketBlocksCount = Array.isArray(marketBlocks) ? marketBlocks.length : 0;
+  const nftjiBlocksCount = Array.isArray(nftjiBlocks) ? nftjiBlocks.length : 0;
   const actions = [];
   actions.push(...botActions);
   actions.push(...sharedActions.filter((action) =>
@@ -1237,22 +1237,22 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
   }
 
   // ── PRE-COMPUTE DAILY NFTJI TARGET ───────────────────────────
-  const buyableBlocksForTarget = Array.isArray(marketBlocks)
-    ? marketBlocks.filter((b) => {
+  const buyableBlocksForTarget = Array.isArray(nftjiBlocks)
+    ? nftjiBlocks.filter((b) => {
         if (!b.is_active) return false;
         return !!marketCommandFromBlock(b);
       })
     : [];
-  const preTradeMarketKey = progressRow?.mining_nftji_key || null;
-  const preTradeMarketPrice = Number(progressRow?.mining_nftji_price) || 0;
-  const preTradeMarketLevels = progressRow?.mining_nftji_levels || {};
+  const preTradeNftjiKey = progressRow?.mining_nftji_key || null;
+  const preTradeNftjiPrice = Number(progressRow?.mining_nftji_price) || 0;
+  const preTradeNftjiLevels = progressRow?.mining_nftji_levels || {};
   const nftjiPayment = STRATEGY_NFTJI_PAYMENT.get(strategy) || 'money';
   const preTradeRateCny = getSellRateCny(level);
   const dailyNftjiTarget = getDailyNftjiTarget({
     buyableBlocks: buyableBlocksForTarget,
-    currentMarketKey: preTradeMarketKey,
-    currentMarketPrice: preTradeMarketPrice,
-    marketLevels: preTradeMarketLevels,
+    currentNftjiKey: preTradeNftjiKey,
+    currentNftjiPrice: preTradeNftjiPrice,
+    nftjiLevels: preTradeNftjiLevels,
     botEur: botFunds.eur_earned,
     availableMm3,
     rateCny: preTradeRateCny,
@@ -1265,7 +1265,7 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
   const wantsBuyNftji = strategy === 'buy_mm3' &&
     nftjiPayment === 'money' &&
     dailyNftjiTarget !== null &&
-    dailyNftjiTarget.block_key !== preTradeMarketKey;
+    dailyNftjiTarget.block_key !== preTradeNftjiKey;
 
   // ── TRADES (paced for frequent cron ticks) ────────────────
   const tradeHour = new Date().getUTCHours();
@@ -1341,19 +1341,19 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
         botFunds.usd_earned = Math.max(0, botFunds.usd_earned - spentUsd);
       }
     } else if (availableMm3 > 0.000001) {
-      // ── SELL MM3 strategy (sell_mm3, mining_buy, market_sell) ──
+      // ── SELL MM3 strategy (sell_mm3, nftji_collect, nftji_flip) ──
       let currentEur = botFunds.eur_earned;
       let currentCny = botFunds.cny_earned;
       let currentUsd = botFunds.usd_earned;
       let currentMm3Sold = mm3Sold;
 
       // Bear keeps minimal reserve; Collector holds half; Flipper keeps a quarter
-      const reserveFraction = strategy === 'mining_buy' ? 0.50 : strategy === 'sell_mm3' ? 0.15 : 0.25;
+      const reserveFraction = strategy === 'nftji_collect' ? 0.50 : strategy === 'sell_mm3' ? 0.15 : 0.25;
       const mm3Reserve = availableMm3 * reserveFraction;
 
       let tradesThisTick = 0;
       while (tradesThisTick < tradesToRun && availableMm3 > mm3Reserve + 0.000001) {
-        const fraction = strategy === 'market_sell'
+        const fraction = strategy === 'nftji_flip'
           ? 0.30 + Math.random() * 0.30  // Flipper: heavy sell slices between market operations
           : 0.10 + Math.random() * 0.20;
         const sellMm3 = Math.min(availableMm3 * fraction, availableMm3 - mm3Reserve);
@@ -1441,12 +1441,12 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
   }
 
   // ── MARKET NFTJI (buy / upgrade+resell) ──────────────────
-  let currentMarketKey = progressRow?.mining_nftji_key || null;
-  let currentMarketPrice = Number(progressRow?.mining_nftji_price) || 0;
+  let currentNftjiKey = progressRow?.mining_nftji_key || null;
+  let currentNftjiPrice = Number(progressRow?.mining_nftji_price) || 0;
   let didBuyOrResell = false;
 
   // Bots prefer dice window for market ops; skip most ticks when inactive
-  if (marketBlocks && marketBlocks.length > 0 && (diceState.active || Math.random() < 0.05)) {
+  if (nftjiBlocks && nftjiBlocks.length > 0 && (diceState.active || Math.random() < 0.05)) {
     const { data: freshProg } = await supabase
       .from('player_progress')
       .select('eur_earned, cny_earned, usd_earned, mm3_sold, mining_nftji_levels')
@@ -1461,10 +1461,10 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
 
     // Use the pre-computed daily target; only switch if not already holding today's block
     let targetBlock = null;
-    if (dailyNftjiTarget && dailyNftjiTarget.block_key !== currentMarketKey) {
+    if (dailyNftjiTarget && dailyNftjiTarget.block_key !== currentNftjiKey) {
       const targetCmdCheck = marketCommandFromBlock(dailyNftjiTarget);
       const isMm3Check = targetCmdCheck?.payment === 'mm3';
-      const resellReturn = currentMarketKey ? currentMarketPrice * 0.5 : 0;
+      const resellReturn = currentNftjiKey ? currentNftjiPrice * 0.5 : 0;
       const mm3PriceCheck = isMm3Check && rateCny > 0
         ? Number(dailyNftjiTarget.price_eur) / (rateCny * CNY_TO_EUR)
         : 0;
@@ -1478,16 +1478,16 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
       // Bot enters the 3D map and walks to the target block before buying
       if (!didMapSession && targetBlock.grid_row != null && targetBlock.grid_col != null) {
         didMapSession = true;
-        const currentLabel = currentMarketKey ? getMarketBlockLabel(
-          marketBlocks.find((b) => b.block_key === currentMarketKey), currentMarketKey
+        const currentLabel = currentNftjiKey ? getNftjiBlockLabel(
+          nftjiBlocks.find((b) => b.block_key === currentNftjiKey), currentNftjiKey
         ) : null;
         await simulateBotMapSession(
           supabase, wallet, targetBlock.grid_row, targetBlock.grid_col, botMapPoolCode,
           {
-            type: currentMarketKey ? 'nftji_swap' : 'nftji_buy',
-            label: currentMarketKey
-              ? `RESELL ${currentLabel} + BUY ${getMarketBlockLabel(targetBlock, targetBlock.block_key)}`
-              : `BUY NFTJI ${getMarketBlockLabel(targetBlock, targetBlock.block_key)}`,
+            type: currentNftjiKey ? 'nftji_swap' : 'nftji_buy',
+            label: currentNftjiKey
+              ? `RESELL ${currentLabel} + BUY ${getNftjiBlockLabel(targetBlock, targetBlock.block_key)}`
+              : `BUY NFTJI ${getNftjiBlockLabel(targetBlock, targetBlock.block_key)}`,
           }
         ).catch(() => {});
       }
@@ -1497,34 +1497,34 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
       const newPrice = Number(targetBlock.price_eur);
       const newPriceCny = newPrice / CNY_TO_EUR;
       const newPriceUsd = newPriceCny * CNY_TO_USD;
-      const marketDice = getDiceState();
-      const marketDm = marketDice.active ? marketDice.modifier : 0;
+      const nftjiDice = getDiceState();
+      const nftjiDm = nftjiDice.active ? nftjiDice.modifier : 0;
       const mm3PurchaseAmount = isMm3Payment && rateCny > 0
         ? newPrice / (rateCny * CNY_TO_EUR)
         : 0;
 
-      if (currentMarketKey) {
-        const returnEur = currentMarketPrice * 0.5 * (1 + marketDm);
+      if (currentNftjiKey) {
+        const returnEur = currentNftjiPrice * 0.5 * (1 + nftjiDm);
         const returnCny = returnEur / CNY_TO_EUR;
         const returnUsd = returnCny * CNY_TO_USD;
 
         await supabase.from('mm3_mining_commands')
           .update({ reset_at: new Date(Date.now() - 1000).toISOString() })
-          .eq('wallet', wallet).eq('nftji_key', currentMarketKey).gt('reset_at', now);
+          .eq('wallet', wallet).eq('nftji_key', currentNftjiKey).gt('reset_at', now);
         await supabase.from('mm3_command_penalties')
           .update({ redeemed_at: now })
-          .eq('nftji_key', currentMarketKey).is('redeemed_at', null);
+          .eq('nftji_key', currentNftjiKey).is('redeemed_at', null);
 
-        const resoldBlock = marketBlocks.find((b) => b.block_key === currentMarketKey);
+        const resoldBlock = nftjiBlocks.find((b) => b.block_key === currentNftjiKey);
         const resellDelta = -(returnEur / (rateCny * CNY_TO_EUR));
         await supabase.from('mm3_mining_events').insert({
           wallet, event_type: 'mining_resell', delta_mm3: resellDelta,
-          emoji: String(resoldBlock?.emoji || currentMarketKey),
+          emoji: String(resoldBlock?.emoji || currentNftjiKey),
         });
         mm3GlobalDelta += resellDelta;
 
         botEur += returnEur; botCny += returnCny; botUsd += returnUsd;
-        actions.push({ type: 'mining_resell', blockKey: currentMarketKey, blockLabel: getMarketBlockLabel(resoldBlock, currentMarketKey), returnEur });
+        actions.push({ type: 'mining_resell', blockKey: currentNftjiKey, blockLabel: getNftjiBlockLabel(resoldBlock, currentNftjiKey), returnEur });
         didBuyOrResell = true;
       }
 
@@ -1533,11 +1533,11 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
       } else {
         botEur -= newPrice; botCny -= newPriceCny; botUsd -= newPriceUsd;
       }
-      const buyDelta = (newPrice / (rateCny * CNY_TO_EUR)) * (1 + marketDm);
+      const buyDelta = (newPrice / (rateCny * CNY_TO_EUR)) * (1 + nftjiDm);
 
       const freshMm3Sold = Number(freshProg?.mm3_sold) || 0;
       const nftjiHexesBuy = new Set(
-        (marketBlocks || []).filter(b => b.grid_row != null && b.grid_col != null)
+        (nftjiBlocks || []).filter(b => b.grid_row != null && b.grid_col != null)
           .map(b => gridToBlockHex(b.grid_row, b.grid_col))
       );
       const { data: botMinedRows } = await supabase
@@ -1567,17 +1567,17 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
       });
       mm3GlobalDelta += buyDelta;
 
-      const marketNewLevel = Number(currentLevels[targetBlock.block_key] ?? -1) + 1;
-      if (marketNewLevel > 0) {
+      const nftjiNewLevel = Number(currentLevels[targetBlock.block_key] ?? -1) + 1;
+      if (nftjiNewLevel > 0) {
         const { data: tvRow } = await supabase.from('token_value').select('total_eth').limit(1).maybeSingle();
         const totalMm3ForLevel = Number(tvRow?.total_eth) || 0;
-        const marketLevelUpDelta = totalMm3ForLevel * MARKET_NFTJI_LEVEL_BASE_PCT * marketNewLevel;
-        if (marketLevelUpDelta > 0) {
+        const nftjiLevelUpDelta = totalMm3ForLevel * NFTJI_LEVEL_BASE_PCT * nftjiNewLevel;
+        if (nftjiLevelUpDelta > 0) {
           await supabase.from('mm3_mining_events').insert({
             wallet, event_type: 'nftji_level_up',
-            delta_mm3: marketLevelUpDelta, emoji: String(targetBlock.emoji || targetBlock.block_key),
+            delta_mm3: nftjiLevelUpDelta, emoji: String(targetBlock.emoji || targetBlock.block_key),
           });
-          mm3GlobalDelta += marketLevelUpDelta;
+          mm3GlobalDelta += nftjiLevelUpDelta;
         }
       }
 
@@ -1612,13 +1612,13 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
       }
 
       // Remove resold NFTJI from chain if nobody owns it anymore
-      if (preTradeMarketKey && preTradeMarketKey !== targetBlock.block_key) {
+      if (preTradeNftjiKey && preTradeNftjiKey !== targetBlock.block_key) {
         const { count: remainingOwnersOld } = await supabase
           .from('player_progress')
           .select('wallet', { count: 'exact', head: true })
-          .eq('mining_nftji_key', preTradeMarketKey);
+          .eq('mining_nftji_key', preTradeNftjiKey);
         if ((remainingOwnersOld || 0) === 0) {
-          const oldBlock = marketBlocks?.find((b) => b.block_key === preTradeMarketKey);
+          const oldBlock = nftjiBlocks?.find((b) => b.block_key === preTradeNftjiKey);
           if (oldBlock?.grid_row != null && oldBlock?.grid_col != null) {
             const oldNftjiHex = gridToBlockHex(oldBlock.grid_row, oldBlock.grid_col);
             await supabase.from('mm3_mined_blocks').delete().eq('block_hex', oldNftjiHex).catch(() => {});
@@ -1626,24 +1626,24 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
         }
       }
 
-      currentMarketKey = targetBlock.block_key;
-      currentMarketPrice = newPrice;
+      currentNftjiKey = targetBlock.block_key;
+      currentNftjiPrice = newPrice;
       didBuyOrResell = true;
-      actions.push({ type: 'mining_buy', blockKey: targetBlock.block_key, blockLabel: getMarketBlockLabel(targetBlock, targetBlock.block_key), priceEur: newPrice, isMm3Payment, mm3Amount: mm3PurchaseAmount });
+      actions.push({ type: 'nftji_buy', blockKey: targetBlock.block_key, blockLabel: getNftjiBlockLabel(targetBlock, targetBlock.block_key), priceEur: newPrice, isMm3Payment, mm3Amount: mm3PurchaseAmount });
     }
   }
 
   // ── MARKET COMMAND ────────────────────────────────────────
-  let didMarketCommand = false;
+  let didNftjiCommand = false;
 
-  if (currentMarketKey) {
-    const ownedBlock = marketBlocks?.find((b) => b.block_key === currentMarketKey);
+  if (currentNftjiKey) {
+    const ownedBlock = nftjiBlocks?.find((b) => b.block_key === currentNftjiKey);
     if (ownedBlock) {
       const cmdEntry = marketCommandFromBlock(ownedBlock);
       if (cmdEntry) {
         const { data: existingCmd } = await supabase
           .from('mm3_mining_commands').select('id')
-          .eq('nftji_key', currentMarketKey).gt('reset_at', now)
+          .eq('nftji_key', currentNftjiKey).gt('reset_at', now)
           .limit(1).maybeSingle();
 
         if (!existingCmd) {
@@ -1651,7 +1651,7 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
             didMapSession = true;
             await simulateBotMapSession(
               supabase, wallet, ownedBlock.grid_row, ownedBlock.grid_col, botMapPoolCode,
-              { type: 'market_command', label: `EXEC ${getMarketBlockLabel(ownedBlock, currentMarketKey)}` }
+              { type: 'nftji_command', label: `EXEC ${getNftjiBlockLabel(ownedBlock, currentNftjiKey)}` }
             ).catch(() => {});
           }
           const dayWindow = getUtcDayWindow(new Date());
@@ -1660,7 +1660,7 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
           const { data: insertedCommand, error: cmdErr } = await supabase
             .from('mm3_mining_commands')
             .insert({
-              wallet, nftji_key: currentMarketKey, command: cmdEntry.command,
+              wallet, nftji_key: currentNftjiKey, command: cmdEntry.command,
               numeric_code: code, formula_x: x, reset_at: dayWindow.resetAt,
             })
             .select('id').single();
@@ -1673,7 +1673,7 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
 
             const priceEurBase = Number(ownedBlock.price_eur) || 0;
             const nftjiLevels = progressRow?.mining_nftji_levels || {};
-            const nftjiLevel = Math.max(0, Number(nftjiLevels[currentMarketKey] ?? 0));
+            const nftjiLevel = Math.max(0, Number(nftjiLevels[currentNftjiKey] ?? 0));
             const levelMultiplier = 1 + nftjiLevel * 0.25;
             const priceEur = priceEurBase * levelMultiplier;
             const isMm3Cmd = cmdEntry.effect === 'mm3';
@@ -1703,14 +1703,14 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
               // owning the attacking block means participating in its command economy.
               // This applies regardless of pool membership (a rival bot owning the same
               // block is not penalized, even if it's in the opposing pool).
-              if (row.mining_nftji_key === currentMarketKey) continue;
+              if (row.mining_nftji_key === currentNftjiKey) continue;
 
               if (isMm3Cmd) {
                 penalties.push({
-                  wallet: w, command_id: insertedCommand.id, nftji_key: currentMarketKey,
+                  wallet: w, command_id: insertedCommand.id, nftji_key: currentNftjiKey,
                   penalty_code: code, penalty_value: priceEur, penalty_eur: 0,
                   penalty_effect: 'mm3',
-                  reason: `${ownedBlock.emoji || currentMarketKey} ${ownedBlock.title_en || currentMarketKey}`,
+                  reason: `${ownedBlock.emoji || currentNftjiKey} ${ownedBlock.title_en || currentNftjiKey}`,
                   reset_at: dayWindow.resetAt,
                 });
                 balanceUpdates.push({ wallet: w, mm3_sold: (Number(row.mm3_sold) || 0) + priceEur, updated_at: now });
@@ -1720,10 +1720,10 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
                 const priceCny = priceEur / CNY_TO_EUR;
                 const priceUsd = priceCny * CNY_TO_USD;
                 penalties.push({
-                  wallet: w, command_id: insertedCommand.id, nftji_key: currentMarketKey,
+                  wallet: w, command_id: insertedCommand.id, nftji_key: currentNftjiKey,
                   penalty_code: code, penalty_value: penaltyMm3, penalty_eur: priceEur,
                   penalty_effect: 'money',
-                  reason: `${ownedBlock.emoji || currentMarketKey} ${ownedBlock.title_en || currentMarketKey}`,
+                  reason: `${ownedBlock.emoji || currentNftjiKey} ${ownedBlock.title_en || currentNftjiKey}`,
                   reset_at: dayWindow.resetAt,
                 });
                 balanceUpdates.push({
@@ -1741,8 +1741,8 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
               await supabase.from('player_progress').upsert(balanceUpdates, { onConflict: 'wallet', ignoreDuplicates: false });
             }
 
-            didMarketCommand = true;
-            actions.push({ type: 'market_command', blockKey: currentMarketKey, blockLabel: getMarketBlockLabel(ownedBlock, currentMarketKey), x, penalties: penalties.length });
+            didNftjiCommand = true;
+            actions.push({ type: 'nftji_command', blockKey: currentNftjiKey, blockLabel: getNftjiBlockLabel(ownedBlock, currentNftjiKey), x, penalties: penalties.length });
           }
         }
       }
@@ -1897,13 +1897,13 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
   // ── MARKET BLOCK CHAIN MINING ─────────────────────────────
   // Bots mine a qualifying block if one is available (max 1 per tick)
   if (!claimedTasks.has('mining_chain') && Math.random() < 0.14) {
-    const [{ data: alreadyMined }, { data: marketReserved }, { data: tvRow }] = await Promise.all([
+    const [{ data: alreadyMined }, { data: nftjiReserved }, { data: tvRow }] = await Promise.all([
       supabase.from('mm3_mined_blocks').select('block_hex'),
       supabase.from('mm3_mining_blocks').select('grid_row, grid_col'),
       supabase.from('token_value').select('total_eth').maybeSingle(),
     ]);
     const minedSet = new Set((alreadyMined || []).map((r) => r.block_hex));
-    const reservedCoords = new Set((marketReserved || []).map((r) => `${r.grid_row},${r.grid_col}`));
+    const reservedCoords = new Set((nftjiReserved || []).map((r) => `${r.grid_row},${r.grid_col}`));
     const globalMm3 = Number(tvRow?.total_eth) || 0;
 
     const qualifying = MM3_BLOCK_CHAIN_REQUIREMENTS.filter((req) => {
@@ -1961,7 +1961,7 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
 
         const trace = `MM3 BLOCK CHAIN IN PROGRESS >> mined ${pick.blockHex} by ${formatWalletLabel(wallet)} >> ${freeMinedRows.length}/${freeBlocksTotal} ${freeChainPct.toFixed(2)}%`;
         await supabase.from('mm3_relaying_messages').insert({
-          wallet: 'system', text: trace, ts: Date.now(), kind: 'system', tone: 'market',
+          wallet: 'system', text: trace, ts: Date.now(), kind: 'system', tone: 'mining',
         });
 
         if (freeMinedRows.length >= freeBlocksTotal) {
@@ -1981,7 +1981,7 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
     if (taskKey === 'training') count = newGamesToday;
     else if (taskKey === 'trading') count = newTradesToday;
     else if (taskKey === 'mining') count = didBuyOrResell ? 1 : 0;
-    else if (taskKey === 'relaying') count = didMarketCommand ? 1 : 0;
+    else if (taskKey === 'relaying') count = didNftjiCommand ? 1 : 0;
     else if (taskKey === 'squeezing') count = await getSqueezeWalletLaunchCount(supabase, wallet);
     else if (taskKey === 'mining_chain') continue; // claimed separately after chain mine
     else continue;
@@ -2012,9 +2012,9 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
     const gamesAction = actions.find((a) => a.type === 'games');
     const tradeActions = actions.filter((a) => a.type === 'trade');
     const claimActions = actions.filter((a) => a.type === 'daily_claim');
-    const marketBuyAction = actions.find((a) => a.type === 'mining_buy');
-    const marketResellAction = actions.find((a) => a.type === 'mining_resell');
-    const marketCmdAction = actions.find((a) => a.type === 'market_command');
+    const nftjiBuyAction = actions.find((a) => a.type === 'nftji_buy');
+    const nftjiResellAction = actions.find((a) => a.type === 'mining_resell');
+    const nftjiCmdAction = actions.find((a) => a.type === 'nftji_command');
     const squeezeDropAction = actions.find((a) => a.type === 'squeeze_drop_claimed');
     const squeezeProposeAction = actions.find((a) => a.type === 'squeeze_proposed');
     const penaltyRedeemedActions = actions.filter((a) => a.type === 'penalty_redeemed');
@@ -2051,17 +2051,17 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
     }
 
     // ── market NFTJI
-    if (marketResellAction) botMsg += ` :: resell:${marketResellAction.blockLabel || marketResellAction.blockKey} +€${marketResellAction.returnEur.toFixed(2)}`;
-    if (marketBuyAction) {
-      if (marketBuyAction.isMm3Payment) {
-        botMsg += ` :: nftji→${marketBuyAction.blockLabel || marketBuyAction.blockKey} ${marketBuyAction.mm3Amount.toFixed(6)}MM3`;
+    if (nftjiResellAction) botMsg += ` :: resell:${nftjiResellAction.blockLabel || nftjiResellAction.blockKey} +€${nftjiResellAction.returnEur.toFixed(2)}`;
+    if (nftjiBuyAction) {
+      if (nftjiBuyAction.isMm3Payment) {
+        botMsg += ` :: nftji→${nftjiBuyAction.blockLabel || nftjiBuyAction.blockKey} ${nftjiBuyAction.mm3Amount.toFixed(6)}MM3`;
       } else {
-        botMsg += ` :: nftji→${marketBuyAction.blockLabel || marketBuyAction.blockKey} €${marketBuyAction.priceEur.toFixed(2)}`;
+        botMsg += ` :: nftji→${nftjiBuyAction.blockLabel || nftjiBuyAction.blockKey} €${nftjiBuyAction.priceEur.toFixed(2)}`;
       }
     } else if (dailyNftjiTarget) {
-      const holding = dailyNftjiTarget.block_key === currentMarketKey;
+      const holding = dailyNftjiTarget.block_key === currentNftjiKey;
       if (holding) {
-        botMsg += ` :: nftji:${getMarketBlockLabel(dailyNftjiTarget, dailyNftjiTarget.block_key)}`;
+        botMsg += ` :: nftji:${getNftjiBlockLabel(dailyNftjiTarget, dailyNftjiTarget.block_key)}`;
       } else {
         const pendingCmdEntry = marketCommandFromBlock(dailyNftjiTarget);
         const isPendingMm3 = pendingCmdEntry?.payment === 'mm3';
@@ -2069,14 +2069,14 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
           const pendingRateCny = getSellRateCny(level);
           const pendingMm3 = pendingRateCny > 0 ? Number(dailyNftjiTarget.price_eur) / (pendingRateCny * CNY_TO_EUR) : 0;
           const neededMm3 = Math.max(0, pendingMm3 - availableMm3);
-          botMsg += ` :: nftji:pending ${getMarketBlockLabel(dailyNftjiTarget, dailyNftjiTarget.block_key)} need+${neededMm3.toFixed(6)}MM3`;
+          botMsg += ` :: nftji:pending ${getNftjiBlockLabel(dailyNftjiTarget, dailyNftjiTarget.block_key)} need+${neededMm3.toFixed(6)}MM3`;
         } else {
-          const needed = Math.max(0, Number(dailyNftjiTarget.price_eur) - (botFunds.eur_earned + (currentMarketPrice * 0.5)));
-          botMsg += ` :: nftji:pending ${getMarketBlockLabel(dailyNftjiTarget, dailyNftjiTarget.block_key)} need+€${needed.toFixed(2)}`;
+          const needed = Math.max(0, Number(dailyNftjiTarget.price_eur) - (botFunds.eur_earned + (currentNftjiPrice * 0.5)));
+          botMsg += ` :: nftji:pending ${getNftjiBlockLabel(dailyNftjiTarget, dailyNftjiTarget.block_key)} need+€${needed.toFixed(2)}`;
         }
       }
     }
-    if (marketCmdAction) botMsg += ` :: cmd:${marketCmdAction.blockLabel || marketCmdAction.blockKey} x=${marketCmdAction.x}(${marketCmdAction.penalties}hit)`;
+    if (nftjiCmdAction) botMsg += ` :: cmd:${nftjiCmdAction.blockLabel || nftjiCmdAction.blockKey} x=${nftjiCmdAction.x}(${nftjiCmdAction.penalties}hit)`;
 
     // ── squeeze (solo si hace algo)
     if (squeezeProposeAction) {
@@ -2128,10 +2128,10 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
   if (tradesTodayCount >= DAILY_TRADE_LIMIT) idleReasons.push('daily_trade_limit_reached');
   else if (tradesToRun <= 0) idleReasons.push('trades_waiting_next_paced_tick');
   if (claimedTasks.size >= Object.keys(dailyTargets).length) idleReasons.push('daily_tasks_already_claimed');
-  if (currentMarketKey && !actions.some((a) => a.type === 'mining_buy' || a.type === 'mining_resell' || a.type === 'market_command')) {
+  if (currentNftjiKey && !actions.some((a) => a.type === 'nftji_buy' || a.type === 'mining_resell' || a.type === 'nftji_command')) {
     idleReasons.push('mining_nftji_held_no_upgrade_or_command_available');
   }
-  if (!currentMarketKey && marketBlocksCount <= 0) idleReasons.push('no_market_blocks_loaded');
+  if (!currentNftjiKey && nftjiBlocksCount <= 0) idleReasons.push('no_nftji_blocks_loaded');
 
   return {
     ok: true,
@@ -2154,9 +2154,9 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
       pacedTradesAvailable,
       tradesToRun,
       claimedTasks: [...claimedTasks],
-      currentMarketKey,
-      currentMarketPrice,
-      marketBlocksCount,
+      currentNftjiKey,
+      currentNftjiPrice,
+      nftjiBlocksCount,
     },
   };
 }

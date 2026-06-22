@@ -24,11 +24,11 @@ const BOT_POOLS = [
     bots: [
       {
         wallet: '0xd6c6c15060b27406d956c7e99e520cc810b44233',
-        tags: ['mining_buy', 'squeeze 55%', 'balanced', 'chain_mine'],
+        tags: ['nftji_collect', 'squeeze 55%', 'balanced', 'chain_mine'],
       },
       {
         wallet: '0xd89413f5f444cd420b448cda3bc096ea9c46e8ab',
-        tags: ['market_sell', 'squeeze 80%', 'balanced', 'chain_mine'],
+        tags: ['nftji_flip', 'squeeze 80%', 'balanced', 'chain_mine'],
       },
     ],
   },
