@@ -1317,22 +1317,22 @@ footer.bg-black\/97,
 .mm3-home-marker {
   position:absolute;
   z-index:3;
-  left:16px;
-  top:38px;
+  left:35px;
+  top:39px;
   display:grid;
   place-items:center;
-  width:15px;
-  height:11px;
-  border:1px solid rgba(250,204,21,.62);
-  background:rgba(1,7,13,.88);
+  width:10px;
+  height:9px;
+  border:0;
+  background:rgba(1,7,13,.72);
   color:#facc15;
-  box-shadow:0 0 5px rgba(250,204,21,.24),inset 0 0 4px rgba(34,211,238,.14);
+  box-shadow:0 0 4px rgba(1,7,13,.9);
   user-select: none;
 }
 .mm3-home-marker svg {
   display:block;
-  width:11px;
-  height:9px;
+  width:10px;
+  height:8px;
   overflow:visible;
   fill:rgba(1,9,16,.88);
   stroke:currentColor;
@@ -1347,7 +1347,7 @@ footer.bg-black\/97,
 .mm3-home-portal-link:hover .mm3-home-badge img,
 .mm3-home-portal-link.is-active .mm3-home-badge img { border-color:rgba(250,204,21,.82); }
 .mm3-home-portal-link:hover .mm3-home-marker,
-.mm3-home-portal-link.is-active .mm3-home-marker { color:#fff4a3; border-color:#facc15; box-shadow:0 0 7px rgba(250,204,21,.58),inset 0 0 4px rgba(34,211,238,.18); }
+.mm3-home-portal-link.is-active .mm3-home-marker { color:#fff4a3; box-shadow:0 0 5px rgba(250,204,21,.42); }
 
 /* ── Home page wrapper — fills full available height, splits it 50/50 ── */
 .mm3-home {
