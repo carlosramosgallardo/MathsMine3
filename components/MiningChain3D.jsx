@@ -13,7 +13,7 @@ import {
   MM3_BLOCK_GRID_ROWS, MM3_BLOCK_GRID_COLS,
 } from '@/lib/mm3-block-chain'
 import { computeRelayLevel } from '@/lib/wallet-decorations'
-import { MINING_CHAIN_NODE_POSITION } from '@/lib/mining-world-layout'
+import { CIPHER_HOUSE_MINING_LEVELS, MINING_CHAIN_NODE_POSITION } from '@/lib/mining-world-layout'
 import {
   MINING_MARKET_LANDMARK_POSITIONS,
   MINING_VISUAL_BLOCK_POSITIONS,
@@ -385,6 +385,10 @@ export default function MiningChain3D() {
         if (!map.has(key)) {
           map.set(key, { blockHex, owner: null, isMined: false, isMarket: false, color: null })
         }
+      }
+      for (const [key, baseHeight] of Object.entries(CIPHER_HOUSE_MINING_LEVELS)) {
+        const block = map.get(key)
+        if (block) map.set(key, { ...block, baseHeight })
       }
       // Chain Node: fixed special cell at grid center, always present
       map.set(`${CHAIN_NODE_ROW},${CHAIN_NODE_COL}`, {

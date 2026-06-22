@@ -7,6 +7,7 @@ import { MM3_BLOCK_GRID_ROWS, MM3_BLOCK_GRID_COLS, gridToBlockHex, MM3_BLOCK_REQ
 import supabase from '@/lib/supabaseClient'
 import { groupPresenceEntries } from '@/lib/presence-display'
 import {
+  CIPHER_HOUSE_BOUNDS,
   CRYPTO_COLOSSEUM_BOUNDS,
   MINING_CHAIN_NODE_POSITION,
   MINING_WORLD_COLS,
@@ -91,16 +92,22 @@ function obstacleTop(data) {
 
 function blockTop(cell,row=0,col=0) {
   if(!cell) return 0
-  if(cell.isPortalNode||cell.isChainNode) return 1.0
+  const base=blockBottom(cell)
+  if(cell.isPortalNode||cell.isChainNode) return base+1.0
   const raw=String(cell.blockHex||gridToBlockHex(row,col)||'').replace('#','')
   const index=Number.parseInt(raw,16)
-  if(!Number.isFinite(index)) return cell.isMarket?0.58:BLOCK_TOP
+  if(!Number.isFinite(index)) return base+(cell.isMarket?0.58:BLOCK_TOP)
   // The immutable #hex selects a visual/physical tier without changing chain identity.
   // All heights kept below the jump apex (~1.20 u) so the player can vault any block.
   const tier=Math.abs((index*17+row*7+col*11)%8)
-  if(tier<2) return 0.50
-  if(tier<6) return 0.69
-  return 0.84
+  if(tier<2) return base+0.50
+  if(tier<6) return base+0.69
+  return base+0.84
+}
+
+function blockBottom(cell) {
+  const bottom=Number(cell?.baseHeight)
+  return Number.isFinite(bottom)&&bottom>0?bottom:0
 }
 
 function obstacleBottom(data) {
@@ -140,6 +147,57 @@ function makeColosseumStandEntries() {
       entries.push([`${low},${coord}`,data],[`${high},${coord}`,data])
       entries.push([`${coord},${low}`,data],[`${coord},${high}`,data])
     }
+  }
+  return entries
+}
+
+const CIPHER_HOUSE_WINDOWS = new Set([
+  '3,9', '3,10',
+  '8,3', '9,3',
+  '5,13', '6,13',
+  '13,5', '13,6',
+])
+
+function makeCipherHouseEntries() {
+  const entries=[]
+  const doors=new Set(['3,5','3,6','13,9','13,10','6,3','7,3','9,13','10,13'])
+  const add=(row,col,data={})=>entries.push([`${row},${col}`,{
+    base:W_STONE,glow:[103,232,249],kind:'hash',label:'CIPHER HOUSE',
+    height:3.65,isStructure:true,isHouse:true,...data,
+  }])
+  const {minRow,maxRow,minCol,maxCol}=CIPHER_HOUSE_BOUNDS
+
+  for(let col=minCol;col<=maxCol;col++){
+    for(const row of [minRow,maxRow]){
+      const key=`${row},${col}`
+      if(!doors.has(key)) add(row,col,CIPHER_HOUSE_WINDOWS.has(key)?{height:.72,isHouseWindow:true}:{})
+    }
+  }
+  for(let row=minRow+1;row<maxRow;row++){
+    for(const col of [minCol,maxCol]){
+      const key=`${row},${col}`
+      if(!doors.has(key)) add(row,col,CIPHER_HOUSE_WINDOWS.has(key)?{height:.72,isHouseWindow:true}:{})
+    }
+  }
+
+  ;[[12,10,.58],[11,10,1.16],[10,10,1.74]].forEach(([row,col,height])=>add(row,col,{
+    base:W_DARK,glow:[250,204,21],kind:'ledger',label:'HOUSE STAIR',height,
+    isRouteStair:true,isHouseStair:true,
+  }))
+  for(let row=7;row<=9;row++) for(let col=8;col<=11;col++) add(row,col,{
+    base:W_SLATE,label:'HOUSE FIRST FLOOR',bottom:1.42,height:1.74,isHouseFloor:true,
+  })
+  for(const [row,col] of [[10,8],[10,9],[10,11]]) add(row,col,{
+    base:W_SLATE,label:'HOUSE FIRST FLOOR',bottom:1.42,height:1.74,isHouseFloor:true,
+  })
+
+  ;[[7,7,1.74,2.32],[6,7,1.74,2.90],[5,7,1.74,3.48]].forEach(([row,col,bottom,height])=>add(row,col,{
+    base:W_DARK,glow:[217,70,239],kind:'consensus',label:'ROOF STAIR',bottom,height,
+    isRouteStair:true,isHouseStair:true,
+  }))
+  for(let row=4;row<=6;row++) for(let col=4;col<=6;col++){
+    if(row===5&&col===5) continue
+    add(row,col,{base:W_SLATE,label:'CIPHER ROOF',bottom:3.16,height:3.48,isHouseFloor:true,isHouseRoof:true})
   }
   return entries
 }
@@ -303,63 +361,6 @@ const OBSTACLE_MAP = new Map([
   ['7,20',  { base:W_SLATE, label:'WALL' }],
   ['20,7',  { base:W_SLATE, label:'WALL' }],
   ['20,20', { base:W_SLATE, label:'WALL' }],
-
-  // ─── Q1 Cipher House (rows 3-11, cols 3-11) ─────────────────────────────────
-  // Large 2-floor structure centered on the NW sub-quadrant pylon at [7,7].
-  // Doors: N(cols 4-5), S(cols 6-7), W(rows 7-8), E(rows 9-10).
-  // Windows: low h:0.82 segments — jumpable from outside.
-  // Existing interior obstacles ([4,6],[4,7],[5,4],[6,5],[6,6],[7,7],[9,8],[9,9])
-  // are kept as structural columns / ground-floor furniture.
-
-  // North wall (row 3) — door gap at cols 4-5
-  ['3,3',  { base:W_STONE, label:'WALL' }],
-  ['3,6',  { base:W_STONE, label:'WALL' }],
-  ['3,7',  { base:W_STONE, label:'WALL' }],
-  ['3,8',  { base:W_STONE, label:'WALL', height:0.82 }],
-  ['3,9',  { base:W_STONE, label:'WALL', height:0.82 }],
-  ['3,10', { base:W_STONE, label:'WALL', height:0.82 }],
-  ['3,11', { base:W_STONE, label:'WALL' }],
-
-  // West wall (col 3) — door gap at rows 7-8
-  ['4,3',  { base:W_STONE, label:'WALL', height:0.82 }],
-  ['5,3',  { base:W_STONE, label:'WALL', height:0.82 }],
-  ['6,3',  { base:W_STONE, label:'WALL' }],
-  ['9,3',  { base:W_STONE, label:'WALL' }],
-  ['10,3', { base:W_STONE, label:'WALL' }],
-
-  // East wall (col 11) — door gap at rows 9-10; [8,11] already exists as W_DARK
-  ['4,11', { base:W_STONE, label:'WALL' }],
-  ['5,11', { base:W_STONE, label:'WALL', height:0.82 }],
-  ['6,11', { base:W_STONE, label:'WALL', height:0.82 }],
-  ['7,11', { base:W_STONE, label:'WALL' }],
-
-  // South wall (row 11) — door gap at cols 6-7
-  ['11,3', { base:W_STONE, label:'WALL' }],
-  ['11,4', { base:W_STONE, label:'WALL' }],
-  ['11,5', { base:W_STONE, label:'WALL', height:0.82 }],
-  ['11,8', { base:W_STONE, label:'WALL', height:0.82 }],
-  ['11,9', { base:W_STONE, label:'WALL' }],
-  ['11,10',{ base:W_STONE, label:'WALL' }],
-  ['11,11',{ base:W_STONE, label:'WALL' }],
-
-  // South staircase — col 7, ascending northward (rows 10→8)
-  ['10,7', { base:W_DARK,  label:'WALL', height:0.58 }],
-  ['9,7',  { base:W_DARK,  label:'WALL', height:1.16 }],
-  ['8,7',  { base:W_DARK,  label:'WALL', height:1.74 }],
-
-  // North staircase — col 9, ascending southward (rows 4→6)
-  ['4,9',  { base:W_DARK,  label:'WALL', height:0.58 }],
-  ['5,9',  { base:W_DARK,  label:'WALL', height:1.16 }],
-  ['6,9',  { base:W_DARK,  label:'WALL', height:1.74 }],
-
-  // 2nd floor east wing — h:1.74 platform connecting both staircases
-  ['6,8',  { base:W_SLATE, label:'WALL', height:1.74 }],
-  ['6,10', { base:W_SLATE, label:'WALL', height:1.74 }],
-  ['7,8',  { base:W_SLATE, label:'WALL', height:1.74 }],
-  ['7,9',  { base:W_SLATE, label:'WALL', height:1.74 }],
-  ['7,10', { base:W_SLATE, label:'WALL', height:1.74 }],
-  ['8,8',  { base:W_SLATE, label:'WALL', height:1.74 }],
-  ['8,9',  { base:W_SLATE, label:'WALL', height:1.74 }],
 
   // ─── Outer world labyrinth (rows 28-55, cols 28-55) ──────────────────────────
   // Entry gateway pillars (rows 29-30) — funnel from inner world into outer zone
@@ -1091,6 +1092,7 @@ const OBSTACLE_MAP = new Map([
 
   // Three solid, climbable seating tiers with four three-cell entrances.
   ...makeColosseumStandEntries(),
+  ...makeCipherHouseEntries(),
 
   // Gate pillars — flank each entrance just outside the ring (override any existing entry)
   ['21,25', { base:W_DARK, label:'ARENA GATE', height:2.0 }],
@@ -1495,7 +1497,10 @@ function solidSpanAt(row, col, cellMap, obsSet) {
   const key=`${row},${col}`
   const obstacle=obsSet?.get?.(key)
   if(obstacle&&!isOrganicShape(obstacle)) return {bottom:obstacleBottom(obstacle),top:obstacleTop(obstacle)}
-  if(cellMap?.has(key)) return {bottom:0,top:blockTop(cellMap.get(key),row,col)}
+  if(cellMap?.has(key)){
+    const cell=cellMap.get(key)
+    return {bottom:blockBottom(cell),top:blockTop(cell,row,col)}
+  }
   return null
 }
 
@@ -2985,6 +2990,55 @@ function addCryptoColosseum(world) {
   world.add(arena)
 }
 
+function addCipherHouseDetails(world) {
+  const group=new THREE.Group()
+  group.name='cipher-house-details'
+  const glassMaterial=new THREE.MeshStandardMaterial({
+    color:'#67e8f9',emissive:'#0e7490',emissiveIntensity:.85,
+    roughness:.12,metalness:.28,transparent:true,opacity:.42,
+    depthWrite:false,side:THREE.DoubleSide,
+  })
+  for(const key of CIPHER_HOUSE_WINDOWS){
+    const [row,col]=key.split(',').map(Number)
+    const pane=new THREE.Mesh(new THREE.BoxGeometry(.72,.84,.035),glassMaterial)
+    pane.position.set(col+.5,1.23,row+.5)
+    if(col===CIPHER_HOUSE_BOUNDS.minCol||col===CIPHER_HOUSE_BOUNDS.maxCol) pane.rotation.y=Math.PI/2
+    group.add(pane)
+  }
+
+  const frameMaterial=new THREE.MeshStandardMaterial({
+    color:'#facc15',emissive:'#92400e',emissiveIntensity:.62,roughness:.34,metalness:.72,
+  })
+  const addDoorFrame=(row,col,horizontal)=>{
+    const frame=new THREE.Group()
+    frame.position.set(col,0,row)
+    const postGeometry=horizontal
+      ? new THREE.BoxGeometry(.11,1.82,.14)
+      : new THREE.BoxGeometry(.14,1.82,.11)
+    for(const offset of [-.94,.94]){
+      const post=new THREE.Mesh(postGeometry,frameMaterial)
+      post.position.set(horizontal?offset:0,.91,horizontal?0:offset)
+      frame.add(post)
+    }
+    const lintel=new THREE.Mesh(
+      horizontal?new THREE.BoxGeometry(1.99,.13,.14):new THREE.BoxGeometry(.14,.13,1.99),
+      frameMaterial,
+    )
+    lintel.position.y=1.82
+    frame.add(lintel)
+    group.add(frame)
+  }
+  addDoorFrame(3.5,6,true)
+  addDoorFrame(13.5,10,true)
+  addDoorFrame(7,3.5,false)
+  addDoorFrame(10,13.5,false)
+
+  const houseLight=new THREE.PointLight('#22d3ee',2.8,13,2)
+  houseLight.position.set(8.2,2.35,8.2)
+  group.add(houseLight)
+  world.add(group)
+}
+
 function addBiomeLandmarks(world,textures) {
   const addParticles=(centerX,centerZ,color,seedOffset,height=4)=>{
     const count=70,positions=new Float32Array(count*3)
@@ -3183,6 +3237,7 @@ function rebuildThreeWorld(state,cellMap,obstacles) {
   const scale=new THREE.Vector3(),quaternion=new THREE.Quaternion()
   addBiomeGround(world,state.textures)
   addCryptoColosseum(world)
+  addCipherHouseDetails(world)
   addBiomeLandmarks(world,state.textures)
   // ── Block + node groups ───────────────────────────────────────────────────────
   // Each interactive type gets its own material & shape so players can tell them apart.
@@ -3214,13 +3269,13 @@ function rebuildThreeWorld(state,cellMap,obstacles) {
 
   // Helper: place cube block + pedestal into a group at row,col
   function placeBlock(group, index, row, col, cell, cubeSide=.44, glowPad=0.018) {
-    const height=blockTop(cell,row,col),cubeBottom=Math.max(0,height-cubeSide)
+    const base=blockBottom(cell),height=blockTop(cell,row,col),cubeBottom=Math.max(base,height-cubeSide)
     position.set(col+.5,cubeBottom+cubeSide*.5,row+.5);scale.set(cubeSide,cubeSide,cubeSide)
     matrix.compose(position,quaternion,scale);group.mesh.setMatrixAt(index,matrix)
     scale.set(cubeSide+glowPad,cubeSide+glowPad,cubeSide+glowPad)
     matrix.compose(position,quaternion,scale);group.glow.setMatrixAt(index,matrix)
-    const pw=cubeSide*0.75,ph=Math.max(.02,cubeBottom)
-    position.set(col+.5,ph*.5,row+.5);scale.set(pw,ph,pw)
+    const pw=cubeSide*0.75,ph=Math.max(.02,cubeBottom-base)
+    position.set(col+.5,base+ph*.5,row+.5);scale.set(pw,ph,pw)
     matrix.compose(position,quaternion,scale);group.ped.setMatrixAt(index,matrix)
   }
   function flushGroup(g) {
@@ -3940,7 +3995,12 @@ export default function MiningChain3DFPV({
     }
     const valid = new Map()
     for (const [key, data] of OBSTACLE_MAP) {
-      if(!reserved.has(key)) valid.set(key, chainObstacle(key,data))
+      const [row,col]=key.split(',').map(Number)
+      const insideHouse=
+        row>=CIPHER_HOUSE_BOUNDS.minRow&&row<=CIPHER_HOUSE_BOUNDS.maxRow&&
+        col>=CIPHER_HOUSE_BOUNDS.minCol&&col<=CIPHER_HOUSE_BOUNDS.maxCol
+      if(insideHouse&&!data.isHouse) continue
+      if(data.isHouse||!reserved.has(key)) valid.set(key, chainObstacle(key,data))
     }
 
     // Keep the full arena footprint clear of procedural geometry. Authored
@@ -3949,6 +4009,9 @@ export default function MiningChain3DFPV({
       for (let c = CRYPTO_COLOSSEUM_BOUNDS.minCol; c <= CRYPTO_COLOSSEUM_BOUNDS.maxCol; c++) {
         reserved.add(`${r},${c}`)
       }
+    }
+    for(let r=CIPHER_HOUSE_BOUNDS.minRow;r<=CIPHER_HOUSE_BOUNDS.maxRow;r++){
+      for(let c=CIPHER_HOUSE_BOUNDS.minCol;c<=CIPHER_HOUSE_BOUNDS.maxCol;c++) reserved.add(`${r},${c}`)
     }
 
     // Authored traversal landmarks get first choice of genuinely empty space;
@@ -4508,7 +4571,7 @@ export default function MiningChain3DFPV({
       if(!obs&&!cell) continue
       if(isOrganicShape(obs)) continue
       const topHeight=obs?obstacleTop(obs):blockTop(cell,r,c)
-      const bottomHeight=obs?obstacleBottom(obs):0
+      const bottomHeight=obs?obstacleBottom(obs):blockBottom(cell)
       const isTop=cameraZ>topHeight+.015
       const isUnderside=bottomHeight>0&&cameraZ<bottomHeight-.015
       if(!isTop&&!isUnderside) continue
@@ -4585,7 +4648,7 @@ export default function MiningChain3DFPV({
       const {perpDist,cell,side,mx:hitMx,my:hitMy}=layers[layerIndex]
       const dist=perpDist*Math.cos(ra-angle)
       const wallTop = cell?.isObstacle ? obstacleTop(cell) : blockTop(cell,hitMy,hitMx)
-      const wallBase = cell?.isObstacle ? obstacleBottom(cell) : 0
+      const wallBase = cell?.isObstacle ? obstacleBottom(cell) : blockBottom(cell)
       const projectedTop = projectY(wallTop, dist)
       const projectedBottom = projectY(wallBase, dist)
       const rawTop=Math.min(projectedTop,projectedBottom)
@@ -5943,6 +6006,9 @@ export default function MiningChain3DFPV({
       if(myDead){ facingKeyRef.current=null }
       const previousFacing=facingDataRef.current
       let {cell:fc,mx:fmx,my:fmy,perpDist:fcDist}=myDead?{cell:null,mx:-1,my:-1,perpDist:0}:castRay(p.x,p.y,p.angle,cellMapRef.current,validObstaclesRef.current)
+      if(fc&&!fc.isObstacle&&blockBottom(fc)>0&&Math.abs(p.z-blockBottom(fc))>.62){
+        fc=null;fmx=-1;fmy=-1;fcDist=VISUAL_RANGE
+      }
       // Direct distance to chain node center — castRay misses it when the player
       // walks INTO its cell (DDA steps away immediately without checking own cell)
       const cnPos=chainNodePosRef.current
