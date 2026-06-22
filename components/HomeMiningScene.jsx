@@ -8,10 +8,10 @@ export default function HomeMiningScene() {
         <span className="mm3-home-arena-lane is-y" />
       </div>
 
-      <div className="mm3-home-arena-stands">
-        <span className="is-tier-1" />
-        <span className="is-tier-2" />
-        <span className="is-tier-3" />
+      <div className="mm3-home-chain-node" aria-hidden="true">
+        <span className="mm3-chain-hex">⬡</span>
+        <span className="mm3-chain-orb" />
+        <span className="mm3-chain-ring" />
       </div>
 
       <div className="mm3-home-arena-sword">
