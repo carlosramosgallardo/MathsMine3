@@ -1586,37 +1586,50 @@ footer.bg-black\/97,
   position:absolute;
   z-index:2;
   right:8%;
-  top:26px;
+  top:22px;
   width:112px;
-  height:108px;
-  transform:skewY(-8deg) rotateY(-12deg);
+  height:120px;
+  transform:skewY(-9deg) rotateY(-16deg);
   transform-style:preserve-3d;
 }
 .mm3-home-arena-stands > span {
   position:absolute;
   right:0;
   height:22px;
-  border:1px solid rgba(217,70,239,.72);
+  border:1px solid rgba(217,70,239,.82);
   background:
-    repeating-linear-gradient(90deg,rgba(217,70,239,.38) 0 14px,rgba(45,10,58,.92) 14px 18px),
+    repeating-linear-gradient(90deg,rgba(217,70,239,.44) 0 14px,rgba(45,10,58,.94) 14px 18px),
     #170622;
-  box-shadow:5px 6px 0 rgba(44,7,56,.78),0 0 12px rgba(217,70,239,.18);
+  box-shadow:10px 11px 0 rgba(18,2,26,.98),0 0 14px rgba(217,70,239,.18);
 }
+/* top face — taller, brighter gradient */
 .mm3-home-arena-stands > span::before {
   content:'';
   position:absolute;
-  left:2px;
-  right:-5px;
+  left:0;
+  right:-10px;
   bottom:100%;
-  height:7px;
-  transform:skewX(-35deg);
+  height:13px;
+  transform:skewX(-30deg);
   transform-origin:left bottom;
-  border-top:1px solid rgba(244,114,182,.72);
-  background:rgba(217,70,239,.26);
+  border-top:1px solid rgba(252,130,210,.92);
+  background:linear-gradient(to bottom,rgba(232,88,255,.56) 0%,rgba(190,52,218,.28) 100%);
+  box-shadow:0 -2px 7px rgba(217,70,239,.28);
 }
-.mm3-home-arena-stands .is-tier-1 { top:58px; width:112px; }
-.mm3-home-arena-stands .is-tier-2 { top:32px; width:94px; }
-.mm3-home-arena-stands .is-tier-3 { top:6px; width:76px; }
+/* right-side depth face */
+.mm3-home-arena-stands > span::after {
+  content:'';
+  position:absolute;
+  top:0;
+  left:100%;
+  width:10px;
+  height:100%;
+  background:linear-gradient(to right,rgba(130,10,165,.92),rgba(78,3,100,.65));
+  border-right:1px solid rgba(155,42,195,.32);
+}
+.mm3-home-arena-stands .is-tier-1 { top:66px; width:112px; }
+.mm3-home-arena-stands .is-tier-2 { top:38px; width:94px; }
+.mm3-home-arena-stands .is-tier-3 { top:10px; width:76px; }
 .mm3-home-arena-sword {
   position:absolute;
   z-index:5;
