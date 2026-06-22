@@ -272,15 +272,20 @@ function addChainNodeAndSword(THREE, scene) {
 
   const foundation = new THREE.Mesh(
     new THREE.CylinderGeometry(4.30, 4.30, .07, 96),
-    new THREE.MeshStandardMaterial({ color: '#1a0d40', roughness: .62, metalness: .50, emissive: '#3d1280', emissiveIntensity: 1.40 }),
+    new THREE.MeshStandardMaterial({ color: '#010c18', roughness: .82, metalness: .28, emissive: '#021428', emissiveIntensity: .55 }),
   )
   foundation.position.y = .035
   foundation.receiveShadow = true
   group.add(foundation)
 
-  for (const [radius, color, opacity] of [[.72, '#facc15', .82], [1.25, '#22d3ee', .70], [1.85, '#d946ef', .66]]) {
+  // Thick cyan track paths + magenta border — matching in-game arena look
+  for (const [radius, tube, color, opacity] of [
+    [1.70, .055, '#22d3ee', .82],
+    [2.90, .075, '#22d3ee', .76],
+    [3.90, .040, '#d946ef', .90],
+  ]) {
     const ring = new THREE.Mesh(
-      new THREE.TorusGeometry(radius, .026, 10, 96),
+      new THREE.TorusGeometry(radius, tube, 10, 96),
       new THREE.MeshBasicMaterial({ color, transparent: true, opacity, depthWrite: false }),
     )
     ring.rotation.x = Math.PI / 2
@@ -288,11 +293,12 @@ function addChainNodeAndSword(THREE, scene) {
     group.add(ring)
   }
 
-  const laneMaterial = new THREE.MeshBasicMaterial({ color: '#facc15', transparent: true, opacity: .25, depthWrite: false })
-  const laneX = new THREE.Mesh(new THREE.PlaneGeometry(3.5, .055), laneMaterial)
+  // Subtle crosshair lane markers
+  const laneMaterial = new THREE.MeshBasicMaterial({ color: '#6b3c10', transparent: true, opacity: .55, depthWrite: false })
+  const laneX = new THREE.Mesh(new THREE.PlaneGeometry(7.0, .060), laneMaterial)
   laneX.rotation.x = -Math.PI / 2
   laneX.position.y = .10
-  const laneZ = new THREE.Mesh(new THREE.PlaneGeometry(.055, 3.5), laneMaterial.clone())
+  const laneZ = new THREE.Mesh(new THREE.PlaneGeometry(.060, 7.0), laneMaterial.clone())
   laneZ.rotation.x = -Math.PI / 2
   laneZ.position.y = .105
   group.add(laneX, laneZ)
@@ -435,19 +441,19 @@ export default function HomeMiningWorld3D() {
       renderer.shadowMap.type = THREE.PCFSoftShadowMap
 
       scene = new THREE.Scene()
-      scene.fog = new THREE.FogExp2('#041126', .038)
-      const camera = new THREE.PerspectiveCamera(33, 2, .1, 50)
-      camera.position.set(8.20, 6.05, 12.30)
-      camera.lookAt(-.15, 1.72, 0)
+      scene.fog = new THREE.FogExp2('#010c18', .036)
+      const camera = new THREE.PerspectiveCamera(38, 2, .1, 50)
+      camera.position.set(7.50, 4.80, 11.80)
+      camera.lookAt(-.20, 0.60, 0)
 
-      scene.add(new THREE.HemisphereLight('#c7e9ff', '#160923', 1.48))
-      const key = new THREE.DirectionalLight('#fff8dc', 2.70)
+      scene.add(new THREE.HemisphereLight('#c7e9ff', '#060e1a', 1.30))
+      const key = new THREE.DirectionalLight('#fff8dc', 2.50)
       key.position.set(-3, 8, 6)
       key.castShadow = true
       key.shadow.mapSize.set(1024, 1024)
       scene.add(key)
-      const cyanFill = new THREE.PointLight('#38e8ff', 5.4, 13, 2)
-      cyanFill.position.set(-3.3, 2.5, 3)
+      const cyanFill = new THREE.PointLight('#22d3ee', 6.0, 14, 2)
+      cyanFill.position.set(-2.0, 1.8, 2)
       scene.add(cyanFill)
       const goldFill = new THREE.PointLight('#ffe34d', 7.0, 11, 2)
       goldFill.position.set(.55, 2.3, 2.1)
