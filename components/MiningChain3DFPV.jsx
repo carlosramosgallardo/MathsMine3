@@ -304,6 +304,63 @@ const OBSTACLE_MAP = new Map([
   ['20,7',  { base:W_SLATE, label:'WALL' }],
   ['20,20', { base:W_SLATE, label:'WALL' }],
 
+  // ─── Q1 Cipher House (rows 3-11, cols 3-11) ─────────────────────────────────
+  // Large 2-floor structure centered on the NW sub-quadrant pylon at [7,7].
+  // Doors: N(cols 4-5), S(cols 6-7), W(rows 7-8), E(rows 9-10).
+  // Windows: low h:0.82 segments — jumpable from outside.
+  // Existing interior obstacles ([4,6],[4,7],[5,4],[6,5],[6,6],[7,7],[9,8],[9,9])
+  // are kept as structural columns / ground-floor furniture.
+
+  // North wall (row 3) — door gap at cols 4-5
+  ['3,3',  { base:W_STONE, label:'WALL' }],
+  ['3,6',  { base:W_STONE, label:'WALL' }],
+  ['3,7',  { base:W_STONE, label:'WALL' }],
+  ['3,8',  { base:W_STONE, label:'WALL', height:0.82 }],
+  ['3,9',  { base:W_STONE, label:'WALL', height:0.82 }],
+  ['3,10', { base:W_STONE, label:'WALL', height:0.82 }],
+  ['3,11', { base:W_STONE, label:'WALL' }],
+
+  // West wall (col 3) — door gap at rows 7-8
+  ['4,3',  { base:W_STONE, label:'WALL', height:0.82 }],
+  ['5,3',  { base:W_STONE, label:'WALL', height:0.82 }],
+  ['6,3',  { base:W_STONE, label:'WALL' }],
+  ['9,3',  { base:W_STONE, label:'WALL' }],
+  ['10,3', { base:W_STONE, label:'WALL' }],
+
+  // East wall (col 11) — door gap at rows 9-10; [8,11] already exists as W_DARK
+  ['4,11', { base:W_STONE, label:'WALL' }],
+  ['5,11', { base:W_STONE, label:'WALL', height:0.82 }],
+  ['6,11', { base:W_STONE, label:'WALL', height:0.82 }],
+  ['7,11', { base:W_STONE, label:'WALL' }],
+
+  // South wall (row 11) — door gap at cols 6-7
+  ['11,3', { base:W_STONE, label:'WALL' }],
+  ['11,4', { base:W_STONE, label:'WALL' }],
+  ['11,5', { base:W_STONE, label:'WALL', height:0.82 }],
+  ['11,8', { base:W_STONE, label:'WALL', height:0.82 }],
+  ['11,9', { base:W_STONE, label:'WALL' }],
+  ['11,10',{ base:W_STONE, label:'WALL' }],
+  ['11,11',{ base:W_STONE, label:'WALL' }],
+
+  // South staircase — col 7, ascending northward (rows 10→8)
+  ['10,7', { base:W_DARK,  label:'WALL', height:0.58 }],
+  ['9,7',  { base:W_DARK,  label:'WALL', height:1.16 }],
+  ['8,7',  { base:W_DARK,  label:'WALL', height:1.74 }],
+
+  // North staircase — col 9, ascending southward (rows 4→6)
+  ['4,9',  { base:W_DARK,  label:'WALL', height:0.58 }],
+  ['5,9',  { base:W_DARK,  label:'WALL', height:1.16 }],
+  ['6,9',  { base:W_DARK,  label:'WALL', height:1.74 }],
+
+  // 2nd floor east wing — h:1.74 platform connecting both staircases
+  ['6,8',  { base:W_SLATE, label:'WALL', height:1.74 }],
+  ['6,10', { base:W_SLATE, label:'WALL', height:1.74 }],
+  ['7,8',  { base:W_SLATE, label:'WALL', height:1.74 }],
+  ['7,9',  { base:W_SLATE, label:'WALL', height:1.74 }],
+  ['7,10', { base:W_SLATE, label:'WALL', height:1.74 }],
+  ['8,8',  { base:W_SLATE, label:'WALL', height:1.74 }],
+  ['8,9',  { base:W_SLATE, label:'WALL', height:1.74 }],
+
   // ─── Outer world labyrinth (rows 28-55, cols 28-55) ──────────────────────────
   // Entry gateway pillars (rows 29-30) — funnel from inner world into outer zone
   ['29,33',  { base:W_SLATE, label:'WALL' }],
@@ -3635,6 +3692,7 @@ export default function MiningChain3DFPV({
   const cameraRollRef   = useRef(0)      // lean on strafe (radians)
   const landImpactRef   = useRef(0)      // landing punch (0-1, decays)
   const dynamicFovRef   = useRef(0)      // extra FOV radians when sprinting
+  const pvpZoomRef      = useRef(0)      // 0→1 lerp — camera closes in when enemy in hit range
   const breathPhaseRef  = useRef(0)      // idle breathing oscillator
   const prevJumpsRef    = useRef(0)      // detect landing edge
   const landVzRef       = useRef(0)      // vertical speed at landing (for impact strength)
@@ -4040,7 +4098,11 @@ export default function MiningChain3DFPV({
     if(threeState){
       try{
         const aspect=W/Math.max(1,H)
-        const fovRad = FOV + dynamicFovRef.current
+        // Lerp pvp zoom: enemy in hit range → camera slides closer, FOV tightens
+        const pvpZoomTarget = enemyTargetRef.current ? 1 : 0
+        pvpZoomRef.current += (pvpZoomTarget - pvpZoomRef.current) * Math.min(1, cameraDt * 6)
+        const pvpZoom = pvpZoomRef.current
+        const fovRad = FOV + dynamicFovRef.current - pvpZoom * 0.22
         const verticalFov=THREE.MathUtils.radToDeg(2*Math.atan(Math.tan(fovRad/2)/aspect))
         const projectionChanged=threeState.viewWidth!==W||threeState.viewHeight!==H||Math.abs(threeState.viewFov-verticalFov)>.0001
         const sizeChanged=threeState.viewWidth!==W||threeState.viewHeight!==H||threeState.viewDpr!==dpr
@@ -4066,7 +4128,7 @@ export default function MiningChain3DFPV({
         }
         // 3rd-person over-shoulder camera — drop to ground level when dead
         const localDead=myDeadUntilRef.current&&myDeadUntilRef.current>Date.now()
-        const behindDist=localDead?1.20:2.55, aboveOffset=localDead?-0.45:1.15, lookFwd=2.4, shoulderR=localDead?0:0.30
+        const behindDist=localDead?1.20:2.55-pvpZoom*1.45, aboveOffset=localDead?-0.45:1.15-pvpZoom*0.30, lookFwd=2.4, shoulderR=localDead?0:0.30
         const cosA=Math.cos(angle),sinA=Math.sin(angle)
         // Perpendicular right vector (horizontal plane)
         const rightX=Math.cos(angle+Math.PI/2), rightZ=Math.sin(angle+Math.PI/2)
@@ -4107,6 +4169,7 @@ export default function MiningChain3DFPV({
             ||Math.abs(lastCollision.gx-gx)>.002||Math.abs(lastCollision.gy-gy)>.002
             ||Math.abs(lastCollision.angle-angle)>.002||Math.abs(lastCollision.rawZ-rawZ)>.002
             ||lastCollision.localDead!==Boolean(localDead)
+            ||Math.abs((lastCollision.pvpZoom||0)-pvpZoom)>.02
           try {
             if(threeState.world&&collisionChanged){
               // Phase 1 — primary position
@@ -4135,7 +4198,7 @@ export default function MiningChain3DFPV({
               }
               if(!threeState.cachedCameraPosition) threeState.cachedCameraPosition=new THREE.Vector3()
               threeState.cachedCameraPosition.copy(rb)
-              threeState.cameraCollisionState={gx,gy,angle,rawZ,localDead:Boolean(localDead),cameraZ}
+              threeState.cameraCollisionState={gx,gy,angle,rawZ,localDead:Boolean(localDead),cameraZ,pvpZoom}
               threeState.cameraCollisionValid=true
             }else if(threeState.cachedCameraPosition&&lastCollision){
               rb.copy(threeState.cachedCameraPosition)
