@@ -991,39 +991,64 @@ footer.bg-black\/97,
   color: rgba(34,211,238,.45);
 }
 
-/* CTA button */
+/* CTA button — 3D mining block style */
 .mm3-splash-cta {
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
-  padding: clamp(.5rem,1.4vw,.72rem) clamp(1.3rem,3.5vw,2.2rem);
-  background: linear-gradient(135deg, rgba(34,211,238,.12) 0%, rgba(168,85,247,.07) 100%);
-  border: 1.5px solid rgba(34,211,238,.65);
-  border-radius: 4px;
-  color: #a5f3fc;
+  padding: clamp(.52rem,1.4vw,.76rem) clamp(1.4rem,3.5vw,2.4rem);
+  /* front face gradient */
+  background: linear-gradient(155deg,
+    rgba(34,211,238,.22) 0%,
+    rgba(34,211,238,.09) 100%
+  );
+  /* Minecraft-style bevel: bright top/left, dark bottom/right */
+  border-style: solid;
+  border-width: 2px;
+  border-top-color:    rgba(167,243,252,.90);
+  border-left-color:   rgba(34,211,238,.62);
+  border-right-color:  rgba(34,211,238,.18);
+  border-bottom-color: rgba(34,211,238,.10);
+  border-radius: 2px;
+  color: #e0feff;
   font: 900 clamp(0.74rem,1.8vw,0.9rem)/1 monospace;
   letter-spacing: .16em;
   text-decoration: none;
   text-transform: uppercase;
-  box-shadow: 0 0 28px rgba(34,211,238,.16), inset 0 0 20px rgba(34,211,238,.06);
-  transition: all .22s;
+  /* layered shadows = side face depth */
+  box-shadow:
+    5px 5px 0 rgba(2,18,30,.95),
+    8px 8px 0 rgba(1,9,16,.95),
+    0 0 28px -2px rgba(34,211,238,.20),
+    inset 0 0 18px -6px rgba(34,211,238,.12);
+  transition: transform .18s ease, box-shadow .18s ease, border-color .18s;
   animation: mm3-cta-pulse 3.5s ease-in-out infinite;
 }
 .mm3-splash-cta:hover {
-  background: linear-gradient(135deg, rgba(34,211,238,.26) 0%, rgba(168,85,247,.14) 100%);
-  border-color: rgba(34,211,238,.92);
-  color: #e0feff;
-  box-shadow: 0 0 52px rgba(34,211,238,.32), inset 0 0 24px rgba(34,211,238,.12);
+  transform: translate(-2px,-2px);
+  border-top-color:  rgba(167,243,252,1);
+  border-left-color: rgba(34,211,238,.88);
+  box-shadow:
+    7px 7px 0 rgba(2,18,30,.95),
+    11px 11px 0 rgba(1,9,16,.95),
+    0 0 42px -2px rgba(34,211,238,.38),
+    inset 0 0 22px -5px rgba(34,211,238,.18);
 }
 @keyframes mm3-cta-pulse {
-  0%,100% { box-shadow: 0 0 28px rgba(34,211,238,.16), inset 0 0 20px rgba(34,211,238,.06); }
-  50%      { box-shadow: 0 0 44px rgba(34,211,238,.26), inset 0 0 24px rgba(34,211,238,.10); }
+  0%,100% {
+    box-shadow: 5px 5px 0 rgba(2,18,30,.95), 8px 8px 0 rgba(1,9,16,.95),
+                0 0 28px -2px rgba(34,211,238,.20), inset 0 0 18px -6px rgba(34,211,238,.12);
+  }
+  50% {
+    box-shadow: 5px 5px 0 rgba(2,18,30,.95), 8px 8px 0 rgba(1,9,16,.95),
+                0 0 42px -2px rgba(34,211,238,.34), inset 0 0 22px -5px rgba(34,211,238,.18);
+  }
 }
 .mm3-splash-arrow {
   display: inline-block;
   transition: transform .2s;
 }
-.mm3-splash-cta:hover .mm3-splash-arrow { transform: translateX(5px); }
+.mm3-splash-cta:hover .mm3-splash-arrow { transform: translateX(6px); }
 
 /* MM3 stat pill */
 .mm3-splash-stat {
@@ -1061,7 +1086,7 @@ footer.bg-black\/97,
 
 /* ── PORTAL GRID ──────────────────────────────────────────── */
 .mm3-portal {
-  padding: 0.6rem 1.2rem 0.8rem;
+  padding: 0.6rem 1.4rem 1.1rem; /* extra right+bottom for cube shadow */
   background: #04080e;
   font-family: Consolas,'Courier New',monospace;
 }
@@ -1069,72 +1094,119 @@ footer.bg-black\/97,
 .mm3-portal-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: .45rem;
+  gap: .6rem .5rem; /* extra row-gap so cube shadows don't crowd */
   max-width: 1040px;
   margin: 0 auto;
 }
-@media (min-width: 640px)  { .mm3-portal-grid { grid-template-columns: repeat(5, 1fr); } }
+@media (min-width: 640px) { .mm3-portal-grid { grid-template-columns: repeat(5, 1fr); } }
 
 /* second row — 4 items centered at same card width as 5-col grid */
 .mm3-portal-row2 {
   display: flex;
   justify-content: center;
   flex-wrap: wrap;
-  gap: .45rem;
+  gap: .6rem .5rem;
   max-width: 1040px;
-  margin: .45rem auto 0;
+  margin: .6rem auto 0;
 }
 @media (min-width: 640px) {
   .mm3-portal-row2 .mm3-portal-card {
-    width: calc((1040px - 4 * .45rem) / 5);
-    flex: 0 0 calc((1040px - 4 * .45rem) / 5);
+    width: calc((1040px - 4 * .5rem) / 5);
+    flex: 0 0 calc((1040px - 4 * .5rem) / 5);
   }
 }
 
-/* card */
+/* ── card — 3D mining cube ────────────────────────────────────────────── */
 .mm3-portal-card {
   position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: .25rem;
-  padding: .6rem .6rem .55rem;
-  background: rgba(2,8,16,.78);
-  border: 1px solid color-mix(in srgb, var(--ac,#22d3ee) 15%, transparent);
-  border-radius: 8px;
+  gap: .22rem;
+  padding: .62rem .55rem .58rem;
   text-decoration: none;
   overflow: hidden;
-  transition: border-color .18s, background .18s, transform .15s;
+  z-index: 1;
+
+  /* FRONT FACE — lit from top-left like a cube under directional light */
+  background: linear-gradient(155deg,
+    color-mix(in srgb, var(--ac,#22d3ee) 16%, #040e1c) 0%,
+    color-mix(in srgb, var(--ac,#22d3ee)  5%, #020810) 100%
+  );
+
+  /* Bevel: bright top/left edge, dark bottom/right edge */
+  border-style: solid;
+  border-width: 2px;
+  border-top-color:    color-mix(in srgb, var(--ac,#22d3ee) 75%, white);
+  border-left-color:   color-mix(in srgb, var(--ac,#22d3ee) 50%, transparent);
+  border-right-color:  color-mix(in srgb, var(--ac,#22d3ee) 16%, #000);
+  border-bottom-color: color-mix(in srgb, var(--ac,#22d3ee) 10%, #000);
+  border-radius: 2px;
+
+  /* Layered hard shadows = visible side + bottom faces of the cube */
+  box-shadow:
+    4px 4px 0 color-mix(in srgb, var(--ac,#22d3ee) 14%, #010305),
+    7px 7px 0 color-mix(in srgb, var(--ac,#22d3ee)  6%, #010203),
+    0 0 20px -3px color-mix(in srgb, var(--ac,#22d3ee) 30%, transparent),
+    inset 0 0 14px -6px color-mix(in srgb, var(--ac,#22d3ee) 16%, transparent);
+
+  transition: transform .16s ease, box-shadow .16s ease, filter .16s ease, border-color .16s;
 }
-/* bottom accent line */
+
+/* Scanline texture on the cube face — retro pixel feel */
+.mm3-portal-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent 0px, transparent 3px,
+    rgba(0,0,0,.055) 3px, rgba(0,0,0,.055) 4px
+  );
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Top-edge glow line — the lit ridge of the cube top face */
 .mm3-portal-card::after {
   content: '';
   position: absolute;
-  bottom: 0; left: 0; right: 0; height: 2px;
-  background: var(--ac,#22d3ee);
-  transform: scaleX(0);
-  transition: transform .22s cubic-bezier(.4,0,.2,1);
+  top: 0; left: 0; right: 0; height: 1px;
+  background: color-mix(in srgb, var(--ac,#22d3ee) 85%, white);
+  box-shadow: 0 0 7px 1px color-mix(in srgb, var(--ac,#22d3ee) 55%, transparent);
+  pointer-events: none;
 }
+
+/* Hover: block lifts up-left, shadow grows deeper */
 .mm3-portal-card:hover {
-  border-color: color-mix(in srgb, var(--ac,#22d3ee) 52%, transparent);
-  background: rgba(4,12,24,.92);
-  transform: translateY(-2px);
+  transform: translate(-2px, -3px);
+  filter: brightness(1.14);
+  z-index: 10;
+  border-top-color:  color-mix(in srgb, var(--ac,#22d3ee) 95%, white);
+  border-left-color: color-mix(in srgb, var(--ac,#22d3ee) 70%, transparent);
+  box-shadow:
+    6px 7px 0 color-mix(in srgb, var(--ac,#22d3ee) 18%, #010305),
+    10px 11px 0 color-mix(in srgb, var(--ac,#22d3ee) 8%, #010203),
+    0 0 30px -2px color-mix(in srgb, var(--ac,#22d3ee) 46%, transparent),
+    inset 0 0 18px -5px color-mix(in srgb, var(--ac,#22d3ee) 22%, transparent);
 }
-.mm3-portal-card:hover::after { transform: scaleX(1); }
 
 .mm3-portal-icon {
-  font-size: 1.25rem;
+  position: relative; z-index: 1;
+  font-size: 1.3rem;
   line-height: 1;
-  filter: drop-shadow(0 0 8px var(--ac,#22d3ee));
-  transition: filter .18s;
+  filter: drop-shadow(0 0 7px var(--ac,#22d3ee));
+  transition: filter .18s, transform .18s;
 }
 .mm3-portal-card:hover .mm3-portal-icon {
   filter: drop-shadow(0 0 14px var(--ac,#22d3ee));
+  transform: scale(1.1);
 }
 .mm3-portal-name {
+  position: relative; z-index: 1;
   display: flex;
   align-items: center;
-  gap: .25rem;
+  gap: .22rem;
   flex-wrap: wrap;
   justify-content: center;
   color: var(--ac,#22d3ee);
@@ -1142,9 +1214,11 @@ footer.bg-black\/97,
   letter-spacing: .07em;
   text-transform: uppercase;
   text-align: center;
+  text-shadow: 0 0 10px color-mix(in srgb, var(--ac,#22d3ee) 50%, transparent);
 }
 .mm3-portal-desc {
   display: none;
+  position: relative; z-index: 1;
   color: rgba(148,197,220,.52);
   font: .57rem/1.4 monospace;
   text-align: center;
@@ -1215,56 +1289,92 @@ a:hover .mm3-home-badge span { color: rgba(34,211,238,.85); }
   justify-content: center;
 }
 
-/* ── Mobile portrait ≤480px — compact single screen ─────────────────── */
+/* ── Mobile portrait ≤480px — compact cubes, 5-col grid ─────────────── */
 @media (max-width:480px) {
   .mm3-splash { padding: .7rem 1rem .6rem; }
   .mm3-splash-kicker { margin-bottom: .35rem; font-size: .56rem; }
   .mm3-splash-sub { font-size: .60rem; margin-bottom: .7rem; letter-spacing: .08em; }
-  .mm3-splash-cta { padding: .55rem 1.4rem; font-size: .76rem; }
+  .mm3-splash-cta { padding: .55rem 1.4rem; font-size: .76rem;
+    box-shadow: 3px 3px 0 rgba(2,18,30,.95), 5px 5px 0 rgba(1,9,16,.95),
+                0 0 20px -2px rgba(34,211,238,.20), inset 0 0 12px -5px rgba(34,211,238,.10);
+  }
   .mm3-splash-disclaimer { margin-top: .4rem; font-size: .50rem; }
-  .mm3-portal { padding: .4rem .35rem .5rem; }
-  .mm3-portal-grid { grid-template-columns: repeat(5, 1fr); gap: .18rem; }
-  .mm3-portal-row2 { gap: .18rem; margin-top: .35rem; }
-  .mm3-portal-card { padding: .25rem .1rem .22rem; gap: .08rem; }
-  .mm3-portal-icon { font-size: .65rem; }
-  .mm3-portal-name { font-size: .36rem; letter-spacing: .02em; }
+  /* portal */
+  .mm3-portal { padding: .4rem .42rem .55rem; }
+  .mm3-portal-grid { grid-template-columns: repeat(5, 1fr); gap: .22rem .18rem; }
+  .mm3-portal-row2 { gap: .22rem .18rem; margin-top: .28rem; }
+  /* smaller cube depth on tiny cards */
+  .mm3-portal-card {
+    padding: .26rem .1rem .24rem; gap: .08rem;
+    border-width: 1px;
+    box-shadow:
+      2px 2px 0 color-mix(in srgb, var(--ac,#22d3ee) 14%, #010305),
+      4px 4px 0 color-mix(in srgb, var(--ac,#22d3ee) 6%, #010203),
+      0 0 12px -3px color-mix(in srgb, var(--ac,#22d3ee) 28%, transparent);
+  }
+  .mm3-portal-card:hover {
+    transform: translate(-1px,-2px);
+    box-shadow:
+      3px 4px 0 color-mix(in srgb, var(--ac,#22d3ee) 18%, #010305),
+      6px 7px 0 color-mix(in srgb, var(--ac,#22d3ee) 8%, #010203),
+      0 0 20px -2px color-mix(in srgb, var(--ac,#22d3ee) 42%, transparent);
+  }
+  .mm3-portal-icon { font-size: .68rem; }
+  .mm3-portal-name { font-size: .37rem; letter-spacing: .02em; }
 }
 
-/* ── Tablet portrait 480–1023px — 5-col grid, no desc, compact cards ── */
+/* ── Tablet portrait 480–1023px — 5-col grid, medium cubes ──────────── */
 @media (min-width:480px) and (max-width:1023px) {
   .mm3-splash { padding: .55rem 1.2rem .5rem; }
   .mm3-splash-kicker { margin-bottom: .3rem; }
   .mm3-splash-sub { font-size: .65rem; margin-bottom: .55rem; }
   .mm3-splash-cta { padding: .5rem 1.4rem; font-size: .78rem; }
   .mm3-splash-disclaimer { margin-top: .3rem; font-size: .50rem; }
-  .mm3-portal { padding: .4rem .6rem .55rem; }
-  .mm3-portal-grid { grid-template-columns: repeat(5, 1fr); gap: .28rem; }
-  .mm3-portal-row2 { gap: .28rem; margin-top: .28rem; }
-  /* Row2 cards: size to fit exactly 4 in one row within the 5-col width */
+  .mm3-portal { padding: .4rem .7rem .65rem; }
+  .mm3-portal-grid { grid-template-columns: repeat(5, 1fr); gap: .36rem .28rem; }
+  .mm3-portal-row2 { gap: .36rem .28rem; margin-top: .32rem; }
   .mm3-portal-row2 .mm3-portal-card {
     width: calc(20% - .28rem * 4 / 5);
     flex: 0 0 calc(20% - .28rem * 4 / 5);
   }
-  .mm3-portal-card { padding: .38rem .3rem .34rem; gap: .12rem; }
-  .mm3-portal-icon { font-size: .9rem; }
-  .mm3-portal-name { font-size: .48rem; }
+  .mm3-portal-card {
+    padding: .4rem .3rem .36rem; gap: .12rem;
+    box-shadow:
+      3px 3px 0 color-mix(in srgb, var(--ac,#22d3ee) 14%, #010305),
+      5px 5px 0 color-mix(in srgb, var(--ac,#22d3ee) 6%, #010203),
+      0 0 16px -3px color-mix(in srgb, var(--ac,#22d3ee) 28%, transparent),
+      inset 0 0 10px -5px color-mix(in srgb, var(--ac,#22d3ee) 14%, transparent);
+  }
+  .mm3-portal-icon { font-size: .95rem; }
+  .mm3-portal-name { font-size: .50rem; }
 }
 
-/* ── Landscape phones — ultra-compact hero, single-row portal ─────────── */
+/* ── Landscape phones — ultra-compact cubes ──────────────────────────── */
 @media (max-height:500px) and (orientation:landscape) {
   .mm3-splash { padding: .3rem 1rem .28rem; }
   .mm3-splash-kicker { margin-bottom: .2rem; font-size: .52rem; }
   .mm3-splash-sub { font-size: .56rem; margin-bottom: .32rem; letter-spacing: .07em; }
-  .mm3-splash-cta { padding: .38rem 1.2rem; font-size: .70rem; }
+  .mm3-splash-cta { padding: .38rem 1.2rem; font-size: .70rem;
+    box-shadow: 3px 3px 0 rgba(2,18,30,.95), 5px 5px 0 rgba(1,9,16,.95),
+                0 0 18px -2px rgba(34,211,238,.18), inset 0 0 10px -5px rgba(34,211,238,.08);
+  }
   .mm3-splash-disclaimer { margin-top: .2rem; font-size: .46rem; }
-  .mm3-portal { padding: .22rem .5rem .28rem; }
-  .mm3-portal-grid { grid-template-columns: repeat(5, 1fr); gap: .18rem; }
-  .mm3-portal-row2 { gap: .18rem; margin-top: .18rem; }
+  .mm3-portal { padding: .22rem .55rem .32rem; }
+  .mm3-portal-grid { grid-template-columns: repeat(5, 1fr); gap: .22rem .18rem; }
+  .mm3-portal-row2 { gap: .22rem .18rem; margin-top: .2rem; }
   .mm3-portal-row2 .mm3-portal-card {
     width: calc(20% - .18rem * 4 / 5);
     flex: 0 0 calc(20% - .18rem * 4 / 5);
   }
-  .mm3-portal-card { padding: .22rem .1rem .2rem; gap: .07rem; }
+  .mm3-portal-card {
+    padding: .22rem .1rem .2rem; gap: .07rem;
+    border-width: 1px;
+    box-shadow:
+      2px 2px 0 color-mix(in srgb, var(--ac,#22d3ee) 14%, #010305),
+      4px 4px 0 color-mix(in srgb, var(--ac,#22d3ee) 6%, #010203),
+      0 0 10px -3px color-mix(in srgb, var(--ac,#22d3ee) 25%, transparent);
+  }
+  .mm3-portal-card:hover { transform: translate(-1px,-2px); }
   .mm3-portal-icon { font-size: .72rem; }
   .mm3-portal-name { font-size: .38rem; letter-spacing: .02em; }
 }
