@@ -986,37 +986,44 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
       const liveQuote = getSellQuote(level, Math.max(0, totalMm3 - soldMm3), currentDecorations);
       const now = new Date().toISOString();
 
-      const { error: progressError } = await supabase
-        .from('player_progress')
-        .upsert({
+      const nftjiResellRes = await fetch('/api/mining/nftji-resell', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
           wallet,
-          level,
-          mm3_sold: paysWithMm3 ? Math.max(0, soldMm3 - returnEur) : soldMm3,
-          eur_earned: paysWithMm3 ? fundsEur : fundsEur + returnEur,
-          usd_earned: paysWithMm3 ? fundsUsd : fundsUsd + returnUsd,
-          cny_earned: paysWithMm3 ? fundsCny : fundsCny + returnCny,
-          wallet_emojis: currentDecorations,
-          life_used: Boolean(progressRow.life_used),
-          lucky_50_claimed: Boolean(progressRow.lucky_50_claimed),
-          lucky_100_claimed: Boolean(progressRow.lucky_100_claimed),
-          lucky_500_claimed: Boolean(progressRow.lucky_500_claimed),
-          lucky_1000_claimed: Boolean(progressRow.lucky_1000_claimed),
-          sell_rate_cny: liveQuote.rateCny,
-          sell_quote_cny: liveQuote.netCny,
-          sell_quote_eur: liveQuote.netEur,
-          sell_quote_usd: liveQuote.netUsd,
-          mining_nftji_key: null,
-          mining_nftji_price: 0,
-          mining_nftji_since: null,
-          mining_nftji_levels: progressRow.mining_nftji_levels || {},
-          block_chain_percent: (() => {
-            const nftjiHxs = new Set(blocks.filter(b => b.grid_row != null && b.grid_col != null).map(b => gridToBlockHex(b.grid_row, b.grid_col)));
-            const freeMined = (walletMinedRowsResell || []).filter(r => !nftjiHxs.has(r.block_hex)).length;
-            return Math.round(freeMined / (GRID_ROWS * GRID_COLS) * 10000) / 100;
-          })(),
-          updated_at: now,
-        }, { onConflict: 'wallet', ignoreDuplicates: false });
-      if (progressError) throw progressError;
+          progress: {
+            level,
+            mm3_sold: paysWithMm3 ? Math.max(0, soldMm3 - returnEur) : soldMm3,
+            eur_earned: paysWithMm3 ? fundsEur : fundsEur + returnEur,
+            usd_earned: paysWithMm3 ? fundsUsd : fundsUsd + returnUsd,
+            cny_earned: paysWithMm3 ? fundsCny : fundsCny + returnCny,
+            wallet_emojis: currentDecorations,
+            life_used: Boolean(progressRow.life_used),
+            lucky_50_claimed: Boolean(progressRow.lucky_50_claimed),
+            lucky_100_claimed: Boolean(progressRow.lucky_100_claimed),
+            lucky_500_claimed: Boolean(progressRow.lucky_500_claimed),
+            lucky_1000_claimed: Boolean(progressRow.lucky_1000_claimed),
+            sell_rate_cny: liveQuote.rateCny,
+            sell_quote_cny: liveQuote.netCny,
+            sell_quote_eur: liveQuote.netEur,
+            sell_quote_usd: liveQuote.netUsd,
+            mining_nftji_key: null,
+            mining_nftji_price: 0,
+            mining_nftji_since: null,
+            mining_nftji_levels: progressRow.mining_nftji_levels || {},
+            block_chain_percent: (() => {
+              const nftjiHxs = new Set(blocks.filter(b => b.grid_row != null && b.grid_col != null).map(b => gridToBlockHex(b.grid_row, b.grid_col)));
+              const freeMined = (walletMinedRowsResell || []).filter(r => !nftjiHxs.has(r.block_hex)).length;
+              return Math.round(freeMined / (GRID_ROWS * GRID_COLS) * 10000) / 100;
+            })(),
+            updated_at: now,
+          },
+        }),
+      });
+      if (!nftjiResellRes.ok) {
+        const { error } = await nftjiResellRes.json().catch(() => ({}));
+        throw new Error(error || 'nftji resell failed');
+      }
 
       // Cancel active IRC command and its penalties when the owner resells
       const resoldKey = progressRow.mining_nftji_key;
