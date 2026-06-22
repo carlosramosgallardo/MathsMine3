@@ -91,7 +91,6 @@ export default function AITeamPage() {
             <span className="mm3-splash-live" />
             {es ? 'EQUIPO IA · @FREAKINGAI' : 'AI TEAM · @FREAKINGAI'}
           </div>
-          <h1 className="mm3-splash-title">{t('aiTeam.title')}</h1>
           <p className="mm3-splash-sub">{t('aiTeam.subtitle')}</p>
         </div>
       </section>
