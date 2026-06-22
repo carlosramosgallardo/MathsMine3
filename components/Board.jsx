@@ -2640,35 +2640,31 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
       <div className="w-full">
         <div className="mx-auto max-w-lg px-2">
 
-          <div className="mb-2 flex min-h-[48px] flex-wrap items-center justify-center gap-1 rounded-md border border-cyan-500/15 bg-black/70 px-2 py-1">
-              <span className="mr-0.5 font-mono text-[0.52rem] font-black uppercase tracking-[0.18em] text-cyan-300/55">NFTJI</span>
+          <div className="relative left-1/2 mb-2 flex w-max max-w-[calc(100vw-1rem)] -translate-x-1/2 flex-wrap items-center justify-center gap-1.5 rounded-md border border-cyan-500/15 bg-black/70 px-2 py-1.5">
               {displayedNftjis.length ? displayedNftjis.map((nftji) => {
-                const accent = nftji.source === 'mining'
-                  ? '#facc15'
-                  : nftji.source === 'relay'
-                    ? '#6ee7b7'
-                    : nftji.source === 'squeeze'
-                      ? (nftji.emoji === '⚔️' ? '#f59e0b' : '#22d3ee')
-                      : nftji.source === 'wallet'
-                        ? '#67e8f9'
-                        : tier.color;
+                const isMining = nftji.source === 'mining';
+                const isLife = nftji.emoji === WALLET_DECORATIONS.revive;
+                const borderColor = nftji.placeholder
+                  ? (isMining ? 'rgba(250,204,21,0.22)' : isLife ? 'rgba(251,113,133,0.22)' : 'rgba(148,163,184,0.22)')
+                  : (isMining ? 'rgba(250,204,21,0.6)' : isLife ? 'rgba(251,113,133,0.6)' : tier.glow);
+                const slotColor = isMining ? '#fef08a' : tier.color;
                 const title = nftji.placeholder
                   ? (nftji.source === 'mining' ? 'Mining NFTJI — none' : `${getEmojiTitle(nftji.emoji)} — none`)
                   : `${getEmojiTitle(nftji.emoji)}${nftji.blockKey ? ` | ${nftji.blockKey}` : ''} | Lv.${nftji.level}`;
                 return (
                   <div
                     key={nftji.key}
-                    className="flex h-10 w-7 flex-none flex-col items-center justify-center rounded border"
+                    className="mm3-trade-slot flex h-[58px] w-11 flex-none flex-col items-center justify-center rounded-md border"
                     style={{
-                      borderColor: nftji.placeholder ? `${accent}38` : `${accent}99`,
-                      background: nftji.placeholder ? 'rgba(2,6,23,0.4)' : `${accent}12`,
-                      color: nftji.placeholder ? 'rgba(100,116,139,0.35)' : accent,
-                      boxShadow: nftji.placeholder ? 'none' : `0 0 9px ${accent}20`,
+                      borderColor,
+                      background: nftji.placeholder ? 'rgba(2,6,23,0.4)' : (isLife ? '#100b18' : tier.bg),
+                      color: nftji.placeholder ? 'rgba(100,116,139,0.35)' : slotColor,
+                      boxShadow: nftji.placeholder ? 'none' : (isMining ? '0 0 12px rgba(250,204,21,0.25)' : `0 0 12px ${tier.color}22`),
                     }}
                     title={title}
                   >
-                    {!nftji.placeholder && <span className="text-[0.92rem] leading-none">{nftji.emoji}</span>}
-                    {!nftji.placeholder && <span className="mt-0.5 font-mono text-[0.48rem] font-black leading-none">Lv.{nftji.level}</span>}
+                    {!nftji.placeholder && <span className="text-[1.05rem] leading-none">{nftji.emoji}</span>}
+                    {!nftji.placeholder && <span className="mt-0.5 font-mono text-[0.52rem] font-black leading-none">Lv{nftji.level}</span>}
                   </div>
                 );
               }) : (
