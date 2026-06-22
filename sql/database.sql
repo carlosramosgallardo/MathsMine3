@@ -2253,7 +2253,7 @@ BEGIN
   p_attacker := LOWER(TRIM(p_attacker)); p_victim := LOWER(TRIM(p_victim));
   p_damage := LEAST(100, GREATEST(1, p_damage));
   IF p_attacker = '' OR p_victim = '' OR p_attacker = p_victim THEN RAISE EXCEPTION 'invalid_params'; END IF;
-  IF p_attacker LIKE 'anon-%' THEN RAISE EXCEPTION 'anon_cannot_attack'; END IF;
+  IF p_attacker LIKE 'anon-%' AND NOT p_victim_is_anon THEN RAISE EXCEPTION 'anon_cannot_attack'; END IF;
   IF NOT p_victim_is_anon THEN
     SELECT EXISTS (SELECT 1 FROM mm3_wallet_pool_members a JOIN mm3_wallet_pool_members v ON v.pool_code=a.pool_code WHERE a.wallet=p_attacker AND v.wallet=p_victim) INTO v_same_pool;
     IF v_same_pool THEN RAISE EXCEPTION 'same_pool'; END IF;
