@@ -1582,22 +1582,33 @@ footer.bg-black\/97,
   box-shadow:0 0 7px rgba(250,204,21,.36);
 }
 .mm3-home-arena-lane.is-x { transform:rotate(90deg); }
-/* ── Chain node sphere (replaces bleachers) ──────────────────── */
+/* ── Sword + chain node sphere: combined scene ──────────────── */
+.mm3-home-sword-scene {
+  position:absolute;
+  z-index:5;
+  left:calc(58% - 63px);
+  top:10px;
+  width:180px;
+  height:178px;
+}
 .mm3-home-chain-node {
   position:absolute;
-  z-index:4;
-  right:6%;
-  top:22px;
+  z-index:1;
+  bottom:0;
+  left:50%;
+  transform:translateX(-50%);
   width:90px;
-  height:100px;
+  height:90px;
   display:flex;
-  flex-direction:column;
   align-items:center;
-  justify-content:flex-end;
+  justify-content:center;
+  overflow:visible;
 }
 .mm3-chain-hex {
   position:absolute;
-  top:0;
+  top:-22px;
+  left:50%;
+  transform:translateX(-50%);
   font-size:.9rem;
   line-height:1;
   color:#facc15;
@@ -1607,6 +1618,8 @@ footer.bg-black\/97,
 }
 .mm3-chain-orb {
   display:block;
+  position:relative;
+  z-index:3;
   width:70px;
   height:70px;
   border-radius:50%;
@@ -1630,16 +1643,32 @@ footer.bg-black\/97,
 .mm3-chain-ring {
   display:block;
   position:absolute;
-  bottom:10px;
-  width:88px;
-  height:20px;
+  top:50%;
+  left:50%;
+  transform:translate(-50%,-50%);
+  z-index:2;
+  width:120px;
+  height:30px;
   border-radius:50%;
-  border:1.5px solid rgba(250,204,21,.60);
-  box-shadow:0 0 9px rgba(250,204,21,.40),inset 0 0 5px rgba(250,204,21,.12);
+  border:2px solid rgba(250,204,21,.68);
+  box-shadow:0 0 10px rgba(250,204,21,.45),0 0 22px rgba(250,204,21,.22),inset 0 0 6px rgba(250,204,21,.15);
+}
+.mm3-chain-ring-outer {
+  display:block;
+  position:absolute;
+  top:50%;
+  left:50%;
+  transform:translate(-50%,-50%);
+  z-index:1;
+  width:168px;
+  height:44px;
+  border-radius:50%;
+  border:1.5px solid rgba(250,204,21,.42);
+  box-shadow:0 0 14px rgba(250,204,21,.26),inset 0 0 8px rgba(250,204,21,.08);
 }
 @keyframes mm3-chain-float {
-  0%,100% { transform:translateY(0);   opacity:.90; }
-  50%      { transform:translateY(-7px); opacity:1;  }
+  0%,100% { transform:translateX(-50%) translateY(0);   opacity:.90; }
+  50%      { transform:translateX(-50%) translateY(-7px); opacity:1;  }
 }
 @keyframes mm3-chain-glow {
   0%,100% { box-shadow:0 0 22px rgba(250,204,21,.90),0 0 44px rgba(250,204,21,.48),0 0 72px rgba(250,204,21,.20),inset 0 2px 8px rgba(255,255,200,.18),inset 0 -5px 14px rgba(0,0,0,.55); }
@@ -1647,12 +1676,12 @@ footer.bg-black\/97,
 }
 .mm3-home-arena-sword {
   position:absolute;
-  z-index:5;
-  left:58%;
-  top:20px;
+  z-index:3;
+  left:50%;
+  top:0;
   width:54px;
-  height:145px;
-  transform:rotate(5deg);
+  height:155px;
+  transform:translateX(-50%) rotate(5deg);
   filter:drop-shadow(0 0 9px rgba(34,211,238,.48));
 }
 .mm3-home-sword-pommel,
@@ -1788,15 +1817,13 @@ footer.bg-black\/97,
   .mm3-home-copy { padding-left:.2rem; }
   .mm3-home-arena { width:235px; height:145px; transform:scale(.9); }
   .mm3-home-arena-floor { height:108px; }
-  .mm3-home-chain-node { right:2%; top:14px; transform:scale(.72); transform-origin:top right; }
-  .mm3-home-arena-sword { left:59%; top:10px; transform:scale(.72) rotate(5deg); transform-origin:top center; }
+  .mm3-home-sword-scene { left:calc(60% - 63px); top:8px; transform:scale(.72); transform-origin:top left; }
   .mm3-home-arena-bot { left:10%; bottom:17px; transform:scale(.68); }
 }
 @media (max-width:480px) {
   .mm3-home .mm3-splash-body { grid-template-columns:56% 44%; }
   .mm3-home-arena { width:185px; height:130px; margin-left:-12px; transform:scale(.9); }
-  .mm3-home-chain-node { right:-6%; transform:scale(.62); transform-origin:top right; }
-  .mm3-home-arena-sword { left:60%; transform:scale(.62) rotate(5deg); }
+  .mm3-home-sword-scene { left:calc(62% - 63px); transform:scale(.62); transform-origin:top left; }
   .mm3-home-arena-bot { left:3%; bottom:11px; transform:scale(.58); }
   .mm3-home .mm3-portal-card { min-height:55px; }
   .mm3-portal-block { width:25px; height:22px; margin:-.68rem 0 .08rem; box-shadow:2px 3px 0 color-mix(in srgb,var(--ac,#22d3ee) 12%,#010205); }
@@ -1808,8 +1835,7 @@ footer.bg-black\/97,
   .mm3-home .mm3-splash-body { min-height:96px; }
   .mm3-home-arena { width:180px; height:105px; transform:scale(.82); }
   .mm3-home-arena-floor { height:82px; }
-  .mm3-home-chain-node { top:4px; transform:scale(.5); transform-origin:top right; }
-  .mm3-home-arena-sword { top:0; transform:scale(.52) rotate(5deg); }
+  .mm3-home-sword-scene { top:0; transform:scale(.52); transform-origin:top left; }
   .mm3-home-arena-bot { bottom:4px; transform:scale(.48); }
   .mm3-home .mm3-portal-card { min-height:42px; }
   .mm3-portal-block { width:24px; height:18px; margin:-.58rem 0 0; }
