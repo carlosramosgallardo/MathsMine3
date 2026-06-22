@@ -1197,17 +1197,22 @@ footer.bg-black\/97,
 a:hover .mm3-home-badge { border-color: rgba(34,211,238,.60); }
 a:hover .mm3-home-badge span { color: rgba(34,211,238,.85); }
 
-/* ── Home page wrapper — fills available height, distributes sections ── */
+/* ── Home page wrapper — fills full available height, splits it 50/50 ── */
 .mm3-home {
+  height: 100%;
   display: flex;
   flex-direction: column;
-  min-height: 100%;
 }
+/* Hero expands to fill its half — content already centred by justify-content:center */
 .mm3-home .mm3-splash {
-  flex: 0 0 auto;
+  flex: 1;
 }
+/* Portal expands to fill its half — centres the two card rows vertically */
 .mm3-home .mm3-portal {
-  flex: 1 0 auto;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
 }
 
 /* ── Mobile portrait ≤480px — compact single screen ─────────────────── */
