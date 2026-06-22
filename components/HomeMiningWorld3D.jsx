@@ -100,7 +100,7 @@ function addMiningBot(THREE, scene) {
 
   avatar.position.set(-1.35, .12, .15)
   avatar.rotation.y = Math.PI
-  avatar.scale.setScalar(1.72)
+  avatar.scale.setScalar(3.44)
   scene.add(avatar)
   return avatar
 }
@@ -263,7 +263,7 @@ export default function HomeMiningWorld3D() {
       scene = new THREE.Scene()
       scene.fog = new THREE.FogExp2('#020916', .055)
       const camera = new THREE.PerspectiveCamera(33, 2, .1, 50)
-      camera.position.set(7.50, 5.55, 11.25)
+      camera.position.set(8.20, 6.05, 12.30)
       camera.lookAt(-.15, 1.72, 0)
 
       scene.add(new THREE.HemisphereLight('#9fd7ff', '#090312', 1.12))
