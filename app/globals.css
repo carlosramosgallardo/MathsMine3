@@ -1590,6 +1590,7 @@ footer.bg-black\/97,
   top:10px;
   width:180px;
   height:178px;
+  transform:translateZ(2px);
 }
 .mm3-home-chain-node {
   position:absolute;
@@ -1623,6 +1624,8 @@ footer.bg-black\/97,
   width:70px;
   height:70px;
   border-radius:50%;
+  overflow:hidden;
+  transform:translateZ(0);
   background:radial-gradient(
     circle at 37% 33%,
     #fef9c3 0%,
