@@ -6,7 +6,7 @@ import { useI18n } from '@/lib/i18n-context';
 import { useActiveWallet } from '@/lib/use-active-wallet';
 import { loadDailyTaskProgress } from '@/lib/daily-tasks';
 import supabase from '@/lib/supabaseClient';
-import HomeMiningMinimap from '@/components/HomeMiningMinimap';
+import HomeMiningScene from '@/components/HomeMiningScene';
 
 // Interactive portal cards disabled during the 5-minute death cooldown
 const INTERACTIVE_HREFS = new Set(['/training', '/trading', '/squeezing', '/relaying', '/daily-tasks', '/mining'])
@@ -123,16 +123,9 @@ export default function LandingHero() {
 
           <div className="mm3-home-copy">
 
-          {/* tagline */}
-          <p className="mm3-splash-sub">
-            {es
-              ? <>3D WORLD <span className="mm3-dot">·</span> RESUELVE MATEMÁTICAS <span className="mm3-dot">·</span> MINA TOKENS</>
-              : <>3D WORLD <span className="mm3-dot">·</span> SOLVE MATH <span className="mm3-dot">·</span> MINE TOKENS</>}
-          </p>
-
           {/* CTA */}
           <Link href="/mining" className="mm3-splash-cta">
-            {es ? 'ENTRAR AL MINE' : 'ENTER THE MINE'}
+            {es ? 'ENTRAR AL MUNDO 3D' : 'ENTER THE 3D MINE'}
             <span className="mm3-splash-arrow">→</span>
           </Link>
 
@@ -144,7 +137,7 @@ export default function LandingHero() {
           </p>
           </div>
 
-          <HomeMiningMinimap language={language} />
+          <HomeMiningScene />
         </div>
       </section>
 
