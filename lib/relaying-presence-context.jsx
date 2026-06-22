@@ -2,6 +2,7 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import supabase from './supabaseClient';
+import { useActiveWallet } from './use-active-wallet';
 
 const ACTIVE_WINDOW_MS = 90_000;
 
@@ -11,6 +12,7 @@ const IrcPresenceContext = createContext({
   totalWallets: 0,
   macro: null,
   anonIrcUsers: [],
+  anonCount: 0,
   channelStatus: 'JOINING',
   trackAnon: async () => {},
   untrackAnon: async () => {},
@@ -18,13 +20,49 @@ const IrcPresenceContext = createContext({
 
 export function IrcPresenceProvider({ children }) {
   const pathname = usePathname();
+  const { account } = useActiveWallet();
   const [activeWallets, setActiveWallets] = useState([]);
   const [activeWalletCount, setActiveWalletCount] = useState(0);
   const [totalWallets, setTotalWallets]   = useState(0);
   const [macro, setMacro] = useState(null);
   const [anonIrcUsers, setAnonIrcUsers]   = useState([]);
+  const [anonCount, setAnonCount]         = useState(0);
   const [channelStatus, setChannelStatus] = useState('JOINING');
   const channelRef = useRef(null);
+
+  /* ── Global anon-presence channel (presence-only, very lightweight) ── */
+  useEffect(() => {
+    let presenceKey;
+    if (account) {
+      presenceKey = String(account).toLowerCase();
+    } else {
+      try {
+        presenceKey = localStorage.getItem('mm3_anon_key');
+        if (!presenceKey) {
+          presenceKey = `anon-${Math.random().toString(36).slice(2, 8)}`;
+          localStorage.setItem('mm3_anon_key', presenceKey);
+        }
+      } catch {
+        presenceKey = `anon-${Math.random().toString(36).slice(2, 8)}`;
+      }
+    }
+    const ch = supabase.channel('mm3-portal-anon-v1', {
+      config: { presence: { key: presenceKey } },
+    });
+    ch.on('presence', { event: 'sync' }, () => {
+      const state = ch.presenceState();
+      let count = 0;
+      for (const key of Object.keys(state)) {
+        if (key.startsWith('anon-')) count++;
+      }
+      setAnonCount(count);
+    }).subscribe(async (status) => {
+      if (status === 'SUBSCRIBED') {
+        await ch.track({ t: Date.now() }).catch(() => {});
+      }
+    });
+    return () => { supabase.removeChannel(ch); };
+  }, [account]);
 
   /* ── Single mm3-irc-anon-presence subscription ── */
   useEffect(() => {
@@ -118,7 +156,7 @@ export function IrcPresenceProvider({ children }) {
 
   return (
     <IrcPresenceContext.Provider
-      value={{ activeWallets, activeWalletCount, totalWallets, macro, anonIrcUsers, channelStatus, trackAnon, untrackAnon }}
+      value={{ activeWallets, activeWalletCount, totalWallets, macro, anonIrcUsers, anonCount, channelStatus, trackAnon, untrackAnon }}
     >
       {children}
     </IrcPresenceContext.Provider>

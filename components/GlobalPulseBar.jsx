@@ -8,7 +8,7 @@ import { useIrcPresence } from '@/lib/relaying-presence-context';
 export default function GlobalPulseBar() {
   const { language } = useI18n();
   const dice = useDice();
-  const { activeWalletCount, totalWallets, macro: rawMacro } = useIrcPresence();
+  const { activeWalletCount, totalWallets, anonCount, macro: rawMacro } = useIrcPresence();
   const macro = normalizeMacroState(rawMacro || undefined);
 
   const isSpanish = language === 'es';
@@ -55,6 +55,13 @@ export default function GlobalPulseBar() {
         <span className="text-slate-600 text-[0.70rem]">/</span>
         <span className="text-slate-500 tabular-nums">{totalWallets}</span>
         <span className="text-slate-600 text-[0.65rem]">wal</span>
+        {anonCount > 0 && (
+          <>
+            <span className="text-slate-700 text-[0.60rem] ml-0.5">+</span>
+            <span className="text-slate-500 tabular-nums">{anonCount}</span>
+            <span className="text-slate-600 text-[0.60rem]">anon</span>
+          </>
+        )}
       </div>
     </div>
   );
