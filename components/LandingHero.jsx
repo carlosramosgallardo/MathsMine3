@@ -119,7 +119,7 @@ export default function LandingHero() {
   }
 
   return (
-    <>
+    <div className="mm3-home">
       {/* ── HERO ─────────────────────────────────────────────────────────── */}
       <section className="mm3-splash">
 
@@ -206,6 +206,6 @@ export default function LandingHero() {
           )
         })()}
       </section>
-    </>
+    </div>
   );
 }
