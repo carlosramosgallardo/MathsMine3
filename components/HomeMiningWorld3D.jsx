@@ -98,7 +98,7 @@ function addMiningBot(THREE, scene) {
   tool.add(plug)
   avatar.add(tool)
 
-  avatar.position.set(-2.05, .12, .15)
+  avatar.position.set(-1.35, .12, .15)
   avatar.rotation.y = Math.PI
   avatar.scale.setScalar(1.72)
   scene.add(avatar)
@@ -110,7 +110,7 @@ function addChainNodeAndSword(THREE, scene) {
   group.position.set(.55, .12, 0)
 
   const foundation = new THREE.Mesh(
-    new THREE.CylinderGeometry(2.05, 2.05, .07, 96),
+    new THREE.CylinderGeometry(3.10, 3.10, .07, 96),
     new THREE.MeshStandardMaterial({ color: '#09061a', roughness: .64, metalness: .56, emissive: '#160b35', emissiveIntensity: .58 }),
   )
   foundation.position.y = .035
@@ -278,14 +278,6 @@ export default function HomeMiningWorld3D() {
       const goldFill = new THREE.PointLight('#facc15', 5.4, 10, 2)
       goldFill.position.set(.55, 2.3, 2.1)
       scene.add(goldFill)
-
-      const floor = new THREE.Mesh(
-        new THREE.PlaneGeometry(8.4, 4.5, 28, 16),
-        new THREE.MeshStandardMaterial({ color: '#020817', roughness: .78, metalness: .32, emissive: '#031323', emissiveIntensity: .48, wireframe: true, transparent: true, opacity: .72 }),
-      )
-      floor.rotation.x = -Math.PI / 2
-      floor.position.set(-.25, .006, 0)
-      scene.add(floor)
 
       const bot = addMiningBot(THREE, scene)
       const chain = addChainNodeAndSword(THREE, scene)
