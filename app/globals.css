@@ -1855,7 +1855,7 @@ footer.bg-black\/97,
   bottom:100%;
   width:40px;
   height:10px;
-  clip-path:polygon(12% 0,100% 0,88% 100%,0 100%);
+  clip-path:polygon(20% 0,100% 0,97% 100%,0 100%);
   background:color-mix(in srgb,var(--ac,#22d3ee) 34%,#172838);
   border-top:1px solid color-mix(in srgb,var(--ac,#22d3ee) 82%,white);
 }
@@ -1863,10 +1863,10 @@ footer.bg-black\/97,
   content:'';
   position:absolute;
   left:100%;
-  top:-5px;
+  top:-10px;
   width:8px;
-  height:37px;
-  clip-path:polygon(0 14%,100% 0,100% 88%,0 100%);
+  height:calc(100% + 11px);
+  clip-path:polygon(0 23%,100% 0,100% 97%,0 100%);
   background:color-mix(in srgb,var(--ac,#22d3ee) 12%,#01040a);
 }
 .mm3-home .mm3-portal-card:hover .mm3-portal-block {
@@ -1898,7 +1898,7 @@ footer.bg-black\/97,
   .mm3-home .mm3-portal-card { min-height:55px; }
   .mm3-portal-block { width:25px; height:22px; margin:-.68rem 0 .08rem; box-shadow:2px 3px 0 color-mix(in srgb,var(--ac,#22d3ee) 12%,#010205); }
   .mm3-portal-block::before { width:27px; height:6px; }
-  .mm3-portal-block::after { top:-3px; width:5px; height:25px; }
+  .mm3-portal-block::after { top:-6px; width:5px; height:calc(100% + 7px); }
   .mm3-home .mm3-portal-icon { font-size:.64rem; }
 }
 @media (max-height:500px) and (orientation:landscape) {
@@ -1910,7 +1910,7 @@ footer.bg-black\/97,
   .mm3-home .mm3-portal-card { min-height:42px; }
   .mm3-portal-block { width:24px; height:18px; margin:-.58rem 0 0; }
   .mm3-portal-block::before { width:26px; height:5px; }
-  .mm3-portal-block::after { top:-2px; width:5px; height:21px; }
+  .mm3-portal-block::after { top:-5px; width:5px; height:calc(100% + 6px); }
 }
 @media (prefers-reduced-motion:reduce) {
   .mm3-home-arena { filter:none; }
