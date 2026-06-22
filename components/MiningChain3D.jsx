@@ -130,6 +130,7 @@ export default function MiningChain3D() {
   const [myPos,         setMyPos]         = useState(initialPos)
   const [jumpToCell,    setJumpToCell]    = useState(null)
   const [pvpStolen,     setPvpStolen]     = useState({})
+  const [demineRewards, setDemineRewards] = useState({})
   const [showChainSolve, setShowChainSolve] = useState(false)
   const [nftjiPanel,    setNftjiPanel]    = useState(null) // null | { blockKey, blockHex, emoji, titleEn, titleEs, priceEur, owner }
   // positions: wallet → { gx, gy, row, col } — populated from presence payload, broadcast, and DB
@@ -163,6 +164,22 @@ export default function MiningChain3D() {
   const [chainDemineActive, setChainDemineActive] = useState(false)
   const [chainDemineHitsRemaining, setChainDemineHitsRemaining] = useState(100)
   const [chainSolvers, setChainSolvers] = useState([])
+  const demineRewardIdsRef = useRef(new Set())
+
+  const applyDemineReward = useCallback(({ wallet, mm3Awarded, eventId }) => {
+    const normalizedWallet = String(wallet || '').trim().toLowerCase()
+    const amount = Number(mm3Awarded) || 0
+    if (!normalizedWallet || amount <= 0) return
+    if (eventId) {
+      if (demineRewardIdsRef.current.size >= 300) demineRewardIdsRef.current.clear()
+      if (demineRewardIdsRef.current.has(eventId)) return
+      demineRewardIdsRef.current.add(eventId)
+    }
+    setDemineRewards(prev => ({
+      ...prev,
+      [normalizedWallet]: (Number(prev[normalizedWallet]) || 0) + amount,
+    }))
+  }, [])
 
   const loadRemoteHealth = useCallback((wallet) => {
     const key = String(wallet || '').toLowerCase()
@@ -630,6 +647,11 @@ export default function MiningChain3D() {
       }
     })
 
+    // Demine rewards are bounded to 100 broadcasts per completed chain cycle.
+    ch.on('broadcast', { event: 'demine-reward' }, ({ payload }) => {
+      applyDemineReward(payload || {})
+    })
+
     // Other players died — update their position to show corpse
     ch.on('broadcast', { event: 'player-death' }, ({ payload }) => {
       const w = payload?.victim
@@ -828,6 +850,22 @@ export default function MiningChain3D() {
     } catch {}
   }, [])
 
+  const handleDemineHit = useCallback(({ wallet, mm3Awarded, hitsRemaining, chainReset }) => {
+    const eventId = globalThis.crypto?.randomUUID?.()
+      || `demine-${Date.now()}-${Math.random().toString(36).slice(2)}`
+    const reward = { wallet, mm3Awarded, hitsRemaining, chainReset, eventId }
+    applyDemineReward(reward)
+    channelRef.current?.send({
+      type: 'broadcast',
+      event: 'demine-reward',
+      payload: reward,
+    })?.catch(() => {})
+    window.dispatchEvent(new CustomEvent('mm3-db-updated', {
+      detail: { wallet, demine: true, deltaMm3: Number(mm3Awarded) || 0 },
+    }))
+    loadChainStatus()
+  }, [applyDemineReward, loadChainStatus])
+
   useEffect(() => {
     loadChainStatus()
     const t = setInterval(loadChainStatus, 30_000)
@@ -916,6 +954,7 @@ export default function MiningChain3D() {
             onPositionRealtime={handlePositionRealtime}
             onPvpHit={handlePvpHit}
             pvpStolen={pvpStolen}
+            demineRewards={demineRewards}
             onChainSolveOpen={handleChainSolveOpen}
             onNftjiPanelOpen={handleNftjiPanelOpen}
             externalPvpFlash={receivedHitAt}
@@ -938,7 +977,7 @@ export default function MiningChain3D() {
             chainDemineActive={chainDemineActive}
             chainDemineHitsRemaining={chainDemineHitsRemaining}
             chainSolvers={chainSolvers}
-            onDemineHit={loadChainStatus}
+            onDemineHit={handleDemineHit}
           />
         )}
       </div>

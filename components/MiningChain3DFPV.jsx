@@ -2504,7 +2504,7 @@ function drawChainStats(ctx, W, H, stats, es, top = 8) {
 }
 
 // ── Online players list (below minimap) ─────────────────────────────────────
-function drawOnlineList(ctx, W, H, presenceMap, myWallet, pvpStolen, solverSet) {
+function drawOnlineList(ctx, W, H, presenceMap, myWallet, pvpStolen, demineRewards, solverSet) {
   const isMobile = W < 600
   const SZ = minimapSize(W)
   const MX = W - SZ - 6
@@ -2518,7 +2518,14 @@ function drawOnlineList(ctx, W, H, presenceMap, myWallet, pvpStolen, solverSet) 
       ? (typeof pres.deadUntil === 'number' ? pres.deadUntil : new Date(pres.deadUntil).getTime())
       : 0
     const isDead = Boolean(pres.isDead) && deadUntilMs > Date.now()
-    all.push({ w, isAnon, isBot: Boolean(pres.isBot), stolen: (pvpStolen || {})[w] || 0, isDead })
+    all.push({
+      w,
+      isAnon,
+      isBot: Boolean(pres.isBot),
+      stolen: (pvpStolen || {})[w] || 0,
+      demineMm3: Number((demineRewards || {})[w.toLowerCase()]) || 0,
+      isDead,
+    })
   }
 
   const grouped = groupPresenceEntries(all, (entry) => entry.w)
@@ -2556,7 +2563,7 @@ function drawOnlineList(ctx, W, H, presenceMap, myWallet, pvpStolen, solverSet) 
     ctx.font = 'bold 7px monospace'; ctx.fillStyle = '#526172'; ctx.textAlign = 'left'
     ctx.fillText(label, px + PAD_X, ly)
     ly += GROUP_H
-    for (const { w, isAnon, isBot, stolen, isDead } of entries) {
+    for (const { w, isAnon, isBot, stolen, demineMm3, isDead } of entries) {
     const isMe = w.toLowerCase() === (myWallet || '').toLowerCase()
     const col  = colorFromAddress(w)
     const isMM3 = !isAnon && solverSet?.has(w.toLowerCase())
@@ -2579,11 +2586,20 @@ function drawOnlineList(ctx, W, H, presenceMap, myWallet, pvpStolen, solverSet) 
     ctx.fillStyle = col
     ctx.fillRect(px + PAD_X + skullW, ly + 2, 3, 3)
     ctx.fillText(label, px + PAD_X + skullW + 6, ly)
+    let rewardX = px + pw - PAD_X
+    if (demineMm3 > 0) {
+      const mm3Text = `+${demineMm3} MM3`
+      ctx.fillStyle = '#fb923c'
+      ctx.textAlign = 'right'
+      ctx.font = 'bold 9px monospace'
+      ctx.fillText(mm3Text, rewardX, ly)
+      rewardX -= ctx.measureText(mm3Text).width + 5
+    }
     if (stolen > 0) {
       ctx.fillStyle = '#4ade8099'
       ctx.textAlign = 'right'
       ctx.font = '9px monospace'
-      ctx.fillText(`+${stolen.toFixed(2)}`, px + pw - PAD_X, ly)
+      ctx.fillText(`+${stolen.toFixed(2)}`, rewardX, ly)
     }
       ly += LINE_H
     }
@@ -3616,7 +3632,7 @@ export default function MiningChain3DFPV({
   cellMap, presenceMap, myWallet, presenceKey, myColor,
   initRow, initCol, jumpToCell,
   onPositionChange, onFacingChange, onWantNavigate, onPositionRealtime,
-  onPvpHit, pvpStolen,
+  onPvpHit, pvpStolen, demineRewards,
   onChainSolveOpen, onNftjiPanelOpen, externalPvpFlash, externalDodgeFlash = 0, externalKnockback, externalPush, onCollisionPush,
   swingMap, myPoolCode,
   anonKillMsg,
@@ -3693,6 +3709,7 @@ export default function MiningChain3DFPV({
   const pvpGainRef      = useRef(null)   // { text, at } for "+X EUR" popup
   const onPvpHitRef          = useRef(onPvpHit)
   const pvpStolenRef         = useRef(pvpStolen || {})
+  const demineRewardsRef     = useRef(demineRewards || {})
   const chainStatsRef        = useRef(null)
   const playerLevelRef       = useRef(playerLevel ?? 0)
   const globalMm3Ref         = useRef(0)
@@ -3822,6 +3839,7 @@ export default function MiningChain3DFPV({
   useEffect(()=>{ onWantNavRef.current=onWantNavigate },[onWantNavigate])
   useEffect(()=>{ onPvpHitRef.current=onPvpHit },[onPvpHit])
   useEffect(()=>{ pvpStolenRef.current=pvpStolen||{} },[pvpStolen])
+  useEffect(()=>{ demineRewardsRef.current=demineRewards||{} },[demineRewards])
   useEffect(()=>{ onChainSolveOpenRef.current=onChainSolveOpen },[onChainSolveOpen])
   useEffect(()=>{ onNftjiPanelOpenRef.current=onNftjiPanelOpen },[onNftjiPanelOpen])
   useEffect(()=>{ onCollisionPushRef.current=onCollisionPush },[onCollisionPush])
@@ -5394,7 +5412,7 @@ export default function MiningChain3DFPV({
     }
 
     drawMinimap(ctx,gr,gc,angle,cellMap,presence,myIdentity,W,H,chainNodePosRef.current,validObstaclesRef.current,px/CELL_SIZE,py/CELL_SIZE,minimapStaticRef,dpr)
-    drawOnlineList(ctx,W,H,presence,myIdentity,pvpStolenRef.current,chainSolverSetRef.current)
+    drawOnlineList(ctx,W,H,presence,myIdentity,pvpStolenRef.current,demineRewardsRef.current,chainSolverSetRef.current)
     const walletDock = drawWalletDock(
       ctx,W,H,myNftjisRef.current,healthMapRef.current[myIdentity]??100,es,Boolean(myWallet)
     )
@@ -6047,9 +6065,14 @@ export default function MiningChain3DFPV({
                     if(data.chainReset){
                       chainDemineActiveRef.current=false
                       chainDemineHitsRef.current=100
-                      pvpGainRef.current={text:'⛏ DEMINE COMPLETE — mining reactivated!',at:performance.now(),color:'#4ade80'}
+                      pvpGainRef.current={text:`⛏ +${data.mm3Awarded} MM3 · DEMINE COMPLETE — mining reactivated!`,at:performance.now(),color:'#4ade80'}
                     }
-                    onDemineHitRef.current?.()
+                    onDemineHitRef.current?.({
+                      wallet:hitWallet,
+                      mm3Awarded:Number(data.mm3Awarded)||0,
+                      hitsRemaining:Number(data.hitsRemaining)||0,
+                      chainReset:Boolean(data.chainReset),
+                    })
                   }else{
                     pvpGainRef.current={text:data.error==='demine_not_active'?'⛏ demine ended':'⛏ '+data.error,at:performance.now(),color:'#fb923c55'}
                   }
