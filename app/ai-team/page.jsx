@@ -55,10 +55,6 @@ export default function AITeamPage() {
             <div className="ai-team-kicker"><span /> AUTONOMOUS WALLET NETWORK</div>
             <h1>AI TEAM</h1>
             <p>{t('aiTeam.subtitle')}</p>
-            <div className="ai-team-live-strip">
-              <b>04</b> {es ? 'WALLETS ACTIVAS' : 'ACTIVE WALLETS'}
-              <i>24 / 7</i>
-            </div>
           </div>
           <div className="ai-team-forge" aria-hidden="true">
             <div className="ai-team-forge-floor" />
