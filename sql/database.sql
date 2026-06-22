@@ -2226,12 +2226,11 @@ CREATE TABLE mm3_pvp_health (
   pvp_dead_until TIMESTAMPTZ,
   pvp_dead_gx FLOAT,
   pvp_dead_gy FLOAT,
+  last_pos_row INTEGER,
+  last_pos_col INTEGER,
+  pos_updated_at TIMESTAMPTZ,
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
--- Migration (run once on existing DB):
--- ALTER TABLE mm3_pvp_health ADD COLUMN IF NOT EXISTS pvp_dead_until TIMESTAMPTZ;
--- ALTER TABLE mm3_pvp_health ADD COLUMN IF NOT EXISTS pvp_dead_gx FLOAT;
--- ALTER TABLE mm3_pvp_health ADD COLUMN IF NOT EXISTS pvp_dead_gy FLOAT;
 ALTER TABLE mm3_pvp_hits ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "pvp_hits_select" ON mm3_pvp_hits FOR SELECT TO public USING (true);
 GRANT SELECT ON mm3_pvp_hits TO anon;
@@ -2297,3 +2296,20 @@ END;
 $$;
 REVOKE ALL ON FUNCTION apply_mm3_pvp_hit(TEXT,TEXT,BOOLEAN,INTEGER,NUMERIC) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION apply_mm3_pvp_hit(TEXT,TEXT,BOOLEAN,INTEGER,NUMERIC) TO service_role;
+
+-- ============================================================
+-- SECURITY SCANS
+-- ============================================================
+CREATE TABLE security_scans (
+  id           BIGSERIAL PRIMARY KEY,
+  triggered_by TEXT        NOT NULL DEFAULT 'manual',
+  triggered_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  status       TEXT        NOT NULL DEFAULT 'running' CHECK (status IN ('running', 'completed', 'failed')),
+  completed_at TIMESTAMPTZ,
+  duration_ms  INTEGER,
+  score        INTEGER,
+  results      JSONB,
+  summary      TEXT
+);
+ALTER TABLE security_scans ENABLE ROW LEVEL SECURITY;
+-- All access via service_role only — no public policies
