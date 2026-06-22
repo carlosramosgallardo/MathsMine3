@@ -16,11 +16,11 @@ import { GoogleAuthProvider } from '@/lib/google-auth-context';
 import { DiceProvider } from '@/lib/dice-context';
 import { IrcPresenceProvider } from '@/lib/relaying-presence-context';
 
-const OG_IMAGE = { url: '/og-image.jpg', width: 1200, height: 630, alt: 'MathsMine3 — Solve Math, Mine Crypto' };
+const OG_IMAGE = { url: '/og-image.jpg', width: 1200, height: 630, alt: 'MathsMine3 — Timed math. Fictional mining. Wallet identity. Terminal economy. Real-time 3D multiplayer world.' };
 
 export const metadata = {
   title: {
-    default: 'MathsMine3 — Solve Math, Mine Crypto | Free Browser Game',
+    default: 'MathsMine3 — Timed math. Fictional mining. Wallet identity. Terminal economy. Real-time 3D multiplayer world. | Free Browser Game',
     template: '%s | MathsMine3',
   },
   description: 'Free browser game where you earn MM3 tokens by solving math problems in real time. No download, no gas fees — play as guest or connect your wallet. Live rankings, pool battles, and NFT rewards.',
@@ -31,14 +31,14 @@ export const metadata = {
   openGraph: {
     type: 'website',
     url: 'https://mathsmine3.xyz',
-    title: 'MathsMine3 — Solve Math, Mine Crypto',
+    title: 'MathsMine3 — Timed math. Fictional mining. Wallet identity. Terminal economy. Real-time 3D multiplayer world.',
     description: 'Earn MM3 tokens by solving math problems in real time. Free browser game — no download, no gas fees. Live rankings & NFT rewards.',
     siteName: 'MathsMine3',
     images: [OG_IMAGE],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'MathsMine3 — Solve Math, Mine Crypto',
+    title: 'MathsMine3 — Timed math. Fictional mining. Wallet identity. Terminal economy. Real-time 3D multiplayer world.',
     description: 'Earn MM3 tokens by solving math problems in real time. Free browser game — no download needed.',
     images: ['/og-image.jpg'],
   },

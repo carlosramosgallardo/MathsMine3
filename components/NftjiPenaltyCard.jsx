@@ -15,7 +15,8 @@ export default function NftjiPenaltyCard({
   wallet, blockKey, blockHex, blockEmoji, blockTitleEn, blockTitleEs, blockPrice,
   isMine, es, onClose,
 }) {
-  const [penalty,  setPenalty]  = useState(null)
+  const [penalty,        setPenalty]        = useState(null)
+  const [activeCommand,  setActiveCommand]  = useState(null)
   const [loading,  setLoading]  = useState(true)
   const [code,     setCode]     = useState('')
   const [busy,     setBusy]     = useState(false)
@@ -26,7 +27,10 @@ export default function NftjiPenaltyCard({
     if (!wallet || !blockKey) { setLoading(false); return }
     fetch(`/api/mining-snapshot?details=1&wallet=${encodeURIComponent(wallet)}&blockKey=${encodeURIComponent(blockKey)}`)
       .then(r => r.json())
-      .then(data => setPenalty(data.activePenalty || null))
+      .then(data => {
+        setPenalty(data.activePenalty || null)
+        setActiveCommand(data.activeBlockCommand || null)
+      })
       .catch(() => {})
       .finally(() => setLoading(false))
   }, [wallet, blockKey])
@@ -113,6 +117,29 @@ export default function NftjiPenaltyCard({
       </div>
 
       <div style={{ height: 1, background: 'rgba(34,211,238,0.12)', marginBottom: 14 }} />
+
+      {/* ── Active command formula ─────────────────────────────────── */}
+      {activeCommand && (
+        <div style={{ marginBottom: 14, padding: '8px 10px', background: 'rgba(250,204,21,0.04)', border: '1px solid rgba(250,204,21,0.14)', borderRadius: 5 }}>
+          {activeCommand.command && (
+            <div style={{ color: '#78716c', fontSize: '0.62rem', letterSpacing: '0.1em', marginBottom: 5, wordBreak: 'break-all' }}>
+              $ {activeCommand.command.split('=>')[0].trim()}
+            </div>
+          )}
+          {activeCommand.formula && activeCommand.formula_x != null && (
+            <>
+              <div style={{ color: '#a3a3a3', fontSize: '0.62rem', letterSpacing: '0.08em', marginBottom: 3 }}>
+                {es ? 'fórmula (x =' : 'formula (x ='}{' '}
+                <span style={{ color: C_GOLD, fontWeight: 700 }}>{activeCommand.formula_x}</span>
+                {')'}
+              </div>
+              <div style={{ color: C_GOLD, fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.04em', wordBreak: 'break-all', lineHeight: 1.5 }}>
+                f({activeCommand.formula_x}) = {activeCommand.formula.replace(/\bx\b/g, String(activeCommand.formula_x))}
+              </div>
+            </>
+          )}
+        </div>
+      )}
 
       {/* ── Penalty section ───────────────────────────────────────── */}
       {loading ? (

@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic';
 import { createClient } from '@supabase/supabase-js';
 import { normalizeWalletDecorations } from '@/lib/wallet-decorations';
 import { buildBlockChainCode, gridToBlockHex, MM3_BLOCK_CHAIN_REQUIREMENTS } from '@/lib/mm3-block-chain';
+import { getMarketCommandForKey } from '@/lib/mining-commands';
 import { TOTAL_BOARD_CELLS } from '@/lib/chain-winner';
 
 const PUBLIC_CACHE_MS = 10_000;
@@ -162,9 +163,17 @@ export async function GET(req) {
 
   const progress = progressResponse.data;
   const stats = statsResponse.data;
+  const cmdDef = blockKey ? getMarketCommandForKey(blockKey) : null
+  const cmdFormulaBody = cmdDef?.solve
+    ? cmdDef.solve.toString().replace(/^\s*\(\s*x\s*\)\s*=>\s*/, '').trim()
+    : null
+  const activeBlockCommandEnriched = activeCommandResponse.data
+    ? { ...activeCommandResponse.data, formula: cmdFormulaBody, command: cmdDef?.command || null }
+    : null
+
   const detailsPayload = includeDetails
     ? {
-        activeBlockCommand: activeCommandResponse.data || null,
+        activeBlockCommand: activeBlockCommandEnriched,
         activePenalty: activePenaltyResponse.data || null,
         selectedEventCounts: {
           emoji: selectedEmoji,
