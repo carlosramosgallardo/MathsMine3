@@ -105,6 +105,122 @@ function addMiningBot(THREE, scene) {
   return avatar
 }
 
+function makeNftjiSprite(THREE) {
+  const canvas = document.createElement('canvas')
+  canvas.width = 128
+  canvas.height = 128
+  const context = canvas.getContext('2d')
+  context.shadowColor = '#fb923c'
+  context.shadowBlur = 20
+  context.fillStyle = 'rgba(1,7,14,.92)'
+  context.strokeStyle = '#fb923c'
+  context.lineWidth = 7
+  context.fillRect(8, 8, 112, 112)
+  context.strokeRect(8, 8, 112, 112)
+  context.shadowBlur = 0
+  context.fillStyle = '#22d3ee'
+  context.strokeStyle = '#e0f2fe'
+  context.lineWidth = 4
+  context.beginPath()
+  context.moveTo(64, 27)
+  context.lineTo(98, 57)
+  context.lineTo(64, 101)
+  context.lineTo(30, 57)
+  context.closePath()
+  context.fill()
+  context.stroke()
+  context.beginPath()
+  context.moveTo(30, 57)
+  context.lineTo(98, 57)
+  context.moveTo(64, 27)
+  context.lineTo(49, 57)
+  context.lineTo(64, 101)
+  context.lineTo(79, 57)
+  context.closePath()
+  context.stroke()
+  context.font = '72px "Apple Color Emoji","Segoe UI Emoji",sans-serif'
+  context.textAlign = 'center'
+  context.textBaseline = 'middle'
+  context.fillText('💎', 64, 67)
+
+  const texture = new THREE.CanvasTexture(canvas)
+  texture.colorSpace = THREE.SRGBColorSpace
+  texture.minFilter = THREE.LinearFilter
+  texture.generateMipmaps = false
+  const sprite = new THREE.Sprite(new THREE.SpriteMaterial({
+    map: texture,
+    transparent: true,
+    depthWrite: false,
+    alphaTest: .04,
+  }))
+  sprite.scale.set(1.05, 1.05, 1)
+  return sprite
+}
+
+function addNftjiMiningBlock(THREE, scene) {
+  const group = new THREE.Group()
+  group.position.set(2.20, .12, .12)
+
+  const cubeSide = 1.25
+  const pedestalHeight = .24
+  const cubeY = pedestalHeight + cubeSide / 2
+  const cubeTop = pedestalHeight + cubeSide
+  const blockMaterial = new THREE.MeshStandardMaterial({
+    color: '#ff9900',
+    roughness: .48,
+    metalness: .32,
+    emissive: '#c05000',
+    emissiveIntensity: .60,
+  })
+  const cube = new THREE.Mesh(new THREE.BoxGeometry(cubeSide, cubeSide, cubeSide), blockMaterial)
+  cube.position.y = cubeY
+  cube.castShadow = true
+  group.add(cube)
+
+  const glow = new THREE.Mesh(
+    new THREE.BoxGeometry(cubeSide + .07, cubeSide + .07, cubeSide + .07),
+    new THREE.MeshBasicMaterial({ color: '#ffb347', wireframe: true, transparent: true, opacity: .40, depthWrite: false }),
+  )
+  glow.position.y = cubeY
+  group.add(glow)
+
+  const pedestal = new THREE.Mesh(
+    new THREE.BoxGeometry(cubeSide * .75, pedestalHeight, cubeSide * .75),
+    new THREE.MeshStandardMaterial({ color: '#7a3800', roughness: .88, metalness: .16 }),
+  )
+  pedestal.position.y = pedestalHeight / 2
+  pedestal.receiveShadow = true
+  group.add(pedestal)
+
+  const indicator = new THREE.Group()
+  const orange = new THREE.MeshBasicMaterial({ color: '#fb923c', transparent: true, opacity: .78, depthWrite: false })
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(.82, .047, 8, 36), orange)
+  ring.rotation.x = Math.PI / 2
+  ring.position.y = cubeTop + .16
+  indicator.add(ring)
+  const ringCross = new THREE.Mesh(new THREE.TorusGeometry(.72, .036, 8, 32), orange.clone())
+  ringCross.rotation.y = Math.PI / 2
+  ringCross.position.y = cubeTop * .58
+  indicator.add(ringCross)
+  const columnHeight = cubeTop + .45
+  const column = new THREE.Mesh(
+    new THREE.CylinderGeometry(.05, .14, columnHeight, 10),
+    new THREE.MeshBasicMaterial({ color: '#fb923c', transparent: true, opacity: .22, depthWrite: false }),
+  )
+  column.position.y = columnHeight / 2
+  indicator.add(column)
+  const marker = new THREE.Mesh(new THREE.DodecahedronGeometry(.25), new THREE.MeshBasicMaterial({ color: '#fb923c' }))
+  marker.position.y = cubeTop + .42
+  indicator.add(marker)
+  const sprite = makeNftjiSprite(THREE)
+  sprite.position.y = cubeTop + 1.12
+  indicator.add(sprite)
+  group.add(indicator)
+
+  scene.add(group)
+  return { group, glow, indicator, marker, sprite }
+}
+
 function addChainNodeAndSword(THREE, scene) {
   const group = new THREE.Group()
   group.position.set(.55, .12, 0)
@@ -224,7 +340,10 @@ function disposeScene(scene) {
   scene.traverse(object => {
     object.geometry?.dispose()
     const materials = Array.isArray(object.material) ? object.material : [object.material]
-    materials.filter(Boolean).forEach(material => material.dispose())
+    materials.filter(Boolean).forEach(material => {
+      material.map?.dispose()
+      material.dispose()
+    })
   })
 }
 
@@ -281,6 +400,7 @@ export default function HomeMiningWorld3D() {
 
       const bot = addMiningBot(THREE, scene)
       const chain = addChainNodeAndSword(THREE, scene)
+      const nftjiBlock = addNftjiMiningBlock(THREE, scene)
 
       const resize = () => {
         const width = Math.max(1, canvas.clientWidth)
@@ -307,6 +427,11 @@ export default function HomeMiningWorld3D() {
         chain.sphere.scale.setScalar(1 + Math.sin(time * 1.55) * .018)
         chain.cyanRing.rotation.z = time * .18
         chain.magentaRing.rotation.z = -time * .24
+        const nftjiPulse = 1 + Math.sin(time * 2.8) * .06
+        nftjiBlock.indicator.scale.setScalar(nftjiPulse)
+        nftjiBlock.indicator.rotation.y = time * .34
+        nftjiBlock.glow.material.opacity = .34 + Math.sin(time * 2.4) * .08
+        nftjiBlock.sprite.position.y = 2.61 + Math.sin(time * 2.1) * .05
         renderer.render(scene, camera)
       }
       animate()
