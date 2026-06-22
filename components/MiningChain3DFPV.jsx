@@ -6131,7 +6131,7 @@ export default function MiningChain3DFPV({
       {/* ── Mobile joystick ────────────────────────────────────────────────── */}
       <div ref={joystickPadRef} className="mm3-touch-controls" style={{
         position:'absolute', zIndex:5,
-        bottom:'calc(28px + env(safe-area-inset-bottom, 0px))', left:18,
+        bottom:'calc(var(--mm3-joy-bottom,28px) + env(safe-area-inset-bottom,0px))', left:18,
         width:130, height:130, borderRadius:'50%',
         display:'flex', alignItems:'center', justifyContent:'center',
         background:'radial-gradient(circle at 40% 38%, rgba(34,211,238,.22) 0%, rgba(2,8,20,.80) 72%)',
@@ -6170,7 +6170,7 @@ export default function MiningChain3DFPV({
       {/* ── JUMP + HIT buttons — single right-side stack, no overlap ───────── */}
       <div className="mm3-touch-controls" style={{
         position:'absolute', zIndex:5,
-        bottom:'calc(24px + env(safe-area-inset-bottom, 0px))', right:16,
+        bottom:'calc(var(--mm3-btn-bottom,24px) + env(safe-area-inset-bottom,0px))', right:16,
         display:'flex', flexDirection:'column', alignItems:'center', gap:12,
         pointerEvents:'auto',
       }}>
