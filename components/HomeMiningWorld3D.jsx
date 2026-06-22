@@ -49,10 +49,10 @@ function addMiningBot(THREE, scene) {
   antennaTip.position.set(.08, 1.075, 0)
   avatar.add(antennaTip)
 
-  addBox([.18, .11, .28], darkMat, [-.14, .075, -.025])
-  addBox([.18, .11, .28], darkMat, [.14, .075, -.025])
-  addBox([.19, .025, .30], midMat, [-.14, .014, -.025])
-  addBox([.19, .025, .30], midMat, [.14, .014, -.025])
+  const leftFoot = addBox([.18, .11, .28], darkMat, [-.14, .075, -.025])
+  const rightFoot = addBox([.18, .11, .28], darkMat, [.14, .075, -.025])
+  const leftSole = addBox([.19, .025, .30], midMat, [-.14, .014, -.025])
+  const rightSole = addBox([.19, .025, .30], midMat, [.14, .014, -.025])
 
   const tool = new THREE.Group()
   tool.position.set(.31, .25, -.01)
@@ -101,6 +101,10 @@ function addMiningBot(THREE, scene) {
   avatar.position.set(-2.25, .12, .20)
   avatar.rotation.y = Math.PI
   avatar.scale.setScalar(3.44)
+  avatar.userData.leftFoot = leftFoot
+  avatar.userData.rightFoot = rightFoot
+  avatar.userData.leftSole = leftSole
+  avatar.userData.rightSole = rightSole
   scene.add(avatar)
   return avatar
 }
@@ -221,6 +225,54 @@ function addNftjiMiningBlock(THREE, scene) {
   return { group, glow, indicator, marker, sprite }
 }
 
+function makeChainTargetSprite(THREE) {
+  const canvas = document.createElement('canvas')
+  canvas.width = 128
+  canvas.height = 128
+  const context = canvas.getContext('2d')
+  const drawCrosshair = () => {
+    context.beginPath()
+    context.moveTo(18, 64); context.lineTo(48, 64)
+    context.moveTo(80, 64); context.lineTo(110, 64)
+    context.moveTo(64, 18); context.lineTo(64, 48)
+    context.moveTo(64, 80); context.lineTo(64, 110)
+    context.stroke()
+  }
+  context.strokeStyle = 'rgba(0,0,0,.82)'
+  context.lineWidth = 13
+  drawCrosshair()
+  context.strokeStyle = 'rgba(238,242,247,.92)'
+  context.lineWidth = 4
+  drawCrosshair()
+  context.strokeStyle = 'rgba(250,204,21,.34)'
+  context.lineWidth = 3
+  context.beginPath()
+  context.arc(64, 64, 48, 0, Math.PI * 2)
+  context.stroke()
+  context.fillStyle = '#050505'
+  context.beginPath()
+  context.arc(64, 64, 7, 0, Math.PI * 2)
+  context.fill()
+  context.fillStyle = '#facc15'
+  context.beginPath()
+  context.arc(64, 64, 2.5, 0, Math.PI * 2)
+  context.fill()
+
+  const texture = new THREE.CanvasTexture(canvas)
+  texture.colorSpace = THREE.SRGBColorSpace
+  texture.minFilter = THREE.LinearFilter
+  texture.generateMipmaps = false
+  const sprite = new THREE.Sprite(new THREE.SpriteMaterial({
+    map: texture,
+    transparent: true,
+    depthTest: false,
+    depthWrite: false,
+  }))
+  sprite.scale.set(.52, .52, 1)
+  sprite.renderOrder = 30
+  return sprite
+}
+
 function addChainNodeAndSword(THREE, scene) {
   const group = new THREE.Group()
   group.position.set(.55, .12, 0)
@@ -268,6 +320,9 @@ function addChainNodeAndSword(THREE, scene) {
   sphere.position.y = .52
   sphere.castShadow = true
   group.add(sphere)
+  const targetIndicator = makeChainTargetSprite(THREE)
+  targetIndicator.position.y = .52
+  group.add(targetIndicator)
 
   const bladeMat = new THREE.MeshStandardMaterial({ color: '#d4d8e0', roughness: .10, metalness: .97, emissive: '#22d3ee', emissiveIntensity: .22 })
   const guardMat = new THREE.MeshStandardMaterial({ color: '#facc15', roughness: .20, metalness: .92, emissive: '#ca8a04', emissiveIntensity: .48 })
@@ -333,7 +388,7 @@ function addChainNodeAndSword(THREE, scene) {
   group.add(magentaRing)
 
   scene.add(group)
-  return { group, sphere, cyanRing, magentaRing }
+  return { group, sphere, cyanRing, magentaRing, targetIndicator }
 }
 
 function disposeScene(scene) {
@@ -423,10 +478,25 @@ export default function HomeMiningWorld3D() {
         animationFrame = requestAnimationFrame(animate)
         if (!pageVisible || !inViewport) return
         const time = clock.getElapsedTime()
-        bot.position.y = .12 + Math.sin(time * 1.15) * .018
+        const stride = Math.sin(time * 2.35)
+        const stepLift = Math.abs(Math.sin(time * 2.35))
+        bot.position.y = .12 + stepLift * .025
+        bot.rotation.y = Math.PI + stride * .025
+        bot.rotation.z = stride * .018
+        bot.userData.leftFoot.position.z = -.025 + stride * .075
+        bot.userData.rightFoot.position.z = -.025 - stride * .075
+        bot.userData.leftSole.position.z = -.025 + stride * .075
+        bot.userData.rightSole.position.z = -.025 - stride * .075
+        bot.userData.leftFoot.rotation.x = stride * .16
+        bot.userData.rightFoot.rotation.x = -stride * .16
+        bot.userData.leftSole.rotation.x = stride * .16
+        bot.userData.rightSole.rotation.x = -stride * .16
         chain.sphere.scale.setScalar(1 + Math.sin(time * 1.55) * .018)
         chain.cyanRing.rotation.z = time * .18
         chain.magentaRing.rotation.z = -time * .24
+        const targetPulse = .52 * (1 + Math.sin(time * 2.8) * .055)
+        chain.targetIndicator.scale.set(targetPulse, targetPulse, 1)
+        chain.targetIndicator.material.opacity = .84 + Math.sin(time * 2.8) * .12
         const nftjiPulse = 1 + Math.sin(time * 2.8) * .06
         nftjiBlock.indicator.scale.setScalar(nftjiPulse)
         nftjiBlock.indicator.rotation.y = time * .34
