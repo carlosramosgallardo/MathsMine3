@@ -19,8 +19,8 @@ export default function HomeChainScene3D({ size = 220 }) {
 
       const scene = new THREE.Scene()
       const camera = new THREE.PerspectiveCamera(38, 1, 0.1, 100)
-      camera.position.set(3.2, 5.8, 6.5)
-      camera.lookAt(0, 3.2, 0)
+      camera.position.set(2.8, 6.2, 6.8)
+      camera.lookAt(0, 2.8, 0)
 
       // Lighting
       const hemi = new THREE.HemisphereLight('#a0c8ff', '#1a0a00', 0.9)

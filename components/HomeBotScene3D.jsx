@@ -19,8 +19,8 @@ export default function HomeBotScene3D({ size = 165 }) {
 
       const scene = new THREE.Scene()
       const camera = new THREE.PerspectiveCamera(38, 1, 0.1, 50)
-      camera.position.set(0, 1.2, 3.2)
-      camera.lookAt(0, 0.6, 0)
+      camera.position.set(0, 1.1, 3.0)
+      camera.lookAt(0, 0.55, 0)
 
       const hemi = new THREE.HemisphereLight('#a0d8ff', '#0a180a', 1.0)
       scene.add(hemi)
@@ -107,16 +107,15 @@ export default function HomeBotScene3D({ size = 165 }) {
       tool.add(plug)
       avatar.add(tool)
 
-      // Idle bob
-      avatar.rotation.y = 0.4
+      // Face front, slight idle bob
+      avatar.rotation.y = 0
       scene.add(avatar)
 
       let t = 0
       const animate = () => {
         animId = requestAnimationFrame(animate)
         t += 0.016
-        avatar.position.y = Math.sin(t * 1.1) * 0.025
-        avatar.rotation.y = 0.4 + Math.sin(t * 0.55) * 0.12
+        avatar.position.y = Math.sin(t * 1.1) * 0.022
         renderer.render(scene, camera)
       }
       animate()
