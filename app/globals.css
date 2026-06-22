@@ -1314,22 +1314,29 @@ footer.bg-black\/97,
   filter:saturate(.82) contrast(1.08);
   box-shadow:inset 2px 2px 0 rgba(255,255,255,.08),inset -2px -2px 0 rgba(0,0,0,.72);
 }
-.mm3-home-badge > span {
+.mm3-home-marker {
   position:absolute;
   z-index:3;
-  left:0;
-  top:46px;
-  width:40px;
-  display:block;
-  height:6px;
-  padding-left:.12em;
-  background:transparent;
-  color:rgba(165,243,252,.90);
-  font:700 .38rem/6px monospace;
-  letter-spacing:.10em;
-  text-align:center;
-  text-transform: uppercase;
+  left:14px;
+  top:44px;
+  display:grid;
+  place-items:center;
+  width:13px;
+  height:9px;
+  color:rgba(165,243,252,.92);
+  filter:drop-shadow(0 0 3px rgba(34,211,238,.55));
   user-select: none;
+}
+.mm3-home-marker svg {
+  display:block;
+  width:13px;
+  height:11px;
+  overflow:visible;
+  fill:rgba(1,9,16,.88);
+  stroke:currentColor;
+  stroke-width:1.35;
+  stroke-linecap:square;
+  stroke-linejoin:miter;
 }
 .mm3-home-portal-link:hover .mm3-home-badge,
 .mm3-home-portal-link.is-active .mm3-home-badge {
@@ -1337,8 +1344,8 @@ footer.bg-black\/97,
 }
 .mm3-home-portal-link:hover .mm3-home-badge img,
 .mm3-home-portal-link.is-active .mm3-home-badge img { border-color:rgba(250,204,21,.82); }
-.mm3-home-portal-link:hover .mm3-home-badge > span,
-.mm3-home-portal-link.is-active .mm3-home-badge > span { color:#a5f3fc; }
+.mm3-home-portal-link:hover .mm3-home-marker,
+.mm3-home-portal-link.is-active .mm3-home-marker { color:#facc15; filter:drop-shadow(0 0 4px rgba(250,204,21,.72)); }
 
 /* ── Home page wrapper — fills full available height, splits it 50/50 ── */
 .mm3-home {
