@@ -123,12 +123,6 @@ export default function LandingHero() {
 
           <div className="mm3-home-copy">
 
-          {/* kicker */}
-          <div className="mm3-splash-kicker">
-            <span className="mm3-splash-live" />
-            {es ? 'MM3 · MAPA REAL CACHEADO' : 'MM3 · CACHED REAL MAP'}
-          </div>
-
           {/* tagline */}
           <p className="mm3-splash-sub">
             {es

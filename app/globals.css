@@ -1501,7 +1501,7 @@ footer.bg-black\/97,
 .mm3-home-minimap {
   position: relative;
   z-index: 2;
-  width: min(100%,470px);
+  width: 190px;
   height: 190px;
   justify-self: center;
   filter: drop-shadow(0 24px 20px rgba(0,0,0,.58));
@@ -1517,22 +1517,6 @@ footer.bg-black\/97,
   height:100%;
   image-rendering:pixelated;
 }
-.mm3-home-minimap-status {
-  position: absolute;
-  right: 8px;
-  bottom: 7px;
-  display: flex;
-  align-items: center;
-  gap: .55rem;
-  padding: .3rem .5rem;
-  border-left: 2px solid #22d3ee;
-  background: rgba(1,7,16,.82);
-  color: rgba(125,211,252,.55);
-  font: 700 .5rem/1 monospace;
-  letter-spacing: .13em;
-}
-.mm3-home-minimap-status b { color:#facc15; font-size:.58rem; }
-
 .mm3-home .mm3-portal {
   position: relative;
   background:
@@ -1609,12 +1593,11 @@ footer.bg-black\/97,
     gap:.2rem;
   }
   .mm3-home-copy { padding-left:.2rem; }
-  .mm3-home-minimap { width:210px; height:145px; transform:scale(.78); }
-  .mm3-home-minimap-status { display:none; }
+  .mm3-home-minimap { width:145px; height:145px; transform:scale(.9); }
 }
 @media (max-width:480px) {
   .mm3-home .mm3-splash-body { grid-template-columns:56% 44%; }
-  .mm3-home-minimap { width:190px; margin-left:-16px; transform:scale(.68); }
+  .mm3-home-minimap { width:130px; height:130px; margin-left:-8px; transform:scale(.9); }
   .mm3-home .mm3-portal-card { min-height:55px; }
   .mm3-portal-block { width:25px; height:22px; margin:-.68rem 0 .08rem; box-shadow:2px 3px 0 color-mix(in srgb,var(--ac,#22d3ee) 12%,#010205); }
   .mm3-portal-block::before { width:27px; height:6px; }
@@ -1623,7 +1606,7 @@ footer.bg-black\/97,
 }
 @media (max-height:500px) and (orientation:landscape) {
   .mm3-home .mm3-splash-body { min-height:96px; }
-  .mm3-home-minimap { height:105px; transform:scale(.62); }
+  .mm3-home-minimap { width:105px; height:105px; transform:scale(.9); }
   .mm3-home .mm3-portal-card { min-height:42px; }
   .mm3-portal-block { width:24px; height:18px; margin:-.58rem 0 0; }
   .mm3-portal-block::before { width:26px; height:5px; }

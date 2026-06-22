@@ -1,10 +1,11 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import { colorFromAddress } from '@/lib/wallet-colors';
 import {
   MINING_MARKET_LANDMARK_POSITIONS,
   MINING_PORTAL_NODES,
+  MINING_VISUAL_BLOCK_POSITIONS,
   placeMiningVisualBlock,
 } from '@/lib/mining-visual-layout';
 import { CRYPTO_COLOSSEUM_BOUNDS, MINING_CHAIN_NODE_POSITION } from '@/lib/mining-world-layout';
@@ -37,6 +38,16 @@ function drawMap(canvas, snapshot) {
     ctx.beginPath(); ctx.moveTo(ox, oy + p); ctx.lineTo(ox + width, oy + p); ctx.stroke();
   }
 
+  ctx.fillStyle = 'rgba(34, 211, 238, .24)';
+  for (const { row, col } of MINING_VISUAL_BLOCK_POSITIONS.values()) {
+    ctx.fillRect(
+      ox + (col + .5) * cell,
+      oy + (row + .5) * cell,
+      Math.max(.7, cell * .32),
+      Math.max(.7, cell * .32),
+    );
+  }
+
   const arena = CRYPTO_COLOSSEUM_BOUNDS;
   ctx.fillStyle = 'rgba(248, 113, 113, .055)';
   ctx.strokeStyle = 'rgba(248, 113, 113, .42)';
@@ -55,18 +66,36 @@ function drawMap(canvas, snapshot) {
   ctx.globalAlpha = 1;
 
   const markets = snapshot.markets?.length
-    ? snapshot.markets.map((_, index) => MINING_MARKET_LANDMARK_POSITIONS[index]).filter(Boolean)
+    ? snapshot.markets.map((emoji, index) => ({ ...MINING_MARKET_LANDMARK_POSITIONS[index], emoji })).filter(({ row }) => row != null)
     : MINING_MARKET_LANDMARK_POSITIONS;
-  ctx.fillStyle = '#facc15';
-  for (const { row, col } of markets) {
-    ctx.fillRect(ox + col * cell - 1, oy + row * cell - 1, Math.max(2.5, cell + 1), Math.max(2.5, cell + 1));
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.font = `${Math.max(7, cell * 3.1)}px sans-serif`;
+  for (const { row, col, emoji } of markets) {
+    if (emoji) ctx.fillText(emoji, ox + (col + .5) * cell, oy + (row + .5) * cell);
+    else {
+      ctx.fillStyle = '#facc15';
+      ctx.fillRect(ox + col * cell - 1, oy + row * cell - 1, Math.max(2.5, cell + 1), Math.max(2.5, cell + 1));
+    }
   }
 
   for (const portal of MINING_PORTAL_NODES) {
-    ctx.fillStyle = portal.color;
+    ctx.shadowColor = portal.color;
+    ctx.shadowBlur = 5;
+    ctx.font = `${Math.max(8, cell * 3.4)}px sans-serif`;
+    ctx.fillText(portal.emoji, ox + (portal.col + .5) * cell, oy + (portal.row + .5) * cell);
+  }
+  ctx.shadowBlur = 0;
+
+  for (const [wallet, row, col] of snapshot.players || []) {
+    if (!Number.isFinite(Number(row)) || !Number.isFinite(Number(col))) continue;
+    ctx.fillStyle = colorFromAddress(wallet);
+    ctx.strokeStyle = '#ecfeff';
+    ctx.lineWidth = 1;
     ctx.beginPath();
-    ctx.arc(ox + (portal.col + .5) * cell, oy + (portal.row + .5) * cell, Math.max(2, cell * .75), 0, Math.PI * 2);
+    ctx.arc(ox + (Number(col) + .5) * cell, oy + (Number(row) + .5) * cell, Math.max(2.4, cell * .9), 0, Math.PI * 2);
     ctx.fill();
+    ctx.stroke();
   }
 
   const node = MINING_CHAIN_NODE_POSITION;
@@ -81,8 +110,7 @@ function drawMap(canvas, snapshot) {
 
 export default function HomeMiningMinimap({ language = 'en' }) {
   const canvasRef = useRef(null);
-  const snapshotRef = useRef({ mined: [], markets: [] });
-  const [status, setStatus] = useState('loading');
+  const snapshotRef = useRef({ mined: [], markets: [], players: [] });
 
   useEffect(() => {
     let alive = true;
@@ -91,26 +119,32 @@ export default function HomeMiningMinimap({ language = 'en' }) {
     render();
     const observer = new ResizeObserver(render);
     if (canvas) observer.observe(canvas);
-    fetch('/api/home-minimap')
-      .then((response) => response.ok ? response.json() : Promise.reject())
-      .then((data) => {
-        if (!alive || !data?.ok) return;
-        snapshotRef.current = data;
-        setStatus('ready');
-        render();
-      })
-      .catch(() => { if (alive) setStatus('offline'); });
-    return () => { alive = false; observer.disconnect(); };
+    const load = () => {
+      if (document.hidden) return;
+      const minute = Math.floor(Date.now() / 60_000);
+      fetch(`/api/home-minimap?minute=${minute}`)
+        .then((response) => response.ok ? response.json() : Promise.reject())
+        .then((data) => {
+          if (!alive || !data?.ok) return;
+          snapshotRef.current = data;
+          render();
+        })
+        .catch(() => {});
+    };
+    load();
+    const timer = setInterval(load, 60_000);
+    document.addEventListener('visibilitychange', load);
+    return () => {
+      alive = false;
+      clearInterval(timer);
+      document.removeEventListener('visibilitychange', load);
+      observer.disconnect();
+    };
   }, []);
-
-  const label = status === 'loading'
-    ? (language === 'es' ? 'CARGANDO SNAPSHOT' : 'LOADING SNAPSHOT')
-    : (language === 'es' ? 'SNAPSHOT OFFLINE' : 'OFFLINE SNAPSHOT');
 
   return (
     <div className="mm3-home-minimap">
       <canvas ref={canvasRef} aria-label={language === 'es' ? 'Minimapa del mundo Mining' : 'Mining world minimap'} />
-      <div className="mm3-home-minimap-status"><span>{label}</span><b>56 × 56</b></div>
     </div>
   );
 }
