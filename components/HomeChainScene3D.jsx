@@ -56,6 +56,14 @@ export default function HomeChainScene3D({ width = 220, height = 280 }) {
       ring2.position.y = 0.52
       group.add(ring2)
 
+      // ── Chain beacon marker (TetrahedronGeometry, same as beacon batch in mining) ──
+      const tetra = new THREE.Mesh(
+        new THREE.TetrahedronGeometry(0.18),
+        new THREE.MeshBasicMaterial({ color: '#facc15' }),
+      )
+      tetra.position.set(0, 1.36, 0)
+      group.add(tetra)
+
       // ── Sword (inverted: pommel top, tip bottom piercing sphere) ──
       const bladeMat = new THREE.MeshStandardMaterial({
         color: '#d4d8e0', roughness: .10, metalness: .97,
@@ -129,6 +137,7 @@ export default function HomeChainScene3D({ width = 220, height = 280 }) {
       const animate = () => {
         animId = requestAnimationFrame(animate)
         group.rotation.y += 0.006
+        tetra.rotation.y += 0.022
         renderer.render(scene, camera)
       }
       animate()
