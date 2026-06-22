@@ -2624,7 +2624,7 @@ footer.bg-black\/97,
   .ai-team-feature-copy h2 { font-size:.6rem; }
   .ai-team-feature-copy p { display:none; }
   .ai-team-feature-cta { grid-column:1/-1; padding:.38rem .45rem; font-size:.5rem; text-align:center; }
-  .ai-team-tools-block { padding:.48rem .5rem; }
+  .ai-team-tools-block { grid-column:1/-1; padding:.48rem .5rem; }
   .ai-team-tools-label { margin-bottom:.42rem; }
   .ai-team-tool-grid { grid-template-columns:repeat(3,minmax(0,1fr)); gap:.35rem; }
   .ai-team-tool-block { flex-direction:column; gap:.25rem; padding:.38rem .25rem; text-align:center; }
