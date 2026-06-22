@@ -37,6 +37,32 @@ function shortWallet(w) {
   return `${w.slice(0, 6)}…${w.slice(-4)}`;
 }
 
+function MiningBotAvatar() {
+  return (
+    <span className="ai-team-mining-avatar">
+      <span className="ai-team-bot-antenna"><i /></span>
+      <span className="ai-team-bot-head ai-team-bot-prism">
+        <span className="ai-team-bot-visor"><i /></span>
+      </span>
+      <span className="ai-team-bot-neck" />
+      <span className="ai-team-bot-torso ai-team-bot-prism">
+        <span className="ai-team-bot-chest"><i /></span>
+        <span className="ai-team-bot-belt"><i /></span>
+      </span>
+      <span className="ai-team-bot-shoulder is-left ai-team-bot-prism" />
+      <span className="ai-team-bot-shoulder is-right ai-team-bot-prism" />
+      <span className="ai-team-bot-arm is-left ai-team-bot-prism" />
+      <span className="ai-team-bot-arm is-right ai-team-bot-prism" />
+      <span className="ai-team-bot-foot is-left ai-team-bot-prism" />
+      <span className="ai-team-bot-foot is-right ai-team-bot-prism" />
+      <span className="ai-team-bot-usb">
+        <i className="ai-team-bot-usb-shaft" />
+        <i className="ai-team-bot-usb-plug"><b /><b /><b /></i>
+      </span>
+    </span>
+  );
+}
+
 export default function AITeamPage() {
   const { t, language } = useI18n();
   const es = language === 'es';
@@ -60,16 +86,19 @@ export default function AITeamPage() {
                 key={bot.wallet}
                 style={{
                   '--bot-color': colorFromAddress(bot.wallet),
-                  '--bot-left': `${11 + index * 22}%`,
+                  '--bot-left': `${[7, 28, 68, 86][index]}%`,
                   '--bot-rise': `${index % 2 ? -13 : 0}px`,
                 }}
               >
-                <span className="ai-team-forge-head"><i /></span>
-                <span className="ai-team-forge-body" />
+                <MiningBotAvatar />
                 <span className="ai-team-forge-shadow" />
               </span>
             ))}
-            <span className="ai-team-forge-core">AI</span>
+            <span className="ai-team-forge-core">
+              <span className="ai-team-core-face is-front">AI</span>
+              <span className="ai-team-core-face is-right" />
+              <span className="ai-team-core-face is-top" />
+            </span>
           </div>
         </div>
       </section>
