@@ -1914,6 +1914,12 @@ footer.bg-black\/97,
   .mm3-portal-block::before { width:31px; height:5px; }
   .mm3-portal-block::after { top:-6px; width:5px; height:25px; }
 }
+@media (min-width:721px) {
+  .mm3-home-arena { height:205px; }
+  .mm3-home .mm3-splash-body { min-height:155px; }
+  .mm3-home .mm3-portal { padding-top:.8rem; }
+  .mm3-home .mm3-portal-card { min-height:65px; }
+}
 @media (prefers-reduced-motion:reduce) {
   .mm3-home-arena { filter:none; }
 }
