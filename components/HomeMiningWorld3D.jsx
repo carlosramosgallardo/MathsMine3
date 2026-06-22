@@ -181,12 +181,9 @@ function addNftjiMiningBlock(THREE, scene) {
   cube.castShadow = true
   group.add(cube)
 
-  const glow = new THREE.Mesh(
-    new THREE.BoxGeometry(cubeSide + .07, cubeSide + .07, cubeSide + .07),
-    new THREE.MeshBasicMaterial({ color: '#ffb347', wireframe: true, transparent: true, opacity: .40, depthWrite: false }),
-  )
-  glow.position.y = cubeY
-  group.add(glow)
+  const glowLight = new THREE.PointLight('#ff9900', 4.5, 3.5, 2)
+  glowLight.position.y = cubeY
+  group.add(glowLight)
 
   const pedestal = new THREE.Mesh(
     new THREE.BoxGeometry(cubeSide * .75, pedestalHeight, cubeSide * .75),
@@ -222,7 +219,7 @@ function addNftjiMiningBlock(THREE, scene) {
   group.add(indicator)
 
   scene.add(group)
-  return { group, glow, indicator, marker, sprite }
+  return { group, glowLight, indicator, marker, sprite }
 }
 
 function makeChainTargetSprite(THREE) {
@@ -324,6 +321,13 @@ function addChainNodeAndSword(THREE, scene) {
   targetIndicator.position.y = .52
   group.add(targetIndicator)
 
+  const tetra = new THREE.Mesh(
+    new THREE.TetrahedronGeometry(.18),
+    new THREE.MeshBasicMaterial({ color: '#facc15' }),
+  )
+  tetra.position.y = 1.42
+  group.add(tetra)
+
   const bladeMat = new THREE.MeshStandardMaterial({ color: '#d4d8e0', roughness: .10, metalness: .97, emissive: '#22d3ee', emissiveIntensity: .22 })
   const guardMat = new THREE.MeshStandardMaterial({ color: '#facc15', roughness: .20, metalness: .92, emissive: '#ca8a04', emissiveIntensity: .48 })
   const handleMat = new THREE.MeshStandardMaterial({ color: '#1e293b', roughness: .72, metalness: .18, emissive: '#0f172a', emissiveIntensity: .18 })
@@ -388,7 +392,7 @@ function addChainNodeAndSword(THREE, scene) {
   group.add(magentaRing)
 
   scene.add(group)
-  return { group, sphere, cyanRing, magentaRing, targetIndicator }
+  return { group, sphere, cyanRing, magentaRing, targetIndicator, tetra }
 }
 
 function disposeScene(scene) {
@@ -494,13 +498,15 @@ export default function HomeMiningWorld3D() {
         chain.sphere.scale.setScalar(1 + Math.sin(time * 1.55) * .018)
         chain.cyanRing.rotation.z = time * .18
         chain.magentaRing.rotation.z = -time * .24
+        chain.tetra.rotation.y = time * .55
+        chain.tetra.position.y = 1.42 + Math.sin(time * 1.8) * .07
         const targetPulse = .52 * (1 + Math.sin(time * 2.8) * .055)
         chain.targetIndicator.scale.set(targetPulse, targetPulse, 1)
         chain.targetIndicator.material.opacity = .84 + Math.sin(time * 2.8) * .12
         const nftjiPulse = 1 + Math.sin(time * 2.8) * .06
         nftjiBlock.indicator.scale.setScalar(nftjiPulse)
         nftjiBlock.indicator.rotation.y = time * .34
-        nftjiBlock.glow.material.opacity = .34 + Math.sin(time * 2.4) * .08
+        nftjiBlock.glowLight.intensity = 4.5 + Math.sin(time * 2.4) * 1.2
         nftjiBlock.sprite.position.y = 2.61 + Math.sin(time * 2.1) * .05
         renderer.render(scene, camera)
       }

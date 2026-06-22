@@ -1006,57 +1006,59 @@ footer.bg-black\/97,
 }
 
 /* CTA button — 3D mining block style */
+/* ── CTA block button — solid 3D block with top + right face ── */
 .mm3-splash-cta {
+  position: relative;
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
   padding: clamp(.52rem,1.4vw,.76rem) clamp(1.4rem,3.5vw,2.4rem);
-  /* front face gradient */
-  background: linear-gradient(155deg,
-    rgba(34,211,238,.22) 0%,
-    rgba(34,211,238,.09) 100%
-  );
-  /* Minecraft-style bevel: bright top/left, dark bottom/right */
-  border-style: solid;
-  border-width: 2px;
-  border-top-color:    rgba(167,243,252,.90);
-  border-left-color:   rgba(34,211,238,.62);
-  border-right-color:  rgba(34,211,238,.18);
-  border-bottom-color: rgba(34,211,238,.10);
+  /* front face */
+  background: linear-gradient(155deg, rgba(34,211,238,.26) 0%, rgba(34,211,238,.10) 100%);
+  border: 2px solid rgba(34,211,238,.70);
+  border-top-color: rgba(167,243,252,.95);
+  border-left-color: rgba(34,211,238,.72);
   border-radius: 2px;
   color: #e0feff;
   font: 900 clamp(0.74rem,1.8vw,0.9rem)/1 monospace;
   letter-spacing: .16em;
   text-decoration: none;
   text-transform: uppercase;
-  /* layered shadows = side face depth */
-  box-shadow:
-    5px 5px 0 rgba(2,18,30,.95),
-    8px 8px 0 rgba(1,9,16,.95),
-    0 0 28px -2px rgba(34,211,238,.20),
-    inset 0 0 18px -6px rgba(34,211,238,.12);
-  transition: transform .18s ease, box-shadow .18s ease, border-color .18s;
+  box-shadow: 0 0 28px -2px rgba(34,211,238,.22), inset 0 0 18px -6px rgba(34,211,238,.14);
+  transition: transform .18s ease, box-shadow .18s ease;
   animation: mm3-cta-pulse 3.5s ease-in-out infinite;
+}
+/* top face */
+.mm3-splash-cta::before {
+  content: '';
+  position: absolute;
+  left: -2px;
+  bottom: 100%;
+  width: calc(100% + 2px);
+  height: 10px;
+  background: linear-gradient(90deg, rgba(167,243,252,.52), rgba(34,211,238,.28));
+  clip-path: polygon(3% 0, 100% 0, 97% 100%, 0 100%);
+  border-top: 1px solid rgba(167,243,252,.80);
+}
+/* right side face */
+.mm3-splash-cta::after {
+  content: '';
+  position: absolute;
+  left: 100%;
+  top: -10px;
+  width: 9px;
+  height: calc(100% + 12px);
+  background: linear-gradient(180deg, rgba(0,30,46,.96), rgba(0,14,22,.98));
+  clip-path: polygon(0 4%, 100% 0, 100% 97%, 0 100%);
 }
 .mm3-splash-cta:hover {
   transform: translate(-2px,-2px);
-  border-top-color:  rgba(167,243,252,1);
-  border-left-color: rgba(34,211,238,.88);
-  box-shadow:
-    7px 7px 0 rgba(2,18,30,.95),
-    11px 11px 0 rgba(1,9,16,.95),
-    0 0 42px -2px rgba(34,211,238,.38),
-    inset 0 0 22px -5px rgba(34,211,238,.18);
+  box-shadow: 0 0 42px -2px rgba(34,211,238,.40), inset 0 0 22px -5px rgba(34,211,238,.20);
+  border-top-color: rgba(167,243,252,1);
 }
 @keyframes mm3-cta-pulse {
-  0%,100% {
-    box-shadow: 5px 5px 0 rgba(2,18,30,.95), 8px 8px 0 rgba(1,9,16,.95),
-                0 0 28px -2px rgba(34,211,238,.20), inset 0 0 18px -6px rgba(34,211,238,.12);
-  }
-  50% {
-    box-shadow: 5px 5px 0 rgba(2,18,30,.95), 8px 8px 0 rgba(1,9,16,.95),
-                0 0 42px -2px rgba(34,211,238,.34), inset 0 0 22px -5px rgba(34,211,238,.18);
-  }
+  0%,100% { box-shadow: 0 0 28px -2px rgba(34,211,238,.22), inset 0 0 18px -6px rgba(34,211,238,.14); }
+  50%      { box-shadow: 0 0 44px -2px rgba(34,211,238,.38), inset 0 0 22px -5px rgba(34,211,238,.20); }
 }
 .mm3-splash-arrow {
   display: inline-block;
