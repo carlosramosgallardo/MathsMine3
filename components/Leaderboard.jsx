@@ -239,11 +239,22 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [squeezeLimitsByPool, setSqueezeLimitsByPool] = useState({});
   const [expandedCardIds, setExpandedCardIds] = useState(new Set());
-  const toggleCard = (id) => setExpandedCardIds((prev) => {
-    const next = new Set(prev);
-    next.has(id) ? next.delete(id) : next.add(id);
-    return next;
-  });
+  const [collapsedCardIds, setCollapsedCardIds] = useState(new Set());
+  const [expandByDefault, setExpandByDefault] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia('(orientation: portrait) and (max-width: 520px)');
+    const update = () => setExpandByDefault(mq.matches);
+    update();
+    mq.addEventListener('change', update);
+    return () => mq.removeEventListener('change', update);
+  }, []);
+  const toggleCard = (id) => {
+    if (expandByDefault) {
+      setCollapsedCardIds(prev => { const next = new Set(prev); next.has(id) ? next.delete(id) : next.add(id); return next; });
+    } else {
+      setExpandedCardIds(prev => { const next = new Set(prev); next.has(id) ? next.delete(id) : next.add(id); return next; });
+    }
+  };
   const { account } = useActiveWallet();
   const pathname = usePathname();
   const router = useRouter();
@@ -1530,7 +1541,7 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
           const totalPenaltyMoney = convertPenaltyEur(entry.total_penalties_money_eur || 0, quoteCurrency);
 
           const poolCardId = `pool:${entry.pool_code}`;
-          const poolExpanded = expandedCardIds.has(poolCardId);
+          const poolExpanded = expandByDefault ? !collapsedCardIds.has(poolCardId) : expandedCardIds.has(poolCardId);
           if (!poolExpanded) return (
             <button
               key={entry.pool_code}
@@ -1783,7 +1794,7 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
           const marketBlocks = Array.isArray(entry.market_blocks) ? entry.market_blocks : [];
           const activePenalty = entry.active_penalty;
           const walletCardId = `wallet:${normalizedWallet}`;
-          const walletExpanded = expandedCardIds.has(walletCardId);
+          const walletExpanded = expandByDefault ? !collapsedCardIds.has(walletCardId) : expandedCardIds.has(walletCardId);
           if (!walletExpanded) return (
             <button
               key={entry.wallet}
