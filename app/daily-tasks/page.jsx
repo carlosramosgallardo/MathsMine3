@@ -1,4 +1,5 @@
 import DailyTasks from '@/components/DailyTasks';
+import DeadGate from '@/components/DeadGate';
 
 export const metadata = {
   title: 'Daily Tasks — MathsMine3',
@@ -7,5 +8,5 @@ export const metadata = {
 };
 
 export default function DailyTasksPage() {
-  return <DailyTasks />;
+  return <DeadGate><DailyTasks /></DeadGate>;
 }

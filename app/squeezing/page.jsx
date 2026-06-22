@@ -2,6 +2,7 @@
 
 import DisputesPanel from '@/components/DisputesPanel';
 import SectionFrame from '@/components/SectionFrame';
+import DeadGate from '@/components/DeadGate';
 import { useActiveWallet } from '@/lib/use-active-wallet';
 import { useI18n } from '@/lib/i18n-context';
 import { useMm3Accent } from '@/lib/use-mm3-accent';
@@ -29,19 +30,21 @@ export default function SqueezePage() {
   };
 
   return (
-    <main className="w-full px-2 py-1" style={{ '--mm3-accent': frameAccent }}>
-      <div className="mx-auto w-full max-w-4xl">
-        <SectionFrame accent={frameAccent} id="squeeze-section">
-          <DisputesPanel
-            wallet={account?.toLowerCase() || ''}
-            poolCode=""
-            language={language}
-            onWalletClick={handleWalletClick}
-            onPoolClick={handlePoolClick}
-            onMarketBlockClick={handleMarketBlockClick}
-          />
-        </SectionFrame>
-      </div>
-    </main>
+    <DeadGate>
+      <main className="w-full px-2 py-1" style={{ '--mm3-accent': frameAccent }}>
+        <div className="mx-auto w-full max-w-4xl">
+          <SectionFrame accent={frameAccent} id="squeeze-section">
+            <DisputesPanel
+              wallet={account?.toLowerCase() || ''}
+              poolCode=""
+              language={language}
+              onWalletClick={handleWalletClick}
+              onPoolClick={handlePoolClick}
+              onMarketBlockClick={handleMarketBlockClick}
+            />
+          </SectionFrame>
+        </div>
+      </main>
+    </DeadGate>
   );
 }

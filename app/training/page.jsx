@@ -1,4 +1,5 @@
 import HomePageClient from '@/components/HomePageClient';
+import DeadGate from '@/components/DeadGate';
 
 export const metadata = {
   title: 'Training — Solve Math, Earn MM3',
@@ -12,5 +13,5 @@ export const metadata = {
 };
 
 export default function TrainingPage() {
-  return <HomePageClient />;
+  return <DeadGate><HomePageClient /></DeadGate>;
 }

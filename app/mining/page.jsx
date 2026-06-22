@@ -1,4 +1,5 @@
 import MiningPageClient from '@/components/MiningPageClient';
+import DeadGate from '@/components/DeadGate';
 
 export const metadata = {
   title: 'Mining — MM3 Block Chain 3D',
@@ -14,5 +15,5 @@ export const metadata = {
 };
 
 export default function MiningPage() {
-  return <MiningPageClient />;
+  return <DeadGate><MiningPageClient /></DeadGate>;
 }
