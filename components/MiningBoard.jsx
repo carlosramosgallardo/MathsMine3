@@ -1129,9 +1129,11 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
               mm3_sold: Math.max(0, (Number(progressRow?.mm3_sold) || 0) - refundMm3),
               updated_at: new Date().toISOString(),
             };
-        await supabase
-          .from('player_progress')
-          .upsert(refundPayload, { onConflict: 'wallet', ignoreDuplicates: false });
+        await fetch('/api/mining/code-redeem', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ wallet, progress: refundPayload }),
+        });
 
         const ircEmoji = selectedBlock?.emoji || '?';
         const ircHex = selectedBlock?.grid_row != null && selectedBlock?.grid_col != null
