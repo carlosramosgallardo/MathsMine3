@@ -3598,6 +3598,15 @@ function syncThreeAvatars(state,presence,myIdentity) {
     if(active.has(wallet)) continue
     state.scene.remove(avatar);disposeThreeObject(avatar);state.avatars.delete(wallet)
   }
+  // Apply same LOD scale to local avatar so it matches remote avatar apparent size
+  if(state.localAvatar){
+    const lcs=state._avatarCameraSpace.copy(state.localAvatar.position).applyMatrix4(state.camera.matrixWorldInverse)
+    const ld=Math.max(.08,-lcs.z)
+    const lvh=Math.max(1,state.size.y||600),lvw=Math.max(1,state.size.x||900)
+    const ltp=lvw<640?86:Math.max(96,Math.min(112,lvh*.19))
+    const lfp=lvh/(2*Math.tan(THREE.MathUtils.degToRad(state.camera.fov)*.5))
+    state.localAvatar.scale.setScalar(Math.min(REMOTE_AVATAR_VISUAL_SCALE,(ltp*ld)/(REMOTE_AVATAR_MODEL_HEIGHT*lfp)))
+  }
 }
 
 function updateAvatarOccluders(state) {
@@ -3662,7 +3671,7 @@ function syncThreeLocalAvatar(state,identity,swingT,walkDist,gx,gy,playerZ,headi
     state.scene.add(state.localAvatar)
   }
   state.localAvatar.rotation.y=-heading-Math.PI/2
-  state.localAvatar.scale.setScalar(REMOTE_AVATAR_VISUAL_SCALE)
+  // Scale is set by syncThreeAvatars LOD system (same formula as remote avatars)
   if(isDead){
     state.localAvatar.position.set(gx,playerZ+0.14,gy)
     state.localAvatar.rotation.x=Math.PI/2
@@ -5119,8 +5128,8 @@ export default function MiningChain3DFPV({
       // regardless of spring-arm position or pitch changes.
       const _sv=threeState._v3a
       for(const sprite of sprites){
-        // Project the avatar head-top in Three.js world space (X=gx, Y=height, Z=gy)
-        _sv.set(sprite.gx,(sprite.z||0)+1.05,sprite.gy)
+        // Project just above avatar head for label/health bar anchor
+        _sv.set(sprite.gx,(sprite.z||0)+0.90,sprite.gy)
         _sv.project(threeState.camera)
         if(_sv.z>1) continue  // behind camera
         const sx=(_sv.x+1)/2*W
