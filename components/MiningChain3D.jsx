@@ -164,6 +164,7 @@ export default function MiningChain3D() {
   const myWalletRef    = useRef(myWallet)
   const myPosRef       = useRef(initialPos)
   const myKeyRef       = useRef(null)     // presence key (wallet or 'anon-XXXX')
+  const lastDbPosSaveRef = useRef(0)      // throttle DB position saves
 
   // Keep refs current each render
   myWalletRef.current = myWallet
@@ -261,20 +262,29 @@ export default function MiningChain3D() {
         }
       } catch { /* */ }
     }
-    // Also verify against DB for logged-in wallets
+    // For logged-in wallets: DB is source of truth for both dead state and alive position
     if (myWallet) {
       fetch(`/api/pvp-death?wallet=${encodeURIComponent(myWallet)}`)
         .then(r => r.json())
         .then(r => {
-          if (!r.dead) return
-          const until = new Date(r.deadUntil).getTime()
-          if (until <= Date.now()) return
-          if (myDeadUntilRef.current && myDeadUntilRef.current >= until) return // localStorage already covers it
-          setMyDeadUntil(until)
-          setMyDeadPos({ gx: r.gx, gy: r.gy })
-          myDeadUntilRef.current = until
-          localStorage.setItem('mm3_pvp_dead', JSON.stringify({ until, gx: r.gx, gy: r.gy }))
-          scheduleRespawn(until - Date.now())
+          if (r.dead) {
+            const until = new Date(r.deadUntil).getTime()
+            if (until <= Date.now()) return
+            if (myDeadUntilRef.current && myDeadUntilRef.current >= until) return
+            setMyDeadUntil(until)
+            setMyDeadPos({ gx: r.gx, gy: r.gy })
+            myDeadUntilRef.current = until
+            localStorage.setItem('mm3_pvp_dead', JSON.stringify({ until, gx: r.gx, gy: r.gy }))
+            scheduleRespawn(until - Date.now())
+          } else if (r.posRow != null && r.posCol != null) {
+            // DB alive position overrides localStorage (anti-cheat)
+            const dbPos = { row: Number(r.posRow), col: Number(r.posCol) }
+            setMyPos(dbPos)
+            myPosRef.current = dbPos
+            setJumpToCell(dbPos)
+            const posKey = `mm3_mining_pos_${myWallet}`
+            try { localStorage.setItem(posKey, JSON.stringify(dbPos)) } catch { /* */ }
+          }
         })
         .catch(() => {})
     }
@@ -730,10 +740,22 @@ export default function MiningChain3D() {
   const handlePositionChange = useCallback((row, col) => {
     setMyPos({ row, col })
     myPosRef.current = { row, col }
-    // Persist position so a refresh or re-entry doesn't teleport the player
     if (!myDeadUntilRef.current || myDeadUntilRef.current <= Date.now()) {
       const posKey = myWalletRef.current ? `mm3_mining_pos_${myWalletRef.current}` : 'mm3_mining_pos_anon'
       try { localStorage.setItem(posKey, JSON.stringify({ row, col })) } catch { /* */ }
+      // Persist to DB for logged wallets (throttled — max once per 15s, anti-cheat)
+      const w = myWalletRef.current
+      if (w) {
+        const now = Date.now()
+        if (now - lastDbPosSaveRef.current >= 15_000) {
+          lastDbPosSaveRef.current = now
+          fetch('/api/pvp-death', {
+            method: 'PATCH',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ wallet: w, row, col }),
+          }).catch(() => {})
+        }
+      }
     }
   }, [])
 

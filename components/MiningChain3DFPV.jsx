@@ -1519,6 +1519,25 @@ function findRandomFreeCell(cellMap, validObs) {
   return { row: free[idx][0], col: free[idx][1] }
 }
 
+// Find the nearest free cell to (targetRow, targetCol) using BFS spiral.
+// Used when restoring a saved position that ended up inside a procedural wall.
+function findNearestFreeCell(targetRow, targetCol, cellMap, validObs) {
+  const maxRadius = 12
+  for (let radius = 0; radius <= maxRadius; radius++) {
+    for (let dr = -radius; dr <= radius; dr++) {
+      for (let dc = -radius; dc <= radius; dc++) {
+        if (Math.abs(dr) !== radius && Math.abs(dc) !== radius) continue // only shell
+        const r = targetRow + dr
+        const c = targetCol + dc
+        if (r < 1 || r >= ROWS - 1 || c < 1 || c >= COLS - 1) continue
+        const k = `${r},${c}`
+        if (!cellMap.has(k) && !validObs.has(k)) return { row: r, col: c }
+      }
+    }
+  }
+  return findRandomFreeCell(cellMap, validObs)
+}
+
 // ── Pure helpers ──────────────────────────────────────────────────────────────
 function hexToRgb(hex) {
   const c = (hex || '#000').replace('#', '').padStart(6, '0')
@@ -3764,9 +3783,11 @@ export default function MiningChain3DFPV({
     validObstaclesRef.current = valid
     rebuildThreeRef.current?.()
 
-    // Safety: if player is inside an obstacle or block, teleport to a random free cell
+    // Safety: if player is inside an obstacle or block, teleport to nearest free cell
     if (hitsSolidWall(playerRef.current.x/CELL_SIZE,playerRef.current.y/CELL_SIZE,cellMap,valid,playerRef.current.z)) {
-      const free = findRandomFreeCell(cellMap, valid)
+      const curRow = Math.floor(playerRef.current.y / CELL_SIZE)
+      const curCol = Math.floor(playerRef.current.x / CELL_SIZE)
+      const free = findNearestFreeCell(curRow, curCol, cellMap, valid)
       playerRef.current.x = (free.col + 0.5) * CELL_SIZE
       playerRef.current.y = (free.row + 0.5) * CELL_SIZE
     }
@@ -3785,14 +3806,14 @@ export default function MiningChain3DFPV({
   const onPositionRealtimeRef = useRef(onPositionRealtime)
   useEffect(()=>{ onPositionRealtimeRef.current=onPositionRealtime },[onPositionRealtime])
 
-  // External teleport — fallback to random free cell if target is blocked
+  // External teleport — fallback to nearest free cell if target is blocked
   useEffect(()=>{
     if (!jumpToCell) return
     const obs = validObstaclesRef.current
     const cm  = cellMapRef.current
     const targetGX=jumpToCell.col+.5,targetGY=jumpToCell.row+.5
     if (hitsSolidWall(targetGX,targetGY,cm,obs,0)) {
-      const free = findRandomFreeCell(cm, obs)
+      const free = findNearestFreeCell(jumpToCell.row, jumpToCell.col, cm, obs)
       playerRef.current.x = (free.col + 0.5) * CELL_SIZE
       playerRef.current.y = (free.row + 0.5) * CELL_SIZE
     } else {

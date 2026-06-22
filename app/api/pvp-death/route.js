@@ -12,27 +12,31 @@ function serviceClient() {
   )
 }
 
-// GET ?wallet=xxx — check if wallet is currently dead
+// GET ?wallet=xxx — check dead state + return last alive position
 export async function GET(req) {
   const wallet = new URL(req.url).searchParams.get('wallet')?.toLowerCase().trim()
   if (!wallet) return Response.json({ ok: false, error: 'missing_wallet' }, { status: 400 })
 
   const { data } = await serviceClient()
     .from('mm3_pvp_health')
-    .select('pvp_dead_until, pvp_dead_gx, pvp_dead_gy')
+    .select('pvp_dead_until, pvp_dead_gx, pvp_dead_gy, last_pos_row, last_pos_col')
     .eq('wallet', wallet)
     .maybeSingle()
 
-  if (!data?.pvp_dead_until) return Response.json({ ok: true, dead: false })
+  const posRow = data?.last_pos_row ?? null
+  const posCol = data?.last_pos_col ?? null
+
+  if (!data?.pvp_dead_until) {
+    return Response.json({ ok: true, dead: false, posRow, posCol })
+  }
 
   const deadUntil = new Date(data.pvp_dead_until)
   if (deadUntil <= new Date()) {
-    // Expired — clear it silently
     serviceClient().from('mm3_pvp_health')
       .update({ pvp_dead_until: null, pvp_dead_gx: null, pvp_dead_gy: null })
       .eq('wallet', wallet)
       .then(() => {}).catch(() => {})
-    return Response.json({ ok: true, dead: false })
+    return Response.json({ ok: true, dead: false, posRow, posCol })
   }
 
   return Response.json({
@@ -41,7 +45,36 @@ export async function GET(req) {
     deadUntil: data.pvp_dead_until,
     gx: data.pvp_dead_gx,
     gy: data.pvp_dead_gy,
+    posRow,
+    posCol,
   })
+}
+
+// PATCH { wallet, row, col } — persist alive position (throttled server-side by pos_updated_at)
+export async function PATCH(req) {
+  let body
+  try { body = await req.json() } catch {
+    return Response.json({ ok: false, error: 'bad_json' }, { status: 400 })
+  }
+  const wallet = String(body.wallet || '').toLowerCase().trim()
+  if (!wallet || wallet.startsWith('anon-')) {
+    return Response.json({ ok: false, error: 'anon_or_missing' }, { status: 400 })
+  }
+  const row = Number(body.row)
+  const col = Number(body.col)
+  if (!Number.isFinite(row) || !Number.isFinite(col)) {
+    return Response.json({ ok: false, error: 'bad_pos' }, { status: 400 })
+  }
+
+  const { error } = await serviceClient()
+    .from('mm3_pvp_health')
+    .upsert(
+      { wallet, last_pos_row: row, last_pos_col: col, pos_updated_at: new Date().toISOString() },
+      { onConflict: 'wallet', ignoreDuplicates: false },
+    )
+
+  if (error) return Response.json({ ok: false, error: error.message }, { status: 500 })
+  return Response.json({ ok: true })
 }
 
 // POST { wallet, gx, gy } — record a fresh death (5-min cooldown)
