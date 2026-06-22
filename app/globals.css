@@ -1546,12 +1546,16 @@ footer.bg-black\/97,
 .mm3-home-arena {
   position: relative;
   z-index: 2;
-  width:min(310px,100%);
-  height:155px;
+  width:min(500px,100%);
+  height:245px;
   justify-self: center;
-  perspective:700px;
-  transform-style:preserve-3d;
   filter: drop-shadow(0 24px 20px rgba(0,0,0,.58));
+}
+.mm3-home-arena-canvas {
+  display:block;
+  width:100%;
+  height:100%;
+  pointer-events:none;
 }
 .mm3-home-arena-floor {
   position:absolute;
@@ -1870,14 +1874,14 @@ footer.bg-black\/97,
     gap:.2rem;
   }
   .mm3-home-copy { padding-left:.2rem; }
-  .mm3-home-arena { width:235px; height:130px; transform:scale(.9); }
+  .mm3-home-arena { width:285px; height:160px; }
   .mm3-home-arena-floor { height:100px; }
   .mm3-home-chain3d { width:90px; height:190px; bottom:-6px; }
   .mm3-home-bot3d { width:90px; height:90px; }
 }
 @media (max-width:480px) {
   .mm3-home .mm3-splash-body { grid-template-columns:56% 44%; }
-  .mm3-home-arena { width:185px; height:115px; margin-left:-12px; transform:scale(.9); }
+  .mm3-home-arena { width:205px; height:130px; margin-left:-8px; }
   .mm3-home-chain3d { width:78px; height:165px; }
   .mm3-home-bot3d { width:78px; height:78px; }
   .mm3-home .mm3-portal-card { min-height:55px; }
@@ -1888,7 +1892,7 @@ footer.bg-black\/97,
 }
 @media (max-height:500px) and (orientation:landscape) {
   .mm3-home .mm3-splash-body { min-height:96px; }
-  .mm3-home-arena { width:180px; height:105px; transform:scale(.82); }
+  .mm3-home-arena { width:185px; height:105px; }
   .mm3-home-arena-floor { height:82px; }
   .mm3-home-sword-scene { top:0; transform:scale(.52); transform-origin:top left; }
   .mm3-home-arena-bot { bottom:4px; transform:scale(.48); }
