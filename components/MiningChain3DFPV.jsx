@@ -3704,6 +3704,7 @@ export default function MiningChain3DFPV({
   // PvP
   const enemyTargetRef  = useRef(null)   // { wallet, dist, isAnon } — within PVP_HIT_RANGE
   const enemyInSightRef = useRef(null)   // closest enemy in crosshair within PVP_SIGHT_RANGE (may be out of hit range)
+  const pvpProximityRef = useRef(false)  // targetable enemy in front and within hit range; stable zoom trigger
   const pvpFlashRef     = useRef(0)      // timestamp of last pvp strike (for red flash)
   const dodgeFlashRef   = useRef(0)      // timestamp of last successful dodge (cyan flash)
   const pvpGainRef      = useRef(null)   // { text, at } for "+X EUR" popup
@@ -4156,8 +4157,9 @@ export default function MiningChain3DFPV({
     if(threeState){
       try{
         const aspect=W/Math.max(1,H)
-        // Lerp pvp zoom: enemy in hit range → camera slides closer, FOV tightens
-        const pvpZoomTarget = enemyTargetRef.current ? 1 : 0
+        // Lerp PvP zoom from proximity, not the vertical hit-test. Otherwise the
+        // camera moving would invalidate its own target and make the aim jump.
+        const pvpZoomTarget = pvpProximityRef.current ? 1 : 0
         pvpZoomRef.current += (pvpZoomTarget - pvpZoomRef.current) * Math.min(1, cameraDt * 6)
         const pvpZoom = pvpZoomRef.current
         const fovRad = FOV + dynamicFovRef.current - pvpZoom * 0.22
@@ -4186,7 +4188,9 @@ export default function MiningChain3DFPV({
         }
         // 3rd-person over-shoulder camera — drop to ground level when dead
         const localDead=myDeadUntilRef.current&&myDeadUntilRef.current>Date.now()
-        const behindDist=localDead?1.20:2.55-pvpZoom*1.45, aboveOffset=localDead?-0.45:1.15-pvpZoom*0.30, lookFwd=2.4, shoulderR=localDead?0:0.30
+        const behindDist=localDead?1.20:2.55-pvpZoom*1.45
+        const aboveOffset=localDead?-0.45:1.15-pvpZoom*0.60
+        const lookFwd=2.4,shoulderR=localDead?0:0.30
         const cosA=Math.cos(angle),sinA=Math.sin(angle)
         // Perpendicular right vector (horizontal plane)
         const rightX=Math.cos(angle+Math.PI/2), rightZ=Math.sin(angle+Math.PI/2)
@@ -4265,9 +4269,11 @@ export default function MiningChain3DFPV({
           } catch(_) { /* spring arm non-critical — fall through to default cam pos */ }
           threeState.camera.position.copy(rb)
         }
+        const pvpPitchResponse=0.60+pvpZoom*0.25
+        const pvpAimDrop=pvpZoom*0.34
         threeState.camera.lookAt(
           gx + cosA*lookFwd,
-          cameraZ - Math.sin(effectivePitch)*lookFwd*0.6 + 0.18,
+          cameraZ - Math.sin(effectivePitch)*lookFwd*pvpPitchResponse + 0.18 - pvpAimDrop,
           gy + sinA*lookFwd,
         )
 
@@ -5843,8 +5849,10 @@ export default function MiningChain3DFPV({
       const camGX = p.x / CELL_SIZE, camGY = p.y / CELL_SIZE
       let closestEnemy = null, closestDist = Infinity
       let closestInSight = null, closestInSightDist = Infinity
+      let hasPvpProximity = false
       const myW = myWalletRef.current
       const myIdentity = presenceKeyRef.current||myW
+      const myIsAnon = String(myIdentity || '').startsWith('anon-')
       // Derive canvas dimensions — same formula as the draw function so the
       // crosshair check uses the identical coordinate system.
       const _cvs = canvasRef.current
@@ -5866,6 +5874,7 @@ export default function MiningChain3DFPV({
         const sgy = pres.gy ?? ((pres.row ?? 0) + 0.5)
         const rx = sgx - camGX, ry = sgy - camGY
         const tY = Math.cos(p.angle)*rx + Math.sin(p.angle)*ry
+        const tX = -Math.sin(p.angle)*rx + Math.cos(p.angle)*ry
         if (tY < 0.15 || tY > PVP_SIGHT_RANGE) continue
         const remoteZ = Number(pres.z) || 0
         const verticalGap = Math.abs(remoteZ - p.z)
@@ -5873,6 +5882,11 @@ export default function MiningChain3DFPV({
         const enemyPool  = presenceRef.current[w]?.poolCode || null
         const myPool     = myPoolCodeRef.current
         const isTeammate = !!(myPool && enemyPool && myPool === enemyPool)
+        const targetable = !isTeammate && (!myIsAnon || w.startsWith('anon-'))
+        const inFrontCone = Math.abs(Math.atan2(tX, tY)) <= FOV * .42
+        if (targetable && inFrontCone && tY <= PVP_HIT_RANGE && Math.hypot(tY, verticalGap) <= PVP_HIT_RANGE) {
+          hasPvpProximity = true
+        }
         let hitZone = null
 
         if (_threeState) {
@@ -5897,7 +5911,6 @@ export default function MiningChain3DFPV({
           hitZone = _cy <= pyMid ? 'head' : 'body'
         } else {
           // 2D raycaster mode: project with player-eye math (same as the renderer).
-          const tX = -Math.sin(p.angle)*rx + Math.cos(p.angle)*ry
           const relZ  = remoteZ - (p.z + CAMERA_EYE_Z)
           const rotV  = relZ * _cosP + tY * _sinP
           const rotD  = tY  * _cosP - relZ * _sinP
@@ -5924,6 +5937,7 @@ export default function MiningChain3DFPV({
       }
       enemyTargetRef.current = closestEnemy
       enemyInSightRef.current = closestInSight
+      pvpProximityRef.current = hasPvpProximity
 
       // Facing detection + action URL + mine type update (skipped when dead)
       if(myDead){ facingKeyRef.current=null }
