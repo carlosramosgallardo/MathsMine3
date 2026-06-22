@@ -2,9 +2,15 @@
 
 import { useEffect, useRef } from 'react'
 
-function addMiningBot(THREE, scene) {
+export function addMiningBot(THREE, scene, options = {}) {
+  const {
+    color: botColor = '#4ade80',
+    position = [-2.25, .12, .20],
+    rotationY = Math.PI,
+    scale = 3.44,
+  } = options
   const avatar = new THREE.Group()
-  const color = new THREE.Color('#4ade80')
+  const color = new THREE.Color(botColor)
   const bright = color.clone().lerp(new THREE.Color('#ffffff'), .20)
   const dark = color.clone().multiplyScalar(.30)
   const mid = color.clone().multiplyScalar(.62)
@@ -98,9 +104,9 @@ function addMiningBot(THREE, scene) {
   tool.add(plug)
   avatar.add(tool)
 
-  avatar.position.set(-2.25, .12, .20)
-  avatar.rotation.y = Math.PI
-  avatar.scale.setScalar(3.44)
+  avatar.position.set(...position)
+  avatar.rotation.y = rotationY
+  avatar.scale.setScalar(scale)
   avatar.userData.leftFoot = leftFoot
   avatar.userData.rightFoot = rightFoot
   avatar.userData.leftSole = leftSole
@@ -109,7 +115,7 @@ function addMiningBot(THREE, scene) {
   return avatar
 }
 
-function makeNftjiSprite(THREE) {
+function makeNftjiSprite(THREE, emoji = '💎') {
   const canvas = document.createElement('canvas')
   canvas.width = 128
   canvas.height = 128
@@ -122,30 +128,35 @@ function makeNftjiSprite(THREE) {
   context.fillRect(8, 8, 112, 112)
   context.strokeRect(8, 8, 112, 112)
   context.shadowBlur = 0
-  context.fillStyle = '#22d3ee'
-  context.strokeStyle = '#e0f2fe'
-  context.lineWidth = 4
-  context.beginPath()
-  context.moveTo(64, 27)
-  context.lineTo(98, 57)
-  context.lineTo(64, 101)
-  context.lineTo(30, 57)
-  context.closePath()
-  context.fill()
-  context.stroke()
-  context.beginPath()
-  context.moveTo(30, 57)
-  context.lineTo(98, 57)
-  context.moveTo(64, 27)
-  context.lineTo(49, 57)
-  context.lineTo(64, 101)
-  context.lineTo(79, 57)
-  context.closePath()
-  context.stroke()
-  context.font = '72px "Apple Color Emoji","Segoe UI Emoji",sans-serif'
+  if (emoji === '💎') {
+    context.fillStyle = '#22d3ee'
+    context.strokeStyle = '#e0f2fe'
+    context.lineWidth = 4
+    context.beginPath()
+    context.moveTo(64, 27)
+    context.lineTo(98, 57)
+    context.lineTo(64, 101)
+    context.lineTo(30, 57)
+    context.closePath()
+    context.fill()
+    context.stroke()
+    context.beginPath()
+    context.moveTo(30, 57)
+    context.lineTo(98, 57)
+    context.moveTo(64, 27)
+    context.lineTo(49, 57)
+    context.lineTo(64, 101)
+    context.lineTo(79, 57)
+    context.closePath()
+    context.stroke()
+  }
+  context.fillStyle = emoji === '💎' ? '#22d3ee' : '#facc15'
+  context.font = emoji === '💎'
+    ? '72px "Apple Color Emoji","Segoe UI Emoji",sans-serif'
+    : 'bold 76px sans-serif'
   context.textAlign = 'center'
   context.textBaseline = 'middle'
-  context.fillText('💎', 64, 67)
+  context.fillText(emoji, 64, 67)
 
   const texture = new THREE.CanvasTexture(canvas)
   texture.colorSpace = THREE.SRGBColorSpace
@@ -161,9 +172,15 @@ function makeNftjiSprite(THREE) {
   return sprite
 }
 
-function addNftjiMiningBlock(THREE, scene) {
+export function addNftjiMiningBlock(THREE, scene, options = {}) {
+  const {
+    emoji = '💎',
+    position = [3.20, .12, .08],
+    scale = 1,
+  } = options
   const group = new THREE.Group()
-  group.position.set(3.20, .12, .08)
+  group.position.set(...position)
+  group.scale.setScalar(scale)
 
   const cubeSide = 1.25
   const pedestalHeight = .24
@@ -213,7 +230,7 @@ function addNftjiMiningBlock(THREE, scene) {
   const marker = new THREE.Mesh(new THREE.DodecahedronGeometry(.25), new THREE.MeshBasicMaterial({ color: '#fb923c' }))
   marker.position.y = cubeTop + .42
   indicator.add(marker)
-  const sprite = makeNftjiSprite(THREE)
+  const sprite = makeNftjiSprite(THREE, emoji)
   sprite.position.y = cubeTop + 1.12
   indicator.add(sprite)
   group.add(indicator)

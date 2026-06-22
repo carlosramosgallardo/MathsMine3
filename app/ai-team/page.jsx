@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useI18n } from '@/lib/i18n-context';
 import { colorFromAddress, colorFromPool } from '@/lib/wallet-colors';
-import MiningBotAvatar from '@/components/MiningBotAvatar';
+import AITeamForge3D from '@/components/AITeamForge3D';
 
 const BOT_POOLS = [
   {
@@ -33,15 +33,15 @@ const BOT_POOLS = [
     ],
   },
 ];
+const ALL_BOTS = BOT_POOLS.flatMap(pool => pool.bots);
+const BOT_COLORS = ALL_BOTS.map(bot => colorFromAddress(bot.wallet));
 
 function shortWallet(w) {
   return `${w.slice(0, 6)}…${w.slice(-4)}`;
 }
 
 export default function AITeamPage() {
-  const { t, language } = useI18n();
-  const es = language === 'es';
-  const allBots = BOT_POOLS.flatMap((pool) => pool.bots);
+  const { t } = useI18n();
 
   return (
     <main className="ai-team-world">
@@ -53,26 +53,7 @@ export default function AITeamPage() {
             <p>{t('aiTeam.subtitle')}</p>
           </div>
           <div className="ai-team-forge" aria-hidden="true">
-            <div className="ai-team-forge-floor" />
-            {allBots.map((bot, index) => (
-              <span
-                className="ai-team-forge-bot"
-                key={bot.wallet}
-                style={{
-                  '--bot-color': colorFromAddress(bot.wallet),
-                  '--bot-left': `${[7, 28, 68, 86][index]}%`,
-                  '--bot-rise': `${index % 2 ? -13 : 0}px`,
-                }}
-              >
-                <MiningBotAvatar />
-                <span className="ai-team-forge-shadow" />
-              </span>
-            ))}
-            <span className="ai-team-forge-core">
-              <span className="ai-team-core-face is-front">AI</span>
-              <span className="ai-team-core-face is-right" />
-              <span className="ai-team-core-face is-top" />
-            </span>
+            <AITeamForge3D colors={BOT_COLORS} />
           </div>
         </div>
       </section>

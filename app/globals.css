@@ -2130,8 +2130,13 @@ footer.bg-black\/97,
 .ai-team-forge {
   position:relative;
   height:205px;
-  perspective:640px;
   filter:drop-shadow(0 22px 18px rgba(0,0,0,.65));
+}
+.ai-team-forge-canvas {
+  display:block;
+  width:100%;
+  height:100%;
+  touch-action:none;
 }
 .ai-team-forge-floor {
   position:absolute;
@@ -2592,8 +2597,8 @@ footer.bg-black\/97,
   .ai-team-live-strip { margin-top:.4rem; padding:.3rem .45rem; }
   .ai-team-forge {
     height:108px;
-    margin:-24px -52px -20px;
-    transform:scale(.61);
+    margin:-18px 0 -14px;
+    transform:none;
   }
   .ai-team-content { flex:none; overflow:visible; padding:.6rem .45rem .8rem; }
   .ai-team-content-inner {
