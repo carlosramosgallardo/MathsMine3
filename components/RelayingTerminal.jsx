@@ -1464,10 +1464,15 @@ export default function RelayingTerminal({ accent = '#22d3ee' }) {
           .insert(penalties);
         if (penaltyError) throw penaltyError;
 
-        const { error: balanceError } = await supabase
-          .from('player_progress')
-          .upsert(balanceUpdates, { onConflict: 'wallet', ignoreDuplicates: false });
-        if (balanceError) throw balanceError;
+        const penalizeRes = await fetch('/api/relay/penalize', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ updates: balanceUpdates }),
+        });
+        if (!penalizeRes.ok) {
+          const { error } = await penalizeRes.json().catch(() => ({}));
+          throw new Error(error || 'relay penalize failed');
+        }
       }
 
       if (typeof window !== 'undefined') {
