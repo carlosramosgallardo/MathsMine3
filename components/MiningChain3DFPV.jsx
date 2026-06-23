@@ -3217,20 +3217,6 @@ function addCipherHouseDetails(world) {
   diceSprite.scale.set(1.62,1.62,1)
   diceSprite.position.y=9.08
   diceTower.add(diceSprite)
-  for(const [x,z,y,scale] of [
-    [minCol+2.5,minRow-.06,3.72,2.10],
-    [maxCol-2.5,maxRow+1.06,3.72,2.10],
-    [minCol-.06,minRow+5.5,3.72,1.85],
-    [maxCol+1.06,minRow+5.5,3.72,1.85],
-    [maxCol+1.06,maxRow-3.0,2.45,2.35],
-  ]){
-    const crest=makeEmojiSprite('🎲','#facc15','square')
-    crest.material.depthTest=false
-    crest.renderOrder=30
-    crest.position.set(x,y,z)
-    crest.scale.set(scale,scale,1)
-    group.add(crest)
-  }
   const diceLight=new THREE.PointLight('#facc15',5.8,9,1.7)
   diceLight.position.y=8.08
   diceTower.add(diceLight)
