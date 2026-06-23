@@ -4056,6 +4056,7 @@ function rebuildThreeWorld(state,cellMap,obstacles) {
       world.add(mesh)
     }
     if(houseGroups.rail.length){
+      const floorKeySet=new Set(houseGroups.floor.map(([key])=>key))
       const railBodyMat=new THREE.MeshStandardMaterial({
         ...roofMat,
         color:'#07111f',
@@ -4087,26 +4088,31 @@ function rebuildThreeWorld(state,cellMap,obstacles) {
         const railHeight=Math.max(.50,obstacleTop(obstacle)-bottom)
         const axis=obstacle.railAxis==='z'?'z':'x'
         const railLength=1.14
+        const towardFloor=axis==='z'
+          ? (floorKeySet.has(`${row},${col+1}`) ? .32 : floorKeySet.has(`${row},${col-1}`) ? -.32 : 0)
+          : (floorKeySet.has(`${row+1},${col}`) ? .32 : floorKeySet.has(`${row-1},${col}`) ? -.32 : 0)
+        const railX=col+.5+(axis==='z'?towardFloor:0)
+        const railZ=row+.5+(axis==='x'?towardFloor:0)
         const longScale=axis==='z'
           ? (x,y,z)=>scale.set(x,y,z)
           : (x,y,z)=>scale.set(z,y,x)
-        position.set(col+.5,bottom+railHeight*.5,row+.5)
-        longScale(.24,railHeight,railLength)
+        position.set(railX,bottom+railHeight*.5-.025,railZ)
+        longScale(.48,railHeight+.05,railLength)
         matrix.compose(position,quaternion,scale)
         railBodyMesh.setMatrixAt(index,matrix)
 
-        position.set(col+.5,bottom+railHeight+.035,row+.5)
-        longScale(.32,.07,railLength+.06)
+        position.set(railX,bottom+railHeight+.035,railZ)
+        longScale(.56,.07,railLength+.08)
         matrix.compose(position,quaternion,scale)
         railCapMesh.setMatrixAt(index,matrix)
 
-        position.set(col+.5,bottom+.035,row+.5)
-        longScale(.30,.07,railLength+.08)
+        position.set(railX,bottom+.015,railZ)
+        longScale(.58,.10,railLength+.10)
         matrix.compose(position,quaternion,scale)
         railBaseMesh.setMatrixAt(index,matrix)
 
-        position.set(col+.5,bottom+railHeight*.68,row+.5)
-        longScale(.026,.032,railLength+.03)
+        position.set(railX,bottom+railHeight*.68,railZ)
+        longScale(.030,.032,railLength+.04)
         matrix.compose(position,quaternion,scale)
         railLightMesh.setMatrixAt(index,matrix)
       })
@@ -4122,18 +4128,36 @@ function rebuildThreeWorld(state,cellMap,obstacles) {
     if(floorEntries.length){
       const floorBoxMat=new THREE.MeshStandardMaterial({color:'#7c3aed',roughness:.52,metalness:.32,emissive:'#0e7490',emissiveIntensity:.34})
       const floorBoxMesh=new THREE.InstancedMesh(new THREE.BoxGeometry(1,1,1),floorBoxMat,floorEntries.length)
+      const balconySlabEntries=floorEntries.filter(([,obstacle])=>obstacle.isHouseBalcony)
+      const balconySlabMesh=balconySlabEntries.length
+        ? new THREE.InstancedMesh(new THREE.BoxGeometry(1,1,1),new THREE.MeshStandardMaterial({
+          color:'#07111f',roughness:.54,metalness:.42,emissive:'#06101c',emissiveIntensity:.58,
+        }),balconySlabEntries.length)
+        : null
       floorEntries.forEach(([key,obstacle],index)=>{
         const [row,col]=key.split(',').map(Number)
         const bottom=obstacleBottom(obstacle)
         const top=obstacleTop(obstacle)
         const vh=Math.max(.02,top-bottom)
         position.set(col+.5,bottom+vh*.5,row+.5)
-        scale.set(0.92,vh,0.92)
+        scale.set(1.04,vh,1.04)
         matrix.compose(position,quaternion,scale)
         floorBoxMesh.setMatrixAt(index,matrix)
       })
       floorBoxMesh.instanceMatrix.needsUpdate=true
       world.add(floorBoxMesh)
+      if(balconySlabMesh){
+        balconySlabEntries.forEach(([key,obstacle],index)=>{
+          const [row,col]=key.split(',').map(Number)
+          const top=obstacleTop(obstacle)
+          position.set(col+.5,top-.14,row+.5)
+          scale.set(1.08,.22,1.08)
+          matrix.compose(position,quaternion,scale)
+          balconySlabMesh.setMatrixAt(index,matrix)
+        })
+        balconySlabMesh.instanceMatrix.needsUpdate=true
+        world.add(balconySlabMesh)
+      }
 
       const diceTextures=[1,2,3,4,5,6].map(f=>makeDiceFaceTexture(f))
       const floorByFace=[[],[],[],[],[],[]]
@@ -4146,7 +4170,7 @@ function rebuildThreeWorld(state,cellMap,obstacles) {
       floorByFace.forEach((entries,fi)=>{
         if(!entries.length) return
         const planeMat=new THREE.MeshBasicMaterial({map:diceTextures[fi],transparent:true,depthWrite:false,opacity:1})
-        const planeMesh=new THREE.InstancedMesh(new THREE.PlaneGeometry(.99,.99),planeMat,entries.length)
+        const planeMesh=new THREE.InstancedMesh(new THREE.PlaneGeometry(1.015,1.015),planeMat,entries.length)
         planeMesh.renderOrder=1
         entries.forEach(([key,obstacle],idx)=>{
           const [row,col]=key.split(',').map(Number)
