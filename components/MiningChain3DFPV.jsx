@@ -166,6 +166,7 @@ const CIPHER_HOUSE_WINDOWS = new Set([
 function makeCipherHouseEntries() {
   const entries=[]
   const doors=new Set(['3,5','3,6','13,9','13,10','6,3','7,3','9,13','10,13'])
+  const balconyDoorCells=new Set(['3,7','3,8'])
   const add=(row,col,data={})=>entries.push([`${row},${col}`,{
     base:HOUSE_BLACK_RGB,glow:[103,232,249],kind:'hash',label:'CIPHER HOUSE',
     height:6.20,isStructure:true,isHouse:true,...data,
@@ -175,7 +176,7 @@ function makeCipherHouseEntries() {
   for(let col=minCol;col<=maxCol;col++){
     for(const row of [minRow,maxRow]){
       const key=`${row},${col}`
-      if(!doors.has(key)) add(row,col,CIPHER_HOUSE_WINDOWS.has(key)?{isHouseWindow:true}:{})
+      if(!doors.has(key)&&!balconyDoorCells.has(key)) add(row,col,CIPHER_HOUSE_WINDOWS.has(key)?{isHouseWindow:true}:{})
     }
   }
   for(let row=minRow+1;row<maxRow;row++){
@@ -212,6 +213,16 @@ function makeCipherHouseEntries() {
         diceFace:isRoof?0:diceFace,
       })
     }
+  }
+  for(const [row,col] of [[3,7],[3,8],[2,7],[2,8],[2,9]]){
+    const diceFace=((Math.abs(row*17+col*31+(row^col)*7))%6)+1
+    add(row,col,{
+      base:HOUSE_BLUE_RGB,glow:[103,232,249],kind:'hash',
+      label:row===3?'CIPHER BALCONY THRESHOLD':'CIPHER CORNER BALCONY',
+      bottom:5.72,height:5.80,
+      isHouseFloor:true,isHouseBalcony:true,
+      diceFace,
+    })
   }
   // Upper wall fill above each door opening (bottom=2.0 so players pass through at ground level)
   for(const key of doors){
@@ -3219,6 +3230,16 @@ function addCipherHouseDetails(world) {
     dice.quaternion.copy(groundQuat)
     dice.renderOrder=3
     group.add(dice)
+  }
+
+  const balconyRailY=5.98
+  const balconyPostY=5.98
+  addTrimBox(8.5,balconyRailY,2.03,3.05,.08,.07,0)
+  addTrimBox(7.03,balconyRailY,2.52,.07,.08,.98,1)
+  addTrimBox(9.97,balconyRailY,2.52,.07,.08,.98,2)
+  addTrimBox(8.5,5.74,3.02,2.00,.05,.06,1)
+  for(const [x,z,mat] of [[7.03,2.03,0],[9.97,2.03,1],[7.03,3.02,2],[9.97,3.02,0]]){
+    addTrimBox(x,balconyPostY,z,.10,.58,.10,mat)
   }
 
   const diceTower=new THREE.Group()
