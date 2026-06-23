@@ -3849,7 +3849,7 @@ function rebuildThreeWorld(state,cellMap,obstacles) {
         side:THREE.DoubleSide,
       })
       const postMesh=new THREE.InstancedMesh(new THREE.BoxGeometry(1,1,1),railFrameMat,houseGroups.rail.length*3)
-      const barMesh=new THREE.InstancedMesh(new THREE.BoxGeometry(1,1,1),railFrameMat,houseGroups.rail.length*3)
+      const barMesh=new THREE.InstancedMesh(new THREE.BoxGeometry(1,1,1),railFrameMat,houseGroups.rail.length*4)
       const panelMesh=new THREE.InstancedMesh(new THREE.BoxGeometry(1,1,1),railGlassMat,houseGroups.rail.length)
       let postIndex=0,barIndex=0
       houseGroups.rail.forEach(([key,obstacle],index)=>{
@@ -3857,27 +3857,33 @@ function rebuildThreeWorld(state,cellMap,obstacles) {
         const bottom=obstacleBottom(obstacle)
         const railHeight=Math.max(.50,obstacleTop(obstacle)-bottom)
         const axis=obstacle.railAxis==='z'?'z':'x'
+        const railLength=1.08
         const longScale=axis==='z'
           ? (x,y,z)=>scale.set(x,y,z)
           : (x,y,z)=>scale.set(z,y,x)
-        for(const offset of [-.43,0,.43]){
+        for(const offset of [-.50,0,.50]){
           position.set(
             col+.5+(axis==='x'?offset:0),
-            bottom+railHeight*.5,
+            bottom+railHeight*.5-.025,
             row+.5+(axis==='z'?offset:0),
           )
-          scale.set(.13,railHeight,.13)
+          scale.set(.14,railHeight+.05,.14)
           matrix.compose(position,quaternion,scale)
           postMesh.setMatrixAt(postIndex++,matrix)
         }
-        for(const y of [bottom+railHeight-.055,bottom+railHeight*.56,bottom+.16]){
+        for(const [y,barHeight] of [
+          [bottom+railHeight-.055,.11],
+          [bottom+railHeight*.56,.09],
+          [bottom+.18,.10],
+          [bottom+.035,.07],
+        ]){
           position.set(col+.5,y,row+.5)
-          longScale(.13,.09,.92)
+          longScale(.14,barHeight,railLength)
           matrix.compose(position,quaternion,scale)
           barMesh.setMatrixAt(barIndex++,matrix)
         }
-        position.set(col+.5,bottom+railHeight*.48,row+.5)
-        longScale(.045,railHeight*.48,.72)
+        position.set(col+.5,bottom+railHeight*.44,row+.5)
+        longScale(.045,railHeight*.78,.98)
         matrix.compose(position,quaternion,scale)
         panelMesh.setMatrixAt(index,matrix)
       })
