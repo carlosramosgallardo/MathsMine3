@@ -3016,6 +3016,33 @@ function createProceduralTexture(kind,size=128) {
   return texture
 }
 
+function createHouseGroundTexture(size=128) {
+  const canvas=document.createElement('canvas');canvas.width=size;canvas.height=size
+  const ctx=canvas.getContext('2d')
+  ctx.fillStyle='#102033';ctx.fillRect(0,0,size,size)
+  for(let y=0;y<size;y++) for(let x=0;x<size;x++){
+    const grain=seededUnit(x*83+y*157+404)
+    const shade=grain>.62?10:grain<.18?-8:0
+    ctx.fillStyle=`rgb(${16+shade},${32+shade},${51+shade})`
+    ctx.fillRect(x,y,1,1)
+  }
+  ctx.globalAlpha=.34
+  ctx.strokeStyle='#67e8f9';ctx.lineWidth=1
+  for(let p=0;p<=size;p+=16){
+    ctx.beginPath();ctx.moveTo(p,0);ctx.lineTo(p,size);ctx.stroke()
+    ctx.beginPath();ctx.moveTo(0,p);ctx.lineTo(size,p);ctx.stroke()
+  }
+  ctx.globalAlpha=.20
+  ctx.strokeStyle='#d946ef';ctx.lineWidth=2
+  for(let p=8;p<size;p+=32){
+    ctx.beginPath();ctx.moveTo(0,p);ctx.lineTo(size,p);ctx.stroke()
+  }
+  const texture=new THREE.CanvasTexture(canvas)
+  texture.colorSpace=THREE.SRGBColorSpace;texture.wrapS=texture.wrapT=THREE.RepeatWrapping
+  texture.repeat.set(3,3);texture.anisotropy=4
+  return texture
+}
+
 function createSkyTexture() {
   const canvas=document.createElement('canvas');canvas.width=64;canvas.height=512
   const ctx=canvas.getContext('2d'),gradient=ctx.createLinearGradient(0,0,0,512)
@@ -3079,6 +3106,27 @@ function addBiomeGround(world,textures) {
     plane.rotation.x=-Math.PI/2;plane.position.set(cx,.002,cz)
     plane.userData.skipOcclusion=true;world.add(plane)
   }
+  const houseGroundTexture=createHouseGroundTexture()
+  const houseGroundMaterial=new THREE.MeshStandardMaterial({
+    map:houseGroundTexture,
+    color:'#dff7ff',
+    roughness:.58,
+    metalness:.18,
+    emissive:'#061521',
+    emissiveIntensity:.30,
+  })
+  const houseGroundW=CIPHER_HOUSE_BOUNDS.maxCol-CIPHER_HOUSE_BOUNDS.minCol-1
+  const houseGroundH=CIPHER_HOUSE_BOUNDS.maxRow-CIPHER_HOUSE_BOUNDS.minRow-1
+  const houseGround=new THREE.Mesh(new THREE.PlaneGeometry(houseGroundW,houseGroundH),houseGroundMaterial)
+  houseGround.rotation.x=-Math.PI/2
+  houseGround.position.set(
+    (CIPHER_HOUSE_BOUNDS.minCol+CIPHER_HOUSE_BOUNDS.maxCol+1)/2,
+    .011,
+    (CIPHER_HOUSE_BOUNDS.minRow+CIPHER_HOUSE_BOUNDS.maxRow+1)/2,
+  )
+  houseGround.renderOrder=1
+  houseGround.userData.skipOcclusion=true
+  world.add(houseGround)
   const routeMaterial=new THREE.MeshBasicMaterial({color:'#22d3ee',transparent:true,opacity:.18,depthWrite:false})
   const routeA=new THREE.Mesh(new THREE.PlaneGeometry(COLS,.42),routeMaterial)
   routeA.rotation.x=-Math.PI/2;routeA.position.set(COLS/2,.006,ROWS/2)
