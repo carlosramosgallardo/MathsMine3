@@ -37,7 +37,7 @@ const NODE_DICE_PRICE_MM3 = 500
 const NODE_DICE_MIN_LEVEL = 30
 const NODE_DICE_STORAGE_KEY = 'mm3_stormroll_node'
 const NODE_DICE_DURATION_MS = 24 * 60 * 60 * 1000
-const NODE_DICE_POSITION = Object.freeze({ row: 5, col: 5 })
+const NODE_DICE_POSITION = Object.freeze({ row: 5, col: 8 })
 
 function normalizeNodeDiceState(value) {
   const now = Date.now()
@@ -574,7 +574,9 @@ export default function MiningChain3D() {
       })
       // Portal navigation nodes in the outer area
       for (const node of PORTAL_NODES) {
-        map.set(`${node.row},${node.col}`, {
+        const key = `${node.row},${node.col}`
+        if (map.get(key)?.isNodeDiceNode) continue
+        map.set(key, {
           isPortalNode: true,
           isMarket: false,
           isMined: false,

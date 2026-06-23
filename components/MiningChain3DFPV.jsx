@@ -48,7 +48,7 @@ const FLOOR_GRID_RANGE = 12  // distant grid lines merge into unstable horizon b
 const RADAR_RANGE   = 18     // square local map using the same camera frustum
 const CHAIN_NODE_ROW = MINING_CHAIN_NODE_POSITION.row
 const CHAIN_NODE_COL = MINING_CHAIN_NODE_POSITION.col
-const NODE_DICE_POSITION = Object.freeze({ row: 5, col: 5 })
+const NODE_DICE_POSITION = Object.freeze({ row: 5, col: 8 })
 // Jump: a player can mount mining blocks, but structural walls stay impassable.
 const JUMP_VZ   = 5.7        // jump impulse (grid units / second)
 const GRAVITY_A = 13.5       // gravity (grid units / second²)
