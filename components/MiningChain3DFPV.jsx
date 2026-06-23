@@ -166,11 +166,15 @@ const CIPHER_HOUSE_WINDOWS = new Set([
 function makeCipherHouseEntries() {
   const entries=[]
   const doors=new Set(['3,5','3,6','13,9','13,10','6,3','7,3','9,13','10,13'])
-  const balconyDoorCells=new Set(['3,7','3,8'])
+  const balconyDoorCells=new Set(['3,7','3,8','10,3','11,3'])
   const add=(row,col,data={})=>entries.push([`${row},${col}`,{
     base:HOUSE_BLACK_RGB,glow:[103,232,249],kind:'hash',label:'CIPHER HOUSE',
     height:6.20,isStructure:true,isHouse:true,...data,
   }])
+  const addRail=(row,col,axis='x')=>add(row,col,{
+    base:HOUSE_BLACK_RGB,glow:[103,232,249],kind:'ledger',label:'CIPHER BALCONY RAIL',
+    bottom:5.80,height:6.45,isHouseRail:true,railAxis:axis,
+  })
   const {minRow,maxRow,minCol,maxCol}=CIPHER_HOUSE_BOUNDS
 
   for(let col=minCol;col<=maxCol;col++){
@@ -224,6 +228,20 @@ function makeCipherHouseEntries() {
       diceFace,
     })
   }
+  for(const [row,col] of [[10,3],[11,3],[10,2],[11,2],[12,2]]){
+    const diceFace=((Math.abs(row*17+col*31+(row^col)*7))%6)+1
+    add(row,col,{
+      base:HOUSE_BLUE_RGB,glow:[103,232,249],kind:'hash',
+      label:col===3?'CIPHER ROOF BALCONY THRESHOLD':'CIPHER ROOF CORNER BALCONY',
+      bottom:5.72,height:5.80,
+      isHouseFloor:true,isHouseBalcony:true,
+      diceFace,
+    })
+  }
+  for(const col of [7,8,9]) addRail(1,col,'x')
+  addRail(2,6,'z'); addRail(2,10,'z')
+  for(const row of [10,11,12]) addRail(row,1,'z')
+  addRail(9,2,'x'); addRail(13,2,'x')
   // Upper wall fill above each door opening (bottom=2.0 so players pass through at ground level)
   for(const key of doors){
     const [row,col]=key.split(',').map(Number)
@@ -3241,6 +3259,33 @@ function addCipherHouseDetails(world) {
   for(const [x,z,mat] of [[7.03,2.03,0],[9.97,2.03,1],[7.03,3.02,2],[9.97,3.02,0]]){
     addTrimBox(x,balconyPostY,z,.10,.58,.10,mat)
   }
+  addTrimBox(1.98,balconyRailY,11.5,.07,.08,3.05,0)
+  addTrimBox(2.52,balconyRailY,9.98,1.04,.08,.07,1)
+  addTrimBox(2.52,balconyRailY,13.02,1.04,.08,.07,2)
+  addTrimBox(3.02,5.74,10.5,.06,.05,2.00,1)
+  for(const [x,z,mat] of [[1.98,9.98,0],[1.98,13.02,1],[3.02,9.98,2],[3.02,13.02,0]]){
+    addTrimBox(x,balconyPostY,z,.10,.58,.10,mat)
+  }
+
+  const poolGroup=new THREE.Group()
+  poolGroup.position.set(6.35,5.836,10.75)
+  const poolWater=new THREE.Mesh(
+    new THREE.PlaneGeometry(2.55,1.55,12,8),
+    new THREE.MeshPhysicalMaterial({
+      color:'#22d3ee',emissive:'#0ea5e9',emissiveIntensity:.55,
+      transparent:true,opacity:.62,roughness:.04,metalness:.02,
+      clearcoat:1,clearcoatRoughness:.05,side:THREE.DoubleSide,
+    }),
+  )
+  poolWater.rotation.x=-Math.PI/2
+  poolGroup.add(poolWater)
+  const poolRimMat=new THREE.MeshBasicMaterial({color:'#a855f7',transparent:true,opacity:.82,depthWrite:false})
+  for(const [x,z,sx,sz] of [[0,-.84,2.72,.06],[0,.84,2.72,.06],[-1.36,0,.06,1.62],[1.36,0,.06,1.62]]){
+    const rim=new THREE.Mesh(new THREE.BoxGeometry(sx,.045,sz),poolRimMat)
+    rim.position.set(x,.026,z)
+    poolGroup.add(rim)
+  }
+  group.add(poolGroup)
 
   const diceTower=new THREE.Group()
   diceTower.position.set(NODE_DICE_POSITION.col+.5,0,NODE_DICE_POSITION.row+.5)
@@ -3687,7 +3732,8 @@ function rebuildThreeWorld(state,cellMap,obstacles) {
   }
   if(houseEntries.length){
     const houseGroups={
-      wall:houseEntries.filter(([,obstacle])=>!obstacle.isHouseFloor&&!obstacle.isHouseStair),
+      wall:houseEntries.filter(([,obstacle])=>!obstacle.isHouseFloor&&!obstacle.isHouseStair&&!obstacle.isHouseRail),
+      rail:houseEntries.filter(([,obstacle])=>obstacle.isHouseRail),
       floor:houseEntries.filter(([,obstacle])=>obstacle.isHouseFloor&&!obstacle.isHouseRoof),
       roof:houseEntries.filter(([,obstacle])=>obstacle.isHouseRoof),
       stair:houseEntries.filter(([,obstacle])=>obstacle.isHouseStair),
@@ -3720,6 +3766,21 @@ function rebuildThreeWorld(state,cellMap,obstacles) {
       })
       mesh.instanceMatrix.needsUpdate=true
       world.add(mesh)
+    }
+    if(houseGroups.rail.length){
+      const railMesh=new THREE.InstancedMesh(new THREE.BoxGeometry(1,1,1),new THREE.MeshStandardMaterial(roofMat),houseGroups.rail.length)
+      houseGroups.rail.forEach(([key,obstacle],index)=>{
+        const [row,col]=key.split(',').map(Number)
+        const bottom=obstacleBottom(obstacle)
+        const visualHeight=Math.max(.02,obstacleTop(obstacle)-bottom)
+        position.set(col+.5,bottom+visualHeight*.5,row+.5)
+        if(obstacle.railAxis==='z') scale.set(.16,visualHeight,.96)
+        else scale.set(.96,visualHeight,.16)
+        matrix.compose(position,quaternion,scale)
+        railMesh.setMatrixAt(index,matrix)
+      })
+      railMesh.instanceMatrix.needsUpdate=true
+      world.add(railMesh)
     }
     // Floor tiles: dark box base + horizontal dice plane overlay (MeshBasicMaterial = no lighting needed)
     const floorEntries=houseGroups.floor
