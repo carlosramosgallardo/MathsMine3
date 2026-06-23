@@ -126,7 +126,6 @@ export default function LandingHero() {
           {/* CTA */}
           <Link href="/mining" className="mm3-splash-cta">
             {es ? 'ENTRAR AL MUNDO 3D' : 'ENTER THE 3D MINE'}
-            <span className="mm3-splash-arrow">→</span>
           </Link>
 
           {/* disclaimer */}

@@ -198,7 +198,6 @@ function makeCipherHouseEntries() {
       const key=`${row},${col}`
       const isRoof=level===floorLevels[floorLevels.length-1]
       if(stairKeys.has(key)) continue
-      if(key===`${NODE_DICE_POSITION.row},${NODE_DICE_POSITION.col}`) continue
       const diceFace=((Math.abs(row*17+col*31+(row^col)*7))%6)+1
       add(row,col,{
         base:isRoof?W_SLATE:W_DARK,
@@ -3198,6 +3197,28 @@ function addCipherHouseDetails(world) {
     addTrimBox(x,3.10,z,.07,6.20,.07,mat)
   }
 
+  const groundMat=new THREE.MeshBasicMaterial({
+    color:'#22d3ee',transparent:true,opacity:.28,depthWrite:false,side:THREE.DoubleSide,
+  })
+  const groundLineMat=new THREE.MeshBasicMaterial({
+    color:'#a5f3fc',transparent:true,opacity:.30,depthWrite:false,
+  })
+  const groundQuat=new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1,0,0),-Math.PI/2)
+  for(let row=minRow+1;row<maxRow;row++) for(let col=minCol+1;col<maxCol;col++){
+    const plate=new THREE.Mesh(new THREE.PlaneGeometry(.88,.88),groundMat)
+    plate.position.set(col+.5,.018,row+.5)
+    plate.quaternion.copy(groundQuat)
+    plate.renderOrder=2
+    group.add(plate)
+    if((row+col)%2===0){
+      const line=new THREE.Mesh(new THREE.RingGeometry(.24,.30,24),groundLineMat)
+      line.position.set(col+.5,.021,row+.5)
+      line.quaternion.copy(groundQuat)
+      line.renderOrder=3
+      group.add(line)
+    }
+  }
+
   const diceTower=new THREE.Group()
   diceTower.position.set(NODE_DICE_POSITION.col+.5,0,NODE_DICE_POSITION.row+.5)
   const mastMat=new THREE.MeshStandardMaterial({
@@ -4322,7 +4343,7 @@ export default function MiningChain3DFPV({
       const [r,c]=key.split(',').map(Number)
       reserved.add(key)
       const approaches=[[1,0],[-1,0],[0,1],[0,-1]]
-      if(cell.isPortalNode||cell.isChainNode||cell.isMarket){
+      if(cell.isPortalNode||cell.isNodeDiceNode||cell.isChainNode||cell.isMarket){
         for(const [dr,dc] of approaches) reserved.add(`${r+dr},${c+dc}`)
       }else{
         const raw=String(cell.blockHex||gridToBlockHex(r,c)||'').replace('#','')
@@ -6394,6 +6415,20 @@ export default function MiningChain3DFPV({
       if(ndDist<=INTERACT_DIST){
         const ndCell=cellMapRef.current?.get(`${ndPos.row},${ndPos.col}`)
         if(ndCell?.isNodeDiceNode){fmx=ndPos.col;fmy=ndPos.row;fc=ndCell;fcDist=ndDist}
+      }
+      // Proximity override for navigation portals. DDA can miss the portal when
+      // the player stands on its floor cell or aims slightly above the low node.
+      let nearestPortal=null
+      for(const [key,cell] of cellMapRef.current || []){
+        if(!cell?.isPortalNode) continue
+        const [pr,pc]=key.split(',').map(Number)
+        const dist=myDead?Infinity:Math.hypot(p.x/CELL_SIZE-(pc+.5),p.y/CELL_SIZE-(pr+.5))
+        if(dist<=INTERACT_DIST&&(!nearestPortal||dist<nearestPortal.dist)){
+          nearestPortal={row:pr,col:pc,cell,dist}
+        }
+      }
+      if(nearestPortal && nearestPortal.dist <= fcDist + .08){
+        fmx=nearestPortal.col;fmy=nearestPortal.row;fc=nearestPortal.cell;fcDist=nearestPortal.dist
       }
       const newKey=`${fmy},${fmx}`
       facingDataRef.current={mx:fmx,my:fmy,cell:fc,dist:fcDist}

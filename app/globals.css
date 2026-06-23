@@ -1036,9 +1036,14 @@ footer.bg-black\/97,
   bottom: calc(100% + 2px);
   width: calc(100% + 13px);
   height: 10px;
-  background: linear-gradient(90deg, rgba(167,243,252,.52), rgba(34,211,238,.28));
+  background:
+    linear-gradient(90deg, transparent 0%, rgba(255,255,255,.56) 42%, transparent 76%),
+    linear-gradient(90deg, rgba(167,243,252,.52), rgba(34,211,238,.28));
+  background-size: 180% 100%, 100% 100%;
+  background-position: 140% 0, 0 0;
   clip-path: polygon(0 100%, 9px 0, 100% 0, calc(100% - 9px) 100%);
   border-top: 1px solid rgba(167,243,252,.80);
+  transition: background-position .32s ease;
 }
 /* right side face */
 .mm3-splash-cta::after {
@@ -1055,6 +1060,9 @@ footer.bg-black\/97,
   transform: translate(-2px,-2px);
   box-shadow: 0 0 42px -2px rgba(34,211,238,.40), inset 0 0 22px -5px rgba(34,211,238,.20);
   border-top-color: rgba(167,243,252,1);
+}
+.mm3-splash-cta:hover::before {
+  background-position: -45% 0, 0 0;
 }
 @keyframes mm3-cta-pulse {
   0%,100% { box-shadow: 0 0 28px -2px rgba(34,211,238,.22), inset 0 0 18px -6px rgba(34,211,238,.14); }
@@ -1407,7 +1415,7 @@ footer.bg-black\/97,
   flex: 1;
 }
 .mm3-home .mm3-portal {
-  flex: 1;
+  flex: 0 0 auto;
   display: flex;
   flex-direction: column;
   justify-content: flex-start;
@@ -1810,7 +1818,7 @@ footer.bg-black\/97,
 }
 .mm3-home .mm3-portal {
   position: relative;
-  padding-top: 1.5rem;
+  padding: 1.15rem 1.2rem .75rem;
   background:
     linear-gradient(rgba(34,211,238,.035) 1px,transparent 1px),
     linear-gradient(90deg,rgba(34,211,238,.035) 1px,transparent 1px),
@@ -1828,7 +1836,7 @@ footer.bg-black\/97,
 .mm3-home .mm3-portal-card {
   overflow: visible;
   justify-content: flex-start;
-  min-height: 82px;
+  min-height: 72px;
   background:
     linear-gradient(180deg,rgba(255,255,255,.025),transparent 45%),
     color-mix(in srgb,var(--ac,#22d3ee) 5%,#020811);
@@ -1841,7 +1849,7 @@ footer.bg-black\/97,
   place-items: center;
   width: 38px;
   height: 32px;
-  margin: -1.05rem 0 .22rem;
+  margin: -.88rem 0 .16rem;
   border: 1px solid color-mix(in srgb,var(--ac,#22d3ee) 68%,white);
   background:
     linear-gradient(145deg,color-mix(in srgb,var(--ac,#22d3ee) 28%,#0b1b28),color-mix(in srgb,var(--ac,#22d3ee) 7%,#02070e));
@@ -1889,13 +1897,14 @@ footer.bg-black\/97,
   .mm3-home-arena-floor { height:100px; }
   .mm3-home-chain3d { width:90px; height:190px; bottom:-6px; }
   .mm3-home-bot3d { width:90px; height:90px; }
+  .mm3-home .mm3-portal { padding: .85rem .55rem .55rem; }
 }
 @media (max-width:480px) {
   .mm3-home .mm3-splash-body { grid-template-columns:56% 44%; }
   .mm3-home-arena { width:205px; height:130px; margin-left:-8px; }
   .mm3-home-chain3d { width:78px; height:165px; }
   .mm3-home-bot3d { width:78px; height:78px; }
-  .mm3-home .mm3-portal-card { min-height:55px; }
+  .mm3-home .mm3-portal-card { min-height:50px; }
   .mm3-portal-block { width:25px; height:22px; margin:-.68rem 0 .08rem; box-shadow:2px 3px 0 color-mix(in srgb,var(--ac,#22d3ee) 12%,#010205); }
   .mm3-portal-block::before { width:32px; height:6px; }
   .mm3-portal-block::after { top:-7px; width:5px; height:30px; }
@@ -1907,7 +1916,8 @@ footer.bg-black\/97,
   .mm3-home-arena-floor { height:82px; }
   .mm3-home-sword-scene { top:0; transform:scale(.52); transform-origin:top left; }
   .mm3-home-arena-bot { bottom:4px; transform:scale(.48); }
-  .mm3-home .mm3-portal-card { min-height:42px; }
+  .mm3-home .mm3-portal { padding: .6rem .55rem .32rem; }
+  .mm3-home .mm3-portal-card { min-height:38px; }
   .mm3-portal-block { width:24px; height:18px; margin:-.58rem 0 0; }
   .mm3-portal-block::before { width:31px; height:5px; }
   .mm3-portal-block::after { top:-6px; width:5px; height:25px; }
@@ -1916,7 +1926,7 @@ footer.bg-black\/97,
   .mm3-home .mm3-splash { flex:none; }
   .mm3-home-arena { height:175px; }
   .mm3-home .mm3-splash-body { min-height:130px; padding:.3rem 0; }
-  .mm3-home .mm3-portal-card { min-height:55px; }
+  .mm3-home .mm3-portal-card { min-height:50px; }
 }
 @media (prefers-reduced-motion:reduce) {
   .mm3-home-arena { filter:none; }
