@@ -123,6 +123,14 @@ const HOUSE_ACCESS_DECKS = [
   ...[[7,7],[7,6],[7,5],[7,4],[7,3],[7,9],[6,9],[5,9],[4,9],[4,10],[3,10]].map(([row,col])=>({row,col,level:4.64})),
   // Roof.
   ...[[5,7],[4,7],[3,7],[5,8],[4,8],[3,8],[5,6],[5,5],[5,4],[5,3],[5,2],[6,2],[6,1],[7,1],[8,1],[9,1],[10,1],[10,2],[10,3],[11,3]].map(([row,col])=>({row,col,level:5.80})),
+  // Pool deck ring: keeps the roof approach continuous and walkable.
+  ...[
+    [8,3],[8,4],[8,5],[8,6],[8,7],[8,8],[8,9],[8,10],
+    [9,2],[10,2],[11,2],[12,2],
+    [9,10],[10,10],[11,10],[12,10],
+    [13,3],[13,4],[13,5],[13,6],[13,7],[13,8],[13,9],[13,10],
+    [14,5],[14,6],[14,7],
+  ].map(([row,col])=>({row,col,level:5.80})),
 ]
 const HOUSE_STAIR_KEYS = new Set(HOUSE_STAIR_CELLS.map(([row,col])=>`${row},${col}`))
 const HOUSE_MAIN_FLOOR_HOLES = new Set(HOUSE_ACCESS_DECKS
@@ -3447,12 +3455,30 @@ function addCipherHouseDetails(world) {
     mesh.position.set(x,y,z)
     group.add(mesh)
   }
-  const addLifeTile=(x,y,z,scale=.46)=>{
-    const sprite=makeEmojiSprite('❤️','#ef4444','square')
-    sprite.position.set(x,y,z)
-    sprite.scale.set(scale,scale,1)
-    sprite.renderOrder=18
-    group.add(sprite)
+  const tileMaterials={
+    life:new THREE.MeshBasicMaterial({
+      map:makeRecoveryTileTexture(),
+      transparent:true,
+      opacity:.96,
+      depthWrite:false,
+      side:THREE.DoubleSide,
+    }),
+    dice:new THREE.MeshBasicMaterial({
+      map:makeDiceFaceTexture(5),
+      transparent:true,
+      opacity:.94,
+      depthWrite:false,
+      side:THREE.DoubleSide,
+    }),
+  }
+  const addTilePlane=(kind,x,y,z,size=.54,orientation='floor')=>{
+    const plate=new THREE.Mesh(new THREE.PlaneGeometry(size,size),tileMaterials[kind])
+    plate.position.set(x,y,z)
+    if(orientation==='floor') plate.rotation.x=-Math.PI/2
+    else if(orientation==='east') plate.rotation.y=Math.PI/2
+    else if(orientation==='west') plate.rotation.y=-Math.PI/2
+    plate.renderOrder=18
+    group.add(plate)
   }
   const {minRow,maxRow,minCol,maxCol}=CIPHER_HOUSE_BOUNDS
   ;[1.16,2.32,3.48,4.64,5.80,6.20].forEach((y,index)=>{
@@ -3489,10 +3515,18 @@ function addCipherHouseDetails(world) {
   ]){
     addTrimBox(x,y,z,sx,sy,sz,mat)
   }
-  addLifeTile(HOUSE_POOL_CENTER_X-1.15,HOUSE_POOL_DECK_LEVEL+.20,HOUSE_POOL_CENTER_Z-2.24,.50)
-  addLifeTile(HOUSE_POOL_CENTER_X+1.15,HOUSE_POOL_DECK_LEVEL+.20,HOUSE_POOL_CENTER_Z-2.24,.50)
-  addLifeTile(6.5,HOUSE_MAIN_FLOOR_LEVEL+.20,5.5,.42)
-  addLifeTile(10.5,4.64+.20,4.5,.38)
+  for(const [kind,x,y,z,size,orientation] of [
+    ['life',HOUSE_POOL_CENTER_X-1.15,HOUSE_POOL_WALL_TOP+.054,HOUSE_POOL_CENTER_Z-2.23,.50,'floor'],
+    ['life',HOUSE_POOL_CENTER_X+1.15,HOUSE_POOL_WALL_TOP+.054,HOUSE_POOL_CENTER_Z-2.23,.50,'floor'],
+    ['life',6.5,HOUSE_MAIN_FLOOR_LEVEL+.091,5.5,.46,'floor'],
+    ['life',10.5,4.64+.091,4.5,.42,'floor'],
+    ['life',12.982,3.20,9.6,.48,'west'],
+    ['dice',5.5,HOUSE_MAIN_FLOOR_LEVEL+.092,8.5,.46,'floor'],
+    ['dice',8.5,5.80+.092,13.5,.44,'floor'],
+    ['dice',3.018,4.88,7.4,.42,'east'],
+  ]){
+    addTilePlane(kind,x,y,z,size,orientation)
+  }
 
   const diceFloorMaterials=[1,2,3,4,5,6].map(face=>new THREE.MeshBasicMaterial({
     map:makeDiceFaceTexture(face),transparent:true,opacity:1,depthWrite:false,side:THREE.DoubleSide,
@@ -3509,6 +3543,18 @@ function addCipherHouseDetails(world) {
     [5,13,2.32,false],[6,13,2.32,false],[13,7,2.32,true],[13,8,2.32,true],
   ]){
     addTrimBox(col+.5,level+.055,row+.5,horizontal ? .82 : .16,.055,horizontal ? .16 : .82,1)
+  }
+  const stairTreadMat=new THREE.MeshStandardMaterial({
+    color:'#061521',emissive:'#22d3ee',emissiveIntensity:.22,roughness:.32,metalness:.42,
+  })
+  for(let i=0;i<HOUSE_STAIR_CELLS.length;i++){
+    const [row,col,height]=HOUSE_STAIR_CELLS[i]
+    const tread=new THREE.Mesh(new THREE.BoxGeometry(.82,.035,.82),stairTreadMat)
+    tread.position.set(col+.5,height+.032,row+.5)
+    group.add(tread)
+    const horizontal=i===0||HOUSE_STAIR_CELLS[i-1][0]!==row
+    addTrimBox(col+.5,height+.065,row+.5,horizontal ? .76 : .14,.035,horizontal ? .14 : .76,1)
+    addTrimBox(col+.5,height+.18,row+.5,horizontal ? .86 : .08,.20,horizontal ? .08 : .86,0)
   }
 
   const poolGroup=new THREE.Group()
@@ -3959,6 +4005,45 @@ function makeDiceFaceTexture(face) {
   ctx.shadowColor=dot
   ctx.shadowBlur=18
   for(const [x,y] of dots){ctx.beginPath();ctx.arc(x*s,y*s,r,0,Math.PI*2);ctx.fill()}
+  const texture=new THREE.CanvasTexture(cv)
+  texture.colorSpace=THREE.SRGBColorSpace
+  texture.anisotropy=8
+  return texture
+}
+
+function makeRecoveryTileTexture() {
+  const s=256,cv=document.createElement('canvas')
+  cv.width=s;cv.height=s
+  const ctx=cv.getContext('2d')
+  const gradient=ctx.createLinearGradient(0,0,s,s)
+  gradient.addColorStop(0,'#07111f')
+  gradient.addColorStop(.48,'#991b1b')
+  gradient.addColorStop(1,'#020817')
+  ctx.fillStyle=gradient
+  ctx.fillRect(0,0,s,s)
+  ctx.strokeStyle='rgba(248,113,113,0.42)'
+  ctx.lineWidth=2
+  for(let i=32;i<s;i+=32){
+    ctx.beginPath();ctx.moveTo(i,14);ctx.lineTo(i,s-14);ctx.stroke()
+    ctx.beginPath();ctx.moveTo(14,i);ctx.lineTo(s-14,i);ctx.stroke()
+  }
+  ctx.strokeStyle='#fecaca'
+  ctx.lineWidth=5
+  ctx.strokeRect(11,11,s-22,s-22)
+  ctx.strokeStyle='#22d3ee'
+  ctx.lineWidth=3
+  ctx.strokeRect(24,24,s-48,s-48)
+  ctx.font='bold 118px system-ui, "Apple Color Emoji", "Segoe UI Emoji", sans-serif'
+  ctx.textAlign='center'
+  ctx.textBaseline='middle'
+  ctx.shadowColor='#fca5a5'
+  ctx.shadowBlur=20
+  ctx.fillStyle='#fecaca'
+  ctx.fillText('♥',s/2,s/2+4)
+  ctx.shadowBlur=0
+  ctx.font='bold 24px monospace'
+  ctx.fillStyle='#67e8f9'
+  ctx.fillText('+HP',s/2,208)
   const texture=new THREE.CanvasTexture(cv)
   texture.colorSpace=THREE.SRGBColorSpace
   texture.anisotropy=8
