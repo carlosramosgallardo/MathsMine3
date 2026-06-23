@@ -239,24 +239,30 @@ function makeCipherHouseEntries() {
   ;[[3,7],[3,8],[2,7],[2,8],[2,9]].forEach(([row,col])=>addDeck(row,col,5.80,row===3?'CIPHER BALCONY THRESHOLD':'CIPHER CORNER BALCONY'))
   ;[[10,3],[11,3],[10,2],[11,2],[12,2]].forEach(([row,col])=>addDeck(row,col,5.80,col===3?'CIPHER ROOF BALCONY THRESHOLD':'CIPHER ROOF CORNER BALCONY'))
   for(const col of [7,8,9]) addRail(1,col,'x',5.80)
+  addRail(1,6,'x',5.80); addRail(1,10,'x',5.80)
   addRail(2,6,'z',5.80); addRail(2,10,'z',5.80)
   for(const row of [10,11,12]) addRail(row,1,'z',5.80)
+  addRail(9,1,'x',5.80); addRail(13,1,'x',5.80)
   addRail(9,2,'x',5.80); addRail(13,2,'x',5.80)
 
   // Floor 4 balconies.
   ;[[3,10],[3,11],[2,10],[2,11]].forEach(([row,col])=>addDeck(row,col,4.64,row===3?'CIPHER FLOOR 4 BALCONY DOOR':'CIPHER FLOOR 4 BALCONY'))
   ;[[7,3],[8,3],[7,2],[8,2]].forEach(([row,col])=>addDeck(row,col,4.64,col===3?'CIPHER FLOOR 4 BALCONY DOOR':'CIPHER FLOOR 4 BALCONY'))
   for(const col of [10,11]) addRail(1,col,'x',4.64)
+  addRail(1,9,'x',4.64); addRail(1,12,'x',4.64)
   addRail(2,9,'z',4.64); addRail(2,12,'z',4.64)
   for(const row of [7,8]) addRail(row,1,'z',4.64)
+  addRail(6,1,'x',4.64); addRail(9,1,'x',4.64)
   addRail(6,2,'x',4.64); addRail(9,2,'x',4.64)
 
   // Floor 2 terraces.
   ;[[5,13],[6,13],[5,14],[6,14],[5,15],[6,15]].forEach(([row,col])=>addDeck(row,col,2.32,col===13?'CIPHER FLOOR 2 TERRACE DOOR':'CIPHER FLOOR 2 TERRACE'))
   ;[[13,7],[13,8],[14,7],[14,8],[15,7],[15,8]].forEach(([row,col])=>addDeck(row,col,2.32,row===13?'CIPHER FLOOR 2 TERRACE DOOR':'CIPHER FLOOR 2 TERRACE'))
   for(const row of [5,6]) addRail(row,16,'z',2.32)
+  addRail(4,16,'x',2.32); addRail(7,16,'x',2.32)
   for(const col of [14,15]){ addRail(4,col,'x',2.32); addRail(7,col,'x',2.32) }
   for(const col of [7,8]) addRail(16,col,'x',2.32)
+  addRail(16,6,'x',2.32); addRail(16,9,'x',2.32)
   for(const row of [14,15]){ addRail(row,6,'z',2.32); addRail(row,9,'z',2.32) }
   // Upper wall fill above each door opening (bottom=2.0 so players pass through at ground level)
   for(const key of doors){
@@ -3280,6 +3286,21 @@ function addCipherHouseDetails(world) {
     dice.quaternion.copy(groundQuat)
     dice.renderOrder=3
     group.add(dice)
+  }
+  for(const level of HOUSE_FLOOR_LEVELS.filter(level=>level<5.80)){
+    for(let row=minRow+1;row<maxRow;row++) for(let col=minCol+1;col<maxCol;col++){
+      const face=(Math.abs(row*17+col*31+(row^col)*7+Math.round(level*100))%6)
+      const plate=new THREE.Mesh(new THREE.PlaneGeometry(.98,.98),groundMat)
+      plate.position.set(col+.5,level+.002,row+.5)
+      plate.quaternion.copy(groundQuat)
+      plate.renderOrder=2
+      group.add(plate)
+      const dice=new THREE.Mesh(new THREE.PlaneGeometry(.99,.99),diceFloorMaterials[face])
+      dice.position.set(col+.5,level+.014,row+.5)
+      dice.quaternion.copy(groundQuat)
+      dice.renderOrder=3
+      group.add(dice)
+    }
   }
 
   const poolGroup=new THREE.Group()
