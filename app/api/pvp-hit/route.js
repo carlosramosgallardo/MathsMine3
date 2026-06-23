@@ -10,6 +10,20 @@ function serviceClient() {
   )
 }
 
+const HOUSE_POOL_CENTER_X = 6.35
+const HOUSE_POOL_CENTER_Z = 10.75
+const HOUSE_POOL_SAFE_ZONE = Object.freeze({
+  minX: HOUSE_POOL_CENTER_X - 2.25,
+  maxX: HOUSE_POOL_CENTER_X + 2.25,
+  minY: HOUSE_POOL_CENTER_Z - 1.38,
+  maxY: HOUSE_POOL_CENTER_Z + 1.38,
+})
+
+function isInHousePoolSafeZone(gx, gy) {
+  return gx > HOUSE_POOL_SAFE_ZONE.minX && gx < HOUSE_POOL_SAFE_ZONE.maxX &&
+    gy > HOUSE_POOL_SAFE_ZONE.minY && gy < HOUSE_POOL_SAFE_ZONE.maxY
+}
+
 export async function GET(req) {
   const wallet = new URL(req.url).searchParams.get('wallet')?.toLowerCase().trim()
   if (!wallet) return Response.json({ ok: false, error: 'missing_wallet' }, { status: 400 })
@@ -25,6 +39,8 @@ export async function POST(req) {
   const attacker = String(body.attacker || '').toLowerCase().trim()
   const victim = String(body.victim || '').toLowerCase().trim()
   const hitZone = body.hitZone === 'head' ? 'head' : 'body'
+  const victimGx = Number(body.victimGx)
+  const victimGy = Number(body.victimGy)
   const victimIsAnon = victim.startsWith('anon-')
   const attackerIsAnon = attacker.startsWith('anon-')
   if (!attacker || !victim || attacker === victim) {
@@ -32,6 +48,9 @@ export async function POST(req) {
   }
   if (attackerIsAnon && !victimIsAnon) {
     return Response.json({ ok: false, error: 'anon_cannot_attack' }, { status: 403 })
+  }
+  if (Number.isFinite(victimGx) && Number.isFinite(victimGy) && isInHousePoolSafeZone(victimGx, victimGy)) {
+    return Response.json({ ok: true, immune: true, damage: 0, health: 100, killed: false })
   }
 
   const sb = serviceClient()

@@ -38,6 +38,17 @@ const NODE_DICE_MIN_LEVEL = 30
 const NODE_DICE_STORAGE_KEY = 'mm3_stormroll_node'
 const NODE_DICE_DURATION_MS = 24 * 60 * 60 * 1000
 const NODE_DICE_POSITION = Object.freeze({ row: 5, col: 8 })
+const HOUSE_POOL_SAFE_ZONE = Object.freeze({
+  minX: 6.35 - 2.25,
+  maxX: 6.35 + 2.25,
+  minY: 10.75 - 1.38,
+  maxY: 10.75 + 1.38,
+})
+
+function isInHousePoolSafeZone(gx, gy) {
+  return gx > HOUSE_POOL_SAFE_ZONE.minX && gx < HOUSE_POOL_SAFE_ZONE.maxX &&
+    gy > HOUSE_POOL_SAFE_ZONE.minY && gy < HOUSE_POOL_SAFE_ZONE.maxY
+}
 
 function normalizeNodeDiceState(value) {
   const now = Date.now()
@@ -187,6 +198,7 @@ export default function MiningChain3D() {
   const [healthMap,     setHealthMap]     = useState({})
   const healthRequestedRef = useRef(new Set())
   const healthMapRef       = useRef({})
+  const lastPoolHealAtRef  = useRef(0)
   // Death / respawn state — ms timestamp (null = alive)
   const [myDeadUntil,   setMyDeadUntil]   = useState(null)
   const [myDeadPos,     setMyDeadPos]     = useState(null)
@@ -270,6 +282,20 @@ export default function MiningChain3D() {
     return next
   }, [])
 
+  const syncNodeDiceFromServer = useCallback(async (broadcast = true) => {
+    const response = await fetch('/api/node-dice', { cache: 'no-store' }).then(r => r.json()).catch(() => null)
+    const active = normalizeNodeDiceState(response?.nodeDice)
+    if (!active) return null
+    nodeDiceRef.current = active
+    setNodeDiceState(active)
+    try { localStorage.setItem(NODE_DICE_STORAGE_KEY, JSON.stringify(active)) } catch {}
+    if (broadcast) {
+      lastBroadcastNodeDiceRef.current = active
+      channelRef.current?.send({ type: 'broadcast', event: 'node-dice', payload: active })?.catch(() => {})
+    }
+    return active
+  }, [])
+
   useEffect(() => {
     let restored = null
     try { restored = normalizeNodeDiceState(JSON.parse(localStorage.getItem(NODE_DICE_STORAGE_KEY) || 'null')) } catch {}
@@ -278,15 +304,49 @@ export default function MiningChain3D() {
       setNodeDiceState(restored)
       refreshNodeDiceMode(restored, false)
     }
+    syncNodeDiceFromServer(false).catch(() => {})
     const id = setInterval(() => refreshNodeDiceMode(nodeDiceRef.current, true), 1000)
-    return () => clearInterval(id)
-  }, [refreshNodeDiceMode])
+    const serverId = setInterval(() => syncNodeDiceFromServer(false).catch(() => {}), 60_000)
+    return () => { clearInterval(id); clearInterval(serverId) }
+  }, [refreshNodeDiceMode, syncNodeDiceFromServer])
 
   useEffect(() => {
     nodeDiceRef.current = normalizeNodeDiceState(nodeDiceState)
   }, [nodeDiceState])
 
   useEffect(() => { healthMapRef.current = healthMap }, [healthMap])
+
+  useEffect(() => {
+    const id = setInterval(() => {
+      const key = myKeyRef.current
+      if (!key) return
+      if (myDeadUntilRef.current && myDeadUntilRef.current > Date.now()) return
+      const pos = myPosRef.current || {}
+      const gx = Number.isFinite(Number(pos.gx)) ? Number(pos.gx) : Number(pos.col) + .5
+      const gy = Number.isFinite(Number(pos.gy)) ? Number(pos.gy) : Number(pos.row) + .5
+      if (!isInHousePoolSafeZone(gx, gy)) return
+      const now = Date.now()
+      if (now - lastPoolHealAtRef.current < 5 * 60 * 1000) return
+      lastPoolHealAtRef.current = now
+      if (key.startsWith('anon-')) {
+        const next = Math.min(100, Number(healthMapRef.current[key] ?? 100) + 10)
+        setHealthMap(prev => ({ ...prev, [key]: next }))
+        channelRef.current?.send({ type: 'broadcast', event: 'pvp-result', payload: { victim: key, health: next, killed: false, healed: true } })?.catch(() => {})
+        return
+      }
+      fetch('/api/pool-heal', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ wallet: key }),
+      }).then(r => r.json()).then(result => {
+        if (!result?.ok) return
+        const next = Number(result.health ?? 100)
+        setHealthMap(prev => ({ ...prev, [key]: next }))
+        channelRef.current?.send({ type: 'broadcast', event: 'pvp-result', payload: { victim: key, health: next, killed: false, healed: true } })?.catch(() => {})
+      }).catch(() => {})
+    }, 10_000)
+    return () => clearInterval(id)
+  }, [])
 
   const loadNodeDiceWalletStats = useCallback(async () => {
     const wallet = myWalletRef.current
@@ -332,15 +392,25 @@ export default function MiningChain3D() {
       setNodeDiceError(es ? 'MM3 insuficiente.' : 'Not enough MM3.')
       return
     }
-    const now = Date.now()
-    const next = {
-      wallet,
-      startedAt: now,
-      expiresAt: now + NODE_DICE_DURATION_MS,
-      mode: Math.random() < .5 ? 'meteo' : 'war',
-      hourStart: 0,
-      warPercent: 0,
-      naturePercent: 0,
+    const response = await fetch('/api/node-dice', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ wallet }),
+    }).then(r => r.json()).catch(() => null)
+    if (!response?.ok) {
+      setNodeDiceError(
+        response?.error === 'min_level'
+          ? (es ? `Nivel mínimo ${NODE_DICE_MIN_LEVEL}.` : `Minimum level ${NODE_DICE_MIN_LEVEL}.`)
+          : response?.error === 'not_enough_mm3'
+            ? (es ? 'MM3 insuficiente.' : 'Not enough MM3.')
+            : (es ? 'No se pudo activar StormRoll.' : 'Could not activate StormRoll.')
+      )
+      return
+    }
+    const next = normalizeNodeDiceState(response.nodeDice)
+    if (!next) {
+      setNodeDiceError(es ? 'StormRoll no devolvió estado activo.' : 'StormRoll did not return active state.')
+      return
     }
     nodeDiceRef.current = next
     setNodeDiceState(next)
@@ -418,6 +488,10 @@ export default function MiningChain3D() {
       if (myDeadUntilRef.current && myDeadUntilRef.current > Date.now()) return
       const key = myKeyRef.current
       if (!key) return
+      const pos = myPosRef.current || {}
+      const safeGx = Number.isFinite(Number(pos.gx)) ? Number(pos.gx) : Number(pos.col) + .5
+      const safeGy = Number.isFinite(Number(pos.gy)) ? Number(pos.gy) : Number(pos.row) + .5
+      if (isInHousePoolSafeZone(safeGx, safeGy)) return
       const mode = nd.mode
       if (key.startsWith('anon-')) {
         const current = healthMapRef.current[key] ?? 100
@@ -430,9 +504,10 @@ export default function MiningChain3D() {
         fetch('/api/stormroll-damage', {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ wallet: key, mode }),
+          body: JSON.stringify({ wallet: key, mode, gx: safeGx, gy: safeGy }),
         }).then(r => r.json()).then(result => {
           if (!result?.ok) return
+          if (result.immune) return
           const newHP = Number(result.health ?? 100)
           setHealthMap(prev => ({ ...prev, [key]: newHP }))
           setReceivedHitAt(Date.now())
@@ -1064,12 +1139,21 @@ export default function MiningChain3D() {
   }, [])
 
   const handlePvpHit = useCallback(async ({ attacker, victim, victimIsAnon, hitZone }) => {
+    const victimPos = positions[victim]
+    const victimGx = Number(victimPos?.gx)
+    const victimGy = Number(victimPos?.gy)
+    if (Number.isFinite(victimGx) && Number.isFinite(victimGy) && isInHousePoolSafeZone(victimGx, victimGy)) {
+      const currentHealth = Number(healthMapRef.current[victim] ?? 100)
+      setHealthMap(prev => ({ ...prev, [victim]: currentHealth }))
+      return { ok: true, immune: true, damage: 0, health: currentHealth, killed: false }
+    }
     const response = await fetch('/api/pvp-hit', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ attacker, victim, victimIsAnon, hitZone }),
+      body: JSON.stringify({ attacker, victim, victimIsAnon, hitZone, victimGx, victimGy }),
     }).then(r => r.json()).catch(() => null)
     if (!response?.ok) return response
+    if (response.immune) return response
     setHealthMap(prev => ({ ...prev, [victim]: Number(response.health ?? 100) }))
     channelRef.current?.send({
       type: 'broadcast', event: 'pvp-result',
@@ -1084,7 +1168,7 @@ export default function MiningChain3D() {
       window.dispatchEvent(new CustomEvent('mm3-db-updated', { detail: { pvp: true, wallet: attacker } }))
     }
     return response
-  }, [])
+  }, [positions])
 
   // Load PvP stolen amounts (refreshed every 60s for online player list)
   const loadPvpStolen = useCallback(async () => {
@@ -1176,6 +1260,7 @@ export default function MiningChain3D() {
     const myW = myKeyRef.current || myWalletRef.current
     if (!myW) return
     const row = Math.floor(gy), col = Math.floor(gx)
+    myPosRef.current = { ...myPosRef.current, gx, gy, row, col, z: Number(avatar.z) || 0 }
     const nextPosition = {
       gx, gy, row, col,
       z: Number(avatar.z) || 0,

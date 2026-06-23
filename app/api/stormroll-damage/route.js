@@ -19,6 +19,31 @@ function isDiceWindowActive(now = Date.now()) {
   return now >= startMs && now < endMs
 }
 
+function getDiceHourStart(now = Date.now()) {
+  return Math.floor(now / 3_600_000) * 3_600_000
+}
+
+function nodeModeFor(wallet, hourStart) {
+  const seed = `${String(wallet || '').toLowerCase()}:${Number(hourStart) || 0}`
+  let hash = 0
+  for (let i = 0; i < seed.length; i += 1) hash = ((hash << 5) - hash + seed.charCodeAt(i)) | 0
+  return Math.abs(hash) % 2 === 0 ? 'meteo' : 'war'
+}
+
+const HOUSE_POOL_CENTER_X = 6.35
+const HOUSE_POOL_CENTER_Z = 10.75
+const HOUSE_POOL_INNER = Object.freeze({
+  minX: HOUSE_POOL_CENTER_X - 2.25,
+  maxX: HOUSE_POOL_CENTER_X + 2.25,
+  minZ: HOUSE_POOL_CENTER_Z - 1.38,
+  maxZ: HOUSE_POOL_CENTER_Z + 1.38,
+})
+
+function isInPoolSafeZone(gx, gy) {
+  return gx > HOUSE_POOL_INNER.minX && gx < HOUSE_POOL_INNER.maxX &&
+    gy > HOUSE_POOL_INNER.minZ && gy < HOUSE_POOL_INNER.maxZ
+}
+
 function serviceClient() {
   return createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -34,12 +59,17 @@ export async function POST(req) {
   }
 
   const wallet = String(body.wallet || '').toLowerCase().trim()
-  const mode   = body.mode === 'war' ? 'war' : 'meteo'
+  const gx = Number(body.gx)
+  const gy = Number(body.gy)
 
   if (!wallet) return Response.json({ ok: false, error: 'missing_wallet' }, { status: 400 })
 
   if (!isDiceWindowActive()) {
     return Response.json({ ok: false, error: 'dice_not_active' }, { status: 409 })
+  }
+
+  if (Number.isFinite(gx) && Number.isFinite(gy) && isInPoolSafeZone(gx, gy)) {
+    return Response.json({ ok: true, immune: true, health: null, killed: false, damage: 0 })
   }
 
   // Anon wallets have no server-side HP — client handles locally
@@ -50,9 +80,18 @@ export async function POST(req) {
   const sb = serviceClient()
 
   const [{ data: macro }, { data: hData }] = await Promise.all([
-    sb.from('mm3_macro_state').select('war_percent, nature_percent').eq('id', 1).maybeSingle(),
+    sb.from('mm3_macro_state')
+      .select('war_percent, nature_percent, node_dice_wallet, node_dice_expires_at')
+      .eq('id', 1)
+      .maybeSingle(),
     sb.from('mm3_pvp_health').select('health, pvp_dead_until').eq('wallet', wallet).maybeSingle(),
   ])
+
+  const nodeWallet = String(macro?.node_dice_wallet || '').toLowerCase()
+  const nodeExpires = macro?.node_dice_expires_at ? new Date(macro.node_dice_expires_at).getTime() : 0
+  if (!nodeWallet || !nodeExpires || nodeExpires <= Date.now()) {
+    return Response.json({ ok: false, error: 'node_dice_not_active' }, { status: 409 })
+  }
 
   if (hData?.pvp_dead_until && new Date(hData.pvp_dead_until) > new Date()) {
     return Response.json({ ok: false, error: 'already_dead' }, { status: 409 })
@@ -60,6 +99,7 @@ export async function POST(req) {
 
   const warPercent    = Number(macro?.war_percent)    || 0
   const naturePercent = Number(macro?.nature_percent) || 0
+  const mode          = nodeModeFor(nodeWallet, getDiceHourStart())
   const damage        = mode === 'war' ? warPercent : naturePercent
   const currentHP     = Number(hData?.health ?? 100)
   const newHP         = Math.max(0, currentHP - damage)

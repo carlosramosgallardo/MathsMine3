@@ -85,23 +85,23 @@ const HOUSE_POOL_DECK_LEVEL = 5.836
 const HOUSE_POOL_FLOOR_LEVEL = HOUSE_POOL_DECK_LEVEL - .82
 const HOUSE_POOL_WATER_LEVEL = HOUSE_POOL_DECK_LEVEL - .14
 const HOUSE_POOL_INNER = Object.freeze({
-  minX: HOUSE_POOL_CENTER_X - 1.62,
-  maxX: HOUSE_POOL_CENTER_X + 1.62,
-  minZ: HOUSE_POOL_CENTER_Z - .98,
-  maxZ: HOUSE_POOL_CENTER_Z + .98,
+  minX: HOUSE_POOL_CENTER_X - 2.25,
+  maxX: HOUSE_POOL_CENTER_X + 2.25,
+  minZ: HOUSE_POOL_CENTER_Z - 1.38,
+  maxZ: HOUSE_POOL_CENTER_Z + 1.38,
 })
 const HOUSE_POOL_OUTER = Object.freeze({
-  minX: HOUSE_POOL_CENTER_X - 1.86,
-  maxX: HOUSE_POOL_CENTER_X + 1.86,
-  minZ: HOUSE_POOL_CENTER_Z - 1.22,
-  maxZ: HOUSE_POOL_CENTER_Z + 1.22,
+  minX: HOUSE_POOL_CENTER_X - 2.55,
+  maxX: HOUSE_POOL_CENTER_X + 2.55,
+  minZ: HOUSE_POOL_CENTER_Z - 1.68,
+  maxZ: HOUSE_POOL_CENTER_Z + 1.68,
 })
 const HOUSE_POOL_WALL_TOP = HOUSE_POOL_DECK_LEVEL + .18
 const HOUSE_DIVING_BOARD = Object.freeze({
   minX: HOUSE_POOL_CENTER_X - .22,
   maxX: HOUSE_POOL_CENTER_X + .22,
-  minZ: HOUSE_POOL_CENTER_Z + .62,
-  maxZ: HOUSE_POOL_CENTER_Z + 2.43,
+  minZ: HOUSE_POOL_CENTER_Z + 1.02,
+  maxZ: HOUSE_POOL_CENTER_Z + 2.83,
   bottom: HOUSE_POOL_DECK_LEVEL + .382,
   top: HOUSE_POOL_DECK_LEVEL + .458,
 })
@@ -3497,13 +3497,13 @@ function addCipherHouseDetails(world) {
   const poolGroup=new THREE.Group()
   poolGroup.position.set(HOUSE_POOL_CENTER_X,HOUSE_POOL_DECK_LEVEL,HOUSE_POOL_CENTER_Z)
   const poolShellMat=new THREE.MeshStandardMaterial({
-    color:'#0f2741',emissive:'#082f49',emissiveIntensity:.62,roughness:.42,metalness:.28,
+    color:'#020817',emissive:'#020817',emissiveIntensity:.78,roughness:.46,metalness:.38,
   })
   const poolTileMat=new THREE.MeshStandardMaterial({
-    color:'#8ddcff',emissive:'#0e7490',emissiveIntensity:.42,roughness:.30,metalness:.18,
+    color:'#07111f',emissive:'#082f49',emissiveIntensity:.72,roughness:.34,metalness:.34,
   })
   const poolLineMat=new THREE.MeshBasicMaterial({
-    color:'#e0faff',transparent:true,opacity:.50,depthWrite:false,
+    color:'#67e8f9',transparent:true,opacity:.46,depthWrite:false,
   })
   const poolInnerW=HOUSE_POOL_INNER.maxX-HOUSE_POOL_INNER.minX
   const poolInnerD=HOUSE_POOL_INNER.maxZ-HOUSE_POOL_INNER.minZ
@@ -3518,6 +3518,17 @@ function addCipherHouseDetails(world) {
   const solidSwimFloor=new THREE.Mesh(new THREE.BoxGeometry(poolInnerW,.035,poolInnerD),poolTileMat)
   solidSwimFloor.position.y=(HOUSE_POOL_FLOOR_LEVEL-HOUSE_POOL_DECK_LEVEL)-.0175
   poolGroup.add(solidSwimFloor)
+  const poolDiceQuat=new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1,0,0),-Math.PI/2)
+  const poolDiceY=HOUSE_POOL_FLOOR_LEVEL-HOUSE_POOL_DECK_LEVEL+.010
+  const diceCols=5,diceRows=3,diceStepX=poolInnerW/(diceCols+.2),diceStepZ=poolInnerD/(diceRows+.2)
+  for(let dz=0;dz<diceRows;dz++) for(let dx=0;dx<diceCols;dx++){
+    const face=(Math.abs((dx+1)*17+(dz+1)*31+Math.round(HOUSE_POOL_CENTER_X*10))%6)
+    const dice=new THREE.Mesh(new THREE.PlaneGeometry(.56,.56),diceFloorMaterials[face])
+    dice.position.set((dx-(diceCols-1)/2)*diceStepX,poolDiceY,(dz-(diceRows-1)/2)*diceStepZ)
+    dice.quaternion.copy(poolDiceQuat)
+    dice.renderOrder=5
+    poolGroup.add(dice)
+  }
   for(const x of [-poolInnerW*.25,0,poolInnerW*.25]){
     const lane=new THREE.Mesh(new THREE.BoxGeometry(.035,.012,poolInnerD-.26),poolLineMat)
     lane.position.set(x,HOUSE_POOL_FLOOR_LEVEL-HOUSE_POOL_DECK_LEVEL+.003,0)
@@ -3546,8 +3557,8 @@ function addCipherHouseDetails(world) {
   const poolWater=new THREE.Mesh(
     new THREE.PlaneGeometry(poolInnerW-.08,poolInnerD-.08,18,12),
     new THREE.MeshPhysicalMaterial({
-      color:'#22d3ee',emissive:'#0ea5e9',emissiveIntensity:.55,
-      transparent:true,opacity:.70,roughness:.025,metalness:.02,
+      color:'#07111f',emissive:'#0ea5e9',emissiveIntensity:.45,
+      transparent:true,opacity:.52,roughness:.025,metalness:.08,
       clearcoat:1,clearcoatRoughness:.05,side:THREE.DoubleSide,
     }),
   )

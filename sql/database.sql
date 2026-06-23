@@ -315,7 +315,7 @@ CREATE TABLE mm3_sell_transactions (
 CREATE TABLE mm3_mining_events (
   id BIGSERIAL PRIMARY KEY,
   wallet TEXT NOT NULL,
-  event_type TEXT NOT NULL CHECK (event_type IN ('life_continue', 'nftji_claim', 'mining_buy', 'mining_resell', 'nftji_level_up')),
+  event_type TEXT NOT NULL CHECK (event_type IN ('life_continue', 'nftji_claim', 'mining_buy', 'mining_resell', 'nftji_level_up', 'node_stormroll')),
   delta_mm3 NUMERIC NOT NULL DEFAULT 0,
   emoji TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -330,6 +330,13 @@ CREATE TABLE mm3_macro_state (
   ticker_message_es TEXT NOT NULL DEFAULT '## BIENVENIDO A MATHSMINE3 ## RESUELVE RAPIDO, MINA MM3 Y ALIMENTA EL MAINFRAME RETRO ##',
   chain_demine_active BOOLEAN NOT NULL DEFAULT FALSE,
   chain_demine_hits_remaining INTEGER NOT NULL DEFAULT 100,
+  node_dice_wallet TEXT,
+  node_dice_started_at TIMESTAMPTZ,
+  node_dice_expires_at TIMESTAMPTZ,
+  node_dice_mode TEXT CHECK (node_dice_mode IS NULL OR node_dice_mode IN ('war', 'meteo')),
+  node_dice_hour_start BIGINT NOT NULL DEFAULT 0,
+  node_dice_war_percent NUMERIC NOT NULL DEFAULT 0 CHECK (node_dice_war_percent >= 0 AND node_dice_war_percent <= 100),
+  node_dice_nature_percent NUMERIC NOT NULL DEFAULT 0 CHECK (node_dice_nature_percent >= 0 AND node_dice_nature_percent <= 100),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
@@ -1632,7 +1639,7 @@ DROP POLICY IF EXISTS "public_read_mm3_mining_events" ON mm3_mining_events;
 CREATE POLICY "public_read_mm3_mining_events" ON mm3_mining_events FOR SELECT TO public USING (true);
 
 DROP POLICY IF EXISTS "public_insert_mm3_mining_events" ON mm3_mining_events;
-CREATE POLICY "public_insert_mm3_mining_events" ON mm3_mining_events FOR INSERT TO public WITH CHECK (event_type IN ('life_continue', 'nftji_claim', 'mining_buy', 'mining_resell'));
+CREATE POLICY "public_insert_mm3_mining_events" ON mm3_mining_events FOR INSERT TO public WITH CHECK (event_type IN ('life_continue', 'nftji_claim', 'mining_buy', 'mining_resell', 'nftji_level_up', 'node_stormroll'));
 
 -- API Requests policies
 DROP POLICY IF EXISTS "public_read_api_requests" ON api_requests;
