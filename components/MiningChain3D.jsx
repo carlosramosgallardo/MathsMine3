@@ -150,6 +150,8 @@ export default function MiningChain3D() {
   const myPosRef       = useRef(initialPos)
   const myKeyRef       = useRef(null)     // presence key (wallet or 'anon-XXXX')
   const lastDbPosSaveRef = useRef(0)      // throttle DB position saves
+  // Tracks last node-dice state we broadcast — null means "no dice"; only send when changed
+  const lastBroadcastNodeDiceRef = useRef(null)
 
   // Keep refs current each render
   myWalletRef.current = myWallet
@@ -221,7 +223,11 @@ export default function MiningChain3D() {
       nodeDiceRef.current = null
       setNodeDiceState(null)
       try { localStorage.removeItem(NODE_DICE_STORAGE_KEY) } catch {}
-      if (broadcast) channelRef.current?.send({ type: 'broadcast', event: 'node-dice', payload: null })?.catch(() => {})
+      // Only broadcast null once (when transitioning from active → null, not every interval tick)
+      if (broadcast && lastBroadcastNodeDiceRef.current !== null) {
+        lastBroadcastNodeDiceRef.current = null
+        channelRef.current?.send({ type: 'broadcast', event: 'node-dice', payload: null })?.catch(() => {})
+      }
       return null
     }
     const dice = getDiceState()
@@ -254,11 +260,12 @@ export default function MiningChain3D() {
     setNodeDiceState(next)
     try { localStorage.setItem(NODE_DICE_STORAGE_KEY, JSON.stringify(next)) } catch {}
     if (broadcast) {
-      channelRef.current?.send({
-        type: 'broadcast',
-        event: 'node-dice',
-        payload: next,
-      })?.catch(() => {})
+      // Only broadcast when hourStart, mode or wallet actually changed
+      const prev = lastBroadcastNodeDiceRef.current
+      if (!prev || prev.hourStart !== next.hourStart || prev.mode !== next.mode || prev.wallet !== next.wallet) {
+        lastBroadcastNodeDiceRef.current = next
+        channelRef.current?.send({ type: 'broadcast', event: 'node-dice', payload: next })?.catch(() => {})
+      }
     }
     return next
   }, [])
@@ -340,6 +347,7 @@ export default function MiningChain3D() {
     setNodeDicePanelOpen(false)
     setNodeDiceError('')
     try { localStorage.setItem(NODE_DICE_STORAGE_KEY, JSON.stringify(next)) } catch {}
+    lastBroadcastNodeDiceRef.current = next
     channelRef.current?.send({ type: 'broadcast', event: 'node-dice', payload: next })?.catch(() => {})
     refreshNodeDiceMode(next, true)
   }, [es, loadNodeDiceWalletStats, refreshNodeDiceMode])

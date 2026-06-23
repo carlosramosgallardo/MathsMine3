@@ -6336,9 +6336,8 @@ export default function MiningChain3DFPV({
           || Math.abs(nextState.angle-prev.angle)>0.03
           || Math.abs(nextState.pitch-prev.pitch)>0.03
           || nextState.swingAt!==prev.swingAt
-        // Two network updates/sec are enough because remote avatars interpolate
-        // every rendered frame. Idle heartbeats are deliberately infrequent.
-        if(now-lastRealtimeRef.current>500&&(changed||now-(prev?.sentAt||0)>15000)){
+        // ~1.25 network updates/sec — avatars interpolate every frame; idle heartbeat at 15s.
+        if(now-lastRealtimeRef.current>800&&(changed||now-(prev?.sentAt||0)>15000)){
           lastRealtimeRef.current=now
           lastSentStateRef.current={...nextState,sentAt:now}
           onPositionRealtimeRef.current?.(nextState.gx,nextState.gy,nextState)

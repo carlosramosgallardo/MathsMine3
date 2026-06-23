@@ -607,9 +607,9 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
 
     const channel = supabase
       .channel('mm3-mining-live')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'mm3_mining_blocks' }, refresh)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'mm3_mined_blocks' }, refresh)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'mm3_command_penalties' }, refresh)
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'mm3_mining_blocks' }, refresh)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'mm3_mined_blocks' }, refresh)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'mm3_command_penalties' }, refresh)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'mm3_game_winner' }, (payload) => {
         if (payload.new) setGameWinner(payload.new);
       })
