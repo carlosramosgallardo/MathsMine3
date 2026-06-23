@@ -1177,8 +1177,8 @@ footer.bg-black\/97,
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: .22rem;
-  padding: .62rem .55rem .58rem;
+  gap: .14rem;
+  padding: .54rem .48rem .44rem;
   text-decoration: none;
   overflow: hidden;
   z-index: 1;
@@ -1274,13 +1274,15 @@ footer.bg-black\/97,
 .mm3-portal-desc {
   display: none;
   position: relative; z-index: 1;
-  color: rgba(148,197,220,.52);
-  font: .57rem/1.4 monospace;
+  color: rgba(148,197,220,.46);
+  font: .44rem/1.2 monospace;
   text-align: center;
+  max-height: 2.6em;
+  overflow: hidden;
 }
 /* show desc on desktop hover only */
 @media (hover:hover) and (min-width:540px) {
-  .mm3-portal-desc { display: block; opacity: 0; transform: translateY(4px); transition: opacity .16s, transform .16s; }
+  .mm3-portal-desc { display: block; opacity: 0; transform: translateY(3px); transition: opacity .14s, transform .14s; }
   .mm3-portal-card:hover .mm3-portal-desc { opacity: 1; transform: translateY(0); }
 }
 
@@ -1836,7 +1838,7 @@ footer.bg-black\/97,
 .mm3-home .mm3-portal-card {
   overflow: visible;
   justify-content: flex-start;
-  min-height: 72px;
+  min-height: 58px;
   background:
     linear-gradient(180deg,rgba(255,255,255,.025),transparent 45%),
     color-mix(in srgb,var(--ac,#22d3ee) 5%,#020811);
