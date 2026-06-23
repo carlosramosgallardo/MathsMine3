@@ -166,15 +166,31 @@ const CIPHER_HOUSE_WINDOWS = new Set([
 function makeCipherHouseEntries() {
   const entries=[]
   const doors=new Set(['3,5','3,6','13,9','13,10','6,3','7,3','9,13','10,13'])
-  const balconyDoorCells=new Set(['3,7','3,8','10,3','11,3'])
+  const balconyDoorCells=new Set([
+    '3,7','3,8',
+    '10,3','11,3',
+    '5,13','6,13',
+    '13,7','13,8',
+    '3,10','3,11',
+    '7,3','8,3',
+  ])
   const add=(row,col,data={})=>entries.push([`${row},${col}`,{
     base:HOUSE_BLACK_RGB,glow:[103,232,249],kind:'hash',label:'CIPHER HOUSE',
     height:6.20,isStructure:true,isHouse:true,...data,
   }])
-  const addRail=(row,col,axis='x')=>add(row,col,{
+  const addRail=(row,col,axis='x',level=5.80)=>add(row,col,{
     base:HOUSE_BLACK_RGB,glow:[103,232,249],kind:'ledger',label:'CIPHER BALCONY RAIL',
-    bottom:5.80,height:6.45,isHouseRail:true,railAxis:axis,
+    bottom:level,height:level+.65,isHouseRail:true,railAxis:axis,
   })
+  const addDeck=(row,col,level,label='CIPHER BALCONY')=>{
+    const diceFace=((Math.abs(row*17+col*31+(row^col)*7))%6)+1
+    add(row,col,{
+      base:HOUSE_BLUE_RGB,glow:[103,232,249],kind:'hash',label,
+      bottom:level-.08,height:level,
+      isHouseFloor:true,isHouseBalcony:true,
+      diceFace,
+    })
+  }
   const {minRow,maxRow,minCol,maxCol}=CIPHER_HOUSE_BOUNDS
 
   for(let col=minCol;col<=maxCol;col++){
@@ -186,7 +202,7 @@ function makeCipherHouseEntries() {
   for(let row=minRow+1;row<maxRow;row++){
     for(const col of [minCol,maxCol]){
       const key=`${row},${col}`
-      if(!doors.has(key)) add(row,col,CIPHER_HOUSE_WINDOWS.has(key)?{isHouseWindow:true}:{})
+      if(!doors.has(key)&&!balconyDoorCells.has(key)) add(row,col,CIPHER_HOUSE_WINDOWS.has(key)?{isHouseWindow:true}:{})
     }
   }
 
@@ -218,30 +234,29 @@ function makeCipherHouseEntries() {
       })
     }
   }
-  for(const [row,col] of [[3,7],[3,8],[2,7],[2,8],[2,9]]){
-    const diceFace=((Math.abs(row*17+col*31+(row^col)*7))%6)+1
-    add(row,col,{
-      base:HOUSE_BLUE_RGB,glow:[103,232,249],kind:'hash',
-      label:row===3?'CIPHER BALCONY THRESHOLD':'CIPHER CORNER BALCONY',
-      bottom:5.72,height:5.80,
-      isHouseFloor:true,isHouseBalcony:true,
-      diceFace,
-    })
-  }
-  for(const [row,col] of [[10,3],[11,3],[10,2],[11,2],[12,2]]){
-    const diceFace=((Math.abs(row*17+col*31+(row^col)*7))%6)+1
-    add(row,col,{
-      base:HOUSE_BLUE_RGB,glow:[103,232,249],kind:'hash',
-      label:col===3?'CIPHER ROOF BALCONY THRESHOLD':'CIPHER ROOF CORNER BALCONY',
-      bottom:5.72,height:5.80,
-      isHouseFloor:true,isHouseBalcony:true,
-      diceFace,
-    })
-  }
-  for(const col of [7,8,9]) addRail(1,col,'x')
-  addRail(2,6,'z'); addRail(2,10,'z')
-  for(const row of [10,11,12]) addRail(row,1,'z')
-  addRail(9,2,'x'); addRail(13,2,'x')
+  // Roof balconies.
+  ;[[3,7],[3,8],[2,7],[2,8],[2,9]].forEach(([row,col])=>addDeck(row,col,5.80,row===3?'CIPHER BALCONY THRESHOLD':'CIPHER CORNER BALCONY'))
+  ;[[10,3],[11,3],[10,2],[11,2],[12,2]].forEach(([row,col])=>addDeck(row,col,5.80,col===3?'CIPHER ROOF BALCONY THRESHOLD':'CIPHER ROOF CORNER BALCONY'))
+  for(const col of [7,8,9]) addRail(1,col,'x',5.80)
+  addRail(2,6,'z',5.80); addRail(2,10,'z',5.80)
+  for(const row of [10,11,12]) addRail(row,1,'z',5.80)
+  addRail(9,2,'x',5.80); addRail(13,2,'x',5.80)
+
+  // Floor 4 balconies.
+  ;[[3,10],[3,11],[2,10],[2,11]].forEach(([row,col])=>addDeck(row,col,4.64,row===3?'CIPHER FLOOR 4 BALCONY DOOR':'CIPHER FLOOR 4 BALCONY'))
+  ;[[7,3],[8,3],[7,2],[8,2]].forEach(([row,col])=>addDeck(row,col,4.64,col===3?'CIPHER FLOOR 4 BALCONY DOOR':'CIPHER FLOOR 4 BALCONY'))
+  for(const col of [10,11]) addRail(1,col,'x',4.64)
+  addRail(2,9,'z',4.64); addRail(2,12,'z',4.64)
+  for(const row of [7,8]) addRail(row,1,'z',4.64)
+  addRail(6,2,'x',4.64); addRail(9,2,'x',4.64)
+
+  // Floor 2 terraces.
+  ;[[5,13],[6,13],[5,14],[6,14],[5,15],[6,15]].forEach(([row,col])=>addDeck(row,col,2.32,col===13?'CIPHER FLOOR 2 TERRACE DOOR':'CIPHER FLOOR 2 TERRACE'))
+  ;[[13,7],[13,8],[14,7],[14,8],[15,7],[15,8]].forEach(([row,col])=>addDeck(row,col,2.32,row===13?'CIPHER FLOOR 2 TERRACE DOOR':'CIPHER FLOOR 2 TERRACE'))
+  for(const row of [5,6]) addRail(row,16,'z',2.32)
+  for(const col of [14,15]){ addRail(4,col,'x',2.32); addRail(7,col,'x',2.32) }
+  for(const col of [7,8]) addRail(16,col,'x',2.32)
+  for(const row of [14,15]){ addRail(row,6,'z',2.32); addRail(row,9,'z',2.32) }
   // Upper wall fill above each door opening (bottom=2.0 so players pass through at ground level)
   for(const key of doors){
     const [row,col]=key.split(',').map(Number)
@@ -3248,23 +3263,6 @@ function addCipherHouseDetails(world) {
     dice.quaternion.copy(groundQuat)
     dice.renderOrder=3
     group.add(dice)
-  }
-
-  const balconyRailY=5.98
-  const balconyPostY=5.98
-  addTrimBox(8.5,balconyRailY,2.03,3.05,.08,.07,0)
-  addTrimBox(7.03,balconyRailY,2.52,.07,.08,.98,1)
-  addTrimBox(9.97,balconyRailY,2.52,.07,.08,.98,2)
-  addTrimBox(8.5,5.74,3.02,2.00,.05,.06,1)
-  for(const [x,z,mat] of [[7.03,2.03,0],[9.97,2.03,1],[7.03,3.02,2],[9.97,3.02,0]]){
-    addTrimBox(x,balconyPostY,z,.10,.58,.10,mat)
-  }
-  addTrimBox(1.98,balconyRailY,11.5,.07,.08,3.05,0)
-  addTrimBox(2.52,balconyRailY,9.98,1.04,.08,.07,1)
-  addTrimBox(2.52,balconyRailY,13.02,1.04,.08,.07,2)
-  addTrimBox(3.02,5.74,10.5,.06,.05,2.00,1)
-  for(const [x,z,mat] of [[1.98,9.98,0],[1.98,13.02,1],[3.02,9.98,2],[3.02,13.02,0]]){
-    addTrimBox(x,balconyPostY,z,.10,.58,.10,mat)
   }
 
   const poolGroup=new THREE.Group()
