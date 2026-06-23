@@ -3654,33 +3654,47 @@ function rebuildThreeWorld(state,cellMap,obstacles) {
       mesh.instanceMatrix.needsUpdate=true
       world.add(mesh)
     }
-    // Floor tiles: 6 InstancedMeshes with dice face canvas textures
-    const diceTextures=[1,2,3,4,5,6].map(f=>makeDiceFaceTexture(f))
-    const floorByFace=[[],[],[],[],[],[]]
-    for(const entry of houseGroups.floor){
-      const face=Number(entry[1].diceFace)||1
-      floorByFace[face-1].push(entry)
-    }
-    floorByFace.forEach((entries,fi)=>{
-      if(!entries.length) return
-      const mat=new THREE.MeshStandardMaterial({
-        map:diceTextures[fi],roughness:.58,metalness:.34,
-        emissive:'#073744',emissiveIntensity:.52,
-      })
-      const mesh=new THREE.InstancedMesh(new THREE.BoxGeometry(1,1,1),mat,entries.length)
-      entries.forEach(([key,obstacle],index)=>{
+    // Floor tiles: dark box base + horizontal dice plane overlay (MeshBasicMaterial = no lighting needed)
+    const floorEntries=houseGroups.floor
+    if(floorEntries.length){
+      const floorBoxMat=new THREE.MeshStandardMaterial({color:'#0f6678',roughness:.58,metalness:.34,emissive:'#073744',emissiveIntensity:.52})
+      const floorBoxMesh=new THREE.InstancedMesh(new THREE.BoxGeometry(1,1,1),floorBoxMat,floorEntries.length)
+      floorEntries.forEach(([key,obstacle],index)=>{
         const [row,col]=key.split(',').map(Number)
         const bottom=obstacleBottom(obstacle)
-        const visualTop=Number(obstacle.visualHeight)||obstacleTop(obstacle)
-        const visualHeight=Math.max(.02,visualTop-bottom)
-        position.set(col+.5,bottom+visualHeight*.5,row+.5)
-        scale.set(0.92,visualHeight,0.92)
+        const top=obstacleTop(obstacle)
+        const vh=Math.max(.02,top-bottom)
+        position.set(col+.5,bottom+vh*.5,row+.5)
+        scale.set(0.92,vh,0.92)
         matrix.compose(position,quaternion,scale)
-        mesh.setMatrixAt(index,matrix)
+        floorBoxMesh.setMatrixAt(index,matrix)
       })
-      mesh.instanceMatrix.needsUpdate=true
-      world.add(mesh)
-    })
+      floorBoxMesh.instanceMatrix.needsUpdate=true
+      world.add(floorBoxMesh)
+
+      const diceTextures=[1,2,3,4,5,6].map(f=>makeDiceFaceTexture(f))
+      const floorByFace=[[],[],[],[],[],[]]
+      for(const entry of floorEntries){
+        const face=Math.max(1,Math.min(6,Number(entry[1].diceFace)||1))
+        floorByFace[face-1].push(entry)
+      }
+      const planeQuat=new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1,0,0),-Math.PI/2)
+      const planeScale=new THREE.Vector3(1,1,1)
+      floorByFace.forEach((entries,fi)=>{
+        if(!entries.length) return
+        const planeMat=new THREE.MeshBasicMaterial({map:diceTextures[fi],transparent:true,depthWrite:false,opacity:.95})
+        const planeMesh=new THREE.InstancedMesh(new THREE.PlaneGeometry(.85,.85),planeMat,entries.length)
+        planeMesh.renderOrder=1
+        entries.forEach(([key,obstacle],idx)=>{
+          const [row,col]=key.split(',').map(Number)
+          position.set(col+.5,obstacleTop(obstacle)+.003,row+.5)
+          matrix.compose(position,planeQuat,planeScale)
+          planeMesh.setMatrixAt(idx,matrix)
+        })
+        planeMesh.instanceMatrix.needsUpdate=true
+        world.add(planeMesh)
+      })
+    }
   }
   for(const [biome,entries] of Object.entries(boxGroups)){
     if(!entries.length) continue
@@ -6373,6 +6387,13 @@ export default function MiningChain3DFPV({
       if(cnDist<=CHAIN_INTERACT_DIST){
         const cnCell=cellMapRef.current?.get(`${cnPos.row},${cnPos.col}`)
         fmx=cnPos.col;fmy=cnPos.row;fc=cnCell;fcDist=cnDist
+      }
+      // Proximity override for StormRoll node — same pattern as chain node above
+      const ndPos=NODE_DICE_POSITION
+      const ndDist=myDead?Infinity:Math.hypot(p.x/CELL_SIZE-(ndPos.col+.5),p.y/CELL_SIZE-(ndPos.row+.5))
+      if(ndDist<=INTERACT_DIST){
+        const ndCell=cellMapRef.current?.get(`${ndPos.row},${ndPos.col}`)
+        if(ndCell?.isNodeDiceNode){fmx=ndPos.col;fmy=ndPos.row;fc=ndCell;fcDist=ndDist}
       }
       const newKey=`${fmy},${fmx}`
       facingDataRef.current={mx:fmx,my:fmy,cell:fc,dist:fcDist}
