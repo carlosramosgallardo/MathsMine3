@@ -1634,6 +1634,11 @@ function poolFloorSupportAt(gx, gy, playerZ, radius = PLAYER_R * .82) {
   return playerZ >= HOUSE_POOL_FLOOR_LEVEL - .50 ? HOUSE_POOL_FLOOR_LEVEL : 0
 }
 
+function isInsideHousePool(gx, gy, radius = PLAYER_R * .35) {
+  return gx > HOUSE_POOL_INNER.minX + radius && gx < HOUSE_POOL_INNER.maxX - radius &&
+    gy > HOUSE_POOL_INNER.minZ + radius && gy < HOUSE_POOL_INNER.maxZ - radius
+}
+
 function poolWallBounds() {
   return [
     { minX: HOUSE_POOL_OUTER.minX, maxX: HOUSE_POOL_ENTRY.minX, minZ: HOUSE_POOL_OUTER.minZ, maxZ: HOUSE_POOL_INNER.minZ },
@@ -4486,10 +4491,92 @@ function createThreeWalletAvatar(wallet) {
   const plugCollar=new THREE.Mesh(new THREE.BoxGeometry(.17,.055,.11),magentaMat);plugCollar.position.y=-.13;plug.add(plugCollar)
   tool.add(plug)
   avatar.add(tool)
+  const healEffect=createHealingRechargeEffect()
+  healEffect.visible=false
+  avatar.add(healEffect)
   avatar.userData.tool=tool
   avatar.userData.leftFoot=footL
   avatar.userData.rightFoot=footR
+  avatar.userData.healEffect=healEffect
   return avatar
+}
+
+function createHealingRechargeEffect() {
+  const effect=new THREE.Group()
+  effect.userData.healingRechargeEffect=true
+  const auraMat=new THREE.MeshBasicMaterial({
+    color:'#67e8f9',
+    transparent:true,
+    opacity:.52,
+    depthWrite:false,
+    blending:THREE.AdditiveBlending,
+  })
+  const coreMat=new THREE.MeshBasicMaterial({
+    color:'#fecaca',
+    transparent:true,
+    opacity:.72,
+    depthWrite:false,
+    blending:THREE.AdditiveBlending,
+  })
+  const ringA=new THREE.Mesh(new THREE.TorusGeometry(.42,.014,8,44),auraMat.clone())
+  ringA.rotation.x=Math.PI/2
+  ringA.position.y=.16
+  const ringB=new THREE.Mesh(new THREE.TorusGeometry(.31,.011,8,36),coreMat.clone())
+  ringB.rotation.x=Math.PI/2
+  ringB.position.y=.74
+  effect.add(ringA,ringB)
+  effect.userData.ringA=ringA
+  effect.userData.ringB=ringB
+  effect.userData.pulses=[]
+  for(let i=0;i<6;i++){
+    const plus=new THREE.Group()
+    const barA=new THREE.Mesh(new THREE.BoxGeometry(.105,.022,.018),coreMat.clone())
+    const barB=new THREE.Mesh(new THREE.BoxGeometry(.022,.105,.018),coreMat.clone())
+    plus.add(barA,barB)
+    plus.userData.phase=i/6*Math.PI*2
+    plus.userData.radius=.25+(i%2)*.09
+    plus.userData.speed=.9+(i%3)*.18
+    effect.userData.pulses.push(plus)
+    effect.add(plus)
+  }
+  const glow=new THREE.PointLight('#ef4444',.85,1.4,2.2)
+  glow.position.y=.48
+  effect.userData.glow=glow
+  effect.add(glow)
+  return effect
+}
+
+function setAvatarHealingRecharge(avatar, active) {
+  const effect=avatar?.userData?.healEffect
+  if(!effect) return
+  effect.visible=Boolean(active)
+  avatar.userData.isHealingRecharge=Boolean(active)
+}
+
+function updateHealingRechargeEffects(state,time) {
+  if(!state) return
+  const avatars=[...state.avatars.values()]
+  if(state.localAvatar) avatars.push(state.localAvatar)
+  for(const avatar of avatars){
+    const effect=avatar.userData.healEffect
+    if(!effect?.visible) continue
+    const scale=1+Math.sin(time*4.2)*.08
+    effect.userData.ringA.rotation.z=time*1.7
+    effect.userData.ringB.rotation.z=-time*2.15
+    effect.userData.ringA.scale.setScalar(scale)
+    effect.userData.ringB.scale.setScalar(1+(scale-1)*.65)
+    effect.userData.glow.intensity=.65+(Math.sin(time*5.4)*.5+.5)*.55
+    for(const plus of effect.userData.pulses){
+      const phase=time*plus.userData.speed+plus.userData.phase
+      const bob=(phase/(Math.PI*2))%1
+      const angle=phase*1.25
+      const radius=plus.userData.radius
+      plus.position.set(Math.cos(angle)*radius,.20+bob*.76,Math.sin(angle)*radius)
+      plus.rotation.y=-avatar.rotation.y
+      plus.scale.setScalar(.72+(1-bob)*.34)
+      plus.children.forEach(mesh=>{ mesh.material.opacity=.18+(1-bob)*.62 })
+    }
+  }
 }
 
 function syncThreeAvatars(state,presence,myIdentity) {
@@ -4506,8 +4593,11 @@ function syncThreeAvatars(state,presence,myIdentity) {
       state.avatars.set(wallet,avatar);state.scene.add(avatar)
     }
     const baseZ=Number(data.z)||0
-    avatar.position.set(Number(data.gx??((data.col??0)+.5)),baseZ,Number(data.gy??((data.row??0)+.5)))
+    const gx=Number(data.gx??((data.col??0)+.5))
+    const gy=Number(data.gy??((data.row??0)+.5))
+    avatar.position.set(gx,baseZ,gy)
     avatar.rotation.y=-(Number(data.angle)||0)-Math.PI/2
+    setAvatarHealingRecharge(avatar,!data.isDead&&isInsideHousePool(gx,gy))
     // Track whether depthTest changed so we only traverse when needed
     const wasDead=avatar.userData.wasDead||false
     if(data.isDead){
@@ -4636,6 +4726,7 @@ function syncThreeLocalAvatar(state,identity,swingT,walkDist,gx,gy,playerZ,headi
     state.scene.add(state.localAvatar)
   }
   state.localAvatar.rotation.y=-heading-Math.PI/2
+  setAvatarHealingRecharge(state.localAvatar,!isDead&&isInsideHousePool(gx,gy))
   // Scale is set by syncThreeAvatars LOD system (same formula as remote avatars)
   if(isDead){
     state.localAvatar.position.set(gx,playerZ+0.14,gy)
@@ -5384,6 +5475,7 @@ export default function MiningChain3DFPV({
         const localSwingT=localSwingAge<SWING_DUR?localSwingAge/SWING_DUR:0
         // Local avatar lives in the main 3D scene — sync position before render
         syncThreeLocalAvatar(threeState,myIdentity,localSwingT,walkDistRef.current,gx,gy,rawZ,angle,localDead)
+        updateHealingRechargeEffects(threeState,time)
         updateAvatarOccluders(threeState)
         threeState.renderer.render(threeState.scene,threeState.camera)
         // No separate HUD avatar pass: local player is now a scene object
