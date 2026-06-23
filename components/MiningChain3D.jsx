@@ -184,6 +184,7 @@ export default function MiningChain3D() {
   const [presenceKey,   setPresenceKey]   = useState(myWallet)
   const [healthMap,     setHealthMap]     = useState({})
   const healthRequestedRef = useRef(new Set())
+  const healthMapRef       = useRef({})
   // Death / respawn state — ms timestamp (null = alive)
   const [myDeadUntil,   setMyDeadUntil]   = useState(null)
   const [myDeadPos,     setMyDeadPos]     = useState(null)
@@ -277,6 +278,8 @@ export default function MiningChain3D() {
   useEffect(() => {
     nodeDiceRef.current = normalizeNodeDiceState(nodeDiceState)
   }, [nodeDiceState])
+
+  useEffect(() => { healthMapRef.current = healthMap }, [healthMap])
 
   const loadNodeDiceWalletStats = useCallback(async () => {
     const wallet = myWalletRef.current
@@ -378,6 +381,60 @@ export default function MiningChain3D() {
     if (respawnTimerRef.current) clearTimeout(respawnTimerRef.current)
     respawnTimerRef.current = setTimeout(triggerRespawn, Math.max(0, delayMs))
   }, [triggerRespawn])
+
+  const triggerSelfDeath = useCallback(() => {
+    if (myDeadUntilRef.current && myDeadUntilRef.current > Date.now()) return
+    const myP = myPosRef.current
+    const deadGX = (myP?.col ?? 14) + 0.5
+    const deadGY = (myP?.row ?? 14) + 0.5
+    const deadUntil = Date.now() + 5 * 60 * 1000
+    const deadUntilIso = new Date(deadUntil).toISOString()
+    setMyDeadUntil(deadUntil); setMyDeadPos({ gx: deadGX, gy: deadGY })
+    myDeadUntilRef.current = deadUntil
+    localStorage.setItem('mm3_pvp_dead', JSON.stringify({ until: deadUntil, gx: deadGX, gy: deadGY }))
+    try { window.dispatchEvent(new Event('mm3-pvp-death')) } catch {}
+    if (myWalletRef.current) {
+      fetch('/api/pvp-death', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ wallet: myWalletRef.current, gx: deadGX, gy: deadGY }) }).catch(() => {})
+    }
+    channelRef.current?.send({ type: 'broadcast', event: 'player-death', payload: { victim: myKeyRef.current, gx: deadGX, gy: deadGY, deadUntil: deadUntilIso } })?.catch(() => {})
+    channelRef.current?.track({ wallet: myKeyRef.current, isDead: true, deadUntil: deadUntilIso, gx: deadGX, gy: deadGY, row: myP?.row ?? 14, col: myP?.col ?? 14 })?.catch?.(() => {})
+    scheduleRespawn(5 * 60 * 1000)
+  }, [scheduleRespawn])
+
+  // ── StormRoll AoE damage: every 60s during the 15-min hourly dice window ──
+  useEffect(() => {
+    const id = setInterval(() => {
+      const nd = nodeDiceRef.current
+      if (!nd) return
+      if (!getDiceState().active) return
+      if (myDeadUntilRef.current && myDeadUntilRef.current > Date.now()) return
+      const key = myKeyRef.current
+      if (!key) return
+      const mode = nd.mode
+      if (key.startsWith('anon-')) {
+        const current = healthMapRef.current[key] ?? 100
+        const dmg = mode === 'war' ? nd.warPercent : nd.naturePercent
+        const newHP = Math.max(0, current - dmg)
+        setHealthMap(prev => ({ ...prev, [key]: newHP }))
+        channelRef.current?.send({ type: 'broadcast', event: 'stormroll-hit', payload: { victim: key, health: newHP, killed: newHP <= 0 } })?.catch(() => {})
+        if (newHP <= 0) triggerSelfDeath()
+      } else {
+        fetch('/api/stormroll-damage', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ wallet: key, mode }),
+        }).then(r => r.json()).then(result => {
+          if (!result?.ok) return
+          const newHP = Number(result.health ?? 100)
+          setHealthMap(prev => ({ ...prev, [key]: newHP }))
+          setReceivedHitAt(Date.now())
+          channelRef.current?.send({ type: 'broadcast', event: 'stormroll-hit', payload: { victim: key, health: newHP, killed: result.killed } })?.catch(() => {})
+          if (result.killed) triggerSelfDeath()
+        }).catch(() => {})
+      }
+    }, 60_000)
+    return () => clearInterval(id)
+  }, [triggerSelfDeath])
 
   // On mount: restore death state that survived a page refresh
   useEffect(() => {
@@ -833,6 +890,12 @@ export default function MiningChain3D() {
       const next = normalizeNodeDiceState(payload)
       nodeDiceRef.current = next
       setNodeDiceState(next)
+    })
+
+    ch.on('broadcast', { event: 'stormroll-hit' }, ({ payload }) => {
+      const w = payload?.victim
+      if (!w || w === myKeyRef.current) return
+      setHealthMap(prev => ({ ...prev, [w]: Number(payload.health ?? 100) }))
     })
 
     // Other players died — update their position to show corpse
