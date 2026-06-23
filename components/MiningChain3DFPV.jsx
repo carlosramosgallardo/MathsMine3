@@ -76,6 +76,7 @@ const W_SAND  = [108, 106, 102]   // warm gray
 const W_DARK  = [58,  62,  70]    // dark gray
 const HOUSE_BLUE_RGB = [8, 47, 73]
 const HOUSE_BLACK_RGB = [2, 8, 23]
+const HOUSE_FLOOR_LEVELS = [1.16, 2.32, 3.48, 4.64, 5.80]
 const CHAIN_MATERIALS = [
   { kind:'hash',      base:[42,82,104],  glow:[34,211,238], label:'HASH WALL' },
   { kind:'ledger',    base:[96,78,48],   glow:[250,204,21], label:'LEDGER' },
@@ -1552,6 +1553,18 @@ function circleTouchesCell(gx, gy, row, col, radius = PLAYER_R) {
   return dx * dx + dy * dy < radius * radius
 }
 
+function houseFloorSupportAt(row, col, playerZ) {
+  if (
+    row <= CIPHER_HOUSE_BOUNDS.minRow || row >= CIPHER_HOUSE_BOUNDS.maxRow ||
+    col <= CIPHER_HOUSE_BOUNDS.minCol || col >= CIPHER_HOUSE_BOUNDS.maxCol
+  ) return 0
+  let support = 0
+  for (const level of HOUSE_FLOOR_LEVELS) {
+    if (playerZ >= level - 0.08) support = level
+  }
+  return support
+}
+
 function solidTopAt(row, col, cellMap, obsSet) {
   const key = `${row},${col}`
   const obstacle = obsSet?.get?.(key)
@@ -1614,6 +1627,10 @@ function supportHeightAt(gx, gy, playerZ, cellMap, obsSet) {
       const top = solidTopAt(row, col, cellMap, obsSet)
       if (top && playerZ >= top - 0.04 && circleTouchesCell(gx, gy, row, col, radius)) {
         height = Math.max(height, top)
+      }
+      const houseSupport = houseFloorSupportAt(row, col, playerZ)
+      if (houseSupport && circleTouchesCell(gx, gy, row, col, radius)) {
+        height = Math.max(height, houseSupport)
       }
     }
   }
