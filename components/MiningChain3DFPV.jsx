@@ -38,6 +38,7 @@ const FOOTSTEP_DIST = CELL_SIZE * 0.42       // footstep cadence
 const SWING_DUR     = 340    // ms per USB staff swing
 const HITS_NEEDED   = 5      // swings to complete mining action
 const INTERACT_DIST       = 1.3   // grid cells — max distance for block interaction
+const PORTAL_INTERACT_DIST = 2.15 // forgiving floor portals; easier to trigger while walking
 // The chain node fills a solid cell, so PLAYER_R keeps the player's centre at
 // least 0.78 cells from its centre. Use the regular hit range so it is reachable.
 const CHAIN_INTERACT_DIST = INTERACT_DIST
@@ -3198,25 +3199,24 @@ function addCipherHouseDetails(world) {
   }
 
   const groundMat=new THREE.MeshBasicMaterial({
-    color:'#22d3ee',transparent:true,opacity:.28,depthWrite:false,side:THREE.DoubleSide,
-  })
-  const groundLineMat=new THREE.MeshBasicMaterial({
-    color:'#a5f3fc',transparent:true,opacity:.30,depthWrite:false,
+    color:'#0891b2',transparent:true,opacity:.32,depthWrite:false,side:THREE.DoubleSide,
   })
   const groundQuat=new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1,0,0),-Math.PI/2)
+  const diceFloorMaterials=[1,2,3,4,5,6].map(face=>new THREE.MeshBasicMaterial({
+    map:makeDiceFaceTexture(face),transparent:true,opacity:.92,depthWrite:false,side:THREE.DoubleSide,
+  }))
   for(let row=minRow+1;row<maxRow;row++) for(let col=minCol+1;col<maxCol;col++){
     const plate=new THREE.Mesh(new THREE.PlaneGeometry(.88,.88),groundMat)
     plate.position.set(col+.5,.018,row+.5)
     plate.quaternion.copy(groundQuat)
     plate.renderOrder=2
     group.add(plate)
-    if((row+col)%2===0){
-      const line=new THREE.Mesh(new THREE.RingGeometry(.24,.30,24),groundLineMat)
-      line.position.set(col+.5,.021,row+.5)
-      line.quaternion.copy(groundQuat)
-      line.renderOrder=3
-      group.add(line)
-    }
+    const face=(Math.abs(row*17+col*31+(row^col)*7))%6
+    const dice=new THREE.Mesh(new THREE.PlaneGeometry(.62,.62),diceFloorMaterials[face])
+    dice.position.set(col+.5,.024,row+.5)
+    dice.quaternion.copy(groundQuat)
+    dice.renderOrder=3
+    group.add(dice)
   }
 
   const diceTower=new THREE.Group()
@@ -3469,14 +3469,24 @@ function updateInteractiveBeaconBatch(batch,time) {
 }
 
 function makeDiceFaceTexture(face) {
-  const s=128,cv=document.createElement('canvas')
+  const s=256,cv=document.createElement('canvas')
   cv.width=s;cv.height=s
   const ctx=cv.getContext('2d')
-  ctx.fillStyle='#0d2430'
+  const gradient=ctx.createLinearGradient(0,0,s,s)
+  gradient.addColorStop(0,'#164e63')
+  gradient.addColorStop(.50,'#082f49')
+  gradient.addColorStop(1,'#0f172a')
+  ctx.fillStyle=gradient
   ctx.fillRect(0,0,s,s)
-  ctx.strokeStyle='rgba(34,211,238,0.18)'
-  ctx.lineWidth=1.5
-  ctx.strokeRect(6,6,s-12,s-12)
+  ctx.strokeStyle='rgba(165,243,252,0.42)'
+  ctx.lineWidth=4
+  ctx.strokeRect(10,10,s-20,s-20)
+  ctx.strokeStyle='rgba(14,165,233,0.22)'
+  ctx.lineWidth=2
+  for(let i=32;i<s;i+=32){
+    ctx.beginPath();ctx.moveTo(i,12);ctx.lineTo(i,s-12);ctx.stroke()
+    ctx.beginPath();ctx.moveTo(12,i);ctx.lineTo(s-12,i);ctx.stroke()
+  }
   const dots={
     1:[[.5,.5]],
     2:[[.3,.3],[.7,.7]],
@@ -3485,12 +3495,15 @@ function makeDiceFaceTexture(face) {
     5:[[.3,.3],[.7,.3],[.5,.5],[.3,.7],[.7,.7]],
     6:[[.3,.22],[.7,.22],[.3,.5],[.7,.5],[.3,.78],[.7,.78]],
   }[face]||[[.5,.5]]
-  const r=s*0.08
-  ctx.fillStyle='#22d3ee'
-  ctx.shadowColor='#22d3ee'
-  ctx.shadowBlur=8
+  const r=s*0.09
+  ctx.fillStyle='#e0f2fe'
+  ctx.shadowColor='#67e8f9'
+  ctx.shadowBlur=14
   for(const [x,y] of dots){ctx.beginPath();ctx.arc(x*s,y*s,r,0,Math.PI*2);ctx.fill()}
-  return new THREE.CanvasTexture(cv)
+  const texture=new THREE.CanvasTexture(cv)
+  texture.colorSpace=THREE.SRGBColorSpace
+  texture.anisotropy=8
+  return texture
 }
 
 function rebuildThreeWorld(state,cellMap,obstacles) {
@@ -6423,12 +6436,13 @@ export default function MiningChain3DFPV({
         if(!cell?.isPortalNode) continue
         const [pr,pc]=key.split(',').map(Number)
         const dist=myDead?Infinity:Math.hypot(p.x/CELL_SIZE-(pc+.5),p.y/CELL_SIZE-(pr+.5))
-        if(dist<=INTERACT_DIST&&(!nearestPortal||dist<nearestPortal.dist)){
+        if(dist<=PORTAL_INTERACT_DIST&&(!nearestPortal||dist<nearestPortal.dist)){
           nearestPortal={row:pr,col:pc,cell,dist}
         }
       }
       if(nearestPortal && nearestPortal.dist <= fcDist + .08){
-        fmx=nearestPortal.col;fmy=nearestPortal.row;fc=nearestPortal.cell;fcDist=nearestPortal.dist
+        fmx=nearestPortal.col;fmy=nearestPortal.row;fc=nearestPortal.cell
+        fcDist=Math.min(nearestPortal.dist,INTERACT_DIST*.82)
       }
       const newKey=`${fmy},${fmx}`
       facingDataRef.current={mx:fmx,my:fmy,cell:fc,dist:fcDist}
