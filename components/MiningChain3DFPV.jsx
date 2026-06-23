@@ -199,6 +199,7 @@ function makeCipherHouseEntries() {
       const isRoof=level===floorLevels[floorLevels.length-1]
       if(stairKeys.has(key)) continue
       if(key===`${NODE_DICE_POSITION.row},${NODE_DICE_POSITION.col}`) continue
+      const diceFace=((Math.abs(row*17+col*31+(row^col)*7))%6)+1
       add(row,col,{
         base:isRoof?W_SLATE:W_DARK,
         glow:isRoof?[250,204,21]:[103,232,249],
@@ -206,8 +207,17 @@ function makeCipherHouseEntries() {
         label:isRoof?'CIPHER ROOF':`CIPHER FLOOR ${Math.round(level/.58)}`,
         bottom:Math.max(0,level-.08),height:level,
         isHouseFloor:true,isHouseRoof:isRoof,
+        diceFace:isRoof?0:diceFace,
       })
     }
+  }
+  // Upper wall fill above each door opening (bottom=2.0 so players pass through at ground level)
+  for(const key of doors){
+    const [row,col]=key.split(',').map(Number)
+    entries.push([key,{
+      base:[74,35,128],glow:[217,70,239],kind:'hash',label:'CIPHER DOOR FILL',
+      bottom:2.0,height:6.20,isStructure:true,isHouse:true,
+    }])
   }
   return entries
 }
@@ -3437,6 +3447,31 @@ function updateInteractiveBeaconBatch(batch,time) {
   for(const mesh of [batch.rings,batch.ring2s,batch.columns,...Object.values(batch.markers)]) mesh.instanceMatrix.needsUpdate=true
 }
 
+function makeDiceFaceTexture(face) {
+  const s=128,cv=document.createElement('canvas')
+  cv.width=s;cv.height=s
+  const ctx=cv.getContext('2d')
+  ctx.fillStyle='#0d2430'
+  ctx.fillRect(0,0,s,s)
+  ctx.strokeStyle='rgba(34,211,238,0.18)'
+  ctx.lineWidth=1.5
+  ctx.strokeRect(6,6,s-12,s-12)
+  const dots={
+    1:[[.5,.5]],
+    2:[[.3,.3],[.7,.7]],
+    3:[[.3,.3],[.5,.5],[.7,.7]],
+    4:[[.3,.3],[.7,.3],[.3,.7],[.7,.7]],
+    5:[[.3,.3],[.7,.3],[.5,.5],[.3,.7],[.7,.7]],
+    6:[[.3,.22],[.7,.22],[.3,.5],[.7,.5],[.3,.78],[.7,.78]],
+  }[face]||[[.5,.5]]
+  const r=s*0.08
+  ctx.fillStyle='#22d3ee'
+  ctx.shadowColor='#22d3ee'
+  ctx.shadowBlur=8
+  for(const [x,y] of dots){ctx.beginPath();ctx.arc(x*s,y*s,r,0,Math.PI*2);ctx.fill()}
+  return new THREE.CanvasTexture(cv)
+}
+
 function rebuildThreeWorld(state,cellMap,obstacles) {
   if(!state) return
   if(state.world){state.scene.remove(state.world);disposeThreeObject(state.world)}
@@ -3590,25 +3625,19 @@ function rebuildThreeWorld(state,cellMap,obstacles) {
       roof:houseEntries.filter(([,obstacle])=>obstacle.isHouseRoof),
       stair:houseEntries.filter(([,obstacle])=>obstacle.isHouseStair),
     }
+    const roofMat={color:'#24313d',roughness:.50,metalness:.42,emissive:'#0c1828',emissiveIntensity:.62}
     const houseMaterials={
       wall:new THREE.MeshStandardMaterial({
         color:'#5b21b6',roughness:.46,metalness:.38,
         emissive:'#3b0764',emissiveIntensity:.86,
       }),
-      floor:new THREE.MeshStandardMaterial({
-        color:'#0f6678',roughness:.58,metalness:.34,
-        emissive:'#073744',emissiveIntensity:.48,
-      }),
-      roof:new THREE.MeshStandardMaterial({
-        color:'#24313d',roughness:.50,metalness:.42,
-        emissive:'#0c1828',emissiveIntensity:.62,
-      }),
-      stair:new THREE.MeshStandardMaterial({
-        color:'#22d3ee',roughness:.36,metalness:.64,
-        emissive:'#0891b2',emissiveIntensity:.70,
-      }),
+      roof:new THREE.MeshStandardMaterial(roofMat),
+      // stairs same dark tone as ceiling
+      stair:new THREE.MeshStandardMaterial({...roofMat,roughness:.44,metalness:.52}),
     }
-    for(const [kind,entries] of Object.entries(houseGroups)){
+    // Non-floor groups rendered as before
+    for(const kind of ['wall','roof','stair']){
+      const entries=houseGroups[kind]
       if(!entries.length) continue
       const mesh=new THREE.InstancedMesh(new THREE.BoxGeometry(1,1,1),houseMaterials[kind],entries.length)
       entries.forEach(([key,obstacle],index)=>{
@@ -3616,7 +3645,7 @@ function rebuildThreeWorld(state,cellMap,obstacles) {
         const bottom=obstacleBottom(obstacle)
         const visualTop=Number(obstacle.visualHeight)||obstacleTop(obstacle)
         const visualHeight=Math.max(.02,visualTop-bottom)
-        const inset=kind==='floor'||kind==='roof'?0.92:0.985
+        const inset=kind==='roof'?0.92:0.985
         position.set(col+.5,bottom+visualHeight*.5,row+.5)
         scale.set(inset,visualHeight,inset)
         matrix.compose(position,quaternion,scale)
@@ -3625,6 +3654,33 @@ function rebuildThreeWorld(state,cellMap,obstacles) {
       mesh.instanceMatrix.needsUpdate=true
       world.add(mesh)
     }
+    // Floor tiles: 6 InstancedMeshes with dice face canvas textures
+    const diceTextures=[1,2,3,4,5,6].map(f=>makeDiceFaceTexture(f))
+    const floorByFace=[[],[],[],[],[],[]]
+    for(const entry of houseGroups.floor){
+      const face=Number(entry[1].diceFace)||1
+      floorByFace[face-1].push(entry)
+    }
+    floorByFace.forEach((entries,fi)=>{
+      if(!entries.length) return
+      const mat=new THREE.MeshStandardMaterial({
+        map:diceTextures[fi],roughness:.58,metalness:.34,
+        emissive:'#073744',emissiveIntensity:.52,
+      })
+      const mesh=new THREE.InstancedMesh(new THREE.BoxGeometry(1,1,1),mat,entries.length)
+      entries.forEach(([key,obstacle],index)=>{
+        const [row,col]=key.split(',').map(Number)
+        const bottom=obstacleBottom(obstacle)
+        const visualTop=Number(obstacle.visualHeight)||obstacleTop(obstacle)
+        const visualHeight=Math.max(.02,visualTop-bottom)
+        position.set(col+.5,bottom+visualHeight*.5,row+.5)
+        scale.set(0.92,visualHeight,0.92)
+        matrix.compose(position,quaternion,scale)
+        mesh.setMatrixAt(index,matrix)
+      })
+      mesh.instanceMatrix.needsUpdate=true
+      world.add(mesh)
+    })
   }
   for(const [biome,entries] of Object.entries(boxGroups)){
     if(!entries.length) continue
