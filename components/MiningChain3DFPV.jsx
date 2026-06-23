@@ -74,6 +74,9 @@ const W_STONE = [122, 120, 118]   // neutral mid-gray
 const W_SLATE = [85,  92, 105]    // blue-gray (cool)
 const W_SAND  = [108, 106, 102]   // warm gray
 const W_DARK  = [58,  62,  70]    // dark gray
+const HOUSE_LILAC_RGB = [91, 33, 182]
+const HOUSE_BLUE_RGB = [8, 47, 73]
+const HOUSE_BLACK_RGB = [2, 8, 23]
 const CHAIN_MATERIALS = [
   { kind:'hash',      base:[42,82,104],  glow:[34,211,238], label:'HASH WALL' },
   { kind:'ledger',    base:[96,78,48],   glow:[250,204,21], label:'LEDGER' },
@@ -165,7 +168,7 @@ function makeCipherHouseEntries() {
   const entries=[]
   const doors=new Set(['3,5','3,6','13,9','13,10','6,3','7,3','9,13','10,13'])
   const add=(row,col,data={})=>entries.push([`${row},${col}`,{
-    base:[74,35,128],glow:[217,70,239],kind:'hash',label:'CIPHER HOUSE',
+    base:HOUSE_LILAC_RGB,glow:[103,232,249],kind:'hash',label:'CIPHER HOUSE',
     height:6.20,isStructure:true,isHouse:true,...data,
   }])
   const {minRow,maxRow,minCol,maxCol}=CIPHER_HOUSE_BOUNDS
@@ -191,7 +194,7 @@ function makeCipherHouseEntries() {
   ]
   const stairKeys=new Set(stairCells.map(([row,col])=>`${row},${col}`))
   for(const [row,col,height] of stairCells) add(row,col,{
-    base:W_DARK,glow:[250,204,21],kind:'ledger',label:'HOUSE STAIR',height,
+    base:HOUSE_BLACK_RGB,glow:[103,232,249],kind:'ledger',label:'HOUSE STAIR',height,
     isRouteStair:true,isHouseStair:true,
   })
   for(const level of floorLevels){
@@ -201,8 +204,8 @@ function makeCipherHouseEntries() {
       if(stairKeys.has(key)) continue
       const diceFace=((Math.abs(row*17+col*31+(row^col)*7))%6)+1
       add(row,col,{
-        base:isRoof?W_SLATE:W_DARK,
-        glow:isRoof?[250,204,21]:[103,232,249],
+        base:isRoof?HOUSE_BLACK_RGB:HOUSE_BLUE_RGB,
+        glow:isRoof?[167,139,250]:[103,232,249],
         kind:isRoof?'ledger':'hash',
         label:isRoof?'CIPHER ROOF':`CIPHER FLOOR ${Math.round(level/.58)}`,
         bottom:Math.max(0,level-.08),height:level,
@@ -215,7 +218,7 @@ function makeCipherHouseEntries() {
   for(const key of doors){
     const [row,col]=key.split(',').map(Number)
     entries.push([key,{
-      base:[74,35,128],glow:[217,70,239],kind:'hash',label:'CIPHER DOOR FILL',
+      base:HOUSE_LILAC_RGB,glow:[103,232,249],kind:'hash',label:'CIPHER DOOR FILL',
       bottom:2.0,height:6.20,isStructure:true,isHouse:true,
     }])
   }
@@ -3199,15 +3202,15 @@ function addCipherHouseDetails(world) {
   }
 
   const groundMat=new THREE.MeshBasicMaterial({
-    color:'#0891b2',transparent:true,opacity:.32,depthWrite:false,side:THREE.DoubleSide,
+    color:'#082f49',transparent:true,opacity:.96,depthWrite:false,side:THREE.DoubleSide,
   })
   const groundQuat=new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1,0,0),-Math.PI/2)
   const diceFloorMaterials=[1,2,3,4,5,6].map(face=>new THREE.MeshBasicMaterial({
     map:makeDiceFaceTexture(face),transparent:true,opacity:.98,depthWrite:false,side:THREE.DoubleSide,
   }))
   for(let row=minRow+1;row<maxRow;row++) for(let col=minCol+1;col<maxCol;col++){
-    const plate=new THREE.Mesh(new THREE.PlaneGeometry(.88,.88),groundMat)
-    plate.position.set(col+.5,.018,row+.5)
+    const plate=new THREE.Mesh(new THREE.PlaneGeometry(.98,.98),groundMat)
+    plate.position.set(col+.5,.016,row+.5)
     plate.quaternion.copy(groundQuat)
     plate.renderOrder=2
     group.add(plate)
@@ -3473,15 +3476,15 @@ function makeDiceFaceTexture(face) {
   cv.width=s;cv.height=s
   const ctx=cv.getContext('2d')
   const gradient=ctx.createLinearGradient(0,0,s,s)
-  gradient.addColorStop(0,'#164e63')
-  gradient.addColorStop(.50,'#082f49')
-  gradient.addColorStop(1,'#0f172a')
+  gradient.addColorStop(0,'#0e7490')
+  gradient.addColorStop(.36,'#082f49')
+  gradient.addColorStop(1,'#020817')
   ctx.fillStyle=gradient
   ctx.fillRect(0,0,s,s)
-  ctx.strokeStyle='rgba(165,243,252,0.42)'
+  ctx.strokeStyle='rgba(167,139,250,0.64)'
   ctx.lineWidth=4
   ctx.strokeRect(10,10,s-20,s-20)
-  ctx.strokeStyle='rgba(14,165,233,0.22)'
+  ctx.strokeStyle='rgba(103,232,249,0.30)'
   ctx.lineWidth=2
   for(let i=32;i<s;i+=32){
     ctx.beginPath();ctx.moveTo(i,12);ctx.lineTo(i,s-12);ctx.stroke()
@@ -3496,7 +3499,7 @@ function makeDiceFaceTexture(face) {
     6:[[.3,.22],[.7,.22],[.3,.5],[.7,.5],[.3,.78],[.7,.78]],
   }[face]||[[.5,.5]]
   const r=s*0.09
-  ctx.fillStyle='#e0f2fe'
+  ctx.fillStyle='#c4b5fd'
   ctx.shadowColor='#67e8f9'
   ctx.shadowBlur=14
   for(const [x,y] of dots){ctx.beginPath();ctx.arc(x*s,y*s,r,0,Math.PI*2);ctx.fill()}
@@ -3659,11 +3662,11 @@ function rebuildThreeWorld(state,cellMap,obstacles) {
       roof:houseEntries.filter(([,obstacle])=>obstacle.isHouseRoof),
       stair:houseEntries.filter(([,obstacle])=>obstacle.isHouseStair),
     }
-    const roofMat={color:'#24313d',roughness:.50,metalness:.42,emissive:'#0c1828',emissiveIntensity:.62}
+    const roofMat={color:'#020817',roughness:.56,metalness:.38,emissive:'#020817',emissiveIntensity:.58}
     const houseMaterials={
       wall:new THREE.MeshStandardMaterial({
         color:'#5b21b6',roughness:.46,metalness:.38,
-        emissive:'#3b0764',emissiveIntensity:.86,
+        emissive:'#0e7490',emissiveIntensity:.52,
       }),
       roof:new THREE.MeshStandardMaterial(roofMat),
       // stairs same dark tone as ceiling
@@ -3691,7 +3694,7 @@ function rebuildThreeWorld(state,cellMap,obstacles) {
     // Floor tiles: dark box base + horizontal dice plane overlay (MeshBasicMaterial = no lighting needed)
     const floorEntries=houseGroups.floor
     if(floorEntries.length){
-      const floorBoxMat=new THREE.MeshStandardMaterial({color:'#0f6678',roughness:.58,metalness:.34,emissive:'#073744',emissiveIntensity:.52})
+      const floorBoxMat=new THREE.MeshStandardMaterial({color:'#082f49',roughness:.58,metalness:.34,emissive:'#020817',emissiveIntensity:.40})
       const floorBoxMesh=new THREE.InstancedMesh(new THREE.BoxGeometry(1,1,1),floorBoxMat,floorEntries.length)
       floorEntries.forEach(([key,obstacle],index)=>{
         const [row,col]=key.split(',').map(Number)
@@ -3716,8 +3719,8 @@ function rebuildThreeWorld(state,cellMap,obstacles) {
       const planeScale=new THREE.Vector3(1,1,1)
       floorByFace.forEach((entries,fi)=>{
         if(!entries.length) return
-        const planeMat=new THREE.MeshBasicMaterial({map:diceTextures[fi],transparent:true,depthWrite:false,opacity:.95})
-        const planeMesh=new THREE.InstancedMesh(new THREE.PlaneGeometry(.85,.85),planeMat,entries.length)
+        const planeMat=new THREE.MeshBasicMaterial({map:diceTextures[fi],transparent:true,depthWrite:false,opacity:.98})
+        const planeMesh=new THREE.InstancedMesh(new THREE.PlaneGeometry(.94,.94),planeMat,entries.length)
         planeMesh.renderOrder=1
         entries.forEach(([key,obstacle],idx)=>{
           const [row,col]=key.split(',').map(Number)
