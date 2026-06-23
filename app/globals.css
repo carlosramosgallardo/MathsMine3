@@ -1425,21 +1425,21 @@ footer.bg-black\/97,
 
 /* ── Mobile portrait ≤480px — compact cubes, 5-col grid ─────────────── */
 @media (max-width:480px) {
-  .mm3-splash { padding: .7rem 1rem .6rem; }
+  .mm3-splash { padding: .5rem .9rem .44rem; }
   .mm3-splash-kicker { margin-bottom: .35rem; font-size: .56rem; }
   .mm3-splash-sub { font-size: .60rem; margin-bottom: .7rem; letter-spacing: .08em; }
-  .mm3-splash-cta { padding: .30rem 1.0rem; font-size: .60rem;
+  .mm3-splash-cta { padding: .42rem 1.3rem; font-size: .68rem;
     box-shadow: 3px 3px 0 rgba(2,18,30,.95), 5px 5px 0 rgba(1,9,16,.95),
                 0 0 20px -2px rgba(34,211,238,.20), inset 0 0 12px -5px rgba(34,211,238,.10);
   }
-  .mm3-splash-disclaimer { margin-top: .14rem; font-size: .40rem; }
+  .mm3-splash-disclaimer { margin-top: .16rem; font-size: .42rem; }
   /* portal */
   .mm3-portal { padding: .4rem .42rem .55rem; }
   .mm3-portal-grid { grid-template-columns: repeat(5, 1fr); gap: .22rem .18rem; }
   .mm3-portal-row2 { gap: .22rem .18rem; margin-top: .28rem; }
   /* smaller cube depth on tiny cards */
   .mm3-portal-card {
-    padding: .26rem .1rem .24rem; gap: .08rem;
+    padding: .32rem .14rem .28rem; gap: .10rem;
     border-width: 1px;
     box-shadow:
       2px 2px 0 color-mix(in srgb, var(--ac,#22d3ee) 14%, #010305),
@@ -1453,8 +1453,8 @@ footer.bg-black\/97,
       6px 7px 0 color-mix(in srgb, var(--ac,#22d3ee) 8%, #010203),
       0 0 20px -2px color-mix(in srgb, var(--ac,#22d3ee) 42%, transparent);
   }
-  .mm3-portal-icon { font-size: .68rem; }
-  .mm3-portal-name { font-size: .37rem; letter-spacing: .02em; }
+  .mm3-portal-icon { font-size: .72rem; }
+  .mm3-portal-name { font-size: .40rem; letter-spacing: .03em; }
 }
 
 /* ── Tablet portrait 480–1023px — 5-col grid, medium cubes ──────────── */
@@ -1902,15 +1902,26 @@ footer.bg-black\/97,
   .mm3-home .mm3-portal { padding: .5rem .45rem .38rem; }
 }
 @media (max-width:480px) {
-  .mm3-home .mm3-splash-body { flex-direction:column; gap:.4rem; min-height:auto; padding:.5rem 0; }
-  .mm3-home-arena { width:min(260px,80vw); height:130px; margin-left:0; }
-  .mm3-home-chain3d { width:78px; height:165px; }
-  .mm3-home-bot3d { width:78px; height:78px; }
-  .mm3-home .mm3-portal-card { min-height:50px; }
-  .mm3-portal-block { width:25px; height:22px; margin:-.68rem 0 .08rem; box-shadow:2px 3px 0 color-mix(in srgb,var(--ac,#22d3ee) 12%,#010205); }
-  .mm3-portal-block::before { width:32px; height:6px; }
+  /* Splash compact — portal fills remaining viewport height */
+  .mm3-home .mm3-splash { flex: none; }
+  .mm3-home .mm3-portal { flex: 1; justify-content: center; }
+  /* Column layout, fully centered */
+  .mm3-home .mm3-splash-body { flex-direction:column; align-items:center; gap:.5rem; min-height:auto; padding:.4rem 0 .5rem; }
+  .mm3-home-copy { align-items:center; text-align:center; }
+  .mm3-home-copy .mm3-splash-sub,
+  .mm3-home-copy .mm3-splash-disclaimer { text-align:center; }
+  /* Bigger arena — full portrait width */
+  .mm3-home-arena { width:min(290px,86vw); height:148px; margin-left:0; }
+  .mm3-home-arena-floor { height:92px; }
+  .mm3-home-chain3d { width:82px; height:172px; }
+  .mm3-home-bot3d { width:82px; height:82px; }
+  /* Portal cards — bigger on portrait */
+  .mm3-home .mm3-portal-card { min-height:52px; }
+  .mm3-portal-block { width:26px; height:22px; margin:-.68rem 0 .08rem; box-shadow:2px 3px 0 color-mix(in srgb,var(--ac,#22d3ee) 12%,#010205); }
+  .mm3-portal-block::before { width:33px; height:6px; }
   .mm3-portal-block::after { top:-7px; width:5px; height:30px; }
-  .mm3-home .mm3-portal-icon { font-size:.64rem; }
+  .mm3-home .mm3-portal-icon { font-size:.72rem; }
+  .mm3-home .mm3-portal-name { font-size:.40rem; }
 }
 @media (max-height:500px) and (orientation:landscape) {
   .mm3-home .mm3-splash-body { min-height:96px; }
