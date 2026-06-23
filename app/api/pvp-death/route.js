@@ -19,15 +19,16 @@ export async function GET(req) {
 
   const { data } = await serviceClient()
     .from('mm3_pvp_health')
-    .select('pvp_dead_until, pvp_dead_gx, pvp_dead_gy, last_pos_row, last_pos_col')
+    .select('pvp_dead_until, pvp_dead_gx, pvp_dead_gy, last_pos_row, last_pos_col, last_pos_z')
     .eq('wallet', wallet)
     .maybeSingle()
 
   const posRow = data?.last_pos_row ?? null
   const posCol = data?.last_pos_col ?? null
+  const posZ = data?.last_pos_z ?? null
 
   if (!data?.pvp_dead_until) {
-    return Response.json({ ok: true, dead: false, posRow, posCol })
+    return Response.json({ ok: true, dead: false, posRow, posCol, posZ })
   }
 
   const deadUntil = new Date(data.pvp_dead_until)
@@ -36,7 +37,7 @@ export async function GET(req) {
       .update({ pvp_dead_until: null, pvp_dead_gx: null, pvp_dead_gy: null })
       .eq('wallet', wallet)
       .then(() => {}).catch(() => {})
-    return Response.json({ ok: true, dead: false, posRow, posCol })
+    return Response.json({ ok: true, dead: false, posRow, posCol, posZ })
   }
 
   return Response.json({
@@ -47,10 +48,11 @@ export async function GET(req) {
     gy: data.pvp_dead_gy,
     posRow,
     posCol,
+    posZ,
   })
 }
 
-// PATCH { wallet, row, col } — persist alive position (throttled server-side by pos_updated_at)
+// PATCH { wallet, row, col, z } — persist alive position (throttled client-side)
 export async function PATCH(req) {
   let body
   try { body = await req.json() } catch {
@@ -62,14 +64,18 @@ export async function PATCH(req) {
   }
   const row = Number(body.row)
   const col = Number(body.col)
+  const z = Number(body.z ?? 0)
   if (!Number.isFinite(row) || !Number.isFinite(col)) {
     return Response.json({ ok: false, error: 'bad_pos' }, { status: 400 })
+  }
+  if (!Number.isFinite(z)) {
+    return Response.json({ ok: false, error: 'bad_z' }, { status: 400 })
   }
 
   const { error } = await serviceClient()
     .from('mm3_pvp_health')
     .upsert(
-      { wallet, last_pos_row: row, last_pos_col: col, pos_updated_at: new Date().toISOString() },
+      { wallet, last_pos_row: row, last_pos_col: col, last_pos_z: z, pos_updated_at: new Date().toISOString() },
       { onConflict: 'wallet', ignoreDuplicates: false },
     )
 

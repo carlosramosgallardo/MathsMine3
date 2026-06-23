@@ -534,9 +534,10 @@ export default function MiningChain3D() {
         const posKey = myWallet ? `mm3_mining_pos_${myWallet}` : 'mm3_mining_pos_anon'
         const saved = JSON.parse(localStorage.getItem(posKey) || 'null')
         if (saved && typeof saved.row === 'number' && typeof saved.col === 'number') {
-          setMyPos({ row: saved.row, col: saved.col })
-          myPosRef.current = { row: saved.row, col: saved.col }
-          setJumpToCell({ row: saved.row, col: saved.col })
+          const savedPos = { row: saved.row, col: saved.col, z: Number(saved.z) || 0 }
+          setMyPos(savedPos)
+          myPosRef.current = savedPos
+          setJumpToCell(savedPos)
         }
       } catch { /* */ }
     }
@@ -556,7 +557,7 @@ export default function MiningChain3D() {
             scheduleRespawn(until - Date.now())
           } else if (r.posRow != null && r.posCol != null) {
             // DB alive position overrides localStorage (anti-cheat)
-            const dbPos = { row: Number(r.posRow), col: Number(r.posCol) }
+            const dbPos = { row: Number(r.posRow), col: Number(r.posCol), z: Number(r.posZ) || 0 }
             setMyPos(dbPos)
             myPosRef.current = dbPos
             setJumpToCell(dbPos)
@@ -811,7 +812,9 @@ export default function MiningChain3D() {
       if (isAlive) {
         const posKey = myWallet ? `mm3_mining_pos_${myWallet}` : 'mm3_mining_pos_anon'
         const saved = JSON.parse(localStorage.getItem(posKey) || 'null')
-        if (saved && typeof saved.row === 'number' && typeof saved.col === 'number') spawn = saved
+        if (saved && typeof saved.row === 'number' && typeof saved.col === 'number') {
+          spawn = { row: saved.row, col: saved.col, z: Number(saved.z) || 0 }
+        }
       }
     } catch { /* */ }
     if (!spawn) spawn = getSpawnForWallet(myWallet)
@@ -822,7 +825,7 @@ export default function MiningChain3D() {
       const next = { ...prev }
       const oldKey = myKeyRef.current
       if (oldKey) delete next[oldKey]
-      if (myWallet) next[myWallet] = { gx: spawn.col + 0.5, gy: spawn.row + 0.5, row: spawn.row, col: spawn.col }
+      if (myWallet) next[myWallet] = { gx: spawn.col + 0.5, gy: spawn.row + 0.5, row: spawn.row, col: spawn.col, z: Number(spawn.z) || 0 }
       return next
     })
   }, [myWallet])
@@ -1049,7 +1052,7 @@ export default function MiningChain3D() {
           if (w !== myW && Math.hypot(gx-(Number(mine?.col)+.5),gy-(Number(mine?.row)+.5)) > NETWORK_VISUAL_RANGE) continue
           if (p.isBot) loadRemoteHealth(w)
           next[w] = {
-            gx, gy, row: Math.floor(gy), col: Math.floor(gx), poolCode: p.poolCode || null,
+            gx, gy, row: Math.floor(gy), col: Math.floor(gx), z: Number(p.z) || 0, poolCode: p.poolCode || null,
             isBot: Boolean(p.isBot), task: p.task || null,
             taskLabel: p.taskLabel || null, taskPhase: p.taskPhase || null,
             isDead: Boolean(p.isDead),
@@ -1076,7 +1079,7 @@ export default function MiningChain3D() {
       channelRef.current = ch
       const myW = myWalletRef.current
       const selfKey = myKeyRef.current
-      const { row, col } = myPosRef.current
+      const { row, col, z = 0 } = myPosRef.current
 
       // Presence contains the spawn position; subsequent broadcasts carry the
       // live state, so joining mining does not need a positions-table scan.
@@ -1085,14 +1088,14 @@ export default function MiningChain3D() {
           ? supabase.from('mm3_wallet_pool_members').select('pool_code').eq('wallet', myW).limit(1).maybeSingle()
           : Promise.resolve({ data: null }),
         // Track with position so other online clients know where we are immediately.
-        ch.track({ wallet: selfKey, gx: col + 0.5, gy: row + 0.5, row, col, nodeDice: normalizeNodeDiceState(nodeDiceRef.current) }),
+        ch.track({ wallet: selfKey, gx: col + 0.5, gy: row + 0.5, row, col, z: Number(z) || 0, nodeDice: normalizeNodeDiceState(nodeDiceRef.current) }),
       ])
       const myPoolCode = poolRes?.data?.pool_code || null
       setMyPoolCode(myPoolCode)
       // Re-track with pool code now that we have it
       if (myW && myPoolCode) {
-        const { row: r2, col: c2 } = myPosRef.current
-        ch.track({ wallet: myW, gx: c2 + 0.5, gy: r2 + 0.5, row: r2, col: c2, poolCode: myPoolCode, nodeDice: normalizeNodeDiceState(nodeDiceRef.current) }).catch(() => {})
+        const { row: r2, col: c2, z: z2 = 0 } = myPosRef.current
+        ch.track({ wallet: myW, gx: c2 + 0.5, gy: r2 + 0.5, row: r2, col: c2, z: Number(z2) || 0, poolCode: myPoolCode, nodeDice: normalizeNodeDiceState(nodeDiceRef.current) }).catch(() => {})
       }
     })
 
@@ -1107,24 +1110,12 @@ export default function MiningChain3D() {
 
   // useCallback with no deps — reads live values via refs so game loop never restarts
   const handlePositionChange = useCallback((row, col) => {
-    setMyPos({ row, col })
-    myPosRef.current = { row, col }
+    const z = Number(myPosRef.current?.z) || 0
+    setMyPos({ row, col, z })
+    myPosRef.current = { ...myPosRef.current, row, col, z }
     if (!myDeadUntilRef.current || myDeadUntilRef.current <= Date.now()) {
       const posKey = myWalletRef.current ? `mm3_mining_pos_${myWalletRef.current}` : 'mm3_mining_pos_anon'
-      try { localStorage.setItem(posKey, JSON.stringify({ row, col })) } catch { /* */ }
-      // Persist to DB for logged wallets (throttled — max once per 15s, anti-cheat)
-      const w = myWalletRef.current
-      if (w) {
-        const now = Date.now()
-        if (now - lastDbPosSaveRef.current >= 15_000) {
-          lastDbPosSaveRef.current = now
-          fetch('/api/pvp-death', {
-            method: 'PATCH',
-            headers: { 'content-type': 'application/json' },
-            body: JSON.stringify({ wallet: w, row, col }),
-          }).catch(() => {})
-        }
-      }
+      try { localStorage.setItem(posKey, JSON.stringify({ row, col, z })) } catch { /* */ }
     }
   }, [])
 
@@ -1260,10 +1251,27 @@ export default function MiningChain3D() {
     const myW = myKeyRef.current || myWalletRef.current
     if (!myW) return
     const row = Math.floor(gy), col = Math.floor(gx)
-    myPosRef.current = { ...myPosRef.current, gx, gy, row, col, z: Number(avatar.z) || 0 }
+    const z = Number(avatar.z) || 0
+    myPosRef.current = { ...myPosRef.current, gx, gy, row, col, z }
+    if (!myDeadUntilRef.current || myDeadUntilRef.current <= Date.now()) {
+      const posKey = myWalletRef.current ? `mm3_mining_pos_${myWalletRef.current}` : 'mm3_mining_pos_anon'
+      try { localStorage.setItem(posKey, JSON.stringify({ row, col, z })) } catch { /* */ }
+      const w = myWalletRef.current
+      if (w) {
+        const now = Date.now()
+        if (now - lastDbPosSaveRef.current >= 15_000) {
+          lastDbPosSaveRef.current = now
+          fetch('/api/pvp-death', {
+            method: 'PATCH',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ wallet: w, row, col, z }),
+          }).catch(() => {})
+        }
+      }
+    }
     const nextPosition = {
       gx, gy, row, col,
-      z: Number(avatar.z) || 0,
+      z,
       angle: Number(avatar.angle) || 0,
       pitch: Number(avatar.pitch) || 0,
       swingAt: Number(avatar.swingAt) || 0,
@@ -1301,6 +1309,7 @@ export default function MiningChain3D() {
             myColor={myColor}
             initRow={myPos.row}
             initCol={myPos.col}
+            initZ={myPos.z}
             jumpToCell={jumpToCell}
             onPositionChange={handlePositionChange}
             onFacingChange={handleFacingChange}

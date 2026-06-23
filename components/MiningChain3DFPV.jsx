@@ -4750,7 +4750,7 @@ function syncThreeLocalAvatar(state,identity,swingT,walkDist,gx,gy,playerZ,headi
 // ── Component ─────────────────────────────────────────────────────────────────
 export default function MiningChain3DFPV({
   cellMap, presenceMap, myWallet, presenceKey, myColor,
-  initRow, initCol, jumpToCell,
+  initRow, initCol, initZ = 0, jumpToCell,
   onPositionChange, onFacingChange, onWantNavigate, onPositionRealtime,
   onPvpHit, pvpStolen, demineRewards,
   onChainSolveOpen, onNftjiPanelOpen, externalPvpFlash, externalDodgeFlash = 0, externalKnockback, externalPush, onCollisionPush,
@@ -4782,7 +4782,7 @@ export default function MiningChain3DFPV({
     y:((initRow??14)+0.5)*CELL_SIZE,
     angle:0,
     pitch:0,
-    z:0, vz:0, jumps:0,
+    z:Number(initZ)||0, vz:0, jumps:0,
   })
   const walkDistRef        = useRef(0)
   const audioCtxRef        = useRef(null)
@@ -5200,14 +5200,19 @@ export default function MiningChain3DFPV({
     const obs = validObstaclesRef.current
     const cm  = cellMapRef.current
     const targetGX=jumpToCell.col+.5,targetGY=jumpToCell.row+.5
-    if (hitsSolidWall(targetGX,targetGY,cm,obs,0)) {
+    const targetZ=Number(jumpToCell.z)||0
+    if (hitsSolidWall(targetGX,targetGY,cm,obs,targetZ)) {
       const free = findNearestFreeCell(jumpToCell.row, jumpToCell.col, cm, obs)
       playerRef.current.x = (free.col + 0.5) * CELL_SIZE
       playerRef.current.y = (free.row + 0.5) * CELL_SIZE
+      playerRef.current.z = 0
     } else {
       playerRef.current.x = (jumpToCell.col + 0.5) * CELL_SIZE
       playerRef.current.y = (jumpToCell.row + 0.5) * CELL_SIZE
+      playerRef.current.z = targetZ
     }
+    playerRef.current.vz = 0
+    playerRef.current.jumps = 0
     renderRef.current?.()
   },[jumpToCell])
 
