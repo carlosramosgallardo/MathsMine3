@@ -1546,19 +1546,20 @@ footer.bg-black\/97,
 .mm3-home .mm3-splash-body {
   width: min(1040px,100%);
   min-height: 150px;
-  display: grid;
-  grid-template-columns: minmax(160px,.65fr) minmax(260px,1.35fr);
+  display: flex;
+  flex-direction: row;
   align-items: center;
-  gap: clamp(.3rem,1.5vw,1.2rem);
+  justify-content: center;
+  gap: clamp(.8rem,3vw,2.5rem);
 }
 .mm3-home-copy {
   position: relative;
   z-index: 3;
+  flex: 0 0 auto;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   text-align: left;
-  padding-left: clamp(.15rem,.8vw,.5rem);
 }
 .mm3-home-copy .mm3-splash-sub,
 .mm3-home-copy .mm3-splash-disclaimer { text-align: left; }
@@ -1566,7 +1567,8 @@ footer.bg-black\/97,
 .mm3-home-arena {
   position: relative;
   z-index: 2;
-  width:min(420px,100%);
+  flex: 0 0 auto;
+  width:min(360px,44vw);
   height:200px;
   justify-self: center;
   filter: drop-shadow(0 20px 16px rgba(0,0,0,.58));
@@ -1891,19 +1893,17 @@ footer.bg-black\/97,
 @media (max-width:720px) {
   .mm3-home .mm3-splash-body {
     min-height:120px;
-    grid-template-columns:minmax(140px,1fr) minmax(130px,.8fr);
-    gap:.15rem;
+    gap:.5rem;
   }
-  .mm3-home-copy { padding-left:.15rem; }
-  .mm3-home-arena { width:240px; height:130px; }
+  .mm3-home-arena { width:min(220px,42vw); height:130px; }
   .mm3-home-arena-floor { height:82px; }
   .mm3-home-chain3d { width:72px; height:152px; bottom:-5px; }
   .mm3-home-bot3d { width:72px; height:72px; }
   .mm3-home .mm3-portal { padding: .5rem .45rem .38rem; }
 }
 @media (max-width:480px) {
-  .mm3-home .mm3-splash-body { grid-template-columns:56% 44%; }
-  .mm3-home-arena { width:205px; height:130px; margin-left:-8px; }
+  .mm3-home .mm3-splash-body { flex-direction:column; gap:.4rem; min-height:auto; padding:.5rem 0; }
+  .mm3-home-arena { width:min(260px,80vw); height:130px; margin-left:0; }
   .mm3-home-chain3d { width:78px; height:165px; }
   .mm3-home-bot3d { width:78px; height:78px; }
   .mm3-home .mm3-portal-card { min-height:50px; }
