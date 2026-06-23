@@ -3203,7 +3203,7 @@ function addCipherHouseDetails(world) {
   })
   const groundQuat=new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1,0,0),-Math.PI/2)
   const diceFloorMaterials=[1,2,3,4,5,6].map(face=>new THREE.MeshBasicMaterial({
-    map:makeDiceFaceTexture(face),transparent:true,opacity:.92,depthWrite:false,side:THREE.DoubleSide,
+    map:makeDiceFaceTexture(face),transparent:true,opacity:.98,depthWrite:false,side:THREE.DoubleSide,
   }))
   for(let row=minRow+1;row<maxRow;row++) for(let col=minCol+1;col<maxCol;col++){
     const plate=new THREE.Mesh(new THREE.PlaneGeometry(.88,.88),groundMat)
@@ -3212,8 +3212,8 @@ function addCipherHouseDetails(world) {
     plate.renderOrder=2
     group.add(plate)
     const face=(Math.abs(row*17+col*31+(row^col)*7))%6
-    const dice=new THREE.Mesh(new THREE.PlaneGeometry(.62,.62),diceFloorMaterials[face])
-    dice.position.set(col+.5,.024,row+.5)
+    const dice=new THREE.Mesh(new THREE.PlaneGeometry(.94,.94),diceFloorMaterials[face])
+    dice.position.set(col+.5,.028,row+.5)
     dice.quaternion.copy(groundQuat)
     dice.renderOrder=3
     group.add(dice)
@@ -6440,7 +6440,7 @@ export default function MiningChain3DFPV({
           nearestPortal={row:pr,col:pc,cell,dist}
         }
       }
-      if(nearestPortal && nearestPortal.dist <= fcDist + .08){
+      if(nearestPortal && (!fc?.isChainNode && !fc?.isNodeDiceNode && !fc?.isMarket)){
         fmx=nearestPortal.col;fmy=nearestPortal.row;fc=nearestPortal.cell
         fcDist=Math.min(nearestPortal.dist,INTERACT_DIST*.82)
       }
