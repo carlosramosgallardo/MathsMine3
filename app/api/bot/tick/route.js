@@ -116,6 +116,9 @@ const BOT_MAP_FINAL_MS_MAX  = 1600;
 const BOT_MAP_SUBSCRIBE_TIMEOUT_MS = 5000;
 const BOT_MAP_SPAWN_MIN_DIST = 5;    // grid cells away from target to spawn
 const BOT_MAP_SWING_MS = 340;
+// Pool grid position (HOUSE_POOL_CENTER_X≈6.35, HOUSE_POOL_CENTER_Z≈10.75 in world space)
+const BOT_POOL_ROW = 10;
+const BOT_POOL_COL = 6;
 
 function getMiningNftjiLevelBasePct(emoji) {
   if (emoji === WALLET_DECORATIONS.lucky1000) return 0.01;
@@ -433,7 +436,7 @@ async function simulateBotMapSession(supabase, wallet, targetRow, targetCol, poo
   // Act at the destination. Repeated swing broadcasts make the task visible
   // to every player, using the same remote pickaxe animation as human wallets.
   taskPhase = 'acting';
-  const actionBursts = taskType === 'trade' ? 1 : 2;
+  const actionBursts = taskType === 'heal' ? 0 : taskType === 'trade' ? 1 : 2;
   for (let i = 0; i < actionBursts; i++) {
     if (pendingRespawn) {
       pendingRespawn = false;
@@ -944,6 +947,35 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
     await new Promise((resolve) => setTimeout(resolve, BOT_PRESENCE_SETTLE_MS));
   }
 
+  // ── PVP HEALTH: walk to pool and recover if injured ──────────────────────────
+  const { data: pvpHealthRow } = await supabase
+    .from('mm3_pvp_health')
+    .select('health, pvp_dead_until')
+    .eq('wallet', wallet)
+    .maybeSingle();
+  const botCurrentHealth = Number(pvpHealthRow?.health ?? 100);
+  const botIsDead = pvpHealthRow?.pvp_dead_until
+    ? new Date(pvpHealthRow.pvp_dead_until) > new Date()
+    : false;
+  let poolHealFromHealth = null;
+
+  if (!botIsDead && botCurrentHealth < 100) {
+    // Walk visibly to the pool so other players can see the bot healing
+    if (!didMapSession) {
+      didMapSession = true;
+      await simulateBotMapSession(
+        supabase, wallet, BOT_POOL_ROW, BOT_POOL_COL, botMapPoolCode,
+        { type: 'heal', label: `HEALING ${botCurrentHealth}/100 → POOL` }
+      ).catch(() => {});
+    }
+    // Full recovery via direct DB write (server-side, no HTTP round-trip)
+    await supabase.from('mm3_pvp_health').upsert(
+      { wallet, health: 100 },
+      { onConflict: 'wallet', ignoreDuplicates: false }
+    );
+    poolHealFromHealth = botCurrentHealth;
+  }
+
   // Phase 1: cheap queries only (5 are count-only, no row data transferred)
   const [
     { data: progressRow },
@@ -1017,6 +1049,9 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
   const nftjiBlocksCount = Array.isArray(nftjiBlocks) ? nftjiBlocks.length : 0;
   const actions = [];
   actions.push(...botActions);
+  if (poolHealFromHealth !== null) {
+    actions.push({ type: 'pool_heal', fromHealth: poolHealFromHealth });
+  }
   actions.push(...sharedActions.filter((action) =>
     ['squeeze_drop_claimed', 'squeeze_proposed'].includes(action.type) &&
     normalizeWallet(action.wallet) === normalizeWallet(wallet)
@@ -1475,21 +1510,27 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
     }
 
     if (targetBlock) {
-      // Bot enters the 3D map and walks to the target block before buying
-      if (!didMapSession && targetBlock.grid_row != null && targetBlock.grid_col != null) {
-        didMapSession = true;
-        const currentLabel = currentNftjiKey ? getNftjiBlockLabel(
-          nftjiBlocks.find((b) => b.block_key === currentNftjiKey), currentNftjiKey
-        ) : null;
+      // Bot physically walks to each block like a real player would:
+      // 1. If holding an NFTji, go to that block first to resell it
+      // 2. Then go to the target block to buy
+      if (targetBlock.grid_row != null && targetBlock.grid_col != null) {
+        if (currentNftjiKey) {
+          const oldBlock = nftjiBlocks.find((b) => b.block_key === currentNftjiKey);
+          if (oldBlock?.grid_row != null && oldBlock?.grid_col != null) {
+            await simulateBotMapSession(
+              supabase, wallet, oldBlock.grid_row, oldBlock.grid_col, botMapPoolCode,
+              { type: 'nftji_resell', label: `RESELL ${getNftjiBlockLabel(oldBlock, currentNftjiKey)}` }
+            ).catch(() => {});
+          }
+        }
         await simulateBotMapSession(
           supabase, wallet, targetBlock.grid_row, targetBlock.grid_col, botMapPoolCode,
           {
-            type: currentNftjiKey ? 'nftji_swap' : 'nftji_buy',
-            label: currentNftjiKey
-              ? `RESELL ${currentLabel} + BUY ${getNftjiBlockLabel(targetBlock, targetBlock.block_key)}`
-              : `BUY NFTJI ${getNftjiBlockLabel(targetBlock, targetBlock.block_key)}`,
+            type: 'nftji_buy',
+            label: `BUY NFTJI ${getNftjiBlockLabel(targetBlock, targetBlock.block_key)}`,
           }
         ).catch(() => {});
+        didMapSession = true;
       }
 
       const targetCmdEntry = marketCommandFromBlock(targetBlock);
@@ -1647,12 +1688,12 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
           .limit(1).maybeSingle();
 
         if (!existingCmd) {
-          if (!didMapSession && ownedBlock.grid_row != null && ownedBlock.grid_col != null) {
-            didMapSession = true;
+          if (ownedBlock.grid_row != null && ownedBlock.grid_col != null) {
             await simulateBotMapSession(
               supabase, wallet, ownedBlock.grid_row, ownedBlock.grid_col, botMapPoolCode,
               { type: 'nftji_command', label: `EXEC ${getNftjiBlockLabel(ownedBlock, currentNftjiKey)}` }
             ).catch(() => {});
+            didMapSession = true;
           }
           const dayWindow = getUtcDayWindow(new Date());
           const { x, code } = computeMarketCommandCode(cmdEntry, wallet, dayWindow.dayKey, Date.now());
@@ -1919,13 +1960,11 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
       const grid = blockHexToGrid(pick.blockHex);
 
       // Bot enters the 3D map and walks to the target block before mining
-      if (!didMapSession) {
-        didMapSession = true;
-        await simulateBotMapSession(
-          supabase, wallet, grid.row, grid.col, botMapPoolCode,
-          { type: 'chain_mine', label: `MINE BLOCK ${pick.blockHex}` }
-        ).catch(() => {});
-      }
+      await simulateBotMapSession(
+        supabase, wallet, grid.row, grid.col, botMapPoolCode,
+        { type: 'chain_mine', label: `MINE BLOCK ${pick.blockHex}` }
+      ).catch(() => {});
+      didMapSession = true;
 
       const { data: lastChainRow } = await supabase.from('mm3_mined_blocks')
         .select('chain_index').order('chain_index', { ascending: false }).limit(1).maybeSingle();
@@ -2020,6 +2059,7 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
     const penaltyRedeemedActions = actions.filter((a) => a.type === 'penalty_redeemed');
     const chainMineAction = actions.find((a) => a.type === 'chain_mine');
     const relayExecAction = actions.find((a) => a.type === 'relay_exec');
+    const poolHealAction = actions.find((a) => a.type === 'pool_heal');
 
     const gamesCount = gamesAction?.count || 0;
     const mm3Mined = gamesAction?.total_mining_reward || 0;
@@ -2094,6 +2134,9 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
 
     // ── relay exec
     if (relayExecAction) botMsg += ` :: relay→${formatWalletLabel(relayExecAction.targetWallet)} Lv.${relayExecAction.level}`;
+
+    // ── pool heal
+    if (poolHealAction) botMsg += ` :: pool:heal(${poolHealAction.fromHealth}→100)`;
 
     // ── tasks
     if (tasksCompleted.length > 0) botMsg += ` :: tasks:${tasksCompleted.join(' ')}`;
