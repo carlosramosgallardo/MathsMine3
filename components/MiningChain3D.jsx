@@ -7,6 +7,7 @@ import { useI18n } from '@/lib/i18n-context'
 import { useCurrency } from '@/lib/currency-context'
 import { useActiveWallet } from '@/lib/use-active-wallet'
 import { colorFromAddress } from '@/lib/wallet-colors'
+import { getDiceState } from '@/lib/dice'
 import {
   gridToBlockHex, blockHexToGrid,
   MM3_BLOCK_REQUIREMENT_BY_HEX,
@@ -27,6 +28,28 @@ import NftjiPenaltyCard from './NftjiPenaltyCard'
 const C = '#22d3ee'
 const NETWORK_VISUAL_RANGE = 22
 const CHAIN3D_CHANNEL = 'mm3-chain3d-v1'
+const NODE_DICE_PRICE_MM3 = 500
+const NODE_DICE_MIN_LEVEL = 30
+const NODE_DICE_STORAGE_KEY = 'mm3_stormroll_node'
+const NODE_DICE_DURATION_MS = 24 * 60 * 60 * 1000
+const NODE_DICE_POSITION = Object.freeze({ row: 5, col: 5 })
+
+function normalizeNodeDiceState(value) {
+  const now = Date.now()
+  const expiresAt = Number(value?.expiresAt) || 0
+  if (!expiresAt || expiresAt <= now) return null
+  const wallet = String(value?.wallet || '').toLowerCase()
+  if (!wallet) return null
+  return {
+    wallet,
+    startedAt: Number(value?.startedAt) || now,
+    expiresAt,
+    mode: value?.mode === 'war' ? 'war' : 'meteo',
+    hourStart: Number(value?.hourStart) || 0,
+    warPercent: Number(value?.warPercent) || 0,
+    naturePercent: Number(value?.naturePercent) || 0,
+  }
+}
 
 // Trade/wallet NFTJIs — matches TRADE_SLOT_ORDER in wallet-decorations.js
 const TRADE_NFTJI_DEFS = [
@@ -164,7 +187,12 @@ export default function MiningChain3D() {
   const [chainDemineActive, setChainDemineActive] = useState(false)
   const [chainDemineHitsRemaining, setChainDemineHitsRemaining] = useState(100)
   const [chainSolvers, setChainSolvers] = useState([])
+  const [nodeDiceState, setNodeDiceState] = useState(null)
+  const [nodeDicePanelOpen, setNodeDicePanelOpen] = useState(false)
+  const [nodeDiceWalletStats, setNodeDiceWalletStats] = useState({ mm3: 0, level: 0 })
+  const [nodeDiceError, setNodeDiceError] = useState('')
   const demineRewardIdsRef = useRef(new Set())
+  const nodeDiceRef = useRef(null)
 
   const applyDemineReward = useCallback(({ wallet, mm3Awarded, eventId }) => {
     const normalizedWallet = String(wallet || '').trim().toLowerCase()
@@ -180,6 +208,133 @@ export default function MiningChain3D() {
       [normalizedWallet]: (Number(prev[normalizedWallet]) || 0) + amount,
     }))
   }, [])
+
+  const refreshNodeDiceMode = useCallback(async (state = nodeDiceRef.current, broadcast = true) => {
+    const active = normalizeNodeDiceState(state)
+    if (!active) {
+      nodeDiceRef.current = null
+      setNodeDiceState(null)
+      try { localStorage.removeItem(NODE_DICE_STORAGE_KEY) } catch {}
+      if (broadcast) channelRef.current?.send({ type: 'broadcast', event: 'node-dice', payload: null })?.catch(() => {})
+      return null
+    }
+    const dice = getDiceState()
+    if (!dice.active) {
+      nodeDiceRef.current = active
+      setNodeDiceState(active)
+      return active
+    }
+    if (Number(active.hourStart) === Number(dice.hourStart)) {
+      nodeDiceRef.current = active
+      setNodeDiceState(active)
+      return active
+    }
+    let macro = { war_percent: active.warPercent || 0, nature_percent: active.naturePercent || 0 }
+    try {
+      const { data } = await supabase.from('mm3_macro_state').select('war_percent,nature_percent').eq('id', 1).maybeSingle()
+      if (data) macro = data
+    } catch {}
+    const seed = `${active.wallet}:${dice.hourStart}`
+    let hash = 0
+    for (let i = 0; i < seed.length; i++) hash = ((hash << 5) - hash + seed.charCodeAt(i)) | 0
+    const next = {
+      ...active,
+      mode: Math.abs(hash) % 2 === 0 ? 'meteo' : 'war',
+      hourStart: dice.hourStart,
+      warPercent: Number(macro.war_percent) || 0,
+      naturePercent: Number(macro.nature_percent) || 0,
+    }
+    nodeDiceRef.current = next
+    setNodeDiceState(next)
+    try { localStorage.setItem(NODE_DICE_STORAGE_KEY, JSON.stringify(next)) } catch {}
+    if (broadcast) {
+      channelRef.current?.send({
+        type: 'broadcast',
+        event: 'node-dice',
+        payload: next,
+      })?.catch(() => {})
+    }
+    return next
+  }, [])
+
+  useEffect(() => {
+    let restored = null
+    try { restored = normalizeNodeDiceState(JSON.parse(localStorage.getItem(NODE_DICE_STORAGE_KEY) || 'null')) } catch {}
+    if (restored) {
+      nodeDiceRef.current = restored
+      setNodeDiceState(restored)
+      refreshNodeDiceMode(restored, false)
+    }
+    const id = setInterval(() => refreshNodeDiceMode(nodeDiceRef.current, true), 1000)
+    return () => clearInterval(id)
+  }, [refreshNodeDiceMode])
+
+  useEffect(() => {
+    nodeDiceRef.current = normalizeNodeDiceState(nodeDiceState)
+  }, [nodeDiceState])
+
+  const loadNodeDiceWalletStats = useCallback(async () => {
+    const wallet = myWalletRef.current
+    if (!wallet) {
+      setNodeDiceWalletStats({ mm3: 0, level: 0 })
+      return { mm3: 0, level: 0 }
+    }
+    const [{ data: progress }, { data: balance }] = await Promise.all([
+      supabase.from('player_progress').select('level,mm3_sold').eq('wallet', wallet).maybeSingle(),
+      supabase.from('leaderboard_data').select('total_eth').eq('wallet', wallet).maybeSingle(),
+    ])
+    const stats = {
+      level: Number(progress?.level) || 0,
+      mm3: (Number(balance?.total_eth) || 0) - (Number(progress?.mm3_sold) || 0),
+    }
+    setNodeDiceWalletStats(stats)
+    return stats
+  }, [])
+
+  const handleNodeDicePanelOpen = useCallback(() => {
+    setNodeDiceError('')
+    setNodeDicePanelOpen(true)
+    loadNodeDiceWalletStats().catch(() => {})
+  }, [loadNodeDiceWalletStats])
+
+  const handleActivateNodeDice = useCallback(async () => {
+    const wallet = myWalletRef.current
+    if (!wallet) {
+      setNodeDiceError(es ? 'Conecta wallet para activar.' : 'Connect wallet to activate.')
+      return
+    }
+    const current = normalizeNodeDiceState(nodeDiceRef.current)
+    if (current) {
+      setNodeDiceError(es ? 'StormRoll Node ya está activo.' : 'StormRoll Node is already active.')
+      return
+    }
+    const stats = await loadNodeDiceWalletStats()
+    if (stats.level < NODE_DICE_MIN_LEVEL) {
+      setNodeDiceError(es ? `Nivel mínimo ${NODE_DICE_MIN_LEVEL}.` : `Minimum level ${NODE_DICE_MIN_LEVEL}.`)
+      return
+    }
+    if (stats.mm3 < NODE_DICE_PRICE_MM3) {
+      setNodeDiceError(es ? 'MM3 insuficiente.' : 'Not enough MM3.')
+      return
+    }
+    const now = Date.now()
+    const next = {
+      wallet,
+      startedAt: now,
+      expiresAt: now + NODE_DICE_DURATION_MS,
+      mode: Math.random() < .5 ? 'meteo' : 'war',
+      hourStart: 0,
+      warPercent: 0,
+      naturePercent: 0,
+    }
+    nodeDiceRef.current = next
+    setNodeDiceState(next)
+    setNodeDicePanelOpen(false)
+    setNodeDiceError('')
+    try { localStorage.setItem(NODE_DICE_STORAGE_KEY, JSON.stringify(next)) } catch {}
+    channelRef.current?.send({ type: 'broadcast', event: 'node-dice', payload: next })?.catch(() => {})
+    refreshNodeDiceMode(next, true)
+  }, [es, loadNodeDiceWalletStats, refreshNodeDiceMode])
 
   const loadRemoteHealth = useCallback((wallet) => {
     const key = String(wallet || '').toLowerCase()
@@ -400,6 +555,17 @@ export default function MiningChain3D() {
         emoji: '⬡',
         titleEn: 'MM3 BLOCK CHAIN',
         titleEs: 'MM3 BLOCK CHAIN',
+      })
+      map.set(`${NODE_DICE_POSITION.row},${NODE_DICE_POSITION.col}`, {
+        isNodeDiceNode: true,
+        isMarket: false,
+        isMined: false,
+        owner: null,
+        color: '#facc15',
+        emoji: '🎲',
+        titleEn: 'STORMROLL NODE',
+        titleEs: 'STORMROLL NODE',
+        baseHeight: 5.80,
       })
       // Portal navigation nodes in the outer area
       for (const node of PORTAL_NODES) {
@@ -656,6 +822,12 @@ export default function MiningChain3D() {
       applyDemineReward(payload || {})
     })
 
+    ch.on('broadcast', { event: 'node-dice' }, ({ payload }) => {
+      const next = normalizeNodeDiceState(payload)
+      nodeDiceRef.current = next
+      setNodeDiceState(next)
+    })
+
     // Other players died — update their position to show corpse
     ch.on('broadcast', { event: 'player-death' }, ({ payload }) => {
       const w = payload?.victim
@@ -677,6 +849,13 @@ export default function MiningChain3D() {
     // Low-latency position updates via broadcast.
     ch.on('broadcast', { event: 'move' }, ({ payload }) => {
       if (!payload?.wallet || payload.gx == null) return
+      if (payload.nodeDice) {
+        const nextNodeDice = normalizeNodeDiceState(payload.nodeDice)
+        if (nextNodeDice) {
+          nodeDiceRef.current = nextNodeDice
+          setNodeDiceState(nextNodeDice)
+        }
+      }
       const w = payload.wallet
       const mine = myPosRef.current
       const remoteDist = Math.hypot(
@@ -704,6 +883,13 @@ export default function MiningChain3D() {
         for (const [w, entries] of Object.entries(state)) {
           const p = entries?.[0]
           if (!p || next[w]) continue   // already have broadcast-precise position
+          if (p.nodeDice) {
+            const nextNodeDice = normalizeNodeDiceState(p.nodeDice)
+            if (nextNodeDice) {
+              nodeDiceRef.current = nextNodeDice
+              setNodeDiceState(nextNodeDice)
+            }
+          }
           const gx = p.gx ?? ((p.col ?? 14) + 0.5)
           const gy = p.gy ?? ((p.row ?? 14) + 0.5)
           const mine = myPosRef.current
@@ -746,14 +932,14 @@ export default function MiningChain3D() {
           ? supabase.from('mm3_wallet_pool_members').select('pool_code').eq('wallet', myW).limit(1).maybeSingle()
           : Promise.resolve({ data: null }),
         // Track with position so other online clients know where we are immediately.
-        ch.track({ wallet: selfKey, gx: col + 0.5, gy: row + 0.5, row, col }),
+        ch.track({ wallet: selfKey, gx: col + 0.5, gy: row + 0.5, row, col, nodeDice: normalizeNodeDiceState(nodeDiceRef.current) }),
       ])
       const myPoolCode = poolRes?.data?.pool_code || null
       setMyPoolCode(myPoolCode)
       // Re-track with pool code now that we have it
       if (myW && myPoolCode) {
         const { row: r2, col: c2 } = myPosRef.current
-        ch.track({ wallet: myW, gx: c2 + 0.5, gy: r2 + 0.5, row: r2, col: c2, poolCode: myPoolCode }).catch(() => {})
+        ch.track({ wallet: myW, gx: c2 + 0.5, gy: r2 + 0.5, row: r2, col: c2, poolCode: myPoolCode, nodeDice: normalizeNodeDiceState(nodeDiceRef.current) }).catch(() => {})
       }
     })
 
@@ -921,6 +1107,7 @@ export default function MiningChain3D() {
       poolCode: myPoolCode || null,
       isDead: Boolean(avatar.isDead),
       deadUntil: avatar.deadUntil || null,
+      nodeDice: normalizeNodeDiceState(nodeDiceRef.current),
     }
     // Update own dot on minimap
     setPositions(prev => ({ ...prev, [myW]: nextPosition }))
@@ -982,6 +1169,8 @@ export default function MiningChain3D() {
             chainDemineHitsRemaining={chainDemineHitsRemaining}
             chainSolvers={chainSolvers}
             onDemineHit={handleDemineHit}
+            nodeDiceState={nodeDiceState}
+            onNodeDicePanelOpen={handleNodeDicePanelOpen}
           />
         )}
       </div>
@@ -1032,6 +1221,86 @@ export default function MiningChain3D() {
             <div style={{ textAlign:'center', marginTop:12, color:'rgba(74,222,128,0.25)', fontSize:'0.58rem', letterSpacing:'0.12em' }}>
               {es ? 'ESC O CLIC FUERA PARA CERRAR' : 'ESC OR CLICK OUTSIDE TO CLOSE'}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── StormRoll Node overlay ───────────────────────────────────────── */}
+      {nodeDicePanelOpen && (
+        <div
+          style={{
+            position:'absolute', inset:0, display:'flex', alignItems:'center', justifyContent:'center',
+            background:'rgba(0,0,0,0.90)', zIndex:60,
+          }}
+          onClick={() => setNodeDicePanelOpen(false)}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{
+              background:'#07100f', border:'1px solid rgba(250,204,21,0.34)',
+              borderRadius:10, padding:'20px 24px', width:'min(420px,94vw)',
+              fontFamily:'Consolas,monospace',
+            }}
+          >
+            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:16 }}>
+              <div style={{ display:'flex', alignItems:'center', gap:9 }}>
+                <span style={{ color:'#facc15', fontSize:'1.15rem' }}>🎲</span>
+                <div>
+                  <div style={{ color:'#facc15', fontWeight:700, fontSize:'0.86rem', letterSpacing:'0.1em' }}>
+                    STORMROLL NODE
+                  </div>
+                  <div style={{ color:'rgba(250,204,21,0.40)', fontSize:'0.6rem', letterSpacing:'0.14em', marginTop:1 }}>
+                    {es ? 'DADO HORARIO · 24H' : 'HOURLY DICE · 24H'}
+                  </div>
+                </div>
+              </div>
+              <button
+                onClick={() => setNodeDicePanelOpen(false)}
+                style={{ background:'none', border:'none', color:'#64748b', cursor:'pointer', fontSize:'1.1rem', lineHeight:1 }}
+              >
+                ✕
+              </button>
+            </div>
+
+            <div style={{ display:'grid', gap:8, marginBottom:14, color:'#cbd5e1', fontSize:'0.76rem' }}>
+              <div style={{ display:'flex', justifyContent:'space-between' }}>
+                <span>{es ? 'Precio' : 'Price'}</span><strong style={{ color:'#facc15' }}>{NODE_DICE_PRICE_MM3} MM3</strong>
+              </div>
+              <div style={{ display:'flex', justifyContent:'space-between' }}>
+                <span>{es ? 'Nivel mínimo' : 'Min level'}</span><strong style={{ color:nodeDiceWalletStats.level >= NODE_DICE_MIN_LEVEL ? '#4ade80' : '#fb7185' }}>Lv {NODE_DICE_MIN_LEVEL}</strong>
+              </div>
+              <div style={{ display:'flex', justifyContent:'space-between' }}>
+                <span>{es ? 'Tu wallet' : 'Your wallet'}</span><strong style={{ color:'#67e8f9' }}>Lv {nodeDiceWalletStats.level} · {nodeDiceWalletStats.mm3.toFixed(2)} MM3</strong>
+              </div>
+              <div style={{ display:'flex', gap:8, justifyContent:'center', padding:'8px 0', color:'#e2e8f0' }}>
+                <span>🔥 50%</span>
+                <span style={{ color:'#475569' }}>·</span>
+                <span>🌪️ 50%</span>
+              </div>
+            </div>
+
+            {nodeDiceState ? (
+              <div style={{ color:'#4ade80', fontSize:'0.72rem', textAlign:'center', marginBottom:10 }}>
+                {es ? 'Activo por' : 'Active by'} {nodeDiceState.wallet.slice(0,6)}…{nodeDiceState.wallet.slice(-4)}
+                {' · '}
+                {nodeDiceState.mode === 'war' ? '🔥 WAR' : '🌪️ METEO'}
+              </div>
+            ) : null}
+            {nodeDiceError ? (
+              <div style={{ color:'#fb7185', fontSize:'0.7rem', textAlign:'center', marginBottom:10 }}>{nodeDiceError}</div>
+            ) : null}
+            <button
+              onClick={handleActivateNodeDice}
+              disabled={Boolean(nodeDiceState)}
+              style={{
+                width:'100%', border:'1px solid rgba(250,204,21,0.46)',
+                background:nodeDiceState?'#1f2937':'#facc15', color:nodeDiceState?'#94a3b8':'#020617',
+                borderRadius:8, padding:'10px 12px', fontWeight:800, letterSpacing:'0.08em',
+                cursor:nodeDiceState?'not-allowed':'pointer',
+              }}
+            >
+              {nodeDiceState ? (es ? 'ACTIVO' : 'ACTIVE') : (es ? 'ACTIVAR' : 'ACTIVATE')}
+            </button>
           </div>
         </div>
       )}

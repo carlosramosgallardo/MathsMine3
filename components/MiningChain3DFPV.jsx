@@ -6,6 +6,7 @@ import { colorFromAddress } from '@/lib/wallet-colors'
 import { MM3_BLOCK_GRID_ROWS, MM3_BLOCK_GRID_COLS, gridToBlockHex, MM3_BLOCK_REQUIREMENT_BY_HEX, doesGlobalValueMeetRequirement } from '@/lib/mm3-block-chain'
 import supabase from '@/lib/supabaseClient'
 import { groupPresenceEntries } from '@/lib/presence-display'
+import { getDiceState } from '@/lib/dice'
 import {
   CIPHER_HOUSE_BOUNDS,
   CRYPTO_COLOSSEUM_BOUNDS,
@@ -47,6 +48,7 @@ const FLOOR_GRID_RANGE = 12  // distant grid lines merge into unstable horizon b
 const RADAR_RANGE   = 18     // square local map using the same camera frustum
 const CHAIN_NODE_ROW = MINING_CHAIN_NODE_POSITION.row
 const CHAIN_NODE_COL = MINING_CHAIN_NODE_POSITION.col
+const NODE_DICE_POSITION = Object.freeze({ row: 5, col: 5 })
 // Jump: a player can mount mining blocks, but structural walls stay impassable.
 const JUMP_VZ   = 5.7        // jump impulse (grid units / second)
 const GRAVITY_A = 13.5       // gravity (grid units / second²)
@@ -93,7 +95,7 @@ function obstacleTop(data) {
 function blockTop(cell,row=0,col=0) {
   if(!cell) return 0
   const base=blockBottom(cell)
-  if(cell.isPortalNode||cell.isChainNode) return base+1.0
+  if(cell.isPortalNode||cell.isChainNode||cell.isNodeDiceNode) return base+1.0
   const raw=String(cell.blockHex||gridToBlockHex(row,col)||'').replace('#','')
   const index=Number.parseInt(raw,16)
   if(!Number.isFinite(index)) return base+(cell.isMarket?0.58:BLOCK_TOP)
@@ -163,7 +165,7 @@ function makeCipherHouseEntries() {
   const doors=new Set(['3,5','3,6','13,9','13,10','6,3','7,3','9,13','10,13'])
   const add=(row,col,data={})=>entries.push([`${row},${col}`,{
     base:W_STONE,glow:[103,232,249],kind:'hash',label:'CIPHER HOUSE',
-    height:3.65,isStructure:true,isHouse:true,...data,
+    height:6.20,isStructure:true,isHouse:true,...data,
   }])
   const {minRow,maxRow,minCol,maxCol}=CIPHER_HOUSE_BOUNDS
 
@@ -180,24 +182,34 @@ function makeCipherHouseEntries() {
     }
   }
 
-  ;[[12,10,.58],[11,10,1.16],[10,10,1.74]].forEach(([row,col,height])=>add(row,col,{
+  const floorLevels=[1.16,2.32,3.48,4.64,5.80]
+  const stairCells=[
+    [12,10,.58],[11,10,1.16],[10,10,1.74],[9,10,2.32],
+    [9,9,2.90],[8,9,3.48],[7,9,4.06],[7,8,4.64],
+    [6,8,5.22],[6,7,5.80],
+  ]
+  const stairKeys=new Set(stairCells.map(([row,col])=>`${row},${col}`))
+  const roofDeckKeys=new Set(['4,4','4,5','4,6','5,4','5,6','6,4','6,5','6,6','5,5'])
+  for(const [row,col,height] of stairCells) add(row,col,{
     base:W_DARK,glow:[250,204,21],kind:'ledger',label:'HOUSE STAIR',height,
     isRouteStair:true,isHouseStair:true,
-  }))
-  for(let row=7;row<=9;row++) for(let col=8;col<=11;col++) add(row,col,{
-    base:W_SLATE,label:'HOUSE FIRST FLOOR',bottom:1.42,height:1.74,isHouseFloor:true,
   })
-  for(const [row,col] of [[10,8],[10,9],[10,11]]) add(row,col,{
-    base:W_SLATE,label:'HOUSE FIRST FLOOR',bottom:1.42,height:1.74,isHouseFloor:true,
-  })
-
-  ;[[7,7,1.74,2.32],[6,7,1.74,2.90],[5,7,1.74,3.48]].forEach(([row,col,bottom,height])=>add(row,col,{
-    base:W_DARK,glow:[217,70,239],kind:'consensus',label:'ROOF STAIR',bottom,height,
-    isRouteStair:true,isHouseStair:true,
-  }))
-  for(let row=4;row<=6;row++) for(let col=4;col<=6;col++){
-    if(row===5&&col===5) continue
-    add(row,col,{base:W_SLATE,label:'CIPHER ROOF',bottom:3.16,height:3.48,isHouseFloor:true,isHouseRoof:true})
+  for(const level of floorLevels){
+    for(let row=minRow+1;row<maxRow;row++) for(let col=minCol+1;col<maxCol;col++){
+      const key=`${row},${col}`
+      const isRoof=level===floorLevels[floorLevels.length-1]
+      if(stairKeys.has(key)) continue
+      if(isRoof&&!roofDeckKeys.has(key)) continue
+      if(!isRoof&&key===`${NODE_DICE_POSITION.row},${NODE_DICE_POSITION.col}`) continue
+      add(row,col,{
+        base:isRoof?W_SLATE:W_DARK,
+        glow:isRoof?[250,204,21]:[103,232,249],
+        kind:isRoof?'ledger':'hash',
+        label:isRoof?'CIPHER ROOF':`CIPHER FLOOR ${Math.round(level/.58)}`,
+        bottom:Math.max(0,level-.08),height:level,
+        isHouseFloor:true,isHouseRoof:isRoof,
+      })
+    }
   }
   return entries
 }
@@ -1911,7 +1923,7 @@ function drawMinimap(ctx, gr, gc, angle, cellMap, presenceMap, myWallet, W, H, c
   }
 
   for (const [key, cell] of cellMap) {
-    if (!cell?.isPortalNode) continue
+    if (!cell?.isPortalNode && !cell?.isNodeDiceNode) continue
     const [row, col] = key.split(',').map(Number)
     drawMapEmoji(cell.emoji || '◆', mapX(col + .5), mapY(row + .5), cell.color || C, 'circle')
   }
@@ -1972,7 +1984,7 @@ function drawMinimap(ctx, gr, gc, angle, cellMap, presenceMap, myWallet, W, H, c
 }
 
 // ── Facing block HUD (top-right info card) ────────────────────────────────────
-function drawFacingHUD(ctx, W, H, fwdCell, fwdMx, fwdMy, myWallet, es, dist, obsMap, chainStatsBottom = 72, mineProgress = 0, playerLevel = 0, globalMm3 = 0, chainSolvers = [], chainDemineActive = false, chainDemineHits = 100) {
+function drawFacingHUD(ctx, W, H, fwdCell, fwdMx, fwdMy, myWallet, es, dist, obsMap, chainStatsBottom = 72, mineProgress = 0, playerLevel = 0, globalMm3 = 0, chainSolvers = [], chainDemineActive = false, chainDemineHits = 100, nodeDiceState = null) {
   if (fwdMx < 0 || fwdMy < 0 || fwdMx >= COLS || fwdMy >= ROWS) return
 
   // Double-check: use both cell flag and obsMap to catch any desync
@@ -2023,6 +2035,29 @@ function drawFacingHUD(ctx, W, H, fwdCell, fwdMx, fwdMy, myWallet, es, dist, obs
       ctx.fillStyle = l.col
       ctx.fillText(l.text, _px + _padX, _py + _padY + i * _lineH, _pw - _padX * 2)
     }
+    return
+  }
+
+  if (fwdCell?.isNodeDiceNode) {
+    const inRange = dist == null || dist <= INTERACT_DIST
+    const col = '#facc15'
+    const active = nodeDiceState && Number(nodeDiceState.expiresAt) > Date.now()
+    const dice = getDiceState()
+    const lines = [
+      { text: `${fwdCell.emoji || '🎲'}  ${fwdCell.titleEn || 'STORMROLL NODE'}`, size: 13, weight: 'bold', col },
+      { text: active ? (nodeDiceState.mode === 'war' ? '🔥 WAR 50%' : '🌪️ METEO 50%') : (es ? '500 MM3 · Lv 30' : '500 MM3 · Lv 30'), size: 10, col: active ? '#4ade80cc' : '#94a3b8' },
+      { text: active && dice.active ? (es ? 'DADO MUNDO ACTIVO' : 'WORLD DICE ACTIVE') : (es ? 'esperando dado horario' : 'waiting hourly dice'), size: 9, col: active && dice.active ? '#facc15cc' : '#64748b' },
+      inRange
+        ? (mineProgress > 0
+            ? { text: es ? `⛏ ${Math.round(mineProgress * HITS_NEEDED)}/${HITS_NEEDED} golpes` : `⛏ ${Math.round(mineProgress * HITS_NEEDED)}/${HITS_NEEDED} hits`, size: 10, col: col + 'cc' }
+            : { text: es ? '⛏ 5 golpes · ficha' : '⛏ 5 hits · card', size: 10, col: col + 'cc' })
+        : { text: es ? '· sube al techo' : '· reach the roof', size: 9, col: col + '55' },
+    ]
+    const lineH=15,padX=9,padY=7,ph=lines.length*lineH+padY*2,pw=CARD_PW,px=CARD_PX,py=CARD_PY
+    ctx.globalAlpha=.9;ctx.fillStyle='#080b05';ctx.fillRect(px,py,pw,ph);ctx.globalAlpha=1
+    ctx.strokeStyle=col+'66';ctx.strokeRect(px,py,pw,ph);ctx.fillStyle=col+'88';ctx.fillRect(px,py,2,ph)
+    ctx.textAlign='left';ctx.textBaseline='top'
+    lines.forEach((line,i)=>{ctx.font=`${line.weight||'normal'} ${line.size}px monospace`;ctx.fillStyle=line.col;ctx.fillText(line.text,px+padX,py+padY+i*lineH,pw-padX*2)})
     return
   }
 
@@ -2253,6 +2288,40 @@ function playPickHit(audioCtxRef, type) {
       const src = ctx.createBufferSource(); src.buffer = buf
       const g = ctx.createGain(); g.gain.value = 0.06
       src.connect(g); g.connect(ctx.destination); src.start()
+    }
+  } catch {}
+}
+
+function playNodeDiceWeatherSound(audioCtxRef, mode = 'meteo') {
+  try {
+    if (!audioCtxRef.current)
+      audioCtxRef.current = new (window.AudioContext || window.webkitAudioContext)()
+    const ctx = audioCtxRef.current
+    if (ctx.state === 'suspended') ctx.resume().catch(()=>{})
+    const t = ctx.currentTime
+    const sr = ctx.sampleRate
+    const dur = mode === 'war' ? 0.18 : 0.38
+    const buf = ctx.createBuffer(1, Math.ceil(sr * dur), sr)
+    const d = buf.getChannelData(0)
+    for (let i = 0; i < d.length; i++) {
+      const fade = Math.pow(1 - i / d.length, mode === 'war' ? 2.4 : 1.2)
+      d[i] = (Math.random() * 2 - 1) * fade
+    }
+    const src = ctx.createBufferSource(); src.buffer = buf
+    const f = ctx.createBiquadFilter(); f.type = mode === 'war' ? 'bandpass' : 'lowpass'
+    f.frequency.value = mode === 'war' ? 760 : 260
+    const g = ctx.createGain(); g.gain.value = mode === 'war' ? 0.055 : 0.045
+    src.connect(f); f.connect(g); g.connect(ctx.destination); src.start(t)
+    if (mode === 'war') {
+      ;[180, 90, 55].forEach((freq, index) => {
+        const osc = ctx.createOscillator(), gain = ctx.createGain()
+        osc.type = 'triangle'
+        osc.frequency.setValueAtTime(freq, t + index * .055)
+        gain.gain.setValueAtTime(.045, t + index * .055)
+        gain.gain.exponentialRampToValueAtTime(.001, t + .18 + index * .055)
+        osc.connect(gain); gain.connect(ctx.destination)
+        osc.start(t + index * .055); osc.stop(t + .24 + index * .055)
+      })
     }
   } catch {}
 }
@@ -2506,6 +2575,59 @@ function drawChainStats(ctx, W, H, stats, es, top = 8) {
   }
   ctx.textAlign = 'left'; ctx.globalAlpha = 1
   return py + ph
+}
+
+function getNodeDiceVisualState(nodeDiceState) {
+  const active = nodeDiceState && Number(nodeDiceState.expiresAt) > Date.now()
+  if (!active) return null
+  const dice = getDiceState()
+  if (!dice.active) return null
+  return { ...nodeDiceState, dice }
+}
+
+function drawNodeDiceWeather(ctx, W, H, visual) {
+  if (!visual) return
+  const now = performance.now()
+  const mode = visual.mode === 'war' ? 'war' : 'meteo'
+  ctx.save()
+  if (mode === 'meteo') {
+    const storm = Math.max(.18, Math.min(.72, Number(visual.naturePercent || 50) / 100))
+    const sky = ctx.createLinearGradient(0,0,0,H)
+    sky.addColorStop(0,`rgba(12,18,32,${.34 + storm * .18})`)
+    sky.addColorStop(1,`rgba(20,96,116,${.10 + storm * .10})`)
+    ctx.fillStyle = sky
+    ctx.fillRect(0,0,W,H)
+    ctx.strokeStyle = `rgba(125,211,252,${.24 + storm * .26})`
+    ctx.lineWidth = 1
+    const count = Math.round(36 + storm * 42)
+    for (let i = 0; i < count; i++) {
+      const x = (i * 73 + now * .22) % (W + 80) - 40
+      const y = (i * 41 + now * .72) % (H + 60) - 30
+      ctx.beginPath(); ctx.moveTo(x,y); ctx.lineTo(x - 10, y + 34); ctx.stroke()
+    }
+    if (Math.sin(now / 620) > .94) {
+      ctx.globalAlpha = .18 + storm * .16
+      ctx.fillStyle = '#dffbff'
+      ctx.fillRect(0,0,W,H)
+    }
+  } else {
+    const heat = Math.max(.18, Math.min(.78, Number(visual.warPercent || 50) / 100))
+    const flash = Math.max(0, Math.sin(now / 95)) * heat
+    ctx.fillStyle = `rgba(70,8,8,${.18 + heat * .22})`
+    ctx.fillRect(0,0,W,H)
+    for (let i = 0; i < 22; i++) {
+      const x = (i * 97 + now * .48) % (W + 120) - 60
+      const y = (i * 53 + now * .21) % (H * .72)
+      ctx.strokeStyle = i % 4 === 0 ? `rgba(250,204,21,${.25 + flash * .35})` : 'rgba(248,113,113,.34)'
+      ctx.lineWidth = i % 4 === 0 ? 2 : 1
+      ctx.beginPath(); ctx.moveTo(x,y); ctx.lineTo(x + 38 + (i % 3) * 18, y - 9); ctx.stroke()
+      if (i % 7 === 0) {
+        ctx.fillStyle = `rgba(251,146,60,${.14 + flash * .28})`
+        ctx.beginPath(); ctx.arc(x + 44, y - 9, 8 + flash * 14, 0, Math.PI * 2); ctx.fill()
+      }
+    }
+  }
+  ctx.restore()
 }
 
 // ── Online players list (below minimap) ─────────────────────────────────────
@@ -3150,10 +3272,10 @@ function makeEmojiSprite(emoji,color,shape='square') {
 }
 
 function addInteractiveBeaconEmoji(world,row,col,cell,height) {
-  if((!cell.isMarket&&!cell.isPortalNode)||!cell.emoji) return
-  const color=cell.isChainNode?'#facc15':cell.isPortalNode?(cell.color||'#22d3ee'):cell.isMarket?(cell.owner?'#4ade80':'#fb923c'):'#22d3ee'
+  if((!cell.isMarket&&!cell.isPortalNode&&!cell.isNodeDiceNode)||!cell.emoji) return
+  const color=cell.isChainNode||cell.isNodeDiceNode?'#facc15':cell.isPortalNode?(cell.color||'#22d3ee'):cell.isMarket?(cell.owner?'#4ade80':'#fb923c'):'#22d3ee'
   const beacon=new THREE.Group()
-  const emojiSprite=makeEmojiSprite(cell.emoji,color,cell.isPortalNode?'circle':'square')
+  const emojiSprite=makeEmojiSprite(cell.emoji,color,(cell.isPortalNode||cell.isNodeDiceNode)?'circle':'square')
   emojiSprite.position.y=height+.82
   beacon.add(emojiSprite)
   beacon.position.set(col+.5,0,row+.5)
@@ -3175,9 +3297,9 @@ function addInteractiveBeaconBatch(world,entries) {
   }
   entries.forEach((entry,index)=>{
     const {cell}=entry
-    const color=new THREE.Color(cell.isChainNode?'#facc15':cell.isPortalNode?(cell.color||'#22d3ee'):cell.isMarket?(cell.owner?'#4ade80':'#fb923c'):'#22d3ee')
+    const color=new THREE.Color(cell.isChainNode||cell.isNodeDiceNode?'#facc15':cell.isPortalNode?(cell.color||'#22d3ee'):cell.isMarket?(cell.owner?'#4ade80':'#fb923c'):'#22d3ee')
     rings.setColorAt(index,color);ring2s.setColorAt(index,color);columns.setColorAt(index,color)
-    const markerKey=cell.isPortalNode?'portal':cell.isMarket?'market':'chain'
+    const markerKey=cell.isPortalNode||cell.isNodeDiceNode?'portal':cell.isMarket?'market':'chain'
     entry.markerKey=markerKey
     entry.markerIndex=markerGroups[markerKey].entries.length
     markerGroups[markerKey].entries.push(entry)
@@ -3188,7 +3310,7 @@ function addInteractiveBeaconBatch(world,entries) {
     const mesh=new THREE.InstancedMesh(group.geometry,new THREE.MeshBasicMaterial({vertexColors:true}),group.entries.length)
     group.entries.forEach((entry,index)=>{
       const {cell}=entry
-      mesh.setColorAt(index,new THREE.Color(cell.isChainNode?'#facc15':cell.isPortalNode?(cell.color||'#22d3ee'):cell.owner?'#4ade80':'#fb923c'))
+      mesh.setColorAt(index,new THREE.Color(cell.isChainNode||cell.isNodeDiceNode?'#facc15':cell.isPortalNode?(cell.color||'#22d3ee'):cell.owner?'#4ade80':'#fb923c'))
     })
     if(mesh.instanceColor) mesh.instanceColor.needsUpdate=true
     markers[key]=mesh
@@ -3250,12 +3372,12 @@ function rebuildThreeWorld(state,cellMap,obstacles) {
   //  chainEntries     → sphere, gold       — opens chain formula dialog
   //  portalEntries    → sphere, accent     — redirects to portal section
   const allBlockEntries=[...cellMap.entries()]
-  const freeEntries      =allBlockEntries.filter(([,c])=>!c.owner&&!c.isMarket&&!c.isChainNode&&!c.isPortalNode)
+  const freeEntries      =allBlockEntries.filter(([,c])=>!c.owner&&!c.isMarket&&!c.isChainNode&&!c.isPortalNode&&!c.isNodeDiceNode)
   const nftjiEntries     =allBlockEntries.filter(([,c])=>c.isMarket&&!c.owner)
   const ownedFreeEntries =allBlockEntries.filter(([,c])=>c.owner&&!c.isMarket)
   const ownedNftjiEntries=allBlockEntries.filter(([,c])=>c.owner&&c.isMarket)
   const chainEntries     =allBlockEntries.filter(([,c])=>c.isChainNode)
-  const portalEntries    =allBlockEntries.filter(([,c])=>c.isPortalNode)
+  const portalEntries    =allBlockEntries.filter(([,c])=>c.isPortalNode||c.isNodeDiceNode)
 
   // Helper: cube InstancedMesh + wireframe glow + pedestal
   function makeBlockGroup(count, mat, glowColor, glowOpacity) {
@@ -3347,7 +3469,7 @@ function rebuildThreeWorld(state,cellMap,obstacles) {
     const [row,col]=key.split(',').map(Number),h=blockTop(cell,row,col)
     position.set(col+.5,h-.46,row+.5);scale.set(1,1,1)
     matrix.compose(position,quaternion,scale);portalMesh.setMatrixAt(i,matrix)
-    portalMesh.setColorAt(i,new THREE.Color(cell.color||'#22d3ee'))
+    portalMesh.setColorAt(i,new THREE.Color(cell.isNodeDiceNode?'#facc15':(cell.color||'#22d3ee')))
   });portalMesh.instanceMatrix.needsUpdate=true
   if(portalMesh.instanceColor) portalMesh.instanceColor.needsUpdate=true
 
@@ -3360,7 +3482,7 @@ function rebuildThreeWorld(state,cellMap,obstacles) {
   )
   const beaconEntries=[]
   for(const [key,cell] of allBlockEntries){
-    if(!cell.isMarket&&!cell.isPortalNode&&!cell.isChainNode) continue
+    if(!cell.isMarket&&!cell.isPortalNode&&!cell.isChainNode&&!cell.isNodeDiceNode) continue
     const [row,col]=key.split(',').map(Number)
     const height=blockTop(cell,row,col)
     beaconEntries.push({row,col,cell,height,phase:seededUnit(row*71+col*113)*Math.PI*2})
@@ -3710,6 +3832,8 @@ export default function MiningChain3DFPV({
   chainDemineHitsRemaining = 100,
   chainSolvers = [],
   onDemineHit,
+  nodeDiceState = null,
+  onNodeDicePanelOpen,
 }) {
   const canvasRef    = useRef(null)
   const webglCanvasRef = useRef(null)
@@ -3798,6 +3922,9 @@ export default function MiningChain3DFPV({
   const chainSolverSetRef          = useRef(new Set())
   const chainSolversArrRef         = useRef([])
   const onDemineHitRef             = useRef(onDemineHit)
+  const nodeDiceStateRef           = useRef(nodeDiceState)
+  const onNodeDicePanelOpenRef     = useRef(onNodeDicePanelOpen)
+  const nodeDiceSoundHourRef       = useRef(0)
   const critFlashRef        = useRef(-9999)
   const walletNftjisRef     = useRef(walletNftjis || {})
   const myNftjisRef         = useRef(myNftjis || [])
@@ -3919,6 +4046,8 @@ export default function MiningChain3DFPV({
     chainSolversArrRef.current=chainSolvers||[]
   },[chainSolvers])
   useEffect(()=>{ onDemineHitRef.current=onDemineHit },[onDemineHit])
+  useEffect(()=>{ nodeDiceStateRef.current=nodeDiceState },[nodeDiceState])
+  useEffect(()=>{ onNodeDicePanelOpenRef.current=onNodeDicePanelOpen },[onNodeDicePanelOpen])
   useEffect(()=>{ healthMapRef.current=healthMap||{} },[healthMap])
   // Mining skills: ❤️ speed · held mining NFTJI air travel · squeeze attack crit.
   useEffect(()=>{
@@ -4164,6 +4293,7 @@ export default function MiningChain3DFPV({
     const myWallet = myWalletRef.current
     const myIdentity = presenceKeyRef.current||myWallet
     const es       = esRef.current
+    const nodeDiceVisual = getNodeDiceVisualState(nodeDiceStateRef.current)
 
     // Smooth network updates once per rendered frame. World sprites and the
     // minimap consume this same map, so they cannot drift apart visually.
@@ -4257,6 +4387,24 @@ export default function MiningChain3DFPV({
           threeState.hemi.color.set(atmosphere.hemi)
           threeState.rim.color.set(atmosphere.rim)
           threeState.activeBiome=biome
+        }
+        if(nodeDiceVisual){
+          if(nodeDiceVisual.mode === 'war'){
+            threeState.scene.background.set('#240607')
+            threeState.scene.fog.color.set('#3b0a0a')
+            threeState.rim.color.set('#fb923c')
+          } else {
+            threeState.scene.background.set('#07121f')
+            threeState.scene.fog.color.set('#12364c')
+            threeState.rim.color.set('#67e8f9')
+          }
+          threeState.activeNodeDice = true
+        } else if (threeState.activeNodeDice) {
+          const atmosphere=BIOME_ATMOSPHERE[biome]
+          threeState.scene.background.set(atmosphere.sky)
+          threeState.scene.fog.color.set(atmosphere.fog)
+          threeState.rim.color.set(atmosphere.rim)
+          threeState.activeNodeDice = false
         }
         // 3rd-person over-shoulder camera — drop to ground level when dead
         const localDead=myDeadUntilRef.current&&myDeadUntilRef.current>Date.now()
@@ -4534,6 +4682,8 @@ export default function MiningChain3DFPV({
     haze.addColorStop(1,'rgba(10,28,58,0)')
     ctx.fillStyle=haze;ctx.fillRect(0,sceneSplitY-hazeH,W,hazeH*2)
     } // end !threeState (backgrounds)
+
+    drawNodeDiceWeather(ctx,W,H,nodeDiceVisual)
 
     // World-space grid made from projected cell edges. This is dramatically
     // cheaper than per-pixel floor casting and remains stable during motion.
@@ -5259,6 +5409,9 @@ export default function MiningChain3DFPV({
       if (fwdCell.isChainNode) {
         ctx.fillStyle = '#ffd700cc'
         ctx.fillText(es ? '[ ↵ RESOLVER CADENA ]' : '[ ↵ SOLVE FORMULA CHAIN ]', W/2, viewCenterY+18)
+      } else if (fwdCell.isNodeDiceNode) {
+        ctx.fillStyle = '#facc15cc'
+        ctx.fillText(es ? '[ ↵ STORMROLL NODE ]' : '[ ↵ STORMROLL NODE ]', W/2, viewCenterY+18)
       } else if (fwdCell.isPortalNode) {
         ctx.fillStyle = '#22d3eecc'
         ctx.fillText(es ? '[ ↵ IR ]' : '[ ↵ GO ]', W/2, viewCenterY+18)
@@ -5282,6 +5435,7 @@ export default function MiningChain3DFPV({
     const inXHRange  = !playerInXH && hasTarget && !fwdCell?.isObstacle && fwdDist <= INTERACT_DIST
     const xhBase     = playerInXH ? '#ef4444'
                      : fwdCell?.isChainNode ? '#ffd700'
+                     : fwdCell?.isNodeDiceNode ? '#facc15'
                      : (fwdCell?.owner ? fwdCell.color : C)
     const xhFgCol    = playerInXH ? '#ff6b6b'
                      : inXHRange  ? xhBase
@@ -5365,7 +5519,7 @@ export default function MiningChain3DFPV({
     }
 
     // ── HUD: current room (right of chain stats panel, top-left area) ───────
-    const curHex = curCell?.isChainNode||curCell?.isPortalNode ? null : (curCell?.blockHex || gridToBlockHex(gr,gc))
+    const curHex = curCell?.isChainNode||curCell?.isPortalNode||curCell?.isNodeDiceNode ? null : (curCell?.blockHex || gridToBlockHex(gr,gc))
     ctx.textAlign='left'; ctx.textBaseline='top'
     ctx.fillStyle = C+'dd'; ctx.font='bold 12px monospace'
     if(curHex) ctx.fillText(curHex, 174, 10)
@@ -5501,7 +5655,7 @@ export default function MiningChain3DFPV({
       const _isObsHUD = fwdCell?.isObstacle || validObstaclesRef.current?.has(`${fwdMy},${fwdMx}`)
       const _maxHudDist = (!_isObsHUD && fwdCell?.isMarket && !fwdCell?.owner) ? 1.5 : 2.0
       if ((_isObsHUD || fwdFaceSolid) && fwdDist <= _maxHudDist) {
-        drawFacingHUD(ctx, W, H, fwdCell, fwdMx, fwdMy, myWallet, es, fwdDist, validObstaclesRef.current, chainStatsBottom ?? 72, mineProgressRef.current, playerLevelRef.current, globalMm3Ref.current, chainSolversArrRef.current, chainDemineActiveRef.current, chainDemineHitsRef.current)
+        drawFacingHUD(ctx, W, H, fwdCell, fwdMx, fwdMy, myWallet, es, fwdDist, validObstaclesRef.current, chainStatsBottom ?? 72, mineProgressRef.current, playerLevelRef.current, globalMm3Ref.current, chainSolversArrRef.current, chainDemineActiveRef.current, chainDemineHitsRef.current, nodeDiceStateRef.current)
       }
     }
   }, [])
@@ -5569,6 +5723,8 @@ export default function MiningChain3DFPV({
           if(inRange){
             if(fData.cell?.isChainNode){
               onChainSolveOpenRef.current?.()
+            } else if(fData.cell?.isNodeDiceNode){
+              onNodeDicePanelOpenRef.current?.()
             } else if(fData.cell?.isPortalNode){
               const url=fData.cell.navUrl
               if(url) onWantNavRef.current?.(url)
@@ -6047,6 +6203,9 @@ export default function MiningChain3DFPV({
             if(fc.isChainNode){
               actionUrlRef.current=null
               mineTypeRef.current=fcDist<=CHAIN_INTERACT_DIST?'chain':'empty'
+            } else if(fc.isNodeDiceNode){
+              actionUrlRef.current=null
+              mineTypeRef.current='node-dice'
             } else if(fc.isPortalNode){
               actionUrlRef.current=fc.navUrl||null
               mineTypeRef.current='portal'
@@ -6186,6 +6345,14 @@ export default function MiningChain3DFPV({
               const url=actionUrlRef.current
               if(url) setTimeout(()=>onWantNavRef.current?.(url),120)
             }
+          } else if(mineTypeRef.current==='node-dice'){
+            mineProgressRef.current=Math.min(1,mineProgressRef.current+1/HITS_NEEDED)
+            playPickHit(audioCtxRef,'nftji')
+            if(mineProgressRef.current>=1){
+              playPickHit(audioCtxRef,'complete')
+              mineProgressRef.current=0
+              setTimeout(()=>onNodeDicePanelOpenRef.current?.(),80)
+            }
           } else if(mineTypeRef.current==='nftji'){
             // NFTJI market block — 5 hits opens the penalty/info panel
             mineProgressRef.current=Math.min(1,mineProgressRef.current+1/HITS_NEEDED)
@@ -6212,6 +6379,21 @@ export default function MiningChain3DFPV({
       if(!swinging) hitDoneRef.current=false
 
       if(notifRef.current&&(Date.now()-notifRef.current.startedAt)<2800) needsRender=true
+      {
+        const nodeVisual = getNodeDiceVisualState(nodeDiceStateRef.current)
+        if(nodeVisual){
+          needsRender = true
+          if(nodeDiceSoundHourRef.current !== Number(nodeVisual.dice.hourStart)){
+            nodeDiceSoundHourRef.current = Number(nodeVisual.dice.hourStart)
+            playNodeDiceWeatherSound(audioCtxRef,nodeVisual.mode)
+            notifRef.current = {
+              text: nodeVisual.mode === 'war' ? '🎲 STORMROLL: WAR' : '🎲 STORMROLL: METEO',
+              color: nodeVisual.mode === 'war' ? '#fb923c' : '#67e8f9',
+              startedAt: Date.now(),
+            }
+          }
+        }
+      }
       // Keep rendering while dead so countdown ticks every frame
       if(myDeadUntilRef.current && myDeadUntilRef.current > Date.now()) needsRender=true
       // Keep rendering while pvp/dodge flash animations are active
