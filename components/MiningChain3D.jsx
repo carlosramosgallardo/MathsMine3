@@ -1277,22 +1277,39 @@ export default function MiningChain3D() {
                 <span>{es ? 'Nivel mínimo' : 'Min level'}</span><strong style={{ color:nodeDiceWalletStats.level >= NODE_DICE_MIN_LEVEL ? '#4ade80' : '#fb7185' }}>Lv {NODE_DICE_MIN_LEVEL}</strong>
               </div>
               <div style={{ display:'flex', justifyContent:'space-between' }}>
-                <span>{es ? 'Tu wallet' : 'Your wallet'}</span><strong style={{ color:'#67e8f9' }}>Lv {nodeDiceWalletStats.level} · {nodeDiceWalletStats.mm3.toFixed(2)} MM3</strong>
+                <span>{es ? 'Estado' : 'Status'}</span>
+                <strong style={{ color: nodeDiceState ? '#4ade80' : '#94a3b8' }}>
+                  {nodeDiceState ? (es ? 'ACTIVO' : 'ACTIVE') : (es ? 'INACTIVO' : 'INACTIVE')}
+                </strong>
               </div>
+              {nodeDiceState ? (
+                <>
+                  <div style={{ display:'flex', justifyContent:'space-between' }}>
+                    <span>{es ? 'Modo' : 'Mode'}</span>
+                    <strong style={{ color: nodeDiceState.mode === 'war' ? '#f97316' : '#38bdf8' }}>
+                      {nodeDiceState.mode === 'war' ? '🔥 WAR' : '🌪️ METEO'}
+                    </strong>
+                  </div>
+                  <div style={{ display:'flex', justifyContent:'space-between' }}>
+                    <span>{es ? 'Expira en' : 'Expires in'}</span>
+                    <strong style={{ color:'#facc15', fontVariantNumeric:'tabular-nums' }}>
+                      {(() => {
+                        const ms = Math.max(0, nodeDiceState.expiresAt - Date.now())
+                        const h = Math.floor(ms / 3600000)
+                        const m = Math.floor((ms % 3600000) / 60000)
+                        const s = Math.floor((ms % 60000) / 1000)
+                        return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`
+                      })()}
+                    </strong>
+                  </div>
+                </>
+              ) : null}
               <div style={{ display:'flex', gap:8, justifyContent:'center', padding:'8px 0', color:'#e2e8f0' }}>
                 <span>🔥 50%</span>
                 <span style={{ color:'#475569' }}>·</span>
                 <span>🌪️ 50%</span>
               </div>
             </div>
-
-            {nodeDiceState ? (
-              <div style={{ color:'#4ade80', fontSize:'0.72rem', textAlign:'center', marginBottom:10 }}>
-                {es ? 'Activo por' : 'Active by'} {nodeDiceState.wallet.slice(0,6)}…{nodeDiceState.wallet.slice(-4)}
-                {' · '}
-                {nodeDiceState.mode === 'war' ? '🔥 WAR' : '🌪️ METEO'}
-              </div>
-            ) : null}
             {nodeDiceError ? (
               <div style={{ color:'#fb7185', fontSize:'0.7rem', textAlign:'center', marginBottom:10 }}>{nodeDiceError}</div>
             ) : null}
