@@ -3202,11 +3202,11 @@ function addCipherHouseDetails(world) {
   }
 
   const groundMat=new THREE.MeshBasicMaterial({
-    color:'#082f49',transparent:true,opacity:.96,depthWrite:false,side:THREE.DoubleSide,
+    color:'#7c3aed',transparent:true,opacity:1,depthWrite:false,side:THREE.DoubleSide,
   })
   const groundQuat=new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1,0,0),-Math.PI/2)
   const diceFloorMaterials=[1,2,3,4,5,6].map(face=>new THREE.MeshBasicMaterial({
-    map:makeDiceFaceTexture(face),transparent:true,opacity:.98,depthWrite:false,side:THREE.DoubleSide,
+    map:makeDiceFaceTexture(face),transparent:true,opacity:1,depthWrite:false,side:THREE.DoubleSide,
   }))
   for(let row=minRow+1;row<maxRow;row++) for(let col=minCol+1;col<maxCol;col++){
     const plate=new THREE.Mesh(new THREE.PlaneGeometry(.98,.98),groundMat)
@@ -3215,8 +3215,8 @@ function addCipherHouseDetails(world) {
     plate.renderOrder=2
     group.add(plate)
     const face=(Math.abs(row*17+col*31+(row^col)*7))%6
-    const dice=new THREE.Mesh(new THREE.PlaneGeometry(.94,.94),diceFloorMaterials[face])
-    dice.position.set(col+.5,.028,row+.5)
+    const dice=new THREE.Mesh(new THREE.PlaneGeometry(.99,.99),diceFloorMaterials[face])
+    dice.position.set(col+.5,.030,row+.5)
     dice.quaternion.copy(groundQuat)
     dice.renderOrder=3
     group.add(dice)
@@ -3475,16 +3475,25 @@ function makeDiceFaceTexture(face) {
   const s=256,cv=document.createElement('canvas')
   cv.width=s;cv.height=s
   const ctx=cv.getContext('2d')
+  const palettes=[
+    ['#06b6d4','#7c3aed','#020817','#facc15'],
+    ['#ec4899','#22d3ee','#12021f','#a3e635'],
+    ['#8b5cf6','#f97316','#07111f','#67e8f9'],
+    ['#14b8a6','#d946ef','#02130f','#fde047'],
+    ['#3b82f6','#f43f5e','#020817','#bef264'],
+    ['#a855f7','#06b6d4','#09011a','#fb7185'],
+  ]
+  const [hotA,hotB,dark,dot]=palettes[(Math.max(1,Number(face)||1)-1)%palettes.length]
   const gradient=ctx.createLinearGradient(0,0,s,s)
-  gradient.addColorStop(0,'#0e7490')
-  gradient.addColorStop(.36,'#082f49')
-  gradient.addColorStop(1,'#020817')
+  gradient.addColorStop(0,hotA)
+  gradient.addColorStop(.46,hotB)
+  gradient.addColorStop(1,dark)
   ctx.fillStyle=gradient
   ctx.fillRect(0,0,s,s)
-  ctx.strokeStyle='rgba(167,139,250,0.64)'
+  ctx.strokeStyle=dot
   ctx.lineWidth=4
   ctx.strokeRect(10,10,s-20,s-20)
-  ctx.strokeStyle='rgba(103,232,249,0.30)'
+  ctx.strokeStyle='rgba(255,255,255,0.25)'
   ctx.lineWidth=2
   for(let i=32;i<s;i+=32){
     ctx.beginPath();ctx.moveTo(i,12);ctx.lineTo(i,s-12);ctx.stroke()
@@ -3499,9 +3508,9 @@ function makeDiceFaceTexture(face) {
     6:[[.3,.22],[.7,.22],[.3,.5],[.7,.5],[.3,.78],[.7,.78]],
   }[face]||[[.5,.5]]
   const r=s*0.09
-  ctx.fillStyle='#c4b5fd'
-  ctx.shadowColor='#67e8f9'
-  ctx.shadowBlur=14
+  ctx.fillStyle=dot
+  ctx.shadowColor=dot
+  ctx.shadowBlur=18
   for(const [x,y] of dots){ctx.beginPath();ctx.arc(x*s,y*s,r,0,Math.PI*2);ctx.fill()}
   const texture=new THREE.CanvasTexture(cv)
   texture.colorSpace=THREE.SRGBColorSpace
@@ -3663,10 +3672,11 @@ function rebuildThreeWorld(state,cellMap,obstacles) {
       stair:houseEntries.filter(([,obstacle])=>obstacle.isHouseStair),
     }
     const roofMat={color:'#020817',roughness:.56,metalness:.38,emissive:'#020817',emissiveIntensity:.58}
+    const wallDiceTexture=makeDiceFaceTexture(5)
     const houseMaterials={
       wall:new THREE.MeshStandardMaterial({
-        color:'#5b21b6',roughness:.46,metalness:.38,
-        emissive:'#0e7490',emissiveIntensity:.52,
+        map:wallDiceTexture,color:'#ffffff',roughness:.34,metalness:.26,
+        emissive:'#7c3aed',emissiveIntensity:.36,
       }),
       roof:new THREE.MeshStandardMaterial(roofMat),
       // stairs same dark tone as ceiling
@@ -3694,7 +3704,7 @@ function rebuildThreeWorld(state,cellMap,obstacles) {
     // Floor tiles: dark box base + horizontal dice plane overlay (MeshBasicMaterial = no lighting needed)
     const floorEntries=houseGroups.floor
     if(floorEntries.length){
-      const floorBoxMat=new THREE.MeshStandardMaterial({color:'#082f49',roughness:.58,metalness:.34,emissive:'#020817',emissiveIntensity:.40})
+      const floorBoxMat=new THREE.MeshStandardMaterial({color:'#7c3aed',roughness:.52,metalness:.32,emissive:'#0e7490',emissiveIntensity:.34})
       const floorBoxMesh=new THREE.InstancedMesh(new THREE.BoxGeometry(1,1,1),floorBoxMat,floorEntries.length)
       floorEntries.forEach(([key,obstacle],index)=>{
         const [row,col]=key.split(',').map(Number)
@@ -3719,8 +3729,8 @@ function rebuildThreeWorld(state,cellMap,obstacles) {
       const planeScale=new THREE.Vector3(1,1,1)
       floorByFace.forEach((entries,fi)=>{
         if(!entries.length) return
-        const planeMat=new THREE.MeshBasicMaterial({map:diceTextures[fi],transparent:true,depthWrite:false,opacity:.98})
-        const planeMesh=new THREE.InstancedMesh(new THREE.PlaneGeometry(.94,.94),planeMat,entries.length)
+        const planeMat=new THREE.MeshBasicMaterial({map:diceTextures[fi],transparent:true,depthWrite:false,opacity:1})
+        const planeMesh=new THREE.InstancedMesh(new THREE.PlaneGeometry(.99,.99),planeMat,entries.length)
         planeMesh.renderOrder=1
         entries.forEach(([key,obstacle],idx)=>{
           const [row,col]=key.split(',').map(Number)
