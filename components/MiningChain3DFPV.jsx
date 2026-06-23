@@ -78,7 +78,7 @@ const HOUSE_BLUE_RGB = [8, 47, 73]
 const HOUSE_BLACK_RGB = [2, 8, 23]
 const HOUSE_MAIN_FLOOR_LEVEL = 3.48
 const HOUSE_MIN_CEILING_GAP = 2.32
-const HOUSE_RAIL_HEIGHT = .92
+const HOUSE_RAIL_HEIGHT = .76
 const HOUSE_STAIR_CELLS = [
   [12,10,.58],[11,10,1.16],[10,10,1.74],[9,10,2.32],
   [9,9,2.90],[8,9,3.48],[7,9,4.06],[7,8,4.64],
@@ -3230,6 +3230,35 @@ function addCipherHouseDetails(world) {
     roughness:.12,metalness:.28,transparent:true,opacity:.42,
     depthWrite:false,side:THREE.DoubleSide,
   })
+  const windowFrameMaterial=new THREE.MeshStandardMaterial({
+    color:'#0b1220',emissive:'#0891b2',emissiveIntensity:.44,roughness:.38,metalness:.70,
+  })
+  const addWindowFrame=(row,col,y)=>{
+    const onNorth=row===CIPHER_HOUSE_BOUNDS.minRow
+    const onSouth=row===CIPHER_HOUSE_BOUNDS.maxRow
+    const onWest=col===CIPHER_HOUSE_BOUNDS.minCol
+    const z=onNorth?row+.018:onSouth?row+.982:row+.5
+    const x=onWest?col+.018:(!onNorth&&!onSouth?col+.982:col+.5)
+    const alongX=onNorth||onSouth
+    const parts=alongX
+      ? [
+        [x,y-.30,z,.84,.035,.055],
+        [x,y+.30,z,.84,.035,.055],
+        [x-.42,y,z,.035,.64,.055],
+        [x+.42,y,z,.035,.64,.055],
+      ]
+      : [
+        [x,y-.30,z,.055,.035,.84],
+        [x,y+.30,z,.055,.035,.84],
+        [x,y,z-.42,.055,.64,.035],
+        [x,y,z+.42,.055,.64,.035],
+      ]
+    for(const [px,py,pz,sx,sy,sz] of parts){
+      const frame=new THREE.Mesh(new THREE.BoxGeometry(sx,sy,sz),windowFrameMaterial)
+      frame.position.set(px,py,pz)
+      group.add(frame)
+    }
+  }
   const windowCenters=[.82,1.98,3.14,4.30,5.46]
   for(const key of CIPHER_HOUSE_WINDOWS){
     const [row,col]=key.split(',').map(Number)
@@ -3245,6 +3274,7 @@ function addCipherHouseDetails(world) {
         pane.position.set(col+.975,y,row+.5)
       }
       group.add(pane)
+      addWindowFrame(row,col,y)
     }
   }
 
@@ -3325,25 +3355,78 @@ function addCipherHouseDetails(world) {
     addDicePlate(row,col,HOUSE_MAIN_FLOOR_LEVEL)
   }
   for(const {row,col,level} of HOUSE_ACCESS_DECKS) addDicePlate(row,col,level)
+  for(const {row,col,level} of HOUSE_ACCESS_DECKS){
+    addTrimBox(col+.5,level+.032,row+.045,.88,.035,.035,0)
+    addTrimBox(col+.5,level+.032,row+.955,.88,.035,.035,1)
+    addTrimBox(col+.045,level+.032,row+.5,.035,.035,.88,2)
+    addTrimBox(col+.955,level+.032,row+.5,.035,.035,.88,0)
+  }
+  for(const [row,col,level,horizontal] of [
+    [3,7,5.80,true],[3,8,5.80,true],[10,3,5.80,false],[11,3,5.80,false],
+    [3,10,4.64,true],[3,11,4.64,true],[7,3,4.64,false],[8,3,4.64,false],
+    [5,13,2.32,false],[6,13,2.32,false],[13,7,2.32,true],[13,8,2.32,true],
+  ]){
+    addTrimBox(col+.5,level+.055,row+.5,horizontal ? .82 : .16,.055,horizontal ? .16 : .82,1)
+  }
 
   const poolGroup=new THREE.Group()
   poolGroup.position.set(6.35,5.836,10.75)
+  const poolShellMat=new THREE.MeshStandardMaterial({
+    color:'#0f2741',emissive:'#082f49',emissiveIntensity:.62,roughness:.42,metalness:.28,
+  })
+  const poolTileMat=new THREE.MeshStandardMaterial({
+    color:'#8ddcff',emissive:'#0e7490',emissiveIntensity:.42,roughness:.30,metalness:.18,
+  })
+  const poolFloor=new THREE.Mesh(new THREE.BoxGeometry(2.72,.08,1.72),poolShellMat)
+  poolFloor.position.y=-.16
+  poolGroup.add(poolFloor)
+  for(const [x,z,sx,sz] of [[0,-.88,2.84,.10],[0,.88,2.84,.10],[-1.42,0,.10,1.76],[1.42,0,.10,1.76]]){
+    const wall=new THREE.Mesh(new THREE.BoxGeometry(sx,.34,sz),poolShellMat)
+    wall.position.set(x,-.02,z)
+    poolGroup.add(wall)
+  }
   const poolWater=new THREE.Mesh(
-    new THREE.PlaneGeometry(2.55,1.55,12,8),
+    new THREE.PlaneGeometry(2.46,1.46,16,10),
     new THREE.MeshPhysicalMaterial({
       color:'#22d3ee',emissive:'#0ea5e9',emissiveIntensity:.55,
-      transparent:true,opacity:.62,roughness:.04,metalness:.02,
+      transparent:true,opacity:.70,roughness:.025,metalness:.02,
       clearcoat:1,clearcoatRoughness:.05,side:THREE.DoubleSide,
     }),
   )
   poolWater.rotation.x=-Math.PI/2
+  poolWater.position.y=.018
   poolGroup.add(poolWater)
-  const poolRimMat=new THREE.MeshBasicMaterial({color:'#a855f7',transparent:true,opacity:.82,depthWrite:false})
-  for(const [x,z,sx,sz] of [[0,-.84,2.72,.06],[0,.84,2.72,.06],[-1.36,0,.06,1.62],[1.36,0,.06,1.62]]){
+  const poolRimMat=new THREE.MeshStandardMaterial({
+    color:'#d8f3ff',emissive:'#0891b2',emissiveIntensity:.34,roughness:.20,metalness:.32,
+  })
+  for(const [x,z,sx,sz] of [[0,-.94,2.96,.10],[0,.94,2.96,.10],[-1.48,0,.10,1.88],[1.48,0,.10,1.88]]){
     const rim=new THREE.Mesh(new THREE.BoxGeometry(sx,.045,sz),poolRimMat)
-    rim.position.set(x,.026,z)
+    rim.position.set(x,.07,z)
     poolGroup.add(rim)
   }
+  for(const [z,width] of [[.54,.58],[.66,.46],[.78,.34]]){
+    const step=new THREE.Mesh(new THREE.BoxGeometry(width,.055,.10),poolTileMat)
+    step.position.set(-.92,-.06,z)
+    poolGroup.add(step)
+  }
+  const ladderMat=new THREE.MeshStandardMaterial({
+    color:'#e0f2fe',emissive:'#38bdf8',emissiveIntensity:.28,roughness:.18,metalness:.82,
+  })
+  for(const x of [-.18,.18]){
+    const rail=new THREE.Mesh(new THREE.CylinderGeometry(.022,.022,.58,10),ladderMat)
+    rail.position.set(.82,.18+x*.08,.72+x*.15)
+    rail.rotation.x=.38
+    poolGroup.add(rail)
+  }
+  for(const y of [.04,.17,.30]){
+    const rung=new THREE.Mesh(new THREE.CylinderGeometry(.018,.018,.42,10),ladderMat)
+    rung.rotation.z=Math.PI/2
+    rung.position.set(.82,y,.72)
+    poolGroup.add(rung)
+  }
+  const poolGlow=new THREE.PointLight('#22d3ee',1.5,3.8,1.8)
+  poolGlow.position.set(0,.24,0)
+  poolGroup.add(poolGlow)
   group.add(poolGroup)
 
   const diceTower=new THREE.Group()
@@ -3827,71 +3910,66 @@ function rebuildThreeWorld(state,cellMap,obstacles) {
       world.add(mesh)
     }
     if(houseGroups.rail.length){
-      const railFrameMat=new THREE.MeshStandardMaterial({
+      const railBodyMat=new THREE.MeshStandardMaterial({
         ...roofMat,
-        color:'#0b1220',
-        emissive:'#07111f',
-        emissiveIntensity:.72,
-        roughness:.34,
-        metalness:.64,
+        color:'#07111f',
+        emissive:'#06101c',
+        emissiveIntensity:.62,
+        roughness:.48,
+        metalness:.46,
       })
-      const railGlassMat=new THREE.MeshPhysicalMaterial({
+      const railCapMat=new THREE.MeshStandardMaterial({
+        color:'#102033',
+        emissive:'#0891b2',
+        emissiveIntensity:.34,
+        roughness:.24,
+        metalness:.74,
+      })
+      const railLightMat=new THREE.MeshBasicMaterial({
         color:'#67e8f9',
-        emissive:'#0e7490',
-        emissiveIntensity:.58,
         transparent:true,
-        opacity:.34,
+        opacity:.42,
         depthWrite:false,
-        roughness:.05,
-        metalness:.08,
-        clearcoat:1,
-        clearcoatRoughness:.08,
-        side:THREE.DoubleSide,
       })
-      const postMesh=new THREE.InstancedMesh(new THREE.BoxGeometry(1,1,1),railFrameMat,houseGroups.rail.length*3)
-      const barMesh=new THREE.InstancedMesh(new THREE.BoxGeometry(1,1,1),railFrameMat,houseGroups.rail.length*4)
-      const panelMesh=new THREE.InstancedMesh(new THREE.BoxGeometry(1,1,1),railGlassMat,houseGroups.rail.length)
-      let postIndex=0,barIndex=0
+      const railBodyMesh=new THREE.InstancedMesh(new THREE.BoxGeometry(1,1,1),railBodyMat,houseGroups.rail.length)
+      const railCapMesh=new THREE.InstancedMesh(new THREE.BoxGeometry(1,1,1),railCapMat,houseGroups.rail.length)
+      const railBaseMesh=new THREE.InstancedMesh(new THREE.BoxGeometry(1,1,1),railCapMat,houseGroups.rail.length)
+      const railLightMesh=new THREE.InstancedMesh(new THREE.BoxGeometry(1,1,1),railLightMat,houseGroups.rail.length)
       houseGroups.rail.forEach(([key,obstacle],index)=>{
         const [row,col]=key.split(',').map(Number)
         const bottom=obstacleBottom(obstacle)
         const railHeight=Math.max(.50,obstacleTop(obstacle)-bottom)
         const axis=obstacle.railAxis==='z'?'z':'x'
-        const railLength=1.08
+        const railLength=1.14
         const longScale=axis==='z'
           ? (x,y,z)=>scale.set(x,y,z)
           : (x,y,z)=>scale.set(z,y,x)
-        for(const offset of [-.50,0,.50]){
-          position.set(
-            col+.5+(axis==='x'?offset:0),
-            bottom+railHeight*.5-.025,
-            row+.5+(axis==='z'?offset:0),
-          )
-          scale.set(.14,railHeight+.05,.14)
-          matrix.compose(position,quaternion,scale)
-          postMesh.setMatrixAt(postIndex++,matrix)
-        }
-        for(const [y,barHeight] of [
-          [bottom+railHeight-.055,.11],
-          [bottom+railHeight*.56,.09],
-          [bottom+.18,.10],
-          [bottom+.035,.07],
-        ]){
-          position.set(col+.5,y,row+.5)
-          longScale(.14,barHeight,railLength)
-          matrix.compose(position,quaternion,scale)
-          barMesh.setMatrixAt(barIndex++,matrix)
-        }
-        position.set(col+.5,bottom+railHeight*.44,row+.5)
-        longScale(.045,railHeight*.78,.98)
+        position.set(col+.5,bottom+railHeight*.5,row+.5)
+        longScale(.24,railHeight,railLength)
         matrix.compose(position,quaternion,scale)
-        panelMesh.setMatrixAt(index,matrix)
+        railBodyMesh.setMatrixAt(index,matrix)
+
+        position.set(col+.5,bottom+railHeight+.035,row+.5)
+        longScale(.32,.07,railLength+.06)
+        matrix.compose(position,quaternion,scale)
+        railCapMesh.setMatrixAt(index,matrix)
+
+        position.set(col+.5,bottom+.035,row+.5)
+        longScale(.30,.07,railLength+.08)
+        matrix.compose(position,quaternion,scale)
+        railBaseMesh.setMatrixAt(index,matrix)
+
+        position.set(col+.5,bottom+railHeight*.68,row+.5)
+        longScale(.026,.032,railLength+.03)
+        matrix.compose(position,quaternion,scale)
+        railLightMesh.setMatrixAt(index,matrix)
       })
-      postMesh.instanceMatrix.needsUpdate=true
-      barMesh.instanceMatrix.needsUpdate=true
-      panelMesh.instanceMatrix.needsUpdate=true
-      panelMesh.renderOrder=4
-      world.add(panelMesh,postMesh,barMesh)
+      railBodyMesh.instanceMatrix.needsUpdate=true
+      railCapMesh.instanceMatrix.needsUpdate=true
+      railBaseMesh.instanceMatrix.needsUpdate=true
+      railLightMesh.instanceMatrix.needsUpdate=true
+      railLightMesh.renderOrder=4
+      world.add(railBodyMesh,railBaseMesh,railCapMesh,railLightMesh)
     }
     // Floor tiles: dark box base + horizontal dice plane overlay (MeshBasicMaterial = no lighting needed)
     const floorEntries=houseGroups.floor
