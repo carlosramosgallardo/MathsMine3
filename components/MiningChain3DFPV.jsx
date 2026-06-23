@@ -74,7 +74,6 @@ const W_STONE = [122, 120, 118]   // neutral mid-gray
 const W_SLATE = [85,  92, 105]    // blue-gray (cool)
 const W_SAND  = [108, 106, 102]   // warm gray
 const W_DARK  = [58,  62,  70]    // dark gray
-const HOUSE_LILAC_RGB = [91, 33, 182]
 const HOUSE_BLUE_RGB = [8, 47, 73]
 const HOUSE_BLACK_RGB = [2, 8, 23]
 const CHAIN_MATERIALS = [
@@ -168,7 +167,7 @@ function makeCipherHouseEntries() {
   const entries=[]
   const doors=new Set(['3,5','3,6','13,9','13,10','6,3','7,3','9,13','10,13'])
   const add=(row,col,data={})=>entries.push([`${row},${col}`,{
-    base:HOUSE_LILAC_RGB,glow:[103,232,249],kind:'hash',label:'CIPHER HOUSE',
+    base:HOUSE_BLACK_RGB,glow:[103,232,249],kind:'hash',label:'CIPHER HOUSE',
     height:6.20,isStructure:true,isHouse:true,...data,
   }])
   const {minRow,maxRow,minCol,maxCol}=CIPHER_HOUSE_BOUNDS
@@ -218,7 +217,7 @@ function makeCipherHouseEntries() {
   for(const key of doors){
     const [row,col]=key.split(',').map(Number)
     entries.push([key,{
-      base:HOUSE_LILAC_RGB,glow:[103,232,249],kind:'hash',label:'CIPHER DOOR FILL',
+      base:HOUSE_BLACK_RGB,glow:[103,232,249],kind:'hash',label:'CIPHER DOOR FILL',
       bottom:2.0,height:6.20,isStructure:true,isHouse:true,
     }])
   }
@@ -3649,6 +3648,7 @@ function rebuildThreeWorld(state,cellMap,obstacles) {
   const beaconEntries=[]
   for(const [key,cell] of allBlockEntries){
     if(!cell.isMarket&&!cell.isPortalNode&&!cell.isChainNode&&!cell.isNodeDiceNode) continue
+    if(cell.isNodeDiceNode) continue
     const [row,col]=key.split(',').map(Number)
     const height=blockTop(cell,row,col)
     beaconEntries.push({row,col,cell,height,phase:seededUnit(row*71+col*113)*Math.PI*2})
@@ -3672,11 +3672,10 @@ function rebuildThreeWorld(state,cellMap,obstacles) {
       stair:houseEntries.filter(([,obstacle])=>obstacle.isHouseStair),
     }
     const roofMat={color:'#020817',roughness:.56,metalness:.38,emissive:'#020817',emissiveIntensity:.58}
-    const wallDiceTexture=makeDiceFaceTexture(5)
     const houseMaterials={
       wall:new THREE.MeshStandardMaterial({
-        map:wallDiceTexture,color:'#ffffff',roughness:.34,metalness:.26,
-        emissive:'#7c3aed',emissiveIntensity:.36,
+        color:'#020817',roughness:.56,metalness:.38,
+        emissive:'#020817',emissiveIntensity:.58,
       }),
       roof:new THREE.MeshStandardMaterial(roofMat),
       // stairs same dark tone as ceiling
