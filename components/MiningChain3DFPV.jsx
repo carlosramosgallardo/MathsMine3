@@ -3377,13 +3377,29 @@ function addCipherHouseDetails(world) {
   const poolTileMat=new THREE.MeshStandardMaterial({
     color:'#8ddcff',emissive:'#0e7490',emissiveIntensity:.42,roughness:.30,metalness:.18,
   })
+  const poolLineMat=new THREE.MeshBasicMaterial({
+    color:'#e0faff',transparent:true,opacity:.50,depthWrite:false,
+  })
   const poolFloor=new THREE.Mesh(new THREE.BoxGeometry(2.72,.08,1.72),poolShellMat)
-  poolFloor.position.y=-.16
+  poolFloor.position.y=-.48
   poolGroup.add(poolFloor)
+  const solidSwimFloor=new THREE.Mesh(new THREE.BoxGeometry(2.42,.035,1.42),poolTileMat)
+  solidSwimFloor.position.y=-.415
+  poolGroup.add(solidSwimFloor)
+  for(const x of [-.72,0,.72]){
+    const lane=new THREE.Mesh(new THREE.BoxGeometry(.035,.012,1.18),poolLineMat)
+    lane.position.set(x,-.388,0)
+    poolGroup.add(lane)
+  }
   for(const [x,z,sx,sz] of [[0,-.88,2.84,.10],[0,.88,2.84,.10],[-1.42,0,.10,1.76],[1.42,0,.10,1.76]]){
-    const wall=new THREE.Mesh(new THREE.BoxGeometry(sx,.34,sz),poolShellMat)
-    wall.position.set(x,-.02,z)
+    const wall=new THREE.Mesh(new THREE.BoxGeometry(sx,.72,sz),poolShellMat)
+    wall.position.set(x,-.20,z)
     poolGroup.add(wall)
+  }
+  for(const [x,z,sx,sz] of [[0,-.79,2.46,.045],[0,.79,2.46,.045],[-1.23,0,.045,1.46],[1.23,0,.045,1.46]]){
+    const innerTile=new THREE.Mesh(new THREE.BoxGeometry(sx,.50,sz),poolTileMat)
+    innerTile.position.set(x,-.18,z)
+    poolGroup.add(innerTile)
   }
   const poolWater=new THREE.Mesh(
     new THREE.PlaneGeometry(2.46,1.46,16,10),
@@ -3394,7 +3410,7 @@ function addCipherHouseDetails(world) {
     }),
   )
   poolWater.rotation.x=-Math.PI/2
-  poolWater.position.y=.018
+  poolWater.position.y=-.055
   poolGroup.add(poolWater)
   const poolRimMat=new THREE.MeshStandardMaterial({
     color:'#d8f3ff',emissive:'#0891b2',emissiveIntensity:.34,roughness:.20,metalness:.32,
@@ -3404,9 +3420,9 @@ function addCipherHouseDetails(world) {
     rim.position.set(x,.07,z)
     poolGroup.add(rim)
   }
-  for(const [z,width] of [[.54,.58],[.66,.46],[.78,.34]]){
-    const step=new THREE.Mesh(new THREE.BoxGeometry(width,.055,.10),poolTileMat)
-    step.position.set(-.92,-.06,z)
+  for(const [z,width,y] of [[.42,.74,-.30],[.56,.58,-.20],[.70,.42,-.10],[.82,.30,0]]){
+    const step=new THREE.Mesh(new THREE.BoxGeometry(width,.06,.11),poolTileMat)
+    step.position.set(-.92,y,z)
     poolGroup.add(step)
   }
   const ladderMat=new THREE.MeshStandardMaterial({
@@ -3424,8 +3440,43 @@ function addCipherHouseDetails(world) {
     rung.position.set(.82,y,.72)
     poolGroup.add(rung)
   }
+  const boardMat=new THREE.MeshStandardMaterial({
+    color:'#f8fafc',emissive:'#38bdf8',emissiveIntensity:.18,roughness:.26,metalness:.22,
+  })
+  const boardGripMat=new THREE.MeshBasicMaterial({color:'#0f172a',transparent:true,opacity:.50,depthWrite:false})
+  const board=new THREE.Mesh(new THREE.BoxGeometry(.44,.075,1.28),boardMat)
+  board.position.set(.05,.42,1.17)
+  poolGroup.add(board)
+  const boardTip=new THREE.Mesh(new THREE.BoxGeometry(.48,.045,.16),boardMat)
+  boardTip.position.set(.05,.395,.48)
+  poolGroup.add(boardTip)
+  for(const z of [.72,.96,1.20]){
+    const grip=new THREE.Mesh(new THREE.BoxGeometry(.38,.01,.025),boardGripMat)
+    grip.position.set(.05,.463,z)
+    poolGroup.add(grip)
+  }
+  for(const x of [-.17,.17]){
+    const support=new THREE.Mesh(new THREE.CylinderGeometry(.025,.03,.55,10),ladderMat)
+    support.position.set(x,.21,1.62)
+    poolGroup.add(support)
+  }
+  const boardBase=new THREE.Mesh(new THREE.BoxGeometry(.70,.055,.16),poolRimMat)
+  boardBase.position.set(.05,.105,1.62)
+  poolGroup.add(boardBase)
+  for(const x of [-.26,.26]){
+    const diveRail=new THREE.Mesh(new THREE.CylinderGeometry(.02,.02,.72,10),ladderMat)
+    diveRail.position.set(x,.28,1.87)
+    diveRail.rotation.x=.16
+    poolGroup.add(diveRail)
+  }
+  for(const y of [.14,.25,.36]){
+    const rung=new THREE.Mesh(new THREE.CylinderGeometry(.017,.017,.56,10),ladderMat)
+    rung.rotation.z=Math.PI/2
+    rung.position.set(0,y,1.86)
+    poolGroup.add(rung)
+  }
   const poolGlow=new THREE.PointLight('#22d3ee',1.5,3.8,1.8)
-  poolGlow.position.set(0,.24,0)
+  poolGlow.position.set(0,.08,0)
   poolGroup.add(poolGlow)
   group.add(poolGroup)
 
