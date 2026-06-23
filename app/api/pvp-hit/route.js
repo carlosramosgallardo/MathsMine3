@@ -13,10 +13,10 @@ function serviceClient() {
 const HOUSE_POOL_CENTER_X = 6.35
 const HOUSE_POOL_CENTER_Z = 10.75
 const HOUSE_POOL_SAFE_ZONE = Object.freeze({
-  minX: HOUSE_POOL_CENTER_X - 2.25,
-  maxX: HOUSE_POOL_CENTER_X + 2.25,
-  minY: HOUSE_POOL_CENTER_Z - 1.38,
-  maxY: HOUSE_POOL_CENTER_Z + 1.38,
+  minX: HOUSE_POOL_CENTER_X - 3.05,
+  maxX: HOUSE_POOL_CENTER_X + 3.05,
+  minY: HOUSE_POOL_CENTER_Z - 1.78,
+  maxY: HOUSE_POOL_CENTER_Z + 1.78,
 })
 
 function isInHousePoolSafeZone(gx, gy) {

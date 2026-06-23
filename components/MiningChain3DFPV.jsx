@@ -85,23 +85,29 @@ const HOUSE_POOL_DECK_LEVEL = 5.836
 const HOUSE_POOL_FLOOR_LEVEL = HOUSE_POOL_DECK_LEVEL - .82
 const HOUSE_POOL_WATER_LEVEL = HOUSE_POOL_DECK_LEVEL - .14
 const HOUSE_POOL_INNER = Object.freeze({
-  minX: HOUSE_POOL_CENTER_X - 2.25,
-  maxX: HOUSE_POOL_CENTER_X + 2.25,
-  minZ: HOUSE_POOL_CENTER_Z - 1.38,
-  maxZ: HOUSE_POOL_CENTER_Z + 1.38,
+  minX: HOUSE_POOL_CENTER_X - 3.05,
+  maxX: HOUSE_POOL_CENTER_X + 3.05,
+  minZ: HOUSE_POOL_CENTER_Z - 1.78,
+  maxZ: HOUSE_POOL_CENTER_Z + 1.78,
 })
 const HOUSE_POOL_OUTER = Object.freeze({
-  minX: HOUSE_POOL_CENTER_X - 2.55,
-  maxX: HOUSE_POOL_CENTER_X + 2.55,
-  minZ: HOUSE_POOL_CENTER_Z - 1.68,
-  maxZ: HOUSE_POOL_CENTER_Z + 1.68,
+  minX: HOUSE_POOL_CENTER_X - 3.35,
+  maxX: HOUSE_POOL_CENTER_X + 3.35,
+  minZ: HOUSE_POOL_CENTER_Z - 2.08,
+  maxZ: HOUSE_POOL_CENTER_Z + 2.08,
+})
+const HOUSE_POOL_ENTRY = Object.freeze({
+  minX: HOUSE_POOL_CENTER_X - .72,
+  maxX: HOUSE_POOL_CENTER_X + .72,
+  minZ: HOUSE_POOL_CENTER_Z - 2.08,
+  maxZ: HOUSE_POOL_CENTER_Z - 1.78,
 })
 const HOUSE_POOL_WALL_TOP = HOUSE_POOL_DECK_LEVEL + .18
 const HOUSE_DIVING_BOARD = Object.freeze({
   minX: HOUSE_POOL_CENTER_X - .22,
   maxX: HOUSE_POOL_CENTER_X + .22,
-  minZ: HOUSE_POOL_CENTER_Z + 1.02,
-  maxZ: HOUSE_POOL_CENTER_Z + 2.83,
+  minZ: HOUSE_POOL_CENTER_Z + 1.42,
+  maxZ: HOUSE_POOL_CENTER_Z + 3.23,
   bottom: HOUSE_POOL_DECK_LEVEL + .382,
   top: HOUSE_POOL_DECK_LEVEL + .458,
 })
@@ -1622,7 +1628,8 @@ function poolFloorSupportAt(gx, gy, playerZ, radius = PLAYER_R * .82) {
 
 function poolWallBounds() {
   return [
-    { minX: HOUSE_POOL_OUTER.minX, maxX: HOUSE_POOL_OUTER.maxX, minZ: HOUSE_POOL_OUTER.minZ, maxZ: HOUSE_POOL_INNER.minZ },
+    { minX: HOUSE_POOL_OUTER.minX, maxX: HOUSE_POOL_ENTRY.minX, minZ: HOUSE_POOL_OUTER.minZ, maxZ: HOUSE_POOL_INNER.minZ },
+    { minX: HOUSE_POOL_ENTRY.maxX, maxX: HOUSE_POOL_OUTER.maxX, minZ: HOUSE_POOL_OUTER.minZ, maxZ: HOUSE_POOL_INNER.minZ },
     { minX: HOUSE_POOL_OUTER.minX, maxX: HOUSE_POOL_OUTER.maxX, minZ: HOUSE_POOL_INNER.maxZ, maxZ: HOUSE_POOL_OUTER.maxZ },
     { minX: HOUSE_POOL_OUTER.minX, maxX: HOUSE_POOL_INNER.minX, minZ: HOUSE_POOL_INNER.minZ, maxZ: HOUSE_POOL_INNER.maxZ },
     { minX: HOUSE_POOL_INNER.maxX, maxX: HOUSE_POOL_OUTER.maxX, minZ: HOUSE_POOL_INNER.minZ, maxZ: HOUSE_POOL_INNER.maxZ },
@@ -3440,6 +3447,13 @@ function addCipherHouseDetails(world) {
     mesh.position.set(x,y,z)
     group.add(mesh)
   }
+  const addLifeTile=(x,y,z,scale=.46)=>{
+    const sprite=makeEmojiSprite('❤️','#ef4444','square')
+    sprite.position.set(x,y,z)
+    sprite.scale.set(scale,scale,1)
+    sprite.renderOrder=18
+    group.add(sprite)
+  }
   const {minRow,maxRow,minCol,maxCol}=CIPHER_HOUSE_BOUNDS
   ;[1.16,2.32,3.48,4.64,5.80,6.20].forEach((y,index)=>{
     addTrimBox((minCol+maxCol+1)/2,y+.035,minRow+.012,maxCol-minCol+.95,.035,.028,index)
@@ -3453,33 +3467,36 @@ function addCipherHouseDetails(world) {
   ]){
     addTrimBox(x,3.10,z,.07,6.20,.07,mat)
   }
+  for(const [row,col,level,mat] of [
+    [5,5,HOUSE_MAIN_FLOOR_LEVEL,0],
+    [8,7,HOUSE_MAIN_FLOOR_LEVEL,2],
+    [11,11,HOUSE_MAIN_FLOOR_LEVEL,1],
+    [6,11,2.32,2],
+    [12,8,2.32,0],
+    [7,5,4.64,1],
+    [4,10,4.64,0],
+    [5,4,5.80,2],
+    [10,2,5.80,1],
+  ]){
+    addTrimBox(col+.5,level+.045,row+.5,.46,.035,.46,mat)
+  }
+  for(const [x,y,z,sx,sy,sz,mat] of [
+    [5.5,2.18,minRow+.018,.42,.30,.035,0],
+    [10.5,4.02,minRow+.018,.34,.26,.035,2],
+    [12.982,3.10,8.5,.035,.34,.42,1],
+    [3.018,5.06,10.5,.035,.28,.34,0],
+    [8.5,1.36,maxRow+.982,.38,.26,.035,2],
+  ]){
+    addTrimBox(x,y,z,sx,sy,sz,mat)
+  }
+  addLifeTile(HOUSE_POOL_CENTER_X-1.15,HOUSE_POOL_DECK_LEVEL+.20,HOUSE_POOL_CENTER_Z-2.24,.50)
+  addLifeTile(HOUSE_POOL_CENTER_X+1.15,HOUSE_POOL_DECK_LEVEL+.20,HOUSE_POOL_CENTER_Z-2.24,.50)
+  addLifeTile(6.5,HOUSE_MAIN_FLOOR_LEVEL+.20,5.5,.42)
+  addLifeTile(10.5,4.64+.20,4.5,.38)
 
-  const groundMat=new THREE.MeshBasicMaterial({
-    color:'#7c3aed',transparent:true,opacity:1,depthWrite:false,side:THREE.DoubleSide,
-  })
-  const groundQuat=new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1,0,0),-Math.PI/2)
   const diceFloorMaterials=[1,2,3,4,5,6].map(face=>new THREE.MeshBasicMaterial({
     map:makeDiceFaceTexture(face),transparent:true,opacity:1,depthWrite:false,side:THREE.DoubleSide,
   }))
-  const addDicePlate=(row,col,level)=>{
-    const face=(Math.abs(row*17+col*31+(row^col)*7+Math.round(level*100))%6)
-    const plate=new THREE.Mesh(new THREE.PlaneGeometry(.98,.98),groundMat)
-    plate.position.set(col+.5,level+.002,row+.5)
-    plate.quaternion.copy(groundQuat)
-    plate.renderOrder=2
-    group.add(plate)
-    const dice=new THREE.Mesh(new THREE.PlaneGeometry(.99,.99),diceFloorMaterials[face])
-    dice.position.set(col+.5,level+.014,row+.5)
-    dice.quaternion.copy(groundQuat)
-    dice.renderOrder=3
-    group.add(dice)
-  }
-  for(let row=minRow+1;row<maxRow;row++) for(let col=minCol+1;col<maxCol;col++){
-    const key=`${row},${col}`
-    if(HOUSE_STAIR_KEYS.has(key)||HOUSE_MAIN_FLOOR_HOLES.has(key)) continue
-    addDicePlate(row,col,HOUSE_MAIN_FLOOR_LEVEL)
-  }
-  for(const {row,col,level} of HOUSE_ACCESS_DECKS) addDicePlate(row,col,level)
   for(const {row,col,level} of HOUSE_ACCESS_DECKS){
     addTrimBox(col+.5,level+.032,row+.045,.88,.035,.035,0)
     addTrimBox(col+.5,level+.032,row+.955,.88,.035,.035,1)
@@ -3502,14 +3519,14 @@ function addCipherHouseDetails(world) {
   const poolTileMat=new THREE.MeshStandardMaterial({
     color:'#07111f',emissive:'#082f49',emissiveIntensity:.72,roughness:.34,metalness:.34,
   })
-  const poolLineMat=new THREE.MeshBasicMaterial({
-    color:'#67e8f9',transparent:true,opacity:.46,depthWrite:false,
-  })
   const poolInnerW=HOUSE_POOL_INNER.maxX-HOUSE_POOL_INNER.minX
   const poolInnerD=HOUSE_POOL_INNER.maxZ-HOUSE_POOL_INNER.minZ
   const poolOuterW=HOUSE_POOL_OUTER.maxX-HOUSE_POOL_OUTER.minX
   const poolOuterD=HOUSE_POOL_OUTER.maxZ-HOUSE_POOL_OUTER.minZ
   const poolWallT=HOUSE_POOL_INNER.minX-HOUSE_POOL_OUTER.minX
+  const poolEntryW=HOUSE_POOL_ENTRY.maxX-HOUSE_POOL_ENTRY.minX
+  const poolEntryHalf=poolEntryW*.5
+  const poolEntrySideW=(poolOuterW-poolEntryW)*.5
   const poolWallH=HOUSE_POOL_WALL_TOP-HOUSE_POOL_FLOOR_LEVEL
   const poolWallCenterY=(HOUSE_POOL_WALL_TOP+HOUSE_POOL_FLOOR_LEVEL)/2-HOUSE_POOL_DECK_LEVEL
   const poolFloor=new THREE.Mesh(new THREE.BoxGeometry(poolOuterW,.10,poolOuterD),poolShellMat)
@@ -3529,13 +3546,9 @@ function addCipherHouseDetails(world) {
     dice.renderOrder=5
     poolGroup.add(dice)
   }
-  for(const x of [-poolInnerW*.25,0,poolInnerW*.25]){
-    const lane=new THREE.Mesh(new THREE.BoxGeometry(.035,.012,poolInnerD-.26),poolLineMat)
-    lane.position.set(x,HOUSE_POOL_FLOOR_LEVEL-HOUSE_POOL_DECK_LEVEL+.003,0)
-    poolGroup.add(lane)
-  }
   for(const [x,z,sx,sz] of [
-    [0,-(poolInnerD+poolWallT)/2,poolOuterW,poolWallT],
+    [-(poolEntryHalf+poolEntrySideW*.5),-(poolInnerD+poolWallT)/2,poolEntrySideW,poolWallT],
+    [poolEntryHalf+poolEntrySideW*.5,-(poolInnerD+poolWallT)/2,poolEntrySideW,poolWallT],
     [0,(poolInnerD+poolWallT)/2,poolOuterW,poolWallT],
     [-(poolInnerW+poolWallT)/2,0,poolWallT,poolInnerD],
     [(poolInnerW+poolWallT)/2,0,poolWallT,poolInnerD],
@@ -3557,8 +3570,8 @@ function addCipherHouseDetails(world) {
   const poolWater=new THREE.Mesh(
     new THREE.PlaneGeometry(poolInnerW-.08,poolInnerD-.08,18,12),
     new THREE.MeshPhysicalMaterial({
-      color:'#07111f',emissive:'#0ea5e9',emissiveIntensity:.45,
-      transparent:true,opacity:.52,roughness:.025,metalness:.08,
+      color:'#7f1d1d',emissive:'#dc2626',emissiveIntensity:.58,
+      transparent:true,opacity:.48,roughness:.025,metalness:.08,
       clearcoat:1,clearcoatRoughness:.05,side:THREE.DoubleSide,
     }),
   )
@@ -3569,7 +3582,8 @@ function addCipherHouseDetails(world) {
     color:'#d8f3ff',emissive:'#0891b2',emissiveIntensity:.34,roughness:.20,metalness:.32,
   })
   for(const [x,z,sx,sz] of [
-    [0,-poolOuterD/2,poolOuterW+.08,.12],
+    [-(poolEntryHalf+poolEntrySideW*.5),-poolOuterD/2,poolEntrySideW+.08,.12],
+    [poolEntryHalf+poolEntrySideW*.5,-poolOuterD/2,poolEntrySideW+.08,.12],
     [0,poolOuterD/2,poolOuterW+.08,.12],
     [-poolOuterW/2,0,.12,poolOuterD+.08],
     [poolOuterW/2,0,.12,poolOuterD+.08],
@@ -3577,6 +3591,18 @@ function addCipherHouseDetails(world) {
     const rim=new THREE.Mesh(new THREE.BoxGeometry(sx,.045,sz),poolRimMat)
     rim.position.set(x,HOUSE_POOL_WALL_TOP-HOUSE_POOL_DECK_LEVEL+.026,z)
     poolGroup.add(rim)
+  }
+  const entryDeck=new THREE.Mesh(new THREE.BoxGeometry(poolEntryW+.12,.07,poolWallT+.18),poolRimMat)
+  entryDeck.position.set(0,HOUSE_POOL_WALL_TOP-HOUSE_POOL_DECK_LEVEL+.01,-poolOuterD/2+.03)
+  poolGroup.add(entryDeck)
+  for(const [z,width,y] of [
+    [-poolInnerD*.52,poolEntryW+.08,HOUSE_POOL_WALL_TOP-HOUSE_POOL_DECK_LEVEL-.08],
+    [-poolInnerD*.43,poolEntryW-.08,HOUSE_POOL_FLOOR_LEVEL-HOUSE_POOL_DECK_LEVEL+.56],
+    [-poolInnerD*.34,poolEntryW-.20,HOUSE_POOL_FLOOR_LEVEL-HOUSE_POOL_DECK_LEVEL+.36],
+  ]){
+    const entryStep=new THREE.Mesh(new THREE.BoxGeometry(width,.06,.12),poolTileMat)
+    entryStep.position.set(0,y,z)
+    poolGroup.add(entryStep)
   }
   for(const [z,width,y] of [
     [poolInnerD*.26,.92,HOUSE_POOL_FLOOR_LEVEL-HOUSE_POOL_DECK_LEVEL+.12],
@@ -4191,10 +4217,10 @@ function rebuildThreeWorld(state,cellMap,obstacles) {
       railLightMesh.renderOrder=4
       world.add(railBodyMesh,railBaseMesh,railCapMesh,railLightMesh)
     }
-    // Floor tiles: dark box base + horizontal dice plane overlay (MeshBasicMaterial = no lighting needed)
+    // Floor tiles: solid dark house base; dice overlays stay only inside the pool.
     const floorEntries=houseGroups.floor
     if(floorEntries.length){
-      const floorBoxMat=new THREE.MeshStandardMaterial({color:'#7c3aed',roughness:.52,metalness:.32,emissive:'#0e7490',emissiveIntensity:.34})
+      const floorBoxMat=new THREE.MeshStandardMaterial({color:'#020817',roughness:.52,metalness:.34,emissive:'#06101c',emissiveIntensity:.58})
       const floorBoxMesh=new THREE.InstancedMesh(new THREE.BoxGeometry(1,1,1),floorBoxMat,floorEntries.length)
       const balconySlabEntries=floorEntries.filter(([,obstacle])=>obstacle.isHouseBalcony)
       const balconySlabMesh=balconySlabEntries.length
@@ -4226,29 +4252,6 @@ function rebuildThreeWorld(state,cellMap,obstacles) {
         balconySlabMesh.instanceMatrix.needsUpdate=true
         world.add(balconySlabMesh)
       }
-
-      const diceTextures=[1,2,3,4,5,6].map(f=>makeDiceFaceTexture(f))
-      const floorByFace=[[],[],[],[],[],[]]
-      for(const entry of floorEntries){
-        const face=Math.max(1,Math.min(6,Number(entry[1].diceFace)||1))
-        floorByFace[face-1].push(entry)
-      }
-      const planeQuat=new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1,0,0),-Math.PI/2)
-      const planeScale=new THREE.Vector3(1,1,1)
-      floorByFace.forEach((entries,fi)=>{
-        if(!entries.length) return
-        const planeMat=new THREE.MeshBasicMaterial({map:diceTextures[fi],transparent:true,depthWrite:false,opacity:1})
-        const planeMesh=new THREE.InstancedMesh(new THREE.PlaneGeometry(1.015,1.015),planeMat,entries.length)
-        planeMesh.renderOrder=1
-        entries.forEach(([key,obstacle],idx)=>{
-          const [row,col]=key.split(',').map(Number)
-          position.set(col+.5,obstacleTop(obstacle)+.003,row+.5)
-          matrix.compose(position,planeQuat,planeScale)
-          planeMesh.setMatrixAt(idx,matrix)
-        })
-        planeMesh.instanceMatrix.needsUpdate=true
-        world.add(planeMesh)
-      })
     }
   }
   for(const [biome,entries] of Object.entries(boxGroups)){

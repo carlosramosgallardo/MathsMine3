@@ -33,10 +33,10 @@ function nodeModeFor(wallet, hourStart) {
 const HOUSE_POOL_CENTER_X = 6.35
 const HOUSE_POOL_CENTER_Z = 10.75
 const HOUSE_POOL_INNER = Object.freeze({
-  minX: HOUSE_POOL_CENTER_X - 2.25,
-  maxX: HOUSE_POOL_CENTER_X + 2.25,
-  minZ: HOUSE_POOL_CENTER_Z - 1.38,
-  maxZ: HOUSE_POOL_CENTER_Z + 1.38,
+  minX: HOUSE_POOL_CENTER_X - 3.05,
+  maxX: HOUSE_POOL_CENTER_X + 3.05,
+  minZ: HOUSE_POOL_CENTER_Z - 1.78,
+  maxZ: HOUSE_POOL_CENTER_Z + 1.78,
 })
 
 function isInPoolSafeZone(gx, gy) {
