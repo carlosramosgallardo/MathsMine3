@@ -78,6 +78,7 @@ const HOUSE_BLUE_RGB = [8, 47, 73]
 const HOUSE_BLACK_RGB = [2, 8, 23]
 const HOUSE_MAIN_FLOOR_LEVEL = 3.48
 const HOUSE_MIN_CEILING_GAP = 2.32
+const HOUSE_RAIL_HEIGHT = .92
 const HOUSE_STAIR_CELLS = [
   [12,10,.58],[11,10,1.16],[10,10,1.74],[9,10,2.32],
   [9,9,2.90],[8,9,3.48],[7,9,4.06],[7,8,4.64],
@@ -199,7 +200,7 @@ function makeCipherHouseEntries() {
   }])
   const addRail=(row,col,axis='x',level=5.80)=>add(row,col,{
     base:HOUSE_BLACK_RGB,glow:[103,232,249],kind:'ledger',label:'CIPHER BALCONY RAIL',
-    bottom:level,height:level+.65,isHouseRail:true,railAxis:axis,
+    bottom:level,height:level+HOUSE_RAIL_HEIGHT,isHouseRail:true,railAxis:axis,
   })
   const addDeck=(row,col,level,label='CIPHER BALCONY')=>{
     const diceFace=((Math.abs(row*17+col*31+(row^col)*7))%6)+1
@@ -3826,19 +3827,65 @@ function rebuildThreeWorld(state,cellMap,obstacles) {
       world.add(mesh)
     }
     if(houseGroups.rail.length){
-      const railMesh=new THREE.InstancedMesh(new THREE.BoxGeometry(1,1,1),new THREE.MeshStandardMaterial(roofMat),houseGroups.rail.length)
+      const railFrameMat=new THREE.MeshStandardMaterial({
+        ...roofMat,
+        color:'#0b1220',
+        emissive:'#07111f',
+        emissiveIntensity:.72,
+        roughness:.34,
+        metalness:.64,
+      })
+      const railGlassMat=new THREE.MeshPhysicalMaterial({
+        color:'#67e8f9',
+        emissive:'#0e7490',
+        emissiveIntensity:.58,
+        transparent:true,
+        opacity:.34,
+        depthWrite:false,
+        roughness:.05,
+        metalness:.08,
+        clearcoat:1,
+        clearcoatRoughness:.08,
+        side:THREE.DoubleSide,
+      })
+      const postMesh=new THREE.InstancedMesh(new THREE.BoxGeometry(1,1,1),railFrameMat,houseGroups.rail.length*3)
+      const barMesh=new THREE.InstancedMesh(new THREE.BoxGeometry(1,1,1),railFrameMat,houseGroups.rail.length*3)
+      const panelMesh=new THREE.InstancedMesh(new THREE.BoxGeometry(1,1,1),railGlassMat,houseGroups.rail.length)
+      let postIndex=0,barIndex=0
       houseGroups.rail.forEach(([key,obstacle],index)=>{
         const [row,col]=key.split(',').map(Number)
         const bottom=obstacleBottom(obstacle)
-        const visualHeight=Math.max(.02,obstacleTop(obstacle)-bottom)
-        position.set(col+.5,bottom+visualHeight*.5,row+.5)
-        if(obstacle.railAxis==='z') scale.set(.16,visualHeight,.96)
-        else scale.set(.96,visualHeight,.16)
+        const railHeight=Math.max(.50,obstacleTop(obstacle)-bottom)
+        const axis=obstacle.railAxis==='z'?'z':'x'
+        const longScale=axis==='z'
+          ? (x,y,z)=>scale.set(x,y,z)
+          : (x,y,z)=>scale.set(z,y,x)
+        for(const offset of [-.43,0,.43]){
+          position.set(
+            col+.5+(axis==='x'?offset:0),
+            bottom+railHeight*.5,
+            row+.5+(axis==='z'?offset:0),
+          )
+          scale.set(.13,railHeight,.13)
+          matrix.compose(position,quaternion,scale)
+          postMesh.setMatrixAt(postIndex++,matrix)
+        }
+        for(const y of [bottom+railHeight-.055,bottom+railHeight*.56,bottom+.16]){
+          position.set(col+.5,y,row+.5)
+          longScale(.13,.09,.92)
+          matrix.compose(position,quaternion,scale)
+          barMesh.setMatrixAt(barIndex++,matrix)
+        }
+        position.set(col+.5,bottom+railHeight*.48,row+.5)
+        longScale(.045,railHeight*.48,.72)
         matrix.compose(position,quaternion,scale)
-        railMesh.setMatrixAt(index,matrix)
+        panelMesh.setMatrixAt(index,matrix)
       })
-      railMesh.instanceMatrix.needsUpdate=true
-      world.add(railMesh)
+      postMesh.instanceMatrix.needsUpdate=true
+      barMesh.instanceMatrix.needsUpdate=true
+      panelMesh.instanceMatrix.needsUpdate=true
+      panelMesh.renderOrder=4
+      world.add(panelMesh,postMesh,barMesh)
     }
     // Floor tiles: dark box base + horizontal dice plane overlay (MeshBasicMaterial = no lighting needed)
     const floorEntries=houseGroups.floor
