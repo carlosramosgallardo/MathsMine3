@@ -164,7 +164,7 @@ function makeCipherHouseEntries() {
   const entries=[]
   const doors=new Set(['3,5','3,6','13,9','13,10','6,3','7,3','9,13','10,13'])
   const add=(row,col,data={})=>entries.push([`${row},${col}`,{
-    base:W_STONE,glow:[103,232,249],kind:'hash',label:'CIPHER HOUSE',
+    base:[74,35,128],glow:[217,70,239],kind:'hash',label:'CIPHER HOUSE',
     height:6.20,isStructure:true,isHouse:true,...data,
   }])
   const {minRow,maxRow,minCol,maxCol}=CIPHER_HOUSE_BOUNDS
@@ -172,13 +172,13 @@ function makeCipherHouseEntries() {
   for(let col=minCol;col<=maxCol;col++){
     for(const row of [minRow,maxRow]){
       const key=`${row},${col}`
-      if(!doors.has(key)) add(row,col,CIPHER_HOUSE_WINDOWS.has(key)?{height:.72,isHouseWindow:true}:{})
+      if(!doors.has(key)) add(row,col,CIPHER_HOUSE_WINDOWS.has(key)?{isHouseWindow:true}:{})
     }
   }
   for(let row=minRow+1;row<maxRow;row++){
     for(const col of [minCol,maxCol]){
       const key=`${row},${col}`
-      if(!doors.has(key)) add(row,col,CIPHER_HOUSE_WINDOWS.has(key)?{height:.72,isHouseWindow:true}:{})
+      if(!doors.has(key)) add(row,col,CIPHER_HOUSE_WINDOWS.has(key)?{isHouseWindow:true}:{})
     }
   }
 
@@ -189,7 +189,6 @@ function makeCipherHouseEntries() {
     [6,8,5.22],[6,7,5.80],
   ]
   const stairKeys=new Set(stairCells.map(([row,col])=>`${row},${col}`))
-  const roofDeckKeys=new Set(['4,4','4,5','4,6','5,4','5,6','6,4','6,5','6,6','5,5'])
   for(const [row,col,height] of stairCells) add(row,col,{
     base:W_DARK,glow:[250,204,21],kind:'ledger',label:'HOUSE STAIR',height,
     isRouteStair:true,isHouseStair:true,
@@ -199,8 +198,7 @@ function makeCipherHouseEntries() {
       const key=`${row},${col}`
       const isRoof=level===floorLevels[floorLevels.length-1]
       if(stairKeys.has(key)) continue
-      if(isRoof&&!roofDeckKeys.has(key)) continue
-      if(!isRoof&&key===`${NODE_DICE_POSITION.row},${NODE_DICE_POSITION.col}`) continue
+      if(key===`${NODE_DICE_POSITION.row},${NODE_DICE_POSITION.col}`) continue
       add(row,col,{
         base:isRoof?W_SLATE:W_DARK,
         glow:isRoof?[250,204,21]:[103,232,249],
@@ -1630,6 +1628,7 @@ function wallRgb(cell, dist, side, myWallet) {
     return lit.map((value,index)=>Math.round(value*(1-fogMix)+fogColor[index]*fogMix))
   }
   if (cell?.isObstacle) {
+    if(cell.isHouse) return finish([112,47,255],.38)
     return finish(cell.base || [40,25,65],cell.isRoute?.12:0)
   }
   if (cell?.isChainNode) {
@@ -3120,16 +3119,26 @@ function addCipherHouseDetails(world) {
     roughness:.12,metalness:.28,transparent:true,opacity:.42,
     depthWrite:false,side:THREE.DoubleSide,
   })
+  const windowCenters=[.82,1.98,3.14,4.30,5.46]
   for(const key of CIPHER_HOUSE_WINDOWS){
     const [row,col]=key.split(',').map(Number)
-    const pane=new THREE.Mesh(new THREE.BoxGeometry(.72,.84,.035),glassMaterial)
-    pane.position.set(col+.5,1.23,row+.5)
-    if(col===CIPHER_HOUSE_BOUNDS.minCol||col===CIPHER_HOUSE_BOUNDS.maxCol) pane.rotation.y=Math.PI/2
-    group.add(pane)
+    for(const y of windowCenters){
+      const pane=new THREE.Mesh(new THREE.BoxGeometry(.72,.56,.035),glassMaterial)
+      if(row===CIPHER_HOUSE_BOUNDS.minRow) pane.position.set(col+.5,y,row+.025)
+      else if(row===CIPHER_HOUSE_BOUNDS.maxRow) pane.position.set(col+.5,y,row+.975)
+      else if(col===CIPHER_HOUSE_BOUNDS.minCol){
+        pane.rotation.y=Math.PI/2
+        pane.position.set(col+.025,y,row+.5)
+      }else{
+        pane.rotation.y=Math.PI/2
+        pane.position.set(col+.975,y,row+.5)
+      }
+      group.add(pane)
+    }
   }
 
   const frameMaterial=new THREE.MeshStandardMaterial({
-    color:'#facc15',emissive:'#92400e',emissiveIntensity:.62,roughness:.34,metalness:.72,
+    color:'#22d3ee',emissive:'#0891b2',emissiveIntensity:.74,roughness:.34,metalness:.72,
   })
   const addDoorFrame=(row,col,horizontal)=>{
     const frame=new THREE.Group()
@@ -3154,6 +3163,80 @@ function addCipherHouseDetails(world) {
   addDoorFrame(13.5,10,true)
   addDoorFrame(7,3.5,false)
   addDoorFrame(10,13.5,false)
+
+  const trimMaterials=[
+    new THREE.MeshBasicMaterial({color:'#22d3ee',transparent:true,opacity:.68,depthWrite:false}),
+    new THREE.MeshBasicMaterial({color:'#d946ef',transparent:true,opacity:.62,depthWrite:false}),
+    new THREE.MeshBasicMaterial({color:'#a78bfa',transparent:true,opacity:.58,depthWrite:false}),
+  ]
+  const addTrimBox=(x,y,z,sx,sy,sz,matIndex=0)=>{
+    const mesh=new THREE.Mesh(new THREE.BoxGeometry(sx,sy,sz),trimMaterials[matIndex%trimMaterials.length])
+    mesh.position.set(x,y,z)
+    group.add(mesh)
+  }
+  const {minRow,maxRow,minCol,maxCol}=CIPHER_HOUSE_BOUNDS
+  ;[1.16,2.32,3.48,4.64,5.80,6.20].forEach((y,index)=>{
+    addTrimBox((minCol+maxCol+1)/2,y+.035,minRow+.012,maxCol-minCol+.95,.035,.028,index)
+    addTrimBox((minCol+maxCol+1)/2,y+.035,maxRow+.988,maxCol-minCol+.95,.035,.028,index+1)
+    addTrimBox(minCol+.012,y+.035,(minRow+maxRow+1)/2,.028,.035,maxRow-minRow+.95,index+2)
+    addTrimBox(maxCol+.988,y+.035,(minRow+maxRow+1)/2,.028,.035,maxRow-minRow+.95,index)
+  })
+  for(const [x,z,mat] of [
+    [minCol+.08,minRow+.08,1],[maxCol+.92,minRow+.08,2],
+    [minCol+.08,maxRow+.92,2],[maxCol+.92,maxRow+.92,1],
+  ]){
+    addTrimBox(x,3.10,z,.07,6.20,.07,mat)
+  }
+
+  const diceTower=new THREE.Group()
+  diceTower.position.set(NODE_DICE_POSITION.col+.5,0,NODE_DICE_POSITION.row+.5)
+  const mastMat=new THREE.MeshStandardMaterial({
+    color:'#facc15',emissive:'#854d0e',emissiveIntensity:.80,
+    roughness:.30,metalness:.74,
+  })
+  const mast=new THREE.Mesh(new THREE.CylinderGeometry(.09,.15,2.35,12),mastMat)
+  mast.position.y=6.92
+  diceTower.add(mast)
+  const core=new THREE.Mesh(new THREE.SphereGeometry(.32,16,12),new THREE.MeshStandardMaterial({
+    color:'#facc15',emissive:'#facc15',emissiveIntensity:1.20,
+    roughness:.25,metalness:.72,
+  }))
+  core.position.y=8.06
+  diceTower.add(core)
+  for(const [y,radius,color] of [[6.05,.58,'#67e8f9'],[8.06,.86,'#facc15'],[8.62,.64,'#d946ef']]){
+    const ring=new THREE.Mesh(new THREE.TorusGeometry(radius,.035,8,36),new THREE.MeshBasicMaterial({
+      color,transparent:true,opacity:.86,depthWrite:false,
+    }))
+    ring.rotation.x=Math.PI/2
+    ring.position.y=y
+    diceTower.add(ring)
+  }
+  const diceSprite=makeEmojiSprite('🎲','#facc15','circle')
+  diceSprite.material.depthTest=false
+  diceSprite.renderOrder=30
+  diceSprite.scale.set(1.62,1.62,1)
+  diceSprite.position.y=9.08
+  diceTower.add(diceSprite)
+  for(const [x,z,y,scale] of [
+    [minCol+2.5,minRow-.06,3.72,2.10],
+    [maxCol-2.5,maxRow+1.06,3.72,2.10],
+    [minCol-.06,minRow+5.5,3.72,1.85],
+    [maxCol+1.06,minRow+5.5,3.72,1.85],
+    [maxCol+1.06,maxRow-3.0,2.45,2.35],
+  ]){
+    const crest=makeEmojiSprite('🎲','#facc15','square')
+    crest.material.depthTest=false
+    crest.renderOrder=30
+    crest.position.set(x,y,z)
+    crest.scale.set(scale,scale,1)
+    group.add(crest)
+  }
+  const diceLight=new THREE.PointLight('#facc15',5.8,9,1.7)
+  diceLight.position.y=8.08
+  diceTower.add(diceLight)
+  diceTower.userData.interactive=true
+  diceTower.userData.phase=0
+  group.add(diceTower)
 
   const houseLight=new THREE.PointLight('#22d3ee',2.8,13,2)
   houseLight.position.set(8.2,2.35,8.2)
@@ -3257,9 +3340,25 @@ function makeEmojiSprite(emoji,color,shape='square') {
   if(shape==='circle'){ context.arc(64,64,56,0,Math.PI*2) } else { context.rect(8,8,112,112) }
   context.fill();context.stroke()
   context.shadowBlur=0
-  context.font='72px "Apple Color Emoji","Segoe UI Emoji",sans-serif'
-  context.textAlign='center';context.textBaseline='middle'
-  context.fillText(emoji||'◆',64,67)
+  if(emoji==='🎲'){
+    context.fillStyle='#f8fafc'
+    context.strokeStyle=color||'#facc15'
+    context.lineWidth=5
+    context.beginPath()
+    context.roundRect(31,31,66,66,12)
+    context.fill()
+    context.stroke()
+    context.fillStyle='#111827'
+    for(const [x,y] of [[47,47],[64,47],[81,47],[47,64],[64,64],[81,64],[47,81],[64,81],[81,81]]){
+      context.beginPath()
+      context.arc(x,y,4.8,0,Math.PI*2)
+      context.fill()
+    }
+  }else{
+    context.font='72px "Apple Color Emoji","Segoe UI Emoji",sans-serif'
+    context.textAlign='center';context.textBaseline='middle'
+    context.fillText(emoji||'◆',64,67)
+  }
   const texture=new THREE.CanvasTexture(canvas)
   texture.colorSpace=THREE.SRGBColorSpace
   texture.minFilter=THREE.LinearFilter
@@ -3491,10 +3590,55 @@ function rebuildThreeWorld(state,cellMap,obstacles) {
   state.beaconBatch=addInteractiveBeaconBatch(world,beaconEntries)
   updateInteractiveBeaconBatch(state.beaconBatch,performance.now()*.001)
 
+  const houseEntries=[]
   const boxGroups={mountain:[],coast:[],ice:[],inferno:[]}
   for(const entry of obstacles.entries()){
     if(isOrganicShape(entry[1])||entry[1].isColosseumBridge) continue
+    if(entry[1]?.isHouse){ houseEntries.push(entry); continue }
     const [row,col]=entry[0].split(',').map(Number);boxGroups[biomeForCell(row,col)].push(entry)
+  }
+  if(houseEntries.length){
+    const houseGroups={
+      wall:houseEntries.filter(([,obstacle])=>!obstacle.isHouseFloor&&!obstacle.isHouseStair),
+      floor:houseEntries.filter(([,obstacle])=>obstacle.isHouseFloor&&!obstacle.isHouseRoof),
+      roof:houseEntries.filter(([,obstacle])=>obstacle.isHouseRoof),
+      stair:houseEntries.filter(([,obstacle])=>obstacle.isHouseStair),
+    }
+    const houseMaterials={
+      wall:new THREE.MeshStandardMaterial({
+        color:'#5b21b6',roughness:.46,metalness:.38,
+        emissive:'#3b0764',emissiveIntensity:.86,
+      }),
+      floor:new THREE.MeshStandardMaterial({
+        color:'#0f6678',roughness:.58,metalness:.34,
+        emissive:'#073744',emissiveIntensity:.48,
+      }),
+      roof:new THREE.MeshStandardMaterial({
+        color:'#24313d',roughness:.50,metalness:.42,
+        emissive:'#0c1828',emissiveIntensity:.62,
+      }),
+      stair:new THREE.MeshStandardMaterial({
+        color:'#22d3ee',roughness:.36,metalness:.64,
+        emissive:'#0891b2',emissiveIntensity:.70,
+      }),
+    }
+    for(const [kind,entries] of Object.entries(houseGroups)){
+      if(!entries.length) continue
+      const mesh=new THREE.InstancedMesh(new THREE.BoxGeometry(1,1,1),houseMaterials[kind],entries.length)
+      entries.forEach(([key,obstacle],index)=>{
+        const [row,col]=key.split(',').map(Number)
+        const bottom=obstacleBottom(obstacle)
+        const visualTop=Number(obstacle.visualHeight)||obstacleTop(obstacle)
+        const visualHeight=Math.max(.02,visualTop-bottom)
+        const inset=kind==='floor'||kind==='roof'?0.92:0.985
+        position.set(col+.5,bottom+visualHeight*.5,row+.5)
+        scale.set(inset,visualHeight,inset)
+        matrix.compose(position,quaternion,scale)
+        mesh.setMatrixAt(index,matrix)
+      })
+      mesh.instanceMatrix.needsUpdate=true
+      world.add(mesh)
+    }
   }
   for(const [biome,entries] of Object.entries(boxGroups)){
     if(!entries.length) continue
@@ -4137,7 +4281,10 @@ export default function MiningChain3DFPV({
       const insideHouse=
         row>=CIPHER_HOUSE_BOUNDS.minRow&&row<=CIPHER_HOUSE_BOUNDS.maxRow&&
         col>=CIPHER_HOUSE_BOUNDS.minCol&&col<=CIPHER_HOUSE_BOUNDS.maxCol
-      if(insideHouse&&!data.isHouse) continue
+      const nearHouse=
+        row>=CIPHER_HOUSE_BOUNDS.minRow-2&&row<=CIPHER_HOUSE_BOUNDS.maxRow+2&&
+        col>=CIPHER_HOUSE_BOUNDS.minCol-2&&col<=CIPHER_HOUSE_BOUNDS.maxCol+2
+      if((insideHouse||nearHouse)&&!data.isHouse) continue
       if(data.isHouse||!reserved.has(key)) valid.set(key, chainObstacle(key,data))
     }
 
@@ -4150,6 +4297,9 @@ export default function MiningChain3DFPV({
     }
     for(let r=CIPHER_HOUSE_BOUNDS.minRow;r<=CIPHER_HOUSE_BOUNDS.maxRow;r++){
       for(let c=CIPHER_HOUSE_BOUNDS.minCol;c<=CIPHER_HOUSE_BOUNDS.maxCol;c++) reserved.add(`${r},${c}`)
+    }
+    for(let r=CIPHER_HOUSE_BOUNDS.minRow-2;r<=CIPHER_HOUSE_BOUNDS.maxRow+2;r++){
+      for(let c=CIPHER_HOUSE_BOUNDS.minCol-2;c<=CIPHER_HOUSE_BOUNDS.maxCol+2;c++) reserved.add(`${r},${c}`)
     }
 
     // Authored traversal landmarks get first choice of genuinely empty space;

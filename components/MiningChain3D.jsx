@@ -14,7 +14,7 @@ import {
   MM3_BLOCK_GRID_ROWS, MM3_BLOCK_GRID_COLS,
 } from '@/lib/mm3-block-chain'
 import { computeRelayLevel } from '@/lib/wallet-decorations'
-import { CIPHER_HOUSE_MINING_LEVELS, MINING_CHAIN_NODE_POSITION } from '@/lib/mining-world-layout'
+import { CIPHER_HOUSE_BOUNDS, CIPHER_HOUSE_MINING_LEVELS, MINING_CHAIN_NODE_POSITION } from '@/lib/mining-world-layout'
 import {
   MINING_MARKET_LANDMARK_POSITIONS,
   MINING_VISUAL_BLOCK_POSITIONS,
@@ -28,6 +28,11 @@ import NftjiPenaltyCard from './NftjiPenaltyCard'
 const C = '#22d3ee'
 const NETWORK_VISUAL_RANGE = 22
 const CHAIN3D_CHANNEL = 'mm3-chain3d-v1'
+
+function isInCipherHouseClearance(row, col) {
+  return row >= CIPHER_HOUSE_BOUNDS.minRow - 2 && row <= CIPHER_HOUSE_BOUNDS.maxRow + 2
+    && col >= CIPHER_HOUSE_BOUNDS.minCol - 2 && col <= CIPHER_HOUSE_BOUNDS.maxCol + 2
+}
 const NODE_DICE_PRICE_MM3 = 500
 const NODE_DICE_MIN_LEVEL = 30
 const NODE_DICE_STORAGE_KEY = 'mm3_stormroll_node'
@@ -532,12 +537,12 @@ export default function MiningChain3D() {
       )
       for (const [, block] of [...blocksByHex.entries()].sort(([a],[b]) => a.localeCompare(b))) {
         const pos = marketPositions.get(block.blockHex) || placeDistributedBlock(block.blockHex)
-        if (pos) map.set(`${pos.row},${pos.col}`, block)
+        if (pos && !isInCipherHouseClearance(pos.row, pos.col)) map.set(`${pos.row},${pos.col}`, block)
       }
       // All unclaimed mining blocks — visible as mineable walls even without an owner
       for (const [blockHex, pos] of VISUAL_BLOCK_POSITIONS) {
         const key = `${pos.row},${pos.col}`
-        if (!map.has(key)) {
+        if (!isInCipherHouseClearance(pos.row, pos.col) && !map.has(key)) {
           map.set(key, { blockHex, owner: null, isMined: false, isMarket: false, color: null })
         }
       }
