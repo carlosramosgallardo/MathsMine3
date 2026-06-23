@@ -76,7 +76,15 @@ const W_SAND  = [108, 106, 102]   // warm gray
 const W_DARK  = [58,  62,  70]    // dark gray
 const HOUSE_BLUE_RGB = [8, 47, 73]
 const HOUSE_BLACK_RGB = [2, 8, 23]
-const HOUSE_FLOOR_LEVELS = [1.16, 2.32, 3.48, 4.64, 5.80]
+const HOUSE_MAIN_FLOOR_LEVEL = 3.48
+const HOUSE_ACCESS_DECKS = [
+  // Floor 2.
+  ...[[6,10],[6,11],[6,12],[6,13],[7,10],[8,10],[10,9],[11,9],[12,9],[12,8],[13,8]].map(([row,col])=>({row,col,level:2.32})),
+  // Floor 4.
+  ...[[7,7],[7,6],[7,5],[7,4],[7,3],[7,9],[6,9],[5,9],[4,9],[4,10],[3,10]].map(([row,col])=>({row,col,level:4.64})),
+  // Roof.
+  ...[[5,7],[4,7],[3,7],[5,8],[4,8],[3,8],[6,6],[6,5],[6,4],[6,3],[9,3],[10,3],[11,3]].map(([row,col])=>({row,col,level:5.80})),
+]
 const CHAIN_MATERIALS = [
   { kind:'hash',      base:[42,82,104],  glow:[34,211,238], label:'HASH WALL' },
   { kind:'ledger',    base:[96,78,48],   glow:[250,204,21], label:'LEDGER' },
@@ -207,7 +215,7 @@ function makeCipherHouseEntries() {
     }
   }
 
-  const floorLevels=[1.16,2.32,3.48,4.64,5.80]
+  const floorLevels=[HOUSE_MAIN_FLOOR_LEVEL]
   const stairCells=[
     [12,10,.58],[11,10,1.16],[10,10,1.74],[9,10,2.32],
     [9,9,2.90],[8,9,3.48],[7,9,4.06],[7,8,4.64],
@@ -235,6 +243,15 @@ function makeCipherHouseEntries() {
       })
     }
   }
+  // Minimal stair extensions and access decks. These are the only extra floors
+  // outside the third-floor slab.
+  ;[[6,10],[6,11],[6,12],[6,13],[7,10],[8,10]].forEach(([row,col])=>addDeck(row,col,2.32,'CIPHER FLOOR 2 EAST ACCESS'))
+  ;[[10,9],[11,9],[12,9],[12,8],[13,8]].forEach(([row,col])=>addDeck(row,col,2.32,'CIPHER FLOOR 2 SOUTH ACCESS'))
+  ;[[7,7],[7,6],[7,5],[7,4],[7,3]].forEach(([row,col])=>addDeck(row,col,4.64,'CIPHER FLOOR 4 WEST ACCESS'))
+  ;[[7,9],[6,9],[5,9],[4,9],[4,10],[3,10]].forEach(([row,col])=>addDeck(row,col,4.64,'CIPHER FLOOR 4 NORTH ACCESS'))
+  ;[[5,7],[4,7],[3,7],[5,8],[4,8],[3,8]].forEach(([row,col])=>addDeck(row,col,5.80,'CIPHER ROOF NORTH ACCESS'))
+  ;[[7,7],[8,7],[9,6],[10,5],[10,4],[10,3],[11,3]].forEach(([row,col])=>addDeck(row,col,5.80,'CIPHER ROOF WEST ACCESS'))
+
   // Roof balconies.
   ;[[3,7],[3,8],[2,7],[2,8],[2,9]].forEach(([row,col])=>addDeck(row,col,5.80,row===3?'CIPHER BALCONY THRESHOLD':'CIPHER CORNER BALCONY'))
   ;[[10,3],[11,3],[10,2],[11,2],[12,2]].forEach(([row,col])=>addDeck(row,col,5.80,col===3?'CIPHER ROOF BALCONY THRESHOLD':'CIPHER ROOF CORNER BALCONY'))
@@ -1560,13 +1577,17 @@ function circleTouchesCell(gx, gy, row, col, radius = PLAYER_R) {
 }
 
 function houseFloorSupportAt(row, col, playerZ) {
-  if (
-    row <= CIPHER_HOUSE_BOUNDS.minRow || row >= CIPHER_HOUSE_BOUNDS.maxRow ||
-    col <= CIPHER_HOUSE_BOUNDS.minCol || col >= CIPHER_HOUSE_BOUNDS.maxCol
-  ) return 0
   let support = 0
-  for (const level of HOUSE_FLOOR_LEVELS) {
-    if (playerZ >= level - 0.08) support = level
+  for (const deck of HOUSE_ACCESS_DECKS) {
+    if (deck.row === row && deck.col === col && playerZ >= deck.level - 0.08) {
+      support = Math.max(support, deck.level)
+    }
+  }
+  const insideHouse =
+    row > CIPHER_HOUSE_BOUNDS.minRow && row < CIPHER_HOUSE_BOUNDS.maxRow &&
+    col > CIPHER_HOUSE_BOUNDS.minCol && col < CIPHER_HOUSE_BOUNDS.maxCol
+  if (insideHouse && playerZ >= HOUSE_MAIN_FLOOR_LEVEL - 0.08) {
+    support = Math.max(support, HOUSE_MAIN_FLOOR_LEVEL)
   }
   return support
 }
@@ -3274,34 +3295,23 @@ function addCipherHouseDetails(world) {
   const diceFloorMaterials=[1,2,3,4,5,6].map(face=>new THREE.MeshBasicMaterial({
     map:makeDiceFaceTexture(face),transparent:true,opacity:1,depthWrite:false,side:THREE.DoubleSide,
   }))
-  for(let row=minRow+1;row<maxRow;row++) for(let col=minCol+1;col<maxCol;col++){
+  const addDicePlate=(row,col,level)=>{
+    const face=(Math.abs(row*17+col*31+(row^col)*7+Math.round(level*100))%6)
     const plate=new THREE.Mesh(new THREE.PlaneGeometry(.98,.98),groundMat)
-    plate.position.set(col+.5,.016,row+.5)
+    plate.position.set(col+.5,level+.002,row+.5)
     plate.quaternion.copy(groundQuat)
     plate.renderOrder=2
     group.add(plate)
-    const face=(Math.abs(row*17+col*31+(row^col)*7))%6
     const dice=new THREE.Mesh(new THREE.PlaneGeometry(.99,.99),diceFloorMaterials[face])
-    dice.position.set(col+.5,.030,row+.5)
+    dice.position.set(col+.5,level+.014,row+.5)
     dice.quaternion.copy(groundQuat)
     dice.renderOrder=3
     group.add(dice)
   }
-  for(const level of HOUSE_FLOOR_LEVELS.filter(level=>level<5.80)){
-    for(let row=minRow+1;row<maxRow;row++) for(let col=minCol+1;col<maxCol;col++){
-      const face=(Math.abs(row*17+col*31+(row^col)*7+Math.round(level*100))%6)
-      const plate=new THREE.Mesh(new THREE.PlaneGeometry(.98,.98),groundMat)
-      plate.position.set(col+.5,level+.002,row+.5)
-      plate.quaternion.copy(groundQuat)
-      plate.renderOrder=2
-      group.add(plate)
-      const dice=new THREE.Mesh(new THREE.PlaneGeometry(.99,.99),diceFloorMaterials[face])
-      dice.position.set(col+.5,level+.014,row+.5)
-      dice.quaternion.copy(groundQuat)
-      dice.renderOrder=3
-      group.add(dice)
-    }
+  for(let row=minRow+1;row<maxRow;row++) for(let col=minCol+1;col<maxCol;col++){
+    addDicePlate(row,col,HOUSE_MAIN_FLOOR_LEVEL)
   }
+  for(const {row,col,level} of HOUSE_ACCESS_DECKS) addDicePlate(row,col,level)
 
   const poolGroup=new THREE.Group()
   poolGroup.position.set(6.35,5.836,10.75)
