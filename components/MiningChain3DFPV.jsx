@@ -77,14 +77,24 @@ const W_DARK  = [58,  62,  70]    // dark gray
 const HOUSE_BLUE_RGB = [8, 47, 73]
 const HOUSE_BLACK_RGB = [2, 8, 23]
 const HOUSE_MAIN_FLOOR_LEVEL = 3.48
+const HOUSE_MIN_CEILING_GAP = 2.32
+const HOUSE_STAIR_CELLS = [
+  [12,10,.58],[11,10,1.16],[10,10,1.74],[9,10,2.32],
+  [9,9,2.90],[8,9,3.48],[7,9,4.06],[7,8,4.64],
+  [6,8,5.22],[6,7,5.80],
+]
 const HOUSE_ACCESS_DECKS = [
   // Floor 2.
   ...[[6,10],[6,11],[6,12],[6,13],[7,10],[8,10],[10,9],[11,9],[12,9],[12,8],[13,8]].map(([row,col])=>({row,col,level:2.32})),
   // Floor 4.
   ...[[7,7],[7,6],[7,5],[7,4],[7,3],[7,9],[6,9],[5,9],[4,9],[4,10],[3,10]].map(([row,col])=>({row,col,level:4.64})),
   // Roof.
-  ...[[5,7],[4,7],[3,7],[5,8],[4,8],[3,8],[6,6],[6,5],[6,4],[6,3],[9,3],[10,3],[11,3]].map(([row,col])=>({row,col,level:5.80})),
+  ...[[5,7],[4,7],[3,7],[5,8],[4,8],[3,8],[5,6],[5,5],[5,4],[5,3],[5,2],[6,2],[6,1],[7,1],[8,1],[9,1],[10,1],[10,2],[10,3],[11,3]].map(([row,col])=>({row,col,level:5.80})),
 ]
+const HOUSE_STAIR_KEYS = new Set(HOUSE_STAIR_CELLS.map(([row,col])=>`${row},${col}`))
+const HOUSE_MAIN_FLOOR_HOLES = new Set(HOUSE_ACCESS_DECKS
+  .filter(({level})=>Math.abs(level - HOUSE_MAIN_FLOOR_LEVEL) < HOUSE_MIN_CEILING_GAP)
+  .map(({row,col})=>`${row},${col}`))
 const CHAIN_MATERIALS = [
   { kind:'hash',      base:[42,82,104],  glow:[34,211,238], label:'HASH WALL' },
   { kind:'ledger',    base:[96,78,48],   glow:[250,204,21], label:'LEDGER' },
@@ -216,21 +226,15 @@ function makeCipherHouseEntries() {
   }
 
   const floorLevels=[HOUSE_MAIN_FLOOR_LEVEL]
-  const stairCells=[
-    [12,10,.58],[11,10,1.16],[10,10,1.74],[9,10,2.32],
-    [9,9,2.90],[8,9,3.48],[7,9,4.06],[7,8,4.64],
-    [6,8,5.22],[6,7,5.80],
-  ]
-  const stairKeys=new Set(stairCells.map(([row,col])=>`${row},${col}`))
-  for(const [row,col,height] of stairCells) add(row,col,{
+  for(const [row,col,height] of HOUSE_STAIR_CELLS) add(row,col,{
     base:HOUSE_BLACK_RGB,glow:[103,232,249],kind:'ledger',label:'HOUSE STAIR',height,
     isRouteStair:true,isHouseStair:true,
   })
   for(const level of floorLevels){
     for(let row=minRow+1;row<maxRow;row++) for(let col=minCol+1;col<maxCol;col++){
       const key=`${row},${col}`
-      const isRoof=level===floorLevels[floorLevels.length-1]
-      if(stairKeys.has(key)) continue
+      const isRoof=false
+      if(HOUSE_STAIR_KEYS.has(key)||HOUSE_MAIN_FLOOR_HOLES.has(key)) continue
       const diceFace=((Math.abs(row*17+col*31+(row^col)*7))%6)+1
       add(row,col,{
         base:isRoof?HOUSE_BLACK_RGB:HOUSE_BLUE_RGB,
@@ -250,7 +254,7 @@ function makeCipherHouseEntries() {
   ;[[7,7],[7,6],[7,5],[7,4],[7,3]].forEach(([row,col])=>addDeck(row,col,4.64,'CIPHER FLOOR 4 WEST ACCESS'))
   ;[[7,9],[6,9],[5,9],[4,9],[4,10],[3,10]].forEach(([row,col])=>addDeck(row,col,4.64,'CIPHER FLOOR 4 NORTH ACCESS'))
   ;[[5,7],[4,7],[3,7],[5,8],[4,8],[3,8]].forEach(([row,col])=>addDeck(row,col,5.80,'CIPHER ROOF NORTH ACCESS'))
-  ;[[7,7],[8,7],[9,6],[10,5],[10,4],[10,3],[11,3]].forEach(([row,col])=>addDeck(row,col,5.80,'CIPHER ROOF WEST ACCESS'))
+  ;[[5,6],[5,5],[5,4],[5,3],[5,2],[6,2],[6,1],[7,1],[8,1],[9,1],[10,1],[10,2],[10,3],[11,3]].forEach(([row,col])=>addDeck(row,col,5.80,'CIPHER ROOF WEST ACCESS'))
 
   // Roof balconies.
   ;[[3,7],[3,8],[2,7],[2,8],[2,9]].forEach(([row,col])=>addDeck(row,col,5.80,row===3?'CIPHER BALCONY THRESHOLD':'CIPHER CORNER BALCONY'))
@@ -281,12 +285,12 @@ function makeCipherHouseEntries() {
   for(const col of [7,8]) addRail(16,col,'x',2.32)
   addRail(16,6,'x',2.32); addRail(16,9,'x',2.32)
   for(const row of [14,15]){ addRail(row,6,'z',2.32); addRail(row,9,'z',2.32) }
-  // Upper wall fill above each door opening (bottom=2.0 so players pass through at ground level)
+  // Upper wall fill above each door opening, kept high enough for the camera.
   for(const key of doors){
     const [row,col]=key.split(',').map(Number)
     entries.push([key,{
       base:HOUSE_BLACK_RGB,glow:[103,232,249],kind:'hash',label:'CIPHER DOOR FILL',
-      bottom:2.0,height:6.20,isStructure:true,isHouse:true,
+      bottom:HOUSE_MIN_CEILING_GAP,height:6.20,isStructure:true,isHouse:true,
     }])
   }
   return entries
@@ -1586,7 +1590,13 @@ function houseFloorSupportAt(row, col, playerZ) {
   const insideHouse =
     row > CIPHER_HOUSE_BOUNDS.minRow && row < CIPHER_HOUSE_BOUNDS.maxRow &&
     col > CIPHER_HOUSE_BOUNDS.minCol && col < CIPHER_HOUSE_BOUNDS.maxCol
-  if (insideHouse && playerZ >= HOUSE_MAIN_FLOOR_LEVEL - 0.08) {
+  const key = `${row},${col}`
+  if (
+    insideHouse &&
+    !HOUSE_STAIR_KEYS.has(key) &&
+    !HOUSE_MAIN_FLOOR_HOLES.has(key) &&
+    playerZ >= HOUSE_MAIN_FLOOR_LEVEL - 0.08
+  ) {
     support = Math.max(support, HOUSE_MAIN_FLOOR_LEVEL)
   }
   return support
@@ -3309,6 +3319,8 @@ function addCipherHouseDetails(world) {
     group.add(dice)
   }
   for(let row=minRow+1;row<maxRow;row++) for(let col=minCol+1;col<maxCol;col++){
+    const key=`${row},${col}`
+    if(HOUSE_STAIR_KEYS.has(key)||HOUSE_MAIN_FLOOR_HOLES.has(key)) continue
     addDicePlate(row,col,HOUSE_MAIN_FLOOR_LEVEL)
   }
   for(const {row,col,level} of HOUSE_ACCESS_DECKS) addDicePlate(row,col,level)
