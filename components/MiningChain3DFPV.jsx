@@ -1678,14 +1678,13 @@ function poolTerraceRailBlocksBody(gx, gy, playerZ) {
 }
 
 function poolWallSupportAt(gx, gy, playerZ, radius = PLAYER_R * 0.76) {
-  if (gx > HOUSE_POOL_INNER.minX && gx < HOUSE_POOL_INNER.maxX && gy > HOUSE_POOL_INNER.minZ && gy < HOUSE_POOL_INNER.maxZ) return 0
-  if (!poolWallBounds().some(bounds => circleTouchesAabb(gx, gy, bounds, radius))) return 0
-  return playerZ >= HOUSE_POOL_WALL_TOP - .32 ? HOUSE_POOL_WALL_TOP : 0
+  // Pool walls removed - support replaced by terrace rail system
+  return 0
 }
 
 function poolWallBlocksBody(gx, gy, playerZ) {
-  if (!poolWallBounds().some(bounds => circleTouchesAabb(gx, gy, bounds, PLAYER_R))) return false
-  return playerZ < HOUSE_POOL_WALL_TOP - .10 && playerZ + PLAYER_BODY_H > HOUSE_POOL_FLOOR_LEVEL + .02
+  // Pool walls removed - no blocking
+  return false
 }
 
 function divingBoardSupportAt(gx, gy, playerZ, radius = PLAYER_R * 0.76) {
@@ -3656,17 +3655,18 @@ function addCipherHouseDetails(world) {
     dice.renderOrder=5
     poolGroup.add(dice)
   }
-  for(const [x,z,sx,sz] of [
-    [-(poolEntryHalf+poolEntrySideW*.5),-(poolInnerD+poolWallT)/2,poolEntrySideW,poolWallT],
-    [poolEntryHalf+poolEntrySideW*.5,-(poolInnerD+poolWallT)/2,poolEntrySideW,poolWallT],
-    [0,(poolInnerD+poolWallT)/2,poolOuterW,poolWallT],
-    [-(poolInnerW+poolWallT)/2,0,poolWallT,poolInnerD],
-    [(poolInnerW+poolWallT)/2,0,poolWallT,poolInnerD],
-  ]){
-    const wall=new THREE.Mesh(new THREE.BoxGeometry(sx,poolWallH,sz),poolShellMat)
-    wall.position.set(x,poolWallCenterY,z)
-    poolGroup.add(wall)
-  }
+  // Pool perimeter walls removed - full walkable edge using rails and terrace support
+  // for(const [x,z,sx,sz] of [
+  //   [-(poolEntryHalf+poolEntrySideW*.5),-(poolInnerD+poolWallT)/2,poolEntrySideW,poolWallT],
+  //   [poolEntryHalf+poolEntrySideW*.5,-(poolInnerD+poolWallT)/2,poolEntrySideW,poolWallT],
+  //   [0,(poolInnerD+poolWallT)/2,poolOuterW,poolWallT],
+  //   [-(poolInnerW+poolWallT)/2,0,poolWallT,poolInnerD],
+  //   [(poolInnerW+poolWallT)/2,0,poolWallT,poolInnerD],
+  // ]){
+  //   const wall=new THREE.Mesh(new THREE.BoxGeometry(sx,poolWallH,sz),poolShellMat)
+  //   wall.position.set(x,poolWallCenterY,z)
+  //   poolGroup.add(wall)
+  // }
   for(const [x,z,sx,sz] of [
     [0,-poolInnerD/2,poolInnerW,.055],
     [0,poolInnerD/2,poolInnerW,.055],
