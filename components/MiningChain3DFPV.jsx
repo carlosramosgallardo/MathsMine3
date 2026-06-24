@@ -345,7 +345,11 @@ function makeColosseumStandEntries() {
 }
 
 const CIPHER_HOUSE_DOOR_CELLS = new Set(['3,5', '3,6', '13,9', '13,10'])
-const CIPHER_HOUSE_WINDOW_SILL = 1.72
+const HOUSE_WINDOW_PANE_Y = [.82, 1.98, 3.14, 4.30, 5.46]
+const HOUSE_WINDOW_PANE_H = .56
+const HOUSE_WINDOW_PANE_W = .74
+const HOUSE_WINDOW_FACE_INSET = .012
+const HOUSE_WINDOW_MULLION_T = .048
 const CIPHER_HOUSE_WINDOWS = new Set([
   '3,9', '3,10',
   '8,3', '9,3',
@@ -373,17 +377,6 @@ function buildCipherHouseApproachCells() {
   for (const [key, dr, dc] of doorVectors) {
     const [row, col] = key.split(',').map(Number)
     for (let depth = 1; depth <= 4; depth += 1) {
-      cells.add(`${row + dr * depth},${col + dc * depth}`)
-    }
-  }
-  for (const key of CIPHER_HOUSE_WINDOWS) {
-    const [row, col] = key.split(',').map(Number)
-    const onNorth = row === CIPHER_HOUSE_BOUNDS.minRow
-    const onSouth = row === CIPHER_HOUSE_BOUNDS.maxRow
-    const onWest = col === CIPHER_HOUSE_BOUNDS.minCol
-    const dr = onNorth ? -1 : onSouth ? 1 : 0
-    const dc = onWest ? -1 : (!onNorth && !onSouth) ? 1 : 0
-    for (let depth = 1; depth <= 2; depth += 1) {
       cells.add(`${row + dr * depth},${col + dc * depth}`)
     }
   }
@@ -416,7 +409,7 @@ function makeCipherHouseEntries() {
     const key=`${row},${col}`
     if(CIPHER_HOUSE_DOOR_CELLS.has(key)) return
     if(CIPHER_HOUSE_WINDOWS.has(key)){
-      add(row,col,{isHouseWindow:true,bottom:CIPHER_HOUSE_WINDOW_SILL})
+      add(row,col,{isHouseWindow:true,isHouseWindowGlass:true})
       return
     }
     add(row,col,{})
@@ -3324,11 +3317,11 @@ function addBiomeGround(world,textures) {
   const houseGroundTexture=createHouseGroundTexture()
   const houseGroundMaterial=new THREE.MeshStandardMaterial({
     map:houseGroundTexture,
-    color:'#dff7ff',
-    roughness:.58,
-    metalness:.18,
+    color:'#e8f7ff',
+    roughness:.62,
+    metalness:.14,
     emissive:'#061521',
-    emissiveIntensity:.30,
+    emissiveIntensity:.24,
   })
   const houseGroundW=CIPHER_HOUSE_BOUNDS.maxCol-CIPHER_HOUSE_BOUNDS.minCol-1
   const houseGroundH=CIPHER_HOUSE_BOUNDS.maxRow-CIPHER_HOUSE_BOUNDS.minRow-1
@@ -3532,79 +3525,116 @@ function addCryptoColosseum(world) {
   world.add(arena)
 }
 
+function housePerimeterFace(row, col) {
+  const { minRow, maxRow, minCol, maxCol } = CIPHER_HOUSE_BOUNDS
+  if (row === minRow) return { px: col + .5, pz: row + HOUSE_WINDOW_FACE_INSET, along: 'x', depth: HOUSE_WINDOW_MULLION_T }
+  if (row === maxRow) return { px: col + .5, pz: row + 1 - HOUSE_WINDOW_FACE_INSET, along: 'x', depth: HOUSE_WINDOW_MULLION_T }
+  if (col === minCol) return { px: col + HOUSE_WINDOW_FACE_INSET, pz: row + .5, along: 'z', depth: HOUSE_WINDOW_MULLION_T }
+  return { px: col + 1 - HOUSE_WINDOW_FACE_INSET, pz: row + .5, along: 'z', depth: HOUSE_WINDOW_MULLION_T }
+}
+
 function addCipherHouseDetails(world) {
   const group=new THREE.Group()
   group.name='cipher-house-details'
-  const glassMaterial=new THREE.MeshStandardMaterial({
-    color:'#67e8f9',emissive:'#0e7490',emissiveIntensity:.85,
-    roughness:.12,metalness:.28,transparent:true,opacity:.42,
-    depthWrite:false,side:THREE.DoubleSide,
+  const mullionMaterial=new THREE.MeshStandardMaterial({
+    color:'#020817',emissive:'#061521',emissiveIntensity:.66,roughness:.48,metalness:.42,
   })
   const windowFrameMaterial=new THREE.MeshStandardMaterial({
-    color:'#0b1220',emissive:'#0891b2',emissiveIntensity:.44,roughness:.38,metalness:.70,
+    color:'#0b1220',emissive:'#0891b2',emissiveIntensity:.52,roughness:.32,metalness:.78,
   })
-  const addWindowFrame=(row,col,y)=>{
-    const onNorth=row===CIPHER_HOUSE_BOUNDS.minRow
-    const onSouth=row===CIPHER_HOUSE_BOUNDS.maxRow
-    const onWest=col===CIPHER_HOUSE_BOUNDS.minCol
-    const z=onNorth?row+.018:onSouth?row+.982:row+.5
-    const x=onWest?col+.018:(!onNorth&&!onSouth?col+.982:col+.5)
-    const alongX=onNorth||onSouth
-    const parts=alongX
-      ? [
-        [x,y-.30,z,.84,.035,.055],
-        [x,y+.30,z,.84,.035,.055],
-        [x-.42,y,z,.035,.64,.055],
-        [x+.42,y,z,.035,.64,.055],
-      ]
-      : [
-        [x,y-.30,z,.055,.035,.84],
-        [x,y+.30,z,.055,.035,.84],
-        [x,y,z-.42,.055,.64,.035],
-        [x,y,z+.42,.055,.64,.035],
-      ]
-    for(const [px,py,pz,sx,sy,sz] of parts){
-      const frame=new THREE.Mesh(new THREE.BoxGeometry(sx,sy,sz),windowFrameMaterial)
-      frame.position.set(px,py,pz)
-      group.add(frame)
-    }
-  }
-  const windowCenters=[.82,1.98,3.14,4.30,5.46]
+  const glassMaterial=new THREE.MeshPhysicalMaterial({
+    color:'#c8f6ff',emissive:'#0e7490',emissiveIntensity:.18,
+    roughness:.04,metalness:.08,transparent:true,opacity:.88,
+    transmission:.78,thickness:.045,ior:1.48,clearcoat:.65,clearcoatRoughness:.06,
+    side:THREE.DoubleSide,depthWrite:false,
+  })
+  const mullionBoxes=[]
+  const glassBoxes=[]
+  const frameBoxes=[]
+  const paneHalf=HOUSE_WINDOW_PANE_H*.5
+  const edgeW=(1-HOUSE_WINDOW_PANE_W)*.5
   for(const key of CIPHER_HOUSE_WINDOWS){
     const [row,col]=key.split(',').map(Number)
-    for(const y of windowCenters){
-      const pane=new THREE.Mesh(new THREE.BoxGeometry(.72,.56,.035),glassMaterial)
-      if(row===CIPHER_HOUSE_BOUNDS.minRow) pane.position.set(col+.5,y,row+.025)
-      else if(row===CIPHER_HOUSE_BOUNDS.maxRow) pane.position.set(col+.5,y,row+.975)
-      else if(col===CIPHER_HOUSE_BOUNDS.minCol){
-        pane.rotation.y=Math.PI/2
-        pane.position.set(col+.025,y,row+.5)
-      }else{
-        pane.rotation.y=Math.PI/2
-        pane.position.set(col+.975,y,row+.5)
+    const face=housePerimeterFace(row,col)
+    let prevTop=0
+    for(const cy of HOUSE_WINDOW_PANE_Y){
+      const paneBottom=cy-paneHalf
+      if(paneBottom-prevTop>.05){
+        const midY=(prevTop+paneBottom)*.5
+        const h=paneBottom-prevTop
+        if(face.along==='x') mullionBoxes.push([face.px, midY, face.pz, .88, h, face.depth])
+        else mullionBoxes.push([face.px, midY, face.pz, face.depth, h, .88])
       }
-      group.add(pane)
-      addWindowFrame(row,col,y)
+      if(face.along==='x'){
+        glassBoxes.push([face.px, cy, face.pz, HOUSE_WINDOW_PANE_W, HOUSE_WINDOW_PANE_H, .042])
+        frameBoxes.push([face.px, cy-paneHalf-.028, face.pz, HOUSE_WINDOW_PANE_W+.08, .028, face.depth+.01, 'h'])
+        frameBoxes.push([face.px, cy+paneHalf+.028, face.pz, HOUSE_WINDOW_PANE_W+.08, .028, face.depth+.01, 'h'])
+        frameBoxes.push([face.px-.42, cy, face.pz, .028, HOUSE_WINDOW_PANE_H+.04, face.depth+.01, 'v'])
+        frameBoxes.push([face.px+.42, cy, face.pz, .028, HOUSE_WINDOW_PANE_H+.04, face.depth+.01, 'v'])
+      }else{
+        glassBoxes.push([face.px, cy, face.pz, .042, HOUSE_WINDOW_PANE_H, HOUSE_WINDOW_PANE_W])
+        frameBoxes.push([face.px, cy-paneHalf-.028, face.pz, face.depth+.01, .028, HOUSE_WINDOW_PANE_W+.08, 'h'])
+        frameBoxes.push([face.px, cy+paneHalf+.028, face.pz, face.depth+.01, .028, HOUSE_WINDOW_PANE_W+.08, 'h'])
+        frameBoxes.push([face.px, cy, face.pz-.42, face.depth+.01, HOUSE_WINDOW_PANE_H+.04, .028, 'v'])
+        frameBoxes.push([face.px, cy, face.pz+.42, face.depth+.01, HOUSE_WINDOW_PANE_H+.04, .028, 'v'])
+      }
+      prevTop=cy+paneHalf
     }
-    const sill=new THREE.Mesh(new THREE.BoxGeometry(.78,.06,.06),windowFrameMaterial)
-    if(row===CIPHER_HOUSE_BOUNDS.minRow) sill.position.set(col+.5,CIPHER_HOUSE_WINDOW_SILL,row+.025)
-    else if(row===CIPHER_HOUSE_BOUNDS.maxRow) sill.position.set(col+.5,CIPHER_HOUSE_WINDOW_SILL,row+.975)
-    else if(col===CIPHER_HOUSE_BOUNDS.minCol){
-      sill.rotation.y=Math.PI/2
-      sill.position.set(col+.025,CIPHER_HOUSE_WINDOW_SILL,row+.5)
-    }else{
-      sill.rotation.y=Math.PI/2
-      sill.position.set(col+.975,CIPHER_HOUSE_WINDOW_SILL,row+.5)
+    if(6.18-prevTop>.05){
+      const midY=(prevTop+6.18)*.5
+      const h=6.18-prevTop
+      if(face.along==='x') mullionBoxes.push([face.px, midY, face.pz, .88, h, face.depth])
+      else mullionBoxes.push([face.px, midY, face.pz, face.depth, h, .88])
     }
-    group.add(sill)
+    if(edgeW>.02){
+      if(face.along==='x'){
+        mullionBoxes.push([face.px-.5+edgeW*.5, 3.1, face.pz, edgeW, 6.18, face.depth])
+        mullionBoxes.push([face.px+.5-edgeW*.5, 3.1, face.pz, edgeW, 6.18, face.depth])
+      }else{
+        mullionBoxes.push([face.px, 3.1, face.pz-.5+edgeW*.5, face.depth, 6.18, edgeW])
+        mullionBoxes.push([face.px, 3.1, face.pz+.5-edgeW*.5, face.depth, 6.18, edgeW])
+      }
+    }
+  }
+  if(mullionBoxes.length){
+    const mesh=new THREE.InstancedMesh(new THREE.BoxGeometry(1,1,1),mullionMaterial,mullionBoxes.length)
+    const matrix=new THREE.Matrix4(),position=new THREE.Vector3(),quaternion=new THREE.Quaternion(),scale=new THREE.Vector3()
+    mullionBoxes.forEach(([x,y,z,sx,sy,sz],index)=>{
+      position.set(x,y,z);scale.set(sx,sy,sz);matrix.compose(position,quaternion,scale);mesh.setMatrixAt(index,matrix)
+    })
+    mesh.instanceMatrix.needsUpdate=true;group.add(mesh)
+  }
+  if(glassBoxes.length){
+    const mesh=new THREE.InstancedMesh(new THREE.BoxGeometry(1,1,1),glassMaterial,glassBoxes.length)
+    const matrix=new THREE.Matrix4(),position=new THREE.Vector3(),quaternion=new THREE.Quaternion(),scale=new THREE.Vector3()
+    glassBoxes.forEach(([x,y,z,sx,sy,sz],index)=>{
+      position.set(x,y,z);scale.set(sx,sy,sz);matrix.compose(position,quaternion,scale);mesh.setMatrixAt(index,matrix)
+    })
+    mesh.instanceMatrix.needsUpdate=true;mesh.renderOrder=6;group.add(mesh)
+  }
+  if(frameBoxes.length){
+    const mesh=new THREE.InstancedMesh(new THREE.BoxGeometry(1,1,1),windowFrameMaterial,frameBoxes.length)
+    const matrix=new THREE.Matrix4(),position=new THREE.Vector3(),quaternion=new THREE.Quaternion(),scale=new THREE.Vector3()
+    frameBoxes.forEach(([x,y,z,sx,sy,sz],index)=>{
+      position.set(x,y,z);scale.set(sx,sy,sz);matrix.compose(position,quaternion,scale);mesh.setMatrixAt(index,matrix)
+    })
+    mesh.instanceMatrix.needsUpdate=true;mesh.renderOrder=7;group.add(mesh)
   }
 
   const frameMaterial=new THREE.MeshStandardMaterial({
     color:'#22d3ee',emissive:'#0891b2',emissiveIntensity:.74,roughness:.34,metalness:.72,
   })
-  const addDoorFrame=(row,col,horizontal)=>{
+  const addDoorFrame=(rowCenter,colCenter,horizontal)=>{
+    const {minRow,maxRow,minCol,maxCol}=CIPHER_HOUSE_BOUNDS
+    const onNorth=Math.abs(rowCenter-minRow)<.01
+    const onSouth=Math.abs(rowCenter-maxRow)<.01
+    const onWest=Math.abs(colCenter-minCol)<.01
+    const onEast=Math.abs(colCenter-maxCol)<.01
+    const faceInset=HOUSE_WINDOW_FACE_INSET+.004
     const frame=new THREE.Group()
-    frame.position.set(col,0,row)
+    const px=onWest?colCenter+faceInset:onEast?colCenter+1-faceInset:colCenter
+    const pz=onNorth?rowCenter+faceInset:onSouth?rowCenter+1-faceInset:rowCenter
+    frame.position.set(px,0,pz)
     const postGeometry=horizontal
       ? new THREE.BoxGeometry(.11,1.82,.14)
       : new THREE.BoxGeometry(.14,1.82,.11)
@@ -3621,8 +3651,8 @@ function addCipherHouseDetails(world) {
     frame.add(lintel)
     group.add(frame)
   }
-  addDoorFrame(3.5,6,true)
-  addDoorFrame(13.5,10,true)
+  addDoorFrame(3,5.5,true)
+  addDoorFrame(13,9.5,true)
 
   const sillMaterial=new THREE.MeshStandardMaterial({
     color:'#102033',emissive:'#0891b2',emissiveIntensity:.42,roughness:.34,metalness:.62,
@@ -4500,7 +4530,7 @@ function rebuildThreeWorld(state,cellMap,obstacles) {
   }
   if(houseEntries.length){
     const houseGroups={
-      wall:houseEntries.filter(([,obstacle])=>!obstacle.isHouseFloor&&!obstacle.isHouseStair&&!obstacle.isHouseRail),
+      wall:houseEntries.filter(([,obstacle])=>!obstacle.isHouseFloor&&!obstacle.isHouseStair&&!obstacle.isHouseRail&&!obstacle.isHouseWindow),
       rail:houseEntries.filter(([,obstacle])=>obstacle.isHouseRail),
       floor:houseEntries.filter(([,obstacle])=>obstacle.isHouseFloor&&!obstacle.isHouseRoof),
       roof:houseEntries.filter(([,obstacle])=>obstacle.isHouseRoof),
@@ -7315,7 +7345,7 @@ export default function MiningChain3DFPV({
           || Math.abs(nextState.angle-prev.angle)>0.03
           || Math.abs(nextState.pitch-prev.pitch)>0.03
           || nextState.swingAt!==prev.swingAt
-        // ~1.25 network updates/sec — avatars interpolate every frame; idle heartbeat at 15s.
+        // Supabase Realtime budget (~2M msgs/mo): keep move broadcasts >=800ms.
         if(now-lastRealtimeRef.current>800&&(changed||now-(prev?.sentAt||0)>15000)){
           lastRealtimeRef.current=now
           lastSentStateRef.current={...nextState,sentAt:now}
