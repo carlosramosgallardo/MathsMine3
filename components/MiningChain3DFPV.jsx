@@ -4620,6 +4620,7 @@ function rebuildThreeWorld(state,cellMap,obstacles) {
         mesh.setMatrixAt(index,matrix)
       })
       mesh.instanceMatrix.needsUpdate=true
+      if(kind==='wall'||kind==='roof') mesh.userData.collidable=true
       world.add(mesh)
     }
     if(houseGroups.rail.length){
@@ -4744,7 +4745,7 @@ function rebuildThreeWorld(state,cellMap,obstacles) {
       position.set(col+.5,bottom+visualHeight*.5,row+.5);scale.set(.985,visualHeight,.985)
       matrix.compose(position,quaternion,scale);mesh.setMatrixAt(index,matrix)
     })
-    mesh.instanceMatrix.needsUpdate=true;world.add(mesh)
+    mesh.instanceMatrix.needsUpdate=true;mesh.userData.collidable=true;world.add(mesh)
   }
 
   for(const [key,obstacle] of obstacles){
@@ -4753,11 +4754,11 @@ function rebuildThreeWorld(state,cellMap,obstacles) {
     const material=new THREE.MeshStandardMaterial({map:state.textures[biome],color:BIOME_STYLE[biome].block,roughness:biome==='ice'?.14:.66,metalness:biome==='ice'?.28:.14,emissive:biome==='inferno'?'#681205':biome==='ice'?'#0a4a70':'#000000',emissiveIntensity:biome==='inferno'?.82:.22})
     if(obstacle.shape==='ramp'){
       const mesh=new THREE.Mesh(makeRampGeometry(obstacle.direction),material)
-      mesh.userData.avatarFadeOccluder=true
+      mesh.userData.avatarFadeOccluder=true;mesh.userData.collidable=true
       mesh.position.set(col,0,row);mesh.scale.y=obstacleTop(obstacle);world.add(mesh)
     }else if(obstacle.shape==='sphere'){
       const radius=obstacle.radius||.34,mesh=new THREE.Mesh(new THREE.IcosahedronGeometry(radius,2),material)
-      mesh.userData.avatarFadeOccluder=true
+      mesh.userData.avatarFadeOccluder=true;mesh.userData.collidable=true
       mesh.position.set(col+.5,radius,row+.5);world.add(mesh)
     }else{
       const tree=new THREE.Group()
@@ -4776,9 +4777,11 @@ function rebuildThreeWorld(state,cellMap,obstacles) {
   state.biomeSurfaces=[]
   state.interactiveVisuals=[]
   state.avatarFadeOccluders=[]
+  state.collisionMeshes=[]
   world.traverse(object=>{
     if(object.userData.biomeSurface) state.biomeSurfaces.push(object)
     if(object.userData.interactive||object.userData.blockGlow) state.interactiveVisuals.push(object)
+    if(object.userData.collidable) state.collisionMeshes.push(object)
     if(object.userData.avatarFadeOccluder){
       const materials=Array.isArray(object.material)?object.material:[object.material]
       object.userData.avatarFadeMaterials=materials.filter(Boolean).map(material=>({
@@ -5069,25 +5072,24 @@ function updateAvatarOccluders(state) {
   }
   for(const object of occluders){
     const shouldFade=faded.has(object)
+    const wasRenderOrder=object.renderOrder
+    if(wasRenderOrder!==(shouldFade?1:0)) object.renderOrder=shouldFade?1:0
     for(const entry of object.userData.avatarFadeMaterials||[]){
       const {material}=entry
       if(shouldFade){
-        if(!material.transparent||material.depthWrite){
-          material.transparent=true
-          material.depthWrite=false
-          material.needsUpdate=true
-        }
+        let dirty=false
+        if(!material.transparent){material.transparent=true;dirty=true}
+        if(material.depthWrite){material.depthWrite=false;dirty=true}
+        if(dirty) material.needsUpdate=true
         material.opacity=Math.min(entry.opacity,.24)
       }else{
         material.opacity=entry.opacity
-        if(material.transparent!==entry.transparent||material.depthWrite!==entry.depthWrite){
-          material.transparent=entry.transparent
-          material.depthWrite=entry.depthWrite
-          material.needsUpdate=true
-        }
+        let dirty=false
+        if(material.transparent!==entry.transparent){material.transparent=entry.transparent;dirty=true}
+        if(material.depthWrite!==entry.depthWrite){material.depthWrite=entry.depthWrite;dirty=true}
+        if(dirty) material.needsUpdate=true
       }
     }
-    object.renderOrder=shouldFade?1:0
   }
 }
 
@@ -5192,6 +5194,8 @@ export default function MiningChain3DFPV({
   const visualPerfTierRef = useRef('medium')
   const lastRenderDispatchRef = useRef(0)
   const lookDirtyRef = useRef(false)
+  const onlineListTsRef = useRef(0)       // last time online list was re-drawn
+  const onlineListDirtyRef = useRef(true) // force redraw when presence changes
   const lastAmbientRenderRef = useRef(0)
   const renderRef     = useRef(null)
   const lastCellRef   = useRef({row:initRow??14,col:initCol??14})
@@ -5225,6 +5229,7 @@ export default function MiningChain3DFPV({
   // Precomputed from cellMap: Map<key,{base,label}> of currently active obstacles
   const validObstaclesRef   = useRef(new Map(OBSTACLE_MAP))
   const chainNodePosRef     = useRef({ row: CHAIN_NODE_ROW, col: CHAIN_NODE_COL })
+  const portalCellsRef      = useRef([])   // [{row,col,cell}] — precomputed, avoids full cellMap scan per frame
   // Anon collision push
   const onCollisionPushRef      = useRef(onCollisionPush)
   const collisionPushThrottleRef = useRef(new Map())
@@ -5344,15 +5349,15 @@ export default function MiningChain3DFPV({
 
   // Keep refs in sync with props
   useEffect(()=>{ cellMapRef.current=cellMap },[cellMap])
-  useEffect(()=>{ presenceRef.current=presenceMap },[presenceMap])
+  useEffect(()=>{ presenceRef.current=presenceMap; onlineListDirtyRef.current=true },[presenceMap])
   useEffect(()=>{ myWalletRef.current=myWallet },[myWallet])
   useEffect(()=>{ currencyRef.current=currency },[currency])
   useEffect(()=>{ presenceKeyRef.current=presenceKey||myWallet },[presenceKey,myWallet])
   useEffect(()=>{ esRef.current=es },[es])
   useEffect(()=>{ onWantNavRef.current=onWantNavigate },[onWantNavigate])
   useEffect(()=>{ onPvpHitRef.current=onPvpHit },[onPvpHit])
-  useEffect(()=>{ pvpStolenRef.current=pvpStolen||{} },[pvpStolen])
-  useEffect(()=>{ demineRewardsRef.current=demineRewards||{} },[demineRewards])
+  useEffect(()=>{ pvpStolenRef.current=pvpStolen||{}; onlineListDirtyRef.current=true },[pvpStolen])
+  useEffect(()=>{ demineRewardsRef.current=demineRewards||{}; onlineListDirtyRef.current=true },[demineRewards])
   useEffect(()=>{ onChainSolveOpenRef.current=onChainSolveOpen },[onChainSolveOpen])
   useEffect(()=>{ onNftjiPanelOpenRef.current=onNftjiPanelOpen },[onNftjiPanelOpen])
   useEffect(()=>{ onCollisionPushRef.current=onCollisionPush },[onCollisionPush])
@@ -5441,6 +5446,15 @@ export default function MiningChain3DFPV({
       }
     }
     chainNodePosRef.current = { row: cnRow, col: cnCol }
+
+    // Precompute portal positions once so the game loop doesn't scan the full cellMap
+    const portals = []
+    for (const [key, cell] of cellMap) {
+      if (!cell?.isPortalNode) continue
+      const [pr, pc] = key.split(',').map(Number)
+      portals.push({ row: pr, col: pc, cell })
+    }
+    portalCellsRef.current = portals
 
     // Interactive/mining cells are immutable landmarks. Obstacles may shape
     // corridors around them, but can never replace them or block every approach.
@@ -5803,7 +5817,10 @@ export default function MiningChain3DFPV({
             threeState.camRaycaster.set(ra,threeState._v3c)
             threeState.camRaycaster.near=0.05
             threeState.camRaycaster.far=d
-            const hits=threeState.camRaycaster.intersectObject(threeState.world,true)
+            if(!threeState._springHits) threeState._springHits=[]
+            threeState._springHits.length=0
+            threeState.camRaycaster.intersectObjects(threeState.collisionMeshes||[],false,threeState._springHits)
+            const hits=threeState._springHits
             if(hits.length===0){ rb.copy(threeState._v3d); return d }
             const safe=Math.max(0.22,hits[0].distance-0.15)
             rb.copy(ra).addScaledVector(threeState._v3c,safe)
@@ -6301,7 +6318,8 @@ export default function MiningChain3DFPV({
     }
 
     // Curved and sloped props are projected separately from the cell raycaster.
-    // This keeps their silhouette honest and avoids invisible cube collision.
+    // Three.js renders them natively, so skip the 2D projection path in WebGL mode.
+    if(!threeState){
     const organic=[]
     for(let r=viewMinRow;r<=viewMaxRow;r++) for(let c=viewMinCol;c<=viewMaxCol;c++){
       const obstacle=validObstaclesRef.current.get(`${r},${c}`)
@@ -6381,6 +6399,7 @@ export default function MiningChain3DFPV({
         ctx.fillStyle=`rgba(${lr},${lg},${lb},.82)`;ctx.fillRect(center.x-1,canopyY-canopyRadius*.95,2,canopyRadius*1.7)
       }
     }
+    } // end !threeState (organic 2D props)
 
     if(!threeState){
     // ── Emoji on all visible wall faces ──────────────────────────────────────
@@ -6415,8 +6434,8 @@ export default function MiningChain3DFPV({
       const dist  = Math.sqrt(rx*rx + ry*ry)
       if (dist > VISUAL_RANGE) continue
       const remoteZ=Number(pres.z)||0
-      const solidHeight=solidHeightAt(sgx,sgy)
-      const supportZ=solidHeight&&remoteZ>=solidHeight?solidHeight:0
+      // solidHeightAt is only needed for 2D sprite ground-pin; skip in WebGL mode
+      const supportZ=threeState?0:(()=>{const h=solidHeightAt(sgx,sgy);return h&&remoteZ>=h?h:0})()
       sprites.push({
         w, tX, tY, dist, gx: sgx, gy: sgy, z:remoteZ, supportZ,
         angle:Number(pres.angle)||0, swingAt:Number(pres.swingAt)||0,
@@ -7018,7 +7037,13 @@ export default function MiningChain3DFPV({
     }
 
     drawMinimap(ctx,gr,gc,angle,cellMap,presence,myIdentity,W,H,chainNodePosRef.current,validObstaclesRef.current,px/CELL_SIZE,py/CELL_SIZE,minimapStaticRef,dpr)
-    drawOnlineList(ctx,W,H,presence,myIdentity,pvpStolenRef.current,demineRewardsRef.current,chainSolverSetRef.current)
+    // Rebuild online list only when presence/stolen/rewards changed or every 100ms
+    const nowOnline=performance.now()
+    if(onlineListDirtyRef.current||nowOnline-onlineListTsRef.current>100){
+      onlineListDirtyRef.current=false
+      onlineListTsRef.current=nowOnline
+      drawOnlineList(ctx,W,H,presence,myIdentity,pvpStolenRef.current,demineRewardsRef.current,chainSolverSetRef.current)
+    }
     const walletDock = drawWalletDock(
       ctx,W,H,myNftjisRef.current,healthMapRef.current[myIdentity]??100,es,Boolean(myWallet)
     )
@@ -7575,12 +7600,13 @@ export default function MiningChain3DFPV({
       // Proximity override for navigation portals. DDA can miss the portal when
       // the player stands on its floor cell or aims slightly above the low node.
       let nearestPortal=null
-      for(const [key,cell] of cellMapRef.current || []){
-        if(!cell?.isPortalNode) continue
-        const [pr,pc]=key.split(',').map(Number)
-        const dist=myDead?Infinity:Math.hypot(p.x/CELL_SIZE-(pc+.5),p.y/CELL_SIZE-(pr+.5))
-        if(dist<=PORTAL_INTERACT_DIST&&(!nearestPortal||dist<nearestPortal.dist)){
-          nearestPortal={row:pr,col:pc,cell,dist}
+      if(!myDead){
+        const px_=p.x/CELL_SIZE,py_=p.y/CELL_SIZE
+        for(const entry of portalCellsRef.current){
+          const dist=Math.hypot(px_-(entry.col+.5),py_-(entry.row+.5))
+          if(dist<=PORTAL_INTERACT_DIST&&(!nearestPortal||dist<nearestPortal.dist)){
+            nearestPortal={...entry,dist}
+          }
         }
       }
       if(nearestPortal && (!fc?.isChainNode && !fc?.isNodeDiceNode && !fc?.isMarket)){
