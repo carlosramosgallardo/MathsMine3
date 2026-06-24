@@ -112,25 +112,17 @@ const HOUSE_DIVING_BOARD = Object.freeze({
   top: HOUSE_POOL_DECK_LEVEL + .458,
 })
 const HOUSE_STAIR_CELLS = [
-  [12,10,.58],[11,10,1.16],[10,10,1.74],[9,10,2.32],
-  [9,9,2.90],[8,9,3.48],[7,9,4.06],[7,8,4.64],
-  [6,8,5.22],[6,7,5.80],
+  [12,10,.20],[11,10,.40],[10,10,.60],[9,10,.80],[8,10,1.00],
+  [7,10,1.20],[6,10,1.40],[5,10,1.60],[4,10,1.80],
+  [4,9,2.00],[5,9,2.20],[6,9,2.40],[7,9,2.60],
+  [8,9,2.80],[9,9,3.00],[10,9,3.20],[11,9,3.40],
+  [12,9,3.60],[12,8,3.80],[11,8,4.00],[10,8,4.20],
+  [9,8,4.40],[8,8,4.60],[7,8,4.80],[6,8,5.00],
+  [5,8,5.20],[4,8,5.40],[4,7,5.60],[5,7,5.80],
 ]
 const HOUSE_ACCESS_DECKS = [
-  // Floor 2.
-  ...[[6,10],[6,11],[6,12],[6,13],[7,10],[8,10],[10,9],[11,9],[12,9],[12,8],[13,8]].map(([row,col])=>({row,col,level:2.32})),
-  // Floor 4.
-  ...[[7,7],[7,6],[7,5],[7,4],[7,3],[7,9],[6,9],[5,9],[4,9],[4,10],[3,10]].map(([row,col])=>({row,col,level:4.64})),
-  // Roof.
-  ...[[5,7],[4,7],[3,7],[5,8],[4,8],[3,8],[5,6],[5,5],[5,4],[5,3],[5,2],[6,2],[6,1],[7,1],[8,1],[9,1],[10,1],[10,2],[10,3],[11,3]].map(([row,col])=>({row,col,level:5.80})),
-  // Pool deck ring: keeps the roof approach continuous and walkable.
-  ...[
-    [8,3],[8,4],[8,5],[8,6],[8,7],[8,8],[8,9],[8,10],
-    [9,2],[10,2],[11,2],[12,2],
-    [9,10],[10,10],[11,10],[12,10],
-    [13,3],[13,4],[13,5],[13,6],[13,7],[13,8],[13,9],[13,10],
-    [14,5],[14,6],[14,7],
-  ].map(([row,col])=>({row,col,level:5.80})),
+  // Minimal roof route: one branch to Stormroll, one to the pool entry.
+  ...[[6,7],[7,7],[8,6],[8,7]].map(([row,col])=>({row,col,level:5.80})),
 ]
 const HOUSE_STAIR_KEYS = new Set(HOUSE_STAIR_CELLS.map(([row,col])=>`${row},${col}`))
 const HOUSE_MAIN_FLOOR_HOLES = new Set(HOUSE_ACCESS_DECKS
@@ -288,14 +280,8 @@ function makeCipherHouseEntries() {
       })
     }
   }
-  // Minimal stair extensions and access decks. These are the only extra floors
-  // outside the third-floor slab.
-  ;[[6,10],[6,11],[6,12],[6,13],[7,10],[8,10]].forEach(([row,col])=>addDeck(row,col,2.32,'CIPHER FLOOR 2 EAST ACCESS'))
-  ;[[10,9],[11,9],[12,9],[12,8],[13,8]].forEach(([row,col])=>addDeck(row,col,2.32,'CIPHER FLOOR 2 SOUTH ACCESS'))
-  ;[[7,7],[7,6],[7,5],[7,4],[7,3]].forEach(([row,col])=>addDeck(row,col,4.64,'CIPHER FLOOR 4 WEST ACCESS'))
-  ;[[7,9],[6,9],[5,9],[4,9],[4,10],[3,10]].forEach(([row,col])=>addDeck(row,col,4.64,'CIPHER FLOOR 4 NORTH ACCESS'))
-  ;[[5,7],[4,7],[3,7],[5,8],[4,8],[3,8]].forEach(([row,col])=>addDeck(row,col,5.80,'CIPHER ROOF NORTH ACCESS'))
-  ;[[5,6],[5,5],[5,4],[5,3],[5,2],[6,2],[6,1],[7,1],[8,1],[9,1],[10,1],[10,2],[10,3],[11,3]].forEach(([row,col])=>addDeck(row,col,5.80,'CIPHER ROOF WEST ACCESS'))
+  // Minimal stair extensions: just enough to walk to Stormroll and the pool.
+  ;[[6,7],[7,7],[8,6],[8,7]].forEach(([row,col])=>addDeck(row,col,5.80,'CIPHER POOL ACCESS'))
 
   // Roof balconies.
   ;[[3,7],[3,8],[2,7],[2,8],[2,9]].forEach(([row,col])=>addDeck(row,col,5.80,row===3?'CIPHER BALCONY THRESHOLD':'CIPHER CORNER BALCONY'))
@@ -1634,8 +1620,10 @@ function poolFloorSupportAt(gx, gy, playerZ, radius = PLAYER_R * .82) {
   return playerZ >= HOUSE_POOL_FLOOR_LEVEL - .50 ? HOUSE_POOL_FLOOR_LEVEL : 0
 }
 
-function isInsideHousePool(gx, gy, radius = PLAYER_R * .35) {
-  return gx > HOUSE_POOL_INNER.minX + radius && gx < HOUSE_POOL_INNER.maxX - radius &&
+function isInsideHousePool(gx, gy, playerZ = 0, radius = PLAYER_R * .35) {
+  const atPoolHeight = playerZ >= HOUSE_POOL_FLOOR_LEVEL - .20 && playerZ <= HOUSE_POOL_WALL_TOP + .30
+  return atPoolHeight &&
+    gx > HOUSE_POOL_INNER.minX + radius && gx < HOUSE_POOL_INNER.maxX - radius &&
     gy > HOUSE_POOL_INNER.minZ + radius && gy < HOUSE_POOL_INNER.maxZ - radius
 }
 
@@ -1734,6 +1722,9 @@ function hitsSolidWall(gx, gy, cellMap, obsSet, playerZ = 0) {
         }
         continue
       }
+      if(obstacle?.isRouteStair||obstacle?.isStair){
+        if(obstacleTop(obstacle)<=playerZ+.24) continue
+      }
       const span=solidSpanAt(row,col,cellMap,obsSet)
       const overlapsHeight=span&&playerZ<span.top-.04&&playerZ+PLAYER_BODY_H>span.bottom+.04
       if(overlapsHeight&&circleTouchesCell(gx,gy,row,col)) return true
@@ -1757,6 +1748,11 @@ function supportHeightAt(gx, gy, playerZ, cellMap, obsSet) {
       if(obstacle?.shape==='ramp'&&circleTouchesCell(gx,gy,row,col,radius)){
         const localTop=rampHeightAt(obstacle,gx,gy,row,col)
         if(playerZ>=localTop-.24) height=Math.max(height,localTop)
+        continue
+      }
+      if((obstacle?.isRouteStair||obstacle?.isStair)&&circleTouchesCell(gx,gy,row,col,radius)){
+        const stairTop=obstacleTop(obstacle)
+        if(stairTop<=playerZ+.24) height=Math.max(height,stairTop)
         continue
       }
       const top = solidTopAt(row, col, cellMap, obsSet)
@@ -4597,7 +4593,7 @@ function syncThreeAvatars(state,presence,myIdentity) {
     const gy=Number(data.gy??((data.row??0)+.5))
     avatar.position.set(gx,baseZ,gy)
     avatar.rotation.y=-(Number(data.angle)||0)-Math.PI/2
-    setAvatarHealingRecharge(avatar,!data.isDead&&isInsideHousePool(gx,gy))
+    setAvatarHealingRecharge(avatar,!data.isDead&&isInsideHousePool(gx,gy,baseZ))
     // Track whether depthTest changed so we only traverse when needed
     const wasDead=avatar.userData.wasDead||false
     if(data.isDead){
@@ -4726,7 +4722,7 @@ function syncThreeLocalAvatar(state,identity,swingT,walkDist,gx,gy,playerZ,headi
     state.scene.add(state.localAvatar)
   }
   state.localAvatar.rotation.y=-heading-Math.PI/2
-  setAvatarHealingRecharge(state.localAvatar,!isDead&&isInsideHousePool(gx,gy))
+  setAvatarHealingRecharge(state.localAvatar,!isDead&&isInsideHousePool(gx,gy,playerZ))
   // Scale is set by syncThreeAvatars LOD system (same formula as remote avatars)
   if(isDead){
     state.localAvatar.position.set(gx,playerZ+0.14,gy)
