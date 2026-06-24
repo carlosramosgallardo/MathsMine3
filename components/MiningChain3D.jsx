@@ -41,10 +41,10 @@ const NODE_DICE_STORAGE_KEY = 'mm3_stormroll_node'
 const NODE_DICE_DURATION_MS = 24 * 60 * 60 * 1000
 const NODE_DICE_POSITION = Object.freeze({ row: 5, col: 8 })
 const HOUSE_POOL_SAFE_ZONE = Object.freeze({
-  minX: 6.35 - 3.05,
-  maxX: 6.35 + 3.05,
-  minY: 10.75 - 1.78,
-  maxY: 10.75 + 1.78,
+  minX: 6.35 - 2.50,
+  maxX: 6.35 + 2.50,
+  minY: 10.75 - 1.25,
+  maxY: 10.75 + 1.25,
 })
 
 function isInHousePoolSafeZone(gx, gy) {

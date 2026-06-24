@@ -137,11 +137,12 @@ const HOUSE_POOL_DECK_LEVEL = 5.836
 const HOUSE_POOL_FLOOR_LEVEL = HOUSE_POOL_DECK_LEVEL - .82
 const HOUSE_POOL_WATER_LEVEL = HOUSE_POOL_DECK_LEVEL - .14
 const HOUSE_POOL_INNER = Object.freeze({
-  minX: HOUSE_POOL_CENTER_X - 2.05,  // moved 1 unit inward
-  maxX: HOUSE_POOL_CENTER_X + 2.05,  // moved 1 unit inward
-  minZ: HOUSE_POOL_CENTER_Z - 0.78,  // moved 1 unit inward
-  maxZ: HOUSE_POOL_CENTER_Z + 0.78,  // moved 1 unit inward
+  minX: HOUSE_POOL_CENTER_X - 2.50,
+  maxX: HOUSE_POOL_CENTER_X + 2.50,
+  minZ: HOUSE_POOL_CENTER_Z - 1.25,
+  maxZ: HOUSE_POOL_CENTER_Z + 1.25,
 })
+const HOUSE_POOL_PERIM_WALL_T = 0.12
 const HOUSE_POOL_OUTER = Object.freeze({
   minX: HOUSE_POOL_CENTER_X - 2.50,   // moved 1 unit inward to avoid wall overlap
   maxX: HOUSE_POOL_CENTER_X + 2.50,   // moved 1 unit inward to avoid wall overlap
@@ -161,21 +162,11 @@ const HOUSE_POOL_ENTRY = Object.freeze({
   maxZ: HOUSE_POOL_CENTER_Z - 0.95,  // adjusted for inward pool position
 })
 const HOUSE_POOL_WALL_TOP = HOUSE_POOL_DECK_LEVEL + .18
-const HOUSE_DIVING_BOARD = Object.freeze({
-  minX: HOUSE_POOL_CENTER_X - .22,
-  maxX: HOUSE_POOL_CENTER_X + .22,
-  minZ: HOUSE_POOL_CENTER_Z + 1.99,
-  maxZ: HOUSE_POOL_CENTER_Z + 3.27,
-  bottom: HOUSE_POOL_DECK_LEVEL + .382,
-  top: HOUSE_POOL_DECK_LEVEL + .458,
-})
 
 // Walkable pads that mirror the Cipher House pool meshes — gaps have no support.
 function buildHousePoolWalkSurfaces() {
   const cx = HOUSE_POOL_CENTER_X
   const cz = HOUSE_POOL_CENTER_Z
-  const poolInnerW = HOUSE_POOL_INNER.maxX - HOUSE_POOL_INNER.minX
-  const poolInnerD = HOUSE_POOL_INNER.maxZ - HOUSE_POOL_INNER.minZ
   const poolOuterW = HOUSE_POOL_OUTER.maxX - HOUSE_POOL_OUTER.minX
   const poolOuterD = HOUSE_POOL_OUTER.maxZ - HOUSE_POOL_OUTER.minZ
   const poolTerraceW = HOUSE_POOL_TERRACE.maxX - HOUSE_POOL_TERRACE.minX
@@ -183,23 +174,11 @@ function buildHousePoolWalkSurfaces() {
   const poolEntryW = HOUSE_POOL_ENTRY.maxX - HOUSE_POOL_ENTRY.minX
   const poolEntryHalf = poolEntryW * 0.5
   const poolEntrySideW = (poolOuterW - poolEntryW) * 0.5
-  const poolWallT = HOUSE_POOL_INNER.minX - HOUSE_POOL_OUTER.minX
   const rimLevel = HOUSE_POOL_WALL_TOP
   const surfaces = []
   const push = (minX, maxX, minZ, maxZ, level) => surfaces.push({ minX, maxX, minZ, maxZ, level })
 
-  const diceCols = 5
-  const diceRows = 3
-  const diceStepX = poolInnerW / (diceCols + 0.2)
-  const diceStepZ = poolInnerD / (diceRows + 0.2)
-  const diceHalf = 0.29
-  for (let dz = 0; dz < diceRows; dz++) {
-    for (let dx = 0; dx < diceCols; dx++) {
-      const tx = cx + (dx - (diceCols - 1) / 2) * diceStepX
-      const tz = cz + (dz - (diceRows - 1) / 2) * diceStepZ
-      push(tx - diceHalf, tx + diceHalf, tz - diceHalf, tz + diceHalf, HOUSE_POOL_FLOOR_LEVEL)
-    }
-  }
+  push(HOUSE_POOL_OUTER.minX, HOUSE_POOL_OUTER.maxX, HOUSE_POOL_OUTER.minZ, HOUSE_POOL_OUTER.maxZ, HOUSE_POOL_FLOOR_LEVEL)
 
   for (const [rx, rz, sx, sz] of [
     [-(poolEntryHalf + poolEntrySideW * 0.5), -poolOuterD / 2, poolEntrySideW + 0.08, 0.12],
@@ -211,16 +190,10 @@ function buildHousePoolWalkSurfaces() {
     push(cx + rx - sx / 2, cx + rx + sx / 2, cz + rz - sz / 2, cz + rz + sz / 2, rimLevel)
   }
 
-  push(HOUSE_POOL_OUTER.minX, HOUSE_POOL_ENTRY.minX, HOUSE_POOL_OUTER.minZ, HOUSE_POOL_INNER.minZ, rimLevel)
-  push(HOUSE_POOL_ENTRY.maxX, HOUSE_POOL_OUTER.maxX, HOUSE_POOL_OUTER.minZ, HOUSE_POOL_INNER.minZ, rimLevel)
-  push(HOUSE_POOL_OUTER.minX, HOUSE_POOL_OUTER.maxX, HOUSE_POOL_INNER.maxZ, HOUSE_POOL_OUTER.maxZ, rimLevel)
-  push(HOUSE_POOL_OUTER.minX, HOUSE_POOL_INNER.minX, HOUSE_POOL_INNER.minZ, HOUSE_POOL_INNER.maxZ, rimLevel)
-  push(HOUSE_POOL_INNER.maxX, HOUSE_POOL_OUTER.maxX, HOUSE_POOL_INNER.minZ, HOUSE_POOL_INNER.maxZ, rimLevel)
-
   push(
     cx - (poolEntryW + 0.54) / 2, cx + (poolEntryW + 0.54) / 2,
-    cz - poolOuterD / 2 - 0.08 - (poolWallT + 0.58) / 2,
-    cz - poolOuterD / 2 - 0.08 + (poolWallT + 0.58) / 2,
+    cz - poolOuterD / 2 - 0.08 - (HOUSE_POOL_PERIM_WALL_T + 0.58) / 2,
+    cz - poolOuterD / 2 - 0.08 + (HOUSE_POOL_PERIM_WALL_T + 0.58) / 2,
     rimLevel,
   )
   for (const [rx, rz, sx, sz] of [
@@ -228,23 +201,6 @@ function buildHousePoolWalkSurfaces() {
     [0, -poolOuterD / 2 - 0.58, poolEntryW + 0.38, 0.10],
   ]) {
     push(cx + rx - sx / 2, cx + rx + sx / 2, cz + rz - sz / 2, cz + rz + sz / 2, rimLevel)
-  }
-
-  for (const [zRel, width, yRel] of [
-    [-poolInnerD * 0.52, poolEntryW + 0.36, HOUSE_POOL_WALL_TOP - HOUSE_POOL_DECK_LEVEL - 0.08],
-    [-poolInnerD * 0.43, poolEntryW + 0.12, HOUSE_POOL_FLOOR_LEVEL - HOUSE_POOL_DECK_LEVEL + 0.56],
-    [-poolInnerD * 0.34, poolEntryW - 0.02, HOUSE_POOL_FLOOR_LEVEL - HOUSE_POOL_DECK_LEVEL + 0.36],
-  ]) {
-    push(cx - width / 2, cx + width / 2, cz + zRel - 0.06, cz + zRel + 0.06, HOUSE_POOL_DECK_LEVEL + yRel)
-  }
-
-  for (const [zRel, width, yRel] of [
-    [poolInnerD * 0.26, 0.92, HOUSE_POOL_FLOOR_LEVEL - HOUSE_POOL_DECK_LEVEL + 0.12],
-    [poolInnerD * 0.34, 0.72, HOUSE_POOL_FLOOR_LEVEL - HOUSE_POOL_DECK_LEVEL + 0.28],
-    [poolInnerD * 0.42, 0.52, HOUSE_POOL_FLOOR_LEVEL - HOUSE_POOL_DECK_LEVEL + 0.44],
-    [poolInnerD * 0.50, 0.34, HOUSE_POOL_FLOOR_LEVEL - HOUSE_POOL_DECK_LEVEL + 0.60],
-  ]) {
-    push(cx - 0.92 - width / 2, cx - 0.92 + width / 2, cz + zRel - 0.06, cz + zRel + 0.06, HOUSE_POOL_DECK_LEVEL + yRel)
   }
 
   for (const lx of [cx - 1.15, cx + 1.15]) {
@@ -268,13 +224,6 @@ function buildHousePoolWalkSurfaces() {
   ]) {
     push(cx + rx - sx / 2, cx + rx + sx / 2, cz + rz - sz / 2, cz + rz + sz / 2, rimLevel)
   }
-
-  push(
-    HOUSE_DIVING_BOARD.minX, HOUSE_DIVING_BOARD.maxX,
-    HOUSE_DIVING_BOARD.minZ, HOUSE_DIVING_BOARD.maxZ,
-    HOUSE_DIVING_BOARD.top,
-  )
-  push(cx - 0.35, cx + 0.35, cz + poolOuterD / 2 + 0.95, cz + poolOuterD / 2 + 1.05, HOUSE_DIVING_BOARD.top - 0.32)
 
   return surfaces
 }
@@ -1878,12 +1827,15 @@ function isInsideHousePool(gx, gy, playerZ = 0, radius = PLAYER_R * .35) {
 }
 
 function poolWallBounds() {
+  const t = 0.14
+  const o = HOUSE_POOL_OUTER
+  const entry = HOUSE_POOL_ENTRY
   return [
-    { minX: HOUSE_POOL_OUTER.minX, maxX: HOUSE_POOL_ENTRY.minX, minZ: HOUSE_POOL_OUTER.minZ, maxZ: HOUSE_POOL_INNER.minZ },
-    { minX: HOUSE_POOL_ENTRY.maxX, maxX: HOUSE_POOL_OUTER.maxX, minZ: HOUSE_POOL_OUTER.minZ, maxZ: HOUSE_POOL_INNER.minZ },
-    { minX: HOUSE_POOL_OUTER.minX, maxX: HOUSE_POOL_OUTER.maxX, minZ: HOUSE_POOL_INNER.maxZ, maxZ: HOUSE_POOL_OUTER.maxZ },
-    { minX: HOUSE_POOL_OUTER.minX, maxX: HOUSE_POOL_INNER.minX, minZ: HOUSE_POOL_INNER.minZ, maxZ: HOUSE_POOL_INNER.maxZ },
-    { minX: HOUSE_POOL_INNER.maxX, maxX: HOUSE_POOL_OUTER.maxX, minZ: HOUSE_POOL_INNER.minZ, maxZ: HOUSE_POOL_INNER.maxZ },
+    { minX: o.minX, maxX: o.maxX, minZ: o.maxZ - t, maxZ: o.maxZ + t * 2 },
+    { minX: o.maxX - t, maxX: o.maxX + t * 2, minZ: o.minZ, maxZ: o.maxZ },
+    { minX: o.minX - t * 2, maxX: o.minX + t, minZ: o.minZ, maxZ: o.maxZ },
+    { minX: o.minX, maxX: entry.minX, minZ: o.minZ - t * 2, maxZ: o.minZ + t },
+    { minX: entry.maxX, maxX: o.maxX, minZ: o.minZ - t * 2, maxZ: o.minZ + t },
   ]
 }
 
@@ -1926,17 +1878,8 @@ function poolWallSupportAt(gx, gy, playerZ, radius = PLAYER_R * 0.76) {
 }
 
 function poolWallBlocksBody(gx, gy, playerZ) {
-  // Pool walls removed - no blocking
-  return false
-}
-
-function divingBoardSupportAt(gx, gy, playerZ, radius = PLAYER_R * 0.76) {
-  return housePoolWalkSupportAt(gx, gy, playerZ, radius)
-}
-
-function divingBoardBlocksBody(gx, gy, playerZ) {
-  if (!circleTouchesAabb(gx, gy, HOUSE_DIVING_BOARD, PLAYER_R)) return false
-  return playerZ < HOUSE_DIVING_BOARD.top - .10 && playerZ + PLAYER_BODY_H > HOUSE_DIVING_BOARD.bottom + .02
+  if (playerZ < HOUSE_POOL_FLOOR_LEVEL - 0.2 || playerZ > HOUSE_POOL_WALL_TOP + 0.15) return false
+  return poolWallBounds().some(bounds => circleTouchesAabb(gx, gy, bounds, PLAYER_R * 0.92))
 }
 
 // The rooftop walk level matches the pool terrace, so the roof tiles and the
@@ -2011,7 +1954,6 @@ function solidSpanAt(row, col, cellMap, obsSet) {
 // Circular player footprint against complete solid cells. Checking the whole
 // body, rather than only its centre, prevents clipping into corners and walls.
 function hitsSolidWall(gx, gy, cellMap, obsSet, playerZ = 0) {
-  if (divingBoardBlocksBody(gx, gy, playerZ)) return true
   if (poolTerraceRailBlocksBody(gx, gy, playerZ)) return true
   if (poolWallBlocksBody(gx, gy, playerZ)) return true
   const minRow = Math.floor(gy - PLAYER_R)
@@ -3899,9 +3841,6 @@ function addCipherHouseDetails(world) {
   ]){
     addTrimBox(x,3.10,z,.07,6.20,.07,mat)
   }
-  const diceFloorMaterials=[1,2,3,4,5,6].map(face=>new THREE.MeshBasicMaterial({
-    map:makeDiceFaceTexture(face),transparent:true,opacity:1,depthWrite:false,side:THREE.DoubleSide,
-  }))
   for(const {row,col,level} of HOUSE_ACCESS_DECKS){
     addTrimBox(col+.5,level+.032,row+.045,.88,.035,.035,0)
     addTrimBox(col+.5,level+.032,row+.955,.88,.035,.035,1)
@@ -3929,13 +3868,10 @@ function addCipherHouseDetails(world) {
   const poolTileMat=new THREE.MeshStandardMaterial({
     color:'#07111f',emissive:'#082f49',emissiveIntensity:.72,roughness:.34,metalness:.34,
   })
-  const poolInnerW=HOUSE_POOL_INNER.maxX-HOUSE_POOL_INNER.minX
-  const poolInnerD=HOUSE_POOL_INNER.maxZ-HOUSE_POOL_INNER.minZ
   const poolOuterW=HOUSE_POOL_OUTER.maxX-HOUSE_POOL_OUTER.minX
   const poolOuterD=HOUSE_POOL_OUTER.maxZ-HOUSE_POOL_OUTER.minZ
   const poolTerraceW=HOUSE_POOL_TERRACE.maxX-HOUSE_POOL_TERRACE.minX
   const poolTerraceD=HOUSE_POOL_TERRACE.maxZ-HOUSE_POOL_TERRACE.minZ
-  const poolWallT=HOUSE_POOL_INNER.minX-HOUSE_POOL_OUTER.minX
   const poolEntryW=HOUSE_POOL_ENTRY.maxX-HOUSE_POOL_ENTRY.minX
   const poolEntryHalf=poolEntryW*.5
   const poolEntrySideW=(poolOuterW-poolEntryW)*.5
@@ -3960,44 +3896,22 @@ function addCipherHouseDetails(world) {
   const poolFloor=new THREE.Mesh(new THREE.BoxGeometry(poolOuterW,.10,poolOuterD),poolShellMat)
   poolFloor.position.y=(HOUSE_POOL_FLOOR_LEVEL-HOUSE_POOL_DECK_LEVEL)-.065
   poolGroup.add(poolFloor)
-  const solidSwimFloor=new THREE.Mesh(new THREE.BoxGeometry(poolInnerW,.035,poolInnerD),poolTileMat)
+  const solidSwimFloor=new THREE.Mesh(new THREE.BoxGeometry(poolOuterW,.035,poolOuterD),poolTileMat)
   solidSwimFloor.position.y=(HOUSE_POOL_FLOOR_LEVEL-HOUSE_POOL_DECK_LEVEL)-.0175
   poolGroup.add(solidSwimFloor)
-  const poolDiceQuat=new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1,0,0),-Math.PI/2)
-  const poolDiceY=HOUSE_POOL_FLOOR_LEVEL-HOUSE_POOL_DECK_LEVEL+.010
-  const diceCols=5,diceRows=3,diceStepX=poolInnerW/(diceCols+.2),diceStepZ=poolInnerD/(diceRows+.2)
-  for(let dz=0;dz<diceRows;dz++) for(let dx=0;dx<diceCols;dx++){
-    const face=(Math.abs((dx+1)*17+(dz+1)*31+Math.round(HOUSE_POOL_CENTER_X*10))%6)
-    const dice=new THREE.Mesh(new THREE.PlaneGeometry(.56,.56),diceFloorMaterials[face])
-    dice.position.set((dx-(diceCols-1)/2)*diceStepX,poolDiceY,(dz-(diceRows-1)/2)*diceStepZ)
-    dice.quaternion.copy(poolDiceQuat)
-    dice.renderOrder=5
-    poolGroup.add(dice)
-  }
-  // Pool perimeter walls removed - full walkable edge using rails and terrace support
-  // for(const [x,z,sx,sz] of [
-  //   [-(poolEntryHalf+poolEntrySideW*.5),-(poolInnerD+poolWallT)/2,poolEntrySideW,poolWallT],
-  //   [poolEntryHalf+poolEntrySideW*.5,-(poolInnerD+poolWallT)/2,poolEntrySideW,poolWallT],
-  //   [0,(poolInnerD+poolWallT)/2,poolOuterW,poolWallT],
-  //   [-(poolInnerW+poolWallT)/2,0,poolWallT,poolInnerD],
-  //   [(poolInnerW+poolWallT)/2,0,poolWallT,poolInnerD],
-  // ]){
-  //   const wall=new THREE.Mesh(new THREE.BoxGeometry(sx,poolWallH,sz),poolShellMat)
-  //   wall.position.set(x,poolWallCenterY,z)
-  //   poolGroup.add(wall)
-  // }
   for(const [x,z,sx,sz] of [
-    [0,-poolInnerD/2,poolInnerW,.055],
-    [0,poolInnerD/2,poolInnerW,.055],
-    [-poolInnerW/2,0,.055,poolInnerD],
-    [poolInnerW/2,0,.055,poolInnerD],
+    [-(poolEntryHalf+poolEntrySideW*.5),-(poolOuterD+HOUSE_POOL_PERIM_WALL_T)/2,poolEntrySideW,HOUSE_POOL_PERIM_WALL_T],
+    [poolEntryHalf+poolEntrySideW*.5,-(poolOuterD+HOUSE_POOL_PERIM_WALL_T)/2,poolEntrySideW,HOUSE_POOL_PERIM_WALL_T],
+    [0,(poolOuterD+HOUSE_POOL_PERIM_WALL_T)/2,poolOuterW,HOUSE_POOL_PERIM_WALL_T],
+    [-(poolOuterW+HOUSE_POOL_PERIM_WALL_T)/2,0,HOUSE_POOL_PERIM_WALL_T,poolOuterD],
+    [(poolOuterW+HOUSE_POOL_PERIM_WALL_T)/2,0,HOUSE_POOL_PERIM_WALL_T,poolOuterD],
   ]){
-    const innerTile=new THREE.Mesh(new THREE.BoxGeometry(sx,poolWallH-.18,sz),poolTileMat)
-    innerTile.position.set(x,poolWallCenterY-.07,z)
-    poolGroup.add(innerTile)
+    const wall=new THREE.Mesh(new THREE.BoxGeometry(sx,poolWallH,sz),poolShellMat)
+    wall.position.set(x,poolWallCenterY,z)
+    poolGroup.add(wall)
   }
   const poolWater=new THREE.Mesh(
-    new THREE.PlaneGeometry(poolInnerW-.08,poolInnerD-.08,18,12),
+    new THREE.PlaneGeometry(poolOuterW-.08,poolOuterD-.08,18,12),
     new THREE.MeshPhysicalMaterial({
       color:'#06b6d4',emissive:'#0e7490',emissiveIntensity:.72,
       transparent:true,opacity:.52,roughness:.04,metalness:.02,
@@ -4025,7 +3939,7 @@ function addCipherHouseDetails(world) {
     rim.position.set(x,HOUSE_POOL_WALL_TOP-HOUSE_POOL_DECK_LEVEL+.026,z)
     poolGroup.add(rim)
   }
-  const entryDeck=new THREE.Mesh(new THREE.BoxGeometry(poolEntryW+.54,.08,poolWallT+.58),poolAccessMat)
+  const entryDeck=new THREE.Mesh(new THREE.BoxGeometry(poolEntryW+.54,.08,HOUSE_POOL_PERIM_WALL_T+.58),poolAccessMat)
   entryDeck.position.set(0,HOUSE_POOL_WALL_TOP-HOUSE_POOL_DECK_LEVEL+.026,-poolOuterD/2-.08)
   poolGroup.add(entryDeck)
   for(const [x,z,sx,sz] of [
@@ -4035,15 +3949,6 @@ function addCipherHouseDetails(world) {
     const guide=new THREE.Mesh(new THREE.BoxGeometry(sx,.035,sz),poolAccessMat)
     guide.position.set(x,HOUSE_POOL_WALL_TOP-HOUSE_POOL_DECK_LEVEL+.075,z)
     poolGroup.add(guide)
-  }
-  for(const [z,width,y] of [
-    [-poolInnerD*.52,poolEntryW+.36,HOUSE_POOL_WALL_TOP-HOUSE_POOL_DECK_LEVEL-.08],
-    [-poolInnerD*.43,poolEntryW+.12,HOUSE_POOL_FLOOR_LEVEL-HOUSE_POOL_DECK_LEVEL+.56],
-    [-poolInnerD*.34,poolEntryW-.02,HOUSE_POOL_FLOOR_LEVEL-HOUSE_POOL_DECK_LEVEL+.36],
-  ]){
-    const entryStep=new THREE.Mesh(new THREE.BoxGeometry(width,.06,.12),poolTileMat)
-    entryStep.position.set(0,y,z)
-    poolGroup.add(entryStep)
   }
   const railMat=new THREE.MeshStandardMaterial({
     color:'#f8fafc',emissive:'#38bdf8',emissiveIntensity:.36,roughness:.22,metalness:.52,
@@ -4063,73 +3968,13 @@ function addCipherHouseDetails(world) {
     rail.position.set(x,terraceRailCenterY,z)
     poolGroup.add(rail)
   }
-  for(const [z,width,y] of [
-    [poolInnerD*.26,.92,HOUSE_POOL_FLOOR_LEVEL-HOUSE_POOL_DECK_LEVEL+.12],
-    [poolInnerD*.34,.72,HOUSE_POOL_FLOOR_LEVEL-HOUSE_POOL_DECK_LEVEL+.28],
-    [poolInnerD*.42,.52,HOUSE_POOL_FLOOR_LEVEL-HOUSE_POOL_DECK_LEVEL+.44],
-    [poolInnerD*.50,.34,HOUSE_POOL_FLOOR_LEVEL-HOUSE_POOL_DECK_LEVEL+.60],
-  ]){
-    const step=new THREE.Mesh(new THREE.BoxGeometry(width,.06,.11),poolTileMat)
-    step.position.set(-.92,y,z)
-    poolGroup.add(step)
-  }
-  const ladderMat=new THREE.MeshStandardMaterial({
-    color:'#e0f2fe',emissive:'#38bdf8',emissiveIntensity:.28,roughness:.18,metalness:.82,
-  })
-  for(const x of [-.18,.18]){
-    const rail=new THREE.Mesh(new THREE.CylinderGeometry(.022,.022,.58,10),ladderMat)
-    rail.position.set(poolInnerW*.34,.18+x*.08,poolInnerD*.42+x*.15)
-    rail.rotation.x=.38
-    poolGroup.add(rail)
-  }
-  for(const y of [.04,.17,.30]){
-    const rung=new THREE.Mesh(new THREE.CylinderGeometry(.018,.018,.42,10),ladderMat)
-    rung.rotation.z=Math.PI/2
-    rung.position.set(poolInnerW*.34,y,poolInnerD*.42)
-    poolGroup.add(rung)
-  }
-  const boardMat=new THREE.MeshStandardMaterial({
-    color:'#f8fafc',emissive:'#38bdf8',emissiveIntensity:.18,roughness:.26,metalness:.22,
-  })
-  const boardGripMat=new THREE.MeshBasicMaterial({color:'#0f172a',transparent:true,opacity:.50,depthWrite:false})
-  const board=new THREE.Mesh(new THREE.BoxGeometry(.44,.075,1.28),boardMat)
-  board.position.set(0,.42,poolOuterD/2+.55)
-  poolGroup.add(board)
-  const boardTip=new THREE.Mesh(new THREE.BoxGeometry(.48,.045,.16),boardMat)
-  boardTip.position.set(0,.395,poolInnerD/2-.28)
-  poolGroup.add(boardTip)
-  for(const z of [poolOuterD/2+.10,poolOuterD/2+.34,poolOuterD/2+.58]){
-    const grip=new THREE.Mesh(new THREE.BoxGeometry(.38,.01,.025),boardGripMat)
-    grip.position.set(0,.463,z)
-    poolGroup.add(grip)
-  }
-  for(const x of [-.17,.17]){
-    const support=new THREE.Mesh(new THREE.CylinderGeometry(.025,.03,.55,10),ladderMat)
-    support.position.set(x,.21,poolOuterD/2+1.00)
-    poolGroup.add(support)
-  }
-  const boardBase=new THREE.Mesh(new THREE.BoxGeometry(.70,.055,.16),poolRimMat)
-  boardBase.position.set(0,.105,poolOuterD/2+1.00)
-  poolGroup.add(boardBase)
-  for(const x of [-.26,.26]){
-    const diveRail=new THREE.Mesh(new THREE.CylinderGeometry(.02,.02,.72,10),ladderMat)
-    diveRail.position.set(x,.28,poolOuterD/2+1.25)
-    diveRail.rotation.x=.16
-    poolGroup.add(diveRail)
-  }
-  for(const y of [.14,.25,.36]){
-    const rung=new THREE.Mesh(new THREE.CylinderGeometry(.017,.017,.56,10),ladderMat)
-    rung.rotation.z=Math.PI/2
-    rung.position.set(0,y,poolOuterD/2+1.24)
-    poolGroup.add(rung)
-  }
   // Pool underwater glow — more intense to make healing zone visible
-  const poolGlow=new THREE.PointLight('#06b6d4',isCoarsePointerDevice()?0:3.2,4.5,1.7)
+  const poolGlow=new THREE.PointLight('#06b6d4',isCoarsePointerDevice()?0:3.6,5.8,1.7)
   poolGlow.position.set(0,-.1,0)
   poolGroup.add(poolGlow)
   // Surface ripple indicator (flat emissive ring)
   const rippleMat=new THREE.MeshBasicMaterial({color:'#67e8f9',transparent:true,opacity:.28,depthWrite:false,side:THREE.DoubleSide})
-  const ripple=new THREE.Mesh(new THREE.RingGeometry(.28,poolInnerW*.38,24),rippleMat)
+  const ripple=new THREE.Mesh(new THREE.RingGeometry(.28,Math.min(poolOuterW,poolOuterD)*.42,24),rippleMat)
   ripple.rotation.x=-Math.PI/2
   ripple.position.y=HOUSE_POOL_WATER_LEVEL-HOUSE_POOL_DECK_LEVEL+.004
   ripple.userData.biomeSurface=true  // animated by the biome surface update loop
