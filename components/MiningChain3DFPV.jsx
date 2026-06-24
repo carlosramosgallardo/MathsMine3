@@ -111,19 +111,21 @@ const HOUSE_DIVING_BOARD = Object.freeze({
   bottom: HOUSE_POOL_DECK_LEVEL + .382,
   top: HOUSE_POOL_DECK_LEVEL + .458,
 })
-const HOUSE_STAIR_CELLS = [
-  [12,10,.20],[11,10,.40],[10,10,.60],[9,10,.80],[8,10,1.00],
-  [7,10,1.20],[6,10,1.40],[5,10,1.60],[4,10,1.80],
-  [4,9,2.00],[5,9,2.20],[6,9,2.40],[7,9,2.60],
-  [8,9,2.80],[9,9,3.00],[10,9,3.20],[11,9,3.40],
-  [12,9,3.60],[12,8,3.80],[11,8,4.00],[10,8,4.20],
-  [9,8,4.40],[8,8,4.60],[7,8,4.80],[6,8,5.00],
-  [5,8,5.20],[4,8,5.40],[4,7,5.60],[5,7,5.80],
+const HOUSE_STAIR_TOP_LEVEL = 5.80
+const HOUSE_STAIR_PATH = [
+  [12,10],[11,10],[10,10],[9,10],[8,10],
+  [7,10],[6,10],[5,10],[4,10],[4,9],
+  [4,8],[4,7],[4,6],[4,5],[4,4],
+  [5,4],[6,4],[7,4],[7,5],[6,5],
+  [5,5],[5,6],[6,6],[7,6],[7,7],
+  [6,7],[5,7],
 ]
-const HOUSE_ACCESS_DECKS = [
-  // Minimal roof route: one branch to Stormroll, one to the pool entry.
-  ...[[6,7],[7,7],[8,6],[8,7]].map(([row,col])=>({row,col,level:5.80})),
-]
+const HOUSE_STAIR_CELLS = HOUSE_STAIR_PATH.map(([row,col],index)=>[
+  row,
+  col,
+  Number((((index+1)*HOUSE_STAIR_TOP_LEVEL)/HOUSE_STAIR_PATH.length).toFixed(2)),
+])
+const HOUSE_ACCESS_DECKS = []
 const HOUSE_STAIR_KEYS = new Set(HOUSE_STAIR_CELLS.map(([row,col])=>`${row},${col}`))
 const HOUSE_MAIN_FLOOR_HOLES = new Set(HOUSE_ACCESS_DECKS
   .filter(({level})=>Math.abs(level - HOUSE_MAIN_FLOOR_LEVEL) < HOUSE_MIN_CEILING_GAP)
@@ -285,18 +287,11 @@ function makeCipherHouseEntries() {
       })
     }
   }
-  // Minimal stair extensions: just enough to walk to Stormroll and the pool.
-  ;[[6,7],[7,7],[8,6],[8,7]].forEach(([row,col])=>addDeck(row,col,5.80,'CIPHER POOL ACCESS'))
-
   // Roof balconies.
   ;[[3,7],[3,8],[2,7],[2,8],[2,9]].forEach(([row,col])=>addDeck(row,col,5.80,row===3?'CIPHER BALCONY THRESHOLD':'CIPHER CORNER BALCONY'))
-  ;[[10,3],[11,3],[10,2],[11,2],[12,2]].forEach(([row,col])=>addDeck(row,col,5.80,col===3?'CIPHER ROOF BALCONY THRESHOLD':'CIPHER ROOF CORNER BALCONY'))
   for(const col of [7,8,9]) addRail(1,col,'x',5.80)
   addRail(1,6,'x',5.80); addRail(1,10,'x',5.80)
   addRail(2,6,'z',5.80); addRail(2,10,'z',5.80)
-  for(const row of [10,11,12]) addRail(row,1,'z',5.80)
-  addRail(9,1,'x',5.80); addRail(13,1,'x',5.80)
-  addRail(9,2,'x',5.80); addRail(13,2,'x',5.80)
 
   // Floor 4 balconies.
   ;[[3,10],[3,11],[2,10],[2,11]].forEach(([row,col])=>addDeck(row,col,4.64,row===3?'CIPHER FLOOR 4 BALCONY DOOR':'CIPHER FLOOR 4 BALCONY'))
