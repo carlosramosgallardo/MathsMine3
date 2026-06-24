@@ -53,12 +53,26 @@ const NODE_DICE_POSITION = Object.freeze({ row: 5, col: 8 })
 // Jump: a player can mount mining blocks, but structural walls stay impassable.
 const JUMP_VZ   = 5.7        // jump impulse (grid units / second)
 const GRAVITY_A = 13.5       // gravity (grid units / second²)
-// Trampoline — in the open floor area near the east interior wall
-const HOUSE_TRAMPOLINE_COL = 10.5  // grid X center
-const HOUSE_TRAMPOLINE_ROW = 8.0   // grid Z center
+// Ground-level launch pad — the only way up from the lower crawl space under the
+// raised house. A 2×2 shaft in the main floor above stays open so the bounce can
+// reach HOUSE_MAIN_FLOOR_LEVEL without hitting the slab.
+const HOUSE_TRAMPOLINE_COL = 10.5  // grid X center (shaft cols 10–11)
+const HOUSE_TRAMPOLINE_ROW = 7.5   // grid Z center (shaft rows 7–8)
 const HOUSE_TRAMPOLINE_W   = 1.42  // width (grid units)
 const HOUSE_TRAMPOLINE_D   = 1.42  // depth (grid units)
-const TRAMPOLINE_BOUNCE    = JUMP_VZ * 2.35 // strong upward impulse on bounce
+const HOUSE_TRAMPOLINE_SHAFT_CELLS = new Set(['7,10', '7,11', '8,10', '8,11'])
+function isOnTrampoline(gx, gz) {
+  return Math.abs(gx - HOUSE_TRAMPOLINE_COL) <= HOUSE_TRAMPOLINE_W / 2 + 0.06
+      && Math.abs(gz - HOUSE_TRAMPOLINE_ROW) <= HOUSE_TRAMPOLINE_D / 2 + 0.06
+}
+function isInTrampolineShaft(gx, gy, radius = PLAYER_R * 0.82) {
+  if (isOnTrampoline(gx, gy)) return true
+  for (const key of HOUSE_TRAMPOLINE_SHAFT_CELLS) {
+    const [row, col] = key.split(',').map(Number)
+    if (circleTouchesCell(gx, gy, row, col, radius)) return true
+  }
+  return false
+}
 const BLOCK_TOP = 0.50       // fallback height for mining blocks (50 % — keeps them jumpable)
 const OBSTACLE_TOP = 2.35    // above the maximum single-jump apex
 const BRIDGE_BOTTOM = 1.42   // enough clearance for a wallet walking below
@@ -94,11 +108,6 @@ function isCoarsePointerDevice() {
   if (typeof window === 'undefined') return false
   return Boolean(window.matchMedia?.('(pointer: coarse)')?.matches)
 }
-function isOnTrampoline(gx, gz) {
-  return Math.abs(gx - HOUSE_TRAMPOLINE_COL) <= HOUSE_TRAMPOLINE_W / 2 + 0.06
-      && Math.abs(gz - HOUSE_TRAMPOLINE_ROW) <= HOUSE_TRAMPOLINE_D / 2 + 0.06
-}
-
 function getMiningVisualTier(viewWidth = 1280, viewHeight = 720) {
   if (typeof window === 'undefined') return 'high'
   const coarse = isCoarsePointerDevice()
@@ -119,6 +128,7 @@ const W_DARK  = [58,  62,  70]    // dark gray
 const HOUSE_BLUE_RGB = [8, 47, 73]
 const HOUSE_BLACK_RGB = [2, 8, 23]
 const HOUSE_MAIN_FLOOR_LEVEL = 3.48
+const HOUSE_TRAMPOLINE_LAUNCH = Math.sqrt(2 * GRAVITY_A * (HOUSE_MAIN_FLOOR_LEVEL + 0.22))
 const HOUSE_MIN_CEILING_GAP = 2.32
 const HOUSE_RAIL_HEIGHT = .76
 const HOUSE_POOL_CENTER_X = 6.35
@@ -2068,9 +2078,16 @@ function supportHeightAt(gx, gy, playerZ, cellMap, obsSet) {
 function ceilingBottomAt(gx,gy,playerZ,cellMap,obsSet){
   let ceiling=Infinity
   const radius=PLAYER_R*.82
+  const risingThroughShaft=playerZ<HOUSE_MAIN_FLOOR_LEVEL-.15&&isInTrampolineShaft(gx,gy,radius)
   for(let row=Math.floor(gy-radius);row<=Math.floor(gy+radius);row++){
     for(let col=Math.floor(gx-radius);col<=Math.floor(gx+radius);col++){
+      const key=`${row},${col}`
       const span=solidSpanAt(row,col,cellMap,obsSet)
+      // Rising through the launch shaft — pass through the main-floor slab from below.
+      if(risingThroughShaft){
+        const obs=obsSet?.get?.(key)
+        if(obs?.isHouseFloor) continue
+      }
       if(span?.bottom>playerZ+PLAYER_BODY_H-.04&&circleTouchesCell(gx,gy,row,col,radius)){
         ceiling=Math.min(ceiling,span.bottom)
       }
@@ -4189,7 +4206,6 @@ function addCipherHouseDetails(world) {
     [10.5,3.62,10.5,2.0,'#a78bfa'],
     [8.2,5.94,8.2,2.8,'#22d3ee'],
     [8.2,1.46,8.2,1.4,'#7dd3fc'],
-    [HOUSE_TRAMPOLINE_COL,HOUSE_MAIN_FLOOR_LEVEL+1.2,HOUSE_TRAMPOLINE_ROW,1.8,'#22d3ee'],
   ]){
     if(!isCoarsePointerDevice()){
       const light=new THREE.PointLight(col,intensity,6.5,1.6)
@@ -4197,9 +4213,9 @@ function addCipherHouseDetails(world) {
       group.add(light)
     }
   }
-  // ── Trampoline — east interior floor, away from pool and stairs ──────────
+  // ── Ground launch pad — sole route from the lower crawl space to the main floor ──
   {
-    const tramY = HOUSE_MAIN_FLOOR_LEVEL + 0.01
+    const tramY = 0.01
     const tw = HOUSE_TRAMPOLINE_W, td = HOUSE_TRAMPOLINE_D
     const frameMat = isCoarsePointerDevice()
       ? new THREE.MeshLambertMaterial({color:'#374151'})
@@ -7368,7 +7384,14 @@ export default function MiningChain3DFPV({
           keysRef.current.space=true
           const _p=playerRef.current
           const _dead=myDeadUntilRef.current&&myDeadUntilRef.current>Date.now()
-          if(!_dead&&_p.jumps<MAX_JUMPS){ _p.vz=Math.max(0,_p.vz)+JUMP_VZ; _p.jumps++ }
+          if(!_dead){
+            const _gx=_p.x/CELL_SIZE,_gz=_p.y/CELL_SIZE
+            if(isOnTrampoline(_gx,_gz)&&_p.z<0.35){
+              _p.vz=HOUSE_TRAMPOLINE_LAUNCH;_p.jumps=0
+            } else if(_p.jumps<MAX_JUMPS){
+              _p.vz=Math.max(0,_p.vz)+JUMP_VZ;_p.jumps++
+            }
+          }
         }
         e.preventDefault()
       }
@@ -7601,7 +7624,7 @@ export default function MiningChain3DFPV({
             }
             // Trampoline bounce — only when falling and inside trampoline bounds
             if(p.vz < -0.5 && isOnTrampoline(p.x/CELL_SIZE, p.y/CELL_SIZE)){
-              p.vz = TRAMPOLINE_BOUNCE; p.z = floorZ + 0.01; p.jumps = 0
+              p.vz = HOUSE_TRAMPOLINE_LAUNCH; p.z = floorZ + 0.01; p.jumps = 0
             } else {
               p.z = floorZ; p.vz = 0; p.jumps = 0   // normal landing
             }
@@ -8123,8 +8146,15 @@ export default function MiningChain3DFPV({
   const triggerJump=useCallback(()=>{
     if(myDeadUntilRef.current&&myDeadUntilRef.current>Date.now()) return
     const player=playerRef.current
-    if(player.jumps>=MAX_JUMPS) return
-    player.vz=Math.max(0,player.vz)+JUMP_VZ;player.jumps++
+    const gx=player.x/CELL_SIZE, gz=player.y/CELL_SIZE
+    if(isOnTrampoline(gx,gz)&&player.z<0.35){
+      player.vz=HOUSE_TRAMPOLINE_LAUNCH
+      player.jumps=0
+    } else {
+      if(player.jumps>=MAX_JUMPS) return
+      player.vz=Math.max(0,player.vz)+JUMP_VZ
+      player.jumps++
+    }
     renderRef.current?.()
   },[])
   const triggerAttack=useCallback(()=>{
