@@ -445,7 +445,24 @@ function makeCipherHouseEntries() {
       })
     }
   }
-  // Only CIPHER_HOUSE_DOOR_CELLS stay open; windows use a high sill; all other perimeter is solid.
+  // Only CIPHER_HOUSE_DOOR_CELLS stay open; windows use solid glass; all other perimeter is solid.
+  for (const key of CIPHER_HOUSE_DOOR_CELLS) {
+    const [row, col] = key.split(',').map(Number)
+    const direction = row === CIPHER_HOUSE_BOUNDS.minRow ? 'south' : 'north'
+    add(row, col, {
+      base: HOUSE_BLUE_RGB,
+      glow: [103, 232, 249],
+      kind: 'hash',
+      label: 'CIPHER DOOR RAMP',
+      bottom: 0,
+      height: HOUSE_MAIN_FLOOR_LEVEL,
+      shape: 'ramp',
+      direction,
+      isHouse: true,
+      isHouseDoor: true,
+      isHouseFloor: true,
+    })
+  }
   return entries
 }
 
@@ -593,7 +610,7 @@ const OBSTACLE_MAP = new Map([
   ['13,8',  { base:W_DARK, label:'WALL', height:1.74 }],
   ['14,8',  { base:W_DARK, label:'WALL', height:1.74 }],
   ['15,8',  { base:W_DARK, label:'WALL', height:1.74 }],
-  ['13,9',  { base:W_DARK, label:'WALL', height:0.58 }],  // E step
+  ['12,9',  { base:W_DARK, label:'WALL', height:0.58 }],  // E step (moved off south door 13,9)
   ['14,7',  { base:W_DARK, label:'WALL', height:0.58 }],  // W step
 
   // Bridge 4: N-S at col 19 (skips row 14 — existing W_SAND wall there)
@@ -1826,8 +1843,9 @@ function houseFloorSupportAt(row, col, playerZ) {
     row > CIPHER_HOUSE_BOUNDS.minRow && row < CIPHER_HOUSE_BOUNDS.maxRow &&
     col > CIPHER_HOUSE_BOUNDS.minCol && col < CIPHER_HOUSE_BOUNDS.maxCol
   const key = `${row},${col}`
+  const onDoor = CIPHER_HOUSE_DOOR_CELLS.has(key)
   if (
-    insideHouse &&
+    (insideHouse || onDoor) &&
     !HOUSE_STAIR_KEYS.has(key) &&
     !HOUSE_MAIN_FLOOR_HOLES.has(key) &&
     playerZ >= HOUSE_MAIN_FLOOR_LEVEL - 0.08
@@ -5461,6 +5479,23 @@ export default function MiningChain3DFPV({
     addDenseMaze(valid,reserved,cellMap)
     addOrganicObstacles(valid,reserved,cellMap)
     clearCipherHouseApproaches(valid)
+    for (const key of CIPHER_HOUSE_DOOR_CELLS) {
+      const [row, col] = key.split(',').map(Number)
+      const direction = row === CIPHER_HOUSE_BOUNDS.minRow ? 'south' : 'north'
+      valid.set(key, chainObstacle(key, {
+        base: HOUSE_BLUE_RGB,
+        glow: [103, 232, 249],
+        kind: 'hash',
+        label: 'CIPHER DOOR RAMP',
+        bottom: 0,
+        height: HOUSE_MAIN_FLOOR_LEVEL,
+        shape: 'ramp',
+        direction,
+        isHouse: true,
+        isHouseDoor: true,
+        isHouseFloor: true,
+      }))
+    }
 
     // Build a small number of deterministic staircases beside isolated tall
     // obstacles. Each cube is a real collision/support surface, so players can
