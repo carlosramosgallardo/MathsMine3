@@ -238,6 +238,19 @@ function housePoolWalkSupportAt(gx, gy, playerZ, radius = PLAYER_R * 0.78) {
       support = Math.max(support, surface.level)
     }
   }
+  // Swim basin — keep solid footing anywhere inside the walled water volume.
+  if (playerZ >= HOUSE_POOL_FLOOR_LEVEL - 0.32 && playerZ <= HOUSE_POOL_WATER_LEVEL + 0.55) {
+    const inset = HOUSE_POOL_PERIM_WALL_T + 0.06
+    const basin = {
+      minX: HOUSE_POOL_OUTER.minX + inset,
+      maxX: HOUSE_POOL_OUTER.maxX - inset,
+      minZ: HOUSE_POOL_OUTER.minZ + inset,
+      maxZ: HOUSE_POOL_OUTER.maxZ - inset,
+    }
+    if (circleTouchesAabb(gx, gy, basin, radius)) {
+      support = Math.max(support, HOUSE_POOL_FLOOR_LEVEL)
+    }
+  }
   return support
 }
 
@@ -1828,16 +1841,37 @@ function isInsideHousePool(gx, gy, playerZ = 0, radius = PLAYER_R * .35) {
 }
 
 function poolWallBounds() {
-  const t = 0.14
+  const t = HOUSE_POOL_PERIM_WALL_T
   const o = HOUSE_POOL_OUTER
   const entry = HOUSE_POOL_ENTRY
   return [
-    { minX: o.minX, maxX: o.maxX, minZ: o.maxZ - t, maxZ: o.maxZ + t * 2 },
-    { minX: o.maxX - t, maxX: o.maxX + t * 2, minZ: o.minZ, maxZ: o.maxZ },
-    { minX: o.minX - t * 2, maxX: o.minX + t, minZ: o.minZ, maxZ: o.maxZ },
-    { minX: o.minX, maxX: entry.minX, minZ: o.minZ - t * 2, maxZ: o.minZ + t },
-    { minX: entry.maxX, maxX: o.maxX, minZ: o.minZ - t * 2, maxZ: o.minZ + t },
+    { minX: o.minX - t, maxX: o.maxX + t, minZ: o.maxZ - t, maxZ: o.maxZ + t },
+    { minX: o.maxX - t, maxX: o.maxX + t, minZ: o.minZ - t, maxZ: o.maxZ + t },
+    { minX: o.minX - t, maxX: o.minX + t, minZ: o.minZ - t, maxZ: o.maxZ + t },
+    { minX: o.minX - t, maxX: entry.minX, minZ: o.minZ - t, maxZ: o.minZ + t },
+    { minX: entry.maxX, maxX: o.maxX + t, minZ: o.minZ - t, maxZ: o.minZ + t },
   ]
+}
+
+function isAtPoolSwimDepth(playerZ) {
+  return playerZ >= HOUSE_POOL_FLOOR_LEVEL - 0.25 && playerZ <= HOUSE_POOL_WALL_TOP + 0.12
+}
+
+function isInPoolNorthEntry(gx, gy) {
+  const entry = HOUSE_POOL_ENTRY
+  return gx >= entry.minX && gx <= entry.maxX &&
+    gy >= HOUSE_POOL_OUTER.minZ - 0.35 && gy <= HOUSE_POOL_OUTER.minZ + 0.22
+}
+
+function poolSwimBoundaryBlocksBody(gx, gy, playerZ) {
+  if (!isAtPoolSwimDepth(playerZ)) return false
+  const o = HOUSE_POOL_OUTER
+  const r = PLAYER_R
+  if (gx + r > o.maxX + 0.015) return true
+  if (gx - r < o.minX - 0.015) return true
+  if (gy + r > o.maxZ + 0.015) return true
+  if (gy - r < o.minZ - 0.015 && !isInPoolNorthEntry(gx, gy)) return true
+  return false
 }
 
 function isInsidePoolTerrace(gx, gy, radius = PLAYER_R * 0.78) {
@@ -1879,8 +1913,9 @@ function poolWallSupportAt(gx, gy, playerZ, radius = PLAYER_R * 0.76) {
 }
 
 function poolWallBlocksBody(gx, gy, playerZ) {
-  if (playerZ < HOUSE_POOL_FLOOR_LEVEL - 0.2 || playerZ > HOUSE_POOL_WALL_TOP + 0.15) return false
-  return poolWallBounds().some(bounds => circleTouchesAabb(gx, gy, bounds, PLAYER_R * 0.92))
+  if (!isAtPoolSwimDepth(playerZ)) return false
+  if (poolSwimBoundaryBlocksBody(gx, gy, playerZ)) return true
+  return poolWallBounds().some(bounds => circleTouchesAabb(gx, gy, bounds, PLAYER_R))
 }
 
 // The rooftop walk level matches the pool terrace, so the roof tiles and the
@@ -3916,12 +3951,25 @@ function addCipherHouseDetails(world) {
     [-(poolEntryHalf+poolEntrySideW*.5),-(poolOuterD+HOUSE_POOL_PERIM_WALL_T)/2,poolEntrySideW,HOUSE_POOL_PERIM_WALL_T],
     [poolEntryHalf+poolEntrySideW*.5,-(poolOuterD+HOUSE_POOL_PERIM_WALL_T)/2,poolEntrySideW,HOUSE_POOL_PERIM_WALL_T],
     [0,(poolOuterD+HOUSE_POOL_PERIM_WALL_T)/2,poolOuterW,HOUSE_POOL_PERIM_WALL_T],
-    [-(poolOuterW+HOUSE_POOL_PERIM_WALL_T)/2,0,HOUSE_POOL_PERIM_WALL_T,poolOuterD],
-    [(poolOuterW+HOUSE_POOL_PERIM_WALL_T)/2,0,HOUSE_POOL_PERIM_WALL_T,poolOuterD],
+    [-poolOuterW/2,0,HOUSE_POOL_PERIM_WALL_T,poolOuterD],
+    [poolOuterW/2,0,HOUSE_POOL_PERIM_WALL_T,poolOuterD],
   ]){
     const wall=new THREE.Mesh(new THREE.BoxGeometry(sx,poolWallH,sz),poolShellMat)
     wall.position.set(x,poolWallCenterY,z)
     poolGroup.add(wall)
+  }
+  // Inner wall faces — closes corner gaps so the basin reads fully solid.
+  const innerWallMat=poolTileMat
+  for(const [x,z,sx,sz] of [
+    [0,poolOuterD/2-HOUSE_POOL_PERIM_WALL_T/2,poolOuterW-HOUSE_POOL_PERIM_WALL_T*2,HOUSE_POOL_PERIM_WALL_T],
+    [-(poolEntryHalf+poolEntrySideW*.5),-(poolOuterD/2-HOUSE_POOL_PERIM_WALL_T/2),poolEntrySideW,HOUSE_POOL_PERIM_WALL_T],
+    [poolEntryHalf+poolEntrySideW*.5,-(poolOuterD/2-HOUSE_POOL_PERIM_WALL_T/2),poolEntrySideW,HOUSE_POOL_PERIM_WALL_T],
+    [-poolOuterW/2+HOUSE_POOL_PERIM_WALL_T/2,0,HOUSE_POOL_PERIM_WALL_T,poolOuterD-HOUSE_POOL_PERIM_WALL_T*2],
+    [poolOuterW/2-HOUSE_POOL_PERIM_WALL_T/2,0,HOUSE_POOL_PERIM_WALL_T,poolOuterD-HOUSE_POOL_PERIM_WALL_T*2],
+  ]){
+    const innerWall=new THREE.Mesh(new THREE.BoxGeometry(sx,poolWallH,sz),innerWallMat)
+    innerWall.position.set(x,poolWallCenterY,z)
+    poolGroup.add(innerWall)
   }
   const poolWater=new THREE.Mesh(
     new THREE.PlaneGeometry(poolOuterW-.08,poolOuterD-.08,18,12),
