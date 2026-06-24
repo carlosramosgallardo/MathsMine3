@@ -3302,15 +3302,16 @@ function createSkyTexture() {
   return texture
 }
 
-function addNightDome(scene) {
+function addNightDome(scene, lowDetail=false) {
   const skyTexture=createSkyTexture()
   scene.userData.skyTexture=skyTexture
   const dome=new THREE.Mesh(
-    new THREE.SphereGeometry(72,24,16),
+    new THREE.SphereGeometry(72,lowDetail?12:24,lowDetail?8:16),
     new THREE.MeshBasicMaterial({map:skyTexture,color:'#9db8ff',side:THREE.BackSide,fog:false}),
   )
   dome.position.set(COLS/2,5,ROWS/2);scene.add(dome)
-  const starCount=420,positions=new Float32Array(starCount*3),colors=new Float32Array(starCount*3)
+  const starCount=lowDetail?100:420
+  const positions=new Float32Array(starCount*3),colors=new Float32Array(starCount*3)
   for(let index=0;index<starCount;index++){
     const theta=seededUnit(index+1)*Math.PI*2,phi=.12+seededUnit(index+51)*Math.PI*.43,radius=55+seededUnit(index+91)*12
     positions[index*3]=COLS/2+Math.cos(theta)*Math.sin(phi)*radius
@@ -3324,9 +3325,12 @@ function addNightDome(scene) {
   geometry.setAttribute('color',new THREE.BufferAttribute(colors,3))
   const stars=new THREE.Points(geometry,new THREE.PointsMaterial({size:.12,sizeAttenuation:true,vertexColors:true,transparent:true,opacity:.92,fog:false}))
   scene.add(stars)
-  const moon=new THREE.Mesh(new THREE.SphereGeometry(1.45,16,12),new THREE.MeshBasicMaterial({color:'#d8f4ff',fog:false}))
+  const moon=new THREE.Mesh(new THREE.SphereGeometry(1.45,lowDetail?8:16,lowDetail?6:12),new THREE.MeshBasicMaterial({color:'#d8f4ff',fog:false}))
   moon.position.set(42,24,12);scene.add(moon)
-  const moonGlow=new THREE.PointLight('#8dd8ff',18,42,1.5);moonGlow.position.copy(moon.position);scene.add(moonGlow)
+  if(!lowDetail){
+    const moonGlow=new THREE.PointLight('#8dd8ff',18,42,1.5);moonGlow.position.copy(moon.position);scene.add(moonGlow)
+  }
+  if(lowDetail) return
 
   const planet=new THREE.Group()
   const planetBody=new THREE.Mesh(new THREE.SphereGeometry(3.2,20,14),new THREE.MeshStandardMaterial({color:'#7c3aed',emissive:'#29105f',emissiveIntensity:.8,roughness:.72,fog:false}))
@@ -3342,6 +3346,7 @@ function addNightDome(scene) {
   const engine=new THREE.PointLight('#22d3ee',5,8,2);engine.position.set(-1,0,0)
   ship.add(hull,cockpit,wings,engine);ship.position.set(COLS/2,15,ROWS/2);ship.userData.orbital='ship';scene.add(ship)
   scene.userData.orbitals=[planet,ship]
+  // end !lowDetail
 }
 
 function addBiomeGround(world,textures) {
@@ -3463,30 +3468,30 @@ function addArenaWeapon(arena, cx, cz) {
   arena.add(glowRing2)
 }
 
-function addCryptoColosseum(world) {
+function addCryptoColosseum(world,lowDetail=false) {
   const centerX=MINING_CHAIN_NODE_POSITION.col+.5
   const centerZ=MINING_CHAIN_NODE_POSITION.row+.5
   const arena=new THREE.Group()
   arena.userData.cryptoColosseum=true
 
   const foundation=new THREE.Mesh(
-    new THREE.CylinderGeometry(5.25,5.25,.08,64),
-    new THREE.MeshStandardMaterial({
-      color:'#09061a',roughness:.64,metalness:.56,
-      emissive:'#160b35',emissiveIntensity:.58,
-    }),
+    new THREE.CylinderGeometry(5.25,5.25,.08,lowDetail?24:64),
+    lowDetail
+      ?new THREE.MeshLambertMaterial({color:'#09061a',emissive:'#160b35'})
+      :new THREE.MeshStandardMaterial({color:'#09061a',roughness:.64,metalness:.56,emissive:'#160b35',emissiveIntensity:.58}),
   )
   foundation.position.set(centerX,.035,centerZ)
   foundation.userData.skipOcclusion=true
   arena.add(foundation)
 
+  const ringSegments=lowDetail?24:64
   const ringMaterial=new THREE.MeshBasicMaterial({color:'#22d3ee',transparent:true,opacity:.88,depthWrite:false})
   for(const radius of [1.35,3.15,4.72]){
-    const ring=new THREE.Mesh(new THREE.TorusGeometry(radius,.045,6,64),ringMaterial.clone())
+    const ring=new THREE.Mesh(new THREE.TorusGeometry(radius,.045,6,ringSegments),ringMaterial.clone())
     ring.rotation.x=Math.PI/2;ring.position.set(centerX,.09,centerZ);arena.add(ring)
   }
   const magentaRing=new THREE.Mesh(
-    new THREE.TorusGeometry(4.98,.065,6,64),
+    new THREE.TorusGeometry(4.98,.065,6,ringSegments),
     new THREE.MeshBasicMaterial({color:'#d946ef',transparent:true,opacity:.78,depthWrite:false}),
   )
   magentaRing.rotation.x=Math.PI/2;magentaRing.position.set(centerX,.095,centerZ);arena.add(magentaRing)
@@ -3497,6 +3502,8 @@ function addCryptoColosseum(world) {
   const laneB=new THREE.Mesh(new THREE.PlaneGeometry(.10,8.7),laneMaterial.clone())
   laneB.rotation.x=-Math.PI/2;laneB.position.set(centerX,.105,centerZ)
   arena.add(laneA,laneB)
+
+  if(lowDetail){ world.add(arena); return }
 
   const seatGeometry=new THREE.BoxGeometry(1,1,1)
   const sideEntries={cyan:[],magenta:[]}
@@ -4111,79 +4118,103 @@ function addCipherHouseDetails(world) {
   world.add(group)
 }
 
-function addBiomeLandmarks(world,textures) {
-  const addParticles=(centerX,centerZ,color,seedOffset,height=4)=>{
-    const count=70,positions=new Float32Array(count*3)
-    for(let index=0;index<count;index++){
-      positions[index*3]=centerX+(seededUnit(index+seedOffset)-.5)*24
-      positions[index*3+1]=.35+seededUnit(index+seedOffset+80)*height
-      positions[index*3+2]=centerZ+(seededUnit(index+seedOffset+160)-.5)*24
+function addBiomeLandmarks(world,textures,lowDetail=false) {
+  if(!lowDetail){
+    const addParticles=(centerX,centerZ,color,seedOffset,height=4)=>{
+      const count=70,positions=new Float32Array(count*3)
+      for(let index=0;index<count;index++){
+        positions[index*3]=centerX+(seededUnit(index+seedOffset)-.5)*24
+        positions[index*3+1]=.35+seededUnit(index+seedOffset+80)*height
+        positions[index*3+2]=centerZ+(seededUnit(index+seedOffset+160)-.5)*24
+      }
+      const geometry=new THREE.BufferGeometry();geometry.setAttribute('position',new THREE.BufferAttribute(positions,3))
+      world.add(new THREE.Points(geometry,new THREE.PointsMaterial({color,size:.055,transparent:true,opacity:.72,depthWrite:false})))
     }
-    const geometry=new THREE.BufferGeometry();geometry.setAttribute('position',new THREE.BufferAttribute(positions,3))
-    world.add(new THREE.Points(geometry,new THREE.PointsMaterial({color,size:.055,transparent:true,opacity:.72,depthWrite:false})))
+    addParticles(14,42,'#bae6fd',620,3.2)
+    addParticles(42,42,'#fb6a24',940,4.8)
+    addParticles(42,14,'#67e8f9',1180,2.2)
   }
-  addParticles(14,42,'#bae6fd',620,3.2)
-  addParticles(42,42,'#fb6a24',940,4.8)
-  addParticles(42,14,'#67e8f9',1180,2.2)
 
-  const rockMaterial=new THREE.MeshStandardMaterial({map:textures.mountain,color:'#8aa5bd',roughness:.82,flatShading:true})
-  for(let index=0;index<22;index++){
-    const height=2.5+seededUnit(index+220)*5.4
-    const rock=new THREE.Mesh(new THREE.ConeGeometry(1.4+height*.17,height,5+index%3),rockMaterial.clone())
-    rock.userData.avatarFadeOccluder=true
-    const onNorth=index%2===0
-    rock.position.set(onNorth?seededUnit(index+205)*25:-1.4,height*.5-.02,onNorth?-1.4:seededUnit(index+206)*25)
-    rock.rotation.y=seededUnit(index+230)*Math.PI;world.add(rock)
+  if(!lowDetail){
+    const rockMaterial=new THREE.MeshStandardMaterial({map:textures.mountain,color:'#8aa5bd',roughness:.82,flatShading:true})
+    for(let index=0;index<22;index++){
+      const height=2.5+seededUnit(index+220)*5.4
+      const rock=new THREE.Mesh(new THREE.ConeGeometry(1.4+height*.17,height,5+index%3),rockMaterial.clone())
+      rock.userData.avatarFadeOccluder=true
+      const onNorth=index%2===0
+      rock.position.set(onNorth?seededUnit(index+205)*25:-1.4,height*.5-.02,onNorth?-1.4:seededUnit(index+206)*25)
+      rock.rotation.y=seededUnit(index+230)*Math.PI;world.add(rock)
+    }
   }
-  const peak=new THREE.Mesh(new THREE.ConeGeometry(5.4,12,7),new THREE.MeshStandardMaterial({map:textures.mountain,color:'#7892aa',roughness:.84,flatShading:true}))
+  const peak=new THREE.Mesh(new THREE.ConeGeometry(5.4,12,lowDetail?5:7),lowDetail
+    ?new THREE.MeshLambertMaterial({color:'#7892aa',flatShading:true})
+    :new THREE.MeshStandardMaterial({map:textures.mountain,color:'#7892aa',roughness:.84,flatShading:true}))
   peak.userData.avatarFadeOccluder=true
   peak.position.set(-1.5,5.9,-1.5);world.add(peak)
-  const snowCap=new THREE.Mesh(new THREE.ConeGeometry(2.05,3.1,7),new THREE.MeshStandardMaterial({color:'#b9dff4',roughness:.72,flatShading:true}))
+  const snowCap=new THREE.Mesh(new THREE.ConeGeometry(2.05,3.1,lowDetail?5:7),lowDetail
+    ?new THREE.MeshLambertMaterial({color:'#b9dff4',flatShading:true})
+    :new THREE.MeshStandardMaterial({color:'#b9dff4',roughness:.72,flatShading:true}))
   snowCap.userData.avatarFadeOccluder=true
   snowCap.position.set(-1.5,10.35,-1.5);world.add(snowCap)
 
-  const water=new THREE.Mesh(new THREE.PlaneGeometry(25.4,12.2,18,8),new THREE.MeshPhysicalMaterial({color:'#0aa9d6',transparent:true,opacity:.74,roughness:.08,metalness:.18,clearcoat:1,clearcoatRoughness:.08,side:THREE.DoubleSide,emissive:'#043b56',emissiveIntensity:.28}))
+  const water=new THREE.Mesh(
+    new THREE.PlaneGeometry(25.4,12.2,lowDetail?2:18,lowDetail?2:8),
+    lowDetail
+      ?new THREE.MeshLambertMaterial({color:'#0aa9d6',transparent:true,opacity:.72,emissive:'#043b56',side:THREE.DoubleSide})
+      :new THREE.MeshPhysicalMaterial({color:'#0aa9d6',transparent:true,opacity:.74,roughness:.08,metalness:.18,clearcoat:1,clearcoatRoughness:.08,side:THREE.DoubleSide,emissive:'#043b56',emissiveIntensity:.28})
+  )
   water.rotation.x=-Math.PI/2;water.position.set(42,.018,-1.2);water.userData.biomeSurface='water';world.add(water)
   const sand=new THREE.Mesh(new THREE.PlaneGeometry(25.4,6.2),new THREE.MeshStandardMaterial({map:textures.coast,color:'#ffe0a0',roughness:.92}))
   sand.rotation.x=-Math.PI/2;sand.position.set(42,-.008,3.1);sand.userData.skipOcclusion=true;world.add(sand)
-  for(let index=0;index<14;index++){
-    const crystal=new THREE.Mesh(new THREE.OctahedronGeometry(.16+seededUnit(index+310)*.18),new THREE.MeshBasicMaterial({color:index%2?'#22d3ee':'#facc15'}))
-    crystal.position.set(30+seededUnit(index+320)*24,.18,.4+seededUnit(index+330)*5.4);world.add(crystal)
+  if(!lowDetail){
+    for(let index=0;index<14;index++){
+      const crystal=new THREE.Mesh(new THREE.OctahedronGeometry(.16+seededUnit(index+310)*.18),new THREE.MeshBasicMaterial({color:index%2?'#22d3ee':'#facc15'}))
+      crystal.position.set(30+seededUnit(index+320)*24,.18,.4+seededUnit(index+330)*5.4);world.add(crystal)
+    }
   }
 
-  const iceMaterial=new THREE.MeshPhysicalMaterial({map:textures.ice,color:'#c6f5ff',transparent:true,opacity:.82,roughness:.10,metalness:.22,clearcoat:1,clearcoatRoughness:.05,emissive:'#0d4c72',emissiveIntensity:.36})
-  for(let index=0;index<18;index++){
-    const height=.7+seededUnit(index+400)*2.8
-    const shard=new THREE.Mesh(new THREE.ConeGeometry(.18+height*.10,height,4),iceMaterial.clone())
-    shard.userData.avatarFadeOccluder=true
-    shard.position.set(-.7-seededUnit(index+410)*1.8,height*.5,30+seededUnit(index+420)*25)
-    shard.rotation.z=(seededUnit(index+430)-.5)*.28;world.add(shard)
+  if(!lowDetail){
+    const iceMaterial=new THREE.MeshPhysicalMaterial({map:textures.ice,color:'#c6f5ff',transparent:true,opacity:.82,roughness:.10,metalness:.22,clearcoat:1,clearcoatRoughness:.05,emissive:'#0d4c72',emissiveIntensity:.36})
+    for(let index=0;index<18;index++){
+      const height=.7+seededUnit(index+400)*2.8
+      const shard=new THREE.Mesh(new THREE.ConeGeometry(.18+height*.10,height,4),iceMaterial.clone())
+      shard.userData.avatarFadeOccluder=true
+      shard.position.set(-.7-seededUnit(index+410)*1.8,height*.5,30+seededUnit(index+420)*25)
+      shard.rotation.z=(seededUnit(index+430)-.5)*.28;world.add(shard)
+    }
+    const glacier=new THREE.Mesh(new THREE.DodecahedronGeometry(3.5,1),new THREE.MeshPhysicalMaterial({map:textures.ice,color:'#bdefff',roughness:.16,metalness:.18,clearcoat:1,emissive:'#0b4268',emissiveIntensity:.28,flatShading:true}))
+    glacier.userData.avatarFadeOccluder=true
+    glacier.scale.set(1.7,1,.9);glacier.position.set(-1.2,1.2,48);world.add(glacier)
+  } else {
+    const glacierSimple=new THREE.Mesh(new THREE.OctahedronGeometry(2.8,0),new THREE.MeshLambertMaterial({color:'#bdefff',emissive:'#0b4268'}))
+    glacierSimple.userData.avatarFadeOccluder=true
+    glacierSimple.scale.set(1.7,.6,.9);glacierSimple.position.set(-1.2,1.2,48);world.add(glacierSimple)
   }
-  const glacier=new THREE.Mesh(new THREE.DodecahedronGeometry(3.5,1),new THREE.MeshPhysicalMaterial({map:textures.ice,color:'#bdefff',roughness:.16,metalness:.18,clearcoat:1,emissive:'#0b4268',emissiveIntensity:.28,flatShading:true}))
-  glacier.userData.avatarFadeOccluder=true
-  glacier.scale.set(1.7,1,.9);glacier.position.set(-1.2,1.2,48);world.add(glacier)
 
   const lava=new THREE.Mesh(new THREE.PlaneGeometry(24,7.2),new THREE.MeshStandardMaterial({map:textures.inferno,color:'#ff6b13',emissive:'#ff2600',emissiveIntensity:2.2,roughness:.48,transparent:true,opacity:.92}))
   lava.rotation.x=-Math.PI/2;lava.position.set(42,.012,58.4);lava.userData.biomeSurface='lava';world.add(lava)
-  for(let index=0;index<18;index++){
+  const flameCount=lowDetail?8:18
+  for(let index=0;index<flameCount;index++){
     const flame=new THREE.Group(),height=.45+seededUnit(index+1320)*.75
-    const outer=new THREE.Mesh(new THREE.ConeGeometry(.14+height*.11,height,7),new THREE.MeshBasicMaterial({color:'#ff3d00',transparent:true,opacity:.82,depthWrite:false}))
-    const inner=new THREE.Mesh(new THREE.ConeGeometry(.07+height*.06,height*.72,7),new THREE.MeshBasicMaterial({color:'#ffd43b',transparent:true,opacity:.92,depthWrite:false}))
+    const outer=new THREE.Mesh(new THREE.ConeGeometry(.14+height*.11,height,lowDetail?4:7),new THREE.MeshBasicMaterial({color:'#ff3d00',transparent:true,opacity:.82,depthWrite:false}))
+    const inner=new THREE.Mesh(new THREE.ConeGeometry(.07+height*.06,height*.72,lowDetail?4:7),new THREE.MeshBasicMaterial({color:'#ffd43b',transparent:true,opacity:.92,depthWrite:false}))
     outer.position.y=height*.5;inner.position.y=height*.37;flame.add(outer,inner)
     flame.position.set(30+seededUnit(index+1330)*24,.02,30+seededUnit(index+1340)*24)
     flame.userData.biomeSurface='fire';flame.userData.phase=seededUnit(index+1350)*Math.PI*2;world.add(flame)
-    if(index%4===0){
+    if(!lowDetail&&index%4===0){
       const light=new THREE.PointLight('#ff5a16',8,7,1.8);light.position.set(flame.position.x,1.25,flame.position.z);world.add(light)
     }
   }
-  for(let index=0;index<20;index++){
-    const height=.8+seededUnit(index+500)*3.8
-    const spire=new THREE.Mesh(new THREE.ConeGeometry(.24+height*.14,height,5),new THREE.MeshStandardMaterial({map:textures.inferno,color:index%3?'#5c191d':'#a53120',emissive:index%3?'#260307':'#8c1705',emissiveIntensity:.9,roughness:.74,flatShading:true}))
-    spire.userData.avatarFadeOccluder=true
-    const onSouth=index%2===0
-    spire.position.set(onSouth?30+seededUnit(index+510)*25:56.7,height*.5,onSouth?56.7:30+seededUnit(index+520)*25);world.add(spire)
+  if(!lowDetail){
+    for(let index=0;index<20;index++){
+      const height=.8+seededUnit(index+500)*3.8
+      const spire=new THREE.Mesh(new THREE.ConeGeometry(.24+height*.14,height,5),new THREE.MeshStandardMaterial({map:textures.inferno,color:index%3?'#5c191d':'#a53120',emissive:index%3?'#260307':'#8c1705',emissiveIntensity:.9,roughness:.74,flatShading:true}))
+      spire.userData.avatarFadeOccluder=true
+      const onSouth=index%2===0
+      spire.position.set(onSouth?30+seededUnit(index+510)*25:56.7,height*.5,onSouth?56.7:30+seededUnit(index+520)*25);world.add(spire)
+    }
   }
-  const portalRing=new THREE.Mesh(new THREE.TorusGeometry(2.1,.22,8,28),new THREE.MeshBasicMaterial({color:'#ff5b1a'}))
+  const portalRing=new THREE.Mesh(new THREE.TorusGeometry(2.1,.22,lowDetail?5:8,lowDetail?16:28),new THREE.MeshBasicMaterial({color:'#ff5b1a'}))
   portalRing.position.set(55.4,2.5,49);portalRing.rotation.y=Math.PI/4;world.add(portalRing)
 
   for(const [x,z,color] of [[14,14,'#67e8f9'],[42,14,'#2dd4bf'],[14,42,'#e0f2fe'],[42,42,'#fb4b1f']]){
@@ -4409,10 +4440,11 @@ function rebuildThreeWorld(state,cellMap,obstacles) {
   if(state.world){state.scene.remove(state.world);disposeThreeObject(state.world)}
   const world=new THREE.Group(),matrix=new THREE.Matrix4(),position=new THREE.Vector3()
   const scale=new THREE.Vector3(),quaternion=new THREE.Quaternion()
+  const lowDetail=isCoarsePointerDevice()
   addBiomeGround(world,state.textures)
-  addCryptoColosseum(world)
+  addCryptoColosseum(world,lowDetail)
   addCipherHouseDetails(world)
-  addBiomeLandmarks(world,state.textures)
+  addBiomeLandmarks(world,state.textures,lowDetail)
   // ── Block + node groups ───────────────────────────────────────────────────────
   // Each interactive type gets its own material & shape so players can tell them apart.
   // No texture maps here — texture × vertex-color was multiplying everything to black.
@@ -4538,11 +4570,13 @@ function rebuildThreeWorld(state,cellMap,obstacles) {
     if(cell.isNodeDiceNode) continue
     const [row,col]=key.split(',').map(Number)
     const height=blockTop(cell,row,col)
-    beaconEntries.push({row,col,cell,height,phase:seededUnit(row*71+col*113)*Math.PI*2})
+    if(!lowDetail){
+      beaconEntries.push({row,col,cell,height,phase:seededUnit(row*71+col*113)*Math.PI*2})
+    }
     addInteractiveBeaconEmoji(world,row,col,cell,height)
   }
-  state.beaconBatch=addInteractiveBeaconBatch(world,beaconEntries)
-  updateInteractiveBeaconBatch(state.beaconBatch,performance.now()*.001)
+  state.beaconBatch=lowDetail?null:addInteractiveBeaconBatch(world,beaconEntries)
+  if(state.beaconBatch) updateInteractiveBeaconBatch(state.beaconBatch,performance.now()*.001)
 
   const houseEntries=[]
   const boxGroups={mountain:[],coast:[],ice:[],inferno:[]}
@@ -4768,15 +4802,19 @@ function rebuildThreeWorld(state,cellMap,obstacles) {
 }
 
 function createThreeWalletAvatar(wallet) {
+  const lowDetail=isCoarsePointerDevice()
   const avatar=new THREE.Group()
   const color=new THREE.Color(colorFromAddress(wallet))
   const bright=color.clone().lerp(new THREE.Color('#ffffff'),.20)
   const dark=color.clone().multiplyScalar(.30)
   const mid=color.clone().multiplyScalar(.62)
-  const bodyMat=new THREE.MeshStandardMaterial({color,roughness:.48,metalness:.34})
-  const brightMat=new THREE.MeshStandardMaterial({color:bright,roughness:.38,metalness:.42})
-  const darkMat=new THREE.MeshStandardMaterial({color:dark,roughness:.72,metalness:.28})
-  const midMat=new THREE.MeshStandardMaterial({color:mid,roughness:.58,metalness:.30})
+  const _mat=(c,roughness=.5,metalness=.3)=>lowDetail
+    ?new THREE.MeshLambertMaterial({color:c,emissive:new THREE.Color(c).multiplyScalar(.08)})
+    :new THREE.MeshStandardMaterial({color:c,roughness,metalness})
+  const bodyMat=_mat(color,.48,.34)
+  const brightMat=_mat(bright,.38,.42)
+  const darkMat=_mat(dark,.72,.28)
+  const midMat=_mat(mid,.58,.30)
   const cyanMat=new THREE.MeshBasicMaterial({color:'#67e8f9'})
   const goldMat=new THREE.MeshBasicMaterial({color:'#facc15'})
   const magentaMat=new THREE.MeshBasicMaterial({color:'#d946ef'})
@@ -4888,8 +4926,8 @@ function setAvatarHealingRecharge(avatar, active) {
 
 function updateHealingRechargeEffects(state,time,tier='medium') {
   if(!state) return
+  if(tier==='low') return
   state.healFxFrame=(state.healFxFrame||0)+1
-  if(tier==='low'&&state.healFxFrame%3!==0) return
   const lite=tier==='low'
   const avatars=[...state.avatars.values()]
   if(state.localAvatar) avatars.push(state.localAvatar)
@@ -5276,7 +5314,7 @@ export default function MiningChain3DFPV({
     const grid=new THREE.GridHelper(Math.max(COLS,ROWS),Math.max(COLS,ROWS),'#176080','#12334f')
     grid.position.set(COLS/2,.004,ROWS/2);grid.material.transparent=true;grid.material.opacity=.22;scene.add(grid)
     if(isCoarsePointerDevice()) grid.visible=false
-    addNightDome(scene)
+    addNightDome(scene,isCoarsePointerDevice())
     const textures={
       mountain:createProceduralTexture('mountain'),coast:createProceduralTexture('coast'),
       ice:createProceduralTexture('ice'),inferno:createProceduralTexture('inferno'),crypto:createProceduralTexture('crypto'),
@@ -5824,7 +5862,7 @@ export default function MiningChain3DFPV({
         syncThreeAvatars(threeState,presence,myIdentity)
         const time=performance.now()*.001
         const visualTier=visualPerfTierRef.current
-        if(visualTier!=='low'){
+        if(visualTier!=='low'&&threeState.fxFrame%2===0){
           for(const object of threeState.biomeSurfaces||[]){
             if(object.userData.biomeSurface==='water'){
               object.position.y=.018+Math.sin(time*1.4)*.012
@@ -5851,16 +5889,18 @@ export default function MiningChain3DFPV({
           }
         }
         threeState.fxFrame=(threeState.fxFrame||0)+1
-        if(visualTier!=='low'||threeState.fxFrame%4===0){
-          updateInteractiveBeaconBatch(threeState.beaconBatch,time)
+        if(visualTier!=='low'&&threeState.beaconBatch){
+          if(threeState.fxFrame%2===0) updateInteractiveBeaconBatch(threeState.beaconBatch,time)
         }
-        for(const orbital of threeState.scene.userData.orbitals||[]){
-          if(orbital.userData.orbital==='ship'){
-            const orbit=time*.055
-            orbital.position.set(COLS/2+Math.cos(orbit)*39,13+Math.sin(time*.18)*2.2,ROWS/2+Math.sin(orbit)*39)
-            orbital.rotation.y=-orbit+.2
-          }else{
-            orbital.rotation.y=time*.025;orbital.rotation.z=Math.sin(time*.04)*.08
+        if(visualTier!=='low'){
+          for(const orbital of threeState.scene.userData.orbitals||[]){
+            if(orbital.userData.orbital==='ship'){
+              const orbit=time*.055
+              orbital.position.set(COLS/2+Math.cos(orbit)*39,13+Math.sin(time*.18)*2.2,ROWS/2+Math.sin(orbit)*39)
+              orbital.rotation.y=-orbit+.2
+            }else{
+              orbital.rotation.y=time*.025;orbital.rotation.z=Math.sin(time*.04)*.08
+            }
           }
         }
         const localSwingAge=performance.now()-swingStartRef.current
@@ -7742,8 +7782,9 @@ export default function MiningChain3DFPV({
         const nodeVisual = getNodeDiceVisualState(nodeDiceStateRef.current)
         if(nodeVisual){
           const tier=visualPerfTierRef.current
-          if(tier!=='low') needsRender = true
-          else if((nowMs&255)<20) needsRender = true
+          // Stormroll: throttle continuous render — low=~10fps, medium/high=~24fps
+          const stormInterval=tier==='low'?100:42
+          if(nowMs-lastRenderDispatchRef.current>=stormInterval) needsRender=true
           if(nodeDiceSoundHourRef.current !== Number(nodeVisual.dice.hourStart)){
             nodeDiceSoundHourRef.current = Number(nodeVisual.dice.hourStart)
             playNodeDiceWeatherSound(audioCtxRef,nodeVisual.mode)
@@ -7771,12 +7812,13 @@ export default function MiningChain3DFPV({
         w => w.toLowerCase() !== (presenceKeyRef.current||myWalletRef.current||'').toLowerCase()
       )
       const perfTier=visualPerfTierRef.current
-      const ambientInterval=perfTier==='low'?80:33
-      const renderInterval=perfTier==='low'?33:(perfTier==='medium'?20:0)
+      const ambientInterval=perfTier==='low'?150:50
+      // low: cap at 30fps (33ms), medium: cap at 45fps (22ms), high: uncapped
+      const renderInterval=perfTier==='low'?33:(perfTier==='medium'?22:0)
       const ambientDue=hasRemotes&&nowMs-lastAmbientRenderRef.current>ambientInterval
       const renderDue=renderInterval===0||nowMs-lastRenderDispatchRef.current>=renderInterval
       if(needsRender||ambientDue){
-        if(!renderDue&&!needsRender) return
+        if(!renderDue) return
         lastRenderDispatchRef.current=nowMs
         if(ambientDue) lastAmbientRenderRef.current=nowMs
         renderRef.current?.()
