@@ -112,8 +112,8 @@ const HOUSE_POOL_WALL_TOP = HOUSE_POOL_DECK_LEVEL + .18
 const HOUSE_DIVING_BOARD = Object.freeze({
   minX: HOUSE_POOL_CENTER_X - .22,
   maxX: HOUSE_POOL_CENTER_X + .22,
-  minZ: HOUSE_POOL_CENTER_Z + 1.42,
-  maxZ: HOUSE_POOL_CENTER_Z + 3.23,
+  minZ: HOUSE_POOL_CENTER_Z + 1.99,
+  maxZ: HOUSE_POOL_CENTER_Z + 3.27,
   bottom: HOUSE_POOL_DECK_LEVEL + .382,
   top: HOUSE_POOL_DECK_LEVEL + .458,
 })
@@ -131,9 +131,7 @@ const HOUSE_STAIR_CELLS = HOUSE_STAIR_PATH.map(([row,col],index)=>[
   col,
   Number((((index+1)*HOUSE_STAIR_TOP_LEVEL)/HOUSE_STAIR_PATH.length).toFixed(2)),
 ])
-const HOUSE_ACCESS_DECKS = [
-  ...[[6,7],[7,7]].map(([row,col])=>({row,col,level:5.80})),
-]
+const HOUSE_ACCESS_DECKS = []
 const HOUSE_STAIR_KEYS = new Set(HOUSE_STAIR_CELLS.map(([row,col])=>`${row},${col}`))
 const HOUSE_MAIN_FLOOR_HOLES = new Set(HOUSE_ACCESS_DECKS
   .filter(({level})=>Math.abs(level - HOUSE_MAIN_FLOOR_LEVEL) < HOUSE_MIN_CEILING_GAP)
@@ -295,8 +293,6 @@ function makeCipherHouseEntries() {
       })
     }
   }
-  ;[[6,7],[7,7]].forEach(([row,col])=>addDeck(row,col,5.80,'CIPHER POOL BRIDGE'))
-
   // Roof balconies.
   ;[[3,7],[3,8],[2,7],[2,8],[2,9]].forEach(([row,col])=>addDeck(row,col,5.80,row===3?'CIPHER BALCONY THRESHOLD':'CIPHER CORNER BALCONY'))
   for(const col of [7,8,9]) addRail(1,col,'x',5.80)
