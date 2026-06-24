@@ -85,16 +85,16 @@ const HOUSE_POOL_DECK_LEVEL = 5.836
 const HOUSE_POOL_FLOOR_LEVEL = HOUSE_POOL_DECK_LEVEL - .82
 const HOUSE_POOL_WATER_LEVEL = HOUSE_POOL_DECK_LEVEL - .14
 const HOUSE_POOL_INNER = Object.freeze({
-  minX: HOUSE_POOL_CENTER_X - 3.05,
-  maxX: HOUSE_POOL_CENTER_X + 3.05,
-  minZ: HOUSE_POOL_CENTER_Z - 1.78,
-  maxZ: HOUSE_POOL_CENTER_Z + 1.78,
+  minX: HOUSE_POOL_CENTER_X - 2.05,  // moved 1 unit inward
+  maxX: HOUSE_POOL_CENTER_X + 2.05,  // moved 1 unit inward
+  minZ: HOUSE_POOL_CENTER_Z - 0.78,  // moved 1 unit inward
+  maxZ: HOUSE_POOL_CENTER_Z + 0.78,  // moved 1 unit inward
 })
 const HOUSE_POOL_OUTER = Object.freeze({
-  minX: HOUSE_POOL_CENTER_X - 3.50,   // expanded outward for better edge accessibility
-  maxX: HOUSE_POOL_CENTER_X + 3.50,
-  minZ: HOUSE_POOL_CENTER_Z - 2.25,   // expanded for clear walking path
-  maxZ: HOUSE_POOL_CENTER_Z + 2.25,
+  minX: HOUSE_POOL_CENTER_X - 2.50,   // moved 1 unit inward to avoid wall overlap
+  maxX: HOUSE_POOL_CENTER_X + 2.50,   // moved 1 unit inward to avoid wall overlap
+  minZ: HOUSE_POOL_CENTER_Z - 1.25,   // moved 1 unit inward to avoid wall overlap
+  maxZ: HOUSE_POOL_CENTER_Z + 1.25,   // moved 1 unit inward to avoid wall overlap
 })
 const HOUSE_POOL_TERRACE = Object.freeze({
   minX: HOUSE_POOL_OUTER.minX - 0.85,  // increased terrace buffer
@@ -103,10 +103,10 @@ const HOUSE_POOL_TERRACE = Object.freeze({
   maxZ: HOUSE_POOL_OUTER.maxZ + 0.85,
 })
 const HOUSE_POOL_ENTRY = Object.freeze({
-  minX: HOUSE_POOL_CENTER_X - 1.35,  // adjusted for expanded pool
+  minX: HOUSE_POOL_CENTER_X - 1.35,  // adjusted for inward pool position
   maxX: HOUSE_POOL_CENTER_X + 1.35,
-  minZ: HOUSE_POOL_CENTER_Z - 2.25,  // adjusted for expanded pool
-  maxZ: HOUSE_POOL_CENTER_Z - 1.95,  // adjusted for expanded pool
+  minZ: HOUSE_POOL_CENTER_Z - 1.25,  // adjusted for inward pool position
+  maxZ: HOUSE_POOL_CENTER_Z - 0.95,  // adjusted for inward pool position
 })
 const HOUSE_POOL_WALL_TOP = HOUSE_POOL_DECK_LEVEL + .18
 const HOUSE_DIVING_BOARD = Object.freeze({
