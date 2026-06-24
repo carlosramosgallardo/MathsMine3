@@ -53,6 +53,12 @@ const NODE_DICE_POSITION = Object.freeze({ row: 5, col: 8 })
 // Jump: a player can mount mining blocks, but structural walls stay impassable.
 const JUMP_VZ   = 5.7        // jump impulse (grid units / second)
 const GRAVITY_A = 13.5       // gravity (grid units / second²)
+// Trampoline — in the open floor area near the east interior wall
+const HOUSE_TRAMPOLINE_COL = 10.5  // grid X center
+const HOUSE_TRAMPOLINE_ROW = 8.0   // grid Z center
+const HOUSE_TRAMPOLINE_W   = 1.42  // width (grid units)
+const HOUSE_TRAMPOLINE_D   = 1.42  // depth (grid units)
+const TRAMPOLINE_BOUNCE    = JUMP_VZ * 2.35 // strong upward impulse on bounce
 const BLOCK_TOP = 0.50       // fallback height for mining blocks (50 % — keeps them jumpable)
 const OBSTACLE_TOP = 2.35    // above the maximum single-jump apex
 const BRIDGE_BOTTOM = 1.42   // enough clearance for a wallet walking below
@@ -70,6 +76,10 @@ const COLOSSEUM_STAND_TOPS = COLOSSEUM_STAND_BASE_TOPS.map(top=>top+COLOSSEUM_SE
 function isCoarsePointerDevice() {
   if (typeof window === 'undefined') return false
   return Boolean(window.matchMedia?.('(pointer: coarse)')?.matches)
+}
+function isOnTrampoline(gx, gz) {
+  return Math.abs(gx - HOUSE_TRAMPOLINE_COL) <= HOUSE_TRAMPOLINE_W / 2 + 0.06
+      && Math.abs(gz - HOUSE_TRAMPOLINE_ROW) <= HOUSE_TRAMPOLINE_D / 2 + 0.06
 }
 
 function getMiningVisualTier(viewWidth = 1280, viewHeight = 720) {
@@ -1782,10 +1792,11 @@ function poolFloorSupportAt(gx, gy, playerZ, radius = PLAYER_R * 0.76) {
 }
 
 function isInsideHousePool(gx, gy, playerZ = 0, radius = PLAYER_R * .35) {
-  const atPoolHeight = playerZ >= HOUSE_POOL_FLOOR_LEVEL - .20 && playerZ <= HOUSE_POOL_WALL_TOP + .30
+  // Use OUTER bounds + generous height band — matches the gameplay heal zone in MiningChain3D
+  const atPoolHeight = playerZ >= HOUSE_POOL_FLOOR_LEVEL - .32 && playerZ <= HOUSE_POOL_WALL_TOP + .55
   return atPoolHeight &&
-    gx > HOUSE_POOL_INNER.minX + radius && gx < HOUSE_POOL_INNER.maxX - radius &&
-    gy > HOUSE_POOL_INNER.minZ + radius && gy < HOUSE_POOL_INNER.maxZ - radius
+    gx > HOUSE_POOL_OUTER.minX + radius && gx < HOUSE_POOL_OUTER.maxX - radius &&
+    gy > HOUSE_POOL_OUTER.minZ + radius && gy < HOUSE_POOL_OUTER.maxZ - radius
 }
 
 function poolWallBounds() {
@@ -3907,9 +3918,9 @@ function addCipherHouseDetails(world) {
   const poolWater=new THREE.Mesh(
     new THREE.PlaneGeometry(poolInnerW-.08,poolInnerD-.08,18,12),
     new THREE.MeshPhysicalMaterial({
-      color:'#ef4444',emissive:'#991b1b',emissiveIntensity:.42,
-      transparent:true,opacity:.34,roughness:.02,metalness:.04,
-      clearcoat:.85,clearcoatRoughness:.04,side:THREE.DoubleSide,
+      color:'#06b6d4',emissive:'#0e7490',emissiveIntensity:.72,
+      transparent:true,opacity:.52,roughness:.04,metalness:.02,
+      clearcoat:.92,clearcoatRoughness:.02,side:THREE.DoubleSide,
       depthWrite:false,
     }),
   )
@@ -4031,9 +4042,17 @@ function addCipherHouseDetails(world) {
     rung.position.set(0,y,poolOuterD/2+1.24)
     poolGroup.add(rung)
   }
-  const poolGlow=new THREE.PointLight('#22d3ee',.85,2.8,1.9)
-  poolGlow.position.set(0,.08,0)
+  // Pool underwater glow — more intense to make healing zone visible
+  const poolGlow=new THREE.PointLight('#06b6d4',isCoarsePointerDevice()?0:3.2,4.5,1.7)
+  poolGlow.position.set(0,-.1,0)
   poolGroup.add(poolGlow)
+  // Surface ripple indicator (flat emissive ring)
+  const rippleMat=new THREE.MeshBasicMaterial({color:'#67e8f9',transparent:true,opacity:.28,depthWrite:false,side:THREE.DoubleSide})
+  const ripple=new THREE.Mesh(new THREE.RingGeometry(.28,poolInnerW*.38,24),rippleMat)
+  ripple.rotation.x=-Math.PI/2
+  ripple.position.y=HOUSE_POOL_WATER_LEVEL-HOUSE_POOL_DECK_LEVEL+.004
+  ripple.userData.biomeSurface=true  // animated by the biome surface update loop
+  poolGroup.add(ripple)
   group.add(poolGroup)
 
   const diceTower=new THREE.Group()
@@ -4099,22 +4118,70 @@ function addCipherHouseDetails(world) {
   upperTerrace.position.set(poolTerraceCenterX,HOUSE_STAIR_TOP_LEVEL+0.06,poolTerraceCenterZ)
   group.add(upperTerrace)
 
-  const houseLight=new THREE.PointLight('#22d3ee',2.8,13,2)
+  // Main ambient interior light
+  const houseLight=new THREE.PointLight('#22d3ee',isCoarsePointerDevice()?0:3.6,15,1.8)
   houseLight.position.set(8.2,2.35,8.2)
   group.add(houseLight)
-  for(const [x,y,z,intensity] of [
-    [5.5,3.62,5.5,1.6],[10.5,3.62,10.5,1.6],[8.2,5.94,8.2,2.2],[8.2,1.46,8.2,1.1],
+  // Interior ceiling fixtures — skip PointLights on low-tier, keep fixture meshes
+  for(const [x,y,z,intensity,col] of [
+    [5.5,3.62,5.5,2.0,'#a78bfa'],
+    [10.5,3.62,10.5,2.0,'#a78bfa'],
+    [8.2,5.94,8.2,2.8,'#22d3ee'],
+    [8.2,1.46,8.2,1.4,'#7dd3fc'],
+    [HOUSE_TRAMPOLINE_COL,HOUSE_MAIN_FLOOR_LEVEL+1.2,HOUSE_TRAMPOLINE_ROW,1.8,'#22d3ee'],
   ]){
-    const light=new THREE.PointLight('#a78bfa',intensity,5.5,1.7)
-    light.position.set(x,y,z)
-    group.add(light)
-    const fixture=new THREE.Mesh(
-      new THREE.CylinderGeometry(.12,.16,.08,12),
-      new THREE.MeshStandardMaterial({color:'#1e293b',emissive:'#22d3ee',emissiveIntensity:.55,roughness:.28,metalness:.64}),
-    )
+    if(!isCoarsePointerDevice()){
+      const light=new THREE.PointLight(col,intensity,6.5,1.6)
+      light.position.set(x,y,z)
+      group.add(light)
+    }
+    const fixMat=new THREE.MeshStandardMaterial({color:'#1e293b',emissive:'#22d3ee',emissiveIntensity:.68,roughness:.22,metalness:.72})
+    const fixture=new THREE.Mesh(new THREE.CylinderGeometry(.11,.15,.075,12),fixMat)
     fixture.position.set(x,y+.04,z)
     group.add(fixture)
   }
+  // ── Trampoline — east interior floor, away from pool and stairs ──────────
+  {
+    const tramY = HOUSE_MAIN_FLOOR_LEVEL + 0.01
+    const tw = HOUSE_TRAMPOLINE_W, td = HOUSE_TRAMPOLINE_D
+    const frameMat = isCoarsePointerDevice()
+      ? new THREE.MeshLambertMaterial({color:'#374151'})
+      : new THREE.MeshStandardMaterial({color:'#374151',metalness:.88,roughness:.18})
+    const padMat = new THREE.MeshLambertMaterial({color:'#22d3ee',emissive:'#0891b2',emissiveIntensity:.55})
+    const springMat = new THREE.MeshLambertMaterial({color:'#94a3b8',emissive:'#475569',emissiveIntensity:.28})
+    // Frame border
+    const frame = new THREE.Mesh(new THREE.BoxGeometry(tw+.10,0.065,td+.10),frameMat)
+    frame.position.set(HOUSE_TRAMPOLINE_COL,tramY,HOUSE_TRAMPOLINE_ROW)
+    group.add(frame)
+    // Elastic pad
+    const pad = new THREE.Mesh(new THREE.BoxGeometry(tw-.06,0.028,td-.06),padMat)
+    pad.position.set(HOUSE_TRAMPOLINE_COL,tramY+.046,HOUSE_TRAMPOLINE_ROW)
+    group.add(pad)
+    // 4 metal legs
+    const legGeo = new THREE.CylinderGeometry(.042,.052,.36,7)
+    for(const [lx,lz] of [[-tw/2+.08,-td/2+.08],[tw/2-.08,-td/2+.08],[-tw/2+.08,td/2-.08],[tw/2-.08,td/2-.08]]){
+      const leg = new THREE.Mesh(legGeo,frameMat)
+      leg.position.set(HOUSE_TRAMPOLINE_COL+lx,tramY-.145,HOUSE_TRAMPOLINE_ROW+lz)
+      group.add(leg)
+    }
+    // Spring coil decoration along edges
+    if(!isCoarsePointerDevice()){
+      const springGeo = new THREE.CylinderGeometry(.026,.026,.07,5)
+      for(let i=0;i<8;i++){
+        const t = i/8
+        const sx = (t<.5 ? -tw/2+tw*t*2 : tw/2-(t-.5)*tw*2) + HOUSE_TRAMPOLINE_COL
+        const sz = (t<.5 ? -td/2 : td/2) + HOUSE_TRAMPOLINE_ROW
+        const spr = new THREE.Mesh(springGeo,springMat)
+        spr.position.set(sx,tramY+.006,sz)
+        group.add(spr)
+      }
+    }
+    // Subtle cyan bounce glow
+    const tramGlow = new THREE.PointLight('#22d3ee',isCoarsePointerDevice()?0:2.2,3.5,2)
+    tramGlow.position.set(HOUSE_TRAMPOLINE_COL,tramY+.5,HOUSE_TRAMPOLINE_ROW)
+    group.add(tramGlow)
+  }
+
   world.add(group)
 }
 
@@ -4593,15 +4660,21 @@ function rebuildThreeWorld(state,cellMap,obstacles) {
       roof:houseEntries.filter(([,obstacle])=>obstacle.isHouseRoof),
       stair:houseEntries.filter(([,obstacle])=>obstacle.isHouseStair),
     }
-    const roofMat={color:'#020817',roughness:.56,metalness:.38,emissive:'#020817',emissiveIntensity:.58}
+    const lowD = isCoarsePointerDevice()
+    const roofMat={color:'#040e1d',roughness:.52,metalness:.46,emissive:'#040e1d',emissiveIntensity:.52}
     const houseMaterials={
-      wall:new THREE.MeshStandardMaterial({
-        color:'#020817',roughness:.52,metalness:.42,
-        emissive:'#061521',emissiveIntensity:.72,
-      }),
-      roof:new THREE.MeshStandardMaterial(roofMat),
-      // stairs same dark tone as ceiling
-      stair:new THREE.MeshStandardMaterial({...roofMat,roughness:.44,metalness:.52}),
+      wall: lowD
+        ? new THREE.MeshLambertMaterial({color:'#07172e',emissive:'#061521',emissiveIntensity:.48})
+        : new THREE.MeshStandardMaterial({
+            color:'#07172e',roughness:.44,metalness:.58,
+            emissive:'#061521',emissiveIntensity:.64,
+          }),
+      roof: lowD
+        ? new THREE.MeshLambertMaterial({color:'#040e1d'})
+        : new THREE.MeshStandardMaterial(roofMat),
+      stair: lowD
+        ? new THREE.MeshLambertMaterial({color:'#0c1f38',emissive:'#061b32',emissiveIntensity:.38})
+        : new THREE.MeshStandardMaterial({...roofMat,color:'#0c1f38',roughness:.38,metalness:.62,emissive:'#06183a',emissiveIntensity:.58}),
     }
     // Non-floor groups rendered as before
     for(const kind of ['wall','roof','stair']){
@@ -4894,26 +4967,35 @@ function createThreeWalletAvatar(wallet) {
 function createHealingRechargeEffect() {
   const effect=new THREE.Group()
   effect.userData.healingRechargeEffect=true
+  // Brighter cyan ring to match the pool water color
   const ringMat=new THREE.MeshBasicMaterial({
-    color:'#fca5a5',
+    color:'#22d3ee',
     transparent:true,
-    opacity:.34,
+    opacity:.62,
     depthWrite:false,
     blending:THREE.AdditiveBlending,
   })
-  const ring=new THREE.Mesh(new THREE.TorusGeometry(.34,.011,6,24),ringMat)
+  // Wider, thicker torus ring so it's clearly visible
+  const ring=new THREE.Mesh(new THREE.TorusGeometry(.48,.020,8,28),ringMat)
   ring.rotation.x=Math.PI/2
-  ring.position.y=.42
+  ring.position.y=.44
   effect.userData.ring=ring
   effect.add(ring)
+  // Second inner ring for depth
+  const ring2Mat=ringMat.clone();ring2Mat.opacity=.38
+  const ring2=new THREE.Mesh(new THREE.TorusGeometry(.28,.012,6,20),ring2Mat)
+  ring2.rotation.x=Math.PI/2
+  ring2.position.y=.22
+  effect.userData.ring2=ring2
+  effect.add(ring2)
   effect.userData.pulses=[]
-  for(let i=0;i<2;i++){
-    const barMat=ringMat.clone()
-    const barA=new THREE.Mesh(new THREE.BoxGeometry(.07,.018,.008),barMat)
-    const barB=new THREE.Mesh(new THREE.BoxGeometry(.018,.07,.008),barMat.clone())
+  for(let i=0;i<3;i++){
+    const barMat=ringMat.clone();barMat.opacity=.70
+    const barA=new THREE.Mesh(new THREE.BoxGeometry(.10,.024,.010),barMat)
+    const barB=new THREE.Mesh(new THREE.BoxGeometry(.024,.10,.010),barMat.clone())
     const plus=new THREE.Group()
     plus.add(barA,barB)
-    plus.userData.phase=i*Math.PI
+    plus.userData.phase=i*(Math.PI*2/3)
     effect.userData.pulses.push(plus)
     effect.add(plus)
   }
@@ -5194,8 +5276,9 @@ export default function MiningChain3DFPV({
   const visualPerfTierRef = useRef('medium')
   const lastRenderDispatchRef = useRef(0)
   const lookDirtyRef = useRef(false)
-  const onlineListTsRef = useRef(0)       // last time online list was re-drawn
-  const onlineListDirtyRef = useRef(true) // force redraw when presence changes
+  const onlineListTsRef = useRef(0)           // last time online list was re-drawn
+  const onlineListDirtyRef = useRef(true)     // force redraw when presence changes
+  const onlineListOffscreenRef = useRef(null) // cached offscreen canvas (avoids flicker)
   const lastAmbientRenderRef = useRef(0)
   const renderRef     = useRef(null)
   const lastCellRef   = useRef({row:initRow??14,col:initCol??14})
@@ -7037,12 +7120,33 @@ export default function MiningChain3DFPV({
     }
 
     drawMinimap(ctx,gr,gc,angle,cellMap,presence,myIdentity,W,H,chainNodePosRef.current,validObstaclesRef.current,px/CELL_SIZE,py/CELL_SIZE,minimapStaticRef,dpr)
-    // Rebuild online list only when presence/stolen/rewards changed or every 100ms
-    const nowOnline=performance.now()
-    if(onlineListDirtyRef.current||nowOnline-onlineListTsRef.current>100){
-      onlineListDirtyRef.current=false
-      onlineListTsRef.current=nowOnline
-      drawOnlineList(ctx,W,H,presence,myIdentity,pvpStolenRef.current,demineRewardsRef.current,chainSolverSetRef.current)
+    // Online list: rebuild to offscreen canvas every 100ms or on data change,
+    // then blit every frame so it never flickers (canvas is cleared each frame).
+    {
+      const nowOnline=performance.now()
+      const oc=onlineListOffscreenRef.current
+      const needsRebuild=onlineListDirtyRef.current
+        ||nowOnline-onlineListTsRef.current>100
+        ||!oc||oc.width!==canvas.width||oc.height!==canvas.height
+      if(needsRebuild){
+        onlineListDirtyRef.current=false
+        onlineListTsRef.current=nowOnline
+        const newOc=((!oc||oc.width!==canvas.width||oc.height!==canvas.height))
+          ?Object.assign(document.createElement('canvas'),{width:canvas.width,height:canvas.height})
+          :oc
+        onlineListOffscreenRef.current=newOc
+        const octx=newOc.getContext('2d')
+        octx.clearRect(0,0,newOc.width,newOc.height)
+        octx.setTransform(dpr,0,0,dpr,0,0)
+        drawOnlineList(octx,W,H,presence,myIdentity,pvpStolenRef.current,demineRewardsRef.current,chainSolverSetRef.current)
+        octx.setTransform(1,0,0,1,0,0)
+      }
+      // Always blit cached online list (pixel-perfect, bypassing the dpr transform)
+      if(onlineListOffscreenRef.current){
+        ctx.setTransform(1,0,0,1,0,0)
+        ctx.drawImage(onlineListOffscreenRef.current,0,0)
+        ctx.setTransform(dpr,0,0,dpr,0,0)
+      }
     }
     const walletDock = drawWalletDock(
       ctx,W,H,myNftjisRef.current,healthMapRef.current[myIdentity]??100,es,Boolean(myWallet)
@@ -7381,7 +7485,12 @@ export default function MiningChain3DFPV({
               landVzRef.current=Math.abs(p.vz)
               landImpactRef.current=Math.min(1,Math.abs(p.vz)/JUMP_VZ)
             }
-            p.z = floorZ; p.vz = 0; p.jumps = 0   // land on floor or block top
+            // Trampoline bounce — only when falling and inside trampoline bounds
+            if(p.vz < -0.5 && isOnTrampoline(p.x/CELL_SIZE, p.y/CELL_SIZE)){
+              p.vz = TRAMPOLINE_BOUNCE; p.z = floorZ + 0.01; p.jumps = 0
+            } else {
+              p.z = floorZ; p.vz = 0; p.jumps = 0   // normal landing
+            }
           } else {
             p.z = nz
           }
