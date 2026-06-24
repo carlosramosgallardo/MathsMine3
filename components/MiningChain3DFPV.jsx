@@ -7480,8 +7480,8 @@ export default function MiningChain3DFPV({
               landVzRef.current=Math.abs(p.vz)
               landImpactRef.current=Math.min(1,Math.abs(p.vz)/JUMP_VZ)
             }
-            // Trampoline bounce — only when falling and inside trampoline bounds
-            if(p.vz < -0.5 && isOnTrampoline(p.x/CELL_SIZE, p.y/CELL_SIZE)){
+            // Trampoline bounce — only when falling from ground level (not from 2nd floor)
+            if(p.vz < -0.5 && floorZ < 0.5 && isOnTrampoline(p.x/CELL_SIZE, p.y/CELL_SIZE)){
               p.vz = HOUSE_TRAMPOLINE_LAUNCH; p.z = floorZ + 0.01; p.jumps = 0
             } else {
               p.z = floorZ; p.vz = 0; p.jumps = 0   // normal landing
