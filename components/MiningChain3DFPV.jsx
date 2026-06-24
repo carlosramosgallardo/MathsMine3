@@ -370,14 +370,33 @@ function makeColosseumStandEntries() {
 }
 
 const CIPHER_HOUSE_DOOR_CELLS = new Set(['3,5', '3,6', '13,9', '13,10'])
-const CIPHER_HOUSE_DOOR_INTERIOR = new Map([
-  ['4,5', 'south'], ['4,6', 'south'],
-  ['12,9', 'north'], ['12,10', 'north'],
-])
 const CIPHER_HOUSE_DOORS = [
   { row: 3, cols: [5, 6] },
   { row: 13, cols: [9, 10] },
 ]
+// Each door tops a realistic exterior staircase that climbs from ground level up
+// to the raised interior floor. Spreading the rise across several cells keeps the
+// slope gentle so the entrance reads as real steps, never a near-vertical slab.
+const HOUSE_DOOR_ASCENTS = [
+  { cols: [5, 6], doorRow: 3, outward: -1, dir: 'south', cells: 4 },
+  { cols: [9, 10], doorRow: 13, outward: 1, dir: 'north', cells: 5 },
+]
+function buildHouseDoorStepCells() {
+  const cells = []
+  for (const ascent of HOUSE_DOOR_ASCENTS) {
+    const rise = HOUSE_MAIN_FLOOR_LEVEL
+    for (let i = 0; i < ascent.cells; i += 1) {
+      const row = ascent.doorRow + ascent.outward * i
+      const top = (rise * (ascent.cells - i)) / ascent.cells
+      const bottom = (rise * (ascent.cells - 1 - i)) / ascent.cells
+      for (const col of ascent.cols) {
+        cells.push({ key: `${row},${col}`, row, col, dir: ascent.dir, bottom, top })
+      }
+    }
+  }
+  return cells
+}
+const HOUSE_DOOR_STEP_CELLS = buildHouseDoorStepCells()
 const HOUSE_WINDOW_PANE_Y = [.82, 1.98, 3.14, 4.30, 5.46]
 const HOUSE_WINDOW_PANE_H = .56
 const HOUSE_WINDOW_PANE_W = .74
@@ -466,15 +485,6 @@ function makeCipherHouseEntries() {
       const key=`${row},${col}`
       const isRoof=false
       if(HOUSE_STAIR_KEYS.has(key)||HOUSE_MAIN_FLOOR_HOLES.has(key)) continue
-      const rampDir=CIPHER_HOUSE_DOOR_INTERIOR.get(key)
-      if(rampDir){
-        add(row,col,{
-          base:HOUSE_BLUE_RGB,glow:[103,232,249],kind:'hash',label:'CIPHER DOOR STEP',
-          bottom:0,height:HOUSE_MAIN_FLOOR_LEVEL,shape:'ramp',direction:rampDir,
-          isHouse:true,isHouseFloor:true,isHouseDoorStep:true,
-        })
-        continue
-      }
       const diceFace=((Math.abs(row*17+col*31+(row^col)*7))%6)+1
       add(row,col,{
         base:isRoof?HOUSE_BLACK_RGB:HOUSE_BLUE_RGB,
@@ -487,9 +497,13 @@ function makeCipherHouseEntries() {
       })
     }
   }
-  // Door openings stay empty; ramps live on the interior row behind each doorway.
-  for (const key of CIPHER_HOUSE_DOOR_CELLS) {
-    entries.push([key, { isHouse: true, isHouseDoor: true, label: 'CIPHER DOOR' }])
+  // Exterior entrance staircase: gentle ramp cells climbing ground → floor level.
+  for (const step of HOUSE_DOOR_STEP_CELLS) {
+    entries.push([step.key, {
+      base: HOUSE_BLUE_RGB, glow: [103, 232, 249], kind: 'hash', label: 'CIPHER DOOR STEP',
+      bottom: step.bottom, height: step.top, shape: 'ramp', direction: step.dir,
+      isHouse: true, isHouseFloor: true, isHouseDoorStep: true,
+    }])
   }
   return entries
 }
@@ -3699,25 +3713,27 @@ function addCipherHouseDetails(world) {
     const onSouth=row===maxRow
     const faceInset=HOUSE_WINDOW_FACE_INSET+.004
     const px=colCenter
-    const pz=onNorth?row+faceInset:onSouth?row+1-faceInset:row+.5
+    // Seat the frame at the interior threshold, where the entrance stair reaches
+    // the floor (3.48). The frame stands on the top step instead of floating.
+    const pz=onNorth?row+1-faceInset:onSouth?row+faceInset:row+.5
     const doorW=2.0
-    // Tall archway that clears the interior floor (3.48) so the entrance ramp
-    // is fully visible inside the opening — the doorway never looks blocked.
-    const doorH=HOUSE_MAIN_FLOOR_LEVEL+.42   // 3.90
+    const doorBase=HOUSE_MAIN_FLOOR_LEVEL     // top of the entrance stairs
+    const doorClear=2.10                       // walk-through headroom above floor
+    const doorH=doorBase+doorClear             // 5.58
     const frame=new THREE.Group()
     frame.position.set(px,0,pz)
-    const postGeo=new THREE.BoxGeometry(.10,doorH,.12)
+    const postGeo=new THREE.BoxGeometry(.10,doorClear,.12)
     const postInset=doorW*.5-.06
     for(const offset of [-postInset,postInset]){
       const post=new THREE.Mesh(postGeo,frameMaterial)
-      post.position.set(offset,doorH*.5,0)
+      post.position.set(offset,doorBase+doorClear*.5,0)
       frame.add(post)
     }
     const lintel=new THREE.Mesh(new THREE.BoxGeometry(doorW,.12,.12),frameMaterial)
     lintel.position.y=doorH
     frame.add(lintel)
     const sill=new THREE.Mesh(new THREE.BoxGeometry(doorW,.05,.14),doorSillMaterial)
-    sill.position.y=.025
+    sill.position.y=doorBase+.025
     frame.add(sill)
     group.add(frame)
     // Solid wall header above the opening (doorH → wall top 6.20) at full cell
@@ -3748,8 +3764,8 @@ function addCipherHouseDetails(world) {
     group.add(light)
   }
   ;[
-    [6,0,2.35],[10,0,2.35],
-    [6,0,13.65],[10,0,13.65],
+    [4.7,0,0.55],[7.3,0,0.55],      // north entrance — flank the stair base
+    [8.7,0,17.45],[11.3,0,17.45],   // south entrance — flank the stair base
   ].forEach(([x,y,z])=>addExteriorLamp(x,y,z))
 
   const trimMaterials=[
@@ -4820,36 +4836,42 @@ function rebuildThreeWorld(state,cellMap,obstacles) {
         world.add(balconySlabMesh)
       }
     }
-    // Door-step ramps: render as a sloped, brightly-lit entrance instead of a
-    // solid full-height box, so the doorway reads as an open, walkable passage.
-    // The ramp matches the walking physics (rises door edge → interior floor).
+    // Door-step ascent: render a real, solid staircase (discrete steps from the
+    // ground up to the raised floor) so the entrance reads as believable stairs
+    // rather than a leaning slab. The smooth ramp obstacle drives the physics.
     if(houseGroups.doorStep.length){
-      const doorRampMat=lowD
-        ? new THREE.MeshLambertMaterial({color:'#12304f',emissive:'#0e7490',emissiveIntensity:.55})
-        : new THREE.MeshStandardMaterial({color:'#12304f',roughness:.42,metalness:.5,emissive:'#0e7490',emissiveIntensity:.62})
-      const treadMat=new THREE.MeshBasicMaterial({color:'#22d3ee',transparent:true,opacity:.55,depthWrite:false})
+      const riserMat=lowD
+        ? new THREE.MeshLambertMaterial({color:'#0c2138',emissive:'#0b3a52',emissiveIntensity:.4})
+        : new THREE.MeshStandardMaterial({color:'#0c2138',roughness:.5,metalness:.46,emissive:'#0b3a52',emissiveIntensity:.46})
+      const treadMat=lowD
+        ? new THREE.MeshLambertMaterial({color:'#143452',emissive:'#0891b2',emissiveIntensity:.55})
+        : new THREE.MeshStandardMaterial({color:'#143452',roughness:.38,metalness:.54,emissive:'#0891b2',emissiveIntensity:.62})
+      const noseMat=new THREE.MeshBasicMaterial({color:'#22d3ee',transparent:true,opacity:.62,depthWrite:false})
+      const STEPS_PER_CELL=4
       for(const [key,obstacle] of houseGroups.doorStep){
         const [row,col]=key.split(',').map(Number)
-        const top=Math.max(.02,obstacleTop(obstacle))
         const dir=obstacle.direction
-        // Per-ramp material clone so the avatar-fade occluder toggles one door only
-        const ramp=new THREE.Mesh(makeRampGeometry(dir),doorRampMat.clone())
-        ramp.scale.y=top
-        ramp.position.set(col,0,row)
-        ramp.userData.collidable=true
-        ramp.userData.avatarFadeOccluder=true
-        world.add(ramp)
-        // Glowing step-tread lines across the ramp so it reads as an entrance
-        // stair, communicating "walk up here". Decorative only (no collision).
-        if(!lowD){
-          const steps=5
-          for(let s=1;s<steps;s++){
-            const t=s/steps
-            // Local position along the slope axis (north/south doors rise in Z)
-            const lz=(dir==='north')?(1-t):t
-            const tread=new THREE.Mesh(new THREE.BoxGeometry(.92,.012,.045),treadMat)
-            tread.position.set(col+.5,top*t+.02,row+lz)
-            world.add(tread)
+        const bottom=obstacleBottom(obstacle)
+        const top=Math.max(bottom+.02,obstacleTop(obstacle))
+        const span=top-bottom
+        const depth=1/STEPS_PER_CELL
+        for(let s=0;s<STEPS_PER_CELL;s++){
+          // s=0 is the exterior (low) edge, climbing toward the interior (high) edge
+          const stepTop=bottom+span*((s+1)/STEPS_PER_CELL)
+          const zc=(dir==='north')?(row+1-(s+.5)*depth):(row+(s+.5)*depth)
+          const riser=new THREE.Mesh(new THREE.BoxGeometry(.96,Math.max(.02,stepTop),depth*.99),riserMat)
+          riser.position.set(col+.5,stepTop*.5,zc)
+          riser.userData.collidable=true
+          riser.userData.avatarFadeOccluder=true
+          world.add(riser)
+          const tread=new THREE.Mesh(new THREE.BoxGeometry(.96,.04,depth*.99),treadMat)
+          tread.position.set(col+.5,stepTop-.02,zc)
+          world.add(tread)
+          if(!lowD){
+            const noseZ=(dir==='north')?(zc+depth*.5):(zc-depth*.5)
+            const nose=new THREE.Mesh(new THREE.BoxGeometry(.9,.02,.05),noseMat)
+            nose.position.set(col+.5,stepTop+.012,noseZ)
+            world.add(nose)
           }
         }
       }
@@ -5674,19 +5696,16 @@ export default function MiningChain3DFPV({
     addDenseMaze(valid,reserved,cellMap)
     addOrganicObstacles(valid,reserved,cellMap)
     clearCipherHouseApproaches(valid)
-    for (const key of CIPHER_HOUSE_DOOR_CELLS) {
-      valid.set(key, { isHouse: true, isHouseDoor: true, label: 'CIPHER DOOR' })
-    }
-    for (const [key, direction] of CIPHER_HOUSE_DOOR_INTERIOR) {
-      valid.set(key, chainObstacle(key, {
+    for (const step of HOUSE_DOOR_STEP_CELLS) {
+      valid.set(step.key, chainObstacle(step.key, {
         base: HOUSE_BLUE_RGB,
         glow: [103, 232, 249],
         kind: 'hash',
         label: 'CIPHER DOOR STEP',
-        bottom: 0,
-        height: HOUSE_MAIN_FLOOR_LEVEL,
+        bottom: step.bottom,
+        height: step.top,
         shape: 'ramp',
-        direction,
+        direction: step.dir,
         isHouse: true,
         isHouseFloor: true,
         isHouseDoorStep: true,
