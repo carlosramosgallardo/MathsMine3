@@ -369,28 +369,36 @@ function makeColosseumStandEntries() {
   return entries
 }
 
-const CIPHER_HOUSE_DOOR_CELLS = new Set(['3,5', '3,6', '13,9', '13,10'])
+// Per wall: outward normal (exterior direction) + interior-facing ascent slope.
+const DOOR_WALL_INFO = {
+  north: { dr: -1, dc: 0, dir: 'south', axis: 'x' },
+  south: { dr: 1, dc: 0, dir: 'north', axis: 'x' },
+  east: { dr: 0, dc: 1, dir: 'west', axis: 'z' },
+  west: { dr: 0, dc: -1, dir: 'east', axis: 'z' },
+}
+// Each door is a 2-cell opening in a perimeter wall topping a realistic exterior
+// staircase that climbs from ground level up to the raised interior floor. The
+// rise is spread across several cells so the slope reads as real steps.
 const CIPHER_HOUSE_DOORS = [
-  { row: 3, cols: [5, 6] },
-  { row: 13, cols: [9, 10] },
+  { wall: 'north', cells: ['3,5', '3,6'], steps: 4 },
+  { wall: 'south', cells: ['13,9', '13,10'], steps: 5 },
+  { wall: 'east', cells: ['8,13', '9,13'], steps: 4 },
 ]
-// Each door tops a realistic exterior staircase that climbs from ground level up
-// to the raised interior floor. Spreading the rise across several cells keeps the
-// slope gentle so the entrance reads as real steps, never a near-vertical slab.
-const HOUSE_DOOR_ASCENTS = [
-  { cols: [5, 6], doorRow: 3, outward: -1, dir: 'south', cells: 4 },
-  { cols: [9, 10], doorRow: 13, outward: 1, dir: 'north', cells: 5 },
-]
+const CIPHER_HOUSE_DOOR_CELLS = new Set(CIPHER_HOUSE_DOORS.flatMap(d => d.cells))
 function buildHouseDoorStepCells() {
   const cells = []
-  for (const ascent of HOUSE_DOOR_ASCENTS) {
+  for (const door of CIPHER_HOUSE_DOORS) {
+    const info = DOOR_WALL_INFO[door.wall]
     const rise = HOUSE_MAIN_FLOOR_LEVEL
-    for (let i = 0; i < ascent.cells; i += 1) {
-      const row = ascent.doorRow + ascent.outward * i
-      const top = (rise * (ascent.cells - i)) / ascent.cells
-      const bottom = (rise * (ascent.cells - 1 - i)) / ascent.cells
-      for (const col of ascent.cols) {
-        cells.push({ key: `${row},${col}`, row, col, dir: ascent.dir, bottom, top })
+    const n = door.steps || 4
+    for (let i = 0; i < n; i += 1) {
+      const top = (rise * (n - i)) / n
+      const bottom = (rise * (n - 1 - i)) / n
+      for (const k of door.cells) {
+        const [r0, c0] = k.split(',').map(Number)
+        const row = r0 + info.dr * i
+        const col = c0 + info.dc * i
+        cells.push({ key: `${row},${col}`, row, col, dir: info.dir, bottom, top })
       }
     }
   }
@@ -3706,48 +3714,55 @@ function addCipherHouseDetails(world) {
   const doorHeaderMat=isCoarsePointerDevice()
     ? new THREE.MeshLambertMaterial({color:'#07172e',emissive:'#061521',emissiveIntensity:.48})
     : new THREE.MeshStandardMaterial({color:'#07172e',roughness:.44,metalness:.58,emissive:'#061521',emissiveIntensity:.6})
-  const addDoubleDoorFrame=(row,cols)=>{
-    const colCenter=(cols[0]+cols[1]+1)/2
-    const {minRow,maxRow}=CIPHER_HOUSE_BOUNDS
-    const onNorth=row===minRow
-    const onSouth=row===maxRow
+  const addDoubleDoorFrame=(door)=>{
+    const info=DOOR_WALL_INFO[door.wall]
+    const {minRow,maxRow,minCol,maxCol}=CIPHER_HOUSE_BOUNDS
+    const rc=door.cells.map(k=>k.split(',').map(Number))
+    const rows=rc.map(p=>p[0]),cols=rc.map(p=>p[1])
+    const centerCol=(Math.min(...cols)+Math.max(...cols)+1)/2
+    const centerRow=(Math.min(...rows)+Math.max(...rows)+1)/2
     const faceInset=HOUSE_WINDOW_FACE_INSET+.004
-    const px=colCenter
+    const horiz=info.axis==='x'   // north/south doors span columns (width along X)
     // Seat the frame at the interior threshold, where the entrance stair reaches
     // the floor (3.48). The frame stands on the top step instead of floating.
-    const pz=onNorth?row+1-faceInset:onSouth?row+faceInset:row+.5
+    let px,pz
+    if(door.wall==='north'){px=centerCol;pz=minRow+1-faceInset}
+    else if(door.wall==='south'){px=centerCol;pz=maxRow+faceInset}
+    else if(door.wall==='east'){px=maxCol+faceInset;pz=centerRow}
+    else{px=minCol+1-faceInset;pz=centerRow}
     const doorW=2.0
     const doorBase=HOUSE_MAIN_FLOOR_LEVEL     // top of the entrance stairs
     const doorClear=2.10                       // walk-through headroom above floor
     const doorH=doorBase+doorClear             // 5.58
+    const wallTop=6.20
     const frame=new THREE.Group()
     frame.position.set(px,0,pz)
-    const postGeo=new THREE.BoxGeometry(.10,doorClear,.12)
+    const postGeo=horiz?new THREE.BoxGeometry(.10,doorClear,.12):new THREE.BoxGeometry(.12,doorClear,.10)
     const postInset=doorW*.5-.06
     for(const offset of [-postInset,postInset]){
       const post=new THREE.Mesh(postGeo,frameMaterial)
-      post.position.set(offset,doorBase+doorClear*.5,0)
+      post.position.set(horiz?offset:0,doorBase+doorClear*.5,horiz?0:offset)
       frame.add(post)
     }
-    const lintel=new THREE.Mesh(new THREE.BoxGeometry(doorW,.12,.12),frameMaterial)
+    const lintel=new THREE.Mesh(horiz?new THREE.BoxGeometry(doorW,.12,.12):new THREE.BoxGeometry(.12,.12,doorW),frameMaterial)
     lintel.position.y=doorH
     frame.add(lintel)
-    const sill=new THREE.Mesh(new THREE.BoxGeometry(doorW,.05,.14),doorSillMaterial)
+    const sill=new THREE.Mesh(horiz?new THREE.BoxGeometry(doorW,.05,.14):new THREE.BoxGeometry(.14,.05,doorW),doorSillMaterial)
     sill.position.y=doorBase+.025
     frame.add(sill)
     group.add(frame)
     // Solid wall header above the opening (doorH → wall top 6.20) at full cell
     // depth, so above the door looks like wall, not open sky.
-    const wallTop=6.20
-    const header=new THREE.Mesh(
-      new THREE.BoxGeometry(doorW+.04,wallTop-doorH,.985),
-      doorHeaderMat,
-    )
-    header.position.set(px,(doorH+wallTop)/2,row+.5)
+    const headerGeo=horiz?new THREE.BoxGeometry(doorW+.04,wallTop-doorH,.985):new THREE.BoxGeometry(.985,wallTop-doorH,doorW+.04)
+    const header=new THREE.Mesh(headerGeo,doorHeaderMat)
+    // Header centers on the wall row (N/S) or wall column (E/W) above the opening.
+    const headerX=horiz?px:(door.wall==='east'?maxCol+.5:minCol+.5)
+    const headerZ=horiz?(door.wall==='north'?minRow+.5:maxRow+.5):pz
+    header.position.set(headerX,(doorH+wallTop)/2,headerZ)
     header.userData.collidable=true
     group.add(header)
   }
-  for(const {row,cols} of CIPHER_HOUSE_DOORS) addDoubleDoorFrame(row,cols)
+  for(const door of CIPHER_HOUSE_DOORS) addDoubleDoorFrame(door)
 
   const lampMat=new THREE.MeshStandardMaterial({
     color:'#e0f2fe',emissive:'#22d3ee',emissiveIntensity:.95,roughness:.18,metalness:.72,
@@ -3778,31 +3793,6 @@ function addCipherHouseDetails(world) {
     mesh.position.set(x,y,z)
     group.add(mesh)
   }
-  const tileMaterials={
-    life:new THREE.MeshBasicMaterial({
-      map:makeRecoveryTileTexture(),
-      transparent:true,
-      opacity:.96,
-      depthWrite:false,
-      side:THREE.DoubleSide,
-    }),
-    dice:new THREE.MeshBasicMaterial({
-      map:makeDiceFaceTexture(5),
-      transparent:true,
-      opacity:.94,
-      depthWrite:false,
-      side:THREE.DoubleSide,
-    }),
-  }
-  const addTilePlane=(kind,x,y,z,size=.54,orientation='floor')=>{
-    const plate=new THREE.Mesh(new THREE.PlaneGeometry(size,size),tileMaterials[kind])
-    plate.position.set(x,y,z)
-    if(orientation==='floor') plate.rotation.x=-Math.PI/2
-    else if(orientation==='east') plate.rotation.y=Math.PI/2
-    else if(orientation==='west') plate.rotation.y=-Math.PI/2
-    plate.renderOrder=18
-    group.add(plate)
-  }
   const {minRow,maxRow,minCol,maxCol}=CIPHER_HOUSE_BOUNDS
   ;[2.32,3.48,5.80].forEach((y,index)=>{
     addTrimBox((minCol+maxCol+1)/2,y+.035,minRow+.012,maxCol-minCol+.95,.035,.028,index)
@@ -3816,41 +3806,6 @@ function addCipherHouseDetails(world) {
   ]){
     addTrimBox(x,3.10,z,.07,6.20,.07,mat)
   }
-  for(const [row,col,level,mat] of [
-    [5,5,HOUSE_MAIN_FLOOR_LEVEL,0],
-    [8,7,HOUSE_MAIN_FLOOR_LEVEL,2],
-    [11,11,HOUSE_MAIN_FLOOR_LEVEL,1],
-    [6,11,2.32,2],
-    [12,8,2.32,0],
-    [7,5,4.64,1],
-    [4,10,4.64,0],
-    [5,4,5.80,2],
-    [10,2,5.80,1],
-  ]){
-    addTrimBox(col+.5,level+.045,row+.5,.46,.035,.46,mat)
-  }
-  for(const [x,y,z,sx,sy,sz,mat] of [
-    [5.5,2.18,minRow+.018,.42,.30,.035,0],
-    [10.5,4.02,minRow+.018,.34,.26,.035,2],
-    [12.982,3.10,8.5,.035,.34,.42,1],
-    [3.018,5.06,10.5,.035,.28,.34,0],
-    [8.5,1.36,maxRow+.982,.38,.26,.035,2],
-  ]){
-    addTrimBox(x,y,z,sx,sy,sz,mat)
-  }
-  for(const [kind,x,y,z,size,orientation] of [
-    ['life',HOUSE_POOL_CENTER_X-1.15,HOUSE_POOL_WALL_TOP+.054,HOUSE_POOL_CENTER_Z-2.23,.50,'floor'],
-    ['life',HOUSE_POOL_CENTER_X+1.15,HOUSE_POOL_WALL_TOP+.054,HOUSE_POOL_CENTER_Z-2.23,.50,'floor'],
-    ['life',6.5,HOUSE_MAIN_FLOOR_LEVEL+.091,5.5,.46,'floor'],
-    ['life',10.5,4.64+.091,4.5,.42,'floor'],
-    ['life',12.982,3.20,9.6,.48,'west'],
-    ['dice',5.5,HOUSE_MAIN_FLOOR_LEVEL+.092,8.5,.46,'floor'],
-    ['dice',8.5,5.80+.092,13.5,.44,'floor'],
-    ['dice',3.018,4.88,7.4,.42,'east'],
-  ]){
-    addTilePlane(kind,x,y,z,size,orientation)
-  }
-
   const diceFloorMaterials=[1,2,3,4,5,6].map(face=>new THREE.MeshBasicMaterial({
     map:makeDiceFaceTexture(face),transparent:true,opacity:1,depthWrite:false,side:THREE.DoubleSide,
   }))
@@ -4855,22 +4810,30 @@ function rebuildThreeWorld(state,cellMap,obstacles) {
         const top=Math.max(bottom+.02,obstacleTop(obstacle))
         const span=top-bottom
         const depth=1/STEPS_PER_CELL
+        // north/south doors slope along Z; east/west doors slope along X.
+        const alongZ=(dir==='north'||dir==='south')
         for(let s=0;s<STEPS_PER_CELL;s++){
           // s=0 is the exterior (low) edge, climbing toward the interior (high) edge
           const stepTop=bottom+span*((s+1)/STEPS_PER_CELL)
-          const zc=(dir==='north')?(row+1-(s+.5)*depth):(row+(s+.5)*depth)
-          const riser=new THREE.Mesh(new THREE.BoxGeometry(.96,Math.max(.02,stepTop),depth*.99),riserMat)
-          riser.position.set(col+.5,stepTop*.5,zc)
+          // high side: north/west are the interior-facing edges
+          const o=(s+.5)*depth
+          const xc=alongZ?(col+.5):(dir==='west'?(col+1-o):(col+o))
+          const zc=alongZ?(dir==='north'?(row+1-o):(row+o)):(row+.5)
+          const sx=alongZ?.96:depth*.99
+          const sz=alongZ?depth*.99:.96
+          const riser=new THREE.Mesh(new THREE.BoxGeometry(sx,Math.max(.02,stepTop),sz),riserMat)
+          riser.position.set(xc,stepTop*.5,zc)
           riser.userData.collidable=true
           riser.userData.avatarFadeOccluder=true
           world.add(riser)
-          const tread=new THREE.Mesh(new THREE.BoxGeometry(.96,.04,depth*.99),treadMat)
-          tread.position.set(col+.5,stepTop-.02,zc)
+          const tread=new THREE.Mesh(new THREE.BoxGeometry(sx,.04,sz),treadMat)
+          tread.position.set(xc,stepTop-.02,zc)
           world.add(tread)
           if(!lowD){
-            const noseZ=(dir==='north')?(zc+depth*.5):(zc-depth*.5)
-            const nose=new THREE.Mesh(new THREE.BoxGeometry(.9,.02,.05),noseMat)
-            nose.position.set(col+.5,stepTop+.012,noseZ)
+            const noseX=alongZ?xc:(dir==='west'?(xc+depth*.5):(xc-depth*.5))
+            const noseZ=alongZ?(dir==='north'?(zc+depth*.5):(zc-depth*.5)):zc
+            const nose=new THREE.Mesh(new THREE.BoxGeometry(alongZ?.9:.05,.02,alongZ?.05:.9),noseMat)
+            nose.position.set(noseX,stepTop+.012,noseZ)
             world.add(nose)
           }
         }
