@@ -68,6 +68,23 @@ const MAX_STAIRCASES = 22
 const MAX_JUMPS = 1
 const REMOTE_AVATAR_VISUAL_SCALE = .48
 const REMOTE_AVATAR_MODEL_HEIGHT = 1.10
+// Unscaled local Y bounds of the remote avatar mesh — multiply by getRemoteAvatarWorldScale().
+const REMOTE_AVATAR_LOCAL = Object.freeze({
+  headTop: 1.075,
+  headBottom: 0.695,
+  neck: 0.68,
+  feet: 0.075,
+  halfWidth: 0.36,
+})
+function getRemoteAvatarWorldScale(threeState, gx, gy, gz) {
+  const v = threeState._v3b.set(gx, gz, gy).applyMatrix4(threeState.camera.matrixWorldInverse)
+  const depth = Math.max(.08, -v.z)
+  const viewportHeight = Math.max(1, threeState.size?.y || 600)
+  const viewportWidth = Math.max(1, threeState.size?.x || 900)
+  const targetPixels = viewportWidth < 640 ? 120 : Math.max(180, Math.min(240, viewportHeight * .38))
+  const focalPixels = viewportHeight / (2 * Math.tan((threeState.camera.fov * Math.PI / 180) * .5))
+  return Math.min(REMOTE_AVATAR_VISUAL_SCALE, (targetPixels * depth) / (REMOTE_AVATAR_MODEL_HEIGHT * focalPixels))
+}
 const ORGANIC_SHAPES = new Set(['ramp','sphere','tree'])
 const COLOSSEUM_STAND_BASE_TOPS = [1.00,1.32,1.64]
 const COLOSSEUM_SEAT_HEIGHT = .18
@@ -6831,22 +6848,23 @@ export default function MiningChain3DFPV({
     }
 
     if(threeState){
-      // Use Three.js camera projection so labels track the 3D avatar exactly,
-      // regardless of spring-arm position or pitch changes.
+      // Use Three.js camera projection so labels track the scaled 3D avatar exactly.
       const _sv=threeState._v3a
       for(const sprite of sprites){
-        // Project just above avatar head for label/health bar anchor
-        _sv.set(sprite.gx,(sprite.z||0)+0.90,sprite.gy)
+        const zBase=sprite.z||0
+        const avScale=getRemoteAvatarWorldScale(threeState,sprite.gx,zBase,sprite.gy)
+        // Name: just above the visible head (not the old +0.90 float that sat in mid-air).
+        _sv.set(sprite.gx,zBase+REMOTE_AVATAR_LOCAL.headTop*avScale+.06,sprite.gy)
         _sv.project(threeState.camera)
         if(_sv.z>1) continue  // behind camera
         const sx=(_sv.x+1)/2*W
-        const sy=(-_sv.y+1)/2*H
-        if(sx<-80||sx>W+80||sy<-40||sy>H+40) continue
+        const nameSy=(-_sv.y+1)/2*H
+        if(sx<-80||sx>W+80||nameSy<-40||nameSy>H+40) continue
         const hp=Math.max(0,Math.min(100,Number(healthMapRef.current[sprite.w]??100)))
         const label=sprite.isBot?`${sprite.w.slice(0,6)}…${sprite.w.slice(-4)} (BOT)`:`${sprite.w.slice(0,6)}…${sprite.w.slice(-4)}`
         const alpha=Math.max(.28,1-sprite.dist*.045)
-        ctx.globalAlpha=alpha;ctx.textAlign='center';ctx.textBaseline='top'
-        let nextY=sy
+        ctx.globalAlpha=alpha;ctx.textAlign='center';ctx.textBaseline='bottom'
+        let nextY=nameSy-2
         if(sprite.isDead){
           let countdown=''
           if(sprite.deadUntil){
@@ -6867,15 +6885,19 @@ export default function MiningChain3DFPV({
           ctx.font='bold 9px monospace'
           ctx.fillStyle='rgba(0,0,0,.65)';ctx.fillText(`[${sprite.poolCode}]`,sx+1,nextY+1)
           ctx.fillStyle='#f59e0b';ctx.fillText(`[${sprite.poolCode}]`,sx,nextY)
-          nextY+=12
+          nextY-=12
         }
         ctx.font='bold 10px monospace'
         ctx.fillStyle='rgba(0,0,0,.72)';ctx.fillText(label,sx+1,nextY+1)
         ctx.fillStyle=sprite.color;ctx.fillText(label,sx,nextY)
-        nextY+=13
+        // HP bar: anchored at the neck/visor so it sits on the character, not floating above.
+        _sv.set(sprite.gx,zBase+REMOTE_AVATAR_LOCAL.neck*avScale,sprite.gy)
+        _sv.project(threeState.camera)
+        const barSy=(-_sv.y+1)/2*H
         const barW=42
-        ctx.fillStyle='#26070e';ctx.fillRect(sx-barW/2,nextY,barW,4)
-        ctx.fillStyle=hp>60?'#4ade80':hp>25?'#facc15':'#fb7185';ctx.fillRect(sx-barW/2,nextY,barW*hp/100,4)
+        ctx.textBaseline='top'
+        ctx.fillStyle='#26070e';ctx.fillRect(sx-barW/2,barSy+2,barW,4)
+        ctx.fillStyle=hp>60?'#4ade80':hp>25?'#facc15':'#fb7185';ctx.fillRect(sx-barW/2,barSy+2,barW*hp/100,4)
         ctx.globalAlpha=1
       }
     }
@@ -7724,25 +7746,35 @@ export default function MiningChain3DFPV({
         let hitZone = null
 
         if (_threeState) {
-          // In 3D mode: use Three.js camera projection for exact spring-arm accuracy.
-          // The 2D raycaster projection uses the player eye, not the spring-arm camera,
-          // so it diverges when the camera is pulled back — causing missed/wrong detections.
+          // Scale-aware hitbox that matches the rendered avatar mesh — the old fixed
+          // +0.85/+0.22 offsets ignored avatar scale and caused HEAD to trigger while
+          // the crosshair pointed at empty space beside the visible model.
+          const avScale = getRemoteAvatarWorldScale(_threeState, sgx, remoteZ, sgy)
+          const headTopW = remoteZ + REMOTE_AVATAR_LOCAL.headTop * avScale
+          const headBotW = remoteZ + REMOTE_AVATAR_LOCAL.headBottom * avScale
+          const feetW = remoteZ + REMOTE_AVATAR_LOCAL.feet * avScale
+          const halfW = REMOTE_AVATAR_LOCAL.halfWidth * avScale
           const sv = _threeState._v3a
-          sv.set(sgx, remoteZ + 0.85, sgy); sv.project(_threeState.camera)
+          sv.set(sgx, headTopW, sgy); sv.project(_threeState.camera)
           if (sv.z > 1) continue
-          const pxHead = (sv.x + 1) / 2 * _W, pyHead = (-sv.y + 1) / 2 * _H
-          sv.set(sgx, remoteZ + 0.22, sgy); sv.project(_threeState.camera)
-          const pxMid  = (sv.x + 1) / 2 * _W, pyMid  = (-sv.y + 1) / 2 * _H
-          sv.set(sgx, remoteZ + 0.05, sgy); sv.project(_threeState.camera)
+          const pyHeadTop = (-sv.y + 1) / 2 * _H
+          sv.set(sgx, headBotW, sgy); sv.project(_threeState.camera)
+          const pyHeadBottom = (-sv.y + 1) / 2 * _H
+          sv.set(sgx - halfW, headBotW, sgy); sv.project(_threeState.camera)
+          const pxLeft = (sv.x + 1) / 2 * _W
+          sv.set(sgx + halfW, headBotW, sgy); sv.project(_threeState.camera)
+          const pxRight = (sv.x + 1) / 2 * _W
+          sv.set(sgx, feetW, sgy); sv.project(_threeState.camera)
           const pyFeet = (-sv.y + 1) / 2 * _H
-          // Bounding box with generous tolerance so click-feel matches the visual
-          const pad = 14
-          const minX = Math.min(pxHead, pxMid) - pad
-          const maxX = Math.max(pxHead, pxMid) + pad
-          const minY = Math.min(pyHead, pyFeet) - 4
-          const maxY = Math.max(pyHead, pyFeet) + 4
+          const padX = 5
+          const minX = Math.min(pxLeft, pxRight) - padX
+          const maxX = Math.max(pxLeft, pxRight) + padX
+          const minY = Math.min(pyHeadTop, pyHeadBottom) - 4
+          const maxY = pyFeet + 6
           if (_cx < minX || _cx > maxX || _cy < minY || _cy > maxY) continue
-          hitZone = _cy <= pyMid ? 'head' : 'body'
+          // Head only inside the actual head band — not the whole upper torso.
+          const headPad = 3
+          hitZone = (_cy >= pyHeadTop - headPad && _cy <= pyHeadBottom + headPad) ? 'head' : 'body'
         } else {
           // 2D raycaster mode: project with player-eye math (same as the renderer).
           const relZ  = remoteZ - (p.z + CAMERA_EYE_Z)
