@@ -3687,6 +3687,11 @@ function addCipherHouseDetails(world) {
   const doorSillMaterial=new THREE.MeshStandardMaterial({
     color:'#102033',emissive:'#0891b2',emissiveIntensity:.42,roughness:.34,metalness:.62,
   })
+  // Solid wall header so each door reads as an opening cut into a real wall,
+  // rather than a full-height gap. Matches the house wall look.
+  const doorHeaderMat=isCoarsePointerDevice()
+    ? new THREE.MeshLambertMaterial({color:'#07172e',emissive:'#061521',emissiveIntensity:.48})
+    : new THREE.MeshStandardMaterial({color:'#07172e',roughness:.44,metalness:.58,emissive:'#061521',emissiveIntensity:.6})
   const addDoubleDoorFrame=(row,cols)=>{
     const colCenter=(cols[0]+cols[1]+1)/2
     const {minRow,maxRow}=CIPHER_HOUSE_BOUNDS
@@ -3696,7 +3701,9 @@ function addCipherHouseDetails(world) {
     const px=colCenter
     const pz=onNorth?row+faceInset:onSouth?row+1-faceInset:row+.5
     const doorW=2.0
-    const doorH=2.08
+    // Tall archway that clears the interior floor (3.48) so the entrance ramp
+    // is fully visible inside the opening — the doorway never looks blocked.
+    const doorH=HOUSE_MAIN_FLOOR_LEVEL+.42   // 3.90
     const frame=new THREE.Group()
     frame.position.set(px,0,pz)
     const postGeo=new THREE.BoxGeometry(.10,doorH,.12)
@@ -3713,6 +3720,16 @@ function addCipherHouseDetails(world) {
     sill.position.y=.025
     frame.add(sill)
     group.add(frame)
+    // Solid wall header above the opening (doorH → wall top 6.20) at full cell
+    // depth, so above the door looks like wall, not open sky.
+    const wallTop=6.20
+    const header=new THREE.Mesh(
+      new THREE.BoxGeometry(doorW+.04,wallTop-doorH,.985),
+      doorHeaderMat,
+    )
+    header.position.set(px,(doorH+wallTop)/2,row+.5)
+    header.userData.collidable=true
+    group.add(header)
   }
   for(const {row,cols} of CIPHER_HOUSE_DOORS) addDoubleDoorFrame(row,cols)
 
@@ -4648,15 +4665,18 @@ function rebuildThreeWorld(state,cellMap,obstacles) {
   const houseEntries=[]
   const boxGroups={mountain:[],coast:[],ice:[],inferno:[]}
   for(const entry of obstacles.entries()){
-    if(isOrganicShape(entry[1])||entry[1].isColosseumBridge) continue
+    // House cells (incl. door-step ramps) are handled with house materials/geometry
+    // before the organic skip, so doorway ramps don't fall into the biome rock path.
     if(entry[1]?.isHouse){ houseEntries.push(entry); continue }
+    if(isOrganicShape(entry[1])||entry[1].isColosseumBridge) continue
     const [row,col]=entry[0].split(',').map(Number);boxGroups[biomeForCell(row,col)].push(entry)
   }
   if(houseEntries.length){
     const houseGroups={
       wall:houseEntries.filter(([,obstacle])=>!obstacle.isHouseFloor&&!obstacle.isHouseStair&&!obstacle.isHouseRail&&!obstacle.isHouseWindow&&!obstacle.isHouseDoor),
       rail:houseEntries.filter(([,obstacle])=>obstacle.isHouseRail),
-      floor:houseEntries.filter(([,obstacle])=>obstacle.isHouseFloor&&!obstacle.isHouseRoof),
+      floor:houseEntries.filter(([,obstacle])=>obstacle.isHouseFloor&&!obstacle.isHouseRoof&&!obstacle.isHouseDoorStep),
+      doorStep:houseEntries.filter(([,obstacle])=>obstacle.isHouseDoorStep),
       roof:houseEntries.filter(([,obstacle])=>obstacle.isHouseRoof),
       stair:houseEntries.filter(([,obstacle])=>obstacle.isHouseStair),
     }
@@ -4800,6 +4820,40 @@ function rebuildThreeWorld(state,cellMap,obstacles) {
         world.add(balconySlabMesh)
       }
     }
+    // Door-step ramps: render as a sloped, brightly-lit entrance instead of a
+    // solid full-height box, so the doorway reads as an open, walkable passage.
+    // The ramp matches the walking physics (rises door edge → interior floor).
+    if(houseGroups.doorStep.length){
+      const doorRampMat=lowD
+        ? new THREE.MeshLambertMaterial({color:'#12304f',emissive:'#0e7490',emissiveIntensity:.55})
+        : new THREE.MeshStandardMaterial({color:'#12304f',roughness:.42,metalness:.5,emissive:'#0e7490',emissiveIntensity:.62})
+      const treadMat=new THREE.MeshBasicMaterial({color:'#22d3ee',transparent:true,opacity:.55,depthWrite:false})
+      for(const [key,obstacle] of houseGroups.doorStep){
+        const [row,col]=key.split(',').map(Number)
+        const top=Math.max(.02,obstacleTop(obstacle))
+        const dir=obstacle.direction
+        // Per-ramp material clone so the avatar-fade occluder toggles one door only
+        const ramp=new THREE.Mesh(makeRampGeometry(dir),doorRampMat.clone())
+        ramp.scale.y=top
+        ramp.position.set(col,0,row)
+        ramp.userData.collidable=true
+        ramp.userData.avatarFadeOccluder=true
+        world.add(ramp)
+        // Glowing step-tread lines across the ramp so it reads as an entrance
+        // stair, communicating "walk up here". Decorative only (no collision).
+        if(!lowD){
+          const steps=5
+          for(let s=1;s<steps;s++){
+            const t=s/steps
+            // Local position along the slope axis (north/south doors rise in Z)
+            const lz=(dir==='north')?(1-t):t
+            const tread=new THREE.Mesh(new THREE.BoxGeometry(.92,.012,.045),treadMat)
+            tread.position.set(col+.5,top*t+.02,row+lz)
+            world.add(tread)
+          }
+        }
+      }
+    }
   }
   for(const [biome,entries] of Object.entries(boxGroups)){
     if(!entries.length) continue
@@ -4823,6 +4877,7 @@ function rebuildThreeWorld(state,cellMap,obstacles) {
 
   for(const [key,obstacle] of obstacles){
     if(!isOrganicShape(obstacle)) continue
+    if(obstacle.isHouse) continue  // house door-step ramps render via houseGroups.doorStep
     const [row,col]=key.split(',').map(Number),biome=biomeForCell(row,col)
     const material=new THREE.MeshStandardMaterial({map:state.textures[biome],color:BIOME_STYLE[biome].block,roughness:biome==='ice'?.14:.66,metalness:biome==='ice'?.28:.14,emissive:biome==='inferno'?'#681205':biome==='ice'?'#0a4a70':'#000000',emissiveIntensity:biome==='inferno'?.82:.22})
     if(obstacle.shape==='ramp'){
