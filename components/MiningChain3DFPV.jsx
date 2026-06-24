@@ -5144,16 +5144,22 @@ export default function MiningChain3DFPV({
   useEffect(()=>{ myDeadPosRef.current   = myDeadPos   },[myDeadPos])
   // Keep player level in sync for drawFacingHUD requirement check
   useEffect(()=>{ playerLevelRef.current = playerLevel ?? 0 },[playerLevel])
-  // Fetch global MM3 value (token_value.total_eth) on mount and after any DB update
+  // Fetch global MM3 value after first paint — only affects block requirement HUD text.
   useEffect(()=>{
-    const fetch = () =>
+    let cancelled = false
+    const fetchValue = () =>
       supabase.from('token_value').select('total_eth').limit(1).maybeSingle()
-        .then(({ data }) => { if (data) globalMm3Ref.current = Number(data.total_eth) || 0 })
+        .then(({ data }) => { if (!cancelled && data) globalMm3Ref.current = Number(data.total_eth) || 0 })
         .catch(()=>{})
-    fetch()
-    const handler = () => fetch()
-    window.addEventListener('mm3-db-updated', handler)
-    return () => window.removeEventListener('mm3-db-updated', handler)
+    const bootId = requestAnimationFrame(() => {
+      fetchValue()
+      window.addEventListener('mm3-db-updated', fetchValue)
+    })
+    return () => {
+      cancelled = true
+      cancelAnimationFrame(bootId)
+      window.removeEventListener('mm3-db-updated', fetchValue)
+    }
   },[])
 
   // Recompute valid obstacles (Map<key,data>) and chain node position whenever cellMap changes

@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react'
+import dynamic from 'next/dynamic'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useI18n } from '@/lib/i18n-context'
@@ -21,9 +22,10 @@ import {
   placeMiningVisualBlock,
 } from '@/lib/mining-visual-layout'
 import supabase from '@/lib/supabaseClient'
-import MiningChain3DFPV from './MiningChain3DFPV'
-import ChainSolveCard from './ChainSolveCard'
-import NftjiPenaltyCard from './NftjiPenaltyCard'
+
+const MiningChain3DFPV = dynamic(() => import('./MiningChain3DFPV'), { ssr: false })
+const ChainSolveCard = dynamic(() => import('./ChainSolveCard'), { ssr: false })
+const NftjiPenaltyCard = dynamic(() => import('./NftjiPenaltyCard'), { ssr: false })
 
 const C = '#22d3ee'
 const NETWORK_VISUAL_RANGE = 22
@@ -179,6 +181,7 @@ export default function MiningChain3D() {
   // onlineWallets: who is currently in the channel (from presence sync)
   const [onlineWallets, setOnlineWallets] = useState(new Set())
   const [loading,       setLoading]       = useState(true)
+  const [fpvReady,      setFpvReady]      = useState(false)
   const [onlineCount,   setOnlineCount]   = useState(0)
   const [anonKillMsg,   setAnonKillMsg]   = useState(null)
   const [walletNftjis,  setWalletNftjis]  = useState({})
@@ -296,6 +299,15 @@ export default function MiningChain3D() {
     return active
   }, [])
 
+  // Preload the 3D engine in parallel with the map snapshot — same visual result, faster TTI.
+  useEffect(() => {
+    let mounted = true
+    import('./MiningChain3DFPV').then(() => {
+      if (mounted) setFpvReady(true)
+    }).catch(() => {})
+    return () => { mounted = false }
+  }, [])
+
   useEffect(() => {
     let restored = null
     try { restored = normalizeNodeDiceState(JSON.parse(localStorage.getItem(NODE_DICE_STORAGE_KEY) || 'null')) } catch {}
@@ -304,10 +316,19 @@ export default function MiningChain3D() {
       setNodeDiceState(restored)
       refreshNodeDiceMode(restored, false)
     }
-    syncNodeDiceFromServer(false).catch(() => {})
-    const id = setInterval(() => refreshNodeDiceMode(nodeDiceRef.current, true), 1000)
-    const serverId = setInterval(() => syncNodeDiceFromServer(false).catch(() => {}), 60_000)
-    return () => { clearInterval(id); clearInterval(serverId) }
+    // Defer server dice sync until after first paint — not needed for initial world render.
+    let id
+    let serverId
+    const bootId = requestAnimationFrame(() => {
+      syncNodeDiceFromServer(false).catch(() => {})
+      id = setInterval(() => refreshNodeDiceMode(nodeDiceRef.current, true), 1000)
+      serverId = setInterval(() => syncNodeDiceFromServer(false).catch(() => {}), 60_000)
+    })
+    return () => {
+      cancelAnimationFrame(bootId)
+      if (id) clearInterval(id)
+      if (serverId) clearInterval(serverId)
+    }
   }, [refreshNodeDiceMode, syncNodeDiceFromServer])
 
   useEffect(() => {
@@ -625,7 +646,7 @@ export default function MiningChain3D() {
       let market=[]
       let owners=[]
       try {
-        const response=await fetch('/api/mining-snapshot')
+        const response=await fetch('/api/mining-snapshot?map=1')
         const snapshot=await response.json()
         if(!response.ok||!snapshot?.ok) throw new Error(snapshot?.error||'snapshot failed')
         mined=snapshot.minedBlocks||[]
@@ -752,8 +773,10 @@ export default function MiningChain3D() {
   // Re-runs when market loads (marketLoaded) to resolve mining NFTJI emojis correctly
   useEffect(() => {
     if (!myWallet) { setPlayerLevel(0); setPlayerNftjiCount(0); setMyNftjis([]); return }
+    if (!marketLoaded) return
     let mounted = true
-    ;(async () => {
+    const bootId = requestAnimationFrame(() => {
+      ;(async () => {
       const [{ data: pp }, { data: sq }] = await Promise.all([
         supabase.from('player_progress')
           .select('level,mining_nftji_key,mining_nftji_levels,wallet_emojis,lucky_50_level,lucky_100_level,lucky_500_level,lucky_1000_level,relay_exec_count')
@@ -799,8 +822,9 @@ export default function MiningChain3D() {
       const allNftjis = [...tradeNftjis, ...miningNftjis, ...squeezeNftjis, ...relayNftjis]
       setMyNftjis(allNftjis)
       setPlayerNftjiCount(allNftjis.length)
-    })()
-    return () => { mounted = false }
+      })()
+    })
+    return () => { mounted = false; cancelAnimationFrame(bootId) }
   }, [myWallet, marketLoaded])
 
   useEffect(() => {
@@ -1296,7 +1320,7 @@ export default function MiningChain3D() {
 
       {/* ── 3D view ─────────────────────────────────────────────────────────── */}
       <div style={{ flex:1, position:'relative', overflow:'hidden', minHeight:0 }}>
-        {loading ? (
+        {(loading || !fpvReady) ? (
           <div style={{ position:'absolute', inset:0, display:'flex', alignItems:'center', justifyContent:'center', color:C, fontSize:'0.75rem', letterSpacing:'0.12em' }}>
             {es?'⟳ CARGANDO…':'⟳ LOADING…'}
           </div>

@@ -7,8 +7,8 @@ import { getMarketCommandForKey } from '@/lib/mining-commands';
 import { TOTAL_BOARD_CELLS } from '@/lib/chain-winner';
 
 const PUBLIC_CACHE_MS = 10_000;
-let publicSnapshotCache = null;
-let publicSnapshotPromise = null;
+const publicSnapshotCache = { full: null, map: null };
+const publicSnapshotPromise = { full: null, map: null };
 
 function clampLevel(level = 0) {
   return Math.max(0, Math.min(100, Number(level) || 0));
@@ -18,17 +18,23 @@ function normalizeWallet(value) {
   return String(value || '').toLowerCase().trim();
 }
 
-async function getPublicMarketSnapshot(supabase) {
+async function getPublicMarketSnapshot(supabase, { mapOnly = false } = {}) {
+  const cacheKey = mapOnly ? 'map' : 'full';
   const now = Date.now();
-  if (publicSnapshotCache && now - publicSnapshotCache.ts < PUBLIC_CACHE_MS) {
-    return publicSnapshotCache.payload;
+  const cached = publicSnapshotCache[cacheKey];
+  if (cached && now - cached.ts < PUBLIC_CACHE_MS) {
+    return cached.payload;
   }
 
-  if (!publicSnapshotPromise) {
-    publicSnapshotPromise = Promise.all([
+  if (!publicSnapshotPromise[cacheKey]) {
+    publicSnapshotPromise[cacheKey] = Promise.all([
       supabase
         .from('mm3_mining_blocks')
-        .select('block_key, grid_row, grid_col, emoji, title_en, title_es, price_eur, short_url, is_active, first_purchased_at, market_command, hidden_cmd_min_level')
+        .select(
+          mapOnly
+            ? 'block_key, grid_row, grid_col, emoji, title_en, title_es, price_eur'
+            : 'block_key, grid_row, grid_col, emoji, title_en, title_es, price_eur, short_url, is_active, first_purchased_at, market_command, hidden_cmd_min_level',
+        )
         .order('block_key', { ascending: true }),
       supabase
         .from('player_progress')
@@ -36,29 +42,35 @@ async function getPublicMarketSnapshot(supabase) {
         .not('mining_nftji_key', 'is', null),
       supabase
         .from('mm3_mined_blocks')
-        .select('block_hex, grid_row, grid_col, wallet, wallet_level, mm3_value, mm3_value_hex, chain_index, mined_at')
+        .select(
+          mapOnly
+            ? 'block_hex, wallet'
+            : 'block_hex, grid_row, grid_col, wallet, wallet_level, mm3_value, mm3_value_hex, chain_index, mined_at',
+        )
         .order('chain_index', { ascending: true }),
     ])
       .then(([blocksResponse, ownersResponse, minedResponse]) => {
         if (blocksResponse.error) throw blocksResponse.error;
         if (minedResponse.error && minedResponse.error.code !== '42P01') throw minedResponse.error;
         const minedBlocks = minedResponse.data || [];
-        // Compute reserved NFTJI block hexes to exclude them from free-mined coverage count
-        const nftjiHexes = new Set(
-          (blocksResponse.data || [])
-            .filter(b => b.grid_row != null && b.grid_col != null)
-            .map(b => gridToBlockHex(b.grid_row, b.grid_col))
-        );
-        const freeMinedBlocks = minedBlocks.filter(b => !nftjiHexes.has(b.block_hex));
-        const ownedNftjiCount = new Set(
-          (ownersResponse.data || []).map((o) => o.mining_nftji_key).filter(Boolean)
-        ).size;
-        const totalCovered = freeMinedBlocks.length + ownedNftjiCount;
         const payload = {
           blocks: blocksResponse.data || [],
           owners: ownersResponse.data || [],
           minedBlocks,
-          blockChain: {
+        };
+        if (!mapOnly) {
+          // Compute reserved NFTJI block hexes to exclude them from free-mined coverage count
+          const nftjiHexes = new Set(
+            (blocksResponse.data || [])
+              .filter(b => b.grid_row != null && b.grid_col != null)
+              .map(b => gridToBlockHex(b.grid_row, b.grid_col))
+          );
+          const freeMinedBlocks = minedBlocks.filter(b => !nftjiHexes.has(b.block_hex));
+          const ownedNftjiCount = new Set(
+            (ownersResponse.data || []).map((o) => o.mining_nftji_key).filter(Boolean)
+          ).size;
+          const totalCovered = freeMinedBlocks.length + ownedNftjiCount;
+          payload.blockChain = {
             title: 'MM3 BLOCK CHAIN IN PROGRESS',
             mined: totalCovered,
             total: TOTAL_BOARD_CELLS,
@@ -66,17 +78,17 @@ async function getPublicMarketSnapshot(supabase) {
             freeBlocksMined: freeMinedBlocks.length,
             nftjiCovered: ownedNftjiCount,
             code: buildBlockChainCode(minedBlocks),
-          },
-        };
-        publicSnapshotCache = { ts: Date.now(), payload };
+          };
+        }
+        publicSnapshotCache[cacheKey] = { ts: Date.now(), payload };
         return payload;
       })
       .finally(() => {
-        publicSnapshotPromise = null;
+        publicSnapshotPromise[cacheKey] = null;
       });
   }
 
-  return publicSnapshotPromise;
+  return publicSnapshotPromise[cacheKey];
 }
 
 export async function GET(req) {
@@ -88,11 +100,12 @@ export async function GET(req) {
   const { searchParams } = new URL(req.url);
   const wallet = normalizeWallet(searchParams.get('wallet'));
   const includeDetails = searchParams.get('details') === '1';
+  const mapOnly = searchParams.get('map') === '1';
   const blockKey = String(searchParams.get('blockKey') || '').trim();
 
   let publicSnapshot;
   try {
-    publicSnapshot = await getPublicMarketSnapshot(supabase);
+    publicSnapshot = await getPublicMarketSnapshot(supabase, { mapOnly });
   } catch (err) {
     return Response.json({ ok: false, error: err?.message || 'market snapshot failed' }, { status: 500 });
   }
@@ -209,7 +222,9 @@ export async function GET(req) {
     headers: {
       'Cache-Control': wallet
         ? 'private, no-store'
-        : 'public, s-maxage=10, stale-while-revalidate=60',
+        : mapOnly
+          ? 'public, s-maxage=10, stale-while-revalidate=120'
+          : 'public, s-maxage=10, stale-while-revalidate=60',
     },
   });
 }

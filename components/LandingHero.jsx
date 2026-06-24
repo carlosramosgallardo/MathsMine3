@@ -7,6 +7,7 @@ import { useActiveWallet } from '@/lib/use-active-wallet';
 import { loadDailyTaskProgress } from '@/lib/daily-tasks';
 import supabase from '@/lib/supabaseClient';
 import HomeMiningScene from '@/components/HomeMiningScene';
+import { prefetchMiningRoute } from '@/lib/prefetch-mining';
 
 // Interactive portal cards disabled during the 5-minute death cooldown
 const INTERACTIVE_HREFS = new Set(['/training', '/trading', '/squeezing', '/relaying', '/daily-tasks', '/mining'])
@@ -124,7 +125,13 @@ export default function LandingHero() {
           <div className="mm3-home-copy">
 
           {/* CTA */}
-          <Link href="/mining" className="mm3-splash-cta">
+          <Link
+            href="/mining"
+            className="mm3-splash-cta"
+            onMouseEnter={prefetchMiningRoute}
+            onFocus={prefetchMiningRoute}
+            onTouchStart={prefetchMiningRoute}
+          >
             {es ? 'ENTRAR AL MUNDO 3D' : 'ENTER THE 3D MINE'}
           </Link>
 

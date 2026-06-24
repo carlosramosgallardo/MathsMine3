@@ -1,6 +1,8 @@
 'use client';
 
-import MiningChain3D from '@/components/MiningChain3D';
+import dynamic from 'next/dynamic';
+
+const MiningChain3D = dynamic(() => import('@/components/MiningChain3D'), { ssr: false });
 
 export default function MiningPageClient() {
   return <MiningChain3D />;

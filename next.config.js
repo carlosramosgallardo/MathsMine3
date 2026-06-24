@@ -2,7 +2,7 @@ const nextConfig = {
   reactStrictMode: true,
   turbopack: {},
   experimental: {
-    optimizePackageImports: ['recharts'],
+    optimizePackageImports: ['recharts', 'three'],
   },
   async redirects() {
     return []

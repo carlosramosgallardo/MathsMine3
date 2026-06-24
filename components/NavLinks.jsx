@@ -2,6 +2,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useI18n } from '@/lib/i18n-context'
+import { prefetchMiningRoute } from '@/lib/prefetch-mining'
 
 function triggerRouteLoading(href, pathname, label) {
   if (typeof window === 'undefined' || href === pathname) return
@@ -31,6 +32,9 @@ export default function NavLinks({ className = '' }) {
               key={href}
               href={href}
               onClick={() => triggerRouteLoading(href, pathname, label)}
+              onMouseEnter={prefetchMiningRoute}
+              onFocus={prefetchMiningRoute}
+              onTouchStart={prefetchMiningRoute}
               className={`nav-link${isActive ? ' active' : ''}`}
               aria-current={isActive ? 'page' : undefined}
             >
