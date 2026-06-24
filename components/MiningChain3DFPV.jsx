@@ -1860,7 +1860,7 @@ function isAtPoolSwimDepth(playerZ) {
 function isInPoolNorthEntry(gx, gy) {
   const entry = HOUSE_POOL_ENTRY
   return gx >= entry.minX && gx <= entry.maxX &&
-    gy >= HOUSE_POOL_OUTER.minZ - 0.35 && gy <= HOUSE_POOL_OUTER.minZ + 0.22
+    gy >= HOUSE_POOL_OUTER.minZ - 0.35 && gy <= HOUSE_POOL_OUTER.minZ + 0.30
 }
 
 function poolSwimBoundaryBlocksBody(gx, gy, playerZ) {
@@ -1870,7 +1870,8 @@ function poolSwimBoundaryBlocksBody(gx, gy, playerZ) {
   if (gx + r > o.maxX + 0.015) return true
   if (gx - r < o.minX - 0.015) return true
   if (gy + r > o.maxZ + 0.015) return true
-  if (gy - r < o.minZ - 0.015 && !isInPoolNorthEntry(gx, gy)) return true
+  // Only block at north wall when player is actually crossing it (not approaching from terrace)
+  if (gy + r > o.minZ && gy - r < o.minZ + 0.015 && !isInPoolNorthEntry(gx, gy)) return true
   return false
 }
 
