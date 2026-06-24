@@ -344,6 +344,8 @@ function makeColosseumStandEntries() {
   return entries
 }
 
+const CIPHER_HOUSE_DOOR_CELLS = new Set(['3,5', '3,6', '13,9', '13,10'])
+const CIPHER_HOUSE_WINDOW_SILL = 1.72
 const CIPHER_HOUSE_WINDOWS = new Set([
   '3,9', '3,10',
   '8,3', '9,3',
@@ -367,11 +369,6 @@ function buildCipherHouseApproachCells() {
   const doorVectors = [
     ['3,5', 0, -1], ['3,6', 0, -1],
     ['13,9', 0, 1], ['13,10', 0, 1],
-    ['6,3', -1, 0], ['7,3', -1, 0],
-    ['9,13', 1, 0], ['10,13', 1, 0],
-    ['3,7', 0, -1], ['3,8', 0, -1], ['3,10', 0, -1], ['3,11', 0, -1],
-    ['10,3', -1, 0], ['11,3', -1, 0], ['7,3', -1, 0], ['8,3', -1, 0],
-    ['5,13', 1, 0], ['6,13', 1, 0], ['13,7', 0, 1], ['13,8', 0, 1],
   ]
   for (const [key, dr, dc] of doorVectors) {
     const [row, col] = key.split(',').map(Number)
@@ -379,13 +376,18 @@ function buildCipherHouseApproachCells() {
       cells.add(`${row + dr * depth},${col + dc * depth}`)
     }
   }
-  for (const [row, col] of [
-    [2, 7], [2, 8], [2, 9], [2, 10], [2, 11], [1, 7], [1, 8], [1, 9], [1, 10], [1, 11],
-    [6, 2], [7, 2], [8, 2], [10, 2], [11, 2], [6, 1], [7, 1], [8, 1], [10, 1], [11, 1],
-    [14, 7], [14, 8], [15, 7], [15, 8], [16, 7], [16, 8],
-    [5, 14], [6, 14], [5, 15], [6, 15], [5, 16], [6, 16],
-    [14, 5], [14, 6], [15, 5], [15, 6],
-  ]) {
+  for (const key of CIPHER_HOUSE_WINDOWS) {
+    const [row, col] = key.split(',').map(Number)
+    const onNorth = row === CIPHER_HOUSE_BOUNDS.minRow
+    const onSouth = row === CIPHER_HOUSE_BOUNDS.maxRow
+    const onWest = col === CIPHER_HOUSE_BOUNDS.minCol
+    const dr = onNorth ? -1 : onSouth ? 1 : 0
+    const dc = onWest ? -1 : (!onNorth && !onSouth) ? 1 : 0
+    for (let depth = 1; depth <= 2; depth += 1) {
+      cells.add(`${row + dr * depth},${col + dc * depth}`)
+    }
+  }
+  for (const [row, col] of [[2, 5], [2, 6], [14, 9], [14, 10]]) {
     cells.add(`${row},${col}`)
   }
   return cells
@@ -406,45 +408,26 @@ function clearCipherHouseApproaches(valid) {
 
 function makeCipherHouseEntries() {
   const entries=[]
-  const doors=new Set(['3,5','3,6','13,9','13,10','6,3','7,3','9,13','10,13'])
-  const balconyDoorCells=new Set([
-    '3,7','3,8',
-    '10,3','11,3',
-    '5,13','6,13',
-    '13,7','13,8',
-    '3,10','3,11',
-    '7,3','8,3',
-  ])
   const add=(row,col,data={})=>entries.push([`${row},${col}`,{
     base:HOUSE_BLACK_RGB,glow:[103,232,249],kind:'hash',label:'CIPHER HOUSE',
     height:6.20,isStructure:true,isHouse:true,...data,
   }])
-  const addRail=(row,col,axis='x',level=5.80)=>add(row,col,{
-    base:HOUSE_BLACK_RGB,glow:[103,232,249],kind:'ledger',label:'CIPHER BALCONY RAIL',
-    bottom:level,height:level+HOUSE_RAIL_HEIGHT,isHouseRail:true,railAxis:axis,
-  })
-  const addDeck=(row,col,level,label='CIPHER BALCONY')=>{
-    const diceFace=((Math.abs(row*17+col*31+(row^col)*7))%6)+1
-    add(row,col,{
-      base:HOUSE_BLUE_RGB,glow:[103,232,249],kind:'hash',label,
-      bottom:level-.08,height:level,
-      isHouseFloor:true,isHouseBalcony:true,
-      diceFace,
-    })
+  const addPerimeterWall=(row,col)=>{
+    const key=`${row},${col}`
+    if(CIPHER_HOUSE_DOOR_CELLS.has(key)) return
+    if(CIPHER_HOUSE_WINDOWS.has(key)){
+      add(row,col,{isHouseWindow:true,bottom:CIPHER_HOUSE_WINDOW_SILL})
+      return
+    }
+    add(row,col,{})
   }
   const {minRow,maxRow,minCol,maxCol}=CIPHER_HOUSE_BOUNDS
 
   for(let col=minCol;col<=maxCol;col++){
-    for(const row of [minRow,maxRow]){
-      const key=`${row},${col}`
-      if(!doors.has(key)&&!balconyDoorCells.has(key)) add(row,col,CIPHER_HOUSE_WINDOWS.has(key)?{isHouseWindow:true}:{})
-    }
+    for(const row of [minRow,maxRow]) addPerimeterWall(row,col)
   }
   for(let row=minRow+1;row<maxRow;row++){
-    for(const col of [minCol,maxCol]){
-      const key=`${row},${col}`
-      if(!doors.has(key)&&!balconyDoorCells.has(key)) add(row,col,CIPHER_HOUSE_WINDOWS.has(key)?{isHouseWindow:true}:{})
-    }
+    for(const col of [minCol,maxCol]) addPerimeterWall(row,col)
   }
 
   const floorLevels=[HOUSE_MAIN_FLOOR_LEVEL]
@@ -469,32 +452,7 @@ function makeCipherHouseEntries() {
       })
     }
   }
-  // Roof balconies.
-  ;[[3,7],[3,8],[2,7],[2,8],[2,9]].forEach(([row,col])=>addDeck(row,col,5.80,row===3?'CIPHER BALCONY THRESHOLD':'CIPHER CORNER BALCONY'))
-  for(const col of [7,8,9]) addRail(1,col,'x',5.80)
-  addRail(1,6,'x',5.80); addRail(1,10,'x',5.80)
-  addRail(2,6,'z',5.80); addRail(2,10,'z',5.80)
-
-  // Floor 4 balconies.
-  ;[[3,10],[3,11],[2,10],[2,11]].forEach(([row,col])=>addDeck(row,col,4.64,row===3?'CIPHER FLOOR 4 BALCONY DOOR':'CIPHER FLOOR 4 BALCONY'))
-  ;[[7,3],[8,3],[7,2],[8,2]].forEach(([row,col])=>addDeck(row,col,4.64,col===3?'CIPHER FLOOR 4 BALCONY DOOR':'CIPHER FLOOR 4 BALCONY'))
-  for(const col of [10,11]) addRail(1,col,'x',4.64)
-  addRail(1,9,'x',4.64); addRail(1,12,'x',4.64)
-  addRail(2,9,'z',4.64); addRail(2,12,'z',4.64)
-  for(const row of [7,8]) addRail(row,1,'z',4.64)
-  addRail(6,1,'x',4.64); addRail(9,1,'x',4.64)
-  addRail(6,2,'x',4.64); addRail(9,2,'x',4.64)
-
-  // Floor 2 terraces.
-  ;[[5,13],[6,13],[5,14],[6,14],[5,15],[6,15]].forEach(([row,col])=>addDeck(row,col,2.32,col===13?'CIPHER FLOOR 2 TERRACE DOOR':'CIPHER FLOOR 2 TERRACE'))
-  ;[[13,7],[13,8],[14,7],[14,8],[15,7],[15,8]].forEach(([row,col])=>addDeck(row,col,2.32,row===13?'CIPHER FLOOR 2 TERRACE DOOR':'CIPHER FLOOR 2 TERRACE'))
-  for(const row of [5,6]) addRail(row,16,'z',2.32)
-  addRail(4,16,'x',2.32); addRail(7,16,'x',2.32)
-  for(const col of [14,15]){ addRail(4,col,'x',2.32); addRail(7,col,'x',2.32) }
-  for(const col of [7,8]) addRail(16,col,'x',2.32)
-  addRail(16,6,'x',2.32); addRail(16,9,'x',2.32)
-  for(const row of [14,15]){ addRail(row,6,'z',2.32); addRail(row,9,'z',2.32) }
-  // Door openings stay empty for collision — visual frames live in addCipherHouseDetails().
+  // Only CIPHER_HOUSE_DOOR_CELLS stay open; windows use a high sill; all other perimeter is solid.
   return entries
 }
 
@@ -3628,6 +3586,17 @@ function addCipherHouseDetails(world) {
       group.add(pane)
       addWindowFrame(row,col,y)
     }
+    const sill=new THREE.Mesh(new THREE.BoxGeometry(.78,.06,.06),windowFrameMaterial)
+    if(row===CIPHER_HOUSE_BOUNDS.minRow) sill.position.set(col+.5,CIPHER_HOUSE_WINDOW_SILL,row+.025)
+    else if(row===CIPHER_HOUSE_BOUNDS.maxRow) sill.position.set(col+.5,CIPHER_HOUSE_WINDOW_SILL,row+.975)
+    else if(col===CIPHER_HOUSE_BOUNDS.minCol){
+      sill.rotation.y=Math.PI/2
+      sill.position.set(col+.025,CIPHER_HOUSE_WINDOW_SILL,row+.5)
+    }else{
+      sill.rotation.y=Math.PI/2
+      sill.position.set(col+.975,CIPHER_HOUSE_WINDOW_SILL,row+.5)
+    }
+    group.add(sill)
   }
 
   const frameMaterial=new THREE.MeshStandardMaterial({
@@ -3654,8 +3623,6 @@ function addCipherHouseDetails(world) {
   }
   addDoorFrame(3.5,6,true)
   addDoorFrame(13.5,10,true)
-  addDoorFrame(7,3.5,false)
-  addDoorFrame(10,13.5,false)
 
   const sillMaterial=new THREE.MeshStandardMaterial({
     color:'#102033',emissive:'#0891b2',emissiveIntensity:.42,roughness:.34,metalness:.62,
@@ -3677,8 +3644,6 @@ function addCipherHouseDetails(world) {
   }
   addDoorThreshold(3,5.5,true)
   addDoorThreshold(13,9.5,true)
-  addDoorThreshold(6.5,3,false)
-  addDoorThreshold(9.5,13,false)
 
   const lampMat=new THREE.MeshStandardMaterial({
     color:'#e0f2fe',emissive:'#22d3ee',emissiveIntensity:.95,roughness:.18,metalness:.72,
@@ -3695,8 +3660,8 @@ function addCipherHouseDetails(world) {
     group.add(light)
   }
   ;[
-    [5.5,0,2.35],[10.5,0,2.35],[5.5,0,13.65],[10.5,0,13.65],
-    [2.35,0,6.5],[2.35,0,9.5],[13.65,0,6.5],[13.65,0,9.5],
+    [5.5,0,2.35],[10.5,0,2.35],
+    [5.5,0,13.65],[10.5,0,13.65],
   ].forEach(([x,y,z])=>addExteriorLamp(x,y,z))
 
   const trimMaterials=[
@@ -3790,13 +3755,6 @@ function addCipherHouseDetails(world) {
     addTrimBox(col+.5,level+.032,row+.955,.88,.035,.035,1)
     addTrimBox(col+.045,level+.032,row+.5,.035,.035,.88,2)
     addTrimBox(col+.955,level+.032,row+.5,.035,.035,.88,0)
-  }
-  for(const [row,col,level,horizontal] of [
-    [3,7,5.80,true],[3,8,5.80,true],[10,3,5.80,false],[11,3,5.80,false],
-    [3,10,4.64,true],[3,11,4.64,true],[7,3,4.64,false],[8,3,4.64,false],
-    [5,13,2.32,false],[6,13,2.32,false],[13,7,2.32,true],[13,8,2.32,true],
-  ]){
-    addTrimBox(col+.5,level+.055,row+.5,horizontal ? .82 : .16,.055,horizontal ? .16 : .82,1)
   }
   const stairTreadMat=new THREE.MeshStandardMaterial({
     color:'#061521',emissive:'#22d3ee',emissiveIntensity:.22,roughness:.32,metalness:.42,
