@@ -67,11 +67,17 @@ const COLOSSEUM_STAND_BASE_TOPS = [1.00,1.32,1.64]
 const COLOSSEUM_SEAT_HEIGHT = .18
 const COLOSSEUM_STAND_TOPS = COLOSSEUM_STAND_BASE_TOPS.map(top=>top+COLOSSEUM_SEAT_HEIGHT)
 
-function getMiningVisualTier(viewWidth = 1280) {
+function isCoarsePointerDevice() {
+  if (typeof window === 'undefined') return false
+  return Boolean(window.matchMedia?.('(pointer: coarse)')?.matches)
+}
+
+function getMiningVisualTier(viewWidth = 1280, viewHeight = 720) {
   if (typeof window === 'undefined') return 'high'
-  const coarse = window.matchMedia?.('(pointer: coarse)')?.matches
+  const coarse = isCoarsePointerDevice()
   const lowMem = Number(navigator.deviceMemory) > 0 && navigator.deviceMemory <= 4
-  if (coarse || viewWidth < 640 || lowMem) return 'low'
+  const portraitMobile = viewHeight > viewWidth && viewWidth < 820
+  if (coarse || viewWidth < 640 || lowMem || portraitMobile) return 'low'
   if (viewWidth < 980) return 'medium'
   return 'high'
 }
@@ -5146,6 +5152,8 @@ export default function MiningChain3DFPV({
   const visualPresenceRef = useRef({})
   const lastRemoteFrameRef = useRef(0)
   const visualPerfTierRef = useRef('medium')
+  const lastRenderDispatchRef = useRef(0)
+  const lookDirtyRef = useRef(false)
   const lastAmbientRenderRef = useRef(0)
   const renderRef     = useRef(null)
   const lastCellRef   = useRef({row:initRow??14,col:initCol??14})
@@ -5234,7 +5242,8 @@ export default function MiningChain3DFPV({
     if(!canvas) return
     let renderer
     try{
-      renderer=new THREE.WebGLRenderer({canvas,antialias:true,powerPreference:'high-performance'})
+      const coarse=isCoarsePointerDevice()
+      renderer=new THREE.WebGLRenderer({canvas,antialias:!coarse,powerPreference:'high-performance',stencil:false})
     }catch{return}
     renderer.outputColorSpace=THREE.SRGBColorSpace
     renderer.toneMapping=THREE.ACESFilmicToneMapping
@@ -5258,10 +5267,15 @@ export default function MiningChain3DFPV({
     const iceLight=new THREE.PointLight('#83e6ff',18,24,1.5);iceLight.position.set(14,6,42);scene.add(iceLight)
     const coastLight=new THREE.PointLight('#62eaff',12,22,1.7);coastLight.position.set(42,5,14);scene.add(coastLight)
     const infernoLight=new THREE.PointLight('#ff4b12',24,25,1.45);infernoLight.position.set(42,5,42);scene.add(infernoLight)
+    if(isCoarsePointerDevice()){
+      iceLight.intensity=0;coastLight.intensity=0;infernoLight.intensity=0
+      scene.fog.density=.014
+    }
     const floor=new THREE.Mesh(new THREE.PlaneGeometry(COLS,ROWS),new THREE.MeshStandardMaterial({color:'#07101f',roughness:.98,metalness:.02}))
     floor.rotation.x=-Math.PI/2;floor.position.set(COLS/2,-.012,ROWS/2);scene.add(floor)
     const grid=new THREE.GridHelper(Math.max(COLS,ROWS),Math.max(COLS,ROWS),'#176080','#12334f')
     grid.position.set(COLS/2,.004,ROWS/2);grid.material.transparent=true;grid.material.opacity=.22;scene.add(grid)
+    if(isCoarsePointerDevice()) grid.visible=false
     addNightDome(scene)
     const textures={
       mountain:createProceduralTexture('mountain'),coast:createProceduralTexture('coast'),
@@ -5593,7 +5607,7 @@ export default function MiningChain3DFPV({
     const W = Math.round(canvas.width / dpr)
     const H = Math.round(canvas.height / dpr)
     if (!W||!H) return
-    const visualTier = getMiningVisualTier(W)
+    const visualTier = getMiningVisualTier(W, H)
     visualPerfTierRef.current = visualTier
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
     ctx.imageSmoothingEnabled = false
@@ -5767,7 +5781,7 @@ export default function MiningChain3DFPV({
               // Phase 1 — primary position
               tryCam(camX,cameraZ+aboveOffset,camZworld)
               // Phase 2 — try alternatives when camera is still too close to player
-              if(rb.distanceTo(ra)<springArmMin){
+              if(visualTier!=='low'&&rb.distanceTo(ra)<springArmMin){
                 let bestDist=rb.distanceTo(ra)
                 const bestPos=threeState._v3e.copy(rb)
                 const cx0=gx-cosA*behindDist,              cz0=gy-sinA*behindDist
@@ -5854,7 +5868,7 @@ export default function MiningChain3DFPV({
         // Local avatar lives in the main 3D scene — sync position before render
         syncThreeLocalAvatar(threeState,myIdentity,localSwingT,walkDistRef.current,gx,gy,rawZ,angle,localDead)
         updateHealingRechargeEffects(threeState,time,visualTier)
-        updateAvatarOccluders(threeState)
+        if(visualTier!=='low') updateAvatarOccluders(threeState)
         threeState.renderer.render(threeState.scene,threeState.camera)
         // No separate HUD avatar pass: local player is now a scene object
       }catch(err){
@@ -6989,12 +7003,15 @@ export default function MiningChain3DFPV({
       const {width,height}=container.getBoundingClientRect()
       const cssW = Math.max(1, Math.round(width))
       const cssH = Math.max(1, Math.round(height))
-      // Portrait tablet (≥540px wide, taller than wide): render at 65% resolution
-      // so the raycaster casts fewer strips and CSS upscales the result.
-      // Mobile is narrower than 540px so it keeps normal full resolution.
+      const isMobilePortrait = cssH > cssW && cssW < 820
+      // Portrait tablet (≥540px wide): render at 65% resolution.
       const isPortraitTablet = cssW >= 540 && cssH > cssW
       let physW, physH, dpr
-      if (isPortraitTablet) {
+      if (isMobilePortrait) {
+        dpr = Math.min(0.72, Math.max(0.55, (window.devicePixelRatio || 1) * 0.52))
+        physW = Math.round(cssW * dpr)
+        physH = Math.round(cssH * dpr)
+      } else if (isPortraitTablet) {
         dpr = 0.65
         physW = Math.round(cssW * dpr)
         physH = Math.round(cssH * dpr)
@@ -7139,20 +7156,22 @@ export default function MiningChain3DFPV({
     dragRef.current.x = e.clientX
     dragRef.current.y = e.clientY
     dragRef.current.moved = (dragRef.current.moved||0) + Math.abs(dx) + Math.abs(dy)
-    const sens = dragRef.current.type === 'touch' ? 0.0038 : 0.0019
+    const sens = dragRef.current.type === 'touch' ? 0.0048 : 0.0019
     playerRef.current.angle += dx * sens
     playerRef.current.pitch = Math.max(-MAX_PITCH, Math.min(MAX_PITCH, playerRef.current.pitch + dy * sens))
-    renderRef.current?.()
+    lookDirtyRef.current = true
   },[])
   const handlePointerUp = useCallback((e)=>{
     if(!dragRef.current||dragRef.current.pointerId!==e.pointerId) return
-    if (dragRef.current.type!=='touch' && (dragRef.current.moved||0) < 8) {
-      // Tap/click with minimal movement swings the USB staff.
-      const nowDead=myDeadUntilRef.current&&myDeadUntilRef.current>Date.now()
-      if (!nowDead && performance.now()-swingStartRef.current > SWING_DUR) {
-        swingStartRef.current = performance.now()
-        swingEpochRef.current = Date.now()
-        hitDoneRef.current = false
+    if ((dragRef.current.moved||0) < 12) {
+      if (dragRef.current.type === 'touch') {
+        const nowDead=myDeadUntilRef.current&&myDeadUntilRef.current>Date.now()
+        if (!nowDead && performance.now()-swingStartRef.current > SWING_DUR) {
+          swingStartRef.current = performance.now()
+          swingEpochRef.current = Date.now()
+          hitDoneRef.current = false
+          lookDirtyRef.current = true
+        }
       }
     }
     dragRef.current = null
@@ -7747,11 +7766,18 @@ export default function MiningChain3DFPV({
         if(now2-t<SWING_DUR){needsRender=true;break}
       }
       // Always render when remote players are present so their movement is visible
+      if(lookDirtyRef.current){ lookDirtyRef.current=false; needsRender=true }
       const hasRemotes = Object.keys(presenceRef.current||{}).some(
         w => w.toLowerCase() !== (presenceKeyRef.current||myWalletRef.current||'').toLowerCase()
       )
-      const ambientDue=hasRemotes&&nowMs-lastAmbientRenderRef.current>33
+      const perfTier=visualPerfTierRef.current
+      const ambientInterval=perfTier==='low'?80:33
+      const renderInterval=perfTier==='low'?33:(perfTier==='medium'?20:0)
+      const ambientDue=hasRemotes&&nowMs-lastAmbientRenderRef.current>ambientInterval
+      const renderDue=renderInterval===0||nowMs-lastRenderDispatchRef.current>=renderInterval
       if(needsRender||ambientDue){
+        if(!renderDue&&!needsRender) return
+        lastRenderDispatchRef.current=nowMs
         if(ambientDue) lastAmbientRenderRef.current=nowMs
         renderRef.current?.()
       }
@@ -7764,11 +7790,11 @@ export default function MiningChain3DFPV({
   const updateJoystick=useCallback((clientX,clientY)=>{
     const rect=joystickPadRef.current?.getBoundingClientRect()
     if(!rect)return
-    const radius=rect.width*.34
+    const radius=rect.width*.36
     let dx=clientX-(rect.left+rect.width/2),dy=clientY-(rect.top+rect.height/2)
     const dist=Math.hypot(dx,dy)
     if(dist>radius){dx=dx/dist*radius;dy=dy/dist*radius}
-    const dead=.12
+    const dead=.15
     let x=dx/radius,y=dy/radius
     if(Math.hypot(x,y)<dead){x=0;y=0}
     joystickRef.current.x=x;joystickRef.current.y=y
@@ -7795,8 +7821,21 @@ export default function MiningChain3DFPV({
   return (
     <div ref={containerRef} style={{width:'100%',height:'100%',position:'relative',background:'#020610'}}>
       <canvas ref={webglCanvasRef} aria-hidden="true" style={{position:'absolute',inset:0,width:'100%',height:'100%',display:'block',pointerEvents:'none'}} />
-      <canvas ref={canvasRef} tabIndex={0} aria-label={es?'Vista 3D de minería. Haz clic para capturar el ratón.':'3D mining view. Click to capture the mouse.'}
+      <canvas ref={canvasRef} tabIndex={0} className="mm3-fpv-overlay-canvas" aria-label={es?'Vista 3D de minería. Haz clic para capturar el ratón.':'3D mining view. Click to capture the mouse.'}
         style={{position:'relative',zIndex:1,display:'block',width:'100%',height:'100%',outline:'none',touchAction:'none'}}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerUp}
+      />
+      {/* ── Mobile look pad (right side) — drag to aim, tap to swing ───────── */}
+      <div
+        className="mm3-touch-look-pad"
+        aria-hidden="true"
+        style={{
+          touchAction:'none', WebkitTapHighlightColor:'transparent', userSelect:'none',
+          background:'linear-gradient(90deg, transparent 0%, rgba(34,211,238,.03) 18%, rgba(34,211,238,.06) 100%)',
+        }}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
@@ -7932,9 +7971,9 @@ export default function MiningChain3DFPV({
       )}
       {/* ── Mobile joystick ────────────────────────────────────────────────── */}
       <div ref={joystickPadRef} className="mm3-touch-controls" style={{
-        position:'absolute', zIndex:5,
-        bottom:'calc(var(--mm3-joy-bottom,28px) + env(safe-area-inset-bottom,0px))', left:18,
-        width:130, height:130, borderRadius:'50%',
+        position:'absolute', zIndex:6,
+        bottom:'calc(var(--mm3-joy-bottom,22px) + env(safe-area-inset-bottom,0px))', left:14,
+        width:148, height:148, borderRadius:'50%',
         display:'flex', alignItems:'center', justifyContent:'center',
         background:'radial-gradient(circle at 40% 38%, rgba(34,211,238,.22) 0%, rgba(2,8,20,.80) 72%)',
         border:'1.5px solid rgba(103,232,249,.40)',
@@ -7956,7 +7995,7 @@ export default function MiningChain3DFPV({
           }}/>
         ))}
         <div ref={joystickKnobRef} style={{
-          width:50, height:50, borderRadius:'50%',
+          width:56, height:56, borderRadius:'50%',
           background:'radial-gradient(circle at 38% 36%, rgba(103,232,249,.55), rgba(34,211,238,.22))',
           border:'1.5px solid rgba(165,243,252,.80)',
           boxShadow:'0 0 16px rgba(34,211,238,.40), inset 0 1px 0 rgba(255,255,255,.18)',
@@ -7969,11 +8008,11 @@ export default function MiningChain3DFPV({
         }}>{es?'MOVER':'MOVE'}</span>
       </div>
 
-      {/* ── JUMP + HIT buttons — single right-side stack, no overlap ───────── */}
+      {/* ── JUMP + HIT buttons — bottom-right row, clear of look pad ─────────── */}
       <div className="mm3-touch-controls" style={{
-        position:'absolute', zIndex:5,
-        bottom:'calc(var(--mm3-btn-bottom,24px) + env(safe-area-inset-bottom,0px))', right:16,
-        display:'flex', flexDirection:'column', alignItems:'center', gap:12,
+        position:'absolute', zIndex:6,
+        bottom:'calc(var(--mm3-btn-bottom,18px) + env(safe-area-inset-bottom,0px))', right:12,
+        display:'flex', flexDirection:'row', alignItems:'center', gap:10,
         pointerEvents:'auto',
       }}>
         {/* JUMP */}
@@ -7982,7 +8021,7 @@ export default function MiningChain3DFPV({
           onPointerDown={(e)=>{e.preventDefault();e.stopPropagation();triggerJump()}}
           onPointerUp={(e)=>e.preventDefault()}
           style={{
-            width:74, height:74, borderRadius:'50%',
+            width:80, height:80, borderRadius:'50%',
             background:'radial-gradient(circle at 40% 36%, rgba(56,189,248,.50), rgba(2,18,40,.88))',
             border:'1.5px solid rgba(103,232,249,.60)',
             boxShadow:'0 0 20px rgba(34,211,238,.22), 0 4px 16px rgba(0,0,0,.50), inset 0 1px 0 rgba(165,243,252,.18)',
@@ -8000,7 +8039,7 @@ export default function MiningChain3DFPV({
           onPointerDown={(e)=>{e.preventDefault();e.stopPropagation();triggerAttack()}}
           onPointerUp={(e)=>e.preventDefault()}
           style={{
-            width:74, height:74, borderRadius:'50%',
+            width:80, height:80, borderRadius:'50%',
             background:'radial-gradient(circle at 40% 36%, rgba(249,115,22,.50), rgba(36,8,2,.88))',
             border:'1.5px solid rgba(251,146,60,.58)',
             boxShadow:'0 0 20px rgba(249,115,22,.20), 0 4px 16px rgba(0,0,0,.50), inset 0 1px 0 rgba(254,215,170,.14)',

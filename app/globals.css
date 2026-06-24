@@ -103,6 +103,20 @@ button:disabled { opacity: .4; cursor: not-allowed; }
 .mm3-touch-controls { display: flex !important; }
 .mm3-desktop-controls { display: none !important; }
 .mm3-desktop-only { display: none !important; }
+.mm3-touch-look-pad { display: none !important; }
+@media (pointer: coarse) {
+  .mm3-fpv-overlay-canvas { pointer-events: none !important; }
+  .mm3-touch-look-pad {
+    display: block !important;
+    position: absolute;
+    z-index: 4;
+    top: 11%;
+    left: 38%;
+    right: 0;
+    bottom: calc(108px + env(safe-area-inset-bottom, 0px));
+    pointer-events: auto;
+  }
+}
 @media (hover: hover) and (pointer: fine) {
   .mm3-touch-controls { display: none !important; }
   .mm3-desktop-controls { display: block !important; }
