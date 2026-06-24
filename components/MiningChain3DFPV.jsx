@@ -117,6 +117,129 @@ const HOUSE_DIVING_BOARD = Object.freeze({
   bottom: HOUSE_POOL_DECK_LEVEL + .382,
   top: HOUSE_POOL_DECK_LEVEL + .458,
 })
+
+// Walkable pads that mirror the Cipher House pool meshes — gaps have no support.
+function buildHousePoolWalkSurfaces() {
+  const cx = HOUSE_POOL_CENTER_X
+  const cz = HOUSE_POOL_CENTER_Z
+  const poolInnerW = HOUSE_POOL_INNER.maxX - HOUSE_POOL_INNER.minX
+  const poolInnerD = HOUSE_POOL_INNER.maxZ - HOUSE_POOL_INNER.minZ
+  const poolOuterW = HOUSE_POOL_OUTER.maxX - HOUSE_POOL_OUTER.minX
+  const poolOuterD = HOUSE_POOL_OUTER.maxZ - HOUSE_POOL_OUTER.minZ
+  const poolTerraceW = HOUSE_POOL_TERRACE.maxX - HOUSE_POOL_TERRACE.minX
+  const poolTerraceD = HOUSE_POOL_TERRACE.maxZ - HOUSE_POOL_TERRACE.minZ
+  const poolEntryW = HOUSE_POOL_ENTRY.maxX - HOUSE_POOL_ENTRY.minX
+  const poolEntryHalf = poolEntryW * 0.5
+  const poolEntrySideW = (poolOuterW - poolEntryW) * 0.5
+  const poolWallT = HOUSE_POOL_INNER.minX - HOUSE_POOL_OUTER.minX
+  const rimLevel = HOUSE_POOL_WALL_TOP
+  const surfaces = []
+  const push = (minX, maxX, minZ, maxZ, level) => surfaces.push({ minX, maxX, minZ, maxZ, level })
+
+  const diceCols = 5
+  const diceRows = 3
+  const diceStepX = poolInnerW / (diceCols + 0.2)
+  const diceStepZ = poolInnerD / (diceRows + 0.2)
+  const diceHalf = 0.29
+  for (let dz = 0; dz < diceRows; dz++) {
+    for (let dx = 0; dx < diceCols; dx++) {
+      const tx = cx + (dx - (diceCols - 1) / 2) * diceStepX
+      const tz = cz + (dz - (diceRows - 1) / 2) * diceStepZ
+      push(tx - diceHalf, tx + diceHalf, tz - diceHalf, tz + diceHalf, HOUSE_POOL_FLOOR_LEVEL)
+    }
+  }
+
+  for (const [rx, rz, sx, sz] of [
+    [-(poolEntryHalf + poolEntrySideW * 0.5), -poolOuterD / 2, poolEntrySideW + 0.08, 0.12],
+    [poolEntryHalf + poolEntrySideW * 0.5, -poolOuterD / 2, poolEntrySideW + 0.08, 0.12],
+    [0, poolOuterD / 2, poolOuterW + 0.08, 0.12],
+    [-poolOuterW / 2, 0, 0.12, poolOuterD + 0.08],
+    [poolOuterW / 2, 0, 0.12, poolOuterD + 0.08],
+  ]) {
+    push(cx + rx - sx / 2, cx + rx + sx / 2, cz + rz - sz / 2, cz + rz + sz / 2, rimLevel)
+  }
+
+  push(HOUSE_POOL_OUTER.minX, HOUSE_POOL_ENTRY.minX, HOUSE_POOL_OUTER.minZ, HOUSE_POOL_INNER.minZ, rimLevel)
+  push(HOUSE_POOL_ENTRY.maxX, HOUSE_POOL_OUTER.maxX, HOUSE_POOL_OUTER.minZ, HOUSE_POOL_INNER.minZ, rimLevel)
+  push(HOUSE_POOL_OUTER.minX, HOUSE_POOL_OUTER.maxX, HOUSE_POOL_INNER.maxZ, HOUSE_POOL_OUTER.maxZ, rimLevel)
+  push(HOUSE_POOL_OUTER.minX, HOUSE_POOL_INNER.minX, HOUSE_POOL_INNER.minZ, HOUSE_POOL_INNER.maxZ, rimLevel)
+  push(HOUSE_POOL_INNER.maxX, HOUSE_POOL_OUTER.maxX, HOUSE_POOL_INNER.minZ, HOUSE_POOL_INNER.maxZ, rimLevel)
+
+  push(
+    cx - (poolEntryW + 0.54) / 2, cx + (poolEntryW + 0.54) / 2,
+    cz - poolOuterD / 2 - 0.08 - (poolWallT + 0.58) / 2,
+    cz - poolOuterD / 2 - 0.08 + (poolWallT + 0.58) / 2,
+    rimLevel,
+  )
+  for (const [rx, rz, sx, sz] of [
+    [0, -poolTerraceD / 2 + 0.08, poolEntryW + 0.70, 0.16],
+    [0, -poolOuterD / 2 - 0.58, poolEntryW + 0.38, 0.10],
+  ]) {
+    push(cx + rx - sx / 2, cx + rx + sx / 2, cz + rz - sz / 2, cz + rz + sz / 2, rimLevel)
+  }
+
+  for (const [zRel, width, yRel] of [
+    [-poolInnerD * 0.52, poolEntryW + 0.36, HOUSE_POOL_WALL_TOP - HOUSE_POOL_DECK_LEVEL - 0.08],
+    [-poolInnerD * 0.43, poolEntryW + 0.12, HOUSE_POOL_FLOOR_LEVEL - HOUSE_POOL_DECK_LEVEL + 0.56],
+    [-poolInnerD * 0.34, poolEntryW - 0.02, HOUSE_POOL_FLOOR_LEVEL - HOUSE_POOL_DECK_LEVEL + 0.36],
+  ]) {
+    push(cx - width / 2, cx + width / 2, cz + zRel - 0.06, cz + zRel + 0.06, HOUSE_POOL_DECK_LEVEL + yRel)
+  }
+
+  for (const [zRel, width, yRel] of [
+    [poolInnerD * 0.26, 0.92, HOUSE_POOL_FLOOR_LEVEL - HOUSE_POOL_DECK_LEVEL + 0.12],
+    [poolInnerD * 0.34, 0.72, HOUSE_POOL_FLOOR_LEVEL - HOUSE_POOL_DECK_LEVEL + 0.28],
+    [poolInnerD * 0.42, 0.52, HOUSE_POOL_FLOOR_LEVEL - HOUSE_POOL_DECK_LEVEL + 0.44],
+    [poolInnerD * 0.50, 0.34, HOUSE_POOL_FLOOR_LEVEL - HOUSE_POOL_DECK_LEVEL + 0.60],
+  ]) {
+    push(cx - 0.92 - width / 2, cx - 0.92 + width / 2, cz + zRel - 0.06, cz + zRel + 0.06, HOUSE_POOL_DECK_LEVEL + yRel)
+  }
+
+  for (const lx of [cx - 1.15, cx + 1.15]) {
+    const lz = cz - 2.23
+    push(lx - 0.26, lx + 0.26, lz - 0.26, lz + 0.26, rimLevel)
+  }
+
+  push(
+    HOUSE_POOL_TERRACE.minX, HOUSE_POOL_TERRACE.maxX,
+    cz - 2.40, HOUSE_POOL_TERRACE.minZ + 0.14,
+    rimLevel,
+  )
+
+  const terraceSideW = (poolTerraceW - poolOuterW) * 0.5
+  const terraceSideD = (poolTerraceD - poolOuterD) * 0.5
+  for (const [rx, rz, sx, sz] of [
+    [0, -(poolOuterD + terraceSideD) / 2, poolTerraceW, terraceSideD],
+    [0, (poolOuterD + terraceSideD) / 2, poolTerraceW, terraceSideD],
+    [-(poolOuterW + terraceSideW) / 2, 0, terraceSideW, poolOuterD],
+    [(poolOuterW + terraceSideW) / 2, 0, terraceSideW, poolOuterD],
+  ]) {
+    push(cx + rx - sx / 2, cx + rx + sx / 2, cz + rz - sz / 2, cz + rz + sz / 2, rimLevel)
+  }
+
+  push(
+    HOUSE_DIVING_BOARD.minX, HOUSE_DIVING_BOARD.maxX,
+    HOUSE_DIVING_BOARD.minZ, HOUSE_DIVING_BOARD.maxZ,
+    HOUSE_DIVING_BOARD.top,
+  )
+  push(cx - 0.35, cx + 0.35, cz + poolOuterD / 2 + 0.95, cz + poolOuterD / 2 + 1.05, HOUSE_DIVING_BOARD.top - 0.32)
+
+  return surfaces
+}
+
+const HOUSE_POOL_WALK_SURFACES = buildHousePoolWalkSurfaces()
+
+function housePoolWalkSupportAt(gx, gy, playerZ, radius = PLAYER_R * 0.78) {
+  let support = 0
+  for (const surface of HOUSE_POOL_WALK_SURFACES) {
+    if (playerZ < surface.level - 0.48) continue
+    if (circleTouchesAabb(gx, gy, surface, radius)) {
+      support = Math.max(support, surface.level)
+    }
+  }
+  return support
+}
+
 const HOUSE_STAIR_TOP_LEVEL = 5.80
 const HOUSE_STAIR_PATH = [
   [12,10],[11,10],[10,10],[9,10],[8,10],
@@ -1622,8 +1745,7 @@ function circleTouchesAabb(gx, gy, bounds, radius = PLAYER_R) {
 }
 
 function poolFloorSupportAt(gx, gy, playerZ, radius = PLAYER_R * 0.76) {
-  if (!circleTouchesAabb(gx, gy, HOUSE_POOL_INNER, radius)) return 0
-  return playerZ >= HOUSE_POOL_FLOOR_LEVEL - .48 ? HOUSE_POOL_FLOOR_LEVEL : 0
+  return housePoolWalkSupportAt(gx, gy, playerZ, radius)
 }
 
 function isInsideHousePool(gx, gy, playerZ = 0, radius = PLAYER_R * .35) {
@@ -1644,13 +1766,12 @@ function poolWallBounds() {
 }
 
 function isInsidePoolTerrace(gx, gy, radius = PLAYER_R * 0.78) {
-  return circleTouchesAabb(gx, gy, HOUSE_POOL_TERRACE, radius) &&
+  return housePoolWalkSupportAt(gx, gy, HOUSE_POOL_WALL_TOP, radius) > 0 &&
     !circleTouchesAabb(gx, gy, HOUSE_POOL_INNER, radius * 0.65)
 }
 
 function poolTerraceSupportAt(gx, gy, playerZ, radius = PLAYER_R * 0.78) {
-  if (!isInsidePoolTerrace(gx, gy, radius)) return 0
-  return playerZ >= HOUSE_POOL_WALL_TOP - .32 ? HOUSE_POOL_WALL_TOP : 0
+  return housePoolWalkSupportAt(gx, gy, playerZ, radius)
 }
 
 function poolTerraceRailBounds() {
@@ -1688,8 +1809,7 @@ function poolWallBlocksBody(gx, gy, playerZ) {
 }
 
 function divingBoardSupportAt(gx, gy, playerZ, radius = PLAYER_R * 0.76) {
-  if (!circleTouchesAabb(gx, gy, HOUSE_DIVING_BOARD, radius)) return 0
-  return playerZ >= HOUSE_DIVING_BOARD.top - .32 ? HOUSE_DIVING_BOARD.top : 0
+  return housePoolWalkSupportAt(gx, gy, playerZ, radius)
 }
 
 function divingBoardBlocksBody(gx, gy, playerZ) {
@@ -1778,17 +1898,8 @@ function hitsSolidWall(gx, gy, cellMap, obsSet, playerZ = 0) {
 }
 
 function supportHeightAt(gx, gy, playerZ, cellMap, obsSet) {
-  const boardSupport = divingBoardSupportAt(gx, gy, playerZ)
-  if (boardSupport) return boardSupport
-  const railSupport = poolTerraceRailSupportAt(gx, gy, playerZ)
-  if (railSupport) return railSupport
-  const terraceSupport = poolTerraceSupportAt(gx, gy, playerZ)
-  if (terraceSupport) return terraceSupport
-  const wallSupport = poolWallSupportAt(gx, gy, playerZ)
-  if (wallSupport) return wallSupport
-  const poolSupport = poolFloorSupportAt(gx, gy, playerZ)
-  if (poolSupport) return poolSupport
-  let height = 0
+  let height = housePoolWalkSupportAt(gx, gy, playerZ)
+  height = Math.max(height, poolTerraceRailSupportAt(gx, gy, playerZ))
   const radius = PLAYER_R * 0.82
   for (let row = Math.floor(gy - radius); row <= Math.floor(gy + radius); row++) {
     for (let col = Math.floor(gx - radius); col <= Math.floor(gx + radius); col++) {
@@ -3684,9 +3795,10 @@ function addCipherHouseDetails(world) {
   const poolWater=new THREE.Mesh(
     new THREE.PlaneGeometry(poolInnerW-.08,poolInnerD-.08,18,12),
     new THREE.MeshPhysicalMaterial({
-      color:'#7f1d1d',emissive:'#dc2626',emissiveIntensity:.58,
-      transparent:true,opacity:.48,roughness:.025,metalness:.08,
-      clearcoat:1,clearcoatRoughness:.05,side:THREE.DoubleSide,
+      color:'#ef4444',emissive:'#991b1b',emissiveIntensity:.42,
+      transparent:true,opacity:.34,roughness:.02,metalness:.04,
+      clearcoat:.85,clearcoatRoughness:.04,side:THREE.DoubleSide,
+      depthWrite:false,
     }),
   )
   poolWater.rotation.x=-Math.PI/2
