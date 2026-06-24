@@ -2183,6 +2183,12 @@ function castRay(wx, wy, angle, cellMap, obsSet, maxDist = VISUAL_RANGE) {
     if (perpDist > maxDist) return {perpDist:maxDist,cell:null,side,mx,my,hit:false}
     if (mx<0||mx>=COLS||my<0||my>=ROWS) return {perpDist:Math.min(perpDist,maxDist),cell:null,side,mx,my,hit:false}
     const key = `${my},${mx}`
+    const cell = cellMap.get(key) || null
+    // Interactive nodes share a cell with house floor geometry — always prefer the
+    // marker so the facing HUD/crosshair show portal/dice/chain details, not WALL.
+    if (cell?.isPortalNode || cell?.isNodeDiceNode || cell?.isChainNode || cell?.isMarket) {
+      return { perpDist, cell, side, mx, my, hit: true }
+    }
     // Decorative obstacle: solid wall, no doorway — always a hit
     const obsData = obsSet?.get?.(key) || null
     if(obsData?.shape==='ramp') continue
@@ -2197,7 +2203,6 @@ function castRay(wx, wy, angle, cellMap, obsSet, maxDist = VISUAL_RANGE) {
       continue
     }
     if (obsData) return {perpDist, cell:{isObstacle:true,...obsData}, side, mx, my, hit:true}
-    const cell = cellMap.get(key) || null
     if (!cell) continue  // Empty corridor: ray passes through
     return {perpDist, cell, side, mx, my, hit:true}
   }
@@ -2487,8 +2492,11 @@ function drawMinimap(ctx, gr, gc, angle, cellMap, presenceMap, myWallet, W, H, c
 function drawFacingHUD(ctx, W, H, fwdCell, fwdMx, fwdMy, myWallet, es, dist, obsMap, chainStatsBottom = 72, mineProgress = 0, playerLevel = 0, globalMm3 = 0, chainSolvers = [], chainDemineActive = false, chainDemineHits = 100, nodeDiceState = null) {
   if (fwdMx < 0 || fwdMy < 0 || fwdMx >= COLS || fwdMy >= ROWS) return
 
-  // Double-check: use both cell flag and obsMap to catch any desync
-  const isObs = fwdCell?.isObstacle || obsMap?.has(`${fwdMy},${fwdMx}`)
+  // Double-check: use both cell flag and obsMap to catch any desync — but never
+  // downgrade an interactive portal/node/market to "WALL" just because house floor
+  // geometry occupies the same cell.
+  const isInteractive = fwdCell?.isPortalNode || fwdCell?.isNodeDiceNode || fwdCell?.isChainNode || fwdCell?.isMarket
+  const isObs = !isInteractive && (fwdCell?.isObstacle || obsMap?.has(`${fwdMy},${fwdMx}`))
   const CARD_PW = 164
   const CARD_PX = 6
   const CARD_PY = chainStatsBottom + 4
@@ -6911,7 +6919,9 @@ export default function MiningChain3DFPV({
     const crosshairHitsFace = viewCenterY >= Math.min(fwdProjectedTop, fwdProjectedBottom)
       && viewCenterY <= Math.max(fwdProjectedTop, fwdProjectedBottom)
     const fwdIsObs = fwdCell?.isObstacle || validObstaclesRef.current?.has(`${fwdMy},${fwdMx}`)
-    if (fwdIsObs) {
+    const fwdIsInteractive = fwdCell?.isPortalNode || fwdCell?.isNodeDiceNode || fwdCell?.isChainNode || fwdCell?.isMarket
+    const fwdTreatAsObs = fwdIsObs && !fwdIsInteractive
+    if (fwdTreatAsObs) {
       // Structural wall: no labels, no hex, no prompts
     } else if (fwdFaceSolid && crosshairHitsFace) {
     const isMineWall = myWallet && fwdCell?.owner?.toLowerCase() === myWallet.toLowerCase()
@@ -7258,7 +7268,8 @@ export default function MiningChain3DFPV({
 
     // ── Facing block info HUD — left side, below MM3 BLOCK CHAIN panel ────────
     if (fwdDist <= 2.0 && !enemyTargetRef.current?.wallet) {
-      const _isObsHUD = fwdCell?.isObstacle || validObstaclesRef.current?.has(`${fwdMy},${fwdMx}`)
+      const _isInteractive = fwdCell?.isPortalNode || fwdCell?.isNodeDiceNode || fwdCell?.isChainNode || fwdCell?.isMarket
+      const _isObsHUD = !_isInteractive && (fwdCell?.isObstacle || validObstaclesRef.current?.has(`${fwdMy},${fwdMx}`))
       const _maxHudDist = (!_isObsHUD && fwdCell?.isMarket && !fwdCell?.owner) ? 1.5 : 2.0
       if ((_isObsHUD || fwdFaceSolid) && fwdDist <= _maxHudDist) {
         drawFacingHUD(ctx, W, H, fwdCell, fwdMx, fwdMy, myWallet, es, fwdDist, validObstaclesRef.current, chainStatsBottom ?? 72, mineProgressRef.current, playerLevelRef.current, globalMm3Ref.current, chainSolversArrRef.current, chainDemineActiveRef.current, chainDemineHitsRef.current, nodeDiceStateRef.current)
