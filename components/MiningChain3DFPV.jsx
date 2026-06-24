@@ -1621,9 +1621,9 @@ function circleTouchesAabb(gx, gy, bounds, radius = PLAYER_R) {
   return dx * dx + dy * dy < radius * radius
 }
 
-function poolFloorSupportAt(gx, gy, playerZ, radius = PLAYER_R * .82) {
+function poolFloorSupportAt(gx, gy, playerZ, radius = PLAYER_R * 0.76) {
   if (!circleTouchesAabb(gx, gy, HOUSE_POOL_INNER, radius)) return 0
-  return playerZ >= HOUSE_POOL_FLOOR_LEVEL - .50 ? HOUSE_POOL_FLOOR_LEVEL : 0
+  return playerZ >= HOUSE_POOL_FLOOR_LEVEL - .48 ? HOUSE_POOL_FLOOR_LEVEL : 0
 }
 
 function isInsideHousePool(gx, gy, playerZ = 0, radius = PLAYER_R * .35) {
@@ -1643,19 +1643,19 @@ function poolWallBounds() {
   ]
 }
 
-function isInsidePoolTerrace(gx, gy, radius = PLAYER_R * .82) {
+function isInsidePoolTerrace(gx, gy, radius = PLAYER_R * 0.78) {
   return circleTouchesAabb(gx, gy, HOUSE_POOL_TERRACE, radius) &&
-    !circleTouchesAabb(gx, gy, HOUSE_POOL_INNER, radius * .6)
+    !circleTouchesAabb(gx, gy, HOUSE_POOL_INNER, radius * 0.65)
 }
 
-function poolTerraceSupportAt(gx, gy, playerZ, radius = PLAYER_R * .82) {
+function poolTerraceSupportAt(gx, gy, playerZ, radius = PLAYER_R * 0.78) {
   if (!isInsidePoolTerrace(gx, gy, radius)) return 0
-  return playerZ >= HOUSE_POOL_WALL_TOP - .30 ? HOUSE_POOL_WALL_TOP : 0
+  return playerZ >= HOUSE_POOL_WALL_TOP - .32 ? HOUSE_POOL_WALL_TOP : 0
 }
 
 function poolTerraceRailBounds() {
-  const t = .18   // slightly thicker rails for visibility
-  const gapHalf = 1.40  // wider entry gap for easier access while walking
+  const t = .14   // reduced rail thickness to minimize collision issues
+  const gapHalf = 1.50  // wider entry gap to allow walking without hitting rails
   return [
     { minX: HOUSE_POOL_TERRACE.minX, maxX: HOUSE_POOL_CENTER_X - gapHalf, minZ: HOUSE_POOL_TERRACE.minZ, maxZ: HOUSE_POOL_TERRACE.minZ + t },
     { minX: HOUSE_POOL_CENTER_X + gapHalf, maxX: HOUSE_POOL_TERRACE.maxX, minZ: HOUSE_POOL_TERRACE.minZ, maxZ: HOUSE_POOL_TERRACE.minZ + t },
@@ -1667,35 +1667,35 @@ function poolTerraceRailBounds() {
 
 const HOUSE_POOL_RAIL_TOP = HOUSE_POOL_WALL_TOP + .64
 
-function poolTerraceRailSupportAt(gx, gy, playerZ, radius = PLAYER_R * 1.20) {
+function poolTerraceRailSupportAt(gx, gy, playerZ, radius = PLAYER_R * 0.82) {
   if (!poolTerraceRailBounds().some(bounds => circleTouchesAabb(gx, gy, bounds, radius))) return 0
-  return playerZ >= HOUSE_POOL_RAIL_TOP - .28 ? HOUSE_POOL_RAIL_TOP : 0
+  return playerZ >= HOUSE_POOL_RAIL_TOP - .32 ? HOUSE_POOL_RAIL_TOP : 0
 }
 
 function poolTerraceRailBlocksBody(gx, gy, playerZ) {
   if (!poolTerraceRailBounds().some(bounds => circleTouchesAabb(gx, gy, bounds, PLAYER_R))) return false
-  return playerZ > HOUSE_POOL_WALL_TOP - .60 && playerZ < HOUSE_POOL_RAIL_TOP - .06
+  return playerZ > HOUSE_POOL_WALL_TOP - .55 && playerZ < HOUSE_POOL_RAIL_TOP - .08
 }
 
-function poolWallSupportAt(gx, gy, playerZ, radius = PLAYER_R * .82) {
+function poolWallSupportAt(gx, gy, playerZ, radius = PLAYER_R * 0.76) {
   if (gx > HOUSE_POOL_INNER.minX && gx < HOUSE_POOL_INNER.maxX && gy > HOUSE_POOL_INNER.minZ && gy < HOUSE_POOL_INNER.maxZ) return 0
   if (!poolWallBounds().some(bounds => circleTouchesAabb(gx, gy, bounds, radius))) return 0
-  return playerZ >= HOUSE_POOL_WALL_TOP - .28 ? HOUSE_POOL_WALL_TOP : 0
+  return playerZ >= HOUSE_POOL_WALL_TOP - .32 ? HOUSE_POOL_WALL_TOP : 0
 }
 
 function poolWallBlocksBody(gx, gy, playerZ) {
   if (!poolWallBounds().some(bounds => circleTouchesAabb(gx, gy, bounds, PLAYER_R))) return false
-  return playerZ < HOUSE_POOL_WALL_TOP - .06 && playerZ + PLAYER_BODY_H > HOUSE_POOL_FLOOR_LEVEL + .04
+  return playerZ < HOUSE_POOL_WALL_TOP - .10 && playerZ + PLAYER_BODY_H > HOUSE_POOL_FLOOR_LEVEL + .02
 }
 
-function divingBoardSupportAt(gx, gy, playerZ, radius = PLAYER_R * .82) {
+function divingBoardSupportAt(gx, gy, playerZ, radius = PLAYER_R * 0.76) {
   if (!circleTouchesAabb(gx, gy, HOUSE_DIVING_BOARD, radius)) return 0
-  return playerZ >= HOUSE_DIVING_BOARD.top - .28 ? HOUSE_DIVING_BOARD.top : 0
+  return playerZ >= HOUSE_DIVING_BOARD.top - .32 ? HOUSE_DIVING_BOARD.top : 0
 }
 
 function divingBoardBlocksBody(gx, gy, playerZ) {
   if (!circleTouchesAabb(gx, gy, HOUSE_DIVING_BOARD, PLAYER_R)) return false
-  return playerZ < HOUSE_DIVING_BOARD.top - .08 && playerZ + PLAYER_BODY_H > HOUSE_DIVING_BOARD.bottom + .04
+  return playerZ < HOUSE_DIVING_BOARD.top - .10 && playerZ + PLAYER_BODY_H > HOUSE_DIVING_BOARD.bottom + .02
 }
 
 function houseFloorSupportAt(row, col, playerZ) {
@@ -6985,8 +6985,8 @@ export default function MiningChain3DFPV({
           cellMapRef.current,
           validObstaclesRef.current,
         )
-        const floorZ = supportHeight&&p.z>=supportHeight-.24 ? supportHeight : 0
-        if(floorZ>p.z&&floorZ-p.z<=.24&&p.vz<=0){
+        const floorZ = supportHeight&&p.z>=supportHeight-.28 ? supportHeight : 0
+        if(floorZ>p.z&&floorZ-p.z<=.28&&p.vz<=0){
           p.z=floorZ;p.vz=0;p.jumps=0;needsRender=true
         }
         if(p.z > floorZ || p.vz > 0){
