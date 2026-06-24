@@ -345,6 +345,14 @@ function makeColosseumStandEntries() {
 }
 
 const CIPHER_HOUSE_DOOR_CELLS = new Set(['3,5', '3,6', '13,9', '13,10'])
+const CIPHER_HOUSE_DOOR_INTERIOR = new Map([
+  ['4,5', 'south'], ['4,6', 'south'],
+  ['12,9', 'north'], ['12,10', 'north'],
+])
+const CIPHER_HOUSE_DOORS = [
+  { row: 3, cols: [5, 6] },
+  { row: 13, cols: [9, 10] },
+]
 const HOUSE_WINDOW_PANE_Y = [.82, 1.98, 3.14, 4.30, 5.46]
 const HOUSE_WINDOW_PANE_H = .56
 const HOUSE_WINDOW_PANE_W = .74
@@ -433,6 +441,15 @@ function makeCipherHouseEntries() {
       const key=`${row},${col}`
       const isRoof=false
       if(HOUSE_STAIR_KEYS.has(key)||HOUSE_MAIN_FLOOR_HOLES.has(key)) continue
+      const rampDir=CIPHER_HOUSE_DOOR_INTERIOR.get(key)
+      if(rampDir){
+        add(row,col,{
+          base:HOUSE_BLUE_RGB,glow:[103,232,249],kind:'hash',label:'CIPHER DOOR STEP',
+          bottom:0,height:HOUSE_MAIN_FLOOR_LEVEL,shape:'ramp',direction:rampDir,
+          isHouse:true,isHouseFloor:true,isHouseDoorStep:true,
+        })
+        continue
+      }
       const diceFace=((Math.abs(row*17+col*31+(row^col)*7))%6)+1
       add(row,col,{
         base:isRoof?HOUSE_BLACK_RGB:HOUSE_BLUE_RGB,
@@ -445,23 +462,9 @@ function makeCipherHouseEntries() {
       })
     }
   }
-  // Only CIPHER_HOUSE_DOOR_CELLS stay open; windows use solid glass; all other perimeter is solid.
+  // Door openings stay empty; ramps live on the interior row behind each doorway.
   for (const key of CIPHER_HOUSE_DOOR_CELLS) {
-    const [row, col] = key.split(',').map(Number)
-    const direction = row === CIPHER_HOUSE_BOUNDS.minRow ? 'south' : 'north'
-    add(row, col, {
-      base: HOUSE_BLUE_RGB,
-      glow: [103, 232, 249],
-      kind: 'hash',
-      label: 'CIPHER DOOR RAMP',
-      bottom: 0,
-      height: HOUSE_MAIN_FLOOR_LEVEL,
-      shape: 'ramp',
-      direction,
-      isHouse: true,
-      isHouseDoor: true,
-      isHouseFloor: true,
-    })
+    entries.push([key, { isHouse: true, isHouseDoor: true, label: 'CIPHER DOOR' }])
   }
   return entries
 }
@@ -1845,7 +1848,8 @@ function houseFloorSupportAt(row, col, playerZ) {
   const key = `${row},${col}`
   const onDoor = CIPHER_HOUSE_DOOR_CELLS.has(key)
   if (
-    (insideHouse || onDoor) &&
+    insideHouse &&
+    !onDoor &&
     !HOUSE_STAIR_KEYS.has(key) &&
     !HOUSE_MAIN_FLOOR_HOLES.has(key) &&
     playerZ >= HOUSE_MAIN_FLOOR_LEVEL - 0.08
@@ -1869,6 +1873,7 @@ function solidTopAt(row, col, cellMap, obsSet) {
 function solidSpanAt(row, col, cellMap, obsSet) {
   const key=`${row},${col}`
   const obstacle=obsSet?.get?.(key)
+  if(obstacle?.isHouseDoor) return null
   if(obstacle&&!isOrganicShape(obstacle)) return {bottom:obstacleBottom(obstacle),top:obstacleTop(obstacle)}
   if(cellMap?.has(key)){
     const cell=cellMap.get(key)
@@ -1890,6 +1895,7 @@ function hitsSolidWall(gx, gy, cellMap, obsSet, playerZ = 0) {
   for (let row = minRow; row <= maxRow; row++) {
     for (let col = minCol; col <= maxCol; col++) {
       const obstacle=obsSet?.get?.(`${row},${col}`)
+      if(obstacle?.isHouseDoor) continue
       if(obstacle?.shape==='sphere'||obstacle?.shape==='tree'){
         const top=obstacleTop(obstacle)
         if(playerZ<top-.04&&circleTouchesRoundObstacle(gx,gy,row,col,obstacle)) return true
@@ -3642,56 +3648,37 @@ function addCipherHouseDetails(world) {
   const frameMaterial=new THREE.MeshStandardMaterial({
     color:'#22d3ee',emissive:'#0891b2',emissiveIntensity:.74,roughness:.34,metalness:.72,
   })
-  const addDoorFrame=(rowCenter,colCenter,horizontal)=>{
-    const {minRow,maxRow,minCol,maxCol}=CIPHER_HOUSE_BOUNDS
-    const onNorth=Math.abs(rowCenter-minRow)<.01
-    const onSouth=Math.abs(rowCenter-maxRow)<.01
-    const onWest=Math.abs(colCenter-minCol)<.01
-    const onEast=Math.abs(colCenter-maxCol)<.01
-    const faceInset=HOUSE_WINDOW_FACE_INSET+.004
-    const frame=new THREE.Group()
-    const px=onWest?colCenter+faceInset:onEast?colCenter+1-faceInset:colCenter
-    const pz=onNorth?rowCenter+faceInset:onSouth?rowCenter+1-faceInset:rowCenter
-    frame.position.set(px,0,pz)
-    const postGeometry=horizontal
-      ? new THREE.BoxGeometry(.11,1.82,.14)
-      : new THREE.BoxGeometry(.14,1.82,.11)
-    for(const offset of [-.94,.94]){
-      const post=new THREE.Mesh(postGeometry,frameMaterial)
-      post.position.set(horizontal?offset:0,.91,horizontal?0:offset)
-      frame.add(post)
-    }
-    const lintel=new THREE.Mesh(
-      horizontal?new THREE.BoxGeometry(1.99,.13,.14):new THREE.BoxGeometry(.14,.13,1.99),
-      frameMaterial,
-    )
-    lintel.position.y=1.82
-    frame.add(lintel)
-    group.add(frame)
-  }
-  addDoorFrame(3,5.5,true)
-  addDoorFrame(13,9.5,true)
-
-  const sillMaterial=new THREE.MeshStandardMaterial({
+  const doorSillMaterial=new THREE.MeshStandardMaterial({
     color:'#102033',emissive:'#0891b2',emissiveIntensity:.42,roughness:.34,metalness:.62,
   })
-  const matMaterial=new THREE.MeshBasicMaterial({color:'#164e63',transparent:true,opacity:.82,depthWrite:false})
-  const addDoorThreshold=(row,col,horizontal)=>{
-    const sill=new THREE.Mesh(
-      horizontal?new THREE.BoxGeometry(1.08,.045,.18):new THREE.BoxGeometry(.18,.045,1.08),
-      sillMaterial,
-    )
-    sill.position.set(col+.5,HOUSE_MAIN_FLOOR_LEVEL+.018,row+.5)
-    group.add(sill)
-    const mat=new THREE.Mesh(
-      horizontal?new THREE.BoxGeometry(.92,.012,.62):new THREE.BoxGeometry(.62,.012,.92),
-      matMaterial,
-    )
-    mat.position.set(col+.5,HOUSE_MAIN_FLOOR_LEVEL+.042,row+(horizontal?-.34:.5))
-    group.add(mat)
+  const addDoubleDoorFrame=(row,cols)=>{
+    const colCenter=(cols[0]+cols[1]+1)/2
+    const {minRow,maxRow}=CIPHER_HOUSE_BOUNDS
+    const onNorth=row===minRow
+    const onSouth=row===maxRow
+    const faceInset=HOUSE_WINDOW_FACE_INSET+.004
+    const px=colCenter
+    const pz=onNorth?row+faceInset:onSouth?row+1-faceInset:row+.5
+    const doorW=2.0
+    const doorH=2.08
+    const frame=new THREE.Group()
+    frame.position.set(px,0,pz)
+    const postGeo=new THREE.BoxGeometry(.10,doorH,.12)
+    const postInset=doorW*.5-.06
+    for(const offset of [-postInset,postInset]){
+      const post=new THREE.Mesh(postGeo,frameMaterial)
+      post.position.set(offset,doorH*.5,0)
+      frame.add(post)
+    }
+    const lintel=new THREE.Mesh(new THREE.BoxGeometry(doorW,.12,.12),frameMaterial)
+    lintel.position.y=doorH
+    frame.add(lintel)
+    const sill=new THREE.Mesh(new THREE.BoxGeometry(doorW,.05,.14),doorSillMaterial)
+    sill.position.y=.025
+    frame.add(sill)
+    group.add(frame)
   }
-  addDoorThreshold(3,5.5,true)
-  addDoorThreshold(13,9.5,true)
+  for(const {row,cols} of CIPHER_HOUSE_DOORS) addDoubleDoorFrame(row,cols)
 
   const lampMat=new THREE.MeshStandardMaterial({
     color:'#e0f2fe',emissive:'#22d3ee',emissiveIntensity:.95,roughness:.18,metalness:.72,
@@ -3708,8 +3695,8 @@ function addCipherHouseDetails(world) {
     group.add(light)
   }
   ;[
-    [5.5,0,2.35],[10.5,0,2.35],
-    [5.5,0,13.65],[10.5,0,13.65],
+    [6,0,2.35],[10,0,2.35],
+    [6,0,13.65],[10,0,13.65],
   ].forEach(([x,y,z])=>addExteriorLamp(x,y,z))
 
   const trimMaterials=[
@@ -4548,7 +4535,7 @@ function rebuildThreeWorld(state,cellMap,obstacles) {
   }
   if(houseEntries.length){
     const houseGroups={
-      wall:houseEntries.filter(([,obstacle])=>!obstacle.isHouseFloor&&!obstacle.isHouseStair&&!obstacle.isHouseRail&&!obstacle.isHouseWindow),
+      wall:houseEntries.filter(([,obstacle])=>!obstacle.isHouseFloor&&!obstacle.isHouseStair&&!obstacle.isHouseRail&&!obstacle.isHouseWindow&&!obstacle.isHouseDoor),
       rail:houseEntries.filter(([,obstacle])=>obstacle.isHouseRail),
       floor:houseEntries.filter(([,obstacle])=>obstacle.isHouseFloor&&!obstacle.isHouseRoof),
       roof:houseEntries.filter(([,obstacle])=>obstacle.isHouseRoof),
@@ -5480,20 +5467,21 @@ export default function MiningChain3DFPV({
     addOrganicObstacles(valid,reserved,cellMap)
     clearCipherHouseApproaches(valid)
     for (const key of CIPHER_HOUSE_DOOR_CELLS) {
-      const [row, col] = key.split(',').map(Number)
-      const direction = row === CIPHER_HOUSE_BOUNDS.minRow ? 'south' : 'north'
+      valid.set(key, { isHouse: true, isHouseDoor: true, label: 'CIPHER DOOR' })
+    }
+    for (const [key, direction] of CIPHER_HOUSE_DOOR_INTERIOR) {
       valid.set(key, chainObstacle(key, {
         base: HOUSE_BLUE_RGB,
         glow: [103, 232, 249],
         kind: 'hash',
-        label: 'CIPHER DOOR RAMP',
+        label: 'CIPHER DOOR STEP',
         bottom: 0,
         height: HOUSE_MAIN_FLOOR_LEVEL,
         shape: 'ramp',
         direction,
         isHouse: true,
-        isHouseDoor: true,
         isHouseFloor: true,
+        isHouseDoorStep: true,
       }))
     }
 
