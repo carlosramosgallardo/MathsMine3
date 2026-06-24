@@ -265,22 +265,30 @@ function housePoolWalkSupportAt(gx, gy, playerZ, radius = PLAYER_R * 0.78) {
   return support
 }
 
-const HOUSE_STAIR_TOP_LEVEL = 5.80
-const HOUSE_STAIR_PATH = [
-  [12,10],[11,10],[10,10],[9,10],[8,10],
-  [7,10],[6,10],[5,10],[4,10],[4,9],
-  [4,8],[4,7],[4,6],[4,5],[4,4],
-  [5,4],[6,4],[7,4],[7,5],[6,5],
-  [5,5],[5,6],[6,6],[7,6],[7,7],
-  [6,7],[5,7],
-]
-const HOUSE_STAIR_CELLS = HOUSE_STAIR_PATH.map(([row,col],index)=>[
-  row,
-  col,
-  Number((((index+1)*HOUSE_STAIR_TOP_LEVEL)/HOUSE_STAIR_PATH.length).toFixed(2)),
-])
+// Interior staircase: a short, gentle ramp (rendered as discrete steps, but with
+// smooth ramp collision so it is always climbable) that rises from the main floor
+// straight up to the rooftop pool terrace. It climbs south along cols 5–6 — in
+// line with the north door and the terrace's rail entry gap — and lands flush on
+// the visible terrace, so there is no invisible roof to walk on. The old winding
+// ground→roof staircase (whose lower half duplicated the new exterior entrances)
+// is gone.
+const HOUSE_INTERIOR_STAIR_CELLS = (() => {
+  const cols = [6, 7]   // beside the north door, clear of the training portal at 5,5
+  const rows = [5, 6, 7, 8]
+  const base = HOUSE_MAIN_FLOOR_LEVEL          // 3.48 — interior floor
+  const topLevel = HOUSE_POOL_WALL_TOP          // ~6.02 — terrace walk level
+  const n = rows.length
+  const cells = []
+  rows.forEach((row, i) => {
+    const bottom = base + ((topLevel - base) * i) / n
+    const top = base + ((topLevel - base) * (i + 1)) / n
+    for (const col of cols) cells.push({ key: `${row},${col}`, row, col, dir: 'south', bottom, top })
+  })
+  return cells
+})()
 const HOUSE_ACCESS_DECKS = []
-const HOUSE_STAIR_KEYS = new Set(HOUSE_STAIR_CELLS.map(([row,col])=>`${row},${col}`))
+const HOUSE_STAIR_CELLS = []
+const HOUSE_STAIR_KEYS = new Set(HOUSE_INTERIOR_STAIR_CELLS.map(c => c.key))
 const HOUSE_MAIN_FLOOR_HOLES = new Set(HOUSE_ACCESS_DECKS
   .filter(({level})=>Math.abs(level - HOUSE_MAIN_FLOOR_LEVEL) < HOUSE_MIN_CEILING_GAP)
   .map(({row,col})=>`${row},${col}`))
@@ -416,6 +424,14 @@ const CIPHER_HOUSE_WINDOWS = new Set([
   '5,13', '6,13',
   '13,5', '13,6',
 ])
+// Ground-level escape doorways: the floor is raised on stilts, so a player who
+// falls beneath it would otherwise be sealed in. These perimeter cells keep a
+// wall above head height but stay open at ground level — one per wall so a fallen
+// player can always walk back out.
+const CIPHER_HOUSE_LOWER_DOORS = new Set([
+  '3,8', '13,8', '7,3', '11,13',
+])
+const LOWER_DOOR_CLEAR = 2.35  // open height of the ground-level escape doorways
 
 const CIPHER_HOUSE_APPROACH_BUFFER = 5
 
@@ -468,6 +484,11 @@ function makeCipherHouseEntries() {
   const addPerimeterWall=(row,col)=>{
     const key=`${row},${col}`
     if(CIPHER_HOUSE_DOOR_CELLS.has(key)) return
+    if(CIPHER_HOUSE_LOWER_DOORS.has(key)){
+      // Wall starts above head height, leaving a clear ground-level passage.
+      add(row,col,{bottom:LOWER_DOOR_CLEAR})
+      return
+    }
     if(CIPHER_HOUSE_WINDOWS.has(key)){
       add(row,col,{isHouseWindow:true,isHouseWindowGlass:true})
       return
@@ -509,6 +530,14 @@ function makeCipherHouseEntries() {
   for (const step of HOUSE_DOOR_STEP_CELLS) {
     entries.push([step.key, {
       base: HOUSE_BLUE_RGB, glow: [103, 232, 249], kind: 'hash', label: 'CIPHER DOOR STEP',
+      bottom: step.bottom, height: step.top, shape: 'ramp', direction: step.dir,
+      isHouse: true, isHouseFloor: true, isHouseDoorStep: true,
+    }])
+  }
+  // Interior staircase: floor → rooftop pool terrace (same ramp-as-steps system).
+  for (const step of HOUSE_INTERIOR_STAIR_CELLS) {
+    entries.push([step.key, {
+      base: HOUSE_BLUE_RGB, glow: [103, 232, 249], kind: 'hash', label: 'CIPHER STAIR STEP',
       bottom: step.bottom, height: step.top, shape: 'ramp', direction: step.dir,
       isHouse: true, isHouseFloor: true, isHouseDoorStep: true,
     }])
@@ -1883,6 +1912,26 @@ function divingBoardBlocksBody(gx, gy, playerZ) {
   return playerZ < HOUSE_DIVING_BOARD.top - .10 && playerZ + PLAYER_BODY_H > HOUSE_DIVING_BOARD.bottom + .02
 }
 
+// The rooftop walk level matches the pool terrace, so the roof tiles and the
+// terrace read as one continuous rooftop.
+const HOUSE_ROOF_LEVEL = HOUSE_POOL_WALL_TOP
+// A cell carries a real, rendered roof tile (and therefore roof support) when it
+// is inside the building but NOT part of the stairwell (open shaft up from the
+// floor) and NOT inside the pool terrace footprint (its own walkable platform +
+// open water). Rendering and support share this test so the surface is always
+// visible — never an invisible ceiling.
+function isHouseRoofCell(row, col) {
+  const insideHouse =
+    row > CIPHER_HOUSE_BOUNDS.minRow && row < CIPHER_HOUSE_BOUNDS.maxRow &&
+    col > CIPHER_HOUSE_BOUNDS.minCol && col < CIPHER_HOUSE_BOUNDS.maxCol
+  if (!insideHouse) return false
+  if (HOUSE_STAIR_KEYS.has(`${row},${col}`)) return false
+  const overlapsTerrace =
+    col + 1 > HOUSE_POOL_TERRACE.minX && col < HOUSE_POOL_TERRACE.maxX &&
+    row + 1 > HOUSE_POOL_TERRACE.minZ && row < HOUSE_POOL_TERRACE.maxZ
+  return !overlapsTerrace
+}
+
 function houseFloorSupportAt(row, col, playerZ) {
   let support = 0
   for (const deck of HOUSE_ACCESS_DECKS) {
@@ -1904,9 +1953,11 @@ function houseFloorSupportAt(row, col, playerZ) {
   ) {
     support = Math.max(support, HOUSE_MAIN_FLOOR_LEVEL)
   }
-  // Roof support: accessible from stairs across entire building interior
-  if (insideHouse && playerZ >= HOUSE_STAIR_TOP_LEVEL - 0.20) {
-    support = Math.max(support, HOUSE_STAIR_TOP_LEVEL)
+  // Walkable rooftop: only on cells that actually carry a rendered roof tile, so
+  // the player can never stand on an invisible ceiling. The pool terrace + the
+  // open stairwell are excluded (handled by their own surfaces).
+  if (isHouseRoofCell(row, col) && playerZ >= HOUSE_ROOF_LEVEL - 0.30) {
+    support = Math.max(support, HOUSE_ROOF_LEVEL)
   }
   return support
 }
@@ -4079,38 +4130,35 @@ function addCipherHouseDetails(world) {
   diceTower.userData.phase=0
   group.add(diceTower)
 
-  // Building roof - walkable top surface accessible from stairs
+  // Walkable rooftop, rendered as real per-cell tiles so the surface always
+  // matches its collision support (no invisible ceiling). Tiles are skipped over
+  // the open stairwell and the pool terrace, which are their own surfaces.
   const roofMat=new THREE.MeshStandardMaterial({
-    color:'#020817',emissive:'#020817',emissiveIntensity:.58,roughness:.56,metalness:.38,
+    color:'#020817',emissive:'#040e1d',emissiveIntensity:.52,roughness:.56,metalness:.38,
   })
-  const buildingWidth=(CIPHER_HOUSE_BOUNDS.maxCol-CIPHER_HOUSE_BOUNDS.minCol)*CELL_SIZE
-  const buildingDepth=(CIPHER_HOUSE_BOUNDS.maxRow-CIPHER_HOUSE_BOUNDS.minRow)*CELL_SIZE
-  const buildingCenterX=(CIPHER_HOUSE_BOUNDS.minCol+CIPHER_HOUSE_BOUNDS.maxCol+1)*CELL_SIZE/2
-  const buildingCenterZ=(CIPHER_HOUSE_BOUNDS.minRow+CIPHER_HOUSE_BOUNDS.maxRow+1)*CELL_SIZE/2
-  const roof=new THREE.Mesh(
-    new THREE.BoxGeometry(buildingWidth,0.16,buildingDepth),
-    roofMat
-  )
-  roof.position.set(buildingCenterX,HOUSE_STAIR_TOP_LEVEL+0.08,buildingCenterZ)
-  group.add(roof)
-  
-  // Upper terrace around pool area - extends walkable surface from roof to pool
-  const poolTerraceExtW=HOUSE_POOL_TERRACE.maxX-HOUSE_POOL_TERRACE.minX
-  const poolTerraceExtD=HOUSE_POOL_TERRACE.maxZ-HOUSE_POOL_TERRACE.minZ
-  const poolTerraceCenterX=(HOUSE_POOL_TERRACE.minX+HOUSE_POOL_TERRACE.maxX)/2
-  const poolTerraceCenterZ=(HOUSE_POOL_TERRACE.minZ+HOUSE_POOL_TERRACE.maxZ)/2
-  const upperTerrace=new THREE.Mesh(
-    new THREE.BoxGeometry(poolTerraceExtW,0.12,poolTerraceExtD),
-    roofMat
-  )
-  upperTerrace.position.set(poolTerraceCenterX,HOUSE_STAIR_TOP_LEVEL+0.06,poolTerraceCenterZ)
-  group.add(upperTerrace)
+  const roofTrimMat=new THREE.MeshBasicMaterial({color:'#22d3ee',transparent:true,opacity:.32,depthWrite:false})
+  for(let row=CIPHER_HOUSE_BOUNDS.minRow+1;row<CIPHER_HOUSE_BOUNDS.maxRow;row++){
+    for(let col=CIPHER_HOUSE_BOUNDS.minCol+1;col<CIPHER_HOUSE_BOUNDS.maxCol;col++){
+      if(!isHouseRoofCell(row,col)) continue
+      const tile=new THREE.Mesh(new THREE.BoxGeometry(1.02,0.16,1.02),roofMat)
+      tile.position.set(col+.5,HOUSE_ROOF_LEVEL-0.08,row+.5)
+      group.add(tile)
+      // Subtle seam where the roof meets the open stairwell or terrace edge.
+      if(!isHouseRoofCell(row,col+1)||!isHouseRoofCell(row,col-1)||!isHouseRoofCell(row+1,col)||!isHouseRoofCell(row-1,col)){
+        const trim=new THREE.Mesh(new THREE.BoxGeometry(1.02,0.02,1.02),roofTrimMat)
+        trim.position.set(col+.5,HOUSE_ROOF_LEVEL+0.012,row+.5)
+        group.add(trim)
+      }
+    }
+  }
 
   // Main ambient interior light
   const houseLight=new THREE.PointLight('#22d3ee',isCoarsePointerDevice()?0:3.6,15,1.8)
   houseLight.position.set(8.2,2.35,8.2)
   group.add(houseLight)
-  // Interior ceiling fixtures — skip PointLights on low-tier, keep fixture meshes
+  // Interior illumination — invisible PointLights only. The old floating
+  // lampshade meshes hung in mid-air with no cord/ceiling and added nothing, so
+  // they were removed for the minimalist look.
   for(const [x,y,z,intensity,col] of [
     [5.5,3.62,5.5,2.0,'#a78bfa'],
     [10.5,3.62,10.5,2.0,'#a78bfa'],
@@ -4123,10 +4171,6 @@ function addCipherHouseDetails(world) {
       light.position.set(x,y,z)
       group.add(light)
     }
-    const fixMat=new THREE.MeshStandardMaterial({color:'#1e293b',emissive:'#22d3ee',emissiveIntensity:.68,roughness:.22,metalness:.72})
-    const fixture=new THREE.Mesh(new THREE.CylinderGeometry(.11,.15,.075,12),fixMat)
-    fixture.position.set(x,y+.04,z)
-    group.add(fixture)
   }
   // ── Trampoline — east interior floor, away from pool and stairs ──────────
   {
@@ -5659,12 +5703,12 @@ export default function MiningChain3DFPV({
     addDenseMaze(valid,reserved,cellMap)
     addOrganicObstacles(valid,reserved,cellMap)
     clearCipherHouseApproaches(valid)
-    for (const step of HOUSE_DOOR_STEP_CELLS) {
+    for (const step of [...HOUSE_DOOR_STEP_CELLS, ...HOUSE_INTERIOR_STAIR_CELLS]) {
       valid.set(step.key, chainObstacle(step.key, {
         base: HOUSE_BLUE_RGB,
         glow: [103, 232, 249],
         kind: 'hash',
-        label: 'CIPHER DOOR STEP',
+        label: step.label || 'CIPHER STEP',
         bottom: step.bottom,
         height: step.top,
         shape: 'ramp',
