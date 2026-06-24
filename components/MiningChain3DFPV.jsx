@@ -1667,7 +1667,7 @@ function poolTerraceRailBounds() {
 
 const HOUSE_POOL_RAIL_TOP = HOUSE_POOL_WALL_TOP + .64
 
-function poolTerraceRailSupportAt(gx, gy, playerZ, radius = PLAYER_R * .82) {
+function poolTerraceRailSupportAt(gx, gy, playerZ, radius = PLAYER_R * 1.20) {
   if (!poolTerraceRailBounds().some(bounds => circleTouchesAabb(gx, gy, bounds, radius))) return 0
   return playerZ >= HOUSE_POOL_RAIL_TOP - .28 ? HOUSE_POOL_RAIL_TOP : 0
 }
