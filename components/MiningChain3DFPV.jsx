@@ -5728,16 +5728,17 @@ export default function MiningChain3DFPV({
         const pvpZoom = pvpZoomRef.current
         const fovRad = FOV + dynamicFovRef.current - pvpZoom * 0.22
         const verticalFov=THREE.MathUtils.radToDeg(2*Math.atan(Math.tan(fovRad/2)/aspect))
+        const webglDpr = Number(canvas.dataset.webglDpr) || dpr
         const projectionChanged=threeState.viewWidth!==W||threeState.viewHeight!==H||Math.abs(threeState.viewFov-verticalFov)>.0001
-        const sizeChanged=threeState.viewWidth!==W||threeState.viewHeight!==H||threeState.viewDpr!==dpr
+        const sizeChanged=threeState.viewWidth!==W||threeState.viewHeight!==H||threeState.viewDpr!==webglDpr
         if(projectionChanged){
           threeState.camera.fov=verticalFov;threeState.camera.aspect=aspect;threeState.camera.updateProjectionMatrix()
           threeState.viewFov=verticalFov
         }
         if(sizeChanged){
-          threeState.renderer.setPixelRatio(dpr)
+          threeState.renderer.setPixelRatio(webglDpr)
           threeState.renderer.setSize(W,H,false)
-          threeState.pixelRatio=dpr;threeState.viewDpr=dpr;threeState.viewWidth=W;threeState.viewHeight=H
+          threeState.pixelRatio=webglDpr;threeState.viewDpr=webglDpr;threeState.viewWidth=W;threeState.viewHeight=H
           threeState.size.set(W,H)
         }
         const gx=px/CELL_SIZE,gy=py/CELL_SIZE,lookDistance=5
@@ -7043,28 +7044,33 @@ export default function MiningChain3DFPV({
       const {width,height}=container.getBoundingClientRect()
       const cssW = Math.max(1, Math.round(width))
       const cssH = Math.max(1, Math.round(height))
+      const rawDpr = window.devicePixelRatio || 1
       const isMobilePortrait = cssH > cssW && cssW < 820
-      // Portrait tablet (≥540px wide): render at 65% resolution.
       const isPortraitTablet = cssW >= 540 && cssH > cssW
-      let physW, physH, dpr
-      if (isMobilePortrait) {
-        dpr = Math.min(0.72, Math.max(0.55, (window.devicePixelRatio || 1) * 0.52))
-        physW = Math.round(cssW * dpr)
-        physH = Math.round(cssH * dpr)
-      } else if (isPortraitTablet) {
-        dpr = 0.65
-        physW = Math.round(cssW * dpr)
-        physH = Math.round(cssH * dpr)
+
+      // ── HUD canvas (2D: text, minimap, crosshair) ─────────────────────────
+      // Always render at full device sharpness — drawing cost is negligible.
+      const hudDpr = Math.min(2.5, Math.max(1.0, rawDpr))
+
+      // ── WebGL 3D canvas ───────────────────────────────────────────────────
+      // 1.0 = exactly 1 WebGL pixel per CSS pixel → zero upscale blur, low cost.
+      // On high-DPI desktop we allow supersampling up to 1.4× for extra sharpness.
+      let webglDpr
+      if (isMobilePortrait || isPortraitTablet) {
+        webglDpr = 1.0   // 1:1 CSS pixels — no blur, cheaper than rawDpr
       } else {
         const pixels = cssW * cssH
-        const dprCap = pixels > 1600000 ? 1.1 : 1.3
-        dpr = Math.min(dprCap, Math.max(1, window.devicePixelRatio || 1))
-        physW = Math.round(cssW * dpr)
-        physH = Math.round(cssH * dpr)
+        const dprCap = pixels > 1600000 ? 1.1 : 1.4
+        webglDpr = Math.min(dprCap, Math.max(1.0, rawDpr))
       }
+
+      // The 2D HUD canvas drives W/H (logical pixels). WebGL shares those
+      // logical dimensions but uses its own pixel ratio for the framebuffer.
+      const dpr = hudDpr
       canvas.dataset.dpr = String(dpr)
-      canvas.width = physW
-      canvas.height = physH
+      canvas.dataset.webglDpr = String(webglDpr)
+      canvas.width = Math.round(cssW * dpr)
+      canvas.height = Math.round(cssH * dpr)
       canvas.style.width = `${cssW}px`
       canvas.style.height = `${cssH}px`
       zBufferRef.current=null
