@@ -128,6 +128,11 @@ const HOUSE_STAIR_KEYS = new Set(HOUSE_STAIR_CELLS.map(([row,col])=>`${row},${co
 const HOUSE_MAIN_FLOOR_HOLES = new Set(HOUSE_ACCESS_DECKS
   .filter(({level})=>Math.abs(level - HOUSE_MAIN_FLOOR_LEVEL) < HOUSE_MIN_CEILING_GAP)
   .map(({row,col})=>`${row},${col}`))
+for(let row=Math.floor(HOUSE_POOL_OUTER.minZ);row<=Math.floor(HOUSE_POOL_OUTER.maxZ);row++){
+  for(let col=Math.floor(HOUSE_POOL_OUTER.minX);col<=Math.floor(HOUSE_POOL_OUTER.maxX);col++){
+    HOUSE_MAIN_FLOOR_HOLES.add(`${row},${col}`)
+  }
+}
 const CHAIN_MATERIALS = [
   { kind:'hash',      base:[42,82,104],  glow:[34,211,238], label:'HASH WALL' },
   { kind:'ledger',    base:[96,78,48],   glow:[250,204,21], label:'LEDGER' },
