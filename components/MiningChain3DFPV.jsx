@@ -128,7 +128,7 @@ const W_DARK  = [58,  62,  70]    // dark gray
 const HOUSE_BLUE_RGB = [8, 47, 73]
 const HOUSE_BLACK_RGB = [2, 8, 23]
 const HOUSE_MAIN_FLOOR_LEVEL = 3.48
-const HOUSE_TRAMPOLINE_LAUNCH = Math.sqrt(2 * GRAVITY_A * (HOUSE_MAIN_FLOOR_LEVEL + 0.22))
+const HOUSE_TRAMPOLINE_LAUNCH = Math.sqrt(2 * GRAVITY_A * (HOUSE_MAIN_FLOOR_LEVEL + 0.35))
 const HOUSE_MIN_CEILING_GAP = 2.32
 const HOUSE_RAIL_HEIGHT = .76
 const HOUSE_POOL_CENTER_X = 6.35
@@ -273,6 +273,7 @@ for(let row=Math.floor(HOUSE_POOL_OUTER.minZ);row<=Math.floor(HOUSE_POOL_OUTER.m
     HOUSE_MAIN_FLOOR_HOLES.add(`${row},${col}`)
   }
 }
+for(const key of HOUSE_TRAMPOLINE_SHAFT_CELLS) HOUSE_MAIN_FLOOR_HOLES.add(key)
 const CHAIN_MATERIALS = [
   { kind:'hash',      base:[42,82,104],  glow:[34,211,238], label:'HASH WALL' },
   { kind:'ledger',    base:[96,78,48],   glow:[250,204,21], label:'LEDGER' },
@@ -1896,6 +1897,7 @@ function isHouseRoofCell(row, col) {
     col > CIPHER_HOUSE_BOUNDS.minCol && col < CIPHER_HOUSE_BOUNDS.maxCol
   if (!insideHouse) return false
   if (HOUSE_STAIR_KEYS.has(`${row},${col}`)) return false
+  if (HOUSE_TRAMPOLINE_SHAFT_CELLS.has(`${row},${col}`)) return false
   const overlapsTerrace =
     col + 1 > HOUSE_POOL_TERRACE.minX && col < HOUSE_POOL_TERRACE.maxX &&
     row + 1 > HOUSE_POOL_TERRACE.minZ && row < HOUSE_POOL_TERRACE.maxZ
@@ -1914,6 +1916,13 @@ function houseFloorSupportAt(row, col, playerZ) {
     col > CIPHER_HOUSE_BOUNDS.minCol && col < CIPHER_HOUSE_BOUNDS.maxCol
   const key = `${row},${col}`
   const onDoor = CIPHER_HOUSE_DOOR_CELLS.has(key)
+  if (
+    insideHouse &&
+    HOUSE_TRAMPOLINE_SHAFT_CELLS.has(key) &&
+    playerZ >= HOUSE_MAIN_FLOOR_LEVEL - 0.08
+  ) {
+    support = Math.max(support, HOUSE_MAIN_FLOOR_LEVEL)
+  }
   if (
     insideHouse &&
     !onDoor &&
@@ -1962,8 +1971,12 @@ function hitsSolidWall(gx, gy, cellMap, obsSet, playerZ = 0) {
   const maxCol = Math.floor(gx + PLAYER_R)
   for (let row = minRow; row <= maxRow; row++) {
     for (let col = minCol; col <= maxCol; col++) {
-      const obstacle=obsSet?.get?.(`${row},${col}`)
+      const key = `${row},${col}`
+      const obstacle=obsSet?.get?.(key)
       if(obstacle?.isHouseDoor) continue
+      if(isInTrampolineShaft(gx, gy)&&playerZ<HOUSE_MAIN_FLOOR_LEVEL-.05){
+        if(obstacle?.isHouseFloor||HOUSE_TRAMPOLINE_SHAFT_CELLS.has(key)) continue
+      }
       if(obstacle?.shape==='sphere'||obstacle?.shape==='tree'){
         const top=obstacleTop(obstacle)
         if(playerZ<top-.04&&circleTouchesRoundObstacle(gx,gy,row,col,obstacle)) return true
@@ -2020,15 +2033,15 @@ function supportHeightAt(gx, gy, playerZ, cellMap, obsSet) {
 function ceilingBottomAt(gx,gy,playerZ,cellMap,obsSet){
   let ceiling=Infinity
   const radius=PLAYER_R*.82
-  const risingThroughShaft=playerZ<HOUSE_MAIN_FLOOR_LEVEL-.15&&isInTrampolineShaft(gx,gy,radius)
+  const risingThroughShaft=isInTrampolineShaft(gx,gy,radius)&&playerZ<HOUSE_MAIN_FLOOR_LEVEL+.15
   for(let row=Math.floor(gy-radius);row<=Math.floor(gy+radius);row++){
     for(let col=Math.floor(gx-radius);col<=Math.floor(gx+radius);col++){
       const key=`${row},${col}`
       const span=solidSpanAt(row,col,cellMap,obsSet)
-      // Rising through the launch shaft — pass through the main-floor slab from below.
+      // Open shaft above the ground launch pad — pass through the main-floor slab while rising.
       if(risingThroughShaft){
         const obs=obsSet?.get?.(key)
-        if(obs?.isHouseFloor) continue
+        if(obs?.isHouseFloor||HOUSE_TRAMPOLINE_SHAFT_CELLS.has(key)) continue
       }
       if(span?.bottom>playerZ+PLAYER_BODY_H-.04&&circleTouchesCell(gx,gy,row,col,radius)){
         ceiling=Math.min(ceiling,span.bottom)
