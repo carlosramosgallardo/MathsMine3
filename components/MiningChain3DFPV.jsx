@@ -67,6 +67,15 @@ const COLOSSEUM_STAND_BASE_TOPS = [1.00,1.32,1.64]
 const COLOSSEUM_SEAT_HEIGHT = .18
 const COLOSSEUM_STAND_TOPS = COLOSSEUM_STAND_BASE_TOPS.map(top=>top+COLOSSEUM_SEAT_HEIGHT)
 
+function getMiningVisualTier(viewWidth = 1280) {
+  if (typeof window === 'undefined') return 'high'
+  const coarse = window.matchMedia?.('(pointer: coarse)')?.matches
+  const lowMem = Number(navigator.deviceMemory) > 0 && navigator.deviceMemory <= 4
+  if (coarse || viewWidth < 640 || lowMem) return 'low'
+  if (viewWidth < 980) return 'medium'
+  return 'high'
+}
+
 // ── Decorative obstacles: solid walls, no doorways, not mineable ──────────────
 // Five visual types: monolith (violet), pylon (teal), ruin (rust), steel wall, bunker
 // Pure neutral grays — clearly "wall", nothing like the amber market blocks
@@ -2969,46 +2978,49 @@ function getNodeDiceVisualState(nodeDiceState) {
   return { ...nodeDiceState, dice }
 }
 
-function drawNodeDiceWeather(ctx, W, H, visual) {
+function drawNodeDiceWeather(ctx, W, H, visual, tier = 'medium') {
   if (!visual) return
   const now = performance.now()
   const mode = visual.mode === 'war' ? 'war' : 'meteo'
   ctx.save()
   if (mode === 'meteo') {
     const storm = Math.max(.18, Math.min(.72, Number(visual.naturePercent || 50) / 100))
-    const sky = ctx.createLinearGradient(0,0,0,H)
-    sky.addColorStop(0,`rgba(12,18,32,${.34 + storm * .18})`)
-    sky.addColorStop(1,`rgba(20,96,116,${.10 + storm * .10})`)
-    ctx.fillStyle = sky
-    ctx.fillRect(0,0,W,H)
-    ctx.strokeStyle = `rgba(125,211,252,${.24 + storm * .26})`
-    ctx.lineWidth = 1
-    const count = Math.round(36 + storm * 42)
-    for (let i = 0; i < count; i++) {
-      const x = (i * 73 + now * .22) % (W + 80) - 40
-      const y = (i * 41 + now * .72) % (H + 60) - 30
-      ctx.beginPath(); ctx.moveTo(x,y); ctx.lineTo(x - 10, y + 34); ctx.stroke()
+    ctx.fillStyle = `rgba(12,28,48,${tier === 'low' ? .20 : .24 + storm * .12})`
+    ctx.fillRect(0, 0, W, H)
+    if (tier !== 'low') {
+      const count = tier === 'medium' ? 12 : 22
+      ctx.strokeStyle = `rgba(125,211,252,${tier === 'medium' ? .20 : .24 + storm * .14})`
+      ctx.lineWidth = 1
+      ctx.beginPath()
+      for (let i = 0; i < count; i++) {
+        const x = (i * 97 + now * .16) % (W + 50) - 25
+        const y = (i * 53 + now * .46) % (H + 36) - 18
+        ctx.moveTo(x, y)
+        ctx.lineTo(x - 7, y + 20)
+      }
+      ctx.stroke()
     }
-    if (Math.sin(now / 620) > .94) {
-      ctx.globalAlpha = .18 + storm * .16
+    if (tier === 'high' && Math.sin(now / 900) > .96) {
+      ctx.globalAlpha = .08 + storm * .06
       ctx.fillStyle = '#dffbff'
-      ctx.fillRect(0,0,W,H)
+      ctx.fillRect(0, 0, W, H)
     }
   } else {
     const heat = Math.max(.18, Math.min(.78, Number(visual.warPercent || 50) / 100))
-    const flash = Math.max(0, Math.sin(now / 95)) * heat
-    ctx.fillStyle = `rgba(70,8,8,${.18 + heat * .22})`
-    ctx.fillRect(0,0,W,H)
-    for (let i = 0; i < 22; i++) {
-      const x = (i * 97 + now * .48) % (W + 120) - 60
-      const y = (i * 53 + now * .21) % (H * .72)
-      ctx.strokeStyle = i % 4 === 0 ? `rgba(250,204,21,${.25 + flash * .35})` : 'rgba(248,113,113,.34)'
-      ctx.lineWidth = i % 4 === 0 ? 2 : 1
-      ctx.beginPath(); ctx.moveTo(x,y); ctx.lineTo(x + 38 + (i % 3) * 18, y - 9); ctx.stroke()
-      if (i % 7 === 0) {
-        ctx.fillStyle = `rgba(251,146,60,${.14 + flash * .28})`
-        ctx.beginPath(); ctx.arc(x + 44, y - 9, 8 + flash * 14, 0, Math.PI * 2); ctx.fill()
+    ctx.fillStyle = `rgba(70,8,8,${tier === 'low' ? .14 : .16 + heat * .12})`
+    ctx.fillRect(0, 0, W, H)
+    if (tier !== 'low') {
+      const count = tier === 'medium' ? 7 : 11
+      ctx.strokeStyle = `rgba(248,113,113,${tier === 'medium' ? .24 : .30})`
+      ctx.lineWidth = 1
+      ctx.beginPath()
+      for (let i = 0; i < count; i++) {
+        const x = (i * 113 + now * .28) % (W + 70) - 35
+        const y = (i * 67 + now * .12) % (H * .62)
+        ctx.moveTo(x, y)
+        ctx.lineTo(x + 22 + (i % 2) * 8, y - 5)
       }
+      ctx.stroke()
     }
   }
   ctx.restore()
@@ -4006,7 +4018,7 @@ function addCipherHouseDetails(world) {
     rung.position.set(0,y,poolOuterD/2+1.24)
     poolGroup.add(rung)
   }
-  const poolGlow=new THREE.PointLight('#22d3ee',1.5,3.8,1.8)
+  const poolGlow=new THREE.PointLight('#22d3ee',.85,2.8,1.9)
   poolGlow.position.set(0,.08,0)
   poolGroup.add(poolGlow)
   group.add(poolGroup)
@@ -4835,45 +4847,29 @@ function createThreeWalletAvatar(wallet) {
 function createHealingRechargeEffect() {
   const effect=new THREE.Group()
   effect.userData.healingRechargeEffect=true
-  const auraMat=new THREE.MeshBasicMaterial({
-    color:'#67e8f9',
+  const ringMat=new THREE.MeshBasicMaterial({
+    color:'#fca5a5',
     transparent:true,
-    opacity:.52,
+    opacity:.34,
     depthWrite:false,
     blending:THREE.AdditiveBlending,
   })
-  const coreMat=new THREE.MeshBasicMaterial({
-    color:'#fecaca',
-    transparent:true,
-    opacity:.72,
-    depthWrite:false,
-    blending:THREE.AdditiveBlending,
-  })
-  const ringA=new THREE.Mesh(new THREE.TorusGeometry(.42,.014,8,44),auraMat.clone())
-  ringA.rotation.x=Math.PI/2
-  ringA.position.y=.16
-  const ringB=new THREE.Mesh(new THREE.TorusGeometry(.31,.011,8,36),coreMat.clone())
-  ringB.rotation.x=Math.PI/2
-  ringB.position.y=.74
-  effect.add(ringA,ringB)
-  effect.userData.ringA=ringA
-  effect.userData.ringB=ringB
+  const ring=new THREE.Mesh(new THREE.TorusGeometry(.34,.011,6,24),ringMat)
+  ring.rotation.x=Math.PI/2
+  ring.position.y=.42
+  effect.userData.ring=ring
+  effect.add(ring)
   effect.userData.pulses=[]
-  for(let i=0;i<6;i++){
+  for(let i=0;i<2;i++){
+    const barMat=ringMat.clone()
+    const barA=new THREE.Mesh(new THREE.BoxGeometry(.07,.018,.008),barMat)
+    const barB=new THREE.Mesh(new THREE.BoxGeometry(.018,.07,.008),barMat.clone())
     const plus=new THREE.Group()
-    const barA=new THREE.Mesh(new THREE.BoxGeometry(.105,.022,.018),coreMat.clone())
-    const barB=new THREE.Mesh(new THREE.BoxGeometry(.022,.105,.018),coreMat.clone())
     plus.add(barA,barB)
-    plus.userData.phase=i/6*Math.PI*2
-    plus.userData.radius=.25+(i%2)*.09
-    plus.userData.speed=.9+(i%3)*.18
+    plus.userData.phase=i*Math.PI
     effect.userData.pulses.push(plus)
     effect.add(plus)
   }
-  const glow=new THREE.PointLight('#ef4444',.85,1.4,2.2)
-  glow.position.y=.48
-  effect.userData.glow=glow
-  effect.add(glow)
   return effect
 }
 
@@ -4884,28 +4880,35 @@ function setAvatarHealingRecharge(avatar, active) {
   avatar.userData.isHealingRecharge=Boolean(active)
 }
 
-function updateHealingRechargeEffects(state,time) {
+function updateHealingRechargeEffects(state,time,tier='medium') {
   if(!state) return
+  state.healFxFrame=(state.healFxFrame||0)+1
+  if(tier==='low'&&state.healFxFrame%3!==0) return
+  const lite=tier==='low'
   const avatars=[...state.avatars.values()]
   if(state.localAvatar) avatars.push(state.localAvatar)
   for(const avatar of avatars){
     const effect=avatar.userData.healEffect
     if(!effect?.visible) continue
-    const scale=1+Math.sin(time*4.2)*.08
-    effect.userData.ringA.rotation.z=time*1.7
-    effect.userData.ringB.rotation.z=-time*2.15
-    effect.userData.ringA.scale.setScalar(scale)
-    effect.userData.ringB.scale.setScalar(1+(scale-1)*.65)
-    effect.userData.glow.intensity=.65+(Math.sin(time*5.4)*.5+.5)*.55
-    for(const plus of effect.userData.pulses){
-      const phase=time*plus.userData.speed+plus.userData.phase
-      const bob=(phase/(Math.PI*2))%1
-      const angle=phase*1.25
-      const radius=plus.userData.radius
-      plus.position.set(Math.cos(angle)*radius,.20+bob*.76,Math.sin(angle)*radius)
+    const ring=effect.userData.ring
+    if(ring){
+      ring.rotation.z=time*(lite?0.85:1.35)
+      const scale=1+Math.sin(time*2.8)*(lite?0.04:0.07)
+      ring.scale.setScalar(scale)
+      ring.material.opacity=(lite?0.26:0.32)+Math.sin(time*2.4)*(lite?0.06:0.12)
+    }
+    for(const plus of effect.userData.pulses||[]){
+      const bob=(Math.sin(time*1.8+plus.userData.phase)+1)*.5
+      const radius=.18+(lite?0:0.04)
+      plus.position.set(
+        Math.cos(time*.9+plus.userData.phase)*radius,
+        .34+bob*(lite?0.22:0.34),
+        Math.sin(time*.9+plus.userData.phase)*radius,
+      )
       plus.rotation.y=-avatar.rotation.y
-      plus.scale.setScalar(.72+(1-bob)*.34)
-      plus.children.forEach(mesh=>{ mesh.material.opacity=.18+(1-bob)*.62 })
+      plus.children.forEach(mesh=>{
+        if(mesh.material) mesh.material.opacity=(lite?0.18:0.16)+bob*(lite?0.22:0.34)
+      })
     }
   }
 }
@@ -5142,6 +5145,7 @@ export default function MiningChain3DFPV({
   const remoteVisualsRef = useRef(new Map())
   const visualPresenceRef = useRef({})
   const lastRemoteFrameRef = useRef(0)
+  const visualPerfTierRef = useRef('medium')
   const lastAmbientRenderRef = useRef(0)
   const renderRef     = useRef(null)
   const lastCellRef   = useRef({row:initRow??14,col:initCol??14})
@@ -5589,6 +5593,8 @@ export default function MiningChain3DFPV({
     const W = Math.round(canvas.width / dpr)
     const H = Math.round(canvas.height / dpr)
     if (!W||!H) return
+    const visualTier = getMiningVisualTier(W)
+    visualPerfTierRef.current = visualTier
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
     ctx.imageSmoothingEnabled = false
 
@@ -5803,29 +5809,37 @@ export default function MiningChain3DFPV({
 
         syncThreeAvatars(threeState,presence,myIdentity)
         const time=performance.now()*.001
-        for(const object of threeState.biomeSurfaces||[]){
-          if(object.userData.biomeSurface==='water'){
-            object.position.y=.018+Math.sin(time*1.4)*.012
-            object.material.opacity=.62+Math.sin(time*.8)*.06
-          }else if(object.userData.biomeSurface==='lava'){
-            object.material.opacity=.72+Math.sin(time*2.1)*.12
-          }else if(object.userData.biomeSurface==='fire'){
-            const pulse=.86+Math.sin(time*7+object.userData.phase)*.14
-            object.scale.set(pulse,1.04+(pulse-.86)*.9,pulse)
-            object.rotation.y=time*.9+object.userData.phase
+        const visualTier=visualPerfTierRef.current
+        if(visualTier!=='low'){
+          for(const object of threeState.biomeSurfaces||[]){
+            if(object.userData.biomeSurface==='water'){
+              object.position.y=.018+Math.sin(time*1.4)*.012
+              object.material.opacity=.62+Math.sin(time*.8)*.06
+            }else if(object.userData.biomeSurface==='lava'){
+              object.material.opacity=.72+Math.sin(time*2.1)*.12
+            }else if(object.userData.biomeSurface==='fire'){
+              const pulse=.86+Math.sin(time*7+object.userData.phase)*.14
+              object.scale.set(pulse,1.04+(pulse-.86)*.9,pulse)
+              object.rotation.y=time*.9+object.userData.phase
+            }
           }
         }
-        for(const object of threeState.interactiveVisuals||[]){
-          if(object.userData.blockGlow){
-            object.material.opacity=.14+(Math.sin(time*2.4)*.5+.5)*.16
-          }else{
-            const pulse=1+Math.sin(time*2.8+object.userData.phase)*.08
-            object.scale.setScalar(pulse)
-            object.rotation.y=time*.72+object.userData.phase
-            object.position.y=Math.sin(time*2.1+object.userData.phase)*.045
+        if(visualTier==='high'){
+          for(const object of threeState.interactiveVisuals||[]){
+            if(object.userData.blockGlow){
+              object.material.opacity=.14+(Math.sin(time*2.4)*.5+.5)*.16
+            }else{
+              const pulse=1+Math.sin(time*2.8+object.userData.phase)*.08
+              object.scale.setScalar(pulse)
+              object.rotation.y=time*.72+object.userData.phase
+              object.position.y=Math.sin(time*2.1+object.userData.phase)*.045
+            }
           }
         }
-        updateInteractiveBeaconBatch(threeState.beaconBatch,time)
+        threeState.fxFrame=(threeState.fxFrame||0)+1
+        if(visualTier!=='low'||threeState.fxFrame%4===0){
+          updateInteractiveBeaconBatch(threeState.beaconBatch,time)
+        }
         for(const orbital of threeState.scene.userData.orbitals||[]){
           if(orbital.userData.orbital==='ship'){
             const orbit=time*.055
@@ -5839,7 +5853,7 @@ export default function MiningChain3DFPV({
         const localSwingT=localSwingAge<SWING_DUR?localSwingAge/SWING_DUR:0
         // Local avatar lives in the main 3D scene — sync position before render
         syncThreeLocalAvatar(threeState,myIdentity,localSwingT,walkDistRef.current,gx,gy,rawZ,angle,localDead)
-        updateHealingRechargeEffects(threeState,time)
+        updateHealingRechargeEffects(threeState,time,visualTier)
         updateAvatarOccluders(threeState)
         threeState.renderer.render(threeState.scene,threeState.camera)
         // No separate HUD avatar pass: local player is now a scene object
@@ -5988,7 +6002,7 @@ export default function MiningChain3DFPV({
     ctx.fillStyle=haze;ctx.fillRect(0,sceneSplitY-hazeH,W,hazeH*2)
     } // end !threeState (backgrounds)
 
-    drawNodeDiceWeather(ctx,W,H,nodeDiceVisual)
+    drawNodeDiceWeather(ctx,W,H,nodeDiceVisual,visualTier)
 
     // World-space grid made from projected cell edges. This is dramatically
     // cheaper than per-pixel floor casting and remains stable during motion.
@@ -7708,7 +7722,9 @@ export default function MiningChain3DFPV({
       {
         const nodeVisual = getNodeDiceVisualState(nodeDiceStateRef.current)
         if(nodeVisual){
-          needsRender = true
+          const tier=visualPerfTierRef.current
+          if(tier!=='low') needsRender = true
+          else if((nowMs&255)<20) needsRender = true
           if(nodeDiceSoundHourRef.current !== Number(nodeVisual.dice.hourStart)){
             nodeDiceSoundHourRef.current = Number(nodeVisual.dice.hourStart)
             playNodeDiceWeatherSound(audioCtxRef,nodeVisual.mode)
