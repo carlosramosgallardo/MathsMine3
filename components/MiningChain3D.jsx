@@ -1105,22 +1105,19 @@ export default function MiningChain3D() {
       const selfKey = myKeyRef.current
       const { row, col, z = 0 } = myPosRef.current
 
-      // Presence contains the spawn position; subsequent broadcasts carry the
-      // live state, so joining mining does not need a positions-table scan.
-      const [poolRes] = await Promise.all([
-        myW
-          ? supabase.from('mm3_wallet_pool_members').select('pool_code').eq('wallet', myW).limit(1).maybeSingle()
-          : Promise.resolve({ data: null }),
-        // Track with position so other online clients know where we are immediately.
-        ch.track({ wallet: selfKey, gx: col + 0.5, gy: row + 0.5, row, col, z: Number(z) || 0, nodeDice: normalizeNodeDiceState(nodeDiceRef.current) }),
-      ])
+      // Fetch pool code first, then track once with complete data (avoids double presence message).
+      const poolRes = myW
+        ? await supabase.from('mm3_wallet_pool_members').select('pool_code').eq('wallet', myW).limit(1).maybeSingle()
+        : { data: null }
       const myPoolCode = poolRes?.data?.pool_code || null
       setMyPoolCode(myPoolCode)
-      // Re-track with pool code now that we have it
-      if (myW && myPoolCode) {
-        const { row: r2, col: c2, z: z2 = 0 } = myPosRef.current
-        ch.track({ wallet: myW, gx: c2 + 0.5, gy: r2 + 0.5, row: r2, col: c2, z: Number(z2) || 0, poolCode: myPoolCode, nodeDice: normalizeNodeDiceState(nodeDiceRef.current) }).catch(() => {})
-      }
+      const { row: tr, col: tc, z: tz = 0 } = myPosRef.current
+      await ch.track({
+        wallet: selfKey,
+        gx: tc + 0.5, gy: tr + 0.5, row: tr, col: tc, z: Number(tz) || 0,
+        poolCode: myPoolCode,
+        nodeDice: normalizeNodeDiceState(nodeDiceRef.current),
+      }).catch(() => {})
     })
 
     return () => {

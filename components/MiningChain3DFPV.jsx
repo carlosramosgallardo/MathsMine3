@@ -7472,8 +7472,16 @@ export default function MiningChain3DFPV({
           || Math.abs(nextState.angle-prev.angle)>0.03
           || Math.abs(nextState.pitch-prev.pitch)>0.03
           || nextState.swingAt!==prev.swingAt
-        // Supabase Realtime budget (~2M msgs/mo): keep move broadcasts >=800ms.
-        if(now-lastRealtimeRef.current>800&&(changed||now-(prev?.sentAt||0)>15000)){
+        // Supabase Realtime budget: adaptive send interval to keep monthly messages low.
+        // - Dead: only heartbeat every 90s (position won't change)
+        // - Idle (no meaningful delta): heartbeat every 30s
+        // - Active (something changed): minimum 1200ms between sends
+        const heartbeatInterval = nextState.isDead ? 90000 : 30000
+        const minInterval = 1200
+        const sinceLastSend = now - (prev?.sentAt || 0)
+        const shouldSend = now - lastRealtimeRef.current > minInterval
+          && (changed || sinceLastSend > heartbeatInterval)
+        if(shouldSend){
           lastRealtimeRef.current=now
           lastSentStateRef.current={...nextState,sentAt:now}
           onPositionRealtimeRef.current?.(nextState.gx,nextState.gy,nextState)

@@ -104,10 +104,10 @@ const NFTJI_LEVEL_BASE_PCT = 0.003;
 
 // ── 3D map bot session constants ──────────────────────────────────────────────
 const BOT_MAP_CHANNEL       = 'mm3-chain3d-v1';
-const BOT_MAP_STEPS_MIN     = 8;
-const BOT_MAP_STEPS_MAX     = 12;
-const BOT_MAP_STEP_MS_MIN   = 500;
-const BOT_MAP_STEP_MS_MAX   = 850;
+const BOT_MAP_STEPS_MIN     = 6;
+const BOT_MAP_STEPS_MAX     = 9;
+const BOT_MAP_STEP_MS_MIN   = 700;
+const BOT_MAP_STEP_MS_MAX   = 1050;
 const BOT_MAP_PAUSE_CHANCE  = 0.18;  // probability of a longer human-like pause
 const BOT_MAP_PAUSE_MS_MIN  = 600;
 const BOT_MAP_PAUSE_MS_MAX  = 1800;
