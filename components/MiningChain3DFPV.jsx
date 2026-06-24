@@ -118,8 +118,6 @@ const HOUSE_DIVING_BOARD = Object.freeze({
   top: HOUSE_POOL_DECK_LEVEL + .458,
 })
 const HOUSE_STAIR_TOP_LEVEL = 5.80
-const HOUSE_ROOF_LEVEL = 6.16  // walkable roof surface above building
-const HOUSE_ROOF_TERRACE_LEVEL = 6.16  // upper terrace around pool area
 const HOUSE_STAIR_PATH = [
   [12,10],[11,10],[10,10],[9,10],[8,10],
   [7,10],[6,10],[5,10],[4,10],[4,9],
@@ -1689,25 +1687,6 @@ function poolWallBlocksBody(gx, gy, playerZ) {
   return false
 }
 
-function roofSupportAt(gx, gy, playerZ) {
-  // Provide walkable roof surface for entire building interior and pool area
-  // Inside building bounds
-  const insideBuilding =
-    gx > CIPHER_HOUSE_BOUNDS.minCol && gx < CIPHER_HOUSE_BOUNDS.maxCol &&
-    gy > CIPHER_HOUSE_BOUNDS.minRow && gy < CIPHER_HOUSE_BOUNDS.maxRow &&
-    playerZ >= HOUSE_ROOF_LEVEL - 0.20
-  if (insideBuilding) return HOUSE_ROOF_LEVEL
-  
-  // Around pool area (extended upper terrace)
-  const nearPool =
-    gx >= HOUSE_POOL_TERRACE.minX && gx <= HOUSE_POOL_TERRACE.maxX &&
-    gy >= HOUSE_POOL_TERRACE.minZ && gy <= HOUSE_POOL_TERRACE.maxZ &&
-    playerZ >= HOUSE_ROOF_TERRACE_LEVEL - 0.20
-  if (nearPool) return HOUSE_ROOF_TERRACE_LEVEL
-  
-  return 0
-}
-
 function divingBoardSupportAt(gx, gy, playerZ, radius = PLAYER_R * 0.76) {
   if (!circleTouchesAabb(gx, gy, HOUSE_DIVING_BOARD, radius)) return 0
   return playerZ >= HOUSE_DIVING_BOARD.top - .32 ? HOUSE_DIVING_BOARD.top : 0
@@ -1736,6 +1715,10 @@ function houseFloorSupportAt(row, col, playerZ) {
     playerZ >= HOUSE_MAIN_FLOOR_LEVEL - 0.08
   ) {
     support = Math.max(support, HOUSE_MAIN_FLOOR_LEVEL)
+  }
+  // Roof support: accessible from stairs across entire building interior
+  if (insideHouse && playerZ >= HOUSE_STAIR_TOP_LEVEL - 0.20) {
+    support = Math.max(support, HOUSE_STAIR_TOP_LEVEL)
   }
   return support
 }
@@ -1795,8 +1778,6 @@ function hitsSolidWall(gx, gy, cellMap, obsSet, playerZ = 0) {
 }
 
 function supportHeightAt(gx, gy, playerZ, cellMap, obsSet) {
-  const roofSupport = roofSupportAt(gx, gy, playerZ)
-  if (roofSupport) return roofSupport
   const boardSupport = divingBoardSupportAt(gx, gy, playerZ)
   if (boardSupport) return boardSupport
   const railSupport = poolTerraceRailSupportAt(gx, gy, playerZ)
@@ -3866,6 +3847,33 @@ function addCipherHouseDetails(world) {
   diceTower.userData.interactive=true
   diceTower.userData.phase=0
   group.add(diceTower)
+
+  // Building roof - walkable top surface accessible from stairs
+  const roofMat=new THREE.MeshStandardMaterial({
+    color:'#020817',emissive:'#020817',emissiveIntensity:.58,roughness:.56,metalness:.38,
+  })
+  const buildingWidth=(CIPHER_HOUSE_BOUNDS.maxCol-CIPHER_HOUSE_BOUNDS.minCol)*CELL_SIZE
+  const buildingDepth=(CIPHER_HOUSE_BOUNDS.maxRow-CIPHER_HOUSE_BOUNDS.minRow)*CELL_SIZE
+  const buildingCenterX=(CIPHER_HOUSE_BOUNDS.minCol+CIPHER_HOUSE_BOUNDS.maxCol+1)*CELL_SIZE/2
+  const buildingCenterZ=(CIPHER_HOUSE_BOUNDS.minRow+CIPHER_HOUSE_BOUNDS.maxRow+1)*CELL_SIZE/2
+  const roof=new THREE.Mesh(
+    new THREE.BoxGeometry(buildingWidth,0.16,buildingDepth),
+    roofMat
+  )
+  roof.position.set(buildingCenterX,HOUSE_STAIR_TOP_LEVEL+0.08,buildingCenterZ)
+  group.add(roof)
+  
+  // Upper terrace around pool area - extends walkable surface from roof to pool
+  const poolTerraceExtW=HOUSE_POOL_TERRACE.maxX-HOUSE_POOL_TERRACE.minX
+  const poolTerraceExtD=HOUSE_POOL_TERRACE.maxZ-HOUSE_POOL_TERRACE.minZ
+  const poolTerraceCenterX=(HOUSE_POOL_TERRACE.minX+HOUSE_POOL_TERRACE.maxX)/2
+  const poolTerraceCenterZ=(HOUSE_POOL_TERRACE.minZ+HOUSE_POOL_TERRACE.maxZ)/2
+  const upperTerrace=new THREE.Mesh(
+    new THREE.BoxGeometry(poolTerraceExtW,0.12,poolTerraceExtD),
+    roofMat
+  )
+  upperTerrace.position.set(poolTerraceCenterX,HOUSE_STAIR_TOP_LEVEL+0.06,poolTerraceCenterZ)
+  group.add(upperTerrace)
 
   const houseLight=new THREE.PointLight('#22d3ee',2.8,13,2)
   houseLight.position.set(8.2,2.35,8.2)
