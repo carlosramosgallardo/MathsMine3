@@ -351,6 +351,59 @@ const CIPHER_HOUSE_WINDOWS = new Set([
   '13,5', '13,6',
 ])
 
+const CIPHER_HOUSE_APPROACH_BUFFER = 5
+
+function isNearCipherHouse(row, col, buffer = CIPHER_HOUSE_APPROACH_BUFFER) {
+  return (
+    row >= CIPHER_HOUSE_BOUNDS.minRow - buffer &&
+    row <= CIPHER_HOUSE_BOUNDS.maxRow + buffer &&
+    col >= CIPHER_HOUSE_BOUNDS.minCol - buffer &&
+    col <= CIPHER_HOUSE_BOUNDS.maxCol + buffer
+  )
+}
+
+function buildCipherHouseApproachCells() {
+  const cells = new Set()
+  const doorVectors = [
+    ['3,5', 0, -1], ['3,6', 0, -1],
+    ['13,9', 0, 1], ['13,10', 0, 1],
+    ['6,3', -1, 0], ['7,3', -1, 0],
+    ['9,13', 1, 0], ['10,13', 1, 0],
+    ['3,7', 0, -1], ['3,8', 0, -1], ['3,10', 0, -1], ['3,11', 0, -1],
+    ['10,3', -1, 0], ['11,3', -1, 0], ['7,3', -1, 0], ['8,3', -1, 0],
+    ['5,13', 1, 0], ['6,13', 1, 0], ['13,7', 0, 1], ['13,8', 0, 1],
+  ]
+  for (const [key, dr, dc] of doorVectors) {
+    const [row, col] = key.split(',').map(Number)
+    for (let depth = 1; depth <= 4; depth += 1) {
+      cells.add(`${row + dr * depth},${col + dc * depth}`)
+    }
+  }
+  for (const [row, col] of [
+    [2, 7], [2, 8], [2, 9], [2, 10], [2, 11], [1, 7], [1, 8], [1, 9], [1, 10], [1, 11],
+    [6, 2], [7, 2], [8, 2], [10, 2], [11, 2], [6, 1], [7, 1], [8, 1], [10, 1], [11, 1],
+    [14, 7], [14, 8], [15, 7], [15, 8], [16, 7], [16, 8],
+    [5, 14], [6, 14], [5, 15], [6, 15], [5, 16], [6, 16],
+    [14, 5], [14, 6], [15, 5], [15, 6],
+  ]) {
+    cells.add(`${row},${col}`)
+  }
+  return cells
+}
+
+const CIPHER_HOUSE_APPROACH_CELLS = buildCipherHouseApproachCells()
+
+function clearCipherHouseApproaches(valid) {
+  for (const key of CIPHER_HOUSE_APPROACH_CELLS) {
+    const obstacle = valid.get(key)
+    if (obstacle && !obstacle.isHouse) valid.delete(key)
+  }
+  for (const [key, obstacle] of valid) {
+    const [row, col] = key.split(',').map(Number)
+    if (!obstacle?.isHouse && isNearCipherHouse(row, col, 4)) valid.delete(key)
+  }
+}
+
 function makeCipherHouseEntries() {
   const entries=[]
   const doors=new Set(['3,5','3,6','13,9','13,10','6,3','7,3','9,13','10,13'])
@@ -441,14 +494,7 @@ function makeCipherHouseEntries() {
   for(const col of [7,8]) addRail(16,col,'x',2.32)
   addRail(16,6,'x',2.32); addRail(16,9,'x',2.32)
   for(const row of [14,15]){ addRail(row,6,'z',2.32); addRail(row,9,'z',2.32) }
-  // Upper wall fill above each door opening, kept high enough for the camera.
-  for(const key of doors){
-    const [row,col]=key.split(',').map(Number)
-    entries.push([key,{
-      base:HOUSE_BLACK_RGB,glow:[103,232,249],kind:'hash',label:'CIPHER DOOR FILL',
-      bottom:HOUSE_MIN_CEILING_GAP,height:6.20,isStructure:true,isHouse:true,
-    }])
-  }
+  // Door openings stay empty for collision — visual frames live in addCipherHouseDetails().
   return entries
 }
 
@@ -1509,6 +1555,7 @@ function addDenseMaze(valid,reserved,cellMap){
   const place=(row,col,data)=>{
     const key=`${row},${col}`
     if(row<2||row>=ROWS-2||col<2||col>=COLS-2) return
+    if(isNearCipherHouse(row,col)) return
     if(reserved.has(key)||cellMap.has(key)||valid.has(key)) return
     valid.set(key,chainObstacle(key,{...data,isMaze:true}))
   }
@@ -1886,7 +1933,7 @@ function hitsSolidWall(gx, gy, cellMap, obsSet, playerZ = 0) {
         }
         continue
       }
-      if(obstacle?.isRouteStair||obstacle?.isStair){
+      if(obstacle?.isRouteStair||obstacle?.isStair||obstacle?.isHouseRail){
         if(obstacleTop(obstacle)<=playerZ+.24) continue
       }
       const span=solidSpanAt(row,col,cellMap,obsSet)
@@ -1909,7 +1956,7 @@ function supportHeightAt(gx, gy, playerZ, cellMap, obsSet) {
         if(playerZ>=localTop-.24) height=Math.max(height,localTop)
         continue
       }
-      if((obstacle?.isRouteStair||obstacle?.isStair)&&circleTouchesCell(gx,gy,row,col,radius)){
+      if((obstacle?.isRouteStair||obstacle?.isStair||obstacle?.isHouseRail)&&circleTouchesCell(gx,gy,row,col,radius)){
         const stairTop=obstacleTop(obstacle)
         if(stairTop<=playerZ+.24) height=Math.max(height,stairTop)
         continue
@@ -3224,23 +3271,28 @@ function createProceduralTexture(kind,size=128) {
 function createHouseGroundTexture(size=128) {
   const canvas=document.createElement('canvas');canvas.width=size;canvas.height=size
   const ctx=canvas.getContext('2d')
-  ctx.fillStyle='#102033';ctx.fillRect(0,0,size,size)
-  for(let y=0;y<size;y++) for(let x=0;x<size;x++){
+  ctx.fillStyle='#0a1628';ctx.fillRect(0,0,size,size)
+  const tile=16
+  for(let y=0;y<size;y+=tile) for(let x=0;x<size;x+=tile){
     const grain=seededUnit(x*83+y*157+404)
-    const shade=grain>.62?10:grain<.18?-8:0
-    ctx.fillStyle=`rgb(${16+shade},${32+shade},${51+shade})`
-    ctx.fillRect(x,y,1,1)
+    const shade=grain>.68?14:grain<.22?-10:0
+    ctx.fillStyle=`rgb(${12+shade},${28+shade},${46+shade})`
+    ctx.fillRect(x+1,y+1,tile-2,tile-2)
+    ctx.strokeStyle=`rgba(${34+shade},${211+shade},${238+shade},.16)`
+    ctx.lineWidth=1
+    ctx.strokeRect(x+.5,y+.5,tile-1,tile-1)
   }
-  ctx.globalAlpha=.34
+  ctx.globalAlpha=.22
   ctx.strokeStyle='#67e8f9';ctx.lineWidth=1
-  for(let p=0;p<=size;p+=16){
+  for(let p=0;p<=size;p+=32){
     ctx.beginPath();ctx.moveTo(p,0);ctx.lineTo(p,size);ctx.stroke()
     ctx.beginPath();ctx.moveTo(0,p);ctx.lineTo(size,p);ctx.stroke()
   }
-  ctx.globalAlpha=.20
-  ctx.strokeStyle='#d946ef';ctx.lineWidth=2
-  for(let p=8;p<size;p+=32){
+  ctx.globalAlpha=.14
+  ctx.strokeStyle='#d946ef';ctx.lineWidth=1.5
+  for(let p=16;p<size;p+=64){
     ctx.beginPath();ctx.moveTo(0,p);ctx.lineTo(size,p);ctx.stroke()
+    ctx.beginPath();ctx.moveTo(p,0);ctx.lineTo(p,size);ctx.stroke()
   }
   const texture=new THREE.CanvasTexture(canvas)
   texture.colorSpace=THREE.SRGBColorSpace;texture.wrapS=texture.wrapT=THREE.RepeatWrapping
@@ -3605,6 +3657,48 @@ function addCipherHouseDetails(world) {
   addDoorFrame(7,3.5,false)
   addDoorFrame(10,13.5,false)
 
+  const sillMaterial=new THREE.MeshStandardMaterial({
+    color:'#102033',emissive:'#0891b2',emissiveIntensity:.42,roughness:.34,metalness:.62,
+  })
+  const matMaterial=new THREE.MeshBasicMaterial({color:'#164e63',transparent:true,opacity:.82,depthWrite:false})
+  const addDoorThreshold=(row,col,horizontal)=>{
+    const sill=new THREE.Mesh(
+      horizontal?new THREE.BoxGeometry(1.08,.045,.18):new THREE.BoxGeometry(.18,.045,1.08),
+      sillMaterial,
+    )
+    sill.position.set(col+.5,HOUSE_MAIN_FLOOR_LEVEL+.018,row+.5)
+    group.add(sill)
+    const mat=new THREE.Mesh(
+      horizontal?new THREE.BoxGeometry(.92,.012,.62):new THREE.BoxGeometry(.62,.012,.92),
+      matMaterial,
+    )
+    mat.position.set(col+.5,HOUSE_MAIN_FLOOR_LEVEL+.042,row+(horizontal?-.34:.5))
+    group.add(mat)
+  }
+  addDoorThreshold(3,5.5,true)
+  addDoorThreshold(13,9.5,true)
+  addDoorThreshold(6.5,3,false)
+  addDoorThreshold(9.5,13,false)
+
+  const lampMat=new THREE.MeshStandardMaterial({
+    color:'#e0f2fe',emissive:'#22d3ee',emissiveIntensity:.95,roughness:.18,metalness:.72,
+  })
+  const addExteriorLamp=(x,y,z)=>{
+    const post=new THREE.Mesh(new THREE.CylinderGeometry(.035,.045,.72,8),lampMat)
+    post.position.set(x,y+.36,z)
+    group.add(post)
+    const bulb=new THREE.Mesh(new THREE.SphereGeometry(.08,10,8),lampMat)
+    bulb.position.set(x,y+.78,z)
+    group.add(bulb)
+    const light=new THREE.PointLight('#67e8f9',1.4,4.2,1.6)
+    light.position.set(x,y+.82,z)
+    group.add(light)
+  }
+  ;[
+    [5.5,0,2.35],[10.5,0,2.35],[5.5,0,13.65],[10.5,0,13.65],
+    [2.35,0,6.5],[2.35,0,9.5],[13.65,0,6.5],[13.65,0,9.5],
+  ].forEach(([x,y,z])=>addExteriorLamp(x,y,z))
+
   const trimMaterials=[
     new THREE.MeshBasicMaterial({color:'#22d3ee',transparent:true,opacity:.68,depthWrite:false}),
     new THREE.MeshBasicMaterial({color:'#d946ef',transparent:true,opacity:.62,depthWrite:false}),
@@ -3641,7 +3735,7 @@ function addCipherHouseDetails(world) {
     group.add(plate)
   }
   const {minRow,maxRow,minCol,maxCol}=CIPHER_HOUSE_BOUNDS
-  ;[1.16,2.32,3.48,4.64,5.80,6.20].forEach((y,index)=>{
+  ;[2.32,3.48,5.80].forEach((y,index)=>{
     addTrimBox((minCol+maxCol+1)/2,y+.035,minRow+.012,maxCol-minCol+.95,.035,.028,index)
     addTrimBox((minCol+maxCol+1)/2,y+.035,maxRow+.988,maxCol-minCol+.95,.035,.028,index+1)
     addTrimBox(minCol+.012,y+.035,(minRow+maxRow+1)/2,.028,.035,maxRow-minRow+.95,index+2)
@@ -3990,6 +4084,19 @@ function addCipherHouseDetails(world) {
   const houseLight=new THREE.PointLight('#22d3ee',2.8,13,2)
   houseLight.position.set(8.2,2.35,8.2)
   group.add(houseLight)
+  for(const [x,y,z,intensity] of [
+    [5.5,3.62,5.5,1.6],[10.5,3.62,10.5,1.6],[8.2,5.94,8.2,2.2],[8.2,1.46,8.2,1.1],
+  ]){
+    const light=new THREE.PointLight('#a78bfa',intensity,5.5,1.7)
+    light.position.set(x,y,z)
+    group.add(light)
+    const fixture=new THREE.Mesh(
+      new THREE.CylinderGeometry(.12,.16,.08,12),
+      new THREE.MeshStandardMaterial({color:'#1e293b',emissive:'#22d3ee',emissiveIntensity:.55,roughness:.28,metalness:.64}),
+    )
+    fixture.position.set(x,y+.04,z)
+    group.add(fixture)
+  }
   world.add(group)
 }
 
@@ -4444,8 +4551,8 @@ function rebuildThreeWorld(state,cellMap,obstacles) {
     const roofMat={color:'#020817',roughness:.56,metalness:.38,emissive:'#020817',emissiveIntensity:.58}
     const houseMaterials={
       wall:new THREE.MeshStandardMaterial({
-        color:'#020817',roughness:.56,metalness:.38,
-        emissive:'#020817',emissiveIntensity:.58,
+        color:'#020817',roughness:.52,metalness:.42,
+        emissive:'#061521',emissiveIntensity:.72,
       }),
       roof:new THREE.MeshStandardMaterial(roofMat),
       // stairs same dark tone as ceiling
@@ -5308,9 +5415,7 @@ export default function MiningChain3DFPV({
       const insideHouse=
         row>=CIPHER_HOUSE_BOUNDS.minRow&&row<=CIPHER_HOUSE_BOUNDS.maxRow&&
         col>=CIPHER_HOUSE_BOUNDS.minCol&&col<=CIPHER_HOUSE_BOUNDS.maxCol
-      const nearHouse=
-        row>=CIPHER_HOUSE_BOUNDS.minRow-2&&row<=CIPHER_HOUSE_BOUNDS.maxRow+2&&
-        col>=CIPHER_HOUSE_BOUNDS.minCol-2&&col<=CIPHER_HOUSE_BOUNDS.maxCol+2
+      const nearHouse=isNearCipherHouse(row,col)
       if((insideHouse||nearHouse)&&!data.isHouse) continue
       if(data.isHouse||!reserved.has(key)) valid.set(key, chainObstacle(key,data))
     }
@@ -5325,8 +5430,11 @@ export default function MiningChain3DFPV({
     for(let r=CIPHER_HOUSE_BOUNDS.minRow;r<=CIPHER_HOUSE_BOUNDS.maxRow;r++){
       for(let c=CIPHER_HOUSE_BOUNDS.minCol;c<=CIPHER_HOUSE_BOUNDS.maxCol;c++) reserved.add(`${r},${c}`)
     }
-    for(let r=CIPHER_HOUSE_BOUNDS.minRow-2;r<=CIPHER_HOUSE_BOUNDS.maxRow+2;r++){
-      for(let c=CIPHER_HOUSE_BOUNDS.minCol-2;c<=CIPHER_HOUSE_BOUNDS.maxCol+2;c++) reserved.add(`${r},${c}`)
+    for(const key of CIPHER_HOUSE_APPROACH_CELLS) reserved.add(key)
+    for(let r=CIPHER_HOUSE_BOUNDS.minRow-CIPHER_HOUSE_APPROACH_BUFFER;r<=CIPHER_HOUSE_BOUNDS.maxRow+CIPHER_HOUSE_APPROACH_BUFFER;r++){
+      for(let c=CIPHER_HOUSE_BOUNDS.minCol-CIPHER_HOUSE_APPROACH_BUFFER;c<=CIPHER_HOUSE_BOUNDS.maxCol+CIPHER_HOUSE_APPROACH_BUFFER;c++){
+        reserved.add(`${r},${c}`)
+      }
     }
 
     // Authored traversal landmarks get first choice of genuinely empty space;
@@ -5344,6 +5452,7 @@ export default function MiningChain3DFPV({
     for (let r = 4; r < MM3_BLOCK_GRID_ROWS-4; r += 4) {
       for (let c = 4; c < MM3_BLOCK_GRID_COLS-4; c += 4) {
         if (Math.abs(r-14) <= 5 && Math.abs(c-14) <= 5) continue  // keep center zone free
+        if (isNearCipherHouse(r, c)) continue
         const h = (((r * 31 + c * 17) ^ (r * c * 7)) % 100 + 100) % 100
         if (h >= 22) continue  // ~22% become wall origins
         const isHoriz = ((r * 13 + c * 7) & 1) === 0
@@ -5353,6 +5462,7 @@ export default function MiningChain3DFPV({
           const wr = isHoriz ? r : r + i
           const wc = isHoriz ? c + i : c
           if (wr < 2 || wr >= MM3_BLOCK_GRID_ROWS-2 || wc < 2 || wc >= MM3_BLOCK_GRID_COLS-2) break
+          if (isNearCipherHouse(wr, wc)) continue
           const key = `${wr},${wc}`
           // Only fill truly empty positions — never override NFTJI/mined blocks
           if (!reserved.has(key) && !valid.has(key)) valid.set(key, chainObstacle(key,wallData))
@@ -5362,6 +5472,7 @@ export default function MiningChain3DFPV({
 
     addDenseMaze(valid,reserved,cellMap)
     addOrganicObstacles(valid,reserved,cellMap)
+    clearCipherHouseApproaches(valid)
 
     // Build a small number of deterministic staircases beside isolated tall
     // obstacles. Each cube is a real collision/support surface, so players can
