@@ -23,9 +23,9 @@ const CELL_SIZE     = 40     // world units per grid cell — large for future i
 const WORLD_W       = COLS * CELL_SIZE
 const WORLD_H       = ROWS * CELL_SIZE
 const STRIP_W       = 3
-const FOV           = Math.PI * 0.43
-const PROJ_DIST     = 0.72
-const CAMERA_EYE_Z  = 0.68   // eye height above the surface the player stands on
+const FOV           = Math.PI * 0.36   // increased zoom for better closeup visibility
+const PROJ_DIST     = 0.82   // improved near-plane projection
+const CAMERA_EYE_Z  = 0.52   // closer eye height for larger player view and better interaction
 const MAX_PITCH     = 1.08    // ~62deg: avoids projection collapse at extreme look angles
 const MOVE_SPD      = 47     // world units / second (~1.2 cells/sec)
 const MOVE_ACCEL    = 11
@@ -37,13 +37,13 @@ const AVATAR_R      = 0.30
 const FOOTSTEP_DIST = CELL_SIZE * 0.42       // footstep cadence
 const SWING_DUR     = 340    // ms per USB staff swing
 const HITS_NEEDED   = 5      // swings to complete mining action
-const INTERACT_DIST       = 1.3   // grid cells — max distance for block interaction
-const PORTAL_INTERACT_DIST = 2.15 // forgiving floor portals; easier to trigger while walking
+const INTERACT_DIST       = 1.4   // grid cells — max distance for block interaction (increased for closer camera)
+const PORTAL_INTERACT_DIST = 2.25 // forgiving floor portals; easier to trigger while walking
 // The chain node fills a solid cell, so PLAYER_R keeps the player's centre at
 // least 0.78 cells from its centre. Use the regular hit range so it is reachable.
 const CHAIN_INTERACT_DIST = INTERACT_DIST
-const PVP_HIT_RANGE   = 1.3  // grid cells — max distance to land a PvP hit (shorter = harder to spam, easier to dodge)
-const PVP_SIGHT_RANGE = 2.5  // grid cells — wider cone: enemy visible in crosshair but out of hit range → MISS
+const PVP_HIT_RANGE   = 1.35  // grid cells — max distance to land a PvP hit (adjusted for new camera)
+const PVP_SIGHT_RANGE = 2.6   // grid cells — wider cone: enemy visible in crosshair but out of hit range → MISS
 const VISUAL_RANGE  = 18     // far plane in cells; physics still uses the full map
 const FLOOR_GRID_RANGE = 12  // distant grid lines merge into unstable horizon bands
 const RADAR_RANGE   = 18     // square local map using the same camera frustum
@@ -91,22 +91,22 @@ const HOUSE_POOL_INNER = Object.freeze({
   maxZ: HOUSE_POOL_CENTER_Z + 1.78,
 })
 const HOUSE_POOL_OUTER = Object.freeze({
-  minX: HOUSE_POOL_CENTER_X - 3.35,
-  maxX: HOUSE_POOL_CENTER_X + 3.35,
-  minZ: HOUSE_POOL_CENTER_Z - 2.08,
-  maxZ: HOUSE_POOL_CENTER_Z + 2.08,
+  minX: HOUSE_POOL_CENTER_X - 3.50,   // expanded outward for better edge accessibility
+  maxX: HOUSE_POOL_CENTER_X + 3.50,
+  minZ: HOUSE_POOL_CENTER_Z - 2.25,   // expanded for clear walking path
+  maxZ: HOUSE_POOL_CENTER_Z + 2.25,
 })
 const HOUSE_POOL_TERRACE = Object.freeze({
-  minX: HOUSE_POOL_OUTER.minX - .72,
-  maxX: HOUSE_POOL_OUTER.maxX + .72,
-  minZ: HOUSE_POOL_OUTER.minZ - .72,
-  maxZ: HOUSE_POOL_OUTER.maxZ + .72,
+  minX: HOUSE_POOL_OUTER.minX - 0.85,  // increased terrace buffer
+  maxX: HOUSE_POOL_OUTER.maxX + 0.85,
+  minZ: HOUSE_POOL_OUTER.minZ - 0.85,
+  maxZ: HOUSE_POOL_OUTER.maxZ + 0.85,
 })
 const HOUSE_POOL_ENTRY = Object.freeze({
-  minX: HOUSE_POOL_CENTER_X - 1.20,
-  maxX: HOUSE_POOL_CENTER_X + 1.20,
-  minZ: HOUSE_POOL_CENTER_Z - 2.08,
-  maxZ: HOUSE_POOL_CENTER_Z - 1.78,
+  minX: HOUSE_POOL_CENTER_X - 1.35,  // adjusted for expanded pool
+  maxX: HOUSE_POOL_CENTER_X + 1.35,
+  minZ: HOUSE_POOL_CENTER_Z - 2.25,  // adjusted for expanded pool
+  maxZ: HOUSE_POOL_CENTER_Z - 1.95,  // adjusted for expanded pool
 })
 const HOUSE_POOL_WALL_TOP = HOUSE_POOL_DECK_LEVEL + .18
 const HOUSE_DIVING_BOARD = Object.freeze({
@@ -1654,8 +1654,8 @@ function poolTerraceSupportAt(gx, gy, playerZ, radius = PLAYER_R * .82) {
 }
 
 function poolTerraceRailBounds() {
-  const t = .16
-  const gapHalf = 1.28
+  const t = .18   // slightly thicker rails for visibility
+  const gapHalf = 1.40  // wider entry gap for easier access while walking
   return [
     { minX: HOUSE_POOL_TERRACE.minX, maxX: HOUSE_POOL_CENTER_X - gapHalf, minZ: HOUSE_POOL_TERRACE.minZ, maxZ: HOUSE_POOL_TERRACE.minZ + t },
     { minX: HOUSE_POOL_CENTER_X + gapHalf, maxX: HOUSE_POOL_TERRACE.maxX, minZ: HOUSE_POOL_TERRACE.minZ, maxZ: HOUSE_POOL_TERRACE.minZ + t },
@@ -6474,9 +6474,9 @@ export default function MiningChain3DFPV({
     const xhFgCol    = playerInXH ? '#ff6b6b'
                      : inXHRange  ? xhBase
                      : '#ffffff'
-    const xhLen      = playerInXH ? 14 : inXHRange ? 13 : 10
+    const xhLen      = playerInXH ? 15 : inXHRange ? 14 : 11
     const xhGap      = playerInXH ? 3  : inXHRange ? 2  : 3
-    const xhLW       = playerInXH ? 2.2 : inXHRange ? 1.8 : 1.4
+    const xhLW       = playerInXH ? 2.3 : inXHRange ? 1.9 : 1.5
     // Draw dark outline first so crosshair is readable on any background
     const drawXH = () => {
       ctx.beginPath()
@@ -6486,18 +6486,18 @@ export default function MiningChain3DFPV({
       ctx.moveTo(W/2, viewCenterY+xhGap);       ctx.lineTo(W/2, viewCenterY+xhLen+xhGap)
       ctx.stroke()
     }
-    ctx.strokeStyle = 'rgba(0,0,0,0.65)'; ctx.lineWidth = xhLW + 1.8; drawXH()
+    ctx.strokeStyle = 'rgba(0,0,0,0.68)'; ctx.lineWidth = xhLW + 1.8; drawXH()
     ctx.strokeStyle = xhFgCol; ctx.lineWidth = xhLW;
-    ctx.globalAlpha = playerInXH ? 1 : inXHRange ? 0.95 : 0.82
+    ctx.globalAlpha = playerInXH ? 1 : inXHRange ? 0.98 : 0.85
     drawXH()
     ctx.globalAlpha = 1
     // Centre dot
     ctx.fillStyle = xhFgCol
-    ctx.beginPath(); ctx.arc(W/2, viewCenterY, playerInXH ? 3 : inXHRange ? 2.5 : 2, 0, Math.PI*2); ctx.fill()
+    ctx.beginPath(); ctx.arc(W/2, viewCenterY, playerInXH ? 3.5 : inXHRange ? 2.8 : 2.2, 0, Math.PI*2); ctx.fill()
     // Ring when on block target or player
     if (inXHRange) {
-      ctx.globalAlpha = 0.22; ctx.strokeStyle = xhBase; ctx.lineWidth = 1
-      ctx.beginPath(); ctx.arc(W/2, viewCenterY, 24, 0, Math.PI*2); ctx.stroke()
+      ctx.globalAlpha = 0.18; ctx.strokeStyle = xhBase; ctx.lineWidth = 1.2
+      ctx.beginPath(); ctx.arc(W/2, viewCenterY, 20, 0, Math.PI*2); ctx.stroke()
       ctx.globalAlpha = 1
     }
     if (playerInXH) {
