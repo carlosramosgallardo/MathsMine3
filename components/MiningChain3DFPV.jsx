@@ -1911,6 +1911,15 @@ function solidSpanAt(row, col, cellMap, obsSet) {
   return null
 }
 
+// House floors are horizontal walk surfaces, not vertical barriers. Windows are
+// glass openings — only their mullions are visible, never a full-height column.
+function houseObstacleBlocksHorizontally(obstacle) {
+  if (!obstacle?.isHouse) return true
+  if (obstacle.isHouseFloor && obstacle.shape !== 'ramp') return false
+  if (obstacle.isHouseWindow) return false
+  return true
+}
+
 // Circular player footprint against complete solid cells. Checking the whole
 // body, rather than only its centre, prevents clipping into corners and walls.
 function hitsSolidWall(gx, gy, cellMap, obsSet, playerZ = 0) {
@@ -1939,6 +1948,7 @@ function hitsSolidWall(gx, gy, cellMap, obsSet, playerZ = 0) {
         }
         continue
       }
+      if(obstacle?.isHouse && !houseObstacleBlocksHorizontally(obstacle)) continue
       if(obstacle?.isRouteStair||obstacle?.isStair||obstacle?.isHouseRail){
         if(obstacleTop(obstacle)<=playerZ+.24) continue
       }
@@ -3756,7 +3766,6 @@ function addCipherHouseDetails(world) {
     const headerX=horiz?px:(door.wall==='east'?maxCol+.5:minCol+.5)
     const headerZ=horiz?(door.wall==='north'?minRow+.5:maxRow+.5):pz
     header.position.set(headerX,(doorH+wallTop)/2,headerZ)
-    header.userData.collidable=true
     group.add(header)
   }
   for(const door of CIPHER_HOUSE_DOORS) addDoubleDoorFrame(door)
@@ -4735,7 +4744,6 @@ function rebuildThreeWorld(state,cellMap,obstacles) {
           if(!interiorStair){
             const riser=new THREE.Mesh(new THREE.BoxGeometry(sx,Math.max(.02,stepTop),sz),riserMat)
             riser.position.set(xc,stepTop*.5,zc)
-            riser.userData.collidable=true
             riser.userData.avatarFadeOccluder=true
             world.add(riser)
           }
