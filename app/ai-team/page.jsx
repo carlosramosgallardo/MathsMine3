@@ -120,7 +120,6 @@ export default function AITeamPage() {
               {[
                 { href: 'https://www.anthropic.com', mark: 'AN', name: 'Claude', company: 'Anthropic' },
                 { href: 'https://openai.com', mark: 'OP', name: 'Codex', company: 'OpenAI' },
-                { href: 'https://github.com/features/copilot', mark: 'GH', name: 'Copilot', company: 'GitHub' },
               ].map(({ href, mark, name, company }) => (
                 <a key={name} href={href} target="_blank" rel="noopener noreferrer"
                   className="ai-team-tool-block">
