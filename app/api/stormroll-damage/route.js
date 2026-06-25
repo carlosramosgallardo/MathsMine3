@@ -30,18 +30,11 @@ function nodeModeFor(wallet, hourStart) {
   return Math.abs(hash) % 2 === 0 ? 'meteo' : 'war'
 }
 
-const HOUSE_POOL_CENTER_X = 6.35
-const HOUSE_POOL_CENTER_Z = 10.75
-const HOUSE_POOL_INNER = Object.freeze({
-  minX: HOUSE_POOL_CENTER_X - 3.05,
-  maxX: HOUSE_POOL_CENTER_X + 3.05,
-  minZ: HOUSE_POOL_CENTER_Z - 1.78,
-  maxZ: HOUSE_POOL_CENTER_Z + 1.78,
-})
+import { HOUSE_POOL_HEAL_ZONE } from '@/lib/mining-world-layout'
 
 function isInPoolSafeZone(gx, gy) {
-  return gx > HOUSE_POOL_INNER.minX && gx < HOUSE_POOL_INNER.maxX &&
-    gy > HOUSE_POOL_INNER.minZ && gy < HOUSE_POOL_INNER.maxZ
+  return gx > HOUSE_POOL_HEAL_ZONE.minX && gx < HOUSE_POOL_HEAL_ZONE.maxX &&
+    gy > HOUSE_POOL_HEAL_ZONE.minZ && gy < HOUSE_POOL_HEAL_ZONE.maxZ
 }
 
 function serviceClient() {

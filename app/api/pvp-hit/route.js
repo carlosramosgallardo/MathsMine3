@@ -10,18 +10,11 @@ function serviceClient() {
   )
 }
 
-const HOUSE_POOL_CENTER_X = 6.35
-const HOUSE_POOL_CENTER_Z = 10.75
-const HOUSE_POOL_SAFE_ZONE = Object.freeze({
-  minX: HOUSE_POOL_CENTER_X - 3.05,
-  maxX: HOUSE_POOL_CENTER_X + 3.05,
-  minY: HOUSE_POOL_CENTER_Z - 1.78,
-  maxY: HOUSE_POOL_CENTER_Z + 1.78,
-})
+import { HOUSE_POOL_PVP_SAFE_ZONE } from '@/lib/mining-world-layout'
 
 function isInHousePoolSafeZone(gx, gy) {
-  return gx > HOUSE_POOL_SAFE_ZONE.minX && gx < HOUSE_POOL_SAFE_ZONE.maxX &&
-    gy > HOUSE_POOL_SAFE_ZONE.minY && gy < HOUSE_POOL_SAFE_ZONE.maxY
+  return gx > HOUSE_POOL_PVP_SAFE_ZONE.minX && gx < HOUSE_POOL_PVP_SAFE_ZONE.maxX &&
+    gy > HOUSE_POOL_PVP_SAFE_ZONE.minY && gy < HOUSE_POOL_PVP_SAFE_ZONE.maxY
 }
 
 export async function GET(req) {

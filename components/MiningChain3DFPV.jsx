@@ -10,9 +10,15 @@ import { getDiceState } from '@/lib/dice'
 import {
   CIPHER_HOUSE_BOUNDS,
   CRYPTO_COLOSSEUM_BOUNDS,
+  HOUSE_POOL_CENTER_X,
+  HOUSE_POOL_CENTER_Z,
+  HOUSE_POOL_OUTER,
+  HOUSE_POOL_TERRACE,
   MINING_CHAIN_NODE_POSITION,
   MINING_WORLD_COLS,
   MINING_WORLD_ROWS,
+  NODE_DICE_POSITION,
+  isPlayableMiningWorldCell,
 } from '@/lib/mining-world-layout'
 
 const ROWS = MINING_WORLD_ROWS   // double the inner mining grid for free walking space
@@ -50,7 +56,6 @@ const FLOOR_GRID_RANGE = 12  // distant grid lines merge into unstable horizon b
 const RADAR_RANGE   = 18     // square local map using the same camera frustum
 const CHAIN_NODE_ROW = MINING_CHAIN_NODE_POSITION.row
 const CHAIN_NODE_COL = MINING_CHAIN_NODE_POSITION.col
-const NODE_DICE_POSITION = Object.freeze({ row: 8, col: 9 })
 // Jump: a player can mount mining blocks, but structural walls stay impassable.
 const JUMP_VZ   = 5.7        // jump impulse (grid units / second)
 const GRAVITY_A = 13.5       // gravity (grid units / second²)
@@ -130,41 +135,31 @@ const W_DARK  = [58,  62,  70]    // dark gray
 const HOUSE_BLUE_RGB = [8, 47, 73]
 const HOUSE_BLACK_RGB = [2, 8, 23]
 const HOUSE_MAIN_FLOOR_LEVEL = 3.48
+const HOUSE_EXTERIOR_WALL_TOP = 6.20
+const HOUSE_EXTERIOR_WALL_CAP_THICK = 0.14
 const HOUSE_TRAMPOLINE_LAUNCH = Math.sqrt(2 * GRAVITY_A * (HOUSE_MAIN_FLOOR_LEVEL + 0.35))
 const HOUSE_MIN_CEILING_GAP = 2.32
 const HOUSE_RAIL_HEIGHT = .76
-const HOUSE_POOL_CENTER_X = 6.35
-const HOUSE_POOL_CENTER_Z = 10.75
 const HOUSE_POOL_DECK_LEVEL = 5.836
 const HOUSE_POOL_FLOOR_LEVEL = HOUSE_POOL_DECK_LEVEL - .82
 const HOUSE_POOL_WATER_LEVEL = HOUSE_POOL_DECK_LEVEL - .14
-const HOUSE_POOL_INNER = Object.freeze({
-  minX: HOUSE_POOL_CENTER_X - 2.50,
-  maxX: HOUSE_POOL_CENTER_X + 2.50,
-  minZ: HOUSE_POOL_CENTER_Z - 1.25,
-  maxZ: HOUSE_POOL_CENTER_Z + 1.25,
-})
 const HOUSE_POOL_PERIM_WALL_T = 0.18
-const HOUSE_POOL_OUTER = Object.freeze({
-  minX: HOUSE_POOL_CENTER_X - 2.50,   // moved 1 unit inward to avoid wall overlap
-  maxX: HOUSE_POOL_CENTER_X + 2.50,   // moved 1 unit inward to avoid wall overlap
-  minZ: HOUSE_POOL_CENTER_Z - 1.25,   // moved 1 unit inward to avoid wall overlap
-  maxZ: HOUSE_POOL_CENTER_Z + 1.25,   // moved 1 unit inward to avoid wall overlap
-})
-const HOUSE_POOL_TERRACE = Object.freeze({
-  minX: HOUSE_POOL_OUTER.minX - 0.85,  // increased terrace buffer
-  maxX: HOUSE_POOL_OUTER.maxX + 0.85,
-  minZ: HOUSE_POOL_OUTER.minZ - 0.85,
-  maxZ: HOUSE_POOL_OUTER.maxZ + 0.85,
-})
+// North stair passage — open in the terrace rail only (basin walls stay closed).
 const HOUSE_POOL_ENTRY = Object.freeze({
-  minX: HOUSE_POOL_CENTER_X - 1.35,  // adjusted for inward pool position
-  maxX: HOUSE_POOL_CENTER_X + 1.35,
-  minZ: HOUSE_POOL_CENTER_Z - 1.25,  // adjusted for inward pool position
-  maxZ: HOUSE_POOL_CENTER_Z - 0.95,  // adjusted for inward pool position
+  minX: 6.00,
+  maxX: 8.00,
+  minZ: HOUSE_POOL_OUTER.minZ,
+  maxZ: HOUSE_POOL_OUTER.minZ + 0.30,
 })
 const HOUSE_POOL_WALL_TOP = HOUSE_POOL_DECK_LEVEL + .18
-const HOUSE_POOL_SWIM_MAX_Z = HOUSE_POOL_WATER_LEVEL + 0.38
+const HOUSE_POOL_TERRACE_RAIL_THICK = 0.16
+const HOUSE_POOL_TERRACE_RAIL_HEIGHT = 0.54
+const HOUSE_POOL_TERRACE_RAIL_RISE = 0.10
+const HOUSE_POOL_TERRACE_RAIL_BASE = HOUSE_POOL_WALL_TOP + HOUSE_POOL_TERRACE_RAIL_RISE
+const HOUSE_POOL_TERRACE_RAIL_TOP = HOUSE_POOL_TERRACE_RAIL_BASE + HOUSE_POOL_TERRACE_RAIL_HEIGHT
+const HOUSE_POOL_SWIM_MAX_Z = HOUSE_POOL_WATER_LEVEL + 0.22
+const POOL_WALL_VAULT_CLEAR = 0.08
+const POOL_RAIL_VAULT_CLEAR = 0.06
 const NODE_DICE_INTERACT_MIN_Z = HOUSE_POOL_WALL_TOP - 0.34
 const TRAINING_PORTAL_KEY = '5,5'
 
@@ -173,10 +168,22 @@ function canInteractNodeDiceAtHeight(playerZ = 0) {
 }
 
 // Training portal sits on the interior main floor — ignore it while climbing
-// the pool staircase beside it.
+// the pool staircase beside it (roof level), but allow normal floor play + jump.
 function canInteractPortalAtHeight(row, col, playerZ = 0) {
   if (`${row},${col}` !== TRAINING_PORTAL_KEY) return true
-  return playerZ >= HOUSE_MAIN_FLOOR_LEVEL - 0.20 && playerZ <= HOUSE_MAIN_FLOOR_LEVEL + 0.50
+  return playerZ >= HOUSE_MAIN_FLOOR_LEVEL - 0.45 && playerZ <= HOUSE_MAIN_FLOOR_LEVEL + 1.08
+}
+
+function inHouseInteriorCell(row, col) {
+  return row > CIPHER_HOUSE_BOUNDS.minRow && row < CIPHER_HOUSE_BOUNDS.maxRow &&
+    col > CIPHER_HOUSE_BOUNDS.minCol && col < CIPHER_HOUSE_BOUNDS.maxCol
+}
+
+function nodeStandHeight(cell, row, col) {
+  const bottom = Number(cell?.baseHeight)
+  if (Number.isFinite(bottom) && bottom > 0) return bottom
+  if (cell?.isPortalNode && inHouseInteriorCell(row, col)) return HOUSE_MAIN_FLOOR_LEVEL
+  return 0
 }
 
 // Walkable pads that mirror the Cipher House pool meshes — gaps have no support.
@@ -196,18 +203,224 @@ function buildHousePoolWalkSurfaces() {
   push(t.minX, o.minX, o.minZ, o.maxZ, rimLevel)
   push(o.maxX, t.maxX, o.minZ, o.maxZ, rimLevel)
 
-  // Stair landing on the contour tiles (north ring), aligned with the interior
-  // stair exit so the transition is always walkable.
+  // Stair landing + north approach bridge (outside the closed basin wall).
   push(
-    5.94, 8.06,
-    o.minZ - 0.58, o.minZ - 0.08,
+    HOUSE_POOL_ENTRY.minX - 0.21,
+    HOUSE_POOL_ENTRY.maxX + 0.21,
+    o.minZ - 1.08,
+    o.minZ + 0.04,
     rimLevel,
   )
 
   return surfaces
 }
 
+function isInPoolNorthPassage(gx, gy, radius = PLAYER_R * 0.85) {
+  const e = HOUSE_POOL_ENTRY
+  const o = HOUSE_POOL_OUTER
+  return gx + radius > e.minX - 0.55 && gx - radius < e.maxX + 0.55 &&
+    gy + radius > o.minZ - 1.08 && gy - radius < o.minZ + 0.42
+}
+
+function isNorthPoolTerraceRail(rail) {
+  const cz = HOUSE_POOL_CENTER_Z
+  const poolTerraceD = HOUSE_POOL_TERRACE.maxZ - HOUSE_POOL_TERRACE.minZ
+  const northRailZ = cz - poolTerraceD / 2 + HOUSE_POOL_TERRACE_RAIL_THICK / 2
+  const railCenterZ = (rail.minZ + rail.maxZ) * 0.5
+  return Math.abs(railCenterZ - northRailZ) < 0.12
+}
+
+function canWalkPoolRim(gx, gy, playerZ) {
+  return playerZ >= HOUSE_POOL_WALL_TOP - 0.10 && !isAtPoolSwimDepth(playerZ)
+}
+
+function cellInsidePoolBasin(row, col) {
+  const o = HOUSE_POOL_OUTER
+  return col + 1 > o.minX && col < o.maxX && row + 1 > o.minZ && row < o.maxZ
+}
+
+function cellOverlapsPoolTerrace(row, col) {
+  return col + 1 > HOUSE_POOL_TERRACE.minX && col < HOUSE_POOL_TERRACE.maxX &&
+    row + 1 > HOUSE_POOL_TERRACE.minZ && row < HOUSE_POOL_TERRACE.maxZ
+}
+
+function isNearPoolTerraceMargin(gx, gy, margin = 0.55) {
+  const t = HOUSE_POOL_TERRACE
+  return gx >= t.minX - margin && gx <= t.maxX + margin &&
+    gy >= t.minZ - margin && gy <= t.maxZ + margin
+}
+
+function isVaultingPoolTerraceFence(gx, gy, playerZ, playerVz = 0) {
+  if (!isNearPoolTerraceMargin(gx, gy, 0.85)) return false
+  if (playerZ < HOUSE_POOL_WALL_TOP - 0.25) return false
+  if (playerZ >= HOUSE_POOL_TERRACE_RAIL_TOP - 0.05) return true
+  if (playerVz > 0.04 && poolJumpApex(playerZ, playerVz) >= HOUSE_POOL_TERRACE_RAIL_TOP - 0.04) {
+    return true
+  }
+  if (canWalkPoolRim(gx, gy, playerZ) && playerVz > 0.07) return true
+  return false
+}
+
+function isPoolTerraceRimTraversal(gx, gy, playerZ) {
+  if (!canWalkPoolRim(gx, gy, playerZ)) return false
+  return isOnPoolTerraceRing(gx, gy) || isInPoolNorthPassage(gx, gy)
+}
+
+function poolTerraceSideAt(gx, gy, radius = PLAYER_R * 0.82) {
+  const o = HOUSE_POOL_OUTER
+  const edge = 0.32
+  return {
+    north: gy - radius < o.minZ + edge,
+    south: gy + radius > o.maxZ - edge,
+    west: gx - radius < o.minX + edge,
+    east: gx + radius > o.maxX - edge,
+  }
+}
+
+function terraceRailOrientation(rail) {
+  const w = rail.maxX - rail.minX
+  const d = rail.maxZ - rail.minZ
+  return w >= d ? 'horizontal' : 'vertical'
+}
+
+function isEastTerraceRail(rail) {
+  return terraceRailOrientation(rail) === 'vertical' &&
+    (rail.minX + rail.maxX) * 0.5 > HOUSE_POOL_CENTER_X + 0.2
+}
+
+function isWestTerraceRail(rail) {
+  return terraceRailOrientation(rail) === 'vertical' &&
+    (rail.minX + rail.maxX) * 0.5 < HOUSE_POOL_CENTER_X - 0.2
+}
+
+function isSouthTerraceRail(rail) {
+  return terraceRailOrientation(rail) === 'horizontal' &&
+    (rail.minZ + rail.maxZ) * 0.5 > HOUSE_POOL_CENTER_Z + 0.2
+}
+
+function isEastNorthTerraceRail(rail) {
+  if (!isNorthPoolTerraceRail(rail)) return false
+  return (rail.minX + rail.maxX) * 0.5 > HOUSE_POOL_CENTER_X + 0.2
+}
+
+function isWestNorthTerraceRail(rail) {
+  if (!isNorthPoolTerraceRail(rail)) return false
+  return (rail.minX + rail.maxX) * 0.5 < HOUSE_POOL_CENTER_X - 0.2
+}
+
+function poolTerraceRimClearsObstacle(row, col, key, obstacle, gx, gy, playerZ) {
+  if (!isPoolTerraceRimTraversal(gx, gy, playerZ)) return false
+  const sides = poolTerraceSideAt(gx, gy)
+  if (CIPHER_HOUSE_PERIMETER_KEYS.has(key)) {
+    if (col === CIPHER_HOUSE_BOUNDS.maxCol && sides.east) return true
+    if (col === CIPHER_HOUSE_BOUNDS.minCol && sides.west) return true
+    if (row === CIPHER_HOUSE_BOUNDS.minRow && sides.north) return true
+    if (row === CIPHER_HOUSE_BOUNDS.maxRow && sides.south) return true
+  }
+  if (!obstacle?.isHouse && obstacle?.label === 'WALL') {
+    const cx = col + 0.5
+    const cz = row + 0.5
+    return cellOverlapsPoolTerrace(row, col) || isNearPoolTerraceMargin(cx, cz, 1.05)
+  }
+  return false
+}
+
+function poolTerraceVaultClearsObstacle(row, col, key, obstacle, gx, gy, playerZ, playerVz) {
+  if (!isVaultingPoolTerraceFence(gx, gy, playerZ, playerVz)) return false
+  if (CIPHER_HOUSE_PERIMETER_KEYS.has(key)) return true
+  if (cellOverlapsPoolTerrace(row, col)) return true
+  if (!obstacle?.isHouse && obstacle?.label === 'WALL') return true
+  return isNearPoolTerraceMargin(col + 0.5, row + 0.5, 1.05)
+}
+
+function clearPoolTerraceProceduralObstacles(valid) {
+  for (const [key, obstacle] of valid) {
+    if (obstacle?.isHouse) continue
+    const [row, col] = key.split(',').map(Number)
+    const cx = col + 0.5
+    const cz = row + 0.5
+    if (cellOverlapsPoolTerrace(row, col) || isNearPoolTerraceMargin(cx, cz, 1.05)) {
+      valid.delete(key)
+    }
+  }
+}
+
 const HOUSE_POOL_WALK_SURFACES = buildHousePoolWalkSurfaces()
+
+function buildPoolTerraceRailBounds() {
+  const cx = HOUSE_POOL_CENTER_X
+  const cz = HOUSE_POOL_CENTER_Z
+  const terrace = HOUSE_POOL_TERRACE
+  const poolTerraceW = terrace.maxX - terrace.minX
+  const poolTerraceD = terrace.maxZ - terrace.minZ
+  const railT = HOUSE_POOL_TERRACE_RAIL_THICK
+  const bounds = []
+  const push = (lx, lz, sx, sz) => {
+    bounds.push({
+      minX: cx + lx - sx * .5,
+      maxX: cx + lx + sx * .5,
+      minZ: cz + lz - sz * .5,
+      maxZ: cz + lz + sz * .5,
+    })
+  }
+  const gapMinX = HOUSE_POOL_ENTRY.minX
+  const gapMaxX = HOUSE_POOL_ENTRY.maxX
+  const westNorthW = gapMinX - terrace.minX
+  const eastNorthW = terrace.maxX - gapMaxX
+  const westNorthLx = (terrace.minX + gapMinX) * 0.5 - cx
+  const eastNorthLx = (gapMaxX + terrace.maxX) * 0.5 - cx
+  const northLz = -poolTerraceD / 2 + railT / 2
+  push(westNorthLx, northLz, westNorthW, railT)
+  push(eastNorthLx, northLz, eastNorthW, railT)
+  push(0, poolTerraceD / 2 - railT / 2, poolTerraceW, railT)
+  push(-poolTerraceW / 2 + railT / 2, 0, railT, poolTerraceD)
+  push(poolTerraceW / 2 - railT / 2, 0, railT, poolTerraceD)
+  return bounds
+}
+
+const HOUSE_POOL_TERRACE_RAIL_BOUNDS = buildPoolTerraceRailBounds()
+
+function canVaultPoolBarrier(playerZ, playerVz, barrierTop, clearance = POOL_WALL_VAULT_CLEAR) {
+  if (playerVz <= 0.12) return false
+  return poolJumpApex(playerZ, playerVz) >= barrierTop + clearance
+}
+
+function buildPoolInnerWallBounds() {
+  const o = HOUSE_POOL_OUTER
+  const t = HOUSE_POOL_PERIM_WALL_T
+  const walls = []
+  const push = (minX, maxX, minZ, maxZ) => {
+    walls.push({
+      minX, maxX, minZ, maxZ,
+      bottom: HOUSE_POOL_FLOOR_LEVEL,
+      top: HOUSE_POOL_WALL_TOP,
+    })
+  }
+  // Full wall thickness — inner + outer shell so nothing slips through the lip.
+  push(o.minX, o.maxX, o.maxZ - t, o.maxZ + t)
+  push(o.maxX - t, o.maxX + t, o.minZ, o.maxZ)
+  push(o.minX - t, o.minX + t, o.minZ, o.maxZ)
+  // North wall — entry gap cols 6–8 (walk in from the terrace landing).
+  push(o.minX, HOUSE_POOL_ENTRY.minX, o.minZ - t, o.minZ + t)
+  push(HOUSE_POOL_ENTRY.maxX, o.maxX, o.minZ - t, o.minZ + t)
+  const bulkD = 0.92
+  push(HOUSE_POOL_ENTRY.minX, HOUSE_POOL_ENTRY.maxX, o.minZ - bulkD, o.minZ)
+  return walls
+}
+
+const HOUSE_POOL_INNER_WALL_BOUNDS = buildPoolInnerWallBounds()
+
+function isOnPoolTerraceRing(gx, gy, radius = PLAYER_R * 0.85) {
+  const o = HOUSE_POOL_OUTER
+  const t = HOUSE_POOL_TERRACE
+  const inTerrace =
+    gx >= t.minX - radius && gx <= t.maxX + radius &&
+    gy >= t.minZ - radius && gy <= t.maxZ + radius
+  const inPool =
+    gx > o.minX + radius && gx < o.maxX - radius &&
+    gy > o.minZ + radius && gy < o.maxZ - radius
+  return inTerrace && !inPool
+}
 
 function housePoolWalkSupportAt(gx, gy, playerZ, radius = PLAYER_R * 0.78) {
   let support = 0
@@ -227,16 +440,11 @@ function housePoolWalkSupportAt(gx, gy, playerZ, radius = PLAYER_R * 0.78) {
   return support
 }
 
-// Interior staircase: a short, gentle ramp (rendered as discrete steps, but with
-// smooth ramp collision so it is always climbable) that rises from the main floor
-// straight up to the rooftop pool terrace. It climbs south along cols 5–6 — in
-// line with the north door and the terrace's rail entry gap — and lands flush on
-// the visible terrace, so there is no invisible roof to walk on. The old winding
-// ground→roof staircase (whose lower half duplicated the new exterior entrances)
-// is gone.
+// Interior staircase: floor → rooftop terrace. Stops before the swim basin so
+// the pool stays visually and physically clear for healing.
 const HOUSE_INTERIOR_STAIR_CELLS = (() => {
   const cols = [6, 7]   // beside the north door, clear of the training portal at 5,5
-  const rows = [5, 6, 7, 8]
+  const rows = [4, 5, 6, 7, 8]
   const base = HOUSE_MAIN_FLOOR_LEVEL          // 3.48 — interior floor
   const topLevel = HOUSE_POOL_WALL_TOP          // ~6.02 — terrace walk level
   const n = rows.length
@@ -255,8 +463,8 @@ const HOUSE_STAIR_SKYLIGHT_CELLS = (() => {
   const cells = new Set()
   // Widen the opening above the interior pool stair so the climb is visually
   // and physically clear (no dark roof slab over the path).
-  for (let row = 4; row <= 9; row += 1) {
-    for (let col = 5; col <= 9; col += 1) {
+  for (let row = 3; row <= 10; row += 1) {
+    for (let col = 5; col <= 10; col += 1) {
       cells.add(`${row},${col}`)
     }
   }
@@ -292,7 +500,7 @@ function obstacleTop(data) {
 
 function blockTop(cell,row=0,col=0) {
   if(!cell) return 0
-  const base=blockBottom(cell)
+  const base=blockBottom(cell,row,col)
   if(cell.isPortalNode||cell.isChainNode||cell.isNodeDiceNode) return base+1.0
   const raw=String(cell.blockHex||gridToBlockHex(row,col)||'').replace('#','')
   const index=Number.parseInt(raw,16)
@@ -305,9 +513,13 @@ function blockTop(cell,row=0,col=0) {
   return base+0.84
 }
 
-function blockBottom(cell) {
-  const bottom=Number(cell?.baseHeight)
-  return Number.isFinite(bottom)&&bottom>0?bottom:0
+function blockBottom(cell, row = -1, col = -1) {
+  if (row >= 0 && col >= 0) {
+    const stand = nodeStandHeight(cell, row, col)
+    if (stand > 0) return stand
+  }
+  const bottom = Number(cell?.baseHeight)
+  return Number.isFinite(bottom) && bottom > 0 ? bottom : 0
 }
 
 function obstacleBottom(data) {
@@ -333,28 +545,25 @@ function rampStepUpLimit(obstacle) {
   return obstacle?.isHouseDoorStep ? WALK_STEP_UP : 0.42
 }
 
-function isInteriorStairCell(key) {
-  return HOUSE_STAIR_KEYS.has(key)
+function isHouseFloatingStair(obstacle) {
+  return Boolean(obstacle?.isHouseDoorStep)
 }
 
-const INTERIOR_STAIR_STEPS_PER_CELL = 4
+const HOUSE_STAIR_STEPS_PER_CELL = 4
 
-function interiorStairTreadTopAt(obstacle, gx, gy, row, col) {
+function houseStairTreadTopAt(obstacle, gx, gy, row, col) {
   const bottom = obstacleBottom(obstacle)
   const top = obstacleTop(obstacle)
   const span = Math.max(0.001, top - bottom)
   const localTop = rampHeightAt(obstacle, gx, gy, row, col)
   const progress = Math.max(0, Math.min(1, (localTop - bottom) / span))
-  const stepIndex = Math.max(1, Math.ceil(progress * INTERIOR_STAIR_STEPS_PER_CELL))
-  return bottom + span * (stepIndex / INTERIOR_STAIR_STEPS_PER_CELL)
+  const stepIndex = Math.max(1, Math.ceil(progress * HOUSE_STAIR_STEPS_PER_CELL))
+  return bottom + span * (stepIndex / HOUSE_STAIR_STEPS_PER_CELL)
 }
 
-// Interior stairs render as floating treads only — empty space below each step is passable.
+// House stairs render as floating treads — empty space below each step is passable.
 function rampBlocksBodyAt(obstacle, key, gx, gy, row, col, playerZ) {
-  if (isInteriorStairCell(key)) {
-    // Floating interior treads should never create a full-cell invisible wall.
-    // Keep only vertical support logic (rampSupportAt) and disable horizontal
-    // body blocking in these cells.
+  if (isHouseFloatingStair(obstacle)) {
     return false
   }
   const localTop = rampHeightAt(obstacle, gx, gy, row, col)
@@ -362,8 +571,8 @@ function rampBlocksBodyAt(obstacle, key, gx, gy, row, col, playerZ) {
 }
 
 function rampSupportAt(obstacle, key, gx, gy, row, col, playerZ) {
-  if (isInteriorStairCell(key)) {
-    const treadTop = interiorStairTreadTopAt(obstacle, gx, gy, row, col)
+  if (isHouseFloatingStair(obstacle)) {
+    const treadTop = houseStairTreadTopAt(obstacle, gx, gy, row, col)
     return playerZ >= treadTop - WALK_STEP_UP ? treadTop : 0
   }
   const localTop = rampHeightAt(obstacle, gx, gy, row, col)
@@ -409,17 +618,34 @@ const DOOR_WALL_INFO = {
 // staircase that climbs from ground level up to the raised interior floor. The
 // rise is spread across several cells so the slope reads as real steps.
 const CIPHER_HOUSE_DOORS = [
-  { wall: 'north', cells: ['3,5', '3,6'], steps: 4 },
-  { wall: 'south', cells: ['13,9', '13,10'], steps: 5 },
-  { wall: 'east', cells: ['8,13', '9,13'], steps: 4 },
+  { wall: 'north', cells: ['3,5', '3,6'], steps: 6 },
+  { wall: 'south', cells: ['13,9', '13,10'], steps: 7 },
+  { wall: 'east', cells: ['8,13', '9,13'], steps: 6 },
 ]
 const CIPHER_HOUSE_DOOR_CELLS = new Set(CIPHER_HOUSE_DOORS.flatMap(d => d.cells))
+const CIPHER_HOUSE_EAST_DOOR_CELLS = new Set(
+  CIPHER_HOUSE_DOORS.find((d) => d.wall === 'east')?.cells ?? [],
+)
 function buildHouseDoorStepCells() {
   const cells = []
   for (const door of CIPHER_HOUSE_DOORS) {
     const info = DOOR_WALL_INFO[door.wall]
     const rise = HOUSE_MAIN_FLOOR_LEVEL
-    const n = door.steps || 4
+    const requested = door.steps || 4
+    let effectiveN = 0
+    for (let i = 0; i < requested; i += 1) {
+      let inBounds = false
+      for (const k of door.cells) {
+        const [r0, c0] = k.split(',').map(Number)
+        if (isPlayableMiningWorldCell(r0 + info.dr * i, c0 + info.dc * i)) {
+          inBounds = true
+          break
+        }
+      }
+      if (!inBounds) break
+      effectiveN = i + 1
+    }
+    const n = Math.max(1, effectiveN)
     for (let i = 0; i < n; i += 1) {
       const top = (rise * (n - i)) / n
       const bottom = (rise * (n - 1 - i)) / n
@@ -427,6 +653,8 @@ function buildHouseDoorStepCells() {
         const [r0, c0] = k.split(',').map(Number)
         const row = r0 + info.dr * i
         const col = c0 + info.dc * i
+        if (!isPlayableMiningWorldCell(row, col)) continue
+        if (CIPHER_HOUSE_DOOR_CELLS.has(`${row},${col}`) && !CIPHER_HOUSE_EAST_DOOR_CELLS.has(`${row},${col}`)) continue
         cells.push({ key: `${row},${col}`, row, col, dir: info.dir, bottom, top })
       }
     }
@@ -445,6 +673,20 @@ const CIPHER_HOUSE_WINDOWS = new Set([
   '5,13', '6,13',
   '13,5', '13,6',
 ])
+function buildCipherHousePerimeterKeys() {
+  const keys = new Set()
+  const { minRow, maxRow, minCol, maxCol } = CIPHER_HOUSE_BOUNDS
+  for (let col = minCol; col <= maxCol; col += 1) {
+    keys.add(`${minRow},${col}`)
+    keys.add(`${maxRow},${col}`)
+  }
+  for (let row = minRow + 1; row < maxRow; row += 1) {
+    keys.add(`${row},${minCol}`)
+    keys.add(`${row},${maxCol}`)
+  }
+  return keys
+}
+const CIPHER_HOUSE_PERIMETER_KEYS = buildCipherHousePerimeterKeys()
 // Ground-level escape doorways: the floor is raised on stilts, so a player who
 // falls beneath it would otherwise be sealed in. These perimeter cells keep a
 // wall above head height but stay open at ground level — one per wall so a fallen
@@ -455,6 +697,52 @@ const CIPHER_HOUSE_LOWER_DOORS = new Set([
 const LOWER_DOOR_CLEAR = 2.35  // open height of the ground-level escape doorways
 
 const CIPHER_HOUSE_APPROACH_BUFFER = 5
+
+// Clear sightline from the north door staircase toward the map edge.
+const CIPHER_HOUSE_NORTH_ESPLANADE = Object.freeze({
+  minRow: 1,
+  maxRow: 2,
+  minCol: 3,
+  maxCol: 8,
+})
+
+// Optional east corridor — obstacles only, no beach.
+const CIPHER_HOUSE_EAST_ESPLANADE = Object.freeze({
+  minRow: 6,
+  maxRow: 11,
+  minCol: 13,
+  maxCol: COLS - 2,
+})
+
+function isInCipherHouseNorthEsplanade(row, col) {
+  return (
+    row >= CIPHER_HOUSE_NORTH_ESPLANADE.minRow &&
+    row <= CIPHER_HOUSE_NORTH_ESPLANADE.maxRow &&
+    col >= CIPHER_HOUSE_NORTH_ESPLANADE.minCol &&
+    col <= CIPHER_HOUSE_NORTH_ESPLANADE.maxCol
+  )
+}
+
+function isInCipherHouseEastEsplanade(row, col) {
+  return (
+    row >= CIPHER_HOUSE_EAST_ESPLANADE.minRow &&
+    row <= CIPHER_HOUSE_EAST_ESPLANADE.maxRow &&
+    col >= CIPHER_HOUSE_EAST_ESPLANADE.minCol &&
+    col <= CIPHER_HOUSE_EAST_ESPLANADE.maxCol
+  )
+}
+
+function isInCipherHouseCoastCorridor(row, col) {
+  return isInCipherHouseNorthEsplanade(row, col) || isInCipherHouseEastEsplanade(row, col)
+}
+
+function landmarkBlocksNorthEsplanadeView(x, z) {
+  return (
+    x >= CIPHER_HOUSE_NORTH_ESPLANADE.minCol - 1.5 &&
+    x <= CIPHER_HOUSE_NORTH_ESPLANADE.maxCol + 1.5 &&
+    z <= CIPHER_HOUSE_NORTH_ESPLANADE.maxRow + 0.75
+  )
+}
 
 function isNearCipherHouse(row, col, buffer = CIPHER_HOUSE_APPROACH_BUFFER) {
   return (
@@ -470,15 +758,34 @@ function buildCipherHouseApproachCells() {
   const doorVectors = [
     ['3,5', 0, -1], ['3,6', 0, -1],
     ['13,9', 0, 1], ['13,10', 0, 1],
+    ['8,13', 0, 1], ['9,13', 0, 1],
   ]
   for (const [key, dr, dc] of doorVectors) {
     const [row, col] = key.split(',').map(Number)
-    for (let depth = 1; depth <= 4; depth += 1) {
-      cells.add(`${row + dr * depth},${col + dc * depth}`)
+    const maxDepth = (dr === 0 && dc === 1)
+      ? CIPHER_HOUSE_EAST_ESPLANADE.maxCol - col
+      : (dr === -1 && dc === 0)
+        ? row - CIPHER_HOUSE_NORTH_ESPLANADE.minRow
+        : 4
+    for (let depth = 1; depth <= maxDepth; depth += 1) {
+      const nextRow = row + dr * depth
+      const nextCol = col + dc * depth
+      if (nextRow < 1 || nextRow >= ROWS - 1 || nextCol < 1 || nextCol >= COLS - 1) break
+      cells.add(`${nextRow},${nextCol}`)
     }
   }
   for (const [row, col] of [[2, 5], [2, 6], [14, 9], [14, 10]]) {
     cells.add(`${row},${col}`)
+  }
+  for (let row = CIPHER_HOUSE_NORTH_ESPLANADE.minRow; row <= CIPHER_HOUSE_NORTH_ESPLANADE.maxRow; row += 1) {
+    for (let col = CIPHER_HOUSE_NORTH_ESPLANADE.minCol; col <= CIPHER_HOUSE_NORTH_ESPLANADE.maxCol; col += 1) {
+      cells.add(`${row},${col}`)
+    }
+  }
+  for (let row = CIPHER_HOUSE_EAST_ESPLANADE.minRow; row <= CIPHER_HOUSE_EAST_ESPLANADE.maxRow; row += 1) {
+    for (let col = CIPHER_HOUSE_EAST_ESPLANADE.minCol; col <= CIPHER_HOUSE_EAST_ESPLANADE.maxCol; col += 1) {
+      cells.add(`${row},${col}`)
+    }
   }
   return cells
 }
@@ -493,25 +800,42 @@ function clearCipherHouseApproaches(valid) {
   for (const [key, obstacle] of valid) {
     const [row, col] = key.split(',').map(Number)
     if (!obstacle?.isHouse && isNearCipherHouse(row, col, 4)) valid.delete(key)
+    if (!obstacle?.isHouse && isInCipherHouseCoastCorridor(row, col)) valid.delete(key)
   }
+  clearPoolTerraceProceduralObstacles(valid)
 }
 
 function makeCipherHouseEntries() {
   const entries=[]
   const add=(row,col,data={})=>entries.push([`${row},${col}`,{
     base:HOUSE_BLACK_RGB,glow:[103,232,249],kind:'hash',label:'CIPHER HOUSE',
-    height:6.20,isStructure:true,isHouse:true,...data,
+    height:HOUSE_EXTERIOR_WALL_TOP,isStructure:true,isHouse:true,...data,
   }])
   const addPerimeterWall=(row,col)=>{
     const key=`${row},${col}`
-    if(CIPHER_HOUSE_DOOR_CELLS.has(key)) return
+    if(CIPHER_HOUSE_DOOR_CELLS.has(key)){
+      // East threshold tread is a ramp cell; roof cap support comes from housePerimeterWallCapSupportAt.
+      if (!CIPHER_HOUSE_EAST_DOOR_CELLS.has(key)) {
+        add(row,col,{
+          isHouseDoor:true,
+          bottom:HOUSE_EXTERIOR_WALL_TOP-HOUSE_EXTERIOR_WALL_CAP_THICK,
+          height:HOUSE_EXTERIOR_WALL_TOP,
+        })
+      }
+      return
+    }
     if(CIPHER_HOUSE_LOWER_DOORS.has(key)){
       // Wall starts above head height, leaving a clear ground-level passage.
       add(row,col,{bottom:LOWER_DOOR_CLEAR})
       return
     }
     if(CIPHER_HOUSE_WINDOWS.has(key)){
-      add(row,col,{isHouseWindow:true,isHouseWindowGlass:true})
+      add(row,col,{
+        isHouseWindow:true,
+        isHouseWindowGlass:true,
+        bottom:HOUSE_EXTERIOR_WALL_TOP-HOUSE_EXTERIOR_WALL_CAP_THICK,
+        height:HOUSE_EXTERIOR_WALL_TOP,
+      })
       return
     }
     add(row,col,{})
@@ -549,6 +873,7 @@ function makeCipherHouseEntries() {
   }
   // Exterior entrance staircase: gentle ramp cells climbing ground → floor level.
   for (const step of HOUSE_DOOR_STEP_CELLS) {
+    if (CIPHER_HOUSE_DOOR_CELLS.has(step.key) && !CIPHER_HOUSE_EAST_DOOR_CELLS.has(step.key)) continue
     entries.push([step.key, {
       base: HOUSE_BLUE_RGB, glow: [103, 232, 249], kind: 'hash', label: 'CIPHER DOOR STEP',
       bottom: step.bottom, height: step.top, shape: 'ramp', direction: step.dir,
@@ -1624,6 +1949,7 @@ function addDenseMaze(valid,reserved,cellMap){
     const key=`${row},${col}`
     if(row<2||row>=ROWS-2||col<2||col>=COLS-2) return
     if(isNearCipherHouse(row,col)) return
+    if(isInCipherHouseCoastCorridor(row,col)) return
     if(reserved.has(key)||cellMap.has(key)||valid.has(key)) return
     valid.set(key,chainObstacle(key,{...data,isMaze:true}))
   }
@@ -1727,6 +2053,7 @@ function addOrganicObstacles(valid,reserved,cellMap){
   const totals={ramp:0,sphere:0,tree:0}
   const limits={ramp:12,sphere:14,tree:12}
   for(const {row,col,score} of candidates){
+    if(isInCipherHouseCoastCorridor(row,col)) continue
     const shape=score%5<2?'ramp':score%5===2?'sphere':'tree'
     if(totals[shape]>=limits[shape]||!free(row,col)) continue
     const key=`${row},${col}`
@@ -1875,26 +2202,66 @@ function isAtPoolSwimDepth(playerZ) {
   return playerZ >= HOUSE_POOL_FLOOR_LEVEL - 0.28 && playerZ <= HOUSE_POOL_SWIM_MAX_Z
 }
 
-// Solid basin shell while swimming — terrace/rim walking uses visible meshes only.
-function poolBasinBlocksBody(gx, gy, playerZ) {
-  if (playerZ >= HOUSE_POOL_WALL_TOP - 0.06) return false
-  if (!isAtPoolSwimDepth(playerZ)) return false
+function isInsidePoolBasin(gx, gy, radius = PLAYER_R * 0.9) {
   const o = HOUSE_POOL_OUTER
-  // Limit basin-wall blocking to the pool vicinity. Without this guard, any
-  // player at swim depth outside the basin gets incorrectly treated as blocked
-  // by the basin bounds (invisible horizontal barrier near the stair approach).
-  if (!circleTouchesAabb(gx, gy, o, PLAYER_R * 1.2)) return false
-  const r = PLAYER_R
-  if (gx + r > o.maxX) return true
-  if (gx - r < o.minX) return true
-  if (gy + r > o.maxZ) return true
-  if (gy - r < o.minZ) return true
+  return gx + radius > o.minX && gx - radius < o.maxX &&
+    gy + radius > o.minZ && gy - radius < o.maxZ
+}
+
+function poolJumpApex(playerZ, playerVz) {
+  if (playerVz <= 0.15) return playerZ
+  return playerZ + (playerVz * playerVz) / (2 * GRAVITY_A)
+}
+
+// Solid basin shell while swimming — must jump to clear the wall lip.
+function poolInnerWallBlocksBody(gx, gy, playerZ, playerVz = 0) {
+  if (playerZ >= HOUSE_POOL_WALL_TOP + 0.12) return false
+  if (canVaultPoolBarrier(playerZ, playerVz, HOUSE_POOL_WALL_TOP)) return false
+  if (isVaultingPoolTerraceFence(gx, gy, playerZ, playerVz)) return false
+  // Rim walkers use the stair passage and terrace lip — not the swim shell.
+  if (canWalkPoolRim(gx, gy, playerZ)) return false
+
+  const inBasin = isInsidePoolBasin(gx, gy)
+  if (!inBasin) {
+    if (playerZ >= HOUSE_POOL_WALL_TOP - 0.04) return false
+    if (!isAtPoolSwimDepth(playerZ)) return false
+    if (!circleTouchesAabb(gx, gy, HOUSE_POOL_OUTER, PLAYER_R * 1.1)) return false
+  }
+
+  for (const wall of HOUSE_POOL_INNER_WALL_BOUNDS) {
+    if (playerZ + PLAYER_BODY_H <= wall.bottom + 0.04) continue
+    if (circleTouchesAabb(gx, gy, wall, PLAYER_R)) return true
+  }
   return false
 }
 
-function cellOverlapsPoolTerrace(row, col) {
-  return col + 1 > HOUSE_POOL_TERRACE.minX && col < HOUSE_POOL_TERRACE.maxX &&
-    row + 1 > HOUSE_POOL_TERRACE.minZ && row < HOUSE_POOL_TERRACE.maxZ
+function poolBasinBlocksBody(gx, gy, playerZ, playerVz = 0) {
+  return poolInnerWallBlocksBody(gx, gy, playerZ, playerVz)
+}
+
+function poolTerraceRailBlocksBody(gx, gy, playerZ, playerVz = 0) {
+  const railBottom = HOUSE_POOL_TERRACE_RAIL_BASE
+  const railTop = HOUSE_POOL_TERRACE_RAIL_TOP
+  if (isVaultingPoolTerraceFence(gx, gy, playerZ, playerVz)) return false
+  if (playerZ >= railTop + 0.04) return false
+  if (canVaultPoolBarrier(playerZ, playerVz, railTop, POOL_RAIL_VAULT_CLEAR)) return false
+  if (playerZ + PLAYER_BODY_H <= railBottom + 0.04) return false
+  const walkNorthPassage = canWalkPoolRim(gx, gy, playerZ) && isInPoolNorthPassage(gx, gy)
+  const rimWalk = canWalkPoolRim(gx, gy, playerZ)
+  const sides = rimWalk ? poolTerraceSideAt(gx, gy) : null
+  for (const rail of HOUSE_POOL_TERRACE_RAIL_BOUNDS) {
+    if (walkNorthPassage && isNorthPoolTerraceRail(rail)) continue
+    if (rimWalk && sides) {
+      if (sides.east && isEastTerraceRail(rail)) continue
+      if (sides.west && isWestTerraceRail(rail)) continue
+      if (sides.south && isSouthTerraceRail(rail)) continue
+      if (sides.east && isEastNorthTerraceRail(rail)) continue
+      if (sides.west && isWestNorthTerraceRail(rail)) continue
+      if (walkNorthPassage && isNorthPoolTerraceRail(rail)) continue
+    }
+    if (circleTouchesAabb(gx, gy, rail, PLAYER_R)) return true
+  }
+  return false
 }
 
 // The rooftop walk level matches the pool terrace, so the roof tiles and the
@@ -1917,6 +2284,10 @@ function isHouseRoofCell(row, col) {
     col + 1 > HOUSE_POOL_TERRACE.minX && col < HOUSE_POOL_TERRACE.maxX &&
     row + 1 > HOUSE_POOL_TERRACE.minZ && row < HOUSE_POOL_TERRACE.maxZ
   return !overlapsTerrace
+}
+
+function isHousePerimeterRoofCell(row, col) {
+  return CIPHER_HOUSE_PERIMETER_KEYS.has(`${row},${col}`)
 }
 
 function houseFloorSupportAt(row, col, playerZ) {
@@ -1956,6 +2327,9 @@ function houseFloorSupportAt(row, col, playerZ) {
   if (isHouseRoofCell(row, col) && playerZ >= HOUSE_ROOF_LEVEL - 0.30) {
     support = Math.max(support, HOUSE_ROOF_LEVEL)
   }
+  if (isHousePerimeterRoofCell(row, col) && playerZ >= HOUSE_ROOF_LEVEL - 0.30) {
+    support = Math.max(support, HOUSE_ROOF_LEVEL)
+  }
   return support
 }
 
@@ -1966,14 +2340,25 @@ function solidTopAt(row, col, cellMap, obsSet) {
   return cellMap?.has(key) ? blockTop(cellMap.get(key),row,col) : 0
 }
 
+function housePerimeterWallCapSupportAt(row, col, playerZ, obsSet) {
+  if (!CIPHER_HOUSE_PERIMETER_KEYS.has(`${row},${col}`)) return 0
+  if (playerZ < HOUSE_ROOF_LEVEL - 0.50) return 0
+  const obstacle = obsSet?.get?.(`${row},${col}`)
+  if (obstacle?.isHouseDoor || obstacle?.isHouseWindow) return HOUSE_EXTERIOR_WALL_TOP
+  if (playerZ >= HOUSE_ROOF_LEVEL - 0.35) return HOUSE_EXTERIOR_WALL_TOP
+  return 0
+}
+
 function solidSpanAt(row, col, cellMap, obsSet) {
   const key=`${row},${col}`
   const obstacle=obsSet?.get?.(key)
-  if(obstacle?.isHouseDoor) return null
+  if(obstacle?.isHouseDoor||obstacle?.isHouseWindow) {
+    return { bottom: obstacleBottom(obstacle), top: obstacleTop(obstacle) }
+  }
   if(obstacle&&!isOrganicShape(obstacle)) return {bottom:obstacleBottom(obstacle),top:obstacleTop(obstacle)}
   if(cellMap?.has(key)){
     const cell=cellMap.get(key)
-    return {bottom:blockBottom(cell),top:blockTop(cell,row,col)}
+    return {bottom:blockBottom(cell,row,col),top:blockTop(cell,row,col)}
   }
   return null
 }
@@ -1983,14 +2368,15 @@ function solidSpanAt(row, col, cellMap, obsSet) {
 function houseObstacleBlocksHorizontally(obstacle) {
   if (!obstacle?.isHouse) return true
   if (obstacle.isHouseFloor && obstacle.shape !== 'ramp') return false
-  if (obstacle.isHouseWindow) return false
+  if (obstacle.isHouseWindow || obstacle.isHouseDoor) return false
   return true
 }
 
 // Circular player footprint against complete solid cells. Checking the whole
 // body, rather than only its centre, prevents clipping into corners and walls.
-function hitsSolidWall(gx, gy, cellMap, obsSet, playerZ = 0) {
-  if (poolBasinBlocksBody(gx, gy, playerZ)) return true
+function hitsSolidWall(gx, gy, cellMap, obsSet, playerZ = 0, playerVz = 0) {
+  if (poolBasinBlocksBody(gx, gy, playerZ, playerVz)) return true
+  if (poolTerraceRailBlocksBody(gx, gy, playerZ, playerVz)) return true
   const minRow = Math.floor(gy - PLAYER_R)
   const maxRow = Math.floor(gy + PLAYER_R)
   const minCol = Math.floor(gx - PLAYER_R)
@@ -2012,6 +2398,12 @@ function hitsSolidWall(gx, gy, cellMap, obsSet, playerZ = 0) {
         if(circleTouchesCell(gx,gy,row,col)){
           if(rampBlocksBodyAt(obstacle,key,gx,gy,row,col,playerZ)) return true
         }
+        continue
+      }
+      if (
+        poolTerraceVaultClearsObstacle(row, col, key, obstacle, gx, gy, playerZ, playerVz) ||
+        poolTerraceRimClearsObstacle(row, col, key, obstacle, gx, gy, playerZ)
+      ) {
         continue
       }
       if(obstacle?.isHouse && !houseObstacleBlocksHorizontally(obstacle)) continue
@@ -2036,7 +2428,8 @@ function supportHeightAt(gx, gy, playerZ, cellMap, obsSet) {
       if(obstacle?.shape==='ramp'&&circleTouchesCell(gx,gy,row,col,radius)){
         const treadSupport=rampSupportAt(obstacle,key,gx,gy,row,col,playerZ)
         if(treadSupport>0) height=Math.max(height,treadSupport)
-        continue
+        // East door thresholds are ramps on the perimeter ring — still need roof deck support.
+        if(!isHousePerimeterRoofCell(row,col)) continue
       }
       if((obstacle?.isRouteStair||obstacle?.isStair||obstacle?.isHouseRail)&&circleTouchesCell(gx,gy,row,col,radius)){
         const stairTop=obstacleTop(obstacle)
@@ -2044,12 +2437,19 @@ function supportHeightAt(gx, gy, playerZ, cellMap, obsSet) {
         continue
       }
       const top = solidTopAt(row, col, cellMap, obsSet)
-      if (top && playerZ >= top - 0.04 && circleTouchesCell(gx, gy, row, col, radius)) {
-        height = Math.max(height, top)
+      const openingCap = obstacle?.isHouseDoor || obstacle?.isHouseWindow
+      const supportTop = openingCap ? HOUSE_EXTERIOR_WALL_TOP : top
+      const supportMinZ = openingCap ? HOUSE_ROOF_LEVEL - 0.12 : supportTop - 0.04
+      if (supportTop && playerZ >= supportMinZ && circleTouchesCell(gx, gy, row, col, radius)) {
+        height = Math.max(height, supportTop)
       }
       const houseSupport = houseFloorSupportAt(row, col, playerZ)
       if (houseSupport && circleTouchesCell(gx, gy, row, col, radius)) {
         height = Math.max(height, houseSupport)
+      }
+      const perimeterCap = housePerimeterWallCapSupportAt(row, col, playerZ, obsSet)
+      if (perimeterCap && circleTouchesCell(gx, gy, row, col, radius)) {
+        height = Math.max(height, perimeterCap)
       }
     }
   }
@@ -2165,6 +2565,12 @@ function worldToGrid(wx, wy) {
   return { row: Math.floor(wy / CELL_SIZE), col: Math.floor(wx / CELL_SIZE) }
 }
 
+function isMineableBlockCell(cell) {
+  if (!cell) return false
+  if (cell.isPortalNode || cell.isChainNode || cell.isNodeDiceNode || cell.isMarket) return false
+  return true
+}
+
 // ── DDA through complete solid cells ─────────────────────────────────────────
 function castRay(wx, wy, angle, cellMap, obsSet, maxDist = VISUAL_RANGE) {
   const px = wx / CELL_SIZE, py = wy / CELL_SIZE
@@ -2188,6 +2594,9 @@ function castRay(wx, wy, angle, cellMap, obsSet, maxDist = VISUAL_RANGE) {
     // Interactive nodes share a cell with house floor geometry — always prefer the
     // marker so the facing HUD/crosshair show portal/dice/chain details, not WALL.
     if (cell?.isPortalNode || cell?.isNodeDiceNode || cell?.isChainNode || cell?.isMarket) {
+      return { perpDist, cell, side, mx, my, hit: true }
+    }
+    if (isMineableBlockCell(cell)) {
       return { perpDist, cell, side, mx, my, hit: true }
     }
     // Decorative obstacle: solid wall, no doorway — always a hit
@@ -3097,52 +3506,52 @@ function getNodeDiceVisualState(nodeDiceState) {
   return { ...nodeDiceState, dice }
 }
 
-function drawNodeDiceWeather(ctx, W, H, visual, tier = 'medium') {
-  if (!visual) return
-  const now = performance.now()
-  const mode = visual.mode === 'war' ? 'war' : 'meteo'
-  ctx.save()
-  if (mode === 'meteo') {
-    const storm = Math.max(.18, Math.min(.72, Number(visual.naturePercent || 50) / 100))
-    ctx.fillStyle = `rgba(12,28,48,${tier === 'low' ? .20 : .24 + storm * .12})`
-    ctx.fillRect(0, 0, W, H)
-    if (tier !== 'low') {
-      const count = tier === 'medium' ? 12 : 22
-      ctx.strokeStyle = `rgba(125,211,252,${tier === 'medium' ? .20 : .24 + storm * .14})`
-      ctx.lineWidth = 1
-      ctx.beginPath()
-      for (let i = 0; i < count; i++) {
-        const x = (i * 97 + now * .16) % (W + 50) - 25
-        const y = (i * 53 + now * .46) % (H + 36) - 18
-        ctx.moveTo(x, y)
-        ctx.lineTo(x - 7, y + 20)
-      }
-      ctx.stroke()
+const STORMROLL_SKY = {
+  war: {
+    sky: '#3f1212',
+    fog: '#5c1a1a',
+    hemi: '#ffb4a2',
+    rim: '#ef4444',
+    dome: '#c2410c',
+  },
+  meteo: {
+    sky: '#52525b',
+    fog: '#71717a',
+    hemi: '#d4d4d8',
+    rim: '#a1a1aa',
+    dome: '#9ca3af',
+  },
+}
+
+function applyStormrollSky(threeState, visual, biome) {
+  if (!threeState?.scene) return
+  const { scene, hemi, rim } = threeState
+  if (visual) {
+    const palette = STORMROLL_SKY[visual.mode === 'war' ? 'war' : 'meteo']
+    scene.background.set(palette.sky)
+    scene.fog.color.set(palette.fog)
+    hemi.color.set(palette.hemi)
+    rim.color.set(palette.rim)
+    if (scene.userData.skyDome?.material?.color) {
+      scene.userData.skyDome.material.color.set(palette.dome)
     }
-    if (tier === 'high' && Math.sin(now / 900) > .96) {
-      ctx.globalAlpha = .08 + storm * .06
-      ctx.fillStyle = '#dffbff'
-      ctx.fillRect(0, 0, W, H)
-    }
-  } else {
-    const heat = Math.max(.18, Math.min(.78, Number(visual.warPercent || 50) / 100))
-    ctx.fillStyle = `rgba(70,8,8,${tier === 'low' ? .14 : .16 + heat * .12})`
-    ctx.fillRect(0, 0, W, H)
-    if (tier !== 'low') {
-      const count = tier === 'medium' ? 7 : 11
-      ctx.strokeStyle = `rgba(248,113,113,${tier === 'medium' ? .24 : .30})`
-      ctx.lineWidth = 1
-      ctx.beginPath()
-      for (let i = 0; i < count; i++) {
-        const x = (i * 113 + now * .28) % (W + 70) - 35
-        const y = (i * 67 + now * .12) % (H * .62)
-        ctx.moveTo(x, y)
-        ctx.lineTo(x + 22 + (i % 2) * 8, y - 5)
-      }
-      ctx.stroke()
-    }
+    threeState.activeNodeDice = true
+    return
   }
-  ctx.restore()
+  if (!threeState.activeNodeDice) return
+  const atmosphere = BIOME_ATMOSPHERE[biome]
+  scene.background.set(atmosphere.sky)
+  scene.fog.color.set(atmosphere.fog)
+  hemi.color.set(atmosphere.hemi)
+  rim.color.set(atmosphere.rim)
+  if (scene.userData.skyDome?.material?.color) {
+    scene.userData.skyDome.material.color.set(scene.userData.defaultSkyDomeColor || '#9db8ff')
+  }
+  threeState.activeNodeDice = false
+}
+
+function drawNodeDiceWeather() {
+  // Sky tint is handled via scene.background / fog — no animated canvas overlay.
 }
 
 // ── Online players list (below minimap) ─────────────────────────────────────
@@ -3322,6 +3731,30 @@ const BIOME_ATMOSPHERE={
   ice:{fog:'#286386',sky:'#0d3152',hemi:'#f0fcff',rim:'#91eaff'},
   inferno:{fog:'#5a160f',sky:'#2b0709',hemi:'#ffd0a8',rim:'#ff641e'},
 }
+const BIOME_GROUND={
+  mountain:{color:'#284765',roughness:.76,metalness:.10,emissive:'#071a2e',emissiveIntensity:.18},
+  coast:{color:'#9a7444',roughness:.90,metalness:.05,emissive:'#0a3040',emissiveIntensity:.12},
+  ice:{color:'#4a9bc7',roughness:.22,metalness:.30,emissive:'#0d3152',emissiveIntensity:.22},
+  inferno:{color:'#671b18',roughness:.64,metalness:.14,emissive:'#3b0904',emissiveIntensity:.40},
+}
+const BIOME_SAND={
+  mountain:{color:'#5f7589',roughness:.88,metalness:.08,emissive:'#0a1828',emissiveIntensity:.10},
+  coast:{color:'#e8c88a',roughness:.92,metalness:.04,emissive:'#143848',emissiveIntensity:.08},
+  ice:{color:'#c2ebf8',roughness:.30,metalness:.20,emissive:'#0d3a5c',emissiveIntensity:.14},
+  inferno:{color:'#8f4d3c',roughness:.78,metalness:.10,emissive:'#3b1208',emissiveIntensity:.22},
+}
+
+function makeSandMaterial(textures, biome) {
+  const sand = BIOME_SAND[biome]
+  return new THREE.MeshStandardMaterial({
+    map: textures[biome],
+    color: sand.color,
+    roughness: sand.roughness,
+    metalness: sand.metalness,
+    emissive: sand.emissive,
+    emissiveIntensity: sand.emissiveIntensity,
+  })
+}
 
 function seededUnit(seed) {
   const value=Math.sin(seed*12.9898+78.233)*43758.5453
@@ -3422,7 +3855,11 @@ function addNightDome(scene, lowDetail=false) {
     new THREE.SphereGeometry(72,lowDetail?12:24,lowDetail?8:16),
     new THREE.MeshBasicMaterial({map:skyTexture,color:'#9db8ff',side:THREE.BackSide,fog:false}),
   )
-  dome.position.set(COLS/2,5,ROWS/2);scene.add(dome)
+  dome.position.set(COLS/2,5,ROWS/2)
+  dome.userData.stormrollSkyDome=true
+  scene.userData.skyDome=dome
+  scene.userData.defaultSkyDomeColor='#9db8ff'
+  scene.add(dome)
   const starCount=lowDetail?100:420
   const positions=new Float32Array(starCount*3),colors=new Float32Array(starCount*3)
   for(let index=0;index<starCount;index++){
@@ -3465,10 +3902,14 @@ function addNightDome(scene, lowDetail=false) {
 function addBiomeGround(world,textures) {
   const quadrantSize=ROWS/2
   for(const [biome,cx,cz] of [['mountain',14,14],['coast',42,14],['ice',14,42],['inferno',42,42]]){
+    const ground=BIOME_GROUND[biome]
     const material=new THREE.MeshStandardMaterial({
-      map:textures[biome],color:'#ffffff',roughness:biome==='ice'?.24:biome==='coast'?.88:.72,
-      metalness:biome==='ice'?.32:biome==='inferno'?.18:.06,
-      emissive:biome==='inferno'?'#3b0904':biome==='ice'?'#09243a':'#000000',emissiveIntensity:biome==='inferno'?.48:.12,
+      map:textures[biome],
+      color:ground.color,
+      roughness:ground.roughness,
+      metalness:ground.metalness,
+      emissive:ground.emissive,
+      emissiveIntensity:ground.emissiveIntensity,
     })
     const plane=new THREE.Mesh(new THREE.PlaneGeometry(quadrantSize-.12,quadrantSize-.12),material)
     plane.rotation.x=-Math.PI/2;plane.position.set(cx,.002,cz)
@@ -3814,7 +4255,7 @@ function addCipherHouseDetails(world) {
     const doorBase=HOUSE_MAIN_FLOOR_LEVEL     // top of the entrance stairs
     const doorClear=2.10                       // walk-through headroom above floor
     const doorH=doorBase+doorClear             // 5.58
-    const wallTop=6.20
+    const wallTop=HOUSE_EXTERIOR_WALL_TOP
     const frame=new THREE.Group()
     frame.position.set(px,0,pz)
     const postGeo=horiz?new THREE.BoxGeometry(.10,doorClear,.12):new THREE.BoxGeometry(.12,doorClear,.10)
@@ -3916,9 +4357,6 @@ function addCipherHouseDetails(world) {
   const poolOuterD=HOUSE_POOL_OUTER.maxZ-HOUSE_POOL_OUTER.minZ
   const poolTerraceW=HOUSE_POOL_TERRACE.maxX-HOUSE_POOL_TERRACE.minX
   const poolTerraceD=HOUSE_POOL_TERRACE.maxZ-HOUSE_POOL_TERRACE.minZ
-  const poolEntryW=HOUSE_POOL_ENTRY.maxX-HOUSE_POOL_ENTRY.minX
-  const poolEntryHalf=poolEntryW*.5
-  const poolEntrySideW=(poolOuterW-poolEntryW)*.5
   const poolWallH=HOUSE_POOL_WALL_TOP-HOUSE_POOL_FLOOR_LEVEL
   const poolWallCenterY=(HOUSE_POOL_WALL_TOP+HOUSE_POOL_FLOOR_LEVEL)/2-HOUSE_POOL_DECK_LEVEL
   const poolTerraceMat=new THREE.MeshStandardMaterial({
@@ -3944,14 +4382,24 @@ function addCipherHouseDetails(world) {
   solidSwimFloor.position.y=(HOUSE_POOL_FLOOR_LEVEL-HOUSE_POOL_DECK_LEVEL)-.0175
   poolGroup.add(solidSwimFloor)
   for(const [x,z,sx,sz] of [
-    [-(poolEntryHalf+poolEntrySideW*.5),-(poolOuterD+HOUSE_POOL_PERIM_WALL_T)/2,poolEntrySideW,HOUSE_POOL_PERIM_WALL_T],
-    [poolEntryHalf+poolEntrySideW*.5,-(poolOuterD+HOUSE_POOL_PERIM_WALL_T)/2,poolEntrySideW,HOUSE_POOL_PERIM_WALL_T],
     [0,(poolOuterD+HOUSE_POOL_PERIM_WALL_T)/2,poolOuterW,HOUSE_POOL_PERIM_WALL_T],
     [-poolOuterW/2,0,HOUSE_POOL_PERIM_WALL_T,poolOuterD],
     [poolOuterW/2,0,HOUSE_POOL_PERIM_WALL_T,poolOuterD],
   ]){
     const wall=new THREE.Mesh(new THREE.BoxGeometry(sx,poolWallH,sz),poolShellMat)
     wall.position.set(x,poolWallCenterY,z)
+    poolGroup.add(wall)
+  }
+  const entryW=HOUSE_POOL_ENTRY.maxX-HOUSE_POOL_ENTRY.minX
+  const entryCenterX=(HOUSE_POOL_ENTRY.minX+HOUSE_POOL_ENTRY.maxX)*.5-HOUSE_POOL_CENTER_X
+  const poolWestNorthW=HOUSE_POOL_ENTRY.minX-HOUSE_POOL_OUTER.minX
+  const poolEastNorthW=HOUSE_POOL_OUTER.maxX-HOUSE_POOL_ENTRY.maxX
+  const poolWestNorthX=(HOUSE_POOL_OUTER.minX+HOUSE_POOL_ENTRY.minX)*.5-HOUSE_POOL_CENTER_X
+  const poolEastNorthX=(HOUSE_POOL_ENTRY.maxX+HOUSE_POOL_OUTER.maxX)*.5-HOUSE_POOL_CENTER_X
+  const northWallZ=-(poolOuterD+HOUSE_POOL_PERIM_WALL_T)/2
+  for(const [x,sx] of [[poolWestNorthX,poolWestNorthW],[poolEastNorthX,poolEastNorthW]]){
+    const wall=new THREE.Mesh(new THREE.BoxGeometry(sx,poolWallH,HOUSE_POOL_PERIM_WALL_T),poolShellMat)
+    wall.position.set(x,poolWallCenterY,northWallZ)
     poolGroup.add(wall)
   }
   // Corner posts — close the last visual/collision gaps at the four basin corners.
@@ -3972,13 +4420,17 @@ function addCipherHouseDetails(world) {
   const innerWallMat=poolTileMat
   for(const [x,z,sx,sz] of [
     [0,poolOuterD/2-HOUSE_POOL_PERIM_WALL_T/2,poolOuterW-HOUSE_POOL_PERIM_WALL_T*2,HOUSE_POOL_PERIM_WALL_T],
-    [-(poolEntryHalf+poolEntrySideW*.5),-(poolOuterD/2-HOUSE_POOL_PERIM_WALL_T/2),poolEntrySideW,HOUSE_POOL_PERIM_WALL_T],
-    [poolEntryHalf+poolEntrySideW*.5,-(poolOuterD/2-HOUSE_POOL_PERIM_WALL_T/2),poolEntrySideW,HOUSE_POOL_PERIM_WALL_T],
     [-poolOuterW/2+HOUSE_POOL_PERIM_WALL_T/2,0,HOUSE_POOL_PERIM_WALL_T,poolOuterD-HOUSE_POOL_PERIM_WALL_T*2],
     [poolOuterW/2-HOUSE_POOL_PERIM_WALL_T/2,0,HOUSE_POOL_PERIM_WALL_T,poolOuterD-HOUSE_POOL_PERIM_WALL_T*2],
   ]){
     const innerWall=new THREE.Mesh(new THREE.BoxGeometry(sx,poolWallH,sz),innerWallMat)
     innerWall.position.set(x,poolWallCenterY,z)
+    poolGroup.add(innerWall)
+  }
+  const innerNorthZ=-(poolOuterD/2-HOUSE_POOL_PERIM_WALL_T/2)
+  for(const [x,sx] of [[poolWestNorthX,poolWestNorthW-HOUSE_POOL_PERIM_WALL_T*2],[poolEastNorthX,poolEastNorthW-HOUSE_POOL_PERIM_WALL_T*2]]){
+    const innerWall=new THREE.Mesh(new THREE.BoxGeometry(Math.max(.12,sx),poolWallH,HOUSE_POOL_PERIM_WALL_T),innerWallMat)
+    innerWall.position.set(x,poolWallCenterY,innerNorthZ)
     poolGroup.add(innerWall)
   }
   const poolWater=new THREE.Mesh(
@@ -3997,8 +4449,6 @@ function addCipherHouseDetails(world) {
     color:'#d8f3ff',emissive:'#0891b2',emissiveIntensity:.34,roughness:.20,metalness:.32,
   })
   for(const [x,z,sx,sz] of [
-    [-(poolEntryHalf+poolEntrySideW*.5),-poolOuterD/2,poolEntrySideW+.08,.12],
-    [poolEntryHalf+poolEntrySideW*.5,-poolOuterD/2,poolEntrySideW+.08,.12],
     [0,poolOuterD/2,poolOuterW+.08,.12],
     [-poolOuterW/2,0,.12,poolOuterD+.08],
     [poolOuterW/2,0,.12,poolOuterD+.08],
@@ -4007,30 +4457,63 @@ function addCipherHouseDetails(world) {
     rim.position.set(x,HOUSE_POOL_WALL_TOP-HOUSE_POOL_DECK_LEVEL+.026,z)
     poolGroup.add(rim)
   }
-  // Stair landing tile on the contour ring (north side), matches walk support.
-  const stairLanding=new THREE.Mesh(new THREE.BoxGeometry(2.12,.10,.50),poolTerraceMat)
+  for(const [x,sx] of [[poolWestNorthX,poolWestNorthW+.08],[poolEastNorthX,poolEastNorthW+.08]]){
+    const rim=new THREE.Mesh(new THREE.BoxGeometry(sx,.045,.12),poolRimMat)
+    rim.position.set(x,HOUSE_POOL_WALL_TOP-HOUSE_POOL_DECK_LEVEL+.026,-poolOuterD/2)
+    poolGroup.add(rim)
+  }
+  // North entry landing — terrace bridge into the open swim basin (cols 6–8).
+  const landingW=entryW+.42
+  const landingD=1.12
+  const stairLanding=new THREE.Mesh(new THREE.BoxGeometry(landingW,.10,landingD),poolTerraceMat)
   stairLanding.position.set(
-    7.00 - HOUSE_POOL_CENTER_X,
+    entryCenterX,
     HOUSE_POOL_WALL_TOP-HOUSE_POOL_DECK_LEVEL-.005,
-    -poolOuterD/2-.33,
+    -poolOuterD/2-.52,
   )
   poolGroup.add(stairLanding)
+  const landingTrim=new THREE.Mesh(
+    new THREE.BoxGeometry(landingW+.06,.028,landingD+.06),
+    new THREE.MeshBasicMaterial({color:'#22d3ee',transparent:true,opacity:.42,depthWrite:false}),
+  )
+  landingTrim.position.set(entryCenterX,HOUSE_POOL_WALL_TOP-HOUSE_POOL_DECK_LEVEL+.052,-poolOuterD/2-.52)
+  poolGroup.add(landingTrim)
+  const entryPillarH=poolWallH*.88
+  for(const lx of [-entryW*.5+.07,entryW*.5-.07]){
+    const pillar=new THREE.Mesh(new THREE.BoxGeometry(.13,entryPillarH,.13),poolRimMat)
+    pillar.position.set(entryCenterX+lx,poolWallCenterY,-poolOuterD/2+.02)
+    poolGroup.add(pillar)
+  }
+  const entryLintel=new THREE.Mesh(new THREE.BoxGeometry(entryW+.06,.11,.14),poolRimMat)
+  entryLintel.position.set(entryCenterX,HOUSE_POOL_WALL_TOP-HOUSE_POOL_DECK_LEVEL+.07,-poolOuterD/2+.04)
+  poolGroup.add(entryLintel)
+  // Solid bulkhead under the stair bridge — swim collision only (see poolInnerWallBlocksBody).
+  const northBulkhead=new THREE.Mesh(new THREE.BoxGeometry(2.12,poolWallH,.92),poolTileMat)
+  northBulkhead.position.set(0,poolWallCenterY,-poolOuterD/2-.46)
+  poolGroup.add(northBulkhead)
   const railMat=new THREE.MeshStandardMaterial({
     color:'#f8fafc',emissive:'#38bdf8',emissiveIntensity:.36,roughness:.22,metalness:.52,
   })
-  const terraceRailHeight=.54
-  const terraceRailCenterY=HOUSE_POOL_WALL_TOP-HOUSE_POOL_DECK_LEVEL+.10+terraceRailHeight*.5
-  const railT=.16
-  const railGapHalf=1.28
+  const terraceRailHeight=HOUSE_POOL_TERRACE_RAIL_HEIGHT
+  const terraceRailCenterY=HOUSE_POOL_TERRACE_RAIL_BASE-HOUSE_POOL_DECK_LEVEL+terraceRailHeight*.5
+  const railT=HOUSE_POOL_TERRACE_RAIL_THICK
+  const gapMinX=HOUSE_POOL_ENTRY.minX
+  const gapMaxX=HOUSE_POOL_ENTRY.maxX
+  const westNorthW=gapMinX-HOUSE_POOL_TERRACE.minX
+  const eastNorthW=HOUSE_POOL_TERRACE.maxX-gapMaxX
+  const westNorthLx=(HOUSE_POOL_TERRACE.minX+gapMinX)*.5-HOUSE_POOL_CENTER_X
+  const eastNorthLx=(gapMaxX+HOUSE_POOL_TERRACE.maxX)*.5-HOUSE_POOL_CENTER_X
+  const northLz=-poolTerraceD/2+railT/2
   for(const [x,z,sx,sz] of [
-    [-(poolTerraceW/2+railGapHalf)/2,-poolTerraceD/2+railT/2,poolTerraceW/2-railGapHalf,railT],
-    [(poolTerraceW/2+railGapHalf)/2,-poolTerraceD/2+railT/2,poolTerraceW/2-railGapHalf,railT],
+    [westNorthLx,northLz,westNorthW,railT],
+    [eastNorthLx,northLz,eastNorthW,railT],
     [0,poolTerraceD/2-railT/2,poolTerraceW,railT],
     [-poolTerraceW/2+railT/2,0,railT,poolTerraceD],
     [poolTerraceW/2-railT/2,0,railT,poolTerraceD],
   ]){
     const rail=new THREE.Mesh(new THREE.BoxGeometry(sx,terraceRailHeight,sz),railMat)
     rail.position.set(x,terraceRailCenterY,z)
+    rail.userData.avatarFadeOccluder=true
     poolGroup.add(rail)
   }
   // Pool underwater glow — more intense to make healing zone visible
@@ -4082,6 +4565,22 @@ function addCipherHouseDetails(world) {
   diceTower.userData.phase=0
   group.add(diceTower)
 
+  // Walkable exterior wall caps — full perimeter, including doors and windows.
+  const wallCapMat=new THREE.MeshStandardMaterial({
+    color:'#07172e',emissive:'#061521',emissiveIntensity:.58,roughness:.42,metalness:.56,
+  })
+  const wallCapTrimMat=new THREE.MeshBasicMaterial({color:'#22d3ee',transparent:true,opacity:.34,depthWrite:false})
+  for(const key of CIPHER_HOUSE_PERIMETER_KEYS){
+    const [row,col]=key.split(',').map(Number)
+    const cap=new THREE.Mesh(new THREE.BoxGeometry(1.02,HOUSE_EXTERIOR_WALL_CAP_THICK,1.02),wallCapMat)
+    cap.position.set(col+.5,HOUSE_EXTERIOR_WALL_TOP-HOUSE_EXTERIOR_WALL_CAP_THICK*.5,row+.5)
+    cap.userData.collidable=true
+    group.add(cap)
+    const trim=new THREE.Mesh(new THREE.BoxGeometry(1.02,.02,1.02),wallCapTrimMat)
+    trim.position.set(col+.5,HOUSE_EXTERIOR_WALL_TOP+.01,row+.5)
+    group.add(trim)
+  }
+
   // Walkable rooftop, rendered as real per-cell tiles so the surface always
   // matches its collision support (no invisible ceiling). Tiles are skipped over
   // the open stairwell and the pool terrace, which are their own surfaces.
@@ -4089,19 +4588,26 @@ function addCipherHouseDetails(world) {
     color:'#020817',emissive:'#040e1d',emissiveIntensity:.52,roughness:.56,metalness:.38,
   })
   const roofTrimMat=new THREE.MeshBasicMaterial({color:'#22d3ee',transparent:true,opacity:.32,depthWrite:false})
+  const addRoofTile=(row,col)=>{
+    const tile=new THREE.Mesh(new THREE.BoxGeometry(1.02,0.16,1.02),roofMat)
+    tile.position.set(col+.5,HOUSE_ROOF_LEVEL-0.08,row+.5)
+    group.add(tile)
+    const hasDeck=(r,c)=>isHouseRoofCell(r,c)||isHousePerimeterRoofCell(r,c)
+    if(!hasDeck(row,col+1)||!hasDeck(row,col-1)||!hasDeck(row+1,col)||!hasDeck(row-1,col)){
+      const trim=new THREE.Mesh(new THREE.BoxGeometry(1.02,0.02,1.02),roofTrimMat)
+      trim.position.set(col+.5,HOUSE_ROOF_LEVEL+0.012,row+.5)
+      group.add(trim)
+    }
+  }
   for(let row=CIPHER_HOUSE_BOUNDS.minRow+1;row<CIPHER_HOUSE_BOUNDS.maxRow;row++){
     for(let col=CIPHER_HOUSE_BOUNDS.minCol+1;col<CIPHER_HOUSE_BOUNDS.maxCol;col++){
       if(!isHouseRoofCell(row,col)) continue
-      const tile=new THREE.Mesh(new THREE.BoxGeometry(1.02,0.16,1.02),roofMat)
-      tile.position.set(col+.5,HOUSE_ROOF_LEVEL-0.08,row+.5)
-      group.add(tile)
-      // Subtle seam where the roof meets the open stairwell or terrace edge.
-      if(!isHouseRoofCell(row,col+1)||!isHouseRoofCell(row,col-1)||!isHouseRoofCell(row+1,col)||!isHouseRoofCell(row-1,col)){
-        const trim=new THREE.Mesh(new THREE.BoxGeometry(1.02,0.02,1.02),roofTrimMat)
-        trim.position.set(col+.5,HOUSE_ROOF_LEVEL+0.012,row+.5)
-        group.add(trim)
-      }
+      addRoofTile(row,col)
     }
+  }
+  for(const key of CIPHER_HOUSE_PERIMETER_KEYS){
+    const [row,col]=key.split(',').map(Number)
+    addRoofTile(row,col)
   }
 
   // Main ambient interior light
@@ -4168,6 +4674,95 @@ function addCipherHouseDetails(world) {
   world.add(group)
 }
 
+function makeSurroundSeaMaterial(lowDetail) {
+  return lowDetail
+    ? new THREE.MeshLambertMaterial({ color: '#0aa9d6', transparent: true, opacity: .80, emissive: '#043b56', side: THREE.DoubleSide })
+    : new THREE.MeshPhysicalMaterial({
+        color: '#0aa9d6', transparent: true, opacity: .82, roughness: .06, metalness: .16,
+        clearcoat: 1, clearcoatRoughness: .06, side: THREE.DoubleSide,
+        emissive: '#043b56', emissiveIntensity: .34,
+      })
+}
+
+function addIslandSurroundCoast(world, textures, lowDetail = false) {
+  const seaDepth = lowDetail ? 18 : 26
+  const beachDepth = 3.4
+  const innerMin = 1
+  const innerMax = COLS - 2
+  const islandSpan = innerMax - innerMin + 1
+  const islandCenter = (innerMin + innerMax) * .5
+  const halfSpan = islandSpan * .5
+  const halfBeachWidth = halfSpan + beachDepth * .5
+  const westHalfX = innerMin + halfSpan * .5
+  const eastHalfX = innerMin + halfSpan + halfSpan * .5
+  const northHalfZ = innerMin + halfSpan * .5
+  const southHalfZ = innerMin + halfSpan + halfSpan * .5
+  const seaMat = makeSurroundSeaMaterial(lowDetail)
+  const foamMat = new THREE.MeshBasicMaterial({ color: '#d7f7ff', transparent: true, opacity: .30, depthWrite: false })
+
+  const addShore = ({ width, depth, x, z, material, y, water = false, foam = false, foamDx = 0, foamDz = 0 }) => {
+    const mesh = new THREE.Mesh(
+      new THREE.PlaneGeometry(
+        width,
+        depth,
+        lowDetail ? 2 : Math.max(4, Math.floor(Math.max(width, depth) / 5)),
+        lowDetail ? 2 : 4,
+      ),
+      material,
+    )
+    mesh.rotation.x = -Math.PI / 2
+    mesh.position.set(x, y, z)
+    if (water) mesh.userData.biomeSurface = 'water'
+    else mesh.userData.skipOcclusion = true
+    world.add(mesh)
+    if (foam) {
+      const alongShore = width >= depth
+      const foamW = alongShore ? width * .96 : Math.max(width * .34, beachDepth * .85)
+      const foamD = alongShore ? Math.max(depth * .32, beachDepth * .85) : depth * .96
+      const foamStrip = new THREE.Mesh(
+        new THREE.PlaneGeometry(foamW, foamD),
+        foamMat,
+      )
+      foamStrip.rotation.x = -Math.PI / 2
+      foamStrip.position.set(x + foamDx, y + .006, z + foamDz)
+      foamStrip.userData.skipOcclusion = true
+      world.add(foamStrip)
+    }
+  }
+
+  const northBeachZ = innerMin - beachDepth * .5
+  const northSeaZ = innerMin - beachDepth - seaDepth * .5
+  const southBeachZ = innerMax + beachDepth * .5
+  const southSeaZ = innerMax + beachDepth + seaDepth * .5
+  const westBeachX = innerMin - beachDepth * .5
+  const westSeaX = innerMin - beachDepth - seaDepth * .5
+  const eastBeachX = innerMax + beachDepth * .5
+  const eastSeaX = innerMax + beachDepth + seaDepth * .5
+
+  const ringWidth = islandSpan + beachDepth * 2
+  const ringHeight = islandSpan + beachDepth * 2
+
+  // North shore — gravel (mountain) west, golden sand (coast) east.
+  addShore({ width: halfBeachWidth, depth: beachDepth, x: westHalfX, z: northBeachZ, material: makeSandMaterial(textures, 'mountain'), y: -.004 })
+  addShore({ width: halfBeachWidth, depth: beachDepth, x: eastHalfX, z: northBeachZ, material: makeSandMaterial(textures, 'coast'), y: -.004 })
+  addShore({ width: ringWidth, depth: seaDepth, x: islandCenter, z: northSeaZ, material: seaMat, y: .014, water: true, foam: true, foamDz: seaDepth * .28 })
+
+  // South — icy shore west, volcanic ash east.
+  addShore({ width: halfBeachWidth, depth: beachDepth, x: westHalfX, z: southBeachZ, material: makeSandMaterial(textures, 'ice'), y: -.004 })
+  addShore({ width: halfBeachWidth, depth: beachDepth, x: eastHalfX, z: southBeachZ, material: makeSandMaterial(textures, 'inferno'), y: -.004 })
+  addShore({ width: ringWidth, depth: seaDepth, x: islandCenter, z: southSeaZ, material: seaMat, y: .014, water: true, foam: true, foamDz: -seaDepth * .28 })
+
+  // West — mountain north, ice south.
+  addShore({ width: beachDepth, depth: halfBeachWidth, x: westBeachX, z: northHalfZ, material: makeSandMaterial(textures, 'mountain'), y: -.004 })
+  addShore({ width: beachDepth, depth: halfBeachWidth, x: westBeachX, z: southHalfZ, material: makeSandMaterial(textures, 'ice'), y: -.004 })
+  addShore({ width: seaDepth, depth: ringHeight, x: westSeaX, z: islandCenter, material: seaMat, y: .014, water: true, foam: true, foamDx: seaDepth * .28 })
+
+  // East — coast north, inferno south.
+  addShore({ width: beachDepth, depth: halfBeachWidth, x: eastBeachX, z: northHalfZ, material: makeSandMaterial(textures, 'coast'), y: -.004 })
+  addShore({ width: beachDepth, depth: halfBeachWidth, x: eastBeachX, z: southHalfZ, material: makeSandMaterial(textures, 'inferno'), y: -.004 })
+  addShore({ width: seaDepth, depth: ringHeight, x: eastSeaX, z: islandCenter, material: seaMat, y: .014, water: true, foam: true, foamDx: -seaDepth * .28 })
+}
+
 function addBiomeLandmarks(world,textures,lowDetail=false) {
   if(!lowDetail){
     const addParticles=(centerX,centerZ,color,seedOffset,height=4)=>{
@@ -4189,10 +4784,14 @@ function addBiomeLandmarks(world,textures,lowDetail=false) {
     const rockMaterial=new THREE.MeshStandardMaterial({map:textures.mountain,color:'#8aa5bd',roughness:.82,flatShading:true})
     for(let index=0;index<22;index++){
       const height=2.5+seededUnit(index+220)*5.4
+      const onNorth=index%2===0
+      const rockX=onNorth?seededUnit(index+205)*25:-1.4
+      const rockZ=onNorth?-1.4:seededUnit(index+206)*25
+      if(landmarkBlocksNorthEsplanadeView(rockX,rockZ)) continue
+      if(isInCipherHouseEastEsplanade(Math.floor(rockZ),Math.floor(rockX))) continue
       const rock=new THREE.Mesh(new THREE.ConeGeometry(1.4+height*.17,height,5+index%3),rockMaterial.clone())
       rock.userData.avatarFadeOccluder=true
-      const onNorth=index%2===0
-      rock.position.set(onNorth?seededUnit(index+205)*25:-1.4,height*.5-.02,onNorth?-1.4:seededUnit(index+206)*25)
+      rock.position.set(rockX,height*.5-.02,rockZ)
       rock.rotation.y=seededUnit(index+230)*Math.PI;world.add(rock)
     }
   }
@@ -4200,12 +4799,12 @@ function addBiomeLandmarks(world,textures,lowDetail=false) {
     ?new THREE.MeshLambertMaterial({color:'#7892aa',flatShading:true})
     :new THREE.MeshStandardMaterial({map:textures.mountain,color:'#7892aa',roughness:.84,flatShading:true}))
   peak.userData.avatarFadeOccluder=true
-  peak.position.set(-1.5,5.9,-1.5);world.add(peak)
+  peak.position.set(20,5.9,-2.8);world.add(peak)
   const snowCap=new THREE.Mesh(new THREE.ConeGeometry(2.05,3.1,lowDetail?5:7),lowDetail
     ?new THREE.MeshLambertMaterial({color:'#b9dff4',flatShading:true})
     :new THREE.MeshStandardMaterial({color:'#b9dff4',roughness:.72,flatShading:true}))
   snowCap.userData.avatarFadeOccluder=true
-  snowCap.position.set(-1.5,10.35,-1.5);world.add(snowCap)
+  snowCap.position.set(20,10.35,-2.8);world.add(snowCap)
 
   const water=new THREE.Mesh(
     new THREE.PlaneGeometry(25.4,12.2,lowDetail?2:18,lowDetail?2:8),
@@ -4214,7 +4813,7 @@ function addBiomeLandmarks(world,textures,lowDetail=false) {
       :new THREE.MeshPhysicalMaterial({color:'#0aa9d6',transparent:true,opacity:.74,roughness:.08,metalness:.18,clearcoat:1,clearcoatRoughness:.08,side:THREE.DoubleSide,emissive:'#043b56',emissiveIntensity:.28})
   )
   water.rotation.x=-Math.PI/2;water.position.set(42,.018,-1.2);water.userData.biomeSurface='water';world.add(water)
-  const sand=new THREE.Mesh(new THREE.PlaneGeometry(25.4,6.2),new THREE.MeshStandardMaterial({map:textures.coast,color:'#ffe0a0',roughness:.92}))
+  const sand=new THREE.Mesh(new THREE.PlaneGeometry(25.4,6.2),makeSandMaterial(textures,'coast'))
   sand.rotation.x=-Math.PI/2;sand.position.set(42,-.008,3.1);sand.userData.skipOcclusion=true;world.add(sand)
   if(!lowDetail){
     for(let index=0;index<14;index++){
@@ -4274,6 +4873,7 @@ function addBiomeLandmarks(world,textures,lowDetail=false) {
     const core=new THREE.Mesh(new THREE.OctahedronGeometry(.18),new THREE.MeshBasicMaterial({color}))
     beacon.add(ringA,ringB,core);beacon.position.set(x,4.6,z);world.add(beacon)
   }
+  addIslandSurroundCoast(world,textures,lowDetail)
 }
 
 function makeEmojiSprite(emoji,color,shape='square') {
@@ -4597,7 +5197,7 @@ function rebuildThreeWorld(state,cellMap,obstacles) {
   // ── Portal nodes — colored sphere (redirects to portal section) ─────────────
   const portalSphereGeom=new THREE.SphereGeometry(.50,12,8)
   const portalMesh=new THREE.InstancedMesh(portalSphereGeom,
-    new THREE.MeshStandardMaterial({roughness:.32,metalness:.50,vertexColors:true,emissive:'#000000',emissiveIntensity:.50}),
+    new THREE.MeshStandardMaterial({roughness:.32,metalness:.50,vertexColors:true,emissive:'#1a3a2a',emissiveIntensity:.42}),
     portalEntries.length||1)
   portalEntries.forEach(([key,cell],i)=>{
     const [row,col]=key.split(',').map(Number),h=blockTop(cell,row,col)
@@ -4793,22 +5393,28 @@ function rebuildThreeWorld(state,cellMap,obstacles) {
       const riserMat=lowD
         ? new THREE.MeshLambertMaterial({color:'#0c2138',emissive:'#0b3a52',emissiveIntensity:.4})
         : new THREE.MeshStandardMaterial({color:'#0c2138',roughness:.5,metalness:.46,emissive:'#0b3a52',emissiveIntensity:.46})
-      const treadMat=lowD
+      const exteriorTreadMat=lowD
         ? new THREE.MeshLambertMaterial({color:'#143452',emissive:'#0891b2',emissiveIntensity:.55})
         : new THREE.MeshStandardMaterial({color:'#143452',roughness:.38,metalness:.54,emissive:'#0891b2',emissiveIntensity:.62})
+      const interiorTreadMat=lowD
+        ? new THREE.MeshLambertMaterial({color:'#143452',emissive:'#0891b2',emissiveIntensity:.55,transparent:true,opacity:.82,depthWrite:false})
+        : new THREE.MeshStandardMaterial({color:'#143452',roughness:.38,metalness:.54,emissive:'#0891b2',emissiveIntensity:.62,transparent:true,opacity:.82,depthWrite:false})
       const noseMat=new THREE.MeshBasicMaterial({color:'#22d3ee',transparent:true,opacity:.62,depthWrite:false})
       const STEPS_PER_CELL=4
+      const doorStepKeys=new Set(houseGroups.doorStep.map(([key])=>key))
       for(const [key,obstacle] of houseGroups.doorStep){
         const [row,col]=key.split(',').map(Number)
+        if(cellInsidePoolBasin(row,col)) continue
         const dir=obstacle.direction
         const bottom=obstacleBottom(obstacle)
         const top=Math.max(bottom+.02,obstacleTop(obstacle))
         const span=top-bottom
-        const depth=1/STEPS_PER_CELL
+        const interiorStair=Boolean(obstacle.isHouseDoorStep)
+        const stepsPerCell=interiorStair?HOUSE_STAIR_STEPS_PER_CELL:STEPS_PER_CELL
+        const depth=1/stepsPerCell
         const alongZ=(dir==='north'||dir==='south')
-        const interiorStair=HOUSE_STAIR_KEYS.has(key)
-        for(let s=0;s<STEPS_PER_CELL;s++){
-          const stepTop=bottom+span*((s+1)/STEPS_PER_CELL)
+        for(let s=0;s<stepsPerCell;s++){
+          const stepTop=bottom+span*((s+1)/stepsPerCell)
           const o=(s+.5)*depth
           const xc=alongZ?(col+.5):(dir==='west'?(col+1-o):(col+o))
           const zc=alongZ?(dir==='north'?(row+1-o):(row+o)):(row+.5)
@@ -4820,8 +5426,10 @@ function rebuildThreeWorld(state,cellMap,obstacles) {
             riser.userData.avatarFadeOccluder=true
             world.add(riser)
           }
-          const tread=new THREE.Mesh(new THREE.BoxGeometry(sx,.04,sz),treadMat)
-          tread.position.set(xc,stepTop-.02,zc)
+          const treadHeight=interiorStair?.025:.04
+          const treadMaterial=interiorStair?interiorTreadMat:exteriorTreadMat
+          const tread=new THREE.Mesh(new THREE.BoxGeometry(sx,treadHeight,sz),treadMaterial)
+          tread.position.set(xc,stepTop-treadHeight*.5,zc)
           world.add(tread)
           if(!lowD&&!interiorStair){
             const noseX=alongZ?xc:(dir==='west'?(xc+depth*.5):(xc-depth*.5))
@@ -4829,6 +5437,29 @@ function rebuildThreeWorld(state,cellMap,obstacles) {
             const nose=new THREE.Mesh(new THREE.BoxGeometry(alongZ?.9:.05,.02,alongZ?.05:.9),noseMat)
             nose.position.set(noseX,stepTop+.012,noseZ)
             world.add(nose)
+          }
+        }
+        const nextRow=dir==='south'?row+1:dir==='north'?row-1:row
+        const nextCol=dir==='east'?col+1:dir==='west'?col-1:col
+        if(doorStepKeys.has(`${nextRow},${nextCol}`)){
+          const treadHeight=interiorStair?.025:.04
+          const treadMaterial=interiorStair?interiorTreadMat:exteriorTreadMat
+          let bx=col+.5, bz=row+.5, bsx=.96, bsz=.18
+          if(dir==='south'){ bz=row+1 }
+          else if(dir==='north'){ bz=row }
+          else if(dir==='east'){ bx=col+1; bsx=.18; bsz=.96 }
+          else if(dir==='west'){ bx=col; bsx=.18; bsz=.96 }
+          const bridge=new THREE.Mesh(new THREE.BoxGeometry(bsx,treadHeight,bsz),treadMaterial)
+          bridge.position.set(bx,top-treadHeight*.5,bz)
+          world.add(bridge)
+        } else if(interiorStair){
+          const nextRow=dir==='south'?row+1:dir==='north'?row-1:row
+          const nextCol=dir==='east'?col+1:dir==='west'?col-1:col
+          if(!cellInsidePoolBasin(nextRow,nextCol)){
+            const treadHeight=.025
+            const landing=new THREE.Mesh(new THREE.BoxGeometry(.96,treadHeight,.34),interiorTreadMat)
+            landing.position.set(col+.5,top-treadHeight*.5,row+.84)
+            world.add(landing)
           }
         }
       }
@@ -5597,7 +6228,8 @@ export default function MiningChain3DFPV({
         row>=CIPHER_HOUSE_BOUNDS.minRow&&row<=CIPHER_HOUSE_BOUNDS.maxRow&&
         col>=CIPHER_HOUSE_BOUNDS.minCol&&col<=CIPHER_HOUSE_BOUNDS.maxCol
       const nearHouse=isNearCipherHouse(row,col)
-      if((insideHouse||nearHouse)&&!data.isHouse) continue
+      const coastCorridor=isInCipherHouseCoastCorridor(row,col)
+      if((insideHouse||nearHouse||coastCorridor)&&!data.isHouse) continue
       if(data.isHouse||!reserved.has(key)) valid.set(key, chainObstacle(key,data))
     }
 
@@ -5633,7 +6265,7 @@ export default function MiningChain3DFPV({
     for (let r = 4; r < MM3_BLOCK_GRID_ROWS-4; r += 4) {
       for (let c = 4; c < MM3_BLOCK_GRID_COLS-4; c += 4) {
         if (Math.abs(r-14) <= 5 && Math.abs(c-14) <= 5) continue  // keep center zone free
-        if (isNearCipherHouse(r, c)) continue
+        if (isNearCipherHouse(r, c) || isInCipherHouseCoastCorridor(r, c)) continue
         const h = (((r * 31 + c * 17) ^ (r * c * 7)) % 100 + 100) % 100
         if (h >= 22) continue  // ~22% become wall origins
         const isHoriz = ((r * 13 + c * 7) & 1) === 0
@@ -5643,7 +6275,7 @@ export default function MiningChain3DFPV({
           const wr = isHoriz ? r : r + i
           const wc = isHoriz ? c + i : c
           if (wr < 2 || wr >= MM3_BLOCK_GRID_ROWS-2 || wc < 2 || wc >= MM3_BLOCK_GRID_COLS-2) break
-          if (isNearCipherHouse(wr, wc)) continue
+          if (isNearCipherHouse(wr, wc) || isInCipherHouseCoastCorridor(wr, wc)) continue
           const key = `${wr},${wc}`
           // Only fill truly empty positions — never override NFTJI/mined blocks
           if (!reserved.has(key) && !valid.has(key)) valid.set(key, chainObstacle(key,wallData))
@@ -5655,6 +6287,7 @@ export default function MiningChain3DFPV({
     addOrganicObstacles(valid,reserved,cellMap)
     clearCipherHouseApproaches(valid)
     for (const step of [...HOUSE_DOOR_STEP_CELLS, ...HOUSE_INTERIOR_STAIR_CELLS]) {
+      if (CIPHER_HOUSE_DOOR_CELLS.has(step.key) && !CIPHER_HOUSE_EAST_DOOR_CELLS.has(step.key)) continue
       valid.set(step.key, chainObstacle(step.key, {
         base: HOUSE_BLUE_RGB,
         glow: [103, 232, 249],
@@ -5880,24 +6513,7 @@ export default function MiningChain3DFPV({
           threeState.rim.color.set(atmosphere.rim)
           threeState.activeBiome=biome
         }
-        if(nodeDiceVisual){
-          if(nodeDiceVisual.mode === 'war'){
-            threeState.scene.background.set('#240607')
-            threeState.scene.fog.color.set('#3b0a0a')
-            threeState.rim.color.set('#fb923c')
-          } else {
-            threeState.scene.background.set('#07121f')
-            threeState.scene.fog.color.set('#12364c')
-            threeState.rim.color.set('#67e8f9')
-          }
-          threeState.activeNodeDice = true
-        } else if (threeState.activeNodeDice) {
-          const atmosphere=BIOME_ATMOSPHERE[biome]
-          threeState.scene.background.set(atmosphere.sky)
-          threeState.scene.fog.color.set(atmosphere.fog)
-          threeState.rim.color.set(atmosphere.rim)
-          threeState.activeNodeDice = false
-        }
+        applyStormrollSky(threeState, nodeDiceVisual, biome)
         // 3rd-person over-shoulder camera — drop to ground level when dead
         const localDead=myDeadUntilRef.current&&myDeadUntilRef.current>Date.now()
         const behindDist=localDead?1.20:2.55-pvpZoom*1.65   // 0.90 at full PvP zoom — closer, face-to-face
@@ -6164,10 +6780,20 @@ export default function MiningChain3DFPV({
       // Three.js owns the scene — clear 2D canvas immediately so WebGL canvas shows through.
       ctx.clearRect(0,0,W,H)
     } else {
-    // Ceiling — brighter base values
+    const stormSky = nodeDiceVisual
+      ? STORMROLL_SKY[nodeDiceVisual.mode === 'war' ? 'war' : 'meteo']
+      : null
+    // Ceiling — brighter base values (or static stormroll sky in 2D fallback)
     const cg = ctx.createLinearGradient(0,0,0,Math.max(1,sceneSplitY))
-    cg.addColorStop(0,`rgb(${Math.round(8+ar*AT)},${Math.round(13+ag*AT)},${Math.round(34+ab*AT)})`)
-    cg.addColorStop(1,`rgb(${Math.round(16+ar*AT)},${Math.round(26+ag*AT)},${Math.round(62+ab*AT)})`)
+    if (stormSky) {
+      const [tr, tg, tb] = hexToRgb(stormSky.sky)
+      const [br, bg, bb] = hexToRgb(stormSky.fog)
+      cg.addColorStop(0, `rgb(${tr},${tg},${tb})`)
+      cg.addColorStop(1, `rgb(${br},${bg},${bb})`)
+    } else {
+      cg.addColorStop(0,`rgb(${Math.round(8+ar*AT)},${Math.round(13+ag*AT)},${Math.round(34+ab*AT)})`)
+      cg.addColorStop(1,`rgb(${Math.round(16+ar*AT)},${Math.round(26+ag*AT)},${Math.round(62+ab*AT)})`)
+    }
     ctx.fillStyle=cg; ctx.fillRect(0,0,W,sceneSplitY)
 
     // Base fill behind the projected world floor.
@@ -6189,7 +6815,7 @@ export default function MiningChain3DFPV({
     ctx.fillStyle=haze;ctx.fillRect(0,sceneSplitY-hazeH,W,hazeH*2)
     } // end !threeState (backgrounds)
 
-    drawNodeDiceWeather(ctx,W,H,nodeDiceVisual,visualTier)
+    drawNodeDiceWeather()
 
     // World-space grid made from projected cell edges. This is dramatically
     // cheaper than per-pixel floor casting and remains stable during motion.
@@ -6298,9 +6924,6 @@ export default function MiningChain3DFPV({
 
     // Pre-compute forward cell
     let {mx:fwdMx,my:fwdMy,cell:fwdCell,perpDist:fwdDist} = castRay(px,py,angle,cellMap,validObstaclesRef.current)
-    if (fwdCell?.isPortalNode && !canInteractPortalAtHeight(fwdMy, fwdMx, rawZ)) {
-      fwdCell = null; fwdMx = -1; fwdMy = -1; fwdDist = VISUAL_RANGE
-    }
     const fwdFaceSolid=Boolean(fwdCell)
 
     // Collect cells with emoji visible on any wall face
@@ -6316,7 +6939,7 @@ export default function MiningChain3DFPV({
       const {perpDist,cell,side,mx:hitMx,my:hitMy}=layers[layerIndex]
       const dist=perpDist*Math.cos(ra-angle)
       const wallTop = cell?.isObstacle ? obstacleTop(cell) : blockTop(cell,hitMy,hitMx)
-      const wallBase = cell?.isObstacle ? obstacleBottom(cell) : blockBottom(cell)
+      const wallBase = cell?.isObstacle ? obstacleBottom(cell) : blockBottom(cell, hitMy, hitMx)
       const projectedTop = projectY(wallTop, dist)
       const projectedBottom = projectY(wallBase, dist)
       const rawTop=Math.min(projectedTop,projectedBottom)
@@ -6921,25 +7544,30 @@ export default function MiningChain3DFPV({
     }
 
     // Inspect prompt when very close — suppressed when a player is in the crosshair
-    if (fwdDist < 0.9 && fwdCell && !enemyTargetRef.current?.wallet) {
+    const crosshairFacing = facingDataRef.current || {}
+    const promptCell = crosshairFacing.cell ?? fwdCell
+    const promptMx = crosshairFacing.mx ?? fwdMx
+    const promptMy = crosshairFacing.my ?? fwdMy
+    const promptDist = crosshairFacing.dist ?? fwdDist
+    if (promptDist < 0.9 && promptCell && !enemyTargetRef.current?.wallet) {
       ctx.font = 'bold 12px monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'top'
-      const isMineWall2 = myWallet && fwdCell.owner?.toLowerCase() === myWallet.toLowerCase()
-      if (fwdCell.isChainNode) {
+      const isMineWall2 = myWallet && promptCell.owner?.toLowerCase() === myWallet.toLowerCase()
+      if (promptCell.isChainNode) {
         ctx.fillStyle = '#ffd700cc'
         ctx.fillText(es ? '[ ↵ RESOLVER CADENA ]' : '[ ↵ SOLVE FORMULA CHAIN ]', W/2, viewCenterY+18)
-      } else if (fwdCell.isNodeDiceNode && canInteractNodeDiceAtHeight(rawZ)) {
+      } else if (promptCell.isNodeDiceNode && canInteractNodeDiceAtHeight(rawZ)) {
         ctx.fillStyle = '#facc15cc'
         ctx.fillText(es ? '[ ↵ STORMROLL NODE ]' : '[ ↵ STORMROLL NODE ]', W/2, viewCenterY+18)
-      } else if (fwdCell.isPortalNode && canInteractPortalAtHeight(fwdMy, fwdMx, rawZ)) {
+      } else if (promptCell.isPortalNode && canInteractPortalAtHeight(promptMy, promptMx, rawZ)) {
         ctx.fillStyle = '#22d3eecc'
         ctx.fillText(es ? '[ ↵ IR ]' : '[ ↵ GO ]', W/2, viewCenterY+18)
-      } else if (!fwdCell.owner && fwdCell.isMarket) {
+      } else if (!promptCell.owner && promptCell.isMarket) {
         ctx.fillStyle = '#fb923ccc'
         ctx.fillText(es ? '[ ↵ COMPRAR NFTJI ]' : '[ ↵ BUY NFTJI ]', W/2, viewCenterY+18)
-      } else if (isMineWall2 && fwdCell.isMarket) {
+      } else if (isMineWall2 && promptCell.isMarket) {
         ctx.fillStyle = '#4ade80cc'
         ctx.fillText(es ? '[ ↵ LIBERAR NFTJI ]' : '[ ↵ RESELL NFTJI ]', W/2, viewCenterY+18)
-      } else if (!fwdCell.owner && !fwdCell.isPortalNode) {
+      } else if (!promptCell.owner && !promptCell.isPortalNode) {
         ctx.fillStyle = C + 'cc'
         ctx.fillText(es ? '[ ↵ MINAR BLOQUE ]' : '[ ↵ MINE BLOCK ]', W/2, viewCenterY+18)
       }
@@ -7196,12 +7824,17 @@ export default function MiningChain3DFPV({
     const chainStatsBottom = drawChainStats(ctx,W,H,chainStatsRef.current,es,(walletDock?.bottom||8)+6)
 
     // ── Facing block info HUD — left side, below MM3 BLOCK CHAIN panel ────────
-    if (fwdDist <= 2.0 && !enemyTargetRef.current?.wallet) {
-      const _isInteractive = fwdCell?.isPortalNode || fwdCell?.isNodeDiceNode || fwdCell?.isChainNode || fwdCell?.isMarket
-      const _isObsHUD = !_isInteractive && (fwdCell?.isObstacle || validObstaclesRef.current?.has(`${fwdMy},${fwdMx}`))
-      const _maxHudDist = (!_isObsHUD && fwdCell?.isMarket && !fwdCell?.owner) ? 1.5 : 2.0
-      if ((_isObsHUD || fwdFaceSolid) && fwdDist <= _maxHudDist) {
-        drawFacingHUD(ctx, W, H, fwdCell, fwdMx, fwdMy, myWallet, es, fwdDist, validObstaclesRef.current, chainStatsBottom ?? 72, mineProgressRef.current, playerLevelRef.current, globalMm3Ref.current, chainSolversArrRef.current, chainDemineActiveRef.current, chainDemineHitsRef.current, nodeDiceStateRef.current, playerRef.current?.z ?? 0)
+    const facingHud = facingDataRef.current || {}
+    const hudMx = facingHud.mx ?? -1
+    const hudMy = facingHud.my ?? -1
+    const hudCell = facingHud.cell ?? null
+    const hudDist = facingHud.dist ?? VISUAL_RANGE
+    if (hudDist <= 2.0 && !enemyTargetRef.current?.wallet) {
+      const _isInteractive = hudCell?.isPortalNode || hudCell?.isNodeDiceNode || hudCell?.isChainNode || hudCell?.isMarket
+      const _isObsHUD = !_isInteractive && (hudCell?.isObstacle || validObstaclesRef.current?.has(`${hudMy},${hudMx}`))
+      const _maxHudDist = (!_isObsHUD && hudCell?.isMarket && !hudCell?.owner) ? 1.5 : 2.0
+      if ((_isObsHUD || Boolean(hudCell)) && hudDist <= _maxHudDist) {
+        drawFacingHUD(ctx, W, H, hudCell, hudMx, hudMy, myWallet, es, hudDist, validObstaclesRef.current, chainStatsBottom ?? 72, mineProgressRef.current, playerLevelRef.current, globalMm3Ref.current, chainSolversArrRef.current, chainDemineActiveRef.current, chainDemineHitsRef.current, nodeDiceStateRef.current, playerRef.current?.z ?? 0)
       }
     }
   }, [])
@@ -7477,6 +8110,9 @@ export default function MiningChain3DFPV({
         const moveZ=effectiveMoveZ(ngx,ngy,p.z,cm,obs)
         const slideZx=effectiveMoveZ(ngx,cgy,p.z,cm,obs)
         const slideZy=effectiveMoveZ(cgx,ngy,p.z,cm,obs)
+        // While airborne use actual height — moveZ can snap to terrace lip early and
+        // falsely clear pool walls or trip terrace-rail collision from the water.
+        const wallZ=p.vz>0.05?p.z:moveZ
         const avatarBlocked=(gx,gy)=>{
           for(const [w,remote] of remoteVisualsRef.current){
             if(w.toLowerCase()===(presenceKeyRef.current||myWalletRef.current||'').toLowerCase()) continue
@@ -7489,14 +8125,14 @@ export default function MiningChain3DFPV({
         }
         // Full move, else wall-slide. Mining blocks can be crossed from their
         // top, while taller structural walls remain solid at jump height.
-        if(inBX&&inBY&&!hitsSolidWall(ngx,ngy,cm,obs,moveZ)&&!avatarBlocked(ngx,ngy)){ p.x=nx; p.y=ny }
+        if(inBX&&inBY&&!hitsSolidWall(ngx,ngy,cm,obs,wallZ,p.vz)&&!avatarBlocked(ngx,ngy)){ p.x=nx; p.y=ny }
         else{
           const prevX=p.x, prevY=p.y
-          if(inBX&&!hitsSolidWall(ngx,cgy,cm,obs,slideZx)&&!avatarBlocked(ngx,cgy)) p.x=nx
-          if(inBY&&!hitsSolidWall(cgx,ngy,cm,obs,slideZy)&&!avatarBlocked(cgx,ngy)) p.y=ny
+          if(inBX&&!hitsSolidWall(ngx,cgy,cm,obs,p.vz>0.05?p.z:slideZx,p.vz)&&!avatarBlocked(ngx,cgy)) p.x=nx
+          if(inBY&&!hitsSolidWall(cgx,ngy,cm,obs,p.vz>0.05?p.z:slideZy,p.vz)&&!avatarBlocked(cgx,ngy)) p.y=ny
           // Corner-clip guard: both axes slid into a combined position that is
           // itself solid (diagonal block corner). Revert to avoid penetration.
-          if(p.x!==prevX&&p.y!==prevY&&hitsSolidWall(p.x/CELL_SIZE,p.y/CELL_SIZE,cm,obs,effectiveMoveZ(p.x/CELL_SIZE,p.y/CELL_SIZE,p.z,cm,obs))){
+          if(p.x!==prevX&&p.y!==prevY&&hitsSolidWall(p.x/CELL_SIZE,p.y/CELL_SIZE,cm,obs,p.vz>0.05?p.z:effectiveMoveZ(p.x/CELL_SIZE,p.y/CELL_SIZE,p.z,cm,obs),p.vz)){
             p.x=prevX; p.y=prevY
           }
         }
@@ -7566,9 +8202,10 @@ export default function MiningChain3DFPV({
       // ── Stuck-in-solid recovery ──────────────────────────────────────────────
       // If the player somehow ended up inside a solid cell (e.g. world update),
       // eject them to the nearest free cell centre so they can always move.
+      // Skip while rising — vaulting the pool fence should not bounce back into the water.
       {
         const sGX=p.x/CELL_SIZE, sGY=p.y/CELL_SIZE
-        if(hitsSolidWall(sGX,sGY,cm,obs,p.z)){
+        if(p.vz<=0.15&&hitsSolidWall(sGX,sGY,cm,obs,p.z,p.vz)){
           const r0=Math.floor(sGY), c0=Math.floor(sGX)
           let ejected=false
           outer: for(let d=0;d<=3;d++){
@@ -7576,7 +8213,7 @@ export default function MiningChain3DFPV({
               for(let dc=-d;dc<=d&&!ejected;dc++){
                 if(d>0&&Math.abs(dr)<d&&Math.abs(dc)<d) continue
                 const ex=c0+dc+0.5, ey=r0+dr+0.5
-                if(!hitsSolidWall(ex,ey,cm,obs,p.z)){
+                if(!hitsSolidWall(ex,ey,cm,obs,p.z,p.vz)){
                   p.x=ex*CELL_SIZE; p.y=ey*CELL_SIZE
                   vel.x=0; vel.y=0
                   ejected=true
@@ -7770,10 +8407,11 @@ export default function MiningChain3DFPV({
       if(myDead){ facingKeyRef.current=null }
       const previousFacing=facingDataRef.current
       let {cell:fc,mx:fmx,my:fmy,perpDist:fcDist}=myDead?{cell:null,mx:-1,my:-1,perpDist:0}:castRay(p.x,p.y,p.angle,cellMapRef.current,validObstaclesRef.current)
-      if(fc?.isPortalNode&&!canInteractPortalAtHeight(fmy,fmx,p.z)){
-        fc=null;fmx=-1;fmy=-1;fcDist=VISUAL_RANGE
-      }
-      if(fc&&!fc.isObstacle&&blockBottom(fc)>0&&Math.abs(p.z-blockBottom(fc))>.62){
+      const isInteractiveFacing = fc?.isPortalNode || fc?.isChainNode || fc?.isNodeDiceNode || fc?.isMarket
+      if (
+        fc && !fc.isObstacle && !isInteractiveFacing &&
+        blockBottom(fc, fmy, fmx) > 0 && Math.abs(p.z - blockBottom(fc, fmy, fmx)) > .62
+      ) {
         fc=null;fmx=-1;fmy=-1;fcDist=VISUAL_RANGE
       }
       // Direct distance to chain node center — castRay misses it when the player
@@ -7794,18 +8432,28 @@ export default function MiningChain3DFPV({
       // Proximity override for navigation portals. DDA can miss the portal when
       // the player stands on its floor cell or aims slightly above the low node.
       let nearestPortal=null
+      let nearestPortalFacing=null
       if(!myDead){
         const px_=p.x/CELL_SIZE,py_=p.y/CELL_SIZE
+        const aimDx=Math.cos(p.angle),aimDy=Math.sin(p.angle)
         for(const entry of portalCellsRef.current){
           const dist=Math.hypot(px_-(entry.col+.5),py_-(entry.row+.5))
-          if(dist<=PORTAL_INTERACT_DIST&&canInteractPortalAtHeight(entry.row,entry.col,p.z)&&(!nearestPortal||dist<nearestPortal.dist)){
+          if(dist>PORTAL_INTERACT_DIST) continue
+          const toPortalX=(entry.col+.5)-px_,toPortalY=(entry.row+.5)-py_
+          const facingDot=toPortalX*aimDx+toPortalY*aimDy
+          if(dist>.55&&facingDot<.12) continue
+          if(!nearestPortal||dist<nearestPortal.dist){
             nearestPortal={...entry,dist}
+          }
+          if(canInteractPortalAtHeight(entry.row,entry.col,p.z)&&(!nearestPortalFacing||dist<nearestPortalFacing.dist)){
+            nearestPortalFacing={...entry,dist}
           }
         }
       }
-      if(nearestPortal && (!fc?.isChainNode && !fc?.isNodeDiceNode && !fc?.isMarket)){
-        fmx=nearestPortal.col;fmy=nearestPortal.row;fc=nearestPortal.cell
-        fcDist=Math.min(nearestPortal.dist,INTERACT_DIST*.82)
+      const portalFacing=nearestPortalFacing||nearestPortal
+      if(portalFacing && (!fc?.isChainNode && !fc?.isNodeDiceNode && !fc?.isMarket)){
+        fmx=portalFacing.col;fmy=portalFacing.row;fc=portalFacing.cell
+        fcDist=Math.min(portalFacing.dist,INTERACT_DIST*.82)
       }
       const newKey=`${fmy},${fmx}`
       facingDataRef.current={mx:fmx,my:fmy,cell:fc,dist:fcDist}
@@ -8008,16 +8656,12 @@ export default function MiningChain3DFPV({
       {
         const nodeVisual = getNodeDiceVisualState(nodeDiceStateRef.current)
         if(nodeVisual){
-          const tier=visualPerfTierRef.current
-          // Stormroll: throttle continuous render — low=~10fps, medium/high=~24fps
-          const stormInterval=tier==='low'?100:42
-          if(nowMs-lastRenderDispatchRef.current>=stormInterval) needsRender=true
           if(nodeDiceSoundHourRef.current !== Number(nodeVisual.dice.hourStart)){
             nodeDiceSoundHourRef.current = Number(nodeVisual.dice.hourStart)
             playNodeDiceWeatherSound(audioCtxRef,nodeVisual.mode)
             notifRef.current = {
               text: nodeVisual.mode === 'war' ? '🎲 STORMROLL: WAR' : '🎲 STORMROLL: METEO',
-              color: nodeVisual.mode === 'war' ? '#fb923c' : '#67e8f9',
+              color: nodeVisual.mode === 'war' ? '#fb923c' : '#9ca3af',
               startedAt: Date.now(),
             }
           }

@@ -15,11 +15,12 @@ import {
   MM3_BLOCK_GRID_ROWS, MM3_BLOCK_GRID_COLS,
 } from '@/lib/mm3-block-chain'
 import { computeRelayLevel } from '@/lib/wallet-decorations'
-import { CIPHER_HOUSE_BOUNDS, CIPHER_HOUSE_MINING_LEVELS, MINING_CHAIN_NODE_POSITION } from '@/lib/mining-world-layout'
+import { CIPHER_HOUSE_BOUNDS, CIPHER_HOUSE_MINING_EXCLUSION, CIPHER_HOUSE_MINING_LEVELS, HOUSE_POOL_HEAL_ZONE, MINING_CHAIN_NODE_POSITION, NODE_DICE_POSITION } from '@/lib/mining-world-layout'
 import {
   MINING_MARKET_LANDMARK_POSITIONS,
   MINING_VISUAL_BLOCK_POSITIONS,
   placeMiningVisualBlock,
+  relocateMiningBlockPosition,
 } from '@/lib/mining-visual-layout'
 import supabase from '@/lib/supabaseClient'
 
@@ -31,25 +32,50 @@ const C = '#22d3ee'
 const NETWORK_VISUAL_RANGE = 22
 const CHAIN3D_CHANNEL = 'mm3-chain3d-v1'
 
+const CIPHER_HOUSE_MINING_KEYS = new Set(Object.keys(CIPHER_HOUSE_MINING_LEVELS))
+const MINING_STAIR_EXCLUSION = new Set(CIPHER_HOUSE_MINING_EXCLUSION)
+
 function isInCipherHouseClearance(row, col) {
   return row >= CIPHER_HOUSE_BOUNDS.minRow - 2 && row <= CIPHER_HOUSE_BOUNDS.maxRow + 2
     && col >= CIPHER_HOUSE_BOUNDS.minCol - 2 && col <= CIPHER_HOUSE_BOUNDS.maxCol + 2
+}
+
+function canPlaceMiningBlockAt(row, col) {
+  const key = `${row},${col}`
+  if (MINING_STAIR_EXCLUSION.has(key)) return false
+  if (CIPHER_HOUSE_MINING_KEYS.has(key)) return true
+  return !isInCipherHouseClearance(row, col)
+}
+
+function isRelocatableMineCell(cell) {
+  if (!cell) return false
+  if (cell.isChainNode || cell.isPortalNode || cell.isNodeDiceNode) return false
+  return Boolean(cell.blockHex)
+}
+
+function relocateStairOverlappingBlocks(map) {
+  const pending = []
+  for (const [key, cell] of map) {
+    if (!MINING_STAIR_EXCLUSION.has(key) || !isRelocatableMineCell(cell)) continue
+    pending.push({ key, cell })
+  }
+  for (const { key, cell } of pending) {
+    map.delete(key)
+    const newPos = relocateMiningBlockPosition(cell.blockHex, new Set(map.keys()))
+    if (!newPos) continue
+    const nextKey = `${newPos.row},${newPos.col}`
+    if (map.has(nextKey)) continue
+    const { baseHeight, ...rest } = cell
+    map.set(nextKey, rest)
+  }
 }
 const NODE_DICE_PRICE_MM3 = 500
 const NODE_DICE_MIN_LEVEL = 30
 const NODE_DICE_STORAGE_KEY = 'mm3_stormroll_node'
 const NODE_DICE_DURATION_MS = 24 * 60 * 60 * 1000
-const NODE_DICE_POSITION = Object.freeze({ row: 8, col: 9 })
-const HOUSE_POOL_SAFE_ZONE = Object.freeze({
-  minX: 6.35 - 2.50,
-  maxX: 6.35 + 2.50,
-  minY: 10.75 - 1.25,
-  maxY: 10.75 + 1.25,
-})
-
 function isInHousePoolSafeZone(gx, gy) {
-  return gx > HOUSE_POOL_SAFE_ZONE.minX && gx < HOUSE_POOL_SAFE_ZONE.maxX &&
-    gy > HOUSE_POOL_SAFE_ZONE.minY && gy < HOUSE_POOL_SAFE_ZONE.maxY
+  return gx > HOUSE_POOL_HEAL_ZONE.minX && gx < HOUSE_POOL_HEAL_ZONE.maxX &&
+    gy > HOUSE_POOL_HEAL_ZONE.minZ && gy < HOUSE_POOL_HEAL_ZONE.maxZ
 }
 
 function normalizeNodeDiceState(value) {
@@ -699,18 +725,33 @@ export default function MiningChain3D() {
       )
       for (const [, block] of [...blocksByHex.entries()].sort(([a],[b]) => a.localeCompare(b))) {
         const pos = marketPositions.get(block.blockHex) || placeDistributedBlock(block.blockHex)
-        if (pos && !isInCipherHouseClearance(pos.row, pos.col)) map.set(`${pos.row},${pos.col}`, block)
+        if (pos && canPlaceMiningBlockAt(pos.row, pos.col)) map.set(`${pos.row},${pos.col}`, block)
       }
       // All unclaimed mining blocks — visible as mineable walls even without an owner
       for (const [blockHex, pos] of VISUAL_BLOCK_POSITIONS) {
         const key = `${pos.row},${pos.col}`
-        if (!isInCipherHouseClearance(pos.row, pos.col) && !map.has(key)) {
+        if (canPlaceMiningBlockAt(pos.row, pos.col) && !map.has(key)) {
           map.set(key, { blockHex, owner: null, isMined: false, isMarket: false, color: null })
         }
       }
       for (const [key, baseHeight] of Object.entries(CIPHER_HOUSE_MINING_LEVELS)) {
         const block = map.get(key)
-        if (block) map.set(key, { ...block, baseHeight })
+        if (block) {
+          map.set(key, { ...block, baseHeight })
+          continue
+        }
+        for (const [blockHex, pos] of VISUAL_BLOCK_POSITIONS) {
+          if (`${pos.row},${pos.col}` !== key) continue
+          map.set(key, {
+            blockHex,
+            owner: null,
+            isMined: false,
+            isMarket: false,
+            color: null,
+            baseHeight,
+          })
+          break
+        }
       }
       // Chain Node: fixed special cell at grid center, always present
       map.set(`${CHAIN_NODE_ROW},${CHAIN_NODE_COL}`, {
@@ -738,6 +779,9 @@ export default function MiningChain3D() {
       for (const node of PORTAL_NODES) {
         const key = `${node.row},${node.col}`
         if (map.get(key)?.isNodeDiceNode) continue
+        const insideHouse =
+          node.row > CIPHER_HOUSE_BOUNDS.minRow && node.row < CIPHER_HOUSE_BOUNDS.maxRow &&
+          node.col > CIPHER_HOUSE_BOUNDS.minCol && node.col < CIPHER_HOUSE_BOUNDS.maxCol
         map.set(key, {
           isPortalNode: true,
           isMarket: false,
@@ -748,8 +792,10 @@ export default function MiningChain3D() {
           titleEn: node.titleEn,
           titleEs: node.titleEs,
           navUrl: node.navUrl,
+          ...(insideHouse ? { baseHeight: 3.48 } : {}),
         })
       }
+      relocateStairOverlappingBlocks(map)
       setCellMap(map)
       marketRef.current = market || []
       setMarketLoaded(true)
