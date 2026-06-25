@@ -26,7 +26,8 @@ const STRIP_W       = 3
 const FOV           = Math.PI * 0.36   // increased zoom for better closeup visibility
 const PROJ_DIST     = 0.82   // improved near-plane projection
 const CAMERA_EYE_Z  = 0.52   // closer eye height for larger player view and better interaction
-const MAX_PITCH     = 1.08    // ~62deg: avoids projection collapse at extreme look angles
+const MAX_PITCH_UP   = 1.32   // ~76deg upward
+const MAX_PITCH_DOWN = 1.52   // ~87deg downward — extra look at feet/ledges
 const MOVE_SPD      = 47     // world units / second (~1.2 cells/sec)
 const MOVE_ACCEL    = 11
 const TURN_SPD      = 1.35   // radians / second
@@ -49,7 +50,7 @@ const FLOOR_GRID_RANGE = 12  // distant grid lines merge into unstable horizon b
 const RADAR_RANGE   = 18     // square local map using the same camera frustum
 const CHAIN_NODE_ROW = MINING_CHAIN_NODE_POSITION.row
 const CHAIN_NODE_COL = MINING_CHAIN_NODE_POSITION.col
-const NODE_DICE_POSITION = Object.freeze({ row: 5, col: 8 })
+const NODE_DICE_POSITION = Object.freeze({ row: 8, col: 9 })
 // Jump: a player can mount mining blocks, but structural walls stay impassable.
 const JUMP_VZ   = 5.7        // jump impulse (grid units / second)
 const GRAVITY_A = 13.5       // gravity (grid units / second²)
@@ -164,6 +165,19 @@ const HOUSE_POOL_ENTRY = Object.freeze({
 })
 const HOUSE_POOL_WALL_TOP = HOUSE_POOL_DECK_LEVEL + .18
 const HOUSE_POOL_SWIM_MAX_Z = HOUSE_POOL_WATER_LEVEL + 0.38
+const NODE_DICE_INTERACT_MIN_Z = HOUSE_POOL_WALL_TOP - 0.34
+const TRAINING_PORTAL_KEY = '5,5'
+
+function canInteractNodeDiceAtHeight(playerZ = 0) {
+  return playerZ >= NODE_DICE_INTERACT_MIN_Z
+}
+
+// Training portal sits on the interior main floor — ignore it while climbing
+// the pool staircase beside it.
+function canInteractPortalAtHeight(row, col, playerZ = 0) {
+  if (`${row},${col}` !== TRAINING_PORTAL_KEY) return true
+  return playerZ >= HOUSE_MAIN_FLOOR_LEVEL - 0.20 && playerZ <= HOUSE_MAIN_FLOOR_LEVEL + 0.50
+}
 
 // Walkable pads that mirror the Cipher House pool meshes — gaps have no support.
 function buildHousePoolWalkSurfaces() {
@@ -237,6 +251,17 @@ const HOUSE_INTERIOR_STAIR_CELLS = (() => {
 const HOUSE_ACCESS_DECKS = []
 const HOUSE_STAIR_CELLS = []
 const HOUSE_STAIR_KEYS = new Set(HOUSE_INTERIOR_STAIR_CELLS.map(c => c.key))
+const HOUSE_STAIR_SKYLIGHT_CELLS = (() => {
+  const cells = new Set()
+  // Widen the opening above the interior pool stair so the climb is visually
+  // and physically clear (no dark roof slab over the path).
+  for (let row = 4; row <= 9; row += 1) {
+    for (let col = 5; col <= 9; col += 1) {
+      cells.add(`${row},${col}`)
+    }
+  }
+  return cells
+})()
 const HOUSE_MAIN_FLOOR_HOLES = new Set(HOUSE_ACCESS_DECKS
   .filter(({level})=>Math.abs(level - HOUSE_MAIN_FLOOR_LEVEL) < HOUSE_MIN_CEILING_GAP)
   .map(({row,col})=>`${row},${col}`))
@@ -306,6 +331,43 @@ function rampHeightAt(data,gx,gy,row,col) {
 
 function rampStepUpLimit(obstacle) {
   return obstacle?.isHouseDoorStep ? WALK_STEP_UP : 0.42
+}
+
+function isInteriorStairCell(key) {
+  return HOUSE_STAIR_KEYS.has(key)
+}
+
+const INTERIOR_STAIR_STEPS_PER_CELL = 4
+
+function interiorStairTreadTopAt(obstacle, gx, gy, row, col) {
+  const bottom = obstacleBottom(obstacle)
+  const top = obstacleTop(obstacle)
+  const span = Math.max(0.001, top - bottom)
+  const localTop = rampHeightAt(obstacle, gx, gy, row, col)
+  const progress = Math.max(0, Math.min(1, (localTop - bottom) / span))
+  const stepIndex = Math.max(1, Math.ceil(progress * INTERIOR_STAIR_STEPS_PER_CELL))
+  return bottom + span * (stepIndex / INTERIOR_STAIR_STEPS_PER_CELL)
+}
+
+// Interior stairs render as floating treads only — empty space below each step is passable.
+function rampBlocksBodyAt(obstacle, key, gx, gy, row, col, playerZ) {
+  if (isInteriorStairCell(key)) {
+    // Floating interior treads should never create a full-cell invisible wall.
+    // Keep only vertical support logic (rampSupportAt) and disable horizontal
+    // body blocking in these cells.
+    return false
+  }
+  const localTop = rampHeightAt(obstacle, gx, gy, row, col)
+  return localTop > playerZ + rampStepUpLimit(obstacle)
+}
+
+function rampSupportAt(obstacle, key, gx, gy, row, col, playerZ) {
+  if (isInteriorStairCell(key)) {
+    const treadTop = interiorStairTreadTopAt(obstacle, gx, gy, row, col)
+    return playerZ >= treadTop - WALK_STEP_UP ? treadTop : 0
+  }
+  const localTop = rampHeightAt(obstacle, gx, gy, row, col)
+  return playerZ >= localTop - WALK_STEP_UP ? localTop : 0
 }
 
 function effectiveMoveZ(gx, gy, playerZ, cellMap, obsSet) {
@@ -1818,6 +1880,10 @@ function poolBasinBlocksBody(gx, gy, playerZ) {
   if (playerZ >= HOUSE_POOL_WALL_TOP - 0.06) return false
   if (!isAtPoolSwimDepth(playerZ)) return false
   const o = HOUSE_POOL_OUTER
+  // Limit basin-wall blocking to the pool vicinity. Without this guard, any
+  // player at swim depth outside the basin gets incorrectly treated as blocked
+  // by the basin bounds (invisible horizontal barrier near the stair approach).
+  if (!circleTouchesAabb(gx, gy, o, PLAYER_R * 1.2)) return false
   const r = PLAYER_R
   if (gx + r > o.maxX) return true
   if (gx - r < o.minX) return true
@@ -1844,6 +1910,7 @@ function isHouseRoofCell(row, col) {
     row > CIPHER_HOUSE_BOUNDS.minRow && row < CIPHER_HOUSE_BOUNDS.maxRow &&
     col > CIPHER_HOUSE_BOUNDS.minCol && col < CIPHER_HOUSE_BOUNDS.maxCol
   if (!insideHouse) return false
+  if (HOUSE_STAIR_SKYLIGHT_CELLS.has(`${row},${col}`)) return false
   if (HOUSE_STAIR_KEYS.has(`${row},${col}`)) return false
   if (HOUSE_TRAMPOLINE_SHAFT_CELLS.has(`${row},${col}`)) return false
   const overlapsTerrace =
@@ -1943,8 +2010,7 @@ function hitsSolidWall(gx, gy, cellMap, obsSet, playerZ = 0) {
       }
       if(obstacle?.shape==='ramp'){
         if(circleTouchesCell(gx,gy,row,col)){
-          const localTop=rampHeightAt(obstacle,gx,gy,row,col)
-          if(localTop>playerZ+rampStepUpLimit(obstacle)) return true
+          if(rampBlocksBodyAt(obstacle,key,gx,gy,row,col,playerZ)) return true
         }
         continue
       }
@@ -1966,9 +2032,10 @@ function supportHeightAt(gx, gy, playerZ, cellMap, obsSet) {
   for (let row = Math.floor(gy - radius); row <= Math.floor(gy + radius); row++) {
     for (let col = Math.floor(gx - radius); col <= Math.floor(gx + radius); col++) {
       const obstacle=obsSet?.get?.(`${row},${col}`)
+      const key=`${row},${col}`
       if(obstacle?.shape==='ramp'&&circleTouchesCell(gx,gy,row,col,radius)){
-        const localTop=rampHeightAt(obstacle,gx,gy,row,col)
-        if(playerZ>=localTop-WALK_STEP_UP) height=Math.max(height,localTop)
+        const treadSupport=rampSupportAt(obstacle,key,gx,gy,row,col,playerZ)
+        if(treadSupport>0) height=Math.max(height,treadSupport)
         continue
       }
       if((obstacle?.isRouteStair||obstacle?.isStair||obstacle?.isHouseRail)&&circleTouchesCell(gx,gy,row,col,radius)){
@@ -2002,6 +2069,9 @@ function ceilingBottomAt(gx,gy,playerZ,cellMap,obsSet){
         const obs=obsSet?.get?.(key)
         if(obs?.isHouseFloor||HOUSE_TRAMPOLINE_SHAFT_CELLS.has(key)) continue
       }
+      // Stair skylight: keep this ceiling band open even if a roof span exists
+      // in the underlying map data.
+      if(HOUSE_STAIR_SKYLIGHT_CELLS.has(key) && span?.bottom >= HOUSE_ROOF_LEVEL - 0.32) continue
       if(span?.bottom>playerZ+PLAYER_BODY_H-.04&&circleTouchesCell(gx,gy,row,col,radius)){
         ceiling=Math.min(ceiling,span.bottom)
       }
@@ -2420,7 +2490,7 @@ function drawMinimap(ctx, gr, gc, angle, cellMap, presenceMap, myWallet, W, H, c
 }
 
 // ── Facing block HUD (top-right info card) ────────────────────────────────────
-function drawFacingHUD(ctx, W, H, fwdCell, fwdMx, fwdMy, myWallet, es, dist, obsMap, chainStatsBottom = 72, mineProgress = 0, playerLevel = 0, globalMm3 = 0, chainSolvers = [], chainDemineActive = false, chainDemineHits = 100, nodeDiceState = null) {
+function drawFacingHUD(ctx, W, H, fwdCell, fwdMx, fwdMy, myWallet, es, dist, obsMap, chainStatsBottom = 72, mineProgress = 0, playerLevel = 0, globalMm3 = 0, chainSolvers = [], chainDemineActive = false, chainDemineHits = 100, nodeDiceState = null, playerZ = 0) {
   if (fwdMx < 0 || fwdMy < 0 || fwdMx >= COLS || fwdMy >= ROWS) return
 
   // Double-check: use both cell flag and obsMap to catch any desync — but never
@@ -2450,7 +2520,8 @@ function drawFacingHUD(ctx, W, H, fwdCell, fwdMx, fwdMy, myWallet, es, dist, obs
   }
 
   if (fwdCell?.isPortalNode) {
-    const inRange = dist == null || dist <= INTERACT_DIST
+    const atPortalHeight = canInteractPortalAtHeight(fwdMy, fwdMx, playerZ)
+    const inRange = (dist == null || dist <= INTERACT_DIST) && atPortalHeight
     const col = fwdCell.color || C
     const pLines = [
       { text: `${fwdCell.emoji || '⬡'}  ${fwdCell.titleEn || 'PORTAL'}`, size: 13, weight: 'bold', col },
@@ -2459,7 +2530,9 @@ function drawFacingHUD(ctx, W, H, fwdCell, fwdMx, fwdMy, myWallet, es, dist, obs
         ? (mineProgress > 0
             ? { text: es ? `⛏ ${Math.round(mineProgress * HITS_NEEDED)}/${HITS_NEEDED} golpes` : `⛏ ${Math.round(mineProgress * HITS_NEEDED)}/${HITS_NEEDED} hits`, size: 10, col: col + 'cc' }
             : { text: es ? '⛏ 5 golpes · Ir a sección' : '⛏ 5 hits · Go to section', size: 10, col: col + 'cc' })
-        : { text: es ? '· acércate para acceder' : '· move closer to access', size: 9, col: col + '55' },
+        : dist != null && dist <= INTERACT_DIST && !atPortalHeight
+          ? { text: es ? '· solo planta 0' : '· ground floor only', size: 9, col: col + '55' }
+          : { text: es ? '· acércate para acceder' : '· move closer to access', size: 9, col: col + '55' },
     ]
     const _lineH = 16, _padX = 9, _padY = 8
     const _ph = pLines.length * _lineH + _padY * 2
@@ -2478,7 +2551,7 @@ function drawFacingHUD(ctx, W, H, fwdCell, fwdMx, fwdMy, myWallet, es, dist, obs
   }
 
   if (fwdCell?.isNodeDiceNode) {
-    const inRange = dist == null || dist <= INTERACT_DIST
+    const inRange = (dist == null || dist <= INTERACT_DIST) && canInteractNodeDiceAtHeight(playerZ)
     const col = '#facc15'
     const active = nodeDiceState && Number(nodeDiceState.expiresAt) > Date.now()
     const dice = getDiceState()
@@ -3911,7 +3984,7 @@ function addCipherHouseDetails(world) {
   const poolWater=new THREE.Mesh(
     new THREE.PlaneGeometry(poolOuterW-.08,poolOuterD-.08,18,12),
     new THREE.MeshPhysicalMaterial({
-      color:'#06b6d4',emissive:'#0e7490',emissiveIntensity:.72,
+      color:'#fca5a5',emissive:'#ef4444',emissiveIntensity:.72,
       transparent:true,opacity:.52,roughness:.04,metalness:.02,
       clearcoat:.92,clearcoatRoughness:.02,side:THREE.DoubleSide,
       depthWrite:false,
@@ -3961,11 +4034,11 @@ function addCipherHouseDetails(world) {
     poolGroup.add(rail)
   }
   // Pool underwater glow — more intense to make healing zone visible
-  const poolGlow=new THREE.PointLight('#06b6d4',isCoarsePointerDevice()?0:3.6,5.8,1.7)
+  const poolGlow=new THREE.PointLight('#f87171',isCoarsePointerDevice()?0:3.6,5.8,1.7)
   poolGlow.position.set(0,-.1,0)
   poolGroup.add(poolGlow)
   // Surface ripple indicator (flat emissive ring)
-  const rippleMat=new THREE.MeshBasicMaterial({color:'#67e8f9',transparent:true,opacity:.28,depthWrite:false,side:THREE.DoubleSide})
+  const rippleMat=new THREE.MeshBasicMaterial({color:'#fecaca',transparent:true,opacity:.28,depthWrite:false,side:THREE.DoubleSide})
   const ripple=new THREE.Mesh(new THREE.RingGeometry(.28,Math.min(poolOuterW,poolOuterD)*.42,24),rippleMat)
   ripple.rotation.x=-Math.PI/2
   ripple.position.y=HOUSE_POOL_WATER_LEVEL-HOUSE_POOL_DECK_LEVEL+.004
@@ -4965,8 +5038,9 @@ function createHealingRechargeEffect() {
 
 function setAvatarHealingRecharge(avatar, active) {
   const effect=avatar?.userData?.healEffect
-  if(!effect) return
-  effect.visible=Boolean(active)
+  const tool=avatar?.userData?.tool
+  if(effect) effect.visible=Boolean(active)
+  if(tool) tool.visible=!Boolean(active)
   avatar.userData.isHealingRecharge=Boolean(active)
 }
 
@@ -6223,7 +6297,10 @@ export default function MiningChain3DFPV({
     } // end !threeState (surfaces)
 
     // Pre-compute forward cell
-    const {mx:fwdMx,my:fwdMy,cell:fwdCell,perpDist:fwdDist} = castRay(px,py,angle,cellMap,validObstaclesRef.current)
+    let {mx:fwdMx,my:fwdMy,cell:fwdCell,perpDist:fwdDist} = castRay(px,py,angle,cellMap,validObstaclesRef.current)
+    if (fwdCell?.isPortalNode && !canInteractPortalAtHeight(fwdMy, fwdMx, rawZ)) {
+      fwdCell = null; fwdMx = -1; fwdMy = -1; fwdDist = VISUAL_RANGE
+    }
     const fwdFaceSolid=Boolean(fwdCell)
 
     // Collect cells with emoji visible on any wall face
@@ -6650,7 +6727,7 @@ export default function MiningChain3DFPV({
 
       // Freak USB Pen (same tool and swing timing as the local avatar)
       const pkZCol = Math.floor(scrX / stripW)
-      if (pkZCol >= 0 && pkZCol < strips && tY < zBuffer[pkZCol]) {
+      if (pkZCol >= 0 && pkZCol < strips && tY < zBuffer[pkZCol] && !isInsideHousePool(gx, gy, remoteZ)) {
         // The remote is seen from the front, so its anatomical right appears
         // on our screen-left (mirror relation between facing characters).
         const relativeFacing=Math.sin(remoteAngle-angle)
@@ -6850,10 +6927,10 @@ export default function MiningChain3DFPV({
       if (fwdCell.isChainNode) {
         ctx.fillStyle = '#ffd700cc'
         ctx.fillText(es ? '[ ↵ RESOLVER CADENA ]' : '[ ↵ SOLVE FORMULA CHAIN ]', W/2, viewCenterY+18)
-      } else if (fwdCell.isNodeDiceNode) {
+      } else if (fwdCell.isNodeDiceNode && canInteractNodeDiceAtHeight(rawZ)) {
         ctx.fillStyle = '#facc15cc'
         ctx.fillText(es ? '[ ↵ STORMROLL NODE ]' : '[ ↵ STORMROLL NODE ]', W/2, viewCenterY+18)
-      } else if (fwdCell.isPortalNode) {
+      } else if (fwdCell.isPortalNode && canInteractPortalAtHeight(fwdMy, fwdMx, rawZ)) {
         ctx.fillStyle = '#22d3eecc'
         ctx.fillText(es ? '[ ↵ IR ]' : '[ ↵ GO ]', W/2, viewCenterY+18)
       } else if (!fwdCell.owner && fwdCell.isMarket) {
@@ -7124,7 +7201,7 @@ export default function MiningChain3DFPV({
       const _isObsHUD = !_isInteractive && (fwdCell?.isObstacle || validObstaclesRef.current?.has(`${fwdMy},${fwdMx}`))
       const _maxHudDist = (!_isObsHUD && fwdCell?.isMarket && !fwdCell?.owner) ? 1.5 : 2.0
       if ((_isObsHUD || fwdFaceSolid) && fwdDist <= _maxHudDist) {
-        drawFacingHUD(ctx, W, H, fwdCell, fwdMx, fwdMy, myWallet, es, fwdDist, validObstaclesRef.current, chainStatsBottom ?? 72, mineProgressRef.current, playerLevelRef.current, globalMm3Ref.current, chainSolversArrRef.current, chainDemineActiveRef.current, chainDemineHitsRef.current, nodeDiceStateRef.current)
+        drawFacingHUD(ctx, W, H, fwdCell, fwdMx, fwdMy, myWallet, es, fwdDist, validObstaclesRef.current, chainStatsBottom ?? 72, mineProgressRef.current, playerLevelRef.current, globalMm3Ref.current, chainSolversArrRef.current, chainDemineActiveRef.current, chainDemineHitsRef.current, nodeDiceStateRef.current, playerRef.current?.z ?? 0)
       }
     }
   }, [])
@@ -7201,10 +7278,14 @@ export default function MiningChain3DFPV({
             if(fData.cell?.isChainNode){
               onChainSolveOpenRef.current?.()
             } else if(fData.cell?.isNodeDiceNode){
-              onNodeDicePanelOpenRef.current?.()
+              if(canInteractNodeDiceAtHeight(playerRef.current?.z ?? 0)){
+                onNodeDicePanelOpenRef.current?.()
+              }
             } else if(fData.cell?.isPortalNode){
-              const url=fData.cell.navUrl
-              if(url) onWantNavRef.current?.(url)
+              if(canInteractPortalAtHeight(fData.my, fData.mx, playerRef.current?.z ?? 0)){
+                const url=fData.cell.navUrl
+                if(url) onWantNavRef.current?.(url)
+              }
             } else if(fData.cell?.isMarket){
               onNftjiPanelOpenRef.current?.({ cell:fData.cell, mx:fData.mx, my:fData.my })
             } else {
@@ -7265,7 +7346,7 @@ export default function MiningChain3DFPV({
         return sign*BASE_SENS*(abs<5 ? abs : 5+Math.sqrt((abs-5)*3.4))
       }
       playerRef.current.angle += applyAccel(e.movementX)
-      playerRef.current.pitch = Math.max(-MAX_PITCH,Math.min(MAX_PITCH,
+      playerRef.current.pitch = Math.max(-MAX_PITCH_UP,Math.min(MAX_PITCH_DOWN,
         playerRef.current.pitch + applyAccel(e.movementY)*0.92))
       renderRef.current?.()
     }
@@ -7306,7 +7387,7 @@ export default function MiningChain3DFPV({
     dragRef.current.moved = (dragRef.current.moved||0) + Math.abs(dx) + Math.abs(dy)
     const sens = dragRef.current.type === 'touch' ? 0.0048 : 0.0019
     playerRef.current.angle += dx * sens
-    playerRef.current.pitch = Math.max(-MAX_PITCH, Math.min(MAX_PITCH, playerRef.current.pitch + dy * sens))
+    playerRef.current.pitch = Math.max(-MAX_PITCH_UP, Math.min(MAX_PITCH_DOWN, playerRef.current.pitch + dy * sens))
     lookDirtyRef.current = true
   },[])
   const handlePointerUp = useCallback((e)=>{
@@ -7689,6 +7770,9 @@ export default function MiningChain3DFPV({
       if(myDead){ facingKeyRef.current=null }
       const previousFacing=facingDataRef.current
       let {cell:fc,mx:fmx,my:fmy,perpDist:fcDist}=myDead?{cell:null,mx:-1,my:-1,perpDist:0}:castRay(p.x,p.y,p.angle,cellMapRef.current,validObstaclesRef.current)
+      if(fc?.isPortalNode&&!canInteractPortalAtHeight(fmy,fmx,p.z)){
+        fc=null;fmx=-1;fmy=-1;fcDist=VISUAL_RANGE
+      }
       if(fc&&!fc.isObstacle&&blockBottom(fc)>0&&Math.abs(p.z-blockBottom(fc))>.62){
         fc=null;fmx=-1;fmy=-1;fcDist=VISUAL_RANGE
       }
@@ -7703,7 +7787,7 @@ export default function MiningChain3DFPV({
       // Proximity override for StormRoll node — same pattern as chain node above
       const ndPos=NODE_DICE_POSITION
       const ndDist=myDead?Infinity:Math.hypot(p.x/CELL_SIZE-(ndPos.col+.5),p.y/CELL_SIZE-(ndPos.row+.5))
-      if(ndDist<=INTERACT_DIST){
+      if(ndDist<=INTERACT_DIST&&canInteractNodeDiceAtHeight(p.z)){
         const ndCell=cellMapRef.current?.get(`${ndPos.row},${ndPos.col}`)
         if(ndCell?.isNodeDiceNode){fmx=ndPos.col;fmy=ndPos.row;fc=ndCell;fcDist=ndDist}
       }
@@ -7714,7 +7798,7 @@ export default function MiningChain3DFPV({
         const px_=p.x/CELL_SIZE,py_=p.y/CELL_SIZE
         for(const entry of portalCellsRef.current){
           const dist=Math.hypot(px_-(entry.col+.5),py_-(entry.row+.5))
-          if(dist<=PORTAL_INTERACT_DIST&&(!nearestPortal||dist<nearestPortal.dist)){
+          if(dist<=PORTAL_INTERACT_DIST&&canInteractPortalAtHeight(entry.row,entry.col,p.z)&&(!nearestPortal||dist<nearestPortal.dist)){
             nearestPortal={...entry,dist}
           }
         }
@@ -7746,10 +7830,11 @@ export default function MiningChain3DFPV({
               mineTypeRef.current=fcDist<=CHAIN_INTERACT_DIST?'chain':'empty'
             } else if(fc.isNodeDiceNode){
               actionUrlRef.current=null
-              mineTypeRef.current='node-dice'
+              mineTypeRef.current=canInteractNodeDiceAtHeight(p.z)?'node-dice':'empty'
             } else if(fc.isPortalNode){
-              actionUrlRef.current=fc.navUrl||null
-              mineTypeRef.current='portal'
+              const portalReachable=canInteractPortalAtHeight(fmy,fmx,p.z)
+              actionUrlRef.current=portalReachable?(fc.navUrl||null):null
+              mineTypeRef.current=portalReachable?'portal':'empty'
             } else {
               const hex=fc.blockHex||gridToBlockHex(fmy,fmx)
               const myW=myWalletRef.current

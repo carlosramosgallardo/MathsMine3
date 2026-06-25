@@ -39,7 +39,7 @@ const NODE_DICE_PRICE_MM3 = 500
 const NODE_DICE_MIN_LEVEL = 30
 const NODE_DICE_STORAGE_KEY = 'mm3_stormroll_node'
 const NODE_DICE_DURATION_MS = 24 * 60 * 60 * 1000
-const NODE_DICE_POSITION = Object.freeze({ row: 5, col: 8 })
+const NODE_DICE_POSITION = Object.freeze({ row: 8, col: 9 })
 const HOUSE_POOL_SAFE_ZONE = Object.freeze({
   minX: 6.35 - 2.50,
   maxX: 6.35 + 2.50,
