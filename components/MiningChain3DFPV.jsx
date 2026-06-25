@@ -142,7 +142,7 @@ const HOUSE_POOL_INNER = Object.freeze({
   minZ: HOUSE_POOL_CENTER_Z - 1.25,
   maxZ: HOUSE_POOL_CENTER_Z + 1.25,
 })
-const HOUSE_POOL_PERIM_WALL_T = 0.12
+const HOUSE_POOL_PERIM_WALL_T = 0.18
 const HOUSE_POOL_OUTER = Object.freeze({
   minX: HOUSE_POOL_CENTER_X - 2.50,   // moved 1 unit inward to avoid wall overlap
   maxX: HOUSE_POOL_CENTER_X + 2.50,   // moved 1 unit inward to avoid wall overlap
@@ -162,68 +162,32 @@ const HOUSE_POOL_ENTRY = Object.freeze({
   maxZ: HOUSE_POOL_CENTER_Z - 0.95,  // adjusted for inward pool position
 })
 const HOUSE_POOL_WALL_TOP = HOUSE_POOL_DECK_LEVEL + .18
+const HOUSE_POOL_SWIM_MAX_Z = HOUSE_POOL_WATER_LEVEL + 0.38
 
 // Walkable pads that mirror the Cipher House pool meshes — gaps have no support.
 function buildHousePoolWalkSurfaces() {
-  const cx = HOUSE_POOL_CENTER_X
-  const cz = HOUSE_POOL_CENTER_Z
-  const poolOuterW = HOUSE_POOL_OUTER.maxX - HOUSE_POOL_OUTER.minX
-  const poolOuterD = HOUSE_POOL_OUTER.maxZ - HOUSE_POOL_OUTER.minZ
-  const poolTerraceW = HOUSE_POOL_TERRACE.maxX - HOUSE_POOL_TERRACE.minX
-  const poolTerraceD = HOUSE_POOL_TERRACE.maxZ - HOUSE_POOL_TERRACE.minZ
-  const poolEntryW = HOUSE_POOL_ENTRY.maxX - HOUSE_POOL_ENTRY.minX
-  const poolEntryHalf = poolEntryW * 0.5
-  const poolEntrySideW = (poolOuterW - poolEntryW) * 0.5
+  const o = HOUSE_POOL_OUTER
+  const t = HOUSE_POOL_TERRACE
+  const entry = HOUSE_POOL_ENTRY
   const rimLevel = HOUSE_POOL_WALL_TOP
   const surfaces = []
   const push = (minX, maxX, minZ, maxZ, level) => surfaces.push({ minX, maxX, minZ, maxZ, level })
 
-  push(HOUSE_POOL_OUTER.minX, HOUSE_POOL_OUTER.maxX, HOUSE_POOL_OUTER.minZ, HOUSE_POOL_OUTER.maxZ, HOUSE_POOL_FLOOR_LEVEL)
+  // Swim basin floor — matches the rendered pool floor slab.
+  push(o.minX, o.maxX, o.minZ, o.maxZ, HOUSE_POOL_FLOOR_LEVEL)
 
-  for (const [rx, rz, sx, sz] of [
-    [-(poolEntryHalf + poolEntrySideW * 0.5), -poolOuterD / 2, poolEntrySideW + 0.08, 0.12],
-    [poolEntryHalf + poolEntrySideW * 0.5, -poolOuterD / 2, poolEntrySideW + 0.08, 0.12],
-    [0, poolOuterD / 2, poolOuterW + 0.08, 0.12],
-    [-poolOuterW / 2, 0, 0.12, poolOuterD + 0.08],
-    [poolOuterW / 2, 0, 0.12, poolOuterD + 0.08],
-  ]) {
-    push(cx + rx - sx / 2, cx + rx + sx / 2, cz + rz - sz / 2, cz + rz + sz / 2, rimLevel)
-  }
+  // Terrace ring — four slabs exactly matching the rendered terrace meshes.
+  push(t.minX, t.maxX, t.minZ, o.minZ, rimLevel)
+  push(t.minX, t.maxX, o.maxZ, t.maxZ, rimLevel)
+  push(t.minX, o.minX, o.minZ, o.maxZ, rimLevel)
+  push(o.maxX, t.maxX, o.minZ, o.maxZ, rimLevel)
 
+  // North entry deck — matches the red access deck mesh north of the pool.
   push(
-    cx - (poolEntryW + 0.54) / 2, cx + (poolEntryW + 0.54) / 2,
-    cz - poolOuterD / 2 - 0.08 - (HOUSE_POOL_PERIM_WALL_T + 0.58) / 2,
-    cz - poolOuterD / 2 - 0.08 + (HOUSE_POOL_PERIM_WALL_T + 0.58) / 2,
+    entry.minX - 0.27, entry.maxX + 0.27,
+    o.minZ - 0.66, o.minZ - 0.08,
     rimLevel,
   )
-  for (const [rx, rz, sx, sz] of [
-    [0, -poolTerraceD / 2 + 0.08, poolEntryW + 0.70, 0.16],
-    [0, -poolOuterD / 2 - 0.58, poolEntryW + 0.38, 0.10],
-  ]) {
-    push(cx + rx - sx / 2, cx + rx + sx / 2, cz + rz - sz / 2, cz + rz + sz / 2, rimLevel)
-  }
-
-  for (const lx of [cx - 1.15, cx + 1.15]) {
-    const lz = cz - 2.23
-    push(lx - 0.26, lx + 0.26, lz - 0.26, lz + 0.26, rimLevel)
-  }
-
-  push(
-    HOUSE_POOL_TERRACE.minX, HOUSE_POOL_TERRACE.maxX,
-    cz - 2.40, HOUSE_POOL_TERRACE.minZ + 0.14,
-    rimLevel,
-  )
-
-  const terraceSideW = (poolTerraceW - poolOuterW) * 0.5
-  const terraceSideD = (poolTerraceD - poolOuterD) * 0.5
-  for (const [rx, rz, sx, sz] of [
-    [0, -(poolOuterD + terraceSideD) / 2, poolTerraceW, terraceSideD],
-    [0, (poolOuterD + terraceSideD) / 2, poolTerraceW, terraceSideD],
-    [-(poolOuterW + terraceSideW) / 2, 0, terraceSideW, poolOuterD],
-    [(poolOuterW + terraceSideW) / 2, 0, terraceSideW, poolOuterD],
-  ]) {
-    push(cx + rx - sx / 2, cx + rx + sx / 2, cz + rz - sz / 2, cz + rz + sz / 2, rimLevel)
-  }
 
   return surfaces
 }
@@ -233,23 +197,17 @@ const HOUSE_POOL_WALK_SURFACES = buildHousePoolWalkSurfaces()
 function housePoolWalkSupportAt(gx, gy, playerZ, radius = PLAYER_R * 0.78) {
   let support = 0
   for (const surface of HOUSE_POOL_WALK_SURFACES) {
-    if (playerZ < surface.level - 0.48) continue
+    if (playerZ < surface.level - 0.55) continue
     if (circleTouchesAabb(gx, gy, surface, radius)) {
       support = Math.max(support, surface.level)
     }
   }
-  // Swim basin — keep solid footing anywhere inside the walled water volume.
-  if (playerZ >= HOUSE_POOL_FLOOR_LEVEL - 0.32 && playerZ <= HOUSE_POOL_WATER_LEVEL + 0.55) {
-    const inset = HOUSE_POOL_PERIM_WALL_T + 0.06
-    const basin = {
-      minX: HOUSE_POOL_OUTER.minX + inset,
-      maxX: HOUSE_POOL_OUTER.maxX - inset,
-      minZ: HOUSE_POOL_OUTER.minZ + inset,
-      maxZ: HOUSE_POOL_OUTER.maxZ - inset,
-    }
-    if (circleTouchesAabb(gx, gy, basin, radius)) {
-      support = Math.max(support, HOUSE_POOL_FLOOR_LEVEL)
-    }
+  // Open pool cells have no main-floor slab — always keep solid footing in the basin.
+  if (
+    playerZ >= HOUSE_POOL_FLOOR_LEVEL - 0.35 && playerZ <= HOUSE_POOL_SWIM_MAX_Z &&
+    circleTouchesAabb(gx, gy, HOUSE_POOL_OUTER, radius)
+  ) {
+    support = Math.max(support, HOUSE_POOL_FLOOR_LEVEL)
   }
   return support
 }
@@ -1840,83 +1798,26 @@ function isInsideHousePool(gx, gy, playerZ = 0, radius = PLAYER_R * .35) {
     gy > HOUSE_POOL_OUTER.minZ + radius && gy < HOUSE_POOL_OUTER.maxZ - radius
 }
 
-function poolWallBounds() {
-  const t = HOUSE_POOL_PERIM_WALL_T
-  const o = HOUSE_POOL_OUTER
-  const entry = HOUSE_POOL_ENTRY
-  return [
-    { minX: o.minX - t, maxX: o.maxX + t, minZ: o.maxZ - t, maxZ: o.maxZ + t },
-    { minX: o.maxX - t, maxX: o.maxX + t, minZ: o.minZ - t, maxZ: o.maxZ + t },
-    { minX: o.minX - t, maxX: o.minX + t, minZ: o.minZ - t, maxZ: o.maxZ + t },
-    { minX: o.minX - t, maxX: entry.minX, minZ: o.minZ - t, maxZ: o.minZ + t },
-    { minX: entry.maxX, maxX: o.maxX + t, minZ: o.minZ - t, maxZ: o.minZ + t },
-  ]
-}
-
 function isAtPoolSwimDepth(playerZ) {
-  return playerZ >= HOUSE_POOL_FLOOR_LEVEL - 0.25 && playerZ <= HOUSE_POOL_WALL_TOP + 0.12
+  return playerZ >= HOUSE_POOL_FLOOR_LEVEL - 0.28 && playerZ <= HOUSE_POOL_SWIM_MAX_Z
 }
 
-function isInPoolNorthEntry(gx, gy) {
-  const entry = HOUSE_POOL_ENTRY
-  return gx >= entry.minX && gx <= entry.maxX &&
-    gy >= HOUSE_POOL_OUTER.minZ - 0.35 && gy <= HOUSE_POOL_OUTER.minZ + 0.30
-}
-
-function poolSwimBoundaryBlocksBody(gx, gy, playerZ) {
+// Solid basin shell while swimming — terrace/rim walking uses visible meshes only.
+function poolBasinBlocksBody(gx, gy, playerZ) {
+  if (playerZ >= HOUSE_POOL_WALL_TOP - 0.06) return false
   if (!isAtPoolSwimDepth(playerZ)) return false
   const o = HOUSE_POOL_OUTER
   const r = PLAYER_R
-  if (gx + r > o.maxX + 0.015) return true
-  if (gx - r < o.minX - 0.015) return true
-  if (gy + r > o.maxZ + 0.015) return true
-  // Only block at north wall when player is actually crossing it (not approaching from terrace)
-  if (gy + r > o.minZ && gy - r < o.minZ + 0.015 && !isInPoolNorthEntry(gx, gy)) return true
+  if (gx + r > o.maxX) return true
+  if (gx - r < o.minX) return true
+  if (gy + r > o.maxZ) return true
+  if (gy - r < o.minZ) return true
   return false
 }
 
-function isInsidePoolTerrace(gx, gy, radius = PLAYER_R * 0.78) {
-  return housePoolWalkSupportAt(gx, gy, HOUSE_POOL_WALL_TOP, radius) > 0 &&
-    !circleTouchesAabb(gx, gy, HOUSE_POOL_INNER, radius * 0.65)
-}
-
-function poolTerraceSupportAt(gx, gy, playerZ, radius = PLAYER_R * 0.78) {
-  return housePoolWalkSupportAt(gx, gy, playerZ, radius)
-}
-
-function poolTerraceRailBounds() {
-  const t = .14   // reduced rail thickness to minimize collision issues
-  const gapHalf = 1.50  // wider entry gap to allow walking without hitting rails
-  return [
-    { minX: HOUSE_POOL_TERRACE.minX, maxX: HOUSE_POOL_CENTER_X - gapHalf, minZ: HOUSE_POOL_TERRACE.minZ, maxZ: HOUSE_POOL_TERRACE.minZ + t },
-    { minX: HOUSE_POOL_CENTER_X + gapHalf, maxX: HOUSE_POOL_TERRACE.maxX, minZ: HOUSE_POOL_TERRACE.minZ, maxZ: HOUSE_POOL_TERRACE.minZ + t },
-    { minX: HOUSE_POOL_TERRACE.minX, maxX: HOUSE_POOL_TERRACE.maxX, minZ: HOUSE_POOL_TERRACE.maxZ - t, maxZ: HOUSE_POOL_TERRACE.maxZ },
-    { minX: HOUSE_POOL_TERRACE.minX, maxX: HOUSE_POOL_TERRACE.minX + t, minZ: HOUSE_POOL_TERRACE.minZ, maxZ: HOUSE_POOL_TERRACE.maxZ },
-    { minX: HOUSE_POOL_TERRACE.maxX - t, maxX: HOUSE_POOL_TERRACE.maxX, minZ: HOUSE_POOL_TERRACE.minZ, maxZ: HOUSE_POOL_TERRACE.maxZ },
-  ]
-}
-
-const HOUSE_POOL_RAIL_TOP = HOUSE_POOL_WALL_TOP + .64
-
-function poolTerraceRailSupportAt(gx, gy, playerZ, radius = PLAYER_R * 0.82) {
-  if (!poolTerraceRailBounds().some(bounds => circleTouchesAabb(gx, gy, bounds, radius))) return 0
-  return playerZ >= HOUSE_POOL_RAIL_TOP - .32 ? HOUSE_POOL_RAIL_TOP : 0
-}
-
-function poolTerraceRailBlocksBody(gx, gy, playerZ) {
-  if (!poolTerraceRailBounds().some(bounds => circleTouchesAabb(gx, gy, bounds, PLAYER_R))) return false
-  return playerZ > HOUSE_POOL_WALL_TOP - .55 && playerZ < HOUSE_POOL_RAIL_TOP - .08
-}
-
-function poolWallSupportAt(gx, gy, playerZ, radius = PLAYER_R * 0.76) {
-  // Pool walls removed - support replaced by terrace rail system
-  return 0
-}
-
-function poolWallBlocksBody(gx, gy, playerZ) {
-  if (!isAtPoolSwimDepth(playerZ)) return false
-  if (poolSwimBoundaryBlocksBody(gx, gy, playerZ)) return true
-  return poolWallBounds().some(bounds => circleTouchesAabb(gx, gy, bounds, PLAYER_R))
+function cellOverlapsPoolTerrace(row, col) {
+  return col + 1 > HOUSE_POOL_TERRACE.minX && col < HOUSE_POOL_TERRACE.maxX &&
+    row + 1 > HOUSE_POOL_TERRACE.minZ && row < HOUSE_POOL_TERRACE.maxZ
 }
 
 // The rooftop walk level matches the pool terrace, so the roof tiles and the
@@ -1964,7 +1865,10 @@ function houseFloorSupportAt(row, col, playerZ) {
     !onDoor &&
     !HOUSE_STAIR_KEYS.has(key) &&
     !HOUSE_MAIN_FLOOR_HOLES.has(key) &&
-    playerZ >= HOUSE_MAIN_FLOOR_LEVEL - 0.08
+    playerZ >= HOUSE_MAIN_FLOOR_LEVEL - 0.08 &&
+  // Never snap to the raised main floor while on the pool terrace — only the
+  // rendered terrace / rim surfaces should carry support up here.
+    !(cellOverlapsPoolTerrace(row, col) && playerZ > HOUSE_MAIN_FLOOR_LEVEL + 0.45)
   ) {
     support = Math.max(support, HOUSE_MAIN_FLOOR_LEVEL)
   }
@@ -1999,8 +1903,7 @@ function solidSpanAt(row, col, cellMap, obsSet) {
 // Circular player footprint against complete solid cells. Checking the whole
 // body, rather than only its centre, prevents clipping into corners and walls.
 function hitsSolidWall(gx, gy, cellMap, obsSet, playerZ = 0) {
-  if (poolTerraceRailBlocksBody(gx, gy, playerZ)) return true
-  if (poolWallBlocksBody(gx, gy, playerZ)) return true
+  if (poolBasinBlocksBody(gx, gy, playerZ)) return true
   const minRow = Math.floor(gy - PLAYER_R)
   const maxRow = Math.floor(gy + PLAYER_R)
   const minCol = Math.floor(gx - PLAYER_R)
@@ -2038,7 +1941,6 @@ function hitsSolidWall(gx, gy, cellMap, obsSet, playerZ = 0) {
 
 function supportHeightAt(gx, gy, playerZ, cellMap, obsSet) {
   let height = housePoolWalkSupportAt(gx, gy, playerZ)
-  height = Math.max(height, poolTerraceRailSupportAt(gx, gy, playerZ))
   const radius = PLAYER_R * 0.82
   for (let row = Math.floor(gy - radius); row <= Math.floor(gy + radius); row++) {
     for (let col = Math.floor(gx - radius); col <= Math.floor(gx + radius); col++) {
@@ -3958,6 +3860,20 @@ function addCipherHouseDetails(world) {
     const wall=new THREE.Mesh(new THREE.BoxGeometry(sx,poolWallH,sz),poolShellMat)
     wall.position.set(x,poolWallCenterY,z)
     poolGroup.add(wall)
+  }
+  // Corner posts — close the last visual/collision gaps at the four basin corners.
+  for(const [x,z] of [
+    [-poolOuterW/2,-poolOuterD/2],
+    [poolOuterW/2,-poolOuterD/2],
+    [-poolOuterW/2,poolOuterD/2],
+    [poolOuterW/2,poolOuterD/2],
+  ]){
+    const corner=new THREE.Mesh(
+      new THREE.BoxGeometry(HOUSE_POOL_PERIM_WALL_T,poolWallH,HOUSE_POOL_PERIM_WALL_T),
+      poolShellMat,
+    )
+    corner.position.set(x,poolWallCenterY,z)
+    poolGroup.add(corner)
   }
   // Inner wall faces — closes corner gaps so the basin reads fully solid.
   const innerWallMat=poolTileMat
