@@ -169,7 +169,6 @@ const HOUSE_POOL_SWIM_MAX_Z = HOUSE_POOL_WATER_LEVEL + 0.38
 function buildHousePoolWalkSurfaces() {
   const o = HOUSE_POOL_OUTER
   const t = HOUSE_POOL_TERRACE
-  const entry = HOUSE_POOL_ENTRY
   const rimLevel = HOUSE_POOL_WALL_TOP
   const surfaces = []
   const push = (minX, maxX, minZ, maxZ, level) => surfaces.push({ minX, maxX, minZ, maxZ, level })
@@ -183,10 +182,11 @@ function buildHousePoolWalkSurfaces() {
   push(t.minX, o.minX, o.minZ, o.maxZ, rimLevel)
   push(o.maxX, t.maxX, o.minZ, o.maxZ, rimLevel)
 
-  // North entry deck — matches the red access deck mesh north of the pool.
+  // Stair landing on the contour tiles (north ring), aligned with the interior
+  // stair exit so the transition is always walkable.
   push(
-    entry.minX - 0.27, entry.maxX + 0.27,
-    o.minZ - 0.66, o.minZ - 0.08,
+    5.94, 8.06,
+    o.minZ - 0.58, o.minZ - 0.08,
     rimLevel,
   )
 
@@ -3914,9 +3914,6 @@ function addCipherHouseDetails(world) {
   const poolRimMat=new THREE.MeshStandardMaterial({
     color:'#d8f3ff',emissive:'#0891b2',emissiveIntensity:.34,roughness:.20,metalness:.32,
   })
-  const poolAccessMat=new THREE.MeshStandardMaterial({
-    color:'#f8fafc',emissive:'#ef4444',emissiveIntensity:.54,roughness:.22,metalness:.22,
-  })
   for(const [x,z,sx,sz] of [
     [-(poolEntryHalf+poolEntrySideW*.5),-poolOuterD/2,poolEntrySideW+.08,.12],
     [poolEntryHalf+poolEntrySideW*.5,-poolOuterD/2,poolEntrySideW+.08,.12],
@@ -3928,17 +3925,14 @@ function addCipherHouseDetails(world) {
     rim.position.set(x,HOUSE_POOL_WALL_TOP-HOUSE_POOL_DECK_LEVEL+.026,z)
     poolGroup.add(rim)
   }
-  const entryDeck=new THREE.Mesh(new THREE.BoxGeometry(poolEntryW+.54,.08,HOUSE_POOL_PERIM_WALL_T+.58),poolAccessMat)
-  entryDeck.position.set(0,HOUSE_POOL_WALL_TOP-HOUSE_POOL_DECK_LEVEL+.026,-poolOuterD/2-.08)
-  poolGroup.add(entryDeck)
-  for(const [x,z,sx,sz] of [
-    [0,-poolTerraceD/2+.08,poolEntryW+.70,.16],
-    [0,-poolOuterD/2-.58,poolEntryW+.38,.10],
-  ]){
-    const guide=new THREE.Mesh(new THREE.BoxGeometry(sx,.035,sz),poolAccessMat)
-    guide.position.set(x,HOUSE_POOL_WALL_TOP-HOUSE_POOL_DECK_LEVEL+.075,z)
-    poolGroup.add(guide)
-  }
+  // Stair landing tile on the contour ring (north side), matches walk support.
+  const stairLanding=new THREE.Mesh(new THREE.BoxGeometry(2.12,.10,.50),poolTerraceMat)
+  stairLanding.position.set(
+    7.00 - HOUSE_POOL_CENTER_X,
+    HOUSE_POOL_WALL_TOP-HOUSE_POOL_DECK_LEVEL-.005,
+    -poolOuterD/2-.33,
+  )
+  poolGroup.add(stairLanding)
   const railMat=new THREE.MeshStandardMaterial({
     color:'#f8fafc',emissive:'#38bdf8',emissiveIntensity:.36,roughness:.22,metalness:.52,
   })
