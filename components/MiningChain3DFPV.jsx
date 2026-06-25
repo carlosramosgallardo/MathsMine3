@@ -53,6 +53,7 @@ const NODE_DICE_POSITION = Object.freeze({ row: 5, col: 8 })
 // Jump: a player can mount mining blocks, but structural walls stay impassable.
 const JUMP_VZ   = 5.7        // jump impulse (grid units / second)
 const GRAVITY_A = 13.5       // gravity (grid units / second²)
+const WALK_STEP_UP = 0.58    // max walkable rise per step (ramps / house stairs)
 // Ground-level launch pad — the only way up from the lower crawl space under the
 // raised house. A 2×2 shaft in the main floor above stays open so the bounce can
 // reach HOUSE_MAIN_FLOOR_LEVEL without hitting the slab.
@@ -301,6 +302,16 @@ function rampHeightAt(data,gx,gy,row,col) {
   const fx=Math.max(0,Math.min(1,gx-col)),fy=Math.max(0,Math.min(1,gy-row))
   const progress=data?.direction==='west'?1-fx:data?.direction==='south'?fy:data?.direction==='north'?1-fy:fx
   return obstacleBottom(data)+Math.max(0,obstacleTop(data)-obstacleBottom(data))*progress
+}
+
+function rampStepUpLimit(obstacle) {
+  return obstacle?.isHouseDoorStep ? WALK_STEP_UP : 0.42
+}
+
+function effectiveMoveZ(gx, gy, playerZ, cellMap, obsSet) {
+  const support = supportHeightAt(gx, gy, playerZ, cellMap, obsSet)
+  if (support > playerZ && support - playerZ <= WALK_STEP_UP) return support
+  return playerZ
 }
 
 function circleTouchesRoundObstacle(gx,gy,row,col,obstacle,playerRadius=PLAYER_R) {
@@ -1924,7 +1935,7 @@ function hitsSolidWall(gx, gy, cellMap, obsSet, playerZ = 0) {
       if(obstacle?.shape==='ramp'){
         if(circleTouchesCell(gx,gy,row,col)){
           const localTop=rampHeightAt(obstacle,gx,gy,row,col)
-          if(localTop>playerZ+.24) return true
+          if(localTop>playerZ+rampStepUpLimit(obstacle)) return true
         }
         continue
       }
@@ -1947,7 +1958,7 @@ function supportHeightAt(gx, gy, playerZ, cellMap, obsSet) {
       const obstacle=obsSet?.get?.(`${row},${col}`)
       if(obstacle?.shape==='ramp'&&circleTouchesCell(gx,gy,row,col,radius)){
         const localTop=rampHeightAt(obstacle,gx,gy,row,col)
-        if(playerZ>=localTop-.24) height=Math.max(height,localTop)
+        if(playerZ>=localTop-WALK_STEP_UP) height=Math.max(height,localTop)
         continue
       }
       if((obstacle?.isRouteStair||obstacle?.isStair||obstacle?.isHouseRail)&&circleTouchesCell(gx,gy,row,col,radius)){
@@ -4718,26 +4729,26 @@ function rebuildThreeWorld(state,cellMap,obstacles) {
         const top=Math.max(bottom+.02,obstacleTop(obstacle))
         const span=top-bottom
         const depth=1/STEPS_PER_CELL
-        // north/south doors slope along Z; east/west doors slope along X.
         const alongZ=(dir==='north'||dir==='south')
+        const interiorStair=HOUSE_STAIR_KEYS.has(key)
         for(let s=0;s<STEPS_PER_CELL;s++){
-          // s=0 is the exterior (low) edge, climbing toward the interior (high) edge
           const stepTop=bottom+span*((s+1)/STEPS_PER_CELL)
-          // high side: north/west are the interior-facing edges
           const o=(s+.5)*depth
           const xc=alongZ?(col+.5):(dir==='west'?(col+1-o):(col+o))
           const zc=alongZ?(dir==='north'?(row+1-o):(row+o)):(row+.5)
           const sx=alongZ?.96:depth*.99
           const sz=alongZ?depth*.99:.96
-          const riser=new THREE.Mesh(new THREE.BoxGeometry(sx,Math.max(.02,stepTop),sz),riserMat)
-          riser.position.set(xc,stepTop*.5,zc)
-          riser.userData.collidable=true
-          riser.userData.avatarFadeOccluder=true
-          world.add(riser)
+          if(!interiorStair){
+            const riser=new THREE.Mesh(new THREE.BoxGeometry(sx,Math.max(.02,stepTop),sz),riserMat)
+            riser.position.set(xc,stepTop*.5,zc)
+            riser.userData.collidable=true
+            riser.userData.avatarFadeOccluder=true
+            world.add(riser)
+          }
           const tread=new THREE.Mesh(new THREE.BoxGeometry(sx,.04,sz),treadMat)
           tread.position.set(xc,stepTop-.02,zc)
           world.add(tread)
-          if(!lowD){
+          if(!lowD&&!interiorStair){
             const noseX=alongZ?xc:(dir==='west'?(xc+depth*.5):(xc-depth*.5))
             const noseZ=alongZ?(dir==='north'?(zc+depth*.5):(zc-depth*.5)):zc
             const nose=new THREE.Mesh(new THREE.BoxGeometry(alongZ?.9:.05,.02,alongZ?.05:.9),noseMat)
@@ -7370,12 +7381,19 @@ export default function MiningChain3DFPV({
       const cm=cellMapRef.current, obs=validObstaclesRef.current
       const movedDist=Math.hypot(vel.x,vel.y)*dt
       if(movedDist>0.001){
+        const cgx=p.x/CELL_SIZE, cgy=p.y/CELL_SIZE
+        const stepSupport=supportHeightAt(cgx,cgy,p.z,cm,obs)
+        if(stepSupport>p.z&&stepSupport-p.z<=WALK_STEP_UP&&p.vz<=0){
+          p.z=stepSupport
+        }
         const nx=p.x+vel.x*dt
         const ny=p.y+vel.y*dt
         const R=PLAYER_R*CELL_SIZE
         const inBX=nx>R&&nx<WORLD_W-R, inBY=ny>R&&ny<WORLD_H-R
         const ngx=nx/CELL_SIZE, ngy=ny/CELL_SIZE
-        const cgx=p.x/CELL_SIZE, cgy=p.y/CELL_SIZE
+        const moveZ=effectiveMoveZ(ngx,ngy,p.z,cm,obs)
+        const slideZx=effectiveMoveZ(ngx,cgy,p.z,cm,obs)
+        const slideZy=effectiveMoveZ(cgx,ngy,p.z,cm,obs)
         const avatarBlocked=(gx,gy)=>{
           for(const [w,remote] of remoteVisualsRef.current){
             if(w.toLowerCase()===(presenceKeyRef.current||myWalletRef.current||'').toLowerCase()) continue
@@ -7388,14 +7406,14 @@ export default function MiningChain3DFPV({
         }
         // Full move, else wall-slide. Mining blocks can be crossed from their
         // top, while taller structural walls remain solid at jump height.
-        if(inBX&&inBY&&!hitsSolidWall(ngx,ngy,cm,obs,p.z)&&!avatarBlocked(ngx,ngy)){ p.x=nx; p.y=ny }
+        if(inBX&&inBY&&!hitsSolidWall(ngx,ngy,cm,obs,moveZ)&&!avatarBlocked(ngx,ngy)){ p.x=nx; p.y=ny }
         else{
           const prevX=p.x, prevY=p.y
-          if(inBX&&!hitsSolidWall(ngx,cgy,cm,obs,p.z)&&!avatarBlocked(ngx,cgy)) p.x=nx
-          if(inBY&&!hitsSolidWall(cgx,ngy,cm,obs,p.z)&&!avatarBlocked(cgx,ngy)) p.y=ny
+          if(inBX&&!hitsSolidWall(ngx,cgy,cm,obs,slideZx)&&!avatarBlocked(ngx,cgy)) p.x=nx
+          if(inBY&&!hitsSolidWall(cgx,ngy,cm,obs,slideZy)&&!avatarBlocked(cgx,ngy)) p.y=ny
           // Corner-clip guard: both axes slid into a combined position that is
           // itself solid (diagonal block corner). Revert to avoid penetration.
-          if(p.x!==prevX&&p.y!==prevY&&hitsSolidWall(p.x/CELL_SIZE,p.y/CELL_SIZE,cm,obs,p.z)){
+          if(p.x!==prevX&&p.y!==prevY&&hitsSolidWall(p.x/CELL_SIZE,p.y/CELL_SIZE,cm,obs,effectiveMoveZ(p.x/CELL_SIZE,p.y/CELL_SIZE,p.z,cm,obs))){
             p.x=prevX; p.y=prevY
           }
         }
@@ -7424,7 +7442,10 @@ export default function MiningChain3DFPV({
           cellMapRef.current,
           validObstaclesRef.current,
         )
-        const floorZ = supportHeight&&p.z>=supportHeight-.28 ? supportHeight : 0
+        const floorZ = supportHeight && (
+          p.z >= supportHeight - 0.28 ||
+          (p.vz <= 0 && supportHeight > p.z && supportHeight - p.z <= WALK_STEP_UP)
+        ) ? supportHeight : 0
         if(floorZ>p.z&&floorZ-p.z<=.28&&p.vz<=0){
           p.z=floorZ;p.vz=0;p.jumps=0;needsRender=true
         }
