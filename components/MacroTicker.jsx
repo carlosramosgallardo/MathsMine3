@@ -1,12 +1,17 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import supabase from '@/lib/supabaseClient';
 import { useI18n } from '@/lib/i18n-context';
 
 const DEFAULT_TICKER_MESSAGES = {
   en: 'WELCOME TO MATHSMINE3 // SOLVE FAST, MINE MM3, FEED THE RETRO MAINFRAME',
   es: 'BIENVENIDO A MATHSMINE3 // RESUELVE RAPIDO, MINA MM3 Y ALIMENTA EL MAINFRAME RETRO',
+};
+
+const STORMROLL_TICKER = {
+  en: '🎲 STORMROLL ACTIVE // AoE DAMAGE ALERT // TAKE COVER: ENTER THE DICE POOL',
+  es: '🎲 STORMROLL ACTIVO // ALERTA DE DAÑO AoE // PROTÉGETE: ENTRA EN LA PISCINA DEL DADO',
 };
 
 function normalizeTickerMessage(value, fallback) {
@@ -34,6 +39,7 @@ function toConsoleMessage(value) {
 export default function MacroTicker() {
   const { language } = useI18n();
   const [messages, setMessages] = useState(DEFAULT_TICKER_MESSAGES);
+  const [stormrollActive, setStormrollActive] = useState(false);
   const [notif, setNotif]       = useState(null);
 
   // Queue so rapid mining events don't replace each other instantly
@@ -59,26 +65,36 @@ export default function MacroTicker() {
     drainQueue();
   }
 
-  /* ── Load ticker text from DB ── */
+  /* ── Load ticker text and stormroll state from DB ── */
+  const load = useCallback(async () => {
+    try {
+      const { data } = await supabase
+        .from('mm3_macro_state')
+        .select('ticker_message, ticker_message_en, ticker_message_es, node_dice_expires_at')
+        .eq('id', 1)
+        .maybeSingle();
+      const legacy = normalizeTickerMessage(data?.ticker_message, DEFAULT_TICKER_MESSAGES.en);
+      setMessages({
+        en: normalizeTickerMessage(data?.ticker_message_en, legacy),
+        es: normalizeTickerMessage(data?.ticker_message_es, legacy),
+      });
+      const expiresAt = data?.node_dice_expires_at ? new Date(data.node_dice_expires_at).getTime() : 0;
+      setStormrollActive(expiresAt > Date.now());
+    } catch {}
+  }, []);
+
   useEffect(() => {
-    const load = async () => {
-      try {
-        const { data } = await supabase
-          .from('mm3_macro_state')
-          .select('ticker_message, ticker_message_en, ticker_message_es')
-          .eq('id', 1)
-          .maybeSingle();
-        const legacy = normalizeTickerMessage(data?.ticker_message, DEFAULT_TICKER_MESSAGES.en);
-        setMessages({
-          en: normalizeTickerMessage(data?.ticker_message_en, legacy),
-          es: normalizeTickerMessage(data?.ticker_message_es, legacy),
-        });
-      } catch {}
-    };
     load();
     const timer = setInterval(load, 300_000);
     return () => clearInterval(timer);
-  }, []);
+  }, [load]);
+
+  /* ── Immediate refresh when stormroll activates / deactivates ── */
+  useEffect(() => {
+    const handler = () => load();
+    window.addEventListener('mm3-stormroll-changed', handler);
+    return () => window.removeEventListener('mm3-stormroll-changed', handler);
+  }, [load]);
 
   /* ── Manual mm3-toast events (from other components) ── */
   useEffect(() => {
@@ -101,7 +117,9 @@ export default function MacroTicker() {
 
   useEffect(() => { setNotif(null); queueRef.current = []; busyRef.current = false; }, [language]);
 
-  const message = messages[language] || messages.en || DEFAULT_TICKER_MESSAGES.en;
+  const message = stormrollActive
+    ? (STORMROLL_TICKER[language] || STORMROLL_TICKER.en)
+    : (messages[language] || messages.en || DEFAULT_TICKER_MESSAGES.en);
   const cfg = notif ? NOTIF[notif.type] : null;
 
   return (
@@ -115,10 +133,13 @@ export default function MacroTicker() {
 
       {/* Normal scrolling ticker — hidden while notification is up */}
       <div
-        className="shrink-0 whitespace-nowrap font-mono text-[0.82rem] sm:text-[0.75rem] font-black uppercase tracking-[0.18em] sm:tracking-[0.22em] text-green-300 transition-opacity duration-300"
+        className="shrink-0 whitespace-nowrap font-mono text-[0.82rem] sm:text-[0.75rem] font-black uppercase tracking-[0.18em] sm:tracking-[0.22em] transition-opacity duration-300"
         style={{
           animation: `mm3-ticker-scroll ${TICKER_SECONDS}s linear infinite`,
-          textShadow: '0 0 10px rgba(74,222,128,0.45)',
+          color: stormrollActive ? '#facc15' : '#86efac',
+          textShadow: stormrollActive
+            ? '0 0 12px rgba(250,204,21,0.65)'
+            : '0 0 10px rgba(74,222,128,0.45)',
           opacity: notif ? 0 : 1,
         }}
       >

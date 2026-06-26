@@ -528,6 +528,16 @@ function isOnInteriorPoolStair(gx, gy, radius = PLAYER_R * 0.82) {
   return false
 }
 
+function isBelowPoolDeck(playerZ) {
+  return playerZ < HOUSE_POOL_FLOOR_LEVEL - 0.10
+}
+
+// Floating stair column south of the basin lip — the only under-deck void.
+function isInteriorStairShaftBelowPoolDeck(gx, gy, radius = PLAYER_R * 0.55) {
+  return isOnInteriorPoolStair(gx, gy, radius) &&
+    gy + radius < HOUSE_POOL_OUTER.minZ - 0.12
+}
+
 function nearestInteriorStairTreadAt(gx, gy, playerZ, radius = PLAYER_R * 0.78) {
   let best = 0
   for (const cell of HOUSE_INTERIOR_STAIR_CELLS) {
@@ -808,12 +818,19 @@ function isOnPoolTerraceRing(gx, gy, radius = PLAYER_R * 0.85) {
 }
 
 function housePoolWalkSupportAt(gx, gy, playerZ, radius = PLAYER_R * 0.78) {
+  // Intermediate floor under the pool deck — only floating stair treads, never pool snap.
+  if (isBelowPoolDeck(playerZ)) {
+    if (isOnInteriorPoolStair(gx, gy, radius)) {
+      return nearestInteriorStairTreadAt(gx, gy, playerZ, radius)
+    }
+    return 0
+  }
+
   const atNorthLip = isAtPoolNorthLip(gx, gy, radius)
   const atSideLip = isAtPoolEastLip(gx, gy, radius) ||
     isAtPoolWestLip(gx, gy, radius) ||
     isAtPoolSouthLip(gx, gy, radius)
   const climbPath = isOnInteriorPoolStair(gx, gy) || isInPoolNorthPassage(gx, gy) || atNorthLip || atSideLip
-  // Under the pool slab on the intermediate floor — no terrace/basin snap while jumping.
   if (!climbPath && playerZ < HOUSE_POOL_FLOOR_LEVEL - 0.35) return 0
   let support = 0
   const inPoolBasin = circleTouchesAabb(gx, gy, HOUSE_POOL_OUTER, radius)
@@ -822,6 +839,13 @@ function housePoolWalkSupportAt(gx, gy, playerZ, radius = PLAYER_R * 0.78) {
     playerZ >= HOUSE_POOL_WALL_TOP - 0.12 &&
     !isAtPoolRimLip(gx, gy, radius)
   for (const surface of HOUSE_POOL_WALK_SURFACES) {
+    if (
+      Math.abs(surface.level - HOUSE_POOL_FLOOR_LEVEL) < 0.05 &&
+      playerZ < HOUSE_POOL_FLOOR_LEVEL - 0.25 &&
+      !isOnInteriorPoolStair(gx, gy, radius)
+    ) {
+      continue
+    }
     if (playerZ < surface.level - (climbPath ? 0.65 : WALK_STEP_UP)) continue
     if (
       atRimOverWater &&
@@ -2825,14 +2849,29 @@ function isWalkingIntermediateFloorUnderPool(gx, gy, playerZ) {
 function houseUnderPoolCeilingBottom(gx, gy, playerZ) {
   if (playerZ >= HOUSE_POOL_WALL_TOP - 0.30) return Infinity
   if (!isUnderPoolStructure(gx, gy)) return Infinity
-  if (isOnInteriorPoolStair(gx, gy) || isInPoolNorthPassage(gx, gy)) return Infinity
   const inBasin = circleTouchesAabb(gx, gy, HOUSE_POOL_OUTER, PLAYER_R * 0.55)
-  return inBasin ? HOUSE_POOL_FLOOR_LEVEL - 0.08 : HOUSE_POOL_WALL_TOP - 0.10
+  const deckBottom = inBasin ? HOUSE_POOL_FLOOR_LEVEL - 0.08 : HOUSE_POOL_WALL_TOP - 0.10
+
+  if (isBelowPoolDeck(playerZ)) {
+    if (isInteriorStairShaftBelowPoolDeck(gx, gy)) return Infinity
+    return deckBottom
+  }
+
+  if (
+    isOnInteriorPoolStair(gx, gy) ||
+    (isInPoolNorthPassage(gx, gy) && playerZ >= HOUSE_MAIN_FLOOR_LEVEL + 0.55)
+  ) {
+    return Infinity
+  }
+  return deckBottom
 }
 
 function houseStairSkylightClearsCeiling(gx, gy, playerZ, key, span) {
   if (!HOUSE_STAIR_SKYLIGHT_CELLS.has(key)) return false
   if (!span || span.bottom < HOUSE_ROOF_LEVEL - 0.32) return false
+  const [row] = key.split(',').map(Number)
+  // Under the pool basin slab the intermediate floor must keep a solid ceiling.
+  if (isBelowPoolDeck(playerZ) && row + 1 > HOUSE_POOL_OUTER.minZ - 0.05) return false
   if (playerZ >= HOUSE_POOL_FLOOR_LEVEL - 0.25) return true
   if (isOnInteriorPoolStair(gx, gy)) return true
   if (isInPoolNorthPassage(gx, gy) && playerZ >= HOUSE_MAIN_FLOOR_LEVEL - 0.08) return true
@@ -8876,7 +8915,9 @@ export default function MiningChain3DFPV({
           if (p.vz > 0 && landingZ > p.z + WALK_STEP_UP + 0.04) {
             const pgx = p.x / CELL_SIZE
             const pgy = p.y / CELL_SIZE
-            if (isInsidePoolBasin(pgx, pgy) && p.z >= HOUSE_POOL_FLOOR_LEVEL - 0.32) {
+            if (isBelowPoolDeck(p.z) && !isOnInteriorPoolStair(pgx, pgy)) {
+              landingZ = p.z >= HOUSE_MAIN_FLOOR_LEVEL - 0.12 ? HOUSE_MAIN_FLOOR_LEVEL : 0
+            } else if (isInsidePoolBasin(pgx, pgy) && p.z >= HOUSE_POOL_FLOOR_LEVEL - 0.32) {
               landingZ = HOUSE_POOL_FLOOR_LEVEL
             } else {
               landingZ = p.z >= HOUSE_MAIN_FLOOR_LEVEL - 0.12 ? HOUSE_MAIN_FLOOR_LEVEL : 0

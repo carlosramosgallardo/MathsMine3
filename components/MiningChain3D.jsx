@@ -268,6 +268,7 @@ export default function MiningChain3D() {
       if (broadcast && lastBroadcastNodeDiceRef.current !== null) {
         lastBroadcastNodeDiceRef.current = null
         channelRef.current?.send({ type: 'broadcast', event: 'node-dice', payload: null })?.catch(() => {})
+        window.dispatchEvent(new CustomEvent('mm3-stormroll-changed'))
       }
       return null
     }
@@ -466,6 +467,7 @@ export default function MiningChain3D() {
     try { localStorage.setItem(NODE_DICE_STORAGE_KEY, JSON.stringify(next)) } catch {}
     lastBroadcastNodeDiceRef.current = next
     channelRef.current?.send({ type: 'broadcast', event: 'node-dice', payload: next })?.catch(() => {})
+    window.dispatchEvent(new CustomEvent('mm3-stormroll-changed'))
     refreshNodeDiceMode(next, true)
   }, [es, loadNodeDiceWalletStats, refreshNodeDiceMode])
 
