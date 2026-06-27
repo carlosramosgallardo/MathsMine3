@@ -605,25 +605,81 @@ async function autoAcceptBotSqueezeProposals(supabase) {
   return actions;
 }
 
-async function advanceBotSqueezes(supabase) {
-  const now = Date.now();
+async function cancelDeadMemberSqueezes(supabase) {
   const actions = [];
-  const { data: members } = await supabase
-    .from('mm3_wallet_pool_members')
-    .select('pool_code')
-    .in('wallet', BOT_WALLETS);
-  const botPools = [...new Set((members || []).map((row) => row.pool_code).filter(Boolean))];
-  if (botPools.length === 0) return actions;
 
   const { data: activeDisputes } = await supabase
     .from('mm3_pool_disputes')
+    .select('id, challenger_pool_code, defender_pool_code, status')
+    .in('status', ['proposing', 'registering', 'battle_start']);
+
+  if (!activeDisputes?.length) return actions;
+
+  const allPools = [...new Set(activeDisputes.flatMap((d) => [d.challenger_pool_code, d.defender_pool_code]).filter(Boolean))];
+
+  const { data: poolMembers } = await supabase
+    .from('mm3_wallet_pool_members')
+    .select('wallet, pool_code')
+    .in('pool_code', allPools);
+
+  if (!poolMembers?.length) return actions;
+
+  const allWallets = [...new Set(poolMembers.map((m) => m.wallet))];
+
+  const { data: deadRows } = await supabase
+    .from('mm3_pvp_health')
+    .select('wallet')
+    .in('wallet', allWallets)
+    .gt('pvp_dead_until', new Date().toISOString());
+
+  if (!deadRows?.length) return actions;
+
+  const deadSet = new Set(deadRows.map((r) => r.wallet));
+
+  const poolToWallets = new Map();
+  for (const { wallet, pool_code } of poolMembers) {
+    if (!poolToWallets.has(pool_code)) poolToWallets.set(pool_code, new Set());
+    poolToWallets.get(pool_code).add(wallet);
+  }
+
+  for (const dispute of activeDisputes) {
+    const chWallets = poolToWallets.get(dispute.challenger_pool_code) || new Set();
+    const dfWallets = poolToWallets.get(dispute.defender_pool_code) || new Set();
+    const hasDeadMember = [...chWallets, ...dfWallets].some((w) => deadSet.has(w));
+    if (!hasDeadMember) continue;
+
+    const { error } = await supabase
+      .from('mm3_pool_disputes')
+      .update({ status: 'cancelled', cancelled_at: new Date().toISOString() })
+      .eq('id', dispute.id)
+      .in('status', ['proposing', 'registering', 'battle_start']);
+
+    if (!error) {
+      actions.push({ type: 'squeeze_cancelled_dead_member', disputeId: dispute.id });
+    }
+  }
+
+  return actions;
+}
+
+async function advanceBotSqueezes(supabase) {
+  const now = Date.now();
+  const actions = [];
+  const BOT_POOL_CODES = new Set([...BOT_POOL_MAP.values()]);
+
+  // Fetch ALL active disputes — registering/battle_start advance for everyone, not just bot pools
+  const { data: activeDisputes } = await supabase
+    .from('mm3_pool_disputes')
     .select('id, challenger_pool_code, defender_pool_code, status, registered_at, battle_start_at')
-    .or(`challenger_pool_code.in.(${botPools.join(',')}),defender_pool_code.in.(${botPools.join(',')})`)
     .in('status', ['proposing', 'registering', 'battle_start'])
     .order('registered_at', { ascending: true });
 
   for (const dispute of activeDisputes || []) {
+    const involvesBotPool = BOT_POOL_CODES.has(dispute.challenger_pool_code) || BOT_POOL_CODES.has(dispute.defender_pool_code);
+
     if (dispute.status === 'proposing') {
+      // Auto-cancel only bot-involved disputes after timeout
+      if (!involvesBotPool) continue;
       const registeredAt = new Date(dispute.registered_at).getTime();
       if (now - registeredAt >= 5 * 60 * 1000) {
         const { data } = await supabase.rpc('mm3_dispute_cancel', { p_dispute_id: dispute.id });
@@ -2000,7 +2056,7 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
 
         const trace = `MM3 BLOCK CHAIN IN PROGRESS >> mined ${pick.blockHex} by ${formatWalletLabel(wallet)} >> ${freeMinedRows.length}/${freeBlocksTotal} ${freeChainPct.toFixed(2)}%`;
         await supabase.from('mm3_relaying_messages').insert({
-          wallet: 'system', text: trace, ts: Date.now(), kind: 'system', tone: 'mining',
+          wallet: 'system', text: trace, ts: Date.now(), kind: 'system', tone: 'market',
         });
 
         if (freeMinedRows.length >= freeBlocksTotal) {
@@ -2217,6 +2273,7 @@ export async function GET(req) {
   );
 
   const squeezeActions = [];
+  squeezeActions.push(...await cancelDeadMemberSqueezes(supabase));
   squeezeActions.push(...await autoAcceptBotSqueezeProposals(supabase));
   squeezeActions.push(...await advanceBotSqueezes(supabase));
   squeezeActions.push(...await autoClaimBotSqueezeDrops(supabase));

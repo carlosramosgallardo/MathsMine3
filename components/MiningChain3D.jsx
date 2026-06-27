@@ -428,7 +428,7 @@ export default function MiningChain3D() {
     }
     const current = normalizeNodeDiceState(nodeDiceRef.current)
     if (current) {
-      setNodeDiceError(es ? 'StormRoll Node ya está activo.' : 'StormRoll Node is already active.')
+      setNodeDiceError(es ? 'Dice Node ya está activo.' : 'Dice Node is already active.')
       return
     }
     const stats = await loadNodeDiceWalletStats()
@@ -451,13 +451,13 @@ export default function MiningChain3D() {
           ? (es ? `Nivel mínimo ${NODE_DICE_MIN_LEVEL}.` : `Minimum level ${NODE_DICE_MIN_LEVEL}.`)
           : response?.error === 'not_enough_mm3'
             ? (es ? 'MM3 insuficiente.' : 'Not enough MM3.')
-            : (es ? 'No se pudo activar StormRoll.' : 'Could not activate StormRoll.')
+            : (es ? 'No se pudo activar Dice Node.' : 'Could not activate Dice Node.')
       )
       return
     }
     const next = normalizeNodeDiceState(response.nodeDice)
     if (!next) {
-      setNodeDiceError(es ? 'StormRoll no devolvió estado activo.' : 'StormRoll did not return active state.')
+      setNodeDiceError(es ? 'Dice Node no devolvió estado activo.' : 'Dice Node did not return active state.')
       return
     }
     nodeDiceRef.current = next
@@ -773,8 +773,8 @@ export default function MiningChain3D() {
         owner: null,
         color: '#facc15',
         emoji: '🎲',
-        titleEn: 'STORMROLL NODE',
-        titleEs: 'STORMROLL NODE',
+        titleEn: 'DICE NODE',
+        titleEs: 'DICE NODE',
         baseHeight: 5.80,
       })
       // Portal navigation nodes in the outer area
@@ -1488,7 +1488,7 @@ export default function MiningChain3D() {
                 <span style={{ color:'#facc15', fontSize:'1.15rem' }}>🎲</span>
                 <div>
                   <div style={{ color:'#facc15', fontWeight:700, fontSize:'0.86rem', letterSpacing:'0.1em' }}>
-                    STORMROLL NODE
+                    DICE NODE
                   </div>
                   <div style={{ color:'rgba(250,204,21,0.40)', fontSize:'0.6rem', letterSpacing:'0.14em', marginTop:1 }}>
                     {es ? 'DADO HORARIO · 24H' : 'HOURLY DICE · 24H'}

@@ -3611,7 +3611,7 @@ function drawFacingHUD(ctx, W, H, fwdCell, fwdMx, fwdMy, myWallet, es, dist, obs
     const active = nodeDiceState && Number(nodeDiceState.expiresAt) > Date.now()
     const dice = getDiceState()
     const lines = [
-      { text: `${fwdCell.emoji || '🎲'}  ${fwdCell.titleEn || 'STORMROLL NODE'}`, size: 13, weight: 'bold', col },
+      { text: `${fwdCell.emoji || '🎲'}  ${fwdCell.titleEn || 'DICE NODE'}`, size: 13, weight: 'bold', col },
       { text: active ? (nodeDiceState.mode === 'war' ? '🔥 WAR 50%' : '🌪️ METEO 50%') : (es ? '500 MM3 · Lv 30' : '500 MM3 · Lv 30'), size: 10, col: active ? '#4ade80cc' : '#94a3b8' },
       { text: active && dice.active ? (es ? 'DADO MUNDO ACTIVO' : 'WORLD DICE ACTIVE') : (es ? 'esperando dado horario' : 'waiting hourly dice'), size: 9, col: active && dice.active ? '#facc15cc' : '#64748b' },
       inRange
@@ -8564,7 +8564,7 @@ export default function MiningChain3DFPV({
         ctx.fillText(es ? '[ ↵ RESOLVER CADENA ]' : '[ ↵ SOLVE FORMULA CHAIN ]', W/2, viewCenterY+18)
       } else if (promptCell.isNodeDiceNode && canInteractNodeDiceAtHeight(rawZ)) {
         ctx.fillStyle = '#facc15cc'
-        ctx.fillText(es ? '[ ↵ STORMROLL NODE ]' : '[ ↵ STORMROLL NODE ]', W/2, viewCenterY+18)
+        ctx.fillText(es ? '[ ↵ DICE NODE ]' : '[ ↵ DICE NODE ]', W/2, viewCenterY+18)
       } else if (promptCell.isPortalNode && canInteractPortalAtHeight(promptMy, promptMx, rawZ)) {
         ctx.fillStyle = '#22d3eecc'
         ctx.fillText(es ? '[ ↵ IR ]' : '[ ↵ GO ]', W/2, viewCenterY+18)
@@ -9681,7 +9681,7 @@ export default function MiningChain3DFPV({
             nodeDiceSoundHourRef.current = Number(nodeVisual.dice.hourStart)
             playNodeDiceWeatherSound(audioCtxRef,nodeVisual.mode)
             notifRef.current = {
-              text: nodeVisual.mode === 'war' ? '🎲 STORMROLL: WAR' : '🎲 STORMROLL: METEO',
+              text: nodeVisual.mode === 'war' ? '🎲 DICE: WAR' : '🎲 DICE: METEO',
               color: nodeVisual.mode === 'war' ? '#fb923c' : '#9ca3af',
               startedAt: Date.now(),
             }

@@ -406,7 +406,7 @@ function useNftEvents(range) {
     filtered.forEach(ev => {
       const d   = new Date(ev.created_at)
       const key = range === '1h'
-        ? `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+        ? `${String(d.getUTCHours()).padStart(2, '0')}:${String(d.getUTCMinutes()).padStart(2, '0')}`
         : range === '24h'
           ? `${String(d.getHours()).padStart(2, '0')}:00`
           : localDateStr(d).slice(5)
@@ -528,7 +528,7 @@ const NFT_LEGEND_BASE = [
 function useDiceChartWindows(data, range, clockTick) {
   return useMemo(() => {
     const now = Date.now()
-    const toMinKey  = ms => { const d = new Date(ms); return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}` }
+    const toMinKey  = ms => { const d = new Date(ms); return `${String(d.getUTCHours()).padStart(2,'0')}:${String(d.getUTCMinutes()).padStart(2,'0')}` }
     const toHourKey = ms => { const d = new Date(ms); return `${String(d.getHours()).padStart(2,'0')}:00` }
     const toDayKey  = ms => localDateStr(new Date(ms)).slice(5)
 
