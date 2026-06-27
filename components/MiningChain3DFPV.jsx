@@ -206,10 +206,38 @@ const HOUSE_POOL_TERRACE_RAIL_RISE = 0.10
 const HOUSE_POOL_TERRACE_RAIL_BASE = HOUSE_POOL_WALL_TOP + HOUSE_POOL_TERRACE_RAIL_RISE
 const HOUSE_POOL_TERRACE_RAIL_TOP = HOUSE_POOL_TERRACE_RAIL_BASE + HOUSE_POOL_TERRACE_RAIL_HEIGHT
 const HOUSE_POOL_SWIM_MAX_Z = HOUSE_POOL_WATER_LEVEL + 0.22
+const POOL_AVATAR_VISUAL_SINK = 0.36
+const POOL_AVATAR_SWIM_BOB = 0.045
 const POOL_WALL_VAULT_CLEAR = 0.08
 const POOL_RAIL_VAULT_CLEAR = 0.06
 const NODE_DICE_INTERACT_MIN_Z = HOUSE_POOL_WALL_TOP - 0.12
 const TRAINING_PORTAL_KEY = '5,5'
+const HOUSE_PERIMETER_HEART_Y = 5.06
+const HOUSE_PERIMETER_HEART_SIZE = 0.48
+const HOUSE_HEART_FACE_OFFSET = 0.10
+function isInHouseBeaconSilenceZone(x, y, z) {
+  const { minRow, maxRow, minCol, maxCol } = CIPHER_HOUSE_BOUNDS
+  const pad = 2.25
+  if (y < 1.0 || y > 9.0) return false
+  return (
+    x >= minCol - pad && x <= maxCol + 1 + pad &&
+    z >= minRow - pad && z <= maxRow + 1 + pad
+  )
+}
+const HOUSE_SKY_BEACON_Y = 13.4
+const BIOME_CORNER_DECOR_BEACON_Y = 16.2
+function shouldFloatHouseBeaconSky(row, col, height) {
+  const key = `${row},${col}`
+  // Training portal lives on the intermediate floor — keep its marker there, not in the sky.
+  if (key === TRAINING_PORTAL_KEY) return false
+  if (CIPHER_HOUSE_PERIMETER_KEYS.has(key)) return true
+  if (CIPHER_HOUSE_DOOR_CELLS.has(key)) return true
+  if (isNearCipherHouse(row, col, 2)) return true
+  return isInHouseBeaconSilenceZone(col + 0.5, height + 0.82, row + 0.5)
+}
+function houseBeaconDisplayHeight(row, col, height) {
+  return shouldFloatHouseBeaconSky(row, col, height) ? HOUSE_SKY_BEACON_Y : height
+}
 
 function isStormRollNodeCell(row, col) {
   return row === NODE_DICE_POSITION.row && col === NODE_DICE_POSITION.col
@@ -1182,7 +1210,6 @@ const HOUSE_WINDOW_PANE_W = .74
 const HOUSE_WINDOW_FACE_INSET = .012
 const HOUSE_WINDOW_MULLION_T = .048
 const CIPHER_HOUSE_WINDOWS = new Set([
-  '3,9', '3,10',
   '8,3', '9,3',
   '5,13', '6,13',
   '13,5', '13,6',
@@ -3557,7 +3584,9 @@ function drawFacingHUD(ctx, W, H, fwdCell, fwdMx, fwdMy, myWallet, es, dist, obs
             ? { text: es ? `⛏ ${Math.round(mineProgress * HITS_NEEDED)}/${HITS_NEEDED} golpes` : `⛏ ${Math.round(mineProgress * HITS_NEEDED)}/${HITS_NEEDED} hits`, size: 10, col: col + 'cc' }
             : { text: es ? '⛏ 5 golpes · Ir a sección' : '⛏ 5 hits · Go to section', size: 10, col: col + 'cc' })
         : dist != null && dist <= INTERACT_DIST && !atPortalHeight
-          ? { text: es ? '· solo planta 0' : '· ground floor only', size: 9, col: col + '55' }
+          ? { text: `${fwdMy},${fwdMx}` === TRAINING_PORTAL_KEY
+              ? (es ? '· solo planta intermedia' : '· intermediate floor only')
+              : (es ? '· solo planta 0' : '· ground floor only'), size: 9, col: col + '55' }
           : { text: es ? '· acércate para acceder' : '· move closer to access', size: 9, col: col + '55' },
     ]
     const _lineH = 16, _padX = 9, _padY = 8
@@ -4753,6 +4782,113 @@ function housePerimeterFace(row, col) {
   return { px: col + 1 - HOUSE_WINDOW_FACE_INSET, pz: row + .5, along: 'z', depth: HOUSE_WINDOW_MULLION_T }
 }
 
+function makeHousePerimeterHeartMaterial() {
+  return new THREE.MeshBasicMaterial({
+    map:makeHousePerimeterHeartTexture(),
+    transparent:true,
+    opacity:.96,
+    depthWrite:false,
+    depthTest:true,
+    side:THREE.FrontSide,
+    alphaTest:.08,
+    polygonOffset:true,
+    polygonOffsetFactor:-2,
+    polygonOffsetUnits:-2,
+  })
+}
+
+function addHousePerimeterHeartSigns(parent) {
+  const heartMat=makeHousePerimeterHeartMaterial()
+  const placements=[]
+  const {minRow,maxRow,minCol,maxCol}=CIPHER_HOUSE_BOUNDS
+  for(const key of CIPHER_HOUSE_PERIMETER_KEYS){
+    if(CIPHER_HOUSE_DOOR_CELLS.has(key)) continue
+    const [row,col]=key.split(',').map(Number)
+    let x,z,rotY
+    if(row===minRow){
+      x=col+.5;z=minRow-HOUSE_HEART_FACE_OFFSET;rotY=Math.PI
+    }else if(row===maxRow){
+      x=col+.5;z=maxRow+1+HOUSE_HEART_FACE_OFFSET;rotY=0
+    }else if(col===minCol){
+      x=minCol-HOUSE_HEART_FACE_OFFSET;z=row+.5;rotY=-Math.PI/2
+    }else{
+      x=maxCol+1+HOUSE_HEART_FACE_OFFSET;z=row+.5;rotY=Math.PI/2
+    }
+    placements.push({x,y:HOUSE_PERIMETER_HEART_Y,z,rotY})
+  }
+  if(!placements.length) return null
+  const mesh=new THREE.InstancedMesh(
+    new THREE.PlaneGeometry(HOUSE_PERIMETER_HEART_SIZE,HOUSE_PERIMETER_HEART_SIZE),
+    heartMat,
+    placements.length,
+  )
+  mesh.userData.housePerimeterHearts=true
+  mesh.frustumCulled=false
+  const matrix=new THREE.Matrix4(),position=new THREE.Vector3(),quaternion=new THREE.Quaternion()
+  const scale=new THREE.Vector3(1,1,1),euler=new THREE.Euler(0,0,0)
+  placements.forEach((p,index)=>{
+    position.set(p.x,p.y,p.z)
+    euler.set(0,p.rotY,0)
+    quaternion.setFromEuler(euler)
+    matrix.compose(position,quaternion,scale)
+    mesh.setMatrixAt(index,matrix)
+  })
+  mesh.instanceMatrix.needsUpdate=true
+  parent.add(mesh)
+  return mesh
+}
+
+function addPoolPerimeterHeartSigns(poolGroup,poolOuterW,poolOuterD) {
+  const poolWaterInset=.08
+  const innerW=poolOuterW-poolWaterInset*2
+  const innerD=poolOuterD-poolWaterInset*2
+  const halfW=innerW*.5
+  const halfD=innerD*.5
+  const cornerInset=HOUSE_PERIMETER_HEART_SIZE*.52
+  const spacing=HOUSE_PERIMETER_HEART_SIZE*.96
+  const waterY=HOUSE_POOL_WATER_LEVEL-HOUSE_POOL_DECK_LEVEL+.003
+  const x0=-halfW+cornerInset
+  const x1=halfW-cornerInset
+  const z0=-halfD+cornerInset
+  const z1=halfD-cornerInset
+  const placements=[
+    {x:x0,z:z0},{x:x1,z:z0},{x:x0,z:z1},{x:x1,z:z1},
+  ]
+  const fillEdge=(ax,az,bx,bz)=>{
+    const dx=bx-ax,dz=bz-az
+    const len=Math.hypot(dx,dz)
+    if(len<=spacing*1.05) return
+    const ux=dx/len,uz=dz/len
+    for(let t=spacing;t<len-spacing*.45;t+=spacing){
+      placements.push({x:ax+ux*t,z:az+uz*t})
+    }
+  }
+  fillEdge(x0,z0,x1,z0)
+  fillEdge(x1,z0,x1,z1)
+  fillEdge(x1,z1,x0,z1)
+  fillEdge(x0,z1,x0,z0)
+  const heartMat=makePoolSurfaceHeartMaterial()
+  const mesh=new THREE.InstancedMesh(
+    new THREE.PlaneGeometry(HOUSE_PERIMETER_HEART_SIZE,HOUSE_PERIMETER_HEART_SIZE),
+    heartMat,
+    placements.length,
+  )
+  mesh.userData.poolCornerHearts=true
+  mesh.frustumCulled=false
+  mesh.renderOrder=6
+  const matrix=new THREE.Matrix4(),position=new THREE.Vector3(),quaternion=new THREE.Quaternion()
+  const scale=new THREE.Vector3(1,1,1),euler=new THREE.Euler(-Math.PI/2,0,0)
+  quaternion.setFromEuler(euler)
+  placements.forEach((p,index)=>{
+    position.set(p.x,waterY,p.z)
+    matrix.compose(position,quaternion,scale)
+    mesh.setMatrixAt(index,matrix)
+  })
+  mesh.instanceMatrix.needsUpdate=true
+  poolGroup.add(mesh)
+  return mesh
+}
+
 function addCipherHouseDetails(world) {
   const group=new THREE.Group()
   group.name='cipher-house-details'
@@ -4775,6 +4911,8 @@ function addCipherHouseDetails(world) {
   const edgeW=(1-HOUSE_WINDOW_PANE_W)*.5
   for(const key of CIPHER_HOUSE_WINDOWS){
     const [row,col]=key.split(',').map(Number)
+    // West pool terrace wall — no glass panes (they read as a white/cyan diamond from outside).
+    if(col===CIPHER_HOUSE_BOUNDS.minCol&&row>=8&&row<=11) continue
     const face=housePerimeterFace(row,col)
     let prevTop=0
     for(const cy of HOUSE_WINDOW_PANE_Y){
@@ -4785,6 +4923,7 @@ function addCipherHouseDetails(world) {
         if(face.along==='x') mullionBoxes.push([face.px, midY, face.pz, .88, h, face.depth])
         else mullionBoxes.push([face.px, midY, face.pz, face.depth, h, .88])
       }
+      if(Math.abs(cy-HOUSE_PERIMETER_HEART_Y)<.55) continue
       if(face.along==='x'){
         glassBoxes.push([face.px, cy, face.pz, HOUSE_WINDOW_PANE_W, HOUSE_WINDOW_PANE_H, .042])
         frameBoxes.push([face.px, cy-paneHalf-.028, face.pz, HOUSE_WINDOW_PANE_W+.08, .028, face.depth+.01, 'h'])
@@ -5065,14 +5204,15 @@ function addCipherHouseDetails(world) {
   const poolWater=new THREE.Mesh(
     new THREE.PlaneGeometry(poolOuterW-.08,poolOuterD-.08,18,12),
     new THREE.MeshPhysicalMaterial({
-      color:'#fca5a5',emissive:'#ef4444',emissiveIntensity:.72,
-      transparent:true,opacity:.52,roughness:.04,metalness:.02,
+      color:'#f87171',emissive:'#dc2626',emissiveIntensity:.78,
+      transparent:true,opacity:.50,roughness:.04,metalness:.02,
       clearcoat:.92,clearcoatRoughness:.02,side:THREE.DoubleSide,
-      depthWrite:false,
+      depthWrite:true,
     }),
   )
   poolWater.rotation.x=-Math.PI/2
   poolWater.position.y=HOUSE_POOL_WATER_LEVEL-HOUSE_POOL_DECK_LEVEL
+  poolWater.renderOrder=4
   poolGroup.add(poolWater)
   const poolRimMat=new THREE.MeshStandardMaterial({
     color:'#d8f3ff',emissive:'#0891b2',emissiveIntensity:.34,roughness:.20,metalness:.32,
@@ -5124,13 +5264,7 @@ function addCipherHouseDetails(world) {
   const poolGlow=new THREE.PointLight('#f87171',isCoarsePointerDevice()?0:3.6,5.8,1.7)
   poolGlow.position.set(0,-.1,0)
   poolGroup.add(poolGlow)
-  // Surface ripple indicator (flat emissive ring)
-  const rippleMat=new THREE.MeshBasicMaterial({color:'#fecaca',transparent:true,opacity:.28,depthWrite:false,side:THREE.DoubleSide})
-  const ripple=new THREE.Mesh(new THREE.RingGeometry(.28,Math.min(poolOuterW,poolOuterD)*.42,24),rippleMat)
-  ripple.rotation.x=-Math.PI/2
-  ripple.position.y=HOUSE_POOL_WATER_LEVEL-HOUSE_POOL_DECK_LEVEL+.004
-  ripple.userData.biomeSurface=true  // animated by the biome surface update loop
-  poolGroup.add(ripple)
+  addPoolPerimeterHeartSigns(poolGroup,poolOuterW,poolOuterD)
   group.add(poolGroup)
 
   const diceTower=new THREE.Group()
@@ -5157,8 +5291,8 @@ function addCipherHouseDetails(world) {
     diceTower.add(ring)
   }
   const diceSprite=makeEmojiSprite('🎲','#facc15','circle')
-  diceSprite.material.depthTest=false
-  diceSprite.renderOrder=30
+  diceSprite.material.depthTest=true
+  diceSprite.renderOrder=0
   diceSprite.scale.set(1.62,1.62,1)
   diceSprite.position.y=9.08
   diceTower.add(diceSprite)
@@ -5166,6 +5300,7 @@ function addCipherHouseDetails(world) {
   diceLight.position.y=8.08
   diceTower.add(diceLight)
   diceTower.userData.interactive=true
+  diceTower.userData.stormRollDiceTower=true
   diceTower.userData.phase=0
   group.add(diceTower)
 
@@ -5510,10 +5645,15 @@ function addBiomeLandmarks(world,textures,lowDetail=false) {
 
   for(const [x,z,color] of [[14,14,'#67e8f9'],[42,14,'#2dd4bf'],[14,42,'#e0f2fe'],[42,42,'#fb4b1f']]){
     const beacon=new THREE.Group()
-    const ringA=new THREE.Mesh(new THREE.TorusGeometry(.62,.045,6,18),new THREE.MeshBasicMaterial({color,transparent:true,opacity:.58}))
+    const ringA=new THREE.Mesh(new THREE.TorusGeometry(.62,.045,6,18),new THREE.MeshBasicMaterial({color,transparent:true,opacity:.58,depthWrite:false}))
     const ringB=ringA.clone();ringA.rotation.x=Math.PI/2;ringB.rotation.y=Math.PI/2
-    const core=new THREE.Mesh(new THREE.OctahedronGeometry(.18),new THREE.MeshBasicMaterial({color}))
-    beacon.add(ringA,ringB,core);beacon.position.set(x,4.6,z);world.add(beacon)
+    const core=new THREE.Mesh(new THREE.OctahedronGeometry(.18),new THREE.MeshBasicMaterial({color,depthWrite:false}))
+    beacon.add(ringA,ringB,core)
+    beacon.position.set(x,BIOME_CORNER_DECOR_BEACON_Y,z)
+    beacon.userData.biomeSurface='decorBeacon'
+    beacon.userData.baseY=BIOME_CORNER_DECOR_BEACON_Y
+    beacon.userData.phase=seededUnit(x*97+z*131)*Math.PI*2
+    world.add(beacon)
   }
   addIslandSurroundCoast(world,textures,lowDetail)
 }
@@ -5562,13 +5702,16 @@ function makeEmojiSprite(emoji,color,shape='square') {
 
 function addInteractiveBeaconEmoji(world,row,col,cell,height) {
   if((!cell.isMarket&&!cell.isPortalNode&&!cell.isNodeDiceNode)||!cell.emoji) return
+  const displayH=houseBeaconDisplayHeight(row,col,height)
   const color=cell.isChainNode||cell.isNodeDiceNode?'#facc15':cell.isPortalNode?(cell.color||'#22d3ee'):cell.isMarket?(cell.owner?'#4ade80':'#fb923c'):'#22d3ee'
   const beacon=new THREE.Group()
   const emojiSprite=makeEmojiSprite(cell.emoji,color,(cell.isPortalNode||cell.isNodeDiceNode)?'circle':'square')
-  emojiSprite.position.y=height+.82
+  emojiSprite.position.y=displayH+.82
   beacon.add(emojiSprite)
   beacon.position.set(col+.5,0,row+.5)
-  beacon.userData.interactive=true;beacon.userData.phase=seededUnit(row*71+col*113)*Math.PI*2
+  beacon.userData.interactive=true
+  beacon.userData.skyBeacon=shouldFloatHouseBeaconSky(row,col,height)
+  beacon.userData.phase=seededUnit(row*71+col*113)*Math.PI*2
   world.add(beacon)
 }
 
@@ -5620,8 +5763,11 @@ function updateInteractiveBeaconBatch(batch,time) {
   const yAxis=THREE.Object3D.DEFAULT_UP
   for(let index=0;index<batch.entries.length;index++){
     const entry=batch.entries[index]
+    const sky=shouldFloatHouseBeaconSky(entry.row,entry.col,entry.height)
+    const displayH=houseBeaconDisplayHeight(entry.row,entry.col,entry.height)
     const pulse=1+Math.sin(time*2.8+entry.phase)*.08
-    batch.position.set(entry.col+.5,Math.sin(time*2.1+entry.phase)*.045,entry.row+.5)
+    const bobY=sky?Math.sin(time*1.55+entry.phase)*.42:Math.sin(time*2.1+entry.phase)*.045
+    batch.position.set(entry.col+.5,bobY,entry.row+.5)
     batch.scale.setScalar(pulse)
     batch.quaternion.setFromAxisAngle(yAxis,time*.72+entry.phase)
     batch.parent.compose(batch.position,batch.quaternion,batch.scale)
@@ -5633,10 +5779,18 @@ function updateInteractiveBeaconBatch(batch,time) {
       batch.final.multiplyMatrices(batch.parent,batch.local)
       mesh.setMatrixAt(instanceIndex,batch.final)
     }
-    setInstance(batch.rings,index,entry.height+.14,Math.PI/2,0)
-    setInstance(batch.ring2s,index,entry.height*.58,0,Math.PI/2)
-    setInstance(batch.columns,index,(entry.height+.42)*.5,0,0,entry.height+.42)
-    setInstance(batch.markers[entry.markerKey],entry.markerIndex,entry.height+.38,0,0)
+    if(sky){
+      const drift=Math.sin(time*1.35+entry.phase)*.18
+      setInstance(batch.rings,index,displayH+drift,Math.PI/2,0)
+      setInstance(batch.ring2s,index,displayH+drift*.6,0,Math.PI/2)
+      setInstance(batch.columns,index,0,0,0,0.001)
+      setInstance(batch.markers[entry.markerKey],entry.markerIndex,displayH+.38+drift,0,0)
+    }else{
+      setInstance(batch.rings,index,entry.height+.14,Math.PI/2,0)
+      setInstance(batch.ring2s,index,entry.height*.58,0,Math.PI/2)
+      setInstance(batch.columns,index,(entry.height+.42)*.5,0,0,entry.height+.42)
+      setInstance(batch.markers[entry.markerKey],entry.markerIndex,entry.height+.38,0,0)
+    }
   }
   for(const mesh of [batch.rings,batch.ring2s,batch.columns,...Object.values(batch.markers)]) mesh.instanceMatrix.needsUpdate=true
 }
@@ -5688,43 +5842,69 @@ function makeDiceFaceTexture(face) {
   return texture
 }
 
-function makeRecoveryTileTexture() {
+function makeHousePerimeterHeartTexture() {
   const s=256,cv=document.createElement('canvas')
   cv.width=s;cv.height=s
   const ctx=cv.getContext('2d')
-  const gradient=ctx.createLinearGradient(0,0,s,s)
-  gradient.addColorStop(0,'#07111f')
-  gradient.addColorStop(.48,'#991b1b')
-  gradient.addColorStop(1,'#020817')
-  ctx.fillStyle=gradient
-  ctx.fillRect(0,0,s,s)
-  ctx.strokeStyle='rgba(248,113,113,0.42)'
-  ctx.lineWidth=2
-  for(let i=32;i<s;i+=32){
-    ctx.beginPath();ctx.moveTo(i,14);ctx.lineTo(i,s-14);ctx.stroke()
-    ctx.beginPath();ctx.moveTo(14,i);ctx.lineTo(s-14,i);ctx.stroke()
-  }
-  ctx.strokeStyle='#fecaca'
-  ctx.lineWidth=5
-  ctx.strokeRect(11,11,s-22,s-22)
-  ctx.strokeStyle='#22d3ee'
-  ctx.lineWidth=3
-  ctx.strokeRect(24,24,s-48,s-48)
-  ctx.font='bold 118px system-ui, "Apple Color Emoji", "Segoe UI Emoji", sans-serif'
+  ctx.clearRect(0,0,s,s)
+  const cx=s/2,cy=s/2+8
+  ctx.shadowColor='#ef4444'
+  ctx.shadowBlur=28
+  ctx.font='bold 168px "Apple Color Emoji","Segoe UI Emoji",sans-serif'
   ctx.textAlign='center'
   ctx.textBaseline='middle'
-  ctx.shadowColor='#fca5a5'
-  ctx.shadowBlur=20
-  ctx.fillStyle='#fecaca'
-  ctx.fillText('♥',s/2,s/2+4)
-  ctx.shadowBlur=0
-  ctx.font='bold 24px monospace'
-  ctx.fillStyle='#67e8f9'
-  ctx.fillText('+HP',s/2,208)
+  ctx.fillStyle='#ef4444'
+  ctx.fillText('❤️',cx,cy)
   const texture=new THREE.CanvasTexture(cv)
   texture.colorSpace=THREE.SRGBColorSpace
   texture.anisotropy=8
   return texture
+}
+
+function makePoolSurfaceHeartMaterial() {
+  return new THREE.MeshBasicMaterial({
+    map:makeHousePerimeterHeartTexture(),
+    transparent:true,
+    opacity:.92,
+    depthWrite:false,
+    side:THREE.FrontSide,
+    alphaTest:.08,
+    polygonOffset:true,
+    polygonOffsetFactor:-1,
+    polygonOffsetUnits:-1,
+  })
+}
+
+function makePoolHealEmblemTexture() {
+  const s=256,cv=document.createElement('canvas')
+  cv.width=s;cv.height=s
+  const ctx=cv.getContext('2d')
+  ctx.clearRect(0,0,s,s)
+  ctx.strokeStyle='rgba(148,163,184,.72)'
+  ctx.lineWidth=7
+  ctx.beginPath()
+  ctx.arc(s/2,s/2,88,0,Math.PI*2)
+  ctx.stroke()
+  ctx.strokeStyle='rgba(252,165,165,.55)'
+  ctx.lineWidth=3
+  ctx.beginPath()
+  ctx.arc(s/2,s/2,74,0,Math.PI*2)
+  ctx.stroke()
+  ctx.font='bold 112px "Apple Color Emoji","Segoe UI Emoji",sans-serif'
+  ctx.textAlign='center'
+  ctx.textBaseline='middle'
+  ctx.shadowColor='#ef4444'
+  ctx.shadowBlur=22
+  ctx.fillStyle='#ef4444'
+  ctx.fillText('❤️',s/2,s/2+6)
+  const texture=new THREE.CanvasTexture(cv)
+  texture.colorSpace=THREE.SRGBColorSpace
+  texture.anisotropy=8
+  return texture
+}
+
+function makeRecoveryTileTexture() {
+  return makePoolHealEmblemTexture()
 }
 
 function rebuildThreeWorld(state,cellMap,obstacles) {
@@ -5862,10 +6042,6 @@ function rebuildThreeWorld(state,cellMap,obstacles) {
     if(cell.isNodeDiceNode) continue
     const [row,col]=key.split(',').map(Number)
     const height=blockTop(cell,row,col)
-    if (key === TRAINING_PORTAL_KEY) {
-      addInteractiveBeaconEmoji(world, row, col, cell, height)
-      continue
-    }
     if(!lowDetail){
       beaconEntries.push({row,col,cell,height,phase:seededUnit(row*71+col*113)*Math.PI*2})
     }
@@ -5928,6 +6104,7 @@ function rebuildThreeWorld(state,cellMap,obstacles) {
       if(kind==='wall'||kind==='roof') mesh.userData.collidable=true
       world.add(mesh)
     }
+    state.housePerimeterHeartsMesh=addHousePerimeterHeartSigns(world)
     if(houseGroups.rail.length){
       const floorKeySet=new Set(houseGroups.floor.map(([key])=>key))
       const railBodyMat=new THREE.MeshStandardMaterial({
@@ -6337,49 +6514,133 @@ function createThreeWalletAvatar(wallet) {
   const healEffect=createHealingRechargeEffect()
   healEffect.visible=false
   avatar.add(healEffect)
+  const poolSubmersion=createPoolSubmersionEffect()
+  avatar.add(poolSubmersion)
   avatar.userData.tool=tool
   avatar.userData.leftFoot=footL
   avatar.userData.rightFoot=footR
   avatar.userData.healEffect=healEffect
+  avatar.userData.poolSubmersion=poolSubmersion
+  avatar.userData.poolTintActive=false
   return avatar
 }
 
 function createHealingRechargeEffect() {
   const effect=new THREE.Group()
   effect.userData.healingRechargeEffect=true
-  // Brighter cyan ring to match the pool water color
   const ringMat=new THREE.MeshBasicMaterial({
-    color:'#22d3ee',
+    color:'#fca5a5',
     transparent:true,
-    opacity:.62,
+    opacity:.58,
     depthWrite:false,
     blending:THREE.AdditiveBlending,
   })
-  // Wider, thicker torus ring so it's clearly visible
   const ring=new THREE.Mesh(new THREE.TorusGeometry(.48,.020,8,28),ringMat)
   ring.rotation.x=Math.PI/2
   ring.position.y=.44
   effect.userData.ring=ring
   effect.add(ring)
-  // Second inner ring for depth
-  const ring2Mat=ringMat.clone();ring2Mat.opacity=.38
+  const ring2Mat=ringMat.clone();ring2Mat.opacity=.34
   const ring2=new THREE.Mesh(new THREE.TorusGeometry(.28,.012,6,20),ring2Mat)
   ring2.rotation.x=Math.PI/2
   ring2.position.y=.22
   effect.userData.ring2=ring2
   effect.add(ring2)
-  effect.userData.pulses=[]
-  for(let i=0;i<3;i++){
-    const barMat=ringMat.clone();barMat.opacity=.70
-    const barA=new THREE.Mesh(new THREE.BoxGeometry(.10,.024,.010),barMat)
-    const barB=new THREE.Mesh(new THREE.BoxGeometry(.024,.10,.010),barMat.clone())
-    const plus=new THREE.Group()
-    plus.add(barA,barB)
-    plus.userData.phase=i*(Math.PI*2/3)
-    effect.userData.pulses.push(plus)
-    effect.add(plus)
-  }
+  const heart=makeEmojiSprite('❤️','#ef4444','circle')
+  heart.scale.set(.62,.62,1)
+  heart.position.y=.36
+  effect.userData.heart=heart
+  effect.add(heart)
   return effect
+}
+
+function isAvatarInPoolVisual(gx,gy,playerZ,isDead=false){
+  return !isDead&&isInsideHousePool(gx,gy,playerZ)
+}
+
+function poolAvatarDisplayY(gx,gy,playerZ,isDead=false){
+  if(!isAvatarInPoolVisual(gx,gy,playerZ,isDead)) return playerZ
+  return playerZ-POOL_AVATAR_VISUAL_SINK+Math.sin(performance.now()*.0022)*POOL_AVATAR_SWIM_BOB
+}
+
+function createPoolSubmersionEffect(){
+  const effect=new THREE.Group()
+  effect.userData.poolSubmersionEffect=true
+  const ringMat=new THREE.MeshBasicMaterial({
+    color:'#fca5a5',transparent:true,opacity:.52,
+    depthWrite:false,blending:THREE.AdditiveBlending,
+  })
+  const ring=new THREE.Mesh(new THREE.TorusGeometry(.34,.018,6,26),ringMat)
+  ring.rotation.x=Math.PI/2
+  effect.userData.ring=ring
+  effect.add(ring)
+  const ring2Mat=ringMat.clone();ring2Mat.opacity=.34
+  const ring2=new THREE.Mesh(new THREE.TorusGeometry(.24,.010,5,18),ring2Mat)
+  ring2.rotation.x=Math.PI/2
+  effect.userData.ring2=ring2
+  effect.add(ring2)
+  effect.visible=false
+  return effect
+}
+
+function setAvatarPoolSubmersion(avatar,active,displayY){
+  const effect=avatar?.userData?.poolSubmersion
+  if(effect){
+    effect.visible=Boolean(active)
+    if(active) effect.position.y=HOUSE_POOL_WATER_LEVEL-displayY
+  }
+  if(avatar.userData.poolTintActive===active) return
+  avatar.userData.poolTintActive=active
+  const poolTint=new THREE.Color('#fca5a5')
+  avatar.traverse(obj=>{
+    if(!obj.isMesh||obj.userData.healingRechargeEffect||obj.userData.poolSubmersionEffect) return
+    const mats=Array.isArray(obj.material)?obj.material:[obj.material]
+    mats.forEach(m=>{
+      if(!m?.color) return
+      if(!m.userData.poolTintSaved){
+        m.userData.poolTintSaved={
+          color:m.color.clone(),
+          emissive:m.emissive?.clone?.(),
+          emissiveIntensity:m.emissiveIntensity,
+        }
+      }
+      const saved=m.userData.poolTintSaved
+      if(active){
+        m.color.copy(saved.color).lerp(poolTint,.14)
+        if(m.emissive){
+          m.emissive.set('#991b1b')
+          if(m.emissiveIntensity!=null) m.emissiveIntensity=(saved.emissiveIntensity||0.4)*1.1+.14
+        }
+      }else{
+        m.color.copy(saved.color)
+        if(m.emissive&&saved.emissive) m.emissive.copy(saved.emissive)
+        if(m.emissiveIntensity!=null&&saved.emissiveIntensity!=null) m.emissiveIntensity=saved.emissiveIntensity
+      }
+      m.needsUpdate=true
+    })
+  })
+}
+
+function updatePoolSubmersionEffects(state,time,tier='medium'){
+  if(!state||tier==='low') return
+  const avatars=[...state.avatars.values()]
+  if(state.localAvatar) avatars.push(state.localAvatar)
+  for(const avatar of avatars){
+    const effect=avatar.userData.poolSubmersion
+    if(!effect?.visible) continue
+    const ring=effect.userData.ring
+    if(ring){
+      ring.rotation.z=time*1.85
+      const scale=1+Math.sin(time*3.1)*.06
+      ring.scale.set(scale,scale,1)
+      ring.material.opacity=.40+Math.sin(time*2.5)*.12
+    }
+    const ring2=effect.userData.ring2
+    if(ring2){
+      ring2.rotation.z=-time*2.35
+      ring2.material.opacity=.26+Math.sin(time*2.9+.7)*.10
+    }
+  }
 }
 
 function setAvatarHealingRecharge(avatar, active) {
@@ -6407,18 +6668,12 @@ function updateHealingRechargeEffects(state,time,tier='medium') {
       ring.scale.setScalar(scale)
       ring.material.opacity=(lite?0.26:0.32)+Math.sin(time*2.4)*(lite?0.06:0.12)
     }
-    for(const plus of effect.userData.pulses||[]){
-      const bob=(Math.sin(time*1.8+plus.userData.phase)+1)*.5
-      const radius=.18+(lite?0:0.04)
-      plus.position.set(
-        Math.cos(time*.9+plus.userData.phase)*radius,
-        .34+bob*(lite?0.22:0.34),
-        Math.sin(time*.9+plus.userData.phase)*radius,
-      )
-      plus.rotation.y=-avatar.rotation.y
-      plus.children.forEach(mesh=>{
-        if(mesh.material) mesh.material.opacity=(lite?0.18:0.16)+bob*(lite?0.22:0.34)
-      })
+    const heart=effect.userData.heart
+    if(heart){
+      const bob=(Math.sin(time*2.2)+1)*.5
+      heart.position.y=.30+bob*(lite?0.10:0.16)
+      heart.material.opacity=(lite?0.82:0.94)+bob*(lite?0.06:0.08)
+      heart.rotation.y=-avatar.rotation.y
     }
   }
 }
@@ -6439,9 +6694,12 @@ function syncThreeAvatars(state,presence,myIdentity) {
     const baseZ=Number(data.z)||0
     const gx=Number(data.gx??((data.col??0)+.5))
     const gy=Number(data.gy??((data.row??0)+.5))
-    avatar.position.set(gx,baseZ,gy)
+    const inPool=isAvatarInPoolVisual(gx,gy,baseZ,Boolean(data.isDead))
+    const displayY=inPool?poolAvatarDisplayY(gx,gy,baseZ,false):baseZ
+    avatar.position.set(gx,displayY,gy)
     avatar.rotation.y=-(Number(data.angle)||0)-Math.PI/2
-    setAvatarHealingRecharge(avatar,!data.isDead&&isInsideHousePool(gx,gy,baseZ))
+    setAvatarHealingRecharge(avatar,!data.isDead&&inPool)
+    setAvatarPoolSubmersion(avatar,inPool,displayY)
     // Track whether depthTest changed so we only traverse when needed
     const wasDead=avatar.userData.wasDead||false
     if(data.isDead){
@@ -6569,17 +6827,21 @@ function syncThreeLocalAvatar(state,identity,swingT,walkDist,gx,gy,playerZ,headi
     state.scene.add(state.localAvatar)
   }
   state.localAvatar.rotation.y=-heading-Math.PI/2
-  setAvatarHealingRecharge(state.localAvatar,!isDead&&isInsideHousePool(gx,gy,playerZ))
+  const inPool=isAvatarInPoolVisual(gx,gy,playerZ,isDead)
+  setAvatarHealingRecharge(state.localAvatar,!isDead&&inPool)
   // Scale is set by syncThreeAvatars LOD system (same formula as remote avatars)
   if(isDead){
     state.localAvatar.position.set(gx,playerZ+0.14,gy)
+    setAvatarPoolSubmersion(state.localAvatar,false,playerZ+0.14)
     state.localAvatar.rotation.x=Math.PI/2
     state.localAvatar.userData.tool.rotation.x=0
     state.localAvatar.userData.tool.rotation.z=0
     if(state.localAvatar.userData.leftFoot) state.localAvatar.userData.leftFoot.position.y=.075
     if(state.localAvatar.userData.rightFoot) state.localAvatar.userData.rightFoot.position.y=.075
   }else{
-    state.localAvatar.position.set(gx,playerZ,gy)
+    const displayY=poolAvatarDisplayY(gx,gy,playerZ,false)
+    state.localAvatar.position.set(gx,displayY,gy)
+    setAvatarPoolSubmersion(state.localAvatar,inPool,displayY)
     state.localAvatar.rotation.x=0
     const swing=Math.sin(Math.min(1,swingT)*Math.PI)
     state.localAvatar.userData.tool.rotation.x=-swing*1.15
@@ -7351,6 +7613,13 @@ export default function MiningChain3DFPV({
               const pulse=.86+Math.sin(time*7+object.userData.phase)*.14
               object.scale.set(pulse,1.04+(pulse-.86)*.9,pulse)
               object.rotation.y=time*.9+object.userData.phase
+            }else if(object.userData.biomeSurface==='decorBeacon'){
+              const phase=object.userData.phase||0
+              const baseY=object.userData.baseY??BIOME_CORNER_DECOR_BEACON_Y
+              object.position.y=baseY+Math.sin(time*1.55+phase)*.42
+              object.rotation.y=time*.72+phase
+              const pulse=1+Math.sin(time*2.8+phase)*.08
+              object.scale.setScalar(pulse)
             }
           }
         }
@@ -7362,7 +7631,15 @@ export default function MiningChain3DFPV({
               const pulse=1+Math.sin(time*2.8+object.userData.phase)*.08
               object.scale.setScalar(pulse)
               object.rotation.y=time*.72+object.userData.phase
-              object.position.y=Math.sin(time*2.1+object.userData.phase)*.045
+              if(object.userData.skyBeacon){
+                object.position.y=Math.sin(time*1.55+object.userData.phase)*.42
+                const sprite=object.children[0]
+                if(sprite){
+                  sprite.position.y=HOUSE_SKY_BEACON_Y+.82+Math.sin(time*1.35+object.userData.phase)*.18
+                }
+              }else{
+                object.position.y=Math.sin(time*2.1+object.userData.phase)*.045
+              }
             }
           }
         }
@@ -7386,6 +7663,7 @@ export default function MiningChain3DFPV({
         // Local avatar lives in the main 3D scene — sync position before render
         syncThreeLocalAvatar(threeState,myIdentity,localSwingT,walkDistRef.current,gx,gy,rawZ,angle,localDead)
         updateHealingRechargeEffects(threeState,time,visualTier)
+        updatePoolSubmersionEffects(threeState,time,visualTier)
         if(visualTier!=='low') updateAvatarOccluders(threeState)
         threeState.renderer.render(threeState.scene,threeState.camera)
         // No separate HUD avatar pass: local player is now a scene object
@@ -9178,7 +9456,6 @@ export default function MiningChain3DFPV({
       }
       // Proximity override for navigation portals. DDA can miss the portal when
       // the player stands on its floor cell or aims slightly above the low node.
-      let nearestPortal=null
       let nearestPortalFacing=null
       if(!myDead){
         const px_=p.x/CELL_SIZE,py_=p.y/CELL_SIZE
@@ -9189,15 +9466,12 @@ export default function MiningChain3DFPV({
           const toPortalX=(entry.col+.5)-px_,toPortalY=(entry.row+.5)-py_
           const facingDot=toPortalX*aimDx+toPortalY*aimDy
           if(dist>.55&&facingDot<.12) continue
-          if(!nearestPortal||dist<nearestPortal.dist){
-            nearestPortal={...entry,dist}
-          }
           if(canInteractPortalAtHeight(entry.row,entry.col,p.z)&&(!nearestPortalFacing||dist<nearestPortalFacing.dist)){
             nearestPortalFacing={...entry,dist}
           }
         }
       }
-      const portalFacing=nearestPortalFacing||nearestPortal
+      const portalFacing=nearestPortalFacing
       if(portalFacing && (!fc?.isChainNode && !fc?.isNodeDiceNode && !fc?.isMarket)){
         fmx=portalFacing.col;fmy=portalFacing.row;fc=portalFacing.cell
         fcDist=Math.min(portalFacing.dist,INTERACT_DIST*.82)
