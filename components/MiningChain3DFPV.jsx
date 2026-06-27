@@ -8428,10 +8428,10 @@ export default function MiningChain3DFPV({
         const nameSy=(-_sv.y+1)/2*H
         if(sx<-80||sx>W+80||nameSy<-40||nameSy>H+40) continue
         const hp=Math.max(0,Math.min(100,Number(healthMapRef.current[sprite.w]??100)))
+        const hpColor=hp>60?'#4ade80':hp>25?'#facc15':'#fb7185'
         const label=sprite.isBot?`${sprite.w.slice(0,6)}…${sprite.w.slice(-4)} (BOT)`:`${sprite.w.slice(0,6)}…${sprite.w.slice(-4)}`
         const alpha=Math.max(.28,1-sprite.dist*.045)
         ctx.globalAlpha=alpha;ctx.textAlign='center';ctx.textBaseline='bottom'
-        let nextY=nameSy-2
         if(sprite.isDead){
           let countdown=''
           if(sprite.deadUntil){
@@ -8443,11 +8443,18 @@ export default function MiningChain3DFPV({
             countdown=` ${hh}:${mm}:${ss}`
           }
           ctx.font='bold 10px monospace'
-          ctx.fillStyle='rgba(0,0,0,.72)';ctx.fillText(`\u{1F480}${countdown}`,sx+1,nextY+1)
-          ctx.fillStyle='#fb7185';ctx.fillText(`\u{1F480}${countdown}`,sx,nextY)
+          ctx.fillStyle='rgba(0,0,0,.72)';ctx.fillText(`\u{1F480}${countdown}`,sx+1,nameSy-1)
+          ctx.fillStyle='#fb7185';ctx.fillText(`\u{1F480}${countdown}`,sx,nameSy-2)
           ctx.globalAlpha=1
           continue
         }
+        // HP bar: just above the head with a small gap, below the name labels
+        const barW=42,barH=4
+        const barSy=nameSy-barH-2
+        ctx.fillStyle='#26070e';ctx.fillRect(sx-barW/2,barSy,barW,barH)
+        ctx.fillStyle=hpColor;ctx.fillRect(sx-barW/2,barSy,barW*hp/100,barH)
+        // Name labels stacked above the bar
+        let nextY=barSy-3
         if(sprite.poolCode){
           ctx.font='bold 9px monospace'
           ctx.fillStyle='rgba(0,0,0,.65)';ctx.fillText(`[${sprite.poolCode}]`,sx+1,nextY+1)
@@ -8457,14 +8464,6 @@ export default function MiningChain3DFPV({
         ctx.font='bold 10px monospace'
         ctx.fillStyle='rgba(0,0,0,.72)';ctx.fillText(label,sx+1,nextY+1)
         ctx.fillStyle=sprite.color;ctx.fillText(label,sx,nextY)
-        // HP bar: anchored at the neck/visor so it sits on the character, not floating above.
-        _sv.set(sprite.gx,zBase+REMOTE_AVATAR_LOCAL.neck*avScale,sprite.gy)
-        _sv.project(threeState.camera)
-        const barSy=(-_sv.y+1)/2*H
-        const barW=42
-        ctx.textBaseline='top'
-        ctx.fillStyle='#26070e';ctx.fillRect(sx-barW/2,barSy+2,barW,4)
-        ctx.fillStyle=hp>60?'#4ade80':hp>25?'#facc15':'#fb7185';ctx.fillRect(sx-barW/2,barSy+2,barW*hp/100,4)
         ctx.globalAlpha=1
       }
     }
