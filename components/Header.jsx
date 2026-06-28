@@ -186,6 +186,7 @@ export default function Header() {
           </Link>
           <div aria-hidden="true" className="hidden basis-full max-sm:portrait:block max-sm:portrait:h-0" />
           <div className="contents max-sm:portrait:flex max-sm:portrait:w-full max-sm:portrait:items-center max-sm:portrait:justify-center max-sm:portrait:gap-2">
+            <UtcClock className="mm3-clock-controls hidden max-sm:portrait:block font-mono text-[0.65rem] font-black tracking-[0.08em] text-cyan-300 shrink-0" />
             <CurrencySwitcher />
             <LanguageSwitcher />
             <SoundToggle />
@@ -195,7 +196,7 @@ export default function Header() {
       </div>
 
       <div className="mm3-header-wallet-row relative z-[40] flex h-7 items-center justify-center gap-1.5 sm:gap-2 border-b border-cyan-900/10 px-2 sm:px-4 overflow-x-auto no-scrollbar">
-        <UtcClock className="font-mono text-[0.65rem] sm:text-[0.80rem] font-black tracking-[0.08em] sm:tracking-[0.14em] text-cyan-300 shrink-0" />
+        <UtcClock className="mm3-clock-wallet max-sm:portrait:hidden font-mono text-[0.65rem] sm:text-[0.80rem] font-black tracking-[0.08em] sm:tracking-[0.14em] text-cyan-300 shrink-0" />
         <PortalPerfOverlay />
         <DailyTaskLink />
         <AuthBar mode="wallet" />

@@ -182,6 +182,8 @@ html.mm3-mobile-preview .mm3-header-ticker + div .contents {
 html.mm3-mobile-preview .mm3-irc-header-row {
   display: none !important;
 }
+html.mm3-mobile-preview .mm3-clock-controls { display: block !important; }
+html.mm3-mobile-preview .mm3-clock-wallet   { display: none  !important; }
 @media (hover: hover) and (pointer: fine) {
   html.mm3-mobile-preview .mm3-touch-controls { display: flex !important; }
   html.mm3-mobile-preview .mm3-desktop-controls { display: none !important; }

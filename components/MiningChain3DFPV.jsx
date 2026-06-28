@@ -8928,7 +8928,7 @@ export default function MiningChain3DFPV({
       // On high-DPI desktop we allow supersampling up to 1.4× for extra sharpness.
       let webglDpr
       if (isMobilePortrait || isPortraitTablet) {
-        webglDpr = 1.0   // 1:1 CSS pixels — no blur, cheaper than rawDpr
+        webglDpr = 0.75  // 0.75× CSS pixels → 44% fewer WebGL pixels, tolerable blur on small screens
       } else {
         const pixels = cssW * cssH
         const dprCap = pixels > 1600000 ? 1.1 : 1.4
@@ -9110,8 +9110,12 @@ export default function MiningChain3DFPV({
     const loop=()=>{
       // Schedule next frame FIRST so the loop survives any exception in the body
       animRef.current=requestAnimationFrame(loop)
-      const k=keysRef.current, p=playerRef.current
       const nowMs=performance.now()
+      // On low tier (mobile portrait), cap the entire physics loop to ~30fps so
+      // high-refresh-rate phones (90/120 Hz) don't burn CPU on wasted ticks.
+      const loopTier=visualPerfTierRef.current
+      if(loopTier==='low'&&lastFrameRef.current&&nowMs-lastFrameRef.current<30) return
+      const k=keysRef.current, p=playerRef.current
       const dt=lastFrameRef.current ? Math.min(0.05,(nowMs-lastFrameRef.current)/1000) : 1/60
       lastFrameRef.current=nowMs
       let needsRender=false

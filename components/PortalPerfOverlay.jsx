@@ -37,7 +37,7 @@ export default function PortalPerfOverlay() {
   return (
     <span
       className="shrink-0 font-mono leading-none pointer-events-none select-none"
-      style={{ fontSize: '9px', letterSpacing: '0.04em' }}
+      style={{ fontSize: '7px', letterSpacing: '0.04em' }}
       aria-hidden="true"
     >
       <span style={{ color: fpsColor }}>{metrics.fps}fps</span>
