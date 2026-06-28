@@ -97,6 +97,7 @@ export default function ChainSolveCard({ wallet, onWinner }) {
       } else if (data.correct) {
         setFeedback({ type: 'win', msg: '⬡ FÓRMULA RESUELTA — chain al 100%, modo demine activo. +1000 MM3 a tu wallet.' });
         setInput('');
+        onWinner?.();
         setTimeout(fetchStatus, 4000);
       } else {
         setFeedback({ type: 'wrong', msg: `${t('chainSolve.feedbackWrong')} ${answer}${t('chainSolve.feedbackWrongSuffix')}` });

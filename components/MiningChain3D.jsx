@@ -197,6 +197,7 @@ export default function MiningChain3D() {
   myWalletRef.current = myWallet
 
   const [cellMap,       setCellMap]       = useState(new Map())
+  const reloadCellMapRef = useRef(null)
   const [myPos,         setMyPos]         = useState(initialPos)
   const [jumpToCell,    setJumpToCell]    = useState(null)
   const [pvpStolen,     setPvpStolen]     = useState({})
@@ -671,6 +672,7 @@ export default function MiningChain3D() {
   useEffect(() => {
     let mounted = true
     async function load() {
+      reloadCellMapRef.current = () => { if (mounted) load() }
       let mined=[]
       let market=[]
       let owners=[]
@@ -709,7 +711,12 @@ export default function MiningChain3D() {
       for (const m of market || []) {
         if (m.grid_row == null || m.grid_col == null) continue
         const blockHex = gridToBlockHex(m.grid_row, m.grid_col)
-        const ownerWallet = ownersByKey.get(m.block_key) || null
+        const nftjiOwner = ownersByKey.get(m.block_key) || null
+        // During demine, formula solve inserts a mm3_mined_blocks entry for unowned NFTJI
+        // slots. Prefer mining_nftji_key owner; fall back to mm3_mined_blocks wallet so
+        // the chain % reaches 100%. After demine resets mm3_mined_blocks, reverts naturally.
+        const existingOwner = blocksByHex.get(blockHex)?.owner || null
+        const ownerWallet = nftjiOwner || existingOwner
         blocksByHex.set(blockHex, {
           ...blocksByHex.get(blockHex),
           blockKey: m.block_key,
@@ -1458,7 +1465,7 @@ export default function MiningChain3D() {
 
             <ChainSolveCard
               wallet={myWallet}
-              onWinner={() => setShowChainSolve(false)}
+              onWinner={() => { setShowChainSolve(false); reloadCellMapRef.current?.() }}
             />
 
             <div style={{ textAlign:'center', marginTop:12, color:'rgba(74,222,128,0.25)', fontSize:'0.58rem', letterSpacing:'0.12em' }}>
