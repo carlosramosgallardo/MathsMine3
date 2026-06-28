@@ -7080,7 +7080,7 @@ export default function MiningChain3DFPV({
     const scene=new THREE.Scene()
     scene.background=new THREE.Color('#020617')
     scene.fog=new THREE.FogExp2('#07132c',.018)
-    const camera=new THREE.PerspectiveCamera(58,1,.05,coarse?28:100)
+    const camera=new THREE.PerspectiveCamera(58,1,.05,isCoarsePointerDevice()?28:100)
     const hudScene=new THREE.Scene()
     // Perspective camera for 3D avatar — positioned slightly above-right-front for a 3/4 hero pose
     const hudCamera=new THREE.PerspectiveCamera(42,1,0.05,10)
