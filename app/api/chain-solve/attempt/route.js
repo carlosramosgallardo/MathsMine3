@@ -107,6 +107,7 @@ async function handleAttempt(req) {
   // ── CORRECT ─────────────────────────────────────────────────────────────────
   // Auto-mine all remaining blocks to the solver
   let autoMinedCount = 0;
+  let formulaChainIndexStart = null;
   try {
     const [{ data: existingMined }, { data: maxRow }] = await Promise.all([
       supabase.from('mm3_mined_blocks').select('block_hex'),
@@ -115,6 +116,7 @@ async function handleAttempt(req) {
 
     const existingHexes = new Set((existingMined || []).map(r => r.block_hex));
     let nextIndex = ((maxRow?.[0]?.chain_index) || 0) + 1;
+    formulaChainIndexStart = nextIndex;
     const mm3Hex = mm3ValueToHex(mm3Global);
 
     const toInsert = [];
@@ -156,7 +158,7 @@ async function handleAttempt(req) {
     .from('mm3_mined_blocks')
     .select('wallet, mm3_value');
 
-  await activateDemineMode(supabase, wallet, allMinedForDemine || [], true);
+  await activateDemineMode(supabase, wallet, allMinedForDemine || [], true, formulaChainIndexStart);
 
   const winnerLabel = formatWalletLabel(wallet, true);
   const relayMsg = `⬡ CHAIN FORMULA SOLVED ⬡ ${winnerLabel} cracked Ω(${aVal},${bVal},${C}) = ${correctAnswer}. Auto-mined ${autoMinedCount} blocks. DEMINE MODE ACTIVE ⬡`;

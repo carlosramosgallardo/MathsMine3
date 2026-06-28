@@ -4150,7 +4150,7 @@ function drawWalletDock(ctx, W, H, myNftjis, health, es, isLoggedWallet) {
 function drawChainStats(ctx, W, H, stats, es, top = 8) {
   if (!stats) return
   const { owned, marketOwned, totalRegular, totalNFTJI, pct } = stats
-  const regularMined = owned - marketOwned
+  const regularMined = owned
 
   const lines = [
     { label: 'MM3 BLOCK CHAIN',    val: null, header: true },

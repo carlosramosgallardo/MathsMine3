@@ -38,7 +38,7 @@ async function handleDemine(req) {
   // Fetch demine state
   const { data: macroRow } = await supabase
     .from('mm3_macro_state')
-    .select('chain_demine_active, chain_demine_hits_remaining')
+    .select('chain_demine_active, chain_demine_hits_remaining, formula_chain_index_start')
     .eq('id', 1)
     .maybeSingle();
 
@@ -47,20 +47,30 @@ async function handleDemine(req) {
   }
 
   const hitsRemaining = Number(macroRow.chain_demine_hits_remaining) || 0;
+  const formulaChainIndexStart = macroRow.formula_chain_index_start != null
+    ? Number(macroRow.formula_chain_index_start)
+    : null;
+
   if (hitsRemaining <= 0) {
     return Response.json({ ok: false, error: 'demine_complete' }, { status: 409 });
   }
 
-  // Get all mined blocks
+  // Get mined blocks — include chain_index so we can filter formula-auto-mined blocks
   const { data: allMined } = await supabase
     .from('mm3_mined_blocks')
-    .select('id, block_hex, wallet');
+    .select('id, block_hex, wallet, chain_index');
 
-  const total = allMined?.length ?? 0;
+  // If formula solve: only demine blocks auto-mined by the solver (chain_index >= start)
+  // Pre-formula blocks are preserved through the demine cycle
+  const deminePool = formulaChainIndexStart != null
+    ? (allMined || []).filter(r => (r.chain_index ?? 0) >= formulaChainIndexStart)
+    : (allMined || []);
+
+  const total = deminePool.length;
 
   if (total === 0) {
-    // Edge case: no blocks left — finalize reset immediately
-    await finalizeDemine(supabase);
+    // Edge case: no formula blocks left — finalize reset immediately
+    await finalizeDemine(supabase, null, formulaChainIndexStart);
     return Response.json({ ok: true, mm3Awarded: 0, blocksRemoved: [], hitsRemaining: 0, chainReset: true });
   }
 
@@ -68,7 +78,7 @@ async function handleDemine(req) {
   const toRemoveCount = Math.max(1, Math.ceil(total / hitsRemaining));
 
   // Fisher-Yates shuffle, take first N
-  const shuffled = [...allMined];
+  const shuffled = [...deminePool];
   for (let i = shuffled.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
     [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
@@ -100,7 +110,7 @@ async function handleDemine(req) {
 
   if (newHitsRemaining <= 0 || total - toRemoveCount <= 0) {
     // All done — reset to normal mining mode
-    await finalizeDemine(supabase, wallet);
+    await finalizeDemine(supabase, wallet, formulaChainIndexStart);
     return Response.json({
       ok: true,
       mm3Awarded: 1,
@@ -125,20 +135,26 @@ async function handleDemine(req) {
   });
 }
 
-async function finalizeDemine(supabase, lastHitter) {
+async function finalizeDemine(supabase, lastHitter, formulaChainIndexStart) {
   const now = new Date().toISOString();
 
-  // Delete any remaining blocks (safety)
-  await supabase.from('mm3_mined_blocks').delete().neq('id', 0);
+  // Safety delete: only remove formula-auto-mined blocks (chain_index >= start).
+  // If formulaChainIndexStart is null (organic completion), delete all.
+  if (formulaChainIndexStart != null) {
+    await supabase.from('mm3_mined_blocks').delete().gte('chain_index', formulaChainIndexStart);
+  } else {
+    await supabase.from('mm3_mined_blocks').delete().neq('id', 0);
+  }
 
   // Reset demine state
-  const msgEn = '⬡ DEMINE COMPLETE ⬡ All blocks removed — chain is at 0%. Mining is now ACTIVE again. ⬡';
-  const msgEs = '⬡ DEMINE COMPLETADO ⬡ Todos los bloques eliminados — la cadena está al 0%. El minado está ACTIVO de nuevo. ⬡';
+  const msgEn = '⬡ DEMINE COMPLETE ⬡ Chain reset to pre-formula state. Mining is now ACTIVE again. ⬡';
+  const msgEs = '⬡ DEMINE COMPLETADO ⬡ Chain reseteada al estado pre-fórmula. El minado está ACTIVO de nuevo. ⬡';
 
   await Promise.all([
     supabase.from('mm3_macro_state').update({
       chain_demine_active: false,
       chain_demine_hits_remaining: 100,
+      formula_chain_index_start: null,
       ticker_message: msgEs,
       ticker_message_en: msgEn,
       ticker_message_es: msgEs,
