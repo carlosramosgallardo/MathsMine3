@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { usePathname } from 'next/navigation'
 import {
   cpuTone,
   createPortalPerfSampler,
@@ -9,16 +8,9 @@ import {
   perfTone,
 } from '@/lib/portal-perf-monitor'
 
-// On in every environment (prod included). Build with NEXT_PUBLIC_PORTAL_PERF=0 to hide.
 const ENABLED = process.env.NEXT_PUBLIC_PORTAL_PERF !== '0'
 
-function routeLabel(pathname) {
-  if (!pathname || pathname === '/') return 'home'
-  return pathname.replace(/^\//, '').split('/')[0] || 'home'
-}
-
 export default function PortalPerfOverlay() {
-  const pathname = usePathname() || ''
   const [metrics, setMetrics] = useState({
     fps: 0,
     frameMs: 0,
@@ -27,8 +19,6 @@ export default function PortalPerfOverlay() {
     usedMb: null,
     limitMb: null,
   })
-
-  const label = useMemo(() => routeLabel(pathname), [pathname])
 
   useEffect(() => {
     if (!ENABLED || typeof window === 'undefined') return undefined
@@ -39,32 +29,26 @@ export default function PortalPerfOverlay() {
 
   if (!ENABLED) return null
 
-  const fpsColor = perfTone(metrics.fps, { good: 52, warn: 32 })
-  const cpuColor = cpuTone(metrics.cpuLoad)
-  const memColor = memoryTone(metrics.usedMb, metrics.limitMb)
-  const memLine = Number.isFinite(metrics.usedMb)
-    ? `${Math.round(metrics.usedMb)}/${Math.round(metrics.limitMb)}M`
-    : 'MEM n/a'
+  const fpsColor  = perfTone(metrics.fps, { good: 52, warn: 32 })
+  const cpuColor  = cpuTone(metrics.cpuLoad)
+  const memColor  = memoryTone(metrics.usedMb, metrics.limitMb)
+  const memStr    = Number.isFinite(metrics.usedMb) ? `${Math.round(metrics.usedMb)}M` : null
 
   return (
-    <div
-      className="fixed z-[48] pointer-events-none select-none font-mono leading-tight left-1 top-[108px] max-sm:portrait:top-[200px] sm:top-[122px] lg:top-[144px]"
+    <span
+      className="shrink-0 font-mono leading-none pointer-events-none select-none"
+      style={{ fontSize: '9px', letterSpacing: '0.04em' }}
       aria-hidden="true"
     >
-      <div
-        className="rounded border border-cyan-900/35 bg-black/72 px-1.5 py-1 backdrop-blur-[2px]"
-        style={{ fontSize: '9px', letterSpacing: '0.04em', minWidth: '74px' }}
-      >
-        <div className="text-slate-500 truncate max-w-[88px]">{label}</div>
-        <div style={{ color: fpsColor }}>
-          {metrics.fps} fps · {metrics.frameMs.toFixed(1)}ms
-        </div>
-        <div style={{ color: cpuColor }}>
-          cpu ~{metrics.cpuLoad}%
-          {metrics.longTasks > 0 ? ` · lt${metrics.longTasks}` : ''}
-        </div>
-        <div style={{ color: memColor }}>{memLine}</div>
-      </div>
-    </div>
+      <span style={{ color: fpsColor }}>{metrics.fps}fps</span>
+      <span className="text-slate-700"> · </span>
+      <span style={{ color: cpuColor }}>{metrics.cpuLoad}%</span>
+      {memStr && (
+        <>
+          <span className="text-slate-700"> · </span>
+          <span style={{ color: memColor }}>{memStr}</span>
+        </>
+      )}
+    </span>
   )
 }

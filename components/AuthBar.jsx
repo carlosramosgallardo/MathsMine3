@@ -319,7 +319,7 @@ function ConnectedBar({ address, isRealWallet, onDisconnect, mode = 'full' }) {
   const btn = `flex h-7 sm:h-9 items-center rounded-md px-1.5 sm:px-2 text-[0.82rem] sm:text-[0.90rem] font-mono font-semibold border transition-all duration-150 focus:outline-none whitespace-nowrap`
   const active = `border-transparent text-cyan-300 hover:border-transparent hover:bg-cyan-950/20 hover:shadow-none`
   const moneyValue = walletSummary ? walletSummary.funds[currency] || 0 : 0
-  const mm3Compact = walletSummary ? formatCompactNum(walletSummary.availableMm3 || 0) : '0.00'
+  const mm3Compact = walletSummary ? Number(walletSummary.availableMm3 || 0).toFixed(2) : '0.00'
 
   return (
     <div className={`flex items-center ${mode === 'wallet' ? 'gap-1 sm:gap-1.5' : 'gap-1.5'}`}>
@@ -342,7 +342,7 @@ function ConnectedBar({ address, isRealWallet, onDisconnect, mode = 'full' }) {
                 <span className="max-w-[8ch] truncate sm:max-w-[12ch] font-black tracking-widest">{poolViewData.pool_code}</span>
                 <span className="text-[0.82rem]" title={poolViewData.pool_rank_emoji}>{poolViewData.pool_rank_emoji}</span>
                 <span title={`MM3: ${(poolViewData.available_mm3 || 0).toFixed(8)}`} className="inline-flex items-baseline gap-0.5 text-cyan-300/90">
-                  <span>{formatCompactNum(poolViewData.available_mm3 || 0)}</span>
+                  <span>{Number(poolViewData.available_mm3 || 0).toFixed(2)}</span>
                   <span className="text-[0.48rem] uppercase tracking-[0.1em] text-cyan-300/55">MM3</span>
                 </span>
                 <span className="text-emerald-300/90">{`${{ EUR: '€', USD: '$', CNY: '¥' }[currency] || ''}${formatCompactNum(poolViewData[`money_balance_${currency.toLowerCase()}`] || 0)}`}</span>

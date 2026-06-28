@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import dynamic from 'next/dynamic'
 import NavLinks from '@/components/NavLinks'
+import PortalPerfOverlay from '@/components/PortalPerfOverlay'
 import LanguageSwitcher from '@/components/LanguageSwitcher'
 import CurrencySwitcher from '@/components/CurrencySwitcher'
 import GlobalPulseBar from '@/components/GlobalPulseBar'
@@ -195,6 +196,7 @@ export default function Header() {
 
       <div className="mm3-header-wallet-row relative z-[40] flex h-7 items-center justify-center gap-1.5 sm:gap-2 border-b border-cyan-900/10 px-2 sm:px-4 overflow-x-auto no-scrollbar">
         <UtcClock className="font-mono text-[0.65rem] sm:text-[0.80rem] font-black tracking-[0.08em] sm:tracking-[0.14em] text-cyan-300 shrink-0" />
+        <PortalPerfOverlay />
         <DailyTaskLink />
         <AuthBar mode="wallet" />
       </div>

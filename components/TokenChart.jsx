@@ -14,6 +14,7 @@ import {
   ReferenceLine,
   ResponsiveContainer,
 } from 'recharts'
+import { getEffectiveViewportWidth } from '@/lib/mobile-preview'
 
 const C    = '#22d3ee'
 const UP   = '#4ade80'
@@ -168,7 +169,7 @@ function WalletTag({ wallet, className = '' }) {
 function useIsMobile() {
   const [isMobile, setIsMobile] = useState(false)
   useEffect(() => {
-    const check = () => setIsMobile(window.innerWidth < 640)
+    const check = () => setIsMobile(getEffectiveViewportWidth() < 640)
     check()
     window.addEventListener('resize', check)
     return () => window.removeEventListener('resize', check)

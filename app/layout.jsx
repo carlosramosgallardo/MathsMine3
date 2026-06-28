@@ -1,13 +1,10 @@
 // app/layout.jsx
+import { Suspense } from 'react';
 import './globals.css';
-import Header from '@/components/Header';
-import Footer from '@/components/Footer';
-import CookieBanner from '@/components/CookieBanner';
 import ThirdPartyScripts from '@/components/ThirdPartyScripts';
-import GlobalRouteLoading from '@/components/GlobalRouteLoading';
 import RouteShell from '@/components/RouteShell';
-import PortalPerfOverlay from '@/components/PortalPerfOverlay';
-import NotificationChips from '@/components/NotificationChips';
+import PortalShell from '@/components/PortalShell';
+import MobilePreviewBoot from '@/components/MobilePreviewBoot';
 import WalletBootstrap from '@/components/WalletBootstrap';
 import WalletCoreProvider from '@/components/WalletCoreProvider';
 import { I18nProvider } from '@/lib/i18n-context';
@@ -78,6 +75,9 @@ export default function RootLayout({ children }) {
         />
       </head>
       <body className="h-full bg-[#070b0f] text-white font-mono">
+        <Suspense fallback={null}>
+          <MobilePreviewBoot />
+        </Suspense>
         <I18nProvider>
           <CurrencyProvider>
             <SoundProvider>
@@ -87,15 +87,7 @@ export default function RootLayout({ children }) {
                     <IrcPresenceProvider>
                     <WalletBootstrap />
                     <RouteShell>
-                      <PortalPerfOverlay />
-                      <Header />
-                      <GlobalRouteLoading />
-                      <main className="mm3-shell-main pt-[104px] max-sm:portrait:pt-[196px] sm:pt-[118px] lg:pt-[140px] pb-[64px] max-sm:pb-[80px] h-screen overflow-y-auto">
-                        <NotificationChips />
-                        {children}
-                      </main>
-                      <Footer />
-                      <CookieBanner />
+                      <PortalShell>{children}</PortalShell>
                       <ThirdPartyScripts />
                     </RouteShell>
                     </IrcPresenceProvider>

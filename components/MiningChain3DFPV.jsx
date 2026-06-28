@@ -20,6 +20,7 @@ import {
   NODE_DICE_POSITION,
   isPlayableMiningWorldCell,
 } from '@/lib/mining-world-layout'
+import { isCoarsePointerLike as isCoarsePointerDevice, isMobilePreviewActive, MOBILE_PREVIEW_VIEWPORT } from '@/lib/mobile-preview'
 
 const ROWS = MINING_WORLD_ROWS   // double the inner mining grid for free walking space
 const COLS = MINING_WORLD_COLS
@@ -164,11 +165,11 @@ const COLOSSEUM_STAND_BASE_TOPS = [1.00,1.32,1.64]
 const COLOSSEUM_SEAT_HEIGHT = .18
 const COLOSSEUM_STAND_TOPS = COLOSSEUM_STAND_BASE_TOPS.map(top=>top+COLOSSEUM_SEAT_HEIGHT)
 
-function isCoarsePointerDevice() {
-  if (typeof window === 'undefined') return false
-  return Boolean(window.matchMedia?.('(pointer: coarse)')?.matches)
-}
 function getMiningVisualTier(viewWidth = 1280, viewHeight = 720) {
+  if (typeof window !== 'undefined' && isMobilePreviewActive()) {
+    viewWidth = MOBILE_PREVIEW_VIEWPORT.width
+    viewHeight = MOBILE_PREVIEW_VIEWPORT.height
+  }
   if (typeof window === 'undefined') return 'high'
   const coarse = isCoarsePointerDevice()
   const lowMem = Number(navigator.deviceMemory) > 0 && navigator.deviceMemory <= 4
