@@ -695,10 +695,27 @@ async function advanceBotSqueezes(supabase) {
       }
     } else if (dispute.status === 'registering') {
       const registeredAt = new Date(dispute.registered_at).getTime();
+      const registrationExpired = now - registeredAt >= SQUEEZE_REGISTER_MS;
       const registration = await getChallengerRegistrationState(supabase, dispute);
-      if (registration.full || now - registeredAt >= SQUEEZE_REGISTER_MS) {
+      if (registration.full) {
         const { data } = await supabase.rpc('mm3_dispute_start_battle', { p_dispute_id: dispute.id });
-        if (!data?.error) actions.push({ type: 'squeeze_battle_started', disputeId: dispute.id, registrationFull: registration.full });
+        if (!data?.error) actions.push({ type: 'squeeze_battle_started', disputeId: dispute.id, registrationFull: true });
+      } else if (registrationExpired) {
+        // Timed out without enough wallets — force cancel
+        const { error: cancelErr } = await supabase
+          .from('mm3_pool_disputes')
+          .update({ status: 'cancelled', cancelled_at: new Date().toISOString() })
+          .eq('id', dispute.id)
+          .eq('status', 'registering');
+        if (!cancelErr) {
+          const { data: cancelledDispute } = await supabase
+            .from('mm3_pool_disputes')
+            .select('id, challenger_pool_code, defender_pool_code, status, cancelled_at')
+            .eq('id', dispute.id)
+            .maybeSingle();
+          if (cancelledDispute) await insertSqueezeIrcTrace(supabase, cancelledDispute, 'cancelled').catch(() => {});
+          actions.push({ type: 'squeeze_cancelled_registration_timeout', disputeId: dispute.id });
+        }
       }
     } else if (dispute.status === 'battle_start') {
       const battleStartAt = new Date(dispute.battle_start_at).getTime();

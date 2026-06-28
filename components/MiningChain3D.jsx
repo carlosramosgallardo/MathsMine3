@@ -15,7 +15,7 @@ import {
   MM3_BLOCK_GRID_ROWS, MM3_BLOCK_GRID_COLS,
 } from '@/lib/mm3-block-chain'
 import { computeRelayLevel } from '@/lib/wallet-decorations'
-import { CIPHER_HOUSE_BOUNDS, CIPHER_HOUSE_MINING_EXCLUSION, CIPHER_HOUSE_MINING_LEVELS, HOUSE_POOL_HEAL_ZONE, MINING_CHAIN_NODE_POSITION, NODE_DICE_POSITION } from '@/lib/mining-world-layout'
+import { CIPHER_HOUSE_BOUNDS, CIPHER_HOUSE_MINING_EXCLUSION, CIPHER_HOUSE_MINING_LEVELS, HOUSE_POOL_HEAL_ZONE, HOUSE_POOL_FLOOR_LEVEL, HOUSE_POOL_SWIM_MAX_Z, MINING_CHAIN_NODE_POSITION, NODE_DICE_POSITION } from '@/lib/mining-world-layout'
 import {
   MINING_MARKET_LANDMARK_POSITIONS,
   MINING_VISUAL_BLOCK_POSITIONS,
@@ -73,9 +73,10 @@ const NODE_DICE_PRICE_MM3 = 500
 const NODE_DICE_MIN_LEVEL = 30
 const NODE_DICE_STORAGE_KEY = 'mm3_stormroll_node'
 const NODE_DICE_DURATION_MS = 24 * 60 * 60 * 1000
-function isInHousePoolSafeZone(gx, gy) {
-  return gx > HOUSE_POOL_HEAL_ZONE.minX && gx < HOUSE_POOL_HEAL_ZONE.maxX &&
-    gy > HOUSE_POOL_HEAL_ZONE.minZ && gy < HOUSE_POOL_HEAL_ZONE.maxZ
+function isInHousePoolSafeZone(gx, gy, gz) {
+  if (!(gx > HOUSE_POOL_HEAL_ZONE.minX && gx < HOUSE_POOL_HEAL_ZONE.maxX &&
+    gy > HOUSE_POOL_HEAL_ZONE.minZ && gy < HOUSE_POOL_HEAL_ZONE.maxZ)) return false
+  return gz >= HOUSE_POOL_FLOOR_LEVEL - 0.28 && gz <= HOUSE_POOL_SWIM_MAX_Z
 }
 
 function normalizeNodeDiceState(value) {
@@ -1202,7 +1203,8 @@ export default function MiningChain3D() {
     const victimPos = positions[victim]
     const victimGx = Number(victimPos?.gx)
     const victimGy = Number(victimPos?.gy)
-    if (Number.isFinite(victimGx) && Number.isFinite(victimGy) && isInHousePoolSafeZone(victimGx, victimGy)) {
+    const victimGz = Number(victimPos?.z) || 0
+    if (Number.isFinite(victimGx) && Number.isFinite(victimGy) && isInHousePoolSafeZone(victimGx, victimGy, victimGz)) {
       const currentHealth = Number(healthMapRef.current[victim] ?? 100)
       setHealthMap(prev => ({ ...prev, [victim]: currentHealth }))
       return { ok: true, immune: true, damage: 0, health: currentHealth, killed: false }
@@ -1210,7 +1212,7 @@ export default function MiningChain3D() {
     const response = await fetch('/api/pvp-hit', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ attacker, victim, victimIsAnon, hitZone, victimGx, victimGy }),
+      body: JSON.stringify({ attacker, victim, victimIsAnon, hitZone, victimGx, victimGy, victimGz }),
     }).then(r => r.json()).catch(() => null)
     if (!response?.ok) return response
     if (response.immune) return response

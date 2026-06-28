@@ -6,6 +6,7 @@ import CookieBanner from '@/components/CookieBanner';
 import ThirdPartyScripts from '@/components/ThirdPartyScripts';
 import GlobalRouteLoading from '@/components/GlobalRouteLoading';
 import RouteShell from '@/components/RouteShell';
+import PortalPerfOverlay from '@/components/PortalPerfOverlay';
 import NotificationChips from '@/components/NotificationChips';
 import WalletBootstrap from '@/components/WalletBootstrap';
 import WalletCoreProvider from '@/components/WalletCoreProvider';
@@ -86,6 +87,7 @@ export default function RootLayout({ children }) {
                     <IrcPresenceProvider>
                     <WalletBootstrap />
                     <RouteShell>
+                      <PortalPerfOverlay />
                       <Header />
                       <GlobalRouteLoading />
                       <main className="mm3-shell-main pt-[104px] max-sm:portrait:pt-[196px] sm:pt-[118px] lg:pt-[140px] pb-[64px] max-sm:pb-[80px] h-screen overflow-y-auto">

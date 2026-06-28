@@ -1144,7 +1144,7 @@ BEGIN
   IF v_ch.wallet_count > 0 THEN
     v_ch_base :=
       (v_ch.level_sum::numeric / v_ch.wallet_count) * 40
-      + LN(v_ch.mm3_sum / v_ch.wallet_count + 1) * 20
+      + LN(GREATEST(1e-9, v_ch.mm3_sum / v_ch.wallet_count + 1)) * 20
       + (v_ch.exec_count::numeric / v_ch.wallet_count) * 12
       + (v_ch.nftji_count::numeric / v_ch.wallet_count) * 8
       + (v_ch.mining_nftji_count::numeric / v_ch.wallet_count) * 15
@@ -1157,7 +1157,7 @@ BEGIN
   IF v_df.wallet_count > 0 THEN
     v_df_base :=
       (v_df.level_sum::numeric / v_df.wallet_count) * 40
-      + LN(v_df.mm3_sum / v_df.wallet_count + 1) * 20
+      + LN(GREATEST(1e-9, v_df.mm3_sum / v_df.wallet_count + 1)) * 20
       + (v_df.exec_count::numeric / v_df.wallet_count) * 12
       + (v_df.nftji_count::numeric / v_df.wallet_count) * 8
       + (v_df.mining_nftji_count::numeric / v_df.wallet_count) * 15

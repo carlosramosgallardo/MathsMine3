@@ -2397,7 +2397,6 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
         clearInterval(solveRef.current);
         solveRef.current = null;
         showMessage(t('board.timeExceeded'), 'info', true);
-        if (account) setDailyMineUsed((prev) => prev + 1);
         handleWrong(null);
       }
     }, 100);
@@ -2405,7 +2404,6 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
 
   const checkAnswer = async (choice) => {
     if (!problem || isDisabled || noSlotsLeft) return;
-    if (account) setDailyMineUsed((prev) => prev + 1);
 
     clearInterval(solveRef.current);
     solveRef.current = null;
@@ -2617,11 +2615,6 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
   const problemFamilyLabel = getProblemFamilyLabel(problem, language);
   const walletNftjis = Array.isArray(walletMeta.nftjis) ? walletMeta.nftjis : [];
   const displayedNftjis = account ? walletNftjis : ANON_NFTJI_SLOTS;
-  const stats = [
-    { label: t('tradeBoard.levelRank').replace(/ *\(.*\)/, ''), value: `${level}` },
-    { label: t('ranking.mm3Earned'),  value: formatCompactNum(totalMined) },
-    { label: t('ranking.sellValue'),  value: ({ EUR: '€', USD: '$', CNY: '¥' }[currency] || '') + formatCompactNum(currentFunds) },
-  ];
 
   return (
     <>
@@ -2676,51 +2669,33 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
               )}
           </div>
 
-          {/* Stats bar — pills */}
-          <div
-            className={`flex justify-center gap-2 mb-3 ${levelFlash === 'up' ? 'level-up' : levelFlash === 'down' ? 'level-down' : ''}`}
-          >
-            {stats.map(({ label, value }) => (
+          {/* Drill slots — standalone widget */}
+          {account && (
+            <div className="flex justify-center mb-3">
               <div
-                key={label}
-                className="text-center rounded-md py-2 px-2 border flex-1 min-w-0"
-                style={{ background: '#000', borderColor: tier.color + '28' }}
-              >
-                <div
-                  className="text-[0.70rem] font-mono uppercase tracking-widest mb-0.5 truncate"
-                  style={{ color: tier.color + 'b3' }}
-                >
-                  {label}
-                </div>
-                <div
-                  className="text-[0.98rem] font-black font-mono truncate leading-none"
-                  style={{ color: tier.color }}
-                >
-                  {value}
-                </div>
-              </div>
-            ))}
-            {account && (
-              <div
-                className="text-center rounded-md py-2 px-2 border flex-1 min-w-0"
-                style={{ background: '#000', borderColor: noSlotsLeft ? '#fb718540' : tier.color + '28' }}
+                className={`inline-flex flex-col items-center rounded-xl border px-6 py-2.5 ${levelFlash === 'up' ? 'level-up' : levelFlash === 'down' ? 'level-down' : ''}`}
+                style={{
+                  background: noSlotsLeft ? 'rgba(251,113,133,0.05)' : 'rgba(0,0,0,0.7)',
+                  borderColor: noSlotsLeft ? '#fb718555' : tier.color + '35',
+                  boxShadow: noSlotsLeft ? '0 0 18px rgba(251,113,133,0.12)' : `0 0 18px ${tier.color}14`,
+                }}
                 title={`${t('board.drillSlots')}: ${dailyMineLeft}/${dailyMineTotal} · base 100 + ${execsCount} EXECs`}
               >
                 <div
-                  className="text-[0.70rem] font-mono uppercase tracking-widest mb-0.5 truncate"
-                  style={{ color: noSlotsLeft ? '#fb7185b3' : tier.color + 'b3' }}
+                  className="text-[0.60rem] font-mono uppercase tracking-[0.18em] mb-1 leading-none"
+                  style={{ color: noSlotsLeft ? '#fb7185aa' : tier.color + 'aa' }}
                 >
                   {t('board.drillSlots')}
                 </div>
                 <div
-                  className="text-[0.98rem] font-black font-mono truncate leading-none"
+                  className="text-[1.15rem] font-black font-mono leading-none"
                   style={{ color: noSlotsLeft ? '#fb7185' : tier.color }}
                 >
                   #{dailyMineLeft.toString(16).toUpperCase()}/{execsCount > 0 ? `100+#${execsCount.toString(16).toUpperCase()}` : '#64'}
                 </div>
               </div>
-            )}
-          </div>
+            </div>
+          )}
 
           {problem && (
             <>

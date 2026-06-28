@@ -182,7 +182,6 @@ export default function TradeBoard({ account, isVirtualWallet = false }) {
   const [macroState, setMacroState] = useState(() => normalizeMacroState());
   const [tradeRatio, setTradeRatio] = useState(100);
   const [showTransactions, setShowTransactions] = useState(false);
-  const [showStats, setShowStats] = useState(false);
   const [transactions, setTransactions] = useState([]);
   const [transactionsLoading, setTransactionsLoading] = useState(false);
   const [transactionsPage, setTransactionsPage] = useState(1);
@@ -843,34 +842,29 @@ export default function TradeBoard({ account, isVirtualWallet = false }) {
               )}
             </div>
 
-            <button
-              type="button"
-              onClick={() => setShowStats((v) => !v)}
-              className="mb-2 flex w-full items-center gap-2 rounded border bg-black/40 px-2.5 py-1.5 font-mono text-[0.68rem] uppercase tracking-[0.18em] transition hover:brightness-110"
-              style={{ borderColor: `${tier.color}22`, color: `${tier.color}88` }}
-            >
-              <span className="font-black" style={{ color: tier.color }}>{fmtMm3(availableMm3)} MM3</span>
-              <span style={{ color: `${tier.color}44` }}>·</span>
-              <span>{formatMoney(currentFunds, currency)}</span>
-              <span style={{ color: `${tier.color}44` }}>·</span>
-              <span>{tier.emoji} {level}</span>
-              <span className="ml-auto" style={{ color: `${tier.color}55` }}>{showStats ? '▲' : '▼'}</span>
-            </button>
-            {showStats && (
-              <div className="mm3-trade-stats mb-3 grid gap-2 sm:grid-cols-4">
-                {[
-                { label: t('tradeBoard.mm3Balance'), value: fmtMm3(availableMm3) },
-                { label: t('tradeBoard.availableFunds'), value: formatMoney(currentFunds, currency) },
-                { label: t('tradeBoard.levelRank'), value: `${level} (${tier.emoji} ${tier.label})` },
-                { label: t('tradeBoard.rate'), value: `${formatMoney(activeRate, currency)} / MM3` },
-                ].map((item) => (
-                  <div key={item.label} className="mm3-trade-stat-card rounded-lg border bg-black/70 p-2" style={{ borderColor: tier.glow }}>
-                    <div className="mm3-trade-stat-label text-[0.76rem] uppercase tracking-[0.22em]" style={{ color: `${tier.color}99` }}>{item.label}</div>
-                    <div className="mm3-trade-stat-value mt-0.5 text-sm font-black" style={{ color: tier.color }}>{item.value}</div>
-                  </div>
-                ))}
+            <div className="mb-3 flex justify-center">
+              <div
+                className="inline-flex flex-col items-center rounded-xl border px-6 py-2"
+                style={{
+                  background: 'rgba(0,0,0,0.7)',
+                  borderColor: tier.color + '35',
+                  boxShadow: `0 0 16px ${tier.color}12`,
+                }}
+              >
+                <div
+                  className="text-[0.60rem] font-mono uppercase tracking-[0.18em] mb-0.5 leading-none"
+                  style={{ color: tier.color + 'aa' }}
+                >
+                  {t('tradeBoard.rate')}
+                </div>
+                <div
+                  className="text-[1.05rem] font-black font-mono leading-none"
+                  style={{ color: tier.color }}
+                >
+                  {formatMoney(activeRate, currency)} / MM3
+                </div>
               </div>
-            )}
+            </div>
 
             <div className="mm3-trade-panel mb-3 rounded-lg border bg-black/65 p-3" style={{ borderColor: tier.glow }}>
               <div className="mm3-trade-slider mb-3 rounded-lg border border-cyan-500/20 bg-black/50 p-2.5">

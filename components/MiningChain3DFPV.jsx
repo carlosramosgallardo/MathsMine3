@@ -40,6 +40,11 @@ const TURN_SPD      = 1.35   // radians / second
 const HORIZON_RATIO = 0.50
 const PLAYER_R      = 0.28   // collision radius in grid units — matches visual avatar half-width so body doesn't clip walls
 const PLAYER_BODY_H = 1.02   // physical body height for bridges and overhangs
+const CEILING_ABOVE_HEAD_PAD = 0.04
+
+function ceilingBottomAbovePlayerHead(bottom, playerZ) {
+  return Number.isFinite(bottom) && bottom > playerZ + PLAYER_BODY_H - CEILING_ABOVE_HEAD_PAD
+}
 const AVATAR_R      = 0.30
 const FOOTSTEP_DIST = CELL_SIZE * 0.42       // footstep cadence
 const SWING_DUR     = 340    // ms per USB staff swing
@@ -430,6 +435,13 @@ function terraceRailShouldBlock(gx, gy, rail) {
 }
 
 function poolTerraceRimClearsObstacle(row, col, key, obstacle, gx, gy, playerZ) {
+  if (
+    playerZ >= HOUSE_ROOF_LEVEL - 0.12 &&
+    CIPHER_HOUSE_PERIMETER_KEYS.has(key) &&
+    isOnHouseRoofDeck(row, col, playerZ)
+  ) {
+    return true
+  }
   if (!isPoolTerraceRimTraversal(gx, gy, playerZ)) return false
   const sides = poolTerraceSideAt(gx, gy)
   if (CIPHER_HOUSE_PERIMETER_KEYS.has(key)) {
@@ -815,6 +827,9 @@ function poolNorthEntryBulkheadBlocks(gx, gy, playerZ, playerVz = 0, moveGy = 0)
   if (playerZ >= HOUSE_POOL_WALL_TOP + 0.12) return false
   if (canVaultPoolBarrier(playerZ, playerVz, HOUSE_POOL_WALL_TOP)) return false
   if (isPoolTerraceRimTraversal(gx, gy, playerZ)) return false
+  if (playerZ >= HOUSE_ROOF_LEVEL - 0.12 && isOnHouseRoofDeck(Math.floor(gy), Math.floor(gx), playerZ)) {
+    return false
+  }
   // Dry-foot climbers on the interior stair pass through the tread volume.
   if (
     isOnInteriorPoolStair(gx, gy) &&
@@ -2777,6 +2792,12 @@ function poolInnerWallBlocksBody(gx, gy, playerZ, playerVz = 0, moveGy = 0, move
   if (isVaultingPoolTerraceFence(gx, gy, playerZ, playerVz)) return false
   // Rim walkers on the terrace ring / stair passage — not the swim shell.
   if (isPoolTerraceRimTraversal(gx, gy, playerZ)) return false
+  if (playerZ >= HOUSE_ROOF_LEVEL - 0.12) {
+    const row = Math.floor(gy)
+    const col = Math.floor(gx)
+    if (cellOverlapsPoolTerrace(row, col) && !cellInsidePoolBasin(row, col)) return false
+    if (isOnHouseRoofDeck(row, col, playerZ)) return false
+  }
 
   const inBasin = isInsidePoolBasin(gx, gy)
   if (!inBasin) {
@@ -2806,6 +2827,13 @@ function poolBasinBlocksBody(gx, gy, playerZ, playerVz = 0, moveGy = 0, moveGx =
 
 function poolTerraceRailBlocksBody(gx, gy, playerZ, playerVz = 0) {
   if (isWalkingIntermediateFloorUnderPool(gx, gy, playerZ)) return false
+  if (playerZ >= HOUSE_ROOF_LEVEL - 0.12) {
+    const row = Math.floor(gy)
+    const col = Math.floor(gx)
+    if (isOnHouseRoofDeck(row, col, playerZ) && playerZ < HOUSE_POOL_TERRACE_RAIL_TOP - 0.06) {
+      return false
+    }
+  }
   const railBottom = HOUSE_POOL_TERRACE_RAIL_BASE
   const railTop = HOUSE_POOL_TERRACE_RAIL_TOP
   if (isVaultingPoolTerraceFence(gx, gy, playerZ, playerVz)) return false
@@ -2844,6 +2872,23 @@ function isHousePerimeterRoofCell(row, col) {
   return CIPHER_HOUSE_PERIMETER_KEYS.has(`${row},${col}`)
 }
 
+function isOnHouseRoofDeck(row, col, playerZ) {
+  if (playerZ < HOUSE_ROOF_LEVEL - 0.35) return false
+  if (isHouseRoofCell(row, col) || isHousePerimeterRoofCell(row, col)) return true
+  if (cellOverlapsPoolTerrace(row, col) && !cellInsidePoolBasin(row, col)) return true
+  return false
+}
+
+// Full-height house shell columns intersect the avatar body on the rooftop deck;
+// skip them when feet are on the walkable roof / terrace ring.
+function houseWallClearsForRooftopWalker(obstacle, row, col, playerZ) {
+  if (!obstacle?.isHouse || obstacle.isHouseFloor || obstacle.shape === 'ramp') return false
+  if (obstacle.isHouseWindow || obstacle.isHouseDoor) return false
+  if (playerZ < HOUSE_ROOF_LEVEL - 0.12) return false
+  if (!isOnHouseRoofDeck(row, col, playerZ)) return false
+  return obstacleTop(obstacle) > HOUSE_ROOF_LEVEL - 0.08
+}
+
 function houseEastEntryFloorSupportAt(row, col, gx, playerZ) {
   if (
     col === HOUSE_EAST_ENTRY_FLOOR_EXTENSION_COL &&
@@ -2874,6 +2919,10 @@ function isWalkingIntermediateFloorUnderPool(gx, gy, playerZ) {
 }
 
 function houseUnderPoolCeilingBottom(gx, gy, playerZ) {
+  const row = Math.floor(gy)
+  const col = Math.floor(gx)
+  // On the pool terrace / roof deck the underside slab is below the feet — not a ceiling.
+  if (isOnHouseRoofDeck(row, col, playerZ)) return Infinity
   if (playerZ >= HOUSE_POOL_WALL_TOP - 0.30) return Infinity
   if (!isUnderPoolStructure(gx, gy)) return Infinity
   const inBasin = circleTouchesAabb(gx, gy, HOUSE_POOL_OUTER, PLAYER_R * 0.55)
@@ -2964,9 +3013,8 @@ function solidTopAt(row, col, cellMap, obsSet) {
 function housePerimeterWallCapSupportAt(row, col, playerZ, obsSet) {
   if (!CIPHER_HOUSE_PERIMETER_KEYS.has(`${row},${col}`)) return 0
   if (playerZ < HOUSE_ROOF_LEVEL - 0.50) return 0
-  const obstacle = obsSet?.get?.(`${row},${col}`)
-  if (obstacle?.isHouseDoor || obstacle?.isHouseWindow) return HOUSE_EXTERIOR_WALL_TOP
-  if (playerZ >= HOUSE_ROOF_LEVEL - 0.35) return HOUSE_EXTERIOR_WALL_TOP
+  // Match rendered roof tiles — not the taller wall-cap mesh above them.
+  if (playerZ >= HOUSE_ROOF_LEVEL - 0.35) return HOUSE_ROOF_LEVEL
   return 0
 }
 
@@ -3031,6 +3079,7 @@ function hitsSolidWall(gx, gy, cellMap, obsSet, playerZ = 0, playerVz = 0, moveG
       ) {
         continue
       }
+      if (houseWallClearsForRooftopWalker(obstacle, row, col, playerZ)) continue
       if (
         isWalkingIntermediateFloorUnderPool(gx, gy, playerZ) &&
         obstacle?.isHouse &&
@@ -3073,9 +3122,17 @@ function supportHeightAt(gx, gy, playerZ, cellMap, obsSet) {
         continue
       }
       const top = solidTopAt(row, col, cellMap, obsSet)
+      const onRoofDeck = isOnHouseRoofDeck(row, col, playerZ)
       const openingCap = obstacle?.isHouseDoor || obstacle?.isHouseWindow
-      const supportTop = openingCap ? HOUSE_EXTERIOR_WALL_TOP : top
-      const supportMinZ = openingCap ? HOUSE_ROOF_LEVEL - 0.12 : supportTop - 0.04
+      let supportTop = openingCap && !onRoofDeck ? HOUSE_EXTERIOR_WALL_TOP : top
+      if (onRoofDeck) {
+        if (obstacle?.isHouse && !obstacle?.isHouseFloor && supportTop > HOUSE_ROOF_LEVEL + 0.04) {
+          supportTop = HOUSE_ROOF_LEVEL
+        } else {
+          supportTop = Math.min(supportTop || HOUSE_ROOF_LEVEL, HOUSE_ROOF_LEVEL)
+        }
+      }
+      const supportMinZ = openingCap && !onRoofDeck ? HOUSE_ROOF_LEVEL - 0.12 : supportTop - 0.04
       if (supportTop && playerZ >= supportMinZ && circleTouchesCell(gx, gy, row, col, radius)) {
         height = Math.max(height, supportTop)
       }
@@ -3105,8 +3162,7 @@ function ceilingBottomAt(gx,gy,playerZ,cellMap,obsSet){
   let ceiling=Infinity
   const radius=PLAYER_R*.82
   const underPool=houseUnderPoolCeilingBottom(gx,gy,playerZ)
-  // Only cap headroom when the under-pool slab is actually above the player.
-  if(Number.isFinite(underPool)&&underPool>playerZ+.08) ceiling=Math.min(ceiling,underPool)
+  if(ceilingBottomAbovePlayerHead(underPool, playerZ)) ceiling=Math.min(ceiling,underPool)
   for(let row=Math.floor(gy-radius);row<=Math.floor(gy+radius);row++){
     for(let col=Math.floor(gx-radius);col<=Math.floor(gx+radius);col++){
       const key=`${row},${col}`
@@ -3115,7 +3171,10 @@ function ceilingBottomAt(gx,gy,playerZ,cellMap,obsSet){
       if (trampolineShaftClearsCeiling(gx, gy, key, span, obs, playerZ, radius)) continue
       if (houseStairSkylightClearsCeiling(gx, gy, playerZ, key, span)) continue
       if(HOUSE_TRAMPOLINE_FLOOR_HOLE.has(key) && span?.bottom >= HOUSE_ROOF_LEVEL - 0.32) continue
-      if(span?.bottom>playerZ+PLAYER_BODY_H-.04&&circleTouchesCell(gx,gy,row,col,radius)){
+      if(isOnHouseRoofDeck(row,col,playerZ)&&span?.bottom>=HOUSE_ROOF_LEVEL-0.35&&span?.bottom<=HOUSE_ROOF_LEVEL+0.30){
+        continue
+      }
+      if(ceilingBottomAbovePlayerHead(span?.bottom, playerZ)&&circleTouchesCell(gx,gy,row,col,radius)){
         ceiling=Math.min(ceiling,span.bottom)
       }
     }
