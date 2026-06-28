@@ -4189,7 +4189,7 @@ function drawChainStats(ctx, W, H, stats, es, top = 8) {
       ctx.fillText(label, px + PAD_X, ly)
       ctx.font = 'bold 9px monospace'; ctx.textAlign = 'right'
       ctx.fillStyle = '#4ade80cc'
-      ctx.fillText(`${pct}%`, px + pw - PAD_X, ly)
+      ctx.fillText(`${pct.toFixed(3)}%`, px + pw - PAD_X, ly)
     } else {
       ctx.font = '9px monospace'; ctx.textAlign = 'left'
       ctx.fillStyle = '#70879c'
@@ -7412,7 +7412,7 @@ export default function MiningChain3DFPV({
     // as authoritative denominator — cellMap has extra unclaimed entries beyond minable count
     const totalRegular = MM3_MINE_BLOCK_TOTAL - totalNFTJI
     const totalOwned = owned + marketOwned
-    chainStatsRef.current = { owned, marketOwned, totalRegular, totalNFTJI, pct: Math.round(totalOwned/MM3_MINE_BLOCK_TOTAL*100) }
+    chainStatsRef.current = { owned, marketOwned, totalRegular, totalNFTJI, pct: totalOwned/MM3_MINE_BLOCK_TOTAL*100 }
   },[cellMap])
 
   const onPositionRealtimeRef = useRef(onPositionRealtime)

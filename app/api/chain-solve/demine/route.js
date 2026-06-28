@@ -137,6 +137,7 @@ async function handleDemine(req) {
 
 async function finalizeDemine(supabase, lastHitter, formulaChainIndexStart) {
   const now = new Date().toISOString();
+  const MM3_MINE_BLOCK_TOTAL = 719;
 
   // Safety delete: only remove formula-auto-mined blocks (chain_index >= start).
   // If formulaChainIndexStart is null (organic completion), delete all.
@@ -146,9 +147,28 @@ async function finalizeDemine(supabase, lastHitter, formulaChainIndexStart) {
     await supabase.from('mm3_mined_blocks').delete().neq('id', 0);
   }
 
+  // Count blocks remaining after delete to compute actual post-demine %
+  let postPct = 0;
+  if (formulaChainIndexStart != null) {
+    const [{ count: remainingMined }, { data: nftjiOwners }] = await Promise.all([
+      supabase.from('mm3_mined_blocks').select('id', { count: 'exact', head: true }),
+      supabase.from('player_progress').select('mining_nftji_key').not('mining_nftji_key', 'is', null),
+    ]);
+    const nftjiOwned = new Set((nftjiOwners || []).map(r => r.mining_nftji_key)).size;
+    postPct = ((Number(remainingMined) || 0) + nftjiOwned) / MM3_MINE_BLOCK_TOTAL * 100;
+  }
+  const pctStr = postPct.toFixed(4);
+
+  // Ticker expires after 15 minutes so welcome message resumes automatically
+  const tickerExpiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString();
+
   // Reset demine state
-  const msgEn = '⬡ DEMINE COMPLETE ⬡ Chain reset to pre-formula state. Mining is now ACTIVE again. ⬡';
-  const msgEs = '⬡ DEMINE COMPLETADO ⬡ Chain reseteada al estado pre-fórmula. El minado está ACTIVO de nuevo. ⬡';
+  const msgEn = formulaChainIndexStart != null
+    ? `⬡ DEMINE COMPLETE ⬡ Chain reset to pre-formula state — chain is at ${pctStr}%. Mining is now ACTIVE again. ⬡`
+    : `⬡ DEMINE COMPLETE ⬡ All blocks removed — chain is at 0.0000%. Mining is now ACTIVE again. ⬡`;
+  const msgEs = formulaChainIndexStart != null
+    ? `⬡ DEMINE COMPLETADO ⬡ Chain al ${pctStr}% (estado pre-fórmula). El minado está ACTIVO de nuevo. ⬡`
+    : `⬡ DEMINE COMPLETADO ⬡ Todos los bloques eliminados — chain al 0.0000%. El minado está ACTIVO de nuevo. ⬡`;
 
   await Promise.all([
     supabase.from('mm3_macro_state').update({
@@ -158,6 +178,7 @@ async function finalizeDemine(supabase, lastHitter, formulaChainIndexStart) {
       ticker_message: msgEs,
       ticker_message_en: msgEn,
       ticker_message_es: msgEs,
+      ticker_message_expires_at: tickerExpiresAt,
       updated_at: now,
     }).eq('id', 1),
     // Reset all player block_chain_percent

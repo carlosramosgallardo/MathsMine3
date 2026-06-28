@@ -70,13 +70,17 @@ export default function MacroTicker() {
     try {
       const { data } = await supabase
         .from('mm3_macro_state')
-        .select('ticker_message, ticker_message_en, ticker_message_es, node_dice_expires_at')
+        .select('ticker_message, ticker_message_en, ticker_message_es, node_dice_expires_at, ticker_message_expires_at')
         .eq('id', 1)
         .maybeSingle();
-      const legacy = normalizeTickerMessage(data?.ticker_message, DEFAULT_TICKER_MESSAGES.en);
+      const tickerExpired = data?.ticker_message_expires_at
+        && new Date(data.ticker_message_expires_at).getTime() < Date.now();
+      const legacy = tickerExpired
+        ? DEFAULT_TICKER_MESSAGES.en
+        : normalizeTickerMessage(data?.ticker_message, DEFAULT_TICKER_MESSAGES.en);
       setMessages({
-        en: normalizeTickerMessage(data?.ticker_message_en, legacy),
-        es: normalizeTickerMessage(data?.ticker_message_es, legacy),
+        en: tickerExpired ? DEFAULT_TICKER_MESSAGES.en : normalizeTickerMessage(data?.ticker_message_en, legacy),
+        es: tickerExpired ? DEFAULT_TICKER_MESSAGES.es : normalizeTickerMessage(data?.ticker_message_es, legacy),
       });
       const expiresAt = data?.node_dice_expires_at ? new Date(data.node_dice_expires_at).getTime() : 0;
       setStormrollActive(expiresAt > Date.now());
