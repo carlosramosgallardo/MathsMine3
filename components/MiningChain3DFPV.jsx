@@ -3,7 +3,7 @@
 import { useEffect, useRef, useCallback, useState } from 'react'
 import * as THREE from 'three'
 import { colorFromAddress } from '@/lib/wallet-colors'
-import { MM3_BLOCK_GRID_ROWS, MM3_BLOCK_GRID_COLS, gridToBlockHex, MM3_BLOCK_REQUIREMENT_BY_HEX, doesGlobalValueMeetRequirement } from '@/lib/mm3-block-chain'
+import { MM3_BLOCK_GRID_ROWS, MM3_BLOCK_GRID_COLS, MM3_MINE_BLOCK_TOTAL, gridToBlockHex, MM3_BLOCK_REQUIREMENT_BY_HEX, doesGlobalValueMeetRequirement } from '@/lib/mm3-block-chain'
 import supabase from '@/lib/supabaseClient'
 import { groupPresenceEntries } from '@/lib/presence-display'
 import { getDiceState } from '@/lib/dice'
@@ -7403,14 +7403,16 @@ export default function MiningChain3DFPV({
   }, [cellMap])
 
   useEffect(()=>{
-    let owned=0, marketFree=0, marketOwned=0, totalRegular=0, totalNFTJI=0
+    let owned=0, marketOwned=0, totalNFTJI=0
     for (const cell of cellMap.values()) {
-      if (cell.isMarket) { totalNFTJI++; if (cell.owner) marketOwned++; else marketFree++ }
-      else if (!cell.isChainNode && !cell.isPortalNode && !cell.isNodeDiceNode && !cell.isObstacle) totalRegular++
-      if (cell.owner) owned++
+      if (cell.isMarket) { totalNFTJI++; if (cell.owner) marketOwned++ }
+      else if (cell.owner) owned++
     }
-    const totalMineable = totalRegular + totalNFTJI
-    chainStatsRef.current = { owned, marketOwned, totalRegular, totalNFTJI, totalMineable, pct: totalMineable > 0 ? Math.round(owned/totalMineable*100) : 0 }
+    // owned = regular mined; marketOwned = NFTJI owned; use MM3_MINE_BLOCK_TOTAL (719)
+    // as authoritative denominator — cellMap has extra unclaimed entries beyond minable count
+    const totalRegular = MM3_MINE_BLOCK_TOTAL - totalNFTJI
+    const totalOwned = owned + marketOwned
+    chainStatsRef.current = { owned, marketOwned, totalRegular, totalNFTJI, pct: Math.round(totalOwned/MM3_MINE_BLOCK_TOTAL*100) }
   },[cellMap])
 
   const onPositionRealtimeRef = useRef(onPositionRealtime)
