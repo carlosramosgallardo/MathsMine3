@@ -4949,7 +4949,7 @@ function addPoolPerimeterHeartSigns(poolGroup,poolOuterW,poolOuterD) {
   return mesh
 }
 
-function addCipherHouseDetails(world) {
+function addCipherHouseDetails(world, lowDetail = false) {
   const group=new THREE.Group()
   group.name='cipher-house-details'
   const mullionMaterial=new THREE.MeshStandardMaterial({
@@ -4958,12 +4958,17 @@ function addCipherHouseDetails(world) {
   const windowFrameMaterial=new THREE.MeshStandardMaterial({
     color:'#0b1220',emissive:'#0891b2',emissiveIntensity:.52,roughness:.32,metalness:.78,
   })
-  const glassMaterial=new THREE.MeshPhysicalMaterial({
-    color:'#c8f6ff',emissive:'#0e7490',emissiveIntensity:.18,
-    roughness:.04,metalness:.08,transparent:true,opacity:.88,
-    transmission:.78,thickness:.045,ior:1.48,clearcoat:.65,clearcoatRoughness:.06,
-    side:THREE.DoubleSide,depthWrite:false,
-  })
+  const glassMaterial=lowDetail
+    ? new THREE.MeshStandardMaterial({
+      color:'#c8f6ff',emissive:'#0e7490',emissiveIntensity:.24,
+      roughness:.18,metalness:.12,transparent:true,opacity:.78,depthWrite:false,
+    })
+    : new THREE.MeshPhysicalMaterial({
+      color:'#c8f6ff',emissive:'#0e7490',emissiveIntensity:.18,
+      roughness:.04,metalness:.08,transparent:true,opacity:.88,
+      transmission:.78,thickness:.045,ior:1.48,clearcoat:.65,clearcoatRoughness:.06,
+      side:THREE.DoubleSide,depthWrite:false,
+    })
   const mullionBoxes=[]
   const glassBoxes=[]
   const frameBoxes=[]
@@ -5975,7 +5980,7 @@ function rebuildThreeWorld(state,cellMap,obstacles) {
   const lowDetail=isCoarsePointerDevice()
   addBiomeGround(world,state.textures)
   addCryptoColosseum(world,lowDetail)
-  if(!lowDetail) addCipherHouseDetails(world)
+  addCipherHouseDetails(world, lowDetail)
   addBiomeLandmarks(world,state.textures,lowDetail)
   // ── Block + node groups ───────────────────────────────────────────────────────
   // Each interactive type gets its own material & shape so players can tell them apart.
@@ -6976,7 +6981,11 @@ export default function MiningChain3DFPV({
   const remoteVisualsRef = useRef(new Map())
   const visualPresenceRef = useRef({})
   const lastRemoteFrameRef = useRef(0)
-  const visualPerfTierRef = useRef('medium')
+  const visualPerfTierRef = useRef(
+    typeof window !== 'undefined'
+      ? getMiningVisualTier(window.innerWidth, window.innerHeight)
+      : 'medium',
+  )
   const lastRenderDispatchRef = useRef(0)
   const lookDirtyRef = useRef(false)
   const onlineListTsRef = useRef(0)           // last time online list was re-drawn
@@ -7080,7 +7089,7 @@ export default function MiningChain3DFPV({
     const scene=new THREE.Scene()
     scene.background=new THREE.Color('#020617')
     scene.fog=new THREE.FogExp2('#07132c',.018)
-    const camera=new THREE.PerspectiveCamera(58,1,.05,isCoarsePointerDevice()?28:100)
+    const camera=new THREE.PerspectiveCamera(58,1,.05,100)
     const hudScene=new THREE.Scene()
     // Perspective camera for 3D avatar — positioned slightly above-right-front for a 3/4 hero pose
     const hudCamera=new THREE.PerspectiveCamera(42,1,0.05,10)
@@ -7098,8 +7107,7 @@ export default function MiningChain3DFPV({
     const infernoLight=new THREE.PointLight('#ff4b12',24,25,1.45);infernoLight.position.set(42,5,42);scene.add(infernoLight)
     if(isCoarsePointerDevice()){
       iceLight.intensity=0;coastLight.intensity=0;infernoLight.intensity=0
-      // Dense fog hides the shorter far plane (28u vs 100u) so the cutoff is invisible
-      scene.fog.density=.055
+      scene.fog.density=.014
     }
     const floor=new THREE.Mesh(new THREE.PlaneGeometry(COLS,ROWS),new THREE.MeshStandardMaterial({color:'#07101f',roughness:.98,metalness:.02}))
     floor.rotation.x=-Math.PI/2;floor.position.set(COLS/2,-.012,ROWS/2);scene.add(floor)
@@ -8863,7 +8871,7 @@ export default function MiningChain3DFPV({
       const nowOnline=performance.now()
       const oc=onlineListOffscreenRef.current
       const needsRebuild=onlineListDirtyRef.current
-        ||nowOnline-onlineListTsRef.current>100
+        ||nowOnline-onlineListTsRef.current>(visualTier==='low'?250:100)
         ||!oc||oc.width!==canvas.width||oc.height!==canvas.height
       if(needsRebuild){
         onlineListDirtyRef.current=false
@@ -8919,17 +8927,18 @@ export default function MiningChain3DFPV({
       const rawDpr = window.devicePixelRatio || 1
       const isMobilePortrait = cssH > cssW && cssW < 820
       const isPortraitTablet = cssW >= 540 && cssH > cssW
+      const mobileLayout = isMobilePortrait || isPortraitTablet || isCoarsePointerDevice()
 
       // ── HUD canvas (2D: text, minimap, crosshair) ─────────────────────────
-      // Always render at full device sharpness — drawing cost is negligible.
-      const hudDpr = Math.min(2.5, Math.max(1.0, rawDpr))
+      // Full DPR on desktop; cap on mobile — 2.5× HUD was a major CPU sink.
+      const hudDpr = mobileLayout
+        ? Math.min(1.25, Math.max(1.0, rawDpr))
+        : Math.min(2.5, Math.max(1.0, rawDpr))
 
       // ── WebGL 3D canvas ───────────────────────────────────────────────────
-      // 1.0 = exactly 1 WebGL pixel per CSS pixel → zero upscale blur, low cost.
-      // On high-DPI desktop we allow supersampling up to 1.4× for extra sharpness.
       let webglDpr
-      if (isMobilePortrait || isPortraitTablet) {
-        webglDpr = 1.0   // 1:1 CSS pixels — no blur; CPU bottleneck is draw calls, not fill rate
+      if (mobileLayout) {
+        webglDpr = 1.0
       } else {
         const pixels = cssW * cssH
         const dprCap = pixels > 1600000 ? 1.1 : 1.4
@@ -9115,7 +9124,8 @@ export default function MiningChain3DFPV({
       // On low tier (mobile portrait), cap the entire physics loop to ~30fps so
       // high-refresh-rate phones (90/120 Hz) don't burn CPU on wasted ticks.
       const loopTier=visualPerfTierRef.current
-      if(loopTier==='low'&&lastFrameRef.current&&nowMs-lastFrameRef.current<30) return
+      const mobileLoopCap=loopTier==='low'||isCoarsePointerDevice()
+      if(mobileLoopCap&&lastFrameRef.current&&nowMs-lastFrameRef.current<33) return
       const k=keysRef.current, p=playerRef.current
       const dt=lastFrameRef.current ? Math.min(0.05,(nowMs-lastFrameRef.current)/1000) : 1/60
       lastFrameRef.current=nowMs
