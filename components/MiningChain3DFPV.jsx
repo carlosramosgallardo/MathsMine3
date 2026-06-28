@@ -439,7 +439,7 @@ function poolTerraceRimClearsObstacle(row, col, key, obstacle, gx, gy, playerZ) 
   if (
     playerZ >= HOUSE_ROOF_LEVEL - 0.12 &&
     CIPHER_HOUSE_PERIMETER_KEYS.has(key) &&
-    isOnHouseRoofDeck(row, col, playerZ)
+    isOnHouseRoofDeck(row, col, playerZ, gx, gy)
   ) {
     return true
   }
@@ -828,7 +828,7 @@ function poolNorthEntryBulkheadBlocks(gx, gy, playerZ, playerVz = 0, moveGy = 0)
   if (playerZ >= HOUSE_POOL_WALL_TOP + 0.12) return false
   if (canVaultPoolBarrier(playerZ, playerVz, HOUSE_POOL_WALL_TOP)) return false
   if (isPoolTerraceRimTraversal(gx, gy, playerZ)) return false
-  if (playerZ >= HOUSE_ROOF_LEVEL - 0.12 && isOnHouseRoofDeck(Math.floor(gy), Math.floor(gx), playerZ)) {
+  if (playerZ >= HOUSE_ROOF_LEVEL - 0.12 && isOnHouseRoofDeck(Math.floor(gy), Math.floor(gx), playerZ, gx, gy)) {
     return false
   }
   // Dry-foot climbers on the interior stair pass through the tread volume.
@@ -1165,19 +1165,55 @@ const DOOR_WALL_INFO = {
 // rise is spread across several cells so the slope reads as real steps.
 const CIPHER_HOUSE_DOORS = [
   { wall: 'north', cells: ['3,5', '3,6'], steps: 6 },
-  { wall: 'south', cells: ['13,9', '13,10'], steps: 7 },
-  { wall: 'east', cells: ['8,13', '9,13'], steps: 6 },
+  { wall: 'south', cells: ['13,9', '13,10'], steps: 8 },
+  { wall: 'east', cells: ['8,13', '9,13'], steps: 8 },
 ]
 const CIPHER_HOUSE_DOOR_CELLS = new Set(CIPHER_HOUSE_DOORS.flatMap(d => d.cells))
 const CIPHER_HOUSE_EAST_DOOR_CELLS = new Set(
   CIPHER_HOUSE_DOORS.find((d) => d.wall === 'east')?.cells ?? [],
 )
+
+// Needed before buildHouseDoorStepCells() runs at module init.
+const CIPHER_HOUSE_NORTH_ESPLANADE = Object.freeze({
+  minRow: 1,
+  maxRow: 2,
+  minCol: 3,
+  maxCol: 8,
+})
+const CIPHER_HOUSE_SOUTH_ESPLANADE = Object.freeze({
+  minRow: 14,
+  maxRow: 20,
+  minCol: 8,
+  maxCol: 11,
+})
+const CIPHER_HOUSE_EAST_STAIR_MAX_COL = 20
+
+function doorExteriorAscentSteps(door) {
+  const requested = door.steps || 4
+  if (door.wall === 'north') {
+    const minDoorRow = Math.min(...door.cells.map((k) => Number(k.split(',')[0])))
+    return Math.min(requested, minDoorRow - CIPHER_HOUSE_NORTH_ESPLANADE.minRow + 1)
+  }
+  if (door.wall === 'south') {
+    const maxDoorRow = Math.max(...door.cells.map((k) => Number(k.split(',')[0])))
+    return Math.min(
+      requested,
+      CIPHER_HOUSE_SOUTH_ESPLANADE.maxRow - maxDoorRow + 1,
+    )
+  }
+  if (door.wall === 'east') {
+    const maxDoorCol = Math.max(...door.cells.map((k) => Number(k.split(',')[1])))
+    return Math.min(requested, CIPHER_HOUSE_EAST_STAIR_MAX_COL - maxDoorCol + 1)
+  }
+  return requested
+}
+
 function buildHouseDoorStepCells() {
   const cells = []
   for (const door of CIPHER_HOUSE_DOORS) {
     const info = DOOR_WALL_INFO[door.wall]
     const rise = HOUSE_MAIN_FLOOR_LEVEL
-    const requested = door.steps || 4
+    const requested = doorExteriorAscentSteps(door)
     let effectiveN = 0
     for (let i = 0; i < requested; i += 1) {
       let inBounds = false
@@ -1220,6 +1256,19 @@ function buildHouseDoorStepCells() {
   return cells
 }
 const HOUSE_DOOR_STEP_CELLS = buildHouseDoorStepCells()
+const HOUSE_DOOR_STEP_DIR_BY_KEY = new Map(HOUSE_DOOR_STEP_CELLS.map((s) => [s.key, s.dir]))
+const HOUSE_DOOR_STEP_KEYS = new Set(HOUSE_DOOR_STEP_CELLS.map((s) => s.key))
+const HOUSE_EAST_DOOR_EXTERIOR_STEP_KEYS = new Set(
+  HOUSE_DOOR_STEP_CELLS.filter((step) => step.col > CIPHER_HOUSE_BOUNDS.maxCol).map((step) => step.key),
+)
+function isMiningDevGrid() {
+  if (typeof window === 'undefined') return false
+  try {
+    return window.location.search.includes('mm3_dev=1') || window.localStorage.getItem('mm3_dev') === '1'
+  } catch {
+    return false
+  }
+}
 const HOUSE_WINDOW_PANE_Y = [.82, 1.98, 3.14, 4.30, 5.46]
 const HOUSE_WINDOW_PANE_H = .56
 const HOUSE_WINDOW_PANE_W = .74
@@ -1255,14 +1304,6 @@ const LOWER_DOOR_CLEAR = 2.35  // open height of the ground-level escape doorway
 
 const CIPHER_HOUSE_APPROACH_BUFFER = 5
 
-// Clear sightline from the north door staircase toward the map edge.
-const CIPHER_HOUSE_NORTH_ESPLANADE = Object.freeze({
-  minRow: 1,
-  maxRow: 2,
-  minCol: 3,
-  maxCol: 8,
-})
-
 // Optional east corridor — obstacles only, no beach.
 const CIPHER_HOUSE_EAST_ESPLANADE = Object.freeze({
   minRow: 6,
@@ -1280,6 +1321,15 @@ function isInCipherHouseNorthEsplanade(row, col) {
   )
 }
 
+function isInCipherHouseSouthEsplanade(row, col) {
+  return (
+    row >= CIPHER_HOUSE_SOUTH_ESPLANADE.minRow &&
+    row <= CIPHER_HOUSE_SOUTH_ESPLANADE.maxRow &&
+    col >= CIPHER_HOUSE_SOUTH_ESPLANADE.minCol &&
+    col <= CIPHER_HOUSE_SOUTH_ESPLANADE.maxCol
+  )
+}
+
 function isInCipherHouseEastEsplanade(row, col) {
   return (
     row >= CIPHER_HOUSE_EAST_ESPLANADE.minRow &&
@@ -1290,7 +1340,18 @@ function isInCipherHouseEastEsplanade(row, col) {
 }
 
 function isInCipherHouseCoastCorridor(row, col) {
-  return isInCipherHouseNorthEsplanade(row, col) || isInCipherHouseEastEsplanade(row, col)
+  return (
+    isInCipherHouseNorthEsplanade(row, col) ||
+    isInCipherHouseSouthEsplanade(row, col) ||
+    isInCipherHouseEastEsplanade(row, col)
+  )
+}
+
+function exteriorDoorStepNeighbor(row, col, stepDir) {
+  if (stepDir === 'north') return `${row + 1},${col}`
+  if (stepDir === 'south') return `${row - 1},${col}`
+  if (stepDir === 'west') return `${row},${col + 1}`
+  return `${row},${col - 1}`
 }
 
 function landmarkBlocksNorthEsplanadeView(x, z) {
@@ -1323,7 +1384,9 @@ function buildCipherHouseApproachCells() {
       ? CIPHER_HOUSE_EAST_ESPLANADE.maxCol - col
       : (dr === -1 && dc === 0)
         ? row - CIPHER_HOUSE_NORTH_ESPLANADE.minRow
-        : 4
+        : (dr === 1 && dc === 0)
+          ? CIPHER_HOUSE_SOUTH_ESPLANADE.maxRow - row
+          : 4
     for (let depth = 1; depth <= maxDepth; depth += 1) {
       const nextRow = row + dr * depth
       const nextCol = col + dc * depth
@@ -1331,11 +1394,16 @@ function buildCipherHouseApproachCells() {
       cells.add(`${nextRow},${nextCol}`)
     }
   }
-  for (const [row, col] of [[2, 5], [2, 6], [14, 9], [14, 10]]) {
+  for (const [row, col] of [[2, 5], [2, 6], [20, 9], [20, 10]]) {
     cells.add(`${row},${col}`)
   }
   for (let row = CIPHER_HOUSE_NORTH_ESPLANADE.minRow; row <= CIPHER_HOUSE_NORTH_ESPLANADE.maxRow; row += 1) {
     for (let col = CIPHER_HOUSE_NORTH_ESPLANADE.minCol; col <= CIPHER_HOUSE_NORTH_ESPLANADE.maxCol; col += 1) {
+      cells.add(`${row},${col}`)
+    }
+  }
+  for (let row = CIPHER_HOUSE_SOUTH_ESPLANADE.minRow; row <= CIPHER_HOUSE_SOUTH_ESPLANADE.maxRow; row += 1) {
+    for (let col = CIPHER_HOUSE_SOUTH_ESPLANADE.minCol; col <= CIPHER_HOUSE_SOUTH_ESPLANADE.maxCol; col += 1) {
       cells.add(`${row},${col}`)
     }
   }
@@ -1349,8 +1417,34 @@ function buildCipherHouseApproachCells() {
 
 const CIPHER_HOUSE_APPROACH_CELLS = buildCipherHouseApproachCells()
 
+function applyHouseDoorStepObstacles(valid) {
+  for (const step of [...HOUSE_DOOR_STEP_CELLS, ...HOUSE_INTERIOR_STAIR_CELLS]) {
+    const isFlat = Boolean(step.flatLanding)
+    valid.set(step.key, chainObstacle(step.key, {
+      base: HOUSE_BLUE_RGB,
+      glow: [103, 232, 249],
+      kind: 'hash',
+      label: step.label || 'CIPHER STEP',
+      bottom: step.bottom,
+      height: step.top,
+      ...(isFlat ? {} : { shape: 'ramp', direction: step.dir }),
+      isHouse: true,
+      isHouseFloor: true,
+      isHouseDoorStep: !isFlat,
+    }))
+  }
+}
+
 function clearCipherHouseApproaches(valid) {
   for (const key of CIPHER_HOUSE_APPROACH_CELLS) {
+    const obstacle = valid.get(key)
+    if (obstacle && !obstacle.isHouse) valid.delete(key)
+  }
+  for (const key of HOUSE_DOOR_STEP_KEYS) {
+    const obstacle = valid.get(key)
+    if (obstacle && !obstacle.isHouse) valid.delete(key)
+  }
+  for (const key of HOUSE_EAST_DOOR_EXTERIOR_STEP_KEYS) {
     const obstacle = valid.get(key)
     if (obstacle && !obstacle.isHouse) valid.delete(key)
   }
@@ -1493,8 +1587,6 @@ const OBSTACLE_MAP = new Map([
   // Inner maze corridors — dark concrete
   ['8,10',  { base:W_DARK, label:'WALL' }],
   ['8,11',  { base:W_DARK, label:'WALL' }],
-  ['8,16',  { base:W_DARK, label:'WALL' }],
-  ['8,17',  { base:W_DARK, label:'WALL' }],
   ['19,10', { base:W_DARK, label:'WALL' }],
   ['19,11', { base:W_DARK, label:'WALL' }],
   ['19,16', { base:W_DARK, label:'WALL' }],
@@ -1530,7 +1622,6 @@ const OBSTACLE_MAP = new Map([
   ['14,9',  { base:W_SAND, label:'WALL' }],
   ['17,14', { base:W_SAND, label:'WALL' }],
   ['14,19', { base:W_SAND, label:'WALL' }],
-  ['8,18',  { base:W_SAND, label:'WALL' }],
   ['19,9',  { base:W_SAND, label:'WALL' }],
   ['9,8',   { base:W_SAND, label:'WALL' }],
   ['20,21', { base:W_SAND, label:'WALL' }],
@@ -1577,7 +1668,6 @@ const OBSTACLE_MAP = new Map([
   ['15,22', { base:W_STONE, label:'WALL' }],
   // Diagonal pillar set — breaks up the open quadrant diagonals
   ['9,9',   { base:W_SAND,  label:'WALL' }],
-  ['9,18',  { base:W_SAND,  label:'WALL' }],
   ['18,9',  { base:W_SAND,  label:'WALL' }],
   ['18,18', { base:W_SAND,  label:'WALL' }],
 
@@ -1586,11 +1676,9 @@ const OBSTACLE_MAP = new Map([
   // clears the 1.74 deck.  No double-step stacks — those were creating narrow
   // corridors that trapped the player.
 
-  // Bridge 1: E-W at row 8
+  // Bridge 1: E-W at row 8 — cols 14–15 cleared for east door staircase
   ['8,12',  { base:W_DARK, label:'WALL', height:1.74 }],
   ['8,13',  { base:W_DARK, label:'WALL', height:1.74 }],
-  ['8,14',  { base:W_DARK, label:'WALL', height:1.74 }],
-  ['8,15',  { base:W_DARK, label:'WALL', height:1.74 }],
   ['9,13',  { base:W_DARK, label:'WALL', height:0.58 }],  // S step
   ['7,14',  { base:W_DARK, label:'WALL', height:0.58 }],  // N step
 
@@ -2736,7 +2824,10 @@ function ensureInteractiveConnectivity(valid,cellMap){
     }
     if(!target) continue
     for(let key=keyOf(target.row,target.col);key&&!reachable.has(key);key=parents.get(key)){
-      if(valid.has(key)&&!valid.get(key)?.isStructure) valid.delete(key)
+      if(HOUSE_DOOR_STEP_KEYS.has(key)) continue
+      const obstacle=valid.get(key)
+      if(obstacle?.isHouse) continue
+      if(valid.has(key)&&!obstacle?.isStructure) valid.delete(key)
     }
     reachable=flood()
   }
@@ -2797,7 +2888,7 @@ function poolInnerWallBlocksBody(gx, gy, playerZ, playerVz = 0, moveGy = 0, move
     const row = Math.floor(gy)
     const col = Math.floor(gx)
     if (cellOverlapsPoolTerrace(row, col) && !cellInsidePoolBasin(row, col)) return false
-    if (isOnHouseRoofDeck(row, col, playerZ)) return false
+    if (isOnHouseRoofDeck(row, col, playerZ, gx, gy)) return false
   }
 
   const inBasin = isInsidePoolBasin(gx, gy)
@@ -2831,7 +2922,7 @@ function poolTerraceRailBlocksBody(gx, gy, playerZ, playerVz = 0) {
   if (playerZ >= HOUSE_ROOF_LEVEL - 0.12) {
     const row = Math.floor(gy)
     const col = Math.floor(gx)
-    if (isOnHouseRoofDeck(row, col, playerZ) && playerZ < HOUSE_POOL_TERRACE_RAIL_TOP - 0.06) {
+    if (isOnHouseRoofDeck(row, col, playerZ, gx, gy) && playerZ < HOUSE_POOL_TERRACE_RAIL_TOP - 0.06) {
       return false
     }
   }
@@ -2873,20 +2964,37 @@ function isHousePerimeterRoofCell(row, col) {
   return CIPHER_HOUSE_PERIMETER_KEYS.has(`${row},${col}`)
 }
 
-function isOnHouseRoofDeck(row, col, playerZ) {
+// Perimeter roof tiles sit on wall cells; only the interior half is walkable.
+function isInteriorHalfOfPerimeterCell(row, col, gx, gy) {
+  const { minRow, maxRow, minCol, maxCol } = CIPHER_HOUSE_BOUNDS
+  if (row === minRow && gy < row + 0.52) return false
+  if (row === maxRow && gy > row + 0.48) return false
+  if (col === maxCol && gx > col + 0.52) return false
+  if (col === minCol && gx < col + 0.48) return false
+  return true
+}
+
+function isOnHousePerimeterRoofWalk(row, col, gx, gy, playerZ) {
+  if (!isHousePerimeterRoofCell(row, col)) return false
   if (playerZ < HOUSE_ROOF_LEVEL - 0.35) return false
-  if (isHouseRoofCell(row, col) || isHousePerimeterRoofCell(row, col)) return true
+  return isInteriorHalfOfPerimeterCell(row, col, gx, gy)
+}
+
+function isOnHouseRoofDeck(row, col, playerZ, gx = col + 0.5, gy = row + 0.5) {
+  if (playerZ < HOUSE_ROOF_LEVEL - 0.35) return false
+  if (isHouseRoofCell(row, col)) return true
+  if (isOnHousePerimeterRoofWalk(row, col, gx, gy, playerZ)) return true
   if (cellOverlapsPoolTerrace(row, col) && !cellInsidePoolBasin(row, col)) return true
   return false
 }
 
 // Full-height house shell columns intersect the avatar body on the rooftop deck;
 // skip them when feet are on the walkable roof / terrace ring.
-function houseWallClearsForRooftopWalker(obstacle, row, col, playerZ) {
+function houseWallClearsForRooftopWalker(obstacle, row, col, playerZ, gx = col + 0.5, gy = row + 0.5) {
   if (!obstacle?.isHouse || obstacle.isHouseFloor || obstacle.shape === 'ramp') return false
   if (obstacle.isHouseWindow || obstacle.isHouseDoor) return false
   if (playerZ < HOUSE_ROOF_LEVEL - 0.12) return false
-  if (!isOnHouseRoofDeck(row, col, playerZ)) return false
+  if (!isOnHouseRoofDeck(row, col, playerZ, gx, gy)) return false
   return obstacleTop(obstacle) > HOUSE_ROOF_LEVEL - 0.08
 }
 
@@ -2923,7 +3031,7 @@ function houseUnderPoolCeilingBottom(gx, gy, playerZ) {
   const row = Math.floor(gy)
   const col = Math.floor(gx)
   // On the pool terrace / roof deck the underside slab is below the feet — not a ceiling.
-  if (isOnHouseRoofDeck(row, col, playerZ)) return Infinity
+  if (isOnHouseRoofDeck(row, col, playerZ, gx, gy)) return Infinity
   if (playerZ >= HOUSE_POOL_WALL_TOP - 0.30) return Infinity
   if (!isUnderPoolStructure(gx, gy)) return Infinity
   const inBasin = circleTouchesAabb(gx, gy, HOUSE_POOL_OUTER, PLAYER_R * 0.55)
@@ -2964,7 +3072,7 @@ function playerHeadroomAt(gx, gy, playerZ, cellMap, obsSet) {
   return ceiling - (playerZ + PLAYER_BODY_H)
 }
 
-function houseFloorSupportAt(row, col, playerZ) {
+function houseFloorSupportAt(row, col, playerZ, gx = col + 0.5, gy = row + 0.5) {
   let support = 0
   for (const deck of HOUSE_ACCESS_DECKS) {
     if (deck.row === row && deck.col === col && playerZ >= deck.level - 0.08) {
@@ -2998,7 +3106,7 @@ function houseFloorSupportAt(row, col, playerZ) {
   if (isHouseRoofCell(row, col) && playerZ >= HOUSE_ROOF_LEVEL - 0.30 && !underPoolSlab) {
     support = Math.max(support, HOUSE_ROOF_LEVEL)
   }
-  if (isHousePerimeterRoofCell(row, col) && playerZ >= HOUSE_ROOF_LEVEL - 0.30 && !underPoolSlab) {
+  if (isOnHousePerimeterRoofWalk(row, col, gx, gy, playerZ) && !underPoolSlab) {
     support = Math.max(support, HOUSE_ROOF_LEVEL)
   }
   return support
@@ -3080,7 +3188,7 @@ function hitsSolidWall(gx, gy, cellMap, obsSet, playerZ = 0, playerVz = 0, moveG
       ) {
         continue
       }
-      if (houseWallClearsForRooftopWalker(obstacle, row, col, playerZ)) continue
+      if (houseWallClearsForRooftopWalker(obstacle, row, col, playerZ, gx, gy)) continue
       if (
         isWalkingIntermediateFloorUnderPool(gx, gy, playerZ) &&
         obstacle?.isHouse &&
@@ -3123,7 +3231,7 @@ function supportHeightAt(gx, gy, playerZ, cellMap, obsSet) {
         continue
       }
       const top = solidTopAt(row, col, cellMap, obsSet)
-      const onRoofDeck = isOnHouseRoofDeck(row, col, playerZ)
+      const onRoofDeck = isOnHouseRoofDeck(row, col, playerZ, gx, gy)
       const openingCap = obstacle?.isHouseDoor || obstacle?.isHouseWindow
       let supportTop = openingCap && !onRoofDeck ? HOUSE_EXTERIOR_WALL_TOP : top
       if (onRoofDeck) {
@@ -3137,7 +3245,7 @@ function supportHeightAt(gx, gy, playerZ, cellMap, obsSet) {
       if (supportTop && playerZ >= supportMinZ && circleTouchesCell(gx, gy, row, col, radius)) {
         height = Math.max(height, supportTop)
       }
-      const houseSupport = houseFloorSupportAt(row, col, playerZ)
+      const houseSupport = houseFloorSupportAt(row, col, playerZ, gx, gy)
       const eastEntrySupport = houseEastEntryFloorSupportAt(row, col, gx, playerZ)
       const deckSupport = houseIntermediateDeckSupportAt(row, col, gx, gy, playerZ, obsSet)
       if (
@@ -3172,7 +3280,7 @@ function ceilingBottomAt(gx,gy,playerZ,cellMap,obsSet){
       if (trampolineShaftClearsCeiling(gx, gy, key, span, obs, playerZ, radius)) continue
       if (houseStairSkylightClearsCeiling(gx, gy, playerZ, key, span)) continue
       if(HOUSE_TRAMPOLINE_FLOOR_HOLE.has(key) && span?.bottom >= HOUSE_ROOF_LEVEL - 0.32) continue
-      if(isOnHouseRoofDeck(row,col,playerZ)&&span?.bottom>=HOUSE_ROOF_LEVEL-0.35&&span?.bottom<=HOUSE_ROOF_LEVEL+0.30){
+      if(isOnHouseRoofDeck(row,col,playerZ,gx,gy)&&span?.bottom>=HOUSE_ROOF_LEVEL-0.35&&span?.bottom<=HOUSE_ROOF_LEVEL+0.30){
         continue
       }
       if(ceilingBottomAbovePlayerHead(span?.bottom, playerZ)&&circleTouchesCell(gx,gy,row,col,radius)){
@@ -3617,6 +3725,7 @@ function drawFacingHUD(ctx, W, H, fwdCell, fwdMx, fwdMy, myWallet, es, dist, obs
   if (isObs) {
     const lines = [
       { text: es ? 'PARED' : 'WALL', size: 12, weight: 'bold', col: '#90a0b0' },
+      { text: `${fwdMy},${fwdMx}`, size: 10, col: '#567086' },
       { text: es ? '· no interactivo' : '· non-interactive', size: 10, col: '#445566' },
     ]
     const lineH=15, padX=9, padY=7, ph=lines.length*lineH+padY*2
@@ -5120,7 +5229,8 @@ function addCipherHouseDetails(world, lowDetail = false) {
   }
   ;[
     [4.7,0,0.55],[7.3,0,0.55],      // north entrance — flank the stair base
-    [8.7,0,17.45],[11.3,0,17.45],   // south entrance — flank the stair base
+    [8.7,0,20.45],[11.3,0,20.45],   // south entrance — flank the stair base
+    [20.45,0,7.7],[20.45,0,10.3],   // east entrance — flank the stair base
   ].forEach(([x,y,z])=>addExteriorLamp(x,y,z))
 
   const trimMaterials=[
@@ -5991,7 +6101,7 @@ function rebuildThreeWorld(state,cellMap,obstacles) {
   //  ownedNftjiEntries→ cube, green        — mined block, has NFTJI (RESELL/info)
   //  chainEntries     → sphere, gold       — opens chain formula dialog
   //  portalEntries    → sphere, accent     — redirects to portal section
-  const allBlockEntries=[...cellMap.entries()]
+  const allBlockEntries=[...cellMap.entries()].filter(([key]) => !HOUSE_DOOR_STEP_KEYS.has(key))
   const freeEntries      =allBlockEntries.filter(([,c])=>!c.owner&&!c.isMarket&&!c.isChainNode&&!c.isPortalNode&&!c.isNodeDiceNode)
   const nftjiEntries     =allBlockEntries.filter(([,c])=>c.isMarket&&!c.owner)
   const ownedFreeEntries =allBlockEntries.filter(([,c])=>c.owner&&!c.isMarket)
@@ -6120,6 +6230,7 @@ function rebuildThreeWorld(state,cellMap,obstacles) {
     // House cells (incl. door-step ramps) are handled with house materials/geometry
     // before the organic skip, so doorway ramps don't fall into the biome rock path.
     if(entry[1]?.isHouse){ houseEntries.push(entry); continue }
+    if(HOUSE_DOOR_STEP_KEYS.has(entry[0])) continue
     if(isOrganicShape(entry[1])||entry[1].isColosseumBridge) continue
     const [row,col]=entry[0].split(',').map(Number);boxGroups[biomeForCell(row,col)].push(entry)
   }
@@ -6293,8 +6404,8 @@ function rebuildThreeWorld(state,cellMap,obstacles) {
         ? new THREE.MeshLambertMaterial({color:'#0c2138',emissive:'#0b3a52',emissiveIntensity:.4})
         : new THREE.MeshStandardMaterial({color:'#0c2138',roughness:.5,metalness:.46,emissive:'#0b3a52',emissiveIntensity:.46})
       const exteriorTreadMat=lowD
-        ? new THREE.MeshLambertMaterial({color:'#143452',emissive:'#0891b2',emissiveIntensity:.55})
-        : new THREE.MeshStandardMaterial({color:'#143452',roughness:.38,metalness:.54,emissive:'#0891b2',emissiveIntensity:.62})
+        ? new THREE.MeshLambertMaterial({color:'#143452',emissive:'#0891b2',emissiveIntensity:.55,side:THREE.DoubleSide})
+        : new THREE.MeshStandardMaterial({color:'#143452',roughness:.38,metalness:.54,emissive:'#0891b2',emissiveIntensity:.62,side:THREE.DoubleSide})
       const interiorTreadMat=lowD
         ? new THREE.MeshLambertMaterial({color:'#143452',emissive:'#0891b2',emissiveIntensity:.55,transparent:true,opacity:.82,depthWrite:false})
         : new THREE.MeshStandardMaterial({color:'#143452',roughness:.38,metalness:.54,emissive:'#0891b2',emissiveIntensity:.62,transparent:true,opacity:.82,depthWrite:false})
@@ -6303,88 +6414,103 @@ function rebuildThreeWorld(state,cellMap,obstacles) {
       const doorStepKeys=new Set(houseGroups.doorStep.map(([key])=>key))
       for(const [key,obstacle] of houseGroups.doorStep){
         const [row,col]=key.split(',').map(Number)
-        const dir=obstacle.direction
+        const stepDir=obstacle.direction||HOUSE_DOOR_STEP_DIR_BY_KEY.get(key)||'west'
         const bottom=obstacleBottom(obstacle)
         const top=Math.max(bottom+.02,obstacleTop(obstacle))
         const span=top-bottom
-        const interiorStair=Boolean(obstacle.isHouseDoorStep)
-        if (interiorStair && cellInsidePoolBasin(row, col)) continue
-        if (!interiorStair && cellInsidePoolBasin(row, col)) continue
-        const stepsPerCell=interiorStair?HOUSE_STAIR_STEPS_PER_CELL:STEPS_PER_CELL
+        const interiorPoolStair=isInteriorPoolStairCell(row,col)
+        if (interiorPoolStair && cellInsidePoolBasin(row, col)) continue
+        const stepsPerCell=interiorPoolStair?HOUSE_STAIR_STEPS_PER_CELL:STEPS_PER_CELL
         const depth=1/stepsPerCell
-        const alongZ=(dir==='north'||dir==='south')
+        const alongZ=(stepDir==='north'||stepDir==='south')
         const firstInteriorRow=HOUSE_INTERIOR_STAIR_CELLS[0]?.row
         const lastInteriorRow=HOUSE_INTERIOR_STAIR_CELLS[HOUSE_INTERIOR_STAIR_CELLS.length-1]?.row
-        if (interiorStair && row === firstInteriorRow) {
+        if (interiorPoolStair && row === firstInteriorRow) {
           const treadHeight=.025
           const landingBridge=new THREE.Mesh(new THREE.BoxGeometry(.96,treadHeight,.28),interiorTreadMat)
           landingBridge.position.set(col+.5,bottom+treadHeight*.5,row-.06)
           world.add(landingBridge)
         }
         for(let s=0;s<stepsPerCell;s++){
+          const stepBottom=bottom+span*(s/stepsPerCell)
           const stepTop=bottom+span*((s+1)/stepsPerCell)
-          if (!interiorStairTreadVisible(row, col, stepTop, interiorStair)) continue
-          const o=(s+.5)*depth
-          const xc=alongZ?(col+.5):(dir==='west'?(col+1-o):(col+o))
-          const zc=alongZ?(dir==='north'?(row+1-o):(row+o)):(row+.5)
-          const sx=alongZ?.96:depth*.99
-          const sz=alongZ?depth*.99:.96
-          if(!interiorStair){
-            const riser=new THREE.Mesh(new THREE.BoxGeometry(sx,Math.max(.02,stepTop),sz),riserMat)
-            riser.position.set(xc,stepTop*.5,zc)
-            riser.userData.avatarFadeOccluder=true
+          if (!interiorStairTreadVisible(row, col, stepTop, interiorPoolStair)) continue
+          let xc, zc, sx, sz
+          if (alongZ) {
+            const o=(s+.5)*depth
+            xc=col+.5
+            zc=stepDir==='north'?(row+1-o):(row+o)
+            sx=.96
+            sz=depth*.99
+          } else if (interiorPoolStair) {
+            const o=(s+.5)*depth
+            xc=stepDir==='west'?(col+1-o):(col+o)
+            zc=row+.5
+            sx=depth*.99
+            sz=.96
+          } else {
+            // Exterior north/south — tile the full cell so treads do not float with gaps.
+            const t0=s/stepsPerCell
+            const t1=(s+1)/stepsPerCell
+            const xStart=stepDir==='west'?col+1-t0:col+t0
+            const xEnd=stepDir==='west'?col+1-t1:col+t1
+            xc=(xStart+xEnd)*.5
+            sx=Math.max(.04,Math.abs(xEnd-xStart)*.995)
+            zc=row+.5
+            sz=.96
+          }
+          if(!interiorPoolStair){
+            const riserHeight=Math.max(.02,stepTop-stepBottom)
+            const riser=new THREE.Mesh(new THREE.BoxGeometry(sx,riserHeight,sz),riserMat)
+            riser.position.set(xc,stepBottom+riserHeight*.5,zc)
+            if (!interiorPoolStair) riser.renderOrder=11
             world.add(riser)
           }
-          const treadHeight=interiorStair?.025:.04
-          const treadMaterial=interiorStair?interiorTreadMat:exteriorTreadMat
+          const treadHeight=interiorPoolStair?.025:.04
+          const treadMaterial=interiorPoolStair?interiorTreadMat:exteriorTreadMat
           const tread=new THREE.Mesh(new THREE.BoxGeometry(sx,treadHeight,sz),treadMaterial)
           tread.position.set(xc,stepTop-treadHeight*.5,zc)
+          if (!interiorPoolStair) tread.renderOrder=12
           world.add(tread)
-          if(!lowD&&!interiorStair){
-            const noseX=alongZ?xc:(dir==='west'?(xc+depth*.5):(xc-depth*.5))
-            const noseZ=alongZ?(dir==='north'?(zc+depth*.5):(zc-depth*.5)):zc
+          if(!lowD&&!interiorPoolStair){
+            const noseX=alongZ
+              ? xc
+              : (stepDir==='west'?Math.min(col+1,xc+sx*.5):Math.max(col,xc-sx*.5))
+            const noseZ=alongZ
+              ? (stepDir==='north'?(zc+depth*.5):(zc-depth*.5))
+              : zc
             const nose=new THREE.Mesh(new THREE.BoxGeometry(alongZ?.9:.05,.02,alongZ?.05:.9),noseMat)
             nose.position.set(noseX,stepTop+.012,noseZ)
             world.add(nose)
           }
         }
-        const nextRow=dir==='south'?row+1:dir==='north'?row-1:row
-        const nextCol=dir==='east'?col+1:dir==='west'?col-1:col
+        const nextRow=stepDir==='south'?row+1:stepDir==='north'?row-1:row
+        const nextCol=stepDir==='east'?col+1:stepDir==='west'?col-1:col
         if(doorStepKeys.has(`${nextRow},${nextCol}`)){
-          const treadHeight=interiorStair?.025:.04
-          const treadMaterial=interiorStair?interiorTreadMat:exteriorTreadMat
+          const treadHeight=interiorPoolStair?.025:.04
+          const treadMaterial=interiorPoolStair?interiorTreadMat:exteriorTreadMat
           let bx=col+.5, bz=row+.5, bsx=.96, bsz=.18
-          if(dir==='south'){ bz=row+1 }
-          else if(dir==='north'){ bz=row }
-          else if(dir==='east'){ bx=col+1; bsx=.18; bsz=.96 }
-          else if(dir==='west'){ bx=col; bsx=.18; bsz=.96 }
+          if(stepDir==='south'){ bz=row+1 }
+          else if(stepDir==='north'){ bz=row }
+          else if(stepDir==='east'){ bx=col+1; bsx=.18; bsz=.96 }
+          else if(stepDir==='west'){ bx=col; bsx=.18; bsz=.96 }
           const bridge=new THREE.Mesh(new THREE.BoxGeometry(bsx,treadHeight,bsz),treadMaterial)
           bridge.position.set(bx,top-treadHeight*.5,bz)
+          if (!interiorPoolStair) bridge.renderOrder=12
           world.add(bridge)
-        } else if (!interiorStair && dir === 'west' && isHouseEastEntryThresholdCell(nextRow, nextCol)) {
+        } else if (
+          !interiorPoolStair &&
+          stepDir === 'west' &&
+          isHouseEastEntryThresholdCell(row, col) &&
+          nextCol === HOUSE_EAST_ENTRY_FLOOR_EXTENSION_COL &&
+          HOUSE_EAST_ENTRY_FLOOR_EXTENSION_ROWS.has(row)
+        ) {
+          // Threshold (col 13) → interior floor bridge (col 12).
           const treadHeight = .04
-          const landingSteps = STEPS_PER_CELL
-          const gapBottom = top
-          const gapTop = HOUSE_MAIN_FLOOR_LEVEL
-          const gapSpan = Math.max(.02, gapTop - gapBottom)
-          for (let s = 0; s < landingSteps; s += 1) {
-            const stepTop = gapBottom + gapSpan * ((s + 1) / landingSteps)
-            const xc = col + 1 - (s + 0.5) / landingSteps
-            const sx = 1 / landingSteps * .99
-            const riser = new THREE.Mesh(new THREE.BoxGeometry(sx, Math.max(.02, stepTop), .96), riserMat)
-            riser.position.set(xc, stepTop * .5, row + .5)
-            riser.userData.avatarFadeOccluder = true
-            world.add(riser)
-            const tread = new THREE.Mesh(new THREE.BoxGeometry(sx, treadHeight, .96), exteriorTreadMat)
-            tread.position.set(xc, stepTop - treadHeight * .5, row + .5)
-            world.add(tread)
-            if (!lowD) {
-              const nose = new THREE.Mesh(new THREE.BoxGeometry(sx * .92, .02, .05), noseMat)
-              nose.position.set(xc - sx * .46, stepTop + .012, row + .5)
-              world.add(nose)
-            }
-          }
-        } else if(interiorStair){
+          const landing = new THREE.Mesh(new THREE.BoxGeometry(.96, treadHeight, .96), exteriorTreadMat)
+          landing.position.set(col - 0.48, top - treadHeight * .5, row + .5)
+          world.add(landing)
+        } else if(interiorPoolStair){
           const treadHeight=.025
           const isLastClimbCell=row===lastInteriorRow
           const poolLip=HOUSE_POOL_OUTER.minZ
@@ -6394,6 +6520,26 @@ function rebuildThreeWorld(state,cellMap,obstacles) {
           const landingDepth=isLastClimbCell?.24:.34
           const landing=new THREE.Mesh(new THREE.BoxGeometry(.96,treadHeight,landingDepth),interiorTreadMat)
           landing.position.set(col+.5,top-treadHeight*.5,landingZ)
+          world.add(landing)
+        } else if (
+          !interiorPoolStair &&
+          bottom < 0.02 &&
+          !doorStepKeys.has(exteriorDoorStepNeighbor(row, col, stepDir))
+        ) {
+          // Ground lip — lowest exterior tread meets y=0 like the north entrance.
+          const treadHeight = .04
+          let lx = col + .5
+          let lz = row + .5
+          let lsx = .96
+          let lsz = .96
+          if (alongZ) {
+            lz = stepDir === 'north' ? row + .92 : row + .08
+          } else {
+            lx = stepDir === 'west' ? col + .92 : col + .08
+          }
+          const landing = new THREE.Mesh(new THREE.BoxGeometry(lsx, treadHeight, lsz), exteriorTreadMat)
+          landing.position.set(lx, treadHeight * .5, lz)
+          landing.renderOrder = 12
           world.add(landing)
         }
       }
@@ -7269,6 +7415,7 @@ export default function MiningChain3DFPV({
     const valid = new Map()
     for (const [key, data] of OBSTACLE_MAP) {
       const [row,col]=key.split(',').map(Number)
+      if (HOUSE_DOOR_STEP_KEYS.has(key)) continue
       const insideHouse=
         row>=CIPHER_HOUSE_BOUNDS.minRow&&row<=CIPHER_HOUSE_BOUNDS.maxRow&&
         col>=CIPHER_HOUSE_BOUNDS.minCol&&col<=CIPHER_HOUSE_BOUNDS.maxCol
@@ -7289,6 +7436,7 @@ export default function MiningChain3DFPV({
       for(let c=CIPHER_HOUSE_BOUNDS.minCol;c<=CIPHER_HOUSE_BOUNDS.maxCol;c++) reserved.add(`${r},${c}`)
     }
     for(const key of CIPHER_HOUSE_APPROACH_CELLS) reserved.add(key)
+    for (const key of HOUSE_DOOR_STEP_KEYS) reserved.add(key)
     for(let r=CIPHER_HOUSE_BOUNDS.minRow-CIPHER_HOUSE_APPROACH_BUFFER;r<=CIPHER_HOUSE_BOUNDS.maxRow+CIPHER_HOUSE_APPROACH_BUFFER;r++){
       for(let c=CIPHER_HOUSE_BOUNDS.minCol-CIPHER_HOUSE_APPROACH_BUFFER;c<=CIPHER_HOUSE_BOUNDS.maxCol+CIPHER_HOUSE_APPROACH_BUFFER;c++){
         reserved.add(`${r},${c}`)
@@ -7331,21 +7479,7 @@ export default function MiningChain3DFPV({
     addDenseMaze(valid,reserved,cellMap)
     addOrganicObstacles(valid,reserved,cellMap)
     clearCipherHouseApproaches(valid)
-    for (const step of [...HOUSE_DOOR_STEP_CELLS, ...HOUSE_INTERIOR_STAIR_CELLS]) {
-      const isFlat = Boolean(step.flatLanding)
-      valid.set(step.key, chainObstacle(step.key, {
-        base: HOUSE_BLUE_RGB,
-        glow: [103, 232, 249],
-        kind: 'hash',
-        label: step.label || 'CIPHER STEP',
-        bottom: step.bottom,
-        height: step.top,
-        ...(isFlat ? {} : { shape: 'ramp', direction: step.dir }),
-        isHouse: true,
-        isHouseFloor: true,
-        isHouseDoorStep: !isFlat,
-      }))
-    }
+    applyHouseDoorStepObstacles(valid)
 
     // Build a small number of deterministic staircases beside isolated tall
     // obstacles. Each cube is a real collision/support surface, so players can
@@ -7388,6 +7522,7 @@ export default function MiningChain3DFPV({
       }
     }
     ensureInteractiveConnectivity(valid,cellMap)
+    applyHouseDoorStepObstacles(valid)
     validObstaclesRef.current = valid
     obstaclesReadyRef.current = true
     rebuildThreeRef.current?.()
@@ -8694,6 +8829,27 @@ export default function MiningChain3DFPV({
       ctx.globalAlpha = pulse; ctx.strokeStyle = '#ef4444'; ctx.lineWidth = 1.5
       ctx.beginPath(); ctx.arc(W/2, viewCenterY, 20, 0, Math.PI*2); ctx.stroke()
       ctx.globalAlpha = 1
+    }
+
+    // Grid coords — row,col of the player (matches minimap / code).
+    {
+      const playerLabel = `${gr},${gc} · z ${rawZ.toFixed(2)}`
+      ctx.font = '10px monospace'
+      ctx.textAlign = 'center'
+      ctx.textBaseline = 'top'
+      ctx.fillStyle = 'rgba(0,0,0,.72)'
+      ctx.fillText(playerLabel, W/2 + 1, viewCenterY + xhLen + xhGap + 10)
+      ctx.fillStyle = '#67e8f9'
+      ctx.fillText(playerLabel, W/2, viewCenterY + xhLen + xhGap + 9)
+      if (isMiningDevGrid()) {
+        ctx.textAlign = 'right'
+        ctx.textBaseline = 'top'
+        ctx.font = '8px monospace'
+        ctx.fillStyle = 'rgba(0,0,0,.55)'
+        ctx.fillText('mm3_dev · fila,col = row,col', W - 7, H - 28)
+        ctx.fillStyle = '#64748b'
+        ctx.fillText('mm3_dev · fila,col = row,col', W - 8, H - 29)
+      }
     }
 
     // ── Chain node compass (when within 13 cells, not facing it) ─────────────
