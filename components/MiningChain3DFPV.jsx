@@ -4149,14 +4149,13 @@ function drawWalletDock(ctx, W, H, myNftjis, health, es, isLoggedWallet) {
 
 function drawChainStats(ctx, W, H, stats, es, top = 8) {
   if (!stats) return
-  const { owned, marketFree, marketOwned, total, pct } = stats
-  const blocksMined = owned - marketOwned          // regular blocks with owner
-  const blocksFree  = total - owned - marketFree   // regular blocks without owner
+  const { owned, marketOwned, totalRegular, totalNFTJI, pct } = stats
+  const regularMined = owned - marketOwned
 
   const lines = [
     { label: 'MM3 BLOCK CHAIN',    val: null, header: true },
-    { label: 'Regular Blocks',     val: `${blocksMined} / ${blocksFree}` },
-    { label: 'NFTJI Blocks',       val: `${marketOwned} / ${marketFree}` },
+    { label: 'Regular Blocks',     val: `${regularMined} / ${totalRegular}` },
+    { label: 'NFTJI Blocks',       val: `${marketOwned} / ${totalNFTJI}` },
   ]
 
   const LINE_H = 13, PAD_X = 8, PAD_Y = 6
@@ -7404,13 +7403,14 @@ export default function MiningChain3DFPV({
   }, [cellMap])
 
   useEffect(()=>{
-    let owned=0, marketFree=0, marketOwned=0
+    let owned=0, marketFree=0, marketOwned=0, totalRegular=0, totalNFTJI=0
     for (const cell of cellMap.values()) {
-      if (cell.owner) { owned++; if (cell.isMarket) marketOwned++ }
-      else if (cell.isMarket) marketFree++
+      if (cell.isMarket) { totalNFTJI++; if (cell.owner) marketOwned++; else marketFree++ }
+      else if (!cell.isChainNode && !cell.isPortalNode && !cell.isNodeDiceNode && !cell.isObstacle) totalRegular++
+      if (cell.owner) owned++
     }
-    const total = MM3_BLOCK_GRID_ROWS * MM3_BLOCK_GRID_COLS
-    chainStatsRef.current = { owned, marketFree, marketOwned, total, pct: Math.round(owned/total*100) }
+    const totalMineable = totalRegular + totalNFTJI
+    chainStatsRef.current = { owned, marketOwned, totalRegular, totalNFTJI, totalMineable, pct: totalMineable > 0 ? Math.round(owned/totalMineable*100) : 0 }
   },[cellMap])
 
   const onPositionRealtimeRef = useRef(onPositionRealtime)
