@@ -5975,7 +5975,7 @@ function rebuildThreeWorld(state,cellMap,obstacles) {
   const lowDetail=isCoarsePointerDevice()
   addBiomeGround(world,state.textures)
   addCryptoColosseum(world,lowDetail)
-  addCipherHouseDetails(world)
+  if(!lowDetail) addCipherHouseDetails(world)
   addBiomeLandmarks(world,state.textures,lowDetail)
   // ── Block + node groups ───────────────────────────────────────────────────────
   // Each interactive type gets its own material & shape so players can tell them apart.
@@ -7080,7 +7080,7 @@ export default function MiningChain3DFPV({
     const scene=new THREE.Scene()
     scene.background=new THREE.Color('#020617')
     scene.fog=new THREE.FogExp2('#07132c',.018)
-    const camera=new THREE.PerspectiveCamera(58,1,.05,100)
+    const camera=new THREE.PerspectiveCamera(58,1,.05,coarse?28:100)
     const hudScene=new THREE.Scene()
     // Perspective camera for 3D avatar — positioned slightly above-right-front for a 3/4 hero pose
     const hudCamera=new THREE.PerspectiveCamera(42,1,0.05,10)
@@ -7098,7 +7098,8 @@ export default function MiningChain3DFPV({
     const infernoLight=new THREE.PointLight('#ff4b12',24,25,1.45);infernoLight.position.set(42,5,42);scene.add(infernoLight)
     if(isCoarsePointerDevice()){
       iceLight.intensity=0;coastLight.intensity=0;infernoLight.intensity=0
-      scene.fog.density=.014
+      // Dense fog hides the shorter far plane (28u vs 100u) so the cutoff is invisible
+      scene.fog.density=.055
     }
     const floor=new THREE.Mesh(new THREE.PlaneGeometry(COLS,ROWS),new THREE.MeshStandardMaterial({color:'#07101f',roughness:.98,metalness:.02}))
     floor.rotation.x=-Math.PI/2;floor.position.set(COLS/2,-.012,ROWS/2);scene.add(floor)
@@ -8928,7 +8929,7 @@ export default function MiningChain3DFPV({
       // On high-DPI desktop we allow supersampling up to 1.4× for extra sharpness.
       let webglDpr
       if (isMobilePortrait || isPortraitTablet) {
-        webglDpr = 0.75  // 0.75× CSS pixels → 44% fewer WebGL pixels, tolerable blur on small screens
+        webglDpr = 1.0   // 1:1 CSS pixels — no blur; CPU bottleneck is draw calls, not fill rate
       } else {
         const pixels = cssW * cssH
         const dprCap = pixels > 1600000 ? 1.1 : 1.4
