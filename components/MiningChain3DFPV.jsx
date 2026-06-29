@@ -4581,49 +4581,124 @@ function seededUnit(seed) {
   return value-Math.floor(value)
 }
 
-function createProceduralTexture(kind,size=128) {
-  const canvas=document.createElement('canvas');canvas.width=size;canvas.height=size
-  const ctx=canvas.getContext('2d'),image=ctx.createImageData(size,size),data=image.data
-  const palettes={
-    mountain:[[28,54,78],[51,85,112],[93,126,150]],
-    coast:[[176,126,66],[218,174,101],[242,207,139]],
-    ice:[[69,151,196],[136,214,241],[224,249,255]],
-    inferno:[[64,12,14],[132,28,19],[225,68,25]],
-    crypto:[[18,44,68],[36,83,112],[74,151,174]],
+function renderProceduralTextureCanvas(kind, size = 128) {
+  const canvas = document.createElement('canvas')
+  canvas.width = size
+  canvas.height = size
+  const ctx = canvas.getContext('2d')
+  const image = ctx.createImageData(size, size)
+  const data = image.data
+  const palettes = {
+    mountain: [[28, 54, 78], [51, 85, 112], [93, 126, 150]],
+    coast: [[176, 126, 66], [218, 174, 101], [242, 207, 139]],
+    ice: [[69, 151, 196], [136, 214, 241], [224, 249, 255]],
+    inferno: [[64, 12, 14], [132, 28, 19], [225, 68, 25]],
+    crypto: [[18, 44, 68], [36, 83, 112], [74, 151, 174]],
   }
-  const palette=palettes[kind]||palettes.crypto
-  for(let y=0;y<size;y++) for(let x=0;x<size;x++){
-    const grain=seededUnit(x*71+y*191+kind.length*997)
-    const wave=(Math.sin(x*.22)+Math.sin(y*.17)+Math.sin((x+y)*.08))/6+.5
-    const index=Math.min(palette.length-1,Math.floor((grain*.42+wave*.58)*palette.length))
-    const base=palette[index],offset=(grain-.5)*22,i=(y*size+x)*4
-    data[i]=Math.max(0,Math.min(255,base[0]+offset));data[i+1]=Math.max(0,Math.min(255,base[1]+offset));data[i+2]=Math.max(0,Math.min(255,base[2]+offset));data[i+3]=255
-  }
-  ctx.putImageData(image,0,0)
-  ctx.globalAlpha=.34
-  if(kind==='ice'){
-    ctx.strokeStyle='#e6fbff';ctx.lineWidth=1
-    for(let index=0;index<28;index++){
-      const x=seededUnit(index+20)*size,y=seededUnit(index+60)*size
-      ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x+(seededUnit(index+90)-.5)*34,y+(seededUnit(index+120)-.5)*34);ctx.stroke()
+  const palette = palettes[kind] || palettes.crypto
+  for (let y = 0; y < size; y += 1) {
+    for (let x = 0; x < size; x += 1) {
+      const grain = seededUnit(x * 71 + y * 191 + kind.length * 997)
+      const wave = (Math.sin(x * .22) + Math.sin(y * .17) + Math.sin((x + y) * .08)) / 6 + .5
+      const index = Math.min(palette.length - 1, Math.floor((grain * .42 + wave * .58) * palette.length))
+      const base = palette[index]
+      const offset = (grain - .5) * 22
+      const i = (y * size + x) * 4
+      data[i] = Math.max(0, Math.min(255, base[0] + offset))
+      data[i + 1] = Math.max(0, Math.min(255, base[1] + offset))
+      data[i + 2] = Math.max(0, Math.min(255, base[2] + offset))
+      data[i + 3] = 255
     }
-  }else if(kind==='inferno'){
-    ctx.strokeStyle='#ff8a1f';ctx.lineWidth=2
-    for(let index=0;index<18;index++){
-      const y=seededUnit(index+30)*size
-      ctx.beginPath();ctx.moveTo(0,y);ctx.bezierCurveTo(size*.3,y-8,size*.65,y+10,size,y-3);ctx.stroke()
-    }
-  }else if(kind==='coast'){
-    ctx.fillStyle='#fff1bd'
-    for(let index=0;index<150;index++) ctx.fillRect(seededUnit(index+10)*size,seededUnit(index+410)*size,1,1)
-  }else{
-    ctx.strokeStyle='#76d9ed';ctx.lineWidth=1
-    for(let x=0;x<size;x+=16){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,size);ctx.stroke()}
-    for(let y=0;y<size;y+=16){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(size,y);ctx.stroke()}
   }
-  const texture=new THREE.CanvasTexture(canvas)
-  texture.colorSpace=THREE.SRGBColorSpace;texture.wrapS=texture.wrapT=THREE.RepeatWrapping
-  texture.repeat.set(5,5);texture.anisotropy=4
+  ctx.putImageData(image, 0, 0)
+  ctx.globalAlpha = .34
+  if (kind === 'ice') {
+    ctx.strokeStyle = '#e6fbff'
+    ctx.lineWidth = 1
+    for (let index = 0; index < 28; index += 1) {
+      const x = seededUnit(index + 20) * size
+      const y = seededUnit(index + 60) * size
+      ctx.beginPath()
+      ctx.moveTo(x, y)
+      ctx.lineTo(x + (seededUnit(index + 90) - .5) * 34, y + (seededUnit(index + 120) - .5) * 34)
+      ctx.stroke()
+    }
+  } else if (kind === 'inferno') {
+    ctx.strokeStyle = '#ff8a1f'
+    ctx.lineWidth = 2
+    for (let index = 0; index < 22; index += 1) {
+      const px = seededUnit(index + 30) * size
+      const py = seededUnit(index + 50) * size
+      const len = 14 + seededUnit(index + 70) * 24
+      const angle = (seededUnit(index + 90) - .5) * Math.PI * .8
+      ctx.beginPath()
+      ctx.moveTo(px, py)
+      ctx.lineTo(px + Math.cos(angle) * len, py + Math.sin(angle) * len)
+      ctx.stroke()
+    }
+  } else if (kind === 'coast') {
+    ctx.fillStyle = '#fff1bd'
+    for (let index = 0; index < 150; index += 1) {
+      ctx.fillRect(seededUnit(index + 10) * size, seededUnit(index + 410) * size, 1, 1)
+    }
+  } else {
+    ctx.strokeStyle = '#76d9ed'
+    ctx.lineWidth = 1
+    for (let x = 0; x < size; x += 16) {
+      ctx.beginPath()
+      ctx.moveTo(x, 0)
+      ctx.lineTo(x, size)
+      ctx.stroke()
+    }
+    for (let y = 0; y < size; y += 16) {
+      ctx.beginPath()
+      ctx.moveTo(0, y)
+      ctx.lineTo(size, y)
+      ctx.stroke()
+    }
+  }
+  ctx.globalAlpha = 1
+  return canvas
+}
+
+function createProceduralTexture(kind, size = 128) {
+  const texture = new THREE.CanvasTexture(renderProceduralTextureCanvas(kind, size))
+  texture.colorSpace = THREE.SRGBColorSpace
+  texture.wrapS = texture.wrapT = THREE.RepeatWrapping
+  texture.repeat.set(5, 5)
+  texture.anisotropy = 4
+  return texture
+}
+
+function tintCanvas(canvas, hex) {
+  const ctx = canvas.getContext('2d')
+  ctx.globalCompositeOperation = 'multiply'
+  ctx.fillStyle = hex
+  ctx.fillRect(0, 0, canvas.width, canvas.height)
+  ctx.globalCompositeOperation = 'source-over'
+}
+
+// One 2×2 atlas — matches biomeForCell quadrants, single ground plane (no z-fighting).
+function createBiomeAtlasTexture(quadSize = 256) {
+  const atlas = document.createElement('canvas')
+  atlas.width = quadSize * 2
+  atlas.height = quadSize * 2
+  const ctx = atlas.getContext('2d')
+  const layout = [
+    ['ice', 0, 0],
+    ['inferno', quadSize, 0],
+    ['mountain', 0, quadSize],
+    ['coast', quadSize, quadSize],
+  ]
+  for (const [biome, x, y] of layout) {
+    const tile = renderProceduralTextureCanvas(biome, quadSize)
+    tintCanvas(tile, BIOME_GROUND[biome].color)
+    ctx.drawImage(tile, x, y)
+  }
+  const texture = new THREE.CanvasTexture(atlas)
+  texture.colorSpace = THREE.SRGBColorSpace
+  texture.wrapS = texture.wrapT = THREE.ClampToEdgeWrapping
+  texture.anisotropy = 4
   return texture
 }
 
@@ -4719,22 +4794,26 @@ function addNightDome(scene, lowDetail=false) {
   // end !lowDetail
 }
 
-function addBiomeGround(world,textures) {
-  const quadrantSize=ROWS/2
-  for(const [biome,cx,cz] of [['mountain',14,14],['coast',42,14],['ice',14,42],['inferno',42,42]]){
-    const ground=BIOME_GROUND[biome]
-    const material=new THREE.MeshStandardMaterial({
-      map:textures[biome],
-      color:ground.color,
-      roughness:ground.roughness,
-      metalness:ground.metalness,
-      emissive:ground.emissive,
-      emissiveIntensity:ground.emissiveIntensity,
-    })
-    const plane=new THREE.Mesh(new THREE.PlaneGeometry(quadrantSize-.12,quadrantSize-.12),material)
-    plane.rotation.x=-Math.PI/2;plane.position.set(cx,.002,cz)
-    plane.userData.skipOcclusion=true;world.add(plane)
-  }
+function addBiomeGround(world, textures) {
+  const atlas = createBiomeAtlasTexture()
+  const ground = new THREE.Mesh(
+    new THREE.PlaneGeometry(COLS, ROWS),
+    new THREE.MeshStandardMaterial({
+      map: atlas,
+      color: '#ffffff',
+      roughness: .58,
+      metalness: .12,
+      emissive: '#061018',
+      emissiveIntensity: .20,
+      polygonOffset: true,
+      polygonOffsetFactor: 1,
+      polygonOffsetUnits: 1,
+    }),
+  )
+  ground.rotation.x = -Math.PI / 2
+  ground.position.set(COLS / 2, 0, ROWS / 2)
+  ground.userData.skipOcclusion = true
+  world.add(ground)
   const houseGroundTexture=createHouseGroundTexture()
   const houseGroundMaterial=new THREE.MeshStandardMaterial({
     map:houseGroundTexture,
@@ -4743,6 +4822,9 @@ function addBiomeGround(world,textures) {
     metalness:.14,
     emissive:'#061521',
     emissiveIntensity:.24,
+    polygonOffset:true,
+    polygonOffsetFactor:-2,
+    polygonOffsetUnits:-2,
   })
   const houseGroundW=CIPHER_HOUSE_BOUNDS.maxCol-CIPHER_HOUSE_BOUNDS.minCol-1
   const houseGroundH=CIPHER_HOUSE_BOUNDS.maxRow-CIPHER_HOUSE_BOUNDS.minRow-1
@@ -4758,11 +4840,17 @@ function addBiomeGround(world,textures) {
   world.add(houseGround)
   const routeMaterial=new THREE.MeshBasicMaterial({color:'#22d3ee',transparent:true,opacity:.18,depthWrite:false})
   const routeA=new THREE.Mesh(new THREE.PlaneGeometry(COLS,.42),routeMaterial)
-  routeA.rotation.x=-Math.PI/2;routeA.position.set(COLS/2,.006,ROWS/2)
+  routeA.rotation.x=-Math.PI/2;routeA.position.set(COLS/2,.008,ROWS/2)
   routeA.userData.skipOcclusion=true;world.add(routeA)
-  const routeB=new THREE.Mesh(new THREE.PlaneGeometry(.42,ROWS),routeMaterial)
-  routeB.rotation.x=-Math.PI/2;routeB.position.set(COLS/2,.007,ROWS/2)
-  routeB.userData.skipOcclusion=true;world.add(routeB)
+  // Split routeB into two segments that stop where routeA begins,
+  // avoiding the double-opacity overlap at the 4 centre cells.
+  const _rHalf=.21,_rSeg=ROWS/2-_rHalf
+  const routeBN=new THREE.Mesh(new THREE.PlaneGeometry(.42,_rSeg),routeMaterial)
+  routeBN.rotation.x=-Math.PI/2;routeBN.position.set(COLS/2,.008,_rSeg/2)
+  routeBN.userData.skipOcclusion=true;world.add(routeBN)
+  const routeBS=new THREE.Mesh(new THREE.PlaneGeometry(.42,_rSeg),routeMaterial)
+  routeBS.rotation.x=-Math.PI/2;routeBS.position.set(COLS/2,.008,ROWS-_rSeg/2)
+  routeBS.userData.skipOcclusion=true;world.add(routeBS)
 }
 
 function addArenaWeapon(arena, cx, cz) {
@@ -5643,13 +5731,14 @@ function makeSurroundSeaMaterial(lowDetail) {
 
 function addIslandSurroundCoast(world, textures, lowDetail = false) {
   const seaDepth = lowDetail ? 18 : 26
-  const beachDepth = 3.4
+  // One border-cell strip only — old beachDepth=3.4 overlapped rows/cols 1+ (z-fighting).
+  const borderStrip = 0.90
+  const shoreY = -0.04
   const innerMin = 1
   const innerMax = COLS - 2
   const islandSpan = innerMax - innerMin + 1
   const islandCenter = (innerMin + innerMax) * .5
   const halfSpan = islandSpan * .5
-  const halfBeachWidth = halfSpan + beachDepth * .5
   const westHalfX = innerMin + halfSpan * .5
   const eastHalfX = innerMin + halfSpan + halfSpan * .5
   const northHalfZ = innerMin + halfSpan * .5
@@ -5674,8 +5763,8 @@ function addIslandSurroundCoast(world, textures, lowDetail = false) {
     world.add(mesh)
     if (foam) {
       const alongShore = width >= depth
-      const foamW = alongShore ? width * .96 : Math.max(width * .34, beachDepth * .85)
-      const foamD = alongShore ? Math.max(depth * .32, beachDepth * .85) : depth * .96
+      const foamW = alongShore ? width * .96 : Math.max(width * .34, borderStrip * .85)
+      const foamD = alongShore ? Math.max(depth * .32, borderStrip * .85) : depth * .96
       const foamStrip = new THREE.Mesh(
         new THREE.PlaneGeometry(foamW, foamD),
         foamMat,
@@ -5687,37 +5776,36 @@ function addIslandSurroundCoast(world, textures, lowDetail = false) {
     }
   }
 
-  const northBeachZ = innerMin - beachDepth * .5
-  const northSeaZ = innerMin - beachDepth - seaDepth * .5
-  const southBeachZ = innerMax + beachDepth * .5
-  const southSeaZ = innerMax + beachDepth + seaDepth * .5
-  const westBeachX = innerMin - beachDepth * .5
-  const westSeaX = innerMin - beachDepth - seaDepth * .5
-  const eastBeachX = innerMax + beachDepth * .5
-  const eastSeaX = innerMax + beachDepth + seaDepth * .5
-
-  const ringWidth = islandSpan + beachDepth * 2
-  const ringHeight = islandSpan + beachDepth * 2
+  const northBeachZ = borderStrip * .5
+  const southBeachZ = COLS - 1 - borderStrip * .5
+  const westBeachX = borderStrip * .5
+  const eastBeachX = COLS - 1 - borderStrip * .5
+  const northSeaZ = northBeachZ - borderStrip * .5 - seaDepth * .5 - 0.35
+  const southSeaZ = southBeachZ + borderStrip * .5 + seaDepth * .5 + 0.35
+  const westSeaX = westBeachX - borderStrip * .5 - seaDepth * .5 - 0.35
+  const eastSeaX = eastBeachX + borderStrip * .5 + seaDepth * .5 + 0.35
+  const ringWidth = islandSpan
+  const ringHeight = islandSpan
 
   // North shore — gravel (mountain) west, golden sand (coast) east.
-  addShore({ width: halfBeachWidth, depth: beachDepth, x: westHalfX, z: northBeachZ, material: makeSandMaterial(textures, 'mountain'), y: -.004 })
-  addShore({ width: halfBeachWidth, depth: beachDepth, x: eastHalfX, z: northBeachZ, material: makeSandMaterial(textures, 'coast'), y: -.004 })
-  addShore({ width: ringWidth, depth: seaDepth, x: islandCenter, z: northSeaZ, material: seaMat, y: .014, water: true, foam: true, foamDz: seaDepth * .28 })
+  addShore({ width: halfSpan, depth: borderStrip, x: westHalfX, z: northBeachZ, material: makeSandMaterial(textures, 'mountain'), y: shoreY })
+  addShore({ width: halfSpan, depth: borderStrip, x: eastHalfX, z: northBeachZ, material: makeSandMaterial(textures, 'coast'), y: shoreY })
+  addShore({ width: ringWidth, depth: seaDepth, x: islandCenter, z: northSeaZ, material: seaMat, y: shoreY + .02, water: true, foam: true, foamDz: seaDepth * .28 })
 
   // South — icy shore west, volcanic ash east.
-  addShore({ width: halfBeachWidth, depth: beachDepth, x: westHalfX, z: southBeachZ, material: makeSandMaterial(textures, 'ice'), y: -.004 })
-  addShore({ width: halfBeachWidth, depth: beachDepth, x: eastHalfX, z: southBeachZ, material: makeSandMaterial(textures, 'inferno'), y: -.004 })
-  addShore({ width: ringWidth, depth: seaDepth, x: islandCenter, z: southSeaZ, material: seaMat, y: .014, water: true, foam: true, foamDz: -seaDepth * .28 })
+  addShore({ width: halfSpan, depth: borderStrip, x: westHalfX, z: southBeachZ, material: makeSandMaterial(textures, 'ice'), y: shoreY })
+  addShore({ width: halfSpan, depth: borderStrip, x: eastHalfX, z: southBeachZ, material: makeSandMaterial(textures, 'inferno'), y: shoreY })
+  addShore({ width: ringWidth, depth: seaDepth, x: islandCenter, z: southSeaZ, material: seaMat, y: shoreY + .02, water: true, foam: true, foamDz: -seaDepth * .28 })
 
   // West — mountain north, ice south.
-  addShore({ width: beachDepth, depth: halfBeachWidth, x: westBeachX, z: northHalfZ, material: makeSandMaterial(textures, 'mountain'), y: -.004 })
-  addShore({ width: beachDepth, depth: halfBeachWidth, x: westBeachX, z: southHalfZ, material: makeSandMaterial(textures, 'ice'), y: -.004 })
-  addShore({ width: seaDepth, depth: ringHeight, x: westSeaX, z: islandCenter, material: seaMat, y: .014, water: true, foam: true, foamDx: seaDepth * .28 })
+  addShore({ width: borderStrip, depth: halfSpan, x: westBeachX, z: northHalfZ, material: makeSandMaterial(textures, 'mountain'), y: shoreY })
+  addShore({ width: borderStrip, depth: halfSpan, x: westBeachX, z: southHalfZ, material: makeSandMaterial(textures, 'ice'), y: shoreY })
+  addShore({ width: seaDepth, depth: ringHeight, x: westSeaX, z: islandCenter, material: seaMat, y: shoreY + .02, water: true, foam: true, foamDx: seaDepth * .28 })
 
   // East — coast north, inferno south.
-  addShore({ width: beachDepth, depth: halfBeachWidth, x: eastBeachX, z: northHalfZ, material: makeSandMaterial(textures, 'coast'), y: -.004 })
-  addShore({ width: beachDepth, depth: halfBeachWidth, x: eastBeachX, z: southHalfZ, material: makeSandMaterial(textures, 'inferno'), y: -.004 })
-  addShore({ width: seaDepth, depth: ringHeight, x: eastSeaX, z: islandCenter, material: seaMat, y: .014, water: true, foam: true, foamDx: -seaDepth * .28 })
+  addShore({ width: borderStrip, depth: halfSpan, x: eastBeachX, z: northHalfZ, material: makeSandMaterial(textures, 'coast'), y: shoreY })
+  addShore({ width: borderStrip, depth: halfSpan, x: eastBeachX, z: southHalfZ, material: makeSandMaterial(textures, 'inferno'), y: shoreY })
+  addShore({ width: seaDepth, depth: ringHeight, x: eastSeaX, z: islandCenter, material: seaMat, y: shoreY + .02, water: true, foam: true, foamDx: -seaDepth * .28 })
 }
 
 function addBiomeLandmarks(world,textures,lowDetail=false) {
@@ -5763,15 +5851,6 @@ function addBiomeLandmarks(world,textures,lowDetail=false) {
   snowCap.userData.avatarFadeOccluder=true
   snowCap.position.set(20,10.35,-2.8);world.add(snowCap)
 
-  const water=new THREE.Mesh(
-    new THREE.PlaneGeometry(25.4,12.2,lowDetail?2:18,lowDetail?2:8),
-    lowDetail
-      ?new THREE.MeshLambertMaterial({color:'#0aa9d6',transparent:true,opacity:.72,emissive:'#043b56',side:THREE.DoubleSide})
-      :new THREE.MeshPhysicalMaterial({color:'#0aa9d6',transparent:true,opacity:.74,roughness:.08,metalness:.18,clearcoat:1,clearcoatRoughness:.08,side:THREE.DoubleSide,emissive:'#043b56',emissiveIntensity:.28})
-  )
-  water.rotation.x=-Math.PI/2;water.position.set(42,.018,-1.2);water.userData.biomeSurface='water';world.add(water)
-  const sand=new THREE.Mesh(new THREE.PlaneGeometry(25.4,6.2),makeSandMaterial(textures,'coast'))
-  sand.rotation.x=-Math.PI/2;sand.position.set(42,-.008,3.1);sand.userData.skipOcclusion=true;world.add(sand)
   if(!lowDetail){
     for(let index=0;index<14;index++){
       const crystal=new THREE.Mesh(new THREE.OctahedronGeometry(.16+seededUnit(index+310)*.18),new THREE.MeshBasicMaterial({color:index%2?'#22d3ee':'#facc15'}))
@@ -6133,7 +6212,7 @@ function rebuildThreeWorld(state,cellMap,obstacles) {
     matrix.compose(position,quaternion,scale);group.mesh.setMatrixAt(index,matrix)
     scale.set(cubeSide+glowPad,cubeSide+glowPad,cubeSide+glowPad)
     matrix.compose(position,quaternion,scale);group.glow.setMatrixAt(index,matrix)
-    const pw=cubeSide*0.75,ph=Math.max(.02,cubeBottom-base)
+    const pw=cubeSide*0.75,ph=Math.max(.04,cubeBottom-base)
     position.set(col+.5,base+ph*.5,row+.5);scale.set(pw,ph,pw)
     matrix.compose(position,quaternion,scale);group.ped.setMatrixAt(index,matrix)
   }
@@ -7262,10 +7341,8 @@ export default function MiningChain3DFPV({
       iceLight.intensity=0;coastLight.intensity=0;infernoLight.intensity=0
       scene.fog.density=.014
     }
-    const floor=new THREE.Mesh(new THREE.PlaneGeometry(COLS,ROWS),new THREE.MeshStandardMaterial({color:'#07101f',roughness:.98,metalness:.02}))
-    floor.rotation.x=-Math.PI/2;floor.position.set(COLS/2,-.012,ROWS/2);scene.add(floor)
     const grid=new THREE.GridHelper(Math.max(COLS,ROWS),Math.max(COLS,ROWS),'#176080','#12334f')
-    grid.position.set(COLS/2,.004,ROWS/2);grid.material.transparent=true;grid.material.opacity=.22;scene.add(grid)
+    grid.position.set(COLS/2,.004,ROWS/2);grid.material.transparent=true;grid.material.opacity=.10;grid.material.depthWrite=false;scene.add(grid)
     if(isCoarsePointerDevice()) grid.visible=false
     addNightDome(scene,isCoarsePointerDevice())
     const textures={
