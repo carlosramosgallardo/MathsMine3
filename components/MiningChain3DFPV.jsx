@@ -5240,9 +5240,9 @@ function addCipherHouseDetails(world, lowDetail = false) {
   ].forEach(([x,y,z])=>addExteriorLamp(x,y,z))
 
   const trimMaterials=[
-    new THREE.MeshBasicMaterial({color:'#22d3ee',transparent:true,opacity:.68,depthWrite:false}),
-    new THREE.MeshBasicMaterial({color:'#d946ef',transparent:true,opacity:.62,depthWrite:false}),
-    new THREE.MeshBasicMaterial({color:'#a78bfa',transparent:true,opacity:.58,depthWrite:false}),
+    new THREE.MeshBasicMaterial({color:'#22d3ee',transparent:true,opacity:.68,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-1,polygonOffsetUnits:-1}),
+    new THREE.MeshBasicMaterial({color:'#d946ef',transparent:true,opacity:.62,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-1,polygonOffsetUnits:-1}),
+    new THREE.MeshBasicMaterial({color:'#a78bfa',transparent:true,opacity:.58,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-1,polygonOffsetUnits:-1}),
   ]
   const addTrimBox=(x,y,z,sx,sy,sz,matIndex=0)=>{
     const mesh=new THREE.Mesh(new THREE.BoxGeometry(sx,sy,sz),trimMaterials[matIndex%trimMaterials.length])
@@ -6119,7 +6119,8 @@ function rebuildThreeWorld(state,cellMap,obstacles) {
   function makeBlockGroup(count, mat, glowColor, glowOpacity) {
     const geom=new THREE.BoxGeometry(1,1,1)
     const mesh=new THREE.InstancedMesh(geom,mat,count||1)
-    const glow=new THREE.InstancedMesh(geom,new THREE.MeshBasicMaterial({color:glowColor,wireframe:true,transparent:true,opacity:glowOpacity,depthWrite:false}),count||1)
+    const glow=new THREE.InstancedMesh(geom,new THREE.MeshBasicMaterial({color:glowColor,wireframe:true,transparent:true,opacity:glowOpacity,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-1,polygonOffsetUnits:-1}),count||1)
+    glow.renderOrder=1
     const ped=new THREE.InstancedMesh(geom,new THREE.MeshStandardMaterial({roughness:.88,metalness:.16,vertexColors:true}),count||1)
     glow.userData.blockGlow=true
     return {mesh,glow,ped}
@@ -6407,8 +6408,8 @@ function rebuildThreeWorld(state,cellMap,obstacles) {
     // rather than a leaning slab. The smooth ramp obstacle drives the physics.
     if(houseGroups.doorStep.length){
       const riserMat=lowD
-        ? new THREE.MeshLambertMaterial({color:'#0c2138',emissive:'#0b3a52',emissiveIntensity:.4})
-        : new THREE.MeshStandardMaterial({color:'#0c2138',roughness:.5,metalness:.46,emissive:'#0b3a52',emissiveIntensity:.46})
+        ? new THREE.MeshLambertMaterial({color:'#0c2138',emissive:'#0b3a52',emissiveIntensity:.4,polygonOffset:true,polygonOffsetFactor:1,polygonOffsetUnits:1})
+        : new THREE.MeshStandardMaterial({color:'#0c2138',roughness:.5,metalness:.46,emissive:'#0b3a52',emissiveIntensity:.46,polygonOffset:true,polygonOffsetFactor:1,polygonOffsetUnits:1})
       const exteriorTreadMat=lowD
         ? new THREE.MeshLambertMaterial({color:'#143452',emissive:'#0891b2',emissiveIntensity:.55,side:THREE.DoubleSide})
         : new THREE.MeshStandardMaterial({color:'#143452',roughness:.38,metalness:.54,emissive:'#0891b2',emissiveIntensity:.62,side:THREE.DoubleSide})
@@ -6487,6 +6488,7 @@ function rebuildThreeWorld(state,cellMap,obstacles) {
               : zc
             const nose=new THREE.Mesh(new THREE.BoxGeometry(alongZ?.9:.05,.02,alongZ?.05:.9),noseMat)
             nose.position.set(noseX,stepTop+.012,noseZ)
+            nose.renderOrder=13
             world.add(nose)
           }
         }
