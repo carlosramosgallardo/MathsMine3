@@ -8,6 +8,7 @@ node_modules
 supabase/.temp/
 supabase/.branches/
 .private/
+.run/
 
 # Evitar subir artefactos grandes
 *.zip

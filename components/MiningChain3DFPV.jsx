@@ -639,17 +639,20 @@ function poolSideLipSupportAt(gx, gy, playerZ, radius = PLAYER_R * 0.78) {
   const bands = [
     {
       active: isAtPoolEastLip(gx, gy, radius),
-      approach: gx + radius > o.maxX - 1.02 && gx - radius < o.maxX + 0.58,
+      approach: gx + radius > o.maxX - 1.02 && gx - radius < o.maxX + 0.58 &&
+                gy + radius > o.minZ - 0.85 && gy - radius < o.maxZ + 0.85,
       crossed: gx - radius < o.maxX + 0.72,
     },
     {
       active: isAtPoolWestLip(gx, gy, radius),
-      approach: gx + radius > o.minX - 0.58 && gx - radius < o.minX + 1.02,
+      approach: gx + radius > o.minX - 0.58 && gx - radius < o.minX + 1.02 &&
+                gy + radius > o.minZ - 0.85 && gy - radius < o.maxZ + 0.85,
       crossed: gx + radius > o.minX - 0.72,
     },
     {
       active: isAtPoolSouthLip(gx, gy, radius),
-      approach: gy + radius > o.maxZ - 0.58 && gy - radius < o.maxZ + 1.02,
+      approach: gy + radius > o.maxZ - 0.58 && gy - radius < o.maxZ + 1.02 &&
+                gx + radius > o.minX - 0.85 && gx - radius < o.maxX + 0.85,
       crossed: gy + radius > o.maxZ - 0.72,
     },
   ]
@@ -2964,13 +2967,14 @@ function isHousePerimeterRoofCell(row, col) {
   return CIPHER_HOUSE_PERIMETER_KEYS.has(`${row},${col}`)
 }
 
-// Perimeter roof tiles sit on wall cells; only the interior half is walkable.
+// Perimeter wall cap — the full cell width is walkable at roof level.
+// Only exclude players whose centre is clearly outside the cell (touching via radius from open air).
 function isInteriorHalfOfPerimeterCell(row, col, gx, gy) {
   const { minRow, maxRow, minCol, maxCol } = CIPHER_HOUSE_BOUNDS
-  if (row === minRow && gy < row + 0.52) return false
-  if (row === maxRow && gy > row + 0.48) return false
-  if (col === maxCol && gx > col + 0.52) return false
-  if (col === minCol && gx < col + 0.48) return false
+  if (row === minRow && gy < row) return false
+  if (row === maxRow && gy > row + 1) return false
+  if (col === maxCol && gx > col + 1) return false
+  if (col === minCol && gx < col) return false
   return true
 }
 
@@ -3119,9 +3123,11 @@ function solidTopAt(row, col, cellMap, obsSet) {
   return cellMap?.has(key) ? blockTop(cellMap.get(key),row,col) : 0
 }
 
-function housePerimeterWallCapSupportAt(row, col, playerZ, obsSet) {
+function housePerimeterWallCapSupportAt(row, col, playerZ, obsSet, gx, gy) {
   if (!CIPHER_HOUSE_PERIMETER_KEYS.has(`${row},${col}`)) return 0
   if (playerZ < HOUSE_ROOF_LEVEL - 0.50) return 0
+  // Exclude players whose centre is outside the cell (approaching from open air).
+  if (gx != null && !isInteriorHalfOfPerimeterCell(row, col, gx, gy)) return 0
   // Match rendered roof tiles — not the taller wall-cap mesh above them.
   if (playerZ >= HOUSE_ROOF_LEVEL - 0.35) return HOUSE_ROOF_LEVEL
   return 0
@@ -3258,7 +3264,7 @@ function supportHeightAt(gx, gy, playerZ, cellMap, obsSet) {
       ) {
         height = Math.max(height, houseSupport, eastEntrySupport, deckSupport)
       }
-      const perimeterCap = housePerimeterWallCapSupportAt(row, col, playerZ, obsSet)
+      const perimeterCap = housePerimeterWallCapSupportAt(row, col, playerZ, obsSet, gx, gy)
       if (perimeterCap && circleTouchesCell(gx, gy, row, col, radius)) {
         height = Math.max(height, perimeterCap)
       }
@@ -9395,9 +9401,10 @@ export default function MiningChain3DFPV({
 
       // ── Vertical physics (jump / gravity) ────────────────────────────────
       {
+        const _pgx=p.x/CELL_SIZE,_pgy=p.y/CELL_SIZE
         const supportHeight = supportHeightAt(
-          p.x/CELL_SIZE,
-          p.y/CELL_SIZE,
+          _pgx,
+          _pgy,
           p.z,
           cellMapRef.current,
           validObstaclesRef.current,
