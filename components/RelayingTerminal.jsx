@@ -642,7 +642,7 @@ export default function RelayingTerminal({ accent = '#22d3ee' }) {
             .limit(20),
           supabase
             .from('mm3_macro_state')
-            .select('ticker_message, ticker_message_en, ticker_message_es')
+            .select('ticker_message, ticker_message_en, ticker_message_es, ticker_message_expires_at')
             .eq('id', 1)
             .maybeSingle(),
           supabase
@@ -683,7 +683,9 @@ export default function RelayingTerminal({ accent = '#22d3ee' }) {
         const { data: blocksData } = blocksRes;
         const { data: penaltiesData } = penaltiesRes;
 
-        welcomeText = tickerFromRow(data, language, welcomeText);
+        const tickerExpired = data?.ticker_message_expires_at
+          && new Date(data.ticker_message_expires_at).getTime() < Date.now();
+        if (!tickerExpired) welcomeText = tickerFromRow(data, language, welcomeText);
         marketMessages.push(...buildMarketStatusLines({ ownersData, commandsData, blocksData, penaltiesData }));
         lastMarketStatusRef.current = getStatusSignature(marketMessages.map((text) => ({ text })));
 

@@ -165,10 +165,10 @@ async function finalizeDemine(supabase, lastHitter, formulaChainIndexStart) {
   // Reset demine state
   const msgEn = formulaChainIndexStart != null
     ? `⬡ DEMINE COMPLETE ⬡ Chain reset to pre-formula state — chain is at ${pctStr}%. Mining is now ACTIVE again. ⬡`
-    : `⬡ DEMINE COMPLETE ⬡ All blocks removed — chain is at 0.0000%. Mining is now ACTIVE again. ⬡`;
+    : `⬡ DEMINE COMPLETE ⬡ All blocks removed — chain is at ${pctStr}%. Mining is now ACTIVE again. ⬡`;
   const msgEs = formulaChainIndexStart != null
     ? `⬡ DEMINE COMPLETADO ⬡ Chain al ${pctStr}% (estado pre-fórmula). El minado está ACTIVO de nuevo. ⬡`
-    : `⬡ DEMINE COMPLETADO ⬡ Todos los bloques eliminados — chain al 0.0000%. El minado está ACTIVO de nuevo. ⬡`;
+    : `⬡ DEMINE COMPLETADO ⬡ Todos los bloques eliminados — chain al ${pctStr}%. El minado está ACTIVO de nuevo. ⬡`;
 
   await Promise.all([
     supabase.from('mm3_macro_state').update({
