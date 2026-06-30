@@ -74,23 +74,20 @@ const WALK_STEP_UP = 0.58    // max walkable rise per step (ramps / house stairs
 // reach HOUSE_MAIN_FLOOR_LEVEL without hitting the slab.
 const HOUSE_TRAMPOLINE_COL = 10.5  // grid X center — matches ground launch pad
 const HOUSE_TRAMPOLINE_ROW = 8.0   // grid Z center — matches ground launch pad
-const HOUSE_TRAMPOLINE_W   = 3.0   // width — same footprint as the ground launch pad
-const HOUSE_TRAMPOLINE_D   = 4.0   // depth — same footprint as the ground launch pad
-const HOUSE_TRAMPOLINE_HALF_W = HOUSE_TRAMPOLINE_W / 2
-const HOUSE_TRAMPOLINE_HALF_D = HOUSE_TRAMPOLINE_D / 2
+const HOUSE_TRAMPOLINE_RADIUS = 1.0 // half the original 3×4 pad — circular footprint at z=0
 const HOUSE_TRAMPOLINE_FLOOR_BOUNDS = Object.freeze({
-  minCol: HOUSE_TRAMPOLINE_COL - HOUSE_TRAMPOLINE_HALF_W,
-  maxCol: HOUSE_TRAMPOLINE_COL + HOUSE_TRAMPOLINE_HALF_W,
-  minRow: HOUSE_TRAMPOLINE_ROW - HOUSE_TRAMPOLINE_HALF_D,
-  maxRow: HOUSE_TRAMPOLINE_ROW + HOUSE_TRAMPOLINE_HALF_D,
+  minCol: HOUSE_TRAMPOLINE_COL - HOUSE_TRAMPOLINE_RADIUS,
+  maxCol: HOUSE_TRAMPOLINE_COL + HOUSE_TRAMPOLINE_RADIUS,
+  minRow: HOUSE_TRAMPOLINE_ROW - HOUSE_TRAMPOLINE_RADIUS,
+  maxRow: HOUSE_TRAMPOLINE_ROW + HOUSE_TRAMPOLINE_RADIUS,
 })
 function cellOverlapsHouseTrampolineFloorHole(row, col) {
-  const { minCol, maxCol, minRow, maxRow } = HOUSE_TRAMPOLINE_FLOOR_BOUNDS
-  return col + 1 > minCol && col < maxCol && row + 1 > minRow && row < maxRow
+  return circleTouchesCell(HOUSE_TRAMPOLINE_COL, HOUSE_TRAMPOLINE_ROW, row, col, HOUSE_TRAMPOLINE_RADIUS + 0.02)
 }
 function isInsideHouseTrampolineFloorHole(gx, gy) {
-  const { minCol, maxCol, minRow, maxRow } = HOUSE_TRAMPOLINE_FLOOR_BOUNDS
-  return gx > minCol && gx < maxCol && gy > minRow && gy < maxRow
+  const dx = gx - HOUSE_TRAMPOLINE_COL
+  const dy = gy - HOUSE_TRAMPOLINE_ROW
+  return dx * dx + dy * dy < HOUSE_TRAMPOLINE_RADIUS * HOUSE_TRAMPOLINE_RADIUS
 }
 // Intermediate floor opening — only the ground launch pad footprint (visual + collision).
 const HOUSE_TRAMPOLINE_FLOOR_HOLE = (() => {
@@ -1281,9 +1278,6 @@ const HOUSE_WINDOW_PANE_W = .74
 const HOUSE_WINDOW_FACE_INSET = .012
 const HOUSE_WINDOW_MULLION_T = .048
 const CIPHER_HOUSE_WINDOWS = new Set([
-  '8,3', '9,3',
-  '5,13', '6,13',
-  '13,5', '13,6',
 ])
 function buildCipherHousePerimeterKeys() {
   const keys = new Set()
@@ -1304,7 +1298,7 @@ const CIPHER_HOUSE_PERIMETER_KEYS = buildCipherHousePerimeterKeys()
 // wall above head height but stay open at ground level — one per wall so a fallen
 // player can always walk back out.
 const CIPHER_HOUSE_LOWER_DOORS = new Set([
-  '3,8', '13,8', '7,3', '11,13',
+  '13,8',
 ])
 const LOWER_DOOR_CLEAR = 2.35  // open height of the ground-level escape doorways
 
@@ -2947,12 +2941,49 @@ function poolTerraceRailBlocksBody(gx, gy, playerZ, playerVz = 0) {
 // The rooftop walk level matches the pool terrace, so the roof tiles and the
 // terrace read as one continuous rooftop.
 const HOUSE_ROOF_LEVEL = HOUSE_POOL_WALL_TOP
+const HOUSE_UPPER_NORTH_DECK_ROW = 8
+const HOUSE_UPPER_NORTH_DECK_COLS = Object.freeze({ min: 4, max: 12 })
+const HOUSE_UPPER_NORTH_DECK_VISUAL_COLS = Object.freeze({ min: 9, max: 12 })
+const HOUSE_UPPER_NORTH_DECK_STAIR_CLEARANCE = new Set(['8,6', '8,7'])
+const HOUSE_UPPER_FORCED_ROOF_KEYS = new Set([
+  '7,9', '7,10', '7,11',
+  '6,6', '6,7',
+  '4,8', '5,8',
+  '4,5', '5,5',
+])
+function isHouseUpperNorthDeckCell(row, col) {
+  return (
+    row === HOUSE_UPPER_NORTH_DECK_ROW &&
+    col >= HOUSE_UPPER_NORTH_DECK_COLS.min &&
+    col <= HOUSE_UPPER_NORTH_DECK_COLS.max
+  )
+}
+function isHouseUpperNorthDeckVisualCell(row, col) {
+  const key = `${row},${col}`
+  if (HOUSE_UPPER_FORCED_ROOF_KEYS.has(key)) return true
+  return (
+    row === HOUSE_UPPER_NORTH_DECK_ROW &&
+    col >= HOUSE_UPPER_NORTH_DECK_VISUAL_COLS.min &&
+    col <= HOUSE_UPPER_NORTH_DECK_VISUAL_COLS.max
+  )
+}
+function isHouseUpperNorthDeckPhysicsCell(row, col) {
+  const key = `${row},${col}`
+  if (HOUSE_UPPER_FORCED_ROOF_KEYS.has(key)) return true
+  if (!isHouseUpperNorthDeckCell(row, col)) return false
+  if (HOUSE_UPPER_NORTH_DECK_STAIR_CLEARANCE.has(key)) return false
+  if (HOUSE_STAIR_SKYLIGHT_CELLS.has(key)) return false
+  if (HOUSE_STAIR_KEYS.has(key)) return false
+  if (HOUSE_TRAMPOLINE_FLOOR_HOLE.has(key)) return false
+  return true
+}
 // A cell carries a real, rendered roof tile (and therefore roof support) when it
 // is inside the building but NOT part of the stairwell (open shaft up from the
 // floor) and NOT inside the pool terrace footprint (its own walkable platform +
 // open water). Rendering and support share this test so the surface is always
 // visible — never an invisible ceiling.
 function isHouseRoofCell(row, col) {
+  if (isHouseUpperNorthDeckPhysicsCell(row, col)) return true
   const insideHouse =
     row > CIPHER_HOUSE_BOUNDS.minRow && row < CIPHER_HOUSE_BOUNDS.maxRow &&
     col > CIPHER_HOUSE_BOUNDS.minCol && col < CIPHER_HOUSE_BOUNDS.maxCol
@@ -2989,6 +3020,8 @@ function isOnHousePerimeterRoofWalk(row, col, gx, gy, playerZ) {
 
 function isOnHouseRoofDeck(row, col, playerZ, gx = col + 0.5, gy = row + 0.5) {
   if (playerZ < HOUSE_ROOF_LEVEL - 0.35) return false
+  const key = `${row},${col}`
+  if (HOUSE_UPPER_NORTH_DECK_STAIR_CLEARANCE.has(key)) return false
   if (isHouseRoofCell(row, col)) return true
   if (isOnHousePerimeterRoofWalk(row, col, gx, gy, playerZ)) return true
   if (cellOverlapsPoolTerrace(row, col) && !cellInsidePoolBasin(row, col)) return true
@@ -3091,6 +3124,11 @@ function houseFloorSupportAt(row, col, playerZ, gx = col + 0.5, gy = row + 0.5) 
     col > CIPHER_HOUSE_BOUNDS.minCol && col < CIPHER_HOUSE_BOUNDS.maxCol
   const key = `${row},${col}`
   const onDoor = CIPHER_HOUSE_DOOR_CELLS.has(key)
+  // Forced rooftop deck patches (including 6,6 and 6,7): keep a hard roof-level
+  // support regardless of local stair geometry so traversal stays continuous.
+  if (HOUSE_UPPER_FORCED_ROOF_KEYS.has(key) && playerZ >= HOUSE_ROOF_LEVEL - 0.30) {
+    support = Math.max(support, HOUSE_ROOF_LEVEL)
+  }
   if (isHouseEastEntryThresholdCell(row, col) && playerZ >= HOUSE_MAIN_FLOOR_LEVEL - WALK_STEP_UP) {
     support = Math.max(support, HOUSE_MAIN_FLOOR_LEVEL)
   }
@@ -5605,7 +5643,8 @@ function addCipherHouseDetails(world, lowDetail = false) {
   const roofTrimMat=new THREE.MeshBasicMaterial({color:'#22d3ee',transparent:true,opacity:.32,depthWrite:false})
   const addRoofTile=(row,col)=>{
     const tile=new THREE.Mesh(new THREE.BoxGeometry(1.02,0.16,1.02),roofMat)
-    tile.position.set(col+.5,HOUSE_ROOF_LEVEL-0.08,row+.5)
+    tile.position.set(col+.5,HOUSE_ROOF_LEVEL-0.04,row+.5)
+    tile.renderOrder=14
     group.add(tile)
     const hasDeck=(r,c)=>isHouseRoofCell(r,c)||isHousePerimeterRoofCell(r,c)
     if(!hasDeck(row,col+1)||!hasDeck(row,col-1)||!hasDeck(row+1,col)||!hasDeck(row-1,col)){
@@ -5617,8 +5656,16 @@ function addCipherHouseDetails(world, lowDetail = false) {
   for(let row=CIPHER_HOUSE_BOUNDS.minRow+1;row<CIPHER_HOUSE_BOUNDS.maxRow;row++){
     for(let col=CIPHER_HOUSE_BOUNDS.minCol+1;col<CIPHER_HOUSE_BOUNDS.maxCol;col++){
       if(!isHouseRoofCell(row,col)) continue
+      if(isHouseUpperNorthDeckVisualCell(row,col)) continue
       addRoofTile(row,col)
     }
+  }
+  for(let col=HOUSE_UPPER_NORTH_DECK_VISUAL_COLS.min;col<=HOUSE_UPPER_NORTH_DECK_VISUAL_COLS.max;col++){
+    addRoofTile(HOUSE_UPPER_NORTH_DECK_ROW,col)
+  }
+  for (const key of HOUSE_UPPER_FORCED_ROOF_KEYS) {
+    const [row, col] = key.split(',').map(Number)
+    addRoofTile(row, col)
   }
   for(const key of CIPHER_HOUSE_PERIMETER_KEYS){
     const [row,col]=key.split(',').map(Number)
@@ -5690,30 +5737,33 @@ function addCipherHouseDetails(world, lowDetail = false) {
   // ── Ground launch pad — sole route from the crawl space to the main floor ──
   {
     const tramY = 0.01
-    const tw = HOUSE_TRAMPOLINE_W, td = HOUSE_TRAMPOLINE_D
+    const tr = HOUSE_TRAMPOLINE_RADIUS
     const frameMat = isCoarsePointerDevice()
       ? new THREE.MeshLambertMaterial({color:'#374151'})
       : new THREE.MeshStandardMaterial({color:'#374151',metalness:.88,roughness:.18})
     const padMat = new THREE.MeshLambertMaterial({color:'#22d3ee',emissive:'#0891b2',emissiveIntensity:.55})
     const springMat = new THREE.MeshLambertMaterial({color:'#94a3b8',emissive:'#475569',emissiveIntensity:.28})
-    const frame = new THREE.Mesh(new THREE.BoxGeometry(tw + .10, 0.065, td + .10), frameMat)
+    const frame = new THREE.Mesh(new THREE.CylinderGeometry(tr + .05, tr + .05, .065, 28), frameMat)
     frame.position.set(HOUSE_TRAMPOLINE_COL, tramY, HOUSE_TRAMPOLINE_ROW)
     group.add(frame)
-    const pad = new THREE.Mesh(new THREE.BoxGeometry(tw - .08, 0.028, td - .08), padMat)
+    const pad = new THREE.Mesh(new THREE.CylinderGeometry(tr - .04, tr - .04, .028, 28), padMat)
     pad.position.set(HOUSE_TRAMPOLINE_COL, tramY + .046, HOUSE_TRAMPOLINE_ROW)
     group.add(pad)
     const legGeo = new THREE.CylinderGeometry(.042, .052, .36, 7)
-    for (const [lx, lz] of [[-tw / 2 + .08, -td / 2 + .08], [tw / 2 - .08, -td / 2 + .08], [-tw / 2 + .08, td / 2 - .08], [tw / 2 - .08, td / 2 - .08]]) {
+    for (let i = 0; i < 4; i += 1) {
+      const angle = (i / 4) * Math.PI * 2 + Math.PI / 4
+      const lx = Math.cos(angle) * (tr - .08)
+      const lz = Math.sin(angle) * (tr - .08)
       const leg = new THREE.Mesh(legGeo, frameMat)
       leg.position.set(HOUSE_TRAMPOLINE_COL + lx, tramY - .145, HOUSE_TRAMPOLINE_ROW + lz)
       group.add(leg)
     }
     if (!isCoarsePointerDevice()) {
       const springGeo = new THREE.CylinderGeometry(.026, .026, .07, 5)
-      for (let i = 0; i < 8; i += 1) {
-        const t = i / 8
-        const sx = (t < .5 ? -tw / 2 + tw * t * 2 : tw / 2 - (t - .5) * tw * 2) + HOUSE_TRAMPOLINE_COL
-        const sz = (t < .5 ? -td / 2 : td / 2) + HOUSE_TRAMPOLINE_ROW
+      for (let i = 0; i < 10; i += 1) {
+        const angle = (i / 10) * Math.PI * 2
+        const sx = HOUSE_TRAMPOLINE_COL + Math.cos(angle) * (tr - .12)
+        const sz = HOUSE_TRAMPOLINE_ROW + Math.sin(angle) * (tr - .12)
         const spr = new THREE.Mesh(springGeo, springMat)
         spr.position.set(sx, tramY + .006, sz)
         group.add(spr)
