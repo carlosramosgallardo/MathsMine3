@@ -210,8 +210,12 @@ export default function MiningChain3D() {
   const [onlineWallets, setOnlineWallets] = useState(new Set())
   const [loading,       setLoading]       = useState(true)
   const [fpvReady,      setFpvReady]      = useState(false)
-  const [worldReady,    setWorldReady]    = useState(false)
-  const handleWorldReady = useCallback(() => setWorldReady(true), [])
+  const [worldBootstrapped, setWorldBootstrapped] = useState(false)
+  const [channelReady,  setChannelReady]  = useState(false)
+  const [profileReady,  setProfileReady]  = useState(false)
+  const [healthReady,   setHealthReady]   = useState(false)
+  const playReady = worldBootstrapped && channelReady && profileReady && healthReady
+  const handleWorldBootstrapped = useCallback(() => setWorldBootstrapped(true), [])
   const [onlineCount,   setOnlineCount]   = useState(0)
   const [anonKillMsg,   setAnonKillMsg]   = useState(null)
   const [walletNftjis,  setWalletNftjis]  = useState({})
@@ -662,12 +666,18 @@ export default function MiningChain3D() {
     if (!presenceKey) return
     if (presenceKey.startsWith('anon-')) {
       setHealthMap(prev => ({ ...prev, [presenceKey]: prev[presenceKey] ?? 100 }))
+      setHealthReady(true)
       return
     }
+    let cancelled = false
+    setHealthReady(false)
     fetch(`/api/pvp-hit?wallet=${encodeURIComponent(presenceKey)}`)
       .then(r => r.json()).then(r => {
+        if (cancelled) return
         if (r?.ok) setHealthMap(prev => ({ ...prev, [presenceKey]: Number(r.health ?? 100) }))
       }).catch(() => {})
+      .finally(() => { if (!cancelled) setHealthReady(true) })
+    return () => { cancelled = true }
   }, [presenceKey])
 
   // ── Load cell data ───────────────────────────────────────────────────────────
@@ -830,9 +840,16 @@ export default function MiningChain3D() {
   // Fetch own level + ALL NFTJIs (trade, mining, squeeze) for crit chance + ability bar
   // Re-runs when market loads (marketLoaded) to resolve mining NFTJI emojis correctly
   useEffect(() => {
-    if (!myWallet) { setPlayerLevel(0); setPlayerNftjiCount(0); setMyNftjis([]); return }
+    if (!myWallet) {
+      setPlayerLevel(0)
+      setPlayerNftjiCount(0)
+      setMyNftjis([])
+      if (marketLoaded) setProfileReady(true)
+      return
+    }
     if (!marketLoaded) return
     let mounted = true
+    setProfileReady(false)
     const bootId = requestAnimationFrame(() => {
       ;(async () => {
       const [{ data: pp }, { data: sq }] = await Promise.all([
@@ -843,7 +860,10 @@ export default function MiningChain3D() {
           .select('equipped,attack_level,defense_level')
           .eq('wallet', myWallet).maybeSingle(),
       ])
-      if (!mounted || !pp) return
+      if (!mounted || !pp) {
+        if (mounted) setProfileReady(true)
+        return
+      }
       setPlayerLevel(Number(pp.level) || 0)
 
       // Mining NFTJIs (from mm3_mining_blocks claimed blocks)
@@ -880,6 +900,7 @@ export default function MiningChain3D() {
       const allNftjis = [...tradeNftjis, ...miningNftjis, ...squeezeNftjis, ...relayNftjis]
       setMyNftjis(allNftjis)
       setPlayerNftjiCount(allNftjis.length)
+      if (mounted) setProfileReady(true)
       })()
     })
     return () => { mounted = false; cancelAnimationFrame(bootId) }
@@ -914,6 +935,12 @@ export default function MiningChain3D() {
 
   // ── Supabase: presence (join/leave) + broadcast (real-time position) ─────────
   useEffect(() => {
+    setChannelReady(false)
+    let subscribed = false
+    let synced = false
+    const tryChannelReady = () => {
+      if (subscribed && synced) setChannelReady(true)
+    }
     const key = myWallet || getOrCreateAnonKey()
     myKeyRef.current = key
     setPresenceKey(key)
@@ -1110,6 +1137,8 @@ export default function MiningChain3D() {
 
     // Presence sync: who's online + seed initial positions from track() payload
     ch.on('presence', { event: 'sync' }, () => {
+      synced = true
+      tryChannelReady()
       const state = ch.presenceState()
       const alive = new Set(Object.keys(state))
       setOnlineWallets(alive)
@@ -1176,6 +1205,8 @@ export default function MiningChain3D() {
         poolCode: myPoolCode,
         nodeDice: normalizeNodeDiceState(nodeDiceRef.current),
       }).catch(() => {})
+      subscribed = true
+      tryChannelReady()
     })
 
     return () => {
@@ -1382,7 +1413,7 @@ export default function MiningChain3D() {
           </div>
         ) : (
           <>
-        {!worldReady && (
+        {!playReady && (
           <div style={{
             position:'absolute', inset:0, zIndex:50, display:'flex', flexDirection:'column',
             alignItems:'center', justifyContent:'center',
@@ -1390,7 +1421,9 @@ export default function MiningChain3D() {
             fontFamily:'Consolas, monospace',
           }}>
             <div style={{ color:C, fontSize:'0.85rem', letterSpacing:'0.18em', marginBottom:'1rem' }}>
-              {es ? 'CARGANDO MAPA…' : 'LOADING MAP…'}
+              {!worldBootstrapped
+                ? (es ? 'CARGANDO MAPA…' : 'LOADING MAP…')
+                : (es ? 'PREPARANDO SESIÓN…' : 'PREPARING SESSION…')}
             </div>
             <div style={{ display:'flex', gap:6 }}>
               {[0, 1, 2].map((i) => (
@@ -1405,7 +1438,8 @@ export default function MiningChain3D() {
           </div>
         )}
           <MiningChain3DFPV
-            onWorldReady={handleWorldReady}
+            onWorldReady={handleWorldBootstrapped}
+            playReady={playReady}
             cellMap={cellMap}
             presenceMap={presenceMap}
             myWallet={myWallet}
