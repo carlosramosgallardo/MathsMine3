@@ -328,6 +328,30 @@ function cellInsidePoolBasin(row, col) {
   return col + 1 > o.minX && col < o.maxX && row + 1 > o.minZ && row < o.maxZ
 }
 
+// Row 9 cols 5–11: inner south terrace promenade along the pool's north shell.
+// Grid cells overlap the basin, but gameplay keeps the avatar on the rim at z~6.02.
+const HOUSE_POOL_SOUTH_RIM_ROW = 9
+const HOUSE_POOL_SOUTH_RIM_MIN_COL = 5
+const HOUSE_POOL_SOUTH_RIM_MAX_COL = 11
+function isOnPoolSouthRimWalk(row, col, gx, gy, playerZ) {
+  if (playerZ < HOUSE_POOL_WALL_TOP - 0.35) return false
+  if (row !== HOUSE_POOL_SOUTH_RIM_ROW) return false
+  if (col < HOUSE_POOL_SOUTH_RIM_MIN_COL || col > HOUSE_POOL_SOUTH_RIM_MAX_COL) return false
+  const o = HOUSE_POOL_OUTER
+  if (gx + PLAYER_R <= o.minX || gx - PLAYER_R >= o.maxX) return false
+  return gy - PLAYER_R * 0.82 < o.minZ + 0.52
+}
+
+function isPoolNorthInnerWall(wall) {
+  const o = HOUSE_POOL_OUTER
+  const t = HOUSE_POOL_PERIM_WALL_T
+  if (wall.isNorthEntryLip) return false
+  return (
+    Math.abs((wall.minZ + wall.maxZ) * 0.5 - o.minZ) < t * 1.6 &&
+    wall.maxX - wall.minX > 1.2
+  )
+}
+
 function interiorStairTreadVisible(row, col, stepTop, interiorStair) {
   if (!interiorStair) return true
   return !cellInsidePoolBasin(row, col)
@@ -357,6 +381,9 @@ function isVaultingPoolTerraceFence(gx, gy, playerZ, playerVz = 0) {
 
 function isPoolTerraceRimTraversal(gx, gy, playerZ) {
   if (!canWalkPoolRim(gx, gy, playerZ)) return false
+  const row = Math.floor(gy)
+  const col = Math.floor(gx)
+  if (isOnPoolSouthRimWalk(row, col, gx, gy, playerZ)) return true
   return isOnPoolTerraceRing(gx, gy) || isInPoolNorthPassage(gx, gy)
 }
 
@@ -661,6 +688,9 @@ function poolSideLipSupportAt(gx, gy, playerZ, radius = PLAYER_R * 0.78) {
     if (!band.active && !band.approach) continue
     const inBasin = isInsidePoolBasin(gx, gy, radius)
     if (inBasin && band.crossed) {
+      if (playerZ >= HOUSE_POOL_WALL_TOP - 0.55 && isOnPoolTerraceRing(gx, gy, radius)) {
+        return HOUSE_POOL_WALL_TOP
+      }
       if (playerZ >= HOUSE_POOL_WALL_TOP - 0.55) return HOUSE_POOL_WATER_LEVEL
       if (playerZ >= HOUSE_POOL_WATER_LEVEL - WALK_STEP_UP - 0.12) return HOUSE_POOL_WATER_LEVEL
       if (playerZ >= HOUSE_POOL_FLOOR_LEVEL - WALK_STEP_UP - 0.12) return HOUSE_POOL_FLOOR_LEVEL
@@ -672,16 +702,22 @@ function poolSideLipSupportAt(gx, gy, playerZ, radius = PLAYER_R * 0.78) {
 }
 
 function poolNorthEntryLipSupportAt(gx, gy, playerZ, radius = PLAYER_R * 0.78) {
+  const row = Math.floor(gy)
+  const col = Math.floor(gx)
+  if (isOnPoolSouthRimWalk(row, col, gx, gy, playerZ)) {
+    return HOUSE_POOL_WALL_TOP
+  }
   const o = HOUSE_POOL_OUTER
   if (gx + radius < o.minX || gx - radius > o.maxX) return 0
-  const inApproach =
-    gy + radius > o.minZ - 1.02 && gy - radius < o.minZ + 0.58
-  if (!inApproach) return 0
+  if (!isAtPoolNorthLip(gx, gy, radius) && !isInPoolNorthPassage(gx, gy, radius)) return 0
   if (playerZ < HOUSE_POOL_FLOOR_LEVEL - 0.20) return 0
 
   const inBasin = isInsidePoolBasin(gx, gy, radius)
   // North lip / first basin row — step down to the water surface, not the deep floor.
   if (inBasin && gy - radius < o.minZ + 0.72) {
+    if (playerZ >= HOUSE_POOL_WALL_TOP - 0.55 && isOnPoolTerraceRing(gx, gy, radius)) {
+      return HOUSE_POOL_WALL_TOP
+    }
     if (playerZ >= HOUSE_POOL_WALL_TOP - 0.55) return HOUSE_POOL_WATER_LEVEL
     if (playerZ >= HOUSE_POOL_WATER_LEVEL - WALK_STEP_UP - 0.12) return HOUSE_POOL_WATER_LEVEL
     if (playerZ >= HOUSE_POOL_FLOOR_LEVEL - WALK_STEP_UP - 0.12) return HOUSE_POOL_FLOOR_LEVEL
@@ -719,6 +755,15 @@ function poolNorthWallBlocksBelowDeck(gx, gy, playerZ) {
 
 // North entry — allow walk-in from the terrace / stair lip only (upper floor).
 function poolNorthEntryAllowsWalkIn(gx, gy, playerZ, moveGy = 0) {
+  const row = Math.floor(gy)
+  const col = Math.floor(gx)
+  if (
+    isOnPoolSouthRimWalk(row, col, gx, gy, playerZ) &&
+    playerZ >= HOUSE_POOL_WALL_TOP - 0.35 &&
+    moveGy <= 0.04
+  ) {
+    return true
+  }
   const e = HOUSE_POOL_ENTRY
   const o = HOUSE_POOL_OUTER
   // Stepping south off the full north rim into the basin.
@@ -865,6 +910,11 @@ function isOnPoolTerraceRing(gx, gy, radius = PLAYER_R * 0.85) {
 }
 
 function housePoolWalkSupportAt(gx, gy, playerZ, radius = PLAYER_R * 0.78) {
+  const row = Math.floor(gy)
+  const col = Math.floor(gx)
+  if (isOnPoolSouthRimWalk(row, col, gx, gy, playerZ)) {
+    return HOUSE_ROOF_LEVEL
+  }
   // Intermediate floor under the pool deck — only floating stair treads, never pool snap.
   if (isBelowPoolDeck(playerZ)) {
     if (isOnInteriorPoolStair(gx, gy, radius)) {
@@ -932,6 +982,13 @@ function housePoolWalkSupportAt(gx, gy, playerZ, radius = PLAYER_R * 0.78) {
     playerZ >= HOUSE_POOL_FLOOR_LEVEL - (climbPath ? 0.65 : WALK_STEP_UP)
   ) {
     support = Math.max(support, HOUSE_POOL_FLOOR_LEVEL)
+  }
+  if (
+    playerZ >= HOUSE_POOL_WALL_TOP - 0.35 &&
+    !isAtPoolSwimDepth(playerZ) &&
+    isOnPoolTerraceRing(gx, gy, radius)
+  ) {
+    support = Math.max(support, HOUSE_ROOF_LEVEL)
   }
   return support
 }
@@ -2887,7 +2944,6 @@ function poolInnerWallBlocksBody(gx, gy, playerZ, playerVz = 0, moveGy = 0, move
   if (playerZ >= HOUSE_ROOF_LEVEL - 0.12) {
     const row = Math.floor(gy)
     const col = Math.floor(gx)
-    if (cellOverlapsPoolTerrace(row, col) && !cellInsidePoolBasin(row, col)) return false
     if (isOnHouseRoofDeck(row, col, playerZ, gx, gy)) return false
   }
 
@@ -2900,6 +2956,16 @@ function poolInnerWallBlocksBody(gx, gy, playerZ, playerVz = 0, moveGy = 0, move
 
   for (const wall of HOUSE_POOL_INNER_WALL_BOUNDS) {
     if (playerZ + PLAYER_BODY_H <= wall.bottom + 0.04) continue
+    const row = Math.floor(gy)
+    const col = Math.floor(gx)
+    if (
+      isPoolNorthInnerWall(wall) &&
+      playerZ >= HOUSE_POOL_WALL_TOP - 0.35 &&
+      isOnPoolSouthRimWalk(row, col, gx, gy, playerZ) &&
+      moveGy <= 0.04
+    ) {
+      continue
+    }
     if (wall.isNorthEntryLip) {
       if (poolNorthEntryAllowsWalkIn(gx, gy, playerZ, moveGy)) continue
       if (canVaultPoolBarrier(playerZ, playerVz, HOUSE_POOL_WALL_TOP)) continue
@@ -2947,7 +3013,6 @@ const HOUSE_UPPER_NORTH_DECK_VISUAL_COLS = Object.freeze({ min: 9, max: 12 })
 const HOUSE_UPPER_NORTH_DECK_STAIR_CLEARANCE = new Set(['8,6', '8,7'])
 const HOUSE_UPPER_FORCED_ROOF_KEYS = new Set([
   '7,9', '7,10', '7,11',
-  '6,6', '6,7',
   '4,8', '5,8',
   '4,5', '5,5',
 ])
@@ -3022,9 +3087,10 @@ function isOnHouseRoofDeck(row, col, playerZ, gx = col + 0.5, gy = row + 0.5) {
   if (playerZ < HOUSE_ROOF_LEVEL - 0.35) return false
   const key = `${row},${col}`
   if (HOUSE_UPPER_NORTH_DECK_STAIR_CLEARANCE.has(key)) return false
+  if (isOnPoolSouthRimWalk(row, col, gx, gy, playerZ)) return true
   if (isHouseRoofCell(row, col)) return true
   if (isOnHousePerimeterRoofWalk(row, col, gx, gy, playerZ)) return true
-  if (cellOverlapsPoolTerrace(row, col) && !cellInsidePoolBasin(row, col)) return true
+  if (isOnPoolTerraceRing(gx, gy)) return true
   return false
 }
 
@@ -3124,9 +3190,14 @@ function houseFloorSupportAt(row, col, playerZ, gx = col + 0.5, gy = row + 0.5) 
     col > CIPHER_HOUSE_BOUNDS.minCol && col < CIPHER_HOUSE_BOUNDS.maxCol
   const key = `${row},${col}`
   const onDoor = CIPHER_HOUSE_DOOR_CELLS.has(key)
-  // Forced rooftop deck patches (including 6,6 and 6,7): keep a hard roof-level
-  // support regardless of local stair geometry so traversal stays continuous.
+  // Forced rooftop deck patches: keep a hard roof-level support where tiles are missing.
   if (HOUSE_UPPER_FORCED_ROOF_KEYS.has(key) && playerZ >= HOUSE_ROOF_LEVEL - 0.30) {
+    support = Math.max(support, HOUSE_ROOF_LEVEL)
+  }
+  if (isOnPoolSouthRimWalk(row, col, gx, gy, playerZ)) {
+    support = Math.max(support, HOUSE_ROOF_LEVEL)
+  }
+  if (playerZ >= HOUSE_ROOF_LEVEL - 0.30 && isOnPoolTerraceRing(gx, gy)) {
     support = Math.max(support, HOUSE_ROOF_LEVEL)
   }
   if (isHouseEastEntryThresholdCell(row, col) && playerZ >= HOUSE_MAIN_FLOOR_LEVEL - WALK_STEP_UP) {
