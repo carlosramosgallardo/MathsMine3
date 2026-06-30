@@ -210,6 +210,8 @@ export default function MiningChain3D() {
   const [onlineWallets, setOnlineWallets] = useState(new Set())
   const [loading,       setLoading]       = useState(true)
   const [fpvReady,      setFpvReady]      = useState(false)
+  const [worldReady,    setWorldReady]    = useState(false)
+  const handleWorldReady = useCallback(() => setWorldReady(true), [])
   const [onlineCount,   setOnlineCount]   = useState(0)
   const [anonKillMsg,   setAnonKillMsg]   = useState(null)
   const [walletNftjis,  setWalletNftjis]  = useState({})
@@ -1379,7 +1381,31 @@ export default function MiningChain3D() {
             {es?'⟳ CARGANDO…':'⟳ LOADING…'}
           </div>
         ) : (
+          <>
+        {!worldReady && (
+          <div style={{
+            position:'absolute', inset:0, zIndex:50, display:'flex', flexDirection:'column',
+            alignItems:'center', justifyContent:'center',
+            background:'rgba(2,6,16,0.96)', pointerEvents:'auto',
+            fontFamily:'Consolas, monospace',
+          }}>
+            <div style={{ color:C, fontSize:'0.85rem', letterSpacing:'0.18em', marginBottom:'1rem' }}>
+              {es ? 'CARGANDO MAPA…' : 'LOADING MAP…'}
+            </div>
+            <div style={{ display:'flex', gap:6 }}>
+              {[0, 1, 2].map((i) => (
+                <div key={i} style={{
+                  width:8, height:8, borderRadius:'50%', background:C,
+                  animation:`mm3-boot-dot 1.2s ${i * 0.2}s ease-in-out infinite`,
+                  opacity:.35,
+                }} />
+              ))}
+            </div>
+            <style>{`@keyframes mm3-boot-dot{0%,80%,100%{opacity:.35;transform:scale(1)}40%{opacity:1;transform:scale(1.35)}}`}</style>
+          </div>
+        )}
           <MiningChain3DFPV
+            onWorldReady={handleWorldReady}
             cellMap={cellMap}
             presenceMap={presenceMap}
             myWallet={myWallet}
@@ -1422,6 +1448,7 @@ export default function MiningChain3D() {
             nodeDiceState={nodeDiceState}
             onNodeDicePanelOpen={handleNodeDicePanelOpen}
           />
+          </>
         )}
       </div>
 

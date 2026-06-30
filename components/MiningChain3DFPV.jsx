@@ -33,6 +33,11 @@ const STRIP_W       = 3
 const FOV           = Math.PI * 0.36   // increased zoom for better closeup visibility
 const PROJ_DIST     = 0.82   // improved near-plane projection
 const CAMERA_EYE_Z  = 0.52   // closer eye height for larger player view and better interaction
+// Global close third-person rig — same feel as under the pool deck / low tunnels.
+const CAMERA_BEHIND_DIST = 1.35
+const CAMERA_ABOVE_OFFSET = 0.38
+const CAMERA_PVP_BEHIND_PULL = 0.35
+const CAMERA_PVP_ABOVE_PULL = 0.12
 const MAX_PITCH_UP   = 1.32   // ~76deg upward
 const MAX_PITCH_DOWN = 1.52   // ~87deg downward — extra look at feet/ledges
 const MOVE_SPD      = 47     // world units / second (~1.2 cells/sec)
@@ -4679,6 +4684,11 @@ function tintCanvas(canvas, hex) {
 }
 
 // One 2×2 atlas — matches biomeForCell quadrants, single ground plane (no z-fighting).
+let _biomeAtlasCache = null
+function getBiomeAtlas() {
+  if (!_biomeAtlasCache) _biomeAtlasCache = createBiomeAtlasTexture()
+  return _biomeAtlasCache
+}
 function createBiomeAtlasTexture(quadSize = 256) {
   const atlas = document.createElement('canvas')
   atlas.width = quadSize * 2
@@ -4795,7 +4805,7 @@ function addNightDome(scene, lowDetail=false) {
 }
 
 function addBiomeGround(world, textures) {
-  const atlas = createBiomeAtlasTexture()
+  const atlas = getBiomeAtlas()
   const ground = new THREE.Mesh(
     new THREE.PlaneGeometry(COLS, ROWS),
     new THREE.MeshStandardMaterial({
@@ -7170,11 +7180,18 @@ export default function MiningChain3DFPV({
   onDemineHit,
   nodeDiceState = null,
   onNodeDicePanelOpen,
+  onWorldReady,
 }) {
   const canvasRef    = useRef(null)
   const webglCanvasRef = useRef(null)
   const containerRef = useRef(null)
   const [pointerLocked, setPointerLocked] = useState(false)
+  const [worldReady, setWorldReady] = useState(false)
+  const worldReadyRef = useRef(false)
+  const worldBootstrappedRef = useRef(false)
+  const worldBootstrapPendingRef = useRef(false)
+  const onWorldReadyRef = useRef(onWorldReady)
+  const scheduleWorldBootstrapRef = useRef(null)
   // Incrementing this key re-runs the Three.js init effect (recovery from context loss / crash)
   const [threeKey, setThreeKey] = useState(0)
   const threeReinitRef = useRef(null)
@@ -7291,6 +7308,55 @@ export default function MiningChain3DFPV({
   const rebuildThreeRef     = useRef(null)
   const obstaclesReadyRef   = useRef(false)
 
+  useEffect(() => { onWorldReadyRef.current = onWorldReady }, [onWorldReady])
+
+  useEffect(() => {
+    const warmRender = () => {
+      if (renderRef.current) {
+        renderRef.current()
+        return
+      }
+      const state = threeStateRef.current
+      if (state?.renderer && state.scene && state.camera) {
+        try { state.renderer.render(state.scene, state.camera) } catch {}
+      }
+    }
+
+    scheduleWorldBootstrapRef.current = () => {
+      if (worldBootstrappedRef.current) {
+        requestAnimationFrame(() => rebuildThreeRef.current?.())
+        return
+      }
+      if (!obstaclesReadyRef.current || !threeStateRef.current) return
+      if (worldBootstrapPendingRef.current) return
+      worldBootstrapPendingRef.current = true
+      requestAnimationFrame(() => {
+        worldBootstrapPendingRef.current = false
+        if (!threeStateRef.current || !obstaclesReadyRef.current) return
+        rebuildThreeRef.current?.()
+        const state = threeStateRef.current
+        if (state.renderer?.compile) {
+          try { state.renderer.compile(state.scene, state.camera) } catch {}
+        }
+        let framesLeft = 3
+        const warm = () => {
+          warmRender()
+          framesLeft -= 1
+          if (framesLeft > 0) {
+            requestAnimationFrame(warm)
+            return
+          }
+          worldReadyRef.current = true
+          worldBootstrappedRef.current = true
+          setWorldReady(true)
+          onWorldReadyRef.current?.()
+        }
+        requestAnimationFrame(warm)
+      })
+    }
+    return () => { scheduleWorldBootstrapRef.current = null }
+  }, [])
+
   // Expose reinit trigger to refs so it can be called from the render loop or context handlers
   useEffect(()=>{ threeReinitRef.current=()=>setThreeKey(k=>k+1) },[])
 
@@ -7358,7 +7424,7 @@ export default function MiningChain3DFPV({
       _occlusionAvatars:[],_occlusionHits:[],viewWidth:0,viewHeight:0,viewDpr:0,viewFov:0,activeBiome:null}
     threeStateRef.current=state
     rebuildThreeRef.current=()=>rebuildThreeWorld(state,cellMapRef.current,validObstaclesRef.current)
-    if(obstaclesReadyRef.current) rebuildThreeRef.current()
+    if(obstaclesReadyRef.current) scheduleWorldBootstrapRef.current?.()
     return ()=>{
       rebuildThreeRef.current=null
       try{ disposeThreeObject(scene) }catch{}
@@ -7610,7 +7676,7 @@ export default function MiningChain3DFPV({
     applyHouseDoorStepObstacles(valid)
     validObstaclesRef.current = valid
     obstaclesReadyRef.current = true
-    rebuildThreeRef.current?.()
+    scheduleWorldBootstrapRef.current?.()
 
     // Safety: if player is inside an obstacle or block, teleport to nearest free cell
     if (hitsSolidWall(playerRef.current.x/CELL_SIZE,playerRef.current.y/CELL_SIZE,cellMap,valid,playerRef.current.z)) {
@@ -7786,9 +7852,8 @@ export default function MiningChain3DFPV({
         const headroom=playerHeadroomAt(
           gx,gy,pz,cellMapRef.current,validObstaclesRef.current,
         )
-        const lowTunnel=headroom<1.45
-        const behindDist=localDead?1.20:lowTunnel?1.35:(2.55-pvpZoom*1.65)
-        const aboveOffset=localDead?-0.45:lowTunnel?0.38:(1.15-pvpZoom*1.05)
+        const behindDist=localDead?1.20:(CAMERA_BEHIND_DIST-pvpZoom*CAMERA_PVP_BEHIND_PULL)
+        const aboveOffset=localDead?-0.45:(CAMERA_ABOVE_OFFSET-pvpZoom*CAMERA_PVP_ABOVE_PULL)
         const lookFwd=2.4,shoulderR=localDead?0:0.30,springArmMin=Math.min(1.5,Math.max(0.7,behindDist-0.1))
         const maxCamY=pz+CAMERA_EYE_Z+Math.max(0.22,headroom-0.18)
         const cosA=Math.cos(angle),sinA=Math.sin(angle)
@@ -9363,6 +9428,7 @@ export default function MiningChain3DFPV({
     const loop=()=>{
       // Schedule next frame FIRST so the loop survives any exception in the body
       animRef.current=requestAnimationFrame(loop)
+      if (!worldReadyRef.current) return
       const nowMs=performance.now()
       // On low tier (mobile portrait), cap the entire physics loop to ~30fps so
       // high-refresh-rate phones (90/120 Hz) don't burn CPU on wasted ticks.
@@ -10100,8 +10166,8 @@ export default function MiningChain3DFPV({
         onPointerUp={handlePointerUp}
         onPointerCancel={handlePointerUp}
       />
-      {/* FPS pointer-lock overlay — desktop only, hidden once locked */}
-      {!pointerLocked && (
+      {/* FPS pointer-lock overlay — desktop only, after world bootstrap */}
+      {!pointerLocked && worldReady && (
         <div
           onClick={()=>canvasRef.current?.requestPointerLock?.()}
           style={{
