@@ -8,7 +8,7 @@
 
 <a name="english"></a>
 
-# MathsMine3 `v1.0`
+# MathsMine3
 
 > Timed math. Fictional mining. Wallet identity. Terminal economy. Real-time 3D multiplayer world.
 
@@ -994,7 +994,7 @@ Read:
 
 <a name="español"></a>
 
-# MathsMine3 `v1.0`
+# MathsMine3
 
 > Matemáticas a contrarreloj. Mining ficticio. Identidad de wallet. Economía terminal. Mundo 3D multijugador en tiempo real.
 
