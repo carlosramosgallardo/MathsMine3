@@ -593,12 +593,6 @@ body.mm3-play-success-alert #board-section .section-frame::before {
 .mm3-trade-result-card,
 .mm3-trade-slider,
 .mm3-trade-log,
-.mm3-mining-chain,
-.mm3-mining-board-panel,
-.mm3-mining-board-frame,
-.mm3-mining-detail,
-.mm3-mining-detail-card,
-.mm3-mining-short-panel,
 .mm3-relaying-panel,
 .mm3-relaying-chat-log {
   background: color-mix(in srgb, var(--mm3-panel) 86%, transparent) !important;
@@ -613,11 +607,6 @@ body.mm3-play-success-alert #board-section .section-frame::before {
   opacity: .88;
 }
 
-.mm3-mining-board-frame > div {
-  background-color: var(--mm3-bg-deep);
-}
-
-.mm3-mining-chain [style*="linear-gradient"],
 .mm3-readable-scroll pre,
 .mm3-readable-scroll code {
   background: var(--mm3-panel-strong) !important;
@@ -632,56 +621,6 @@ footer.bg-black\/97,
 .mm3-portal-shell .bg-black,
 .mm3-portal-shell [class*="bg-black/"] {
   background-color: color-mix(in srgb, var(--mm3-bg-deep) 78%, transparent) !important;
-}
-
-.mm3-mining-chain,
-.mm3-mining-board-panel,
-.mm3-mining-board-frame,
-.mm3-mining-detail,
-.mm3-mining-detail-card,
-.mm3-mining-short-panel {
-  border-color: color-mix(in srgb, var(--mm3-accent, #22d3ee) 22%, transparent) !important;
-}
-
-.mm3-mining-chain {
-  color: var(--mm3-text);
-}
-
-.mm3-mining-shell {
-  align-items: start;
-}
-
-.mm3-mining-board-panel,
-.mm3-mining-detail {
-  min-width: 0;
-}
-
-.mm3-mining-board-wrap {
-  width: min(100%, 540px);
-}
-
-.mm3-mining-detail {
-  overflow: hidden;
-}
-
-.mm3-mining-detail-head {
-  min-width: 0;
-}
-
-.mm3-mining-detail-head a,
-.mm3-mining-detail-head span {
-  overflow-wrap: anywhere;
-}
-
-.mm3-mining-status-badge,
-.mm3-mining-claim,
-.mm3-mining-short-panel,
-.mm3-mining-detail-card {
-  line-height: 1.25;
-}
-
-.mm3-mining-nav {
-  background-color: rgba(7, 13, 18, .94) !important;
 }
 
 .mm3-shell-main {
@@ -815,121 +754,8 @@ footer.bg-black\/97,
     padding-bottom: 0.1rem;
   }
 
-  /* ── Market: readable single column in vertical phones ── */
-  .mm3-mining-shell {
-    gap: 0.55rem;
-    padding-inline: 0.55rem !important;
-  }
-
-  .mm3-mining-board-panel {
-    padding: 0.5rem !important;
-  }
-
-  .mm3-mining-chain {
-    padding: 0.6rem 0.75rem !important;
-  }
-
-  .mm3-mining-board-wrap {
-    max-width: min(100%, 420px, calc(100dvh - 320px)) !important;
-  }
-
-  .mm3-mining-board-frame {
-    padding: 0.38rem !important;
-  }
-
-  .mm3-mining-nav {
-    width: 1.9rem !important;
-    height: 1.9rem !important;
-    font-size: 0.72rem !important;
-  }
-
-  .mm3-mining-detail {
-    gap: 0.4rem !important;
-    padding: 0.5rem !important;
-  }
-
-  .mm3-mining-detail-head {
-    gap: 0.35rem;
-  }
-
-  .mm3-mining-status-badge {
-    padding: 0.22rem 0.38rem !important;
-    font-size: 0.62rem !important;
-    letter-spacing: 0.08em !important;
-    text-align: center;
-  }
-
-  .mm3-mining-detail-card {
-    padding: 0.45rem !important;
-  }
-
-  .mm3-mining-short-panel {
-    min-height: 2.4rem;
-  }
-
-  .mm3-mining-short-cta {
-    padding-top: 0.35rem !important;
-    padding-bottom: 0.35rem !important;
-  }
-
-  .mm3-mining-short-panel [class*="tracking-[0.14em]"] {
-    letter-spacing: 0.1em !important;
-  }
-
-  .mm3-mining-short-panel [class*="tracking-[0.12em]"] {
-    letter-spacing: 0.08em !important;
-  }
-
-  .mm3-mining-answer-input {
-    padding: 0.35rem 0.45rem !important;
-    font-size: 0.85rem !important;
-  }
-
-  .mm3-mining-claim {
-    min-height: 2.45rem;
-    padding-top: 0.52rem !important;
-    padding-bottom: 0.52rem !important;
-    font-size: 0.68rem !important;
-    letter-spacing: 0.12em !important;
-  }
-
   .mm3-shell-main {
     padding-top: clamp(185px, 24dvh, 215px);
-  }
-}
-
-@media (max-width: 420px) and (orientation: portrait) {
-  .mm3-mining-board-wrap {
-    max-width: min(100%, 360px, calc(100dvh - 340px)) !important;
-  }
-
-  .mm3-mining-detail-head {
-    align-items: flex-start;
-  }
-
-  .mm3-mining-detail-head .mm3-mining-status-badge {
-    max-width: 42%;
-  }
-}
-
-@media (min-width: 768px) and (max-width: 1180px) {
-  .mm3-mining-shell {
-    grid-template-columns: minmax(0, 1fr) !important;
-    max-width: 760px !important;
-  }
-
-  .mm3-mining-board-wrap {
-    max-width: min(100%, 560px, calc(100dvh - 250px)) !important;
-  }
-}
-
-@media (min-width: 1181px) {
-  .mm3-mining-shell {
-    grid-template-columns: minmax(520px, 1fr) minmax(320px, 390px) !important;
-  }
-
-  .mm3-mining-board-wrap {
-    max-width: min(100%, 560px, calc(100dvh - 205px)) !important;
   }
 }
 
