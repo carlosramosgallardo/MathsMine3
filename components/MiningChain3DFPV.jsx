@@ -7823,7 +7823,7 @@ export default function MiningChain3DFPV({
       if (cell.isMarket) { totalNFTJI++; if (cell.owner) marketOwned++ }
       else if (cell.owner) owned++
     }
-    // owned = regular mined; marketOwned = NFTJI owned; use MM3_MINE_BLOCK_TOTAL (719)
+    // owned = regular mined; marketOwned = NFTJI owned; use MM3_MINE_BLOCK_TOTAL (1000)
     // as authoritative denominator — cellMap has extra unclaimed entries beyond minable count
     const totalRegular = MM3_MINE_BLOCK_TOTAL - totalNFTJI
     const totalOwned = owned + marketOwned

@@ -94,7 +94,7 @@ export async function POST(req) {
         .map(b => gridToBlockHex(b.grid_row, b.grid_col))
     );
     const freeMined = (walletMinedRows || []).filter(r => !nftjiHxs.has(r.block_hex)).length;
-    const freeMineDenom = Math.max(1, MM3_MINE_BLOCK_TOTAL - nftjiHxs.size); // 699 regular mine blocks
+    const freeMineDenom = Math.max(1, MM3_MINE_BLOCK_TOTAL - nftjiHxs.size); // 980 regular mine blocks
     const blockChainPercent = Math.round(freeMined / freeMineDenom * 10000) / 100;
 
     const { error: progressError } = await supabase

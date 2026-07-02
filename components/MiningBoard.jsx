@@ -25,6 +25,7 @@ import {
   MM3_BLOCK_GRID_COLS,
   MM3_BLOCK_GRID_ROWS,
   MM3_BLOCK_REQUIREMENT_BY_HEX,
+  MM3_MINE_BLOCK_TOTAL,
   mm3ValueToHex,
 } from '@/lib/mm3-block-chain';
 
@@ -278,7 +279,7 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
   const [canLoadInlineShort, setCanLoadInlineShort] = useState(false);
   const [selectedEventCounts, setSelectedEventCounts] = useState({ emoji: '', buys: 0, resells: 0 });
   const [minedBlocks, setMinedBlocks] = useState([]);
-  const [blockChain, setBlockChain] = useState({ title: BLOCK_CHAIN_TITLE, mined: 0, total: GRID_ROWS * GRID_COLS, percent: 0, code: '' });
+  const [blockChain, setBlockChain] = useState({ title: BLOCK_CHAIN_TITLE, mined: 0, total: MM3_MINE_BLOCK_TOTAL, percent: 0, code: '' });
   const [gameWinner, setGameWinner] = useState(null);
   const [numericCode, setNumericCode] = useState('');
   const [activePenalty, setActivePenalty] = useState(null);
@@ -450,7 +451,7 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
           (snapshot.owners || []).map((o) => o.mining_nftji_key).filter(Boolean)
         ).size;
         const totalCovered = freeMinedCount + ownedNftjiCount;
-        const boardTotal = GRID_ROWS * GRID_COLS;
+        const boardTotal = MM3_MINE_BLOCK_TOTAL;
         return {
           title: BLOCK_CHAIN_TITLE,
           mined: totalCovered,
@@ -866,7 +867,7 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
             block_chain_percent: (() => {
               const nftjiHxs = new Set(blocks.filter(b => b.grid_row != null && b.grid_col != null).map(b => gridToBlockHex(b.grid_row, b.grid_col)));
               const freeMined = (walletMinedRowsBuy || []).filter(r => !nftjiHxs.has(r.block_hex)).length;
-              return Math.round((freeMined + 1) / (GRID_ROWS * GRID_COLS) * 10000) / 100;
+              return Math.round((freeMined + 1) / MM3_MINE_BLOCK_TOTAL * 10000) / 100;
             })(),
             updated_at: now,
           },
@@ -1014,7 +1015,7 @@ export default function MarketBoard({ account, isVirtualWallet = false }) {
             block_chain_percent: (() => {
               const nftjiHxs = new Set(blocks.filter(b => b.grid_row != null && b.grid_col != null).map(b => gridToBlockHex(b.grid_row, b.grid_col)));
               const freeMined = (walletMinedRowsResell || []).filter(r => !nftjiHxs.has(r.block_hex)).length;
-              return Math.round(freeMined / (GRID_ROWS * GRID_COLS) * 10000) / 100;
+              return Math.round(freeMined / MM3_MINE_BLOCK_TOTAL * 10000) / 100;
             })(),
             updated_at: now,
           },

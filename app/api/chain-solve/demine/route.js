@@ -2,6 +2,7 @@ export const dynamic = 'force-dynamic';
 
 import { createClient } from '@supabase/supabase-js';
 import { formatWalletLabel } from '@/lib/wallet-format';
+import { MM3_MINE_BLOCK_TOTAL } from '@/lib/mm3-block-chain';
 
 function normalizeWallet(value) {
   return String(value || '').trim().toLowerCase();
@@ -137,7 +138,6 @@ async function handleDemine(req) {
 
 async function finalizeDemine(supabase, lastHitter, formulaChainIndexStart) {
   const now = new Date().toISOString();
-  const MM3_MINE_BLOCK_TOTAL = 719;
 
   // Safety delete: only remove formula-auto-mined blocks (chain_index >= start).
   // If formulaChainIndexStart is null (organic completion), delete all.

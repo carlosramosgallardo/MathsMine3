@@ -509,7 +509,7 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
       } else if (minedBlocksResponse.error?.code !== '42P01') {
         console.error('Leaderboard mined blocks fetch:', minedBlocksResponse.error);
       }
-      // Denominator = full grid (28×28 = 784), same as mining HUD. Includes NFTJI blocks.
+      // Denominator = full chain (1000 cells: 980 regular + 20 NFTJI), same as mining HUD.
       const minedBlockTotal = MM3_BLOCK_CHAIN_REQUIREMENTS.length;
 
       // Wallets that own an NFTJI block — used as fallback when mm3_mined_blocks is empty
