@@ -245,6 +245,7 @@ export default function MiningChain3D() {
   const [myDeadUntil,   setMyDeadUntil]   = useState(null)
   const [myDeadPos,     setMyDeadPos]     = useState(null)
   const myDeadUntilRef = useRef(null)
+  const myDeadPosRef   = useRef(null)
   const respawnTimerRef = useRef(null)
   const [chainDemineActive, setChainDemineActive] = useState(false)
   const [chainDemineHitsRemaining, setChainDemineHitsRemaining] = useState(100)
@@ -376,6 +377,8 @@ export default function MiningChain3D() {
   }, [nodeDiceState])
 
   useEffect(() => { healthMapRef.current = healthMap }, [healthMap])
+  useEffect(() => { myDeadPosRef.current = myDeadPos }, [myDeadPos])
+  useEffect(() => { myDeadUntilRef.current = myDeadUntil }, [myDeadUntil])
 
   useEffect(() => {
     const id = setInterval(() => {
@@ -498,22 +501,64 @@ export default function MiningChain3D() {
 
   // ── Death / respawn helpers ─────────────────────────────────────────────────
   const triggerRespawn = useCallback(() => {
-    const spawn = getSpawnForWallet(myWalletRef.current)
-    setMyPos(spawn); myPosRef.current = spawn; setJumpToCell(spawn)
-    setMyDeadUntil(null); setMyDeadPos(null)
+    const deadPos = myDeadPosRef.current
+    const deathMapId = deadPos?.mapId || mapIdRef.current
+    let row, col
+    if (deadPos?.gx != null && deadPos?.gy != null) {
+      row = Math.floor(deadPos.gy)
+      col = Math.floor(deadPos.gx)
+    } else {
+      const fallback = getSpawnForWallet(myWalletRef.current)
+      row = fallback.row
+      col = fallback.col
+    }
+    const z = 0
+    const spawn = { row, col, z }
+    setMyDeadUntil(null)
+    setMyDeadPos(null)
     myDeadUntilRef.current = null
+    myDeadPosRef.current = null
     localStorage.removeItem('mm3_pvp_dead')
     const _posKey = myWalletRef.current ? `mm3_mining_pos_${myWalletRef.current}` : 'mm3_mining_pos_anon'
-    localStorage.removeItem(_posKey)
+    try { localStorage.setItem(_posKey, JSON.stringify({ row, col, z, mapId: deathMapId })) } catch { /* */ }
     if (myWalletRef.current) {
       fetch(`/api/pvp-death?wallet=${encodeURIComponent(myWalletRef.current)}`, { method: 'DELETE' }).catch(() => {})
     }
     setHealthMap(prev => ({ ...prev, [myKeyRef.current]: 100 }))
+    if (deathMapId !== mapIdRef.current) {
+      setMapId(deathMapId)
+      mapIdRef.current = deathMapId
+    }
+    setMyPos(spawn)
+    myPosRef.current = spawn
+    setJumpToCell({ row, col, z, mapId: deathMapId, at: Date.now() })
     const ch = channelRef.current
     if (ch) {
-      const { row, col } = spawn
-      ch.track({ wallet: myKeyRef.current, isDead: false, gx: col + 0.5, gy: row + 0.5, row, col }).catch?.(() => {})
-      ch.send({ type: 'broadcast', event: 'pvp-result', payload: { victim: myKeyRef.current, health: 100, killed: false, respawn: true } }).catch?.(() => {})
+      ch.track({
+        wallet: myKeyRef.current,
+        isDead: false,
+        gx: col + 0.5,
+        gy: row + 0.5,
+        row,
+        col,
+        z,
+        mapId: deathMapId,
+      }).catch?.(() => {})
+      ch.send({
+        type: 'broadcast',
+        event: 'pvp-result',
+        payload: {
+          victim: myKeyRef.current,
+          health: 100,
+          killed: false,
+          respawn: true,
+          mapId: deathMapId,
+          gx: col + 0.5,
+          gy: row + 0.5,
+          row,
+          col,
+        },
+      }).catch?.(() => {})
     }
   }, [])
 
@@ -527,17 +572,21 @@ export default function MiningChain3D() {
     const myP = myPosRef.current
     const deadGX = (myP?.col ?? 14) + 0.5
     const deadGY = (myP?.row ?? 14) + 0.5
+    const deathMapId = mapIdRef.current
     const deadUntil = Date.now() + 5 * 60 * 1000
     const deadUntilIso = new Date(deadUntil).toISOString()
-    setMyDeadUntil(deadUntil); setMyDeadPos({ gx: deadGX, gy: deadGY })
+    const deadPos = { gx: deadGX, gy: deadGY, mapId: deathMapId }
+    setMyDeadUntil(deadUntil)
+    setMyDeadPos(deadPos)
     myDeadUntilRef.current = deadUntil
-    localStorage.setItem('mm3_pvp_dead', JSON.stringify({ until: deadUntil, gx: deadGX, gy: deadGY }))
+    myDeadPosRef.current = deadPos
+    localStorage.setItem('mm3_pvp_dead', JSON.stringify({ until: deadUntil, gx: deadGX, gy: deadGY, mapId: deathMapId }))
     try { window.dispatchEvent(new Event('mm3-pvp-death')) } catch {}
     if (myWalletRef.current) {
       fetch('/api/pvp-death', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ wallet: myWalletRef.current, gx: deadGX, gy: deadGY }) }).catch(() => {})
     }
-    channelRef.current?.send({ type: 'broadcast', event: 'player-death', payload: { victim: myKeyRef.current, gx: deadGX, gy: deadGY, deadUntil: deadUntilIso } })?.catch(() => {})
-    channelRef.current?.track({ wallet: myKeyRef.current, isDead: true, deadUntil: deadUntilIso, gx: deadGX, gy: deadGY, row: myP?.row ?? 14, col: myP?.col ?? 14 })?.catch?.(() => {})
+    channelRef.current?.send({ type: 'broadcast', event: 'player-death', payload: { victim: myKeyRef.current, gx: deadGX, gy: deadGY, deadUntil: deadUntilIso, mapId: deathMapId } })?.catch(() => {})
+    channelRef.current?.track({ wallet: myKeyRef.current, isDead: true, deadUntil: deadUntilIso, gx: deadGX, gy: deadGY, row: myP?.row ?? 14, col: myP?.col ?? 14, mapId: deathMapId })?.catch?.(() => {})
     scheduleRespawn(5 * 60 * 1000)
   }, [scheduleRespawn])
 
@@ -585,9 +634,14 @@ export default function MiningChain3D() {
   useEffect(() => {
     const stored = (() => { try { return JSON.parse(localStorage.getItem('mm3_pvp_dead') || 'null') } catch { return null } })()
     if (stored?.until && stored.until > Date.now()) {
+      const deathMapId = stored.mapId || MINING_CORE_MAP_ID
+      const deadPos = { gx: stored.gx, gy: stored.gy, mapId: deathMapId }
       setMyDeadUntil(stored.until)
-      setMyDeadPos({ gx: stored.gx, gy: stored.gy })
+      setMyDeadPos(deadPos)
       myDeadUntilRef.current = stored.until
+      myDeadPosRef.current = deadPos
+      setMapId(deathMapId)
+      mapIdRef.current = deathMapId
       scheduleRespawn(stored.until - Date.now())
     } else {
       if (stored) localStorage.removeItem('mm3_pvp_dead')
@@ -615,10 +669,13 @@ export default function MiningChain3D() {
             const until = new Date(r.deadUntil).getTime()
             if (until <= Date.now()) return
             if (myDeadUntilRef.current && myDeadUntilRef.current >= until) return
+            const deathMapId = mapIdRef.current
+            const deadPos = { gx: r.gx, gy: r.gy, mapId: deathMapId }
             setMyDeadUntil(until)
-            setMyDeadPos({ gx: r.gx, gy: r.gy })
+            setMyDeadPos(deadPos)
             myDeadUntilRef.current = until
-            localStorage.setItem('mm3_pvp_dead', JSON.stringify({ until, gx: r.gx, gy: r.gy }))
+            myDeadPosRef.current = deadPos
+            localStorage.setItem('mm3_pvp_dead', JSON.stringify({ until, gx: r.gx, gy: r.gy, mapId: deathMapId }))
             scheduleRespawn(until - Date.now())
           } else if (r.posRow != null && r.posCol != null) {
             // DB alive position overrides localStorage (anti-cheat)
@@ -1055,7 +1112,23 @@ export default function MiningChain3D() {
         setPositions(prev => {
           const p = prev[payload.victim]
           if (!p?.isDead) return prev
-          return { ...prev, [payload.victim]: { ...p, isDead: false, deadUntil: null } }
+          return {
+            ...prev,
+            [payload.victim]: {
+              ...p,
+              isDead: false,
+              deadUntil: null,
+              mapId: payload.mapId || p.mapId || MINING_CORE_MAP_ID,
+              ...(payload.gx != null
+                ? {
+                    gx: Number(payload.gx),
+                    gy: Number(payload.gy),
+                    row: Number(payload.row ?? Math.floor(Number(payload.gy))),
+                    col: Number(payload.col ?? Math.floor(Number(payload.gx))),
+                  }
+                : {}),
+            },
+          }
         })
       }
       if (payload.victim === myKeyRef.current || payload.victim === myWalletRef.current) {
@@ -1078,19 +1151,22 @@ export default function MiningChain3D() {
           const myP = myPosRef.current
           const deadGX = (myP?.col ?? 14) + 0.5
           const deadGY = (myP?.row ?? 14) + 0.5
+          const deathMapId = mapIdRef.current
           const deadUntil = Date.now() + 5 * 60 * 1000
+          const deadPos = { gx: deadGX, gy: deadGY, mapId: deathMapId }
           setMyDeadUntil(deadUntil)
-          setMyDeadPos({ gx: deadGX, gy: deadGY })
+          setMyDeadPos(deadPos)
           myDeadUntilRef.current = deadUntil
-          localStorage.setItem('mm3_pvp_dead', JSON.stringify({ until: deadUntil, gx: deadGX, gy: deadGY }))
+          myDeadPosRef.current = deadPos
+          localStorage.setItem('mm3_pvp_dead', JSON.stringify({ until: deadUntil, gx: deadGX, gy: deadGY, mapId: deathMapId }))
           try { window.dispatchEvent(new Event('mm3-pvp-death')) } catch {}
           if (myWalletRef.current) {
             fetch('/api/pvp-death', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ wallet: myWalletRef.current, gx: deadGX, gy: deadGY }) }).catch(() => {})
           }
           // Notify others of the corpse position via broadcast
           const deadUntilIso = new Date(deadUntil).toISOString()
-          channelRef.current?.send({ type: 'broadcast', event: 'player-death', payload: { victim: payload.victim, gx: deadGX, gy: deadGY, deadUntil: deadUntilIso } })?.catch(() => {})
-          channelRef.current?.track({ wallet: myKeyRef.current, isDead: true, deadUntil: deadUntilIso, gx: deadGX, gy: deadGY, row: myP?.row ?? 14, col: myP?.col ?? 14 })?.catch?.(() => {})
+          channelRef.current?.send({ type: 'broadcast', event: 'player-death', payload: { victim: payload.victim, gx: deadGX, gy: deadGY, deadUntil: deadUntilIso, mapId: deathMapId } })?.catch(() => {})
+          channelRef.current?.track({ wallet: myKeyRef.current, isDead: true, deadUntil: deadUntilIso, gx: deadGX, gy: deadGY, row: myP?.row ?? 14, col: myP?.col ?? 14, mapId: deathMapId })?.catch?.(() => {})
           scheduleRespawn(5 * 60 * 1000)
         }
       }
@@ -1125,7 +1201,16 @@ export default function MiningChain3D() {
       if (!w) return
       setPositions(prev => ({
         ...prev,
-        [w]: { ...(prev[w] || {}), gx: Number(payload.gx), gy: Number(payload.gy), row: Math.floor(Number(payload.gy)), col: Math.floor(Number(payload.gx)), isDead: true, deadUntil: payload.deadUntil },
+        [w]: {
+          ...(prev[w] || {}),
+          gx: Number(payload.gx),
+          gy: Number(payload.gy),
+          row: Math.floor(Number(payload.gy)),
+          col: Math.floor(Number(payload.gx)),
+          isDead: true,
+          deadUntil: payload.deadUntil,
+          mapId: payload.mapId || prev[w]?.mapId || MINING_CORE_MAP_ID,
+        },
       }))
       setOnlineWallets(prev => prev.has(w) ? prev : new Set([...prev, w]))
     })

@@ -3636,84 +3636,61 @@ function drawMinimapEdgeExits(ctx, mapId, MX, MY, SZ, CS) {
     ctx.strokeRect(x + 0.25, y + 0.25, w - 0.5, h - 0.5)
   }
 
-  // north
-  if (!edges.north.open) drawClosedStrip(MX, MY, SZ, cap)
-  else {
-    for (const col of edges.north.bands) {
-      const cx = MX + col * CS
+  const drawTicks = (bands, drawOne) => {
+    for (const band of bands) {
       ctx.save()
       ctx.shadowColor = accent
       ctx.shadowBlur = 5
       ctx.fillStyle = accent
-      ctx.fillRect(cx - tick / 2, MY, tick, cap)
-      ctx.shadowBlur = 0
-      ctx.font = 'bold 6px monospace'
-      ctx.textAlign = 'center'
-      ctx.textBaseline = 'top'
-      ctx.fillStyle = accent
-      ctx.fillText(`M${edges.north.targetMapId}`, cx, MY + cap + 1)
+      drawOne(band)
       ctx.restore()
     }
+  }
+
+  const drawEdgeLabel = (text, x, y, align, baseline) => {
+    ctx.font = 'bold 7px monospace'
+    ctx.textAlign = align
+    ctx.textBaseline = baseline
+    ctx.fillStyle = accent
+    ctx.fillText(text, x, y)
+  }
+
+  const bandMid = (bands) => bands.reduce((sum, value) => sum + value, 0) / bands.length
+
+  // north
+  if (!edges.north.open) drawClosedStrip(MX, MY, SZ, cap)
+  else {
+    drawTicks(edges.north.bands, (col) => {
+      ctx.fillRect(MX + col * CS - tick / 2, MY, tick, cap)
+    })
+    drawEdgeLabel(`M${edges.north.targetMapId}`, MX + bandMid(edges.north.bands) * CS, MY + cap + 1, 'center', 'top')
   }
 
   // south
   if (!edges.south.open) drawClosedStrip(MX, MY + SZ - cap, SZ, cap)
   else {
-    for (const col of edges.south.bands) {
-      const cx = MX + col * CS
-      ctx.save()
-      ctx.shadowColor = accent
-      ctx.shadowBlur = 5
-      ctx.fillStyle = accent
-      ctx.fillRect(cx - tick / 2, MY + SZ - cap, tick, cap)
-      ctx.shadowBlur = 0
-      ctx.font = 'bold 6px monospace'
-      ctx.textAlign = 'center'
-      ctx.textBaseline = 'bottom'
-      ctx.fillStyle = accent
-      ctx.fillText(`M${edges.south.targetMapId}`, cx, MY + SZ - cap - 1)
-      ctx.restore()
-    }
+    drawTicks(edges.south.bands, (col) => {
+      ctx.fillRect(MX + col * CS - tick / 2, MY + SZ - cap, tick, cap)
+    })
+    drawEdgeLabel(`M${edges.south.targetMapId}`, MX + bandMid(edges.south.bands) * CS, MY + SZ - cap - 1, 'center', 'bottom')
   }
 
   // west
   if (!edges.west.open) drawClosedStrip(MX, MY, cap, SZ)
   else {
-    for (const row of edges.west.bands) {
-      const cy = MY + row * CS
-      ctx.save()
-      ctx.shadowColor = accent
-      ctx.shadowBlur = 5
-      ctx.fillStyle = accent
-      ctx.fillRect(MX, cy - tick / 2, cap, tick)
-      ctx.shadowBlur = 0
-      ctx.font = 'bold 6px monospace'
-      ctx.textAlign = 'left'
-      ctx.textBaseline = 'middle'
-      ctx.fillStyle = accent
-      ctx.fillText(`M${edges.west.targetMapId}`, MX + cap + 2, cy)
-      ctx.restore()
-    }
+    drawTicks(edges.west.bands, (row) => {
+      ctx.fillRect(MX, MY + row * CS - tick / 2, cap, tick)
+    })
+    drawEdgeLabel(`M${edges.west.targetMapId}`, MX + cap + 2, MY + bandMid(edges.west.bands) * CS, 'left', 'middle')
   }
 
   // east
   if (!edges.east.open) drawClosedStrip(MX + SZ - cap, MY, cap, SZ)
   else {
-    for (const row of edges.east.bands) {
-      const cy = MY + row * CS
-      ctx.save()
-      ctx.shadowColor = accent
-      ctx.shadowBlur = 5
-      ctx.fillStyle = accent
-      ctx.fillRect(MX + SZ - cap, cy - tick / 2, cap, tick)
-      ctx.shadowBlur = 0
-      ctx.font = 'bold 6px monospace'
-      ctx.textAlign = 'right'
-      ctx.textBaseline = 'middle'
-      ctx.fillStyle = accent
-      ctx.fillText(`M${edges.east.targetMapId}`, MX + SZ - cap - 2, cy)
-      ctx.restore()
-    }
+    drawTicks(edges.east.bands, (row) => {
+      ctx.fillRect(MX + SZ - cap, MY + row * CS - tick / 2, cap, tick)
+    })
+    drawEdgeLabel(`M${edges.east.targetMapId}`, MX + SZ - cap - 2, MY + bandMid(edges.east.bands) * CS, 'right', 'middle')
   }
 }
 
@@ -4687,9 +4664,7 @@ function drawOnlineList(ctx, W, H, presenceMap, myWallet, pvpStolen, demineRewar
     const isMe = w.toLowerCase() === (myWallet || '').toLowerCase()
     const col  = onCurrentMap ? colorFromAddress(w) : '#526172'
     const isMM3 = !isAnon && solverSet?.has(w.toLowerCase())
-    const rowSuffix = isMe
-      ? ` · M${mapId}`
-      : (onCurrentMap ? '' : ` · M${mapId}`)
+    const rowSuffix = (isMe || !onCurrentMap || isDead) ? ` · M${mapId}` : ''
     const rowLabel = isAnon
       ? `${w}${rowSuffix}`
       : `${w.slice(0, 6)}…${w.slice(-3)}${isBot ? ' B' : ''}${isMM3 ? '@MM3' : ''}${rowSuffix}`
