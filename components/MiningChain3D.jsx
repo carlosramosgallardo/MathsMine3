@@ -198,12 +198,12 @@ export default function MiningChain3D() {
 
   // Keep refs current each render
   myWalletRef.current = myWallet
-  mapIdRef.current = mapId
 
   const [cellMap,       setCellMap]       = useState(new Map())
   const reloadCellMapRef = useRef(null)
   const [myPos,         setMyPos]         = useState(initialPos)
   const [mapId,         setMapId]         = useState(MINING_CORE_MAP_ID)
+  mapIdRef.current = mapId
   const [jumpToCell,    setJumpToCell]    = useState(null)
   const [pvpStolen,     setPvpStolen]     = useState({})
   const [demineRewards, setDemineRewards] = useState({})
