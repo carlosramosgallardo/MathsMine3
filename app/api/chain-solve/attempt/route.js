@@ -2,7 +2,7 @@ export const dynamic = 'force-dynamic';
 
 import { createClient } from '@supabase/supabase-js';
 import { formatWalletLabel } from '@/lib/wallet-format';
-import { MM3_BLOCK_GRID_ROWS, MM3_BLOCK_GRID_COLS, gridToBlockHex, mm3ValueToHex } from '@/lib/mm3-block-chain';
+import { MM3_BLOCK_CHAIN_TOTAL, MM3_BLOCK_GRID_COLS, gridToBlockHex, mm3ValueToHex } from '@/lib/mm3-block-chain';
 import { activateDemineMode } from '@/lib/chain-winner';
 
 function normalizeWallet(value) {
@@ -109,33 +109,43 @@ async function handleAttempt(req) {
   let autoMinedCount = 0;
   let formulaChainIndexStart = null;
   try {
-    const [{ data: existingMined }, { data: maxRow }] = await Promise.all([
+    const [{ data: existingMined }, { data: maxRow }, { data: nftjiBlocks }] = await Promise.all([
       supabase.from('mm3_mined_blocks').select('block_hex'),
       supabase.from('mm3_mined_blocks').select('chain_index').order('chain_index', { ascending: false }).limit(1),
+      supabase.from('mm3_mining_blocks').select('grid_row, grid_col'),
     ]);
 
     const existingHexes = new Set((existingMined || []).map(r => r.block_hex));
+    // NFTJI slots are purchased individually (grants mining_nftji_key ownership) — the
+    // formula shortcut only auto-mines the 980 regular blocks, not the 20 NFTJI blocks.
+    const nftjiHexes = new Set(
+      (nftjiBlocks || []).filter(b => b.grid_row != null && b.grid_col != null)
+        .map(b => gridToBlockHex(b.grid_row, b.grid_col))
+    );
     let nextIndex = ((maxRow?.[0]?.chain_index) || 0) + 1;
     formulaChainIndexStart = nextIndex;
     const mm3Hex = mm3ValueToHex(mm3Global);
 
+    // Chain now spans 1000 indices (980 regular + 20 NFTJI, #000–#3E7), not just the
+    // legacy 28x28 (784-cell) board — auto-mine must cover the full chain.
     const toInsert = [];
-    for (let row = 0; row < MM3_BLOCK_GRID_ROWS; row++) {
-      for (let col = 0; col < MM3_BLOCK_GRID_COLS; col++) {
-        const blockHex = gridToBlockHex(row, col);
-        if (!existingHexes.has(blockHex)) {
-          toInsert.push({
-            block_hex: blockHex,
-            grid_row: row,
-            grid_col: col,
-            wallet,
-            wallet_level: 0,
-            mm3_value: mm3Global,
-            mm3_value_hex: mm3Hex,
-            chain_index: nextIndex++,
-            mined_at: now,
-          });
-        }
+    for (let index = 0; index < MM3_BLOCK_CHAIN_TOTAL; index++) {
+      const row = Math.floor(index / MM3_BLOCK_GRID_COLS);
+      const col = index % MM3_BLOCK_GRID_COLS;
+      const blockHex = gridToBlockHex(row, col);
+      if (nftjiHexes.has(blockHex)) continue;
+      if (!existingHexes.has(blockHex)) {
+        toInsert.push({
+          block_hex: blockHex,
+          grid_row: row,
+          grid_col: col,
+          wallet,
+          wallet_level: 0,
+          mm3_value: mm3Global,
+          mm3_value_hex: mm3Hex,
+          chain_index: nextIndex++,
+          mined_at: now,
+        });
       }
     }
     for (let i = 0; i < toInsert.length; i += 100) {

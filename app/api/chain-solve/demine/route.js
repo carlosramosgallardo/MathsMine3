@@ -2,7 +2,7 @@ export const dynamic = 'force-dynamic';
 
 import { createClient } from '@supabase/supabase-js';
 import { formatWalletLabel } from '@/lib/wallet-format';
-import { MM3_MINE_BLOCK_TOTAL } from '@/lib/mm3-block-chain';
+import { gridToBlockHex, MM3_MINE_BLOCK_TOTAL } from '@/lib/mm3-block-chain';
 
 function normalizeWallet(value) {
   return String(value || '').trim().toLowerCase();
@@ -147,15 +147,26 @@ async function finalizeDemine(supabase, lastHitter, formulaChainIndexStart) {
     await supabase.from('mm3_mined_blocks').delete().neq('id', 0);
   }
 
-  // Count blocks remaining after delete to compute actual post-demine %
+  // Count blocks remaining after delete to compute actual post-demine % — this is the
+  // pre-formula snapshot (regular blocks mined + NFTJI blocks owned before the solve),
+  // not a reset to 0%.
   let postPct = 0;
   if (formulaChainIndexStart != null) {
-    const [{ count: remainingMined }, { data: nftjiOwners }] = await Promise.all([
-      supabase.from('mm3_mined_blocks').select('id', { count: 'exact', head: true }),
+    const [{ data: remainingMinedRows }, { data: nftjiBlocks }, { data: nftjiOwners }] = await Promise.all([
+      supabase.from('mm3_mined_blocks').select('block_hex'),
+      supabase.from('mm3_mining_blocks').select('grid_row, grid_col'),
       supabase.from('player_progress').select('mining_nftji_key').not('mining_nftji_key', 'is', null),
     ]);
+    // Regular blocks are counted from mm3_mined_blocks, NFTJI ownership from mining_nftji_key —
+    // a block can appear in both sources, so exclude NFTJI hexes from the mined-blocks count
+    // to avoid double-counting them.
+    const nftjiHexes = new Set(
+      (nftjiBlocks || []).filter(b => b.grid_row != null && b.grid_col != null)
+        .map(b => gridToBlockHex(b.grid_row, b.grid_col))
+    );
+    const freeRemainingMined = (remainingMinedRows || []).filter(r => !nftjiHexes.has(r.block_hex)).length;
     const nftjiOwned = new Set((nftjiOwners || []).map(r => r.mining_nftji_key)).size;
-    postPct = ((Number(remainingMined) || 0) + nftjiOwned) / MM3_MINE_BLOCK_TOTAL * 100;
+    postPct = (freeRemainingMined + nftjiOwned) / MM3_MINE_BLOCK_TOTAL * 100;
   }
   const pctStr = postPct.toFixed(4);
 
