@@ -3601,16 +3601,35 @@ function minimapSize(W) {
   return W < 600 ? Math.min(W * 0.48, 150) : Math.min(220, W * 0.24)
 }
 
+const MINIMAP_LABEL_H = 12
+const MINIMAP_Y = 8 + MINIMAP_LABEL_H
+
+function drawMinimapLabel(ctx, mapId, es, MX, SZ) {
+  const labelTop = MINIMAP_Y - MINIMAP_LABEL_H - 1
+  ctx.fillStyle = 'rgba(1,7,14,.94)'
+  ctx.fillRect(MX - 2, labelTop, SZ + 4, MINIMAP_LABEL_H)
+  ctx.strokeStyle = C + '55'
+  ctx.lineWidth = 0.5
+  ctx.strokeRect(MX - 2, labelTop, SZ + 4, MINIMAP_LABEL_H)
+  ctx.font = 'bold 8px monospace'
+  ctx.textAlign = 'right'
+  ctx.textBaseline = 'middle'
+  ctx.fillStyle = C + 'ee'
+  ctx.fillText(`M${mapId} · ${getMiningMapLabel(mapId, es)}`, MX + SZ - 4, labelTop + MINIMAP_LABEL_H / 2)
+}
+
 function drawMinimap(ctx, gr, gc, angle, cellMap, presenceMap, myWallet, W, H, chainNodePos, validObs, gx, gy, staticCacheRef, dpr=1, mapId=MINING_CORE_MAP_ID, es=false) {
   const isMobile = W < 600
   const SZ = minimapSize(W)
   const MX = W - SZ - 6
-  const MY = 8
+  const MY = MINIMAP_Y
   const CS = SZ / COLS
   const mapX = (col) => MX + col * CS
   const mapY = (row) => MY + row * CS
   const now = Date.now()
   const myId = (myWallet || '').toLowerCase()
+
+  drawMinimapLabel(ctx, mapId, es, MX, SZ)
 
   const drawMapEmoji = (emoji, x, y, color, shape = 'circle') => {
     const fontSize = isMobile ? 7.5 : 9
@@ -3835,12 +3854,6 @@ function drawMinimap(ctx, gr, gc, angle, cellMap, presenceMap, myWallet, W, H, c
 
   drawPlayerArrow(gx ?? (gc + .5), gy ?? (gr + .5), angle, C, true, false)
   ctx.restore()
-
-  ctx.font = 'bold 8px monospace'
-  ctx.textAlign = 'right'
-  ctx.textBaseline = 'bottom'
-  ctx.fillStyle = C + 'aa'
-  ctx.fillText(`M${mapId} · ${getMiningMapLabel(mapId, es)}`, MX + SZ, MY - 3)
 }
 
 // ── Facing block HUD (top-right info card) ────────────────────────────────────
@@ -4506,7 +4519,7 @@ function drawOnlineList(ctx, W, H, presenceMap, myWallet, pvpStolen, demineRewar
   const isMobile = W < 600
   const SZ = minimapSize(W)
   const MX = W - SZ - 6
-  const MY = 8
+  const MY = MINIMAP_Y
 
   const all = []
   for (const [w, pres] of Object.entries(presenceMap || {})) {
@@ -4573,10 +4586,12 @@ function drawOnlineList(ctx, W, H, presenceMap, myWallet, pvpStolen, demineRewar
     const isMe = w.toLowerCase() === (myWallet || '').toLowerCase()
     const col  = onCurrentMap ? colorFromAddress(w) : '#526172'
     const isMM3 = !isAnon && solverSet?.has(w.toLowerCase())
-    const mapSuffix = onCurrentMap ? '' : ` · M${mapId}`
+    const rowSuffix = isMe
+      ? ` · M${mapId}`
+      : (onCurrentMap ? '' : ` · M${mapId}`)
     const rowLabel = isAnon
-      ? `${w}${mapSuffix}`
-      : `${w.slice(0, 6)}…${w.slice(-3)}${isBot ? ' B' : ''}${isMM3 ? '@MM3' : ''}${mapSuffix}`
+      ? `${w}${rowSuffix}`
+      : `${w.slice(0, 6)}…${w.slice(-3)}${isBot ? ' B' : ''}${isMM3 ? '@MM3' : ''}${rowSuffix}`
     if (isMe) {
       ctx.fillStyle = col + '1a'
       ctx.fillRect(px + 1, ly - 2, pw - 2, LINE_H)
@@ -8195,9 +8210,15 @@ export default function MiningChain3DFPV({
       current.taskPhase=target.taskPhase||null
       current.isDead=Boolean(target.isDead)
       current.deadUntil=target.deadUntil??null
+      current.mapId=target.mapId||MINING_CORE_MAP_ID
       presence[w]=current
     }
     for(const w of visuals.keys()) if(!rawPresence?.[w]){visuals.delete(w);delete presence[w]}
+    if(myIdentity){
+      const selfPresence=presence[myIdentity]||{}
+      selfPresence.mapId=mapIdRef.current
+      presence[myIdentity]=selfPresence
+    }
 
     const {x:px,y:py,angle,pitch:rawPitch=0,z:rawZ=0} = playerRef.current
     const cameraNow=performance.now(),cameraVisual=cameraVisualRef.current

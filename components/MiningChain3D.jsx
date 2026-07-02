@@ -662,13 +662,14 @@ export default function MiningChain3D() {
   // FPV gets wallets that are online AND have a known position (or self)
   const presenceMap = useMemo(() => {
     const map = {}
+    const selfKey = presenceKey || myWallet
     for (const w of onlineWallets) {
       const p = positions[w]
       if (p) map[w] = p
     }
-    if (myWallet && positions[myWallet]) map[myWallet] = positions[myWallet]
+    if (selfKey && positions[selfKey]) map[selfKey] = positions[selfKey]
     return map
-  }, [positions, onlineWallets, myWallet])
+  }, [positions, onlineWallets, myWallet, presenceKey])
 
   useEffect(() => {
     if (!presenceKey) return
@@ -924,7 +925,10 @@ export default function MiningChain3D() {
         const posKey = myWallet ? `mm3_mining_pos_${myWallet}` : 'mm3_mining_pos_anon'
         const saved = JSON.parse(localStorage.getItem(posKey) || 'null')
         if (saved && typeof saved.row === 'number' && typeof saved.col === 'number') {
-          spawn = { row: saved.row, col: saved.col, z: Number(saved.z) || 0 }
+          const savedMapId = saved.mapId || MINING_CORE_MAP_ID
+          spawn = { row: saved.row, col: saved.col, z: Number(saved.z) || 0, mapId: savedMapId }
+          setMapId(savedMapId)
+          mapIdRef.current = savedMapId
         }
       }
     } catch { /* */ }
@@ -936,7 +940,14 @@ export default function MiningChain3D() {
       const next = { ...prev }
       const oldKey = myKeyRef.current
       if (oldKey) delete next[oldKey]
-      if (myWallet) next[myWallet] = { gx: spawn.col + 0.5, gy: spawn.row + 0.5, row: spawn.row, col: spawn.col, z: Number(spawn.z) || 0 }
+      if (myWallet) next[myWallet] = {
+        gx: spawn.col + 0.5,
+        gy: spawn.row + 0.5,
+        row: spawn.row,
+        col: spawn.col,
+        z: Number(spawn.z) || 0,
+        mapId: spawn.mapId || mapIdRef.current,
+      }
       return next
     })
   }, [myWallet])
