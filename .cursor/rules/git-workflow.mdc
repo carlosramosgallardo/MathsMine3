@@ -1,0 +1,8 @@
+---
+description: Git workflow — work directly on main
+alwaysApply: true
+---
+
+- **Always work on `main`.** Do not create feature branches (`cursor/...` or otherwise).
+- Commit and push directly to `main` to trigger the Vercel deploy.
+- Do not open PRs unless the user explicitly asks for one.
