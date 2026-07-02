@@ -6,6 +6,14 @@ import { colorFromAddress } from '@/lib/wallet-colors'
 import { MM3_BLOCK_GRID_ROWS, MM3_BLOCK_GRID_COLS, MM3_MINE_BLOCK_TOTAL, gridToBlockHex, MM3_BLOCK_REQUIREMENT_BY_HEX, doesGlobalValueMeetRequirement } from '@/lib/mm3-block-chain'
 import supabase from '@/lib/supabaseClient'
 import { groupPresenceEntries } from '@/lib/presence-display'
+import {
+  detectMiningMapTransition,
+  getMiningMapDefinition,
+  getMiningMapLabel,
+  isMiningCoreMap,
+  MINING_CORE_MAP_ID,
+} from '@/lib/mining-maps'
+import { getMiningMapAmbientObstacles } from '@/lib/mining-map-ambient'
 import { getDiceState } from '@/lib/dice'
 import {
   CIPHER_HOUSE_BOUNDS,
@@ -3593,7 +3601,7 @@ function minimapSize(W) {
   return W < 600 ? Math.min(W * 0.48, 150) : Math.min(220, W * 0.24)
 }
 
-function drawMinimap(ctx, gr, gc, angle, cellMap, presenceMap, myWallet, W, H, chainNodePos, validObs, gx, gy, staticCacheRef, dpr=1) {
+function drawMinimap(ctx, gr, gc, angle, cellMap, presenceMap, myWallet, W, H, chainNodePos, validObs, gx, gy, staticCacheRef, dpr=1, mapId=MINING_CORE_MAP_ID, es=false) {
   const isMobile = W < 600
   const SZ = minimapSize(W)
   const MX = W - SZ - 6
@@ -3680,7 +3688,7 @@ function drawMinimap(ctx, gr, gc, angle, cellMap, presenceMap, myWallet, W, H, c
   }
 
   const cached=staticCacheRef?.current
-  const cacheHit=cached&&cached.cellMap===cellMap&&cached.validObs===validObs&&cached.myId===myId&&cached.sz===SZ&&cached.dpr===dpr
+  const cacheHit=cached&&cached.mapId===mapId&&cached.cellMap===cellMap&&cached.validObs===validObs&&cached.myId===myId&&cached.sz===SZ&&cached.dpr===dpr
   if(cacheHit){
     ctx.drawImage(cached.canvas,MX-2,MY-2,SZ+4,SZ+4)
   }else{
@@ -3745,7 +3753,7 @@ function drawMinimap(ctx, gr, gc, angle, cellMap, presenceMap, myWallet, W, H, c
     }
   }
 
-  for (const [key, cell] of cellMap) {
+  for (const [key, cell] of (isMiningCoreMap(mapId) ? cellMap : [])) {
     if (cell?.isPortalNode || cell?.isMarket || cell?.isChainNode) continue
     const [row, col] = key.split(',').map(Number)
     const x = mapX(col)
@@ -3760,27 +3768,27 @@ function drawMinimap(ctx, gr, gc, angle, cellMap, presenceMap, myWallet, W, H, c
     }
   }
 
-  for (const [key, cell] of cellMap) {
+  for (const [key, cell] of (isMiningCoreMap(mapId) ? cellMap : [])) {
     if (!cell?.isMarket) continue
     const [row, col] = key.split(',').map(Number)
     const color = cell.owner ? '#4ade80' : '#fb923c'
     drawMapEmoji(cell.emoji || '◆', mapX(col + .5), mapY(row + .5), color, 'square')
   }
 
-  for (const [key, cell] of cellMap) {
+  for (const [key, cell] of (isMiningCoreMap(mapId) ? cellMap : [])) {
     if (!cell?.isPortalNode && !cell?.isNodeDiceNode) continue
     const [row, col] = key.split(',').map(Number)
     drawMapEmoji(cell.emoji || '◆', mapX(col + .5), mapY(row + .5), cell.color || C, 'circle')
   }
 
   let chainDrawn = false
-  for (const [key, cell] of cellMap) {
+  for (const [key, cell] of (isMiningCoreMap(mapId) ? cellMap : [])) {
     if (!cell?.isChainNode) continue
     const [row, col] = key.split(',').map(Number)
     drawMapEmoji(cell.emoji || '⬡', mapX(col + .5), mapY(row + .5), '#facc15', 'circle')
     chainDrawn = true
   }
-  if (!chainDrawn && chainNodePos) {
+  if (!chainDrawn && chainNodePos && isMiningCoreMap(mapId)) {
     drawMapEmoji('⬡', mapX(chainNodePos.col + .5), mapY(chainNodePos.row + .5), '#facc15', 'circle')
   }
 
@@ -3794,12 +3802,13 @@ function drawMinimap(ctx, gr, gc, angle, cellMap, presenceMap, myWallet, W, H, c
         Math.round((MX-2)*dpr),Math.round((MY-2)*dpr),cacheCanvas.width,cacheCanvas.height,
         0,0,cacheCanvas.width,cacheCanvas.height,
       )
-      staticCacheRef.current={canvas:cacheCanvas,cellMap,validObs,myId,sz:SZ,dpr}
+      staticCacheRef.current={canvas:cacheCanvas,cellMap,validObs,myId,sz:SZ,dpr,mapId}
     }
   }
 
   for (const [wallet, player] of Object.entries(presenceMap || {})) {
     if (player.row == null && player.gy == null) continue
+    if ((player.mapId || MINING_CORE_MAP_ID) !== mapId) continue
     const identity = wallet.toLowerCase()
     if (identity === myId) continue
     const pgx = player.gx ?? ((player.col ?? 0) + .5)
@@ -3826,6 +3835,12 @@ function drawMinimap(ctx, gr, gc, angle, cellMap, presenceMap, myWallet, W, H, c
 
   drawPlayerArrow(gx ?? (gc + .5), gy ?? (gr + .5), angle, C, true, false)
   ctx.restore()
+
+  ctx.font = 'bold 8px monospace'
+  ctx.textAlign = 'right'
+  ctx.textBaseline = 'bottom'
+  ctx.fillStyle = C + 'aa'
+  ctx.fillText(`M${mapId} · ${getMiningMapLabel(mapId, es)}`, MX + SZ, MY - 3)
 }
 
 // ── Facing block HUD (top-right info card) ────────────────────────────────────
@@ -4487,7 +4502,7 @@ function drawNodeDiceWeather() {
 }
 
 // ── Online players list (below minimap) ─────────────────────────────────────
-function drawOnlineList(ctx, W, H, presenceMap, myWallet, pvpStolen, demineRewards, solverSet) {
+function drawOnlineList(ctx, W, H, presenceMap, myWallet, pvpStolen, demineRewards, solverSet, currentMapId = MINING_CORE_MAP_ID, es = false) {
   const isMobile = W < 600
   const SZ = minimapSize(W)
   const MX = W - SZ - 6
@@ -4508,14 +4523,22 @@ function drawOnlineList(ctx, W, H, presenceMap, myWallet, pvpStolen, demineRewar
       stolen: (pvpStolen || {})[w] || 0,
       demineMm3: Number((demineRewards || {})[w.toLowerCase()]) || 0,
       isDead,
+      mapId: pres.mapId || MINING_CORE_MAP_ID,
+      onCurrentMap: (pres.mapId || MINING_CORE_MAP_ID) === currentMapId,
     })
   }
 
   const grouped = groupPresenceEntries(all, (entry) => entry.w)
   const loggedTotal = grouped.wallets.length
   const anonTotal = grouped.anonymous.length
-  const logged = grouped.wallets.sort((a, b) => b.stolen - a.stolen).slice(0, 5)
-  const anon = grouped.anonymous.sort((a, b) => a.w.localeCompare(b.w)).slice(0, 5)
+  const logged = grouped.wallets.sort((a, b) => {
+    if (a.onCurrentMap !== b.onCurrentMap) return a.onCurrentMap ? -1 : 1
+    return b.stolen - a.stolen
+  }).slice(0, 5)
+  const anon = grouped.anonymous.sort((a, b) => {
+    if (a.onCurrentMap !== b.onCurrentMap) return a.onCurrentMap ? -1 : 1
+    return a.w.localeCompare(b.w)
+  }).slice(0, 5)
   if (!logged.length && !anon.length) return
 
   const HEADER_H = 15
@@ -4546,13 +4569,14 @@ function drawOnlineList(ctx, W, H, presenceMap, myWallet, pvpStolen, demineRewar
     ctx.font = 'bold 7px monospace'; ctx.fillStyle = '#526172'; ctx.textAlign = 'left'
     ctx.fillText(label, px + PAD_X, ly)
     ly += GROUP_H
-    for (const { w, isAnon, isBot, stolen, demineMm3, isDead } of entries) {
+    for (const { w, isAnon, isBot, stolen, demineMm3, isDead, mapId, onCurrentMap } of entries) {
     const isMe = w.toLowerCase() === (myWallet || '').toLowerCase()
-    const col  = colorFromAddress(w)
+    const col  = onCurrentMap ? colorFromAddress(w) : '#526172'
     const isMM3 = !isAnon && solverSet?.has(w.toLowerCase())
-    const label = isAnon
-      ? w
-      : `${w.slice(0, 6)}…${w.slice(-3)}${isBot ? ' B' : ''}${isMM3 ? '@MM3' : ''}`
+    const mapSuffix = onCurrentMap ? '' : ` · M${mapId}`
+    const rowLabel = isAnon
+      ? `${w}${mapSuffix}`
+      : `${w.slice(0, 6)}…${w.slice(-3)}${isBot ? ' B' : ''}${isMM3 ? '@MM3' : ''}${mapSuffix}`
     if (isMe) {
       ctx.fillStyle = col + '1a'
       ctx.fillRect(px + 1, ly - 2, pw - 2, LINE_H)
@@ -4568,7 +4592,7 @@ function drawOnlineList(ctx, W, H, presenceMap, myWallet, pvpStolen, demineRewar
     ctx.textAlign = 'left'
     ctx.fillStyle = col
     ctx.fillRect(px + PAD_X + skullW, ly + 2, 3, 3)
-    ctx.fillText(label, px + PAD_X + skullW + 6, ly)
+    ctx.fillText(rowLabel, px + PAD_X + skullW + 6, ly)
     let rewardX = px + pw - PAD_X
     if (demineMm3 > 0) {
       const mm3Text = `+${demineMm3} MM3`
@@ -6927,6 +6951,163 @@ function rebuildThreeWorld(state,cellMap,obstacles) {
   state.scene.add(world)
 }
 
+function addPeripheralMapLandmark(world, textures, mapId, lowDetail = false) {
+  const centerX = MINING_CHAIN_NODE_POSITION.col + 0.5
+  const centerZ = MINING_CHAIN_NODE_POSITION.row + 0.5
+  const group = new THREE.Group()
+  group.userData.skipOcclusion = true
+  const segs = lowDetail ? 6 : 10
+  const def = getMiningMapDefinition(mapId)
+  if (mapId === '2') {
+    const spire = new THREE.Mesh(
+      new THREE.ConeGeometry(2.2, 8.4, segs),
+      new THREE.MeshStandardMaterial({ color: '#d8f8ff', roughness: 0.12, metalness: 0.34, emissive: '#0b5d89', emissiveIntensity: 0.72 }),
+    )
+    spire.position.set(centerX, 4.2, centerZ)
+    group.add(spire)
+    const ring = new THREE.Mesh(
+      new THREE.TorusGeometry(3.4, 0.08, 6, lowDetail ? 24 : 40),
+      new THREE.MeshBasicMaterial({ color: '#67e8f9', transparent: true, opacity: 0.72, depthWrite: false }),
+    )
+    ring.rotation.x = Math.PI / 2
+    ring.position.set(centerX, 0.12, centerZ)
+    group.add(ring)
+  } else if (mapId === '3') {
+    const cone = new THREE.Mesh(
+      new THREE.ConeGeometry(3.1, 6.8, segs),
+      new THREE.MeshStandardMaterial({ color: '#df5832', roughness: 0.55, metalness: 0.18, emissive: '#8c1705', emissiveIntensity: 0.88 }),
+    )
+    cone.position.set(centerX, 3.4, centerZ)
+    group.add(cone)
+    for (let i = 0; i < (lowDetail ? 4 : 8); i += 1) {
+      const vent = new THREE.Mesh(
+        new THREE.ConeGeometry(0.18, 1.2, 4),
+        new THREE.MeshBasicMaterial({ color: '#ffd43b', transparent: true, opacity: 0.82, depthWrite: false }),
+      )
+      const angle = (i / 8) * Math.PI * 2
+      vent.position.set(centerX + Math.cos(angle) * 2.4, 0.6, centerZ + Math.sin(angle) * 2.4)
+      group.add(vent)
+    }
+  } else if (mapId === '4') {
+    for (const [dx, dz, h] of [[-2.2, 0, 3.2], [2.2, 0, 3.2], [0, -2.2, 2.8], [0, 2.2, 2.8]]) {
+      const pillar = new THREE.Mesh(
+        new THREE.BoxGeometry(0.7, h, 0.7),
+        new THREE.MeshStandardMaterial({ map: textures.coast, color: '#e8b967', roughness: 0.84, metalness: 0.04 }),
+      )
+      pillar.position.set(centerX + dx, h * 0.5, centerZ + dz)
+      group.add(pillar)
+    }
+    const lintel = new THREE.Mesh(
+      new THREE.BoxGeometry(5.2, 0.45, 0.55),
+      new THREE.MeshStandardMaterial({ color: '#facc15', roughness: 0.42, metalness: 0.52, emissive: '#92400e', emissiveIntensity: 0.34 }),
+    )
+    lintel.position.set(centerX, 3.35, centerZ)
+    group.add(lintel)
+  } else if (mapId === '5') {
+    for (const [dx, dz, h] of [[-1.6, -1.4, 5.6], [1.8, 1.2, 4.8], [-1.2, 1.8, 4.2], [1.4, -1.6, 6.2]]) {
+      const monolith = new THREE.Mesh(
+        new THREE.BoxGeometry(0.9, h, 0.9),
+        new THREE.MeshStandardMaterial({ map: textures.mountain, color: '#9bb9d2', roughness: 0.68, metalness: 0.12 }),
+      )
+      monolith.position.set(centerX + dx, h * 0.5, centerZ + dz)
+      group.add(monolith)
+    }
+  }
+  const sign = new THREE.Mesh(
+    new THREE.PlaneGeometry(4.8, 0.7),
+    new THREE.MeshBasicMaterial({
+      color: def.primaryBiome === 'ice' ? '#67e8f9' : def.primaryBiome === 'inferno' ? '#fb923c' : def.primaryBiome === 'mountain' ? '#cbd5e1' : '#22d3ee',
+      transparent: true,
+      opacity: 0.18,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+    }),
+  )
+  sign.rotation.x = -Math.PI / 2
+  sign.position.set(centerX, 0.11, centerZ)
+  group.add(sign)
+  world.add(group)
+}
+
+function buildPeripheralObstacles(mapId) {
+  const valid = new Map()
+  for (const [key, data] of getMiningMapAmbientObstacles(mapId)) {
+    valid.set(key, chainObstacle(key, data))
+  }
+  return valid
+}
+
+function rebuildPeripheralMapWorld(state, mapId, obstacles) {
+  if (!state || !mapId || isMiningCoreMap(mapId)) return
+  if (state.world) { state.scene.remove(state.world); disposeThreeObject(state.world) }
+  const world = new THREE.Group()
+  const matrix = new THREE.Matrix4()
+  const position = new THREE.Vector3()
+  const scale = new THREE.Vector3()
+  const quaternion = new THREE.Quaternion()
+  const visualTier = typeof window !== 'undefined'
+    ? getMiningVisualTier(window.innerWidth, window.innerHeight)
+    : 'high'
+  const lowDetail = visualTier === 'low'
+  addBiomeGround(world, state.textures)
+  addIslandSurroundCoast(world, state.textures, lowDetail)
+  addPeripheralMapLandmark(world, state.textures, mapId, lowDetail)
+  const boxGroups = { mountain: [], coast: [], ice: [], inferno: [] }
+  for (const entry of obstacles.entries()) {
+    const [row, col] = entry[0].split(',').map(Number)
+    boxGroups[biomeForCell(row, col)].push(entry)
+  }
+  for (const [biome, entries] of Object.entries(boxGroups)) {
+    if (!entries.length) continue
+    const style = {
+      mountain: { color: '#9bb9d2', roughness: 0.68, metalness: 0.12, emissive: '#071a2b', intensity: 0.14 },
+      coast: { color: '#ffd288', roughness: 0.84, metalness: 0.03, emissive: '#2a1803', intensity: 0.10 },
+      ice: { color: '#ddfaff', roughness: 0.12, metalness: 0.30, emissive: '#0b5d89', intensity: 0.42 },
+      inferno: { color: '#df5832', roughness: 0.55, metalness: 0.18, emissive: '#8c1705', intensity: 0.88 },
+    }[biome]
+    const material = new THREE.MeshStandardMaterial({
+      map: state.textures[biome], color: style.color, roughness: style.roughness,
+      metalness: style.metalness, emissive: style.emissive, emissiveIntensity: style.intensity,
+    })
+    const mesh = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), material, entries.length)
+    entries.forEach(([key, obstacle], index) => {
+      const [row, col] = key.split(',').map(Number)
+      const bottom = obstacleBottom(obstacle)
+      const visualTop = Number(obstacle.visualHeight) || obstacleTop(obstacle)
+      const visualHeight = Math.max(0.02, visualTop - bottom)
+      position.set(col + 0.5, bottom + visualHeight * 0.5, row + 0.5)
+      scale.set(0.985, visualHeight, 0.985)
+      matrix.compose(position, quaternion, scale)
+      mesh.setMatrixAt(index, matrix)
+    })
+    mesh.instanceMatrix.needsUpdate = true
+    mesh.userData.collidable = true
+    world.add(mesh)
+  }
+  state.world = world
+  state.cameraCollisionValid = false
+  state.biomeSurfaces = []
+  state.interactiveVisuals = []
+  state.avatarFadeOccluders = []
+  state.collisionMeshes = []
+  state.beaconBatch = null
+  world.traverse(object => {
+    if (object.userData.biomeSurface) state.biomeSurfaces.push(object)
+    if (object.userData.collidable) state.collisionMeshes.push(object)
+  })
+  world.traverse(object => {
+    if (object === world) return
+    object.updateMatrix()
+    object.matrixAutoUpdate = false
+  })
+  state.scene.add(world)
+}
+
+function rebuildActiveMapWorld(state, mapId, cellMap, obstacles) {
+  if (isMiningCoreMap(mapId)) rebuildThreeWorld(state, cellMap, obstacles)
+  else rebuildPeripheralMapWorld(state, mapId, obstacles)
+}
+
 function createThreeWalletAvatar(wallet) {
   const lowDetail=isCoarsePointerDevice()
   const avatar=new THREE.Group()
@@ -7171,19 +7352,25 @@ function updateHealingRechargeEffects(state,time,tier='medium') {
   }
 }
 
-function syncThreeAvatars(state,presence,myIdentity) {
+function syncThreeAvatars(state,presence,myIdentity,currentMapId=MINING_CORE_MAP_ID) {
   if(!state) return
   const active=state._activeAvatars
   active.clear()
   for(const wallet in presence||{}){
     const data=presence[wallet]
     if(wallet.toLowerCase()===(myIdentity||'').toLowerCase()) continue
+    if((data.mapId||MINING_CORE_MAP_ID)!==currentMapId){
+      const hidden=state.avatars.get(wallet)
+      if(hidden) hidden.visible=false
+      continue
+    }
     active.add(wallet)
     let avatar=state.avatars.get(wallet)
     if(!avatar){
       avatar=createThreeWalletAvatar(wallet)
       state.avatars.set(wallet,avatar);state.scene.add(avatar)
     }
+    avatar.visible=true
     const baseZ=Number(data.z)||0
     const gx=Number(data.gx??((data.col??0)+.5))
     const gy=Number(data.gy??((data.row??0)+.5))
@@ -7349,6 +7536,8 @@ function syncThreeLocalAvatar(state,identity,swingT,walkDist,gx,gy,playerZ,headi
 export default function MiningChain3DFPV({
   cellMap, presenceMap, myWallet, presenceKey, myColor,
   initRow, initCol, initZ = 0, jumpToCell,
+  mapId = MINING_CORE_MAP_ID,
+  onMapChange,
   onPositionChange, onFacingChange, onWantNavigate, onPositionRealtime,
   onPvpHit, pvpStolen, demineRewards,
   onChainSolveOpen, onNftjiPanelOpen, externalPvpFlash, externalDodgeFlash = 0, externalKnockback, externalPush, onCollisionPush,
@@ -7398,10 +7587,14 @@ export default function MiningChain3DFPV({
   const facingKeyRef  = useRef(null)
   const actionUrlRef  = useRef(null)
   const cellMapRef    = useRef(cellMap)
+  const activeCellMapRef = useRef(cellMap)
   const presenceRef   = useRef(presenceMap)
   const myWalletRef   = useRef(myWallet)
   const currencyRef   = useRef(currency)
   const presenceKeyRef = useRef(presenceKey||myWallet)
+  const mapIdRef = useRef(mapId || MINING_CORE_MAP_ID)
+  const mapTransitionLockRef = useRef(false)
+  const onMapChangeRef = useRef(onMapChange)
   const esRef         = useRef(es)
   const onWantNavRef  = useRef(onWantNavigate)
   const dragRef       = useRef(null)
@@ -7619,7 +7812,12 @@ export default function MiningChain3DFPV({
       _avatarCameraSpace:new THREE.Vector3(),_activeAvatars:new Set(),_fadedOccluders:new Set(),
       _occlusionAvatars:[],_occlusionHits:[],viewWidth:0,viewHeight:0,viewDpr:0,viewFov:0,activeBiome:null}
     threeStateRef.current=state
-    rebuildThreeRef.current=()=>rebuildThreeWorld(state,cellMapRef.current,validObstaclesRef.current)
+    rebuildThreeRef.current=()=>rebuildActiveMapWorld(
+      state,
+      mapIdRef.current,
+      isMiningCoreMap(mapIdRef.current) ? cellMapRef.current : new Map(),
+      validObstaclesRef.current,
+    )
     if(obstaclesReadyRef.current) scheduleWorldBootstrapRef.current?.()
     return ()=>{
       rebuildThreeRef.current=null
@@ -7635,11 +7833,22 @@ export default function MiningChain3DFPV({
   },[threeKey])
 
   // Keep refs in sync with props
-  useEffect(()=>{ cellMapRef.current=cellMap },[cellMap])
+  useEffect(()=>{
+    cellMapRef.current=cellMap
+    activeCellMapRef.current = isMiningCoreMap(mapId) ? cellMap : new Map()
+  },[cellMap,mapId])
   useEffect(()=>{ presenceRef.current=presenceMap; onlineListDirtyRef.current=true },[presenceMap])
   useEffect(()=>{ myWalletRef.current=myWallet },[myWallet])
   useEffect(()=>{ currencyRef.current=currency },[currency])
   useEffect(()=>{ presenceKeyRef.current=presenceKey||myWallet },[presenceKey,myWallet])
+  useEffect(()=>{ mapIdRef.current = mapId || MINING_CORE_MAP_ID }, [mapId])
+  useEffect(()=>{ onMapChangeRef.current = onMapChange }, [onMapChange])
+  useEffect(()=>{
+    minimapStaticRef.current = null
+    if (threeStateRef.current && obstaclesReadyRef.current) {
+      scheduleWorldBootstrapRef.current?.()
+    }
+  }, [mapId])
   useEffect(()=>{ esRef.current=es },[es])
   useEffect(()=>{ onWantNavRef.current=onWantNavigate },[onWantNavigate])
   useEffect(()=>{ onPvpHitRef.current=onPvpHit },[onPvpHit])
@@ -7724,6 +7933,14 @@ export default function MiningChain3DFPV({
 
   // Recompute valid obstacles (Map<key,data>) and chain node position whenever cellMap changes
   useEffect(() => {
+    const activeMapId = mapIdRef.current
+    if (!isMiningCoreMap(activeMapId)) {
+      validObstaclesRef.current = buildPeripheralObstacles(activeMapId)
+      obstaclesReadyRef.current = true
+      scheduleWorldBootstrapRef.current?.()
+      return
+    }
+
     // Find chain node position from cellMap
     let cnRow = CHAIN_NODE_ROW, cnCol = CHAIN_NODE_COL
     for (const [key, cell] of cellMap) {
@@ -7882,7 +8099,7 @@ export default function MiningChain3DFPV({
       playerRef.current.x = (free.col + 0.5) * CELL_SIZE
       playerRef.current.y = (free.row + 0.5) * CELL_SIZE
     }
-  }, [cellMap])
+  }, [cellMap, mapId])
 
   useEffect(()=>{
     let owned=0, marketOwned=0, totalNFTJI=0
@@ -7903,8 +8120,9 @@ export default function MiningChain3DFPV({
   // External teleport — fallback to nearest free cell if target is blocked
   useEffect(()=>{
     if (!jumpToCell) return
+    mapTransitionLockRef.current = false
     const obs = validObstaclesRef.current
-    const cm  = cellMapRef.current
+    const cm  = activeCellMapRef.current
     const targetGX=jumpToCell.col+.5,targetGY=jumpToCell.row+.5
     const targetZ=Number(jumpToCell.z)||0
     if (hitsSolidWall(targetGX,targetGY,cm,obs,targetZ)) {
@@ -7941,7 +8159,7 @@ export default function MiningChain3DFPV({
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
     ctx.imageSmoothingEnabled = false
 
-    const cellMap  = cellMapRef.current
+    const cellMap  = activeCellMapRef.current
     const rawPresence = presenceRef.current
     const myWallet = myWalletRef.current
     const myIdentity = presenceKeyRef.current||myWallet
@@ -8041,7 +8259,7 @@ export default function MiningChain3DFPV({
         // 3rd-person over-shoulder camera — drop to ground level when dead
         const localDead=myDeadUntilRef.current&&myDeadUntilRef.current>Date.now()
         const headroom=playerHeadroomAt(
-          gx,gy,pz,cellMapRef.current,validObstaclesRef.current,
+          gx,gy,pz,activeCellMapRef.current,validObstaclesRef.current,
         )
         const behindDist=localDead?1.20:CAMERA_BEHIND_DIST
         const aboveOffset=localDead?-0.45:CAMERA_ABOVE_OFFSET
@@ -8143,7 +8361,7 @@ export default function MiningChain3DFPV({
           gy + sinA*lookFwd,
         )
 
-        syncThreeAvatars(threeState,presence,myIdentity)
+        syncThreeAvatars(threeState,presence,myIdentity,mapIdRef.current)
         const time=performance.now()*.001
         const visualTier=visualPerfTierRef.current
         if(visualTier!=='low'&&threeState.fxFrame%2===0){
@@ -9360,7 +9578,7 @@ export default function MiningChain3DFPV({
       ctx.globalAlpha=1
     }
 
-    drawMinimap(ctx,gr,gc,angle,cellMap,presence,myIdentity,W,H,chainNodePosRef.current,validObstaclesRef.current,px/CELL_SIZE,py/CELL_SIZE,minimapStaticRef,dpr)
+    drawMinimap(ctx,gr,gc,angle,activeCellMapRef.current,presence,myIdentity,W,H,chainNodePosRef.current,validObstaclesRef.current,px/CELL_SIZE,py/CELL_SIZE,minimapStaticRef,dpr,mapIdRef.current,esRef.current)
     // Online list: rebuild to offscreen canvas every 100ms or on data change,
     // then blit every frame so it never flickers (canvas is cleared each frame).
     {
@@ -9379,7 +9597,7 @@ export default function MiningChain3DFPV({
         const octx=newOc.getContext('2d')
         octx.clearRect(0,0,newOc.width,newOc.height)
         octx.setTransform(dpr,0,0,dpr,0,0)
-        drawOnlineList(octx,W,H,presence,myIdentity,pvpStolenRef.current,demineRewardsRef.current,chainSolverSetRef.current)
+        drawOnlineList(octx,W,H,presence,myIdentity,pvpStolenRef.current,demineRewardsRef.current,chainSolverSetRef.current,mapIdRef.current,esRef.current)
         octx.setTransform(1,0,0,1,0,0)
       }
       // Always blit cached online list (pixel-perfect, bypassing the dpr transform)
@@ -9672,7 +9890,7 @@ export default function MiningChain3DFPV({
           }
         }
       }
-      const cm=cellMapRef.current, obs=validObstaclesRef.current
+      const cm=activeCellMapRef.current, obs=validObstaclesRef.current
       const movedDist=Math.hypot(vel.x,vel.y)*dt
       if(movedDist>0.001){
         const cgx=p.x/CELL_SIZE, cgy=p.y/CELL_SIZE
@@ -9730,6 +9948,23 @@ export default function MiningChain3DFPV({
           onPositionChange?.(newRow,newCol)
           // no mid-screen popup on cell change — top-left HUD already shows current hex
         }
+
+        const transition=!mapTransitionLockRef.current
+          ?detectMiningMapTransition(mapIdRef.current,p.x/CELL_SIZE,p.y/CELL_SIZE)
+          :null
+        if(transition&&onMapChangeRef.current){
+          mapTransitionLockRef.current=true
+          playerRef.current.x=(transition.col+.5)*CELL_SIZE
+          playerRef.current.y=(transition.row+.5)*CELL_SIZE
+          lastCellRef.current={row:transition.row,col:transition.col}
+          onMapChangeRef.current(transition.targetMapId,transition.row,transition.col,playerRef.current.z)
+          notifRef.current={
+            text:`${esRef.current?'Entrando en':'Entering'} ${getMiningMapLabel(transition.targetMapId,esRef.current)} (M${transition.targetMapId})`,
+            color:'#22d3ee',
+            startedAt:Date.now(),
+          }
+          window.setTimeout(()=>{ mapTransitionLockRef.current=false },1200)
+        }
       }
 
       // ── Vertical physics (jump / gravity) ────────────────────────────────
@@ -9739,7 +9974,7 @@ export default function MiningChain3DFPV({
           _pgx,
           _pgy,
           p.z,
-          cellMapRef.current,
+          activeCellMapRef.current,
           validObstaclesRef.current,
         )
         const floorZ = supportHeight && (
@@ -9754,7 +9989,7 @@ export default function MiningChain3DFPV({
           let nz = p.z + p.vz*dt
           const ceilingBottom=ceilingBottomAt(
             p.x/CELL_SIZE,p.y/CELL_SIZE,p.z,
-            cellMapRef.current,validObstaclesRef.current,
+            activeCellMapRef.current,validObstaclesRef.current,
           )
           if(p.vz>0&&ceilingBottom&&nz+PLAYER_BODY_H>=ceilingBottom){
             nz=ceilingBottom-PLAYER_BODY_H-.02
@@ -9994,7 +10229,7 @@ export default function MiningChain3DFPV({
       // Facing detection + action URL + mine type update (skipped when dead)
       if(myDead){ facingKeyRef.current=null }
       const previousFacing=facingDataRef.current
-      let {cell:fc,mx:fmx,my:fmy,perpDist:fcDist}=myDead?{cell:null,mx:-1,my:-1,perpDist:0}:castRay(p.x,p.y,p.angle,cellMapRef.current,validObstaclesRef.current)
+      let {cell:fc,mx:fmx,my:fmy,perpDist:fcDist}=myDead?{cell:null,mx:-1,my:-1,perpDist:0}:castRay(p.x,p.y,p.angle,activeCellMapRef.current,validObstaclesRef.current)
       const isInteractiveFacing = fc?.isPortalNode || fc?.isChainNode || fc?.isNodeDiceNode || fc?.isMarket
       if (
         fc && !fc.isObstacle && !isInteractiveFacing &&
@@ -10010,14 +10245,14 @@ export default function MiningChain3DFPV({
       const cnPos=chainNodePosRef.current
       const cnDist=myDead?Infinity:Math.hypot(p.x/CELL_SIZE-(cnPos.col+.5),p.y/CELL_SIZE-(cnPos.row+.5))
       if(cnDist<=CHAIN_INTERACT_DIST){
-        const cnCell=cellMapRef.current?.get(`${cnPos.row},${cnPos.col}`)
+        const cnCell=activeCellMapRef.current?.get(`${cnPos.row},${cnPos.col}`)
         fmx=cnPos.col;fmy=cnPos.row;fc=cnCell;fcDist=cnDist
       }
       // Proximity override for StormRoll node — same pattern as chain node above
       const ndPos=NODE_DICE_POSITION
       const ndDist=myDead?Infinity:Math.hypot(p.x/CELL_SIZE-(ndPos.col+.5),p.y/CELL_SIZE-(ndPos.row+.5))
       if(ndDist<=INTERACT_DIST&&canInteractNodeDiceAtHeight(p.z)){
-        const ndCell=cellMapRef.current?.get(`${ndPos.row},${ndPos.col}`)
+        const ndCell=activeCellMapRef.current?.get(`${ndPos.row},${ndPos.col}`)
         if(ndCell?.isNodeDiceNode){fmx=ndPos.col;fmy=ndPos.row;fc=ndCell;fcDist=ndDist}
       }
       // Proximity override for navigation portals. DDA can miss the portal when

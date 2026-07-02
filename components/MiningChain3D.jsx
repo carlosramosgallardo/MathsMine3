@@ -22,6 +22,7 @@ import {
   placeMiningVisualBlock,
   relocateMiningBlockPosition,
 } from '@/lib/mining-visual-layout'
+import { MINING_CORE_MAP_ID } from '@/lib/mining-maps'
 import supabase from '@/lib/supabaseClient'
 
 const MiningChain3DFPV = dynamic(() => import('./MiningChain3DFPV'), { ssr: false })
@@ -190,16 +191,19 @@ export default function MiningChain3D() {
   const myWalletRef    = useRef(myWallet)
   const myPosRef       = useRef(initialPos)
   const myKeyRef       = useRef(null)     // presence key (wallet or 'anon-XXXX')
+  const mapIdRef       = useRef(MINING_CORE_MAP_ID)
   const lastDbPosSaveRef = useRef(0)      // throttle DB position saves
   // Tracks last node-dice state we broadcast — null means "no dice"; only send when changed
   const lastBroadcastNodeDiceRef = useRef(null)
 
   // Keep refs current each render
   myWalletRef.current = myWallet
+  mapIdRef.current = mapId
 
   const [cellMap,       setCellMap]       = useState(new Map())
   const reloadCellMapRef = useRef(null)
   const [myPos,         setMyPos]         = useState(initialPos)
+  const [mapId,         setMapId]         = useState(MINING_CORE_MAP_ID)
   const [jumpToCell,    setJumpToCell]    = useState(null)
   const [pvpStolen,     setPvpStolen]     = useState({})
   const [demineRewards, setDemineRewards] = useState({})
@@ -592,10 +596,13 @@ export default function MiningChain3D() {
         const posKey = myWallet ? `mm3_mining_pos_${myWallet}` : 'mm3_mining_pos_anon'
         const saved = JSON.parse(localStorage.getItem(posKey) || 'null')
         if (saved && typeof saved.row === 'number' && typeof saved.col === 'number') {
+          const savedMapId = saved.mapId || MINING_CORE_MAP_ID
           const savedPos = { row: saved.row, col: saved.col, z: Number(saved.z) || 0 }
+          setMapId(savedMapId)
+          mapIdRef.current = savedMapId
           setMyPos(savedPos)
           myPosRef.current = savedPos
-          setJumpToCell(savedPos)
+          setJumpToCell({ ...savedPos, mapId: savedMapId })
         }
       } catch { /* */ }
     }
@@ -980,6 +987,7 @@ export default function MiningChain3D() {
             taskPhase:payload.taskPhase||prev[wallet]?.taskPhase||null,
             isDead:Boolean(payload.isDead),
             deadUntil:payload.deadUntil||null,
+            mapId:payload.mapId||prev[wallet]?.mapId||MINING_CORE_MAP_ID,
           }
         }
         return next
@@ -1129,7 +1137,13 @@ export default function MiningChain3D() {
         }
       }
       const w = payload.wallet
+      const remoteMapId = payload.mapId || MINING_CORE_MAP_ID
       const mine = myPosRef.current
+      if (remoteMapId !== mapIdRef.current) {
+        if (payload.isBot) loadRemoteHealth(w)
+        queueMove(w, payload)
+        return
+      }
       const remoteDist = Math.hypot(
         Number(payload.gx) - (Number(mine?.col) + 0.5),
         Number(payload.gy) - (Number(mine?.row) + 0.5),
@@ -1167,7 +1181,8 @@ export default function MiningChain3D() {
           const gx = p.gx ?? ((p.col ?? 14) + 0.5)
           const gy = p.gy ?? ((p.row ?? 14) + 0.5)
           const mine = myPosRef.current
-          if (w !== myW && Math.hypot(gx-(Number(mine?.col)+.5),gy-(Number(mine?.row)+.5)) > NETWORK_VISUAL_RANGE) continue
+          const remoteMapId = p.mapId || MINING_CORE_MAP_ID
+          if (w !== myW && remoteMapId === mapIdRef.current && Math.hypot(gx-(Number(mine?.col)+.5),gy-(Number(mine?.row)+.5)) > NETWORK_VISUAL_RANGE) continue
           if (p.isBot) loadRemoteHealth(w)
           next[w] = {
             gx, gy, row: Math.floor(gy), col: Math.floor(gx), z: Number(p.z) || 0, poolCode: p.poolCode || null,
@@ -1175,6 +1190,7 @@ export default function MiningChain3D() {
             taskLabel: p.taskLabel || null, taskPhase: p.taskPhase || null,
             isDead: Boolean(p.isDead),
             deadUntil: p.deadUntil || null,
+            mapId: p.mapId || MINING_CORE_MAP_ID,
           }
         }
         // Remove players who left (always keep self)
@@ -1182,7 +1198,8 @@ export default function MiningChain3D() {
           if (w === myW) continue
           const remote = next[w]
           const mine = myPosRef.current
-          const tooFar = remote && Math.hypot(
+          const remoteMapId = remote?.mapId || MINING_CORE_MAP_ID
+          const tooFar = remote && remoteMapId === mapIdRef.current && Math.hypot(
             Number(remote.gx)-(Number(mine?.col)+.5),
             Number(remote.gy)-(Number(mine?.row)+.5),
           ) > NETWORK_VISUAL_RANGE
@@ -1211,6 +1228,7 @@ export default function MiningChain3D() {
         gx: tc + 0.5, gy: tr + 0.5, row: tr, col: tc, z: Number(tz) || 0,
         poolCode: myPoolCode,
         nodeDice: normalizeNodeDiceState(nodeDiceRef.current),
+        mapId: mapIdRef.current,
       }).catch(() => {})
       subscribed = true
       tryChannelReady()
@@ -1232,9 +1250,64 @@ export default function MiningChain3D() {
     myPosRef.current = { ...myPosRef.current, row, col, z }
     if (!myDeadUntilRef.current || myDeadUntilRef.current <= Date.now()) {
       const posKey = myWalletRef.current ? `mm3_mining_pos_${myWalletRef.current}` : 'mm3_mining_pos_anon'
-      try { localStorage.setItem(posKey, JSON.stringify({ row, col, z })) } catch { /* */ }
+      try { localStorage.setItem(posKey, JSON.stringify({ row, col, z, mapId: mapIdRef.current })) } catch { /* */ }
     }
   }, [])
+
+  const handleMapChange = useCallback((nextMapId, row, col, z = 0) => {
+    const next = nextMapId || MINING_CORE_MAP_ID
+    setMapId(next)
+    mapIdRef.current = next
+    const pos = { row, col, z: Number(z) || 0 }
+    setMyPos(pos)
+    myPosRef.current = pos
+    setJumpToCell({ row, col, z: pos.z, mapId: next, at: Date.now() })
+    if (!myDeadUntilRef.current || myDeadUntilRef.current <= Date.now()) {
+      const posKey = myWalletRef.current ? `mm3_mining_pos_${myWalletRef.current}` : 'mm3_mining_pos_anon'
+      try { localStorage.setItem(posKey, JSON.stringify({ row, col, z: pos.z, mapId: next })) } catch { /* */ }
+    }
+    const myW = myKeyRef.current || myWalletRef.current
+    if (myW) {
+      setPositions(prev => ({
+        ...prev,
+        [myW]: {
+          ...(prev[myW] || {}),
+          gx: col + 0.5,
+          gy: row + 0.5,
+          row,
+          col,
+          z: pos.z,
+          mapId: next,
+        },
+      }))
+      channelRef.current?.track({
+        wallet: myW,
+        gx: col + 0.5,
+        gy: row + 0.5,
+        row,
+        col,
+        z: pos.z,
+        mapId: next,
+        poolCode: myPoolCode || null,
+        nodeDice: normalizeNodeDiceState(nodeDiceRef.current),
+      }).catch(() => {})
+      channelRef.current?.send({
+        type: 'broadcast',
+        event: 'move',
+        payload: {
+          wallet: myW,
+          gx: col + 0.5,
+          gy: row + 0.5,
+          row,
+          col,
+          z: pos.z,
+          mapId: next,
+          poolCode: myPoolCode || null,
+          nodeDice: normalizeNodeDiceState(nodeDiceRef.current),
+        },
+      }).catch(() => {})
+    }
+  }, [myPoolCode])
 
   const handleFacingChange = useCallback((row, col, cell, dist) => setFacingCell({ row, col, cell, dist }), [])
   const handleWantNavigate = useCallback((url) => router.push(url), [router])
@@ -1374,7 +1447,7 @@ export default function MiningChain3D() {
     myPosRef.current = { ...myPosRef.current, gx, gy, row, col, z }
     if (!myDeadUntilRef.current || myDeadUntilRef.current <= Date.now()) {
       const posKey = myWalletRef.current ? `mm3_mining_pos_${myWalletRef.current}` : 'mm3_mining_pos_anon'
-      try { localStorage.setItem(posKey, JSON.stringify({ row, col, z })) } catch { /* */ }
+      try { localStorage.setItem(posKey, JSON.stringify({ row, col, z, mapId: mapIdRef.current })) } catch { /* */ }
       const w = myWalletRef.current
       if (w) {
         const now = Date.now()
@@ -1398,6 +1471,7 @@ export default function MiningChain3D() {
       isDead: Boolean(avatar.isDead),
       deadUntil: avatar.deadUntil || null,
       nodeDice: normalizeNodeDiceState(nodeDiceRef.current),
+      mapId: mapIdRef.current,
     }
     // Update own dot on minimap
     setPositions(prev => ({ ...prev, [myW]: nextPosition }))
@@ -1456,6 +1530,8 @@ export default function MiningChain3D() {
             initRow={myPos.row}
             initCol={myPos.col}
             initZ={myPos.z}
+            mapId={mapId}
+            onMapChange={handleMapChange}
             jumpToCell={jumpToCell}
             onPositionChange={handlePositionChange}
             onFacingChange={handleFacingChange}
