@@ -976,13 +976,11 @@ NEXT_PUBLIC_FAKE_MINING_PRICE
 
 ## Deploy on Vercel
 
-MathsMine3 is a **Next.js** app and is meant to run on **Vercel** — not Netlify. The repo already ships `vercel.json` (weekly security-scan cron) and integrates `@vercel/analytics` + `@vercel/speed-insights`.
+MathsMine3 is a **Next.js** app deployed on **Vercel**. Pushing to `main` triggers a production deploy automatically.
 
-1. Import the GitHub repo at [vercel.com/new](https://vercel.com/new).
-2. Framework preset: **Next.js** (auto-detected).
-3. Add the environment variables listed in [Run Locally](#run-locally) in the Vercel project settings.
-4. Deploy. Production builds run `next build`; `npm install` reads `.npmrc` when needed.
-5. Point your domain (e.g. `mathsmine3.xyz`) to Vercel in DNS and disable or remove any Netlify site hooked to the same repo.
+- Environment variables: see [Run Locally](#run-locally) (configure them in the Vercel project settings).
+- `vercel.json` — weekly security-scan cron.
+- `@vercel/analytics` + `@vercel/speed-insights` — production monitoring.
 
 Cron jobs in `vercel.json` require a Vercel plan that supports crons (Hobby includes limited cron usage).
 
@@ -1976,13 +1974,11 @@ NEXT_PUBLIC_FAKE_MINING_PRICE
 
 ## Despliegue en Vercel
 
-MathsMine3 es una app **Next.js** pensada para **Vercel** — no para Netlify. El repo incluye `vercel.json` (cron semanal del security scan) e integra `@vercel/analytics` + `@vercel/speed-insights`.
+MathsMine3 es una app **Next.js** desplegada en **Vercel**. Un push a `main` dispara el deploy de producción automáticamente.
 
-1. Importa el repo de GitHub en [vercel.com/new](https://vercel.com/new).
-2. Preset: **Next.js** (autodetectado).
-3. Añade en Vercel las variables de entorno de [Ejecución Local](#ejecucion-local).
-4. Despliega. El build de producción ejecuta `next build`; `npm install` usa `.npmrc` si hace falta.
-5. Apunta tu dominio (p. ej. `mathsmine3.xyz`) a Vercel en DNS y desactiva o elimina cualquier sitio Netlify ligado al mismo repo.
+- Variables de entorno: ver [Ejecución Local](#ejecucion-local) (configúralas en el proyecto de Vercel).
+- `vercel.json` — cron semanal del security scan.
+- `@vercel/analytics` + `@vercel/speed-insights` — monitorización en producción.
 
 Los crons de `vercel.json` requieren un plan de Vercel que los soporte (Hobby incluye uso limitado).
 

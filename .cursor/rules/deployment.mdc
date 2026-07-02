@@ -1,0 +1,8 @@
+---
+description: Deployment platform — Vercel only
+alwaysApply: true
+---
+
+- **Never use Netlify.** This project deploys exclusively on Vercel.
+- Production deploys are triggered by pushing to `main`; no other deploy pipeline is needed.
+- Do not add Netlify config, docs, or references. Do not suggest Netlify as an alternative.
