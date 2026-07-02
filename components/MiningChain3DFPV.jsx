@@ -9,6 +9,7 @@ import { groupPresenceEntries } from '@/lib/presence-display'
 import {
   detectMiningMapTransition,
   getMiningMapDefinition,
+  getMiningMapEdgeState,
   getMiningMapLabel,
   isMiningCoreMap,
   MINING_CORE_MAP_ID,
@@ -3618,6 +3619,104 @@ function drawMinimapLabel(ctx, mapId, es, MX, SZ) {
   ctx.fillText(`M${mapId} · ${getMiningMapLabel(mapId, es)}`, MX + SZ - 4, labelTop + MINIMAP_LABEL_H / 2)
 }
 
+/** Closed-edge dim cap vs open-edge gateway ticks with target map id. */
+function drawMinimapEdgeExits(ctx, mapId, MX, MY, SZ, CS) {
+  const edges = getMiningMapEdgeState(mapId)
+  const cap = Math.max(2, CS * 0.32)
+  const tick = Math.max(3, CS * 0.72)
+  const accent = '#43c2dc'
+  const closedFill = 'rgba(22,38,52,.72)'
+  const closedStroke = 'rgba(67,120,150,.35)'
+
+  const drawClosedStrip = (x, y, w, h) => {
+    ctx.fillStyle = closedFill
+    ctx.fillRect(x, y, w, h)
+    ctx.strokeStyle = closedStroke
+    ctx.lineWidth = 0.5
+    ctx.strokeRect(x + 0.25, y + 0.25, w - 0.5, h - 0.5)
+  }
+
+  // north
+  if (!edges.north.open) drawClosedStrip(MX, MY, SZ, cap)
+  else {
+    for (const col of edges.north.bands) {
+      const cx = MX + col * CS
+      ctx.save()
+      ctx.shadowColor = accent
+      ctx.shadowBlur = 5
+      ctx.fillStyle = accent
+      ctx.fillRect(cx - tick / 2, MY, tick, cap)
+      ctx.shadowBlur = 0
+      ctx.font = 'bold 6px monospace'
+      ctx.textAlign = 'center'
+      ctx.textBaseline = 'top'
+      ctx.fillStyle = accent
+      ctx.fillText(`M${edges.north.targetMapId}`, cx, MY + cap + 1)
+      ctx.restore()
+    }
+  }
+
+  // south
+  if (!edges.south.open) drawClosedStrip(MX, MY + SZ - cap, SZ, cap)
+  else {
+    for (const col of edges.south.bands) {
+      const cx = MX + col * CS
+      ctx.save()
+      ctx.shadowColor = accent
+      ctx.shadowBlur = 5
+      ctx.fillStyle = accent
+      ctx.fillRect(cx - tick / 2, MY + SZ - cap, tick, cap)
+      ctx.shadowBlur = 0
+      ctx.font = 'bold 6px monospace'
+      ctx.textAlign = 'center'
+      ctx.textBaseline = 'bottom'
+      ctx.fillStyle = accent
+      ctx.fillText(`M${edges.south.targetMapId}`, cx, MY + SZ - cap - 1)
+      ctx.restore()
+    }
+  }
+
+  // west
+  if (!edges.west.open) drawClosedStrip(MX, MY, cap, SZ)
+  else {
+    for (const row of edges.west.bands) {
+      const cy = MY + row * CS
+      ctx.save()
+      ctx.shadowColor = accent
+      ctx.shadowBlur = 5
+      ctx.fillStyle = accent
+      ctx.fillRect(MX, cy - tick / 2, cap, tick)
+      ctx.shadowBlur = 0
+      ctx.font = 'bold 6px monospace'
+      ctx.textAlign = 'left'
+      ctx.textBaseline = 'middle'
+      ctx.fillStyle = accent
+      ctx.fillText(`M${edges.west.targetMapId}`, MX + cap + 2, cy)
+      ctx.restore()
+    }
+  }
+
+  // east
+  if (!edges.east.open) drawClosedStrip(MX + SZ - cap, MY, cap, SZ)
+  else {
+    for (const row of edges.east.bands) {
+      const cy = MY + row * CS
+      ctx.save()
+      ctx.shadowColor = accent
+      ctx.shadowBlur = 5
+      ctx.fillStyle = accent
+      ctx.fillRect(MX + SZ - cap, cy - tick / 2, cap, tick)
+      ctx.shadowBlur = 0
+      ctx.font = 'bold 6px monospace'
+      ctx.textAlign = 'right'
+      ctx.textBaseline = 'middle'
+      ctx.fillStyle = accent
+      ctx.fillText(`M${edges.east.targetMapId}`, MX + SZ - cap - 2, cy)
+      ctx.restore()
+    }
+  }
+}
+
 function drawMinimap(ctx, gr, gc, angle, cellMap, presenceMap, myWallet, W, H, chainNodePos, validObs, gx, gy, staticCacheRef, dpr=1, mapId=MINING_CORE_MAP_ID, es=false) {
   const isMobile = W < 600
   const SZ = minimapSize(W)
@@ -3824,6 +3923,8 @@ function drawMinimap(ctx, gr, gc, angle, cellMap, presenceMap, myWallet, W, H, c
       staticCacheRef.current={canvas:cacheCanvas,cellMap,validObs,myId,sz:SZ,dpr,mapId}
     }
   }
+
+  drawMinimapEdgeExits(ctx, mapId, MX, MY, SZ, CS)
 
   for (const [wallet, player] of Object.entries(presenceMap || {})) {
     if (player.row == null && player.gy == null) continue
