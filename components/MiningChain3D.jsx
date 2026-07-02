@@ -186,6 +186,7 @@ export default function MiningChain3D() {
 
   // Refs: avoid stale closures in channel callbacks and game loop
   const channelRef     = useRef(null)
+  const loadChainStatusRef = useRef(null)
   const myWalletRef    = useRef(myWallet)
   const myPosRef       = useRef(initialPos)
   const myKeyRef       = useRef(null)     // presence key (wallet or 'anon-XXXX')
@@ -1081,6 +1082,12 @@ export default function MiningChain3D() {
       applyDemineReward(payload || {})
     })
 
+    // Someone solved the global formula — refresh chain/demine status for everyone right away
+    // instead of waiting for the 30s poll.
+    ch.on('broadcast', { event: 'chain-formula-solved' }, () => {
+      loadChainStatusRef.current?.()
+    })
+
     ch.on('broadcast', { event: 'node-dice' }, ({ payload }) => {
       const next = normalizeNodeDiceState(payload)
       nodeDiceRef.current = next
@@ -1303,6 +1310,7 @@ export default function MiningChain3D() {
       setChainSolvers(data.solvers || [])
     } catch {}
   }, [])
+  useEffect(() => { loadChainStatusRef.current = loadChainStatus }, [loadChainStatus])
 
   const handleDemineHit = useCallback(({ wallet, mm3Awarded, hitsRemaining, chainReset }) => {
     const eventId = globalThis.crypto?.randomUUID?.()
@@ -1526,7 +1534,12 @@ export default function MiningChain3D() {
 
             <ChainSolveCard
               wallet={myWallet}
-              onWinner={() => { setShowChainSolve(false); reloadCellMapRef.current?.() }}
+              onWinner={() => {
+                setShowChainSolve(false)
+                reloadCellMapRef.current?.()
+                loadChainStatus()
+                channelRef.current?.send({ type: 'broadcast', event: 'chain-formula-solved', payload: null })?.catch(() => {})
+              }}
             />
 
             <div style={{ textAlign:'center', marginTop:12, color:'rgba(74,222,128,0.25)', fontSize:'0.58rem', letterSpacing:'0.12em' }}>
