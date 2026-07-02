@@ -4970,20 +4970,28 @@ function addBiomeGround(world, textures) {
   routeBS.userData.skipOcclusion=true;world.add(routeBS)
 }
 
-function addArenaWeapon(arena, cx, cz) {
+function addArenaWeapon(arena, cx, cz, simplified=false) {
   // Sword: inverted (tip down, pommel at top), very tall, thick blade ~= chain sphere radius
-  const bladeMat=new THREE.MeshStandardMaterial({
-    color:'#d4d8e0',roughness:.10,metalness:.97,
-    emissive:'#22d3ee',emissiveIntensity:.22,
-  })
-  const guardMat=new THREE.MeshStandardMaterial({
-    color:'#facc15',roughness:.20,metalness:.92,
-    emissive:'#ca8a04',emissiveIntensity:.48,
-  })
-  const handleMat=new THREE.MeshStandardMaterial({
-    color:'#1e293b',roughness:.72,metalness:.18,
-    emissive:'#0f172a',emissiveIntensity:.18,
-  })
+  const bladeMat=simplified
+    ?new THREE.MeshLambertMaterial({color:'#d4d8e0',emissive:'#22d3ee',emissiveIntensity:.22})
+    :new THREE.MeshStandardMaterial({
+      color:'#d4d8e0',roughness:.10,metalness:.97,
+      emissive:'#22d3ee',emissiveIntensity:.22,
+    })
+  const guardMat=simplified
+    ?new THREE.MeshLambertMaterial({color:'#facc15',emissive:'#ca8a04',emissiveIntensity:.48})
+    :new THREE.MeshStandardMaterial({
+      color:'#facc15',roughness:.20,metalness:.92,
+      emissive:'#ca8a04',emissiveIntensity:.48,
+    })
+  const handleMat=simplified
+    ?new THREE.MeshLambertMaterial({color:'#1e293b',emissive:'#0f172a',emissiveIntensity:.18})
+    :new THREE.MeshStandardMaterial({
+      color:'#1e293b',roughness:.72,metalness:.18,
+      emissive:'#0f172a',emissiveIntensity:.18,
+    })
+  const sphereSegs=simplified?6:10
+  const torusSegs=simplified?16:28
 
   // tip at bottom — cone pointing DOWN (rotated 180°)
   const TIP_H=0.64, TIP_Y=0.32
@@ -4998,41 +5006,46 @@ function addArenaWeapon(arena, cx, cz) {
   const BLADE_Y=BLADE_BOT+BLADE_H/2
   const blade=new THREE.Mesh(new THREE.BoxGeometry(BLADE_W,BLADE_H,BLADE_D),bladeMat)
   blade.position.set(cx,BLADE_Y,cz)
-  // bright edge lines
-  const edgeL=new THREE.Mesh(new THREE.BoxGeometry(.025,BLADE_H,.006),
-    new THREE.MeshBasicMaterial({color:'#ffffff',transparent:true,opacity:.60}))
-  edgeL.position.set(cx-BLADE_W/2+.01,BLADE_Y,cz-BLADE_D/2+.01)
-  const edgeR=edgeL.clone();edgeR.position.set(cx+BLADE_W/2-.01,BLADE_Y,cz-BLADE_D/2+.01)
-  arena.add(blade,edgeL,edgeR)
+  if(!simplified){
+    const edgeL=new THREE.Mesh(new THREE.BoxGeometry(.025,BLADE_H,.006),
+      new THREE.MeshBasicMaterial({color:'#ffffff',transparent:true,opacity:.60}))
+    edgeL.position.set(cx-BLADE_W/2+.01,BLADE_Y,cz-BLADE_D/2+.01)
+    const edgeR=edgeL.clone();edgeR.position.set(cx+BLADE_W/2-.01,BLADE_Y,cz-BLADE_D/2+.01)
+    arena.add(blade,edgeL,edgeR)
+  }else{
+    arena.add(blade)
+  }
 
   // cross-guard above blade
   const GUARD_Y=BLADE_BOT+BLADE_H+0.06
   const guard=new THREE.Mesh(new THREE.BoxGeometry(1.50,.14,.38),guardMat)
   guard.position.set(cx,GUARD_Y,cz)
-  const guardEnd1=new THREE.Mesh(new THREE.SphereGeometry(.20,10,7),guardMat.clone())
+  const guardEnd1=new THREE.Mesh(new THREE.SphereGeometry(.20,sphereSegs,Math.max(4,sphereSegs-3)),guardMat.clone())
   guardEnd1.position.set(cx-.76,GUARD_Y,cz)
   const guardEnd2=guardEnd1.clone();guardEnd2.position.set(cx+.76,GUARD_Y,cz)
   arena.add(guard,guardEnd1,guardEnd2)
 
   // grip above guard
   const GRIP_H=0.90, GRIP_Y=GUARD_Y+0.08+GRIP_H/2
-  const grip=new THREE.Mesh(new THREE.CylinderGeometry(.14,.18,GRIP_H,8),handleMat)
+  const grip=new THREE.Mesh(new THREE.CylinderGeometry(.14,.18,GRIP_H,simplified?6:8),handleMat)
   grip.position.set(cx,GRIP_Y,cz)
-  const wrapMat=new THREE.MeshStandardMaterial({color:'#facc15',roughness:.28,metalness:.82,emissive:'#92400e',emissiveIntensity:.34})
-  const wrap1=new THREE.Mesh(new THREE.TorusGeometry(.19,.038,6,16),wrapMat)
+  const wrapMat=simplified
+    ?new THREE.MeshLambertMaterial({color:'#facc15',emissive:'#92400e',emissiveIntensity:.34})
+    :new THREE.MeshStandardMaterial({color:'#facc15',roughness:.28,metalness:.82,emissive:'#92400e',emissiveIntensity:.34})
+  const wrap1=new THREE.Mesh(new THREE.TorusGeometry(.19,.038,6,simplified?10:16),wrapMat)
   wrap1.rotation.x=Math.PI/2;wrap1.position.set(cx,GRIP_Y+.24,cz)
   const wrap2=wrap1.clone();wrap2.position.set(cx,GRIP_Y-.24,cz)
   arena.add(grip,wrap1,wrap2)
 
   // pommel at very top
   const POMMEL_Y=GRIP_Y+GRIP_H/2+0.26
-  const pommel=new THREE.Mesh(new THREE.SphereGeometry(.28,12,8),guardMat.clone())
+  const pommel=new THREE.Mesh(new THREE.SphereGeometry(.28,sphereSegs,Math.max(4,sphereSegs-4)),guardMat.clone())
   pommel.position.set(cx,POMMEL_Y,cz)
   arena.add(pommel)
 
   // cyan glow ring at guard
   const glowRing=new THREE.Mesh(
-    new THREE.TorusGeometry(.30,.055,6,28),
+    new THREE.TorusGeometry(.30,.055,6,torusSegs),
     new THREE.MeshBasicMaterial({color:'#22d3ee',transparent:true,opacity:.80,depthWrite:false}),
   )
   glowRing.rotation.x=Math.PI/2;glowRing.position.set(cx,GUARD_Y,cz)
@@ -5040,21 +5053,32 @@ function addArenaWeapon(arena, cx, cz) {
 
   // magenta glow ring at blade mid
   const glowRing2=new THREE.Mesh(
-    new THREE.TorusGeometry(.20,.040,6,24),
+    new THREE.TorusGeometry(.20,.040,6,Math.max(12,torusSegs-4)),
     new THREE.MeshBasicMaterial({color:'#d946ef',transparent:true,opacity:.70,depthWrite:false}),
   )
   glowRing2.rotation.x=Math.PI/2;glowRing2.position.set(cx,BLADE_Y,cz)
   arena.add(glowRing2)
 }
 
-function addCryptoColosseum(world,lowDetail=false) {
+function makeArenaSeatMaterial(color, simplified=false) {
+  return simplified
+    ?new THREE.MeshLambertMaterial({color,emissive:color,emissiveIntensity:.28})
+    :new THREE.MeshStandardMaterial({
+      color,roughness:.38,metalness:.72,emissive:color,emissiveIntensity:.34,
+      polygonOffset:true,polygonOffsetFactor:-1,polygonOffsetUnits:-1,
+    })
+}
+
+function addCryptoColosseum(world,visualTier='high') {
+  const lowDetail=visualTier==='low'
+  const mediumDetail=visualTier==='medium'
   const centerX=MINING_CHAIN_NODE_POSITION.col+.5
   const centerZ=MINING_CHAIN_NODE_POSITION.row+.5
   const arena=new THREE.Group()
   arena.userData.cryptoColosseum=true
 
   const foundation=new THREE.Mesh(
-    new THREE.CylinderGeometry(5.25,5.25,.08,lowDetail?24:64),
+    new THREE.CylinderGeometry(5.25,5.25,.08,lowDetail?24:mediumDetail?48:64),
     lowDetail
       ?new THREE.MeshLambertMaterial({color:'#09061a',emissive:'#160b35'})
       :new THREE.MeshStandardMaterial({color:'#09061a',roughness:.64,metalness:.56,emissive:'#160b35',emissiveIntensity:.58}),
@@ -5063,7 +5087,7 @@ function addCryptoColosseum(world,lowDetail=false) {
   foundation.userData.skipOcclusion=true
   arena.add(foundation)
 
-  const ringSegments=lowDetail?24:64
+  const ringSegments=lowDetail?24:mediumDetail?48:64
   const ringMaterial=new THREE.MeshBasicMaterial({color:'#22d3ee',transparent:true,opacity:.88,depthWrite:false})
   for(const radius of [1.35,3.15,4.72]){
     const ring=new THREE.Mesh(new THREE.TorusGeometry(radius,.045,6,ringSegments),ringMaterial.clone())
@@ -5081,8 +5105,6 @@ function addCryptoColosseum(world,lowDetail=false) {
   const laneB=new THREE.Mesh(new THREE.PlaneGeometry(.10,8.7),laneMaterial.clone())
   laneB.rotation.x=-Math.PI/2;laneB.position.set(centerX,.105,centerZ)
   arena.add(laneA,laneB)
-
-  if(lowDetail){ world.add(arena); return }
 
   const seatGeometry=new THREE.BoxGeometry(1,1,1)
   const sideEntries={cyan:[],magenta:[]}
@@ -5102,10 +5124,7 @@ function addCryptoColosseum(world,lowDetail=false) {
     const color=side==='cyan'?'#22d3ee':'#d946ef'
     const seats=new THREE.InstancedMesh(
       seatGeometry,
-      new THREE.MeshStandardMaterial({
-        color,roughness:.38,metalness:.72,emissive:color,emissiveIntensity:.34,
-        polygonOffset:true,polygonOffsetFactor:-1,polygonOffsetUnits:-1,
-      }),
+      makeArenaSeatMaterial(color,lowDetail),
       entries.length,
     )
     entries.forEach((entry,index)=>{
@@ -5116,40 +5135,47 @@ function addCryptoColosseum(world,lowDetail=false) {
   }
 
   const beamMaterial=new THREE.MeshBasicMaterial({color:'#facc15',transparent:true,opacity:.38,depthWrite:false})
+  const crownSegs=lowDetail?12:mediumDetail?16:20
   for(const [x,z] of [[22.5,22.5],[32.5,22.5],[22.5,32.5],[32.5,32.5]]){
-    const beam=new THREE.Mesh(new THREE.CylinderGeometry(.045,.12,4.2,8),beamMaterial.clone())
-    beam.position.set(x,2.1,z);arena.add(beam)
-    const crown=new THREE.Mesh(new THREE.TorusGeometry(.30,.045,6,20),new THREE.MeshBasicMaterial({color:'#facc15'}))
-    crown.rotation.x=Math.PI/2;crown.position.set(x,4.12,z);arena.add(crown)
+    if(!lowDetail){
+      const beam=new THREE.Mesh(new THREE.CylinderGeometry(.045,.12,4.2,8),beamMaterial.clone())
+      beam.position.set(x,2.1,z);arena.add(beam)
+    }
+    const crown=new THREE.Mesh(new THREE.TorusGeometry(.30,.045,6,crownSegs),new THREE.MeshBasicMaterial({color:'#facc15'}))
+    crown.rotation.x=Math.PI/2;crown.position.set(x,lowDetail?3.2:4.12,z);arena.add(crown)
   }
 
-  const halo=new THREE.Mesh(new THREE.TorusGeometry(1.25,.055,6,40),new THREE.MeshBasicMaterial({color:'#facc15'}))
+  const haloSegs=lowDetail?24:mediumDetail?32:40
+  const halo=new THREE.Mesh(new THREE.TorusGeometry(1.25,.055,6,haloSegs),new THREE.MeshBasicMaterial({color:'#facc15'}))
   halo.rotation.x=Math.PI/2;halo.position.set(centerX,2.35,centerZ);arena.add(halo)
   const haloCross=halo.clone();haloCross.rotation.set(0,0,Math.PI/2);arena.add(haloCross)
 
-  const bridgeMaterial=new THREE.MeshStandardMaterial({
-    color:'#123d56',roughness:.42,metalness:.68,
-    emissive:'#08263a',emissiveIntensity:.72,side:THREE.DoubleSide,
-  })
-  const bridgeTop=new THREE.Mesh(new THREE.RingGeometry(7.55,8.45,96),bridgeMaterial)
+  const bridgeSegments=lowDetail?32:mediumDetail?64:96
+  const bridgeMaterial=lowDetail
+    ?new THREE.MeshLambertMaterial({color:'#123d56',emissive:'#08263a',emissiveIntensity:.72,side:THREE.DoubleSide})
+    :new THREE.MeshStandardMaterial({
+      color:'#123d56',roughness:.42,metalness:.68,
+      emissive:'#08263a',emissiveIntensity:.72,side:THREE.DoubleSide,
+    })
+  const bridgeTop=new THREE.Mesh(new THREE.RingGeometry(7.55,8.45,bridgeSegments),bridgeMaterial)
   bridgeTop.rotation.x=-Math.PI/2;bridgeTop.position.set(centerX,BRIDGE_TOP,centerZ);arena.add(bridgeTop)
-  const bridgeBottom=new THREE.Mesh(new THREE.RingGeometry(7.55,8.45,96),bridgeMaterial.clone())
+  const bridgeBottom=new THREE.Mesh(new THREE.RingGeometry(7.55,8.45,bridgeSegments),bridgeMaterial.clone())
   bridgeBottom.rotation.x=Math.PI/2;bridgeBottom.position.set(centerX,BRIDGE_BOTTOM,centerZ);arena.add(bridgeBottom)
   const bridgeOuter=new THREE.Mesh(
-    new THREE.CylinderGeometry(8.45,8.45,BRIDGE_TOP-BRIDGE_BOTTOM,96,1,true),bridgeMaterial.clone(),
+    new THREE.CylinderGeometry(8.45,8.45,BRIDGE_TOP-BRIDGE_BOTTOM,bridgeSegments,1,true),bridgeMaterial.clone(),
   )
   bridgeOuter.position.set(centerX,(BRIDGE_TOP+BRIDGE_BOTTOM)*.5,centerZ);arena.add(bridgeOuter)
   const bridgeInnerMaterial=bridgeMaterial.clone();bridgeInnerMaterial.side=THREE.BackSide
   const bridgeInner=new THREE.Mesh(
-    new THREE.CylinderGeometry(7.55,7.55,BRIDGE_TOP-BRIDGE_BOTTOM,96,1,true),bridgeInnerMaterial,
+    new THREE.CylinderGeometry(7.55,7.55,BRIDGE_TOP-BRIDGE_BOTTOM,bridgeSegments,1,true),bridgeInnerMaterial,
   )
   bridgeInner.position.copy(bridgeOuter.position);arena.add(bridgeInner)
   for(const [radius,color] of [[7.55,'#d946ef'],[8.45,'#22d3ee']]){
-    const rim=new THREE.Mesh(new THREE.TorusGeometry(radius,.055,6,96),new THREE.MeshBasicMaterial({color}))
+    const rim=new THREE.Mesh(new THREE.TorusGeometry(radius,.055,6,bridgeSegments),new THREE.MeshBasicMaterial({color}))
     rim.rotation.x=Math.PI/2;rim.position.set(centerX,BRIDGE_TOP+.025,centerZ);arena.add(rim)
   }
 
-  addArenaWeapon(arena,centerX,centerZ)
+  addArenaWeapon(arena,centerX,centerZ,lowDetail)
   world.add(arena)
 }
 
@@ -6300,9 +6326,12 @@ function rebuildThreeWorld(state,cellMap,obstacles) {
   if(state.world){state.scene.remove(state.world);disposeThreeObject(state.world)}
   const world=new THREE.Group(),matrix=new THREE.Matrix4(),position=new THREE.Vector3()
   const scale=new THREE.Vector3(),quaternion=new THREE.Quaternion()
-  const lowDetail=isCoarsePointerDevice()
+  const visualTier=typeof window!=='undefined'
+    ?getMiningVisualTier(window.innerWidth,window.innerHeight)
+    :'high'
+  const lowDetail=visualTier==='low'
   addBiomeGround(world,state.textures)
-  addCryptoColosseum(world,lowDetail)
+  addCryptoColosseum(world,visualTier)
   addCipherHouseDetails(world, lowDetail)
   addBiomeLandmarks(world,state.textures,lowDetail)
   // ── Block + node groups ───────────────────────────────────────────────────────
@@ -6440,6 +6469,7 @@ function rebuildThreeWorld(state,cellMap,obstacles) {
   if(state.beaconBatch) updateInteractiveBeaconBatch(state.beaconBatch,performance.now()*.001)
 
   const houseEntries=[]
+  const arenaEntries=[]
   const boxGroups={mountain:[],coast:[],ice:[],inferno:[]}
   for(const entry of obstacles.entries()){
     // House cells (incl. door-step ramps) are handled with house materials/geometry
@@ -6447,6 +6477,9 @@ function rebuildThreeWorld(state,cellMap,obstacles) {
     if(entry[1]?.isHouse){ houseEntries.push(entry); continue }
     if(HOUSE_DOOR_STEP_KEYS.has(entry[0])) continue
     if(isOrganicShape(entry[1])||entry[1].isColosseumBridge) continue
+    if(entry[1]?.isArenaStand||String(entry[1]?.label||'').startsWith('ARENA')){
+      arenaEntries.push(entry); continue
+    }
     const [row,col]=entry[0].split(',').map(Number);boxGroups[biomeForCell(row,col)].push(entry)
   }
   if(houseEntries.length){
@@ -6782,6 +6815,40 @@ function rebuildThreeWorld(state,cellMap,obstacles) {
         }
       }
     }
+  }
+  if(arenaEntries.length){
+    const arenaMesh=new THREE.InstancedMesh(
+      new THREE.BoxGeometry(1,1,1),
+      lowDetail
+        ?new THREE.MeshLambertMaterial({vertexColors:true})
+        :new THREE.MeshStandardMaterial({vertexColors:true,roughness:.48,metalness:.46,emissive:'#06101c',emissiveIntensity:.62}),
+      arenaEntries.length,
+    )
+    const arenaColors=new Float32Array(arenaEntries.length*3)
+    arenaEntries.forEach(([key,obstacle],index)=>{
+      const [row,col]=key.split(',').map(Number),bottom=obstacleBottom(obstacle)
+      const visualTop=Number(obstacle.visualHeight)||obstacleTop(obstacle)
+      const visualHeight=Math.max(.02,visualTop-bottom)
+      position.set(col+.5,bottom+visualHeight*.5,row+.5);scale.set(.985,visualHeight,.985)
+      matrix.compose(position,quaternion,scale);arenaMesh.setMatrixAt(index,matrix)
+      const label=String(obstacle.label||'')
+      const centerRow=MINING_CHAIN_NODE_POSITION.row
+      const centerCol=MINING_CHAIN_NODE_POSITION.col
+      let color
+      if(label.includes('PYLON')||label.includes('GATE')){
+        color=new THREE.Color('#1a2238')
+      }else if(Math.abs(row-centerRow)>=Math.abs(col-centerCol)){
+        color=new THREE.Color('#22d3ee')
+      }else{
+        color=new THREE.Color('#d946ef')
+      }
+      arenaColors[index*3]=color.r;arenaColors[index*3+1]=color.g;arenaColors[index*3+2]=color.b
+    })
+    arenaMesh.instanceColor=new THREE.InstancedBufferAttribute(arenaColors,3)
+    arenaMesh.instanceMatrix.needsUpdate=true
+    arenaMesh.instanceColor.needsUpdate=true
+    arenaMesh.userData.collidable=true
+    world.add(arenaMesh)
   }
   for(const [biome,entries] of Object.entries(boxGroups)){
     if(!entries.length) continue
