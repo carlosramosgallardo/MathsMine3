@@ -12187,50 +12187,35 @@ export default function MiningChain3DFPV({
           })()}
         </div>
       )}
-      {/* ── Mobile joystick ────────────────────────────────────────────────── */}
+      {/* ── Mobile joystick — invisible pad, visible knob only ─────────────── */}
       <div ref={joystickPadRef} className="mm3-touch-controls" style={{
         position:'absolute', zIndex:6,
         bottom:'calc(var(--mm3-joy-bottom,22px) + env(safe-area-inset-bottom,0px))', left:14,
-        width:148, height:148, borderRadius:'50%',
+        width:112, height:112, borderRadius:'50%',
         display:'flex', alignItems:'center', justifyContent:'center',
-        background:'radial-gradient(circle at 40% 38%, rgba(34,211,238,.22) 0%, rgba(2,8,20,.80) 72%)',
-        border:'1.5px solid rgba(103,232,249,.40)',
-        boxShadow:'0 0 28px rgba(34,211,238,.10), 0 4px 24px rgba(0,0,0,.55), inset 0 1px 0 rgba(165,243,252,.12)',
+        background:'transparent',
+        border:'none',
+        boxShadow:'none',
         pointerEvents:'auto', userSelect:'none', touchAction:'none', WebkitTapHighlightColor:'transparent',
       }}
         onPointerDown={(e)=>{e.preventDefault();e.currentTarget.setPointerCapture(e.pointerId);joystickRef.current.pointerId=e.pointerId;updateJoystick(e.clientX,e.clientY)}}
         onPointerMove={(e)=>{if(joystickRef.current.pointerId===e.pointerId)updateJoystick(e.clientX,e.clientY)}}
         onPointerUp={stopJoystick} onPointerCancel={stopJoystick}
       >
-        {/* Tick marks */}
-        {[0,90,180,270].map(deg=>(
-          <div key={deg} style={{
-            position:'absolute', width:1, height:8,
-            background:'rgba(103,232,249,.28)',
-            transformOrigin:'50% 59px',
-            transform:`rotate(${deg}deg)`,
-            pointerEvents:'none',
-          }}/>
-        ))}
         <div ref={joystickKnobRef} style={{
-          width:56, height:56, borderRadius:'50%',
-          background:'radial-gradient(circle at 38% 36%, rgba(103,232,249,.55), rgba(34,211,238,.22))',
-          border:'1.5px solid rgba(165,243,252,.80)',
-          boxShadow:'0 0 16px rgba(34,211,238,.40), inset 0 1px 0 rgba(255,255,255,.18)',
+          width:50, height:50, borderRadius:'50%',
+          background:'radial-gradient(circle at 38% 36%, rgba(103,232,249,.50), rgba(34,211,238,.18))',
+          border:'1.5px solid rgba(165,243,252,.72)',
+          boxShadow:'0 0 14px rgba(34,211,238,.32), inset 0 1px 0 rgba(255,255,255,.16)',
           pointerEvents:'none', willChange:'transform',
         }}/>
-        <span style={{
-          position:'absolute', bottom:8, left:0, right:0, textAlign:'center',
-          color:'rgba(103,232,249,.50)', font:'700 7px monospace', letterSpacing:'0.14em',
-          pointerEvents:'none',
-        }}>{es?'MOVER':'MOVE'}</span>
       </div>
 
       {/* ── JUMP + HIT buttons — bottom-right row, clear of look pad ─────────── */}
       <div className="mm3-touch-controls" style={{
         position:'absolute', zIndex:6,
         bottom:'calc(var(--mm3-btn-bottom,18px) + env(safe-area-inset-bottom,0px))', right:12,
-        display:'flex', flexDirection:'row', alignItems:'center', gap:10,
+        display:'flex', flexDirection:'row', alignItems:'center', gap:8,
         pointerEvents:'auto',
       }}>
         {/* JUMP */}
@@ -12239,17 +12224,17 @@ export default function MiningChain3DFPV({
           onPointerDown={(e)=>{e.preventDefault();e.stopPropagation();triggerJump()}}
           onPointerUp={(e)=>e.preventDefault()}
           style={{
-            width:80, height:80, borderRadius:'50%',
-            background:'radial-gradient(circle at 40% 36%, rgba(56,189,248,.50), rgba(2,18,40,.88))',
-            border:'1.5px solid rgba(103,232,249,.60)',
-            boxShadow:'0 0 20px rgba(34,211,238,.22), 0 4px 16px rgba(0,0,0,.50), inset 0 1px 0 rgba(165,243,252,.18)',
+            width:66, height:66, borderRadius:'50%',
+            background:'radial-gradient(circle at 40% 36%, rgba(56,189,248,.46), rgba(2,18,40,.82))',
+            border:'1.5px solid rgba(103,232,249,.55)',
+            boxShadow:'0 0 16px rgba(34,211,238,.18), 0 3px 12px rgba(0,0,0,.45), inset 0 1px 0 rgba(165,243,252,.16)',
             color:'#cffafe', cursor:'pointer',
-            display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:2,
+            display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:1,
             userSelect:'none', fontFamily:'monospace', touchAction:'none', WebkitTapHighlightColor:'transparent',
           }}
         >
-          <span style={{fontSize:24, lineHeight:1, marginTop:2}}>▲</span>
-          <span style={{fontSize:8, fontWeight:700, letterSpacing:'0.12em', opacity:.80}}>{es?'SALTAR':'JUMP'}</span>
+          <span style={{fontSize:20, lineHeight:1, marginTop:1}}>▲</span>
+          <span style={{fontSize:7, fontWeight:700, letterSpacing:'0.12em', opacity:.78}}>{es?'SALTAR':'JUMP'}</span>
         </button>
         {/* HIT */}
         <button
@@ -12257,17 +12242,17 @@ export default function MiningChain3DFPV({
           onPointerDown={(e)=>{e.preventDefault();e.stopPropagation();triggerAttack()}}
           onPointerUp={(e)=>e.preventDefault()}
           style={{
-            width:80, height:80, borderRadius:'50%',
-            background:'radial-gradient(circle at 40% 36%, rgba(249,115,22,.50), rgba(36,8,2,.88))',
-            border:'1.5px solid rgba(251,146,60,.58)',
-            boxShadow:'0 0 20px rgba(249,115,22,.20), 0 4px 16px rgba(0,0,0,.50), inset 0 1px 0 rgba(254,215,170,.14)',
+            width:66, height:66, borderRadius:'50%',
+            background:'radial-gradient(circle at 40% 36%, rgba(249,115,22,.46), rgba(36,8,2,.82))',
+            border:'1.5px solid rgba(251,146,60,.52)',
+            boxShadow:'0 0 16px rgba(249,115,22,.16), 0 3px 12px rgba(0,0,0,.45), inset 0 1px 0 rgba(254,215,170,.12)',
             color:'#fed7aa', cursor:'pointer',
-            display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:2,
+            display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:1,
             userSelect:'none', fontFamily:'monospace', touchAction:'none', WebkitTapHighlightColor:'transparent',
           }}
         >
-          <span style={{fontSize:24, lineHeight:1, fontWeight:700, marginTop:2}}>✕</span>
-          <span style={{fontSize:8, fontWeight:700, letterSpacing:'0.12em', opacity:.80}}>{es?'GOLPE':'HIT'}</span>
+          <span style={{fontSize:20, lineHeight:1, fontWeight:700, marginTop:1}}>✕</span>
+          <span style={{fontSize:7, fontWeight:700, letterSpacing:'0.12em', opacity:.78}}>{es?'GOLPE':'HIT'}</span>
         </button>
       </div>
     </div>
