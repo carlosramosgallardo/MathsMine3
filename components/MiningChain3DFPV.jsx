@@ -4847,7 +4847,7 @@ function playStep(audioCtxRef) {
 
 function disposeThreeObject(root) {
   root?.traverse?.(object=>{
-    object.geometry?.dispose?.()
+    if (!object.geometry?.userData?.skipDispose) object.geometry?.dispose?.()
     const materials=Array.isArray(object.material)?object.material:[object.material]
     materials.filter(Boolean).forEach(material=>{
       if(material.userData?.ownedMap) material.map?.dispose?.()
@@ -6733,8 +6733,243 @@ function makeRecoveryTileTexture() {
   return makePoolHealEmblemTexture()
 }
 
+// ── Minable block chunk streaming (visual only — physics uses cellMap) ─────────
+const MINABLE_BLOCK_CHUNK_SIZE = 8
+
+function getMinableBlockChunkRadius(visualTier) {
+  if (visualTier === 'high') return 3
+  if (visualTier === 'low') return 1
+  return 2
+}
+
+function blockChunkCoord(row, col) {
+  return {
+    cr: Math.floor(row / MINABLE_BLOCK_CHUNK_SIZE),
+    cc: Math.floor(col / MINABLE_BLOCK_CHUNK_SIZE),
+  }
+}
+
+let minableBlockSharedBoxGeometry = null
+function getMinableBlockSharedBoxGeometry() {
+  if (!minableBlockSharedBoxGeometry) {
+    minableBlockSharedBoxGeometry = new THREE.BoxGeometry(1, 1, 1)
+    minableBlockSharedBoxGeometry.userData.skipDispose = true
+  }
+  return minableBlockSharedBoxGeometry
+}
+
+function createMinableBlockChunkMaterials() {
+  const box = getMinableBlockSharedBoxGeometry()
+  return {
+    box,
+    free: new THREE.MeshStandardMaterial({ roughness: .52, metalness: .22, vertexColors: true, emissive: '#0a1a40', emissiveIntensity: .35 }),
+    nftji: new THREE.MeshStandardMaterial({ color: '#ff9900', roughness: .48, metalness: .32, emissive: '#c05000', emissiveIntensity: .60 }),
+    ownedFree: new THREE.MeshStandardMaterial({ roughness: .46, metalness: .38, vertexColors: true, emissive: '#08182a', emissiveIntensity: .22 }),
+    ownedNftji: new THREE.MeshStandardMaterial({ roughness: .46, metalness: .34, vertexColors: true, emissive: '#062a10', emissiveIntensity: .38 }),
+    ped: new THREE.MeshStandardMaterial({ roughness: .88, metalness: .16, vertexColors: true }),
+    glowFree: new THREE.MeshBasicMaterial({ color: '#4488ff', wireframe: true, transparent: true, opacity: .22, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 }),
+    glowNftji: new THREE.MeshBasicMaterial({ color: '#ffb347', wireframe: true, transparent: true, opacity: .40, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 }),
+    glowOwnedFree: new THREE.MeshBasicMaterial({ color: '#67e8f9', wireframe: true, transparent: true, opacity: .20, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 }),
+    glowOwnedNftji: new THREE.MeshBasicMaterial({ color: '#4ade80', wireframe: true, transparent: true, opacity: .28, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 }),
+  }
+}
+
+function disposeMinableBlockChunkMaterials(materials) {
+  if (!materials) return
+  for (const key of ['free', 'nftji', 'ownedFree', 'ownedNftji', 'ped', 'glowFree', 'glowNftji', 'glowOwnedFree', 'glowOwnedNftji']) {
+    materials[key]?.dispose?.()
+  }
+}
+
+function disposeMinableBlockChunkVisual(group) {
+  if (!group) return
+  group.traverse(object => {
+    const mats = Array.isArray(object.material) ? object.material : [object.material]
+    for (const material of mats) {
+      if (material?.userData?.ownedMap) material.map?.dispose?.()
+    }
+    object.geometry = null
+    object.material = null
+  })
+}
+
+function disposeMinableBlockChunkSystem(state) {
+  const sys = state?.minableBlockChunks
+  if (!sys) return
+  for (const visual of sys.visuals?.values() || []) disposeMinableBlockChunkVisual(visual)
+  disposeMinableBlockChunkMaterials(sys.materials)
+  state.minableBlockChunks = null
+}
+
+function buildMinableBlockChunkCatalog(cellMap) {
+  const emptyBucket = () => ({ free: [], nftji: [], ownedFree: [], ownedNftji: [] })
+  const catalog = new Map()
+  const bucketFor = (row, col) => {
+    const key = `${blockChunkCoord(row, col).cr},${blockChunkCoord(row, col).cc}`
+    if (!catalog.has(key)) catalog.set(key, emptyBucket())
+    return catalog.get(key)
+  }
+  for (const [key, cell] of cellMap) {
+    if (HOUSE_DOOR_STEP_KEYS.has(key)) continue
+    const [row, col] = key.split(',').map(Number)
+    const bucket = bucketFor(row, col)
+    if (!cell.owner && !cell.isMarket && !cell.isChainNode && !cell.isPortalNode && !cell.isNodeDiceNode && !cell.isRlNode) {
+      bucket.free.push([key, cell])
+    } else if (cell.isMarket && !cell.owner) {
+      bucket.nftji.push([key, cell])
+    } else if (cell.owner && !cell.isMarket) {
+      bucket.ownedFree.push([key, cell])
+    } else if (cell.owner && cell.isMarket) {
+      bucket.ownedNftji.push([key, cell])
+    }
+  }
+  return catalog
+}
+
+function appendMinableBlockInstances(group, entries, materials, kind, matrix, position, scale, quaternion) {
+  if (!entries.length) return
+  const spec = {
+    free: { mat: materials.free, glow: materials.glowFree, pedTint: null, cubeSide: .44, glowPad: .018 },
+    nftji: { mat: materials.nftji, glow: materials.glowNftji, pedTint: '#7a3800', cubeSide: .44, glowPad: .02 },
+    ownedFree: { mat: materials.ownedFree, glow: materials.glowOwnedFree, pedTint: null, cubeSide: .44, glowPad: .018 },
+    ownedNftji: { mat: materials.ownedNftji, glow: materials.glowOwnedNftji, pedTint: null, cubeSide: .44, glowPad: .018 },
+  }[kind]
+  const mesh = new THREE.InstancedMesh(materials.box, spec.mat, entries.length)
+  const glow = new THREE.InstancedMesh(materials.box, spec.glow, entries.length)
+  glow.renderOrder = 1
+  glow.userData.blockGlow = true
+  const ped = new THREE.InstancedMesh(materials.box, materials.ped, entries.length)
+  entries.forEach(([key, cell], index) => {
+    const [row, col] = key.split(',').map(Number)
+    const base = blockBottom(cell)
+    const height = blockTop(cell, row, col)
+    const cubeBottom = Math.max(base, height - spec.cubeSide)
+    position.set(col + .5, cubeBottom + spec.cubeSide * .5, row + .5)
+    scale.set(spec.cubeSide, spec.cubeSide, spec.cubeSide)
+    matrix.compose(position, quaternion, scale)
+    mesh.setMatrixAt(index, matrix)
+    scale.set(spec.cubeSide + spec.glowPad, spec.cubeSide + spec.glowPad, spec.cubeSide + spec.glowPad)
+    matrix.compose(position, quaternion, scale)
+    glow.setMatrixAt(index, matrix)
+    const pw = spec.cubeSide * 0.75
+    const ph = Math.max(.04, cubeBottom - base)
+    position.set(col + .5, base + ph * .5, row + .5)
+    scale.set(pw, ph, pw)
+    matrix.compose(position, quaternion, scale)
+    ped.setMatrixAt(index, matrix)
+    if (kind === 'free') {
+      const c = new THREE.Color(BIOME_STYLE[biomeForCell(row, col)].block)
+      mesh.setColorAt(index, c)
+      ped.setColorAt(index, c.clone().multiplyScalar(.38))
+    } else if (kind === 'nftji') {
+      ped.setColorAt(index, new THREE.Color(spec.pedTint))
+    } else if (kind === 'ownedFree') {
+      const c = new THREE.Color(cell.color || BIOME_STYLE[biomeForCell(row, col)].block)
+      mesh.setColorAt(index, c)
+      ped.setColorAt(index, c.clone().multiplyScalar(.40))
+    } else if (kind === 'ownedNftji') {
+      const c = new THREE.Color(cell.color || '#22c55e')
+      mesh.setColorAt(index, c)
+      ped.setColorAt(index, c.clone().multiplyScalar(.38))
+    }
+  })
+  mesh.instanceMatrix.needsUpdate = true
+  glow.instanceMatrix.needsUpdate = true
+  ped.instanceMatrix.needsUpdate = true
+  if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true
+  if (ped.instanceColor) ped.instanceColor.needsUpdate = true
+  group.add(ped, mesh, glow)
+}
+
+function buildMinableBlockChunkVisual(bucket, materials) {
+  const group = new THREE.Group()
+  group.userData.minableBlockChunk = true
+  const matrix = new THREE.Matrix4()
+  const position = new THREE.Vector3()
+  const scale = new THREE.Vector3()
+  const quaternion = new THREE.Quaternion()
+  for (const kind of ['free', 'nftji', 'ownedFree', 'ownedNftji']) {
+    appendMinableBlockInstances(group, bucket[kind], materials, kind, matrix, position, scale, quaternion)
+  }
+  group.traverse(object => {
+    object.updateMatrix()
+    object.matrixAutoUpdate = false
+  })
+  return group
+}
+
+function refreshMinableBlockChunkInteractiveVisuals(state) {
+  if (!state?.interactiveVisuals || !state.minableBlockChunks) return
+  state.interactiveVisuals = state.interactiveVisuals.filter(object => !object.userData?.blockGlow)
+  for (const visual of state.minableBlockChunks.visuals.values()) {
+    if (!state.minableBlockChunks.active.has(visual.userData.chunkKey)) continue
+    visual.traverse(object => {
+      if (object.userData?.blockGlow) state.interactiveVisuals.push(object)
+    })
+  }
+}
+
+function syncMinableBlockChunks(state, gridX, gridY, visualTier) {
+  const sys = state?.minableBlockChunks
+  if (!sys?.holder) return
+  const radius = getMinableBlockChunkRadius(visualTier)
+  const { cr, cc } = blockChunkCoord(Math.floor(gridY), Math.floor(gridX))
+  const needed = new Set()
+  for (let dr = -radius; dr <= radius; dr += 1) {
+    for (let dc = -radius; dc <= radius; dc += 1) {
+      needed.add(`${cr + dr},${cc + dc}`)
+    }
+  }
+  for (const key of [...sys.active]) {
+    if (needed.has(key)) continue
+    const visual = sys.visuals.get(key)
+    if (visual) sys.holder.remove(visual)
+    sys.active.delete(key)
+  }
+  for (const key of needed) {
+    if (sys.active.has(key)) continue
+    if (!sys.catalog.has(key)) continue
+    let visual = sys.visuals.get(key)
+    if (!visual) {
+      visual = buildMinableBlockChunkVisual(sys.catalog.get(key), sys.materials)
+      visual.userData.chunkKey = key
+      sys.visuals.set(key, visual)
+    }
+    sys.holder.add(visual)
+    sys.active.add(key)
+  }
+  sys.centerKey = `${cr},${cc}`
+  sys.tier = visualTier
+  sys.radius = radius
+  refreshMinableBlockChunkInteractiveVisuals(state)
+}
+
+function initMinableBlockChunkSystem(state, cellMap, visualTier, gridX, gridY) {
+  disposeMinableBlockChunkSystem(state)
+  const catalog = buildMinableBlockChunkCatalog(cellMap)
+  if (!catalog.size) {
+    state.minableBlockChunks = null
+    return null
+  }
+  const holder = new THREE.Group()
+  holder.name = 'minableBlockChunks'
+  state.minableBlockChunks = {
+    holder,
+    catalog,
+    visuals: new Map(),
+    active: new Set(),
+    materials: createMinableBlockChunkMaterials(),
+    centerKey: null,
+    tier: null,
+    radius: null,
+  }
+  syncMinableBlockChunks(state, gridX, gridY, visualTier)
+  return holder
+}
+
 function rebuildThreeWorld(state,cellMap,obstacles) {
   if(!state) return
+  disposeMinableBlockChunkSystem(state)
   if(state.world){state.scene.remove(state.world);disposeThreeObject(state.world)}
   const world=new THREE.Group(),matrix=new THREE.Matrix4(),position=new THREE.Vector3()
   const scale=new THREE.Vector3(),quaternion=new THREE.Quaternion()
@@ -6758,83 +6993,13 @@ function rebuildThreeWorld(state,cellMap,obstacles) {
   //  chainEntries     → sphere, gold       — opens chain formula dialog
   //  portalEntries    → sphere, accent     — redirects to portal section
   const allBlockEntries=[...cellMap.entries()].filter(([key]) => !HOUSE_DOOR_STEP_KEYS.has(key))
-  const freeEntries      =allBlockEntries.filter(([,c])=>!c.owner&&!c.isMarket&&!c.isChainNode&&!c.isPortalNode&&!c.isNodeDiceNode&&!c.isRlNode)
-  const nftjiEntries     =allBlockEntries.filter(([,c])=>c.isMarket&&!c.owner)
-  const ownedFreeEntries =allBlockEntries.filter(([,c])=>c.owner&&!c.isMarket)
-  const ownedNftjiEntries=allBlockEntries.filter(([,c])=>c.owner&&c.isMarket)
   const chainEntries     =allBlockEntries.filter(([,c])=>c.isChainNode)
   const portalEntries    =allBlockEntries.filter(([,c])=>c.isPortalNode||c.isNodeDiceNode||c.isRlNode)
 
-  // Helper: cube InstancedMesh + wireframe glow + pedestal
-  function makeBlockGroup(count, mat, glowColor, glowOpacity) {
-    const geom=new THREE.BoxGeometry(1,1,1)
-    const mesh=new THREE.InstancedMesh(geom,mat,count||1)
-    const glow=new THREE.InstancedMesh(geom,new THREE.MeshBasicMaterial({color:glowColor,wireframe:true,transparent:true,opacity:glowOpacity,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-1,polygonOffsetUnits:-1}),count||1)
-    glow.renderOrder=1
-    const ped=new THREE.InstancedMesh(geom,new THREE.MeshStandardMaterial({roughness:.88,metalness:.16,vertexColors:true}),count||1)
-    glow.userData.blockGlow=true
-    return {mesh,glow,ped}
-  }
-
-  // Helper: place cube block + pedestal into a group at row,col
-  function placeBlock(group, index, row, col, cell, cubeSide=.44, glowPad=0.018) {
-    const base=blockBottom(cell),height=blockTop(cell,row,col),cubeBottom=Math.max(base,height-cubeSide)
-    position.set(col+.5,cubeBottom+cubeSide*.5,row+.5);scale.set(cubeSide,cubeSide,cubeSide)
-    matrix.compose(position,quaternion,scale);group.mesh.setMatrixAt(index,matrix)
-    scale.set(cubeSide+glowPad,cubeSide+glowPad,cubeSide+glowPad)
-    matrix.compose(position,quaternion,scale);group.glow.setMatrixAt(index,matrix)
-    const pw=cubeSide*0.75,ph=Math.max(.04,cubeBottom-base)
-    position.set(col+.5,base+ph*.5,row+.5);scale.set(pw,ph,pw)
-    matrix.compose(position,quaternion,scale);group.ped.setMatrixAt(index,matrix)
-  }
-  function flushGroup(g) {
-    g.mesh.instanceMatrix.needsUpdate=true;g.glow.instanceMatrix.needsUpdate=true
-    if(g.mesh.instanceColor) g.mesh.instanceColor.needsUpdate=true
-    g.ped.instanceMatrix.needsUpdate=true;if(g.ped.instanceColor) g.ped.instanceColor.needsUpdate=true
-  }
-
-  // ── Free mineable (no NFTJI, no owner) — dark blue per biome ────────────────
-  const freeGroup=makeBlockGroup(freeEntries.length,
-    new THREE.MeshStandardMaterial({roughness:.52,metalness:.22,vertexColors:true,emissive:'#0a1a40',emissiveIntensity:.35}),
-    '#4488ff',.22)
-  freeEntries.forEach(([key,cell],i)=>{
-    const [row,col]=key.split(',').map(Number)
-    placeBlock(freeGroup,i,row,col,cell)
-    const c=new THREE.Color(BIOME_STYLE[biomeForCell(row,col)].block)
-    freeGroup.mesh.setColorAt(i,c);freeGroup.ped.setColorAt(i,c.clone().multiplyScalar(.38))
-  });flushGroup(freeGroup)
-
-  // ── NFTJI unclaimed — bright amber ──────────────────────────────────────────
-  const nftjiGroup=makeBlockGroup(nftjiEntries.length,
-    new THREE.MeshStandardMaterial({color:'#ff9900',roughness:.48,metalness:.32,emissive:'#c05000',emissiveIntensity:.60}),
-    '#ffb347',.40)
-  nftjiEntries.forEach(([key,cell],i)=>{
-    const [row,col]=key.split(',').map(Number)
-    placeBlock(nftjiGroup,i,row,col,cell,.44,.02)
-    nftjiGroup.ped.setColorAt(i,new THREE.Color('#7a3800'))
-  });flushGroup(nftjiGroup)
-
-  // ── Owned free (mined, no NFTJI) — wallet color ─────────────────────────────
-  const ownedFreeGroup=makeBlockGroup(ownedFreeEntries.length,
-    new THREE.MeshStandardMaterial({roughness:.46,metalness:.38,vertexColors:true,emissive:'#08182a',emissiveIntensity:.22}),
-    '#67e8f9',.20)
-  ownedFreeEntries.forEach(([key,cell],i)=>{
-    const [row,col]=key.split(',').map(Number)
-    placeBlock(ownedFreeGroup,i,row,col,cell)
-    const c=new THREE.Color(cell.color||BIOME_STYLE[biomeForCell(row,col)].block)
-    ownedFreeGroup.mesh.setColorAt(i,c);ownedFreeGroup.ped.setColorAt(i,c.clone().multiplyScalar(.40))
-  });flushGroup(ownedFreeGroup)
-
-  // ── Owned NFTJI (mined, has NFTJI) — green ──────────────────────────────────
-  const ownedNftjiGroup=makeBlockGroup(ownedNftjiEntries.length,
-    new THREE.MeshStandardMaterial({roughness:.46,metalness:.34,vertexColors:true,emissive:'#062a10',emissiveIntensity:.38}),
-    '#4ade80',.28)
-  ownedNftjiEntries.forEach(([key,cell],i)=>{
-    const [row,col]=key.split(',').map(Number)
-    placeBlock(ownedNftjiGroup,i,row,col,cell)
-    const c=new THREE.Color(cell.color||'#22c55e')
-    ownedNftjiGroup.mesh.setColorAt(i,c);ownedNftjiGroup.ped.setColorAt(i,c.clone().multiplyScalar(.38))
-  });flushGroup(ownedNftjiGroup)
+  const playerGx=state.lastPlayerGridX??COLS/2
+  const playerGy=state.lastPlayerGridY??ROWS/2
+  const blockChunkHolder=initMinableBlockChunkSystem(state,cellMap,visualTier,playerGx,playerGy)
+  if(blockChunkHolder) world.add(blockChunkHolder)
 
   // ── Chain nodes — gold sphere (opens formula dialog) ────────────────────────
   const chainSphereGeom=new THREE.SphereGeometry(.52,12,8)
@@ -6860,13 +7025,7 @@ function rebuildThreeWorld(state,cellMap,obstacles) {
   });portalMesh.instanceMatrix.needsUpdate=true
   if(portalMesh.instanceColor) portalMesh.instanceColor.needsUpdate=true
 
-  world.add(
-    freeGroup.ped,       freeGroup.mesh,       freeGroup.glow,
-    nftjiGroup.ped,      nftjiGroup.mesh,       nftjiGroup.glow,
-    ownedFreeGroup.ped,  ownedFreeGroup.mesh,   ownedFreeGroup.glow,
-    ownedNftjiGroup.ped, ownedNftjiGroup.mesh,  ownedNftjiGroup.glow,
-    chainMesh, portalMesh,
-  )
+  world.add(chainMesh, portalMesh)
   const beaconEntries=[]
   for(const [key,cell] of allBlockEntries){
     if(!cell.isMarket&&!cell.isPortalNode&&!cell.isChainNode&&!cell.isNodeDiceNode&&!cell.isRlNode) continue
@@ -8183,6 +8342,7 @@ function buildPeripheralObstacles(mapId) {
 
 function rebuildPeripheralMapWorld(state, mapId, obstacles) {
   if (!state || !mapId || isMiningCoreMap(mapId)) return
+  disposeMinableBlockChunkSystem(state)
   if (state.world) { state.scene.remove(state.world); disposeThreeObject(state.world) }
   const world = new THREE.Group()
   const matrix = new THREE.Matrix4()
@@ -9564,6 +9724,14 @@ export default function MiningChain3DFPV({
       )
     ) {
       rebuildThreeRef.current?.()
+    } else if (threeStateRef.current?.minableBlockChunks && prevVisualTier !== visualTier) {
+      const p = playerRef.current
+      syncMinableBlockChunks(
+        threeStateRef.current,
+        p.x / CELL_SIZE,
+        p.y / CELL_SIZE,
+        visualTier,
+      )
     }
     visualPerfTierRef.current = visualTier
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
@@ -11459,6 +11627,23 @@ export default function MiningChain3DFPV({
         }
       }
       prevJumpsRef.current = p.jumps
+
+      // Stream minable block visuals by proximity (all devices / maps with cellMap blocks).
+      {
+        const ts = threeStateRef.current
+        if (ts?.minableBlockChunks && isMiningCoreMap(mapIdRef.current)) {
+          const pgx = p.x / CELL_SIZE
+          const pgy = p.y / CELL_SIZE
+          ts.lastPlayerGridX = pgx
+          ts.lastPlayerGridY = pgy
+          const { cr, cc } = blockChunkCoord(Math.floor(pgy), Math.floor(pgx))
+          const centerKey = `${cr},${cc}`
+          const tier = visualPerfTierRef.current
+          if (centerKey !== ts.minableBlockChunks.centerKey || tier !== ts.minableBlockChunks.tier) {
+            syncMinableBlockChunks(ts, pgx, pgy, tier)
+          }
+        }
+      }
 
       // ── Stuck-in-solid recovery ──────────────────────────────────────────────
       // If the player somehow ended up inside a solid cell (e.g. world update),
