@@ -5157,14 +5157,14 @@ function addNightOrbitals(scene) {
 
 function syncThreeSceneForVisualTier(state, tier = 'high') {
   if (!state?.scene) return
-  const low = tier === 'low'
-  const lightScale = low ? 0 : tier === 'medium' ? 0.72 : 1
+  const high = tier === 'high'
+  const lightScale = high ? 1 : 0
   if (state.iceLight) state.iceLight.intensity = 18 * lightScale
   if (state.coastLight) state.coastLight.intensity = 12 * lightScale
   if (state.infernoLight) state.infernoLight.intensity = 24 * lightScale
-  if (state.scene.fog) state.scene.fog.density = low ? 0.014 : tier === 'medium' ? 0.016 : 0.018
-  if (state.grid) state.grid.visible = tier === 'high'
-  if (tier !== 'low') addNightOrbitals(state.scene)
+  if (state.scene.fog) state.scene.fog.density = tier === 'low' ? 0.014 : tier === 'medium' ? 0.016 : 0.018
+  if (state.grid) state.grid.visible = high
+  if (high) addNightOrbitals(state.scene)
   state.visualTierSynced = tier
 }
 
@@ -5655,7 +5655,7 @@ function addCipherHouseDetails(world, lowDetail = false) {
   })
   // Solid wall header so each door reads as an opening cut into a real wall,
   // rather than a full-height gap. Matches the house wall look.
-  const doorHeaderMat=isLowRenderTier()
+  const doorHeaderMat=lowDetail
     ? new THREE.MeshLambertMaterial({color:'#07172e',emissive:'#061521',emissiveIntensity:.48})
     : new THREE.MeshStandardMaterial({color:'#07172e',roughness:.44,metalness:.58,emissive:'#061521',emissiveIntensity:.6})
   const addDoubleDoorFrame=(door)=>{
@@ -5717,9 +5717,11 @@ function addCipherHouseDetails(world, lowDetail = false) {
     const bulb=new THREE.Mesh(new THREE.SphereGeometry(.08,10,8),lampMat)
     bulb.position.set(x,y+.78,z)
     group.add(bulb)
-    const light=new THREE.PointLight('#67e8f9',1.4,4.2,1.6)
-    light.position.set(x,y+.82,z)
-    group.add(light)
+    if (!lowDetail) {
+      const light=new THREE.PointLight('#67e8f9',1.4,4.2,1.6)
+      light.position.set(x,y+.82,z)
+      group.add(light)
+    }
   }
   ;[
     [4.7,0,0.55],[7.3,0,0.55],      // north entrance — flank the stair base
@@ -5870,13 +5872,18 @@ function addCipherHouseDetails(world, lowDetail = false) {
   northEntryInner.position.set(entryCenterX,poolWallCenterY,innerNorthZ)
   poolGroup.add(northEntryInner)
   const poolWater=new THREE.Mesh(
-    new THREE.PlaneGeometry(poolOuterW-.08,poolOuterD-.08,18,12),
-    new THREE.MeshPhysicalMaterial({
-      color:'#f87171',emissive:'#dc2626',emissiveIntensity:.78,
-      transparent:true,opacity:.50,roughness:.04,metalness:.02,
-      clearcoat:.92,clearcoatRoughness:.02,side:THREE.DoubleSide,
-      depthWrite:true,
-    }),
+    new THREE.PlaneGeometry(poolOuterW-.08,poolOuterD-.08,lowDetail?8:18,lowDetail?6:12),
+    lowDetail
+      ? new THREE.MeshStandardMaterial({
+        color:'#f87171',emissive:'#dc2626',emissiveIntensity:.78,
+        transparent:true,opacity:.50,roughness:.12,metalness:.02,side:THREE.DoubleSide,depthWrite:true,
+      })
+      : new THREE.MeshPhysicalMaterial({
+        color:'#f87171',emissive:'#dc2626',emissiveIntensity:.78,
+        transparent:true,opacity:.50,roughness:.04,metalness:.02,
+        clearcoat:.92,clearcoatRoughness:.02,side:THREE.DoubleSide,
+        depthWrite:true,
+      }),
   )
   poolWater.rotation.x=-Math.PI/2
   poolWater.position.y=HOUSE_POOL_WATER_LEVEL-HOUSE_POOL_DECK_LEVEL
@@ -5929,7 +5936,7 @@ function addCipherHouseDetails(world, lowDetail = false) {
     poolGroup.add(rail)
   }
   // Pool underwater glow — more intense to make healing zone visible
-  const poolGlow=new THREE.PointLight('#f87171',isLowRenderTier()?0:3.6,5.8,1.7)
+  const poolGlow=new THREE.PointLight('#f87171',lowDetail?0:3.6,5.8,1.7)
   poolGlow.position.set(0,-.1,0)
   poolGroup.add(poolGlow)
   addPoolPerimeterHeartSigns(poolGroup,poolOuterW,poolOuterD)
@@ -5964,9 +5971,11 @@ function addCipherHouseDetails(world, lowDetail = false) {
   diceSprite.scale.set(1.62,1.62,1)
   diceSprite.position.y=9.08
   diceTower.add(diceSprite)
-  const diceLight=new THREE.PointLight('#facc15',5.8,9,1.7)
-  diceLight.position.y=8.08
-  diceTower.add(diceLight)
+  if (!lowDetail) {
+    const diceLight=new THREE.PointLight('#facc15',5.8,9,1.7)
+    diceLight.position.y=8.08
+    diceTower.add(diceLight)
+  }
   diceTower.userData.interactive=true
   diceTower.userData.stormRollDiceTower=true
   diceTower.userData.phase=0
@@ -6070,7 +6079,7 @@ function addCipherHouseDetails(world, lowDetail = false) {
   }
 
   // Main ambient interior light
-  const houseLight=new THREE.PointLight('#22d3ee',isLowRenderTier()?0:3.6,15,1.8)
+  const houseLight=new THREE.PointLight('#22d3ee',lowDetail?0:3.6,15,1.8)
   houseLight.position.set(8.2,2.35,8.2)
   group.add(houseLight)
   // Interior illumination — invisible PointLights only. The old floating
@@ -6082,7 +6091,7 @@ function addCipherHouseDetails(world, lowDetail = false) {
     [8.2,5.94,8.2,2.8,'#22d3ee'],
     [8.2,1.46,8.2,1.4,'#7dd3fc'],
   ]){
-    if(!isLowRenderTier()){
+    if(!lowDetail){
       const light=new THREE.PointLight(col,intensity,6.5,1.6)
       light.position.set(x,y,z)
       group.add(light)
@@ -6092,7 +6101,7 @@ function addCipherHouseDetails(world, lowDetail = false) {
   {
     const tramY = 0.01
     const tr = HOUSE_TRAMPOLINE_RADIUS
-    const frameMat = isLowRenderTier()
+    const frameMat = lowDetail
       ? new THREE.MeshLambertMaterial({color:'#374151'})
       : new THREE.MeshStandardMaterial({color:'#374151',metalness:.88,roughness:.18})
     const padMat = new THREE.MeshLambertMaterial({color:'#22d3ee',emissive:'#0891b2',emissiveIntensity:.55})
@@ -6112,7 +6121,7 @@ function addCipherHouseDetails(world, lowDetail = false) {
       leg.position.set(HOUSE_TRAMPOLINE_COL + lx, tramY - .145, HOUSE_TRAMPOLINE_ROW + lz)
       group.add(leg)
     }
-    if (!isLowRenderTier()) {
+    if (!lowDetail) {
       const springGeo = new THREE.CylinderGeometry(.026, .026, .07, 5)
       for (let i = 0; i < 10; i += 1) {
         const angle = (i / 10) * Math.PI * 2
@@ -6123,7 +6132,7 @@ function addCipherHouseDetails(world, lowDetail = false) {
         group.add(spr)
       }
     }
-    const tramGlow = new THREE.PointLight('#22d3ee', isLowRenderTier() ? 0 : 2.2, 4.8, 2)
+    const tramGlow = new THREE.PointLight('#22d3ee', lowDetail ? 0 : 2.2, 4.8, 2)
     tramGlow.position.set(HOUSE_TRAMPOLINE_COL, tramY + .5, HOUSE_TRAMPOLINE_ROW)
     group.add(tramGlow)
   }
@@ -6738,8 +6747,7 @@ const MINABLE_BLOCK_CHUNK_SIZE = 8
 
 function getMinableBlockChunkRadius(visualTier) {
   if (visualTier === 'high') return 3
-  if (visualTier === 'low') return 1
-  return 2
+  return 1
 }
 
 function blockChunkCoord(row, col) {
@@ -6758,19 +6766,20 @@ function getMinableBlockSharedBoxGeometry() {
   return minableBlockSharedBoxGeometry
 }
 
-function createMinableBlockChunkMaterials() {
+function createMinableBlockChunkMaterials({ withGlow = true } = {}) {
   const box = getMinableBlockSharedBoxGeometry()
   return {
     box,
+    withGlow,
     free: new THREE.MeshStandardMaterial({ roughness: .52, metalness: .22, vertexColors: true, emissive: '#0a1a40', emissiveIntensity: .35 }),
     nftji: new THREE.MeshStandardMaterial({ color: '#ff9900', roughness: .48, metalness: .32, emissive: '#c05000', emissiveIntensity: .60 }),
     ownedFree: new THREE.MeshStandardMaterial({ roughness: .46, metalness: .38, vertexColors: true, emissive: '#08182a', emissiveIntensity: .22 }),
     ownedNftji: new THREE.MeshStandardMaterial({ roughness: .46, metalness: .34, vertexColors: true, emissive: '#062a10', emissiveIntensity: .38 }),
     ped: new THREE.MeshStandardMaterial({ roughness: .88, metalness: .16, vertexColors: true }),
-    glowFree: new THREE.MeshBasicMaterial({ color: '#4488ff', wireframe: true, transparent: true, opacity: .22, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 }),
-    glowNftji: new THREE.MeshBasicMaterial({ color: '#ffb347', wireframe: true, transparent: true, opacity: .40, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 }),
-    glowOwnedFree: new THREE.MeshBasicMaterial({ color: '#67e8f9', wireframe: true, transparent: true, opacity: .20, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 }),
-    glowOwnedNftji: new THREE.MeshBasicMaterial({ color: '#4ade80', wireframe: true, transparent: true, opacity: .28, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 }),
+    glowFree: withGlow ? new THREE.MeshBasicMaterial({ color: '#4488ff', wireframe: true, transparent: true, opacity: .22, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 }) : null,
+    glowNftji: withGlow ? new THREE.MeshBasicMaterial({ color: '#ffb347', wireframe: true, transparent: true, opacity: .40, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 }) : null,
+    glowOwnedFree: withGlow ? new THREE.MeshBasicMaterial({ color: '#67e8f9', wireframe: true, transparent: true, opacity: .20, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 }) : null,
+    glowOwnedNftji: withGlow ? new THREE.MeshBasicMaterial({ color: '#4ade80', wireframe: true, transparent: true, opacity: .28, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 }) : null,
   }
 }
 
@@ -6835,10 +6844,13 @@ function appendMinableBlockInstances(group, entries, materials, kind, matrix, po
     ownedNftji: { mat: materials.ownedNftji, glow: materials.glowOwnedNftji, pedTint: null, cubeSide: .44, glowPad: .018 },
   }[kind]
   const mesh = new THREE.InstancedMesh(materials.box, spec.mat, entries.length)
-  const glow = new THREE.InstancedMesh(materials.box, spec.glow, entries.length)
-  glow.renderOrder = 1
-  glow.userData.blockGlow = true
   const ped = new THREE.InstancedMesh(materials.box, materials.ped, entries.length)
+  let glow = null
+  if (materials.withGlow && spec.glow) {
+    glow = new THREE.InstancedMesh(materials.box, spec.glow, entries.length)
+    glow.renderOrder = 1
+    glow.userData.blockGlow = true
+  }
   entries.forEach(([key, cell], index) => {
     const [row, col] = key.split(',').map(Number)
     const base = blockBottom(cell)
@@ -6848,9 +6860,11 @@ function appendMinableBlockInstances(group, entries, materials, kind, matrix, po
     scale.set(spec.cubeSide, spec.cubeSide, spec.cubeSide)
     matrix.compose(position, quaternion, scale)
     mesh.setMatrixAt(index, matrix)
-    scale.set(spec.cubeSide + spec.glowPad, spec.cubeSide + spec.glowPad, spec.cubeSide + spec.glowPad)
-    matrix.compose(position, quaternion, scale)
-    glow.setMatrixAt(index, matrix)
+    if (glow) {
+      scale.set(spec.cubeSide + spec.glowPad, spec.cubeSide + spec.glowPad, spec.cubeSide + spec.glowPad)
+      matrix.compose(position, quaternion, scale)
+      glow.setMatrixAt(index, matrix)
+    }
     const pw = spec.cubeSide * 0.75
     const ph = Math.max(.04, cubeBottom - base)
     position.set(col + .5, base + ph * .5, row + .5)
@@ -6874,11 +6888,12 @@ function appendMinableBlockInstances(group, entries, materials, kind, matrix, po
     }
   })
   mesh.instanceMatrix.needsUpdate = true
-  glow.instanceMatrix.needsUpdate = true
+  if (glow) glow.instanceMatrix.needsUpdate = true
   ped.instanceMatrix.needsUpdate = true
   if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true
   if (ped.instanceColor) ped.instanceColor.needsUpdate = true
-  group.add(ped, mesh, glow)
+  group.add(ped, mesh)
+  if (glow) group.add(glow)
 }
 
 function buildMinableBlockChunkVisual(bucket, materials) {
@@ -6958,7 +6973,7 @@ function initMinableBlockChunkSystem(state, cellMap, visualTier, gridX, gridY) {
     catalog,
     visuals: new Map(),
     active: new Set(),
-    materials: createMinableBlockChunkMaterials(),
+    materials: createMinableBlockChunkMaterials({ withGlow: visualTier === 'high' }),
     centerKey: null,
     tier: null,
     radius: null,
@@ -6977,11 +6992,12 @@ function rebuildThreeWorld(state,cellMap,obstacles) {
     ?getMiningVisualTier(window.innerWidth,window.innerHeight)
     :'high'
   const lowDetail=visualTier==='low'
+  const liteScenery=visualTier!=='high'
   addBiomeGround(world,state.textures)
-  addCryptoColosseum(world,visualTier)
-  addCipherHouseDetails(world, lowDetail)
-  addBiomeLandmarks(world,state.textures,lowDetail)
-  addPeripheralGroundFeatures(world, '1', lowDetail)
+  addCryptoColosseum(world,liteScenery?'low':visualTier)
+  addCipherHouseDetails(world,liteScenery)
+  addBiomeLandmarks(world,state.textures,liteScenery)
+  addPeripheralGroundFeatures(world, '1', liteScenery)
   // ── Block + node groups ───────────────────────────────────────────────────────
   // Each interactive type gets its own material & shape so players can tell them apart.
   // No texture maps here — texture × vertex-color was multiplying everything to black.
@@ -7002,7 +7018,8 @@ function rebuildThreeWorld(state,cellMap,obstacles) {
   if(blockChunkHolder) world.add(blockChunkHolder)
 
   // ── Chain nodes — gold sphere (opens formula dialog) ────────────────────────
-  const chainSphereGeom=new THREE.SphereGeometry(.52,12,8)
+  const nodeSphereSegs=liteScenery?8:12
+  const chainSphereGeom=new THREE.SphereGeometry(.52,nodeSphereSegs,Math.max(6,nodeSphereSegs-4))
   const chainMesh=new THREE.InstancedMesh(chainSphereGeom,
     new THREE.MeshStandardMaterial({color:'#facc15',roughness:.38,metalness:.58,emissive:'#a07000',emissiveIntensity:.70}),
     chainEntries.length||1)
@@ -7013,7 +7030,7 @@ function rebuildThreeWorld(state,cellMap,obstacles) {
   });chainMesh.instanceMatrix.needsUpdate=true
 
   // ── Portal nodes — colored sphere (redirects to portal section) ─────────────
-  const portalSphereGeom=new THREE.SphereGeometry(.50,12,8)
+  const portalSphereGeom=new THREE.SphereGeometry(.50,nodeSphereSegs,Math.max(6,nodeSphereSegs-4))
   const portalMesh=new THREE.InstancedMesh(portalSphereGeom,
     new THREE.MeshStandardMaterial({roughness:.32,metalness:.50,vertexColors:true,emissive:'#1a3a2a',emissiveIntensity:.42}),
     portalEntries.length||1)
@@ -7032,12 +7049,12 @@ function rebuildThreeWorld(state,cellMap,obstacles) {
     if(cell.isNodeDiceNode) continue
     const [row,col]=key.split(',').map(Number)
     const height=blockTop(cell,row,col)
-    if(!lowDetail){
+    if(!liteScenery){
       beaconEntries.push({row,col,cell,height,phase:seededUnit(row*71+col*113)*Math.PI*2})
     }
     addInteractiveBeaconEmoji(world,row,col,cell,height)
   }
-  state.beaconBatch=lowDetail?null:addInteractiveBeaconBatch(world,beaconEntries)
+  state.beaconBatch=visualTier==='high'?addInteractiveBeaconBatch(world,beaconEntries):null
   if(state.beaconBatch) updateInteractiveBeaconBatch(state.beaconBatch,performance.now()*.001)
 
   const houseEntries=[]
@@ -7063,7 +7080,7 @@ function rebuildThreeWorld(state,cellMap,obstacles) {
       roof:houseEntries.filter(([,obstacle])=>obstacle.isHouseRoof),
       stair:houseEntries.filter(([,obstacle])=>obstacle.isHouseStair),
     }
-    const lowD = isLowRenderTier()
+    const lowD = liteScenery
     const roofMat={color:'#040e1d',roughness:.52,metalness:.46,emissive:'#040e1d',emissiveIntensity:.52}
     const houseMaterials={
       wall: lowD
@@ -9314,9 +9331,9 @@ export default function MiningChain3DFPV({
     if(!canvas) return
     let renderer
     const launchTier=getMiningVisualTier(window.innerWidth,window.innerHeight)
-    const launchLow=launchTier==='low'
+    const launchLite=launchTier!=='high'
     try{
-      renderer=new THREE.WebGLRenderer({canvas,antialias:!launchLow,powerPreference:'high-performance',stencil:false})
+      renderer=new THREE.WebGLRenderer({canvas,antialias:!launchLite,powerPreference:'high-performance',stencil:false})
     }catch{return}
     renderer.outputColorSpace=THREE.SRGBColorSpace
     renderer.toneMapping=THREE.ACESFilmicToneMapping
@@ -9340,15 +9357,15 @@ export default function MiningChain3DFPV({
     const iceLight=new THREE.PointLight('#83e6ff',18,24,1.5);iceLight.position.set(14,6,42);scene.add(iceLight)
     const coastLight=new THREE.PointLight('#62eaff',12,22,1.7);coastLight.position.set(42,5,14);scene.add(coastLight)
     const infernoLight=new THREE.PointLight('#ff4b12',24,25,1.45);infernoLight.position.set(42,5,42);scene.add(infernoLight)
-    if(launchLow){
+    if(launchLite){
       iceLight.intensity=0;coastLight.intensity=0;infernoLight.intensity=0
       scene.fog.density=.014
     }
     const grid=new THREE.GridHelper(Math.max(COLS,ROWS),Math.max(COLS,ROWS),'#176080','#12334f')
     grid.position.set(COLS/2,.004,ROWS/2);grid.material.transparent=true;grid.material.opacity=.10;grid.material.depthWrite=false;scene.add(grid)
-    if(launchLow) grid.visible=false
-    addNightDome(scene,launchLow)
-    const texSize = launchLow ? 64 : 128
+    if(launchLite) grid.visible=false
+    addNightDome(scene,launchLite)
+    const texSize = launchLite ? 64 : 128
     const textures={
       mountain:createProceduralTexture('mountain', texSize),coast:createProceduralTexture('coast', texSize),
       ice:createProceduralTexture('ice', texSize),inferno:createProceduralTexture('inferno', texSize),crypto:createProceduralTexture('crypto', texSize),
@@ -9991,10 +10008,10 @@ export default function MiningChain3DFPV({
           }
         }
         threeState.fxFrame=(threeState.fxFrame||0)+1
-        if(visualTier!=='low'&&threeState.beaconBatch){
+        if(visualTier==='high'&&threeState.beaconBatch){
           if(threeState.fxFrame%2===0) updateInteractiveBeaconBatch(threeState.beaconBatch,time)
         }
-        if(visualTier!=='low'){
+        if(visualTier==='high'){
           for(const orbital of threeState.scene.userData.orbitals||[]){
             if(orbital.userData.orbital==='ship'){
               const orbit=time*.055
@@ -10012,7 +10029,7 @@ export default function MiningChain3DFPV({
         updateRlBoostFx(threeState.localAvatar, threeState, performance.now())
         updateHealingRechargeEffects(threeState,time,visualTier)
         updatePoolSubmersionEffects(threeState,time,visualTier)
-        if(visualTier!=='low') updateAvatarOccluders(threeState)
+        if(visualTier==='high') updateAvatarOccluders(threeState)
         threeState.renderer.render(threeState.scene,threeState.camera)
         // No separate HUD avatar pass: local player is now a scene object
       }catch(err){
@@ -12164,8 +12181,8 @@ export default function MiningChain3DFPV({
       )
       const perfTier=visualPerfTierRef.current
       const ambientInterval=perfTier==='low'?150:50
-      // low: cap at 30fps (33ms), medium: cap at 45fps (22ms), high: uncapped
-      const renderInterval=perfTier==='low'?33:(perfTier==='medium'?22:0)
+      // low/medium: cap at 30fps (33ms), high: uncapped
+      const renderInterval=perfTier==='high'?0:33
       const ambientDue=hasRemotes&&nowMs-lastAmbientRenderRef.current>ambientInterval
       const renderDue=renderInterval===0||nowMs-lastRenderDispatchRef.current>=renderInterval
       if(needsRender||ambientDue){

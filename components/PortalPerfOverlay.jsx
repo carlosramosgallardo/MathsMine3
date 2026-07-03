@@ -29,7 +29,9 @@ export default function PortalPerfOverlay() {
 
   if (!ENABLED) return null
 
-  const fpsColor  = perfTone(metrics.fps, { good: 52, warn: 32 })
+  const mobileTarget = typeof window !== 'undefined'
+    && (window.innerWidth < 980 || (window.innerHeight > window.innerWidth && window.innerWidth < 820))
+  const fpsColor  = perfTone(metrics.fps, mobileTarget ? { good: 28, warn: 22 } : { good: 52, warn: 32 })
   const cpuColor  = cpuTone(metrics.cpuLoad)
   const memColor  = memoryTone(metrics.usedMb, metrics.limitMb)
   const memStr    = Number.isFinite(metrics.usedMb) ? `${Math.round(metrics.usedMb)}M` : null
