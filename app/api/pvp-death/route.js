@@ -19,7 +19,7 @@ export async function GET(req) {
 
   const { data } = await serviceClient()
     .from('mm3_pvp_health')
-    .select('pvp_dead_until, pvp_dead_gx, pvp_dead_gy, last_pos_row, last_pos_col, last_pos_z')
+    .select('pvp_dead_until, pvp_dead_gx, pvp_dead_gy, last_pos_row, last_pos_col, last_pos_z, last_pos_map_id')
     .eq('wallet', wallet)
     .maybeSingle()
 
@@ -28,7 +28,7 @@ export async function GET(req) {
   const posZ = data?.last_pos_z ?? null
 
   if (!data?.pvp_dead_until) {
-    return Response.json({ ok: true, dead: false, posRow, posCol, posZ })
+    return Response.json({ ok: true, dead: false, posRow, posCol, posZ, mapId: data?.last_pos_map_id ?? null })
   }
 
   const deadUntil = new Date(data.pvp_dead_until)
@@ -37,7 +37,7 @@ export async function GET(req) {
       .update({ pvp_dead_until: null, pvp_dead_gx: null, pvp_dead_gy: null })
       .eq('wallet', wallet)
       .then(() => {}).catch(() => {})
-    return Response.json({ ok: true, dead: false, posRow, posCol, posZ })
+    return Response.json({ ok: true, dead: false, posRow, posCol, posZ, mapId: data?.last_pos_map_id ?? null })
   }
 
   return Response.json({
@@ -49,6 +49,7 @@ export async function GET(req) {
     posRow,
     posCol,
     posZ,
+    mapId: data?.last_pos_map_id ?? null,
   })
 }
 
@@ -71,11 +72,21 @@ export async function PATCH(req) {
   if (!Number.isFinite(z)) {
     return Response.json({ ok: false, error: 'bad_z' }, { status: 400 })
   }
+  const mapId = body.mapId != null ? String(body.mapId) : undefined
+
+  const rowPayload = {
+    wallet,
+    last_pos_row: row,
+    last_pos_col: col,
+    last_pos_z: z,
+    pos_updated_at: new Date().toISOString(),
+  }
+  if (mapId) rowPayload.last_pos_map_id = mapId
 
   const { error } = await serviceClient()
     .from('mm3_pvp_health')
     .upsert(
-      { wallet, last_pos_row: row, last_pos_col: col, last_pos_z: z, pos_updated_at: new Date().toISOString() },
+      rowPayload,
       { onConflict: 'wallet', ignoreDuplicates: false },
     )
 

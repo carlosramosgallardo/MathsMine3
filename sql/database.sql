@@ -144,6 +144,7 @@ CREATE TABLE player_progress (
   relay_exec_count        INTEGER    NOT NULL DEFAULT 0,
   relay_nftji_acquired_at TIMESTAMPTZ,
   relay_nftji_partner     TEXT,
+  rl_mount_active         BOOLEAN NOT NULL DEFAULT FALSE,
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
@@ -315,7 +316,7 @@ CREATE TABLE mm3_sell_transactions (
 CREATE TABLE mm3_mining_events (
   id BIGSERIAL PRIMARY KEY,
   wallet TEXT NOT NULL,
-  event_type TEXT NOT NULL CHECK (event_type IN ('life_continue', 'nftji_claim', 'mining_buy', 'mining_resell', 'nftji_level_up', 'node_stormroll')),
+  event_type TEXT NOT NULL CHECK (event_type IN ('life_continue', 'nftji_claim', 'mining_buy', 'mining_resell', 'nftji_level_up', 'node_stormroll', 'rl_mount_buy')),
   delta_mm3 NUMERIC NOT NULL DEFAULT 0,
   emoji TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -1639,7 +1640,7 @@ DROP POLICY IF EXISTS "public_read_mm3_mining_events" ON mm3_mining_events;
 CREATE POLICY "public_read_mm3_mining_events" ON mm3_mining_events FOR SELECT TO public USING (true);
 
 DROP POLICY IF EXISTS "public_insert_mm3_mining_events" ON mm3_mining_events;
-CREATE POLICY "public_insert_mm3_mining_events" ON mm3_mining_events FOR INSERT TO public WITH CHECK (event_type IN ('life_continue', 'nftji_claim', 'mining_buy', 'mining_resell', 'nftji_level_up', 'node_stormroll'));
+CREATE POLICY "public_insert_mm3_mining_events" ON mm3_mining_events FOR INSERT TO public WITH CHECK (event_type IN ('life_continue', 'nftji_claim', 'mining_buy', 'mining_resell', 'nftji_level_up', 'node_stormroll', 'rl_mount_buy'));
 
 -- API Requests policies
 DROP POLICY IF EXISTS "public_read_api_requests" ON api_requests;

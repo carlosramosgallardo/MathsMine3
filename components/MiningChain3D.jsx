@@ -23,6 +23,7 @@ import {
   relocateMiningBlockPosition,
 } from '@/lib/mining-visual-layout'
 import { MINING_CORE_MAP_ID } from '@/lib/mining-maps'
+import { RL_NODE_MIN_LEVEL, RL_NODE_PRICE_MM3 } from '@/lib/mining-rl-mount'
 import supabase from '@/lib/supabaseClient'
 
 const MiningChain3DFPV = dynamic(() => import('./MiningChain3DFPV'), { ssr: false })
@@ -254,8 +255,13 @@ export default function MiningChain3D() {
   const [nodeDicePanelOpen, setNodeDicePanelOpen] = useState(false)
   const [nodeDiceWalletStats, setNodeDiceWalletStats] = useState({ mm3: 0, level: 0 })
   const [nodeDiceError, setNodeDiceError] = useState('')
+  const [rlMountActive, setRlMountActive] = useState(false)
+  const [rlMountPanelOpen, setRlMountPanelOpen] = useState(false)
+  const [rlMountWalletStats, setRlMountWalletStats] = useState({ mm3: 0, level: 0 })
+  const [rlMountError, setRlMountError] = useState('')
   const demineRewardIdsRef = useRef(new Set())
   const nodeDiceRef = useRef(null)
+  const rlMountActiveRef = useRef(false)
 
   const applyDemineReward = useCallback(({ wallet, mm3Awarded, eventId }) => {
     const normalizedWallet = String(wallet || '').trim().toLowerCase()
@@ -436,6 +442,112 @@ export default function MiningChain3D() {
     loadNodeDiceWalletStats().catch(() => {})
   }, [loadNodeDiceWalletStats])
 
+  const loadRlMountWalletStats = useCallback(async () => {
+    const wallet = myWalletRef.current
+    if (!wallet) {
+      setRlMountWalletStats({ mm3: 0, level: 0 })
+      return { mm3: 0, level: 0 }
+    }
+    const [{ data: progress }, { data: balance }] = await Promise.all([
+      supabase.from('player_progress').select('level,mm3_sold,rl_mount_active').eq('wallet', wallet).maybeSingle(),
+      supabase.from('leaderboard_data').select('total_eth').eq('wallet', wallet).maybeSingle(),
+    ])
+    const stats = {
+      level: Number(progress?.level) || 0,
+      mm3: (Number(balance?.total_eth) || 0) - (Number(progress?.mm3_sold) || 0),
+      active: Boolean(progress?.rl_mount_active),
+    }
+    setRlMountWalletStats(stats)
+    return stats
+  }, [])
+
+  const handleRlMountPanelOpen = useCallback(() => {
+    setRlMountError('')
+    setRlMountPanelOpen(true)
+    loadRlMountWalletStats().catch(() => {})
+  }, [loadRlMountWalletStats])
+
+  const clearRlMountOnDeath = useCallback(() => {
+    if (!rlMountActiveRef.current) return
+    rlMountActiveRef.current = false
+    setRlMountActive(false)
+    const wallet = myWalletRef.current
+    if (wallet) {
+      fetch('/api/rl-mount', {
+        method: 'DELETE',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ wallet }),
+      }).catch(() => {})
+    }
+    const pos = myPosRef.current || {}
+    channelRef.current?.track({
+      wallet: myKeyRef.current,
+      gx: (pos.col ?? 0) + 0.5,
+      gy: (pos.row ?? 0) + 0.5,
+      row: pos.row ?? 0,
+      col: pos.col ?? 0,
+      z: Number(pos.z) || 0,
+      mapId: mapIdRef.current,
+      rlMount: false,
+    }).catch?.(() => {})
+  }, [])
+
+  const handlePurchaseRlMount = useCallback(async () => {
+    const wallet = myWalletRef.current
+    if (!wallet) {
+      setRlMountError(es ? 'Conecta wallet para comprar.' : 'Connect wallet to purchase.')
+      return
+    }
+    if (rlMountActiveRef.current) {
+      setRlMountError(es ? 'Ya tienes un coche activo.' : 'You already have an active car.')
+      return
+    }
+    const stats = await loadRlMountWalletStats()
+    if (stats.level < RL_NODE_MIN_LEVEL) {
+      setRlMountError(es ? `Nivel mínimo ${RL_NODE_MIN_LEVEL}.` : `Minimum level ${RL_NODE_MIN_LEVEL}.`)
+      return
+    }
+    if (stats.mm3 < RL_NODE_PRICE_MM3) {
+      setRlMountError(es ? 'MM3 insuficiente.' : 'Not enough MM3.')
+      return
+    }
+    const response = await fetch('/api/rl-mount', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ wallet }),
+    }).then(r => r.json()).catch(() => null)
+    if (!response?.ok) {
+      setRlMountError(
+        response?.error === 'min_level'
+          ? (es ? `Nivel mínimo ${RL_NODE_MIN_LEVEL}.` : `Minimum level ${RL_NODE_MIN_LEVEL}.`)
+          : response?.error === 'not_enough_mm3'
+            ? (es ? 'MM3 insuficiente.' : 'Not enough MM3.')
+            : response?.error === 'already_owned'
+              ? (es ? 'Ya tienes un coche activo.' : 'You already have an active car.')
+              : (es ? 'No se pudo comprar el coche.' : 'Could not purchase the car.')
+      )
+      return
+    }
+    rlMountActiveRef.current = true
+    setRlMountActive(true)
+    setRlMountPanelOpen(false)
+    setRlMountError('')
+    window.dispatchEvent(new CustomEvent('mm3-db-updated', { detail: { wallet } }))
+    const pos = myPosRef.current || {}
+    channelRef.current?.track({
+      wallet: myKeyRef.current,
+      gx: (pos.col ?? 0) + 0.5,
+      gy: (pos.row ?? 0) + 0.5,
+      row: pos.row ?? 0,
+      col: pos.col ?? 0,
+      z: Number(pos.z) || 0,
+      mapId: mapIdRef.current,
+      poolCode: myPoolCode || null,
+      nodeDice: normalizeNodeDiceState(nodeDiceRef.current),
+      rlMount: true,
+    }).catch?.(() => {})
+  }, [es, loadRlMountWalletStats, myPoolCode])
+
   const handleActivateNodeDice = useCallback(async () => {
     const wallet = myWalletRef.current
     if (!wallet) {
@@ -585,6 +697,7 @@ export default function MiningChain3D() {
     if (myWalletRef.current) {
       fetch('/api/pvp-death', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ wallet: myWalletRef.current, gx: deadGX, gy: deadGY }) }).catch(() => {})
     }
+    clearRlMountOnDeath()
     channelRef.current?.send({ type: 'broadcast', event: 'player-death', payload: { victim: myKeyRef.current, gx: deadGX, gy: deadGY, deadUntil: deadUntilIso, mapId: deathMapId } })?.catch(() => {})
     channelRef.current?.track({ wallet: myKeyRef.current, isDead: true, deadUntil: deadUntilIso, gx: deadGX, gy: deadGY, row: myP?.row ?? 14, col: myP?.col ?? 14, mapId: deathMapId })?.catch?.(() => {})
     scheduleRespawn(5 * 60 * 1000)
@@ -678,11 +791,13 @@ export default function MiningChain3D() {
             localStorage.setItem('mm3_pvp_dead', JSON.stringify({ until, gx: r.gx, gy: r.gy, mapId: deathMapId }))
             scheduleRespawn(until - Date.now())
           } else if (r.posRow != null && r.posCol != null) {
-            // DB alive position overrides localStorage (anti-cheat)
-            const dbPos = { row: Number(r.posRow), col: Number(r.posCol), z: Number(r.posZ) || 0 }
+            const dbMapId = r.mapId || MINING_CORE_MAP_ID
+            const dbPos = { row: Number(r.posRow), col: Number(r.posCol), z: Number(r.posZ) || 0, mapId: dbMapId }
+            setMapId(dbMapId)
+            mapIdRef.current = dbMapId
             setMyPos(dbPos)
             myPosRef.current = dbPos
-            setJumpToCell(dbPos)
+            setJumpToCell({ ...dbPos, mapId: dbMapId })
             const posKey = `mm3_mining_pos_${myWallet}`
             try { localStorage.setItem(posKey, JSON.stringify(dbPos)) } catch { /* */ }
           }
@@ -920,7 +1035,7 @@ export default function MiningChain3D() {
       ;(async () => {
       const [{ data: pp }, { data: sq }] = await Promise.all([
         supabase.from('player_progress')
-          .select('level,mining_nftji_key,mining_nftji_levels,wallet_emojis,lucky_50_level,lucky_100_level,lucky_500_level,lucky_1000_level,relay_exec_count')
+          .select('level,mining_nftji_key,mining_nftji_levels,wallet_emojis,lucky_50_level,lucky_100_level,lucky_500_level,lucky_1000_level,relay_exec_count,rl_mount_active')
           .eq('wallet', myWallet).maybeSingle(),
         supabase.from('mm3_squeezing_nftji')
           .select('equipped,attack_level,defense_level')
@@ -931,6 +1046,8 @@ export default function MiningChain3D() {
         return
       }
       setPlayerLevel(Number(pp.level) || 0)
+      rlMountActiveRef.current = Boolean(pp.rl_mount_active)
+      setRlMountActive(Boolean(pp.rl_mount_active))
 
       // Mining NFTJIs (from mm3_mining_blocks claimed blocks)
       const levels = pp.mining_nftji_levels || {}
@@ -1163,6 +1280,7 @@ export default function MiningChain3D() {
           if (myWalletRef.current) {
             fetch('/api/pvp-death', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ wallet: myWalletRef.current, gx: deadGX, gy: deadGY }) }).catch(() => {})
           }
+          clearRlMountOnDeath()
           // Notify others of the corpse position via broadcast
           const deadUntilIso = new Date(deadUntil).toISOString()
           channelRef.current?.send({ type: 'broadcast', event: 'player-death', payload: { victim: payload.victim, gx: deadGX, gy: deadGY, deadUntil: deadUntilIso, mapId: deathMapId } })?.catch(() => {})
@@ -1324,6 +1442,7 @@ export default function MiningChain3D() {
         gx: tc + 0.5, gy: tr + 0.5, row: tr, col: tc, z: Number(tz) || 0,
         poolCode: myPoolCode,
         nodeDice: normalizeNodeDiceState(nodeDiceRef.current),
+        rlMount: rlMountActiveRef.current,
         mapId: mapIdRef.current,
       }).catch(() => {})
       subscribed = true
@@ -1386,6 +1505,7 @@ export default function MiningChain3D() {
         mapId: next,
         poolCode: myPoolCode || null,
         nodeDice: normalizeNodeDiceState(nodeDiceRef.current),
+        rlMount: rlMountActiveRef.current,
       }).catch(() => {})
       channelRef.current?.send({
         type: 'broadcast',
@@ -1552,7 +1672,7 @@ export default function MiningChain3D() {
           fetch('/api/pvp-death', {
             method: 'PATCH',
             headers: { 'content-type': 'application/json' },
-            body: JSON.stringify({ wallet: w, row, col, z }),
+            body: JSON.stringify({ wallet: w, row, col, z, mapId: mapIdRef.current }),
           }).catch(() => {})
         }
       }
@@ -1567,6 +1687,7 @@ export default function MiningChain3D() {
       isDead: Boolean(avatar.isDead),
       deadUntil: avatar.deadUntil || null,
       nodeDice: normalizeNodeDiceState(nodeDiceRef.current),
+      rlMount: rlMountActiveRef.current,
       mapId: mapIdRef.current,
     }
     // Update own dot on minimap
@@ -1661,6 +1782,8 @@ export default function MiningChain3D() {
             onDemineHit={handleDemineHit}
             nodeDiceState={nodeDiceState}
             onNodeDicePanelOpen={handleNodeDicePanelOpen}
+            rlMountActive={rlMountActive}
+            onRlMountPanelOpen={handleRlMountPanelOpen}
           />
           </>
         )}
@@ -1813,6 +1936,81 @@ export default function MiningChain3D() {
               }}
             >
               {nodeDiceState ? (es ? 'ACTIVO' : 'ACTIVE') : (es ? 'ACTIVAR' : 'ACTIVATE')}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── RL Node car purchase overlay ─────────────────────────────────── */}
+      {rlMountPanelOpen && (
+        <div
+          style={{
+            position:'absolute', inset:0, display:'flex', alignItems:'center', justifyContent:'center',
+            background:'rgba(0,0,0,0.90)', zIndex:60,
+          }}
+          onClick={() => setRlMountPanelOpen(false)}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{
+              background:'#061018', border:'1px solid rgba(14,165,233,0.38)',
+              borderRadius:10, padding:'20px 24px', width:'min(420px,94vw)',
+              fontFamily:'Consolas,monospace',
+            }}
+          >
+            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:16 }}>
+              <div style={{ display:'flex', alignItems:'center', gap:9 }}>
+                <span style={{ color:'#0ea5e9', fontSize:'1.15rem' }}>🏎️</span>
+                <div>
+                  <div style={{ color:'#0ea5e9', fontWeight:700, fontSize:'0.86rem', letterSpacing:'0.1em' }}>
+                    RL NODE
+                  </div>
+                  <div style={{ color:'rgba(14,165,233,0.40)', fontSize:'0.6rem', letterSpacing:'0.14em', marginTop:1 }}>
+                    {es ? 'COCHE RL · M2' : 'RL CAR · M2'}
+                  </div>
+                </div>
+              </div>
+              <button
+                onClick={() => setRlMountPanelOpen(false)}
+                style={{ background:'none', border:'none', color:'#64748b', cursor:'pointer', fontSize:'1.1rem', lineHeight:1 }}
+              >
+                ✕
+              </button>
+            </div>
+            <div style={{ display:'grid', gap:8, marginBottom:14, color:'#cbd5e1', fontSize:'0.76rem' }}>
+              <div style={{ display:'flex', justifyContent:'space-between' }}>
+                <span>{es ? 'Precio' : 'Price'}</span><strong style={{ color:'#0ea5e9' }}>{RL_NODE_PRICE_MM3} MM3</strong>
+              </div>
+              <div style={{ display:'flex', justifyContent:'space-between' }}>
+                <span>{es ? 'Nivel mínimo' : 'Min level'}</span>
+                <strong style={{ color: rlMountWalletStats.level >= RL_NODE_MIN_LEVEL ? '#4ade80' : '#fb7185' }}>Lv {RL_NODE_MIN_LEVEL}</strong>
+              </div>
+              <div style={{ display:'flex', justifyContent:'space-between' }}>
+                <span>{es ? 'Estado' : 'Status'}</span>
+                <strong style={{ color: rlMountActive ? '#4ade80' : '#94a3b8' }}>
+                  {rlMountActive ? (es ? 'COCHE ACTIVO' : 'CAR ACTIVE') : (es ? 'SIN COCHE' : 'NO CAR')}
+                </strong>
+              </div>
+              <div style={{ color:'#94a3b8', fontSize:'0.68rem', lineHeight:1.45, paddingTop:4 }}>
+                {es
+                  ? '2× velocidad y salto · boost al saltar · se pierde al morir'
+                  : '2× speed & jump · boost on jump · lost on death'}
+              </div>
+            </div>
+            {rlMountError ? (
+              <div style={{ color:'#fb7185', fontSize:'0.7rem', textAlign:'center', marginBottom:10 }}>{rlMountError}</div>
+            ) : null}
+            <button
+              onClick={handlePurchaseRlMount}
+              disabled={Boolean(rlMountActive)}
+              style={{
+                width:'100%', border:'1px solid rgba(14,165,233,0.46)',
+                background: rlMountActive ? '#1f2937' : '#0ea5e9', color: rlMountActive ? '#94a3b8' : '#020617',
+                borderRadius:8, padding:'10px 12px', fontWeight:800, letterSpacing:'0.08em',
+                cursor: rlMountActive ? 'not-allowed' : 'pointer',
+              }}
+            >
+              {rlMountActive ? (es ? 'YA TIENES COCHE' : 'CAR OWNED') : (es ? 'COMPRAR COCHE' : 'BUY CAR')}
             </button>
           </div>
         </div>

@@ -14,7 +14,19 @@ import {
   isMiningCoreMap,
   MINING_CORE_MAP_ID,
 } from '@/lib/mining-maps'
-import { getMiningMapAmbientObstacles } from '@/lib/mining-map-ambient'
+import { getMiningMapAmbientObstacles, getMiningMapGroundFeatures, FROST_COLISEUM_DECOR, FROST_COLISEUM_ARENA } from '@/lib/mining-map-ambient'
+import {
+  buildPeripheralCellMap,
+  buildRlNodeCell,
+  RL_MOUNT_JUMP_MULT,
+  RL_MOUNT_SPEED_MULT,
+  RL_NODE_POSITION,
+} from '@/lib/mining-rl-mount'
+import {
+  forEachPerimeterCell,
+  getPerimeterCellVisual,
+  usesSoftPerimeter,
+} from '@/lib/mining-perimeter-visual'
 import { getDiceState } from '@/lib/dice'
 import {
   CIPHER_HOUSE_BOUNDS,
@@ -30,6 +42,14 @@ import {
   isPlayableMiningWorldCell,
 } from '@/lib/mining-world-layout'
 import { isCoarsePointerLike as isCoarsePointerDevice, isMobilePreviewActive, MOBILE_PREVIEW_VIEWPORT } from '@/lib/mobile-preview'
+
+function isRlNodeCell(cell) { return Boolean(cell?.isRlNode) }
+function isPortalLikeNodeCell(cell) {
+  return Boolean(cell?.isPortalNode || cell?.isNodeDiceNode || cell?.isRlNode)
+}
+function isSpecialInteractCell(cell) {
+  return Boolean(cell?.isPortalNode || cell?.isChainNode || cell?.isNodeDiceNode || cell?.isRlNode || cell?.isMarket)
+}
 
 const ROWS = MINING_WORLD_ROWS   // double the inner mining grid for free walking space
 const COLS = MINING_WORLD_COLS
@@ -1102,7 +1122,7 @@ function obstacleTop(data) {
 function blockTop(cell,row=0,col=0) {
   if(!cell) return 0
   const base=blockBottom(cell,row,col)
-  if(cell.isPortalNode||cell.isChainNode||cell.isNodeDiceNode) return base+1.0
+  if(cell.isPortalNode||cell.isChainNode||cell.isNodeDiceNode||cell.isRlNode) return base+1.0
   const raw=String(cell.blockHex||gridToBlockHex(row,col)||'').replace('#','')
   const index=Number.parseInt(raw,16)
   if(!Number.isFinite(index)) return base+(cell.isMarket?0.58:BLOCK_TOP)
@@ -3506,7 +3526,7 @@ function worldToGrid(wx, wy) {
 function isMineableBlockCell(cell, row = -1, col = -1) {
   if (!cell) return false
   if (row >= 0 && col >= 0 && isStormRollNodeCell(row, col)) return false
-  if (cell.isPortalNode || cell.isChainNode || cell.isNodeDiceNode || cell.isMarket) return false
+  if (isSpecialInteractCell(cell)) return false
   return true
 }
 
@@ -3532,7 +3552,7 @@ function castRay(wx, wy, angle, cellMap, obsSet, maxDist = VISUAL_RANGE) {
     const cell = cellMap.get(key) || null
     // Interactive nodes share a cell with house floor geometry — always prefer the
     // marker so the facing HUD/crosshair show portal/dice/chain details, not WALL.
-    if (cell?.isPortalNode || cell?.isNodeDiceNode || cell?.isChainNode || cell?.isMarket) {
+    if (isSpecialInteractCell(cell)) {
       return { perpDist, cell, side, mx, my, hit: true }
     }
     if (isMineableBlockCell(cell, my, mx)) {
@@ -3617,6 +3637,48 @@ function drawMinimapLabel(ctx, mapId, es, MX, SZ) {
   ctx.textBaseline = 'middle'
   ctx.fillStyle = C + 'ee'
   ctx.fillText(`M${mapId} · ${getMiningMapLabel(mapId, es)}`, MX + SZ - 4, labelTop + MINIMAP_LABEL_H / 2)
+}
+
+/** Closed-edge dim cap vs open-edge gateway ticks with target map id. */
+function drawPerimeterCellSoftening(ctx, mapId, mapX, mapY, CS) {
+  if (!usesSoftPerimeter(mapId)) return
+  const seaFill = 'rgba(14,62,88,.68)'
+  forEachPerimeterCell((row, col) => {
+    const vis = getPerimeterCellVisual(row, col, mapId)
+    if (!vis) return
+    const x0 = mapX(col)
+    const y0 = mapY(row)
+    const x1 = x0 + CS
+    const y1 = y0 + CS
+    ctx.fillStyle = seaFill
+    if (vis.kind === 'corner') {
+      const cut = vis.cut * CS
+      ctx.beginPath()
+      if (vis.corner === 'nw') {
+        ctx.moveTo(x0, y0); ctx.lineTo(x0 + cut, y0); ctx.lineTo(x0, y0 + cut)
+      } else if (vis.corner === 'ne') {
+        ctx.moveTo(x1, y0); ctx.lineTo(x1 - cut, y0); ctx.lineTo(x1, y0 + cut)
+      } else if (vis.corner === 'sw') {
+        ctx.moveTo(x0, y1); ctx.lineTo(x0 + cut, y1); ctx.lineTo(x0, y1 - cut)
+      } else {
+        ctx.moveTo(x1, y1); ctx.lineTo(x1 - cut, y1); ctx.lineTo(x1, y1 - cut)
+      }
+      ctx.closePath()
+      ctx.fill()
+      return
+    }
+    if (vis.notch <= 0) return
+    const n = vis.notch * CS
+    const span = CS * (0.42 + ((row * 17 + col * 31) % 10) / 22)
+    const cx = x0 + CS * 0.5
+    const cy = y0 + CS * 0.5
+    ctx.beginPath()
+    if (vis.side === 'north') ctx.rect(cx - span / 2, y0, span, n)
+    else if (vis.side === 'south') ctx.rect(cx - span / 2, y1 - n, span, n)
+    else if (vis.side === 'west') ctx.rect(x0, cy - span / 2, n, span)
+    else ctx.rect(x1 - n, cy - span / 2, n, span)
+    ctx.fill()
+  })
 }
 
 /** Closed-edge dim cap vs open-edge gateway ticks with target map id. */
@@ -3822,6 +3884,19 @@ function drawMinimap(ctx, gr, gc, angle, cellMap, presenceMap, myWallet, W, H, c
     ctx.stroke()
   }
 
+  // Ground features (rivers, trails) — same rects the 3D world renders.
+  for (const feature of getMiningMapGroundFeatures(mapId)) {
+    ctx.fillStyle = feature.kind === 'river' ? 'rgba(76,158,196,.30)'
+      : feature.kind === 'lagoon' ? 'rgba(46,106,140,.34)'
+      : feature.kind === 'field' ? 'rgba(74,222,128,.26)'
+      : feature.kind === 'plaza' ? 'rgba(201,187,168,.28)'
+      : feature.kind === 'causeway' ? 'rgba(201,187,168,.34)'
+      : 'rgba(123,92,62,.30)'
+    const fx0 = Math.max(0, feature.minCol), fx1 = Math.min(COLS, feature.maxCol)
+    const fy0 = Math.max(0, feature.minRow), fy1 = Math.min(ROWS, feature.maxRow)
+    ctx.fillRect(mapX(fx0), mapY(fy0), (fx1 - fx0) * CS, (fy1 - fy0) * CS)
+  }
+
   for (const [key, obstacle] of validObs || []) {
     const [row, col] = key.split(',').map(Number)
     const x = mapX(col)
@@ -3871,7 +3946,7 @@ function drawMinimap(ctx, gr, gc, angle, cellMap, presenceMap, myWallet, W, H, c
   }
 
   for (const [key, cell] of (isMiningCoreMap(mapId) ? cellMap : [])) {
-    if (!cell?.isPortalNode && !cell?.isNodeDiceNode) continue
+    if (!cell?.isPortalNode && !cell?.isNodeDiceNode && !cell?.isRlNode) continue
     const [row, col] = key.split(',').map(Number)
     drawMapEmoji(cell.emoji || '◆', mapX(col + .5), mapY(row + .5), cell.color || C, 'circle')
   }
@@ -3886,6 +3961,8 @@ function drawMinimap(ctx, gr, gc, angle, cellMap, presenceMap, myWallet, W, H, c
   if (!chainDrawn && chainNodePos && isMiningCoreMap(mapId)) {
     drawMapEmoji('⬡', mapX(chainNodePos.col + .5), mapY(chainNodePos.row + .5), '#facc15', 'circle')
   }
+
+  drawPerimeterCellSoftening(ctx, mapId, mapX, mapY, CS)
 
     if(staticCacheRef){
       const cacheCanvas=document.createElement('canvas')
@@ -3935,13 +4012,13 @@ function drawMinimap(ctx, gr, gc, angle, cellMap, presenceMap, myWallet, W, H, c
 }
 
 // ── Facing block HUD (top-right info card) ────────────────────────────────────
-function drawFacingHUD(ctx, W, H, fwdCell, fwdMx, fwdMy, myWallet, es, dist, obsMap, chainStatsBottom = 72, mineProgress = 0, playerLevel = 0, globalMm3 = 0, chainSolvers = [], chainDemineActive = false, chainDemineHits = 100, nodeDiceState = null, playerZ = 0) {
+function drawFacingHUD(ctx, W, H, fwdCell, fwdMx, fwdMy, myWallet, es, dist, obsMap, chainStatsBottom = 72, mineProgress = 0, playerLevel = 0, globalMm3 = 0, chainSolvers = [], chainDemineActive = false, chainDemineHits = 100, nodeDiceState = null, playerZ = 0, rlMountActive = false) {
   if (fwdMx < 0 || fwdMy < 0 || fwdMx >= COLS || fwdMy >= ROWS) return
 
   // Double-check: use both cell flag and obsMap to catch any desync — but never
   // downgrade an interactive portal/node/market to "WALL" just because house floor
   // geometry occupies the same cell.
-  const isInteractive = fwdCell?.isPortalNode || fwdCell?.isNodeDiceNode || fwdCell?.isChainNode || fwdCell?.isMarket
+  const isInteractive = isSpecialInteractCell(fwdCell)
   const isObs = !isInteractive && (fwdCell?.isObstacle || obsMap?.has(`${fwdMy},${fwdMx}`))
   const CARD_PW = 164
   const CARD_PX = 6
@@ -3995,6 +4072,28 @@ function drawFacingHUD(ctx, W, H, fwdCell, fwdMx, fwdMy, myWallet, es, dist, obs
       ctx.fillStyle = l.col
       ctx.fillText(l.text, _px + _padX, _py + _padY + i * _lineH, _pw - _padX * 2)
     }
+    return
+  }
+
+  if (fwdCell?.isRlNode) {
+    const inRange = dist == null || dist <= INTERACT_DIST
+    const col = fwdCell.color || '#0ea5e9'
+    const owned = Boolean(rlMountActive)
+    const lines = [
+      { text: `${fwdCell.emoji || '🏎️'}  ${fwdCell.titleEn || 'RL NODE'}`, size: 13, weight: 'bold', col },
+      { text: owned ? (es ? 'COCHE ACTIVO' : 'CAR ACTIVE') : '500 MM3 · Lv 10', size: 10, col: owned ? '#4ade80cc' : '#94a3b8' },
+      { text: es ? '2× velocidad · 2× salto · boost RL' : '2× speed · 2× jump · RL boost', size: 9, col: '#64748b' },
+      inRange
+        ? (mineProgress > 0
+            ? { text: es ? `⛏ ${Math.round(mineProgress * HITS_NEEDED)}/${HITS_NEEDED} golpes` : `⛏ ${Math.round(mineProgress * HITS_NEEDED)}/${HITS_NEEDED} hits`, size: 10, col: col + 'cc' }
+            : { text: es ? '⛏ 5 golpes · ficha' : '⛏ 5 hits · card', size: 10, col: col + 'cc' })
+        : { text: es ? '· acércate al centro' : '· reach the center', size: 9, col: col + '55' },
+    ]
+    const lineH = 15, padX = 9, padY = 7, ph = lines.length * lineH + padY * 2, pw = CARD_PW, px = CARD_PX, py = CARD_PY
+    ctx.globalAlpha = .9; ctx.fillStyle = '#040a12'; ctx.fillRect(px, py, pw, ph); ctx.globalAlpha = 1
+    ctx.strokeStyle = col + '66'; ctx.strokeRect(px, py, pw, ph); ctx.fillStyle = col + '88'; ctx.fillRect(px, py, 2, ph)
+    ctx.textAlign = 'left'; ctx.textBaseline = 'top'
+    lines.forEach((line, i) => { ctx.font = `${line.weight || 'normal'} ${line.size}px monospace`; ctx.fillStyle = line.col; ctx.fillText(line.text, px + padX, py + padY + i * lineH, pw - padX * 2) })
     return
   }
 
@@ -5999,7 +6098,61 @@ function makeSurroundSeaMaterial(lowDetail) {
       })
 }
 
-function addIslandSurroundCoast(world, textures, lowDetail = false) {
+function addPerimeterCellSofteningVisuals(world, mapId, lowDetail = false) {
+  if (!usesSoftPerimeter(mapId)) return
+  const seaMat = new THREE.MeshBasicMaterial({
+    color: '#0aa9d6',
+    transparent: true,
+    opacity: lowDetail ? 0.78 : 0.84,
+    depthWrite: false,
+  })
+  const y = 0.017
+  forEachPerimeterCell((row, col) => {
+    const vis = getPerimeterCellVisual(row, col, mapId)
+    if (!vis) return
+    if (vis.kind === 'corner') {
+      const cut = vis.cut
+      const shape = new THREE.Shape()
+      if (vis.corner === 'nw') {
+        shape.moveTo(-0.5, -0.5); shape.lineTo(-0.5 + cut, -0.5); shape.lineTo(-0.5, -0.5 + cut)
+      } else if (vis.corner === 'ne') {
+        shape.moveTo(0.5, -0.5); shape.lineTo(0.5 - cut, -0.5); shape.lineTo(0.5, -0.5 + cut)
+      } else if (vis.corner === 'sw') {
+        shape.moveTo(-0.5, 0.5); shape.lineTo(-0.5 + cut, 0.5); shape.lineTo(-0.5, 0.5 - cut)
+      } else {
+        shape.moveTo(0.5, 0.5); shape.lineTo(0.5 - cut, 0.5); shape.lineTo(0.5, 0.5 - cut)
+      }
+      shape.closePath()
+      const mesh = new THREE.Mesh(new THREE.ShapeGeometry(shape), seaMat)
+      mesh.rotation.x = -Math.PI / 2
+      mesh.position.set(col + 0.5, y, row + 0.5)
+      mesh.renderOrder = 2
+      mesh.userData.skipOcclusion = true
+      mesh.userData.biomeSurface = 'water'
+      world.add(mesh)
+      return
+    }
+    if (vis.notch <= 0) return
+    const span = 0.42 + ((row * 17 + col * 31) % 10) / 22
+    let width = span
+    let depth = vis.notch
+    let px = col + 0.5
+    let pz = row + 0.5
+    if (vis.side === 'north') pz = row + depth * 0.5
+    else if (vis.side === 'south') pz = row + 1 - depth * 0.5
+    else if (vis.side === 'west') { width = depth; depth = span; px = col + width * 0.5 }
+    else { width = depth; depth = span; px = col + 1 - width * 0.5 }
+    const mesh = new THREE.Mesh(new THREE.PlaneGeometry(width, depth), seaMat)
+    mesh.rotation.x = -Math.PI / 2
+    mesh.position.set(px, y, pz)
+    mesh.renderOrder = 2
+    mesh.userData.skipOcclusion = true
+    mesh.userData.biomeSurface = 'water'
+    world.add(mesh)
+  })
+}
+
+function addIslandSurroundCoast(world, textures, lowDetail = false, mapId = MINING_CORE_MAP_ID) {
   const seaDepth = lowDetail ? 18 : 26
   // One border-cell strip only — old beachDepth=3.4 overlapped rows/cols 1+ (z-fighting).
   const borderStrip = 0.90
@@ -6076,6 +6229,117 @@ function addIslandSurroundCoast(world, textures, lowDetail = false) {
   addShore({ width: borderStrip, depth: halfSpan, x: eastBeachX, z: northHalfZ, material: makeSandMaterial(textures, 'coast'), y: shoreY })
   addShore({ width: borderStrip, depth: halfSpan, x: eastBeachX, z: southHalfZ, material: makeSandMaterial(textures, 'inferno'), y: shoreY })
   addShore({ width: seaDepth, depth: ringHeight, x: eastSeaX, z: islandCenter, material: seaMat, y: shoreY + .02, water: true, foam: true, foamDx: -seaDepth * .28 })
+
+  addPerimeterCellSofteningVisuals(world, mapId, lowDetail)
+}
+
+// ── Island outskirts — pure scenery beyond the playable interior ──────────────
+// Every anchor sits outside cells 1..54 (over the surrounding sea), so nothing
+// here can ever overlap blocks, nodes, obstacles or player physics. All meshes
+// are visual-only: no collidable tag, no occlusion raycast cost.
+function addIslandOutskirts(world,textures,lowDetail=false) {
+  const outskirts=new THREE.Group()
+  outskirts.userData.skipOcclusion=true
+
+  // Shipwreck aground on the NE (coast) sea — listing hull, tilted mast, torn sail.
+  const timberMat=lowDetail
+    ?new THREE.MeshLambertMaterial({color:'#503722'})
+    :new THREE.MeshStandardMaterial({map:textures.coast,color:'#7a5230',roughness:.93,metalness:.03})
+  const wreck=new THREE.Group()
+  const hull=new THREE.Mesh(new THREE.CylinderGeometry(.95,.5,6.4,lowDetail?5:8),timberMat)
+  hull.rotation.z=Math.PI/2;hull.scale.set(1,1,.58);hull.position.y=.48;wreck.add(hull)
+  const deckCabin=new THREE.Mesh(new THREE.BoxGeometry(1.5,.8,.9),timberMat)
+  deckCabin.position.set(-1.7,1.15,0);wreck.add(deckCabin)
+  const mast=new THREE.Mesh(new THREE.CylinderGeometry(.08,.14,4.8,lowDetail?4:6),timberMat)
+  mast.position.set(.7,2.5,0);mast.rotation.z=-.34;wreck.add(mast)
+  if(!lowDetail){
+    const sail=new THREE.Mesh(
+      new THREE.PlaneGeometry(2.0,2.4),
+      new THREE.MeshStandardMaterial({color:'#b9c6cd',roughness:.94,side:THREE.DoubleSide,transparent:true,opacity:.72}),
+    )
+    sail.position.set(1.55,3.05,.05);sail.rotation.set(.08,.42,-.34);wreck.add(sail)
+  }
+  wreck.position.set(43.5,-.26,-3.6);wreck.rotation.set(.05,.74,.14)
+  outskirts.add(wreck)
+
+  // Lighthouse islet on the eastern (coast) sea — banded tower + cyan lantern.
+  const lighthouse=new THREE.Group()
+  const rockBase=new THREE.Mesh(new THREE.ConeGeometry(1.9,1.3,lowDetail?5:7),lowDetail
+    ?new THREE.MeshLambertMaterial({color:'#5c6a76'})
+    :new THREE.MeshStandardMaterial({map:textures.mountain,color:'#7e93a6',roughness:.88,flatShading:true}))
+  rockBase.position.y=.35;lighthouse.add(rockBase)
+  const bandLight=lowDetail
+    ?new THREE.MeshLambertMaterial({color:'#dfe8ee'})
+    :new THREE.MeshStandardMaterial({color:'#dfe8ee',roughness:.55,metalness:.10})
+  const bandDark=lowDetail
+    ?new THREE.MeshLambertMaterial({color:'#0e2f46'})
+    :new THREE.MeshStandardMaterial({color:'#0e2f46',roughness:.48,metalness:.22,emissive:'#06202f',emissiveIntensity:.5})
+  for(let band=0;band<4;band++){
+    const radiusTop=.62-band*.07
+    const segment=new THREE.Mesh(
+      new THREE.CylinderGeometry(radiusTop,radiusTop+.07,1.15,lowDetail?6:10),
+      band%2?bandDark:bandLight,
+    )
+    segment.position.y=1.0+band*1.15+.575;lighthouse.add(segment)
+  }
+  const lantern=new THREE.Mesh(
+    new THREE.CylinderGeometry(.42,.42,.68,lowDetail?6:10),
+    new THREE.MeshBasicMaterial({color:'#67e8f9',transparent:true,opacity:.88}),
+  )
+  lantern.position.y=5.94;lighthouse.add(lantern)
+  const lanternCap=new THREE.Mesh(new THREE.ConeGeometry(.58,.62,lowDetail?6:10),bandDark)
+  lanternCap.position.y=6.59;lighthouse.add(lanternCap)
+  lighthouse.position.set(58.6,-.1,7.5)
+  outskirts.add(lighthouse)
+
+  // Iceberg drift on the western (ice) sea — flat-shaded floes, shared material.
+  const icebergMat=lowDetail
+    ?new THREE.MeshLambertMaterial({color:'#cdeefb'})
+    :new THREE.MeshPhysicalMaterial({map:textures.ice,color:'#cdeefb',roughness:.14,metalness:.16,clearcoat:.8,emissive:'#0b4268',emissiveIntensity:.22,flatShading:true})
+  for(const [x,z,size,squash] of [[-4.2,34.5,1.6,.62],[-6.8,43,2.3,.5],[-3.4,50.5,1.2,.74]]){
+    const berg=new THREE.Mesh(new THREE.DodecahedronGeometry(size,0),icebergMat)
+    berg.scale.set(1.25,squash,.9);berg.rotation.y=x*1.7+z
+    berg.position.set(x,size*squash*.42,z);outskirts.add(berg)
+  }
+
+  // Volcanic islet rising from the southern lava field (inferno sea corner).
+  const islet=new THREE.Group()
+  const volcano=new THREE.Mesh(new THREE.ConeGeometry(2.6,3.6,lowDetail?6:9),lowDetail
+    ?new THREE.MeshLambertMaterial({color:'#3d1512'})
+    :new THREE.MeshStandardMaterial({map:textures.inferno,color:'#54201a',emissive:'#4a0d03',emissiveIntensity:.85,roughness:.8,flatShading:true}))
+  volcano.position.y=1.75;islet.add(volcano)
+  const crater=new THREE.Mesh(
+    new THREE.ConeGeometry(.55,.9,lowDetail?5:7),
+    new THREE.MeshBasicMaterial({color:'#ff5a16',transparent:true,opacity:.9,depthWrite:false}),
+  )
+  crater.position.y=3.6;islet.add(crater)
+  if(!lowDetail){
+    // Crater flame reuses the existing 'fire' biomeSurface animation path.
+    const flame=new THREE.Group()
+    const flameOuter=new THREE.Mesh(new THREE.ConeGeometry(.30,1.0,7),new THREE.MeshBasicMaterial({color:'#ff3d00',transparent:true,opacity:.82,depthWrite:false}))
+    const flameInner=new THREE.Mesh(new THREE.ConeGeometry(.16,.74,7),new THREE.MeshBasicMaterial({color:'#ffd43b',transparent:true,opacity:.92,depthWrite:false}))
+    flameOuter.position.y=.5;flameInner.position.y=.37;flame.add(flameOuter,flameInner)
+    flame.position.y=3.62;flame.userData.biomeSurface='fire';flame.userData.phase=2.1
+    islet.add(flame)
+  }
+  islet.position.set(50,-.12,60.2)
+  outskirts.add(islet)
+
+  // Distant peaks past the NW horizon — echo the island's mountain quadrant.
+  const farPeakMat=lowDetail
+    ?new THREE.MeshLambertMaterial({color:'#6d87a0',flatShading:true})
+    :new THREE.MeshStandardMaterial({map:textures.mountain,color:'#6d87a0',roughness:.86,flatShading:true})
+  const farCapMat=lowDetail
+    ?new THREE.MeshLambertMaterial({color:'#c3e3f5',flatShading:true})
+    :new THREE.MeshStandardMaterial({color:'#c3e3f5',roughness:.7,flatShading:true})
+  for(const [x,z,height] of [[-5.8,5.5,8.5],[3.5,-6.4,7.2],[-7.5,13,6.0]]){
+    const peak=new THREE.Mesh(new THREE.ConeGeometry(height*.42,height,lowDetail?5:7),farPeakMat)
+    peak.position.set(x,height*.5-.1,z);outskirts.add(peak)
+    const cap=new THREE.Mesh(new THREE.ConeGeometry(height*.155,height*.26,lowDetail?5:7),farCapMat)
+    cap.position.set(x,height*.87-.1,z);outskirts.add(cap)
+  }
+
+  world.add(outskirts)
 }
 
 function addBiomeLandmarks(world,textures,lowDetail=false) {
@@ -6184,7 +6448,8 @@ function addBiomeLandmarks(world,textures,lowDetail=false) {
     beacon.userData.phase=seededUnit(x*97+z*131)*Math.PI*2
     world.add(beacon)
   }
-  addIslandSurroundCoast(world,textures,lowDetail)
+  addIslandSurroundCoast(world, textures, lowDetail, MINING_CORE_MAP_ID)
+  addIslandOutskirts(world,textures,lowDetail)
 }
 
 function makeEmojiSprite(emoji,color,shape='square') {
@@ -6230,11 +6495,11 @@ function makeEmojiSprite(emoji,color,shape='square') {
 }
 
 function addInteractiveBeaconEmoji(world,row,col,cell,height) {
-  if((!cell.isMarket&&!cell.isPortalNode&&!cell.isNodeDiceNode)||!cell.emoji) return
+  if((!cell.isMarket&&!cell.isPortalNode&&!cell.isNodeDiceNode&&!cell.isRlNode)||!cell.emoji) return
   const displayH=houseBeaconDisplayHeight(row,col,height)
-  const color=cell.isChainNode||cell.isNodeDiceNode?'#facc15':cell.isPortalNode?(cell.color||'#22d3ee'):cell.isMarket?(cell.owner?'#4ade80':'#fb923c'):'#22d3ee'
+  const color=cell.isChainNode||cell.isNodeDiceNode?'#facc15':cell.isRlNode?(cell.color||'#0ea5e9'):cell.isPortalNode?(cell.color||'#22d3ee'):cell.isMarket?(cell.owner?'#4ade80':'#fb923c'):'#22d3ee'
   const beacon=new THREE.Group()
-  const emojiSprite=makeEmojiSprite(cell.emoji,color,(cell.isPortalNode||cell.isNodeDiceNode)?'circle':'square')
+  const emojiSprite=makeEmojiSprite(cell.emoji,color,isPortalLikeNodeCell(cell)?'circle':'square')
   emojiSprite.position.y=displayH+.82
   beacon.add(emojiSprite)
   beacon.position.set(col+.5,0,row+.5)
@@ -6258,9 +6523,9 @@ function addInteractiveBeaconBatch(world,entries) {
   }
   entries.forEach((entry,index)=>{
     const {cell}=entry
-    const color=new THREE.Color(cell.isChainNode||cell.isNodeDiceNode?'#facc15':cell.isPortalNode?(cell.color||'#22d3ee'):cell.isMarket?(cell.owner?'#4ade80':'#fb923c'):'#22d3ee')
+    const color=new THREE.Color(cell.isChainNode||cell.isNodeDiceNode?'#facc15':cell.isRlNode?(cell.color||'#0ea5e9'):cell.isPortalNode?(cell.color||'#22d3ee'):cell.isMarket?(cell.owner?'#4ade80':'#fb923c'):'#22d3ee')
     rings.setColorAt(index,color);ring2s.setColorAt(index,color);columns.setColorAt(index,color)
-    const markerKey=cell.isPortalNode||cell.isNodeDiceNode?'portal':cell.isMarket?'market':'chain'
+    const markerKey=isPortalLikeNodeCell(cell)?'portal':cell.isMarket?'market':'chain'
     entry.markerKey=markerKey
     entry.markerIndex=markerGroups[markerKey].entries.length
     markerGroups[markerKey].entries.push(entry)
@@ -6271,7 +6536,7 @@ function addInteractiveBeaconBatch(world,entries) {
     const mesh=new THREE.InstancedMesh(group.geometry,new THREE.MeshBasicMaterial({vertexColors:true}),group.entries.length)
     group.entries.forEach((entry,index)=>{
       const {cell}=entry
-      mesh.setColorAt(index,new THREE.Color(cell.isChainNode||cell.isNodeDiceNode?'#facc15':cell.isPortalNode?(cell.color||'#22d3ee'):cell.owner?'#4ade80':'#fb923c'))
+      mesh.setColorAt(index,new THREE.Color(cell.isChainNode||cell.isNodeDiceNode?'#facc15':cell.isRlNode?(cell.color||'#0ea5e9'):cell.isPortalNode?(cell.color||'#22d3ee'):cell.owner?'#4ade80':'#fb923c'))
     })
     if(mesh.instanceColor) mesh.instanceColor.needsUpdate=true
     markers[key]=mesh
@@ -6449,6 +6714,7 @@ function rebuildThreeWorld(state,cellMap,obstacles) {
   addCryptoColosseum(world,visualTier)
   addCipherHouseDetails(world, lowDetail)
   addBiomeLandmarks(world,state.textures,lowDetail)
+  addPeripheralGroundFeatures(world, '1', lowDetail)
   // ── Block + node groups ───────────────────────────────────────────────────────
   // Each interactive type gets its own material & shape so players can tell them apart.
   // No texture maps here — texture × vertex-color was multiplying everything to black.
@@ -6460,12 +6726,12 @@ function rebuildThreeWorld(state,cellMap,obstacles) {
   //  chainEntries     → sphere, gold       — opens chain formula dialog
   //  portalEntries    → sphere, accent     — redirects to portal section
   const allBlockEntries=[...cellMap.entries()].filter(([key]) => !HOUSE_DOOR_STEP_KEYS.has(key))
-  const freeEntries      =allBlockEntries.filter(([,c])=>!c.owner&&!c.isMarket&&!c.isChainNode&&!c.isPortalNode&&!c.isNodeDiceNode)
+  const freeEntries      =allBlockEntries.filter(([,c])=>!c.owner&&!c.isMarket&&!c.isChainNode&&!c.isPortalNode&&!c.isNodeDiceNode&&!c.isRlNode)
   const nftjiEntries     =allBlockEntries.filter(([,c])=>c.isMarket&&!c.owner)
   const ownedFreeEntries =allBlockEntries.filter(([,c])=>c.owner&&!c.isMarket)
   const ownedNftjiEntries=allBlockEntries.filter(([,c])=>c.owner&&c.isMarket)
   const chainEntries     =allBlockEntries.filter(([,c])=>c.isChainNode)
-  const portalEntries    =allBlockEntries.filter(([,c])=>c.isPortalNode||c.isNodeDiceNode)
+  const portalEntries    =allBlockEntries.filter(([,c])=>c.isPortalNode||c.isNodeDiceNode||c.isRlNode)
 
   // Helper: cube InstancedMesh + wireframe glow + pedestal
   function makeBlockGroup(count, mat, glowColor, glowOpacity) {
@@ -6558,7 +6824,7 @@ function rebuildThreeWorld(state,cellMap,obstacles) {
     const [row,col]=key.split(',').map(Number),h=blockTop(cell,row,col)
     position.set(col+.5,h-.46,row+.5);scale.set(1,1,1)
     matrix.compose(position,quaternion,scale);portalMesh.setMatrixAt(i,matrix)
-    portalMesh.setColorAt(i,new THREE.Color(cell.isNodeDiceNode?'#facc15':(cell.color||'#22d3ee')))
+    portalMesh.setColorAt(i,new THREE.Color(cell.isNodeDiceNode?'#facc15':cell.isRlNode?(cell.color||'#0ea5e9'):(cell.color||'#22d3ee')))
   });portalMesh.instanceMatrix.needsUpdate=true
   if(portalMesh.instanceColor) portalMesh.instanceColor.needsUpdate=true
 
@@ -6571,7 +6837,7 @@ function rebuildThreeWorld(state,cellMap,obstacles) {
   )
   const beaconEntries=[]
   for(const [key,cell] of allBlockEntries){
-    if(!cell.isMarket&&!cell.isPortalNode&&!cell.isChainNode&&!cell.isNodeDiceNode) continue
+    if(!cell.isMarket&&!cell.isPortalNode&&!cell.isChainNode&&!cell.isNodeDiceNode&&!cell.isRlNode) continue
     if(cell.isNodeDiceNode) continue
     const [row,col]=key.split(',').map(Number)
     const height=blockTop(cell,row,col)
@@ -7043,25 +7309,20 @@ function rebuildThreeWorld(state,cellMap,obstacles) {
 }
 
 function addPeripheralMapLandmark(world, textures, mapId, lowDetail = false) {
-  const centerX = MINING_CHAIN_NODE_POSITION.col + 0.5
-  const centerZ = MINING_CHAIN_NODE_POSITION.row + 0.5
   const group = new THREE.Group()
   group.userData.skipOcclusion = true
   const segs = lowDetail ? 6 : 10
   const def = getMiningMapDefinition(mapId)
+  const centerX = mapId === '2' ? FROST_COLISEUM_ARENA.col + 0.5 : MINING_CHAIN_NODE_POSITION.col + 0.5
+  const centerZ = mapId === '2' ? FROST_COLISEUM_ARENA.row + 0.5 : MINING_CHAIN_NODE_POSITION.row + 0.5
   if (mapId === '2') {
-    const spire = new THREE.Mesh(
-      new THREE.ConeGeometry(2.2, 8.4, segs),
-      new THREE.MeshStandardMaterial({ color: '#d8f8ff', roughness: 0.12, metalness: 0.34, emissive: '#0b5d89', emissiveIntensity: 0.72 }),
-    )
-    spire.position.set(centerX, 4.2, centerZ)
-    group.add(spire)
+    const innerR = Math.max(FROST_COLISEUM_ARENA.a, FROST_COLISEUM_ARENA.b) * 0.36
     const ring = new THREE.Mesh(
-      new THREE.TorusGeometry(3.4, 0.08, 6, lowDetail ? 24 : 40),
-      new THREE.MeshBasicMaterial({ color: '#67e8f9', transparent: true, opacity: 0.72, depthWrite: false }),
+      new THREE.TorusGeometry(innerR, 0.06, 6, lowDetail ? 24 : 40),
+      new THREE.MeshBasicMaterial({ color: '#67e8f9', transparent: true, opacity: 0.45, depthWrite: false }),
     )
     ring.rotation.x = Math.PI / 2
-    ring.position.set(centerX, 0.12, centerZ)
+    ring.position.set(centerX, 0.14, centerZ)
     group.add(ring)
   } else if (mapId === '3') {
     const cone = new THREE.Mesh(
@@ -7120,6 +7381,736 @@ function addPeripheralMapLandmark(world, textures, mapId, lowDetail = false) {
   world.add(group)
 }
 
+// ── Peripheral ground features — rivers, lagoons and dirt trails ──────────────
+// Visual-only planes driven by the same rects the minimap draws, so 3D world
+// and minimap always agree. Transparent + depthWrite:false + staggered Y per
+// kind (route-strip pattern) — no z-fighting with the atlas ground.
+const GROUND_FEATURE_STYLE = {
+  river:  { color: '#4c9ec4', opacity: .55, texOpacity: .74, tint: '#ffffff', y: .0100, tex: 'water' },
+  lagoon: { color: '#2e6a8c', opacity: .60, texOpacity: .80, tint: '#7fa8bd', y: .0106, tex: 'water' },
+  trail:  { color: '#7b5c3e', opacity: .50, texOpacity: .62, tint: '#ffffff', y: .0082, tex: 'trail' },
+  field:  { color: '#2f7d4f', opacity: .70, texOpacity: .90, tint: '#ffffff', y: .0090, tex: 'field' },
+  plaza:  { color: '#c9bba8', opacity: .62, texOpacity: .78, tint: '#ffffff', y: .0086, tex: 'plaza' },
+  causeway: { color: '#d4c4ae', opacity: .58, texOpacity: .88, tint: '#ffffff', y: .0135, tex: 'causeway' },
+}
+
+// Feathered-edge procedural strips (module-cached): noise + streaks for water,
+// blotchy dirt for trails, alpha fading to zero on every border so ground
+// features stop reading as hard rectangles.
+let groundFeatureTextureCache = null
+function getGroundFeatureTexture(kind) {
+  if (typeof document === 'undefined') return null
+  if (groundFeatureTextureCache?.[kind]) return groundFeatureTextureCache[kind]
+  const isField = kind === 'field'
+  const isPlaza = kind === 'plaza'
+  const isCauseway = kind.startsWith('causeway')
+  const causewaySeaNorth = kind === 'causeway-n'
+  const canvas = document.createElement('canvas')
+  canvas.width = 256
+  canvas.height = isField ? 256 : 128
+  const context = canvas.getContext('2d')
+  const image = context.createImageData(canvas.width, canvas.height)
+  const data = image.data
+  const isWater = kind === 'water'
+  const base = isPlaza || isCauseway ? [201, 187, 168] : isWater ? [86, 156, 190] : [128, 99, 68]
+  for (let y = 0; y < canvas.height; y += 1) {
+    for (let x = 0; x < canvas.width; x += 1) {
+      const i = (y * canvas.width + x) * 4
+      const hash = Math.sin(x * 12.9898 + y * 78.233) * 43758.5453
+      const noise = hash - Math.floor(hash)
+      let red, green, blue, alpha
+      if (isField) {
+        // Utopia pitch: checkered turf, team halves, geometric knot lines, trim ring.
+        const nx = (x - 128) / 120
+        const ny = (y - 128) / 120
+        const radial = Math.sqrt(nx * nx + ny * ny)
+        const checker = (Math.floor(x / 32) + Math.floor(y / 32)) % 2 === 0
+        red = checker ? 44 : 36
+        green = checker ? 118 : 100
+        blue = checker ? 74 : 62
+        red += noise * 10 - 5
+        green += noise * 12 - 6
+        if (x < 128) { green += 8; blue += 22 } else { red += 30; blue -= 8 }
+        if (radial > .84 && radial <= .94) {
+          if (x < 128) { red = 62; green = 132; blue = 196 } else { red = 208; green = 138; blue = 58 }
+        }
+        const ring = Math.abs(radial * 120 - 30)
+        const knot = Math.abs(Math.sin(nx * 8.2) * Math.cos(ny * 8.2) + Math.sin((nx + ny) * 5.4)) < .08
+        const cross = Math.abs(nx * 120) < 1.6 || Math.abs(ny * 120) < 1.6
+        if (ring < 2.4 || cross || knot) { red = 214; green = 240; blue = 252 }
+        const fade = Math.max(0, Math.min(1, (0.97 - radial) / 0.05))
+        alpha = fade * fade * (3 - 2 * fade)
+      } else if (isPlaza) {
+        // Classical stone plaza — large flagstones with subtle diamond inlay.
+        const tile = 32
+        const tx = x % tile, ty = y % tile
+        const edge = Math.min(tx, ty, tile - tx, tile - ty)
+        red = 198 + noise * 8 - 4
+        green = 184 + noise * 8 - 4
+        blue = 166 + noise * 8 - 4
+        if (edge < 2.5) { red -= 18; green -= 16; blue -= 14 }
+        const diamond = Math.abs((tx - tile / 2) + (ty - tile / 2)) < 2.2 || Math.abs((tx - tile / 2) - (ty - tile / 2)) < 2.2
+        if (diamond) { red += 12; green += 10; blue += 8 }
+        const edgeX = Math.max(0, Math.min(1, Math.min(x, canvas.width - 1 - x) / (canvas.width * .10)))
+        const edgeY = Math.max(0, Math.min(1, Math.min(y, canvas.height - 1 - y) / (canvas.height * .14)))
+        alpha = edgeX * edgeX * (3 - 2 * edgeX) * edgeY * edgeY * (3 - 2 * edgeY)
+      } else if (isCauseway) {
+        // Raised stone pier — flagstones fading into open sea at the far end.
+        const tile = 24
+        const tx = x % tile, ty = y % tile
+        const edge = Math.min(tx, ty, tile - tx, tile - ty)
+        red = 194 + noise * 10 - 5
+        green = 180 + noise * 10 - 5
+        blue = 162 + noise * 10 - 5
+        if (edge < 2) { red -= 14; green -= 12; blue -= 10 }
+        const seaT = y / (canvas.height - 1)
+        const landT = causewaySeaNorth ? seaT : 1 - seaT
+        const seaFade = Math.max(0, Math.min(1, (landT - 0.55) / 0.38))
+        const sideFade = Math.max(0, Math.min(1, Math.min(x, canvas.width - 1 - x) / (canvas.width * 0.22)))
+        alpha = (1 - seaFade * seaFade) * sideFade
+      } else {
+        ;[red, green, blue] = base
+        if (isWater) {
+          const streak = Math.sin(x * .18 + Math.sin(y * .22) * 2.5 + y * .05) * .5 + .5
+          red += streak * 24 - 10 + noise * 14
+          green += streak * 30 - 12 + noise * 14
+          blue += streak * 34 - 12 + noise * 14
+        } else {
+          const blotch = Math.sin(x * .23 + y * .31) * Math.sin(x * .07 - y * .11)
+          const delta = blotch * 16 + noise * 22 - 14
+          red += delta
+          green += delta * .9
+          blue += delta * .75
+        }
+        const edgeX = Math.max(0, Math.min(1, Math.min(x, canvas.width - 1 - x) / (canvas.width * .12)))
+        const edgeY = Math.max(0, Math.min(1, Math.min(y, canvas.height - 1 - y) / (canvas.height * .20)))
+        alpha = edgeX * edgeX * (3 - 2 * edgeX) * edgeY * edgeY * (3 - 2 * edgeY)
+      }
+      data[i] = Math.max(0, Math.min(255, red))
+      data[i + 1] = Math.max(0, Math.min(255, green))
+      data[i + 2] = Math.max(0, Math.min(255, blue))
+      data[i + 3] = Math.round(alpha * 255)
+    }
+  }
+  context.putImageData(image, 0, 0)
+  const texture = new THREE.CanvasTexture(canvas)
+  if (!groundFeatureTextureCache) groundFeatureTextureCache = {}
+  groundFeatureTextureCache[kind] = texture
+  return texture
+}
+
+function addPeripheralGroundFeatures(world, mapId, lowDetail = false) {
+  const features = getMiningMapGroundFeatures(mapId)
+  if (!features.length) return
+  const scenery = new THREE.Group()
+  scenery.userData.skipOcclusion = true
+  for (const feature of features) {
+    const style = GROUND_FEATURE_STYLE[feature.kind]
+    if (!style) continue
+    const texKind = feature.kind === 'causeway'
+      ? (feature.causewayDir === 'north' ? 'causeway-n' : 'causeway-s')
+      : style.tex
+    const texture = lowDetail ? null : getGroundFeatureTexture(texKind)
+    const plane = new THREE.Mesh(
+      new THREE.PlaneGeometry(feature.maxCol - feature.minCol, feature.maxRow - feature.minRow),
+      texture
+        ? new THREE.MeshBasicMaterial({ map: texture, color: style.tint, transparent: true, opacity: style.texOpacity, depthWrite: false })
+        : new THREE.MeshBasicMaterial({ color: style.color, transparent: true, opacity: style.opacity, depthWrite: false }),
+    )
+    plane.rotation.x = -Math.PI / 2
+    plane.position.set((feature.minCol + feature.maxCol) / 2, style.y, (feature.minRow + feature.maxRow) / 2)
+    plane.renderOrder = feature.kind === 'causeway' ? 3 : 1
+    scenery.add(plane)
+  }
+  if (mapId === '1') addGatewayCausewayScenery(scenery, 'north', lowDetail)
+  if (mapId === '2') {
+    addColiseumPerimeterScenery(scenery, lowDetail)
+    addGatewayCausewayScenery(scenery, 'south', lowDetail)
+  }
+  world.add(scenery)
+}
+
+// Stone pilings, lanterns and shore arches on gateway causeways over the sea.
+function addGatewayCausewayScenery(scenery, direction, lowDetail = false) {
+  if (lowDetail) return
+  const bands = [[29, 0], [34.5, 1.1], [41, 2.2], [47.5, 3.3], [53, 4.4]]
+  const shoreZ = direction === 'south' ? 53.5 : 1.5
+  const seaStep = direction === 'south' ? 3.2 : -3.2
+  const pilingMat = new THREE.MeshStandardMaterial({ color: '#ddd0b8', roughness: .52, metalness: .12, flatShading: true })
+  const lanternMat = new THREE.MeshBasicMaterial({ color: '#fbbf24', transparent: true, opacity: .92 })
+  for (const [x, phase] of bands) {
+    const arch = new THREE.Mesh(
+      new THREE.TorusGeometry(0.55, 0.06, 5, 10, Math.PI),
+      pilingMat,
+    )
+    arch.rotation.x = Math.PI / 2
+    arch.position.set(x, 2.05, shoreZ)
+    scenery.add(arch)
+    for (let step = 1; step <= 6; step += 1) {
+      const z = shoreZ + seaStep * step
+      for (const dx of [-0.55, 0.55]) {
+        const piling = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.14, 0.9, 6), pilingMat)
+        piling.position.set(x + dx, 0.45, z)
+        scenery.add(piling)
+      }
+      if (step % 2 === 0) {
+        const lantern = new THREE.Mesh(new THREE.OctahedronGeometry(0.12), lanternMat)
+        lantern.position.set(x, 1.35, z)
+        scenery.add(lantern)
+      }
+    }
+    const flame = new THREE.Group()
+    const outer = new THREE.Mesh(new THREE.ConeGeometry(0.12, 0.48, 6), new THREE.MeshBasicMaterial({ color: '#fb923c', transparent: true, opacity: .82, depthWrite: false }))
+    const inner = new THREE.Mesh(new THREE.ConeGeometry(0.07, 0.32, 6), new THREE.MeshBasicMaterial({ color: '#fde68a', transparent: true, opacity: .92, depthWrite: false }))
+    outer.position.y = 0.24
+    inner.position.y = 0.18
+    flame.add(outer, inner)
+    flame.position.set(x, 0.08, shoreZ + seaStep * 0.5)
+    flame.userData.biomeSurface = 'fire'
+    flame.userData.phase = phase
+    scenery.add(flame)
+  }
+}
+
+// Gateway lanterns and plaza braziers along the south exits to M1.
+function addColiseumPerimeterScenery(scenery, lowDetail = false) {
+  if (lowDetail) return
+  const bands = [[29, 0], [34.5, 1.4], [41, 2.8], [47.5, 4.2], [53, 5.6]]
+  for (const [x, phase] of bands) {
+    const lantern = new THREE.Mesh(
+      new THREE.OctahedronGeometry(0.18),
+      new THREE.MeshBasicMaterial({ color: '#fbbf24', transparent: true, opacity: 0.9 }),
+    )
+    lantern.position.set(x, 2.4, 50.5)
+    scenery.add(lantern)
+    const flame = new THREE.Group()
+    const outer = new THREE.Mesh(new THREE.ConeGeometry(0.14, 0.55, 6), new THREE.MeshBasicMaterial({ color: '#fb923c', transparent: true, opacity: 0.85, depthWrite: false }))
+    const inner = new THREE.Mesh(new THREE.ConeGeometry(0.08, 0.38, 6), new THREE.MeshBasicMaterial({ color: '#fde68a', transparent: true, opacity: 0.92, depthWrite: false }))
+    outer.position.y = 0.28
+    inner.position.y = 0.22
+    flame.add(outer, inner)
+    flame.position.set(x, 0.12, 51.5)
+    flame.userData.biomeSurface = 'fire'
+    flame.userData.phase = phase
+    scenery.add(flame)
+  }
+}
+
+// ── Map 2 organic visual pass ─────────────────────────────────────────────────
+// Replaces the flat instanced cubes with a small set of reusable low-poly
+// geometries (chamfered block, irregular boulder, crystal spike, post) plus
+// baked AO decals and snow caps. Physics stays exactly on the cell boxes —
+// this only changes what is drawn. Geometries/textures are module-cached and
+// shared across rebuilds; every family is a single InstancedMesh (1 draw call).
+let glacialAssetCache = null
+function getGlacialAssets() {
+  if (glacialAssetCache) return glacialAssetCache
+  const normalizeToUnitBase = (geometry) => {
+    geometry.computeBoundingBox()
+    const bb = geometry.boundingBox
+    geometry.translate(-(bb.max.x + bb.min.x) / 2, -bb.min.y, -(bb.max.z + bb.min.z) / 2)
+    geometry.scale(
+      1 / Math.max(1e-6, bb.max.x - bb.min.x),
+      1 / Math.max(1e-6, bb.max.y - bb.min.y),
+      1 / Math.max(1e-6, bb.max.z - bb.min.z),
+    )
+    return geometry
+  }
+  // Chamfered unit block (~100 tris): rounded corners + beveled top/bottom.
+  const half = .5, corner = .09
+  const outline = new THREE.Shape()
+  outline.moveTo(-half + corner, -half)
+  outline.lineTo(half - corner, -half)
+  outline.quadraticCurveTo(half, -half, half, -half + corner)
+  outline.lineTo(half, half - corner)
+  outline.quadraticCurveTo(half, half, half - corner, half)
+  outline.lineTo(-half + corner, half)
+  outline.quadraticCurveTo(-half, half, -half, half - corner)
+  outline.lineTo(-half, -half + corner)
+  outline.quadraticCurveTo(-half, -half, -half + corner, -half)
+  const chamferBlock = new THREE.ExtrudeGeometry(outline, {
+    depth: 1, bevelEnabled: true, bevelThickness: .07, bevelSize: .055, bevelSegments: 1, curveSegments: 1,
+  })
+  chamferBlock.rotateX(-Math.PI / 2)
+  normalizeToUnitBase(chamferBlock)
+  // Irregular boulder — position-hashed noise keeps shared vertices welded.
+  const hashNoise = (x, y, z) => {
+    const value = Math.sin(x * 127.1 + y * 311.7 + z * 74.7) * 43758.5453
+    return value - Math.floor(value)
+  }
+  const boulder = new THREE.IcosahedronGeometry(.5, 1)
+  const boulderPosition = boulder.attributes.position
+  for (let i = 0; i < boulderPosition.count; i += 1) {
+    const px = boulderPosition.getX(i), py = boulderPosition.getY(i), pz = boulderPosition.getZ(i)
+    const bump = .78 + hashNoise(px, py, pz) * .40
+    boulderPosition.setXYZ(i, px * bump, Math.max(py * (.72 + hashNoise(pz, px, py) * .30), -.34), pz * bump)
+  }
+  boulder.computeVertexNormals()
+  normalizeToUnitBase(boulder)
+  const spike = normalizeToUnitBase(new THREE.OctahedronGeometry(.5, 0))
+  const post = normalizeToUnitBase(new THREE.CylinderGeometry(.40, .5, 1, 7))
+  const decal = new THREE.PlaneGeometry(1, 1)
+  decal.rotateX(-Math.PI / 2)
+  // Half-torus arch (spans local X) and a vertical unit panel, both instanced
+  // heavily by the Frost Coliseum pass.
+  const arch = new THREE.TorusGeometry(.5, .07, 5, 10, Math.PI)
+  const panel = new THREE.PlaneGeometry(1, 1)
+  // Soft radial blob — shared by baked AO shadows and snow-drift patches.
+  const blobCanvas = document.createElement('canvas')
+  blobCanvas.width = blobCanvas.height = 128
+  const blobContext = blobCanvas.getContext('2d')
+  const blobGradient = blobContext.createRadialGradient(64, 64, 6, 64, 64, 62)
+  blobGradient.addColorStop(0, 'rgba(255,255,255,.95)')
+  blobGradient.addColorStop(.55, 'rgba(255,255,255,.42)')
+  blobGradient.addColorStop(1, 'rgba(255,255,255,0)')
+  blobContext.fillStyle = blobGradient
+  blobContext.fillRect(0, 0, 128, 128)
+  const blobTexture = new THREE.CanvasTexture(blobCanvas)
+  glacialAssetCache = { chamferBlock, boulder, spike, post, decal, arch, panel, blobTexture }
+  return glacialAssetCache
+}
+
+// ── Frost Coliseum textures (module-cached) ───────────────────────────────────
+let arenaTextureCache = null
+function getArenaTexture(kind) {
+  if (typeof document === 'undefined') return null
+  if (arenaTextureCache?.[kind]) return arenaTextureCache[kind]
+  const canvas = document.createElement('canvas')
+  canvas.width = canvas.height = 128
+  const context = canvas.getContext('2d')
+  if (kind === 'stripes') {
+    // White/soft alternating awning strips; gaps stay transparent and the
+    // instance color tints each canopy cyan or amber.
+    for (let x = 0; x < 128; x += 16) {
+      context.fillStyle = 'rgba(255,255,255,.96)'
+      context.fillRect(x, 0, 9, 128)
+      context.fillStyle = 'rgba(238,244,248,.50)'
+      context.fillRect(x + 9, 0, 7, 128)
+    }
+  } else {
+    // Crowd speckle: thousands of fans as colored dots on a dark stand.
+    const palette = kind === 'crowdEast'
+      ? ['#fb923c', '#fbbf24', '#fde68a', '#f87171', '#fdba74', '#ffe8c2']
+      : ['#67e8f9', '#38bdf8', '#e0f2fe', '#a5b4fc', '#7dd3fc', '#c7f0ff']
+    const seedShift = kind === 'crowdEast' ? 7 : 0
+    context.fillStyle = '#0a1626'
+    context.fillRect(0, 0, 128, 128)
+    for (let i = 0; i < 900; i += 1) {
+      const x = seededUnit(i * 3 + seedShift) * 128
+      const y = seededUnit(i * 5 + 11 + seedShift) * 128
+      context.fillStyle = palette[Math.floor(seededUnit(i * 7 + 3) * palette.length) % palette.length]
+      context.beginPath()
+      context.arc(x, y, 1.1 + seededUnit(i + 29) * 1.2, 0, Math.PI * 2)
+      context.fill()
+    }
+  }
+  const texture = new THREE.CanvasTexture(canvas)
+  if (!arenaTextureCache) arenaTextureCache = {}
+  arenaTextureCache[kind] = texture
+  return texture
+}
+
+// ── Frost Coliseum visual pass — arches, crowds, canopies, banners ────────────
+// Physics comes from the ARENA cells in mining-map-ambient; everything here is
+// instanced decoration resolved from the shared FROST_COLISEUM_DECOR data.
+function buildFrostColiseumVisuals(world, assets) {
+  const decor = FROST_COLISEUM_DECOR
+  const matrix = new THREE.Matrix4()
+  const position = new THREE.Vector3()
+  const scale = new THREE.Vector3()
+  const quaternion = new THREE.Quaternion()
+  const euler = new THREE.Euler()
+  const color = new THREE.Color()
+  const place = (mesh, index, x, y, z, sx, sy, sz, yaw = 0, tilt = 0) => {
+    euler.set(tilt, yaw, 0, 'YXZ')
+    quaternion.setFromEuler(euler)
+    position.set(x, y, z)
+    scale.set(sx, sy, sz)
+    matrix.compose(position, quaternion, scale)
+    mesh.setMatrixAt(index, matrix)
+  }
+  const stoneMaterial = new THREE.MeshStandardMaterial({ color: '#e8dcc8', roughness: .48, metalness: .14, emissive: '#3a3020', emissiveIntensity: .18, flatShading: true })
+  const warmStone = new THREE.MeshStandardMaterial({ color: '#ddd0b8', roughness: .44, metalness: .16, emissive: '#2a2218', emissiveIntensity: .22, flatShading: true })
+  // Arch ring — one instanced half-torus over every gap in both pillar rings.
+  if (decor.arches.length) {
+    const arches = new THREE.InstancedMesh(assets.arch, stoneMaterial, decor.arches.length)
+    decor.arches.forEach((arch, index) => place(arches, index, arch.x, arch.top - .05, arch.z, arch.span, arch.rise, 1, arch.yaw))
+    arches.instanceMatrix.needsUpdate = true
+    world.add(arches)
+  }
+  // Crowd stands — tilted speckle panels, cool west side / warm east side.
+  for (const side of ['west', 'east']) {
+    const entries = decor.panels.filter(panel => panel.side === side)
+    if (!entries.length) continue
+    const crowd = new THREE.InstancedMesh(
+      assets.panel,
+      new THREE.MeshBasicMaterial({ map: getArenaTexture(side === 'east' ? 'crowdEast' : 'crowdWest'), side: THREE.DoubleSide }),
+      entries.length,
+    )
+    entries.forEach((panel, index) => place(crowd, index, panel.x, panel.y, panel.z, panel.width, panel.height, 1, panel.yaw, panel.tilt))
+    crowd.instanceMatrix.needsUpdate = true
+    world.add(crowd)
+  }
+  // Striped canopies leaning over the upper stands, tinted per team side.
+  if (decor.canopies.length) {
+    const canopies = new THREE.InstancedMesh(
+      assets.panel,
+      new THREE.MeshBasicMaterial({ map: getArenaTexture('stripes'), transparent: true, side: THREE.DoubleSide, depthWrite: false }),
+      decor.canopies.length,
+    )
+    decor.canopies.forEach((canopy, index) => {
+      place(canopies, index, canopy.x, canopy.y, canopy.z, canopy.width, canopy.height, 1, canopy.yaw, canopy.tilt)
+      canopies.setColorAt(index, color.set(canopy.side === 'east' ? '#fb923c' : '#38bdf8'))
+    })
+    canopies.instanceMatrix.needsUpdate = true
+    if (canopies.instanceColor) canopies.instanceColor.needsUpdate = true
+    world.add(canopies)
+  }
+  // Banners hanging in the arcade arches, alternating team colors.
+  if (decor.banners.length) {
+    const banners = new THREE.InstancedMesh(
+      assets.panel,
+      new THREE.MeshBasicMaterial({ color: '#ffffff', side: THREE.DoubleSide }),
+      decor.banners.length,
+    )
+    decor.banners.forEach((banner, index) => {
+      place(banners, index, banner.x, banner.y, banner.z, .42, 1.05, 1, banner.yaw)
+      banners.setColorAt(index, color.set(banner.side === 'east' ? '#d97a28' : '#2fa8d8'))
+    })
+    banners.instanceMatrix.needsUpdate = true
+    if (banners.instanceColor) banners.instanceColor.needsUpdate = true
+    world.add(banners)
+  }
+  // Topiary bushes flanking gateways and concourse.
+  if (decor.topiary.length) {
+    const bushes = new THREE.InstancedMesh(
+      assets.boulder,
+      new THREE.MeshStandardMaterial({ color: '#3f9d4e', roughness: .9, metalness: 0, emissive: '#0c2a12', emissiveIntensity: .3, flatShading: true }),
+      decor.topiary.length,
+    )
+    decor.topiary.forEach((bush, index) => {
+      const jitter = seededUnit(index * 19 + 5)
+      place(bushes, index, bush.x, 0, bush.z, .5 + jitter * .14, .58 + jitter * .1, .5 + jitter * .14, jitter * Math.PI * 2)
+    })
+    bushes.instanceMatrix.needsUpdate = true
+    world.add(bushes)
+  }
+  // Formal hedges — tall thin boxes ringing the concourse.
+  if (decor.hedges?.length) {
+    const hedgeMat = new THREE.MeshStandardMaterial({ color: '#2d6b3a', roughness: .92, metalness: 0, emissive: '#0a2010', emissiveIntensity: .25, flatShading: true })
+    const hedges = new THREE.InstancedMesh(assets.chamferBlock, hedgeMat, decor.hedges.length)
+    decor.hedges.forEach((hedge, index) => {
+      place(hedges, index, hedge.x, 0, hedge.z, .22, hedge.height, .14, hedge.yaw)
+    })
+    hedges.instanceMatrix.needsUpdate = true
+    world.add(hedges)
+  }
+  // Statues on pedestals at south gateway approaches.
+  if (decor.statues?.length) {
+    const statueMat = new THREE.MeshStandardMaterial({ color: '#ddd0b8', roughness: .38, metalness: .22, emissive: '#2a2218', emissiveIntensity: .15, flatShading: true })
+    const statues = new THREE.InstancedMesh(assets.post, statueMat, decor.statues.length)
+    decor.statues.forEach((statue, index) => place(statues, index, statue.x, 0, statue.z, .28, 1.55, .28, statue.yaw))
+    statues.instanceMatrix.needsUpdate = true
+    world.add(statues)
+  }
+  // Triumph arches marking each south exit corridor.
+  if (decor.triumphArches?.length) {
+    const triumph = new THREE.InstancedMesh(assets.arch, warmStone, decor.triumphArches.length)
+    decor.triumphArches.forEach((entry, index) => place(triumph, index, entry.x, 2.1, entry.z, entry.span, 1.8, 1, entry.yaw))
+    triumph.instanceMatrix.needsUpdate = true
+    world.add(triumph)
+  }
+  // Central fountain on the south concourse.
+  const addFountain = (fx, fz) => {
+    const group = new THREE.Group()
+    const basin = new THREE.Mesh(new THREE.CylinderGeometry(1.05, 1.2, .34, 10), stoneMaterial)
+    basin.position.y = .17
+    const water = new THREE.Mesh(new THREE.CircleGeometry(.92, 10), new THREE.MeshBasicMaterial({ color: '#7cc7ea', transparent: true, opacity: .85 }))
+    water.rotation.x = -Math.PI / 2
+    water.position.y = .35
+    const jet = new THREE.Mesh(new THREE.ConeGeometry(.14, .8, 6), new THREE.MeshBasicMaterial({ color: '#bfe9ff', transparent: true, opacity: .8, depthWrite: false }))
+    jet.position.y = .74
+    group.add(basin, water, jet)
+    group.position.set(fx, 0, fz)
+    world.add(group)
+  }
+  addFountain(decor.fountain.x, decor.fountain.z)
+  for (const sf of decor.southFountains || []) addFountain(sf.x, sf.z)
+  // Energy barrier — translucent panels ringing the pitch (Utopia-style force field).
+  if (decor.energyPanels?.length) {
+    const barrier = new THREE.InstancedMesh(
+      assets.panel,
+      new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: .16, side: THREE.DoubleSide, depthWrite: false }),
+      decor.energyPanels.length,
+    )
+    decor.energyPanels.forEach((panel, index) => {
+      place(barrier, index, panel.x, .58, panel.z, .55, 1.05, 1, panel.yaw)
+      barrier.setColorAt(index, color.set(panel.side === 'east' ? '#fb923c' : '#38bdf8'))
+    })
+    barrier.instanceMatrix.needsUpdate = true
+    if (barrier.instanceColor) barrier.instanceColor.needsUpdate = true
+    world.add(barrier)
+  }
+  // Grand north facade — classical entrance building overlooking the pitch.
+  if (decor.facade) {
+    const facade = new THREE.Group()
+    const { x, z } = decor.facade
+    for (const dx of [-2.4, -1.2, 0, 1.2, 2.4]) {
+      const column = new THREE.Mesh(new THREE.CylinderGeometry(.22, .26, 3.2, 8), warmStone)
+      column.position.set(x + dx, 1.6, z)
+      facade.add(column)
+    }
+    const pediment = new THREE.Mesh(new THREE.BoxGeometry(6.2, .55, 1.4), warmStone)
+    pediment.position.set(x, 3.45, z)
+    facade.add(pediment)
+    const archFrame = new THREE.Mesh(assets.arch, warmStone)
+    archFrame.position.set(x, 1.85, z + .35)
+    archFrame.rotation.y = decor.facade.yaw
+    archFrame.scale.set(3.4, 2.6, 1)
+    facade.add(archFrame)
+    for (const side of ['west', 'east']) {
+      const banner = new THREE.Mesh(
+        new THREE.PlaneGeometry(.55, 2.2),
+        new THREE.MeshBasicMaterial({ color: side === 'east' ? '#d97a28' : '#2fa8d8', side: THREE.DoubleSide }),
+      )
+      banner.position.set(x + (side === 'east' ? 2.8 : -2.8), 2.4, z + .2)
+      facade.add(banner)
+    }
+    world.add(facade)
+  }
+}
+
+const GLACIAL_ROTATABLE_LABELS = new Set(['COLONNADE', 'OBELISK', 'BRIDGE PYLON', 'WORLD'])
+
+function glacialKindOf(data) {
+  const label = String(data?.label || '')
+  if (label.startsWith('ARENA')) return 'arena'
+  if (label === 'ICE SHARD') return 'crystal'
+  if (label === 'GLACIAL HENGE' || label === 'MENHIR' || label === 'STEPPING STONE') return 'boulder'
+  if (label === 'FROZEN PIER') return 'plank'
+  if (label === 'MOORING POST' || label === 'OLD PILING') return 'post'
+  return 'masonry'
+}
+
+function buildGlacialStructures(world, obstacles) {
+  const assets = getGlacialAssets()
+  const matrix = new THREE.Matrix4()
+  const position = new THREE.Vector3()
+  const scale = new THREE.Vector3()
+  const quaternion = new THREE.Quaternion()
+  const euler = new THREE.Euler()
+  const color = new THREE.Color()
+  const iceTint = new THREE.Color('#ddfaff')
+  const cellSeed = (row, col) => seededUnit(row * 131 + col * 37)
+
+  const families = { masonry: [], arena: [], boulder: [], crystal: [], plank: [], post: [] }
+  for (const [key, data] of obstacles) {
+    const [row, col] = key.split(',').map(Number)
+    const bottom = obstacleBottom(data)
+    const top = Number(data.visualHeight) || obstacleTop(data)
+    families[glacialKindOf(data)].push({ row, col, data, bottom, height: Math.max(.04, top - bottom) })
+  }
+  const arenaPillars = families.arena.filter(({ data }) => data.label === 'ARENA GATE' || data.label === 'ARENA ARCADE')
+  const arenaStands = families.arena.filter(({ data }) => data.label === 'ARENA STAND')
+
+  const addInstanced = (geometry, material, instances, writer, collidable = true) => {
+    if (!instances.length) return null
+    const mesh = new THREE.InstancedMesh(geometry, material, instances.length)
+    instances.forEach((instance, index) => writer(mesh, instance, index))
+    mesh.instanceMatrix.needsUpdate = true
+    if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true
+    mesh.userData.collidable = collidable
+    world.add(mesh)
+    return mesh
+  }
+
+  // Arena pillars — warm classical stone columns for gate ring and outer arcade.
+  addInstanced(
+    assets.post,
+    new THREE.MeshStandardMaterial({ color: '#e8dcc8', roughness: .46, metalness: .14, emissive: '#3a3020', emissiveIntensity: .20, flatShading: true }),
+    arenaPillars,
+    (mesh, { row, col, bottom, height }, index) => {
+      euler.set(0, cellSeed(row, col) * .06, 0)
+      quaternion.setFromEuler(euler)
+      position.set(col + .5, bottom, row + .5)
+      scale.set(.38, height, .38)
+      matrix.compose(position, quaternion, scale)
+      mesh.setMatrixAt(index, matrix)
+    },
+  )
+  // Arena seating tiers — team-tinted chamfered blocks (blue west / orange east).
+  addInstanced(
+    assets.chamferBlock,
+    new THREE.MeshStandardMaterial({ color: '#ffffff', roughness: .40, metalness: .18, emissive: '#1a1208', emissiveIntensity: .22, flatShading: true }),
+    arenaStands,
+    (mesh, { row, col, data, bottom, height }, index) => {
+      euler.set(0, cellSeed(row, col) * .04, 0)
+      quaternion.setFromEuler(euler)
+      position.set(col + .5, bottom, row + .5)
+      scale.set(.985, height, .985)
+      matrix.compose(position, quaternion, scale)
+      mesh.setMatrixAt(index, matrix)
+      const eastSide = data.biome === 'coast'
+      color.set(eastSide ? '#f0a050' : '#6ec8f0').lerp(new THREE.Color('#c9bba8'), .35)
+      mesh.setColorAt(index, color)
+    },
+  )
+
+  // Masonry — chamfered blocks, per-instance icy tint from the cell base color.
+  addInstanced(
+    assets.chamferBlock,
+    new THREE.MeshStandardMaterial({ color: '#ffffff', roughness: .34, metalness: .22, emissive: '#0b5d89', emissiveIntensity: .30, flatShading: true }),
+    families.masonry,
+    (mesh, { row, col, data, bottom, height }, index) => {
+      const swing = GLACIAL_ROTATABLE_LABELS.has(String(data.label || '')) ? (cellSeed(row, col) - .5) * .14 : 0
+      euler.set(0, swing, 0)
+      quaternion.setFromEuler(euler)
+      position.set(col + .5, bottom, row + .5)
+      scale.set(.985, height, .985)
+      matrix.compose(position, quaternion, scale)
+      mesh.setMatrixAt(index, matrix)
+      const [br, bg, bb] = data.base || [168, 205, 228]
+      color.setRGB(br / 255, bg / 255, bb / 255).lerp(iceTint, .52)
+      mesh.setColorAt(index, color)
+    },
+  )
+
+  // Boulders — henge stones, menhir, stepping stones + scattered river rocks.
+  const boulderInstances = families.boulder.map(entry => ({
+    x: entry.col + .5, z: entry.row + .5, bottom: entry.bottom, height: entry.height,
+    footprint: .9 + cellSeed(entry.row, entry.col) * .18, spin: cellSeed(entry.col, entry.row) * Math.PI * 2,
+    shade: .82 + cellSeed(entry.row + 7, entry.col) * .3,
+  }))
+  // M2 is coliseum-only — no scattered river-bank rocks.
+  addInstanced(
+    assets.boulder,
+    new THREE.MeshStandardMaterial({ color: '#ffffff', roughness: .80, metalness: .08, emissive: '#0a2233', emissiveIntensity: .20, flatShading: true }),
+    boulderInstances,
+    (mesh, instance, index) => {
+      euler.set(0, instance.spin, 0)
+      quaternion.setFromEuler(euler)
+      position.set(instance.x, instance.bottom, instance.z)
+      scale.set(instance.footprint, instance.height, instance.footprint * .92)
+      matrix.compose(position, quaternion, scale)
+      mesh.setMatrixAt(index, matrix)
+      color.setRGB(.56, .64, .72).multiplyScalar(instance.shade)
+      mesh.setColorAt(index, color)
+    },
+  )
+
+  // Crystals — twin tilted spikes per ice-shard cell.
+  const crystalInstances = families.crystal.flatMap(({ row, col, height }) => [
+    { x: col + .5, z: row + .5, height, footprint: .52, tilt: (cellSeed(row, col) - .5) * .26, spin: cellSeed(col, row) * Math.PI },
+    { x: col + .5 + (cellSeed(row + 3, col) - .5) * .5, z: row + .5 + (cellSeed(row, col + 3) - .5) * .5, height: height * .55, footprint: .34, tilt: (cellSeed(row + 5, col) - .5) * .4, spin: cellSeed(col + 5, row) * Math.PI },
+  ])
+  addInstanced(
+    assets.spike,
+    new THREE.MeshStandardMaterial({ color: '#d8f8ff', roughness: .08, metalness: .30, emissive: '#1a7fb8', emissiveIntensity: .55, flatShading: true }),
+    crystalInstances,
+    (mesh, instance, index) => {
+      euler.set(instance.tilt, instance.spin, instance.tilt * .6)
+      quaternion.setFromEuler(euler)
+      position.set(instance.x, 0, instance.z)
+      scale.set(instance.footprint, instance.height * 1.12, instance.footprint)
+      matrix.compose(position, quaternion, scale)
+      mesh.setMatrixAt(index, matrix)
+    },
+  )
+
+  // Pier timber — slim chamfered planks + tapered mooring posts.
+  const timberMaterial = new THREE.MeshStandardMaterial({ color: '#7c5a36', roughness: .9, metalness: .04, emissive: '#1c1208', emissiveIntensity: .25, flatShading: true })
+  addInstanced(assets.chamferBlock, timberMaterial, families.plank, (mesh, { row, col, bottom, height }, index) => {
+    euler.set(0, (cellSeed(row, col) - .5) * .09, 0)
+    quaternion.setFromEuler(euler)
+    position.set(col + .5, bottom, row + .5)
+    scale.set(.99, height, .80)
+    matrix.compose(position, quaternion, scale)
+    mesh.setMatrixAt(index, matrix)
+  })
+  addInstanced(assets.post, timberMaterial, families.post, (mesh, { row, col, bottom, height }, index) => {
+    euler.set((cellSeed(row, col) - .5) * .10, cellSeed(col, row) * Math.PI, 0)
+    quaternion.setFromEuler(euler)
+    position.set(col + .5, bottom, row + .5)
+    scale.set(.34, height, .34)
+    matrix.compose(position, quaternion, scale)
+    mesh.setMatrixAt(index, matrix)
+  })
+
+  // Snow caps — every exposed top gets an irregular white mound (reuses the
+  // boulder geometry squashed flat), which visually breaks the box silhouette.
+  // Arena structures are excluded — classical stone, not glaciated.
+  const snowInstances = []
+  for (const family of [families.masonry, families.boulder, families.plank, families.post]) {
+    for (const { row, col, bottom, height } of family) {
+      snowInstances.push({ row, col, top: bottom + height, jitter: cellSeed(row + 11, col + 11) })
+    }
+  }
+  addInstanced(
+    assets.boulder,
+    new THREE.MeshStandardMaterial({ color: '#f2faff', roughness: .96, metalness: 0, emissive: '#3a5a70', emissiveIntensity: .10, flatShading: true }),
+    snowInstances,
+    (mesh, { row, col, top, jitter }, index) => {
+      euler.set(0, jitter * Math.PI * 2, 0)
+      quaternion.setFromEuler(euler)
+      position.set(col + .5, top - .03, row + .5)
+      scale.set(1.02 + jitter * .06, .09 + jitter * .07, 1.0 + jitter * .05)
+      matrix.compose(position, quaternion, scale)
+      mesh.setMatrixAt(index, matrix)
+    },
+  )
+
+  // Baked soft shadows — AO blobs under grounded structures — plus snow drifts
+  // scattered on open ground. One texture, two materials, two draw calls.
+  const aoInstances = []
+  for (const family of Object.values(families)) {
+    for (const { row, col, bottom, height } of family) {
+      if (bottom > .5) continue
+      aoInstances.push({ x: col + .5, z: row + .5, size: Math.min(2.3, 1.30 + height * .28) })
+    }
+  }
+  addInstanced(
+    assets.decal,
+    new THREE.MeshBasicMaterial({ map: assets.blobTexture, color: '#020609', transparent: true, opacity: .32, depthWrite: false }),
+    aoInstances,
+    (mesh, instance, index) => {
+      quaternion.identity()
+      position.set(instance.x, .0062, instance.z)
+      scale.set(instance.size, 1, instance.size)
+      matrix.compose(position, quaternion, scale)
+      mesh.setMatrixAt(index, matrix)
+    },
+    false,
+  )
+  const driftInstances = []
+  for (let i = 0; i < 12; i += 1) {
+    const x = 2 + seededUnit(i * 17 + 9) * 3
+    const z = 49 + seededUnit(i * 23 + 4) * 4
+    if (obstacles.has(`${Math.floor(z)},${Math.floor(x)}`)) continue
+    driftInstances.push({ x, z, size: 1.6 + seededUnit(i * 29 + 2) * 1.4 })
+  }
+  for (let i = 0; i < 12; i += 1) {
+    const x = 51 + seededUnit(i * 19 + 3) * 3
+    const z = 2 + seededUnit(i * 27 + 6) * 3
+    if (obstacles.has(`${Math.floor(z)},${Math.floor(x)}`)) continue
+    driftInstances.push({ x, z, size: 1.4 + seededUnit(i * 31 + 2) * 1.2 })
+  }
+  addInstanced(
+    assets.decal,
+    new THREE.MeshBasicMaterial({ map: assets.blobTexture, color: '#eaf6ff', transparent: true, opacity: .13, depthWrite: false }),
+    driftInstances,
+    (mesh, instance, index) => {
+      quaternion.identity()
+      position.set(instance.x, .0056, instance.z)
+      scale.set(instance.size, 1, instance.size)
+      matrix.compose(position, quaternion, scale)
+      mesh.setMatrixAt(index, matrix)
+    },
+    false,
+  )
+
+  buildFrostColiseumVisuals(world, assets)
+}
+
 function buildPeripheralObstacles(mapId) {
   const valid = new Map()
   for (const [key, data] of getMiningMapAmbientObstacles(mapId)) {
@@ -7141,12 +8132,18 @@ function rebuildPeripheralMapWorld(state, mapId, obstacles) {
     : 'high'
   const lowDetail = visualTier === 'low'
   addBiomeGround(world, state.textures)
-  addIslandSurroundCoast(world, state.textures, lowDetail)
+  addIslandSurroundCoast(world, state.textures, lowDetail, mapId)
   addPeripheralMapLandmark(world, state.textures, mapId, lowDetail)
+  addPeripheralGroundFeatures(world, mapId, lowDetail)
+  const useOrganicPass = mapId === '2' && !lowDetail
+  if (useOrganicPass) buildGlacialStructures(world, obstacles)
   const boxGroups = { mountain: [], coast: [], ice: [], inferno: [] }
-  for (const entry of obstacles.entries()) {
+  for (const entry of useOrganicPass ? [] : obstacles.entries()) {
     const [row, col] = entry[0].split(',').map(Number)
-    boxGroups[biomeForCell(row, col)].push(entry)
+    // Authored structures may pin their render material (e.g. an ice keep that
+    // straddles quadrant boundaries); everything else follows the quadrant.
+    const biome = boxGroups[entry[1]?.biome] ? entry[1].biome : biomeForCell(row, col)
+    boxGroups[biome].push(entry)
   }
   for (const [biome, entries] of Object.entries(boxGroups)) {
     if (!entries.length) continue
@@ -7186,17 +8183,127 @@ function rebuildPeripheralMapWorld(state, mapId, obstacles) {
     if (object.userData.biomeSurface) state.biomeSurfaces.push(object)
     if (object.userData.collidable) state.collisionMeshes.push(object)
   })
+  // Keep animated surfaces (sea, flames, beacons) out of the matrix freeze so
+  // the render-loop biomeSurface animations actually move them.
+  const animated = new Set(state.biomeSurfaces)
   world.traverse(object => {
-    if (object === world) return
+    if (object === world || animated.has(object)) return
     object.updateMatrix()
     object.matrixAutoUpdate = false
   })
   state.scene.add(world)
+  if (mapId === '2') {
+    addInteractiveBeaconEmoji(world, RL_NODE_POSITION.row, RL_NODE_POSITION.col, buildRlNodeCell(), 1.15)
+  }
 }
 
 function rebuildActiveMapWorld(state, mapId, cellMap, obstacles) {
   if (isMiningCoreMap(mapId)) rebuildThreeWorld(state, cellMap, obstacles)
   else rebuildPeripheralMapWorld(state, mapId, obstacles)
+}
+
+function createRlCarMesh(lowDetail = false) {
+  const group = new THREE.Group()
+  const bodyMat = lowDetail
+    ? new THREE.MeshLambertMaterial({ color: '#0ea5e9' })
+    : new THREE.MeshStandardMaterial({ color: '#0ea5e9', roughness: 0.34, metalness: 0.48, emissive: '#0369a1', emissiveIntensity: 0.18 })
+  const darkMat = new THREE.MeshLambertMaterial({ color: '#0f172a' })
+  const chassis = new THREE.Mesh(new THREE.BoxGeometry(0.70, 0.20, 1.02), bodyMat)
+  chassis.position.y = 0.13
+  group.add(chassis)
+  const cabin = new THREE.Mesh(new THREE.BoxGeometry(0.54, 0.16, 0.50), bodyMat)
+  cabin.position.set(0, 0.30, -0.06)
+  group.add(cabin)
+  const nose = new THREE.Mesh(new THREE.BoxGeometry(0.58, 0.10, 0.22), bodyMat)
+  nose.position.set(0, 0.18, -0.46)
+  group.add(nose)
+  const spoiler = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.05, 0.10), bodyMat)
+  spoiler.position.set(0, 0.36, 0.46)
+  group.add(spoiler)
+  const headLight = new THREE.Mesh(new THREE.BoxGeometry(0.48, 0.06, 0.05), new THREE.MeshBasicMaterial({ color: '#e0f2fe' }))
+  headLight.position.set(0, 0.17, -0.54)
+  group.add(headLight)
+  for (const [wx, wz] of [[-0.30, 0.32], [0.30, 0.32], [-0.30, -0.32], [0.30, -0.32]]) {
+    const wheel = new THREE.Mesh(new THREE.CylinderGeometry(0.10, 0.10, 0.07, lowDetail ? 6 : 8), darkMat)
+    wheel.rotation.z = Math.PI / 2
+    wheel.position.set(wx, 0.10, wz)
+    group.add(wheel)
+  }
+  const boost = new THREE.Group()
+  boost.visible = false
+  boost.userData.rlBoost = true
+  for (const dx of [-0.10, 0.10]) {
+    const flame = new THREE.Mesh(
+      new THREE.ConeGeometry(0.07, 0.24, 5),
+      new THREE.MeshBasicMaterial({ color: '#fb923c', transparent: true, opacity: 0.86, depthWrite: false }),
+    )
+    flame.position.set(dx, 0.20, 0.56)
+    flame.rotation.x = Math.PI
+    flame.userData.biomeSurface = 'fire'
+    flame.userData.phase = dx
+    boost.add(flame)
+  }
+  group.add(boost)
+  group.userData.boostFx = boost
+  group.visible = false
+  return group
+}
+
+function applyRlMountVisual(avatar, mounted, threeState = null) {
+  if (!avatar) return
+  const lowDetail = isCoarsePointerDevice()
+  if (!avatar.userData.rlCar) {
+    avatar.userData.rlCar = createRlCarMesh(lowDetail)
+    avatar.add(avatar.userData.rlCar)
+    avatar.userData.rlMountedHeadY = avatar.userData.head?.position.y ?? 0.82
+    avatar.userData.rlMountedAntStemY = avatar.userData.antennaStem?.position.y ?? 1.005
+    avatar.userData.rlMountedAntTipY = avatar.userData.antennaTip?.position.y ?? 1.075
+  }
+  const car = avatar.userData.rlCar
+  car.visible = mounted && !avatar.userData.wasDead
+  if (avatar.userData.bodyParts) {
+    for (const part of avatar.userData.bodyParts) part.visible = !mounted
+  }
+  if (avatar.userData.tool) avatar.userData.tool.visible = !mounted
+  if (avatar.userData.head) {
+    avatar.userData.head.position.y = mounted ? 0.50 : avatar.userData.rlMountedHeadY
+  }
+  if (avatar.userData.antennaStem) {
+    avatar.userData.antennaStem.position.y = mounted ? 0.685 : avatar.userData.rlMountedAntStemY
+  }
+  if (avatar.userData.antennaTip) {
+    avatar.userData.antennaTip.position.y = mounted ? 0.755 : avatar.userData.rlMountedAntTipY
+  }
+  if (mounted && threeState && car.userData.boostFx) {
+    for (const child of car.userData.boostFx.children) {
+      if (child.userData.biomeSurface === 'fire' && !threeState.biomeSurfaces.includes(child)) {
+        threeState.biomeSurfaces.push(child)
+      }
+    }
+  }
+}
+
+function triggerRlBoostFx(avatar, threeState) {
+  const boost = avatar?.userData?.rlCar?.userData?.boostFx
+  if (!boost) return
+  boost.visible = true
+  avatar.userData.rlBoostUntil = performance.now() + 380
+  if (threeState) {
+    for (const child of boost.children) {
+      if (child.userData.biomeSurface === 'fire' && !threeState.biomeSurfaces.includes(child)) {
+        threeState.biomeSurfaces.push(child)
+      }
+    }
+  }
+}
+
+function updateRlBoostFx(avatar, threeState, time) {
+  const boost = avatar?.userData?.rlCar?.userData?.boostFx
+  if (!boost || !avatar.userData.rlBoostUntil) return
+  if (time >= avatar.userData.rlBoostUntil) {
+    boost.visible = false
+    avatar.userData.rlBoostUntil = 0
+  }
 }
 
 function createThreeWalletAvatar(wallet) {
@@ -7282,6 +8389,13 @@ function createThreeWalletAvatar(wallet) {
   const poolSubmersion=createPoolSubmersionEffect()
   avatar.add(poolSubmersion)
   avatar.userData.tool=tool
+  avatar.userData.head=head
+  avatar.userData.antennaStem=antennaStem
+  avatar.userData.antennaTip=antennaTip
+  avatar.userData.bodyParts=[
+    torso,chestPlate,chestInset,core,belt,beltNode,shoulderL,shoulderR,armL,armR,hand,neck,
+    footL,footR,soleL,soleR,
+  ]
   avatar.userData.leftFoot=footL
   avatar.userData.rightFoot=footR
   avatar.userData.healEffect=healEffect
@@ -7462,6 +8576,8 @@ function syncThreeAvatars(state,presence,myIdentity,currentMapId=MINING_CORE_MAP
       state.avatars.set(wallet,avatar);state.scene.add(avatar)
     }
     avatar.visible=true
+    const remoteMounted = Boolean(data.rlMount) && !data.isDead
+    applyRlMountVisual(avatar, remoteMounted, state)
     const baseZ=Number(data.z)||0
     const gx=Number(data.gx??((data.col??0)+.5))
     const gy=Number(data.gy??((data.row??0)+.5))
@@ -7585,7 +8701,7 @@ function updateAvatarOccluders(state) {
   }
 }
 
-function syncThreeLocalAvatar(state,identity,swingT,walkDist,gx,gy,playerZ,heading,isDead) {
+function syncThreeLocalAvatar(state,identity,swingT,walkDist,gx,gy,playerZ,heading,isDead,rlMounted=false) {
   const avatarId=identity||'local-player'
   if(!state.localAvatar||state.localAvatarId!==avatarId){
     if(state.localAvatar){
@@ -7605,8 +8721,10 @@ function syncThreeLocalAvatar(state,identity,swingT,walkDist,gx,gy,playerZ,headi
     state.localAvatar.position.set(gx,playerZ+0.14,gy)
     setAvatarPoolSubmersion(state.localAvatar,false,playerZ+0.14)
     state.localAvatar.rotation.x=Math.PI/2
-    state.localAvatar.userData.tool.rotation.x=0
-    state.localAvatar.userData.tool.rotation.z=0
+    if (state.localAvatar.userData.tool) {
+      state.localAvatar.userData.tool.rotation.x=0
+      state.localAvatar.userData.tool.rotation.z=0
+    }
     if(state.localAvatar.userData.leftFoot) state.localAvatar.userData.leftFoot.position.y=.075
     if(state.localAvatar.userData.rightFoot) state.localAvatar.userData.rightFoot.position.y=.075
   }else{
@@ -7615,12 +8733,15 @@ function syncThreeLocalAvatar(state,identity,swingT,walkDist,gx,gy,playerZ,headi
     setAvatarPoolSubmersion(state.localAvatar,inPool,displayY)
     state.localAvatar.rotation.x=0
     const swing=Math.sin(Math.min(1,swingT)*Math.PI)
-    state.localAvatar.userData.tool.rotation.x=-swing*1.15
-    state.localAvatar.userData.tool.rotation.z=swing*0.28
+    if (state.localAvatar.userData.tool) {
+      state.localAvatar.userData.tool.rotation.x=-swing*1.15
+      state.localAvatar.userData.tool.rotation.z=swing*0.28
+    }
     const stride=walkDist*.18
     if(state.localAvatar.userData.leftFoot) state.localAvatar.userData.leftFoot.position.y=.075+Math.max(0,Math.sin(stride))*.045
     if(state.localAvatar.userData.rightFoot) state.localAvatar.userData.rightFoot.position.y=.075+Math.max(0,Math.sin(stride+Math.PI))*.045
   }
+  applyRlMountVisual(state.localAvatar, rlMounted && !isDead, state)
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -7646,6 +8767,8 @@ export default function MiningChain3DFPV({
   onDemineHit,
   nodeDiceState = null,
   onNodeDicePanelOpen,
+  rlMountActive = false,
+  onRlMountPanelOpen,
   onWorldReady,
   playReady = false,
 }) {
@@ -7750,6 +8873,7 @@ export default function MiningChain3DFPV({
   // Skill system
   const critChanceRef       = useRef(0)
   const speedRef            = useRef(MOVE_SPD)
+  const jumpMultRef         = useRef(1)
   const longJumpRef         = useRef(1)
   const chainDemineActiveRef       = useRef(chainDemineActive)
   const chainDemineHitsRef         = useRef(chainDemineHitsRemaining)
@@ -7758,6 +8882,8 @@ export default function MiningChain3DFPV({
   const onDemineHitRef             = useRef(onDemineHit)
   const nodeDiceStateRef           = useRef(nodeDiceState)
   const onNodeDicePanelOpenRef     = useRef(onNodeDicePanelOpen)
+  const rlMountActiveRef           = useRef(rlMountActive)
+  const onRlMountPanelOpenRef      = useRef(onRlMountPanelOpen)
   const nodeDiceSoundHourRef       = useRef(0)
   const critFlashRef        = useRef(-9999)
   const walletNftjisRef     = useRef(walletNftjis || {})
@@ -7926,7 +9052,7 @@ export default function MiningChain3DFPV({
   // Keep refs in sync with props
   useEffect(()=>{
     cellMapRef.current=cellMap
-    activeCellMapRef.current = isMiningCoreMap(mapId) ? cellMap : new Map()
+    activeCellMapRef.current = isMiningCoreMap(mapId) ? cellMap : buildPeripheralCellMap(mapId)
   },[cellMap,mapId])
   useEffect(()=>{ presenceRef.current=presenceMap; onlineListDirtyRef.current=true },[presenceMap])
   useEffect(()=>{ myWalletRef.current=myWallet },[myWallet])
@@ -7961,6 +9087,8 @@ export default function MiningChain3DFPV({
   useEffect(()=>{ onDemineHitRef.current=onDemineHit },[onDemineHit])
   useEffect(()=>{ nodeDiceStateRef.current=nodeDiceState },[nodeDiceState])
   useEffect(()=>{ onNodeDicePanelOpenRef.current=onNodeDicePanelOpen },[onNodeDicePanelOpen])
+  useEffect(()=>{ rlMountActiveRef.current=rlMountActive },[rlMountActive])
+  useEffect(()=>{ onRlMountPanelOpenRef.current=onRlMountPanelOpen },[onRlMountPanelOpen])
   useEffect(()=>{ healthMapRef.current=healthMap||{} },[healthMap])
   // Mining skills: ❤️ speed · held mining NFTJI air travel · squeeze attack crit.
   useEffect(()=>{
@@ -7968,10 +9096,12 @@ export default function MiningChain3DFPV({
     const hasHeart=nfts.some(n=>n.emoji==='❤️')
     const hasMiningNftji=nfts.some(n=>n.source==='mining')
     const hasAttackNftji=nfts.some(n=>n.blockKey==='sq-atk')
+    const rlMult = rlMountActiveRef.current ? RL_MOUNT_SPEED_MULT : 1
     critChanceRef.current = hasAttackNftji ? 0.05 : 0
-    speedRef.current      = hasHeart ? MOVE_SPD * 1.10 : MOVE_SPD
+    speedRef.current      = (hasHeart ? MOVE_SPD * 1.10 : MOVE_SPD) * rlMult
+    jumpMultRef.current   = rlMountActiveRef.current ? RL_MOUNT_JUMP_MULT : 1
     longJumpRef.current   = hasMiningNftji ? 1.10 : 1
-  },[myNftjis])
+  },[myNftjis, rlMountActive])
   // External hit flash (victim sees red screen when struck by another player)
   useEffect(()=>{ if(externalPvpFlash) pvpFlashRef.current=performance.now() },[externalPvpFlash])
   useEffect(()=>{ if(externalDodgeFlash) dodgeFlashRef.current=performance.now() },[externalDodgeFlash])
@@ -8058,7 +9188,7 @@ export default function MiningChain3DFPV({
       const [r,c]=key.split(',').map(Number)
       reserved.add(key)
       const approaches=[[1,0],[-1,0],[0,1],[0,-1]]
-      if(cell.isPortalNode||cell.isNodeDiceNode||cell.isChainNode||cell.isMarket){
+      if(cell.isPortalNode||cell.isNodeDiceNode||cell.isRlNode||cell.isChainNode||cell.isMarket){
         for(const [dr,dc] of approaches) reserved.add(`${r+dr},${c+dc}`)
       }else{
         const raw=String(cell.blockHex||gridToBlockHex(r,c)||'').replace('#','')
@@ -8520,7 +9650,8 @@ export default function MiningChain3DFPV({
         const localSwingAge=performance.now()-swingStartRef.current
         const localSwingT=localSwingAge<SWING_DUR?localSwingAge/SWING_DUR:0
         // Local avatar lives in the main 3D scene — sync position before render
-        syncThreeLocalAvatar(threeState,myIdentity,localSwingT,walkDistRef.current,gx,gy,rawZ,angle,localDead)
+        syncThreeLocalAvatar(threeState,myIdentity,localSwingT,walkDistRef.current,gx,gy,rawZ,angle,localDead,rlMountActiveRef.current)
+        updateRlBoostFx(threeState.localAvatar, threeState, performance.now())
         updateHealingRechargeEffects(threeState,time,visualTier)
         updatePoolSubmersionEffects(threeState,time,visualTier)
         if(visualTier!=='low') updateAvatarOccluders(threeState)
@@ -9336,7 +10467,7 @@ export default function MiningChain3DFPV({
     const crosshairHitsFace = viewCenterY >= Math.min(fwdProjectedTop, fwdProjectedBottom)
       && viewCenterY <= Math.max(fwdProjectedTop, fwdProjectedBottom)
     const fwdIsObs = fwdCell?.isObstacle || validObstaclesRef.current?.has(`${fwdMy},${fwdMx}`)
-    const fwdIsInteractive = fwdCell?.isPortalNode || fwdCell?.isNodeDiceNode || fwdCell?.isChainNode || fwdCell?.isMarket
+    const fwdIsInteractive = isSpecialInteractCell(fwdCell)
     const fwdTreatAsObs = fwdIsObs && !fwdIsInteractive
     if (fwdTreatAsObs) {
       // Structural wall: no labels, no hex, no prompts
@@ -9361,7 +10492,7 @@ export default function MiningChain3DFPV({
 
     // Hex address label (scales with proximity)
     // Only draw when fwdCell has real data AND label position stays below the obstacle ceiling zone
-    const fwdHex = fwdMx>=0&&fwdMy>=0&&fwdCell&&!fwdCell.isChainNode&&!fwdCell.isPortalNode
+    const fwdHex = fwdMx>=0&&fwdMy>=0&&fwdCell&&!fwdCell.isChainNode&&!fwdCell.isPortalNode&&!fwdCell.isRlNode
       ? (fwdCell.blockHex||gridToBlockHex(fwdMy,fwdMx))
       : null
     if (fwdHex && fwdDist < 2.0) {
@@ -9420,6 +10551,9 @@ export default function MiningChain3DFPV({
       if (promptCell.isChainNode) {
         ctx.fillStyle = '#ffd700cc'
         ctx.fillText(es ? '[ ↵ RESOLVER CADENA ]' : '[ ↵ SOLVE FORMULA CHAIN ]', W/2, viewCenterY+18)
+      } else if (promptCell.isRlNode) {
+        ctx.fillStyle = '#0ea5e9cc'
+        ctx.fillText(es ? '[ ↵ RL NODE ]' : '[ ↵ RL NODE ]', W/2, viewCenterY+18)
       } else if (promptCell.isNodeDiceNode && canInteractNodeDiceAtHeight(rawZ)) {
         ctx.fillStyle = '#facc15cc'
         ctx.fillText(es ? '[ ↵ DICE NODE ]' : '[ ↵ DICE NODE ]', W/2, viewCenterY+18)
@@ -9446,6 +10580,7 @@ export default function MiningChain3DFPV({
     const inXHRange  = !playerInXH && hasTarget && !fwdCell?.isObstacle && fwdDist <= INTERACT_DIST
     const xhBase     = playerInXH ? '#ef4444'
                      : fwdCell?.isChainNode ? '#ffd700'
+                     : fwdCell?.isRlNode ? '#0ea5e9'
                      : (fwdCell?.isNodeDiceNode || (isStormRollNodeCell(fwdMy, fwdMx) && canInteractNodeDiceAtHeight(rawZ))) ? '#facc15'
                      : (fwdCell?.owner ? fwdCell.color : C)
     const xhFgCol    = playerInXH ? '#ff6b6b'
@@ -9551,7 +10686,7 @@ export default function MiningChain3DFPV({
     }
 
     // ── HUD: current room (right of chain stats panel, top-left area) ───────
-    const curHex = curCell?.isChainNode||curCell?.isPortalNode||curCell?.isNodeDiceNode ? null : (curCell?.blockHex || gridToBlockHex(gr,gc))
+    const curHex = curCell?.isChainNode||curCell?.isPortalNode||curCell?.isNodeDiceNode||curCell?.isRlNode ? null : (curCell?.blockHex || gridToBlockHex(gr,gc))
     ctx.textAlign='left'; ctx.textBaseline='top'
     ctx.fillStyle = C+'dd'; ctx.font='bold 12px monospace'
     if(curHex) ctx.fillText(curHex, 174, 10)
@@ -9716,11 +10851,11 @@ export default function MiningChain3DFPV({
     const hudCell = facingHud.cell ?? null
     const hudDist = facingHud.dist ?? VISUAL_RANGE
     if (hudDist <= 2.0 && !enemyTargetRef.current?.wallet) {
-      const _isInteractive = hudCell?.isPortalNode || hudCell?.isNodeDiceNode || hudCell?.isChainNode || hudCell?.isMarket
+      const _isInteractive = isSpecialInteractCell(hudCell)
       const _isObsHUD = !_isInteractive && (hudCell?.isObstacle || validObstaclesRef.current?.has(`${hudMy},${hudMx}`))
       const _maxHudDist = (!_isObsHUD && hudCell?.isMarket && !hudCell?.owner) ? 1.5 : 2.0
       if ((_isObsHUD || Boolean(hudCell)) && hudDist <= _maxHudDist) {
-        drawFacingHUD(ctx, W, H, hudCell, hudMx, hudMy, myWallet, es, hudDist, validObstaclesRef.current, chainStatsBottom ?? 72, mineProgressRef.current, playerLevelRef.current, globalMm3Ref.current, chainSolversArrRef.current, chainDemineActiveRef.current, chainDemineHitsRef.current, nodeDiceStateRef.current, playerRef.current?.z ?? 0)
+        drawFacingHUD(ctx, W, H, hudCell, hudMx, hudMy, myWallet, es, hudDist, validObstaclesRef.current, chainStatsBottom ?? 72, mineProgressRef.current, playerLevelRef.current, globalMm3Ref.current, chainSolversArrRef.current, chainDemineActiveRef.current, chainDemineHitsRef.current, nodeDiceStateRef.current, playerRef.current?.z ?? 0, rlMountActiveRef.current)
       }
     }
   }, [])
@@ -9801,6 +10936,8 @@ export default function MiningChain3DFPV({
               if(canInteractNodeDiceAtHeight(playerRef.current?.z ?? 0)){
                 onNodeDicePanelOpenRef.current?.()
               }
+            } else if(fData.cell?.isRlNode){
+              onRlMountPanelOpenRef.current?.()
             } else if(fData.cell?.isPortalNode){
               if(canInteractPortalAtHeight(fData.my, fData.mx, playerRef.current?.z ?? 0)){
                 const url=fData.cell.navUrl
@@ -9826,7 +10963,10 @@ export default function MiningChain3DFPV({
             if(isOnGroundTrampoline(_gx,_gz,_p.z)){
               _p.vz=HOUSE_TRAMPOLINE_LAUNCH;_p.jumps=0
             } else if(_p.jumps<MAX_JUMPS){
-              _p.vz=Math.max(0,_p.vz)+JUMP_VZ;_p.jumps++
+              _p.vz=Math.max(0,_p.vz)+JUMP_VZ*jumpMultRef.current;_p.jumps++
+              if (rlMountActiveRef.current) {
+                triggerRlBoostFx(threeStateRef.current?.localAvatar, threeStateRef.current)
+              }
             }
           }
         }
@@ -10327,7 +11467,7 @@ export default function MiningChain3DFPV({
       if(myDead){ facingKeyRef.current=null }
       const previousFacing=facingDataRef.current
       let {cell:fc,mx:fmx,my:fmy,perpDist:fcDist}=myDead?{cell:null,mx:-1,my:-1,perpDist:0}:castRay(p.x,p.y,p.angle,activeCellMapRef.current,validObstaclesRef.current)
-      const isInteractiveFacing = fc?.isPortalNode || fc?.isChainNode || fc?.isNodeDiceNode || fc?.isMarket
+      const isInteractiveFacing = isSpecialInteractCell(fc)
       if (
         fc && !fc.isObstacle && !isInteractiveFacing &&
         blockBottom(fc, fmy, fmx) > 0 && Math.abs(p.z - blockBottom(fc, fmy, fmx)) > .62
@@ -10352,6 +11492,12 @@ export default function MiningChain3DFPV({
         const ndCell=activeCellMapRef.current?.get(`${ndPos.row},${ndPos.col}`)
         if(ndCell?.isNodeDiceNode){fmx=ndPos.col;fmy=ndPos.row;fc=ndCell;fcDist=ndDist}
       }
+      const rlPos=RL_NODE_POSITION
+      const rlDist=myDead?Infinity:Math.hypot(p.x/CELL_SIZE-(rlPos.col+.5),p.y/CELL_SIZE-(rlPos.row+.5))
+      if(mapIdRef.current==='2'&&rlDist<=INTERACT_DIST){
+        const rlCell=activeCellMapRef.current?.get(`${rlPos.row},${rlPos.col}`)
+        if(rlCell?.isRlNode&&(!fcDist||rlDist<fcDist)){fmx=rlPos.col;fmy=rlPos.row;fc=rlCell;fcDist=rlDist}
+      }
       // Proximity override for navigation portals. DDA can miss the portal when
       // the player stands on its floor cell or aims slightly above the low node.
       let nearestPortalFacing=null
@@ -10370,7 +11516,7 @@ export default function MiningChain3DFPV({
         }
       }
       const portalFacing=nearestPortalFacing
-      if(portalFacing && (!fc?.isChainNode && !fc?.isNodeDiceNode && !fc?.isMarket)){
+      if(portalFacing && (!fc?.isChainNode && !fc?.isNodeDiceNode && !fc?.isRlNode && !fc?.isMarket)){
         fmx=portalFacing.col;fmy=portalFacing.row;fc=portalFacing.cell
         fcDist=Math.min(portalFacing.dist,INTERACT_DIST*.82)
       }
@@ -10398,6 +11544,9 @@ export default function MiningChain3DFPV({
             } else if(fc.isNodeDiceNode){
               actionUrlRef.current=null
               mineTypeRef.current=canInteractNodeDiceAtHeight(p.z)?'node-dice':'empty'
+            } else if(fc.isRlNode){
+              actionUrlRef.current=null
+              mineTypeRef.current='rl-node'
             } else if(fc.isPortalNode){
               const portalReachable=canInteractPortalAtHeight(fmy,fmx,p.z)
               actionUrlRef.current=portalReachable?(fc.navUrl||null):null
@@ -10546,6 +11695,14 @@ export default function MiningChain3DFPV({
               mineProgressRef.current=0
               setTimeout(()=>onNodeDicePanelOpenRef.current?.(),80)
             }
+          } else if(mineTypeRef.current==='rl-node'){
+            mineProgressRef.current=Math.min(1,mineProgressRef.current+1/HITS_NEEDED)
+            playPickHit(audioCtxRef,'nftji')
+            if(mineProgressRef.current>=1){
+              playPickHit(audioCtxRef,'complete')
+              mineProgressRef.current=0
+              setTimeout(()=>onRlMountPanelOpenRef.current?.(),80)
+            }
           } else if(mineTypeRef.current==='nftji'){
             // NFTJI market block — 5 hits opens the penalty/info panel
             mineProgressRef.current=Math.min(1,mineProgressRef.current+1/HITS_NEEDED)
@@ -10646,8 +11803,11 @@ export default function MiningChain3DFPV({
       player.jumps=0
     } else {
       if(player.jumps>=MAX_JUMPS) return
-      player.vz=Math.max(0,player.vz)+JUMP_VZ
+      player.vz=Math.max(0,player.vz)+JUMP_VZ*jumpMultRef.current
       player.jumps++
+      if (rlMountActiveRef.current) {
+        triggerRlBoostFx(threeStateRef.current?.localAvatar, threeStateRef.current)
+      }
     }
     renderRef.current?.()
   },[])
