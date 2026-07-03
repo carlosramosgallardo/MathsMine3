@@ -23,6 +23,7 @@ import {
   RL_NODE_MIN_LEVEL,
   RL_NODE_POSITION,
   RL_NODE_PRICE_MM3,
+  getRlNodeWorldCenter,
 } from '@/lib/mining-rl-mount'
 import {
   forEachPerimeterCell,
@@ -3966,6 +3967,11 @@ function drawMinimap(ctx, gr, gc, angle, cellMap, presenceMap, myWallet, W, H, c
   if (!chainDrawn && chainNodePos && isMiningCoreMap(mapId)) {
     drawMapEmoji('⬡', mapX(chainNodePos.col + .5), mapY(chainNodePos.row + .5), '#facc15', 'circle')
   }
+  if (mapId === '2') {
+    const rl = buildRlNodeCell()
+    const rlCenter = getRlNodeWorldCenter()
+    drawMapEmoji(rl.emoji || '🏎️', mapX(rlCenter.x), mapY(rlCenter.z), rl.color || '#0ea5e9', 'circle')
+  }
 
   drawPerimeterCellSoftening(ctx, mapId, mapX, mapY, CS)
 
@@ -6587,7 +6593,7 @@ function updateInteractiveBeaconBatch(batch,time) {
     const displayH=houseBeaconDisplayHeight(entry.row,entry.col,entry.height)
     const pulse=1+Math.sin(time*2.8+entry.phase)*.08
     const bobY=sky?Math.sin(time*1.55+entry.phase)*.42:Math.sin(time*2.1+entry.phase)*.045
-    batch.position.set(entry.col+.5,bobY,entry.row+.5)
+    batch.position.set(entry.worldX??entry.col+.5,bobY,entry.worldZ??entry.row+.5)
     batch.scale.setScalar(pulse)
     batch.quaternion.setFromAxisAngle(yAxis,time*.72+entry.phase)
     batch.parent.compose(batch.position,batch.quaternion,batch.scale)
@@ -8228,29 +8234,37 @@ function rebuildPeripheralMapWorld(state, mapId, obstacles) {
     mesh.userData.collidable = true
     world.add(mesh)
   }
+  if (mapId === '2') {
+    state.beaconBatch = null
+    addRlColiseumNodeVisual(world, lowDetail, state)
+  } else {
+    state.beaconBatch = null
+  }
   state.world = world
   state.cameraCollisionValid = false
   state.biomeSurfaces = []
   state.interactiveVisuals = []
   state.avatarFadeOccluders = []
   state.collisionMeshes = []
-  state.beaconBatch = null
   world.traverse(object => {
     if (object.userData.biomeSurface) state.biomeSurfaces.push(object)
+    if (object.userData.interactive || object.userData.blockGlow) state.interactiveVisuals.push(object)
     if (object.userData.collidable) state.collisionMeshes.push(object)
   })
-  // Keep animated surfaces (sea, flames, beacons) out of the matrix freeze so
-  // the render-loop biomeSurface animations actually move them.
-  const animated = new Set(state.biomeSurfaces)
+  const animated = new Set([
+    ...(state.biomeSurfaces || []),
+    ...(state.interactiveVisuals || []),
+    ...Object.values(state.beaconBatch?.markers || {}),
+    state.beaconBatch?.rings,
+    state.beaconBatch?.ring2s,
+    state.beaconBatch?.columns,
+  ].filter(Boolean))
   world.traverse(object => {
     if (object === world || animated.has(object)) return
     object.updateMatrix()
     object.matrixAutoUpdate = false
   })
   state.scene.add(world)
-  if (mapId === '2') {
-    addInteractiveBeaconEmoji(world, RL_NODE_POSITION.row, RL_NODE_POSITION.col, buildRlNodeCell(), 1.15)
-  }
 }
 
 function rebuildActiveMapWorld(state, mapId, cellMap, obstacles) {
@@ -8258,7 +8272,106 @@ function rebuildActiveMapWorld(state, mapId, cellMap, obstacles) {
   else rebuildPeripheralMapWorld(state, mapId, obstacles)
 }
 
-function createRlCarMesh(lowDetail = false) {
+function addRlColiseumNodeVisual(world, lowDetail, state) {
+  const { x: cx, z: cz } = getRlNodeWorldCenter()
+  const cell = buildRlNodeCell()
+  const row = RL_NODE_POSITION.row
+  const col = RL_NODE_POSITION.col
+  const nodeHeight = 1.0
+  const phase = seededUnit(row * 71 + col * 113) * Math.PI * 2
+
+  const showcase = new THREE.Group()
+  showcase.position.set(cx, 0, cz)
+  showcase.userData.skipOcclusion = true
+  showcase.userData.interactive = true
+  showcase.userData.phase = phase
+
+  const disc = new THREE.Mesh(
+    new THREE.CylinderGeometry(1.35, 1.42, 0.06, lowDetail ? 16 : 32),
+    new THREE.MeshStandardMaterial({
+      color: '#0f172a', roughness: 0.38, metalness: 0.62,
+      emissive: '#0369a1', emissiveIntensity: lowDetail ? 0.35 : 0.55,
+    }),
+  )
+  disc.position.y = 0.05
+  showcase.add(disc)
+
+  const groundRing = new THREE.Mesh(
+    new THREE.TorusGeometry(1.22, 0.045, 6, lowDetail ? 24 : 40),
+    new THREE.MeshBasicMaterial({ color: '#67e8f9', transparent: true, opacity: 0.5, depthWrite: false }),
+  )
+  groundRing.rotation.x = Math.PI / 2
+  groundRing.position.y = 0.11
+  groundRing.userData.biomeSurface = 'decorBeacon'
+  groundRing.userData.phase = phase
+  groundRing.userData.baseY = 0.11
+  showcase.add(groundRing)
+
+  const podium = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.68, 0.82, 0.24, lowDetail ? 8 : 14),
+    new THREE.MeshStandardMaterial({ color: '#1e3a5f', roughness: 0.42, metalness: 0.48, emissive: '#0284c7', emissiveIntensity: 0.22 }),
+  )
+  podium.position.y = 0.18
+  showcase.add(podium)
+
+  const car = createRlCarMesh(lowDetail, { showcase: true })
+  car.scale.setScalar(1.28)
+  car.rotation.y = Math.PI / 6
+  car.position.y = 0.28
+  showcase.add(car)
+
+  const orb = new THREE.Mesh(
+    new THREE.SphereGeometry(lowDetail ? 0.38 : 0.44, lowDetail ? 10 : 14, lowDetail ? 8 : 10),
+    new THREE.MeshStandardMaterial({
+      color: '#0ea5e9', roughness: 0.28, metalness: 0.62,
+      emissive: '#38bdf8', emissiveIntensity: lowDetail ? 0.45 : 0.72,
+    }),
+  )
+  orb.position.y = 0.92
+  showcase.add(orb)
+
+  if (!lowDetail) {
+    for (const [y, r, color, spin] of [
+      [0.55, 0.95, '#0ea5e9', 1],
+      [0.78, 0.68, '#67e8f9', -1.2],
+    ]) {
+      const halo = new THREE.Mesh(
+        new THREE.TorusGeometry(r, 0.028, 6, 28),
+        new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.82, depthWrite: false }),
+      )
+      halo.rotation.x = Math.PI / 2
+      halo.position.y = y
+      halo.userData.biomeSurface = 'decorBeacon'
+      halo.userData.phase = phase * spin
+      halo.userData.baseY = y
+      showcase.add(halo)
+    }
+  }
+
+  const emojiSprite = makeEmojiSprite(cell.emoji, cell.color || '#0ea5e9', 'circle')
+  emojiSprite.scale.set(lowDetail ? 1.15 : 1.38, lowDetail ? 1.15 : 1.38, 1)
+  emojiSprite.position.y = lowDetail ? 1.95 : 2.28
+  emojiSprite.renderOrder = 4
+  if (emojiSprite.material) emojiSprite.material.depthTest = false
+  showcase.add(emojiSprite)
+
+  if (!lowDetail) {
+    const light = new THREE.PointLight('#38bdf8', 3.2, 7.5, 1.65)
+    light.position.y = 0.75
+    showcase.add(light)
+  }
+
+  world.add(showcase)
+
+  if (!lowDetail) {
+    state.beaconBatch = addInteractiveBeaconBatch(world, [{
+      row, col, cell, height: nodeHeight, phase, worldX: cx, worldZ: cz,
+    }])
+    if (state.beaconBatch) updateInteractiveBeaconBatch(state.beaconBatch, performance.now() * 0.001)
+  }
+}
+
+function createRlCarMesh(lowDetail = false, { showcase = false } = {}) {
   const group = new THREE.Group()
   const bodyMat = lowDetail
     ? new THREE.MeshLambertMaterial({ color: '#0ea5e9' })
@@ -8301,7 +8414,8 @@ function createRlCarMesh(lowDetail = false) {
   }
   group.add(boost)
   group.userData.boostFx = boost
-  group.visible = false
+  group.visible = showcase
+  if (showcase) boost.visible = false
   return group
 }
 
@@ -10719,7 +10833,7 @@ export default function MiningChain3DFPV({
     }
 
     // ── Chain node compass (when within 13 cells, not facing it) ─────────────
-    {
+    if (isMiningCoreMap(mapIdRef.current)) {
       const cnPos = chainNodePosRef.current
       const cnDX  = (cnPos.col+0.5) - px/CELL_SIZE
       const cnDY  = (cnPos.row+0.5) - py/CELL_SIZE
@@ -11580,24 +11694,28 @@ export default function MiningChain3DFPV({
       }
       // Direct distance to chain node center — castRay misses it when the player
       // walks INTO its cell (DDA steps away immediately without checking own cell)
+      const onCoreMap = isMiningCoreMap(mapIdRef.current)
       const cnPos=chainNodePosRef.current
-      const cnDist=myDead?Infinity:Math.hypot(p.x/CELL_SIZE-(cnPos.col+.5),p.y/CELL_SIZE-(cnPos.row+.5))
-      if(cnDist<=CHAIN_INTERACT_DIST){
+      const cnDist=myDead||!onCoreMap?Infinity:Math.hypot(p.x/CELL_SIZE-(cnPos.col+.5),p.y/CELL_SIZE-(cnPos.row+.5))
+      if(onCoreMap&&cnDist<=CHAIN_INTERACT_DIST){
         const cnCell=activeCellMapRef.current?.get(`${cnPos.row},${cnPos.col}`)
-        fmx=cnPos.col;fmy=cnPos.row;fc=cnCell;fcDist=cnDist
+        if(cnCell?.isChainNode){
+          fmx=cnPos.col;fmy=cnPos.row;fc=cnCell;fcDist=cnDist
+        }
       }
       // Proximity override for StormRoll node — same pattern as chain node above
       const ndPos=NODE_DICE_POSITION
-      const ndDist=myDead?Infinity:Math.hypot(p.x/CELL_SIZE-(ndPos.col+.5),p.y/CELL_SIZE-(ndPos.row+.5))
+      const ndDist=myDead||!onCoreMap?Infinity:Math.hypot(p.x/CELL_SIZE-(ndPos.col+.5),p.y/CELL_SIZE-(ndPos.row+.5))
       if(ndDist<=INTERACT_DIST&&canInteractNodeDiceAtHeight(p.z)){
         const ndCell=activeCellMapRef.current?.get(`${ndPos.row},${ndPos.col}`)
         if(ndCell?.isNodeDiceNode){fmx=ndPos.col;fmy=ndPos.row;fc=ndCell;fcDist=ndDist}
       }
-      const rlPos=RL_NODE_POSITION
-      const rlDist=myDead?Infinity:Math.hypot(p.x/CELL_SIZE-(rlPos.col+.5),p.y/CELL_SIZE-(rlPos.row+.5))
-      if(mapIdRef.current==='2'&&rlDist<=INTERACT_DIST){
-        const rlCell=activeCellMapRef.current?.get(`${rlPos.row},${rlPos.col}`)
-        if(rlCell?.isRlNode&&(!fcDist||rlDist<fcDist)){fmx=rlPos.col;fmy=rlPos.row;fc=rlCell;fcDist=rlDist}
+      const rlCenter = getRlNodeWorldCenter()
+      const rlDist = myDead ? Infinity : Math.hypot(p.x / CELL_SIZE - rlCenter.x, p.y / CELL_SIZE - rlCenter.z)
+      if (mapIdRef.current === '2' && rlDist <= INTERACT_DIST) {
+        const rlPos = RL_NODE_POSITION
+        const rlCell = activeCellMapRef.current?.get(`${rlPos.row},${rlPos.col}`)
+        if (rlCell?.isRlNode && (!fcDist || rlDist < fcDist)) { fmx = rlPos.col; fmy = rlPos.row; fc = rlCell; fcDist = rlDist }
       }
       // Proximity override for navigation portals. DDA can miss the portal when
       // the player stands on its floor cell or aims slightly above the low node.
@@ -11627,9 +11745,9 @@ export default function MiningChain3DFPV({
       // Reset mine progress whenever the player is out of interaction range
       if(fcDist > INTERACT_DIST){ mineProgressRef.current=0; mineTargetRef.current=null }
       // Reset chain progress when stepping out of the tight chain radius
-      if(cnDist > CHAIN_INTERACT_DIST && mineTypeRef.current==='chain'){ mineProgressRef.current=0 }
-      // Keep chain active every frame while player stays within range
-      if(cnDist<=CHAIN_INTERACT_DIST){ actionUrlRef.current=null; mineTypeRef.current='chain' }
+      if(onCoreMap&&cnDist > CHAIN_INTERACT_DIST && mineTypeRef.current==='chain'){ mineProgressRef.current=0 }
+      // Keep chain active every frame while player stays within range (M1 only)
+      if(onCoreMap&&cnDist<=CHAIN_INTERACT_DIST){ actionUrlRef.current=null; mineTypeRef.current='chain' }
       if(newKey!==facingKeyRef.current||crossedInteractionRange){
         facingKeyRef.current=newKey
         // Reset progress when target changes
