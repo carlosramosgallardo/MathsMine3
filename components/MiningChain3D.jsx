@@ -490,6 +490,19 @@ export default function MiningChain3D() {
       mapId: mapIdRef.current,
       rlMount: false,
     }).catch?.(() => {})
+    channelRef.current?.send({
+      type: 'broadcast', event: 'move',
+      payload: {
+        wallet: myKeyRef.current,
+        gx: (pos.col ?? 0) + 0.5,
+        gy: (pos.row ?? 0) + 0.5,
+        row: pos.row ?? 0,
+        col: pos.col ?? 0,
+        z: Number(pos.z) || 0,
+        mapId: mapIdRef.current,
+        rlMount: false,
+      },
+    })?.catch(() => {})
   }, [])
 
   const handlePurchaseRlMount = useCallback(async () => {
@@ -546,6 +559,20 @@ export default function MiningChain3D() {
       nodeDice: normalizeNodeDiceState(nodeDiceRef.current),
       rlMount: true,
     }).catch?.(() => {})
+    channelRef.current?.send({
+      type: 'broadcast', event: 'move',
+      payload: {
+        wallet: myKeyRef.current,
+        gx: (pos.col ?? 0) + 0.5,
+        gy: (pos.row ?? 0) + 0.5,
+        row: pos.row ?? 0,
+        col: pos.col ?? 0,
+        z: Number(pos.z) || 0,
+        mapId: mapIdRef.current,
+        poolCode: myPoolCode || null,
+        rlMount: true,
+      },
+    })?.catch(() => {})
   }, [es, loadRlMountWalletStats, myPoolCode])
 
   const handleActivateNodeDice = useCallback(async () => {
@@ -1173,6 +1200,7 @@ export default function MiningChain3D() {
             isDead:Boolean(payload.isDead),
             deadUntil:payload.deadUntil||null,
             mapId:payload.mapId||prev[wallet]?.mapId||MINING_CORE_MAP_ID,
+            rlMount:payload.rlMount!=null?Boolean(payload.rlMount):Boolean(prev[wallet]?.rlMount),
           }
         }
         return next
@@ -1328,6 +1356,7 @@ export default function MiningChain3D() {
           isDead: true,
           deadUntil: payload.deadUntil,
           mapId: payload.mapId || prev[w]?.mapId || MINING_CORE_MAP_ID,
+          rlMount: false,
         },
       }))
       setOnlineWallets(prev => prev.has(w) ? prev : new Set([...prev, w]))
@@ -1405,7 +1434,13 @@ export default function MiningChain3D() {
             isDead: Boolean(p.isDead),
             deadUntil: p.deadUntil || null,
             mapId: p.mapId || MINING_CORE_MAP_ID,
+            rlMount: Boolean(p.rlMount),
           }
+        }
+        for (const [w, entries] of Object.entries(state)) {
+          const p = entries?.[0]
+          if (!p || !next[w] || p.rlMount == null) continue
+          next[w] = { ...next[w], rlMount: Boolean(p.rlMount) }
         }
         // Remove players who left (always keep self)
         for (const w of Object.keys(next)) {

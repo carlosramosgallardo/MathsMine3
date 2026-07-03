@@ -20,7 +20,9 @@ import {
   buildRlNodeCell,
   RL_MOUNT_JUMP_MULT,
   RL_MOUNT_SPEED_MULT,
+  RL_NODE_MIN_LEVEL,
   RL_NODE_POSITION,
+  RL_NODE_PRICE_MM3,
 } from '@/lib/mining-rl-mount'
 import {
   forEachPerimeterCell,
@@ -179,6 +181,12 @@ const REMOTE_AVATAR_LOCAL = Object.freeze({
   neck: 0.68,
   feet: 0.075,
   halfWidth: 0.36,
+})
+// RL mount: only head + antenna visible above the car mesh (see applyRlMountVisual).
+const REMOTE_AVATAR_MOUNTED_LOCAL = Object.freeze({
+  headTop: 0.775,
+  headBottom: 0.30,
+  halfWidth: 0.38,
 })
 function getRemoteAvatarWorldScale(threeState, gx, gy, gz) {
   const v = threeState._v3b.set(gx, gz, gy).applyMatrix4(threeState.camera.matrixWorldInverse)
@@ -1643,6 +1651,12 @@ function makeCipherHouseEntries() {
   return entries
 }
 
+/** M1 NE sight corridor toward the north gateway (M2) — keep these cells wall-free. */
+const M1_NORTH_SIGHT_CLEAR = new Set([
+  '5,52', '1,50', '1,51', '2,45', '1,45', '4,43', '5,44', '3,40', '2,39', '2,38',
+  '1,37', '4,36', '5,33', '5,32', '4,31', '3,30', '1,31', '1,32',
+])
+
 const OBSTACLE_MAP = new Map([
   // Outer wall segments — cool slate, form loose frame with gaps
   ['2,7',   { base:W_SLATE, label:'WALL' }],
@@ -1984,19 +1998,11 @@ const OBSTACLE_MAP = new Map([
 
   // ─── Top-right sector (rows 0-27, cols 28-55) — Eastern Ruins ────────────────
   // Band 1 (rows 1-4)
-  ['1,31',   { base:W_SLATE, label:'WALL' }],
-  ['1,32',   { base:W_SLATE, label:'WALL' }],
-  ['1,37',   { base:W_SLATE, label:'WALL' }],
   ['1,38',   { base:W_SLATE, label:'WALL' }],
   ['1,44',   { base:W_SLATE, label:'WALL' }],
-  ['1,45',   { base:W_SLATE, label:'WALL' }],
-  ['1,50',   { base:W_SLATE, label:'WALL' }],
-  ['1,51',   { base:W_SLATE, label:'WALL' }],
   ['3,29',   { base:W_DARK, label:'WALL' }],
-  ['3,30',   { base:W_DARK, label:'WALL' }],
   ['3,34',   { base:W_DARK, label:'WALL' }],
   ['3,35',   { base:W_DARK, label:'WALL' }],
-  ['3,40',   { base:W_DARK, label:'WALL' }],
   ['3,41',   { base:W_DARK, label:'WALL' }],
   ['3,47',   { base:W_DARK, label:'WALL' }],
   ['3,48',   { base:W_DARK, label:'WALL' }],
@@ -2004,15 +2010,11 @@ const OBSTACLE_MAP = new Map([
   ['3,54',   { base:W_DARK, label:'WALL' }],
   // Band 2 (rows 5-9)
   ['5,31',   { base:W_STONE, label:'WALL' }],
-  ['5,32',   { base:W_STONE, label:'WALL' }],
-  ['5,33',   { base:W_STONE, label:'WALL' }],
   ['5,38',   { base:W_STONE, label:'WALL' }],
   ['5,39',   { base:W_STONE, label:'WALL' }],
-  ['5,44',   { base:W_STONE, label:'WALL' }],
   ['5,45',   { base:W_STONE, label:'WALL' }],
   ['5,46',   { base:W_STONE, label:'WALL' }],
   ['5,51',   { base:W_STONE, label:'WALL' }],
-  ['5,52',   { base:W_STONE, label:'WALL' }],
   ['7,29',   { base:W_DARK, label:'WALL' }],
   ['7,30',   { base:W_DARK, label:'WALL' }],
   ['7,35',   { base:W_DARK, label:'WALL' }],
@@ -2285,17 +2287,11 @@ const OBSTACLE_MAP = new Map([
   // ─── Top-right sector — additional density fill ───────────────────────────────
   ['2,31',   { base:W_DARK,  label:'WALL' }],
   ['2,32',   { base:W_DARK,  label:'WALL' }],
-  ['2,38',   { base:W_DARK,  label:'WALL' }],
-  ['2,39',   { base:W_DARK,  label:'WALL' }],
-  ['2,45',   { base:W_DARK,  label:'WALL' }],
   ['2,46',   { base:W_DARK,  label:'WALL' }],
   ['2,52',   { base:W_DARK,  label:'WALL' }],
   ['2,53',   { base:W_DARK,  label:'WALL' }],
   ['4,30',   { base:W_STONE, label:'WALL' }],
-  ['4,31',   { base:W_STONE, label:'WALL' }],
-  ['4,36',   { base:W_STONE, label:'WALL' }],
   ['4,37',   { base:W_STONE, label:'WALL' }],
-  ['4,43',   { base:W_STONE, label:'WALL' }],
   ['4,44',   { base:W_STONE, label:'WALL' }],
   ['4,49',   { base:W_STONE, label:'WALL' }],
   ['4,50',   { base:W_STONE, label:'WALL' }],
@@ -4081,7 +4077,7 @@ function drawFacingHUD(ctx, W, H, fwdCell, fwdMx, fwdMy, myWallet, es, dist, obs
     const owned = Boolean(rlMountActive)
     const lines = [
       { text: `${fwdCell.emoji || '🏎️'}  ${fwdCell.titleEn || 'RL NODE'}`, size: 13, weight: 'bold', col },
-      { text: owned ? (es ? 'COCHE ACTIVO' : 'CAR ACTIVE') : '500 MM3 · Lv 10', size: 10, col: owned ? '#4ade80cc' : '#94a3b8' },
+      { text: owned ? (es ? 'COCHE ACTIVO' : 'CAR ACTIVE') : `${RL_NODE_PRICE_MM3} MM3 · Lv ${RL_NODE_MIN_LEVEL}`, size: 10, col: owned ? '#4ade80cc' : '#94a3b8' },
       { text: es ? '2× velocidad · 2× salto · boost RL' : '2× speed · 2× jump · RL boost', size: 9, col: '#64748b' },
       inRange
         ? (mineProgress > 0
@@ -9197,8 +9193,10 @@ export default function MiningChain3DFPV({
         reserved.add(`${r+dr},${c+dc}`)
       }
     }
+    for (const key of M1_NORTH_SIGHT_CLEAR) reserved.add(key)
     const valid = new Map()
     for (const [key, data] of OBSTACLE_MAP) {
+      if (M1_NORTH_SIGHT_CLEAR.has(key)) continue
       const [row,col]=key.split(',').map(Number)
       if (HOUSE_DOOR_STEP_KEYS.has(key)) continue
       const insideHouse=
@@ -9417,6 +9415,7 @@ export default function MiningChain3DFPV({
       current.isDead=Boolean(target.isDead)
       current.deadUntil=target.deadUntil??null
       current.mapId=target.mapId||MINING_CORE_MAP_ID
+      current.rlMount=Boolean(target.rlMount)
       presence[w]=current
     }
     for(const w of visuals.keys()) if(!rawPresence?.[w]){visuals.delete(w);delete presence[w]}
@@ -10157,10 +10156,12 @@ export default function MiningChain3DFPV({
     // ── Presence sprites (retro wallet shape, grounded to floor) ────────────────
     const camGX = px / CELL_SIZE, camGY = py / CELL_SIZE
     const sprites = []
+    const currentMapId = mapIdRef.current
     for (const [w, pres] of Object.entries(presence || {})) {
       if (pres.row == null && pres.gy == null) continue
       const isMe = w.toLowerCase() === (myIdentity || '').toLowerCase()
       if (isMe) continue
+      if ((pres.mapId || MINING_CORE_MAP_ID) !== currentMapId) continue
       const sgx = pres.gx ?? ((pres.col ?? 0) + 0.5)
       const sgy = pres.gy ?? ((pres.row ?? 0) + 0.5)
       const rx = sgx - camGX
@@ -11108,6 +11109,7 @@ export default function MiningChain3DFPV({
       // Physical collision repulsion: push away from nearby players (no health damage)
       if(!myDead) for(const [w,remote] of remoteVisualsRef.current.entries()){
         if(w.toLowerCase()===(presenceKeyRef.current||myWalletRef.current||'').toLowerCase()) continue
+        if((remote.mapId||MINING_CORE_MAP_ID)!==mapIdRef.current) continue
         if(Math.abs((Number(remote.z)||0)-p.z)>.85) continue
         const repX=p.x/CELL_SIZE-remote.gx, repY=p.y/CELL_SIZE-remote.gy
         const repD=Math.hypot(repX,repY)
@@ -11149,6 +11151,7 @@ export default function MiningChain3DFPV({
         const avatarBlocked=(gx,gy)=>{
           for(const [w,remote] of remoteVisualsRef.current){
             if(w.toLowerCase()===(presenceKeyRef.current||myWalletRef.current||'').toLowerCase()) continue
+            if((remote.mapId||MINING_CORE_MAP_ID)!==mapIdRef.current) continue
             if(Math.abs((Number(remote.z)||0)-p.z)>.85) continue
             const nextDist=Math.hypot(gx-remote.gx,gy-remote.gy)
             const currentDist=Math.hypot(p.x/CELL_SIZE-remote.gx,p.y/CELL_SIZE-remote.gy)
@@ -11388,6 +11391,7 @@ export default function MiningChain3DFPV({
       for (const [w, pres] of myDead ? [] : remoteVisualsRef.current.entries()) {
         const isMe = w.toLowerCase() === (myIdentity || '').toLowerCase()
         if (isMe) continue
+        if ((pres.mapId || MINING_CORE_MAP_ID) !== mapIdRef.current) continue
         if (pres.isDead) continue  // dead players are not targetable
         const sgx = pres.gx ?? ((pres.col ?? 0) + 0.5)
         const sgy = pres.gy ?? ((pres.row ?? 0) + 0.5)
@@ -11402,6 +11406,7 @@ export default function MiningChain3DFPV({
         const myPool     = myPoolCodeRef.current
         const isTeammate = !!(myPool && enemyPool && myPool === enemyPool)
         const targetable = !isTeammate && (!myIsAnon || w.startsWith('anon-'))
+        const mounted = Boolean(pres.rlMount)
         let hitZone = null
 
         if (_threeState) {
@@ -11409,10 +11414,11 @@ export default function MiningChain3DFPV({
           // +0.85/+0.22 offsets ignored avatar scale and caused HEAD to trigger while
           // the crosshair pointed at empty space beside the visible model.
           const avScale = getRemoteAvatarWorldScale(_threeState, sgx, remoteZ, sgy)
-          const headTopW = remoteZ + REMOTE_AVATAR_LOCAL.headTop * avScale
-          const headBotW = remoteZ + REMOTE_AVATAR_LOCAL.headBottom * avScale
-          const feetW = remoteZ + REMOTE_AVATAR_LOCAL.feet * avScale
-          const halfW = REMOTE_AVATAR_LOCAL.halfWidth * avScale
+          const bounds = mounted ? REMOTE_AVATAR_MOUNTED_LOCAL : REMOTE_AVATAR_LOCAL
+          const headTopW = remoteZ + bounds.headTop * avScale
+          const headBotW = remoteZ + bounds.headBottom * avScale
+          const feetW = mounted ? headBotW : remoteZ + REMOTE_AVATAR_LOCAL.feet * avScale
+          const halfW = bounds.halfWidth * avScale
           const sv = _threeState._v3a
           sv.set(sgx, headTopW, sgy); sv.project(_threeState.camera)
           if (sv.z > 1) continue
@@ -11428,12 +11434,20 @@ export default function MiningChain3DFPV({
           const padX = 5
           const minX = Math.min(pxLeft, pxRight) - padX
           const maxX = Math.max(pxLeft, pxRight) + padX
-          const minY = Math.min(pyHeadTop, pyHeadBottom) - 4
-          const maxY = pyFeet + 6
-          if (_cx < minX || _cx > maxX || _cy < minY || _cy > maxY) continue
-          // Head only inside the actual head band — not the whole upper torso.
-          const headPad = 3
-          hitZone = (_cy >= pyHeadTop - headPad && _cy <= pyHeadBottom + headPad) ? 'head' : 'body'
+          if (mounted) {
+            const headPad = 5
+            const minY = Math.min(pyHeadTop, pyHeadBottom) - headPad
+            const maxY = Math.max(pyHeadTop, pyHeadBottom) + headPad
+            if (_cx < minX || _cx > maxX || _cy < minY || _cy > maxY) continue
+            // Only the cockpit/head is exposed — every valid hit is a headshot.
+            hitZone = 'head'
+          } else {
+            const minY = Math.min(pyHeadTop, pyHeadBottom) - 4
+            const maxY = pyFeet + 6
+            if (_cx < minX || _cx > maxX || _cy < minY || _cy > maxY) continue
+            const headPad = 3
+            hitZone = (_cy >= pyHeadTop - headPad && _cy <= pyHeadBottom + headPad) ? 'head' : 'body'
+          }
         } else {
           // 2D raycaster mode: project with player-eye math (same as the renderer).
           const relZ  = remoteZ - (p.z + CAMERA_EYE_Z)
@@ -11448,11 +11462,20 @@ export default function MiningChain3DFPV({
           const billsH  = Math.round(sScale * 0.20 * REMOTE_AVATAR_VISUAL_SCALE)
           const walletTop = bottomY - walletH
           const billsTop  = walletTop - billsH
-          if (Math.abs(_cx - scrX) > walletW * 0.60) continue
-          hitZone = _cy >= billsTop && _cy <= walletTop ? 'head'
-                  : _cy >  walletTop && _cy <= bottomY  ? 'body'
-                  : null
-          if (!hitZone) continue
+          if (mounted) {
+            const headHalfW = walletW * 0.42
+            if (Math.abs(_cx - scrX) > headHalfW) continue
+            const headTop = billsTop - billsH * 0.15
+            const headBottom = walletTop - walletH * 0.55
+            if (_cy < headBottom || _cy > headTop) continue
+            hitZone = 'head'
+          } else {
+            if (Math.abs(_cx - scrX) > walletW * 0.60) continue
+            hitZone = _cy >= billsTop && _cy <= walletTop ? 'head'
+                    : _cy >  walletTop && _cy <= bottomY  ? 'body'
+                    : null
+            if (!hitZone) continue
+          }
         }
 
         const inHitRange = tY <= PVP_HIT_RANGE && Math.hypot(tY, verticalGap) <= PVP_HIT_RANGE

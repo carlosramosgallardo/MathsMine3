@@ -64,7 +64,7 @@ export async function POST(req) {
     return Response.json({ ok: false, error: 'victim_is_dead' }, { status: 409 })
   }
 
-  // Defense NFTJI (🔰): 10% dodge chance when victim has it equipped
+  // Defense NFTJI (🔰): 10% dodge — independent of hit zone / RL mount.
   const hasDefenseNftji = victimSqueezeNftji?.equipped === 'defense'
     && Number(victimSqueezeNftji?.defense_level ?? -1) >= 0
   if (!victimIsAnon && hasDefenseNftji && Math.random() < 0.10) {

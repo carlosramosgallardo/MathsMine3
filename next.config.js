@@ -1,6 +1,7 @@
 const nextConfig = {
   reactStrictMode: true,
   turbopack: {},
+  allowedDevOrigins: ['mathsmine3.xyz'],
   experimental: {
     optimizePackageImports: ['recharts', 'three'],
   },

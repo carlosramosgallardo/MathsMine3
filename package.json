@@ -6,6 +6,7 @@
   "license": "MIT",
   "scripts": {
     "dev": "next dev",
+    "dev:https": "next dev --port 3000 --experimental-https --experimental-https-key ./certificates/mathsmine3.xyz-key.pem --experimental-https-cert ./certificates/mathsmine3.xyz.pem",
     "build": "next build",
     "start": "next start"
   },
