@@ -29,6 +29,7 @@ import {
   getPerimeterCellVisual,
   usesSoftPerimeter,
 } from '@/lib/mining-perimeter-visual'
+import { buildM1GatewaySightClear } from '@/lib/mining-gateway-corridors'
 import { getDiceState } from '@/lib/dice'
 import {
   CIPHER_HOUSE_BOUNDS,
@@ -1651,11 +1652,7 @@ function makeCipherHouseEntries() {
   return entries
 }
 
-/** M1 NE sight corridor toward the north gateway (M2) — keep these cells wall-free. */
-const M1_NORTH_SIGHT_CLEAR = new Set([
-  '5,52', '1,50', '1,51', '2,45', '1,45', '4,43', '5,44', '3,40', '2,39', '2,38',
-  '1,37', '4,36', '5,33', '5,32', '4,31', '3,30', '1,31', '1,32',
-])
+const M1_GATEWAY_SIGHT_CLEAR = buildM1GatewaySightClear()
 
 const OBSTACLE_MAP = new Map([
   // Outer wall segments — cool slate, form loose frame with gaps
@@ -4983,13 +4980,28 @@ function renderProceduralTextureCanvas(kind, size = 128) {
   return canvas
 }
 
+function finalizeCanvasTexture(texture, { wrap, repeat, anisotropy = 1 } = {}) {
+  texture.colorSpace = THREE.SRGBColorSpace
+  texture.minFilter = THREE.LinearFilter
+  texture.magFilter = THREE.LinearFilter
+  texture.generateMipmaps = false
+  texture.anisotropy = anisotropy
+  texture.needsUpdate = true
+  if (wrap) {
+    texture.wrapS = wrap
+    texture.wrapT = wrap
+  }
+  if (repeat) texture.repeat.set(repeat[0], repeat[1])
+  return texture
+}
+
 function createProceduralTexture(kind, size = 128) {
   const texture = new THREE.CanvasTexture(renderProceduralTextureCanvas(kind, size))
-  texture.colorSpace = THREE.SRGBColorSpace
-  texture.wrapS = texture.wrapT = THREE.RepeatWrapping
-  texture.repeat.set(5, 5)
-  texture.anisotropy = 4
-  return texture
+  return finalizeCanvasTexture(texture, {
+    wrap: THREE.RepeatWrapping,
+    repeat: [5, 5],
+    anisotropy: size <= 64 ? 1 : 4,
+  })
 }
 
 function tintCanvas(canvas, hex) {
@@ -5003,7 +5015,11 @@ function tintCanvas(canvas, hex) {
 // One 2×2 atlas — matches biomeForCell quadrants, single ground plane (no z-fighting).
 let _biomeAtlasCache = null
 function getBiomeAtlas() {
-  if (!_biomeAtlasCache) _biomeAtlasCache = createBiomeAtlasTexture()
+  if (!_biomeAtlasCache) {
+    const compact = typeof window !== 'undefined'
+      && getMiningVisualTier(window.innerWidth, window.innerHeight) === 'low'
+    _biomeAtlasCache = createBiomeAtlasTexture(compact ? 128 : 256)
+  }
   return _biomeAtlasCache
 }
 function createBiomeAtlasTexture(quadSize = 256) {
@@ -5023,10 +5039,10 @@ function createBiomeAtlasTexture(quadSize = 256) {
     ctx.drawImage(tile, x, y)
   }
   const texture = new THREE.CanvasTexture(atlas)
-  texture.colorSpace = THREE.SRGBColorSpace
-  texture.wrapS = texture.wrapT = THREE.ClampToEdgeWrapping
-  texture.anisotropy = 4
-  return texture
+  return finalizeCanvasTexture(texture, {
+    wrap: THREE.ClampToEdgeWrapping,
+    anisotropy: quadSize <= 128 ? 1 : 4,
+  })
 }
 
 function createHouseGroundTexture(size=128) {
@@ -5056,9 +5072,7 @@ function createHouseGroundTexture(size=128) {
     ctx.beginPath();ctx.moveTo(p,0);ctx.lineTo(p,size);ctx.stroke()
   }
   const texture=new THREE.CanvasTexture(canvas)
-  texture.colorSpace=THREE.SRGBColorSpace;texture.wrapS=texture.wrapT=THREE.RepeatWrapping
-  texture.repeat.set(3,3);texture.anisotropy=4
-  return texture
+  return finalizeCanvasTexture(texture,{wrap:THREE.RepeatWrapping,repeat:[3,3],anisotropy:4})
 }
 
 function createSkyTexture() {
@@ -5066,8 +5080,7 @@ function createSkyTexture() {
   const ctx=canvas.getContext('2d'),gradient=ctx.createLinearGradient(0,0,0,512)
   gradient.addColorStop(0,'#01020d');gradient.addColorStop(.35,'#071642');gradient.addColorStop(.72,'#293b78');gradient.addColorStop(1,'#8a315d')
   ctx.fillStyle=gradient;ctx.fillRect(0,0,64,512)
-  const texture=new THREE.CanvasTexture(canvas);texture.colorSpace=THREE.SRGBColorSpace
-  return texture
+  return finalizeCanvasTexture(new THREE.CanvasTexture(canvas))
 }
 
 function addNightDome(scene, lowDetail=false) {
@@ -7320,46 +7333,8 @@ function addPeripheralMapLandmark(world, textures, mapId, lowDetail = false) {
     ring.rotation.x = Math.PI / 2
     ring.position.set(centerX, 0.14, centerZ)
     group.add(ring)
-  } else if (mapId === '3') {
-    const cone = new THREE.Mesh(
-      new THREE.ConeGeometry(3.1, 6.8, segs),
-      new THREE.MeshStandardMaterial({ color: '#df5832', roughness: 0.55, metalness: 0.18, emissive: '#8c1705', emissiveIntensity: 0.88 }),
-    )
-    cone.position.set(centerX, 3.4, centerZ)
-    group.add(cone)
-    for (let i = 0; i < (lowDetail ? 4 : 8); i += 1) {
-      const vent = new THREE.Mesh(
-        new THREE.ConeGeometry(0.18, 1.2, 4),
-        new THREE.MeshBasicMaterial({ color: '#ffd43b', transparent: true, opacity: 0.82, depthWrite: false }),
-      )
-      const angle = (i / 8) * Math.PI * 2
-      vent.position.set(centerX + Math.cos(angle) * 2.4, 0.6, centerZ + Math.sin(angle) * 2.4)
-      group.add(vent)
-    }
-  } else if (mapId === '4') {
-    for (const [dx, dz, h] of [[-2.2, 0, 3.2], [2.2, 0, 3.2], [0, -2.2, 2.8], [0, 2.2, 2.8]]) {
-      const pillar = new THREE.Mesh(
-        new THREE.BoxGeometry(0.7, h, 0.7),
-        new THREE.MeshStandardMaterial({ map: textures.coast, color: '#e8b967', roughness: 0.84, metalness: 0.04 }),
-      )
-      pillar.position.set(centerX + dx, h * 0.5, centerZ + dz)
-      group.add(pillar)
-    }
-    const lintel = new THREE.Mesh(
-      new THREE.BoxGeometry(5.2, 0.45, 0.55),
-      new THREE.MeshStandardMaterial({ color: '#facc15', roughness: 0.42, metalness: 0.52, emissive: '#92400e', emissiveIntensity: 0.34 }),
-    )
-    lintel.position.set(centerX, 3.35, centerZ)
-    group.add(lintel)
-  } else if (mapId === '5') {
-    for (const [dx, dz, h] of [[-1.6, -1.4, 5.6], [1.8, 1.2, 4.8], [-1.2, 1.8, 4.2], [1.4, -1.6, 6.2]]) {
-      const monolith = new THREE.Mesh(
-        new THREE.BoxGeometry(0.9, h, 0.9),
-        new THREE.MeshStandardMaterial({ map: textures.mountain, color: '#9bb9d2', roughness: 0.68, metalness: 0.12 }),
-      )
-      monolith.position.set(centerX + dx, h * 0.5, centerZ + dz)
-      group.add(monolith)
-    }
+  } else if (mapId === '3' || mapId === '4' || mapId === '5') {
+    // Reserved for future full-map venues — no central clutter yet.
   }
   const sign = new THREE.Mesh(
     new THREE.PlaneGeometry(4.8, 0.7),
@@ -7394,16 +7369,19 @@ const GROUND_FEATURE_STYLE = {
 // blotchy dirt for trails, alpha fading to zero on every border so ground
 // features stop reading as hard rectangles.
 let groundFeatureTextureCache = null
-function getGroundFeatureTexture(kind) {
+function getGroundFeatureTexture(kind, compact = false) {
   if (typeof document === 'undefined') return null
-  if (groundFeatureTextureCache?.[kind]) return groundFeatureTextureCache[kind]
+  const cacheKey = compact ? `${kind}:compact` : kind
+  if (groundFeatureTextureCache?.[cacheKey]) return groundFeatureTextureCache[cacheKey]
   const isField = kind === 'field'
   const isPlaza = kind === 'plaza'
   const isCauseway = kind.startsWith('causeway')
   const causewaySeaNorth = kind === 'causeway-n'
+  const causewaySeaEast = kind === 'causeway-e'
+  const scale = compact ? 0.5 : 1
   const canvas = document.createElement('canvas')
-  canvas.width = 256
-  canvas.height = isField ? 256 : 128
+  canvas.width = Math.max(64, Math.round(256 * scale))
+  canvas.height = Math.max(64, Math.round((isField ? 256 : 128) * scale))
   const context = canvas.getContext('2d')
   const image = context.createImageData(canvas.width, canvas.height)
   const data = image.data
@@ -7459,8 +7437,13 @@ function getGroundFeatureTexture(kind) {
         green = 180 + noise * 10 - 5
         blue = 162 + noise * 10 - 5
         if (edge < 2) { red -= 14; green -= 12; blue -= 10 }
-        const seaT = y / (canvas.height - 1)
-        const landT = causewaySeaNorth ? seaT : 1 - seaT
+        const seaAlong = (causewaySeaEast || kind === 'causeway-w')
+          ? x / (canvas.width - 1)
+          : y / (canvas.height - 1)
+        const landT = kind === 'causeway-n' ? seaAlong
+          : kind === 'causeway-s' ? 1 - seaAlong
+          : kind === 'causeway-e' ? 1 - seaAlong
+          : seaAlong
         const seaFade = Math.max(0, Math.min(1, (landT - 0.55) / 0.38))
         const sideFade = Math.max(0, Math.min(1, Math.min(x, canvas.width - 1 - x) / (canvas.width * 0.22)))
         alpha = (1 - seaFade * seaFade) * sideFade
@@ -7489,9 +7472,9 @@ function getGroundFeatureTexture(kind) {
     }
   }
   context.putImageData(image, 0, 0)
-  const texture = new THREE.CanvasTexture(canvas)
+  const texture = finalizeCanvasTexture(new THREE.CanvasTexture(canvas))
   if (!groundFeatureTextureCache) groundFeatureTextureCache = {}
-  groundFeatureTextureCache[kind] = texture
+  groundFeatureTextureCache[cacheKey] = texture
   return texture
 }
 
@@ -7504,37 +7487,46 @@ function addPeripheralGroundFeatures(world, mapId, lowDetail = false) {
     const style = GROUND_FEATURE_STYLE[feature.kind]
     if (!style) continue
     const texKind = feature.kind === 'causeway'
-      ? (feature.causewayDir === 'north' ? 'causeway-n' : 'causeway-s')
+      ? `causeway-${feature.causewayDir}`
       : style.tex
-    const texture = lowDetail ? null : getGroundFeatureTexture(texKind)
+    const texture = getGroundFeatureTexture(texKind, lowDetail)
     const plane = new THREE.Mesh(
       new THREE.PlaneGeometry(feature.maxCol - feature.minCol, feature.maxRow - feature.minRow),
-      texture
-        ? new THREE.MeshBasicMaterial({ map: texture, color: style.tint, transparent: true, opacity: style.texOpacity, depthWrite: false })
-        : new THREE.MeshBasicMaterial({ color: style.color, transparent: true, opacity: style.opacity, depthWrite: false }),
+      new THREE.MeshBasicMaterial({
+        map: texture,
+        color: style.tint,
+        transparent: true,
+        opacity: style.texOpacity,
+        depthWrite: false,
+      }),
     )
     plane.rotation.x = -Math.PI / 2
     plane.position.set((feature.minCol + feature.maxCol) / 2, style.y, (feature.minRow + feature.maxRow) / 2)
     plane.renderOrder = feature.kind === 'causeway' ? 3 : 1
     scenery.add(plane)
   }
-  if (mapId === '1') addGatewayCausewayScenery(scenery, 'north', lowDetail)
+  if (mapId === '1') {
+    for (const dir of ['north', 'south', 'east', 'west']) addGatewayCausewayScenery(scenery, dir, lowDetail)
+  }
   if (mapId === '2') {
     addColiseumPerimeterScenery(scenery, lowDetail)
     addGatewayCausewayScenery(scenery, 'south', lowDetail)
   }
+  if (mapId === '3') addGatewayCausewayScenery(scenery, 'north', lowDetail)
+  if (mapId === '4') addGatewayCausewayScenery(scenery, 'west', lowDetail)
+  if (mapId === '5') addGatewayCausewayScenery(scenery, 'east', lowDetail)
   world.add(scenery)
 }
 
 // Stone pilings, lanterns and shore arches on gateway causeways over the sea.
 function addGatewayCausewayScenery(scenery, direction, lowDetail = false) {
   if (lowDetail) return
-  const bands = [[29, 0], [34.5, 1.1], [41, 2.2], [47.5, 3.3], [53, 4.4]]
-  const shoreZ = direction === 'south' ? 53.5 : 1.5
-  const seaStep = direction === 'south' ? 3.2 : -3.2
+  const colBands = [[29, 0], [34.5, 1.1], [41, 2.2], [47.5, 3.3], [53, 4.4]]
+  const rowBands = [[39, 0], [47, 1.1], [53, 2.2]]
   const pilingMat = new THREE.MeshStandardMaterial({ color: '#ddd0b8', roughness: .52, metalness: .12, flatShading: true })
   const lanternMat = new THREE.MeshBasicMaterial({ color: '#fbbf24', transparent: true, opacity: .92 })
-  for (const [x, phase] of bands) {
+
+  const addNorthSouthBand = (x, phase, shoreZ, seaStep) => {
     const arch = new THREE.Mesh(
       new THREE.TorusGeometry(0.55, 0.06, 5, 10, Math.PI),
       pilingMat,
@@ -7565,6 +7557,52 @@ function addGatewayCausewayScenery(scenery, direction, lowDetail = false) {
     flame.userData.biomeSurface = 'fire'
     flame.userData.phase = phase
     scenery.add(flame)
+  }
+
+  const addEastWestBand = (z, phase, shoreX, seaStep) => {
+    const arch = new THREE.Mesh(
+      new THREE.TorusGeometry(0.55, 0.06, 5, 10, Math.PI),
+      pilingMat,
+    )
+    arch.rotation.x = Math.PI / 2
+    arch.rotation.z = Math.PI / 2
+    arch.position.set(shoreX, 2.05, z)
+    scenery.add(arch)
+    for (let step = 1; step <= 6; step += 1) {
+      const x = shoreX + seaStep * step
+      for (const dz of [-0.55, 0.55]) {
+        const piling = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.14, 0.9, 6), pilingMat)
+        piling.position.set(x, 0.45, z + dz)
+        scenery.add(piling)
+      }
+      if (step % 2 === 0) {
+        const lantern = new THREE.Mesh(new THREE.OctahedronGeometry(0.12), lanternMat)
+        lantern.position.set(x, 1.35, z)
+        scenery.add(lantern)
+      }
+    }
+    const flame = new THREE.Group()
+    const outer = new THREE.Mesh(new THREE.ConeGeometry(0.12, 0.48, 6), new THREE.MeshBasicMaterial({ color: '#fb923c', transparent: true, opacity: .82, depthWrite: false }))
+    const inner = new THREE.Mesh(new THREE.ConeGeometry(0.07, 0.32, 6), new THREE.MeshBasicMaterial({ color: '#fde68a', transparent: true, opacity: .92, depthWrite: false }))
+    outer.position.y = 0.24
+    inner.position.y = 0.18
+    flame.add(outer, inner)
+    flame.position.set(shoreX + seaStep * 0.5, 0.08, z)
+    flame.userData.biomeSurface = 'fire'
+    flame.userData.phase = phase
+    scenery.add(flame)
+  }
+
+  if (direction === 'north' || direction === 'south') {
+    const shoreZ = direction === 'south' ? 53.5 : 1.5
+    const seaStep = direction === 'south' ? 3.2 : -3.2
+    for (const [x, phase] of colBands) addNorthSouthBand(x, phase, shoreZ, seaStep)
+    return
+  }
+  if (direction === 'east' || direction === 'west') {
+    const shoreX = direction === 'east' ? 53.5 : 1.5
+    const seaStep = direction === 'east' ? 3.2 : -3.2
+    for (const [z, phase] of rowBands) addEastWestBand(z, phase, shoreX, seaStep)
   }
 }
 
@@ -7661,7 +7699,7 @@ function getGlacialAssets() {
   blobGradient.addColorStop(1, 'rgba(255,255,255,0)')
   blobContext.fillStyle = blobGradient
   blobContext.fillRect(0, 0, 128, 128)
-  const blobTexture = new THREE.CanvasTexture(blobCanvas)
+  const blobTexture = finalizeCanvasTexture(new THREE.CanvasTexture(blobCanvas))
   glacialAssetCache = { chamferBlock, boulder, spike, post, decal, arch, panel, blobTexture }
   return glacialAssetCache
 }
@@ -7700,7 +7738,7 @@ function getArenaTexture(kind) {
       context.fill()
     }
   }
-  const texture = new THREE.CanvasTexture(canvas)
+  const texture = finalizeCanvasTexture(new THREE.CanvasTexture(canvas))
   if (!arenaTextureCache) arenaTextureCache = {}
   arenaTextureCache[kind] = texture
   return texture
@@ -9013,9 +9051,11 @@ export default function MiningChain3DFPV({
     grid.position.set(COLS/2,.004,ROWS/2);grid.material.transparent=true;grid.material.opacity=.10;grid.material.depthWrite=false;scene.add(grid)
     if(isCoarsePointerDevice()) grid.visible=false
     addNightDome(scene,isCoarsePointerDevice())
+    const compactTex = getMiningVisualTier(window.innerWidth, window.innerHeight) === 'low'
+    const texSize = compactTex ? 64 : 128
     const textures={
-      mountain:createProceduralTexture('mountain'),coast:createProceduralTexture('coast'),
-      ice:createProceduralTexture('ice'),inferno:createProceduralTexture('inferno'),crypto:createProceduralTexture('crypto'),
+      mountain:createProceduralTexture('mountain', texSize),coast:createProceduralTexture('coast', texSize),
+      ice:createProceduralTexture('ice', texSize),inferno:createProceduralTexture('inferno', texSize),crypto:createProceduralTexture('crypto', texSize),
     }
     const camRaycaster=new THREE.Raycaster(); camRaycaster.camera=camera
     const occlusionRaycaster=new THREE.Raycaster()
@@ -9193,10 +9233,10 @@ export default function MiningChain3DFPV({
         reserved.add(`${r+dr},${c+dc}`)
       }
     }
-    for (const key of M1_NORTH_SIGHT_CLEAR) reserved.add(key)
+    for (const key of M1_GATEWAY_SIGHT_CLEAR) reserved.add(key)
     const valid = new Map()
     for (const [key, data] of OBSTACLE_MAP) {
-      if (M1_NORTH_SIGHT_CLEAR.has(key)) continue
+      if (M1_GATEWAY_SIGHT_CLEAR.has(key)) continue
       const [row,col]=key.split(',').map(Number)
       if (HOUSE_DOOR_STEP_KEYS.has(key)) continue
       const insideHouse=
@@ -9373,7 +9413,15 @@ export default function MiningChain3DFPV({
     const W = Math.round(canvas.width / dpr)
     const H = Math.round(canvas.height / dpr)
     if (!W||!H) return
+    const prevVisualTier = visualPerfTierRef.current
     const visualTier = getMiningVisualTier(W, H)
+    if (
+      prevVisualTier !== visualTier
+      && threeStateRef.current?.world
+      && (prevVisualTier === 'low') !== (visualTier === 'low')
+    ) {
+      rebuildThreeRef.current?.()
+    }
     visualPerfTierRef.current = visualTier
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
     ctx.imageSmoothingEnabled = false
