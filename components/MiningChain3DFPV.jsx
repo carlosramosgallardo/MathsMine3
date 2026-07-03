@@ -44,7 +44,7 @@ import {
   NODE_DICE_POSITION,
   isPlayableMiningWorldCell,
 } from '@/lib/mining-world-layout'
-import { isCoarsePointerLike as isCoarsePointerDevice, isMobilePreviewActive, MOBILE_PREVIEW_VIEWPORT } from '@/lib/mobile-preview'
+import { isCoarsePointerLike as isCoarsePointerDevice, isMobilePreviewActive, isMobilePreviewHighQuality, MOBILE_PREVIEW_VIEWPORT } from '@/lib/mobile-preview'
 
 function isRlNodeCell(cell) { return Boolean(cell?.isRlNode) }
 function isPortalLikeNodeCell(cell) {
@@ -204,20 +204,32 @@ const COLOSSEUM_SEAT_HEIGHT = .18
 const COLOSSEUM_STAND_TOPS = COLOSSEUM_STAND_BASE_TOPS.map(top=>top+COLOSSEUM_SEAT_HEIGHT)
 
 function getMiningVisualTier(viewWidth = 1280, viewHeight = 720) {
+  if (typeof window !== 'undefined' && isMobilePreviewHighQuality()) return 'high'
   if (typeof window !== 'undefined' && isMobilePreviewActive()) {
     viewWidth = MOBILE_PREVIEW_VIEWPORT.width
     viewHeight = MOBILE_PREVIEW_VIEWPORT.height
   }
   if (typeof window === 'undefined') return 'high'
-  const coarse = isCoarsePointerDevice()
   const lowMem = Number(navigator.deviceMemory) > 0 && navigator.deviceMemory <= 4
   const portraitMobile = viewHeight > viewWidth && viewWidth < 820
-  if (coarse || viewWidth < 640 || lowMem || portraitMobile) return 'low'
+  const veryNarrow = viewWidth < 360
+  // Weakest devices: full lite pass.
+  if (lowMem || veryNarrow) return 'low'
+  // Typical phone portrait / small view: lite scenery + biome lights (prod default).
+  if (portraitMobile || viewWidth < 640) return 'medium'
   if (viewWidth < 980) return 'medium'
   return 'high'
 }
 
-// ── Decorative obstacles: solid walls, no doorways, not mineable ──────────────
+function isLowRenderTier(viewWidth, viewHeight) {
+  if (typeof window === 'undefined') return false
+  const w = viewWidth ?? window.innerWidth
+  const h = viewHeight ?? window.innerHeight
+  return getMiningVisualTier(w, h) === 'low'
+}
+
+// Tier 'low': weakest phones. 'medium': typical mobile prod (lite scenery + lights).
+// 'high': desktop. Touch layout is independent (see isTouchLayout in mobile-preview).
 // Five visual types: monolith (violet), pylon (teal), ruin (rust), steel wall, bunker
 // Pure neutral grays — clearly "wall", nothing like the amber market blocks
 const W_STONE = [122, 120, 118]   // neutral mid-gray
@@ -5117,11 +5129,15 @@ function addNightDome(scene, lowDetail=false) {
   }
   if(lowDetail) return
 
+  addNightOrbitals(scene)
+}
+
+function addNightOrbitals(scene) {
+  if (scene.userData.orbitals?.length) return
   const planet=new THREE.Group()
   const planetBody=new THREE.Mesh(new THREE.SphereGeometry(3.2,20,14),new THREE.MeshStandardMaterial({color:'#7c3aed',emissive:'#29105f',emissiveIntensity:.8,roughness:.72,fog:false}))
   const planetRing=new THREE.Mesh(new THREE.TorusGeometry(4.4,.20,8,42),new THREE.MeshBasicMaterial({color:'#f0abfc',transparent:true,opacity:.66,fog:false}))
   planetRing.rotation.x=1.12;planet.add(planetBody,planetRing);planet.position.set(-30,18,38);planet.userData.orbital='planet';scene.add(planet)
-
   const ship=new THREE.Group()
   const hull=new THREE.Mesh(new THREE.ConeGeometry(.42,1.9,5),new THREE.MeshStandardMaterial({color:'#dbeafe',metalness:.72,roughness:.24,fog:false}))
   hull.rotation.z=-Math.PI/2
@@ -5131,7 +5147,19 @@ function addNightDome(scene, lowDetail=false) {
   const engine=new THREE.PointLight('#22d3ee',5,8,2);engine.position.set(-1,0,0)
   ship.add(hull,cockpit,wings,engine);ship.position.set(COLS/2,15,ROWS/2);ship.userData.orbital='ship';scene.add(ship)
   scene.userData.orbitals=[planet,ship]
-  // end !lowDetail
+}
+
+function syncThreeSceneForVisualTier(state, tier = 'high') {
+  if (!state?.scene) return
+  const low = tier === 'low'
+  const lightScale = low ? 0 : tier === 'medium' ? 0.72 : 1
+  if (state.iceLight) state.iceLight.intensity = 18 * lightScale
+  if (state.coastLight) state.coastLight.intensity = 12 * lightScale
+  if (state.infernoLight) state.infernoLight.intensity = 24 * lightScale
+  if (state.scene.fog) state.scene.fog.density = low ? 0.014 : tier === 'medium' ? 0.016 : 0.018
+  if (state.grid) state.grid.visible = tier === 'high'
+  if (tier !== 'low') addNightOrbitals(state.scene)
+  state.visualTierSynced = tier
 }
 
 function addBiomeGround(world, textures) {
@@ -5621,7 +5649,7 @@ function addCipherHouseDetails(world, lowDetail = false) {
   })
   // Solid wall header so each door reads as an opening cut into a real wall,
   // rather than a full-height gap. Matches the house wall look.
-  const doorHeaderMat=isCoarsePointerDevice()
+  const doorHeaderMat=isLowRenderTier()
     ? new THREE.MeshLambertMaterial({color:'#07172e',emissive:'#061521',emissiveIntensity:.48})
     : new THREE.MeshStandardMaterial({color:'#07172e',roughness:.44,metalness:.58,emissive:'#061521',emissiveIntensity:.6})
   const addDoubleDoorFrame=(door)=>{
@@ -5895,7 +5923,7 @@ function addCipherHouseDetails(world, lowDetail = false) {
     poolGroup.add(rail)
   }
   // Pool underwater glow — more intense to make healing zone visible
-  const poolGlow=new THREE.PointLight('#f87171',isCoarsePointerDevice()?0:3.6,5.8,1.7)
+  const poolGlow=new THREE.PointLight('#f87171',isLowRenderTier()?0:3.6,5.8,1.7)
   poolGlow.position.set(0,-.1,0)
   poolGroup.add(poolGlow)
   addPoolPerimeterHeartSigns(poolGroup,poolOuterW,poolOuterD)
@@ -6036,7 +6064,7 @@ function addCipherHouseDetails(world, lowDetail = false) {
   }
 
   // Main ambient interior light
-  const houseLight=new THREE.PointLight('#22d3ee',isCoarsePointerDevice()?0:3.6,15,1.8)
+  const houseLight=new THREE.PointLight('#22d3ee',isLowRenderTier()?0:3.6,15,1.8)
   houseLight.position.set(8.2,2.35,8.2)
   group.add(houseLight)
   // Interior illumination — invisible PointLights only. The old floating
@@ -6048,7 +6076,7 @@ function addCipherHouseDetails(world, lowDetail = false) {
     [8.2,5.94,8.2,2.8,'#22d3ee'],
     [8.2,1.46,8.2,1.4,'#7dd3fc'],
   ]){
-    if(!isCoarsePointerDevice()){
+    if(!isLowRenderTier()){
       const light=new THREE.PointLight(col,intensity,6.5,1.6)
       light.position.set(x,y,z)
       group.add(light)
@@ -6058,7 +6086,7 @@ function addCipherHouseDetails(world, lowDetail = false) {
   {
     const tramY = 0.01
     const tr = HOUSE_TRAMPOLINE_RADIUS
-    const frameMat = isCoarsePointerDevice()
+    const frameMat = isLowRenderTier()
       ? new THREE.MeshLambertMaterial({color:'#374151'})
       : new THREE.MeshStandardMaterial({color:'#374151',metalness:.88,roughness:.18})
     const padMat = new THREE.MeshLambertMaterial({color:'#22d3ee',emissive:'#0891b2',emissiveIntensity:.55})
@@ -6078,7 +6106,7 @@ function addCipherHouseDetails(world, lowDetail = false) {
       leg.position.set(HOUSE_TRAMPOLINE_COL + lx, tramY - .145, HOUSE_TRAMPOLINE_ROW + lz)
       group.add(leg)
     }
-    if (!isCoarsePointerDevice()) {
+    if (!isLowRenderTier()) {
       const springGeo = new THREE.CylinderGeometry(.026, .026, .07, 5)
       for (let i = 0; i < 10; i += 1) {
         const angle = (i / 10) * Math.PI * 2
@@ -6089,7 +6117,7 @@ function addCipherHouseDetails(world, lowDetail = false) {
         group.add(spr)
       }
     }
-    const tramGlow = new THREE.PointLight('#22d3ee', isCoarsePointerDevice() ? 0 : 2.2, 4.8, 2)
+    const tramGlow = new THREE.PointLight('#22d3ee', isLowRenderTier() ? 0 : 2.2, 4.8, 2)
     tramGlow.position.set(HOUSE_TRAMPOLINE_COL, tramY + .5, HOUSE_TRAMPOLINE_ROW)
     group.add(tramGlow)
   }
@@ -6252,7 +6280,7 @@ function addIslandOutskirts(world,textures,lowDetail=false) {
 
   // Shipwreck aground on the NE (coast) sea — listing hull, tilted mast, torn sail.
   const timberMat=lowDetail
-    ?new THREE.MeshLambertMaterial({color:'#503722'})
+    ?new THREE.MeshStandardMaterial({map:textures.coast,color:'#7a5230',roughness:.93,metalness:.03,flatShading:true})
     :new THREE.MeshStandardMaterial({map:textures.coast,color:'#7a5230',roughness:.93,metalness:.03})
   const wreck=new THREE.Group()
   const hull=new THREE.Mesh(new THREE.CylinderGeometry(.95,.5,6.4,lowDetail?5:8),timberMat)
@@ -6261,28 +6289,22 @@ function addIslandOutskirts(world,textures,lowDetail=false) {
   deckCabin.position.set(-1.7,1.15,0);wreck.add(deckCabin)
   const mast=new THREE.Mesh(new THREE.CylinderGeometry(.08,.14,4.8,lowDetail?4:6),timberMat)
   mast.position.set(.7,2.5,0);mast.rotation.z=-.34;wreck.add(mast)
-  if(!lowDetail){
-    const sail=new THREE.Mesh(
-      new THREE.PlaneGeometry(2.0,2.4),
-      new THREE.MeshStandardMaterial({color:'#b9c6cd',roughness:.94,side:THREE.DoubleSide,transparent:true,opacity:.72}),
-    )
-    sail.position.set(1.55,3.05,.05);sail.rotation.set(.08,.42,-.34);wreck.add(sail)
-  }
+  const sail=new THREE.Mesh(
+    new THREE.PlaneGeometry(2.0,2.4),
+    new THREE.MeshStandardMaterial({color:'#b9c6cd',roughness:.94,side:THREE.DoubleSide,transparent:true,opacity:.72}),
+  )
+  sail.position.set(1.55,3.05,.05);sail.rotation.set(.08,.42,-.34);wreck.add(sail)
   wreck.position.set(43.5,-.26,-3.6);wreck.rotation.set(.05,.74,.14)
   outskirts.add(wreck)
 
   // Lighthouse islet on the eastern (coast) sea — banded tower + cyan lantern.
   const lighthouse=new THREE.Group()
-  const rockBase=new THREE.Mesh(new THREE.ConeGeometry(1.9,1.3,lowDetail?5:7),lowDetail
-    ?new THREE.MeshLambertMaterial({color:'#5c6a76'})
-    :new THREE.MeshStandardMaterial({map:textures.mountain,color:'#7e93a6',roughness:.88,flatShading:true}))
+  const rockBase=new THREE.Mesh(new THREE.ConeGeometry(1.9,1.3,lowDetail?5:7),new THREE.MeshStandardMaterial({
+    map:textures.mountain,color:'#7e93a6',roughness:.88,flatShading:true,
+  }))
   rockBase.position.y=.35;lighthouse.add(rockBase)
-  const bandLight=lowDetail
-    ?new THREE.MeshLambertMaterial({color:'#dfe8ee'})
-    :new THREE.MeshStandardMaterial({color:'#dfe8ee',roughness:.55,metalness:.10})
-  const bandDark=lowDetail
-    ?new THREE.MeshLambertMaterial({color:'#0e2f46'})
-    :new THREE.MeshStandardMaterial({color:'#0e2f46',roughness:.48,metalness:.22,emissive:'#06202f',emissiveIntensity:.5})
+  const bandLight=new THREE.MeshStandardMaterial({color:'#dfe8ee',roughness:.55,metalness:.10})
+  const bandDark=new THREE.MeshStandardMaterial({color:'#0e2f46',roughness:.48,metalness:.22,emissive:'#06202f',emissiveIntensity:.5})
   for(let band=0;band<4;band++){
     const radiusTop=.62-band*.07
     const segment=new THREE.Mesh(
@@ -6303,7 +6325,7 @@ function addIslandOutskirts(world,textures,lowDetail=false) {
 
   // Iceberg drift on the western (ice) sea — flat-shaded floes, shared material.
   const icebergMat=lowDetail
-    ?new THREE.MeshLambertMaterial({color:'#cdeefb'})
+    ?new THREE.MeshStandardMaterial({map:textures.ice,color:'#cdeefb',roughness:.22,metalness:.12,emissive:'#0b4268',emissiveIntensity:.18,flatShading:true})
     :new THREE.MeshPhysicalMaterial({map:textures.ice,color:'#cdeefb',roughness:.14,metalness:.16,clearcoat:.8,emissive:'#0b4268',emissiveIntensity:.22,flatShading:true})
   for(const [x,z,size,squash] of [[-4.2,34.5,1.6,.62],[-6.8,43,2.3,.5],[-3.4,50.5,1.2,.74]]){
     const berg=new THREE.Mesh(new THREE.DodecahedronGeometry(size,0),icebergMat)
@@ -6313,34 +6335,27 @@ function addIslandOutskirts(world,textures,lowDetail=false) {
 
   // Volcanic islet rising from the southern lava field (inferno sea corner).
   const islet=new THREE.Group()
-  const volcano=new THREE.Mesh(new THREE.ConeGeometry(2.6,3.6,lowDetail?6:9),lowDetail
-    ?new THREE.MeshLambertMaterial({color:'#3d1512'})
-    :new THREE.MeshStandardMaterial({map:textures.inferno,color:'#54201a',emissive:'#4a0d03',emissiveIntensity:.85,roughness:.8,flatShading:true}))
+  const volcano=new THREE.Mesh(new THREE.ConeGeometry(2.6,3.6,lowDetail?6:9),new THREE.MeshStandardMaterial({
+    map:textures.inferno,color:'#54201a',emissive:'#4a0d03',emissiveIntensity:.85,roughness:.8,flatShading:true,
+  }))
   volcano.position.y=1.75;islet.add(volcano)
   const crater=new THREE.Mesh(
     new THREE.ConeGeometry(.55,.9,lowDetail?5:7),
     new THREE.MeshBasicMaterial({color:'#ff5a16',transparent:true,opacity:.9,depthWrite:false}),
   )
   crater.position.y=3.6;islet.add(crater)
-  if(!lowDetail){
-    // Crater flame reuses the existing 'fire' biomeSurface animation path.
-    const flame=new THREE.Group()
-    const flameOuter=new THREE.Mesh(new THREE.ConeGeometry(.30,1.0,7),new THREE.MeshBasicMaterial({color:'#ff3d00',transparent:true,opacity:.82,depthWrite:false}))
-    const flameInner=new THREE.Mesh(new THREE.ConeGeometry(.16,.74,7),new THREE.MeshBasicMaterial({color:'#ffd43b',transparent:true,opacity:.92,depthWrite:false}))
-    flameOuter.position.y=.5;flameInner.position.y=.37;flame.add(flameOuter,flameInner)
-    flame.position.y=3.62;flame.userData.biomeSurface='fire';flame.userData.phase=2.1
-    islet.add(flame)
-  }
+  const flame=new THREE.Group()
+  const flameOuter=new THREE.Mesh(new THREE.ConeGeometry(.30,1.0,7),new THREE.MeshBasicMaterial({color:'#ff3d00',transparent:true,opacity:.82,depthWrite:false}))
+  const flameInner=new THREE.Mesh(new THREE.ConeGeometry(.16,.74,7),new THREE.MeshBasicMaterial({color:'#ffd43b',transparent:true,opacity:.92,depthWrite:false}))
+  flameOuter.position.y=.5;flameInner.position.y=.37;flame.add(flameOuter,flameInner)
+  flame.position.y=3.62;flame.userData.biomeSurface='fire';flame.userData.phase=2.1
+  islet.add(flame)
   islet.position.set(50,-.12,60.2)
   outskirts.add(islet)
 
   // Distant peaks past the NW horizon — echo the island's mountain quadrant.
-  const farPeakMat=lowDetail
-    ?new THREE.MeshLambertMaterial({color:'#6d87a0',flatShading:true})
-    :new THREE.MeshStandardMaterial({map:textures.mountain,color:'#6d87a0',roughness:.86,flatShading:true})
-  const farCapMat=lowDetail
-    ?new THREE.MeshLambertMaterial({color:'#c3e3f5',flatShading:true})
-    :new THREE.MeshStandardMaterial({color:'#c3e3f5',roughness:.7,flatShading:true})
+  const farPeakMat=new THREE.MeshStandardMaterial({map:textures.mountain,color:'#6d87a0',roughness:.86,flatShading:true})
+  const farCapMat=new THREE.MeshStandardMaterial({color:'#c3e3f5',roughness:.7,flatShading:true})
   for(const [x,z,height] of [[-5.8,5.5,8.5],[3.5,-6.4,7.2],[-7.5,13,6.0]]){
     const peak=new THREE.Mesh(new THREE.ConeGeometry(height*.42,height,lowDetail?5:7),farPeakMat)
     peak.position.set(x,height*.5-.1,z);outskirts.add(peak)
@@ -6383,14 +6398,14 @@ function addBiomeLandmarks(world,textures,lowDetail=false) {
       rock.rotation.y=seededUnit(index+230)*Math.PI;world.add(rock)
     }
   }
-  const peak=new THREE.Mesh(new THREE.ConeGeometry(5.4,12,lowDetail?5:7),lowDetail
-    ?new THREE.MeshLambertMaterial({color:'#7892aa',flatShading:true})
-    :new THREE.MeshStandardMaterial({map:textures.mountain,color:'#7892aa',roughness:.84,flatShading:true}))
+  const peak=new THREE.Mesh(new THREE.ConeGeometry(5.4,12,lowDetail?5:7),new THREE.MeshStandardMaterial({
+    map:textures.mountain,color:'#7892aa',roughness:.84,flatShading:true,
+  }))
   peak.userData.avatarFadeOccluder=true
   peak.position.set(20,5.9,-2.8);world.add(peak)
-  const snowCap=new THREE.Mesh(new THREE.ConeGeometry(2.05,3.1,lowDetail?5:7),lowDetail
-    ?new THREE.MeshLambertMaterial({color:'#b9dff4',flatShading:true})
-    :new THREE.MeshStandardMaterial({color:'#b9dff4',roughness:.72,flatShading:true}))
+  const snowCap=new THREE.Mesh(new THREE.ConeGeometry(2.05,3.1,lowDetail?5:7),new THREE.MeshStandardMaterial({
+    color:'#b9dff4',roughness:.72,flatShading:true,
+  }))
   snowCap.userData.avatarFadeOccluder=true
   snowCap.position.set(20,10.35,-2.8);world.add(snowCap)
 
@@ -6401,7 +6416,14 @@ function addBiomeLandmarks(world,textures,lowDetail=false) {
     }
   }
 
-  if(!lowDetail){
+  if(lowDetail){
+    const glacierLite=new THREE.Mesh(
+      new THREE.DodecahedronGeometry(3.2,0),
+      new THREE.MeshStandardMaterial({map:textures.ice,color:'#bdefff',roughness:.22,metalness:.14,emissive:'#0b4268',emissiveIntensity:.22,flatShading:true}),
+    )
+    glacierLite.userData.avatarFadeOccluder=true
+    glacierLite.scale.set(1.7,1,.9);glacierLite.position.set(-1.2,1.2,48);world.add(glacierLite)
+  } else {
     const iceMaterial=new THREE.MeshPhysicalMaterial({map:textures.ice,color:'#c6f5ff',transparent:true,opacity:.82,roughness:.10,metalness:.22,clearcoat:1,clearcoatRoughness:.05,emissive:'#0d4c72',emissiveIntensity:.36})
     for(let index=0;index<18;index++){
       const height=.7+seededUnit(index+400)*2.8
@@ -6413,10 +6435,6 @@ function addBiomeLandmarks(world,textures,lowDetail=false) {
     const glacier=new THREE.Mesh(new THREE.DodecahedronGeometry(3.5,1),new THREE.MeshPhysicalMaterial({map:textures.ice,color:'#bdefff',roughness:.16,metalness:.18,clearcoat:1,emissive:'#0b4268',emissiveIntensity:.28,flatShading:true}))
     glacier.userData.avatarFadeOccluder=true
     glacier.scale.set(1.7,1,.9);glacier.position.set(-1.2,1.2,48);world.add(glacier)
-  } else {
-    const glacierSimple=new THREE.Mesh(new THREE.OctahedronGeometry(2.8,0),new THREE.MeshLambertMaterial({color:'#bdefff',emissive:'#0b4268'}))
-    glacierSimple.userData.avatarFadeOccluder=true
-    glacierSimple.scale.set(1.7,.6,.9);glacierSimple.position.set(-1.2,1.2,48);world.add(glacierSimple)
   }
 
   const lava=new THREE.Mesh(new THREE.PlaneGeometry(24,7.2),new THREE.MeshStandardMaterial({map:textures.inferno,color:'#ff6b13',emissive:'#ff2600',emissiveIntensity:2.2,roughness:.48,transparent:true,opacity:.92}))
@@ -6433,14 +6451,13 @@ function addBiomeLandmarks(world,textures,lowDetail=false) {
       const light=new THREE.PointLight('#ff5a16',8,7,1.8);light.position.set(flame.position.x,1.25,flame.position.z);world.add(light)
     }
   }
-  if(!lowDetail){
-    for(let index=0;index<20;index++){
-      const height=.8+seededUnit(index+500)*3.8
-      const spire=new THREE.Mesh(new THREE.ConeGeometry(.24+height*.14,height,5),new THREE.MeshStandardMaterial({map:textures.inferno,color:index%3?'#5c191d':'#a53120',emissive:index%3?'#260307':'#8c1705',emissiveIntensity:.9,roughness:.74,flatShading:true}))
-      spire.userData.avatarFadeOccluder=true
-      const onSouth=index%2===0
-      spire.position.set(onSouth?30+seededUnit(index+510)*25:56.7,height*.5,onSouth?56.7:30+seededUnit(index+520)*25);world.add(spire)
-    }
+  const spireCount=lowDetail?8:20
+  for(let index=0;index<spireCount;index++){
+    const height=.8+seededUnit(index+500)*3.8
+    const spire=new THREE.Mesh(new THREE.ConeGeometry(.24+height*.14,height,lowDetail?4:5),new THREE.MeshStandardMaterial({map:textures.inferno,color:index%3?'#5c191d':'#a53120',emissive:index%3?'#260307':'#8c1705',emissiveIntensity:.9,roughness:.74,flatShading:true}))
+    spire.userData.avatarFadeOccluder=true
+    const onSouth=index%2===0
+    spire.position.set(onSouth?30+seededUnit(index+510)*25:56.7,height*.5,onSouth?56.7:30+seededUnit(index+520)*25);world.add(spire)
   }
   const portalRing=new THREE.Mesh(new THREE.TorusGeometry(2.1,.22,lowDetail?5:8,lowDetail?16:28),new THREE.MeshBasicMaterial({color:'#ff5b1a'}))
   portalRing.position.set(55.4,2.5,49);portalRing.rotation.y=Math.PI/4;world.add(portalRing)
@@ -6881,7 +6898,7 @@ function rebuildThreeWorld(state,cellMap,obstacles) {
       roof:houseEntries.filter(([,obstacle])=>obstacle.isHouseRoof),
       stair:houseEntries.filter(([,obstacle])=>obstacle.isHouseStair),
     }
-    const lowD = isCoarsePointerDevice()
+    const lowD = isLowRenderTier()
     const roofMat={color:'#040e1d',roughness:.52,metalness:.46,emissive:'#040e1d',emissiveIntensity:.52}
     const houseMaterials={
       wall: lowD
@@ -7519,12 +7536,13 @@ function addPeripheralGroundFeatures(world, mapId, lowDetail = false) {
 }
 
 // Stone pilings, lanterns and shore arches on gateway causeways over the sea.
+// lowDetail = lite mobile tier: shore arch + brazier only (no pier pilings).
 function addGatewayCausewayScenery(scenery, direction, lowDetail = false) {
-  if (lowDetail) return
   const colBands = [[29, 0], [34.5, 1.1], [41, 2.2], [47.5, 3.3], [53, 4.4]]
   const rowBands = [[39, 0], [47, 1.1], [53, 2.2]]
   const pilingMat = new THREE.MeshStandardMaterial({ color: '#ddd0b8', roughness: .52, metalness: .12, flatShading: true })
   const lanternMat = new THREE.MeshBasicMaterial({ color: '#fbbf24', transparent: true, opacity: .92 })
+  const pierSteps = lowDetail ? 0 : 6
 
   const addNorthSouthBand = (x, phase, shoreZ, seaStep) => {
     const arch = new THREE.Mesh(
@@ -7534,7 +7552,7 @@ function addGatewayCausewayScenery(scenery, direction, lowDetail = false) {
     arch.rotation.x = Math.PI / 2
     arch.position.set(x, 2.05, shoreZ)
     scenery.add(arch)
-    for (let step = 1; step <= 6; step += 1) {
+    for (let step = 1; step <= pierSteps; step += 1) {
       const z = shoreZ + seaStep * step
       for (const dx of [-0.55, 0.55]) {
         const piling = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.14, 0.9, 6), pilingMat)
@@ -7568,7 +7586,7 @@ function addGatewayCausewayScenery(scenery, direction, lowDetail = false) {
     arch.rotation.z = Math.PI / 2
     arch.position.set(shoreX, 2.05, z)
     scenery.add(arch)
-    for (let step = 1; step <= 6; step += 1) {
+    for (let step = 1; step <= pierSteps; step += 1) {
       const x = shoreX + seaStep * step
       for (const dz of [-0.55, 0.55]) {
         const piling = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.14, 0.9, 6), pilingMat)
@@ -7607,8 +7625,7 @@ function addGatewayCausewayScenery(scenery, direction, lowDetail = false) {
 }
 
 // Gateway lanterns and plaza braziers along the south exits to M1.
-function addColiseumPerimeterScenery(scenery, lowDetail = false) {
-  if (lowDetail) return
+function addColiseumPerimeterScenery(scenery) {
   const bands = [[29, 0], [34.5, 1.4], [41, 2.8], [47.5, 4.2], [53, 5.6]]
   for (const [x, phase] of bands) {
     const lantern = new THREE.Mesh(
@@ -7747,7 +7764,7 @@ function getArenaTexture(kind) {
 // ── Frost Coliseum visual pass — arches, crowds, canopies, banners ────────────
 // Physics comes from the ARENA cells in mining-map-ambient; everything here is
 // instanced decoration resolved from the shared FROST_COLISEUM_DECOR data.
-function buildFrostColiseumVisuals(world, assets) {
+function buildFrostColiseumVisuals(world, assets, { lite = false } = {}) {
   const decor = FROST_COLISEUM_DECOR
   const matrix = new THREE.Matrix4()
   const position = new THREE.Vector3()
@@ -7766,7 +7783,7 @@ function buildFrostColiseumVisuals(world, assets) {
   const stoneMaterial = new THREE.MeshStandardMaterial({ color: '#e8dcc8', roughness: .48, metalness: .14, emissive: '#3a3020', emissiveIntensity: .18, flatShading: true })
   const warmStone = new THREE.MeshStandardMaterial({ color: '#ddd0b8', roughness: .44, metalness: .16, emissive: '#2a2218', emissiveIntensity: .22, flatShading: true })
   // Arch ring — one instanced half-torus over every gap in both pillar rings.
-  if (decor.arches.length) {
+  if (!lite && decor.arches.length) {
     const arches = new THREE.InstancedMesh(assets.arch, stoneMaterial, decor.arches.length)
     decor.arches.forEach((arch, index) => place(arches, index, arch.x, arch.top - .05, arch.z, arch.span, arch.rise, 1, arch.yaw))
     arches.instanceMatrix.needsUpdate = true
@@ -7815,6 +7832,22 @@ function buildFrostColiseumVisuals(world, assets) {
     if (banners.instanceColor) banners.instanceColor.needsUpdate = true
     world.add(banners)
   }
+  // Energy barrier — translucent panels ringing the pitch (Utopia-style force field).
+  if (decor.energyPanels?.length) {
+    const barrier = new THREE.InstancedMesh(
+      assets.panel,
+      new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: .16, side: THREE.DoubleSide, depthWrite: false }),
+      decor.energyPanels.length,
+    )
+    decor.energyPanels.forEach((panel, index) => {
+      place(barrier, index, panel.x, .58, panel.z, .55, 1.05, 1, panel.yaw)
+      barrier.setColorAt(index, color.set(panel.side === 'east' ? '#fb923c' : '#38bdf8'))
+    })
+    barrier.instanceMatrix.needsUpdate = true
+    if (barrier.instanceColor) barrier.instanceColor.needsUpdate = true
+    world.add(barrier)
+  }
+  if (lite) return
   // Topiary bushes flanking gateways and concourse.
   if (decor.topiary.length) {
     const bushes = new THREE.InstancedMesh(
@@ -7870,21 +7903,6 @@ function buildFrostColiseumVisuals(world, assets) {
   }
   addFountain(decor.fountain.x, decor.fountain.z)
   for (const sf of decor.southFountains || []) addFountain(sf.x, sf.z)
-  // Energy barrier — translucent panels ringing the pitch (Utopia-style force field).
-  if (decor.energyPanels?.length) {
-    const barrier = new THREE.InstancedMesh(
-      assets.panel,
-      new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: .16, side: THREE.DoubleSide, depthWrite: false }),
-      decor.energyPanels.length,
-    )
-    decor.energyPanels.forEach((panel, index) => {
-      place(barrier, index, panel.x, .58, panel.z, .55, 1.05, 1, panel.yaw)
-      barrier.setColorAt(index, color.set(panel.side === 'east' ? '#fb923c' : '#38bdf8'))
-    })
-    barrier.instanceMatrix.needsUpdate = true
-    if (barrier.instanceColor) barrier.instanceColor.needsUpdate = true
-    world.add(barrier)
-  }
   // Grand north facade — classical entrance building overlooking the pitch.
   if (decor.facade) {
     const facade = new THREE.Group()
@@ -7926,7 +7944,7 @@ function glacialKindOf(data) {
   return 'masonry'
 }
 
-function buildGlacialStructures(world, obstacles) {
+function buildGlacialStructures(world, obstacles, { lite = false } = {}) {
   const assets = getGlacialAssets()
   const matrix = new THREE.Matrix4()
   const position = new THREE.Vector3()
@@ -8015,6 +8033,7 @@ function buildGlacialStructures(world, obstacles) {
     footprint: .9 + cellSeed(entry.row, entry.col) * .18, spin: cellSeed(entry.col, entry.row) * Math.PI * 2,
     shade: .82 + cellSeed(entry.row + 7, entry.col) * .3,
   }))
+  if (!lite) {
   // M2 is coliseum-only — no scattered river-bank rocks.
   addInstanced(
     assets.boulder,
@@ -8069,7 +8088,9 @@ function buildGlacialStructures(world, obstacles) {
     matrix.compose(position, quaternion, scale)
     mesh.setMatrixAt(index, matrix)
   })
+  }
 
+  if (!lite) {
   // Snow caps — every exposed top gets an irregular white mound (reuses the
   // boulder geometry squashed flat), which visually breaks the box silhouette.
   // Arena structures are excluded — classical stone, not glaciated.
@@ -8141,8 +8162,9 @@ function buildGlacialStructures(world, obstacles) {
     },
     false,
   )
+  }
 
-  buildFrostColiseumVisuals(world, assets)
+  buildFrostColiseumVisuals(world, assets, { lite })
 }
 
 function buildPeripheralObstacles(mapId) {
@@ -8169,8 +8191,8 @@ function rebuildPeripheralMapWorld(state, mapId, obstacles) {
   addIslandSurroundCoast(world, state.textures, lowDetail, mapId)
   addPeripheralMapLandmark(world, state.textures, mapId, lowDetail)
   addPeripheralGroundFeatures(world, mapId, lowDetail)
-  const useOrganicPass = mapId === '2' && !lowDetail
-  if (useOrganicPass) buildGlacialStructures(world, obstacles)
+  const useOrganicPass = mapId === '2'
+  if (useOrganicPass) buildGlacialStructures(world, obstacles, { lite: visualTier !== 'high' })
   const boxGroups = { mountain: [], coast: [], ice: [], inferno: [] }
   for (const entry of useOrganicPass ? [] : obstacles.entries()) {
     const [row, col] = entry[0].split(',').map(Number)
@@ -8285,7 +8307,7 @@ function createRlCarMesh(lowDetail = false) {
 
 function applyRlMountVisual(avatar, mounted, threeState = null) {
   if (!avatar) return
-  const lowDetail = isCoarsePointerDevice()
+  const lowDetail = isLowRenderTier()
   if (!avatar.userData.rlCar) {
     avatar.userData.rlCar = createRlCarMesh(lowDetail)
     avatar.add(avatar.userData.rlCar)
@@ -8341,7 +8363,7 @@ function updateRlBoostFx(avatar, threeState, time) {
 }
 
 function createThreeWalletAvatar(wallet) {
-  const lowDetail=isCoarsePointerDevice()
+  const lowDetail=isLowRenderTier()
   const avatar=new THREE.Group()
   const color=new THREE.Color(colorFromAddress(wallet))
   const bright=color.clone().lerp(new THREE.Color('#ffffff'),.20)
@@ -9017,9 +9039,10 @@ export default function MiningChain3DFPV({
     const canvas=webglCanvasRef.current
     if(!canvas) return
     let renderer
+    const launchTier=getMiningVisualTier(window.innerWidth,window.innerHeight)
+    const launchLow=launchTier==='low'
     try{
-      const coarse=isCoarsePointerDevice()
-      renderer=new THREE.WebGLRenderer({canvas,antialias:!coarse,powerPreference:'high-performance',stencil:false})
+      renderer=new THREE.WebGLRenderer({canvas,antialias:!launchLow,powerPreference:'high-performance',stencil:false})
     }catch{return}
     renderer.outputColorSpace=THREE.SRGBColorSpace
     renderer.toneMapping=THREE.ACESFilmicToneMapping
@@ -9043,28 +9066,28 @@ export default function MiningChain3DFPV({
     const iceLight=new THREE.PointLight('#83e6ff',18,24,1.5);iceLight.position.set(14,6,42);scene.add(iceLight)
     const coastLight=new THREE.PointLight('#62eaff',12,22,1.7);coastLight.position.set(42,5,14);scene.add(coastLight)
     const infernoLight=new THREE.PointLight('#ff4b12',24,25,1.45);infernoLight.position.set(42,5,42);scene.add(infernoLight)
-    if(isCoarsePointerDevice()){
+    if(launchLow){
       iceLight.intensity=0;coastLight.intensity=0;infernoLight.intensity=0
       scene.fog.density=.014
     }
     const grid=new THREE.GridHelper(Math.max(COLS,ROWS),Math.max(COLS,ROWS),'#176080','#12334f')
     grid.position.set(COLS/2,.004,ROWS/2);grid.material.transparent=true;grid.material.opacity=.10;grid.material.depthWrite=false;scene.add(grid)
-    if(isCoarsePointerDevice()) grid.visible=false
-    addNightDome(scene,isCoarsePointerDevice())
-    const compactTex = getMiningVisualTier(window.innerWidth, window.innerHeight) === 'low'
-    const texSize = compactTex ? 64 : 128
+    if(launchLow) grid.visible=false
+    addNightDome(scene,launchLow)
+    const texSize = launchLow ? 64 : 128
     const textures={
       mountain:createProceduralTexture('mountain', texSize),coast:createProceduralTexture('coast', texSize),
       ice:createProceduralTexture('ice', texSize),inferno:createProceduralTexture('inferno', texSize),crypto:createProceduralTexture('crypto', texSize),
     }
     const camRaycaster=new THREE.Raycaster(); camRaycaster.camera=camera
     const occlusionRaycaster=new THREE.Raycaster()
-    const state={renderer,scene,camera,hudScene,hudCamera,localAvatar:null,localAvatarId:null,world:null,avatars:new Map(),pixelRatio:0,size:new THREE.Vector2(),hemi,key,rim,textures,
+    const state={renderer,scene,camera,hudScene,hudCamera,localAvatar:null,localAvatarId:null,world:null,avatars:new Map(),pixelRatio:0,size:new THREE.Vector2(),hemi,key,rim,iceLight,coastLight,infernoLight,grid,textures,
       camRaycaster,occlusionRaycaster,_occlusionTarget:new THREE.Vector3(),_occlusionDirection:new THREE.Vector3(),
       _v3a:new THREE.Vector3(),_v3b:new THREE.Vector3(),_v3c:new THREE.Vector3(),_v3d:new THREE.Vector3(),_v3e:new THREE.Vector3(),
       _avatarCameraSpace:new THREE.Vector3(),_activeAvatars:new Set(),_fadedOccluders:new Set(),
-      _occlusionAvatars:[],_occlusionHits:[],viewWidth:0,viewHeight:0,viewDpr:0,viewFov:0,activeBiome:null}
+      _occlusionAvatars:[],_occlusionHits:[],viewWidth:0,viewHeight:0,viewDpr:0,viewFov:0,activeBiome:null,visualTierSynced:null}
     threeStateRef.current=state
+    syncThreeSceneForVisualTier(state,launchTier)
     rebuildThreeRef.current=()=>rebuildActiveMapWorld(
       state,
       mapIdRef.current,
@@ -9415,10 +9438,16 @@ export default function MiningChain3DFPV({
     if (!W||!H) return
     const prevVisualTier = visualPerfTierRef.current
     const visualTier = getMiningVisualTier(W, H)
+    if (threeStateRef.current && threeStateRef.current.visualTierSynced !== visualTier) {
+      syncThreeSceneForVisualTier(threeStateRef.current, visualTier)
+    }
     if (
       prevVisualTier !== visualTier
       && threeStateRef.current?.world
-      && (prevVisualTier === 'low') !== (visualTier === 'low')
+      && (
+        (prevVisualTier === 'low') !== (visualTier === 'low')
+        || (prevVisualTier === 'high') !== (visualTier === 'high')
+      )
     ) {
       rebuildThreeRef.current?.()
     }
@@ -10922,7 +10951,8 @@ export default function MiningChain3DFPV({
       const rawDpr = window.devicePixelRatio || 1
       const isMobilePortrait = cssH > cssW && cssW < 820
       const isPortraitTablet = cssW >= 540 && cssH > cssW
-      const mobileLayout = isMobilePortrait || isPortraitTablet || isCoarsePointerDevice()
+      const perfMobile = (isMobilePortrait || isPortraitTablet || isCoarsePointerDevice()) && !isMobilePreviewHighQuality()
+      const mobileLayout = isMobilePreviewActive() || perfMobile
 
       // ── HUD canvas (2D: text, minimap, crosshair) ─────────────────────────
       // Full DPR on desktop; cap on mobile — 2.5× HUD was a major CPU sink.
@@ -10932,7 +10962,7 @@ export default function MiningChain3DFPV({
 
       // ── WebGL 3D canvas ───────────────────────────────────────────────────
       let webglDpr
-      if (mobileLayout) {
+      if (perfMobile) {
         webglDpr = 1.0
       } else {
         const pixels = cssW * cssH
@@ -11125,7 +11155,7 @@ export default function MiningChain3DFPV({
       // On low tier (mobile portrait), cap the entire physics loop to ~30fps so
       // high-refresh-rate phones (90/120 Hz) don't burn CPU on wasted ticks.
       const loopTier=visualPerfTierRef.current
-      const mobileLoopCap=loopTier==='low'||isCoarsePointerDevice()
+      const mobileLoopCap=loopTier==='low'
       if(mobileLoopCap&&lastFrameRef.current&&nowMs-lastFrameRef.current<33) return
       const k=keysRef.current, p=playerRef.current
       const dt=lastFrameRef.current ? Math.min(0.05,(nowMs-lastFrameRef.current)/1000) : 1/60
