@@ -14,7 +14,7 @@ import {
   isMiningCoreMap,
   MINING_CORE_MAP_ID,
 } from '@/lib/mining-maps'
-import { getMiningMapAmbientObstacles, getMiningMapGroundFeatures, FROST_COLISEUM_DECOR, FROST_COLISEUM_ARENA } from '@/lib/mining-map-ambient'
+import { getMiningMapAmbientObstacles, getMiningMapGroundFeatures, FROST_COLISEUM_DECOR, FROST_COLISEUM_ARENA, PEACH_CASTLE_DECOR, PEACH_CASTLE_ARENA } from '@/lib/mining-map-ambient'
 import {
   buildPeripheralCellMap,
   buildRlNodeCell,
@@ -7521,8 +7521,16 @@ function addPeripheralMapLandmark(world, textures, mapId, lowDetail = false) {
   group.userData.skipOcclusion = true
   const segs = lowDetail ? 6 : 10
   const def = getMiningMapDefinition(mapId)
-  const centerX = mapId === '2' ? FROST_COLISEUM_ARENA.col + 0.5 : MINING_CHAIN_NODE_POSITION.col + 0.5
-  const centerZ = mapId === '2' ? FROST_COLISEUM_ARENA.row + 0.5 : MINING_CHAIN_NODE_POSITION.row + 0.5
+  const centerX = mapId === '2'
+    ? FROST_COLISEUM_ARENA.col + 0.5
+    : mapId === '3'
+      ? PEACH_CASTLE_ARENA.col + 0.5
+      : MINING_CHAIN_NODE_POSITION.col + 0.5
+  const centerZ = mapId === '2'
+    ? FROST_COLISEUM_ARENA.row + 0.5
+    : mapId === '3'
+      ? PEACH_CASTLE_ARENA.row + 0.5
+      : MINING_CHAIN_NODE_POSITION.row + 0.5
   if (mapId === '2') {
     const innerR = Math.max(FROST_COLISEUM_ARENA.a, FROST_COLISEUM_ARENA.b) * 0.36
     const ring = new THREE.Mesh(
@@ -7532,7 +7540,15 @@ function addPeripheralMapLandmark(world, textures, mapId, lowDetail = false) {
     ring.rotation.x = Math.PI / 2
     ring.position.set(centerX, 0.14, centerZ)
     group.add(ring)
-  } else if (mapId === '3' || mapId === '4' || mapId === '5') {
+  } else if (mapId === '3') {
+    const gateRing = new THREE.Mesh(
+      new THREE.TorusGeometry(2.4, 0.05, 6, lowDetail ? 20 : 32),
+      new THREE.MeshBasicMaterial({ color: '#f472b6', transparent: true, opacity: 0.42, depthWrite: false }),
+    )
+    gateRing.rotation.x = Math.PI / 2
+    gateRing.position.set(PEACH_CASTLE_DECOR.castleGate.x, 0.12, PEACH_CASTLE_DECOR.castleGate.z)
+    group.add(gateRing)
+  } else if (mapId === '4' || mapId === '5') {
     // Reserved for future full-map venues — no central clutter yet.
   }
   const sign = new THREE.Mesh(
@@ -7711,7 +7727,10 @@ function addPeripheralGroundFeatures(world, mapId, lowDetail = false) {
     addColiseumPerimeterScenery(scenery, lowDetail)
     addGatewayCausewayScenery(scenery, 'south', lowDetail)
   }
-  if (mapId === '3') addGatewayCausewayScenery(scenery, 'north', lowDetail)
+  if (mapId === '3') {
+    addPeachCastlePerimeterScenery(scenery, lowDetail)
+    addGatewayCausewayScenery(scenery, 'north', lowDetail)
+  }
   if (mapId === '4') addGatewayCausewayScenery(scenery, 'west', lowDetail)
   if (mapId === '5') addGatewayCausewayScenery(scenery, 'east', lowDetail)
   world.add(scenery)
@@ -7803,6 +7822,29 @@ function addGatewayCausewayScenery(scenery, direction, lowDetail = false) {
     const shoreX = direction === 'east' ? 53.5 : 1.5
     const seaStep = direction === 'east' ? 3.2 : -3.2
     for (const [z, phase] of rowBands) addEastWestBand(z, phase, shoreX, seaStep)
+  }
+}
+
+// Gateway lanterns and plaza braziers along the north exits to M1 (Peach Castle).
+function addPeachCastlePerimeterScenery(scenery) {
+  const bands = [[29, 0], [34.5, 1.4], [41, 2.8], [47.5, 4.2], [53, 5.6]]
+  for (const [x, phase] of bands) {
+    const lantern = new THREE.Mesh(
+      new THREE.OctahedronGeometry(0.18),
+      new THREE.MeshBasicMaterial({ color: '#fde68a', transparent: true, opacity: 0.9 }),
+    )
+    lantern.position.set(x, 2.4, 3.5)
+    scenery.add(lantern)
+    const flame = new THREE.Group()
+    const outer = new THREE.Mesh(new THREE.ConeGeometry(0.14, 0.55, 6), new THREE.MeshBasicMaterial({ color: '#fb7185', transparent: true, opacity: 0.85, depthWrite: false }))
+    const inner = new THREE.Mesh(new THREE.ConeGeometry(0.08, 0.38, 6), new THREE.MeshBasicMaterial({ color: '#fde68a', transparent: true, opacity: 0.92, depthWrite: false }))
+    outer.position.y = 0.28
+    inner.position.y = 0.22
+    flame.add(outer, inner)
+    flame.position.set(x, 0.12, 2.5)
+    flame.userData.biomeSurface = 'fire'
+    flame.userData.phase = phase
+    scenery.add(flame)
   }
 }
 
@@ -8114,6 +8156,213 @@ function buildFrostColiseumVisuals(world, assets, { lite = false } = {}) {
   }
 }
 
+function peachKindOf(data) {
+  const label = String(data?.label || '')
+  if (label === 'PEACH CASTLE') return 'castle'
+  if (label === 'PEACH HOUSE') return 'house'
+  return 'masonry'
+}
+
+function buildPeachCastleVisuals(world, assets, { lite = false } = {}) {
+  const decor = PEACH_CASTLE_DECOR
+  const stoneMaterial = new THREE.MeshStandardMaterial({ color: '#d8d2c8', roughness: .52, metalness: .12, emissive: '#3a3020', emissiveIntensity: .16, flatShading: true })
+  const roofMaterial = new THREE.MeshStandardMaterial({ color: '#c62828', roughness: .62, metalness: .08, emissive: '#5c1010', emissiveIntensity: .22, flatShading: true })
+  const treeMat = new THREE.MeshStandardMaterial({ color: '#2f9e44', roughness: .9, metalness: 0, emissive: '#0c2a12', emissiveIntensity: .28, flatShading: true })
+
+  if (decor.houses.length) {
+    const roofs = new THREE.InstancedMesh(assets.chamferBlock, roofMaterial, decor.houses.length)
+    const matrix = new THREE.Matrix4()
+    const position = new THREE.Vector3()
+    const scale = new THREE.Vector3()
+    const quaternion = new THREE.Quaternion()
+    const euler = new THREE.Euler()
+    decor.houses.forEach((house, index) => {
+      euler.set(-0.42, house.side === 'east' ? -0.08 : 0.08, 0)
+      quaternion.setFromEuler(euler)
+      position.set(house.x, house.height, house.z)
+      scale.set(2.8, 1.05, 2.4)
+      matrix.compose(position, quaternion, scale)
+      roofs.setMatrixAt(index, matrix)
+    })
+    roofs.instanceMatrix.needsUpdate = true
+    world.add(roofs)
+  }
+
+  if (!lite && decor.trees.length) {
+    const trees = new THREE.InstancedMesh(assets.boulder, treeMat, decor.trees.length)
+    const matrix = new THREE.Matrix4()
+    const position = new THREE.Vector3()
+    const scale = new THREE.Vector3()
+    const quaternion = new THREE.Quaternion()
+    decor.trees.forEach((tree, index) => {
+      quaternion.identity()
+      position.set(tree.x, 0.55 * tree.scale, tree.z)
+      scale.set(0.55 * tree.scale, 1.1 * tree.scale, 0.55 * tree.scale)
+      matrix.compose(position, quaternion, scale)
+      trees.setMatrixAt(index, matrix)
+    })
+    trees.instanceMatrix.needsUpdate = true
+    world.add(trees)
+  }
+
+  const castle = new THREE.Group()
+  castle.userData.skipOcclusion = true
+  const { x: cx, z: cz } = decor.center
+  const { tower, wings, moat } = decor
+
+  const moatWater = new THREE.Mesh(
+    new THREE.PlaneGeometry(moat.width, moat.depth, lite ? 6 : 12, lite ? 4 : 8),
+    new THREE.MeshStandardMaterial({ color: '#38bdf8', emissive: '#0369a1', emissiveIntensity: .35, transparent: true, opacity: .72, roughness: .12, metalness: .08, side: THREE.DoubleSide }),
+  )
+  moatWater.rotation.x = -Math.PI / 2
+  moatWater.position.set(moat.x, 0.02, moat.z)
+  castle.add(moatWater)
+
+  for (const wing of wings) {
+    const body = new THREE.Mesh(new THREE.BoxGeometry(wing.width, wing.height, wing.depth), stoneMaterial)
+    body.position.set(wing.x, wing.height * 0.5, wing.z)
+    castle.add(body)
+    const roof = new THREE.Mesh(new THREE.ConeGeometry(Math.max(wing.width, wing.depth) * 0.42, 1.35, lite ? 4 : 6), roofMaterial)
+    roof.position.set(wing.x, wing.height + 0.55, wing.z)
+    castle.add(roof)
+  }
+
+  const keepBase = new THREE.Mesh(new THREE.BoxGeometry(12.5, 2.8, 8.5), stoneMaterial)
+  keepBase.position.set(cx, 1.4, cz - 1.2)
+  castle.add(keepBase)
+  const keepRoof = new THREE.Mesh(new THREE.ConeGeometry(7.2, 2.2, lite ? 4 : 6), roofMaterial)
+  keepRoof.position.set(cx, 3.5, cz - 1.2)
+  castle.add(keepRoof)
+
+  const towerMesh = new THREE.Mesh(new THREE.CylinderGeometry(tower.radius * 0.82, tower.radius, tower.height * 0.72, lite ? 8 : 14), stoneMaterial)
+  towerMesh.position.set(tower.x, tower.height * 0.36, tower.z)
+  castle.add(towerMesh)
+  const towerRoof = new THREE.Mesh(new THREE.ConeGeometry(tower.radius * 0.95, 2.8, lite ? 6 : 10), roofMaterial)
+  towerRoof.position.set(tower.x, tower.height * 0.72 + 1.2, tower.z)
+  castle.add(towerRoof)
+
+  const stainedGlass = new THREE.Mesh(
+    new THREE.PlaneGeometry(2.4, 2.8),
+    new THREE.MeshBasicMaterial({ color: '#f9a8d4', transparent: true, opacity: .78, side: THREE.DoubleSide, depthWrite: false }),
+  )
+  stainedGlass.position.set(cx, 2.35, cz - 5.35)
+  castle.add(stainedGlass)
+
+  for (const flag of decor.flags) {
+    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.05, 2.6, 6), stoneMaterial)
+    pole.position.set(flag.x, 1.3, flag.z)
+    castle.add(pole)
+    const banner = new THREE.Mesh(
+      new THREE.PlaneGeometry(0.9, 0.55),
+      new THREE.MeshBasicMaterial({ color: '#ef4444', side: THREE.DoubleSide }),
+    )
+    banner.position.set(flag.x + 0.45, 2.15, flag.z)
+    castle.add(banner)
+  }
+
+  if (!lite) {
+    const gateArch = new THREE.Mesh(assets.arch, stoneMaterial)
+    gateArch.position.set(decor.castleGate.x, 2.35, decor.castleGate.z + 0.4)
+    gateArch.scale.set(3.2, 2.4, 1)
+    castle.add(gateArch)
+  }
+
+  world.add(castle)
+
+  const showcase = new THREE.Group()
+  showcase.position.set(decor.castleGate.x, 0, decor.castleGate.z - 1.2)
+  showcase.userData.skipOcclusion = true
+  const titleSprite = makeEmojiSprite('🏰', '#f472b6', 'circle')
+  titleSprite.scale.set(lite ? 1.2 : 1.55, lite ? 1.2 : 1.55, 1)
+  titleSprite.position.y = lite ? 4.2 : 5.4
+  titleSprite.renderOrder = 4
+  if (titleSprite.material) titleSprite.material.depthTest = false
+  showcase.add(titleSprite)
+  const nameCanvas = document.createElement('canvas')
+  nameCanvas.width = 512
+  nameCanvas.height = 128
+  const nameCtx = nameCanvas.getContext('2d')
+  nameCtx.clearRect(0, 0, 512, 128)
+  nameCtx.fillStyle = '#fff1f2'
+  nameCtx.strokeStyle = '#be123c'
+  nameCtx.lineWidth = 6
+  nameCtx.font = 'bold 42px sans-serif'
+  nameCtx.textAlign = 'center'
+  nameCtx.textBaseline = 'middle'
+  nameCtx.strokeText('Castillo de Peach', 256, 64)
+  nameCtx.fillText('Castillo de Peach', 256, 64)
+  const nameTexture = finalizeCanvasTexture(new THREE.CanvasTexture(nameCanvas))
+  const namePlane = new THREE.Mesh(
+    new THREE.PlaneGeometry(5.2, 1.25),
+    new THREE.MeshBasicMaterial({ map: nameTexture, transparent: true, depthWrite: false, side: THREE.DoubleSide }),
+  )
+  namePlane.position.y = lite ? 3.0 : 4.0
+  showcase.add(namePlane)
+  world.add(showcase)
+}
+
+function buildPeachCastleStructures(world, obstacles, { lite = false } = {}) {
+  const assets = getGlacialAssets()
+  const matrix = new THREE.Matrix4()
+  const position = new THREE.Vector3()
+  const scale = new THREE.Vector3()
+  const quaternion = new THREE.Quaternion()
+  const euler = new THREE.Euler()
+  const color = new THREE.Color()
+  const cellSeed = (row, col) => seededUnit(row * 131 + col * 37)
+
+  const families = { castle: [], house: [], masonry: [] }
+  for (const [key, data] of obstacles) {
+    const [row, col] = key.split(',').map(Number)
+    const bottom = obstacleBottom(data)
+    const top = Number(data.visualHeight) || obstacleTop(data)
+    families[peachKindOf(data)].push({ row, col, data, bottom, height: Math.max(.04, top - bottom) })
+  }
+
+  const addInstanced = (geometry, material, instances, writer, collidable = true) => {
+    if (!instances.length) return null
+    const mesh = new THREE.InstancedMesh(geometry, material, instances.length)
+    instances.forEach((instance, index) => writer(mesh, instance, index))
+    mesh.instanceMatrix.needsUpdate = true
+    if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true
+    mesh.userData.collidable = collidable
+    world.add(mesh)
+    return mesh
+  }
+
+  addInstanced(
+    assets.chamferBlock,
+    new THREE.MeshStandardMaterial({ color: '#d8d2c8', roughness: .48, metalness: .14, emissive: '#3a3020', emissiveIntensity: .18, flatShading: true }),
+    families.house,
+    (mesh, { row, col, bottom, height }, index) => {
+      euler.set(0, cellSeed(row, col) * .04, 0)
+      quaternion.setFromEuler(euler)
+      position.set(col + .5, bottom, row + .5)
+      scale.set(.985, height, .985)
+      matrix.compose(position, quaternion, scale)
+      mesh.setMatrixAt(index, matrix)
+    },
+  )
+
+  addInstanced(
+    assets.post,
+    new THREE.MeshStandardMaterial({ color: '#c4bdb2', roughness: .44, metalness: .16, emissive: '#2a2218', emissiveIntensity: .16, flatShading: true }),
+    families.castle,
+    (mesh, { row, col, bottom, height }, index) => {
+      euler.set(0, cellSeed(row, col) * .03, 0)
+      quaternion.setFromEuler(euler)
+      position.set(col + .5, bottom, row + .5)
+      scale.set(.42, height, .42)
+      matrix.compose(position, quaternion, scale)
+      mesh.setMatrixAt(index, matrix)
+      color.set('#ddd0b8').lerp(new THREE.Color('#f0a050'), row >= 46 ? .25 : 0)
+      mesh.setColorAt(index, color)
+    },
+  )
+
+  buildPeachCastleVisuals(world, assets, { lite })
+}
+
 const GLACIAL_ROTATABLE_LABELS = new Set(['COLONNADE', 'OBELISK', 'BRIDGE PYLON', 'WORLD'])
 
 function glacialKindOf(data) {
@@ -8374,8 +8623,9 @@ function rebuildPeripheralMapWorld(state, mapId, obstacles) {
   addIslandSurroundCoast(world, state.textures, lowDetail, mapId)
   addPeripheralMapLandmark(world, state.textures, mapId, lowDetail)
   addPeripheralGroundFeatures(world, mapId, lowDetail)
-  const useOrganicPass = mapId === '2'
-  if (useOrganicPass) buildGlacialStructures(world, obstacles, { lite: visualTier !== 'high' })
+  const useOrganicPass = mapId === '2' || mapId === '3'
+  if (mapId === '2') buildGlacialStructures(world, obstacles, { lite: visualTier !== 'high' })
+  else if (mapId === '3') buildPeachCastleStructures(world, obstacles, { lite: visualTier !== 'high' })
   const boxGroups = { mountain: [], coast: [], ice: [], inferno: [] }
   for (const entry of useOrganicPass ? [] : obstacles.entries()) {
     const [row, col] = entry[0].split(',').map(Number)
