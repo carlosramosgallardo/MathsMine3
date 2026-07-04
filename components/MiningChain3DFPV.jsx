@@ -14,7 +14,7 @@ import {
   isMiningCoreMap,
   MINING_CORE_MAP_ID,
 } from '@/lib/mining-maps'
-import { getMiningMapAmbientObstacles, getMiningMapGroundFeatures, FROST_COLISEUM_DECOR, FROST_COLISEUM_ARENA, PEACH_CASTLE_DECOR, PEACH_CASTLE_ARENA } from '@/lib/mining-map-ambient'
+import { getMiningMapAmbientObstacles, getMiningMapGroundFeatures, FROST_COLISEUM_DECOR, FROST_COLISEUM_ARENA, PEACH_CASTLE_DECOR, PEACH_CASTLE_ARENA, DESERT_OASIS_DECOR, DESERT_OASIS_ARENA } from '@/lib/mining-map-ambient'
 import {
   buildPeripheralCellMap,
   buildRlNodeCell,
@@ -7525,12 +7525,16 @@ function addPeripheralMapLandmark(world, textures, mapId, lowDetail = false) {
     ? FROST_COLISEUM_ARENA.col + 0.5
     : mapId === '3'
       ? PEACH_CASTLE_ARENA.col + 0.5
-      : MINING_CHAIN_NODE_POSITION.col + 0.5
+      : mapId === '4'
+        ? DESERT_OASIS_ARENA.col + 0.5
+        : MINING_CHAIN_NODE_POSITION.col + 0.5
   const centerZ = mapId === '2'
     ? FROST_COLISEUM_ARENA.row + 0.5
     : mapId === '3'
       ? PEACH_CASTLE_ARENA.row + 0.5
-      : MINING_CHAIN_NODE_POSITION.row + 0.5
+      : mapId === '4'
+        ? DESERT_OASIS_ARENA.row + 0.5
+        : MINING_CHAIN_NODE_POSITION.row + 0.5
   if (mapId === '2') {
     const innerR = Math.max(FROST_COLISEUM_ARENA.a, FROST_COLISEUM_ARENA.b) * 0.36
     const ring = new THREE.Mesh(
@@ -7548,7 +7552,15 @@ function addPeripheralMapLandmark(world, textures, mapId, lowDetail = false) {
     gateRing.rotation.x = Math.PI / 2
     gateRing.position.set(PEACH_CASTLE_DECOR.castleGate.x, 0.12, PEACH_CASTLE_DECOR.castleGate.z)
     group.add(gateRing)
-  } else if (mapId === '4' || mapId === '5') {
+  } else if (mapId === '4') {
+    const oasisRing = new THREE.Mesh(
+      new THREE.TorusGeometry(3.2, 0.05, 6, lowDetail ? 20 : 32),
+      new THREE.MeshBasicMaterial({ color: '#38bdf8', transparent: true, opacity: 0.38, depthWrite: false }),
+    )
+    oasisRing.rotation.x = Math.PI / 2
+    oasisRing.position.set(DESERT_OASIS_DECOR.lagoon.x, 0.12, DESERT_OASIS_DECOR.lagoon.z)
+    group.add(oasisRing)
+  } else if (mapId === '5') {
     // Reserved for future full-map venues — no central clutter yet.
   }
   const sign = new THREE.Mesh(
@@ -7731,7 +7743,10 @@ function addPeripheralGroundFeatures(world, mapId, lowDetail = false) {
     addPeachCastlePerimeterScenery(scenery, lowDetail)
     addGatewayCausewayScenery(scenery, 'north', lowDetail)
   }
-  if (mapId === '4') addGatewayCausewayScenery(scenery, 'west', lowDetail)
+  if (mapId === '4') {
+    addDesertOasisPerimeterScenery(scenery, lowDetail)
+    addGatewayCausewayScenery(scenery, 'west', lowDetail)
+  }
   if (mapId === '5') addGatewayCausewayScenery(scenery, 'east', lowDetail)
   world.add(scenery)
 }
@@ -7822,6 +7837,29 @@ function addGatewayCausewayScenery(scenery, direction, lowDetail = false) {
     const shoreX = direction === 'east' ? 53.5 : 1.5
     const seaStep = direction === 'east' ? 3.2 : -3.2
     for (const [z, phase] of rowBands) addEastWestBand(z, phase, shoreX, seaStep)
+  }
+}
+
+// Gateway lanterns along the west exits to M1 (Desert Oasis).
+function addDesertOasisPerimeterScenery(scenery) {
+  const bands = [[39, 0], [47, 1.4], [53, 2.8]]
+  for (const [z, phase] of bands) {
+    const lantern = new THREE.Mesh(
+      new THREE.OctahedronGeometry(0.18),
+      new THREE.MeshBasicMaterial({ color: '#fcd34d', transparent: true, opacity: 0.9 }),
+    )
+    lantern.position.set(3.5, 2.4, z)
+    scenery.add(lantern)
+    const flame = new THREE.Group()
+    const outer = new THREE.Mesh(new THREE.ConeGeometry(0.14, 0.55, 6), new THREE.MeshBasicMaterial({ color: '#f97316', transparent: true, opacity: 0.85, depthWrite: false }))
+    const inner = new THREE.Mesh(new THREE.ConeGeometry(0.08, 0.38, 6), new THREE.MeshBasicMaterial({ color: '#fde68a', transparent: true, opacity: 0.92, depthWrite: false }))
+    outer.position.y = 0.28
+    inner.position.y = 0.22
+    flame.add(outer, inner)
+    flame.position.set(2.5, 0.12, z)
+    flame.userData.biomeSurface = 'fire'
+    flame.userData.phase = phase
+    scenery.add(flame)
   }
 }
 
@@ -8278,26 +8316,6 @@ function buildPeachCastleVisuals(world, assets, { lite = false } = {}) {
   titleSprite.renderOrder = 4
   if (titleSprite.material) titleSprite.material.depthTest = false
   showcase.add(titleSprite)
-  const nameCanvas = document.createElement('canvas')
-  nameCanvas.width = 512
-  nameCanvas.height = 128
-  const nameCtx = nameCanvas.getContext('2d')
-  nameCtx.clearRect(0, 0, 512, 128)
-  nameCtx.fillStyle = '#fff1f2'
-  nameCtx.strokeStyle = '#be123c'
-  nameCtx.lineWidth = 6
-  nameCtx.font = 'bold 42px sans-serif'
-  nameCtx.textAlign = 'center'
-  nameCtx.textBaseline = 'middle'
-  nameCtx.strokeText('Castillo de Peach', 256, 64)
-  nameCtx.fillText('Castillo de Peach', 256, 64)
-  const nameTexture = finalizeCanvasTexture(new THREE.CanvasTexture(nameCanvas))
-  const namePlane = new THREE.Mesh(
-    new THREE.PlaneGeometry(5.2, 1.25),
-    new THREE.MeshBasicMaterial({ map: nameTexture, transparent: true, depthWrite: false, side: THREE.DoubleSide }),
-  )
-  namePlane.position.y = lite ? 3.0 : 4.0
-  showcase.add(namePlane)
   world.add(showcase)
 }
 
@@ -8361,6 +8379,193 @@ function buildPeachCastleStructures(world, obstacles, { lite = false } = {}) {
   )
 
   buildPeachCastleVisuals(world, assets, { lite })
+}
+
+function oasisKindOf(data) {
+  const label = String(data?.label || '')
+  if (label === 'OASIS TOWER') return 'tower'
+  if (label === 'DESERT ROCK') return 'rock'
+  return 'masonry'
+}
+
+function buildDesertOasisVisuals(world, assets, { lite = false } = {}) {
+  const decor = DESERT_OASIS_DECOR
+  const sandStone = new THREE.MeshStandardMaterial({ color: '#c4a574', roughness: .78, metalness: .08, emissive: '#3d2810', emissiveIntensity: .14, flatShading: true })
+  const darkRock = new THREE.MeshStandardMaterial({ color: '#6b5344', roughness: .92, metalness: .04, emissive: '#1a1008', emissiveIntensity: .10, flatShading: true })
+  const palmTrunk = new THREE.MeshStandardMaterial({ color: '#8b5a2b', roughness: .88, metalness: 0, flatShading: true })
+  const palmLeaf = new THREE.MeshStandardMaterial({ color: '#3d9a40', roughness: .82, metalness: 0, emissive: '#0c3010', emissiveIntensity: .22, flatShading: true })
+  const domeMat = new THREE.MeshStandardMaterial({ color: '#4a5568', roughness: .28, metalness: .72, emissive: '#1a2030', emissiveIntensity: .18 })
+
+  if (decor.boulders.length) {
+    const rocks = new THREE.InstancedMesh(assets.boulder, darkRock, decor.boulders.length)
+    const matrix = new THREE.Matrix4()
+    const position = new THREE.Vector3()
+    const scale = new THREE.Vector3()
+    const quaternion = new THREE.Quaternion()
+    const euler = new THREE.Euler()
+    decor.boulders.forEach((rock, index) => {
+      euler.set(0, rock.yaw, 0)
+      quaternion.setFromEuler(euler)
+      position.set(rock.x, 0.35 * rock.scale, rock.z)
+      scale.set(rock.scale, rock.scale * 0.85, rock.scale * 0.9)
+      matrix.compose(position, quaternion, scale)
+      rocks.setMatrixAt(index, matrix)
+    })
+    rocks.instanceMatrix.needsUpdate = true
+    world.add(rocks)
+  }
+
+  if (!lite && decor.palms.length) {
+    for (const palm of decor.palms) {
+      const group = new THREE.Group()
+      const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.08 * palm.scale, 0.12 * palm.scale, 1.6 * palm.scale, 6), palmTrunk)
+      trunk.position.y = 0.8 * palm.scale
+      group.add(trunk)
+      for (let i = 0; i < 5; i += 1) {
+        const leaf = new THREE.Mesh(new THREE.ConeGeometry(0.35 * palm.scale, 1.1 * palm.scale, 5), palmLeaf)
+        leaf.position.y = 1.55 * palm.scale
+        leaf.rotation.y = (i / 5) * Math.PI * 2
+        leaf.rotation.x = 0.55
+        group.add(leaf)
+      }
+      group.position.set(palm.x, 0, palm.z)
+      world.add(group)
+    }
+  }
+
+  if (!lite && decor.lanterns.length) {
+    for (const lantern of decor.lanterns) {
+      const post = new THREE.Group()
+      const base = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.28, 0.35, 6), sandStone)
+      base.position.y = 0.17
+      post.add(base)
+      const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.16, 1.05, 6), sandStone)
+      shaft.position.y = 0.85
+      post.add(shaft)
+      const cap = new THREE.Mesh(new THREE.ConeGeometry(0.24, 0.42, 6), sandStone)
+      cap.position.y = 1.55
+      post.add(cap)
+      if (!lite) {
+        const glow = new THREE.PointLight('#fcd34d', 1.2, 4.5, 1.8)
+        glow.position.y = 1.0
+        post.add(glow)
+      }
+      post.position.set(lantern.x, 0, lantern.z)
+      post.userData.biomeSurface = 'fire'
+      post.userData.phase = lantern.phase
+      world.add(post)
+    }
+  }
+
+  const lagoon = new THREE.Mesh(
+    new THREE.CircleGeometry(decor.lagoon.radius, lite ? 12 : 24),
+    new THREE.MeshStandardMaterial({ color: '#38bdf8', emissive: '#0369a1', emissiveIntensity: .42, transparent: true, opacity: .78, roughness: .08, metalness: .12 }),
+  )
+  lagoon.rotation.x = -Math.PI / 2
+  lagoon.position.set(decor.lagoon.x, 0.025, decor.lagoon.z)
+  world.add(lagoon)
+
+  const towerGroup = new THREE.Group()
+  towerGroup.userData.skipOcclusion = true
+  const { tower, towerGate } = decor
+  const base = new THREE.Mesh(new THREE.CylinderGeometry(tower.radius * 1.05, tower.radius * 1.15, 2.4, lite ? 8 : 14), sandStone)
+  base.position.set(tower.x, 1.2, tower.z)
+  towerGroup.add(base)
+  const shaft = new THREE.Mesh(new THREE.CylinderGeometry(tower.radius * 0.78, tower.radius * 0.88, tower.height * 0.52, lite ? 8 : 14), sandStone)
+  shaft.position.set(tower.x, 3.2, tower.z)
+  towerGroup.add(shaft)
+  if (!lite) {
+    for (let i = 0; i < 8; i += 1) {
+      const angle = (i / 8) * Math.PI * 2
+      const col = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.18, 2.8, 6), sandStone)
+      col.position.set(tower.x + Math.cos(angle) * (tower.radius + 0.35), 2.0, tower.z + Math.sin(angle) * (tower.radius + 0.35))
+      towerGroup.add(col)
+    }
+  }
+  const gallery = new THREE.Mesh(new THREE.TorusGeometry(tower.radius * 0.92, 0.14, 6, lite ? 12 : 18), sandStone)
+  gallery.rotation.x = Math.PI / 2
+  gallery.position.set(tower.x, 5.2, tower.z)
+  towerGroup.add(gallery)
+  const dome = new THREE.Mesh(new THREE.SphereGeometry(tower.radius * 0.72, lite ? 8 : 14, lite ? 6 : 10, 0, Math.PI * 2, 0, Math.PI / 2), domeMat)
+  dome.position.set(tower.x, 5.35, tower.z)
+  towerGroup.add(dome)
+  const spire = new THREE.Mesh(new THREE.ConeGeometry(0.18, 1.6, 6), domeMat)
+  spire.position.set(tower.x, tower.height + 0.4, tower.z)
+  towerGroup.add(spire)
+  world.add(towerGroup)
+
+  const showcase = new THREE.Group()
+  showcase.position.set(towerGate.x, 0, towerGate.z)
+  showcase.userData.skipOcclusion = true
+  const titleSprite = makeEmojiSprite('🕌', '#fcd34d', 'circle')
+  titleSprite.scale.set(lite ? 1.15 : 1.45, lite ? 1.15 : 1.45, 1)
+  titleSprite.position.y = lite ? 5.8 : 7.2
+  titleSprite.renderOrder = 4
+  if (titleSprite.material) titleSprite.material.depthTest = false
+  showcase.add(titleSprite)
+  world.add(showcase)
+}
+
+function buildDesertOasisStructures(world, obstacles, { lite = false } = {}) {
+  const assets = getGlacialAssets()
+  const matrix = new THREE.Matrix4()
+  const position = new THREE.Vector3()
+  const scale = new THREE.Vector3()
+  const quaternion = new THREE.Quaternion()
+  const euler = new THREE.Euler()
+  const color = new THREE.Color()
+  const cellSeed = (row, col) => seededUnit(row * 131 + col * 37)
+
+  const families = { tower: [], rock: [], masonry: [] }
+  for (const [key, data] of obstacles) {
+    const [row, col] = key.split(',').map(Number)
+    const bottom = obstacleBottom(data)
+    const top = Number(data.visualHeight) || obstacleTop(data)
+    families[oasisKindOf(data)].push({ row, col, data, bottom, height: Math.max(.04, top - bottom) })
+  }
+
+  const addInstanced = (geometry, material, instances, writer, collidable = true) => {
+    if (!instances.length) return null
+    const mesh = new THREE.InstancedMesh(geometry, material, instances.length)
+    instances.forEach((instance, index) => writer(mesh, instance, index))
+    mesh.instanceMatrix.needsUpdate = true
+    if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true
+    mesh.userData.collidable = collidable
+    world.add(mesh)
+    return mesh
+  }
+
+  addInstanced(
+    assets.boulder,
+    new THREE.MeshStandardMaterial({ color: '#6b5344', roughness: .9, metalness: .04, emissive: '#1a1008', emissiveIntensity: .12, flatShading: true }),
+    families.rock,
+    (mesh, { row, col, bottom, height }, index) => {
+      euler.set(0, cellSeed(row, col) * Math.PI * 2, 0)
+      quaternion.setFromEuler(euler)
+      position.set(col + .5, bottom, row + .5)
+      scale.set(.85 + cellSeed(row + 3, col + 5) * .35, height, .85 + cellSeed(row + 7, col + 2) * .35)
+      matrix.compose(position, quaternion, scale)
+      mesh.setMatrixAt(index, matrix)
+    },
+  )
+
+  addInstanced(
+    assets.post,
+    new THREE.MeshStandardMaterial({ color: '#c4a574', roughness: .5, metalness: .12, emissive: '#3d2810', emissiveIntensity: .16, flatShading: true }),
+    families.tower,
+    (mesh, { row, col, bottom, height }, index) => {
+      euler.set(0, cellSeed(row, col) * .03, 0)
+      quaternion.setFromEuler(euler)
+      position.set(col + .5, bottom, row + .5)
+      scale.set(.4, height, .4)
+      matrix.compose(position, quaternion, scale)
+      mesh.setMatrixAt(index, matrix)
+      color.set('#c4a574').lerp(new THREE.Color('#d97706'), row >= 22 ? .22 : 0)
+      mesh.setColorAt(index, color)
+    },
+  )
+
+  buildDesertOasisVisuals(world, assets, { lite })
 }
 
 const GLACIAL_ROTATABLE_LABELS = new Set(['COLONNADE', 'OBELISK', 'BRIDGE PYLON', 'WORLD'])
@@ -8623,9 +8828,10 @@ function rebuildPeripheralMapWorld(state, mapId, obstacles) {
   addIslandSurroundCoast(world, state.textures, lowDetail, mapId)
   addPeripheralMapLandmark(world, state.textures, mapId, lowDetail)
   addPeripheralGroundFeatures(world, mapId, lowDetail)
-  const useOrganicPass = mapId === '2' || mapId === '3'
+  const useOrganicPass = mapId === '2' || mapId === '3' || mapId === '4'
   if (mapId === '2') buildGlacialStructures(world, obstacles, { lite: visualTier !== 'high' })
   else if (mapId === '3') buildPeachCastleStructures(world, obstacles, { lite: visualTier !== 'high' })
+  else if (mapId === '4') buildDesertOasisStructures(world, obstacles, { lite: visualTier !== 'high' })
   const boxGroups = { mountain: [], coast: [], ice: [], inferno: [] }
   for (const entry of useOrganicPass ? [] : obstacles.entries()) {
     const [row, col] = entry[0].split(',').map(Number)
