@@ -17,10 +17,10 @@ import {
 import { computeRelayLevel } from '@/lib/wallet-decorations'
 import { CIPHER_HOUSE_BOUNDS, CIPHER_HOUSE_MINING_EXCLUSION, CIPHER_HOUSE_MINING_LEVELS, HOUSE_POOL_HEAL_ZONE, HOUSE_POOL_FLOOR_LEVEL, HOUSE_POOL_SWIM_MAX_Z, MINING_CHAIN_NODE_POSITION, NODE_DICE_POSITION } from '@/lib/mining-world-layout'
 import {
-  MINING_MARKET_LANDMARK_POSITIONS,
   MINING_VISUAL_BLOCK_POSITIONS,
   placeMiningVisualBlock,
   relocateMiningBlockPosition,
+  getBlockMapId,
 } from '@/lib/mining-visual-layout'
 import { MINING_CORE_MAP_ID } from '@/lib/mining-maps'
 import { RL_NODE_MIN_LEVEL, RL_NODE_PRICE_MM3 } from '@/lib/mining-rl-mount'
@@ -146,7 +146,6 @@ function placeDistributedBlock(blockHex) {
   return placeMiningVisualBlock(blockHex)
 }
 
-const MARKET_LANDMARK_POSITIONS = MINING_MARKET_LANDMARK_POSITIONS
 const VISUAL_BLOCK_POSITIONS = MINING_VISUAL_BLOCK_POSITIONS
 
 function getRandomLoggedSpawn() {
@@ -947,22 +946,18 @@ export default function MiningChain3D() {
           isMarket: true, isMined: Boolean(ownerWallet),
         })
       }
-      const marketPositions = new Map(
-        [...blocksByHex.values()]
-          .filter(block => block.isMarket)
-          .sort((a,b) => a.blockHex.localeCompare(b.blockHex))
-          .map((block,index) => [block.blockHex, MARKET_LANDMARK_POSITIONS[index]])
-      )
       for (const [, block] of [...blocksByHex.entries()].sort(([a],[b]) => a.localeCompare(b))) {
-        const pos = marketPositions.get(block.blockHex) || placeDistributedBlock(block.blockHex)
-        if (pos && canPlaceMiningBlockAt(pos.row, pos.col)) map.set(`${pos.row},${pos.col}`, block)
+        const pos = placeDistributedBlock(block.blockHex)
+        if (!pos || !canPlaceMiningBlockAt(pos.row, pos.col)) continue
+        const mapId = pos.mapId || getBlockMapId(block.blockHex)
+        map.set(`${pos.row},${pos.col}`, { ...block, mapId })
       }
       // All unclaimed mining blocks — visible as mineable walls even without an owner
       for (const [blockHex, pos] of VISUAL_BLOCK_POSITIONS) {
         const key = `${pos.row},${pos.col}`
-        if (canPlaceMiningBlockAt(pos.row, pos.col) && !map.has(key)) {
-          map.set(key, { blockHex, owner: null, isMined: false, isMarket: false, color: null })
-        }
+        if (!canPlaceMiningBlockAt(pos.row, pos.col) || map.has(key)) continue
+        const mapId = pos.mapId || getBlockMapId(blockHex)
+        map.set(key, { blockHex, owner: null, isMined: false, isMarket: false, color: null, mapId })
       }
       for (const [key, baseHeight] of Object.entries(CIPHER_HOUSE_MINING_LEVELS)) {
         const block = map.get(key)
@@ -979,6 +974,7 @@ export default function MiningChain3D() {
             isMarket: false,
             color: null,
             baseHeight,
+            mapId: pos.mapId || getBlockMapId(blockHex),
           })
           break
         }

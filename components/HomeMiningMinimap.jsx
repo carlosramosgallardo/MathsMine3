@@ -3,10 +3,10 @@
 import { useEffect, useRef } from 'react';
 import { colorFromAddress } from '@/lib/wallet-colors';
 import {
-  MINING_MARKET_LANDMARK_POSITIONS,
   MINING_PORTAL_NODES,
   MINING_VISUAL_BLOCK_POSITIONS,
   placeMiningVisualBlock,
+  getBlockMapId,
 } from '@/lib/mining-visual-layout';
 import { CRYPTO_COLOSSEUM_BOUNDS, MINING_CHAIN_NODE_POSITION } from '@/lib/mining-world-layout';
 
@@ -39,10 +39,11 @@ function drawMap(canvas, snapshot) {
   }
 
   ctx.fillStyle = 'rgba(34, 211, 238, .24)';
-  for (const { row, col } of MINING_VISUAL_BLOCK_POSITIONS.values()) {
+  for (const [blockHex, pos] of MINING_VISUAL_BLOCK_POSITIONS) {
+    if ((pos.mapId || getBlockMapId(blockHex)) !== '1') continue;
     ctx.fillRect(
-      ox + (col + .5) * cell,
-      oy + (row + .5) * cell,
+      ox + (pos.col + .5) * cell,
+      oy + (pos.row + .5) * cell,
       Math.max(.7, cell * .32),
       Math.max(.7, cell * .32),
     );
@@ -58,16 +59,21 @@ function drawMap(canvas, snapshot) {
 
   for (const [blockHex, wallet] of snapshot.mined || []) {
     const pos = placeMiningVisualBlock(blockHex);
-    if (!pos) continue;
+    if (!pos || (pos.mapId || getBlockMapId(blockHex)) !== '1') continue;
     ctx.fillStyle = colorFromAddress(wallet);
     ctx.globalAlpha = .82;
     ctx.fillRect(ox + pos.col * cell, oy + pos.row * cell, Math.max(1.4, cell), Math.max(1.4, cell));
   }
   ctx.globalAlpha = 1;
 
-  const markets = snapshot.markets?.length
-    ? snapshot.markets.map((emoji, index) => ({ ...MINING_MARKET_LANDMARK_POSITIONS[index], emoji })).filter(({ row }) => row != null)
-    : MINING_MARKET_LANDMARK_POSITIONS;
+  const markets = (snapshot.markets || [])
+    .map((emoji, index) => {
+      const blockHex = snapshot.marketHexes?.[index];
+      const pos = blockHex ? placeMiningVisualBlock(blockHex) : null;
+      if (!pos || (pos.mapId || getBlockMapId(blockHex)) !== '1') return null;
+      return { row: pos.row, col: pos.col, emoji };
+    })
+    .filter(Boolean);
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.font = `${Math.max(7, cell * 3.1)}px sans-serif`;

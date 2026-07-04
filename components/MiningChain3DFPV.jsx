@@ -16,7 +16,7 @@ import {
 } from '@/lib/mining-maps'
 import { getMiningMapAmbientObstacles, getMiningMapGroundFeatures, FROST_COLISEUM_DECOR, FROST_COLISEUM_ARENA, PEACH_CASTLE_DECOR, PEACH_CASTLE_ARENA, DESERT_OASIS_DECOR, DESERT_OASIS_ARENA, MYSTIC_ISLE_DECOR, MYSTIC_ISLE_ARENA } from '@/lib/mining-map-ambient'
 import {
-  buildPeripheralCellMap,
+  buildActiveCellMap,
   buildRlNodeCell,
   RL_MOUNT_JUMP_MULT,
   RL_MOUNT_SPEED_MULT,
@@ -25,6 +25,7 @@ import {
   RL_NODE_PRICE_MM3,
   getRlNodeWorldCenter,
 } from '@/lib/mining-rl-mount'
+import { getBlockMapId } from '@/lib/mining-visual-layout'
 import {
   forEachPerimeterCell,
   getPerimeterCellVisual,
@@ -3929,7 +3930,7 @@ function drawMinimap(ctx, gr, gc, angle, cellMap, presenceMap, myWallet, W, H, c
     }
   }
 
-  for (const [key, cell] of (isMiningCoreMap(mapId) ? cellMap : [])) {
+  for (const [key, cell] of cellMap) {
     if (cell?.isPortalNode || cell?.isMarket || cell?.isChainNode) continue
     const [row, col] = key.split(',').map(Number)
     const x = mapX(col)
@@ -3944,21 +3945,21 @@ function drawMinimap(ctx, gr, gc, angle, cellMap, presenceMap, myWallet, W, H, c
     }
   }
 
-  for (const [key, cell] of (isMiningCoreMap(mapId) ? cellMap : [])) {
+  for (const [key, cell] of cellMap) {
     if (!cell?.isMarket) continue
     const [row, col] = key.split(',').map(Number)
     const color = cell.owner ? '#4ade80' : '#fb923c'
     drawMapEmoji(cell.emoji || '◆', mapX(col + .5), mapY(row + .5), color, 'square')
   }
 
-  for (const [key, cell] of (isMiningCoreMap(mapId) ? cellMap : [])) {
+  for (const [key, cell] of cellMap) {
     if (!cell?.isPortalNode && !cell?.isNodeDiceNode && !cell?.isRlNode) continue
     const [row, col] = key.split(',').map(Number)
     drawMapEmoji(cell.emoji || '◆', mapX(col + .5), mapY(row + .5), cell.color || C, 'circle')
   }
 
   let chainDrawn = false
-  for (const [key, cell] of (isMiningCoreMap(mapId) ? cellMap : [])) {
+  for (const [key, cell] of cellMap) {
     if (!cell?.isChainNode) continue
     const [row, col] = key.split(',').map(Number)
     drawMapEmoji(cell.emoji || '⬡', mapX(col + .5), mapY(row + .5), '#facc15', 'circle')
@@ -9051,15 +9052,32 @@ function buildGlacialStructures(world, obstacles, { lite = false } = {}) {
   buildFrostColiseumVisuals(world, assets, { lite })
 }
 
-function buildPeripheralObstacles(mapId) {
+function buildPeripheralObstacles(mapId, cellMap) {
+  const reserved = new Set()
+  if (cellMap) {
+    for (const [key, cell] of cellMap) {
+      const [r, c] = key.split(',').map(Number)
+      reserved.add(key)
+      const approaches = [[1, 0], [-1, 0], [0, 1], [0, -1]]
+      if (cell.isRlNode || cell.isMarket) {
+        for (const [dr, dc] of approaches) reserved.add(`${r + dr},${c + dc}`)
+      } else if (cell.blockHex) {
+        const raw = String(cell.blockHex || '').replace('#', '')
+        const index = Number.parseInt(raw, 16) || 0
+        const [dr, dc] = approaches[Math.abs(index + r * 3 + c * 5) % approaches.length]
+        reserved.add(`${r + dr},${c + dc}`)
+      }
+    }
+  }
   const valid = new Map()
   for (const [key, data] of getMiningMapAmbientObstacles(mapId)) {
+    if (reserved.has(key)) continue
     valid.set(key, chainObstacle(key, data))
   }
   return valid
 }
 
-function rebuildPeripheralMapWorld(state, mapId, obstacles) {
+function rebuildPeripheralMapWorld(state, mapId, obstacles, cellMap) {
   if (!state || !mapId || isMiningCoreMap(mapId)) return
   disposeMinableBlockChunkSystem(state)
   if (state.world) { state.scene.remove(state.world); disposeThreeObject(state.world) }
@@ -9116,12 +9134,30 @@ function rebuildPeripheralMapWorld(state, mapId, obstacles) {
     mesh.userData.collidable = true
     world.add(mesh)
   }
-  if (mapId === '2') {
-    state.beaconBatch = null
-    addRlColiseumNodeVisual(world, lowDetail, state)
-  } else {
-    state.beaconBatch = null
+  const activeCellMap = cellMap || new Map()
+  const playerGx = state.lastPlayerGridX ?? COLS / 2
+  const playerGy = state.lastPlayerGridY ?? ROWS / 2
+  const blockChunkHolder = initMinableBlockChunkSystem(state, activeCellMap, visualTier, playerGx, playerGy)
+  if (blockChunkHolder) world.add(blockChunkHolder)
+
+  const beaconEntries = []
+  for (const [key, cell] of activeCellMap) {
+    if (!cell.isMarket && !cell.isRlNode) continue
+    if (cell.isRlNode && mapId === '2') continue
+    const [row, col] = key.split(',').map(Number)
+    const height = blockTop(cell, row, col)
+    if (!lowDetail && cell.isMarket) {
+      beaconEntries.push({ row, col, cell, height, phase: seededUnit(row * 71 + col * 113) * Math.PI * 2 })
+    }
+    if (cell.isMarket) addInteractiveBeaconEmoji(world, row, col, cell, height)
   }
+  if (mapId === '2') {
+    addRlColiseumNodeVisual(world, lowDetail, state)
+  }
+  state.beaconBatch = visualTier === 'high' && beaconEntries.length
+    ? addInteractiveBeaconBatch(world, beaconEntries)
+    : null
+  if (state.beaconBatch) updateInteractiveBeaconBatch(state.beaconBatch, performance.now() * .001)
   state.world = world
   state.cameraCollisionValid = false
   state.biomeSurfaces = []
@@ -9151,7 +9187,7 @@ function rebuildPeripheralMapWorld(state, mapId, obstacles) {
 
 function rebuildActiveMapWorld(state, mapId, cellMap, obstacles) {
   if (isMiningCoreMap(mapId)) rebuildThreeWorld(state, cellMap, obstacles)
-  else rebuildPeripheralMapWorld(state, mapId, obstacles)
+  else rebuildPeripheralMapWorld(state, mapId, obstacles, cellMap)
 }
 
 function addRlColiseumNodeVisual(world, lowDetail, state) {
@@ -10084,12 +10120,10 @@ export default function MiningChain3DFPV({
       _occlusionAvatars:[],_occlusionHits:[],viewWidth:0,viewHeight:0,viewDpr:0,viewFov:0,activeBiome:null,visualTierSynced:null}
     threeStateRef.current=state
     syncThreeSceneForVisualTier(state,launchTier)
-    rebuildThreeRef.current=()=>rebuildActiveMapWorld(
-      state,
-      mapIdRef.current,
-      isMiningCoreMap(mapIdRef.current) ? cellMapRef.current : new Map(),
-      validObstaclesRef.current,
-    )
+    rebuildThreeRef.current=()=>{
+      const activeMap = buildActiveCellMap(mapIdRef.current, cellMapRef.current)
+      rebuildActiveMapWorld(state, mapIdRef.current, activeMap, validObstaclesRef.current)
+    }
     if(obstaclesReadyRef.current) scheduleWorldBootstrapRef.current?.()
     return ()=>{
       rebuildThreeRef.current=null
@@ -10107,7 +10141,7 @@ export default function MiningChain3DFPV({
   // Keep refs in sync with props
   useEffect(()=>{
     cellMapRef.current=cellMap
-    activeCellMapRef.current = isMiningCoreMap(mapId) ? cellMap : buildPeripheralCellMap(mapId)
+    activeCellMapRef.current = buildActiveCellMap(mapId, cellMap)
   },[cellMap,mapId])
   useEffect(()=>{ presenceRef.current=presenceMap; onlineListDirtyRef.current=true },[presenceMap])
   useEffect(()=>{ myWalletRef.current=myWallet },[myWallet])
@@ -10209,9 +10243,10 @@ export default function MiningChain3DFPV({
 
   // Recompute valid obstacles (Map<key,data>) and chain node position whenever cellMap changes
   useEffect(() => {
-    const activeMapId = mapIdRef.current
+    const activeMapId = mapId || MINING_CORE_MAP_ID
     if (!isMiningCoreMap(activeMapId)) {
-      validObstaclesRef.current = buildPeripheralObstacles(activeMapId)
+      const activeMap = buildActiveCellMap(activeMapId, cellMap)
+      validObstaclesRef.current = buildPeripheralObstacles(activeMapId, activeMap)
       obstaclesReadyRef.current = true
       scheduleWorldBootstrapRef.current?.()
       return
@@ -10236,10 +10271,12 @@ export default function MiningChain3DFPV({
     }
     portalCellsRef.current = portals
 
+    const m1CellMap = buildActiveCellMap(MINING_CORE_MAP_ID, cellMap)
+
     // Interactive/mining cells are immutable landmarks. Obstacles may shape
     // corridors around them, but can never replace them or block every approach.
     const reserved = new Set()
-    for(const [key,cell] of cellMap){
+    for(const [key,cell] of m1CellMap){
       const [r,c]=key.split(',').map(Number)
       reserved.add(key)
       const approaches=[[1,0],[-1,0],[0,1],[0,-1]]
@@ -10287,7 +10324,7 @@ export default function MiningChain3DFPV({
 
     // Authored traversal landmarks get first choice of genuinely empty space;
     // procedural maze walls then fill only what remains.
-    addRetroStructures(valid,reserved,cellMap)
+    addRetroStructures(valid,reserved,m1CellMap)
 
     // Dynamic wall segments: sampled on a 4-cell grid, ~22% become wall origins
     // Each origin spawns a 2–4 cell segment (horiz or vert) → looks like maze walls
@@ -10318,8 +10355,8 @@ export default function MiningChain3DFPV({
       }
     }
 
-    addDenseMaze(valid,reserved,cellMap)
-    addOrganicObstacles(valid,reserved,cellMap)
+    addDenseMaze(valid,reserved,m1CellMap)
+    addOrganicObstacles(valid,reserved,m1CellMap)
     clearCipherHouseApproaches(valid)
     applyHouseDoorStepObstacles(valid)
 
@@ -10363,17 +10400,17 @@ export default function MiningChain3DFPV({
         placed = true
       }
     }
-    ensureInteractiveConnectivity(valid,cellMap)
+    ensureInteractiveConnectivity(valid,m1CellMap)
     applyHouseDoorStepObstacles(valid)
     validObstaclesRef.current = valid
     obstaclesReadyRef.current = true
     scheduleWorldBootstrapRef.current?.()
 
     // Safety: if player is inside an obstacle or block, teleport to nearest free cell
-    if (hitsSolidWall(playerRef.current.x/CELL_SIZE,playerRef.current.y/CELL_SIZE,cellMap,valid,playerRef.current.z)) {
+    if (hitsSolidWall(playerRef.current.x/CELL_SIZE,playerRef.current.y/CELL_SIZE,m1CellMap,valid,playerRef.current.z)) {
       const curRow = Math.floor(playerRef.current.y / CELL_SIZE)
       const curCol = Math.floor(playerRef.current.x / CELL_SIZE)
-      const free = findNearestFreeCell(curRow, curCol, cellMap, valid)
+      const free = findNearestFreeCell(curRow, curCol, m1CellMap, valid)
       playerRef.current.x = (free.col + 0.5) * CELL_SIZE
       playerRef.current.y = (free.row + 0.5) * CELL_SIZE
     }
@@ -12353,7 +12390,7 @@ export default function MiningChain3DFPV({
       // Stream minable block visuals by proximity (all devices / maps with cellMap blocks).
       {
         const ts = threeStateRef.current
-        if (ts?.minableBlockChunks && isMiningCoreMap(mapIdRef.current)) {
+        if (ts?.minableBlockChunks) {
           const pgx = p.x / CELL_SIZE
           const pgy = p.y / CELL_SIZE
           ts.lastPlayerGridX = pgx

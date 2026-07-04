@@ -1,6 +1,7 @@
 export const dynamic = 'force-dynamic';
 
 import { createClient } from '@supabase/supabase-js';
+import { gridToBlockHex } from '@/lib/mm3-block-chain';
 
 const CACHE_MS = 300_000;
 const PLAYER_CACHE_MS = 60_000;
@@ -16,15 +17,21 @@ async function loadSnapshot(supabase) {
       supabase.from('mm3_mined_blocks').select('block_hex, wallet'),
       supabase
         .from('mm3_mining_blocks')
-        .select('block_key, emoji')
+        .select('block_key, emoji, grid_row, grid_col')
         .eq('is_active', true)
         .order('block_key', { ascending: true }),
     ]).then(([mined, markets]) => {
       if (mined.error) throw mined.error;
       if (markets.error) throw markets.error;
+      const marketRows = markets.data || [];
       const payload = {
         mined: (mined.data || []).map((row) => [row.block_hex, row.wallet]),
-        markets: (markets.data || []).map((row) => row.emoji),
+        markets: marketRows.map((row) => row.emoji),
+        marketHexes: marketRows.map((row) => (
+          row.grid_row != null && row.grid_col != null
+            ? gridToBlockHex(row.grid_row, row.grid_col)
+            : null
+        )),
       };
       cached = { ts: Date.now(), payload };
       return payload;
