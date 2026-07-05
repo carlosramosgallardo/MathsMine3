@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef } from 'react'
+import { addVerticalArenaUsbStaff } from '@/lib/arena-usb-staff'
 
 export function addMiningBot(THREE, scene, options = {}) {
   const {
@@ -317,7 +318,7 @@ function addChainNodeAndSword(THREE, scene) {
   laneZ.position.y = .105
   group.add(laneX, laneZ)
 
-  // Same non-opaque spherical halo that surrounds the arena sword in Mining.
+  // Same non-opaque spherical halo that surrounds the arena USB staff in Mining.
   const haloMaterial = new THREE.MeshBasicMaterial({ color: '#facc15' })
   const halo = new THREE.Mesh(new THREE.TorusGeometry(1.25, .055, 10, 80), haloMaterial)
   halo.rotation.x = Math.PI / 2
@@ -344,71 +345,10 @@ function addChainNodeAndSword(THREE, scene) {
   tetra.position.y = 1.42
   group.add(tetra)
 
-  const bladeMat = new THREE.MeshStandardMaterial({ color: '#d4d8e0', roughness: .10, metalness: .97, emissive: '#22d3ee', emissiveIntensity: .22 })
-  const guardMat = new THREE.MeshStandardMaterial({ color: '#facc15', roughness: .20, metalness: .92, emissive: '#ca8a04', emissiveIntensity: .48 })
-  const handleMat = new THREE.MeshStandardMaterial({ color: '#1e293b', roughness: .72, metalness: .18, emissive: '#0f172a', emissiveIntensity: .18 })
-  const tipHeight = .64
-  const tipY = .32
-  const tip = new THREE.Mesh(new THREE.ConeGeometry(.22, tipHeight, 4), bladeMat.clone())
-  tip.rotation.set(Math.PI, Math.PI / 4, 0)
-  tip.position.y = tipY
-  group.add(tip)
-
-  const bladeHeight = 3.5
-  const bladeWidth = .44
-  const bladeDepth = .30
-  const bladeBottom = tipY + tipHeight / 2
-  const bladeY = bladeBottom + bladeHeight / 2
-  const blade = new THREE.Mesh(new THREE.BoxGeometry(bladeWidth, bladeHeight, bladeDepth), bladeMat)
-  blade.position.y = bladeY
-  blade.castShadow = true
-  group.add(blade)
-  for (const x of [-bladeWidth / 2 + .01, bladeWidth / 2 - .01]) {
-    const edge = new THREE.Mesh(
-      new THREE.BoxGeometry(.025, bladeHeight, .006),
-      new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: .60 }),
-    )
-    edge.position.set(x, bladeY, -bladeDepth / 2 + .01)
-    group.add(edge)
-  }
-
-  const guardY = bladeBottom + bladeHeight + .06
-  const guard = new THREE.Mesh(new THREE.BoxGeometry(1.50, .14, .38), guardMat)
-  guard.position.y = guardY
-  group.add(guard)
-  for (const x of [-.76, .76]) {
-    const end = new THREE.Mesh(new THREE.SphereGeometry(.20, 20, 14), guardMat.clone())
-    end.position.set(x, guardY, 0)
-    group.add(end)
-  }
-
-  const gripHeight = .90
-  const gripY = guardY + .08 + gripHeight / 2
-  const grip = new THREE.Mesh(new THREE.CylinderGeometry(.14, .18, gripHeight, 16), handleMat)
-  grip.position.y = gripY
-  group.add(grip)
-  const wrapMat = new THREE.MeshStandardMaterial({ color: '#facc15', roughness: .28, metalness: .82, emissive: '#92400e', emissiveIntensity: .34 })
-  for (const y of [gripY - .24, gripY + .24]) {
-    const wrap = new THREE.Mesh(new THREE.TorusGeometry(.19, .038, 8, 28), wrapMat)
-    wrap.rotation.x = Math.PI / 2
-    wrap.position.y = y
-    group.add(wrap)
-  }
-  const pommel = new THREE.Mesh(new THREE.SphereGeometry(.28, 24, 16), guardMat.clone())
-  pommel.position.y = gripY + gripHeight / 2 + .26
-  group.add(pommel)
-
-  const cyanRing = new THREE.Mesh(new THREE.TorusGeometry(.30, .055, 8, 40), new THREE.MeshBasicMaterial({ color: '#22d3ee', transparent: true, opacity: .80, depthWrite: false }))
-  cyanRing.rotation.x = Math.PI / 2
-  cyanRing.position.y = guardY
-  group.add(cyanRing)
-  const magentaRing = new THREE.Mesh(new THREE.TorusGeometry(.20, .040, 8, 36), new THREE.MeshBasicMaterial({ color: '#d946ef', transparent: true, opacity: .70, depthWrite: false }))
-  magentaRing.rotation.x = Math.PI / 2
-  magentaRing.position.y = bladeY
-  group.add(magentaRing)
+  const usb = addVerticalArenaUsbStaff(THREE, group)
 
   scene.add(group)
-  return { group, sphere, cyanRing, magentaRing, targetIndicator, tetra }
+  return { group, sphere, cyanRing: usb.cyanRing, magentaRing: usb.magentaRing, targetIndicator, tetra }
 }
 
 function disposeScene(scene) {

@@ -26,6 +26,7 @@ import {
   getRlNodeWorldCenter,
 } from '@/lib/mining-rl-mount'
 import { getBlockMapId } from '@/lib/mining-visual-layout'
+import { addVerticalArenaUsbStaff } from '@/lib/arena-usb-staff'
 import {
   forEachPerimeterCell,
   getPerimeterCellVisual,
@@ -5228,94 +5229,8 @@ function addBiomeGround(world, textures) {
   routeBS.userData.skipOcclusion=true;world.add(routeBS)
 }
 
-function addArenaWeapon(arena, cx, cz, simplified=false) {
-  // Sword: inverted (tip down, pommel at top), very tall, thick blade ~= chain sphere radius
-  const bladeMat=simplified
-    ?new THREE.MeshLambertMaterial({color:'#d4d8e0',emissive:'#22d3ee',emissiveIntensity:.22})
-    :new THREE.MeshStandardMaterial({
-      color:'#d4d8e0',roughness:.10,metalness:.97,
-      emissive:'#22d3ee',emissiveIntensity:.22,
-    })
-  const guardMat=simplified
-    ?new THREE.MeshLambertMaterial({color:'#facc15',emissive:'#ca8a04',emissiveIntensity:.48})
-    :new THREE.MeshStandardMaterial({
-      color:'#facc15',roughness:.20,metalness:.92,
-      emissive:'#ca8a04',emissiveIntensity:.48,
-    })
-  const handleMat=simplified
-    ?new THREE.MeshLambertMaterial({color:'#1e293b',emissive:'#0f172a',emissiveIntensity:.18})
-    :new THREE.MeshStandardMaterial({
-      color:'#1e293b',roughness:.72,metalness:.18,
-      emissive:'#0f172a',emissiveIntensity:.18,
-    })
-  const sphereSegs=simplified?6:10
-  const torusSegs=simplified?16:28
-
-  // tip at bottom — cone pointing DOWN (rotated 180°)
-  const TIP_H=0.64, TIP_Y=0.32
-  const tip=new THREE.Mesh(new THREE.ConeGeometry(.22,TIP_H,4),bladeMat.clone())
-  tip.rotation.x=Math.PI; tip.rotation.y=Math.PI/4
-  tip.position.set(cx,TIP_Y,cz)
-  arena.add(tip)
-
-  // blade — tall and thick, sitting on top of tip
-  const BLADE_H=3.5, BLADE_W=0.44, BLADE_D=0.30
-  const BLADE_BOT=TIP_Y+TIP_H/2
-  const BLADE_Y=BLADE_BOT+BLADE_H/2
-  const blade=new THREE.Mesh(new THREE.BoxGeometry(BLADE_W,BLADE_H,BLADE_D),bladeMat)
-  blade.position.set(cx,BLADE_Y,cz)
-  if(!simplified){
-    const edgeL=new THREE.Mesh(new THREE.BoxGeometry(.025,BLADE_H,.006),
-      new THREE.MeshBasicMaterial({color:'#ffffff',transparent:true,opacity:.60}))
-    edgeL.position.set(cx-BLADE_W/2+.01,BLADE_Y,cz-BLADE_D/2+.01)
-    const edgeR=edgeL.clone();edgeR.position.set(cx+BLADE_W/2-.01,BLADE_Y,cz-BLADE_D/2+.01)
-    arena.add(blade,edgeL,edgeR)
-  }else{
-    arena.add(blade)
-  }
-
-  // cross-guard above blade
-  const GUARD_Y=BLADE_BOT+BLADE_H+0.06
-  const guard=new THREE.Mesh(new THREE.BoxGeometry(1.50,.14,.38),guardMat)
-  guard.position.set(cx,GUARD_Y,cz)
-  const guardEnd1=new THREE.Mesh(new THREE.SphereGeometry(.20,sphereSegs,Math.max(4,sphereSegs-3)),guardMat.clone())
-  guardEnd1.position.set(cx-.76,GUARD_Y,cz)
-  const guardEnd2=guardEnd1.clone();guardEnd2.position.set(cx+.76,GUARD_Y,cz)
-  arena.add(guard,guardEnd1,guardEnd2)
-
-  // grip above guard
-  const GRIP_H=0.90, GRIP_Y=GUARD_Y+0.08+GRIP_H/2
-  const grip=new THREE.Mesh(new THREE.CylinderGeometry(.14,.18,GRIP_H,simplified?6:8),handleMat)
-  grip.position.set(cx,GRIP_Y,cz)
-  const wrapMat=simplified
-    ?new THREE.MeshLambertMaterial({color:'#facc15',emissive:'#92400e',emissiveIntensity:.34})
-    :new THREE.MeshStandardMaterial({color:'#facc15',roughness:.28,metalness:.82,emissive:'#92400e',emissiveIntensity:.34})
-  const wrap1=new THREE.Mesh(new THREE.TorusGeometry(.19,.038,6,simplified?10:16),wrapMat)
-  wrap1.rotation.x=Math.PI/2;wrap1.position.set(cx,GRIP_Y+.24,cz)
-  const wrap2=wrap1.clone();wrap2.position.set(cx,GRIP_Y-.24,cz)
-  arena.add(grip,wrap1,wrap2)
-
-  // pommel at very top
-  const POMMEL_Y=GRIP_Y+GRIP_H/2+0.26
-  const pommel=new THREE.Mesh(new THREE.SphereGeometry(.28,sphereSegs,Math.max(4,sphereSegs-4)),guardMat.clone())
-  pommel.position.set(cx,POMMEL_Y,cz)
-  arena.add(pommel)
-
-  // cyan glow ring at guard
-  const glowRing=new THREE.Mesh(
-    new THREE.TorusGeometry(.30,.055,6,torusSegs),
-    new THREE.MeshBasicMaterial({color:'#22d3ee',transparent:true,opacity:.80,depthWrite:false}),
-  )
-  glowRing.rotation.x=Math.PI/2;glowRing.position.set(cx,GUARD_Y,cz)
-  arena.add(glowRing)
-
-  // magenta glow ring at blade mid
-  const glowRing2=new THREE.Mesh(
-    new THREE.TorusGeometry(.20,.040,6,Math.max(12,torusSegs-4)),
-    new THREE.MeshBasicMaterial({color:'#d946ef',transparent:true,opacity:.70,depthWrite:false}),
-  )
-  glowRing2.rotation.x=Math.PI/2;glowRing2.position.set(cx,BLADE_Y,cz)
-  arena.add(glowRing2)
+function addArenaWeapon(arena, cx, cz, simplified = false) {
+  addVerticalArenaUsbStaff(THREE, arena, { x: cx, z: cz, simplified })
 }
 
 function makeArenaSeatMaterial(color, simplified=false) {
