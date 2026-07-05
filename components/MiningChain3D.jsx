@@ -776,22 +776,30 @@ export default function MiningChain3D() {
   }, [])
 
   const handleBossAttack = useCallback(async ({ wallet, playerGx, playerGy, bossGx, bossGy, mapId }) => {
+    const normalizedWallet = String(wallet || myWalletRef.current || '').toLowerCase()
     const response = await fetch('/api/m5-boss/attack', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ wallet, playerGx, playerGy, bossGx, bossGy, mapId }),
+      body: JSON.stringify({
+        wallet: normalizedWallet,
+        playerGx,
+        playerGy,
+        bossGx,
+        bossGy,
+        mapId,
+      }),
     }).then(r => r.json()).catch(() => null)
     if (!response?.ok) return response
     if (response.dodged) {
       setReceivedDodgeAt(Date.now())
       return response
     }
-    setHealthMap(prev => ({ ...prev, [wallet]: Number(response.health ?? 100) }))
+    setHealthMap(prev => ({ ...prev, [normalizedWallet]: Number(response.health ?? 100) }))
     setReceivedHitAt(Date.now())
     channelRef.current?.send({
       type: 'broadcast',
       event: 'boss-attack-result',
-      payload: { wallet, ...response },
+      payload: { wallet: normalizedWallet, ...response },
     })?.catch(() => {})
     if (response.killed) triggerSelfDeath()
     return response

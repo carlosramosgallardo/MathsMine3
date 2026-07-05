@@ -2,7 +2,7 @@ export const dynamic = 'force-dynamic'
 
 import { createClient } from '@supabase/supabase-js'
 import {
-  M5_TRUMP_BOSS_ATTACK_RANGE,
+  M5_TRUMP_BOSS_ATTACK_RANGE_SERVER,
   M5_TRUMP_BOSS_HIT_DAMAGE,
   isBossPositionValid,
 } from '@/lib/m5-trump-boss'
@@ -40,7 +40,7 @@ export async function POST(req) {
   if (!isBossPositionValid(bossGx, bossGy)) {
     return Response.json({ ok: false, error: 'boss_position_invalid' }, { status: 400 })
   }
-  if (Math.hypot(playerGx - bossGx, playerGy - bossGy) > M5_TRUMP_BOSS_ATTACK_RANGE) {
+  if (Math.hypot(playerGx - bossGx, playerGy - bossGy) > M5_TRUMP_BOSS_ATTACK_RANGE_SERVER) {
     return Response.json({ ok: false, error: 'out_of_range' }, { status: 400 })
   }
 
