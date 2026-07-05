@@ -30,7 +30,7 @@ import { addVerticalArenaUsbStaff } from '@/lib/arena-usb-staff'
 import {
   createBossRuntime,
   createM5TrumpBossVisual,
-  canPlayerHitBoss,
+  resolveBossSwingTarget,
   syncBossVisual,
   updateM5TrumpBoss,
 } from '@/lib/m5-trump-boss-runtime'
@@ -4058,7 +4058,7 @@ function drawMinimap(ctx, gr, gc, angle, cellMap, presenceMap, myWallet, W, H, c
   ctx.restore()
 }
 
-function drawBossHud(ctx, W, bossState, es) {
+function drawBossHud(ctx, W, bossState, es, combatEngaged = false) {
   if (!bossState || bossState.state === 'dead') return
   const hp = Number(bossState.health) || 0
   const max = Number(bossState.maxHealth) || 5000
@@ -4067,24 +4067,25 @@ function drawBossHud(ctx, W, bossState, es) {
   const barH = 10
   const x = (W - barW) / 2
   const y = 6
-  const stateLabel = bossState.state === 'active'
+  const fighting = bossState.state === 'active' || combatEngaged
+  const stateLabel = fighting
     ? (es ? 'EN COMBATE' : 'FIGHTING')
     : (es ? 'EN ESPERA' : 'WAITING')
   ctx.globalAlpha = 0.88
   ctx.fillStyle = '#0a0505'
   ctx.fillRect(x - 6, y - 2, barW + 12, barH + 24)
   ctx.globalAlpha = 1
-  ctx.strokeStyle = bossState.state === 'active' ? '#ef444488' : '#fbbf2466'
+  ctx.strokeStyle = fighting ? '#ef444488' : '#fbbf2466'
   ctx.lineWidth = 1
   ctx.strokeRect(x - 6, y - 2, barW + 12, barH + 24)
   ctx.font = 'bold 11px monospace'
   ctx.textAlign = 'center'
   ctx.textBaseline = 'top'
-  ctx.fillStyle = bossState.state === 'active' ? '#fb923c' : '#fbbf24'
+  ctx.fillStyle = fighting ? '#fb923c' : '#fbbf24'
   ctx.fillText(`${M5_TRUMP_BOSS_NAME} · ${stateLabel}`, x + barW / 2, y + 1)
   ctx.fillStyle = '#1a0a0a'
   ctx.fillRect(x, y + 15, barW, barH)
-  ctx.fillStyle = bossState.state === 'active' ? '#ef4444' : '#ca8a04'
+  ctx.fillStyle = fighting ? '#ef4444' : '#ca8a04'
   ctx.fillRect(x, y + 15, barW * pct, barH)
   ctx.fillStyle = '#fde68a'
   ctx.font = '9px monospace'
@@ -10180,7 +10181,26 @@ export default function MiningChain3DFPV({
   useEffect(()=>{ onNodeDicePanelOpenRef.current=onNodeDicePanelOpen },[onNodeDicePanelOpen])
   useEffect(()=>{ rlMountActiveRef.current=rlMountActive },[rlMountActive])
   useEffect(()=>{ onRlMountPanelOpenRef.current=onRlMountPanelOpen },[onRlMountPanelOpen])
-  useEffect(()=>{ bossStateRef.current=bossState },[bossState])
+  useEffect(() => {
+    if (!bossState) return
+    if (bossState.state === 'idle' && bossRuntimeRef.current) {
+      bossRuntimeRef.current.combatEngaged = false
+      bossIdleRequestedRef.current = false
+    }
+    if (bossState.state === 'active' && bossRuntimeRef.current) {
+      bossRuntimeRef.current.combatEngaged = true
+    }
+    if (bossState.state === 'dead' && bossRuntimeRef.current) {
+      bossRuntimeRef.current.combatEngaged = false
+    }
+    bossStateRef.current = {
+      ...bossStateRef.current,
+      ...bossState,
+      state: bossState.state === 'idle' && bossRuntimeRef.current?.combatEngaged
+        ? 'active'
+        : bossState.state,
+    }
+  }, [bossState])
   useEffect(()=>{ onBossHitRef.current=onBossHit },[onBossHit])
   useEffect(()=>{ onBossAttackRef.current=onBossAttack },[onBossAttack])
   useEffect(()=>{ onBossIdleRef.current=onBossIdle },[onBossIdle])
@@ -11990,7 +12010,7 @@ export default function MiningChain3DFPV({
     )
     const chainStatsBottom = drawChainStats(ctx,W,H,chainStatsRef.current,es,(walletDock?.bottom||8)+6)
     if (mapIdRef.current === '5') {
-      drawBossHud(ctx, W, bossStateRef.current, esRef.current)
+      drawBossHud(ctx, W, bossStateRef.current, esRef.current, bossRuntimeRef.current?.combatEngaged)
     }
 
     // ── Facing block info HUD — left side, below MM3 BLOCK CHAIN panel ────────
@@ -12512,6 +12532,7 @@ export default function MiningChain3DFPV({
           mapId: mapIdRef.current,
           presenceMap: presenceRef.current,
           myIdentity,
+          myWallet: myWalletRef.current,
           myDead,
           localGx: p.x / CELL_SIZE,
           localGy: p.y / CELL_SIZE,
@@ -12687,12 +12708,17 @@ export default function MiningChain3DFPV({
       enemyInSightRef.current = closestInSight
 
       if (mapIdRef.current === '5' && !myDead && bossStateRef.current?.state !== 'dead' && bossRuntimeRef.current) {
-        bossSwingTargetRef.current = canPlayerHitBoss({
+        bossSwingTargetRef.current = resolveBossSwingTarget({
           runtime: bossRuntimeRef.current,
           bossState: bossStateRef.current,
           playerGx: p.x / CELL_SIZE,
           playerGy: p.y / CELL_SIZE,
           playerAngle: p.angle,
+          crossX: _cx,
+          crossY: _cy,
+          canvasW: _W,
+          canvasH: _H,
+          threeState: _threeState,
         })
       } else {
         bossSwingTargetRef.current = null
@@ -12847,7 +12873,10 @@ export default function MiningChain3DFPV({
           const pgx = p.x / CELL_SIZE
           const pgy = p.y / CELL_SIZE
           const rt = bossRuntimeRef.current
-          if (rt) rt.hitFlashUntil = performance.now() + 220
+          if (rt) {
+            rt.hitFlashUntil = performance.now() + 220
+            rt.combatEngaged = true
+          }
           if (bossStateRef.current?.state === 'idle') {
             bossStateRef.current = { ...bossStateRef.current, state: 'active' }
           }
@@ -12879,7 +12908,7 @@ export default function MiningChain3DFPV({
               health: result.health,
               maxHealth: result.maxHealth,
             }
-            if (rt) rt.hitFlashUntil = performance.now() + 220
+            if (rt) rt.combatEngaged = true
             const hit = result.headshot ? '🎯 HEAD' : result.critical ? '💥 CRIT' : '⚔ HIT'
             let rewardSuffix = ''
             if (result.killed && Array.isArray(result.rewards)) {
