@@ -24,6 +24,7 @@ import {
 } from '@/lib/mining-visual-layout'
 import { MINING_CORE_MAP_ID } from '@/lib/mining-maps'
 import { RL_NODE_MIN_LEVEL, RL_NODE_PRICE_MM3 } from '@/lib/mining-rl-mount'
+import { normalizeBossState } from '@/lib/m5-trump-boss'
 import supabase from '@/lib/supabaseClient'
 
 const MiningChain3DFPV = dynamic(() => import('./MiningChain3DFPV'), { ssr: false })
@@ -258,6 +259,25 @@ export default function MiningChain3D() {
   const [rlMountPanelOpen, setRlMountPanelOpen] = useState(false)
   const [rlMountWalletStats, setRlMountWalletStats] = useState({ mm3: 0, level: 0 })
   const [rlMountError, setRlMountError] = useState('')
+  const [bossState, setBossState] = useState(() => normalizeBossState(null))
+  const bossStateRef = useRef(bossState)
+  useEffect(() => { bossStateRef.current = bossState }, [bossState])
+
+  const loadBossStatus = useCallback(async () => {
+    try {
+      const res = await fetch('/api/m5-boss', { cache: 'no-store' })
+      if (!res.ok) return
+      const data = await res.json()
+      if (data?.ok !== false) setBossState(normalizeBossState(data))
+    } catch {}
+  }, [])
+
+  useEffect(() => {
+    loadBossStatus()
+    const t = setInterval(loadBossStatus, 8000)
+    return () => clearInterval(t)
+  }, [loadBossStatus])
+
   const demineRewardIdsRef = useRef(new Set())
   const nodeDiceRef = useRef(null)
   const rlMountActiveRef = useRef(false)
@@ -728,6 +748,66 @@ export default function MiningChain3D() {
     channelRef.current?.track({ wallet: myKeyRef.current, isDead: true, deadUntil: deadUntilIso, gx: deadGX, gy: deadGY, row: myP?.row ?? 14, col: myP?.col ?? 14, mapId: deathMapId })?.catch?.(() => {})
     scheduleRespawn(5 * 60 * 1000)
   }, [scheduleRespawn])
+
+  const handleBossHit = useCallback(async ({ wallet, hitZone, playerGx, playerGy, bossGx, bossGy, mapId }) => {
+    const response = await fetch('/api/m5-boss/hit', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ wallet, hitZone, playerGx, playerGy, bossGx, bossGy, mapId }),
+    }).then(r => r.json()).catch(() => null)
+    if (!response?.ok) return response
+    setBossState(normalizeBossState({
+      id: 'm5_trump',
+      map_id: '5',
+      name: 'Trump',
+      max_health: response.maxHealth,
+      health: response.health,
+      state: response.state,
+    }))
+    channelRef.current?.send({
+      type: 'broadcast',
+      event: 'boss-result',
+      payload: { ...response, wallet, hitZone },
+    })?.catch(() => {})
+    if (response.killed && wallet && !wallet.startsWith('anon-')) {
+      window.dispatchEvent(new CustomEvent('mm3-db-updated', { detail: { boss: true, wallet } }))
+    }
+    return response
+  }, [])
+
+  const handleBossAttack = useCallback(async ({ wallet, playerGx, playerGy, bossGx, bossGy, mapId }) => {
+    const response = await fetch('/api/m5-boss/attack', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ wallet, playerGx, playerGy, bossGx, bossGy, mapId }),
+    }).then(r => r.json()).catch(() => null)
+    if (!response?.ok) return response
+    if (response.dodged) {
+      setReceivedDodgeAt(Date.now())
+      return response
+    }
+    setHealthMap(prev => ({ ...prev, [wallet]: Number(response.health ?? 100) }))
+    setReceivedHitAt(Date.now())
+    channelRef.current?.send({
+      type: 'broadcast',
+      event: 'boss-attack-result',
+      payload: { wallet, ...response },
+    })?.catch(() => {})
+    if (response.killed) triggerSelfDeath()
+    return response
+  }, [triggerSelfDeath])
+
+  const handleBossIdle = useCallback(async () => {
+    const response = await fetch('/api/m5-boss/idle', { method: 'POST' }).then(r => r.json()).catch(() => null)
+    if (response?.ok && response.changed) {
+      setBossState(prev => ({ ...prev, state: 'idle' }))
+      channelRef.current?.send({
+        type: 'broadcast',
+        event: 'boss-state',
+        payload: { state: 'idle' },
+      })?.catch(() => {})
+    }
+  }, [])
 
   // ── StormRoll AoE damage: every 60s during the 15-min hourly dice window ──
   useEffect(() => {
@@ -1319,6 +1399,32 @@ export default function MiningChain3D() {
       applyDemineReward(payload || {})
     })
 
+    ch.on('broadcast', { event: 'boss-result' }, ({ payload }) => {
+      if (!payload) return
+      setBossState(prev => normalizeBossState({
+        id: 'm5_trump',
+        map_id: '5',
+        name: 'Trump',
+        max_health: payload.maxHealth ?? prev.maxHealth,
+        health: payload.health ?? prev.health,
+        state: payload.state ?? prev.state,
+      }))
+    })
+
+    ch.on('broadcast', { event: 'boss-state' }, ({ payload }) => {
+      if (!payload?.state) return
+      setBossState(prev => ({ ...prev, state: payload.state }))
+    })
+
+    ch.on('broadcast', { event: 'boss-attack-result' }, ({ payload }) => {
+      if (!payload?.wallet) return
+      setHealthMap(prev => ({ ...prev, [payload.wallet]: Number(payload.health ?? 100) }))
+      if (payload.wallet === myKeyRef.current || payload.wallet === myWalletRef.current) {
+        if (payload.dodged) setReceivedDodgeAt(Date.now())
+        else setReceivedHitAt(Date.now())
+      }
+    })
+
     // Someone solved the global formula — refresh chain/demine status for everyone right away
     // instead of waiting for the 30s poll.
     ch.on('broadcast', { event: 'chain-formula-solved' }, () => {
@@ -1815,6 +1921,10 @@ export default function MiningChain3D() {
             onNodeDicePanelOpen={handleNodeDicePanelOpen}
             rlMountActive={rlMountActive}
             onRlMountPanelOpen={handleRlMountPanelOpen}
+            bossState={bossState}
+            onBossHit={handleBossHit}
+            onBossAttack={handleBossAttack}
+            onBossIdle={handleBossIdle}
           />
           </>
         )}

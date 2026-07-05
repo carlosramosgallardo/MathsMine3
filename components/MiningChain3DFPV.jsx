@@ -28,6 +28,14 @@ import {
 import { getBlockMapId } from '@/lib/mining-visual-layout'
 import { addVerticalArenaUsbStaff } from '@/lib/arena-usb-staff'
 import {
+  createBossRuntime,
+  createM5TrumpBossVisual,
+  isBossInSwingRange,
+  syncBossVisual,
+  updateM5TrumpBoss,
+} from '@/lib/m5-trump-boss-runtime'
+import { M5_TRUMP_BOSS_NAME, M5_TRUMP_BOSS_SPAWN } from '@/lib/m5-trump-boss'
+import {
   forEachPerimeterCell,
   getPerimeterCellVisual,
   usesSoftPerimeter,
@@ -3764,7 +3772,7 @@ function drawMinimapEdgeExits(ctx, mapId, MX, MY, SZ, CS) {
   }
 }
 
-function drawMinimap(ctx, gr, gc, angle, cellMap, presenceMap, myWallet, W, H, chainNodePos, validObs, gx, gy, staticCacheRef, dpr=1, mapId=MINING_CORE_MAP_ID, es=false) {
+function drawMinimap(ctx, gr, gc, angle, cellMap, presenceMap, myWallet, W, H, chainNodePos, validObs, gx, gy, staticCacheRef, dpr=1, mapId=MINING_CORE_MAP_ID, es=false, bossInfo=null) {
   const isMobile = W < 600
   const SZ = minimapSize(W)
   const MX = W - SZ - 6
@@ -4021,7 +4029,66 @@ function drawMinimap(ctx, gr, gc, angle, cellMap, presenceMap, myWallet, W, H, c
   }
 
   drawPlayerArrow(gx ?? (gc + .5), gy ?? (gr + .5), angle, C, true, false)
+
+  if (mapId === '5' && bossInfo && bossInfo.state !== 'dead') {
+    const bx = bossInfo.gx ?? M5_TRUMP_BOSS_SPAWN.gx
+    const by = bossInfo.gy ?? M5_TRUMP_BOSS_SPAWN.gy
+    const mx = mapX(bx)
+    const my = mapY(by)
+    const pulse = .75 + Math.sin(now / 280) * .25
+    ctx.save()
+    ctx.globalAlpha = bossInfo.state === 'active' ? pulse : .88
+    ctx.shadowColor = '#ef4444'
+    ctx.shadowBlur = 10
+    ctx.fillStyle = bossInfo.state === 'active' ? '#ef4444' : '#fbbf24'
+    ctx.strokeStyle = '#ffffff'
+    ctx.lineWidth = 1.2
+    ctx.beginPath()
+    ctx.arc(mx, my, Math.max(3.5, CS * .55), 0, Math.PI * 2)
+    ctx.fill()
+    ctx.stroke()
+    ctx.shadowBlur = 0
+    ctx.font = `${Math.max(8, Math.round(CS * .85))}px "Apple Color Emoji","Segoe UI Emoji",serif`
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.fillText('👹', mx, my + .2)
+    ctx.restore()
+  }
+
   ctx.restore()
+}
+
+function drawBossHud(ctx, W, bossState, es) {
+  if (!bossState || bossState.state === 'dead') return
+  const hp = Number(bossState.health) || 0
+  const max = Number(bossState.maxHealth) || 5000
+  const pct = Math.max(0, Math.min(1, hp / max))
+  const barW = Math.min(240, W - 32)
+  const barH = 10
+  const x = (W - barW) / 2
+  const y = 6
+  const stateLabel = bossState.state === 'active'
+    ? (es ? 'EN COMBATE' : 'FIGHTING')
+    : (es ? 'EN ESPERA' : 'WAITING')
+  ctx.globalAlpha = 0.88
+  ctx.fillStyle = '#0a0505'
+  ctx.fillRect(x - 6, y - 2, barW + 12, barH + 24)
+  ctx.globalAlpha = 1
+  ctx.strokeStyle = bossState.state === 'active' ? '#ef444488' : '#fbbf2466'
+  ctx.lineWidth = 1
+  ctx.strokeRect(x - 6, y - 2, barW + 12, barH + 24)
+  ctx.font = 'bold 11px monospace'
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'top'
+  ctx.fillStyle = bossState.state === 'active' ? '#fb923c' : '#fbbf24'
+  ctx.fillText(`${M5_TRUMP_BOSS_NAME} · ${stateLabel}`, x + barW / 2, y + 1)
+  ctx.fillStyle = '#1a0a0a'
+  ctx.fillRect(x, y + 15, barW, barH)
+  ctx.fillStyle = bossState.state === 'active' ? '#ef4444' : '#ca8a04'
+  ctx.fillRect(x, y + 15, barW * pct, barH)
+  ctx.fillStyle = '#fde68a'
+  ctx.font = '9px monospace'
+  ctx.fillText(`${hp} / ${max}`, x + barW / 2, y + 15 + barH + 2)
 }
 
 // ── Facing block HUD (top-right info card) ────────────────────────────────────
@@ -9069,6 +9136,17 @@ function rebuildPeripheralMapWorld(state, mapId, obstacles, cellMap) {
   if (mapId === '2') {
     addRlColiseumNodeVisual(world, lowDetail, state)
   }
+  if (mapId === '5') {
+    if (!state.trumpBossTexture) {
+      state.trumpBossTexture = new THREE.TextureLoader().load('/images/m5-trump-boss.png')
+      state.trumpBossTexture.colorSpace = THREE.SRGBColorSpace
+    }
+    const bossVisual = createM5TrumpBossVisual(THREE, state.trumpBossTexture)
+    world.add(bossVisual.group)
+    state.m5TrumpBossGroup = bossVisual.group
+  } else {
+    state.m5TrumpBossGroup = null
+  }
   state.beaconBatch = visualTier === 'high' && beaconEntries.length
     ? addInteractiveBeaconBatch(world, beaconEntries)
     : null
@@ -9772,6 +9850,10 @@ export default function MiningChain3DFPV({
   onNodeDicePanelOpen,
   rlMountActive = false,
   onRlMountPanelOpen,
+  bossState = null,
+  onBossHit,
+  onBossAttack,
+  onBossIdle,
   onWorldReady,
   playReady = false,
 }) {
@@ -9887,6 +9969,13 @@ export default function MiningChain3DFPV({
   const onNodeDicePanelOpenRef     = useRef(onNodeDicePanelOpen)
   const rlMountActiveRef           = useRef(rlMountActive)
   const onRlMountPanelOpenRef      = useRef(onRlMountPanelOpen)
+  const bossStateRef = useRef(bossState)
+  const bossRuntimeRef = useRef(createBossRuntime('idle'))
+  const bossGroupRef = useRef(null)
+  const bossIdleRequestedRef = useRef(false)
+  const onBossHitRef = useRef(onBossHit)
+  const onBossAttackRef = useRef(onBossAttack)
+  const onBossIdleRef = useRef(onBossIdle)
   const nodeDiceSoundHourRef       = useRef(0)
   const critFlashRef        = useRef(-9999)
   const walletNftjisRef     = useRef(walletNftjis || {})
@@ -10093,6 +10182,14 @@ export default function MiningChain3DFPV({
   useEffect(()=>{ onNodeDicePanelOpenRef.current=onNodeDicePanelOpen },[onNodeDicePanelOpen])
   useEffect(()=>{ rlMountActiveRef.current=rlMountActive },[rlMountActive])
   useEffect(()=>{ onRlMountPanelOpenRef.current=onRlMountPanelOpen },[onRlMountPanelOpen])
+  useEffect(()=>{ bossStateRef.current=bossState },[bossState])
+  useEffect(()=>{ onBossHitRef.current=onBossHit },[onBossHit])
+  useEffect(()=>{ onBossAttackRef.current=onBossAttack },[onBossAttack])
+  useEffect(()=>{ onBossIdleRef.current=onBossIdle },[onBossIdle])
+  useEffect(()=>{
+    bossRuntimeRef.current = createBossRuntime(bossState?.state || 'idle')
+    bossIdleRequestedRef.current = false
+  }, [bossState?.state, bossState?.health])
   useEffect(()=>{ healthMapRef.current=healthMap||{} },[healthMap])
   // Mining skills: ❤️ speed · held mining NFTJI air travel · squeeze attack crit.
   useEffect(()=>{
@@ -11844,7 +11941,15 @@ export default function MiningChain3DFPV({
       ctx.globalAlpha=1
     }
 
-    drawMinimap(ctx,gr,gc,angle,activeCellMapRef.current,presence,myIdentity,W,H,chainNodePosRef.current,validObstaclesRef.current,px/CELL_SIZE,py/CELL_SIZE,minimapStaticRef,dpr,mapIdRef.current,esRef.current)
+    drawMinimap(ctx,gr,gc,angle,activeCellMapRef.current,presence,myIdentity,W,H,chainNodePosRef.current,validObstaclesRef.current,px/CELL_SIZE,py/CELL_SIZE,minimapStaticRef,dpr,mapIdRef.current,esRef.current,
+      mapIdRef.current === '5' && bossStateRef.current?.state !== 'dead'
+        ? {
+            gx: bossRuntimeRef.current?.gx ?? M5_TRUMP_BOSS_SPAWN.gx,
+            gy: bossRuntimeRef.current?.gy ?? M5_TRUMP_BOSS_SPAWN.gy,
+            state: bossStateRef.current?.state,
+          }
+        : null,
+    )
     // Online list: rebuild to offscreen canvas every 100ms or on data change,
     // then blit every frame so it never flickers (canvas is cleared each frame).
     {
@@ -11877,6 +11982,9 @@ export default function MiningChain3DFPV({
       ctx,W,H,myNftjisRef.current,healthMapRef.current[myIdentity]??100,es,Boolean(myWallet)
     )
     const chainStatsBottom = drawChainStats(ctx,W,H,chainStatsRef.current,es,(walletDock?.bottom||8)+6)
+    if (mapIdRef.current === '5') {
+      drawBossHud(ctx, W, bossStateRef.current, esRef.current)
+    }
 
     // ── Facing block info HUD — left side, below MM3 BLOCK CHAIN panel ────────
     const facingHud = facingDataRef.current || {}
@@ -12385,6 +12493,40 @@ export default function MiningChain3DFPV({
         }
       }
 
+      if (mapIdRef.current === '5') {
+        if (!bossRuntimeRef.current) {
+          bossRuntimeRef.current = createBossRuntime(bossStateRef.current?.state || 'idle')
+        }
+        const myIdentity = presenceKeyRef.current || myWalletRef.current
+        bossRuntimeRef.current = updateM5TrumpBoss({
+          runtime: bossRuntimeRef.current,
+          bossState: bossStateRef.current,
+          dt,
+          mapId: mapIdRef.current,
+          presenceMap: presenceRef.current,
+          myIdentity,
+          myDead,
+          localGx: p.x / CELL_SIZE,
+          localGy: p.y / CELL_SIZE,
+          onAttack: (payload) => onBossAttackRef.current?.({ ...payload, mapId: '5' }),
+          onRequestIdle: () => {
+            if (bossIdleRequestedRef.current || bossStateRef.current?.state !== 'active') return
+            bossIdleRequestedRef.current = true
+            onBossIdleRef.current?.()
+          },
+        })
+        const threeState = threeStateRef.current
+        if (threeState?.m5TrumpBossGroup) {
+          syncBossVisual(
+            threeState.m5TrumpBossGroup,
+            bossRuntimeRef.current,
+            bossStateRef.current,
+            performance.now() * 0.001,
+          )
+        }
+        needsRender = true
+      }
+
       // Replicate the full avatar state. This also runs while stationary so
       // Mouse look, jumps and USB staff swings remain visible to every client.
       {
@@ -12704,6 +12846,44 @@ export default function MiningChain3DFPV({
                 at:performance.now(),
               }
             })
+
+        } else if(
+          mapIdRef.current === '5'
+          && myWallet && !myIsAnon
+          && bossStateRef.current?.state !== 'dead'
+          && bossRuntimeRef.current
+          && isBossInSwingRange(bossRuntimeRef.current, p.x / CELL_SIZE, p.y / CELL_SIZE)
+        ) {
+          playPickHit(audioCtxRef, 'nftji')
+          pvpFlashRef.current = performance.now()
+          const pgx = p.x / CELL_SIZE
+          const pgy = p.y / CELL_SIZE
+          const rt = bossRuntimeRef.current
+          Promise.resolve(onBossHitRef.current?.({
+            wallet: myWallet,
+            hitZone: 'body',
+            playerGx: pgx,
+            playerGy: pgy,
+            bossGx: rt.gx,
+            bossGy: rt.gy,
+            mapId: '5',
+          })).then(result => {
+            if (!result?.ok) return
+            bossIdleRequestedRef.current = false
+            const hit = result.headshot ? '🎯 HEAD' : result.critical ? '💥 CRIT' : '⚔ HIT'
+            let rewardSuffix = ''
+            if (result.killed && Array.isArray(result.rewards)) {
+              const mine = result.rewards.find(r => r.wallet?.toLowerCase() === myWallet?.toLowerCase())
+              if (mine) rewardSuffix = ` · +${mine.mm3} MM3 · +${mine.eur} €`
+            }
+            pvpGainRef.current = {
+              text: result.killed
+                ? `💀 ${M5_TRUMP_BOSS_NAME} DOWN ${hit}${rewardSuffix}`
+                : `${hit} ${M5_TRUMP_BOSS_NAME} -${result.damage} · ${result.health}/${result.maxHealth}`,
+              at: performance.now(),
+              color: result.killed ? '#4ade80' : '#fb923c',
+            }
+          })
 
         } else {
           // ── Block mine hit ───────────────────────────────────────────────
