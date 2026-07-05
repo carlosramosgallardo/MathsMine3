@@ -30,7 +30,7 @@ import { addVerticalArenaUsbStaff } from '@/lib/arena-usb-staff'
 import {
   createBossRuntime,
   createM5TrumpBossVisual,
-  isBossInSwingRange,
+  canPlayerHitBoss,
   syncBossVisual,
   updateM5TrumpBoss,
 } from '@/lib/m5-trump-boss-runtime'
@@ -9137,11 +9137,7 @@ function rebuildPeripheralMapWorld(state, mapId, obstacles, cellMap) {
     addRlColiseumNodeVisual(world, lowDetail, state)
   }
   if (mapId === '5') {
-    if (!state.trumpBossTexture) {
-      state.trumpBossTexture = new THREE.TextureLoader().load('/images/m5-trump-boss.png')
-      state.trumpBossTexture.colorSpace = THREE.SRGBColorSpace
-    }
-    const bossVisual = createM5TrumpBossVisual(THREE, state.trumpBossTexture)
+    const bossVisual = createM5TrumpBossVisual(THREE, lowDetail)
     world.add(bossVisual.group)
     state.m5TrumpBossGroup = bossVisual.group
   } else {
@@ -9971,8 +9967,10 @@ export default function MiningChain3DFPV({
   const onRlMountPanelOpenRef      = useRef(onRlMountPanelOpen)
   const bossStateRef = useRef(bossState)
   const bossRuntimeRef = useRef(createBossRuntime('idle'))
+  const bossSwingTargetRef = useRef(null)
   const bossGroupRef = useRef(null)
   const bossIdleRequestedRef = useRef(false)
+  const prevBossStateKindRef = useRef(bossState?.state || 'idle')
   const onBossHitRef = useRef(onBossHit)
   const onBossAttackRef = useRef(onBossAttack)
   const onBossIdleRef = useRef(onBossIdle)
@@ -10186,10 +10184,19 @@ export default function MiningChain3DFPV({
   useEffect(()=>{ onBossHitRef.current=onBossHit },[onBossHit])
   useEffect(()=>{ onBossAttackRef.current=onBossAttack },[onBossAttack])
   useEffect(()=>{ onBossIdleRef.current=onBossIdle },[onBossIdle])
-  useEffect(()=>{
-    bossRuntimeRef.current = createBossRuntime(bossState?.state || 'idle')
-    bossIdleRequestedRef.current = false
-  }, [bossState?.state, bossState?.health])
+  useEffect(() => {
+    const next = bossState?.state || 'idle'
+    const prev = prevBossStateKindRef.current
+    prevBossStateKindRef.current = next
+    if (
+      next === 'dead'
+      || (next === 'idle' && prev === 'active')
+      || (prev === 'dead' && next !== 'dead')
+    ) {
+      bossRuntimeRef.current = createBossRuntime(next)
+      bossIdleRequestedRef.current = false
+    }
+  }, [bossState?.state])
   useEffect(()=>{ healthMapRef.current=healthMap||{} },[healthMap])
   // Mining skills: ❤️ speed · held mining NFTJI air travel · squeeze attack crit.
   useEffect(()=>{
@@ -12679,6 +12686,18 @@ export default function MiningChain3DFPV({
       enemyTargetRef.current = closestEnemy
       enemyInSightRef.current = closestInSight
 
+      if (mapIdRef.current === '5' && !myDead && bossStateRef.current?.state !== 'dead' && bossRuntimeRef.current) {
+        bossSwingTargetRef.current = canPlayerHitBoss({
+          runtime: bossRuntimeRef.current,
+          bossState: bossStateRef.current,
+          playerGx: p.x / CELL_SIZE,
+          playerGy: p.y / CELL_SIZE,
+          playerAngle: p.angle,
+        })
+      } else {
+        bossSwingTargetRef.current = null
+      }
+
       // Facing detection + action URL + mine type update (skipped when dead)
       if(myDead){ facingKeyRef.current=null }
       const previousFacing=facingDataRef.current
@@ -12814,9 +12833,69 @@ export default function MiningChain3DFPV({
         const myIdentity = presenceKeyRef.current || myWallet
         const myIsAnon = myIdentity?.startsWith('anon-')
         const enemy = enemyTargetRef.current
+        const bossSwing = bossSwingTargetRef.current
 
         const inSight = enemyInSightRef.current
-        if(inSight?.wallet && !enemy?.wallet && myIdentity && (!myIsAnon || inSight.isAnon) && !inSight.isTeammate && mineTypeRef.current!=='chain'){
+        if(
+          bossSwing
+          && mapIdRef.current === '5'
+          && myWallet && !myIsAnon
+          && bossStateRef.current?.state !== 'dead'
+        ){
+          playPickHit(audioCtxRef, 'nftji')
+          pvpFlashRef.current = performance.now()
+          const pgx = p.x / CELL_SIZE
+          const pgy = p.y / CELL_SIZE
+          const rt = bossRuntimeRef.current
+          if (rt) rt.hitFlashUntil = performance.now() + 220
+          if (bossStateRef.current?.state === 'idle') {
+            bossStateRef.current = { ...bossStateRef.current, state: 'active' }
+          }
+          bossIdleRequestedRef.current = false
+          Promise.resolve(onBossHitRef.current?.({
+            wallet: myWallet,
+            hitZone: bossSwing.hitZone || 'body',
+            playerGx: pgx,
+            playerGy: pgy,
+            bossGx: bossSwing.bossGx ?? rt?.gx,
+            bossGy: bossSwing.bossGy ?? rt?.gy,
+            mapId: '5',
+          })).then(result => {
+            if (!result?.ok) {
+              const maxHp = bossStateRef.current?.maxHealth ?? 5000
+              if ((bossStateRef.current?.health ?? maxHp) >= maxHp) {
+                bossStateRef.current = { ...bossStateRef.current, state: 'idle' }
+              }
+              pvpGainRef.current = {
+                text: `✗ ${M5_TRUMP_BOSS_NAME}: ${result?.error || 'hit failed'}`,
+                at: performance.now(),
+                color: '#fb7185',
+              }
+              return
+            }
+            bossStateRef.current = {
+              ...bossStateRef.current,
+              state: result.state || 'active',
+              health: result.health,
+              maxHealth: result.maxHealth,
+            }
+            if (rt) rt.hitFlashUntil = performance.now() + 220
+            const hit = result.headshot ? '🎯 HEAD' : result.critical ? '💥 CRIT' : '⚔ HIT'
+            let rewardSuffix = ''
+            if (result.killed && Array.isArray(result.rewards)) {
+              const mine = result.rewards.find(r => r.wallet?.toLowerCase() === myWallet?.toLowerCase())
+              if (mine) rewardSuffix = ` · +${mine.mm3} MM3 · +${mine.eur} €`
+            }
+            pvpGainRef.current = {
+              text: result.killed
+                ? `💀 ${M5_TRUMP_BOSS_NAME} DOWN ${hit}${rewardSuffix}`
+                : `${hit} ${M5_TRUMP_BOSS_NAME} -${result.damage} · ${result.health}/${result.maxHealth}`,
+              at: performance.now(),
+              color: result.killed ? '#4ade80' : '#fb923c',
+            }
+          })
+
+        } else if(inSight?.wallet && !enemy?.wallet && myIdentity && (!myIsAnon || inSight.isAnon) && !inSight.isTeammate && mineTypeRef.current!=='chain'){
           // ── Swing at enemy but out of range → MISS (skipped when hitting chain node) ──
           playPickHit(audioCtxRef,'empty')
           pvpGainRef.current={ text:'✗ MISS', at:performance.now(), color:'#fb7185' }
@@ -12846,44 +12925,6 @@ export default function MiningChain3DFPV({
                 at:performance.now(),
               }
             })
-
-        } else if(
-          mapIdRef.current === '5'
-          && myWallet && !myIsAnon
-          && bossStateRef.current?.state !== 'dead'
-          && bossRuntimeRef.current
-          && isBossInSwingRange(bossRuntimeRef.current, p.x / CELL_SIZE, p.y / CELL_SIZE)
-        ) {
-          playPickHit(audioCtxRef, 'nftji')
-          pvpFlashRef.current = performance.now()
-          const pgx = p.x / CELL_SIZE
-          const pgy = p.y / CELL_SIZE
-          const rt = bossRuntimeRef.current
-          Promise.resolve(onBossHitRef.current?.({
-            wallet: myWallet,
-            hitZone: 'body',
-            playerGx: pgx,
-            playerGy: pgy,
-            bossGx: rt.gx,
-            bossGy: rt.gy,
-            mapId: '5',
-          })).then(result => {
-            if (!result?.ok) return
-            bossIdleRequestedRef.current = false
-            const hit = result.headshot ? '🎯 HEAD' : result.critical ? '💥 CRIT' : '⚔ HIT'
-            let rewardSuffix = ''
-            if (result.killed && Array.isArray(result.rewards)) {
-              const mine = result.rewards.find(r => r.wallet?.toLowerCase() === myWallet?.toLowerCase())
-              if (mine) rewardSuffix = ` · +${mine.mm3} MM3 · +${mine.eur} €`
-            }
-            pvpGainRef.current = {
-              text: result.killed
-                ? `💀 ${M5_TRUMP_BOSS_NAME} DOWN ${hit}${rewardSuffix}`
-                : `${hit} ${M5_TRUMP_BOSS_NAME} -${result.damage} · ${result.health}/${result.maxHealth}`,
-              at: performance.now(),
-              color: result.killed ? '#4ade80' : '#fb923c',
-            }
-          })
 
         } else {
           // ── Block mine hit ───────────────────────────────────────────────

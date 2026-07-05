@@ -125,7 +125,7 @@ BEGIN
       RETURN jsonb_build_object('ok', false, 'error', 'boss_position_invalid');
     END IF;
     IF p_player_gx IS NOT NULL AND p_player_gy IS NOT NULL THEN
-      IF hypot(p_player_gx - p_boss_gx, p_player_gy - p_boss_gy) > 1.6 THEN
+      IF hypot(p_player_gx - p_boss_gx, p_player_gy - p_boss_gy) > 2.4 THEN
         RETURN jsonb_build_object('ok', false, 'error', 'out_of_range');
       END IF;
     END IF;
