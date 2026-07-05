@@ -24,7 +24,7 @@ import {
 } from '@/lib/mining-visual-layout'
 import { MINING_CORE_MAP_ID } from '@/lib/mining-maps'
 import { RL_NODE_MIN_LEVEL, RL_NODE_PRICE_MM3 } from '@/lib/mining-rl-mount'
-import { normalizeBossState } from '@/lib/m5-trump-boss'
+import { normalizeBossState, M5_TRUMP_BOSS_NAME } from '@/lib/m5-trump-boss'
 import supabase from '@/lib/supabaseClient'
 
 const MiningChain3DFPV = dynamic(() => import('./MiningChain3DFPV'), { ssr: false })
@@ -759,7 +759,7 @@ export default function MiningChain3D() {
     setBossState(normalizeBossState({
       id: 'm5_trump',
       map_id: '5',
-      name: 'Trump',
+      name: M5_TRUMP_BOSS_NAME,
       max_health: response.maxHealth,
       health: response.health,
       state: response.state,
@@ -1404,7 +1404,7 @@ export default function MiningChain3D() {
       setBossState(prev => normalizeBossState({
         id: 'm5_trump',
         map_id: '5',
-        name: 'Trump',
+        name: M5_TRUMP_BOSS_NAME,
         max_health: payload.maxHealth ?? prev.maxHealth,
         health: payload.health ?? prev.health,
         state: payload.state ?? prev.state,

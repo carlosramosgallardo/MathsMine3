@@ -7837,7 +7837,7 @@ function addGatewayCausewayScenery(scenery, direction, lowDetail = false) {
   }
 }
 
-// Gateway lanterns along the east exits to M1 (Crystal Isle).
+// Gateway lanterns along the east exits to M1 (Epstein Island).
 function addMysticIslePerimeterScenery(scenery) {
   const bands = [[39, 0], [47, 1.4], [53, 2.8]]
   for (const [z, phase] of bands) {
@@ -9139,6 +9139,7 @@ function rebuildPeripheralMapWorld(state, mapId, obstacles, cellMap) {
   }
   if (mapId === '5') {
     const bossVisual = createM5TrumpBossVisual(THREE, lowDetail)
+    bossVisual.group.matrixAutoUpdate = true
     world.add(bossVisual.group)
     state.m5TrumpBossGroup = bossVisual.group
   } else {
@@ -9166,9 +9167,15 @@ function rebuildPeripheralMapWorld(state, mapId, obstacles, cellMap) {
     state.beaconBatch?.rings,
     state.beaconBatch?.ring2s,
     state.beaconBatch?.columns,
+    state.m5TrumpBossGroup,
   ].filter(Boolean))
   world.traverse(object => {
     if (object === world || animated.has(object)) return
+    let ancestor = object.parent
+    while (ancestor) {
+      if (ancestor.userData?.m5TrumpBoss) return
+      ancestor = ancestor.parent
+    }
     object.updateMatrix()
     object.matrixAutoUpdate = false
   })
@@ -12551,6 +12558,8 @@ export default function MiningChain3DFPV({
             bossStateRef.current,
             performance.now() * 0.001,
           )
+        } else if (bossRuntimeRef.current && mapIdRef.current === '5') {
+          needsRender = true
         }
         needsRender = true
       }

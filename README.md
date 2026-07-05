@@ -108,7 +108,7 @@ The goal is to complete the MM3 3D mining world and win. The 3D world has **1000
 | Trading | Sell MM3 to build fiat reserves. Do 5 EXECs per day for the TRADING daily reward and a permanent +1 training slot. Buy rate is 18% above sell rate, so sell into strength and only rebuy when needed. |
 | Ranking and Pools | Your Mining % across all 1000 blocks is the only number that decides the winner — watch it. Join a pool: pool members are immune to each other's Mining commands, which matters more as penalties scale up with NFTJI level. |
 | Squeeze | Once in a pool, initiate Squeezes from the Squeezing page to earn fiat and drop Squeeze NFTJIs. Watch 🔥 War and 🎲 Dice before launching — they directly shift the outcome formula. |
-| Mining world | A 3D walkable world with 1000 blocks across four biomes (mountain, coast, ice, inferno). Explore in third-person view with WASD/joystick, jump, and PvP. 3 ways to mine: (1) buy a Mining NFTJI — that NFTJI block counts in your Mining % while you own it, and unlocks a daily Relaying attack command; (2) mine free chain blocks permanently with `/mine block #XXX` in Relaying; (3) submit the correct `Ω(α, β, γ)` for an immediate win. Selling an NFTJI removes that block from your count. |
+| Mining world | A **five-map 3D world** (Core Island + four peripheral maps) with **1000 minable blocks** (980 chain + 20 NFTJI), each map holding **200 blocks** with tiered requirements. Explore in first-person view with WASD/joystick, jump, PvP, and map gateways. Mine via Mining NFTJI purchase, `/mine block #XXX` in Relaying, or by solving `Ω(α, β, γ)`. |
 | Relaying | Your main action terminal. Type `/mine block #XXX` to attempt a chain cell. Fire your daily Mining command if you own a Mining NFTJI. Watch events, penalties, and world state shifts here in real time. |
 | MM3 | The global MM3 value determines which chain cells you can mine — requirements alternate positive and negative by cell index. Watch the MM3 chart and only attempt a cell when the sign and magnitude match its requirement. |
 | Daily rewards | Check the daily panel every session and manually claim each completed task before UTC midnight — unclaimed rewards disappear. Mining one block chain cell pays €10. Maximum daily total: €17.50. |
@@ -366,7 +366,33 @@ The modifier is read live at the moment each operation executes (`getDiceState()
 
 > Three ways to mine the 3D world: (1) buy a Mining NFTJI — that NFTJI block counts in your Mining % while you own it, and grants a daily attack command; (2) mine free chain blocks permanently with `/mine block #XXX` in Relaying; (3) submit the correct `Ω(α, β, γ)` for an immediate win. Selling an NFTJI removes that block from your count.
 
-The Mining world is a **3D walkable space** built over a 1000-cell logical chain (784 cells on the legacy 28×28 board plus 216 extended hex slots `#310`–`#3E7` placed in the 3D corridors). Explore it in third-person view: WASD or joystick to move, spacebar to jump, PvP interactions with other wallets. Four biomes (mountain, coast, ice, inferno) each have distinct block colors, obstacles, landmarks, and atmosphere. The 3D world has **1000 blocks total**, fully minable. All 1000 blocks count toward each wallet's Mining %. Two block types:
+The Mining world is a **five-map 3D cross layout** connected by gateway corridors. **Map 1 (Core Island)** sits at the centre; **maps 2–5** surround it (north / south / east / west). Each map is a full **56×56 playable island** with its own biome art, obstacles, and interactives. The logical chain has **1000 indices** (`#000`–`#3E7`): **980 regular blocks** plus **20 NFTJI blocks**. Blocks are **distributed 200 per map** by chain index — lower indices (and lower requirements) on M1, higher on M5. Explore in **first-person** view: WASD or joystick to move, spacebar to jump, USB-staff swings for PvP and boss fights. All 1000 blocks count toward each wallet's Mining %.
+
+### Five-map layout
+
+Cross topology (gateways on M1 edges lead to peripheral maps):
+
+```
+        M2 — RL Coliseum (north)
+              |
+M5 — Epstein Island — M1 — Core Island — M4 — Desert Oasis
+              |
+        M3 — Peach Castle (south)
+```
+
+| Map | Name | Chain indices | Blocks | Requirements (typical) | Interactive landmarks |
+|:---:|:---|:---|---:|:---|:---|
+| **M1** | Core Island | `#000`–`#0C7` | 200 | Lowest — entry tier | ⬡ **Chain Node** (solve/demine Ω), 🎲 **Dice Node** (StormRoll window), **Cipher House** + pool, **Crypto Colosseum**, 9 **Portal nodes** (Training, Trading, Ranking…), gateway exits |
+| **M2** | RL Coliseum | `#0C8`–`#18F` | 200 | Low–mid | 🏎️ **RL Mount node** (Red Lightning car), full-map coliseum venue, gateway → M1 |
+| **M3** | Peach Castle | `#190`–`#257` | 200 | Mid | Full-map **Peach Castle** city venue, gateway → M1 |
+| **M4** | Desert Oasis | `#258`–`#31F` | 200 | Mid–high | Full-map **Desert Oasis** venue, gateway → M1 |
+| **M5** | Epstein Island | `#320`–`#3E7` | 200 | Highest | Full-map mystic isle venue, **Donald Trump** world boss (centre, co-op PvE, daily respawn), gateway → M1 |
+
+**Block placement:** each chain index maps to one visual cell on its assigned map (see `lib/mining-visual-layout.js`). Regular blocks appear as minable cubes; NFTJI blocks as amber market cells (buy/resell in-world). Requirements (`min wallet level` + `mm3_global_value`) scale with the global index `#000` → `#3E7`.
+
+**Donald Trump boss (M5 only):** 5000 HP, 20 damage/hit, activates when any logged-in wallet lands a hit. Requires multiple fighters for serious damage. On defeat: **1000 MM3 + 1000 €** split proportionally among damage dealers; respawns **24 h** later.
+
+Two block types:
 
 | Block type | Count | How mined | Permanent? |
 |---|---:|---|---|
@@ -1107,7 +1133,7 @@ El objetivo es completar el mundo 3D de Mining y ganar. El mundo 3D tiene **1000
 | Trading | Vende MM3 para acumular fiat. Haz 5 EXECs al día para la recompensa diaria de TRADING y un +1 permanente de training slot. La tasa de compra es un 18% mayor que la de venta: vende cuando puedas y recompra solo cuando lo necesites. |
 | Ranking y Pools | Tu % de Minado sobre los 1000 bloques del mundo 3D es el único número que decide quién gana — obsérvalo. Únete a un pool cuanto antes: los miembros del mismo pool son inmunes a los comandos de Mining entre sí, lo que importa más a medida que las penalizaciones escalan con el nivel del NFTJI. |
 | Squeeze | Una vez en un pool, inicia Squeezes desde la página de Squeezing para ganar fiat y conseguir NFTJIs de Squeeze. Consulta 🔥 War y 🎲 Dice antes de lanzar — afectan directamente a la fórmula de resultado. |
-| Mundo de Mining | Mundo 3D explorable con 1000 bloques en cuatro biomas. Explora en tercera persona con WASD/joystick, salto y PvP. 3 formas de minar: (1) compra un NFTJI de Mining — ese bloque NFTJI cuenta en tu % de Minado mientras lo tengas, y desbloquea un comando diario de ataque en Relaying; (2) mina bloques libres de la cadena permanentemente con `/mine block #XXX` en Relaying; (3) envía el `Ω(α, β, γ)` correcto para ganar de inmediato. Vender un NFTJI elimina ese bloque de tu conteo. |
+| Mundo de Mining | **Mundo 3D de cinco mapas** (Isla Central + cuatro periféricos) con **1000 bloques minables** (980 cadena + 20 NFTJI), **200 bloques por mapa** con requisitos escalonados. Explora en primera persona con WASD/joystick, salto, PvP y portales entre mapas. Mina comprando NFTJI de Mining, con `/mine block #XXX` en Relaying, o resolviendo `Ω(α, β, γ)`. |
 | Relaying | Tu terminal de acción principal. Escribe `/mine block #XXX` para intentar minar una celda de la cadena. Dispara tu comando diario de Mining si tienes un NFTJI de Mining. Observa los eventos para leer el estado del juego en tiempo real. |
 | MM3 | El valor global del MM3 determina qué celdas libres puedes minar — los requisitos alternan entre positivo y negativo por índice de celda. Mira el gráfico MM3 y solo intenta minar cuando el signo y la magnitud coincidan con el requisito. |
 | Recompensas diarias | Revisa el panel diario en cada sesión y reclama manualmente cada tarea completada antes de la medianoche UTC — las recompensas no reclamadas se pierden. Minar una celda de la cadena paga €10. Máximo diario total: €17,50. |
@@ -1364,7 +1390,33 @@ El modificador se lee en vivo en el momento en que se ejecuta cada operación (`
 
 > Tres formas de minar el mundo 3D: (1) compra un NFTJI de Mining — ese bloque NFTJI cuenta en tu % de Minado mientras lo tengas, y otorga un comando de ataque diario; (2) mina bloques libres de la cadena permanentemente con `/mine block #XXX` en Relaying; (3) envía el `Ω(α, β, γ)` correcto para ganar de inmediato. Vender un NFTJI elimina ese bloque de tu conteo.
 
-El mundo de Mining es un **espacio 3D explorable** construido sobre una cadena lógica de 1000 celdas (784 en el tablero 28×28 heredado más 216 hex extendidos `#310`–`#3E7` colocados en los corredores 3D). Explóralo en vista en tercera persona: WASD o joystick para moverte, espacio para saltar, interacciones PvP con otras wallets. Cuatro biomas (montaña, costa, hielo, infierno) con colores de bloques, obstáculos, landmarks y atmósfera distintos. El mundo 3D tiene **1000 bloques en total**, todos minables. Los 1000 bloques cuentan para el % de Minado de cada wallet. Dos tipos de bloque:
+El mundo de Mining es un **layout en cruz de cinco mapas 3D** conectados por corredores-portal. **Mapa 1 (Isla Central)** está en el centro; **mapas 2–5** lo rodean (norte / sur / este / oeste). Cada mapa es una **isla jugable 56×56** con arte de bioma, obstáculos e interactives propios. La cadena lógica tiene **1000 índices** (`#000`–`#3E7`): **980 bloques regulares** más **20 NFTJI**. Los bloques se **distribuyen 200 por mapa** según el índice — requisitos más bajos en M1, más altos en M5. Explora en **primera persona**: WASD o joystick, espacio para saltar, bastón USB para PvP y combate contra el boss. Los 1000 bloques cuentan para el % de Minado de cada wallet.
+
+### Layout de cinco mapas
+
+Topología en cruz (portales en los bordes de M1 hacia los mapas periféricos):
+
+```
+        M2 — Coliseo RL (norte)
+              |
+M5 — Isla Epstein — M1 — Isla Central — M4 — Oasis del Desierto
+              |
+        M3 — Castillo de Peach (sur)
+```
+
+| Mapa | Nombre | Índices cadena | Bloques | Requisitos (típico) | Landmarks interactivos |
+|:---:|:---|:---|---:|:---|:---|
+| **M1** | Isla Central | `#000`–`#0C7` | 200 | Mínimos — entrada | ⬡ **Nodo Cadena** (resolver/desminar Ω), 🎲 **Nodo Dado** (ventana StormRoll), **Casa Cipher** + piscina, **Coliseo Crypto**, 9 **nodos Portal** (Training, Trading, Ranking…), salidas portal |
+| **M2** | Coliseo RL | `#0C8`–`#18F` | 200 | Bajo–medio | 🏎️ **Nodo RL Mount** (coche Red Lightning), coliseo a mapa completo, portal → M1 |
+| **M3** | Castillo de Peach | `#190`–`#257` | 200 | Medio | **Castillo Peach** a mapa completo, portal → M1 |
+| **M4** | Oasis del Desierto | `#258`–`#31F` | 200 | Medio–alto | **Oasis del Desierto** a mapa completo, portal → M1 |
+| **M5** | Isla Epstein | `#320`–`#3E7` | 200 | Máximos | Isla mística a mapa completo, **boss Donald Trump** (centro, PvE cooperativo, respawn diario), portal → M1 |
+
+**Colocación de bloques:** cada índice de cadena corresponde a una celda visual en su mapa asignado (ver `lib/mining-visual-layout.js`). Los bloques regulares aparecen como cubos minables; los NFTJI como celdas ámbar de mercado (compra/reventa in-world). Los requisitos (`nivel mínimo de wallet` + `mm3_global_value`) escalan con el índice global `#000` → `#3E7`.
+
+**Boss Donald Trump (solo M5):** 5000 HP, 20 de daño/golpe, se activa cuando cualquier wallet logueada acierta un golpe. Requiere varios luchadores para daño serio. Al derrotarlo: **1000 MM3 + 1000 €** repartidos proporcionalmente entre los que infligieron daño; respawn **24 h** después.
+
+Dos tipos de bloque:
 
 | Tipo de bloque | Cantidad | Cómo se mina | ¿Permanente? |
 |---|---:|---|---|

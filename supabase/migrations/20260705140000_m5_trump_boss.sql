@@ -13,7 +13,7 @@ CREATE TABLE IF NOT EXISTS mm3_map_boss (
 );
 
 INSERT INTO mm3_map_boss (id, map_id, name, max_health, health, state)
-VALUES ('m5_trump', '5', 'Trump', 5000, 5000, 'idle')
+VALUES ('m5_trump', '5', 'Donald Trump', 5000, 5000, 'idle')
 ON CONFLICT (id) DO NOTHING;
 
 CREATE OR REPLACE FUNCTION apply_mm3_boss_player_hit(
