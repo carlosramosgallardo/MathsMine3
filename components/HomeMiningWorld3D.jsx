@@ -5,12 +5,21 @@ import { addVerticalArenaUsbStaff } from '@/lib/arena-usb-staff'
 import { createM5TrumpBossVisual } from '@/lib/m5-trump-boss-runtime'
 import { M5_TRUMP_BOSS_SCALE } from '@/lib/m5-trump-boss'
 
+const HOME_ARENA_BOT_SCALE = 3.44
+const HOME_ARENA_CENTER = { x: 0.55, z: 0 }
+
+function homeYawTowardArenaCenter(fromX, fromZ) {
+  const dx = HOME_ARENA_CENTER.x - fromX
+  const dz = HOME_ARENA_CENTER.z - fromZ
+  return -Math.atan2(dx, dz) - Math.PI / 2
+}
+
 export function addMiningBot(THREE, scene, options = {}) {
   const {
     color: botColor = '#4ade80',
     position = [-2.25, .12, .20],
-    rotationY = Math.PI,
-    scale = 3.44,
+    rotationY = homeYawTowardArenaCenter(-2.25, .20),
+    scale = HOME_ARENA_BOT_SCALE,
   } = options
   const avatar = new THREE.Group()
   const color = new THREE.Color(botColor)
@@ -246,8 +255,9 @@ export function addNftjiMiningBlock(THREE, scene, options = {}) {
 export function addHomeTrumpBoss(THREE, scene, options = {}) {
   const {
     position = [3.20, .12, .08],
-    rotationY = Math.PI * 0.58,
-    scaleMult = 1,
+    rotationY = homeYawTowardArenaCenter(3.20, .08),
+    // 2× player scale in-game → boss taller than the home arena bot
+    scaleMult = HOME_ARENA_BOT_SCALE,
   } = options
   const { group, bodyPivot, label } = createM5TrumpBossVisual(THREE, false)
   group.position.set(position[0], position[1], position[2])
@@ -463,7 +473,7 @@ export default function HomeMiningWorld3D() {
         const stride = Math.sin(time * 2.35)
         const stepLift = Math.abs(Math.sin(time * 2.35))
         bot.position.y = .12 + stepLift * .025
-        bot.rotation.y = Math.PI + stride * .025
+        bot.rotation.y = homeYawTowardArenaCenter(-2.25, .20) + stride * .025
         bot.rotation.z = stride * .018
         bot.userData.leftFoot.position.z = -.025 + stride * .075
         bot.userData.rightFoot.position.z = -.025 - stride * .075
