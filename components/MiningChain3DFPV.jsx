@@ -6477,6 +6477,33 @@ function addBiomeLandmarks(world,textures,lowDetail=false) {
   addIslandOutskirts(world,textures,lowDetail)
 }
 
+function drawUsFlagOnCanvas(ctx, x, y, w, h) {
+  const stripeH = h / 13
+  for (let i = 0; i < 13; i += 1) {
+    ctx.fillStyle = i % 2 === 0 ? '#B22234' : '#FFFFFF'
+    ctx.fillRect(x, y + i * stripeH, w, stripeH + 0.6)
+  }
+  const cantonW = w * 0.403
+  const cantonH = stripeH * 7
+  ctx.fillStyle = '#3C3B6E'
+  ctx.fillRect(x, y, cantonW, cantonH)
+  ctx.fillStyle = '#FFFFFF'
+  const rows = 5
+  const rowGap = cantonH / (rows + 1)
+  for (let row = 0; row < rows; row += 1) {
+    const cols = row % 2 === 0 ? 6 : 5
+    const colGap = cantonW / (cols + (row % 2 === 0 ? 1 : 1.5))
+    const offsetX = row % 2 === 0 ? colGap : colGap * 1.5
+    for (let col = 0; col < cols; col += 1) {
+      const sx = x + offsetX + col * colGap
+      const sy = y + rowGap + row * rowGap
+      ctx.beginPath()
+      ctx.arc(sx, sy, Math.max(1.6, w * 0.018), 0, Math.PI * 2)
+      ctx.fill()
+    }
+  }
+}
+
 function makeEmojiSprite(emoji,color,shape='square') {
   const canvas=document.createElement('canvas')
   canvas.width=128;canvas.height=128
@@ -6503,6 +6530,8 @@ function makeEmojiSprite(emoji,color,shape='square') {
       context.arc(x,y,4.8,0,Math.PI*2)
       context.fill()
     }
+  }else if(emoji==='🇺🇸'||emoji==='us-flag'){
+    drawUsFlagOnCanvas(context, 20, 24, 88, 80)
   }else{
     context.font='72px "Apple Color Emoji","Segoe UI Emoji",sans-serif'
     context.textAlign='center';context.textBaseline='middle'
@@ -8713,7 +8742,7 @@ function buildMysticIsleVisuals(world, assets, { lite = false } = {}) {
   const showcase = new THREE.Group()
   showcase.position.set(heartGate.x, 0, heartGate.z)
   showcase.userData.skipOcclusion = true
-  const titleSprite = makeEmojiSprite('🇺🇸', '#2563eb', 'circle')
+  const titleSprite = makeEmojiSprite('us-flag', '#2563eb', 'circle')
   titleSprite.scale.set(lite ? 1.15 : 1.45, lite ? 1.15 : 1.45, 1)
   titleSprite.position.y = lite ? 6.2 : 7.6
   titleSprite.renderOrder = 4
