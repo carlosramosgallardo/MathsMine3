@@ -208,7 +208,7 @@ const REMOTE_AVATAR_LOCAL = Object.freeze({
   feet: 0.075,
   halfWidth: 0.36,
 })
-// RL mount: head + antenna + USB staff above the car mesh (see applyRlMountVisual).
+// RL mount: head + antenna above the car mesh; USB staff hidden while mounted (applyRlMountVisual).
 const REMOTE_AVATAR_MOUNTED_LOCAL = Object.freeze({
   headTop: 0.775,
   headBottom: 0.30,
@@ -9679,10 +9679,8 @@ function applyRlMountVisual(avatar, mounted, threeState = null) {
     for (const part of avatar.userData.bodyParts) part.visible = !mounted
   }
   if (avatar.userData.tool) {
-    avatar.userData.tool.visible = !avatar.userData.wasDead && !avatar.userData.isHealingRecharge
-    if (mounted) {
-      avatar.userData.tool.position.set(0.34, 0.42, 0.08)
-    } else if (avatar.userData.rlStandToolPos) {
+    avatar.userData.tool.visible = !avatar.userData.wasDead && !avatar.userData.isHealingRecharge && !mounted
+    if (!mounted && avatar.userData.rlStandToolPos) {
       avatar.userData.tool.position.copy(avatar.userData.rlStandToolPos)
     }
   }
@@ -9946,10 +9944,10 @@ function updatePoolSubmersionEffects(state,time,tier='medium'){
 function setAvatarHealingRecharge(avatar, active, rlMounted = false) {
   const effect=avatar?.userData?.healEffect
   const tool=avatar?.userData?.tool
-  // On foot in the pool the USB plugs in for the heal FX; mounted players keep the staff on the car.
+  // On foot in the pool the USB plugs in for the heal FX; mounted players hide the staff.
   const healActive=Boolean(active)&&!rlMounted
   if(effect) effect.visible=healActive
-  if(tool) tool.visible=!avatar.userData?.wasDead&&!healActive
+  if(tool) tool.visible=!avatar.userData?.wasDead&&!healActive&&!rlMounted
   avatar.userData.isHealingRecharge=healActive
 }
 
