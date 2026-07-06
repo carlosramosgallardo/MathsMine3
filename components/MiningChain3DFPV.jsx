@@ -3,7 +3,7 @@
 import { useEffect, useRef, useCallback, useState } from 'react'
 import * as THREE from 'three'
 import { colorFromAddress } from '@/lib/wallet-colors'
-import { MM3_BLOCK_GRID_ROWS, MM3_BLOCK_GRID_COLS, MM3_MINE_BLOCK_TOTAL, gridToBlockHex, MM3_BLOCK_REQUIREMENT_BY_HEX, doesGlobalValueMeetRequirement } from '@/lib/mm3-block-chain'
+import { MM3_BLOCK_GRID_ROWS, MM3_BLOCK_GRID_COLS, MM3_MINE_BLOCK_TOTAL, MM3_REGULAR_BLOCK_TOTAL, MM3_NFTJI_BLOCK_TOTAL, gridToBlockHex, MM3_BLOCK_REQUIREMENT_BY_HEX, doesGlobalValueMeetRequirement } from '@/lib/mm3-block-chain'
 import supabase from '@/lib/supabaseClient'
 import { groupPresenceEntries } from '@/lib/presence-display'
 import {
@@ -3668,8 +3668,11 @@ function drawPerimeterCellSoftening(ctx, mapId, mapX, mapY, CS) {
     const x1 = x0 + CS
     const y1 = y0 + CS
     if (vis.gateway) {
-      ctx.fillStyle = gatewayFill
-      ctx.fillRect(x0, y0, CS, CS)
+      // M1 gateway corridors are drawn via ground features (plaza/causeway), not cyan edge tint.
+      if (mapId !== '1') {
+        ctx.fillStyle = gatewayFill
+        ctx.fillRect(x0, y0, CS, CS)
+      }
       return
     }
     ctx.fillStyle = seaFill
@@ -3748,44 +3751,42 @@ function drawMinimapEdgeExits(ctx, mapId, MX, MY, SZ, CS) {
     ctx.restore()
   }
 
-  const drawFullEdge = (side, targetMapId) => {
+  const drawFullEdgeLabel = (side, targetMapId) => {
     const accent = MAP_EXIT_ACCENT[targetMapId] || '#43c2dc'
-    const label = `M${targetMapId}`
-    const strip = Math.max(cap, CS * 1.05)
+    const label = `→ M${targetMapId}`
+    const pad = Math.max(4, CS * 0.9)
     ctx.save()
-    let grad
+    ctx.font = 'bold 11px monospace'
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.shadowColor = accent
+    ctx.shadowBlur = 10
+    ctx.fillStyle = '#010709cc'
+    let lx, ly, bw, bh
     if (side === 'north') {
-      grad = ctx.createLinearGradient(MX, MY, MX, MY + strip * 2.2)
-      grad.addColorStop(0, accent + 'e6')
-      grad.addColorStop(0.55, accent + '66')
-      grad.addColorStop(1, accent + '00')
-      ctx.fillStyle = grad
-      ctx.fillRect(MX, MY, SZ, strip * 2.2)
-      drawEdgeLabel(label, MX + SZ / 2, MY + strip * 0.55, 'center', 'middle', accent)
+      lx = MX + SZ / 2; ly = MY + pad
+      bw = ctx.measureText(label).width + 10; bh = 14
+      ctx.fillRect(lx - bw / 2, ly - bh / 2, bw, bh)
+      ctx.fillStyle = accent
+      ctx.fillText(label, lx, ly)
     } else if (side === 'south') {
-      grad = ctx.createLinearGradient(MX, MY + SZ, MX, MY + SZ - strip * 2.2)
-      grad.addColorStop(0, accent + 'e6')
-      grad.addColorStop(0.55, accent + '66')
-      grad.addColorStop(1, accent + '00')
-      ctx.fillStyle = grad
-      ctx.fillRect(MX, MY + SZ - strip * 2.2, SZ, strip * 2.2)
-      drawEdgeLabel(label, MX + SZ / 2, MY + SZ - strip * 0.55, 'center', 'middle', accent)
+      lx = MX + SZ / 2; ly = MY + SZ - pad
+      bw = ctx.measureText(label).width + 10; bh = 14
+      ctx.fillRect(lx - bw / 2, ly - bh / 2, bw, bh)
+      ctx.fillStyle = accent
+      ctx.fillText(label, lx, ly)
     } else if (side === 'west') {
-      grad = ctx.createLinearGradient(MX, MY, MX + strip * 2.2, MY)
-      grad.addColorStop(0, accent + 'e6')
-      grad.addColorStop(0.55, accent + '66')
-      grad.addColorStop(1, accent + '00')
-      ctx.fillStyle = grad
-      ctx.fillRect(MX, MY, strip * 2.2, SZ)
-      drawEdgeLabel(label, MX + strip * 0.55, MY + SZ / 2, 'center', 'middle', accent)
+      lx = MX + pad; ly = MY + SZ / 2
+      bw = ctx.measureText(label).width + 10; bh = 14
+      ctx.fillRect(lx - bw / 2, ly - bh / 2, bw, bh)
+      ctx.fillStyle = accent
+      ctx.fillText(label, lx, ly)
     } else {
-      grad = ctx.createLinearGradient(MX + SZ, MY, MX + SZ - strip * 2.2, MY)
-      grad.addColorStop(0, accent + 'e6')
-      grad.addColorStop(0.55, accent + '66')
-      grad.addColorStop(1, accent + '00')
-      ctx.fillStyle = grad
-      ctx.fillRect(MX + SZ - strip * 2.2, MY, strip * 2.2, SZ)
-      drawEdgeLabel(label, MX + SZ - strip * 0.55, MY + SZ / 2, 'center', 'middle', accent)
+      lx = MX + SZ - pad; ly = MY + SZ / 2
+      bw = ctx.measureText(label).width + 10; bh = 14
+      ctx.fillRect(lx - bw / 2, ly - bh / 2, bw, bh)
+      ctx.fillStyle = accent
+      ctx.fillText(label, lx, ly)
     }
     ctx.restore()
   }
@@ -3794,7 +3795,7 @@ function drawMinimapEdgeExits(ctx, mapId, MX, MY, SZ, CS) {
 
   // north
   if (!edges.north.open) drawClosedStrip(MX, MY, SZ, cap)
-  else if (edges.north.fullEdge) drawFullEdge('north', edges.north.targetMapId)
+  else if (edges.north.fullEdge) drawFullEdgeLabel('north', edges.north.targetMapId)
   else {
     const accent = MAP_EXIT_ACCENT[edges.north.targetMapId] || '#43c2dc'
     drawTicks(edges.north.bands, accent, (col) => {
@@ -3805,7 +3806,7 @@ function drawMinimapEdgeExits(ctx, mapId, MX, MY, SZ, CS) {
 
   // south
   if (!edges.south.open) drawClosedStrip(MX, MY + SZ - cap, SZ, cap)
-  else if (edges.south.fullEdge) drawFullEdge('south', edges.south.targetMapId)
+  else if (edges.south.fullEdge) drawFullEdgeLabel('south', edges.south.targetMapId)
   else {
     const accent = MAP_EXIT_ACCENT[edges.south.targetMapId] || '#43c2dc'
     drawTicks(edges.south.bands, accent, (col) => {
@@ -3816,7 +3817,7 @@ function drawMinimapEdgeExits(ctx, mapId, MX, MY, SZ, CS) {
 
   // west
   if (!edges.west.open) drawClosedStrip(MX, MY, cap, SZ)
-  else if (edges.west.fullEdge) drawFullEdge('west', edges.west.targetMapId)
+  else if (edges.west.fullEdge) drawFullEdgeLabel('west', edges.west.targetMapId)
   else {
     const accent = MAP_EXIT_ACCENT[edges.west.targetMapId] || '#43c2dc'
     drawTicks(edges.west.bands, accent, (row) => {
@@ -3827,7 +3828,7 @@ function drawMinimapEdgeExits(ctx, mapId, MX, MY, SZ, CS) {
 
   // east
   if (!edges.east.open) drawClosedStrip(MX + SZ - cap, MY, cap, SZ)
-  else if (edges.east.fullEdge) drawFullEdge('east', edges.east.targetMapId)
+  else if (edges.east.fullEdge) drawFullEdgeLabel('east', edges.east.targetMapId)
   else {
     const accent = MAP_EXIT_ACCENT[edges.east.targetMapId] || '#43c2dc'
     drawTicks(edges.east.bands, accent, (row) => {
@@ -10567,14 +10568,15 @@ export default function MiningChain3DFPV({
   }, [cellMap, mapId])
 
   useEffect(()=>{
-    let owned=0, marketOwned=0, totalNFTJI=0
+    let owned=0, marketOwned=0
     for (const cell of cellMap.values()) {
-      if (cell.isMarket) { totalNFTJI++; if (cell.owner) marketOwned++ }
+      if (cell.isMarket) { if (cell.owner) marketOwned++ }
       else if (cell.owner) owned++
     }
-    // owned = regular mined; marketOwned = NFTJI owned; use MM3_MINE_BLOCK_TOTAL (1000)
-    // as authoritative denominator — cellMap has extra unclaimed entries beyond minable count
-    const totalRegular = MM3_MINE_BLOCK_TOTAL - totalNFTJI
+    // Denominators are chain constants (980 regular + 20 NFTJI) — cellMap may omit
+    // NFTJI slots without grid coords or fail to place a visual slot on M1.
+    const totalRegular = MM3_REGULAR_BLOCK_TOTAL
+    const totalNFTJI = MM3_NFTJI_BLOCK_TOTAL
     const totalOwned = owned + marketOwned
     chainStatsRef.current = { owned, marketOwned, totalRegular, totalNFTJI, pct: totalOwned/MM3_MINE_BLOCK_TOTAL*100 }
   },[cellMap])
