@@ -2,6 +2,8 @@
 
 import { useEffect, useRef } from 'react'
 import { addVerticalArenaUsbStaff } from '@/lib/arena-usb-staff'
+import { createM5TrumpBossVisual } from '@/lib/m5-trump-boss-runtime'
+import { M5_TRUMP_BOSS_SCALE } from '@/lib/m5-trump-boss'
 
 export function addMiningBot(THREE, scene, options = {}) {
   const {
@@ -240,6 +242,26 @@ export function addNftjiMiningBlock(THREE, scene, options = {}) {
   return { group, glowLight, indicator, marker, sprite }
 }
 
+/** Donald Trump boss — same voxel avatar as Epstein Island (M5) in Mining. */
+export function addHomeTrumpBoss(THREE, scene, options = {}) {
+  const {
+    position = [3.20, .12, .08],
+    rotationY = Math.PI * 0.58,
+    scaleMult = 1,
+  } = options
+  const { group, bodyPivot, label } = createM5TrumpBossVisual(THREE, false)
+  group.position.set(position[0], position[1], position[2])
+  group.rotation.y = rotationY
+  group.scale.setScalar(M5_TRUMP_BOSS_SCALE * scaleMult)
+
+  const glowLight = new THREE.PointLight('#ef4444', 3.2, 4.5, 2)
+  glowLight.position.set(0, 1.4, 0)
+  group.add(glowLight)
+
+  scene.add(group)
+  return { group, bodyPivot, label, glowLight, baseRotationY: rotationY }
+}
+
 function makeChainTargetSprite(THREE) {
   const canvas = document.createElement('canvas')
   canvas.width = 128
@@ -415,7 +437,7 @@ export default function HomeMiningWorld3D() {
 
       const bot = addMiningBot(THREE, scene)
       const chain = addChainNodeAndSword(THREE, scene)
-      const nftjiBlock = addNftjiMiningBlock(THREE, scene)
+      const trumpBoss = addHomeTrumpBoss(THREE, scene)
 
       const resize = () => {
         const width = Math.max(1, canvas.clientWidth)
@@ -459,11 +481,13 @@ export default function HomeMiningWorld3D() {
         const targetPulse = .52 * (1 + Math.sin(time * 2.8) * .055)
         chain.targetIndicator.scale.set(targetPulse, targetPulse, 1)
         chain.targetIndicator.material.opacity = .84 + Math.sin(time * 2.8) * .12
-        const nftjiPulse = 1 + Math.sin(time * 2.8) * .06
-        nftjiBlock.indicator.scale.setScalar(nftjiPulse)
-        nftjiBlock.indicator.rotation.y = time * .34
-        nftjiBlock.glowLight.intensity = 4.5 + Math.sin(time * 2.4) * 1.2
-        nftjiBlock.sprite.position.y = 2.61 + Math.sin(time * 2.1) * .05
+        const bossBob = Math.sin(time * 2.2) * 0.06
+        trumpBoss.bodyPivot.position.y = bossBob
+        trumpBoss.group.rotation.y = trumpBoss.baseRotationY + Math.sin(time * 0.45) * 0.08
+        if (trumpBoss.label) {
+          trumpBoss.label.position.y = 2.55 * M5_TRUMP_BOSS_SCALE + bossBob
+        }
+        trumpBoss.glowLight.intensity = 3.2 + Math.sin(time * 2.4) * 0.9
         renderer.render(scene, camera)
       }
       animate()
