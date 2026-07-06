@@ -1,6 +1,7 @@
 export const dynamic = 'force-dynamic'
 
 import { createClient } from '@supabase/supabase-js'
+import { addMiningEventDelta, EMPTY_MM3_CHART_DELTAS } from '@/lib/mm3-chart-deltas'
 
 export async function GET() {
   const supabase = createClient(
@@ -37,14 +38,9 @@ export async function GET() {
   const ensure = key => {
     if (!breakdownByHour[key]) {
       breakdownByHour[key] = {
-        mined_delta: 0,
-        trade_delta: 0,
-        trade_wallet_count: 0,
-        trade_google_count: 0,
+        ...EMPTY_MM3_CHART_DELTAS,
         _trade_wallets: new Set(),
         _trade_google: new Set(),
-        nftji_delta: 0,
-        market_delta: 0,
       }
     }
     return breakdownByHour[key]
@@ -93,16 +89,12 @@ export async function GET() {
       if (source === 'google') bucket._trade_google.add(walletKey)
       else bucket._trade_wallets.add(walletKey)
     })
-    marketData?.forEach(e => add(
-      e.created_at,
-      e.delta_mm3,
-      (e.event_type === 'nftji_claim' || e.event_type === 'nftji_level_up') ? 'nftji_delta' : 'market_delta'
-    ))
+    marketData?.forEach(e => addMiningEventDelta(ensure(hourKey(e.created_at)), e.event_type, e.delta_mm3))
   }
 
   const enriched = sorted.map((entry, idx, arr) => {
     const key = hourKey(entry.hour)
-    const breakdown = breakdownByHour[key] ?? { mined_delta: 0, trade_delta: 0, trade_wallet_count: 0, trade_google_count: 0, nftji_delta: 0, market_delta: 0 }
+    const breakdown = breakdownByHour[key] ?? { ...EMPTY_MM3_CHART_DELTAS }
     breakdown.trade_wallet_count = breakdown._trade_wallets?.size ?? breakdown.trade_wallet_count ?? 0
     breakdown.trade_google_count = breakdown._trade_google?.size ?? breakdown.trade_google_count ?? 0
     const { _trade_wallets, _trade_google, ...publicBreakdown } = breakdown

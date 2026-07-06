@@ -30,11 +30,19 @@ import { addVerticalArenaUsbStaff } from '@/lib/arena-usb-staff'
 import {
   createBossRuntime,
   createM5TrumpBossVisual,
+  M5_TRUMP_BOSS_LOCAL_BOUNDS,
   resolveBossSwingTarget,
   syncBossVisual,
   updateM5TrumpBoss,
 } from '@/lib/m5-trump-boss-runtime'
-import { M5_TRUMP_BOSS_NAME, M5_TRUMP_BOSS_SPAWN } from '@/lib/m5-trump-boss'
+import { M5_TRUMP_BOSS_NAME, M5_TRUMP_BOSS_SCALE, M5_TRUMP_BOSS_SPAWN } from '@/lib/m5-trump-boss'
+import {
+  COMBAT_DAMAGE_FLOAT_MS,
+  combatDamageFloatColor,
+  combatDamageFloatFont,
+  combatDamageFloatText,
+  createCombatDamageFloat,
+} from '@/lib/combat-damage-floats'
 import {
   forEachPerimeterCell,
   getPerimeterCellVisual,
@@ -3637,6 +3645,45 @@ function castRayLayers(wx, wy, angle, cellMap, obsSet, maxDist = VISUAL_RANGE) {
     }
   }
   return hits
+}
+
+const BOSS_DAMAGE_FLOAT_Y = M5_TRUMP_BOSS_SCALE * M5_TRUMP_BOSS_LOCAL_BOUNDS.headTop + 0.35
+
+function drawCombatDamageFloats(ctx, floats, { mapId, W, H, threeState, now }) {
+  const active = []
+  for (const entry of floats) {
+    const age = now - entry.at
+    if (age >= COMBAT_DAMAGE_FLOAT_MS) continue
+    if (entry.mapId !== mapId) continue
+    const text = combatDamageFloatText(entry)
+    if (!text) continue
+    if (!threeState?.camera) continue
+    const sv = threeState._v3a
+    sv.set(entry.gx, entry.z + entry.yLift, entry.gy)
+    sv.project(threeState.camera)
+    if (sv.z > 1) continue
+    const sx = (sv.x + 1) / 2 * W
+    const sy = (-sv.y + 1) / 2 * H
+    if (sx < -40 || sx > W + 40 || sy < -40 || sy > H + 40) continue
+    const t = age / COMBAT_DAMAGE_FLOAT_MS
+    const alpha = 1 - t
+    const rise = t * 34
+    const color = combatDamageFloatColor(entry)
+    ctx.save()
+    ctx.globalAlpha = alpha
+    ctx.font = combatDamageFloatFont(entry)
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.shadowColor = color
+    ctx.shadowBlur = 8
+    ctx.fillStyle = 'rgba(0,0,0,.78)'
+    ctx.fillText(text, sx + 1, sy - rise + 1)
+    ctx.fillStyle = color
+    ctx.fillText(text, sx, sy - rise)
+    ctx.restore()
+    active.push(entry)
+  }
+  return active
 }
 
 // ── Minimap ───────────────────────────────────────────────────────────────────
@@ -10129,7 +10176,7 @@ export default function MiningChain3DFPV({
   onMapChange,
   onPositionChange, onFacingChange, onWantNavigate, onPositionRealtime,
   onPvpHit, pvpStolen, demineRewards,
-  onChainSolveOpen, onNftjiPanelOpen, externalPvpFlash, externalDodgeFlash = 0, externalKnockback, externalPush, onCollisionPush,
+  onChainSolveOpen, onNftjiPanelOpen, externalPvpFlash, externalDodgeFlash = 0, externalCombatDamage = null, externalKnockback, externalPush, onCollisionPush,
   swingMap, myPoolCode,
   anonKillMsg,
   playerLevel, playerNftjiCount, walletNftjis, myNftjis,
@@ -10233,6 +10280,7 @@ export default function MiningChain3DFPV({
   const pvpFlashRef     = useRef(0)      // timestamp of last pvp strike (for red flash)
   const dodgeFlashRef   = useRef(0)      // timestamp of last successful dodge (cyan flash)
   const pvpGainRef      = useRef(null)   // { text, at } for "+X EUR" popup
+  const damageFloatsRef = useRef([])
   const onPvpHitRef          = useRef(onPvpHit)
   const pvpStolenRef         = useRef(pvpStolen || {})
   const demineRewardsRef     = useRef(demineRewards || {})
@@ -10532,6 +10580,22 @@ export default function MiningChain3DFPV({
   // External hit flash (victim sees red screen when struck by another player)
   useEffect(()=>{ if(externalPvpFlash) pvpFlashRef.current=performance.now() },[externalPvpFlash])
   useEffect(()=>{ if(externalDodgeFlash) dodgeFlashRef.current=performance.now() },[externalDodgeFlash])
+
+  const pushCombatDamageFloat = useCallback((opts) => {
+    if (!opts || !Number.isFinite(Number(opts.gx)) || !Number.isFinite(Number(opts.gy))) return
+    if (!opts.dodged && !(Number(opts.damage) > 0)) return
+    const entry = createCombatDamageFloat({
+      ...opts,
+      mapId: opts.mapId || mapIdRef.current,
+      at: opts.at ?? performance.now(),
+    })
+    damageFloatsRef.current = [...damageFloatsRef.current.slice(-28), entry]
+  }, [])
+
+  useEffect(() => {
+    if (!externalCombatDamage?.at) return
+    pushCombatDamageFloat(externalCombatDamage)
+  }, [externalCombatDamage, pushCombatDamageFloat])
   // PvP knockback: apply velocity impulse away from attacker when hit
   useEffect(()=>{
     if(!externalKnockback) return
@@ -11916,6 +11980,14 @@ export default function MiningChain3DFPV({
       }
     }
 
+    damageFloatsRef.current = drawCombatDamageFloats(ctx, damageFloatsRef.current, {
+      mapId: mapIdRef.current,
+      W,
+      H,
+      threeState,
+      now: performance.now(),
+    })
+
     // ── Wall face overlays — ONLY for mineable blocks, never for structural walls ──
     // Use the actual wall top height so the crosshair activates across the full obstacle face
     const fwdWallTopH = fwdCell?.isObstacle ? obstacleTop(fwdCell) : blockTop(fwdCell,fwdMy,fwdMx)
@@ -13227,6 +13299,19 @@ export default function MiningChain3DFPV({
               at: performance.now(),
               color: result.killed ? '#4ade80' : '#fb923c',
             }
+            if (Number(result.damage) > 0) {
+              pushCombatDamageFloat({
+                damage: result.damage,
+                kind: 'dealt',
+                gx: bossSwing.bossGx ?? rt?.gx ?? M5_TRUMP_BOSS_SPAWN.gx,
+                gy: bossSwing.bossGy ?? rt?.gy ?? M5_TRUMP_BOSS_SPAWN.gy,
+                z: 0,
+                yLift: BOSS_DAMAGE_FLOAT_Y,
+                mapId: '5',
+                critical: result.critical,
+                headshot: result.headshot,
+              })
+            }
           })
 
         } else if(inSight?.wallet && !enemy?.wallet && myIdentity && (!myIsAnon || inSight.isAnon) && !inSight.isTeammate && mineTypeRef.current!=='chain'){
@@ -13246,6 +13331,16 @@ export default function MiningChain3DFPV({
               if(!result?.ok) return
               if(result.dodged){
                 pvpGainRef.current={ text:'🛡 DODGE', at:performance.now() }
+                const pres = presenceRef.current[enemy.wallet]
+                pushCombatDamageFloat({
+                  damage: 0,
+                  dodged: true,
+                  kind: 'dealt',
+                  gx: Number(pres?.gx ?? (pres?.col ?? 0) + 0.5),
+                  gy: Number(pres?.gy ?? (pres?.row ?? 0) + 0.5),
+                  z: Number(pres?.z) || 0,
+                  yLift: 1.15,
+                })
                 return
               }
               if(result.critical||result.headshot) critFlashRef.current=performance.now()
@@ -13257,6 +13352,21 @@ export default function MiningChain3DFPV({
               pvpGainRef.current={
                 text:result.killed?`💀 KILL  ${hit}`:`${hit} -${result.damage} HP${money>0?` +${money.toFixed(2)} ${moneySymbol}`:''}`,
                 at:performance.now(),
+              }
+              if (Number(result.damage) > 0) {
+                const pres = presenceRef.current[enemy.wallet]
+                const egx = Number(pres?.gx ?? (pres?.col ?? 0) + 0.5)
+                const egy = Number(pres?.gy ?? (pres?.row ?? 0) + 0.5)
+                pushCombatDamageFloat({
+                  damage: result.damage,
+                  kind: 'dealt',
+                  gx: egx,
+                  gy: egy,
+                  z: Number(pres?.z) || 0,
+                  yLift: 1.15,
+                  critical: result.critical,
+                  headshot: result.headshot,
+                })
               }
             })
 
@@ -13381,6 +13491,7 @@ export default function MiningChain3DFPV({
       // Keep rendering while pvp/dodge flash animations are active
       if(pvpFlashRef.current && nowMs-pvpFlashRef.current<280) needsRender=true
       if(dodgeFlashRef.current && nowMs-dodgeFlashRef.current<500) needsRender=true
+      if(damageFloatsRef.current.some(e => nowMs - e.at < COMBAT_DAMAGE_FLOAT_MS)) needsRender=true
       // Keep rendering while any remote wallet swing animation is still playing
       const now2=Date.now()
       for(const t of Object.values(swingMapRef.current||{})){

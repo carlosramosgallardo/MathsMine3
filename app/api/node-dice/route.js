@@ -88,6 +88,16 @@ export async function POST(req) {
   }
 
   const now = Date.now()
+  const soldMm3 = Number(progress?.mm3_sold) || 0
+  const { error: payError } = await sb
+    .from('player_progress')
+    .update({
+      mm3_sold: soldMm3 + NODE_DICE_PRICE_MM3,
+      updated_at: new Date(now).toISOString(),
+    })
+    .eq('wallet', wallet)
+  if (payError) return Response.json({ ok: false, error: 'purchase_failed' }, { status: 500 })
+
   const dice = getDiceState(now)
   const mode = dice.active ? modeFor(wallet, dice.hourStart) : (Math.random() < .5 ? 'meteo' : 'war')
   const update = {
@@ -112,6 +122,7 @@ export async function POST(req) {
     wallet,
     event_type: 'node_stormroll',
     delta_mm3: NODE_DICE_PRICE_MM3,
+    emoji: '🎲',
   })
   return Response.json({ ok: true, nodeDice: serializeNodeDice(saved) })
 }

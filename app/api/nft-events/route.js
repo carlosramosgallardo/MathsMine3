@@ -64,8 +64,10 @@ export async function GET() {
   // Collect wallets whose old events need fallback from wallet_emojis
   const needsFallback = new Set()
   const withEmoji = events.map(ev => {
-    // ── Primary: emoji stored directly in the row (new events) ──
     if (ev.emoji) return ev
+    if (ev.event_type === 'node_stormroll') return { ...ev, emoji: '🎲' }
+    if (ev.event_type === 'rl_mount_buy') return { ...ev, emoji: '🏎️' }
+    if (ev.event_type === 'mining_buy') return { ...ev, emoji: '⬡' }
 
     // ── Secondary: ratio against nearest hourly MM3 value ──
     const mm3   = nearestValue(ev.created_at, timeseries)

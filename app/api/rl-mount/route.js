@@ -73,6 +73,7 @@ export async function POST(req) {
     wallet,
     event_type: 'rl_mount_buy',
     delta_mm3: RL_NODE_PRICE_MM3,
+    emoji: '🏎️',
   })
 
   return Response.json({ ok: true, active: true })

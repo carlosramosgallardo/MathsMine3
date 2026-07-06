@@ -1,6 +1,7 @@
 export const dynamic = 'force-dynamic'
 
 import { createClient } from '@supabase/supabase-js'
+import { addMiningEventDelta, EMPTY_MM3_CHART_DELTAS } from '@/lib/mm3-chart-deltas'
 
 // Returns minute-level MM3 value for the last ~75 minutes.
 // Builds the same cumulative logic as token_value_timeseries but at 1-minute granularity.
@@ -60,14 +61,9 @@ export async function GET() {
     if (!minuteDeltas[key]) {
       minuteDeltas[key] = {
         delta: 0,
-        mined_delta: 0,
-        trade_delta: 0,
-        trade_wallet_count: 0,
-        trade_google_count: 0,
+        ...EMPTY_MM3_CHART_DELTAS,
         _trade_wallets: new Set(),
         _trade_google: new Set(),
-        nftji_delta: 0,
-        market_delta: 0,
       }
     }
     return minuteDeltas[key]
@@ -92,11 +88,14 @@ export async function GET() {
     if (source === 'google') bucket._trade_google.add(walletKey)
     else bucket._trade_wallets.add(walletKey)
   })
-  marketData?.forEach(e => add(
-    e.created_at,
-    e.delta_mm3,
-    (e.event_type === 'nftji_claim' || e.event_type === 'nftji_level_up') ? 'nftji_delta' : 'market_delta'
-  ))
+  marketData?.forEach(e => {
+    const d = new Date(e.created_at)
+    const key = `${String(d.getUTCHours()).padStart(2, '0')}:${String(d.getUTCMinutes()).padStart(2, '0')}`
+    const bucket = ensure(key)
+    const value = parseFloat(e.delta_mm3 || 0)
+    bucket.delta += value
+    addMiningEventDelta(bucket, e.event_type, value)
+  })
 
   const baseValue = parseFloat(baseData?.[0]?.cumulative_reward ?? 0)
 
@@ -112,7 +111,7 @@ export async function GET() {
   // Build cumulative series over the full minute grid
   let cumulative = baseValue
   const result = grid.map(key => {
-    const deltas = minuteDeltas[key] ?? { delta: 0, mined_delta: 0, trade_delta: 0, trade_wallet_count: 0, trade_google_count: 0, nftji_delta: 0, market_delta: 0 }
+    const deltas = minuteDeltas[key] ?? { delta: 0, ...EMPTY_MM3_CHART_DELTAS }
     deltas.trade_wallet_count = deltas._trade_wallets?.size ?? deltas.trade_wallet_count ?? 0
     deltas.trade_google_count = deltas._trade_google?.size ?? deltas.trade_google_count ?? 0
     cumulative += deltas.delta

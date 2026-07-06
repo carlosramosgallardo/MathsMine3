@@ -88,9 +88,11 @@ function sourceDeltas(row = {}) {
   const trade_delta = parseFloat(row.trade_delta || 0)
   const trade_wallet_count = parseInt(row.trade_wallet_count || 0, 10)
   const trade_google_count = parseInt(row.trade_google_count || 0, 10)
-  const nftmoji_delta = parseFloat(row.nftmoji_delta || 0)
+  const nftji_delta = parseFloat(row.nftji_delta || row.nftmoji_delta || 0)
+  const node_dice_delta = parseFloat(row.node_dice_delta || 0)
+  const rl_mount_delta = parseFloat(row.rl_mount_delta || 0)
   const market_delta = parseFloat(row.market_delta || 0)
-  return { mined_delta, trade_delta, trade_wallet_count, trade_google_count, nftmoji_delta, market_delta }
+  return { mined_delta, trade_delta, trade_wallet_count, trade_google_count, nftji_delta, node_dice_delta, rl_mount_delta, market_delta }
 }
 
 function formatTradeSourceCounts(walletCount, googleCount, t) {
@@ -120,6 +122,9 @@ function getDiceRollStats(rangeMs, nowMs, dataStartMs = 0) {
 }
 
 function emojiColor(emoji) {
+  if (emoji === '🎲') return '#38bdf8'
+  if (emoji === '🏎️') return '#0ea5e9'
+  if (emoji === '⬡') return '#facc15'
   if (emoji === '🧿') return '#c084fc'
   if (emoji === '🎰') return '#f59e0b'
   if (emoji === '🍀') return UP
@@ -351,7 +356,9 @@ function useChartData(rawHourly, rawMinutes, range) {
         dailyDeltas[key].trade_delta += deltas.trade_delta
         dailyDeltas[key].trade_wallet_count += deltas.trade_wallet_count
         dailyDeltas[key].trade_google_count += deltas.trade_google_count
-        dailyDeltas[key].nftmoji_delta += deltas.nftmoji_delta
+        dailyDeltas[key].nftji_delta += deltas.nftji_delta
+        dailyDeltas[key].node_dice_delta += deltas.node_dice_delta
+        dailyDeltas[key].rl_mount_delta += deltas.rl_mount_delta
         dailyDeltas[key].market_delta += deltas.market_delta
       }
     })
@@ -434,7 +441,9 @@ function ChartPointDetail({ point, label, nftEvents, range, t, isMobile }) {
   const dec = isMobile ? 6 : 8
   const breakdown = [
     [t('chart.breakdownMined'), deltas.mined_delta, UP],
-    [t('chart.breakdownNFTJI'), deltas.nftmoji_delta, C],
+    [t('chart.breakdownNFTJI'), deltas.nftji_delta, C],
+    [`🎲 ${t('chart.breakdownNodeDice')}`, deltas.node_dice_delta, '#38bdf8'],
+    [`🏎️ ${t('chart.breakdownRlMount')}`, deltas.rl_mount_delta, '#0ea5e9'],
     [
       `${t('chart.breakdownTrade')}${formatTradeSourceCounts(deltas.trade_wallet_count, deltas.trade_google_count, t)}`,
       deltas.trade_delta,

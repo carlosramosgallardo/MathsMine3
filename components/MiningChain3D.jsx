@@ -24,7 +24,8 @@ import {
 } from '@/lib/mining-visual-layout'
 import { MINING_CORE_MAP_ID } from '@/lib/mining-maps'
 import { RL_NODE_MIN_LEVEL, RL_NODE_PRICE_MM3 } from '@/lib/mining-rl-mount'
-import { normalizeBossState, M5_TRUMP_BOSS_NAME, M5_TRUMP_BOSS_MAX_HP } from '@/lib/m5-trump-boss'
+import { normalizeBossState, M5_TRUMP_BOSS_NAME, M5_TRUMP_BOSS_MAX_HP, M5_TRUMP_BOSS_SCALE, M5_TRUMP_BOSS_SPAWN } from '@/lib/m5-trump-boss'
+import { M5_TRUMP_BOSS_LOCAL_BOUNDS } from '@/lib/m5-trump-boss-runtime'
 import supabase from '@/lib/supabaseClient'
 
 const MiningChain3DFPV = dynamic(() => import('./MiningChain3DFPV'), { ssr: false })
@@ -33,6 +34,7 @@ const NftjiPenaltyCard = dynamic(() => import('./NftjiPenaltyCard'), { ssr: fals
 
 const C = '#22d3ee'
 const NETWORK_VISUAL_RANGE = 22
+const BOSS_DAMAGE_FLOAT_Y = M5_TRUMP_BOSS_SCALE * M5_TRUMP_BOSS_LOCAL_BOUNDS.headTop + 0.35
 
 function walletHealthKeys(...values) {
   return [...new Set(values.filter(Boolean).map(v => String(v).toLowerCase()))]
@@ -48,6 +50,30 @@ function writeWalletHealth(map, health, ...values) {
   const next = { ...map }
   for (const key of walletHealthKeys(...values)) next[key] = health
   return next
+}
+
+function posForCombatWallet(wallet, positions, myKey, myWallet, myPos, fallbackMapId) {
+  const pos = positions?.[wallet]
+  if (pos) {
+    return {
+      gx: Number(pos.gx ?? (pos.col ?? 0) + 0.5),
+      gy: Number(pos.gy ?? (pos.row ?? 0) + 0.5),
+      z: Number(pos.z) || 0,
+      mapId: pos.mapId || fallbackMapId,
+    }
+  }
+  const wLow = String(wallet || '').toLowerCase()
+  const myKeyLow = String(myKey || '').toLowerCase()
+  const myWalletLow = String(myWallet || '').toLowerCase()
+  if (wLow && (wLow === myKeyLow || (myWalletLow && wLow === myWalletLow))) {
+    return {
+      gx: Number(myPos?.gx ?? (myPos?.col ?? 0) + 0.5),
+      gy: Number(myPos?.gy ?? (myPos?.row ?? 0) + 0.5),
+      z: Number(myPos?.z) || 0,
+      mapId: myPos?.mapId || fallbackMapId,
+    }
+  }
+  return null
 }
 const CHAIN3D_CHANNEL = 'mm3-chain3d-v1'
 
@@ -221,6 +247,12 @@ export default function MiningChain3D() {
   const [myPos,         setMyPos]         = useState(initialPos)
   const [mapId,         setMapId]         = useState(MINING_CORE_MAP_ID)
   mapIdRef.current = mapId
+  emitCombatDamageRef.current = (payload) => {
+    if (!payload) return
+    if (!payload.dodged && !(Number(payload.damage) > 0)) return
+    combatDamageSeqRef.current += 1
+    setExternalCombatDamage({ ...payload, seq: combatDamageSeqRef.current, at: Date.now() })
+  }
   const [jumpToCell,    setJumpToCell]    = useState(null)
   const [pvpStolen,     setPvpStolen]     = useState({})
   const [demineRewards, setDemineRewards] = useState({})
@@ -228,6 +260,8 @@ export default function MiningChain3D() {
   const [nftjiPanel,    setNftjiPanel]    = useState(null) // null | { blockKey, blockHex, emoji, titleEn, titleEs, priceEur, owner }
   // positions: wallet → { gx, gy, row, col } — populated from presence payload, broadcast, and DB
   const [positions,     setPositions]     = useState({})
+  const positionsRef = useRef(positions)
+  positionsRef.current = positions
   // onlineWallets: who is currently in the channel (from presence sync)
   const [onlineWallets, setOnlineWallets] = useState(new Set())
   const [loading,       setLoading]       = useState(true)
@@ -249,6 +283,9 @@ export default function MiningChain3D() {
   const [facingCell,    setFacingCell]    = useState(null)
   const [receivedHitAt, setReceivedHitAt] = useState(0)
   const [receivedHitFrom, setReceivedHitFrom] = useState(null)
+  const [externalCombatDamage, setExternalCombatDamage] = useState(null)
+  const combatDamageSeqRef = useRef(0)
+  const emitCombatDamageRef = useRef(() => {})
   const [receivedDodgeAt, setReceivedDodgeAt] = useState(0)
   const [externalPush, setExternalPush] = useState(null)
   const [swingMap,      setSwingMap]      = useState({})
@@ -784,7 +821,7 @@ export default function MiningChain3D() {
     channelRef.current?.send({
       type: 'broadcast',
       event: 'boss-result',
-      payload: { ...response, wallet, hitZone },
+      payload: { ...response, wallet, hitZone, bossGx, bossGy, playerGx, playerGy },
     })?.catch(() => {})
     if (response.killed && wallet && !wallet.startsWith('anon-')) {
       window.dispatchEvent(new CustomEvent('mm3-db-updated', { detail: { boss: true, wallet } }))
@@ -832,7 +869,15 @@ export default function MiningChain3D() {
       channelRef.current?.send({
         type: 'broadcast',
         event: 'boss-attack-result',
-        payload: { wallet: normalizedWallet, ...response, health: 0 },
+        payload: {
+          wallet: normalizedWallet,
+          playerGx,
+          playerGy,
+          bossGx,
+          bossGy,
+          ...response,
+          health: 0,
+        },
       })?.catch(() => {})
       triggerSelfDeath()
       return response
@@ -846,7 +891,14 @@ export default function MiningChain3D() {
     channelRef.current?.send({
       type: 'broadcast',
       event: 'boss-attack-result',
-      payload: { wallet: normalizedWallet, ...response },
+      payload: {
+        wallet: normalizedWallet,
+        playerGx,
+        playerGy,
+        bossGx,
+        bossGy,
+        ...response,
+      },
     })?.catch(() => {})
     return response
   }, [triggerSelfDeath])
@@ -1384,6 +1436,37 @@ export default function MiningChain3D() {
         setSwingMap(prev => ({ ...prev, [payload.attacker]: Date.now() }))
       }
       setHealthMap(prev => ({ ...prev, [payload.victim]: Number(payload.health ?? 100) }))
+      {
+        const myK = myKeyRef.current, myW = myWalletRef.current
+        const isAttacker = payload.attacker && (
+          payload.attacker === myK || (myW && payload.attacker === myW)
+        )
+        if (!isAttacker) {
+          const isVictim = payload.victim === myK || (myW && payload.victim === myW)
+          const pos = posForCombatWallet(
+            payload.victim,
+            positionsRef.current,
+            myK,
+            myW,
+            myPosRef.current,
+            mapIdRef.current,
+          )
+          if (pos) {
+            emitCombatDamageRef.current({
+              damage: payload.damage,
+              kind: isVictim ? 'received' : 'dealt',
+              gx: pos.gx,
+              gy: pos.gy,
+              z: pos.z,
+              yLift: isVictim ? 1.05 : 1.15,
+              mapId: pos.mapId,
+              critical: payload.critical,
+              headshot: payload.headshot,
+              dodged: payload.dodged,
+            })
+          }
+        }
+      }
       // Respawn: clear dead state from that player's position entry
       if (payload.respawn) {
         setPositions(prev => {
@@ -1465,6 +1548,24 @@ export default function MiningChain3D() {
         health: payload.health ?? prev.health,
         state: payload.state ?? prev.state,
       }))
+      const myK = myKeyRef.current, myW = myWalletRef.current
+      const isAttacker = payload.wallet && (
+        String(payload.wallet).toLowerCase() === String(myK || '').toLowerCase()
+        || (myW && String(payload.wallet).toLowerCase() === String(myW).toLowerCase())
+      )
+      if (!isAttacker && Number(payload.damage) > 0) {
+        emitCombatDamageRef.current({
+          damage: payload.damage,
+          kind: 'dealt',
+          gx: Number(payload.bossGx ?? M5_TRUMP_BOSS_SPAWN.gx),
+          gy: Number(payload.bossGy ?? M5_TRUMP_BOSS_SPAWN.gy),
+          z: 0,
+          yLift: BOSS_DAMAGE_FLOAT_Y,
+          mapId: '5',
+          critical: payload.critical,
+          headshot: payload.headshot,
+        })
+      }
     })
 
     ch.on('broadcast', { event: 'boss-state' }, ({ payload }) => {
@@ -1495,6 +1596,34 @@ export default function MiningChain3D() {
         else setReceivedHitAt(Date.now())
       } else {
         setHealthMap(prev => ({ ...prev, [wallet]: nextHealth }))
+      }
+      const pos = posForCombatWallet(
+        payload.wallet,
+        positionsRef.current,
+        myKeyRef.current,
+        myWalletRef.current,
+        myPosRef.current,
+        '5',
+      ) || (Number.isFinite(Number(payload.playerGx)) && Number.isFinite(Number(payload.playerGy))
+        ? {
+            gx: Number(payload.playerGx),
+            gy: Number(payload.playerGy),
+            z: 0,
+            mapId: '5',
+          }
+        : null)
+      if (pos) {
+        emitCombatDamageRef.current({
+          damage: payload.damage,
+          kind: isSelf ? 'received' : 'dealt',
+          gx: pos.gx,
+          gy: pos.gy,
+          z: pos.z,
+          yLift: 1.1,
+          mapId: '5',
+          critical: payload.critical,
+          dodged: payload.dodged,
+        })
       }
     })
 
@@ -1986,6 +2115,7 @@ export default function MiningChain3D() {
             onNftjiPanelOpen={handleNftjiPanelOpen}
             externalPvpFlash={receivedHitAt}
             externalDodgeFlash={receivedDodgeAt}
+            externalCombatDamage={externalCombatDamage}
             externalKnockback={receivedHitFrom}
             externalPush={externalPush}
             onCollisionPush={handleCollisionPush}
