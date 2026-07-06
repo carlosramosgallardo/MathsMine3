@@ -83,6 +83,7 @@ export async function POST(req) {
     ok: true,
     damage: Number(data?.damage ?? M5_TRUMP_BOSS_HIT_DAMAGE),
     health: Number(data?.health ?? 100),
+    respawnHealth: Number(data?.respawn_health ?? data?.health ?? 100),
     killed: Boolean(data?.killed),
   })
 }

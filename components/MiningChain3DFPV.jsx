@@ -8713,7 +8713,7 @@ function buildMysticIsleVisuals(world, assets, { lite = false } = {}) {
   const showcase = new THREE.Group()
   showcase.position.set(heartGate.x, 0, heartGate.z)
   showcase.userData.skipOcclusion = true
-  const titleSprite = makeEmojiSprite('🔮', '#c084fc', 'circle')
+  const titleSprite = makeEmojiSprite('🇺🇸', '#2563eb', 'circle')
   titleSprite.scale.set(lite ? 1.15 : 1.45, lite ? 1.15 : 1.45, 1)
   titleSprite.position.y = lite ? 6.2 : 7.6
   titleSprite.renderOrder = 4

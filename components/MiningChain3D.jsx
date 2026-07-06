@@ -33,6 +33,22 @@ const NftjiPenaltyCard = dynamic(() => import('./NftjiPenaltyCard'), { ssr: fals
 
 const C = '#22d3ee'
 const NETWORK_VISUAL_RANGE = 22
+
+function walletHealthKeys(...values) {
+  return [...new Set(values.filter(Boolean).map(v => String(v).toLowerCase()))]
+}
+
+function readWalletHealth(map, ...values) {
+  const keys = walletHealthKeys(...values)
+  if (!keys.length) return 100
+  return Math.min(...keys.map(k => Number(map[k] ?? 100)))
+}
+
+function writeWalletHealth(map, health, ...values) {
+  const next = { ...map }
+  for (const key of walletHealthKeys(...values)) next[key] = health
+  return next
+}
 const CHAIN3D_CHANNEL = 'mm3-chain3d-v1'
 
 const CIPHER_HOUSE_MINING_KEYS = new Set(Object.keys(CIPHER_HOUSE_MINING_LEVELS))
@@ -248,6 +264,7 @@ export default function MiningChain3D() {
   const myDeadUntilRef = useRef(null)
   const myDeadPosRef   = useRef(null)
   const respawnTimerRef = useRef(null)
+  const bossAttackInFlightRef = useRef(false)
   const [chainDemineActive, setChainDemineActive] = useState(false)
   const [chainDemineHitsRemaining, setChainDemineHitsRemaining] = useState(100)
   const [chainSolvers, setChainSolvers] = useState([])
@@ -776,32 +793,61 @@ export default function MiningChain3D() {
   }, [])
 
   const handleBossAttack = useCallback(async ({ wallet, playerGx, playerGy, bossGx, bossGy, mapId }) => {
+    if (myDeadUntilRef.current && myDeadUntilRef.current > Date.now()) {
+      return { ok: false, error: 'already_dead' }
+    }
+    if (bossAttackInFlightRef.current) {
+      return { ok: false, error: 'attack_in_flight' }
+    }
     const normalizedWallet = String(wallet || myWalletRef.current || '').toLowerCase()
-    const response = await fetch('/api/m5-boss/attack', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({
-        wallet: normalizedWallet,
-        playerGx,
-        playerGy,
-        bossGx,
-        bossGy,
-        mapId,
-      }),
-    }).then(r => r.json()).catch(() => null)
+    const healthKeys = walletHealthKeys(normalizedWallet, myKeyRef.current, myWalletRef.current)
+    bossAttackInFlightRef.current = true
+    let response
+    try {
+      response = await fetch('/api/m5-boss/attack', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          wallet: normalizedWallet,
+          playerGx,
+          playerGy,
+          bossGx,
+          bossGy,
+          mapId,
+        }),
+      }).then(r => r.json()).catch(() => null)
+    } finally {
+      bossAttackInFlightRef.current = false
+    }
     if (!response?.ok) return response
+    if (myDeadUntilRef.current && myDeadUntilRef.current > Date.now()) return response
     if (response.dodged) {
       setReceivedDodgeAt(Date.now())
       return response
     }
-    setHealthMap(prev => ({ ...prev, [normalizedWallet]: Number(response.health ?? 100) }))
+    const nextHealth = Number(response.health ?? 100)
+    if (response.killed) {
+      setHealthMap(prev => writeWalletHealth(prev, 0, ...healthKeys))
+      setReceivedHitAt(Date.now())
+      channelRef.current?.send({
+        type: 'broadcast',
+        event: 'boss-attack-result',
+        payload: { wallet: normalizedWallet, ...response, health: 0 },
+      })?.catch(() => {})
+      triggerSelfDeath()
+      return response
+    }
+    setHealthMap(prev => {
+      const current = readWalletHealth(prev, ...healthKeys)
+      const applied = Math.min(current, nextHealth)
+      return writeWalletHealth(prev, applied, ...healthKeys)
+    })
     setReceivedHitAt(Date.now())
     channelRef.current?.send({
       type: 'broadcast',
       event: 'boss-attack-result',
       payload: { wallet: normalizedWallet, ...response },
     })?.catch(() => {})
-    if (response.killed) triggerSelfDeath()
     return response
   }, [triggerSelfDeath])
 
@@ -1426,10 +1472,22 @@ export default function MiningChain3D() {
 
     ch.on('broadcast', { event: 'boss-attack-result' }, ({ payload }) => {
       if (!payload?.wallet) return
-      setHealthMap(prev => ({ ...prev, [payload.wallet]: Number(payload.health ?? 100) }))
-      if (payload.wallet === myKeyRef.current || payload.wallet === myWalletRef.current) {
+      const wallet = String(payload.wallet).toLowerCase()
+      const isSelf = wallet === String(myKeyRef.current || '').toLowerCase()
+        || wallet === String(myWalletRef.current || '').toLowerCase()
+      if (isSelf && myDeadUntilRef.current && myDeadUntilRef.current > Date.now()) return
+      const nextHealth = Number(payload.health ?? 100)
+      if (isSelf) {
+        const keys = walletHealthKeys(wallet, myKeyRef.current, myWalletRef.current)
+        setHealthMap(prev => {
+          if (payload.killed) return writeWalletHealth(prev, 0, ...keys)
+          const current = readWalletHealth(prev, ...keys)
+          return writeWalletHealth(prev, Math.min(current, nextHealth), ...keys)
+        })
         if (payload.dodged) setReceivedDodgeAt(Date.now())
         else setReceivedHitAt(Date.now())
+      } else {
+        setHealthMap(prev => ({ ...prev, [wallet]: nextHealth }))
       }
     })
 
