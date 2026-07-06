@@ -3816,27 +3816,46 @@ function drawMinimapEdgeExits(ctx, mapId, MX, MY, SZ, CS) {
   const drawFullEdgeLabel = (side, targetMapId) => {
     const accent = MAP_EXIT_ACCENT[targetMapId] || '#43c2dc'
     const label = `M${targetMapId}`
-    const depthPx = MINING_GATEWAY_CORRIDOR_DEPTH * CS
+    const pad = 2
     ctx.save()
     ctx.font = 'bold 10px monospace'
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
     ctx.shadowColor = accent
     ctx.shadowBlur = 8
-    const place = (lx, ly) => {
-      const bw = ctx.measureText(label).width + 8
-      const bh = 13
-      const clampedX = Math.max(MX + bw / 2 + 2, Math.min(MX + SZ - bw / 2 - 2, lx))
-      const clampedY = Math.max(MY + bh / 2 + 2, Math.min(MY + SZ - bh / 2 - 2, ly))
-      ctx.fillStyle = '#010709d9'
-      ctx.fillRect(clampedX - bw / 2, clampedY - bh / 2, bw, bh)
-      ctx.fillStyle = accent
-      ctx.fillText(label, clampedX, clampedY)
+    const bw = ctx.measureText(label).width + 8
+    const bh = 13
+    let bx = MX + SZ / 2 - bw / 2
+    let by = MY + pad
+    let tx = MX + SZ / 2
+    let ty = by + bh / 2
+    if (side === 'north') {
+      bx = MX + SZ / 2 - bw / 2
+      by = MY + pad
+      ty = by + bh / 2
+    } else if (side === 'south') {
+      bx = MX + SZ / 2 - bw / 2
+      by = MY + SZ - bh - pad
+      ty = by + bh / 2
+    } else if (side === 'west') {
+      bx = MX + pad
+      by = MY + SZ / 2 - bh / 2
+      tx = bx + bw / 2
+      ty = MY + SZ / 2
+    } else {
+      bx = MX + SZ - bw - pad
+      by = MY + SZ / 2 - bh / 2
+      tx = bx + bw / 2
+      ty = MY + SZ / 2
     }
-    if (side === 'north') place(MX + SZ / 2, MY + depthPx * 0.52)
-    else if (side === 'south') place(MX + SZ / 2, MY + SZ - depthPx * 0.52)
-    else if (side === 'west') place(MX + depthPx * 0.52, MY + SZ / 2)
-    else place(MX + SZ - depthPx * 0.52, MY + SZ / 2)
+    bx = Math.max(MX + pad, Math.min(MX + SZ - bw - pad, bx))
+    by = Math.max(MY + pad, Math.min(MY + SZ - bh - pad, by))
+    tx = bx + bw / 2
+    ty = by + bh / 2
+    ctx.fillStyle = '#010709d9'
+    ctx.fillRect(bx, by, bw, bh)
+    ctx.fillStyle = accent
+    ctx.fillText(label, tx, ty)
     ctx.restore()
   }
 
