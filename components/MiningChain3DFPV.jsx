@@ -40,7 +40,7 @@ import {
   getPerimeterCellVisual,
   usesSoftPerimeter,
 } from '@/lib/mining-perimeter-visual'
-import { buildM1GatewaySightClear } from '@/lib/mining-gateway-corridors'
+import { buildM1GatewaySightClear, getPeripheralGatewaySightClear, MINING_GATEWAY_CORRIDOR_DEPTH } from '@/lib/mining-gateway-corridors'
 import { getDiceState } from '@/lib/dice'
 import {
   CIPHER_HOUSE_BOUNDS,
@@ -3668,11 +3668,7 @@ function drawPerimeterCellSoftening(ctx, mapId, mapX, mapY, CS) {
     const x1 = x0 + CS
     const y1 = y0 + CS
     if (vis.gateway) {
-      // M1 gateway corridors are drawn via ground features (plaza/causeway), not cyan edge tint.
-      if (mapId !== '1') {
-        ctx.fillStyle = gatewayFill
-        ctx.fillRect(x0, y0, CS, CS)
-      }
+      // Gateway corridors are drawn via ground features (plaza/causeway), not cyan edge tint.
       return
     }
     ctx.fillStyle = seaFill
@@ -3704,6 +3700,33 @@ function drawPerimeterCellSoftening(ctx, mapId, mapX, mapY, CS) {
     else ctx.rect(x1 - n, cy - span / 2, n, span)
     ctx.fill()
   })
+}
+
+/** Full-width stone corridor strips on every open map edge (minimap). */
+function drawMinimapFullEdgeCorridors(ctx, mapId, mapX, mapY, CS) {
+  const edges = getMiningMapEdgeState(mapId)
+  const r0 = 1
+  const r1 = 54
+  const c0 = 1
+  const c1 = 54
+  const depthPx = MINING_GATEWAY_CORRIDOR_DEPTH * CS
+  const spanW = (c1 - c0 + 1) * CS
+  const spanH = (r1 - r0 + 1) * CS
+  const fill = 'rgba(201,187,168,.44)'
+  const stroke = 'rgba(226,190,88,.32)'
+
+  const drawStrip = (x, y, w, h) => {
+    ctx.fillStyle = fill
+    ctx.fillRect(x, y, w, h)
+    ctx.strokeStyle = stroke
+    ctx.lineWidth = 0.55
+    ctx.strokeRect(x + 0.25, y + 0.25, Math.max(0.5, w - 0.5), Math.max(0.5, h - 0.5))
+  }
+
+  if (edges.north?.open && edges.north.fullEdge) drawStrip(mapX(c0), mapY(r0), spanW, depthPx)
+  if (edges.south?.open && edges.south.fullEdge) drawStrip(mapX(c0), mapY(r1) - depthPx + CS, spanW, depthPx)
+  if (edges.west?.open && edges.west.fullEdge) drawStrip(mapX(c0), mapY(r0), depthPx, spanH)
+  if (edges.east?.open && edges.east.fullEdge) drawStrip(mapX(c1) - depthPx + CS, mapY(r0), depthPx, spanH)
 }
 
 /** Closed-edge dim cap vs open-edge gateway strip with target map id. */
@@ -3753,41 +3776,28 @@ function drawMinimapEdgeExits(ctx, mapId, MX, MY, SZ, CS) {
 
   const drawFullEdgeLabel = (side, targetMapId) => {
     const accent = MAP_EXIT_ACCENT[targetMapId] || '#43c2dc'
-    const label = `→ M${targetMapId}`
-    const pad = Math.max(4, CS * 0.9)
+    const label = `M${targetMapId}`
+    const depthPx = MINING_GATEWAY_CORRIDOR_DEPTH * CS
     ctx.save()
-    ctx.font = 'bold 11px monospace'
+    ctx.font = 'bold 10px monospace'
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
     ctx.shadowColor = accent
-    ctx.shadowBlur = 10
-    ctx.fillStyle = '#010709cc'
-    let lx, ly, bw, bh
-    if (side === 'north') {
-      lx = MX + SZ / 2; ly = MY + pad
-      bw = ctx.measureText(label).width + 10; bh = 14
-      ctx.fillRect(lx - bw / 2, ly - bh / 2, bw, bh)
+    ctx.shadowBlur = 8
+    const place = (lx, ly) => {
+      const bw = ctx.measureText(label).width + 8
+      const bh = 13
+      const clampedX = Math.max(MX + bw / 2 + 2, Math.min(MX + SZ - bw / 2 - 2, lx))
+      const clampedY = Math.max(MY + bh / 2 + 2, Math.min(MY + SZ - bh / 2 - 2, ly))
+      ctx.fillStyle = '#010709d9'
+      ctx.fillRect(clampedX - bw / 2, clampedY - bh / 2, bw, bh)
       ctx.fillStyle = accent
-      ctx.fillText(label, lx, ly)
-    } else if (side === 'south') {
-      lx = MX + SZ / 2; ly = MY + SZ - pad
-      bw = ctx.measureText(label).width + 10; bh = 14
-      ctx.fillRect(lx - bw / 2, ly - bh / 2, bw, bh)
-      ctx.fillStyle = accent
-      ctx.fillText(label, lx, ly)
-    } else if (side === 'west') {
-      lx = MX + pad; ly = MY + SZ / 2
-      bw = ctx.measureText(label).width + 10; bh = 14
-      ctx.fillRect(lx - bw / 2, ly - bh / 2, bw, bh)
-      ctx.fillStyle = accent
-      ctx.fillText(label, lx, ly)
-    } else {
-      lx = MX + SZ - pad; ly = MY + SZ / 2
-      bw = ctx.measureText(label).width + 10; bh = 14
-      ctx.fillRect(lx - bw / 2, ly - bh / 2, bw, bh)
-      ctx.fillStyle = accent
-      ctx.fillText(label, lx, ly)
+      ctx.fillText(label, clampedX, clampedY)
     }
+    if (side === 'north') place(MX + SZ / 2, MY + depthPx * 0.52)
+    else if (side === 'south') place(MX + SZ / 2, MY + SZ - depthPx * 0.52)
+    else if (side === 'west') place(MX + depthPx * 0.52, MY + SZ / 2)
+    else place(MX + SZ - depthPx * 0.52, MY + SZ / 2)
     ctx.restore()
   }
 
@@ -3978,6 +3988,8 @@ function drawMinimap(ctx, gr, gc, angle, cellMap, presenceMap, myWallet, W, H, c
     const fy0 = Math.max(0, feature.minRow), fy1 = Math.min(ROWS, feature.maxRow)
     ctx.fillRect(mapX(fx0), mapY(fy0), (fx1 - fx0) * CS, (fy1 - fy0) * CS)
   }
+
+  drawMinimapFullEdgeCorridors(ctx, mapId, mapX, mapY, CS)
 
   for (const [key, obstacle] of validObs || []) {
     const [row, col] = key.split(',').map(Number)
@@ -9132,6 +9144,7 @@ function buildGlacialStructures(world, obstacles, { lite = false } = {}) {
 
 function buildPeripheralObstacles(mapId, cellMap) {
   const reserved = new Set()
+  const gatewayClear = getPeripheralGatewaySightClear(mapId)
   if (cellMap) {
     for (const [key, cell] of cellMap) {
       const [r, c] = key.split(',').map(Number)
@@ -9147,8 +9160,10 @@ function buildPeripheralObstacles(mapId, cellMap) {
       }
     }
   }
+  for (const key of gatewayClear) reserved.add(key)
   const valid = new Map()
   for (const [key, data] of getMiningMapAmbientObstacles(mapId)) {
+    if (gatewayClear.has(key)) continue
     if (reserved.has(key)) continue
     valid.set(key, chainObstacle(key, data))
   }
