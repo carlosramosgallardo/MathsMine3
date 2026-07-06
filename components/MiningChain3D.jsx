@@ -247,12 +247,6 @@ export default function MiningChain3D() {
   const [myPos,         setMyPos]         = useState(initialPos)
   const [mapId,         setMapId]         = useState(MINING_CORE_MAP_ID)
   mapIdRef.current = mapId
-  emitCombatDamageRef.current = (payload) => {
-    if (!payload) return
-    if (!payload.dodged && !(Number(payload.damage) > 0)) return
-    combatDamageSeqRef.current += 1
-    setExternalCombatDamage({ ...payload, seq: combatDamageSeqRef.current, at: Date.now() })
-  }
   const [jumpToCell,    setJumpToCell]    = useState(null)
   const [pvpStolen,     setPvpStolen]     = useState({})
   const [demineRewards, setDemineRewards] = useState({})
@@ -286,6 +280,12 @@ export default function MiningChain3D() {
   const [externalCombatDamage, setExternalCombatDamage] = useState(null)
   const combatDamageSeqRef = useRef(0)
   const emitCombatDamageRef = useRef(() => {})
+  emitCombatDamageRef.current = (payload) => {
+    if (!payload) return
+    if (!payload.dodged && !(Number(payload.damage) > 0)) return
+    combatDamageSeqRef.current += 1
+    setExternalCombatDamage({ ...payload, seq: combatDamageSeqRef.current, at: Date.now() })
+  }
   const [receivedDodgeAt, setReceivedDodgeAt] = useState(0)
   const [externalPush, setExternalPush] = useState(null)
   const [swingMap,      setSwingMap]      = useState({})
