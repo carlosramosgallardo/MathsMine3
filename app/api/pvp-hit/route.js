@@ -1,6 +1,7 @@
 export const dynamic = 'force-dynamic'
 
 import { createClient } from '@supabase/supabase-js'
+import { isInHousePoolPvpSafeZone } from '@/lib/mining-world-layout'
 
 function serviceClient() {
   return createClient(
@@ -8,14 +9,6 @@ function serviceClient() {
     process.env.SUPABASE_SERVICE_ROLE_KEY,
     { auth: { persistSession: false } },
   )
-}
-
-import { HOUSE_POOL_PVP_SAFE_ZONE, HOUSE_POOL_FLOOR_LEVEL, HOUSE_POOL_SWIM_MAX_Z } from '@/lib/mining-world-layout'
-
-function isInHousePoolSafeZone(gx, gy, gz) {
-  if (!(gx > HOUSE_POOL_PVP_SAFE_ZONE.minX && gx < HOUSE_POOL_PVP_SAFE_ZONE.maxX &&
-    gy > HOUSE_POOL_PVP_SAFE_ZONE.minY && gy < HOUSE_POOL_PVP_SAFE_ZONE.maxY)) return false
-  return gz >= HOUSE_POOL_FLOOR_LEVEL - 0.28 && gz <= HOUSE_POOL_SWIM_MAX_Z
 }
 
 export async function GET(req) {
@@ -36,6 +29,9 @@ export async function POST(req) {
   const victimGx = Number(body.victimGx)
   const victimGy = Number(body.victimGy)
   const victimGz = Number(body.victimGz)
+  const attackerGx = Number(body.attackerGx)
+  const attackerGy = Number(body.attackerGy)
+  const attackerGz = Number(body.attackerGz)
   const victimIsAnon = victim.startsWith('anon-')
   const attackerIsAnon = attacker.startsWith('anon-')
   if (!attacker || !victim || attacker === victim) {
@@ -44,7 +40,10 @@ export async function POST(req) {
   if (attackerIsAnon && !victimIsAnon) {
     return Response.json({ ok: false, error: 'anon_cannot_attack' }, { status: 403 })
   }
-  if (Number.isFinite(victimGx) && Number.isFinite(victimGy) && Number.isFinite(victimGz) && isInHousePoolSafeZone(victimGx, victimGy, victimGz)) {
+  if (Number.isFinite(victimGx) && Number.isFinite(victimGy) && isInHousePoolPvpSafeZone(victimGx, victimGy, victimGz)) {
+    return Response.json({ ok: true, immune: true, damage: 0, health: 100, killed: false })
+  }
+  if (Number.isFinite(attackerGx) && Number.isFinite(attackerGy) && isInHousePoolPvpSafeZone(attackerGx, attackerGy, attackerGz)) {
     return Response.json({ ok: true, immune: true, damage: 0, health: 100, killed: false })
   }
 

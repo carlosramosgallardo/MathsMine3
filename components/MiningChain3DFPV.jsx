@@ -68,6 +68,7 @@ import {
   MINING_WORLD_ROWS,
   NODE_DICE_POSITION,
   isPlayableMiningWorldCell,
+  isInHousePoolPvpSafeZone,
 } from '@/lib/mining-world-layout'
 import { isCoarsePointerLike as isCoarsePointerDevice, isMobilePreviewActive, isMobilePreviewHighQuality, MOBILE_PREVIEW_VIEWPORT } from '@/lib/mobile-preview'
 
@@ -12993,6 +12994,7 @@ export default function MiningChain3DFPV({
         const tX = -Math.sin(p.angle)*rx + Math.cos(p.angle)*ry
         if (tY < 0.15 || tY > PVP_SIGHT_RANGE) continue
         const remoteZ = Number(pres.z) || 0
+        if (isInHousePoolPvpSafeZone(sgx, sgy, remoteZ)) continue
         const verticalGap = Math.abs(remoteZ - p.z)
         if (verticalGap > 0.90 || Math.hypot(tY, verticalGap) > PVP_SIGHT_RANGE) continue
         const enemyPool  = presenceRef.current[w]?.poolCode || null
@@ -13234,7 +13236,14 @@ export default function MiningChain3DFPV({
         const bossSwing = bossSwingTargetRef.current
 
         const inSight = enemyInSightRef.current
-        if(
+        const pgx = p.x / CELL_SIZE
+        const pgy = p.y / CELL_SIZE
+        const pgz = Number(p.z) || 0
+        const attackerInPoolSafe = isInHousePoolPvpSafeZone(pgx, pgy, pgz)
+
+        if (attackerInPoolSafe) {
+          playPickHit(audioCtxRef, 'empty')
+        } else if(
           bossSwing
           && mapIdRef.current === '5'
           && myWallet && !myIsAnon
@@ -13242,8 +13251,6 @@ export default function MiningChain3DFPV({
         ){
           playPickHit(audioCtxRef, 'nftji')
           pvpFlashRef.current = performance.now()
-          const pgx = p.x / CELL_SIZE
-          const pgy = p.y / CELL_SIZE
           const rt = bossRuntimeRef.current
           if (rt) {
             rt.hitFlashUntil = performance.now() + 220
