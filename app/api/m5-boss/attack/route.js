@@ -3,6 +3,8 @@ export const dynamic = 'force-dynamic'
 import { createClient } from '@supabase/supabase-js'
 import {
   M5_TRUMP_BOSS_ATTACK_RANGE_SERVER,
+  M5_TRUMP_BOSS_CRIT_CHANCE,
+  M5_TRUMP_BOSS_CRIT_DAMAGE,
   M5_TRUMP_BOSS_HIT_DAMAGE,
   isBossPositionValid,
 } from '@/lib/m5-trump-boss'
@@ -64,9 +66,12 @@ export async function POST(req) {
     })
   }
 
+  const critical = Math.random() < M5_TRUMP_BOSS_CRIT_CHANCE
+  const damage = critical ? M5_TRUMP_BOSS_CRIT_DAMAGE : M5_TRUMP_BOSS_HIT_DAMAGE
+
   const { data, error } = await sb.rpc('apply_mm3_boss_attack_player', {
     p_wallet: wallet,
-    p_damage: M5_TRUMP_BOSS_HIT_DAMAGE,
+    p_damage: damage,
     p_boss_gx: bossGx,
     p_boss_gy: bossGy,
     p_player_gx: playerGx,
@@ -81,7 +86,8 @@ export async function POST(req) {
 
   return Response.json({
     ok: true,
-    damage: Number(data?.damage ?? M5_TRUMP_BOSS_HIT_DAMAGE),
+    critical,
+    damage: Number(data?.damage ?? damage),
     health: Number(data?.health ?? 100),
     respawnHealth: Number(data?.respawn_health ?? data?.health ?? 100),
     killed: Boolean(data?.killed),

@@ -12946,7 +12946,10 @@ export default function MiningChain3DFPV({
               health: result.health,
               maxHealth: result.maxHealth,
             }
-            if (rt) rt.combatEngaged = true
+            if (rt) {
+              rt.combatEngaged = true
+              if (!rt.engageAt) rt.engageAt = performance.now()
+            }
             const hit = result.headshot ? '🎯 HEAD' : result.critical ? '💥 CRIT' : '⚔ HIT'
             let rewardSuffix = ''
             if (result.killed && Array.isArray(result.rewards)) {
