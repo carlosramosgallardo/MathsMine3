@@ -6,6 +6,8 @@ import { createM5TrumpBossVisual } from '@/lib/m5-trump-boss-runtime'
 import { M5_TRUMP_BOSS_SCALE } from '@/lib/m5-trump-boss'
 
 const HOME_ARENA_BOT_SCALE = 3.44
+/** Boss taller than the bot, but capped so the hero canvas does not clip the head. */
+const HOME_ARENA_BOSS_VS_BOT = 1.48
 const HOME_ARENA_CENTER = { x: 0.55, z: 0 }
 
 function homeYawTowardArenaCenter(fromX, fromZ) {
@@ -256,13 +258,13 @@ export function addHomeTrumpBoss(THREE, scene, options = {}) {
   const {
     position = [3.20, .12, .08],
     rotationY = homeYawTowardArenaCenter(3.20, .08),
-    // 2× player scale in-game → boss taller than the home arena bot
-    scaleMult = HOME_ARENA_BOT_SCALE,
+    scaleMult = (HOME_ARENA_BOT_SCALE * HOME_ARENA_BOSS_VS_BOT) / M5_TRUMP_BOSS_SCALE,
   } = options
   const { group, bodyPivot, label } = createM5TrumpBossVisual(THREE, false)
   group.position.set(position[0], position[1], position[2])
   group.rotation.y = rotationY
   group.scale.setScalar(M5_TRUMP_BOSS_SCALE * scaleMult)
+  if (label) label.visible = false
 
   const glowLight = new THREE.PointLight('#ef4444', 3.2, 4.5, 2)
   glowLight.position.set(0, 1.4, 0)
@@ -494,9 +496,6 @@ export default function HomeMiningWorld3D() {
         const bossBob = Math.sin(time * 2.2) * 0.06
         trumpBoss.bodyPivot.position.y = bossBob
         trumpBoss.group.rotation.y = trumpBoss.baseRotationY + Math.sin(time * 0.45) * 0.08
-        if (trumpBoss.label) {
-          trumpBoss.label.position.y = 2.55 * M5_TRUMP_BOSS_SCALE + bossBob
-        }
         trumpBoss.glowLight.intensity = 3.2 + Math.sin(time * 2.4) * 0.9
         renderer.render(scene, camera)
       }
