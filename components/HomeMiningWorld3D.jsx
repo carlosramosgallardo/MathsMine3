@@ -7,7 +7,7 @@ import { M5_TRUMP_BOSS_SCALE } from '@/lib/m5-trump-boss'
 
 const HOME_ARENA_BOT_SCALE = 3.44
 /** Boss taller than the bot, but capped so the hero canvas does not clip the head. */
-const HOME_ARENA_BOSS_VS_BOT = 1.48
+const HOME_ARENA_BOSS_VS_BOT = 1.406
 const HOME_ARENA_CENTER = { x: 0.55, z: 0 }
 
 function homeYawTowardArenaCenter(fromX, fromZ) {
