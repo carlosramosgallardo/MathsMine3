@@ -7,7 +7,7 @@ import { useI18n } from '@/lib/i18n-context';
 import { useCurrency } from '@/lib/currency-context';
 import { normalizeMacroState } from '@/lib/mm3-macro';
 import { getRankTier } from '@/lib/ranks';
-import { TRADE_SLOT_ORDER, SQUEEZE_SLOT_ORDER, WALLET_DECORATIONS, LIFE_NFTJI_ACCENT, getEmojiTitle, computeRelayLevel, getWalletTradeMultiplier, normalizeWalletDecorations } from '@/lib/wallet-decorations';
+import { TRADE_SLOT_ORDER, SQUEEZE_SLOT_ORDER, WALLET_DECORATIONS, LIFE_NFTJI_ACCENT, lifeNftjiEmojiFilterStyle, getEmojiTitle, computeRelayLevel, getWalletTradeMultiplier, normalizeWalletDecorations } from '@/lib/wallet-decorations';
 import { useDice } from '@/lib/dice-context';
 import { getDiceState } from '@/lib/dice';
 import { useSound } from '@/lib/sound-context';
@@ -727,7 +727,12 @@ export default function TradeBoard({ account, isVirtualWallet = false }) {
                             {ability.label}
                           </span>
                         )}
-                        <span style={{ fontSize: '1.05rem', lineHeight: 1, marginTop: owned ? 7 : 0 }}>{owned ? slot.emoji : ''}</span>
+                        <span style={{
+                          fontSize: '1.05rem',
+                          lineHeight: 1,
+                          marginTop: owned ? 7 : 0,
+                          ...lifeNftjiEmojiFilterStyle(slot.emoji),
+                        }}>{owned ? slot.emoji : ''}</span>
                         {owned && (
                           <span style={{
                             fontSize: '0.52rem',

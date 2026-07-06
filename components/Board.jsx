@@ -13,6 +13,7 @@ import {
   TRADE_SLOT_ORDER,
   SQUEEZE_SLOT_ORDER,
   LIFE_NFTJI_ACCENT,
+  lifeNftjiEmojiFilterStyle,
   appendWalletDecoration,
   computeRelayLevel,
   getEmojiTitle,
@@ -2661,7 +2662,11 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
                     }}
                     title={title}
                   >
-                    {!nftji.placeholder && <span className="text-[1.05rem] leading-none">{nftji.emoji}</span>}
+                    {!nftji.placeholder && (
+                      <span className="text-[1.05rem] leading-none" style={lifeNftjiEmojiFilterStyle(nftji.emoji)}>
+                        {nftji.emoji}
+                      </span>
+                    )}
                     {!nftji.placeholder && <span className="mt-0.5 font-mono text-[0.52rem] font-black leading-none">Lv{nftji.level}</span>}
                   </div>
                 );

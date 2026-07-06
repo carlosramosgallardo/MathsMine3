@@ -41,7 +41,7 @@ import {
   BOSS_DOLLAR_VFX_MS,
 } from '@/lib/m5-boss-dollar-vfx'
 import { M5_TRUMP_BOSS_NAME, M5_TRUMP_BOSS_SCALE, M5_TRUMP_BOSS_SPAWN } from '@/lib/m5-trump-boss'
-import { CRIT_NFTJI_ACCENT, LIFE_NFTJI_ACCENT, MINING_HEAL_GREEN } from '@/lib/wallet-decorations'
+import { CRIT_NFTJI_ACCENT, LIFE_NFTJI_ACCENT, LIFE_NFTJI_EMOJI_FILTER, lifeNftjiEmojiFilterStyle, MINING_HEAL_GREEN } from '@/lib/wallet-decorations'
 import {
   COMBAT_DAMAGE_FLOAT_MS,
   combatDamageFloatColor,
@@ -4770,6 +4770,53 @@ function playNodeDiceWeatherSound(audioCtxRef, mode = 'meteo') {
   } catch {}
 }
 
+function playBossDollarAttackSound(audioCtxRef) {
+  try {
+    if (!audioCtxRef.current)
+      audioCtxRef.current = new (window.AudioContext || window.webkitAudioContext)()
+    const ctx = audioCtxRef.current
+    if (ctx.state === 'suspended') ctx.resume().catch(()=>{})
+    const t = ctx.currentTime
+    const sr = ctx.sampleRate
+    const dur = 0.24
+    const buf = ctx.createBuffer(1, Math.ceil(sr * dur), sr)
+    const d = buf.getChannelData(0)
+    for (let i = 0; i < d.length; i++) {
+      const fade = Math.pow(1 - i / d.length, 1.15)
+      d[i] = (Math.random() * 2 - 1) * fade
+    }
+    const src = ctx.createBufferSource()
+    src.buffer = buf
+    const filter = ctx.createBiquadFilter()
+    filter.type = 'bandpass'
+    filter.frequency.setValueAtTime(3200, t)
+    filter.frequency.exponentialRampToValueAtTime(1600, t + dur)
+    filter.Q.value = 0.65
+    const gain = ctx.createGain()
+    gain.gain.setValueAtTime(0.001, t)
+    gain.gain.exponentialRampToValueAtTime(0.034, t + 0.02)
+    gain.gain.exponentialRampToValueAtTime(0.001, t + dur)
+    src.connect(filter)
+    filter.connect(gain)
+    gain.connect(ctx.destination)
+    src.start(t)
+    ;[[2200, 0.011], [2900, 0.008]].forEach(([freq, vol], i) => {
+      const ts = t + 0.05 + i * 0.035
+      const osc = ctx.createOscillator()
+      const og = ctx.createGain()
+      osc.type = 'triangle'
+      osc.frequency.setValueAtTime(freq, ts)
+      osc.frequency.exponentialRampToValueAtTime(freq * 0.72, ts + 0.09)
+      og.gain.setValueAtTime(vol, ts)
+      og.gain.exponentialRampToValueAtTime(0.001, ts + 0.11)
+      osc.connect(og)
+      og.connect(ctx.destination)
+      osc.start(ts)
+      osc.stop(ts + 0.13)
+    })
+  } catch {}
+}
+
 // ── First-person retro USB staff ────────────────────────────────────────────
 function drawFirstPersonTool(ctx, W, H, color, swingT, walkDist) {
   const mobile = W < 640
@@ -4952,7 +4999,14 @@ function drawWalletDock(ctx, W, H, myNftjis, health, es, isLoggedWallet) {
     ctx.font = '17px serif'
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
     ctx.fillStyle = '#ffffff'
-    ctx.fillText(emoji || '⬡', sx + SLOT_W / 2, slotY + SLOT_H / 2 - (ability ? 2 : 5))
+    if (emoji === '❤️') {
+      ctx.save()
+      ctx.filter = LIFE_NFTJI_EMOJI_FILTER
+      ctx.fillText(emoji, sx + SLOT_W / 2, slotY + SLOT_H / 2 - (ability ? 2 : 5))
+      ctx.restore()
+    } else {
+      ctx.fillText(emoji || '⬡', sx + SLOT_W / 2, slotY + SLOT_H / 2 - (ability ? 2 : 5))
+    }
 
     ctx.font = 'bold 7px monospace'
     ctx.textAlign = 'center'; ctx.textBaseline = 'bottom'
@@ -5234,8 +5288,8 @@ function drawOnlineList(ctx, W, H, presenceMap, myWallet, pvpStolen, demineRewar
   ctx.textAlign = 'left'; ctx.globalAlpha = 1
 }
 
-// ── Footstep sound (procedural via Web Audio API) ────────────────────────────
-function playStep(audioCtxRef) {
+// ── Footstep / vehicle drive sounds (procedural via Web Audio API) ───────────
+function playWalkStep(audioCtxRef) {
   try {
     if (!audioCtxRef.current) {
       audioCtxRef.current = new (window.AudioContext || window.webkitAudioContext)()
@@ -5260,6 +5314,74 @@ function playStep(audioCtxRef) {
     src.connect(filt); filt.connect(gain); gain.connect(ctx.destination)
     src.start()
   } catch {}
+}
+
+function playCarDriveSound(audioCtxRef) {
+  try {
+    if (!audioCtxRef.current) {
+      audioCtxRef.current = new (window.AudioContext || window.webkitAudioContext)()
+    }
+    const ctx = audioCtxRef.current
+    if (ctx.state === 'suspended') ctx.resume().catch(() => {})
+    const t = ctx.currentTime
+    const sr = ctx.sampleRate
+    const dur = 0.1
+
+    const motor = ctx.createOscillator()
+    const motorGain = ctx.createGain()
+    const motorLp = ctx.createBiquadFilter()
+    motor.type = 'sawtooth'
+    motor.frequency.setValueAtTime(96, t)
+    motor.frequency.exponentialRampToValueAtTime(62, t + dur)
+    motorLp.type = 'lowpass'
+    motorLp.frequency.value = 165
+    motorGain.gain.setValueAtTime(0.001, t)
+    motorGain.gain.exponentialRampToValueAtTime(0.048, t + 0.016)
+    motorGain.gain.exponentialRampToValueAtTime(0.001, t + dur)
+    motor.connect(motorLp)
+    motorLp.connect(motorGain)
+    motorGain.connect(ctx.destination)
+    motor.start(t)
+    motor.stop(t + dur + 0.02)
+
+    const buf = ctx.createBuffer(1, Math.ceil(sr * dur), sr)
+    const d = buf.getChannelData(0)
+    for (let i = 0; i < d.length; i++) {
+      d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / d.length, 1.35)
+    }
+    const road = ctx.createBufferSource()
+    road.buffer = buf
+    const roadBp = ctx.createBiquadFilter()
+    roadBp.type = 'bandpass'
+    roadBp.frequency.setValueAtTime(520, t)
+    roadBp.frequency.exponentialRampToValueAtTime(340, t + dur)
+    roadBp.Q.value = 0.55
+    const roadGain = ctx.createGain()
+    roadGain.gain.setValueAtTime(0.001, t)
+    roadGain.gain.exponentialRampToValueAtTime(0.038, t + 0.012)
+    roadGain.gain.exponentialRampToValueAtTime(0.001, t + dur)
+    road.connect(roadBp)
+    roadBp.connect(roadGain)
+    roadGain.connect(ctx.destination)
+    road.start(t)
+
+    const whine = ctx.createOscillator()
+    const whineGain = ctx.createGain()
+    whine.type = 'triangle'
+    whine.frequency.setValueAtTime(430, t + 0.01)
+    whine.frequency.exponentialRampToValueAtTime(260, t + dur)
+    whineGain.gain.setValueAtTime(0.014, t + 0.01)
+    whineGain.gain.exponentialRampToValueAtTime(0.001, t + dur)
+    whine.connect(whineGain)
+    whineGain.connect(ctx.destination)
+    whine.start(t + 0.01)
+    whine.stop(t + dur + 0.02)
+  } catch {}
+}
+
+function playStep(audioCtxRef, mode = 'walk') {
+  if (mode === 'car') playCarDriveSound(audioCtxRef)
+  else playWalkStep(audioCtxRef)
 }
 
 function disposeThreeObject(root) {
@@ -12917,7 +13039,10 @@ export default function MiningChain3DFPV({
 
         // Footstep every ~10 movement frames regardless of CELL_SIZE
         const steps=Math.floor(walkDistRef.current/FOOTSTEP_DIST)
-        if(steps!==stepCountRef.current){stepCountRef.current=steps;playStep(audioCtxRef)}
+        if(steps!==stepCountRef.current){
+          stepCountRef.current=steps
+          playStep(audioCtxRef, rlMountActiveRef.current ? 'car' : 'walk')
+        }
 
         const {row:newRow,col:newCol}=worldToGrid(p.x,p.y)
         const last=lastCellRef.current
@@ -13132,6 +13257,7 @@ export default function MiningChain3DFPV({
               at: performance.now(),
               count: tier === 'low' ? 4 : tier === 'medium' ? 5 : 7,
             })
+            playBossDollarAttackSound(audioCtxRef)
           }
         }
         bossLastAttackMsRef.current = rt?.lastAttackMs ?? 0
@@ -13949,7 +14075,12 @@ export default function MiningChain3DFPV({
                               }}>{abilityLabel}</span>
                             </div>
                           )}
-                          <span style={{fontSize:'1.1rem',lineHeight:1,marginTop:abilityLabel?6:0}}>{sk.emoji||'⬡'}</span>
+                          <span style={{
+                            fontSize:'1.1rem',
+                            lineHeight:1,
+                            marginTop:abilityLabel?6:0,
+                            ...lifeNftjiEmojiFilterStyle(sk.emoji),
+                          }}>{sk.emoji||'⬡'}</span>
                           <span style={{
                             fontSize:'0.55rem',color:abilityLabel?slotAccent:'#fb923c99',
                             fontWeight:700,letterSpacing:'.04em',
