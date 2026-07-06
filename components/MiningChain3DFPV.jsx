@@ -3667,20 +3667,42 @@ function drawCombatDamageFloats(ctx, floats, { mapId, W, H, threeState, now }) {
     const sy = (-sv.y + 1) / 2 * H
     if (sx < -40 || sx > W + 40 || sy < -40 || sy > H + 40) continue
     const t = age / COMBAT_DAMAGE_FLOAT_MS
-    const alpha = 1 - t
-    const rise = t * 34
+    const alpha = 1 - t * t
+    const rise = t * 42
+    const pop = 1 + (1 - Math.min(1, age / 180)) * 0.22
     const color = combatDamageFloatColor(entry)
+    const font = combatDamageFloatFont(entry)
     ctx.save()
     ctx.globalAlpha = alpha
-    ctx.font = combatDamageFloatFont(entry)
+    ctx.font = font
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
+    const drawY = sy - rise
+    const tw = ctx.measureText(text).width
+    const fs = parseInt(font, 10) || 18
+    const padX = 7
+    const padY = 4
+    const pillW = tw + padX * 2
+    const pillH = fs + padY * 2
+    ctx.translate(sx, drawY)
+    ctx.scale(pop, pop)
+    ctx.fillStyle = entry.kind === 'received'
+      ? 'rgba(48,0,16,.82)'
+      : entry.dodged
+        ? 'rgba(0,32,48,.82)'
+        : 'rgba(0,36,18,.82)'
+    ctx.strokeStyle = color + 'aa'
+    ctx.lineWidth = 1.2
+    ctx.fillRect(-pillW / 2, -pillH / 2, pillW, pillH)
+    ctx.strokeRect(-pillW / 2 + 0.25, -pillH / 2 + 0.25, pillW - 0.5, pillH - 0.5)
     ctx.shadowColor = color
-    ctx.shadowBlur = 8
-    ctx.fillStyle = 'rgba(0,0,0,.78)'
-    ctx.fillText(text, sx + 1, sy - rise + 1)
+    ctx.shadowBlur = 18
+    ctx.lineWidth = 4
+    ctx.strokeStyle = 'rgba(0,0,0,.92)'
+    ctx.strokeText(text, 0, 0)
+    ctx.shadowBlur = 12
     ctx.fillStyle = color
-    ctx.fillText(text, sx, sy - rise)
+    ctx.fillText(text, 0, 0)
     ctx.restore()
     active.push(entry)
   }
@@ -4958,11 +4980,68 @@ function drawNodeDiceWeather() {
 }
 
 // ── Online players list (below minimap) ─────────────────────────────────────
-function drawOnlineList(ctx, W, H, presenceMap, myWallet, pvpStolen, demineRewards, solverSet, currentMapId = MINING_CORE_MAP_ID, es = false) {
+function computeOnlineListLayout(W, presenceMap) {
   const isMobile = W < 600
   const SZ = minimapSize(W)
   const MX = W - SZ - 6
   const MY = MINIMAP_Y
+
+  const all = []
+  for (const [w, pres] of Object.entries(presenceMap || {})) {
+    if (pres.row == null && pres.gy == null) continue
+    all.push({ w, mapId: pres.mapId || MINING_CORE_MAP_ID })
+  }
+  const grouped = groupPresenceEntries(all, (entry) => entry.w)
+  const logged = grouped.wallets.slice(0, 5)
+  const anon = grouped.anonymous.slice(0, 5)
+  if (!logged.length && !anon.length) return null
+
+  const HEADER_H = 15
+  const LINE_H = 13
+  const GROUP_H = 11
+  const PAD_Y = 5
+  const pw = SZ + 2
+  const ph = HEADER_H + PAD_Y * 2
+    + (logged.length ? GROUP_H + logged.length * LINE_H : 0)
+    + (anon.length ? GROUP_H + anon.length * LINE_H : 0)
+  return { px: MX - 1, py: MY + SZ + 5, pw, ph, bottom: MY + SZ + 5 + ph }
+}
+
+function drawPlayerGridCoords(ctx, W, row, col, rawZ, presenceMap) {
+  const layout = computeOnlineListLayout(W, presenceMap)
+  const SZ = minimapSize(W)
+  const MX = W - SZ - 6
+  const px = layout?.px ?? MX - 1
+  const pw = layout?.pw ?? SZ + 2
+  const cy = (layout?.bottom ?? MINIMAP_Y + SZ + 5) + 5
+  const label = `${row},${col} · z ${Number(rawZ || 0).toFixed(2)}`
+  ctx.font = 'bold 9px monospace'
+  ctx.textAlign = 'right'
+  ctx.textBaseline = 'top'
+  const tw = ctx.measureText(label).width + 10
+  const bx = px + pw - tw
+  ctx.fillStyle = 'rgba(1,7,14,.9)'
+  ctx.fillRect(bx, cy, tw, 14)
+  ctx.strokeStyle = C + '44'
+  ctx.lineWidth = 0.5
+  ctx.strokeRect(bx + 0.25, cy + 0.25, tw - 0.5, 13.5)
+  ctx.fillStyle = 'rgba(0,0,0,.75)'
+  ctx.fillText(label, px + pw - 4 + 1, cy + 2 + 1)
+  ctx.fillStyle = '#67e8f9'
+  ctx.fillText(label, px + pw - 4, cy + 2)
+}
+
+function drawOnlineList(ctx, W, H, presenceMap, myWallet, pvpStolen, demineRewards, solverSet, currentMapId = MINING_CORE_MAP_ID, es = false) {
+  const layout = computeOnlineListLayout(W, presenceMap)
+  if (!layout) return
+  const { px, py, pw, ph } = layout
+
+  ctx.globalAlpha = 0.82
+  ctx.fillStyle = '#010709'
+  ctx.fillRect(px, py, pw, ph)
+  ctx.globalAlpha = 1
+  ctx.strokeStyle = C + '33'; ctx.lineWidth = 0.5
+  ctx.strokeRect(px, py, pw, ph)
 
   const all = []
   for (const [w, pres] of Object.entries(presenceMap || {})) {
@@ -4995,25 +5074,11 @@ function drawOnlineList(ctx, W, H, presenceMap, myWallet, pvpStolen, demineRewar
     if (a.onCurrentMap !== b.onCurrentMap) return a.onCurrentMap ? -1 : 1
     return a.w.localeCompare(b.w)
   }).slice(0, 5)
-  if (!logged.length && !anon.length) return
 
   const HEADER_H = 15
   const LINE_H   = 13
   const GROUP_H  = 11
   const PAD_X    = 7, PAD_Y = 5
-  const pw  = SZ + 2
-  const ph  = HEADER_H + PAD_Y * 2
-    + (logged.length ? GROUP_H + logged.length * LINE_H : 0)
-    + (anon.length ? GROUP_H + anon.length * LINE_H : 0)
-  const px  = MX - 1
-  const py  = MY + SZ + 5
-
-  ctx.globalAlpha = 0.82
-  ctx.fillStyle = '#010709'
-  ctx.fillRect(px, py, pw, ph)
-  ctx.globalAlpha = 1
-  ctx.strokeStyle = C + '33'; ctx.lineWidth = 0.5
-  ctx.strokeRect(px, py, pw, ph)
 
   ctx.font = 'bold 9px monospace'; ctx.textAlign = 'left'; ctx.textBaseline = 'top'
   ctx.fillStyle = C + 'bb'
@@ -12148,25 +12213,15 @@ export default function MiningChain3DFPV({
       ctx.globalAlpha = 1
     }
 
-    // Grid coords — row,col of the player (matches minimap / code).
-    {
-      const playerLabel = `${gr},${gc} · z ${rawZ.toFixed(2)}`
-      ctx.font = '10px monospace'
-      ctx.textAlign = 'center'
+    // Grid coords — drawn below the online player list (top-right HUD).
+    if (isMiningDevGrid()) {
+      ctx.textAlign = 'right'
       ctx.textBaseline = 'top'
-      ctx.fillStyle = 'rgba(0,0,0,.72)'
-      ctx.fillText(playerLabel, W/2 + 1, viewCenterY + xhLen + xhGap + 10)
-      ctx.fillStyle = '#67e8f9'
-      ctx.fillText(playerLabel, W/2, viewCenterY + xhLen + xhGap + 9)
-      if (isMiningDevGrid()) {
-        ctx.textAlign = 'right'
-        ctx.textBaseline = 'top'
-        ctx.font = '8px monospace'
-        ctx.fillStyle = 'rgba(0,0,0,.55)'
-        ctx.fillText('mm3_dev · fila,col = row,col', W - 7, H - 28)
-        ctx.fillStyle = '#64748b'
-        ctx.fillText('mm3_dev · fila,col = row,col', W - 8, H - 29)
-      }
+      ctx.font = '8px monospace'
+      ctx.fillStyle = 'rgba(0,0,0,.55)'
+      ctx.fillText('mm3_dev · fila,col = row,col', W - 7, H - 28)
+      ctx.fillStyle = '#64748b'
+      ctx.fillText('mm3_dev · fila,col = row,col', W - 8, H - 29)
     }
 
     // ── Chain node compass (when within 13 cells, not facing it) ─────────────
@@ -12375,6 +12430,7 @@ export default function MiningChain3DFPV({
         ctx.drawImage(onlineListOffscreenRef.current,0,0)
         ctx.setTransform(dpr,0,0,dpr,0,0)
       }
+      drawPlayerGridCoords(ctx, W, gr, gc, rawZ, presence)
     }
     const walletDock = drawWalletDock(
       ctx,W,H,myNftjisRef.current,healthMapRef.current[myIdentity]??100,es,Boolean(myWallet)
