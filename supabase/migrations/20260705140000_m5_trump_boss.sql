@@ -121,11 +121,11 @@ BEGIN
   END IF;
 
   IF p_boss_gx IS NOT NULL AND p_boss_gy IS NOT NULL THEN
-    IF hypot(p_boss_gx - v_spawn_gx, p_boss_gy - v_spawn_gy) > 28 THEN
+    IF sqrt(power(p_boss_gx - v_spawn_gx, 2) + power(p_boss_gy - v_spawn_gy, 2)) > 28 THEN
       RETURN jsonb_build_object('ok', false, 'error', 'boss_position_invalid');
     END IF;
     IF p_player_gx IS NOT NULL AND p_player_gy IS NOT NULL THEN
-      IF hypot(p_player_gx - p_boss_gx, p_player_gy - p_boss_gy) > 4.25 THEN
+      IF sqrt(power(p_player_gx - p_boss_gx, 2) + power(p_player_gy - p_boss_gy, 2)) > 4.25 THEN
         RETURN jsonb_build_object('ok', false, 'error', 'out_of_range');
       END IF;
     END IF;

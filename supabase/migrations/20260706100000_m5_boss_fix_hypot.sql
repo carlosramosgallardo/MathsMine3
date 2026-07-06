@@ -1,4 +1,4 @@
--- Widen Donald Trump boss melee range to match 2× scale avatar (was 2.4, player could kite at 2.25).
+-- PostgreSQL has no hypot(); replace with sqrt(power(dx,2)+power(dy,2)) in boss attack RPC.
 CREATE OR REPLACE FUNCTION apply_mm3_boss_attack_player(
   p_wallet TEXT,
   p_damage INTEGER DEFAULT 20,
