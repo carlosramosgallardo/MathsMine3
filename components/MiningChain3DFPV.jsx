@@ -194,7 +194,7 @@ const REMOTE_AVATAR_LOCAL = Object.freeze({
   feet: 0.075,
   halfWidth: 0.36,
 })
-// RL mount: only head + antenna visible above the car mesh (see applyRlMountVisual).
+// RL mount: head + antenna + USB staff above the car mesh (see applyRlMountVisual).
 const REMOTE_AVATAR_MOUNTED_LOCAL = Object.freeze({
   headTop: 0.775,
   headBottom: 0.30,
@@ -3659,6 +3659,7 @@ function drawMinimapLabel(ctx, mapId, es, MX, SZ) {
 function drawPerimeterCellSoftening(ctx, mapId, mapX, mapY, CS) {
   if (!usesSoftPerimeter(mapId)) return
   const seaFill = 'rgba(14,62,88,.68)'
+  const gatewayFill = 'rgba(56,189,248,.22)'
   forEachPerimeterCell((row, col) => {
     const vis = getPerimeterCellVisual(row, col, mapId)
     if (!vis) return
@@ -3666,6 +3667,11 @@ function drawPerimeterCellSoftening(ctx, mapId, mapX, mapY, CS) {
     const y0 = mapY(row)
     const x1 = x0 + CS
     const y1 = y0 + CS
+    if (vis.gateway) {
+      ctx.fillStyle = gatewayFill
+      ctx.fillRect(x0, y0, CS, CS)
+      return
+    }
     ctx.fillStyle = seaFill
     if (vis.kind === 'corner') {
       const cut = vis.cut * CS
@@ -3697,14 +3703,19 @@ function drawPerimeterCellSoftening(ctx, mapId, mapX, mapY, CS) {
   })
 }
 
-/** Closed-edge dim cap vs open-edge gateway ticks with target map id. */
+/** Closed-edge dim cap vs open-edge gateway strip with target map id. */
 function drawMinimapEdgeExits(ctx, mapId, MX, MY, SZ, CS) {
   const edges = getMiningMapEdgeState(mapId)
-  const cap = Math.max(2, CS * 0.32)
+  const cap = Math.max(3, CS * 0.55)
   const tick = Math.max(3, CS * 0.72)
-  const accent = '#43c2dc'
   const closedFill = 'rgba(22,38,52,.72)'
   const closedStroke = 'rgba(67,120,150,.35)'
+  const MAP_EXIT_ACCENT = Object.freeze({
+    2: '#38bdf8',
+    3: '#fb923c',
+    4: '#fbbf24',
+    5: '#f472b6',
+  })
 
   const drawClosedStrip = (x, y, w, h) => {
     ctx.fillStyle = closedFill
@@ -3714,7 +3725,7 @@ function drawMinimapEdgeExits(ctx, mapId, MX, MY, SZ, CS) {
     ctx.strokeRect(x + 0.25, y + 0.25, w - 0.5, h - 0.5)
   }
 
-  const drawTicks = (bands, drawOne) => {
+  const drawTicks = (bands, accent, drawOne) => {
     for (const band of bands) {
       ctx.save()
       ctx.shadowColor = accent
@@ -3725,50 +3736,104 @@ function drawMinimapEdgeExits(ctx, mapId, MX, MY, SZ, CS) {
     }
   }
 
-  const drawEdgeLabel = (text, x, y, align, baseline) => {
-    ctx.font = 'bold 7px monospace'
+  const drawEdgeLabel = (text, x, y, align, baseline, accent) => {
+    ctx.save()
+    ctx.font = 'bold 9px monospace'
     ctx.textAlign = align
     ctx.textBaseline = baseline
+    ctx.shadowColor = accent
+    ctx.shadowBlur = 8
     ctx.fillStyle = accent
     ctx.fillText(text, x, y)
+    ctx.restore()
+  }
+
+  const drawFullEdge = (side, targetMapId) => {
+    const accent = MAP_EXIT_ACCENT[targetMapId] || '#43c2dc'
+    const label = `M${targetMapId}`
+    const strip = Math.max(cap, CS * 1.05)
+    ctx.save()
+    let grad
+    if (side === 'north') {
+      grad = ctx.createLinearGradient(MX, MY, MX, MY + strip * 2.2)
+      grad.addColorStop(0, accent + 'e6')
+      grad.addColorStop(0.55, accent + '66')
+      grad.addColorStop(1, accent + '00')
+      ctx.fillStyle = grad
+      ctx.fillRect(MX, MY, SZ, strip * 2.2)
+      drawEdgeLabel(label, MX + SZ / 2, MY + strip * 0.55, 'center', 'middle', accent)
+    } else if (side === 'south') {
+      grad = ctx.createLinearGradient(MX, MY + SZ, MX, MY + SZ - strip * 2.2)
+      grad.addColorStop(0, accent + 'e6')
+      grad.addColorStop(0.55, accent + '66')
+      grad.addColorStop(1, accent + '00')
+      ctx.fillStyle = grad
+      ctx.fillRect(MX, MY + SZ - strip * 2.2, SZ, strip * 2.2)
+      drawEdgeLabel(label, MX + SZ / 2, MY + SZ - strip * 0.55, 'center', 'middle', accent)
+    } else if (side === 'west') {
+      grad = ctx.createLinearGradient(MX, MY, MX + strip * 2.2, MY)
+      grad.addColorStop(0, accent + 'e6')
+      grad.addColorStop(0.55, accent + '66')
+      grad.addColorStop(1, accent + '00')
+      ctx.fillStyle = grad
+      ctx.fillRect(MX, MY, strip * 2.2, SZ)
+      drawEdgeLabel(label, MX + strip * 0.55, MY + SZ / 2, 'center', 'middle', accent)
+    } else {
+      grad = ctx.createLinearGradient(MX + SZ, MY, MX + SZ - strip * 2.2, MY)
+      grad.addColorStop(0, accent + 'e6')
+      grad.addColorStop(0.55, accent + '66')
+      grad.addColorStop(1, accent + '00')
+      ctx.fillStyle = grad
+      ctx.fillRect(MX + SZ - strip * 2.2, MY, strip * 2.2, SZ)
+      drawEdgeLabel(label, MX + SZ - strip * 0.55, MY + SZ / 2, 'center', 'middle', accent)
+    }
+    ctx.restore()
   }
 
   const bandMid = (bands) => bands.reduce((sum, value) => sum + value, 0) / bands.length
 
   // north
   if (!edges.north.open) drawClosedStrip(MX, MY, SZ, cap)
+  else if (edges.north.fullEdge) drawFullEdge('north', edges.north.targetMapId)
   else {
-    drawTicks(edges.north.bands, (col) => {
+    const accent = MAP_EXIT_ACCENT[edges.north.targetMapId] || '#43c2dc'
+    drawTicks(edges.north.bands, accent, (col) => {
       ctx.fillRect(MX + col * CS - tick / 2, MY, tick, cap)
     })
-    drawEdgeLabel(`M${edges.north.targetMapId}`, MX + bandMid(edges.north.bands) * CS, MY + cap + 1, 'center', 'top')
+    drawEdgeLabel(`M${edges.north.targetMapId}`, MX + bandMid(edges.north.bands) * CS, MY + cap + 1, 'center', 'top', accent)
   }
 
   // south
   if (!edges.south.open) drawClosedStrip(MX, MY + SZ - cap, SZ, cap)
+  else if (edges.south.fullEdge) drawFullEdge('south', edges.south.targetMapId)
   else {
-    drawTicks(edges.south.bands, (col) => {
+    const accent = MAP_EXIT_ACCENT[edges.south.targetMapId] || '#43c2dc'
+    drawTicks(edges.south.bands, accent, (col) => {
       ctx.fillRect(MX + col * CS - tick / 2, MY + SZ - cap, tick, cap)
     })
-    drawEdgeLabel(`M${edges.south.targetMapId}`, MX + bandMid(edges.south.bands) * CS, MY + SZ - cap - 1, 'center', 'bottom')
+    drawEdgeLabel(`M${edges.south.targetMapId}`, MX + bandMid(edges.south.bands) * CS, MY + SZ - cap - 1, 'center', 'bottom', accent)
   }
 
   // west
   if (!edges.west.open) drawClosedStrip(MX, MY, cap, SZ)
+  else if (edges.west.fullEdge) drawFullEdge('west', edges.west.targetMapId)
   else {
-    drawTicks(edges.west.bands, (row) => {
+    const accent = MAP_EXIT_ACCENT[edges.west.targetMapId] || '#43c2dc'
+    drawTicks(edges.west.bands, accent, (row) => {
       ctx.fillRect(MX, MY + row * CS - tick / 2, cap, tick)
     })
-    drawEdgeLabel(`M${edges.west.targetMapId}`, MX + cap + 2, MY + bandMid(edges.west.bands) * CS, 'left', 'middle')
+    drawEdgeLabel(`M${edges.west.targetMapId}`, MX + cap + 2, MY + bandMid(edges.west.bands) * CS, 'left', 'middle', accent)
   }
 
   // east
   if (!edges.east.open) drawClosedStrip(MX + SZ - cap, MY, cap, SZ)
+  else if (edges.east.fullEdge) drawFullEdge('east', edges.east.targetMapId)
   else {
-    drawTicks(edges.east.bands, (row) => {
+    const accent = MAP_EXIT_ACCENT[edges.east.targetMapId] || '#43c2dc'
+    drawTicks(edges.east.bands, accent, (row) => {
       ctx.fillRect(MX + SZ - cap, MY + row * CS - tick / 2, cap, tick)
     })
-    drawEdgeLabel(`M${edges.east.targetMapId}`, MX + SZ - cap - 2, MY + bandMid(edges.east.bands) * CS, 'right', 'middle')
+    drawEdgeLabel(`M${edges.east.targetMapId}`, MX + SZ - cap - 2, MY + bandMid(edges.east.bands) * CS, 'right', 'middle', accent)
   }
 }
 
@@ -9372,13 +9437,23 @@ function applyRlMountVisual(avatar, mounted, threeState = null) {
     avatar.userData.rlMountedHeadY = avatar.userData.head?.position.y ?? 0.82
     avatar.userData.rlMountedAntStemY = avatar.userData.antennaStem?.position.y ?? 1.005
     avatar.userData.rlMountedAntTipY = avatar.userData.antennaTip?.position.y ?? 1.075
+    if (avatar.userData.tool && !avatar.userData.rlStandToolPos) {
+      avatar.userData.rlStandToolPos = avatar.userData.tool.position.clone()
+    }
   }
   const car = avatar.userData.rlCar
   car.visible = mounted && !avatar.userData.wasDead
   if (avatar.userData.bodyParts) {
     for (const part of avatar.userData.bodyParts) part.visible = !mounted
   }
-  if (avatar.userData.tool) avatar.userData.tool.visible = !mounted
+  if (avatar.userData.tool) {
+    avatar.userData.tool.visible = !avatar.userData.wasDead
+    if (mounted) {
+      avatar.userData.tool.position.set(0.34, 0.42, 0.08)
+    } else if (avatar.userData.rlStandToolPos) {
+      avatar.userData.tool.position.copy(avatar.userData.rlStandToolPos)
+    }
+  }
   if (avatar.userData.head) {
     avatar.userData.head.position.y = mounted ? 0.50 : avatar.userData.rlMountedHeadY
   }
