@@ -12044,14 +12044,6 @@ export default function MiningChain3DFPV({
       }
     }
 
-    damageFloatsRef.current = drawCombatDamageFloats(ctx, damageFloatsRef.current, {
-      mapId: mapIdRef.current,
-      W,
-      H,
-      threeState,
-      now: performance.now(),
-    })
-
     // ── Wall face overlays — ONLY for mineable blocks, never for structural walls ──
     // Use the actual wall top height so the crosshair activates across the full obstacle face
     const fwdWallTopH = fwdCell?.isObstacle ? obstacleTop(fwdCell) : blockTop(fwdCell,fwdMy,fwdMx)
@@ -12432,6 +12424,13 @@ export default function MiningChain3DFPV({
       }
       drawPlayerGridCoords(ctx, W, gr, gc, rawZ, presence)
     }
+    damageFloatsRef.current = drawCombatDamageFloats(ctx, damageFloatsRef.current, {
+      mapId: mapIdRef.current,
+      W,
+      H,
+      threeState,
+      now: performance.now(),
+    })
     const walletDock = drawWalletDock(
       ctx,W,H,myNftjisRef.current,healthMapRef.current[myIdentity]??100,es,Boolean(myWallet)
     )
