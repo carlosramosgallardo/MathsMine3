@@ -7,7 +7,9 @@ import { M5_TRUMP_BOSS_SCALE } from '@/lib/m5-trump-boss'
 
 const HOME_ARENA_BOT_SCALE = 3.44
 /** Boss taller than the bot, but capped so the hero canvas does not clip the head. */
-const HOME_ARENA_BOSS_VS_BOT = 1.35
+const HOME_ARENA_BOSS_VS_BOT = 1.31
+/** World Y where bot soles meet the arena disc (avatar origin + sole bottom local × scale). */
+const HOME_ARENA_FLOOR_Y = 0.12 + 0.0015 * HOME_ARENA_BOT_SCALE
 const HOME_ARENA_CENTER = { x: 0.55, z: 0 }
 
 function homeYawTowardArenaCenter(fromX, fromZ) {
@@ -256,12 +258,12 @@ export function addNftjiMiningBlock(THREE, scene, options = {}) {
 /** Donald Trump boss — same voxel avatar as Epstein Island (M5) in Mining. */
 export function addHomeTrumpBoss(THREE, scene, options = {}) {
   const {
-    position = [3.20, .12, .08],
+    position = [3.20, HOME_ARENA_FLOOR_Y, .08],
     rotationY = homeYawTowardArenaCenter(3.20, .08),
     scaleMult = (HOME_ARENA_BOT_SCALE * HOME_ARENA_BOSS_VS_BOT) / M5_TRUMP_BOSS_SCALE,
   } = options
   const { group, bodyPivot, label } = createM5TrumpBossVisual(THREE, false)
-  group.position.set(position[0], position[1], position[2])
+  group.position.set(position[0], HOME_ARENA_FLOOR_Y, position[2])
   group.rotation.y = rotationY
   group.scale.setScalar(M5_TRUMP_BOSS_SCALE * scaleMult)
   if (label) label.visible = false
@@ -493,7 +495,7 @@ export default function HomeMiningWorld3D() {
         const targetPulse = .52 * (1 + Math.sin(time * 2.8) * .055)
         chain.targetIndicator.scale.set(targetPulse, targetPulse, 1)
         chain.targetIndicator.material.opacity = .84 + Math.sin(time * 2.8) * .12
-        const bossBob = Math.sin(time * 2.2) * 0.06
+        const bossBob = Math.max(0, Math.sin(time * 2.2) * 0.06)
         trumpBoss.bodyPivot.position.y = bossBob
         trumpBoss.group.rotation.y = trumpBoss.baseRotationY + Math.sin(time * 0.45) * 0.08
         trumpBoss.glowLight.intensity = 3.2 + Math.sin(time * 2.4) * 0.9
