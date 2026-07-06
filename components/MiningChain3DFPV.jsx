@@ -9448,7 +9448,7 @@ function applyRlMountVisual(avatar, mounted, threeState = null) {
     for (const part of avatar.userData.bodyParts) part.visible = !mounted
   }
   if (avatar.userData.tool) {
-    avatar.userData.tool.visible = !avatar.userData.wasDead
+    avatar.userData.tool.visible = !avatar.userData.wasDead && !avatar.userData.isHealingRecharge
     if (mounted) {
       avatar.userData.tool.position.set(0.34, 0.42, 0.08)
     } else if (avatar.userData.rlStandToolPos) {
@@ -9712,12 +9712,14 @@ function updatePoolSubmersionEffects(state,time,tier='medium'){
   }
 }
 
-function setAvatarHealingRecharge(avatar, active) {
+function setAvatarHealingRecharge(avatar, active, rlMounted = false) {
   const effect=avatar?.userData?.healEffect
   const tool=avatar?.userData?.tool
-  if(effect) effect.visible=Boolean(active)
-  if(tool) tool.visible=!Boolean(active)
-  avatar.userData.isHealingRecharge=Boolean(active)
+  // On foot in the pool the USB plugs in for the heal FX; mounted players keep the staff on the car.
+  const healActive=Boolean(active)&&!rlMounted
+  if(effect) effect.visible=healActive
+  if(tool) tool.visible=!avatar.userData?.wasDead&&!healActive
+  avatar.userData.isHealingRecharge=healActive
 }
 
 function updateHealingRechargeEffects(state,time,tier='medium') {
@@ -9775,7 +9777,7 @@ function syncThreeAvatars(state,presence,myIdentity,currentMapId=MINING_CORE_MAP
     const displayY=inPool?poolAvatarDisplayY(gx,gy,baseZ,false):baseZ
     avatar.position.set(gx,displayY,gy)
     avatar.rotation.y=-(Number(data.angle)||0)-Math.PI/2
-    setAvatarHealingRecharge(avatar,!data.isDead&&inPool)
+    setAvatarHealingRecharge(avatar,!data.isDead&&inPool,remoteMounted)
     setAvatarPoolSubmersion(avatar,inPool,displayY)
     // Track whether depthTest changed so we only traverse when needed
     const wasDead=avatar.userData.wasDead||false
@@ -9905,7 +9907,8 @@ function syncThreeLocalAvatar(state,identity,swingT,walkDist,gx,gy,playerZ,headi
   }
   state.localAvatar.rotation.y=-heading-Math.PI/2
   const inPool=isAvatarInPoolVisual(gx,gy,playerZ,isDead)
-  setAvatarHealingRecharge(state.localAvatar,!isDead&&inPool)
+  const mounted=rlMounted&&!isDead
+  setAvatarHealingRecharge(state.localAvatar,!isDead&&inPool,mounted)
   // Scale is set by syncThreeAvatars LOD system (same formula as remote avatars)
   if(isDead){
     state.localAvatar.position.set(gx,playerZ+0.14,gy)
@@ -9931,7 +9934,7 @@ function syncThreeLocalAvatar(state,identity,swingT,walkDist,gx,gy,playerZ,headi
     if(state.localAvatar.userData.leftFoot) state.localAvatar.userData.leftFoot.position.y=.075+Math.max(0,Math.sin(stride))*.045
     if(state.localAvatar.userData.rightFoot) state.localAvatar.userData.rightFoot.position.y=.075+Math.max(0,Math.sin(stride+Math.PI))*.045
   }
-  applyRlMountVisual(state.localAvatar, rlMounted && !isDead, state)
+  applyRlMountVisual(state.localAvatar, mounted, state)
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
