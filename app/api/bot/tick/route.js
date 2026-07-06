@@ -18,6 +18,7 @@ import {
 } from '@/lib/mm3-block-chain';
 import { formatWalletLabel } from '@/lib/wallet-format';
 import { checkAndAwardChainWinner, TOTAL_BOARD_CELLS } from '@/lib/chain-winner';
+import { placeMiningVisualBlock } from '@/lib/mining-visual-layout';
 
 const BOT_WALLETS = [
   '0xcab10d0e0650d45cb0b7482370a1ca93d5bf5528',
@@ -178,6 +179,19 @@ function getNftjiBlockLabel(block, fallbackKey = '') {
   return (hex || block.block_key || fallbackKey || '').trim();
 }
 
+// Where an NFTji block actually renders: the client maps grid_row/grid_col to
+// a chain hex (gridToBlockHex) and places it via placeMiningVisualBlock, so
+// NFTji blocks can live on maps 2-5. The bot walks to that same visual cell.
+function getNftjiSessionTarget(block) {
+  if (block?.grid_row == null || block?.grid_col == null) return null;
+  const visual = placeMiningVisualBlock(gridToBlockHex(block.grid_row, block.grid_col));
+  return {
+    row: visual?.row ?? block.grid_row,
+    col: visual?.col ?? block.grid_col,
+    mapId: visual?.mapId || '1',
+  };
+}
+
 function getReviveCostOption(meta) {
   if ((Number(meta?.eur_earned) || 0) >= REVIVE_COST_EUR) {
     return { currency: 'EUR', amount: REVIVE_COST_EUR, field: 'eur_earned' };
@@ -319,10 +333,31 @@ async function simulateBotMapSession(supabase, wallet, targetRow, targetCol, poo
   const key = wallet;
   const taskType = String(task.type || 'mining');
   const taskLabel = String(task.label || 'MINING').slice(0, 32);
+  const mapId = String(task.mapId || '1');
   let taskPhase = 'moving';
   let pendingRespawn = false;
+  // Global channel: presence + punctual events only (pvp-result, respawn).
   const ch = rtClient.channel(BOT_MAP_CHANNEL, {
     config: { broadcast: { self: false }, presence: { key } },
+  });
+  // High-frequency 'move' broadcasts go to the per-map channel, same as
+  // human clients — keeps move fan-out bounded to players on that map.
+  const moveCh = rtClient.channel(`${BOT_MAP_CHANNEL}-map-${mapId}`, {
+    config: { broadcast: { self: false } },
+  });
+  let moveChReady = false;
+  const moveChSubscribed = new Promise((resolve) => {
+    const timer = setTimeout(resolve, BOT_MAP_SUBSCRIBE_TIMEOUT_MS);
+    moveCh.subscribe((status) => {
+      if (status === 'SUBSCRIBED') {
+        moveChReady = true;
+        clearTimeout(timer);
+        resolve();
+      } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+        clearTimeout(timer);
+        resolve();
+      }
+    });
   });
 
   ch.on('broadcast', { event: 'pvp-result' }, ({ payload }) => {
@@ -349,6 +384,7 @@ async function simulateBotMapSession(supabase, wallet, targetRow, targetCol, poo
           task: taskType,
           taskLabel,
           taskPhase,
+          mapId,
         }).catch(() => {});
         resolve();
       } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
@@ -357,6 +393,10 @@ async function simulateBotMapSession(supabase, wallet, targetRow, targetCol, poo
       }
     });
   });
+
+  // Both subscribes run concurrently; the session doesn't start until the
+  // move channel resolved too, so moves land per-map from the first step.
+  await moveChSubscribed;
 
   if (!subscribed) {
     rtClient.removeAllChannels();
@@ -374,8 +414,12 @@ async function simulateBotMapSession(supabase, wallet, targetRow, targetCol, poo
       poolCode: poolCode || null,
       isBot: true, task: taskType, taskLabel, taskPhase,
       swingAt: swing ? Date.now() : 0,
+      mapId,
     };
-    await ch.send({ type: 'broadcast', event: 'move', payload }).catch(() => {});
+    // Fall back to the global channel if the map channel never subscribed,
+    // so the bot stays visible either way.
+    const target = moveChReady ? moveCh : ch;
+    await target.send({ type: 'broadcast', event: 'move', payload }).catch(() => {});
   };
 
   const steps = BOT_MAP_STEPS_MIN + Math.floor(Math.random() * (BOT_MAP_STEPS_MAX - BOT_MAP_STEPS_MIN + 1));
@@ -1589,18 +1633,21 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
       if (targetBlock.grid_row != null && targetBlock.grid_col != null) {
         if (currentNftjiKey) {
           const oldBlock = nftjiBlocks.find((b) => b.block_key === currentNftjiKey);
-          if (oldBlock?.grid_row != null && oldBlock?.grid_col != null) {
+          const oldTarget = getNftjiSessionTarget(oldBlock);
+          if (oldTarget) {
             await simulateBotMapSession(
-              supabase, wallet, oldBlock.grid_row, oldBlock.grid_col, botMapPoolCode,
-              { type: 'nftji_resell', label: `RESELL ${getNftjiBlockLabel(oldBlock, currentNftjiKey)}` }
+              supabase, wallet, oldTarget.row, oldTarget.col, botMapPoolCode,
+              { type: 'nftji_resell', label: `RESELL ${getNftjiBlockLabel(oldBlock, currentNftjiKey)}`, mapId: oldTarget.mapId }
             ).catch(() => {});
           }
         }
+        const buyTarget = getNftjiSessionTarget(targetBlock);
         await simulateBotMapSession(
-          supabase, wallet, targetBlock.grid_row, targetBlock.grid_col, botMapPoolCode,
+          supabase, wallet, buyTarget?.row ?? targetBlock.grid_row, buyTarget?.col ?? targetBlock.grid_col, botMapPoolCode,
           {
             type: 'nftji_buy',
             label: `BUY NFTJI ${getNftjiBlockLabel(targetBlock, targetBlock.block_key)}`,
+            mapId: buyTarget?.mapId || '1',
           }
         ).catch(() => {});
         didMapSession = true;
@@ -1761,10 +1808,11 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
           .limit(1).maybeSingle();
 
         if (!existingCmd) {
-          if (ownedBlock.grid_row != null && ownedBlock.grid_col != null) {
+          const cmdTarget = getNftjiSessionTarget(ownedBlock);
+          if (cmdTarget) {
             await simulateBotMapSession(
-              supabase, wallet, ownedBlock.grid_row, ownedBlock.grid_col, botMapPoolCode,
-              { type: 'nftji_command', label: `EXEC ${getNftjiBlockLabel(ownedBlock, currentNftjiKey)}` }
+              supabase, wallet, cmdTarget.row, cmdTarget.col, botMapPoolCode,
+              { type: 'nftji_command', label: `EXEC ${getNftjiBlockLabel(ownedBlock, currentNftjiKey)}`, mapId: cmdTarget.mapId }
             ).catch(() => {});
             didMapSession = true;
           }
@@ -2032,10 +2080,13 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
       const pick = qualifying[Math.floor(Math.random() * Math.min(qualifying.length, 10))];
       const grid = blockHexToGrid(pick.blockHex);
 
-      // Bot enters the 3D map and walks to the target block before mining
+      // Bot enters the 3D map and walks to the target block before mining.
+      // Walk target uses the block's visual placement (map-local cell + real
+      // map), not the raw chain grid — blocks past #C7 live on maps 2-5.
+      const visual = placeMiningVisualBlock(pick.blockHex);
       await simulateBotMapSession(
-        supabase, wallet, grid.row, grid.col, botMapPoolCode,
-        { type: 'chain_mine', label: `MINE BLOCK ${pick.blockHex}` }
+        supabase, wallet, visual?.row ?? grid.row, visual?.col ?? grid.col, botMapPoolCode,
+        { type: 'chain_mine', label: `MINE BLOCK ${pick.blockHex}`, mapId: visual?.mapId || '1' }
       ).catch(() => {});
       didMapSession = true;
 
