@@ -24,7 +24,7 @@ import {
 } from '@/lib/mining-visual-layout'
 import { MINING_CORE_MAP_ID } from '@/lib/mining-maps'
 import { RL_NODE_MIN_LEVEL, RL_NODE_PRICE_MM3 } from '@/lib/mining-rl-mount'
-import { normalizeBossState, M5_TRUMP_BOSS_NAME } from '@/lib/m5-trump-boss'
+import { normalizeBossState, M5_TRUMP_BOSS_NAME, M5_TRUMP_BOSS_MAX_HP } from '@/lib/m5-trump-boss'
 import supabase from '@/lib/supabaseClient'
 
 const MiningChain3DFPV = dynamic(() => import('./MiningChain3DFPV'), { ssr: false })
@@ -854,11 +854,13 @@ export default function MiningChain3D() {
   const handleBossIdle = useCallback(async () => {
     const response = await fetch('/api/m5-boss/idle', { method: 'POST' }).then(r => r.json()).catch(() => null)
     if (response?.ok && response.changed) {
-      setBossState(prev => ({ ...prev, state: 'idle' }))
+      const maxHealth = Number(response.max_health) || bossStateRef.current?.maxHealth || M5_TRUMP_BOSS_MAX_HP
+      const health = Number(response.health) || maxHealth
+      setBossState(prev => ({ ...prev, state: 'idle', health, maxHealth }))
       channelRef.current?.send({
         type: 'broadcast',
         event: 'boss-state',
-        payload: { state: 'idle' },
+        payload: { state: 'idle', health, maxHealth },
       })?.catch(() => {})
     }
   }, [])
@@ -1467,7 +1469,12 @@ export default function MiningChain3D() {
 
     ch.on('broadcast', { event: 'boss-state' }, ({ payload }) => {
       if (!payload?.state) return
-      setBossState(prev => ({ ...prev, state: payload.state }))
+      setBossState(prev => ({
+        ...prev,
+        state: payload.state,
+        ...(payload.health != null ? { health: Number(payload.health) } : {}),
+        ...(payload.maxHealth != null ? { maxHealth: Number(payload.maxHealth) } : {}),
+      }))
     })
 
     ch.on('broadcast', { event: 'boss-attack-result' }, ({ payload }) => {
@@ -1673,6 +1680,7 @@ export default function MiningChain3D() {
   }, [])
 
   const handleMapChange = useCallback((nextMapId, row, col, z = 0) => {
+    const prevMap = mapIdRef.current
     const next = nextMapId || MINING_CORE_MAP_ID
     setMapId(next)
     mapIdRef.current = next
@@ -1685,19 +1693,31 @@ export default function MiningChain3D() {
       try { localStorage.setItem(posKey, JSON.stringify({ row, col, z: pos.z, mapId: next })) } catch { /* */ }
     }
     const myW = myKeyRef.current || myWalletRef.current
+    const myDead = Boolean(myDeadUntilRef.current && myDeadUntilRef.current > Date.now())
     if (myW) {
-      setPositions(prev => ({
-        ...prev,
-        [myW]: {
-          ...(prev[myW] || {}),
-          gx: col + 0.5,
-          gy: row + 0.5,
-          row,
-          col,
-          z: pos.z,
-          mapId: next,
-        },
-      }))
+      setPositions(prev => {
+        const nextPositions = {
+          ...prev,
+          [myW]: {
+            ...(prev[myW] || {}),
+            gx: col + 0.5,
+            gy: row + 0.5,
+            row,
+            col,
+            z: pos.z,
+            mapId: next,
+            isDead: myDead,
+          },
+        }
+        if (prevMap === '5' && next !== '5' && bossStateRef.current?.state === 'active') {
+          const othersOnM5 = Object.entries(nextPositions).some(([wallet, pres]) => {
+            if (wallet.toLowerCase() === myW.toLowerCase()) return false
+            return (pres.mapId || MINING_CORE_MAP_ID) === '5' && !pres.isDead
+          })
+          if (!othersOnM5) queueMicrotask(() => { handleBossIdle() })
+        }
+        return nextPositions
+      })
       channelRef.current?.track({
         wallet: myW,
         gx: col + 0.5,
@@ -1725,8 +1745,10 @@ export default function MiningChain3D() {
           nodeDice: normalizeNodeDiceState(nodeDiceRef.current),
         },
       }).catch(() => {})
+    } else if (prevMap === '5' && next !== '5' && bossStateRef.current?.state === 'active') {
+      queueMicrotask(() => { handleBossIdle() })
     }
-  }, [myPoolCode])
+  }, [myPoolCode, handleBossIdle])
 
   const handleFacingChange = useCallback((row, col, cell, dist) => setFacingCell({ row, col, cell, dist }), [])
   const handleWantNavigate = useCallback((url) => router.push(url), [router])
