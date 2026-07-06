@@ -40,7 +40,7 @@ import {
   COMBAT_DAMAGE_FLOAT_MS,
   combatDamageFloatColor,
   combatDamageFloatFont,
-  combatDamageFloatText,
+  combatDamageFloatLines,
   createCombatDamageFloat,
 } from '@/lib/combat-damage-floats'
 import {
@@ -3650,14 +3650,73 @@ function castRayLayers(wx, wy, angle, cellMap, obsSet, maxDist = VISUAL_RANGE) {
 
 const BOSS_DAMAGE_FLOAT_Y = M5_TRUMP_BOSS_SCALE * M5_TRUMP_BOSS_LOCAL_BOUNDS.headTop + 0.35
 
+function wrapGainPopupLines(text, ctx, maxWidth) {
+  if (!text) return []
+  if (ctx.measureText(text).width <= maxWidth) return [text]
+  const chunks = text.split(' · ')
+  if (chunks.length >= 2) {
+    const line1 = chunks[0]
+    const line2 = chunks.slice(1).join(' · ')
+    if (ctx.measureText(line1).width <= maxWidth && ctx.measureText(line2).width <= maxWidth) {
+      return [line1, line2]
+    }
+  }
+  const words = text.split(' ')
+  if (words.length < 2) return [text]
+  for (let i = 1; i < words.length; i++) {
+    const line1 = words.slice(0, i).join(' ')
+    const line2 = words.slice(i).join(' ')
+    if (ctx.measureText(line1).width <= maxWidth && ctx.measureText(line2).width <= maxWidth) {
+      return [line1, line2]
+    }
+  }
+  return [text]
+}
+
+function drawGainPopup(ctx, gain, W, H) {
+  if (!gain) return false
+  const ga = (performance.now() - gain.at) / 1200
+  if (ga >= 1) return false
+  const color = gain.color || '#4ade80'
+  const maxW = W * 0.62
+  const lineH = 16
+  const padX = 10
+  const padY = 6
+  ctx.font = 'bold 13px monospace'
+  const lines = wrapGainPopupLines(gain.text, ctx, maxW)
+  const tw = Math.max(...lines.map(line => ctx.measureText(line).width), 0)
+  const pillW = tw + padX * 2
+  const pillH = lines.length * lineH + padY * 2
+  const cx = W / 2
+  const cy = H * HORIZON_RATIO - 40 - ga * 20
+  ctx.save()
+  ctx.globalAlpha = 1 - ga
+  ctx.fillStyle = 'rgba(0,0,0,.88)'
+  ctx.strokeStyle = color + 'aa'
+  ctx.lineWidth = 1
+  ctx.fillRect(cx - pillW / 2, cy - pillH / 2, pillW, pillH)
+  ctx.strokeRect(cx - pillW / 2 + 0.5, cy - pillH / 2 + 0.5, pillW - 1, pillH - 1)
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'middle'
+  lines.forEach((line, i) => {
+    const ly = cy - pillH / 2 + padY + lineH / 2 + i * lineH
+    ctx.fillStyle = 'rgba(0,0,0,.85)'
+    ctx.fillText(line, cx + 1, ly + 1)
+    ctx.fillStyle = color
+    ctx.fillText(line, cx, ly)
+  })
+  ctx.restore()
+  return true
+}
+
 function drawCombatDamageFloats(ctx, floats, { mapId, W, H, threeState, now }) {
   const active = []
   for (const entry of floats) {
     const age = now - entry.at
     if (age >= COMBAT_DAMAGE_FLOAT_MS) continue
     if (entry.mapId !== mapId) continue
-    const text = combatDamageFloatText(entry)
-    if (!text) continue
+    const lines = combatDamageFloatLines(entry)
+    if (!lines.length) continue
     if (!threeState?.camera) continue
     const sv = threeState._v3a
     sv.set(entry.gx, entry.z + entry.yLift, entry.gy)
@@ -3671,27 +3730,28 @@ function drawCombatDamageFloats(ctx, floats, { mapId, W, H, threeState, now }) {
     const rise = t * 42
     const pop = 1 + (1 - Math.min(1, age / 180)) * 0.22
     const color = combatDamageFloatColor(entry)
-    const font = combatDamageFloatFont(entry)
+    const font = combatDamageFloatFont(entry, lines.length > 1 ? 15 : 18)
     ctx.save()
     ctx.globalAlpha = alpha
     ctx.font = font
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
     const drawY = sy - rise
-    const tw = ctx.measureText(text).width
     const fs = parseInt(font, 10) || 18
+    const lineGap = fs + 2
+    const tw = Math.max(...lines.map(line => ctx.measureText(line).width), 0)
     const padX = 7
     const padY = 4
     const pillW = tw + padX * 2
-    const pillH = fs + padY * 2
+    const pillH = lines.length * lineGap - 2 + padY * 2
     ctx.translate(sx, drawY)
     ctx.scale(pop, pop)
     ctx.fillStyle = entry.kind === 'received'
-      ? 'rgba(48,0,16,.82)'
+      ? 'rgba(48,0,16,.88)'
       : entry.dodged
-        ? 'rgba(0,32,48,.82)'
-        : 'rgba(0,36,18,.82)'
-    ctx.strokeStyle = color + 'aa'
+        ? 'rgba(0,32,48,.88)'
+        : 'rgba(0,36,18,.88)'
+    ctx.strokeStyle = color + 'cc'
     ctx.lineWidth = 1.2
     ctx.fillRect(-pillW / 2, -pillH / 2, pillW, pillH)
     ctx.strokeRect(-pillW / 2 + 0.25, -pillH / 2 + 0.25, pillW - 0.5, pillH - 0.5)
@@ -3699,10 +3759,25 @@ function drawCombatDamageFloats(ctx, floats, { mapId, W, H, threeState, now }) {
     ctx.shadowBlur = 18
     ctx.lineWidth = 4
     ctx.strokeStyle = 'rgba(0,0,0,.92)'
-    ctx.strokeText(text, 0, 0)
+    lines.forEach((line, i) => {
+      const ly = -pillH / 2 + padY + lineGap / 2 + i * lineGap
+      ctx.strokeText(line, 0, ly)
+    })
     ctx.shadowBlur = 12
     ctx.fillStyle = color
-    ctx.fillText(text, 0, 0)
+    lines.forEach((line, i) => {
+      const ly = -pillH / 2 + padY + lineGap / 2 + i * lineGap
+      if (i > 0 && entry.label) {
+        ctx.globalAlpha = alpha * 0.92
+        ctx.font = `700 ${Math.max(10, fs - 4)}px monospace`
+        ctx.fillStyle = entry.kind === 'received' ? '#ffb3c7' : '#b8ffd0'
+      } else {
+        ctx.globalAlpha = alpha
+        ctx.font = font
+        ctx.fillStyle = color
+      }
+      ctx.fillText(line, 0, ly)
+    })
     ctx.restore()
     active.push(entry)
   }
@@ -12348,19 +12423,6 @@ export default function MiningChain3DFPV({
       ctx.globalAlpha = 1
     }
 
-    // ── PvP gain popup ("+X EUR") ─────────────────────────────────────────
-    const gain = pvpGainRef.current
-    if (gain) {
-      const ga = (performance.now() - gain.at) / 1200
-      if (ga < 1) {
-        ctx.globalAlpha = 1 - ga
-        ctx.font = 'bold 13px monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
-        ctx.fillStyle = gain.color || '#4ade80'
-        ctx.fillText(gain.text, W/2, H * HORIZON_RATIO - 40 - ga*20)
-        ctx.globalAlpha = 1
-      } else pvpGainRef.current = null
-    }
-
     // ── Death HUD overlay (own player dead) ──────────────────────────────────
     const deadUntilMs = myDeadUntilRef.current
     if (deadUntilMs && deadUntilMs > Date.now()) {
@@ -12426,13 +12488,6 @@ export default function MiningChain3DFPV({
       }
       drawPlayerGridCoords(ctx, W, gr, gc, rawZ, presence)
     }
-    damageFloatsRef.current = drawCombatDamageFloats(ctx, damageFloatsRef.current, {
-      mapId: mapIdRef.current,
-      W,
-      H,
-      threeState,
-      now: performance.now(),
-    })
     const walletDock = drawWalletDock(
       ctx,W,H,myNftjisRef.current,healthMapRef.current[myIdentity]??100,es,Boolean(myWallet)
     )
@@ -12454,6 +12509,19 @@ export default function MiningChain3DFPV({
       if ((_isObsHUD || Boolean(hudCell)) && hudDist <= _maxHudDist) {
         drawFacingHUD(ctx, W, H, hudCell, hudMx, hudMy, myWallet, es, hudDist, validObstaclesRef.current, chainStatsBottom ?? 72, mineProgressRef.current, playerLevelRef.current, globalMm3Ref.current, chainSolversArrRef.current, chainDemineActiveRef.current, chainDemineHitsRef.current, nodeDiceStateRef.current, playerRef.current?.z ?? 0, rlMountActiveRef.current)
       }
+    }
+
+    // Combat feedback — drawn last so it stays above minimap and all HUD panels.
+    damageFloatsRef.current = drawCombatDamageFloats(ctx, damageFloatsRef.current, {
+      mapId: mapIdRef.current,
+      W,
+      H,
+      threeState,
+      now: performance.now(),
+    })
+    const gain = pvpGainRef.current
+    if (gain) {
+      if (!drawGainPopup(ctx, gain, W, H)) pvpGainRef.current = null
     }
   }, [])
 
@@ -13388,7 +13456,7 @@ export default function MiningChain3DFPV({
             pvpGainRef.current = {
               text: result.killed
                 ? `💀 ${M5_TRUMP_BOSS_NAME} DOWN ${hit}${rewardSuffix}`
-                : `${hit} ${M5_TRUMP_BOSS_NAME} -${result.damage} · ${result.health}/${result.maxHealth}`,
+                : `${hit} ${M5_TRUMP_BOSS_NAME} -${result.damage}`,
               at: performance.now(),
               color: result.killed ? '#4ade80' : '#fb923c',
             }

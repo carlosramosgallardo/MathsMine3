@@ -26,6 +26,7 @@ import { MINING_CORE_MAP_ID } from '@/lib/mining-maps'
 import { RL_NODE_MIN_LEVEL, RL_NODE_PRICE_MM3 } from '@/lib/mining-rl-mount'
 import { normalizeBossState, M5_TRUMP_BOSS_NAME, M5_TRUMP_BOSS_MAX_HP, M5_TRUMP_BOSS_SCALE, M5_TRUMP_BOSS_SPAWN } from '@/lib/m5-trump-boss'
 import { M5_TRUMP_BOSS_LOCAL_BOUNDS } from '@/lib/m5-trump-boss-runtime'
+import { formatWalletLabel } from '@/lib/wallet-format'
 import supabase from '@/lib/supabaseClient'
 
 const MiningChain3DFPV = dynamic(() => import('./MiningChain3DFPV'), { ssr: false })
@@ -1474,6 +1475,7 @@ export default function MiningChain3D() {
               critical: payload.critical,
               headshot: payload.headshot,
               dodged: payload.dodged,
+              label: payload.attacker ? formatWalletLabel(payload.attacker) : '',
             })
           }
         }
@@ -1575,6 +1577,7 @@ export default function MiningChain3D() {
           mapId: '5',
           critical: payload.critical,
           headshot: payload.headshot,
+          label: payload.wallet ? formatWalletLabel(payload.wallet) : '',
         })
       }
     })
@@ -1634,6 +1637,7 @@ export default function MiningChain3D() {
           mapId: '5',
           critical: payload.critical,
           dodged: payload.dodged,
+          label: M5_TRUMP_BOSS_NAME,
         })
       }
     })
