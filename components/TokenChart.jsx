@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, useMemo, useCallback } from 'react'
 import { useI18n } from '@/lib/i18n-context'
 import { getDiceWindowForHour } from '@/lib/dice'
 import { formatWalletLabel } from '@/lib/wallet-format'
+import { CRIT_NFTJI_ACCENT, LIFE_NFTJI_ACCENT } from '@/lib/wallet-decorations'
 import {
   AreaChart,
   Area,
@@ -128,8 +129,8 @@ function emojiColor(emoji) {
   if (emoji === '🧿') return '#c084fc'
   if (emoji === '🎰') return '#f59e0b'
   if (emoji === '🍀') return UP
-  if (emoji === '❤️') return '#ef4444'
-  if (emoji === '⚔️') return '#f97316'
+  if (emoji === '❤️') return LIFE_NFTJI_ACCENT
+  if (emoji === '⚔️') return CRIT_NFTJI_ACCENT
   if (emoji === '🔰') return '#3b82f6'
   if (emoji === '📈') return '#22c55e'
   if (emoji === '📉') return '#f43f5e'
@@ -139,9 +140,9 @@ function emojiColor(emoji) {
 function groupColor(evts) {
   if (evts.some(e => e.emoji === '🧿')) return '#c084fc'
   if (evts.some(e => e.emoji === '🎰')) return '#f59e0b'
-  if (evts.some(e => e.emoji === '❤️')) return '#ef4444'
+  if (evts.some(e => e.emoji === '❤️')) return LIFE_NFTJI_ACCENT
   if (evts.some(e => e.emoji === '🍀')) return UP
-  if (evts.some(e => e.emoji === '⚔️')) return '#f97316'
+  if (evts.some(e => e.emoji === '⚔️')) return CRIT_NFTJI_ACCENT
   if (evts.some(e => e.emoji === '🔰')) return '#3b82f6'
   if (evts.some(e => e.emoji === '📈')) return '#22c55e'
   if (evts.some(e => e.emoji === '📉')) return '#f43f5e'
@@ -527,8 +528,8 @@ const NFT_LEGEND_BASE = [
   { emoji: '🎰', key: 'legendJackpot',    clr: '#f59e0b' },
   { emoji: '🍀', key: 'legendFortune',    clr: UP },
   { emoji: '🔮', key: 'legendVoid',       clr: C },
-  { emoji: '❤️', key: 'legendLife',       clr: '#ef4444' },
-  { emoji: '⚔️', key: 'legendSqAttack',  clr: '#f97316' },
+  { emoji: '❤️', key: 'legendLife',       clr: LIFE_NFTJI_ACCENT },
+  { emoji: '⚔️', key: 'legendSqAttack',  clr: CRIT_NFTJI_ACCENT },
   { emoji: '🔰', key: 'legendSqDefense', clr: '#3b82f6' },
   { emoji: '📈', key: 'legendTradeBuy',  clr: '#22c55e' },
   { emoji: '📉', key: 'legendTradeSell', clr: '#f43f5e' },

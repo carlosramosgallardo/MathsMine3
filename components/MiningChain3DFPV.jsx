@@ -35,7 +35,13 @@ import {
   syncBossVisual,
   updateM5TrumpBoss,
 } from '@/lib/m5-trump-boss-runtime'
+import {
+  drawBossDollarBills,
+  spawnBossDollarBurst,
+  BOSS_DOLLAR_VFX_MS,
+} from '@/lib/m5-boss-dollar-vfx'
 import { M5_TRUMP_BOSS_NAME, M5_TRUMP_BOSS_SCALE, M5_TRUMP_BOSS_SPAWN } from '@/lib/m5-trump-boss'
+import { CRIT_NFTJI_ACCENT, LIFE_NFTJI_ACCENT, MINING_HEAL_GREEN } from '@/lib/wallet-decorations'
 import {
   COMBAT_DAMAGE_FLOAT_MS,
   combatDamageFloatColor,
@@ -209,7 +215,7 @@ const REMOTE_AVATAR_LOCAL = Object.freeze({
   feet: 0.075,
   halfWidth: 0.36,
 })
-// RL mount: head + antenna above the car mesh; USB staff hidden while mounted (applyRlMountVisual).
+// RL mount: head + antenna + USB staff above the car mesh (hidden only in pool heal).
 const REMOTE_AVATAR_MOUNTED_LOCAL = Object.freeze({
   headTop: 0.775,
   headBottom: 0.30,
@@ -3650,6 +3656,22 @@ function castRayLayers(wx, wy, angle, cellMap, obsSet, maxDist = VISUAL_RANGE) {
 
 const BOSS_DAMAGE_FLOAT_Y = M5_TRUMP_BOSS_SCALE * M5_TRUMP_BOSS_LOCAL_BOUNDS.headTop + 0.35
 
+function resolveBossAttackTargetPos(runtime, presenceMap, localGx, localGy, myIdentity) {
+  const wallet = runtime?.targetWallet
+  if (!wallet) return { gx: localGx, gy: localGy }
+  const pres = presenceMap?.[wallet]
+  if (pres) {
+    return {
+      gx: Number(pres.gx ?? (pres.col ?? 0) + 0.5),
+      gy: Number(pres.gy ?? (pres.row ?? 0) + 0.5),
+    }
+  }
+  if (myIdentity && wallet.toLowerCase() === String(myIdentity).toLowerCase()) {
+    return { gx: localGx, gy: localGy }
+  }
+  return null
+}
+
 function wrapGainPopupLines(text, ctx, maxWidth) {
   if (!text) return []
   if (ctx.measureText(text).width <= maxWidth) return [text]
@@ -4890,9 +4912,9 @@ function drawWalletDock(ctx, W, H, myNftjis, health, es, isLoggedWallet) {
     const sx = px + PAD_X + col * (SLOT_W + GAP)
     const slotY = baseSlotY + row * (SLOT_H + GAP)
     const ability = emoji === '❤️'
-      ? { lines:['SPEED +10%'], color:'#fb7185' }
+      ? { lines:['SPEED +10%'], color: LIFE_NFTJI_ACCENT }
       : (emoji === '⚔️' || blockKey === 'sq-atk')
-        ? { lines:['CRIT +5%'], color:'#facc15' }
+        ? { lines:['CRIT +5%'], color: CRIT_NFTJI_ACCENT }
         : (emoji === '🔰' || blockKey === 'sq-def')
           ? { lines:['DODGE 10%'], color:'#22d3ee' }
           : source==='mining'
@@ -7015,19 +7037,21 @@ function makeDiceFaceTexture(face) {
   return texture
 }
 
-function makeHousePerimeterHeartTexture() {
+function makeHousePerimeterHeartTexture(heartColor = LIFE_NFTJI_ACCENT) {
   const s=256,cv=document.createElement('canvas')
   cv.width=s;cv.height=s
   const ctx=cv.getContext('2d')
   ctx.clearRect(0,0,s,s)
   const cx=s/2,cy=s/2+8
-  ctx.shadowColor='#ef4444'
+  ctx.shadowColor=heartColor
   ctx.shadowBlur=28
   ctx.font='bold 168px "Apple Color Emoji","Segoe UI Emoji",sans-serif'
   ctx.textAlign='center'
   ctx.textBaseline='middle'
-  ctx.fillStyle='#ef4444'
+  ctx.filter='hue-rotate(195deg) saturate(1.35) brightness(1.08)'
+  ctx.fillStyle=heartColor
   ctx.fillText('❤️',cx,cy)
+  ctx.filter='none'
   const texture=new THREE.CanvasTexture(cv)
   texture.colorSpace=THREE.SRGBColorSpace
   texture.anisotropy=8
@@ -7053,23 +7077,21 @@ function makePoolHealEmblemTexture() {
   cv.width=s;cv.height=s
   const ctx=cv.getContext('2d')
   ctx.clearRect(0,0,s,s)
-  ctx.strokeStyle='rgba(148,163,184,.72)'
+  ctx.strokeStyle='rgba(74,222,128,.55)'
   ctx.lineWidth=7
   ctx.beginPath()
   ctx.arc(s/2,s/2,88,0,Math.PI*2)
   ctx.stroke()
-  ctx.strokeStyle='rgba(252,165,165,.55)'
+  ctx.strokeStyle='rgba(134,239,172,.45)'
   ctx.lineWidth=3
   ctx.beginPath()
   ctx.arc(s/2,s/2,74,0,Math.PI*2)
   ctx.stroke()
-  ctx.font='bold 112px "Apple Color Emoji","Segoe UI Emoji",sans-serif'
-  ctx.textAlign='center'
-  ctx.textBaseline='middle'
-  ctx.shadowColor='#ef4444'
+  ctx.shadowColor=MINING_HEAL_GREEN
   ctx.shadowBlur=22
-  ctx.fillStyle='#ef4444'
-  ctx.fillText('❤️',s/2,s/2+6)
+  ctx.fillStyle=MINING_HEAL_GREEN
+  ctx.fillRect(s/2-8,s/2-34,16,68)
+  ctx.fillRect(s/2-34,s/2-8,68,16)
   const texture=new THREE.CanvasTexture(cv)
   texture.colorSpace=THREE.SRGBColorSpace
   texture.anisotropy=8
@@ -9820,8 +9842,10 @@ function applyRlMountVisual(avatar, mounted, threeState = null) {
     for (const part of avatar.userData.bodyParts) part.visible = !mounted
   }
   if (avatar.userData.tool) {
-    avatar.userData.tool.visible = !avatar.userData.wasDead && !avatar.userData.isHealingRecharge && !mounted
-    if (!mounted && avatar.userData.rlStandToolPos) {
+    avatar.userData.tool.visible = !avatar.userData.wasDead && !avatar.userData.isHealingRecharge
+    if (mounted) {
+      avatar.userData.tool.position.set(0.34, 0.42, 0.08)
+    } else if (avatar.userData.rlStandToolPos) {
       avatar.userData.tool.position.copy(avatar.userData.rlStandToolPos)
     }
   }
@@ -9968,9 +9992,9 @@ function createHealingRechargeEffect() {
   const effect=new THREE.Group()
   effect.userData.healingRechargeEffect=true
   const ringMat=new THREE.MeshBasicMaterial({
-    color:'#fca5a5',
+    color:MINING_HEAL_GREEN,
     transparent:true,
-    opacity:.58,
+    opacity:.52,
     depthWrite:false,
     blending:THREE.AdditiveBlending,
   })
@@ -9979,17 +10003,29 @@ function createHealingRechargeEffect() {
   ring.position.y=.44
   effect.userData.ring=ring
   effect.add(ring)
-  const ring2Mat=ringMat.clone();ring2Mat.opacity=.34
+  const ring2Mat=ringMat.clone();ring2Mat.opacity=.30
   const ring2=new THREE.Mesh(new THREE.TorusGeometry(.28,.012,6,20),ring2Mat)
   ring2.rotation.x=Math.PI/2
   ring2.position.y=.22
   effect.userData.ring2=ring2
   effect.add(ring2)
-  const heart=makeEmojiSprite('❤️','#ef4444','circle')
-  heart.scale.set(.62,.62,1)
-  heart.position.y=.36
-  effect.userData.heart=heart
-  effect.add(heart)
+  const chargeCv=document.createElement('canvas')
+  chargeCv.width=64;chargeCv.height=64
+  const cctx=chargeCv.getContext('2d')
+  cctx.clearRect(0,0,64,64)
+  cctx.fillStyle=MINING_HEAL_GREEN
+  cctx.shadowColor=MINING_HEAL_GREEN
+  cctx.shadowBlur=10
+  cctx.fillRect(28,14,8,36)
+  cctx.fillRect(14,28,36,8)
+  const chargeTex=new THREE.CanvasTexture(chargeCv)
+  const charge=new THREE.Sprite(new THREE.SpriteMaterial({
+    map:chargeTex,transparent:true,depthWrite:false,
+  }))
+  charge.scale.set(.42,.42,1)
+  charge.position.y=.36
+  effect.userData.charge=charge
+  effect.add(charge)
   return effect
 }
 
@@ -10085,11 +10121,14 @@ function updatePoolSubmersionEffects(state,time,tier='medium'){
 function setAvatarHealingRecharge(avatar, active, rlMounted = false) {
   const effect=avatar?.userData?.healEffect
   const tool=avatar?.userData?.tool
-  // On foot in the pool the USB plugs in for the heal FX; mounted players hide the staff.
-  const healActive=Boolean(active)&&!rlMounted
-  if(effect) effect.visible=healActive
-  if(tool) tool.visible=!avatar.userData?.wasDead&&!healActive&&!rlMounted
+  const healActive=Boolean(active)
   avatar.userData.isHealingRecharge=healActive
+  if(effect){
+    effect.visible=healActive
+    effect.position.y=rlMounted?0.58:0
+    effect.scale.setScalar(rlMounted?1.18:1)
+  }
+  if(tool) tool.visible=!avatar.userData?.wasDead&&!healActive
 }
 
 function updateHealingRechargeEffects(state,time,tier='medium') {
@@ -10109,12 +10148,17 @@ function updateHealingRechargeEffects(state,time,tier='medium') {
       ring.scale.setScalar(scale)
       ring.material.opacity=(lite?0.26:0.32)+Math.sin(time*2.4)*(lite?0.06:0.12)
     }
-    const heart=effect.userData.heart
-    if(heart){
+    const ring2=effect.userData.ring2
+    if(ring2){
+      ring2.rotation.z=-time*2.35
+      ring2.material.opacity=.22+Math.sin(time*2.9+.7)*.10
+    }
+    const charge=effect.userData.charge
+    if(charge){
       const bob=(Math.sin(time*2.2)+1)*.5
-      heart.position.y=.30+bob*(lite?0.10:0.16)
-      heart.material.opacity=(lite?0.82:0.94)+bob*(lite?0.06:0.08)
-      heart.rotation.y=-avatar.rotation.y
+      charge.position.y=.30+bob*(lite?0.10:0.16)
+      charge.material.opacity=(lite?0.78:0.90)+bob*(lite?0.08:0.10)
+      charge.rotation.y=-avatar.rotation.y
     }
   }
 }
@@ -10421,6 +10465,8 @@ export default function MiningChain3DFPV({
   const dodgeFlashRef   = useRef(0)      // timestamp of last successful dodge (cyan flash)
   const pvpGainRef      = useRef(null)   // { text, at } for "+X EUR" popup
   const damageFloatsRef = useRef([])
+  const bossDollarBillsRef = useRef([])
+  const bossLastAttackMsRef = useRef(0)
   const onPvpHitRef          = useRef(onPvpHit)
   const pvpStolenRef         = useRef(pvpStolen || {})
   const demineRewardsRef     = useRef(demineRewards || {})
@@ -10639,6 +10685,12 @@ export default function MiningChain3DFPV({
   useEffect(()=>{ currencyRef.current=currency },[currency])
   useEffect(()=>{ presenceKeyRef.current=presenceKey||myWallet },[presenceKey,myWallet])
   useEffect(()=>{ mapIdRef.current = mapId || MINING_CORE_MAP_ID }, [mapId])
+  useEffect(()=>{
+    if ((mapId || MINING_CORE_MAP_ID) !== '5') {
+      bossDollarBillsRef.current = []
+      bossLastAttackMsRef.current = 0
+    }
+  }, [mapId])
   useEffect(()=>{ onMapChangeRef.current = onMapChange }, [onMapChange])
   useEffect(()=>{
     minimapStaticRef.current = null
@@ -12512,6 +12564,27 @@ export default function MiningChain3DFPV({
     }
 
     // Combat feedback — drawn last so it stays above minimap and all HUD panels.
+    if (
+      mapIdRef.current === MINING_CORE_MAP_ID
+      && !myDeadUntilRef.current
+      && isAvatarInPoolVisual(gr, gc, rawZ, false)
+      && (healthMapRef.current[myIdentity] ?? 100) < 100
+    ) {
+      const pulse = 0.05 + (Math.sin(performance.now() * 0.004) * 0.5 + 0.5) * 0.07
+      const pg = ctx.createRadialGradient(W / 2, H * 0.72, H * 0.04, W / 2, H * 0.72, H * 0.38)
+      pg.addColorStop(0, `rgba(74,222,128,${pulse.toFixed(3)})`)
+      pg.addColorStop(1, 'rgba(74,222,128,0)')
+      ctx.fillStyle = pg
+      ctx.fillRect(0, 0, W, H)
+    }
+    bossDollarBillsRef.current = drawBossDollarBills(ctx, bossDollarBillsRef.current, {
+      mapId: mapIdRef.current,
+      W,
+      H,
+      threeState,
+      now: performance.now(),
+      lowDetail: visualPerfTierRef.current === 'low',
+    })
     damageFloatsRef.current = drawCombatDamageFloats(ctx, damageFloatsRef.current, {
       mapId: mapIdRef.current,
       W,
@@ -13039,6 +13112,29 @@ export default function MiningChain3DFPV({
             onBossIdleRef.current?.()
           },
         })
+        const rt = bossRuntimeRef.current
+        const prevAttackMs = bossLastAttackMsRef.current
+        if (rt?.lastAttackMs && rt.lastAttackMs > prevAttackMs) {
+          const targetPos = resolveBossAttackTargetPos(
+            rt,
+            presenceRef.current,
+            p.x / CELL_SIZE,
+            p.y / CELL_SIZE,
+            myIdentity,
+          )
+          if (targetPos) {
+            const tier = visualPerfTierRef.current
+            bossDollarBillsRef.current = spawnBossDollarBurst(bossDollarBillsRef.current, {
+              fromGx: rt.gx,
+              fromGy: rt.gy,
+              toGx: targetPos.gx,
+              toGy: targetPos.gy,
+              at: performance.now(),
+              count: tier === 'low' ? 4 : tier === 'medium' ? 5 : 7,
+            })
+          }
+        }
+        bossLastAttackMsRef.current = rt?.lastAttackMs ?? 0
         const threeState = threeStateRef.current
         if (threeState?.m5TrumpBossGroup) {
           syncBossVisual(
@@ -13653,6 +13749,12 @@ export default function MiningChain3DFPV({
       if(pvpFlashRef.current && nowMs-pvpFlashRef.current<280) needsRender=true
       if(dodgeFlashRef.current && nowMs-dodgeFlashRef.current<500) needsRender=true
       if(damageFloatsRef.current.some(e => nowMs - e.at < COMBAT_DAMAGE_FLOAT_MS)) needsRender=true
+      if(bossDollarBillsRef.current.some(b => nowMs - b.at < BOSS_DOLLAR_VFX_MS)) needsRender=true
+      if(
+        mapIdRef.current === MINING_CORE_MAP_ID
+        && isAvatarInPoolVisual(p.x / CELL_SIZE, p.y / CELL_SIZE, p.z, false)
+        && (healthMapRef.current[presenceKeyRef.current || myWalletRef.current] ?? 100) < 100
+      ) needsRender=true
       // Keep rendering while any remote wallet swing animation is still playing
       const now2=Date.now()
       for(const t of Object.values(swingMapRef.current||{})){
@@ -13821,8 +13923,8 @@ export default function MiningChain3DFPV({
                         : (sk.emoji==='🔰'||sk.blockKey==='sq-def') ? 'DODGE 10%'
                         : sk.source==='mining' ? 'LONG +10%'
                         : null
-                      const slotAccent = sk.emoji==='❤️' ? '#fb7185'
-                        : (sk.emoji==='⚔️'||sk.blockKey==='sq-atk') ? '#facc15'
+                      const slotAccent = sk.emoji==='❤️' ? LIFE_NFTJI_ACCENT
+                        : (sk.emoji==='⚔️'||sk.blockKey==='sq-atk') ? CRIT_NFTJI_ACCENT
                         : (sk.emoji==='🔰'||sk.blockKey==='sq-def') ? '#22d3ee'
                         : sk.source==='mining' ? '#4ade80'
                         : '#fb923c'

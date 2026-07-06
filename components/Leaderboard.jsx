@@ -7,7 +7,7 @@ import supabase from '@/lib/supabaseClient';
 import { CNY_TO_EUR, CNY_TO_USD, formatMoney, formatCompactNum } from '@/lib/sell-offer';
 import { clampRankLevel, getRankTier } from '@/lib/ranks';
 import { colorFromAddress, colorFromPool } from '@/lib/wallet-colors';
-import { normalizeWalletDecorations, getEmojiTitle, TRADE_SLOT_ORDER, SQUEEZE_SLOT_ORDER, WALLET_DECORATIONS, computeRelayLevel } from '@/lib/wallet-decorations';
+import { normalizeWalletDecorations, getEmojiTitle, TRADE_SLOT_ORDER, SQUEEZE_SLOT_ORDER, WALLET_DECORATIONS, LIFE_NFTJI_ACCENT, computeRelayLevel } from '@/lib/wallet-decorations';
 import { useCurrency } from '@/lib/currency-context';
 import { useActiveWallet } from '@/lib/use-active-wallet';
 import { formatWalletLabel } from '@/lib/wallet-format';
@@ -1655,8 +1655,8 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
                     const slotLvl = Math.max(0, Number(entry.nftjiLevels?.[slot.key] ?? 0) || 0);
                     const showLvl = owned && !isLife;
                     const borderColor = owned
-                      ? (isLife ? 'rgba(251,113,133,0.6)' : tier.glow)
-                      : (isLife ? 'rgba(251,113,133,0.22)' : 'rgba(148,163,184,0.22)');
+                      ? (isLife ? 'rgba(56,189,248,0.6)' : tier.glow)
+                      : (isLife ? 'rgba(56,189,248,0.22)' : 'rgba(148,163,184,0.22)');
                     return (
                       <div
                         key={slot.key}
@@ -1896,8 +1896,8 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
                     const slotLvl = Math.max(0, Number(entry.nftjiLevels?.[slot.key] ?? 0) || 0);
                     const showLvl = owned && !isLife;
                     const borderColor = owned
-                      ? (isLife ? 'rgba(251,113,133,0.6)' : tier.glow)
-                      : (isLife ? 'rgba(251,113,133,0.22)' : 'rgba(148,163,184,0.22)');
+                      ? (isLife ? 'rgba(56,189,248,0.6)' : tier.glow)
+                      : (isLife ? 'rgba(56,189,248,0.22)' : 'rgba(148,163,184,0.22)');
                     return (
                       <div
                         key={slot.key}
@@ -2134,8 +2134,8 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
                         const lvlSum = !isLife ? (entry.wallet_emoji_level_sums?.[slot.emoji] || 0) : 0;
                         const showLvl = owned && !isLife;
                         const borderColor = owned
-                          ? (isLife ? 'rgba(251,113,133,0.6)' : tier.glow)
-                          : (isLife ? 'rgba(251,113,133,0.22)' : 'rgba(148,163,184,0.22)');
+                          ? (isLife ? 'rgba(56,189,248,0.6)' : tier.glow)
+                          : (isLife ? 'rgba(56,189,248,0.22)' : 'rgba(148,163,184,0.22)');
                         return (
                           <div
                             key={slot.key}
@@ -2362,8 +2362,8 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
                         const lvl = Math.max(0, Number(entry.nftjiLevels?.[slot.key] ?? 0) || 0);
                         const showLvl = owned && !isLife;
                         const borderColor = owned
-                          ? (isLife ? 'rgba(251,113,133,0.6)' : tier.glow)
-                          : (isLife ? 'rgba(251,113,133,0.22)' : 'rgba(148,163,184,0.22)');
+                          ? (isLife ? 'rgba(56,189,248,0.6)' : tier.glow)
+                          : (isLife ? 'rgba(56,189,248,0.22)' : 'rgba(148,163,184,0.22)');
                         return (
                           <div
                             key={slot.key}

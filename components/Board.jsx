@@ -12,6 +12,7 @@ import {
   WALLET_DECORATIONS,
   TRADE_SLOT_ORDER,
   SQUEEZE_SLOT_ORDER,
+  LIFE_NFTJI_ACCENT,
   appendWalletDecoration,
   computeRelayLevel,
   getEmojiTitle,
@@ -2642,8 +2643,8 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
                 const isMining = nftji.source === 'mining';
                 const isLife = nftji.emoji === WALLET_DECORATIONS.revive;
                 const borderColor = nftji.placeholder
-                  ? (isMining ? 'rgba(250,204,21,0.22)' : isLife ? 'rgba(251,113,133,0.22)' : 'rgba(148,163,184,0.22)')
-                  : (isMining ? 'rgba(250,204,21,0.6)' : isLife ? 'rgba(251,113,133,0.6)' : tier.glow);
+                  ? (isMining ? 'rgba(250,204,21,0.22)' : isLife ? 'rgba(56,189,248,0.22)' : 'rgba(148,163,184,0.22)')
+                  : (isMining ? 'rgba(250,204,21,0.6)' : isLife ? 'rgba(56,189,248,0.6)' : tier.glow);
                 const slotColor = isMining ? '#fef08a' : tier.color;
                 const title = nftji.placeholder
                   ? (nftji.source === 'mining' ? 'Mining NFTJI — none' : `${getEmojiTitle(nftji.emoji)} — none`)
@@ -2962,8 +2963,8 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
                         aria-label="Special action"
                         className="min-w-14 px-4 py-2.5 rounded-lg font-mono text-2xl leading-none border-2 transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 disabled:opacity-40"
                         style={{
-                          borderColor: postFailOffer.offer.type === 'life' ? '#fb7185aa' : '#facc15aa',
-                          color: postFailOffer.offer.type === 'life' ? '#fb7185' : '#facc15',
+                          borderColor: postFailOffer.offer.type === 'life' ? `${LIFE_NFTJI_ACCENT}aa` : '#facc15aa',
+                          color: postFailOffer.offer.type === 'life' ? LIFE_NFTJI_ACCENT : '#facc15',
                           background: 'transparent',
                         }}
                       >

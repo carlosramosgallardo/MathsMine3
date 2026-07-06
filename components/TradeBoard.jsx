@@ -7,7 +7,7 @@ import { useI18n } from '@/lib/i18n-context';
 import { useCurrency } from '@/lib/currency-context';
 import { normalizeMacroState } from '@/lib/mm3-macro';
 import { getRankTier } from '@/lib/ranks';
-import { TRADE_SLOT_ORDER, SQUEEZE_SLOT_ORDER, WALLET_DECORATIONS, getEmojiTitle, computeRelayLevel, getWalletTradeMultiplier, normalizeWalletDecorations } from '@/lib/wallet-decorations';
+import { TRADE_SLOT_ORDER, SQUEEZE_SLOT_ORDER, WALLET_DECORATIONS, LIFE_NFTJI_ACCENT, getEmojiTitle, computeRelayLevel, getWalletTradeMultiplier, normalizeWalletDecorations } from '@/lib/wallet-decorations';
 import { useDice } from '@/lib/dice-context';
 import { getDiceState } from '@/lib/dice';
 import { useSound } from '@/lib/sound-context';
@@ -705,8 +705,8 @@ export default function TradeBoard({ account, isVirtualWallet = false }) {
                     const showLvl = owned && !isLife;
                     const ability = getTradeSlotImpact(slot, slotLvl);
                     const borderColor = owned
-                      ? (isLife ? 'rgba(251,113,133,0.6)' : tier.glow)
-                      : (isLife ? 'rgba(251,113,133,0.22)' : 'rgba(148,163,184,0.22)');
+                      ? (isLife ? 'rgba(56,189,248,0.6)' : tier.glow)
+                      : (isLife ? 'rgba(56,189,248,0.22)' : 'rgba(148,163,184,0.22)');
                     return (
                       <div
                         key={slot.key}
@@ -722,7 +722,7 @@ export default function TradeBoard({ account, isVirtualWallet = false }) {
                         {owned && (
                           <span
                             className="absolute inset-x-0 top-0 px-px py-0.5 text-center text-[0.42rem] font-black leading-none tracking-tight text-[#02060b]"
-                            style={{ background: isLife ? '#fb7185' : tier.color }}
+                            style={{ background: isLife ? LIFE_NFTJI_ACCENT : tier.color }}
                           >
                             {ability.label}
                           </span>
