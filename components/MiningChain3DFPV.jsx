@@ -41,6 +41,12 @@ import {
   usesSoftPerimeter,
 } from '@/lib/mining-perimeter-visual'
 import { buildM1GatewaySightClear, getPeripheralGatewaySightClear, MINING_GATEWAY_CORRIDOR_DEPTH } from '@/lib/mining-gateway-corridors'
+import {
+  getGatewayTravelVisual,
+  getGatewayOuterSeaStrip,
+  iterGatewaySeaTravelSlots,
+  iterGatewayWorldTravelAnchors,
+} from '@/lib/mining-gateway-travel-visual'
 import { getDiceState } from '@/lib/dice'
 import {
   CIPHER_HOUSE_BOUNDS,
@@ -3729,6 +3735,39 @@ function drawMinimapFullEdgeCorridors(ctx, mapId, mapX, mapY, CS) {
   if (edges.east?.open && edges.east.fullEdge) drawStrip(mapX(c1) - depthPx + CS, mapY(r0), depthPx, spanH)
 }
 
+/** Travel icons on the outer sea ring — one transport type per adjacent map. */
+function drawMinimapGatewayTravelVisuals(ctx, mapId, mapX, mapY, CS) {
+  const edges = getMiningMapEdgeState(mapId)
+  const seaFill = 'rgba(14,62,88,.62)'
+  const fontSize = Math.max(6, CS * 0.82)
+
+  for (const side of ['north', 'south', 'east', 'west']) {
+    const edge = edges[side]
+    if (!edge?.open || !edge.fullEdge) continue
+    const travel = getGatewayTravelVisual(edge.targetMapId)
+    const strip = getGatewayOuterSeaStrip(side)
+    ctx.fillStyle = seaFill
+    ctx.fillRect(
+      mapX(strip.minCol),
+      mapY(strip.minRow),
+      (strip.maxCol - strip.minCol + 1) * CS,
+      (strip.maxRow - strip.minRow + 1) * CS,
+    )
+    ctx.font = `${fontSize}px serif`
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    for (const slot of iterGatewaySeaTravelSlots(side)) {
+      const cx = mapX(slot.col + 0.5)
+      const cy = mapY(slot.row + 0.5)
+      ctx.save()
+      ctx.shadowColor = 'rgba(56,189,248,.45)'
+      ctx.shadowBlur = 3
+      ctx.fillText(travel.emoji, cx, cy)
+      ctx.restore()
+    }
+  }
+}
+
 /** Closed-edge dim cap vs open-edge gateway strip with target map id. */
 function drawMinimapEdgeExits(ctx, mapId, MX, MY, SZ, CS) {
   const edges = getMiningMapEdgeState(mapId)
@@ -3990,6 +4029,7 @@ function drawMinimap(ctx, gr, gc, angle, cellMap, presenceMap, myWallet, W, H, c
   }
 
   drawMinimapFullEdgeCorridors(ctx, mapId, mapX, mapY, CS)
+  drawMinimapGatewayTravelVisuals(ctx, mapId, mapX, mapY, CS)
 
   for (const [key, obstacle] of validObs || []) {
     const [row, col] = key.split(',').map(Number)
@@ -7849,10 +7889,120 @@ function addPeripheralGroundFeatures(world, mapId, lowDetail = false) {
     addGatewayCausewayScenery(scenery, 'west', lowDetail)
   }
   if (mapId === '5') {
-    addMysticIslePerimeterScenery(scenery, lowDetail)
+    addMysticIslePerimeterScenery(scenery)
     addGatewayCausewayScenery(scenery, 'east', lowDetail)
   }
+  addFullEdgeGatewayTravelScenery(scenery, mapId, lowDetail)
   world.add(scenery)
+}
+
+function createGatewayBoatDecor(lowDetail, sail = false) {
+  const hullMat = new THREE.MeshStandardMaterial({ color: sail ? '#f8fafc' : '#c4d4de', roughness: 0.55, metalness: 0.12, flatShading: lowDetail })
+  const woodMat = new THREE.MeshStandardMaterial({ color: '#7a5230', roughness: 0.88, flatShading: lowDetail })
+  const group = new THREE.Group()
+  group.userData.skipOcclusion = true
+  const hull = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.22, 1.35, lowDetail ? 5 : 7), hullMat)
+  hull.rotation.z = Math.PI / 2
+  hull.scale.set(1, 1, 0.55)
+  hull.position.y = 0.22
+  group.add(hull)
+  if (sail) {
+    const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.05, 1.1, 5), woodMat)
+    mast.position.set(0.05, 0.85, 0)
+    group.add(mast)
+    const sailMesh = new THREE.Mesh(
+      new THREE.PlaneGeometry(0.75, 0.55),
+      new THREE.MeshStandardMaterial({ color: '#fde68a', roughness: 0.9, side: THREE.DoubleSide, transparent: true, opacity: 0.92 }),
+    )
+    sailMesh.position.set(0.42, 1.0, 0)
+    sailMesh.rotation.y = Math.PI / 2
+    group.add(sailMesh)
+  } else {
+    const cabin = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.28, 0.32), woodMat)
+    cabin.position.set(-0.15, 0.42, 0)
+    group.add(cabin)
+    const stack = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.06, 0.35, 5), new THREE.MeshStandardMaterial({ color: '#64748b', roughness: 0.7 }))
+    stack.position.set(-0.35, 0.58, 0)
+    group.add(stack)
+  }
+  return group
+}
+
+function createGatewayTrainDecor(lowDetail) {
+  const group = new THREE.Group()
+  group.userData.skipOcclusion = true
+  const bodyMat = new THREE.MeshStandardMaterial({ color: '#dc2626', roughness: 0.48, metalness: 0.22, flatShading: lowDetail })
+  const trimMat = new THREE.MeshStandardMaterial({ color: '#fbbf24', roughness: 0.42, flatShading: lowDetail })
+  const wheelMat = new THREE.MeshStandardMaterial({ color: '#1e293b', roughness: 0.75, flatShading: lowDetail })
+  const loco = new THREE.Mesh(new THREE.BoxGeometry(0.95, 0.42, 0.38), bodyMat)
+  loco.position.set(0, 0.32, 0)
+  group.add(loco)
+  const cab = new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.36, 0.36), trimMat)
+  cab.position.set(-0.48, 0.38, 0)
+  group.add(cab)
+  for (const wx of [-0.28, 0.18, 0.42]) {
+    const wheel = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 0.06, lowDetail ? 6 : 8), wheelMat)
+    wheel.rotation.z = Math.PI / 2
+    wheel.position.set(wx, 0.1, 0)
+    group.add(wheel)
+  }
+  for (let car = 0; car < 2; car += 1) {
+    const wagon = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.28, 0.34), new THREE.MeshStandardMaterial({
+      color: car === 0 ? '#b45309' : '#92400e', roughness: 0.62, flatShading: lowDetail,
+    }))
+    wagon.position.set(0.95 + car * 0.72, 0.28, 0)
+    group.add(wagon)
+  }
+  return group
+}
+
+function createGatewayPlaneDecor(lowDetail) {
+  const group = new THREE.Group()
+  group.userData.skipOcclusion = true
+  const fuselage = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.14, 0.18, 1.25, lowDetail ? 6 : 8),
+    new THREE.MeshStandardMaterial({ color: '#e2e8f0', roughness: 0.35, metalness: 0.35, flatShading: lowDetail }),
+  )
+  fuselage.rotation.z = Math.PI / 2
+  fuselage.position.y = 0.15
+  group.add(fuselage)
+  const wing = new THREE.Mesh(
+    new THREE.BoxGeometry(0.22, 0.04, 1.45),
+    new THREE.MeshStandardMaterial({ color: '#94a3b8', roughness: 0.45, metalness: 0.28, flatShading: lowDetail }),
+  )
+  wing.position.y = 0.18
+  group.add(wing)
+  const tail = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.03, 0.18), new THREE.MeshStandardMaterial({ color: '#64748b', roughness: 0.5 }))
+  tail.position.set(-0.62, 0.24, 0)
+  group.add(tail)
+  const nose = new THREE.Mesh(new THREE.ConeGeometry(0.14, 0.28, lowDetail ? 6 : 8), new THREE.MeshStandardMaterial({ color: '#38bdf8', roughness: 0.3, metalness: 0.4 }))
+  nose.rotation.z = -Math.PI / 2
+  nose.position.set(0.72, 0.15, 0)
+  group.add(nose)
+  return group
+}
+
+function addFullEdgeGatewayTravelScenery(scenery, mapId, lowDetail = false) {
+  const edges = getMiningMapEdgeState(mapId)
+  for (const side of ['north', 'south', 'east', 'west']) {
+    const edge = edges[side]
+    if (!edge?.open || !edge.fullEdge) continue
+    const travel = getGatewayTravelVisual(edge.targetMapId)
+    let idx = 0
+    for (const anchor of iterGatewayWorldTravelAnchors(side)) {
+      let decor
+      if (travel.kind === 'train') decor = createGatewayTrainDecor(lowDetail)
+      else if (travel.kind === 'plane') decor = createGatewayPlaneDecor(lowDetail)
+      else decor = createGatewayBoatDecor(lowDetail, travel.kind === 'sail')
+      const lift = travel.kind === 'plane' ? 1.65 + (idx % 2) * 0.35 : 0
+      decor.position.set(anchor.x, lift, anchor.z)
+      decor.rotation.y = anchor.yaw
+      if (travel.kind === 'plane') decor.rotation.x = -0.08 - (idx % 3) * 0.04
+      decor.scale.setScalar(travel.kind === 'train' ? 1.15 : travel.kind === 'plane' ? 1.05 : 1.2)
+      scenery.add(decor)
+      idx += 1
+    }
+  }
 }
 
 // Stone pilings, lanterns and shore arches on gateway causeways over the sea.
