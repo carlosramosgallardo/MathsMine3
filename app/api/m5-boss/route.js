@@ -45,11 +45,32 @@ async function loadBossRow(sb) {
   return data
 }
 
+// Every client polls this every 8s; boss changes propagate via realtime
+// broadcasts anyway, so a short shared cache keeps Postgres load flat as
+// concurrent players grow. Revive (dead → idle) is delayed by ≤5s at most.
+const CACHE_MS = 5_000
+let cached = null
+let pending = null
+
+async function loadBossState() {
+  if (cached && Date.now() - cached.ts < CACHE_MS) return cached.payload
+  if (!pending) {
+    pending = loadBossRow(serviceClient())
+      .then((row) => {
+        const payload = normalizeBossState(row)
+        cached = { ts: Date.now(), payload }
+        return payload
+      })
+      .finally(() => { pending = null })
+  }
+  return pending
+}
+
 export async function GET() {
   try {
-    const sb = serviceClient()
-    const row = await loadBossRow(sb)
-    return Response.json(normalizeBossState(row))
+    return Response.json(await loadBossState(), {
+      headers: { 'Cache-Control': 'public, s-maxage=5, stale-while-revalidate=15' },
+    })
   } catch (error) {
     return Response.json({ ok: false, error: error?.message || 'boss_load_failed' }, { status: 500 })
   }

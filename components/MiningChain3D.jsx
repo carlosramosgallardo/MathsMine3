@@ -230,6 +230,13 @@ export default function MiningChain3D() {
 
   // Refs: avoid stale closures in channel callbacks and game loop
   const channelRef     = useRef(null)
+  // Per-map channel for high-frequency 'move' broadcasts. Realtime bills every
+  // delivered message, so fan-out on the shared channel is O(N²) across ALL
+  // players; scoping moves to the current map bounds N to players on that map.
+  const mapMoveChannelRef = useRef(null)
+  // Move handler lives in the global-channel effect (it owns the rAF-batched
+  // queue); the per-map channel effect reaches it through this ref.
+  const moveBroadcastHandlerRef = useRef(null)
   const loadChainStatusRef = useRef(null)
   const myWalletRef    = useRef(myWallet)
   const myPosRef       = useRef(initialPos)
@@ -258,6 +265,10 @@ export default function MiningChain3D() {
   positionsRef.current = positions
   // onlineWallets: who is currently in the channel (from presence sync)
   const [onlineWallets, setOnlineWallets] = useState(new Set())
+  // presenceMeta: wallet → { mapId, isBot } for EVERYONE online, from presence
+  // sync. Unlike positions (distance-culled), this always knows who is on
+  // which map — the FPV send throttle uses it to skip broadcasts when alone.
+  const [presenceMeta,  setPresenceMeta]  = useState({})
   const [loading,       setLoading]       = useState(true)
   const [fpvReady,      setFpvReady]      = useState(false)
   const [worldBootstrapped, setWorldBootstrapped] = useState(false)
@@ -1673,8 +1684,10 @@ export default function MiningChain3D() {
       setExternalPush({ dx: Number(payload.dx) || 0, dy: Number(payload.dy) || 0, at: Date.now() })
     })
 
-    // Low-latency position updates via broadcast.
-    ch.on('broadcast', { event: 'move' }, ({ payload }) => {
+    // Low-latency position updates via broadcast. Registered on the global
+    // channel (bots and map-change/rl-mount one-offs still send there) and
+    // shared with the per-map move channel via moveBroadcastHandlerRef.
+    const onMoveBroadcast = (payload) => {
       if (!payload?.wallet || payload.gx == null) return
       if (payload.nodeDice) {
         const nextNodeDice = normalizeNodeDiceState(payload.nodeDice)
@@ -1701,7 +1714,9 @@ export default function MiningChain3D() {
       }
       if (payload.isBot) loadRemoteHealth(w)
       queueMove(w,payload)
-    })
+    }
+    ch.on('broadcast', { event: 'move' }, ({ payload }) => onMoveBroadcast(payload))
+    moveBroadcastHandlerRef.current = onMoveBroadcast
 
     // Presence sync: who's online + seed initial positions from track() payload
     ch.on('presence', { event: 'sync' }, () => {
@@ -1711,6 +1726,14 @@ export default function MiningChain3D() {
       const alive = new Set(Object.keys(state))
       setOnlineWallets(alive)
       setOnlineCount(alive.size)
+      {
+        const meta = {}
+        for (const [w, entries] of Object.entries(state)) {
+          const p = entries?.[0]
+          if (p) meta[w] = { mapId: p.mapId || MINING_CORE_MAP_ID, isBot: Boolean(p.isBot) }
+        }
+        setPresenceMeta(meta)
+      }
       setPositions(prev => {
         const next = { ...prev }
         const myW = myWalletRef.current
@@ -1791,11 +1814,29 @@ export default function MiningChain3D() {
     return () => {
       if(moveFlushFrame!=null) cancelAnimationFrame(moveFlushFrame)
       pendingMoves.clear()
+      if (moveBroadcastHandlerRef.current === onMoveBroadcast) moveBroadcastHandlerRef.current = null
       supabase.removeChannel(ch)
       channelRef.current = null
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [myWallet])
+
+  // ── Per-map move channel: only players on the same map exchange moves ────────
+  useEffect(() => {
+    const ch = supabase.channel(`${CHAIN3D_CHANNEL}-map-${mapId}`, {
+      config: { broadcast: { self: false } },
+    })
+    ch.on('broadcast', { event: 'move' }, ({ payload }) => {
+      moveBroadcastHandlerRef.current?.(payload)
+    })
+    ch.subscribe((status) => {
+      if (status === 'SUBSCRIBED') mapMoveChannelRef.current = ch
+    })
+    return () => {
+      if (mapMoveChannelRef.current === ch) mapMoveChannelRef.current = null
+      supabase.removeChannel(ch)
+    }
+  }, [mapId])
 
   // useCallback with no deps — reads live values via refs so game loop never restarts
   const handlePositionChange = useCallback((row, col) => {
@@ -2057,8 +2098,9 @@ export default function MiningChain3D() {
     }
     // Update own dot on minimap
     setPositions(prev => ({ ...prev, [myW]: nextPosition }))
-    // Broadcast to others
-    channelRef.current?.send({
+    // Broadcast to others on the same map only; fall back to the global
+    // channel during the brief resubscribe window after a map change.
+    ;(mapMoveChannelRef.current || channelRef.current)?.send({
       type: 'broadcast', event: 'move',
       payload: { wallet: myW, ...nextPosition },
     })?.catch(() => {})
@@ -2106,6 +2148,7 @@ export default function MiningChain3D() {
             playReady={playReady}
             cellMap={cellMap}
             presenceMap={presenceMap}
+            presenceMeta={presenceMeta}
             myWallet={myWallet}
             presenceKey={presenceKey}
             myColor={myColor}

@@ -10234,7 +10234,7 @@ function syncThreeLocalAvatar(state,identity,swingT,walkDist,gx,gy,playerZ,headi
 
 // ── Component ─────────────────────────────────────────────────────────────────
 export default function MiningChain3DFPV({
-  cellMap, presenceMap, myWallet, presenceKey, myColor,
+  cellMap, presenceMap, presenceMeta, myWallet, presenceKey, myColor,
   initRow, initCol, initZ = 0, jumpToCell,
   mapId = MINING_CORE_MAP_ID,
   onMapChange,
@@ -10295,6 +10295,7 @@ export default function MiningChain3DFPV({
   const cellMapRef    = useRef(cellMap)
   const activeCellMapRef = useRef(cellMap)
   const presenceRef   = useRef(presenceMap)
+  const presenceMetaRef = useRef(presenceMeta)
   const myWalletRef   = useRef(myWallet)
   const currencyRef   = useRef(currency)
   const presenceKeyRef = useRef(presenceKey||myWallet)
@@ -10558,6 +10559,7 @@ export default function MiningChain3DFPV({
     activeCellMapRef.current = buildActiveCellMap(mapId, cellMap)
   },[cellMap,mapId])
   useEffect(()=>{ presenceRef.current=presenceMap; onlineListDirtyRef.current=true },[presenceMap])
+  useEffect(()=>{ presenceMetaRef.current=presenceMeta },[presenceMeta])
   useEffect(()=>{ myWalletRef.current=myWallet },[myWallet])
   useEffect(()=>{ currencyRef.current=currency },[currency])
   useEffect(()=>{ presenceKeyRef.current=presenceKey||myWallet },[presenceKey,myWallet])
@@ -12997,15 +12999,46 @@ export default function MiningChain3DFPV({
         const changed=!prev
           || Math.hypot(nextState.gx-prev.gx,nextState.gy-prev.gy)>0.004
           || Math.abs(nextState.z-prev.z)>0.004
-          || Math.abs(nextState.angle-prev.angle)>0.03
-          || Math.abs(nextState.pitch-prev.pitch)>0.03
+          || Math.abs(nextState.angle-prev.angle)>0.1
+          || Math.abs(nextState.pitch-prev.pitch)>0.1
           || nextState.swingAt!==prev.swingAt
-        // Supabase Realtime budget: adaptive send interval to keep monthly messages low.
-        // - Dead: only heartbeat every 90s (position won't change)
-        // - Idle (no meaningful delta): heartbeat every 30s
-        // - Active (something changed): minimum 1200ms between sends
-        const heartbeatInterval = nextState.isDead ? 90000 : 30000
-        const minInterval = 1200
+        // Supabase Realtime budget: every delivered message is billed, so the
+        // send rate adapts to who can actually see us.
+        // - Dead: corpse doesn't move — 90s heartbeat only
+        // - Alone on this map (no human peers in presenceMeta): 30s heartbeat
+        // - Peers on map but none within visual range (receivers cull our
+        //   moves at NETWORK_VISUAL_RANGE anyway): every 5s
+        // - Peer visible at mid distance: every 2s
+        // - Peer in combat range (<10 cells): every 1.2s — remote avatars
+        //   converge-and-stop between packets, so close fights need this rate
+        const myKey = String(presenceKeyRef.current || myWalletRef.current || '').toLowerCase()
+        const myMap = mapIdRef.current
+        let sameMapPeers = 0
+        const meta = presenceMetaRef.current || {}
+        for (const w in meta) {
+          if (meta[w].isBot || w.toLowerCase() === myKey) continue
+          if ((meta[w].mapId || MINING_CORE_MAP_ID) === myMap) sameMapPeers++
+        }
+        // presenceMap is distance-culled by the parent, so any same-map entry
+        // in it (other than self) is a peer within visual range.
+        let nearestPeer = Infinity
+        if (sameMapPeers > 0) {
+          const pres = presenceRef.current || {}
+          for (const w in pres) {
+            if (w.toLowerCase() === myKey || pres[w]?.isBot) continue
+            if ((pres[w]?.mapId || MINING_CORE_MAP_ID) !== myMap) continue
+            const pgx = Number(pres[w].gx ?? ((pres[w].col ?? 0) + 0.5))
+            const pgy = Number(pres[w].gy ?? ((pres[w].row ?? 0) + 0.5))
+            const d = Math.hypot(pgx - nextState.gx, pgy - nextState.gy)
+            if (d < nearestPeer) nearestPeer = d
+          }
+        }
+        const minInterval = nextState.isDead ? 90000
+          : sameMapPeers === 0 ? 30000
+          : nearestPeer < 10 ? 1200
+          : nearestPeer < Infinity ? 2000
+          : 5000
+        const heartbeatInterval = Math.max(minInterval, 30000)
         const sinceLastSend = now - (prev?.sentAt || 0)
         const shouldSend = now - lastRealtimeRef.current > minInterval
           && (changed || sinceLastSend > heartbeatInterval)
