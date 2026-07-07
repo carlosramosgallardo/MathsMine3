@@ -17,6 +17,14 @@ const nextConfig = {
     return config;
   },
   async headers() {
+    // Dev needs 'unsafe-eval' for React Fast Refresh / the Next dev overlay.
+    // Production drops it (no code in this app uses eval/Function) and keeps only
+    // 'wasm-unsafe-eval' so any WebAssembly (e.g. a future Three.js loader) still
+    // works while general dynamic code execution stays blocked.
+    const isDev = process.env.NODE_ENV !== "production";
+    const scriptSrc = isDev
+      ? "script-src 'self' 'unsafe-inline' 'unsafe-eval' https:"
+      : "script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' https:";
     return [
       // ── Security headers (all routes) ─────────────────────────────────────
       {
@@ -49,7 +57,7 @@ const nextConfig = {
             key: "Content-Security-Policy",
             value: [
               "default-src 'self'",
-              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https:",
+              scriptSrc,
               "style-src 'self' 'unsafe-inline' https:",
               "img-src 'self' data: https: blob:",
               "font-src 'self' data: https:",
