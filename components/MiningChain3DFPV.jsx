@@ -4435,10 +4435,9 @@ function drawFacingHUD(ctx, W, H, fwdCell, fwdMx, fwdMy, myWallet, es, dist, obs
   if (fwdCell?.isBossStatue) {
     const inRange = dist == null || dist <= INTERACT_DIST
     const col = fwdCell.color || '#eab308'
-    const title = es ? (fwdCell.titleEs || 'ESTATUA') : (fwdCell.titleEn || 'STATUE')
+    const title = es ? (fwdCell.titleEs || 'Tip de estatua') : (fwdCell.titleEn || "Statue tip")
     const lines = [
-      { text: `${fwdCell.emoji || '🗿'}  ${title}`, size: 13, weight: 'bold', col },
-      { text: es ? 'TIP' : 'TIP', size: 11, weight: 'bold', col: col + 'dd' },
+      { text: title, size: 13, weight: 'bold', col },
       inRange
         ? (mineProgress > 0
             ? { text: es ? `⛏ ${Math.round(mineProgress * HITS_NEEDED)}/${HITS_NEEDED} golpes` : `⛏ ${Math.round(mineProgress * HITS_NEEDED)}/${HITS_NEEDED} hits`, size: 10, col: col + 'cc' }
@@ -13147,8 +13146,9 @@ export default function MiningChain3DFPV({
         ctx.fillStyle = '#22d3eecc'
         ctx.fillText(es ? '[ ↵ IR ]' : '[ ↵ GO ]', W/2, viewCenterY+18)
       } else if (promptCell.isBossStatue) {
+        const tipLabel = es ? (promptCell.titleEs || 'Tip de Milei') : (promptCell.titleEn || "Milei's Tip")
         ctx.fillStyle = '#eab308cc'
-        ctx.fillText(es ? '[ ↵ TIP ]' : '[ ↵ TIP ]', W/2, viewCenterY+18)
+        ctx.fillText(`[ ↵ ${tipLabel} ]`, W/2, viewCenterY+18)
       } else if (!promptCell.owner && promptCell.isMarket) {
         ctx.fillStyle = '#fb923ccc'
         ctx.fillText(es ? '[ ↵ COMPRAR NFTJI ]' : '[ ↵ BUY NFTJI ]', W/2, viewCenterY+18)

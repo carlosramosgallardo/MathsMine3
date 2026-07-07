@@ -2563,16 +2563,8 @@ export default function MiningChain3D() {
               }}
             >
               <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:14 }}>
-                <div style={{ display:'flex', alignItems:'center', gap:9 }}>
-                  <span style={{ color:'#eab308', fontSize:'1.15rem' }}>{statue.emoji || '🗿'}</span>
-                  <div>
-                    <div style={{ color:'#eab308', fontWeight:700, fontSize:'0.86rem', letterSpacing:'0.1em' }}>
-                      {title}
-                    </div>
-                    <div style={{ color:'rgba(234,179,8,0.42)', fontSize:'0.6rem', letterSpacing:'0.14em', marginTop:1 }}>
-                      TIP
-                    </div>
-                  </div>
+                <div style={{ color:'#eab308', fontWeight:700, fontSize:'0.86rem', letterSpacing:'0.06em' }}>
+                  {title}
                 </div>
                 <button
                   onClick={() => setBossStatueTipOpen(false)}
