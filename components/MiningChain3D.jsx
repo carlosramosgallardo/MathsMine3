@@ -26,6 +26,8 @@ import {
   isInM2PitchDomeExclusion,
 } from '@/lib/mining-visual-layout'
 import { MINING_CORE_MAP_ID } from '@/lib/mining-maps'
+import { getBossStatueById } from '@/lib/mining-boss-statue-registry'
+import { playBossStatueVoice } from '@/lib/boss-statue-voice'
 import { RL_NODE_MIN_LEVEL, RL_NODE_PRICE_MM3 } from '@/lib/mining-rl-mount'
 import { normalizeBossState as normalizeM5BossState, M5_TRUMP_BOSS_NAME, M5_TRUMP_BOSS_MAX_HP, M5_TRUMP_BOSS_SCALE, M5_TRUMP_BOSS_SPAWN } from '@/lib/m5-trump-boss'
 import { normalizeBossState as normalizeM3BossState, M3_PUTIN_BOSS_NAME, M3_PUTIN_BOSS_MAX_HP, M3_PUTIN_BOSS_SCALE, M3_PUTIN_BOSS_SPAWN } from '@/lib/m3-putin-boss'
@@ -387,6 +389,8 @@ export default function MiningChain3D() {
   const [rlMountPanelOpen, setRlMountPanelOpen] = useState(false)
   const [rlMountWalletStats, setRlMountWalletStats] = useState({ mm3: 0, level: 0 })
   const [rlMountError, setRlMountError] = useState('')
+  const [bossStatueTipOpen, setBossStatueTipOpen] = useState(false)
+  const [bossStatueTipId, setBossStatueTipId] = useState(null)
   const [bossStateByMap, setBossStateByMap] = useState(() => ({
     '3': normalizeM3BossState(null),
     '4': normalizeM4KimBossState(null),
@@ -671,6 +675,14 @@ export default function MiningChain3D() {
     setRlMountPanelOpen(true)
     loadRlMountWalletStats().catch(() => {})
   }, [loadRlMountWalletStats])
+
+  const handleBossStatueTipOpen = useCallback((statueId) => {
+    const statue = getBossStatueById(statueId)
+    if (!statue) return
+    setBossStatueTipId(statueId)
+    setBossStatueTipOpen(true)
+    playBossStatueVoice(statue.voiceUrl)
+  }, [])
 
   const clearRlMountOnDeath = useCallback(() => {
     if (!rlMountActiveRef.current) return
@@ -2366,6 +2378,7 @@ export default function MiningChain3D() {
             onNodeDicePanelOpen={handleNodeDicePanelOpen}
             rlMountActive={rlMountActive}
             onRlMountPanelOpen={handleRlMountPanelOpen}
+            onBossStatueTipOpen={handleBossStatueTipOpen}
             bossState={mapHasBoss(mapId) ? bossState : null}
             onBossHit={handleBossHit}
             onBossAttack={handleBossAttack}
@@ -2526,6 +2539,55 @@ export default function MiningChain3D() {
           </div>
         </div>
       )}
+
+      {/* ── Boss statue tip overlay ─────────────────────────────────────── */}
+      {bossStatueTipOpen && bossStatueTipId && (() => {
+        const statue = getBossStatueById(bossStatueTipId)
+        if (!statue) return null
+        const tipText = es ? statue.tipEs : statue.tipEn
+        const title = es ? statue.titleEs : statue.titleEn
+        return (
+          <div
+            style={{
+              position:'absolute', inset:0, display:'flex', alignItems:'center', justifyContent:'center',
+              background:'rgba(0,0,0,0.90)', zIndex:60,
+            }}
+            onClick={() => setBossStatueTipOpen(false)}
+          >
+            <div
+              onClick={e => e.stopPropagation()}
+              style={{
+                background:'#0c0a04', border:'1px solid rgba(234,179,8,0.38)',
+                borderRadius:10, padding:'20px 24px', width:'min(480px,94vw)',
+                fontFamily:'Consolas,monospace',
+              }}
+            >
+              <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:14 }}>
+                <div style={{ display:'flex', alignItems:'center', gap:9 }}>
+                  <span style={{ color:'#eab308', fontSize:'1.15rem' }}>{statue.emoji || '🗿'}</span>
+                  <div>
+                    <div style={{ color:'#eab308', fontWeight:700, fontSize:'0.86rem', letterSpacing:'0.1em' }}>
+                      {title}
+                    </div>
+                    <div style={{ color:'rgba(234,179,8,0.42)', fontSize:'0.6rem', letterSpacing:'0.14em', marginTop:1 }}>
+                      TIP
+                    </div>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setBossStatueTipOpen(false)}
+                  style={{ background:'none', border:'none', color:'#64748b', cursor:'pointer', fontSize:'1.1rem', lineHeight:1 }}
+                >
+                  ✕
+                </button>
+              </div>
+              <p style={{ color:'#e2e8f0', fontSize:'0.82rem', lineHeight:1.55, margin:0, whiteSpace:'pre-wrap' }}>
+                {tipText}
+              </p>
+            </div>
+          </div>
+        )
+      })()}
 
       {/* ── RL Node car purchase overlay ─────────────────────────────────── */}
       {rlMountPanelOpen && (

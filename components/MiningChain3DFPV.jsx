@@ -34,6 +34,7 @@ import {
   updateM2PitchDomeRuntime,
 } from '@/lib/m2-pitch-dome'
 import { addM1MileiStatueReservedCells, createM1MileiStatueVisual } from '@/lib/m1-milei-statue'
+import { resolveBossStatueFacing } from '@/lib/mining-boss-statue-registry'
 import { addVerticalArenaUsbStaff } from '@/lib/arena-usb-staff'
 import {
   drawBossDollarBills,
@@ -95,7 +96,7 @@ function isPortalLikeNodeCell(cell) {
   return Boolean(cell?.isPortalNode || cell?.isNodeDiceNode || cell?.isRlNode)
 }
 function isSpecialInteractCell(cell) {
-  return Boolean(cell?.isPortalNode || cell?.isChainNode || cell?.isNodeDiceNode || cell?.isRlNode || cell?.isMarket)
+  return Boolean(cell?.isPortalNode || cell?.isChainNode || cell?.isNodeDiceNode || cell?.isRlNode || cell?.isMarket || cell?.isBossStatue)
 }
 
 const ROWS = MINING_WORLD_ROWS   // double the inner mining grid for free walking space
@@ -4431,6 +4432,35 @@ function drawFacingHUD(ctx, W, H, fwdCell, fwdMx, fwdMy, myWallet, es, dist, obs
     return
   }
 
+  if (fwdCell?.isBossStatue) {
+    const inRange = dist == null || dist <= INTERACT_DIST
+    const col = fwdCell.color || '#eab308'
+    const title = es ? (fwdCell.titleEs || 'ESTATUA') : (fwdCell.titleEn || 'STATUE')
+    const lines = [
+      { text: `${fwdCell.emoji || '🗿'}  ${title}`, size: 13, weight: 'bold', col },
+      { text: es ? 'TIP' : 'TIP', size: 11, weight: 'bold', col: col + 'dd' },
+      inRange
+        ? (mineProgress > 0
+            ? { text: es ? `⛏ ${Math.round(mineProgress * HITS_NEEDED)}/${HITS_NEEDED} golpes` : `⛏ ${Math.round(mineProgress * HITS_NEEDED)}/${HITS_NEEDED} hits`, size: 10, col: col + 'cc' }
+            : { text: es ? '⛏ 5 golpes · tip' : '⛏ 5 hits · tip', size: 10, col: col + 'cc' })
+        : { text: es ? '· acércate a la estatua' : '· move closer to the statue', size: 9, col: col + '55' },
+    ]
+    const lineH = 16, padX = 9, padY = 8
+    const ph = lines.length * lineH + padY * 2
+    const pw = CARD_PW, px = CARD_PX, py = CARD_PY
+    ctx.globalAlpha = 0.90; ctx.fillStyle = '#010709'; ctx.fillRect(px, py, pw, ph); ctx.globalAlpha = 1
+    ctx.lineWidth = 1; ctx.strokeStyle = col + '55'; ctx.strokeRect(px, py, pw, ph)
+    ctx.fillStyle = col + '77'; ctx.fillRect(px, py, 2, ph)
+    ctx.textAlign = 'left'; ctx.textBaseline = 'top'
+    for (let i = 0; i < lines.length; i++) {
+      const l = lines[i]
+      ctx.font = `${l.weight || 'normal'} ${l.size}px monospace`
+      ctx.fillStyle = l.col
+      ctx.fillText(l.text, px + padX, py + padY + i * lineH, pw - padX * 2)
+    }
+    return
+  }
+
   if (fwdCell?.isPortalNode) {
     const atPortalHeight = canInteractPortalAtHeight(fwdMy, fwdMx, playerZ)
     const inRange = (dist == null || dist <= INTERACT_DIST) && atPortalHeight
@@ -5005,7 +5035,7 @@ function drawMineProgress(ctx, W, H, progress, type) {
   if (progress <= 0) return
   const cx = W / 2, cy = H * HORIZON_RATIO
   const r = 24
-  const col = type === 'nftji' ? '#fb923c' : C
+  const col = type === 'boss-statue' ? '#eab308' : type === 'nftji' ? '#fb923c' : C
   const start = -Math.PI / 2
   ctx.globalAlpha = 0.28
   ctx.strokeStyle = col; ctx.lineWidth = 2.5
@@ -11188,6 +11218,7 @@ export default function MiningChain3DFPV({
   onNodeDicePanelOpen,
   rlMountActive = false,
   onRlMountPanelOpen,
+  onBossStatueTipOpen,
   bossState = null,
   onBossHit,
   onBossAttack,
@@ -11311,6 +11342,7 @@ export default function MiningChain3DFPV({
   const onDemineHitRef             = useRef(onDemineHit)
   const nodeDiceStateRef           = useRef(nodeDiceState)
   const onNodeDicePanelOpenRef     = useRef(onNodeDicePanelOpen)
+  const onBossStatueTipOpenRef     = useRef(onBossStatueTipOpen)
   const rlMountActiveRef           = useRef(rlMountActive)
   const onRlMountPanelOpenRef      = useRef(onRlMountPanelOpen)
   const bossStateRef = useRef(bossState)
@@ -11548,6 +11580,7 @@ export default function MiningChain3DFPV({
   useEffect(()=>{ onDemineHitRef.current=onDemineHit },[onDemineHit])
   useEffect(()=>{ nodeDiceStateRef.current=nodeDiceState },[nodeDiceState])
   useEffect(()=>{ onNodeDicePanelOpenRef.current=onNodeDicePanelOpen },[onNodeDicePanelOpen])
+  useEffect(()=>{ onBossStatueTipOpenRef.current=onBossStatueTipOpen },[onBossStatueTipOpen])
   useEffect(()=>{ rlMountActiveRef.current=rlMountActive },[rlMountActive])
   useEffect(()=>{ onRlMountPanelOpenRef.current=onRlMountPanelOpen },[onRlMountPanelOpen])
   useEffect(() => {
@@ -13113,6 +13146,9 @@ export default function MiningChain3DFPV({
       } else if (promptCell.isPortalNode && canInteractPortalAtHeight(promptMy, promptMx, rawZ)) {
         ctx.fillStyle = '#22d3eecc'
         ctx.fillText(es ? '[ ↵ IR ]' : '[ ↵ GO ]', W/2, viewCenterY+18)
+      } else if (promptCell.isBossStatue) {
+        ctx.fillStyle = '#eab308cc'
+        ctx.fillText(es ? '[ ↵ TIP ]' : '[ ↵ TIP ]', W/2, viewCenterY+18)
       } else if (!promptCell.owner && promptCell.isMarket) {
         ctx.fillStyle = '#fb923ccc'
         ctx.fillText(es ? '[ ↵ COMPRAR NFTJI ]' : '[ ↵ BUY NFTJI ]', W/2, viewCenterY+18)
@@ -13132,6 +13168,7 @@ export default function MiningChain3DFPV({
     const playerInXH = Boolean(enemyTargetRef.current?.wallet)
     const inXHRange  = !playerInXH && hasTarget && !fwdCell?.isObstacle && fwdDist <= INTERACT_DIST
     const xhBase     = playerInXH ? '#ef4444'
+                     : fwdCell?.isBossStatue ? '#eab308'
                      : fwdCell?.isChainNode ? '#ffd700'
                      : fwdCell?.isRlNode ? '#0ea5e9'
                      : (fwdCell?.isNodeDiceNode || (isStormRollNodeCell(fwdMy, fwdMx) && canInteractNodeDiceAtHeight(rawZ))) ? '#facc15'
@@ -13552,6 +13589,8 @@ export default function MiningChain3DFPV({
               }
             } else if(fData.cell?.isMarket){
               onNftjiPanelOpenRef.current?.({ cell:fData.cell, mx:fData.mx, my:fData.my })
+            } else if(fData.cell?.isBossStatue){
+              onBossStatueTipOpenRef.current?.(fData.cell.bossStatueId)
             } else {
               const url=actionUrlRef.current
               if(url) onWantNavRef.current?.(url)
@@ -14333,7 +14372,22 @@ export default function MiningChain3DFPV({
         fmx=portalFacing.col;fmy=portalFacing.row;fc=portalFacing.cell
         fcDist=Math.min(portalFacing.dist,INTERACT_DIST*.82)
       }
-      const newKey=`${fmy},${fmx}`
+      const statueFacing = !myDead
+        ? resolveBossStatueFacing(mapIdRef.current, p.x / CELL_SIZE, p.y / CELL_SIZE, p.angle)
+        : null
+      if (
+        statueFacing &&
+        !fc?.isChainNode && !fc?.isNodeDiceNode && !fc?.isRlNode && !fc?.isMarket &&
+        (!fc?.isPortalNode || statueFacing.dist < fcDist)
+      ) {
+        if (!fc || statueFacing.dist <= fcDist) {
+          fmx = statueFacing.mx
+          fmy = statueFacing.my
+          fc = statueFacing.cell
+          fcDist = statueFacing.dist
+        }
+      }
+      const newKey = fc?.isBossStatue ? `statue:${fc.bossStatueId}` : `${fmy},${fmx}`
       facingDataRef.current={mx:fmx,my:fmy,cell:fc,dist:fcDist}
       const crossedInteractionRange=(previousFacing?.dist<=INTERACT_DIST)!==(fcDist<=INTERACT_DIST)
       // Reset mine progress whenever the player is out of interaction range
@@ -14360,6 +14414,9 @@ export default function MiningChain3DFPV({
             } else if(fc.isRlNode){
               actionUrlRef.current=null
               mineTypeRef.current='rl-node'
+            } else if(fc.isBossStatue){
+              actionUrlRef.current=null
+              mineTypeRef.current=fcDist<=INTERACT_DIST?'boss-statue':'empty'
             } else if(fc.isPortalNode){
               const portalReachable=canInteractPortalAtHeight(fmy,fmx,p.z)
               actionUrlRef.current=portalReachable?(fc.navUrl||null):null
@@ -14540,8 +14597,10 @@ export default function MiningChain3DFPV({
 
         } else {
           // ── Block mine hit ───────────────────────────────────────────────
-          const {mx,my,dist:blockDist}=facingDataRef.current
-          const tk=mx>=0&&my>=0?`${my},${mx}`:null
+          const {mx,my,dist:blockDist,cell:swingCell}=facingDataRef.current
+          const tk=swingCell?.isBossStatue
+            ? `statue:${swingCell.bossStatueId}`
+            : (mx>=0&&my>=0?`${my},${mx}`:null)
           if(tk!==mineTargetRef.current){mineProgressRef.current=0;mineTargetRef.current=tk}
           if(!tk||mineTypeRef.current==='empty'||(blockDist!=null&&blockDist>INTERACT_DIST)){
             playPickHit(audioCtxRef,'empty')
@@ -14613,6 +14672,15 @@ export default function MiningChain3DFPV({
               playPickHit(audioCtxRef,'complete')
               mineProgressRef.current=0
               setTimeout(()=>onRlMountPanelOpenRef.current?.(),80)
+            }
+          } else if(mineTypeRef.current==='boss-statue'){
+            mineProgressRef.current=Math.min(1,mineProgressRef.current+1/HITS_NEEDED)
+            playPickHit(audioCtxRef,'nftji')
+            if(mineProgressRef.current>=1){
+              playPickHit(audioCtxRef,'complete')
+              mineProgressRef.current=0
+              const statueId=facingDataRef.current?.cell?.bossStatueId
+              if(statueId) setTimeout(()=>onBossStatueTipOpenRef.current?.(statueId),80)
             }
           } else if(mineTypeRef.current==='nftji'){
             // NFTJI market block — 5 hits opens the penalty/info panel
