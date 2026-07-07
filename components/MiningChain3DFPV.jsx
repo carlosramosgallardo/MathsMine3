@@ -34,7 +34,7 @@ import {
   updateM2PitchDomeRuntime,
 } from '@/lib/m2-pitch-dome'
 import { addM1MileiStatueReservedCells, createM1MileiStatueVisual } from '@/lib/m1-milei-statue'
-import { resolveBossStatueFacing } from '@/lib/mining-boss-statue-registry'
+import { resolveBossStatueFacing, getBossStatuesForMap } from '@/lib/mining-boss-statue-registry'
 import { addVerticalArenaUsbStaff } from '@/lib/arena-usb-staff'
 import {
   drawBossDollarBills,
@@ -4113,6 +4113,26 @@ function drawMinimap(ctx, gr, gc, angle, cellMap, presenceMap, myWallet, W, H, c
     ctx.restore()
   }
 
+  const drawMapCircleMarker = (x, y, color) => {
+    const radius = isMobile ? 3.1 : 3.7
+    ctx.save()
+    ctx.shadowColor = color || '#eab308'
+    ctx.shadowBlur = 4
+    ctx.fillStyle = 'rgba(1,7,14,.94)'
+    ctx.strokeStyle = color || '#eab308'
+    ctx.lineWidth = 1
+    ctx.beginPath()
+    ctx.arc(x, y, radius, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.stroke()
+    ctx.shadowBlur = 0
+    ctx.fillStyle = color || '#eab308'
+    ctx.beginPath()
+    ctx.arc(x, y, Math.max(1, radius * .34), 0, Math.PI * 2)
+    ctx.fill()
+    ctx.restore()
+  }
+
   const drawPlayerArrow = (worldX, worldY, heading, color, isMe = false, isBot = false) => {
     const x = mapX(worldX)
     const y = mapY(worldY)
@@ -4289,6 +4309,10 @@ function drawMinimap(ctx, gr, gc, angle, cellMap, presenceMap, myWallet, W, H, c
     const rl = buildRlNodeCell()
     const rlCenter = getRlNodeWorldCenter()
     drawMapEmoji(rl.emoji || '🏎️', mapX(rlCenter.x), mapY(rlCenter.z), rl.color || '#0ea5e9', 'circle')
+  }
+
+  for (const statue of getBossStatuesForMap(mapId)) {
+    drawMapCircleMarker(mapX(statue.gx), mapY(statue.gy), statue.color || '#eab308')
   }
 
   drawPerimeterCellSoftening(ctx, mapId, mapX, mapY, CS)
