@@ -25,7 +25,14 @@ import {
   RL_NODE_PRICE_MM3,
   getRlNodeWorldCenter,
 } from '@/lib/mining-rl-mount'
-import { getBlockMapId } from '@/lib/mining-visual-layout'
+import {
+  createM2PitchDomeRuntime,
+  getM2PitchBotSpots,
+  M2_PITCH_DOME_BALL_RADIUS,
+  M2_PITCH_DOME_CENTER,
+  M2_PITCH_DOME_RADIUS,
+  updateM2PitchDomeRuntime,
+} from '@/lib/m2-pitch-dome'
 import { addVerticalArenaUsbStaff } from '@/lib/arena-usb-staff'
 import {
   drawBossDollarBills,
@@ -10263,6 +10270,8 @@ function buildPeripheralObstacles(mapId, cellMap) {
 function rebuildPeripheralMapWorld(state, mapId, obstacles, cellMap) {
   if (!state || !mapId || isMiningCoreMap(mapId)) return
   disposeMinableBlockChunkSystem(state)
+  state.m2PitchDomeRuntime = null
+  state.m2PitchDomeGroup = null
   if (state.world) { state.scene.remove(state.world); disposeThreeObject(state.world) }
   const world = new THREE.Group()
   const matrix = new THREE.Matrix4()
@@ -10336,6 +10345,7 @@ function rebuildPeripheralMapWorld(state, mapId, obstacles, cellMap) {
   }
   if (mapId === '2') {
     addRlColiseumNodeVisual(world, lowDetail, state)
+    addM2PitchDomeDecor(world, lowDetail, { animated: visualTier === 'high' }, state)
   }
   state.m5TrumpBossGroup = null
   state.m3PutinBossGroup = null
@@ -10372,6 +10382,7 @@ function rebuildPeripheralMapWorld(state, mapId, obstacles, cellMap) {
     state.m5TrumpBossGroup,
     state.m3PutinBossGroup,
     state.m4KimBossGroup,
+    state.m2PitchDomeGroup,
   ].filter(Boolean))
   world.traverse(object => {
     if (object === world || animated.has(object)) return
@@ -10490,11 +10501,83 @@ function addRlColiseumNodeVisual(world, lowDetail, state) {
   }
 }
 
-function createRlCarMesh(lowDetail = false, { showcase = false } = {}) {
+function addM2PitchDomeDecor(world, lowDetail, { animated = true } = {}, state) {
+  const { x: cx, z: cz } = M2_PITCH_DOME_CENTER
+  const root = new THREE.Group()
+  root.userData.m2PitchDome = true
+  root.userData.skipOcclusion = true
+
+  const dome = new THREE.Mesh(
+    new THREE.SphereGeometry(
+      M2_PITCH_DOME_RADIUS,
+      lowDetail ? 14 : 22,
+      lowDetail ? 8 : 12,
+      0,
+      Math.PI * 2,
+      0,
+      Math.PI / 2,
+    ),
+    new THREE.MeshBasicMaterial({
+      color: '#7dd3fc',
+      transparent: true,
+      opacity: lowDetail ? 0.1 : 0.13,
+      side: THREE.DoubleSide,
+      depthWrite: false,
+    }),
+  )
+  dome.position.set(cx, 0, cz)
+  root.add(dome)
+
+  const rim = new THREE.Mesh(
+    new THREE.TorusGeometry(M2_PITCH_DOME_RADIUS, 0.05, 6, lowDetail ? 28 : 40),
+    new THREE.MeshBasicMaterial({ color: '#38bdf8', transparent: true, opacity: 0.42, depthWrite: false }),
+  )
+  rim.rotation.x = Math.PI / 2
+  rim.position.set(cx, 0.06, cz)
+  root.add(rim)
+
+  const ballMesh = new THREE.Mesh(
+    new THREE.SphereGeometry(M2_PITCH_DOME_BALL_RADIUS, lowDetail ? 8 : 12, lowDetail ? 6 : 10),
+    new THREE.MeshStandardMaterial({
+      color: '#f8fafc',
+      roughness: 0.32,
+      metalness: 0.08,
+      emissive: '#cbd5e1',
+      emissiveIntensity: 0.12,
+    }),
+  )
+  root.add(ballMesh)
+
+  const botEntries = []
+  for (const spot of getM2PitchBotSpots()) {
+    const botGroup = new THREE.Group()
+    botGroup.userData.skipOcclusion = true
+    const car = createRlCarMesh(lowDetail, { teamColor: spot.color })
+    car.scale.setScalar(0.84)
+    car.position.y = 0.24
+    botGroup.add(car)
+    botGroup.position.set(spot.homeX, 0, spot.homeZ)
+    botGroup.rotation.y = spot.homeYaw
+    root.add(botGroup)
+    botEntries.push({
+      group: botGroup,
+      team: spot.team,
+      homeX: spot.homeX,
+      homeZ: spot.homeZ,
+    })
+  }
+
+  world.add(root)
+  state.m2PitchDomeGroup = root
+  state.m2PitchDomeRuntime = createM2PitchDomeRuntime({ bots: botEntries, ballMesh })
+  state.m2PitchDomeRuntime.active = animated
+}
+
+function createRlCarMesh(lowDetail = false, { showcase = false, teamColor = '#0ea5e9' } = {}) {
   const group = new THREE.Group()
   const bodyMat = lowDetail
-    ? new THREE.MeshLambertMaterial({ color: '#0ea5e9' })
-    : new THREE.MeshStandardMaterial({ color: '#0ea5e9', roughness: 0.34, metalness: 0.48, emissive: '#0369a1', emissiveIntensity: 0.18 })
+    ? new THREE.MeshLambertMaterial({ color: teamColor })
+    : new THREE.MeshStandardMaterial({ color: teamColor, roughness: 0.34, metalness: 0.48, emissive: '#0369a1', emissiveIntensity: 0.18 })
   const darkMat = new THREE.MeshLambertMaterial({ color: '#0f172a' })
   const chassis = new THREE.Mesh(new THREE.BoxGeometry(0.70, 0.20, 1.02), bodyMat)
   chassis.position.y = 0.13
@@ -12058,6 +12141,14 @@ export default function MiningChain3DFPV({
               object.scale.setScalar(pulse)
             }
           }
+        }
+        if (
+          visualTier === 'high' &&
+          mapIdRef.current === '2' &&
+          threeState.m2PitchDomeRuntime?.active &&
+          threeState.fxFrame % 2 === 0
+        ) {
+          updateM2PitchDomeRuntime(threeState.m2PitchDomeRuntime, 1 / 30)
         }
         if(visualTier==='high'){
           for(const object of threeState.interactiveVisuals||[]){

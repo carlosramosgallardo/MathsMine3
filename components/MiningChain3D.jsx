@@ -23,6 +23,7 @@ import {
   getBlockMapId,
   isInBossMiningExclusion,
   isInM1CipherHouseGhostZone,
+  isInM2PitchDomeExclusion,
 } from '@/lib/mining-visual-layout'
 import { MINING_CORE_MAP_ID } from '@/lib/mining-maps'
 import { RL_NODE_MIN_LEVEL, RL_NODE_PRICE_MM3 } from '@/lib/mining-rl-mount'
@@ -119,7 +120,8 @@ function relocateBossOverlappingBlocks(map) {
     const [row, col] = key.split(',').map(Number)
     if (
       !isInBossMiningExclusion(blockMapId, row, col) &&
-      !isInM1CipherHouseGhostZone(blockMapId, row, col)
+      !isInM1CipherHouseGhostZone(blockMapId, row, col) &&
+      !isInM2PitchDomeExclusion(blockMapId, row, col)
     ) continue
     pending.push({ key, cell })
   }
