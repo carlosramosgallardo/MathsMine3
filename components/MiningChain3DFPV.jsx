@@ -37,6 +37,11 @@ import {
   spawnBossHammerSickleBurst,
   BOSS_HAMMER_SICKLE_VFX_MS,
 } from '@/lib/m3-boss-hammer-sickle-vfx'
+import {
+  BOSS_MISSILE_VFX_MS,
+  drawBossMissileSymbols,
+  spawnBossMissileBurst,
+} from '@/lib/m4-boss-missile-vfx'
 import { getMapBossConfig, mapHasBoss } from '@/lib/map-boss-registry'
 import { getBossRuntimeModule } from '@/lib/map-boss-runtime'
 import { CRIT_NFTJI_ACCENT, LIFE_NFTJI_ACCENT, LIFE_NFTJI_EMOJI_FILTER, isLifeNftjiEmoji, lifeNftjiEmojiFilterStyle, MINING_HEAL_GREEN, miningSkillAbilityLines } from '@/lib/wallet-decorations'
@@ -1265,8 +1270,8 @@ function rampSupportAt(obstacle, key, gx, gy, row, col, playerZ) {
   return playerZ >= localTop - WALK_STEP_UP ? localTop : 0
 }
 
-function effectiveMoveZ(gx, gy, playerZ, cellMap, obsSet) {
-  const support = supportHeightAt(gx, gy, playerZ, cellMap, obsSet)
+function effectiveMoveZ(gx, gy, playerZ, cellMap, obsSet, mapId = MINING_CORE_MAP_ID) {
+  const support = supportHeightAt(gx, gy, playerZ, cellMap, obsSet, mapId)
   if (support > playerZ && support - playerZ <= WALK_STEP_UP) return support
   return playerZ
 }
@@ -3390,8 +3395,9 @@ function hitsSolidWall(gx, gy, cellMap, obsSet, playerZ = 0, playerVz = 0, moveG
   return false
 }
 
-function supportHeightAt(gx, gy, playerZ, cellMap, obsSet) {
-  let height = housePoolWalkSupportAt(gx, gy, playerZ)
+function supportHeightAt(gx, gy, playerZ, cellMap, obsSet, mapId = MINING_CORE_MAP_ID) {
+  const houseActive = isMiningCoreMap(mapId)
+  let height = houseActive ? housePoolWalkSupportAt(gx, gy, playerZ) : 0
   const radius = PLAYER_R * 0.82
   for (let row = Math.floor(gy - radius); row <= Math.floor(gy + radius); row++) {
     for (let col = Math.floor(gx - radius); col <= Math.floor(gx + radius); col++) {
@@ -3400,12 +3406,14 @@ function supportHeightAt(gx, gy, playerZ, cellMap, obsSet) {
       if(obstacle?.shape==='ramp'&&circleTouchesCell(gx,gy,row,col,radius)){
         const treadSupport=rampSupportAt(obstacle,key,gx,gy,row,col,playerZ)
         if(treadSupport>0) height=Math.max(height,treadSupport)
-        const eastRampDeck=houseEastEntryFloorSupportAt(row,col,gx,playerZ)
-        if(eastRampDeck>0) height=Math.max(height,eastRampDeck)
-        const rampDeckSupport=houseIntermediateDeckSupportAt(row,col,gx,gy,playerZ,obsSet)
-        if(rampDeckSupport>0) height=Math.max(height,rampDeckSupport)
+        if (houseActive) {
+          const eastRampDeck=houseEastEntryFloorSupportAt(row,col,gx,playerZ)
+          if(eastRampDeck>0) height=Math.max(height,eastRampDeck)
+          const rampDeckSupport=houseIntermediateDeckSupportAt(row,col,gx,gy,playerZ,obsSet)
+          if(rampDeckSupport>0) height=Math.max(height,rampDeckSupport)
+        }
         // East door thresholds are ramps on the perimeter ring — still need roof deck support.
-        if(!isHousePerimeterRoofCell(row,col)) continue
+        if(!houseActive || !isHousePerimeterRoofCell(row,col)) continue
       }
       if((obstacle?.isRouteStair||obstacle?.isStair||obstacle?.isHouseRail)&&circleTouchesCell(gx,gy,row,col,radius)){
         const stairTop=obstacleTop(obstacle)
@@ -3413,8 +3421,8 @@ function supportHeightAt(gx, gy, playerZ, cellMap, obsSet) {
         continue
       }
       const top = solidTopAt(row, col, cellMap, obsSet)
-      const onRoofDeck = isOnHouseRoofDeck(row, col, playerZ, gx, gy)
-      const openingCap = obstacle?.isHouseDoor || obstacle?.isHouseWindow
+      const onRoofDeck = houseActive && isOnHouseRoofDeck(row, col, playerZ, gx, gy)
+      const openingCap = houseActive && (obstacle?.isHouseDoor || obstacle?.isHouseWindow)
       let supportTop = openingCap && !onRoofDeck ? HOUSE_EXTERIOR_WALL_TOP : top
       if (onRoofDeck) {
         if (obstacle?.isHouse && !obstacle?.isHouseFloor && supportTop > HOUSE_ROOF_LEVEL + 0.04) {
@@ -3427,42 +3435,47 @@ function supportHeightAt(gx, gy, playerZ, cellMap, obsSet) {
       if (supportTop && playerZ >= supportMinZ && circleTouchesCell(gx, gy, row, col, radius)) {
         height = Math.max(height, supportTop)
       }
-      const houseSupport = houseFloorSupportAt(row, col, playerZ, gx, gy)
-      const eastEntrySupport = houseEastEntryFloorSupportAt(row, col, gx, playerZ)
-      const deckSupport = houseIntermediateDeckSupportAt(row, col, gx, gy, playerZ, obsSet)
-      if (
-        (houseSupport || eastEntrySupport || deckSupport) &&
-        circleTouchesCell(gx, gy, row, col, radius) &&
-        !(
-          (houseSupport || deckSupport) <= HOUSE_MAIN_FLOOR_LEVEL + 0.08 &&
-          (HOUSE_TRAMPOLINE_FLOOR_HOLE.has(key) || isInsideHouseTrampolineFloorHole(gx, gy))
-        )
-      ) {
-        height = Math.max(height, houseSupport, eastEntrySupport, deckSupport)
-      }
-      const perimeterCap = housePerimeterWallCapSupportAt(row, col, playerZ, obsSet, gx, gy)
-      if (perimeterCap && circleTouchesCell(gx, gy, row, col, radius)) {
-        height = Math.max(height, perimeterCap)
+      if (houseActive) {
+        const houseSupport = houseFloorSupportAt(row, col, playerZ, gx, gy)
+        const eastEntrySupport = houseEastEntryFloorSupportAt(row, col, gx, playerZ)
+        const deckSupport = houseIntermediateDeckSupportAt(row, col, gx, gy, playerZ, obsSet)
+        if (
+          (houseSupport || eastEntrySupport || deckSupport) &&
+          circleTouchesCell(gx, gy, row, col, radius) &&
+          !(
+            (houseSupport || deckSupport) <= HOUSE_MAIN_FLOOR_LEVEL + 0.08 &&
+            (HOUSE_TRAMPOLINE_FLOOR_HOLE.has(key) || isInsideHouseTrampolineFloorHole(gx, gy))
+          )
+        ) {
+          height = Math.max(height, houseSupport, eastEntrySupport, deckSupport)
+        }
+        const perimeterCap = housePerimeterWallCapSupportAt(row, col, playerZ, obsSet, gx, gy)
+        if (perimeterCap && circleTouchesCell(gx, gy, row, col, radius)) {
+          height = Math.max(height, perimeterCap)
+        }
       }
     }
   }
   return height
 }
 
-function ceilingBottomAt(gx,gy,playerZ,cellMap,obsSet){
+function ceilingBottomAt(gx,gy,playerZ,cellMap,obsSet,mapId=MINING_CORE_MAP_ID){
+  const houseActive = isMiningCoreMap(mapId)
   let ceiling=Infinity
   const radius=PLAYER_R*.82
-  const underPool=houseUnderPoolCeilingBottom(gx,gy,playerZ)
-  if(ceilingBottomAbovePlayerHead(underPool, playerZ)) ceiling=Math.min(ceiling,underPool)
+  if (houseActive) {
+    const underPool=houseUnderPoolCeilingBottom(gx,gy,playerZ)
+    if(ceilingBottomAbovePlayerHead(underPool, playerZ)) ceiling=Math.min(ceiling,underPool)
+  }
   for(let row=Math.floor(gy-radius);row<=Math.floor(gy+radius);row++){
     for(let col=Math.floor(gx-radius);col<=Math.floor(gx+radius);col++){
       const key=`${row},${col}`
       const span=solidSpanAt(row,col,cellMap,obsSet)
       const obs=obsSet?.get?.(key)
-      if (trampolineShaftClearsCeiling(gx, gy, key, span, obs, playerZ, radius)) continue
-      if (houseStairSkylightClearsCeiling(gx, gy, playerZ, key, span)) continue
-      if(HOUSE_TRAMPOLINE_FLOOR_HOLE.has(key) && span?.bottom >= HOUSE_ROOF_LEVEL - 0.32) continue
-      if(isOnHouseRoofDeck(row,col,playerZ,gx,gy)&&span?.bottom>=HOUSE_ROOF_LEVEL-0.35&&span?.bottom<=HOUSE_ROOF_LEVEL+0.30){
+      if (houseActive && trampolineShaftClearsCeiling(gx, gy, key, span, obs, playerZ, radius)) continue
+      if (houseActive && houseStairSkylightClearsCeiling(gx, gy, playerZ, key, span)) continue
+      if(houseActive && HOUSE_TRAMPOLINE_FLOOR_HOLE.has(key) && span?.bottom >= HOUSE_ROOF_LEVEL - 0.32) continue
+      if(houseActive && isOnHouseRoofDeck(row,col,playerZ,gx,gy)&&span?.bottom>=HOUSE_ROOF_LEVEL-0.35&&span?.bottom<=HOUSE_ROOF_LEVEL+0.30){
         continue
       }
       if(ceilingBottomAbovePlayerHead(span?.bottom, playerZ)&&circleTouchesCell(gx,gy,row,col,radius)){
@@ -4832,13 +4845,64 @@ function playPutinHammerAttackSound(audioCtxRef) {
   } catch {}
 }
 
+function playKimMissileAttackSound(audioCtxRef) {
+  try {
+    if (!audioCtxRef.current)
+      audioCtxRef.current = new (window.AudioContext || window.webkitAudioContext)()
+    const ctx = audioCtxRef.current
+    if (ctx.state === 'suspended') ctx.resume().catch(()=>{})
+    const t = ctx.currentTime
+    // Launch whistle
+    const whistle = ctx.createOscillator()
+    const whistleGain = ctx.createGain()
+    whistle.type = 'sine'
+    whistle.frequency.setValueAtTime(280, t)
+    whistle.frequency.exponentialRampToValueAtTime(920, t + 0.22)
+    whistleGain.gain.setValueAtTime(0.001, t)
+    whistleGain.gain.exponentialRampToValueAtTime(0.032, t + 0.04)
+    whistleGain.gain.exponentialRampToValueAtTime(0.001, t + 0.26)
+    whistle.connect(whistleGain)
+    whistleGain.connect(ctx.destination)
+    whistle.start(t)
+    whistle.stop(t + 0.28)
+    // Deep rumble
+    const rumble = ctx.createOscillator()
+    const rumbleGain = ctx.createGain()
+    rumble.type = 'triangle'
+    rumble.frequency.setValueAtTime(55, t + 0.18)
+    rumble.frequency.exponentialRampToValueAtTime(28, t + 0.45)
+    rumbleGain.gain.setValueAtTime(0.001, t + 0.18)
+    rumbleGain.gain.exponentialRampToValueAtTime(0.045, t + 0.22)
+    rumbleGain.gain.exponentialRampToValueAtTime(0.001, t + 0.5)
+    rumble.connect(rumbleGain)
+    rumbleGain.connect(ctx.destination)
+    rumble.start(t + 0.18)
+    rumble.stop(t + 0.52)
+    // Brief fanfare horns
+    for (const [freq, delay] of [[196, 0.08], [247, 0.14], [294, 0.2]]) {
+      const horn = ctx.createOscillator()
+      const hornGain = ctx.createGain()
+      horn.type = 'square'
+      horn.frequency.setValueAtTime(freq, t + delay)
+      hornGain.gain.setValueAtTime(0.001, t + delay)
+      hornGain.gain.exponentialRampToValueAtTime(0.014, t + delay + 0.02)
+      hornGain.gain.exponentialRampToValueAtTime(0.001, t + delay + 0.12)
+      horn.connect(hornGain)
+      hornGain.connect(ctx.destination)
+      horn.start(t + delay)
+      horn.stop(t + delay + 0.14)
+    }
+  } catch {}
+}
+
 function playBossMapAttackSound(mapId, audioCtxRef) {
   if (mapId === '3') playPutinHammerAttackSound(audioCtxRef)
+  else if (mapId === '4') playKimMissileAttackSound(audioCtxRef)
   else playBossDollarAttackSound(audioCtxRef)
 }
 
 function getActiveBossGroup(threeState) {
-  return threeState?.m5TrumpBossGroup || threeState?.m3PutinBossGroup || null
+  return threeState?.m5TrumpBossGroup || threeState?.m4KimBossGroup || threeState?.m3PutinBossGroup || null
 }
 
 function sampleBossGroundY(runtime, cellMap) {
@@ -5753,7 +5817,8 @@ function syncThreeSceneForVisualTier(state, tier = 'high') {
   state.visualTierSynced = tier
 }
 
-function addBiomeGround(world, textures) {
+function addBiomeGround(world, textures, mapId = MINING_CORE_MAP_ID) {
+  const coreMap = isMiningCoreMap(mapId)
   const atlas = getBiomeAtlas()
   const ground = new THREE.Mesh(
     new THREE.PlaneGeometry(COLS, ROWS),
@@ -5773,6 +5838,7 @@ function addBiomeGround(world, textures) {
   ground.position.set(COLS / 2, 0, ROWS / 2)
   ground.userData.skipOcclusion = true
   world.add(ground)
+  if (!coreMap) return
   const houseGroundTexture=createHouseGroundTexture()
   const houseGroundMaterial=new THREE.MeshStandardMaterial({
     map:houseGroundTexture,
@@ -7002,6 +7068,37 @@ function drawRuFlagOnCanvas(ctx, x, y, w, h) {
   ctx.fillRect(x, y + third * 2, w, third + 0.5)
 }
 
+function drawNkFlagOnCanvas(ctx, x, y, w, h) {
+  const blueH = h * 0.17
+  const whiteH = h * 0.17
+  const redH = h - blueH - whiteH
+  ctx.fillStyle = '#024fa2'
+  ctx.fillRect(x, y, w, blueH)
+  ctx.fillStyle = '#ffffff'
+  ctx.fillRect(x, y + blueH, w, whiteH)
+  ctx.fillStyle = '#ed1c27'
+  ctx.fillRect(x, y + blueH + whiteH, w, redH)
+  const cx = x + w * 0.22
+  const cy = y + blueH + whiteH / 2
+  const r = whiteH * 0.42
+  ctx.fillStyle = '#ed1c27'
+  ctx.beginPath()
+  ctx.arc(cx, cy, r, 0, Math.PI * 2)
+  ctx.fill()
+  ctx.fillStyle = '#ffffff'
+  ctx.beginPath()
+  for (let i = 0; i < 10; i += 1) {
+    const angle = (i * Math.PI) / 5 - Math.PI / 2
+    const rad = i % 2 === 0 ? r * 0.55 : r * 0.22
+    const px = cx + Math.cos(angle) * rad
+    const py = cy + Math.sin(angle) * rad
+    if (i === 0) ctx.moveTo(px, py)
+    else ctx.lineTo(px, py)
+  }
+  ctx.closePath()
+  ctx.fill()
+}
+
 function drawUsFlagOnCanvas(ctx, x, y, w, h) {
   const stripeH = h / 13
   for (let i = 0; i < 13; i += 1) {
@@ -7059,6 +7156,8 @@ function makeEmojiSprite(emoji,color,shape='square') {
     drawUsFlagOnCanvas(context, 20, 24, 88, 80)
   }else if(emoji==='🇷🇺'||emoji==='ru-flag'){
     drawRuFlagOnCanvas(context, 20, 24, 88, 80)
+  }else if(emoji==='🇰🇵'||emoji==='kp-flag'){
+    drawNkFlagOnCanvas(context, 20, 24, 88, 80)
   }else{
     context.font='72px "Apple Color Emoji","Segoe UI Emoji",sans-serif'
     context.textAlign='center';context.textBaseline='middle'
@@ -8526,7 +8625,7 @@ function addMysticIslePerimeterScenery(scenery) {
   }
 }
 
-// Gateway lanterns along the west exits to M1 (Desert Oasis).
+// Gateway lanterns along the west exits to M1 (Korea).
 function addDesertOasisPerimeterScenery(scenery) {
   const bands = [[39, 0], [47, 1.4], [53, 2.8]]
   for (const [z, phase] of bands) {
@@ -8887,6 +8986,126 @@ function peachKindOf(data) {
   return 'masonry'
 }
 
+function createPutinHorseDecor(lowDetail) {
+  const group = new THREE.Group()
+  group.userData.skipOcclusion = true
+  const coat = new THREE.MeshStandardMaterial({
+    color: '#c9a227', roughness: 0.76, metalness: 0.12, emissive: '#3d2e08', emissiveIntensity: 0.08, flatShading: lowDetail,
+  })
+  const darkCoat = new THREE.MeshStandardMaterial({ color: '#8b6914', roughness: 0.82, metalness: 0.06, flatShading: lowDetail })
+  const hoof = new THREE.MeshStandardMaterial({ color: '#2d2418', roughness: 0.92, flatShading: lowDetail })
+  const mane = new THREE.MeshStandardMaterial({ color: '#4a3810', roughness: 0.9, flatShading: lowDetail })
+  const addBox = (w, h, d, mat, x, y, z) => {
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat)
+    mesh.position.set(x, y, z)
+    group.add(mesh)
+    return mesh
+  }
+  addBox(1.15, 0.55, 0.42, coat, 0, 1.05, 0)
+  for (const [lx, lz] of [[-0.32, -0.12], [0.32, -0.12], [-0.32, 0.16], [0.32, 0.16]]) {
+    addBox(0.14, 0.72, 0.14, darkCoat, lx, 0.36, lz)
+    addBox(0.15, 0.1, 0.16, hoof, lx, 0.05, lz)
+  }
+  const neck = addBox(0.22, 0.62, 0.2, coat, 0, 1.35, -0.42)
+  neck.rotation.x = -0.45
+  addBox(0.28, 0.32, 0.38, coat, 0, 1.52, -0.78)
+  addBox(0.08, 0.24, 0.06, mane, 0, 1.58, -0.48)
+  addBox(0.12, 0.35, 0.08, mane, 0, 1.72, -0.35)
+  addBox(0.14, 0.08, 0.22, darkCoat, 0, 1.08, 0.48)
+  if (!lowDetail) {
+    addBox(0.06, 0.04, 0.04, hoof, 0.1, 1.58, -0.92)
+    addBox(0.06, 0.04, 0.04, hoof, -0.1, 1.58, -0.92)
+  }
+  return group
+}
+
+function createSovietMonumentDecor(kind, lowDetail) {
+  const group = new THREE.Group()
+  group.userData.skipOcclusion = true
+  const granite = new THREE.MeshStandardMaterial({ color: '#6b7280', roughness: 0.78, metalness: 0.12, flatShading: lowDetail })
+  const darkStone = new THREE.MeshStandardMaterial({ color: '#4b5563', roughness: 0.82, metalness: 0.1, flatShading: lowDetail })
+  const gold = new THREE.MeshStandardMaterial({
+    color: '#f59e0b', roughness: 0.35, metalness: 0.65, emissive: '#78350f', emissiveIntensity: 0.25, flatShading: lowDetail,
+  })
+  const red = new THREE.MeshStandardMaterial({
+    color: '#dc2626', roughness: 0.48, metalness: 0.35, emissive: '#7f1d1d', emissiveIntensity: 0.3, flatShading: lowDetail,
+  })
+
+  if (kind === 'star') {
+    const plinth = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.45, 1.8), darkStone)
+    plinth.position.y = 0.22
+    group.add(plinth)
+    const obelisk = new THREE.Mesh(new THREE.BoxGeometry(0.95, 3.8, 0.95), granite)
+    obelisk.position.y = 2.35
+    group.add(obelisk)
+    const cap = new THREE.Mesh(new THREE.BoxGeometry(1.35, 0.22, 1.35), darkStone)
+    cap.position.y = 4.35
+    group.add(cap)
+    const star = new THREE.Mesh(new THREE.OctahedronGeometry(0.55, 0), red)
+    star.position.y = 4.85
+    star.rotation.y = Math.PI / 4
+    group.add(star)
+    const starGold = new THREE.Mesh(new THREE.OctahedronGeometry(0.38, 0), gold)
+    starGold.position.y = 4.85
+    starGold.rotation.y = Math.PI / 4
+    group.add(starGold)
+  } else if (kind === 'hammer') {
+    const base = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.5, 1.6), darkStone)
+    base.position.y = 0.25
+    group.add(base)
+    const slab = new THREE.Mesh(new THREE.BoxGeometry(2.0, 2.4, 0.55), granite)
+    slab.position.y = 1.7
+    group.add(slab)
+    const hammerHead = new THREE.Mesh(new THREE.BoxGeometry(0.85, 0.28, 0.28), gold)
+    hammerHead.position.set(0, 2.15, 0.35)
+    group.add(hammerHead)
+    const hammerHandle = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.9, 0.14), gold)
+    hammerHandle.position.set(0.35, 1.85, 0.35)
+    hammerHandle.rotation.z = 0.35
+    group.add(hammerHandle)
+    const sickle = new THREE.Mesh(new THREE.BoxGeometry(0.65, 0.16, 0.16), gold)
+    sickle.position.set(-0.15, 1.95, 0.35)
+    sickle.rotation.z = -0.8
+    group.add(sickle)
+    const sickle2 = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.14, 0.14), gold)
+    sickle2.position.set(-0.45, 1.65, 0.35)
+    sickle2.rotation.z = -1.35
+    group.add(sickle2)
+    const wreath = new THREE.Mesh(new THREE.TorusGeometry(0.55, 0.08, lowDetail ? 4 : 6, lowDetail ? 8 : 12), gold)
+    wreath.rotation.x = Math.PI / 2
+    wreath.position.set(0, 2.0, 0.62)
+    group.add(wreath)
+  } else {
+    const plinth = new THREE.Mesh(new THREE.BoxGeometry(1.7, 0.55, 1.4), darkStone)
+    plinth.position.y = 0.27
+    group.add(plinth)
+    const column = new THREE.Mesh(new THREE.BoxGeometry(0.85, 1.35, 0.85), granite)
+    column.position.y = 1.2
+    group.add(column)
+    const body = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.75, 0.28), granite)
+    body.position.set(0, 2.05, 0)
+    group.add(body)
+    const head = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.3, 0.26), granite)
+    head.position.set(0, 2.62, 0)
+    group.add(head)
+    const arm = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.55, 0.14), granite)
+    arm.position.set(0.32, 2.35, 0)
+    arm.rotation.z = -1.25
+    group.add(arm)
+    const torch = new THREE.Mesh(new THREE.ConeGeometry(0.12, 0.35, 5), red)
+    torch.position.set(0.48, 2.72, 0)
+    torch.rotation.z = -1.25
+    group.add(torch)
+    if (!lowDetail) {
+      const flame = new THREE.Mesh(new THREE.ConeGeometry(0.1, 0.22, 5), gold)
+      flame.position.set(0.55, 2.95, 0)
+      flame.rotation.z = -1.25
+      group.add(flame)
+    }
+  }
+  return group
+}
+
 function buildPeachCastleVisuals(world, assets, { lite = false } = {}) {
   const decor = PEACH_CASTLE_DECOR
   const stoneMaterial = new THREE.MeshStandardMaterial({ color: '#d8d2c8', roughness: .52, metalness: .12, emissive: '#3a3020', emissiveIntensity: .16, flatShading: true })
@@ -9003,6 +9222,20 @@ function buildPeachCastleVisuals(world, assets, { lite = false } = {}) {
   if (titleSprite.material) titleSprite.material.depthTest = false
   showcase.add(titleSprite)
   world.add(showcase)
+
+  for (const horse of decor.horses || []) {
+    const prop = createPutinHorseDecor(lite)
+    prop.position.set(horse.x, 0, horse.z)
+    prop.rotation.y = horse.yaw || 0
+    prop.scale.setScalar(horse.scale || 0.95)
+    world.add(prop)
+  }
+  for (const monument of decor.monuments || []) {
+    const prop = createSovietMonumentDecor(monument.kind, lite)
+    prop.position.set(monument.x, 0, monument.z)
+    prop.rotation.y = monument.yaw || 0
+    world.add(prop)
+  }
 }
 
 function buildPeachCastleStructures(world, obstacles, { lite = false } = {}) {
@@ -9072,6 +9305,103 @@ function oasisKindOf(data) {
   if (label === 'OASIS TOWER') return 'tower'
   if (label === 'DESERT ROCK') return 'rock'
   return 'masonry'
+}
+
+function createMilitaryWatchtowerDecor(lowDetail) {
+  const group = new THREE.Group()
+  group.userData.skipOcclusion = true
+  const steel = new THREE.MeshStandardMaterial({ color: '#5b6470', roughness: 0.72, metalness: 0.35, flatShading: lowDetail })
+  const dark = new THREE.MeshStandardMaterial({ color: '#2d3748', roughness: 0.82, metalness: 0.2, flatShading: lowDetail })
+  const rail = new THREE.MeshStandardMaterial({ color: '#9ca3af', roughness: 0.5, metalness: 0.55, flatShading: lowDetail })
+  for (const [lx, lz] of [[-0.55, -0.55], [0.55, -0.55], [-0.55, 0.55], [0.55, 0.55]]) {
+    const leg = new THREE.Mesh(new THREE.BoxGeometry(0.18, 2.8, 0.18), dark)
+    leg.position.set(lx, 1.4, lz)
+    group.add(leg)
+  }
+  const platform = new THREE.Mesh(new THREE.BoxGeometry(1.55, 0.12, 1.55), steel)
+  platform.position.y = 2.82
+  group.add(platform)
+  const cabin = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.85, 1.1), steel)
+  cabin.position.y = 3.35
+  group.add(cabin)
+  const roof = new THREE.Mesh(new THREE.BoxGeometry(1.25, 0.1, 1.25), dark)
+  roof.position.y = 3.85
+  group.add(roof)
+  if (!lowDetail) {
+    const dish = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.7, 5), rail)
+    dish.rotation.z = Math.PI / 2
+    dish.position.set(0, 4.25, 0.45)
+    group.add(dish)
+    const dishHead = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.35, 0.22), rail)
+    dishHead.position.set(0, 4.25, 0.85)
+    group.add(dishHead)
+  }
+  for (const side of [-0.72, 0.72]) {
+    const barrier = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.42, 1.4), rail)
+    barrier.position.set(side, 3.05, 0)
+    group.add(barrier)
+  }
+  return group
+}
+
+function createMilitaryTankDecor(lowDetail) {
+  const group = new THREE.Group()
+  group.userData.skipOcclusion = true
+  const olive = new THREE.MeshStandardMaterial({ color: '#4a5d3a', roughness: 0.85, metalness: 0.12, flatShading: lowDetail })
+  const track = new THREE.MeshStandardMaterial({ color: '#2a3024', roughness: 0.92, metalness: 0.08, flatShading: lowDetail })
+  const barrel = new THREE.MeshStandardMaterial({ color: '#3d4a32', roughness: 0.55, metalness: 0.4, flatShading: lowDetail })
+  const hull = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.42, 2.2), olive)
+  hull.position.y = 0.55
+  group.add(hull)
+  for (const side of [-0.82, 0.82]) {
+    const tread = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.28, 2.35), track)
+    tread.position.set(side, 0.28, 0)
+    group.add(tread)
+    const wheelCount = lowDetail ? 4 : 7
+    for (let i = 0; i < wheelCount; i += 1) {
+      const wheel = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.11, 0.48, lowDetail ? 5 : 6), track)
+      wheel.rotation.z = Math.PI / 2
+      wheel.position.set(side, 0.22, -0.9 + i * (1.8 / Math.max(1, wheelCount - 1)))
+      group.add(wheel)
+    }
+  }
+  const turret = new THREE.Mesh(new THREE.BoxGeometry(0.95, 0.32, 1.05), olive)
+  turret.position.y = 0.95
+  group.add(turret)
+  const gun = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.1, 1.35, lowDetail ? 5 : 6), barrel)
+  gun.rotation.x = Math.PI / 2
+  gun.position.set(0, 1.02, -0.95)
+  group.add(gun)
+  if (!lowDetail) {
+    const hatch = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.08, 0.35), barrel)
+    hatch.position.y = 1.18
+    group.add(hatch)
+  }
+  return group
+}
+
+function createMilitaryCannonDecor(lowDetail) {
+  const group = new THREE.Group()
+  group.userData.skipOcclusion = true
+  const wood = new THREE.MeshStandardMaterial({ color: '#5c4a32', roughness: 0.9, metalness: 0.05, flatShading: lowDetail })
+  const iron = new THREE.MeshStandardMaterial({ color: '#374151', roughness: 0.45, metalness: 0.55, flatShading: lowDetail })
+  const carriage = new THREE.Mesh(new THREE.BoxGeometry(1.35, 0.35, 0.85), wood)
+  carriage.position.y = 0.45
+  group.add(carriage)
+  for (const side of [-0.52, 0.52]) {
+    const wheel = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.28, 0.14, lowDetail ? 6 : 8), iron)
+    wheel.rotation.z = Math.PI / 2
+    wheel.position.set(side, 0.28, 0.18)
+    group.add(wheel)
+  }
+  const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.16, 1.65, lowDetail ? 6 : 8), iron)
+  barrel.rotation.x = Math.PI / 2 - 0.12
+  barrel.position.set(0, 0.75, -0.55)
+  group.add(barrel)
+  const shield = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.45, 0.08), iron)
+  shield.position.set(0, 0.72, 0.28)
+  group.add(shield)
+  return group
 }
 
 function buildDesertOasisVisuals(world, assets, { lite = false } = {}) {
@@ -9183,13 +9513,26 @@ function buildDesertOasisVisuals(world, assets, { lite = false } = {}) {
   const showcase = new THREE.Group()
   showcase.position.set(towerGate.x, 0, towerGate.z)
   showcase.userData.skipOcclusion = true
-  const titleSprite = makeEmojiSprite('🕌', '#fcd34d', 'circle')
+  const titleSprite = makeEmojiSprite('kp-flag', '#ed1c27', 'circle')
   titleSprite.scale.set(lite ? 1.15 : 1.45, lite ? 1.15 : 1.45, 1)
   titleSprite.position.y = lite ? 5.8 : 7.2
   titleSprite.renderOrder = 4
   if (titleSprite.material) titleSprite.material.depthTest = false
   showcase.add(titleSprite)
   world.add(showcase)
+
+  const placeMilitaryDecor = (items, factory, scale = 1) => {
+    for (const item of items) {
+      const prop = factory(lite)
+      prop.position.set(item.x, 0, item.z)
+      prop.rotation.y = item.yaw || 0
+      prop.scale.setScalar(item.scale || scale)
+      world.add(prop)
+    }
+  }
+  if (decor.watchtowers?.length) placeMilitaryDecor(decor.watchtowers, createMilitaryWatchtowerDecor)
+  if (decor.tanks?.length) placeMilitaryDecor(decor.tanks, createMilitaryTankDecor, 0.92)
+  if (decor.cannons?.length) placeMilitaryDecor(decor.cannons, createMilitaryCannonDecor, 0.88)
 }
 
 function buildDesertOasisStructures(world, obstacles, { lite = false } = {}) {
@@ -9260,6 +9603,173 @@ function mysticKindOf(data) {
   if (label === 'MYSTIC CRYSTAL') return 'crystal'
   if (label === 'MYSTIC ROCK') return 'rock'
   return 'masonry'
+}
+
+function createTeslaDecor(kind, lowDetail) {
+  const group = new THREE.Group()
+  group.userData.skipOcclusion = true
+  const body = new THREE.MeshStandardMaterial({
+    color: kind === 'cybertruck' ? '#c0c4cc' : '#f8fafc',
+    roughness: kind === 'cybertruck' ? 0.42 : 0.28,
+    metalness: kind === 'cybertruck' ? 0.55 : 0.38,
+    flatShading: lowDetail,
+  })
+  const glass = new THREE.MeshStandardMaterial({ color: '#1e293b', roughness: 0.12, metalness: 0.65, flatShading: lowDetail })
+  const trim = new THREE.MeshStandardMaterial({ color: '#0f172a', roughness: 0.55, metalness: 0.35, flatShading: lowDetail })
+  const wheel = new THREE.MeshStandardMaterial({ color: '#111827', roughness: 0.82, metalness: 0.2, flatShading: lowDetail })
+  const addBox = (w, h, d, mat, x, y, z) => {
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat)
+    mesh.position.set(x, y, z)
+    group.add(mesh)
+    return mesh
+  }
+
+  if (kind === 'cybertruck') {
+    addBox(1.55, 0.42, 0.95, body, 0, 0.52, 0)
+    addBox(1.35, 0.28, 0.82, body, 0, 0.78, -0.08)
+    addBox(1.05, 0.38, 0.72, glass, 0, 0.82, -0.12)
+    addBox(1.58, 0.12, 0.98, trim, 0, 0.28, 0.02)
+    for (const wx of [-0.62, 0.62]) {
+      const tire = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.18, 0.14, lowDetail ? 6 : 8), wheel)
+      tire.rotation.z = Math.PI / 2
+      tire.position.set(wx, 0.18, 0.32)
+      group.add(tire)
+      const tireR = tire.clone()
+      tireR.position.z = -0.32
+      group.add(tireR)
+    }
+  } else {
+    addBox(1.45, 0.34, 0.72, body, 0, 0.42, 0)
+    addBox(1.05, 0.28, 0.62, glass, 0, 0.68, -0.04)
+    addBox(0.42, 0.18, 0.58, glass, 0, 0.66, 0.18)
+    for (const wx of [-0.58, 0.58]) {
+      for (const wz of [-0.28, 0.28]) {
+        const tire = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.16, 0.12, lowDetail ? 6 : 8), wheel)
+        tire.rotation.z = Math.PI / 2
+        tire.position.set(wx, 0.16, wz)
+        group.add(tire)
+      }
+    }
+    if (!lowDetail) {
+      addBox(0.08, 0.04, 0.42, trim, 0.62, 0.52, 0.02)
+    }
+  }
+  return group
+}
+
+function createSpaceRocketDecor(lowDetail, vertical = true) {
+  const group = new THREE.Group()
+  group.userData.skipOcclusion = true
+  const white = new THREE.MeshStandardMaterial({ color: '#f8fafc', roughness: 0.38, metalness: 0.22, flatShading: lowDetail })
+  const black = new THREE.MeshStandardMaterial({ color: '#111827', roughness: 0.55, metalness: 0.35, flatShading: lowDetail })
+  const silver = new THREE.MeshStandardMaterial({ color: '#94a3b8', roughness: 0.32, metalness: 0.62, flatShading: lowDetail })
+
+  const pad = new THREE.Mesh(new THREE.CylinderGeometry(1.05, 1.15, 0.18, lowDetail ? 6 : 10), black)
+  pad.position.y = 0.09
+  group.add(pad)
+
+  const body = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.32, vertical ? 3.6 : 2.8, lowDetail ? 8 : 12), white)
+  body.position.y = vertical ? 2.0 : 1.55
+  if (!vertical) body.rotation.z = Math.PI / 2 - 0.18
+  group.add(body)
+
+  const nose = new THREE.Mesh(new THREE.ConeGeometry(0.28, 0.75, lowDetail ? 6 : 10), white)
+  if (vertical) {
+    nose.position.y = 4.15
+  } else {
+    nose.rotation.z = Math.PI / 2 - 0.18
+    nose.position.set(1.75, 1.55, 0)
+  }
+  group.add(nose)
+
+  const interstage = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.34, 0.35, lowDetail ? 6 : 10), black)
+  if (vertical) {
+    interstage.position.y = 0.45
+  } else {
+    interstage.rotation.z = Math.PI / 2 - 0.18
+    interstage.position.set(-1.05, 1.55, 0)
+  }
+  group.add(interstage)
+
+  if (!lowDetail) {
+    for (const side of [-1, 1]) {
+      const fin = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.55, 0.32), black)
+      if (vertical) {
+        fin.position.set(side * 0.34, 0.55, 0)
+      } else {
+        fin.rotation.z = Math.PI / 2 - 0.18
+        fin.position.set(-1.05, 1.55 + side * 0.34, 0)
+      }
+      group.add(fin)
+    }
+    const band = new THREE.Mesh(new THREE.TorusGeometry(0.3, 0.03, 4, lowDetail ? 8 : 12), silver)
+    if (vertical) {
+      band.rotation.x = Math.PI / 2
+      band.position.y = 2.8
+    } else {
+      band.rotation.y = Math.PI / 2
+      band.position.set(0.35, 1.55, 0)
+    }
+    group.add(band)
+  }
+  return group
+}
+
+function createStarlinkDecor(kind, lowDetail) {
+  const group = new THREE.Group()
+  group.userData.skipOcclusion = true
+  const white = new THREE.MeshStandardMaterial({ color: '#f1f5f9', roughness: 0.42, metalness: 0.28, flatShading: lowDetail })
+  const dark = new THREE.MeshStandardMaterial({ color: '#334155', roughness: 0.62, metalness: 0.35, flatShading: lowDetail })
+  const solar = new THREE.MeshStandardMaterial({
+    color: '#1e3a5f', roughness: 0.35, metalness: 0.45, emissive: '#0c4a6e', emissiveIntensity: 0.22, flatShading: lowDetail,
+  })
+
+  if (kind === 'dish') {
+    const tripodLeg = (angle) => {
+      const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.04, 0.72, 4), dark)
+      leg.position.set(Math.cos(angle) * 0.22, 0.36, Math.sin(angle) * 0.22)
+      leg.rotation.x = 0.22
+      leg.rotation.y = angle
+      group.add(leg)
+    }
+    tripodLeg(0)
+    tripodLeg((2 * Math.PI) / 3)
+    tripodLeg((4 * Math.PI) / 3)
+    const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.05, 0.55, 5), dark)
+    mast.position.y = 0.55
+    group.add(mast)
+    const dish = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.42, 0.05, lowDetail ? 8 : 14), white)
+    dish.rotation.x = -0.55
+    dish.position.set(0, 0.95, 0.08)
+    group.add(dish)
+    const feed = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.06, 0.18), dark)
+    feed.rotation.x = -0.55
+    feed.position.set(0, 0.95, 0.22)
+    group.add(feed)
+  } else {
+    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.07, 3.2, 5), dark)
+    pole.position.y = 1.6
+    group.add(pole)
+    const bus = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.22, 0.55), white)
+    bus.position.y = 3.35
+    group.add(bus)
+    const panelL = new THREE.Mesh(new THREE.BoxGeometry(0.95, 0.04, 0.42), solar)
+    panelL.position.set(-0.72, 3.35, 0)
+    group.add(panelL)
+    const panelR = new THREE.Mesh(new THREE.BoxGeometry(0.95, 0.04, 0.42), solar)
+    panelR.position.set(0.72, 3.35, 0)
+    group.add(panelR)
+    const antenna = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.35, 4), dark)
+    antenna.position.set(0, 3.55, 0.22)
+    antenna.rotation.x = -0.4
+    group.add(antenna)
+    if (!lowDetail) {
+      const glow = new THREE.PointLight('#38bdf8', 0.55, 4.5, 2)
+      glow.position.y = 3.4
+      group.add(glow)
+    }
+  }
+  return group
 }
 
 function buildMysticIsleVisuals(world, assets, { lite = false } = {}) {
@@ -9386,6 +9896,27 @@ function buildMysticIsleVisuals(world, assets, { lite = false } = {}) {
   if (titleSprite.material) titleSprite.material.depthTest = false
   showcase.add(titleSprite)
   world.add(showcase)
+
+  for (const car of decor.teslas || []) {
+    const prop = createTeslaDecor(car.kind, lite)
+    prop.position.set(car.x, 0, car.z)
+    prop.rotation.y = car.yaw || 0
+    prop.scale.setScalar(car.scale || 0.9)
+    world.add(prop)
+  }
+  for (const rocket of decor.rockets || []) {
+    const prop = createSpaceRocketDecor(lite, rocket.vertical !== false)
+    prop.position.set(rocket.x, 0, rocket.z)
+    prop.rotation.y = rocket.yaw || 0
+    prop.scale.setScalar(rocket.scale || 0.88)
+    world.add(prop)
+  }
+  for (const link of decor.starlinks || []) {
+    const prop = createStarlinkDecor(link.kind, lite)
+    prop.position.set(link.x, 0, link.z)
+    prop.rotation.y = link.yaw || 0
+    world.add(prop)
+  }
 }
 
 function buildMysticIsleStructures(world, obstacles, { lite = false } = {}) {
@@ -9742,7 +10273,7 @@ function rebuildPeripheralMapWorld(state, mapId, obstacles, cellMap) {
     ? getMiningVisualTier(window.innerWidth, window.innerHeight)
     : 'high'
   const lowDetail = visualTier === 'low'
-  addBiomeGround(world, state.textures)
+  addBiomeGround(world, state.textures, mapId)
   addIslandSurroundCoast(world, state.textures, lowDetail, mapId)
   addPeripheralMapLandmark(world, state.textures, mapId, lowDetail)
   addPeripheralGroundFeatures(world, mapId, lowDetail)
@@ -9808,6 +10339,7 @@ function rebuildPeripheralMapWorld(state, mapId, obstacles, cellMap) {
   }
   state.m5TrumpBossGroup = null
   state.m3PutinBossGroup = null
+  state.m4KimBossGroup = null
   const bossMod = getBossRuntimeModule(mapId)
   if (bossMod) {
     const bossVisual = bossMod.createVisual(THREE, lowDetail)
@@ -9839,12 +10371,13 @@ function rebuildPeripheralMapWorld(state, mapId, obstacles, cellMap) {
     state.beaconBatch?.columns,
     state.m5TrumpBossGroup,
     state.m3PutinBossGroup,
+    state.m4KimBossGroup,
   ].filter(Boolean))
   world.traverse(object => {
     if (object === world || animated.has(object)) return
     let ancestor = object.parent
     while (ancestor) {
-      if (ancestor.userData?.m5TrumpBoss || ancestor.userData?.m3PutinBoss) return
+      if (ancestor.userData?.m5TrumpBoss || ancestor.userData?.m3PutinBoss || ancestor.userData?.m4KimBoss) return
       ancestor = ancestor.parent
     }
     object.updateMatrix()
@@ -10651,6 +11184,7 @@ export default function MiningChain3DFPV({
   const damageFloatsRef = useRef([])
   const bossDollarBillsRef = useRef([])
   const bossHammerSymbolsRef = useRef([])
+  const bossMissileSymbolsRef = useRef([])
   const bossLastAttackMsRef = useRef(0)
   const onPvpHitRef          = useRef(onPvpHit)
   const pvpStolenRef         = useRef(pvpStolen || {})
@@ -10878,6 +11412,7 @@ export default function MiningChain3DFPV({
     if (!mapHasBoss(mid)) {
       bossDollarBillsRef.current = []
       bossHammerSymbolsRef.current = []
+      bossMissileSymbolsRef.current = []
       bossLastAttackMsRef.current = 0
       bossRuntimeRef.current = null
       bossSwingTargetRef.current = null
@@ -12806,6 +13341,14 @@ export default function MiningChain3DFPV({
       now: performance.now(),
       lowDetail: visualPerfTierRef.current === 'low',
     })
+    bossMissileSymbolsRef.current = drawBossMissileSymbols(ctx, bossMissileSymbolsRef.current, {
+      mapId: mapIdRef.current,
+      W,
+      H,
+      threeState,
+      now: performance.now(),
+      lowDetail: visualPerfTierRef.current === 'low',
+    })
     damageFloatsRef.current = drawCombatDamageFloats(ctx, damageFloatsRef.current, {
       mapId: mapIdRef.current,
       W,
@@ -13089,10 +13632,11 @@ export default function MiningChain3DFPV({
         }
       }
       const cm=activeCellMapRef.current, obs=validObstaclesRef.current
+      const activeMapId=mapIdRef.current
       const movedDist=Math.hypot(vel.x,vel.y)*dt
       if(movedDist>0.001){
         const cgx=p.x/CELL_SIZE, cgy=p.y/CELL_SIZE
-        const stepSupport=supportHeightAt(cgx,cgy,p.z,cm,obs)
+        const stepSupport=supportHeightAt(cgx,cgy,p.z,cm,obs,activeMapId)
         if(stepSupport>p.z&&stepSupport-p.z<=WALK_STEP_UP&&p.vz<=0){
           p.z=stepSupport
         }
@@ -13101,9 +13645,9 @@ export default function MiningChain3DFPV({
         const R=PLAYER_R*CELL_SIZE
         const inBX=nx>R&&nx<WORLD_W-R, inBY=ny>R&&ny<WORLD_H-R
         const ngx=nx/CELL_SIZE, ngy=ny/CELL_SIZE
-        const moveZ=effectiveMoveZ(ngx,ngy,p.z,cm,obs)
-        const slideZx=effectiveMoveZ(ngx,cgy,p.z,cm,obs)
-        const slideZy=effectiveMoveZ(cgx,ngy,p.z,cm,obs)
+        const moveZ=effectiveMoveZ(ngx,ngy,p.z,cm,obs,activeMapId)
+        const slideZx=effectiveMoveZ(ngx,cgy,p.z,cm,obs,activeMapId)
+        const slideZy=effectiveMoveZ(cgx,ngy,p.z,cm,obs,activeMapId)
         // While airborne use actual height — moveZ can snap to terrace lip early and
         // falsely clear pool walls or trip terrace-rail collision from the water.
         const wallZ=p.vz>0.05?p.z:moveZ
@@ -13129,7 +13673,7 @@ export default function MiningChain3DFPV({
           if(inBY&&!hitsSolidWall(cgx,ngy,cm,obs,p.vz>0.05?p.z:slideZy,p.vz,moveGy,0)&&!avatarBlocked(cgx,ngy)) p.y=ny
           // Corner-clip guard: both axes slid into a combined position that is
           // itself solid (diagonal block corner). Revert to avoid penetration.
-          if(p.x!==prevX&&p.y!==prevY&&hitsSolidWall(p.x/CELL_SIZE,p.y/CELL_SIZE,cm,obs,p.vz>0.05?p.z:effectiveMoveZ(p.x/CELL_SIZE,p.y/CELL_SIZE,p.z,cm,obs),p.vz)){
+          if(p.x!==prevX&&p.y!==prevY&&hitsSolidWall(p.x/CELL_SIZE,p.y/CELL_SIZE,cm,obs,p.vz>0.05?p.z:effectiveMoveZ(p.x/CELL_SIZE,p.y/CELL_SIZE,p.z,cm,obs,activeMapId),p.vz)){
             p.x=prevX; p.y=prevY
           }
         }
@@ -13178,6 +13722,7 @@ export default function MiningChain3DFPV({
           p.z,
           activeCellMapRef.current,
           validObstaclesRef.current,
+          mapIdRef.current,
         )
         const floorZ = supportHeight && (
           p.z >= supportHeight - 0.28 ||
@@ -13192,6 +13737,7 @@ export default function MiningChain3DFPV({
           const ceilingBottom=ceilingBottomAt(
             p.x/CELL_SIZE,p.y/CELL_SIZE,p.z,
             activeCellMapRef.current,validObstaclesRef.current,
+            mapIdRef.current,
           )
           if(p.vz>0&&ceilingBottom&&nz+PLAYER_BODY_H>=ceilingBottom){
             nz=ceilingBottom-PLAYER_BODY_H-.02
@@ -13202,12 +13748,14 @@ export default function MiningChain3DFPV({
           if (p.vz > 0 && landingZ > p.z + WALK_STEP_UP + 0.04) {
             const pgx = p.x / CELL_SIZE
             const pgy = p.y / CELL_SIZE
-            if (isBelowPoolDeck(p.z) && !isOnInteriorPoolStair(pgx, pgy)) {
+            if (isMiningCoreMap(mapIdRef.current) && isBelowPoolDeck(p.z) && !isOnInteriorPoolStair(pgx, pgy)) {
               landingZ = p.z >= HOUSE_MAIN_FLOOR_LEVEL - 0.12 ? HOUSE_MAIN_FLOOR_LEVEL : 0
-            } else if (isInsidePoolBasin(pgx, pgy) && p.z >= HOUSE_POOL_FLOOR_LEVEL - 0.32) {
+            } else if (isMiningCoreMap(mapIdRef.current) && isInsidePoolBasin(pgx, pgy) && p.z >= HOUSE_POOL_FLOOR_LEVEL - 0.32) {
               landingZ = HOUSE_POOL_FLOOR_LEVEL
-            } else {
+            } else if (isMiningCoreMap(mapIdRef.current)) {
               landingZ = p.z >= HOUSE_MAIN_FLOOR_LEVEL - 0.12 ? HOUSE_MAIN_FLOOR_LEVEL : 0
+            } else {
+              landingZ = 0
             }
           }
           if(nz <= landingZ){
@@ -13364,6 +13912,16 @@ export default function MiningChain3DFPV({
                 toGy: targetPos.gy,
                 at: performance.now(),
                 count: tier === 'low' ? 4 : tier === 'medium' ? 5 : 7,
+              })
+            } else if (currentMapId === '4') {
+              bossMissileSymbolsRef.current = spawnBossMissileBurst(bossMissileSymbolsRef.current, {
+                fromGx: rt.gx,
+                fromGy: rt.gy,
+                toGx: targetPos.gx,
+                toGy: targetPos.gy,
+                at: performance.now(),
+                mapId: '4',
+                count: tier === 'low' ? 3 : tier === 'medium' ? 4 : 6,
               })
             } else {
               bossDollarBillsRef.current = spawnBossDollarBurst(bossDollarBillsRef.current, {
@@ -13990,6 +14548,7 @@ export default function MiningChain3DFPV({
       if(damageFloatsRef.current.some(e => nowMs - e.at < COMBAT_DAMAGE_FLOAT_MS)) needsRender=true
       if(bossDollarBillsRef.current.some(b => nowMs - b.at < BOSS_DOLLAR_VFX_MS)) needsRender=true
       if(bossHammerSymbolsRef.current.some(b => nowMs - b.at < BOSS_HAMMER_SICKLE_VFX_MS)) needsRender=true
+      if(bossMissileSymbolsRef.current.some(b => nowMs - b.at < BOSS_MISSILE_VFX_MS)) needsRender=true
       if(
         mapIdRef.current === MINING_CORE_MAP_ID
         && isAvatarInPoolVisual(p.x / CELL_SIZE, p.y / CELL_SIZE, p.z, false)

@@ -22,13 +22,16 @@ import {
   relocateMiningBlockPosition,
   getBlockMapId,
   isInBossMiningExclusion,
+  isInM1CipherHouseGhostZone,
 } from '@/lib/mining-visual-layout'
 import { MINING_CORE_MAP_ID } from '@/lib/mining-maps'
 import { RL_NODE_MIN_LEVEL, RL_NODE_PRICE_MM3 } from '@/lib/mining-rl-mount'
 import { normalizeBossState as normalizeM5BossState, M5_TRUMP_BOSS_NAME, M5_TRUMP_BOSS_MAX_HP, M5_TRUMP_BOSS_SCALE, M5_TRUMP_BOSS_SPAWN } from '@/lib/m5-trump-boss'
 import { normalizeBossState as normalizeM3BossState, M3_PUTIN_BOSS_NAME, M3_PUTIN_BOSS_MAX_HP, M3_PUTIN_BOSS_SCALE, M3_PUTIN_BOSS_SPAWN } from '@/lib/m3-putin-boss'
+import { normalizeBossState as normalizeM4KimBossState, M4_KIM_BOSS_MAX_HP, M4_KIM_BOSS_SCALE } from '@/lib/m4-kim-boss'
 import { M5_TRUMP_BOSS_LOCAL_BOUNDS } from '@/lib/m5-trump-boss-runtime'
 import { M3_PUTIN_BOSS_LOCAL_BOUNDS } from '@/lib/m3-putin-boss-runtime'
+import { M4_KIM_BOSS_LOCAL_BOUNDS } from '@/lib/m4-kim-boss-runtime'
 import { getMapBossConfig, mapHasBoss } from '@/lib/map-boss-registry'
 import { formatWalletLabel } from '@/lib/wallet-format'
 import supabase from '@/lib/supabaseClient'
@@ -41,6 +44,7 @@ const C = '#22d3ee'
 const NETWORK_VISUAL_RANGE = 22
 const BOSS_DAMAGE_FLOAT_Y_BY_MAP = Object.freeze({
   '3': M3_PUTIN_BOSS_SCALE * M3_PUTIN_BOSS_LOCAL_BOUNDS.headTop + 0.35,
+  '4': M4_KIM_BOSS_SCALE * M4_KIM_BOSS_LOCAL_BOUNDS.headTop + 0.35,
   '5': M5_TRUMP_BOSS_SCALE * M5_TRUMP_BOSS_LOCAL_BOUNDS.headTop + 0.35,
 })
 
@@ -111,9 +115,12 @@ function relocateBossOverlappingBlocks(map) {
   for (const [key, cell] of map) {
     if (!isRelocatableMineCell(cell)) continue
     const blockMapId = cell.mapId || getBlockMapId(cell.blockHex)
-    if (blockMapId !== '3' && blockMapId !== '5') continue
+    if (blockMapId !== '2' && blockMapId !== '3' && blockMapId !== '4' && blockMapId !== '5') continue
     const [row, col] = key.split(',').map(Number)
-    if (!isInBossMiningExclusion(blockMapId, row, col)) continue
+    if (
+      !isInBossMiningExclusion(blockMapId, row, col) &&
+      !isInM1CipherHouseGhostZone(blockMapId, row, col)
+    ) continue
     pending.push({ key, cell })
   }
   for (const { key, cell } of pending) {
@@ -124,6 +131,13 @@ function relocateBossOverlappingBlocks(map) {
     if (map.has(nextKey)) continue
     const { baseHeight, ...rest } = cell
     map.set(nextKey, { ...rest, mapId: newPos.mapId || cell.mapId || getBlockMapId(cell.blockHex) })
+    if (cell.blockHex) {
+      MINING_VISUAL_BLOCK_POSITIONS.set(cell.blockHex, {
+        row: newPos.row,
+        col: newPos.col,
+        mapId: newPos.mapId || cell.mapId || getBlockMapId(cell.blockHex),
+      })
+    }
   }
 }
 
@@ -373,6 +387,7 @@ export default function MiningChain3D() {
   const [rlMountError, setRlMountError] = useState('')
   const [bossStateByMap, setBossStateByMap] = useState(() => ({
     '3': normalizeM3BossState(null),
+    '4': normalizeM4KimBossState(null),
     '5': normalizeM5BossState(null),
   }))
   const bossState = bossStateByMap[mapId] || null
@@ -383,14 +398,19 @@ export default function MiningChain3D() {
 
   const loadBossStatus = useCallback(async () => {
     try {
-      const [m3Res, m5Res] = await Promise.all([
+      const [m3Res, m4Res, m5Res] = await Promise.all([
         fetch('/api/m3-boss', { cache: 'no-store' }),
+        fetch('/api/m4-boss', { cache: 'no-store' }),
         fetch('/api/m5-boss', { cache: 'no-store' }),
       ])
       const next = {}
       if (m3Res.ok) {
         const data = await m3Res.json()
         if (data?.ok !== false) next['3'] = normalizeM3BossState(data)
+      }
+      if (m4Res.ok) {
+        const data = await m4Res.json()
+        if (data?.ok !== false) next['4'] = normalizeM4KimBossState(data)
       }
       if (m5Res.ok) {
         const data = await m5Res.json()
@@ -1019,7 +1039,7 @@ export default function MiningChain3D() {
     const response = await fetch(`${cfg.apiBase}/idle`, { method: 'POST' }).then(r => r.json()).catch(() => null)
     if (response?.ok && response.changed) {
       const maxHealth = Number(response.max_health) || bossStateByMap[bossMapId]?.maxHealth
-        || (bossMapId === '3' ? M3_PUTIN_BOSS_MAX_HP : M5_TRUMP_BOSS_MAX_HP)
+        || (bossMapId === '3' ? M3_PUTIN_BOSS_MAX_HP : bossMapId === '4' ? M4_KIM_BOSS_MAX_HP : M5_TRUMP_BOSS_MAX_HP)
       const health = Number(response.health) || maxHealth
       setBossStateByMap(prev => ({
         ...prev,
