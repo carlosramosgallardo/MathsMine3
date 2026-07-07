@@ -61,7 +61,7 @@
 | Persistence | Supabase player, mining, chart, chat, and event state |
 | Languages | English and Spanish |
 | Core routes | Training, Mining, Trading, Ranking, Squeezing, Relaying, MM3 Value, Manifesto, API, Security Audit |
-| Win condition | Be #1 in Mining % when all 1000 board cells are covered (980 chain blocks mined + all 20 NFTJIs owned), OR submit the correct `Ω(α, β, γ)` for an immediate win |
+| Goal | Endless — climb and hold the top of the wallet & pool rankings (sorted by **level**). Optional legendary instant-win: solve the secret `Ω(α, β, γ)` |
 | Legal status | No real mining, no real token, no payout, no investment |
 
 ---
@@ -78,9 +78,21 @@ The useful idea is simple: **math becomes action**. Every problem solved is not 
 
 ## Objective
 
-The goal is to complete the MM3 3D mining world and win. The 3D world has **1000 blocks** — 20 NFTJI blocks and 980 free chain blocks. Both types count toward your Mining %. There are two ways to win: **complete the 3D world** — the wallet at #1 when all 1000 blocks are covered (980 chain blocks permanently mined + all 20 NFTJI blocks owned by at least one wallet) wins — or **solve the chain directly** by submitting the correct answer to the secret function `Ω(α, β, γ)`, which triggers an immediate win regardless of world state.
+**MathsMine3 has no finish line.** It is a persistent, endless world, and the only thing that counts is your standing in the rankings — sorted by **level**. Two ladders run in parallel: the **wallet ranking** (your own level) and the **pool ranking** (your pool's combined level). Position is never locked in — every session, every rival, and every bot can push you up or drag you down. The game is about climbing high and *staying* there, not about reaching an end.
 
-### Why reaching #1 is genuinely hard
+You rank up by living in the world:
+
+- **Explore** the five-map 3D mining world and mine chain blocks.
+- **Level up** your wallet through Training and mining.
+- **Level up your NFTJI skills** — mining passives and Squeeze attack/defense.
+- **Duel other wallets** in real-time PvP.
+- **Take on the three world bosses** — Vladimir Putin (M3), Kim Jong-un (M4), Donald Trump (M5) — in co-op PvE.
+- **Buy the RL Mount** (the car) to move faster and jump higher.
+- **Buy the Node Dice** to unleash a storm that damages rival wallets — and drives every boss into a hunting frenzy.
+
+> A legendary shortcut still exists — solving the secret function `Ω(α, β, γ)` (see [Solve the Chain](#solve-the-chain)) — but it is a flex, not the point. The point is the climb.
+
+### Why holding the top is genuinely hard
 
 **Level wall.** Most blocks in the upper half of the 28×28 grid require wallet level 80–100 (LEGEND rank). At level 100 you have 1500 ms per problem. One wrong answer at level 95+ costs 5 levels. Recovering takes at least three consecutive correct answers under that same pressure. Getting there and *staying* there is the first filter most wallets never pass.
 
@@ -94,7 +106,7 @@ The goal is to complete the MM3 3D mining world and win. The 3D world has **1000
 
 **Rival pressure.** Without pool cover, any wallet that owns a Mining NFTJI can fire its daily command and drain rivals' fiat or MM3 in a single shot. Those losses can erase the reserves needed to meet a block threshold or rebuy MM3 at the exchange.
 
-**The real scale.** A live 3D world — 1000 block cells on the ground floor of the MM3 BLOCK CHAIN. 980 chain blocks glow as open targets when unclaimed; once mined, sealed permanently by whoever got there first. 20 NFTJI blocks float in amber: free until purchased, owned only as long as you hold the NFTJI. Other wallets walk the same world as avatars in real time — racing the same open chain blocks, able to attack you directly. Hundreds of timed training problems under maximum pressure. Days or weeks of sustained LEGEND-level performance. Active bots. World-state conditions outside your control. Rivals targeting your economy. The wallet that reaches #1 will have earned it.
+**The real scale.** A live 3D world — 1000 block cells on the ground floor of the MM3 BLOCK CHAIN. 980 chain blocks glow as open targets when unclaimed; once mined, sealed permanently by whoever got there first. 20 NFTJI blocks float in amber: free until purchased, owned only as long as you hold the NFTJI. Other wallets walk the same world as avatars in real time — racing the same open chain blocks, able to attack you directly. Hundreds of timed training problems under maximum pressure. Days or weeks of sustained LEGEND-level performance. Active bots. World-state conditions outside your control. Rivals targeting your economy. The wallet that holds #1 will have earned it — and has to keep earning it, because the ladder never closes.
 
 ---
 
@@ -308,7 +320,7 @@ Trade, Ranking (wallet and pool views) show **6 NFTJI slots** side by side per w
 | Slots | Content | Border |
 |:---:|---|---|
 | 1–4 | Mining drops — 🔮 🍀 🎰 🧿 | Wallet rank color |
-| 5 | Life Toll — ❤️ | Rose |
+| 5 | Life Toll — 💚 | Green |
 | 6 | Mining NFTJI *(one per wallet)* | Amber / gold |
 
 Empty slots remain visible with a faint border of their type's color.  
@@ -406,7 +418,7 @@ Every player in the 3D world has a **100 HP** health bar. USB-staff hits deal **
 
 - Inside the pool zone, PvP damage is fully disabled in both directions (StormRoll ticks included) — attackers standing in the zone can't deal damage either.
 - Staying in the pool regenerates **+10 HP every 5 minutes** (up to 100). Presence is checked every 10 s — leaving and coming back does not reset the timer.
-- Holding the **❤️ Life Toll NFTJI halves the regen cooldown**: **+10 HP every 2.5 minutes** (full heal from 0 in ~25 min instead of ~50).
+- Holding the **💚 Life Toll NFTJI halves the regen cooldown**: **+10 HP every 2.5 minutes** (full heal from 0 in ~25 min instead of ~50).
 
 ### Mining skills — NFTJI passives
 
@@ -414,12 +426,12 @@ Owning (or equipping, for Squeeze NFTJIs) certain NFTJIs grants passive skills i
 
 | NFTJI | HUD label | Effect in the 3D world |
 |---|---|---|
-| ❤️ Life Toll | `+10% SPD` | +10% movement speed · pool regeneration ×2 speed |
+| 💚 Life Toll | `+10% SPD` | +10% movement speed · pool regeneration ×2 speed |
 | ⚔️ Chaos Blade *(equipped)* | `+5% CRT` | 5% chance a landed PvP hit is a critical (5 damage) |
 | 🔰 Void Ward *(equipped)* | `10% DGE` | 10% chance to fully dodge an incoming PvP hit |
 | Any Mining NFTJI *(held)* | `+10% AIR` | +10% air travel on jumps (longer long-jumps) |
 
-> **🏎️ RL Mount (M2):** while active it multiplies movement speed **×2** and jump **×2**, and stacks with the ❤️ speed bonus. It is a mount, not an NFTJI skill slot.
+> **🏎️ RL Mount (M2):** while active it multiplies movement speed **×2** and jump **×2**, and stacks with the 💚 speed bonus. It is a mount, not an NFTJI skill slot.
 
 Two block types:
 
@@ -876,8 +888,8 @@ Executes 15 parallel checks across the entire application surface on every scan:
 |---|---|
 | Dependency & Supply Chain | npm vulnerability scan (OSV/Google) · client bundle secret scan |
 | HTTP Security Headers | Security headers presence · CSP deep analysis |
-| Authentication | API auth across all 28 endpoints · Web3 wallet signature enforcement · Cookie flags |
-| Page Health | HTTP status + sensitive data leak detection across all 15 app pages |
+| Authentication | API auth across all 61 endpoints · Web3 wallet signature enforcement · Cookie flags |
+| Page Health | HTTP status + sensitive data leak detection across all 16 app pages |
 | Injection & Input | 21 injection probes (PostgREST, SQL, NoSQL, XSS, prototype pollution, integer bounds) · 12 business logic probes |
 | Information Disclosure | 37 sensitive path checks · open redirect detection |
 | Network & Protocol | CORS policy · HTTP method security (TRACE/XST) · rate limiting detection |
@@ -916,7 +928,7 @@ Each scan produces a weighted security score (0–100) with per-finding detail, 
 | 2 | 🍀 | Fortune Leaf | Mining drop |
 | 3 | 🎰 | Jackpot Engine | Mining drop |
 | 4 | 🧿 | Fate Singularity | Mining drop |
-| 5 | ❤️ | Life Toll | Emergency revive |
+| 5 | 💚 | Life Toll | Emergency revive |
 | 6 | *(variable)* | Mining NFTJI | 3D world NFTJI purchase |
 
 Slot 6 border is **amber**. Slot 5 border is **rose**. Slots 1–4 share the wallet's rank color.
@@ -929,7 +941,7 @@ Slot 6 border is **amber**. Slot 5 border is **rose**. Slots 1–4 share the wal
 | 🍀 | Fortune Leaf | 1/100 | ×1.01 | +1% |
 | 🎰 | Jackpot Engine | 1/500 | ×1.05 | +5% |
 | 🧿 | Fate Singularity | 1/1000 | ×1.5 | +10% |
-| ❤️ | Life Toll *(revive)* | one-use | ×0.2 | −25% |
+| 💚 | Life Toll *(revive)* | one-use | ×0.2 | −25% |
 
 ### NFTJIs — Market · Money Rail
 
@@ -1115,7 +1127,7 @@ Read:
 | Persistencia | Estado de jugadores, Market, gráfico, chat y eventos en Supabase |
 | Idiomas | Inglés y español |
 | Rutas principales | Training, Mining, Trading, Ranking, Squeezing, Relaying, MM3 Value, Manifiesto, API, Análisis de Seguridad |
-| Condición de victoria | Ser #1 en % de Minado cuando las 1000 celdas estén cubiertas (980 bloques minados + los 20 NFTJIs con dueño), O enviar el `Ω(α, β, γ)` correcto para ganar de inmediato |
+| Meta | Infinita — escalar y mantener la cima de los rankings de wallets y pools (ordenados por **nivel**). Victoria instantánea legendaria opcional: resolver el `Ω(α, β, γ)` secreto |
 | Estado legal | Sin minería real, sin token real, sin pagos, sin inversión |
 
 ---
@@ -1132,9 +1144,21 @@ La idea útil es simple: **la matemática se convierte en acción**. Cada proble
 
 ## Objetivo
 
-El objetivo es completar el mundo 3D de Mining y ganar. El mundo 3D tiene **1000 bloques** — 20 bloques NFTJI y 980 bloques libres de cadena. Ambos tipos cuentan en tu % de Minado. Hay dos formas de ganar: **completar el mundo 3D** — gana la wallet en el puesto #1 cuando todos los 1000 bloques estén cubiertos (980 bloques de cadena minados permanentemente + los 20 bloques NFTJI con al menos un dueño en ese momento) — o **resolver la cadena directamente** enviando la respuesta correcta a la función secreta `Ω(α, β, γ)`, lo que activa una victoria inmediata.
+**MathsMine3 no tiene final.** Es un mundo persistente e infinito, y lo único que cuenta es tu posición en las clasificaciones — ordenadas por **nivel**. Corren dos escaleras en paralelo: el **ranking de wallets** (tu propio nivel) y el **ranking de pools** (el nivel combinado de tu pool). La posición nunca queda fijada — cada sesión, cada rival y cada bot puede subirte o hundirte. El juego va de subir alto y *mantenerte* ahí, no de llegar a un final.
 
-### Por qué llegar al #1 es genuinamente difícil
+Subes de posición viviendo el mundo:
+
+- **Explora** el mundo 3D de mining de cinco mapas y mina bloques de cadena.
+- **Sube de nivel** tu wallet con Training y minando.
+- **Sube el nivel de tus skills NFTJI** — pasivas de mining y ataque/defensa de Squeeze.
+- **Batéte con otras wallets** en PvP en tiempo real.
+- **Enfréntate a los tres bosses del mundo** — Vladimir Putin (M3), Kim Jong-un (M4), Donald Trump (M5) — en PvE cooperativo.
+- **Compra el RL Mount** (el coche) para moverte más rápido y saltar más alto.
+- **Compra el Node Dice** para desatar un storm que daña a las wallets rivales — y pone a todos los bosses en modo caza.
+
+> Sigue existiendo un atajo legendario — resolver la función secreta `Ω(α, β, γ)` (ver [Resolver la cadena](#resolver-la-cadena)) — pero es un flex, no el objetivo. El objetivo es la escalada.
+
+### Por qué mantenerse arriba es genuinamente difícil
 
 **Barrera de nivel.** La mayoría de los bloques de la mitad superior del grid 28×28 requieren nivel de wallet 80–100 (rango LEGEND). Al nivel 100 tienes 1500 ms por problema. Un fallo en el nivel 95+ cuesta 5 niveles. Recuperarse exige al menos tres respuestas correctas consecutivas bajo esa misma presión. Llegar ahí *y mantenerse* es el primer filtro que la mayoría de wallets nunca superan.
 
@@ -1148,7 +1172,7 @@ El objetivo es completar el mundo 3D de Mining y ganar. El mundo 3D tiene **1000
 
 **Presión rival.** Sin cobertura de pool, cualquier wallet que posea un NFTJI de Mining puede disparar su comando diario y drenar fiat o MM3 de los rivales de un solo golpe. Esas pérdidas pueden borrar las reservas necesarias para cumplir un umbral de bloque o recomprar MM3 en el exchange.
 
-**La escala real.** 1000 celdas. 980 bloques permanentes + 20 celdas NFTJI (temporales, cubiertas solo mientras se posean). Cientos de problemas de training cronometrados bajo presión máxima. Días o semanas de rendimiento sostenido a nivel LEGEND. Bots activos. Condiciones del estado del mundo fuera de tu control. Rivales apuntando a tu economía. La wallet que llegue al #1 se lo habrá ganado.
+**La escala real.** 1000 celdas. 980 bloques permanentes + 20 celdas NFTJI (temporales, cubiertas solo mientras se posean). Cientos de problemas de training cronometrados bajo presión máxima. Días o semanas de rendimiento sostenido a nivel LEGEND. Bots activos. Condiciones del estado del mundo fuera de tu control. Rivales apuntando a tu economía. La wallet que sostenga el #1 se lo habrá ganado — y tendrá que seguir ganándoselo, porque la escalera nunca se cierra.
 
 ---
 
@@ -1361,7 +1385,7 @@ Trade, Ranking (wallets y pools) muestran **6 casillas NFTJI** en fila por walle
 | Casillas | Contenido | Borde |
 |:---:|---|---|
 | 1–4 | Drops de mining — 🔮 🍀 🎰 🧿 | Color del rango de la wallet |
-| 5 | Life Toll — ❤️ | Rosa |
+| 5 | Life Toll — 💚 | Verde |
 | 6 | NFTJI de Mining *(una por wallet)* | Ámbar / dorado |
 
 Las casillas vacías mantienen un borde tenue de su color de tipo.  
@@ -1459,7 +1483,7 @@ Cada jugador del mundo 3D tiene una barra de **100 HP**. Los golpes de bastón U
 
 - Dentro de la zona de la piscina el daño PvP queda desactivado en ambos sentidos (ticks de StormRoll incluidos) — un atacante dentro de la zona tampoco puede hacer daño.
 - Permanecer en la piscina regenera **+10 HP cada 5 minutos** (hasta 100). La presencia se comprueba cada 10 s — salir y volver no reinicia el contador.
-- Poseer el **NFTJI ❤️ Life Toll reduce el cooldown de regeneración a la mitad**: **+10 HP cada 2,5 minutos** (curación completa desde 0 en ~25 min en vez de ~50).
+- Poseer el **NFTJI 💚 Life Toll reduce el cooldown de regeneración a la mitad**: **+10 HP cada 2,5 minutos** (curación completa desde 0 en ~25 min en vez de ~50).
 
 ### Skills de mining — pasivas por NFTJI
 
@@ -1467,12 +1491,12 @@ Poseer (o equipar, en el caso de los NFTJIs de Squeeze) ciertos NFTJIs otorga sk
 
 | NFTJI | Etiqueta HUD | Efecto en el mundo 3D |
 |---|---|---|
-| ❤️ Life Toll | `+10% SPD` | +10% velocidad de movimiento · regeneración en piscina ×2 |
+| 💚 Life Toll | `+10% SPD` | +10% velocidad de movimiento · regeneración en piscina ×2 |
 | ⚔️ Chaos Blade *(equipado)* | `+5% CRT` | 5% de probabilidad de que un golpe PvP acertado sea crítico (5 de daño) |
 | 🔰 Void Ward *(equipado)* | `10% DGE` | 10% de probabilidad de esquivar por completo un golpe PvP recibido |
 | Cualquier NFTJI de Mining *(en propiedad)* | `+10% AIR` | +10% de vuelo en los saltos (saltos largos más largos) |
 
-> **🏎️ RL Mount (M2):** mientras está activo multiplica la velocidad **×2** y el salto **×2**, y se acumula con el bonus de velocidad del ❤️. Es una montura, no una casilla de skill NFTJI.
+> **🏎️ RL Mount (M2):** mientras está activo multiplica la velocidad **×2** y el salto **×2**, y se acumula con el bonus de velocidad del 💚. Es una montura, no una casilla de skill NFTJI.
 
 Dos tipos de bloque:
 
@@ -1929,8 +1953,8 @@ Ejecuta 15 comprobaciones en paralelo sobre toda la superficie de la aplicación
 |---|---|
 | Dependencias y cadena de suministro | Análisis de vulnerabilidades npm (OSV/Google) · escaneo de secretos en bundles de cliente |
 | Cabeceras HTTP de seguridad | Presencia de cabeceras de seguridad · análisis profundo de CSP |
-| Autenticación | Auth de API en los 28 endpoints · firma de wallet Web3 · flags de cookies |
-| Salud de páginas | Estado HTTP + detección de fugas de datos sensibles en las 15 páginas de la app |
+| Autenticación | Auth de API en los 61 endpoints · firma de wallet Web3 · flags de cookies |
+| Salud de páginas | Estado HTTP + detección de fugas de datos sensibles en las 16 páginas de la app |
 | Inyección e inputs | 21 sondas de inyección (PostgREST, SQL, NoSQL, XSS, prototype pollution, bounds enteros) · 12 sondas de lógica de negocio |
 | Exposición de información | 37 rutas sensibles · detección de open redirect |
 | Red y protocolo | Política CORS · seguridad de métodos HTTP (TRACE/XST) · detección de rate limiting |
@@ -1969,7 +1993,7 @@ Cada análisis produce una puntuación de seguridad ponderada (0–100) con deta
 | 2 | 🍀 | Fortune Leaf | Drop de mining |
 | 3 | 🎰 | Jackpot Engine | Drop de mining |
 | 4 | 🧿 | Fate Singularity | Drop de mining |
-| 5 | ❤️ | Life Toll | Revive de emergencia |
+| 5 | 💚 | Life Toll | Revive de emergencia |
 | 6 | *(variable)* | NFTJI de Mining | Compra en el mundo 3D de Mining |
 
 Borde de casilla 6: **ámbar**. Casilla 5: **rosa**. Casillas 1–4 comparten el color del rango de la wallet.
@@ -1982,7 +2006,7 @@ Borde de casilla 6: **ámbar**. Casilla 5: **rosa**. Casillas 1–4 comparten el
 | 🍀 | Fortune Leaf | 1/100 | ×1.01 | +1% |
 | 🎰 | Jackpot Engine | 1/500 | ×1.05 | +5% |
 | 🧿 | Fate Singularity | 1/1000 | ×1.5 | +10% |
-| ❤️ | Life Toll *(revive)* | un uso | ×0.2 | −25% |
+| 💚 | Life Toll *(revive)* | un uso | ×0.2 | −25% |
 
 ### NFTJIs — Market · Rail Fiat
 

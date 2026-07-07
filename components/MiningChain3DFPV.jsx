@@ -13959,6 +13959,10 @@ export default function MiningChain3DFPV({
         }
         const myIdentity = presenceKeyRef.current || myWalletRef.current
         const currentMapId = mapIdRef.current
+        // Node Dice storm: while a dice is owned and the 15-min window is live,
+        // every boss goes aggro and hunts anyone in range (buyer & pool included).
+        const nd = nodeDiceStateRef.current
+        const stormAggro = !!(nd && Number(nd.expiresAt) > Date.now() && getDiceState().active)
         if (bossMod && bossRuntimeRef.current) {
           bossRuntimeRef.current = bossMod.updateBoss({
             runtime: bossRuntimeRef.current,
@@ -13971,6 +13975,7 @@ export default function MiningChain3DFPV({
             myDead,
             localGx: p.x / CELL_SIZE,
             localGy: p.y / CELL_SIZE,
+            stormAggro,
             onAttack: (payload) => onBossAttackRef.current?.({ ...payload, mapId: currentMapId }),
             onRequestIdle: () => {
               if (bossIdleRequestedRef.current || bossStateRef.current?.state !== 'active') return

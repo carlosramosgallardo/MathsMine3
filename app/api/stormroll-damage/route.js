@@ -90,6 +90,21 @@ export async function POST(req) {
     return Response.json({ ok: false, error: 'already_dead' }, { status: 409 })
   }
 
+  // Friendly-fire off: the dice storm only hurts wallets OPPOSED to the buyer.
+  // The buyer themselves, and anyone in the buyer's pool, take no damage.
+  if (wallet === nodeWallet) {
+    return Response.json({ ok: true, immune: true, health: hData?.health ?? null, killed: false, damage: 0 })
+  }
+  const { data: poolRows } = await sb
+    .from('mm3_wallet_pool_members')
+    .select('wallet, pool_code')
+    .in('wallet', [wallet, nodeWallet])
+  const targetPool = poolRows?.find(r => r.wallet === wallet)?.pool_code || null
+  const buyerPool  = poolRows?.find(r => r.wallet === nodeWallet)?.pool_code || null
+  if (targetPool && buyerPool && targetPool === buyerPool) {
+    return Response.json({ ok: true, immune: true, health: hData?.health ?? null, killed: false, damage: 0 })
+  }
+
   const warPercent    = Number(macro?.war_percent)    || 0
   const naturePercent = Number(macro?.nature_percent) || 0
   const mode          = nodeModeFor(nodeWallet, getDiceHourStart())

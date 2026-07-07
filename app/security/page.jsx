@@ -449,8 +449,8 @@ export default function SecurityPage() {
           </div>
           <div style={{ color: '#71839a', fontSize: '0.65rem', marginTop: 6, lineHeight: '1.6' }}>
             {es
-              ? <>Comprobaciones: TLS &amp; certificado · cabeceras de seguridad HTTP · análisis CSP · autenticación API (28 endpoints) · firma de wallet Web3 · CVEs de dependencias (OSV/Google) · escaneo de secretos en bundle · inyección &amp; contaminación de prototipo · lógica de negocio · divulgación de errores · inyección de host · SRI · rutas sensibles · redirección abierta · CORS · limitación de velocidad · salud de página (15 páginas) · puntuación 0–100 · exportación PDF</>
-              : <>Checks: TLS &amp; certificate · HTTP security headers · CSP deep analysis · API auth (28 endpoints) · Web3 wallet signature · dependency CVEs (OSV/Google) · client bundle secret scan · injection &amp; prototype pollution · business logic probes · error disclosure · host injection · SRI · sensitive paths · open redirect · CORS · rate limiting · page health (15 pages) · results scored 0–100 · PDF export</>}
+              ? <>Comprobaciones: TLS &amp; certificado · cabeceras de seguridad HTTP · análisis CSP · autenticación API (61 endpoints) · firma de wallet Web3 · CVEs de dependencias (OSV/Google) · escaneo de secretos en bundle · inyección &amp; contaminación de prototipo · lógica de negocio · divulgación de errores · inyección de host · SRI · rutas sensibles · redirección abierta · CORS · limitación de velocidad · salud de página (16 páginas) · puntuación 0–100 · exportación PDF</>
+              : <>Checks: TLS &amp; certificate · HTTP security headers · CSP deep analysis · API auth (61 endpoints) · Web3 wallet signature · dependency CVEs (OSV/Google) · client bundle secret scan · injection &amp; prototype pollution · business logic probes · error disclosure · host injection · SRI · sensitive paths · open redirect · CORS · rate limiting · page health (16 pages) · results scored 0–100 · PDF export</>}
           </div>
         </div>
 

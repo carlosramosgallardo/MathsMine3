@@ -164,12 +164,14 @@ function countSqueezeNftjis(squeezeNftji) {
 }
 
 const LEADERBOARD_VIEW_STORAGE_KEY = 'mm3_leaderboard_view_mode';
-const LEADERBOARD_SORT_STORAGE_PREFIX = 'mm3_leaderboard_sort_v2_';
+// v3: default sort switched from block_chain_percent to level. Bumping the key
+// resets everyone's saved sort so the new Level default takes effect for all.
+const LEADERBOARD_SORT_STORAGE_PREFIX = 'mm3_leaderboard_sort_v3_';
 const SQUEEZE_LAUNCH_LIMIT = 5;
 const SQUEEZE_LAUNCH_WINDOW_MS = 24 * 60 * 60 * 1000;
 const DEFAULT_SORT_BY_VIEW = {
-  wallets: { key: 'block_chain_percent', direction: 'desc' },
-  pools: { key: 'block_chain_percent', direction: 'desc' },
+  wallets: { key: 'level', direction: 'desc' },
+  pools: { key: 'level', direction: 'desc' },
 };
 
 function formatBlockChainPercent(value) {

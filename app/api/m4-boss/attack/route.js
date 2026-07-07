@@ -9,6 +9,7 @@ import {
   M4_KIM_BOSS_ID,
   isBossPositionValid,
 } from '@/lib/m4-kim-boss'
+import { isStormActive } from '@/lib/boss-storm'
 
 function serviceClient() {
   return createClient(
@@ -71,6 +72,7 @@ export async function POST(req) {
   const critical = Math.random() < M4_KIM_BOSS_CRIT_CHANCE
   const damage = critical ? M4_KIM_BOSS_CRIT_DAMAGE : M4_KIM_BOSS_HIT_DAMAGE
 
+  const stormActive = await isStormActive(sb)
   const { data, error } = await sb.rpc('apply_mm3_boss_attack_player', {
     p_wallet: wallet,
     p_damage: damage,
@@ -79,6 +81,7 @@ export async function POST(req) {
     p_player_gx: playerGx,
     p_player_gy: playerGy,
     p_boss_id: M4_KIM_BOSS_ID,
+    p_storm_active: stormActive,
   })
   if (error) {
     return Response.json({ ok: false, error: error.message }, { status: 500 })
