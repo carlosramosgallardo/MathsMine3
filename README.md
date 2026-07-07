@@ -390,7 +390,7 @@ M5 — Epstein Island — M1 — Core Island — M4 — Desert Oasis
 
 **Block placement:** each chain index maps to one visual cell on its assigned map (see `lib/mining-visual-layout.js`). Regular blocks appear as minable cubes; NFTJI blocks as amber market cells (buy/resell in-world). Requirements (`min wallet level` + `mm3_global_value`) scale with the global index `#000` → `#3E7`.
 
-**World bosses (co-op PvE):** each boss activates when any logged-in wallet lands a hit and requires multiple fighters for serious damage. On defeat, the reward is split proportionally among damage dealers; the boss respawns **24 h** later. Player hits on a boss can crit for extra damage:
+**World bosses (co-op PvE):** each boss activates when any logged-in wallet lands a hit and requires multiple fighters for serious damage. On defeat, the reward is split proportionally among damage dealers; the boss respawns **24 h** later. Hit damage and crit columns are the boss's attacks on players; player hits on a boss deal 1 damage (5 on headshot or ⚔️ critical):
 
 | Boss | Map | HP | Hit damage | Crit | Reward on defeat |
 |---|:---:|---:|---:|---|---|
@@ -1442,7 +1442,7 @@ M5 — Isla Epstein — M1 — Isla Central — M4 — Oasis del Desierto
 
 **Colocación de bloques:** cada índice de cadena corresponde a una celda visual en su mapa asignado (ver `lib/mining-visual-layout.js`). Los bloques regulares aparecen como cubos minables; los NFTJI como celdas ámbar de mercado (compra/reventa in-world). Los requisitos (`nivel mínimo de wallet` + `mm3_global_value`) escalan con el índice global `#000` → `#3E7`.
 
-**Bosses del mundo (PvE cooperativo):** cada boss se activa cuando cualquier wallet logueada acierta un golpe y requiere varios luchadores para daño serio. Al derrotarlo, la recompensa se reparte proporcionalmente entre los que infligieron daño; el boss respawnea **24 h** después. Los golpes del jugador al boss pueden ser críticos con daño extra:
+**Bosses del mundo (PvE cooperativo):** cada boss se activa cuando cualquier wallet logueada acierta un golpe y requiere varios luchadores para daño serio. Al derrotarlo, la recompensa se reparte proporcionalmente entre los que infligieron daño; el boss respawnea **24 h** después. Las columnas de daño y crítico son los ataques del boss al jugador; los golpes del jugador al boss hacen 1 de daño (5 con headshot o crítico del ⚔️):
 
 | Boss | Mapa | HP | Daño/golpe | Crítico | Recompensa al derrotarlo |
 |---|:---:|---:|---:|---|---|
