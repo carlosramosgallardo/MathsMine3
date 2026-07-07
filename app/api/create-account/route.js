@@ -3,9 +3,9 @@ export const dynamic = 'force-dynamic';
 import { createClient } from '@supabase/supabase-js';
 import { deriveVirtualWallet } from '@/lib/virtual-wallet';
 
-// In-memory rate limiter — best-effort for serverless (resets on cold start)
+// Persistent rate limiter — backed by mm3_account_creation_log so the limit is
+// shared across serverless instances and survives cold starts.
 // Limits new account creation only; returning users bypass this entirely.
-const ipLog = new Map(); // ip → { count: number, resetAt: number }
 const MAX_NEW_ACCOUNTS_PER_IP_PER_DAY = 5;
 
 function clientIp(req) {
@@ -16,16 +16,13 @@ function clientIp(req) {
   );
 }
 
-function allowedByRateLimit(ip) {
-  const now = Date.now();
-  const entry = ipLog.get(ip);
-  if (!entry || entry.resetAt < now) {
-    ipLog.set(ip, { count: 1, resetAt: now + 24 * 60 * 60 * 1000 });
-    return true;
-  }
-  if (entry.count >= MAX_NEW_ACCOUNTS_PER_IP_PER_DAY) return false;
-  entry.count++;
-  return true;
+// Atomically increments today's counter for this IP and returns whether the
+// creation is still within the daily allowance. On DB error we fail open (allow)
+// so a rate-limiter outage never blocks legitimate sign-ups.
+async function allowedByRateLimit(supabase, ip) {
+  const { data, error } = await supabase.rpc('mm3_bump_account_creation', { p_ip: ip });
+  if (error) return true;
+  return Number(data) <= MAX_NEW_ACCOUNTS_PER_IP_PER_DAY;
 }
 
 function serviceClient() {
@@ -105,7 +102,7 @@ export async function POST(req) {
     const supabase = serviceClient();
 
     if (!await accountExists(supabase, wallet)) {
-      if (!allowedByRateLimit(clientIp(req))) {
+      if (!await allowedByRateLimit(supabase, clientIp(req))) {
         return Response.json({ ok: false, error: 'rate_limit' }, { status: 429 });
       }
       await createWalletRows(supabase, wallet);
@@ -124,7 +121,7 @@ export async function POST(req) {
     const supabase = serviceClient();
 
     if (!await accountExists(supabase, wallet)) {
-      if (!allowedByRateLimit(clientIp(req))) {
+      if (!await allowedByRateLimit(supabase, clientIp(req))) {
         return Response.json({ ok: false, error: 'rate_limit' }, { status: 429 });
       }
       await createWalletRows(supabase, wallet);
