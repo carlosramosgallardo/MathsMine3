@@ -10345,7 +10345,7 @@ function rebuildPeripheralMapWorld(state, mapId, obstacles, cellMap) {
   }
   if (mapId === '2') {
     addRlColiseumNodeVisual(world, lowDetail, state)
-    addM2PitchDomeDecor(world, lowDetail, { animated: visualTier === 'high' }, state)
+    addM2PitchDomeDecor(world, lowDetail, { animated: visualTier !== 'low' }, state)
   }
   state.m5TrumpBossGroup = null
   state.m3PutinBossGroup = null
@@ -10552,7 +10552,7 @@ function addM2PitchDomeDecor(world, lowDetail, { animated = true } = {}, state) 
   for (const spot of getM2PitchBotSpots()) {
     const botGroup = new THREE.Group()
     botGroup.userData.skipOcclusion = true
-    const car = createRlCarMesh(lowDetail, { teamColor: spot.color })
+    const car = createRlCarMesh(lowDetail, { decor: true, teamColor: spot.color })
     car.scale.setScalar(0.84)
     car.position.y = 0.24
     botGroup.add(car)
@@ -10573,7 +10573,7 @@ function addM2PitchDomeDecor(world, lowDetail, { animated = true } = {}, state) 
   state.m2PitchDomeRuntime.active = animated
 }
 
-function createRlCarMesh(lowDetail = false, { showcase = false, teamColor = '#0ea5e9' } = {}) {
+function createRlCarMesh(lowDetail = false, { showcase = false, decor = false, teamColor = '#0ea5e9' } = {}) {
   const group = new THREE.Group()
   const bodyMat = lowDetail
     ? new THREE.MeshLambertMaterial({ color: teamColor })
@@ -10616,7 +10616,7 @@ function createRlCarMesh(lowDetail = false, { showcase = false, teamColor = '#0e
   }
   group.add(boost)
   group.userData.boostFx = boost
-  group.visible = showcase
+  group.visible = showcase || decor
   if (showcase) boost.visible = false
   return group
 }
@@ -12141,14 +12141,6 @@ export default function MiningChain3DFPV({
               object.scale.setScalar(pulse)
             }
           }
-        }
-        if (
-          visualTier === 'high' &&
-          mapIdRef.current === '2' &&
-          threeState.m2PitchDomeRuntime?.active &&
-          threeState.fxFrame % 2 === 0
-        ) {
-          updateM2PitchDomeRuntime(threeState.m2PitchDomeRuntime, 1 / 30)
         }
         if(visualTier==='high'){
           for(const object of threeState.interactiveVisuals||[]){
@@ -13950,6 +13942,14 @@ export default function MiningChain3DFPV({
           // Fade breath phase back to zero without popping
           breathPhaseRef.current*=Math.exp(-3*dt)
         }
+      }
+
+      if (
+        mapIdRef.current === '2' &&
+        threeStateRef.current?.m2PitchDomeRuntime?.active
+      ) {
+        updateM2PitchDomeRuntime(threeStateRef.current.m2PitchDomeRuntime, dt)
+        needsRender = true
       }
 
       if (mapHasBoss(mapIdRef.current)) {

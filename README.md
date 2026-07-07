@@ -385,7 +385,7 @@ The Mining world is a **five-map 3D cross layout** connected by gateway corridor
 Cross topology (gateways on M1 edges lead to peripheral maps):
 
 ```
-        M2 — RL Coliseum (north)
+        M2 — Speculation Plaza (north)
               |
 M5 — Epstein Island — M1 — Core Island — M4 — Korea
               |
@@ -395,7 +395,7 @@ M5 — Epstein Island — M1 — Core Island — M4 — Korea
 | Map | Name | Chain indices | Blocks | Requirements (typical) | Interactive landmarks |
 |:---:|:---|:---|---:|:---|:---|
 | **M1** | Core Island | `#000`–`#0C7` | 200 | Lowest — entry tier | ⬡ **Chain Node** (solve/demine Ω), 🎲 **Dice Node** (StormRoll window), **Cipher House** + pool, **Crypto Colosseum**, 9 **Portal nodes** (Training, Trading, Ranking…), gateway exits |
-| **M2** | RL Coliseum | `#0C8`–`#18F` | 200 | Low–mid | 🏎️ **RL Mount node** (Red Lightning car), full-map coliseum venue, gateway → M1 |
+| **M2** | Speculation Plaza | `#0C8`–`#18F` | 200 | Low–mid | 🏎️ **RL Mount node** (Red Lightning car), full-map stadium with animated 3v3 RL bot dome, gateway → M1 |
 | **M3** | Former Soviet Union | `#190`–`#257` | 200 | Mid | Full-map castle city venue, **Vladimir Putin** world boss (castle gate, co-op PvE, daily respawn), gateway → M1 |
 | **M4** | Korea | `#258`–`#31F` | 200 | Mid–high | Full-map **Korea** desert venue, **Kim Jong-un** world boss (lagoon centre, co-op PvE, daily respawn), military scenery (tanks, cannons, watchtowers), gateway → M1 |
 | **M5** | Epstein Island | `#320`–`#3E7` | 200 | Highest | Full-map mystic isle venue, **Donald Trump** world boss (centre, co-op PvE, daily respawn), gateway → M1 |
@@ -1450,7 +1450,7 @@ El mundo de Mining es un **layout en cruz de cinco mapas 3D** conectados por cor
 Topología en cruz (portales en los bordes de M1 hacia los mapas periféricos):
 
 ```
-        M2 — Coliseo RL (norte)
+        M2 — Plaza de la Especulación (norte)
               |
 M5 — Isla Epstein — M1 — Isla Central — M4 — Corea
               |
@@ -1460,7 +1460,7 @@ M5 — Isla Epstein — M1 — Isla Central — M4 — Corea
 | Mapa | Nombre | Índices cadena | Bloques | Requisitos (típico) | Landmarks interactivos |
 |:---:|:---|:---|---:|:---|:---|
 | **M1** | Isla Central | `#000`–`#0C7` | 200 | Mínimos — entrada | ⬡ **Nodo Cadena** (resolver/desminar Ω), 🎲 **Nodo Dado** (ventana StormRoll), **Casa Cipher** + piscina, **Coliseo Crypto**, 9 **nodos Portal** (Training, Trading, Ranking…), salidas portal |
-| **M2** | Coliseo RL | `#0C8`–`#18F` | 200 | Bajo–medio | 🏎️ **Nodo RL Mount** (coche Red Lightning), coliseo a mapa completo, portal → M1 |
+| **M2** | Plaza de la Especulación | `#0C8`–`#18F` | 200 | Bajo–medio | 🏎️ **Nodo RL Mount** (coche Red Lightning), estadio a mapa completo con cúpula animada 3v3 de bots RL, portal → M1 |
 | **M3** | Antigua Unión Soviética | `#190`–`#257` | 200 | Medio | Ciudad-castillo a mapa completo, **boss Vladimir Putin** (puerta del castillo, PvE cooperativo, respawn diario), portal → M1 |
 | **M4** | Corea | `#258`–`#31F` | 200 | Medio–alto | **Corea** a mapa completo, **boss Kim Jong-un** (centro del oasis, PvE cooperativo, respawn diario), decoración militar (tanques, cañones, torres de vigilancia), portal → M1 |
 | **M5** | Isla Epstein | `#320`–`#3E7` | 200 | Máximos | Isla mística a mapa completo, **boss Donald Trump** (centro, PvE cooperativo, respawn diario), portal → M1 |
