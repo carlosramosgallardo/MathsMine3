@@ -268,6 +268,9 @@ export default function MiningChain3D() {
   // Move handler lives in the global-channel effect (it owns the rAF-batched
   // queue); the per-map channel effect reaches it through this ref.
   const moveBroadcastHandlerRef = useRef(null)
+  // Combat handlers (pvp-result / boss-result / boss-attack-result) also live
+  // in the global-channel effect; the per-map channel delegates through here.
+  const combatBroadcastHandlersRef = useRef(null)
   const loadChainStatusRef = useRef(null)
   const myWalletRef    = useRef(myWallet)
   const myPosRef       = useRef(initialPos)
@@ -300,6 +303,8 @@ export default function MiningChain3D() {
   // sync. Unlike positions (distance-culled), this always knows who is on
   // which map — the FPV send throttle uses it to skip broadcasts when alone.
   const [presenceMeta,  setPresenceMeta]  = useState({})
+  const presenceMetaRef = useRef(presenceMeta)
+  presenceMetaRef.current = presenceMeta
   const [loading,       setLoading]       = useState(true)
   const [fpvReady,      setFpvReady]      = useState(false)
   const [worldBootstrapped, setWorldBootstrapped] = useState(false)
@@ -346,6 +351,15 @@ export default function MiningChain3D() {
   const myDeadPosRef   = useRef(null)
   const respawnTimerRef = useRef(null)
   const bossAttackInFlightRef = useRef(false)
+  // Combat broadcasts ride the per-map channel: during raids/duels they fire
+  // several times per second, and global fan-out delivers to every player on
+  // every map. Global remains the fallback while resubscribing after a map
+  // change, and the forced path for bot victims — the bot runtime only
+  // listens on the global channel.
+  const sendCombatEvent = useCallback((event, payload, { forceGlobal = false } = {}) => {
+    const ch = forceGlobal ? channelRef.current : (mapMoveChannelRef.current || channelRef.current)
+    ch?.send({ type: 'broadcast', event, payload })?.catch(() => {})
+  }, [])
   const [chainDemineActive, setChainDemineActive] = useState(false)
   const [chainDemineHitsRemaining, setChainDemineHitsRemaining] = useState(100)
   const [chainSolvers, setChainSolvers] = useState([])
@@ -551,6 +565,10 @@ export default function MiningChain3D() {
       const gy = Number.isFinite(Number(pos.gy)) ? Number(pos.gy) : Number(pos.row) + .5
       const gz = Number(pos.z) || 0
       if (!isInHousePoolSafeZone(gx, gy, gz)) return
+      // Already at full HP (known locally): skip the round-trip entirely.
+      // Unknown health (entry not loaded yet) still heals — never block on it.
+      const knownHealth = Number(healthMapRef.current[key])
+      if (Number.isFinite(knownHealth) && knownHealth >= 100) return
       const now = Date.now()
       const speedMult = Math.max(1, Number(poolHealSpeedMultRef.current) || 1)
       const healCooldownMs = Math.max(1_000, Math.floor(POOL_HEAL_COOLDOWN_MS / speedMult))
@@ -566,7 +584,7 @@ export default function MiningChain3D() {
       if (key.startsWith('anon-')) {
         const next = Math.min(100, Number(healthMapRef.current[key] ?? 100) + 10)
         setHealthMap(prev => ({ ...prev, [key]: next }))
-        channelRef.current?.send({ type: 'broadcast', event: 'pvp-result', payload: { victim: key, health: next, killed: false, healed: true } })?.catch(() => {})
+        sendCombatEvent('pvp-result', { victim: key, health: next, killed: false, healed: true })
         return
       }
       fetch('/api/pool-heal', {
@@ -577,11 +595,11 @@ export default function MiningChain3D() {
         if (!result?.ok) return
         const next = Number(result.health ?? 100)
         setHealthMap(prev => ({ ...prev, [key]: next }))
-        channelRef.current?.send({ type: 'broadcast', event: 'pvp-result', payload: { victim: key, health: next, killed: false, healed: true } })?.catch(() => {})
+        sendCombatEvent('pvp-result', { victim: key, health: next, killed: false, healed: true })
       }).catch(() => {})
     }, 10_000)
     return () => clearInterval(id)
-  }, [])
+  }, [sendCombatEvent])
 
   const loadNodeDiceWalletStats = useCallback(async () => {
     const wallet = myWalletRef.current
@@ -916,16 +934,12 @@ export default function MiningChain3D() {
         state: response.state,
       }),
     }))
-    channelRef.current?.send({
-      type: 'broadcast',
-      event: 'boss-result',
-      payload: { ...response, wallet, hitZone, bossGx, bossGy, playerGx, playerGy, mapId: bossMapId },
-    })?.catch(() => {})
+    sendCombatEvent('boss-result', { ...response, wallet, hitZone, bossGx, bossGy, playerGx, playerGy, mapId: bossMapId })
     if (response.killed && wallet && !wallet.startsWith('anon-')) {
       window.dispatchEvent(new CustomEvent('mm3-db-updated', { detail: { boss: true, wallet } }))
     }
     return response
-  }, [])
+  }, [sendCombatEvent])
 
   const handleBossAttack = useCallback(async ({ wallet, playerGx, playerGy, bossGx, bossGy, mapId: attackMapId }) => {
     const bossMapId = String(attackMapId || mapIdRef.current)
@@ -967,20 +981,16 @@ export default function MiningChain3D() {
     if (response.killed) {
       setHealthMap(prev => writeWalletHealth(prev, 0, ...healthKeys))
       setReceivedHitAt(Date.now())
-      channelRef.current?.send({
-        type: 'broadcast',
-        event: 'boss-attack-result',
-        payload: {
-          wallet: normalizedWallet,
-          playerGx,
-          playerGy,
-          bossGx,
-          bossGy,
-          mapId: bossMapId,
-          ...response,
-          health: 0,
-        },
-      })?.catch(() => {})
+      sendCombatEvent('boss-attack-result', {
+        wallet: normalizedWallet,
+        playerGx,
+        playerGy,
+        bossGx,
+        bossGy,
+        mapId: bossMapId,
+        ...response,
+        health: 0,
+      })
       triggerSelfDeath()
       return response
     }
@@ -990,21 +1000,17 @@ export default function MiningChain3D() {
       return writeWalletHealth(prev, applied, ...healthKeys)
     })
     setReceivedHitAt(Date.now())
-    channelRef.current?.send({
-      type: 'broadcast',
-      event: 'boss-attack-result',
-      payload: {
-        wallet: normalizedWallet,
-        playerGx,
-        playerGy,
-        bossGx,
-        bossGy,
-        mapId: bossMapId,
-        ...response,
-      },
-    })?.catch(() => {})
+    sendCombatEvent('boss-attack-result', {
+      wallet: normalizedWallet,
+      playerGx,
+      playerGy,
+      bossGx,
+      bossGy,
+      mapId: bossMapId,
+      ...response,
+    })
     return response
-  }, [triggerSelfDeath])
+  }, [triggerSelfDeath, sendCombatEvent])
 
   const handleBossIdle = useCallback(async (idleMapId) => {
     const bossMapId = String(idleMapId || mapIdRef.current)
@@ -1543,7 +1549,7 @@ export default function MiningChain3D() {
       }
     })
 
-    ch.on('broadcast', { event: 'pvp-result' }, ({ payload }) => {
+    const onPvpResult = (payload) => {
       if (!payload?.victim) return
       if (payload?.attacker) {
         setSwingMap(prev => ({ ...prev, [payload.attacker]: Date.now() }))
@@ -1654,14 +1660,15 @@ export default function MiningChain3D() {
           scheduleRespawn(5 * 60 * 1000)
         }
       }
-    })
+    }
+    ch.on('broadcast', { event: 'pvp-result' }, ({ payload }) => onPvpResult(payload))
 
     // Demine rewards are bounded to 100 broadcasts per completed chain cycle.
     ch.on('broadcast', { event: 'demine-reward' }, ({ payload }) => {
       applyDemineReward(payload || {})
     })
 
-    ch.on('broadcast', { event: 'boss-result' }, ({ payload }) => {
+    const onBossResult = (payload) => {
       if (!payload) return
       const bossMapId = String(payload.mapId || '5')
       const cfg = getMapBossConfig(bossMapId)
@@ -1696,7 +1703,8 @@ export default function MiningChain3D() {
           label: payload.wallet ? formatWalletLabel(payload.wallet) : '',
         })
       }
-    })
+    }
+    ch.on('broadcast', { event: 'boss-result' }, ({ payload }) => onBossResult(payload))
 
     ch.on('broadcast', { event: 'boss-state' }, ({ payload }) => {
       if (!payload?.state) return
@@ -1712,7 +1720,7 @@ export default function MiningChain3D() {
       }))
     })
 
-    ch.on('broadcast', { event: 'boss-attack-result' }, ({ payload }) => {
+    const onBossAttackResult = (payload) => {
       if (!payload?.wallet) return
       const bossMapId = String(payload.mapId || '5')
       const cfg = getMapBossConfig(bossMapId)
@@ -1762,7 +1770,11 @@ export default function MiningChain3D() {
           label: cfg?.name || M5_TRUMP_BOSS_NAME,
         })
       }
-    })
+    }
+    ch.on('broadcast', { event: 'boss-attack-result' }, ({ payload }) => onBossAttackResult(payload))
+    // Combat events arrive on the per-map channel for new clients; the global
+    // registrations above stay for bots and the map-change fallback window.
+    combatBroadcastHandlersRef.current = { onPvpResult, onBossResult, onBossAttackResult }
 
     // Someone solved the global formula — refresh chain/demine status for everyone right away
     // instead of waiting for the 30s poll.
@@ -1941,6 +1953,7 @@ export default function MiningChain3D() {
       if(moveFlushFrame!=null) cancelAnimationFrame(moveFlushFrame)
       pendingMoves.clear()
       if (moveBroadcastHandlerRef.current === onMoveBroadcast) moveBroadcastHandlerRef.current = null
+      if (combatBroadcastHandlersRef.current?.onPvpResult === onPvpResult) combatBroadcastHandlersRef.current = null
       supabase.removeChannel(ch)
       channelRef.current = null
     }
@@ -1954,6 +1967,16 @@ export default function MiningChain3D() {
     })
     ch.on('broadcast', { event: 'move' }, ({ payload }) => {
       moveBroadcastHandlerRef.current?.(payload)
+    })
+    // Combat events are map-scoped: handlers live in the global-channel effect.
+    ch.on('broadcast', { event: 'pvp-result' }, ({ payload }) => {
+      combatBroadcastHandlersRef.current?.onPvpResult?.(payload)
+    })
+    ch.on('broadcast', { event: 'boss-result' }, ({ payload }) => {
+      combatBroadcastHandlersRef.current?.onBossResult?.(payload)
+    })
+    ch.on('broadcast', { event: 'boss-attack-result' }, ({ payload }) => {
+      combatBroadcastHandlersRef.current?.onBossAttackResult?.(payload)
     })
     ch.subscribe((status) => {
       if (status === 'SUBSCRIBED') mapMoveChannelRef.current = ch
@@ -2085,10 +2108,10 @@ export default function MiningChain3D() {
     if (!response?.ok) return response
     if (response.immune) return response
     setHealthMap(prev => ({ ...prev, [victim]: Number(response.health ?? 100) }))
-    channelRef.current?.send({
-      type: 'broadcast', event: 'pvp-result',
-      payload: { victim, attacker, ...response },
-    })?.catch(() => {})
+    // Bot victims must hear the hit on the global channel — the bot runtime
+    // (/api/bot/tick) only listens there for its own death/respawn.
+    const victimIsBot = Boolean(presenceMetaRef.current[victim]?.isBot)
+    sendCombatEvent('pvp-result', { victim, attacker, ...response }, { forceGlobal: victimIsBot })
     if(response.killed&&victimIsAnon){
       channelRef.current?.send({
         type:'broadcast',event:'anon-kill',payload:{attacker,anonKey:victim},
@@ -2098,7 +2121,7 @@ export default function MiningChain3D() {
       window.dispatchEvent(new CustomEvent('mm3-db-updated', { detail: { pvp: true, wallet: attacker } }))
     }
     return response
-  }, [positions])
+  }, [positions, sendCombatEvent])
 
   // Load PvP stolen amounts (refreshed every 60s for online player list)
   const loadPvpStolen = useCallback(async () => {
