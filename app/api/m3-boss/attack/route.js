@@ -2,12 +2,13 @@ export const dynamic = 'force-dynamic'
 
 import { createClient } from '@supabase/supabase-js'
 import {
-  M5_TRUMP_BOSS_ATTACK_RANGE_SERVER,
-  M5_TRUMP_BOSS_CRIT_CHANCE,
-  M5_TRUMP_BOSS_CRIT_DAMAGE,
-  M5_TRUMP_BOSS_HIT_DAMAGE,
+  M3_PUTIN_BOSS_ATTACK_RANGE_SERVER,
+  M3_PUTIN_BOSS_CRIT_CHANCE,
+  M3_PUTIN_BOSS_CRIT_DAMAGE,
+  M3_PUTIN_BOSS_HIT_DAMAGE,
+  M3_PUTIN_BOSS_ID,
   isBossPositionValid,
-} from '@/lib/m5-trump-boss'
+} from '@/lib/m3-putin-boss'
 
 function serviceClient() {
   return createClient(
@@ -24,7 +25,7 @@ export async function POST(req) {
   }
 
   const wallet = String(body.wallet || '').toLowerCase().trim()
-  const mapId = String(body.mapId || '5')
+  const mapId = String(body.mapId || '3')
   const playerGx = Number(body.playerGx)
   const playerGy = Number(body.playerGy)
   const bossGx = Number(body.bossGx)
@@ -33,7 +34,7 @@ export async function POST(req) {
   if (!wallet || wallet.startsWith('anon-')) {
     return Response.json({ ok: false, error: 'wallet_required' }, { status: 403 })
   }
-  if (mapId !== '5') {
+  if (mapId !== '3') {
     return Response.json({ ok: false, error: 'wrong_map' }, { status: 403 })
   }
   if (!Number.isFinite(playerGx) || !Number.isFinite(playerGy) || !Number.isFinite(bossGx) || !Number.isFinite(bossGy)) {
@@ -42,7 +43,7 @@ export async function POST(req) {
   if (!isBossPositionValid(bossGx, bossGy)) {
     return Response.json({ ok: false, error: 'boss_position_invalid' }, { status: 400 })
   }
-  if (Math.hypot(playerGx - bossGx, playerGy - bossGy) > M5_TRUMP_BOSS_ATTACK_RANGE_SERVER) {
+  if (Math.hypot(playerGx - bossGx, playerGy - bossGy) > M3_PUTIN_BOSS_ATTACK_RANGE_SERVER) {
     return Response.json({ ok: false, error: 'out_of_range' }, { status: 400 })
   }
 
@@ -63,11 +64,12 @@ export async function POST(req) {
       damage: 0,
       health: Number(healthRow?.health ?? 100),
       killed: false,
+      mapId: '3',
     })
   }
 
-  const critical = Math.random() < M5_TRUMP_BOSS_CRIT_CHANCE
-  const damage = critical ? M5_TRUMP_BOSS_CRIT_DAMAGE : M5_TRUMP_BOSS_HIT_DAMAGE
+  const critical = Math.random() < M3_PUTIN_BOSS_CRIT_CHANCE
+  const damage = critical ? M3_PUTIN_BOSS_CRIT_DAMAGE : M3_PUTIN_BOSS_HIT_DAMAGE
 
   const { data, error } = await sb.rpc('apply_mm3_boss_attack_player', {
     p_wallet: wallet,
@@ -76,7 +78,7 @@ export async function POST(req) {
     p_boss_gy: bossGy,
     p_player_gx: playerGx,
     p_player_gy: playerGy,
-    p_boss_id: 'm5_trump',
+    p_boss_id: M3_PUTIN_BOSS_ID,
   })
   if (error) {
     return Response.json({ ok: false, error: error.message }, { status: 500 })
@@ -92,5 +94,6 @@ export async function POST(req) {
     health: Number(data?.health ?? 100),
     respawnHealth: Number(data?.respawn_health ?? data?.health ?? 100),
     killed: Boolean(data?.killed),
+    mapId: '3',
   })
 }

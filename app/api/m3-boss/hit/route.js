@@ -1,12 +1,13 @@
 export const dynamic = 'force-dynamic'
 
 import { createClient } from '@supabase/supabase-js'
-import { distributeBossRewards } from '@/app/api/m5-boss/route'
+import { distributeBossRewards } from '@/app/api/m3-boss/route'
 import {
-  M5_TRUMP_BOSS_HIT_RANGE,
-  M5_TRUMP_BOSS_SPAWN,
+  M3_PUTIN_BOSS_HIT_RANGE,
+  M3_PUTIN_BOSS_ID,
+  M3_PUTIN_BOSS_SPAWN,
   isBossPositionValid,
-} from '@/lib/m5-trump-boss'
+} from '@/lib/m3-putin-boss'
 
 function serviceClient() {
   return createClient(
@@ -23,17 +24,17 @@ export async function POST(req) {
   }
 
   const wallet = String(body.wallet || '').toLowerCase().trim()
-  const mapId = String(body.mapId || '5')
+  const mapId = String(body.mapId || '3')
   const hitZone = body.hitZone === 'head' ? 'head' : 'body'
   const playerGx = Number(body.playerGx)
   const playerGy = Number(body.playerGy)
-  const bossGx = Number(body.bossGx ?? M5_TRUMP_BOSS_SPAWN.gx)
-  const bossGy = Number(body.bossGy ?? M5_TRUMP_BOSS_SPAWN.gy)
+  const bossGx = Number(body.bossGx ?? M3_PUTIN_BOSS_SPAWN.gx)
+  const bossGy = Number(body.bossGy ?? M3_PUTIN_BOSS_SPAWN.gy)
 
   if (!wallet || wallet.startsWith('anon-')) {
     return Response.json({ ok: false, error: 'wallet_required' }, { status: 403 })
   }
-  if (mapId !== '5') {
+  if (mapId !== '3') {
     return Response.json({ ok: false, error: 'wrong_map' }, { status: 403 })
   }
   if (!Number.isFinite(playerGx) || !Number.isFinite(playerGy)) {
@@ -42,8 +43,7 @@ export async function POST(req) {
   if (!isBossPositionValid(bossGx, bossGy)) {
     return Response.json({ ok: false, error: 'boss_position_invalid' }, { status: 400 })
   }
-  const dist = Math.hypot(playerGx - bossGx, playerGy - bossGy)
-  if (dist > M5_TRUMP_BOSS_HIT_RANGE) {
+  if (Math.hypot(playerGx - bossGx, playerGy - bossGy) > M3_PUTIN_BOSS_HIT_RANGE) {
     return Response.json({ ok: false, error: 'out_of_range' }, { status: 400 })
   }
 
@@ -65,7 +65,7 @@ export async function POST(req) {
   const { data, error } = await sb.rpc('apply_mm3_boss_player_hit', {
     p_wallet: wallet,
     p_damage: damage,
-    p_boss_id: 'm5_trump',
+    p_boss_id: M3_PUTIN_BOSS_ID,
   })
   if (error) {
     return Response.json({ ok: false, error: error.message }, { status: 500 })
@@ -83,10 +83,11 @@ export async function POST(req) {
     hitZone,
     damage,
     health: Number(data?.health ?? 0),
-    maxHealth: Number(data?.max_health ?? 5000),
+    maxHealth: Number(data?.max_health ?? 2500),
     state: data?.state || 'active',
     killed: Boolean(data?.killed),
     activated: Boolean(data?.activated),
     rewards,
+    mapId: '3',
   })
 }

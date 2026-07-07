@@ -24,8 +24,11 @@ import {
 } from '@/lib/mining-visual-layout'
 import { MINING_CORE_MAP_ID } from '@/lib/mining-maps'
 import { RL_NODE_MIN_LEVEL, RL_NODE_PRICE_MM3 } from '@/lib/mining-rl-mount'
-import { normalizeBossState, M5_TRUMP_BOSS_NAME, M5_TRUMP_BOSS_MAX_HP, M5_TRUMP_BOSS_SCALE, M5_TRUMP_BOSS_SPAWN } from '@/lib/m5-trump-boss'
+import { normalizeBossState as normalizeM5BossState, M5_TRUMP_BOSS_NAME, M5_TRUMP_BOSS_MAX_HP, M5_TRUMP_BOSS_SCALE, M5_TRUMP_BOSS_SPAWN } from '@/lib/m5-trump-boss'
+import { normalizeBossState as normalizeM3BossState, M3_PUTIN_BOSS_NAME, M3_PUTIN_BOSS_MAX_HP, M3_PUTIN_BOSS_SCALE, M3_PUTIN_BOSS_SPAWN } from '@/lib/m3-putin-boss'
 import { M5_TRUMP_BOSS_LOCAL_BOUNDS } from '@/lib/m5-trump-boss-runtime'
+import { M3_PUTIN_BOSS_LOCAL_BOUNDS } from '@/lib/m3-putin-boss-runtime'
+import { getMapBossConfig, mapHasBoss } from '@/lib/map-boss-registry'
 import { formatWalletLabel } from '@/lib/wallet-format'
 import supabase from '@/lib/supabaseClient'
 
@@ -35,7 +38,10 @@ const NftjiPenaltyCard = dynamic(() => import('./NftjiPenaltyCard'), { ssr: fals
 
 const C = '#22d3ee'
 const NETWORK_VISUAL_RANGE = 22
-const BOSS_DAMAGE_FLOAT_Y = M5_TRUMP_BOSS_SCALE * M5_TRUMP_BOSS_LOCAL_BOUNDS.headTop + 0.35
+const BOSS_DAMAGE_FLOAT_Y_BY_MAP = Object.freeze({
+  '3': M3_PUTIN_BOSS_SCALE * M3_PUTIN_BOSS_LOCAL_BOUNDS.headTop + 0.35,
+  '5': M5_TRUMP_BOSS_SCALE * M5_TRUMP_BOSS_LOCAL_BOUNDS.headTop + 0.35,
+})
 
 function walletHealthKeys(...values) {
   return [...new Set(values.filter(Boolean).map(v => String(v).toLowerCase()))]
@@ -325,16 +331,34 @@ export default function MiningChain3D() {
   const [rlMountPanelOpen, setRlMountPanelOpen] = useState(false)
   const [rlMountWalletStats, setRlMountWalletStats] = useState({ mm3: 0, level: 0 })
   const [rlMountError, setRlMountError] = useState('')
-  const [bossState, setBossState] = useState(() => normalizeBossState(null))
+  const [bossStateByMap, setBossStateByMap] = useState(() => ({
+    '3': normalizeM3BossState(null),
+    '5': normalizeM5BossState(null),
+  }))
+  const bossState = bossStateByMap[mapId] || null
   const bossStateRef = useRef(bossState)
+  const bossStateByMapRef = useRef(bossStateByMap)
   useEffect(() => { bossStateRef.current = bossState }, [bossState])
+  useEffect(() => { bossStateByMapRef.current = bossStateByMap }, [bossStateByMap])
 
   const loadBossStatus = useCallback(async () => {
     try {
-      const res = await fetch('/api/m5-boss', { cache: 'no-store' })
-      if (!res.ok) return
-      const data = await res.json()
-      if (data?.ok !== false) setBossState(normalizeBossState(data))
+      const [m3Res, m5Res] = await Promise.all([
+        fetch('/api/m3-boss', { cache: 'no-store' }),
+        fetch('/api/m5-boss', { cache: 'no-store' }),
+      ])
+      const next = {}
+      if (m3Res.ok) {
+        const data = await m3Res.json()
+        if (data?.ok !== false) next['3'] = normalizeM3BossState(data)
+      }
+      if (m5Res.ok) {
+        const data = await m5Res.json()
+        if (data?.ok !== false) next['5'] = normalizeM5BossState(data)
+      }
+      if (Object.keys(next).length) {
+        setBossStateByMap(prev => ({ ...prev, ...next }))
+      }
     } catch {}
   }, [])
 
@@ -815,25 +839,31 @@ export default function MiningChain3D() {
     scheduleRespawn(5 * 60 * 1000)
   }, [scheduleRespawn])
 
-  const handleBossHit = useCallback(async ({ wallet, hitZone, playerGx, playerGy, bossGx, bossGy, mapId }) => {
-    const response = await fetch('/api/m5-boss/hit', {
+  const handleBossHit = useCallback(async ({ wallet, hitZone, playerGx, playerGy, bossGx, bossGy, mapId: hitMapId }) => {
+    const bossMapId = String(hitMapId || mapIdRef.current)
+    const cfg = getMapBossConfig(bossMapId)
+    if (!cfg) return { ok: false, error: 'no_boss' }
+    const response = await fetch(`${cfg.apiBase}/hit`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ wallet, hitZone, playerGx, playerGy, bossGx, bossGy, mapId }),
+      body: JSON.stringify({ wallet, hitZone, playerGx, playerGy, bossGx, bossGy, mapId: bossMapId }),
     }).then(r => r.json()).catch(() => null)
     if (!response?.ok) return response
-    setBossState(normalizeBossState({
-      id: 'm5_trump',
-      map_id: '5',
-      name: M5_TRUMP_BOSS_NAME,
-      max_health: response.maxHealth,
-      health: response.health,
-      state: response.state,
+    setBossStateByMap(prev => ({
+      ...prev,
+      [bossMapId]: cfg.normalize({
+        id: cfg.bossId,
+        map_id: bossMapId,
+        name: cfg.name,
+        max_health: response.maxHealth,
+        health: response.health,
+        state: response.state,
+      }),
     }))
     channelRef.current?.send({
       type: 'broadcast',
       event: 'boss-result',
-      payload: { ...response, wallet, hitZone, bossGx, bossGy, playerGx, playerGy },
+      payload: { ...response, wallet, hitZone, bossGx, bossGy, playerGx, playerGy, mapId: bossMapId },
     })?.catch(() => {})
     if (response.killed && wallet && !wallet.startsWith('anon-')) {
       window.dispatchEvent(new CustomEvent('mm3-db-updated', { detail: { boss: true, wallet } }))
@@ -841,7 +871,10 @@ export default function MiningChain3D() {
     return response
   }, [])
 
-  const handleBossAttack = useCallback(async ({ wallet, playerGx, playerGy, bossGx, bossGy, mapId }) => {
+  const handleBossAttack = useCallback(async ({ wallet, playerGx, playerGy, bossGx, bossGy, mapId: attackMapId }) => {
+    const bossMapId = String(attackMapId || mapIdRef.current)
+    const cfg = getMapBossConfig(bossMapId)
+    if (!cfg) return { ok: false, error: 'no_boss' }
     if (myDeadUntilRef.current && myDeadUntilRef.current > Date.now()) {
       return { ok: false, error: 'already_dead' }
     }
@@ -853,7 +886,7 @@ export default function MiningChain3D() {
     bossAttackInFlightRef.current = true
     let response
     try {
-      response = await fetch('/api/m5-boss/attack', {
+      response = await fetch(`${cfg.apiBase}/attack`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
@@ -862,7 +895,7 @@ export default function MiningChain3D() {
           playerGy,
           bossGx,
           bossGy,
-          mapId,
+          mapId: bossMapId,
         }),
       }).then(r => r.json()).catch(() => null)
     } finally {
@@ -887,6 +920,7 @@ export default function MiningChain3D() {
           playerGy,
           bossGx,
           bossGy,
+          mapId: bossMapId,
           ...response,
           health: 0,
         },
@@ -909,25 +943,34 @@ export default function MiningChain3D() {
         playerGy,
         bossGx,
         bossGy,
+        mapId: bossMapId,
         ...response,
       },
     })?.catch(() => {})
     return response
   }, [triggerSelfDeath])
 
-  const handleBossIdle = useCallback(async () => {
-    const response = await fetch('/api/m5-boss/idle', { method: 'POST' }).then(r => r.json()).catch(() => null)
+  const handleBossIdle = useCallback(async (idleMapId) => {
+    const bossMapId = String(idleMapId || mapIdRef.current)
+    const cfg = getMapBossConfig(bossMapId)
+    if (!cfg) return null
+    const response = await fetch(`${cfg.apiBase}/idle`, { method: 'POST' }).then(r => r.json()).catch(() => null)
     if (response?.ok && response.changed) {
-      const maxHealth = Number(response.max_health) || bossStateRef.current?.maxHealth || M5_TRUMP_BOSS_MAX_HP
+      const maxHealth = Number(response.max_health) || bossStateByMap[bossMapId]?.maxHealth
+        || (bossMapId === '3' ? M3_PUTIN_BOSS_MAX_HP : M5_TRUMP_BOSS_MAX_HP)
       const health = Number(response.health) || maxHealth
-      setBossState(prev => ({ ...prev, state: 'idle', health, maxHealth }))
+      setBossStateByMap(prev => ({
+        ...prev,
+        [bossMapId]: { ...(prev[bossMapId] || cfg.normalize(null)), state: 'idle', health, maxHealth },
+      }))
       channelRef.current?.send({
         type: 'broadcast',
         event: 'boss-state',
-        payload: { state: 'idle', health, maxHealth },
+        payload: { state: 'idle', health, maxHealth, mapId: bossMapId },
       })?.catch(() => {})
     }
-  }, [])
+    return response
+  }, [bossStateByMap])
 
   // ── StormRoll AoE damage: every 60s during the 15-min hourly dice window ──
   useEffect(() => {
@@ -1553,13 +1596,19 @@ export default function MiningChain3D() {
 
     ch.on('broadcast', { event: 'boss-result' }, ({ payload }) => {
       if (!payload) return
-      setBossState(prev => normalizeBossState({
-        id: 'm5_trump',
-        map_id: '5',
-        name: M5_TRUMP_BOSS_NAME,
-        max_health: payload.maxHealth ?? prev.maxHealth,
-        health: payload.health ?? prev.health,
-        state: payload.state ?? prev.state,
+      const bossMapId = String(payload.mapId || '5')
+      const cfg = getMapBossConfig(bossMapId)
+      if (!cfg) return
+      setBossStateByMap(prev => ({
+        ...prev,
+        [bossMapId]: cfg.normalize({
+          id: cfg.bossId,
+          map_id: bossMapId,
+          name: cfg.name,
+          max_health: payload.maxHealth ?? prev[bossMapId]?.maxHealth,
+          health: payload.health ?? prev[bossMapId]?.health,
+          state: payload.state ?? prev[bossMapId]?.state,
+        }),
       }))
       const myK = myKeyRef.current, myW = myWalletRef.current
       const isAttacker = payload.wallet && (
@@ -1570,11 +1619,11 @@ export default function MiningChain3D() {
         emitCombatDamageRef.current({
           damage: payload.damage,
           kind: 'dealt',
-          gx: Number(payload.bossGx ?? M5_TRUMP_BOSS_SPAWN.gx),
-          gy: Number(payload.bossGy ?? M5_TRUMP_BOSS_SPAWN.gy),
+          gx: Number(payload.bossGx ?? cfg.spawn.gx),
+          gy: Number(payload.bossGy ?? cfg.spawn.gy),
           z: 0,
-          yLift: BOSS_DAMAGE_FLOAT_Y,
-          mapId: '5',
+          yLift: BOSS_DAMAGE_FLOAT_Y_BY_MAP[bossMapId] ?? 1.1,
+          mapId: bossMapId,
           critical: payload.critical,
           headshot: payload.headshot,
           label: payload.wallet ? formatWalletLabel(payload.wallet) : '',
@@ -1584,16 +1633,22 @@ export default function MiningChain3D() {
 
     ch.on('broadcast', { event: 'boss-state' }, ({ payload }) => {
       if (!payload?.state) return
-      setBossState(prev => ({
+      const bossMapId = String(payload.mapId || '5')
+      setBossStateByMap(prev => ({
         ...prev,
-        state: payload.state,
-        ...(payload.health != null ? { health: Number(payload.health) } : {}),
-        ...(payload.maxHealth != null ? { maxHealth: Number(payload.maxHealth) } : {}),
+        [bossMapId]: {
+          ...(prev[bossMapId] || getMapBossConfig(bossMapId)?.normalize(null) || {}),
+          state: payload.state,
+          ...(payload.health != null ? { health: Number(payload.health) } : {}),
+          ...(payload.maxHealth != null ? { maxHealth: Number(payload.maxHealth) } : {}),
+        },
       }))
     })
 
     ch.on('broadcast', { event: 'boss-attack-result' }, ({ payload }) => {
       if (!payload?.wallet) return
+      const bossMapId = String(payload.mapId || '5')
+      const cfg = getMapBossConfig(bossMapId)
       const wallet = String(payload.wallet).toLowerCase()
       const isSelf = wallet === String(myKeyRef.current || '').toLowerCase()
         || wallet === String(myWalletRef.current || '').toLowerCase()
@@ -1617,13 +1672,13 @@ export default function MiningChain3D() {
         myKeyRef.current,
         myWalletRef.current,
         myPosRef.current,
-        '5',
+        bossMapId,
       ) || (Number.isFinite(Number(payload.playerGx)) && Number.isFinite(Number(payload.playerGy))
         ? {
             gx: Number(payload.playerGx),
             gy: Number(payload.playerGy),
             z: 0,
-            mapId: '5',
+            mapId: bossMapId,
           }
         : null)
       if (pos) {
@@ -1634,10 +1689,10 @@ export default function MiningChain3D() {
           gy: pos.gy,
           z: pos.z,
           yLift: 1.1,
-          mapId: '5',
+          mapId: bossMapId,
           critical: payload.critical,
           dodged: payload.dodged,
-          label: M5_TRUMP_BOSS_NAME,
+          label: cfg?.name || M5_TRUMP_BOSS_NAME,
         })
       }
     })
@@ -1883,12 +1938,12 @@ export default function MiningChain3D() {
             isDead: myDead,
           },
         }
-        if (prevMap === '5' && next !== '5' && bossStateRef.current?.state === 'active') {
-          const othersOnM5 = Object.entries(nextPositions).some(([wallet, pres]) => {
+        if (mapHasBoss(prevMap) && next !== prevMap && bossStateByMapRef.current[prevMap]?.state === 'active') {
+          const othersOnMap = Object.entries(nextPositions).some(([wallet, pres]) => {
             if (wallet.toLowerCase() === myW.toLowerCase()) return false
-            return (pres.mapId || MINING_CORE_MAP_ID) === '5' && !pres.isDead
+            return (pres.mapId || MINING_CORE_MAP_ID) === prevMap && !pres.isDead
           })
-          if (!othersOnM5) queueMicrotask(() => { handleBossIdle() })
+          if (!othersOnMap) queueMicrotask(() => { handleBossIdle(prevMap) })
         }
         return nextPositions
       })
@@ -1919,8 +1974,8 @@ export default function MiningChain3D() {
           nodeDice: normalizeNodeDiceState(nodeDiceRef.current),
         },
       }).catch(() => {})
-    } else if (prevMap === '5' && next !== '5' && bossStateRef.current?.state === 'active') {
-      queueMicrotask(() => { handleBossIdle() })
+    } else if (mapHasBoss(prevMap) && next !== prevMap && bossStateByMapRef.current[prevMap]?.state === 'active') {
+      queueMicrotask(() => { handleBossIdle(prevMap) })
     }
   }, [myPoolCode, handleBossIdle])
 
@@ -2197,7 +2252,7 @@ export default function MiningChain3D() {
             onNodeDicePanelOpen={handleNodeDicePanelOpen}
             rlMountActive={rlMountActive}
             onRlMountPanelOpen={handleRlMountPanelOpen}
-            bossState={bossState}
+            bossState={mapHasBoss(mapId) ? bossState : null}
             onBossHit={handleBossHit}
             onBossAttack={handleBossAttack}
             onBossIdle={handleBossIdle}
