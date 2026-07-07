@@ -4846,8 +4846,10 @@ function sampleBossGroundY(runtime, cellMap) {
   const row = Math.floor(runtime.gy)
   const col = Math.floor(runtime.gx)
   for (const [dr, dc] of [[0, 0], [0, -1], [0, 1], [-1, 0], [1, 0]]) {
-    const cell = cellMap.get(`${row + dr},${col + dc}`)
-    if (cell) return blockTop(cell, row + dr, col + dc)
+    const r = row + dr
+    const c = col + dc
+    const cell = cellMap.get(`${r},${c}`)
+    if (cell) return blockBottom(cell, r, c)
   }
   return 0
 }
@@ -13308,6 +13310,10 @@ export default function MiningChain3DFPV({
               onBossIdleRef.current?.(currentMapId)
             },
           })
+          bossRuntimeRef.current.floorY = sampleBossGroundY(
+            bossRuntimeRef.current,
+            activeCellMapRef.current,
+          )
         }
         const rt = bossRuntimeRef.current
         const prevAttackMs = bossLastAttackMsRef.current
@@ -13352,7 +13358,7 @@ export default function MiningChain3DFPV({
             bossRuntimeRef.current,
             bossStateRef.current,
             performance.now() * 0.001,
-            sampleBossGroundY(bossRuntimeRef.current, activeCellMapRef.current),
+            bossRuntimeRef.current?.floorY ?? 0,
           )
         } else if (bossRuntimeRef.current) {
           needsRender = true
@@ -13546,6 +13552,7 @@ export default function MiningChain3DFPV({
 
       if (mapHasBoss(mapIdRef.current) && !myDead && bossStateRef.current?.state !== 'dead' && bossRuntimeRef.current) {
         const bossMod = getBossRuntimeModule(mapIdRef.current)
+        const touchPad = _H > _W * 1.05 ? Math.max(10, Math.round(_W * 0.05)) : 0
         bossSwingTargetRef.current = bossMod?.resolveSwingTarget({
           runtime: bossRuntimeRef.current,
           bossState: bossStateRef.current,
@@ -13557,6 +13564,8 @@ export default function MiningChain3DFPV({
           canvasW: _W,
           canvasH: _H,
           threeState: _threeState,
+          groundY: bossRuntimeRef.current.floorY ?? 0,
+          touchPadding: touchPad,
         }) ?? null
       } else {
         bossSwingTargetRef.current = null

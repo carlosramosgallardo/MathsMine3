@@ -113,11 +113,11 @@ BEGIN
   END IF;
 
   v_spawn_gx := CASE p_boss_id
-    WHEN 'm3_putin' THEN 28.0
+    WHEN 'm3_putin' THEN 35.0
     ELSE 28.0
   END;
   v_spawn_gy := CASE p_boss_id
-    WHEN 'm3_putin' THEN 45.0
+    WHEN 'm3_putin' THEN 27.0
     ELSE 28.0
   END;
 
