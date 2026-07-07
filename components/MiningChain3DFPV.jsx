@@ -10345,7 +10345,7 @@ function rebuildPeripheralMapWorld(state, mapId, obstacles, cellMap) {
   }
   if (mapId === '2') {
     addRlColiseumNodeVisual(world, lowDetail, state)
-    addM2PitchDomeDecor(world, lowDetail, { animated: visualTier !== 'low' }, state)
+    addM2PitchDomeDecor(world, lowDetail, state)
   }
   state.m5TrumpBossGroup = null
   state.m3PutinBossGroup = null
@@ -10389,6 +10389,7 @@ function rebuildPeripheralMapWorld(state, mapId, obstacles, cellMap) {
     let ancestor = object.parent
     while (ancestor) {
       if (ancestor.userData?.m5TrumpBoss || ancestor.userData?.m3PutinBoss || ancestor.userData?.m4KimBoss) return
+      if (ancestor.userData?.m2PitchDome) return
       ancestor = ancestor.parent
     }
     object.updateMatrix()
@@ -10501,11 +10502,12 @@ function addRlColiseumNodeVisual(world, lowDetail, state) {
   }
 }
 
-function addM2PitchDomeDecor(world, lowDetail, { animated = true } = {}, state) {
+function addM2PitchDomeDecor(world, lowDetail, state) {
   const { x: cx, z: cz } = M2_PITCH_DOME_CENTER
   const root = new THREE.Group()
   root.userData.m2PitchDome = true
   root.userData.skipOcclusion = true
+  root.matrixAutoUpdate = true
 
   const dome = new THREE.Mesh(
     new THREE.SphereGeometry(
@@ -10537,21 +10539,23 @@ function addM2PitchDomeDecor(world, lowDetail, { animated = true } = {}, state) 
   root.add(rim)
 
   const ballMesh = new THREE.Mesh(
-    new THREE.SphereGeometry(M2_PITCH_DOME_BALL_RADIUS, lowDetail ? 8 : 12, lowDetail ? 6 : 10),
+    new THREE.SphereGeometry(M2_PITCH_DOME_BALL_RADIUS, lowDetail ? 10 : 14, lowDetail ? 8 : 12),
     new THREE.MeshStandardMaterial({
-      color: '#f8fafc',
-      roughness: 0.32,
-      metalness: 0.08,
-      emissive: '#cbd5e1',
-      emissiveIntensity: 0.12,
+      color: '#fef08a',
+      roughness: 0.28,
+      metalness: 0.05,
+      emissive: '#facc15',
+      emissiveIntensity: 0.45,
     }),
   )
+  ballMesh.matrixAutoUpdate = true
   root.add(ballMesh)
 
   const botEntries = []
   for (const spot of getM2PitchBotSpots()) {
     const botGroup = new THREE.Group()
     botGroup.userData.skipOcclusion = true
+    botGroup.matrixAutoUpdate = true
     const car = createRlCarMesh(lowDetail, { decor: true, teamColor: spot.color })
     car.scale.setScalar(0.84)
     car.position.y = 0.24
@@ -10570,7 +10574,6 @@ function addM2PitchDomeDecor(world, lowDetail, { animated = true } = {}, state) 
   world.add(root)
   state.m2PitchDomeGroup = root
   state.m2PitchDomeRuntime = createM2PitchDomeRuntime({ bots: botEntries, ballMesh })
-  state.m2PitchDomeRuntime.active = animated
 }
 
 function createRlCarMesh(lowDetail = false, { showcase = false, decor = false, teamColor = '#0ea5e9' } = {}) {
@@ -13944,10 +13947,7 @@ export default function MiningChain3DFPV({
         }
       }
 
-      if (
-        mapIdRef.current === '2' &&
-        threeStateRef.current?.m2PitchDomeRuntime?.active
-      ) {
+      if (mapIdRef.current === '2' && threeStateRef.current?.m2PitchDomeRuntime) {
         updateM2PitchDomeRuntime(threeStateRef.current.m2PitchDomeRuntime, dt)
         needsRender = true
       }
