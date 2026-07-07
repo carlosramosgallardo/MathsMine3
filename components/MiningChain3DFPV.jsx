@@ -10565,6 +10565,7 @@ function addM2PitchDomeDecor(world, lowDetail, state) {
     root.add(botGroup)
     botEntries.push({
       group: botGroup,
+      car,
       team: spot.team,
       homeX: spot.homeX,
       homeZ: spot.homeZ,
