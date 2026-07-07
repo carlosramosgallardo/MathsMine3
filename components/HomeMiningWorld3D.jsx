@@ -14,6 +14,8 @@ const HOME_ARENA_BOSS_VS_BOT = 1.31
 /** World Y where bot soles meet the arena disc (avatar origin + sole bottom local × scale). */
 const HOME_ARENA_FLOOR_Y = 0.12 + 0.0015 * HOME_ARENA_BOT_SCALE
 const HOME_SCENE_CENTER = { x: 0, z: 0 }
+/** All home bosses face the hero camera (+Z); bodyPivot already carries π yaw. */
+const HOME_BOSS_FACING = 0
 
 function homeYawTowardCenter(fromX, fromZ, centerX = HOME_SCENE_CENTER.x, centerZ = HOME_SCENE_CENTER.z) {
   const dx = centerX - fromX
@@ -272,26 +274,26 @@ const HOME_BOSS_LAYOUT = [
     bob: 2.2,
   },
   {
-    id: 'kim',
-    createVisual: createM4KimBossVisual,
-    bossScale: M4_KIM_BOSS_SCALE,
-    position: [0, 0, 0.14],
-    glowColor: '#d946ef',
-    glowIntensity: 3.0,
-    phase: Math.PI * 0.66,
-    sway: 0.52,
-    bob: 2.45,
-  },
-  {
     id: 'trump',
     createVisual: createM5TrumpBossVisual,
     bossScale: M5_TRUMP_BOSS_SCALE,
-    position: [HOME_BOSS_SPACING, 0, 0.06],
+    position: [0, 0, 0.14],
     glowColor: '#ef4444',
     glowIntensity: 3.2,
-    phase: Math.PI * 1.33,
+    phase: Math.PI * 0.66,
     sway: 0.38,
     bob: 2.05,
+  },
+  {
+    id: 'kim',
+    createVisual: createM4KimBossVisual,
+    bossScale: M4_KIM_BOSS_SCALE,
+    position: [HOME_BOSS_SPACING, 0, 0.06],
+    glowColor: '#d946ef',
+    glowIntensity: 3.0,
+    phase: Math.PI * 1.33,
+    sway: 0.52,
+    bob: 2.45,
   },
 ]
 
@@ -301,7 +303,7 @@ export function addHomeBoss(THREE, scene, options = {}) {
     createVisual,
     bossScale,
     position = [0, 0, 0],
-    rotationY = homeYawTowardCenter(position[0], position[2]),
+    rotationY = HOME_BOSS_FACING,
     glowColor = '#ef4444',
     glowIntensity = 3.2,
     phase = 0,
@@ -327,7 +329,7 @@ export function addHomeTrumpBoss(THREE, scene, options = {}) {
   return addHomeBoss(THREE, scene, {
     createVisual: createM5TrumpBossVisual,
     bossScale: M5_TRUMP_BOSS_SCALE,
-    position: [HOME_BOSS_SPACING, 0, 0.06],
+    position: [0, 0, 0.14],
     glowColor: '#ef4444',
     ...options,
   })
@@ -395,10 +397,7 @@ export default function HomeMiningWorld3D() {
       goldFill.position.set(0, 2.3, 2.1)
       scene.add(goldFill)
 
-      const homeBosses = HOME_BOSS_LAYOUT.map((layout) => addHomeBoss(THREE, scene, {
-        ...layout,
-        rotationY: homeYawTowardCenter(layout.position[0], layout.position[2]),
-      }))
+      const homeBosses = HOME_BOSS_LAYOUT.map((layout) => addHomeBoss(THREE, scene, layout))
 
       const resize = () => {
         const width = Math.max(1, canvas.clientWidth)
