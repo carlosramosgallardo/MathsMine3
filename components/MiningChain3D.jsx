@@ -182,6 +182,7 @@ const CHAIN_NODE_ROW = MINING_CHAIN_NODE_POSITION.row
 const CHAIN_NODE_COL = MINING_CHAIN_NODE_POSITION.col
 
 const ANON_KEY_STORAGE = 'mm3_anon_key'
+const POOL_HEAL_COOLDOWN_MS = 5 * 60 * 1000
 
 // Hash an IP string into a stable anon-XXXXXX key (same algorithm as relaying)
 function hashIpToAnonKey(ip) {
@@ -335,6 +336,8 @@ export default function MiningChain3D() {
   const healthRequestedRef = useRef(new Set())
   const healthMapRef       = useRef({})
   const lastPoolHealAtRef  = useRef(0)
+  const poolHealSpeedMultRef = useRef(1)
+  const [lastPoolHealAt, setLastPoolHealAt] = useState(0)
   // Death / respawn state — ms timestamp (null = alive)
   const [myDeadUntil,   setMyDeadUntil]   = useState(null)
   const [myDeadPos,     setMyDeadPos]     = useState(null)
@@ -514,6 +517,10 @@ export default function MiningChain3D() {
   }, [nodeDiceState])
 
   useEffect(() => { healthMapRef.current = healthMap }, [healthMap])
+  useEffect(() => {
+    const hasHeartSpeed = Array.isArray(myNftjis) && myNftjis.some(n => n?.emoji === '❤️')
+    poolHealSpeedMultRef.current = hasHeartSpeed ? 2 : 1
+  }, [myNftjis])
   useEffect(() => { myDeadPosRef.current = myDeadPos }, [myDeadPos])
   useEffect(() => { myDeadUntilRef.current = myDeadUntil }, [myDeadUntil])
 
@@ -527,8 +534,11 @@ export default function MiningChain3D() {
       const gy = Number.isFinite(Number(pos.gy)) ? Number(pos.gy) : Number(pos.row) + .5
       if (!isInHousePoolSafeZone(gx, gy)) return
       const now = Date.now()
-      if (now - lastPoolHealAtRef.current < 5 * 60 * 1000) return
+      const speedMult = Math.max(1, Number(poolHealSpeedMultRef.current) || 1)
+      const healCooldownMs = Math.max(1_000, Math.floor(POOL_HEAL_COOLDOWN_MS / speedMult))
+      if (now - lastPoolHealAtRef.current < healCooldownMs) return
       lastPoolHealAtRef.current = now
+      setLastPoolHealAt(now)
       if (key.startsWith('anon-')) {
         const next = Math.min(100, Number(healthMapRef.current[key] ?? 100) + 10)
         setHealthMap(prev => ({ ...prev, [key]: next }))
@@ -2262,6 +2272,8 @@ export default function MiningChain3D() {
             playerNftjiCount={playerNftjiCount}
             walletNftjis={walletNftjis}
             myNftjis={myNftjis}
+            lastPoolHealAt={lastPoolHealAt}
+            poolHealCooldownMs={Math.max(1_000, Math.floor(POOL_HEAL_COOLDOWN_MS / Math.max(1, Number(poolHealSpeedMultRef.current) || 1)))}
             healthMap={healthMap}
             currency={currency}
             es={es}

@@ -4949,7 +4949,7 @@ function drawMineProgress(ctx, W, H, progress, type) {
 }
 
 // ── Fixed NFTJI skills HUD (top-left, independent from player movement) ──────
-function drawWalletDock(ctx, W, H, myNftjis, health, es, isLoggedWallet) {
+function drawWalletDock(ctx, W, H, myNftjis, health, es, isLoggedWallet, poolHealEtaMs = 0) {
   const mobile = W < 600
   const SLOT_W = mobile ? 30 : 36, SLOT_H = mobile ? 42 : 48
   const GAP = 4, PAD_X = 8, PAD_Y = 5, HEADER_H = 3
@@ -4976,6 +4976,14 @@ function drawWalletDock(ctx, W, H, myNftjis, health, es, isLoggedWallet) {
   ctx.fillStyle = '#e8fbff'; ctx.font = 'bold 8px monospace'
   ctx.textAlign = 'left'; ctx.textBaseline = 'middle'
   ctx.fillText(`${es ? 'VIDA' : 'HP'} ${hp}/100`, px + 5, healthY + 5)
+  if (hp < 100 && poolHealEtaMs > 0) {
+    const totalSec = Math.ceil(poolHealEtaMs / 1000)
+    const mm = String(Math.floor(totalSec / 60)).padStart(2, '0')
+    const ss = String(totalSec % 60).padStart(2, '0')
+    ctx.textAlign = 'right'
+    ctx.fillStyle = '#bbf7d0'
+    ctx.fillText(`+HP ${mm}:${ss}`, px + pw - 4, healthY + 5)
+  }
 
   ctx.globalAlpha = 0.85
   ctx.fillStyle = '#010709'
@@ -10537,6 +10545,8 @@ export default function MiningChain3DFPV({
   swingMap, myPoolCode,
   anonKillMsg,
   playerLevel, playerNftjiCount, walletNftjis, myNftjis,
+  lastPoolHealAt = 0,
+  poolHealCooldownMs = 5 * 60 * 1000,
   healthMap,
   currency = 'EUR',
   es,
@@ -10687,6 +10697,8 @@ export default function MiningChain3DFPV({
   const critFlashRef        = useRef(-9999)
   const walletNftjisRef     = useRef(walletNftjis || {})
   const myNftjisRef         = useRef(myNftjis || [])
+  const lastPoolHealAtRef   = useRef(lastPoolHealAt || 0)
+  const poolHealCooldownMsRef = useRef(poolHealCooldownMs || (5 * 60 * 1000))
   const healthMapRef        = useRef(healthMap||{})
   const threeStateRef       = useRef(null)
   // FPS camera feel
@@ -10894,6 +10906,8 @@ export default function MiningChain3DFPV({
   useEffect(()=>{ myPoolCodeRef.current=myPoolCode||null },[myPoolCode])
   useEffect(()=>{ walletNftjisRef.current=walletNftjis||{} },[walletNftjis])
   useEffect(()=>{ myNftjisRef.current=myNftjis||[] },[myNftjis])
+  useEffect(()=>{ lastPoolHealAtRef.current=Number(lastPoolHealAt)||0 },[lastPoolHealAt])
+  useEffect(()=>{ poolHealCooldownMsRef.current=Math.max(1000, Number(poolHealCooldownMs)||5*60*1000) },[poolHealCooldownMs])
   useEffect(()=>{ chainDemineActiveRef.current=chainDemineActive },[chainDemineActive])
   useEffect(()=>{ chainDemineHitsRef.current=chainDemineHitsRemaining },[chainDemineHitsRemaining])
   useEffect(()=>{
@@ -12724,8 +12738,13 @@ export default function MiningChain3DFPV({
       }
       drawPlayerGridCoords(ctx, W, gr, gc, rawZ, presence)
     }
+    const hpNow = Number(healthMapRef.current[myIdentity] ?? 100)
+    const healsNeeded = Math.max(0, Math.ceil((100 - hpNow) / 10))
+    const etaMs = healsNeeded > 0 && lastPoolHealAtRef.current > 0
+      ? Math.max(0, (lastPoolHealAtRef.current + poolHealCooldownMsRef.current * healsNeeded) - Date.now())
+      : 0
     const walletDock = drawWalletDock(
-      ctx,W,H,myNftjisRef.current,healthMapRef.current[myIdentity]??100,es,Boolean(myWallet)
+      ctx,W,H,myNftjisRef.current,hpNow,es,Boolean(myWallet),etaMs
     )
     const chainStatsBottom = drawChainStats(ctx,W,H,chainStatsRef.current,es,(walletDock?.bottom||8)+6)
     if (mapHasBoss(mapIdRef.current)) {
