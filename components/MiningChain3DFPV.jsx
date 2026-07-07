@@ -33,6 +33,7 @@ import {
   M2_PITCH_DOME_RADIUS,
   updateM2PitchDomeRuntime,
 } from '@/lib/m2-pitch-dome'
+import { addM1MileiStatueReservedCells, createM1MileiStatueVisual } from '@/lib/m1-milei-statue'
 import { addVerticalArenaUsbStaff } from '@/lib/arena-usb-staff'
 import {
   drawBossDollarBills,
@@ -65,6 +66,7 @@ import {
   usesSoftPerimeter,
 } from '@/lib/mining-perimeter-visual'
 import { buildM1GatewaySightClear, getPeripheralGatewaySightClear, MINING_GATEWAY_CORRIDOR_DEPTH } from '@/lib/mining-gateway-corridors'
+import { isInM1MileiStatueExclusion } from '@/lib/mining-visual-layout'
 import {
   getGatewayTravelVisual,
   getGatewayOuterSeaStrip,
@@ -7644,6 +7646,7 @@ function rebuildThreeWorld(state,cellMap,obstacles) {
   addCipherHouseDetails(world,liteScenery)
   addBiomeLandmarks(world,state.textures,liteScenery)
   addPeripheralGroundFeatures(world, '1', liteScenery)
+  addM1MileiStatueDecor(world, liteScenery)
   // ── Block + node groups ───────────────────────────────────────────────────────
   // Each interactive type gets its own material & shape so players can tell them apart.
   // No texture maps here — texture × vertex-color was multiplying everything to black.
@@ -10502,6 +10505,11 @@ function addRlColiseumNodeVisual(world, lowDetail, state) {
   }
 }
 
+function addM1MileiStatueDecor(world, lowDetail) {
+  const visual = createM1MileiStatueVisual(THREE, lowDetail)
+  world.add(visual.group)
+}
+
 function addM2PitchDomeDecor(world, lowDetail, state) {
   const { x: cx, z: cz } = M2_PITCH_DOME_CENTER
   const root = new THREE.Group()
@@ -11706,10 +11714,12 @@ export default function MiningChain3DFPV({
       }
     }
     for (const key of M1_GATEWAY_SIGHT_CLEAR) reserved.add(key)
+    addM1MileiStatueReservedCells(reserved)
     const valid = new Map()
     for (const [key, data] of OBSTACLE_MAP) {
       if (M1_GATEWAY_SIGHT_CLEAR.has(key)) continue
       const [row,col]=key.split(',').map(Number)
+      if (isInM1MileiStatueExclusion('1', row, col)) continue
       if (HOUSE_DOOR_STEP_KEYS.has(key)) continue
       const insideHouse=
         row>=CIPHER_HOUSE_BOUNDS.minRow&&row<=CIPHER_HOUSE_BOUNDS.maxRow&&
@@ -11754,6 +11764,7 @@ export default function MiningChain3DFPV({
       for (let c = 4; c < MM3_BLOCK_GRID_COLS-4; c += 4) {
         if (Math.abs(r-14) <= 5 && Math.abs(c-14) <= 5) continue  // keep center zone free
         if (isNearCipherHouse(r, c) || isInCipherHouseCoastCorridor(r, c)) continue
+        if (isInM1MileiStatueExclusion('1', r, c)) continue
         const h = (((r * 31 + c * 17) ^ (r * c * 7)) % 100 + 100) % 100
         if (h >= 22) continue  // ~22% become wall origins
         const isHoriz = ((r * 13 + c * 7) & 1) === 0
@@ -11764,6 +11775,7 @@ export default function MiningChain3DFPV({
           const wc = isHoriz ? c + i : c
           if (wr < 2 || wr >= MM3_BLOCK_GRID_ROWS-2 || wc < 2 || wc >= MM3_BLOCK_GRID_COLS-2) break
           if (isNearCipherHouse(wr, wc) || isInCipherHouseCoastCorridor(wr, wc)) continue
+          if (isInM1MileiStatueExclusion('1', wr, wc)) continue
           const key = `${wr},${wc}`
           // Only fill truly empty positions — never override NFTJI/mined blocks
           if (!reserved.has(key) && !valid.has(key)) valid.set(key, chainObstacle(key,wallData))
@@ -11775,6 +11787,11 @@ export default function MiningChain3DFPV({
     addOrganicObstacles(valid,reserved,m1CellMap)
     clearCipherHouseApproaches(valid)
     applyHouseDoorStepObstacles(valid)
+
+    for (const key of [...valid.keys()]) {
+      const [row, col] = key.split(',').map(Number)
+      if (isInM1MileiStatueExclusion('1', row, col)) valid.delete(key)
+    }
 
     // Build a small number of deterministic staircases beside isolated tall
     // obstacles. Each cube is a real collision/support surface, so players can
