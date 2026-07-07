@@ -1581,6 +1581,11 @@ export default function MiningChain3D() {
         })
       }
       if (payload.victim === myKeyRef.current || payload.victim === myWalletRef.current) {
+        if (payload.healed) {
+          const now = Date.now()
+          lastPoolHealAtRef.current = now
+          setLastPoolHealAt(now)
+        }
         if (payload.dodged) {
           setReceivedDodgeAt(Date.now())
         } else {

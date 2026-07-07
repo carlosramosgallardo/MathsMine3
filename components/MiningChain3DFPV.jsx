@@ -12740,8 +12740,10 @@ export default function MiningChain3DFPV({
     }
     const hpNow = Number(healthMapRef.current[myIdentity] ?? 100)
     const healsNeeded = Math.max(0, Math.ceil((100 - hpNow) / 10))
-    const etaMs = healsNeeded > 0 && lastPoolHealAtRef.current > 0
-      ? Math.max(0, (lastPoolHealAtRef.current + poolHealCooldownMsRef.current * healsNeeded) - Date.now())
+    const inPoolSafe = isInHousePoolPvpSafeZone(px / CELL_SIZE, py / CELL_SIZE, rawZ)
+    const etaAnchor = lastPoolHealAtRef.current > 0 ? lastPoolHealAtRef.current : Date.now()
+    const etaMs = (healsNeeded > 0 && inPoolSafe)
+      ? Math.max(0, (etaAnchor + poolHealCooldownMsRef.current * healsNeeded) - Date.now())
       : 0
     const walletDock = drawWalletDock(
       ctx,W,H,myNftjisRef.current,hpNow,es,Boolean(myWallet),etaMs
