@@ -4841,6 +4841,17 @@ function getActiveBossGroup(threeState) {
   return threeState?.m5TrumpBossGroup || threeState?.m3PutinBossGroup || null
 }
 
+function sampleBossGroundY(runtime, cellMap) {
+  if (!runtime || !cellMap) return 0
+  const row = Math.floor(runtime.gy)
+  const col = Math.floor(runtime.gx)
+  for (const [dr, dc] of [[0, 0], [0, -1], [0, 1], [-1, 0], [1, 0]]) {
+    const cell = cellMap.get(`${row + dr},${col + dc}`)
+    if (cell) return blockTop(cell, row + dr, col + dc)
+  }
+  return 0
+}
+
 // ── First-person retro USB staff ────────────────────────────────────────────
 function drawFirstPersonTool(ctx, W, H, color, swingT, walkDist) {
   const mobile = W < 640
@@ -13341,6 +13352,7 @@ export default function MiningChain3DFPV({
             bossRuntimeRef.current,
             bossStateRef.current,
             performance.now() * 0.001,
+            sampleBossGroundY(bossRuntimeRef.current, activeCellMapRef.current),
           )
         } else if (bossRuntimeRef.current) {
           needsRender = true

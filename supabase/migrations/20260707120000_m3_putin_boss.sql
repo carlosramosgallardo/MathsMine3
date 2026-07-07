@@ -3,6 +3,10 @@ INSERT INTO mm3_map_boss (id, map_id, name, max_health, health, state)
 VALUES ('m3_putin', '3', 'Vladimir Putin', 2500, 2500, 'idle')
 ON CONFLICT (id) DO NOTHING;
 
+-- Postgres cannot rename function parameters via CREATE OR REPLACE.
+DROP FUNCTION IF EXISTS apply_mm3_boss_player_hit(text, integer, text);
+DROP FUNCTION IF EXISTS apply_mm3_boss_attack_player(text, integer, numeric, numeric, numeric, numeric);
+
 CREATE OR REPLACE FUNCTION apply_mm3_boss_player_hit(
   p_wallet TEXT,
   p_damage INTEGER DEFAULT 1,
@@ -113,7 +117,7 @@ BEGIN
     ELSE 28.0
   END;
   v_spawn_gy := CASE p_boss_id
-    WHEN 'm3_putin' THEN 48.5
+    WHEN 'm3_putin' THEN 45.0
     ELSE 28.0
   END;
 
