@@ -384,13 +384,41 @@ M5 — Epstein Island — M1 — Core Island — M4 — Desert Oasis
 |:---:|:---|:---|---:|:---|:---|
 | **M1** | Core Island | `#000`–`#0C7` | 200 | Lowest — entry tier | ⬡ **Chain Node** (solve/demine Ω), 🎲 **Dice Node** (StormRoll window), **Cipher House** + pool, **Crypto Colosseum**, 9 **Portal nodes** (Training, Trading, Ranking…), gateway exits |
 | **M2** | RL Coliseum | `#0C8`–`#18F` | 200 | Low–mid | 🏎️ **RL Mount node** (Red Lightning car), full-map coliseum venue, gateway → M1 |
-| **M3** | Peach Castle | `#190`–`#257` | 200 | Mid | Full-map **Peach Castle** city venue, gateway → M1 |
+| **M3** | Peach Castle | `#190`–`#257` | 200 | Mid | Full-map **Peach Castle** city venue, **Vladimir Putin** world boss (castle gate, co-op PvE, daily respawn), gateway → M1 |
 | **M4** | Desert Oasis | `#258`–`#31F` | 200 | Mid–high | Full-map **Desert Oasis** venue, gateway → M1 |
 | **M5** | Epstein Island | `#320`–`#3E7` | 200 | Highest | Full-map mystic isle venue, **Donald Trump** world boss (centre, co-op PvE, daily respawn), gateway → M1 |
 
 **Block placement:** each chain index maps to one visual cell on its assigned map (see `lib/mining-visual-layout.js`). Regular blocks appear as minable cubes; NFTJI blocks as amber market cells (buy/resell in-world). Requirements (`min wallet level` + `mm3_global_value`) scale with the global index `#000` → `#3E7`.
 
-**Donald Trump boss (M5 only):** 5000 HP, 20 damage/hit, activates when any logged-in wallet lands a hit. Requires multiple fighters for serious damage. On defeat: **1000 MM3 + 1000 €** split proportionally among damage dealers; respawns **24 h** later.
+**World bosses (co-op PvE):** each boss activates when any logged-in wallet lands a hit and requires multiple fighters for serious damage. On defeat, the reward is split proportionally among damage dealers; the boss respawns **24 h** later. Player hits on a boss can crit for extra damage:
+
+| Boss | Map | HP | Hit damage | Crit | Reward on defeat |
+|---|:---:|---:|---:|---|---|
+| **Vladimir Putin** | M3 | 2500 | 12 | 18 (12% chance) | 400 MM3 + 400 € |
+| **Donald Trump** | M5 | 5000 | 20 | 30 (15% chance) | 1000 MM3 + 1000 € |
+
+### PvP health & pool healing
+
+Every player in the 3D world has a **100 HP** health bar. USB-staff hits deal **1 damage** (body) or **5 damage** (headshot or critical); every landed hit also pays the attacker **€0.10**. Wallets in the same pool cannot damage each other. During the hourly 🎲 StormRoll window, an AoE tick also damages every exposed player once per minute. Reaching 0 HP kills the player — **5-minute death cooldown** before playing again.
+
+**Cipher House pool (M1) — safe zone + regeneration:**
+
+- Inside the pool zone, PvP damage is fully disabled in both directions (StormRoll ticks included) — attackers standing in the zone can't deal damage either.
+- Staying in the pool regenerates **+10 HP every 5 minutes** (up to 100). Presence is checked every 10 s — leaving and coming back does not reset the timer.
+- Holding the **❤️ Life Toll NFTJI halves the regen cooldown**: **+10 HP every 2.5 minutes** (full heal from 0 in ~25 min instead of ~50).
+
+### Mining skills — NFTJI passives
+
+Owning (or equipping, for Squeeze NFTJIs) certain NFTJIs grants passive skills inside the 3D world, shown as slots in the mining HUD:
+
+| NFTJI | HUD label | Effect in the 3D world |
+|---|---|---|
+| ❤️ Life Toll | `+10% SPD` | +10% movement speed · pool regeneration ×2 speed |
+| ⚔️ Chaos Blade *(equipped)* | `+5% CRT` | 5% chance a landed PvP hit is a critical (5 damage) |
+| 🔰 Void Ward *(equipped)* | `10% DGE` | 10% chance to fully dodge an incoming PvP hit |
+| Any Mining NFTJI *(held)* | `+10% AIR` | +10% air travel on jumps (longer long-jumps) |
+
+> **🏎️ RL Mount (M2):** while active it multiplies movement speed **×2** and jump **×2**, and stacks with the ❤️ speed bonus. It is a mount, not an NFTJI skill slot.
 
 Two block types:
 
@@ -1408,13 +1436,41 @@ M5 — Isla Epstein — M1 — Isla Central — M4 — Oasis del Desierto
 |:---:|:---|:---|---:|:---|:---|
 | **M1** | Isla Central | `#000`–`#0C7` | 200 | Mínimos — entrada | ⬡ **Nodo Cadena** (resolver/desminar Ω), 🎲 **Nodo Dado** (ventana StormRoll), **Casa Cipher** + piscina, **Coliseo Crypto**, 9 **nodos Portal** (Training, Trading, Ranking…), salidas portal |
 | **M2** | Coliseo RL | `#0C8`–`#18F` | 200 | Bajo–medio | 🏎️ **Nodo RL Mount** (coche Red Lightning), coliseo a mapa completo, portal → M1 |
-| **M3** | Castillo de Peach | `#190`–`#257` | 200 | Medio | **Castillo Peach** a mapa completo, portal → M1 |
+| **M3** | Castillo de Peach | `#190`–`#257` | 200 | Medio | **Castillo Peach** a mapa completo, **boss Vladimir Putin** (puerta del castillo, PvE cooperativo, respawn diario), portal → M1 |
 | **M4** | Oasis del Desierto | `#258`–`#31F` | 200 | Medio–alto | **Oasis del Desierto** a mapa completo, portal → M1 |
 | **M5** | Isla Epstein | `#320`–`#3E7` | 200 | Máximos | Isla mística a mapa completo, **boss Donald Trump** (centro, PvE cooperativo, respawn diario), portal → M1 |
 
 **Colocación de bloques:** cada índice de cadena corresponde a una celda visual en su mapa asignado (ver `lib/mining-visual-layout.js`). Los bloques regulares aparecen como cubos minables; los NFTJI como celdas ámbar de mercado (compra/reventa in-world). Los requisitos (`nivel mínimo de wallet` + `mm3_global_value`) escalan con el índice global `#000` → `#3E7`.
 
-**Boss Donald Trump (solo M5):** 5000 HP, 20 de daño/golpe, se activa cuando cualquier wallet logueada acierta un golpe. Requiere varios luchadores para daño serio. Al derrotarlo: **1000 MM3 + 1000 €** repartidos proporcionalmente entre los que infligieron daño; respawn **24 h** después.
+**Bosses del mundo (PvE cooperativo):** cada boss se activa cuando cualquier wallet logueada acierta un golpe y requiere varios luchadores para daño serio. Al derrotarlo, la recompensa se reparte proporcionalmente entre los que infligieron daño; el boss respawnea **24 h** después. Los golpes del jugador al boss pueden ser críticos con daño extra:
+
+| Boss | Mapa | HP | Daño/golpe | Crítico | Recompensa al derrotarlo |
+|---|:---:|---:|---:|---|---|
+| **Vladimir Putin** | M3 | 2500 | 12 | 18 (12% prob.) | 400 MM3 + 400 € |
+| **Donald Trump** | M5 | 5000 | 20 | 30 (15% prob.) | 1000 MM3 + 1000 € |
+
+### Vida PvP y curación en la piscina
+
+Cada jugador del mundo 3D tiene una barra de **100 HP**. Los golpes de bastón USB hacen **1 de daño** (cuerpo) o **5 de daño** (headshot o crítico); cada golpe acertado además paga **0,10 €** al atacante. Las wallets del mismo pool no pueden dañarse entre sí. Durante la ventana horaria del 🎲 StormRoll, un tick de área daña además a todos los jugadores expuestos una vez por minuto. Llegar a 0 HP mata al jugador — **5 minutos de cooldown de muerte** antes de volver a jugar.
+
+**Piscina de la Casa Cipher (M1) — zona segura + regeneración:**
+
+- Dentro de la zona de la piscina el daño PvP queda desactivado en ambos sentidos (ticks de StormRoll incluidos) — un atacante dentro de la zona tampoco puede hacer daño.
+- Permanecer en la piscina regenera **+10 HP cada 5 minutos** (hasta 100). La presencia se comprueba cada 10 s — salir y volver no reinicia el contador.
+- Poseer el **NFTJI ❤️ Life Toll reduce el cooldown de regeneración a la mitad**: **+10 HP cada 2,5 minutos** (curación completa desde 0 en ~25 min en vez de ~50).
+
+### Skills de mining — pasivas por NFTJI
+
+Poseer (o equipar, en el caso de los NFTJIs de Squeeze) ciertos NFTJIs otorga skills pasivas dentro del mundo 3D, visibles como casillas en el HUD de mining:
+
+| NFTJI | Etiqueta HUD | Efecto en el mundo 3D |
+|---|---|---|
+| ❤️ Life Toll | `+10% SPD` | +10% velocidad de movimiento · regeneración en piscina ×2 |
+| ⚔️ Chaos Blade *(equipado)* | `+5% CRT` | 5% de probabilidad de que un golpe PvP acertado sea crítico (5 de daño) |
+| 🔰 Void Ward *(equipado)* | `10% DGE` | 10% de probabilidad de esquivar por completo un golpe PvP recibido |
+| Cualquier NFTJI de Mining *(en propiedad)* | `+10% AIR` | +10% de vuelo en los saltos (saltos largos más largos) |
+
+> **🏎️ RL Mount (M2):** mientras está activo multiplica la velocidad **×2** y el salto **×2**, y se acumula con el bonus de velocidad del ❤️. Es una montura, no una casilla de skill NFTJI.
 
 Dos tipos de bloque:
 
