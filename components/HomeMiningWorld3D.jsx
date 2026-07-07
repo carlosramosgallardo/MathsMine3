@@ -1,7 +1,10 @@
 'use client'
 
 import { useEffect, useRef } from 'react'
-import { addVerticalArenaUsbStaff } from '@/lib/arena-usb-staff'
+import { createM3PutinBossVisual } from '@/lib/m3-putin-boss-runtime'
+import { M3_PUTIN_BOSS_SCALE } from '@/lib/m3-putin-boss'
+import { createM4KimBossVisual } from '@/lib/m4-kim-boss-runtime'
+import { M4_KIM_BOSS_SCALE } from '@/lib/m4-kim-boss'
 import { createM5TrumpBossVisual } from '@/lib/m5-trump-boss-runtime'
 import { M5_TRUMP_BOSS_SCALE } from '@/lib/m5-trump-boss'
 
@@ -10,11 +13,11 @@ const HOME_ARENA_BOT_SCALE = 3.44
 const HOME_ARENA_BOSS_VS_BOT = 1.31
 /** World Y where bot soles meet the arena disc (avatar origin + sole bottom local × scale). */
 const HOME_ARENA_FLOOR_Y = 0.12 + 0.0015 * HOME_ARENA_BOT_SCALE
-const HOME_ARENA_CENTER = { x: 0.55, z: 0 }
+const HOME_SCENE_CENTER = { x: 0, z: 0 }
 
-function homeYawTowardArenaCenter(fromX, fromZ) {
-  const dx = HOME_ARENA_CENTER.x - fromX
-  const dz = HOME_ARENA_CENTER.z - fromZ
+function homeYawTowardCenter(fromX, fromZ, centerX = HOME_SCENE_CENTER.x, centerZ = HOME_SCENE_CENTER.z) {
+  const dx = centerX - fromX
+  const dz = centerZ - fromZ
   return -Math.atan2(dx, dz) - Math.PI / 2
 }
 
@@ -22,7 +25,7 @@ export function addMiningBot(THREE, scene, options = {}) {
   const {
     color: botColor = '#4ade80',
     position = [-2.25, .12, .20],
-    rotationY = homeYawTowardArenaCenter(-2.25, .20),
+    rotationY = homeYawTowardCenter(-2.25, .20),
     scale = HOME_ARENA_BOT_SCALE,
   } = options
   const avatar = new THREE.Group()
@@ -255,136 +258,79 @@ export function addNftjiMiningBlock(THREE, scene, options = {}) {
   return { group, glowLight, indicator, marker, sprite }
 }
 
-/** Donald Trump boss — same voxel avatar as Epstein Island (M5) in Mining. */
-export function addHomeTrumpBoss(THREE, scene, options = {}) {
+const HOME_BOSS_SPACING = 3.95
+const HOME_BOSS_LAYOUT = [
+  {
+    id: 'putin',
+    createVisual: createM3PutinBossVisual,
+    bossScale: M3_PUTIN_BOSS_SCALE,
+    position: [-HOME_BOSS_SPACING, 0, 0.06],
+    glowColor: '#94a3b8',
+    glowIntensity: 2.8,
+    phase: 0,
+    sway: 0.45,
+    bob: 2.2,
+  },
+  {
+    id: 'kim',
+    createVisual: createM4KimBossVisual,
+    bossScale: M4_KIM_BOSS_SCALE,
+    position: [0, 0, 0.14],
+    glowColor: '#d946ef',
+    glowIntensity: 3.0,
+    phase: Math.PI * 0.66,
+    sway: 0.52,
+    bob: 2.45,
+  },
+  {
+    id: 'trump',
+    createVisual: createM5TrumpBossVisual,
+    bossScale: M5_TRUMP_BOSS_SCALE,
+    position: [HOME_BOSS_SPACING, 0, 0.06],
+    glowColor: '#ef4444',
+    glowIntensity: 3.2,
+    phase: Math.PI * 1.33,
+    sway: 0.38,
+    bob: 2.05,
+  },
+]
+
+/** Voxel boss avatar for the home hero — same look as in Mining maps. */
+export function addHomeBoss(THREE, scene, options = {}) {
   const {
-    position = [3.20, HOME_ARENA_FLOOR_Y, .08],
-    rotationY = homeYawTowardArenaCenter(3.20, .08),
-    scaleMult = (HOME_ARENA_BOT_SCALE * HOME_ARENA_BOSS_VS_BOT) / M5_TRUMP_BOSS_SCALE,
+    createVisual,
+    bossScale,
+    position = [0, 0, 0],
+    rotationY = homeYawTowardCenter(position[0], position[2]),
+    glowColor = '#ef4444',
+    glowIntensity = 3.2,
+    phase = 0,
+    sway = 0.45,
+    bob = 2.2,
+    scaleMult = (HOME_ARENA_BOT_SCALE * HOME_ARENA_BOSS_VS_BOT) / bossScale,
   } = options
-  const { group, bodyPivot, label } = createM5TrumpBossVisual(THREE, false)
+  const { group, bodyPivot } = createVisual(THREE, false)
   group.position.set(position[0], HOME_ARENA_FLOOR_Y, position[2])
   group.rotation.y = rotationY
-  group.scale.setScalar(M5_TRUMP_BOSS_SCALE * scaleMult)
-  if (label) label.visible = false
+  group.scale.setScalar(bossScale * scaleMult)
 
-  const glowLight = new THREE.PointLight('#ef4444', 3.2, 4.5, 2)
+  const glowLight = new THREE.PointLight(glowColor, glowIntensity, 4.5, 2)
   glowLight.position.set(0, 1.4, 0)
   group.add(glowLight)
 
   scene.add(group)
-  return { group, bodyPivot, label, glowLight, baseRotationY: rotationY }
+  return { group, bodyPivot, glowLight, baseRotationY: rotationY, phase, sway, bob, baseGlow: glowIntensity }
 }
 
-function makeChainTargetSprite(THREE) {
-  const canvas = document.createElement('canvas')
-  canvas.width = 128
-  canvas.height = 128
-  const context = canvas.getContext('2d')
-  const drawCrosshair = () => {
-    context.beginPath()
-    context.moveTo(18, 64); context.lineTo(48, 64)
-    context.moveTo(80, 64); context.lineTo(110, 64)
-    context.moveTo(64, 18); context.lineTo(64, 48)
-    context.moveTo(64, 80); context.lineTo(64, 110)
-    context.stroke()
-  }
-  context.strokeStyle = 'rgba(238,242,247,.92)'
-  context.lineWidth = 4
-  drawCrosshair()
-  context.strokeStyle = 'rgba(250,204,21,.34)'
-  context.lineWidth = 3
-  context.beginPath()
-  context.arc(64, 64, 48, 0, Math.PI * 2)
-  context.stroke()
-  context.fillStyle = '#facc15'
-  context.beginPath()
-  context.arc(64, 64, 2.5, 0, Math.PI * 2)
-  context.fill()
-
-  const texture = new THREE.CanvasTexture(canvas)
-  texture.colorSpace = THREE.SRGBColorSpace
-  texture.minFilter = THREE.LinearFilter
-  texture.generateMipmaps = false
-  const sprite = new THREE.Sprite(new THREE.SpriteMaterial({
-    map: texture,
-    transparent: true,
-    depthTest: false,
-    depthWrite: false,
-  }))
-  sprite.scale.set(.52, .52, 1)
-  sprite.renderOrder = 30
-  return sprite
-}
-
-function addChainNodeAndSword(THREE, scene) {
-  const group = new THREE.Group()
-  group.position.set(.55, .12, 0)
-
-  const foundation = new THREE.Mesh(
-    new THREE.CylinderGeometry(4.30, 4.30, .07, 96),
-    new THREE.MeshStandardMaterial({ color: '#010c18', roughness: .82, metalness: .28, emissive: '#021428', emissiveIntensity: .55 }),
-  )
-  foundation.position.y = .035
-  foundation.receiveShadow = true
-  group.add(foundation)
-
-  // Thick cyan track paths + magenta border — matching in-game arena look
-  for (const [radius, tube, color, opacity] of [
-    [1.70, .055, '#22d3ee', .82],
-    [2.90, .075, '#22d3ee', .76],
-    [3.90, .040, '#d946ef', .90],
-  ]) {
-    const ring = new THREE.Mesh(
-      new THREE.TorusGeometry(radius, tube, 10, 96),
-      new THREE.MeshBasicMaterial({ color, transparent: true, opacity, depthWrite: false }),
-    )
-    ring.rotation.x = Math.PI / 2
-    ring.position.y = .09
-    group.add(ring)
-  }
-
-  // Subtle crosshair lane markers
-  const laneMaterial = new THREE.MeshBasicMaterial({ color: '#6b3c10', transparent: true, opacity: .55, depthWrite: false })
-  const laneX = new THREE.Mesh(new THREE.PlaneGeometry(7.0, .060), laneMaterial)
-  laneX.rotation.x = -Math.PI / 2
-  laneX.position.y = .10
-  const laneZ = new THREE.Mesh(new THREE.PlaneGeometry(.060, 7.0), laneMaterial.clone())
-  laneZ.rotation.x = -Math.PI / 2
-  laneZ.position.y = .105
-  group.add(laneX, laneZ)
-
-  // Same non-opaque spherical halo that surrounds the arena USB staff in Mining.
-  const haloMaterial = new THREE.MeshBasicMaterial({ color: '#facc15' })
-  const halo = new THREE.Mesh(new THREE.TorusGeometry(1.25, .055, 10, 80), haloMaterial)
-  halo.rotation.x = Math.PI / 2
-  halo.position.y = 2.35
-  const haloCross = halo.clone()
-  haloCross.rotation.set(0, 0, Math.PI / 2)
-  group.add(halo, haloCross)
-
-  const sphere = new THREE.Mesh(
-    new THREE.SphereGeometry(.52, 32, 24),
-    new THREE.MeshStandardMaterial({ color: '#facc15', roughness: .38, metalness: .58, emissive: '#a07000', emissiveIntensity: .70 }),
-  )
-  sphere.position.y = .52
-  sphere.castShadow = true
-  group.add(sphere)
-  const targetIndicator = makeChainTargetSprite(THREE)
-  targetIndicator.position.y = .52
-  group.add(targetIndicator)
-
-  const tetra = new THREE.Mesh(
-    new THREE.TetrahedronGeometry(.18),
-    new THREE.MeshBasicMaterial({ color: '#facc15' }),
-  )
-  tetra.position.y = 1.42
-  group.add(tetra)
-
-  const usb = addVerticalArenaUsbStaff(THREE, group)
-
-  scene.add(group)
-  return { group, sphere, cyanRing: usb.cyanRing, magentaRing: usb.magentaRing, targetIndicator, tetra }
+/** @deprecated Use addHomeBoss — kept for callers that only need Trump. */
+export function addHomeTrumpBoss(THREE, scene, options = {}) {
+  return addHomeBoss(THREE, scene, {
+    createVisual: createM5TrumpBossVisual,
+    bossScale: M5_TRUMP_BOSS_SCALE,
+    position: [HOME_BOSS_SPACING, 0, 0.06],
+    glowColor: '#ef4444',
+    ...options,
+  })
 }
 
 function disposeScene(scene) {
@@ -432,9 +378,9 @@ export default function HomeMiningWorld3D() {
 
       scene = new THREE.Scene()
       scene.fog = new THREE.FogExp2('#010c18', .036)
-      const camera = new THREE.PerspectiveCamera(33, 2, .1, 50)
-      camera.position.set(8.20, 6.05, 12.30)
-      camera.lookAt(-.15, 1.72, 0)
+      const camera = new THREE.PerspectiveCamera(36, 2, .1, 50)
+      camera.position.set(0, 6.15, 13.8)
+      camera.lookAt(0, 1.78, 0)
 
       scene.add(new THREE.HemisphereLight('#c7e9ff', '#060e1a', 1.30))
       const key = new THREE.DirectionalLight('#fff8dc', 2.50)
@@ -446,12 +392,13 @@ export default function HomeMiningWorld3D() {
       cyanFill.position.set(-2.0, 1.8, 2)
       scene.add(cyanFill)
       const goldFill = new THREE.PointLight('#ffe34d', 7.0, 11, 2)
-      goldFill.position.set(.55, 2.3, 2.1)
+      goldFill.position.set(0, 2.3, 2.1)
       scene.add(goldFill)
 
-      const bot = addMiningBot(THREE, scene)
-      const chain = addChainNodeAndSword(THREE, scene)
-      const trumpBoss = addHomeTrumpBoss(THREE, scene)
+      const homeBosses = HOME_BOSS_LAYOUT.map((layout) => addHomeBoss(THREE, scene, {
+        ...layout,
+        rotationY: homeYawTowardCenter(layout.position[0], layout.position[2]),
+      }))
 
       const resize = () => {
         const width = Math.max(1, canvas.clientWidth)
@@ -474,31 +421,15 @@ export default function HomeMiningWorld3D() {
         animationFrame = requestAnimationFrame(animate)
         if (!pageVisible || !inViewport) return
         const time = clock.getElapsedTime()
-        const stride = Math.sin(time * 2.35)
-        const stepLift = Math.abs(Math.sin(time * 2.35))
-        bot.position.y = .12 + stepLift * .025
-        bot.rotation.y = homeYawTowardArenaCenter(-2.25, .20) + stride * .025
-        bot.rotation.z = stride * .018
-        bot.userData.leftFoot.position.z = -.025 + stride * .075
-        bot.userData.rightFoot.position.z = -.025 - stride * .075
-        bot.userData.leftSole.position.z = -.025 + stride * .075
-        bot.userData.rightSole.position.z = -.025 - stride * .075
-        bot.userData.leftFoot.rotation.x = stride * .16
-        bot.userData.rightFoot.rotation.x = -stride * .16
-        bot.userData.leftSole.rotation.x = stride * .16
-        bot.userData.rightSole.rotation.x = -stride * .16
-        chain.sphere.scale.setScalar(1 + Math.sin(time * 1.55) * .018)
-        chain.cyanRing.rotation.z = time * .18
-        chain.magentaRing.rotation.z = -time * .24
-        chain.tetra.rotation.y = time * .55
-        chain.tetra.position.y = 1.42 + Math.sin(time * 1.8) * .07
-        const targetPulse = .52 * (1 + Math.sin(time * 2.8) * .055)
-        chain.targetIndicator.scale.set(targetPulse, targetPulse, 1)
-        chain.targetIndicator.material.opacity = .84 + Math.sin(time * 2.8) * .12
-        const bossBob = Math.max(0, Math.sin(time * 2.2) * 0.06)
-        trumpBoss.bodyPivot.position.y = bossBob
-        trumpBoss.group.rotation.y = trumpBoss.baseRotationY + Math.sin(time * 0.45) * 0.08
-        trumpBoss.glowLight.intensity = 3.2 + Math.sin(time * 2.4) * 0.9
+        for (const boss of homeBosses) {
+          const t = time + boss.phase
+          const stride = Math.sin(t * boss.bob)
+          boss.bodyPivot.position.y = Math.max(0, stride * 0.06)
+          boss.group.position.y = HOME_ARENA_FLOOR_Y + Math.max(0, Math.sin(t * (boss.bob + 0.15)) * 0.018)
+          boss.group.rotation.y = boss.baseRotationY + Math.sin(t * boss.sway) * 0.08
+          boss.group.rotation.z = Math.sin(t * (boss.sway + 0.65)) * 0.014
+          boss.glowLight.intensity = boss.baseGlow + Math.sin(t * 2.4) * 0.85
+        }
         renderer.render(scene, camera)
       }
       animate()
