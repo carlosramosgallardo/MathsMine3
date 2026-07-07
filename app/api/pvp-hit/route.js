@@ -2,6 +2,7 @@ export const dynamic = 'force-dynamic'
 
 import { createClient } from '@supabase/supabase-js'
 import { isInHousePoolPvpSafeZone } from '@/lib/mining-world-layout'
+import { applyDeathLevelPenalty } from '@/lib/death-penalty'
 
 function serviceClient() {
   return createClient(
@@ -88,5 +89,7 @@ export async function POST(req) {
       : error.message.includes('anon_cannot_attack') ? 403 : 500
     return Response.json({ ok: false, error: error.message }, { status: code })
   }
+  // Death penalty: a killed logged-in victim loses 1 level (anon/level-0 skipped).
+  if (data?.killed) await applyDeathLevelPenalty(sb, victim)
   return Response.json({ ok: true, critical, headshot, hitZone, ...data })
 }

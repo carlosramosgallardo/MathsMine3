@@ -412,7 +412,7 @@ M5 — Epstein Island — M1 — Speculation Plaza — M4 — Korea
 
 ### PvP health & pool healing
 
-Every player in the 3D world has a **100 HP** health bar. USB-staff hits deal **1 damage** (body) or **5 damage** (headshot or critical); every landed hit also pays the attacker **€0.10**. Wallets in the same pool cannot damage each other. During the hourly 🎲 StormRoll window, an AoE tick also damages every exposed player once per minute. Reaching 0 HP kills the player — **5-minute death cooldown** before playing again.
+Every player in the 3D world has a **100 HP** health bar. USB-staff hits deal **1 damage** (body) or **5 damage** (headshot or critical); every landed hit also pays the attacker **€0.10**. Wallets in the same pool cannot damage each other. During the hourly 🎲 StormRoll window, an AoE tick also damages every exposed player once per minute. Reaching 0 HP kills the player — **5-minute death cooldown** before playing again. Any death of a logged-in player — by the 🎲 StormRoll, by another player, or by a boss — also **costs 1 wallet level immediately**. Anonymous accounts and players already at level 0 lose no level.
 
 **Cipher House pool (M1) — safe zone + regeneration:**
 
@@ -1477,7 +1477,7 @@ M5 — Isla Epstein — M1 — Plaza de la Especulación — M4 — Corea
 
 ### Vida PvP y curación en la piscina
 
-Cada jugador del mundo 3D tiene una barra de **100 HP**. Los golpes de bastón USB hacen **1 de daño** (cuerpo) o **5 de daño** (headshot o crítico); cada golpe acertado además paga **0,10 €** al atacante. Las wallets del mismo pool no pueden dañarse entre sí. Durante la ventana horaria del 🎲 StormRoll, un tick de área daña además a todos los jugadores expuestos una vez por minuto. Llegar a 0 HP mata al jugador — **5 minutos de cooldown de muerte** antes de volver a jugar.
+Cada jugador del mundo 3D tiene una barra de **100 HP**. Los golpes de bastón USB hacen **1 de daño** (cuerpo) o **5 de daño** (headshot o crítico); cada golpe acertado además paga **0,10 €** al atacante. Las wallets del mismo pool no pueden dañarse entre sí. Durante la ventana horaria del 🎲 StormRoll, un tick de área daña además a todos los jugadores expuestos una vez por minuto. Llegar a 0 HP mata al jugador — **5 minutos de cooldown de muerte** antes de volver a jugar. Toda muerte de un jugador logueado — por el 🎲 StormRoll, por otro jugador o por un boss — **resta 1 nivel de wallet al instante**. Las cuentas anónimas y los jugadores que ya estén a nivel 0 no pierden nivel.
 
 **Piscina de la Casa Cipher (M1) — zona segura + regeneración:**
 

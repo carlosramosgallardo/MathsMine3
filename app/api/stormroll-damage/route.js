@@ -1,6 +1,7 @@
 export const dynamic = 'force-dynamic'
 
 import { createClient } from '@supabase/supabase-js'
+import { applyDeathLevelPenalty } from '@/lib/death-penalty'
 
 // Mirrors getDiceWindowForHour from lib/dice.js (server-side validation)
 function seededRand(n) {
@@ -121,6 +122,9 @@ export async function POST(req) {
     { wallet, ...updates },
     { onConflict: 'wallet', ignoreDuplicates: false },
   )
+
+  // Death penalty: a killed logged-in player loses 1 level (anon handled earlier).
+  if (killed) await applyDeathLevelPenalty(sb, wallet)
 
   return Response.json({ ok: true, health: newHP, killed, damage })
 }

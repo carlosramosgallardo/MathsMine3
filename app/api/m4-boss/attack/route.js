@@ -10,6 +10,7 @@ import {
   isBossPositionValid,
 } from '@/lib/m4-kim-boss'
 import { isStormActive } from '@/lib/boss-storm'
+import { applyDeathLevelPenalty } from '@/lib/death-penalty'
 
 function serviceClient() {
   return createClient(
@@ -89,6 +90,9 @@ export async function POST(req) {
   if (data?.ok === false) {
     return Response.json(data, { status: 409 })
   }
+
+  // Death penalty: a killed player loses 1 level (anon rejected earlier).
+  if (data?.killed) await applyDeathLevelPenalty(sb, wallet)
 
   return Response.json({
     ok: true,
