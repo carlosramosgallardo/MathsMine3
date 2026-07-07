@@ -10699,6 +10699,7 @@ export default function MiningChain3DFPV({
   const myNftjisRef         = useRef(myNftjis || [])
   const lastPoolHealAtRef   = useRef(lastPoolHealAt || 0)
   const poolHealCooldownMsRef = useRef(poolHealCooldownMs || (5 * 60 * 1000))
+  const poolHealEtaAnchorRef = useRef(0)
   const healthMapRef        = useRef(healthMap||{})
   const threeStateRef       = useRef(null)
   // FPS camera feel
@@ -12741,8 +12742,15 @@ export default function MiningChain3DFPV({
     const hpNow = Number(healthMapRef.current[myIdentity] ?? 100)
     const healsNeeded = Math.max(0, Math.ceil((100 - hpNow) / 10))
     const inPoolSafe = isInHousePoolPvpSafeZone(px / CELL_SIZE, py / CELL_SIZE, rawZ)
-    const etaAnchor = lastPoolHealAtRef.current > 0 ? lastPoolHealAtRef.current : Date.now()
-    const etaMs = (healsNeeded > 0 && inPoolSafe)
+    if (!inPoolSafe || healsNeeded <= 0) {
+      poolHealEtaAnchorRef.current = 0
+    } else if (lastPoolHealAtRef.current <= 0 && poolHealEtaAnchorRef.current <= 0) {
+      poolHealEtaAnchorRef.current = Date.now()
+    }
+    const etaAnchor = lastPoolHealAtRef.current > 0
+      ? lastPoolHealAtRef.current
+      : poolHealEtaAnchorRef.current
+    const etaMs = (healsNeeded > 0 && inPoolSafe && etaAnchor > 0)
       ? Math.max(0, (etaAnchor + poolHealCooldownMsRef.current * healsNeeded) - Date.now())
       : 0
     const walletDock = drawWalletDock(

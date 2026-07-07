@@ -183,6 +183,7 @@ const CHAIN_NODE_COL = MINING_CHAIN_NODE_POSITION.col
 
 const ANON_KEY_STORAGE = 'mm3_anon_key'
 const POOL_HEAL_COOLDOWN_MS = 5 * 60 * 1000
+const POOL_HEAL_AT_STORAGE_PREFIX = 'mm3_pool_heal_at_'
 
 // Hash an IP string into a stable anon-XXXXXX key (same algorithm as relaying)
 function hashIpToAnonKey(ip) {
@@ -518,6 +519,22 @@ export default function MiningChain3D() {
 
   useEffect(() => { healthMapRef.current = healthMap }, [healthMap])
   useEffect(() => {
+    const healIdentity = String(presenceKey || myWallet || '').toLowerCase().trim()
+    if (!healIdentity) {
+      lastPoolHealAtRef.current = 0
+      setLastPoolHealAt(0)
+      return
+    }
+    try {
+      const stored = Number(localStorage.getItem(`${POOL_HEAL_AT_STORAGE_PREFIX}${healIdentity}`)) || 0
+      lastPoolHealAtRef.current = stored
+      setLastPoolHealAt(stored)
+    } catch {
+      lastPoolHealAtRef.current = 0
+      setLastPoolHealAt(0)
+    }
+  }, [presenceKey, myWallet])
+  useEffect(() => {
     const hasHeartSpeed = Array.isArray(myNftjis) && myNftjis.some(n => n?.emoji === '❤️')
     poolHealSpeedMultRef.current = hasHeartSpeed ? 2 : 1
   }, [myNftjis])
@@ -532,13 +549,20 @@ export default function MiningChain3D() {
       const pos = myPosRef.current || {}
       const gx = Number.isFinite(Number(pos.gx)) ? Number(pos.gx) : Number(pos.col) + .5
       const gy = Number.isFinite(Number(pos.gy)) ? Number(pos.gy) : Number(pos.row) + .5
-      if (!isInHousePoolSafeZone(gx, gy)) return
+      const gz = Number(pos.z) || 0
+      if (!isInHousePoolSafeZone(gx, gy, gz)) return
       const now = Date.now()
       const speedMult = Math.max(1, Number(poolHealSpeedMultRef.current) || 1)
       const healCooldownMs = Math.max(1_000, Math.floor(POOL_HEAL_COOLDOWN_MS / speedMult))
       if (now - lastPoolHealAtRef.current < healCooldownMs) return
       lastPoolHealAtRef.current = now
       setLastPoolHealAt(now)
+      {
+        const healIdentity = String(key || '').toLowerCase().trim()
+        if (healIdentity) {
+          try { localStorage.setItem(`${POOL_HEAL_AT_STORAGE_PREFIX}${healIdentity}`, String(now)) } catch {}
+        }
+      }
       if (key.startsWith('anon-')) {
         const next = Math.min(100, Number(healthMapRef.current[key] ?? 100) + 10)
         setHealthMap(prev => ({ ...prev, [key]: next }))
@@ -1016,7 +1040,8 @@ export default function MiningChain3D() {
       const pos = myPosRef.current || {}
       const safeGx = Number.isFinite(Number(pos.gx)) ? Number(pos.gx) : Number(pos.col) + .5
       const safeGy = Number.isFinite(Number(pos.gy)) ? Number(pos.gy) : Number(pos.row) + .5
-      if (isInHousePoolSafeZone(safeGx, safeGy)) return
+      const safeGz = Number(pos.z) || 0
+      if (isInHousePoolSafeZone(safeGx, safeGy, safeGz)) return
       const mode = nd.mode
       if (key.startsWith('anon-')) {
         const current = healthMapRef.current[key] ?? 100
@@ -1583,8 +1608,12 @@ export default function MiningChain3D() {
       if (payload.victim === myKeyRef.current || payload.victim === myWalletRef.current) {
         if (payload.healed) {
           const now = Date.now()
+          const healIdentity = String(payload.victim || myKeyRef.current || myWalletRef.current || '').toLowerCase().trim()
           lastPoolHealAtRef.current = now
           setLastPoolHealAt(now)
+          if (healIdentity) {
+            try { localStorage.setItem(`${POOL_HEAL_AT_STORAGE_PREFIX}${healIdentity}`, String(now)) } catch {}
+          }
         }
         if (payload.dodged) {
           setReceivedDodgeAt(Date.now())
