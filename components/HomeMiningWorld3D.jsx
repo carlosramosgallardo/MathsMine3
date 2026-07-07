@@ -11,6 +11,8 @@ import { M5_TRUMP_BOSS_SCALE } from '@/lib/m5-trump-boss'
 const HOME_ARENA_BOT_SCALE = 3.44
 /** Boss taller than the bot, but capped so the hero canvas does not clip the head. */
 const HOME_ARENA_BOSS_VS_BOT = 1.31
+/** Home-only boss scale tweak (does not affect in-game mining bosses). */
+const HOME_BOSS_SIZE_MULT = 0.95
 /** World Y where bot soles meet the arena disc (avatar origin + sole bottom local × scale). */
 const HOME_ARENA_FLOOR_Y = 0.12 + 0.0015 * HOME_ARENA_BOT_SCALE
 const HOME_SCENE_CENTER = { x: 0, z: 0 }
@@ -309,7 +311,7 @@ export function addHomeBoss(THREE, scene, options = {}) {
     phase = 0,
     sway = 0.45,
     bob = 2.2,
-    scaleMult = (HOME_ARENA_BOT_SCALE * HOME_ARENA_BOSS_VS_BOT) / bossScale,
+    scaleMult = (HOME_ARENA_BOT_SCALE * HOME_ARENA_BOSS_VS_BOT * HOME_BOSS_SIZE_MULT) / bossScale,
   } = options
   const { group, bodyPivot } = createVisual(THREE, false)
   group.position.set(position[0], HOME_ARENA_FLOOR_Y, position[2])
