@@ -377,14 +377,14 @@ Cross topology (gateways on M1 edges lead to peripheral maps):
               |
 M5 — Epstein Island — M1 — Core Island — M4 — Desert Oasis
               |
-        M3 — Peach Castle (south)
+        M3 — Former Soviet Union (south)
 ```
 
 | Map | Name | Chain indices | Blocks | Requirements (typical) | Interactive landmarks |
 |:---:|:---|:---|---:|:---|:---|
 | **M1** | Core Island | `#000`–`#0C7` | 200 | Lowest — entry tier | ⬡ **Chain Node** (solve/demine Ω), 🎲 **Dice Node** (StormRoll window), **Cipher House** + pool, **Crypto Colosseum**, 9 **Portal nodes** (Training, Trading, Ranking…), gateway exits |
 | **M2** | RL Coliseum | `#0C8`–`#18F` | 200 | Low–mid | 🏎️ **RL Mount node** (Red Lightning car), full-map coliseum venue, gateway → M1 |
-| **M3** | Peach Castle | `#190`–`#257` | 200 | Mid | Full-map **Peach Castle** city venue, **Vladimir Putin** world boss (castle gate, co-op PvE, daily respawn), gateway → M1 |
+| **M3** | Former Soviet Union | `#190`–`#257` | 200 | Mid | Full-map castle city venue, **Vladimir Putin** world boss (castle gate, co-op PvE, daily respawn), gateway → M1 |
 | **M4** | Desert Oasis | `#258`–`#31F` | 200 | Mid–high | Full-map **Desert Oasis** venue, gateway → M1 |
 | **M5** | Epstein Island | `#320`–`#3E7` | 200 | Highest | Full-map mystic isle venue, **Donald Trump** world boss (centre, co-op PvE, daily respawn), gateway → M1 |
 
@@ -1429,14 +1429,14 @@ Topología en cruz (portales en los bordes de M1 hacia los mapas periféricos):
               |
 M5 — Isla Epstein — M1 — Isla Central — M4 — Oasis del Desierto
               |
-        M3 — Castillo de Peach (sur)
+        M3 — Antigua Unión Soviética (sur)
 ```
 
 | Mapa | Nombre | Índices cadena | Bloques | Requisitos (típico) | Landmarks interactivos |
 |:---:|:---|:---|---:|:---|:---|
 | **M1** | Isla Central | `#000`–`#0C7` | 200 | Mínimos — entrada | ⬡ **Nodo Cadena** (resolver/desminar Ω), 🎲 **Nodo Dado** (ventana StormRoll), **Casa Cipher** + piscina, **Coliseo Crypto**, 9 **nodos Portal** (Training, Trading, Ranking…), salidas portal |
 | **M2** | Coliseo RL | `#0C8`–`#18F` | 200 | Bajo–medio | 🏎️ **Nodo RL Mount** (coche Red Lightning), coliseo a mapa completo, portal → M1 |
-| **M3** | Castillo de Peach | `#190`–`#257` | 200 | Medio | **Castillo Peach** a mapa completo, **boss Vladimir Putin** (puerta del castillo, PvE cooperativo, respawn diario), portal → M1 |
+| **M3** | Antigua Unión Soviética | `#190`–`#257` | 200 | Medio | Ciudad-castillo a mapa completo, **boss Vladimir Putin** (puerta del castillo, PvE cooperativo, respawn diario), portal → M1 |
 | **M4** | Oasis del Desierto | `#258`–`#31F` | 200 | Medio–alto | **Oasis del Desierto** a mapa completo, portal → M1 |
 | **M5** | Isla Epstein | `#320`–`#3E7` | 200 | Máximos | Isla mística a mapa completo, **boss Donald Trump** (centro, PvE cooperativo, respawn diario), portal → M1 |
 
