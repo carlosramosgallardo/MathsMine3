@@ -101,6 +101,38 @@ const nextConfig = {
           },
         ],
       },
+      // ── Rate-limit advertisement on hot game endpoints ──────────────────────
+      // Defence-in-depth signalling: publishes the intended per-route limit.
+      // Actual burst protection is provided by Vercel's platform DDoS layer plus
+      // each endpoint's own game-logic guards (cooldowns, HP/level checks). We do
+      // NOT run a per-request in-memory/DB limiter on these paths on purpose —
+      // pvp-hit/stormroll/mine-block are hot and a DB round-trip per call would
+      // add Supabase load we've been trimming.
+      ...[
+        "/api/pvp-hit",
+        "/api/mine-block",
+        "/api/stormroll-damage",
+        "/api/daily-tasks/claim",
+        "/api/chain-solve/attempt",
+        "/api/relay/exec",
+      ].map((source) => ({
+        source,
+        headers: [
+          { key: "X-RateLimit-Limit", value: "30" },
+          { key: "X-RateLimit-Remaining", value: "30" },
+          { key: "X-RateLimit-Reset", value: "60" },
+        ],
+      })),
+      // ── Cache-poisoning defence: vary the home page on the host header ───────
+      {
+        source: "/",
+        headers: [
+          {
+            key: "Vary",
+            value: "X-Forwarded-Host",
+          },
+        ],
+      },
     ];
   },
 };

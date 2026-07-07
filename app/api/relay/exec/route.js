@@ -5,9 +5,15 @@ const ACTIVE_WINDOW_MS = 90_000;
 const COOLDOWN_MS = 24 * 60 * 60 * 1000;
 const RELAY_EXEC_DELTA = 1;
 
+// Type-safe: never call String() on a non-string (an attacker can send an object
+// like {toString:'x'} that throws on coercion → unhandled 500).
 function normalizeWallet(value) {
-  return String(value || '').toLowerCase().trim();
+  return (typeof value === 'string' ? value : '').toLowerCase().trim();
 }
+
+// Wallets are always 0x + 40 hex. Enforcing this before the wallet values are
+// interpolated into the PostgREST .or() filter closes the filter-injection hole.
+const WALLET_RE = /^0x[0-9a-f]{40}$/;
 
 function appendEmoji(existing, emoji) {
   const arr = Array.isArray(existing) ? existing : [];
@@ -32,6 +38,9 @@ export async function POST(req) {
 
   if (!wallet || !targetWallet) {
     return Response.json({ ok: false, error: 'missing_wallets' }, { status: 400 });
+  }
+  if (!WALLET_RE.test(wallet) || !WALLET_RE.test(targetWallet)) {
+    return Response.json({ ok: false, error: 'invalid_wallet' }, { status: 400 });
   }
   if (wallet === targetWallet) {
     return Response.json({ ok: false, error: 'exec_self' }, { status: 400 });
