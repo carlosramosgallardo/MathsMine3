@@ -21,6 +21,7 @@ import {
   placeMiningVisualBlock,
   relocateMiningBlockPosition,
   getBlockMapId,
+  isInBossMiningExclusion,
 } from '@/lib/mining-visual-layout'
 import { MINING_CORE_MAP_ID } from '@/lib/mining-maps'
 import { RL_NODE_MIN_LEVEL, RL_NODE_PRICE_MM3 } from '@/lib/mining-rl-mount'
@@ -103,6 +104,27 @@ function isRelocatableMineCell(cell) {
   if (!cell) return false
   if (cell.isChainNode || cell.isPortalNode || cell.isNodeDiceNode) return false
   return Boolean(cell.blockHex)
+}
+
+function relocateBossOverlappingBlocks(map) {
+  const pending = []
+  for (const [key, cell] of map) {
+    if (!isRelocatableMineCell(cell)) continue
+    const blockMapId = cell.mapId || getBlockMapId(cell.blockHex)
+    if (blockMapId !== '3' && blockMapId !== '5') continue
+    const [row, col] = key.split(',').map(Number)
+    if (!isInBossMiningExclusion(blockMapId, row, col)) continue
+    pending.push({ key, cell })
+  }
+  for (const { key, cell } of pending) {
+    map.delete(key)
+    const newPos = relocateMiningBlockPosition(cell.blockHex, new Set(map.keys()))
+    if (!newPos) continue
+    const nextKey = `${newPos.row},${newPos.col}`
+    if (map.has(nextKey)) continue
+    const { baseHeight, ...rest } = cell
+    map.set(nextKey, { ...rest, mapId: newPos.mapId || cell.mapId || getBlockMapId(cell.blockHex) })
+  }
 }
 
 function relocateStairOverlappingBlocks(map) {
@@ -1265,6 +1287,7 @@ export default function MiningChain3D() {
         })
       }
       relocateStairOverlappingBlocks(map)
+      relocateBossOverlappingBlocks(map)
       setCellMap(map)
       marketRef.current = market || []
       setMarketLoaded(true)
