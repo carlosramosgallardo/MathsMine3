@@ -7,6 +7,7 @@ import { createM4KimBossVisual } from '@/lib/m4-kim-boss-runtime'
 import { M4_KIM_BOSS_SCALE } from '@/lib/m4-kim-boss'
 import { createM5TrumpBossVisual } from '@/lib/m5-trump-boss-runtime'
 import { M5_TRUMP_BOSS_SCALE } from '@/lib/m5-trump-boss'
+import { createM1MileiStatueVisual, M1_MILEI_STATUE_SCALE } from '@/lib/m1-milei-statue'
 
 const HOME_ARENA_BOT_SCALE = 3.44
 /** Boss taller than the bot, but capped so the hero canvas does not clip the head. */
@@ -268,36 +269,86 @@ const HOME_BOSS_LAYOUT = [
     id: 'putin',
     createVisual: createM3PutinBossVisual,
     bossScale: M3_PUTIN_BOSS_SCALE,
-    position: [-HOME_BOSS_SPACING, 0, 0.06],
+    position: [-HOME_BOSS_SPACING * 1.35, 0, 0.06],
     glowColor: '#94a3b8',
     glowIntensity: 2.8,
     phase: 0,
-    sway: 0.45,
+    sway: 0.62,
     bob: 2.2,
   },
   {
     id: 'trump',
     createVisual: createM5TrumpBossVisual,
     bossScale: M5_TRUMP_BOSS_SCALE,
-    position: [0, 0, 0.14],
+    position: [HOME_BOSS_SPACING * 1.35, 0, 0.14],
     glowColor: '#ef4444',
     glowIntensity: 3.2,
     phase: Math.PI * 0.66,
-    sway: 0.38,
+    sway: 0.56,
     bob: 2.05,
   },
   {
     id: 'kim',
     createVisual: createM4KimBossVisual,
     bossScale: M4_KIM_BOSS_SCALE,
-    position: [HOME_BOSS_SPACING, 0, 0.06],
+    position: [HOME_BOSS_SPACING * 0.45, 0, 0.06],
     glowColor: '#d946ef',
     glowIntensity: 3.0,
     phase: Math.PI * 1.33,
-    sway: 0.52,
+    sway: 0.66,
     bob: 2.45,
   },
+  {
+    id: 'milei',
+    createVisual: createM1MileiStatueVisual,
+    bossScale: M1_MILEI_STATUE_SCALE,
+    position: [-HOME_BOSS_SPACING * 0.45, 0, 0.08],
+    glowColor: '#74acdf',
+    glowIntensity: 2.9,
+    phase: Math.PI * 1.85,
+    sway: 0.58,
+    bob: 2.18,
+  },
 ]
+
+function addRedCarpet(THREE, scene) {
+  const carpetGroup = new THREE.Group()
+  carpetGroup.position.set(0, HOME_ARENA_FLOOR_Y - 0.016, 0.42)
+
+  const carpetMat = new THREE.MeshStandardMaterial({
+    color: '#b91c1c',
+    roughness: 0.82,
+    metalness: 0.04,
+    emissive: '#3f0505',
+    emissiveIntensity: 0.22,
+  })
+  const carpet = new THREE.Mesh(new THREE.BoxGeometry(13.2, 0.025, 2.35), carpetMat)
+  carpet.receiveShadow = true
+  carpetGroup.add(carpet)
+
+  const trimMat = new THREE.MeshStandardMaterial({
+    color: '#facc15',
+    roughness: 0.48,
+    metalness: 0.32,
+    emissive: '#7c2d12',
+    emissiveIntensity: 0.18,
+  })
+  for (const z of [-1.22, 1.22]) {
+    const trim = new THREE.Mesh(new THREE.BoxGeometry(13.35, 0.035, 0.08), trimMat)
+    trim.position.z = z
+    carpetGroup.add(trim)
+  }
+
+  const centerStripe = new THREE.Mesh(
+    new THREE.BoxGeometry(13.0, 0.028, 0.16),
+    new THREE.MeshBasicMaterial({ color: '#ef4444', transparent: true, opacity: 0.42 }),
+  )
+  centerStripe.position.y = 0.004
+  carpetGroup.add(centerStripe)
+
+  scene.add(carpetGroup)
+  return carpetGroup
+}
 
 /** Voxel boss avatar for the home hero — same look as in Mining maps. */
 export function addHomeBoss(THREE, scene, options = {}) {
@@ -323,7 +374,22 @@ export function addHomeBoss(THREE, scene, options = {}) {
   group.add(glowLight)
 
   scene.add(group)
-  return { group, bodyPivot, glowLight, baseRotationY: rotationY, phase, sway, bob, baseGlow: glowIntensity }
+  return {
+    group,
+    bodyPivot,
+    glowLight,
+    baseRotationY: rotationY,
+    phase,
+    sway,
+    bob,
+    baseGlow: glowIntensity,
+    isStatue: group.userData.m1MileiStatue === true,
+    leftArm: group.userData.homeLeftArm || null,
+    rightArm: group.userData.homeRightArm || null,
+    leftHand: group.userData.homeLeftHand || null,
+    rightHand: group.userData.homeRightHand || null,
+    head: group.userData.homeHead || null,
+  }
 }
 
 /** @deprecated Use addHomeBoss — kept for callers that only need Trump. */
@@ -399,6 +465,7 @@ export default function HomeMiningWorld3D() {
       goldFill.position.set(0, 2.3, 2.1)
       scene.add(goldFill)
 
+      addRedCarpet(THREE, scene)
       const homeBosses = HOME_BOSS_LAYOUT.map((layout) => addHomeBoss(THREE, scene, layout))
 
       const resize = () => {
@@ -425,10 +492,37 @@ export default function HomeMiningWorld3D() {
         for (const boss of homeBosses) {
           const t = time + boss.phase
           const stride = Math.sin(t * boss.bob)
-          boss.bodyPivot.position.y = Math.max(0, stride * 0.06)
-          boss.group.position.y = HOME_ARENA_FLOOR_Y + Math.max(0, Math.sin(t * (boss.bob + 0.15)) * 0.018)
-          boss.group.rotation.y = boss.baseRotationY + Math.sin(t * boss.sway) * 0.08
-          boss.group.rotation.z = Math.sin(t * (boss.sway + 0.65)) * 0.014
+          if (boss.isStatue) {
+            boss.bodyPivot.position.y = 0
+            boss.group.position.y = HOME_ARENA_FLOOR_Y
+            boss.group.rotation.y = boss.baseRotationY
+            boss.group.rotation.z = 0
+            const armLift = Math.sin(t * 1.8) * 0.026
+            if (boss.head) boss.head.rotation.y = Math.sin(t * 1.35) * 0.34
+            if (boss.leftArm) {
+              boss.leftArm.rotation.z = 0
+              boss.leftArm.position.x = -0.335
+              boss.leftArm.position.y = 0.52 + armLift
+            }
+            if (boss.rightArm) {
+              boss.rightArm.rotation.z = 0
+              boss.rightArm.position.x = 0.335
+              boss.rightArm.position.y = 0.52 + armLift
+            }
+            if (boss.leftHand) {
+              boss.leftHand.position.x = -0.335
+              boss.leftHand.position.y = 0.30 + armLift
+            }
+            if (boss.rightHand) {
+              boss.rightHand.position.x = 0.335
+              boss.rightHand.position.y = 0.30 + armLift
+            }
+          } else {
+            boss.bodyPivot.position.y = Math.max(0, stride * 0.06)
+            boss.group.position.y = HOME_ARENA_FLOOR_Y + Math.max(0, Math.sin(t * (boss.bob + 0.15)) * 0.018)
+            boss.group.rotation.y = boss.baseRotationY + Math.sin(t * boss.sway) * 0.42
+            boss.group.rotation.z = Math.sin(t * (boss.sway + 0.65)) * 0.014
+          }
           boss.glowLight.intensity = boss.baseGlow + Math.sin(t * 2.4) * 0.85
         }
         renderer.render(scene, camera)

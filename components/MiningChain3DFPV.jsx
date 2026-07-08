@@ -30,7 +30,9 @@ import {
   getM2PitchBotSpots,
   M2_PITCH_DOME_BALL_RADIUS,
   M2_PITCH_DOME_CENTER,
+  M2_PITCH_DOME_HEIGHT,
   M2_PITCH_DOME_RADIUS,
+  M2_PITCH_HOOP,
   updateM2PitchDomeRuntime,
 } from '@/lib/m2-pitch-dome'
 import { addM1MileiStatueReservedCells, createM1MileiStatueVisual } from '@/lib/m1-milei-statue'
@@ -4305,12 +4307,6 @@ function drawMinimap(ctx, gr, gc, angle, cellMap, presenceMap, myWallet, W, H, c
   if (!chainDrawn && chainNodePos && isMiningCoreMap(mapId)) {
     drawMapEmoji('⬡', mapX(chainNodePos.col + .5), mapY(chainNodePos.row + .5), '#facc15', 'circle')
   }
-  if (mapId === '2') {
-    const rl = buildRlNodeCell()
-    const rlCenter = getRlNodeWorldCenter()
-    drawMapEmoji(rl.emoji || '🏎️', mapX(rlCenter.x), mapY(rlCenter.z), rl.color || '#0ea5e9', 'circle')
-  }
-
   for (const statue of getBossStatuesForMap(mapId)) {
     drawMapCircleMarker(mapX(statue.gx), mapY(statue.gy), statue.color || '#eab308')
   }
@@ -4790,6 +4786,40 @@ function playPickHit(audioCtxRef, type) {
       const g = ctx.createGain(); g.gain.value = 0.06
       src.connect(g); g.connect(ctx.destination); src.start()
     }
+  } catch {}
+}
+
+function playM2HoopScoreSound(audioCtxRef) {
+  try {
+    if (!audioCtxRef.current)
+      audioCtxRef.current = new (window.AudioContext || window.webkitAudioContext)()
+    const ctx = audioCtxRef.current
+    if (ctx.state === 'suspended') ctx.resume().catch(()=>{})
+    const t = ctx.currentTime
+
+    // Net swish: filtered noise sweep
+    const sr = ctx.sampleRate
+    const buf = ctx.createBuffer(1, Math.ceil(sr * 0.22), sr)
+    const d = buf.getChannelData(0)
+    for (let i = 0; i < d.length; i++)
+      d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / d.length, 1.6)
+    const src = ctx.createBufferSource(); src.buffer = buf
+    const f = ctx.createBiquadFilter(); f.type = 'highpass'
+    f.frequency.setValueAtTime(2600, t)
+    f.frequency.exponentialRampToValueAtTime(900, t + 0.2)
+    const ng = ctx.createGain(); ng.gain.value = 0.16
+    src.connect(f); f.connect(ng); ng.connect(ctx.destination); src.start(t)
+
+    // Score chime: quick ascending triad
+    ;[660, 880, 1320].forEach((freq, i) => {
+      const ts = t + 0.05 + i * 0.07
+      const osc = ctx.createOscillator(), g = ctx.createGain()
+      osc.type = 'triangle'; osc.frequency.value = freq
+      g.gain.setValueAtTime(0.13, ts)
+      g.gain.exponentialRampToValueAtTime(0.001, ts + 0.24)
+      osc.connect(g); g.connect(ctx.destination)
+      osc.start(ts); osc.stop(ts + 0.26)
+    })
   } catch {}
 }
 
@@ -7699,7 +7729,7 @@ function rebuildThreeWorld(state,cellMap,obstacles) {
   addCipherHouseDetails(world,liteScenery)
   addBiomeLandmarks(world,state.textures,liteScenery)
   addPeripheralGroundFeatures(world, '1', liteScenery)
-  addM1MileiStatueDecor(world, liteScenery)
+  addM1MileiStatueDecor(world, liteScenery, state)
   // ── Block + node groups ───────────────────────────────────────────────────────
   // Each interactive type gets its own material & shape so players can tell them apart.
   // No texture maps here — texture × vertex-color was multiplying everything to black.
@@ -8209,9 +8239,15 @@ function rebuildThreeWorld(state,cellMap,obstacles) {
     ...(state.interactiveVisuals||[]),
     ...Object.values(state.beaconBatch?.markers||{}),
     state.beaconBatch?.rings,state.beaconBatch?.ring2s,state.beaconBatch?.columns,
+    state.m1MileiStatueGroup,
   ].filter(Boolean))
   world.traverse(object=>{
     if(object===world||animated.has(object)||object.userData.interactive) return
+    let ancestor=object.parent
+    while(ancestor){
+      if(ancestor.userData?.m1MileiStatue) return
+      ancestor=ancestor.parent
+    }
     object.updateMatrix()
     object.matrixAutoUpdate=false
   })
@@ -10328,6 +10364,8 @@ function rebuildPeripheralMapWorld(state, mapId, obstacles, cellMap) {
   disposeMinableBlockChunkSystem(state)
   state.m2PitchDomeRuntime = null
   state.m2PitchDomeGroup = null
+  state.m1MileiStatueGroup = null
+  state.m1MileiStatueMotion = null
   if (state.world) { state.scene.remove(state.world); disposeThreeObject(state.world) }
   const world = new THREE.Group()
   const matrix = new THREE.Matrix4()
@@ -10558,9 +10596,45 @@ function addRlColiseumNodeVisual(world, lowDetail, state) {
   }
 }
 
-function addM1MileiStatueDecor(world, lowDetail) {
+function updateM1MileiStatueMotion(motion, time) {
+  if (!motion) return
+  const armLift = Math.sin(time * 1.8) * 0.026
+  if (motion.head) motion.head.rotation.y = Math.sin(time * 1.35) * 0.34
+  if (motion.leftArm) {
+    motion.leftArm.rotation.z = 0
+    motion.leftArm.position.y = 0.52 + armLift
+    motion.leftArm.position.x = -0.335
+  }
+  if (motion.rightArm) {
+    motion.rightArm.rotation.z = 0
+    motion.rightArm.position.y = 0.52 + armLift
+    motion.rightArm.position.x = 0.335
+  }
+  if (motion.leftHand) {
+    motion.leftHand.position.x = -0.335
+    motion.leftHand.position.y = 0.30 + armLift
+  }
+  if (motion.rightHand) {
+    motion.rightHand.position.x = 0.335
+    motion.rightHand.position.y = 0.30 + armLift
+  }
+  motion.root?.updateMatrixWorld?.(true)
+}
+
+function addM1MileiStatueDecor(world, lowDetail, state = null) {
   const visual = createM1MileiStatueVisual(THREE, lowDetail)
   world.add(visual.group)
+  if (state) {
+    state.m1MileiStatueGroup = visual.group
+    state.m1MileiStatueMotion = {
+      root: visual.group,
+      head: visual.group.userData.homeHead || null,
+      leftArm: visual.group.userData.homeLeftArm || null,
+      rightArm: visual.group.userData.homeRightArm || null,
+      leftHand: visual.group.userData.homeLeftHand || null,
+      rightHand: visual.group.userData.homeRightHand || null,
+    }
+  }
 }
 
 function addM2PitchDomeDecor(world, lowDetail, state) {
@@ -10570,57 +10644,29 @@ function addM2PitchDomeDecor(world, lowDetail, state) {
   root.userData.skipOcclusion = true
   root.matrixAutoUpdate = true
 
-  const dome = new THREE.Mesh(
-    new THREE.SphereGeometry(
-      M2_PITCH_DOME_RADIUS,
-      lowDetail ? 14 : 22,
-      lowDetail ? 8 : 12,
-      0,
-      Math.PI * 2,
-      0,
-      Math.PI / 2,
-    ),
-    new THREE.MeshBasicMaterial({
-      color: '#7dd3fc',
-      transparent: true,
-      opacity: lowDetail ? 0.1 : 0.13,
-      side: THREE.DoubleSide,
-      depthWrite: false,
-    }),
-  )
-  dome.position.set(cx, 0, cz)
-  root.add(dome)
+  addM2PitchInnerRamp(root, cx, cz, lowDetail)
 
-  const rim = new THREE.Mesh(
-    new THREE.TorusGeometry(M2_PITCH_DOME_RADIUS, 0.05, 6, lowDetail ? 28 : 40),
-    new THREE.MeshBasicMaterial({ color: '#38bdf8', transparent: true, opacity: 0.42, depthWrite: false }),
-  )
-  rim.rotation.x = Math.PI / 2
-  rim.position.set(cx, 0.06, cz)
-  root.add(rim)
+  const rlCenter = getRlNodeWorldCenter()
+  addM2PitchHoop(root, rlCenter.x, rlCenter.z, lowDetail)
 
-  const ballMesh = new THREE.Mesh(
-    new THREE.SphereGeometry(M2_PITCH_DOME_BALL_RADIUS, lowDetail ? 10 : 14, lowDetail ? 8 : 12),
-    new THREE.MeshStandardMaterial({
-      color: '#fef08a',
-      roughness: 0.28,
-      metalness: 0.05,
-      emissive: '#facc15',
-      emissiveIntensity: 0.45,
-    }),
-  )
+  const ballMesh = createM2TechBall(lowDetail)
   ballMesh.matrixAutoUpdate = true
   root.add(ballMesh)
 
   const botEntries = []
-  for (const spot of getM2PitchBotSpots()) {
+  const botNames = ['Aserejee', 'Player 2', 'Player 3', 'Player 4', 'Player5', 'Player 6']
+  getM2PitchBotSpots().forEach((spot, index) => {
     const botGroup = new THREE.Group()
     botGroup.userData.skipOcclusion = true
     botGroup.matrixAutoUpdate = true
-    const car = createRlCarMesh(lowDetail, { decor: true, teamColor: spot.color })
+    const carColor = index === 0 ? '#f8fafc' : spot.color
+    const car = createRlCarMesh(lowDetail, { decor: true, teamColor: carColor })
     car.scale.setScalar(0.84)
     car.position.y = 0.24
     botGroup.add(car)
+    const label = createM2BotNameLabel(botNames[index] || `Player ${index + 1}`, index === 0 ? '#f8fafc' : spot.color)
+    label.position.y = 1.05
+    botGroup.add(label)
     botGroup.position.set(spot.homeX, 0, spot.homeZ)
     botGroup.rotation.y = spot.homeYaw
     root.add(botGroup)
@@ -10631,11 +10677,293 @@ function addM2PitchDomeDecor(world, lowDetail, state) {
       homeX: spot.homeX,
       homeZ: spot.homeZ,
     })
-  }
+  })
 
   world.add(root)
   state.m2PitchDomeGroup = root
   state.m2PitchDomeRuntime = createM2PitchDomeRuntime({ bots: botEntries, ballMesh })
+}
+
+function addM2PitchInnerRamp(root, cx, cz, lowDetail = false) {
+  const segments = lowDetail ? 36 : 72
+  const rings = lowDetail ? 8 : 14
+  const innerR = M2_PITCH_DOME_RADIUS * 0.46
+  const outerR = M2_PITCH_DOME_RADIUS * 0.98
+  const topR = M2_PITCH_DOME_RADIUS * 0.66
+  const height = 5.7
+  const vertices = []
+  const indices = []
+
+  for (let j = 0; j <= rings; j += 1) {
+    const t = j / rings
+    const open = t < 0.68
+      ? (t / 0.68) ** 0.82
+      : 1
+    const close = t <= 0.68
+      ? 0
+      : ((t - 0.68) / 0.32) ** 1.18
+    const r = innerR + (outerR - innerR) * open - (outerR - topR) * close
+    const s = t * t * (3 - 2 * t)
+    const y = 0.035 + Math.pow(s, 1.55) * height
+    for (let i = 0; i <= segments; i += 1) {
+      const a = (i / segments) * Math.PI * 2
+      vertices.push(cx + Math.cos(a) * r, y, cz + Math.sin(a) * r)
+    }
+  }
+
+  const stride = segments + 1
+  for (let j = 0; j < rings; j += 1) {
+    for (let i = 0; i < segments; i += 1) {
+      const a = j * stride + i
+      const b = a + 1
+      const c = (j + 1) * stride + i
+      const d = c + 1
+      indices.push(a, c, b, b, c, d)
+    }
+  }
+
+  const geometry = new THREE.BufferGeometry()
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3))
+  geometry.setIndex(indices)
+  geometry.computeVertexNormals()
+
+  const ramp = new THREE.Mesh(
+    geometry,
+    new THREE.MeshBasicMaterial({
+      color: '#67e8f9',
+      transparent: true,
+      opacity: lowDetail ? 0.13 : 0.20,
+      side: THREE.DoubleSide,
+      depthWrite: false,
+    }),
+  )
+  ramp.userData.skipOcclusion = true
+  ramp.renderOrder = 3
+  root.add(ramp)
+
+}
+
+function createM2BotNameLabel(text, color = '#38bdf8') {
+  const canvas = document.createElement('canvas')
+  canvas.width = 256
+  canvas.height = 64
+  const ctx = canvas.getContext('2d')
+  ctx.clearRect(0, 0, canvas.width, canvas.height)
+  ctx.font = '700 28px system-ui, -apple-system, Segoe UI, sans-serif'
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'middle'
+  ctx.lineWidth = 5
+  ctx.strokeStyle = 'rgba(1,7,14,.92)'
+  ctx.fillStyle = color
+  ctx.shadowColor = color
+  ctx.shadowBlur = 8
+  ctx.strokeText(text, 128, 32)
+  ctx.fillText(text, 128, 32)
+  const texture = new THREE.CanvasTexture(canvas)
+  texture.colorSpace = THREE.SRGBColorSpace
+  const sprite = new THREE.Sprite(new THREE.SpriteMaterial({
+    map: texture,
+    transparent: true,
+    depthWrite: false,
+  }))
+  sprite.scale.set(1.38, 0.34, 1)
+  sprite.renderOrder = 14
+  return sprite
+}
+
+function addM2PitchHoop(root, cx, cz, lowDetail = false) {
+  const hoop = new THREE.Group()
+  hoop.position.set(cx, 0, cz)
+
+  const rodTop = Math.min(M2_PITCH_DOME_HEIGHT - 0.08, M2_PITCH_HOOP.y + 0.78)
+  const rodBottom = M2_PITCH_HOOP.y + 0.18
+  const rod = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.04, 0.04, Math.max(0.18, rodTop - rodBottom), lowDetail ? 5 : 8),
+    new THREE.MeshStandardMaterial({ color: '#1e3a5f', roughness: 0.4, metalness: 0.6, emissive: '#0284c7', emissiveIntensity: 0.25 }),
+  )
+  rod.position.y = (rodTop + rodBottom) / 2
+  hoop.add(rod)
+
+  const mount = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.26, 0.34, 0.11, lowDetail ? 6 : 10),
+    new THREE.MeshStandardMaterial({ color: '#0f172a', roughness: 0.42, metalness: 0.55, emissive: '#0369a1', emissiveIntensity: 0.3 }),
+  )
+  mount.position.y = M2_PITCH_HOOP.y + 0.18
+  hoop.add(mount)
+
+  const ring = new THREE.Mesh(
+    new THREE.TorusGeometry(M2_PITCH_HOOP.radius, 0.075, lowDetail ? 5 : 8, lowDetail ? 24 : 40),
+    new THREE.MeshStandardMaterial({ color: '#fb923c', roughness: 0.32, metalness: 0.5, emissive: '#f97316', emissiveIntensity: 1.2 }),
+  )
+  ring.rotation.x = Math.PI / 2
+  ring.position.y = M2_PITCH_HOOP.y
+  hoop.add(ring)
+
+  const net = new THREE.Mesh(
+    new THREE.CylinderGeometry(M2_PITCH_HOOP.radius - 0.06, M2_PITCH_HOOP.radius * 0.58, 0.82, lowDetail ? 10 : 14, 4, true),
+    new THREE.MeshBasicMaterial({ color: '#e2e8f0', wireframe: true, transparent: true, opacity: 0.4, depthWrite: false }),
+  )
+  net.position.y = M2_PITCH_HOOP.y - 0.45
+  hoop.add(net)
+
+  if (!lowDetail) {
+    const halo = new THREE.Mesh(
+      new THREE.TorusGeometry(M2_PITCH_HOOP.radius + 0.17, 0.028, 5, 36),
+      new THREE.MeshBasicMaterial({ color: '#fdba74', transparent: true, opacity: 0.65, depthWrite: false }),
+    )
+    halo.rotation.x = Math.PI / 2
+    halo.position.y = M2_PITCH_HOOP.y + 0.03
+    hoop.add(halo)
+
+    const board = new THREE.Mesh(
+      new THREE.CircleGeometry(0.52, 24),
+      new THREE.MeshBasicMaterial({ color: '#7dd3fc', transparent: true, opacity: 0.35, side: THREE.DoubleSide, depthWrite: false }),
+    )
+    board.rotation.x = -Math.PI / 2
+    board.position.y = M2_PITCH_HOOP.y + 0.29
+    hoop.add(board)
+  }
+
+  hoop.traverse((obj) => { obj.matrixAutoUpdate = true })
+  root.add(hoop)
+}
+
+function createM2HexBallTexture() {
+  const size = 256
+  const canvas = document.createElement('canvas')
+  canvas.width = size
+  canvas.height = size
+  const ctx = canvas.getContext('2d')
+  ctx.fillStyle = '#242a1e'
+  ctx.fillRect(0, 0, size, size)
+
+  // Honeycomb: pointy-top hexagons tiling the canvas
+  const r = 11
+  const hexH = Math.sqrt(3) * r
+  ctx.lineWidth = 1.6
+  for (let row = -1; row * hexH * 0.5 < size + hexH; row += 1) {
+    for (let col = -1; col * r * 3 < size + r * 3; col += 1) {
+      const x = col * r * 3 + (row % 2 ? r * 1.5 : 0)
+      const y = row * hexH * 0.5
+      const shade = ((row * 7 + col * 13) % 5) / 5
+      ctx.fillStyle = shade > 0.6 ? '#2d3425' : '#20261b'
+      ctx.strokeStyle = '#39422c'
+      ctx.beginPath()
+      for (let i = 0; i < 6; i += 1) {
+        const a = (Math.PI / 3) * i
+        const px = x + Math.cos(a) * (r - 0.8)
+        const py = y + Math.sin(a) * (r - 0.8)
+        if (i === 0) ctx.moveTo(px, py)
+        else ctx.lineTo(px, py)
+      }
+      ctx.closePath()
+      ctx.fill()
+      ctx.stroke()
+    }
+  }
+
+  const tex = new THREE.CanvasTexture(canvas)
+  tex.wrapS = THREE.RepeatWrapping
+  tex.wrapT = THREE.RepeatWrapping
+  tex.repeat.set(3, 2)
+  tex.colorSpace = THREE.SRGBColorSpace
+  return tex
+}
+
+function createM2TechBall(lowDetail = false) {
+  const R = M2_PITCH_DOME_BALL_RADIUS
+  const group = new THREE.Group()
+
+  // Dark hex-panel shell (honeycomb base of the RL ball)
+  const shell = new THREE.Mesh(
+    new THREE.SphereGeometry(R, lowDetail ? 16 : 24, lowDetail ? 12 : 18),
+    new THREE.MeshStandardMaterial({
+      map: createM2HexBallTexture(),
+      color: '#e8e4c8',
+      roughness: 0.52,
+      metalness: 0.3,
+      emissive: '#1c2415',
+      emissiveIntensity: 0.22,
+    }),
+  )
+  group.add(shell)
+
+  const armorMat = new THREE.MeshStandardMaterial({
+    color: '#9a9c74',
+    roughness: 0.44,
+    metalness: 0.4,
+    emissive: '#2b3a1e',
+    emissiveIntensity: 0.14,
+  })
+  const armorDarkMat = new THREE.MeshStandardMaterial({
+    color: '#565b44',
+    roughness: 0.5,
+    metalness: 0.36,
+    emissive: '#161a10',
+    emissiveIntensity: 0.12,
+  })
+  const glowMat = new THREE.MeshBasicMaterial({ color: '#ffb254' })
+  const glowRimMat = new THREE.MeshBasicMaterial({ color: '#f97316' })
+
+  const stick = (mesh, dirX, dirY, dirZ, altitude) => {
+    const dir = new THREE.Vector3(dirX, dirY, dirZ).normalize()
+    mesh.position.copy(dir.clone().multiplyScalar(altitude))
+    mesh.lookAt(dir.clone().multiplyScalar(altitude * 2))
+    group.add(mesh)
+    return mesh
+  }
+
+  // Armor plates hugging the shell — trapezoid feel via paired boxes
+  const plateDirs = [
+    [1, 0.35, 0.2], [-1, 0.3, -0.25], [0.25, 0.4, 1], [-0.2, 0.35, -1],
+    [0.6, -0.55, 0.6], [-0.6, -0.5, -0.6], [0.1, 1, 0.1],
+  ]
+  const plateCount = lowDetail ? 4 : plateDirs.length
+  for (let i = 0; i < plateCount; i += 1) {
+    const [dx, dy, dz] = plateDirs[i]
+    stick(new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.11, 0.024), armorMat), dx, dy, dz, R * 0.985)
+    stick(new THREE.Mesh(new THREE.BoxGeometry(0.10, 0.065, 0.02), armorDarkMat), dx, dy, dz, R * 1.018)
+  }
+
+  // Grooved ridge bands between the plates
+  for (const rot of [0, Math.PI / 2.4]) {
+    const band = new THREE.Mesh(
+      new THREE.TorusGeometry(R * 1.005, 0.013, lowDetail ? 4 : 6, lowDetail ? 20 : 32),
+      armorDarkMat,
+    )
+    band.rotation.set(Math.PI / 2, rot, 0.4)
+    group.add(band)
+  }
+
+  // Two glowing orange cores on opposite sides, ringed and flanked by pips
+  const coreDirs = lowDetail ? [[0.3, 0.55, 1]] : [[0.3, 0.55, 1], [-0.35, -0.4, -1]]
+  for (const [dx, dy, dz] of coreDirs) {
+    stick(new THREE.Mesh(new THREE.SphereGeometry(0.075, lowDetail ? 8 : 12, lowDetail ? 6 : 9), glowMat), dx, dy, dz, R * 0.92)
+    const rim = stick(
+      new THREE.Mesh(new THREE.TorusGeometry(0.092, 0.016, lowDetail ? 4 : 6, lowDetail ? 12 : 18), armorDarkMat),
+      dx, dy, dz, R * 0.985,
+    )
+    rim.rotation.x += Math.PI / 2
+    if (!lowDetail) {
+      const dir = new THREE.Vector3(dx, dy, dz).normalize()
+      const side = new THREE.Vector3(0, 1, 0).cross(dir).normalize()
+      const up = dir.clone().cross(side).normalize()
+      for (const [sx, sy] of [[1.6, 0.6], [-1.6, 0.6], [0, -1.8]]) {
+        const pip = new THREE.Mesh(new THREE.SphereGeometry(0.022, 6, 4), glowRimMat)
+        pip.position.copy(dir.clone().multiplyScalar(R * 0.96))
+          .addScaledVector(side, sx * 0.055)
+          .addScaledVector(up, sy * 0.055)
+        group.add(pip)
+      }
+    }
+  }
+
+  group.traverse((obj) => {
+    if (!obj.isMesh) return
+    obj.matrixAutoUpdate = true
+    obj.frustumCulled = false
+  })
+  return group
 }
 
 function createRlCarMesh(lowDetail = false, { showcase = false, decor = false, teamColor = '#0ea5e9' } = {}) {
@@ -12261,6 +12589,7 @@ export default function MiningChain3DFPV({
         updateRlBoostFx(threeState.localAvatar, threeState, performance.now())
         updateHealingRechargeEffects(threeState,time,visualTier)
         updatePoolSubmersionEffects(threeState,time,visualTier)
+        updateM1MileiStatueMotion(threeState.m1MileiStatueMotion, time)
         if(visualTier==='high') updateAvatarOccluders(threeState)
         threeState.renderer.render(threeState.scene,threeState.camera)
         // No separate HUD avatar pass: local player is now a scene object
@@ -14029,9 +14358,28 @@ export default function MiningChain3DFPV({
       }
 
       if (mapIdRef.current === '2' && threeStateRef.current?.m2PitchDomeRuntime) {
-        updateM2PitchDomeRuntime(threeStateRef.current.m2PitchDomeRuntime, dt)
+        const pitchRt = threeStateRef.current.m2PitchDomeRuntime
+        // Local + remote avatars as pitch colliders — presence positions are
+        // already in memory, so this costs nothing extra in network/Supabase.
+        const pitchPlayers = []
+        if (!myDead) pitchPlayers.push({ x: p.x / CELL_SIZE, z: p.y / CELL_SIZE })
+        const selfKey = (presenceKeyRef.current || myWalletRef.current || '').toLowerCase()
+        for (const [wallet, pres] of Object.entries(presenceRef.current || {})) {
+          if ((pres?.mapId || '1') !== '2' || pres.isDead) continue
+          if (selfKey && wallet.toLowerCase() === selfKey) continue
+          pitchPlayers.push({
+            x: Number(pres.gx ?? (pres.col ?? 0) + 0.5),
+            z: Number(pres.gy ?? (pres.row ?? 0) + 0.5),
+          })
+        }
+        updateM2PitchDomeRuntime(pitchRt, dt, pitchPlayers)
+        if (pitchRt.scoreSerial && pitchRt.scoreSerial !== pitchRt.scoreSerialSeen) {
+          pitchRt.scoreSerialSeen = pitchRt.scoreSerial
+          playM2HoopScoreSound(audioCtxRef)
+        }
         needsRender = true
       }
+      if (threeStateRef.current?.m1MileiStatueMotion) needsRender = true
 
       if (mapHasBoss(mapIdRef.current)) {
         const bossMod = getBossRuntimeModule(mapIdRef.current)
