@@ -56,6 +56,33 @@ function SoundToggle() {
   )
 }
 
+function MusicToggle() {
+  const { musicEnabled, toggleMusic } = useSound()
+  return (
+    <button
+      onClick={toggleMusic}
+      title={musicEnabled ? 'Mute music' : 'Unmute music'}
+      aria-label={musicEnabled ? 'Mute music' : 'Unmute music'}
+      className="flex min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 items-center justify-center border-0 bg-transparent px-1.5 py-1 text-slate-400 transition hover:text-cyan-300"
+    >
+      {musicEnabled ? (
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M9 18V5l12-2v13" />
+          <circle cx="6" cy="18" r="3" />
+          <circle cx="18" cy="16" r="3" />
+        </svg>
+      ) : (
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M9 18V5l12-2v13" />
+          <circle cx="6" cy="18" r="3" />
+          <circle cx="18" cy="16" r="3" />
+          <line x1="2" y1="2" x2="22" y2="22" />
+        </svg>
+      )}
+    </button>
+  )
+}
+
 function Mm3Total() {
   const [value, setValue] = useState(null)
 
@@ -190,6 +217,7 @@ export default function Header() {
             <CurrencySwitcher />
             <LanguageSwitcher />
             <SoundToggle />
+            <MusicToggle />
             <AuthBar mode="controls" />
           </div>
         </div>

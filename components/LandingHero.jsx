@@ -1,12 +1,16 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useI18n } from '@/lib/i18n-context';
+import { useSound } from '@/lib/sound-context';
 import { useActiveWallet } from '@/lib/use-active-wallet';
 import { loadDailyTaskProgress } from '@/lib/daily-tasks';
 import supabase from '@/lib/supabaseClient';
 import HomeMiningScene from '@/components/HomeMiningScene';
+import HomeWorldMinimap from '@/components/HomeWorldMinimap';
 import { prefetchMiningRoute } from '@/lib/prefetch-mining';
 
 // Interactive portal cards disabled during the 5-minute death cooldown
@@ -36,6 +40,113 @@ const PORTAL = {
     { href: '/manifesto',   icon: '📜',  name: 'Manifiesto',  desc: 'Guía completa — reglas, mecánicas, filosofía.',            accent: '#94a3b8' },
   ],
 };
+
+/**
+ * The nine portal accesses as a nonagon: each side is one access (its accent
+ * colour + icon); hovering/selecting a side extends that card's info in the
+ * centre, clicking the side (or the centre button) navigates.
+ */
+function NonagonPortal({ portal, es, isDead, deadCountdown, count }) {
+  const router = useRouter()
+  const { playNavTick } = useSound()
+  const [sel, setSel] = useState(0)
+  // Core toggle: MM3 logo (compact — the avatar showcase gets the spotlight)
+  // ⇄ extended world minimap (the nonagon grows to fit it).
+  const [mapOpen, setMapOpen] = useState(false)
+  const markSide = (i) => {
+    if (i === sel) return
+    setSel(i)
+    playNavTick()
+  }
+  const C = 200
+  const R = 176
+  const pt = (i) => {
+    const a = ((-90 + i * 40) * Math.PI) / 180
+    return [C + R * Math.cos(a), C + R * Math.sin(a)]
+  }
+  const isBlocked = (href) => isDead && INTERACTIVE_HREFS.has(href)
+  const current = portal[sel] || portal[0]
+  const currentBlocked = isBlocked(current.href)
+
+  return (
+    <div className={`mm3-nonagon${mapOpen ? ' is-open' : ''}`}>
+      <div className="mm3-nonagon-ring">
+      <svg viewBox="0 0 400 400" className="mm3-nonagon-svg" aria-label={es ? 'Accesos del portal' : 'Portal accesses'}>
+        {portal.map((card, i) => {
+          const [x1, y1] = pt(i)
+          const [x2, y2] = pt(i + 1)
+          const mx = (x1 + x2) / 2
+          const my = (y1 + y2) / 2
+          const ix = C + (mx - C) * 0.80
+          const iy = C + (my - C) * 0.80
+          const blocked = isBlocked(card.href)
+          const selected = i === sel
+          // Sides carry no icons and only the two eye colours: holo cyan at
+          // rest, fight red when the side is marked.
+          const stroke = blocked ? '#4b5563' : selected ? '#ff2020' : '#22d3ee'
+          return (
+            <g
+              key={card.href}
+              className="mm3-nonagon-side"
+              style={{ cursor: blocked ? 'not-allowed' : 'pointer' }}
+              onMouseEnter={() => markSide(i)}
+              onClick={() => { markSide(i); if (!blocked) router.push(card.href) }}
+            >
+              <line
+                x1={x1} y1={y1} x2={x2} y2={y2}
+                stroke={stroke}
+                strokeWidth={selected ? 13 : 8}
+                strokeLinecap="round"
+                opacity={selected ? 1 : 0.62}
+                style={selected && !blocked ? { filter: 'drop-shadow(0 0 6px #ff2020)' } : undefined}
+              />
+              <line x1={x1} y1={y1} x2={x2} y2={y2} stroke="transparent" strokeWidth={34} strokeLinecap="round" />
+              {card.daily && count > 0 && !blocked && (
+                <circle cx={ix} cy={iy} r={5} fill="#ef4444" stroke="#010709" strokeWidth={1.4} />
+              )}
+            </g>
+          )
+        })}
+      </svg>
+        {/* Clickable core: MM3 logo ⇄ extended world minimap, with a warp flip. */}
+        <button
+          type="button"
+          className="mm3-nonagon-core"
+          onClick={() => setMapOpen((open) => !open)}
+          aria-pressed={mapOpen}
+          title={mapOpen
+            ? (es ? 'Mostrar logo MM3' : 'Show MM3 logo')
+            : (es ? 'Mostrar mapa del mundo' : 'Show world map')}
+        >
+          <span className="mm3-nonagon-core-flip" key={mapOpen ? 'map' : 'logo'}>
+            {mapOpen
+              ? <HomeWorldMinimap es={es} />
+              : <Image src="/og-image.jpg" alt="MM3" width={160} height={160} className="mm3-nonagon-logo" />}
+          </span>
+        </button>
+      </div>
+      {/* Selected side: the card's info extends here — only while the core
+          shows the logo (map mode keeps the ring clean; sides still navigate).
+          Single cyan accent for every card, keyed so the glitch-in replays. */}
+      {!mapOpen && (
+      <div className="mm3-nonagon-caption" key={current.href} style={{ '--ac': currentBlocked ? '#6b7280' : '#22d3ee' }}>
+        <span className="mm3-nonagon-center-icon" aria-hidden="true">{currentBlocked ? '💀' : current.icon}</span>
+        <span className="mm3-nonagon-center-name">{current.name}</span>
+        <span className="mm3-nonagon-center-desc">
+          {currentBlocked
+            ? (es ? `MUERTO · revives en ${deadCountdown}` : `DEAD · revives in ${deadCountdown}`)
+            : current.desc}
+        </span>
+        {!currentBlocked && (
+          <Link href={current.href} className="mm3-nonagon-center-go">
+            {es ? 'ENTRAR' : 'ENTER'}
+          </Link>
+        )}
+      </div>
+      )}
+    </div>
+  )
+}
 
 export default function LandingHero() {
   const { language } = useI18n();
@@ -109,7 +220,7 @@ export default function LandingHero() {
   return (
     <div className="mm3-home">
       {/* ── HERO ─────────────────────────────────────────────────────────── */}
-      <section className="mm3-splash">
+      <section className="mm3-splash mm3-splash-with-nonagon">
 
         {/* animated hex grid bg */}
         <div className="mm3-splash-grid" aria-hidden="true" />
@@ -122,65 +233,32 @@ export default function LandingHero() {
 
         <div className="mm3-splash-body">
 
-          <Link
-            href="/mining"
-            className="mm3-home-access"
-            aria-label={es ? 'Entrar al mundo 3D de Mining' : 'Enter the 3D Mining world'}
-            onMouseEnter={prefetchMiningRoute}
-            onFocus={prefetchMiningRoute}
-            onTouchStart={prefetchMiningRoute}
-          >
+          {/* Display case: the stage only drags the carousel; navigation into
+              /mining lives on the access-text link alone. */}
+          <div className="mm3-home-access" onMouseEnter={prefetchMiningRoute} onTouchStart={prefetchMiningRoute}>
             <span className="mm3-home-access-stage">
               <HomeMiningScene />
             </span>
-            <span className="mm3-home-access-text">
+            <Link
+              href="/mining"
+              className="mm3-home-access-text"
+              aria-label={es ? 'Entrar al mundo 3D de Mining' : 'Enter the 3D Mining world'}
+              onFocus={prefetchMiningRoute}
+            >
               {es ? 'ENTRAR AL MUNDO 3D' : 'ENTER THE 3D MINE'}
-            </span>
-          </Link>
+            </Link>
+            {/* Nonagon of portal accesses with the extended world minimap inside. */}
+            <div className="mm3-home-underrow">
+              <NonagonPortal
+                portal={portal}
+                es={es}
+                isDead={isDead}
+                deadCountdown={deadCountdown}
+                count={count}
+              />
+            </div>
+          </div>
         </div>
-      </section>
-
-      {/* ── PORTAL GRID ──────────────────────────────────────────────────── */}
-      <section className="mm3-portal">
-        {(() => {
-          const renderCard = ({ href, icon, name, desc, accent, daily }) => {
-            const blocked = isDead && INTERACTIVE_HREFS.has(href)
-            if (blocked) {
-              return (
-                <div
-                  key={href}
-                  className="mm3-portal-card"
-                  style={{ '--ac': '#6b7280', opacity: 0.5, cursor: 'not-allowed', pointerEvents: 'none', userSelect: 'none' }}
-                  aria-disabled="true"
-                >
-                  <span className="mm3-portal-block"><span className="mm3-portal-icon">💀</span></span>
-                  <span className="mm3-portal-name">{name}</span>
-                  <span className="mm3-portal-desc">
-                    {es ? `MUERTO · revives en ${deadCountdown}` : `DEAD · revives in ${deadCountdown}`}
-                  </span>
-                </div>
-              )
-            }
-            return (
-              <Link key={href} href={href} className="mm3-portal-card" style={{ '--ac': accent }}>
-                <span className="mm3-portal-block"><span className="mm3-portal-icon">{icon}</span></span>
-                <span className="mm3-portal-name">
-                  {name}
-                  {daily && count > 0 && (
-                    <span className="mm3-portal-badge">{count > 9 ? '9+' : count}</span>
-                  )}
-                </span>
-                <span className="mm3-portal-desc">{desc}</span>
-              </Link>
-            )
-          }
-          return (
-            <>
-              <div className="mm3-portal-grid">{portal.slice(0, 5).map(renderCard)}</div>
-              <div className="mm3-portal-row2">{portal.slice(5).map(renderCard)}</div>
-            </>
-          )
-        })()}
       </section>
     </div>
   );

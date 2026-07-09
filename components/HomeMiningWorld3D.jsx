@@ -433,23 +433,25 @@ function addRedCarpet(THREE, scene) {
   const carpetGroup = new THREE.Group()
   carpetGroup.position.set(0, HOME_ARENA_FLOOR_Y - 0.016, 0.42)
 
+  // Freak-crypto runway: near-black circuit deck with neon cyan rails and a
+  // magenta data stripe — matches the portal's cyan/magenta CRT identity.
   const carpetMat = new THREE.MeshStandardMaterial({
-    color: '#b91c1c',
-    roughness: 0.82,
-    metalness: 0.04,
-    emissive: '#3f0505',
-    emissiveIntensity: 0.22,
+    color: '#071a26',
+    roughness: 0.42,
+    metalness: 0.55,
+    emissive: '#0e7490',
+    emissiveIntensity: 0.30,
   })
   const carpet = new THREE.Mesh(new THREE.BoxGeometry(29.9, 0.025, 2.98), carpetMat)
   carpet.receiveShadow = true
   carpetGroup.add(carpet)
 
   const trimMat = new THREE.MeshStandardMaterial({
-    color: '#facc15',
-    roughness: 0.48,
-    metalness: 0.32,
-    emissive: '#7c2d12',
-    emissiveIntensity: 0.18,
+    color: '#22d3ee',
+    roughness: 0.30,
+    metalness: 0.40,
+    emissive: '#22d3ee',
+    emissiveIntensity: 0.85,
   })
   for (const z of [-1.55, 1.55]) {
     const trim = new THREE.Mesh(new THREE.BoxGeometry(30.1, 0.035, 0.10), trimMat)
@@ -459,10 +461,18 @@ function addRedCarpet(THREE, scene) {
 
   const centerStripe = new THREE.Mesh(
     new THREE.BoxGeometry(29.5, 0.028, 0.21),
-    new THREE.MeshBasicMaterial({ color: '#ff5656', transparent: true, opacity: 0.5 }),
+    new THREE.MeshBasicMaterial({ color: '#d946ef', transparent: true, opacity: 0.62 }),
   )
   centerStripe.position.y = 0.004
   carpetGroup.add(centerStripe)
+
+  // Cross-ticks every few units — circuit-board traces along the runway.
+  const tickMat = new THREE.MeshBasicMaterial({ color: '#22d3ee', transparent: true, opacity: 0.30 })
+  for (let x = -13.5; x <= 13.5; x += 2.25) {
+    const tick = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.028, 2.6), tickMat)
+    tick.position.set(x, 0.003, 0)
+    carpetGroup.add(tick)
+  }
 
   scene.add(carpetGroup)
   return carpetGroup
@@ -649,18 +659,67 @@ export default function HomeMiningWorld3D() {
         homeSoloCar,
       ]
 
-      // Head-on framing: every lineup member turns to face the camera so each
-      // one reads frontal. No distance-based scale compensation — perspective
-      // projection keeps same-depth objects the same size, so all bosses and
-      // statues share one uniform scale (per-case height tweaks come later).
-      for (const entry of [...homeBosses, ...homeProps]) {
-        const g = entry.group
-        const yawToCamera = Math.atan2(camera.position.x - g.position.x, camera.position.z - g.position.z)
-        entry.baseRotationY += yawToCamera
-        g.rotation.y = entry.baseRotationY
-        // Off-axis perspective stretches width by ~sec(θ); pre-squash the local
-        // x axis so edge avatars render as wide as the centre ones.
-        g.scale.x *= Math.cos(yawToCamera)
+      // Display-case rail (carousel): the framing always shows the maximum
+      // number of members at once; dragging sideways scrolls the wrap-around
+      // rail, which matters once more avatars than visible slots join the
+      // lineup. Facing-the-camera yaw and the sec(θ) width compensation are
+      // re-applied per frame as members move along the rail.
+      const lineup = [...homeBosses, ...homeProps]
+      const RAIL_SPACING = 4.55
+      const railSpan = lineup.length * RAIL_SPACING
+      for (const entry of lineup) {
+        entry.railX = entry.group.position.x
+        entry.faceYaw0 = entry.baseRotationY
+        entry.baseScaleX = entry.group.scale.x
+      }
+      const rail = { offset: 0, vel: 0, dragging: false, lastX: 0, moved: 0, suppressClick: false }
+      const railWorldPerPx = () => {
+        const halfH = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * 24
+        return (2 * halfH * camera.aspect) / Math.max(1, canvas.clientWidth)
+      }
+      if (accessEl) {
+        const onDown = (e) => {
+          if (e.button != null && e.button !== 0) return
+          rail.dragging = true
+          rail.lastX = e.clientX
+          rail.moved = 0
+          rail.vel = 0
+        }
+        const onMove = (e) => {
+          if (!rail.dragging) return
+          const dx = e.clientX - rail.lastX
+          rail.lastX = e.clientX
+          rail.moved += Math.abs(dx)
+          const dWorld = dx * railWorldPerPx()
+          rail.offset += dWorld
+          rail.vel = dWorld * 60
+        }
+        const onUp = () => {
+          if (!rail.dragging) return
+          rail.dragging = false
+          if (rail.moved > 8) rail.suppressClick = true
+        }
+        // A drag must not navigate into /mining when the pointer is released.
+        const onClick = (e) => {
+          if (rail.suppressClick) {
+            e.preventDefault()
+            e.stopPropagation()
+            rail.suppressClick = false
+          }
+        }
+        accessEl.style.touchAction = 'pan-y'
+        accessEl.addEventListener('pointerdown', onDown)
+        window.addEventListener('pointermove', onMove)
+        window.addEventListener('pointerup', onUp)
+        accessEl.addEventListener('click', onClick, true)
+        const prevHoverCleanup = hoverCleanup
+        hoverCleanup = () => {
+          prevHoverCleanup?.()
+          accessEl.removeEventListener('pointerdown', onDown)
+          window.removeEventListener('pointermove', onMove)
+          window.removeEventListener('pointerup', onUp)
+          accessEl.removeEventListener('click', onClick, true)
+        }
       }
 
       const resize = () => {
@@ -688,6 +747,24 @@ export default function HomeMiningWorld3D() {
         // Showcase spin timestep (shared by bosses, statue head and props).
         const spinDt = time - (lastSpinTime ?? time)
         lastSpinTime = time
+
+        // Carousel rail: inertia after drag, wrap-around placement, and
+        // per-frame facing/width compensation for the current position.
+        if (!rail.dragging && rail.vel) {
+          rail.offset = (rail.offset + rail.vel * spinDt) % railSpan
+          rail.vel *= Math.max(0, 1 - 4 * spinDt)
+          if (Math.abs(rail.vel) < 0.02) rail.vel = 0
+        }
+        const railHalf = railSpan / 2
+        for (const entry of lineup) {
+          const g = entry.group
+          const wrapped = ((((entry.railX + rail.offset) + railHalf) % railSpan) + railSpan) % railSpan - railHalf
+          g.position.x = wrapped
+          const yawCam = Math.atan2(camera.position.x - wrapped, camera.position.z - g.position.z)
+          entry.baseRotationY = entry.faceYaw0 + yawCam
+          g.scale.x = entry.baseScaleX * Math.cos(yawCam)
+        }
+
         for (const boss of homeBosses) {
           const t = time + boss.phase
           const stride = Math.sin(t * boss.bob)

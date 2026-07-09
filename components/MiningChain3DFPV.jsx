@@ -46,7 +46,6 @@ import { addVerticalArenaUsbStaff } from '@/lib/arena-usb-staff'
 import { roundedVoxelGeometry } from '@/lib/rounded-voxel'
 import { advanceShowcaseSpin } from '@/lib/map-boss-facing'
 import { setBossMaskEyesRed } from '@/lib/boss-head-photo'
-import { useSound } from '@/lib/sound-context'
 import {
   drawBossDollarBills,
   spawnBossDollarBurst,
@@ -3930,6 +3929,9 @@ function drawMinimapGatewayTravelVisuals(ctx, mapId, mapX, mapY, CS) {
     ctx.restore()
   }
 
+  // Every open edge gets the same full-strip treatment: tinted outer sea ring
+  // plus a row of travel icons — band gateways (M1 → M3/M4) included, so M1
+  // shows the same map-change indicators M3/M4 show back toward M1.
   for (const side of ['north', 'south', 'east', 'west']) {
     const edge = edges[side]
     if (!edge?.open) continue
@@ -3937,33 +3939,16 @@ function drawMinimapGatewayTravelVisuals(ctx, mapId, mapX, mapY, CS) {
     ctx.font = `${fontSize}px serif`
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
-    if (edge.fullEdge) {
-      const strip = getGatewayOuterSeaStrip(side)
-      ctx.fillStyle = seaFill
-      ctx.fillRect(
-        mapX(strip.minCol),
-        mapY(strip.minRow),
-        (strip.maxCol - strip.minCol + 1) * CS,
-        (strip.maxRow - strip.minRow + 1) * CS,
-      )
-      for (const slot of iterGatewaySeaTravelSlots(side)) {
-        drawTravelIcon(travel, mapX(slot.col + 0.5), mapY(slot.row + 0.5))
-      }
-      continue
-    }
-    // Band gateways (e.g. M1 → M3/M4): tint a short outer-ring sea segment
-    // behind each corridor band and drop one travel icon on it, so every
-    // connected map shows its entry visual, not only full-edge ones.
-    if (!edge.bands?.length) continue
-    for (const band of edge.bands) {
-      ctx.fillStyle = seaFill
-      if (side === 'north') ctx.fillRect(mapX(band - 1), mapY(0), 3 * CS, CS)
-      else if (side === 'south') ctx.fillRect(mapX(band - 1), mapY(55), 3 * CS, CS)
-      else if (side === 'west') ctx.fillRect(mapX(0), mapY(band - 1), CS, 3 * CS)
-      else ctx.fillRect(mapX(55), mapY(band - 1), CS, 3 * CS)
-      const cx = side === 'west' ? mapX(0.5) : side === 'east' ? mapX(55.5) : mapX(band + 0.5)
-      const cy = side === 'north' ? mapY(0.5) : side === 'south' ? mapY(55.5) : mapY(band + 0.5)
-      drawTravelIcon(travel, cx, cy)
+    const strip = getGatewayOuterSeaStrip(side)
+    ctx.fillStyle = seaFill
+    ctx.fillRect(
+      mapX(strip.minCol),
+      mapY(strip.minRow),
+      (strip.maxCol - strip.minCol + 1) * CS,
+      (strip.maxRow - strip.minRow + 1) * CS,
+    )
+    for (const slot of iterGatewaySeaTravelSlots(side)) {
+      drawTravelIcon(travel, mapX(slot.col + 0.5), mapY(slot.row + 0.5))
     }
   }
 }
@@ -4344,7 +4329,7 @@ function drawMinimap(ctx, gr, gc, angle, cellMap, presenceMap, myWallet, W, H, c
     drawMapEmoji('⬡', mapX(chainNodePos.col + .5), mapY(chainNodePos.row + .5), '#facc15', 'circle')
   }
   for (const statue of getBossStatuesForMap(mapId)) {
-    drawMapCircleMarker(mapX(statue.gx), mapY(statue.gy), statue.color || '#eab308')
+    drawMapEmoji('🗿', mapX(statue.gx), mapY(statue.gy), statue.color || '#eab308')
   }
 
   drawPerimeterCellSoftening(ctx, mapId, mapX, mapY, CS)
@@ -4394,29 +4379,44 @@ function drawMinimap(ctx, gr, gc, angle, cellMap, presenceMap, myWallet, W, H, c
 
   drawPlayerArrow(gx ?? (gc + .5), gy ?? (gr + .5), angle, C, true, false)
 
-  if (mapHasBoss(mapId) && bossInfo && bossInfo.state !== 'dead') {
+  // Boss marker always shows on its map (spawn point as fallback while the
+  // runtime has no live position yet); hidden only while the boss is dead.
+  if (mapHasBoss(mapId) && bossInfo?.state !== 'dead') {
     const cfg = getMapBossConfig(mapId)
-    const bx = bossInfo.gx ?? cfg?.spawn?.gx
-    const by = bossInfo.gy ?? cfg?.spawn?.gy
+    const bx = bossInfo?.gx ?? cfg?.spawn?.gx
+    const by = bossInfo?.gy ?? cfg?.spawn?.gy
     const mx = mapX(bx)
     const my = mapY(by)
     const pulse = .75 + Math.sin(now / 280) * .25
+    const active = bossInfo?.state === 'active'
     ctx.save()
-    ctx.globalAlpha = bossInfo.state === 'active' ? pulse : .88
-    ctx.shadowColor = '#ef4444'
+    ctx.globalAlpha = active ? pulse : .88
+    ctx.shadowColor = active ? '#ef4444' : '#fbbf24'
     ctx.shadowBlur = 10
-    ctx.fillStyle = bossInfo.state === 'active' ? '#ef4444' : '#fbbf24'
-    ctx.strokeStyle = '#ffffff'
-    ctx.lineWidth = 1.2
-    ctx.beginPath()
-    ctx.arc(mx, my, Math.max(3.5, CS * .55), 0, Math.PI * 2)
-    ctx.fill()
-    ctx.stroke()
+    // Boss marker: the boss's own flag drawn as stripes — flag emojis do not
+    // render on Windows canvases. Russia (M3) · North Korea (M4) · USA (M5).
+    const flagW = Math.max(9, CS * 1.6)
+    const flagH = Math.max(6, CS * 1.05)
+    const fx = mx - flagW / 2
+    const fy = my - flagH / 2
+    const stripes = String(mapId) === '3'
+      ? ['#f8fafc', '#2563eb', '#dc2626']
+      : String(mapId) === '4'
+        ? ['#1d4ed8', '#dc2626', '#1d4ed8']
+        : ['#b22234', '#f8fafc', '#b22234']
+    const sh = flagH / 3
+    stripes.forEach((c, i) => {
+      ctx.fillStyle = c
+      ctx.fillRect(fx, fy + i * sh, flagW, sh)
+    })
+    if (String(mapId) === '5') {
+      ctx.fillStyle = '#3c3b6e'
+      ctx.fillRect(fx, fy, flagW * 0.42, sh * 1.5)
+    }
     ctx.shadowBlur = 0
-    ctx.font = `${Math.max(8, Math.round(CS * .85))}px "Apple Color Emoji","Segoe UI Emoji",serif`
-    ctx.textAlign = 'center'
-    ctx.textBaseline = 'middle'
-    ctx.fillText(cfg?.minimapEmoji || '👹', mx, my + .2)
+    ctx.strokeStyle = active ? '#ef4444' : '#ffffff'
+    ctx.lineWidth = 1
+    ctx.strokeRect(fx - .5, fy - .5, flagW + 1, flagH + 1)
     ctx.restore()
   }
 
@@ -4828,6 +4828,91 @@ function drawFacingHUD(ctx, W, H, fwdCell, fwdMx, fwdMy, myWallet, es, dist, obs
 function portalSoundEnabled() {
   if (typeof window === 'undefined') return false
   return localStorage.getItem('mm3-sound-enabled') !== 'false'
+}
+
+// ── NPC bot chasers ──────────────────────────────────────────────────────────
+// The four AI-team wallets (see /api/bot/tick) appear as NPCs on the peripheral
+// maps, one per map. Fully client-side simulation: each client runs its own
+// copy (no realtime channels, no DB rows, no cron) — the only network cost is
+// one lightweight /api/npc-hit call per landed hit, rate-limited to 30s.
+const NPC_BOT_BY_MAP = Object.freeze({
+  '2': '0xcab10d0e0650d45cb0b7482370a1ca93d5bf5528',
+  '3': '0xcb4ccfa7de7bf861ff0383b668e682d2ee20e202',
+  '4': '0xd6c6c15060b27406d956c7e99e520cc810b44233',
+  '5': '0xd89413f5f444cd420b448cda3bc096ea9c46e8ab',
+})
+const NPC_HIT_COOLDOWN_MS = 30_000
+const NPC_HIT_RANGE = 1.05
+const NPC_SPEED_MULT = 0.5 // half the normal player speed
+// NPCs can be damaged and killed (local-only, no persistence): on death they
+// simply respawn at another random spot on the same map with full HP.
+const NPC_MAX_HP = 20
+
+// Overhead wallet tag so the NPC is identifiable as an AI-team bot.
+function makeNpcLabelSprite(wallet) {
+  if (typeof document === 'undefined') return null
+  const canvas = document.createElement('canvas')
+  canvas.width = 320
+  canvas.height = 48
+  const ctx = canvas.getContext('2d')
+  if (!ctx) return null
+  const label = `${wallet.slice(0, 6)}…${wallet.slice(-4)} · AI`
+  ctx.fillStyle = 'rgba(1,7,14,.85)'
+  ctx.fillRect(0, 4, 320, 40)
+  ctx.strokeStyle = 'rgba(134,239,172,.65)'
+  ctx.lineWidth = 2
+  ctx.strokeRect(1, 5, 318, 38)
+  ctx.font = 'bold 22px monospace'
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'middle'
+  ctx.fillStyle = '#86efac'
+  ctx.fillText(label, 160, 25)
+  const tex = new THREE.CanvasTexture(canvas)
+  tex.colorSpace = THREE.SRGBColorSpace
+  const sprite = new THREE.Sprite(new THREE.SpriteMaterial({
+    map: tex,
+    transparent: true,
+    depthWrite: false,
+  }))
+  sprite.scale.set(1.7, 0.26, 1)
+  sprite.position.y = 1.42
+  sprite.renderOrder = 9
+  return sprite
+}
+
+// Overhead HP bar for the NPC — redrawn on damage/respawn.
+function makeNpcHpBar() {
+  if (typeof document === 'undefined') return null
+  const canvas = document.createElement('canvas')
+  canvas.width = 128
+  canvas.height = 14
+  const ctx = canvas.getContext('2d')
+  if (!ctx) return null
+  const tex = new THREE.CanvasTexture(canvas)
+  const sprite = new THREE.Sprite(new THREE.SpriteMaterial({
+    map: tex,
+    transparent: true,
+    depthWrite: false,
+  }))
+  sprite.scale.set(0.9, 0.1, 1)
+  sprite.position.y = 1.22
+  sprite.renderOrder = 9
+  return { canvas, ctx, tex, sprite }
+}
+
+function drawNpcHpBar(hpBar, hp) {
+  if (!hpBar) return
+  const { ctx, canvas, tex } = hpBar
+  const pct = Math.max(0, Math.min(1, hp / NPC_MAX_HP))
+  ctx.clearRect(0, 0, canvas.width, canvas.height)
+  ctx.fillStyle = 'rgba(23,7,11,.92)'
+  ctx.fillRect(0, 2, canvas.width, 10)
+  ctx.fillStyle = pct > 0.5 ? '#4ade80' : pct > 0.25 ? '#facc15' : '#ef4444'
+  ctx.fillRect(1, 3, (canvas.width - 2) * pct, 8)
+  ctx.strokeStyle = 'rgba(134,239,172,.55)'
+  ctx.lineWidth = 1
+  ctx.strokeRect(0.5, 2.5, canvas.width - 1, 9)
+  tex.needsUpdate = true
 }
 
 // Statue interaction feedback: eyes burn red for a few seconds, then back to holo.
@@ -11798,6 +11883,7 @@ export default function MiningChain3DFPV({
   onNodeDicePanelOpen,
   rlMountActive = false,
   onRlMountPanelOpen,
+  onNpcHit,
   onBossStatueTipOpen,
   bossState = null,
   onBossHit,
@@ -11923,6 +12009,8 @@ export default function MiningChain3DFPV({
   const nodeDiceStateRef           = useRef(nodeDiceState)
   const onNodeDicePanelOpenRef     = useRef(onNodeDicePanelOpen)
   const onBossStatueTipOpenRef     = useRef(onBossStatueTipOpen)
+  const onNpcHitRef                = useRef(onNpcHit)
+  const npcBotRef                  = useRef(null)
   const rlMountActiveRef           = useRef(rlMountActive)
   const onRlMountPanelOpenRef      = useRef(onRlMountPanelOpen)
   const bossStateRef = useRef(bossState)
@@ -12020,34 +12108,46 @@ export default function MiningChain3DFPV({
   useEffect(()=>{ threeReinitRef.current=()=>setThreeKey(k=>k+1) },[])
 
 
-  // Ambient music — loops at low volume while the mine is open, well under the
-  // event/walk effects. Honours the portal-wide sound toggle live (muting from
-  // the header stops it immediately). Autoplay is blocked until the first user
-  // gesture, so retry on pointer/key input; pause while the tab is hidden.
-  const { enabled: portalSoundOn } = useSound()
+  // Ambient music now lives portal-wide in SoundProvider (music toggle in the
+  // header) — nothing map-specific to run here.
+
+  // Map-entry stingers — each mp3 plays exactly once when entering its map
+  // (never loops). Leaving the map cuts it; honours the portal sound toggle.
   useEffect(()=>{
-    if(!portalSoundOn) return undefined
-    const music=new Audio('/ambient/freakingai_mm3_song.mp3')
-    music.loop=true
-    music.volume=0.12
-    music.preload='auto'
+    const MAP_ENTRY_SOUNDS={
+      '2':'/ambient/rl-m2.mp3',
+      '3':'/voices/putin-m3.mp3',
+      '4':'/voices/kim-m4.mp3',
+      '5':'/voices/trump-m5.mp3',
+    }
+    const url=MAP_ENTRY_SOUNDS[String(mapId)]
+    if(!url||!portalSoundEnabled()) return undefined
+    const stinger=new Audio(url)
+    stinger.loop=false
+    stinger.volume=0.65
+    let played=false
     let disposed=false
-    const tryPlay=()=>{ if(!disposed&&!document.hidden) music.play().catch(()=>{}) }
+    const tryPlay=()=>{
+      if(disposed||played) return
+      stinger.play().then(()=>{ played=true; removeGestureListeners() }).catch(()=>{})
+    }
+    // Autoplay can be blocked on a fresh page load straight into the map —
+    // retry on the first gesture, then stop listening (one shot only).
     const onGesture=()=>tryPlay()
-    const onVisibility=()=>{ if(document.hidden) music.pause(); else tryPlay() }
+    const removeGestureListeners=()=>{
+      window.removeEventListener('pointerdown',onGesture)
+      window.removeEventListener('keydown',onGesture)
+    }
     tryPlay()
     window.addEventListener('pointerdown',onGesture)
     window.addEventListener('keydown',onGesture)
-    document.addEventListener('visibilitychange',onVisibility)
     return ()=>{
       disposed=true
-      window.removeEventListener('pointerdown',onGesture)
-      window.removeEventListener('keydown',onGesture)
-      document.removeEventListener('visibilitychange',onVisibility)
-      music.pause()
-      music.src=''
+      removeGestureListeners()
+      stinger.pause()
+      stinger.src=''
     }
-  },[portalSoundOn])
+  },[mapId])
 
   // WebGL context loss / restore — browser can reclaim GPU memory when tab is backgrounded
   useEffect(()=>{
@@ -12190,6 +12290,7 @@ export default function MiningChain3DFPV({
   useEffect(()=>{ nodeDiceStateRef.current=nodeDiceState },[nodeDiceState])
   useEffect(()=>{ onNodeDicePanelOpenRef.current=onNodeDicePanelOpen },[onNodeDicePanelOpen])
   useEffect(()=>{ onBossStatueTipOpenRef.current=onBossStatueTipOpen },[onBossStatueTipOpen])
+  useEffect(()=>{ onNpcHitRef.current=onNpcHit },[onNpcHit])
   useEffect(()=>{ rlMountActiveRef.current=rlMountActive },[rlMountActive])
   useEffect(()=>{ onRlMountPanelOpenRef.current=onRlMountPanelOpen },[onRlMountPanelOpen])
   useEffect(() => {
@@ -14639,6 +14740,90 @@ export default function MiningChain3DFPV({
       }
       if (threeStateRef.current?.m1MileiStatueMotion) needsRender = true
 
+      // ── NPC bot chaser (M2–M5, client-side only) ────────────────────────
+      // One AI-team bot per peripheral map hunts the local player at half
+      // speed. No realtime, no DB while roaming; a landed hit (30s cooldown)
+      // fires onNpcHit which applies −1 HP through the lightweight endpoint.
+      {
+        const npcState = threeStateRef.current
+        const npcWallet = NPC_BOT_BY_MAP[String(mapIdRef.current)]
+        let npc = npcBotRef.current
+        if (npc && (npc.wallet !== npcWallet || npc.state !== npcState)) {
+          if (npc.avatar && npc.state?.scene) {
+            npc.state.scene.remove(npc.avatar)
+            disposeThreeObject(npc.avatar)
+          }
+          npc = npcBotRef.current = null
+        }
+        if (npcWallet && npcState?.scene) {
+          const px = p.x / CELL_SIZE
+          const py = p.y / CELL_SIZE
+          if (!npc) {
+            // Spawn well away from the player, inside the playable interior.
+            let sx = 28, sy = 28, tries = 0
+            do {
+              sx = 6 + Math.random() * 44
+              sy = 6 + Math.random() * 44
+              tries += 1
+            } while (Math.hypot(sx - px, sy - py) < 14 && tries < 20)
+            const avatar = createThreeWalletAvatar(npcWallet)
+            const labelSprite = makeNpcLabelSprite(npcWallet)
+            if (labelSprite) avatar.add(labelSprite)
+            const hpBar = makeNpcHpBar()
+            if (hpBar) {
+              drawNpcHpBar(hpBar, NPC_MAX_HP)
+              avatar.add(hpBar.sprite)
+            }
+            npcState.scene.add(avatar)
+            npc = npcBotRef.current = {
+              wallet: npcWallet,
+              state: npcState,
+              avatar,
+              hpBar,
+              gx: sx,
+              gy: sy,
+              hp: NPC_MAX_HP,
+              hitFlashUntil: 0,
+              lastHitAt: 0,
+              swingUntil: 0,
+            }
+          }
+          const ndx = px - npc.gx
+          const ndy = py - npc.gy
+          const ndist = Math.hypot(ndx, ndy)
+          const nowMs = performance.now()
+          if (!myDead && ndist > 0.85) {
+            const step = (MOVE_SPD / CELL_SIZE) * NPC_SPEED_MULT * dt
+            npc.gx += (ndx / ndist) * Math.min(step, ndist)
+            npc.gy += (ndy / ndist) * Math.min(step, ndist)
+            // Walk cycle while moving
+            const foot = Math.sin(nowMs * 0.0064) * 0.018
+            if (npc.avatar.userData.leftFoot) npc.avatar.userData.leftFoot.position.y = .075 + Math.max(0, foot)
+            if (npc.avatar.userData.rightFoot) npc.avatar.userData.rightFoot.position.y = .075 + Math.max(0, -foot)
+          }
+          npc.avatar.position.set(npc.gx, 0, npc.gy)
+          npc.avatar.rotation.y = -Math.atan2(ndy, ndx) - Math.PI / 2
+          if (!myDead && ndist <= NPC_HIT_RANGE && nowMs - npc.lastHitAt >= NPC_HIT_COOLDOWN_MS) {
+            npc.lastHitAt = nowMs
+            npc.swingUntil = nowMs + 420
+            onNpcHitRef.current?.({ wallet: npc.wallet, mapId: String(mapIdRef.current) })
+          }
+          // USB-staff swing animation on hit
+          const tool = npc.avatar.userData.tool
+          if (tool) {
+            const swingLeft = npc.swingUntil - nowMs
+            const swing = swingLeft > 0 ? Math.sin((1 - swingLeft / 420) * Math.PI) : 0
+            tool.rotation.x = -swing * 1.15
+            tool.rotation.z = swing * 0.28
+          }
+          // Same screen-matched LOD scale as remote player avatars, so the bot
+          // reads exactly like an opposing player — plus a pop on damage.
+          const npcScale = getRemoteAvatarWorldScale(npcState, npc.gx, npc.gy, 0)
+          npc.avatar.scale.setScalar(npcScale * (nowMs < npc.hitFlashUntil ? 1.07 : 1))
+          needsRender = true
+        }
+      }
+
       if (mapHasBoss(mapIdRef.current)) {
         const bossMod = getBossRuntimeModule(mapIdRef.current)
         if (!bossRuntimeRef.current && bossMod) {
@@ -15102,8 +15287,48 @@ export default function MiningChain3DFPV({
         const pgz = Number(p.z) || 0
         const attackerInPoolSafe = isInHousePoolPvpSafeZone(pgx, pgy, pgz)
 
+        // NPC bot in front and within reach? (local-only target, no server)
+        const npcSwingTarget = (() => {
+          const npc = npcBotRef.current
+          if (!npc) return null
+          const dxN = npc.gx - pgx
+          const dyN = npc.gy - pgy
+          const distN = Math.hypot(dxN, dyN)
+          if (distN > PVP_HIT_RANGE) return null
+          if (distN > 0.6) {
+            const aimDot = (dxN * Math.cos(p.angle) + dyN * Math.sin(p.angle)) / distN
+            if (aimDot < 0.35) return null
+          }
+          return npc
+        })()
+
         if (attackerInPoolSafe) {
           playPickHit(audioCtxRef, 'empty')
+        } else if (npcSwingTarget) {
+          // ── Hit the NPC bot: local damage, death → respawn elsewhere ──
+          playPickHit(audioCtxRef, 'nftji')
+          pvpFlashRef.current = performance.now()
+          const npc = npcSwingTarget
+          npc.hp -= 1
+          npc.hitFlashUntil = performance.now() + 220
+          drawNpcHpBar(npc.hpBar, npc.hp)
+          const shortTag = `${npc.wallet.slice(0, 6)}…${npc.wallet.slice(-4)}`
+          if (npc.hp <= 0) {
+            npc.hp = NPC_MAX_HP
+            drawNpcHpBar(npc.hpBar, npc.hp)
+            let sx = 28, sy = 28, tries = 0
+            do {
+              sx = 6 + Math.random() * 44
+              sy = 6 + Math.random() * 44
+              tries += 1
+            } while (Math.hypot(sx - pgx, sy - pgy) < 14 && tries < 20)
+            npc.gx = sx
+            npc.gy = sy
+            npc.lastHitAt = 0
+            pvpGainRef.current = { text: `💀 ${shortTag} DOWN`, at: performance.now(), color: '#4ade80' }
+          } else {
+            pvpGainRef.current = { text: `⚔ HIT ${shortTag} -1 HP`, at: performance.now(), color: '#fb923c' }
+          }
         } else if(
           bossSwing
           && mapHasBoss(mapIdRef.current)

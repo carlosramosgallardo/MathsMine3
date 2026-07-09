@@ -975,6 +975,40 @@ export default function MiningChain3D() {
     return response
   }, [sendCombatEvent])
 
+  // NPC bot chaser hit (M2–M5): fixed −1 HP through the lightweight endpoint.
+  // Anon wallets resolve locally (same pattern as StormRoll damage); a hard
+  // client cooldown backs up the NPC's own 30s cadence.
+  const npcHitLastAtRef = useRef(0)
+  const handleNpcHit = useCallback(async () => {
+    const now = Date.now()
+    if (now - npcHitLastAtRef.current < 25_000) return
+    npcHitLastAtRef.current = now
+    if (myDeadUntilRef.current && myDeadUntilRef.current > now) return
+    const key = myKeyRef.current
+    if (!key) return
+    if (key.startsWith('anon-')) {
+      const current = healthMapRef.current[key] ?? 100
+      const newHP = Math.max(0, current - 1)
+      setHealthMap(prev => ({ ...prev, [key]: newHP }))
+      setReceivedHitAt(Date.now())
+      channelRef.current?.send({ type: 'broadcast', event: 'stormroll-hit', payload: { victim: key, health: newHP, killed: newHP <= 0 } })?.catch(() => {})
+      if (newHP <= 0) triggerSelfDeath()
+      return
+    }
+    fetch('/api/npc-hit', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ wallet: key }),
+    }).then(r => r.json()).then(result => {
+      if (!result?.ok) return
+      const newHP = Number(result.health ?? 100)
+      setHealthMap(prev => ({ ...prev, [key]: newHP }))
+      setReceivedHitAt(Date.now())
+      channelRef.current?.send({ type: 'broadcast', event: 'stormroll-hit', payload: { victim: key, health: newHP, killed: result.killed } })?.catch(() => {})
+      if (result.killed) triggerSelfDeath()
+    }).catch(() => {})
+  }, [triggerSelfDeath])
+
   const handleBossAttack = useCallback(async ({ wallet, playerGx, playerGy, bossGx, bossGy, mapId: attackMapId }) => {
     const bossMapId = String(attackMapId || mapIdRef.current)
     const cfg = getMapBossConfig(bossMapId)
@@ -2382,6 +2416,7 @@ export default function MiningChain3D() {
             bossState={mapHasBoss(mapId) ? bossState : null}
             onBossHit={handleBossHit}
             onBossAttack={handleBossAttack}
+            onNpcHit={handleNpcHit}
             onBossIdle={handleBossIdle}
           />
           </>

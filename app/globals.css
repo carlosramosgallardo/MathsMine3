@@ -81,13 +81,14 @@ body {
   height: 100%;
   overflow: hidden;
   /* Standard portal grid — the home hero's 32px square grid, shared by every
-     page — plus the top glow. */
+     page. Grid layers go FIRST (on top) so the radial glow never washes the
+     lines out near the top of the page. */
   background-image:
-    radial-gradient(circle at 50% -20%, rgba(34,211,238,.07), transparent 38rem),
-    linear-gradient(rgba(125,211,252,.045) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(125,211,252,.045) 1px, transparent 1px);
-  background-size: auto, 32px 32px, 32px 32px;
-  background-repeat: no-repeat, repeat, repeat;
+    linear-gradient(rgba(125,211,252,.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(125,211,252,.05) 1px, transparent 1px),
+    radial-gradient(circle at 50% -20%, rgba(34,211,238,.07), transparent 38rem);
+  background-size: 32px 32px, 32px 32px, auto;
+  background-repeat: repeat, repeat, no-repeat;
   -webkit-font-smoothing: antialiased;
 }
 
@@ -810,7 +811,8 @@ footer.bg-black\/97,
   justify-content: center;
   padding: 0.6rem 1.5rem 0.7rem;
   overflow: hidden;
-  background: radial-gradient(ellipse 80% 60% at 50% 40%, #071828 0%, #04080e 55%, #030508 100%);
+  /* Transparent: the shared body grid is the one background across the home. */
+  background: transparent;
   font-family: Consolas,'Courier New',monospace;
 }
 
@@ -1434,35 +1436,20 @@ footer.bg-black\/97,
 }
 
 /* ── Home voxel world — mirrors the authored block language in Mining 3 ── */
+/* Hero paints nothing of its own — the framed access card sits directly on
+   the shared body grid, which stays visible on every side (this rule used to
+   re-add a dark gradient, a bottom border and a perspective floor grid). */
 .mm3-home .mm3-splash {
   isolation: isolate;
-  border-bottom: 1px solid rgba(34,211,238,.22);
-  background:
-    radial-gradient(circle at 75% 45%, rgba(34,211,238,.13), transparent 28%),
-    linear-gradient(135deg, #020611 0%, #06152a 52%, #160914 100%);
+  border-bottom: 0;
+  background: transparent;
 }
-.mm3-home .mm3-splash::before {
-  content: '';
-  position: absolute;
-  inset: auto 0 0;
-  height: 38%;
-  opacity: .45;
-  background:
-    linear-gradient(rgba(34,211,238,.12) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(34,211,238,.12) 1px, transparent 1px);
-  background-size: 22px 22px;
-  transform: perspective(240px) rotateX(58deg) scale(1.25);
-  transform-origin: bottom;
-  mask-image: linear-gradient(to top, #000, transparent 86%);
-  pointer-events: none;
-}
-.mm3-home .mm3-splash-grid {
-  opacity: .55;
-  background-image:
-    linear-gradient(rgba(125,211,252,.045) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(125,211,252,.045) 1px, transparent 1px);
-  background-size: 32px 32px;
-}
+.mm3-home .mm3-splash::before { content: none; }
+/* One shared background across the whole home: the hero paints no grid, orb
+   glow or scanline band of its own — only the body's portal grid shows. */
+.mm3-home .mm3-splash-grid { background-image: none; }
+.mm3-home .mm3-splash-orb,
+.mm3-home .mm3-splash-scanlines { display: none; }
 .mm3-home .mm3-splash-body {
   width: min(1240px,100%);
   min-height: 0;
@@ -1480,38 +1467,185 @@ footer.bg-black\/97,
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  width: min(980px, 96vw);
+  /* Full-width display case. 100% (not 100vw): overflowing the centered flex
+     parent triggers Firefox's unsafe-centering shift and the case renders
+     off-centre; 100% keeps it symmetric in every browser. */
+  width: min(1240px, 100%);
+  margin-inline: auto;
   min-height: 0;
   padding: .45rem .8rem .5rem;
   color: inherit;
   text-decoration: none;
   outline: none;
-  /* Same cube-face treatment as the .mm3-portal-card tiles below the hero. */
-  border-style: solid;
-  border-width: 2px;
-  border-top-color:    color-mix(in srgb, #22d3ee 75%, white);
-  border-left-color:   color-mix(in srgb, #22d3ee 50%, transparent);
-  border-right-color:  color-mix(in srgb, #22d3ee 16%, #000);
-  border-bottom-color: color-mix(in srgb, #22d3ee 10%, #000);
-  border-radius: 2px;
+  /* Standard portal frame — same thin cyan border + flat dark panel used by
+     the info cards across the portal (no bevel, no teal gradient). */
+  border: 1px solid color-mix(in srgb, #22d3ee 45%, transparent);
+  border-radius: 0;
   clip-path: none;
-  background:
-    linear-gradient(180deg, rgba(14,116,144,.24), rgba(2,8,18,.92) 42%, rgba(1,7,14,.98)),
-    linear-gradient(90deg, rgba(34,211,238,.10), transparent 22% 78%, rgba(250,204,21,.08));
-  box-shadow:
-    4px 4px 0 color-mix(in srgb, #22d3ee 14%, #010305),
-    7px 7px 0 color-mix(in srgb, #22d3ee  6%, #010203),
-    0 0 20px -3px color-mix(in srgb, #22d3ee 30%, transparent),
-    inset 0 0 14px -6px color-mix(in srgb, #22d3ee 16%, transparent);
+  background: rgba(1,7,14,.72);
+  box-shadow: 0 0 22px -10px rgba(34,211,238,.5);
   overflow: hidden;
-  transition: transform .16s ease, box-shadow .16s ease, border-color .16s;
 }
 .mm3-home-access-stage {
   position: relative;
   z-index: 3;
   display: block;
   width: 100%;
+  /* The stage drags the avatar carousel — signal it. */
+  cursor: grab;
 }
+/* Under-row: extended world minimap (left) + portal accesses (right). */
+.mm3-home-underrow {
+  position: relative;
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+  width: 100%;
+  padding: .15rem .8rem .6rem;
+}
+.mm3-home-worldmap {
+  position: relative;
+  display: block;
+  flex: 0 0 auto;
+  width: min(330px, 100%);
+  filter: drop-shadow(0 6px 12px rgba(0,0,0,.55));
+}
+/* Nonagon portal: nine sides, one access each; the world minimap sits inside
+   the ring and the selected side extends its info in the caption below. */
+.mm3-nonagon {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: .5rem;
+}
+.mm3-nonagon-ring {
+  position: relative;
+  /* Logo mode: tiny — same height as the info card beside it, so the pair
+     reads as one compact row and the avatars keep the spotlight. */
+  width: min(158px, 60vw);
+  aspect-ratio: 1 / 1;
+  transition: width .42s cubic-bezier(.6, -0.2, .3, 1.25);
+}
+/* Map mode: the polygon spans the carousel carpet's width and the world map
+   inside gets big enough to actually read. */
+.mm3-nonagon.is-open .mm3-nonagon-ring {
+  width: min(940px, 96vw);
+}
+.mm3-nonagon-svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+.mm3-nonagon-side text { user-select: none; }
+.mm3-nonagon-core {
+  position: absolute;
+  inset: 20.5%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+.mm3-nonagon-core .mm3-home-worldmap {
+  width: 100%;
+  margin: 0;
+}
+/* Warp flip when the core swaps logo ⇄ map: spins in from a hue-shifted
+   micro-scale like a bad teleport. */
+.mm3-nonagon-core-flip {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  animation: mm3CoreWarp .5s cubic-bezier(.5, -0.3, .3, 1.3);
+}
+@keyframes mm3CoreWarp {
+  0%   { transform: scale(.25) rotate(-200deg); filter: hue-rotate(140deg) brightness(2.4) saturate(2); opacity: 0; }
+  55%  { opacity: 1; }
+  80%  { filter: hue-rotate(-30deg) brightness(1.15); }
+  100% { transform: none; filter: none; opacity: 1; }
+}
+.mm3-nonagon-logo {
+  width: 66%;
+  height: auto;
+  border-radius: 50%;
+  box-shadow:
+    0 0 24px -4px rgba(34,211,238,.75),
+    0 0 60px -18px rgba(34,211,238,.5);
+  animation: mm3HoloTextFlicker 3.4s infinite steps(1, end);
+}
+/* Fixed-size cyber panel: clipped corners, CRT scanlines and a glitch-in
+   every time the selected side changes. Hidden while the world map is open. */
+.mm3-nonagon-caption {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: .4rem;
+  width: 236px;
+  height: 158px;
+  padding: .6rem .7rem;
+  text-align: center;
+  font-family: var(--font-mono), 'Courier New', monospace;
+  border: 1px solid color-mix(in srgb, var(--ac, #22d3ee) 55%, transparent);
+  background:
+    repeating-linear-gradient(0deg, rgba(34,211,238,.045) 0 1px, transparent 1px 3px),
+    linear-gradient(160deg, rgba(14,116,144,.14), rgba(1,7,14,.85) 55%);
+  clip-path: polygon(0 0, calc(100% - 16px) 0, 100% 16px, 100% 100%, 16px 100%, 0 calc(100% - 16px));
+  box-shadow: inset 0 0 18px -8px color-mix(in srgb, var(--ac, #22d3ee) 55%, transparent);
+  animation: mm3CaptionGlitchIn .28s ease;
+}
+@keyframes mm3CaptionGlitchIn {
+  0%   { opacity: 0; transform: translateX(8px) skewX(-8deg); filter: hue-rotate(110deg) brightness(1.8); }
+  45%  { opacity: 1; transform: translateX(-2px) skewX(3deg); }
+  70%  { filter: hue-rotate(-25deg); }
+  100% { transform: none; filter: none; opacity: 1; }
+}
+/* Desktop: polygon + info card as two in-flow columns, centred together as a
+   unit under the avatar carousel. Mobile keeps the card stacked below. */
+@media (min-width: 760px) {
+  .mm3-nonagon {
+    flex-direction: row;
+  }
+}
+.mm3-nonagon-center-icon { font-size: 1.05rem; }
+.mm3-nonagon-center-name {
+  font-weight: 800;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  font-size: .82rem;
+  color: var(--ac, #22d3ee);
+  text-shadow: 0 0 12px color-mix(in srgb, var(--ac, #22d3ee) 55%, transparent);
+}
+.mm3-nonagon-center-desc {
+  color: #94a3b8;
+  font-size: .68rem;
+  line-height: 1.3;
+  max-width: 300px;
+}
+.mm3-nonagon-center-go {
+  padding: .16rem .7rem;
+  border: 1px solid var(--ac, #22d3ee);
+  color: var(--ac, #22d3ee);
+  font-weight: 800;
+  letter-spacing: .16em;
+  font-size: .68rem;
+  text-decoration: none;
+}
+.mm3-nonagon-center-go:hover {
+  background: color-mix(in srgb, var(--ac, #22d3ee) 18%, transparent);
+}
+.mm3-home-access-stage:active { cursor: grabbing; }
 /* Registered so the eye-colour swap tweens smoothly, like the 3D eye glows. */
 @property --mm3-eye {
   syntax: '<color>';
@@ -1529,6 +1663,8 @@ footer.bg-black\/97,
      background-clip:text; the glow rides a drop-shadow so it tints along. */
   --mm3-eye: #22d3ee;
   color: transparent;
+  text-decoration: none;
+  cursor: pointer;
   background-image: repeating-linear-gradient(180deg,
     var(--mm3-eye) 0 2px,
     color-mix(in srgb, var(--mm3-eye) 45%, transparent) 2px 3px);
@@ -1559,14 +1695,6 @@ footer.bg-black\/97,
   transform: translateY(-1px);
   --mm3-eye: #ff2020;
 }
-.mm3-home-access:hover {
-  transform: translate(-1px, -2px);
-  box-shadow:
-    5px 6px 0 color-mix(in srgb, #22d3ee 14%, #010305),
-    8px 9px 0 color-mix(in srgb, #22d3ee  6%, #010203),
-    0 0 26px -3px color-mix(in srgb, #22d3ee 38%, transparent),
-    inset 0 0 14px -6px color-mix(in srgb, #22d3ee 20%, transparent);
-}
 .mm3-home-access:hover .mm3-home-arena {
   filter: drop-shadow(0 20px 15px rgba(0,0,0,.5)) brightness(1.08);
 }
@@ -1592,9 +1720,11 @@ footer.bg-black\/97,
   position: relative;
   z-index: 2;
   flex: 0 0 auto;
-  width:min(940px,96vw);
+  width:min(940px,100%);
   height:240px;
-  justify-self: center;
+  /* justify-self only works in grid contexts (Firefox left-aligned the arena
+     inside the wider display case) — auto margins centre it everywhere. */
+  margin-inline: auto;
   filter: drop-shadow(0 20px 16px rgba(0,0,0,.58));
 }
 .mm3-home-arena-canvas {
@@ -1847,12 +1977,8 @@ footer.bg-black\/97,
 .mm3-home .mm3-portal {
   position: relative;
   padding: .55rem .9rem .38rem;
-  /* Same standard 32px portal grid as the hero and the body background. */
-  background:
-    linear-gradient(rgba(125,211,252,.045) 1px,transparent 1px),
-    linear-gradient(90deg,rgba(125,211,252,.045) 1px,transparent 1px),
-    #03070d;
-  background-size: 32px 32px;
+  /* Transparent: one continuous body grid behind the whole home. */
+  background: transparent;
 }
 .mm3-home .mm3-portal-grid,
 .mm3-home .mm3-portal-row2 { width:min(1040px,100%); }

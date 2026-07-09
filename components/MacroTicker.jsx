@@ -5,8 +5,8 @@ import supabase from '@/lib/supabaseClient';
 import { useI18n } from '@/lib/i18n-context';
 
 const DEFAULT_TICKER_MESSAGES = {
-  en: 'WELCOME TO MATHSMINE3 // SOLVE FAST, MINE MM3, FEED THE RETRO MAINFRAME',
-  es: 'BIENVENIDO A MATHSMINE3 // RESUELVE RAPIDO, MINA MM3 Y ALIMENTA EL MAINFRAME RETRO',
+  en: 'welcome@MM3·:~$ #MathsMine3 #TimedMath #FictionalMining #WalletIdentity #TerminalEconomy #RealTime3DMultiplayerWorld #Humor',
+  es: 'welcome@MM3·:~$ #MathsMine3 #TimedMath #FictionalMining #WalletIdentity #TerminalEconomy #RealTime3DMultiplayerWorld #Humor',
 };
 
 const STORMROLL_TICKER = {
@@ -135,9 +135,11 @@ export default function MacroTicker() {
         }
       `}</style>
 
-      {/* Normal scrolling ticker — hidden while notification is up */}
+      {/* Normal scrolling ticker — hidden while notification is up.
+          No uppercase transform: the terminal-prompt default must keep its
+          exact casing (welcome@MM3·:~$ …). */}
       <div
-        className="shrink-0 whitespace-nowrap font-mono text-[0.82rem] sm:text-[0.75rem] font-black uppercase tracking-[0.18em] sm:tracking-[0.22em] transition-opacity duration-300"
+        className="shrink-0 whitespace-nowrap font-mono text-[0.82rem] sm:text-[0.75rem] font-black tracking-[0.18em] sm:tracking-[0.22em] transition-opacity duration-300"
         style={{
           animation: `mm3-ticker-scroll ${TICKER_SECONDS}s linear infinite`,
           color: stormrollActive ? '#facc15' : '#86efac',
