@@ -565,6 +565,10 @@ export default function HomeMiningWorld3D() {
     let renderer
     let hoverCleanup = null
     let lastSpinTime = null
+    // Stage zoom: tapping the showcase (without dragging) toggles a closer
+    // framing so the avatars read much bigger; tap again to zoom back out.
+    let zoomCur = 1
+    let zoomTarget = 1
     let scene
     let resizeObserver
     let intersectionObserver
@@ -596,10 +600,13 @@ export default function HomeMiningWorld3D() {
           narrow fov keeps the edge bosses from stretching wide (perspective distortion). */
       const frameCamera = () => {
         const dist = 24
-        const halfHeight = Math.max(4.15, 15.6 / camera.aspect)
+        // Zoom narrows the fov; the look target drops with it so feet stay
+        // in frame while heads fill the stage.
+        const halfHeight = Math.max(4.15, 15.6 / camera.aspect) / zoomCur
+        const lookY = 3.0 - (zoomCur - 1) * 0.9
         camera.fov = THREE.MathUtils.radToDeg(2 * Math.atan(halfHeight / dist))
         camera.position.set(0, 3.0 + dist * .19, dist)
-        camera.lookAt(0, 3.0, 0)
+        camera.lookAt(0, lookY, 0)
         camera.updateProjectionMatrix()
       }
       frameCamera()
@@ -707,6 +714,20 @@ export default function HomeMiningWorld3D() {
             rail.suppressClick = false
           }
         }
+        // Tap (no drag) on the stage toggles the fullscreen showcase — the
+        // layout swap lives in LandingHero, which listens for this event.
+        const stageEl = canvas.closest('.mm3-home-access-stage')
+        const onStageClick = () => {
+          window.dispatchEvent(new CustomEvent('mm3-stage-zoom-toggle'))
+        }
+        stageEl?.addEventListener('click', onStageClick)
+        // Polygon auto-rotation (LandingHero) broadcasts a cycle event — the
+        // carousel glides one slot in sync, unless the user is mid-drag.
+        const onCycle = () => {
+          if (rail.dragging) return
+          rail.vel += 4 * RAIL_SPACING // damped glide integrates to ~one slot
+        }
+        window.addEventListener('mm3-home-cycle', onCycle)
         accessEl.style.touchAction = 'pan-y'
         accessEl.addEventListener('pointerdown', onDown)
         window.addEventListener('pointermove', onMove)
@@ -715,6 +736,8 @@ export default function HomeMiningWorld3D() {
         const prevHoverCleanup = hoverCleanup
         hoverCleanup = () => {
           prevHoverCleanup?.()
+          stageEl?.removeEventListener('click', onStageClick)
+          window.removeEventListener('mm3-home-cycle', onCycle)
           accessEl.removeEventListener('pointerdown', onDown)
           window.removeEventListener('pointermove', onMove)
           window.removeEventListener('pointerup', onUp)
@@ -747,6 +770,13 @@ export default function HomeMiningWorld3D() {
         // Showcase spin timestep (shared by bosses, statue head and props).
         const spinDt = time - (lastSpinTime ?? time)
         lastSpinTime = time
+
+        // Stage zoom easing toward its target framing.
+        if (Math.abs(zoomCur - zoomTarget) > 0.001) {
+          zoomCur += (zoomTarget - zoomCur) * Math.min(1, spinDt * 6)
+          if (Math.abs(zoomCur - zoomTarget) <= 0.001) zoomCur = zoomTarget
+          frameCamera()
+        }
 
         // Carousel rail: inertia after drag, wrap-around placement, and
         // per-frame facing/width compensation for the current position.

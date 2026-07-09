@@ -68,6 +68,8 @@ function NonagonPortal({ portal, es, isDead, deadCountdown, count }) {
     if (mapOpen || autoPaused) return undefined
     const id = setInterval(() => {
       setSel((s) => (s + 1) % portal.length)
+      // Keep the avatar carousel gliding in sync with the side rotation.
+      window.dispatchEvent(new CustomEvent('mm3-home-cycle'))
     }, 3000)
     return () => clearInterval(id)
   }, [mapOpen, autoPaused, portal.length])
@@ -238,6 +240,16 @@ export default function LandingHero() {
 
   const count = Math.max(0, Number(pendingRewards) || 0);
 
+  // Fullscreen showcase: a clean tap on the stage (dispatched by the 3D
+  // scene) expands the avatar carousel to the whole screen and hides the
+  // rest of the home; a second tap restores the normal view.
+  const [stageZoom, setStageZoom] = useState(false)
+  useEffect(() => {
+    const toggle = () => setStageZoom((z) => !z)
+    window.addEventListener('mm3-stage-zoom-toggle', toggle)
+    return () => window.removeEventListener('mm3-stage-zoom-toggle', toggle)
+  }, [])
+
   const isDead = deadUntil && deadUntil > nowMs
   let deadCountdown = ''
   if (isDead) {
@@ -267,7 +279,7 @@ export default function LandingHero() {
 
           {/* Display case: the stage only drags the carousel; navigation into
               /mining lives on the access-text link alone. */}
-          <div className="mm3-home-access" onMouseEnter={prefetchMiningRoute} onTouchStart={prefetchMiningRoute}>
+          <div className={`mm3-home-access${stageZoom ? ' is-stagezoom' : ''}`} onMouseEnter={prefetchMiningRoute} onTouchStart={prefetchMiningRoute}>
             <span className="mm3-home-access-stage">
               <HomeMiningScene />
             </span>

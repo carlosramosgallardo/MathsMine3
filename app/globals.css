@@ -1333,7 +1333,10 @@ footer.bg-black\/97,
 
 /* ── Home page wrapper — fills full available height, splits it 50/50 ── */
 .mm3-home {
-  height: 100%;
+  /* auto height: with the world map open on mobile the page is taller
+     than the viewport and must scroll instead of clipping at the bottom. */
+  height: auto;
+  min-height: 100%;
   display: flex;
   flex-direction: column;
 }
@@ -1446,6 +1449,7 @@ footer.bg-black\/97,
   isolation: isolate;
   border-bottom: 0;
   background: transparent;
+  overflow: visible;
 }
 .mm3-home .mm3-splash::before { content: none; }
 /* One shared background across the whole home: the hero paints no grid, orb
@@ -1516,6 +1520,39 @@ footer.bg-black\/97,
   width: min(330px, 100%);
   filter: drop-shadow(0 6px 12px rgba(0,0,0,.55));
 }
+/* Fullscreen showcase mode: the access card takes over the viewport, only
+   the 3D stage remains (text, nonagon and caption hidden) — tap again to
+   return to the normal home view. */
+.mm3-home-access.is-stagezoom {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  width: 100vw;
+  max-width: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: rgba(1,6,12,.98);
+  box-shadow: none;
+}
+.mm3-home-access.is-stagezoom .mm3-home-access-text,
+.mm3-home-access.is-stagezoom .mm3-home-underrow {
+  display: none;
+}
+.mm3-home-access.is-stagezoom .mm3-home-access-stage {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.mm3-home-access.is-stagezoom .mm3-home-arena {
+  width: 100%;
+  height: min(72vh, 640px);
+  max-width: none;
+  margin: 0;
+}
+
 /* Nonagon portal: nine sides, one access each; the world minimap sits inside
    the ring and the selected side extends its info in the caption below. */
 .mm3-nonagon {
@@ -1538,7 +1575,8 @@ footer.bg-black\/97,
    carousel carpet's width for maximum readability; clicking it goes back. */
 .mm3-nonagon-mapfull {
   display: block;
-  width: min(940px, 96vw);
+  /* 100% of the card, never vw: vw overflowed the card and got clipped. */
+  width: min(940px, 100%);
   padding: 0;
   border: 0;
   background: transparent;
@@ -1658,6 +1696,10 @@ footer.bg-black\/97,
 @media (max-width: 519px) {
   /* Narrow screens: let the description wrap under the title. */
   .mm3-nonagon-caption { height: auto; min-height: 64px; }
+  /* Tighter gutters so the expanded world map uses the full phone width. */
+  .mm3-home .mm3-splash { padding-left: .4rem; padding-right: .4rem; }
+  .mm3-home-access { padding-left: .3rem; padding-right: .3rem; }
+  .mm3-home-underrow { padding-left: .15rem; padding-right: .15rem; }
 }
 /* The title itself is the link into its section. */
 a.mm3-nonagon-center-name {
