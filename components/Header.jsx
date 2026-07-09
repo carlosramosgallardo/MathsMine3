@@ -203,7 +203,7 @@ export default function Header() {
             className={`mm3-home-portal-link shrink-0 focus:outline-none mx-0.5 sm:mx-1 ${pathname === '/' ? 'is-active' : ''}`}
           >
             <span className="mm3-home-badge">
-              <Image src="/og-image.jpg" alt="MM3" width={38} height={38} priority />
+              <Image src="/og-image.jpg" alt="MM3" width={22} height={22} priority />
               <span className="mm3-home-marker" aria-hidden="true">
                 <svg viewBox="0 0 16 13" focusable="false">
                   <path d="M1.5 6.2 8 1l6.5 5.2M3.5 5.2v6.3h9V5.2M6.4 11.5V7.8h3.2v3.7" />

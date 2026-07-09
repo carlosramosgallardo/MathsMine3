@@ -58,6 +58,19 @@ function NonagonPortal({ portal, es, isDead, deadCountdown, count }) {
     setSel(i)
     playNavTick()
   }
+
+  // Auto-rotation: every 3s the marked side advances and the card cycles
+  // through the nine accesses. Pauses while the pointer is over the polygon
+  // (manual browsing wins) and while the map is open. Silent — the nav tick
+  // only plays on manual hovering.
+  const [autoPaused, setAutoPaused] = useState(false)
+  useEffect(() => {
+    if (mapOpen || autoPaused) return undefined
+    const id = setInterval(() => {
+      setSel((s) => (s + 1) % portal.length)
+    }, 3000)
+    return () => clearInterval(id)
+  }, [mapOpen, autoPaused, portal.length])
   const C = 200
   const R = 176
   const pt = (i) => {
@@ -68,8 +81,31 @@ function NonagonPortal({ portal, es, isDead, deadCountdown, count }) {
   const current = portal[sel] || portal[0]
   const currentBlocked = isBlocked(current.href)
 
+  // Map mode: no polygon at all — the world minimap takes the full carpet
+  // width on its own; clicking it warps back to the logo + nonagon.
+  if (mapOpen) {
+    return (
+      <div className="mm3-nonagon is-open">
+        <button
+          type="button"
+          className="mm3-nonagon-mapfull"
+          onClick={() => setMapOpen(false)}
+          title={es ? 'Mostrar logo MM3' : 'Show MM3 logo'}
+        >
+          <span className="mm3-nonagon-core-flip">
+            <HomeWorldMinimap es={es} />
+          </span>
+        </button>
+      </div>
+    )
+  }
+
   return (
-    <div className={`mm3-nonagon${mapOpen ? ' is-open' : ''}`}>
+    <div
+      className="mm3-nonagon"
+      onMouseEnter={() => setAutoPaused(true)}
+      onMouseLeave={() => setAutoPaused(false)}
+    >
       <div className="mm3-nonagon-ring">
       <svg viewBox="0 0 400 400" className="mm3-nonagon-svg" aria-label={es ? 'Accesos del portal' : 'Portal accesses'}>
         {portal.map((card, i) => {
@@ -108,20 +144,15 @@ function NonagonPortal({ portal, es, isDead, deadCountdown, count }) {
           )
         })}
       </svg>
-        {/* Clickable core: MM3 logo ⇄ extended world minimap, with a warp flip. */}
+        {/* Clickable core: the MM3 logo — click warps into the full-width map. */}
         <button
           type="button"
           className="mm3-nonagon-core"
-          onClick={() => setMapOpen((open) => !open)}
-          aria-pressed={mapOpen}
-          title={mapOpen
-            ? (es ? 'Mostrar logo MM3' : 'Show MM3 logo')
-            : (es ? 'Mostrar mapa del mundo' : 'Show world map')}
+          onClick={() => setMapOpen(true)}
+          title={es ? 'Mostrar mapa del mundo' : 'Show world map'}
         >
-          <span className="mm3-nonagon-core-flip" key={mapOpen ? 'map' : 'logo'}>
-            {mapOpen
-              ? <HomeWorldMinimap es={es} />
-              : <Image src="/og-image.jpg" alt="MM3" width={160} height={160} className="mm3-nonagon-logo" />}
+          <span className="mm3-nonagon-core-flip">
+            <Image src="/og-image.jpg" alt="MM3" width={160} height={160} className="mm3-nonagon-logo" />
           </span>
         </button>
       </div>
@@ -130,18 +161,19 @@ function NonagonPortal({ portal, es, isDead, deadCountdown, count }) {
           Single cyan accent for every card, keyed so the glitch-in replays. */}
       {!mapOpen && (
       <div className="mm3-nonagon-caption" key={current.href} style={{ '--ac': currentBlocked ? '#6b7280' : '#22d3ee' }}>
-        <span className="mm3-nonagon-center-icon" aria-hidden="true">{currentBlocked ? '💀' : current.icon}</span>
-        <span className="mm3-nonagon-center-name">{current.name}</span>
+        <span className="mm3-nonagon-center-head">
+          <span className="mm3-nonagon-center-icon" aria-hidden="true">{currentBlocked ? '💀' : current.icon}</span>
+          {currentBlocked ? (
+            <span className="mm3-nonagon-center-name">{current.name}</span>
+          ) : (
+            <Link href={current.href} className="mm3-nonagon-center-name">{current.name}</Link>
+          )}
+        </span>
         <span className="mm3-nonagon-center-desc">
           {currentBlocked
             ? (es ? `MUERTO · revives en ${deadCountdown}` : `DEAD · revives in ${deadCountdown}`)
             : current.desc}
         </span>
-        {!currentBlocked && (
-          <Link href={current.href} className="mm3-nonagon-center-go">
-            {es ? 'ENTRAR' : 'ENTER'}
-          </Link>
-        )}
       </div>
       )}
     </div>
