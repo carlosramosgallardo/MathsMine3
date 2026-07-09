@@ -80,10 +80,14 @@ body {
   font-family: Consolas, 'Courier New', monospace;
   height: 100%;
   overflow: hidden;
+  /* Standard portal grid — the home hero's 32px square grid, shared by every
+     page — plus the top glow. */
   background-image:
-    radial-gradient(circle at 50% -20%, rgba(34,211,238,.07), transparent 38rem);
-  background-size: auto;
-  background-repeat: no-repeat;
+    radial-gradient(circle at 50% -20%, rgba(34,211,238,.07), transparent 38rem),
+    linear-gradient(rgba(125,211,252,.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(125,211,252,.045) 1px, transparent 1px);
+  background-size: auto, 32px 32px, 32px 32px;
+  background-repeat: no-repeat, repeat, repeat;
   -webkit-font-smoothing: antialiased;
 }
 
@@ -814,8 +818,6 @@ footer.bg-black\/97,
 .mm3-splash-grid {
   position: absolute;
   inset: 0;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='70' height='81'%3E%3Cpolygon points='35,3 67,21 67,60 35,78 3,60 3,21' fill='none' stroke='rgba(34,211,238,0.07)' stroke-width='0.8'/%3E%3C/svg%3E");
-  background-size: 70px 81px;
   pointer-events: none;
 }
 
@@ -1024,7 +1026,12 @@ footer.bg-black\/97,
 /* ── PORTAL GRID ──────────────────────────────────────────── */
 .mm3-portal {
   padding: 0.6rem 1.4rem 1.1rem; /* extra right+bottom for cube shadow */
-  background: #04080e;
+  /* Standard 32px portal grid over the base tone (same as body/home). */
+  background:
+    linear-gradient(rgba(125,211,252,.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(125,211,252,.045) 1px, transparent 1px),
+    #04080e;
+  background-size: 32px 32px;
   font-family: Consolas,'Courier New',monospace;
 }
 
@@ -1457,13 +1464,117 @@ footer.bg-black\/97,
   background-size: 32px 32px;
 }
 .mm3-home .mm3-splash-body {
-  width: min(1040px,100%);
-  min-height: 150px;
+  width: min(1240px,100%);
+  min-height: 0;
   display: flex;
-  flex-direction: row;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: clamp(.8rem,3vw,2.5rem);
+  gap: .05rem;
+  padding: .3rem 0 .2rem;
+}
+.mm3-home-access {
+  position: relative;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: min(980px, 96vw);
+  min-height: 0;
+  padding: .45rem .8rem .5rem;
+  color: inherit;
+  text-decoration: none;
+  outline: none;
+  /* Same cube-face treatment as the .mm3-portal-card tiles below the hero. */
+  border-style: solid;
+  border-width: 2px;
+  border-top-color:    color-mix(in srgb, #22d3ee 75%, white);
+  border-left-color:   color-mix(in srgb, #22d3ee 50%, transparent);
+  border-right-color:  color-mix(in srgb, #22d3ee 16%, #000);
+  border-bottom-color: color-mix(in srgb, #22d3ee 10%, #000);
+  border-radius: 2px;
+  clip-path: none;
+  background:
+    linear-gradient(180deg, rgba(14,116,144,.24), rgba(2,8,18,.92) 42%, rgba(1,7,14,.98)),
+    linear-gradient(90deg, rgba(34,211,238,.10), transparent 22% 78%, rgba(250,204,21,.08));
+  box-shadow:
+    4px 4px 0 color-mix(in srgb, #22d3ee 14%, #010305),
+    7px 7px 0 color-mix(in srgb, #22d3ee  6%, #010203),
+    0 0 20px -3px color-mix(in srgb, #22d3ee 30%, transparent),
+    inset 0 0 14px -6px color-mix(in srgb, #22d3ee 16%, transparent);
+  overflow: hidden;
+  transition: transform .16s ease, box-shadow .16s ease, border-color .16s;
+}
+.mm3-home-access-stage {
+  position: relative;
+  z-index: 3;
+  display: block;
+  width: 100%;
+}
+/* Registered so the eye-colour swap tweens smoothly, like the 3D eye glows. */
+@property --mm3-eye {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: #22d3ee;
+}
+.mm3-home-access-text {
+  position: relative;
+  z-index: 5;
+  display: block;
+  margin-top: -.35rem;
+  margin-bottom: .3rem;
+  /* Hologram treatment, same colour logic as the boss eyes: holo cyan at
+     rest, fight red on hover. Scanlines are baked into the glyphs via
+     background-clip:text; the glow rides a drop-shadow so it tints along. */
+  --mm3-eye: #22d3ee;
+  color: transparent;
+  background-image: repeating-linear-gradient(180deg,
+    var(--mm3-eye) 0 2px,
+    color-mix(in srgb, var(--mm3-eye) 45%, transparent) 2px 3px);
+  -webkit-background-clip: text;
+  background-clip: text;
+  font-family: var(--font-mono), "Courier New", monospace;
+  font-size: clamp(.72rem, 1.2vw, .98rem);
+  font-weight: 800;
+  letter-spacing: .18em;
+  text-align: center;
+  filter: drop-shadow(0 0 9px color-mix(in srgb, var(--mm3-eye) 55%, transparent));
+  animation: mm3HoloTextFlicker 3.4s infinite steps(1, end);
+  transition: --mm3-eye .18s ease, transform .16s ease;
+}
+@keyframes mm3HoloTextFlicker {
+  0%, 100% { opacity: 1; }
+  6%  { opacity: .84; }
+  7%  { opacity: 1; }
+  38% { opacity: .93; }
+  39% { opacity: 1; }
+  61% { opacity: .74; }
+  62% { opacity: 1; }
+  63% { opacity: .9; }
+  64% { opacity: 1; }
+}
+.mm3-home-access:hover .mm3-home-access-text,
+.mm3-home-access:focus-visible .mm3-home-access-text {
+  transform: translateY(-1px);
+  --mm3-eye: #ff2020;
+}
+.mm3-home-access:hover {
+  transform: translate(-1px, -2px);
+  box-shadow:
+    5px 6px 0 color-mix(in srgb, #22d3ee 14%, #010305),
+    8px 9px 0 color-mix(in srgb, #22d3ee  6%, #010203),
+    0 0 26px -3px color-mix(in srgb, #22d3ee 38%, transparent),
+    inset 0 0 14px -6px color-mix(in srgb, #22d3ee 20%, transparent);
+}
+.mm3-home-access:hover .mm3-home-arena {
+  filter: drop-shadow(0 20px 15px rgba(0,0,0,.5)) brightness(1.08);
+}
+.mm3-home-access:focus-visible {
+  box-shadow:
+    0 0 0 2px rgba(103,232,249,.95),
+    8px 10px 0 rgba(1,8,16,.95),
+    0 0 32px -4px rgba(34,211,238,.82);
 }
 .mm3-home-copy {
   position: relative;
@@ -1471,18 +1582,18 @@ footer.bg-black\/97,
   flex: 0 0 auto;
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
-  text-align: left;
+  align-items: center;
+  text-align: center;
 }
 .mm3-home-copy .mm3-splash-sub,
-.mm3-home-copy .mm3-splash-disclaimer { text-align: left; }
+.mm3-home-copy .mm3-splash-disclaimer { text-align: center; }
 
 .mm3-home-arena {
   position: relative;
   z-index: 2;
   flex: 0 0 auto;
-  width:min(360px,44vw);
-  height:200px;
+  width:min(940px,96vw);
+  height:240px;
   justify-self: center;
   filter: drop-shadow(0 20px 16px rgba(0,0,0,.58));
 }
@@ -1736,11 +1847,12 @@ footer.bg-black\/97,
 .mm3-home .mm3-portal {
   position: relative;
   padding: .55rem .9rem .38rem;
+  /* Same standard 32px portal grid as the hero and the body background. */
   background:
-    linear-gradient(rgba(34,211,238,.035) 1px,transparent 1px),
-    linear-gradient(90deg,rgba(34,211,238,.035) 1px,transparent 1px),
+    linear-gradient(rgba(125,211,252,.045) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(125,211,252,.045) 1px,transparent 1px),
     #03070d;
-  background-size: 24px 24px;
+  background-size: 32px 32px;
 }
 .mm3-home .mm3-portal-grid,
 .mm3-home .mm3-portal-row2 { width:min(1040px,100%); }
@@ -1805,10 +1917,15 @@ footer.bg-black\/97,
 
 @media (max-width:720px) {
   .mm3-home .mm3-splash-body {
-    min-height:120px;
+    min-height:250px;
     gap:.5rem;
   }
-  .mm3-home-arena { width:min(220px,42vw); height:130px; }
+  .mm3-home-access {
+    width: min(680px, 96vw);
+    min-height: 235px;
+    padding: .85rem .45rem .5rem;
+  }
+  .mm3-home-arena { width:min(660px,96vw); height:185px; }
   .mm3-home-arena-floor { height:82px; }
   .mm3-home-chain3d { width:72px; height:152px; bottom:-5px; }
   .mm3-home-bot3d { width:72px; height:72px; }
@@ -1820,6 +1937,12 @@ footer.bg-black\/97,
   .mm3-home .mm3-portal { flex: 1; justify-content: center; }
   /* Column layout, fully centered */
   .mm3-home .mm3-splash-body { flex-direction:column; align-items:center; gap:.5rem; min-height:auto; padding:.4rem 0 .5rem; }
+  .mm3-home-access {
+    width: min(330px, 94vw);
+    min-height: 215px;
+    padding: .78rem .3rem .45rem;
+    clip-path: none;
+  }
   .mm3-home-copy { align-items:center; text-align:center; }
   .mm3-home-copy .mm3-splash-sub,
   .mm3-home-copy .mm3-splash-disclaimer { text-align:center; }
@@ -1837,8 +1960,8 @@ footer.bg-black\/97,
   .mm3-home .mm3-portal-name { font-size:.40rem; }
 }
 @media (max-height:500px) and (orientation:landscape) {
-  .mm3-home .mm3-splash-body { min-height:96px; }
-  .mm3-home-arena { width:185px; height:105px; }
+  .mm3-home .mm3-splash-body { min-height:170px; }
+  .mm3-home-arena { width:min(680px,92vw); height:110px; }
   .mm3-home-arena-floor { height:82px; }
   .mm3-home-sword-scene { top:0; transform:scale(.52); transform-origin:top left; }
   .mm3-home-arena-bot { bottom:4px; transform:scale(.48); }
@@ -1850,8 +1973,8 @@ footer.bg-black\/97,
 }
 @media (min-width:721px) {
   .mm3-home .mm3-splash { flex:none; }
-  .mm3-home-arena { height:175px; }
-  .mm3-home .mm3-splash-body { min-height:130px; padding:.3rem 0; }
+  .mm3-home-arena { height:205px; }
+  .mm3-home .mm3-splash-body { min-height:0; padding:.3rem 0 .2rem; }
   .mm3-home .mm3-portal-card { min-height:50px; }
 }
 @media (prefers-reduced-motion:reduce) {
@@ -2298,11 +2421,12 @@ footer.bg-black\/97,
   min-height:0;
   overflow-y:auto;
   padding:clamp(1rem,3vw,2rem);
+  /* Standard 32px portal grid. */
   background:
-    linear-gradient(rgba(34,211,238,.035) 1px,transparent 1px),
-    linear-gradient(90deg,rgba(34,211,238,.035) 1px,transparent 1px),
+    linear-gradient(rgba(125,211,252,.045) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(125,211,252,.045) 1px,transparent 1px),
     #02060b;
-  background-size:26px 26px;
+  background-size:32px 32px;
 }
 .ai-team-content-inner { width:min(1060px,100%); margin:0 auto; }
 .ai-team-pool-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:1.35rem; margin-bottom:1.5rem; }

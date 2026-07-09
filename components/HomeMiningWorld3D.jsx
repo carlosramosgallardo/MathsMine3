@@ -8,12 +8,17 @@ import { M4_KIM_BOSS_SCALE } from '@/lib/m4-kim-boss'
 import { createM5TrumpBossVisual } from '@/lib/m5-trump-boss-runtime'
 import { M5_TRUMP_BOSS_SCALE } from '@/lib/m5-trump-boss'
 import { createM1MileiStatueVisual, M1_MILEI_STATUE_SCALE } from '@/lib/m1-milei-statue'
+import { roundedVoxelGeometry } from '@/lib/rounded-voxel'
+import { advanceShowcaseSpin } from '@/lib/map-boss-facing'
+import { setBossMaskEyesRed } from '@/lib/boss-head-photo'
 
 const HOME_ARENA_BOT_SCALE = 3.44
 /** Boss taller than the bot, but capped so the hero canvas does not clip the head. */
 const HOME_ARENA_BOSS_VS_BOT = 1.31
 /** Home-only boss scale tweak (does not affect in-game mining bosses). */
-const HOME_BOSS_SIZE_MULT = 0.95
+const HOME_BOSS_SIZE_MULT = 1.06
+const HOME_LINEUP_BOT_SCALE = 2.96
+const HOME_LINEUP_CAR_SCALE = 2.51
 /** World Y where bot soles meet the arena disc (avatar origin + sole bottom local × scale). */
 const HOME_ARENA_FLOOR_Y = 0.12 + 0.0015 * HOME_ARENA_BOT_SCALE
 const HOME_SCENE_CENTER = { x: 0, z: 0 }
@@ -35,11 +40,11 @@ export function addMiningBot(THREE, scene, options = {}) {
   } = options
   const avatar = new THREE.Group()
   const color = new THREE.Color(botColor)
-  const bright = color.clone().lerp(new THREE.Color('#ffffff'), .20)
+  const bright = color.clone().lerp(new THREE.Color('#ffffff'), .34)
   const dark = color.clone().multiplyScalar(.30)
-  const mid = color.clone().multiplyScalar(.62)
-  const bodyMat = new THREE.MeshStandardMaterial({ color, roughness: .48, metalness: .34 })
-  const brightMat = new THREE.MeshStandardMaterial({ color: bright, roughness: .38, metalness: .42 })
+  const mid = color.clone().multiplyScalar(.76)
+  const bodyMat = new THREE.MeshStandardMaterial({ color: color.clone().lerp(new THREE.Color('#ffffff'), .10), roughness: .42, metalness: .38, emissive: color.clone().multiplyScalar(.10), emissiveIntensity: .34 })
+  const brightMat = new THREE.MeshStandardMaterial({ color: bright, roughness: .34, metalness: .46, emissive: color.clone().multiplyScalar(.08), emissiveIntensity: .26 })
   const darkMat = new THREE.MeshStandardMaterial({ color: dark, roughness: .72, metalness: .28 })
   const midMat = new THREE.MeshStandardMaterial({ color: mid, roughness: .58, metalness: .30 })
   const cyanMat = new THREE.MeshBasicMaterial({ color: '#67e8f9' })
@@ -47,24 +52,27 @@ export function addMiningBot(THREE, scene, options = {}) {
   const magentaMat = new THREE.MeshBasicMaterial({ color: '#d946ef' })
 
   const addBox = (size, material, position) => {
-    const mesh = new THREE.Mesh(new THREE.BoxGeometry(...size), material)
+    const mesh = new THREE.Mesh(roundedVoxelGeometry(THREE, ...size), material)
     mesh.position.set(...position)
     avatar.add(mesh)
     return mesh
   }
 
-  addBox([.46, .48, .27], bodyMat, [0, .39, 0])
-  addBox([.31, .22, .025], darkMat, [0, .43, -.151])
-  addBox([.20, .105, .014], new THREE.MeshBasicMaterial({ color: '#03121c' }), [0, .44, -.168])
-  addBox([.095, .055, .014], goldMat, [0, .44, -.178])
-  addBox([.48, .065, .29], darkMat, [0, .20, 0])
-  addBox([.08, .06, .025], cyanMat, [0, .20, -.166])
-  addBox([.13, .20, .25], midMat, [-.295, .51, 0])
-  addBox([.13, .20, .25], midMat, [.295, .51, 0])
-  addBox([.09, .25, .11], darkMat, [-.30, .36, 0])
-  addBox([.09, .25, .11], darkMat, [.30, .36, 0])
-  addBox([.10, .10, .12], brightMat, [.31, .22, -.01])
-  addBox([.13, .07, .13], darkMat, [0, .68, 0])
+  // Torso/arm/feet meshes are tagged as bodyParts so the bot-on-car variant can
+  // hide them (mining-style mount: only head, antenna and USB staff stay visible).
+  const bodyParts = []
+  bodyParts.push(addBox([.46, .48, .27], bodyMat, [0, .39, 0]))
+  bodyParts.push(addBox([.31, .22, .025], darkMat, [0, .43, -.151]))
+  bodyParts.push(addBox([.20, .105, .014], new THREE.MeshBasicMaterial({ color: '#03121c' }), [0, .44, -.168]))
+  bodyParts.push(addBox([.095, .055, .014], goldMat, [0, .44, -.178]))
+  bodyParts.push(addBox([.48, .065, .29], darkMat, [0, .20, 0]))
+  bodyParts.push(addBox([.08, .06, .025], cyanMat, [0, .20, -.166]))
+  bodyParts.push(addBox([.13, .20, .25], midMat, [-.295, .51, 0]))
+  bodyParts.push(addBox([.13, .20, .25], midMat, [.295, .51, 0]))
+  bodyParts.push(addBox([.09, .25, .11], darkMat, [-.30, .36, 0]))
+  bodyParts.push(addBox([.09, .25, .11], darkMat, [.30, .36, 0]))
+  bodyParts.push(addBox([.10, .10, .12], brightMat, [.31, .22, -.01]))
+  bodyParts.push(addBox([.13, .07, .13], darkMat, [0, .68, 0]))
   addBox([.34, .25, .25], brightMat, [0, .82, 0])
   addBox([.27, .105, .018], darkMat, [0, .84, -.139])
   addBox([.205, .045, .012], cyanMat, [0, .84, -.153])
@@ -135,8 +143,112 @@ export function addMiningBot(THREE, scene, options = {}) {
   avatar.userData.rightFoot = rightFoot
   avatar.userData.leftSole = leftSole
   avatar.userData.rightSole = rightSole
+  avatar.userData.bodyParts = [...bodyParts, leftFoot, rightFoot, leftSole, rightSole]
   scene.add(avatar)
   return avatar
+}
+
+function createHomeRlCar(THREE, color = '#0ea5e9') {
+  const group = new THREE.Group()
+  const shellColor = new THREE.Color(color)
+  const upperColor = shellColor.clone().multiplyScalar(0.7)
+  const shellMat = new THREE.MeshStandardMaterial({ color: shellColor.clone().lerp(new THREE.Color('#ffffff'), .08), roughness: .46, metalness: .42, emissive: shellColor.clone().multiplyScalar(.14), emissiveIntensity: .55 })
+  const upperMat = new THREE.MeshStandardMaterial({ color: upperColor, roughness: .42, metalness: .38, emissive: shellColor.clone().multiplyScalar(.08), emissiveIntensity: .28 })
+  const trimMat = new THREE.MeshStandardMaterial({ color: '#07111d', roughness: .72, metalness: .22 })
+  const glassMat = new THREE.MeshBasicMaterial({ color: '#0f172a', transparent: true, opacity: .84 })
+  const tireMat = new THREE.MeshStandardMaterial({ color: '#020617', roughness: .82, metalness: .2 })
+  const rimMat = new THREE.MeshStandardMaterial({ color: '#cbd5e1', roughness: .38, metalness: .58 })
+  const lightMat = new THREE.MeshBasicMaterial({ color: '#e0f2fe' })
+  const tailMat = new THREE.MeshBasicMaterial({ color: '#ef4444' })
+
+  const addBox = (size, mat, pos, rot = null) => {
+    const mesh = new THREE.Mesh(roundedVoxelGeometry(THREE, ...size), mat)
+    mesh.position.set(...pos)
+    if (rot) mesh.rotation.set(...rot)
+    mesh.castShadow = true
+    group.add(mesh)
+    return mesh
+  }
+
+  addBox([.92, .24, 1.22], shellMat, [0, .17, 0])
+  addBox([.76, .15, .36], shellMat, [0, .29, -.45])
+  addBox([.84, .28, .38], shellMat, [0, .31, .43])
+  addBox([.70, .30, .56], upperMat, [0, .50, -.02])
+  addBox([.78, .06, .68], trimMat, [0, .69, -.01])
+  addBox([.55, .08, .08], glassMat, [0, .53, -.35], [.25, 0, 0])
+  addBox([.55, .08, .08], glassMat, [0, .52, .32], [-.18, 0, 0])
+  for (const sx of [-1, 1]) {
+    addBox([.035, .16, .34], glassMat, [sx * .37, .52, -.04])
+    addBox([.04, .06, .38], trimMat, [sx * .47, .34, .08])
+  }
+  addBox([.54, .05, .035], lightMat, [0, .33, -.64])
+  addBox([.58, .06, .035], tailMat, [0, .34, .65])
+  addBox([.50, .045, .026], new THREE.MeshBasicMaterial({ color }), [0, .40, -.67])
+
+  for (const [wx, wz] of [[-.45, -.37], [.45, -.37], [-.45, .39], [.45, .39]]) {
+    const wheel = new THREE.Mesh(new THREE.CylinderGeometry(.14, .14, .09, 16), tireMat)
+    wheel.rotation.z = Math.PI / 2
+    wheel.position.set(wx, .14, wz)
+    wheel.castShadow = true
+    group.add(wheel)
+    const rim = new THREE.Mesh(new THREE.CylinderGeometry(.075, .075, .098, 14), rimMat)
+    rim.rotation.z = Math.PI / 2
+    rim.position.set(wx, .14, wz)
+    group.add(rim)
+  }
+
+  return group
+}
+
+function addHomeCar(THREE, scene, options = {}) {
+  const {
+    color = '#334155',
+    position = [0, 0, 0],
+    rotationY = Math.PI,
+    scale = HOME_LINEUP_CAR_SCALE,
+    phase = 0,
+  } = options
+  const group = createHomeRlCar(THREE, color)
+  group.position.set(position[0], HOME_ARENA_FLOOR_Y, position[2])
+  group.rotation.y = rotationY
+  group.scale.setScalar(scale)
+  scene.add(group)
+  return { kind: 'car', group, baseY: HOME_ARENA_FLOOR_Y, baseRotationY: rotationY, phase, bob: 1.9, sway: .34 }
+}
+
+function addHomeBotCar(THREE, scene, options = {}) {
+  const {
+    botColor = '#f97316',
+    carColor = '#dc2626',
+    position = [0, 0, 0],
+    rotationY = Math.PI,
+    phase = 0,
+  } = options
+  const group = new THREE.Group()
+  group.position.set(position[0], HOME_ARENA_FLOOR_Y, position[2])
+  group.rotation.y = rotationY
+  scene.add(group)
+
+  const car = createHomeRlCar(THREE, carColor)
+  car.scale.setScalar(HOME_LINEUP_CAR_SCALE)
+  car.position.y = 0
+  group.add(car)
+
+  // Mining-style mount: full-size bot (same head height as the standing lineup
+  // bot) seated in the car — only the feet are hidden; the lower torso is
+  // simply occluded by the car body, so no gap shows under the head.
+  // -0.03 drop: breaks the coplanar tie between the bot's shoulder tops and the
+  // car roof plate (z-fighting flicker) — visually the same head height.
+  const bot = addMiningBot(THREE, group, {
+    color: botColor,
+    position: [0, -.03, -.02],
+    rotationY: 0,
+    scale: HOME_LINEUP_BOT_SCALE,
+  })
+  for (const part of [bot.userData.leftFoot, bot.userData.rightFoot, bot.userData.leftSole, bot.userData.rightSole]) {
+    if (part) part.visible = false
+  }
+  return { kind: 'botCar', group, bot, car, baseY: HOME_ARENA_FLOOR_Y, baseRotationY: rotationY, phase, bob: 2.15, sway: .42 }
 }
 
 function makeNftjiSprite(THREE, emoji = '💎') {
@@ -263,13 +375,14 @@ export function addNftjiMiningBlock(THREE, scene, options = {}) {
   return { group, glowLight, indicator, marker, sprite }
 }
 
-const HOME_BOSS_SPACING = 3.95
+const HOME_LINEUP_X = Object.freeze([-13.65, -9.1, -4.45, 0, 4.45, 9.1, 13.65])
 const HOME_BOSS_LAYOUT = [
   {
     id: 'putin',
+    heightMult: 0.89,
     createVisual: createM3PutinBossVisual,
     bossScale: M3_PUTIN_BOSS_SCALE,
-    position: [-HOME_BOSS_SPACING * 1.35, 0, 0.06],
+    position: [HOME_LINEUP_X[2], 0, 0.04],
     glowColor: '#94a3b8',
     glowIntensity: 2.8,
     phase: 0,
@@ -277,21 +390,25 @@ const HOME_BOSS_LAYOUT = [
     bob: 2.2,
   },
   {
-    id: 'trump',
-    createVisual: createM5TrumpBossVisual,
-    bossScale: M5_TRUMP_BOSS_SCALE,
-    position: [HOME_BOSS_SPACING * 1.35, 0, 0.14],
-    glowColor: '#ef4444',
-    glowIntensity: 3.2,
-    phase: Math.PI * 0.66,
-    sway: 0.56,
-    bob: 2.05,
+    id: 'milei',
+    heightMult: 0.92,
+    // Statue: lifted a touch — the pedestal adds real base height under it.
+    yOffset: 0.3,
+    createVisual: createM1MileiStatueVisual,
+    bossScale: M1_MILEI_STATUE_SCALE,
+    position: [HOME_LINEUP_X[4], 0, 0.06],
+    glowColor: '#74acdf',
+    glowIntensity: 2.9,
+    phase: Math.PI * 1.85,
+    sway: 0.58,
+    bob: 2.18,
   },
   {
     id: 'kim',
+    heightMult: 0.87,
     createVisual: createM4KimBossVisual,
     bossScale: M4_KIM_BOSS_SCALE,
-    position: [HOME_BOSS_SPACING * 0.45, 0, 0.06],
+    position: [HOME_LINEUP_X[6], 0, 0.04],
     glowColor: '#d946ef',
     glowIntensity: 3.0,
     phase: Math.PI * 1.33,
@@ -299,15 +416,16 @@ const HOME_BOSS_LAYOUT = [
     bob: 2.45,
   },
   {
-    id: 'milei',
-    createVisual: createM1MileiStatueVisual,
-    bossScale: M1_MILEI_STATUE_SCALE,
-    position: [-HOME_BOSS_SPACING * 0.45, 0, 0.08],
-    glowColor: '#74acdf',
-    glowIntensity: 2.9,
-    phase: Math.PI * 1.85,
-    sway: 0.58,
-    bob: 2.18,
+    id: 'trump',
+    heightMult: 1.0,
+    createVisual: createM5TrumpBossVisual,
+    bossScale: M5_TRUMP_BOSS_SCALE,
+    position: [HOME_LINEUP_X[0], 0, 0.12],
+    glowColor: '#ef4444',
+    glowIntensity: 3.2,
+    phase: Math.PI * 0.66,
+    sway: 0.56,
+    bob: 2.05,
   },
 ]
 
@@ -322,7 +440,7 @@ function addRedCarpet(THREE, scene) {
     emissive: '#3f0505',
     emissiveIntensity: 0.22,
   })
-  const carpet = new THREE.Mesh(new THREE.BoxGeometry(13.2, 0.025, 2.35), carpetMat)
+  const carpet = new THREE.Mesh(new THREE.BoxGeometry(29.9, 0.025, 2.98), carpetMat)
   carpet.receiveShadow = true
   carpetGroup.add(carpet)
 
@@ -333,15 +451,15 @@ function addRedCarpet(THREE, scene) {
     emissive: '#7c2d12',
     emissiveIntensity: 0.18,
   })
-  for (const z of [-1.22, 1.22]) {
-    const trim = new THREE.Mesh(new THREE.BoxGeometry(13.35, 0.035, 0.08), trimMat)
+  for (const z of [-1.55, 1.55]) {
+    const trim = new THREE.Mesh(new THREE.BoxGeometry(30.1, 0.035, 0.10), trimMat)
     trim.position.z = z
     carpetGroup.add(trim)
   }
 
   const centerStripe = new THREE.Mesh(
-    new THREE.BoxGeometry(13.0, 0.028, 0.16),
-    new THREE.MeshBasicMaterial({ color: '#ef4444', transparent: true, opacity: 0.42 }),
+    new THREE.BoxGeometry(29.5, 0.028, 0.21),
+    new THREE.MeshBasicMaterial({ color: '#ff5656', transparent: true, opacity: 0.5 }),
   )
   centerStripe.position.y = 0.004
   carpetGroup.add(centerStripe)
@@ -364,10 +482,18 @@ export function addHomeBoss(THREE, scene, options = {}) {
     bob = 2.2,
     scaleMult = (HOME_ARENA_BOT_SCALE * HOME_ARENA_BOSS_VS_BOT * HOME_BOSS_SIZE_MULT) / bossScale,
   } = options
+  const { heightMult = 1, yOffset = 0 } = options
   const { group, bodyPivot } = createVisual(THREE, false)
-  group.position.set(position[0], HOME_ARENA_FLOOR_Y, position[2])
+  group.traverse((object) => {
+    const isRoundShadow = object.isMesh
+      && object.geometry?.type === 'CircleGeometry'
+      && object.material?.transparent
+      && object.material?.color?.getHexString?.() === '000000'
+    if (isRoundShadow) object.visible = false
+  })
+  group.position.set(position[0], HOME_ARENA_FLOOR_Y + yOffset, position[2])
   group.rotation.y = rotationY
-  group.scale.setScalar(bossScale * scaleMult)
+  group.scale.setScalar(bossScale * scaleMult * heightMult)
 
   const glowLight = new THREE.PointLight(glowColor, glowIntensity, 4.5, 2)
   glowLight.position.set(0, 1.4, 0)
@@ -378,6 +504,7 @@ export function addHomeBoss(THREE, scene, options = {}) {
     group,
     bodyPivot,
     glowLight,
+    baseY: HOME_ARENA_FLOOR_Y + yOffset,
     baseRotationY: rotationY,
     phase,
     sway,
@@ -426,6 +553,8 @@ export default function HomeMiningWorld3D() {
     let pageVisible = !document.hidden
     let inViewport = true
     let renderer
+    let hoverCleanup = null
+    let lastSpinTime = null
     let scene
     let resizeObserver
     let intersectionObserver
@@ -438,35 +567,101 @@ export default function HomeMiningWorld3D() {
     import('three').then(THREE => {
       if (destroyed) return
       renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, powerPreference: 'high-performance' })
-      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2))
+      // ?banner=1 lifts the DPR cap for max-resolution captures (banners, art);
+      // normal visits stay capped at 2 for performance.
+      const hiResCapture = new URLSearchParams(window.location.search).has('banner')
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, hiResCapture ? 4 : 2))
       renderer.setClearColor(0x000000, 0)
       renderer.outputColorSpace = THREE.SRGBColorSpace
       renderer.toneMapping = THREE.ACESFilmicToneMapping
-      renderer.toneMappingExposure = 1.38
+      renderer.toneMappingExposure = 1.72
       renderer.shadowMap.enabled = true
       renderer.shadowMap.type = THREE.PCFSoftShadowMap
 
       scene = new THREE.Scene()
-      scene.fog = new THREE.FogExp2('#010c18', .036)
-      const camera = new THREE.PerspectiveCamera(36, 2, .1, 50)
-      camera.position.set(0, 6.15, 13.8)
-      camera.lookAt(0, 1.78, 0)
+      scene.fog = new THREE.FogExp2('#010c18', .012)
+      const camera = new THREE.PerspectiveCamera(36, 2, .1, 60)
+      /** Long-lens framing: fixed distance with the fov computed to fit the lineup
+          (±13.65u + boss half-width). Same on-screen size as a close camera, but the
+          narrow fov keeps the edge bosses from stretching wide (perspective distortion). */
+      const frameCamera = () => {
+        const dist = 24
+        const halfHeight = Math.max(4.15, 15.6 / camera.aspect)
+        camera.fov = THREE.MathUtils.radToDeg(2 * Math.atan(halfHeight / dist))
+        camera.position.set(0, 3.0 + dist * .19, dist)
+        camera.lookAt(0, 3.0, 0)
+        camera.updateProjectionMatrix()
+      }
+      frameCamera()
 
-      scene.add(new THREE.HemisphereLight('#c7e9ff', '#060e1a', 1.30))
-      const key = new THREE.DirectionalLight('#fff8dc', 2.50)
+      scene.add(new THREE.HemisphereLight('#e0f7ff', '#07111f', 1.72))
+      const key = new THREE.DirectionalLight('#fff8dc', 3.35)
       key.position.set(-3, 8, 6)
       key.castShadow = true
       key.shadow.mapSize.set(1024, 1024)
       scene.add(key)
-      const cyanFill = new THREE.PointLight('#22d3ee', 6.0, 14, 2)
+      const cyanFill = new THREE.PointLight('#22d3ee', 8.5, 16, 2)
       cyanFill.position.set(-2.0, 1.8, 2)
       scene.add(cyanFill)
-      const goldFill = new THREE.PointLight('#ffe34d', 7.0, 11, 2)
+      const goldFill = new THREE.PointLight('#ffe34d', 8.6, 13, 2)
       goldFill.position.set(0, 2.3, 2.1)
       scene.add(goldFill)
 
       addRedCarpet(THREE, scene)
       const homeBosses = HOME_BOSS_LAYOUT.map((layout) => addHomeBoss(THREE, scene, layout))
+
+      // Hovering the mining-access card puts every boss/statue in "fighting"
+      // mode: eyes flip from the holo tint to red, and back on leave.
+      const accessEl = canvas.closest('.mm3-home-access')
+      if (accessEl) {
+        const setEyes = (red) => { for (const boss of homeBosses) setBossMaskEyesRed(boss.group, red) }
+        const onAccessEnter = () => setEyes(true)
+        const onAccessLeave = () => setEyes(false)
+        accessEl.addEventListener('pointerenter', onAccessEnter)
+        accessEl.addEventListener('pointerleave', onAccessLeave)
+        hoverCleanup = () => {
+          accessEl.removeEventListener('pointerenter', onAccessEnter)
+          accessEl.removeEventListener('pointerleave', onAccessLeave)
+        }
+      }
+      const homeBot = addMiningBot(THREE, scene, {
+        color: '#22c55e',
+        position: [HOME_LINEUP_X[3], HOME_ARENA_FLOOR_Y, 0.08],
+        rotationY: Math.PI,
+        scale: HOME_LINEUP_BOT_SCALE,
+      })
+      const homeBotCar = addHomeBotCar(THREE, scene, {
+        botColor: '#f97316',
+        carColor: '#dc2626',
+        position: [HOME_LINEUP_X[5], 0, 0.10],
+        rotationY: Math.PI,
+        phase: Math.PI * .82,
+      })
+      const homeSoloCar = addHomeCar(THREE, scene, {
+        color: '#334155',
+        position: [HOME_LINEUP_X[1], 0, 0.16],
+        rotationY: Math.PI,
+        phase: Math.PI * 1.48,
+      })
+      const homeProps = [
+        { kind: 'bot', group: homeBot, baseY: HOME_ARENA_FLOOR_Y, baseRotationY: Math.PI, phase: Math.PI * .28, bob: 2.35, sway: .54 },
+        homeBotCar,
+        homeSoloCar,
+      ]
+
+      // Head-on framing: every lineup member turns to face the camera so each
+      // one reads frontal. No distance-based scale compensation — perspective
+      // projection keeps same-depth objects the same size, so all bosses and
+      // statues share one uniform scale (per-case height tweaks come later).
+      for (const entry of [...homeBosses, ...homeProps]) {
+        const g = entry.group
+        const yawToCamera = Math.atan2(camera.position.x - g.position.x, camera.position.z - g.position.z)
+        entry.baseRotationY += yawToCamera
+        g.rotation.y = entry.baseRotationY
+        // Off-axis perspective stretches width by ~sec(θ); pre-squash the local
+        // x axis so edge avatars render as wide as the centre ones.
+        g.scale.x *= Math.cos(yawToCamera)
+      }
 
       const resize = () => {
         const width = Math.max(1, canvas.clientWidth)
@@ -474,6 +669,7 @@ export default function HomeMiningWorld3D() {
         renderer.setSize(width, height, false)
         camera.aspect = width / height
         camera.updateProjectionMatrix()
+        frameCamera()
       }
       resizeObserver = new ResizeObserver(resize)
       resizeObserver.observe(canvas)
@@ -489,16 +685,24 @@ export default function HomeMiningWorld3D() {
         animationFrame = requestAnimationFrame(animate)
         if (!pageVisible || !inViewport) return
         const time = clock.getElapsedTime()
+        // Showcase spin timestep (shared by bosses, statue head and props).
+        const spinDt = time - (lastSpinTime ?? time)
+        lastSpinTime = time
         for (const boss of homeBosses) {
           const t = time + boss.phase
           const stride = Math.sin(t * boss.bob)
           if (boss.isStatue) {
             boss.bodyPivot.position.y = 0
-            boss.group.position.y = HOME_ARENA_FLOOR_Y
+            boss.group.position.y = boss.baseY
             boss.group.rotation.y = boss.baseRotationY
             boss.group.rotation.z = 0
             const armLift = Math.sin(t * 1.8) * 0.026
-            if (boss.head) boss.head.rotation.y = Math.sin(t * 1.35) * 0.34
+            if (boss.head) {
+              // Statue: only the head turns — full slow spins, random flips —
+              // plus a hint of nod, pivoted at the skull base.
+              boss.head.rotation.y = advanceShowcaseSpin(boss, spinDt)
+              boss.head.rotation.x = Math.sin(t * 0.55 + 1) * 0.045
+            }
             if (boss.leftArm) {
               boss.leftArm.rotation.z = 0
               boss.leftArm.position.x = -0.335
@@ -519,11 +723,30 @@ export default function HomeMiningWorld3D() {
             }
           } else {
             boss.bodyPivot.position.y = Math.max(0, stride * 0.06)
-            boss.group.position.y = HOME_ARENA_FLOOR_Y + Math.max(0, Math.sin(t * (boss.bob + 0.15)) * 0.018)
-            boss.group.rotation.y = boss.baseRotationY + Math.sin(t * boss.sway) * 0.42
+            boss.group.position.y = boss.baseY + Math.max(0, Math.sin(t * (boss.bob + 0.15)) * 0.018)
+            // Whole-body showcase spin, same logic as mining idle bosses.
+            boss.group.rotation.y = boss.baseRotationY + advanceShowcaseSpin(boss, spinDt)
             boss.group.rotation.z = Math.sin(t * (boss.sway + 0.65)) * 0.014
           }
           boss.glowLight.intensity = boss.baseGlow + Math.sin(t * 2.4) * 0.85
+        }
+        for (const prop of homeProps) {
+          const t = time + prop.phase
+          const lift = Math.max(0, Math.sin(t * prop.bob)) * (prop.kind === 'car' ? 0.018 : 0.032)
+          prop.group.position.y = prop.baseY + lift
+          // Same showcase spin as the bosses.
+          prop.group.rotation.y = prop.baseRotationY + advanceShowcaseSpin(prop, spinDt)
+          prop.group.rotation.z = Math.sin(t * (prop.sway + .7)) * (prop.kind === 'car' ? 0.006 : 0.012)
+          if (prop.kind === 'bot') {
+            const foot = Math.sin(t * 6.4) * 0.018
+            if (prop.group.userData.leftFoot) prop.group.userData.leftFoot.position.y = .075 + Math.max(0, foot)
+            if (prop.group.userData.rightFoot) prop.group.userData.rightFoot.position.y = .075 + Math.max(0, -foot)
+            if (prop.group.userData.leftSole) prop.group.userData.leftSole.position.y = .014 + Math.max(0, foot)
+            if (prop.group.userData.rightSole) prop.group.userData.rightSole.position.y = .014 + Math.max(0, -foot)
+          } else if (prop.kind === 'botCar' && prop.bot) {
+            // Ground level minus the anti-z-fight drop (see addHomeBotCar).
+            prop.bot.position.y = -.03 + Math.sin(t * 2.4) * .012
+          }
         }
         renderer.render(scene, camera)
       }
@@ -532,6 +755,7 @@ export default function HomeMiningWorld3D() {
 
     return () => {
       destroyed = true
+      hoverCleanup?.()
       document.removeEventListener('visibilitychange', onVisibilityChange)
       cancelAnimationFrame(animationFrame)
       resizeObserver?.disconnect()

@@ -20,6 +20,7 @@ import {
   buildRlNodeCell,
   RL_MOUNT_JUMP_MULT,
   RL_MOUNT_SPEED_MULT,
+  RL_NODE_ICON,
   RL_NODE_MIN_LEVEL,
   RL_NODE_POSITION,
   RL_NODE_PRICE_MM3,
@@ -30,14 +31,22 @@ import {
   getM2PitchBotSpots,
   M2_PITCH_DOME_BALL_RADIUS,
   M2_PITCH_DOME_CENTER,
+  M2_PITCH_DOME_FLOOR_Y,
   M2_PITCH_DOME_HEIGHT,
-  M2_PITCH_DOME_RADIUS,
+  M2_PITCH_DOME_PROFILE_BREAK,
+  M2_PITCH_DOME_RAMP_INNER_RADIUS,
+  M2_PITCH_DOME_TOP_RADIUS,
+  M2_PITCH_DOME_WALL_RADIUS,
   M2_PITCH_HOOP,
   updateM2PitchDomeRuntime,
 } from '@/lib/m2-pitch-dome'
 import { addM1MileiStatueReservedCells, createM1MileiStatueVisual } from '@/lib/m1-milei-statue'
 import { resolveBossStatueFacing, getBossStatuesForMap } from '@/lib/mining-boss-statue-registry'
 import { addVerticalArenaUsbStaff } from '@/lib/arena-usb-staff'
+import { roundedVoxelGeometry } from '@/lib/rounded-voxel'
+import { advanceShowcaseSpin } from '@/lib/map-boss-facing'
+import { setBossMaskEyesRed } from '@/lib/boss-head-photo'
+import { useSound } from '@/lib/sound-context'
 import {
   drawBossDollarBills,
   spawnBossDollarBurst,
@@ -117,7 +126,7 @@ const CAMERA_BEHIND_DIST = 1.35
 const CAMERA_ABOVE_OFFSET = 0.38
 const MAX_PITCH_UP   = 1.32   // ~76deg upward
 const MAX_PITCH_DOWN = 1.52   // ~87deg downward — extra look at feet/ledges
-const MOVE_SPD      = 47     // world units / second (~1.2 cells/sec)
+const MOVE_SPD      = 51.7   // world units / second (~1.3 cells/sec)
 const MOVE_ACCEL    = 11
 const TURN_SPD      = 1.35   // radians / second
 const HORIZON_RATIO = 0.50
@@ -2820,9 +2829,8 @@ function addOrganicObstacles(valid,reserved,cellMap){
     return true
   }
 
-  // Each quadrant gets its own palette so environments look distinct.
-  // 0=Genesis(NW), 1=DataVault(NE), 2=Legacy(SW), 3=Nexus(SE)
-  const zoneOf=(row,col)=>(row<28&&col<28)?0:(row<28?1:(col<28?2:3))
+  // Uniform decor palette everywhere (Genesis style) — quadrant split removed.
+  const zoneOf=()=>0
   const rampStyle =[
     {base:[48,72,82], glow:[34,211,238], kind:'data',      label:'GENESIS RAMP'  },
     {base:[52,78,112],glow:[103,232,249],kind:'hash',      label:'VAULT RAMP'    },
@@ -3914,29 +3922,48 @@ function drawMinimapGatewayTravelVisuals(ctx, mapId, mapX, mapY, CS) {
   const seaFill = 'rgba(14,62,88,.62)'
   const fontSize = Math.max(6, CS * 0.82)
 
+  const drawTravelIcon = (travel, cx, cy) => {
+    ctx.save()
+    ctx.shadowColor = 'rgba(56,189,248,.45)'
+    ctx.shadowBlur = 3
+    ctx.fillText(travel.emoji, cx, cy)
+    ctx.restore()
+  }
+
   for (const side of ['north', 'south', 'east', 'west']) {
     const edge = edges[side]
-    if (!edge?.open || !edge.fullEdge) continue
+    if (!edge?.open) continue
     const travel = getGatewayTravelVisual(edge.targetMapId)
-    const strip = getGatewayOuterSeaStrip(side)
-    ctx.fillStyle = seaFill
-    ctx.fillRect(
-      mapX(strip.minCol),
-      mapY(strip.minRow),
-      (strip.maxCol - strip.minCol + 1) * CS,
-      (strip.maxRow - strip.minRow + 1) * CS,
-    )
     ctx.font = `${fontSize}px serif`
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
-    for (const slot of iterGatewaySeaTravelSlots(side)) {
-      const cx = mapX(slot.col + 0.5)
-      const cy = mapY(slot.row + 0.5)
-      ctx.save()
-      ctx.shadowColor = 'rgba(56,189,248,.45)'
-      ctx.shadowBlur = 3
-      ctx.fillText(travel.emoji, cx, cy)
-      ctx.restore()
+    if (edge.fullEdge) {
+      const strip = getGatewayOuterSeaStrip(side)
+      ctx.fillStyle = seaFill
+      ctx.fillRect(
+        mapX(strip.minCol),
+        mapY(strip.minRow),
+        (strip.maxCol - strip.minCol + 1) * CS,
+        (strip.maxRow - strip.minRow + 1) * CS,
+      )
+      for (const slot of iterGatewaySeaTravelSlots(side)) {
+        drawTravelIcon(travel, mapX(slot.col + 0.5), mapY(slot.row + 0.5))
+      }
+      continue
+    }
+    // Band gateways (e.g. M1 → M3/M4): tint a short outer-ring sea segment
+    // behind each corridor band and drop one travel icon on it, so every
+    // connected map shows its entry visual, not only full-edge ones.
+    if (!edge.bands?.length) continue
+    for (const band of edge.bands) {
+      ctx.fillStyle = seaFill
+      if (side === 'north') ctx.fillRect(mapX(band - 1), mapY(0), 3 * CS, CS)
+      else if (side === 'south') ctx.fillRect(mapX(band - 1), mapY(55), 3 * CS, CS)
+      else if (side === 'west') ctx.fillRect(mapX(0), mapY(band - 1), CS, 3 * CS)
+      else ctx.fillRect(mapX(55), mapY(band - 1), CS, 3 * CS)
+      const cx = side === 'west' ? mapX(0.5) : side === 'east' ? mapX(55.5) : mapX(band + 0.5)
+      const cy = side === 'north' ? mapY(0.5) : side === 'south' ? mapY(55.5) : mapY(band + 0.5)
+      drawTravelIcon(travel, cx, cy)
     }
   }
 }
@@ -4033,6 +4060,13 @@ function drawMinimapEdgeExits(ctx, mapId, MX, MY, SZ, CS) {
   }
 
   const bandMid = (bands) => bands.reduce((sum, value) => sum + value, 0) / bands.length
+  // Label position beside the corridor band (toward the map centre) so the M#
+  // badge never covers the transport corridor tiles themselves.
+  const besideBand = (bands, axisCells) => {
+    const mid = bandMid(bands)
+    const off = (Math.max(...bands) - Math.min(...bands)) / 2 + 2.2
+    return mid < axisCells / 2 ? mid + off : mid - off
+  }
 
   // north
   if (!edges.north.open) drawClosedStrip(MX, MY, SZ, cap)
@@ -4042,7 +4076,7 @@ function drawMinimapEdgeExits(ctx, mapId, MX, MY, SZ, CS) {
     drawTicks(edges.north.bands, accent, (col) => {
       ctx.fillRect(MX + col * CS - tick / 2, MY, tick, cap)
     })
-    drawEdgeLabel(`M${edges.north.targetMapId}`, MX + bandMid(edges.north.bands) * CS, MY + cap + 1, 'center', 'top', accent)
+    drawEdgeLabel(`M${edges.north.targetMapId}`, MX + besideBand(edges.north.bands, COLS) * CS, MY + cap + 1, 'center', 'top', accent)
   }
 
   // south
@@ -4053,7 +4087,7 @@ function drawMinimapEdgeExits(ctx, mapId, MX, MY, SZ, CS) {
     drawTicks(edges.south.bands, accent, (col) => {
       ctx.fillRect(MX + col * CS - tick / 2, MY + SZ - cap, tick, cap)
     })
-    drawEdgeLabel(`M${edges.south.targetMapId}`, MX + bandMid(edges.south.bands) * CS, MY + SZ - cap - 1, 'center', 'bottom', accent)
+    drawEdgeLabel(`M${edges.south.targetMapId}`, MX + besideBand(edges.south.bands, COLS) * CS, MY + SZ - cap - 1, 'center', 'bottom', accent)
   }
 
   // west
@@ -4064,7 +4098,7 @@ function drawMinimapEdgeExits(ctx, mapId, MX, MY, SZ, CS) {
     drawTicks(edges.west.bands, accent, (row) => {
       ctx.fillRect(MX, MY + row * CS - tick / 2, cap, tick)
     })
-    drawEdgeLabel(`M${edges.west.targetMapId}`, MX + cap + 2, MY + bandMid(edges.west.bands) * CS, 'left', 'middle', accent)
+    drawEdgeLabel(`M${edges.west.targetMapId}`, MX + cap + 2, MY + besideBand(edges.west.bands, ROWS) * CS, 'left', 'middle', accent)
   }
 
   // east
@@ -4075,7 +4109,7 @@ function drawMinimapEdgeExits(ctx, mapId, MX, MY, SZ, CS) {
     drawTicks(edges.east.bands, accent, (row) => {
       ctx.fillRect(MX + SZ - cap, MY + row * CS - tick / 2, cap, tick)
     })
-    drawEdgeLabel(`M${edges.east.targetMapId}`, MX + SZ - cap - 2, MY + bandMid(edges.east.bands) * CS, 'right', 'middle', accent)
+    drawEdgeLabel(`M${edges.east.targetMapId}`, MX + SZ - cap - 2, MY + besideBand(edges.east.bands, ROWS) * CS, 'right', 'middle', accent)
   }
 }
 
@@ -4294,7 +4328,9 @@ function drawMinimap(ctx, gr, gc, angle, cellMap, presenceMap, myWallet, W, H, c
   for (const [key, cell] of cellMap) {
     if (!cell?.isPortalNode && !cell?.isNodeDiceNode && !cell?.isRlNode) continue
     const [row, col] = key.split(',').map(Number)
-    drawMapEmoji(cell.emoji || '◆', mapX(col + .5), mapY(row + .5), cell.color || C, 'circle')
+    // RL_NODE_ICON is a sentinel for the 3D car sprite, not printable text
+    const icon = cell.emoji === RL_NODE_ICON ? '🚙' : (cell.emoji || '◆')
+    drawMapEmoji(icon, mapX(col + .5), mapY(row + .5), cell.color || C, 'circle')
   }
 
   let chainDrawn = false
@@ -4387,38 +4423,91 @@ function drawMinimap(ctx, gr, gc, angle, cellMap, presenceMap, myWallet, W, H, c
   ctx.restore()
 }
 
+// Compact boss card. Desktop: centered 2-row card along the top. Portrait
+// mobile: slotted at the very top, centered in the free strip between the
+// wallet dock (left, 3-slot panel) and the minimap (right), overlapping
+// neither — name / state / hp bar stacked to fit the narrow gap.
 function drawBossHud(ctx, W, bossState, es, combatEngaged = false) {
   if (!bossState || bossState.state === 'dead') return
   const hp = Number(bossState.health) || 0
   const max = Number(bossState.maxHealth) || 5000
   const pct = Math.max(0, Math.min(1, hp / max))
-  const barW = Math.min(240, W - 32)
-  const barH = 10
-  const x = (W - barW) / 2
-  const y = 6
   const fighting = bossState.state === 'active' || combatEngaged
   const stateLabel = fighting
     ? (es ? 'EN COMBATE' : 'FIGHTING')
     : (es ? 'EN ESPERA' : 'WAITING')
+  const frameCol = fighting ? '#ef444488' : '#fbbf2466'
+  const titleCol = fighting ? '#fb923c' : '#fbbf24'
+  const barCol = fighting ? '#ef4444' : '#ca8a04'
+
+  if (W >= 600) {
+    const barW = Math.min(240, W - 32)
+    const barH = 12
+    const x = (W - barW) / 2
+    const y = 6
+    ctx.globalAlpha = 0.88
+    ctx.fillStyle = '#0a0505'
+    ctx.fillRect(x - 6, y - 2, barW + 12, barH + 19)
+    ctx.globalAlpha = 1
+    ctx.strokeStyle = frameCol
+    ctx.lineWidth = 1
+    ctx.strokeRect(x - 6, y - 2, barW + 12, barH + 19)
+    ctx.font = 'bold 11px monospace'
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'top'
+    ctx.fillStyle = titleCol
+    ctx.fillText(`${bossState.name || 'BOSS'} · ${stateLabel}`, x + barW / 2, y)
+    ctx.fillStyle = '#1a0a0a'
+    ctx.fillRect(x, y + 13, barW, barH)
+    ctx.fillStyle = barCol
+    ctx.fillRect(x, y + 13, barW * pct, barH)
+    ctx.fillStyle = '#fde68a'
+    ctx.font = '9px monospace'
+    ctx.fillText(`${hp} / ${max}`, x + barW / 2, y + 13 + 2)
+    return
+  }
+
+  // Mobile — free strip: wallet dock panel ends at x=120 (6 + 114); minimap
+  // panel starts at W - minimapSize(W) - 8 (incl. its 2px border).
+  const dockRight = 120
+  const mapLeft = W - minimapSize(W) - 8
+  const gap = mapLeft - dockRight
+  const cardW = Math.max(56, Math.min(150, gap - 10))
+  const bx = dockRight + (gap - cardW) / 2
+  const by = 6
+  const barH = 10
+  const cardH = 2 + 10 + 10 + barH + 4
   ctx.globalAlpha = 0.88
   ctx.fillStyle = '#0a0505'
-  ctx.fillRect(x - 6, y - 2, barW + 12, barH + 24)
+  ctx.fillRect(bx, by, cardW, cardH)
   ctx.globalAlpha = 1
-  ctx.strokeStyle = fighting ? '#ef444488' : '#fbbf2466'
+  ctx.strokeStyle = frameCol
   ctx.lineWidth = 1
-  ctx.strokeRect(x - 6, y - 2, barW + 12, barH + 24)
-  ctx.font = 'bold 11px monospace'
+  ctx.strokeRect(bx, by, cardW, cardH)
+  ctx.save()
+  ctx.beginPath()
+  ctx.rect(bx + 1, by + 1, cardW - 2, cardH - 2)
+  ctx.clip()
   ctx.textAlign = 'center'
   ctx.textBaseline = 'top'
-  ctx.fillStyle = fighting ? '#fb923c' : '#fbbf24'
-  ctx.fillText(`${bossState.name || 'BOSS'} · ${stateLabel}`, x + barW / 2, y + 1)
+  ctx.fillStyle = titleCol
+  ctx.font = 'bold 8px monospace'
+  ctx.fillText(bossState.name || 'BOSS', bx + cardW / 2, by + 3)
+  ctx.font = '8px monospace'
+  ctx.fillText(stateLabel, bx + cardW / 2, by + 13)
+  ctx.restore()
+  const barX = bx + 5
+  const barW = cardW - 10
+  const barY = by + 23
   ctx.fillStyle = '#1a0a0a'
-  ctx.fillRect(x, y + 15, barW, barH)
-  ctx.fillStyle = fighting ? '#ef4444' : '#ca8a04'
-  ctx.fillRect(x, y + 15, barW * pct, barH)
+  ctx.fillRect(barX, barY, barW, barH)
+  ctx.fillStyle = barCol
+  ctx.fillRect(barX, barY, barW * pct, barH)
   ctx.fillStyle = '#fde68a'
-  ctx.font = '9px monospace'
-  ctx.fillText(`${hp} / ${max}`, x + barW / 2, y + 15 + barH + 2)
+  ctx.font = '8px monospace'
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'top'
+  ctx.fillText(`${hp}/${max}`, bx + cardW / 2, barY + 1)
 }
 
 // ── Facing block HUD (top-right info card) ────────────────────────────────────
@@ -4517,8 +4606,9 @@ function drawFacingHUD(ctx, W, H, fwdCell, fwdMx, fwdMy, myWallet, es, dist, obs
     const inRange = dist == null || dist <= INTERACT_DIST
     const col = fwdCell.color || '#0ea5e9'
     const owned = Boolean(rlMountActive)
+    const nodeIcon = fwdCell.emoji === RL_NODE_ICON ? '🚙' : (fwdCell.emoji || '🚙')
     const lines = [
-      { text: `${fwdCell.emoji || '🏎️'}  ${fwdCell.titleEn || 'RL NODE'}`, size: 13, weight: 'bold', col },
+      { text: `${nodeIcon}  ${fwdCell.titleEn || 'RL NODE'}`, size: 13, weight: 'bold', col },
       { text: owned ? (es ? 'COCHE ACTIVO' : 'CAR ACTIVE') : `${RL_NODE_PRICE_MM3} MM3 · Lv ${RL_NODE_MIN_LEVEL}`, size: 10, col: owned ? '#4ade80cc' : '#94a3b8' },
       { text: es ? '2× velocidad · 2× salto · boost RL' : '2× speed · 2× jump · RL boost', size: 9, col: '#64748b' },
       inRange
@@ -4733,7 +4823,24 @@ function drawFacingHUD(ctx, W, H, fwdCell, fwdMx, fwdMy, myWallet, es, dist, obs
 }
 
 // ── Pickaxe sounds ──────────────────────────────────────────────────────────
+// Portal-wide sound toggle (Header/SoundToggle → SoundProvider → localStorage).
+// Every mining effect checks it at play time so muting silences the mine too.
+function portalSoundEnabled() {
+  if (typeof window === 'undefined') return false
+  return localStorage.getItem('mm3-sound-enabled') !== 'false'
+}
+
+// Statue interaction feedback: eyes burn red for a few seconds, then back to holo.
+function flashBossStatueEyes(threeState, ms = 5000) {
+  const group = threeState?.m1MileiStatueGroup
+  if (!group) return
+  setBossMaskEyesRed(group, true)
+  clearTimeout(group.userData.eyeRedTimer)
+  group.userData.eyeRedTimer = setTimeout(() => setBossMaskEyesRed(group, false), ms)
+}
+
 function playPickHit(audioCtxRef, type) {
+  if (!portalSoundEnabled()) return
   try {
     if (!audioCtxRef.current)
       audioCtxRef.current = new (window.AudioContext || window.webkitAudioContext)()
@@ -4790,6 +4897,7 @@ function playPickHit(audioCtxRef, type) {
 }
 
 function playM2HoopScoreSound(audioCtxRef) {
+  if (!portalSoundEnabled()) return
   try {
     if (!audioCtxRef.current)
       audioCtxRef.current = new (window.AudioContext || window.webkitAudioContext)()
@@ -4824,6 +4932,7 @@ function playM2HoopScoreSound(audioCtxRef) {
 }
 
 function playNodeDiceWeatherSound(audioCtxRef, mode = 'meteo') {
+  if (!portalSoundEnabled()) return
   try {
     if (!audioCtxRef.current)
       audioCtxRef.current = new (window.AudioContext || window.webkitAudioContext)()
@@ -4858,6 +4967,7 @@ function playNodeDiceWeatherSound(audioCtxRef, mode = 'meteo') {
 }
 
 function playBossDollarAttackSound(audioCtxRef) {
+  if (!portalSoundEnabled()) return
   try {
     if (!audioCtxRef.current)
       audioCtxRef.current = new (window.AudioContext || window.webkitAudioContext)()
@@ -4905,6 +5015,7 @@ function playBossDollarAttackSound(audioCtxRef) {
 }
 
 function playPutinHammerAttackSound(audioCtxRef) {
+  if (!portalSoundEnabled()) return
   try {
     if (!audioCtxRef.current)
       audioCtxRef.current = new (window.AudioContext || window.webkitAudioContext)()
@@ -4938,6 +5049,7 @@ function playPutinHammerAttackSound(audioCtxRef) {
 }
 
 function playKimMissileAttackSound(audioCtxRef) {
+  if (!portalSoundEnabled()) return
   try {
     if (!audioCtxRef.current)
       audioCtxRef.current = new (window.AudioContext || window.webkitAudioContext)()
@@ -5225,14 +5337,17 @@ function drawChainStats(ctx, W, H, stats, es, top = 8) {
   const { owned, marketOwned, totalRegular, totalNFTJI, pct } = stats
   const regularMined = owned
 
+  // Abbreviated labels so the panel matches the wallet dock width above it.
   const lines = [
-    { label: 'MM3 BLOCK CHAIN',    val: null, header: true },
-    { label: 'Regular Blocks',     val: `${regularMined} / ${totalRegular}` },
-    { label: 'NFTJI Blocks',       val: `${marketOwned} / ${totalNFTJI}` },
+    { label: 'MM3 CHAIN', val: null, header: true },
+    { label: 'Regular',   val: `${regularMined}/${totalRegular}` },
+    { label: 'NFTJI',     val: `${marketOwned}/${totalNFTJI}` },
   ]
 
   const LINE_H = 13, PAD_X = 8, PAD_Y = 6
-  const pw = 158, ph = lines.length * LINE_H + PAD_Y * 2 + 9
+  // Same width as the wallet dock panel (3 skill slots + padding).
+  const pw = W < 600 ? 114 : 132
+  const ph = lines.length * LINE_H + PAD_Y * 2 + 9
   const px = 6
   const py = top
 
@@ -5492,6 +5607,7 @@ function drawOnlineList(ctx, W, H, presenceMap, myWallet, pvpStolen, demineRewar
 
 // ── Footstep / vehicle drive sounds (procedural via Web Audio API) ───────────
 function playWalkStep(audioCtxRef) {
+  if (!portalSoundEnabled()) return
   try {
     if (!audioCtxRef.current) {
       audioCtxRef.current = new (window.AudioContext || window.webkitAudioContext)()
@@ -5519,6 +5635,7 @@ function playWalkStep(audioCtxRef) {
 }
 
 function playCarDriveSound(audioCtxRef) {
+  if (!portalSoundEnabled()) return
   try {
     if (!audioCtxRef.current) {
       audioCtxRef.current = new (window.AudioContext || window.webkitAudioContext)()
@@ -5610,11 +5727,11 @@ function makeRampGeometry(direction='east') {
   return geometry
 }
 
-function biomeForCell(row,col) {
-  if(row<ROWS/2&&col<COLS/2) return 'mountain'
-  if(row<ROWS/2) return 'coast'
-  if(col<COLS/2) return 'ice'
-  return 'inferno'
+// Single uniform biome on every map — the per-quadrant split (mountain/coast/
+// ice/inferno) was dropped: one ground colour, one block palette, one static
+// atmosphere. Signature kept so all call sites stay untouched.
+function biomeForCell() {
+  return 'mountain'
 }
 
 const BIOME_STYLE={
@@ -5786,11 +5903,12 @@ function createBiomeAtlasTexture(quadSize = 256) {
   atlas.width = quadSize * 2
   atlas.height = quadSize * 2
   const ctx = atlas.getContext('2d')
+  // All four atlas tiles share the uniform biome; UV layout stays the same.
   const layout = [
-    ['ice', 0, 0],
-    ['inferno', quadSize, 0],
+    ['mountain', 0, 0],
+    ['mountain', quadSize, 0],
     ['mountain', 0, quadSize],
-    ['coast', quadSize, quadSize],
+    ['mountain', quadSize, quadSize],
   ]
   for (const [biome, x, y] of layout) {
     const tile = renderProceduralTextureCanvas(biome, quadSize)
@@ -6919,24 +7037,23 @@ function addIslandSurroundCoast(world, textures, lowDetail = false, mapId = MINI
   const ringWidth = islandSpan
   const ringHeight = islandSpan
 
-  // North shore — gravel (mountain) west, golden sand (coast) east.
-  addShore({ width: halfSpan, depth: borderStrip, x: westHalfX, z: northBeachZ, material: makeSandMaterial(textures, 'mountain'), y: shoreY })
-  addShore({ width: halfSpan, depth: borderStrip, x: eastHalfX, z: northBeachZ, material: makeSandMaterial(textures, 'coast'), y: shoreY })
+  // Uniform gravel shore on all four sides (quadrant sand variants removed);
+  // one shared material, same strip layout as before.
+  const shoreMat = makeSandMaterial(textures, 'mountain')
+  addShore({ width: halfSpan, depth: borderStrip, x: westHalfX, z: northBeachZ, material: shoreMat, y: shoreY })
+  addShore({ width: halfSpan, depth: borderStrip, x: eastHalfX, z: northBeachZ, material: shoreMat, y: shoreY })
   addShore({ width: ringWidth, depth: seaDepth, x: islandCenter, z: northSeaZ, material: seaMat, y: shoreY + .02, water: true, foam: true, foamDz: seaDepth * .28 })
 
-  // South — icy shore west, volcanic ash east.
-  addShore({ width: halfSpan, depth: borderStrip, x: westHalfX, z: southBeachZ, material: makeSandMaterial(textures, 'ice'), y: shoreY })
-  addShore({ width: halfSpan, depth: borderStrip, x: eastHalfX, z: southBeachZ, material: makeSandMaterial(textures, 'inferno'), y: shoreY })
+  addShore({ width: halfSpan, depth: borderStrip, x: westHalfX, z: southBeachZ, material: shoreMat, y: shoreY })
+  addShore({ width: halfSpan, depth: borderStrip, x: eastHalfX, z: southBeachZ, material: shoreMat, y: shoreY })
   addShore({ width: ringWidth, depth: seaDepth, x: islandCenter, z: southSeaZ, material: seaMat, y: shoreY + .02, water: true, foam: true, foamDz: -seaDepth * .28 })
 
-  // West — mountain north, ice south.
-  addShore({ width: borderStrip, depth: halfSpan, x: westBeachX, z: northHalfZ, material: makeSandMaterial(textures, 'mountain'), y: shoreY })
-  addShore({ width: borderStrip, depth: halfSpan, x: westBeachX, z: southHalfZ, material: makeSandMaterial(textures, 'ice'), y: shoreY })
+  addShore({ width: borderStrip, depth: halfSpan, x: westBeachX, z: northHalfZ, material: shoreMat, y: shoreY })
+  addShore({ width: borderStrip, depth: halfSpan, x: westBeachX, z: southHalfZ, material: shoreMat, y: shoreY })
   addShore({ width: seaDepth, depth: ringHeight, x: westSeaX, z: islandCenter, material: seaMat, y: shoreY + .02, water: true, foam: true, foamDx: seaDepth * .28 })
 
-  // East — coast north, inferno south.
-  addShore({ width: borderStrip, depth: halfSpan, x: eastBeachX, z: northHalfZ, material: makeSandMaterial(textures, 'coast'), y: shoreY })
-  addShore({ width: borderStrip, depth: halfSpan, x: eastBeachX, z: southHalfZ, material: makeSandMaterial(textures, 'inferno'), y: shoreY })
+  addShore({ width: borderStrip, depth: halfSpan, x: eastBeachX, z: northHalfZ, material: shoreMat, y: shoreY })
+  addShore({ width: borderStrip, depth: halfSpan, x: eastBeachX, z: southHalfZ, material: shoreMat, y: shoreY })
   addShore({ width: seaDepth, depth: ringHeight, x: eastSeaX, z: islandCenter, material: seaMat, y: shoreY + .02, water: true, foam: true, foamDx: -seaDepth * .28 })
 
   addPerimeterCellSofteningVisuals(world, mapId, lowDetail)
@@ -7218,6 +7335,66 @@ function drawUsFlagOnCanvas(ctx, x, y, w, h) {
   }
 }
 
+function drawRlSuvOnCanvas(ctx, x = 21, y = 35, w = 86, h = 56) {
+  ctx.save()
+  ctx.translate(x, y)
+  ctx.shadowColor = 'rgba(14,165,233,0.35)'
+  ctx.shadowBlur = 10
+  const body = new Path2D()
+  body.moveTo(w * 0.08, h * 0.66)
+  body.lineTo(w * 0.13, h * 0.44)
+  body.quadraticCurveTo(w * 0.18, h * 0.25, w * 0.35, h * 0.22)
+  body.lineTo(w * 0.64, h * 0.20)
+  body.quadraticCurveTo(w * 0.78, h * 0.21, w * 0.88, h * 0.38)
+  body.lineTo(w * 0.94, h * 0.64)
+  body.quadraticCurveTo(w * 0.90, h * 0.75, w * 0.78, h * 0.75)
+  body.lineTo(w * 0.22, h * 0.75)
+  body.quadraticCurveTo(w * 0.11, h * 0.75, w * 0.08, h * 0.66)
+  ctx.fillStyle = '#26323f'
+  ctx.fill(body)
+  ctx.shadowBlur = 0
+  ctx.strokeStyle = '#6b7280'
+  ctx.lineWidth = 2.2
+  ctx.stroke(body)
+
+  ctx.fillStyle = '#111827'
+  ctx.fillRect(w * 0.23, h * 0.38, w * 0.18, h * 0.18)
+  ctx.fillRect(w * 0.45, h * 0.35, w * 0.21, h * 0.20)
+  ctx.fillStyle = '#0b1220'
+  ctx.fillRect(w * 0.15, h * 0.59, w * 0.68, h * 0.08)
+  ctx.fillStyle = '#ef4444'
+  ctx.fillRect(w * 0.10, h * 0.55, w * 0.09, h * 0.05)
+  ctx.fillStyle = '#e5e7eb'
+  ctx.fillRect(w * 0.84, h * 0.52, w * 0.07, h * 0.05)
+
+  for (const wx of [w * 0.27, w * 0.73]) {
+    ctx.beginPath()
+    ctx.arc(wx, h * 0.75, h * 0.16, 0, Math.PI * 2)
+    ctx.fillStyle = '#0f172a'
+    ctx.fill()
+    ctx.strokeStyle = '#64748b'
+    ctx.lineWidth = 2
+    ctx.stroke()
+    ctx.beginPath()
+    ctx.arc(wx, h * 0.75, h * 0.075, 0, Math.PI * 2)
+    ctx.fillStyle = '#cbd5e1'
+    ctx.fill()
+    ctx.strokeStyle = '#334155'
+    ctx.lineWidth = 1.3
+    ctx.stroke()
+    for (let i = 0; i < 8; i += 1) {
+      const a = i * Math.PI / 4
+      ctx.beginPath()
+      ctx.moveTo(wx, h * 0.75)
+      ctx.lineTo(wx + Math.cos(a) * h * 0.12, h * 0.75 + Math.sin(a) * h * 0.12)
+      ctx.strokeStyle = '#94a3b8'
+      ctx.lineWidth = 0.8
+      ctx.stroke()
+    }
+  }
+  ctx.restore()
+}
+
 function makeEmojiSprite(emoji,color,shape='square') {
   const canvas=document.createElement('canvas')
   canvas.width=128;canvas.height=128
@@ -7230,7 +7407,9 @@ function makeEmojiSprite(emoji,color,shape='square') {
   if(shape==='circle'){ context.arc(64,64,56,0,Math.PI*2) } else { context.rect(8,8,112,112) }
   context.fill();context.stroke()
   context.shadowBlur=0
-  if(emoji==='🎲'){
+  if(emoji===RL_NODE_ICON){
+    drawRlSuvOnCanvas(context)
+  }else if(emoji==='🎲'){
     context.fillStyle='#f8fafc'
     context.strokeStyle=color||'#facc15'
     context.lineWidth=5
@@ -10539,12 +10718,6 @@ function addRlColiseumNodeVisual(world, lowDetail, state) {
   podium.position.y = 0.18
   showcase.add(podium)
 
-  const car = createRlCarMesh(lowDetail, { showcase: true })
-  car.scale.setScalar(1.28)
-  car.rotation.y = Math.PI / 6
-  car.position.y = 0.28
-  showcase.add(car)
-
   const orb = new THREE.Mesh(
     new THREE.SphereGeometry(lowDetail ? 0.38 : 0.44, lowDetail ? 10 : 14, lowDetail ? 8 : 10),
     new THREE.MeshStandardMaterial({
@@ -10599,7 +10772,14 @@ function addRlColiseumNodeVisual(world, lowDetail, state) {
 function updateM1MileiStatueMotion(motion, time) {
   if (!motion) return
   const armLift = Math.sin(time * 1.8) * 0.026
-  if (motion.head) motion.head.rotation.y = Math.sin(time * 1.35) * 0.34
+  const dt = time - (motion.lastSpinTime ?? time)
+  motion.lastSpinTime = time
+  if (motion.head) {
+    // Showcase head spin: full slow turns with random direction flips, plus a
+    // hint of nod, pivoted at the skull base.
+    motion.head.rotation.y = advanceShowcaseSpin(motion, dt)
+    motion.head.rotation.x = Math.sin(time * 0.55 + 1) * 0.045
+  }
   if (motion.leftArm) {
     motion.leftArm.rotation.z = 0
     motion.leftArm.position.y = 0.52 + armLift
@@ -10654,17 +10834,17 @@ function addM2PitchDomeDecor(world, lowDetail, state) {
   root.add(ballMesh)
 
   const botEntries = []
-  const botNames = ['Aserejee', 'Player 2', 'Player 3', 'Player 4', 'Player5', 'Player 6']
+  const botNames = ['Aserejee', 'Bot 1', 'Bot 2', 'Bot 3']
   getM2PitchBotSpots().forEach((spot, index) => {
     const botGroup = new THREE.Group()
     botGroup.userData.skipOcclusion = true
     botGroup.matrixAutoUpdate = true
-    const carColor = index === 0 ? '#f8fafc' : spot.color
+    const carColor = spot.color || (index === 0 ? '#f8fafc' : '#ef4444')
     const car = createRlCarMesh(lowDetail, { decor: true, teamColor: carColor })
     car.scale.setScalar(0.84)
     car.position.y = 0.24
     botGroup.add(car)
-    const label = createM2BotNameLabel(botNames[index] || `Player ${index + 1}`, index === 0 ? '#f8fafc' : spot.color)
+    const label = createM2BotNameLabel(botNames[index] || `Bot ${index}`, carColor)
     label.position.y = 1.05
     botGroup.add(label)
     botGroup.position.set(spot.homeX, 0, spot.homeZ)
@@ -10687,24 +10867,24 @@ function addM2PitchDomeDecor(world, lowDetail, state) {
 function addM2PitchInnerRamp(root, cx, cz, lowDetail = false) {
   const segments = lowDetail ? 36 : 72
   const rings = lowDetail ? 8 : 14
-  const innerR = M2_PITCH_DOME_RADIUS * 0.46
-  const outerR = M2_PITCH_DOME_RADIUS * 0.98
-  const topR = M2_PITCH_DOME_RADIUS * 0.66
-  const height = 5.7
+  const innerR = M2_PITCH_DOME_RAMP_INNER_RADIUS
+  const outerR = M2_PITCH_DOME_WALL_RADIUS
+  const topR = M2_PITCH_DOME_TOP_RADIUS
+  const height = M2_PITCH_DOME_HEIGHT
   const vertices = []
   const indices = []
 
   for (let j = 0; j <= rings; j += 1) {
     const t = j / rings
-    const open = t < 0.68
-      ? (t / 0.68) ** 0.82
+    const open = t < M2_PITCH_DOME_PROFILE_BREAK
+      ? (t / M2_PITCH_DOME_PROFILE_BREAK) ** 0.82
       : 1
-    const close = t <= 0.68
+    const close = t <= M2_PITCH_DOME_PROFILE_BREAK
       ? 0
-      : ((t - 0.68) / 0.32) ** 1.18
+      : ((t - M2_PITCH_DOME_PROFILE_BREAK) / (1 - M2_PITCH_DOME_PROFILE_BREAK)) ** 1.18
     const r = innerR + (outerR - innerR) * open - (outerR - topR) * close
     const s = t * t * (3 - 2 * t)
-    const y = 0.035 + Math.pow(s, 1.55) * height
+    const y = M2_PITCH_DOME_FLOOR_Y + Math.pow(s, 1.55) * height
     for (let i = 0; i <= segments; i += 1) {
       const a = (i / segments) * Math.PI * 2
       vertices.push(cx + Math.cos(a) * r, y, cz + Math.sin(a) * r)
@@ -10968,40 +11148,84 @@ function createM2TechBall(lowDetail = false) {
 
 function createRlCarMesh(lowDetail = false, { showcase = false, decor = false, teamColor = '#0ea5e9' } = {}) {
   const group = new THREE.Group()
-  const bodyMat = lowDetail
-    ? new THREE.MeshLambertMaterial({ color: teamColor })
-    : new THREE.MeshStandardMaterial({ color: teamColor, roughness: 0.34, metalness: 0.48, emissive: '#0369a1', emissiveIntensity: 0.18 })
-  const darkMat = new THREE.MeshLambertMaterial({ color: '#0f172a' })
-  const chassis = new THREE.Mesh(new THREE.BoxGeometry(0.70, 0.20, 1.02), bodyMat)
-  chassis.position.y = 0.13
-  group.add(chassis)
-  const cabin = new THREE.Mesh(new THREE.BoxGeometry(0.54, 0.16, 0.50), bodyMat)
-  cabin.position.set(0, 0.30, -0.06)
-  group.add(cabin)
-  const nose = new THREE.Mesh(new THREE.BoxGeometry(0.58, 0.10, 0.22), bodyMat)
-  nose.position.set(0, 0.18, -0.46)
-  group.add(nose)
-  const spoiler = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.05, 0.10), bodyMat)
-  spoiler.position.set(0, 0.36, 0.46)
-  group.add(spoiler)
-  const headLight = new THREE.Mesh(new THREE.BoxGeometry(0.48, 0.06, 0.05), new THREE.MeshBasicMaterial({ color: '#e0f2fe' }))
-  headLight.position.set(0, 0.17, -0.54)
-  group.add(headLight)
-  for (const [wx, wz] of [[-0.30, 0.32], [0.30, 0.32], [-0.30, -0.32], [0.30, -0.32]]) {
-    const wheel = new THREE.Mesh(new THREE.CylinderGeometry(0.10, 0.10, 0.07, lowDetail ? 6 : 8), darkMat)
-    wheel.rotation.z = Math.PI / 2
-    wheel.position.set(wx, 0.10, wz)
-    group.add(wheel)
+  const teamKey = String(teamColor || '').toLowerCase()
+  const isAserejeeCar = decor && (teamKey === '#f8fafc' || teamKey === '#ffffff')
+  const isBotTeamCar = decor && !isAserejeeCar
+  const shellColor = isAserejeeCar ? '#f8fafc' : isBotTeamCar ? '#dc2626' : '#2d3742'
+  const upperColor = isAserejeeCar ? '#cbd5e1' : isBotTeamCar ? '#7f1d1d' : '#202936'
+  const trimColor = isAserejeeCar ? '#1e293b' : '#0b1220'
+  const glassColor = isAserejeeCar ? '#172554' : '#0e1726'
+  const rimColor = isAserejeeCar ? '#64748b' : '#cbd5e1'
+  const shellMat = lowDetail
+    ? new THREE.MeshLambertMaterial({ color: shellColor })
+    : new THREE.MeshStandardMaterial({ color: shellColor, roughness: 0.56, metalness: 0.42, emissive: isBotTeamCar ? '#450a0a' : '#020617', emissiveIntensity: 0.12 })
+  const upperMat = lowDetail
+    ? new THREE.MeshLambertMaterial({ color: upperColor })
+    : new THREE.MeshStandardMaterial({ color: upperColor, roughness: 0.5, metalness: 0.34 })
+  const trimMat = new THREE.MeshLambertMaterial({ color: trimColor })
+  const glassMat = new THREE.MeshBasicMaterial({ color: glassColor, transparent: true, opacity: 0.82 })
+  const accentMat = new THREE.MeshBasicMaterial({ color: teamColor })
+  const lightMat = new THREE.MeshBasicMaterial({ color: '#e5f4ff' })
+  const tailMat = new THREE.MeshBasicMaterial({ color: '#ef4444' })
+  const tireMat = new THREE.MeshLambertMaterial({ color: '#05070b' })
+  const rimMat = new THREE.MeshLambertMaterial({ color: rimColor })
+
+  // Rounded voxels — same soft-edged look as the home lineup cars.
+  const addBox = (name, size, pos, mat, rot = null) => {
+    const mesh = new THREE.Mesh(roundedVoxelGeometry(THREE, ...size), mat)
+    mesh.name = name
+    mesh.position.set(...pos)
+    if (rot) mesh.rotation.set(...rot)
+    group.add(mesh)
+    return mesh
   }
+
+  addBox('suv-lower-chassis', [0.86, 0.22, 1.18], [0, 0.16, 0.02], shellMat)
+  addBox('suv-hood', [0.74, 0.13, 0.34], [0, 0.26, -0.44], shellMat)
+  addBox('suv-rear-block', [0.82, 0.25, 0.34], [0, 0.28, 0.43], shellMat)
+  addBox('suv-cabin', [0.68, 0.26, 0.58], [0, 0.43, -0.02], upperMat)
+  addBox('suv-roof', [0.74, 0.055, 0.68], [0, 0.60, -0.01], trimMat)
+  addBox('suv-front-glass', [0.54, 0.075, 0.08], [0, 0.47, -0.34], glassMat, [0.28, 0, 0])
+  addBox('suv-rear-glass', [0.54, 0.075, 0.08], [0, 0.46, 0.32], glassMat, [-0.22, 0, 0])
+  for (const sx of [-1, 1]) {
+    addBox('suv-side-window', [0.035, 0.15, 0.34], [sx * 0.36, 0.46, -0.04], glassMat)
+    addBox('suv-door-panel', [0.032, 0.13, 0.34], [sx * 0.435, 0.25, 0.03], trimMat)
+    addBox('suv-fender-front', [0.04, 0.10, 0.22], [sx * 0.45, 0.20, -0.38], trimMat)
+    addBox('suv-fender-rear', [0.04, 0.10, 0.22], [sx * 0.45, 0.20, 0.42], trimMat)
+    addBox('suv-accent-side', [0.038, 0.045, 0.36], [sx * 0.455, 0.30, 0.08], accentMat)
+  }
+  addBox('suv-grille', [0.50, 0.07, 0.035], [0, 0.25, -0.625], trimMat)
+  addBox('suv-headlight', [0.56, 0.045, 0.035], [0, 0.29, -0.648], lightMat)
+  addBox('suv-tail-light', [0.62, 0.055, 0.035], [0, 0.30, 0.64], tailMat)
+  addBox('suv-roof-spoiler', [0.76, 0.04, 0.12], [0, 0.62, 0.38], trimMat)
+  addBox('suv-front-accent', [0.42, 0.035, 0.025], [0, 0.34, -0.665], accentMat)
+
+  for (const [wx, wz] of [[-0.43, 0.38], [0.43, 0.38], [-0.43, -0.36], [0.43, -0.36]]) {
+    const wheel = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.14, 0.09, lowDetail ? 8 : 16), tireMat)
+    wheel.rotation.z = Math.PI / 2
+    wheel.position.set(wx, 0.13, wz)
+    group.add(wheel)
+    const rim = new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.075, 0.096, lowDetail ? 8 : 14), rimMat)
+    rim.rotation.z = Math.PI / 2
+    rim.position.set(wx, 0.13, wz)
+    group.add(rim)
+    if (!lowDetail) {
+      for (let i = 0; i < 6; i += 1) {
+        const spoke = addBox('suv-wheel-spoke', [0.008, 0.018, 0.13], [wx, 0.13, wz], trimMat, [0, 0, i * Math.PI / 6])
+        spoke.rotation.y = Math.PI / 2
+      }
+    }
+  }
+
   const boost = new THREE.Group()
   boost.visible = false
   boost.userData.rlBoost = true
-  for (const dx of [-0.10, 0.10]) {
+  for (const dx of [-0.16, 0.16]) {
     const flame = new THREE.Mesh(
-      new THREE.ConeGeometry(0.07, 0.24, 5),
+      new THREE.ConeGeometry(0.065, 0.26, 6),
       new THREE.MeshBasicMaterial({ color: '#fb923c', transparent: true, opacity: 0.86, depthWrite: false }),
     )
-    flame.position.set(dx, 0.20, 0.56)
+    flame.position.set(dx, 0.23, 0.75)
     flame.rotation.x = Math.PI
     flame.userData.biomeSurface = 'fire'
     flame.userData.phase = dx
@@ -11030,24 +11254,25 @@ function applyRlMountVisual(avatar, mounted, threeState = null) {
   const car = avatar.userData.rlCar
   car.visible = mounted && !avatar.userData.wasDead
   if (avatar.userData.bodyParts) {
-    for (const part of avatar.userData.bodyParts) part.visible = !mounted
+    const hidden = mounted ? new Set(avatar.userData.mountHiddenParts || []) : null
+    for (const part of avatar.userData.bodyParts) part.visible = !hidden || !hidden.has(part)
   }
+  // Mounted keeps head, antenna and USB staff at their standing pose — the bot
+  // rides the car with the same silhouette instead of sinking into the roof.
   if (avatar.userData.tool) {
     avatar.userData.tool.visible = !avatar.userData.wasDead && !avatar.userData.isHealingRecharge
-    if (mounted) {
-      avatar.userData.tool.position.set(0.34, 0.42, 0.08)
-    } else if (avatar.userData.rlStandToolPos) {
+    if (avatar.userData.rlStandToolPos) {
       avatar.userData.tool.position.copy(avatar.userData.rlStandToolPos)
     }
   }
   if (avatar.userData.head) {
-    avatar.userData.head.position.y = mounted ? 0.50 : avatar.userData.rlMountedHeadY
+    avatar.userData.head.position.y = avatar.userData.rlMountedHeadY
   }
   if (avatar.userData.antennaStem) {
-    avatar.userData.antennaStem.position.y = mounted ? 0.685 : avatar.userData.rlMountedAntStemY
+    avatar.userData.antennaStem.position.y = avatar.userData.rlMountedAntStemY
   }
   if (avatar.userData.antennaTip) {
-    avatar.userData.antennaTip.position.y = mounted ? 0.755 : avatar.userData.rlMountedAntTipY
+    avatar.userData.antennaTip.position.y = avatar.userData.rlMountedAntTipY
   }
   if (mounted && threeState && car.userData.boostFx) {
     for (const child of car.userData.boostFx.children) {
@@ -11099,41 +11324,42 @@ function createThreeWalletAvatar(wallet) {
   const goldMat=new THREE.MeshBasicMaterial({color:'#facc15'})
   const magentaMat=new THREE.MeshBasicMaterial({color:'#d946ef'})
 
-  const torso=new THREE.Mesh(new THREE.BoxGeometry(.46,.48,.27),bodyMat)
+  // Rounded voxels — same soft-edged look as the home lineup bots.
+  const torso=new THREE.Mesh(roundedVoxelGeometry(THREE,.46,.48,.27),bodyMat)
   torso.position.y=.39;avatar.add(torso)
-  const chestPlate=new THREE.Mesh(new THREE.BoxGeometry(.31,.22,.025),darkMat)
+  const chestPlate=new THREE.Mesh(roundedVoxelGeometry(THREE,.31,.22,.025),darkMat)
   chestPlate.position.set(0,.43,-.151);avatar.add(chestPlate)
-  const chestInset=new THREE.Mesh(new THREE.BoxGeometry(.20,.105,.014),new THREE.MeshBasicMaterial({color:'#03121c'}))
+  const chestInset=new THREE.Mesh(roundedVoxelGeometry(THREE,.20,.105,.014),new THREE.MeshBasicMaterial({color:'#03121c'}))
   chestInset.position.set(0,.44,-.168);avatar.add(chestInset)
-  const core=new THREE.Mesh(new THREE.BoxGeometry(.095,.055,.014),goldMat)
+  const core=new THREE.Mesh(roundedVoxelGeometry(THREE,.095,.055,.014),goldMat)
   core.position.set(0,.44,-.178);avatar.add(core)
-  const belt=new THREE.Mesh(new THREE.BoxGeometry(.48,.065,.29),darkMat)
+  const belt=new THREE.Mesh(roundedVoxelGeometry(THREE,.48,.065,.29),darkMat)
   belt.position.y=.20;avatar.add(belt)
-  const beltNode=new THREE.Mesh(new THREE.BoxGeometry(.08,.06,.025),cyanMat)
+  const beltNode=new THREE.Mesh(roundedVoxelGeometry(THREE,.08,.06,.025),cyanMat)
   beltNode.position.set(0,.20,-.166);avatar.add(beltNode)
 
-  const shoulderGeometry=new THREE.BoxGeometry(.13,.20,.25)
+  const shoulderGeometry=roundedVoxelGeometry(THREE,.13,.20,.25)
   const shoulderL=new THREE.Mesh(shoulderGeometry,midMat);shoulderL.position.set(-.295,.51,0);avatar.add(shoulderL)
   const shoulderR=shoulderL.clone();shoulderR.position.x=.295;avatar.add(shoulderR)
-  const armGeometry=new THREE.BoxGeometry(.09,.25,.11)
+  const armGeometry=roundedVoxelGeometry(THREE,.09,.25,.11)
   const armL=new THREE.Mesh(armGeometry,darkMat);armL.position.set(-.30,.36,0);avatar.add(armL)
   const armR=armL.clone();armR.position.x=.30;avatar.add(armR)
-  const hand=new THREE.Mesh(new THREE.BoxGeometry(.10,.10,.12),brightMat);hand.position.set(.31,.22,-.01);avatar.add(hand)
+  const hand=new THREE.Mesh(roundedVoxelGeometry(THREE,.10,.10,.12),brightMat);hand.position.set(.31,.22,-.01);avatar.add(hand)
 
-  const neck=new THREE.Mesh(new THREE.BoxGeometry(.13,.07,.13),darkMat);neck.position.y=.68;avatar.add(neck)
-  const head=new THREE.Mesh(new THREE.BoxGeometry(.34,.25,.25),brightMat);head.position.y=.82;avatar.add(head)
-  const headFrame=new THREE.Mesh(new THREE.BoxGeometry(.27,.105,.018),darkMat);headFrame.position.set(0,.84,-.139);avatar.add(headFrame)
-  const visor=new THREE.Mesh(new THREE.BoxGeometry(.205,.045,.012),cyanMat);visor.position.set(0,.84,-.153);avatar.add(visor)
-  const visorPixel=new THREE.Mesh(new THREE.BoxGeometry(.035,.025,.008),new THREE.MeshBasicMaterial({color:'#ffffff'}));visorPixel.position.set(-.067,.846,-.161);avatar.add(visorPixel)
-  const earL=new THREE.Mesh(new THREE.BoxGeometry(.07,.11,.17),midMat);earL.position.set(-.205,.81,0);avatar.add(earL)
+  const neck=new THREE.Mesh(roundedVoxelGeometry(THREE,.13,.07,.13),darkMat);neck.position.y=.68;avatar.add(neck)
+  const head=new THREE.Mesh(roundedVoxelGeometry(THREE,.34,.25,.25),brightMat);head.position.y=.82;avatar.add(head)
+  const headFrame=new THREE.Mesh(roundedVoxelGeometry(THREE,.27,.105,.018),darkMat);headFrame.position.set(0,.84,-.139);avatar.add(headFrame)
+  const visor=new THREE.Mesh(roundedVoxelGeometry(THREE,.205,.045,.012),cyanMat);visor.position.set(0,.84,-.153);avatar.add(visor)
+  const visorPixel=new THREE.Mesh(roundedVoxelGeometry(THREE,.035,.025,.008),new THREE.MeshBasicMaterial({color:'#ffffff'}));visorPixel.position.set(-.067,.846,-.161);avatar.add(visorPixel)
+  const earL=new THREE.Mesh(roundedVoxelGeometry(THREE,.07,.11,.17),midMat);earL.position.set(-.205,.81,0);avatar.add(earL)
   const earR=earL.clone();earR.position.x=.205;avatar.add(earR)
   const antennaStem=new THREE.Mesh(new THREE.CylinderGeometry(.012,.012,.12,5),darkMat);antennaStem.position.set(.08,1.005,0);avatar.add(antennaStem)
   const antennaTip=new THREE.Mesh(new THREE.OctahedronGeometry(.027),magentaMat);antennaTip.position.set(.08,1.075,0);avatar.add(antennaTip)
 
-  const footGeometry=new THREE.BoxGeometry(.18,.11,.28)
+  const footGeometry=roundedVoxelGeometry(THREE,.18,.11,.28)
   const footL=new THREE.Mesh(footGeometry,darkMat);footL.position.set(-.14,.075,-.025);avatar.add(footL)
   const footR=footL.clone();footR.position.x=.14;avatar.add(footR)
-  const soleGeometry=new THREE.BoxGeometry(.19,.025,.30)
+  const soleGeometry=roundedVoxelGeometry(THREE,.19,.025,.30)
   const soleL=new THREE.Mesh(soleGeometry,midMat);soleL.position.set(-.14,.014,-.025);avatar.add(soleL)
   const soleR=soleL.clone();soleR.position.x=.14;avatar.add(soleR)
 
@@ -11171,6 +11397,9 @@ function createThreeWalletAvatar(wallet) {
     torso,chestPlate,chestInset,core,belt,beltNode,shoulderL,shoulderR,armL,armR,hand,neck,
     footL,footR,soleL,soleR,
   ]
+  // Only the feet vanish while riding the RL car; the torso stays visible so the
+  // bot reads as seated in the cockpit with no gap under the head.
+  avatar.userData.mountHiddenParts=[footL,footR,soleL,soleR]
   avatar.userData.leftFoot=footL
   avatar.userData.rightFoot=footR
   avatar.userData.healEffect=healEffect
@@ -11790,6 +12019,35 @@ export default function MiningChain3DFPV({
   // Expose reinit trigger to refs so it can be called from the render loop or context handlers
   useEffect(()=>{ threeReinitRef.current=()=>setThreeKey(k=>k+1) },[])
 
+
+  // Ambient music — loops at low volume while the mine is open, well under the
+  // event/walk effects. Honours the portal-wide sound toggle live (muting from
+  // the header stops it immediately). Autoplay is blocked until the first user
+  // gesture, so retry on pointer/key input; pause while the tab is hidden.
+  const { enabled: portalSoundOn } = useSound()
+  useEffect(()=>{
+    if(!portalSoundOn) return undefined
+    const music=new Audio('/ambient/freakingai_mm3_song.mp3')
+    music.loop=true
+    music.volume=0.12
+    music.preload='auto'
+    let disposed=false
+    const tryPlay=()=>{ if(!disposed&&!document.hidden) music.play().catch(()=>{}) }
+    const onGesture=()=>tryPlay()
+    const onVisibility=()=>{ if(document.hidden) music.pause(); else tryPlay() }
+    tryPlay()
+    window.addEventListener('pointerdown',onGesture)
+    window.addEventListener('keydown',onGesture)
+    document.addEventListener('visibilitychange',onVisibility)
+    return ()=>{
+      disposed=true
+      window.removeEventListener('pointerdown',onGesture)
+      window.removeEventListener('keydown',onGesture)
+      document.removeEventListener('visibilitychange',onVisibility)
+      music.pause()
+      music.src=''
+    }
+  },[portalSoundOn])
 
   // WebGL context loss / restore — browser can reclaim GPU memory when tab is backgrounded
   useEffect(()=>{
@@ -13619,18 +13877,16 @@ export default function MiningChain3DFPV({
     }
 
     // ── HUD: current room (right of chain stats panel, top-left area) ───────
-    const curHex = curCell?.isChainNode||curCell?.isPortalNode||curCell?.isNodeDiceNode||curCell?.isRlNode ? null : (curCell?.blockHex || gridToBlockHex(gr,gc))
+    // No #hex readout here — the block detail card already shows it.
     ctx.textAlign='left'; ctx.textBaseline='top'
-    ctx.fillStyle = C+'dd'; ctx.font='bold 12px monospace'
-    if(curHex) ctx.fillText(curHex, 174, 10)
     if (curCell?.emoji) {
-      ctx.font='12px serif'; ctx.fillText(curCell.emoji, 174, 24)
+      ctx.font='12px serif'; ctx.fillText(curCell.emoji, 174, 10)
     }
     if (curCell?.owner) {
       const ownLabel = myWallet && curCell.owner.toLowerCase()===myWallet.toLowerCase()
         ? (es?'🔑 TUYO':'🔑 YOURS') : `${curCell.owner.slice(0,6)}…${curCell.owner.slice(-4)}`
       ctx.fillStyle = curCell.color+'cc'; ctx.font='11px monospace'
-      ctx.fillText(ownLabel, 174, curCell.emoji ? 40 : 24)
+      ctx.fillText(ownLabel, 174, curCell.emoji ? 26 : 10)
     }
 
 
@@ -13786,6 +14042,7 @@ export default function MiningChain3DFPV({
       ctx,W,H,myNftjisRef.current,hpNow,es,Boolean(myWallet),etaMs
     )
     const chainStatsBottom = drawChainStats(ctx,W,H,chainStatsRef.current,es,(walletDock?.bottom||8)+6)
+    const hudStackBottom = chainStatsBottom ?? 72
     if (mapHasBoss(mapIdRef.current)) {
       drawBossHud(ctx, W, bossStateRef.current, esRef.current, bossRuntimeRef.current?.combatEngaged)
     }
@@ -13801,7 +14058,7 @@ export default function MiningChain3DFPV({
       const _isObsHUD = !_isInteractive && (hudCell?.isObstacle || validObstaclesRef.current?.has(`${hudMy},${hudMx}`))
       const _maxHudDist = (!_isObsHUD && hudCell?.isMarket && !hudCell?.owner) ? 1.5 : 2.0
       if ((_isObsHUD || Boolean(hudCell)) && hudDist <= _maxHudDist) {
-        drawFacingHUD(ctx, W, H, hudCell, hudMx, hudMy, myWallet, es, hudDist, validObstaclesRef.current, chainStatsBottom ?? 72, mineProgressRef.current, playerLevelRef.current, globalMm3Ref.current, chainSolversArrRef.current, chainDemineActiveRef.current, chainDemineHitsRef.current, nodeDiceStateRef.current, playerRef.current?.z ?? 0, rlMountActiveRef.current)
+        drawFacingHUD(ctx, W, H, hudCell, hudMx, hudMy, myWallet, es, hudDist, validObstaclesRef.current, hudStackBottom, mineProgressRef.current, playerLevelRef.current, globalMm3Ref.current, chainSolversArrRef.current, chainDemineActiveRef.current, chainDemineHitsRef.current, nodeDiceStateRef.current, playerRef.current?.z ?? 0, rlMountActiveRef.current)
       }
     }
 
@@ -13943,6 +14200,7 @@ export default function MiningChain3DFPV({
             } else if(fData.cell?.isMarket){
               onNftjiPanelOpenRef.current?.({ cell:fData.cell, mx:fData.mx, my:fData.my })
             } else if(fData.cell?.isBossStatue){
+              flashBossStatueEyes(threeStateRef.current)
               onBossStatueTipOpenRef.current?.(fData.cell.bossStatueId)
             } else {
               const url=actionUrlRef.current
@@ -15048,11 +15306,16 @@ export default function MiningChain3DFPV({
           } else if(mineTypeRef.current==='boss-statue'){
             mineProgressRef.current=Math.min(1,mineProgressRef.current+1/HITS_NEEDED)
             playPickHit(audioCtxRef,'nftji')
+            // Eyes burn red on every hit while the tip is being "mined".
+            flashBossStatueEyes(threeStateRef.current, 1500)
             if(mineProgressRef.current>=1){
               playPickHit(audioCtxRef,'complete')
               mineProgressRef.current=0
               const statueId=facingDataRef.current?.cell?.bossStatueId
-              if(statueId) setTimeout(()=>onBossStatueTipOpenRef.current?.(statueId),80)
+              if(statueId){
+                flashBossStatueEyes(threeStateRef.current)
+                setTimeout(()=>onBossStatueTipOpenRef.current?.(statueId),80)
+              }
             }
           } else if(mineTypeRef.current==='nftji'){
             // NFTJI market block — 5 hits opens the penalty/info panel

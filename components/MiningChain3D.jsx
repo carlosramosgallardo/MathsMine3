@@ -2600,7 +2600,7 @@ export default function MiningChain3D() {
           >
             <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:16 }}>
               <div style={{ display:'flex', alignItems:'center', gap:9 }}>
-                <span style={{ color:'#0ea5e9', fontSize:'1.15rem' }}>🏎️</span>
+                <span style={{ color:'#0ea5e9', fontSize:'1.15rem' }}>🚙</span>
                 <div>
                   <div style={{ color:'#0ea5e9', fontWeight:700, fontSize:'0.86rem', letterSpacing:'0.1em' }}>
                     RL NODE

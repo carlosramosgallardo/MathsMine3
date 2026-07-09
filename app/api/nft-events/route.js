@@ -1,6 +1,7 @@
 export const dynamic = 'force-dynamic'
 
 import { createClient } from '@supabase/supabase-js'
+import { RL_NODE_EVENT_EMOJI } from '@/lib/mining-rl-mount'
 
 // Ratio thresholds — fallback for old events that don't have emoji stored.
 // ratio = |delta_mm3| / MM3_value_at_that_hour ≈ original marketDelta
@@ -66,7 +67,7 @@ export async function GET() {
   const withEmoji = events.map(ev => {
     if (ev.emoji) return ev
     if (ev.event_type === 'node_stormroll') return { ...ev, emoji: '🎲' }
-    if (ev.event_type === 'rl_mount_buy') return { ...ev, emoji: '🏎️' }
+    if (ev.event_type === 'rl_mount_buy') return { ...ev, emoji: RL_NODE_EVENT_EMOJI }
     if (ev.event_type === 'mining_buy') return { ...ev, emoji: '⬡' }
 
     // ── Secondary: ratio against nearest hourly MM3 value ──

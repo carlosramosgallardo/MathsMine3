@@ -20,7 +20,7 @@ const PORTAL = {
     { href: '/relaying',    icon: '>_', name: 'Relaying',    desc: 'Action terminal. /mine, world events, chain log.',          accent: '#22d3ee' },
     { href: '/daily-tasks', icon: '🎯',  name: 'Daily Tasks', desc: 'Daily objectives → fictional EUR rewards.',                accent: '#e879f9', daily: true },
     { href: '/mm3-value',   icon: '📈',  name: 'MM3 Chart',   desc: 'Token price over time — hourly chart.',                    accent: '#a78bfa' },
-    { href: '/ranking',     icon: '🏆',  name: 'Ranking',     desc: 'Live leaderboard. Mining %, level, pool battles.',          accent: '#fbbf24' },
+    { href: '/ranking',     icon: '🏆',  name: 'Ranking',     desc: 'Live leaderboard. Wallet & pool ranks.',                    accent: '#fbbf24' },
     { href: '/ai-team',     icon: '🤖',  name: 'AI Team',     desc: '24/7 bot wallets mining alongside humans.',                accent: '#86efac' },
     { href: '/manifesto',   icon: '📜',  name: 'Manifesto',   desc: 'Full game guide — rules, mechanics, philosophy.',          accent: '#94a3b8' },
   ],
@@ -31,7 +31,7 @@ const PORTAL = {
     { href: '/relaying',    icon: '>_', name: 'Relaying',    desc: 'Terminal de acción. /mine, eventos, log.',                 accent: '#22d3ee' },
     { href: '/daily-tasks', icon: '🎯',  name: 'Daily Tasks', desc: 'Objetivos diarios → EUR ficticio.',                        accent: '#e879f9', daily: true },
     { href: '/mm3-value',   icon: '📈',  name: 'MM3 Chart',   desc: 'Valor del token en el tiempo — gráfica horaria.',          accent: '#a78bfa' },
-    { href: '/ranking',     icon: '🏆',  name: 'Ranking',     desc: 'Clasificación en vivo. Mining %, nivel, pools.',            accent: '#fbbf24' },
+    { href: '/ranking',     icon: '🏆',  name: 'Ranking',     desc: 'Clasificación en vivo. Ranks de wallets y pools.',          accent: '#fbbf24' },
     { href: '/ai-team',     icon: '🤖',  name: 'AI Team',     desc: 'Bots 24/7 minando junto a humanos.',                       accent: '#86efac' },
     { href: '/manifesto',   icon: '📜',  name: 'Manifiesto',  desc: 'Guía completa — reglas, mecánicas, filosofía.',            accent: '#94a3b8' },
   ],
@@ -122,28 +122,21 @@ export default function LandingHero() {
 
         <div className="mm3-splash-body">
 
-          <div className="mm3-home-copy">
-
-          {/* CTA */}
           <Link
             href="/mining"
-            className="mm3-splash-cta"
+            className="mm3-home-access"
+            aria-label={es ? 'Entrar al mundo 3D de Mining' : 'Enter the 3D Mining world'}
             onMouseEnter={prefetchMiningRoute}
             onFocus={prefetchMiningRoute}
             onTouchStart={prefetchMiningRoute}
           >
-            {es ? 'ENTRAR AL MUNDO 3D' : 'ENTER THE 3D MINE'}
+            <span className="mm3-home-access-stage">
+              <HomeMiningScene />
+            </span>
+            <span className="mm3-home-access-text">
+              {es ? 'ENTRAR AL MUNDO 3D' : 'ENTER THE 3D MINE'}
+            </span>
           </Link>
-
-          {/* disclaimer */}
-          <p className="mm3-splash-disclaimer">
-            {es
-              ? 'Token ficticio · Sin inversión real · Sin pagos reales'
-              : 'Fictional token · No real investment · No real payout'}
-          </p>
-          </div>
-
-          <HomeMiningScene />
         </div>
       </section>
 

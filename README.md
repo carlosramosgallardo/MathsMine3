@@ -378,7 +378,7 @@ The modifier is read live at the moment each operation executes (`getDiceState()
 
 > Three ways to mine the 3D world: (1) buy a Mining NFTJI — that NFTJI block counts in your Mining % while you own it, and grants a daily attack command; (2) mine free chain blocks permanently with `/mine block #XXX` in Relaying; (3) submit the correct `Ω(α, β, γ)` for an immediate win. Selling an NFTJI removes that block from your count.
 
-The Mining world is a **five-map 3D cross layout** connected by gateway corridors. **Map 1 (Speculation Plaza)** sits at the centre; **maps 2–5** surround it (north / south / east / west). Each map is a full **56×56 playable island** with its own biome art, obstacles, and interactives. The logical chain has **1000 indices** (`#000`–`#3E7`): **980 regular blocks** plus **20 NFTJI blocks**. Blocks are **distributed 200 per map** by chain index — lower indices (and lower requirements) on M1, higher on M5. Explore in **first-person** view: WASD or joystick to move, spacebar to jump, USB-staff swings for PvP and boss fights. All 1000 blocks count toward each wallet's Mining %.
+The Mining world is a **five-map 3D cross layout** connected by gateway corridors. **Map 1 (Speculation Plaza)** sits at the centre; **maps 2–5** surround it (north / south / east / west). Each map is a full **56×56 playable island** with its own venue art, obstacles, and interactives. The logical chain has **1000 indices** (`#000`–`#3E7`): **980 regular blocks** plus **20 NFTJI blocks**. Blocks are **distributed 200 per map** by chain index — lower indices (and lower requirements) on M1, higher on M5. Explore in **first-person** view: WASD or joystick to move, spacebar to jump, USB-staff swings for PvP and boss fights. All 1000 blocks count toward each wallet's Mining %. An ambient soundtrack loops inside the 3D mine and follows the portal-wide sound toggle.
 
 ### Five-map layout
 
@@ -394,15 +394,15 @@ M5 — Epstein Island — M1 — Speculation Plaza — M4 — Korean Midzone
 
 | Map | Name | Chain indices | Blocks | Requirements (typical) | Interactive landmarks |
 |:---:|:---|:---|---:|:---|:---|
-| **M1** | Speculation Plaza | `#000`–`#0C7` | 200 | Lowest — entry tier | ⬡ **Chain Node** (solve/demine Ω), 🎲 **Dice Node** (StormRoll window), **Cipher House** + pool, **Crypto Colosseum**, 9 **Portal nodes** (Training, Trading, Ranking…), gateway exits |
-| **M2** | RL Coliseum | `#0C8`–`#18F` | 200 | Low–mid | 🏎️ **RL Mount node** (Red Lightning car), full-map stadium with animated 3v3 RL bot dome, gateway → M1 |
+| **M1** | Speculation Plaza | `#000`–`#0C7` | 200 | Lowest — entry tier | ⬡ **Chain Node** (solve/demine Ω), 🎲 **Dice Node** (StormRoll window), **Cipher House** + pool, **Crypto Colosseum**, 🗿 **Milei statue** (5 hits → tip + local voice), 9 **Portal nodes** (Training, Trading, Ranking…), gateway exits |
+| **M2** | RL Coliseum | `#0C8`–`#18F` | 200 | Low–mid | 🚙 **RL Mount node** (dark SUV-style car), full-map stadium with animated 3v3 RL bot dome, gateway → M1 |
 | **M3** | Former Soviet Union | `#190`–`#257` | 200 | Mid | Full-map castle city venue, **Vladimir Putin** world boss (castle gate, co-op PvE, daily respawn), gateway → M1 |
 | **M4** | Korean Midzone | `#258`–`#31F` | 200 | Mid–high | Full-map **Korean Midzone** desert venue, **Kim Jong-un** world boss (lagoon centre, co-op PvE, daily respawn), military scenery (tanks, cannons, watchtowers), gateway → M1 |
 | **M5** | Epstein Island | `#320`–`#3E7` | 200 | Highest | Full-map mystic isle venue, **Donald Trump** world boss (centre, co-op PvE, daily respawn), gateway → M1 |
 
 **Block placement:** each chain index maps to one visual cell on its assigned map (see `lib/mining-visual-layout.js`). Regular blocks appear as minable cubes; NFTJI blocks as amber market cells (buy/resell in-world). Requirements (`min wallet level` + `mm3_global_value`) scale with the global index `#000` → `#3E7`.
 
-**World bosses (co-op PvE):** each boss activates when any logged-in wallet lands a hit and requires multiple fighters for serious damage. On defeat, the reward is split proportionally among damage dealers; the boss respawns **24 h** later. Hit damage and crit columns are the boss's attacks on players; player hits on a boss deal 1 damage (5 on headshot or ⚔️ critical):
+**World bosses (co-op PvE):** each boss activates when any logged-in wallet lands a hit and requires multiple fighters for serious damage. On defeat, the reward is split proportionally among damage dealers; the boss respawns **24 h** later. Hit damage and crit columns are the boss's attacks on players; player hits on a boss deal 1 damage (5 on headshot or ⚔️ critical). Bosses and the M1 statue wear holographic portrait masks with glowing eyes — holo cyan while idle, red while fighting (or while the statue is being hit for its tip):
 
 | Boss | Map | HP | Hit damage | Crit | Reward on defeat |
 |---|:---:|---:|---:|---|---|
@@ -431,7 +431,7 @@ Owning (or equipping, for Squeeze NFTJIs) certain NFTJIs grants passive skills i
 | 🔰 Void Ward *(equipped)* | `10% DGE` | 10% chance to fully dodge an incoming PvP hit |
 | Any Mining NFTJI *(held)* | `+10% AIR` | +10% air travel on jumps (longer long-jumps) |
 
-> **🏎️ RL Mount (M2):** while active it multiplies movement speed **×2** and jump **×2**, and stacks with the 💚 speed bonus. It is a mount, not an NFTJI skill slot.
+> **🚙 RL Mount (M2):** while active it multiplies movement speed **×2** and jump **×2**, and stacks with the 💚 speed bonus. It is a mount, not an NFTJI skill slot.
 
 Two block types:
 
@@ -1443,7 +1443,7 @@ El modificador se lee en vivo en el momento en que se ejecuta cada operación (`
 
 > Tres formas de minar el mundo 3D: (1) compra un NFTJI de Mining — ese bloque NFTJI cuenta en tu % de Minado mientras lo tengas, y otorga un comando de ataque diario; (2) mina bloques libres de la cadena permanentemente con `/mine block #XXX` en Relaying; (3) envía el `Ω(α, β, γ)` correcto para ganar de inmediato. Vender un NFTJI elimina ese bloque de tu conteo.
 
-El mundo de Mining es un **layout en cruz de cinco mapas 3D** conectados por corredores-portal. **Mapa 1 (Plaza de la Especulación)** está en el centro; **mapas 2–5** lo rodean (norte / sur / este / oeste). Cada mapa es una **isla jugable 56×56** con arte de bioma, obstáculos e interactives propios. La cadena lógica tiene **1000 índices** (`#000`–`#3E7`): **980 bloques regulares** más **20 NFTJI**. Los bloques se **distribuyen 200 por mapa** según el índice — requisitos más bajos en M1, más altos en M5. Explora en **primera persona**: WASD o joystick, espacio para saltar, bastón USB para PvP y combate contra el boss. Los 1000 bloques cuentan para el % de Minado de cada wallet.
+El mundo de Mining es un **layout en cruz de cinco mapas 3D** conectados por corredores-portal. **Mapa 1 (Plaza de la Especulación)** está en el centro; **mapas 2–5** lo rodean (norte / sur / este / oeste). Cada mapa es una **isla jugable 56×56** con arte de escenario, obstáculos e interactivos propios. La cadena lógica tiene **1000 índices** (`#000`–`#3E7`): **980 bloques regulares** más **20 NFTJI**. Los bloques se **distribuyen 200 por mapa** según el índice — requisitos más bajos en M1, más altos en M5. Explora en **primera persona**: WASD o joystick, espacio para saltar, bastón USB para PvP y combate contra el boss. Los 1000 bloques cuentan para el % de Minado de cada wallet. Dentro de la mina suena una música ambiente en bucle que obedece el control de sonido global del portal.
 
 ### Layout de cinco mapas
 
@@ -1459,15 +1459,15 @@ M5 — Isla Epstein — M1 — Plaza de la Especulación — M4 — Korean Midzo
 
 | Mapa | Nombre | Índices cadena | Bloques | Requisitos (típico) | Landmarks interactivos |
 |:---:|:---|:---|---:|:---|:---|
-| **M1** | Plaza de la Especulación | `#000`–`#0C7` | 200 | Mínimos — entrada | ⬡ **Nodo Cadena** (resolver/desminar Ω), 🎲 **Nodo Dado** (ventana StormRoll), **Casa Cipher** + piscina, **Coliseo Crypto**, 9 **nodos Portal** (Training, Trading, Ranking…), salidas portal |
-| **M2** | Coliseo RL | `#0C8`–`#18F` | 200 | Bajo–medio | 🏎️ **Nodo RL Mount** (coche Red Lightning), estadio a mapa completo con cúpula animada 3v3 de bots RL, portal → M1 |
+| **M1** | Plaza de la Especulación | `#000`–`#0C7` | 200 | Mínimos — entrada | ⬡ **Nodo Cadena** (resolver/desminar Ω), 🎲 **Nodo Dado** (ventana StormRoll), **Casa Cipher** + piscina, **Coliseo Crypto**, 🗿 **estatua de Milei** (5 golpes → tip + voz local), 9 **nodos Portal** (Training, Trading, Ranking…), salidas portal |
+| **M2** | Coliseo RL | `#0C8`–`#18F` | 200 | Bajo–medio | 🚙 **Nodo RL Mount** (coche oscuro tipo SUV), estadio a mapa completo con cúpula animada 3v3 de bots RL, portal → M1 |
 | **M3** | Antigua Unión Soviética | `#190`–`#257` | 200 | Medio | Ciudad-castillo a mapa completo, **boss Vladimir Putin** (puerta del castillo, PvE cooperativo, respawn diario), portal → M1 |
 | **M4** | Korean Midzone | `#258`–`#31F` | 200 | Medio–alto | **Korean Midzone** a mapa completo, **boss Kim Jong-un** (centro del oasis, PvE cooperativo, respawn diario), decoración militar (tanques, cañones, torres de vigilancia), portal → M1 |
 | **M5** | Isla Epstein | `#320`–`#3E7` | 200 | Máximos | Isla mística a mapa completo, **boss Donald Trump** (centro, PvE cooperativo, respawn diario), portal → M1 |
 
 **Colocación de bloques:** cada índice de cadena corresponde a una celda visual en su mapa asignado (ver `lib/mining-visual-layout.js`). Los bloques regulares aparecen como cubos minables; los NFTJI como celdas ámbar de mercado (compra/reventa in-world). Los requisitos (`nivel mínimo de wallet` + `mm3_global_value`) escalan con el índice global `#000` → `#3E7`.
 
-**Bosses del mundo (PvE cooperativo):** cada boss se activa cuando cualquier wallet logueada acierta un golpe y requiere varios luchadores para daño serio. Al derrotarlo, la recompensa se reparte proporcionalmente entre los que infligieron daño; el boss respawnea **24 h** después. Las columnas de daño y crítico son los ataques del boss al jugador; los golpes del jugador al boss hacen 1 de daño (5 con headshot o crítico del ⚔️):
+**Bosses del mundo (PvE cooperativo):** cada boss se activa cuando cualquier wallet logueada acierta un golpe y requiere varios luchadores para daño serio. Al derrotarlo, la recompensa se reparte proporcionalmente entre los que infligieron daño; el boss respawnea **24 h** después. Las columnas de daño y crítico son los ataques del boss al jugador; los golpes del jugador al boss hacen 1 de daño (5 con headshot o crítico del ⚔️). Los bosses y la estatua de M1 llevan máscaras-retrato holográficas con ojos brillantes — cyan holo en reposo, rojos en combate (o mientras se golpea la estatua para su tip):
 
 | Boss | Mapa | HP | Daño/golpe | Crítico | Recompensa al derrotarlo |
 |---|:---:|---:|---:|---|---|
@@ -1496,7 +1496,7 @@ Poseer (o equipar, en el caso de los NFTJIs de Squeeze) ciertos NFTJIs otorga sk
 | 🔰 Void Ward *(equipado)* | `10% DGE` | 10% de probabilidad de esquivar por completo un golpe PvP recibido |
 | Cualquier NFTJI de Mining *(en propiedad)* | `+10% AIR` | +10% de vuelo en los saltos (saltos largos más largos) |
 
-> **🏎️ RL Mount (M2):** mientras está activo multiplica la velocidad **×2** y el salto **×2**, y se acumula con el bonus de velocidad del 💚. Es una montura, no una casilla de skill NFTJI.
+> **🚙 RL Mount (M2):** mientras está activo multiplica la velocidad **×2** y el salto **×2**, y se acumula con el bonus de velocidad del 💚. Es una montura, no una casilla de skill NFTJI.
 
 Dos tipos de bloque:
 

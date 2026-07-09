@@ -124,7 +124,7 @@ function getDiceRollStats(rangeMs, nowMs, dataStartMs = 0) {
 
 function emojiColor(emoji) {
   if (emoji === '🎲') return '#38bdf8'
-  if (emoji === '🏎️') return '#0ea5e9'
+  if (emoji === '🏎️' || emoji === '🚙') return '#0ea5e9'
   if (emoji === '⬡') return '#facc15'
   if (emoji === '🧿') return '#c084fc'
   if (emoji === '🎰') return '#f59e0b'
@@ -444,7 +444,7 @@ function ChartPointDetail({ point, label, nftEvents, range, t, isMobile }) {
     [t('chart.breakdownMined'), deltas.mined_delta, UP],
     [t('chart.breakdownNFTJI'), deltas.nftji_delta, C],
     [`🎲 ${t('chart.breakdownNodeDice')}`, deltas.node_dice_delta, '#38bdf8'],
-    [`🏎️ ${t('chart.breakdownRlMount')}`, deltas.rl_mount_delta, '#0ea5e9'],
+    [`🚙 ${t('chart.breakdownRlMount')}`, deltas.rl_mount_delta, '#0ea5e9'],
     [
       `${t('chart.breakdownTrade')}${formatTradeSourceCounts(deltas.trade_wallet_count, deltas.trade_google_count, t)}`,
       deltas.trade_delta,

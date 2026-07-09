@@ -1,7 +1,7 @@
 export const dynamic = 'force-dynamic'
 
 import { createClient } from '@supabase/supabase-js'
-import { RL_NODE_MIN_LEVEL, RL_NODE_PRICE_MM3 } from '@/lib/mining-rl-mount'
+import { RL_NODE_EVENT_EMOJI, RL_NODE_MIN_LEVEL, RL_NODE_PRICE_MM3 } from '@/lib/mining-rl-mount'
 
 function serviceClient() {
   return createClient(
@@ -73,7 +73,7 @@ export async function POST(req) {
     wallet,
     event_type: 'rl_mount_buy',
     delta_mm3: RL_NODE_PRICE_MM3,
-    emoji: '🏎️',
+    emoji: RL_NODE_EVENT_EMOJI,
   })
 
   return Response.json({ ok: true, active: true })
