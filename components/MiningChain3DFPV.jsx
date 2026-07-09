@@ -10800,8 +10800,160 @@ function rebuildPeripheralMapWorld(state, mapId, obstacles, cellMap) {
 }
 
 function rebuildActiveMapWorld(state, mapId, cellMap, obstacles) {
+  const visualTier = typeof window !== 'undefined'
+    ? getMiningVisualTier(window.innerWidth, window.innerHeight)
+    : 'high'
+  const targetKey = getCachedWorldKey(mapId, visualTier)
+  const signature = getCachedWorldSignature(cellMap)
+  ensureWorldCache(state)
+
+  const cached = state.mapWorldCache.get(targetKey)
+  if (cached && cached.signature !== signature) {
+    state.mapWorldCache.delete(targetKey)
+    disposeCachedWorld(cached)
+  }
+  const freshCached = state.mapWorldCache.get(targetKey)
+  if (freshCached) {
+    cacheCurrentWorld(state, targetKey)
+    restoreCachedWorld(state, targetKey, freshCached)
+    return
+  }
+
+  const currentKey = state.currentWorldCacheKey
+  if (currentKey && currentKey !== targetKey) {
+    cacheCurrentWorld(state, targetKey)
+  }
   if (isMiningCoreMap(mapId)) rebuildThreeWorld(state, cellMap, obstacles)
   else rebuildPeripheralMapWorld(state, mapId, obstacles, cellMap)
+  state.currentWorldCacheKey = targetKey
+  state.currentWorldSignature = signature
+  trimWorldCache(state)
+}
+
+const WORLD_CACHE_STATE_KEYS = [
+  'world',
+  'minableBlockChunks',
+  'beaconBatch',
+  'biomeSurfaces',
+  'interactiveVisuals',
+  'avatarFadeOccluders',
+  'collisionMeshes',
+  'housePerimeterHeartsMesh',
+  'm1MileiStatueGroup',
+  'm1MileiStatueMotion',
+  'm2PitchDomeGroup',
+  'm2PitchDomeRuntime',
+  'm3PutinBossGroup',
+  'm4KimBossGroup',
+  'm5TrumpBossGroup',
+]
+
+function ensureWorldCache(state) {
+  if (!state.mapWorldCache) state.mapWorldCache = new Map()
+}
+
+function getCachedWorldKey(mapId, visualTier) {
+  return `${mapId || MINING_CORE_MAP_ID}:${visualTier || 'high'}`
+}
+
+function getCachedWorldSignature(cellMap) {
+  if (!cellMap?.size) return 'empty'
+  const parts = []
+  for (const [key, cell] of cellMap) {
+    parts.push([
+      key,
+      cell?.blockHex || '',
+      cell?.blockKey || '',
+      cell?.owner || '',
+      cell?.color || '',
+      cell?.mapId || '',
+      cell?.isMarket ? 1 : 0,
+      cell?.isMined ? 1 : 0,
+      cell?.isChainNode ? 1 : 0,
+      cell?.isPortalNode ? 1 : 0,
+      cell?.isNodeDiceNode ? 1 : 0,
+      cell?.isRlNode ? 1 : 0,
+    ].join('|'))
+  }
+  parts.sort()
+  return `${cellMap.size}:${parts.join(';')}`
+}
+
+function snapshotWorldState(state) {
+  const snapshot = {}
+  for (const key of WORLD_CACHE_STATE_KEYS) snapshot[key] = state[key]
+  snapshot.cameraCollisionValid = false
+  return snapshot
+}
+
+function clearWorldState(state) {
+  for (const key of WORLD_CACHE_STATE_KEYS) state[key] = null
+  state.biomeSurfaces = []
+  state.interactiveVisuals = []
+  state.avatarFadeOccluders = []
+  state.collisionMeshes = []
+  state.cameraCollisionValid = false
+}
+
+function applyWorldStateSnapshot(state, snapshot) {
+  for (const key of WORLD_CACHE_STATE_KEYS) state[key] = snapshot[key] ?? null
+  state.biomeSurfaces = snapshot.biomeSurfaces || []
+  state.interactiveVisuals = snapshot.interactiveVisuals || []
+  state.avatarFadeOccluders = snapshot.avatarFadeOccluders || []
+  state.collisionMeshes = snapshot.collisionMeshes || []
+  state.cameraCollisionValid = false
+}
+
+function cacheCurrentWorld(state, targetKey) {
+  ensureWorldCache(state)
+  const currentKey = state.currentWorldCacheKey
+  if (!state.world || !currentKey || currentKey === targetKey) return
+  if (state.mapWorldCache.has(currentKey)) {
+    state.scene.remove(state.world)
+    clearWorldState(state)
+    return
+  }
+  const snapshot = snapshotWorldState(state)
+  state.scene.remove(snapshot.world)
+  state.mapWorldCache.set(currentKey, {
+    ...snapshot,
+    signature: state.currentWorldSignature || '',
+    lastUsed: performance.now(),
+  })
+  clearWorldState(state)
+}
+
+function restoreCachedWorld(state, key, cached) {
+  if (!cached?.world) return
+  applyWorldStateSnapshot(state, cached)
+  if (cached.world.parent !== state.scene) state.scene.add(cached.world)
+  cached.lastUsed = performance.now()
+  state.currentWorldCacheKey = key
+  state.currentWorldSignature = cached.signature || ''
+}
+
+function disposeCachedWorld(cached) {
+  if (!cached?.world) return
+  try { cached.world.parent?.remove?.(cached.world) } catch {}
+  try { disposeThreeObject(cached.world) } catch {}
+}
+
+function trimWorldCache(state, maxEntries = 3) {
+  if (!state.mapWorldCache || state.mapWorldCache.size <= maxEntries) return
+  const entries = [...state.mapWorldCache.entries()]
+    .filter(([key]) => key !== state.currentWorldCacheKey)
+    .sort((a, b) => (a[1].lastUsed || 0) - (b[1].lastUsed || 0))
+  while (state.mapWorldCache.size > maxEntries && entries.length) {
+    const [key, cached] = entries.shift()
+    state.mapWorldCache.delete(key)
+    disposeCachedWorld(cached)
+  }
+}
+
+function disposeWorldCache(state) {
+  if (!state?.mapWorldCache) return
+  for (const cached of state.mapWorldCache.values()) disposeCachedWorld(cached)
+  state.mapWorldCache.clear()
 }
 
 function addRlColiseumNodeVisual(world, lowDetail, state) {
@@ -12303,6 +12455,7 @@ export default function MiningChain3DFPV({
     if(obstaclesReadyRef.current) scheduleWorldBootstrapRef.current?.()
     return ()=>{
       rebuildThreeRef.current=null
+      try{ disposeWorldCache(state) }catch{}
       try{ disposeThreeObject(scene) }catch{}
       try{ disposeThreeObject(hudScene) }catch{}
       try{ Object.values(textures).forEach(texture=>texture.dispose()) }catch{}
