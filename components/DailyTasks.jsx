@@ -188,9 +188,9 @@ export default function DailyTasks({ framed = true }) {
   const resetText = formatResetTimer(countdown);
 
   const content = (
-      <div className="daily-tasks-content mx-auto w-full max-w-5xl px-1 pb-6 pt-4">
+      <div className="daily-tasks-content mx-auto w-full max-w-5xl px-1 pb-3 pt-2">
         {account ? (
-          <div className="daily-tasks-notice mb-3 rounded-md border border-cyan-500/20 bg-black/70 p-3 font-mono text-sm leading-6 text-cyan-100 shadow-[inset_0_0_22px_rgba(34,211,238,0.05)]">
+          <div className="daily-tasks-notice mb-2 rounded-md border border-cyan-500/20 bg-black/70 p-2 font-mono text-[0.8rem] leading-5 text-cyan-100 shadow-[inset_0_0_22px_rgba(34,211,238,0.05)]">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <span className="font-black uppercase tracking-[0.22em] text-cyan-200">
                 {noticeText}
@@ -202,17 +202,17 @@ export default function DailyTasks({ framed = true }) {
           </div>
         ) : null}
 
-        <div className="daily-tasks-sections flex flex-col gap-4 font-mono">
+        <div className="daily-tasks-sections flex flex-col gap-2.5 font-mono">
           {sections.map((sec) => {
             const tasks = sectionMap[sec];
             const SECTION_ACCENT = sec === 'Mining' ? '#22d3ee' : sec === 'Squeezing' ? '#a855f7' : sec === 'Relaying' ? '#fb923c' : sec === 'Trading' ? '#4ade80' : '#64748b';
             return (
               <div key={sec} className="daily-tasks-group">
-                <div className="daily-tasks-group-heading mb-2 flex items-center gap-2">
+                <div className="daily-tasks-group-heading mb-1.5 flex items-center gap-2">
                   <span style={{ color: SECTION_ACCENT, fontSize: '0.65rem', fontFamily: 'monospace', fontWeight: 900, letterSpacing: '0.22em', textTransform: 'uppercase' }}>{sec}</span>
                   <div style={{ flex: 1, height: 1, background: `${SECTION_ACCENT}33` }} />
                 </div>
-                <div className="daily-tasks-grid grid grid-cols-1 gap-2.5 md:grid-cols-2">
+                <div className="daily-tasks-grid grid grid-cols-1 gap-2 md:grid-cols-2">
                   {tasks.map((task) => {
                     const isHighValue = task.key === 'mining_chain' || task.key === 'pvp_hit';
                     if (task.claimed && !expandedTaskKeys.has(task.key)) return (
@@ -232,9 +232,9 @@ export default function DailyTasks({ framed = true }) {
                     return (
                       <div
                         key={task.key}
-                        className={`daily-task-card rounded-md border p-3 ${isHighValue ? 'border-emerald-500/30 bg-black/70 shadow-[0_0_22px_rgba(74,222,128,0.07),inset_0_0_18px_rgba(74,222,128,0.03)]' : 'border-cyan-500/15 bg-black/70 shadow-[0_0_18px_rgba(34,211,238,0.04)]'}`}
+                        className={`daily-task-card rounded-md border p-2 ${isHighValue ? 'border-emerald-500/30 bg-black/70 shadow-[0_0_22px_rgba(74,222,128,0.07),inset_0_0_18px_rgba(74,222,128,0.03)]' : 'border-cyan-500/15 bg-black/70 shadow-[0_0_18px_rgba(34,211,238,0.04)]'}`}
                       >
-                        <div className="daily-task-main mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="daily-task-main mb-1.5 flex flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between">
                           <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-2">
                               <div className={`text-xs uppercase tracking-[0.24em] ${isHighValue ? 'text-emerald-400/80' : 'text-fuchsia-300'}`}>{t(`dailyTasks.tasks.${task.translationKey}.name`)}</div>
@@ -242,26 +242,26 @@ export default function DailyTasks({ framed = true }) {
                                 <button type="button" onClick={() => toggleTask(task.key)} className="bg-transparent border-0 text-slate-600 font-mono text-[0.65rem] cursor-pointer leading-none hover:text-slate-400 px-0">▲</button>
                               )}
                             </div>
-                            <div className="daily-task-hint mt-1 text-[0.92rem] font-black text-slate-100">{t(`dailyTasks.tasks.${task.translationKey}.hint`)}</div>
+                            <div className="daily-task-hint mt-0.5 text-[0.82rem] font-black text-slate-100">{t(`dailyTasks.tasks.${task.translationKey}.hint`)}</div>
                           </div>
-                          <div className="daily-task-actions flex flex-col items-start gap-2 sm:items-end">
+                          <div className="daily-task-actions flex flex-col items-start gap-1 sm:items-end">
                             <span className={`text-xs uppercase tracking-[0.18em] ${isHighValue ? 'text-emerald-300' : 'text-emerald-300/90'}`}>{t('dailyTasks.rewardLabel')} {formatReward(task.rewardEur, currency)}</span>
                             <button
                               type="button"
                               onClick={() => handleClaim(task)}
                               disabled={!task.complete || task.claimed || loading}
-                              className={`inline-flex min-h-9 items-center justify-center rounded-md border px-3 py-1.5 text-[0.76rem] font-black uppercase tracking-[0.18em] transition ${task.claimed ? 'cursor-default border-emerald-400/45 bg-emerald-500/10 text-emerald-200' : task.complete ? (isHighValue ? 'border-emerald-400/65 bg-emerald-500/10 text-emerald-100 hover:border-emerald-300 hover:bg-emerald-500/20' : 'border-cyan-400/65 bg-cyan-500/10 text-cyan-100 hover:border-cyan-300 hover:bg-cyan-500/20') : 'cursor-not-allowed border-slate-800 bg-black/50 text-slate-600'}`}
+                              className={`inline-flex min-h-7 items-center justify-center rounded-md border px-2.5 py-1 text-[0.70rem] font-black uppercase tracking-[0.18em] transition ${task.claimed ? 'cursor-default border-emerald-400/45 bg-emerald-500/10 text-emerald-200' : task.complete ? (isHighValue ? 'border-emerald-400/65 bg-emerald-500/10 text-emerald-100 hover:border-emerald-300 hover:bg-emerald-500/20' : 'border-cyan-400/65 bg-cyan-500/10 text-cyan-100 hover:border-cyan-300 hover:bg-cyan-500/20') : 'cursor-not-allowed border-slate-800 bg-black/50 text-slate-600'}`}
                             >
                               {task.claimed ? t('dailyTasks.claimed') : t('dailyTasks.claimReward')}
                             </button>
                           </div>
                         </div>
-                        <div className="daily-task-progress space-y-3">
-                          <div className="flex items-center justify-between text-[0.70rem] uppercase tracking-[0.18em] text-slate-500">
+                        <div className="daily-task-progress space-y-1">
+                          <div className="flex items-center justify-between text-[0.62rem] uppercase tracking-[0.18em] text-slate-500">
                             <span>{task.value} / {task.target}</span>
                             <span>{task.filled}%</span>
                           </div>
-                          <div className={`h-2 overflow-hidden rounded-sm border bg-slate-950 ${isHighValue ? 'border-emerald-500/20' : 'border-cyan-500/10'}`}>
+                          <div className={`h-1.5 overflow-hidden rounded-sm border bg-slate-950 ${isHighValue ? 'border-emerald-500/20' : 'border-cyan-500/10'}`}>
                             <div className={`h-full rounded-none ${isHighValue ? 'bg-gradient-to-r from-emerald-700 via-emerald-400 to-green-300' : 'bg-gradient-to-r from-fuchsia-500 via-cyan-400 to-green-300'}`} style={{ width: `${task.filled}%` }} />
                           </div>
                         </div>

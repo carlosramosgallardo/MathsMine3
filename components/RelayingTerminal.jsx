@@ -2026,8 +2026,8 @@ export default function RelayingTerminal({ accent = '#22d3ee' }) {
           background: rgba(0,0,0,0.86);
         }
         .mm3-relaying-chat-log {
-          min-height: 18.5rem;
-          max-height: 50dvh;
+          min-height: 13.5rem;
+          max-height: 42dvh;
           overflow-y: auto;
           background:
             repeating-linear-gradient(
@@ -2363,11 +2363,11 @@ export default function RelayingTerminal({ accent = '#22d3ee' }) {
               return (
                 <div
                   key={message.id}
-                  className={`mm3-irc-line ${lineMode} px-1 py-1.5`}
+                  className={`mm3-irc-line ${lineMode} px-1 py-1`}
                   data-tone={message.tone}
                   data-error={isErrorOrPenalty ? 'true' : undefined}
                 >
-                  <span className="mm3-irc-time text-[0.76rem] uppercase tracking-[0.14em] text-slate-500">
+                  <span className="mm3-irc-time text-[0.66rem] uppercase tracking-[0.14em] text-slate-500">
                     {formatRelayTime(message.ts, language)}
                   </span>
                   {' '}
@@ -2383,20 +2383,20 @@ export default function RelayingTerminal({ accent = '#22d3ee' }) {
                     </>
                   )}
                   <span
-                    className="mm3-irc-author text-[0.80rem] uppercase tracking-[0.13em]"
+                    className="mm3-irc-author text-[0.70rem] uppercase tracking-[0.13em]"
                     style={message.kind === 'chat' ? { color: colorFromAddress(message.wallet) } : undefined}
                     title={message.kind === 'chat' ? message.wallet : undefined}
                     onClick={message.kind === 'chat' ? () => handleWalletClick(message.wallet) : undefined}
                     role={message.kind === 'chat' ? 'button' : undefined}
                   >{author}</span>
                   {' '}
-                  <span className="mm3-irc-msg-text text-[0.95rem] leading-relaxed">
+                  <span className="mm3-irc-msg-text text-[0.80rem] leading-snug">
                     {renderIrcTextLinks(displayText, message.tone, handleWalletClick, blockLinkMap, handleBlockHexClick, poolCodes, handlePoolClick, handleChainClick)}
                   </span>
                 </div>
               );
             }) : (
-              <div className="px-1 py-2 text-[0.88rem] uppercase tracking-[0.14em] text-slate-500">
+              <div className="px-1 py-1.5 text-[0.78rem] uppercase tracking-[0.14em] text-slate-500">
                 {messages.length > 0
                   ? (language === 'es' ? 'activa filtros para ver trazas del sistema' : 'enable filters to show system traces')
                   : t('relaying.empty')}
@@ -2471,7 +2471,7 @@ export default function RelayingTerminal({ accent = '#22d3ee' }) {
                     }
                   }}
                   placeholder={t('relaying.inputPlaceholder')}
-                  className="min-w-0 flex-1 rounded-sm border border-cyan-500/15 bg-black/80 px-2.5 py-1.5 font-mono text-[0.95rem] text-cyan-100 outline-none transition placeholder:text-slate-600 focus:border-cyan-400/45 focus:shadow-[0_0_18px_rgba(34,211,238,0.08)]"
+                  className="min-w-0 flex-1 rounded-sm border border-cyan-500/15 bg-black/80 px-2.5 py-1 font-mono text-[0.85rem] text-cyan-100 outline-none transition placeholder:text-slate-600 focus:border-cyan-400/45 focus:shadow-[0_0_18px_rgba(34,211,238,0.08)]"
                   maxLength={280}
                   autoComplete="off"
                   spellCheck={false}

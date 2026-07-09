@@ -2706,7 +2706,7 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
           {problem && (
             <>
               <div
-                className={`relative rounded-xl border-2 p-4 transition-colors duration-300 ${wrongFeedbackActive ? 'mm3-board-wrong-alert' : correctFeedbackActive ? 'mm3-board-correct-alert' : ''}`}
+                className={`relative rounded-xl border-2 p-3 transition-colors duration-300 ${wrongFeedbackActive ? 'mm3-board-wrong-alert' : correctFeedbackActive ? 'mm3-board-correct-alert' : ''}`}
                 style={{
                   borderColor: wrongFeedbackActive ? '#fb7185' : correctFeedbackActive ? '#4ade80' : levelFlash === 'down' ? '#ef444470' : tier.color + '40',
                   background: wrongFeedbackActive
@@ -2731,7 +2731,7 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
 
                 {/* Question */}
                 {shouldShowProblem && (
-                  <div className="relative z-10 text-center mb-4">
+                  <div className="relative z-10 text-center mb-2">
                     <span
                       className="mm3-question-family absolute -top-3 right-0 truncate rounded border px-1.5 py-0.5 text-[0.54rem] font-black uppercase tracking-[0.14em]"
                       style={{
@@ -2745,7 +2745,7 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
                       {problemFamilyLabel}
                     </span>
                     <p
-                      className="text-xl sm:text-2xl font-mono font-black tracking-wide break-words leading-tight"
+                      className="text-base sm:text-lg font-mono font-black tracking-wide break-words leading-tight"
                       style={{ color: boardAlertColor, textShadow: `0 0 16px ${boardAlertColor}50` }}
                     >
                       {problem.question}
@@ -2754,7 +2754,7 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
                 )}
 
                 {/* Status zone: countdown / start / next-block / time bar — fixed position */}
-                <div className="relative z-10 mb-4 flex flex-col items-center justify-center" style={{ minHeight: '3.5rem' }}>
+                <div className="relative z-10 mb-2 flex flex-col items-center justify-center" style={{ minHeight: '2.9rem' }}>
                   {preGameCountdown > 0 && preGameCountdown < 999 ? (
                     <div className="text-center">
                       <div
@@ -2867,7 +2867,7 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
                             onClick={() => checkAnswer(choice)}
                             disabled={isDisabled}
                             aria-label={`Answer: ${choice}`}
-                            className="px-3 py-2 rounded-lg font-mono text-xs sm:text-sm font-bold text-left border-2 transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1"
+                            className="px-3 py-1.5 rounded-lg font-mono text-xs sm:text-sm font-bold text-left border-2 transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1"
                             style={{
                               borderColor: isDisabled ? '#1f293740' : tier.color + '38',
                               color: isDisabled ? '#37415180' : '#e2e8f0',
@@ -2899,7 +2899,7 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
                             onClick={() => checkAnswer(choice)}
                             disabled={isDisabled}
                             aria-label={`Answer: ${choice}`}
-                            className="py-2.5 rounded-lg font-mono text-base sm:text-lg font-black uppercase border-2 transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1"
+                            className="py-1.5 rounded-lg font-mono text-base sm:text-lg font-black uppercase border-2 transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1"
                             style={{
                               borderColor: isDisabled ? '#1f293740' : tier.color + '38',
                               color: isDisabled ? '#37415180' : tier.color,
@@ -2959,7 +2959,7 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
                 )}
 
                 {gameCompletedLocal && (
-                  <div className="relative z-10 mt-5 flex flex-col items-center justify-center gap-3 sm:flex-row">
+                  <div className="relative z-10 mt-3 flex flex-col items-center justify-center gap-3 sm:flex-row">
                     {postFailOffer?.offer && (
                       <button
                         onClick={handleSpecialClaim}
