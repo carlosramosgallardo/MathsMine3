@@ -257,9 +257,52 @@ const ORGANIC_SHAPES = new Set(['ramp','sphere','tree'])
 const COLOSSEUM_STAND_BASE_TOPS = [1.00,1.32,1.64]
 const COLOSSEUM_SEAT_HEIGHT = .18
 const COLOSSEUM_STAND_TOPS = COLOSSEUM_STAND_BASE_TOPS.map(top=>top+COLOSSEUM_SEAT_HEIGHT)
+const MINING_AUTO_QUALITY_SESSION_KEY = 'mm3_mining_auto_quality_tier'
+const MINING_QUALITY_CHANGE_EVENT = 'mm3-mining-quality-change'
+const MINING_VISUAL_TIER_RANK = Object.freeze({ low: 0, medium: 1, high: 2 })
+
+function normalizeMiningVisualTier(tier) {
+  return Object.prototype.hasOwnProperty.call(MINING_VISUAL_TIER_RANK, tier) ? tier : null
+}
+
+function capMiningVisualTier(tier, capTier) {
+  const normalizedTier = normalizeMiningVisualTier(tier) || 'high'
+  const normalizedCap = normalizeMiningVisualTier(capTier)
+  if (!normalizedCap) return normalizedTier
+  return MINING_VISUAL_TIER_RANK[normalizedTier] > MINING_VISUAL_TIER_RANK[normalizedCap]
+    ? normalizedCap
+    : normalizedTier
+}
+
+function nextLowerMiningVisualTier(tier) {
+  if (tier === 'high') return 'medium'
+  if (tier === 'medium') return 'low'
+  return 'low'
+}
+
+function readMiningAutoVisualTier() {
+  if (typeof window === 'undefined') return null
+  try {
+    return normalizeMiningVisualTier(window.sessionStorage.getItem(MINING_AUTO_QUALITY_SESSION_KEY))
+  } catch {
+    return null
+  }
+}
+
+function writeMiningAutoVisualTier(tier) {
+  if (typeof window === 'undefined') return
+  const normalized = normalizeMiningVisualTier(tier)
+  try {
+    if (normalized) window.sessionStorage.setItem(MINING_AUTO_QUALITY_SESSION_KEY, normalized)
+    else window.sessionStorage.removeItem(MINING_AUTO_QUALITY_SESSION_KEY)
+  } catch {
+    /* ignore */
+  }
+}
 
 function getMiningVisualTier(viewWidth = 1280, viewHeight = 720) {
-  if (typeof window !== 'undefined' && isMobilePreviewHighQuality()) return 'high'
+  const autoCapTier = readMiningAutoVisualTier()
+  if (typeof window !== 'undefined' && isMobilePreviewHighQuality()) return capMiningVisualTier('high', autoCapTier)
   if (typeof window !== 'undefined' && isMobilePreviewActive()) {
     viewWidth = MOBILE_PREVIEW_VIEWPORT.width
     viewHeight = MOBILE_PREVIEW_VIEWPORT.height
@@ -269,11 +312,11 @@ function getMiningVisualTier(viewWidth = 1280, viewHeight = 720) {
   const portraitMobile = viewHeight > viewWidth && viewWidth < 820
   const veryNarrow = viewWidth < 360
   // Weakest devices: full lite pass.
-  if (lowMem || veryNarrow) return 'low'
+  if (lowMem || veryNarrow) return capMiningVisualTier('low', autoCapTier)
   // Typical phone portrait / small view: lite scenery + biome lights (prod default).
-  if (portraitMobile || viewWidth < 640) return 'medium'
-  if (viewWidth < 980) return 'medium'
-  return 'high'
+  if (portraitMobile || viewWidth < 640) return capMiningVisualTier('medium', autoCapTier)
+  if (viewWidth < 980) return capMiningVisualTier('medium', autoCapTier)
+  return capMiningVisualTier('high', autoCapTier)
 }
 
 function isLowRenderTier(viewWidth, viewHeight) {
@@ -11360,6 +11403,7 @@ function applyRlMountVisual(avatar, mounted, threeState = null) {
     avatar.userData.antennaTip.position.y = avatar.userData.rlMountedAntTipY
   }
   if (mounted && threeState && car.userData.boostFx) {
+    if (!threeState.biomeSurfaces) threeState.biomeSurfaces = []
     for (const child of car.userData.boostFx.children) {
       if (child.userData.biomeSurface === 'fire' && !threeState.biomeSurfaces.includes(child)) {
         threeState.biomeSurfaces.push(child)
@@ -11374,6 +11418,7 @@ function triggerRlBoostFx(avatar, threeState) {
   boost.visible = true
   avatar.userData.rlBoostUntil = performance.now() + 380
   if (threeState) {
+    if (!threeState.biomeSurfaces) threeState.biomeSurfaces = []
     for (const child of boost.children) {
       if (child.userData.biomeSurface === 'fire' && !threeState.biomeSurfaces.includes(child)) {
         threeState.biomeSurfaces.push(child)
@@ -11939,6 +11984,7 @@ export default function MiningChain3DFPV({
   const cameraVisualRef = useRef({z:0,pitch:0,last:0})
   const animRef       = useRef(null)
   const lastFrameRef  = useRef(0)
+  const qualityMonitorRef = useRef({ frames: 0, startedAt: 0, lastDowngradeAt: 0 })
   const velocityRef   = useRef({x:0,y:0})
   const lastSentStateRef = useRef(null)
   const swingEpochRef = useRef(0)
@@ -12106,6 +12152,42 @@ export default function MiningChain3DFPV({
 
   // Expose reinit trigger to refs so it can be called from the render loop or context handlers
   useEffect(()=>{ threeReinitRef.current=()=>setThreeKey(k=>k+1) },[])
+
+  const updateAutoQuality = useCallback((nowMs)=>{
+    const tier = visualPerfTierRef.current
+    if (tier === 'low') return
+    const monitor = qualityMonitorRef.current
+    if (!monitor.startedAt) {
+      monitor.startedAt = nowMs
+      monitor.frames = 0
+    }
+    monitor.frames += 1
+    const elapsed = nowMs - monitor.startedAt
+    if (elapsed < 6500) return
+    const fps = monitor.frames * 1000 / elapsed
+    const minFps = tier === 'high' ? 42 : 24
+    if (fps < minFps && nowMs - monitor.lastDowngradeAt > 14000) {
+      const nextTier = nextLowerMiningVisualTier(tier)
+      writeMiningAutoVisualTier(nextTier)
+      monitor.frames = 0
+      monitor.startedAt = nowMs
+      monitor.lastDowngradeAt = nowMs
+      notifRef.current = {
+        text: esRef.current
+          ? `Rendimiento bajo (${Math.round(fps)} fps): calidad ${nextTier}`
+          : `Low performance (${Math.round(fps)} fps): quality ${nextTier}`,
+        color: '#facc15',
+        startedAt: Date.now(),
+      }
+      window.dispatchEvent(new Event(MINING_QUALITY_CHANGE_EVENT))
+      renderRef.current?.()
+      return
+    }
+    if (elapsed > 10000) {
+      monitor.frames = 0
+      monitor.startedAt = nowMs
+    }
+  },[])
 
 
   // Ambient music now lives portal-wide in SoundProvider (music toggle in the
@@ -14225,21 +14307,26 @@ export default function MiningChain3DFPV({
       const cssW = Math.max(1, Math.round(width))
       const cssH = Math.max(1, Math.round(height))
       const rawDpr = window.devicePixelRatio || 1
+      const visualTier = getMiningVisualTier(cssW, cssH)
       const isMobilePortrait = cssH > cssW && cssW < 820
       const isPortraitTablet = cssW >= 540 && cssH > cssW
-      const perfMobile = (isMobilePortrait || isPortraitTablet || isCoarsePointerDevice()) && !isMobilePreviewHighQuality()
-      const mobileLayout = isMobilePreviewActive() || perfMobile
+      const mobileLike = isMobilePortrait || isPortraitTablet || isCoarsePointerDevice()
+      const mobileLayout = isMobilePreviewActive() || mobileLike
 
       // ── HUD canvas (2D: text, minimap, crosshair) ─────────────────────────
       // Full DPR on desktop; cap on mobile — 2.5× HUD was a major CPU sink.
-      const hudDpr = mobileLayout
-        ? Math.min(1.25, Math.max(1.0, rawDpr))
-        : Math.min(2.5, Math.max(1.0, rawDpr))
+      const hudDpr = visualTier === 'low'
+        ? Math.min(1.0, Math.max(0.85, rawDpr))
+        : mobileLayout
+          ? Math.min(visualTier === 'high' ? 1.5 : 1.25, Math.max(1.0, rawDpr))
+          : Math.min(visualTier === 'high' ? 2.5 : 1.5, Math.max(1.0, rawDpr))
 
       // ── WebGL 3D canvas ───────────────────────────────────────────────────
       let webglDpr
-      if (perfMobile) {
-        webglDpr = 1.0
+      if (visualTier === 'low') {
+        webglDpr = 0.85
+      } else if (visualTier === 'medium') {
+        webglDpr = mobileLayout ? 1.0 : Math.min(1.4, Math.max(1.0, rawDpr))
       } else {
         const pixels = cssW * cssH
         const dprCap = pixels > 1600000 ? 1.1 : 1.4
@@ -14261,7 +14348,13 @@ export default function MiningChain3DFPV({
     }
     resize()
     const ro=new ResizeObserver(resize); ro.observe(container)
-    return ()=>ro.disconnect()
+    window.addEventListener('resize', resize)
+    window.addEventListener(MINING_QUALITY_CHANGE_EVENT, resize)
+    return ()=>{
+      ro.disconnect()
+      window.removeEventListener('resize', resize)
+      window.removeEventListener(MINING_QUALITY_CHANGE_EVENT, resize)
+    }
   },[])
 
   useEffect(()=>{ renderRef.current?.() },[cellMap,presenceMap])
@@ -14436,6 +14529,7 @@ export default function MiningChain3DFPV({
       const loopTier=visualPerfTierRef.current
       const mobileLoopCap=loopTier==='low'
       if(mobileLoopCap&&lastFrameRef.current&&nowMs-lastFrameRef.current<33) return
+      updateAutoQuality(nowMs)
       const k=keysRef.current, p=playerRef.current
       const dt=lastFrameRef.current ? Math.min(0.05,(nowMs-lastFrameRef.current)/1000) : 1/60
       lastFrameRef.current=nowMs
@@ -15622,7 +15716,7 @@ export default function MiningChain3DFPV({
     lastFrameRef.current=0
     animRef.current=requestAnimationFrame(loop)
     return ()=>{ cancelAnimationFrame(animRef.current); lastFrameRef.current=0 }
-  },[onPositionChange,onFacingChange])
+  },[onPositionChange,onFacingChange,updateAutoQuality])
 
   const updateJoystick=useCallback((clientX,clientY)=>{
     const rect=joystickPadRef.current?.getBoundingClientRect()

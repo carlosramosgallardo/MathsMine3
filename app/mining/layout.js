@@ -1,6 +1,6 @@
 // Constrains the 3D game canvas width and prevents page scroll so it fills
 // exactly from the header to the bottom of the viewport — same treatment as
-// chain3d but with a max-width cap so the canvas never exceeds 1440 px on
+// chain3d but with a max-width cap so the canvas never exceeds 1024 px on
 // wide monitors.  Wider canvases render more raycaster strips per frame,
 // making the game visibly slower on older / integrated-GPU hardware.
 export const metadata = {
@@ -31,7 +31,7 @@ export default function MiningLayout({ children }) {
         }
         @media (min-width: 900px) {
           .mm3-mining3d-root {
-            max-width: 512px;
+            max-width: 1024px;
             margin-left: auto;
             margin-right: auto;
           }
