@@ -2139,7 +2139,7 @@ a.mm3-nonagon-center-name:hover {
   .mm3-home-copy .mm3-splash-sub,
   .mm3-home-copy .mm3-splash-disclaimer { text-align:center; }
   /* Bigger arena — full portrait width */
-  .mm3-home-arena { width:min(290px,86vw); height:148px; margin-left:0; }
+  .mm3-home-arena { width:min(290px,86vw); height:148px; margin-inline:auto; }
   .mm3-home-arena-floor { height:92px; }
   .mm3-home-chain3d { width:82px; height:172px; }
   .mm3-home-bot3d { width:82px; height:82px; }
