@@ -2,11 +2,11 @@
 
 import { useEffect, useRef } from 'react'
 import { createM3PutinBossVisual } from '@/lib/m3-putin-boss-runtime'
-import { M3_PUTIN_BOSS_SCALE } from '@/lib/m3-putin-boss'
+import { M3_PUTIN_BOSS_SCALE, M3_PUTIN_BOSS_NAME } from '@/lib/m3-putin-boss'
 import { createM4KimBossVisual } from '@/lib/m4-kim-boss-runtime'
-import { M4_KIM_BOSS_SCALE } from '@/lib/m4-kim-boss'
+import { M4_KIM_BOSS_SCALE, M4_KIM_BOSS_NAME } from '@/lib/m4-kim-boss'
 import { createM5TrumpBossVisual } from '@/lib/m5-trump-boss-runtime'
-import { M5_TRUMP_BOSS_SCALE } from '@/lib/m5-trump-boss'
+import { M5_TRUMP_BOSS_SCALE, M5_TRUMP_BOSS_NAME } from '@/lib/m5-trump-boss'
 import { createM1MileiStatueVisual, M1_MILEI_STATUE_SCALE } from '@/lib/m1-milei-statue'
 import { roundedVoxelGeometry } from '@/lib/rounded-voxel'
 import { advanceShowcaseSpin } from '@/lib/map-boss-facing'
@@ -143,6 +143,7 @@ export function addMiningBot(THREE, scene, options = {}) {
   avatar.userData.rightFoot = rightFoot
   avatar.userData.leftSole = leftSole
   avatar.userData.rightSole = rightSole
+  avatar.userData.tool = tool
   avatar.userData.bodyParts = [...bodyParts, leftFoot, rightFoot, leftSole, rightSole]
   scene.add(avatar)
   return avatar
@@ -305,6 +306,38 @@ function makeNftjiSprite(THREE, emoji = '💎') {
     alphaTest: .04,
   }))
   sprite.scale.set(1.05, 1.05, 1)
+  return sprite
+}
+
+/** Overhead nameplate matching mining's player/NPC tags: dark box, glowing
+    border, bold monospace text — so home members read like in-game players. */
+function makeHomeTagSprite(THREE, text, accent = '#86efac') {
+  if (typeof document === 'undefined') return null
+  const canvas = document.createElement('canvas')
+  canvas.width = 320
+  canvas.height = 48
+  const ctx = canvas.getContext('2d')
+  if (!ctx) return null
+  ctx.fillStyle = 'rgba(1,7,14,.85)'
+  ctx.fillRect(0, 4, 320, 40)
+  ctx.globalAlpha = .65
+  ctx.strokeStyle = accent
+  ctx.lineWidth = 2
+  ctx.strokeRect(1, 5, 318, 38)
+  ctx.globalAlpha = 1
+  ctx.font = 'bold 22px monospace'
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'middle'
+  ctx.fillStyle = accent
+  ctx.fillText(text, 160, 25)
+  const tex = new THREE.CanvasTexture(canvas)
+  tex.colorSpace = THREE.SRGBColorSpace
+  const sprite = new THREE.Sprite(new THREE.SpriteMaterial({
+    map: tex,
+    transparent: true,
+    depthWrite: false,
+  }))
+  sprite.renderOrder = 9
   return sprite
 }
 
@@ -660,10 +693,30 @@ export default function HomeMiningWorld3D() {
         rotationY: Math.PI,
         phase: Math.PI * 1.48,
       })
+      // Sparring members: a violet bot and an amber bot-on-sky-car that throw a
+      // relaxed USB-staff strike every 2s (see the punch envelope in animate).
+      const homePunchBot = addMiningBot(THREE, scene, {
+        color: '#a855f7',
+        position: [0, HOME_ARENA_FLOOR_Y, 0.08],
+        rotationY: Math.PI,
+        scale: HOME_LINEUP_BOT_SCALE,
+      })
+      const homePunchBotCar = addHomeBotCar(THREE, scene, {
+        botColor: '#eab308',
+        carColor: '#0ea5e9',
+        position: [0, 0, 0.10],
+        rotationY: Math.PI,
+        phase: Math.PI * .40,
+      })
+      homePunchBotCar.punch = true
+      homePunchBotCar.punchPhase = 1.0
       const homeProps = [
-        { kind: 'bot', group: homeBot, baseY: HOME_ARENA_FLOOR_Y, baseRotationY: Math.PI, phase: Math.PI * .28, bob: 2.35, sway: .54 },
+        // The green bot hops every 2s (jump), the sparring pair strikes every 2s (punch).
+        { kind: 'bot', group: homeBot, baseY: HOME_ARENA_FLOOR_Y, baseRotationY: Math.PI, phase: Math.PI * .28, bob: 2.35, sway: .54, jump: true, jumpPhase: .5 },
         homeBotCar,
         homeSoloCar,
+        { kind: 'bot', group: homePunchBot, baseY: HOME_ARENA_FLOOR_Y, baseRotationY: Math.PI, phase: Math.PI * 1.12, bob: 2.25, sway: .48, punch: true, punchPhase: 0 },
+        homePunchBotCar,
       ]
 
       // Display-case rail (carousel): the framing always shows the maximum
@@ -671,14 +724,44 @@ export default function HomeMiningWorld3D() {
       // rail, which matters once more avatars than visible slots join the
       // lineup. Facing-the-camera yaw and the sec(θ) width compensation are
       // re-applied per frame as members move along the rail.
-      const lineup = [...homeBosses, ...homeProps]
+      // Members interleave boss/bot as evenly as 4 bosses + 5 props allow, at
+      // the same RAIL_SPACING gap as before; railX is assigned by slot index.
+      const bossById = Object.fromEntries(HOME_BOSS_LAYOUT.map((layout, i) => [layout.id, homeBosses[i]]))
+      const punchBotProp = homeProps[3]
+      const lineup = [
+        bossById.trump, homeSoloCar, bossById.putin, homeProps[0], bossById.milei,
+        homeBotCar, bossById.kim, punchBotProp, homePunchBotCar,
+      ]
       const RAIL_SPACING = 4.55
       const railSpan = lineup.length * RAIL_SPACING
-      for (const entry of lineup) {
-        entry.railX = entry.group.position.x
+      lineup.forEach((entry, i) => {
+        entry.railX = (i - (lineup.length - 1) / 2) * RAIL_SPACING
+        entry.group.position.x = entry.railX
         entry.faceYaw0 = entry.baseRotationY
         entry.baseScaleX = entry.group.scale.x
+      })
+
+      // Overhead nameplates, mining-style: bosses/statue with their name, and
+      // the four bots tagged with the AI-team wallets (NPC_BOT_BY_MAP in
+      // MiningChain3DFPV, maps 2-5) exactly like in-game player tags.
+      // localY is in group-local units; the scale compensation keeps every tag
+      // the same on-screen size regardless of the member's group scale.
+      const addHomeTag = (group, text, accent, localY) => {
+        const tag = makeHomeTagSprite(THREE, text, accent)
+        if (!tag) return
+        const gs = group.scale.y || 1
+        tag.scale.set(2.7 / gs, 0.405 / gs, 1)
+        tag.position.y = localY
+        group.add(tag)
       }
+      addHomeTag(bossById.trump.group, `${M5_TRUMP_BOSS_NAME} · BOSS`, '#ef4444', 1.45)
+      addHomeTag(bossById.putin.group, `${M3_PUTIN_BOSS_NAME} · BOSS`, '#94a3b8', 1.45)
+      addHomeTag(bossById.kim.group, `${M4_KIM_BOSS_NAME} · BOSS`, '#d946ef', 1.45)
+      addHomeTag(bossById.milei.group, 'Javier Milei · STATUE', '#74acdf', 1.45)
+      addHomeTag(homeBot, '0xcab1…5528 · AI', '#86efac', 1.25)
+      addHomeTag(homeBotCar.group, '0xcb4c…e202 · AI', '#86efac', 3.62)
+      addHomeTag(homePunchBot, '0xd6c6…4233 · AI', '#86efac', 1.25)
+      addHomeTag(homePunchBotCar.group, '0xd894…e8ab · AI', '#86efac', 3.62)
       const rail = { offset: 0, vel: 0, dragging: false, lastX: 0, moved: 0, suppressClick: false }
       const railWorldPerPx = () => {
         const halfH = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * 24
@@ -841,6 +924,11 @@ export default function HomeMiningWorld3D() {
           const t = time + prop.phase
           const lift = Math.max(0, Math.sin(t * prop.bob)) * (prop.kind === 'car' ? 0.018 : 0.032)
           prop.group.position.y = prop.baseY + lift
+          if (prop.jump) {
+            // One clean 0.55s hop every 2s, on top of the idle bob.
+            const jt = (time + (prop.jumpPhase || 0)) % 2
+            if (jt < 0.55) prop.group.position.y += Math.sin((jt / 0.55) * Math.PI) * 0.5
+          }
           // Same showcase spin as the bosses.
           prop.group.rotation.y = prop.baseRotationY + advanceShowcaseSpin(prop, spinDt)
           prop.group.rotation.z = Math.sin(t * (prop.sway + .7)) * (prop.kind === 'car' ? 0.006 : 0.012)
@@ -853,6 +941,15 @@ export default function HomeMiningWorld3D() {
           } else if (prop.kind === 'botCar' && prop.bot) {
             // Ground level minus the anti-z-fight drop (see addHomeBotCar).
             prop.bot.position.y = -.03 + Math.sin(t * 2.4) * .012
+          }
+          if (prop.punch) {
+            // Relaxed sparring: one 0.5s forward staff strike every 2s.
+            const tool = (prop.kind === 'botCar' ? prop.bot : prop.group)?.userData.tool
+            if (tool) {
+              const pt = (time + (prop.punchPhase || 0)) % 2
+              const swing = pt < 0.5 ? Math.sin((pt / 0.5) * Math.PI) : 0
+              tool.rotation.x = -swing * 1.05
+            }
           }
         }
         renderer.render(scene, camera)
