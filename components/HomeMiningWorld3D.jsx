@@ -758,6 +758,7 @@ export default function HomeMiningWorld3D() {
       addHomeTag(bossById.putin.group, `${M3_PUTIN_BOSS_NAME} · BOSS`, '#94a3b8', 1.45)
       addHomeTag(bossById.kim.group, `${M4_KIM_BOSS_NAME} · BOSS`, '#d946ef', 1.45)
       addHomeTag(bossById.milei.group, 'Javier Milei · STATUE', '#74acdf', 1.45)
+      addHomeTag(homeSoloCar.group, 'Aserejee', '#22d3ee', 0.95)
       addHomeTag(homeBot, '0xcab1…5528 · AI', '#86efac', 1.25)
       addHomeTag(homeBotCar.group, '0xcb4c…e202 · AI', '#86efac', 3.62)
       addHomeTag(homePunchBot, '0xd6c6…4233 · AI', '#86efac', 1.25)

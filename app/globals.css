@@ -1567,16 +1567,22 @@ footer.bg-black\/97,
   position: relative;
   /* Logo mode: tiny — same height as the info card beside it, so the pair
      reads as one compact row and the avatars keep the spotlight. */
-  width: min(142px, 56vw);
+  width: min(128px, 50vw);
   aspect-ratio: 1 / 1;
   transition: width .42s cubic-bezier(.6, -0.2, .3, 1.25);
 }
 /* Map mode: the polygon disappears entirely — the minimap alone spans the
    carousel carpet's width for maximum readability; clicking it goes back. */
+.mm3-nonagon.is-open {
+  /* Full-width so the map really opens edge to edge; the underrow/card side
+     paddings (not vw units) are what keep it from overlapping on portrait
+     phones — % always resolves inside the card. */
+  width: 100%;
+}
 .mm3-nonagon-mapfull {
   display: block;
   /* 100% of the card, never vw: vw overflowed the card and got clipped. */
-  width: min(940px, 100%);
+  width: min(1034px, 100%);
   padding: 0;
   border: 0;
   background: transparent;
@@ -1642,11 +1648,11 @@ footer.bg-black\/97,
   flex-wrap: wrap;
   align-items: center;
   justify-content: center;
-  gap: .35rem .8rem;
+  gap: .3rem .7rem;
   /* Single-line strip: emoji · title · description all in one row. */
-  width: min(680px, 94vw);
-  height: 64px;
-  padding: .5rem .9rem;
+  width: min(612px, 85vw);
+  height: 58px;
+  padding: .45rem .8rem;
   text-align: center;
   font-family: var(--font-mono), 'Courier New', monospace;
   border: 1px solid color-mix(in srgb, var(--ac, #22d3ee) 55%, transparent);
@@ -1676,18 +1682,18 @@ footer.bg-black\/97,
   justify-content: center;
   gap: .5rem;
 }
-.mm3-nonagon-center-icon { font-size: 1.05rem; }
+.mm3-nonagon-center-icon { font-size: .95rem; }
 .mm3-nonagon-center-name {
   font-weight: 800;
   letter-spacing: .14em;
   text-transform: uppercase;
-  font-size: .82rem;
+  font-size: .74rem;
   color: var(--ac, #22d3ee);
   text-shadow: 0 0 12px color-mix(in srgb, var(--ac, #22d3ee) 55%, transparent);
 }
 .mm3-nonagon-center-desc {
   color: #94a3b8;
-  font-size: .68rem;
+  font-size: .61rem;
   line-height: 1.3;
 }
 @media (min-width: 520px) {
@@ -1695,7 +1701,7 @@ footer.bg-black\/97,
 }
 @media (max-width: 519px) {
   /* Narrow screens: let the description wrap under the title. */
-  .mm3-nonagon-caption { height: auto; min-height: 64px; }
+  .mm3-nonagon-caption { height: auto; min-height: 58px; }
   /* Tighter gutters so the expanded world map uses the full phone width. */
   .mm3-home .mm3-splash { padding-left: .4rem; padding-right: .4rem; }
   .mm3-home-access { padding-left: .3rem; padding-right: .3rem; }
@@ -1786,8 +1792,8 @@ a.mm3-nonagon-center-name:hover {
   position: relative;
   z-index: 2;
   flex: 0 0 auto;
-  width:min(940px,100%);
-  height:240px;
+  width:min(1034px,100%);
+  height:264px;
   /* justify-self only works in grid contexts (Firefox left-aligned the arena
      inside the wider display case) — auto margins centre it everywhere. */
   margin-inline: auto;
@@ -1804,7 +1810,7 @@ a.mm3-nonagon-center-name:hover {
   left:7%;
   right:4%;
   bottom:7px;
-  height:115px;
+  height:127px;
   overflow:hidden;
   border:1px solid rgba(34,211,238,.42);
   border-radius:50%;
@@ -2117,8 +2123,8 @@ a.mm3-nonagon-center-name:hover {
     min-height: 235px;
     padding: .85rem .45rem .5rem;
   }
-  .mm3-home-arena { width:min(660px,96vw); height:185px; }
-  .mm3-home-arena-floor { height:82px; }
+  .mm3-home-arena { width:min(726px,96vw); height:204px; }
+  .mm3-home-arena-floor { height:90px; }
   .mm3-home-chain3d { width:72px; height:152px; bottom:-5px; }
   .mm3-home-bot3d { width:72px; height:72px; }
   .mm3-home .mm3-portal { padding: .5rem .45rem .38rem; }
@@ -2139,8 +2145,8 @@ a.mm3-nonagon-center-name:hover {
   .mm3-home-copy .mm3-splash-sub,
   .mm3-home-copy .mm3-splash-disclaimer { text-align:center; }
   /* Bigger arena — full portrait width */
-  .mm3-home-arena { width:min(290px,86vw); height:148px; margin-inline:auto; }
-  .mm3-home-arena-floor { height:92px; }
+  .mm3-home-arena { width:min(319px,92vw); height:163px; margin-inline:auto; }
+  .mm3-home-arena-floor { height:101px; }
   .mm3-home-chain3d { width:82px; height:172px; }
   .mm3-home-bot3d { width:82px; height:82px; }
   /* Portal cards — bigger on portrait */
@@ -2153,8 +2159,8 @@ a.mm3-nonagon-center-name:hover {
 }
 @media (max-height:500px) and (orientation:landscape) {
   .mm3-home .mm3-splash-body { min-height:170px; }
-  .mm3-home-arena { width:min(680px,92vw); height:110px; }
-  .mm3-home-arena-floor { height:82px; }
+  .mm3-home-arena { width:min(748px,94vw); height:121px; }
+  .mm3-home-arena-floor { height:90px; }
   .mm3-home-sword-scene { top:0; transform:scale(.52); transform-origin:top left; }
   .mm3-home-arena-bot { bottom:4px; transform:scale(.48); }
   .mm3-home .mm3-portal { padding: .6rem .55rem .32rem; }
@@ -2165,7 +2171,7 @@ a.mm3-nonagon-center-name:hover {
 }
 @media (min-width:721px) {
   .mm3-home .mm3-splash { flex:none; }
-  .mm3-home-arena { height:205px; }
+  .mm3-home-arena { height:226px; }
   .mm3-home .mm3-splash-body { min-height:0; padding:.3rem 0 .2rem; }
   .mm3-home .mm3-portal-card { min-height:50px; }
 }
