@@ -567,6 +567,7 @@ function addRedCarpet(THREE, scene) {
 /** Voxel boss avatar for the home hero — same look as in Mining maps. */
 export function addHomeBoss(THREE, scene, options = {}) {
   const {
+    id = null,
     createVisual,
     bossScale,
     position = [0, 0, 0],
@@ -597,6 +598,7 @@ export function addHomeBoss(THREE, scene, options = {}) {
 
   scene.add(group)
   return {
+    id,
     group,
     bodyPivot,
     glowLight,
@@ -668,6 +670,9 @@ export default function HomeMiningWorld3D() {
       kim:   performance.now() + 2833,
       trump: performance.now() + 4166,
     }
+    // Attack animation state: null = idle, number = performance.now() when the 3 s sequence began
+    const bossAttackStart = { putin: null, kim: null, trump: null }
+    const bossVfxFired    = { putin: false, kim: false, trump: false }
 
     let animationFrame = 0
     let destroyed = false
@@ -971,6 +976,83 @@ export default function HomeMiningWorld3D() {
       intersectionObserver.observe(canvas)
 
       const clock = new THREE.Clock()
+
+      // 3-second attack choreography per boss — called once per frame while attackT ∈ (0,1).
+      // Arms blend from idle sway to an attack pose; legs do a boss-specific move; boss jumps.
+      const applyBossAttack = (boss, bossId, at, t) => {
+        const arms = boss.bodyPivot?.userData?.humanArms
+        const legs = boss.bodyPivot?.userData?.humanLegs
+        if (!arms || !legs) return
+        const [lArm, rArm] = arms
+        const [lLeg, rLeg] = legs
+        const lPhase = lArm.userData.swayPhase || 0
+        const rPhase = rArm.userData.swayPhase || 0
+        const lBaseZ = lArm.userData.baseRotZ || 0
+        const rBaseZ = rArm.userData.baseRotZ || 0
+        // Envelope: smooth in (first 15 %) and smooth out (last 20 %) of 3 s window
+        const bIn   = Math.sin(Math.min(1, at / 0.15) * Math.PI * 0.5)
+        const bOut  = Math.sin(Math.min(1, (1 - at) / 0.20) * Math.PI * 0.5)
+        const blend = bIn * bOut
+        // Jump arc: 0→1→0 over the full 3 s; peaks at at = 0.5 (moment VFX fires)
+        const jumpH   = Math.sin(at * Math.PI)
+        const windupP = Math.min(1, at / 0.35)
+        const strikeP = at >= 0.35 ? Math.min(1, (at - 0.35) / 0.18) : 0
+        // Idle arm baselines (same formula as swayHumanoidArms — seamless blend)
+        const idleAX = ph => Math.sin(t * 0.9  + ph) * 0.055
+        const idleAZ = (bz, ph) => bz + Math.sin(t * 0.63 + ph * 1.7) * 0.045
+
+        if (bossId === 'putin') {
+          // Military precision: both arms pull back then thrust forward together; V-spread legs
+          const aX = windupP * (-0.52) + strikeP * 1.70
+          lArm.rotation.x = idleAX(lPhase) * (1 - blend) + aX * blend
+          rArm.rotation.x = idleAX(rPhase) * (1 - blend) + aX * blend
+          lArm.rotation.z = idleAZ(lBaseZ, lPhase) * (1 - blend) + (lBaseZ + 0.10) * blend
+          rArm.rotation.z = idleAZ(rBaseZ, rPhase) * (1 - blend) + (rBaseZ - 0.10) * blend
+          lLeg.rotation.x = 0
+          rLeg.rotation.x = 0
+          lLeg.rotation.z = -jumpH * 0.44 * blend
+          rLeg.rotation.z =  jumpH * 0.44 * blend
+          boss.bodyPivot.position.y = Math.max(0, Math.sin(t * boss.bob) * 0.06) * (1 - blend)
+                                    + (-0.07 * windupP + 0.03 * strikeP) * blend
+          boss.group.position.y    = boss.baseY + jumpH * 0.38 * blend
+          boss.group.rotation.z    = Math.sin(t * (boss.sway + 0.65)) * 0.014 * (1 - blend)
+
+        } else if (bossId === 'kim') {
+          // Theatrical: right arm sweeps overhead then stabs forward; left stays back; scissor kick
+          const rX = windupP * (-1.20) + strikeP * 2.05
+          const lX = -0.38 * windupP
+          rArm.rotation.x = idleAX(rPhase) * (1 - blend) + rX * blend
+          lArm.rotation.x = idleAX(lPhase) * (1 - blend) + lX * blend
+          rArm.rotation.z = idleAZ(rBaseZ, rPhase) * (1 - blend) + (rBaseZ - 0.40) * blend
+          lArm.rotation.z = idleAZ(lBaseZ, lPhase) * (1 - blend) + (lBaseZ + 0.30) * blend
+          lLeg.rotation.x =  jumpH * 0.55 * blend
+          rLeg.rotation.x = -jumpH * 0.55 * blend
+          lLeg.rotation.z = 0
+          rLeg.rotation.z = 0
+          boss.bodyPivot.position.y = Math.max(0, Math.sin(t * boss.bob) * 0.06) * (1 - blend)
+                                    + 0.05 * windupP * blend
+          boss.group.position.y    = boss.baseY + jumpH * 0.52 * blend
+          boss.group.rotation.z    = Math.sin(t * (boss.sway + 0.65)) * 0.014 * (1 - blend)
+
+        } else if (bossId === 'trump') {
+          // Bombastic: arms blast wide sideways then right arm jabs; low hop; lateral leg spread + hip wobble
+          const spreadP = Math.min(1, at / 0.30)
+          const pointP  = at > 0.45 ? Math.min(1, (at - 0.45) / 0.22) : 0
+          lArm.rotation.x = idleAX(lPhase) * (1 - blend) + spreadP * 0.22 * blend
+          rArm.rotation.x = idleAX(rPhase) * (1 - blend) + (spreadP * 0.22 + pointP * 0.85) * blend
+          lArm.rotation.z = idleAZ(lBaseZ, lPhase) * (1 - blend) + (lBaseZ + spreadP * 1.22) * blend
+          rArm.rotation.z = idleAZ(rBaseZ, rPhase) * (1 - blend) + (rBaseZ - spreadP * 1.22 + pointP * 0.58) * blend
+          lLeg.rotation.z = -jumpH * 0.46 * blend
+          rLeg.rotation.z =  jumpH * 0.46 * blend
+          lLeg.rotation.x =  jumpH * 0.18 * blend
+          rLeg.rotation.x =  jumpH * 0.18 * blend
+          boss.bodyPivot.position.y = Math.max(0, Math.sin(t * boss.bob) * 0.06) * (1 - blend)
+          boss.group.position.y    = boss.baseY + jumpH * 0.22 * blend
+          boss.group.rotation.z    = Math.sin(t * (boss.sway + 0.65)) * 0.014 * (1 - blend)
+                                   + Math.sin(at * Math.PI * 3.5) * 0.032 * blend
+        }
+      }
+
       const animate = () => {
         animationFrame = requestAnimationFrame(animate)
         if (!pageVisible || !inViewport) return
@@ -1003,6 +1085,8 @@ export default function HomeMiningWorld3D() {
           g.scale.x = entry.baseScaleX * Math.cos(yawCam)
         }
 
+        const now = performance.now()
+
         for (const boss of homeBosses) {
           const t = time + boss.phase
           const stride = Math.sin(t * boss.bob)
@@ -1032,16 +1116,30 @@ export default function HomeMiningWorld3D() {
               boss.rightArm.rotation.x = 0
               boss.rightArm.rotation.z = 2.5 + Math.sin(t * 2.4) * 0.22
             }
+            boss.glowLight.intensity = boss.baseGlow + Math.sin(t * 2.4) * 0.85
           } else {
-            boss.bodyPivot.position.y = Math.max(0, stride * 0.06)
-            boss.group.position.y = boss.baseY + Math.max(0, Math.sin(t * (boss.bob + 0.15)) * 0.018)
-            // Whole-body showcase spin, same logic as mining idle bosses.
             boss.group.rotation.y = boss.baseRotationY + advanceShowcaseSpin(boss, spinDt)
-            boss.group.rotation.z = Math.sin(t * (boss.sway + 0.65)) * 0.014
-            // Subtle random human arm sway.
-            swayHumanoidArms(boss.bodyPivot, t)
+            const as = bossAttackStart[boss.id]
+            const attackT = as ? Math.min(1, (now - as) / 3000) : 0
+            boss.glowLight.intensity = boss.baseGlow + Math.sin(t * 2.4) * 0.85
+            if (attackT > 0) {
+              applyBossAttack(boss, boss.id, attackT, t)
+              // Boost glow during attack
+              const bIn  = Math.sin(Math.min(1, attackT / 0.15) * Math.PI * 0.5)
+              const bOut = Math.sin(Math.min(1, (1 - attackT) / 0.20) * Math.PI * 0.5)
+              boss.glowLight.intensity += bIn * bOut * 1.4
+            } else {
+              boss.bodyPivot.position.y = Math.max(0, stride * 0.06)
+              boss.group.position.y = boss.baseY + Math.max(0, Math.sin(t * (boss.bob + 0.15)) * 0.018)
+              boss.group.rotation.z = Math.sin(t * (boss.sway + 0.65)) * 0.014
+              swayHumanoidArms(boss.bodyPivot, t)
+              const legs = boss.bodyPivot?.userData?.humanLegs
+              if (legs) {
+                legs[0].rotation.x = 0; legs[0].rotation.z = 0
+                legs[1].rotation.x = 0; legs[1].rotation.z = 0
+              }
+            }
           }
-          boss.glowLight.intensity = boss.baseGlow + Math.sin(t * 2.4) * 0.85
         }
         for (const prop of homeProps) {
           const t = time + prop.phase
@@ -1074,24 +1172,32 @@ export default function HomeMiningWorld3D() {
             }
           }
         }
-        // Boss attacks every 4s — spawn from current boss world pos toward camera
-        const now = performance.now()
+        // Boss 3-second attack sequence: animation starts on timer; VFX fires at t = 1.5 s
         for (const [bossId, nextAt] of Object.entries(bossNextAttack)) {
-          if (now >= nextAt) {
+          if (now >= nextAt && !bossAttackStart[bossId]) {
             bossNextAttack[bossId] = nextAt + 4000
+            bossAttackStart[bossId] = now
+            bossVfxFired[bossId] = false
+          }
+          const as = bossAttackStart[bossId]
+          if (!as) continue
+          const elapsed = now - as
+          if (!bossVfxFired[bossId] && elapsed >= 1500) {
+            bossVfxFired[bossId] = true
             const boss = bossById[bossId]
-            if (!boss) continue
-            const fromGx = boss.group.position.x
-            const fromGy = boss.group.position.z
-            const toGx = camera.position.x
-            const toGy = camera.position.z
-            if (bossId === 'trump') {
-              dollarBills = spawnBossDollarBurst(dollarBills, { fromGx, fromGy, toGx, toGy, at: now, mapId: '5' })
-            } else if (bossId === 'putin') {
-              hammerSickleSymbols = spawnBossHammerSickleBurst(hammerSickleSymbols, { fromGx, fromGy, toGx, toGy, at: now, mapId: '3' })
-            } else if (bossId === 'kim') {
-              missileSymbols = spawnBossMissileBurst(missileSymbols, { fromGx, fromGy, toGx, toGy, at: now, mapId: '4' })
+            if (boss) {
+              const fromGx = boss.group.position.x
+              const fromGy = boss.group.position.z
+              const toGx   = camera.position.x
+              const toGy   = camera.position.z
+              if (bossId === 'trump')       dollarBills          = spawnBossDollarBurst(dollarBills, { fromGx, fromGy, toGx, toGy, at: now, mapId: '5' })
+              else if (bossId === 'putin')  hammerSickleSymbols  = spawnBossHammerSickleBurst(hammerSickleSymbols, { fromGx, fromGy, toGx, toGy, at: now, mapId: '3' })
+              else if (bossId === 'kim')    missileSymbols       = spawnBossMissileBurst(missileSymbols, { fromGx, fromGy, toGx, toGy, at: now, mapId: '4' })
             }
+          }
+          if (elapsed >= 3000) {
+            bossAttackStart[bossId] = null
+            bossVfxFired[bossId] = false
           }
         }
         // Draw VFX particles on the 2D overlay canvas
