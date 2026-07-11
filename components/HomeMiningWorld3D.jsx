@@ -11,6 +11,18 @@ import { createM1MileiStatueVisual, M1_MILEI_STATUE_SCALE } from '@/lib/m1-milei
 import { roundedVoxelGeometry } from '@/lib/rounded-voxel'
 import { advanceShowcaseSpin } from '@/lib/map-boss-facing'
 import { setBossMaskEyesRed } from '@/lib/boss-head-photo'
+import { colorFromAddress } from '@/lib/wallet-colors'
+import { buildHumanoidBody, swayHumanoidArms, walkHumanoidLegs } from '@/lib/humanoid-body'
+
+/** The real AI-team bot wallets (NPC_BOT_BY_MAP in MiningChain3DFPV, maps 2-5):
+    the four home bots ARE these bots — same wallet colour, same overhead tag. */
+const AI_TEAM_WALLETS = Object.freeze([
+  '0xcab10d0e0650d45cb0b7482370a1ca93d5bf5528', // M2
+  '0xcb4ccfa7de7bf861ff0383b668e682d2ee20e202', // M3
+  '0xd6c6c15060b27406d956c7e99e520cc810b44233', // M4
+  '0xd89413f5f444cd420b448cda3bc096ea9c46e8ab', // M5
+])
+const aiTeamTag = (wallet) => `${wallet.slice(0, 6)}…${wallet.slice(-4)} · AI`
 
 const HOME_ARENA_BOT_SCALE = 3.44
 /** Boss taller than the bot, but capped so the hero canvas does not clip the head. */
@@ -43,7 +55,6 @@ export function addMiningBot(THREE, scene, options = {}) {
   const bright = color.clone().lerp(new THREE.Color('#ffffff'), .34)
   const dark = color.clone().multiplyScalar(.30)
   const mid = color.clone().multiplyScalar(.76)
-  const bodyMat = new THREE.MeshStandardMaterial({ color: color.clone().lerp(new THREE.Color('#ffffff'), .10), roughness: .42, metalness: .38, emissive: color.clone().multiplyScalar(.10), emissiveIntensity: .34 })
   const brightMat = new THREE.MeshStandardMaterial({ color: bright, roughness: .34, metalness: .46, emissive: color.clone().multiplyScalar(.08), emissiveIntensity: .26 })
   const darkMat = new THREE.MeshStandardMaterial({ color: dark, roughness: .72, metalness: .28 })
   const midMat = new THREE.MeshStandardMaterial({ color: mid, roughness: .58, metalness: .30 })
@@ -58,21 +69,36 @@ export function addMiningBot(THREE, scene, options = {}) {
     return mesh
   }
 
-  // Torso/arm/feet meshes are tagged as bodyParts so the bot-on-car variant can
-  // hide them (mining-style mount: only head, antenna and USB staff stay visible).
-  const bodyParts = []
-  bodyParts.push(addBox([.46, .48, .27], bodyMat, [0, .39, 0]))
-  bodyParts.push(addBox([.31, .22, .025], darkMat, [0, .43, -.151]))
-  bodyParts.push(addBox([.20, .105, .014], new THREE.MeshBasicMaterial({ color: '#03121c' }), [0, .44, -.168]))
-  bodyParts.push(addBox([.095, .055, .014], goldMat, [0, .44, -.178]))
-  bodyParts.push(addBox([.48, .065, .29], darkMat, [0, .20, 0]))
-  bodyParts.push(addBox([.08, .06, .025], cyanMat, [0, .20, -.166]))
-  bodyParts.push(addBox([.13, .20, .25], midMat, [-.295, .51, 0]))
-  bodyParts.push(addBox([.13, .20, .25], midMat, [.295, .51, 0]))
-  bodyParts.push(addBox([.09, .25, .11], darkMat, [-.30, .36, 0]))
-  bodyParts.push(addBox([.09, .25, .11], darkMat, [.30, .36, 0]))
-  bodyParts.push(addBox([.10, .10, .12], brightMat, [.31, .22, -.01]))
-  bodyParts.push(addBox([.13, .07, .13], darkMat, [0, .68, 0]))
+  // Low-poly humanoid body (same mold as bosses/statue) in the wallet colour;
+  // the robot head, antenna and USB staff stay. Body meshes are tagged as
+  // bodyParts so the bot-on-car variant can hide them (mining-style mount:
+  // only head, antenna and USB staff stay visible).
+  const body = buildHumanoidBody(THREE, avatar, {
+    mat: (c, roughness, metalness) => new THREE.MeshStandardMaterial({
+      color: c,
+      roughness,
+      metalness: Math.min(0.5, metalness + 0.12),
+      emissive: color.clone().multiplyScalar(.09),
+      emissiveIntensity: .3,
+    }),
+    lowDetail: false,
+    bulk: 1.02,
+    colors: {
+      skin: bright,
+      torso: color.clone().lerp(new THREE.Color('#ffffff'), .10),
+      arms: mid,
+      legs: dark,
+      // Brighter than the trousers so the stepping feet read clearly.
+      shoes: mid,
+      hands: bright,
+    },
+  })
+  const bodyParts = [...body.bodyMeshes, body.leftArm, body.rightArm, body.leftLeg, body.rightLeg]
+  // Chest screen + belt light, on the humanoid chest front (-z).
+  bodyParts.push(addBox([.20, .13, .02], darkMat, [0, .58, -.132]))
+  bodyParts.push(addBox([.13, .07, .012], new THREE.MeshBasicMaterial({ color: '#03121c' }), [0, .58, -.146]))
+  bodyParts.push(addBox([.07, .04, .012], goldMat, [0, .585, -.154]))
+  bodyParts.push(addBox([.07, .05, .02], cyanMat, [0, .345, -.125]))
   addBox([.34, .25, .25], brightMat, [0, .82, 0])
   addBox([.27, .105, .018], darkMat, [0, .84, -.139])
   addBox([.205, .045, .012], cyanMat, [0, .84, -.153])
@@ -87,13 +113,15 @@ export function addMiningBot(THREE, scene, options = {}) {
   antennaTip.position.set(.08, 1.075, 0)
   avatar.add(antennaTip)
 
-  const leftFoot = addBox([.18, .11, .28], darkMat, [-.14, .075, -.025])
-  const rightFoot = addBox([.18, .11, .28], darkMat, [.14, .075, -.025])
-  const leftSole = addBox([.19, .025, .30], midMat, [-.14, .014, -.025])
-  const rightSole = addBox([.19, .025, .30], midMat, [.14, .014, -.025])
+  // Humanoid shoes double as the stepping feet; no separate soles.
+  const leftFoot = body.leftShoe
+  const rightFoot = body.rightShoe
+  const leftSole = null
+  const rightSole = null
 
   const tool = new THREE.Group()
-  tool.position.set(.31, .25, -.01)
+  // Held at the humanoid right hand; punch swings rotate around this pivot.
+  tool.position.set(.25, .24, -.04)
   const toolAngle = -.58
   const shaft = new THREE.Mesh(new THREE.CylinderGeometry(.024, .030, .62, 12), darkMat)
   shaft.rotation.z = toolAngle
@@ -144,7 +172,7 @@ export function addMiningBot(THREE, scene, options = {}) {
   avatar.userData.leftSole = leftSole
   avatar.userData.rightSole = rightSole
   avatar.userData.tool = tool
-  avatar.userData.bodyParts = [...bodyParts, leftFoot, rightFoot, leftSole, rightSole]
+  avatar.userData.bodyParts = bodyParts
   scene.add(avatar)
   return avatar
 }
@@ -475,7 +503,9 @@ function addRedCarpet(THREE, scene) {
     emissive: '#0e7490',
     emissiveIntensity: 0.30,
   })
-  const carpet = new THREE.Mesh(new THREE.BoxGeometry(29.9, 0.025, 2.98), carpetMat)
+  // Sized to the 9-member rail span (9 × 4.55 ≈ 41) so the wrap-around
+  // carousel never shows members standing off the runway.
+  const carpet = new THREE.Mesh(new THREE.BoxGeometry(41.4, 0.025, 2.98), carpetMat)
   carpet.receiveShadow = true
   carpetGroup.add(carpet)
 
@@ -487,13 +517,13 @@ function addRedCarpet(THREE, scene) {
     emissiveIntensity: 0.85,
   })
   for (const z of [-1.55, 1.55]) {
-    const trim = new THREE.Mesh(new THREE.BoxGeometry(30.1, 0.035, 0.10), trimMat)
+    const trim = new THREE.Mesh(new THREE.BoxGeometry(41.6, 0.035, 0.10), trimMat)
     trim.position.z = z
     carpetGroup.add(trim)
   }
 
   const centerStripe = new THREE.Mesh(
-    new THREE.BoxGeometry(29.5, 0.028, 0.21),
+    new THREE.BoxGeometry(41.0, 0.028, 0.21),
     new THREE.MeshBasicMaterial({ color: '#d946ef', transparent: true, opacity: 0.62 }),
   )
   centerStripe.position.y = 0.004
@@ -501,7 +531,7 @@ function addRedCarpet(THREE, scene) {
 
   // Cross-ticks every few units — circuit-board traces along the runway.
   const tickMat = new THREE.MeshBasicMaterial({ color: '#22d3ee', transparent: true, opacity: 0.30 })
-  for (let x = -13.5; x <= 13.5; x += 2.25) {
+  for (let x = -19.35; x <= 19.35; x += 2.25) {
     const tick = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.028, 2.6), tickMat)
     tick.position.set(x, 0.003, 0)
     carpetGroup.add(tick)
@@ -675,13 +705,13 @@ export default function HomeMiningWorld3D() {
         }
       }
       const homeBot = addMiningBot(THREE, scene, {
-        color: '#22c55e',
+        color: colorFromAddress(AI_TEAM_WALLETS[0]),
         position: [HOME_LINEUP_X[3], HOME_ARENA_FLOOR_Y, 0.08],
         rotationY: Math.PI,
         scale: HOME_LINEUP_BOT_SCALE,
       })
       const homeBotCar = addHomeBotCar(THREE, scene, {
-        botColor: '#f97316',
+        botColor: colorFromAddress(AI_TEAM_WALLETS[1]),
         carColor: '#dc2626',
         position: [HOME_LINEUP_X[5], 0, 0.10],
         rotationY: Math.PI,
@@ -693,16 +723,16 @@ export default function HomeMiningWorld3D() {
         rotationY: Math.PI,
         phase: Math.PI * 1.48,
       })
-      // Sparring members: a violet bot and an amber bot-on-sky-car that throw a
-      // relaxed USB-staff strike every 2s (see the punch envelope in animate).
+      // Sparring members: two more AI-team bots (real wallet colours) that
+      // throw a relaxed USB-staff strike every 2s (punch envelope in animate).
       const homePunchBot = addMiningBot(THREE, scene, {
-        color: '#a855f7',
+        color: colorFromAddress(AI_TEAM_WALLETS[2]),
         position: [0, HOME_ARENA_FLOOR_Y, 0.08],
         rotationY: Math.PI,
         scale: HOME_LINEUP_BOT_SCALE,
       })
       const homePunchBotCar = addHomeBotCar(THREE, scene, {
-        botColor: '#eab308',
+        botColor: colorFromAddress(AI_TEAM_WALLETS[3]),
         carColor: '#0ea5e9',
         position: [0, 0, 0.10],
         rotationY: Math.PI,
@@ -759,24 +789,50 @@ export default function HomeMiningWorld3D() {
       addHomeTag(bossById.kim.group, `${M4_KIM_BOSS_NAME} · BOSS`, '#d946ef', 1.45)
       addHomeTag(bossById.milei.group, 'Javier Milei · STATUE', '#74acdf', 1.45)
       addHomeTag(homeSoloCar.group, 'Aserejee', '#22d3ee', 0.95)
-      addHomeTag(homeBot, '0xcab1…5528 · AI', '#86efac', 1.25)
-      addHomeTag(homeBotCar.group, '0xcb4c…e202 · AI', '#86efac', 3.62)
-      addHomeTag(homePunchBot, '0xd6c6…4233 · AI', '#86efac', 1.25)
-      addHomeTag(homePunchBotCar.group, '0xd894…e8ab · AI', '#86efac', 3.62)
+      addHomeTag(homeBot, aiTeamTag(AI_TEAM_WALLETS[0]), '#86efac', 1.25)
+      addHomeTag(homeBotCar.group, aiTeamTag(AI_TEAM_WALLETS[1]), '#86efac', 3.62)
+      addHomeTag(homePunchBot, aiTeamTag(AI_TEAM_WALLETS[2]), '#86efac', 1.25)
+      addHomeTag(homePunchBotCar.group, aiTeamTag(AI_TEAM_WALLETS[3]), '#86efac', 3.62)
       const rail = { offset: 0, vel: 0, dragging: false, lastX: 0, moved: 0, suppressClick: false }
       const railWorldPerPx = () => {
         const halfH = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * 24
         return (2 * halfH * camera.aspect) / Math.max(1, canvas.clientWidth)
       }
       if (accessEl) {
+        // Two-finger pinch on the stage zooms the camera framing (the same
+        // zoomTarget the animate loop eases toward); it hijacks the rail drag
+        // while both fingers are down and suppresses the tap-to-fullscreen.
+        const pinch = { active: false, d0: 0, z0: 1, pts: new Map() }
+        const pinchDist = () => {
+          const [a, b] = [...pinch.pts.values()]
+          return Math.hypot(a.x - b.x, a.y - b.y)
+        }
         const onDown = (e) => {
           if (e.button != null && e.button !== 0) return
+          if (e.pointerType === 'touch') {
+            pinch.pts.set(e.pointerId, { x: e.clientX, y: e.clientY })
+            if (pinch.pts.size === 2) {
+              pinch.active = true
+              pinch.d0 = pinchDist()
+              pinch.z0 = zoomTarget
+              rail.dragging = false
+              rail.suppressClick = true
+              return
+            }
+          }
           rail.dragging = true
           rail.lastX = e.clientX
           rail.moved = 0
           rail.vel = 0
         }
         const onMove = (e) => {
+          if (pinch.active && pinch.pts.has(e.pointerId)) {
+            pinch.pts.set(e.pointerId, { x: e.clientX, y: e.clientY })
+            if (pinch.d0 > 0) {
+              zoomTarget = Math.min(2.4, Math.max(1, pinch.z0 * (pinchDist() / pinch.d0)))
+            }
+            return
+          }
           if (!rail.dragging) return
           const dx = e.clientX - rail.lastX
           rail.lastX = e.clientX
@@ -785,7 +841,11 @@ export default function HomeMiningWorld3D() {
           rail.offset += dWorld
           rail.vel = dWorld * 60
         }
-        const onUp = () => {
+        const onUp = (e) => {
+          if (e?.pointerType === 'touch') {
+            pinch.pts.delete(e.pointerId)
+            if (pinch.pts.size < 2) pinch.active = false
+          }
           if (!rail.dragging) return
           rail.dragging = false
           if (rail.moved > 8) rail.suppressClick = true
@@ -816,6 +876,7 @@ export default function HomeMiningWorld3D() {
         accessEl.addEventListener('pointerdown', onDown)
         window.addEventListener('pointermove', onMove)
         window.addEventListener('pointerup', onUp)
+        window.addEventListener('pointercancel', onUp)
         accessEl.addEventListener('click', onClick, true)
         const prevHoverCleanup = hoverCleanup
         hoverCleanup = () => {
@@ -825,6 +886,7 @@ export default function HomeMiningWorld3D() {
           accessEl.removeEventListener('pointerdown', onDown)
           window.removeEventListener('pointermove', onMove)
           window.removeEventListener('pointerup', onUp)
+          window.removeEventListener('pointercancel', onUp)
           accessEl.removeEventListener('click', onClick, true)
         }
       }
@@ -889,28 +951,23 @@ export default function HomeMiningWorld3D() {
             boss.group.rotation.z = 0
             const armLift = Math.sin(t * 1.8) * 0.026
             if (boss.head) {
-              // Statue: only the head turns — full slow spins, random flips —
-              // plus a hint of nod, pivoted at the skull base.
-              boss.head.rotation.y = advanceShowcaseSpin(boss, spinDt)
+              // Human head sway: bounded yaw (no full 360° turns), two
+              // blended sines for an organic scan, plus a hint of nod.
+              boss.head.rotation.y = Math.sin(t * 0.42) * 0.5 + Math.sin(t * 0.17 + 2) * 0.18
               boss.head.rotation.x = Math.sin(t * 0.55 + 1) * 0.045
             }
+            // Humanoid arms pivot at the shoulder and carry their hands. Left
+            // arm idles with a human sway; right arm waves hello.
             if (boss.leftArm) {
-              boss.leftArm.rotation.z = 0
-              boss.leftArm.position.x = -0.335
-              boss.leftArm.position.y = 0.52 + armLift
+              const phase = boss.leftArm.userData.swayPhase || 0
+              boss.leftArm.position.y = (boss.leftArm.userData.baseY ?? 0.655) + armLift
+              boss.leftArm.rotation.x = Math.sin(t * 0.9 + phase) * 0.055
+              boss.leftArm.rotation.z = (boss.leftArm.userData.baseRotZ || 0) + Math.sin(t * 0.63 + phase) * 0.045
             }
             if (boss.rightArm) {
-              boss.rightArm.rotation.z = 0
-              boss.rightArm.position.x = 0.335
-              boss.rightArm.position.y = 0.52 + armLift
-            }
-            if (boss.leftHand) {
-              boss.leftHand.position.x = -0.335
-              boss.leftHand.position.y = 0.30 + armLift
-            }
-            if (boss.rightHand) {
-              boss.rightHand.position.x = 0.335
-              boss.rightHand.position.y = 0.30 + armLift
+              boss.rightArm.position.y = (boss.rightArm.userData.baseY ?? 0.655) + armLift
+              boss.rightArm.rotation.x = 0
+              boss.rightArm.rotation.z = 2.5 + Math.sin(t * 2.4) * 0.22
             }
           } else {
             boss.bodyPivot.position.y = Math.max(0, stride * 0.06)
@@ -918,6 +975,8 @@ export default function HomeMiningWorld3D() {
             // Whole-body showcase spin, same logic as mining idle bosses.
             boss.group.rotation.y = boss.baseRotationY + advanceShowcaseSpin(boss, spinDt)
             boss.group.rotation.z = Math.sin(t * (boss.sway + 0.65)) * 0.014
+            // Subtle random human arm sway.
+            swayHumanoidArms(boss.bodyPivot, t)
           }
           boss.glowLight.intensity = boss.baseGlow + Math.sin(t * 2.4) * 0.85
         }
@@ -934,14 +993,13 @@ export default function HomeMiningWorld3D() {
           prop.group.rotation.y = prop.baseRotationY + advanceShowcaseSpin(prop, spinDt)
           prop.group.rotation.z = Math.sin(t * (prop.sway + .7)) * (prop.kind === 'car' ? 0.006 : 0.012)
           if (prop.kind === 'bot') {
-            const foot = Math.sin(t * 6.4) * 0.018
-            if (prop.group.userData.leftFoot) prop.group.userData.leftFoot.position.y = .075 + Math.max(0, foot)
-            if (prop.group.userData.rightFoot) prop.group.userData.rightFoot.position.y = .075 + Math.max(0, -foot)
-            if (prop.group.userData.leftSole) prop.group.userData.leftSole.position.y = .014 + Math.max(0, foot)
-            if (prop.group.userData.rightSole) prop.group.userData.rightSole.position.y = .014 + Math.max(0, -foot)
+            // Marching in place: human hip swing plus random arm sway.
+            walkHumanoidLegs(prop.group, t * 3.2, 0.22)
+            swayHumanoidArms(prop.group, t)
           } else if (prop.kind === 'botCar' && prop.bot) {
             // Ground level minus the anti-z-fight drop (see addHomeBotCar).
             prop.bot.position.y = -.03 + Math.sin(t * 2.4) * .012
+            swayHumanoidArms(prop.bot, t)
           }
           if (prop.punch) {
             // Relaxed sparring: one 0.5s forward staff strike every 2s.

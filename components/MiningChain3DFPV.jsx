@@ -3,6 +3,7 @@
 import { useEffect, useRef, useCallback, useState } from 'react'
 import * as THREE from 'three'
 import { colorFromAddress } from '@/lib/wallet-colors'
+import { buildHumanoidBody, swayHumanoidArms } from '@/lib/humanoid-body'
 import { MM3_BLOCK_GRID_ROWS, MM3_BLOCK_GRID_COLS, MM3_MINE_BLOCK_TOTAL, MM3_REGULAR_BLOCK_TOTAL, MM3_NFTJI_BLOCK_TOTAL, gridToBlockHex, MM3_BLOCK_REQUIREMENT_BY_HEX, doesGlobalValueMeetRequirement } from '@/lib/mm3-block-chain'
 import supabase from '@/lib/supabaseClient'
 import { groupPresenceEntries } from '@/lib/presence-display'
@@ -11055,28 +11056,24 @@ function updateM1MileiStatueMotion(motion, time) {
   const dt = time - (motion.lastSpinTime ?? time)
   motion.lastSpinTime = time
   if (motion.head) {
-    // Showcase head spin: full slow turns with random direction flips, plus a
-    // hint of nod, pivoted at the skull base.
-    motion.head.rotation.y = advanceShowcaseSpin(motion, dt)
+    // Human head sway: bounded yaw (never a full turn — necks don't do 360°),
+    // two blended sines so the scan reads organic, plus a hint of nod.
+    motion.head.rotation.y = Math.sin(time * 0.42) * 0.5 + Math.sin(time * 0.17 + 2) * 0.18
     motion.head.rotation.x = Math.sin(time * 0.55 + 1) * 0.045
   }
+  // Humanoid arms pivot at the shoulder (userData.baseY) and carry their
+  // hands. Left arm idles with a subtle human sway; right arm stays raised,
+  // waving hello with the RJ45 hand.
   if (motion.leftArm) {
-    motion.leftArm.rotation.z = 0
-    motion.leftArm.position.y = 0.52 + armLift
-    motion.leftArm.position.x = -0.335
+    const phase = motion.leftArm.userData.swayPhase || 0
+    motion.leftArm.position.y = (motion.leftArm.userData.baseY ?? 0.655) + armLift
+    motion.leftArm.rotation.x = Math.sin(time * 0.9 + phase) * 0.055
+    motion.leftArm.rotation.z = (motion.leftArm.userData.baseRotZ || 0) + Math.sin(time * 0.63 + phase) * 0.045
   }
   if (motion.rightArm) {
-    motion.rightArm.rotation.z = 0
-    motion.rightArm.position.y = 0.52 + armLift
-    motion.rightArm.position.x = 0.335
-  }
-  if (motion.leftHand) {
-    motion.leftHand.position.x = -0.335
-    motion.leftHand.position.y = 0.30 + armLift
-  }
-  if (motion.rightHand) {
-    motion.rightHand.position.x = 0.335
-    motion.rightHand.position.y = 0.30 + armLift
+    motion.rightArm.position.y = (motion.rightArm.userData.baseY ?? 0.655) + armLift
+    motion.rightArm.rotation.x = 0
+    motion.rightArm.rotation.z = 2.5 + Math.sin(time * 2.4) * 0.22
   }
   motion.root?.updateMatrixWorld?.(true)
 }
@@ -11598,7 +11595,6 @@ function createThreeWalletAvatar(wallet) {
   const _mat=(c,roughness=.5,metalness=.3)=>lowDetail
     ?new THREE.MeshLambertMaterial({color:c,emissive:new THREE.Color(c).multiplyScalar(.08)})
     :new THREE.MeshStandardMaterial({color:c,roughness,metalness})
-  const bodyMat=_mat(color,.48,.34)
   const brightMat=_mat(bright,.38,.42)
   const darkMat=_mat(dark,.72,.28)
   const midMat=_mat(mid,.58,.30)
@@ -11606,29 +11602,24 @@ function createThreeWalletAvatar(wallet) {
   const goldMat=new THREE.MeshBasicMaterial({color:'#facc15'})
   const magentaMat=new THREE.MeshBasicMaterial({color:'#d946ef'})
 
-  // Rounded voxels — same soft-edged look as the home lineup bots.
-  const torso=new THREE.Mesh(roundedVoxelGeometry(THREE,.46,.48,.27),bodyMat)
-  torso.position.y=.39;avatar.add(torso)
-  const chestPlate=new THREE.Mesh(roundedVoxelGeometry(THREE,.31,.22,.025),darkMat)
-  chestPlate.position.set(0,.43,-.151);avatar.add(chestPlate)
-  const chestInset=new THREE.Mesh(roundedVoxelGeometry(THREE,.20,.105,.014),new THREE.MeshBasicMaterial({color:'#03121c'}))
-  chestInset.position.set(0,.44,-.168);avatar.add(chestInset)
-  const core=new THREE.Mesh(roundedVoxelGeometry(THREE,.095,.055,.014),goldMat)
-  core.position.set(0,.44,-.178);avatar.add(core)
-  const belt=new THREE.Mesh(roundedVoxelGeometry(THREE,.48,.065,.29),darkMat)
-  belt.position.y=.20;avatar.add(belt)
-  const beltNode=new THREE.Mesh(roundedVoxelGeometry(THREE,.08,.06,.025),cyanMat)
-  beltNode.position.set(0,.20,-.166);avatar.add(beltNode)
+  // Low-poly humanoid body — same mold as the home lineup bots and bosses.
+  const body=buildHumanoidBody(THREE,avatar,{
+    mat:_mat,
+    lowDetail,
+    bulk:1.02,
+    // Shoes brighter than the trousers so the walking feet read clearly.
+    colors:{skin:bright,torso:color,arms:mid,legs:dark,shoes:mid,hands:bright},
+  })
+  // Chest screen + belt light on the humanoid chest front (-z).
+  const chestPlate=new THREE.Mesh(new THREE.BoxGeometry(.20,.13,.02),darkMat)
+  chestPlate.position.set(0,.58,-.132);avatar.add(chestPlate)
+  const chestInset=new THREE.Mesh(new THREE.BoxGeometry(.13,.07,.012),new THREE.MeshBasicMaterial({color:'#03121c'}))
+  chestInset.position.set(0,.58,-.146);avatar.add(chestInset)
+  const core=new THREE.Mesh(new THREE.BoxGeometry(.07,.04,.012),goldMat)
+  core.position.set(0,.585,-.154);avatar.add(core)
+  const beltNode=new THREE.Mesh(new THREE.BoxGeometry(.07,.05,.02),cyanMat)
+  beltNode.position.set(0,.345,-.125);avatar.add(beltNode)
 
-  const shoulderGeometry=roundedVoxelGeometry(THREE,.13,.20,.25)
-  const shoulderL=new THREE.Mesh(shoulderGeometry,midMat);shoulderL.position.set(-.295,.51,0);avatar.add(shoulderL)
-  const shoulderR=shoulderL.clone();shoulderR.position.x=.295;avatar.add(shoulderR)
-  const armGeometry=roundedVoxelGeometry(THREE,.09,.25,.11)
-  const armL=new THREE.Mesh(armGeometry,darkMat);armL.position.set(-.30,.36,0);avatar.add(armL)
-  const armR=armL.clone();armR.position.x=.30;avatar.add(armR)
-  const hand=new THREE.Mesh(roundedVoxelGeometry(THREE,.10,.10,.12),brightMat);hand.position.set(.31,.22,-.01);avatar.add(hand)
-
-  const neck=new THREE.Mesh(roundedVoxelGeometry(THREE,.13,.07,.13),darkMat);neck.position.y=.68;avatar.add(neck)
   const head=new THREE.Mesh(roundedVoxelGeometry(THREE,.34,.25,.25),brightMat);head.position.y=.82;avatar.add(head)
   const headFrame=new THREE.Mesh(roundedVoxelGeometry(THREE,.27,.105,.018),darkMat);headFrame.position.set(0,.84,-.139);avatar.add(headFrame)
   const visor=new THREE.Mesh(roundedVoxelGeometry(THREE,.205,.045,.012),cyanMat);visor.position.set(0,.84,-.153);avatar.add(visor)
@@ -11638,15 +11629,13 @@ function createThreeWalletAvatar(wallet) {
   const antennaStem=new THREE.Mesh(new THREE.CylinderGeometry(.012,.012,.12,5),darkMat);antennaStem.position.set(.08,1.005,0);avatar.add(antennaStem)
   const antennaTip=new THREE.Mesh(new THREE.OctahedronGeometry(.027),magentaMat);antennaTip.position.set(.08,1.075,0);avatar.add(antennaTip)
 
-  const footGeometry=roundedVoxelGeometry(THREE,.18,.11,.28)
-  const footL=new THREE.Mesh(footGeometry,darkMat);footL.position.set(-.14,.075,-.025);avatar.add(footL)
-  const footR=footL.clone();footR.position.x=.14;avatar.add(footR)
-  const soleGeometry=roundedVoxelGeometry(THREE,.19,.025,.30)
-  const soleL=new THREE.Mesh(soleGeometry,midMat);soleL.position.set(-.14,.014,-.025);avatar.add(soleL)
-  const soleR=soleL.clone();soleR.position.x=.14;avatar.add(soleR)
+  // Humanoid shoes double as the stepping feet; no separate soles.
+  const footL=body.leftShoe
+  const footR=body.rightShoe
 
   // Retro USB staff. The connector is a rectangular Type-A plug, never a pick head.
-  const tool=new THREE.Group();tool.position.set(.31,.25,-.01)
+  // Held at the humanoid right hand; swing anims rotate around this pivot.
+  const tool=new THREE.Group();tool.position.set(.25,.24,-.04)
   const toolAngle=-.58
   const shaft=new THREE.Mesh(new THREE.CylinderGeometry(.024,.030,.62,8),darkMat)
   shaft.rotation.z=toolAngle;shaft.position.set(.17,.255,0);tool.add(shaft)
@@ -11676,12 +11665,12 @@ function createThreeWalletAvatar(wallet) {
   avatar.userData.antennaStem=antennaStem
   avatar.userData.antennaTip=antennaTip
   avatar.userData.bodyParts=[
-    torso,chestPlate,chestInset,core,belt,beltNode,shoulderL,shoulderR,armL,armR,hand,neck,
-    footL,footR,soleL,soleR,
+    ...body.bodyMeshes,body.leftArm,body.rightArm,body.leftLeg,body.rightLeg,
+    chestPlate,chestInset,core,beltNode,
   ]
   // Only the feet vanish while riding the RL car; the torso stays visible so the
   // bot reads as seated in the cockpit with no gap under the head.
-  avatar.userData.mountHiddenParts=[footL,footR,soleL,soleR]
+  avatar.userData.mountHiddenParts=[footL,footR]
   avatar.userData.leftFoot=footL
   avatar.userData.rightFoot=footR
   avatar.userData.healEffect=healEffect
@@ -11902,8 +11891,7 @@ function syncThreeAvatars(state,presence,myIdentity,currentMapId=MINING_CORE_MAP
       avatar.rotation.x=Math.PI/2
       avatar.position.y=baseZ+0.14
       avatar.userData.tool.rotation.x=0; avatar.userData.tool.rotation.z=0
-      if(avatar.userData.leftFoot) avatar.userData.leftFoot.position.y=.075
-      if(avatar.userData.rightFoot) avatar.userData.rightFoot.position.y=.075
+      walkHumanoidLegs(avatar,0)
       // Dead bodies render over obstacle walls so they stay visible when clipping
       if(!wasDead){
         avatar.userData.wasDead=true
@@ -11941,9 +11929,11 @@ function syncThreeAvatars(state,presence,myIdentity,currentMapId=MINING_CORE_MAP
     // Forward strike: tool pitches toward target (rotation.x), slight side sweep
     avatar.userData.tool.rotation.x=-swing*1.15
     avatar.userData.tool.rotation.z=swing*0.28
+    // Human walk: alternating hip swing (shoes ride at the leg tips), plus a
+    // subtle random arm sway so remote wallets read as alive.
     const walk=Number(data.walkDist)||0
-    if(avatar.userData.leftFoot) avatar.userData.leftFoot.position.y=.075+Math.max(0,Math.sin(walk*.18))*.045
-    if(avatar.userData.rightFoot) avatar.userData.rightFoot.position.y=.075+Math.max(0,Math.sin(walk*.18+Math.PI))*.045
+    walkHumanoidLegs(avatar,walk*.18)
+    swayHumanoidArms(avatar,Date.now()*.001)
     }
   }
   for(const [wallet,avatar] of state.avatars){
@@ -12034,8 +12024,7 @@ function syncThreeLocalAvatar(state,identity,swingT,walkDist,gx,gy,playerZ,headi
       state.localAvatar.userData.tool.rotation.x=0
       state.localAvatar.userData.tool.rotation.z=0
     }
-    if(state.localAvatar.userData.leftFoot) state.localAvatar.userData.leftFoot.position.y=.075
-    if(state.localAvatar.userData.rightFoot) state.localAvatar.userData.rightFoot.position.y=.075
+    walkHumanoidLegs(state.localAvatar,0)
   }else{
     const displayY=poolAvatarDisplayY(gx,gy,playerZ,false)
     state.localAvatar.position.set(gx,displayY,gy)
@@ -12046,9 +12035,10 @@ function syncThreeLocalAvatar(state,identity,swingT,walkDist,gx,gy,playerZ,headi
       state.localAvatar.userData.tool.rotation.x=-swing*1.15
       state.localAvatar.userData.tool.rotation.z=swing*0.28
     }
+    // Human walk from the hip + subtle random arm sway.
     const stride=walkDist*.18
-    if(state.localAvatar.userData.leftFoot) state.localAvatar.userData.leftFoot.position.y=.075+Math.max(0,Math.sin(stride))*.045
-    if(state.localAvatar.userData.rightFoot) state.localAvatar.userData.rightFoot.position.y=.075+Math.max(0,Math.sin(stride+Math.PI))*.045
+    walkHumanoidLegs(state.localAvatar,stride)
+    swayHumanoidArms(state.localAvatar,Date.now()*.001)
   }
   applyRlMountVisual(state.localAvatar, mounted, state)
 }
@@ -15043,11 +15033,12 @@ export default function MiningChain3DFPV({
             const step = (MOVE_SPD / CELL_SIZE) * NPC_SPEED_MULT * dt
             npc.gx += (ndx / ndist) * Math.min(step, ndist)
             npc.gy += (ndy / ndist) * Math.min(step, ndist)
-            // Walk cycle while moving
-            const foot = Math.sin(nowMs * 0.0064) * 0.018
-            if (npc.avatar.userData.leftFoot) npc.avatar.userData.leftFoot.position.y = .075 + Math.max(0, foot)
-            if (npc.avatar.userData.rightFoot) npc.avatar.userData.rightFoot.position.y = .075 + Math.max(0, -foot)
+            // Human walk cycle while moving
+            walkHumanoidLegs(npc.avatar, nowMs * 0.0064)
+          } else {
+            walkHumanoidLegs(npc.avatar, 0)
           }
+          swayHumanoidArms(npc.avatar, nowMs * 0.001)
           npc.avatar.position.set(npc.gx, 0, npc.gy)
           npc.avatar.rotation.y = -Math.atan2(ndy, ndx) - Math.PI / 2
           if (!myDead && ndist <= NPC_HIT_RANGE && nowMs - npc.lastHitAt >= NPC_HIT_COOLDOWN_MS) {

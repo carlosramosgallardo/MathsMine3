@@ -1724,6 +1724,68 @@ a.mm3-nonagon-center-name:hover {
   inherits: true;
   initial-value: #22d3ee;
 }
+/* NFTJI tile — logo-badge format: dark framed square with the emoji inside
+   and (when owned) the current level in a corner badge, where the header
+   logo carries its home marker. Greyed out until the wallet owns it. */
+.mm3-nftji-tile {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  font-size: 12px;
+  line-height: 1;
+  border: 1.5px solid #fbbf24;
+  background: rgba(1,7,14,.92);
+  filter: grayscale(1) opacity(.4);
+}
+.mm3-nftji-tile.is-owned {
+  filter: none;
+  box-shadow:
+    0 0 12px -2px rgba(251,191,36,.85),
+    inset 0 0 8px -5px rgba(251,191,36,.8);
+}
+.mm3-nftji-lvbadge {
+  position: absolute;
+  right: -5px;
+  bottom: -5px;
+  min-width: 12px;
+  height: 12px;
+  padding: 0 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-mono), 'Courier New', monospace;
+  font-size: 8px;
+  font-weight: 800;
+  color: #0a0a0a;
+  background: #fbbf24;
+  border: 1px solid #010709;
+}
+/* NFTJI tiles row on the portal caption cards. */
+.mm3-nonagon-nftjis {
+  display: inline-flex;
+  align-items: center;
+  gap: .3rem;
+}
+/* Mining caption card: the 20 block NFTJIs as their own full-width second
+   row; the card grows past the one-line height only for this section. */
+.mm3-nonagon-caption.is-tall {
+  height: auto;
+  min-height: 58px;
+}
+.mm3-nonagon-nftjis-blocks {
+  flex-basis: 100%;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px;
+}
+.mm3-nonagon-nftjis-blocks .mm3-nftji-tile {
+  width: 21px;
+  height: 21px;
+  font-size: 11px;
+}
 .mm3-home-access-text {
   position: relative;
   z-index: 5;
@@ -2136,17 +2198,17 @@ a.mm3-nonagon-center-name:hover {
   /* Column layout, fully centered */
   .mm3-home .mm3-splash-body { flex-direction:column; align-items:center; gap:.5rem; min-height:auto; padding:.4rem 0 .5rem; }
   .mm3-home-access {
-    width: min(330px, 94vw);
+    width: min(430px, 97vw);
     min-height: 215px;
-    padding: .78rem .3rem .45rem;
+    padding: .78rem .25rem .45rem;
     clip-path: none;
   }
   .mm3-home-copy { align-items:center; text-align:center; }
   .mm3-home-copy .mm3-splash-sub,
   .mm3-home-copy .mm3-splash-disclaimer { text-align:center; }
   /* Bigger arena — full portrait width */
-  .mm3-home-arena { width:min(319px,92vw); height:163px; margin-inline:auto; }
-  .mm3-home-arena-floor { height:101px; }
+  .mm3-home-arena { width:min(412px,95vw); height:186px; margin-inline:auto; }
+  .mm3-home-arena-floor { height:108px; }
   .mm3-home-chain3d { width:82px; height:172px; }
   .mm3-home-bot3d { width:82px; height:82px; }
   /* Portal cards — bigger on portrait */

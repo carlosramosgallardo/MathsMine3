@@ -266,13 +266,16 @@ Ranks affect status, pacing, and Trade MM3 rates.
 
 NFTJIs are wallet-bound game objects.
 
-| Type | How It Appears | Gameplay Value |
-|---|---|---|
-| Mining drop | Rare roll after correct answers | Collection and economy shocks |
-| Heart revive | One-time emergency option | Cancels one failure penalty |
-| Mining NFTJI | Bought or resold in the 3D mining world | Unlocks daily Mining command |
-| Squeeze NFTJI | Drops from Squeeze battles (1/5 chance) | ⚔️ boosts pool Squeeze score · 🛡️ protects EUR stake |
-| Relay Link 🔁 | Acquired via `/exec @wallet` in Relaying | Level = ⌊log₂(exec_A + exec_B + 1)⌋ · fires MM3 global event on each exec |
+Each NFTJI is obtained in exactly one portal section:
+
+| Type | Origin section | How It Appears | Gameplay Value |
+|---|---|---|---|
+| Mining drops 🔮 🍀 🎰 🧿 | **Training** | Rare roll after correct answers | Collection and economy shocks |
+| Heart revive ❤️ (Life Toll) | **Training** | One-time emergency option | Cancels one failure penalty · mining skill: +10% speed |
+| Mining NFTJI (20 block emojis) | **Mining** | Bought or resold in the 3D mining world | Unlocks daily Mining command · mining skill: +10% jump |
+| Genesis Uplink 🛰 | **Mining** | Market NFTJI claimed in the 3D world | Uplink synced to the wallet |
+| Squeeze NFTJI 🔰 ⚔️ | **Squeezing** | Drops from Squeeze battles (1/5 chance) | ⚔️ boosts pool Squeeze score (mining skill: +5% crit) · 🛡️ protects EUR stake (mining skill: 10% dodge) |
+| Relay Link 🔁 | **Relaying** | Acquired via `/exec @wallet` in Relaying | Level = ⌊log₂(exec_A + exec_B + 1)⌋ · fires MM3 global event on each exec |
 
 ### Mining Drops
 

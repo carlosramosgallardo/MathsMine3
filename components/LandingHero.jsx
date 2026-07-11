@@ -12,13 +12,42 @@ import supabase from '@/lib/supabaseClient';
 import HomeMiningScene from '@/components/HomeMiningScene';
 import HomeWorldMinimap from '@/components/HomeWorldMinimap';
 import { prefetchMiningRoute } from '@/lib/prefetch-mining';
+import { getEmojiTitle, computeRelayLevel, lifeNftjiEmojiFilterStyle } from '@/lib/wallet-decorations';
 
 // Interactive portal cards disabled during the 5-minute death cooldown
 const INTERACTIVE_HREFS = new Set(['/training', '/trading', '/squeezing', '/relaying', '/daily-tasks', '/mining'])
 
+// NFTJIs obtainable per portal section — rendered on that section's caption
+// card (see README «NFTJIs»: 🔮🍀🎰🧿 are rare rolls after correct Training
+// answers; ❤️ Life Toll is bought in Training; 🔰⚔️ drop from Squeezes; 🔁
+// comes from /exec in Relaying). Owned ones (connected wallet) glow and show
+// their current level; unowned ones render greyed out. Mining's own NFTJIs
+// (the 20 block NFTJIs + 🛰 Genesis) render next to the 3D-mine access line.
+const SECTION_NFTJIS = {
+  '/training': ['❤️', '🔮', '🍀', '🎰', '🧿'],
+  '/squeezing': ['🔰', '⚔️'],
+  '/relaying': ['🔁'],
+}
+
+const EMPTY_NFTJI_STATE = Object.freeze({ owned: [], levels: {}, miningKey: null, miningLevel: 0 })
+
+// Mining-skill passives per NFTJI (see miningSkillAbilityLines) — appended to
+// the emoji tooltip so the skill is explained wherever the NFTJI shows up.
+function nftjiTooltip(emoji, es, { base = null, isMiningBlock = false } = {}) {
+  const name = base || getEmojiTitle(emoji)
+  let skill = null
+  if (emoji === '❤️') skill = es ? 'Skill en mining: +10% velocidad' : 'Mining skill: +10% speed'
+  else if (emoji === '⚔️') skill = es ? 'Skill en mining: +5% crítico' : 'Mining skill: +5% crit'
+  else if (emoji === '🔰') skill = es ? 'Skill en mining: 10% esquiva' : 'Mining skill: 10% dodge'
+  else if (isMiningBlock) skill = es ? 'Skill en mining: +10% salto' : 'Mining skill: +10% jump'
+  return skill ? `${name} · ${skill}` : name
+}
+
 const PORTAL = {
   en: [
-    { href: '/training',    icon: '⛏',  name: 'Training',    desc: 'Solve math under pressure. 100 problems/day, 13 types.',    accent: '#f59e0b' },
+    { href: '/mining',      icon: '⬡',  name: 'Mining',      desc: 'The 3D world. 1000 mineable blocks.',                       accent: '#fb923c' },
+    // Shorter desc than the rest: its five NFTJI tiles share the line.
+    { href: '/training',    icon: '⛏',  name: 'Training',    desc: 'Solve math under pressure.',                                accent: '#f59e0b' },
     { href: '/trading',     icon: '💱',  name: 'Trading',     desc: 'Buy & sell MM3 in EUR/USD/CNY. 5 EXECs/day.',               accent: '#4ade80' },
     { href: '/squeezing',   icon: '⚔',  name: 'Squeezing',   desc: 'Pool-vs-pool combat. Burn stakes, win NFTJIs.',             accent: '#f87171' },
     { href: '/relaying',    icon: '>_', name: 'Relaying',    desc: 'Action terminal. /mine, world events, chain log.',          accent: '#22d3ee' },
@@ -29,7 +58,9 @@ const PORTAL = {
     { href: '/manifesto',   icon: '📜',  name: 'Manifesto',   desc: 'Full game guide — rules, mechanics, philosophy.',          accent: '#94a3b8' },
   ],
   es: [
-    { href: '/training',    icon: '⛏',  name: 'Training',    desc: 'Matemáticas bajo presión. 100 problemas/día.',              accent: '#f59e0b' },
+    { href: '/mining',      icon: '⬡',  name: 'Mining',      desc: 'El mundo 3D. 1000 bloques minables.',                      accent: '#fb923c' },
+    // Desc corta: sus cinco tiles NFTJI comparten la línea.
+    { href: '/training',    icon: '⛏',  name: 'Training',    desc: 'Matemáticas bajo presión.',                                accent: '#f59e0b' },
     { href: '/trading',     icon: '💱',  name: 'Trading',     desc: 'Compra y vende MM3. 5 EXECs/día.',                         accent: '#4ade80' },
     { href: '/squeezing',   icon: '⚔',  name: 'Squeezing',   desc: 'Combate pool-vs-pool. Quema stakes, gana NFTJIs.',          accent: '#f87171' },
     { href: '/relaying',    icon: '>_', name: 'Relaying',    desc: 'Terminal de acción. /mine, eventos, log.',                 accent: '#22d3ee' },
@@ -46,7 +77,31 @@ const PORTAL = {
  * colour + icon); hovering/selecting a side extends that card's info in the
  * centre, clicking the side (or the centre button) navigates.
  */
-function NonagonPortal({ portal, es, isDead, deadCountdown, count }) {
+/** One NFTJI tile — logo-badge format: framed square with the emoji inside
+    and, when owned, a corner badge with the current level (like the header
+    logo tile, with the level where the home marker sits). Greyed unowned. */
+function NftjiTile({ emoji, owned, level, title }) {
+  return (
+    <span className={`mm3-nftji-tile${owned ? ' is-owned' : ''}`} title={title}>
+      <span style={owned ? lifeNftjiEmojiFilterStyle(emoji) : undefined}>{emoji}</span>
+      {owned && <span className="mm3-nftji-lvbadge">{Math.max(0, Number(level) || 0)}</span>}
+    </span>
+  )
+}
+
+/** Section NFTJI tile fed from the wallet ownership/levels state. */
+function NftjiChip({ emoji, nftji, es }) {
+  return (
+    <NftjiTile
+      emoji={emoji}
+      owned={nftji.owned.includes(emoji)}
+      level={nftji.levels[emoji] ?? 0}
+      title={nftjiTooltip(emoji, es)}
+    />
+  )
+}
+
+function NonagonPortal({ portal, es, isDead, deadCountdown, count, nftji, miningBlocks }) {
   const router = useRouter()
   const { playNavTick } = useSound()
   const [sel, setSel] = useState(0)
@@ -75,8 +130,10 @@ function NonagonPortal({ portal, es, isDead, deadCountdown, count }) {
   }, [mapOpen, autoPaused, portal.length])
   const C = 200
   const R = 176
+  // One side per portal access — the polygon grows with the accesses (10 now).
+  const sideStep = 360 / portal.length
   const pt = (i) => {
-    const a = ((-90 + i * 40) * Math.PI) / 180
+    const a = ((-90 + i * sideStep) * Math.PI) / 180
     return [C + R * Math.cos(a), C + R * Math.sin(a)]
   }
   const isBlocked = (href) => isDead && INTERACTIVE_HREFS.has(href)
@@ -162,7 +219,11 @@ function NonagonPortal({ portal, es, isDead, deadCountdown, count }) {
           shows the logo (map mode keeps the ring clean; sides still navigate).
           Single cyan accent for every card, keyed so the glitch-in replays. */}
       {!mapOpen && (
-      <div className="mm3-nonagon-caption" key={current.href} style={{ '--ac': currentBlocked ? '#6b7280' : '#22d3ee' }}>
+      <div
+        className={`mm3-nonagon-caption${current.href === '/mining' ? ' is-tall' : ''}`}
+        key={current.href}
+        style={{ '--ac': currentBlocked ? '#6b7280' : '#22d3ee' }}
+      >
         <span className="mm3-nonagon-center-head">
           <span className="mm3-nonagon-center-icon" aria-hidden="true">{currentBlocked ? '💀' : current.icon}</span>
           {currentBlocked ? (
@@ -176,6 +237,31 @@ function NonagonPortal({ portal, es, isDead, deadCountdown, count }) {
             ? (es ? `MUERTO · revives en ${deadCountdown}` : `DEAD · revives in ${deadCountdown}`)
             : current.desc}
         </span>
+        {!currentBlocked && SECTION_NFTJIS[current.href] && (
+          <span className="mm3-nonagon-nftjis" aria-label="NFTJIs">
+            {SECTION_NFTJIS[current.href].map((emoji) => (
+              <NftjiChip key={emoji} emoji={emoji} nftji={nftji} es={es} />
+            ))}
+          </span>
+        )}
+        {/* Mining side: its 20 block NFTJIs as a second row; the one the
+            wallet currently holds lights up with its level. */}
+        {!currentBlocked && current.href === '/mining' && miningBlocks.length > 0 && (
+          <span className="mm3-nonagon-nftjis mm3-nonagon-nftjis-blocks" aria-label="NFTJIs">
+            {miningBlocks.map((block) => (
+              <NftjiTile
+                key={block.block_key}
+                emoji={block.emoji || '⬡'}
+                owned={nftji.miningKey === block.block_key}
+                level={nftji.miningKey === block.block_key ? nftji.miningLevel : 0}
+                title={nftjiTooltip(block.emoji, es, {
+                  base: (es ? block.title_es : block.title_en) || block.block_key,
+                  isMiningBlock: true,
+                })}
+              />
+            ))}
+          </span>
+        )}
       </div>
       )}
     </div>
@@ -208,6 +294,62 @@ export default function LandingHero() {
     window.addEventListener('mm3-db-updated', load);
     return () => { alive = false; clearInterval(t); window.removeEventListener('mm3-db-updated', load); };
   }, [account]);
+
+  // NFTJI ownership + levels for the connected wallet — lights up the caption
+  // chips and the mining minicube. Same sources as the mining HUD:
+  // player_progress (trade/relay/mining) and mm3_squeezing_nftji (🔰/⚔️).
+  const [nftji, setNftji] = useState(EMPTY_NFTJI_STATE)
+  useEffect(() => {
+    const wallet = String(account || '').toLowerCase()
+    if (!wallet) { setNftji(EMPTY_NFTJI_STATE); return undefined }
+    let alive = true
+    const load = async () => {
+      try {
+        const [{ data: pp }, { data: sq }] = await Promise.all([
+          supabase.from('player_progress')
+            .select('wallet_emojis,lucky_50_level,lucky_100_level,lucky_500_level,lucky_1000_level,relay_exec_count,mining_nftji_key,mining_nftji_levels')
+            .eq('wallet', wallet).maybeSingle(),
+          supabase.from('mm3_squeezing_nftji')
+            .select('attack_level,defense_level')
+            .eq('wallet', wallet).maybeSingle(),
+        ])
+        if (!alive) return
+        const owned = Array.isArray(pp?.wallet_emojis) ? [...pp.wallet_emojis] : []
+        const levels = {
+          '🔮': Number(pp?.lucky_50_level ?? 0),
+          '🍀': Number(pp?.lucky_100_level ?? 0),
+          '🎰': Number(pp?.lucky_500_level ?? 0),
+          '🧿': Number(pp?.lucky_1000_level ?? 0),
+          '🔁': computeRelayLevel(pp?.relay_exec_count, 0),
+        }
+        if (Number(sq?.attack_level) > 0) { owned.push('⚔️'); levels['⚔️'] = Number(sq.attack_level) }
+        if (Number(sq?.defense_level) > 0) { owned.push('🔰'); levels['🔰'] = Number(sq.defense_level) }
+        const miningKey = pp?.mining_nftji_key || null
+        const miningLevels = pp?.mining_nftji_levels || {}
+        setNftji({
+          owned,
+          levels,
+          miningKey,
+          miningLevel: miningKey ? Math.max(0, Number(miningLevels[miningKey] ?? 0)) : 0,
+        })
+      } catch { /* keep previous state */ }
+    }
+    load()
+    window.addEventListener('mm3-db-updated', load)
+    return () => { alive = false; window.removeEventListener('mm3-db-updated', load) }
+  }, [account])
+
+  // The 20 mineable NFTJI blocks (key + emoji + title) — one light read at
+  // mount, wallet-independent; the owned one lights up via nftji.miningKey.
+  const [miningBlocks, setMiningBlocks] = useState([])
+  useEffect(() => {
+    let alive = true
+    supabase.from('mm3_mining_blocks')
+      .select('block_key,emoji,title_en,title_es')
+      .order('block_key')
+      .then(({ data }) => { if (alive && Array.isArray(data)) setMiningBlocks(data) })
+    return () => { alive = false }
+  }, [])
 
   // Check death state from localStorage (works for both anon and logged-in wallets)
   useEffect(() => {
@@ -283,14 +425,8 @@ export default function LandingHero() {
             <span className="mm3-home-access-stage">
               <HomeMiningScene />
             </span>
-            <Link
-              href="/mining"
-              className="mm3-home-access-text"
-              aria-label={es ? 'Entrar al mundo 3D de Mining' : 'Enter the 3D Mining world'}
-              onFocus={prefetchMiningRoute}
-            >
-              {es ? 'ENTRAR AL MUNDO 3D' : 'ENTER THE 3D MINE'}
-            </Link>
+            {/* /mining access now lives on the polygon's tenth side and its
+                caption card (with the 20 block NFTJIs), like every section. */}
             {/* Nonagon of portal accesses with the extended world minimap inside. */}
             <div className="mm3-home-underrow">
               <NonagonPortal
@@ -299,6 +435,8 @@ export default function LandingHero() {
                 isDead={isDead}
                 deadCountdown={deadCountdown}
                 count={count}
+                nftji={nftji}
+                miningBlocks={miningBlocks}
               />
             </div>
           </div>
