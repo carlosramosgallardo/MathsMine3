@@ -1,6 +1,9 @@
 'use client'
 
 import { useEffect, useRef } from 'react'
+import { spawnBossDollarBurst, drawBossDollarBills } from '@/lib/m5-boss-dollar-vfx'
+import { spawnBossHammerSickleBurst, drawBossHammerSickleSymbols } from '@/lib/m3-boss-hammer-sickle-vfx'
+import { spawnBossMissileBurst, drawBossMissileSymbols } from '@/lib/m4-boss-missile-vfx'
 import { createM3PutinBossVisual } from '@/lib/m3-putin-boss-runtime'
 import { M3_PUTIN_BOSS_SCALE, M3_PUTIN_BOSS_NAME } from '@/lib/m3-putin-boss'
 import { createM4KimBossVisual } from '@/lib/m4-kim-boss-runtime'
@@ -636,10 +639,24 @@ function disposeScene(scene) {
 
 export default function HomeMiningWorld3D() {
   const canvasRef = useRef(null)
+  const overlayRef = useRef(null)
 
   useEffect(() => {
     const canvas = canvasRef.current
-    if (!canvas) return undefined
+    const overlayCanvas = overlayRef.current
+    if (!canvas || !overlayCanvas) return undefined
+    const overlayCtx = overlayCanvas.getContext('2d')
+
+    // Boss VFX particle arrays — updated each frame by the draw functions
+    let dollarBills = []
+    let hammerSickleSymbols = []
+    let missileSymbols = []
+    // Stagger first attacks so all 3 don't fire simultaneously
+    const bossNextAttack = {
+      putin: performance.now() + 1500,
+      kim:   performance.now() + 2833,
+      trump: performance.now() + 4166,
+    }
 
     let animationFrame = 0
     let destroyed = false
@@ -693,6 +710,10 @@ export default function HomeMiningWorld3D() {
         camera.updateProjectionMatrix()
       }
       frameCamera()
+
+      // Shared scratch vector + camera ref for VFX screen-space projection
+      const _v3a = new THREE.Vector3()
+      const threeState = { camera, _v3a }
 
       scene.add(new THREE.HemisphereLight('#e0f7ff', '#07111f', 1.72))
       const key = new THREE.DirectionalLight('#fff8dc', 3.35)
@@ -923,6 +944,8 @@ export default function HomeMiningWorld3D() {
         const width = Math.max(1, canvas.clientWidth)
         const height = Math.max(1, canvas.clientHeight)
         renderer.setSize(width, height, false)
+        overlayCanvas.width = width
+        overlayCanvas.height = height
         camera.aspect = width / height
         camera.updateProjectionMatrix()
         frameCamera()
@@ -1040,6 +1063,36 @@ export default function HomeMiningWorld3D() {
             }
           }
         }
+        // Boss attacks every 4s — spawn from current boss world pos toward camera
+        const now = performance.now()
+        for (const [bossId, nextAt] of Object.entries(bossNextAttack)) {
+          if (now >= nextAt) {
+            bossNextAttack[bossId] = nextAt + 4000
+            const boss = bossById[bossId]
+            if (!boss) continue
+            const fromGx = boss.group.position.x
+            const fromGy = boss.group.position.z
+            const toGx = camera.position.x
+            const toGy = camera.position.z
+            if (bossId === 'trump') {
+              dollarBills = spawnBossDollarBurst(dollarBills, { fromGx, fromGy, toGx, toGy, at: now, mapId: '5' })
+            } else if (bossId === 'putin') {
+              hammerSickleSymbols = spawnBossHammerSickleBurst(hammerSickleSymbols, { fromGx, fromGy, toGx, toGy, at: now, mapId: '3' })
+            } else if (bossId === 'kim') {
+              missileSymbols = spawnBossMissileBurst(missileSymbols, { fromGx, fromGy, toGx, toGy, at: now, mapId: '4' })
+            }
+          }
+        }
+        // Draw VFX particles on the 2D overlay canvas
+        if (overlayCtx && overlayCanvas.width > 0 && overlayCanvas.height > 0) {
+          const W = overlayCanvas.width
+          const H = overlayCanvas.height
+          overlayCtx.clearRect(0, 0, W, H)
+          dollarBills = drawBossDollarBills(overlayCtx, dollarBills, { mapId: '5', W, H, threeState, now })
+          hammerSickleSymbols = drawBossHammerSickleSymbols(overlayCtx, hammerSickleSymbols, { mapId: '3', W, H, threeState, now })
+          missileSymbols = drawBossMissileSymbols(overlayCtx, missileSymbols, { mapId: '4', W, H, threeState, now })
+        }
+
         renderer.render(scene, camera)
       }
       animate()
@@ -1058,5 +1111,10 @@ export default function HomeMiningWorld3D() {
     }
   }, [])
 
-  return <canvas ref={canvasRef} className="mm3-home-arena-canvas" />
+  return (
+    <>
+      <canvas ref={canvasRef} className="mm3-home-arena-canvas" />
+      <canvas ref={overlayRef} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none' }} />
+    </>
+  )
 }
