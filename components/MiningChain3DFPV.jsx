@@ -5,6 +5,7 @@ import * as THREE from 'three'
 import { colorFromAddress } from '@/lib/wallet-colors'
 import { buildHumanoidBody, buildBotRoundHead, swayHumanoidArms, walkHumanoidLegs } from '@/lib/humanoid-body'
 import { addRlCarBoost, setRlCarBoostLit } from '@/lib/rl-car-boost'
+import { aiTeamPoolCode } from '@/lib/ai-team'
 import { MM3_BLOCK_GRID_ROWS, MM3_BLOCK_GRID_COLS, MM3_MINE_BLOCK_TOTAL, MM3_REGULAR_BLOCK_TOTAL, MM3_NFTJI_BLOCK_TOTAL, gridToBlockHex, MM3_BLOCK_REQUIREMENT_BY_HEX, doesGlobalValueMeetRequirement } from '@/lib/mm3-block-chain'
 import supabase from '@/lib/supabaseClient'
 import { groupPresenceEntries } from '@/lib/presence-display'
@@ -65,7 +66,7 @@ import {
 } from '@/lib/m4-boss-missile-vfx'
 import { getMapBossConfig, mapHasBoss } from '@/lib/map-boss-registry'
 import { getBossRuntimeModule } from '@/lib/map-boss-runtime'
-import { CRIT_NFTJI_ACCENT, LIFE_NFTJI_ACCENT, LIFE_NFTJI_EMOJI_FILTER, isLifeNftjiEmoji, lifeNftjiEmojiFilterStyle, MINING_HEAL_GREEN, miningSkillAbilityLines } from '@/lib/wallet-decorations'
+import { CRIT_NFTJI_ACCENT, LIFE_NFTJI_ACCENT, LIFE_NFTJI_EMOJI_FILTER, isLifeNftjiEmoji, lifeNftjiEmojiFilterStyle, MINING_HEAL_GREEN, miningSkillAbilityLines, HACKING_CHANCE, HACKING_OFFLINE_MS } from '@/lib/wallet-decorations'
 import {
   COMBAT_DAMAGE_FLOAT_MS,
   combatDamageFloatColor,
@@ -4896,22 +4897,32 @@ const NPC_MAX_HP = 20
 // Overhead wallet tag so the NPC is identifiable as an AI-team bot.
 function makeNpcLabelSprite(wallet) {
   if (typeof document === 'undefined') return null
+  const pool = aiTeamPoolCode(wallet)
   const canvas = document.createElement('canvas')
   canvas.width = 320
-  canvas.height = 48
+  canvas.height = pool ? 76 : 48
   const ctx = canvas.getContext('2d')
   if (!ctx) return null
   const label = `${wallet.slice(0, 6)}…${wallet.slice(-4)} · AI`
-  ctx.fillStyle = 'rgba(1,7,14,.85)'
-  ctx.fillRect(0, 4, 320, 40)
-  ctx.strokeStyle = 'rgba(134,239,172,.65)'
-  ctx.lineWidth = 2
-  ctx.strokeRect(1, 5, 318, 38)
-  ctx.font = 'bold 22px monospace'
   ctx.textAlign = 'center'
   ctx.textBaseline = 'middle'
+  // Pool line above the plate — same amber [POOL] convention as player tags.
+  if (pool) {
+    ctx.font = 'bold 19px monospace'
+    ctx.fillStyle = 'rgba(1,7,14,.65)'
+    ctx.fillText(`[${pool}]`, 161, 15)
+    ctx.fillStyle = '#f59e0b'
+    ctx.fillText(`[${pool}]`, 160, 14)
+  }
+  const plateY = pool ? 32 : 4
+  ctx.fillStyle = 'rgba(1,7,14,.85)'
+  ctx.fillRect(0, plateY, 320, 40)
+  ctx.strokeStyle = 'rgba(134,239,172,.65)'
+  ctx.lineWidth = 2
+  ctx.strokeRect(1, plateY + 1, 318, 38)
+  ctx.font = 'bold 22px monospace'
   ctx.fillStyle = '#86efac'
-  ctx.fillText(label, 160, 25)
+  ctx.fillText(label, 160, plateY + 21)
   const tex = new THREE.CanvasTexture(canvas)
   tex.colorSpace = THREE.SRGBColorSpace
   const sprite = new THREE.Sprite(new THREE.SpriteMaterial({
@@ -4919,8 +4930,9 @@ function makeNpcLabelSprite(wallet) {
     transparent: true,
     depthWrite: false,
   }))
-  sprite.scale.set(1.7, 0.26, 1)
-  sprite.position.y = 1.42
+  // Keep the canvas aspect so the extra pool line doesn't squash the text.
+  sprite.scale.set(1.7, pool ? 0.41 : 0.26, 1)
+  sprite.position.y = pool ? 1.50 : 1.42
   sprite.renderOrder = 9
   return sprite
 }
@@ -11112,7 +11124,7 @@ function addM2PitchDomeDecor(world, lowDetail, state) {
   root.add(ballMesh)
 
   const botEntries = []
-  const botNames = ['Aserejee', 'Bot 1', 'Bot 2', 'Bot 3']
+  const botNames = ['Aserejee · AI', 'Bot 1', 'Bot 2', 'Bot 3']
   getM2PitchBotSpots().forEach((spot, index) => {
     const botGroup = new THREE.Group()
     botGroup.userData.skipOcclusion = true
@@ -12060,7 +12072,7 @@ export default function MiningChain3DFPV({
   onMapChange,
   onPositionChange, onFacingChange, onWantNavigate, onPositionRealtime,
   onPvpHit, pvpStolen, demineRewards,
-  onChainSolveOpen, onNftjiPanelOpen, externalPvpFlash, externalDodgeFlash = 0, externalCombatDamage = null, externalKnockback, externalPush, onCollisionPush,
+  onChainSolveOpen, onNftjiPanelOpen, externalPvpFlash, externalDodgeFlash = 0, externalCombatDamage = null, externalHackedOffline = null, externalKnockback, externalPush, onCollisionPush,
   swingMap, myPoolCode,
   anonKillMsg,
   playerLevel, playerNftjiCount, walletNftjis, myNftjis,
@@ -12195,6 +12207,8 @@ export default function MiningChain3DFPV({
   const collisionPushThrottleRef = useRef(new Map())
   // Skill system
   const critChanceRef       = useRef(0)
+  const hackChanceRef       = useRef(0)      // Zero-Day 👾: 10% per hit → OFFLINE 5s
+  const myHackedUntilRef    = useRef(0)      // local player stunned (hacked) until
   const speedRef            = useRef(MOVE_SPD)
   const jumpMultRef         = useRef(1)
   const longJumpRef         = useRef(1)
@@ -12572,6 +12586,7 @@ export default function MiningChain3DFPV({
     const hasAttackNftji=nfts.some(n=>n.blockKey==='sq-atk')
     const rlMult = rlMountActiveRef.current ? RL_MOUNT_SPEED_MULT : 1
     critChanceRef.current = hasAttackNftji ? 0.05 : 0
+    hackChanceRef.current = nfts.some(n=>n.emoji==='👾') ? HACKING_CHANCE : 0
     speedRef.current      = (hasHeart ? MOVE_SPD * 1.10 : MOVE_SPD) * rlMult
     jumpMultRef.current   = rlMountActiveRef.current ? RL_MOUNT_JUMP_MULT : 1
     longJumpRef.current   = hasMiningNftji ? 1.10 : 1
@@ -12579,6 +12594,10 @@ export default function MiningChain3DFPV({
   // External hit flash (victim sees red screen when struck by another player)
   useEffect(()=>{ if(externalPvpFlash) pvpFlashRef.current=performance.now() },[externalPvpFlash])
   useEffect(()=>{ if(externalDodgeFlash) dodgeFlashRef.current=performance.now() },[externalDodgeFlash])
+  // HACKING stun received: freeze inputs for 5s (still damageable), show OFFLINE glitch
+  useEffect(()=>{
+    if(externalHackedOffline?.until>Date.now()) myHackedUntilRef.current=externalHackedOffline.until
+  },[externalHackedOffline])
 
   const pushCombatDamageFloat = useCallback((opts) => {
     if (!opts || !Number.isFinite(Number(opts.gx)) || !Number.isFinite(Number(opts.gy))) return
@@ -13709,7 +13728,8 @@ export default function MiningChain3DFPV({
         w, tX, tY, dist, gx: sgx, gy: sgy, z:remoteZ, supportZ,
         angle:Number(pres.angle)||0, swingAt:Number(pres.swingAt)||0,
         isBot:Boolean(pres.isBot), taskLabel:pres.taskLabel||null, taskPhase:pres.taskPhase||null,
-        color: colorFromAddress(w), poolCode: pres.poolCode||null,
+        // AI-team bots advertise their pool even when presence omits it.
+        color: colorFromAddress(w), poolCode: pres.poolCode||aiTeamPoolCode(w),
         isDead: Boolean(pres.isDead),
         deadUntil: pres.deadUntil
           ? (typeof pres.deadUntil === 'number' ? pres.deadUntil : new Date(pres.deadUntil).getTime())
@@ -13900,7 +13920,7 @@ export default function MiningChain3DFPV({
         const lAlpha = Math.max(0, (10.0-tY)/10.0)*0.88
         const lSize  = Math.max(10, Math.round(13/Math.max(0.5, tY)))
         const pres   = (presence||{})[w]
-        const pool   = pres?.poolCode
+        const pool   = pres?.poolCode || aiTeamPoolCode(w)
         ctx.globalAlpha = lAlpha * 0.45; ctx.fillStyle = '#000'
         ctx.font = `bold ${lSize}px monospace`
         ctx.textAlign = 'center'; ctx.textBaseline = 'bottom'
@@ -14257,6 +14277,33 @@ export default function MiningChain3DFPV({
       ctx.fillRect(0, 0, W, H)
     }
 
+    // ── HACKED / OFFLINE overlay — Zero-Day 👾 stun on the local player ────
+    const hackedLeftMs = myHackedUntilRef.current - Date.now()
+    if (hackedLeftMs > 0) {
+      const flicker = 0.72 + Math.sin(performance.now() * 0.02) * 0.18
+      const hg = ctx.createRadialGradient(W/2,H/2,H*0.12, W/2,H/2,H*0.8)
+      hg.addColorStop(0, 'rgba(88,28,135,0.10)')
+      hg.addColorStop(1, 'rgba(59,7,100,0.38)')
+      ctx.globalAlpha = 1
+      ctx.fillStyle = hg
+      ctx.fillRect(0, 0, W, H)
+      // Glitchy scan bars
+      ctx.globalAlpha = 0.10 * flicker
+      ctx.fillStyle = '#a78bfa'
+      for (let gy = (performance.now() * 0.08) % 26; gy < H; gy += 26) ctx.fillRect(0, gy, W, 2)
+      // Jittered OFFLINE label + countdown
+      const jx = (Math.random() - 0.5) * 3, jy = (Math.random() - 0.5) * 2
+      ctx.globalAlpha = flicker
+      ctx.font = 'bold 26px monospace'
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
+      ctx.fillStyle = '#c4b5fd'
+      ctx.fillText('👾 OFFLINE', W/2 + jx, H * HORIZON_RATIO - 64 + jy)
+      ctx.font = 'bold 13px monospace'
+      ctx.fillStyle = '#a78bfa'
+      ctx.fillText(`REBOOT IN ${(hackedLeftMs / 1000).toFixed(1)}s`, W/2, H * HORIZON_RATIO - 42)
+      ctx.globalAlpha = 1
+    }
+
     // ── Dodge flash (cyan vignette + text) — victim successfully dodged ───
     const dodgeAge = performance.now() - dodgeFlashRef.current
     if (dodgeAge < 500) {
@@ -14561,7 +14608,7 @@ export default function MiningChain3DFPV({
           keysRef.current.space=true
           const _p=playerRef.current
           const _dead=myDeadUntilRef.current&&myDeadUntilRef.current>Date.now()
-          if(!_dead){
+          if(!_dead&&myHackedUntilRef.current<=Date.now()){
             const _gx=_p.x/CELL_SIZE,_gz=_p.y/CELL_SIZE
             if(isOnGroundTrampoline(_gx,_gz,_p.z)){
               _p.vz=HOUSE_TRAMPOLINE_LAUNCH;_p.jumps=0
@@ -14636,7 +14683,7 @@ export default function MiningChain3DFPV({
   const handlePointerDown = useCallback((e)=>{
     if(e.pointerType==='mouse'){
       if(document.pointerLockElement!==canvasRef.current){ canvasRef.current?.requestPointerLock?.(); return }
-      const nowDead=myDeadUntilRef.current&&myDeadUntilRef.current>Date.now()
+      const nowDead=(myDeadUntilRef.current&&myDeadUntilRef.current>Date.now())||myHackedUntilRef.current>Date.now()
       if(!nowDead&&performance.now()-swingStartRef.current>SWING_DUR){
         swingStartRef.current=performance.now(); swingEpochRef.current=Date.now(); hitDoneRef.current=false
       }
@@ -14703,8 +14750,12 @@ export default function MiningChain3DFPV({
       if(k.q){p.angle-=TURN_SPD*dt;needsRender=true}
       if(k.e){p.angle+=TURN_SPD*dt;needsRender=true}
 
+      // HACKING stun: while OFFLINE the player can look around but not move,
+      // jump or swing — and keeps taking damage.
+      const myHacked = myHackedUntilRef.current > Date.now()
+      if (myHacked) needsRender = true
       const joy=joystickRef.current
-      const fwd=myDead?0:(k.w?1:0)-(k.s?1:0)-joy.y, str=myDead?0:(k.d?1:0)-(k.a?1:0)+joy.x
+      const fwd=(myDead||myHacked)?0:(k.w?1:0)-(k.s?1:0)-joy.y, str=(myDead||myHacked)?0:(k.d?1:0)-(k.a?1:0)+joy.x
       const inputLen=Math.hypot(fwd,str)||1
       const targetSpeed=speedRef.current*(p.z>.04?longJumpRef.current:1)
       const targetVX=(Math.cos(p.angle)*(fwd/inputLen)+Math.cos(p.angle+Math.PI/2)*(str/inputLen))*targetSpeed
@@ -15054,8 +15105,21 @@ export default function MiningChain3DFPV({
           const ndy = py - npc.gy
           const ndist = Math.hypot(ndx, ndy)
           const nowMs = performance.now()
+          // HACKING (Zero-Day 👾): while OFFLINE the bot freezes (no move, no
+          // attack), its eye glows shut down, and it still takes damage.
+          const npcOffline = nowMs < (npc.offlineUntil || 0)
+          if (npcOffline !== Boolean(npc.eyesOff)) {
+            npc.eyesOff = npcOffline
+            npc.avatar.traverse((o) => { if (o.userData?.bossEyeGlow) o.visible = !npcOffline })
+          }
+          // Visual hop envelope (attack hops + obstacle hops) — pure client
+          // visual except that while airborne the wall test runs at z=0.62,
+          // so the bot really clears jumpable mining blocks (top 0.5).
+          const hopAge = nowMs - (npc.hopStart || -9999)
+          const hopping = hopAge >= 0 && hopAge < 620
+          const npcHop = hopping ? Math.sin((hopAge / 620) * Math.PI) * 0.55 : 0
           let npcMoved = false
-          if (!myDead && ndist > 0.85) {
+          if (!myDead && !npcOffline && ndist > 0.85) {
             const step = Math.min((MOVE_SPD / CELL_SIZE) * NPC_SPEED_MULT * dt, ndist)
             const cm = activeCellMapRef.current
             const obs = validObstaclesRef.current
@@ -15064,17 +15128,24 @@ export default function MiningChain3DFPV({
             // body, z=0). Try the direct step, then per-axis slides (hug the
             // wall), then a committed perpendicular detour so the bot walks
             // AROUND blocks/obstacles instead of ghosting through them.
-            const tryMove = (mx, my) => {
+            const tryMove = (mx, my, z = 0) => {
               const nx = npc.gx + mx, ny = npc.gy + my
               if (nx < 1 || ny < 1 || nx > COLS - 1 || ny > ROWS - 1) return false
-              if (hitsSolidWall(nx, ny, cm, obs, 0, 0, my, mx)) return false
+              if (hitsSolidWall(nx, ny, cm, obs, z, 0, my, mx)) return false
               npc.gx = nx; npc.gy = ny
               npc.faceDX = mx; npc.faceDY = my
               return true
             }
-            npcMoved = tryMove(dirX * step, dirY * step)
-            if (!npcMoved) npcMoved = tryMove(dirX * step, 0) || tryMove(0, dirY * step)
+            // Mid-hop the body clears low mining blocks — walls still block.
+            const moveZ = npcHop > 0.35 ? 0.62 : 0
+            npcMoved = tryMove(dirX * step, dirY * step, moveZ)
+            if (!npcMoved) npcMoved = tryMove(dirX * step, 0, moveZ) || tryMove(0, dirY * step, moveZ)
             if (!npcMoved) {
+              // Blocked head-on: hop to try to vault the obstacle (~every 1.5s)
+              if (!hopping && nowMs > (npc.nextObstacleHopAt || 0)) {
+                npc.hopStart = nowMs
+                npc.nextObstacleHopAt = nowMs + 1500
+              }
               // Commit to one side for ~1s so the bot borders the obstacle
               // instead of dithering left/right against the wall.
               if (!npc.detourSign || nowMs > (npc.detourUntil || 0)) {
@@ -15088,18 +15159,33 @@ export default function MiningChain3DFPV({
               }
               if (npcMoved) npc.detourUntil = Math.max(npc.detourUntil || 0, nowMs + 350)
             }
+            // Mid-vault it may sit over a solid cell when the hop ends — keep
+            // hopping forward until the body rests on free ground again.
+            if (!hopping && hitsSolidWall(npc.gx, npc.gy, cm, obs, 0, 0)) npc.hopStart = nowMs
             // Human walk cycle while moving
             walkHumanoidLegs(npc.avatar, npcMoved ? nowMs * 0.0064 : 0)
           } else {
             walkHumanoidLegs(npc.avatar, 0)
           }
           swayHumanoidArms(npc.avatar, nowMs * 0.001)
-          npc.avatar.position.set(npc.gx, 0, npc.gy)
+          npc.avatar.position.set(npc.gx, npcHop, npc.gy)
           // Face the walking direction while detouring, the player otherwise.
           const faceDX = npcMoved ? (npc.faceDX ?? ndx) : ndx
           const faceDY = npcMoved ? (npc.faceDY ?? ndy) : ndy
           npc.avatar.rotation.y = -Math.atan2(faceDY, faceDX) - Math.PI / 2
-          if (!myDead && ndist <= NPC_HIT_RANGE && nowMs - npc.lastHitAt >= NPC_HIT_COOLDOWN_MS) {
+          if (!myDead && !npcOffline && ndist <= NPC_HIT_RANGE * 1.35) {
+            // Aggressive flurry: rapid swings + a hop every ~3s while engaging.
+            // Pure visuals — real damage stays the cooldown hit below.
+            if (nowMs > (npc.nextVisualSwingAt || 0)) {
+              npc.swingUntil = nowMs + 420
+              npc.nextVisualSwingAt = nowMs + 850 + Math.random() * 500
+            }
+            if (!hopping && nowMs > (npc.nextAttackHopAt || 0)) {
+              npc.hopStart = nowMs
+              npc.nextAttackHopAt = nowMs + 2600 + Math.random() * 900
+            }
+          }
+          if (!myDead && !npcOffline && ndist <= NPC_HIT_RANGE && nowMs - npc.lastHitAt >= NPC_HIT_COOLDOWN_MS) {
             npc.lastHitAt = nowMs
             npc.swingUntil = nowMs + 420
             onNpcHitRef.current?.({ wallet: npc.wallet, mapId: String(mapIdRef.current) })
@@ -15131,7 +15217,10 @@ export default function MiningChain3DFPV({
         // every boss goes aggro and hunts anyone in range (buyer & pool included).
         const nd = nodeDiceStateRef.current
         const stormAggro = !!(nd && Number(nd.expiresAt) > Date.now() && getDiceState().active)
-        if (bossMod && bossRuntimeRef.current) {
+        // HACKED boss: runtime frozen while OFFLINE (no motion, no attacks) —
+        // it still takes hits; visual sync below keeps rendering it in place.
+        const bossOffline = (bossRuntimeRef.current?.offlineUntil || 0) > performance.now()
+        if (bossMod && bossRuntimeRef.current && !bossOffline) {
           bossRuntimeRef.current = bossMod.updateBoss({
             runtime: bossRuntimeRef.current,
             bossState: bossStateRef.current,
@@ -15677,6 +15766,9 @@ export default function MiningChain3DFPV({
           if (npcHeadshot) critFlashRef.current = performance.now()
           npc.hp -= npcHeadshot ? 2 : 1
           npc.hitFlashUntil = performance.now() + 220
+          // HACKING (Zero-Day 👾): 10% per hit knocks the bot OFFLINE 5s
+          const npcHacked = hackChanceRef.current > 0 && Math.random() < hackChanceRef.current
+          if (npcHacked) npc.offlineUntil = performance.now() + HACKING_OFFLINE_MS
           drawNpcHpBar(npc.hpBar, npc.hp)
           const shortTag = `${npc.wallet.slice(0, 6)}…${npc.wallet.slice(-4)}`
           if (npc.hp <= 0) {
@@ -15697,8 +15789,9 @@ export default function MiningChain3DFPV({
             npc.lastHitAt = 0
             pvpGainRef.current = { text: `💀 ${shortTag} DOWN${npcHeadshot ? ' 🎯' : ''}`, at: performance.now(), color: '#4ade80' }
           } else {
+            const npcHackTag = npcHacked ? ' 👾 OFFLINE 5s' : ''
             pvpGainRef.current = {
-              text: npcHeadshot ? `🎯 HEADSHOT ${shortTag} -2 HP` : `⚔ HIT ${shortTag} -1 HP`,
+              text: npcHeadshot ? `🎯 HEADSHOT ${shortTag} -2 HP${npcHackTag}` : `⚔ HIT ${shortTag} -1 HP${npcHackTag}`,
               at: performance.now(),
               color: '#fb923c',
             }
@@ -15714,9 +15807,13 @@ export default function MiningChain3DFPV({
           const bossMapId = mapIdRef.current
           const bossName = getMapBossConfig(bossMapId)?.name || bossStateRef.current?.name || 'BOSS'
           const rt = bossRuntimeRef.current
+          // HACKING (Zero-Day 👾): 10% per hit knocks the boss OFFLINE 5s —
+          // its local runtime freezes (no moves/attacks) but keeps taking hits.
+          const bossHacked = hackChanceRef.current > 0 && Math.random() < hackChanceRef.current
           if (rt) {
             rt.hitFlashUntil = performance.now() + 220
             rt.combatEngaged = true
+            if (bossHacked) rt.offlineUntil = performance.now() + HACKING_OFFLINE_MS
           }
           if (bossStateRef.current?.state === 'idle') {
             bossStateRef.current = { ...bossStateRef.current, state: 'active' }
@@ -15754,6 +15851,7 @@ export default function MiningChain3DFPV({
               if (!rt.engageAt) rt.engageAt = performance.now()
             }
             const hit = result.headshot ? '🎯 HEAD' : result.critical ? '💥 CRIT' : '⚔ HIT'
+            const bossHackTag = bossHacked ? ' 👾 OFFLINE 5s' : ''
             let rewardSuffix = ''
             if (result.killed && Array.isArray(result.rewards)) {
               const mine = result.rewards.find(r => r.wallet?.toLowerCase() === myWallet?.toLowerCase())
@@ -15762,7 +15860,7 @@ export default function MiningChain3DFPV({
             pvpGainRef.current = {
               text: result.killed
                 ? `💀 ${bossName} DOWN ${hit}${rewardSuffix}`
-                : `${hit} ${bossName} -${result.damage}`,
+                : `${hit} ${bossName} -${result.damage}${bossHackTag}`,
               at: performance.now(),
               color: result.killed ? '#4ade80' : '#fb923c',
             }
@@ -15803,8 +15901,9 @@ export default function MiningChain3DFPV({
               const money=Number(result[moneyKey])||0
               const moneySymbol={EUR:'EUR',USD:'USD',CNY:'CNY'}[activeCurrency]||activeCurrency
               const hit=result.headshot?'🎯 HEADSHOT':result.critical?'💥 CRIT':'⚔ HIT'
+              const hackTag=result.hacked?' 👾 OFFLINE 5s':''
               pvpGainRef.current={
-                text:result.killed?`💀 KILL  ${hit}`:`${hit} -${result.damage} HP${money>0?` +${money.toFixed(2)} ${moneySymbol}`:''}`,
+                text:result.killed?`💀 KILL  ${hit}`:`${hit} -${result.damage} HP${hackTag}${money>0?` +${money.toFixed(2)} ${moneySymbol}`:''}`,
                 at:performance.now(),
               }
               if (Number(result.damage) > 0) {
@@ -15820,6 +15919,7 @@ export default function MiningChain3DFPV({
                   yLift: 1.15,
                   critical: result.critical,
                   headshot: result.headshot,
+                  hacked: result.hacked,
                 })
               }
             })
@@ -16018,6 +16118,7 @@ export default function MiningChain3DFPV({
   },[])
   const triggerJump=useCallback(()=>{
     if(myDeadUntilRef.current&&myDeadUntilRef.current>Date.now()) return
+    if(myHackedUntilRef.current>Date.now()) return
     const player=playerRef.current
     const gx=player.x/CELL_SIZE, gz=player.y/CELL_SIZE
     if(isOnGroundTrampoline(gx,gz,player.z)){
@@ -16035,6 +16136,7 @@ export default function MiningChain3DFPV({
   },[])
   const triggerAttack=useCallback(()=>{
     if(myDeadUntilRef.current&&myDeadUntilRef.current>Date.now()) return
+    if(myHackedUntilRef.current>Date.now()) return
     if(performance.now()-swingStartRef.current<=SWING_DUR) return
     swingStartRef.current=performance.now();swingEpochRef.current=Date.now();hitDoneRef.current=false
     renderRef.current?.()

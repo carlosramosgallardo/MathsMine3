@@ -12,6 +12,7 @@ import {
   WALLET_DECORATIONS,
   TRADE_SLOT_ORDER,
   SQUEEZE_SLOT_ORDER,
+  TRADING_NFTJI,
   LIFE_NFTJI_ACCENT,
   lifeNftjiEmojiFilterStyle,
   appendWalletDecoration,
@@ -58,6 +59,7 @@ const ANON_NFTJI_SLOTS = [
   { key: 'anon-genesis', emoji: WALLET_DECORATIONS.marketGenesis, source: 'wallet', placeholder: true },
   { key: 'anon-relay', emoji: WALLET_DECORATIONS.relay, source: 'relay', placeholder: true },
   ...SQUEEZE_SLOT_ORDER.map((slot) => ({ key: `anon-${slot.key}`, emoji: slot.emoji, source: 'squeeze', placeholder: true })),
+  { key: 'anon-zero-day', emoji: TRADING_NFTJI.emoji, source: 'trading', placeholder: true },
   { key: 'anon-mining', emoji: '⬡', source: 'mining', placeholder: true },
 ];
 
@@ -120,7 +122,17 @@ function buildTrainingNftjis(progress, squeezeNftji, miningEmoji) {
     });
   }
 
-  // 4. Mining NFTJI — always one slot
+  // 4. Trading NFTJI (Zero-Day 👾) — one slot between training and mining
+  const hasZeroDay = owned.has(TRADING_NFTJI.emoji);
+  roster.push({
+    key: 'zero-day',
+    emoji: TRADING_NFTJI.emoji,
+    level: hasZeroDay ? Math.max(0, Number(progress?.[TRADING_NFTJI.levelField] ?? 0)) : 0,
+    source: 'trading',
+    placeholder: !hasZeroDay,
+  });
+
+  // 5. Mining NFTJI — always one slot
   const miningKey = progress?.mining_nftji_key || null;
   roster.push({
     key: miningKey ? `mining-${miningKey}` : 'mining-empty',
@@ -980,7 +992,7 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
       const [{ data: progress }, { data: squeezeNftji }] = await Promise.all([
         supabase
           .from('player_progress')
-          .select('eur_earned, usd_earned, cny_earned, life_used, lucky_50_claimed, lucky_100_claimed, lucky_500_claimed, lucky_1000_claimed, lucky_50_level, lucky_100_level, lucky_500_level, lucky_1000_level, wallet_emojis, mining_nftji_key, mining_nftji_levels, relay_exec_count')
+          .select('eur_earned, usd_earned, cny_earned, life_used, lucky_50_claimed, lucky_100_claimed, lucky_500_claimed, lucky_1000_claimed, lucky_50_level, lucky_100_level, lucky_500_level, lucky_1000_level, zero_day_level, wallet_emojis, mining_nftji_key, mining_nftji_levels, relay_exec_count')
           .eq('wallet', wallet)
           .maybeSingle(),
         supabase

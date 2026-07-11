@@ -7,7 +7,29 @@ import supabase from '@/lib/supabaseClient';
 import { CNY_TO_EUR, CNY_TO_USD, formatMoney, formatCompactNum } from '@/lib/sell-offer';
 import { clampRankLevel, getRankTier } from '@/lib/ranks';
 import { colorFromAddress, colorFromPool } from '@/lib/wallet-colors';
-import { normalizeWalletDecorations, getEmojiTitle, TRADE_SLOT_ORDER, SQUEEZE_SLOT_ORDER, WALLET_DECORATIONS, LIFE_NFTJI_ACCENT, lifeNftjiEmojiFilterStyle, computeRelayLevel } from '@/lib/wallet-decorations';
+import { normalizeWalletDecorations, getEmojiTitle, TRADE_SLOT_ORDER, SQUEEZE_SLOT_ORDER, WALLET_DECORATIONS, TRADING_NFTJI, LIFE_NFTJI_ACCENT, lifeNftjiEmojiFilterStyle, computeRelayLevel } from '@/lib/wallet-decorations';
+
+/** Trading NFTJI 👾 (Zero-Day) slot chip — rendered between the training
+    slots and the mining slot in every ranking view. */
+function ZeroDayChip({ owned, level, table = false, title = null }) {
+  const color = '#a78bfa';
+  return (
+    <div
+      title={title || (getEmojiTitle(TRADING_NFTJI.emoji) + (owned ? ` Lv.${Math.max(0, level)}` : ''))}
+      className={table ? 'lb-slot-cell flex flex-col items-center justify-center rounded-md border' : 'relative flex flex-col items-center justify-center rounded border'}
+      style={{
+        ...(table ? {} : { width: '1.5rem', height: '1.5rem' }),
+        borderColor: owned ? `${color}99` : `${color}33`,
+        background: owned ? `${color}18` : 'rgba(2,6,23,0.4)',
+        color: owned ? color : 'rgba(100,116,139,0.35)',
+        boxShadow: owned ? `0 0 8px ${color}25` : 'none',
+      }}
+    >
+      <span style={{ fontSize: owned ? (table ? '0.78rem' : '0.72rem') : (table ? '0.95rem' : '0.88rem'), lineHeight: 1 }}>{owned ? TRADING_NFTJI.emoji : ''}</span>
+      {owned && <span style={{ fontSize: table ? '0.52rem' : '0.48rem', fontFamily: 'monospace', color, fontWeight: 800, lineHeight: 1 }}>Lv.{Math.max(0, level)}</span>}
+    </div>
+  );
+}
 import { useCurrency } from '@/lib/currency-context';
 import { useActiveWallet } from '@/lib/use-active-wallet';
 import { formatWalletLabel } from '@/lib/wallet-format';
@@ -387,7 +409,7 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
           .select('wallet, total_eth'),
         supabase
           .from('player_progress')
-          .select('wallet, level, block_chain_percent, mm3_sold, cny_earned, eur_earned, usd_earned, wallet_emojis, is_bot, lucky_50_level, lucky_100_level, lucky_500_level, lucky_1000_level, mining_nftji_levels, relay_exec_count, relay_nftji_partner'),
+          .select('wallet, level, block_chain_percent, mm3_sold, cny_earned, eur_earned, usd_earned, wallet_emojis, is_bot, lucky_50_level, lucky_100_level, lucky_500_level, lucky_1000_level, zero_day_level, mining_nftji_levels, relay_exec_count, relay_nftji_partner'),
         supabase
           .from('player_progress')
           .select('wallet, mining_nftji_key')
@@ -446,6 +468,7 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
               lucky100: Number(entry.lucky_100_level ?? -1),
               lucky500: Number(entry.lucky_500_level ?? -1),
               lucky1000: Number(entry.lucky_1000_level ?? -1),
+              zeroDay: Number(entry.zero_day_level ?? -1),
             },
             miningNftjiLevels: entry.mining_nftji_levels || {},
             relayExecCount: Number(entry.relay_exec_count) || 0,
@@ -589,7 +612,7 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
           const lbRow   = lbByWallet.get(normalizedWallet);
           const progress = earnedByWallet.get(normalizedWallet) || {
             level: 0, blockChainPercent: 0, mm3Sold: 0, cny: 0, eur: 0, usd: 0, walletEmojis: [], is_bot: false,
-            nftjiLevels: { lucky50: -1, lucky100: -1, lucky500: -1, lucky1000: -1 },
+            nftjiLevels: { lucky50: -1, lucky100: -1, lucky500: -1, lucky1000: -1, zeroDay: -1 },
             miningNftjiLevels: {},
           };
           const totalMm3    = Number(lbRow?.total_eth) || 0;
@@ -621,7 +644,7 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
             active_penalty: penaltiesByWallet.get(normalizedWallet) || null,
             pool_code: poolByWallet.get(normalizedWallet) || '',
             is_bot: progress.is_bot || false,
-            nftjiLevels: progress.nftjiLevels || { lucky50: -1, lucky100: -1, lucky500: -1, lucky1000: -1 },
+            nftjiLevels: progress.nftjiLevels || { lucky50: -1, lucky100: -1, lucky500: -1, lucky1000: -1, zeroDay: -1 },
             miningNftjiLevels: progress.miningNftjiLevels || {},
             relayExecCount: progress.relayExecCount || 0,
             relayPartner: progress.relayPartner || '',
@@ -1677,6 +1700,12 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
                       </div>
                     );
                   })}
+                  {(() => {
+                    const zdMembers = (entry.members || []).filter((m) => (m.walletEmojis || m.wallet_emojis || []).includes(TRADING_NFTJI.emoji));
+                    const zdOwned = zdMembers.length > 0;
+                    const zdBest = zdOwned ? Math.max(...zdMembers.map((m) => Math.max(0, Number(m.nftjiLevels?.zeroDay ?? 0)))) : 0;
+                    return <ZeroDayChip owned={zdOwned} level={zdBest} title={zdOwned ? `Zero-Day — ${zdMembers.length} member(s) · best Lv.${zdBest}` : null} />;
+                  })()}
                   {Object.entries(entry.market_emoji_counts || {}).length === 0 ? (
                     <div className="flex items-center justify-center rounded border"
                       title="Mining NFTJI — none"
@@ -1918,6 +1947,7 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
                       </div>
                     );
                   })}
+                  <ZeroDayChip owned={ownedEmojis.includes(TRADING_NFTJI.emoji)} level={Math.max(0, Number(entry.nftjiLevels?.zeroDay ?? 0))} />
                   {(() => {
                     const mBlock = marketBlocks[0] || null;
                     const mOwned = !!mBlock;
@@ -2159,6 +2189,12 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
                           </div>
                         );
                       })}
+                      {(() => {
+                        const zdMembers = (entry.members || []).filter((m) => (m.walletEmojis || m.wallet_emojis || []).includes(TRADING_NFTJI.emoji));
+                        const zdOwned = zdMembers.length > 0;
+                        const zdBest = zdOwned ? Math.max(...zdMembers.map((m) => Math.max(0, Number(m.nftjiLevels?.zeroDay ?? 0)))) : 0;
+                        return <ZeroDayChip table owned={zdOwned} level={zdBest} title={zdOwned ? `Zero-Day — ${zdMembers.length} member(s) · best Lv.${zdBest}` : null} />;
+                      })()}
                       {Object.entries(entry.market_emoji_counts || {}).length === 0 ? (
                         <div className="lb-slot-cell flex items-center justify-center rounded-md border text-[0.95rem]"
                           title="Mining NFTJI — none"
@@ -2389,6 +2425,7 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
                           </div>
                         );
                       })}
+                      <ZeroDayChip table owned={ownedEmojis.includes(TRADING_NFTJI.emoji)} level={Math.max(0, Number(entry.nftjiLevels?.zeroDay ?? 0))} />
                       {(() => {
                         const mBlock = marketBlocks[0] || null;
                         const mOwned = !!mBlock;

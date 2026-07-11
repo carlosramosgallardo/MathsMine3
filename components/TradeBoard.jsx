@@ -7,7 +7,7 @@ import { useI18n } from '@/lib/i18n-context';
 import { useCurrency } from '@/lib/currency-context';
 import { normalizeMacroState } from '@/lib/mm3-macro';
 import { getRankTier } from '@/lib/ranks';
-import { TRADE_SLOT_ORDER, SQUEEZE_SLOT_ORDER, WALLET_DECORATIONS, LIFE_NFTJI_ACCENT, lifeNftjiEmojiFilterStyle, getEmojiTitle, computeRelayLevel, getWalletTradeMultiplier, normalizeWalletDecorations } from '@/lib/wallet-decorations';
+import { TRADE_SLOT_ORDER, SQUEEZE_SLOT_ORDER, WALLET_DECORATIONS, TRADING_NFTJI, LIFE_NFTJI_ACCENT, lifeNftjiEmojiFilterStyle, getEmojiTitle, computeRelayLevel, getWalletTradeMultiplier, normalizeWalletDecorations, appendWalletDecoration } from '@/lib/wallet-decorations';
 import { useDice } from '@/lib/dice-context';
 import { getDiceState } from '@/lib/dice';
 import { useSound } from '@/lib/sound-context';
@@ -167,7 +167,7 @@ export default function TradeBoard({ account, isVirtualWallet = false }) {
   const { currency } = useCurrency();
   const diceState = useDice();
   const diceModifier = diceState?.active ? diceState.modifier : 0;
-  const { playTrade } = useSound();
+  const { playTrade, playNftDrop } = useSound();
   const [level, setLevel] = useState(0);
   const [availableMm3, setAvailableMm3] = useState(0);
   const [funds, setFunds] = useState({ cny: 0, eur: 0, usd: 0 });
@@ -179,6 +179,10 @@ export default function TradeBoard({ account, isVirtualWallet = false }) {
   const [marketNftji, setMarketNftji] = useState(null);
   const [squeezeNftji, setSqueezeNftji] = useState(null);
   const [relayExecCount, setRelayExecCount] = useState(0);
+  const [zeroDayLevel, setZeroDayLevel] = useState(-1);
+  // Pending Zero-Day 👾 drop after an EXEC — claimed like a training drop
+  const [zeroDayOffer, setZeroDayOffer] = useState(false);
+  const [claimingZeroDay, setClaimingZeroDay] = useState(false);
   const [macroState, setMacroState] = useState(() => normalizeMacroState());
   const [tradeRatio, setTradeRatio] = useState(100);
   const [showTransactions, setShowTransactions] = useState(false);
@@ -295,7 +299,7 @@ export default function TradeBoard({ account, isVirtualWallet = false }) {
         const [{ data: progress }, { data: stats }, { data: marketBlockRows }, { data: sqData }] = await Promise.all([
           supabase
             .from('player_progress')
-            .select('level, mm3_sold, cny_earned, eur_earned, usd_earned, wallet_emojis, mining_nftji_key, mining_nftji_levels, lucky_50_level, lucky_100_level, lucky_500_level, lucky_1000_level, relay_exec_count')
+            .select('level, mm3_sold, cny_earned, eur_earned, usd_earned, wallet_emojis, mining_nftji_key, mining_nftji_levels, lucky_50_level, lucky_100_level, lucky_500_level, lucky_1000_level, zero_day_level, relay_exec_count')
             .eq('wallet', wallet)
             .maybeSingle(),
           supabase.from('leaderboard_data').select('total_eth').eq('wallet', wallet).maybeSingle(),
@@ -327,6 +331,7 @@ export default function TradeBoard({ account, isVirtualWallet = false }) {
         } : null);
         setSqueezeNftji(sqData || null);
         setRelayExecCount(Number(progress?.relay_exec_count) || 0);
+        setZeroDayLevel(Number(progress?.zero_day_level ?? -1));
         await loadDailyTxCount(wallet);
       } catch (error) {
         console.error('trade board load:', error);
@@ -586,6 +591,13 @@ export default function TradeBoard({ account, isVirtualWallet = false }) {
       );
       playTrade();
 
+      // Zero-Day 👾 — 5% drop per EXEC, claimed like a training drop.
+      // Re-drops level it up, so the roll never stops firing once owned.
+      if (Math.random() < TRADING_NFTJI.dropChance) {
+        setZeroDayOffer(true);
+        playNftDrop();
+      }
+
       // Nudge war/nature ±10% on every EXEC — written server-side to bypass RLS
       const nudge = (current) => {
         const delta = (Math.random() * 20) - 10;
@@ -609,6 +621,45 @@ export default function TradeBoard({ account, isVirtualWallet = false }) {
       pushToast(error?.message || t('tradeBoard.tradeFailed'), 'error');
     } finally {
       setProcessing(false);
+    }
+  };
+
+  // Claim the pending Zero-Day 👾 drop — same persistence pattern as the
+  // training drops: append to wallet_emojis + bump its level field.
+  const claimZeroDay = async () => {
+    if (!account || !zeroDayOffer || claimingZeroDay) return;
+    setClaimingZeroDay(true);
+    try {
+      const wallet = account.toLowerCase();
+      const { data: progressRow } = await supabase
+        .from('player_progress')
+        .select('wallet_emojis, zero_day_level')
+        .eq('wallet', wallet)
+        .maybeSingle();
+      const nextDecorations = appendWalletDecoration(progressRow?.wallet_emojis, TRADING_NFTJI.emoji);
+      const nextLevel = Number(progressRow?.zero_day_level ?? -1) + 1;
+      const { error } = await supabase
+        .from('player_progress')
+        .update({
+          wallet_emojis: nextDecorations,
+          zero_day_level: nextLevel,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('wallet', wallet);
+      if (error) throw error;
+      setWalletDecorations(nextDecorations);
+      setZeroDayLevel(nextLevel);
+      setZeroDayOffer(false);
+      pushToast(`👾 ZERO-DAY Lv${nextLevel} — HACKING unlocked in Mining`, 'success');
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('lb_dirty_at', String(Date.now()));
+        window.dispatchEvent(new CustomEvent('mm3-db-updated', { detail: { wallet, special: true } }));
+      }
+    } catch (error) {
+      console.error('zero-day claim:', error);
+      pushToast(error?.message || t('tradeBoard.tradeFailed'), 'error');
+    } finally {
+      setClaimingZeroDay(false);
     }
   };
 
@@ -697,6 +748,27 @@ export default function TradeBoard({ account, isVirtualWallet = false }) {
                 >
                   {loading || processing ? '⟳ EXEC' : 'EXEC'}
                 </button>
+                {zeroDayOffer && (
+                  <div
+                    className="flex flex-col items-center gap-2 rounded-lg border p-3 text-center"
+                    style={{ borderColor: '#a78bfaaa', background: 'rgba(24,10,38,0.85)', boxShadow: '0 0 16px rgba(167,139,250,0.25)' }}
+                  >
+                    <div className="text-xs leading-relaxed text-slate-300">
+                      {language === 'es'
+                        ? '👾 ZERO-DAY detectado en el EXEC — NFTJI de trading · skill HACKING en Mining (10% por golpe → OFFLINE 5s)'
+                        : '👾 ZERO-DAY detected on EXEC — trading NFTJI · Mining HACKING skill (10% per hit → OFFLINE 5s)'}
+                    </div>
+                    <button
+                      onClick={claimZeroDay}
+                      disabled={claimingZeroDay}
+                      aria-label="Claim Zero-Day NFTJI"
+                      className="min-w-14 rounded-lg border-2 px-4 py-2.5 font-mono text-2xl leading-none transition-all duration-200 disabled:opacity-40"
+                      style={{ borderColor: '#a78bfaaa', color: '#a78bfa', background: 'transparent' }}
+                    >
+                      {claimingZeroDay ? '⟳' : '👾'}
+                    </button>
+                  </div>
+                )}
                 <div className="flex flex-wrap items-center justify-center gap-1.5">
                   {TRADE_SLOT_ORDER.map((slot) => {
                     const owned = walletDecorations.includes(slot.emoji);
@@ -801,6 +873,30 @@ export default function TradeBoard({ account, isVirtualWallet = false }) {
                       </div>
                     );
                   })}
+                  {/* Trading NFTJI 👾 (Zero-Day) — between training and mining */}
+                  {(() => {
+                    const owned = walletDecorations.includes(TRADING_NFTJI.emoji);
+                    const lvl = Math.max(0, zeroDayLevel);
+                    return (
+                      <div
+                        title={getEmojiTitle(TRADING_NFTJI.emoji) + (owned ? ` | Lv.${lvl}` : ' — none')}
+                        className="mm3-trade-slot flex h-[58px] w-11 flex-col items-center justify-center rounded-md border"
+                        style={{
+                          borderColor: owned ? 'rgba(167,139,250,0.6)' : 'rgba(167,139,250,0.22)',
+                          background: owned ? tier.bg : 'rgba(2,6,23,0.4)',
+                          color: owned ? '#c4b5fd' : 'rgba(100,116,139,0.35)',
+                          boxShadow: owned ? '0 0 12px rgba(167,139,250,0.25)' : 'none',
+                        }}
+                      >
+                        <span style={{ fontSize: '1.05rem', lineHeight: 1 }}>{owned ? TRADING_NFTJI.emoji : ''}</span>
+                        {owned && (
+                          <span style={{ fontSize: '0.52rem', fontFamily: 'monospace', fontWeight: 800, lineHeight: 1, color: '#c4b5fd', textShadow: '0 0 3px #a78bfa' }}>
+                            Lv{lvl}
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })()}
                   {/* Mining NFTJI — block emoji */}
                   <div
                     title={marketNftji ? `Mining NFTJI — ${marketNftji.emoji} | ${marketNftji.key} | Lv.${marketNftji.level}` : 'Mining NFTJI — none'}

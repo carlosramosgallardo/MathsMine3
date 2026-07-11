@@ -50,7 +50,7 @@ export async function POST(req) {
 
   const sb = serviceClient()
   const [{ data: attackerProgress }, { data: squeezeNftji }, { data: victimSqueezeNftji }, { data: victimHealth }] = await Promise.all([
-    attackerIsAnon ? Promise.resolve({ data: null }) : sb.from('player_progress').select('wallet').eq('wallet', attacker).maybeSingle(),
+    attackerIsAnon ? Promise.resolve({ data: null }) : sb.from('player_progress').select('wallet, wallet_emojis').eq('wallet', attacker).maybeSingle(),
     attackerIsAnon ? Promise.resolve({ data: null }) : sb.from('mm3_squeezing_nftji').select('equipped, attack_level').eq('wallet', attacker).maybeSingle(),
     victimIsAnon ? Promise.resolve({ data: null }) : sb.from('mm3_squeezing_nftji').select('equipped, defense_level').eq('wallet', victim).maybeSingle(),
     victimIsAnon ? Promise.resolve({ data: null }) : sb.from('mm3_pvp_health').select('health, pvp_dead_until').eq('wallet', victim).maybeSingle(),
@@ -77,6 +77,12 @@ export async function POST(req) {
   const headshot = hitZone === 'head'
   const damage = headshot || critical ? 5 : 1
 
+  // HACKING (Zero-Day 👾 trading NFTJI): 10% per hit knocks the victim
+  // OFFLINE for 5s — replicated to the victim through the pvp-result payload.
+  const hasZeroDay = Array.isArray(attackerProgress?.wallet_emojis)
+    && attackerProgress.wallet_emojis.includes('👾')
+  const hacked = hasZeroDay && Math.random() < 0.10
+
   const { data, error } = await sb.rpc('apply_mm3_pvp_hit', {
     p_attacker: attacker,
     p_victim: victim,
@@ -91,5 +97,5 @@ export async function POST(req) {
   }
   // Death penalty: a killed logged-in victim loses 1 level (anon/level-0 skipped).
   if (data?.killed) await applyDeathLevelPenalty(sb, victim)
-  return Response.json({ ok: true, critical, headshot, hitZone, ...data })
+  return Response.json({ ok: true, critical, headshot, hacked, hitZone, ...data })
 }

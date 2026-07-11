@@ -14,6 +14,7 @@ import { setBossMaskEyesRed } from '@/lib/boss-head-photo'
 import { colorFromAddress } from '@/lib/wallet-colors'
 import { buildHumanoidBody, buildBotRoundHead, swayHumanoidArms, walkHumanoidLegs } from '@/lib/humanoid-body'
 import { addRlCarBoost, setRlCarBoostLit } from '@/lib/rl-car-boost'
+import { aiTeamPoolCode } from '@/lib/ai-team'
 
 /** The real AI-team bot wallets (NPC_BOT_BY_MAP in MiningChain3DFPV, maps 2-5):
     the four home bots ARE these bots — same wallet colour, same overhead tag. */
@@ -23,7 +24,10 @@ const AI_TEAM_WALLETS = Object.freeze([
   '0xd6c6c15060b27406d956c7e99e520cc810b44233', // M4
   '0xd89413f5f444cd420b448cda3bc096ea9c46e8ab', // M5
 ])
-const aiTeamTag = (wallet) => `${wallet.slice(0, 6)}…${wallet.slice(-4)} · AI`
+const aiTeamTag = (wallet) => {
+  const pool = aiTeamPoolCode(wallet)
+  return `${wallet.slice(0, 6)}…${wallet.slice(-4)} · AI${pool ? ` · ${pool}` : ''}`
+}
 
 const HOME_ARENA_BOT_SCALE = 3.44
 /** Boss taller than the bot, but capped so the hero canvas does not clip the head. */
@@ -363,7 +367,13 @@ function makeHomeTagSprite(THREE, text, accent = '#86efac') {
   ctx.lineWidth = 2
   ctx.strokeRect(1, 5, 318, 38)
   ctx.globalAlpha = 1
-  ctx.font = 'bold 22px monospace'
+  // Shrink to fit: pool-suffixed bot tags are longer than the 320px plate.
+  let fontSize = 22
+  ctx.font = `bold ${fontSize}px monospace`
+  while (fontSize > 14 && ctx.measureText(text).width > 300) {
+    fontSize -= 1
+    ctx.font = `bold ${fontSize}px monospace`
+  }
   ctx.textAlign = 'center'
   ctx.textBaseline = 'middle'
   ctx.fillStyle = accent
@@ -806,7 +816,7 @@ export default function HomeMiningWorld3D() {
       addHomeTag(bossById.putin.group, `${M3_PUTIN_BOSS_NAME} · BOSS`, '#94a3b8', 1.45)
       addHomeTag(bossById.kim.group, `${M4_KIM_BOSS_NAME} · BOSS`, '#d946ef', 1.45)
       addHomeTag(bossById.milei.group, 'Javier Milei · STATUE', '#74acdf', 1.45)
-      addHomeTag(homeSoloCar.group, 'Aserejee', '#22d3ee', 0.95)
+      addHomeTag(homeSoloCar.group, 'Aserejee · AI', '#22d3ee', 0.95)
       addHomeTag(homeBot, aiTeamTag(AI_TEAM_WALLETS[0]), '#86efac', 1.25)
       addHomeTag(homeBotCar.group, aiTeamTag(AI_TEAM_WALLETS[1]), '#86efac', 3.62)
       addHomeTag(homePunchBot, aiTeamTag(AI_TEAM_WALLETS[2]), '#86efac', 1.25)

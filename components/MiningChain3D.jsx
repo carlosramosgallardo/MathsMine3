@@ -14,7 +14,7 @@ import {
   MM3_BLOCK_REQUIREMENT_BY_HEX,
   MM3_BLOCK_GRID_ROWS, MM3_BLOCK_GRID_COLS,
 } from '@/lib/mm3-block-chain'
-import { computeRelayLevel } from '@/lib/wallet-decorations'
+import { computeRelayLevel, HACKING_OFFLINE_MS } from '@/lib/wallet-decorations'
 import { CIPHER_HOUSE_BOUNDS, CIPHER_HOUSE_MINING_EXCLUSION, CIPHER_HOUSE_MINING_LEVELS, HOUSE_POOL_HEAL_ZONE, HOUSE_POOL_FLOOR_LEVEL, HOUSE_POOL_SWIM_MAX_Z, MINING_CHAIN_NODE_POSITION, NODE_DICE_POSITION, isInHousePoolPvpSafeZone } from '@/lib/mining-world-layout'
 import {
   MINING_VISUAL_BLOCK_POSITIONS,
@@ -195,6 +195,8 @@ const TRADE_NFTJI_DEFS = [
   { key: 'lucky500',  emoji: '🎰', field: 'lucky_500_level'  },
   { key: 'lucky1000', emoji: '🧿', field: 'lucky_1000_level' },
   { key: 'revive',    emoji: '❤️', field: null                },
+  // Zero-Day (trading NFTJI) — grants the HACKING mining skill
+  { key: 'zero-day',  emoji: '👾', field: 'zero_day_level'   },
 ]
 const CHAIN_NODE_ROW = MINING_CHAIN_NODE_POSITION.row
 const CHAIN_NODE_COL = MINING_CHAIN_NODE_POSITION.col
@@ -343,6 +345,9 @@ export default function MiningChain3D() {
   const [receivedHitAt, setReceivedHitAt] = useState(0)
   const [receivedHitFrom, setReceivedHitFrom] = useState(null)
   const [externalCombatDamage, setExternalCombatDamage] = useState(null)
+  // HACKING (Zero-Day 👾): 5s offline stun received from a pvp-result payload
+  const [hackedOffline, setHackedOffline] = useState(null)
+  const hackedSeqRef = useRef(0)
   const combatDamageSeqRef = useRef(0)
   const emitCombatDamageRef = useRef(() => {})
   emitCombatDamageRef.current = (payload) => {
@@ -1433,7 +1438,7 @@ export default function MiningChain3D() {
       ;(async () => {
       const [{ data: pp }, { data: sq }] = await Promise.all([
         supabase.from('player_progress')
-          .select('level,mining_nftji_key,mining_nftji_levels,wallet_emojis,lucky_50_level,lucky_100_level,lucky_500_level,lucky_1000_level,relay_exec_count,rl_mount_active')
+          .select('level,mining_nftji_key,mining_nftji_levels,wallet_emojis,lucky_50_level,lucky_100_level,lucky_500_level,lucky_1000_level,zero_day_level,relay_exec_count,rl_mount_active')
           .eq('wallet', myWallet).maybeSingle(),
         supabase.from('mm3_squeezing_nftji')
           .select('equipped,attack_level,defense_level')
@@ -1650,9 +1655,18 @@ export default function MiningChain3D() {
               critical: payload.critical,
               headshot: payload.headshot,
               dodged: payload.dodged,
+              hacked: payload.hacked,
               label: payload.attacker ? formatWalletLabel(payload.attacker) : '',
             })
           }
+        }
+      }
+      // HACKING (Zero-Day 👾): the victim goes OFFLINE for 5s — still damageable
+      if (payload.hacked) {
+        const myK = myKeyRef.current, myW = myWalletRef.current
+        if (payload.victim === myK || (myW && payload.victim === myW)) {
+          hackedSeqRef.current += 1
+          setHackedOffline({ until: Date.now() + HACKING_OFFLINE_MS, seq: hackedSeqRef.current })
         }
       }
       // Respawn: clear dead state from that player's position entry
@@ -2387,6 +2401,7 @@ export default function MiningChain3D() {
             externalPvpFlash={receivedHitAt}
             externalDodgeFlash={receivedDodgeAt}
             externalCombatDamage={externalCombatDamage}
+            externalHackedOffline={hackedOffline}
             externalKnockback={receivedHitFrom}
             externalPush={externalPush}
             onCollisionPush={handleCollisionPush}

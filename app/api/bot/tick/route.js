@@ -3,7 +3,7 @@ export const maxDuration = 60;
 
 import { createClient } from '@supabase/supabase-js';
 import { getSellQuote, getBuyQuote, getSellRateCny, getCommissionRate, CNY_TO_EUR, CNY_TO_USD, clampLevel } from '@/lib/sell-offer';
-import { WALLET_DECORATIONS, SQUEEZE_NFTJIS, appendWalletDecoration, getWalletMarketDelta, MARKET_EVENT_TYPE_LIFE, computeRelayLevel } from '@/lib/wallet-decorations';
+import { WALLET_DECORATIONS, SQUEEZE_NFTJIS, TRADING_NFTJI, appendWalletDecoration, getWalletMarketDelta, MARKET_EVENT_TYPE_LIFE, computeRelayLevel } from '@/lib/wallet-decorations';
 import { marketCommandFromBlock, computeMarketCommandCode, getUtcDayWindow } from '@/lib/mining-commands';
 import { getChallengerRegistrationState, SQUEEZE_REGISTER_MS } from '@/lib/squeeze-transitions';
 import { getDiceState } from '@/lib/dice';
@@ -86,7 +86,9 @@ const STRATEGY_TRADE_WINDOWS = {
 const SQUEEZE_COOLDOWN_MS = 2 * 60 * 60 * 1000;
 const DAILY_MINE_BASE = 25;
 const PRICE = Number(process.env.NEXT_PUBLIC_FAKE_MINING_PRICE) || 0.00001;
-const DAILY_TRADE_LIMIT = 1;
+// Matches both the player-side DAILY_TX_LIMIT (5) and the daily 'trading'
+// task target (5) — at 1 the bots could never claim that task.
+const DAILY_TRADE_LIMIT = 5;
 const SQUEEZE_LAUNCH_LIMIT = 5;
 const SQUEEZE_LAUNCH_WINDOW_MS = 24 * 60 * 60 * 1000;
 const REVIVE_COST_EUR = 1;
@@ -97,6 +99,10 @@ const RELAY_EXEC_DELTA = 1;
 const RELAY_EXEC_PROB = 0.09;
 const RELAY_COOLDOWN_MS = 24 * 60 * 60 * 1000;
 const BOT_CRON_INTERVAL_MINUTES = Math.max(1, Number(process.env.BOT_CRON_INTERVAL_MINUTES) || 5);
+// Ticks per UTC day at the configured cron cadence. With FastCron every 12h
+// set BOT_CRON_INTERVAL_MINUTES=720 → 2 ticks/day: per-tick caps and
+// per-tick probabilities below scale up so daily quotas still complete.
+const BOT_TICKS_PER_DAY = Math.max(1, Math.floor(1440 / BOT_CRON_INTERVAL_MINUTES));
 const BOT_MAX_DRILLS_PER_TICK = Math.max(1, Number(process.env.BOT_MAX_DRILLS_PER_TICK) || 1);
 const BOT_MAX_TRADES_PER_TICK = Math.max(1, Number(process.env.BOT_MAX_TRADES_PER_TICK) || 1);
 const BOT_PRESENCE_SETTLE_MS = Math.max(0, Math.min(3000, Number(process.env.BOT_PRESENCE_SETTLE_MS) || 1500));
@@ -1127,13 +1133,20 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
   const drillsTotal = DAILY_MINE_BASE + totalExecsCount;
   const drillsLeft = Math.max(0, drillsTotal - gamesTodayCount);
   const pacedDrillsAvailable = getPacedAllowance(drillsTotal, gamesTodayCount, startIso, endIso);
-  const drillsToRun = Math.min(drillsLeft, pacedDrillsAvailable, BOT_MAX_DRILLS_PER_TICK);
+  // Per-tick caps scale with the cron cadence so slow schedules (12h FastCron)
+  // still complete the daily quota: at 2 ticks/day each tick may run half.
+  const drillCap = Math.max(BOT_MAX_DRILLS_PER_TICK, Math.ceil(drillsTotal / BOT_TICKS_PER_DAY));
+  const tradeCap = Math.max(BOT_MAX_TRADES_PER_TICK, Math.ceil(DAILY_TRADE_LIMIT / BOT_TICKS_PER_DAY));
+  const drillsToRun = Math.min(drillsLeft, pacedDrillsAvailable, drillCap);
   const pacedTradesAvailable = getPacedAllowance(DAILY_TRADE_LIMIT, tradesTodayCount, startIso, endIso);
   const diceState = getDiceState();
-  // Bots prefer the dice window; skip most ticks when inactive (same strategy as any real player)
-  const tradesToRun = !diceState.active && Math.random() < 0.95
+  // Bots prefer the dice window; skip most ticks when inactive (same strategy
+  // as any real player). The skip probability compounds per 5-min slice, so
+  // long cron intervals (e.g. 720 min) almost never skip a whole tick.
+  const tradeSkipProb = Math.pow(0.95, BOT_CRON_INTERVAL_MINUTES / 5);
+  const tradesToRun = !diceState.active && Math.random() < tradeSkipProb
     ? 0
-    : Math.min(DAILY_TRADE_LIMIT - tradesTodayCount, pacedTradesAvailable, BOT_MAX_TRADES_PER_TICK);
+    : Math.min(DAILY_TRADE_LIMIT - tradesTodayCount, pacedTradesAvailable, tradeCap);
   const claimedTasks = new Set((claimsData || []).map((r) => r.task_key));
 
   // Phase 2: only fetch heavy tables if this tick will actually use them
@@ -1572,6 +1585,30 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
     }
   }
 
+  // ── ZERO-DAY 👾 (trading NFTJI): 5% drop per EXEC — bots included ─────────
+  // Same roll as the Trading UI; re-drops level it up (level -1 = never owned).
+  {
+    const execsThisTick = actions.filter((a) => a.type === 'trade').length;
+    let zeroDayDrops = 0;
+    for (let i = 0; i < execsThisTick; i++) {
+      if (Math.random() < TRADING_NFTJI.dropChance) zeroDayDrops++;
+    }
+    if (zeroDayDrops > 0) {
+      const { data: freshProg } = await supabase.from('player_progress')
+        .select('wallet_emojis, zero_day_level').eq('wallet', wallet).maybeSingle();
+      const nextEmojis = appendWalletDecoration(freshProg?.wallet_emojis, TRADING_NFTJI.emoji);
+      const nextZeroDayLevel = Number(freshProg?.zero_day_level ?? -1) + zeroDayDrops;
+      await supabase.from('player_progress').upsert({
+        wallet,
+        is_bot: true,
+        wallet_emojis: nextEmojis,
+        zero_day_level: nextZeroDayLevel,
+        updated_at: now,
+      }, { onConflict: 'wallet', ignoreDuplicates: false });
+      actions.push({ type: 'zero_day_drop', count: zeroDayDrops, level: nextZeroDayLevel });
+    }
+  }
+
   // ── DAILY REWARDS available before market ────────────────
   const newGamesToday = gamesTodayCount + actualGamesPlayed;
   const newTradesToday = tradesTodayCount;
@@ -1955,7 +1992,9 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
   // ── RELAY EXEC ───────────────────────────────────────────
   // Each bot execs its pool partner once per 24h cooldown window.
   // Only the lexicographically smaller wallet initiates to avoid concurrent duplicate execs.
-  if (Math.random() < RELAY_EXEC_PROB) {
+  // Probability compounds with the cron cadence (0.09 per 5-min slice), so a
+  // 12h tick attempts nearly every time — the 24h cooldown still gates it.
+  if (Math.random() < Math.min(1, RELAY_EXEC_PROB * (BOT_CRON_INTERVAL_MINUTES / 5))) {
     const myPool = BOT_POOL_MAP.get(wallet);
     const poolPartners = myPool
       ? BOT_WALLETS.filter((w) => w !== wallet && BOT_POOL_MAP.get(w) === myPool)
@@ -2204,6 +2243,10 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
     if (mm3GlobalDelta !== 0) botMsg += ` Δmm3:${mm3GlobalDelta >= 0 ? '+' : ''}${mm3GlobalDelta.toFixed(6)}`;
     if (diceState.active) botMsg += ` dice:ON(${diceState.modifier >= 0 ? '+' : ''}${Math.round(diceState.modifier * 100)}%)`;
     if (nftjiDrops) botMsg += ` :: drops:${nftjiDrops}`;
+    {
+      const zeroDayAction = actions.find((a) => a.type === 'zero_day_drop');
+      if (zeroDayAction) botMsg += ` :: drop:👾×${zeroDayAction.count}(lvl:${zeroDayAction.level})`;
+    }
     if (gamesAction?.life_bought) botMsg += ` :: life(${gamesAction.life_bought})`;
 
     // ── trades

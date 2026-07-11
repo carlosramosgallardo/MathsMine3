@@ -135,6 +135,8 @@ CREATE TABLE player_progress (
   lucky_100_level INTEGER NOT NULL DEFAULT -1,
   lucky_500_level INTEGER NOT NULL DEFAULT -1,
   lucky_1000_level INTEGER NOT NULL DEFAULT -1,
+  -- Zero-Day 👾 trading NFTJI level (-1 = never owned; ownership in wallet_emojis)
+  zero_day_level INTEGER NOT NULL DEFAULT -1,
   mining_nftji_levels JSONB NOT NULL DEFAULT '{}',
   sell_rate_cny NUMERIC NOT NULL DEFAULT 0,
   sell_quote_cny NUMERIC NOT NULL DEFAULT 0,

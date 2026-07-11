@@ -25,6 +25,7 @@ const INTERACTIVE_HREFS = new Set(['/training', '/trading', '/squeezing', '/rela
 // (the 20 block NFTJIs + 🛰 Genesis) render next to the 3D-mine access line.
 const SECTION_NFTJIS = {
   '/training': ['❤️', '🔮', '🍀', '🎰', '🧿'],
+  '/trading': ['👾'],
   '/squeezing': ['🔰', '⚔️'],
   '/relaying': ['🔁'],
 }
@@ -39,6 +40,7 @@ function nftjiTooltip(emoji, es, { base = null, isMiningBlock = false } = {}) {
   if (emoji === '❤️') skill = es ? 'Skill en mining: +10% velocidad' : 'Mining skill: +10% speed'
   else if (emoji === '⚔️') skill = es ? 'Skill en mining: +5% crítico' : 'Mining skill: +5% crit'
   else if (emoji === '🔰') skill = es ? 'Skill en mining: 10% esquiva' : 'Mining skill: 10% dodge'
+  else if (emoji === '👾') skill = es ? 'Skill en mining: HACKING — 10% por golpe deja al objetivo OFFLINE 5s' : 'Mining skill: HACKING — 10% per hit knocks the target OFFLINE 5s'
   else if (isMiningBlock) skill = es ? 'Skill en mining: +10% salto' : 'Mining skill: +10% jump'
   return skill ? `${name} · ${skill}` : name
 }
@@ -307,7 +309,7 @@ export default function LandingHero() {
       try {
         const [{ data: pp }, { data: sq }] = await Promise.all([
           supabase.from('player_progress')
-            .select('wallet_emojis,lucky_50_level,lucky_100_level,lucky_500_level,lucky_1000_level,relay_exec_count,mining_nftji_key,mining_nftji_levels')
+            .select('wallet_emojis,lucky_50_level,lucky_100_level,lucky_500_level,lucky_1000_level,zero_day_level,relay_exec_count,mining_nftji_key,mining_nftji_levels')
             .eq('wallet', wallet).maybeSingle(),
           supabase.from('mm3_squeezing_nftji')
             .select('attack_level,defense_level')
@@ -320,6 +322,7 @@ export default function LandingHero() {
           '🍀': Number(pp?.lucky_100_level ?? 0),
           '🎰': Number(pp?.lucky_500_level ?? 0),
           '🧿': Number(pp?.lucky_1000_level ?? 0),
+          '👾': Number(pp?.zero_day_level ?? 0),
           '🔁': computeRelayLevel(pp?.relay_exec_count, 0),
         }
         if (Number(sq?.attack_level) > 0) { owned.push('⚔️'); levels['⚔️'] = Number(sq.attack_level) }

@@ -2238,6 +2238,7 @@ CREATE TABLE IF NOT EXISTS "public"."player_progress" (
     "lucky_100_level" integer DEFAULT '-1'::integer NOT NULL,
     "lucky_500_level" integer DEFAULT '-1'::integer NOT NULL,
     "lucky_1000_level" integer DEFAULT '-1'::integer NOT NULL,
+    "zero_day_level" integer DEFAULT '-1'::integer NOT NULL,
     "mining_nftji_levels" "jsonb" DEFAULT '{}'::"jsonb" NOT NULL,
     "sell_rate_cny" numeric DEFAULT 0 NOT NULL,
     "sell_quote_cny" numeric DEFAULT 0 NOT NULL,
