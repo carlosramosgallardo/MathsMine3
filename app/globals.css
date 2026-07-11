@@ -1592,6 +1592,35 @@ footer.bg-black\/97,
   width: 100%;
   margin: 0;
 }
+/* Row that holds [‹] [ring] [›] — the arrows only render on touch devices. */
+.mm3-nonagon-ring-row {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+}
+/* Prev/next tap targets for touch devices — hidden on desktop (pointer: fine). */
+.mm3-nonagon-arrow {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  background: rgba(34, 211, 238, 0.10);
+  border: 1.5px solid rgba(34, 211, 238, 0.35);
+  border-radius: 50%;
+  color: #22d3ee;
+  font-size: 1.5rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: background .15s, border-color .15s;
+}
+.mm3-nonagon-arrow:active {
+  background: rgba(34, 211, 238, 0.24);
+}
+@media (hover: none) and (pointer: coarse) {
+  .mm3-nonagon-arrow { display: flex; }
+}
 .mm3-nonagon-svg {
   position: absolute;
   inset: 0;

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -110,20 +110,34 @@ function NonagonPortal({ portal, es, isDead, deadCountdown, count, nftji, mining
   // Core toggle: MM3 logo (compact — the avatar showcase gets the spotlight)
   // ⇄ extended world minimap (the nonagon grows to fit it).
   const [mapOpen, setMapOpen] = useState(false)
+  // Track last manual interaction so auto-rotation backs off for 5s on mobile.
+  const lastManualRef = useRef(0)
   const markSide = (i) => {
     if (i === sel) return
+    lastManualRef.current = performance.now()
     setSel(i)
+    playNavTick()
+  }
+  const goPrev = () => {
+    lastManualRef.current = performance.now()
+    setSel((s) => (s - 1 + portal.length) % portal.length)
+    playNavTick()
+  }
+  const goNext = () => {
+    lastManualRef.current = performance.now()
+    setSel((s) => (s + 1) % portal.length)
     playNavTick()
   }
 
   // Auto-rotation: every 3s the marked side advances and the card cycles
   // through the nine accesses. Pauses while the pointer is over the polygon
-  // (manual browsing wins) and while the map is open. Silent — the nav tick
-  // only plays on manual hovering.
+  // (manual browsing wins), while the map is open, and for 5s after any
+  // manual touch interaction. Silent — the nav tick only plays on manual hover.
   const [autoPaused, setAutoPaused] = useState(false)
   useEffect(() => {
     if (mapOpen || autoPaused) return undefined
     const id = setInterval(() => {
+      if (performance.now() - lastManualRef.current < 5000) return
       setSel((s) => (s + 1) % portal.length)
       // Keep the avatar carousel gliding in sync with the side rotation.
       window.dispatchEvent(new CustomEvent('mm3-home-cycle'))
@@ -167,6 +181,8 @@ function NonagonPortal({ portal, es, isDead, deadCountdown, count, nftji, mining
       onMouseEnter={() => setAutoPaused(true)}
       onMouseLeave={() => setAutoPaused(false)}
     >
+      <div className="mm3-nonagon-ring-row">
+      <button type="button" className="mm3-nonagon-arrow" aria-label={es ? 'Anterior' : 'Previous'} onClick={goPrev}>‹</button>
       <div className="mm3-nonagon-ring">
       <svg viewBox="0 0 400 400" className="mm3-nonagon-svg" aria-label={es ? 'Accesos del portal' : 'Portal accesses'}>
         {portal.map((card, i) => {
@@ -187,7 +203,16 @@ function NonagonPortal({ portal, es, isDead, deadCountdown, count, nftji, mining
               className="mm3-nonagon-side"
               style={{ cursor: blocked ? 'not-allowed' : 'pointer' }}
               onMouseEnter={() => markSide(i)}
-              onClick={() => { markSide(i); if (!blocked) router.push(card.href) }}
+              onClick={() => {
+                if (i !== sel) {
+                  // First tap/click: select this side so the ficha is visible.
+                  // Desktop: hover already selected it so i === sel and we navigate.
+                  lastManualRef.current = performance.now()
+                  markSide(i)
+                } else if (!blocked) {
+                  router.push(card.href)
+                }
+              }}
             >
               <line
                 x1={x1} y1={y1} x2={x2} y2={y2}
@@ -216,6 +241,8 @@ function NonagonPortal({ portal, es, isDead, deadCountdown, count, nftji, mining
             <Image src="/og-image.jpg" alt="MM3" width={160} height={160} className="mm3-nonagon-logo" />
           </span>
         </button>
+      </div>
+      <button type="button" className="mm3-nonagon-arrow" aria-label={es ? 'Siguiente' : 'Next'} onClick={goNext}>›</button>
       </div>
       {/* Selected side: the card's info extends here — only while the core
           shows the logo (map mode keeps the ring clean; sides still navigate).
