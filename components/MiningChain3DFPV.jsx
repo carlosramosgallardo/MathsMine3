@@ -3,7 +3,7 @@
 import { useEffect, useRef, useCallback, useState } from 'react'
 import * as THREE from 'three'
 import { colorFromAddress } from '@/lib/wallet-colors'
-import { buildHumanoidBody, swayHumanoidArms } from '@/lib/humanoid-body'
+import { buildHumanoidBody, buildBotRoundHead, swayHumanoidArms, walkHumanoidLegs } from '@/lib/humanoid-body'
 import { MM3_BLOCK_GRID_ROWS, MM3_BLOCK_GRID_COLS, MM3_MINE_BLOCK_TOTAL, MM3_REGULAR_BLOCK_TOTAL, MM3_NFTJI_BLOCK_TOTAL, gridToBlockHex, MM3_BLOCK_REQUIREMENT_BY_HEX, doesGlobalValueMeetRequirement } from '@/lib/mm3-block-chain'
 import supabase from '@/lib/supabaseClient'
 import { groupPresenceEntries } from '@/lib/presence-display'
@@ -11620,12 +11620,15 @@ function createThreeWalletAvatar(wallet) {
   const beltNode=new THREE.Mesh(new THREE.BoxGeometry(.07,.05,.02),cyanMat)
   beltNode.position.set(0,.345,-.125);avatar.add(beltNode)
 
-  const head=new THREE.Mesh(roundedVoxelGeometry(THREE,.34,.25,.25),brightMat);head.position.y=.82;avatar.add(head)
-  const headFrame=new THREE.Mesh(roundedVoxelGeometry(THREE,.27,.105,.018),darkMat);headFrame.position.set(0,.84,-.139);avatar.add(headFrame)
-  const visor=new THREE.Mesh(roundedVoxelGeometry(THREE,.205,.045,.012),cyanMat);visor.position.set(0,.84,-.153);avatar.add(visor)
-  const visorPixel=new THREE.Mesh(roundedVoxelGeometry(THREE,.035,.025,.008),new THREE.MeshBasicMaterial({color:'#ffffff'}));visorPixel.position.set(-.067,.846,-.161);avatar.add(visorPixel)
-  const earL=new THREE.Mesh(roundedVoxelGeometry(THREE,.07,.11,.17),midMat);earL.position.set(-.205,.81,0);avatar.add(earL)
-  const earR=earL.clone();earR.position.x=.205;avatar.add(earR)
+  // Rounded skull head, same style as the bosses/statue mold.
+  const { head }=buildBotRoundHead(THREE,avatar,{
+    headMat:brightMat,
+    frameMat:darkMat,
+    visorMat:cyanMat,
+    pixelMat:new THREE.MeshBasicMaterial({color:'#ffffff'}),
+    earMat:midMat,
+    lowDetail,
+  })
   const antennaStem=new THREE.Mesh(new THREE.CylinderGeometry(.012,.012,.12,5),darkMat);antennaStem.position.set(.08,1.005,0);avatar.add(antennaStem)
   const antennaTip=new THREE.Mesh(new THREE.OctahedronGeometry(.027),magentaMat);antennaTip.position.set(.08,1.075,0);avatar.add(antennaTip)
 
@@ -11917,7 +11920,8 @@ function syncThreeAvatars(state,presence,myIdentity,currentMapId=MINING_CORE_MAP
     // The local avatar is a screen-space HUD model. Cap remote projected size
     // to the same visual height so nearby wallets never become giants.
     const cameraSpace=state._avatarCameraSpace.copy(avatar.position).applyMatrix4(state.camera.matrixWorldInverse)
-    const depth=Math.max(.08,-cameraSpace.z)
+    // Euclidean distance (rotation-invariant), matching the local avatar fix.
+    const depth=Math.max(.08,cameraSpace.length())
     const viewportHeight=Math.max(1,state.size.y||600)
     const viewportWidth=Math.max(1,state.size.x||900)
     const targetPixels=viewportWidth<640?120:Math.max(180,Math.min(240,viewportHeight*.38))
@@ -11942,12 +11946,24 @@ function syncThreeAvatars(state,presence,myIdentity,currentMapId=MINING_CORE_MAP
   }
   // Apply same LOD scale to local avatar so it matches remote avatar apparent size
   if(state.localAvatar){
-    const lcs=state._avatarCameraSpace.copy(state.localAvatar.position).applyMatrix4(state.camera.matrixWorldInverse)
-    const ld=Math.max(.08,-lcs.z)
+    // Horizontal world distance only: view-axis depth changes when the camera
+    // rotates, and the full 3D distance oscillates during jumps because the
+    // camera height lags the avatar's (2× worse on RL-car jumps). Either one
+    // pulsed the scale, which read as the mounted car bobbing up and down.
+    // Horizontal separation is immune to both pan and jump height.
+    const ldx=state.camera.position.x-state.localAvatar.position.x
+    const ldz=state.camera.position.z-state.localAvatar.position.z
+    const ld=Math.max(.08,Math.hypot(ldx,ldz))
     const lvh=Math.max(1,state.size.y||600),lvw=Math.max(1,state.size.x||900)
     const ltp=lvw<640?120:Math.max(180,Math.min(240,lvh*.38))
     const lfp=lvh/(2*Math.tan(THREE.MathUtils.degToRad(state.camera.fov)*.5))
-    state.localAvatar.scale.setScalar(Math.min(REMOTE_AVATAR_VISUAL_SCALE,(ltp*ld)/(REMOTE_AVATAR_MODEL_HEIGHT*lfp)))
+    const target=Math.min(REMOTE_AVATAR_VISUAL_SCALE,(ltp*ld)/(REMOTE_AVATAR_MODEL_HEIGHT*lfp))
+    // Smooth the rescale: while jumping/panning the camera-depth oscillates
+    // per frame and an instant rescale reads as the (wide) RL car warping.
+    const prev=state.localAvatarScaleSmooth
+    const smooth=Number.isFinite(prev)?prev+(target-prev)*0.18:target
+    state.localAvatarScaleSmooth=smooth
+    state.localAvatar.scale.setScalar(smooth)
   }
 }
 

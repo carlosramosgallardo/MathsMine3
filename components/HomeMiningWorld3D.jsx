@@ -12,7 +12,7 @@ import { roundedVoxelGeometry } from '@/lib/rounded-voxel'
 import { advanceShowcaseSpin } from '@/lib/map-boss-facing'
 import { setBossMaskEyesRed } from '@/lib/boss-head-photo'
 import { colorFromAddress } from '@/lib/wallet-colors'
-import { buildHumanoidBody, swayHumanoidArms, walkHumanoidLegs } from '@/lib/humanoid-body'
+import { buildHumanoidBody, buildBotRoundHead, swayHumanoidArms, walkHumanoidLegs } from '@/lib/humanoid-body'
 
 /** The real AI-team bot wallets (NPC_BOT_BY_MAP in MiningChain3DFPV, maps 2-5):
     the four home bots ARE these bots — same wallet colour, same overhead tag. */
@@ -99,12 +99,14 @@ export function addMiningBot(THREE, scene, options = {}) {
   bodyParts.push(addBox([.13, .07, .012], new THREE.MeshBasicMaterial({ color: '#03121c' }), [0, .58, -.146]))
   bodyParts.push(addBox([.07, .04, .012], goldMat, [0, .585, -.154]))
   bodyParts.push(addBox([.07, .05, .02], cyanMat, [0, .345, -.125]))
-  addBox([.34, .25, .25], brightMat, [0, .82, 0])
-  addBox([.27, .105, .018], darkMat, [0, .84, -.139])
-  addBox([.205, .045, .012], cyanMat, [0, .84, -.153])
-  addBox([.035, .025, .008], new THREE.MeshBasicMaterial({ color: '#ffffff' }), [-.067, .846, -.161])
-  addBox([.07, .11, .17], midMat, [-.205, .81, 0])
-  addBox([.07, .11, .17], midMat, [.205, .81, 0])
+  // Rounded skull head, same style as the bosses/statue mold.
+  buildBotRoundHead(THREE, avatar, {
+    headMat: brightMat,
+    frameMat: darkMat,
+    visorMat: cyanMat,
+    pixelMat: new THREE.MeshBasicMaterial({ color: '#ffffff' }),
+    earMat: midMat,
+  })
 
   const antenna = new THREE.Mesh(new THREE.CylinderGeometry(.012, .012, .12, 8), darkMat)
   antenna.position.set(.08, 1.005, 0)
@@ -945,7 +947,8 @@ export default function HomeMiningWorld3D() {
           const t = time + boss.phase
           const stride = Math.sin(t * boss.bob)
           if (boss.isStatue) {
-            boss.bodyPivot.position.y = 0
+            // Keep the build lift (statue standing ON its plinth), don't zero it.
+            boss.bodyPivot.position.y = boss.bodyPivot.userData.baseY || 0
             boss.group.position.y = boss.baseY
             boss.group.rotation.y = boss.baseRotationY
             boss.group.rotation.z = 0
