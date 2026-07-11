@@ -639,12 +639,23 @@ function disposeScene(scene) {
 
 export default function HomeMiningWorld3D() {
   const canvasRef = useRef(null)
-  const overlayRef = useRef(null)
 
   useEffect(() => {
     const canvas = canvasRef.current
-    const overlayCanvas = overlayRef.current
-    if (!canvas || !overlayCanvas) return undefined
+    if (!canvas) return undefined
+
+    // Overlay 2D canvas for boss VFX — created dynamically and inserted right
+    // after the WebGL canvas so it sits in the same stacking context without
+    // any GPU compositing punch-through.
+    const overlayCanvas = document.createElement('canvas')
+    overlayCanvas.style.cssText = [
+      'position:absolute',
+      'top:0', 'left:0', 'right:0', 'bottom:0',
+      'width:100%', 'height:100%',
+      'pointer-events:none',
+      'z-index:10',
+    ].join(';')
+    canvas.insertAdjacentElement('afterend', overlayCanvas)
     const overlayCtx = overlayCanvas.getContext('2d')
 
     // Boss VFX particle arrays — updated each frame by the draw functions
@@ -1105,16 +1116,12 @@ export default function HomeMiningWorld3D() {
       cancelAnimationFrame(animationFrame)
       resizeObserver?.disconnect()
       intersectionObserver?.disconnect()
+      overlayCanvas.remove()
       if (scene) disposeScene(scene)
       renderer?.renderLists.dispose()
       renderer?.dispose()
     }
   }, [])
 
-  return (
-    <>
-      <canvas ref={canvasRef} className="mm3-home-arena-canvas" />
-      <canvas ref={overlayRef} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none' }} />
-    </>
-  )
+  return <canvas ref={canvasRef} className="mm3-home-arena-canvas" />
 }
