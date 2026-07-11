@@ -4,6 +4,7 @@ import { useEffect, useRef, useCallback, useState } from 'react'
 import * as THREE from 'three'
 import { colorFromAddress } from '@/lib/wallet-colors'
 import { buildHumanoidBody, buildBotRoundHead, swayHumanoidArms, walkHumanoidLegs } from '@/lib/humanoid-body'
+import { addRlCarBoost, setRlCarBoostLit } from '@/lib/rl-car-boost'
 import { MM3_BLOCK_GRID_ROWS, MM3_BLOCK_GRID_COLS, MM3_MINE_BLOCK_TOTAL, MM3_REGULAR_BLOCK_TOTAL, MM3_NFTJI_BLOCK_TOTAL, gridToBlockHex, MM3_BLOCK_REQUIREMENT_BY_HEX, doesGlobalValueMeetRequirement } from '@/lib/mm3-block-chain'
 import supabase from '@/lib/supabaseClient'
 import { groupPresenceEntries } from '@/lib/presence-display'
@@ -11494,24 +11495,10 @@ function createRlCarMesh(lowDetail = false, { showcase = false, decor = false, t
     }
   }
 
-  const boost = new THREE.Group()
-  boost.visible = false
-  boost.userData.rlBoost = true
-  for (const dx of [-0.16, 0.16]) {
-    const flame = new THREE.Mesh(
-      new THREE.ConeGeometry(0.065, 0.26, 6),
-      new THREE.MeshBasicMaterial({ color: '#fb923c', transparent: true, opacity: 0.86, depthWrite: false }),
-    )
-    flame.position.set(dx, 0.23, 0.75)
-    flame.rotation.x = Math.PI
-    flame.userData.biomeSurface = 'fire'
-    flame.userData.phase = dx
-    boost.add(flame)
-  }
-  group.add(boost)
-  group.userData.boostFx = boost
+  // Painted boost: always-visible thruster nozzles + glow discs that light up
+  // while boosting (jump / high speed); flame cones only show while lit.
+  addRlCarBoost(THREE, group, { y: 0.23, z: 0.66, lowDetail })
   group.visible = showcase || decor
-  if (showcase) boost.visible = false
   return group
 }
 
@@ -11562,9 +11549,10 @@ function applyRlMountVisual(avatar, mounted, threeState = null) {
 }
 
 function triggerRlBoostFx(avatar, threeState) {
-  const boost = avatar?.userData?.rlCar?.userData?.boostFx
+  const car = avatar?.userData?.rlCar
+  const boost = car?.userData?.boostFx
   if (!boost) return
-  boost.visible = true
+  setRlCarBoostLit(car, true)
   avatar.userData.rlBoostUntil = performance.now() + 380
   if (threeState) {
     if (!threeState.biomeSurfaces) threeState.biomeSurfaces = []
@@ -11577,10 +11565,10 @@ function triggerRlBoostFx(avatar, threeState) {
 }
 
 function updateRlBoostFx(avatar, threeState, time) {
-  const boost = avatar?.userData?.rlCar?.userData?.boostFx
-  if (!boost || !avatar.userData.rlBoostUntil) return
+  const car = avatar?.userData?.rlCar
+  if (!car?.userData?.boostFx || !avatar.userData.rlBoostUntil) return
   if (time >= avatar.userData.rlBoostUntil) {
-    boost.visible = false
+    setRlCarBoostLit(car, false)
     avatar.userData.rlBoostUntil = 0
   }
 }
@@ -11607,6 +11595,7 @@ function createThreeWalletAvatar(wallet) {
     mat:_mat,
     lowDetail,
     bulk:1.02,
+    handStyle:'miniusb',
     // Shoes brighter than the trousers so the walking feet read clearly.
     colors:{skin:bright,torso:color,arms:mid,legs:dark,shoes:mid,hands:bright},
   })
@@ -11620,12 +11609,11 @@ function createThreeWalletAvatar(wallet) {
   const beltNode=new THREE.Mesh(new THREE.BoxGeometry(.07,.05,.02),cyanMat)
   beltNode.position.set(0,.345,-.125);avatar.add(beltNode)
 
-  // Rounded skull head, same style as the bosses/statue mold.
+  // Rounded skull head, same style as the bosses/statue mold — including
+  // their glowing halo eyes.
   const { head }=buildBotRoundHead(THREE,avatar,{
     headMat:brightMat,
     frameMat:darkMat,
-    visorMat:cyanMat,
-    pixelMat:new THREE.MeshBasicMaterial({color:'#ffffff'}),
     earMat:midMat,
     lowDetail,
   })
@@ -11637,17 +11625,22 @@ function createThreeWalletAvatar(wallet) {
   const footR=body.rightShoe
 
   // Retro USB staff. The connector is a rectangular Type-A plug, never a pick head.
-  // Held at the humanoid right hand; swing anims rotate around this pivot.
-  const tool=new THREE.Group();tool.position.set(.25,.24,-.04)
+  // Pivot sits at the staff's mini-USB port, directly under the right hand's
+  // mini-USB plug, so the hand reads as docked into the staff; swing anims
+  // rotate around this pivot.
+  const tool=new THREE.Group();tool.position.set(.277,.168,-.05)
   const toolAngle=-.58
   const shaft=new THREE.Mesh(new THREE.CylinderGeometry(.024,.030,.62,8),darkMat)
   shaft.rotation.z=toolAngle;shaft.position.set(.17,.255,0);tool.add(shaft)
   const dataRail=new THREE.Mesh(new THREE.CylinderGeometry(.009,.009,.48,6),cyanMat)
   dataRail.rotation.z=toolAngle;dataRail.position.set(.185,.285,-.031);tool.add(dataRail)
-  const grip=new THREE.Mesh(new THREE.CylinderGeometry(.045,.045,.19,8),new THREE.MeshStandardMaterial({color:'#07121c',roughness:.55,metalness:.55}))
-  grip.rotation.z=toolAngle;grip.position.set(.055,.085,0);tool.add(grip)
-  const gripRing=new THREE.Mesh(new THREE.TorusGeometry(.046,.009,5,12),magentaMat)
-  gripRing.rotation.x=Math.PI/2;gripRing.rotation.y=toolAngle;gripRing.position.set(.11,.17,0);tool.add(gripRing)
+  // Mini-USB port instead of a grip: an upward-facing socket block at the
+  // shaft base that the hand plug inserts into (same 45°-rotated 4-segment
+  // trapezoid profile as the hand shell, slightly wider = the female port).
+  const port=new THREE.Mesh(roundedVoxelGeometry(THREE,.10,.075,.08),new THREE.MeshStandardMaterial({color:'#07121c',roughness:.55,metalness:.55}))
+  port.position.set(0,-.03,0);tool.add(port)
+  const portRim=new THREE.Mesh(new THREE.CylinderGeometry(.045,.036,.018,4,1),new THREE.MeshBasicMaterial({color:'#041019'}))
+  portRim.rotation.y=Math.PI/4;portRim.scale.z=.62;portRim.position.set(0,.010,0);tool.add(portRim)
   const plug=new THREE.Group();plug.position.set(.36,.535,0);plug.rotation.z=toolAngle
   const plugShell=new THREE.Mesh(new THREE.BoxGeometry(.15,.22,.095),new THREE.MeshStandardMaterial({color:'#d8e7ef',metalness:.78,roughness:.20}))
   plug.add(plugShell)
@@ -14618,7 +14611,11 @@ export default function MiningChain3DFPV({
       playerRef.current.angle += applyAccel(e.movementX)
       playerRef.current.pitch = Math.max(-MAX_PITCH_UP,Math.min(MAX_PITCH_DOWN,
         playerRef.current.pitch + applyAccel(e.movementY)*0.92))
-      renderRef.current?.()
+      // Render via the rAF loop (lookDirty), never directly: a render fired
+      // between physics ticks draws the avatar at the previous tick's z while
+      // the camera-z lerp keeps advancing in real time, which reads as the
+      // airborne avatar vibrating vertically (2× worse on RL-car jumps).
+      lookDirtyRef.current = true
     }
     // Prevent wheel from scrolling the page while the game canvas is in view
     const onWheel=(e)=>{ e.preventDefault() }
@@ -14943,6 +14940,13 @@ export default function MiningChain3DFPV({
         const fovBoost=Math.min(speedNow/(MOVE_SPD*CELL_SIZE),1)*0.087
         dynamicFovRef.current+=(fovBoost-dynamicFovRef.current)*(1-Math.exp(-5*dt))
 
+        // Painted boost lights while the RL car runs above on-foot top speed
+        // (jumping re-triggers it from the jump handlers). Re-triggering per
+        // frame just extends rlBoostUntil; the lit flip itself no-ops.
+        if(rlMountActiveRef.current&&speedNow>MOVE_SPD*1.25){
+          triggerRlBoostFx(threeStateRef.current?.localAvatar,threeStateRef.current)
+        }
+
         // Landing impact: brief downward pitch punch, decays quickly
         if(landImpactRef.current>0.01){
           landImpactRef.current*=Math.exp(-14*dt)
@@ -15012,13 +15016,18 @@ export default function MiningChain3DFPV({
           const px = p.x / CELL_SIZE
           const py = p.y / CELL_SIZE
           if (!npc) {
-            // Spawn well away from the player, inside the playable interior.
+            // Spawn well away from the player, inside the playable interior,
+            // never inside a wall/obstacle (the bot obeys world physics now).
             let sx = 28, sy = 28, tries = 0
             do {
               sx = 6 + Math.random() * 44
               sy = 6 + Math.random() * 44
               tries += 1
-            } while (Math.hypot(sx - px, sy - py) < 14 && tries < 20)
+            } while (
+              (Math.hypot(sx - px, sy - py) < 14 ||
+                hitsSolidWall(sx, sy, activeCellMapRef.current, validObstaclesRef.current, 0, 0)) &&
+              tries < 40
+            )
             const avatar = createThreeWalletAvatar(npcWallet)
             const labelSprite = makeNpcLabelSprite(npcWallet)
             if (labelSprite) avatar.add(labelSprite)
@@ -15045,18 +15054,51 @@ export default function MiningChain3DFPV({
           const ndy = py - npc.gy
           const ndist = Math.hypot(ndx, ndy)
           const nowMs = performance.now()
+          let npcMoved = false
           if (!myDead && ndist > 0.85) {
-            const step = (MOVE_SPD / CELL_SIZE) * NPC_SPEED_MULT * dt
-            npc.gx += (ndx / ndist) * Math.min(step, ndist)
-            npc.gy += (ndy / ndist) * Math.min(step, ndist)
+            const step = Math.min((MOVE_SPD / CELL_SIZE) * NPC_SPEED_MULT * dt, ndist)
+            const cm = activeCellMapRef.current
+            const obs = validObstaclesRef.current
+            const dirX = ndx / ndist, dirY = ndy / ndist
+            // Real world physics: same solid-wall test as the player (ground
+            // body, z=0). Try the direct step, then per-axis slides (hug the
+            // wall), then a committed perpendicular detour so the bot walks
+            // AROUND blocks/obstacles instead of ghosting through them.
+            const tryMove = (mx, my) => {
+              const nx = npc.gx + mx, ny = npc.gy + my
+              if (nx < 1 || ny < 1 || nx > COLS - 1 || ny > ROWS - 1) return false
+              if (hitsSolidWall(nx, ny, cm, obs, 0, 0, my, mx)) return false
+              npc.gx = nx; npc.gy = ny
+              npc.faceDX = mx; npc.faceDY = my
+              return true
+            }
+            npcMoved = tryMove(dirX * step, dirY * step)
+            if (!npcMoved) npcMoved = tryMove(dirX * step, 0) || tryMove(0, dirY * step)
+            if (!npcMoved) {
+              // Commit to one side for ~1s so the bot borders the obstacle
+              // instead of dithering left/right against the wall.
+              if (!npc.detourSign || nowMs > (npc.detourUntil || 0)) {
+                npc.detourSign = Math.random() < 0.5 ? 1 : -1
+                npc.detourUntil = nowMs + 900
+              }
+              npcMoved = tryMove(-dirY * step * npc.detourSign, dirX * step * npc.detourSign)
+              if (!npcMoved) {
+                npc.detourSign = -npc.detourSign
+                npcMoved = tryMove(-dirY * step * npc.detourSign, dirX * step * npc.detourSign)
+              }
+              if (npcMoved) npc.detourUntil = Math.max(npc.detourUntil || 0, nowMs + 350)
+            }
             // Human walk cycle while moving
-            walkHumanoidLegs(npc.avatar, nowMs * 0.0064)
+            walkHumanoidLegs(npc.avatar, npcMoved ? nowMs * 0.0064 : 0)
           } else {
             walkHumanoidLegs(npc.avatar, 0)
           }
           swayHumanoidArms(npc.avatar, nowMs * 0.001)
           npc.avatar.position.set(npc.gx, 0, npc.gy)
-          npc.avatar.rotation.y = -Math.atan2(ndy, ndx) - Math.PI / 2
+          // Face the walking direction while detouring, the player otherwise.
+          const faceDX = npcMoved ? (npc.faceDX ?? ndx) : ndx
+          const faceDY = npcMoved ? (npc.faceDY ?? ndy) : ndy
+          npc.avatar.rotation.y = -Math.atan2(faceDY, faceDX) - Math.PI / 2
           if (!myDead && ndist <= NPC_HIT_RANGE && nowMs - npc.lastHitAt >= NPC_HIT_COOLDOWN_MS) {
             npc.lastHitAt = nowMs
             npc.swingUntil = nowMs + 420
@@ -15286,7 +15328,9 @@ export default function MiningChain3DFPV({
           // Scale-aware hitbox that matches the rendered avatar mesh — the old fixed
           // +0.85/+0.22 offsets ignored avatar scale and caused HEAD to trigger while
           // the crosshair pointed at empty space beside the visible model.
-          const avScale = getRemoteAvatarWorldScale(_threeState, sgx, remoteZ, sgy)
+          // Arg order is (gx, gy, gz-height) — passing remoteZ as gy swapped
+          // the row coordinate into the height slot and skewed the hitbox scale.
+          const avScale = getRemoteAvatarWorldScale(_threeState, sgx, sgy, remoteZ)
           const bounds = mounted ? REMOTE_AVATAR_MOUNTED_LOCAL : REMOTE_AVATAR_LOCAL
           const headTopW = remoteZ + bounds.headTop * avScale
           const headBotW = remoteZ + bounds.headBottom * avScale
@@ -15358,6 +15402,70 @@ export default function MiningChain3DFPV({
       }
       enemyTargetRef.current = closestEnemy
       enemyInSightRef.current = closestInSight
+
+      // ── NPC bot crosshair hit-zone ────────────────────────────────────────
+      // Same scale-aware screen-space hitbox as remote players, so the ai_team
+      // bot takes headshots exactly like a real player would.
+      {
+        const npc = npcBotRef.current
+        if (npc) {
+          npc.aimZone = null
+          const rxN = npc.gx - camGX, ryN = npc.gy - camGY
+          const tYN = Math.cos(p.angle) * rxN + Math.sin(p.angle) * ryN
+          const tXN = -Math.sin(p.angle) * rxN + Math.cos(p.angle) * ryN
+          if (!myDead && tYN >= 0.15 && tYN <= PVP_SIGHT_RANGE && Math.abs(p.z) <= 0.90) {
+            if (_threeState) {
+              const avScale = getRemoteAvatarWorldScale(_threeState, npc.gx, npc.gy, 0)
+              const bounds = REMOTE_AVATAR_LOCAL
+              const headTopW = bounds.headTop * avScale
+              const headBotW = bounds.headBottom * avScale
+              const feetW = bounds.feet * avScale
+              const halfW = bounds.halfWidth * avScale
+              const sv = _threeState._v3a
+              sv.set(npc.gx, headTopW, npc.gy); sv.project(_threeState.camera)
+              if (sv.z <= 1) {
+                const pyHeadTop = (-sv.y + 1) / 2 * _H
+                sv.set(npc.gx, headBotW, npc.gy); sv.project(_threeState.camera)
+                const pyHeadBottom = (-sv.y + 1) / 2 * _H
+                sv.set(npc.gx - halfW, headBotW, npc.gy); sv.project(_threeState.camera)
+                const pxLeft = (sv.x + 1) / 2 * _W
+                sv.set(npc.gx + halfW, headBotW, npc.gy); sv.project(_threeState.camera)
+                const pxRight = (sv.x + 1) / 2 * _W
+                sv.set(npc.gx, feetW, npc.gy); sv.project(_threeState.camera)
+                const pyFeet = (-sv.y + 1) / 2 * _H
+                const padX = 5
+                if (
+                  _cx >= Math.min(pxLeft, pxRight) - padX && _cx <= Math.max(pxLeft, pxRight) + padX &&
+                  _cy >= Math.min(pyHeadTop, pyHeadBottom) - 4 && _cy <= pyFeet + 6
+                ) {
+                  const headPad = 3
+                  npc.aimZone = (_cy >= pyHeadTop - headPad && _cy <= pyHeadBottom + headPad) ? 'head' : 'body'
+                }
+              }
+            } else {
+              // 2D raycaster mode: same sprite projection as remote players.
+              const relZ = -(p.z + CAMERA_EYE_Z)
+              const rotV = relZ * _cosP + tYN * _sinP
+              const rotD = tYN * _cosP - relZ * _sinP
+              if (rotD > 0.05) {
+                const scrX = Math.round(_cx + tXN * _hProj / rotD)
+                const bottomY = Math.min(_H + 30, Math.round(_viewCY - rotV * _projScale / rotD))
+                const sScale = Math.min(_projScale / Math.max(0.72, tYN), 150)
+                const walletH = Math.round(sScale * 0.58 * REMOTE_AVATAR_VISUAL_SCALE)
+                const walletW = Math.round(sScale * 0.50 * REMOTE_AVATAR_VISUAL_SCALE)
+                const billsH = Math.round(sScale * 0.20 * REMOTE_AVATAR_VISUAL_SCALE)
+                const walletTop = bottomY - walletH
+                const billsTop = walletTop - billsH
+                if (Math.abs(_cx - scrX) <= walletW * 0.60) {
+                  npc.aimZone = _cy >= billsTop && _cy <= walletTop ? 'head'
+                              : _cy > walletTop && _cy <= bottomY ? 'body'
+                              : null
+                }
+              }
+            }
+          }
+        }
+      }
 
       if (mapHasBoss(mapIdRef.current) && !myDead && bossStateRef.current?.state !== 'dead' && bossRuntimeRef.current) {
         const bossMod = getBossRuntimeModule(mapIdRef.current)
@@ -15541,7 +15649,9 @@ export default function MiningChain3DFPV({
         const pgz = Number(p.z) || 0
         const attackerInPoolSafe = isInHousePoolPvpSafeZone(pgx, pgy, pgz)
 
-        // NPC bot in front and within reach? (local-only target, no server)
+        // NPC bot under the crosshair and within reach? (local-only target, no
+        // server). aimZone comes from the player-identical screen-space hitbox
+        // scan; point-blank swings keep the old direction check as fallback.
         const npcSwingTarget = (() => {
           const npc = npcBotRef.current
           if (!npc) return null
@@ -15549,21 +15659,23 @@ export default function MiningChain3DFPV({
           const dyN = npc.gy - pgy
           const distN = Math.hypot(dxN, dyN)
           if (distN > PVP_HIT_RANGE) return null
-          if (distN > 0.6) {
-            const aimDot = (dxN * Math.cos(p.angle) + dyN * Math.sin(p.angle)) / distN
-            if (aimDot < 0.35) return null
-          }
-          return npc
+          if (npc.aimZone) return npc
+          if (distN <= 0.6) return npc
+          const aimDot = (dxN * Math.cos(p.angle) + dyN * Math.sin(p.angle)) / distN
+          return aimDot >= 0.35 ? npc : null
         })()
 
         if (attackerInPoolSafe) {
           playPickHit(audioCtxRef, 'empty')
         } else if (npcSwingTarget) {
           // ── Hit the NPC bot: local damage, death → respawn elsewhere ──
+          // Headshots land double damage, exactly like on a real player.
           playPickHit(audioCtxRef, 'nftji')
           pvpFlashRef.current = performance.now()
           const npc = npcSwingTarget
-          npc.hp -= 1
+          const npcHeadshot = npc.aimZone === 'head'
+          if (npcHeadshot) critFlashRef.current = performance.now()
+          npc.hp -= npcHeadshot ? 2 : 1
           npc.hitFlashUntil = performance.now() + 220
           drawNpcHpBar(npc.hpBar, npc.hp)
           const shortTag = `${npc.wallet.slice(0, 6)}…${npc.wallet.slice(-4)}`
@@ -15575,13 +15687,21 @@ export default function MiningChain3DFPV({
               sx = 6 + Math.random() * 44
               sy = 6 + Math.random() * 44
               tries += 1
-            } while (Math.hypot(sx - pgx, sy - pgy) < 14 && tries < 20)
+            } while (
+              (Math.hypot(sx - pgx, sy - pgy) < 14 ||
+                hitsSolidWall(sx, sy, activeCellMapRef.current, validObstaclesRef.current, 0, 0)) &&
+              tries < 40
+            )
             npc.gx = sx
             npc.gy = sy
             npc.lastHitAt = 0
-            pvpGainRef.current = { text: `💀 ${shortTag} DOWN`, at: performance.now(), color: '#4ade80' }
+            pvpGainRef.current = { text: `💀 ${shortTag} DOWN${npcHeadshot ? ' 🎯' : ''}`, at: performance.now(), color: '#4ade80' }
           } else {
-            pvpGainRef.current = { text: `⚔ HIT ${shortTag} -1 HP`, at: performance.now(), color: '#fb923c' }
+            pvpGainRef.current = {
+              text: npcHeadshot ? `🎯 HEADSHOT ${shortTag} -2 HP` : `⚔ HIT ${shortTag} -1 HP`,
+              at: performance.now(),
+              color: '#fb923c',
+            }
           }
         } else if(
           bossSwing

@@ -13,6 +13,7 @@ import { advanceShowcaseSpin } from '@/lib/map-boss-facing'
 import { setBossMaskEyesRed } from '@/lib/boss-head-photo'
 import { colorFromAddress } from '@/lib/wallet-colors'
 import { buildHumanoidBody, buildBotRoundHead, swayHumanoidArms, walkHumanoidLegs } from '@/lib/humanoid-body'
+import { addRlCarBoost, setRlCarBoostLit } from '@/lib/rl-car-boost'
 
 /** The real AI-team bot wallets (NPC_BOT_BY_MAP in MiningChain3DFPV, maps 2-5):
     the four home bots ARE these bots — same wallet colour, same overhead tag. */
@@ -83,6 +84,7 @@ export function addMiningBot(THREE, scene, options = {}) {
     }),
     lowDetail: false,
     bulk: 1.02,
+    handStyle: 'miniusb',
     colors: {
       skin: bright,
       torso: color.clone().lerp(new THREE.Color('#ffffff'), .10),
@@ -99,12 +101,11 @@ export function addMiningBot(THREE, scene, options = {}) {
   bodyParts.push(addBox([.13, .07, .012], new THREE.MeshBasicMaterial({ color: '#03121c' }), [0, .58, -.146]))
   bodyParts.push(addBox([.07, .04, .012], goldMat, [0, .585, -.154]))
   bodyParts.push(addBox([.07, .05, .02], cyanMat, [0, .345, -.125]))
-  // Rounded skull head, same style as the bosses/statue mold.
+  // Rounded skull head, same style as the bosses/statue mold — including
+  // their glowing halo eyes (flip red with setBossMaskEyesRed like the bosses).
   buildBotRoundHead(THREE, avatar, {
     headMat: brightMat,
     frameMat: darkMat,
-    visorMat: cyanMat,
-    pixelMat: new THREE.MeshBasicMaterial({ color: '#ffffff' }),
     earMat: midMat,
   })
 
@@ -122,8 +123,10 @@ export function addMiningBot(THREE, scene, options = {}) {
   const rightSole = null
 
   const tool = new THREE.Group()
-  // Held at the humanoid right hand; punch swings rotate around this pivot.
-  tool.position.set(.25, .24, -.04)
+  // Pivot sits at the staff's mini-USB port, directly under the right hand's
+  // mini-USB plug, so the hand reads as docked into the staff; punch swings
+  // rotate around this pivot.
+  tool.position.set(.277, .168, -.05)
   const toolAngle = -.58
   const shaft = new THREE.Mesh(new THREE.CylinderGeometry(.024, .030, .62, 12), darkMat)
   shaft.rotation.z = toolAngle
@@ -133,18 +136,19 @@ export function addMiningBot(THREE, scene, options = {}) {
   dataRail.rotation.z = toolAngle
   dataRail.position.set(.185, .285, -.031)
   tool.add(dataRail)
-  const toolGrip = new THREE.Mesh(
-    new THREE.CylinderGeometry(.045, .045, .19, 12),
+  // Mini-USB port instead of a grip: an upward-facing socket block at the
+  // shaft base that the hand plug inserts into.
+  const port = new THREE.Mesh(
+    roundedVoxelGeometry(THREE, .10, .075, .08),
     new THREE.MeshStandardMaterial({ color: '#07121c', roughness: .55, metalness: .55 }),
   )
-  toolGrip.rotation.z = toolAngle
-  toolGrip.position.set(.055, .085, 0)
-  tool.add(toolGrip)
-  const gripRing = new THREE.Mesh(new THREE.TorusGeometry(.046, .009, 8, 20), magentaMat)
-  gripRing.rotation.x = Math.PI / 2
-  gripRing.rotation.y = toolAngle
-  gripRing.position.set(.11, .17, 0)
-  tool.add(gripRing)
+  port.position.set(0, -.03, 0)
+  tool.add(port)
+  const portRim = new THREE.Mesh(new THREE.CylinderGeometry(.045, .036, .018, 4, 1), new THREE.MeshBasicMaterial({ color: '#041019' }))
+  portRim.rotation.y = Math.PI / 4
+  portRim.scale.z = .62
+  portRim.position.set(0, .010, 0)
+  tool.add(portRim)
   const plug = new THREE.Group()
   plug.position.set(.36, .535, 0)
   plug.rotation.z = toolAngle
@@ -227,6 +231,10 @@ function createHomeRlCar(THREE, color = '#0ea5e9') {
     rim.position.set(wx, .14, wz)
     group.add(rim)
   }
+
+  // Painted boost thrusters — lit red by the mining-access hover, following
+  // the same red/blue logic as the bot/boss eyes (idle = dim cyan "blue").
+  addRlCarBoost(THREE, group, { y: .24, z: .68, activeColor: '#ff2020', flameColor: '#ef4444' })
 
   return group
 }
@@ -692,11 +700,18 @@ export default function HomeMiningWorld3D() {
       addRedCarpet(THREE, scene)
       const homeBosses = HOME_BOSS_LAYOUT.map((layout) => addHomeBoss(THREE, scene, layout))
 
-      // Hovering the mining-access card puts every boss/statue in "fighting"
-      // mode: eyes flip from the holo tint to red, and back on leave.
+      // Hovering the mining-access card puts every boss/statue/bot in
+      // "fighting" mode: every tagged eye glow in the scene (boss masks AND
+      // the bots' halo eyes) flips from the holo tint to red, and the cars'
+      // painted boost lights up red — back to blue/cyan on leave. The car
+      // list is filled right below, once the lineup props exist.
+      const boostCars = []
       const accessEl = canvas.closest('.mm3-home-access')
       if (accessEl) {
-        const setEyes = (red) => { for (const boss of homeBosses) setBossMaskEyesRed(boss.group, red) }
+        const setEyes = (red) => {
+          setBossMaskEyesRed(scene, red)
+          for (const car of boostCars) setRlCarBoostLit(car, red)
+        }
         const onAccessEnter = () => setEyes(true)
         const onAccessLeave = () => setEyes(false)
         accessEl.addEventListener('pointerenter', onAccessEnter)
@@ -742,6 +757,7 @@ export default function HomeMiningWorld3D() {
       })
       homePunchBotCar.punch = true
       homePunchBotCar.punchPhase = 1.0
+      boostCars.push(homeSoloCar.group, homeBotCar.car, homePunchBotCar.car)
       const homeProps = [
         // The green bot hops every 2s (jump), the sparring pair strikes every 2s (punch).
         { kind: 'bot', group: homeBot, baseY: HOME_ARENA_FLOOR_Y, baseRotationY: Math.PI, phase: Math.PI * .28, bob: 2.35, sway: .54, jump: true, jumpPhase: .5 },
