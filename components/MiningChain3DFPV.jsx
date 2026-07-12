@@ -44,10 +44,12 @@ import {
   updateM2PitchDomeRuntime,
 } from '@/lib/m2-pitch-dome'
 import { addM1MileiStatueReservedCells, createM1MileiStatueVisual } from '@/lib/m1-milei-statue'
+import { addM1ZelenskyStatueReservedCells, createM1ZelenskyStatueVisual } from '@/lib/m1-zelensky-statue'
 import { resolveBossStatueFacing, getBossStatuesForMap } from '@/lib/mining-boss-statue-registry'
 import { addVerticalArenaUsbStaff } from '@/lib/arena-usb-staff'
 import { roundedVoxelGeometry } from '@/lib/rounded-voxel'
-import { advanceShowcaseSpin } from '@/lib/map-boss-facing'
+import { advanceShowcaseSpin, approachYaw } from '@/lib/map-boss-facing'
+import { drawRlBadge } from '@/lib/rl-badge'
 import { setBossMaskEyesRed } from '@/lib/boss-head-photo'
 import {
   drawBossDollarBills,
@@ -84,7 +86,7 @@ import {
   usesSoftPerimeter,
 } from '@/lib/mining-perimeter-visual'
 import { buildM1GatewaySightClear, getPeripheralGatewaySightClear, MINING_GATEWAY_CORRIDOR_DEPTH } from '@/lib/mining-gateway-corridors'
-import { isInM1MileiStatueExclusion } from '@/lib/mining-visual-layout'
+import { isInM1MileiStatueExclusion, isInM1ZelenskyStatueExclusion } from '@/lib/mining-visual-layout'
 import {
   getGatewayTravelVisual,
   getGatewayOuterSeaStrip,
@@ -4363,9 +4365,12 @@ function drawMinimap(ctx, gr, gc, angle, cellMap, presenceMap, myWallet, W, H, c
   for (const [key, cell] of cellMap) {
     if (!cell?.isPortalNode && !cell?.isNodeDiceNode && !cell?.isRlNode) continue
     const [row, col] = key.split(',').map(Number)
-    // RL_NODE_ICON is a sentinel for the 3D car sprite, not printable text
-    const icon = cell.emoji === RL_NODE_ICON ? '🚙' : (cell.emoji || '◆')
-    drawMapEmoji(icon, mapX(col + .5), mapY(row + .5), cell.color || C, 'circle')
+    if (cell.emoji === RL_NODE_ICON) {
+      // Rocket-league badge (car + boost + ball), same art as the 3D node sprite.
+      drawRlBadge(ctx, mapX(col + .5), mapY(row + .5), (isMobile ? 7.5 : 9) * .72, { ringColor: cell.color || '#0ea5e9' })
+    } else {
+      drawMapEmoji(cell.emoji || '◆', mapX(col + .5), mapY(row + .5), cell.color || C, 'circle')
+    }
   }
 
   let chainDrawn = false
@@ -4977,8 +4982,9 @@ function drawNpcHpBar(hpBar, hp) {
 }
 
 // Statue interaction feedback: eyes burn red for a few seconds, then back to holo.
-function flashBossStatueEyes(threeState, ms = 5000) {
-  const group = threeState?.m1MileiStatueGroup
+function flashBossStatueEyes(threeState, statueId, ms = 5000) {
+  const groups = [threeState?.m1MileiStatueGroup, threeState?.m1ZelenskyStatueGroup]
+  const group = groups.find(g => g && (!statueId || g.userData.bossStatueId === statueId))
   if (!group) return
   setBossMaskEyesRed(group, true)
   clearTimeout(group.userData.eyeRedTimer)
@@ -7481,66 +7487,6 @@ function drawUsFlagOnCanvas(ctx, x, y, w, h) {
   }
 }
 
-function drawRlSuvOnCanvas(ctx, x = 21, y = 35, w = 86, h = 56) {
-  ctx.save()
-  ctx.translate(x, y)
-  ctx.shadowColor = 'rgba(14,165,233,0.35)'
-  ctx.shadowBlur = 10
-  const body = new Path2D()
-  body.moveTo(w * 0.08, h * 0.66)
-  body.lineTo(w * 0.13, h * 0.44)
-  body.quadraticCurveTo(w * 0.18, h * 0.25, w * 0.35, h * 0.22)
-  body.lineTo(w * 0.64, h * 0.20)
-  body.quadraticCurveTo(w * 0.78, h * 0.21, w * 0.88, h * 0.38)
-  body.lineTo(w * 0.94, h * 0.64)
-  body.quadraticCurveTo(w * 0.90, h * 0.75, w * 0.78, h * 0.75)
-  body.lineTo(w * 0.22, h * 0.75)
-  body.quadraticCurveTo(w * 0.11, h * 0.75, w * 0.08, h * 0.66)
-  ctx.fillStyle = '#26323f'
-  ctx.fill(body)
-  ctx.shadowBlur = 0
-  ctx.strokeStyle = '#6b7280'
-  ctx.lineWidth = 2.2
-  ctx.stroke(body)
-
-  ctx.fillStyle = '#111827'
-  ctx.fillRect(w * 0.23, h * 0.38, w * 0.18, h * 0.18)
-  ctx.fillRect(w * 0.45, h * 0.35, w * 0.21, h * 0.20)
-  ctx.fillStyle = '#0b1220'
-  ctx.fillRect(w * 0.15, h * 0.59, w * 0.68, h * 0.08)
-  ctx.fillStyle = '#ef4444'
-  ctx.fillRect(w * 0.10, h * 0.55, w * 0.09, h * 0.05)
-  ctx.fillStyle = '#e5e7eb'
-  ctx.fillRect(w * 0.84, h * 0.52, w * 0.07, h * 0.05)
-
-  for (const wx of [w * 0.27, w * 0.73]) {
-    ctx.beginPath()
-    ctx.arc(wx, h * 0.75, h * 0.16, 0, Math.PI * 2)
-    ctx.fillStyle = '#0f172a'
-    ctx.fill()
-    ctx.strokeStyle = '#64748b'
-    ctx.lineWidth = 2
-    ctx.stroke()
-    ctx.beginPath()
-    ctx.arc(wx, h * 0.75, h * 0.075, 0, Math.PI * 2)
-    ctx.fillStyle = '#cbd5e1'
-    ctx.fill()
-    ctx.strokeStyle = '#334155'
-    ctx.lineWidth = 1.3
-    ctx.stroke()
-    for (let i = 0; i < 8; i += 1) {
-      const a = i * Math.PI / 4
-      ctx.beginPath()
-      ctx.moveTo(wx, h * 0.75)
-      ctx.lineTo(wx + Math.cos(a) * h * 0.12, h * 0.75 + Math.sin(a) * h * 0.12)
-      ctx.strokeStyle = '#94a3b8'
-      ctx.lineWidth = 0.8
-      ctx.stroke()
-    }
-  }
-  ctx.restore()
-}
-
 function makeEmojiSprite(emoji,color,shape='square') {
   const canvas=document.createElement('canvas')
   canvas.width=128;canvas.height=128
@@ -7554,7 +7500,7 @@ function makeEmojiSprite(emoji,color,shape='square') {
   context.fill();context.stroke()
   context.shadowBlur=0
   if(emoji===RL_NODE_ICON){
-    drawRlSuvOnCanvas(context)
+    drawRlBadge(context,64,64,56,{ring:false})
   }else if(emoji==='🎲'){
     context.fillStyle='#f8fafc'
     context.strokeStyle=color||'#facc15'
@@ -8055,6 +8001,7 @@ function rebuildThreeWorld(state,cellMap,obstacles) {
   addBiomeLandmarks(world,state.textures,liteScenery)
   addPeripheralGroundFeatures(world, '1', liteScenery)
   addM1MileiStatueDecor(world, liteScenery, state)
+  addM1ZelenskyStatueDecor(world, liteScenery, state)
   // ── Block + node groups ───────────────────────────────────────────────────────
   // Each interactive type gets its own material & shape so players can tell them apart.
   // No texture maps here — texture × vertex-color was multiplying everything to black.
@@ -8565,12 +8512,13 @@ function rebuildThreeWorld(state,cellMap,obstacles) {
     ...Object.values(state.beaconBatch?.markers||{}),
     state.beaconBatch?.rings,state.beaconBatch?.ring2s,state.beaconBatch?.columns,
     state.m1MileiStatueGroup,
+    state.m1ZelenskyStatueGroup,
   ].filter(Boolean))
   world.traverse(object=>{
     if(object===world||animated.has(object)||object.userData.interactive) return
     let ancestor=object.parent
     while(ancestor){
-      if(ancestor.userData?.m1MileiStatue) return
+      if(ancestor.userData?.m1MileiStatue||ancestor.userData?.m1ZelenskyStatue) return
       ancestor=ancestor.parent
     }
     object.updateMatrix()
@@ -10691,6 +10639,8 @@ function rebuildPeripheralMapWorld(state, mapId, obstacles, cellMap) {
   state.m2PitchDomeGroup = null
   state.m1MileiStatueGroup = null
   state.m1MileiStatueMotion = null
+  state.m1ZelenskyStatueGroup = null
+  state.m1ZelenskyStatueMotion = null
   if (state.world) { state.scene.remove(state.world); disposeThreeObject(state.world) }
   const world = new THREE.Group()
   const matrix = new THREE.Matrix4()
@@ -10859,6 +10809,8 @@ const WORLD_CACHE_STATE_KEYS = [
   'housePerimeterHeartsMesh',
   'm1MileiStatueGroup',
   'm1MileiStatueMotion',
+  'm1ZelenskyStatueGroup',
+  'm1ZelenskyStatueMotion',
   'm2PitchDomeGroup',
   'm2PitchDomeRuntime',
   'm3PutinBossGroup',
@@ -11067,30 +11019,86 @@ function addRlColiseumNodeVisual(world, lowDetail, state) {
   }
 }
 
-function updateM1MileiStatueMotion(motion, time) {
+const M1_STATUE_NECK_LIMIT = 1.25
+
+function updateM1MileiStatueMotion(motion, time, look = null) {
   if (!motion) return
   const armLift = Math.sin(time * 1.8) * 0.026
   const dt = time - (motion.lastSpinTime ?? time)
   motion.lastSpinTime = time
   if (motion.head) {
-    // Human head sway: bounded yaw (never a full turn — necks don't do 360°),
-    // two blended sines so the scan reads organic, plus a hint of nod.
-    motion.head.rotation.y = Math.sin(time * 0.42) * 0.5 + Math.sin(time * 0.17 + 2) * 0.18
+    // Head tracks the nearest alive player on M1 (neck-limited, smooth turns
+    // even when the nearest player changes); falls back to the organic scan.
+    let desiredYaw = null
+    const root = motion.root
+    const sx = root?.position?.x
+    const sz = root?.position?.z
+    if (look && Number.isFinite(sx) && Number.isFinite(sz)) {
+      let tx = null, tz = null, best = Infinity
+      const consider = (pgx, pgy) => {
+        if (!Number.isFinite(pgx) || !Number.isFinite(pgy)) return
+        const d = Math.hypot(pgx - sx, pgy - sz)
+        if (d < best) { best = d; tx = pgx; tz = pgy }
+      }
+      if (!look.myDead) consider(look.localGx, look.localGy)
+      const mi = String(look.myIdentity || '').toLowerCase()
+      for (const [wallet, pres] of Object.entries(look.presenceMap || {})) {
+        if ((pres.mapId || '1') !== '1') continue
+        if (pres.isDead) continue
+        if (mi && wallet.toLowerCase() === mi) continue
+        consider(Number(pres.gx ?? (pres.col ?? 0) + 0.5), Number(pres.gy ?? (pres.row ?? 0) + 0.5))
+      }
+      if (tx != null) {
+        const worldYaw = Math.atan2(tx - sx, tz - sz)
+        let local = (worldYaw - (root?.rotation?.y || 0)) % (Math.PI * 2)
+        if (local > Math.PI) local -= Math.PI * 2
+        if (local < -Math.PI) local += Math.PI * 2
+        desiredYaw = Math.max(-M1_STATUE_NECK_LIMIT, Math.min(M1_STATUE_NECK_LIMIT, local))
+      }
+    }
+    if (desiredYaw === null) {
+      // Human head sway: bounded yaw (never a full turn — necks don't do 360°),
+      // two blended sines so the scan reads organic.
+      desiredYaw = Math.sin(time * 0.42) * 0.5 + Math.sin(time * 0.17 + 2) * 0.18
+    }
+    motion.headYaw = approachYaw(
+      Number.isFinite(motion.headYaw) ? motion.headYaw : motion.head.rotation.y,
+      desiredYaw, dt, 3,
+    )
+    motion.head.rotation.y = motion.headYaw
     motion.head.rotation.x = Math.sin(time * 0.55 + 1) * 0.045
   }
   // Humanoid arms pivot at the shoulder (userData.baseY) and carry their
   // hands. Left arm idles with a subtle human sway; right arm stays raised,
   // waving hello with the RJ45 hand.
-  if (motion.leftArm) {
-    const phase = motion.leftArm.userData.swayPhase || 0
-    motion.leftArm.position.y = (motion.leftArm.userData.baseY ?? 0.655) + armLift
-    motion.leftArm.rotation.x = Math.sin(time * 0.9 + phase) * 0.055
-    motion.leftArm.rotation.z = (motion.leftArm.userData.baseRotZ || 0) + Math.sin(time * 0.63 + phase) * 0.045
-  }
-  if (motion.rightArm) {
-    motion.rightArm.position.y = (motion.rightArm.userData.baseY ?? 0.655) + armLift
-    motion.rightArm.rotation.x = 0
-    motion.rightArm.rotation.z = 2.5 + Math.sin(time * 2.4) * 0.22
+  if (motion.salute === 'leftForward') {
+    // Stiff left-arm salute thrust forward-up, body leaning into it; the
+    // right arm idles with the human sway.
+    const breathe = Math.sin(time * 1.6) * 0.03
+    if (motion.leftArm) {
+      motion.leftArm.position.y = (motion.leftArm.userData.baseY ?? 0.655) + armLift
+      motion.leftArm.rotation.x = 2.25 + breathe
+      motion.leftArm.rotation.z = (motion.leftArm.userData.baseRotZ || 0) + 0.08
+    }
+    if (motion.rightArm) {
+      const phase = motion.rightArm.userData.swayPhase || 0
+      motion.rightArm.position.y = (motion.rightArm.userData.baseY ?? 0.655) + armLift
+      motion.rightArm.rotation.x = Math.sin(time * 0.9 + phase) * 0.055
+      motion.rightArm.rotation.z = (motion.rightArm.userData.baseRotZ || 0) + Math.sin(time * 0.63 + phase) * 0.045
+    }
+    if (motion.bodyPivot) motion.bodyPivot.rotation.x = -0.12 + breathe * 0.3
+  } else {
+    if (motion.leftArm) {
+      const phase = motion.leftArm.userData.swayPhase || 0
+      motion.leftArm.position.y = (motion.leftArm.userData.baseY ?? 0.655) + armLift
+      motion.leftArm.rotation.x = Math.sin(time * 0.9 + phase) * 0.055
+      motion.leftArm.rotation.z = (motion.leftArm.userData.baseRotZ || 0) + Math.sin(time * 0.63 + phase) * 0.045
+    }
+    if (motion.rightArm) {
+      motion.rightArm.position.y = (motion.rightArm.userData.baseY ?? 0.655) + armLift
+      motion.rightArm.rotation.x = 0
+      motion.rightArm.rotation.z = 2.5 + Math.sin(time * 2.4) * 0.22
+    }
   }
   motion.root?.updateMatrixWorld?.(true)
 }
@@ -11102,11 +11110,28 @@ function addM1MileiStatueDecor(world, lowDetail, state = null) {
     state.m1MileiStatueGroup = visual.group
     state.m1MileiStatueMotion = {
       root: visual.group,
+      bodyPivot: visual.bodyPivot,
       head: visual.group.userData.homeHead || null,
       leftArm: visual.group.userData.homeLeftArm || null,
       rightArm: visual.group.userData.homeRightArm || null,
       leftHand: visual.group.userData.homeLeftHand || null,
       rightHand: visual.group.userData.homeRightHand || null,
+    }
+  }
+}
+
+function addM1ZelenskyStatueDecor(world, lowDetail, state = null) {
+  const visual = createM1ZelenskyStatueVisual(THREE, lowDetail)
+  world.add(visual.group)
+  if (state) {
+    state.m1ZelenskyStatueGroup = visual.group
+    state.m1ZelenskyStatueMotion = {
+      root: visual.group,
+      bodyPivot: visual.bodyPivot,
+      salute: 'leftForward',
+      head: visual.group.userData.homeHead || null,
+      leftArm: visual.group.userData.homeLeftArm || null,
+      rightArm: visual.group.userData.homeRightArm || null,
     }
   }
 }
@@ -12717,11 +12742,12 @@ export default function MiningChain3DFPV({
     }
     for (const key of M1_GATEWAY_SIGHT_CLEAR) reserved.add(key)
     addM1MileiStatueReservedCells(reserved)
+    addM1ZelenskyStatueReservedCells(reserved)
     const valid = new Map()
     for (const [key, data] of OBSTACLE_MAP) {
       if (M1_GATEWAY_SIGHT_CLEAR.has(key)) continue
       const [row,col]=key.split(',').map(Number)
-      if (isInM1MileiStatueExclusion('1', row, col)) continue
+      if (isInM1MileiStatueExclusion('1', row, col) || isInM1ZelenskyStatueExclusion('1', row, col)) continue
       if (HOUSE_DOOR_STEP_KEYS.has(key)) continue
       const insideHouse=
         row>=CIPHER_HOUSE_BOUNDS.minRow&&row<=CIPHER_HOUSE_BOUNDS.maxRow&&
@@ -12766,7 +12792,7 @@ export default function MiningChain3DFPV({
       for (let c = 4; c < MM3_BLOCK_GRID_COLS-4; c += 4) {
         if (Math.abs(r-14) <= 5 && Math.abs(c-14) <= 5) continue  // keep center zone free
         if (isNearCipherHouse(r, c) || isInCipherHouseCoastCorridor(r, c)) continue
-        if (isInM1MileiStatueExclusion('1', r, c)) continue
+        if (isInM1MileiStatueExclusion('1', r, c) || isInM1ZelenskyStatueExclusion('1', r, c)) continue
         const h = (((r * 31 + c * 17) ^ (r * c * 7)) % 100 + 100) % 100
         if (h >= 22) continue  // ~22% become wall origins
         const isHoriz = ((r * 13 + c * 7) & 1) === 0
@@ -12777,7 +12803,7 @@ export default function MiningChain3DFPV({
           const wc = isHoriz ? c + i : c
           if (wr < 2 || wr >= MM3_BLOCK_GRID_ROWS-2 || wc < 2 || wc >= MM3_BLOCK_GRID_COLS-2) break
           if (isNearCipherHouse(wr, wc) || isInCipherHouseCoastCorridor(wr, wc)) continue
-          if (isInM1MileiStatueExclusion('1', wr, wc)) continue
+          if (isInM1MileiStatueExclusion('1', wr, wc) || isInM1ZelenskyStatueExclusion('1', wr, wc)) continue
           const key = `${wr},${wc}`
           // Only fill truly empty positions — never override NFTJI/mined blocks
           if (!reserved.has(key) && !valid.has(key)) valid.set(key, chainObstacle(key,wallData))
@@ -12792,7 +12818,7 @@ export default function MiningChain3DFPV({
 
     for (const key of [...valid.keys()]) {
       const [row, col] = key.split(',').map(Number)
-      if (isInM1MileiStatueExclusion('1', row, col)) valid.delete(key)
+      if (isInM1MileiStatueExclusion('1', row, col) || isInM1ZelenskyStatueExclusion('1', row, col)) valid.delete(key)
     }
 
     // Build a small number of deterministic staircases beside isolated tall
@@ -13207,7 +13233,17 @@ export default function MiningChain3DFPV({
         updateRlBoostFx(threeState.localAvatar, threeState, performance.now())
         updateHealingRechargeEffects(threeState,time,visualTier)
         updatePoolSubmersionEffects(threeState,time,visualTier)
-        updateM1MileiStatueMotion(threeState.m1MileiStatueMotion, time)
+        {
+          const statueLook = mapIdRef.current === '1' ? {
+            localGx: gx,
+            localGy: gy,
+            myDead: localDead,
+            myIdentity,
+            presenceMap: presenceRef.current,
+          } : null
+          updateM1MileiStatueMotion(threeState.m1MileiStatueMotion, time, statueLook)
+          updateM1MileiStatueMotion(threeState.m1ZelenskyStatueMotion, time, statueLook)
+        }
         if(visualTier==='high') updateAvatarOccluders(threeState)
         threeState.renderer.render(threeState.scene,threeState.camera)
         // No separate HUD avatar pass: local player is now a scene object
@@ -14606,7 +14642,7 @@ export default function MiningChain3DFPV({
             } else if(fData.cell?.isMarket){
               onNftjiPanelOpenRef.current?.({ cell:fData.cell, mx:fData.mx, my:fData.my })
             } else if(fData.cell?.isBossStatue){
-              flashBossStatueEyes(threeStateRef.current)
+              flashBossStatueEyes(threeStateRef.current, fData.cell.bossStatueId)
               onBossStatueTipOpenRef.current?.(fData.cell.bossStatueId)
             } else {
               const url=actionUrlRef.current
@@ -15059,7 +15095,7 @@ export default function MiningChain3DFPV({
         }
         needsRender = true
       }
-      if (threeStateRef.current?.m1MileiStatueMotion) needsRender = true
+      if (threeStateRef.current?.m1MileiStatueMotion || threeStateRef.current?.m1ZelenskyStatueMotion) needsRender = true
 
       // ── NPC bot chaser (M2–M5, client-side only) ────────────────────────
       // One AI-team bot per peripheral map hunts the local player at half
@@ -16028,13 +16064,13 @@ export default function MiningChain3DFPV({
             mineProgressRef.current=Math.min(1,mineProgressRef.current+1/HITS_NEEDED)
             playPickHit(audioCtxRef,'nftji')
             // Eyes burn red on every hit while the tip is being "mined".
-            flashBossStatueEyes(threeStateRef.current, 1500)
+            flashBossStatueEyes(threeStateRef.current, facingDataRef.current?.cell?.bossStatueId, 1500)
             if(mineProgressRef.current>=1){
               playPickHit(audioCtxRef,'complete')
               mineProgressRef.current=0
               const statueId=facingDataRef.current?.cell?.bossStatueId
               if(statueId){
-                flashBossStatueEyes(threeStateRef.current)
+                flashBossStatueEyes(threeStateRef.current, statueId)
                 setTimeout(()=>onBossStatueTipOpenRef.current?.(statueId),80)
               }
             }

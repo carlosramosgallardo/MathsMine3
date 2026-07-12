@@ -29,7 +29,9 @@ const NFTJI_MARKET_SPOTS = (() => {
   return byMap
 })()
 import { M1_MILEI_STATUE_POSITION } from '@/lib/m1-milei-statue'
+import { M1_ZELENSKY_STATUE_POSITION } from '@/lib/m1-zelensky-statue'
 import { RL_NODE_POSITION } from '@/lib/mining-rl-mount'
+import { drawRlBadge } from '@/lib/rl-badge'
 import { getGatewayTravelVisual } from '@/lib/mining-gateway-travel-visual'
 import {
   CIPHER_HOUSE_STRUCTURE_CELLS,
@@ -213,13 +215,17 @@ function drawMapTile(ctx, mapId, ox, oy, size, es) {
     emojiChip(MINING_CHAIN_NODE_POSITION.row, MINING_CHAIN_NODE_POSITION.col, '⬡', '#facc15')
     emojiChip(NODE_DICE_POSITION.row, NODE_DICE_POSITION.col, '🎲', '#facc15')
     emojiChip(M1_MILEI_STATUE_POSITION.row, M1_MILEI_STATUE_POSITION.col, '🗿', '#eab308')
+    emojiChip(M1_ZELENSKY_STATUE_POSITION.row, M1_ZELENSKY_STATUE_POSITION.col, '🗿', '#3b82f6')
   }
   // NFTJI market blocks with their real fixed emojis, amber-framed like the
   // live minimap's market cells.
   for (const slot of NFTJI_MARKET_SPOTS[String(mapId)] || []) {
     emojiChip(slot.row, slot.col, slot.emoji, '#fb923c', 'square')
   }
-  if (mapId === '2') emojiChip(RL_NODE_POSITION.row, RL_NODE_POSITION.col, '🚙', '#0ea5e9')
+  if (mapId === '2') {
+    // Rocket-league badge (car + boost + ball), same art as the live minimap.
+    drawRlBadge(ctx, px(RL_NODE_POSITION.col + 0.5), py(RL_NODE_POSITION.row + 0.5), Math.max(5, size * 0.04), { ringColor: '#0ea5e9' })
+  }
   // World bosses marked with their striped flag, exactly like the live minimap
   // (flag emojis do not render on Windows canvases).
   const bossSpawn = BOSS_SPAWNS[mapId]

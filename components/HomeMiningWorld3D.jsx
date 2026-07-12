@@ -9,6 +9,7 @@ import { M4_KIM_BOSS_SCALE, M4_KIM_BOSS_NAME } from '@/lib/m4-kim-boss'
 import { createM5TrumpBossVisual } from '@/lib/m5-trump-boss-runtime'
 import { M5_TRUMP_BOSS_SCALE, M5_TRUMP_BOSS_NAME } from '@/lib/m5-trump-boss'
 import { createM1MileiStatueVisual, M1_MILEI_STATUE_SCALE } from '@/lib/m1-milei-statue'
+import { createM1ZelenskyStatueVisual, M1_ZELENSKY_STATUE_SCALE } from '@/lib/m1-zelensky-statue'
 import { roundedVoxelGeometry } from '@/lib/rounded-voxel'
 import { advanceShowcaseSpin } from '@/lib/map-boss-facing'
 import { setBossMaskEyesRed } from '@/lib/boss-head-photo'
@@ -486,6 +487,20 @@ const HOME_BOSS_LAYOUT = [
     bob: 2.18,
   },
   {
+    id: 'zelensky',
+    heightMult: 0.92,
+    // Statue: lifted a touch — the pedestal adds real base height under it.
+    yOffset: 0.3,
+    createVisual: createM1ZelenskyStatueVisual,
+    bossScale: M1_ZELENSKY_STATUE_SCALE,
+    position: [HOME_LINEUP_X[1], 0, 0.06],
+    glowColor: '#3b82f6',
+    glowIntensity: 2.9,
+    phase: Math.PI * 0.6,
+    sway: 0.6,
+    bob: 2.16,
+  },
+  {
     id: 'kim',
     heightMult: 0.87,
     createVisual: createM4KimBossVisual,
@@ -609,7 +624,8 @@ export function addHomeBoss(THREE, scene, options = {}) {
     sway,
     bob,
     baseGlow: glowIntensity,
-    isStatue: group.userData.m1MileiStatue === true,
+    isStatue: group.userData.m1MileiStatue === true || group.userData.m1ZelenskyStatue === true,
+    saluteStyle: group.userData.statueSalute || 'rightWave',
     leftArm: group.userData.homeLeftArm || null,
     rightArm: group.userData.homeRightArm || null,
     leftHand: group.userData.homeLeftHand || null,
@@ -828,7 +844,7 @@ export default function HomeMiningWorld3D() {
       const punchBotProp = homeProps[3]
       const lineup = [
         bossById.trump, homeSoloCar, bossById.putin, homeProps[0], bossById.milei,
-        homeBotCar, bossById.kim, punchBotProp, homePunchBotCar,
+        homeBotCar, bossById.kim, punchBotProp, bossById.zelensky, homePunchBotCar,
       ]
       const RAIL_SPACING = 6.0
       const railSpan = lineup.length * RAIL_SPACING
@@ -856,6 +872,7 @@ export default function HomeMiningWorld3D() {
       addHomeTag(bossById.putin.group, `${M3_PUTIN_BOSS_NAME} · BOSS`, '#94a3b8', 1.45)
       addHomeTag(bossById.kim.group, `${M4_KIM_BOSS_NAME} · BOSS`, '#d946ef', 1.45)
       addHomeTag(bossById.milei.group, 'Javier Milei · STATUE', '#74acdf', 1.45)
+      addHomeTag(bossById.zelensky.group, 'Volodymyr Zelensky · STATUE', '#3b82f6', 1.45)
       addHomeTag(homeSoloCar.group, 'Aserejee · AI', '#22d3ee', 0.95)
       addHomeTag(homeBot, aiTeamTag(AI_TEAM_WALLETS[0]), '#86efac', 1.25)
       addHomeTag(homeBotCar.group, aiTeamTag(AI_TEAM_WALLETS[1]), '#86efac', 3.62)
@@ -1084,7 +1101,12 @@ export default function HomeMiningWorld3D() {
         const idleAX = ph => Math.sin(t * 0.9  + ph) * 0.055
         const idleAZ = (bz, ph) => bz + Math.sin(t * 0.63 + ph * 1.7) * 0.045
 
-        boss.group.rotation.y  = boss.baseRotationY   // face camera, no spin
+        // Turn smoothly from the spin yaw at greet-start toward the camera; the
+        // spin state is reset to 0 when the greet ends so rotation resumes from here.
+        const yawFrom = Number.isFinite(boss.greetYawFrom) ? boss.greetYawFrom : boss.baseRotationY + (boss.spinYaw || 0)
+        const yawDelta = ((yawFrom - boss.baseRotationY + Math.PI) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2) - Math.PI
+        const turnIn = Math.sin(Math.min(1, gt / 0.25) * Math.PI * 0.5)
+        boss.group.rotation.y  = boss.baseRotationY + yawDelta * (1 - turnIn)
         boss.group.position.y  = boss.baseY + Math.sin(t * 2.0) * 0.010
         boss.group.position.z  = boss.baseZ
         boss.group.rotation.z  = 0
@@ -1171,18 +1193,36 @@ export default function HomeMiningWorld3D() {
               boss.head.rotation.y = Math.sin(t * 0.42) * 0.5 + Math.sin(t * 0.17 + 2) * 0.18
               boss.head.rotation.x = Math.sin(t * 0.55 + 1) * 0.045
             }
-            // Humanoid arms pivot at the shoulder and carry their hands. Left
-            // arm idles with a human sway; right arm waves hello.
-            if (boss.leftArm) {
-              const phase = boss.leftArm.userData.swayPhase || 0
-              boss.leftArm.position.y = (boss.leftArm.userData.baseY ?? 0.655) + armLift
-              boss.leftArm.rotation.x = Math.sin(t * 0.9 + phase) * 0.055
-              boss.leftArm.rotation.z = (boss.leftArm.userData.baseRotZ || 0) + Math.sin(t * 0.63 + phase) * 0.045
-            }
-            if (boss.rightArm) {
-              boss.rightArm.position.y = (boss.rightArm.userData.baseY ?? 0.655) + armLift
-              boss.rightArm.rotation.x = 0
-              boss.rightArm.rotation.z = 2.5 + Math.sin(t * 2.4) * 0.22
+            // Humanoid arms pivot at the shoulder and carry their hands.
+            if (boss.saluteStyle === 'leftForward') {
+              // Stiff left-arm salute thrust forward-up, body leaning into it;
+              // the right arm idles with the human sway.
+              const breathe = Math.sin(t * 1.6) * 0.03
+              if (boss.leftArm) {
+                boss.leftArm.position.y = (boss.leftArm.userData.baseY ?? 0.655) + armLift
+                boss.leftArm.rotation.x = 2.25 + breathe
+                boss.leftArm.rotation.z = (boss.leftArm.userData.baseRotZ || 0) + 0.08
+              }
+              if (boss.rightArm) {
+                const phase = boss.rightArm.userData.swayPhase || 0
+                boss.rightArm.position.y = (boss.rightArm.userData.baseY ?? 0.655) + armLift
+                boss.rightArm.rotation.x = Math.sin(t * 0.9 + phase) * 0.055
+                boss.rightArm.rotation.z = (boss.rightArm.userData.baseRotZ || 0) + Math.sin(t * 0.63 + phase) * 0.045
+              }
+              boss.bodyPivot.rotation.x = -0.12 + breathe * 0.3
+            } else {
+              // Left arm idles with a human sway; right arm waves hello.
+              if (boss.leftArm) {
+                const phase = boss.leftArm.userData.swayPhase || 0
+                boss.leftArm.position.y = (boss.leftArm.userData.baseY ?? 0.655) + armLift
+                boss.leftArm.rotation.x = Math.sin(t * 0.9 + phase) * 0.055
+                boss.leftArm.rotation.z = (boss.leftArm.userData.baseRotZ || 0) + Math.sin(t * 0.63 + phase) * 0.045
+              }
+              if (boss.rightArm) {
+                boss.rightArm.position.y = (boss.rightArm.userData.baseY ?? 0.655) + armLift
+                boss.rightArm.rotation.x = 0
+                boss.rightArm.rotation.z = 2.5 + Math.sin(t * 2.4) * 0.22
+              }
             }
             boss.glowLight.intensity = boss.baseGlow + Math.sin(t * 2.4) * 0.85
           } else {
@@ -1248,7 +1288,13 @@ export default function HomeMiningWorld3D() {
         // Boss 3-second attack sequence: animation starts on timer; VFX fires at t = 1.5 s
         for (const [bossId, nextAt] of Object.entries(bossNextAttack)) {
           const gs = bossGreetStart[bossId]
-          if (gs && now - gs >= 3000) bossGreetStart[bossId] = null
+          if (gs && now - gs >= 3000) {
+            bossGreetStart[bossId] = null
+            // Resume the showcase spin from the greet's final orientation (facing
+            // the camera) instead of snapping to the yaw it silently accumulated.
+            const b = bossById[bossId]
+            if (b) b.spinYaw = 0
+          }
 
           if (now >= nextAt && !bossAttackStart[bossId] && !bossGreetStart[bossId]) {
             bossNextAttack[bossId] = nextAt + 7000
@@ -1287,6 +1333,8 @@ export default function HomeMiningWorld3D() {
             bossAttackStart[bossId] = null
             bossVfxFired[bossId] = false
             bossGreetStart[bossId] = now   // start greeting wave immediately after attack
+            // Yaw at the moment the greet begins, so the greet can turn from it smoothly.
+            if (bossById[bossId]) bossById[bossId].greetYawFrom = bossById[bossId].group.rotation.y
           }
         }
         // Draw VFX particles on the 2D overlay canvas
