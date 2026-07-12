@@ -397,7 +397,7 @@ M5 — Epstein Island — M1 — Speculation Plaza — M4 — Korean Midzone
 
 | Map | Name | Chain indices | Blocks | Requirements (typical) | Interactive landmarks |
 |:---:|:---|:---|---:|:---|:---|
-| **M1** | Speculation Plaza | `#000`–`#0C7` | 200 | Lowest — entry tier | ⬡ **Chain Node** (solve/demine Ω), 🎲 **Dice Node** (StormRoll window), **Cipher House** + pool, **Crypto Colosseum**, 🗿 **Milei statue** (5 hits → tip + local voice), 9 **Portal nodes** (Training, Trading, Ranking…), gateway exits |
+| **M1** | Speculation Plaza | `#000`–`#0C7` | 200 | Lowest — entry tier | ⬡ **Chain Node** (solve/demine Ω), 🎲 **Dice Node** (StormRoll window), **Cipher House** + pool, **Crypto Colosseum**, 🗿 **Milei & Zelensky statues** (5 hits → tip + local voice), 9 **Portal nodes** (Training, Trading, Ranking…), gateway exits |
 | **M2** | RL Coliseum | `#0C8`–`#18F` | 200 | Low–mid | 🚙 **RL Mount node** (dark SUV-style car), full-map stadium with animated 3v3 RL bot dome, gateway → M1 |
 | **M3** | Former Soviet Union | `#190`–`#257` | 200 | Mid | Full-map castle city venue, **Vladimir Putin** world boss (castle gate, co-op PvE, daily respawn), gateway → M1 |
 | **M4** | Korean Midzone | `#258`–`#31F` | 200 | Mid–high | Full-map **Korean Midzone** desert venue, **Kim Jong-un** world boss (lagoon centre, co-op PvE, daily respawn), military scenery (tanks, cannons, watchtowers), gateway → M1 |
@@ -405,7 +405,7 @@ M5 — Epstein Island — M1 — Speculation Plaza — M4 — Korean Midzone
 
 **Block placement:** each chain index maps to one visual cell on its assigned map (see `lib/mining-visual-layout.js`). Regular blocks appear as minable cubes; NFTJI blocks as amber market cells (buy/resell in-world). Requirements (`min wallet level` + `mm3_global_value`) scale with the global index `#000` → `#3E7`.
 
-**World bosses (co-op PvE):** each boss activates when any logged-in wallet lands a hit and requires multiple fighters for serious damage. On defeat, the reward is split proportionally among damage dealers; the boss respawns **24 h** later. Hit damage and crit columns are the boss's attacks on players; player hits on a boss deal 1 damage (5 on headshot or ⚔️ critical). Bosses and the M1 statue wear holographic portrait masks with glowing eyes — holo cyan while idle, red while fighting (or while the statue is being hit for its tip):
+**World bosses (co-op PvE):** each boss activates when any logged-in wallet lands a hit and requires multiple fighters for serious damage. On defeat, the reward is split proportionally among damage dealers; the boss respawns **24 h** later. Hit damage and crit columns are the boss's attacks on players; player hits on a boss deal 1 damage (5 on headshot or ⚔️ critical). Bosses and the M1 statues wear holographic portrait masks with glowing eyes — holo cyan while idle, red while fighting (or while a statue is being hit for its tip):
 
 | Boss | Map | HP | Hit damage | Crit | Reward on defeat |
 |---|:---:|---:|---:|---|---|
@@ -621,7 +621,7 @@ Pool rank is calculated from the combined level sum of all active members. Max p
 
 Pool membership and rank are visible in Ranking and Relaying. Invite chips appear inline in the Ranking header bar and update in real time.
 
-**Command immunity:** mining commands and hidden commands fired by any pool member never affect other wallets in the same pool. Penalties only land on wallets from rival pools or on wallets with no pool affiliation.
+**No friendly fire — ever:** wallets in the same pool can never damage or penalize each other, in any situation: PvP staff hits (blocked at the database level), mining commands and hidden commands (pool mates are exempt from penalties), Squeezes (pool-vs-pool only, a pool can never target itself), the 🎲 StormRoll AoE (the dice buyer's pool is immune), and NPC chaser hits (waived when the NPC's AI wallet shares your pool). Penalties and damage only land on wallets from rival pools or with no pool affiliation.
 
 ---
 
@@ -1462,7 +1462,7 @@ M5 — Isla Epstein — M1 — Plaza de la Especulación — M4 — Korean Midzo
 
 | Mapa | Nombre | Índices cadena | Bloques | Requisitos (típico) | Landmarks interactivos |
 |:---:|:---|:---|---:|:---|:---|
-| **M1** | Plaza de la Especulación | `#000`–`#0C7` | 200 | Mínimos — entrada | ⬡ **Nodo Cadena** (resolver/desminar Ω), 🎲 **Nodo Dado** (ventana StormRoll), **Casa Cipher** + piscina, **Coliseo Crypto**, 🗿 **estatua de Milei** (5 golpes → tip + voz local), 9 **nodos Portal** (Training, Trading, Ranking…), salidas portal |
+| **M1** | Plaza de la Especulación | `#000`–`#0C7` | 200 | Mínimos — entrada | ⬡ **Nodo Cadena** (resolver/desminar Ω), 🎲 **Nodo Dado** (ventana StormRoll), **Casa Cipher** + piscina, **Coliseo Crypto**, 🗿 **estatuas de Milei y Zelenski** (5 golpes → tip + voz local), 9 **nodos Portal** (Training, Trading, Ranking…), salidas portal |
 | **M2** | Coliseo RL | `#0C8`–`#18F` | 200 | Bajo–medio | 🚙 **Nodo RL Mount** (coche oscuro tipo SUV), estadio a mapa completo con cúpula animada 3v3 de bots RL, portal → M1 |
 | **M3** | Antigua Unión Soviética | `#190`–`#257` | 200 | Medio | Ciudad-castillo a mapa completo, **boss Vladimir Putin** (puerta del castillo, PvE cooperativo, respawn diario), portal → M1 |
 | **M4** | Korean Midzone | `#258`–`#31F` | 200 | Medio–alto | **Korean Midzone** a mapa completo, **boss Kim Jong-un** (centro del oasis, PvE cooperativo, respawn diario), decoración militar (tanques, cañones, torres de vigilancia), portal → M1 |
@@ -1470,7 +1470,7 @@ M5 — Isla Epstein — M1 — Plaza de la Especulación — M4 — Korean Midzo
 
 **Colocación de bloques:** cada índice de cadena corresponde a una celda visual en su mapa asignado (ver `lib/mining-visual-layout.js`). Los bloques regulares aparecen como cubos minables; los NFTJI como celdas ámbar de mercado (compra/reventa in-world). Los requisitos (`nivel mínimo de wallet` + `mm3_global_value`) escalan con el índice global `#000` → `#3E7`.
 
-**Bosses del mundo (PvE cooperativo):** cada boss se activa cuando cualquier wallet logueada acierta un golpe y requiere varios luchadores para daño serio. Al derrotarlo, la recompensa se reparte proporcionalmente entre los que infligieron daño; el boss respawnea **24 h** después. Las columnas de daño y crítico son los ataques del boss al jugador; los golpes del jugador al boss hacen 1 de daño (5 con headshot o crítico del ⚔️). Los bosses y la estatua de M1 llevan máscaras-retrato holográficas con ojos brillantes — cyan holo en reposo, rojos en combate (o mientras se golpea la estatua para su tip):
+**Bosses del mundo (PvE cooperativo):** cada boss se activa cuando cualquier wallet logueada acierta un golpe y requiere varios luchadores para daño serio. Al derrotarlo, la recompensa se reparte proporcionalmente entre los que infligieron daño; el boss respawnea **24 h** después. Las columnas de daño y crítico son los ataques del boss al jugador; los golpes del jugador al boss hacen 1 de daño (5 con headshot o crítico del ⚔️). Los bosses y las estatuas de M1 llevan máscaras-retrato holográficas con ojos brillantes — cyan holo en reposo, rojos en combate (o mientras se golpea una estatua para su tip):
 
 | Boss | Mapa | HP | Daño/golpe | Crítico | Recompensa al derrotarlo |
 |---|:---:|---:|---:|---|---|
@@ -1686,7 +1686,7 @@ El rango del Pool se calcula a partir de la suma de niveles de todos sus miembro
 
 La membresía y el rango del Pool son visibles en el Ranking y en Relaying. Los chips de invitación aparecen en la barra de cabecera del Ranking y se actualizan en tiempo real.
 
-**Inmunidad de pool:** los comandos de mining y los comandos ocultos lanzados por cualquier miembro de un pool nunca penalizan a otras wallets del mismo pool. Las penalizaciones solo alcanzan a wallets de pools rivales o a wallets sin afiliación a ningún pool.
+**Fuego amigo: nunca.** Las wallets del mismo pool no pueden dañarse ni penalizarse entre sí en ninguna situación: golpes PvP de bastón (bloqueados a nivel de base de datos), comandos de mining y comandos ocultos (los compañeros de pool quedan exentos de penalizaciones), Squeezes (solo pool contra pool, un pool nunca puede atacarse a sí mismo), el área del 🎲 StormRoll (el pool del comprador del dado es inmune) y los golpes de los NPC perseguidores (anulados si la wallet AI del NPC comparte tu pool). Las penalizaciones y el daño solo alcanzan a wallets de pools rivales o sin afiliación a ningún pool.
 
 ---
 
