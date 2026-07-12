@@ -4,6 +4,7 @@ import { useEffect, useRef } from 'react'
 import { spawnBossDollarBurst, drawBossDollarBills } from '@/lib/m5-boss-dollar-vfx'
 import { spawnBossHammerSickleBurst, drawBossHammerSickleSymbols } from '@/lib/m3-boss-hammer-sickle-vfx'
 import { spawnBossMissileBurst, drawBossMissileSymbols } from '@/lib/m4-boss-missile-vfx'
+import { spawnBossAttackBeam, drawBossAttackBeams } from '@/lib/boss-attack-beam-vfx'
 import { createM3PutinBossVisual } from '@/lib/m3-putin-boss-runtime'
 import { M3_PUTIN_BOSS_SCALE, M3_PUTIN_BOSS_NAME } from '@/lib/m3-putin-boss'
 import { createM4KimBossVisual } from '@/lib/m4-kim-boss-runtime'
@@ -515,7 +516,9 @@ const HOME_BOSS_LAYOUT = [
 
 function addRedCarpet(THREE, scene) {
   const carpetGroup = new THREE.Group()
-  carpetGroup.position.set(0, HOME_ARENA_FLOOR_Y - 0.016, 0.42)
+  // Centre shifted toward the camera (+z) so boss attack beams land on the
+  // carpet for most of their 8-unit range (camera is at z=+24).
+  carpetGroup.position.set(0, HOME_ARENA_FLOOR_Y - 0.016, 2.8)
 
   // Freak-crypto runway: near-black circuit deck with neon cyan rails and a
   // magenta data stripe — matches the portal's cyan/magenta CRT identity.
@@ -526,10 +529,9 @@ function addRedCarpet(THREE, scene) {
     emissive: '#0e7490',
     emissiveIntensity: 0.30,
   })
-  // Sized to the 9-member rail span (9 × 4.55 ≈ 41) so the wrap-around
-  // carousel never shows members standing off the runway.
-  // Depth 5.0 gives ~2.5 units on each side so boss attack lunges stay on the carpet.
-  const carpet = new THREE.Mesh(new THREE.BoxGeometry(41.4, 0.025, 5.0), carpetMat)
+  // Width covers the wider 9-member rail (9 × 6 = 54) with a margin.
+  // Depth 9.0 ensures boss attack beams (range 8) stay on the runway.
+  const carpet = new THREE.Mesh(new THREE.BoxGeometry(58, 0.025, 9.0), carpetMat)
   carpet.receiveShadow = true
   carpetGroup.add(carpet)
 
@@ -540,14 +542,14 @@ function addRedCarpet(THREE, scene) {
     emissive: '#22d3ee',
     emissiveIntensity: 0.85,
   })
-  for (const z of [-2.55, 2.55]) {
-    const trim = new THREE.Mesh(new THREE.BoxGeometry(41.6, 0.035, 0.10), trimMat)
+  for (const z of [-4.55, 4.55]) {
+    const trim = new THREE.Mesh(new THREE.BoxGeometry(58.2, 0.035, 0.10), trimMat)
     trim.position.z = z
     carpetGroup.add(trim)
   }
 
   const centerStripe = new THREE.Mesh(
-    new THREE.BoxGeometry(41.0, 0.028, 0.21),
+    new THREE.BoxGeometry(57.6, 0.028, 0.21),
     new THREE.MeshBasicMaterial({ color: '#d946ef', transparent: true, opacity: 0.62 }),
   )
   centerStripe.position.y = 0.004
@@ -555,8 +557,8 @@ function addRedCarpet(THREE, scene) {
 
   // Cross-ticks every few units — circuit-board traces along the runway.
   const tickMat = new THREE.MeshBasicMaterial({ color: '#22d3ee', transparent: true, opacity: 0.30 })
-  for (let x = -19.35; x <= 19.35; x += 2.25) {
-    const tick = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.028, 2.6), tickMat)
+  for (let x = -27; x <= 27; x += 2.25) {
+    const tick = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.028, 4.2), tickMat)
     tick.position.set(x, 0.003, 0)
     carpetGroup.add(tick)
   }
@@ -666,6 +668,9 @@ export default function HomeMiningWorld3D() {
     let dollarBills = []
     let hammerSickleSymbols = []
     let missileSymbols = []
+    let putinBeams = []
+    let kimBeams = []
+    let trumpBeams = []
     // Stagger first attacks so all 3 don't fire simultaneously
     const bossNextAttack = {
       putin: performance.now() + 1500,
@@ -731,7 +736,8 @@ export default function HomeMiningWorld3D() {
 
       // Shared scratch vector + camera ref for VFX screen-space projection
       const _v3a = new THREE.Vector3()
-      const threeState = { camera, _v3a }
+      const _v3b = new THREE.Vector3()
+      const threeState = { camera, _v3a, _v3b }
 
       scene.add(new THREE.HemisphereLight('#e0f7ff', '#07111f', 1.72))
       const key = new THREE.DirectionalLight('#fff8dc', 3.35)
@@ -829,7 +835,7 @@ export default function HomeMiningWorld3D() {
         bossById.trump, homeSoloCar, bossById.putin, homeProps[0], bossById.milei,
         homeBotCar, bossById.kim, punchBotProp, homePunchBotCar,
       ]
-      const RAIL_SPACING = 4.55
+      const RAIL_SPACING = 6.0
       const railSpan = lineup.length * RAIL_SPACING
       lineup.forEach((entry, i) => {
         entry.railX = (i - (lineup.length - 1) / 2) * RAIL_SPACING
@@ -1207,9 +1213,16 @@ export default function HomeMiningWorld3D() {
               const fromGy = boss.group.position.z
               const toGx   = camera.position.x
               const toGy   = camera.position.z
-              if (bossId === 'trump')       dollarBills          = spawnBossDollarBurst(dollarBills, { fromGx, fromGy, toGx, toGy, at: now, mapId: '5' })
-              else if (bossId === 'putin')  hammerSickleSymbols  = spawnBossHammerSickleBurst(hammerSickleSymbols, { fromGx, fromGy, toGx, toGy, at: now, mapId: '3' })
-              else if (bossId === 'kim')    missileSymbols       = spawnBossMissileBurst(missileSymbols, { fromGx, fromGy, toGx, toGy, at: now, mapId: '4' })
+              if (bossId === 'trump') {
+                dollarBills = spawnBossDollarBurst(dollarBills, { fromGx, fromGy, toGx, toGy, at: now, mapId: '5' })
+                trumpBeams  = spawnBossAttackBeam(trumpBeams, { fromGx, fromGy, toGx, toGy, at: now, mapId: '5', range: 8 })
+              } else if (bossId === 'putin') {
+                hammerSickleSymbols = spawnBossHammerSickleBurst(hammerSickleSymbols, { fromGx, fromGy, toGx, toGy, at: now, mapId: '3' })
+                putinBeams = spawnBossAttackBeam(putinBeams, { fromGx, fromGy, toGx, toGy, at: now, mapId: '3', range: 8 })
+              } else if (bossId === 'kim') {
+                missileSymbols = spawnBossMissileBurst(missileSymbols, { fromGx, fromGy, toGx, toGy, at: now, mapId: '4' })
+                kimBeams = spawnBossAttackBeam(kimBeams, { fromGx, fromGy, toGx, toGy, at: now, mapId: '4', range: 8 })
+              }
             }
           }
           if (elapsed >= 3000) {
@@ -1222,6 +1235,9 @@ export default function HomeMiningWorld3D() {
           const W = overlayCanvas.width
           const H = overlayCanvas.height
           overlayCtx.clearRect(0, 0, W, H)
+          putinBeams  = drawBossAttackBeams(overlayCtx, putinBeams,  { mapId: '3', W, H, threeState, now })
+          kimBeams    = drawBossAttackBeams(overlayCtx, kimBeams,    { mapId: '4', W, H, threeState, now })
+          trumpBeams  = drawBossAttackBeams(overlayCtx, trumpBeams,  { mapId: '5', W, H, threeState, now })
           dollarBills = drawBossDollarBills(overlayCtx, dollarBills, { mapId: '5', W, H, threeState, now })
           hammerSickleSymbols = drawBossHammerSickleSymbols(overlayCtx, hammerSickleSymbols, { mapId: '3', W, H, threeState, now })
           missileSymbols = drawBossMissileSymbols(overlayCtx, missileSymbols, { mapId: '4', W, H, threeState, now })
