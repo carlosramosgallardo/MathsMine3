@@ -1,10 +1,7 @@
 'use client'
 
 import { useEffect, useRef } from 'react'
-import { spawnBossDollarBurst, drawBossDollarBills } from '@/lib/m5-boss-dollar-vfx'
-import { spawnBossHammerSickleBurst, drawBossHammerSickleSymbols } from '@/lib/m3-boss-hammer-sickle-vfx'
-import { spawnBossMissileBurst, drawBossMissileSymbols } from '@/lib/m4-boss-missile-vfx'
-import { spawnBossAttackBeam, drawBossAttackBeams } from '@/lib/boss-attack-beam-vfx'
+import { spawnBossTrail, drawBossTrail } from '@/lib/boss-attack-beam-vfx'
 import { createM3PutinBossVisual } from '@/lib/m3-putin-boss-runtime'
 import { M3_PUTIN_BOSS_SCALE, M3_PUTIN_BOSS_NAME } from '@/lib/m3-putin-boss'
 import { createM4KimBossVisual } from '@/lib/m4-kim-boss-runtime'
@@ -665,12 +662,9 @@ export default function HomeMiningWorld3D() {
     const overlayCtx = overlayCanvas.getContext('2d')
 
     // Boss VFX particle arrays — updated each frame by the draw functions
-    let dollarBills = []
-    let hammerSickleSymbols = []
-    let missileSymbols = []
-    let putinBeams = []
-    let kimBeams = []
-    let trumpBeams = []
+    let putinTrail = []
+    let kimTrail   = []
+    let trumpTrail = []
     // Stagger first attacks so all 3 don't fire simultaneously
     const bossNextAttack = {
       putin: performance.now() + 1500,
@@ -1211,17 +1205,20 @@ export default function HomeMiningWorld3D() {
             if (boss) {
               const fromGx = boss.group.position.x
               const fromGy = boss.group.position.z
-              const toGx   = camera.position.x
+              const toGx   = camera.position.x   // direction VFX particles: boss → camera
               const toGy   = camera.position.z
+              // Beam fires in the direction the boss was facing at attack start.
+              // lungseFacing is boss.group.rotation.y frozen when the attack triggered.
+              // Three.js Y-rotation: forward = (sin(ry), 0, cos(ry)) in world XZ.
+              const ry = boss.lungseFacing ?? boss.group.rotation.y
+              const beamToGx = fromGx + Math.sin(ry)
+              const beamToGy = fromGy + Math.cos(ry)
               if (bossId === 'trump') {
-                dollarBills = spawnBossDollarBurst(dollarBills, { fromGx, fromGy, toGx, toGy, at: now, mapId: '5' })
-                trumpBeams  = spawnBossAttackBeam(trumpBeams, { fromGx, fromGy, toGx, toGy, at: now, mapId: '5', range: 8 })
+                trumpTrail = spawnBossTrail(trumpTrail, { fromGx, fromGy, toGx: beamToGx, toGy: beamToGy, at: now, mapId: '5', range: 8 })
               } else if (bossId === 'putin') {
-                hammerSickleSymbols = spawnBossHammerSickleBurst(hammerSickleSymbols, { fromGx, fromGy, toGx, toGy, at: now, mapId: '3' })
-                putinBeams = spawnBossAttackBeam(putinBeams, { fromGx, fromGy, toGx, toGy, at: now, mapId: '3', range: 8 })
+                putinTrail = spawnBossTrail(putinTrail, { fromGx, fromGy, toGx: beamToGx, toGy: beamToGy, at: now, mapId: '3', range: 8 })
               } else if (bossId === 'kim') {
-                missileSymbols = spawnBossMissileBurst(missileSymbols, { fromGx, fromGy, toGx, toGy, at: now, mapId: '4' })
-                kimBeams = spawnBossAttackBeam(kimBeams, { fromGx, fromGy, toGx, toGy, at: now, mapId: '4', range: 8 })
+                kimTrail = spawnBossTrail(kimTrail, { fromGx, fromGy, toGx: beamToGx, toGy: beamToGy, at: now, mapId: '4', range: 8 })
               }
             }
           }
@@ -1235,12 +1232,9 @@ export default function HomeMiningWorld3D() {
           const W = overlayCanvas.width
           const H = overlayCanvas.height
           overlayCtx.clearRect(0, 0, W, H)
-          putinBeams  = drawBossAttackBeams(overlayCtx, putinBeams,  { mapId: '3', W, H, threeState, now })
-          kimBeams    = drawBossAttackBeams(overlayCtx, kimBeams,    { mapId: '4', W, H, threeState, now })
-          trumpBeams  = drawBossAttackBeams(overlayCtx, trumpBeams,  { mapId: '5', W, H, threeState, now })
-          dollarBills = drawBossDollarBills(overlayCtx, dollarBills, { mapId: '5', W, H, threeState, now })
-          hammerSickleSymbols = drawBossHammerSickleSymbols(overlayCtx, hammerSickleSymbols, { mapId: '3', W, H, threeState, now })
-          missileSymbols = drawBossMissileSymbols(overlayCtx, missileSymbols, { mapId: '4', W, H, threeState, now })
+          putinTrail = drawBossTrail(overlayCtx, putinTrail, { mapId: '3', W, H, threeState, now })
+          kimTrail   = drawBossTrail(overlayCtx, kimTrail,   { mapId: '4', W, H, threeState, now })
+          trumpTrail = drawBossTrail(overlayCtx, trumpTrail, { mapId: '5', W, H, threeState, now })
         }
 
         renderer.render(scene, camera)
