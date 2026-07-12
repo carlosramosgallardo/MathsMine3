@@ -528,7 +528,8 @@ function addRedCarpet(THREE, scene) {
   })
   // Sized to the 9-member rail span (9 × 4.55 ≈ 41) so the wrap-around
   // carousel never shows members standing off the runway.
-  const carpet = new THREE.Mesh(new THREE.BoxGeometry(41.4, 0.025, 2.98), carpetMat)
+  // Depth 5.0 gives ~2.5 units on each side so boss attack lunges stay on the carpet.
+  const carpet = new THREE.Mesh(new THREE.BoxGeometry(41.4, 0.025, 5.0), carpetMat)
   carpet.receiveShadow = true
   carpetGroup.add(carpet)
 
@@ -539,7 +540,7 @@ function addRedCarpet(THREE, scene) {
     emissive: '#22d3ee',
     emissiveIntensity: 0.85,
   })
-  for (const z of [-1.55, 1.55]) {
+  for (const z of [-2.55, 2.55]) {
     const trim = new THREE.Mesh(new THREE.BoxGeometry(41.6, 0.035, 0.10), trimMat)
     trim.position.z = z
     carpetGroup.add(trim)
@@ -603,6 +604,7 @@ export function addHomeBoss(THREE, scene, options = {}) {
     bodyPivot,
     glowLight,
     baseY: HOME_ARENA_FLOOR_Y + yOffset,
+    baseZ: position[2],
     baseRotationY: rotationY,
     phase,
     sway,
@@ -1001,6 +1003,12 @@ export default function HomeMiningWorld3D() {
         const idleAX = ph => Math.sin(t * 0.9  + ph) * 0.055
         const idleAZ = (bz, ph) => bz + Math.sin(t * 0.63 + ph * 1.7) * 0.045
 
+        // Lunge direction captured at attack-start (boss.lungseFacing), so it stays
+        // constant even as the showcase spin rotates the boss during the 3 s window.
+        const lf = boss.lungseFacing ?? boss.group.rotation.y
+        const lfx = Math.sin(lf)
+        const lfz = Math.cos(lf)
+
         if (bossId === 'putin') {
           // Military precision: both arms pull back then thrust forward together; V-spread legs
           const aX = windupP * (-0.52) + strikeP * 1.70
@@ -1016,6 +1024,8 @@ export default function HomeMiningWorld3D() {
                                     + (-0.07 * windupP + 0.03 * strikeP) * blend
           boss.group.position.y    = boss.baseY + jumpH * 0.38 * blend
           boss.group.rotation.z    = Math.sin(t * (boss.sway + 0.65)) * 0.014 * (1 - blend)
+          boss.group.position.x   += lfx * 1.8 * jumpH * blend
+          boss.group.position.z    = boss.baseZ + lfz * 1.8 * jumpH * blend
 
         } else if (bossId === 'kim') {
           // Theatrical: right arm sweeps overhead then stabs forward; left stays back; scissor kick
@@ -1033,6 +1043,8 @@ export default function HomeMiningWorld3D() {
                                     + 0.05 * windupP * blend
           boss.group.position.y    = boss.baseY + jumpH * 0.52 * blend
           boss.group.rotation.z    = Math.sin(t * (boss.sway + 0.65)) * 0.014 * (1 - blend)
+          boss.group.position.x   += lfx * 1.8 * jumpH * blend
+          boss.group.position.z    = boss.baseZ + lfz * 1.8 * jumpH * blend
 
         } else if (bossId === 'trump') {
           // Bombastic: arms blast wide sideways then right arm jabs; low hop; lateral leg spread + hip wobble
@@ -1050,6 +1062,8 @@ export default function HomeMiningWorld3D() {
           boss.group.position.y    = boss.baseY + jumpH * 0.22 * blend
           boss.group.rotation.z    = Math.sin(t * (boss.sway + 0.65)) * 0.014 * (1 - blend)
                                    + Math.sin(at * Math.PI * 3.5) * 0.032 * blend
+          boss.group.position.x   += lfx * 1.8 * jumpH * blend
+          boss.group.position.z    = boss.baseZ + lfz * 1.8 * jumpH * blend
         }
       }
 
@@ -1131,6 +1145,7 @@ export default function HomeMiningWorld3D() {
             } else {
               boss.bodyPivot.position.y = Math.max(0, stride * 0.06)
               boss.group.position.y = boss.baseY + Math.max(0, Math.sin(t * (boss.bob + 0.15)) * 0.018)
+              boss.group.position.z = boss.baseZ
               boss.group.rotation.z = Math.sin(t * (boss.sway + 0.65)) * 0.014
               swayHumanoidArms(boss.bodyPivot, t)
               const legs = boss.bodyPivot?.userData?.humanLegs
@@ -1178,6 +1193,8 @@ export default function HomeMiningWorld3D() {
             bossNextAttack[bossId] = nextAt + 4000
             bossAttackStart[bossId] = now
             bossVfxFired[bossId] = false
+            // Freeze the lunge direction at attack start so it doesn't drift with showcase spin
+            if (bossById[bossId]) bossById[bossId].lungseFacing = bossById[bossId].group.rotation.y
           }
           const as = bossAttackStart[bossId]
           if (!as) continue
