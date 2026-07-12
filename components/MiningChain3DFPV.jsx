@@ -12575,9 +12575,10 @@ export default function MiningChain3DFPV({
     prevBossStateKindRef.current = next
     if (
       next === 'dead'
-      || (next === 'idle' && prev === 'active')
       || (prev === 'dead' && next !== 'dead')
     ) {
+      // Only recreate runtime on death/respawn. active→idle is handled by the
+      // runtime's !fighting path, which walks the boss smoothly back to spawn.
       bossRuntimeRef.current = getBossRuntimeModule(mapIdRef.current)?.createRuntime(next) ?? null
       bossIdleRequestedRef.current = false
     }
