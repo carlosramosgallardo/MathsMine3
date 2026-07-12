@@ -984,7 +984,7 @@ export default function MiningChain3D() {
   // Anon wallets resolve locally (same pattern as StormRoll damage); a hard
   // client cooldown backs up the NPC's own 30s cadence.
   const npcHitLastAtRef = useRef(0)
-  const handleNpcHit = useCallback(async () => {
+  const handleNpcHit = useCallback(async (payload) => {
     const now = Date.now()
     if (now - npcHitLastAtRef.current < 25_000) return
     npcHitLastAtRef.current = now
@@ -1003,9 +1003,11 @@ export default function MiningChain3D() {
     fetch('/api/npc-hit', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ wallet: key }),
+      // npcWallet lets the server waive the hit when the NPC's AI wallet
+      // shares a pool with the victim — no friendly fire, ever.
+      body: JSON.stringify({ wallet: key, npcWallet: payload?.wallet || null }),
     }).then(r => r.json()).then(result => {
-      if (!result?.ok) return
+      if (!result?.ok || result.immune) return
       const newHP = Number(result.health ?? 100)
       setHealthMap(prev => ({ ...prev, [key]: newHP }))
       setReceivedHitAt(Date.now())

@@ -27,6 +27,7 @@ export async function POST(req) {
   }
 
   const wallet = String(body.wallet || '').toLowerCase().trim()
+  const npcWallet = String(body.npcWallet || '').toLowerCase().trim()
   if (!wallet) return Response.json({ ok: false, error: 'missing_wallet' }, { status: 400 })
 
   // Anon wallets have no server-side HP — client handles locally
@@ -44,6 +45,21 @@ export async function POST(req) {
   if (lastHitByWallet.size > 5000) lastHitByWallet.clear()
 
   const sb = serviceClient()
+
+  // No friendly fire: if the NPC's AI wallet shares a pool with the victim,
+  // the hit is waived (same rule as PvP, storm and relay command penalties).
+  if (npcWallet && npcWallet !== wallet) {
+    const { data: poolRows } = await sb
+      .from('mm3_wallet_pool_members')
+      .select('wallet, pool_code')
+      .in('wallet', [wallet, npcWallet])
+    const victimPool = poolRows?.find(r => String(r.wallet).toLowerCase() === wallet)?.pool_code || null
+    const npcPool = poolRows?.find(r => String(r.wallet).toLowerCase() === npcWallet)?.pool_code || null
+    if (victimPool && npcPool && victimPool === npcPool) {
+      return Response.json({ ok: true, immune: true, health: null, killed: false, damage: 0 })
+    }
+  }
+
   const { data: hData } = await sb
     .from('mm3_pvp_health')
     .select('health, pvp_dead_until')
