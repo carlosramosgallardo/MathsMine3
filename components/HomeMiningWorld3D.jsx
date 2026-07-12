@@ -674,6 +674,7 @@ export default function HomeMiningWorld3D() {
     // Attack animation state: null = idle, number = performance.now() when the 3 s sequence began
     const bossAttackStart = { putin: null, kim: null, trump: null }
     const bossVfxFired    = { putin: false, kim: false, trump: false }
+    const bossGreetStart  = { putin: null, kim: null, trump: null }
 
     let animationFrame = 0
     let destroyed = false
@@ -1067,6 +1068,59 @@ export default function HomeMiningWorld3D() {
         }
       }
 
+      // Greeting wave animation (between attacks): each boss has a regime-specific pose.
+      const applyBossGreet = (boss, bossId, gt, t) => {
+        const arms = boss.bodyPivot?.userData?.humanArms
+        const legs = boss.bodyPivot?.userData?.humanLegs
+        if (!arms) return
+        const [lArm, rArm] = arms
+        const lBaseZ = lArm.userData.baseRotZ || 0
+        const rBaseZ = rArm.userData.baseRotZ || 0
+        const lPhase = lArm.userData.swayPhase || 0
+        const rPhase = rArm.userData.swayPhase || 0
+        const bIn  = Math.sin(Math.min(1, gt / 0.15) * Math.PI * 0.5)
+        const bOut = Math.sin(Math.min(1, (1 - gt) / 0.15) * Math.PI * 0.5)
+        const blend = bIn * bOut
+        const idleAX = ph => Math.sin(t * 0.9  + ph) * 0.055
+        const idleAZ = (bz, ph) => bz + Math.sin(t * 0.63 + ph * 1.7) * 0.045
+
+        boss.group.rotation.y  = boss.baseRotationY   // face camera, no spin
+        boss.group.position.y  = boss.baseY + Math.sin(t * 2.0) * 0.010
+        boss.group.position.z  = boss.baseZ
+        boss.group.rotation.z  = 0
+        boss.bodyPivot.position.y = Math.sin(t * 2.2) * 0.025
+        boss.bodyPivot.scale.setScalar(1)
+        boss.bodyPivot.position.z = 0
+        boss.bodyPivot.rotation.x = 0
+
+        if (bossId === 'putin') {
+          // Military salute: right arm raised to forehead, left at ease
+          const breathe = Math.sin(t * 1.8) * 0.018
+          rArm.rotation.x = idleAX(rPhase) * (1 - blend) + (2.0 + breathe) * blend
+          rArm.rotation.z = idleAZ(rBaseZ, rPhase) * (1 - blend) + (rBaseZ - 1.1) * blend
+          lArm.rotation.x = idleAX(lPhase)
+          lArm.rotation.z = idleAZ(lBaseZ, lPhase)
+        } else if (bossId === 'kim') {
+          // Parade wave: both arms raised overhead, bilateral oscillation
+          const wave = Math.sin(t * 3.2) * 0.28 * blend
+          rArm.rotation.x = idleAX(rPhase) * (1 - blend) + 2.5 * blend
+          lArm.rotation.x = idleAX(lPhase) * (1 - blend) + 2.5 * blend
+          rArm.rotation.z = idleAZ(rBaseZ, rPhase) * (1 - blend) + (rBaseZ + wave) * blend
+          lArm.rotation.z = idleAZ(lBaseZ, lPhase) * (1 - blend) + (lBaseZ - wave) * blend
+        } else if (bossId === 'trump') {
+          // Politician wave: right arm raised, sweeping side-to-side
+          const wave = Math.sin(t * 4.5) * 0.6 * blend
+          rArm.rotation.x = idleAX(rPhase) * (1 - blend) + 1.8 * blend
+          rArm.rotation.z = idleAZ(rBaseZ, rPhase) * (1 - blend) + (rBaseZ + wave) * blend
+          lArm.rotation.x = idleAX(lPhase)
+          lArm.rotation.z = idleAZ(lBaseZ, lPhase)
+        }
+        if (legs) {
+          legs[0].rotation.x = 0; legs[0].rotation.z = 0
+          legs[1].rotation.x = 0; legs[1].rotation.z = 0
+        }
+      }
+
       const animate = () => {
         animationFrame = requestAnimationFrame(animate)
         if (!pageVisible || !inViewport) return
@@ -1135,6 +1189,8 @@ export default function HomeMiningWorld3D() {
             boss.group.rotation.y = boss.baseRotationY + advanceShowcaseSpin(boss, spinDt)
             const as = bossAttackStart[boss.id]
             const attackT = as ? Math.min(1, (now - as) / 3000) : 0
+            const gs = bossGreetStart[boss.id]
+            const greetT = gs ? Math.min(1, (now - gs) / 3000) : 0
             boss.glowLight.intensity = boss.baseGlow + Math.sin(t * 2.4) * 0.85
             if (attackT > 0) {
               applyBossAttack(boss, boss.id, attackT, t)
@@ -1142,6 +1198,8 @@ export default function HomeMiningWorld3D() {
               const bIn  = Math.sin(Math.min(1, attackT / 0.15) * Math.PI * 0.5)
               const bOut = Math.sin(Math.min(1, (1 - attackT) / 0.20) * Math.PI * 0.5)
               boss.glowLight.intensity += bIn * bOut * 1.4
+            } else if (greetT > 0) {
+              applyBossGreet(boss, boss.id, greetT, t)
             } else {
               boss.bodyPivot.position.y = Math.max(0, stride * 0.06)
               boss.group.position.y = boss.baseY + Math.max(0, Math.sin(t * (boss.bob + 0.15)) * 0.018)
@@ -1189,8 +1247,11 @@ export default function HomeMiningWorld3D() {
         }
         // Boss 3-second attack sequence: animation starts on timer; VFX fires at t = 1.5 s
         for (const [bossId, nextAt] of Object.entries(bossNextAttack)) {
-          if (now >= nextAt && !bossAttackStart[bossId]) {
-            bossNextAttack[bossId] = nextAt + 4000
+          const gs = bossGreetStart[bossId]
+          if (gs && now - gs >= 3000) bossGreetStart[bossId] = null
+
+          if (now >= nextAt && !bossAttackStart[bossId] && !bossGreetStart[bossId]) {
+            bossNextAttack[bossId] = nextAt + 7000
             bossAttackStart[bossId] = now
             bossVfxFired[bossId] = false
             // Freeze the lunge direction at attack start so it doesn't drift with showcase spin
@@ -1225,6 +1286,7 @@ export default function HomeMiningWorld3D() {
           if (elapsed >= 3000) {
             bossAttackStart[bossId] = null
             bossVfxFired[bossId] = false
+            bossGreetStart[bossId] = now   // start greeting wave immediately after attack
           }
         }
         // Draw VFX particles on the 2D overlay canvas
