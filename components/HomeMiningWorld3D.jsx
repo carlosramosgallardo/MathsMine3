@@ -16,6 +16,7 @@ import { setBossMaskEyesRed } from '@/lib/boss-head-photo'
 import { colorFromAddress } from '@/lib/wallet-colors'
 import { buildHumanoidBody, buildBotRoundHead, swayHumanoidArms, walkHumanoidLegs } from '@/lib/humanoid-body'
 import { addRlCarBoost, setRlCarBoostLit } from '@/lib/rl-car-boost'
+import { attachRlCarModel } from '@/lib/rl-car-model'
 import { aiTeamPoolCode } from '@/lib/ai-team'
 
 /** The real AI-team bot wallets (NPC_BOT_BY_MAP in MiningChain3DFPV, maps 2-5):
@@ -38,6 +39,10 @@ const HOME_ARENA_BOSS_VS_BOT = 1.31
 const HOME_BOSS_SIZE_MULT = 1.06
 const HOME_LINEUP_BOT_SCALE = 2.96
 const HOME_LINEUP_CAR_SCALE = 2.51
+// Seated pose for bots riding the rl-car.glb: rear-cabin offset and body sink
+// (group-local units; the animate loop reuses SEAT_Y as the bob baseline).
+const HOME_BOTCAR_SEAT_Y = -0.30
+const HOME_BOTCAR_SEAT_Z = 0.45
 /** World Y where bot soles meet the arena disc (avatar origin + sole bottom local × scale). */
 const HOME_ARENA_FLOOR_Y = 0.12 + 0.0015 * HOME_ARENA_BOT_SCALE
 const HOME_SCENE_CENTER = { x: 0, z: 0 }
@@ -191,57 +196,11 @@ export function addMiningBot(THREE, scene, options = {}) {
 
 function createHomeRlCar(THREE, color = '#0ea5e9') {
   const group = new THREE.Group()
-  const shellColor = new THREE.Color(color)
-  const upperColor = shellColor.clone().multiplyScalar(0.7)
-  const shellMat = new THREE.MeshStandardMaterial({ color: shellColor.clone().lerp(new THREE.Color('#ffffff'), .08), roughness: .46, metalness: .42, emissive: shellColor.clone().multiplyScalar(.14), emissiveIntensity: .55 })
-  const upperMat = new THREE.MeshStandardMaterial({ color: upperColor, roughness: .42, metalness: .38, emissive: shellColor.clone().multiplyScalar(.08), emissiveIntensity: .28 })
-  const trimMat = new THREE.MeshStandardMaterial({ color: '#07111d', roughness: .72, metalness: .22 })
-  const glassMat = new THREE.MeshBasicMaterial({ color: '#0f172a', transparent: true, opacity: .84 })
-  const tireMat = new THREE.MeshStandardMaterial({ color: '#020617', roughness: .82, metalness: .2 })
-  const rimMat = new THREE.MeshStandardMaterial({ color: '#cbd5e1', roughness: .38, metalness: .58 })
-  const lightMat = new THREE.MeshBasicMaterial({ color: '#e0f2fe' })
-  const tailMat = new THREE.MeshBasicMaterial({ color: '#ef4444' })
-
-  const addBox = (size, mat, pos, rot = null) => {
-    const mesh = new THREE.Mesh(roundedVoxelGeometry(THREE, ...size), mat)
-    mesh.position.set(...pos)
-    if (rot) mesh.rotation.set(...rot)
-    mesh.castShadow = true
-    group.add(mesh)
-    return mesh
-  }
-
-  addBox([.92, .24, 1.22], shellMat, [0, .17, 0])
-  addBox([.76, .15, .36], shellMat, [0, .29, -.45])
-  addBox([.84, .28, .38], shellMat, [0, .31, .43])
-  addBox([.70, .30, .56], upperMat, [0, .50, -.02])
-  addBox([.78, .06, .68], trimMat, [0, .69, -.01])
-  addBox([.55, .08, .08], glassMat, [0, .53, -.35], [.25, 0, 0])
-  addBox([.55, .08, .08], glassMat, [0, .52, .32], [-.18, 0, 0])
-  for (const sx of [-1, 1]) {
-    addBox([.035, .16, .34], glassMat, [sx * .37, .52, -.04])
-    addBox([.04, .06, .38], trimMat, [sx * .47, .34, .08])
-  }
-  addBox([.54, .05, .035], lightMat, [0, .33, -.64])
-  addBox([.58, .06, .035], tailMat, [0, .34, .65])
-  addBox([.50, .045, .026], new THREE.MeshBasicMaterial({ color }), [0, .40, -.67])
-
-  for (const [wx, wz] of [[-.45, -.37], [.45, -.37], [-.45, .39], [.45, .39]]) {
-    const wheel = new THREE.Mesh(new THREE.CylinderGeometry(.14, .14, .09, 16), tireMat)
-    wheel.rotation.z = Math.PI / 2
-    wheel.position.set(wx, .14, wz)
-    wheel.castShadow = true
-    group.add(wheel)
-    const rim = new THREE.Mesh(new THREE.CylinderGeometry(.075, .075, .098, 14), rimMat)
-    rim.rotation.z = Math.PI / 2
-    rim.position.set(wx, .14, wz)
-    group.add(rim)
-  }
-
+  // Textured battle-car (rl-car.glb) with the lineup color as body tint.
+  attachRlCarModel(THREE, group, { tint: color, castShadow: true })
   // Painted boost thrusters — lit red by the mining-access hover, following
   // the same red/blue logic as the bot/boss eyes (idle = dim cyan "blue").
   addRlCarBoost(THREE, group, { y: .24, z: .68, activeColor: '#ff2020', flameColor: '#ef4444' })
-
   return group
 }
 
@@ -279,18 +238,21 @@ function addHomeBotCar(THREE, scene, options = {}) {
   car.position.y = 0
   group.add(car)
 
-  // Mining-style mount: full-size bot (same head height as the standing lineup
-  // bot) seated in the car — only the feet are hidden; the lower torso is
-  // simply occluded by the car body, so no gap shows under the head.
-  // -0.03 drop: breaks the coplanar tie between the bot's shoulder tops and the
-  // car roof plate (z-fighting flicker) — visually the same head height.
+  // Mining-style mount, seated in the rl-car.glb cockpit: the cabin sits in
+  // the rear half of the model (car-local z +0.18 → ×CAR_SCALE in group
+  // units), and the bot is sunk into the body so it reads as riding the car.
   const bot = addMiningBot(THREE, group, {
     color: botColor,
-    position: [0, -.03, -.02],
+    position: [0, HOME_BOTCAR_SEAT_Y, HOME_BOTCAR_SEAT_Z],
     rotationY: 0,
     scale: HOME_LINEUP_BOT_SCALE,
   })
-  for (const part of [bot.userData.leftFoot, bot.userData.rightFoot, bot.userData.leftSole, bot.userData.rightSole]) {
+  // Legs and feet stay inside the car body — hide them so nothing pokes
+  // through the chassis underside.
+  for (const part of [
+    bot.userData.leftFoot, bot.userData.rightFoot, bot.userData.leftSole, bot.userData.rightSole,
+    ...(bot.userData.humanLegs || []),
+  ]) {
     if (part) part.visible = false
   }
   return { kind: 'botCar', group, bot, car, baseY: HOME_ARENA_FLOOR_Y, baseRotationY: rotationY, phase, bob: 2.15, sway: .42 }
@@ -1272,7 +1234,7 @@ export default function HomeMiningWorld3D() {
             swayHumanoidArms(prop.group, t)
           } else if (prop.kind === 'botCar' && prop.bot) {
             // Ground level minus the anti-z-fight drop (see addHomeBotCar).
-            prop.bot.position.y = -.03 + Math.sin(t * 2.4) * .012
+            prop.bot.position.y = HOME_BOTCAR_SEAT_Y + Math.sin(t * 2.4) * .012
             swayHumanoidArms(prop.bot, t)
           }
           if (prop.punch) {

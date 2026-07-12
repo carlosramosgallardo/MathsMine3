@@ -4,6 +4,7 @@ import { useEffect, useRef, useCallback, useState } from 'react'
 import * as THREE from 'three'
 import { colorFromAddress } from '@/lib/wallet-colors'
 import { buildHumanoidBody, buildBotRoundHead, swayHumanoidArms, walkHumanoidLegs } from '@/lib/humanoid-body'
+import { attachRlCarModel } from '@/lib/rl-car-model'
 import { addRlCarBoost, setRlCarBoostLit } from '@/lib/rl-car-boost'
 import { aiTeamPoolCode } from '@/lib/ai-team'
 import { MM3_BLOCK_GRID_ROWS, MM3_BLOCK_GRID_COLS, MM3_MINE_BLOCK_TOTAL, MM3_REGULAR_BLOCK_TOTAL, MM3_NFTJI_BLOCK_TOTAL, gridToBlockHex, MM3_BLOCK_REQUIREMENT_BY_HEX, doesGlobalValueMeetRequirement } from '@/lib/mm3-block-chain'
@@ -49,7 +50,7 @@ import { resolveBossStatueFacing, getBossStatuesForMap } from '@/lib/mining-boss
 import { addVerticalArenaUsbStaff } from '@/lib/arena-usb-staff'
 import { roundedVoxelGeometry } from '@/lib/rounded-voxel'
 import { advanceShowcaseSpin, approachYaw } from '@/lib/map-boss-facing'
-import { drawRlBadge } from '@/lib/rl-badge'
+import { drawRlBadge, onRlCarImageReady } from '@/lib/rl-badge'
 import { setBossMaskEyesRed } from '@/lib/boss-head-photo'
 import {
   drawBossDollarBills,
@@ -7530,6 +7531,21 @@ function makeEmojiSprite(emoji,color,shape='square') {
   texture.colorSpace=THREE.SRGBColorSpace
   texture.minFilter=THREE.LinearFilter
   texture.generateMipmaps=false
+  if(emoji===RL_NODE_ICON){
+    // The badge draws a vector fallback until the car photo decodes — repaint
+    // the sprite (bg circle + badge) and refresh the texture when it lands.
+    onRlCarImageReady(()=>{
+      context.clearRect(0,0,128,128)
+      context.shadowColor=color;context.shadowBlur=20
+      context.fillStyle='rgba(1,7,14,.92)'
+      context.strokeStyle=color;context.lineWidth=7
+      context.beginPath();context.arc(64,64,56,0,Math.PI*2)
+      context.fill();context.stroke()
+      context.shadowBlur=0
+      drawRlBadge(context,64,64,56,{ring:false})
+      texture.needsUpdate=true
+    })
+  }
   const material=new THREE.SpriteMaterial({map:texture,transparent:true,depthWrite:false,alphaTest:.04})
   material.userData.ownedMap=true
   const sprite=new THREE.Sprite(material)
@@ -11470,72 +11486,13 @@ function createRlCarMesh(lowDetail = false, { showcase = false, decor = false, t
   const teamKey = String(teamColor || '').toLowerCase()
   const isAserejeeCar = decor && (teamKey === '#f8fafc' || teamKey === '#ffffff')
   const isBotTeamCar = decor && !isAserejeeCar
-  const shellColor = isAserejeeCar ? '#f8fafc' : isBotTeamCar ? '#dc2626' : '#2d3742'
-  const upperColor = isAserejeeCar ? '#cbd5e1' : isBotTeamCar ? '#7f1d1d' : '#202936'
-  const trimColor = isAserejeeCar ? '#1e293b' : '#0b1220'
-  const glassColor = isAserejeeCar ? '#172554' : '#0e1726'
-  const rimColor = isAserejeeCar ? '#64748b' : '#cbd5e1'
-  const shellMat = lowDetail
-    ? new THREE.MeshLambertMaterial({ color: shellColor })
-    : new THREE.MeshStandardMaterial({ color: shellColor, roughness: 0.56, metalness: 0.42, emissive: isBotTeamCar ? '#450a0a' : '#020617', emissiveIntensity: 0.12 })
-  const upperMat = lowDetail
-    ? new THREE.MeshLambertMaterial({ color: upperColor })
-    : new THREE.MeshStandardMaterial({ color: upperColor, roughness: 0.5, metalness: 0.34 })
-  const trimMat = new THREE.MeshLambertMaterial({ color: trimColor })
-  const glassMat = new THREE.MeshBasicMaterial({ color: glassColor, transparent: true, opacity: 0.82 })
-  const accentMat = new THREE.MeshBasicMaterial({ color: teamColor })
-  const lightMat = new THREE.MeshBasicMaterial({ color: '#e5f4ff' })
-  const tailMat = new THREE.MeshBasicMaterial({ color: '#ef4444' })
-  const tireMat = new THREE.MeshLambertMaterial({ color: '#05070b' })
-  const rimMat = new THREE.MeshLambertMaterial({ color: rimColor })
-
-  // Rounded voxels — same soft-edged look as the home lineup cars.
-  const addBox = (name, size, pos, mat, rot = null) => {
-    const mesh = new THREE.Mesh(roundedVoxelGeometry(THREE, ...size), mat)
-    mesh.name = name
-    mesh.position.set(...pos)
-    if (rot) mesh.rotation.set(...rot)
-    group.add(mesh)
-    return mesh
-  }
-
-  addBox('suv-lower-chassis', [0.86, 0.22, 1.18], [0, 0.16, 0.02], shellMat)
-  addBox('suv-hood', [0.74, 0.13, 0.34], [0, 0.26, -0.44], shellMat)
-  addBox('suv-rear-block', [0.82, 0.25, 0.34], [0, 0.28, 0.43], shellMat)
-  addBox('suv-cabin', [0.68, 0.26, 0.58], [0, 0.43, -0.02], upperMat)
-  addBox('suv-roof', [0.74, 0.055, 0.68], [0, 0.60, -0.01], trimMat)
-  addBox('suv-front-glass', [0.54, 0.075, 0.08], [0, 0.47, -0.34], glassMat, [0.28, 0, 0])
-  addBox('suv-rear-glass', [0.54, 0.075, 0.08], [0, 0.46, 0.32], glassMat, [-0.22, 0, 0])
-  for (const sx of [-1, 1]) {
-    addBox('suv-side-window', [0.035, 0.15, 0.34], [sx * 0.36, 0.46, -0.04], glassMat)
-    addBox('suv-door-panel', [0.032, 0.13, 0.34], [sx * 0.435, 0.25, 0.03], trimMat)
-    addBox('suv-fender-front', [0.04, 0.10, 0.22], [sx * 0.45, 0.20, -0.38], trimMat)
-    addBox('suv-fender-rear', [0.04, 0.10, 0.22], [sx * 0.45, 0.20, 0.42], trimMat)
-    addBox('suv-accent-side', [0.038, 0.045, 0.36], [sx * 0.455, 0.30, 0.08], accentMat)
-  }
-  addBox('suv-grille', [0.50, 0.07, 0.035], [0, 0.25, -0.625], trimMat)
-  addBox('suv-headlight', [0.56, 0.045, 0.035], [0, 0.29, -0.648], lightMat)
-  addBox('suv-tail-light', [0.62, 0.055, 0.035], [0, 0.30, 0.64], tailMat)
-  addBox('suv-roof-spoiler', [0.76, 0.04, 0.12], [0, 0.62, 0.38], trimMat)
-  addBox('suv-front-accent', [0.42, 0.035, 0.025], [0, 0.34, -0.665], accentMat)
-
-  for (const [wx, wz] of [[-0.43, 0.38], [0.43, 0.38], [-0.43, -0.36], [0.43, -0.36]]) {
-    const wheel = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.14, 0.09, lowDetail ? 8 : 16), tireMat)
-    wheel.rotation.z = Math.PI / 2
-    wheel.position.set(wx, 0.13, wz)
-    group.add(wheel)
-    const rim = new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.075, 0.096, lowDetail ? 8 : 14), rimMat)
-    rim.rotation.z = Math.PI / 2
-    rim.position.set(wx, 0.13, wz)
-    group.add(rim)
-    if (!lowDetail) {
-      for (let i = 0; i < 6; i += 1) {
-        const spoke = addBox('suv-wheel-spoke', [0.008, 0.018, 0.13], [wx, 0.13, wz], trimMat, [0, 0, i * Math.PI / 6])
-        spoke.rotation.y = Math.PI / 2
-      }
-    }
-  }
-
+  // Textured battle-car (rl-car.glb, async-attached, geometry shared across
+  // instances). Bot team cars get their team tint on the body paint; the
+  // Aserejee car and the player mount keep the stock white paint.
+  attachRlCarModel(THREE, group, {
+    tint: isBotTeamCar ? teamColor : null,
+    lowDetail,
+  })
   // Painted boost: always-visible thruster nozzles + glow discs that light up
   // while boosting (jump / high speed); flame cones only show while lit.
   addRlCarBoost(THREE, group, { y: 0.23, z: 0.66, lowDetail })
@@ -11548,6 +11505,9 @@ function applyRlMountVisual(avatar, mounted, threeState = null) {
   const lowDetail = isLowRenderTier()
   if (!avatar.userData.rlCar) {
     avatar.userData.rlCar = createRlCarMesh(lowDetail)
+    // rl-car.glb's cabin sits in the rear half (car-local z +0.18): shift the
+    // car forward so the rider ends up seated in the cockpit, not on the hood.
+    avatar.userData.rlCar.position.z = -0.18
     avatar.add(avatar.userData.rlCar)
     avatar.userData.rlMountedHeadY = avatar.userData.head?.position.y ?? 0.82
     avatar.userData.rlMountedAntStemY = avatar.userData.antennaStem?.position.y ?? 1.005
