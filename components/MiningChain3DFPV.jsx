@@ -65,8 +65,8 @@ import {
   spawnBossMissileBurst,
 } from '@/lib/m4-boss-missile-vfx'
 import {
-  drawBossAttackBeams,
-  spawnBossAttackBeam,
+  spawnBossTrail,
+  drawBossTrail,
 } from '@/lib/boss-attack-beam-vfx'
 import { getMapBossConfig, mapHasBoss } from '@/lib/map-boss-registry'
 import { getBossRuntimeModule } from '@/lib/map-boss-runtime'
@@ -12190,7 +12190,7 @@ export default function MiningChain3DFPV({
   const bossDollarBillsRef = useRef([])
   const bossHammerSymbolsRef = useRef([])
   const bossMissileSymbolsRef = useRef([])
-  const bossBeamsRef = useRef([])
+  const bossTrailRef = useRef([])
   const bossLastAttackMsRef = useRef(0)
   const onPvpHitRef          = useRef(onPvpHit)
   const pvpStolenRef         = useRef(pvpStolen || {})
@@ -14464,7 +14464,7 @@ export default function MiningChain3DFPV({
       ctx.fillStyle = pg
       ctx.fillRect(0, 0, W, H)
     }
-    bossBeamsRef.current = drawBossAttackBeams(ctx, bossBeamsRef.current, {
+    bossTrailRef.current = drawBossTrail(ctx, bossTrailRef.current, {
       mapId: mapIdRef.current,
       W,
       H,
@@ -15299,13 +15299,14 @@ export default function MiningChain3DFPV({
                 count: tier === 'low' ? 4 : tier === 'medium' ? 5 : 7,
               })
             }
-            bossBeamsRef.current = spawnBossAttackBeam(bossBeamsRef.current, {
+            bossTrailRef.current = spawnBossTrail(bossTrailRef.current, {
               fromGx: rt.gx,
               fromGy: rt.gy,
               toGx: targetPos.gx,
               toGy: targetPos.gy,
               at: performance.now(),
               mapId: currentMapId,
+              range: 5,
             })
             playBossMapAttackSound(currentMapId, audioCtxRef)
           }
