@@ -47,7 +47,7 @@ import {
 import { addM1MileiStatueReservedCells, createM1MileiStatueVisual } from '@/lib/m1-milei-statue'
 import { addM1ZelenskyStatueReservedCells, createM1ZelenskyStatueVisual } from '@/lib/m1-zelensky-statue'
 import { createM2MacronStatueVisual } from '@/lib/m2-macron-statue'
-import { NUKE_CUBE_POSITIONS, NUKE_CUBE_INTERACT_RADIUS, createNukeCubeVisual, toggleNukeCube, updateNukeCubeVisual } from '@/lib/nuke-cube'
+import { NUKE_CUBE_POSITIONS, NUKE_CUBE_INTERACT_RADIUS, addNukeCubeReservations, createNukeCubeVisual, toggleNukeCube, updateNukeCubeVisual } from '@/lib/nuke-cube'
 import { resolveBossStatueFacing, getBossStatuesForMap } from '@/lib/mining-boss-statue-registry'
 import { drawMinimapFlag } from '@/lib/minimap-flags'
 import { addVerticalArenaUsbStaff } from '@/lib/arena-usb-staff'
@@ -8161,7 +8161,7 @@ function rebuildThreeWorld(state,cellMap,obstacles) {
     // before the organic skip, so doorway ramps don't fall into the biome rock path.
     if(entry[1]?.isHouse){ houseEntries.push(entry); continue }
     if(HOUSE_DOOR_STEP_KEYS.has(entry[0])) continue
-    if(isOrganicShape(entry[1])||entry[1].isColosseumBridge) continue
+    if(isOrganicShape(entry[1])||entry[1].isColosseumBridge||entry[1].isNukeCube) continue
     if(entry[1]?.isArenaStand||String(entry[1]?.label||'').startsWith('ARENA')){
       arenaEntries.push(entry); continue
     }
@@ -9716,6 +9716,7 @@ function buildPeachCastleStructures(world, obstacles, { lite = false } = {}) {
 
   const families = { castle: [], house: [], masonry: [] }
   for (const [key, data] of obstacles) {
+    if (data.isNukeCube) continue
     const [row, col] = key.split(',').map(Number)
     const bottom = obstacleBottom(data)
     const top = Number(data.visualHeight) || obstacleTop(data)
@@ -10013,6 +10014,7 @@ function buildDesertOasisStructures(world, obstacles, { lite = false } = {}) {
 
   const families = { tower: [], rock: [], masonry: [] }
   for (const [key, data] of obstacles) {
+    if (data.isNukeCube) continue
     const [row, col] = key.split(',').map(Number)
     const bottom = obstacleBottom(data)
     const top = Number(data.visualHeight) || obstacleTop(data)
@@ -10397,6 +10399,7 @@ function buildMysticIsleStructures(world, obstacles, { lite = false } = {}) {
 
   const families = { heart: [], crystal: [], rock: [], masonry: [] }
   for (const [key, data] of obstacles) {
+    if (data.isNukeCube) continue
     const [row, col] = key.split(',').map(Number)
     const bottom = obstacleBottom(data)
     const top = Number(data.visualHeight) || obstacleTop(data)
@@ -10488,6 +10491,7 @@ function buildGlacialStructures(world, obstacles, { lite = false } = {}) {
 
   const families = { masonry: [], arena: [], boulder: [], crystal: [], plank: [], post: [] }
   for (const [key, data] of obstacles) {
+    if (data.isNukeCube) continue
     const [row, col] = key.split(',').map(Number)
     const bottom = obstacleBottom(data)
     const top = Number(data.visualHeight) || obstacleTop(data)
@@ -10722,6 +10726,13 @@ function buildPeripheralObstacles(mapId, cellMap) {
     if (gatewayClear.has(key)) continue
     if (reserved.has(key)) continue
     valid.set(key, chainObstacle(key, data))
+  }
+  // Solid nuke cube — physics obstacle only; the visual is the decor group
+  // (isNukeCube skips it in the organic structure builders).
+  const nukePos = NUKE_CUBE_POSITIONS[String(mapId)]
+  if (nukePos) {
+    const nk = `${nukePos.row},${nukePos.col}`
+    valid.set(nk, chainObstacle(nk, { base: [74, 82, 50], label: 'NUKE CUBE', height: 0.985, isStructure: true, isNukeCube: true }))
   }
   return valid
 }
@@ -12870,6 +12881,7 @@ export default function MiningChain3DFPV({
     for (const key of M1_GATEWAY_SIGHT_CLEAR) reserved.add(key)
     addM1MileiStatueReservedCells(reserved)
     addM1ZelenskyStatueReservedCells(reserved)
+    addNukeCubeReservations('1', reserved)
     const valid = new Map()
     for (const [key, data] of OBSTACLE_MAP) {
       if (M1_GATEWAY_SIGHT_CLEAR.has(key)) continue
@@ -12940,6 +12952,12 @@ export default function MiningChain3DFPV({
 
     addDenseMaze(valid,reserved,m1CellMap)
     addOrganicObstacles(valid,reserved,m1CellMap)
+    // Solid nuke cube — physics obstacle only; the visual is the decor group
+    // (isNukeCube skips it in the box renderers).
+    {
+      const nk=`${NUKE_CUBE_POSITIONS['1'].row},${NUKE_CUBE_POSITIONS['1'].col}`
+      valid.set(nk, chainObstacle(nk,{ base:[74,82,50], label:'NUKE CUBE', height:0.985, isStructure:true, isNukeCube:true }))
+    }
     clearCipherHouseApproaches(valid)
     applyHouseDoorStepObstacles(valid)
 

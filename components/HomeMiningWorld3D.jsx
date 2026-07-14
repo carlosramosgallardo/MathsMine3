@@ -350,7 +350,9 @@ function addHomeCautionSign(THREE, scene) {
   for (const side of [-1, 1]) {
     const panel = new THREE.Mesh(panelGeo, yellowMat)
     panel.position.set(0, 1.04, side * 0.26)
-    panel.rotation.x = side * lean
+    // Negative side-lean = a proper A: tops meet under the hinge, feet spread
+    // on the floor (positive made an upside-down V).
+    panel.rotation.x = -side * lean
     group.add(panel)
     const face = new THREE.Mesh(new THREE.PlaneGeometry(1.5, 2.02), faceMat)
     face.position.z = side * 0.032
