@@ -1660,7 +1660,13 @@ footer.bg-black\/97,
   100% { transform: none; filter: none; opacity: 1; }
 }
 .mm3-nonagon-logo {
-  width: 66%;
+  /* Sized against the ring, not the core button: the core inset (20.5%) is
+     dictated by the square world minimap, but the round logo can fill the
+     polygon's inscribed circle. 128% of the 59% core ≈ 75% of the ring —
+     ~10 viewBox units clear of the sides' inner stroke edge. */
+  width: 128%;
+  max-width: none;
+  flex: 0 0 auto;
   height: auto;
   border-radius: 50%;
   box-shadow:

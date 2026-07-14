@@ -201,8 +201,10 @@ function NonagonPortal({ portal, es, isDead, deadCountdown, count, nftji, mining
           const [x2, y2] = pt(i + 1)
           const mx = (x1 + x2) / 2
           const my = (y1 + y2) / 2
-          const ix = C + (mx - C) * 0.80
-          const iy = C + (my - C) * 0.80
+          // Badge hugs its side (0.94 ≈ on the stroke) so the enlarged core
+          // logo (radius ~151 in viewBox units) never covers it.
+          const ix = C + (mx - C) * 0.94
+          const iy = C + (my - C) * 0.94
           const blocked = isBlocked(card.href)
           const selected = i === sel
           // Sides carry no icons and only the two eye colours: holo cyan at
@@ -249,7 +251,7 @@ function NonagonPortal({ portal, es, isDead, deadCountdown, count, nftji, mining
           title={es ? 'Mostrar mapa del mundo' : 'Show world map'}
         >
           <span className="mm3-nonagon-core-flip">
-            <Image src="/og-image.jpg" alt="MM3" width={160} height={160} className="mm3-nonagon-logo" />
+            <Image src="/og-image.jpg" alt="MM3" width={360} height={360} className="mm3-nonagon-logo" />
           </span>
         </button>
       </div>

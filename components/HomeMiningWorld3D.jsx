@@ -543,18 +543,14 @@ function addRedCarpet(THREE, scene, memberCount = 9) {
     carpetGroup.add(trim)
   }
 
-  const centerStripe = new THREE.Mesh(
-    new THREE.BoxGeometry(width - 0.4, 0.028, 0.21),
-    new THREE.MeshBasicMaterial({ color: '#d946ef', transparent: true, opacity: 0.62 }),
-  )
-  centerStripe.position.y = 0.004
-  carpetGroup.add(centerStripe)
-
   // Cross-ticks every few units — circuit-board traces along the runway.
+  // No centre stripe: the runway reads as a single lane, and one fewer
+  // near-coplanar overlay (stripe top vs tick top was ~1 mm — it shimmered).
+  // Ticks ride clearly above the carpet top for the same reason.
   const tickMat = new THREE.MeshBasicMaterial({ color: '#22d3ee', transparent: true, opacity: 0.30 })
   for (let x = -(width / 2 - 2); x <= width / 2 - 2; x += 2.25) {
     const tick = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.028, 4.2), tickMat)
-    tick.position.set(x, 0.003, 0)
+    tick.position.set(x, 0.008, 0)
     carpetGroup.add(tick)
   }
 

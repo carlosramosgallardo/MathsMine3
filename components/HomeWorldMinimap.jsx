@@ -28,8 +28,8 @@ const NFTJI_MARKET_SPOTS = (() => {
   }
   return byMap
 })()
-import { M1_MILEI_STATUE_POSITION } from '@/lib/m1-milei-statue'
-import { M1_ZELENSKY_STATUE_POSITION } from '@/lib/m1-zelensky-statue'
+import { getBossStatuesForMap } from '@/lib/mining-boss-statue-registry'
+import { drawMinimapFlag } from '@/lib/minimap-flags'
 import { RL_NODE_POSITION } from '@/lib/mining-rl-mount'
 import { drawRlBadge } from '@/lib/rl-badge'
 import { getGatewayTravelVisual } from '@/lib/mining-gateway-travel-visual'
@@ -162,30 +162,6 @@ function drawMapTile(ctx, mapId, ox, oy, size, es) {
     ctx.stroke()
   }
 
-  // Marker helpers — emoji chip with colored ring, like the real minimap.
-  const emojiChip = (row, col, emoji, color, shape = 'circle') => {
-    const cx = px(col + 0.5)
-    const cy = py(row + 0.5)
-    const r = Math.max(4.5, size * 0.035)
-    ctx.save()
-    ctx.shadowColor = color
-    ctx.shadowBlur = 3
-    ctx.fillStyle = 'rgba(1,7,14,.94)'
-    ctx.strokeStyle = color
-    ctx.lineWidth = 1
-    ctx.beginPath()
-    if (shape === 'square') ctx.rect(cx - r, cy - r, r * 2, r * 2)
-    else ctx.arc(cx, cy, r, 0, Math.PI * 2)
-    ctx.fill()
-    ctx.stroke()
-    ctx.shadowBlur = 0
-    ctx.font = `${Math.round(r * 1.25)}px serif`
-    ctx.textAlign = 'center'
-    ctx.textBaseline = 'middle'
-    ctx.fillText(emoji, cx, cy + r * 0.08)
-    ctx.restore()
-  }
-
   if (mapId === '1') {
     // Cipher House cell-by-cell (same structure cells the world builds) + pool.
     ctx.fillStyle = 'rgba(105,132,154,.22)'
@@ -208,54 +184,6 @@ function drawMapTile(ctx, mapId, ox, oy, size, es) {
     ctx.beginPath()
     ctx.arc(px(colMidCol), py(colMidRow), colR, 0, Math.PI * 2)
     ctx.stroke()
-
-    for (const node of MINING_PORTAL_NODES) {
-      emojiChip(node.row, node.col, node.emoji, node.color)
-    }
-    emojiChip(MINING_CHAIN_NODE_POSITION.row, MINING_CHAIN_NODE_POSITION.col, '⬡', '#facc15')
-    emojiChip(NODE_DICE_POSITION.row, NODE_DICE_POSITION.col, '🎲', '#facc15')
-    emojiChip(M1_MILEI_STATUE_POSITION.row, M1_MILEI_STATUE_POSITION.col, '🗿', '#eab308')
-    emojiChip(M1_ZELENSKY_STATUE_POSITION.row, M1_ZELENSKY_STATUE_POSITION.col, '🗿', '#3b82f6')
-  }
-  // NFTJI market blocks with their real fixed emojis, amber-framed like the
-  // live minimap's market cells.
-  for (const slot of NFTJI_MARKET_SPOTS[String(mapId)] || []) {
-    emojiChip(slot.row, slot.col, slot.emoji, '#fb923c', 'square')
-  }
-  if (mapId === '2') {
-    // Rocket-league badge (car + boost + ball), same art as the live minimap.
-    drawRlBadge(ctx, px(RL_NODE_POSITION.col + 0.5), py(RL_NODE_POSITION.row + 0.5), Math.max(5, size * 0.04), { ringColor: '#0ea5e9' })
-  }
-  // World bosses marked with their striped flag, exactly like the live minimap
-  // (flag emojis do not render on Windows canvases).
-  const bossSpawn = BOSS_SPAWNS[mapId]
-  if (bossSpawn) {
-    const flagW = Math.max(10, cs * 3.4)
-    const flagH = flagW * 0.62
-    const fx = px(bossSpawn.col + 0.5) - flagW / 2
-    const fy = py(bossSpawn.row + 0.5) - flagH / 2
-    const stripes = String(mapId) === '3'
-      ? ['#f8fafc', '#2563eb', '#dc2626']
-      : String(mapId) === '4'
-        ? ['#1d4ed8', '#dc2626', '#1d4ed8']
-        : ['#b22234', '#f8fafc', '#b22234']
-    const sh = flagH / 3
-    ctx.save()
-    ctx.shadowColor = '#ef4444'
-    ctx.shadowBlur = 5
-    stripes.forEach((c, i) => {
-      ctx.fillStyle = c
-      ctx.fillRect(fx, fy + i * sh, flagW, sh)
-    })
-    if (String(mapId) === '5') {
-      ctx.fillStyle = '#3c3b6e'
-      ctx.fillRect(fx, fy, flagW * 0.42, sh * 1.5)
-    }
-    ctx.shadowBlur = 0
-    ctx.strokeStyle = '#ffffff'
-    ctx.lineWidth = 0.8
-    ctx.strokeRect(fx - 0.4, fy - 0.4, flagW + 0.8, flagH + 0.8)
-    ctx.restore()
   }
 
   // Travel icons toward adjacent maps on the outer sea ring.
@@ -289,12 +217,115 @@ function drawMapTile(ctx, mapId, ox, oy, size, es) {
   ctx.restore()
 }
 
+/** Animated marker overlay for one tile — same motion grammar as the in-game
+    minimap: markets bob, nodes breathe, the chain node breathes slower, statue
+    flags wave and boss flags bob + pulse. Deterministic client data only. */
+function drawTileMarkers(ctx, mapId, ox, oy, size, t) {
+  const cs = size / GRID
+  const px = (col) => ox + col * cs
+  const py = (row) => oy + row * cs
+  ctx.save()
+  ctx.beginPath()
+  ctx.rect(ox, oy, size, size)
+  ctx.clip()
+
+  // Emoji chip with colored ring, like the real minimap.
+  const emojiChip = (row, col, emoji, color, shape = 'circle', dy = 0, scale = 1) => {
+    const cx = px(col + 0.5)
+    const cy = py(row + 0.5) + dy
+    const r = Math.max(4.5, size * 0.035) * scale
+    ctx.save()
+    ctx.shadowColor = color
+    ctx.shadowBlur = 3
+    ctx.fillStyle = 'rgba(1,7,14,.94)'
+    ctx.strokeStyle = color
+    ctx.lineWidth = 1
+    ctx.beginPath()
+    if (shape === 'square') ctx.rect(cx - r, cy - r, r * 2, r * 2)
+    else ctx.arc(cx, cy, r, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.stroke()
+    ctx.shadowBlur = 0
+    ctx.font = `${Math.round(r * 1.25)}px serif`
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.fillText(emoji, cx, cy + r * 0.08)
+    ctx.restore()
+  }
+  const breatheScale = (speed, phase) => 1 + Math.sin(t * speed + phase) * 0.05
+
+  if (mapId === '1') {
+    for (const node of MINING_PORTAL_NODES) {
+      emojiChip(node.row, node.col, node.emoji, node.color, 'circle', 0, breatheScale(1.6, node.row * 1.3 + node.col * 0.7))
+    }
+    emojiChip(MINING_CHAIN_NODE_POSITION.row, MINING_CHAIN_NODE_POSITION.col, '⬡', '#facc15', 'circle', 0, breatheScale(0.9, 0))
+    emojiChip(NODE_DICE_POSITION.row, NODE_DICE_POSITION.col, '🎲', '#facc15', 'circle', 0, breatheScale(1.6, 2.1))
+  }
+  // NFTJI market blocks with their real fixed emojis, amber-framed like the
+  // live minimap's market cells — gentle bob, phase per cell.
+  for (const slot of NFTJI_MARKET_SPOTS[String(mapId)] || []) {
+    const bob = Math.sin(t * 2 + (slot.row * 7 + slot.col) * 0.9) * 0.8
+    emojiChip(slot.row, slot.col, slot.emoji, '#fb923c', 'square', bob)
+  }
+  if (mapId === '2') {
+    // Rocket-league badge (car + boost + ball), same art as the live minimap.
+    const x = px(RL_NODE_POSITION.col + 0.5)
+    const y = py(RL_NODE_POSITION.row + 0.5)
+    const s = breatheScale(1.6, 1.2)
+    ctx.save()
+    ctx.translate(x, y)
+    ctx.scale(s, s)
+    ctx.translate(-x, -y)
+    drawRlBadge(ctx, x, y, Math.max(5, size * 0.04), { ringColor: '#0ea5e9' })
+    ctx.restore()
+  }
+  // Boss statues marked with their country flag (painted — flag emojis do not
+  // render on Windows canvases), ringed in statue colour; the flag waves.
+  for (const statue of getBossStatuesForMap(String(mapId))) {
+    // Same flag size standard as the boss markers below.
+    const flagW = Math.max(10, cs * 3.0)
+    const flagH = flagW * 0.62
+    ctx.save()
+    ctx.translate(px(statue.gx), py(statue.gy))
+    ctx.rotate(Math.sin(t * 1.4 + statue.gx) * 0.06)
+    ctx.shadowColor = statue.color || '#eab308'
+    ctx.shadowBlur = 4
+    drawMinimapFlag(ctx, -flagW / 2, -flagH / 2, flagW, flagH, statue.flag)
+    ctx.shadowBlur = 0
+    ctx.strokeStyle = statue.color || '#eab308'
+    ctx.lineWidth = 0.8
+    ctx.strokeRect(-flagW / 2 - 0.4, -flagH / 2 - 0.4, flagW + 0.8, flagH + 0.8)
+    ctx.restore()
+  }
+  // World bosses marked with their striped flag, exactly like the live minimap
+  // (flag emojis do not render on Windows canvases) — bob + alpha pulse.
+  const bossSpawn = BOSS_SPAWNS[mapId]
+  if (bossSpawn) {
+    const flagW = Math.max(10, cs * 3.0)
+    const flagH = flagW * 0.62
+    const fx = px(bossSpawn.col + 0.5) - flagW / 2
+    const fy = py(bossSpawn.row + 0.5) - flagH / 2 + Math.sin(t * 2.2) * 0.9
+    ctx.save()
+    ctx.globalAlpha = 0.82 + Math.sin(t * 3.6) * 0.18
+    ctx.shadowColor = '#ef4444'
+    ctx.shadowBlur = 5
+    drawMinimapFlag(ctx, fx, fy, flagW, flagH, { 3: 'ru', 4: 'kp', 5: 'us' }[String(mapId)])
+    ctx.shadowBlur = 0
+    ctx.strokeStyle = '#ffffff'
+    ctx.lineWidth = 0.8
+    ctx.strokeRect(fx - 0.4, fy - 0.4, flagW + 0.8, flagH + 0.8)
+    ctx.restore()
+  }
+  ctx.restore()
+}
+
 /**
- * Static, decorative full-world minimap: the five mining maps joined as one
- * cross-shaped piece, drawn once from deterministic client-side data — ground
+ * Decorative full-world minimap: the five mining maps joined as one
+ * cross-shaped piece, drawn from deterministic client-side data — ground
  * features, ambient walls, arenas, every mineable block, NFTJI market slots,
- * chain/dice/RL/portal nodes, statue, corridors and travel icons. No Supabase,
- * no realtime.
+ * chain/dice/RL/portal nodes, statues, corridors and travel icons. No
+ * Supabase, no realtime. The heavy geometry renders once into an offscreen
+ * static layer; only the ~20 markers redraw per tick (~30 fps) on top.
  */
 export default function HomeWorldMinimap({ es = false }) {
   const canvasRef = useRef(null)
@@ -303,40 +334,69 @@ export default function HomeWorldMinimap({ es = false }) {
     const canvas = canvasRef.current
     if (!canvas) return undefined
 
-    const draw = () => {
-      const dpr = Math.min(window.devicePixelRatio || 1, 2)
-      const cssW = canvas.clientWidth || 330
-      const tile = cssW / 3
-      const cssH = tile * 3
+    let staticLayer = null
+    let cssW = 0
+    let cssH = 0
+    let tile = 0
+    let dpr = 1
+
+    const buildStatic = () => {
+      dpr = Math.min(window.devicePixelRatio || 1, 2)
+      cssW = canvas.clientWidth || 330
+      tile = cssW / 3
+      cssH = tile * 3
       canvas.style.height = `${cssH}px`
       canvas.width = Math.round(cssW * dpr)
       canvas.height = Math.round(cssH * dpr)
-      const ctx = canvas.getContext('2d')
-      if (!ctx) return
-      ctx.scale(dpr, dpr)
-
+      staticLayer = document.createElement('canvas')
+      staticLayer.width = canvas.width
+      staticLayer.height = canvas.height
+      const sctx = staticLayer.getContext('2d')
+      if (!sctx) { staticLayer = null; return }
+      sctx.scale(dpr, dpr)
       // Connective sea behind the cross so the five islands read as one piece.
-      ctx.fillStyle = 'rgba(1,6,14,.85)'
-      ctx.fillRect(tile, 0, tile, cssH)
-      ctx.fillRect(0, tile, cssW, tile)
-
+      sctx.fillStyle = 'rgba(1,6,14,.85)'
+      sctx.fillRect(tile, 0, tile, cssH)
+      sctx.fillRect(0, tile, cssW, tile)
       for (const { mapId, tx, ty } of WORLD_TILES) {
-        drawMapTile(ctx, mapId, tx * tile, ty * tile, tile, es)
+        drawMapTile(sctx, mapId, tx * tile, ty * tile, tile, es)
       }
     }
 
-    // Redraw when the container resizes (e.g. mounted mid-way through the
-    // nonagon's open/close width transition), throttled to one per frame.
     let raf = 0
-    const onResize = () => {
-      cancelAnimationFrame(raf)
-      raf = requestAnimationFrame(draw)
+    let lastTick = 0
+    const tick = (nowMs) => {
+      raf = requestAnimationFrame(tick)
+      // ~30 fps is plenty for the subtle marker motion — halves the cost.
+      if (nowMs - lastTick < 33) return
+      lastTick = nowMs
+      if (!staticLayer) return
+      const ctx = canvas.getContext('2d')
+      if (!ctx) return
+      ctx.setTransform(1, 0, 0, 1, 0, 0)
+      ctx.clearRect(0, 0, canvas.width, canvas.height)
+      ctx.drawImage(staticLayer, 0, 0)
+      ctx.scale(dpr, dpr)
+      const t = nowMs / 1000
+      for (const { mapId, tx, ty } of WORLD_TILES) {
+        drawTileMarkers(ctx, mapId, tx * tile, ty * tile, tile, t)
+      }
     }
-    draw()
+
+    // Rebuild the static layer when the container resizes (e.g. mounted
+    // mid-way through the nonagon's open/close width transition).
+    let resizeRaf = 0
+    const onResize = () => {
+      cancelAnimationFrame(resizeRaf)
+      resizeRaf = requestAnimationFrame(buildStatic)
+    }
+    buildStatic()
+    raf = requestAnimationFrame(tick)
     const observer = new ResizeObserver(onResize)
     observer.observe(canvas)
     return () => {
       cancelAnimationFrame(raf)
+      cancelAnimationFrame(resizeRaf)
       observer.disconnect()
     }
   }, [es])

@@ -48,6 +48,7 @@ import { addM1MileiStatueReservedCells, createM1MileiStatueVisual } from '@/lib/
 import { addM1ZelenskyStatueReservedCells, createM1ZelenskyStatueVisual } from '@/lib/m1-zelensky-statue'
 import { createM2MacronStatueVisual } from '@/lib/m2-macron-statue'
 import { resolveBossStatueFacing, getBossStatuesForMap } from '@/lib/mining-boss-statue-registry'
+import { drawMinimapFlag } from '@/lib/minimap-flags'
 import { addVerticalArenaUsbStaff } from '@/lib/arena-usb-staff'
 import { roundedVoxelGeometry } from '@/lib/rounded-voxel'
 import { advanceShowcaseSpin, approachYaw } from '@/lib/map-boss-facing'
@@ -4357,38 +4358,6 @@ function drawMinimap(ctx, gr, gc, angle, cellMap, presenceMap, myWallet, W, H, c
     }
   }
 
-  for (const [key, cell] of cellMap) {
-    if (!cell?.isMarket) continue
-    const [row, col] = key.split(',').map(Number)
-    const color = cell.owner ? '#4ade80' : '#fb923c'
-    drawMapEmoji(cell.emoji || '◆', mapX(col + .5), mapY(row + .5), color, 'square')
-  }
-
-  for (const [key, cell] of cellMap) {
-    if (!cell?.isPortalNode && !cell?.isNodeDiceNode && !cell?.isRlNode) continue
-    const [row, col] = key.split(',').map(Number)
-    if (cell.emoji === RL_NODE_ICON) {
-      // Rocket-league badge (car + boost + ball), same art as the 3D node sprite.
-      drawRlBadge(ctx, mapX(col + .5), mapY(row + .5), (isMobile ? 7.5 : 9) * .72, { ringColor: cell.color || '#0ea5e9' })
-    } else {
-      drawMapEmoji(cell.emoji || '◆', mapX(col + .5), mapY(row + .5), cell.color || C, 'circle')
-    }
-  }
-
-  let chainDrawn = false
-  for (const [key, cell] of cellMap) {
-    if (!cell?.isChainNode) continue
-    const [row, col] = key.split(',').map(Number)
-    drawMapEmoji(cell.emoji || '⬡', mapX(col + .5), mapY(row + .5), '#facc15', 'circle')
-    chainDrawn = true
-  }
-  if (!chainDrawn && chainNodePos && isMiningCoreMap(mapId)) {
-    drawMapEmoji('⬡', mapX(chainNodePos.col + .5), mapY(chainNodePos.row + .5), '#facc15', 'circle')
-  }
-  for (const statue of getBossStatuesForMap(mapId)) {
-    drawMapEmoji('🗿', mapX(statue.gx), mapY(statue.gy), statue.color || '#eab308')
-  }
-
   drawPerimeterCellSoftening(ctx, mapId, mapX, mapY, CS)
 
     if(staticCacheRef){
@@ -4403,6 +4372,83 @@ function drawMinimap(ctx, gr, gc, angle, cellMap, presenceMap, myWallet, W, H, c
       )
       staticCacheRef.current={canvas:cacheCanvas,cellMap,validObs,myId,sz:SZ,dpr,mapId}
     }
+  }
+
+  // ── Animated markers — drawn per frame OVER the static cache. Only a
+  // handful of markers per map (~20 draw calls), so the heavy geometry stays
+  // cached while every indicator gets a subtle type-specific motion:
+  // NFTJI markets bob, nodes breathe (scale), the chain node breathes slower,
+  // statue flags wave, and the boss flag (below) bobs on top of its pulse.
+  const tSec = now / 1000
+
+  for (const [key, cell] of cellMap) {
+    if (!cell?.isMarket) continue
+    const [row, col] = key.split(',').map(Number)
+    const color = cell.owner ? '#4ade80' : '#fb923c'
+    const bob = Math.sin(tSec * 2 + (row * 7 + col) * 0.9) * 0.8
+    drawMapEmoji(cell.emoji || '◆', mapX(col + .5), mapY(row + .5) + bob, color, 'square')
+  }
+
+  const breathe = (x, y, speed, phase, draw) => {
+    const s = 1 + Math.sin(tSec * speed + phase) * 0.05
+    ctx.save()
+    ctx.translate(x, y)
+    ctx.scale(s, s)
+    ctx.translate(-x, -y)
+    draw()
+    ctx.restore()
+  }
+
+  for (const [key, cell] of cellMap) {
+    if (!cell?.isPortalNode && !cell?.isNodeDiceNode && !cell?.isRlNode) continue
+    const [row, col] = key.split(',').map(Number)
+    const x = mapX(col + .5)
+    const y = mapY(row + .5)
+    breathe(x, y, 1.6, row * 1.3 + col * 0.7, () => {
+      if (cell.emoji === RL_NODE_ICON) {
+        // Rocket-league badge (car + boost + ball), same art as the 3D node sprite.
+        drawRlBadge(ctx, x, y, (isMobile ? 7.5 : 9) * .72, { ringColor: cell.color || '#0ea5e9' })
+      } else {
+        drawMapEmoji(cell.emoji || '◆', x, y, cell.color || C, 'circle')
+      }
+    })
+  }
+
+  let chainDrawn = false
+  for (const [key, cell] of cellMap) {
+    if (!cell?.isChainNode) continue
+    const [row, col] = key.split(',').map(Number)
+    const x = mapX(col + .5)
+    const y = mapY(row + .5)
+    breathe(x, y, 0.9, 0, () => drawMapEmoji(cell.emoji || '⬡', x, y, '#facc15', 'circle'))
+    chainDrawn = true
+  }
+  if (!chainDrawn && chainNodePos && isMiningCoreMap(mapId)) {
+    const x = mapX(chainNodePos.col + .5)
+    const y = mapY(chainNodePos.row + .5)
+    breathe(x, y, 0.9, 0, () => drawMapEmoji('⬡', x, y, '#facc15', 'circle'))
+  }
+
+  // Statues marked with their country flag, painted like the boss markers
+  // (flag emojis do not render on Windows canvases), ringed in statue colour.
+  // Same size standard as the boss flags; gentle flag wave.
+  for (const statue of getBossStatuesForMap(mapId)) {
+    const flagW = Math.max(9, CS * 1.6)
+    const flagH = Math.max(6, CS * 1.05)
+    const cx = mapX(statue.gx)
+    const cy = mapY(statue.gy)
+    const wave = Math.sin(tSec * 1.4 + statue.gx) * 0.06
+    ctx.save()
+    ctx.translate(cx, cy)
+    ctx.rotate(wave)
+    ctx.shadowColor = statue.color || '#eab308'
+    ctx.shadowBlur = 6
+    drawMinimapFlag(ctx, -flagW / 2, -flagH / 2, flagW, flagH, statue.flag)
+    ctx.shadowBlur = 0
+    ctx.strokeStyle = statue.color || '#eab308'
+    ctx.lineWidth = 1
+    ctx.strokeRect(-flagW / 2 - .5, -flagH / 2 - .5, flagW + 1, flagH + 1)
+    ctx.restore()
   }
 
   drawMinimapEdgeExits(ctx, mapId, MX, MY, SZ, CS)
@@ -4443,33 +4489,21 @@ function drawMinimap(ctx, gr, gc, angle, cellMap, presenceMap, myWallet, W, H, c
     const bx = bossInfo?.gx ?? cfg?.spawn?.gx
     const by = bossInfo?.gy ?? cfg?.spawn?.gy
     const mx = mapX(bx)
-    const my = mapY(by)
+    // Gentle bob on top of the alpha pulse — same family as the statue wave.
+    const my = mapY(by) + Math.sin(now / 450) * 0.9
     const pulse = .75 + Math.sin(now / 280) * .25
     const active = bossInfo?.state === 'active'
     ctx.save()
     ctx.globalAlpha = active ? pulse : .88
     ctx.shadowColor = active ? '#ef4444' : '#fbbf24'
     ctx.shadowBlur = 10
-    // Boss marker: the boss's own flag drawn as stripes — flag emojis do not
-    // render on Windows canvases. Russia (M3) · North Korea (M4) · USA (M5).
+    // Boss marker: the boss's own flag painted via the shared helper — flag
+    // emojis do not render on Windows canvases.
     const flagW = Math.max(9, CS * 1.6)
     const flagH = Math.max(6, CS * 1.05)
     const fx = mx - flagW / 2
     const fy = my - flagH / 2
-    const stripes = String(mapId) === '3'
-      ? ['#f8fafc', '#2563eb', '#dc2626']
-      : String(mapId) === '4'
-        ? ['#1d4ed8', '#dc2626', '#1d4ed8']
-        : ['#b22234', '#f8fafc', '#b22234']
-    const sh = flagH / 3
-    stripes.forEach((c, i) => {
-      ctx.fillStyle = c
-      ctx.fillRect(fx, fy + i * sh, flagW, sh)
-    })
-    if (String(mapId) === '5') {
-      ctx.fillStyle = '#3c3b6e'
-      ctx.fillRect(fx, fy, flagW * 0.42, sh * 1.5)
-    }
+    drawMinimapFlag(ctx, fx, fy, flagW, flagH, cfg?.minimapFlag)
     ctx.shadowBlur = 0
     ctx.strokeStyle = active ? '#ef4444' : '#ffffff'
     ctx.lineWidth = 1
