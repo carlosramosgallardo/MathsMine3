@@ -46,6 +46,7 @@ import {
 } from '@/lib/m2-pitch-dome'
 import { addM1MileiStatueReservedCells, createM1MileiStatueVisual } from '@/lib/m1-milei-statue'
 import { addM1ZelenskyStatueReservedCells, createM1ZelenskyStatueVisual } from '@/lib/m1-zelensky-statue'
+import { createM2MacronStatueVisual } from '@/lib/m2-macron-statue'
 import { resolveBossStatueFacing, getBossStatuesForMap } from '@/lib/mining-boss-statue-registry'
 import { addVerticalArenaUsbStaff } from '@/lib/arena-usb-staff'
 import { roundedVoxelGeometry } from '@/lib/rounded-voxel'
@@ -4984,7 +4985,7 @@ function drawNpcHpBar(hpBar, hp) {
 
 // Statue interaction feedback: eyes burn red for a few seconds, then back to holo.
 function flashBossStatueEyes(threeState, statueId, ms = 5000) {
-  const groups = [threeState?.m1MileiStatueGroup, threeState?.m1ZelenskyStatueGroup]
+  const groups = [threeState?.m1MileiStatueGroup, threeState?.m1ZelenskyStatueGroup, threeState?.m2MacronStatueGroup]
   const group = groups.find(g => g && (!statueId || g.userData.bossStatueId === statueId))
   if (!group) return
   setBossMaskEyesRed(group, true)
@@ -10657,6 +10658,8 @@ function rebuildPeripheralMapWorld(state, mapId, obstacles, cellMap) {
   state.m1MileiStatueMotion = null
   state.m1ZelenskyStatueGroup = null
   state.m1ZelenskyStatueMotion = null
+  state.m2MacronStatueGroup = null
+  state.m2MacronStatueMotion = null
   if (state.world) { state.scene.remove(state.world); disposeThreeObject(state.world) }
   const world = new THREE.Group()
   const matrix = new THREE.Matrix4()
@@ -10731,6 +10734,7 @@ function rebuildPeripheralMapWorld(state, mapId, obstacles, cellMap) {
   if (mapId === '2') {
     addRlColiseumNodeVisual(world, lowDetail, state)
     addM2PitchDomeDecor(world, lowDetail, state)
+    addM2MacronStatueDecor(world, lowDetail, state)
   }
   state.m5TrumpBossGroup = null
   state.m3PutinBossGroup = null
@@ -10768,6 +10772,7 @@ function rebuildPeripheralMapWorld(state, mapId, obstacles, cellMap) {
     state.m3PutinBossGroup,
     state.m4KimBossGroup,
     state.m2PitchDomeGroup,
+    state.m2MacronStatueGroup,
   ].filter(Boolean))
   world.traverse(object => {
     if (object === world || animated.has(object)) return
@@ -10775,6 +10780,7 @@ function rebuildPeripheralMapWorld(state, mapId, obstacles, cellMap) {
     while (ancestor) {
       if (ancestor.userData?.m5TrumpBoss || ancestor.userData?.m3PutinBoss || ancestor.userData?.m4KimBoss) return
       if (ancestor.userData?.m2PitchDome) return
+      if (ancestor.userData?.m2MacronStatue) return
       ancestor = ancestor.parent
     }
     object.updateMatrix()
@@ -10827,6 +10833,8 @@ const WORLD_CACHE_STATE_KEYS = [
   'm1MileiStatueMotion',
   'm1ZelenskyStatueGroup',
   'm1ZelenskyStatueMotion',
+  'm2MacronStatueGroup',
+  'm2MacronStatueMotion',
   'm2PitchDomeGroup',
   'm2PitchDomeRuntime',
   'm3PutinBossGroup',
@@ -11059,7 +11067,7 @@ function updateM1MileiStatueMotion(motion, time, look = null) {
       if (!look.myDead) consider(look.localGx, look.localGy)
       const mi = String(look.myIdentity || '').toLowerCase()
       for (const [wallet, pres] of Object.entries(look.presenceMap || {})) {
-        if ((pres.mapId || '1') !== '1') continue
+        if ((pres.mapId || '1') !== (look.mapId || '1')) continue
         if (pres.isDead) continue
         if (mi && wallet.toLowerCase() === mi) continue
         consider(Number(pres.gx ?? (pres.col ?? 0) + 0.5), Number(pres.gy ?? (pres.row ?? 0) + 0.5))
@@ -11088,8 +11096,8 @@ function updateM1MileiStatueMotion(motion, time, look = null) {
   // hands. Left arm idles with a subtle human sway; right arm stays raised,
   // waving hello with the RJ45 hand.
   if (motion.salute === 'leftForward') {
-    // Stiff left-arm salute thrust forward-up, body leaning into it; the
-    // right arm idles with the human sway.
+    // Stiff left-arm salute thrust forward-up, body held upright (a stronger
+    // lean read as a tilted statue); the right arm idles with the human sway.
     const breathe = Math.sin(time * 1.6) * 0.03
     if (motion.leftArm) {
       motion.leftArm.position.y = (motion.leftArm.userData.baseY ?? 0.655) + armLift
@@ -11102,7 +11110,20 @@ function updateM1MileiStatueMotion(motion, time, look = null) {
       motion.rightArm.rotation.x = Math.sin(time * 0.9 + phase) * 0.055
       motion.rightArm.rotation.z = (motion.rightArm.userData.baseRotZ || 0) + Math.sin(time * 0.63 + phase) * 0.045
     }
-    if (motion.bodyPivot) motion.bodyPivot.rotation.x = -0.12 + breathe * 0.3
+    if (motion.bodyPivot) motion.bodyPivot.rotation.x = -0.03 + breathe * 0.3
+  } else if (motion.salute === 'bothUp') {
+    // Both arms raised in a V — the double presidential wave, arms waving
+    // hello in counter-phase.
+    if (motion.leftArm) {
+      motion.leftArm.position.y = (motion.leftArm.userData.baseY ?? 0.655) + armLift
+      motion.leftArm.rotation.x = 0
+      motion.leftArm.rotation.z = -2.5 - Math.sin(time * 2.4 + Math.PI) * 0.22
+    }
+    if (motion.rightArm) {
+      motion.rightArm.position.y = (motion.rightArm.userData.baseY ?? 0.655) + armLift
+      motion.rightArm.rotation.x = 0
+      motion.rightArm.rotation.z = 2.5 + Math.sin(time * 2.4) * 0.22
+    }
   } else {
     if (motion.leftArm) {
       const phase = motion.leftArm.userData.swayPhase || 0
@@ -11145,6 +11166,22 @@ function addM1ZelenskyStatueDecor(world, lowDetail, state = null) {
       root: visual.group,
       bodyPivot: visual.bodyPivot,
       salute: 'leftForward',
+      head: visual.group.userData.homeHead || null,
+      leftArm: visual.group.userData.homeLeftArm || null,
+      rightArm: visual.group.userData.homeRightArm || null,
+    }
+  }
+}
+
+function addM2MacronStatueDecor(world, lowDetail, state = null) {
+  const visual = createM2MacronStatueVisual(THREE, lowDetail)
+  world.add(visual.group)
+  if (state) {
+    state.m2MacronStatueGroup = visual.group
+    state.m2MacronStatueMotion = {
+      root: visual.group,
+      bodyPivot: visual.bodyPivot,
+      salute: 'bothUp',
       head: visual.group.userData.homeHead || null,
       leftArm: visual.group.userData.homeLeftArm || null,
       rightArm: visual.group.userData.homeRightArm || null,
@@ -13194,7 +13231,8 @@ export default function MiningChain3DFPV({
         updateHealingRechargeEffects(threeState,time,visualTier)
         updatePoolSubmersionEffects(threeState,time,visualTier)
         {
-          const statueLook = mapIdRef.current === '1' ? {
+          const statueLook = mapIdRef.current === '1' || mapIdRef.current === '2' ? {
+            mapId: mapIdRef.current,
             localGx: gx,
             localGy: gy,
             myDead: localDead,
@@ -13203,6 +13241,7 @@ export default function MiningChain3DFPV({
           } : null
           updateM1MileiStatueMotion(threeState.m1MileiStatueMotion, time, statueLook)
           updateM1MileiStatueMotion(threeState.m1ZelenskyStatueMotion, time, statueLook)
+          updateM1MileiStatueMotion(threeState.m2MacronStatueMotion, time, statueLook)
         }
         if(visualTier==='high') updateAvatarOccluders(threeState)
         threeState.renderer.render(threeState.scene,threeState.camera)

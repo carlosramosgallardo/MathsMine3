@@ -30,7 +30,7 @@ const SECTION_NFTJIS = {
   '/relaying': ['🔁'],
 }
 
-const EMPTY_NFTJI_STATE = Object.freeze({ owned: [], levels: {}, miningKey: null, miningLevel: 0 })
+const EMPTY_NFTJI_STATE = Object.freeze({ owned: [], levels: {}, miningKey: null, miningLevels: {}, squeezeEquipped: null })
 
 // Mining-skill passives per NFTJI (see miningSkillAbilityLines) — appended to
 // the emoji tooltip so the skill is explained wherever the NFTJI shows up.
@@ -80,23 +80,34 @@ const PORTAL = {
  * centre, clicking the side (or the centre button) navigates.
  */
 /** One NFTJI tile — logo-badge format: framed square with the emoji inside
-    and, when owned, a corner badge with the current level (like the header
-    logo tile, with the level where the home marker sits). Greyed unowned. */
-function NftjiTile({ emoji, owned, level, title }) {
+    and, when leveled/equipped, a corner badge with the current level (like the
+    header logo tile, with the level where the home marker sits). Three states:
+    greyed (not leveled), colored + badge without glow (leveled but not worn —
+    only exists where a single NFTJI can be equipped at a time: mining blocks
+    and Squeezing ⚔️/🔰) and the gold glow (equipped right now). `equipped`
+    defaults to `owned` so always-active NFTJIs keep the glow as before. */
+function NftjiTile({ emoji, owned, level, title, equipped = owned }) {
+  const lit = owned || equipped
   return (
-    <span className={`mm3-nftji-tile${owned ? ' is-owned' : ''}`} title={title}>
-      <span style={owned ? lifeNftjiEmojiFilterStyle(emoji) : undefined}>{emoji}</span>
-      {owned && <span className="mm3-nftji-lvbadge">{Math.max(0, Number(level) || 0)}</span>}
+    <span className={`mm3-nftji-tile${equipped ? ' is-owned' : lit ? ' is-leveled' : ''}`} title={title}>
+      <span style={lit ? lifeNftjiEmojiFilterStyle(emoji) : undefined}>{emoji}</span>
+      {lit && <span className="mm3-nftji-lvbadge">{Math.max(0, Number(level) || 0)}</span>}
     </span>
   )
 }
 
 /** Section NFTJI tile fed from the wallet ownership/levels state. */
 function NftjiChip({ emoji, nftji, es }) {
+  const owned = nftji.owned.includes(emoji)
+  // Squeezing is one-at-a-time: only the equipped side keeps the glow.
+  const equipped = emoji === '⚔️' ? owned && nftji.squeezeEquipped === 'attack'
+    : emoji === '🔰' ? owned && nftji.squeezeEquipped === 'defense'
+    : owned
   return (
     <NftjiTile
       emoji={emoji}
-      owned={nftji.owned.includes(emoji)}
+      owned={owned}
+      equipped={equipped}
       level={nftji.levels[emoji] ?? 0}
       title={nftjiTooltip(emoji, es)}
     />
@@ -273,16 +284,18 @@ function NonagonPortal({ portal, es, isDead, deadCountdown, count, nftji, mining
             ))}
           </span>
         )}
-        {/* Mining side: its 20 block NFTJIs as a second row; the one the
-            wallet currently holds lights up with its level. */}
+        {/* Mining side: its 20 block NFTJIs as a second row; every block the
+            wallet has leveled shows its level, and the one currently equipped
+            keeps the gold glow. */}
         {!currentBlocked && current.href === '/mining' && miningBlocks.length > 0 && (
           <span className="mm3-nonagon-nftjis mm3-nonagon-nftjis-blocks" aria-label="NFTJIs">
             {miningBlocks.map((block) => (
               <NftjiTile
                 key={block.block_key}
                 emoji={block.emoji || '⬡'}
-                owned={nftji.miningKey === block.block_key}
-                level={nftji.miningKey === block.block_key ? nftji.miningLevel : 0}
+                owned={Math.max(0, Number(nftji.miningLevels[block.block_key] ?? 0)) > 0}
+                equipped={nftji.miningKey === block.block_key}
+                level={Math.max(0, Number(nftji.miningLevels[block.block_key] ?? 0))}
                 title={nftjiTooltip(block.emoji, es, {
                   base: (es ? block.title_es : block.title_en) || block.block_key,
                   isMiningBlock: true,
@@ -339,7 +352,7 @@ export default function LandingHero() {
             .select('wallet_emojis,lucky_50_level,lucky_100_level,lucky_500_level,lucky_1000_level,zero_day_level,relay_exec_count,mining_nftji_key,mining_nftji_levels')
             .eq('wallet', wallet).maybeSingle(),
           supabase.from('mm3_squeezing_nftji')
-            .select('attack_level,defense_level')
+            .select('equipped,attack_level,defense_level')
             .eq('wallet', wallet).maybeSingle(),
         ])
         if (!alive) return
@@ -354,13 +367,12 @@ export default function LandingHero() {
         }
         if (Number(sq?.attack_level) > 0) { owned.push('⚔️'); levels['⚔️'] = Number(sq.attack_level) }
         if (Number(sq?.defense_level) > 0) { owned.push('🔰'); levels['🔰'] = Number(sq.defense_level) }
-        const miningKey = pp?.mining_nftji_key || null
-        const miningLevels = pp?.mining_nftji_levels || {}
         setNftji({
           owned,
           levels,
-          miningKey,
-          miningLevel: miningKey ? Math.max(0, Number(miningLevels[miningKey] ?? 0)) : 0,
+          miningKey: pp?.mining_nftji_key || null,
+          miningLevels: pp?.mining_nftji_levels || {},
+          squeezeEquipped: sq?.equipped || null,
         })
       } catch { /* keep previous state */ }
     }

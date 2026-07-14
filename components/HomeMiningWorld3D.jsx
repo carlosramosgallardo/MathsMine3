@@ -10,6 +10,7 @@ import { createM5TrumpBossVisual } from '@/lib/m5-trump-boss-runtime'
 import { M5_TRUMP_BOSS_SCALE, M5_TRUMP_BOSS_NAME } from '@/lib/m5-trump-boss'
 import { createM1MileiStatueVisual, M1_MILEI_STATUE_SCALE } from '@/lib/m1-milei-statue'
 import { createM1ZelenskyStatueVisual, M1_ZELENSKY_STATUE_SCALE } from '@/lib/m1-zelensky-statue'
+import { createM2MacronStatueVisual, M2_MACRON_STATUE_SCALE } from '@/lib/m2-macron-statue'
 import { roundedVoxelGeometry } from '@/lib/rounded-voxel'
 import { advanceShowcaseSpin } from '@/lib/map-boss-facing'
 import { setBossMaskEyesRed } from '@/lib/boss-head-photo'
@@ -420,11 +421,15 @@ export function addNftjiMiningBlock(THREE, scene, options = {}) {
   return { group, glowLight, indicator, marker, sprite }
 }
 
+// Initial x positions only — the carousel rail overwrites every member's x
+// with railX (slot index × RAIL_SPACING), so the lineup is NOT capped at 7.
 const HOME_LINEUP_X = Object.freeze([-13.65, -9.1, -4.45, 0, 4.45, 9.1, 13.65])
+// heightMult sets each member's height relative to Trump (bossScale cancels
+// out in scaleMult) — keep it at realHeight/190 so the home matches the world.
 const HOME_BOSS_LAYOUT = [
   {
     id: 'putin',
-    heightMult: 0.89,
+    heightMult: 0.93,
     createVisual: createM3PutinBossVisual,
     bossScale: M3_PUTIN_BOSS_SCALE,
     position: [HOME_LINEUP_X[2], 0, 0.04],
@@ -450,7 +455,7 @@ const HOME_BOSS_LAYOUT = [
   },
   {
     id: 'zelensky',
-    heightMult: 0.92,
+    heightMult: 0.89,
     // Statue: lifted a touch — the pedestal adds real base height under it.
     yOffset: 0.3,
     createVisual: createM1ZelenskyStatueVisual,
@@ -463,8 +468,22 @@ const HOME_BOSS_LAYOUT = [
     bob: 2.16,
   },
   {
+    id: 'macron',
+    heightMult: 0.91,
+    // Statue: lifted a touch — the pedestal adds real base height under it.
+    yOffset: 0.3,
+    createVisual: createM2MacronStatueVisual,
+    bossScale: M2_MACRON_STATUE_SCALE,
+    position: [HOME_LINEUP_X[3], 0, 0.06],
+    glowColor: '#2563eb',
+    glowIntensity: 2.9,
+    phase: Math.PI * 1.15,
+    sway: 0.58,
+    bob: 2.22,
+  },
+  {
     id: 'kim',
-    heightMult: 0.87,
+    heightMult: 0.90,
     createVisual: createM4KimBossVisual,
     bossScale: M4_KIM_BOSS_SCALE,
     position: [HOME_LINEUP_X[6], 0, 0.04],
@@ -488,8 +507,11 @@ const HOME_BOSS_LAYOUT = [
   },
 ]
 
-function addRedCarpet(THREE, scene) {
+function addRedCarpet(THREE, scene, memberCount = 9) {
   const carpetGroup = new THREE.Group()
+  // Runway width tracks the rail: one RAIL_SPACING slot per member + margin,
+  // so the carpet keeps covering the lineup as more members join.
+  const width = memberCount * 6 + 4
   // Centre shifted toward the camera (+z) so boss attack beams land on the
   // carpet for most of their 8-unit range (camera is at z=+24).
   carpetGroup.position.set(0, HOME_ARENA_FLOOR_Y - 0.016, 2.8)
@@ -503,9 +525,8 @@ function addRedCarpet(THREE, scene) {
     emissive: '#0e7490',
     emissiveIntensity: 0.30,
   })
-  // Width covers the wider 9-member rail (9 × 6 = 54) with a margin.
   // Depth 9.0 ensures boss attack beams (range 8) stay on the runway.
-  const carpet = new THREE.Mesh(new THREE.BoxGeometry(58, 0.025, 9.0), carpetMat)
+  const carpet = new THREE.Mesh(new THREE.BoxGeometry(width, 0.025, 9.0), carpetMat)
   carpet.receiveShadow = true
   carpetGroup.add(carpet)
 
@@ -517,13 +538,13 @@ function addRedCarpet(THREE, scene) {
     emissiveIntensity: 0.85,
   })
   for (const z of [-4.55, 4.55]) {
-    const trim = new THREE.Mesh(new THREE.BoxGeometry(58.2, 0.035, 0.10), trimMat)
+    const trim = new THREE.Mesh(new THREE.BoxGeometry(width + 0.2, 0.035, 0.10), trimMat)
     trim.position.z = z
     carpetGroup.add(trim)
   }
 
   const centerStripe = new THREE.Mesh(
-    new THREE.BoxGeometry(57.6, 0.028, 0.21),
+    new THREE.BoxGeometry(width - 0.4, 0.028, 0.21),
     new THREE.MeshBasicMaterial({ color: '#d946ef', transparent: true, opacity: 0.62 }),
   )
   centerStripe.position.y = 0.004
@@ -531,7 +552,7 @@ function addRedCarpet(THREE, scene) {
 
   // Cross-ticks every few units — circuit-board traces along the runway.
   const tickMat = new THREE.MeshBasicMaterial({ color: '#22d3ee', transparent: true, opacity: 0.30 })
-  for (let x = -27; x <= 27; x += 2.25) {
+  for (let x = -(width / 2 - 2); x <= width / 2 - 2; x += 2.25) {
     const tick = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.028, 4.2), tickMat)
     tick.position.set(x, 0.003, 0)
     carpetGroup.add(tick)
@@ -586,7 +607,7 @@ export function addHomeBoss(THREE, scene, options = {}) {
     sway,
     bob,
     baseGlow: glowIntensity,
-    isStatue: group.userData.m1MileiStatue === true || group.userData.m1ZelenskyStatue === true,
+    isStatue: group.userData.m1MileiStatue === true || group.userData.m1ZelenskyStatue === true || group.userData.m2MacronStatue === true,
     saluteStyle: group.userData.statueSalute || 'rightWave',
     leftArm: group.userData.homeLeftArm || null,
     rightArm: group.userData.homeRightArm || null,
@@ -725,7 +746,8 @@ export default function HomeMiningWorld3D() {
       goldFill.position.set(0, 2.3, 2.1)
       scene.add(goldFill)
 
-      addRedCarpet(THREE, scene)
+      // 5 non-boss props (cars/bots) join the bosses on the rail below.
+      addRedCarpet(THREE, scene, HOME_BOSS_LAYOUT.length + 5)
       const homeBosses = HOME_BOSS_LAYOUT.map((layout) => addHomeBoss(THREE, scene, layout))
 
       // Hovering the mining-access card puts every boss/statue/bot in
@@ -800,13 +822,14 @@ export default function HomeMiningWorld3D() {
       // rail, which matters once more avatars than visible slots join the
       // lineup. Facing-the-camera yaw and the sec(θ) width compensation are
       // re-applied per frame as members move along the rail.
-      // Members interleave boss/bot as evenly as 4 bosses + 5 props allow, at
-      // the same RAIL_SPACING gap as before; railX is assigned by slot index.
+      // Members interleave boss/bot as evenly as the boss/prop counts allow,
+      // at the same RAIL_SPACING gap as before; railX is assigned by slot index.
       const bossById = Object.fromEntries(HOME_BOSS_LAYOUT.map((layout, i) => [layout.id, homeBosses[i]]))
       const punchBotProp = homeProps[3]
       const lineup = [
         bossById.trump, homeSoloCar, bossById.putin, homeProps[0], bossById.milei,
         homeBotCar, bossById.kim, punchBotProp, bossById.zelensky, homePunchBotCar,
+        bossById.macron,
       ]
       const RAIL_SPACING = 6.0
       const railSpan = lineup.length * RAIL_SPACING
@@ -835,6 +858,7 @@ export default function HomeMiningWorld3D() {
       addHomeTag(bossById.kim.group, `${M4_KIM_BOSS_NAME} · BOSS`, '#d946ef', 1.45)
       addHomeTag(bossById.milei.group, 'Javier Milei · STATUE', '#74acdf', 1.45)
       addHomeTag(bossById.zelensky.group, 'Volodymyr Zelensky · STATUE', '#3b82f6', 1.45)
+      addHomeTag(bossById.macron.group, 'Emmanuel Macron · STATUE', '#2563eb', 1.45)
       addHomeTag(homeSoloCar.group, 'Aserejee · AI', '#22d3ee', 0.95)
       addHomeTag(homeBot, aiTeamTag(AI_TEAM_WALLETS[0]), '#86efac', 1.25)
       addHomeTag(homeBotCar.group, aiTeamTag(AI_TEAM_WALLETS[1]), '#86efac', 3.62)
@@ -1171,7 +1195,20 @@ export default function HomeMiningWorld3D() {
                 boss.rightArm.rotation.x = Math.sin(t * 0.9 + phase) * 0.055
                 boss.rightArm.rotation.z = (boss.rightArm.userData.baseRotZ || 0) + Math.sin(t * 0.63 + phase) * 0.045
               }
-              boss.bodyPivot.rotation.x = -0.12 + breathe * 0.3
+              boss.bodyPivot.rotation.x = -0.03 + breathe * 0.3
+            } else if (boss.saluteStyle === 'bothUp') {
+              // Both arms raised in a V — the double presidential wave, arms
+              // waving hello in counter-phase.
+              if (boss.leftArm) {
+                boss.leftArm.position.y = (boss.leftArm.userData.baseY ?? 0.655) + armLift
+                boss.leftArm.rotation.x = 0
+                boss.leftArm.rotation.z = -2.5 - Math.sin(t * 2.4 + Math.PI) * 0.22
+              }
+              if (boss.rightArm) {
+                boss.rightArm.position.y = (boss.rightArm.userData.baseY ?? 0.655) + armLift
+                boss.rightArm.rotation.x = 0
+                boss.rightArm.rotation.z = 2.5 + Math.sin(t * 2.4) * 0.22
+              }
             } else {
               // Left arm idles with a human sway; right arm waves hello.
               if (boss.leftArm) {
