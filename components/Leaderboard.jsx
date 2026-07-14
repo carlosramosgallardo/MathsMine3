@@ -1835,13 +1835,12 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
               style={{ fontSize: '0.72rem' }}
             >
               <span className={`rank-badge ${rankCls} shrink-0`}>{formatBlockChainPercent(entry.block_chain_percent)}</span>
-              <span className="font-semibold truncate" style={{ color: walletColor }}>{formatWalletLabel(entry.wallet)}</span>
+              <span className="font-semibold truncate rounded px-1" style={{ color: walletColor, background: isOnline ? 'rgba(74,222,128,.16)' : 'transparent' }}>{formatWalletLabel(entry.wallet)}</span>
               {entry.pool_code ? (
                 <span className="shrink-0 font-black text-[0.6rem]" style={{ color: colorFromPool(String(entry.pool_code || '')) }}>#{entry.pool_code}</span>
               ) : null}
               <span className="text-slate-600">·</span>
               <span style={{ color: tier.color }}>{tier.emoji} {lvl}</span>
-              <span className={`lb-status-chip ${isOnline ? 'online' : 'offline'} shrink-0`}>{isOnline ? '●' : '○'}</span>
               <span className="ml-auto text-slate-500">{formatCompactMoney(sellValue, quoteCurrency)}</span>
               <span className="text-slate-600 shrink-0">▼</span>
             </button>
@@ -1860,8 +1859,8 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
                 <button
                   type="button"
                   onClick={() => toggleSelectedWallet(entry.wallet)}
-                  className="min-w-0 flex-1 truncate text-left font-mono text-[0.86rem] font-semibold transition hover:underline focus:outline-none"
-                  style={{ color: walletColor }}
+                  className="min-w-0 flex-1 truncate rounded px-1 text-left font-mono text-[0.86rem] font-semibold transition hover:underline focus:outline-none"
+                  style={{ color: walletColor, background: isOnline ? 'rgba(74,222,128,.16)' : 'transparent' }}
                   title={isSelectedWallet ? t('ranking.showAllWallets') : t('ranking.showOnlyWallet')}
                 >
                   {entry.is_bot ? <><span>{shortWallet(entry.wallet).toLowerCase()}</span><span className="ml-1 text-[0.62rem] font-black uppercase tracking-widest text-slate-500">(bot)</span></> : formatWalletLabel(entry.wallet)}
@@ -1888,9 +1887,6 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
                     {targetHasPool ? labels.pool : isPoolCooldown ? poolCooldownResetText : `+${labels.addContact}`}
                   </button>
                 ) : null}
-                <span className={`lb-status-chip ${isOnline ? 'online' : 'offline'} shrink-0`}>
-                  {isOnline ? t('ranking.online') : t('ranking.offline')}
-                </span>
                 <button type="button" onClick={() => toggleCard(walletCardId)} className="shrink-0 bg-transparent border-0 text-slate-600 font-mono text-[0.65rem] cursor-pointer px-1 leading-none hover:text-slate-400">▲</button>
               </div>
 
@@ -2055,8 +2051,7 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
             ) : (
               <tr>
                 <th style={{ width:'7%', textAlign:'center' }}><SortButton sortKey="block_chain_percent" className="justify-center">MM3 Chain</SortButton></th>
-                <th style={{ width:'9%', textAlign:'center' }}><SortButton sortKey="status" className="justify-center">{t('ranking.status')}</SortButton></th>
-                <th style={{ width:'23%' }}><SortButton sortKey="wallet">{t('ranking.minerWallet')}</SortButton></th>
+                <th style={{ width:'27%' }}><SortButton sortKey="wallet">{t('ranking.minerWallet')}</SortButton></th>
                 <th style={{ width:'8%', textAlign:'center' }}><SortButton sortKey="pool" className="justify-center">{labels.pool}</SortButton></th>
                 <th style={{ width:'13%', textAlign:'center' }} title="NTFJIs — probability artifacts that influence MM3 global value"><SortButton sortKey="nftji" className="justify-center">NTFJIs</SortButton></th>
                 <th style={{ width:'7%', textAlign:'center' }}><SortButton sortKey="execs" className="justify-center">{t('ranking.execs')}</SortButton></th>
@@ -2071,7 +2066,7 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
           <tbody>
             {isLoading ? (
               <tr className="lb-row">
-                <td colSpan={viewMode === 'pools' ? 10 : 11} style={{ textAlign:'center', padding: '2rem' }}>
+                <td colSpan={10} style={{ textAlign:'center', padding: '2rem' }}>
                   <PageLoading label={t('ranking.loadingMiners')} fullScreen={false} />
                 </td>
               </tr>
@@ -2348,12 +2343,8 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
                       {formatBlockChainPercent(entry.block_chain_percent)}
                     </button>
                   </td>
-                  <td style={{ textAlign:'center' }}>
-                    <span className={`lb-status-chip ${isOnline ? 'online' : 'offline'}`}>
-                      {isOnline ? t('ranking.online') : t('ranking.offline')}
-                    </span>
-                  </td>
-                  <td>
+                  {/* Online replaces the old Status column: green-tinted wallet cell. */}
+                  <td style={isOnline ? { background:'rgba(74,222,128,.13)', boxShadow:'inset 3px 0 0 rgba(74,222,128,.65)' } : undefined}>
                     <div className="flex min-w-0 flex-col gap-1">
                       <button
                         type="button"

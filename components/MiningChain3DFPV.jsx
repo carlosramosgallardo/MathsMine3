@@ -3,8 +3,8 @@
 import { useEffect, useRef, useCallback, useState } from 'react'
 import * as THREE from 'three'
 import { colorFromAddress } from '@/lib/wallet-colors'
-import { buildHumanoidBody, buildBotRoundHead, swayHumanoidArms, walkHumanoidLegs } from '@/lib/humanoid-body'
-import { attachRlCarModel } from '@/lib/rl-car-model'
+import { buildHumanoidBody, buildBotRoundHead, swayHumanoidArms, walkHumanoidLegs, flailHumanoidJump, flapHumanoidJump } from '@/lib/humanoid-body'
+import { attachRlCarModel, addRlCockpitTub } from '@/lib/rl-car-model'
 import { addRlCarBoost, setRlCarBoostLit } from '@/lib/rl-car-boost'
 import { aiTeamPoolCode } from '@/lib/ai-team'
 import { MM3_BLOCK_GRID_ROWS, MM3_BLOCK_GRID_COLS, MM3_MINE_BLOCK_TOTAL, MM3_REGULAR_BLOCK_TOTAL, MM3_NFTJI_BLOCK_TOTAL, gridToBlockHex, MM3_BLOCK_REQUIREMENT_BY_HEX, doesGlobalValueMeetRequirement } from '@/lib/mm3-block-chain'
@@ -47,6 +47,7 @@ import {
 import { addM1MileiStatueReservedCells, createM1MileiStatueVisual } from '@/lib/m1-milei-statue'
 import { addM1ZelenskyStatueReservedCells, createM1ZelenskyStatueVisual } from '@/lib/m1-zelensky-statue'
 import { createM2MacronStatueVisual } from '@/lib/m2-macron-statue'
+import { NUKE_CUBE_POSITIONS, NUKE_CUBE_INTERACT_RADIUS, createNukeCubeVisual, toggleNukeCube, updateNukeCubeVisual } from '@/lib/nuke-cube'
 import { resolveBossStatueFacing, getBossStatuesForMap } from '@/lib/mining-boss-statue-registry'
 import { drawMinimapFlag } from '@/lib/minimap-flags'
 import { addVerticalArenaUsbStaff } from '@/lib/arena-usb-staff'
@@ -269,6 +270,10 @@ const ORGANIC_SHAPES = new Set(['ramp','sphere','tree'])
 const COLOSSEUM_STAND_BASE_TOPS = [1.00,1.32,1.64]
 const COLOSSEUM_SEAT_HEIGHT = .18
 const COLOSSEUM_STAND_TOPS = COLOSSEUM_STAND_BASE_TOPS.map(top=>top+COLOSSEUM_SEAT_HEIGHT)
+// Arena foundation disc (see addCryptoColosseum): solid walkable slab — feet
+// ride ON it instead of sinking to bare ground through the visual.
+const COLOSSEUM_FOUNDATION_RADIUS = 5.25
+const COLOSSEUM_FOUNDATION_TOP = 0.075
 const MINING_AUTO_QUALITY_SESSION_KEY = 'mm3_mining_auto_quality_tier'
 const MINING_QUALITY_CHANGE_EVENT = 'mm3-mining-quality-change'
 const MINING_VISUAL_TIER_RANK = Object.freeze({ low: 0, medium: 1, high: 2 })
@@ -3383,8 +3388,10 @@ function housePerimeterWallCapSupportAt(row, col, playerZ, obsSet, gx, gy) {
   if (playerZ < HOUSE_ROOF_LEVEL - 0.50) return 0
   // Exclude players whose centre is outside the cell (approaching from open air).
   if (gx != null && !isInteriorHalfOfPerimeterCell(row, col, gx, gy)) return 0
-  // Match rendered roof tiles — not the taller wall-cap mesh above them.
-  if (playerZ >= HOUSE_ROOF_LEVEL - 0.35) return HOUSE_ROOF_LEVEL
+  // Solid ledge: walk ON TOP of the wall cap (HOUSE_EXTERIOR_WALL_TOP), not
+  // waist-deep inside it — the 0.18 step up from the roof tiles is well
+  // within WALK_STEP_UP, so it reads as a curb along the roof edge.
+  if (playerZ >= HOUSE_ROOF_LEVEL - 0.35) return HOUSE_EXTERIOR_WALL_TOP
   return 0
 }
 
@@ -3472,6 +3479,14 @@ function hitsSolidWall(gx, gy, cellMap, obsSet, playerZ = 0, playerVz = 0, moveG
 function supportHeightAt(gx, gy, playerZ, cellMap, obsSet, mapId = MINING_CORE_MAP_ID) {
   const houseActive = isMiningCoreMap(mapId)
   let height = houseActive ? housePoolWalkSupportAt(gx, gy, playerZ) : 0
+  if (houseActive) {
+    // Chain-node arena: the colosseum foundation disc is solid ground.
+    const arenaDx = gx - (MINING_CHAIN_NODE_POSITION.col + .5)
+    const arenaDy = gy - (MINING_CHAIN_NODE_POSITION.row + .5)
+    if (arenaDx * arenaDx + arenaDy * arenaDy <= COLOSSEUM_FOUNDATION_RADIUS * COLOSSEUM_FOUNDATION_RADIUS) {
+      height = Math.max(height, COLOSSEUM_FOUNDATION_TOP)
+    }
+  }
   const radius = PLAYER_R * 0.82
   for (let row = Math.floor(gy - radius); row <= Math.floor(gy + radius); row++) {
     for (let col = Math.floor(gx - radius); col <= Math.floor(gx + radius); col++) {
@@ -5119,6 +5134,29 @@ function playM2HoopScoreSound(audioCtxRef) {
   } catch {}
 }
 
+// Light toggle-switch click for the nuke cube's red button (local decor).
+function playNukeSwitchSound(audioCtxRef, pressed = true) {
+  if (!portalSoundEnabled()) return
+  try {
+    if (!audioCtxRef.current)
+      audioCtxRef.current = new (window.AudioContext || window.webkitAudioContext)()
+    const ctx = audioCtxRef.current
+    if (ctx.state === 'suspended') ctx.resume().catch(()=>{})
+    const t = ctx.currentTime
+    const osc = ctx.createOscillator()
+    const gain = ctx.createGain()
+    osc.type = 'square'
+    osc.frequency.setValueAtTime(pressed ? 1350 : 950, t)
+    osc.frequency.exponentialRampToValueAtTime(pressed ? 850 : 1400, t + 0.05)
+    gain.gain.setValueAtTime(0.09, t)
+    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.07)
+    osc.connect(gain)
+    gain.connect(ctx.destination)
+    osc.start(t)
+    osc.stop(t + 0.08)
+  } catch {}
+}
+
 function playNodeDiceWeatherSound(audioCtxRef, mode = 'meteo') {
   if (!portalSoundEnabled()) return
   try {
@@ -5587,20 +5625,22 @@ function getNodeDiceVisualState(nodeDiceState) {
   return { ...nodeDiceState, dice }
 }
 
+// The two dice skies must read unmistakably different at a glance (and from
+// any biome's normal sky): WAR is hellfire red, METEO is tempest teal-green.
 const STORMROLL_SKY = {
   war: {
-    sky: '#3f1212',
-    fog: '#5c1a1a',
+    sky: '#4a0d0d',
+    fog: '#7f1d1d',
     hemi: '#ffb4a2',
     rim: '#ef4444',
     dome: '#c2410c',
   },
   meteo: {
-    sky: '#52525b',
-    fog: '#71717a',
-    hemi: '#d4d4d8',
-    rim: '#a1a1aa',
-    dome: '#9ca3af',
+    sky: '#0c3a36',
+    fog: '#0f766e',
+    hemi: '#99f6e4',
+    rim: '#2dd4bf',
+    dome: '#0d9488',
   },
 }
 
@@ -8053,6 +8093,7 @@ function rebuildThreeWorld(state,cellMap,obstacles) {
   addPeripheralGroundFeatures(world, '1', liteScenery)
   addM1MileiStatueDecor(world, liteScenery, state)
   addM1ZelenskyStatueDecor(world, liteScenery, state)
+  addNukeCubeDecor(world, '1', liteScenery, state)
   // ── Block + node groups ───────────────────────────────────────────────────────
   // Each interactive type gets its own material & shape so players can tell them apart.
   // No texture maps here — texture × vertex-color was multiplying everything to black.
@@ -8564,12 +8605,14 @@ function rebuildThreeWorld(state,cellMap,obstacles) {
     state.beaconBatch?.rings,state.beaconBatch?.ring2s,state.beaconBatch?.columns,
     state.m1MileiStatueGroup,
     state.m1ZelenskyStatueGroup,
+    state.nukeCubeGroup,
   ].filter(Boolean))
   world.traverse(object=>{
     if(object===world||animated.has(object)||object.userData.interactive) return
     let ancestor=object.parent
     while(ancestor){
       if(ancestor.userData?.m1MileiStatue||ancestor.userData?.m1ZelenskyStatue) return
+      if(ancestor.userData?.nukeCube) return
       ancestor=ancestor.parent
     }
     object.updateMatrix()
@@ -10694,6 +10737,7 @@ function rebuildPeripheralMapWorld(state, mapId, obstacles, cellMap) {
   state.m1ZelenskyStatueMotion = null
   state.m2MacronStatueGroup = null
   state.m2MacronStatueMotion = null
+  state.nukeCubeGroup = null
   if (state.world) { state.scene.remove(state.world); disposeThreeObject(state.world) }
   const world = new THREE.Group()
   const matrix = new THREE.Matrix4()
@@ -10770,6 +10814,7 @@ function rebuildPeripheralMapWorld(state, mapId, obstacles, cellMap) {
     addM2PitchDomeDecor(world, lowDetail, state)
     addM2MacronStatueDecor(world, lowDetail, state)
   }
+  addNukeCubeDecor(world, mapId, lowDetail, state)
   state.m5TrumpBossGroup = null
   state.m3PutinBossGroup = null
   state.m4KimBossGroup = null
@@ -10807,6 +10852,7 @@ function rebuildPeripheralMapWorld(state, mapId, obstacles, cellMap) {
     state.m4KimBossGroup,
     state.m2PitchDomeGroup,
     state.m2MacronStatueGroup,
+    state.nukeCubeGroup,
   ].filter(Boolean))
   world.traverse(object => {
     if (object === world || animated.has(object)) return
@@ -10815,6 +10861,7 @@ function rebuildPeripheralMapWorld(state, mapId, obstacles, cellMap) {
       if (ancestor.userData?.m5TrumpBoss || ancestor.userData?.m3PutinBoss || ancestor.userData?.m4KimBoss) return
       if (ancestor.userData?.m2PitchDome) return
       if (ancestor.userData?.m2MacronStatue) return
+      if (ancestor.userData?.nukeCube) return
       ancestor = ancestor.parent
     }
     object.updateMatrix()
@@ -10869,6 +10916,7 @@ const WORLD_CACHE_STATE_KEYS = [
   'm1ZelenskyStatueMotion',
   'm2MacronStatueGroup',
   'm2MacronStatueMotion',
+  'nukeCubeGroup',
   'm2PitchDomeGroup',
   'm2PitchDomeRuntime',
   'm3PutinBossGroup',
@@ -11221,6 +11269,15 @@ function addM2MacronStatueDecor(world, lowDetail, state = null) {
       rightArm: visual.group.userData.homeRightArm || null,
     }
   }
+}
+
+function addNukeCubeDecor(world, mapId, lowDetail, state = null) {
+  const pos = NUKE_CUBE_POSITIONS[String(mapId)]
+  if (!pos) return
+  const visual = createNukeCubeVisual(THREE, lowDetail)
+  visual.group.position.set(pos.col + 0.5, 0, pos.row + 0.5)
+  world.add(visual.group)
+  if (state) state.nukeCubeGroup = visual.group
 }
 
 function addM2PitchDomeDecor(world, lowDetail, state) {
@@ -11579,6 +11636,9 @@ function applyRlMountVisual(avatar, mounted, threeState = null) {
     // rl-car.glb's cabin sits in the rear half (car-local z +0.18): shift the
     // car forward so the rider ends up seated in the cockpit, not on the hood.
     avatar.userData.rlCar.position.z = -0.18
+    // Cockpit tub around the rider — dark side coamings + seat back close the
+    // cabin so the torso reads seated IN the car instead of perched on it.
+    addRlCockpitTub(THREE, avatar.userData.rlCar, { lowDetail })
     avatar.add(avatar.userData.rlCar)
     avatar.userData.rlMountedHeadY = avatar.userData.head?.position.y ?? 0.82
     avatar.userData.rlMountedAntStemY = avatar.userData.antennaStem?.position.y ?? 1.005
@@ -11736,9 +11796,10 @@ function createThreeWalletAvatar(wallet) {
     ...body.bodyMeshes,body.leftArm,body.rightArm,body.leftLeg,body.rightLeg,
     chestPlate,chestInset,core,beltNode,
   ]
-  // Only the feet vanish while riding the RL car; the torso stays visible so the
-  // bot reads as seated in the cockpit with no gap under the head.
-  avatar.userData.mountHiddenParts=[footL,footR]
+  // Whole legs vanish while riding the RL car (they poked through the floor
+  // pan); the torso stays visible, seated inside the cockpit tub added by
+  // applyRlMountVisual, with no gap under the head.
+  avatar.userData.mountHiddenParts=[body.leftLeg,body.rightLeg]
   avatar.userData.leftFoot=footL
   avatar.userData.rightFoot=footR
   avatar.userData.healEffect=healEffect
@@ -11995,6 +12056,21 @@ function syncThreeAvatars(state,presence,myIdentity,currentMapId=MINING_CORE_MAP
     avatar.scale.setScalar(Math.min(REMOTE_AVATAR_VISUAL_SCALE,screenMatchedScale))
     const swingAge=Date.now()-(Number(data.swingAt)||0)
     const swing=swingAge<SWING_DUR?Math.sin(swingAge/SWING_DUR*Math.PI):0
+    const tSec=Date.now()*.001
+    const airborne=!swing&&(Number(data.zSpeed)||0)>0.55
+    if(airborne){
+      if(remoteMounted){
+        // Car jump: gleeful flail — arms up in a V, USB staff waggled overhead.
+        flailHumanoidJump(avatar,tSec)
+        avatar.userData.tool.rotation.x=-1.7+Math.sin(tSec*11)*0.4
+        avatar.userData.tool.rotation.z=Math.sin(tSec*7.3)*0.45
+      }else{
+        // On-foot jump: wing flap + air-pedaling legs, staff pumped skyward.
+        flapHumanoidJump(avatar,tSec)
+        avatar.userData.tool.rotation.x=-1.9+Math.sin(tSec*13)*0.55
+        avatar.userData.tool.rotation.z=0
+      }
+    }else{
     // Forward strike: tool pitches toward target (rotation.x), slight side sweep
     avatar.userData.tool.rotation.x=-swing*1.15
     avatar.userData.tool.rotation.z=swing*0.28
@@ -12002,7 +12078,8 @@ function syncThreeAvatars(state,presence,myIdentity,currentMapId=MINING_CORE_MAP
     // subtle random arm sway so remote wallets read as alive.
     const walk=Number(data.walkDist)||0
     walkHumanoidLegs(avatar,walk*.18)
-    swayHumanoidArms(avatar,Date.now()*.001)
+    swayHumanoidArms(avatar,tSec)
+    }
     }
   }
   for(const [wallet,avatar] of state.avatars){
@@ -12080,7 +12157,7 @@ function updateAvatarOccluders(state) {
   }
 }
 
-function syncThreeLocalAvatar(state,identity,swingT,walkDist,gx,gy,playerZ,heading,isDead,rlMounted=false) {
+function syncThreeLocalAvatar(state,identity,swingT,walkDist,gx,gy,playerZ,heading,isDead,rlMounted=false,airborne=false) {
   const avatarId=identity||'local-player'
   if(!state.localAvatar||state.localAvatarId!==avatarId){
     if(state.localAvatar){
@@ -12112,14 +12189,33 @@ function syncThreeLocalAvatar(state,identity,swingT,walkDist,gx,gy,playerZ,headi
     setAvatarPoolSubmersion(state.localAvatar,inPool,displayY)
     state.localAvatar.rotation.x=0
     const swing=Math.sin(Math.min(1,swingT)*Math.PI)
-    if (state.localAvatar.userData.tool) {
-      state.localAvatar.userData.tool.rotation.x=-swing*1.15
-      state.localAvatar.userData.tool.rotation.z=swing*0.28
+    const tSec=Date.now()*.001
+    if(airborne&&swing<=0){
+      if(mounted){
+        // Car jump: gleeful flail — arms up in a V, USB staff waggled overhead.
+        flailHumanoidJump(state.localAvatar,tSec)
+        if (state.localAvatar.userData.tool) {
+          state.localAvatar.userData.tool.rotation.x=-1.7+Math.sin(tSec*11)*0.4
+          state.localAvatar.userData.tool.rotation.z=Math.sin(tSec*7.3)*0.45
+        }
+      }else{
+        // On-foot jump: wing flap + air-pedaling legs, staff pumped skyward.
+        flapHumanoidJump(state.localAvatar,tSec)
+        if (state.localAvatar.userData.tool) {
+          state.localAvatar.userData.tool.rotation.x=-1.9+Math.sin(tSec*13)*0.55
+          state.localAvatar.userData.tool.rotation.z=0
+        }
+      }
+    }else{
+      if (state.localAvatar.userData.tool) {
+        state.localAvatar.userData.tool.rotation.x=-swing*1.15
+        state.localAvatar.userData.tool.rotation.z=swing*0.28
+      }
+      // Human walk from the hip + subtle random arm sway.
+      const stride=walkDist*.18
+      walkHumanoidLegs(state.localAvatar,stride)
+      swayHumanoidArms(state.localAvatar,tSec)
     }
-    // Human walk from the hip + subtle random arm sway.
-    const stride=walkDist*.18
-    walkHumanoidLegs(state.localAvatar,stride)
-    swayHumanoidArms(state.localAvatar,Date.now()*.001)
   }
   applyRlMountVisual(state.localAvatar, mounted, state)
 }
@@ -13013,7 +13109,12 @@ export default function MiningChain3DFPV({
       if(!current){ current={...target,gx:tx,gy:ty,z:Number(target.z)||0}; visuals.set(w,current) }
       current.gx += (tx-current.gx)*remoteBlend
       current.gy += (ty-current.gy)*remoteBlend
+      const zBefore=current.z
       current.z += ((Number(target.z)||0)-current.z)*remoteBlend
+      // Smoothed vertical speed — presence carries no vz, so jumps are
+      // inferred from the interpolated height (drives the mid-air flail).
+      const zInst=Math.abs(current.z-zBefore)/Math.max(remoteDt,0.001)
+      current.zSpeed=(Number(current.zSpeed)||0)*0.8+zInst*0.2
       current.row=Math.floor(current.gy); current.col=Math.floor(current.gx)
       current.angle=Number(target.angle)||0
       current.pitch=Number(target.pitch)||0
@@ -13260,7 +13361,8 @@ export default function MiningChain3DFPV({
         const localSwingAge=performance.now()-swingStartRef.current
         const localSwingT=localSwingAge<SWING_DUR?localSwingAge/SWING_DUR:0
         // Local avatar lives in the main 3D scene — sync position before render
-        syncThreeLocalAvatar(threeState,myIdentity,localSwingT,walkDistRef.current,gx,gy,rawZ,angle,localDead,rlMountActiveRef.current)
+        syncThreeLocalAvatar(threeState,myIdentity,localSwingT,walkDistRef.current,gx,gy,rawZ,angle,localDead,rlMountActiveRef.current,
+          playerRef.current.jumps>0||Math.abs(playerRef.current.vz)>0.6)
         updateRlBoostFx(threeState.localAvatar, threeState, performance.now())
         updateHealingRechargeEffects(threeState,time,visualTier)
         updatePoolSubmersionEffects(threeState,time,visualTier)
@@ -13276,6 +13378,13 @@ export default function MiningChain3DFPV({
           updateM1MileiStatueMotion(threeState.m1MileiStatueMotion, time, statueLook)
           updateM1MileiStatueMotion(threeState.m1ZelenskyStatueMotion, time, statueLook)
           updateM1MileiStatueMotion(threeState.m2MacronStatueMotion, time, statueLook)
+          // Nuke cube red button: eases toward its pressed/raised position.
+          const nukeGroup=threeState.nukeCubeGroup
+          if(nukeGroup){
+            const lastT=nukeGroup.userData.lastEaseT??time
+            updateNukeCubeVisual(nukeGroup,Math.max(0,time-lastT))
+            nukeGroup.userData.lastEaseT=time
+          }
         }
         if(visualTier==='high') updateAvatarOccluders(threeState)
         threeState.renderer.render(threeState.scene,threeState.camera)
@@ -16023,7 +16132,22 @@ export default function MiningChain3DFPV({
             : (mx>=0&&my>=0?`${my},${mx}`:null)
           if(tk!==mineTargetRef.current){mineProgressRef.current=0;mineTargetRef.current=tk}
           if(!tk||mineTypeRef.current==='empty'||(blockDist!=null&&blockDist>INTERACT_DIST)){
-            playPickHit(audioCtxRef,'empty')
+            // Nuke cube: near + roughly aiming at it → flip the red button
+            // (local-only decor, no Supabase) with a switch click.
+            const nukePos=NUKE_CUBE_POSITIONS[String(mapIdRef.current)]
+            const nukeGroup=threeStateRef.current?.nukeCubeGroup
+            let nukeHit=false
+            if(nukePos&&nukeGroup){
+              const pgx=playerRef.current.x/CELL_SIZE,pgy=playerRef.current.y/CELL_SIZE
+              const ndx=nukePos.col+0.5-pgx,ndy=nukePos.row+0.5-pgy
+              const nd=Math.hypot(ndx,ndy)
+              const aim=(Math.cos(playerRef.current.angle)*ndx+Math.sin(playerRef.current.angle)*ndy)/Math.max(nd,0.001)
+              if(nd<=NUKE_CUBE_INTERACT_RADIUS&&(nd<0.7||aim>0.55)){
+                playNukeSwitchSound(audioCtxRef,toggleNukeCube(nukeGroup))
+                nukeHit=true
+              }
+            }
+            if(!nukeHit) playPickHit(audioCtxRef,'empty')
           } else if(mineTypeRef.current==='chain'){
             if(chainDemineActiveRef.current){
               // Demine mode: anon wallets always miss
@@ -16141,7 +16265,7 @@ export default function MiningChain3DFPV({
             playNodeDiceWeatherSound(audioCtxRef,nodeVisual.mode)
             notifRef.current = {
               text: nodeVisual.mode === 'war' ? '🎲 DICE: WAR' : '🎲 DICE: METEO',
-              color: nodeVisual.mode === 'war' ? '#fb923c' : '#9ca3af',
+              color: nodeVisual.mode === 'war' ? '#ef4444' : '#2dd4bf',
               startedAt: Date.now(),
             }
           }

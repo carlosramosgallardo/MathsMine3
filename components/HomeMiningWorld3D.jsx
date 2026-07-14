@@ -3,11 +3,11 @@
 import { useEffect, useRef } from 'react'
 import { spawnBossTrail, drawBossTrail } from '@/lib/boss-attack-beam-vfx'
 import { createM3PutinBossVisual } from '@/lib/m3-putin-boss-runtime'
-import { M3_PUTIN_BOSS_SCALE, M3_PUTIN_BOSS_NAME } from '@/lib/m3-putin-boss'
+import { M3_PUTIN_BOSS_SCALE, M3_PUTIN_BOSS_NAME, M3_PUTIN_BOSS_MAX_HP } from '@/lib/m3-putin-boss'
 import { createM4KimBossVisual } from '@/lib/m4-kim-boss-runtime'
-import { M4_KIM_BOSS_SCALE, M4_KIM_BOSS_NAME } from '@/lib/m4-kim-boss'
+import { M4_KIM_BOSS_SCALE, M4_KIM_BOSS_NAME, M4_KIM_BOSS_MAX_HP } from '@/lib/m4-kim-boss'
 import { createM5TrumpBossVisual } from '@/lib/m5-trump-boss-runtime'
-import { M5_TRUMP_BOSS_SCALE, M5_TRUMP_BOSS_NAME } from '@/lib/m5-trump-boss'
+import { M5_TRUMP_BOSS_SCALE, M5_TRUMP_BOSS_NAME, M5_TRUMP_BOSS_MAX_HP } from '@/lib/m5-trump-boss'
 import { createM1MileiStatueVisual, M1_MILEI_STATUE_SCALE } from '@/lib/m1-milei-statue'
 import { createM1ZelenskyStatueVisual, M1_ZELENSKY_STATUE_SCALE } from '@/lib/m1-zelensky-statue'
 import { createM2MacronStatueVisual, M2_MACRON_STATUE_SCALE } from '@/lib/m2-macron-statue'
@@ -15,9 +15,10 @@ import { roundedVoxelGeometry } from '@/lib/rounded-voxel'
 import { advanceShowcaseSpin } from '@/lib/map-boss-facing'
 import { setBossMaskEyesRed } from '@/lib/boss-head-photo'
 import { colorFromAddress } from '@/lib/wallet-colors'
-import { buildHumanoidBody, buildBotRoundHead, swayHumanoidArms, walkHumanoidLegs } from '@/lib/humanoid-body'
+import { buildHumanoidBody, buildBotRoundHead, swayHumanoidArms, walkHumanoidLegs, flailHumanoidJump, flapHumanoidJump } from '@/lib/humanoid-body'
 import { addRlCarBoost, setRlCarBoostLit } from '@/lib/rl-car-boost'
-import { attachRlCarModel } from '@/lib/rl-car-model'
+import { attachRlCarModel, addRlCockpitTub } from '@/lib/rl-car-model'
+import { createNukeCubeVisual, updateNukeCubeVisual } from '@/lib/nuke-cube'
 import { aiTeamPoolCode } from '@/lib/ai-team'
 
 /** The real AI-team bot wallets (NPC_BOT_BY_MAP in MiningChain3DFPV, maps 2-5):
@@ -237,6 +238,8 @@ function addHomeBotCar(THREE, scene, options = {}) {
   const car = createHomeRlCar(THREE, carColor)
   car.scale.setScalar(HOME_LINEUP_CAR_SCALE)
   car.position.y = 0
+  // Close the cabin around the rider — same cockpit tub as the FPV mount.
+  addRlCockpitTub(THREE, car)
   group.add(car)
 
   // Mining-style mount, seated in the rl-car.glb cockpit: the cabin sits in
@@ -257,6 +260,124 @@ function addHomeBotCar(THREE, scene, options = {}) {
     if (part) part.visible = false
   }
   return { kind: 'botCar', group, bot, car, baseY: HOME_ARENA_FLOOR_Y, baseRotationY: rotationY, phase, bob: 2.15, sway: .42 }
+}
+
+/** Panel art for the caution A-frame — classic wet-floor yellow, freak twist:
+    glitch-shadowed text and a slipping-bot pictogram. Drawn once, used by
+    both faces of the caballete. */
+function makeCautionSignTexture(THREE) {
+  if (typeof document === 'undefined') return null
+  const canvas = document.createElement('canvas')
+  canvas.width = 384
+  canvas.height = 512
+  const ctx = canvas.getContext('2d')
+  if (!ctx) return null
+  ctx.fillStyle = '#facc15'
+  ctx.fillRect(0, 0, 384, 512)
+  ctx.strokeStyle = '#1c1917'
+  ctx.lineWidth = 10
+  ctx.strokeRect(5, 5, 374, 502)
+  // Black CAUTION header band.
+  ctx.fillStyle = '#1c1917'
+  ctx.fillRect(16, 16, 352, 78)
+  ctx.textAlign = 'center'
+  ctx.font = 'bold 52px monospace'
+  ctx.fillStyle = '#facc15'
+  ctx.fillText('CAUTION !', 192, 72)
+  // Glitch-shadowed freak message: cyan/magenta ghosts under the black text.
+  const glitchText = (text, y, size) => {
+    ctx.font = `bold ${size}px monospace`
+    ctx.fillStyle = '#22d3ee'
+    ctx.fillText(text, 189, y - 2)
+    ctx.fillStyle = '#d946ef'
+    ctx.fillText(text, 195, y + 2)
+    ctx.fillStyle = '#1c1917'
+    ctx.fillText(text, 192, y)
+  }
+  glitchText('MORE', 156, 56)
+  glitchText('ENTITIES', 214, 52)
+  glitchText('INCOMING…', 268, 44)
+  // Slipping-bot pictogram: warning triangle with a tumbling round-head bot.
+  ctx.strokeStyle = '#1c1917'
+  ctx.lineWidth = 9
+  ctx.beginPath()
+  ctx.moveTo(192, 300)
+  ctx.lineTo(112, 432)
+  ctx.lineTo(272, 432)
+  ctx.closePath()
+  ctx.stroke()
+  ctx.fillStyle = '#1c1917'
+  ctx.beginPath()
+  ctx.arc(178, 356, 16, 0, Math.PI * 2)  // head
+  ctx.fill()
+  ctx.save()
+  ctx.translate(192, 392)
+  ctx.rotate(-0.5)
+  ctx.fillRect(-26, -9, 52, 18)          // tumbling body
+  ctx.restore()
+  ctx.fillRect(206, 402, 34, 8)          // flailing leg
+  // Hazard stripe footer.
+  for (let i = 0; i < 9; i += 1) {
+    ctx.fillStyle = i % 2 === 0 ? '#1c1917' : '#facc15'
+    ctx.beginPath()
+    ctx.moveTo(16 + i * 44, 496)
+    ctx.lineTo(56 + i * 44, 496)
+    ctx.lineTo(40 + i * 44, 458)
+    ctx.lineTo(0 + i * 44, 458)
+    ctx.closePath()
+    ctx.fill()
+  }
+  const tex = new THREE.CanvasTexture(canvas)
+  tex.colorSpace = THREE.SRGBColorSpace
+  return tex
+}
+
+/** "Under construction" caballete — its own carousel slot: a wet-floor-style
+    yellow A-frame teasing that the avatar lineup keeps growing. Two panels
+    leaning into an A, each showing the art on its outward face. */
+function addHomeCautionSign(THREE, scene) {
+  const group = new THREE.Group()
+  group.position.set(0, HOME_ARENA_FLOOR_Y, 0.06)
+  group.rotation.y = Math.PI
+  scene.add(group)
+  const tex = makeCautionSignTexture(THREE)
+  const panelGeo = new THREE.BoxGeometry(1.62, 2.16, 0.05)
+  const yellowMat = new THREE.MeshStandardMaterial({ color: '#facc15', roughness: 0.55, metalness: 0.08 })
+  const faceMat = tex
+    ? new THREE.MeshBasicMaterial({ map: tex })
+    : yellowMat
+  const lean = 0.26
+  for (const side of [-1, 1]) {
+    const panel = new THREE.Mesh(panelGeo, yellowMat)
+    panel.position.set(0, 1.04, side * 0.26)
+    panel.rotation.x = side * lean
+    group.add(panel)
+    const face = new THREE.Mesh(new THREE.PlaneGeometry(1.5, 2.02), faceMat)
+    face.position.z = side * 0.032
+    if (side < 0) face.rotation.y = Math.PI
+    panel.add(face)
+  }
+  // Top hinge bar.
+  const hinge = new THREE.Mesh(
+    new THREE.BoxGeometry(1.66, 0.09, 0.16),
+    new THREE.MeshStandardMaterial({ color: '#ca8a04', roughness: 0.5, metalness: 0.2 }),
+  )
+  hinge.position.y = 2.1
+  group.add(hinge)
+  return { kind: 'sign', group, baseY: HOME_ARENA_FLOOR_Y, baseRotationY: Math.PI, phase: Math.PI * 1.55, bob: 1.5, sway: 0.34 }
+}
+
+/** Nuke-cube showcase member: the M1-M5 decor bomb, auto-pressing its red
+    button every few seconds. */
+function addHomeNukeCube(THREE, scene) {
+  const group = new THREE.Group()
+  group.position.set(0, HOME_ARENA_FLOOR_Y, 0.06)
+  group.rotation.y = Math.PI
+  scene.add(group)
+  const { group: cube } = createNukeCubeVisual(THREE, false)
+  cube.scale.setScalar(2.1)
+  group.add(cube)
+  return { kind: 'nuke', group, cube, baseY: HOME_ARENA_FLOOR_Y, baseRotationY: Math.PI, phase: Math.PI * 0.9, bob: 1.7, sway: 0.3 }
 }
 
 function makeNftjiSprite(THREE, emoji = '💎') {
@@ -320,29 +441,31 @@ function makeNftjiSprite(THREE, emoji = '💎') {
     border, bold monospace text — so home members read like in-game players. */
 function makeHomeTagSprite(THREE, text, accent = '#86efac') {
   if (typeof document === 'undefined') return null
+  // 2× canvas + bigger relative font: the old 320×48/22px plate read blurry
+  // once the sprite scaled up on screen.
   const canvas = document.createElement('canvas')
-  canvas.width = 320
-  canvas.height = 48
+  canvas.width = 640
+  canvas.height = 96
   const ctx = canvas.getContext('2d')
   if (!ctx) return null
   ctx.fillStyle = 'rgba(1,7,14,.85)'
-  ctx.fillRect(0, 4, 320, 40)
+  ctx.fillRect(0, 8, 640, 80)
   ctx.globalAlpha = .65
   ctx.strokeStyle = accent
-  ctx.lineWidth = 2
-  ctx.strokeRect(1, 5, 318, 38)
+  ctx.lineWidth = 4
+  ctx.strokeRect(2, 10, 636, 76)
   ctx.globalAlpha = 1
-  // Shrink to fit: pool-suffixed bot tags are longer than the 320px plate.
-  let fontSize = 22
+  // Shrink to fit: pool-suffixed bot tags are longer than the plate.
+  let fontSize = 52
   ctx.font = `bold ${fontSize}px monospace`
-  while (fontSize > 14 && ctx.measureText(text).width > 300) {
-    fontSize -= 1
+  while (fontSize > 30 && ctx.measureText(text).width > 600) {
+    fontSize -= 2
     ctx.font = `bold ${fontSize}px monospace`
   }
   ctx.textAlign = 'center'
   ctx.textBaseline = 'middle'
   ctx.fillStyle = accent
-  ctx.fillText(text, 160, 25)
+  ctx.fillText(text, 320, 50)
   const tex = new THREE.CanvasTexture(canvas)
   tex.colorSpace = THREE.SRGBColorSpace
   const sprite = new THREE.Sprite(new THREE.SpriteMaterial({
@@ -742,8 +865,8 @@ export default function HomeMiningWorld3D() {
       goldFill.position.set(0, 2.3, 2.1)
       scene.add(goldFill)
 
-      // 5 non-boss props (cars/bots) join the bosses on the rail below.
-      addRedCarpet(THREE, scene, HOME_BOSS_LAYOUT.length + 5)
+      // 7 non-boss props (cars/bots/nuke cube/caution sign) join the bosses on the rail.
+      addRedCarpet(THREE, scene, HOME_BOSS_LAYOUT.length + 7)
       const homeBosses = HOME_BOSS_LAYOUT.map((layout) => addHomeBoss(THREE, scene, layout))
 
       // Hovering the mining-access card puts every boss/statue/bot in
@@ -803,7 +926,13 @@ export default function HomeMiningWorld3D() {
       })
       homePunchBotCar.punch = true
       homePunchBotCar.punchPhase = 1.0
+      // The other bot car hops every 2s (offset from the green bot's hop) with
+      // the same mid-air flail the in-game jumps use.
+      homeBotCar.jump = true
+      homeBotCar.jumpPhase = 1.2
       boostCars.push(homeSoloCar.group, homeBotCar.car, homePunchBotCar.car)
+      const homeNuke = addHomeNukeCube(THREE, scene)
+      const homeSign = addHomeCautionSign(THREE, scene)
       const homeProps = [
         // The green bot hops every 2s (jump), the sparring pair strikes every 2s (punch).
         { kind: 'bot', group: homeBot, baseY: HOME_ARENA_FLOOR_Y, baseRotationY: Math.PI, phase: Math.PI * .28, bob: 2.35, sway: .54, jump: true, jumpPhase: .5 },
@@ -811,6 +940,8 @@ export default function HomeMiningWorld3D() {
         homeSoloCar,
         { kind: 'bot', group: homePunchBot, baseY: HOME_ARENA_FLOOR_Y, baseRotationY: Math.PI, phase: Math.PI * 1.12, bob: 2.25, sway: .48, punch: true, punchPhase: 0 },
         homePunchBotCar,
+        homeNuke,
+        homeSign,
       ]
 
       // Display-case rail (carousel): the framing always shows the maximum
@@ -825,7 +956,9 @@ export default function HomeMiningWorld3D() {
       const lineup = [
         bossById.trump, homeSoloCar, bossById.putin, homeProps[0], bossById.milei,
         homeBotCar, bossById.kim, punchBotProp, bossById.zelensky, homePunchBotCar,
-        bossById.macron,
+        // The nuke cube and the coming-soon caballete each take a slot between
+        // Macron and the wrap-around seam back to Trump.
+        bossById.macron, homeNuke, homeSign,
       ]
       const RAIL_SPACING = 6.0
       const railSpan = lineup.length * RAIL_SPACING
@@ -845,16 +978,18 @@ export default function HomeMiningWorld3D() {
         const tag = makeHomeTagSprite(THREE, text, accent)
         if (!tag) return
         const gs = group.scale.y || 1
-        tag.scale.set(2.7 / gs, 0.405 / gs, 1)
+        tag.scale.set(2.95 / gs, 0.4425 / gs, 1)
         tag.position.y = localY
         group.add(tag)
       }
-      addHomeTag(bossById.trump.group, `${M5_TRUMP_BOSS_NAME} · BOSS`, '#ef4444', 1.45)
-      addHomeTag(bossById.putin.group, `${M3_PUTIN_BOSS_NAME} · BOSS`, '#94a3b8', 1.45)
-      addHomeTag(bossById.kim.group, `${M4_KIM_BOSS_NAME} · BOSS`, '#d946ef', 1.45)
+      addHomeTag(bossById.trump.group, `${M5_TRUMP_BOSS_NAME} · BOSS · ♥${M5_TRUMP_BOSS_MAX_HP}`, '#ef4444', 1.45)
+      addHomeTag(bossById.putin.group, `${M3_PUTIN_BOSS_NAME} · BOSS · ♥${M3_PUTIN_BOSS_MAX_HP}`, '#94a3b8', 1.45)
+      addHomeTag(bossById.kim.group, `${M4_KIM_BOSS_NAME} · BOSS · ♥${M4_KIM_BOSS_MAX_HP}`, '#d946ef', 1.45)
       addHomeTag(bossById.milei.group, 'Javier Milei · STATUE', '#74acdf', 1.45)
       addHomeTag(bossById.zelensky.group, 'Volodymyr Zelensky · STATUE', '#3b82f6', 1.45)
       addHomeTag(bossById.macron.group, 'Emmanuel Macron · STATUE', '#2563eb', 1.45)
+      addHomeTag(homeNuke.group, 'NUKE CUBE · ???', '#facc15', 3.1)
+      addHomeTag(homeSign.group, 'COMING SOON', '#facc15', 2.75)
       addHomeTag(homeSoloCar.group, 'Aserejee · AI', '#22d3ee', 0.95)
       addHomeTag(homeBot, aiTeamTag(AI_TEAM_WALLETS[0]), '#86efac', 1.25)
       addHomeTag(homeBotCar.group, aiTeamTag(AI_TEAM_WALLETS[1]), '#86efac', 3.62)
@@ -1262,13 +1397,44 @@ export default function HomeMiningWorld3D() {
           prop.group.rotation.y = prop.baseRotationY + advanceShowcaseSpin(prop, spinDt)
           prop.group.rotation.z = Math.sin(t * (prop.sway + .7)) * (prop.kind === 'car' ? 0.006 : 0.012)
           if (prop.kind === 'bot') {
-            // Marching in place: human hip swing plus random arm sway.
-            walkHumanoidLegs(prop.group, t * 3.2, 0.22)
-            swayHumanoidArms(prop.group, t)
+            const hopT = prop.jump ? (time + (prop.jumpPhase || 0)) % 2 : 1
+            if (hopT < 0.55) {
+              // Mid-hop: the on-foot jump gesture — wing flap + air pedaling.
+              flapHumanoidJump(prop.group, t)
+              const tool = prop.group.userData.tool
+              if (tool && !prop.punch) tool.rotation.x = -1.9 + Math.sin(t * 13) * 0.55
+            } else {
+              // Marching in place: human hip swing plus random arm sway.
+              walkHumanoidLegs(prop.group, t * 3.2, 0.22)
+              swayHumanoidArms(prop.group, t)
+              if (prop.jump && !prop.punch && prop.group.userData.tool) {
+                prop.group.userData.tool.rotation.x = 0
+              }
+            }
           } else if (prop.kind === 'botCar' && prop.bot) {
             // Ground level minus the anti-z-fight drop (see addHomeBotCar).
             prop.bot.position.y = HOME_BOTCAR_SEAT_Y + Math.sin(t * 2.4) * .012
-            swayHumanoidArms(prop.bot, t)
+            const jumpT = prop.jump ? (time + (prop.jumpPhase || 0)) % 2 : 1
+            if (jumpT < 0.55) {
+              // Mid-hop: the gleeful in-game jump flail — arms up wiggling,
+              // USB staff brandished overhead.
+              flailHumanoidJump(prop.bot, t)
+              const tool = prop.bot.userData.tool
+              if (tool) {
+                tool.rotation.x = -1.7 + Math.sin(t * 11) * 0.4
+                tool.rotation.z = Math.sin(t * 7.3) * 0.45
+              }
+            } else {
+              swayHumanoidArms(prop.bot, t)
+              if (!prop.punch && prop.bot.userData.tool) {
+                prop.bot.userData.tool.rotation.x = 0
+                prop.bot.userData.tool.rotation.z = 0
+              }
+            }
+          } else if (prop.kind === 'nuke' && prop.cube) {
+            // Auto-press: the red button sinks for 2s, pops back for 2s.
+            prop.cube.userData.pressed = (time + prop.phase) % 4 < 2
+            updateNukeCubeVisual(prop.cube, spinDt)
           }
           if (prop.punch) {
             // Relaxed sparring: one 0.5s forward staff strike every 2s.
