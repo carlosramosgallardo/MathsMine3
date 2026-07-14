@@ -326,6 +326,8 @@ function drawTileMarkers(ctx, mapId, ox, oy, size, t) {
  * chain/dice/RL/portal nodes, statues, corridors and travel icons. No
  * Supabase, no realtime. The heavy geometry renders once into an offscreen
  * static layer; only the ~20 markers redraw per tick (~30 fps) on top.
+ * Pinch on the map zooms it (like the avatar carousel) and, while zoomed,
+ * one-finger drag pans — all client-side transforms over the same layers.
  */
 export default function HomeWorldMinimap({ es = false }) {
   const canvasRef = useRef(null)
@@ -349,11 +351,14 @@ export default function HomeWorldMinimap({ es = false }) {
       canvas.width = Math.round(cssW * dpr)
       canvas.height = Math.round(cssH * dpr)
       staticLayer = document.createElement('canvas')
-      staticLayer.width = canvas.width
-      staticLayer.height = canvas.height
+      // Oversampled 1.5× beyond dpr so the static layer stays crisp when the
+      // pinch zoom (≤2.5×) blows it up.
+      const renderScale = dpr * 1.5
+      staticLayer.width = Math.round(cssW * renderScale)
+      staticLayer.height = Math.round(cssH * renderScale)
       const sctx = staticLayer.getContext('2d')
       if (!sctx) { staticLayer = null; return }
-      sctx.scale(dpr, dpr)
+      sctx.scale(renderScale, renderScale)
       // Connective sea behind the cross so the five islands read as one piece.
       sctx.fillStyle = 'rgba(1,6,14,.85)'
       sctx.fillRect(tile, 0, tile, cssH)
@@ -362,6 +367,77 @@ export default function HomeWorldMinimap({ es = false }) {
         drawMapTile(sctx, mapId, tx * tile, ty * tile, tile, es)
       }
     }
+
+    // ── Pinch-zoom + pan (mobile, same gesture family as the carousel) ──
+    const view = { zoom: 1, panX: 0, panY: 0 }
+    const pointers = new Map()
+    let pinch0 = null
+    let suppressClickUntil = 0
+    const clampView = () => {
+      view.zoom = Math.min(2.5, Math.max(1, view.zoom))
+      view.panX = Math.min(0, Math.max(cssW * (1 - view.zoom), view.panX))
+      view.panY = Math.min(0, Math.max(cssH * (1 - view.zoom), view.panY))
+    }
+    const localXY = (e) => {
+      const r = canvas.getBoundingClientRect()
+      return { x: e.clientX - r.left, y: e.clientY - r.top }
+    }
+    const pinchState = () => {
+      const [a, b] = [...pointers.values()]
+      return {
+        dist: Math.hypot(a.x - b.x, a.y - b.y) || 1,
+        midX: (a.x + b.x) / 2,
+        midY: (a.y + b.y) / 2,
+      }
+    }
+    const onDown = (e) => {
+      if (e.pointerType === 'mouse' && e.button !== 0) return
+      canvas.setPointerCapture?.(e.pointerId)
+      pointers.set(e.pointerId, localXY(e))
+      if (pointers.size === 2) {
+        pinch0 = { ...pinchState(), zoom: view.zoom, panX: view.panX, panY: view.panY }
+      }
+    }
+    const onMove = (e) => {
+      if (!pointers.has(e.pointerId)) return
+      const prev = pointers.get(e.pointerId)
+      const cur = localXY(e)
+      pointers.set(e.pointerId, cur)
+      if (pointers.size === 2 && pinch0) {
+        const { dist, midX, midY } = pinchState()
+        const zoom = Math.min(2.5, Math.max(1, pinch0.zoom * (dist / pinch0.dist)))
+        // Keep the world point under the pinch midpoint anchored while zooming.
+        view.panX = midX - ((pinch0.midX - pinch0.panX) / pinch0.zoom) * zoom
+        view.panY = midY - ((pinch0.midY - pinch0.panY) / pinch0.zoom) * zoom
+        view.zoom = zoom
+        clampView()
+        suppressClickUntil = performance.now() + 450
+      } else if (pointers.size === 1 && view.zoom > 1) {
+        view.panX += cur.x - prev.x
+        view.panY += cur.y - prev.y
+        clampView()
+        if (Math.abs(cur.x - prev.x) + Math.abs(cur.y - prev.y) > 1.5) {
+          suppressClickUntil = performance.now() + 450
+        }
+      }
+    }
+    const onUp = (e) => {
+      pointers.delete(e.pointerId)
+      if (pointers.size < 2) pinch0 = null
+    }
+    // A drag/pinch must not bubble into the core button (it would flip the
+    // map back to the logo); plain taps still pass through.
+    const onClickCapture = (e) => {
+      if (performance.now() < suppressClickUntil) {
+        e.stopPropagation()
+        e.preventDefault()
+      }
+    }
+    canvas.addEventListener('pointerdown', onDown)
+    canvas.addEventListener('pointermove', onMove)
+    canvas.addEventListener('pointerup', onUp)
+    canvas.addEventListener('pointercancel', onUp)
+    canvas.addEventListener('click', onClickCapture, true)
 
     let raf = 0
     let lastTick = 0
@@ -375,8 +451,10 @@ export default function HomeWorldMinimap({ es = false }) {
       if (!ctx) return
       ctx.setTransform(1, 0, 0, 1, 0, 0)
       ctx.clearRect(0, 0, canvas.width, canvas.height)
-      ctx.drawImage(staticLayer, 0, 0)
       ctx.scale(dpr, dpr)
+      ctx.translate(view.panX, view.panY)
+      ctx.scale(view.zoom, view.zoom)
+      ctx.drawImage(staticLayer, 0, 0, staticLayer.width, staticLayer.height, 0, 0, cssW, cssH)
       const t = nowMs / 1000
       for (const { mapId, tx, ty } of WORLD_TILES) {
         drawTileMarkers(ctx, mapId, tx * tile, ty * tile, tile, t)
@@ -388,7 +466,7 @@ export default function HomeWorldMinimap({ es = false }) {
     let resizeRaf = 0
     const onResize = () => {
       cancelAnimationFrame(resizeRaf)
-      resizeRaf = requestAnimationFrame(buildStatic)
+      resizeRaf = requestAnimationFrame(() => { buildStatic(); clampView() })
     }
     buildStatic()
     raf = requestAnimationFrame(tick)
@@ -398,8 +476,13 @@ export default function HomeWorldMinimap({ es = false }) {
       cancelAnimationFrame(raf)
       cancelAnimationFrame(resizeRaf)
       observer.disconnect()
+      canvas.removeEventListener('pointerdown', onDown)
+      canvas.removeEventListener('pointermove', onMove)
+      canvas.removeEventListener('pointerup', onUp)
+      canvas.removeEventListener('pointercancel', onUp)
+      canvas.removeEventListener('click', onClickCapture, true)
     }
   }, [es])
 
-  return <canvas ref={canvasRef} className="mm3-home-worldmap" aria-hidden="true" />
+  return <canvas ref={canvasRef} className="mm3-home-worldmap" aria-hidden="true" style={{ touchAction: 'none' }} />
 }
