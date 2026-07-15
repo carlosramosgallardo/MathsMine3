@@ -1469,6 +1469,15 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
           from { opacity:.72; text-shadow:0 0 6px rgba(244,63,94,.18); }
           to { opacity:1; text-shadow:0 0 14px rgba(244,63,94,.72); }
         }
+        .lb-card.rank-1 { border-color:rgba(250,204,21,.52); box-shadow:0 0 18px rgba(250,204,21,.11); }
+        .lb-card.rank-2 { border-color:rgba(103,232,249,.46); box-shadow:0 0 18px rgba(103,232,249,.09); }
+        .lb-card.rank-3 { border-color:rgba(244,114,182,.44); box-shadow:0 0 18px rgba(244,114,182,.09); }
+        .lb-row.rank-1 { border-left:3px solid rgba(250,204,21,.72) !important; }
+        .lb-row.rank-2 { border-left:3px solid rgba(103,232,249,.62) !important; }
+        .lb-row.rank-3 { border-left:3px solid rgba(244,114,182,.58) !important; }
+        .lb-tbl thead { position:sticky; top:0; z-index:10; }
+        .online-dot { display:inline-block; width:.42rem; height:.42rem; border-radius:50%; background:#4ade80; box-shadow:0 0 6px #4ade80; flex-shrink:0; animation:onlinePing 2.2s ease-in-out infinite; }
+        @keyframes onlinePing { 0%,100%{opacity:1;box-shadow:0 0 6px #4ade80;} 50%{opacity:.45;box-shadow:0 0 2px #4ade80;} }
       `}</style>
 
       <div className="mb-3 flex flex-wrap items-center gap-2 font-mono">
@@ -1572,7 +1581,7 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
               key={entry.pool_code}
               type="button"
               onClick={() => toggleCard(poolCardId)}
-              className="lb-card w-full text-left flex items-center gap-2 px-2 py-1.5 font-mono"
+              className={`lb-card w-full text-left flex items-center gap-2 px-2 py-1.5 font-mono${globalRank <= 3 ? ` rank-${globalRank}` : ''}`}
               style={{ fontSize: '0.72rem' }}
             >
               <span className={`rank-badge ${rankCls} shrink-0`}>{formatBlockChainPercent(entry.block_chain_percent)}</span>
@@ -1586,7 +1595,7 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
             </button>
           );
           return (
-            <article key={entry.pool_code} className="lb-card p-2">
+            <article key={entry.pool_code} className={`lb-card p-2${globalRank <= 3 ? ` rank-${globalRank}` : ''}`}>
               <div className="mb-1.5 flex items-center gap-2">
                 <button
                   type="button"
@@ -1620,58 +1629,38 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
                 <span className="lb-status-chip online shrink-0">{entry.member_count} {labels.members}</span>
                 <button type="button" onClick={() => toggleCard(poolCardId)} className="shrink-0 bg-transparent border-0 text-slate-600 font-mono text-[0.65rem] cursor-pointer px-1 leading-none hover:text-slate-400">▲</button>
               </div>
-              <div className="grid grid-cols-3 gap-1 text-[0.78rem] uppercase tracking-[0.1em] text-cyan-700">
-                <div className="rounded border border-cyan-500/10 bg-black/60 px-1.5 py-1">
-                  <div>{t('ranking.level')}</div>
-                  <div className="mt-0.5 text-sm font-black tracking-normal" style={{ color: tier.color }}>{lvl}</div>
-                </div>
-                <div className="rounded border border-cyan-500/10 bg-black/60 px-1.5 py-1">
-                  <div>{t('ranking.rank')}</div>
-                  <div
-                    className="mt-0.5 text-sm font-bold tracking-normal"
-                    title={entry.pool_rank_label || 'No pool rank yet'}
-                  >
-                    {entry.pool_rank_emoji || '—'}
-                  </div>
-                </div>
-                <div className="col-span-3 rounded border border-cyan-500/10 bg-black/60 px-1.5 py-1">
-                  <div>{labels.wallets}</div>
-                  <div className="mt-0.5 text-[0.72rem] font-mono font-semibold tracking-normal text-cyan-300">
-                    {Array.isArray(entry.member_wallets) && entry.member_wallets.length > 0 ? (
-                      <div className="flex flex-wrap items-center gap-1">
-                        {entry.member_wallets.map((wallet, index) => {
-                          const walletColor = colorFromAddress(wallet);
-                          return (
-                            <button
-                              key={`${wallet}-${index}`}
-                              type="button"
-                              onClick={() => goToWalletRanking(wallet)}
-                              title={wallet}
-                              className="rounded border bg-cyan-950/10 px-2 py-1 font-mono text-[0.72rem] font-semibold transition hover:border-cyan-300"
-                              style={{ color: walletColor, borderColor: `${walletColor}33` }}
-                            >
-                              {shortWallet(wallet)}
-                            </button>
-                          );
-                        })}
-                        {entry.hidden_member_wallet_count ? (
-                          <span className="rounded border border-cyan-500/20 bg-cyan-950/10 px-2 py-1 font-mono text-[0.72rem] font-semibold text-cyan-200">
-                            +{entry.hidden_member_wallet_count}
-                          </span>
-                        ) : null}
-                      </div>
-                    ) : t('ranking.none')}
-                  </div>
-                </div>
-                <div className="rounded border border-cyan-500/10 bg-black/60 px-1.5 py-1">
-                  <div>{t('ranking.mm3Earned')}</div>
-                  <div className="mt-0.5 font-mono text-[0.86rem] font-semibold tracking-normal text-cyan-300">{formatCompactMm3(entry.available_mm3)}</div>
-                </div>
-                <div className="col-span-2 rounded border border-cyan-500/10 bg-black/60 px-1.5 py-1">
-                  <div>{t('ranking.sellValue')}</div>
-                  <div className="mt-0.5 font-mono text-[0.7rem] font-semibold tracking-normal text-emerald-300">{formatCompactMoney(sellValue, quoteCurrency)}</div>
-                </div>
+              <div className="flex items-center gap-2 px-1.5 py-1 mb-1 rounded border border-cyan-500/10 bg-black/40 font-mono text-[0.7rem] overflow-hidden">
+                <span className="font-black shrink-0" style={{ color: tier.color, textShadow:`0 0 5px ${tier.color}55` }}>{tier.emoji} {lvl}</span>
+                <span className="text-slate-700 shrink-0">·</span>
+                <span className="shrink-0" title={entry.pool_rank_label || 'No pool rank yet'} style={{ color: tier.color }}>{entry.pool_rank_emoji || '—'}</span>
+                <span className="text-slate-700 shrink-0">·</span>
+                <span className="text-cyan-300 font-semibold shrink-0">{formatCompactMm3(entry.available_mm3)}</span>
+                <span className="ml-auto text-emerald-300 font-bold shrink-0">{formatCompactMoney(sellValue, quoteCurrency)}</span>
               </div>
+              {Array.isArray(entry.member_wallets) && entry.member_wallets.length > 0 ? (
+                <div className="flex flex-wrap items-center gap-1 mb-1.5">
+                  {entry.member_wallets.map((wallet, index) => {
+                    const walletColor = colorFromAddress(wallet);
+                    return (
+                      <button
+                        key={`${wallet}-${index}`}
+                        type="button"
+                        onClick={() => goToWalletRanking(wallet)}
+                        title={wallet}
+                        className="rounded border bg-cyan-950/10 px-1.5 py-0.5 font-mono text-[0.65rem] font-semibold transition hover:border-cyan-300"
+                        style={{ color: walletColor, borderColor: `${walletColor}33` }}
+                      >
+                        {shortWallet(wallet)}
+                      </button>
+                    );
+                  })}
+                  {entry.hidden_member_wallet_count ? (
+                    <span className="rounded border border-cyan-500/20 bg-cyan-950/10 px-1.5 py-0.5 font-mono text-[0.65rem] font-semibold text-cyan-200">
+                      +{entry.hidden_member_wallet_count}
+                    </span>
+                  ) : null}
+                </div>
+              ) : null}
               <div className="mt-1.5 flex items-center gap-1.5 flex-wrap">
                 <div className="flex items-center gap-0.5 shrink-0">
                   {TRADE_SLOT_ORDER.map((slot) => {
@@ -1831,11 +1820,14 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
               key={entry.wallet}
               type="button"
               onClick={() => toggleCard(walletCardId)}
-              className={`lb-card w-full text-left flex items-center gap-2 px-2 py-1.5 font-mono${isActiveWallet ? ' wallet-active' : ''}${isSelectedWallet ? ' wallet-selected' : ''}`}
+              className={`lb-card w-full text-left flex items-center gap-2 px-2 py-1.5 font-mono${isActiveWallet ? ' wallet-active' : ''}${isSelectedWallet ? ' wallet-selected' : ''}${globalRank <= 3 ? ` rank-${globalRank}` : ''}`}
               style={{ fontSize: '0.72rem' }}
             >
               <span className={`rank-badge ${rankCls} shrink-0`}>{formatBlockChainPercent(entry.block_chain_percent)}</span>
-              <span className="font-semibold truncate rounded px-1" style={{ color: walletColor, background: isOnline ? 'rgba(74,222,128,.16)' : 'transparent' }}>{formatWalletLabel(entry.wallet)}</span>
+              <span className="min-w-0 flex items-center gap-1 overflow-hidden font-semibold" style={{ color: walletColor }}>
+                {isOnline && <span className="online-dot shrink-0" />}
+                <span className="truncate">{formatWalletLabel(entry.wallet)}</span>
+              </span>
               {entry.pool_code ? (
                 <span className="shrink-0 font-black text-[0.6rem]" style={{ color: colorFromPool(String(entry.pool_code || '')) }}>#{entry.pool_code}</span>
               ) : null}
@@ -1846,7 +1838,7 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
             </button>
           );
           return (
-            <article key={entry.wallet} className={`lb-card p-2${isActiveWallet ? ' wallet-active' : ''}${isSelectedWallet ? ' wallet-selected' : ''}`}>
+            <article key={entry.wallet} className={`lb-card p-2${isActiveWallet ? ' wallet-active' : ''}${isSelectedWallet ? ' wallet-selected' : ''}${globalRank <= 3 ? ` rank-${globalRank}` : ''}`}>
               <div className="mb-1.5 flex items-center gap-2">
                 <button
                   type="button"
@@ -1859,10 +1851,11 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
                 <button
                   type="button"
                   onClick={() => toggleSelectedWallet(entry.wallet)}
-                  className="min-w-0 flex-1 truncate rounded px-1 text-left font-mono text-[0.86rem] font-semibold transition hover:underline focus:outline-none"
-                  style={{ color: walletColor, background: isOnline ? 'rgba(74,222,128,.16)' : 'transparent' }}
+                  className="min-w-0 flex-1 flex items-center gap-1 overflow-hidden text-left font-mono text-[0.86rem] font-semibold transition hover:underline focus:outline-none"
+                  style={{ color: walletColor }}
                   title={isSelectedWallet ? t('ranking.showAllWallets') : t('ranking.showOnlyWallet')}
                 >
+                  {isOnline && <span className="online-dot shrink-0" />}
                   {entry.is_bot ? <><span>{shortWallet(entry.wallet).toLowerCase()}</span><span className="ml-1 text-[0.62rem] font-black uppercase tracking-widest text-slate-500">(bot)</span></> : formatWalletLabel(entry.wallet)}
                 </button>
                 {entry.pool_code ? (
@@ -1890,29 +1883,13 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
                 <button type="button" onClick={() => toggleCard(walletCardId)} className="shrink-0 bg-transparent border-0 text-slate-600 font-mono text-[0.65rem] cursor-pointer px-1 leading-none hover:text-slate-400">▲</button>
               </div>
 
-              <div className="grid grid-cols-3 gap-1 text-[0.78rem] uppercase tracking-[0.1em] text-cyan-700 mb-1.5">
-                <div className="rounded border border-cyan-500/10 bg-black/60 px-1.5 py-1">
-                  <div>{t('ranking.level')}</div>
-                  <div className="mt-0.5 text-sm font-black tracking-normal" style={{ color: tier.color, textShadow:`0 0 6px ${tier.color}66` }}>{lvl}</div>
-                </div>
-                <div className="rounded border border-cyan-500/10 bg-black/60 px-1.5 py-1">
-                  <div>{t('ranking.rank')}</div>
-                  <div className="mt-0.5 text-sm font-bold tracking-normal" style={{ color: tier.color }} title={tier.label}>{tier.emoji}</div>
-                </div>
-                <div className="rounded border border-cyan-500/10 bg-black/60 px-1.5 py-1">
-                  <div>{t('ranking.execs')}</div>
-                  <div className="mt-0.5 font-mono text-[0.7rem] font-semibold tracking-normal text-cyan-300">
-                    #{(Number(entry.execs_count || 0)).toString(16).toUpperCase()}
-                  </div>
-                </div>
-                <div className="rounded border border-cyan-500/10 bg-black/60 px-1.5 py-1">
-                  <div>{t('ranking.mm3Earned')}</div>
-                  <div className="mt-0.5 font-mono text-[0.86rem] font-semibold tracking-normal text-cyan-300">{formatCompactMm3(entry.available_mm3)}</div>
-                </div>
-                <div className="col-span-2 rounded border border-cyan-500/10 bg-black/60 px-1.5 py-1">
-                  <div>{t('ranking.sellValue')}</div>
-                  <div className="mt-0.5 font-mono text-[0.7rem] font-semibold tracking-normal text-emerald-300">{formatCompactMoney(sellValue, quoteCurrency)}</div>
-                </div>
+              <div className="flex items-center gap-2 px-1.5 py-1 mb-1.5 rounded border border-cyan-500/10 bg-black/40 font-mono text-[0.7rem] overflow-hidden">
+                <span className="font-black shrink-0" style={{ color: tier.color, textShadow:`0 0 5px ${tier.color}55` }}>{tier.emoji} {lvl}</span>
+                <span className="text-slate-700 shrink-0">·</span>
+                <span className="text-slate-400 shrink-0" title={tier.label}>#{(Number(entry.execs_count || 0)).toString(16).toUpperCase()}</span>
+                <span className="text-slate-700 shrink-0">·</span>
+                <span className="text-cyan-300 font-semibold shrink-0">{formatCompactMm3(entry.available_mm3)}</span>
+                <span className="ml-auto text-emerald-300 font-bold shrink-0">{formatCompactMoney(sellValue, quoteCurrency)}</span>
               </div>
 
               <div className="flex items-center gap-1.5 flex-wrap">
@@ -2089,7 +2066,7 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
               const totalPenaltyMoney = convertPenaltyEur(entry.total_penalties_money_eur || 0, quoteCurrency);
 
               return (
-                <tr key={entry.pool_code} className="lb-row">
+                <tr key={entry.pool_code} className={`lb-row${globalRank <= 3 ? ` rank-${globalRank}` : ''}`}>
                   <td style={{ textAlign:'center' }}>
                     <button
                       type="button"
@@ -2332,7 +2309,7 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
               const activePenalty = entry.active_penalty;
 
               return (
-                <tr key={entry.wallet} className={`lb-row${isActiveWallet ? ' wallet-active' : ''}${isSelectedWallet ? ' wallet-selected' : ''}`}>
+                <tr key={entry.wallet} className={`lb-row${isActiveWallet ? ' wallet-active' : ''}${isSelectedWallet ? ' wallet-selected' : ''}${globalRank <= 3 ? ` rank-${globalRank}` : ''}`}>
                   <td style={{ textAlign:'center' }}>
                     <button
                       type="button"
@@ -2343,17 +2320,18 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
                       {formatBlockChainPercent(entry.block_chain_percent)}
                     </button>
                   </td>
-                  {/* Online replaces the old Status column: green-tinted wallet cell. */}
-                  <td style={isOnline ? { background:'rgba(74,222,128,.13)', boxShadow:'inset 3px 0 0 rgba(74,222,128,.65)' } : undefined}>
+                  {/* Online: pulse dot + inset shadow on the wallet cell. */}
+                  <td style={isOnline ? { boxShadow:'inset 3px 0 0 rgba(74,222,128,.55)' } : undefined}>
                     <div className="flex min-w-0 flex-col gap-1">
                       <button
                         type="button"
                         onClick={() => toggleSelectedWallet(entry.wallet)}
-                        className="break-all text-left font-mono font-semibold text-[0.95rem] transition hover:underline focus:outline-none"
+                        className="flex items-center gap-1.5 text-left font-mono font-semibold text-[0.95rem] transition hover:underline focus:outline-none"
                         style={{ color: walletColor }}
                         title={isSelectedWallet ? t('ranking.showAllWallets') : t('ranking.showOnlyWallet')}
                       >
-                        {entry.is_bot ? <><span>{shortWallet(entry.wallet).toLowerCase()}</span><span className="ml-1 text-[0.62rem] font-black uppercase tracking-widest text-slate-500">(bot)</span></> : formatWalletLabel(entry.wallet)}
+                        {isOnline && <span className="online-dot shrink-0" />}
+                        {entry.is_bot ? <><span>{shortWallet(entry.wallet).toLowerCase()}</span><span className="ml-1 text-[0.62rem] font-black uppercase tracking-widest text-slate-500">(bot)</span></> : <span className="break-all">{formatWalletLabel(entry.wallet)}</span>}
                       </button>
                       {activeWallet && !isActiveWallet ? (
                         <button
