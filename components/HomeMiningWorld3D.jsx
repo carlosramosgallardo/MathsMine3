@@ -443,31 +443,33 @@ function makeNftjiSprite(THREE, emoji = '💎') {
     border, bold monospace text — so home members read like in-game players. */
 function makeHomeTagSprite(THREE, text, accent = '#86efac') {
   if (typeof document === 'undefined') return null
-  // 2× canvas + bigger relative font: the old 320×48/22px plate read blurry
-  // once the sprite scaled up on screen.
+  // 1.5× wider canvas so long boss/statue names (up to ~29 chars) render at
+  // the same 52px as short names — no more shrink disparity between Milei and
+  // Trump/Putin/Zelensky. Sprite x-scale is adjusted proportionally so the
+  // world-space height stays the same while the plate gets proportionally wider.
   const canvas = document.createElement('canvas')
-  canvas.width = 640
+  canvas.width = 960
   canvas.height = 96
   const ctx = canvas.getContext('2d')
   if (!ctx) return null
   ctx.fillStyle = 'rgba(1,7,14,.85)'
-  ctx.fillRect(0, 8, 640, 80)
+  ctx.fillRect(0, 8, 960, 80)
   ctx.globalAlpha = .65
   ctx.strokeStyle = accent
   ctx.lineWidth = 4
-  ctx.strokeRect(2, 10, 636, 76)
+  ctx.strokeRect(2, 10, 956, 76)
   ctx.globalAlpha = 1
   // Shrink to fit: pool-suffixed bot tags are longer than the plate.
   let fontSize = 52
   ctx.font = `bold ${fontSize}px monospace`
-  while (fontSize > 30 && ctx.measureText(text).width > 600) {
+  while (fontSize > 30 && ctx.measureText(text).width > 920) {
     fontSize -= 2
     ctx.font = `bold ${fontSize}px monospace`
   }
   ctx.textAlign = 'center'
   ctx.textBaseline = 'middle'
   ctx.fillStyle = accent
-  ctx.fillText(text, 320, 50)
+  ctx.fillText(text, 480, 50)
   const tex = new THREE.CanvasTexture(canvas)
   tex.colorSpace = THREE.SRGBColorSpace
   const sprite = new THREE.Sprite(new THREE.SpriteMaterial({
@@ -980,7 +982,7 @@ export default function HomeMiningWorld3D() {
         const tag = makeHomeTagSprite(THREE, text, accent)
         if (!tag) return
         const gs = group.scale.y || 1
-        tag.scale.set(2.95 / gs, 0.4425 / gs, 1)
+        tag.scale.set(4.425 / gs, 0.4425 / gs, 1)
         tag.position.y = localY
         group.add(tag)
       }
