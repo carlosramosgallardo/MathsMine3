@@ -880,6 +880,20 @@ export default function HomeMiningWorld3D() {
       addRedCarpet(THREE, scene, HOME_BOSS_LAYOUT.length + 7)
       const homeBosses = HOME_BOSS_LAYOUT.map((layout) => addHomeBoss(THREE, scene, layout))
 
+      // Statues leave the rail, stroll along the carpet front, then return.
+      // Three separate Z depths prevent them from overlapping each other.
+      const STATUE_PATROL_Z = { milei: 3.5, zelensky: 4.3, macron: 5.1 }
+      homeBosses.forEach((boss, i) => {
+        if (!boss.isStatue) return
+        boss.homePatrol = {
+          phase: 'idle',
+          nextTriggerT: 20 + i * 28 + Math.random() * 35,
+          patrolZ: STATUE_PATROL_Z[boss.id] ?? 4.0,
+          dir: Math.random() < 0.5 ? 1 : -1,
+          walkEndT: 0,
+        }
+      })
+
       // Hovering the mining-access card puts every boss/statue/bot in
       // "fighting" mode: every tagged eye glow in the scene (boss masks AND
       // the bots' halo eyes) flips from the holo tint to red, and the cars'
@@ -1295,6 +1309,7 @@ export default function HomeMiningWorld3D() {
         }
         const railHalf = railSpan / 2
         for (const entry of lineup) {
+          if (entry.isStatue && entry.homePatrol?.phase !== 'idle') continue
           const g = entry.group
           const wrapped = ((((entry.railX + rail.offset) + railHalf) % railSpan) + railSpan) % railSpan - railHalf
           g.position.x = wrapped
@@ -1309,63 +1324,122 @@ export default function HomeMiningWorld3D() {
           const t = time + boss.phase
           const stride = Math.sin(t * boss.bob)
           if (boss.isStatue) {
-            // Keep the build lift (statue standing ON its plinth), don't zero it.
-            boss.bodyPivot.position.y = boss.bodyPivot.userData.baseY || 0
-            boss.group.position.y = boss.baseY
-            boss.group.rotation.y = boss.baseRotationY
-            boss.group.rotation.z = 0
-            const armLift = Math.sin(t * 1.8) * 0.026
-            if (boss.head) {
-              // Human head sway: bounded yaw (no full 360° turns), two
-              // blended sines for an organic scan, plus a hint of nod.
-              boss.head.rotation.y = Math.sin(t * 0.42) * 0.5 + Math.sin(t * 0.17 + 2) * 0.18
-              boss.head.rotation.x = Math.sin(t * 0.55 + 1) * 0.045
-            }
-            // Humanoid arms pivot at the shoulder and carry their hands.
-            if (boss.saluteStyle === 'leftForward') {
-              // Stiff left-arm salute thrust forward-up, body leaning into it;
-              // the right arm idles with the human sway.
-              const breathe = Math.sin(t * 1.6) * 0.03
-              if (boss.leftArm) {
-                boss.leftArm.position.y = (boss.leftArm.userData.baseY ?? 0.655) + armLift
-                boss.leftArm.rotation.x = 2.25 + breathe
-                boss.leftArm.rotation.z = (boss.leftArm.userData.baseRotZ || 0) + 0.08
+            const hp = boss.homePatrol
+            const isPatrolling = hp && hp.phase !== 'idle'
+
+            if (isPatrolling) {
+              // Compute where the carousel slot is right now (used to snap back).
+              const slotX = ((((boss.railX + rail.offset) + railHalf) % railSpan) + railSpan) % railSpan - railHalf
+
+              if (hp.phase === 'forward') {
+                // Step forward toward patrol Z and descend to floor level.
+                const ease = Math.min(1, spinDt * 2.5)
+                boss.group.position.z += (hp.patrolZ - boss.group.position.z) * ease
+                boss.group.position.y += (HOME_ARENA_FLOOR_Y - boss.group.position.y) * ease
+                boss.bodyPivot.position.y = Math.max(0, boss.bodyPivot.position.y - spinDt * 0.8)
+                boss.group.rotation.y = boss.baseRotationY
+                boss.group.rotation.z = 0
+                boss.bodyPivot.rotation.x = 0
+                walkHumanoidLegs(boss.bodyPivot, t * 6.4, 0.5)
+                swayHumanoidArms(boss.bodyPivot, t)
+                if (Math.abs(boss.group.position.z - hp.patrolZ) < 0.1) {
+                  boss.group.position.z = hp.patrolZ
+                  hp.phase = 'strolling'
+                  hp.walkEndT = time + 8 + Math.random() * 10
+                }
+              } else if (hp.phase === 'strolling') {
+                // Walk sideways in front of the lineup.
+                boss.group.position.x += hp.dir * 2.2 * spinDt
+                if (Math.abs(boss.group.position.x) > 16) hp.dir *= -1
+                // Face the walk direction (group.rotation.y: π/2 → +X, -π/2 → -X)
+                const targetYaw = hp.dir > 0 ? Math.PI / 2 : -Math.PI / 2
+                boss.group.rotation.y += (targetYaw - boss.group.rotation.y) * Math.min(1, spinDt * 5)
+                boss.group.rotation.z = 0
+                boss.group.position.y = HOME_ARENA_FLOOR_Y
+                boss.bodyPivot.position.y = 0
+                boss.bodyPivot.rotation.x = 0
+                walkHumanoidLegs(boss.bodyPivot, t * 6.4, 0.5)
+                swayHumanoidArms(boss.bodyPivot, t)
+                if (time >= hp.walkEndT) hp.phase = 'returning'
+              } else if (hp.phase === 'returning') {
+                // Glide back to carousel slot position and restore idle pose.
+                const ease = Math.min(1, spinDt * 2.5)
+                boss.group.position.z += (boss.baseZ - boss.group.position.z) * ease
+                boss.group.position.x += (slotX - boss.group.position.x) * Math.min(1, spinDt * 2)
+                boss.group.position.y += (boss.baseY - boss.group.position.y) * ease
+                boss.bodyPivot.position.y = Math.min(
+                  boss.bodyPivot.userData.baseY ?? 0.09,
+                  boss.bodyPivot.position.y + spinDt * 0.8,
+                )
+                boss.group.rotation.y += (boss.baseRotationY - boss.group.rotation.y) * Math.min(1, spinDt * 3)
+                boss.group.rotation.z = 0
+                boss.bodyPivot.rotation.x = 0
+                walkHumanoidLegs(boss.bodyPivot, t * 6.4, 0.5)
+                swayHumanoidArms(boss.bodyPivot, t)
+                if (Math.abs(boss.group.position.z - boss.baseZ) < 0.06 &&
+                    Math.abs(boss.group.position.x - slotX) < 0.3) {
+                  hp.phase = 'idle'
+                  hp.nextTriggerT = time + 30 + Math.random() * 90
+                  walkHumanoidLegs(boss.bodyPivot, 0, 0)
+                }
               }
-              if (boss.rightArm) {
-                const phase = boss.rightArm.userData.swayPhase || 0
-                boss.rightArm.position.y = (boss.rightArm.userData.baseY ?? 0.655) + armLift
-                boss.rightArm.rotation.x = Math.sin(t * 0.9 + phase) * 0.055
-                boss.rightArm.rotation.z = (boss.rightArm.userData.baseRotZ || 0) + Math.sin(t * 0.63 + phase) * 0.045
-              }
-              boss.bodyPivot.rotation.x = -0.03 + breathe * 0.3
-            } else if (boss.saluteStyle === 'bothUp') {
-              // Both arms raised in a V — the double presidential wave, arms
-              // waving hello in counter-phase.
-              if (boss.leftArm) {
-                boss.leftArm.position.y = (boss.leftArm.userData.baseY ?? 0.655) + armLift
-                boss.leftArm.rotation.x = 0
-                boss.leftArm.rotation.z = -2.5 - Math.sin(t * 2.4 + Math.PI) * 0.22
-              }
-              if (boss.rightArm) {
-                boss.rightArm.position.y = (boss.rightArm.userData.baseY ?? 0.655) + armLift
-                boss.rightArm.rotation.x = 0
-                boss.rightArm.rotation.z = 2.5 + Math.sin(t * 2.4) * 0.22
-              }
+              boss.glowLight.intensity = boss.baseGlow + Math.sin(t * 2.4) * 0.85
             } else {
-              // Left arm idles with a human sway; right arm waves hello.
-              if (boss.leftArm) {
-                const phase = boss.leftArm.userData.swayPhase || 0
-                boss.leftArm.position.y = (boss.leftArm.userData.baseY ?? 0.655) + armLift
-                boss.leftArm.rotation.x = Math.sin(t * 0.9 + phase) * 0.055
-                boss.leftArm.rotation.z = (boss.leftArm.userData.baseRotZ || 0) + Math.sin(t * 0.63 + phase) * 0.045
+              // Idle: check for patrol trigger, then run normal statue pose.
+              if (hp && time >= hp.nextTriggerT) {
+                hp.phase = 'forward'
+                hp.dir = Math.random() < 0.5 ? 1 : -1
               }
-              if (boss.rightArm) {
-                boss.rightArm.position.y = (boss.rightArm.userData.baseY ?? 0.655) + armLift
-                boss.rightArm.rotation.x = 0
-                boss.rightArm.rotation.z = 2.5 + Math.sin(t * 2.4) * 0.22
+              // Keep the build lift (statue standing ON its plinth), don't zero it.
+              boss.bodyPivot.position.y = boss.bodyPivot.userData.baseY || 0
+              boss.group.position.y = boss.baseY
+              boss.group.rotation.y = boss.baseRotationY
+              boss.group.rotation.z = 0
+              const armLift = Math.sin(t * 1.8) * 0.026
+              if (boss.head) {
+                boss.head.rotation.y = Math.sin(t * 0.42) * 0.5 + Math.sin(t * 0.17 + 2) * 0.18
+                boss.head.rotation.x = Math.sin(t * 0.55 + 1) * 0.045
               }
+              if (boss.saluteStyle === 'leftForward') {
+                const breathe = Math.sin(t * 1.6) * 0.03
+                if (boss.leftArm) {
+                  boss.leftArm.position.y = (boss.leftArm.userData.baseY ?? 0.655) + armLift
+                  boss.leftArm.rotation.x = 2.25 + breathe
+                  boss.leftArm.rotation.z = (boss.leftArm.userData.baseRotZ || 0) + 0.08
+                }
+                if (boss.rightArm) {
+                  const phase = boss.rightArm.userData.swayPhase || 0
+                  boss.rightArm.position.y = (boss.rightArm.userData.baseY ?? 0.655) + armLift
+                  boss.rightArm.rotation.x = Math.sin(t * 0.9 + phase) * 0.055
+                  boss.rightArm.rotation.z = (boss.rightArm.userData.baseRotZ || 0) + Math.sin(t * 0.63 + phase) * 0.045
+                }
+                boss.bodyPivot.rotation.x = -0.03 + breathe * 0.3
+              } else if (boss.saluteStyle === 'bothUp') {
+                if (boss.leftArm) {
+                  boss.leftArm.position.y = (boss.leftArm.userData.baseY ?? 0.655) + armLift
+                  boss.leftArm.rotation.x = 0
+                  boss.leftArm.rotation.z = -2.5 - Math.sin(t * 2.4 + Math.PI) * 0.22
+                }
+                if (boss.rightArm) {
+                  boss.rightArm.position.y = (boss.rightArm.userData.baseY ?? 0.655) + armLift
+                  boss.rightArm.rotation.x = 0
+                  boss.rightArm.rotation.z = 2.5 + Math.sin(t * 2.4) * 0.22
+                }
+              } else {
+                if (boss.leftArm) {
+                  const phase = boss.leftArm.userData.swayPhase || 0
+                  boss.leftArm.position.y = (boss.leftArm.userData.baseY ?? 0.655) + armLift
+                  boss.leftArm.rotation.x = Math.sin(t * 0.9 + phase) * 0.055
+                  boss.leftArm.rotation.z = (boss.leftArm.userData.baseRotZ || 0) + Math.sin(t * 0.63 + phase) * 0.045
+                }
+                if (boss.rightArm) {
+                  boss.rightArm.position.y = (boss.rightArm.userData.baseY ?? 0.655) + armLift
+                  boss.rightArm.rotation.x = 0
+                  boss.rightArm.rotation.z = 2.5 + Math.sin(t * 2.4) * 0.22
+                }
+              }
+              boss.glowLight.intensity = boss.baseGlow + Math.sin(t * 2.4) * 0.85
             }
-            boss.glowLight.intensity = boss.baseGlow + Math.sin(t * 2.4) * 0.85
           } else {
             boss.group.rotation.y = boss.baseRotationY + advanceShowcaseSpin(boss, spinDt)
             const as = bossAttackStart[boss.id]
