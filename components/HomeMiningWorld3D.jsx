@@ -1335,65 +1335,66 @@ export default function HomeMiningWorld3D() {
               const slotX = ((((boss.railX + rail.offset) + railHalf) % railSpan) + railSpan) % railSpan - railHalf
               boss.group.scale.x = boss.baseScaleX
 
+              // Constant-speed walk so movement feels human-paced, not spring-driven.
+              const WALK_SPD = 1.8  // world units per second
               if (hp.phase === 'forward') {
-                // Walk toward nuke target, descend to floor, face direction of travel.
-                const ease = Math.min(1, spinDt * 2.5)
                 const dx = hp.targetX - boss.group.position.x
                 const dz = hp.patrolZ - boss.group.position.z
-                boss.group.position.x += dx * ease * 0.6
-                boss.group.position.z += dz * ease
-                boss.group.position.y += (HOME_ARENA_FLOOR_Y - boss.group.position.y) * ease
-                boss.bodyPivot.position.y = Math.max(0, boss.bodyPivot.position.y - spinDt * 0.8)
-                if (Math.abs(dx) > 0.2 || Math.abs(dz) > 0.2) {
-                  const targetYaw = Math.atan2(dx, dz)
-                  boss.group.rotation.y += (targetYaw - boss.group.rotation.y) * Math.min(1, spinDt * 5)
-                }
-                boss.group.rotation.z = 0
-                boss.bodyPivot.rotation.x = 0
-                walkHumanoidLegs(boss.bodyPivot, t * 6.4, 0.5)
-                swayHumanoidArms(boss.bodyPivot, t)
-                if (Math.abs(dz) < 0.12 && Math.abs(dx) < 0.5) {
+                const dist = Math.hypot(dx, dz)
+                if (dist > 0.18) {
+                  const step = Math.min(dist, WALK_SPD * spinDt)
+                  boss.group.position.x += (dx / dist) * step
+                  boss.group.position.z += (dz / dist) * step
+                  const tYaw = Math.atan2(dx, dz)
+                  boss.group.rotation.y += (tYaw - boss.group.rotation.y) * Math.min(1, spinDt * 1.8)
+                } else {
+                  boss.group.position.x = hp.targetX
+                  boss.group.position.z = hp.patrolZ
                   hp.phase = 'gazing'
                   hp.gazeEndT = time + 8 + Math.random() * 6
                 }
+                boss.group.position.y += (HOME_ARENA_FLOOR_Y - boss.group.position.y) * Math.min(1, spinDt * 1.2)
+                boss.bodyPivot.position.y = Math.max(0, boss.bodyPivot.position.y - spinDt * 0.35)
+                boss.group.rotation.z = 0
+                boss.bodyPivot.rotation.x = 0
+                walkHumanoidLegs(boss.bodyPivot, t * 3.5, 0.45)
+                swayHumanoidArms(boss.bodyPivot, t)
               } else if (hp.phase === 'gazing') {
-                // Stand at nuke position, face the camera, idle arms.
+                // Stand near nuke, face camera, idle.
                 boss.group.position.y = HOME_ARENA_FLOOR_Y
                 boss.bodyPivot.position.y = 0
-                boss.group.rotation.y += (boss.baseRotationY - boss.group.rotation.y) * Math.min(1, spinDt * 3)
+                boss.group.rotation.y += (boss.baseRotationY - boss.group.rotation.y) * Math.min(1, spinDt * 1.5)
                 boss.group.rotation.z = 0
                 boss.bodyPivot.rotation.x = 0
                 walkHumanoidLegs(boss.bodyPivot, 0, 0)
                 swayHumanoidArms(boss.bodyPivot, t)
                 if (time >= hp.gazeEndT) hp.phase = 'returning'
               } else if (hp.phase === 'returning') {
-                // Walk back toward slot, face direction of travel.
-                const ease = Math.min(1, spinDt * 2.5)
                 const dx = slotX - boss.group.position.x
                 const dz = boss.baseZ - boss.group.position.z
-                boss.group.position.x += dx * Math.min(1, spinDt * 2)
-                boss.group.position.z += dz * ease
-                boss.group.position.y += (boss.baseY - boss.group.position.y) * ease
-                boss.bodyPivot.position.y = Math.min(
-                  boss.bodyPivot.userData.baseY ?? 0.09,
-                  boss.bodyPivot.position.y + spinDt * 0.8,
-                )
-                if (Math.abs(dx) > 0.2 || Math.abs(dz) > 0.2) {
-                  const targetYaw = Math.atan2(dx, dz)
-                  boss.group.rotation.y += (targetYaw - boss.group.rotation.y) * Math.min(1, spinDt * 5)
-                }
-                boss.group.rotation.z = 0
-                boss.bodyPivot.rotation.x = 0
-                walkHumanoidLegs(boss.bodyPivot, t * 6.4, 0.5)
-                swayHumanoidArms(boss.bodyPivot, t)
-                if (Math.abs(dz) < 0.06 && Math.abs(dx) < 0.3) {
+                const dist = Math.hypot(dx, dz)
+                if (dist > 0.18) {
+                  const step = Math.min(dist, WALK_SPD * spinDt)
+                  boss.group.position.x += (dx / dist) * step
+                  boss.group.position.z += (dz / dist) * step
+                  const tYaw = Math.atan2(dx, dz)
+                  boss.group.rotation.y += (tYaw - boss.group.rotation.y) * Math.min(1, spinDt * 1.8)
+                } else {
                   hp.phase = 'idle'
                   hp.pedestals.forEach(p => { p.visible = true })
                   walkHumanoidLegs(boss.bodyPivot, 0, 0)
-                  // Chain: next statue goes after a short pause
                   statuePatrolCursor = (statuePatrolCursor + 1) % homeStatues.length
                   homeStatues[statuePatrolCursor].homePatrol.nextTriggerT = time + 2 + Math.random() * 3
                 }
+                boss.group.position.y += (boss.baseY - boss.group.position.y) * Math.min(1, spinDt * 1.2)
+                boss.bodyPivot.position.y = Math.min(
+                  boss.bodyPivot.userData.baseY ?? 0.09,
+                  boss.bodyPivot.position.y + spinDt * 0.35,
+                )
+                boss.group.rotation.z = 0
+                boss.bodyPivot.rotation.x = 0
+                walkHumanoidLegs(boss.bodyPivot, t * 3.5, 0.45)
+                swayHumanoidArms(boss.bodyPivot, t)
               }
               boss.glowLight.intensity = boss.baseGlow + Math.sin(t * 2.4) * 0.85
             } else {
