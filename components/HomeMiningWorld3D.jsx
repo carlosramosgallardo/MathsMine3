@@ -862,12 +862,19 @@ export default function HomeMiningWorld3D() {
       key.castShadow = true
       key.shadow.mapSize.set(1024, 1024)
       scene.add(key)
-      const cyanFill = new THREE.PointLight('#22d3ee', 8.5, 16, 2)
-      cyanFill.position.set(-2.0, 1.8, 2)
-      scene.add(cyanFill)
-      const goldFill = new THREE.PointLight('#ffe34d', 8.6, 13, 2)
-      goldFill.position.set(0, 2.3, 2.1)
-      scene.add(goldFill)
+      // Five floor lights spread edge-to-edge of the visible rail so the carpet
+      // glows evenly on any viewport width, including narrow mobile portrait.
+      for (const [x, color, intensity] of [
+        [-12, '#22d3ee', 4.2],
+        [ -6, '#ffe34d', 4.0],
+        [  0, '#d946ef', 3.8],
+        [  6, '#ffe34d', 4.0],
+        [ 12, '#22d3ee', 4.2],
+      ]) {
+        const fl = new THREE.PointLight(color, intensity, 14, 2)
+        fl.position.set(x, 0.5, 2)
+        scene.add(fl)
+      }
 
       // 7 non-boss props (cars/bots/nuke cube/caution sign) join the bosses on the rail.
       addRedCarpet(THREE, scene, HOME_BOSS_LAYOUT.length + 7)
