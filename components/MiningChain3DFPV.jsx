@@ -44,9 +44,9 @@ import {
   M2_PITCH_HOOP,
   updateM2PitchDomeRuntime,
 } from '@/lib/m2-pitch-dome'
-import { addM1MileiStatueReservedCells, createM1MileiStatueVisual } from '@/lib/m1-milei-statue'
-import { addM1ZelenskyStatueReservedCells, createM1ZelenskyStatueVisual } from '@/lib/m1-zelensky-statue'
-import { createM2MacronStatueVisual } from '@/lib/m2-macron-statue'
+import { addM1MileiStatueReservedCells, createM1MileiStatueVisual, M1_MILEI_STATUE_ID, M1_MILEI_STATUE_POSITION } from '@/lib/m1-milei-statue'
+import { addM1ZelenskyStatueReservedCells, createM1ZelenskyStatueVisual, M1_ZELENSKY_STATUE_ID, M1_ZELENSKY_STATUE_POSITION } from '@/lib/m1-zelensky-statue'
+import { createM2MacronStatueVisual, M2_MACRON_STATUE_ID, M2_MACRON_STATUE_POSITION } from '@/lib/m2-macron-statue'
 import { NUKE_CUBE_POSITIONS, NUKE_CUBE_INTERACT_RADIUS, addNukeCubeReservations, createNukeCubeVisual, toggleNukeCube, updateNukeCubeVisual } from '@/lib/nuke-cube'
 import { resolveBossStatueFacing, getBossStatuesForMap } from '@/lib/mining-boss-statue-registry'
 import { drawMinimapFlag } from '@/lib/minimap-flags'
@@ -11138,11 +11138,123 @@ function addRlColiseumNodeVisual(world, lowDetail, state) {
 
 const M1_STATUE_NECK_LIMIT = 1.25
 
+const STATUE_WALK_SPEED = 3.5
+
+function initStatuePatrol(baseGx, baseGz, baseRotY, staggerSec = 0) {
+  return {
+    phase: 'idle',
+    nextTriggerT: staggerSec + 30 + Math.random() * 90,
+    currentGx: baseGx,
+    currentGz: baseGz,
+    baseGx,
+    baseGz,
+    baseRotY,
+    targetGx: null,
+    targetGz: null,
+    waypoints: [],
+    gazeStartT: 0,
+  }
+}
+
+function updateStatuePatrol(motion, time, dt) {
+  const p = motion?.patrol
+  if (!p) return
+  if (p.phase === 'idle') {
+    if (time >= p.nextTriggerT) {
+      const nukePos = NUKE_CUBE_POSITIONS[String(motion.mapId)]
+      if (!nukePos) return
+      const wps = []
+      const n = 1 + Math.floor(Math.random() * 2)
+      for (let i = 0; i < n; i++) wps.push({ gx: 8 + Math.random() * 40, gz: 8 + Math.random() * 40 })
+      wps.push({ gx: nukePos.col + 0.5, gz: nukePos.row + 0.5 })
+      p.waypoints = wps
+      const nxt = p.waypoints.shift()
+      p.targetGx = nxt.gx
+      p.targetGz = nxt.gz
+      p.phase = 'walking'
+    }
+    return
+  }
+  if (p.phase === 'walking' || p.phase === 'returning') {
+    const dx = p.targetGx - p.currentGx
+    const dz = p.targetGz - p.currentGz
+    const dist = Math.hypot(dx, dz)
+    if (dist > 0.08) {
+      motion.root.rotation.y = approachYaw(motion.root.rotation.y, Math.atan2(dx, dz), dt, 5)
+      const step = Math.min(STATUE_WALK_SPEED * dt, dist)
+      p.currentGx += (dx / dist) * step
+      p.currentGz += (dz / dist) * step
+      motion.root.position.x = p.currentGx
+      motion.root.position.z = p.currentGz
+    } else {
+      p.currentGx = p.targetGx
+      p.currentGz = p.targetGz
+      motion.root.position.x = p.currentGx
+      motion.root.position.z = p.currentGz
+      if (p.phase === 'walking') {
+        if (p.waypoints.length > 0) {
+          const nxt = p.waypoints.shift()
+          p.targetGx = nxt.gx
+          p.targetGz = nxt.gz
+        } else {
+          p.phase = 'gazing'
+          p.gazeStartT = time
+        }
+      } else {
+        p.phase = 'idle'
+        p.nextTriggerT = time + 30 + Math.random() * 90
+        p.currentGx = p.baseGx
+        p.currentGz = p.baseGz
+        motion.root.position.x = p.baseGx
+        motion.root.position.z = p.baseGz
+        motion.root.rotation.y = p.baseRotY
+      }
+    }
+    return
+  }
+  if (p.phase === 'gazing') {
+    const nukePos = NUKE_CUBE_POSITIONS[String(motion.mapId)]
+    if (nukePos) {
+      const dx = nukePos.col + 0.5 - p.currentGx
+      const dz = nukePos.row + 0.5 - p.currentGz
+      motion.root.rotation.y = approachYaw(motion.root.rotation.y, Math.atan2(dx, dz), dt, 3)
+    }
+    if (time - p.gazeStartT >= 10) {
+      p.phase = 'returning'
+      p.targetGx = p.baseGx
+      p.targetGz = p.baseGz
+    }
+  }
+}
+
 function updateM1MileiStatueMotion(motion, time, look = null) {
   if (!motion) return
   const armLift = Math.sin(time * 1.8) * 0.026
   const dt = time - (motion.lastSpinTime ?? time)
   motion.lastSpinTime = time
+
+  updateStatuePatrol(motion, time, dt)
+  const patrolPhase = motion.patrol?.phase ?? 'idle'
+  const isMoving = patrolPhase === 'walking' || patrolPhase === 'returning'
+  const isGazing = patrolPhase === 'gazing'
+
+  if (isMoving || isGazing) {
+    if (motion.bodyPivot) motion.bodyPivot.rotation.x = 0
+    walkHumanoidLegs(motion.bodyPivot, isMoving ? time * 3.5 : 0, 0.22)
+    swayHumanoidArms(motion.bodyPivot, time)
+    if (motion.head) {
+      const desiredYaw = isGazing ? 0 : (Math.sin(time * 0.42) * 0.5 + Math.sin(time * 0.17 + 2) * 0.18)
+      motion.headYaw = approachYaw(
+        Number.isFinite(motion.headYaw) ? motion.headYaw : motion.head.rotation.y,
+        desiredYaw, dt, 3,
+      )
+      motion.head.rotation.y = motion.headYaw
+      motion.head.rotation.x = isGazing ? 0.12 : Math.sin(time * 0.55 + 1) * 0.045
+    }
+    motion.root?.updateMatrixWorld?.(true)
+    return
+  }
+
   if (motion.head) {
     // Head tracks the nearest alive player on M1 (neck-limited, smooth turns
     // even when the nearest player changes); falls back to the organic scan.
@@ -11246,6 +11358,9 @@ function addM1MileiStatueDecor(world, lowDetail, state = null) {
       rightArm: visual.group.userData.homeRightArm || null,
       leftHand: visual.group.userData.homeLeftHand || null,
       rightHand: visual.group.userData.homeRightHand || null,
+      statueId: M1_MILEI_STATUE_ID,
+      mapId: '1',
+      patrol: initStatuePatrol(M1_MILEI_STATUE_POSITION.gx, M1_MILEI_STATUE_POSITION.gy, visual.group.rotation.y, 0),
     }
   }
 }
@@ -11262,6 +11377,9 @@ function addM1ZelenskyStatueDecor(world, lowDetail, state = null) {
       head: visual.group.userData.homeHead || null,
       leftArm: visual.group.userData.homeLeftArm || null,
       rightArm: visual.group.userData.homeRightArm || null,
+      statueId: M1_ZELENSKY_STATUE_ID,
+      mapId: '1',
+      patrol: initStatuePatrol(M1_ZELENSKY_STATUE_POSITION.gx, M1_ZELENSKY_STATUE_POSITION.gy, visual.group.rotation.y, 15),
     }
   }
 }
@@ -11278,6 +11396,9 @@ function addM2MacronStatueDecor(world, lowDetail, state = null) {
       head: visual.group.userData.homeHead || null,
       leftArm: visual.group.userData.homeLeftArm || null,
       rightArm: visual.group.userData.homeRightArm || null,
+      statueId: M2_MACRON_STATUE_ID,
+      mapId: '2',
+      patrol: initStatuePatrol(M2_MACRON_STATUE_POSITION.gx, M2_MACRON_STATUE_POSITION.gy, visual.group.rotation.y, 30),
     }
   }
 }
@@ -15856,8 +15977,14 @@ export default function MiningChain3DFPV({
         fmx=portalFacing.col;fmy=portalFacing.row;fc=portalFacing.cell
         fcDist=Math.min(portalFacing.dist,INTERACT_DIST*.82)
       }
+      const _statueOverrides = {}
+      for (const mo of [_threeState?.m1MileiStatueMotion, _threeState?.m1ZelenskyStatueMotion, _threeState?.m2MacronStatueMotion]) {
+        if (mo?.statueId && mo?.patrol?.phase !== 'idle') {
+          _statueOverrides[mo.statueId] = { gx: mo.patrol.currentGx, gy: mo.patrol.currentGz }
+        }
+      }
       const statueFacing = !myDead
-        ? resolveBossStatueFacing(mapIdRef.current, p.x / CELL_SIZE, p.y / CELL_SIZE, p.angle)
+        ? resolveBossStatueFacing(mapIdRef.current, p.x / CELL_SIZE, p.y / CELL_SIZE, p.angle, _statueOverrides)
         : null
       if (
         statueFacing &&
