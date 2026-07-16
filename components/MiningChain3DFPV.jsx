@@ -11140,7 +11140,7 @@ const M1_STATUE_NECK_LIMIT = 1.25
 
 const STATUE_WALK_SPEED = 3.5
 
-function initStatuePatrol(baseGx, baseGz, baseRotY, staggerSec = 0) {
+function initStatuePatrol(baseGx, baseGz, baseRotY, staggerSec = 0, gazeAngle = 0) {
   return {
     phase: 'idle',
     nextTriggerT: staggerSec + 30 + Math.random() * 90,
@@ -11149,6 +11149,7 @@ function initStatuePatrol(baseGx, baseGz, baseRotY, staggerSec = 0) {
     baseGx,
     baseGz,
     baseRotY,
+    gazeAngle,
     targetGx: null,
     targetGz: null,
     waypoints: [],
@@ -11166,12 +11167,18 @@ function updateStatuePatrol(motion, time, dt) {
       const wps = []
       const n = 1 + Math.floor(Math.random() * 2)
       for (let i = 0; i < n; i++) wps.push({ gx: 8 + Math.random() * 40, gz: 8 + Math.random() * 40 })
-      wps.push({ gx: nukePos.col + 0.5, gz: nukePos.row + 0.5 })
+      // Stop 2 cells from the nuke at the statue's pre-assigned angle, never on the bomb itself.
+      wps.push({
+        gx: nukePos.col + 0.5 + Math.cos(p.gazeAngle) * 2,
+        gz: nukePos.row + 0.5 + Math.sin(p.gazeAngle) * 2,
+      })
       p.waypoints = wps
       const nxt = p.waypoints.shift()
       p.targetGx = nxt.gx
       p.targetGz = nxt.gz
       p.phase = 'walking'
+      // Feet on the ground while patrolling.
+      if (motion.bodyPivot) motion.bodyPivot.position.y = 0
     }
     return
   }
@@ -11208,6 +11215,8 @@ function updateStatuePatrol(motion, time, dt) {
         motion.root.position.x = p.baseGx
         motion.root.position.z = p.baseGz
         motion.root.rotation.y = p.baseRotY
+        // Step back onto pedestal.
+        if (motion.bodyPivot) motion.bodyPivot.position.y = motion.bodyPivot.userData.baseY ?? 0.09
       }
     }
     return
@@ -11345,8 +11354,23 @@ function updateM1MileiStatueMotion(motion, time, look = null) {
   motion.root?.updateMatrixWorld?.(true)
 }
 
+function _extractStatuePlinth(visual, world) {
+  // Move the cylinder pedestal out of the figure group into its own fixed group
+  // so the plinth stays at the base while the figure patrols.
+  const plinths = visual.group.children.filter(c => c.isMesh && c.geometry?.type === 'CylinderGeometry')
+  if (!plinths.length) return
+  const pg = new THREE.Group()
+  pg.position.copy(visual.group.position)
+  pg.rotation.copy(visual.group.rotation)
+  pg.scale.copy(visual.group.scale)
+  pg.frustumCulled = false
+  world.add(pg)
+  for (const m of plinths) { visual.group.remove(m); pg.add(m) }
+}
+
 function addM1MileiStatueDecor(world, lowDetail, state = null) {
   const visual = createM1MileiStatueVisual(THREE, lowDetail)
+  _extractStatuePlinth(visual, world)
   world.add(visual.group)
   if (state) {
     state.m1MileiStatueGroup = visual.group
@@ -11360,13 +11384,15 @@ function addM1MileiStatueDecor(world, lowDetail, state = null) {
       rightHand: visual.group.userData.homeRightHand || null,
       statueId: M1_MILEI_STATUE_ID,
       mapId: '1',
-      patrol: initStatuePatrol(M1_MILEI_STATUE_POSITION.gx, M1_MILEI_STATUE_POSITION.gy, visual.group.rotation.y, 0),
+      // gazeAngle=0 → stands east of M1 nuke (4.5, 2.5), Zelensky takes south (2.5, 4.5)
+      patrol: initStatuePatrol(M1_MILEI_STATUE_POSITION.gx, M1_MILEI_STATUE_POSITION.gy, visual.group.rotation.y, 0, 0),
     }
   }
 }
 
 function addM1ZelenskyStatueDecor(world, lowDetail, state = null) {
   const visual = createM1ZelenskyStatueVisual(THREE, lowDetail)
+  _extractStatuePlinth(visual, world)
   world.add(visual.group)
   if (state) {
     state.m1ZelenskyStatueGroup = visual.group
@@ -11379,13 +11405,15 @@ function addM1ZelenskyStatueDecor(world, lowDetail, state = null) {
       rightArm: visual.group.userData.homeRightArm || null,
       statueId: M1_ZELENSKY_STATUE_ID,
       mapId: '1',
-      patrol: initStatuePatrol(M1_ZELENSKY_STATUE_POSITION.gx, M1_ZELENSKY_STATUE_POSITION.gy, visual.group.rotation.y, 15),
+      // gazeAngle=PI/2 → stands south of M1 nuke (2.5, 4.5), no overlap with Milei
+      patrol: initStatuePatrol(M1_ZELENSKY_STATUE_POSITION.gx, M1_ZELENSKY_STATUE_POSITION.gy, visual.group.rotation.y, 15, Math.PI / 2),
     }
   }
 }
 
 function addM2MacronStatueDecor(world, lowDetail, state = null) {
   const visual = createM2MacronStatueVisual(THREE, lowDetail)
+  _extractStatuePlinth(visual, world)
   world.add(visual.group)
   if (state) {
     state.m2MacronStatueGroup = visual.group
@@ -11398,7 +11426,8 @@ function addM2MacronStatueDecor(world, lowDetail, state = null) {
       rightArm: visual.group.userData.homeRightArm || null,
       statueId: M2_MACRON_STATUE_ID,
       mapId: '2',
-      patrol: initStatuePatrol(M2_MACRON_STATUE_POSITION.gx, M2_MACRON_STATUE_POSITION.gy, visual.group.rotation.y, 30),
+      // gazeAngle=0 → stands east of M2 nuke (5.5, 51.5)
+      patrol: initStatuePatrol(M2_MACRON_STATUE_POSITION.gx, M2_MACRON_STATUE_POSITION.gy, visual.group.rotation.y, 30, 0),
     }
   }
 }
