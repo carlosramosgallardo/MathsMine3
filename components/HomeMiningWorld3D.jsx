@@ -880,17 +880,20 @@ export default function HomeMiningWorld3D() {
       addRedCarpet(THREE, scene, HOME_BOSS_LAYOUT.length + 7)
       const homeBosses = HOME_BOSS_LAYOUT.map((layout) => addHomeBoss(THREE, scene, layout))
 
-      // Statues leave the rail, stroll along the carpet front, then return.
-      // Three separate Z depths prevent them from overlapping each other.
-      const STATUE_PATROL_Z = { milei: 3.5, zelensky: 4.3, macron: 5.1 }
-      homeBosses.forEach((boss, i) => {
-        if (!boss.isStatue) return
+      // Statues leave the rail one at a time and walk to the nuke cube then back.
+      // Three separate Z depths keep them in front of the lineup without overlapping.
+      const STATUE_PATROL_Z = { milei: 3.4, zelensky: 4.2, macron: 5.0 }
+      const homeStatues = homeBosses.filter(b => b.isStatue)
+      let statuePatrolCursor = 0
+      homeStatues.forEach((boss, si) => {
+        const pedestals = boss.group.children.filter(c => c.isMesh && c.geometry?.type === 'CylinderGeometry')
         boss.homePatrol = {
           phase: 'idle',
-          nextTriggerT: 20 + i * 28 + Math.random() * 35,
+          nextTriggerT: si === 0 ? 4 + Math.random() * 4 : Infinity,
           patrolZ: STATUE_PATROL_Z[boss.id] ?? 4.0,
-          dir: Math.random() < 0.5 ? 1 : -1,
-          walkEndT: 0,
+          pedestals,
+          targetX: 0,
+          gazeEndT: 0,
         }
       })
 
@@ -1328,69 +1331,78 @@ export default function HomeMiningWorld3D() {
             const isPatrolling = hp && hp.phase !== 'idle'
 
             if (isPatrolling) {
-              // Compute where the carousel slot is right now (used to snap back).
+              // Carousel slot X for snapping back; restore scale squeezed by rail.
               const slotX = ((((boss.railX + rail.offset) + railHalf) % railSpan) + railSpan) % railSpan - railHalf
+              boss.group.scale.x = boss.baseScaleX
 
               if (hp.phase === 'forward') {
-                // Step forward toward patrol Z and descend to floor level.
+                // Walk toward nuke target, descend to floor, face direction of travel.
                 const ease = Math.min(1, spinDt * 2.5)
-                boss.group.position.z += (hp.patrolZ - boss.group.position.z) * ease
+                const dx = hp.targetX - boss.group.position.x
+                const dz = hp.patrolZ - boss.group.position.z
+                boss.group.position.x += dx * ease * 0.6
+                boss.group.position.z += dz * ease
                 boss.group.position.y += (HOME_ARENA_FLOOR_Y - boss.group.position.y) * ease
                 boss.bodyPivot.position.y = Math.max(0, boss.bodyPivot.position.y - spinDt * 0.8)
-                boss.group.rotation.y = boss.baseRotationY
+                if (Math.abs(dx) > 0.2 || Math.abs(dz) > 0.2) {
+                  const targetYaw = Math.atan2(dx, dz)
+                  boss.group.rotation.y += (targetYaw - boss.group.rotation.y) * Math.min(1, spinDt * 5)
+                }
                 boss.group.rotation.z = 0
                 boss.bodyPivot.rotation.x = 0
                 walkHumanoidLegs(boss.bodyPivot, t * 6.4, 0.5)
                 swayHumanoidArms(boss.bodyPivot, t)
-                if (Math.abs(boss.group.position.z - hp.patrolZ) < 0.1) {
-                  boss.group.position.z = hp.patrolZ
-                  hp.phase = 'strolling'
-                  hp.walkEndT = time + 8 + Math.random() * 10
+                if (Math.abs(dz) < 0.12 && Math.abs(dx) < 0.5) {
+                  hp.phase = 'gazing'
+                  hp.gazeEndT = time + 8 + Math.random() * 6
                 }
-              } else if (hp.phase === 'strolling') {
-                // Walk sideways in front of the lineup.
-                boss.group.position.x += hp.dir * 2.2 * spinDt
-                if (Math.abs(boss.group.position.x) > 16) hp.dir *= -1
-                // Face the walk direction (group.rotation.y: π/2 → +X, -π/2 → -X)
-                const targetYaw = hp.dir > 0 ? Math.PI / 2 : -Math.PI / 2
-                boss.group.rotation.y += (targetYaw - boss.group.rotation.y) * Math.min(1, spinDt * 5)
-                boss.group.rotation.z = 0
+              } else if (hp.phase === 'gazing') {
+                // Stand at nuke position, face the camera, idle arms.
                 boss.group.position.y = HOME_ARENA_FLOOR_Y
                 boss.bodyPivot.position.y = 0
+                boss.group.rotation.y += (boss.baseRotationY - boss.group.rotation.y) * Math.min(1, spinDt * 3)
+                boss.group.rotation.z = 0
                 boss.bodyPivot.rotation.x = 0
-                walkHumanoidLegs(boss.bodyPivot, t * 6.4, 0.5)
+                walkHumanoidLegs(boss.bodyPivot, 0, 0)
                 swayHumanoidArms(boss.bodyPivot, t)
-                if (time >= hp.walkEndT) hp.phase = 'returning'
+                if (time >= hp.gazeEndT) hp.phase = 'returning'
               } else if (hp.phase === 'returning') {
-                // Glide back to carousel slot position and restore idle pose.
+                // Walk back toward slot, face direction of travel.
                 const ease = Math.min(1, spinDt * 2.5)
-                boss.group.position.z += (boss.baseZ - boss.group.position.z) * ease
-                boss.group.position.x += (slotX - boss.group.position.x) * Math.min(1, spinDt * 2)
+                const dx = slotX - boss.group.position.x
+                const dz = boss.baseZ - boss.group.position.z
+                boss.group.position.x += dx * Math.min(1, spinDt * 2)
+                boss.group.position.z += dz * ease
                 boss.group.position.y += (boss.baseY - boss.group.position.y) * ease
                 boss.bodyPivot.position.y = Math.min(
                   boss.bodyPivot.userData.baseY ?? 0.09,
                   boss.bodyPivot.position.y + spinDt * 0.8,
                 )
-                boss.group.rotation.y += (boss.baseRotationY - boss.group.rotation.y) * Math.min(1, spinDt * 3)
+                if (Math.abs(dx) > 0.2 || Math.abs(dz) > 0.2) {
+                  const targetYaw = Math.atan2(dx, dz)
+                  boss.group.rotation.y += (targetYaw - boss.group.rotation.y) * Math.min(1, spinDt * 5)
+                }
                 boss.group.rotation.z = 0
                 boss.bodyPivot.rotation.x = 0
                 walkHumanoidLegs(boss.bodyPivot, t * 6.4, 0.5)
                 swayHumanoidArms(boss.bodyPivot, t)
-                if (Math.abs(boss.group.position.z - boss.baseZ) < 0.06 &&
-                    Math.abs(boss.group.position.x - slotX) < 0.3) {
+                if (Math.abs(dz) < 0.06 && Math.abs(dx) < 0.3) {
                   hp.phase = 'idle'
-                  hp.nextTriggerT = time + 30 + Math.random() * 90
+                  hp.pedestals.forEach(p => { p.visible = true })
                   walkHumanoidLegs(boss.bodyPivot, 0, 0)
+                  // Chain: next statue goes after a short pause
+                  statuePatrolCursor = (statuePatrolCursor + 1) % homeStatues.length
+                  homeStatues[statuePatrolCursor].homePatrol.nextTriggerT = time + 2 + Math.random() * 3
                 }
               }
               boss.glowLight.intensity = boss.baseGlow + Math.sin(t * 2.4) * 0.85
             } else {
-              // Idle: check for patrol trigger, then run normal statue pose.
+              // Idle: check trigger, then run normal statue pose.
               if (hp && time >= hp.nextTriggerT) {
                 hp.phase = 'forward'
-                hp.dir = Math.random() < 0.5 ? 1 : -1
+                hp.targetX = homeNuke.group.position.x
+                hp.pedestals.forEach(p => { p.visible = false })
               }
-              // Keep the build lift (statue standing ON its plinth), don't zero it.
               boss.bodyPivot.position.y = boss.bodyPivot.userData.baseY || 0
               boss.group.position.y = boss.baseY
               boss.group.rotation.y = boss.baseRotationY
