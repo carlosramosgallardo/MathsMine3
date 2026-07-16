@@ -235,7 +235,7 @@ function NonagonPortal({ portal, es, isDead, deadCountdown, count, nftji, mining
                 opacity={selected ? 1 : 0.62}
                 style={selected && !blocked ? { filter: 'drop-shadow(0 0 6px #ff2020)' } : undefined}
               />
-              <line x1={x1} y1={y1} x2={x2} y2={y2} stroke="transparent" strokeWidth={34} strokeLinecap="round" />
+              <line x1={x1} y1={y1} x2={x2} y2={y2} stroke="transparent" strokeWidth={56} strokeLinecap="round" />
               {card.daily && count > 0 && !blocked && (
                 <circle cx={ix} cy={iy} r={5} fill="#ef4444" stroke="#010709" strokeWidth={1.4} />
               )}

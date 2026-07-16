@@ -1630,7 +1630,7 @@ footer.bg-black\/97,
 .mm3-nonagon-side text { user-select: none; }
 .mm3-nonagon-core {
   position: absolute;
-  inset: 20.5%;
+  inset: 12.25%;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1638,6 +1638,9 @@ footer.bg-black\/97,
   border: 0;
   background: transparent;
   cursor: pointer;
+  /* clip-path restricts both visual rendering AND pointer-event hit area to
+     the exact circle — more reliable than border-radius alone for hit testing. */
+  clip-path: circle(50%);
 }
 .mm3-nonagon-core .mm3-home-worldmap {
   width: 100%;
@@ -1660,11 +1663,9 @@ footer.bg-black\/97,
   100% { transform: none; filter: none; opacity: 1; }
 }
 .mm3-nonagon-logo {
-  /* Sized against the ring, not the core button: the core inset (20.5%) is
-     dictated by the square world minimap, but the round logo can fill the
-     polygon's inscribed circle. 128% of the 59% core ≈ 75% of the ring —
-     ~10 viewBox units clear of the sides' inner stroke edge. */
-  width: 128%;
+  /* Button is now sized to the logo's visual circle (inset: 12.25% → 75.5%
+     of container), so the logo fills it exactly. Clickable area = logo only. */
+  width: 100%;
   max-width: none;
   flex: 0 0 auto;
   height: auto;
