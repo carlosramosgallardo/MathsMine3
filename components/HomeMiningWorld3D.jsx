@@ -880,27 +880,32 @@ export default function HomeMiningWorld3D() {
       addRedCarpet(THREE, scene, HOME_BOSS_LAYOUT.length + 7)
       const homeBosses = HOME_BOSS_LAYOUT.map((layout) => addHomeBoss(THREE, scene, layout))
 
-      // Statues leave the rail one at a time and walk to the nuke cube then back.
-      // Three separate Z depths keep them in front of the lineup without overlapping.
-      // Each statue also has its own X offset from the nuke so they don't visually
-      // stack at the same screen position when viewed from the camera at (0, _, dist).
-      const STATUE_PATROL_Z = { milei: 3.4, zelensky: 4.2, macron: 5.0 }
-      const STATUE_PATROL_X_OFFSET = { milei: -2.5, zelensky: 0, macron: 2.5 }
-      const homeStatues = homeBosses.filter(b => b.isStatue)
-      let statuePatrolCursor = 0
-      homeStatues.forEach((boss, si) => {
-        const pedestals = boss.group.children.filter(c => c.isMesh && c.geometry?.type === 'CylinderGeometry')
+      // Any character (statue or boss) can be dispatched to a patrol slot and walk
+      // out from the carousel every ~10 s, up to MAX_DISPATCHED at a time.
+      // Statues carry their pedestal to the patrol position; bosses have none.
+      const PATROL_SLOTS = [
+        { id: 0, type: 'statue', x: -3.5, z: 3.5 },
+        { id: 1, type: 'statue', x:  0.5, z: 4.5 },
+        { id: 2, type: 'statue', x:  4.0, z: 3.8 },
+        { id: 3, type: 'boss',   x: -5.5, z: 5.0 },
+        { id: 4, type: 'boss',   x:  1.5, z: 6.0 },
+        { id: 5, type: 'boss',   x: -1.5, z: 7.0 },
+      ]
+      const patrolSlots = PATROL_SLOTS.map(s => ({ ...s, occupant: null }))
+      const MAX_DISPATCHED = 3
+      let nextDispatchT = 3 + Math.random() * 4
+      for (const boss of homeBosses) {
         boss.homePatrol = {
-          phase: 'idle',
-          nextTriggerT: si === 0 ? 4 + Math.random() * 4 : Infinity,
-          patrolZ: STATUE_PATROL_Z[boss.id] ?? 4.0,
-          patrolXOffset: STATUE_PATROL_X_OFFSET[boss.id] ?? 0,
-          pedestals,
+          phase: 'idle',   // 'idle' | 'walking_out' | 'stationed' | 'returning'
+          type: boss.isStatue ? 'statue' : 'boss',
+          slot: null,
+          stayUntil: 0,
+          returnX: 0,
+          returnZ: 0,
           targetX: 0,
-          gazeEndT: 0,
-          returnTargetX: null,
+          targetZ: 0,
         }
-      })
+      }
 
       // Hovering the mining-access card puts every boss/statue/bot in
       // "fighting" mode: every tagged eye glow in the scene (boss masks AND
@@ -1317,7 +1322,7 @@ export default function HomeMiningWorld3D() {
         }
         const railHalf = railSpan / 2
         for (const entry of lineup) {
-          if (entry.isStatue && entry.homePatrol?.phase !== 'idle') continue
+          if (entry.homePatrol?.phase !== 'idle') continue
           const g = entry.group
           const wrapped = ((((entry.railX + rail.offset) + railHalf) % railSpan) + railSpan) % railSpan - railHalf
           g.position.x = wrapped
@@ -1328,161 +1333,179 @@ export default function HomeMiningWorld3D() {
 
         const now = performance.now()
 
+        // Dispatch: every ~10 s send a random idle character to a free patrol slot.
+        // Up to MAX_DISPATCHED can be out simultaneously.
+        {
+          const numOut = homeBosses.filter(b => b.homePatrol.phase !== 'idle').length
+          if (numOut < MAX_DISPATCHED && time >= nextDispatchT) {
+            const eligible = homeBosses.filter(b => {
+              if (b.homePatrol.phase !== 'idle') return false
+              return patrolSlots.some(s => s.type === b.homePatrol.type && !s.occupant)
+            })
+            if (eligible.length > 0) {
+              const picked = eligible[Math.floor(Math.random() * eligible.length)]
+              const freeSlots = patrolSlots.filter(s => s.type === picked.homePatrol.type && !s.occupant)
+              const slot = freeSlots[Math.floor(Math.random() * freeSlots.length)]
+              const hp = picked.homePatrol
+              const slotX = ((((picked.railX + rail.offset) + railHalf) % railSpan) + railSpan) % railSpan - railHalf
+              hp.phase = 'walking_out'
+              hp.slot = slot.id
+              hp.returnX = slotX
+              hp.returnZ = picked.baseZ
+              hp.targetX = slot.x
+              hp.targetZ = slot.z
+              slot.occupant = picked
+              if (!picked.isStatue) {
+                bossAttackStart[picked.id] = null
+                bossGreetStart[picked.id] = null
+                bossNextAttack[picked.id] = performance.now() + 99999
+              }
+            }
+            nextDispatchT = time + 8 + Math.random() * 5
+          }
+        }
+
         for (const boss of homeBosses) {
           const t = time + boss.phase
           const stride = Math.sin(t * boss.bob)
-          if (boss.isStatue) {
-            const hp = boss.homePatrol
-            const isPatrolling = hp && hp.phase !== 'idle'
+          const hp = boss.homePatrol
+          const WALK_SPD = 1.8
 
-            if (isPatrolling) {
-              // Carousel slot X for snapping back; restore scale squeezed by rail.
-              const slotX = ((((boss.railX + rail.offset) + railHalf) % railSpan) + railSpan) % railSpan - railHalf
-              boss.group.scale.x = boss.baseScaleX
+          if (hp.phase !== 'idle') {
+            // Out on patrol: walking_out → stationed → returning.
+            boss.group.scale.x = boss.baseScaleX
 
-              // Constant-speed walk so movement feels human-paced, not spring-driven.
-              const WALK_SPD = 1.8  // world units per second
-              if (hp.phase === 'forward') {
-                // Step forward in Z first (clears the lineup), then slide in X toward
-                // the nuke — avoids walking diagonally through other carousel elements.
-                const dz = hp.patrolZ - boss.group.position.z
-                if (Math.abs(dz) > 0.18) {
-                  // Sub-phase 1: advance Z until at patrol depth.
-                  const stepZ = Math.sign(dz) * Math.min(Math.abs(dz), WALK_SPD * spinDt)
-                  boss.group.position.z += stepZ
-                  boss.group.rotation.y += (Math.PI - boss.group.rotation.y) * Math.min(1, spinDt * 1.8)
+            if (hp.phase === 'walking_out') {
+              // Z-first path: step away from the lineup before sliding sideways.
+              const dz = hp.targetZ - boss.group.position.z
+              if (Math.abs(dz) > 0.18) {
+                boss.group.position.z += Math.sign(dz) * Math.min(Math.abs(dz), WALK_SPD * spinDt)
+                boss.group.rotation.y += (Math.PI - boss.group.rotation.y) * Math.min(1, spinDt * 1.8)
+              } else {
+                boss.group.position.z = hp.targetZ
+                const dx = hp.targetX - boss.group.position.x
+                if (Math.abs(dx) > 0.18) {
+                  boss.group.position.x += Math.sign(dx) * Math.min(Math.abs(dx), WALK_SPD * spinDt)
+                  boss.group.rotation.y += (Math.atan2(dx, 0) - boss.group.rotation.y) * Math.min(1, spinDt * 1.8)
                 } else {
-                  // Sub-phase 2: slide X toward assigned nuke offset position.
-                  boss.group.position.z = hp.patrolZ
-                  const dx = hp.targetX - boss.group.position.x
-                  if (Math.abs(dx) > 0.18) {
-                    const stepX = Math.sign(dx) * Math.min(Math.abs(dx), WALK_SPD * spinDt)
-                    boss.group.position.x += stepX
-                    const tYaw = Math.atan2(dx, 0)
-                    boss.group.rotation.y += (tYaw - boss.group.rotation.y) * Math.min(1, spinDt * 1.8)
-                  } else {
-                    boss.group.position.x = hp.targetX
-                    hp.phase = 'gazing'
-                    hp.gazeEndT = time + 8 + Math.random() * 6
-                    // Save a fixed return target so the returning walk isn't chasing
-                    // a moving slotX (the carousel may have shifted since patrol started).
-                    hp.returnTargetX = slotX
-                  }
+                  boss.group.position.x = hp.targetX
+                  hp.phase = 'stationed'
+                  hp.stayUntil = time + 20 + Math.random() * 15
                 }
-                boss.group.position.y += (HOME_ARENA_FLOOR_Y - boss.group.position.y) * Math.min(1, spinDt * 1.2)
-                boss.bodyPivot.position.y = Math.max(0, boss.bodyPivot.position.y - spinDt * 0.35)
-                boss.group.rotation.z = 0
-                boss.bodyPivot.rotation.x = 0
-                walkHumanoidLegs(boss.bodyPivot, t * 3.5, 0.45)
-                swayHumanoidArms(boss.bodyPivot, t)
-              } else if (hp.phase === 'gazing') {
-                // Stand near nuke, face camera, idle.
+              }
+              boss.group.position.y += (HOME_ARENA_FLOOR_Y - boss.group.position.y) * Math.min(1, spinDt * 1.2)
+              boss.bodyPivot.position.y = Math.max(0, boss.bodyPivot.position.y - spinDt * 0.35)
+              boss.group.rotation.z = 0
+              boss.bodyPivot.rotation.x = 0
+              walkHumanoidLegs(boss.bodyPivot, t * 3.5, 0.45)
+              swayHumanoidArms(boss.bodyPivot, t)
+
+            } else if (hp.phase === 'stationed') {
+              // Hold position: snap in place and play idle animations.
+              boss.group.position.x = hp.targetX
+              boss.group.position.z = hp.targetZ
+              boss.group.rotation.z = 0
+              boss.bodyPivot.rotation.x = 0
+              boss.group.rotation.y += (boss.baseRotationY - boss.group.rotation.y) * Math.min(1, spinDt * 1.5)
+              if (boss.isStatue) {
                 boss.group.position.y = HOME_ARENA_FLOOR_Y
-                boss.bodyPivot.position.y = 0
-                boss.group.rotation.y += (boss.baseRotationY - boss.group.rotation.y) * Math.min(1, spinDt * 1.5)
-                boss.group.rotation.z = 0
-                boss.bodyPivot.rotation.x = 0
+                boss.bodyPivot.position.y = boss.bodyPivot.userData.baseY || 0
                 walkHumanoidLegs(boss.bodyPivot, 0, 0)
                 swayHumanoidArms(boss.bodyPivot, t)
-                if (time >= hp.gazeEndT) {
-                  hp.phase = 'returning'
-                  // Refresh return target in case carousel moved during gazing.
-                  hp.returnTargetX = slotX
-                }
-              } else if (hp.phase === 'returning') {
-                // Return diagonally to the slot position that was saved at gaze-start
-                // (fixed target so the statue is not chasing a moving carousel slot).
-                const retX = hp.returnTargetX ?? slotX
-                const dx = retX - boss.group.position.x
-                const dz = boss.baseZ - boss.group.position.z
-                const dist = Math.hypot(dx, dz)
-                if (dist > 0.18) {
-                  const step = Math.min(dist, WALK_SPD * spinDt)
-                  boss.group.position.x += (dx / dist) * step
-                  boss.group.position.z += (dz / dist) * step
-                  const tYaw = Math.atan2(dx, dz)
-                  boss.group.rotation.y += (tYaw - boss.group.rotation.y) * Math.min(1, spinDt * 1.8)
-                } else {
-                  hp.phase = 'idle'
-                  hp.returnTargetX = null
-                  hp.pedestals.forEach(p => { p.visible = true })
-                  walkHumanoidLegs(boss.bodyPivot, 0, 0)
-                  statuePatrolCursor = (statuePatrolCursor + 1) % homeStatues.length
-                  homeStatues[statuePatrolCursor].homePatrol.nextTriggerT = time + 2 + Math.random() * 3
-                }
-                boss.group.position.y += (boss.baseY - boss.group.position.y) * Math.min(1, spinDt * 1.2)
-                boss.bodyPivot.position.y = Math.min(
-                  boss.bodyPivot.userData.baseY ?? 0.09,
-                  boss.bodyPivot.position.y + spinDt * 0.35,
-                )
-                boss.group.rotation.z = 0
-                boss.bodyPivot.rotation.x = 0
-                walkHumanoidLegs(boss.bodyPivot, t * 3.5, 0.45)
-                swayHumanoidArms(boss.bodyPivot, t)
-              }
-              boss.glowLight.intensity = boss.baseGlow + Math.sin(t * 2.4) * 0.85
-            } else {
-              // Idle: check trigger, then run normal statue pose.
-              // Guard: only start patrol if no other statue is already moving —
-              // prevents simultaneous patrolling due to cursor/timing bugs.
-              const anyOtherPatrolling = homeStatues.some(s => s !== boss && s.homePatrol?.phase !== 'idle')
-              if (hp && time >= hp.nextTriggerT && !anyOtherPatrolling) {
-                hp.phase = 'forward'
-                // Each statue has its own X offset near the nuke so they never
-                // visually stack at the same screen position.
-                hp.targetX = homeNuke.group.position.x + (hp.patrolXOffset ?? 0)
-                hp.pedestals.forEach(p => { p.visible = false })
-              }
-              boss.bodyPivot.position.y = boss.bodyPivot.userData.baseY || 0
-              boss.group.position.y = boss.baseY
-              boss.group.rotation.y = boss.baseRotationY
-              boss.group.rotation.z = 0
-              const armLift = Math.sin(t * 1.8) * 0.026
-              if (boss.head) {
-                boss.head.rotation.y = Math.sin(t * 0.42) * 0.5 + Math.sin(t * 0.17 + 2) * 0.18
-                boss.head.rotation.x = Math.sin(t * 0.55 + 1) * 0.045
-              }
-              if (boss.saluteStyle === 'leftForward') {
-                const breathe = Math.sin(t * 1.6) * 0.03
-                if (boss.leftArm) {
-                  boss.leftArm.position.y = (boss.leftArm.userData.baseY ?? 0.655) + armLift
-                  boss.leftArm.rotation.x = 2.25 + breathe
-                  boss.leftArm.rotation.z = (boss.leftArm.userData.baseRotZ || 0) + 0.08
-                }
-                if (boss.rightArm) {
-                  const phase = boss.rightArm.userData.swayPhase || 0
-                  boss.rightArm.position.y = (boss.rightArm.userData.baseY ?? 0.655) + armLift
-                  boss.rightArm.rotation.x = Math.sin(t * 0.9 + phase) * 0.055
-                  boss.rightArm.rotation.z = (boss.rightArm.userData.baseRotZ || 0) + Math.sin(t * 0.63 + phase) * 0.045
-                }
-                boss.bodyPivot.rotation.x = -0.03 + breathe * 0.3
-              } else if (boss.saluteStyle === 'bothUp') {
-                if (boss.leftArm) {
-                  boss.leftArm.position.y = (boss.leftArm.userData.baseY ?? 0.655) + armLift
-                  boss.leftArm.rotation.x = 0
-                  boss.leftArm.rotation.z = -2.5 - Math.sin(t * 2.4 + Math.PI) * 0.22
-                }
-                if (boss.rightArm) {
-                  boss.rightArm.position.y = (boss.rightArm.userData.baseY ?? 0.655) + armLift
-                  boss.rightArm.rotation.x = 0
-                  boss.rightArm.rotation.z = 2.5 + Math.sin(t * 2.4) * 0.22
+                if (boss.head) {
+                  boss.head.rotation.y = Math.sin(t * 0.42) * 0.5 + Math.sin(t * 0.17 + 2) * 0.18
+                  boss.head.rotation.x = Math.sin(t * 0.55 + 1) * 0.045
                 }
               } else {
-                if (boss.leftArm) {
-                  const phase = boss.leftArm.userData.swayPhase || 0
-                  boss.leftArm.position.y = (boss.leftArm.userData.baseY ?? 0.655) + armLift
-                  boss.leftArm.rotation.x = Math.sin(t * 0.9 + phase) * 0.055
-                  boss.leftArm.rotation.z = (boss.leftArm.userData.baseRotZ || 0) + Math.sin(t * 0.63 + phase) * 0.045
-                }
-                if (boss.rightArm) {
-                  boss.rightArm.position.y = (boss.rightArm.userData.baseY ?? 0.655) + armLift
-                  boss.rightArm.rotation.x = 0
-                  boss.rightArm.rotation.z = 2.5 + Math.sin(t * 2.4) * 0.22
-                }
+                boss.group.position.y = HOME_ARENA_FLOOR_Y + Math.max(0, Math.sin(t * (boss.bob + 0.15)) * 0.018)
+                boss.bodyPivot.position.y = Math.max(0, stride * 0.06)
+                swayHumanoidArms(boss.bodyPivot, t)
+                const legs = boss.bodyPivot?.userData?.humanLegs
+                if (legs) { legs[0].rotation.x = 0; legs[0].rotation.z = 0; legs[1].rotation.x = 0; legs[1].rotation.z = 0 }
               }
-              boss.glowLight.intensity = boss.baseGlow + Math.sin(t * 2.4) * 0.85
+              if (time >= hp.stayUntil) hp.phase = 'returning'
+
+            } else if (hp.phase === 'returning') {
+              // Diagonal walk back to the saved rail slot position.
+              const dx = hp.returnX - boss.group.position.x
+              const dz = hp.returnZ - boss.group.position.z
+              const dist = Math.hypot(dx, dz)
+              if (dist > 0.18) {
+                const step = Math.min(dist, WALK_SPD * spinDt)
+                boss.group.position.x += (dx / dist) * step
+                boss.group.position.z += (dz / dist) * step
+                boss.group.rotation.y += (Math.atan2(dx, dz) - boss.group.rotation.y) * Math.min(1, spinDt * 1.8)
+              } else {
+                hp.phase = 'idle'
+                if (hp.slot != null) { patrolSlots[hp.slot].occupant = null; hp.slot = null }
+                if (!boss.isStatue) bossNextAttack[boss.id] = performance.now() + 4000
+                if (boss.isStatue) walkHumanoidLegs(boss.bodyPivot, 0, 0)
+              }
+              boss.group.position.y += (boss.baseY - boss.group.position.y) * Math.min(1, spinDt * 1.2)
+              boss.bodyPivot.position.y = Math.min(
+                boss.bodyPivot.userData.baseY ?? 0.09,
+                boss.bodyPivot.position.y + spinDt * 0.35,
+              )
+              boss.group.rotation.z = 0
+              boss.bodyPivot.rotation.x = 0
+              walkHumanoidLegs(boss.bodyPivot, t * 3.5, 0.45)
+              swayHumanoidArms(boss.bodyPivot, t)
             }
+            boss.glowLight.intensity = boss.baseGlow + Math.sin(t * 2.4) * 0.85
+
+          } else if (boss.isStatue) {
+            // Idle in carousel: statue-specific salute pose + head tracking.
+            boss.bodyPivot.position.y = boss.bodyPivot.userData.baseY || 0
+            boss.group.position.y = boss.baseY
+            boss.group.rotation.y = boss.baseRotationY
+            boss.group.rotation.z = 0
+            const armLift = Math.sin(t * 1.8) * 0.026
+            if (boss.head) {
+              boss.head.rotation.y = Math.sin(t * 0.42) * 0.5 + Math.sin(t * 0.17 + 2) * 0.18
+              boss.head.rotation.x = Math.sin(t * 0.55 + 1) * 0.045
+            }
+            if (boss.saluteStyle === 'leftForward') {
+              const breathe = Math.sin(t * 1.6) * 0.03
+              if (boss.leftArm) {
+                boss.leftArm.position.y = (boss.leftArm.userData.baseY ?? 0.655) + armLift
+                boss.leftArm.rotation.x = 2.25 + breathe
+                boss.leftArm.rotation.z = (boss.leftArm.userData.baseRotZ || 0) + 0.08
+              }
+              if (boss.rightArm) {
+                const phase = boss.rightArm.userData.swayPhase || 0
+                boss.rightArm.position.y = (boss.rightArm.userData.baseY ?? 0.655) + armLift
+                boss.rightArm.rotation.x = Math.sin(t * 0.9 + phase) * 0.055
+                boss.rightArm.rotation.z = (boss.rightArm.userData.baseRotZ || 0) + Math.sin(t * 0.63 + phase) * 0.045
+              }
+              boss.bodyPivot.rotation.x = -0.03 + breathe * 0.3
+            } else if (boss.saluteStyle === 'bothUp') {
+              if (boss.leftArm) {
+                boss.leftArm.position.y = (boss.leftArm.userData.baseY ?? 0.655) + armLift
+                boss.leftArm.rotation.x = 0
+                boss.leftArm.rotation.z = -2.5 - Math.sin(t * 2.4 + Math.PI) * 0.22
+              }
+              if (boss.rightArm) {
+                boss.rightArm.position.y = (boss.rightArm.userData.baseY ?? 0.655) + armLift
+                boss.rightArm.rotation.x = 0
+                boss.rightArm.rotation.z = 2.5 + Math.sin(t * 2.4) * 0.22
+              }
+            } else {
+              if (boss.leftArm) {
+                const phase = boss.leftArm.userData.swayPhase || 0
+                boss.leftArm.position.y = (boss.leftArm.userData.baseY ?? 0.655) + armLift
+                boss.leftArm.rotation.x = Math.sin(t * 0.9 + phase) * 0.055
+                boss.leftArm.rotation.z = (boss.leftArm.userData.baseRotZ || 0) + Math.sin(t * 0.63 + phase) * 0.045
+              }
+              if (boss.rightArm) {
+                boss.rightArm.position.y = (boss.rightArm.userData.baseY ?? 0.655) + armLift
+                boss.rightArm.rotation.x = 0
+                boss.rightArm.rotation.z = 2.5 + Math.sin(t * 2.4) * 0.22
+              }
+            }
+            boss.glowLight.intensity = boss.baseGlow + Math.sin(t * 2.4) * 0.85
+
           } else {
+            // Idle in carousel: boss showcase spin + attack / greet sequences.
             boss.group.rotation.y = boss.baseRotationY + advanceShowcaseSpin(boss, spinDt)
             const as = bossAttackStart[boss.id]
             const attackT = as ? Math.min(1, (now - as) / 3000) : 0
@@ -1491,7 +1514,6 @@ export default function HomeMiningWorld3D() {
             boss.glowLight.intensity = boss.baseGlow + Math.sin(t * 2.4) * 0.85
             if (attackT > 0) {
               applyBossAttack(boss, boss.id, attackT, t)
-              // Boost glow during attack
               const bIn  = Math.sin(Math.min(1, attackT / 0.15) * Math.PI * 0.5)
               const bOut = Math.sin(Math.min(1, (1 - attackT) / 0.20) * Math.PI * 0.5)
               boss.glowLight.intensity += bIn * bOut * 1.4
@@ -1575,6 +1597,7 @@ export default function HomeMiningWorld3D() {
         }
         // Boss 3-second attack sequence: animation starts on timer; VFX fires at t = 1.5 s
         for (const [bossId, nextAt] of Object.entries(bossNextAttack)) {
+          if (bossById[bossId]?.homePatrol?.phase !== 'idle') continue
           const gs = bossGreetStart[bossId]
           if (gs && now - gs >= 3000) {
             bossGreetStart[bossId] = null
