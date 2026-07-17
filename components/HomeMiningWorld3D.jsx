@@ -645,41 +645,13 @@ function addRedCarpet(THREE, scene, memberCount = 9) {
 
   // Freak-crypto runway: near-black circuit deck with neon cyan rails and a
   // magenta data stripe — matches the portal's cyan/magenta CRT identity.
-  const carpetMat = new THREE.MeshStandardMaterial({
-    color: '#071a26',
-    roughness: 0.42,
-    metalness: 0.55,
-    emissive: '#0e7490',
-    emissiveIntensity: 0.30,
-  })
-  // Depth 9.0 ensures boss attack beams (range 8) stay on the runway.
-  const carpet = new THREE.Mesh(new THREE.BoxGeometry(width, 0.025, 9.0), carpetMat)
-  carpet.receiveShadow = true
+  // Transparent colorless floor — kept in the scene for collision geometry
+  // but fully invisible so the stage floats in space.
+  const carpet = new THREE.Mesh(
+    new THREE.BoxGeometry(width, 0.025, 9.0),
+    new THREE.MeshStandardMaterial({ transparent: true, opacity: 0, depthWrite: false }),
+  )
   carpetGroup.add(carpet)
-
-  const trimMat = new THREE.MeshStandardMaterial({
-    color: '#22d3ee',
-    roughness: 0.30,
-    metalness: 0.40,
-    emissive: '#22d3ee',
-    emissiveIntensity: 0.85,
-  })
-  for (const z of [-4.55, 4.55]) {
-    const trim = new THREE.Mesh(new THREE.BoxGeometry(width + 0.2, 0.035, 0.10), trimMat)
-    trim.position.z = z
-    carpetGroup.add(trim)
-  }
-
-  // Cross-ticks every few units — circuit-board traces along the runway.
-  // No centre stripe: the runway reads as a single lane, and one fewer
-  // near-coplanar overlay (stripe top vs tick top was ~1 mm — it shimmered).
-  // Ticks ride clearly above the carpet top for the same reason.
-  const tickMat = new THREE.MeshBasicMaterial({ color: '#22d3ee', transparent: true, opacity: 0.30 })
-  for (let x = -(width / 2 - 2); x <= width / 2 - 2; x += 2.25) {
-    const tick = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.028, 4.2), tickMat)
-    tick.position.set(x, 0.008, 0)
-    carpetGroup.add(tick)
-  }
 
   scene.add(carpetGroup)
   return carpetGroup

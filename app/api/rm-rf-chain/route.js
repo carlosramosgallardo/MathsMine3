@@ -1,15 +1,22 @@
 import { createClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
 
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY,
-);
+// Lazy — do NOT evaluate at module level; env vars may be absent during build.
+let _supabase = null;
+function getSupabase() {
+  if (!_supabase) {
+    _supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL,
+      process.env.SUPABASE_SERVICE_ROLE_KEY,
+    );
+  }
+  return _supabase;
+}
 
 const COOLDOWN_MS = 24 * 60 * 60 * 1000; // 24h per chip
 
 async function getChipStatus(chip) {
-  const { data } = await supabaseAdmin
+  const { data } = await getSupabase()
     .from('mm3_chain_reset_log')
     .select('created_at')
     .eq('chip', chip)
@@ -50,7 +57,7 @@ export async function POST(request) {
     }
 
     // Delete only mm3_mined_blocks (chain blocks), NOT mm3_mining_blocks (NFTJI market)
-    const { error: delErr } = await supabaseAdmin
+    const { error: delErr } = await getSupabase()
       .from('mm3_mined_blocks')
       .delete()
       .neq('id', 0); // delete all rows
@@ -61,7 +68,7 @@ export async function POST(request) {
 
     // Log the reset
     const walletVal = String(wallet || 'anon').toLowerCase() || 'anon';
-    await supabaseAdmin.from('mm3_chain_reset_log').insert({
+    await getSupabase().from('mm3_chain_reset_log').insert({
       chip: chipNum,
       wallet: walletVal,
     });
@@ -70,7 +77,7 @@ export async function POST(request) {
     const traceEn = `KERNEL PANIC >> /rm -rf MM3_BLOCK_CHAIN executed >> chip #${chipNum} >> wallet=${walletVal} >> mm3_mined_blocks wiped >> chain reset at ${new Date().toISOString()} >> 24h cooldown started`;
     const traceEs = `KERNEL PANIC >> /rm -rf MM3_BLOCK_CHAIN ejecutado >> chip #${chipNum} >> wallet=${walletVal} >> mm3_mined_blocks borrado >> cadena reseteada ${new Date().toISOString()} >> cooldown 24h iniciado`;
 
-    await supabaseAdmin.from('mm3_relaying_messages').insert({
+    await getSupabase().from('mm3_relaying_messages').insert({
       wallet: 'system',
       text: traceEn,
       ts: Date.now(),
