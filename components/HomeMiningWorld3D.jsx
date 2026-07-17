@@ -12,7 +12,7 @@ import { createM1MileiStatueVisual, M1_MILEI_STATUE_SCALE } from '@/lib/m1-milei
 import { createM1ZelenskyStatueVisual, M1_ZELENSKY_STATUE_SCALE } from '@/lib/m1-zelensky-statue'
 import { createM2MacronStatueVisual, M2_MACRON_STATUE_SCALE } from '@/lib/m2-macron-statue'
 import { roundedVoxelGeometry } from '@/lib/rounded-voxel'
-import { advanceShowcaseSpin } from '@/lib/map-boss-facing'
+import { advanceShowcaseSpin, approachYaw } from '@/lib/map-boss-facing'
 import { setBossMaskEyesRed } from '@/lib/boss-head-photo'
 import { colorFromAddress } from '@/lib/wallet-colors'
 import { buildHumanoidBody, buildBotRoundHead, swayHumanoidArms, walkHumanoidLegs, flailHumanoidJump, flapHumanoidJump } from '@/lib/humanoid-body'
@@ -759,13 +759,8 @@ export default function HomeMiningWorld3D() {
     let putinTrail = []
     let kimTrail   = []
     let trumpTrail = []
-    // Stagger first attacks so all 3 don't fire simultaneously
-    const bossNextAttack = {
-      putin: performance.now() + 1500,
-      kim:   performance.now() + 2833,
-      trump: performance.now() + 4166,
-    }
-    // Attack animation state: null = idle, number = performance.now() when the 3 s sequence began
+    // Attack animation state: null = idle, number = performance.now() when the
+    // 3 s sequence began. Attacks only start from the center-stage feature.
     const bossAttackStart = { putin: null, kim: null, trump: null }
     const bossVfxFired    = { putin: false, kim: false, trump: false }
     const bossGreetStart  = { putin: null, kim: null, trump: null }
@@ -781,6 +776,9 @@ export default function HomeMiningWorld3D() {
     // framing so the avatars read much bigger; tap again to zoom back out.
     let zoomCur = 1
     let zoomTarget = 1
+    // Camera dolly: recedes by the featured member's forward step (world
+    // units) so the center-stage show never clips at the frame edges.
+    let featPull = 0
     let scene
     let resizeObserver
     let intersectionObserver
@@ -811,7 +809,9 @@ export default function HomeMiningWorld3D() {
           (±13.65u + boss half-width). Same on-screen size as a close camera, but the
           narrow fov keeps the edge bosses from stretching wide (perspective distortion). */
       const frameCamera = () => {
-        const dist = 24
+        // featPull dollies the camera back in step with the featured member's
+        // walk toward it, keeping the show inside the frame.
+        const dist = 24 + featPull
         // Zoom narrows the fov; the look target drops with it so feet stay
         // in frame while heads fill the stage.
         const halfHeight = Math.max(4.15, 15.6 / camera.aspect) / zoomCur
@@ -857,38 +857,6 @@ export default function HomeMiningWorld3D() {
       // 7 non-boss props (cars/bots/nuke cube/caution sign) join the bosses on the rail.
       addRedCarpet(THREE, scene, HOME_BOSS_LAYOUT.length + 7)
       const homeBosses = HOME_BOSS_LAYOUT.map((layout) => addHomeBoss(THREE, scene, layout))
-
-      // Any character (statue or boss) can be dispatched from the carousel every
-      // ~10 s, up to MAX_DISPATCHED at a time.
-      // Statues walk forward to statue patrol slots; bosses walk to boss patrol slots.
-      // Each statue carries its pedestal to the patrol position — no pinning needed.
-      const PATROL_SLOTS = [
-        { id: 0, type: 'statue', x: -5.0, z: 2.5 },
-        { id: 1, type: 'statue', x:  0.5, z: 3.5 },
-        { id: 2, type: 'statue', x:  6.0, z: 2.8 },
-        { id: 3, type: 'boss',   x: -6.0, z: 6.5 },
-        { id: 4, type: 'boss',   x:  2.5, z: 7.5 },
-        { id: 5, type: 'boss',   x: -2.0, z: 5.5 },
-      ]
-      const patrolSlots = PATROL_SLOTS.map(s => ({ ...s, occupant: null }))
-      const MAX_DISPATCHED = 3
-      let nextDispatchT = 3 + Math.random() * 4
-      for (const boss of homeBosses) {
-        boss.homePatrol = {
-          phase: 'idle',   // 'idle' | 'walking_out' | 'stationed' | 'returning'
-          type: boss.isStatue ? 'statue' : 'boss',
-          slot: null,
-          stayUntil: 0,
-          returnX: 0,
-          returnZ: 0,
-          targetX: 0,
-          targetZ: 0,
-        }
-        // Pedestal cylinder meshes — pinned to own carousel slot while the body patrols.
-        boss.pedestals = boss.isStatue
-          ? boss.group.children.filter(c => c.isMesh && c.geometry?.type === 'CylinderGeometry')
-          : []
-      }
 
       // Hovering the mining-access card puts every boss/statue/bot in
       // "fighting" mode: every tagged eye glow in the scene (boss masks AND
@@ -988,6 +956,11 @@ export default function HomeMiningWorld3D() {
         entry.group.position.x = entry.railX
         entry.faceYaw0 = entry.baseRotationY
         entry.baseScaleX = entry.group.scale.x
+        entry.baseScaleY = entry.group.scale.y
+        entry.baseScaleZ = entry.group.scale.z
+        // 0..1 eased "I am the centered member" weight — drives the scale bump
+        // and glow emphasis of the spotlight slot.
+        entry.focus = 0
       })
 
       // Overhead nameplates, mining-style: bosses/statue with their name, and
@@ -1016,9 +989,46 @@ export default function HomeMiningWorld3D() {
       addHomeTag(homeBotCar.group, aiTeamTag(AI_TEAM_WALLETS[1]), '#86efac', 3.62)
       addHomeTag(homePunchBot, aiTeamTag(AI_TEAM_WALLETS[2]), '#86efac', 1.25)
       addHomeTag(homePunchBotCar.group, aiTeamTag(AI_TEAM_WALLETS[3]), '#86efac', 3.62)
-      const rail = { offset: 0, vel: 0, dragging: false, lastX: 0, moved: 0, suppressClick: false }
+      const rail = { offset: 0, vel: 0, dragging: false, lastX: 0, moved: 0, suppressClick: false, snapTarget: 0 }
+      // Center-stage feature: one boss/statue at a time steps off the rail
+      // toward the camera, plays its signature show and walks back; the rail
+      // then glides one slot so the next member takes the spotlight.
+      const FEATURE_STEP_Z = 3.2
+      const FEATURE_WALK_SPD = 2.2
+      const FEATURE_SCALE_BUMP = 0.14
+      const feature = { entry: null, phase: 'idle', until: 0, cooldownUntil: 2 }
+      const featureAbort = () => {
+        const b = feature.entry
+        if (!b) return
+        if (b.id && !b.isStatue) {
+          bossAttackStart[b.id] = null
+          bossGreetStart[b.id] = null
+          bossVfxFired[b.id] = false
+        }
+        // Walks home; statues finish instantly since they never left their z.
+        feature.phase = 'back'
+      }
+
+      // Spotlight over the center slot: neon double ring on the (invisible)
+      // floor plus a soft cone light — both track the centered member.
+      const spotRingMat = new THREE.MeshBasicMaterial({ color: '#22d3ee', transparent: true, opacity: 0.5, depthWrite: false })
+      const spotRing = new THREE.Group()
+      const spotRingOuter = new THREE.Mesh(new THREE.TorusGeometry(2.45, 0.055, 10, 64), spotRingMat)
+      spotRingOuter.rotation.x = Math.PI / 2
+      spotRing.add(spotRingOuter)
+      const spotRingInner = new THREE.Mesh(
+        new THREE.TorusGeometry(2.0, 0.028, 8, 56),
+        new THREE.MeshBasicMaterial({ color: '#d946ef', transparent: true, opacity: 0.28, depthWrite: false }),
+      )
+      spotRingInner.rotation.x = Math.PI / 2
+      spotRing.add(spotRingInner)
+      spotRing.position.set(0, HOME_ARENA_FLOOR_Y + 0.02, 0.1)
+      scene.add(spotRing)
+      const spotLight = new THREE.SpotLight('#e8fbff', 24, 30, 0.40, 0.7, 1.0)
+      spotLight.position.set(0, 12, 7)
+      scene.add(spotLight, spotLight.target)
       const railWorldPerPx = () => {
-        const halfH = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * 24
+        const halfH = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * (24 + featPull)
         return (2 * halfH * camera.aspect) / Math.max(1, canvas.clientWidth)
       }
       if (accessEl) {
@@ -1060,6 +1070,8 @@ export default function HomeMiningWorld3D() {
           const dx = e.clientX - rail.lastX
           rail.lastX = e.clientX
           rail.moved += Math.abs(dx)
+          // A real drag reclaims the rail: send any featured member home.
+          if (rail.moved > 8 && feature.phase !== 'idle') featureAbort()
           const dWorld = dx * railWorldPerPx()
           rail.offset += dWorld
           rail.vel = dWorld * 60
@@ -1072,6 +1084,8 @@ export default function HomeMiningWorld3D() {
           if (!rail.dragging) return
           rail.dragging = false
           if (rail.moved > 8) rail.suppressClick = true
+          // Fling-aware snap: project a little momentum, land on the nearest slot.
+          rail.snapTarget = Math.round((rail.offset + rail.vel * 0.15) / RAIL_SPACING) * RAIL_SPACING
         }
         // A drag must not navigate into /mining when the pointer is released.
         const onClick = (e) => {
@@ -1091,8 +1105,9 @@ export default function HomeMiningWorld3D() {
         // Polygon auto-rotation (LandingHero) broadcasts a cycle event — the
         // carousel glides one slot in sync, unless the user is mid-drag.
         const onCycle = () => {
-          if (rail.dragging) return
-          rail.vel += 4 * RAIL_SPACING // damped glide integrates to ~one slot
+          // Paused while dragging and while a feature show is on stage.
+          if (rail.dragging || feature.phase !== 'idle') return
+          rail.snapTarget += RAIL_SPACING // glide exactly one slot
         }
         window.addEventListener('mm3-home-cycle', onCycle)
         accessEl.style.touchAction = 'pan-y'
@@ -1281,6 +1296,16 @@ export default function HomeMiningWorld3D() {
         }
       }
 
+      // Ease a member's showcase yaw back to camera-facing once it loses focus.
+      const decaySpin = (state, dt) => {
+        if (!Number.isFinite(state.spinYaw)) state.spinYaw = 0
+        let yaw = state.spinYaw % (Math.PI * 2)
+        if (yaw > Math.PI) yaw -= Math.PI * 2
+        if (yaw < -Math.PI) yaw += Math.PI * 2
+        state.spinYaw = yaw * Math.max(0, 1 - dt * 2.5)
+        return state.spinYaw
+      }
+
       const animate = () => {
         animationFrame = requestAnimationFrame(animate)
         if (!pageVisible || !inViewport) return
@@ -1296,204 +1321,147 @@ export default function HomeMiningWorld3D() {
           frameCamera()
         }
 
-        // Carousel rail: inertia after drag, wrap-around placement, and
-        // per-frame facing/width compensation for the current position.
-        if (!rail.dragging && rail.vel) {
-          rail.offset = (rail.offset + rail.vel * spinDt) % railSpan
-          rail.vel *= Math.max(0, 1 - 4 * spinDt)
-          if (Math.abs(rail.vel) < 0.02) rail.vel = 0
+        // Camera dolly: back away in step with the featured member's walk
+        // toward the camera (clamped to the stage step so the attack lunge
+        // doesn't pump the framing), and ease home when it returns.
+        {
+          const fe = feature.entry
+          const pullTarget = fe && feature.phase !== 'idle'
+            ? Math.min(FEATURE_STEP_Z, Math.max(0, fe.group.position.z - fe.origBaseZ))
+            : 0
+          if (Math.abs(pullTarget - featPull) > 0.002) {
+            featPull += (pullTarget - featPull) * Math.min(1, spinDt * 3)
+            if (Math.abs(pullTarget - featPull) <= 0.002) featPull = pullTarget
+            frameCamera()
+          }
+        }
+
+        // Carousel rail: snap-to-slot glide. Drag flings pick the nearest slot;
+        // the auto-advance cycle and post-feature nudges move snapTarget one slot.
+        if (!rail.dragging) {
+          const toSnap = rail.snapTarget - rail.offset
+          if (Math.abs(toSnap) > 0.001) rail.offset += toSnap * Math.min(1, spinDt * 3.5)
+          else rail.offset = rail.snapTarget
+          // Keep the unbounded snap accumulator from drifting far from zero.
+          if (Math.abs(rail.snapTarget) > railSpan * 4) {
+            const k = Math.round(rail.snapTarget / railSpan) * railSpan
+            rail.snapTarget -= k
+            rail.offset -= k
+          }
         }
         const railHalf = railSpan / 2
+        // Pass 1: wrapped rail positions + the member closest to center stage.
+        let center = null
+        let centerDist = Infinity
         for (const entry of lineup) {
-          if (entry.homePatrol != null && entry.homePatrol.phase !== 'idle') continue
+          entry.wx = ((((entry.railX + rail.offset) + railHalf) % railSpan) + railSpan) % railSpan - railHalf
+          const d = Math.abs(entry.wx)
+          if (d < centerDist) { centerDist = d; center = entry }
+        }
+        const railSettled = !rail.dragging && Math.abs(rail.snapTarget - rail.offset) < 0.1
+        // Pass 2: placement, camera-facing yaw, and the center-focus scale bump.
+        for (const entry of lineup) {
+          entry.isCenter = entry === center
+          entry.focus += ((entry.isCenter ? 1 : 0) - entry.focus) * Math.min(1, spinDt * 5)
+          if (feature.entry === entry && feature.phase !== 'idle') continue
           const g = entry.group
-          const wrapped = ((((entry.railX + rail.offset) + railHalf) % railSpan) + railSpan) % railSpan - railHalf
-          g.position.x = wrapped
-          const yawCam = Math.atan2(camera.position.x - wrapped, camera.position.z - g.position.z)
+          g.position.x = entry.wx
+          const yawCam = Math.atan2(camera.position.x - entry.wx, camera.position.z - g.position.z)
           entry.baseRotationY = entry.faceYaw0 + yawCam
-          g.scale.x = entry.baseScaleX * Math.cos(yawCam)
+          const f = 1 + entry.focus * FEATURE_SCALE_BUMP
+          g.scale.set(entry.baseScaleX * Math.cos(yawCam) * f, entry.baseScaleY * f, entry.baseScaleZ * f)
+        }
+        // Spotlight ring hugs the centered member; the cone light tracks it.
+        if (center) {
+          spotRing.position.x += (center.group.position.x - spotRing.position.x) * Math.min(1, spinDt * 6)
+          spotRing.position.z += (center.group.position.z + 0.05 - spotRing.position.z) * Math.min(1, spinDt * 6)
+        }
+        spotRing.rotation.y += spinDt * 0.5
+        spotRing.scale.setScalar(1 + Math.sin(time * 2.4) * 0.035)
+        spotRingMat.opacity = 0.42 + Math.sin(time * 2.4) * 0.14
+        spotLight.position.x = spotRing.position.x
+        spotLight.target.position.set(spotRing.position.x, 0, spotRing.position.z)
+
+        // Center-stage feature: once a boss/statue settles under the spotlight,
+        // it steps off the rail toward the camera and plays its signature show.
+        if (feature.phase === 'idle' && center?.bodyPivot
+            && time > feature.cooldownUntil && railSettled && center.focus > 0.85) {
+          feature.entry = center
+          center.origBaseZ = center.baseZ
+          center.spinYaw = 0
+          if (center.isStatue) {
+            // Statues hold their salute in place — no walk, just stage time.
+            feature.phase = 'show'
+            feature.until = time + 4
+          } else {
+            feature.phase = 'out'
+          }
         }
 
         const now = performance.now()
 
-        // Dispatch: every ~10 s send a random idle character to a free slot of its type.
-        {
-          const slotWorldX = b => ((((b.railX + rail.offset) + railHalf) % railSpan) + railSpan) % railSpan - railHalf
-          const numOut = homeBosses.filter(b => b.homePatrol.phase !== 'idle').length
-          if (numOut < MAX_DISPATCHED && time >= nextDispatchT) {
-            const eligible = homeBosses.filter(b =>
-              b.homePatrol.phase === 'idle' &&
-              patrolSlots.some(s => s.type === b.homePatrol.type && !s.occupant)
-            )
-            if (eligible.length > 0) {
-              const picked = eligible[Math.floor(Math.random() * eligible.length)]
-              const hp = picked.homePatrol
-              const freeSlots = patrolSlots.filter(s => s.type === picked.homePatrol.type && !s.occupant)
-              const slot = freeSlots[Math.floor(Math.random() * freeSlots.length)]
-              hp.phase = 'walking_out'
-              hp.returnX = slotWorldX(picked)
-              hp.returnZ = picked.baseZ
-              hp.slot = slot.id
-              hp.targetX = slot.x
-              hp.targetZ = slot.z
-              slot.occupant = picked
-              if (picked.isStatue) {
-                // Detach pedestal from group and place as a standalone scene object at a
-                // fixed world position (slightly in front of the lineup, z=0.5).
-                // This keeps the base visible at the departure point without it following
-                // the rotating carousel and passing through other elements.
-                const depX = slotWorldX(picked)
-                const scl = Math.abs(picked.group.scale.x)
-                for (const ped of picked.pedestals) {
-                  ped.userData.origLocalPos = ped.position.clone()
-                  const depY = HOME_ARENA_FLOOR_Y + ped.position.y * scl
-                  picked.group.remove(ped)
-                  scene.add(ped)
-                  ped.position.set(depX, depY, 0.5)
-                  ped.scale.setScalar(scl)
-                  ped.rotation.set(0, 0, 0)
-                }
-              } else {
-                bossAttackStart[picked.id] = null
-                bossGreetStart[picked.id] = null
-                bossNextAttack[picked.id] = performance.now() + 99999
-              }
-            }
-            nextDispatchT = time + 8 + Math.random() * 5
-          }
-        }
-
         for (const boss of homeBosses) {
           const t = time + boss.phase
           const stride = Math.sin(t * boss.bob)
-          const hp = boss.homePatrol
-          const WALK_SPD = 1.8
+          const feat = feature.entry === boss ? feature.phase : 'idle'
 
-          if (hp.phase !== 'idle') {
-            // Out on patrol: walking_out → stationed → returning.
-            boss.group.scale.x = boss.baseScaleX
-            // Track own carousel slot position every frame (rail keeps rotating).
-            hp.returnX = ((((boss.railX + rail.offset) + railHalf) % railSpan) + railSpan) % railSpan - railHalf
-            // Pedestal (detached scene object) follows slot X but stays at fixed z=0.5,
-            // so it scrolls with the carousel without sweeping through lineup elements.
-            if (boss.isStatue) {
-              for (const ped of boss.pedestals) {
-                if (ped.parent !== boss.group) ped.position.x = hp.returnX
-              }
-            }
+          if (feat !== 'idle') {
+            // Featured member: pinned to its rail column (which sits at center
+            // stage) at full frontal scale — no width compensation needed.
+            const f = 1 + boss.focus * FEATURE_SCALE_BUMP
+            boss.group.position.x = boss.wx
+            boss.group.scale.set(boss.baseScaleX * f, boss.baseScaleY * f, boss.baseScaleZ * f)
+          }
 
-            // Soft repulsion: accumulate push-away from nearby patrolling characters.
-            const REP_R = 3.5
-            let repX = 0, repZ = 0
-            for (const other of homeBosses) {
-              if (other === boss || other.homePatrol.phase === 'idle') continue
-              const ox = boss.group.position.x - other.group.position.x
-              const oz = boss.group.position.z - other.group.position.z
-              const d = Math.hypot(ox, oz)
-              if (d < REP_R && d > 0.01) {
-                const s = (REP_R - d) / REP_R
-                repX += (ox / d) * s
-                repZ += (oz / d) * s
-              }
-            }
-
-            if (hp.phase === 'walking_out') {
-              // Z-first path; lateral repulsion nudges characters sideways to zigzag past each other.
-              const dz = hp.targetZ - boss.group.position.z
-              if (Math.abs(dz) > 0.18) {
-                boss.group.position.z += Math.sign(dz) * Math.min(Math.abs(dz), WALK_SPD * spinDt)
-                boss.group.position.x += repX * WALK_SPD * spinDt * 0.9
-                boss.group.rotation.y += (Math.PI - boss.group.rotation.y) * Math.min(1, spinDt * 1.8)
-              } else {
-                boss.group.position.z = hp.targetZ
-                const dx = hp.targetX - boss.group.position.x
-                if (Math.abs(dx) > 0.18) {
-                  boss.group.position.x += Math.sign(dx) * Math.min(Math.abs(dx), WALK_SPD * spinDt)
-                  boss.group.rotation.y += (Math.atan2(dx, 0) - boss.group.rotation.y) * Math.min(1, spinDt * 1.8)
-                } else {
-                  boss.group.position.x = hp.targetX
-                  hp.phase = 'stationed'
-                  hp.stayUntil = time + 20 + Math.random() * 15
-                }
-              }
-              boss.group.position.y += (boss.baseY - boss.group.position.y) * Math.min(1, spinDt * 1.2)
-              boss.bodyPivot.position.y = Math.max(0, boss.bodyPivot.position.y - spinDt * 0.35)
-              boss.group.rotation.z = 0
-              boss.bodyPivot.rotation.x = 0
+          if (feat === 'out' || feat === 'back') {
+            const g = boss.group
+            const targetZ = feat === 'out' ? boss.origBaseZ + FEATURE_STEP_Z : boss.origBaseZ
+            const dz = targetZ - g.position.z
+            // Face the walk: toward the camera going out, away going home.
+            const faceYaw = feat === 'out' ? boss.baseRotationY : boss.baseRotationY + Math.PI
+            g.rotation.y = approachYaw(g.rotation.y, faceYaw, spinDt, 3.2)
+            g.rotation.z = 0
+            boss.bodyPivot.rotation.x = 0
+            g.position.y += (boss.baseY - g.position.y) * Math.min(1, spinDt * 2)
+            boss.bodyPivot.position.y += ((boss.bodyPivot.userData.baseY ?? 0) - boss.bodyPivot.position.y) * Math.min(1, spinDt * 3)
+            if (Math.abs(dz) > 0.15) {
+              g.position.z += Math.sign(dz) * Math.min(Math.abs(dz), FEATURE_WALK_SPD * spinDt)
               walkHumanoidLegs(boss.bodyPivot, t * 3.5, 0.45)
               swayHumanoidArms(boss.bodyPivot, t)
-
-            } else if (hp.phase === 'stationed') {
-              // Hold position: snap in place and play idle animations.
-              boss.group.position.x = hp.targetX
-              boss.group.position.z = hp.targetZ
-              boss.group.rotation.z = 0
-              boss.bodyPivot.rotation.x = 0
-              boss.group.rotation.y += (boss.baseRotationY - boss.group.rotation.y) * Math.min(1, spinDt * 1.5)
-              if (boss.isStatue) {
-                boss.group.position.y = boss.baseY
-                boss.bodyPivot.position.y = boss.bodyPivot.userData.baseY || 0
-                walkHumanoidLegs(boss.bodyPivot, 0, 0)
-                swayHumanoidArms(boss.bodyPivot, t)
-                if (boss.head) {
-                  boss.head.rotation.y = Math.sin(t * 0.42) * 0.5 + Math.sin(t * 0.17 + 2) * 0.18
-                  boss.head.rotation.x = Math.sin(t * 0.55 + 1) * 0.045
-                }
-              } else {
-                boss.group.position.y = HOME_ARENA_FLOOR_Y + Math.max(0, Math.sin(t * (boss.bob + 0.15)) * 0.018)
-                boss.bodyPivot.position.y = Math.max(0, stride * 0.06)
-                swayHumanoidArms(boss.bodyPivot, t)
-                const legs = boss.bodyPivot?.userData?.humanLegs
-                if (legs) { legs[0].rotation.x = 0; legs[0].rotation.z = 0; legs[1].rotation.x = 0; legs[1].rotation.z = 0 }
+            } else if (feat === 'out') {
+              // Arrived at the front of the stage: play the signature show
+              // from here (baseZ moved forward so attack/greet use this spot).
+              g.position.z = targetZ
+              walkHumanoidLegs(boss.bodyPivot, 0, 0)
+              boss.baseZ = boss.origBaseZ + FEATURE_STEP_Z
+              feature.phase = 'show'
+              if (boss.isStatue) feature.until = time + 4
+              else {
+                bossAttackStart[boss.id] = now
+                bossVfxFired[boss.id] = false
+                boss.lungseFacing = g.rotation.y
               }
-              if (time >= hp.stayUntil) hp.phase = 'returning'
-
-            } else if (hp.phase === 'returning') {
-              // X-first, then Z: slide to own carousel column (staying in clear zone),
-              // then step straight back in Z along that column.
-              // This avoids cutting diagonally through the rotating lineup.
-              const dx = hp.returnX - boss.group.position.x
-              const dz = hp.returnZ - boss.group.position.z
-              if (Math.abs(dx) > 0.5) {
-                // Phase 1: slide X toward own carousel column.
-                boss.group.position.x += (Math.sign(dx) + repX * 0.5) * Math.min(Math.abs(dx), WALK_SPD * spinDt)
-                boss.group.rotation.y += (Math.atan2(dx, 0) - boss.group.rotation.y) * Math.min(1, spinDt * 1.8)
-              } else if (Math.abs(dz) > 0.18) {
-                // Phase 2: step straight back in Z along own column (6-unit gap from neighbours).
-                boss.group.position.z += Math.sign(dz) * Math.min(Math.abs(dz), WALK_SPD * spinDt)
-                boss.group.rotation.y += (Math.atan2(dx, dz) - boss.group.rotation.y) * Math.min(1, spinDt * 1.8)
-              } else {
-                hp.phase = 'idle'
-                if (hp.slot != null) { patrolSlots[hp.slot].occupant = null; hp.slot = null }
-                if (boss.isStatue) {
-                  for (const ped of boss.pedestals) {
-                    // Reattach pedestal to group and restore original local coords.
-                    if (ped.parent !== boss.group) {
-                      ped.parent?.remove(ped)
-                      boss.group.add(ped)
-                      ped.scale.set(1, 1, 1)
-                      ped.rotation.set(0, 0, 0)
-                    }
-                    if (ped.userData.origLocalPos) { ped.position.copy(ped.userData.origLocalPos); delete ped.userData.origLocalPos }
-                  }
-                  walkHumanoidLegs(boss.bodyPivot, 0, 0)
-                } else {
-                  bossNextAttack[boss.id] = performance.now() + 4000
-                }
-              }
-              boss.group.position.y += (boss.baseY - boss.group.position.y) * Math.min(1, spinDt * 1.2)
-              boss.bodyPivot.position.y = Math.min(
-                boss.bodyPivot.userData.baseY ?? 0.09,
-                boss.bodyPivot.position.y + spinDt * 0.35,
-              )
-              boss.group.rotation.z = 0
-              boss.bodyPivot.rotation.x = 0
-              walkHumanoidLegs(boss.bodyPivot, t * 3.5, 0.45)
-              swayHumanoidArms(boss.bodyPivot, t)
+            } else {
+              // Back on the rail: restore, cool down, glide to the next member.
+              g.position.z = targetZ
+              walkHumanoidLegs(boss.bodyPivot, 0, 0)
+              boss.baseZ = boss.origBaseZ
+              feature.phase = 'idle'
+              feature.entry = null
+              feature.cooldownUntil = time + 5
+              rail.snapTarget += RAIL_SPACING
+              // Hand the leftover walk yaw to the spin state so the idle
+              // branch eases back to camera-facing instead of snapping.
+              let yawDelta = (g.rotation.y - boss.baseRotationY) % (Math.PI * 2)
+              if (yawDelta > Math.PI) yawDelta -= Math.PI * 2
+              if (yawDelta < -Math.PI) yawDelta += Math.PI * 2
+              boss.spinYaw = yawDelta
             }
             boss.glowLight.intensity = boss.baseGlow + Math.sin(t * 2.4) * 0.85
 
           } else if (boss.isStatue) {
+            // Statue stage time is a timed hold of its salute at the center.
+            if (feat === 'show' && time >= feature.until) feature.phase = 'back'
             // Idle in carousel: statue-specific salute pose + head tracking.
             boss.bodyPivot.position.y = boss.bodyPivot.userData.baseY || 0
             boss.group.position.y = boss.baseY
@@ -1542,16 +1510,23 @@ export default function HomeMiningWorld3D() {
                 boss.rightArm.rotation.z = 2.5 + Math.sin(t * 2.4) * 0.22
               }
             }
-            boss.glowLight.intensity = boss.baseGlow + Math.sin(t * 2.4) * 0.85
+            boss.glowLight.intensity = (boss.baseGlow + Math.sin(t * 2.4) * 0.85) * (0.45 + 0.65 * boss.focus)
 
           } else {
-            // Idle in carousel: boss showcase spin + attack / greet sequences.
-            boss.group.rotation.y = boss.baseRotationY + advanceShowcaseSpin(boss, spinDt)
+            // Idle on the rail (and the featured 'show'): showcase spin only
+            // while centered; off-center members ease back to camera-facing.
+            if (feat === 'show' && !bossAttackStart[boss.id] && !bossGreetStart[boss.id]) {
+              // Attack + greet finished — walk back to the rail.
+              feature.phase = 'back'
+            }
+            boss.group.rotation.y = boss.baseRotationY + (boss.isCenter
+              ? advanceShowcaseSpin(boss, spinDt)
+              : decaySpin(boss, spinDt))
             const as = bossAttackStart[boss.id]
             const attackT = as ? Math.min(1, (now - as) / 3000) : 0
             const gs = bossGreetStart[boss.id]
             const greetT = gs ? Math.min(1, (now - gs) / 3000) : 0
-            boss.glowLight.intensity = boss.baseGlow + Math.sin(t * 2.4) * 0.85
+            boss.glowLight.intensity = (boss.baseGlow + Math.sin(t * 2.4) * 0.85) * (0.45 + 0.65 * boss.focus)
             if (attackT > 0) {
               applyBossAttack(boss, boss.id, attackT, t)
               const bIn  = Math.sin(Math.min(1, attackT / 0.15) * Math.PI * 0.5)
@@ -1575,26 +1550,37 @@ export default function HomeMiningWorld3D() {
         }
         for (const prop of homeProps) {
           const t = time + prop.phase
+          // Showy moves (hops, strikes, nuke press, showcase spin) only play
+          // while this prop holds the spotlight; on the rail it idles calmly.
+          const isC = prop.isCenter === true
           const lift = Math.max(0, Math.sin(t * prop.bob)) * (prop.kind === 'car' ? 0.018 : 0.032)
           prop.group.position.y = prop.baseY + lift
-          if (prop.jump) {
+          if (prop.jump && isC) {
             // One clean 0.55s hop every 2s, on top of the idle bob.
             const jt = (time + (prop.jumpPhase || 0)) % 2
             if (jt < 0.55) prop.group.position.y += Math.sin((jt / 0.55) * Math.PI) * 0.5
           }
-          // Same showcase spin as the bosses.
-          prop.group.rotation.y = prop.baseRotationY + advanceShowcaseSpin(prop, spinDt)
+          prop.group.rotation.y = prop.baseRotationY + (isC
+            ? advanceShowcaseSpin(prop, spinDt)
+            : decaySpin(prop, spinDt))
           prop.group.rotation.z = Math.sin(t * (prop.sway + .7)) * (prop.kind === 'car' ? 0.006 : 0.012)
           if (prop.kind === 'bot') {
-            const hopT = prop.jump ? (time + (prop.jumpPhase || 0)) % 2 : 1
+            const hopT = prop.jump && isC ? (time + (prop.jumpPhase || 0)) % 2 : 1
             if (hopT < 0.55) {
               // Mid-hop: the on-foot jump gesture — wing flap + air pedaling.
               flapHumanoidJump(prop.group, t)
               const tool = prop.group.userData.tool
               if (tool && !prop.punch) tool.rotation.x = -1.9 + Math.sin(t * 13) * 0.55
-            } else {
-              // Marching in place: human hip swing plus random arm sway.
+            } else if (isC) {
+              // Center stage: marching in place plus arm sway.
               walkHumanoidLegs(prop.group, t * 3.2, 0.22)
+              swayHumanoidArms(prop.group, t)
+              if (prop.jump && !prop.punch && prop.group.userData.tool) {
+                prop.group.userData.tool.rotation.x = 0
+              }
+            } else {
+              // On the rail: legs still, arms swaying only.
+              walkHumanoidLegs(prop.group, 0, 0)
               swayHumanoidArms(prop.group, t)
               if (prop.jump && !prop.punch && prop.group.userData.tool) {
                 prop.group.userData.tool.rotation.x = 0
@@ -1603,7 +1589,7 @@ export default function HomeMiningWorld3D() {
           } else if (prop.kind === 'botCar' && prop.bot) {
             // Ground level minus the anti-z-fight drop (see addHomeBotCar).
             prop.bot.position.y = HOME_BOTCAR_SEAT_Y + Math.sin(t * 2.4) * .012
-            const jumpT = prop.jump ? (time + (prop.jumpPhase || 0)) % 2 : 1
+            const jumpT = prop.jump && isC ? (time + (prop.jumpPhase || 0)) % 2 : 1
             if (jumpT < 0.55) {
               // Mid-hop: the gleeful in-game jump flail — arms up wiggling,
               // USB staff brandished overhead.
@@ -1621,23 +1607,28 @@ export default function HomeMiningWorld3D() {
               }
             }
           } else if (prop.kind === 'nuke' && prop.cube) {
-            // Auto-press: the red button sinks for 2s, pops back for 2s.
-            prop.cube.userData.pressed = (time + prop.phase) % 4 < 2
+            // Auto-press only under the spotlight.
+            prop.cube.userData.pressed = isC && (time + prop.phase) % 4 < 2
             updateNukeCubeVisual(prop.cube, spinDt)
           }
           if (prop.punch) {
             // Relaxed sparring: one 0.5s forward staff strike every 2s.
             const tool = (prop.kind === 'botCar' ? prop.bot : prop.group)?.userData.tool
             if (tool) {
-              const pt = (time + (prop.punchPhase || 0)) % 2
-              const swing = pt < 0.5 ? Math.sin((pt / 0.5) * Math.PI) : 0
-              tool.rotation.x = -swing * 1.05
+              if (isC) {
+                const pt = (time + (prop.punchPhase || 0)) % 2
+                const swing = pt < 0.5 ? Math.sin((pt / 0.5) * Math.PI) : 0
+                tool.rotation.x = -swing * 1.05
+              } else {
+                // Ease a mid-swing staff back to rest when focus moves on.
+                tool.rotation.x += (0 - tool.rotation.x) * Math.min(1, spinDt * 6)
+              }
             }
           }
         }
-        // Boss 3-second attack sequence: animation starts on timer; VFX fires at t = 1.5 s
-        for (const [bossId, nextAt] of Object.entries(bossNextAttack)) {
-          if (bossById[bossId]?.homePatrol?.phase !== 'idle') continue
+        // Boss attack lifecycle (attacks are started by the center-stage
+        // feature): VFX fires at t = 1.5 s; the greet wave follows at 3 s.
+        for (const bossId of ['putin', 'kim', 'trump']) {
           const gs = bossGreetStart[bossId]
           if (gs && now - gs >= 3000) {
             bossGreetStart[bossId] = null
@@ -1645,14 +1636,6 @@ export default function HomeMiningWorld3D() {
             // the camera) instead of snapping to the yaw it silently accumulated.
             const b = bossById[bossId]
             if (b) b.spinYaw = 0
-          }
-
-          if (now >= nextAt && !bossAttackStart[bossId] && !bossGreetStart[bossId]) {
-            bossNextAttack[bossId] = nextAt + 7000
-            bossAttackStart[bossId] = now
-            bossVfxFired[bossId] = false
-            // Freeze the lunge direction at attack start so it doesn't drift with showcase spin
-            if (bossById[bossId]) bossById[bossId].lungseFacing = bossById[bossId].group.rotation.y
           }
           const as = bossAttackStart[bossId]
           if (!as) continue
@@ -1663,21 +1646,30 @@ export default function HomeMiningWorld3D() {
             if (boss) {
               const fromGx = boss.group.position.x
               const fromGy = boss.group.position.z
-              const toGx   = camera.position.x   // direction VFX particles: boss → camera
-              const toGy   = camera.position.z
-              // Beam fires in the direction the boss was facing at attack start.
-              // lungseFacing is boss.group.rotation.y frozen when the attack triggered.
+              // The boss attacks from the front of the stage now, so a straight
+              // shot at the camera leaves the frame almost immediately. Fan two
+              // rising banknote trails diagonally (±38° off the frozen facing)
+              // so the money sweeps across the visible stage instead.
               // Three.js Y-rotation: forward = (sin(ry), 0, cos(ry)) in world XZ.
               const ry = boss.lungseFacing ?? boss.group.rotation.y
-              const beamToGx = fromGx + Math.sin(ry)
-              const beamToGy = fromGy + Math.cos(ry)
-              if (bossId === 'trump') {
-                trumpTrail = spawnBossTrail(trumpTrail, { fromGx, fromGy, toGx: beamToGx, toGy: beamToGy, at: now, mapId: '5', range: 8 })
-              } else if (bossId === 'putin') {
-                putinTrail = spawnBossTrail(putinTrail, { fromGx, fromGy, toGx: beamToGx, toGy: beamToGy, at: now, mapId: '3', range: 8 })
-              } else if (bossId === 'kim') {
-                kimTrail = spawnBossTrail(kimTrail, { fromGx, fromGy, toGx: beamToGx, toGy: beamToGy, at: now, mapId: '4', range: 8 })
+              const mapId = bossId === 'trump' ? '5' : bossId === 'putin' ? '3' : '4'
+              let trails = bossId === 'trump' ? trumpTrail : bossId === 'putin' ? putinTrail : kimTrail
+              for (const [side, delay] of [[-1, 0], [1, 110]]) {
+                const a = ry + side * 0.66
+                trails = spawnBossTrail(trails, {
+                  fromGx,
+                  fromGy,
+                  toGx: fromGx + Math.sin(a),
+                  toGy: fromGy + Math.cos(a),
+                  at: now + delay,
+                  mapId,
+                  range: 7,
+                  rise: 0.24,
+                })
               }
+              if (bossId === 'trump') trumpTrail = trails
+              else if (bossId === 'putin') putinTrail = trails
+              else kimTrail = trails
             }
           }
           if (elapsed >= 3000) {
