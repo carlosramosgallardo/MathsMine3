@@ -906,6 +906,10 @@ export default function HomeMiningWorld3D() {
           targetX: 0,
           targetZ: 0,
         }
+        // Pedestal cylinder meshes — pinned to own carousel slot while the body patrols.
+        boss.pedestals = boss.isStatue
+          ? boss.group.children.filter(c => c.isMesh && c.geometry?.type === 'CylinderGeometry')
+          : []
       }
 
       // Hovering the mining-access card puts every boss/statue/bot in
@@ -1334,8 +1338,7 @@ export default function HomeMiningWorld3D() {
 
         const now = performance.now()
 
-        // Dispatch: every ~10 s send a random idle character out.
-        // Dispatch: pick a random idle character that has a free slot of its type.
+        // Dispatch: every ~10 s send a random idle character to a free slot of its type.
         {
           const slotWorldX = b => ((((b.railX + rail.offset) + railHalf) % railSpan) + railSpan) % railSpan - railHalf
           const numOut = homeBosses.filter(b => b.homePatrol.phase !== 'idle').length
@@ -1356,7 +1359,9 @@ export default function HomeMiningWorld3D() {
               hp.targetX = slot.x
               hp.targetZ = slot.z
               slot.occupant = picked
-              if (!picked.isStatue) {
+              if (picked.isStatue) {
+                for (const ped of picked.pedestals) ped.userData.origLocalPos = ped.position.clone()
+              } else {
                 bossAttackStart[picked.id] = null
                 bossGreetStart[picked.id] = null
                 bossNextAttack[picked.id] = performance.now() + 99999
@@ -1378,33 +1383,46 @@ export default function HomeMiningWorld3D() {
             // Track own carousel slot position every frame (rail keeps rotating).
             hp.returnX = ((((boss.railX + rail.offset) + railHalf) % railSpan) + railSpan) % railSpan - railHalf
 
-            // Collision separation: pause movement if too close to another patrolling character.
-            const MIN_SEP_SQ = 2.25  // 1.5 units
-            const tooClose = hp.phase !== 'stationed' && homeBosses.some(other =>
-              other !== boss && other.homePatrol.phase !== 'idle' && (
-                (boss.group.position.x - other.group.position.x) ** 2 +
-                (boss.group.position.z - other.group.position.z) ** 2
-              ) < MIN_SEP_SQ
-            )
+            // Statues: pin pedestal at its original carousel slot (body walks away, base stays).
+            if (boss.isStatue) {
+              for (const ped of boss.pedestals) {
+                ped.position.x = (hp.returnX - boss.group.position.x) / boss.group.scale.x
+                ped.position.z = (boss.baseZ - boss.group.position.z) / boss.group.scale.z
+              }
+            }
+
+            // Soft repulsion: accumulate push-away from nearby patrolling characters.
+            const REP_R = 3.5
+            let repX = 0, repZ = 0
+            for (const other of homeBosses) {
+              if (other === boss || other.homePatrol.phase === 'idle') continue
+              const ox = boss.group.position.x - other.group.position.x
+              const oz = boss.group.position.z - other.group.position.z
+              const d = Math.hypot(ox, oz)
+              if (d < REP_R && d > 0.01) {
+                const s = (REP_R - d) / REP_R
+                repX += (ox / d) * s
+                repZ += (oz / d) * s
+              }
+            }
 
             if (hp.phase === 'walking_out') {
-              if (!tooClose) {
-                // Z-first path: step away from the lineup before sliding sideways.
-                const dz = hp.targetZ - boss.group.position.z
-                if (Math.abs(dz) > 0.18) {
-                  boss.group.position.z += Math.sign(dz) * Math.min(Math.abs(dz), WALK_SPD * spinDt)
-                  boss.group.rotation.y += (Math.PI - boss.group.rotation.y) * Math.min(1, spinDt * 1.8)
+              // Z-first path; lateral repulsion nudges characters sideways to zigzag past each other.
+              const dz = hp.targetZ - boss.group.position.z
+              if (Math.abs(dz) > 0.18) {
+                boss.group.position.z += Math.sign(dz) * Math.min(Math.abs(dz), WALK_SPD * spinDt)
+                boss.group.position.x += repX * WALK_SPD * spinDt * 0.9
+                boss.group.rotation.y += (Math.PI - boss.group.rotation.y) * Math.min(1, spinDt * 1.8)
+              } else {
+                boss.group.position.z = hp.targetZ
+                const dx = hp.targetX - boss.group.position.x
+                if (Math.abs(dx) > 0.18) {
+                  boss.group.position.x += Math.sign(dx) * Math.min(Math.abs(dx), WALK_SPD * spinDt)
+                  boss.group.rotation.y += (Math.atan2(dx, 0) - boss.group.rotation.y) * Math.min(1, spinDt * 1.8)
                 } else {
-                  boss.group.position.z = hp.targetZ
-                  const dx = hp.targetX - boss.group.position.x
-                  if (Math.abs(dx) > 0.18) {
-                    boss.group.position.x += Math.sign(dx) * Math.min(Math.abs(dx), WALK_SPD * spinDt)
-                    boss.group.rotation.y += (Math.atan2(dx, 0) - boss.group.rotation.y) * Math.min(1, spinDt * 1.8)
-                  } else {
-                    boss.group.position.x = hp.targetX
-                    hp.phase = 'stationed'
-                    hp.stayUntil = time + 20 + Math.random() * 15
-                  }
+                  boss.group.position.x = hp.targetX
+                  hp.phase = 'stationed'
+                  hp.stayUntil = time + 20 + Math.random() * 15
                 }
               }
               boss.group.position.y += (boss.baseY - boss.group.position.y) * Math.min(1, spinDt * 1.2)
@@ -1440,24 +1458,28 @@ export default function HomeMiningWorld3D() {
               if (time >= hp.stayUntil) hp.phase = 'returning'
 
             } else if (hp.phase === 'returning') {
-              // Diagonal walk back to the own carousel slot position.
-              if (!tooClose) {
-                const dx = hp.returnX - boss.group.position.x
-                const dz = hp.returnZ - boss.group.position.z
-                const dist = Math.hypot(dx, dz)
-                if (dist > 0.18) {
-                  const step = Math.min(dist, WALK_SPD * spinDt)
-                  boss.group.position.x += (dx / dist) * step
-                  boss.group.position.z += (dz / dist) * step
-                  boss.group.rotation.y += (Math.atan2(dx, dz) - boss.group.rotation.y) * Math.min(1, spinDt * 1.8)
-                } else {
-                  hp.phase = 'idle'
-                  if (hp.slot != null) { patrolSlots[hp.slot].occupant = null; hp.slot = null }
-                  if (boss.isStatue) {
-                    walkHumanoidLegs(boss.bodyPivot, 0, 0)
-                  } else {
-                    bossNextAttack[boss.id] = performance.now() + 4000
+              // Diagonal walk back, steering around other patrolling characters.
+              const dx = hp.returnX - boss.group.position.x
+              const dz = hp.returnZ - boss.group.position.z
+              const dist = Math.hypot(dx, dz)
+              if (dist > 0.18) {
+                const step = Math.min(dist, WALK_SPD * spinDt)
+                const rx = dx / dist + repX * 0.8
+                const rz = dz / dist + repZ * 0.8
+                const rl = Math.hypot(rx, rz)
+                boss.group.position.x += (rx / rl) * step
+                boss.group.position.z += (rz / rl) * step
+                boss.group.rotation.y += (Math.atan2(dx, dz) - boss.group.rotation.y) * Math.min(1, spinDt * 1.8)
+              } else {
+                hp.phase = 'idle'
+                if (hp.slot != null) { patrolSlots[hp.slot].occupant = null; hp.slot = null }
+                if (boss.isStatue) {
+                  for (const ped of boss.pedestals) {
+                    if (ped.userData.origLocalPos) { ped.position.copy(ped.userData.origLocalPos); delete ped.userData.origLocalPos }
                   }
+                  walkHumanoidLegs(boss.bodyPivot, 0, 0)
+                } else {
+                  bossNextAttack[boss.id] = performance.now() + 4000
                 }
               }
               boss.group.position.y += (boss.baseY - boss.group.position.y) * Math.min(1, spinDt * 1.2)
