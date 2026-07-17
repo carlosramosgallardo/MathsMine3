@@ -880,18 +880,16 @@ export default function HomeMiningWorld3D() {
       addRedCarpet(THREE, scene, HOME_BOSS_LAYOUT.length + 7)
       const homeBosses = HOME_BOSS_LAYOUT.map((layout) => addHomeBoss(THREE, scene, layout))
 
-      // Any character (statue or boss) can be dispatched to a patrol slot and walk
-      // out from the carousel every ~10 s, up to MAX_DISPATCHED at a time.
-      // Statue slots each have a permanent pedestal clone — statues walk without
-      // their own pedestal (hidden on departure, restored on return); bosses have
-      // no pedestal and go to separate boss slots.
+      // Any character (statue or boss) can be dispatched from the carousel every
+      // ~10 s, up to MAX_DISPATCHED at a time.
+      // Statues swap carousel positions among themselves: the body slides sideways
+      // to another statue's slot while the pedestal stays pinned at the original
+      // slot via local-coordinate inversion each frame (no clones needed).
+      // Bosses walk forward to fixed positions in front of the lineup; no pedestal.
       const PATROL_SLOTS = [
-        { id: 0, type: 'statue', x: -3.5, z: 3.5 },
-        { id: 1, type: 'statue', x:  0.5, z: 4.5 },
-        { id: 2, type: 'statue', x:  4.0, z: 3.8 },
-        { id: 3, type: 'boss',   x: -5.5, z: 5.0 },
-        { id: 4, type: 'boss',   x:  1.5, z: 6.0 },
-        { id: 5, type: 'boss',   x: -1.5, z: 7.0 },
+        { id: 3, type: 'boss', x: -5.5, z: 5.0 },
+        { id: 4, type: 'boss', x:  1.5, z: 6.0 },
+        { id: 5, type: 'boss', x: -1.5, z: 7.0 },
       ]
       const patrolSlots = PATROL_SLOTS.map(s => ({ ...s, occupant: null }))
       const MAX_DISPATCHED = 3
@@ -901,31 +899,21 @@ export default function HomeMiningWorld3D() {
           phase: 'idle',   // 'idle' | 'walking_out' | 'stationed' | 'returning'
           type: boss.isStatue ? 'statue' : 'boss',
           slot: null,
+          visitingBossId: null,  // statues only: which boss's carousel slot we're visiting
           stayUntil: 0,
           returnX: 0,
           returnZ: 0,
           targetX: 0,
           targetZ: 0,
         }
-        // Store cylinder pedestal refs so we can hide/show them on dispatch.
+        // Cylinder pedestal meshes — pinned to own carousel slot during patrol.
         boss.pedestals = boss.isStatue
           ? boss.group.children.filter(c => c.isMesh && c.geometry?.type === 'CylinderGeometry')
           : []
       }
-      // Place a permanent pedestal clone at each statue patrol slot so the slot
-      // always shows a base, regardless of which statue is visiting.
-      const srcStatue = homeBosses.find(b => b.isStatue)
-      if (srcStatue?.pedestals.length) {
-        const srcPed  = srcStatue.pedestals[0]
-        const wScale  = srcStatue.group.scale.y   // uniform scale before carousel X-squeeze
-        for (const slot of patrolSlots.filter(s => s.type === 'statue')) {
-          const clone = srcPed.clone()
-          clone.scale.set(srcPed.scale.x * wScale, srcPed.scale.y * wScale, srcPed.scale.z * wScale)
-          clone.position.set(slot.x, srcStatue.baseY + srcPed.position.y * wScale, slot.z)
-          clone.rotation.copy(srcPed.rotation)
-          scene.add(clone)
-        }
-      }
+      // Tracks which statue (if any) is currently visiting each statue's slot.
+      const statueSlotOccupant = {}
+      for (const b of homeBosses.filter(b => b.isStatue)) statueSlotOccupant[b.id] = null
 
       // Hovering the mining-access card puts every boss/statue/bot in
       // "fighting" mode: every tagged eye glow in the scene (boss masks AND
@@ -1353,31 +1341,49 @@ export default function HomeMiningWorld3D() {
 
         const now = performance.now()
 
-        // Dispatch: every ~10 s send a random idle character to a free patrol slot.
-        // Up to MAX_DISPATCHED can be out simultaneously.
+        // Dispatch: every ~10 s send a random idle character out.
+        // Statues: swap carousel slots among themselves (Z stays, only X changes).
+        // Bosses: walk forward to a fixed patrol slot in front.
         {
+          const slotWorldX = b => ((((b.railX + rail.offset) + railHalf) % railSpan) + railSpan) % railSpan - railHalf
           const numOut = homeBosses.filter(b => b.homePatrol.phase !== 'idle').length
           if (numOut < MAX_DISPATCHED && time >= nextDispatchT) {
-            const eligible = homeBosses.filter(b => {
-              if (b.homePatrol.phase !== 'idle') return false
-              return patrolSlots.some(s => s.type === b.homePatrol.type && !s.occupant)
-            })
-            if (eligible.length > 0) {
-              const picked = eligible[Math.floor(Math.random() * eligible.length)]
-              const freeSlots = patrolSlots.filter(s => s.type === picked.homePatrol.type && !s.occupant)
-              const slot = freeSlots[Math.floor(Math.random() * freeSlots.length)]
+            // Build candidate list: statues that have a free target, plus bosses with a free slot.
+            const idleStatues = homeBosses.filter(b => b.isStatue && b.homePatrol.phase === 'idle')
+            const eligibleStatues = idleStatues.filter(b =>
+              idleStatues.some(t => t !== b && !statueSlotOccupant[t.id])
+            )
+            const eligibleBosses = homeBosses.filter(b =>
+              !b.isStatue && b.homePatrol.phase === 'idle' &&
+              patrolSlots.some(s => !s.occupant)
+            )
+            const allEligible = [...eligibleStatues, ...eligibleBosses]
+            if (allEligible.length > 0) {
+              const picked = allEligible[Math.floor(Math.random() * allEligible.length)]
               const hp = picked.homePatrol
-              const slotX = ((((picked.railX + rail.offset) + railHalf) % railSpan) + railSpan) % railSpan - railHalf
               hp.phase = 'walking_out'
-              hp.slot = slot.id
-              hp.returnX = slotX
+              hp.returnX = slotWorldX(picked)
               hp.returnZ = picked.baseZ
-              hp.targetX = slot.x
-              hp.targetZ = slot.z
-              slot.occupant = picked
+
               if (picked.isStatue) {
-                picked.pedestals.forEach(p => { p.visible = false })
+                // Target: a random idle statue's slot that isn't already visited.
+                const targets = idleStatues.filter(t => t !== picked && !statueSlotOccupant[t.id])
+                const target = targets[Math.floor(Math.random() * targets.length)]
+                hp.visitingBossId = target.id
+                hp.targetX = slotWorldX(target)
+                hp.targetZ = picked.baseZ        // same depth — slide sideways only
+                hp.slot = null
+                statueSlotOccupant[target.id] = picked
+                // Save original pedestal local positions for exact restoration on return.
+                for (const ped of picked.pedestals) ped.userData.origLocalPos = ped.position.clone()
               } else {
+                const freeSlots = patrolSlots.filter(s => !s.occupant)
+                const slot = freeSlots[Math.floor(Math.random() * freeSlots.length)]
+                hp.slot = slot.id
+                hp.visitingBossId = null
+                hp.targetX = slot.x
+                hp.targetZ = slot.z
+                slot.occupant = picked
                 bossAttackStart[picked.id] = null
                 bossGreetStart[picked.id] = null
                 bossNextAttack[picked.id] = performance.now() + 99999
@@ -1396,6 +1402,20 @@ export default function HomeMiningWorld3D() {
           if (hp.phase !== 'idle') {
             // Out on patrol: walking_out → stationed → returning.
             boss.group.scale.x = boss.baseScaleX
+
+            // Statues: keep dynamic target and pin pedestal at own carousel slot.
+            if (boss.isStatue) {
+              const ownX = ((((boss.railX + rail.offset) + railHalf) % railSpan) + railSpan) % railSpan - railHalf
+              hp.returnX = ownX
+              if (hp.visitingBossId && hp.phase !== 'returning') {
+                hp.targetX = ((((bossById[hp.visitingBossId].railX + rail.offset) + railHalf) % railSpan) + railSpan) % railSpan - railHalf
+              }
+              // Pin each pedestal: counteract the group's movement so the pedestal
+              // stays at the own-slot world position regardless of where the body is.
+              for (const ped of boss.pedestals) {
+                ped.position.x = (ownX - boss.group.position.x) / boss.group.scale.x
+              }
+            }
 
             if (hp.phase === 'walking_out') {
               // Z-first path: step away from the lineup before sliding sideways.
@@ -1461,7 +1481,10 @@ export default function HomeMiningWorld3D() {
                 hp.phase = 'idle'
                 if (hp.slot != null) { patrolSlots[hp.slot].occupant = null; hp.slot = null }
                 if (boss.isStatue) {
-                  boss.pedestals.forEach(p => { p.visible = true })
+                  if (hp.visitingBossId) { statueSlotOccupant[hp.visitingBossId] = null; hp.visitingBossId = null }
+                  for (const ped of boss.pedestals) {
+                    if (ped.userData.origLocalPos) { ped.position.copy(ped.userData.origLocalPos); delete ped.userData.origLocalPos }
+                  }
                   walkHumanoidLegs(boss.bodyPivot, 0, 0)
                 } else {
                   bossNextAttack[boss.id] = performance.now() + 4000
