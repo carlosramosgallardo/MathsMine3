@@ -1458,17 +1458,18 @@ export default function HomeMiningWorld3D() {
               if (time >= hp.stayUntil) hp.phase = 'returning'
 
             } else if (hp.phase === 'returning') {
-              // Diagonal walk back, steering around other patrolling characters.
+              // X-first, then Z: slide to own carousel column (staying in clear zone),
+              // then step straight back in Z along that column.
+              // This avoids cutting diagonally through the rotating lineup.
               const dx = hp.returnX - boss.group.position.x
               const dz = hp.returnZ - boss.group.position.z
-              const dist = Math.hypot(dx, dz)
-              if (dist > 0.18) {
-                const step = Math.min(dist, WALK_SPD * spinDt)
-                const rx = dx / dist + repX * 0.8
-                const rz = dz / dist + repZ * 0.8
-                const rl = Math.hypot(rx, rz)
-                boss.group.position.x += (rx / rl) * step
-                boss.group.position.z += (rz / rl) * step
+              if (Math.abs(dx) > 0.5) {
+                // Phase 1: slide X toward own carousel column.
+                boss.group.position.x += (Math.sign(dx) + repX * 0.5) * Math.min(Math.abs(dx), WALK_SPD * spinDt)
+                boss.group.rotation.y += (Math.atan2(dx, 0) - boss.group.rotation.y) * Math.min(1, spinDt * 1.8)
+              } else if (Math.abs(dz) > 0.18) {
+                // Phase 2: step straight back in Z along own column (6-unit gap from neighbours).
+                boss.group.position.z += Math.sign(dz) * Math.min(Math.abs(dz), WALK_SPD * spinDt)
                 boss.group.rotation.y += (Math.atan2(dx, dz) - boss.group.rotation.y) * Math.min(1, spinDt * 1.8)
               } else {
                 hp.phase = 'idle'
