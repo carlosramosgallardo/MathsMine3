@@ -1374,6 +1374,13 @@ export default function HomeMiningWorld3D() {
             boss.group.scale.x = boss.baseScaleX
             // Track own carousel slot position every frame (rail keeps rotating).
             hp.returnX = ((((boss.railX + rail.offset) + railHalf) % railSpan) + railSpan) % railSpan - railHalf
+            // Pedestal (detached scene object) follows slot X but stays at fixed z=0.5,
+            // so it scrolls with the carousel without sweeping through lineup elements.
+            if (boss.isStatue) {
+              for (const ped of boss.pedestals) {
+                if (ped.parent !== boss.group) ped.position.x = hp.returnX
+              }
+            }
 
             // Soft repulsion: accumulate push-away from nearby patrolling characters.
             const REP_R = 3.5
