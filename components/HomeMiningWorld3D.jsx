@@ -882,7 +882,9 @@ export default function HomeMiningWorld3D() {
 
       // Any character (statue or boss) can be dispatched to a patrol slot and walk
       // out from the carousel every ~10 s, up to MAX_DISPATCHED at a time.
-      // Statues carry their pedestal to the patrol position; bosses have none.
+      // Statue slots each have a permanent pedestal clone — statues walk without
+      // their own pedestal (hidden on departure, restored on return); bosses have
+      // no pedestal and go to separate boss slots.
       const PATROL_SLOTS = [
         { id: 0, type: 'statue', x: -3.5, z: 3.5 },
         { id: 1, type: 'statue', x:  0.5, z: 4.5 },
@@ -904,6 +906,24 @@ export default function HomeMiningWorld3D() {
           returnZ: 0,
           targetX: 0,
           targetZ: 0,
+        }
+        // Store cylinder pedestal refs so we can hide/show them on dispatch.
+        boss.pedestals = boss.isStatue
+          ? boss.group.children.filter(c => c.isMesh && c.geometry?.type === 'CylinderGeometry')
+          : []
+      }
+      // Place a permanent pedestal clone at each statue patrol slot so the slot
+      // always shows a base, regardless of which statue is visiting.
+      const srcStatue = homeBosses.find(b => b.isStatue)
+      if (srcStatue?.pedestals.length) {
+        const srcPed  = srcStatue.pedestals[0]
+        const wScale  = srcStatue.group.scale.y   // uniform scale before carousel X-squeeze
+        for (const slot of patrolSlots.filter(s => s.type === 'statue')) {
+          const clone = srcPed.clone()
+          clone.scale.set(srcPed.scale.x * wScale, srcPed.scale.y * wScale, srcPed.scale.z * wScale)
+          clone.position.set(slot.x, srcStatue.baseY + srcPed.position.y * wScale, slot.z)
+          clone.rotation.copy(srcPed.rotation)
+          scene.add(clone)
         }
       }
 
@@ -1355,7 +1375,9 @@ export default function HomeMiningWorld3D() {
               hp.targetX = slot.x
               hp.targetZ = slot.z
               slot.occupant = picked
-              if (!picked.isStatue) {
+              if (picked.isStatue) {
+                picked.pedestals.forEach(p => { p.visible = false })
+              } else {
                 bossAttackStart[picked.id] = null
                 bossGreetStart[picked.id] = null
                 bossNextAttack[picked.id] = performance.now() + 99999
@@ -1393,7 +1415,7 @@ export default function HomeMiningWorld3D() {
                   hp.stayUntil = time + 20 + Math.random() * 15
                 }
               }
-              boss.group.position.y += (HOME_ARENA_FLOOR_Y - boss.group.position.y) * Math.min(1, spinDt * 1.2)
+              boss.group.position.y += (boss.baseY - boss.group.position.y) * Math.min(1, spinDt * 1.2)
               boss.bodyPivot.position.y = Math.max(0, boss.bodyPivot.position.y - spinDt * 0.35)
               boss.group.rotation.z = 0
               boss.bodyPivot.rotation.x = 0
@@ -1408,7 +1430,7 @@ export default function HomeMiningWorld3D() {
               boss.bodyPivot.rotation.x = 0
               boss.group.rotation.y += (boss.baseRotationY - boss.group.rotation.y) * Math.min(1, spinDt * 1.5)
               if (boss.isStatue) {
-                boss.group.position.y = HOME_ARENA_FLOOR_Y
+                boss.group.position.y = boss.baseY
                 boss.bodyPivot.position.y = boss.bodyPivot.userData.baseY || 0
                 walkHumanoidLegs(boss.bodyPivot, 0, 0)
                 swayHumanoidArms(boss.bodyPivot, t)
@@ -1438,8 +1460,12 @@ export default function HomeMiningWorld3D() {
               } else {
                 hp.phase = 'idle'
                 if (hp.slot != null) { patrolSlots[hp.slot].occupant = null; hp.slot = null }
-                if (!boss.isStatue) bossNextAttack[boss.id] = performance.now() + 4000
-                if (boss.isStatue) walkHumanoidLegs(boss.bodyPivot, 0, 0)
+                if (boss.isStatue) {
+                  boss.pedestals.forEach(p => { p.visible = true })
+                  walkHumanoidLegs(boss.bodyPivot, 0, 0)
+                } else {
+                  bossNextAttack[boss.id] = performance.now() + 4000
+                }
               }
               boss.group.position.y += (boss.baseY - boss.group.position.y) * Math.min(1, spinDt * 1.2)
               boss.bodyPivot.position.y = Math.min(
