@@ -1322,7 +1322,7 @@ export default function HomeMiningWorld3D() {
         }
         const railHalf = railSpan / 2
         for (const entry of lineup) {
-          if (entry.homePatrol?.phase !== 'idle') continue
+          if (entry.homePatrol != null && entry.homePatrol.phase !== 'idle') continue
           const g = entry.group
           const wrapped = ((((entry.railX + rail.offset) + railHalf) % railSpan) + railSpan) % railSpan - railHalf
           g.position.x = wrapped
