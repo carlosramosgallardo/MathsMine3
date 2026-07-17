@@ -828,23 +828,29 @@ export default function HomeMiningWorld3D() {
       const _v3b = new THREE.Vector3()
       const threeState = { camera, _v3a, _v3b }
 
-      scene.add(new THREE.HemisphereLight('#e0f7ff', '#07111f', 1.72))
-      const key = new THREE.DirectionalLight('#fff8dc', 3.35)
-      key.position.set(-3, 8, 6)
+      // Ambient: deep blue sky → dark void ground — floating-in-space feel.
+      scene.add(new THREE.HemisphereLight('#c8e8ff', '#0a1428', 2.2))
+      // Key: warm white from above-left (main character illumination).
+      const key = new THREE.DirectionalLight('#fff8e0', 3.8)
+      key.position.set(-4, 9, 8)
       key.castShadow = true
       key.shadow.mapSize.set(1024, 1024)
       scene.add(key)
-      // Five floor lights spread edge-to-edge of the visible rail so the carpet
-      // glows evenly on any viewport width, including narrow mobile portrait.
+      // Rim: cool blue from behind — separates characters from the dark background.
+      const rim = new THREE.DirectionalLight('#3a6fff', 1.1)
+      rim.position.set(2, 5, -8)
+      scene.add(rim)
+      // Five portal-palette accent lights at torso height — cyan/yellow/magenta
+      // wash over characters without needing a visible floor to bounce off.
       for (const [x, color, intensity] of [
-        [-12, '#22d3ee', 4.2],
-        [ -6, '#ffe34d', 4.0],
-        [  0, '#d946ef', 3.8],
-        [  6, '#ffe34d', 4.0],
-        [ 12, '#22d3ee', 4.2],
+        [-12, '#22d3ee', 3.4],
+        [ -6, '#ffe34d', 3.2],
+        [  0, '#d946ef', 3.0],
+        [  6, '#ffe34d', 3.2],
+        [ 12, '#22d3ee', 3.4],
       ]) {
-        const fl = new THREE.PointLight(color, intensity, 14, 2)
-        fl.position.set(x, 0.5, 2)
+        const fl = new THREE.PointLight(color, intensity, 18, 2)
+        fl.position.set(x, 2.8, 1.5)
         scene.add(fl)
       }
 
@@ -1332,7 +1338,21 @@ export default function HomeMiningWorld3D() {
               hp.targetZ = slot.z
               slot.occupant = picked
               if (picked.isStatue) {
-                for (const ped of picked.pedestals) ped.userData.origLocalPos = ped.position.clone()
+                // Detach pedestal from group and place as a standalone scene object at a
+                // fixed world position (slightly in front of the lineup, z=0.5).
+                // This keeps the base visible at the departure point without it following
+                // the rotating carousel and passing through other elements.
+                const depX = slotWorldX(picked)
+                const scl = Math.abs(picked.group.scale.x)
+                for (const ped of picked.pedestals) {
+                  ped.userData.origLocalPos = ped.position.clone()
+                  const depY = HOME_ARENA_FLOOR_Y + ped.position.y * scl
+                  picked.group.remove(ped)
+                  scene.add(ped)
+                  ped.position.set(depX, depY, 0.5)
+                  ped.scale.setScalar(scl)
+                  ped.rotation.set(0, 0, 0)
+                }
               } else {
                 bossAttackStart[picked.id] = null
                 bossGreetStart[picked.id] = null
@@ -1354,14 +1374,6 @@ export default function HomeMiningWorld3D() {
             boss.group.scale.x = boss.baseScaleX
             // Track own carousel slot position every frame (rail keeps rotating).
             hp.returnX = ((((boss.railX + rail.offset) + railHalf) % railSpan) + railSpan) % railSpan - railHalf
-
-            // Statues: pin pedestal at its original carousel slot (body walks away, base stays).
-            if (boss.isStatue) {
-              for (const ped of boss.pedestals) {
-                ped.position.x = (hp.returnX - boss.group.position.x) / boss.group.scale.x
-                ped.position.z = (boss.baseZ - boss.group.position.z) / boss.group.scale.z
-              }
-            }
 
             // Soft repulsion: accumulate push-away from nearby patrolling characters.
             const REP_R = 3.5
@@ -1448,6 +1460,13 @@ export default function HomeMiningWorld3D() {
                 if (hp.slot != null) { patrolSlots[hp.slot].occupant = null; hp.slot = null }
                 if (boss.isStatue) {
                   for (const ped of boss.pedestals) {
+                    // Reattach pedestal to group and restore original local coords.
+                    if (ped.parent !== boss.group) {
+                      ped.parent?.remove(ped)
+                      boss.group.add(ped)
+                      ped.scale.set(1, 1, 1)
+                      ped.rotation.set(0, 0, 0)
+                    }
                     if (ped.userData.origLocalPos) { ped.position.copy(ped.userData.origLocalPos); delete ped.userData.origLocalPos }
                   }
                   walkHumanoidLegs(boss.bodyPivot, 0, 0)
