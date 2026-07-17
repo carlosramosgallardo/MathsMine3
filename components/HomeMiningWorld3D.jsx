@@ -882,7 +882,10 @@ export default function HomeMiningWorld3D() {
 
       // Statues leave the rail one at a time and walk to the nuke cube then back.
       // Three separate Z depths keep them in front of the lineup without overlapping.
+      // Each statue also has its own X offset from the nuke so they don't visually
+      // stack at the same screen position when viewed from the camera at (0, _, dist).
       const STATUE_PATROL_Z = { milei: 3.4, zelensky: 4.2, macron: 5.0 }
+      const STATUE_PATROL_X_OFFSET = { milei: -2.5, zelensky: 0, macron: 2.5 }
       const homeStatues = homeBosses.filter(b => b.isStatue)
       let statuePatrolCursor = 0
       homeStatues.forEach((boss, si) => {
@@ -891,9 +894,11 @@ export default function HomeMiningWorld3D() {
           phase: 'idle',
           nextTriggerT: si === 0 ? 4 + Math.random() * 4 : Infinity,
           patrolZ: STATUE_PATROL_Z[boss.id] ?? 4.0,
+          patrolXOffset: STATUE_PATROL_X_OFFSET[boss.id] ?? 0,
           pedestals,
           targetX: 0,
           gazeEndT: 0,
+          returnTargetX: null,
         }
       })
 
@@ -1347,7 +1352,7 @@ export default function HomeMiningWorld3D() {
                   boss.group.position.z += stepZ
                   boss.group.rotation.y += (Math.PI - boss.group.rotation.y) * Math.min(1, spinDt * 1.8)
                 } else {
-                  // Sub-phase 2: slide X toward nuke.
+                  // Sub-phase 2: slide X toward assigned nuke offset position.
                   boss.group.position.z = hp.patrolZ
                   const dx = hp.targetX - boss.group.position.x
                   if (Math.abs(dx) > 0.18) {
@@ -1359,6 +1364,9 @@ export default function HomeMiningWorld3D() {
                     boss.group.position.x = hp.targetX
                     hp.phase = 'gazing'
                     hp.gazeEndT = time + 8 + Math.random() * 6
+                    // Save a fixed return target so the returning walk isn't chasing
+                    // a moving slotX (the carousel may have shifted since patrol started).
+                    hp.returnTargetX = slotX
                   }
                 }
                 boss.group.position.y += (HOME_ARENA_FLOOR_Y - boss.group.position.y) * Math.min(1, spinDt * 1.2)
@@ -1376,32 +1384,31 @@ export default function HomeMiningWorld3D() {
                 boss.bodyPivot.rotation.x = 0
                 walkHumanoidLegs(boss.bodyPivot, 0, 0)
                 swayHumanoidArms(boss.bodyPivot, t)
-                if (time >= hp.gazeEndT) hp.phase = 'returning'
+                if (time >= hp.gazeEndT) {
+                  hp.phase = 'returning'
+                  // Refresh return target in case carousel moved during gazing.
+                  hp.returnTargetX = slotX
+                }
               } else if (hp.phase === 'returning') {
-                // Reverse of forward: slide X back to slot first, then return Z to lineup.
-                const dx = slotX - boss.group.position.x
-                if (Math.abs(dx) > 0.18) {
-                  // Sub-phase 1: return X to carousel slot.
-                  const stepX = Math.sign(dx) * Math.min(Math.abs(dx), WALK_SPD * spinDt)
-                  boss.group.position.x += stepX
-                  const tYaw = Math.atan2(dx, 0)
+                // Return diagonally to the slot position that was saved at gaze-start
+                // (fixed target so the statue is not chasing a moving carousel slot).
+                const retX = hp.returnTargetX ?? slotX
+                const dx = retX - boss.group.position.x
+                const dz = boss.baseZ - boss.group.position.z
+                const dist = Math.hypot(dx, dz)
+                if (dist > 0.18) {
+                  const step = Math.min(dist, WALK_SPD * spinDt)
+                  boss.group.position.x += (dx / dist) * step
+                  boss.group.position.z += (dz / dist) * step
+                  const tYaw = Math.atan2(dx, dz)
                   boss.group.rotation.y += (tYaw - boss.group.rotation.y) * Math.min(1, spinDt * 1.8)
                 } else {
-                  // Sub-phase 2: return Z to lineup depth.
-                  boss.group.position.x = slotX
-                  const dz = boss.baseZ - boss.group.position.z
-                  if (Math.abs(dz) > 0.18) {
-                    const stepZ = Math.sign(dz) * Math.min(Math.abs(dz), WALK_SPD * spinDt)
-                    boss.group.position.z += stepZ
-                    const tYaw = Math.atan2(0, dz)
-                    boss.group.rotation.y += (tYaw - boss.group.rotation.y) * Math.min(1, spinDt * 1.8)
-                  } else {
-                    hp.phase = 'idle'
-                    hp.pedestals.forEach(p => { p.visible = true })
-                    walkHumanoidLegs(boss.bodyPivot, 0, 0)
-                    statuePatrolCursor = (statuePatrolCursor + 1) % homeStatues.length
-                    homeStatues[statuePatrolCursor].homePatrol.nextTriggerT = time + 2 + Math.random() * 3
-                  }
+                  hp.phase = 'idle'
+                  hp.returnTargetX = null
+                  hp.pedestals.forEach(p => { p.visible = true })
+                  walkHumanoidLegs(boss.bodyPivot, 0, 0)
+                  statuePatrolCursor = (statuePatrolCursor + 1) % homeStatues.length
+                  homeStatues[statuePatrolCursor].homePatrol.nextTriggerT = time + 2 + Math.random() * 3
                 }
                 boss.group.position.y += (boss.baseY - boss.group.position.y) * Math.min(1, spinDt * 1.2)
                 boss.bodyPivot.position.y = Math.min(
@@ -1416,9 +1423,14 @@ export default function HomeMiningWorld3D() {
               boss.glowLight.intensity = boss.baseGlow + Math.sin(t * 2.4) * 0.85
             } else {
               // Idle: check trigger, then run normal statue pose.
-              if (hp && time >= hp.nextTriggerT) {
+              // Guard: only start patrol if no other statue is already moving —
+              // prevents simultaneous patrolling due to cursor/timing bugs.
+              const anyOtherPatrolling = homeStatues.some(s => s !== boss && s.homePatrol?.phase !== 'idle')
+              if (hp && time >= hp.nextTriggerT && !anyOtherPatrolling) {
                 hp.phase = 'forward'
-                hp.targetX = homeNuke.group.position.x
+                // Each statue has its own X offset near the nuke so they never
+                // visually stack at the same screen position.
+                hp.targetX = homeNuke.group.position.x + (hp.patrolXOffset ?? 0)
                 hp.pedestals.forEach(p => { p.visible = false })
               }
               boss.bodyPivot.position.y = boss.bodyPivot.userData.baseY || 0
