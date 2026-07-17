@@ -1338,20 +1338,28 @@ export default function HomeMiningWorld3D() {
               // Constant-speed walk so movement feels human-paced, not spring-driven.
               const WALK_SPD = 1.8  // world units per second
               if (hp.phase === 'forward') {
-                const dx = hp.targetX - boss.group.position.x
+                // Step forward in Z first (clears the lineup), then slide in X toward
+                // the nuke — avoids walking diagonally through other carousel elements.
                 const dz = hp.patrolZ - boss.group.position.z
-                const dist = Math.hypot(dx, dz)
-                if (dist > 0.18) {
-                  const step = Math.min(dist, WALK_SPD * spinDt)
-                  boss.group.position.x += (dx / dist) * step
-                  boss.group.position.z += (dz / dist) * step
-                  const tYaw = Math.atan2(dx, dz)
-                  boss.group.rotation.y += (tYaw - boss.group.rotation.y) * Math.min(1, spinDt * 1.8)
+                if (Math.abs(dz) > 0.18) {
+                  // Sub-phase 1: advance Z until at patrol depth.
+                  const stepZ = Math.sign(dz) * Math.min(Math.abs(dz), WALK_SPD * spinDt)
+                  boss.group.position.z += stepZ
+                  boss.group.rotation.y += (Math.PI - boss.group.rotation.y) * Math.min(1, spinDt * 1.8)
                 } else {
-                  boss.group.position.x = hp.targetX
+                  // Sub-phase 2: slide X toward nuke.
                   boss.group.position.z = hp.patrolZ
-                  hp.phase = 'gazing'
-                  hp.gazeEndT = time + 8 + Math.random() * 6
+                  const dx = hp.targetX - boss.group.position.x
+                  if (Math.abs(dx) > 0.18) {
+                    const stepX = Math.sign(dx) * Math.min(Math.abs(dx), WALK_SPD * spinDt)
+                    boss.group.position.x += stepX
+                    const tYaw = Math.atan2(dx, 0)
+                    boss.group.rotation.y += (tYaw - boss.group.rotation.y) * Math.min(1, spinDt * 1.8)
+                  } else {
+                    boss.group.position.x = hp.targetX
+                    hp.phase = 'gazing'
+                    hp.gazeEndT = time + 8 + Math.random() * 6
+                  }
                 }
                 boss.group.position.y += (HOME_ARENA_FLOOR_Y - boss.group.position.y) * Math.min(1, spinDt * 1.2)
                 boss.bodyPivot.position.y = Math.max(0, boss.bodyPivot.position.y - spinDt * 0.35)
@@ -1370,21 +1378,30 @@ export default function HomeMiningWorld3D() {
                 swayHumanoidArms(boss.bodyPivot, t)
                 if (time >= hp.gazeEndT) hp.phase = 'returning'
               } else if (hp.phase === 'returning') {
+                // Reverse of forward: slide X back to slot first, then return Z to lineup.
                 const dx = slotX - boss.group.position.x
-                const dz = boss.baseZ - boss.group.position.z
-                const dist = Math.hypot(dx, dz)
-                if (dist > 0.18) {
-                  const step = Math.min(dist, WALK_SPD * spinDt)
-                  boss.group.position.x += (dx / dist) * step
-                  boss.group.position.z += (dz / dist) * step
-                  const tYaw = Math.atan2(dx, dz)
+                if (Math.abs(dx) > 0.18) {
+                  // Sub-phase 1: return X to carousel slot.
+                  const stepX = Math.sign(dx) * Math.min(Math.abs(dx), WALK_SPD * spinDt)
+                  boss.group.position.x += stepX
+                  const tYaw = Math.atan2(dx, 0)
                   boss.group.rotation.y += (tYaw - boss.group.rotation.y) * Math.min(1, spinDt * 1.8)
                 } else {
-                  hp.phase = 'idle'
-                  hp.pedestals.forEach(p => { p.visible = true })
-                  walkHumanoidLegs(boss.bodyPivot, 0, 0)
-                  statuePatrolCursor = (statuePatrolCursor + 1) % homeStatues.length
-                  homeStatues[statuePatrolCursor].homePatrol.nextTriggerT = time + 2 + Math.random() * 3
+                  // Sub-phase 2: return Z to lineup depth.
+                  boss.group.position.x = slotX
+                  const dz = boss.baseZ - boss.group.position.z
+                  if (Math.abs(dz) > 0.18) {
+                    const stepZ = Math.sign(dz) * Math.min(Math.abs(dz), WALK_SPD * spinDt)
+                    boss.group.position.z += stepZ
+                    const tYaw = Math.atan2(0, dz)
+                    boss.group.rotation.y += (tYaw - boss.group.rotation.y) * Math.min(1, spinDt * 1.8)
+                  } else {
+                    hp.phase = 'idle'
+                    hp.pedestals.forEach(p => { p.visible = true })
+                    walkHumanoidLegs(boss.bodyPivot, 0, 0)
+                    statuePatrolCursor = (statuePatrolCursor + 1) % homeStatues.length
+                    homeStatues[statuePatrolCursor].homePatrol.nextTriggerT = time + 2 + Math.random() * 3
+                  }
                 }
                 boss.group.position.y += (boss.baseY - boss.group.position.y) * Math.min(1, spinDt * 1.2)
                 boss.bodyPivot.position.y = Math.min(

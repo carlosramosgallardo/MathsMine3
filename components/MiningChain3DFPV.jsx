@@ -11157,7 +11157,60 @@ function initStatuePatrol(baseGx, baseGz, baseRotY, staggerSec = 0, gazeAngle = 
   }
 }
 
-function updateStatuePatrol(motion, time, dt) {
+const STATUE_COLLISION_R = 0.38
+
+function statueHitsWall(gx, gz, cellMap, obsSet) {
+  if (!cellMap && !obsSet) return false
+  const minRow = Math.floor(gz - STATUE_COLLISION_R)
+  const maxRow = Math.floor(gz + STATUE_COLLISION_R)
+  const minCol = Math.floor(gx - STATUE_COLLISION_R)
+  const maxCol = Math.floor(gx + STATUE_COLLISION_R)
+  for (let row = minRow; row <= maxRow; row++) {
+    for (let col = minCol; col <= maxCol; col++) {
+      const key = `${row},${col}`
+      const obs = obsSet?.get?.(key)
+      if (obs?.shape === 'sphere' || obs?.shape === 'tree') {
+        const cx = col + 0.5, cz = row + 0.5
+        const r = (obs.radius ?? 0.5) + STATUE_COLLISION_R
+        if ((gx - cx) * (gx - cx) + (gz - cz) * (gz - cz) < r * r) return true
+        continue
+      }
+      if (obs && !obs.isOrganicShape) {
+        const cx = col + 0.5, cz = row + 0.5
+        if (Math.abs(gx - cx) < 0.5 + STATUE_COLLISION_R && Math.abs(gz - cz) < 0.5 + STATUE_COLLISION_R) return true
+        continue
+      }
+      if (cellMap?.has(key)) {
+        const cx = col + 0.5, cz = row + 0.5
+        if (Math.abs(gx - cx) < 0.5 + STATUE_COLLISION_R && Math.abs(gz - cz) < 0.5 + STATUE_COLLISION_R) return true
+      }
+    }
+  }
+  return false
+}
+
+function statueStepWithSlide(p, dx, dz, dist, step, cellMap, obsSet) {
+  const nx = p.currentGx + (dx / dist) * step
+  const nz = p.currentGz + (dz / dist) * step
+  if (!statueHitsWall(nx, nz, cellMap, obsSet)) {
+    p.currentGx = nx
+    p.currentGz = nz
+    return true
+  }
+  // Try slide: X only
+  if (!statueHitsWall(nx, p.currentGz, cellMap, obsSet)) {
+    p.currentGx = nx
+    return true
+  }
+  // Try slide: Z only
+  if (!statueHitsWall(p.currentGx, nz, cellMap, obsSet)) {
+    p.currentGz = nz
+    return true
+  }
+  return false // stuck
+}
+
+function updateStatuePatrol(motion, time, dt, cellMap, obsSet) {
   const p = motion?.patrol
   if (!p) return
   if (p.phase === 'idle') {
@@ -11166,7 +11219,16 @@ function updateStatuePatrol(motion, time, dt) {
       if (!nukePos) return
       const wps = []
       const n = 1 + Math.floor(Math.random() * 2)
-      for (let i = 0; i < n; i++) wps.push({ gx: 8 + Math.random() * 40, gz: 8 + Math.random() * 40 })
+      for (let i = 0; i < n; i++) {
+        // Pick waypoints that are not inside walls; skip blocked candidates.
+        let tries = 0
+        while (tries < 8) {
+          const wgx = 8 + Math.random() * 40
+          const wgz = 8 + Math.random() * 40
+          if (!statueHitsWall(wgx, wgz, cellMap, obsSet)) { wps.push({ gx: wgx, gz: wgz }); break }
+          tries++
+        }
+      }
       // Stop 2 cells from the nuke at the statue's pre-assigned angle, never on the bomb itself.
       wps.push({
         gx: nukePos.col + 0.5 + Math.cos(p.gazeAngle) * 2,
@@ -11176,6 +11238,7 @@ function updateStatuePatrol(motion, time, dt) {
       const nxt = p.waypoints.shift()
       p.targetGx = nxt.gx
       p.targetGz = nxt.gz
+      p.stuckTicks = 0
       p.phase = 'walking'
       // Feet on the ground while patrolling.
       if (motion.bodyPivot) motion.bodyPivot.position.y = 0
@@ -11189,8 +11252,24 @@ function updateStatuePatrol(motion, time, dt) {
     if (dist > 0.08) {
       motion.root.rotation.y = approachYaw(motion.root.rotation.y, Math.atan2(dx, dz), dt, 5)
       const step = Math.min(STATUE_WALK_SPEED * dt, dist)
-      p.currentGx += (dx / dist) * step
-      p.currentGz += (dz / dist) * step
+      const moved = statueStepWithSlide(p, dx, dz, dist, step, cellMap, obsSet)
+      if (!moved) {
+        p.stuckTicks = (p.stuckTicks || 0) + 1
+        if (p.stuckTicks > 30) {
+          // Completely stuck — skip to next waypoint to avoid freezing.
+          p.stuckTicks = 0
+          if (p.phase === 'walking' && p.waypoints.length > 0) {
+            const nxt = p.waypoints.shift()
+            p.targetGx = nxt.gx
+            p.targetGz = nxt.gz
+          } else {
+            p.currentGx = p.targetGx
+            p.currentGz = p.targetGz
+          }
+        }
+      } else {
+        p.stuckTicks = 0
+      }
       motion.root.position.x = p.currentGx
       motion.root.position.z = p.currentGz
     } else {
@@ -11203,6 +11282,7 @@ function updateStatuePatrol(motion, time, dt) {
           const nxt = p.waypoints.shift()
           p.targetGx = nxt.gx
           p.targetGz = nxt.gz
+          p.stuckTicks = 0
         } else {
           p.phase = 'gazing'
           p.gazeStartT = time
@@ -11232,17 +11312,18 @@ function updateStatuePatrol(motion, time, dt) {
       p.phase = 'returning'
       p.targetGx = p.baseGx
       p.targetGz = p.baseGz
+      p.stuckTicks = 0
     }
   }
 }
 
-function updateM1MileiStatueMotion(motion, time, look = null) {
+function updateM1MileiStatueMotion(motion, time, look = null, cellMap = null, obsSet = null) {
   if (!motion) return
   const armLift = Math.sin(time * 1.8) * 0.026
   const dt = time - (motion.lastSpinTime ?? time)
   motion.lastSpinTime = time
 
-  updateStatuePatrol(motion, time, dt)
+  updateStatuePatrol(motion, time, dt, cellMap, obsSet)
   const patrolPhase = motion.patrol?.phase ?? 'idle'
   const isMoving = patrolPhase === 'walking' || patrolPhase === 'returning'
   const isGazing = patrolPhase === 'gazing'
@@ -13543,9 +13624,9 @@ export default function MiningChain3DFPV({
             myIdentity,
             presenceMap: presenceRef.current,
           } : null
-          updateM1MileiStatueMotion(threeState.m1MileiStatueMotion, time, statueLook)
-          updateM1MileiStatueMotion(threeState.m1ZelenskyStatueMotion, time, statueLook)
-          updateM1MileiStatueMotion(threeState.m2MacronStatueMotion, time, statueLook)
+          updateM1MileiStatueMotion(threeState.m1MileiStatueMotion, time, statueLook, activeCellMapRef.current, validObstaclesRef.current)
+          updateM1MileiStatueMotion(threeState.m1ZelenskyStatueMotion, time, statueLook, activeCellMapRef.current, validObstaclesRef.current)
+          updateM1MileiStatueMotion(threeState.m2MacronStatueMotion, time, statueLook, activeCellMapRef.current, validObstaclesRef.current)
           // Nuke cube red button: eases toward its pressed/raised position.
           const nukeGroup=threeState.nukeCubeGroup
           if(nukeGroup){
@@ -15592,6 +15673,7 @@ export default function MiningChain3DFPV({
             localGx: p.x / CELL_SIZE,
             localGy: p.y / CELL_SIZE,
             stormAggro,
+            canMoveTo: (gx, gy) => !hitsSolidWall(gx, gy, activeCellMapRef.current, validObstaclesRef.current, 0, 0),
             onAttack: (payload) => onBossAttackRef.current?.({ ...payload, mapId: currentMapId }),
             onRequestIdle: () => {
               if (bossIdleRequestedRef.current || bossStateRef.current?.state !== 'active') return
