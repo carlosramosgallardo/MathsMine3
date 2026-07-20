@@ -1561,19 +1561,6 @@ ALTER TABLE "public"."mm3_command_penalties_id_seq" OWNER TO "postgres";
 
 ALTER SEQUENCE "public"."mm3_command_penalties_id_seq" OWNED BY "public"."mm3_command_penalties"."id";
 
-
-
-CREATE TABLE IF NOT EXISTS "public"."mm3_game_winner" (
-    "id" smallint DEFAULT 1 NOT NULL,
-    "wallet" "text" NOT NULL,
-    "won_at" timestamp with time zone DEFAULT "now"() NOT NULL,
-    CONSTRAINT "mm3_game_winner_id_check" CHECK (("id" = 1))
-);
-
-
-ALTER TABLE "public"."mm3_game_winner" OWNER TO "postgres";
-
-
 CREATE TABLE IF NOT EXISTS "public"."mm3_hidden_cmd_executions" (
     "id" bigint NOT NULL,
     "wallet" "text" NOT NULL,
@@ -1805,18 +1792,6 @@ CREATE TABLE IF NOT EXISTS "public"."mm3_mining_state" (
 
 
 ALTER TABLE "public"."mm3_mining_state" OWNER TO "postgres";
-
-
-CREATE TABLE IF NOT EXISTS "public"."mm3_player_positions" (
-    "wallet" "text" NOT NULL,
-    "gx" double precision DEFAULT 14.5 NOT NULL,
-    "gy" double precision DEFAULT 14.5 NOT NULL,
-    "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL
-);
-
-
-ALTER TABLE "public"."mm3_player_positions" OWNER TO "postgres";
-
 
 CREATE TABLE IF NOT EXISTS "public"."mm3_pool_dispute_votes" (
     "id" bigint NOT NULL,
@@ -2129,18 +2104,6 @@ CREATE TABLE IF NOT EXISTS "public"."mm3_squeezing_nftji" (
 
 
 ALTER TABLE "public"."mm3_squeezing_nftji" OWNER TO "postgres";
-
-
-CREATE TABLE IF NOT EXISTS "public"."mm3_visual_state" (
-    "id" smallint DEFAULT 1 NOT NULL,
-    "color_hex" "text" DEFAULT '#000000'::"text" NOT NULL,
-    "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL,
-    CONSTRAINT "mm3_visual_state_id_check" CHECK (("id" = 1))
-);
-
-
-ALTER TABLE "public"."mm3_visual_state" OWNER TO "postgres";
-
 
 CREATE TABLE IF NOT EXISTS "public"."mm3_wallet_pool_cooldowns" (
     "wallet" "text" NOT NULL,
@@ -2495,13 +2458,6 @@ ALTER TABLE ONLY "public"."mm3_chain_solvers"
 ALTER TABLE ONLY "public"."mm3_command_penalties"
     ADD CONSTRAINT "mm3_command_penalties_pkey" PRIMARY KEY ("id");
 
-
-
-ALTER TABLE ONLY "public"."mm3_game_winner"
-    ADD CONSTRAINT "mm3_game_winner_pkey" PRIMARY KEY ("id");
-
-
-
 ALTER TABLE ONLY "public"."mm3_hidden_cmd_executions"
     ADD CONSTRAINT "mm3_hidden_cmd_executions_pkey" PRIMARY KEY ("id");
 
@@ -2554,13 +2510,6 @@ ALTER TABLE ONLY "public"."mm3_mining_events"
 
 ALTER TABLE ONLY "public"."mm3_mining_state"
     ADD CONSTRAINT "mm3_mining_state_pkey" PRIMARY KEY ("id");
-
-
-
-ALTER TABLE ONLY "public"."mm3_player_positions"
-    ADD CONSTRAINT "mm3_player_positions_pkey" PRIMARY KEY ("wallet");
-
-
 
 ALTER TABLE ONLY "public"."mm3_pool_dispute_votes"
     ADD CONSTRAINT "mm3_pool_dispute_votes_challenger_pool_code_defender_pool_c_key" UNIQUE ("challenger_pool_code", "defender_pool_code", "wallet");
@@ -2624,13 +2573,6 @@ ALTER TABLE ONLY "public"."mm3_squeezing_launches"
 
 ALTER TABLE ONLY "public"."mm3_squeezing_nftji"
     ADD CONSTRAINT "mm3_squeezing_nftji_pkey" PRIMARY KEY ("wallet");
-
-
-
-ALTER TABLE ONLY "public"."mm3_visual_state"
-    ADD CONSTRAINT "mm3_visual_state_pkey" PRIMARY KEY ("id");
-
-
 
 ALTER TABLE ONLY "public"."mm3_wallet_pool_cooldowns"
     ADD CONSTRAINT "mm3_wallet_pool_cooldowns_pkey" PRIMARY KEY ("wallet");
@@ -2885,11 +2827,6 @@ ALTER TABLE "public"."daily_task_claims" ENABLE ROW LEVEL SECURITY;
 
 ALTER TABLE "public"."games" ENABLE ROW LEVEL SECURITY;
 
-
-CREATE POLICY "insert_positions" ON "public"."mm3_player_positions" FOR INSERT WITH CHECK (true);
-
-
-
 ALTER TABLE "public"."leaderboard_data" ENABLE ROW LEVEL SECURITY;
 
 
@@ -2906,10 +2843,6 @@ ALTER TABLE "public"."mm3_chain_solvers" ENABLE ROW LEVEL SECURITY;
 
 
 ALTER TABLE "public"."mm3_command_penalties" ENABLE ROW LEVEL SECURITY;
-
-
-ALTER TABLE "public"."mm3_game_winner" ENABLE ROW LEVEL SECURITY;
-
 
 ALTER TABLE "public"."mm3_hidden_cmd_executions" ENABLE ROW LEVEL SECURITY;
 
@@ -2933,10 +2866,6 @@ ALTER TABLE "public"."mm3_mining_events" ENABLE ROW LEVEL SECURITY;
 
 
 ALTER TABLE "public"."mm3_mining_state" ENABLE ROW LEVEL SECURITY;
-
-
-ALTER TABLE "public"."mm3_player_positions" ENABLE ROW LEVEL SECURITY;
-
 
 ALTER TABLE "public"."mm3_pool_dispute_votes" ENABLE ROW LEVEL SECURITY;
 
@@ -2966,10 +2895,6 @@ ALTER TABLE "public"."mm3_squeezing_launches" ENABLE ROW LEVEL SECURITY;
 
 
 ALTER TABLE "public"."mm3_squeezing_nftji" ENABLE ROW LEVEL SECURITY;
-
-
-ALTER TABLE "public"."mm3_visual_state" ENABLE ROW LEVEL SECURITY;
-
 
 ALTER TABLE "public"."mm3_wallet_pool_cooldowns" ENABLE ROW LEVEL SECURITY;
 
@@ -3059,12 +2984,6 @@ CREATE POLICY "public_insert_mm3_wallet_presence" ON "public"."mm3_wallet_presen
 
 CREATE POLICY "public_insert_relay_exec_log" ON "public"."mm3_relay_exec_log" FOR INSERT WITH CHECK ((("wallet_origin" <> ''::"text") AND ("wallet_target" <> ''::"text")));
 
-
-
-CREATE POLICY "public_insert_visual_state" ON "public"."mm3_visual_state" FOR INSERT TO "anon" WITH CHECK (("id" = 1));
-
-
-
 CREATE POLICY "public_read_api_requests" ON "public"."api_requests" FOR SELECT USING (true);
 
 
@@ -3074,12 +2993,6 @@ CREATE POLICY "public_read_chain_solve_attempts" ON "public"."mm3_chain_solve_at
 
 
 CREATE POLICY "public_read_daily_task_claims" ON "public"."daily_task_claims" FOR SELECT USING (true);
-
-
-
-CREATE POLICY "public_read_game_winner" ON "public"."mm3_game_winner" FOR SELECT USING (true);
-
-
 
 CREATE POLICY "public_read_games" ON "public"."games" FOR SELECT USING (true);
 
@@ -3179,12 +3092,6 @@ CREATE POLICY "public_read_player_progress" ON "public"."player_progress" FOR SE
 
 CREATE POLICY "public_read_relay_exec_log" ON "public"."mm3_relay_exec_log" FOR SELECT USING (true);
 
-
-
-CREATE POLICY "public_read_visual_state" ON "public"."mm3_visual_state" FOR SELECT TO "anon" USING (true);
-
-
-
 CREATE POLICY "public_update_mm3_command_penalties" ON "public"."mm3_command_penalties" FOR UPDATE USING (("redeemed_at" IS NULL)) WITH CHECK ((("wallet" <> ''::"text") AND ("nftji_key" <> ''::"text") AND ("penalty_code" <> ''::"text")));
 
 
@@ -3215,32 +3122,13 @@ CREATE POLICY "public_update_mm3_wallet_presence" ON "public"."mm3_wallet_presen
 
 CREATE POLICY "public_update_player_progress" ON "public"."player_progress" FOR UPDATE USING (true) WITH CHECK ((("level" >= 0) AND ("level" <= 100)));
 
-
-
-CREATE POLICY "public_update_visual_state" ON "public"."mm3_visual_state" FOR UPDATE TO "anon" USING (("id" = 1)) WITH CHECK (("id" = 1));
-
-
-
 CREATE POLICY "pvp_health_read" ON "public"."mm3_pvp_health" FOR SELECT USING (true);
 
 
 
 CREATE POLICY "pvp_hits_select" ON "public"."mm3_pvp_hits" FOR SELECT USING (true);
 
-
-
-CREATE POLICY "read_positions" ON "public"."mm3_player_positions" FOR SELECT USING (true);
-
-
-
 ALTER TABLE "public"."security_scans" ENABLE ROW LEVEL SECURITY;
-
-
-CREATE POLICY "update_positions" ON "public"."mm3_player_positions" FOR UPDATE USING (true) WITH CHECK (true);
-
-
-
-
 
 ALTER PUBLICATION "supabase_realtime" OWNER TO "postgres";
 
@@ -3648,10 +3536,6 @@ GRANT ALL ON SEQUENCE "public"."mm3_command_penalties_id_seq" TO "service_role";
 
 
 
-GRANT ALL ON TABLE "public"."mm3_game_winner" TO "anon";
-GRANT ALL ON TABLE "public"."mm3_game_winner" TO "authenticated";
-GRANT ALL ON TABLE "public"."mm3_game_winner" TO "service_role";
-
 
 
 GRANT ALL ON TABLE "public"."mm3_hidden_cmd_executions" TO "anon";
@@ -3731,10 +3615,6 @@ GRANT ALL ON TABLE "public"."mm3_mining_state" TO "authenticated";
 GRANT ALL ON TABLE "public"."mm3_mining_state" TO "service_role";
 
 
-
-GRANT ALL ON TABLE "public"."mm3_player_positions" TO "anon";
-GRANT ALL ON TABLE "public"."mm3_player_positions" TO "authenticated";
-GRANT ALL ON TABLE "public"."mm3_player_positions" TO "service_role";
 
 
 
@@ -3839,10 +3719,6 @@ GRANT ALL ON TABLE "public"."mm3_squeezing_nftji" TO "authenticated";
 GRANT ALL ON TABLE "public"."mm3_squeezing_nftji" TO "service_role";
 
 
-
-GRANT ALL ON TABLE "public"."mm3_visual_state" TO "anon";
-GRANT ALL ON TABLE "public"."mm3_visual_state" TO "authenticated";
-GRANT ALL ON TABLE "public"."mm3_visual_state" TO "service_role";
 
 
 

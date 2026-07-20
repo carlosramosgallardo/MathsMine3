@@ -123,7 +123,7 @@ You rank up by living in the world:
 | Mining world | A **five-map 3D world** (Speculation Plaza + four peripheral maps) with **1000 minable blocks** (980 chain + 20 NFTJI), each map holding **200 blocks** with tiered requirements. Explore in first-person view with WASD/joystick, jump, PvP, and map gateways. Mine via Mining NFTJI purchase, `/mine block #XXX` in Relaying, or by solving `Ω(α, β, γ)`. |
 | Relaying | Your main action terminal. Type `/mine block #XXX` to attempt a chain cell. Fire your daily Mining command if you own a Mining NFTJI. Watch events, penalties, and world state shifts here in real time. |
 | MM3 | The global MM3 value determines which chain cells you can mine — requirements alternate positive and negative by cell index. Watch the MM3 chart and only attempt a cell when the sign and magnitude match its requirement. |
-| Daily rewards | Check the daily panel every session and manually claim each completed task before UTC midnight — unclaimed rewards disappear. Mining one block chain cell pays €10. Maximum daily total: €17.50. |
+| Daily rewards | Check the daily panel every session and manually claim each completed task before UTC midnight — unclaimed rewards disappear. Mining one block chain cell pays €10, a successful PvP hit pays €100. Maximum daily total: €120. |
 
 ---
 
@@ -225,16 +225,17 @@ Daily rewards are wallet-bound tasks that pay fictional in-game money when claim
 | TRADING | 5 buy/sell operations | 0.50 EUR | Daily rows in `mm3_sell_transactions` | Pushes the player to use the exchange loop and understand MM3 value. |
 | MINING | 1 Mining buy or resell | 0.75 EUR | `mining_buy` or `mining_resell` events | Makes the 28x28 board part of the daily economy. |
 | RELAYING | 1 public Mining command | 1.00 EUR | Daily rows in `mm3_mining_commands` | Rewards social command activity from owned Mining NFTJIs. |
-| SQUEEZING | 1 Squeeze launched against a wallet pool | 1.25 EUR | Daily rows in `mm3_pool_dispute_votes` | Rewards initiating pool-vs-pool combat. |
+| SQUEEZING | 5 Squeezes launched against wallet pools | 2.50 EUR | Daily rows in `mm3_squeezing_launches` | Rewards initiating pool-vs-pool combat. |
 | RELAYING (SECRET) | 1 hidden command | 5.00 EUR | Daily rows in `mm3_hidden_cmd_executions` | High-value reward for discovering and executing hidden command paths. |
 | MINING CHAIN | Mine 1 chain block in the 3D world | 10.00 EUR | Rows in `mm3_mined_blocks` for the current UTC day | Top reward for advancing the 980-block shared chain race. |
+| PVP | 1 successful PvP hit on another wallet | 100.00 EUR | Daily rows in `mm3_pvp_hits` | Top reward for engaging in PvP combat. |
 
 | Rule | Explanation |
 |---|---|
 | Claim model | A completed task must be manually claimed from the daily panel. |
 | Wallet scope | Claims are stored by `wallet + UTC day + task_key`. |
 | Currency credit | Rewards are credited to fictional EUR, USD, and CNY balances using the internal fixed conversion rates. |
-| Maximum daily reward | Completing and claiming every task pays 17.50 EUR equivalent in fictional funds. |
+| Maximum daily reward | Completing and claiming every task pays 120.00 EUR equivalent in fictional funds. |
 | Expiry | If a task is completed but not claimed before UTC reset, the reward is lost. |
 
 ---
@@ -398,7 +399,7 @@ M5 — Epstein Island — M1 — Speculation Plaza — M4 — Korean Midzone
 | Map | Name | Chain indices | Blocks | Requirements (typical) | Interactive landmarks |
 |:---:|:---|:---|---:|:---|:---|
 | **M1** | Speculation Plaza | `#000`–`#0C7` | 200 | Lowest — entry tier | ⬡ **Chain Node** (solve/demine Ω), 🎲 **Dice Node** (StormRoll window), **Cipher House** + pool, **Crypto Colosseum**, 🗿 **Milei & Zelensky statues** (5 hits → tip + local voice), 9 **Portal nodes** (Training, Trading, Ranking…), gateway exits |
-| **M2** | RL Coliseum | `#0C8`–`#18F` | 200 | Low–mid | 🚙 **RL Mount node** (dark SUV-style car), full-map stadium with animated 3v3 RL bot dome, gateway → M1 |
+| **M2** | RL Coliseum | `#0C8`–`#18F` | 200 | Low–mid | 🚙 **RL Mount node** (dark SUV-style car), full-map stadium with animated 3v3 RL bot dome, 🗿 **Emmanuel Macron statue** (5 hits → tip + local voice), gateway → M1 |
 | **M3** | Former Soviet Union | `#190`–`#257` | 200 | Mid | Full-map castle city venue, **Vladimir Putin** world boss (castle gate, co-op PvE, daily respawn), gateway → M1 |
 | **M4** | Korean Midzone | `#258`–`#31F` | 200 | Mid–high | Full-map **Korean Midzone** desert venue, **Kim Jong-un** world boss (lagoon centre, co-op PvE, daily respawn), military scenery (tanks, cannons, watchtowers), gateway → M1 |
 | **M5** | Epstein Island | `#320`–`#3E7` | 200 | Highest | Full-map mystic isle venue, **Donald Trump** world boss (centre, co-op PvE, daily respawn), gateway → M1 |
@@ -719,7 +720,7 @@ second same → level 1
 third same  → level 2   (no cap)
 ```
 
-**Launch limit:** each pool can launch a maximum of **20 Squeezes per rolling 24-hour window**. The counter resets 24 hours after the pool exhausts it, not at UTC midnight.
+**Launch limit:** each pool can launch a maximum of **5 Squeezes per rolling 24-hour window**. The counter resets 24 hours after the pool exhausts it, not at UTC midnight.
 
 **Lifecycle:**
 
@@ -828,8 +829,8 @@ Each pool's Squeeze aggression is driven by its most aggressive member's strateg
 |--------|----------|--------------------|--------------------|
 | `0xcab…5528` | `sell_mm3` | 90 % | attack only |
 | `0xcb4…0202` | `buy_mm3` | 15 % | defense only |
-| `0xd6c…4233` | `mining_buy` | 55 % | balanced |
-| `0xd89…e8ab` | `market_sell` | 80 % | balanced |
+| `0xd6c…4233` | `nftji_collect` | 55 % | balanced |
+| `0xd89…e8ab` | `nftji_flip` | 80 % | balanced |
 
 ### Strategy Details
 
@@ -842,11 +843,11 @@ Each pool's Squeeze aggression is driven by its most aggressive member's strateg
 
 ### Mining
 
-All four bots run up to 100 mining games per day at a win rate of ~92 % (decreasing with level) and are capped by the same daily limits as real players: 5 trades, 20 Squeeze launches per 24 h.
+All four bots run up to 100 mining games per day at a win rate of ~58–86 % (varies per bot, decreasing with level) and are capped by the same daily limits as real players: 5 trades, 5 Squeeze launches per 24 h.
 
-**Bots mine chain blocks in the 3D world.** Each bot tick has a 55 % chance of mining one qualifying chain block (wallet level and global MM3 must meet the block's requirement). Bots apply the same chain-mining rules as real players and update `block_chain_percent` in `player_progress`. They also claim the MINING CHAIN daily reward (€10) automatically after a successful mine.
+**Bots mine chain blocks in the 3D world.** Each bot tick has a 14 % chance of mining one qualifying chain block (wallet level and global MM3 must meet the block's requirement). Bots apply the same chain-mining rules as real players and update `block_chain_percent` in `player_progress`. They also claim the MINING CHAIN daily reward (€10) automatically after a successful mine.
 
-**Bots redeem their own penalties.** When a bot wallet is under an active command penalty, each subsequent tick has a 40 % chance of entering the penalty code to cancel it — the same flow a real player would use in the Market block detail.
+**Bots redeem their own penalties.** When a bot wallet is under an active command penalty, each subsequent tick has a 10 % chance of entering the penalty code to cancel it — the same flow a real player would use in the Market block detail.
 
 ### Impact on Real Players
 
@@ -891,7 +892,7 @@ Executes 15 parallel checks across the entire application surface on every scan:
 |---|---|
 | Dependency & Supply Chain | npm vulnerability scan (OSV/Google) · client bundle secret scan |
 | HTTP Security Headers | Security headers presence · CSP deep analysis |
-| Authentication | API auth across all 61 endpoints · Web3 wallet signature enforcement · Cookie flags |
+| Authentication | API auth across all 66 endpoints · Web3 wallet signature enforcement · Cookie flags |
 | Page Health | HTTP status + sensitive data leak detection across all 16 app pages |
 | Injection & Input | 21 injection probes (PostgREST, SQL, NoSQL, XSS, prototype pollution, integer bounds) · 12 business logic probes |
 | Information Disclosure | 37 sensitive path checks · open redirect detection |
@@ -1192,7 +1193,7 @@ Subes de posición viviendo el mundo:
 | Mundo de Mining | **Mundo 3D de cinco mapas** (Plaza de la Especulación + cuatro periféricos) con **1000 bloques minables** (980 cadena + 20 NFTJI), **200 bloques por mapa** con requisitos escalonados. Explora en primera persona con WASD/joystick, salto, PvP y portales entre mapas. Mina comprando NFTJI de Mining, con `/mine block #XXX` en Relaying, o resolviendo `Ω(α, β, γ)`. |
 | Relaying | Tu terminal de acción principal. Escribe `/mine block #XXX` para intentar minar una celda de la cadena. Dispara tu comando diario de Mining si tienes un NFTJI de Mining. Observa los eventos para leer el estado del juego en tiempo real. |
 | MM3 | El valor global del MM3 determina qué celdas libres puedes minar — los requisitos alternan entre positivo y negativo por índice de celda. Mira el gráfico MM3 y solo intenta minar cuando el signo y la magnitud coincidan con el requisito. |
-| Recompensas diarias | Revisa el panel diario en cada sesión y reclama manualmente cada tarea completada antes de la medianoche UTC — las recompensas no reclamadas se pierden. Minar una celda de la cadena paga €10. Máximo diario total: €17,50. |
+| Recompensas diarias | Revisa el panel diario en cada sesión y reclama manualmente cada tarea completada antes de la medianoche UTC — las recompensas no reclamadas se pierden. Minar una celda de la cadena paga €10, un golpe de PvP acertado paga €100. Máximo diario total: €120. |
 
 ---
 
@@ -1294,16 +1295,17 @@ Las recompensas diarias son tareas asociadas a la wallet que pagan dinero fictic
 | TRADING | 5 operaciones de compra/venta | 0.50 EUR | Filas diarias en `mm3_sell_transactions` | Empuja a usar el exchange y entender el valor de MM3. |
 | MINING | 1 compra o reventa de Mining NFTJI | 0.75 EUR | Eventos `mining_buy` o `mining_resell` | Hace que el mundo 3D de Mining forme parte de la economía diaria. |
 | RELAYING | 1 comando público de Mining | 1.00 EUR | Filas diarias en `mm3_mining_commands` | Recompensa actividad social de comandos desde NFTJIs de Mining. |
-| SQUEEZING | 1 Squeeze lanzado contra un pool de wallets | 1.25 EUR | Filas diarias en `mm3_pool_dispute_votes` | Recompensa iniciar combate pool-vs-pool. |
+| SQUEEZING | 5 Squeezes lanzados contra pools de wallets | 2.50 EUR | Filas diarias en `mm3_squeezing_launches` | Recompensa iniciar combate pool-vs-pool. |
 | RELAYING (SECRET) | 1 comando oculto | 5.00 EUR | Filas diarias en `mm3_hidden_cmd_executions` | Recompensa de alto valor por descubrir y ejecutar rutas ocultas. |
 | MINING CHAIN | Minar 1 bloque de cadena en el mundo 3D | 10.00 EUR | Filas en `mm3_mined_blocks` durante el día UTC actual | Máxima recompensa por avanzar en la carrera compartida de 980 bloques. |
+| PVP | 1 golpe de PvP acertado a otra wallet | 100.00 EUR | Filas diarias en `mm3_pvp_hits` | Máxima recompensa por participar en combate PvP. |
 
 | Regla | Explicación |
 |---|---|
 | Modelo de reclamación | Una tarea completada debe reclamarse manualmente desde el panel diario. |
 | Alcance por wallet | Las reclamaciones se guardan por `wallet + día UTC + task_key`. |
 | Crédito de moneda | Las recompensas se añaden a balances ficticios EUR, USD y CNY usando las conversiones internas fijas. |
-| Recompensa diaria máxima | Completar y reclamar todas las tareas paga 17.50 EUR equivalentes en fondos ficticios. |
+| Recompensa diaria máxima | Completar y reclamar todas las tareas paga 120.00 EUR equivalentes en fondos ficticios. |
 | Caducidad | Si una tarea se completa pero no se reclama antes del reset UTC, la recompensa se pierde. |
 
 ---
@@ -1463,7 +1465,7 @@ M5 — Isla Epstein — M1 — Plaza de la Especulación — M4 — Korean Midzo
 | Mapa | Nombre | Índices cadena | Bloques | Requisitos (típico) | Landmarks interactivos |
 |:---:|:---|:---|---:|:---|:---|
 | **M1** | Plaza de la Especulación | `#000`–`#0C7` | 200 | Mínimos — entrada | ⬡ **Nodo Cadena** (resolver/desminar Ω), 🎲 **Nodo Dado** (ventana StormRoll), **Casa Cipher** + piscina, **Coliseo Crypto**, 🗿 **estatuas de Milei y Zelenski** (5 golpes → tip + voz local), 9 **nodos Portal** (Training, Trading, Ranking…), salidas portal |
-| **M2** | Coliseo RL | `#0C8`–`#18F` | 200 | Bajo–medio | 🚙 **Nodo RL Mount** (coche oscuro tipo SUV), estadio a mapa completo con cúpula animada 3v3 de bots RL, portal → M1 |
+| **M2** | Coliseo RL | `#0C8`–`#18F` | 200 | Bajo–medio | 🚙 **Nodo RL Mount** (coche oscuro tipo SUV), estadio a mapa completo con cúpula animada 3v3 de bots RL, 🗿 **estatua de Emmanuel Macron** (5 golpes → tip + voz local), portal → M1 |
 | **M3** | Antigua Unión Soviética | `#190`–`#257` | 200 | Medio | Ciudad-castillo a mapa completo, **boss Vladimir Putin** (puerta del castillo, PvE cooperativo, respawn diario), portal → M1 |
 | **M4** | Korean Midzone | `#258`–`#31F` | 200 | Medio–alto | **Korean Midzone** a mapa completo, **boss Kim Jong-un** (centro del oasis, PvE cooperativo, respawn diario), decoración militar (tanques, cañones, torres de vigilancia), portal → M1 |
 | **M5** | Isla Epstein | `#320`–`#3E7` | 200 | Máximos | Isla mística a mapa completo, **boss Donald Trump** (centro, PvE cooperativo, respawn diario), portal → M1 |
@@ -1784,7 +1786,7 @@ segundo mismo → nivel 1
 tercero mismo → nivel 2   (sin tope)
 ```
 
-**Límite de lanzamiento:** cada pool puede lanzar un máximo de **20 Squeezes por ventana móvil de 24 horas**. El contador se reinicia 24 horas después de agotarlo, no a medianoche UTC.
+**Límite de lanzamiento:** cada pool puede lanzar un máximo de **5 Squeezes por ventana móvil de 24 horas**. El contador se reinicia 24 horas después de agotarlo, no a medianoche UTC.
 
 **Ciclo de vida:**
 
@@ -1893,8 +1895,8 @@ La agresividad Squeeze de cada pool la marca la estrategia del miembro más agre
 |--------|------------|-------------------|-----------------------|
 | `0xcab…5528` | `sell_mm3` | 90 % | solo ataque |
 | `0xcb4…0202` | `buy_mm3` | 15 % | solo defensa |
-| `0xd6c…4233` | `mining_buy` | 55 % | equilibrado |
-| `0xd89…e8ab` | `market_sell` | 80 % | equilibrado |
+| `0xd6c…4233` | `nftji_collect` | 55 % | equilibrado |
+| `0xd89…e8ab` | `nftji_flip` | 80 % | equilibrado |
 
 ### Detalle de Estrategias
 
@@ -1907,11 +1909,11 @@ La agresividad Squeeze de cada pool la marca la estrategia del miembro más agre
 
 ### Mining
 
-Los cuatro bots ejecutan hasta 100 partidas de mining al día con una tasa de acierto de ~92 % (decreciente con el nivel) y están sujetos a los mismos límites diarios que los jugadores reales: 5 trades, 20 lanzamientos de Squeeze por ventana de 24 h.
+Los cuatro bots ejecutan hasta 100 partidas de mining al día con una tasa de acierto de ~58–86 % (varía por bot, decreciente con el nivel) y están sujetos a los mismos límites diarios que los jugadores reales: 5 trades, 5 lanzamientos de Squeeze por ventana de 24 h.
 
-**Los bots minan bloques de cadena del mundo 3D.** Cada tick tiene un 55 % de probabilidad de minar un bloque de cadena que cumpla los requisitos (el nivel de wallet y el valor global MM3 deben satisfacer las condiciones del bloque). Los bots aplican las mismas reglas de minado que los jugadores reales y actualizan `block_chain_percent` en `player_progress`. También reclaman automáticamente la recompensa diaria MINING CHAIN tras un mine exitoso.
+**Los bots minan bloques de cadena del mundo 3D.** Cada tick tiene un 14 % de probabilidad de minar un bloque de cadena que cumpla los requisitos (el nivel de wallet y el valor global MM3 deben satisfacer las condiciones del bloque). Los bots aplican las mismas reglas de minado que los jugadores reales y actualizan `block_chain_percent` en `player_progress`. También reclaman automáticamente la recompensa diaria MINING CHAIN tras un mine exitoso.
 
-**Los bots redimen sus propias penalizaciones.** Cuando una wallet de bot tiene una penalización de comando activa, cada tick siguiente tiene un 40 % de probabilidad de introducir el código para cancelarla — el mismo flujo que usaría un jugador real en el detalle del bloque de Mining.
+**Los bots redimen sus propias penalizaciones.** Cuando una wallet de bot tiene una penalización de comando activa, cada tick siguiente tiene un 10 % de probabilidad de introducir el código para cancelarla — el mismo flujo que usaría un jugador real en el detalle del bloque de Mining.
 
 ### Impacto en los Jugadores Reales
 
@@ -1956,7 +1958,7 @@ Ejecuta 15 comprobaciones en paralelo sobre toda la superficie de la aplicación
 |---|---|
 | Dependencias y cadena de suministro | Análisis de vulnerabilidades npm (OSV/Google) · escaneo de secretos en bundles de cliente |
 | Cabeceras HTTP de seguridad | Presencia de cabeceras de seguridad · análisis profundo de CSP |
-| Autenticación | Auth de API en los 61 endpoints · firma de wallet Web3 · flags de cookies |
+| Autenticación | Auth de API en los 66 endpoints · firma de wallet Web3 · flags de cookies |
 | Salud de páginas | Estado HTTP + detección de fugas de datos sensibles en las 16 páginas de la app |
 | Inyección e inputs | 21 sondas de inyección (PostgREST, SQL, NoSQL, XSS, prototype pollution, bounds enteros) · 12 sondas de lógica de negocio |
 | Exposición de información | 37 rutas sensibles · detección de open redirect |

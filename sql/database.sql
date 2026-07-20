@@ -19,6 +19,9 @@ DROP FUNCTION IF EXISTS trigger_update_leaderboard_fn();
 DROP FUNCTION IF EXISTS update_leaderboard();
 DROP FUNCTION IF EXISTS mm3_leave_wallet_pool(text);
 DROP FUNCTION IF EXISTS mm3_pool_rank_from_level(integer);
+DROP FUNCTION IF EXISTS apply_mm3_boss_attack_player(text, integer, numeric, numeric, numeric, numeric, text);
+DROP FUNCTION IF EXISTS apply_mm3_boss_player_hit(text, integer, text);
+DROP FUNCTION IF EXISTS set_mm3_boss_idle_if_requested(text);
 
 -- Drop tables
 DROP TABLE IF EXISTS mm3_command_penalties CASCADE;
@@ -51,7 +54,6 @@ DROP TABLE IF EXISTS daily_task_claims CASCADE;
 DROP TABLE IF EXISTS leaderboard_data CASCADE;
 DROP TABLE IF EXISTS math_problems CASCADE;
 DROP TABLE IF EXISTS api_requests CASCADE;
-DROP TABLE IF EXISTS mm3_visual_state CASCADE;
 DROP TABLE IF EXISTS mm3_mining_blocks CASCADE;
 DROP TABLE IF EXISTS mm3_mined_blocks CASCADE;
 DROP TABLE IF EXISTS mm3_relaying_messages CASCADE;
@@ -59,7 +61,6 @@ DROP TABLE IF EXISTS mm3_relay_exec_log CASCADE;
 DROP TABLE IF EXISTS mm3_pvp_hits CASCADE;
 DROP TABLE IF EXISTS mm3_pvp_health CASCADE;
 DROP TABLE IF EXISTS mm3_chain_solve_attempts CASCADE;
-DROP TABLE IF EXISTS mm3_game_winner CASCADE;
 DROP TABLE IF EXISTS games CASCADE;
 
 -- Drop sequences
@@ -360,12 +361,6 @@ CREATE TABLE api_requests (
   created_at TIMESTAMP DEFAULT NOW()
 );
 
--- MM3 Visual State
-CREATE TABLE mm3_visual_state (
-  id SMALLINT PRIMARY KEY DEFAULT 1 CHECK (id = 1),
-  color_hex TEXT NOT NULL DEFAULT '#000000',
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
 
 -- Market NFTJI blocks (formerly mm3_podcast_pixels)
 CREATE TABLE mm3_mining_blocks (
@@ -419,12 +414,6 @@ CREATE TABLE mm3_chain_solve_attempts (
   UNIQUE(wallet, day)
 );
 
--- Chain Solve: singleton row when someone wins the game
-CREATE TABLE mm3_game_winner (
-  id SMALLINT PRIMARY KEY DEFAULT 1 CHECK (id = 1),
-  wallet TEXT NOT NULL,
-  won_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
 
 -- Registry of wallets that have completed 100% of the chain (formula or block-by-block)
 -- Powers the @MM3 badge displayed everywhere wallet labels appear
@@ -1542,7 +1531,6 @@ ALTER TABLE mm3_wallet_pool_invitations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mm3_sell_transactions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mm3_mining_events ENABLE ROW LEVEL SECURITY;
 ALTER TABLE api_requests ENABLE ROW LEVEL SECURITY;
-ALTER TABLE mm3_visual_state ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mm3_mining_blocks ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mm3_mined_blocks ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mm3_mining_commands ENABLE ROW LEVEL SECURITY;
@@ -1557,7 +1545,6 @@ ALTER TABLE mm3_pool_dispute_votes       ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mm3_pool_dispute_wallets     ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mm3_squeezing_nftji            ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mm3_chain_solve_attempts     ENABLE ROW LEVEL SECURITY;
-ALTER TABLE mm3_game_winner              ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mm3_chain_solvers            ENABLE ROW LEVEL SECURITY;
 
 -- ==============================================
@@ -1651,16 +1638,6 @@ CREATE POLICY "public_read_api_requests" ON api_requests FOR SELECT TO public US
 DROP POLICY IF EXISTS "public_insert_api_requests" ON api_requests;
 CREATE POLICY "public_insert_api_requests" ON api_requests FOR INSERT TO public WITH CHECK (true);
 
--- MM3 Visual State policies
-DROP POLICY IF EXISTS "public_read_visual_state" ON mm3_visual_state;
-CREATE POLICY "public_read_visual_state" ON mm3_visual_state FOR SELECT TO anon USING (true);
-
-DROP POLICY IF EXISTS "public_insert_visual_state" ON mm3_visual_state;
-CREATE POLICY "public_insert_visual_state" ON mm3_visual_state FOR INSERT TO anon WITH CHECK (id = 1);
-
-DROP POLICY IF EXISTS "public_update_visual_state" ON mm3_visual_state;
-CREATE POLICY "public_update_visual_state" ON mm3_visual_state FOR UPDATE TO anon USING (id = 1) WITH CHECK (id = 1);
-
 DROP POLICY IF EXISTS "public_read_mm3_mining_blocks" ON mm3_mining_blocks;
 CREATE POLICY "public_read_mm3_mining_blocks" ON mm3_mining_blocks FOR SELECT TO public USING (true);
 
@@ -1741,10 +1718,6 @@ DROP POLICY IF EXISTS "public_read_chain_solve_attempts" ON mm3_chain_solve_atte
 CREATE POLICY "public_read_chain_solve_attempts" ON mm3_chain_solve_attempts FOR SELECT TO public USING (true);
 DROP POLICY IF EXISTS "public_insert_chain_solve_attempts" ON mm3_chain_solve_attempts;
 CREATE POLICY "public_insert_chain_solve_attempts" ON mm3_chain_solve_attempts FOR INSERT TO public WITH CHECK (wallet <> '' AND day <> '');
-
--- mm3_game_winner policies
-DROP POLICY IF EXISTS "public_read_game_winner" ON mm3_game_winner;
-CREATE POLICY "public_read_game_winner" ON mm3_game_winner FOR SELECT TO public USING (true);
 
 -- mm3_chain_solvers policies
 DROP POLICY IF EXISTS "public_read_chain_solvers" ON mm3_chain_solvers;
@@ -2033,7 +2006,6 @@ GRANT SELECT, INSERT, UPDATE   ON mm3_wallet_pool_invitations  TO anon;
 GRANT SELECT, INSERT           ON mm3_sell_transactions        TO anon;
 GRANT SELECT, INSERT           ON mm3_mining_events            TO anon;
 GRANT SELECT, INSERT           ON api_requests                 TO anon;
-GRANT SELECT, INSERT, UPDATE   ON mm3_visual_state             TO anon;
 GRANT SELECT                   ON mm3_mining_blocks            TO anon;
 GRANT SELECT                   ON mm3_mined_blocks             TO anon;
 GRANT SELECT, INSERT, UPDATE   ON mm3_mining_commands          TO anon;
@@ -2053,7 +2025,6 @@ GRANT SELECT ON token_value              TO anon;
 GRANT SELECT ON token_value_timeseries   TO anon;
 
 GRANT SELECT, INSERT           ON mm3_chain_solve_attempts   TO anon;
-GRANT SELECT                   ON mm3_game_winner             TO anon;
 GRANT SELECT                   ON mm3_chain_solvers           TO anon;
 
 -- Sequences
@@ -2216,21 +2187,6 @@ CREATE TABLE mm3_chain_reset_log (
 );
 ALTER TABLE mm3_chain_reset_log ENABLE ROW LEVEL SECURITY;
 
--- ── Chain3D player positions (real-time presence persistence) ─────────────────
--- Stores last known position of each player in the 3D block chain view.
--- Used to seed positions for new joiners before they receive a broadcast.
-DROP TABLE IF EXISTS mm3_player_positions CASCADE;
-CREATE TABLE mm3_player_positions (
-  wallet      text        PRIMARY KEY,
-  gx          float8      NOT NULL DEFAULT 14.5,
-  gy          float8      NOT NULL DEFAULT 14.5,
-  updated_at  timestamptz NOT NULL DEFAULT now()
-);
-ALTER TABLE mm3_player_positions ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "read_positions"   ON mm3_player_positions FOR SELECT USING (true);
-CREATE POLICY "insert_positions" ON mm3_player_positions FOR INSERT WITH CHECK (true);
-CREATE POLICY "update_positions" ON mm3_player_positions FOR UPDATE USING (true) WITH CHECK (true);
-
 -- ── PvP hits (daily 100-hit limit per attacker-victim pair) ──────────────────
 DROP TABLE IF EXISTS mm3_pvp_hits CASCADE;
 CREATE TABLE mm3_pvp_hits (
@@ -2265,6 +2221,211 @@ GRANT SELECT ON mm3_pvp_hits TO anon;
 ALTER TABLE mm3_pvp_health ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "pvp_health_read" ON mm3_pvp_health FOR SELECT TO public USING (true);
 GRANT SELECT ON mm3_pvp_health TO anon;
+
+-- ── Map bosses (M3 Putin / M4 Kim / M5 Trump) ────────────────────────────────
+DROP TABLE IF EXISTS mm3_map_boss CASCADE;
+CREATE TABLE mm3_map_boss (
+  id             TEXT PRIMARY KEY,
+  map_id         TEXT NOT NULL,
+  name           TEXT NOT NULL,
+  max_health     INTEGER NOT NULL DEFAULT 5000,
+  health         INTEGER NOT NULL DEFAULT 5000,
+  state          TEXT NOT NULL DEFAULT 'idle' CHECK (state IN ('idle', 'active', 'dead')),
+  damage_totals  JSONB NOT NULL DEFAULT '{}'::JSONB,
+  defeated_at    TIMESTAMPTZ,
+  respawn_at     TIMESTAMPTZ,
+  updated_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+ALTER TABLE mm3_map_boss ENABLE ROW LEVEL SECURITY;
+
+CREATE OR REPLACE FUNCTION apply_mm3_boss_attack_player(
+  p_wallet TEXT, p_damage INTEGER DEFAULT 20,
+  p_boss_gx NUMERIC DEFAULT NULL, p_boss_gy NUMERIC DEFAULT NULL,
+  p_player_gx NUMERIC DEFAULT NULL, p_player_gy NUMERIC DEFAULT NULL,
+  p_boss_id TEXT DEFAULT 'm5_trump'
+) RETURNS JSONB LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_boss mm3_map_boss%ROWTYPE;
+  v_health INTEGER;
+  v_killed BOOLEAN := FALSE;
+  v_wallet TEXT := LOWER(TRIM(p_wallet));
+  v_damage INTEGER := LEAST(100, GREATEST(1, COALESCE(p_damage, 20)));
+  v_spawn_gx NUMERIC;
+  v_spawn_gy NUMERIC;
+  v_max_wander NUMERIC := 28;
+  v_attack_range NUMERIC := 5.35;
+  v_dead_until TIMESTAMPTZ;
+BEGIN
+  IF v_wallet = '' OR v_wallet LIKE 'anon-%' THEN
+    RAISE EXCEPTION 'wallet_required';
+  END IF;
+
+  SELECT * INTO v_boss FROM mm3_map_boss WHERE id = p_boss_id;
+  IF NOT FOUND OR v_boss.state <> 'active' THEN
+    RETURN jsonb_build_object('ok', false, 'error', 'boss_not_active');
+  END IF;
+
+  v_spawn_gx := CASE p_boss_id
+    WHEN 'm3_putin' THEN 27.0
+    WHEN 'm4_kim' THEN 28.0
+    ELSE 28.0
+  END;
+  v_spawn_gy := CASE p_boss_id
+    WHEN 'm3_putin' THEN 35.0
+    WHEN 'm4_kim' THEN 28.0
+    ELSE 28.0
+  END;
+
+  IF p_boss_gx IS NOT NULL AND p_boss_gy IS NOT NULL THEN
+    IF sqrt(power(p_boss_gx - v_spawn_gx, 2) + power(p_boss_gy - v_spawn_gy, 2)) > v_max_wander THEN
+      RETURN jsonb_build_object('ok', false, 'error', 'boss_position_invalid');
+    END IF;
+    IF p_player_gx IS NOT NULL AND p_player_gy IS NOT NULL THEN
+      IF sqrt(power(p_player_gx - p_boss_gx, 2) + power(p_player_gy - p_boss_gy, 2)) > v_attack_range THEN
+        RETURN jsonb_build_object('ok', false, 'error', 'out_of_range');
+      END IF;
+    END IF;
+  END IF;
+
+  INSERT INTO mm3_pvp_health(wallet, health) VALUES (v_wallet, 100)
+  ON CONFLICT (wallet) DO NOTHING;
+
+  SELECT health, pvp_dead_until INTO v_health, v_dead_until
+  FROM mm3_pvp_health WHERE wallet = v_wallet FOR UPDATE;
+
+  IF v_dead_until IS NOT NULL AND v_dead_until > NOW() THEN
+    RETURN jsonb_build_object('ok', false, 'error', 'victim_is_dead');
+  END IF;
+
+  IF v_health IS NULL THEN v_health := 100; END IF;
+
+  v_health := GREATEST(0, v_health - v_damage);
+  v_killed := v_health = 0;
+
+  UPDATE mm3_pvp_health SET
+    health = CASE WHEN v_killed THEN 100 ELSE v_health END,
+    deaths = deaths + CASE WHEN v_killed THEN 1 ELSE 0 END,
+    pvp_dead_until = CASE WHEN v_killed THEN NOW() + INTERVAL '5 minutes' ELSE pvp_dead_until END,
+    pvp_dead_gx = CASE WHEN v_killed THEN COALESCE(p_player_gx, pvp_dead_gx) ELSE pvp_dead_gx END,
+    pvp_dead_gy = CASE WHEN v_killed THEN COALESCE(p_player_gy, pvp_dead_gy) ELSE pvp_dead_gy END,
+    updated_at = NOW()
+  WHERE wallet = v_wallet;
+
+  RETURN jsonb_build_object(
+    'ok', true,
+    'health', CASE WHEN v_killed THEN 0 ELSE v_health END,
+    'respawn_health', CASE WHEN v_killed THEN 100 ELSE v_health END,
+    'killed', v_killed,
+    'damage', v_damage
+  );
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION apply_mm3_boss_player_hit(
+  p_wallet TEXT, p_damage INTEGER DEFAULT 1, p_boss_id TEXT DEFAULT 'm5_trump'
+) RETURNS JSONB LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_boss mm3_map_boss%ROWTYPE;
+  v_health INTEGER;
+  v_killed BOOLEAN := FALSE;
+  v_totals JSONB;
+  v_wallet TEXT := LOWER(TRIM(p_wallet));
+  v_damage INTEGER := LEAST(500, GREATEST(1, COALESCE(p_damage, 1)));
+BEGIN
+  IF v_wallet = '' OR v_wallet LIKE 'anon-%' THEN
+    RAISE EXCEPTION 'wallet_required';
+  END IF;
+
+  SELECT * INTO v_boss FROM mm3_map_boss WHERE id = p_boss_id FOR UPDATE;
+  IF NOT FOUND THEN RAISE EXCEPTION 'boss_not_found'; END IF;
+
+  IF v_boss.state = 'dead' THEN
+    IF v_boss.respawn_at IS NOT NULL AND v_boss.respawn_at <= NOW() THEN
+      UPDATE mm3_map_boss SET
+        state = 'idle', health = max_health, damage_totals = '{}'::jsonb,
+        defeated_at = NULL, respawn_at = NULL, updated_at = NOW()
+      WHERE id = p_boss_id
+      RETURNING * INTO v_boss;
+    ELSE
+      RETURN jsonb_build_object('ok', true, 'state', 'dead', 'health', 0, 'killed', false, 'already_dead', true);
+    END IF;
+  END IF;
+
+  v_health := GREATEST(0, v_boss.health - v_damage);
+  v_killed := v_health = 0;
+  v_totals := COALESCE(v_boss.damage_totals, '{}'::jsonb);
+  v_totals := jsonb_set(
+    v_totals,
+    ARRAY[v_wallet],
+    to_jsonb(COALESCE((v_totals->>v_wallet)::numeric, 0) + v_damage),
+    true
+  );
+
+  IF v_killed THEN
+    UPDATE mm3_map_boss SET
+      state = 'dead', health = 0, damage_totals = v_totals,
+      defeated_at = NOW(), respawn_at = NOW() + INTERVAL '24 hours',
+      updated_at = NOW()
+    WHERE id = p_boss_id;
+  ELSE
+    UPDATE mm3_map_boss SET
+      state = 'active', health = v_health, damage_totals = v_totals, updated_at = NOW()
+    WHERE id = p_boss_id;
+  END IF;
+
+  RETURN jsonb_build_object(
+    'ok', true,
+    'state', CASE WHEN v_killed THEN 'dead' ELSE 'active' END,
+    'health', v_health,
+    'max_health', v_boss.max_health,
+    'damage', v_damage,
+    'killed', v_killed,
+    'activated', v_boss.state = 'idle',
+    'damage_totals', v_totals
+  );
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION set_mm3_boss_idle_if_requested(
+  p_map_id TEXT DEFAULT '5'
+) RETURNS JSONB LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_boss mm3_map_boss%ROWTYPE;
+BEGIN
+  IF p_map_id NOT IN ('3', '4', '5') THEN
+    RETURN jsonb_build_object('ok', false, 'error', 'wrong_map');
+  END IF;
+
+  SELECT * INTO v_boss FROM mm3_map_boss WHERE map_id = p_map_id FOR UPDATE;
+  IF NOT FOUND THEN RAISE EXCEPTION 'boss_not_found'; END IF;
+  IF v_boss.state <> 'active' THEN
+    RETURN jsonb_build_object(
+      'ok', true,
+      'state', v_boss.state,
+      'health', v_boss.health,
+      'max_health', v_boss.max_health,
+      'changed', false,
+      'map_id', p_map_id
+    );
+  END IF;
+
+  UPDATE mm3_map_boss SET
+    state = 'idle',
+    health = max_health,
+    damage_totals = '{}'::jsonb,
+    updated_at = NOW()
+  WHERE map_id = p_map_id;
+
+  RETURN jsonb_build_object(
+    'ok', true,
+    'state', 'idle',
+    'health', v_boss.max_health,
+    'max_health', v_boss.max_health,
+    'changed', true,
+    'map_id', p_map_id
+  );
+END;
+$$;
 
 CREATE OR REPLACE FUNCTION apply_mm3_pvp_hit(
   p_attacker TEXT, p_victim TEXT, p_victim_is_anon BOOLEAN DEFAULT FALSE,
