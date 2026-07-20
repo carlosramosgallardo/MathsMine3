@@ -814,8 +814,12 @@ export default function HomeMiningWorld3D() {
         const dist = 24 + featPull
         // Zoom narrows the fov; the look target drops with it so feet stay
         // in frame while heads fill the stage.
-        const halfHeight = Math.max(4.15, 15.6 / camera.aspect) / zoomCur
-        const lookY = 3.0 - (zoomCur - 1) * 0.9
+        // Floor raised from 4.15, and lookY raised from 3.0: wide desktop
+        // canvases hit the floor and were cropping the overhead nameplates
+        // against the top edge — tilting the window up trades some of the
+        // (generous) empty floor margin for headroom above the tallest heads.
+        const halfHeight = Math.max(4.55, 15.6 / camera.aspect) / zoomCur
+        const lookY = 3.5 - (zoomCur - 1) * 0.9
         camera.fov = THREE.MathUtils.radToDeg(2 * Math.atan(halfHeight / dist))
         camera.position.set(0, 3.0 + dist * .19, dist)
         camera.lookAt(0, lookY, 0)
