@@ -11343,11 +11343,18 @@ function updateStatuePatrol(motion, time, dt, cellMap, obsSet) {
           tries++
         }
       }
-      // Stop 2 cells from the nuke at the statue's pre-assigned angle, never on the bomb itself.
-      legTargets.push({
-        gx: nukePos.col + 0.5 + Math.cos(p.gazeAngle) * 2,
-        gz: nukePos.row + 0.5 + Math.sin(p.gazeAngle) * 2,
-      })
+      // Stop ~2 cells from the nuke at the statue's pre-assigned angle, never on
+      // the bomb itself. Unlike the nuke's own 3x3 keep-clear zone, this approach
+      // point isn't guaranteed free of unmined blocks — nudge outward along the
+      // same gaze direction until it lands somewhere walkable.
+      let approachGx = nukePos.col + 0.5 + Math.cos(p.gazeAngle) * 2
+      let approachGz = nukePos.row + 0.5 + Math.sin(p.gazeAngle) * 2
+      for (let extra = 1; extra <= 6 && statueHitsWall(approachGx, approachGz, cellMap, obsSet); extra++) {
+        const r = 2 + extra * 0.5
+        approachGx = nukePos.col + 0.5 + Math.cos(p.gazeAngle) * r
+        approachGz = nukePos.row + 0.5 + Math.sin(p.gazeAngle) * r
+      }
+      legTargets.push({ gx: approachGx, gz: approachGz })
       p.legTargets = legTargets
       const firstLeg = p.legTargets.shift()
       statuePlanLeg(p, firstLeg.gx, firstLeg.gz, cellMap, obsSet)
@@ -11365,7 +11372,13 @@ function updateStatuePatrol(motion, time, dt, cellMap, obsSet) {
       motion.root.rotation.y = approachYaw(motion.root.rotation.y, Math.atan2(dx, dz), dt, 5)
       const step = Math.min(STATUE_WALK_SPEED * dt, dist)
       const moved = statueStepWithSlide(p, dx, dz, dist, step, cellMap, obsSet)
-      if (!moved) {
+      // A wall-hugging slide can report "moved" every frame while barely
+      // closing the distance to the target (bouncing X/Z along a concave
+      // corner) — track real progress too, not just whether a step landed,
+      // so that oscillation trips the same replan safety net as a hard block.
+      const newDist = Math.hypot(p.targetGx - p.currentGx, p.targetGz - p.currentGz)
+      const progressed = moved && (dist - newDist) > 0.01
+      if (!progressed) {
         p.stuckTicks = (p.stuckTicks || 0) + 1
         if (p.stuckTicks > 30) {
           // The planned route is physically blocked from here (a newly mined
