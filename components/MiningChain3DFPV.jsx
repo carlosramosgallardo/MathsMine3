@@ -16839,38 +16839,41 @@ export default function MiningChain3DFPV({
                         : '#fb923c'
                       return (
                         <div key={i} style={{
-                          width:44,height:58,borderRadius:5,
+                          width:48,height:abilityLines?72:58,borderRadius:5,
                           background:abilityLines?'#100b18':'#080e18',
                           border:`1px solid ${abilityLines?slotAccent+'cc':'#fb923c33'}`,
                           display:'flex',flexDirection:'column',alignItems:'center',
-                          justifyContent:'center',gap:2,position:'relative',overflow:'hidden',
+                          justifyContent:abilityLines?'flex-start':'center',gap:3,
+                          position:'relative',overflow:'hidden',
                           boxShadow:abilityLines?`0 0 8px ${slotAccent}55`:'none',
                         }}>
                           {abilityLines && (
                             <div style={{
-                              position:'absolute',top:0,left:0,right:0,
-                              background:slotAccent,padding:'1px 0',
+                              width:'100%',flexShrink:0,
+                              background:slotAccent,padding:'2px 0 3px',
                               display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',
-                              gap:0,
+                              gap:1,
                             }}>
                               {abilityLines.map((line, li) => (
                                 <span key={li} style={{
-                                  fontSize: li === 0 ? '0.42rem' : '0.36rem',
+                                  fontSize: li === 0 ? '0.46rem' : '0.4rem',
                                   fontWeight:700,color:'#02060b',
-                                  letterSpacing:'.02em',lineHeight:1.05,
+                                  letterSpacing:'.02em',lineHeight:1.2,
+                                  whiteSpace:'nowrap',
                                 }}>{line}</span>
                               ))}
                             </div>
                           )}
                           <span style={{
-                            fontSize:'1.1rem',
+                            fontSize:'1.15rem',
                             lineHeight:1,
-                            marginTop:abilityLines?8:0,
+                            flexShrink:0,
                             ...lifeNftjiEmojiFilterStyle(sk.emoji),
                           }}>{sk.emoji||'⬡'}</span>
                           <span style={{
                             fontSize:'0.55rem',color:abilityLines?slotAccent:'#fb923c99',
-                            fontWeight:700,letterSpacing:'.04em',
+                            fontWeight:700,letterSpacing:'.04em',flexShrink:0,
+                            marginBottom:abilityLines?4:0,
                           }}>Lv{sk.level}</span>
                         </div>
                       )
