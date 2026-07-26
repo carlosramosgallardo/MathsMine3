@@ -9,7 +9,7 @@ on:
       - '.github/workflows/android-native.yml'
       - 'docs/PLATFORMS.md'
     tags:
-      - 'android-v*'
+      - 'v*'
   workflow_dispatch:
 
 permissions:
@@ -74,28 +74,38 @@ jobs:
       - name: Stage APK
         run: |
           mkdir -p dist
-          cp -f apps/android-native/app/build/outputs/apk/debug/app-debug.apk \
-            dist/mathsmine3-native-debug.apk
+          VER="${GITHUB_REF_NAME:-debug}"
+          # Strip leading v from tags like v0.1.0-beta.1
+          VER="${VER#v}"
+          OUT="dist/mathsmine3-${VER}.apk"
+          cp -f apps/android-native/app/build/outputs/apk/debug/app-debug.apk "$OUT"
+          # Stable name for Actions artifact consumers
+          cp -f "$OUT" dist/mathsmine3-native-debug.apk
           ls -lh dist/
 
       - name: Upload Actions artifact
         uses: actions/upload-artifact@v4
         with:
           name: mathsmine3-native-debug
-          path: dist/mathsmine3-native-debug.apk
+          path: |
+            dist/mathsmine3-native-debug.apk
+            dist/mathsmine3-*.apk
           if-no-files-found: error
           retention-days: 90
 
-      - name: Publish GitHub Release (tags android-v*)
-        if: startsWith(github.ref, 'refs/tags/android-v')
+      - name: Publish GitHub Release (tags v*)
+        if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/mathsmine3-native-debug.apk
+          files: |
+            dist/mathsmine3-native-debug.apk
+            dist/mathsmine3-*.apk
           generate_release_notes: true
+          name: MathsMine3 ${{ github.ref_name }}
           body: |
-            MathsMine3 native Android debug APK (`xyz.mathsmine3.app`).
+            **MathsMine3 ${{ github.ref_name }}** — first public beta line uses SemVer pre-release (`0.1.0-beta.N`).
 
-            Install on a device/emulator (USB debugging or sideload).
-            See [docs/PLATFORMS.md](docs/PLATFORMS.md).
+            Includes native Android debug APK (`xyz.mathsmine3.app`).
+            Sideload / USB install. See [docs/PLATFORMS.md](docs/PLATFORMS.md).
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
