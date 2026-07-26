@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "xyz.mathsmine3.app",
+      "sha256_cert_fingerprints": [
+        "01:0C:46:FF:16:AE:BD:8D:A4:19:A1:96:A8:B8:79:56:8D:67:5C:D7:AA:94:FB:0D:28:36:B2:C7:AA:39:C6:16"
+      ]
+    }
+  }
+]

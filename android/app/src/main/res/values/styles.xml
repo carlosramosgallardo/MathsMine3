@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.MathsMine3" parent="android:Theme.Material.NoActionBar">
+        <item name="android:statusBarColor">@color/themeColor</item>
+        <item name="android:navigationBarColor">@color/themeColor</item>
+        <item name="android:windowBackground">@color/backgroundColor</item>
+    </style>
+    <style name="Theme.MathsMine3.Launcher" parent="Theme.MathsMine3">
+        <item name="android:windowFullscreen">true</item>
+    </style>
+</resources>
