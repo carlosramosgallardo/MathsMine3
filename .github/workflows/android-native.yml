@@ -102,7 +102,8 @@ jobs:
             dist/mathsmine3-*.apk
           generate_release_notes: true
           draft: false
-          prerelease: true
+          # Latest on repo home (SemVer -beta.N stays in the version string).
+          prerelease: false
           name: MathsMine3 ${{ github.ref_name }}
           body: |
             ## MathsMine3 `${{ github.ref_name }}`
