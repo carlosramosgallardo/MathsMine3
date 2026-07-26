@@ -182,8 +182,20 @@ function DailyTaskLink() {
 export default function Header() {
   const pathname = usePathname()
 
-  const triggerHomeLoading = () => {
-    if (typeof window === 'undefined' || pathname === '/') return
+  const triggerHomeLoading = (e) => {
+    if (typeof window === 'undefined') return
+    // Android native header strip: never SPA-navigate this WebView to "/".
+    if (document.documentElement.classList.contains('mm3-native-header-embed')) {
+      e?.preventDefault?.()
+      e?.stopPropagation?.()
+      if (window.MM3NativeHeader?.goHome) {
+        window.MM3NativeHeader.goHome()
+      } else {
+        window.MM3NativeHeader?.openRoute?.('/')
+      }
+      return
+    }
+    if (pathname === '/') return
     window.dispatchEvent(new CustomEvent('mm3-route-loading', { detail: { href: '/', label: 'play' } }))
   }
 
@@ -200,10 +212,21 @@ export default function Header() {
             href="/"
             onClick={triggerHomeLoading}
             aria-label="MathsMine3 home"
-            className={`mm3-home-portal-link shrink-0 focus:outline-none mx-0.5 sm:mx-1 ${pathname === '/' ? 'is-active' : ''}`}
+            aria-current={pathname === '/' ? 'page' : undefined}
+            className="mm3-home-portal-link shrink-0 focus:outline-none mx-0.5 sm:mx-1 is-active"
           >
             <span className="mm3-home-badge">
-              <Image src="/og-image.jpg" alt="MM3" width={22} height={22} priority />
+              {/* unoptimized: keep a plain /og-image.jpg src so WebViews
+                  (native header strip) always paint the logo + house marker. */}
+              <Image
+                src="/og-image.jpg"
+                alt="MM3"
+                width={28}
+                height={28}
+                priority
+                unoptimized
+                className="mm3-home-logo"
+              />
               <span className="mm3-home-marker" aria-hidden="true">
                 <svg viewBox="0 0 16 13" focusable="false">
                   <path d="M1.5 6.2 8 1l6.5 5.2M3.5 5.2v6.3h9V5.2M6.4 11.5V7.8h3.2v3.7" />

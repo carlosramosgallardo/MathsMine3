@@ -67,7 +67,7 @@ data class RealtimeProtocol(
 class SupabaseRealtimeClient(
     private val supabaseUrl: String,
     private val anonKey: String,
-    private val protocol: RealtimeProtocol,
+    val protocol: RealtimeProtocol,
 ) {
     private val tag = "Mm3Realtime"
     private val client = OkHttpClient.Builder()

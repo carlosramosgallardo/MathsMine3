@@ -9,14 +9,24 @@ export default function CurrencySwitcher() {
   const { currency, changeCurrency } = useCurrency();
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef(null);
+  const nativeHeader = typeof document !== 'undefined' &&
+    document.documentElement.classList.contains('mm3-native-header-embed');
 
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target)) setIsOpen(false);
     };
     document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    document.addEventListener('touchstart', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('touchstart', handleClickOutside);
+    };
   }, []);
+
+  useEffect(() => {
+    try { window.MM3NativeHeader?.onDropdown?.(isOpen ? 1 : 0); } catch { /* */ }
+  }, [isOpen]);
 
   const handleChange = (c) => {
     changeCurrency(c);
@@ -36,7 +46,9 @@ export default function CurrencySwitcher() {
       </button>
 
       {isOpen && (
-        <div className="absolute top-full right-0 z-[120] mt-1 w-28 overflow-hidden rounded-lg border border-transparent bg-[#060a12] shadow-[0_0_18px_rgba(34,211,238,0.12)]">
+        <div className={`absolute right-0 z-[120] w-28 overflow-hidden rounded-lg border border-transparent bg-[#060a12] shadow-[0_0_18px_rgba(34,211,238,0.12)] ${
+          nativeHeader ? 'bottom-full mb-1' : 'top-full mt-1'
+        }`}>
           {['EUR', 'USD', 'CNY'].map((c) => (
             <button
               key={c}

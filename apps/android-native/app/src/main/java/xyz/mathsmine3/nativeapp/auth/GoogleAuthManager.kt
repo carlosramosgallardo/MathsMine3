@@ -11,8 +11,11 @@ import com.google.android.gms.common.api.Scope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import xyz.mathsmine3.nativeapp.BuildConfig
+import org.json.JSONObject
 import xyz.mathsmine3.nativeapp.data.CreateAccountBody
 import xyz.mathsmine3.nativeapp.data.Mm3Api
+import xyz.mathsmine3.nativeapp.data.jsonBody
+import xyz.mathsmine3.nativeapp.data.readText
 
 /**
  * Mirrors web Google login: OAuth access_token → POST /api/create-account → virtual wallet.
@@ -58,7 +61,16 @@ class GoogleAuthManager(
             CreateAccountBody(type = "google", accessToken = accessToken)
         )
         val wallet = created.wallet ?: error(created.error ?: "create_account_failed")
-        sessionRepository.setGoogleWallet(wallet)
+        val sessionToken = runCatching {
+            val raw = api.authSession(
+                jsonBody {
+                    put("type", "google")
+                    put("access_token", accessToken)
+                },
+            ).readText()
+            JSONObject(raw).optString("token").takeIf { it.isNotBlank() }
+        }.getOrNull()
+        sessionRepository.setGoogleWallet(wallet, sessionToken)
         wallet
     }
 

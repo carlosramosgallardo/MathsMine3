@@ -9,6 +9,8 @@ import android.webkit.WebChromeClient
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import xyz.mathsmine3.nativeapp.PortalOrigin
+import xyz.mathsmine3.nativeapp.handleLocalPortalSsl
 
 /**
  * Renders the real portal home arena (Three.js HomeMiningWorld3D) inside a
@@ -40,6 +42,16 @@ class HomeArenaWebView(context: Context) : WebView(context) {
         }
         webChromeClient = WebChromeClient()
         webViewClient = object : WebViewClient() {
+
+            override fun onReceivedSslError(
+                view: WebView?,
+                handler: android.webkit.SslErrorHandler?,
+                error: android.net.http.SslError?,
+            ) {
+                if (handleLocalPortalSsl(view, handler, error)) return
+                super.onReceivedSslError(view, handler, error)
+            }
+
             override fun onPageFinished(view: WebView?, url: String?) {
                 super.onPageFinished(view, url)
                 injectArenaChrome()
@@ -142,7 +154,7 @@ class HomeArenaWebView(context: Context) : WebView(context) {
     }
 
     companion object {
-        const val EMBED_URL = "https://mathsmine3.xyz/embed/home-arena"
-        const val FALLBACK_URL = "https://mathsmine3.xyz/"
+        val EMBED_URL get() = PortalOrigin.url("/embed/home-arena")
+        val FALLBACK_URL get() = PortalOrigin.url("/")
     }
 }

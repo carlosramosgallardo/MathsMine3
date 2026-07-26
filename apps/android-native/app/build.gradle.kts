@@ -50,6 +50,14 @@ val supabaseAnon = portalEnv["NEXT_PUBLIC_SUPABASE_ANON_KEY"]
     ?: System.getenv("MM3_SUPABASE_ANON_KEY")
     ?: System.getenv("NEXT_PUBLIC_SUPABASE_ANON_KEY")
     ?: ""
+val adminWallet = sequenceOf(
+    portalEnv["NEXT_PUBLIC_ADMIN_WALLET"],
+    System.getenv("NEXT_PUBLIC_ADMIN_WALLET"),
+).mapNotNull { it?.trim()?.trim('"')?.takeIf(String::isNotEmpty) }.firstOrNull() ?: ""
+val donateEthAmount = sequenceOf(
+    portalEnv["NEXT_PUBLIC_FAKE_MINING_PRICE"],
+    System.getenv("NEXT_PUBLIC_FAKE_MINING_PRICE"),
+).mapNotNull { it?.trim()?.trim('"')?.takeIf(String::isNotEmpty) }.firstOrNull() ?: "0.00001"
 
 if (googleClientId.isBlank()) {
     logger.warn("NEXT_PUBLIC_GOOGLE_CLIENT_ID missing — put it in repo-root .env.local")
@@ -68,17 +76,23 @@ android {
         applicationId = "xyz.mathsmine3.app"
         minSdk = 26
         targetSdk = 34
-        versionCode = 3
+        versionCode = 23
         versionName = "0.1.0-beta.1"
         buildConfigField("String", "API_BASE_URL", "\"https://mathsmine3.xyz\"")
         buildConfigField("String", "GOOGLE_CLIENT_ID", "\"${escapeForBuildConfig(googleClientId)}\"")
         buildConfigField("String", "SUPABASE_URL", "\"${escapeForBuildConfig(supabaseUrl)}\"")
         buildConfigField("String", "SUPABASE_ANON_KEY", "\"${escapeForBuildConfig(supabaseAnon)}\"")
+        // Same as web FooterEthDonate (NEXT_PUBLIC_ADMIN_WALLET / FAKE_MINING_PRICE).
+        buildConfigField("String", "ADMIN_WALLET", "\"${escapeForBuildConfig(adminWallet)}\"")
+        buildConfigField("String", "DONATE_ETH_AMOUNT", "\"${escapeForBuildConfig(donateEthAmount)}\"")
         // Same value as web OAuth client — used by GoogleSignIn requestIdToken
         resValue("string", "default_web_client_id", googleClientId.ifBlank {
             "MISSING_GOOGLE_CLIENT_ID_IN_ENV_LOCAL"
         })
         manifestPlaceholders["appAuthRedirectScheme"] = "xyz.mathsmine3.app"
+        // Default; overridden per buildType (debug → local Next via adb reverse).
+        manifestPlaceholders["usesCleartextTraffic"] = "false"
+        buildConfigField("String", "PORTAL_BASE_URL", "\"https://mathsmine3.xyz\"")
     }
 
     buildTypes {
@@ -88,9 +102,14 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            buildConfigField("String", "PORTAL_BASE_URL", "\"https://mathsmine3.xyz\"")
+            manifestPlaceholders["usesCleartextTraffic"] = "false"
         }
         debug {
             applicationIdSuffix = ""
+            // Emulator → host: `adb reverse tcp:3000 tcp:3000` + local `next` (http or https).
+            buildConfigField("String", "PORTAL_BASE_URL", "\"https://127.0.0.1:3000\"")
+            manifestPlaceholders["usesCleartextTraffic"] = "true"
         }
     }
 

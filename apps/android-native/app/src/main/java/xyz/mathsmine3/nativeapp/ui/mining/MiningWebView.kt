@@ -13,6 +13,8 @@ import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import java.net.URLEncoder
+import xyz.mathsmine3.nativeapp.PortalOrigin
+import xyz.mathsmine3.nativeapp.handleLocalPortalSsl
 
 /**
  * Loads the real portal Mining FPV (Three.js MiningChain3DFPV) in a WebView.
@@ -49,6 +51,16 @@ class MiningWebView(context: Context) : WebView(context) {
         }
         webChromeClient = WebChromeClient()
         webViewClient = object : WebViewClient() {
+
+            override fun onReceivedSslError(
+                view: WebView?,
+                handler: android.webkit.SslErrorHandler?,
+                error: android.net.http.SslError?,
+            ) {
+                if (handleLocalPortalSsl(view, handler, error)) return
+                super.onReceivedSslError(view, handler, error)
+            }
+
             override fun onPageStarted(view: WebView?, url: String?, favicon: android.graphics.Bitmap?) {
                 super.onPageStarted(view, url, favicon)
                 pageReady = false
@@ -214,8 +226,8 @@ class MiningWebView(context: Context) : WebView(context) {
     }
 
     companion object {
-        const val EMBED_URL = "https://mathsmine3.xyz/embed/mining"
-        const val FALLBACK_URL = "https://mathsmine3.xyz/mining"
+        val EMBED_URL get() = PortalOrigin.url("/embed/mining")
+        val FALLBACK_URL get() = PortalOrigin.url("/mining")
         private val WALLET_RE = Regex("^0x[a-fA-F0-9]{40}$")
     }
 }

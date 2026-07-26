@@ -101,11 +101,38 @@ jobs:
             dist/mathsmine3-native-debug.apk
             dist/mathsmine3-*.apk
           generate_release_notes: true
+          draft: false
+          prerelease: true
           name: MathsMine3 ${{ github.ref_name }}
           body: |
-            **MathsMine3 ${{ github.ref_name }}** — first public beta line uses SemVer pre-release (`0.1.0-beta.N`).
+            ## MathsMine3 `${{ github.ref_name }}`
 
-            Includes native Android debug APK (`xyz.mathsmine3.app`).
-            Sideload / USB install. See [docs/PLATFORMS.md](docs/PLATFORMS.md).
+            First public **beta** of the Compose-native Android client (`xyz.mathsmine3.app`).
+            Same product backends as the web portal: [mathsmine3.xyz](https://mathsmine3.xyz) APIs + Supabase.
+
+            ### Native in this build (Kotlin / Jetpack Compose)
+            - App shell, portal header, home nonagon / portal access
+            - **Training** — problems, countdown, NFTJI / Supabase
+            - **Trading** — SELL / EXEC, rates, TX log
+            - **Squeezing** — pool / dispute cards + live polls
+            - **Relaying** — IRC-style terminal (`/?`, `/mine`, `/buy`, `/resell`, `/exec`, chat)
+            - **Daily Tasks** — progress + claim
+            - **MM3 Chart** — in-app ranges (no external browser)
+            - **Ranking** — wallets / pools
+            - **AI Team** — bots + live leaderboard hooks
+            - **Manifesto** — EN/ES from bundled markdown
+            - Auth (Google + wallet session) and footer support links (**ETH** donate, BMC, PAT, docs)
+
+            ### Still WebView (by design for this beta)
+            - **Mining** FPV only (`/embed/mining`)
+
+            ### Install
+            1. Download the attached APK (`mathsmine3-0.1.0-beta.1.apk` or `mathsmine3-native-debug.apk`)
+            2. Sideload on a device/emulator (USB debugging or file install)
+            3. Package id: `xyz.mathsmine3.app`
+
+            See [docs/PLATFORMS.md](docs/PLATFORMS.md) and [`apps/android-native/README.md`](apps/android-native/README.md).
+
+            > Debug / sideload build — not a Play Store production signing release.
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -406,9 +406,11 @@ function SplitConnectButton({ onGoogleClick, onWalletClick, googleBusy, walletBu
       {/* Google half */}
       <button
         type="button"
+        data-mm3-auth="google"
         onClick={!noGoogle && !googleBusy ? onGoogleClick : undefined}
         disabled={noGoogle || googleBusy}
         title={googleTitle}
+        aria-label="Sign in with Google"
         className="flex h-full items-center justify-center px-2.5 transition-colors duration-150 disabled:cursor-not-allowed focus:outline-none"
         style={{
           borderRight: `1px solid transparent`,
@@ -463,6 +465,18 @@ function AuthBarWithGoogle({ mode = 'full' }) {
     onError: () => { setErr(true); setTimeout(() => setErr(false), 3000) },
   })
 
+  const onGoogleClick = () => {
+    // Android native header WebView: GSI popup cannot complete OAuth — use Play Services Auth screen.
+    if (typeof document !== 'undefined' &&
+        (document.documentElement.classList.contains('mm3-native-header-embed') ||
+          window.__MM3_NATIVE_EMBED__) &&
+        window.MM3NativeHeader?.requestAuth) {
+      window.MM3NativeHeader.requestAuth()
+      return
+    }
+    googleLogin()
+  }
+
   if (isConnected) {
     return <ConnectedBar address={address} isRealWallet onDisconnect={disconnect} mode={mode} />
   }
@@ -489,7 +503,7 @@ function AuthBarWithGoogle({ mode = 'full' }) {
   };
   return (
     <SplitConnectButton
-      onGoogleClick={googleLogin}
+      onGoogleClick={onGoogleClick}
       onWalletClick={openWalletModal}
       googleBusy={googleBusy}
       walletBusy={walletBusy}

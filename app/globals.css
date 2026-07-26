@@ -134,6 +134,40 @@ html.mm3-native-embed body {
   overflow: hidden !important;
   box-shadow: none !important;
 }
+/* Trading / Training embeds need vertical scroll (TX.LOG, drill board, etc.).
+   Mining stays overflow:hidden for full-bleed FPV. */
+html.mm3-native-trading-embed,
+html.mm3-native-training-embed,
+html.mm3-native-squeezing-embed {
+  height: auto !important;
+  min-height: 100% !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  -webkit-overflow-scrolling: touch;
+}
+html.mm3-native-trading-embed body,
+html.mm3-native-training-embed body,
+html.mm3-native-squeezing-embed body {
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  height: auto !important;
+  min-height: 100% !important;
+  padding-bottom: 1.25rem !important;
+}
+html.mm3-native-trading-embed .mm3-shell-main,
+html.mm3-native-training-embed .mm3-shell-main,
+html.mm3-native-squeezing-embed .mm3-shell-main {
+  height: auto !important;
+  min-height: 100% !important;
+  overflow: visible !important;
+}
+html.mm3-native-trading-embed .mm3-trade-page,
+html.mm3-native-trading-embed .mm3-trade-board,
+html.mm3-native-training-embed main,
+html.mm3-native-squeezing-embed .mm3-squeeze-page,
+html.mm3-native-squeezing-embed main {
+  padding-bottom: 2rem;
+}
 html.mm3-native-embed .mm3-touch-controls { display: flex !important; }
 html.mm3-native-embed .mm3-desktop-controls { display: none !important; }
 html.mm3-native-embed .mm3-desktop-only { display: none !important; }
@@ -1291,15 +1325,15 @@ footer.bg-black\/97,
   position: relative;
   display:block;
   box-sizing:border-box;
-  /* Halved: the home page carries its own big logo now — this one just
-     matches the header row height. */
-  width:28px;
-  height:28px;
+  /* Header home tile: logo + house marker — sized to the controls row. */
+  width:34px;
+  height:34px;
   border:0;
   padding:0;
   overflow:visible;
   background:transparent;
-  filter:drop-shadow(3px 4px 0 #010409) drop-shadow(0 0 7px rgba(34,211,238,.12));
+  /* Always the “home” look (gold frame + marker), on every route — not only /. */
+  filter:drop-shadow(3px 4px 0 #010409) drop-shadow(0 0 9px rgba(34,211,238,.30));
   transition:filter .18s;
 }
 .mm3-home-badge::before {
@@ -1308,7 +1342,7 @@ footer.bg-black\/97,
   z-index:2;
   left:0;
   top:0;
-  width:22px;
+  width:28px;
   height:2px;
   clip-path:polygon(8% 0,100% 0,92% 100%,0 100%);
   background:linear-gradient(90deg,rgba(103,232,249,.68),rgba(8,47,64,.88));
@@ -1319,42 +1353,47 @@ footer.bg-black\/97,
   content:'';
   position:absolute;
   z-index:2;
-  left:22px;
+  left:28px;
   top:2px;
   width:2px;
-  height:22px;
+  height:28px;
   clip-path:polygon(0 0,100% 8%,100% 92%,0 100%);
   background:linear-gradient(#063047,#010810);
   box-shadow:1px 0 0 rgba(34,211,238,.14);
   pointer-events:none;
 }
-.mm3-home-badge img {
+.mm3-home-badge img,
+.mm3-home-badge .mm3-home-logo {
   position:absolute;
+  z-index:1;
   left:0;
   top:2px;
-  display:block;
-  width:22px;
-  height:22px;
+  display:block !important;
+  width:28px !important;
+  height:28px !important;
+  max-width:none !important;
   object-fit:cover;
-  border:1px solid rgba(250,204,21,.52);
+  opacity:1 !important;
+  visibility:visible !important;
+  border:1px solid rgba(250,204,21,.82);
   background:#02060b;
-  filter:saturate(.82) contrast(1.08);
+  filter:saturate(1.05) contrast(1.12) brightness(1.08);
   box-shadow:inset 2px 2px 0 rgba(255,255,255,.08),inset -2px -2px 0 rgba(0,0,0,.72);
 }
 .mm3-home-marker {
   position:absolute;
   z-index:3;
-  /* Fully inside the badge's yellow frame (img content spans 1..21 x 3..23). */
-  left:12px;
-  top:14px;
+  /* Fully inside the badge's yellow frame (logo is 28×28). */
+  left:17px;
+  top:19px;
   display:grid;
   place-items:center;
-  width:8px;
-  height:7px;
+  width:9px;
+  height:8px;
   border:0;
   background:rgba(1,7,13,.72);
-  color:#facc15;
-  box-shadow:0 0 4px rgba(1,7,13,.9);
+  color:#fff4a3;
+  box-shadow:0 0 5px rgba(250,204,21,.42);
   user-select: none;
 }
 .mm3-home-marker svg {
@@ -1368,14 +1407,11 @@ footer.bg-black\/97,
   stroke-linecap:square;
   stroke-linejoin:miter;
 }
-.mm3-home-portal-link:hover .mm3-home-badge,
-.mm3-home-portal-link.is-active .mm3-home-badge {
-  filter:drop-shadow(3px 4px 0 #010409) drop-shadow(0 0 9px rgba(34,211,238,.30));
+.mm3-home-portal-link:hover .mm3-home-badge {
+  filter:drop-shadow(3px 4px 0 #010409) drop-shadow(0 0 11px rgba(34,211,238,.38));
 }
-.mm3-home-portal-link:hover .mm3-home-badge img,
-.mm3-home-portal-link.is-active .mm3-home-badge img { border-color:rgba(250,204,21,.82); }
-.mm3-home-portal-link:hover .mm3-home-marker,
-.mm3-home-portal-link.is-active .mm3-home-marker { color:#fff4a3; box-shadow:0 0 5px rgba(250,204,21,.42); }
+.mm3-home-portal-link:hover .mm3-home-badge img { border-color:rgba(250,204,21,.95); }
+.mm3-home-portal-link:hover .mm3-home-marker { color:#fff8c4; box-shadow:0 0 6px rgba(250,204,21,.55); }
 
 /* ── Home page wrapper — fills full available height, splits it 50/50 ── */
 .mm3-home {
