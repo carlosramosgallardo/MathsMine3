@@ -2,6 +2,7 @@ export const dynamic = 'force-dynamic'
 
 import { createClient } from '@supabase/supabase-js'
 import { applyDeathLevelPenalty } from '@/lib/death-penalty'
+import { walletFromRequest } from '@/lib/wallet-session'
 
 // Mirrors getDiceWindowForHour from lib/dice.js (server-side validation)
 function seededRand(n) {
@@ -69,6 +70,10 @@ export async function POST(req) {
   // Anon wallets have no server-side HP — client handles locally
   if (wallet.startsWith('anon-')) {
     return Response.json({ ok: true, isAnon: true })
+  }
+  // Real wallets: only the wallet's own owner can report taking storm damage.
+  if (walletFromRequest(req) !== wallet) {
+    return Response.json({ ok: false, error: 'unauthorized' }, { status: 401 })
   }
 
   const sb = serviceClient()

@@ -1,6 +1,7 @@
 export const dynamic = 'force-dynamic'
 
 import { createClient } from '@supabase/supabase-js'
+import { walletFromRequest } from '@/lib/wallet-session'
 
 function serviceClient() {
   return createClient(
@@ -16,9 +17,9 @@ export async function POST(req) {
     return Response.json({ ok: false, error: 'bad_json' }, { status: 400 })
   }
 
-  const wallet = String(body.wallet || '').toLowerCase().trim()
-  if (!wallet || wallet.startsWith('anon-')) {
-    return Response.json({ ok: false, error: 'invalid_wallet' }, { status: 400 })
+  const wallet = walletFromRequest(req)
+  if (!wallet) {
+    return Response.json({ ok: false, error: 'unauthorized' }, { status: 401 })
   }
 
   const sb = serviceClient()

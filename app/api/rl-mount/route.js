@@ -2,6 +2,7 @@ export const dynamic = 'force-dynamic'
 
 import { createClient } from '@supabase/supabase-js'
 import { RL_NODE_EVENT_EMOJI, RL_NODE_MIN_LEVEL, RL_NODE_PRICE_MM3 } from '@/lib/mining-rl-mount'
+import { walletFromRequest } from '@/lib/wallet-session'
 
 function serviceClient() {
   return createClient(
@@ -34,8 +35,8 @@ export async function POST(req) {
     return Response.json({ ok: false, error: 'bad_json' }, { status: 400 })
   }
 
-  const wallet = String(body.wallet || '').toLowerCase().trim()
-  if (!wallet) return Response.json({ ok: false, error: 'missing_wallet' }, { status: 400 })
+  const wallet = walletFromRequest(req)
+  if (!wallet) return Response.json({ ok: false, error: 'unauthorized' }, { status: 401 })
 
   const sb = serviceClient()
   const [{ data: progress }, { data: balance }] = await Promise.all([
@@ -85,8 +86,8 @@ export async function DELETE(req) {
     return Response.json({ ok: false, error: 'bad_json' }, { status: 400 })
   }
 
-  const wallet = String(body.wallet || '').toLowerCase().trim()
-  if (!wallet) return Response.json({ ok: false, error: 'missing_wallet' }, { status: 400 })
+  const wallet = walletFromRequest(req)
+  if (!wallet) return Response.json({ ok: false, error: 'unauthorized' }, { status: 401 })
 
   const sb = serviceClient()
   const { error } = await sb

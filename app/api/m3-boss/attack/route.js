@@ -1,6 +1,7 @@
 export const dynamic = 'force-dynamic'
 
 import { createClient } from '@supabase/supabase-js'
+import { walletFromRequest } from '@/lib/wallet-session'
 import {
   M3_PUTIN_BOSS_ATTACK_RANGE_SERVER,
   M3_PUTIN_BOSS_CRIT_CHANCE,
@@ -26,15 +27,15 @@ export async function POST(req) {
     return Response.json({ ok: false, error: 'bad_json' }, { status: 400 })
   }
 
-  const wallet = String(body.wallet || '').toLowerCase().trim()
+  const wallet = walletFromRequest(req)
   const mapId = String(body.mapId || '3')
   const playerGx = Number(body.playerGx)
   const playerGy = Number(body.playerGy)
   const bossGx = Number(body.bossGx)
   const bossGy = Number(body.bossGy)
 
-  if (!wallet || wallet.startsWith('anon-')) {
-    return Response.json({ ok: false, error: 'wallet_required' }, { status: 403 })
+  if (!wallet) {
+    return Response.json({ ok: false, error: 'unauthorized' }, { status: 401 })
   }
   if (mapId !== '3') {
     return Response.json({ ok: false, error: 'wrong_map' }, { status: 403 })

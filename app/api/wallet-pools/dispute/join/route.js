@@ -2,10 +2,7 @@ export const dynamic = 'force-dynamic';
 
 import { createClient } from '@supabase/supabase-js';
 import { maybeStartBattleWhenFull } from '@/lib/squeeze-transitions';
-
-function normalizeWallet(value) {
-  return String(value || '').trim().toLowerCase();
-}
+import { walletFromRequest } from '@/lib/wallet-session';
 
 export async function POST(req) {
   let body;
@@ -15,10 +12,13 @@ export async function POST(req) {
     return Response.json({ ok: false, error: 'bad_json' }, { status: 400 });
   }
 
-  const wallet = normalizeWallet(body.wallet);
+  const wallet = walletFromRequest(req);
   const disputeId = Number(body.disputeId || 0);
 
-  if (!wallet || !disputeId) {
+  if (!wallet) {
+    return Response.json({ ok: false, error: 'unauthorized' }, { status: 401 });
+  }
+  if (!disputeId) {
     return Response.json({ ok: false, error: 'invalid_payload' }, { status: 400 });
   }
 

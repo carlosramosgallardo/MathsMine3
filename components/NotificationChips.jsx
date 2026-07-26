@@ -5,6 +5,7 @@ import { useActiveWallet } from '@/lib/use-active-wallet';
 import { useI18n } from '@/lib/i18n-context';
 import { colorFromAddress, colorFromPool } from '@/lib/wallet-colors';
 import { formatWalletLabel } from '@/lib/wallet-format';
+import { apiFetch } from '@/lib/wallet-session-client';
 
 function shortWallet(wallet) {
   const s = String(wallet || '').trim();
@@ -130,11 +131,11 @@ export default function NotificationChips() {
     if (!activeWallet || acceptBusy) return;
     setAcceptBusy(inviteId);
     try {
-      const r = await fetch('/api/wallet-pools/accept', {
+      const r = await apiFetch('/api/wallet-pools/accept', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ wallet: activeWallet, inviteId }),
-      });
+      }, activeWallet);
       const d = await r.json().catch(() => ({}));
       if (!r.ok || !d.ok) {
         window.dispatchEvent(new CustomEvent('mm3-toast', { detail: { msg: labels.poolError, type: 'error' } }));
@@ -157,11 +158,11 @@ export default function NotificationChips() {
     if (!activeWallet || declineBusy) return;
     setDeclineBusy(inviteId);
     try {
-      const r = await fetch('/api/wallet-pools/decline', {
+      const r = await apiFetch('/api/wallet-pools/decline', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ wallet: activeWallet, inviteId }),
-      });
+      }, activeWallet);
       const d = await r.json().catch(() => ({}));
       if (!r.ok || !d.ok) {
         window.dispatchEvent(new CustomEvent('mm3-toast', { detail: { msg: labels.poolError, type: 'error' } }));
@@ -180,11 +181,11 @@ export default function NotificationChips() {
     if (!activeWallet || !myPool || disputeBusy) return;
     setDisputeBusy(defenderPoolCode);
     try {
-      const r = await fetch('/api/wallet-pools/dispute/vote', {
+      const r = await apiFetch('/api/wallet-pools/dispute/vote', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ wallet: activeWallet, challengerPool: myPool, defenderPool: defenderPoolCode }),
-      });
+      }, activeWallet);
       const d = await r.json().catch(() => ({}));
       if (!r.ok || !d.ok) {
         const errKey = d.error === 'squeeze_limit_reached'

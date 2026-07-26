@@ -4,10 +4,7 @@ import { createClient } from '@supabase/supabase-js';
 import { formatWalletLabel } from '@/lib/wallet-format';
 import { MM3_BLOCK_CHAIN_TOTAL, MM3_BLOCK_GRID_COLS, gridToBlockHex, mm3ValueToHex } from '@/lib/mm3-block-chain';
 import { activateDemineMode } from '@/lib/chain-winner';
-
-function normalizeWallet(value) {
-  return String(value || '').trim().toLowerCase();
-}
+import { walletFromRequest } from '@/lib/wallet-session';
 
 function getUtcDay() {
   return new Date().toISOString().slice(0, 10);
@@ -34,10 +31,13 @@ async function handleAttempt(req) {
     return Response.json({ ok: false, error: 'bad_json' }, { status: 400 });
   }
 
-  const wallet = normalizeWallet(body.wallet);
+  const wallet = walletFromRequest(req);
   const answer = parseInt(body.answer, 10);
 
-  if (!wallet || isNaN(answer) || answer < 1) {
+  if (!wallet) {
+    return Response.json({ ok: false, error: 'unauthorized' }, { status: 401 });
+  }
+  if (isNaN(answer) || answer < 1) {
     return Response.json({ ok: false, error: 'invalid_payload' }, { status: 400 });
   }
 
@@ -168,7 +168,13 @@ async function handleAttempt(req) {
     .from('mm3_mined_blocks')
     .select('wallet, mm3_value');
 
-  await activateDemineMode(supabase, wallet, allMinedForDemine || [], true, formulaChainIndexStart);
+  const demineResult = await activateDemineMode(supabase, wallet, allMinedForDemine || [], true, formulaChainIndexStart);
+  if (demineResult?.alreadySolvedByRace) {
+    // A concurrent request beat this one to the 1000 MM3 reward — this
+    // wallet's answer was still correct, but someone else's identical
+    // request landed the mm3_chain_solvers row microseconds earlier.
+    return Response.json({ ok: false, error: 'already_solved_lifetime' }, { status: 409 });
+  }
 
   const winnerLabel = formatWalletLabel(wallet, true);
   const relayMsg = `⬡ CHAIN FORMULA SOLVED ⬡ ${winnerLabel} cracked Ω(${aVal},${bVal},${C}) = ${correctAnswer}. Auto-mined ${autoMinedCount} blocks. DEMINE MODE ACTIVE ⬡`;

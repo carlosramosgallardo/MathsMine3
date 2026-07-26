@@ -2,6 +2,7 @@ export const dynamic = 'force-dynamic';
 
 import { createClient } from '@supabase/supabase-js';
 import { getActivePoolDispute } from '@/lib/pool-dispute-lock';
+import { walletFromRequest } from '@/lib/wallet-session';
 
 const POOL_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 const BOT_WALLETS = new Set([
@@ -90,10 +91,13 @@ export async function POST(req) {
     return Response.json({ ok: false, error: 'bad_json' }, { status: 400 });
   }
 
-  const wallet = normalizeWallet(body.wallet);
+  const wallet = walletFromRequest(req);
   const targetWallet = normalizeWallet(body.targetWallet);
 
-  if (!wallet || !targetWallet || wallet === targetWallet) {
+  if (!wallet) {
+    return Response.json({ ok: false, error: 'unauthorized' }, { status: 401 });
+  }
+  if (!targetWallet || wallet === targetWallet) {
     return Response.json({ ok: false, error: 'invalid_wallets' }, { status: 400 });
   }
 

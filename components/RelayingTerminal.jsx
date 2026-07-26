@@ -1502,11 +1502,11 @@ export default function RelayingTerminal({ accent = '#22d3ee' }) {
     if (!match || !normalizedWallet) return false;
 
     const blockHex = normalizeBlockHex(match[1]);
-    const res = await fetch('/api/mine-block', {
+    const res = await apiFetch('/api/mine-block', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ wallet: normalizedWallet, blockHex }),
-    });
+    }, normalizedWallet);
     const data = await res.json().catch(() => ({}));
     if (data.ok) {
       if (data.trace) {
@@ -1616,11 +1616,11 @@ export default function RelayingTerminal({ accent = '#22d3ee' }) {
       return true;
     }
 
-    const res = await fetch('/api/mine-block', {
+    const res = await apiFetch('/api/mine-block', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ wallet: normalizedWallet, blockHex }),
-    });
+    }, normalizedWallet);
     const data = await res.json().catch(() => ({}));
     if (data.ok) {
       if (data.trace) {

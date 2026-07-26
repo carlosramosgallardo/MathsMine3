@@ -36,6 +36,7 @@ import { formatWalletLabel } from '@/lib/wallet-format';
 import { MM3_BLOCK_CHAIN_REQUIREMENTS } from '@/lib/mm3-block-chain';
 import { isAnonymousWallet } from '@/lib/is-anonymous-wallet';
 import PageLoading from '@/components/PageLoading';
+import { apiFetch } from '@/lib/wallet-session-client';
 
 const MARKET_FIRST_MINING_BLOCK_KEY = 'ph-0-0';
 
@@ -980,11 +981,11 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
     if (!activeWallet || acceptBusy || !inviteId) return;
     setAcceptBusy(inviteId);
     try {
-      const response = await fetch('/api/wallet-pools/accept', {
+      const response = await apiFetch('/api/wallet-pools/accept', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ wallet: activeWallet, inviteId }),
-      });
+      }, activeWallet);
       const payload = await response.json().catch(() => ({}));
       if (!response.ok || !payload.ok) {
         window.dispatchEvent(new CustomEvent('mm3-toast', { detail: { msg: labels.poolError, type: 'error' } }));
@@ -1013,11 +1014,11 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
     if (!activeWallet || declineBusy || !inviteId) return;
     setDeclineBusy(inviteId);
     try {
-      const response = await fetch('/api/wallet-pools/decline', {
+      const response = await apiFetch('/api/wallet-pools/decline', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ wallet: activeWallet, inviteId }),
-      });
+      }, activeWallet);
       const payload = await response.json().catch(() => ({}));
       if (!response.ok || !payload.ok) {
         window.dispatchEvent(new CustomEvent('mm3-toast', { detail: { msg: labels.poolError, type: 'error' } }));
@@ -1037,11 +1038,11 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
     if (!activeWallet || leaveBusy || !activeWalletPool) return;
     setLeaveBusy(true);
     try {
-      const response = await fetch('/api/wallet-pools/leave', {
+      const response = await apiFetch('/api/wallet-pools/leave', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ wallet: activeWallet }),
-      });
+      }, activeWallet);
       const payload = await response.json().catch(() => ({}));
       if (!response.ok || !payload.ok) {
         window.dispatchEvent(new CustomEvent('mm3-toast', { detail: { msg: labels.poolError, type: 'error' } }));
@@ -1078,7 +1079,7 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
     }
     setDisputeBusy(defenderPoolCode);
     try {
-      const response = await fetch('/api/wallet-pools/dispute/vote', {
+      const response = await apiFetch('/api/wallet-pools/dispute/vote', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1086,7 +1087,7 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
           challengerPool: activeWalletPool,
           defenderPool: defenderPoolCode,
         }),
-      });
+      }, activeWallet);
       const payload = await response.json().catch(() => ({}));
       if (!response.ok || !payload.ok) {
         const errKey = payload.error === 'squeeze_limit_reached'
@@ -1364,11 +1365,11 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
     }
     setContactBusy(normalizedTarget);
     try {
-      const response = await fetch('/api/wallet-pools/contact', {
+      const response = await apiFetch('/api/wallet-pools/contact', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ wallet: activeWallet, targetWallet: normalizedTarget }),
-      });
+      }, activeWallet);
       const payload = await response.json().catch(() => ({}));
       if (!response.ok || !payload.ok) {
         const msg = payload.error === 'both_wallets_already_pooled'

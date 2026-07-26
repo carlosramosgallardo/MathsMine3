@@ -467,152 +467,33 @@ export default function TradeBoard({ account, isVirtualWallet = false }) {
         pushToast(`${t('tradeBoard.dailyLimitReached')} ${t('tradeBoard.resetIn')} ${resetCountdown}`, 'error');
         return;
       }
-      const [{ data: progress }, { data: stats }, { data: market }, { data: macroRow }] = await Promise.all([
-          supabase
-            .from('player_progress')
-            .select('level, mm3_sold, cny_earned, eur_earned, usd_earned, wallet_emojis, lucky_50_level, lucky_100_level, lucky_500_level, lucky_1000_level')
-            .eq('wallet', wallet)
-            .maybeSingle(),
-        supabase
-          .from('leaderboard_data')
-          .select('total_eth')
-          .eq('wallet', wallet)
-          .maybeSingle(),
-        supabase
-          .from('mm3_mining_state')
-          .select('id, commission_mm3, commission_cny, commission_eur, commission_usd')
-          .eq('id', 1)
-          .maybeSingle(),
-        supabase
-          .from('mm3_macro_state')
-          .select('war_percent, nature_percent')
-          .eq('id', 1)
-          .maybeSingle(),
-      ]);
 
-      const liveLevel = Math.max(0, Math.min(100, Number(progress?.level) || level));
-      const totalMm3 = Number(stats?.total_eth) || 0;
-      const soldMm3 = Number(progress?.mm3_sold) || 0;
-      const liveAvailableMm3 = totalMm3 - soldMm3;
-      const liveFunds = {
-        cny: Number(progress?.cny_earned) || 0,
-        eur: Number(progress?.eur_earned) || 0,
-        usd: Number(progress?.usd_earned) || 0,
-      };
-      const liveDecorations = normalizeWalletDecorations(progress?.wallet_emojis);
-      const liveMacroState = normalizeMacroState(macroRow);
-      const liveNftjiLevels = {
-        lucky50: Number(progress?.lucky_50_level ?? -1),
-        lucky100: Number(progress?.lucky_100_level ?? -1),
-        lucky500: Number(progress?.lucky_500_level ?? -1),
-        lucky1000: Number(progress?.lucky_1000_level ?? -1),
-      };
-      // Recompute dice at execution time (deterministic from current clock)
-      const liveDice = getDiceState();
-      const liveDiceModifier = liveDice.active ? liveDice.modifier : 0;
-      const requestedAmount =
-        mode === 'buy'
-          ? Math.min(liveFunds[currency.toLowerCase()] || 0, selectedBuyFunds)
-          : Math.min(liveAvailableMm3, selectedSellMm3);
-      const liveTradeQuote =
-        mode === 'buy'
-          ? getBuyQuote(liveLevel, requestedAmount, currency, liveDecorations, liveMacroState, liveDiceModifier, liveNftjiLevels)
-          : getSellQuote(liveLevel, requestedAmount, liveDecorations, liveMacroState, liveDiceModifier, liveNftjiLevels);
-
-      if (mode === 'sell' && liveTradeQuote.totalMm3 < MIN_TRADE_MM3) {
-        pushToast(t('tradeBoard.insufficientMm3Error'), 'error');
-        return;
-      }
-      if (mode === 'buy' && liveTradeQuote.netMm3 < MIN_TRADE_MM3) {
-        pushToast(t('tradeBoard.insufficientFundsError'), 'error');
-        return;
-      }
-
-      const nextProgress =
-        mode === 'buy'
-          ? {
-              wallet,
-              level: liveLevel,
-              mm3_sold: soldMm3 - liveTradeQuote.netMm3,
-              cny_earned: Math.max(0, liveFunds.cny - liveTradeQuote.grossCny),
-              eur_earned: Math.max(0, liveFunds.eur - liveTradeQuote.grossEur),
-              usd_earned: Math.max(0, liveFunds.usd - liveTradeQuote.grossUsd),
-              sell_rate_cny: getSellQuote(liveLevel, 0).rateCny,
-              sell_quote_cny: 0,
-              sell_quote_eur: 0,
-              sell_quote_usd: 0,
-              updated_at: new Date().toISOString(),
-            }
-          : {
-              wallet,
-              level: liveLevel,
-              mm3_sold: soldMm3 + liveTradeQuote.totalMm3,
-              cny_earned: liveFunds.cny + liveTradeQuote.netCny,
-              eur_earned: liveFunds.eur + liveTradeQuote.netEur,
-              usd_earned: liveFunds.usd + liveTradeQuote.netUsd,
-              sell_rate_cny: getSellQuote(liveLevel, 0).rateCny,
-              sell_quote_cny: 0,
-              sell_quote_eur: 0,
-              sell_quote_usd: 0,
-              updated_at: new Date().toISOString(),
-            };
-
-      const progressRes = await apiFetch('/api/trade/exec', {
+      // The server re-derives the whole trade (level/funds/decorations/macro/
+      // dice/commission) from its own DB reads using the same getBuyQuote /
+      // getSellQuote math — we only tell it what we want to do. See 2026-07
+      // security audit phase 3: this used to compute the trade client-side
+      // and write player_progress/mm3_mining_state/mm3_sell_transactions
+      // directly, which let a hand-crafted request set its own balance.
+      const requestedAmount = mode === 'buy' ? selectedBuyFunds : selectedSellMm3;
+      const execRes = await apiFetch('/api/trade/exec', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ wallet, progress: nextProgress }),
+        body: JSON.stringify({
+          mode,
+          currency,
+          amount: requestedAmount,
+          source: isVirtualWallet ? 'google' : 'wallet',
+        }),
       }, wallet);
-      if (!progressRes.ok) {
-        const { error } = await progressRes.json().catch(() => ({}));
-        throw new Error(error || 'trade exec failed');
+      const execData = await execRes.json().catch(() => ({}));
+      if (!execRes.ok || !execData.ok) {
+        if (execData.error === 'amount_too_small') {
+          pushToast(mode === 'sell' ? t('tradeBoard.insufficientMm3Error') : t('tradeBoard.insufficientFundsError'), 'error');
+          return;
+        }
+        throw new Error(execData.error || 'trade exec failed');
       }
-
-      const { error: marketError } = await supabase
-        .from('mm3_mining_state')
-        .upsert(
-          {
-            id: 1,
-            commission_mm3: (Number(market?.commission_mm3) || 0) + liveTradeQuote.commissionMm3,
-            commission_cny: (Number(market?.commission_cny) || 0) + liveTradeQuote.commissionCny,
-            commission_eur: (Number(market?.commission_eur) || 0) + liveTradeQuote.commissionEur,
-            commission_usd: (Number(market?.commission_usd) || 0) + liveTradeQuote.commissionUsd,
-            updated_at: new Date().toISOString(),
-          },
-          { onConflict: 'id', ignoreDuplicates: false }
-        );
-      if (marketError) throw marketError;
-
-      const { error: txError } = await supabase.from('mm3_sell_transactions').insert({
-        wallet,
-        source: isVirtualWallet ? 'google' : 'wallet',
-        level: liveLevel,
-        mm3_amount: mode === 'buy' ? -liveTradeQuote.grossMm3 : liveTradeQuote.totalMm3,
-        mm3_commission: liveTradeQuote.commissionMm3,
-        rate_cny: liveTradeQuote.rateCny,
-        gross_cny: mode === 'buy' ? -liveTradeQuote.grossCny : liveTradeQuote.grossCny,
-        gross_eur: mode === 'buy' ? -liveTradeQuote.grossEur : liveTradeQuote.grossEur,
-        gross_usd: mode === 'buy' ? -liveTradeQuote.grossUsd : liveTradeQuote.grossUsd,
-        commission_rate: liveTradeQuote.commissionRate,
-        commission_cny: liveTradeQuote.commissionCny,
-        commission_eur: liveTradeQuote.commissionEur,
-        commission_usd: liveTradeQuote.commissionUsd,
-        net_cny: mode === 'buy' ? -liveTradeQuote.netCny : liveTradeQuote.netCny,
-        net_eur: mode === 'buy' ? -liveTradeQuote.netEur : liveTradeQuote.netEur,
-        net_usd: mode === 'buy' ? -liveTradeQuote.netUsd : liveTradeQuote.netUsd,
-      });
-      if (txError) throw txError;
-
-      const tradeDelta = mode === 'buy'
-        ? Number(liveTradeQuote.grossMm3 || 0)
-        : -Number(liveTradeQuote.totalMm3 || 0);
-      if (tradeDelta !== 0) {
-        await supabase.from('mm3_mining_events').insert({
-          wallet,
-          event_type: mode === 'buy' ? 'mining_buy' : 'mining_resell',
-          delta_mm3: tradeDelta,
-          emoji: mode === 'buy' ? '📈' : '📉',
-        }).then(null, () => {});
-      }
+      const liveTradeQuote = execData.quote;
 
       pushToast(
         mode === 'buy'

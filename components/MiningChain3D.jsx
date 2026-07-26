@@ -619,11 +619,11 @@ export default function MiningChain3D() {
         sendCombatEvent('pvp-result', { victim: key, health: next, killed: false, healed: true })
         return
       }
-      fetch('/api/pool-heal', {
+      apiFetch('/api/pool-heal', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ wallet: key }),
-      }).then(r => r.json()).then(result => {
+      }, key).then(r => r.json()).then(result => {
         if (!result?.ok) return
         const next = Number(result.health ?? 100)
         setHealthMap(prev => ({ ...prev, [key]: next }))
@@ -696,11 +696,11 @@ export default function MiningChain3D() {
     setRlMountActive(false)
     const wallet = myWalletRef.current
     if (wallet) {
-      fetch('/api/rl-mount', {
+      apiFetch('/api/rl-mount', {
         method: 'DELETE',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ wallet }),
-      }).catch(() => {})
+      }, wallet).catch(() => {})
     }
     const pos = myPosRef.current || {}
     channelRef.current?.track({
@@ -747,11 +747,11 @@ export default function MiningChain3D() {
       setRlMountError(es ? 'MM3 insuficiente.' : 'Not enough MM3.')
       return
     }
-    const response = await fetch('/api/rl-mount', {
+    const response = await apiFetch('/api/rl-mount', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ wallet }),
-    }).then(r => r.json()).catch(() => null)
+    }, wallet).then(r => r.json()).catch(() => null)
     if (!response?.ok) {
       setRlMountError(
         response?.error === 'min_level'
@@ -818,11 +818,11 @@ export default function MiningChain3D() {
       setNodeDiceError(es ? 'MM3 insuficiente.' : 'Not enough MM3.')
       return
     }
-    const response = await fetch('/api/node-dice', {
+    const response = await apiFetch('/api/node-dice', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ wallet }),
-    }).then(r => r.json()).catch(() => null)
+    }, wallet).then(r => r.json()).catch(() => null)
     if (!response?.ok) {
       setNodeDiceError(
         response?.error === 'min_level'
@@ -884,7 +884,7 @@ export default function MiningChain3D() {
     const _posKey = myWalletRef.current ? `mm3_mining_pos_${myWalletRef.current}` : 'mm3_mining_pos_anon'
     try { localStorage.setItem(_posKey, JSON.stringify({ row, col, z, mapId: deathMapId })) } catch { /* */ }
     if (myWalletRef.current) {
-      fetch(`/api/pvp-death?wallet=${encodeURIComponent(myWalletRef.current)}`, { method: 'DELETE' }).catch(() => {})
+      apiFetch(`/api/pvp-death?wallet=${encodeURIComponent(myWalletRef.current)}`, { method: 'DELETE' }, myWalletRef.current).catch(() => {})
     }
     setHealthMap(prev => ({ ...prev, [myKeyRef.current]: 100 }))
     if (deathMapId !== mapIdRef.current) {
@@ -945,7 +945,7 @@ export default function MiningChain3D() {
     localStorage.setItem('mm3_pvp_dead', JSON.stringify({ until: deadUntil, gx: deadGX, gy: deadGY, mapId: deathMapId }))
     try { window.dispatchEvent(new Event('mm3-pvp-death')) } catch {}
     if (myWalletRef.current) {
-      fetch('/api/pvp-death', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ wallet: myWalletRef.current, gx: deadGX, gy: deadGY }) }).catch(() => {})
+      apiFetch('/api/pvp-death', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ wallet: myWalletRef.current, gx: deadGX, gy: deadGY }) }, myWalletRef.current).catch(() => {})
     }
     clearRlMountOnDeath()
     channelRef.current?.send({ type: 'broadcast', event: 'player-death', payload: { victim: myKeyRef.current, gx: deadGX, gy: deadGY, deadUntil: deadUntilIso, mapId: deathMapId } })?.catch(() => {})
@@ -957,11 +957,11 @@ export default function MiningChain3D() {
     const bossMapId = String(hitMapId || mapIdRef.current)
     const cfg = getMapBossConfig(bossMapId)
     if (!cfg) return { ok: false, error: 'no_boss' }
-    const response = await fetch(`${cfg.apiBase}/hit`, {
+    const response = await apiFetch(`${cfg.apiBase}/hit`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ wallet, hitZone, playerGx, playerGy, bossGx, bossGy, mapId: bossMapId }),
-    }).then(r => r.json()).catch(() => null)
+    }, wallet).then(r => r.json()).catch(() => null)
     if (!response?.ok) return response
     setBossStateByMap(prev => ({
       ...prev,
@@ -1032,7 +1032,7 @@ export default function MiningChain3D() {
     bossAttackInFlightRef.current = true
     let response
     try {
-      response = await fetch(`${cfg.apiBase}/attack`, {
+      response = await apiFetch(`${cfg.apiBase}/attack`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
@@ -1043,7 +1043,7 @@ export default function MiningChain3D() {
           bossGy,
           mapId: bossMapId,
         }),
-      }).then(r => r.json()).catch(() => null)
+      }, normalizedWallet).then(r => r.json()).catch(() => null)
     } finally {
       bossAttackInFlightRef.current = false
     }
@@ -1133,11 +1133,11 @@ export default function MiningChain3D() {
         channelRef.current?.send({ type: 'broadcast', event: 'stormroll-hit', payload: { victim: key, health: newHP, killed: newHP <= 0 } })?.catch(() => {})
         if (newHP <= 0) triggerSelfDeath()
       } else {
-        fetch('/api/stormroll-damage', {
+        apiFetch('/api/stormroll-damage', {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify({ wallet: key, mode, gx: safeGx, gy: safeGy }),
-        }).then(r => r.json()).then(result => {
+        }, key).then(r => r.json()).then(result => {
           if (!result?.ok) return
           if (result.immune) return
           const newHP = Number(result.health ?? 100)
@@ -1735,7 +1735,7 @@ export default function MiningChain3D() {
           localStorage.setItem('mm3_pvp_dead', JSON.stringify({ until: deadUntil, gx: deadGX, gy: deadGY, mapId: deathMapId }))
           try { window.dispatchEvent(new Event('mm3-pvp-death')) } catch {}
           if (myWalletRef.current) {
-            fetch('/api/pvp-death', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ wallet: myWalletRef.current, gx: deadGX, gy: deadGY }) }).catch(() => {})
+            apiFetch('/api/pvp-death', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ wallet: myWalletRef.current, gx: deadGX, gy: deadGY }) }, myWalletRef.current).catch(() => {})
           }
           clearRlMountOnDeath()
           // Notify others of the corpse position via broadcast
@@ -2309,11 +2309,11 @@ export default function MiningChain3D() {
         const now = Date.now()
         if (now - lastDbPosSaveRef.current >= 15_000) {
           lastDbPosSaveRef.current = now
-          fetch('/api/pvp-death', {
+          apiFetch('/api/pvp-death', {
             method: 'PATCH',
             headers: { 'content-type': 'application/json' },
             body: JSON.stringify({ wallet: w, row, col, z, mapId: mapIdRef.current }),
-          }).catch(() => {})
+          }, w).catch(() => {})
         }
       }
     }

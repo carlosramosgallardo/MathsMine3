@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useI18n } from '@/lib/i18n-context';
+import { apiFetch } from '@/lib/wallet-session-client';
 
 function formatCountdown(ms) {
   if (ms <= 0) return '00:00:00';
@@ -78,11 +79,11 @@ export default function ChainSolveCard({ wallet, onWinner }) {
     setSubmitting(true);
     setFeedback(null);
     try {
-      const res = await fetch('/api/chain-solve/attempt', {
+      const res = await apiFetch('/api/chain-solve/attempt', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ wallet, answer }),
-      });
+      }, wallet);
       const data = await res.json();
       if (!data.ok) {
         if (data.error === 'already_attempted_today') {

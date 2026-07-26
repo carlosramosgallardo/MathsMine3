@@ -3,13 +3,10 @@ export const dynamic = 'force-dynamic';
 import { createClient } from '@supabase/supabase-js';
 import { maybeStartBattleWhenFull } from '@/lib/squeeze-transitions';
 import { getActivePoolDispute } from '@/lib/pool-dispute-lock';
+import { walletFromRequest } from '@/lib/wallet-session';
 
 const SQUEEZE_LAUNCH_LIMIT = 5;
 const SQUEEZE_LAUNCH_WINDOW_MS = 24 * 60 * 60 * 1000;
-
-function normalizeWallet(value) {
-  return String(value || '').trim().toLowerCase();
-}
 
 function normalizePool(value) {
   return String(value || '').trim().toUpperCase();
@@ -41,11 +38,14 @@ export async function POST(req) {
     return Response.json({ ok: false, error: 'bad_json' }, { status: 400 });
   }
 
-  const wallet = normalizeWallet(body.wallet);
+  const wallet = walletFromRequest(req);
   const challengerPool = normalizePool(body.challengerPool);
   const defenderPool = normalizePool(body.defenderPool);
 
-  if (!wallet || !challengerPool || !defenderPool) {
+  if (!wallet) {
+    return Response.json({ ok: false, error: 'unauthorized' }, { status: 401 });
+  }
+  if (!challengerPool || !defenderPool) {
     return Response.json({ ok: false, error: 'invalid_payload' }, { status: 400 });
   }
 

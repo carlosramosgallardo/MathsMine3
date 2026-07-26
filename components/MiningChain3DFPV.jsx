@@ -113,6 +113,7 @@ import {
   isInHousePoolPvpSafeZone,
 } from '@/lib/mining-world-layout'
 import { isCoarsePointerLike as isCoarsePointerDevice, isMobilePreviewActive, isMobilePreviewHighQuality, MOBILE_PREVIEW_VIEWPORT } from '@/lib/mobile-preview'
+import { apiFetch } from '@/lib/wallet-session-client'
 
 function isRlNodeCell(cell) { return Boolean(cell?.isRlNode) }
 function isPortalLikeNodeCell(cell) {
@@ -16552,11 +16553,11 @@ export default function MiningChain3DFPV({
               } else {
                 // Logged wallet: each hit demines 1% and awards 1 MM3
                 playPickHit(audioCtxRef,'nftji')
-                fetch('/api/chain-solve/demine',{
+                apiFetch('/api/chain-solve/demine',{
                   method:'POST',
                   headers:{'Content-Type':'application/json'},
                   body:JSON.stringify({wallet:hitWallet}),
-                }).then(r=>r.json()).then(data=>{
+                },hitWallet).then(r=>r.json()).then(data=>{
                   if(data.ok){
                     chainDemineHitsRef.current=data.hitsRemaining
                     pvpGainRef.current={text:`⛏ +${data.mm3Awarded} MM3 · ${data.hitsRemaining} hits left`,at:performance.now(),color:'#fb923c'}

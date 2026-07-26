@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useI18n } from '@/lib/i18n-context';
 import { colorFromPool, colorFromAddress } from '@/lib/wallet-colors';
+import { apiFetch } from '@/lib/wallet-session-client';
 
 const SQUEEZE_LAUNCH_LIMIT = 5;
 const SQUEEZE_WINDOW_MS = 24 * 60 * 60 * 1000;
@@ -103,11 +104,11 @@ export default function PoolSqueezeList({ wallet }) {
     }
     setDisputeBusy(defenderPool);
     try {
-      const response = await fetch('/api/wallet-pools/dispute/vote', {
+      const response = await apiFetch('/api/wallet-pools/dispute/vote', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ wallet, challengerPool: myPool, defenderPool }),
-      });
+      }, wallet);
       const payload = await response.json().catch(() => ({}));
       if (!response.ok || !payload.ok) {
         const errKey =

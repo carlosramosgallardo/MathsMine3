@@ -3,11 +3,16 @@ export const dynamic = 'force-dynamic';
 import { createClient } from '@supabase/supabase-js';
 import { SQUEEZE_NFTJIS } from '@/lib/wallet-decorations';
 import { getDiceState } from '@/lib/dice';
+import { walletFromRequest } from '@/lib/wallet-session';
 
 export async function POST(req) {
-  const { disputeId, wallet } = await req.json();
+  const { disputeId } = await req.json();
+  const wallet = walletFromRequest(req);
 
-  if (!disputeId || !wallet) {
+  if (!wallet) {
+    return Response.json({ ok: false, error: 'unauthorized' }, { status: 401 });
+  }
+  if (!disputeId) {
     return Response.json({ ok: false, error: 'missing_params' }, { status: 400 });
   }
 

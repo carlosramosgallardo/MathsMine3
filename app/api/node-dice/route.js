@@ -2,6 +2,7 @@ export const dynamic = 'force-dynamic'
 
 import { createClient } from '@supabase/supabase-js'
 import { getDiceState } from '@/lib/dice'
+import { walletFromRequest } from '@/lib/wallet-session'
 
 const NODE_DICE_PRICE_MM3 = 500
 const NODE_DICE_MIN_LEVEL = 30
@@ -64,8 +65,8 @@ export async function POST(req) {
     return Response.json({ ok: false, error: 'bad_json' }, { status: 400 })
   }
 
-  const wallet = String(body.wallet || '').toLowerCase().trim()
-  if (!wallet) return Response.json({ ok: false, error: 'missing_wallet' }, { status: 400 })
+  const wallet = walletFromRequest(req)
+  if (!wallet) return Response.json({ ok: false, error: 'unauthorized' }, { status: 401 })
 
   const sb = serviceClient()
   const { data: macro, error: macroError } = await loadMacro(sb)

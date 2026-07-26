@@ -1,6 +1,7 @@
 export const dynamic = 'force-dynamic'
 
 import { createClient } from '@supabase/supabase-js'
+import { walletFromRequest } from '@/lib/wallet-session'
 
 const DEAD_MINUTES = 5
 
@@ -63,6 +64,9 @@ export async function PATCH(req) {
   if (!wallet || wallet.startsWith('anon-')) {
     return Response.json({ ok: false, error: 'anon_or_missing' }, { status: 400 })
   }
+  if (walletFromRequest(req) !== wallet) {
+    return Response.json({ ok: false, error: 'unauthorized' }, { status: 401 })
+  }
   const row = Number(body.row)
   const col = Number(body.col)
   const z = Number(body.z ?? 0)
@@ -105,6 +109,9 @@ export async function POST(req) {
   if (!wallet || wallet.startsWith('anon-')) {
     return Response.json({ ok: false, error: 'anon_or_missing' }, { status: 400 })
   }
+  if (walletFromRequest(req) !== wallet) {
+    return Response.json({ ok: false, error: 'unauthorized' }, { status: 401 })
+  }
 
   const deadUntil = new Date(Date.now() + DEAD_MINUTES * 60 * 1000).toISOString()
   const gx = Number(body.gx) || 14.5
@@ -125,6 +132,9 @@ export async function POST(req) {
 export async function DELETE(req) {
   const wallet = new URL(req.url).searchParams.get('wallet')?.toLowerCase().trim()
   if (!wallet) return Response.json({ ok: false, error: 'missing_wallet' }, { status: 400 })
+  if (walletFromRequest(req) !== wallet) {
+    return Response.json({ ok: false, error: 'unauthorized' }, { status: 401 })
+  }
 
   await serviceClient()
     .from('mm3_pvp_health')

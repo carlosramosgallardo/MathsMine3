@@ -1,6 +1,7 @@
 export const dynamic = 'force-dynamic'
 
 import { createClient } from '@supabase/supabase-js'
+import { walletFromRequest } from '@/lib/wallet-session'
 import { distributeBossRewards } from '@/app/api/m3-boss/route'
 import {
   M3_PUTIN_BOSS_HIT_RANGE,
@@ -23,7 +24,7 @@ export async function POST(req) {
     return Response.json({ ok: false, error: 'bad_json' }, { status: 400 })
   }
 
-  const wallet = String(body.wallet || '').toLowerCase().trim()
+  const wallet = walletFromRequest(req)
   const mapId = String(body.mapId || '3')
   const hitZone = body.hitZone === 'head' ? 'head' : 'body'
   const playerGx = Number(body.playerGx)
@@ -31,8 +32,8 @@ export async function POST(req) {
   const bossGx = Number(body.bossGx ?? M3_PUTIN_BOSS_SPAWN.gx)
   const bossGy = Number(body.bossGy ?? M3_PUTIN_BOSS_SPAWN.gy)
 
-  if (!wallet || wallet.startsWith('anon-')) {
-    return Response.json({ ok: false, error: 'wallet_required' }, { status: 403 })
+  if (!wallet) {
+    return Response.json({ ok: false, error: 'unauthorized' }, { status: 401 })
   }
   if (mapId !== '3') {
     return Response.json({ ok: false, error: 'wrong_map' }, { status: 403 })

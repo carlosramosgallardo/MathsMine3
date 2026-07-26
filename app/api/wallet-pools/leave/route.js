@@ -2,22 +2,12 @@ export const dynamic = 'force-dynamic';
 
 import { createClient } from '@supabase/supabase-js';
 import { getActivePoolDispute } from '@/lib/pool-dispute-lock';
-
-function normalizeWallet(value) {
-  return String(value || '').trim().toLowerCase();
-}
+import { walletFromRequest } from '@/lib/wallet-session';
 
 export async function POST(req) {
-  let body;
-  try {
-    body = await req.json();
-  } catch {
-    return Response.json({ ok: false, error: 'bad_json' }, { status: 400 });
-  }
-
-  const wallet = normalizeWallet(body.wallet);
+  const wallet = walletFromRequest(req);
   if (!wallet) {
-    return Response.json({ ok: false, error: 'invalid_wallet' }, { status: 400 });
+    return Response.json({ ok: false, error: 'unauthorized' }, { status: 401 });
   }
 
   const supabase = createClient(

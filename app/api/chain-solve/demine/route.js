@@ -3,10 +3,7 @@ export const dynamic = 'force-dynamic';
 import { createClient } from '@supabase/supabase-js';
 import { formatWalletLabel } from '@/lib/wallet-format';
 import { gridToBlockHex, MM3_MINE_BLOCK_TOTAL } from '@/lib/mm3-block-chain';
-
-function normalizeWallet(value) {
-  return String(value || '').trim().toLowerCase();
-}
+import { walletFromRequest } from '@/lib/wallet-session';
 
 export async function POST(req) {
   try {
@@ -23,12 +20,9 @@ async function handleDemine(req) {
     return Response.json({ ok: false, error: 'bad_json' }, { status: 400 });
   }
 
-  const wallet = normalizeWallet(body.wallet);
+  const wallet = walletFromRequest(req);
   if (!wallet) {
-    return Response.json({ ok: false, error: 'wallet_required' }, { status: 400 });
-  }
-  if (wallet.startsWith('anon-')) {
-    return Response.json({ ok: false, error: 'anon_no_reward' }, { status: 403 });
+    return Response.json({ ok: false, error: 'unauthorized' }, { status: 401 });
   }
 
   const supabase = createClient(

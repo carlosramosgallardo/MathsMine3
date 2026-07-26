@@ -17,6 +17,7 @@ import {
 } from '@/lib/mm3-block-chain';
 import { formatWalletLabel } from '@/lib/wallet-format';
 import { checkAndAwardChainWinner, TOTAL_BOARD_CELLS } from '@/lib/chain-winner';
+import { walletFromRequest } from '@/lib/wallet-session';
 
 function normalizeWallet(value) {
   return String(value || '').trim().toLowerCase();
@@ -38,11 +39,14 @@ export async function POST(req) {
     return Response.json({ ok: false, error: 'bad_json' }, { status: 400 });
   }
 
-  const wallet = normalizeWallet(body.wallet);
+  const wallet = walletFromRequest(req);
   const blockHex = normalizeBlockHex(body.blockHex);
   const requirement = MM3_BLOCK_REQUIREMENT_BY_HEX.get(blockHex);
 
-  if (!wallet || !blockHex) {
+  if (!wallet) {
+    return Response.json({ ok: false, error: 'unauthorized' }, { status: 401 });
+  }
+  if (!blockHex) {
     return Response.json({ ok: false, error: 'invalid_payload' }, { status: 400 });
   }
   if (!requirement) {
