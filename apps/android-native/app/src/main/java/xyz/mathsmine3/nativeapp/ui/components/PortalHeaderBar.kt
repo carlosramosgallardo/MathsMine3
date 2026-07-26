@@ -32,13 +32,15 @@ fun PortalHeaderBar(
     val context = LocalContext.current
     val density = LocalDensity.current
     var heightDp by remember { mutableIntStateOf(DEFAULT_HEADER_HEIGHT_DP) }
+    val routeHandler = remember(onNativeRoute) { onNativeRoute }
+    val authHandler = remember(onAuth) { onAuth }
 
     AndroidView(
         factory = { ctx ->
             PortalHeaderWebView(ctx).apply {
                 setSessionWallet(session.wallet)
-                onNativeRoute = onNativeRoute
-                onAuthRequest = onAuth
+                this.onNativeRoute = routeHandler
+                this.onAuthRequest = authHandler
                 onExternalUrl = { url ->
                     runCatching {
                         context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
@@ -53,8 +55,8 @@ fun PortalHeaderBar(
         },
         update = { view ->
             view.setSessionWallet(session.wallet)
-            view.onNativeRoute = onNativeRoute
-            view.onAuthRequest = onAuth
+            view.onNativeRoute = routeHandler
+            view.onAuthRequest = authHandler
         },
         modifier = Modifier
             .fillMaxWidth()
