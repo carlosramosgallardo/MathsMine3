@@ -35,7 +35,7 @@ import androidx.navigation.compose.rememberNavController
 import xyz.mathsmine3.nativeapp.AppContainer
 import xyz.mathsmine3.nativeapp.auth.AuthKind
 import xyz.mathsmine3.nativeapp.auth.Session
-import xyz.mathsmine3.nativeapp.ui.components.Mm3TopBar
+import xyz.mathsmine3.nativeapp.ui.components.PortalHeaderBar
 import xyz.mathsmine3.nativeapp.ui.components.mm3PortalBackground
 import xyz.mathsmine3.nativeapp.ui.screens.AuthScreen
 import xyz.mathsmine3.nativeapp.ui.screens.DailyScreen
@@ -70,15 +70,24 @@ fun Mm3AppRoot(container: AppContainer) {
     val backStack by navController.currentBackStackEntryAsState()
     val currentRoute = backStack?.destination?.route
 
+    fun go(route: String) {
+        navController.navigate(route) {
+            popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+            launchSingleTop = true
+            restoreState = true
+        }
+    }
+
     Scaffold(
         containerColor = Mm3Colors.Bg,
         topBar = {
-            // Mining is full-bleed WebView FPV — hide portal chrome.
-            if (currentRoute != Mm3Dest.Auth.route && currentRoute != Mm3Dest.Mining.route) {
+            // Real portal header (ticker + pulse + clock/wallet) — same as mobile web.
+            if (currentRoute != Mm3Dest.Auth.route) {
                 Column(Modifier.statusBarsPadding()) {
-                    Mm3TopBar(
-                        wallet = session.wallet,
-                        onAuthClick = { navController.navigate(Mm3Dest.Auth.route) },
+                    PortalHeaderBar(
+                        session = session,
+                        onNativeRoute = { go(it) },
+                        onAuth = { navController.navigate(Mm3Dest.Auth.route) },
                     )
                 }
             }
@@ -87,13 +96,7 @@ fun Mm3AppRoot(container: AppContainer) {
             if (currentRoute != Mm3Dest.Auth.route && currentRoute != Mm3Dest.Mining.route) {
                 TerminalNavBar(
                     currentRoute = currentRoute,
-                    onSelect = { route ->
-                        navController.navigate(route) {
-                            popUpTo(navController.graph.findStartDestination().id) { saveState = true }
-                            launchSingleTop = true
-                            restoreState = true
-                        }
-                    },
+                    onSelect = { go(it) },
                 )
             }
         },
@@ -113,7 +116,7 @@ fun Mm3AppRoot(container: AppContainer) {
                     HomeScreen(
                         session = session,
                         api = container.api,
-                        onOpen = { route -> navController.navigate(route) },
+                        onOpen = { route -> go(route) },
                         onAuth = { navController.navigate(Mm3Dest.Auth.route) },
                     )
                 }
