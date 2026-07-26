@@ -9,7 +9,7 @@ import NotificationChips from '@/components/NotificationChips'
 
 export default function PortalShell({ children }) {
   const pathname = usePathname() || ''
-  const isBareDev = pathname.startsWith('/dev/')
+  const isBareDev = pathname.startsWith('/dev/') || pathname.startsWith('/embed/')
 
   if (isBareDev) {
     return (

@@ -8,7 +8,12 @@
     "dev": "next dev",
     "dev:https": "next dev --port 3000 --experimental-https --experimental-https-key ./certificates/mathsmine3.xyz-key.pem --experimental-https-cert ./certificates/mathsmine3.xyz.pem",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "android:fingerprint": "bash scripts/android-fingerprint.sh",
+    "android:build": "bash scripts/android-build.sh",
+    "android:install": "adb install -r android/dist/mathsmine3-debug.apk",
+    "android:native:build": "bash scripts/android-native-build.sh",
+    "android:native:install": "adb install -r apps/android-native/dist/mathsmine3-native-debug.apk"
   },
   "dependencies": {
     "@react-oauth/google": "^0.13.5",

@@ -1,0 +1,37 @@
+{
+  "mining": {
+    "presence": "mm3-chain3d-v1",
+    "mapMove": "mm3-chain3d-v1-map-{mapId}",
+    "broadcastEvents": [
+      "move",
+      "pvp-hit",
+      "pvp-result",
+      "player-death",
+      "anon-kill",
+      "anon-reset",
+      "demine-reward",
+      "boss-state",
+      "boss-result",
+      "boss-attack-result",
+      "node-dice",
+      "stormroll-hit",
+      "collision-push",
+      "chain-formula-solved"
+    ]
+  },
+  "relaying": {
+    "irc": "mm3-irc-relay",
+    "walletFlags": "mm3-irc-wallet-flags",
+    "portalAnon": "mm3-portal-anon-v1",
+    "anonPresence": "mm3-irc-anon-presence",
+    "marketWatch": "mm3-irc-market-commands-watch",
+    "broadcastEvents": ["message", "market-status-refresh"],
+    "postgresTables": [
+      "mm3_mining_commands",
+      "mm3_mining_events",
+      "mm3_relaying_messages",
+      "mm3_command_penalties"
+    ]
+  },
+  "presenceTable": "mm3_wallet_presence"
+}

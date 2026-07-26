@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="mm3_bg">#070B0F</color>
+    <color name="mm3_cyan">#22D3EE</color>
+    <color name="mm3_surface">#0F172A</color>
+    <color name="mm3_text">#E2E8F0</color>
+</resources>

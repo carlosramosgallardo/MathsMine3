@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">MathsMine3</string>
+    <!-- default_web_client_id is injected at build time from repo-root .env.local
+         (NEXT_PUBLIC_GOOGLE_CLIENT_ID) via app/build.gradle.kts resValue. -->
+</resources>

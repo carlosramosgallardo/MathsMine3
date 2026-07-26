@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.MathsMine3Native" parent="android:Theme.Material.NoActionBar">
+        <item name="android:statusBarColor">@color/mm3_bg</item>
+        <item name="android:navigationBarColor">@color/mm3_bg</item>
+        <item name="android:windowBackground">@color/mm3_bg</item>
+        <item name="android:colorPrimary">@color/mm3_cyan</item>
+    </style>
+</resources>

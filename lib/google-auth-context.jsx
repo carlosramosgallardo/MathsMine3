@@ -14,8 +14,27 @@ export function GoogleAuthProvider({ children }) {
   const [googleWallet, setGoogleWallet] = useState(null);
 
   useEffect(() => {
-    const stored = localStorage.getItem('mm3_gw');
-    if (stored) setGoogleWallet(stored);
+    const syncFromStorage = () => {
+      try {
+        const stored = localStorage.getItem('mm3_gw');
+        if (stored) setGoogleWallet(stored);
+      } catch {
+        /* ignore */
+      }
+    };
+    syncFromStorage();
+    // Native Android WebView may inject mm3_gw after first paint.
+    const onNative = (e) => {
+      const gw = e?.detail?.gw || (typeof window !== 'undefined' && window.__MM3_NATIVE_GW__);
+      if (typeof gw === 'string' && gw) {
+        try { localStorage.setItem('mm3_gw', gw); } catch { /* */ }
+        setGoogleWallet(gw);
+      } else {
+        syncFromStorage();
+      }
+    };
+    window.addEventListener('mm3-native-session', onNative);
+    return () => window.removeEventListener('mm3-native-session', onNative);
   }, []);
 
   const loginWithGoogle = useCallback(async (accessToken) => {

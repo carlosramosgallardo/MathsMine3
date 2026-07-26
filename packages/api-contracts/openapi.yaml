@@ -1,0 +1,136 @@
+openapi: 3.0.3
+info:
+  title: MathsMine3 Portal API
+  version: "1.0.0"
+  description: >
+    Mirror of existing Next.js App Router handlers. Additive documentation only;
+    the web client remains the source of truth for behavior.
+servers:
+  - url: https://mathsmine3.xyz
+paths:
+  /api/status:
+    get:
+      summary: Portal / economy status snapshot
+      responses:
+        "200":
+          description: OK
+  /api/portal-status:
+    get:
+      summary: Portal status
+      responses:
+        "200":
+          description: OK
+  /api/token-value:
+    get:
+      summary: Current fictional MM3 value
+      responses:
+        "200":
+          description: OK
+  /api/token-history:
+    get:
+      summary: Token value history
+      responses:
+        "200":
+          description: OK
+  /api/token-history-minutes:
+    get:
+      summary: Intraday token history
+      responses:
+        "200":
+          description: OK
+  /api/leaderboard:
+    get:
+      summary: Rankings
+      responses:
+        "200":
+          description: OK
+  /api/mining-snapshot:
+    get:
+      summary: Mining world snapshot
+      responses:
+        "200":
+          description: OK
+  /api/create-account:
+    post:
+      summary: Create or ensure player account (Google or wallet)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required: [type, access_token]
+                  properties:
+                    type: { type: string, enum: [google] }
+                    access_token: { type: string }
+                - type: object
+                  required: [type, wallet]
+                  properties:
+                    type: { type: string, enum: [wallet] }
+                    wallet: { type: string, pattern: '^0x[0-9a-fA-F]{40}$' }
+      responses:
+        "200":
+          description: Account ready
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  wallet: { type: string }
+  /api/daily-tasks/claim:
+    post:
+      summary: Claim daily task rewards
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                wallet: { type: string }
+      responses:
+        "200":
+          description: OK
+  /api/trade/exec:
+    post:
+      summary: Execute fictional MM3 trade
+      responses:
+        "200":
+          description: OK
+  /api/relay/exec:
+    post:
+      summary: Relaying terminal command
+      responses:
+        "200":
+          description: OK
+  /api/mine-block:
+    post:
+      summary: Mine a block
+      responses:
+        "200":
+          description: OK
+  /api/pvp-hit:
+    post:
+      summary: PvP hit
+      responses:
+        "200":
+          description: OK
+  /api/wallet-pools/my-pool:
+    get:
+      summary: Current wallet pool membership
+      responses:
+        "200":
+          description: OK
+  /api/wallet-pools/disputes:
+    get:
+      summary: List squeezing disputes
+      responses:
+        "200":
+          description: OK
+  /api/nft-events:
+    get:
+      summary: NFTJI events feed
+      responses:
+        "200":
+          description: OK

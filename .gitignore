@@ -17,3 +17,21 @@ MathsMine3.zip
 .env*.local
 
 certificates
+
+# Android TWA signing / build artifacts (never commit secrets)
+android/android.keystore
+android/*.keystore
+android/local.properties
+android/.gradle/
+android/**/build/
+android/store_icon.png
+android/maskable_icon.png
+*.apk
+*.aab
+
+# Native Android
+apps/android-native/local.properties
+apps/android-native/.gradle/
+apps/android-native/**/build/
+apps/android-native/*.keystore
+apps/android-native/dist/*.apk

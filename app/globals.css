@@ -122,6 +122,52 @@ button:disabled { opacity: .4; cursor: not-allowed; }
     pointer-events: auto;
   }
 }
+/* Native Android WebView embed — touch FPV, full-bleed, no 390px preview frame. */
+html.mm3-native-embed {
+  background: #070b0f !important;
+}
+html.mm3-native-embed body {
+  width: 100% !important;
+  max-width: none !important;
+  min-height: 100dvh;
+  margin: 0 !important;
+  overflow: hidden !important;
+  box-shadow: none !important;
+}
+html.mm3-native-embed .mm3-touch-controls { display: flex !important; }
+html.mm3-native-embed .mm3-desktop-controls { display: none !important; }
+html.mm3-native-embed .mm3-desktop-only { display: none !important; }
+html.mm3-native-embed .mm3-fpv-overlay-canvas { pointer-events: none !important; }
+html.mm3-native-embed .mm3-touch-look-pad {
+  display: block !important;
+  position: absolute;
+  z-index: 4;
+  top: 11%;
+  left: 38%;
+  right: 0;
+  bottom: calc(108px + env(safe-area-inset-bottom, 0px));
+  pointer-events: auto;
+}
+html.mm3-native-embed .mm3-shell-main {
+  padding: 0 !important;
+  margin: 0 !important;
+  height: 100vh !important;
+  height: 100dvh !important;
+  overflow: hidden !important;
+}
+html.mm3-native-embed .mm3-mining3d-root {
+  max-width: none !important;
+  margin: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+}
+@media (hover: hover) and (pointer: fine) {
+  html.mm3-native-embed .mm3-touch-controls { display: flex !important; }
+  html.mm3-native-embed .mm3-desktop-controls { display: none !important; }
+  html.mm3-native-embed .mm3-desktop-only { display: none !important; }
+  html.mm3-native-embed .mm3-touch-look-pad { display: block !important; }
+}
+
 /* Local mobile preview (mm3_mobile=1) — forced 390×844 Android portrait on PC. */
 html.mm3-mobile-preview {
   font-size: 18px !important;
