@@ -43,6 +43,7 @@
 - [Security Audit](#security-audit)
 - [Emoji Catalog](#emoji-catalog)
 - [Tech Stack](#tech-stack)
+- [Platforms](#platforms)
 - [Run Locally](#run-locally)
 - [Deploy on Vercel](#deploy-on-vercel)
 - [Legal](#legal)
@@ -1005,6 +1006,13 @@ Secret effect: steals MM3 → executor. `x = daily nonce (100–799)`.
 | Charts | Recharts |
 | Platform | Vercel (hosting, Analytics, Speed Insights) |
 | Blockchain | Alchemy webhook (ETH mainnet realchain trace) |
+| Android | Kotlin, Jetpack Compose, WebView embeds (`apps/android-native`) |
+
+### Platforms
+
+See **[docs/PLATFORMS.md](docs/PLATFORMS.md)** for the supported surfaces (web PC, web mobile, Android native), what is *not* supported (iOS, desktop native, legacy TWA), and how feature changes map to each.
+
+**Download Android APK:** GitHub → **Actions** → workflow **Android native APK** → artifact `mathsmine3-native-debug`. Tags `android-v*` publish a Release with the APK attached.
 
 ### Project Map
 
@@ -1014,6 +1022,8 @@ components/          UI, mining, chart, wallet, relaying, shell
 lib/                 Game logic, i18n, wallet helpers, macro, dice
 sql/                 Supabase schema and maintenance scripts
 public/              Images, metadata, manifest, sitemap, robots
+apps/android-native/ Native Android client (Compose + portal WebViews)
+docs/PLATFORMS.md    Supported platforms & APK download notes
 ```
 
 ---
@@ -1113,6 +1123,7 @@ Read:
 - [Análisis de Seguridad](#analisis-de-seguridad)
 - [Catálogo de Emojis](#catalogo-de-emojis)
 - [Stack Técnico](#stack-tecnico)
+- [Plataformas](#plataformas)
 - [Ejecución Local](#ejecucion-local)
 - [Despliegue en Vercel](#despliegue-en-vercel)
 - [Legal](#legal)
@@ -2071,6 +2082,13 @@ Efecto secreto: roba MM3 → wallet ejecutora. `x = nonce diario (100–799)`.
 | Gráficos | Recharts |
 | Plataforma | Vercel (hosting, Analytics, Speed Insights) |
 | Blockchain | Alchemy webhook (traza realchain ETH mainnet) |
+| Android | Kotlin, Jetpack Compose, WebViews del portal (`apps/android-native`) |
+
+### Plataformas
+
+Ver **[docs/PLATFORMS.md](docs/PLATFORMS.md)** (web PC, web móvil, app Android nativa; sin iOS / desktop nativo / TWA).
+
+**Descargar APK:** GitHub → **Actions** → **Android native APK** → artefacto `mathsmine3-native-debug`. Tags `android-v*` → Release con APK.
 
 ### Mapa del Proyecto
 
@@ -2080,6 +2098,8 @@ components/          UI, mining, chart, wallet, Relaying, shell
 lib/                 Lógica de juego, i18n, wallet helpers, macro, dice
 sql/                 Schema Supabase y scripts de mantenimiento
 public/              Imágenes, metadata, manifest, sitemap, robots
+apps/android-native/ Cliente Android nativo (Compose + WebViews del portal)
+docs/PLATFORMS.md    Plataformas soportadas y descarga del APK
 ```
 
 ---

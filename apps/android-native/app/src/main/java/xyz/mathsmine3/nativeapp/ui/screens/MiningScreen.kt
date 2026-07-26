@@ -7,8 +7,8 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
@@ -90,22 +90,24 @@ fun MiningScreen(
             )
         }
 
+        // Tiny exit chip above the mobile joystick (left:14, 112×112, bottom ~22–52).
         Box(
             Modifier
-                .align(Alignment.TopStart)
-                .statusBarsPadding()
-                .padding(10.dp)
-                .border(1.dp, Mm3Colors.Cyan.copy(alpha = 0.4f), RoundedCornerShape(2.dp))
-                .background(Mm3Colors.BgDeep.copy(alpha = 0.85f), RoundedCornerShape(2.dp))
+                .align(Alignment.BottomStart)
+                .navigationBarsPadding()
+                .padding(start = 8.dp, bottom = 132.dp)
+                .border(1.dp, Mm3Colors.Cyan.copy(alpha = 0.35f), RoundedCornerShape(2.dp))
+                .background(Mm3Colors.BgDeep.copy(alpha = 0.72f), RoundedCornerShape(2.dp))
                 .clickable(onClick = onBack)
-                .padding(horizontal = 10.dp, vertical = 6.dp),
+                .padding(horizontal = 6.dp, vertical = 3.dp),
         ) {
             Text(
-                "‹ PORTAL",
-                color = Mm3Colors.Cyan,
+                "‹",
+                color = Mm3Colors.Cyan.copy(alpha = 0.9f),
                 fontFamily = FontFamily.Monospace,
                 fontWeight = FontWeight.Bold,
-                fontSize = 11.sp,
+                fontSize = 10.sp,
+                lineHeight = 10.sp,
             )
         }
     }

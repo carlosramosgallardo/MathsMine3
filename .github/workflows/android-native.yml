@@ -1,0 +1,99 @@
+name: Android native APK
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/android-native/**'
+      - 'scripts/android-native-build.sh'
+      - '.github/workflows/android-native.yml'
+      - 'docs/PLATFORMS.md'
+    tags:
+      - 'android-v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build debug APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Accept licenses & install platform
+        run: |
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager "platforms;android-34" "build-tools;34.0.0"
+
+      - name: Write portal env for Gradle (public client keys)
+        working-directory: ${{ github.workspace }}
+        env:
+          # Prefer repo Actions Variables (Settings → Variables); Secrets also work.
+          VAR_GOOGLE: ${{ vars.NEXT_PUBLIC_GOOGLE_CLIENT_ID }}
+          VAR_SUPA_URL: ${{ vars.NEXT_PUBLIC_SUPABASE_URL }}
+          VAR_SUPA_ANON: ${{ vars.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          SEC_GOOGLE: ${{ secrets.NEXT_PUBLIC_GOOGLE_CLIENT_ID }}
+          SEC_SUPA_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SEC_SUPA_ANON: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+        run: |
+          GOOGLE="${SEC_GOOGLE:-$VAR_GOOGLE}"
+          SUPA_URL="${SEC_SUPA_URL:-$VAR_SUPA_URL}"
+          SUPA_ANON="${SEC_SUPA_ANON:-$VAR_SUPA_ANON}"
+          {
+            echo "NEXT_PUBLIC_GOOGLE_CLIENT_ID=${GOOGLE}"
+            echo "NEXT_PUBLIC_SUPABASE_URL=${SUPA_URL}"
+            echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=${SUPA_ANON}"
+          } > .env.local
+          if [ -z "$GOOGLE" ]; then
+            echo "::warning::NEXT_PUBLIC_GOOGLE_CLIENT_ID empty — set repo Variable/Secret for Google Sign-In in the APK"
+          fi
+
+      - name: Assemble debug APK
+        working-directory: apps/android-native
+        run: |
+          echo "sdk.dir=$ANDROID_HOME" > local.properties
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon --stacktrace
+
+      - name: Stage APK
+        run: |
+          mkdir -p dist
+          cp -f apps/android-native/app/build/outputs/apk/debug/app-debug.apk \
+            dist/mathsmine3-native-debug.apk
+          ls -lh dist/
+
+      - name: Upload Actions artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: mathsmine3-native-debug
+          path: dist/mathsmine3-native-debug.apk
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Publish GitHub Release (tags android-v*)
+        if: startsWith(github.ref, 'refs/tags/android-v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/mathsmine3-native-debug.apk
+          generate_release_notes: true
+          body: |
+            MathsMine3 native Android debug APK (`xyz.mathsmine3.app`).
+
+            Install on a device/emulator (USB debugging or sideload).
+            See [docs/PLATFORMS.md](docs/PLATFORMS.md).
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

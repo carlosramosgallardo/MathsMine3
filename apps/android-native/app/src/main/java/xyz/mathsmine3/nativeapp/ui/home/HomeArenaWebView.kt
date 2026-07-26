@@ -90,7 +90,7 @@ class HomeArenaWebView(context: Context) : WebView(context) {
                   .mm3-shell-main {
                     padding: 0 !important;
                     margin: 0 !important;
-                    height: 100vh !important;
+                    height: 100% !important;
                     overflow: hidden !important;
                   }
                   body, html {
@@ -99,15 +99,16 @@ class HomeArenaWebView(context: Context) : WebView(context) {
                     height: 100% !important;
                   }
                   .mm3-home, .mm3-splash, .mm3-splash-body, .mm3-home-access {
-                    height: 100vh !important;
-                    min-height: 100vh !important;
+                    height: 100% !important;
+                    min-height: 0 !important;
                     padding: 0 !important;
                     margin: 0 !important;
                   }
                   .mm3-home-access-stage, .mm3-home-arena {
-                    width: 100vw !important;
-                    height: 100vh !important;
-                    min-height: 100vh !important;
+                    width: 100% !important;
+                    height: 100% !important;
+                    min-height: 0 !important;
+                    max-height: 100% !important;
                   }
                   .mm3-home-arena canvas {
                     width: 100% !important;
@@ -120,8 +121,8 @@ class HomeArenaWebView(context: Context) : WebView(context) {
                 // If embed page already bare, still fine.
                 var embed = document.querySelector('.mm3-home-arena-embed');
                 if (embed) {
-                  embed.style.width = '100vw';
-                  embed.style.height = '100vh';
+                  embed.style.width = '100%';
+                  embed.style.height = '100%';
                 }
               } catch (e) {}
             })();

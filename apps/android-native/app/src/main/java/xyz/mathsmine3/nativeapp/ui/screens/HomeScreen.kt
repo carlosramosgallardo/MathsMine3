@@ -161,7 +161,7 @@ fun HomeScreen(
             Box(
                 Modifier
                     .fillMaxWidth()
-                    .aspectRatio(1.05f)
+                    .height(156.dp)
                     .clip(RoundedCornerShape(4.dp))
                     .border(1.dp, Mm3Colors.Cyan.copy(alpha = 0.35f), RoundedCornerShape(4.dp))
                     .background(Mm3Colors.BgDeep),
@@ -178,7 +178,7 @@ fun HomeScreen(
                 )
             }
 
-            Spacer(Modifier.height(10.dp))
+            Spacer(Modifier.height(8.dp))
 
             NonagonRing(
                 portal = portal,
@@ -197,11 +197,11 @@ fun HomeScreen(
                 },
             )
 
-            Spacer(Modifier.height(10.dp))
+            Spacer(Modifier.height(8.dp))
 
             CaptionCard(access = current, onOpen = { openAccess(current) })
 
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(8.dp))
 
             SessionStrip(session = session, onAuth = onAuth)
 
@@ -209,7 +209,7 @@ fun HomeScreen(
             @Suppress("UNUSED_VARIABLE")
             val _api = api
 
-            Spacer(Modifier.height(56.dp))
+            Spacer(Modifier.height(24.dp))
         }
     }
 }
