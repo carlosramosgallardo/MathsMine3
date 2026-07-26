@@ -1012,7 +1012,7 @@ Secret effect: steals MM3 → executor. `x = daily nonce (100–799)`.
 
 See **[docs/PLATFORMS.md](docs/PLATFORMS.md)** for the supported surfaces (web PC, web mobile, Android native), what is *not* supported (iOS, desktop native, legacy TWA), and how feature changes map to each.
 
-**Download Android APK:** GitHub → **Actions** → workflow **Android native APK** → artifact `mathsmine3-native-debug`. Tags `android-v*` publish a Release with the APK attached.
+**Download Android APK:** GitHub → **Actions** → workflow **Android native APK** → artifact `mathsmine3-native-debug`. Tags `v0.1.0-beta.N` publish a Release with the APK attached.
 
 ### Project Map
 
@@ -2088,7 +2088,7 @@ Efecto secreto: roba MM3 → wallet ejecutora. `x = nonce diario (100–799)`.
 
 Ver **[docs/PLATFORMS.md](docs/PLATFORMS.md)** (web PC, web móvil, app Android nativa; sin iOS / desktop nativo / TWA).
 
-**Descargar APK:** GitHub → **Actions** → **Android native APK** → artefacto `mathsmine3-native-debug`. Tags `android-v*` → Release con APK.
+**Descargar APK:** GitHub → **Actions** → **Android native APK** → artefacto `mathsmine3-native-debug`. Tags `v0.1.0-beta.N` → Release con APK.
 
 ### Mapa del Proyecto
 
