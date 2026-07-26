@@ -1,6 +1,7 @@
 'use client';
 
 import { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import { signInWithGoogle } from '@/lib/wallet-session-client';
 
 const GoogleAuthCtx = createContext({
   googleWallet: null,
@@ -52,6 +53,13 @@ export function GoogleAuthProvider({ children }) {
     const { wallet } = await res.json();
     setGoogleWallet(wallet);
     localStorage.setItem('mm3_gw', wallet);
+
+    // Google wallets have no private key to sign with — re-verify the same
+    // access token server-side to earn a session (see 2026-07 security
+    // audit, phase 2). Non-fatal: login still succeeds without a session,
+    // just falls back to the pre-existing unauthenticated behavior.
+    try { await signInWithGoogle(accessToken, wallet); } catch { /* non-fatal */ }
+
     return wallet;
   }, []);
 

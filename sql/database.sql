@@ -2031,13 +2031,13 @@ GRANT SELECT                   ON mm3_chain_solvers           TO anon;
 GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO anon;
 
 -- Functions
--- REVOKED: these are trigger-only functions, never called directly by anon
--- GRANT EXECUTE ON FUNCTION public.update_leaderboard()              TO anon;
--- GRANT EXECUTE ON FUNCTION public.trigger_update_leaderboard_fn()   TO anon;
-GRANT EXECUTE ON FUNCTION public.mm3_leave_wallet_pool(text)       TO anon;
-GRANT EXECUTE ON FUNCTION public.mm3_leave_wallet_pool(text)       TO authenticated;
-GRANT EXECUTE ON FUNCTION public.mm3_pool_rank_from_level(integer) TO anon;
-GRANT EXECUTE ON FUNCTION public.mm3_pool_rank_from_level(integer) TO authenticated;
+-- SECURITY DEFINER RPCs are service_role-only (see migrations 20260707150000
+-- and 20260726180000) — anon/authenticated must never get direct EXECUTE,
+-- since these bypass RLS and all the validation the API routes do.
+GRANT EXECUTE ON FUNCTION public.update_leaderboard()              TO service_role;
+GRANT EXECUTE ON FUNCTION public.trigger_update_leaderboard_fn()   TO service_role;
+GRANT EXECUTE ON FUNCTION public.mm3_leave_wallet_pool(text)       TO service_role;
+GRANT EXECUTE ON FUNCTION public.mm3_pool_rank_from_level(integer) TO service_role;
 -- ==============================================
 -- PHASE 11: INITIAL LEADERBOARD POPULATION
 -- ==============================================

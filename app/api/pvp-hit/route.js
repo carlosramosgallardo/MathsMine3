@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic'
 import { createClient } from '@supabase/supabase-js'
 import { isInHousePoolPvpSafeZone } from '@/lib/mining-world-layout'
 import { applyDeathLevelPenalty } from '@/lib/death-penalty'
+import { walletFromRequest } from '@/lib/wallet-session'
 
 function serviceClient() {
   return createClient(
@@ -40,6 +41,12 @@ export async function POST(req) {
   }
   if (attackerIsAnon && !victimIsAnon) {
     return Response.json({ ok: false, error: 'anon_cannot_attack' }, { status: 403 })
+  }
+  // Real wallets must prove ownership via session; anon attackers (guest/bot
+  // PvP, already restricted to anon-vs-anon above) stay unauthenticated as
+  // before. 2026-07 audit phase 2.
+  if (!attackerIsAnon && walletFromRequest(req) !== attacker) {
+    return Response.json({ ok: false, error: 'unauthorized' }, { status: 401 })
   }
   if (Number.isFinite(victimGx) && Number.isFinite(victimGy) && isInHousePoolPvpSafeZone(victimGx, victimGy, victimGz)) {
     return Response.json({ ok: true, immune: true, damage: 0, health: 100, killed: false })

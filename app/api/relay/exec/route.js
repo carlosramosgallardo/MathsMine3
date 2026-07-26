@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { WALLET_DECORATIONS, computeRelayLevel } from '@/lib/wallet-decorations';
+import { walletFromRequest } from '@/lib/wallet-session';
 
 const ACTIVE_WINDOW_MS = 90_000;
 const COOLDOWN_MS = 24 * 60 * 60 * 1000;
@@ -33,13 +34,19 @@ export async function POST(req) {
     return Response.json({ ok: false, error: 'invalid_json' }, { status: 400 });
   }
 
-  const wallet = normalizeWallet(body?.wallet);
+  // The initiator must be the verified session wallet — targetWallet stays
+  // body-supplied since it's just who they're relaying to (like a PvP
+  // target), not an identity being acted as. See 2026-07 audit phase 2.
+  const wallet = walletFromRequest(req);
+  if (!wallet) {
+    return Response.json({ ok: false, error: 'unauthorized' }, { status: 401 });
+  }
   const targetWallet = normalizeWallet(body?.targetWallet);
 
-  if (!wallet || !targetWallet) {
+  if (!targetWallet) {
     return Response.json({ ok: false, error: 'missing_wallets' }, { status: 400 });
   }
-  if (!WALLET_RE.test(wallet) || !WALLET_RE.test(targetWallet)) {
+  if (!WALLET_RE.test(targetWallet)) {
     return Response.json({ ok: false, error: 'invalid_wallet' }, { status: 400 });
   }
   if (wallet === targetWallet) {

@@ -1,8 +1,8 @@
 export const dynamic = 'force-dynamic';
 
 import { createClient } from '@supabase/supabase-js';
-
-const WALLET_RE = /^0x[0-9a-f]{40}$/;
+import { sanitizeProgressPayload } from '@/lib/player-progress-guard';
+import { walletFromRequest } from '@/lib/wallet-session';
 
 function serviceClient() {
   return createClient(
@@ -17,9 +17,12 @@ export async function POST(req) {
     return Response.json({ ok: false, error: 'bad_json' }, { status: 400 });
   }
 
-  const wallet = String(body.wallet || '').toLowerCase().trim();
-  if (!WALLET_RE.test(wallet)) {
-    return Response.json({ ok: false, error: 'invalid_wallet' }, { status: 400 });
+  // Wallet comes from the verified session, not the body — see 2026-07
+  // security audit phase 2. A caller can no longer act as a wallet they
+  // haven't proven ownership of (signature or re-verified Google token).
+  const wallet = walletFromRequest(req);
+  if (!wallet) {
+    return Response.json({ ok: false, error: 'unauthorized' }, { status: 401 });
   }
 
   const progress = body.progress;
@@ -32,8 +35,9 @@ export async function POST(req) {
     return Response.json({ ok: false, error: 'invalid_level' }, { status: 400 });
   }
 
-  // Ensure wallet in payload matches authenticated wallet
-  const payload = { ...progress, wallet };
+  // Only forward known economy fields — reject anything else silently rather
+  // than letting the caller set arbitrary player_progress columns.
+  const payload = sanitizeProgressPayload(wallet, progress);
 
   const supabase = serviceClient();
   const { error } = await supabase

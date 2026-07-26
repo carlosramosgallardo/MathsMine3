@@ -9,6 +9,7 @@ import { CNY_TO_EUR, CNY_TO_USD, formatMoney } from '@/lib/sell-offer';
 import { DAILY_TASKS, getUtcDayBounds, loadDailyTaskProgress } from '@/lib/daily-tasks';
 import SectionFrame from '@/components/SectionFrame';
 import supabase from '@/lib/supabaseClient';
+import { apiFetch } from '@/lib/wallet-session-client';
 
 function formatReward(rewardEur, currency) {
   if (currency === 'USD') return formatMoney(rewardEur * (CNY_TO_USD / CNY_TO_EUR), 'USD');
@@ -122,11 +123,11 @@ export default function DailyTasks({ framed = true }) {
     setMessage('');
 
     try {
-      const response = await fetch('/api/daily-tasks/claim', {
+      const response = await apiFetch('/api/daily-tasks/claim', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ wallet: account.toLowerCase(), taskKey: task.key }),
-      });
+      }, account);
       const payload = await response.json();
       if (!response.ok || !payload.ok) {
         setMessage(payload.error || t('dailyTasks.claimError'));

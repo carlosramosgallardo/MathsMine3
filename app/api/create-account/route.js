@@ -2,6 +2,7 @@ export const dynamic = 'force-dynamic';
 
 import { createClient } from '@supabase/supabase-js';
 import { deriveVirtualWallet } from '@/lib/virtual-wallet';
+import { verifyGoogleAccessToken } from '@/lib/google-verify';
 
 // Persistent rate limiter — backed by mm3_account_creation_log so the limit is
 // shared across serverless instances and survives cold starts.
@@ -85,18 +86,8 @@ export async function POST(req) {
     if (!accessToken) return Response.json({ ok: false, error: 'missing_token' }, { status: 400 });
 
     // Verify token with Google and extract sub — done server-side, unforgeable
-    let sub;
-    try {
-      const r = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
-        headers: { Authorization: `Bearer ${accessToken}` },
-      });
-      if (!r.ok) return Response.json({ ok: false, error: 'invalid_token' }, { status: 401 });
-      ({ sub } = await r.json());
-    } catch {
-      return Response.json({ ok: false, error: 'google_verify_failed' }, { status: 500 });
-    }
-
-    if (!sub) return Response.json({ ok: false, error: 'no_sub' }, { status: 401 });
+    const sub = await verifyGoogleAccessToken(accessToken);
+    if (!sub) return Response.json({ ok: false, error: 'invalid_token' }, { status: 401 });
 
     const wallet = await deriveVirtualWallet(sub);
     const supabase = serviceClient();

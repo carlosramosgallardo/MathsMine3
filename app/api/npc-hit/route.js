@@ -2,6 +2,7 @@ export const dynamic = 'force-dynamic'
 
 import { createClient } from '@supabase/supabase-js'
 import { applyDeathLevelPenalty } from '@/lib/death-penalty'
+import { walletFromRequest } from '@/lib/wallet-session'
 
 // NPC bot chasers (M2–M5) deal a fixed 1 HP per hit, rate-limited hard so the
 // endpoint stays near-free: one write per wallet at most every NPC_COOLDOWN_MS.
@@ -33,6 +34,11 @@ export async function POST(req) {
   // Anon wallets have no server-side HP — client handles locally
   if (wallet.startsWith('anon-')) {
     return Response.json({ ok: true, isAnon: true })
+  }
+  // Real wallets: only the wallet's own owner can report taking NPC damage
+  // (closes forging death-level-penalty hits against another player). 2026-07 audit.
+  if (walletFromRequest(req) !== wallet) {
+    return Response.json({ ok: false, error: 'unauthorized' }, { status: 401 })
   }
 
   const now = Date.now()

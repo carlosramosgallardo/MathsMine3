@@ -22,9 +22,6 @@
 /api/m5-boss/idle
 /api/mine-block
 /api/mining-snapshot
-/api/mining/code-redeem
-/api/mining/nftji-buy
-/api/mining/nftji-resell
 /api/nft-events
 /api/node-dice
 /api/npc-hit

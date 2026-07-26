@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation'
 import { useI18n } from '@/lib/i18n-context'
 import { useCurrency } from '@/lib/currency-context'
 import { useActiveWallet } from '@/lib/use-active-wallet'
+import { apiFetch } from '@/lib/wallet-session-client'
 import { colorFromAddress } from '@/lib/wallet-colors'
 import { getDiceState } from '@/lib/dice'
 import {
@@ -1000,13 +1001,13 @@ export default function MiningChain3D() {
       if (newHP <= 0) triggerSelfDeath()
       return
     }
-    fetch('/api/npc-hit', {
+    apiFetch('/api/npc-hit', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       // npcWallet lets the server waive the hit when the NPC's AI wallet
       // shares a pool with the victim — no friendly fire, ever.
       body: JSON.stringify({ wallet: key, npcWallet: payload?.wallet || null }),
-    }).then(r => r.json()).then(result => {
+    }, key).then(r => r.json()).then(result => {
       if (!result?.ok || result.immune) return
       const newHP = Number(result.health ?? 100)
       setHealthMap(prev => ({ ...prev, [key]: newHP }))
@@ -2181,14 +2182,14 @@ export default function MiningChain3D() {
       setHealthMap(prev => ({ ...prev, [victim]: currentHealth }))
       return { ok: true, immune: true, damage: 0, health: currentHealth, killed: false }
     }
-    const response = await fetch('/api/pvp-hit', {
+    const response = await apiFetch('/api/pvp-hit', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
         attacker, victim, victimIsAnon, hitZone,
         victimGx, victimGy, victimGz, attackerGx, attackerGy, attackerGz,
       }),
-    }).then(r => r.json()).catch(() => null)
+    }, attacker).then(r => r.json()).catch(() => null)
     if (!response?.ok) return response
     if (response.immune) return response
     setHealthMap(prev => ({ ...prev, [victim]: Number(response.health ?? 100) }))

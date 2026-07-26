@@ -20,6 +20,21 @@ export async function POST(req) {
     return Response.json({ ok: false, error: 'invalid params' }, { status: 400 });
   }
 
+  // Disabled pending wallet-ownership proof (2026-07-26 security audit): this
+  // route credits `wallet` from the request body with no signature/session
+  // check, so a working version lets anyone who learns one hidden command
+  // drain EUR/USD/CNY from every other wallet into an address of their
+  // choosing. It used to be accidentally "protected" only by a crash
+  // (levelMultiplier referenced before its declaration) — that bug is fixed
+  // in runExecHiddenCmd() below, but the route itself stays gated off here
+  // until wallet-signature auth (phase 2) lands and can verify `wallet`
+  // against it. To re-enable: replace the line below with
+  // `return runExecHiddenCmd(wallet, command);`.
+  return Response.json({ ok: false, error: 'temporarily_disabled' }, { status: 503 });
+}
+
+// eslint-disable-next-line no-unused-vars
+async function runExecHiddenCmd(wallet, command) {
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
@@ -41,7 +56,6 @@ export async function POST(req) {
   const minLevel = Number(block.hidden_cmd_min_level) || 0;
   const priceEur = Number(block.price_eur) || 0;
   const isMm3Hidden = getMarketCommandForKey(block.block_key)?.effect === 'mm3';
-  const stealPerWallet = priceEur * 0.1 * levelMultiplier;
 
   // 2. Check executor level
   const { data: executorProgress } = await supabase
@@ -58,6 +72,7 @@ export async function POST(req) {
   const nftjiLevels = executorProgress?.mining_nftji_levels || {};
   const nftjiLevel = Math.max(0, Number(nftjiLevels[block.block_key] ?? 0));
   const levelMultiplier = 1 + nftjiLevel * 0.25;
+  const stealPerWallet = priceEur * 0.1 * levelMultiplier;
 
   // 3. Check public command active today for this block
   const nowIso = new Date().toISOString();

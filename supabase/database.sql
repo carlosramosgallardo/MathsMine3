@@ -1,4 +1,12 @@
-
+-- NOTE (2026-07-26): this dump drifted from the live schema — confirmed via
+-- direct pg_proc/has_function_privilege() queries against production that
+-- apply_mm3_boss_attack_player actually has an 8th arg (p_storm_active,
+-- added by migration 20260707160000) that this file's CREATE statement below
+-- does not show. GRANT/REVOKE lines for RPC functions have been corrected to
+-- match live reality (see migration 20260726180000), but the function BODY
+-- below may still be stale in other places. Regenerate this file properly
+-- (`supabase db dump --schema public`) next time it's touched instead of
+-- hand-patching it further.
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -3318,115 +3326,79 @@ GRANT USAGE ON SCHEMA "public" TO "service_role";
 
 
 
-GRANT ALL ON FUNCTION "public"."apply_mm3_boss_attack_player"("p_wallet" "text", "p_damage" integer, "p_boss_gx" numeric, "p_boss_gy" numeric, "p_player_gx" numeric, "p_player_gy" numeric, "p_boss_id" "text") TO "anon";
-GRANT ALL ON FUNCTION "public"."apply_mm3_boss_attack_player"("p_wallet" "text", "p_damage" integer, "p_boss_gx" numeric, "p_boss_gy" numeric, "p_player_gx" numeric, "p_player_gy" numeric, "p_boss_id" "text") TO "authenticated";
 GRANT ALL ON FUNCTION "public"."apply_mm3_boss_attack_player"("p_wallet" "text", "p_damage" integer, "p_boss_gx" numeric, "p_boss_gy" numeric, "p_player_gx" numeric, "p_player_gy" numeric, "p_boss_id" "text") TO "service_role";
 
 
 
-GRANT ALL ON FUNCTION "public"."apply_mm3_boss_player_hit"("p_wallet" "text", "p_damage" integer, "p_boss_id" "text") TO "anon";
-GRANT ALL ON FUNCTION "public"."apply_mm3_boss_player_hit"("p_wallet" "text", "p_damage" integer, "p_boss_id" "text") TO "authenticated";
 GRANT ALL ON FUNCTION "public"."apply_mm3_boss_player_hit"("p_wallet" "text", "p_damage" integer, "p_boss_id" "text") TO "service_role";
 
 
 
 REVOKE ALL ON FUNCTION "public"."apply_mm3_pvp_hit"("p_attacker" "text", "p_victim" "text", "p_victim_is_anon" boolean, "p_damage" integer, "p_eur_per_hit" numeric) FROM PUBLIC;
-GRANT ALL ON FUNCTION "public"."apply_mm3_pvp_hit"("p_attacker" "text", "p_victim" "text", "p_victim_is_anon" boolean, "p_damage" integer, "p_eur_per_hit" numeric) TO "anon";
-GRANT ALL ON FUNCTION "public"."apply_mm3_pvp_hit"("p_attacker" "text", "p_victim" "text", "p_victim_is_anon" boolean, "p_damage" integer, "p_eur_per_hit" numeric) TO "authenticated";
 GRANT ALL ON FUNCTION "public"."apply_mm3_pvp_hit"("p_attacker" "text", "p_victim" "text", "p_victim_is_anon" boolean, "p_damage" integer, "p_eur_per_hit" numeric) TO "service_role";
 
 
 
-GRANT ALL ON FUNCTION "public"."mm3_dispute_can_leave"("p_wallet" "text") TO "anon";
-GRANT ALL ON FUNCTION "public"."mm3_dispute_can_leave"("p_wallet" "text") TO "authenticated";
 GRANT ALL ON FUNCTION "public"."mm3_dispute_can_leave"("p_wallet" "text") TO "service_role";
 
 
 
-GRANT ALL ON FUNCTION "public"."mm3_dispute_cancel"("p_dispute_id" bigint) TO "anon";
-GRANT ALL ON FUNCTION "public"."mm3_dispute_cancel"("p_dispute_id" bigint) TO "authenticated";
 GRANT ALL ON FUNCTION "public"."mm3_dispute_cancel"("p_dispute_id" bigint) TO "service_role";
 
 
 
-GRANT ALL ON FUNCTION "public"."mm3_dispute_join"("p_dispute_id" bigint, "p_wallet" "text") TO "anon";
-GRANT ALL ON FUNCTION "public"."mm3_dispute_join"("p_dispute_id" bigint, "p_wallet" "text") TO "authenticated";
 GRANT ALL ON FUNCTION "public"."mm3_dispute_join"("p_dispute_id" bigint, "p_wallet" "text") TO "service_role";
 
 
 
-GRANT ALL ON FUNCTION "public"."mm3_dispute_resolve"("p_dispute_id" bigint) TO "anon";
-GRANT ALL ON FUNCTION "public"."mm3_dispute_resolve"("p_dispute_id" bigint) TO "authenticated";
 GRANT ALL ON FUNCTION "public"."mm3_dispute_resolve"("p_dispute_id" bigint) TO "service_role";
 
 
 
-GRANT ALL ON FUNCTION "public"."mm3_dispute_start_battle"("p_dispute_id" bigint) TO "anon";
-GRANT ALL ON FUNCTION "public"."mm3_dispute_start_battle"("p_dispute_id" bigint) TO "authenticated";
 GRANT ALL ON FUNCTION "public"."mm3_dispute_start_battle"("p_dispute_id" bigint) TO "service_role";
 
 
 
-GRANT ALL ON FUNCTION "public"."mm3_dispute_vote"("p_challenger_pool" "text", "p_defender_pool" "text", "p_wallet" "text") TO "anon";
-GRANT ALL ON FUNCTION "public"."mm3_dispute_vote"("p_challenger_pool" "text", "p_defender_pool" "text", "p_wallet" "text") TO "authenticated";
 GRANT ALL ON FUNCTION "public"."mm3_dispute_vote"("p_challenger_pool" "text", "p_defender_pool" "text", "p_wallet" "text") TO "service_role";
 
 
 
-GRANT ALL ON FUNCTION "public"."mm3_leave_wallet_pool"("p_wallet" "text") TO "anon";
-GRANT ALL ON FUNCTION "public"."mm3_leave_wallet_pool"("p_wallet" "text") TO "authenticated";
 GRANT ALL ON FUNCTION "public"."mm3_leave_wallet_pool"("p_wallet" "text") TO "service_role";
 
 
 
-GRANT ALL ON FUNCTION "public"."mm3_pool_max_wallets"("p_avg_level" integer) TO "anon";
-GRANT ALL ON FUNCTION "public"."mm3_pool_max_wallets"("p_avg_level" integer) TO "authenticated";
 GRANT ALL ON FUNCTION "public"."mm3_pool_max_wallets"("p_avg_level" integer) TO "service_role";
 
 
 
-GRANT ALL ON FUNCTION "public"."mm3_pool_rank_from_level"("p_level" integer) TO "anon";
-GRANT ALL ON FUNCTION "public"."mm3_pool_rank_from_level"("p_level" integer) TO "authenticated";
 GRANT ALL ON FUNCTION "public"."mm3_pool_rank_from_level"("p_level" integer) TO "service_role";
 
 
 
-GRANT ALL ON FUNCTION "public"."mm3_refresh_all_pool_ranks"() TO "authenticated";
 GRANT ALL ON FUNCTION "public"."mm3_refresh_all_pool_ranks"() TO "service_role";
 
 
 
-GRANT ALL ON FUNCTION "public"."mm3_refresh_pool_rank"("p_pool_code" "text") TO "authenticated";
 GRANT ALL ON FUNCTION "public"."mm3_refresh_pool_rank"("p_pool_code" "text") TO "service_role";
 
 
 
-GRANT ALL ON FUNCTION "public"."mm3_squeeze_nftji_take"("p_dispute_id" bigint, "p_wallet" "text") TO "anon";
-GRANT ALL ON FUNCTION "public"."mm3_squeeze_nftji_take"("p_dispute_id" bigint, "p_wallet" "text") TO "authenticated";
 GRANT ALL ON FUNCTION "public"."mm3_squeeze_nftji_take"("p_dispute_id" bigint, "p_wallet" "text") TO "service_role";
 
 
 
-GRANT ALL ON FUNCTION "public"."mm3_squeezing_nftji_take"("p_dispute_id" bigint, "p_wallet" "text") TO "anon";
-GRANT ALL ON FUNCTION "public"."mm3_squeezing_nftji_take"("p_dispute_id" bigint, "p_wallet" "text") TO "authenticated";
 GRANT ALL ON FUNCTION "public"."mm3_squeezing_nftji_take"("p_dispute_id" bigint, "p_wallet" "text") TO "service_role";
 
 
 
-GRANT ALL ON FUNCTION "public"."set_mm3_boss_idle_if_requested"("p_map_id" "text") TO "anon";
-GRANT ALL ON FUNCTION "public"."set_mm3_boss_idle_if_requested"("p_map_id" "text") TO "authenticated";
 GRANT ALL ON FUNCTION "public"."set_mm3_boss_idle_if_requested"("p_map_id" "text") TO "service_role";
 
 
 
-GRANT ALL ON FUNCTION "public"."trigger_update_leaderboard_fn"() TO "anon";
-GRANT ALL ON FUNCTION "public"."trigger_update_leaderboard_fn"() TO "authenticated";
 GRANT ALL ON FUNCTION "public"."trigger_update_leaderboard_fn"() TO "service_role";
 
 
 
-GRANT ALL ON FUNCTION "public"."update_leaderboard"() TO "anon";
-GRANT ALL ON FUNCTION "public"."update_leaderboard"() TO "authenticated";
 GRANT ALL ON FUNCTION "public"."update_leaderboard"() TO "service_role";
 
 

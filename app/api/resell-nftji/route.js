@@ -9,10 +9,8 @@ import {
   MM3_MINE_BLOCK_TOTAL,
 } from '@/lib/mm3-block-chain';
 import { getDiceState } from '@/lib/dice';
+import { walletFromRequest } from '@/lib/wallet-session';
 
-function normalizeWallet(v) {
-  return String(v || '').trim().toLowerCase();
-}
 function toCnyFromEur(v) { return Number(v || 0) / CNY_TO_EUR; }
 function toUsdFromEur(v) { return Number(v || 0) * (CNY_TO_USD / CNY_TO_EUR); }
 
@@ -22,10 +20,10 @@ export async function POST(req) {
     return Response.json({ ok: false, error: 'bad_json' }, { status: 400 });
   }
 
-  const wallet   = normalizeWallet(body.wallet);
+  const wallet   = walletFromRequest(req);
   const blockHex = normalizeBlockHex(body.blockHex);
   if (!wallet || !blockHex) {
-    return Response.json({ ok: false, error: 'invalid_payload' }, { status: 400 });
+    return Response.json({ ok: false, error: wallet ? 'invalid_payload' : 'unauthorized' }, { status: wallet ? 400 : 401 });
   }
 
   const grid = blockHexToGrid(blockHex);

@@ -1,26 +1,37 @@
 export const dynamic = 'force-dynamic';
 
 import { createClient } from '@supabase/supabase-js';
-import { clampMacroPercent } from '@/lib/mm3-macro';
+import { clampMacroPercent, NUDGE_MAX_DELTA } from '@/lib/mm3-macro';
+import { walletFromRequest } from '@/lib/wallet-session';
 
-const WALLET_RE = /^0x[0-9a-fA-F]{40}$/
+function randomNudge(current) {
+  const delta = (Math.random() * (2 * NUDGE_MAX_DELTA)) - NUDGE_MAX_DELTA;
+  return clampMacroPercent(current + delta);
+}
 
 export async function POST(req) {
-  let body;
-  try { body = await req.json(); } catch { return Response.json({ ok: false, error: 'bad json' }, { status: 400 }); }
-
-  const wallet = String(body.wallet || '').trim()
-  if (!WALLET_RE.test(wallet)) {
-    return Response.json({ ok: false, error: 'wallet required' }, { status: 401 })
+  if (!walletFromRequest(req)) {
+    return Response.json({ ok: false, error: 'unauthorized' }, { status: 401 })
   }
 
-  const war_percent     = clampMacroPercent(body.war_percent);
-  const nature_percent  = clampMacroPercent(body.nature_percent);
-
+  // Server-role client: bypasses RLS but that's fine here, since the values
+  // below are always derived server-side from the current row, never trusted
+  // from the request body. See 2026-07 security audit — the previous version
+  // upserted the caller's own war_percent/nature_percent verbatim, letting
+  // any request set the global storm state to 100% (instant-kill damage).
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+    process.env.SUPABASE_SERVICE_ROLE_KEY,
   );
+
+  const { data: current } = await supabase
+    .from('mm3_macro_state')
+    .select('war_percent, nature_percent')
+    .eq('id', 1)
+    .maybeSingle();
+
+  const war_percent    = randomNudge(Number(current?.war_percent) || 0);
+  const nature_percent = randomNudge(Number(current?.nature_percent) || 0);
 
   const { error } = await supabase
     .from('mm3_macro_state')

@@ -11,6 +11,7 @@ import { TRADE_SLOT_ORDER, SQUEEZE_SLOT_ORDER, WALLET_DECORATIONS, TRADING_NFTJI
 import { useDice } from '@/lib/dice-context';
 import { getDiceState } from '@/lib/dice';
 import { useSound } from '@/lib/sound-context';
+import { apiFetch } from '@/lib/wallet-session-client';
 import PageLoading from '@/components/PageLoading';
 
 const MIN_TRADE_MM3 = 0.00001;
@@ -354,12 +355,42 @@ export default function TradeBoard({ account, isVirtualWallet = false }) {
     }
     if (showTransactions) {
       loadTransactions();
-      setTimeout(() => {
-        if (window.matchMedia?.('(max-width: 767px)').matches) return;
-        ledgerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }, 40);
     }
   }, [showTransactions, account, transactionsPage]);
+
+  // Bring TX.LOG into view (native WebView often ignores a single early scrollIntoView).
+  useEffect(() => {
+    if (!showTransactions || !ledgerRef.current) return undefined;
+    const scrollLedgerIntoView = () => {
+      const el = ledgerRef.current;
+      if (!el || typeof window === 'undefined') return;
+      try {
+        el.scrollIntoView({ behavior: 'auto', block: 'start', inline: 'nearest' });
+      } catch {
+        /* ignore */
+      }
+      try {
+        const docTop = window.pageYOffset
+          || document.documentElement.scrollTop
+          || document.body.scrollTop
+          || 0;
+        const y = Math.max(0, el.getBoundingClientRect().top + docTop - 10);
+        window.scrollTo(0, y);
+        document.documentElement.scrollTop = y;
+        document.body.scrollTop = y;
+      } catch {
+        /* ignore */
+      }
+    };
+    const t0 = window.setTimeout(scrollLedgerIntoView, 40);
+    const t1 = window.setTimeout(scrollLedgerIntoView, 220);
+    const t2 = window.setTimeout(scrollLedgerIntoView, 600);
+    return () => {
+      window.clearTimeout(t0);
+      window.clearTimeout(t1);
+      window.clearTimeout(t2);
+    };
+  }, [showTransactions, transactionsLoading, transactions.length, transactionsPage]);
 
   useEffect(() => {
     const tick = () => {
@@ -526,11 +557,11 @@ export default function TradeBoard({ account, isVirtualWallet = false }) {
               updated_at: new Date().toISOString(),
             };
 
-      const progressRes = await fetch('/api/trade/exec', {
+      const progressRes = await apiFetch('/api/trade/exec', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ wallet, progress: nextProgress }),
-      });
+      }, wallet);
       if (!progressRes.ok) {
         const { error } = await progressRes.json().catch(() => ({}));
         throw new Error(error || 'trade exec failed');
@@ -598,19 +629,19 @@ export default function TradeBoard({ account, isVirtualWallet = false }) {
         playNftDrop();
       }
 
-      // Nudge war/nature ±10% on every EXEC — written server-side to bypass RLS
-      const nudge = (current) => {
-        const delta = (Math.random() * 20) - 10;
-        return Math.round(Math.max(0, Math.min(100, current + delta)) * 10) / 10;
-      };
-      const newWar = nudge(liveMacroState.war_percent);
-      const newNature = nudge(liveMacroState.nature_percent);
-      fetch('/api/nudge-macro', {
+      // Nudge war/nature ±10% on every EXEC. The server computes the actual
+      // delta from its own current row (never trusts a client-sent value —
+      // see 2026-07 security audit), so we just reflect back whatever it
+      // decides.
+      apiFetch('/api/nudge-macro', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ war_percent: newWar, nature_percent: newNature, wallet }),
-      }).then((r) => r.ok && setMacroState({ war_percent: newWar, nature_percent: newNature }))
-        .catch(() => {});
+        body: JSON.stringify({ wallet }),
+      }, wallet).then((r) => r.json().catch(() => null).then((data) => {
+        if (r.ok && data?.ok) {
+          setMacroState({ war_percent: data.war_percent, nature_percent: data.nature_percent });
+        }
+      })).catch(() => {});
 
       markLeaderboardDirty();
       await loadDailyTxCount(wallet);
@@ -694,10 +725,49 @@ export default function TradeBoard({ account, isVirtualWallet = false }) {
             .mm3-trade-board-closed .mm3-trade-breakdown {
               margin-top: 0.35rem;
             }
+            /* Compact NFTJI tiles: less chrome padding, same emoji / skill / Lv sizes */
+            .mm3-trade-arsenal {
+              padding: 0.35rem 0.4rem !important;
+            }
+            .mm3-trade-arsenal > div:first-child {
+              margin-bottom: 0.35rem !important;
+            }
+            .mm3-trade-arsenal .mm3-trade-arsenal-grid,
+            .mm3-trade-arsenal .grid {
+              gap: 0.28rem !important;
+              width: 100% !important;
+              max-width: 100% !important;
+              justify-content: center !important;
+            }
+            .mm3-trade-slot {
+              width: 2.45rem !important;
+              height: 46px !important;
+              min-height: 46px !important;
+              padding: 0 !important;
+              gap: 0 !important;
+              border-radius: 0.3rem !important;
+            }
+            .mm3-trade-slot .mm3-trade-slot-skill {
+              padding-top: 1px !important;
+              padding-bottom: 1px !important;
+              font-size: 0.42rem !important;
+              line-height: 1 !important;
+            }
+            .mm3-trade-slot .mm3-trade-slot-emoji {
+              margin-top: 2px !important;
+              font-size: 1.05rem !important;
+              line-height: 1 !important;
+            }
+            .mm3-trade-slot .mm3-trade-slot-lvl {
+              margin-top: 0 !important;
+              font-size: 0.52rem !important;
+              line-height: 1 !important;
+            }
           `}</style>
           <>
-            <div className="mm3-trade-toolbar mb-3 flex flex-wrap items-start justify-between gap-2">
-              <div className="flex flex-wrap items-center gap-2">
+            <div className="mm3-trade-toolbar mb-3 flex flex-col items-stretch gap-2.5">
+              {/* Row 1 — mode + EXEC */}
+              <div className="flex flex-wrap items-center justify-center gap-2">
                 <div
                   className="mm3-trade-mode-switch relative inline-grid grid-cols-2 rounded-full border bg-black/70 p-1"
                   style={{ borderColor: tier.glow }}
@@ -748,28 +818,42 @@ export default function TradeBoard({ account, isVirtualWallet = false }) {
                 >
                   {loading || processing ? '⟳ EXEC' : 'EXEC'}
                 </button>
-                {zeroDayOffer && (
-                  <div
-                    className="flex flex-col items-center gap-2 rounded-lg border p-3 text-center"
-                    style={{ borderColor: '#a78bfaaa', background: 'rgba(24,10,38,0.85)', boxShadow: '0 0 16px rgba(167,139,250,0.25)' }}
-                  >
-                    <div className="text-xs leading-relaxed text-slate-300">
-                      {language === 'es'
-                        ? '👾 ZERO-DAY detectado en el EXEC — NFTJI de trading · skill HACKING en Mining (10% por golpe → OFFLINE 5s)'
-                        : '👾 ZERO-DAY detected on EXEC — trading NFTJI · Mining HACKING skill (10% per hit → OFFLINE 5s)'}
-                    </div>
-                    <button
-                      onClick={claimZeroDay}
-                      disabled={claimingZeroDay}
-                      aria-label="Claim Zero-Day NFTJI"
-                      className="min-w-14 rounded-lg border-2 px-4 py-2.5 font-mono text-2xl leading-none transition-all duration-200 disabled:opacity-40"
-                      style={{ borderColor: '#a78bfaaa', color: '#a78bfa', background: 'transparent' }}
-                    >
-                      {claimingZeroDay ? '⟳' : '👾'}
-                    </button>
+              </div>
+
+              {zeroDayOffer && (
+                <div
+                  className="mx-auto flex w-full max-w-md flex-col items-center gap-2 rounded-lg border p-3 text-center"
+                  style={{ borderColor: '#a78bfaaa', background: 'rgba(24,10,38,0.85)', boxShadow: '0 0 16px rgba(167,139,250,0.25)' }}
+                >
+                  <div className="text-xs leading-relaxed text-slate-300">
+                    {language === 'es'
+                      ? '👾 ZERO-DAY detectado en el EXEC — NFTJI de trading · skill HACKING en Mining (10% por golpe → OFFLINE 5s)'
+                      : '👾 ZERO-DAY detected on EXEC — trading NFTJI · Mining HACKING skill (10% per hit → OFFLINE 5s)'}
                   </div>
-                )}
-                <div className="flex flex-wrap items-center justify-center gap-1.5">
+                  <button
+                    onClick={claimZeroDay}
+                    disabled={claimingZeroDay}
+                    aria-label="Claim Zero-Day NFTJI"
+                    className="min-w-14 rounded-lg border-2 px-4 py-2.5 font-mono text-2xl leading-none transition-all duration-200 disabled:opacity-40"
+                    style={{ borderColor: '#a78bfaaa', color: '#a78bfa', background: 'transparent' }}
+                  >
+                    {claimingZeroDay ? '⟳' : '👾'}
+                  </button>
+                </div>
+              )}
+
+              {/* Row 2 — NFTJI arsenal (fixed grid, centered) */}
+              <div
+                className="mm3-trade-arsenal mx-auto w-full rounded-lg border bg-black/55 px-2 py-2"
+                style={{ borderColor: `${tier.glow}55` }}
+              >
+                <div
+                  className="mb-1.5 text-center text-[0.58rem] font-black uppercase tracking-[0.22em]"
+                  style={{ color: `${tier.color}99` }}
+                >
+                  NFTJI
+                </div>
+                <div className="mm3-trade-arsenal-grid mx-auto grid w-full grid-cols-7 gap-1 sm:grid-cols-8 md:grid-cols-10 lg:grid-cols-11 justify-items-center">
                   {TRADE_SLOT_ORDER.map((slot) => {
                     const owned = walletDecorations.includes(slot.emoji);
                     const isLife = slot.key === 'revive';
@@ -783,7 +867,7 @@ export default function TradeBoard({ account, isVirtualWallet = false }) {
                       <div
                         key={slot.key}
                         title={getTradeSlotTitle(slot, level, slotLvl, language)}
-                        className="mm3-trade-slot relative flex h-[58px] w-11 flex-col items-center justify-center overflow-hidden rounded-md border"
+                        className="mm3-trade-slot relative flex h-[46px] w-[2.45rem] flex-col items-center justify-center overflow-hidden rounded-md border"
                         style={{
                           borderColor,
                           background: owned ? (isLife ? '#100b18' : tier.bg) : 'rgba(2,6,23,0.4)',
@@ -793,20 +877,24 @@ export default function TradeBoard({ account, isVirtualWallet = false }) {
                       >
                         {owned && (
                           <span
-                            className="absolute inset-x-0 top-0 px-px py-0.5 text-center text-[0.42rem] font-black leading-none tracking-tight text-[#02060b]"
+                            className="mm3-trade-slot-skill absolute inset-x-0 top-0 px-px py-px text-center text-[0.42rem] font-black leading-none tracking-tight text-[#02060b]"
                             style={{ background: isLife ? LIFE_NFTJI_ACCENT : tier.color }}
                           >
                             {ability.label}
                           </span>
                         )}
-                        <span style={{
+                        <span
+                          className="mm3-trade-slot-emoji"
+                          style={{
                           fontSize: '1.05rem',
                           lineHeight: 1,
-                          marginTop: owned ? 7 : 0,
+                          marginTop: owned ? 2 : 0,
                           ...lifeNftjiEmojiFilterStyle(slot.emoji),
                         }}>{owned ? slot.emoji : ''}</span>
                         {owned && (
-                          <span style={{
+                          <span
+                            className="mm3-trade-slot-lvl"
+                            style={{
                             fontSize: '0.52rem',
                             fontFamily: 'monospace',
                             fontWeight: 800,
@@ -829,7 +917,7 @@ export default function TradeBoard({ account, isVirtualWallet = false }) {
                       <div
                         key={emoji}
                         title={getEmojiTitle(emoji) + (relayLvl != null ? ` | Lv.${relayLvl}` : '')}
-                        className="mm3-trade-slot flex h-[58px] w-11 flex-col items-center justify-center rounded-md border"
+                        className="mm3-trade-slot flex h-[46px] w-[2.45rem] flex-col items-center justify-center rounded-md border"
                         style={{
                           borderColor: owned ? tier.glow : 'rgba(148,163,184,0.22)',
                           background: owned ? tier.bg : 'rgba(2,6,23,0.4)',
@@ -856,7 +944,7 @@ export default function TradeBoard({ account, isVirtualWallet = false }) {
                       <div
                         key={slot.key}
                         title={getEmojiTitle(slot.emoji) + (owned ? ` | Lv.${lvl}` : '')}
-                        className="mm3-trade-slot flex h-[58px] w-11 flex-col items-center justify-center rounded-md border"
+                        className="mm3-trade-slot flex h-[46px] w-[2.45rem] flex-col items-center justify-center rounded-md border"
                         style={{
                           borderColor: owned ? tier.glow : 'rgba(148,163,184,0.22)',
                           background: owned ? tier.bg : 'rgba(2,6,23,0.4)',
@@ -880,7 +968,7 @@ export default function TradeBoard({ account, isVirtualWallet = false }) {
                     return (
                       <div
                         title={getEmojiTitle(TRADING_NFTJI.emoji) + (owned ? ` | Lv.${lvl}` : ' — none')}
-                        className="mm3-trade-slot flex h-[58px] w-11 flex-col items-center justify-center rounded-md border"
+                        className="mm3-trade-slot flex h-[46px] w-[2.45rem] flex-col items-center justify-center rounded-md border"
                         style={{
                           borderColor: owned ? 'rgba(167,139,250,0.6)' : 'rgba(167,139,250,0.22)',
                           background: owned ? tier.bg : 'rgba(2,6,23,0.4)',
@@ -900,7 +988,7 @@ export default function TradeBoard({ account, isVirtualWallet = false }) {
                   {/* Mining NFTJI — block emoji */}
                   <div
                     title={marketNftji ? `Mining NFTJI — ${marketNftji.emoji} | ${marketNftji.key} | Lv.${marketNftji.level}` : 'Mining NFTJI — none'}
-                    className="mm3-trade-slot flex h-[58px] w-11 flex-col items-center justify-center rounded-md border"
+                    className="mm3-trade-slot flex h-[46px] w-[2.45rem] flex-col items-center justify-center rounded-md border"
                     style={{
                       borderColor: marketNftji ? 'rgba(250,204,21,0.6)' : 'rgba(250,204,21,0.22)',
                       background: marketNftji ? tier.bg : 'rgba(2,6,23,0.4)',
@@ -913,23 +1001,33 @@ export default function TradeBoard({ account, isVirtualWallet = false }) {
                   </div>
                 </div>
               </div>
-              {account && (
-                <div className="flex items-center gap-2">
+
+              {/* Row 3 — daily rolls + TX.LOG + RATE (one bar) */}
+              <div
+                className="mm3-trade-meta mx-auto flex w-full max-w-lg flex-wrap items-stretch justify-center gap-2"
+              >
+                {account && (
                   <div
-                    className="mm3-trade-limit rounded-lg border bg-black/70 px-3 py-2 text-[0.82rem] font-black uppercase tracking-[0.18em]"
+                    className="mm3-trade-limit flex min-w-[5.5rem] flex-1 items-center justify-center rounded-lg border bg-black/70 px-3 py-2 text-center text-[0.82rem] font-black uppercase tracking-[0.18em]"
                     style={{ borderColor: `${tier.glow}99`, color: canTradeToday ? tier.color : '#fca5a5' }}
                   >
-                    #{visibleTxCount.toString(16).toUpperCase()}/#{DAILY_TX_LIMIT.toString(16).toUpperCase()}
-                    {!canTradeToday ? (
-                      <span className="ml-2 text-[0.76rem] text-amber-300">{t('tradeBoard.resetIn')} {resetCountdown}</span>
-                    ) : null}
+                    <span>
+                      #{visibleTxCount.toString(16).toUpperCase()}/#{DAILY_TX_LIMIT.toString(16).toUpperCase()}
+                      {!canTradeToday ? (
+                        <span className="mt-0.5 block text-[0.65rem] normal-case tracking-normal text-amber-300">
+                          {t('tradeBoard.resetIn')} {resetCountdown}
+                        </span>
+                      ) : null}
+                    </span>
                   </div>
+                )}
+                {account && (
                   <button
                     onClick={() => {
                       setTransactionsPage(1);
                       setShowTransactions((open) => !open);
                     }}
-                    className="mm3-trade-log-toggle rounded-lg border bg-black/70 px-4 py-2 text-[0.75rem] font-black uppercase tracking-[0.22em] transition"
+                    className="mm3-trade-log-toggle flex min-w-[5.5rem] flex-1 items-center justify-center rounded-lg border bg-black/70 px-3 py-2 text-[0.75rem] font-black uppercase tracking-[0.22em] transition"
                     style={{
                       borderColor: showTransactions ? tier.color : tier.glow,
                       color: showTransactions ? '#050810' : tier.color,
@@ -939,122 +1037,33 @@ export default function TradeBoard({ account, isVirtualWallet = false }) {
                   >
                     {t('tradeBoard.transactionsButton')}
                   </button>
-                </div>
-              )}
-            </div>
-
-            <div className="mb-3 flex justify-center">
-              <div
-                className="inline-flex flex-col items-center rounded-xl border px-6 py-2"
-                style={{
-                  background: 'rgba(0,0,0,0.7)',
-                  borderColor: tier.color + '35',
-                  boxShadow: `0 0 16px ${tier.color}12`,
-                }}
-              >
+                )}
                 <div
-                  className="text-[0.60rem] font-mono uppercase tracking-[0.18em] mb-0.5 leading-none"
-                  style={{ color: tier.color + 'aa' }}
+                  className="mm3-trade-rate flex min-w-[8rem] flex-[1.4] flex-col items-center justify-center rounded-lg border bg-black/70 px-3 py-1.5"
+                  style={{
+                    borderColor: `${tier.color}55`,
+                    boxShadow: `0 0 14px ${tier.color}12`,
+                  }}
                 >
-                  {t('tradeBoard.rate')}
-                </div>
-                <div
-                  className="text-[1.05rem] font-black font-mono leading-none"
-                  style={{ color: tier.color }}
-                >
-                  {formatMoney(activeRate, currency)} / MM3
-                </div>
-              </div>
-            </div>
-
-            <div className="mm3-trade-panel mb-3 rounded-lg border bg-black/65 p-3" style={{ borderColor: tier.glow }}>
-              <div className="mm3-trade-slider mb-3 rounded-lg border border-cyan-500/20 bg-black/50 p-2.5">
-                <div className="mm3-trade-slider-header mb-2 flex items-center justify-between gap-3 text-[0.82rem] uppercase tracking-[0.22em]" style={{ color: `${tier.color}AA` }}>
-                  <span>{t('tradeBoard.tradeAmount')}</span>
-                  <span style={{ color: tier.color }}>
-                    {mode === 'buy' ? formatMoney(selectedBuyFunds, currency) : `${fmtMm3(selectedSellMm3)} MM3`}
-                  </span>
-                </div>
-                <input
-                  type="range"
-                  min="0"
-                  max={SLIDER_STEPS}
-                  step="1"
-                  value={tradeRatio}
-                  disabled={sliderDisabled}
-                  onChange={(event) => setTradeRatio(Number(event.target.value))}
-                  className="w-full accent-cyan-400 disabled:opacity-40"
-                  aria-label={t('tradeBoard.tradeAmount')}
-                />
-                <div className="mm3-trade-slider-ends mt-2 flex items-center justify-between text-[0.75rem] text-slate-500">
-                  <span>{mode === 'buy' ? formatMoney(minBuyFunds, currency) : `${fmtMm3(minSellMm3)} MM3`}</span>
-                  <span>{mode === 'buy' ? formatMoney(maxBuyFunds, currency) : `${fmtMm3(maxSellMm3)} MM3`}</span>
-                </div>
-                {mode === 'buy' && !canBuy ? (
-                  <div className="mm3-trade-minimum mt-2 text-[0.75rem] uppercase tracking-[0.18em] text-amber-300/80">
-                    {t('tradeBoard.minimumNeeded')}: {formatMoney(minBuyFunds, currency)}
+                  <div
+                    className="text-[0.55rem] font-mono uppercase tracking-[0.18em] leading-none"
+                    style={{ color: `${tier.color}aa` }}
+                  >
+                    {t('tradeBoard.rate')}
                   </div>
-                ) : mode === 'sell' && !canSell ? (
-                  <div className="mm3-trade-minimum mt-2 text-[0.75rem] uppercase tracking-[0.18em] text-amber-300/80">
-                    {t('tradeBoard.minimumNeeded')}: {fmtMm3(MIN_TRADE_MM3)} MM3
-                  </div>
-                ) : null}
-              </div>
-
-              <div className="mm3-trade-results grid gap-2 sm:grid-cols-2">
-                <div className="mm3-trade-result-card rounded-lg border p-2.5" style={{ borderColor: tier.glow, background: tier.bg }}>
-              <div className="mm3-trade-result-label text-[0.82rem] uppercase tracking-[0.22em]" style={{ color: `${tier.color}AA` }}>{t('tradeBoard.youReceive')}</div>
-                  <div className="mm3-trade-value-primary mt-1 text-xl font-black" style={{ color: tier.color }}>
-                    {mode === 'buy' ? `${fmtMm3(activeQuote.netMm3)} MM3` : formatMoney(activeQuote[quoteField('net', currency)] || 0, currency)}
-                  </div>
-                  <div className="mm3-trade-breakdown mt-2 text-[0.82rem] leading-relaxed text-cyan-200/70">
-                    {t('tradeBoard.receiveBase')}{' '}
-                    <span className="text-cyan-200">
-                      {mode === 'buy' ? `${fmtMm3(receiveBaseAmount)} MM3` : formatMoney(receiveBaseAmount, currency)}
-                    </span>
-                    {' | '}
-                    {t('tradeBoard.receiveNft')}{' '}
-                    <span className="text-cyan-200">x{boostBreakdown.nftMultiplier.toFixed(3)}</span>
-                    {' | '}
-                    {t('tradeBoard.receiveLevel')}{' '}
-                    <span className="text-cyan-200">x{boostBreakdown.levelMultiplier.toFixed(3)}</span>
-                    {' | '}
-                    {t('tradeBoard.receiveBonus')}{' '}
-                    <span className="text-cyan-200">
-                      {mode === 'buy' ? `${fmtMm3(receiveBonusAmount)} MM3` : formatMoney(receiveBonusAmount, currency)}
-                    </span>
-                  </div>
-                </div>
-                <div className="mm3-trade-result-card rounded-lg border border-amber-300/20 bg-amber-500/5 p-2.5">
-                  <div className="flex items-center justify-between">
-                    <div className="mm3-trade-commission-label text-[0.82rem] uppercase tracking-[0.22em] text-amber-200/60">{t('tradeBoard.commission')}</div>
-                    {diceState?.active && (
-                      <div
-                        className="flex items-center gap-0.5 rounded-full border px-1.5 py-0.5 text-[0.75rem] font-black"
-                        style={{ borderColor: `${diceState.color}60`, color: diceState.color }}
-                        title={
-                          language === 'es'
-                            ? `🎲 dado activo :: comision ${diceState.modifier >= 0 ? '+' : ''}${Math.round(diceState.modifier * 100)}%`
-                            : `🎲 active die :: commission ${diceState.modifier >= 0 ? '+' : ''}${Math.round(diceState.modifier * 100)}%`
-                        }
-                      >
-                        <span>🎲</span>
-                        <span>{diceState.modifier >= 0 ? '+' : ''}{Math.round(diceState.modifier * 100)}%</span>
-                      </div>
-                    )}
-                  </div>
-                  <div className="mm3-trade-value-secondary mt-1 text-lg font-black text-amber-300">
-                    {formatMoney(activeQuote[quoteField('commission', currency)] || 0, currency)}
-                  </div>
-                  <div className="mm3-trade-commission-subtext mt-1 text-xs text-amber-100/70">
-                    {fmtMm3(activeQuote.commissionMm3)} MM3 ({(activeQuote.commissionRate * 100).toFixed(2)}%)
+                  <div
+                    className="mt-0.5 text-[0.95rem] font-black font-mono leading-none"
+                    style={{ color: tier.color }}
+                  >
+                    {formatMoney(activeRate, currency)} / MM3
                   </div>
                 </div>
               </div>
             </div>
 
+            {/* TX.LOG ledger — directly under toolbar so native/mobile can see it */}
             {account && showTransactions && (
-              <div ref={ledgerRef} className="mm3-trade-log mt-4 rounded-lg border bg-black/70 p-4" style={{ borderColor: tier.glow }}>
+              <div ref={ledgerRef} className="mm3-trade-log mt-2 max-h-[min(60vh,28rem)] overflow-y-auto overscroll-contain rounded-lg border bg-black/70 p-3" style={{ borderColor: tier.glow, WebkitOverflowScrolling: 'touch' }}>
                 <div className="mb-3 flex items-center justify-between gap-3">
                   <div>
                     <div className="text-[0.82rem] uppercase tracking-[0.28em]" style={{ color: `${tier.color}AA` }}>
@@ -1165,6 +1174,94 @@ export default function TradeBoard({ account, isVirtualWallet = false }) {
                 )}
               </div>
             )}
+
+            <div className="mm3-trade-panel mb-3 rounded-lg border bg-black/65 p-3" style={{ borderColor: tier.glow }}>
+              <div className="mm3-trade-slider mb-3 rounded-lg border border-cyan-500/20 bg-black/50 p-2.5">
+                <div className="mm3-trade-slider-header mb-2 flex items-center justify-between gap-3 text-[0.82rem] uppercase tracking-[0.22em]" style={{ color: `${tier.color}AA` }}>
+                  <span>{t('tradeBoard.tradeAmount')}</span>
+                  <span style={{ color: tier.color }}>
+                    {mode === 'buy' ? formatMoney(selectedBuyFunds, currency) : `${fmtMm3(selectedSellMm3)} MM3`}
+                  </span>
+                </div>
+                <input
+                  type="range"
+                  min="0"
+                  max={SLIDER_STEPS}
+                  step="1"
+                  value={tradeRatio}
+                  disabled={sliderDisabled}
+                  onChange={(event) => setTradeRatio(Number(event.target.value))}
+                  className="w-full accent-cyan-400 disabled:opacity-40"
+                  aria-label={t('tradeBoard.tradeAmount')}
+                />
+                <div className="mm3-trade-slider-ends mt-2 flex items-center justify-between text-[0.75rem] text-slate-500">
+                  <span>{mode === 'buy' ? formatMoney(minBuyFunds, currency) : `${fmtMm3(minSellMm3)} MM3`}</span>
+                  <span>{mode === 'buy' ? formatMoney(maxBuyFunds, currency) : `${fmtMm3(maxSellMm3)} MM3`}</span>
+                </div>
+                {mode === 'buy' && !canBuy ? (
+                  <div className="mm3-trade-minimum mt-2 text-[0.75rem] uppercase tracking-[0.18em] text-amber-300/80">
+                    {t('tradeBoard.minimumNeeded')}: {formatMoney(minBuyFunds, currency)}
+                  </div>
+                ) : mode === 'sell' && !canSell ? (
+                  <div className="mm3-trade-minimum mt-2 text-[0.75rem] uppercase tracking-[0.18em] text-amber-300/80">
+                    {t('tradeBoard.minimumNeeded')}: {fmtMm3(MIN_TRADE_MM3)} MM3
+                  </div>
+                ) : null}
+              </div>
+
+              <div className="mm3-trade-results grid gap-2 sm:grid-cols-2">
+                <div className="mm3-trade-result-card rounded-lg border p-2.5" style={{ borderColor: tier.glow, background: tier.bg }}>
+              <div className="mm3-trade-result-label text-[0.82rem] uppercase tracking-[0.22em]" style={{ color: `${tier.color}AA` }}>{t('tradeBoard.youReceive')}</div>
+                  <div className="mm3-trade-value-primary mt-1 text-xl font-black" style={{ color: tier.color }}>
+                    {mode === 'buy' ? `${fmtMm3(activeQuote.netMm3)} MM3` : formatMoney(activeQuote[quoteField('net', currency)] || 0, currency)}
+                  </div>
+                  <div className="mm3-trade-breakdown mt-2 text-[0.82rem] leading-relaxed text-cyan-200/70">
+                    {t('tradeBoard.receiveBase')}{' '}
+                    <span className="text-cyan-200">
+                      {mode === 'buy' ? `${fmtMm3(receiveBaseAmount)} MM3` : formatMoney(receiveBaseAmount, currency)}
+                    </span>
+                    {' | '}
+                    {t('tradeBoard.receiveNft')}{' '}
+                    <span className="text-cyan-200">x{boostBreakdown.nftMultiplier.toFixed(3)}</span>
+                    {' | '}
+                    {t('tradeBoard.receiveLevel')}{' '}
+                    <span className="text-cyan-200">x{boostBreakdown.levelMultiplier.toFixed(3)}</span>
+                    {' | '}
+                    {t('tradeBoard.receiveBonus')}{' '}
+                    <span className="text-cyan-200">
+                      {mode === 'buy' ? `${fmtMm3(receiveBonusAmount)} MM3` : formatMoney(receiveBonusAmount, currency)}
+                    </span>
+                  </div>
+                </div>
+                <div className="mm3-trade-result-card rounded-lg border border-amber-300/20 bg-amber-500/5 p-2.5">
+                  <div className="flex items-center justify-between">
+                    <div className="mm3-trade-commission-label text-[0.82rem] uppercase tracking-[0.22em] text-amber-200/60">{t('tradeBoard.commission')}</div>
+                    {diceState?.active && (
+                      <div
+                        className="flex items-center gap-0.5 rounded-full border px-1.5 py-0.5 text-[0.75rem] font-black"
+                        style={{ borderColor: `${diceState.color}60`, color: diceState.color }}
+                        title={
+                          language === 'es'
+                            ? `🎲 dado activo :: comision ${diceState.modifier >= 0 ? '+' : ''}${Math.round(diceState.modifier * 100)}%`
+                            : `🎲 active die :: commission ${diceState.modifier >= 0 ? '+' : ''}${Math.round(diceState.modifier * 100)}%`
+                        }
+                      >
+                        <span>🎲</span>
+                        <span>{diceState.modifier >= 0 ? '+' : ''}{Math.round(diceState.modifier * 100)}%</span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="mm3-trade-value-secondary mt-1 text-lg font-black text-amber-300">
+                    {formatMoney(activeQuote[quoteField('commission', currency)] || 0, currency)}
+                  </div>
+                  <div className="mm3-trade-commission-subtext mt-1 text-xs text-amber-100/70">
+                    {fmtMm3(activeQuote.commissionMm3)} MM3 ({(activeQuote.commissionRate * 100).toFixed(2)}%)
+                  </div>
+                </div>
+              </div>
+            </div>
+
+
       </>
       </div>
     </div>

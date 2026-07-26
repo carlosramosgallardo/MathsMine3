@@ -19,6 +19,7 @@ import { useIrcPresence } from '@/lib/relaying-presence-context';
 import { groupPresenceEntries } from '@/lib/presence-display';
 import { colorFromAddress, colorFromPool } from '@/lib/wallet-colors';
 import { formatWalletLabel } from '@/lib/wallet-format';
+import { apiFetch } from '@/lib/wallet-session-client';
 
 const ACTIVE_WINDOW_MS = 90_000;
 const MAX_SESSION_MESSAGES = 500;
@@ -1466,11 +1467,11 @@ export default function RelayingTerminal({ accent = '#22d3ee' }) {
           .insert(penalties);
         if (penaltyError) throw penaltyError;
 
-        const penalizeRes = await fetch('/api/relay/penalize', {
+        const penalizeRes = await apiFetch('/api/relay/penalize', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ updates: balanceUpdates }),
-        });
+        }, normalizedWallet);
         if (!penalizeRes.ok) {
           const { error } = await penalizeRes.json().catch(() => ({}));
           throw new Error(error || 'relay penalize failed');
@@ -1557,11 +1558,11 @@ export default function RelayingTerminal({ accent = '#22d3ee' }) {
     if (!match || !normalizedWallet) return false;
 
     const blockHex = normalizeBlockHex(match[1]);
-    const res = await fetch('/api/resell-nftji', {
+    const res = await apiFetch('/api/resell-nftji', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ wallet: normalizedWallet, blockHex }),
-    });
+    }, normalizedWallet);
     const data = await res.json().catch(() => ({}));
     if (data.ok) {
       if (data.trace) {
@@ -1757,11 +1758,11 @@ export default function RelayingTerminal({ accent = '#22d3ee' }) {
           return;
         }
         try {
-          const res = await fetch('/api/relay/exec', {
+          const res = await apiFetch('/api/relay/exec', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ wallet: normalizedWallet, targetWallet: onlineWallet.wallet }),
-          });
+          }, normalizedWallet);
           const data = await res.json().catch(() => ({}));
           if (!res.ok || !data.ok) {
             const errMap = {

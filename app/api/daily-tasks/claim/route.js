@@ -2,6 +2,7 @@ export const dynamic = 'force-dynamic';
 
 import { createClient } from '@supabase/supabase-js';
 import { CNY_TO_EUR, CNY_TO_USD } from '@/lib/sell-offer';
+import { walletFromRequest } from '@/lib/wallet-session';
 
 function getUtcDayBounds(now = new Date()) {
   const start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
@@ -38,11 +39,14 @@ export async function POST(req) {
     return Response.json({ ok: false, error: 'bad json' }, { status: 400 });
   }
 
-  const wallet = String(body.wallet || '').toLowerCase().trim();
+  const wallet = walletFromRequest(req);
   const taskKey = String(body.taskKey || '').trim();
   const task = TASKS[taskKey];
 
-  if (!wallet || !task) {
+  if (!wallet) {
+    return Response.json({ ok: false, error: 'unauthorized' }, { status: 401 });
+  }
+  if (!task) {
     return Response.json({ ok: false, error: 'invalid params' }, { status: 400 });
   }
 

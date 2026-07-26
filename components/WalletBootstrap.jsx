@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react';
 import { useActiveWallet } from '@/lib/use-active-wallet';
+import { signInWithWallet } from '@/lib/wallet-session-client';
 
 export default function WalletBootstrap() {
   const { account, isVirtualWallet } = useActiveWallet();
@@ -29,6 +30,15 @@ export default function WalletBootstrap() {
         }
       } catch (err) {
         if (!cancelled) console.error('wallet bootstrap failed:', err);
+      }
+
+      // One signature prompt (skipped entirely if a valid session is already
+      // cached) — proves the caller actually controls this wallet's private
+      // key. See 2026-07 security audit, phase 2.
+      try {
+        if (!cancelled) await signInWithWallet(wallet);
+      } catch (err) {
+        if (!cancelled) console.error('wallet session sign-in failed:', err);
       }
     };
 

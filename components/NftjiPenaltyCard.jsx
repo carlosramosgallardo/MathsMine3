@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { apiFetch } from '@/lib/wallet-session-client'
 
 const C_PENALTY = '#d946ef'
 const C_GOLD    = '#facc15'
@@ -47,7 +48,7 @@ export default function NftjiPenaltyCard({
     if (typed.length < 5) return
     setBusy(true)
     try {
-      const res = await fetch('/api/redeem-penalty', {
+      const res = await apiFetch('/api/redeem-penalty', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -58,7 +59,7 @@ export default function NftjiPenaltyCard({
           blockEmoji,
           language: es ? 'es' : 'en',
         }),
-      })
+      }, wallet)
       const data = await res.json()
       if (data.redeemed) {
         setResult('ok')

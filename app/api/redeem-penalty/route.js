@@ -1,11 +1,8 @@
 import { createClient } from '@supabase/supabase-js'
 import { CNY_TO_EUR, CNY_TO_USD } from '@/lib/sell-offer'
+import { walletFromRequest } from '@/lib/wallet-session'
 
 export const dynamic = 'force-dynamic'
-
-function normalizeWallet(w) {
-  return typeof w === 'string' ? w.toLowerCase().trim() : ''
-}
 
 export async function POST(req) {
   const supabase = createClient(
@@ -13,10 +10,16 @@ export async function POST(req) {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
   )
 
+  // Session wallet, not body.wallet — closes cross-wallet griefing (an
+  // attacker consuming a victim's one redemption attempt). 2026-07 audit.
+  const wallet = walletFromRequest(req)
+  if (!wallet) {
+    return Response.json({ ok: false, error: 'unauthorized' }, { status: 401 })
+  }
+
   let body
   try { body = await req.json() } catch { return Response.json({ ok: false, error: 'bad_json' }, { status: 400 }) }
 
-  const wallet    = normalizeWallet(body.wallet)
   const penaltyId = body.penaltyId
   const code      = String(body.code || '').replace(/\D/g, '').slice(0, 5)
   const blockHex  = String(body.blockHex || '')
