@@ -207,10 +207,17 @@ class PortalHeaderWebView @JvmOverloads constructor(
               try {
                 document.documentElement.classList.add('mm3-native-embed','mm3-native-header-embed');
                 var el = document.querySelector('header');
-                var h = el ? Math.ceil(el.getBoundingClientRect().height) : 0;
+                if (!el) return;
+                var h = Math.ceil(Math.max(el.getBoundingClientRect().height, el.scrollHeight || 0));
                 if (h > 0 && window.MM3NativeHeader && window.MM3NativeHeader.onHeight) {
                   window.MM3NativeHeader.onHeight(h);
                 }
+                setTimeout(function(){
+                  var h2 = Math.ceil(Math.max(el.getBoundingClientRect().height, el.scrollHeight || 0));
+                  if (h2 > 0 && window.MM3NativeHeader && window.MM3NativeHeader.onHeight) {
+                    window.MM3NativeHeader.onHeight(h2);
+                  }
+                }, 500);
               } catch (e) {}
             })();
             """.trimIndent(),

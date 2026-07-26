@@ -19,8 +19,10 @@ import androidx.compose.ui.viewinterop.AndroidView
 import xyz.mathsmine3.nativeapp.auth.Session
 import xyz.mathsmine3.nativeapp.ui.theme.Mm3Colors
 
-/** Default until JS reports the real portal header height (~mobile portrait). */
-private const val DEFAULT_HEADER_HEIGHT_DP = 168
+/** Default until JS reports the real portal header height (~mobile portrait, 3 rows). */
+private const val DEFAULT_HEADER_HEIGHT_DP = 220
+private const val MIN_HEADER_HEIGHT_DP = 180
+private const val MAX_HEADER_HEIGHT_DP = 320
 
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
@@ -47,8 +49,10 @@ fun PortalHeaderBar(
                     }
                 }
                 onHeaderHeightPx = { px ->
-                    val dp = with(density) { px.toDp().value.toInt().coerceIn(96, 260) }
-                    heightDp = dp
+                    val dp = with(density) {
+                        px.toDp().value.toInt().coerceIn(MIN_HEADER_HEIGHT_DP, MAX_HEADER_HEIGHT_DP)
+                    }
+                    if (dp > heightDp) heightDp = dp
                 }
                 loadHeader()
             }

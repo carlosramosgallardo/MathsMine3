@@ -38,7 +38,9 @@ export default function EmbedHeaderPage() {
     const report = () => {
       try {
         const el = document.querySelector('header');
-        const h = Math.ceil(el?.getBoundingClientRect().height || 0);
+        if (!el) return;
+        // Prefer scrollHeight after wrap (controls row + wallet row).
+        const h = Math.ceil(Math.max(el.getBoundingClientRect().height, el.scrollHeight));
         if (h > 0 && window.MM3NativeHeader?.onHeight) {
           window.MM3NativeHeader.onHeight(h);
         }
@@ -47,13 +49,22 @@ export default function EmbedHeaderPage() {
       }
     };
     report();
-    const t = window.setTimeout(report, 120);
-    const t2 = window.setTimeout(report, 600);
+    const times = [50, 150, 400, 900, 1600].map((ms) => window.setTimeout(report, ms));
     window.addEventListener('resize', report);
+    let ro;
+    try {
+      const el = document.querySelector('header');
+      if (el && typeof ResizeObserver !== 'undefined') {
+        ro = new ResizeObserver(() => report());
+        ro.observe(el);
+      }
+    } catch {
+      /* ignore */
+    }
     return () => {
-      window.clearTimeout(t);
-      window.clearTimeout(t2);
+      times.forEach((t) => window.clearTimeout(t));
       window.removeEventListener('resize', report);
+      try { ro?.disconnect(); } catch { /* */ }
     };
   }, [ready]);
 
