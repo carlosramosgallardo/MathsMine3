@@ -34,4 +34,5 @@ apps/android-native/local.properties
 apps/android-native/.gradle/
 apps/android-native/**/build/
 apps/android-native/*.keystore
-apps/android-native/dist/*.apk
+# Local QA outputs (APKs, screenshots) — never commit
+apps/android-native/dist/
