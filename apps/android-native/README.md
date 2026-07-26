@@ -13,7 +13,9 @@ Supported platforms overview: [`docs/PLATFORMS.md`](../../docs/PLATFORMS.md).
 
 Or install from a **Release** created by tagging `android-v*` (e.g. `git tag android-v2.0.0 && git push origin android-v2.0.0`).
 
-CI needs repo **Variables** (or Secrets): `NEXT_PUBLIC_GOOGLE_CLIENT_ID`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` (same public client values as the portal).
+CI needs GitHub Environment **`env`** secrets (or Variables):
+`NEXT_PUBLIC_GOOGLE_CLIENT_ID`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+(same public client values as the portal). The workflow job uses `environment: env`.
 
 ## Build
 

@@ -32,6 +32,9 @@ Supported surfaces for MathsMine3 today. One product, shared backend (`mathsmine
 
 Optional permanent link: push a tag `android-v*` (e.g. `android-v2.0.0`) — the workflow attaches the APK to a **GitHub Release**.
 
+The workflow uses GitHub Environment **`env`** secrets:
+`NEXT_PUBLIC_GOOGLE_CLIENT_ID`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`.
+
 Local build: `npm run android:native:build` (see [`apps/android-native/README.md`](../apps/android-native/README.md)).
 
 Preferred emulator for local QA: AVD **FreakingAI**.
