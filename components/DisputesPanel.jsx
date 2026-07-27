@@ -243,7 +243,7 @@ function SqueezeDropSlot({ emoji, color, level, claimable, claimed, busy, lang, 
   );
 }
 
-function DisputeCard({ dispute, activeWallet, poolCode, language, currency, onJoin, onClaimDrop, claimBusy, onWalletClick, onPoolClick, onMarketBlockClick, emojiByWallet, sqzNftjiByWallet, collapsed, onToggle }) {
+function DisputeCard({ dispute, activeWallet, poolCode, language, currency, onJoin, onAcceptProposal, acceptBusy, onClaimDrop, claimBusy, onWalletClick, onPoolClick, onMarketBlockClick, emojiByWallet, sqzNftjiByWallet, collapsed, onToggle }) {
   const lang = language === 'es' ? 'es' : 'en';
   const statusMeta = STATUS_LABELS[dispute.status] || STATUS_LABELS.resolved;
   const isProposing   = dispute.status === 'proposing';
@@ -253,7 +253,7 @@ function DisputeCard({ dispute, activeWallet, poolCode, language, currency, onJo
   const isCancelled   = dispute.status === 'cancelled';
   const trace = getDisputeTrace(dispute, lang);
 
-  const proposalDeadline = isProposing
+  const proposalDeadline = isProposing && dispute.registered_at
     ? new Date(dispute.registered_at).getTime() + 5 * 60 * 1000
     : null;
   const battleDeadline = isRegistering
@@ -264,9 +264,13 @@ function DisputeCard({ dispute, activeWallet, poolCode, language, currency, onJo
     : null;
 
   const registeredWallets = dispute.wallets || [];
-  const isInChallenger = poolCode === dispute.challenger_pool_code;
-  const isRegistered = registeredWallets.some((w) => w.wallet === activeWallet);
+  const myPoolUpper = String(poolCode || '').toUpperCase();
+  const isInChallenger = myPoolUpper && myPoolUpper === String(dispute.challenger_pool_code || '').toUpperCase();
+  const isRegistered = registeredWallets.some((w) => String(w.wallet || '').toLowerCase() === String(activeWallet || '').toLowerCase());
   const canJoin = isRegistering && isInChallenger && !isRegistered && activeWallet;
+  const voted = (dispute.votes || []).map((w) => String(w || '').toLowerCase())
+    .includes(String(activeWallet || '').toLowerCase());
+  const canAcceptProposal = isProposing && isInChallenger && !!activeWallet && !voted;
 
   const chWallets = registeredWallets.filter((w) => w.side === 'challenger');
   const dfWallets = registeredWallets.filter((w) => w.side === 'defender');
@@ -403,15 +407,43 @@ function DisputeCard({ dispute, activeWallet, poolCode, language, currency, onJo
         )}
       </div>
 
-      {/* Proposing: waiting for a 2nd wallet */}
-      {isProposing && proposalDeadline && (
+      {/* Proposing: waiting for a 2nd wallet + accept CTA */}
+      {isProposing && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8, flexWrap: 'wrap' }}>
           <span style={{ color: '#64748b', fontSize: '0.75rem' }}>
             {lang === 'es'
-              ? 'esperando a una wallet más del pool o se cancelará en'
-              : 'waiting for another wallet from the pool or cancels in'}
+              ? 'esperando a una wallet más del pool o se cancelará'
+              : 'waiting for another wallet from the pool or cancels'}
+            {proposalDeadline ? ':' : ''}
           </span>
-          <CountdownBadge targetMs={proposalDeadline} color="#64748b" />
+          {proposalDeadline ? <CountdownBadge targetMs={proposalDeadline} color="#64748b" /> : null}
+          {canAcceptProposal && (
+            <button
+              type="button"
+              onClick={() => onAcceptProposal?.(dispute)}
+              disabled={!!acceptBusy}
+              style={{
+                marginLeft: 'auto',
+                padding: '6px 14px',
+                borderRadius: 0,
+                border: '1px solid rgba(74,222,128,0.65)',
+                background: 'rgba(74,222,128,0.15)',
+                color: '#4ade80',
+                fontSize: '0.82rem',
+                cursor: acceptBusy ? 'wait' : 'pointer',
+                fontFamily: 'monospace',
+                fontWeight: 800,
+                letterSpacing: '0.08em',
+              }}
+            >
+              {acceptBusy === dispute.id ? '…' : (lang === 'es' ? '✓ ACEPTAR SQUEEZE' : '✓ ACCEPT SQUEEZE')}
+            </button>
+          )}
+          {isInChallenger && voted && (
+            <span style={{ marginLeft: 'auto', color: '#64748b', fontSize: '0.72rem', fontFamily: 'monospace' }}>
+              {lang === 'es' ? 'ya votaste · esperando otra wallet' : 'you voted · waiting for another wallet'}
+            </span>
+          )}
         </div>
       )}
 
@@ -792,9 +824,11 @@ export default function DisputesPanel({ wallet, poolCode, language, onWalletClic
   const lang = language === 'es' ? 'es' : 'en';
   const { currency } = useCurrency();
   const [disputes, setDisputes] = useState([]);
+  const [myPool, setMyPool] = useState(String(poolCode || '').toUpperCase());
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [joinBusy, setJoinBusy] = useState(false);
+  const [acceptBusy, setAcceptBusy] = useState(null);
   const [claimBusy, setClaimBusy] = useState(null);
   const [historyPage, setHistoryPage] = useState(1);
   const [expandedHistoryIds, setExpandedHistoryIds] = useState(new Set());
@@ -804,6 +838,28 @@ export default function DisputesPanel({ wallet, poolCode, language, onWalletClic
   const transitioningRef = useRef(new Set());
   const notifiedResolvedRef = useRef(new Set());
   const firstFetchRef = useRef(true);
+
+  useEffect(() => {
+    const external = String(poolCode || '').toUpperCase();
+    if (external) {
+      setMyPool(external);
+      return;
+    }
+    if (!wallet) {
+      setMyPool('');
+      return;
+    }
+    let cancelled = false;
+    fetch(`/api/wallet-pools/my-pool?wallet=${encodeURIComponent(wallet)}`)
+      .then((r) => r.json())
+      .then((d) => {
+        if (!cancelled) setMyPool(String(d.pool_code || '').toUpperCase());
+      })
+      .catch(() => {
+        if (!cancelled) setMyPool('');
+      });
+    return () => { cancelled = true; };
+  }, [wallet, poolCode]);
 
   const notifyResolvedSqueezes = useCallback((disputeList) => {
     const resolved = (disputeList || []).filter((d) => d.status === 'resolved');
@@ -1025,6 +1081,51 @@ export default function DisputesPanel({ wallet, poolCode, language, onWalletClic
     }
   }
 
+  async function handleAcceptProposal(dispute) {
+    if (!wallet || !myPool || acceptBusy) return;
+    setAcceptBusy(dispute.id);
+    try {
+      await ensureWalletSession(wallet, { isVirtualWallet });
+      const res = await apiFetch('/api/wallet-pools/dispute/vote', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          wallet,
+          challengerPool: myPool,
+          defenderPool: dispute.defender_pool_code,
+        }),
+      }, wallet);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.ok) {
+        const msg = data.error === 'unauthorized'
+          ? (lang === 'es' ? 'Sesión caducada — vuelve a entrar y reintenta' : 'Session expired — sign in again and retry')
+          : data.error === 'not_in_challenger_pool'
+          ? (lang === 'es' ? 'Solo otra wallet del pool atacante puede aceptar' : 'Only another attacking-pool wallet can accept')
+          : data.error === 'already_voted'
+          ? (lang === 'es' ? 'Ya participaste en esta propuesta' : 'You already joined this proposal')
+          : (lang === 'es' ? `Error al aceptar: ${data.error || 'desconocido'}` : `Accept failed: ${data.error || 'unknown'}`);
+        window.dispatchEvent(new CustomEvent('mm3-toast', { detail: { msg, type: 'error' } }));
+        return;
+      }
+      window.dispatchEvent(new CustomEvent('mm3-toast', {
+        detail: {
+          msg: lang === 'es' ? 'Squeeze aceptado — registro abierto' : 'Squeeze accepted — registration open',
+          type: 'success',
+        },
+      }));
+      window.dispatchEvent(new CustomEvent('mm3-db-updated'));
+      await fetchDisputes();
+    } catch (err) {
+      const code = err?.message || '';
+      const msg = code === 'google_session_required' || code === 'session_failed'
+        ? (lang === 'es' ? 'Sesión caducada — vuelve a entrar con Google/wallet' : 'Session expired — sign in with Google/wallet again')
+        : (lang === 'es' ? 'Error al aceptar squeeze' : 'Failed to accept squeeze');
+      window.dispatchEvent(new CustomEvent('mm3-toast', { detail: { msg, type: 'error' } }));
+    } finally {
+      setAcceptBusy(null);
+    }
+  }
+
   async function handleJoin(disputeId) {
     if (!wallet || joinBusy) return;
     setJoinBusy(true);
@@ -1112,10 +1213,12 @@ export default function DisputesPanel({ wallet, poolCode, language, onWalletClic
           key={d.id}
           dispute={d}
           activeWallet={wallet}
-          poolCode={poolCode}
+          poolCode={myPool}
           language={language}
           currency={currency}
           onJoin={handleJoin}
+          onAcceptProposal={handleAcceptProposal}
+          acceptBusy={acceptBusy}
           onClaimDrop={handleClaimDrop}
           claimBusy={claimBusy}
           onWalletClick={onWalletClick}
@@ -1133,10 +1236,12 @@ export default function DisputesPanel({ wallet, poolCode, language, onWalletClic
               key={d.id}
               dispute={d}
               activeWallet={wallet}
-              poolCode={poolCode}
+              poolCode={myPool}
               language={language}
               currency={currency}
               onJoin={handleJoin}
+              onAcceptProposal={handleAcceptProposal}
+              acceptBusy={acceptBusy}
               onClaimDrop={handleClaimDrop}
               claimBusy={claimBusy}
               onWalletClick={onWalletClick}

@@ -371,16 +371,27 @@ fun SqueezingScreen(
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 pools.forEach { pool ->
+                    val pendingAccept = active.any {
+                        it.status == "proposing" &&
+                            myPool != null &&
+                            it.challenger.equals(myPool, ignoreCase = true) &&
+                            it.defender.equals(pool.code, ignoreCase = true) &&
+                            wallet != null &&
+                            it.votes.none { v -> v.equals(wallet, ignoreCase = true) }
+                    }
                     PoolCardView(
                         pool = pool,
                         isMine = pool.code == myPool,
                         canSqueeze = wallet != null && myPool != null && pool.code != myPool,
                         busy = busyPool == pool.code,
-                        limitReached = myLimit,
-                        squeezeLabel = if (es) "SQUEEZE" else "SQUEEZE",
+                        limitReached = myLimit && !pendingAccept,
+                        pendingAccept = pendingAccept,
+                        squeezeLabel = if (pendingAccept) {
+                            if (es) "✓ ACEPTAR" else "✓ ACCEPT"
+                        } else if (es) "SQUEEZE" else "SQUEEZE",
                         myPoolLabel = if (es) "mi pool" else "my pool",
                         onSqueeze = {
-                            if (wallet == null || myPool == null || myLimit) return@PoolCardView
+                            if (wallet == null || myPool == null || (myLimit && !pendingAccept)) return@PoolCardView
                             busyPool = pool.code
                             scope.launch {
                                 val res = withContext(Dispatchers.IO) {
@@ -400,12 +411,14 @@ fun SqueezingScreen(
                                             error(formatApiErrorBody(raw) ?: json.optString("error", "squeeze failed"))
                                         }
                                         val proposing = json.optBoolean("proposing") && !json.optBoolean("created")
-                                        proposing to raw
+                                        proposing to pendingAccept
                                     }
                                 }
                                 busyPool = null
-                                res.onSuccess { (proposing, _) ->
+                                res.onSuccess { (proposing, wasAccept) ->
                                     message = when {
+                                        wasAccept && es -> "Squeeze aceptado"
+                                        wasAccept -> "Squeeze accepted"
                                         proposing && es -> "Propuesta enviada — otra wallet debe aceptar"
                                         proposing -> "Proposal sent — another wallet must accept"
                                         es -> "Squeeze iniciado"
@@ -637,21 +650,31 @@ private fun PoolCardView(
     canSqueeze: Boolean,
     busy: Boolean,
     limitReached: Boolean,
+    pendingAccept: Boolean = false,
     squeezeLabel: String,
     myPoolLabel: String,
     onSqueeze: () -> Unit,
 ) {
     val poolColor = colorFromPool(pool.code)
+    val accent = if (pendingAccept) Color(0xFF4ADE80) else Color(0xFFF87171)
     Column(
         Modifier
             .width(190.dp)
             .border(
                 1.dp,
-                if (isMine) poolColor.copy(alpha = 0.33f) else Color(0xFF1E293B),
+                when {
+                    pendingAccept -> accent.copy(alpha = 0.55f)
+                    isMine -> poolColor.copy(alpha = 0.33f)
+                    else -> Color(0xFF1E293B)
+                },
                 RoundedCornerShape(0),
             )
             .background(
-                if (isMine) poolColor.copy(alpha = 0.05f) else Color(0xFF080808),
+                when {
+                    pendingAccept -> Color(0xFF052E16)
+                    isMine -> poolColor.copy(alpha = 0.05f)
+                    else -> Color(0xFF080808)
+                },
                 RoundedCornerShape(0),
             )
             .padding(horizontal = 10.dp, vertical = 8.dp),
@@ -731,17 +754,22 @@ private fun PoolCardView(
                     .fillMaxWidth()
                     .border(
                         1.dp,
-                        if (disabled) Color(0x1AF87171) else Color(0x44F87171),
+                        if (disabled) accent.copy(alpha = 0.1f) else accent.copy(alpha = 0.45f),
                         RoundedCornerShape(0),
                     )
-                    .background(if (disabled) Color.Transparent else Color(0x107F1D1D), RoundedCornerShape(0))
+                    .background(
+                        if (disabled) Color.Transparent
+                        else if (pendingAccept) Color(0x3314532D)
+                        else Color(0x107F1D1D),
+                        RoundedCornerShape(0),
+                    )
                     .clickable(enabled = !disabled, onClick = onSqueeze)
                     .padding(vertical = 6.dp),
                 contentAlignment = Alignment.Center,
             ) {
                 Text(
-                    if (busy) "…" else "⚔ $squeezeLabel",
-                    color = if (disabled) Color(0xFF4B5563) else Color(0xFFFCA5A5),
+                    if (busy) "…" else if (pendingAccept) squeezeLabel else "⚔ $squeezeLabel",
+                    color = if (disabled) Color(0xFF4B5563) else if (pendingAccept) Color(0xFF86EFAC) else Color(0xFFFCA5A5),
                     fontFamily = FontFamily.Monospace,
                     fontWeight = FontWeight.Black,
                     fontSize = 10.sp,
@@ -824,13 +852,13 @@ private fun DisputeCardView(
     val battleDeadline = parseMs(dispute.registeredAt)?.plus(5 * 60_000)
     val resolveDeadline = parseMs(dispute.battleStartAt)?.plus(5_000)
     val canJoin = isRegistering &&
-        myPool == dispute.challenger &&
+        myPool != null && myPool.equals(dispute.challenger, ignoreCase = true) &&
         myWallet != null &&
-        dispute.wallets.none { it.wallet == myWallet }
+        dispute.wallets.none { it.wallet.equals(myWallet, ignoreCase = true) }
     val canAcceptProposal = isProposing &&
-        myPool == dispute.challenger &&
+        myPool != null && myPool.equals(dispute.challenger, ignoreCase = true) &&
         myWallet != null &&
-        !dispute.votes.contains(myWallet)
+        dispute.votes.none { it.equals(myWallet, ignoreCase = true) }
 
     Column(
         Modifier
@@ -906,24 +934,32 @@ private fun DisputeCardView(
             )
         }
 
-        if (isProposing && proposalDeadline != null) {
+        if (isProposing) {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    if (es) "esperando a una wallet más del pool o se cancelará en"
-                    else "waiting for another wallet from the pool or cancels in",
+                    if (es) "esperando a una wallet más del pool o se cancelará"
+                    else "waiting for another wallet from the pool or cancels",
                     color = Color(0xFF64748B),
                     fontFamily = FontFamily.Monospace,
                     fontSize = 11.sp,
                     modifier = Modifier.weight(1f),
                 )
-                CountdownText(proposalDeadline, nowMs, Color(0xFF64748B))
+                if (proposalDeadline != null) CountdownText(proposalDeadline, nowMs, Color(0xFF64748B))
             }
             if (canAcceptProposal) {
                 Mm3Button(
-                    text = if (es) "✓ ACEPTAR" else "✓ ACCEPT",
+                    text = if (es) "✓ ACEPTAR SQUEEZE" else "✓ ACCEPT SQUEEZE",
                     onClick = onAcceptProposal,
                     accent = Color(0xFF4ADE80),
                     modifier = Modifier.fillMaxWidth(),
+                )
+            } else if (myWallet != null && dispute.votes.any { it.equals(myWallet, ignoreCase = true) }) {
+                Text(
+                    if (es) "ya votaste · esperando otra wallet del pool"
+                    else "you voted · waiting for another pool wallet",
+                    color = Color(0xFF64748B),
+                    fontFamily = FontFamily.Monospace,
+                    fontSize = 11.sp,
                 )
             }
         }
@@ -1252,7 +1288,17 @@ private fun CountdownText(targetMs: Long, nowMs: Long, color: Color) {
 }
 
 private fun parseMs(iso: String?): Long? =
-    iso?.let { runCatching { Instant.parse(it).toEpochMilli() }.getOrNull() }
+    iso?.let {
+        runCatching { Instant.parse(it).toEpochMilli() }.getOrNull()
+            ?: runCatching {
+                // Postgres / some clients: "2026-07-27 20:24:49.123456+00"
+                val normalized = it.trim()
+                    .replace(' ', 'T')
+                    .replace(Regex("([+-]\\d{2})$"), "$1:00")
+                    .replace(Regex("([+-]\\d{2})(\\d{2})$"), "$1:$2")
+                Instant.parse(normalized).toEpochMilli()
+            }.getOrNull()
+    }
 
 private fun formatUtc(iso: String?): String {
     if (iso.isNullOrBlank()) return "—"

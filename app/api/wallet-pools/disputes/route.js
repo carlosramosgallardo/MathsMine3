@@ -115,15 +115,34 @@ export async function GET(req) {
       }
     }
 
-    // Fetch voter wallets for proposing disputes (to allow clients to filter already-voted)
-    const proposingIds = (data || []).filter((d) => d.status === 'proposing').map((d) => d.id);
+    // Fetch voter wallets for proposing disputes (to allow clients to filter already-voted).
+    // Prefer dispute_id link; also fall back to challenger/defender pairing in case older
+    // rows briefly have a null dispute_id.
+    const proposing = (data || []).filter((d) => d.status === 'proposing');
+    const proposingIds = proposing.map((d) => d.id);
     let voteRows = [];
     if (proposingIds.length > 0) {
       const { data: vData } = await supabase
         .from('mm3_pool_dispute_votes')
-        .select('dispute_id, wallet')
+        .select('dispute_id, wallet, challenger_pool_code, defender_pool_code')
         .in('dispute_id', proposingIds);
       voteRows = vData || [];
+
+      const missing = proposing.filter((d) => !(vData || []).some((v) => Number(v.dispute_id) === Number(d.id)));
+      if (missing.length > 0) {
+        const { data: pairVotes } = await supabase
+          .from('mm3_pool_dispute_votes')
+          .select('dispute_id, wallet, challenger_pool_code, defender_pool_code')
+          .in('challenger_pool_code', missing.map((d) => d.challenger_pool_code))
+          .in('defender_pool_code', missing.map((d) => d.defender_pool_code));
+        for (const v of pairVotes || []) {
+          const match = missing.find(
+            (d) => d.challenger_pool_code === v.challenger_pool_code
+              && d.defender_pool_code === v.defender_pool_code,
+          );
+          if (match) voteRows.push({ ...v, dispute_id: match.id });
+        }
+      }
     }
 
     const walletsByDispute = {};
@@ -134,8 +153,11 @@ export async function GET(req) {
 
     const votesByDispute = {};
     for (const v of voteRows) {
-      if (!votesByDispute[v.dispute_id]) votesByDispute[v.dispute_id] = [];
-      votesByDispute[v.dispute_id].push(v.wallet);
+      const id = v.dispute_id;
+      if (id == null) continue;
+      if (!votesByDispute[id]) votesByDispute[id] = [];
+      const w = String(v.wallet || '').toLowerCase();
+      if (w && !votesByDispute[id].includes(w)) votesByDispute[id].push(w);
     }
 
     const disputes = (data || []).map((d) => ({

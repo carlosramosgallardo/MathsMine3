@@ -26,6 +26,7 @@ export default function PoolSqueezeList({ wallet }) {
   const es = language === 'es';
   const [pools, setPools] = useState([]);
   const [myPool, setMyPool] = useState(null);
+  const [pendingAccept, setPendingAccept] = useState({}); // defenderPool -> { id, votes }
   const [loading, setLoading] = useState(true);
   const [disputeBusy, setDisputeBusy] = useState('');
   const [nowMs, setNowMs] = useState(() => Date.now());
@@ -33,9 +34,12 @@ export default function PoolSqueezeList({ wallet }) {
   const labels = es
     ? {
         squeeze: 'SQUEEZE',
+        accept: '✓ ACEPTAR',
+        acceptTitle: 'Aceptar propuesta de Squeeze de tu pool',
         squeezeTitle: 'Squeeze a este pool',
         squeezeLimit: 'Límite de 5 Squeezes en 24h alcanzado.',
         squeezeDone: 'Squeeze iniciado',
+        squeezeAccepted: 'Squeeze aceptado — registro abierto',
         squeezeProposed: 'Propuesta enviada — esperando otra wallet del pool',
         squeezeError: 'Error en squeeze',
         squeezeAlready: 'Ya propusiste o hay squeeze activa',
@@ -46,9 +50,12 @@ export default function PoolSqueezeList({ wallet }) {
       }
     : {
         squeeze: 'SQUEEZE',
+        accept: '✓ ACCEPT',
+        acceptTitle: 'Accept your pool Squeeze proposal',
         squeezeTitle: 'Squeeze this pool',
         squeezeLimit: '5 Squeezes per 24h limit reached.',
         squeezeDone: 'Squeeze started',
+        squeezeAccepted: 'Squeeze accepted — registration open',
         squeezeProposed: 'Proposal sent — waiting for another pool wallet',
         squeezeError: 'Squeeze error',
         squeezeAlready: 'Already proposed or squeeze active',
@@ -69,9 +76,23 @@ export default function PoolSqueezeList({ wallet }) {
           : Promise.resolve({ pool_code: null }),
       ]);
       if (poolsRes.ok) setPools(poolsRes.pools || []);
-      setMyPool(
-        myPoolRes.pool_code ? String(myPoolRes.pool_code).toUpperCase() : null
-      );
+      const pool = myPoolRes.pool_code ? String(myPoolRes.pool_code).toUpperCase() : null;
+      setMyPool(pool);
+
+      if (pool && wallet) {
+        const dRes = await fetch(`/api/wallet-pools/disputes?pool=${encodeURIComponent(pool)}&limit=50`).then((r) => r.json()).catch(() => ({}));
+        const map = {};
+        for (const d of dRes.disputes || []) {
+          if (d.status !== 'proposing') continue;
+          if (String(d.challenger_pool_code || '').toUpperCase() !== pool) continue;
+          const votes = (d.votes || []).map((w) => String(w || '').toLowerCase());
+          if (votes.includes(String(wallet).toLowerCase())) continue;
+          map[String(d.defender_pool_code || '').toUpperCase()] = { id: d.id, votes };
+        }
+        setPendingAccept(map);
+      } else {
+        setPendingAccept({});
+      }
     } catch {
       // silent
     } finally {
@@ -81,8 +102,12 @@ export default function PoolSqueezeList({ wallet }) {
 
   useEffect(() => {
     fetchData();
-    const t = setInterval(fetchData, 120_000);
-    return () => clearInterval(t);
+    const t = setInterval(fetchData, 15_000);
+    window.addEventListener('mm3-db-updated', fetchData);
+    return () => {
+      clearInterval(t);
+      window.removeEventListener('mm3-db-updated', fetchData);
+    };
   }, [fetchData]);
 
   useEffect(() => {
@@ -92,8 +117,9 @@ export default function PoolSqueezeList({ wallet }) {
 
   const handleSqueeze = async (defenderPool) => {
     if (!wallet || !myPool || disputeBusy) return;
+    const accepting = !!pendingAccept[String(defenderPool || '').toUpperCase()];
     const myPoolData = pools.find((p) => p.pool_code === myPool);
-    if (myPoolData?.squeeze_limit_reached) {
+    if (!accepting && myPoolData?.squeeze_limit_reached) {
       window.dispatchEvent(
         new CustomEvent('mm3-toast', {
           detail: {
@@ -114,31 +140,37 @@ export default function PoolSqueezeList({ wallet }) {
       }, wallet);
       const payload = await response.json().catch(() => ({}));
       if (!response.ok || !payload.ok) {
-        const errKey =
-          payload.error === 'unauthorized'
-            ? 'squeezeError'
-            : payload.error === 'squeeze_limit_reached'
-            ? 'squeezeLimit'
-            : payload.error === 'already_voted' || payload.error === 'dispute_already_active'
-            ? 'squeezeAlready'
-            : 'squeezeError';
         const msg = payload.error === 'unauthorized'
           ? (es ? 'Sesión caducada — vuelve a entrar y reintenta' : 'Session expired — sign in again and retry')
-          : labels[errKey];
+          : payload.error === 'not_in_challenger_pool'
+          ? (es ? 'Solo wallets del pool atacante pueden aceptar' : 'Only attacking-pool wallets can accept')
+          : payload.error === 'squeeze_limit_reached'
+          ? labels.squeezeLimit
+          : payload.error === 'already_voted' || payload.error === 'dispute_already_active'
+          ? labels.squeezeAlready
+          : `${labels.squeezeError}${payload.error ? ` · ${payload.error}` : ''}`;
         window.dispatchEvent(
           new CustomEvent('mm3-toast', { detail: { msg, type: 'error' } })
         );
         return;
       }
-      const msg =
-        payload.proposing && !payload.created ? labels.squeezeProposed : labels.squeezeDone;
+      const msg = accepting
+        ? labels.squeezeAccepted
+        : payload.proposing && !payload.created
+          ? labels.squeezeProposed
+          : labels.squeezeDone;
       window.dispatchEvent(
         new CustomEvent('mm3-toast', { detail: { msg, type: 'success' } })
       );
+      window.dispatchEvent(new CustomEvent('mm3-db-updated'));
       fetchData();
-    } catch {
+    } catch (err) {
+      const code = err?.message || '';
+      const msg = code === 'google_session_required' || code === 'session_failed'
+        ? (es ? 'Sesión caducada — vuelve a entrar con Google/wallet' : 'Session expired — sign in again')
+        : labels.squeezeError;
       window.dispatchEvent(
-        new CustomEvent('mm3-toast', { detail: { msg: labels.squeezeError, type: 'error' } })
+        new CustomEvent('mm3-toast', { detail: { msg, type: 'error' } })
       );
     } finally {
       setDisputeBusy('');
@@ -168,14 +200,17 @@ export default function PoolSqueezeList({ wallet }) {
           const poolColor = colorFromPool(pool.pool_code);
           const canSqueeze = !!wallet && !!myPool && !isMyPool;
           const busy = disputeBusy === pool.pool_code;
+          const pending = pendingAccept[String(pool.pool_code || '').toUpperCase()];
+          const isAccept = !!pending;
+          const disabled = busy || (!isAccept && myLimitReached);
 
           return (
             <div
               key={pool.pool_code}
               className="rounded font-mono"
               style={{
-                border: `1px solid ${isMyPool ? `${poolColor}55` : '#1e293b'}`,
-                background: isMyPool ? `${poolColor}0d` : '#080808',
+                border: `1px solid ${isAccept ? '#4ade8055' : isMyPool ? `${poolColor}55` : '#1e293b'}`,
+                background: isAccept ? '#052e16' : isMyPool ? `${poolColor}0d` : '#080808',
                 padding: '0.5rem 0.625rem',
               }}
             >
@@ -242,28 +277,33 @@ export default function PoolSqueezeList({ wallet }) {
                 })}
               </div>
 
-              {/* squeeze button — only for other pools when wallet has a pool */}
+              {/* squeeze / accept button — only for other pools when wallet has a pool */}
               {canSqueeze && (
                 <button
                   type="button"
                   onClick={() => handleSqueeze(pool.pool_code)}
-                  disabled={busy || myLimitReached}
+                  disabled={disabled}
                   title={
-                    myLimitReached
+                    isAccept
+                      ? labels.acceptTitle
+                      : myLimitReached
                       ? `${labels.squeezeLimit}${myResetAt ? ` ${formatResetCountdown(myResetAt, nowMs)}` : ''}`
                       : labels.squeezeTitle
                   }
                   className="mt-0.5 w-full rounded border px-2 py-1 text-[0.6rem] font-black uppercase tracking-[0.14em] transition"
-                  style={{
-                    borderColor:
-                      busy || myLimitReached ? '#f871711a' : '#f8717144',
-                    background:
-                      busy || myLimitReached ? 'transparent' : '#7f1d1d10',
-                    color: busy || myLimitReached ? '#4b5563' : '#fca5a5',
-                    cursor: busy || myLimitReached ? 'not-allowed' : 'pointer',
+                  style={isAccept ? {
+                    borderColor: disabled ? '#4ade801a' : '#4ade8088',
+                    background: disabled ? 'transparent' : '#14532d55',
+                    color: disabled ? '#4b5563' : '#86efac',
+                    cursor: disabled ? 'not-allowed' : 'pointer',
+                  } : {
+                    borderColor: disabled ? '#f871711a' : '#f8717144',
+                    background: disabled ? 'transparent' : '#7f1d1d10',
+                    color: disabled ? '#4b5563' : '#fca5a5',
+                    cursor: disabled ? 'not-allowed' : 'pointer',
                   }}
                 >
-                  {busy ? '...' : `⚔ ${labels.squeeze}`}
+                  {busy ? '...' : (isAccept ? labels.accept : `⚔ ${labels.squeeze}`)}
                 </button>
               )}
             </div>
