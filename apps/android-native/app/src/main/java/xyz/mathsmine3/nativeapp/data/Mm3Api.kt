@@ -181,3 +181,25 @@ fun jsonBody(json: JSONObject): RequestBody =
 fun jsonBody(builder: JSONObject.() -> Unit): RequestBody =
     jsonBody(JSONObject().apply(builder))
 
+/** Prefer API `{ "error": "..." }` over bare "HTTP 400". */
+fun Throwable.apiMessage(fallback: String = "request failed"): String {
+    if (this is retrofit2.HttpException) {
+        val body = response()?.errorBody()?.string().orEmpty()
+        val json = runCatching { JSONObject(body) }.getOrNull()
+        val err = json?.optString("error").orEmpty()
+        if (err.isNotBlank()) {
+            // Surface the key fields when the server rejects a trade amount.
+            if (err == "amount_too_small" && json != null) {
+                val funds = json.optJSONObject("funds")
+                val eur = funds?.optDouble("eur") ?: -1.0
+                val req = json.optDouble("requested_amount", json.optDouble("requested_raw", -1.0))
+                val wallet = json.optString("wallet")
+                return "amount_too_small · req=$req · eur=$eur · w=${wallet.takeLast(6)}"
+            }
+            return err
+        }
+        return "HTTP ${code()}"
+    }
+    return message?.takeIf { it.isNotBlank() } ?: fallback
+}
+

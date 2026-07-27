@@ -23,9 +23,25 @@ data class SellQuote(
     val netUsd: Double,
 )
 
+data class BuyQuote(
+    val level: Int,
+    val funds: Double,
+    val grossMm3: Double,
+    val netMm3: Double,
+    val rateCny: Double,
+    val rateCurrency: Double,
+    val commissionRate: Double,
+    val commissionMm3: Double,
+    val grossCny: Double,
+    val grossEur: Double,
+    val grossUsd: Double,
+)
+
 object SellQuotes {
     private const val CNY_TO_EUR = 0.128
     private const val CNY_TO_USD = 0.139
+    private const val BUY_RATE_PREMIUM = 1.18
+    private const val MIN_TRADE_MM3 = 0.00001
 
     private data class Tier(val min: Int, val max: Int, val rateCny: Int)
 
@@ -65,6 +81,71 @@ object SellQuotes {
             safe < 1.0 -> 0.085
             else -> 0.12
         }
+    }
+
+    fun buyCommissionRate(amountMm3: Double): Double {
+        val safe = max(0.0, amountMm3)
+        return when {
+            safe < 0.0001 -> 0.03
+            safe < 0.001 -> 0.045
+            safe < 0.01 -> 0.07
+            safe < 0.1 -> 0.1
+            safe < 1.0 -> 0.14
+            else -> 0.18
+        }
+    }
+
+    fun buyRateByCurrency(level: Int, currency: String): Double =
+        rateByCurrency(level, currency) * BUY_RATE_PREMIUM
+
+    fun getBuyQuote(
+        level: Int,
+        funds: Double,
+        currency: String = "EUR",
+        zeroCommission: Boolean = false,
+    ): BuyQuote {
+        val lv = clampLevel(level)
+        val safeFunds = max(0.0, funds)
+        val rateCny = sellRateCny(lv) * BUY_RATE_PREMIUM
+        val rateCurrency = when (currency.uppercase()) {
+            "USD" -> rateCny * CNY_TO_USD
+            "CNY" -> rateCny
+            else -> rateCny * CNY_TO_EUR
+        }
+        val grossMm3 = if (rateCurrency > 0) safeFunds / rateCurrency else 0.0
+        val commissionRate = if (zeroCommission) 0.0 else buyCommissionRate(grossMm3)
+        val commissionMm3 = grossMm3 * commissionRate
+        val netMm3 = max(0.0, grossMm3 - commissionMm3)
+        return BuyQuote(
+            level = lv,
+            funds = safeFunds,
+            grossMm3 = grossMm3,
+            netMm3 = netMm3,
+            rateCny = rateCny,
+            rateCurrency = rateCurrency,
+            commissionRate = commissionRate,
+            commissionMm3 = commissionMm3,
+            grossCny = grossMm3 * rateCny,
+            grossEur = grossMm3 * rateCny * CNY_TO_EUR,
+            grossUsd = grossMm3 * rateCny * CNY_TO_USD,
+        )
+    }
+
+    /** Smallest fiat spend that yields at least MIN_TRADE_MM3 after buy fees. */
+    fun minimumBuyFunds(level: Int, currency: String, zeroCommission: Boolean = false): Double {
+        var low = 0.0
+        var high = max(buyRateByCurrency(level, currency) * MIN_TRADE_MM3 * 2, 0.00000001)
+        repeat(24) {
+            val quote = getBuyQuote(level, high, currency, zeroCommission)
+            if (quote.netMm3 >= MIN_TRADE_MM3) return@repeat
+            high *= 2
+        }
+        repeat(24) {
+            val mid = (low + high) / 2
+            val quote = getBuyQuote(level, mid, currency, zeroCommission)
+            if (quote.netMm3 >= MIN_TRADE_MM3) high = mid else low = mid
+        }
+        return high
     }
 
     fun getSellQuote(level: Int, totalMm3: Double, zeroCommission: Boolean = false): SellQuote {

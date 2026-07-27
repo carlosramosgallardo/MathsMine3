@@ -40,6 +40,7 @@ import org.json.JSONObject
 import xyz.mathsmine3.nativeapp.auth.Session
 import xyz.mathsmine3.nativeapp.data.Mm3Api
 import xyz.mathsmine3.nativeapp.data.SupabaseRest
+import xyz.mathsmine3.nativeapp.data.apiMessage
 import xyz.mathsmine3.nativeapp.data.jsonBody
 import xyz.mathsmine3.nativeapp.data.readText
 import xyz.mathsmine3.nativeapp.trading.SellQuotes
@@ -128,10 +129,33 @@ fun TradingScreen(
     var txTotal by remember { mutableIntStateOf(0) }
 
     val tier = RankTiers.forLevel(level)
-    val tradeAmount = if (mode == "sell") availableMm3 * ratio else 0.0
     val zeroCommission = decorations.any { it.contains("revive") || it == "💀" || it == "❤️‍🩹" }
-    val quote = SellQuotes.getSellQuote(level, tradeAmount, zeroCommission = zeroCommission)
-    val rateDisplay = SellQuotes.rateByCurrency(level, currency)
+    val currentFunds = when (currency.uppercase()) {
+        "USD" -> usdEarned
+        "CNY" -> cnyEarned
+        else -> eurEarned
+    }
+    val minBuyFunds = max(
+        SellQuotes.minimumBuyFunds(level, currency, zeroCommission) * 1.5,
+        // Never start near 0 — production macro/dice can push tiny quotes under MIN_TRADE_MM3.
+        min(currentFunds, 1.0),
+    ).let { floor -> if (currentFunds > 0) min(currentFunds, max(floor, 0.01)) else 0.0 }
+    val canSell = availableMm3 >= MIN_TRADE_MM3
+    val canBuy = currentFunds >= minBuyFunds &&
+        SellQuotes.getBuyQuote(level, minBuyFunds, currency, zeroCommission).netMm3 >= MIN_TRADE_MM3
+    val sellAmount = if (canSell) availableMm3 * ratio else 0.0
+    val buyFunds = if (canBuy) {
+        minBuyFunds + (currentFunds - minBuyFunds) * ratio
+    } else {
+        0.0
+    }
+    val sellQuote = SellQuotes.getSellQuote(level, sellAmount, zeroCommission = zeroCommission)
+    val buyQuote = SellQuotes.getBuyQuote(level, buyFunds, currency, zeroCommission = zeroCommission)
+    val rateDisplay = if (mode == "buy") {
+        SellQuotes.buyRateByCurrency(level, currency)
+    } else {
+        SellQuotes.rateByCurrency(level, currency)
+    }
     val totalPages = max(1, (txTotal + TX_PAGE_SIZE - 1) / TX_PAGE_SIZE)
 
     fun dayStartIso(): String {
@@ -250,9 +274,9 @@ fun TradingScreen(
                 dailyTx = snap.daily
                 source = snap.source
                 message = when {
-                    snap.available < MIN_TRADE_MM3 -> "No MM3 available to sell"
                     snap.daily >= DAILY_TX_CAP -> "Daily TX limit reached (#$DAILY_TX_CAP)"
-                    else -> "Ready"
+                    snap.available >= MIN_TRADE_MM3 || snap.eur > 0 || snap.usd > 0 || snap.cny > 0 -> "Ready"
+                    else -> "No MM3 to sell and no funds to buy"
                 }
             }.onFailure {
                 message = it.message ?: "load failed"
@@ -271,7 +295,11 @@ fun TradingScreen(
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Mm3Button(
                     text = "SELL",
-                    onClick = { mode = "sell" },
+                    onClick = {
+                        mode = "sell"
+                        ratio = 0f
+                        message = if (canSell) "Ready to sell" else "No MM3 available to sell"
+                    },
                     accent = tier.color,
                     filled = mode == "sell",
                     modifier = Modifier.weight(1f),
@@ -280,7 +308,8 @@ fun TradingScreen(
                     text = "BUY",
                     onClick = {
                         mode = "buy"
-                        message = "Buy — use portal web for full buy flow; sell is native"
+                        ratio = 0f
+                        message = if (canBuy) "Ready to buy" else "Insufficient funds to buy"
                     },
                     accent = tier.color,
                     filled = mode == "buy",
@@ -356,7 +385,11 @@ fun TradingScreen(
                 fontSize = 11.sp,
             )
             Text(
-                "${"%.8f".format(Locale.US, tradeAmount)} MM3",
+                if (mode == "buy") {
+                    formatMoney(buyFunds, currency)
+                } else {
+                    "${"%.8f".format(Locale.US, sellAmount)} MM3"
+                },
                 color = tier.color,
                 fontFamily = FontFamily.Monospace,
                 fontWeight = FontWeight.Bold,
@@ -365,6 +398,7 @@ fun TradingScreen(
                 value = ratio,
                 onValueChange = { ratio = it },
                 valueRange = 0f..1f,
+                enabled = if (mode == "buy") canBuy else canSell,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(28.dp),
@@ -372,15 +406,22 @@ fun TradingScreen(
                     thumbColor = tier.color,
                     activeTrackColor = tier.color,
                     inactiveTrackColor = Mm3Colors.PanelSoft,
+                    disabledThumbColor = tier.color.copy(alpha = 0.35f),
+                    disabledActiveTrackColor = tier.color.copy(alpha = 0.25f),
                 ),
             )
-            val receive = when (currency.uppercase()) {
-                "USD" -> quote.netUsd
-                "CNY" -> quote.netCny
-                else -> quote.netEur
+            val receiveLabel = if (mode == "buy") {
+                "FEE ${(buyQuote.commissionRate * 100).formatPct()}% · YOU RECEIVE · ${"%.8f".format(Locale.US, buyQuote.netMm3)} MM3"
+            } else {
+                val receive = when (currency.uppercase()) {
+                    "USD" -> sellQuote.netUsd
+                    "CNY" -> sellQuote.netCny
+                    else -> sellQuote.netEur
+                }
+                "FEE ${(sellQuote.commissionRate * 100).formatPct()}% · YOU RECEIVE · ${formatMoney(receive, currency)}"
             }
             Text(
-                "FEE ${(quote.commissionRate * 100).formatPct()}% · YOU RECEIVE · ${formatMoney(receive, currency)}",
+                receiveLabel,
                 color = Mm3Colors.Green,
                 fontFamily = FontFamily.Monospace,
                 fontWeight = FontWeight.Bold,
@@ -393,23 +434,30 @@ fun TradingScreen(
                         message = "Connect wallet"
                         return@Mm3Button
                     }
-                    if (mode != "sell" || tradeAmount < MIN_TRADE_MM3) {
-                        message = "Select sell amount"
-                        return@Mm3Button
-                    }
                     if (dailyTx >= DAILY_TX_CAP) {
                         message = "Daily TX limit"
                         return@Mm3Button
                     }
+                    if (mode == "buy") {
+                        if (!canBuy || buyFunds <= 0 || buyQuote.netMm3 < MIN_TRADE_MM3) {
+                            message = "Select buy amount"
+                            return@Mm3Button
+                        }
+                    } else if (!canSell || sellAmount < MIN_TRADE_MM3) {
+                        message = "Select sell amount"
+                        return@Mm3Button
+                    }
                     busy = true
-                    val amount = tradeAmount
-                    val q = SellQuotes.getSellQuote(level, amount, zeroCommission = zeroCommission)
+                    val execMode = mode
+                    val amount = if (execMode == "buy") buyFunds else sellAmount
+                    val previewBuy = buyQuote
+                    val previewSell = sellQuote
                     scope.launch {
                         val result = withContext(Dispatchers.IO) {
                             runCatching {
                                 val execText = api.tradeExec(
                                     jsonBody {
-                                        put("mode", "sell")
+                                        put("mode", execMode)
                                         put("currency", currency.uppercase())
                                         put("amount", amount)
                                         put("source", source)
@@ -419,7 +467,11 @@ fun TradingScreen(
                                 if (execJson?.optBoolean("ok") == false) {
                                     error(execJson.optString("error", "trade exec failed"))
                                 }
-                                "sold ${formatMm3(q.totalMm3)} → ${formatMoney(q.netEur, "EUR")}"
+                                if (execMode == "buy") {
+                                    "bought ${formatMm3(previewBuy.netMm3)} for ${formatMoney(previewBuy.funds, currency)}"
+                                } else {
+                                    "sold ${formatMm3(previewSell.totalMm3)} → ${formatMoney(previewSell.netEur, "EUR")}"
+                                }
                             }
                         }
                         busy = false
@@ -428,16 +480,19 @@ fun TradingScreen(
                             ratio = 0f
                             reload()
                         }.onFailure {
-                            message = it.message ?: "EXEC failed"
+                            message = it.apiMessage("EXEC failed")
                         }
                     }
                 },
                 accent = tier.color,
                 enabled = !busy &&
                     wallet != null &&
-                    mode == "sell" &&
-                    tradeAmount >= MIN_TRADE_MM3 &&
-                    dailyTx < DAILY_TX_CAP,
+                    dailyTx < DAILY_TX_CAP &&
+                    if (mode == "buy") {
+                        canBuy && buyFunds > 0 && buyQuote.netMm3 >= MIN_TRADE_MM3
+                    } else {
+                        canSell && sellAmount >= MIN_TRADE_MM3
+                    },
             )
             Text(message, color = Mm3Colors.Muted, fontFamily = FontFamily.Monospace, fontSize = 11.sp)
         }

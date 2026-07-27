@@ -101,10 +101,29 @@ export async function POST(req) {
     : getSellQuote(level, requestedAmount, decorations, macroState, diceModifier, nftjiLevels);
 
   if (mode === 'sell' && quote.totalMm3 < MIN_TRADE_MM3) {
-    return Response.json({ ok: false, error: 'amount_too_small' }, { status: 400 });
+    return Response.json({
+      ok: false,
+      error: 'amount_too_small',
+      mode,
+      wallet,
+      requested_raw: requestedRaw,
+      requested_amount: requestedAmount,
+      available_mm3: availableMm3,
+      funds,
+      quote_mm3: quote.totalMm3,
+    }, { status: 400 });
   }
   if (mode === 'buy' && quote.netMm3 < MIN_TRADE_MM3) {
-    return Response.json({ ok: false, error: 'amount_too_small' }, { status: 400 });
+    return Response.json({
+      ok: false,
+      error: 'amount_too_small',
+      mode,
+      wallet,
+      requested_raw: requestedRaw,
+      requested_amount: requestedAmount,
+      funds,
+      quote_net_mm3: quote.netMm3,
+    }, { status: 400 });
   }
 
   const now = new Date().toISOString();
