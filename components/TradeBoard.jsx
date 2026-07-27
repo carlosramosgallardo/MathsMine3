@@ -11,7 +11,7 @@ import { TRADE_SLOT_ORDER, SQUEEZE_SLOT_ORDER, WALLET_DECORATIONS, TRADING_NFTJI
 import { useDice } from '@/lib/dice-context';
 import { getDiceState } from '@/lib/dice';
 import { useSound } from '@/lib/sound-context';
-import { apiFetch, ensureWalletSession } from '@/lib/wallet-session-client';
+import { apiFetch, ensureWalletSession, walletSignErrorMessage } from '@/lib/wallet-session-client';
 import PageLoading from '@/components/PageLoading';
 
 const MIN_TRADE_MM3 = 0.00001;
@@ -459,10 +459,10 @@ export default function TradeBoard({ account, isVirtualWallet = false }) {
         const code = err?.message || '';
         if (code === 'google_session_required') {
           pushToast('Sesión Google caducada — vuelve a entrar con Google y reintenta EXEC', 'error');
-        } else if (code === 'nonce_failed' || code === 'session_failed') {
-          pushToast('Session sign-in failed — try reconnecting the wallet', 'error');
+        } else if (code === 'nonce_failed' || code === 'session_failed' || code === 'wallet_locked' || code === 'sign_rejected' || code === 'wallet_disconnected' || code === 'sign_failed') {
+          pushToast(walletSignErrorMessage(code, language), 'error');
         } else {
-          pushToast('Sign the login message in your wallet to trade', 'error');
+          pushToast(walletSignErrorMessage(code, language), 'error');
         }
         return;
       }
