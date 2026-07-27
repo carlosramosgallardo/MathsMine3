@@ -24,6 +24,12 @@ interface Mm3Api {
     @GET("/api/status")
     suspend fun status(): ResponseBody
 
+    @GET("/api/security/history")
+    suspend fun securityHistory(
+        @Query("id") id: String? = null,
+        @Query("limit") limit: Int = 20,
+    ): ResponseBody
+
     @GET("/api/portal-status")
     suspend fun portalStatus(): ResponseBody
 
@@ -95,6 +101,9 @@ interface Mm3Api {
 
     @POST("/api/auth/session")
     suspend fun authSession(@Body body: RequestBody): ResponseBody
+
+    @POST("/api/security/scan")
+    suspend fun securityScan(): ResponseBody
 
     @POST("/api/pvp-hit")
     suspend fun pvpHit(@Body body: Map<String, @JvmSuppressWildcards Any>): ResponseBody

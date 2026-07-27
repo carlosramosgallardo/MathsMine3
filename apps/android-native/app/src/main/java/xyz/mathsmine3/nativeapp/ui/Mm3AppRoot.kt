@@ -54,16 +54,19 @@ import xyz.mathsmine3.nativeapp.auth.Session
 import xyz.mathsmine3.nativeapp.ui.components.PortalHeaderBar
 import xyz.mathsmine3.nativeapp.ui.components.mm3PortalBackground
 import xyz.mathsmine3.nativeapp.ui.screens.AiTeamScreen
+import xyz.mathsmine3.nativeapp.ui.screens.ApiNativeScreen
 import xyz.mathsmine3.nativeapp.ui.screens.AuthScreen
 import xyz.mathsmine3.nativeapp.ui.screens.DailyScreen
 import xyz.mathsmine3.nativeapp.ui.screens.HomeScreen
 import xyz.mathsmine3.nativeapp.ui.screens.Mm3ValueScreen
 import xyz.mathsmine3.nativeapp.ui.screens.ManifestoScreen
 import xyz.mathsmine3.nativeapp.ui.screens.MiningScreen
-import xyz.mathsmine3.nativeapp.ui.screens.PortalDocScreen
+import xyz.mathsmine3.nativeapp.ui.screens.PrivacyNativeScreen
 import xyz.mathsmine3.nativeapp.ui.screens.RankingScreen
 import xyz.mathsmine3.nativeapp.ui.screens.RelayingScreen
+import xyz.mathsmine3.nativeapp.ui.screens.SecurityAuditScreen
 import xyz.mathsmine3.nativeapp.ui.screens.SqueezingScreen
+import xyz.mathsmine3.nativeapp.ui.screens.TermsNativeScreen
 import xyz.mathsmine3.nativeapp.ui.screens.TradingScreen
 import xyz.mathsmine3.nativeapp.ui.screens.TrainingScreen
 import xyz.mathsmine3.nativeapp.ui.theme.Mm3Colors
@@ -293,16 +296,16 @@ fun Mm3AppRoot(container: AppContainer) {
                     ManifestoScreen(language = uiPrefs.language)
                 }
                 composable(Mm3Dest.Api.route) {
-                    PortalDocScreen(url = "https://mathsmine3.xyz/api", session = session)
+                    ApiNativeScreen(language = uiPrefs.language)
                 }
                 composable(Mm3Dest.Security.route) {
-                    PortalDocScreen(url = "https://mathsmine3.xyz/security", session = session)
+                    SecurityAuditScreen(api = container.api, language = uiPrefs.language)
                 }
                 composable(Mm3Dest.Privacy.route) {
-                    PortalDocScreen(url = "https://mathsmine3.xyz/privacy", session = session)
+                    PrivacyNativeScreen(language = uiPrefs.language)
                 }
                 composable(Mm3Dest.Terms.route) {
-                    PortalDocScreen(url = "https://mathsmine3.xyz/terms", session = session)
+                    TermsNativeScreen(language = uiPrefs.language)
                 }
             }
         }
