@@ -76,8 +76,8 @@ android {
         applicationId = "xyz.mathsmine3.app"
         minSdk = 26
         targetSdk = 34
-        versionCode = 24
-        versionName = "0.1.0-beta.1"
+        versionCode = 25
+        versionName = "0.1.0-beta.2"
         buildConfigField("String", "API_BASE_URL", "\"https://mathsmine3.xyz\"")
         buildConfigField("String", "GOOGLE_CLIENT_ID", "\"${escapeForBuildConfig(googleClientId)}\"")
         buildConfigField("String", "SUPABASE_URL", "\"${escapeForBuildConfig(supabaseUrl)}\"")
@@ -107,7 +107,8 @@ android {
         }
         debug {
             applicationIdSuffix = ""
-            // Emulator → host: `adb reverse tcp:3000 tcp:3000` + local `next` (http or https).
+            // Emulator → host: `adb reverse tcp:3000 tcp:3000` + `npm run dev:https` (TLS on :3000).
+            // Plain `next dev` without --experimental-https will NOT work on http://127.0.0.1:3000.
             buildConfigField("String", "PORTAL_BASE_URL", "\"https://127.0.0.1:3000\"")
             manifestPlaceholders["usesCleartextTraffic"] = "true"
         }

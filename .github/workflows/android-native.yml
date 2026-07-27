@@ -108,27 +108,25 @@ jobs:
           body: |
             ## MathsMine3 `${{ github.ref_name }}`
 
-            First public **beta** of the Compose-native Android client (`xyz.mathsmine3.app`).
-            Same product backends as the web portal: [mathsmine3.xyz](https://mathsmine3.xyz) APIs + Supabase.
+            Compose-native Android client (`xyz.mathsmine3.app`).
+            Same backends as the web portal: [mathsmine3.xyz](https://mathsmine3.xyz) APIs + Supabase.
 
-            ### Native in this build (Kotlin / Jetpack Compose)
-            - App shell, portal header, home nonagon / portal access
-            - **Training** — problems, countdown, NFTJI / Supabase
-            - **Trading** — SELL / EXEC, rates, TX log
-            - **Squeezing** — pool / dispute cards + live polls
-            - **Relaying** — IRC-style terminal (`/?`, `/mine`, `/buy`, `/resell`, `/exec`, chat)
-            - **Daily Tasks** — progress + claim
-            - **MM3 Chart** — in-app ranges (no external browser)
-            - **Ranking** — wallets / pools
-            - **AI Team** — bots + live leaderboard hooks
-            - **Manifesto** — EN/ES from bundled markdown
-            - Auth (Google + wallet session) and footer support links (**ETH** donate, BMC, PAT, docs)
+            ### New since `v0.1.0-beta.1`
+            - **API** — native endpoint docs + JSON samples (no WebView)
+            - **Privacy** / **Terms** — native legal pages (EN/ES)
+            - **SEC** — native Security audit: score badge, scan history, run scan, expandable checks/findings, PDF export
+            - Footer **API / SEC / Privacy / Terms** no longer embed portal pages
 
-            ### Still WebView (by design for this beta)
-            - **Mining** FPV only (`/embed/mining`)
+            ### Native (carried from beta.1)
+            - Training, Trading, Squeezing, Relaying, Daily, MM3 Chart, Ranking, AI Team, Manifesto
+            - Portal header, auth, footer (**ETH** donate, BMC, PAT)
+
+            ### Still WebView (by design)
+            - **Home** — 3D arena carousel + minimap (`/embed/home-arena`, `/embed/home-minimap`)
+            - **Mining** — FPV (`/embed/mining`)
 
             ### Install
-            1. Download the attached APK (`mathsmine3-0.1.0-beta.1.apk` or `mathsmine3-native-debug.apk`)
+            1. Download the attached APK (`mathsmine3-native-debug.apk` or `mathsmine3-*.apk`)
             2. Sideload on a device/emulator (USB debugging or file install)
             3. Package id: `xyz.mathsmine3.app`
 
