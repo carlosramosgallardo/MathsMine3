@@ -1,9 +1,16 @@
 'use client';
 
 import { useEffect } from 'react';
+import { getAccount } from 'wagmi/actions';
 import { useActiveWallet } from '@/lib/use-active-wallet';
-import { getSessionToken, signInWithWallet, walletSignErrorMessage } from '@/lib/wallet-session-client';
+import {
+  getSessionToken,
+  shouldAutoPromptWalletSign,
+  signInWithWallet,
+  walletSignErrorMessage,
+} from '@/lib/wallet-session-client';
 import { useI18n } from '@/lib/i18n-context';
+import { wagmiConfig } from '@/lib/wagmi-core';
 
 export default function WalletBootstrap() {
   const { account, isVirtualWallet } = useActiveWallet();
@@ -17,7 +24,7 @@ export default function WalletBootstrap() {
     // Only Web3 wallets need bootstrapping here.
     if (isVirtualWallet) return;
 
-    // Already have a portal session — don't re-prompt Ronin/MetaMask on every page.
+    // Already have a portal session — don't re-prompt on every page.
     if (getSessionToken(wallet)) return;
 
     let cancelled = false;
@@ -37,8 +44,17 @@ export default function WalletBootstrap() {
         if (!cancelled) console.error('wallet bootstrap failed:', err);
       }
 
-      // Brief delay so Ronin/WC finish settling the connector before personal_sign.
-      await new Promise((r) => setTimeout(r, 400));
+      if (cancelled) return;
+
+      // MetaMask injected: auto sign-in is fine.
+      // Ronin / WalletConnect: defer until the user acts (EXEC / accept) — immediate
+      // personal_sign after connect often hits Ronin's "Login session has expired".
+      const connected = getAccount(wagmiConfig);
+      if (!shouldAutoPromptWalletSign(connected.connector)) {
+        return;
+      }
+
+      await new Promise((r) => setTimeout(r, 250));
       if (cancelled) return;
 
       try {
