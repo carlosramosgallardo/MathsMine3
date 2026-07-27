@@ -11,6 +11,7 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.ResponseBody
 import okhttp3.logging.HttpLoggingInterceptor
 import org.json.JSONObject
+import retrofit2.Response
 import retrofit2.Retrofit
 import retrofit2.converter.moshi.MoshiConverterFactory
 import retrofit2.http.Body
@@ -20,6 +21,7 @@ import retrofit2.http.Query
 import xyz.mathsmine3.nativeapp.BuildConfig
 import xyz.mathsmine3.nativeapp.auth.SessionTokenHolder
 import java.util.concurrent.TimeUnit
+import android.util.Base64
 
 interface Mm3Api {
     @GET("/api/status")
@@ -71,7 +73,7 @@ interface Mm3Api {
     suspend fun claimDaily(@Body body: RequestBody): ResponseBody
 
     @POST("/api/trade/exec")
-    suspend fun tradeExec(@Body body: RequestBody): ResponseBody
+    suspend fun tradeExec(@Body body: RequestBody): Response<ResponseBody>
 
     @POST("/api/wallet-pools/dispute/join")
     suspend fun joinDispute(@Body body: RequestBody): ResponseBody
@@ -185,21 +187,47 @@ fun jsonBody(builder: JSONObject.() -> Unit): RequestBody =
 fun Throwable.apiMessage(fallback: String = "request failed"): String {
     if (this is retrofit2.HttpException) {
         val body = response()?.errorBody()?.string().orEmpty()
-        val json = runCatching { JSONObject(body) }.getOrNull()
-        val err = json?.optString("error").orEmpty()
-        if (err.isNotBlank()) {
-            // Surface the key fields when the server rejects a trade amount.
-            if (err == "amount_too_small" && json != null) {
-                val funds = json.optJSONObject("funds")
-                val eur = funds?.optDouble("eur") ?: -1.0
-                val req = json.optDouble("requested_amount", json.optDouble("requested_raw", -1.0))
-                val wallet = json.optString("wallet")
-                return "amount_too_small · req=$req · eur=$eur · w=${wallet.takeLast(6)}"
-            }
-            return err
-        }
-        return "HTTP ${code()}"
+        return formatApiErrorBody(body) ?: "HTTP ${code()}"
     }
-    return message?.takeIf { it.isNotBlank() } ?: fallback
+    // Local `error(json.toString())` path from tradeExec parser.
+    val raw = message.orEmpty()
+    if (raw.startsWith("{")) {
+        return formatApiErrorBody(raw) ?: raw
+    }
+    return raw.takeIf { it.isNotBlank() } ?: fallback
+}
+
+fun formatApiErrorBody(body: String): String? {
+    val json = runCatching { JSONObject(body) }.getOrNull() ?: return null
+    val err = json.optString("error").ifBlank { return null }
+    val funds = json.optJSONObject("funds")
+    val eur = funds?.optDouble("eur")
+    val req = when {
+        json.has("requested_amount") -> json.optDouble("requested_amount")
+        json.has("requested_raw") -> json.optDouble("requested_raw")
+        else -> null
+    }
+    val wallet = json.optString("wallet")
+    val parts = buildList {
+        add(err)
+        if (req != null) add("req=${"%.4f".format(req)}")
+        if (eur != null) add("eur=${"%.2f".format(eur)}")
+        if (wallet.isNotBlank()) add("w=${wallet.takeLast(6)}")
+    }
+    return parts.joinToString(" · ")
+}
+
+/** Decode wallet embedded in mm3 session token (no verify — display/debug only). */
+fun sessionTokenWallet(token: String?): String? {
+    if (token.isNullOrBlank()) return null
+    return try {
+        val padded = token.replace('-', '+').replace('_', '/')
+            .let { it + "=".repeat((4 - it.length % 4) % 4) }
+        val raw = String(Base64.decode(padded, Base64.DEFAULT))
+        val parts = raw.split('.')
+        if (parts.size >= 2 && parts[0] == "session") parts[1].lowercase() else null
+    } catch (_: Exception) {
+        null
+    }
 }
 

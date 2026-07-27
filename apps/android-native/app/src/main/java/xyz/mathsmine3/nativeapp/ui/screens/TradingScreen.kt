@@ -41,7 +41,10 @@ import xyz.mathsmine3.nativeapp.auth.Session
 import xyz.mathsmine3.nativeapp.data.Mm3Api
 import xyz.mathsmine3.nativeapp.data.SupabaseRest
 import xyz.mathsmine3.nativeapp.data.apiMessage
+import xyz.mathsmine3.nativeapp.data.formatApiErrorBody
 import xyz.mathsmine3.nativeapp.data.jsonBody
+import xyz.mathsmine3.nativeapp.data.sessionTokenWallet
+import xyz.mathsmine3.nativeapp.auth.SessionTokenHolder
 import xyz.mathsmine3.nativeapp.data.readText
 import xyz.mathsmine3.nativeapp.trading.SellQuotes
 import xyz.mathsmine3.nativeapp.ui.components.Mm3Button
@@ -450,22 +453,34 @@ fun TradingScreen(
                     busy = true
                     val execMode = mode
                     val amount = if (execMode == "buy") buyFunds else sellAmount
+                    val localFunds = currentFunds
                     val previewBuy = buyQuote
                     val previewSell = sellQuote
+                    val sessionW = wallet
                     scope.launch {
                         val result = withContext(Dispatchers.IO) {
                             runCatching {
-                                val execText = api.tradeExec(
-                                    jsonBody {
-                                        put("mode", execMode)
-                                        put("currency", currency.uppercase())
-                                        put("amount", amount)
-                                        put("source", source)
-                                    },
-                                ).readText()
-                                val execJson = runCatching { JSONObject(execText) }.getOrNull()
-                                if (execJson?.optBoolean("ok") == false) {
-                                    error(execJson.optString("error", "trade exec failed"))
+                                val tokenW = sessionTokenWallet(SessionTokenHolder.get())
+                                if (tokenW == null) {
+                                    error("no_session · reconnect wallet")
+                                }
+                                if (sessionW != null && tokenW != sessionW) {
+                                    error("session_mismatch · ui=${sessionW.takeLast(6)} tok=${tokenW.takeLast(6)}")
+                                }
+                                val payload = JSONObject()
+                                    .put("mode", execMode)
+                                    .put("currency", currency.uppercase())
+                                    .put("amount", amount)
+                                    .put("source", source)
+                                val resp = api.tradeExec(jsonBody(payload))
+                                val raw = resp.body()?.string()
+                                    ?: resp.errorBody()?.string().orEmpty()
+                                val execJson = runCatching { JSONObject(raw) }.getOrNull()
+                                if (!resp.isSuccessful || execJson?.optBoolean("ok") != true) {
+                                    error(
+                                        formatApiErrorBody(raw)
+                                            ?: "HTTP ${resp.code()} · sent=${"%.4f".format(amount)} · local=${"%.2f".format(localFunds)}",
+                                    )
                                 }
                                 if (execMode == "buy") {
                                     "bought ${formatMm3(previewBuy.netMm3)} for ${formatMoney(previewBuy.funds, currency)}"

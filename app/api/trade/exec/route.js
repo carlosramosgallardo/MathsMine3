@@ -92,9 +92,26 @@ export async function POST(req) {
   const dice = getDiceState();
   const diceModifier = dice.active ? dice.modifier : 0;
 
+  const currencyKey = currency.toLowerCase();
+  const availableFunds = Number(funds[currencyKey]) || 0;
+
   const requestedAmount = mode === 'buy'
-    ? Math.min(funds[currency.toLowerCase()] || 0, requestedRaw)
+    ? Math.min(availableFunds, requestedRaw)
     : Math.min(availableMm3, requestedRaw);
+
+  // Distinguish "I sent €7000 but the session wallet has €0" from a tiny quote.
+  if (mode === 'buy' && requestedRaw >= MIN_TRADE_MM3 && availableFunds < MIN_TRADE_MM3) {
+    return Response.json({
+      ok: false,
+      error: 'insufficient_funds',
+      mode,
+      wallet,
+      currency,
+      requested_raw: requestedRaw,
+      requested_amount: requestedAmount,
+      funds,
+    }, { status: 400 });
+  }
 
   const quote = mode === 'buy'
     ? getBuyQuote(level, requestedAmount, currency, decorations, macroState, diceModifier, nftjiLevels)
