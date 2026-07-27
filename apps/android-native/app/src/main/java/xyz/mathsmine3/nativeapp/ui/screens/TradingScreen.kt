@@ -259,7 +259,7 @@ fun TradingScreen(
                             ),
                         )
                     } else 0
-                    val nextSource = if (wallet.startsWith("0x")) "wallet" else "google"
+                    val nextSource = if (session.kind == xyz.mathsmine3.nativeapp.auth.AuthKind.GOOGLE) "google" else "wallet"
                     TradeReload(
                         nextLevel, nextSold, nextEur, nextUsd, nextCny,
                         nextAvailable, nextDecorations, nextDaily, nextSource,

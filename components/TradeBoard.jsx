@@ -467,7 +467,7 @@ export default function TradeBoard({ account, isVirtualWallet = false }) {
       } catch (err) {
         const code = err?.message || '';
         if (code === 'google_session_required') {
-          pushToast(t('tradeBoard.connectWalletError') || 'Reconnect with Google to trade', 'error');
+          pushToast('Sesión Google caducada — vuelve a entrar con Google y reintenta EXEC', 'error');
         } else if (code === 'nonce_failed' || code === 'session_failed') {
           pushToast('Session sign-in failed — try reconnecting the wallet', 'error');
         } else {

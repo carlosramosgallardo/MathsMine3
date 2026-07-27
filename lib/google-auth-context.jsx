@@ -54,11 +54,9 @@ export function GoogleAuthProvider({ children }) {
     setGoogleWallet(wallet);
     localStorage.setItem('mm3_gw', wallet);
 
-    // Google wallets have no private key to sign with — re-verify the same
-    // access token server-side to earn a session (see 2026-07 security
-    // audit, phase 2). Non-fatal: login still succeeds without a session,
-    // just falls back to the pre-existing unauthenticated behavior.
-    try { await signInWithGoogle(accessToken, wallet); } catch { /* non-fatal */ }
+    // Google wallets have no private key — mint a Bearer session from the
+    // same access token. Required for trade/training APIs.
+    await signInWithGoogle(accessToken, wallet);
 
     return wallet;
   }, []);

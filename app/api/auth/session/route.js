@@ -26,7 +26,12 @@ export async function POST(req) {
     if (!sub) {
       return Response.json({ ok: false, error: 'invalid_google_token' }, { status: 401 });
     }
-    const wallet = deriveVirtualWallet(sub);
+    // deriveVirtualWallet is async (Web Crypto) — must await or the session
+    // encodes "[object Promise]" and every Google trade sees empty funds.
+    const wallet = await deriveVirtualWallet(sub);
+    if (!WALLET_RE.test(wallet)) {
+      return Response.json({ ok: false, error: 'wallet_derive_failed' }, { status: 500 });
+    }
     const token = createSessionToken(wallet);
     return Response.json({ ok: true, token, wallet });
   }
