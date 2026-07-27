@@ -1,7 +1,7 @@
 'use client';
 
 import { createContext, useContext, useState, useCallback, useEffect } from 'react';
-import { signInWithGoogle } from '@/lib/wallet-session-client';
+import { signInWithGoogle, clearSession } from '@/lib/wallet-session-client';
 
 const GoogleAuthCtx = createContext({
   googleWallet: null,
@@ -66,6 +66,7 @@ export function GoogleAuthProvider({ children }) {
   const signOut = useCallback(() => {
     setGoogleWallet(null);
     localStorage.removeItem('mm3_gw');
+    clearSession();
   }, []);
 
   return (

@@ -11,7 +11,7 @@ import { TRADE_SLOT_ORDER, SQUEEZE_SLOT_ORDER, WALLET_DECORATIONS, TRADING_NFTJI
 import { useDice } from '@/lib/dice-context';
 import { getDiceState } from '@/lib/dice';
 import { useSound } from '@/lib/sound-context';
-import { apiFetch } from '@/lib/wallet-session-client';
+import { apiFetch, ensureWalletSession } from '@/lib/wallet-session-client';
 import PageLoading from '@/components/PageLoading';
 
 const MIN_TRADE_MM3 = 0.00001;
@@ -462,6 +462,19 @@ export default function TradeBoard({ account, isVirtualWallet = false }) {
     setProcessing(true);
     try {
       const wallet = account.toLowerCase();
+      try {
+        await ensureWalletSession(wallet, { isVirtualWallet });
+      } catch (err) {
+        const code = err?.message || '';
+        if (code === 'google_session_required') {
+          pushToast(t('tradeBoard.connectWalletError') || 'Reconnect with Google to trade', 'error');
+        } else if (code === 'nonce_failed' || code === 'session_failed') {
+          pushToast('Session sign-in failed — try reconnecting the wallet', 'error');
+        } else {
+          pushToast('Sign the login message in your wallet to trade', 'error');
+        }
+        return;
+      }
       const liveDailyCount = await loadDailyTxCount(wallet);
       if (liveDailyCount >= DAILY_TX_LIMIT) {
         pushToast(`${t('tradeBoard.dailyLimitReached')} ${t('tradeBoard.resetIn')} ${resetCountdown}`, 'error');
@@ -487,7 +500,11 @@ export default function TradeBoard({ account, isVirtualWallet = false }) {
       }, wallet);
       const execData = await execRes.json().catch(() => ({}));
       if (!execRes.ok || !execData.ok) {
-        if (execData.error === 'amount_too_small') {
+        if (execData.error === 'unauthorized') {
+          pushToast('Session expired — sign the wallet message (or reconnect) and retry EXEC', 'error');
+          return;
+        }
+        if (execData.error === 'amount_too_small' || execData.error === 'insufficient_funds') {
           pushToast(mode === 'sell' ? t('tradeBoard.insufficientMm3Error') : t('tradeBoard.insufficientFundsError'), 'error');
           return;
         }
