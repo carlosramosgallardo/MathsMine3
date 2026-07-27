@@ -36,7 +36,7 @@ import { formatWalletLabel } from '@/lib/wallet-format';
 import { MM3_BLOCK_CHAIN_REQUIREMENTS } from '@/lib/mm3-block-chain';
 import { isAnonymousWallet } from '@/lib/is-anonymous-wallet';
 import PageLoading from '@/components/PageLoading';
-import { apiFetch } from '@/lib/wallet-session-client';
+import { apiFetch, ensureWalletSession } from '@/lib/wallet-session-client';
 
 const MARKET_FIRST_MINING_BLOCK_KEY = 'ph-0-0';
 
@@ -280,7 +280,7 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
       setExpandedCardIds(prev => { const next = new Set(prev); next.has(id) ? next.delete(id) : next.add(id); return next; });
     }
   };
-  const { account } = useActiveWallet();
+  const { account, isVirtualWallet } = useActiveWallet();
   const pathname = usePathname();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -1079,6 +1079,7 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
     }
     setDisputeBusy(defenderPoolCode);
     try {
+      await ensureWalletSession(activeWallet, { isVirtualWallet });
       const response = await apiFetch('/api/wallet-pools/dispute/vote', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1090,20 +1091,31 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
       }, activeWallet);
       const payload = await response.json().catch(() => ({}));
       if (!response.ok || !payload.ok) {
-        const errKey = payload.error === 'squeeze_limit_reached'
+        const errKey = payload.error === 'unauthorized'
+          ? 'disputeError'
+          : payload.error === 'squeeze_limit_reached'
           ? 'disputeLimit'
           : payload.error === 'already_voted' || payload.error === 'dispute_already_active'
           ? 'disputeAlready'
           : 'disputeError';
         const resetText = payload.reset_at ? `${labels.resetIn} ${formatResetCountdown(payload.reset_at, nowMs)}` : '';
-        window.dispatchEvent(new CustomEvent('mm3-toast', { detail: { msg: `${labels[errKey]}${resetText ? ` ${resetText}` : ''}`, type: 'error' } }));
+        const base = payload.error === 'unauthorized'
+          ? (language === 'es'
+            ? 'Sesión caducada — vuelve a entrar y reintenta'
+            : 'Session expired — sign in again and retry')
+          : labels[errKey];
+        window.dispatchEvent(new CustomEvent('mm3-toast', { detail: { msg: `${base}${resetText ? ` ${resetText}` : ''}`, type: 'error' } }));
         return;
       }
       // proposing=true means 1st wallet — dispute is in proposing state awaiting a 2nd
       const toastMsg = payload.proposing && !payload.created ? labels.disputeProposed : labels.disputeVoted;
       window.dispatchEvent(new CustomEvent('mm3-toast', { detail: { msg: toastMsg, type: 'success' } }));
-    } catch {
-      window.dispatchEvent(new CustomEvent('mm3-toast', { detail: { msg: labels.disputeError, type: 'error' } }));
+    } catch (err) {
+      const code = err?.message || '';
+      const msg = code === 'google_session_required' || code === 'session_failed'
+        ? (language === 'es' ? 'Sesión caducada — vuelve a entrar y reintenta' : 'Session expired — sign in again and retry')
+        : labels.disputeError;
+      window.dispatchEvent(new CustomEvent('mm3-toast', { detail: { msg, type: 'error' } }));
     } finally {
       setDisputeBusy('');
     }
@@ -1174,9 +1186,9 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
           // Proposing disputes where the active wallet hasn't committed yet
           const proposing = (data.disputes || []).filter(
             (d) => d.status === 'proposing' &&
-            d.challenger_pool_code === activeWalletPool &&
+            String(d.challenger_pool_code || '').toUpperCase() === String(activeWalletPool || '').toUpperCase() &&
             activeWallet &&
-            !(d.votes || []).includes(activeWallet)
+            !(d.votes || []).map((w) => String(w || '').toLowerCase()).includes(activeWallet)
           );
           setProposingDisputes(proposing);
         })

@@ -5,11 +5,15 @@ import { useActiveWallet } from '@/lib/use-active-wallet';
 import { useI18n } from '@/lib/i18n-context';
 import { colorFromAddress, colorFromPool } from '@/lib/wallet-colors';
 import { formatWalletLabel } from '@/lib/wallet-format';
-import { apiFetch } from '@/lib/wallet-session-client';
+import { apiFetch, ensureWalletSession } from '@/lib/wallet-session-client';
 
 function shortWallet(wallet) {
   const s = String(wallet || '').trim();
   return s ? formatWalletLabel(s).toUpperCase() : '';
+}
+
+function voteWallets(votes) {
+  return (votes || []).map((w) => String(w || '').toLowerCase());
 }
 
 const LABELS = {
@@ -25,6 +29,8 @@ const LABELS = {
     disputeError: 'Error al enviar propuesta.',
     disputeAlready: 'Ya has participado en esta propuesta.',
     disputeLimit: 'Límite de 5 Squeezes en 24h alcanzado.',
+    disputeUnauthorized: 'Sesión caducada — vuelve a entrar (Google/wallet) y pulsa ✓ otra vez.',
+    disputeNotInPool: 'Solo otra wallet del pool atacante puede aceptar este Squeeze.',
   },
   en: {
     acceptInvite: 'Accept invite',
@@ -38,11 +44,13 @@ const LABELS = {
     disputeError: 'Error sending proposal.',
     disputeAlready: 'You already participated in this proposal.',
     disputeLimit: '5 Squeezes per 24h limit reached.',
+    disputeUnauthorized: 'Session expired — sign in again (Google/wallet) and tap ✓.',
+    disputeNotInPool: 'Only another wallet from the attacking pool can accept this Squeeze.',
   },
 };
 
 export default function NotificationChips() {
-  const { account } = useActiveWallet();
+  const { account, isVirtualWallet } = useActiveWallet();
   const activeWallet = account?.toLowerCase() || '';
   const { language } = useI18n();
   const labels = LABELS[language] || LABELS.en;
@@ -108,16 +116,16 @@ export default function NotificationChips() {
             (d.disputes || []).filter(
               (disp) =>
                 disp.status === 'proposing' &&
-                disp.challenger_pool_code === myPool &&
+                String(disp.challenger_pool_code || '').toUpperCase() === String(myPool).toUpperCase() &&
                 activeWallet &&
-                !(disp.votes || []).includes(activeWallet),
+                !voteWallets(disp.votes).includes(activeWallet),
             ),
           );
         })
         .catch(() => {});
     };
     load();
-    const poll = setInterval(load, 120_000);
+    const poll = setInterval(load, 15_000);
     window.addEventListener('focus', load);
     window.addEventListener('mm3-db-updated', load);
     return () => {
@@ -127,10 +135,15 @@ export default function NotificationChips() {
     };
   }, [myPool, activeWallet]);
 
+  async function withSession() {
+    await ensureWalletSession(activeWallet, { isVirtualWallet });
+  }
+
   const handleAccept = async (inviteId) => {
     if (!activeWallet || acceptBusy) return;
     setAcceptBusy(inviteId);
     try {
+      await withSession();
       const r = await apiFetch('/api/wallet-pools/accept', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -138,7 +151,8 @@ export default function NotificationChips() {
       }, activeWallet);
       const d = await r.json().catch(() => ({}));
       if (!r.ok || !d.ok) {
-        window.dispatchEvent(new CustomEvent('mm3-toast', { detail: { msg: labels.poolError, type: 'error' } }));
+        const msg = d.error === 'unauthorized' ? labels.disputeUnauthorized : labels.poolError;
+        window.dispatchEvent(new CustomEvent('mm3-toast', { detail: { msg, type: 'error' } }));
         return;
       }
       localStorage.removeItem('lb_data');
@@ -147,8 +161,12 @@ export default function NotificationChips() {
       window.dispatchEvent(new CustomEvent('mm3-db-updated'));
       window.dispatchEvent(new CustomEvent('mm3-toast', { detail: { msg: labels.inviteAccepted, type: 'success' } }));
       await fetchInvites();
-    } catch {
-      window.dispatchEvent(new CustomEvent('mm3-toast', { detail: { msg: labels.poolError, type: 'error' } }));
+    } catch (err) {
+      const code = err?.message || '';
+      const msg = code === 'google_session_required' || code === 'session_failed'
+        ? labels.disputeUnauthorized
+        : labels.poolError;
+      window.dispatchEvent(new CustomEvent('mm3-toast', { detail: { msg, type: 'error' } }));
     } finally {
       setAcceptBusy('');
     }
@@ -158,6 +176,7 @@ export default function NotificationChips() {
     if (!activeWallet || declineBusy) return;
     setDeclineBusy(inviteId);
     try {
+      await withSession();
       const r = await apiFetch('/api/wallet-pools/decline', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -181,6 +200,7 @@ export default function NotificationChips() {
     if (!activeWallet || !myPool || disputeBusy) return;
     setDisputeBusy(defenderPoolCode);
     try {
+      await withSession();
       const r = await apiFetch('/api/wallet-pools/dispute/vote', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -188,17 +208,28 @@ export default function NotificationChips() {
       }, activeWallet);
       const d = await r.json().catch(() => ({}));
       if (!r.ok || !d.ok) {
-        const errKey = d.error === 'squeeze_limit_reached'
+        const errKey = d.error === 'unauthorized' || d.error === 'google_session_required'
+          ? 'disputeUnauthorized'
+          : d.error === 'not_in_challenger_pool'
+          ? 'disputeNotInPool'
+          : d.error === 'squeeze_limit_reached'
           ? 'disputeLimit'
-          : d.error === 'already_voted' || d.error === 'dispute_already_active' ? 'disputeAlready' : 'disputeError';
+          : d.error === 'already_voted' || d.error === 'dispute_already_active'
+          ? 'disputeAlready'
+          : 'disputeError';
         window.dispatchEvent(new CustomEvent('mm3-toast', { detail: { msg: labels[errKey], type: 'error' } }));
         return;
       }
       const msg = d.proposing && !d.created ? labels.disputeProposed : labels.disputeVoted;
       window.dispatchEvent(new CustomEvent('mm3-toast', { detail: { msg, type: 'success' } }));
       setProposingDisputes((prev) => prev.filter((p) => p.id !== disputeId));
-    } catch {
-      window.dispatchEvent(new CustomEvent('mm3-toast', { detail: { msg: labels.disputeError, type: 'error' } }));
+      window.dispatchEvent(new CustomEvent('mm3-db-updated'));
+    } catch (err) {
+      const code = err?.message || '';
+      const msg = code === 'google_session_required' || code === 'session_failed' || code === 'User rejected the request.'
+        ? labels.disputeUnauthorized
+        : labels.disputeError;
+      window.dispatchEvent(new CustomEvent('mm3-toast', { detail: { msg, type: 'error' } }));
     } finally {
       setDisputeBusy('');
     }

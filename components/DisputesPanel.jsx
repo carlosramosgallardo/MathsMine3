@@ -6,7 +6,8 @@ import supabase from '@/lib/supabaseClient';
 import { useCurrency } from '@/lib/currency-context';
 import { CNY_TO_EUR, CNY_TO_USD, formatMoney } from '@/lib/sell-offer';
 import { formatWalletLabel } from '@/lib/wallet-format';
-import { apiFetch } from '@/lib/wallet-session-client';
+import { apiFetch, ensureWalletSession } from '@/lib/wallet-session-client';
+import { useActiveWallet } from '@/lib/use-active-wallet';
 
 const STATUS_LABELS = {
   proposing:    { es: 'PROPUESTA',      en: 'PROPOSAL',     color: '#64748b' },
@@ -787,6 +788,7 @@ function DisputeCard({ dispute, activeWallet, poolCode, language, currency, onJo
 }
 
 export default function DisputesPanel({ wallet, poolCode, language, onWalletClick, onPoolClick, onMarketBlockClick }) {
+  const { isVirtualWallet } = useActiveWallet();
   const lang = language === 'es' ? 'es' : 'en';
   const { currency } = useCurrency();
   const [disputes, setDisputes] = useState([]);
@@ -1027,6 +1029,7 @@ export default function DisputesPanel({ wallet, poolCode, language, onWalletClic
     if (!wallet || joinBusy) return;
     setJoinBusy(true);
     try {
+      await ensureWalletSession(wallet, { isVirtualWallet });
       const res = await apiFetch('/api/wallet-pools/dispute/join', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1034,6 +1037,16 @@ export default function DisputesPanel({ wallet, poolCode, language, onWalletClic
       }, wallet);
       const data = await res.json();
       if (data.ok) await fetchDisputes();
+      else if (data.error === 'unauthorized') {
+        window.dispatchEvent(new CustomEvent('mm3-toast', {
+          detail: {
+            msg: language === 'es'
+              ? 'Sesión caducada — vuelve a entrar y reintenta'
+              : 'Session expired — sign in again and retry',
+            type: 'error',
+          },
+        }));
+      }
     } finally {
       setJoinBusy(false);
     }

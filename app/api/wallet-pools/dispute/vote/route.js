@@ -49,12 +49,28 @@ export async function POST(req) {
     return Response.json({ ok: false, error: 'invalid_payload' }, { status: 400 });
   }
 
+  const sessionWallet = String(wallet).toLowerCase();
+
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL,
     process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
   );
 
   try {
+    // Pool membership / vote rows may store mixed-case wallets from older clients.
+    // Resolve the canonical stored wallet so the RPC's equality checks succeed.
+    const { data: memberRow, error: memberErr } = await supabase
+      .from('mm3_wallet_pool_members')
+      .select('wallet')
+      .eq('pool_code', challengerPool)
+      .ilike('wallet', sessionWallet)
+      .maybeSingle();
+    if (memberErr) throw memberErr;
+    if (!memberRow?.wallet) {
+      return Response.json({ ok: false, error: 'not_in_challenger_pool' }, { status: 403 });
+    }
+    const canonicalWallet = String(memberRow.wallet);
+
     const existingLock = await getActivePoolDispute(supabase, challengerPool);
     if (existingLock && !(existingLock.status === 'proposing' && existingLock.challenger_pool_code === challengerPool && existingLock.defender_pool_code === defenderPool)) {
       return Response.json(
@@ -95,7 +111,7 @@ export async function POST(req) {
     const { data, error } = await supabase.rpc('mm3_dispute_vote', {
       p_challenger_pool: challengerPool,
       p_defender_pool: defenderPool,
-      p_wallet: wallet,
+      p_wallet: canonicalWallet,
     });
 
     if (error) throw error;
@@ -116,7 +132,7 @@ export async function POST(req) {
 
     if (isNewLaunch && data?.proposing && data?.dispute_id) {
       await supabase.from('mm3_squeezing_launches').insert({
-        wallet,
+        wallet: canonicalWallet,
         challenger_pool_code: challengerPool,
         defender_pool_code: defenderPool,
         dispute_id: data.dispute_id,

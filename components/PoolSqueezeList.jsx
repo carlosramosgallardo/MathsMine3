@@ -3,7 +3,8 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useI18n } from '@/lib/i18n-context';
 import { colorFromPool, colorFromAddress } from '@/lib/wallet-colors';
-import { apiFetch } from '@/lib/wallet-session-client';
+import { useActiveWallet } from '@/lib/use-active-wallet';
+import { apiFetch, ensureWalletSession } from '@/lib/wallet-session-client';
 
 const SQUEEZE_LAUNCH_LIMIT = 5;
 const SQUEEZE_WINDOW_MS = 24 * 60 * 60 * 1000;
@@ -21,6 +22,7 @@ function formatResetCountdown(resetAt, nowMs) {
 
 export default function PoolSqueezeList({ wallet }) {
   const { language } = useI18n();
+  const { isVirtualWallet } = useActiveWallet();
   const es = language === 'es';
   const [pools, setPools] = useState([]);
   const [myPool, setMyPool] = useState(null);
@@ -104,6 +106,7 @@ export default function PoolSqueezeList({ wallet }) {
     }
     setDisputeBusy(defenderPool);
     try {
+      await ensureWalletSession(wallet, { isVirtualWallet });
       const response = await apiFetch('/api/wallet-pools/dispute/vote', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -112,13 +115,18 @@ export default function PoolSqueezeList({ wallet }) {
       const payload = await response.json().catch(() => ({}));
       if (!response.ok || !payload.ok) {
         const errKey =
-          payload.error === 'squeeze_limit_reached'
+          payload.error === 'unauthorized'
+            ? 'squeezeError'
+            : payload.error === 'squeeze_limit_reached'
             ? 'squeezeLimit'
             : payload.error === 'already_voted' || payload.error === 'dispute_already_active'
             ? 'squeezeAlready'
             : 'squeezeError';
+        const msg = payload.error === 'unauthorized'
+          ? (es ? 'Sesión caducada — vuelve a entrar y reintenta' : 'Session expired — sign in again and retry')
+          : labels[errKey];
         window.dispatchEvent(
-          new CustomEvent('mm3-toast', { detail: { msg: labels[errKey], type: 'error' } })
+          new CustomEvent('mm3-toast', { detail: { msg, type: 'error' } })
         );
         return;
       }

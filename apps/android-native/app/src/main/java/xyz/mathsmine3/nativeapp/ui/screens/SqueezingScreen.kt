@@ -42,7 +42,10 @@ import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
 import xyz.mathsmine3.nativeapp.auth.Session
+import xyz.mathsmine3.nativeapp.auth.SessionTokenHolder
 import xyz.mathsmine3.nativeapp.data.Mm3Api
+import xyz.mathsmine3.nativeapp.data.apiMessage
+import xyz.mathsmine3.nativeapp.data.formatApiErrorBody
 import xyz.mathsmine3.nativeapp.data.jsonBody
 import xyz.mathsmine3.nativeapp.data.readText
 import xyz.mathsmine3.nativeapp.ui.components.Mm3Button
@@ -382,21 +385,35 @@ fun SqueezingScreen(
                             scope.launch {
                                 val res = withContext(Dispatchers.IO) {
                                     runCatching {
-                                        api.disputeVote(
+                                        if (SessionTokenHolder.get().isNullOrBlank()) {
+                                            error(if (es) "Sin sesión — reconecta" else "No session — reconnect")
+                                        }
+                                        val raw = api.disputeVote(
                                             jsonBody {
                                                 put("wallet", wallet)
                                                 put("challengerPool", myPool)
                                                 put("defenderPool", pool.code)
                                             },
                                         ).readText()
+                                        val json = JSONObject(raw)
+                                        if (json.optBoolean("ok") != true) {
+                                            error(formatApiErrorBody(raw) ?: json.optString("error", "squeeze failed"))
+                                        }
+                                        val proposing = json.optBoolean("proposing") && !json.optBoolean("created")
+                                        proposing to raw
                                     }
                                 }
                                 busyPool = null
-                                res.onSuccess {
-                                    message = if (es) "Squeeze iniciado" else "Squeeze started"
+                                res.onSuccess { (proposing, _) ->
+                                    message = when {
+                                        proposing && es -> "Propuesta enviada — otra wallet debe aceptar"
+                                        proposing -> "Proposal sent — another wallet must accept"
+                                        es -> "Squeeze iniciado"
+                                        else -> "Squeeze started"
+                                    }
                                     reload()
                                 }.onFailure {
-                                    message = it.message ?: "squeeze failed"
+                                    message = it.apiMessage(it.message ?: "squeeze failed")
                                 }
                             }
                         },
@@ -455,6 +472,9 @@ fun SqueezingScreen(
                             scope.launch {
                                 val res = withContext(Dispatchers.IO) {
                                     runCatching {
+                                        if (SessionTokenHolder.get().isNullOrBlank()) {
+                                            error(if (es) "Sin sesión — reconecta" else "No session — reconnect")
+                                        }
                                         api.joinDispute(
                                             jsonBody {
                                                 put("wallet", wallet)
@@ -466,7 +486,37 @@ fun SqueezingScreen(
                                 res.onSuccess {
                                     message = if (es) "Unido" else "Joined"
                                     reload()
-                                }.onFailure { message = it.message ?: "join failed" }
+                                }.onFailure { message = it.apiMessage(it.message ?: "join failed") }
+                            }
+                        },
+                        onAcceptProposal = {
+                            if (wallet == null || myPool == null) return@DisputeCardView
+                            busyPool = d.defender
+                            scope.launch {
+                                val res = withContext(Dispatchers.IO) {
+                                    runCatching {
+                                        if (SessionTokenHolder.get().isNullOrBlank()) {
+                                            error(if (es) "Sin sesión — reconecta" else "No session — reconnect")
+                                        }
+                                        val raw = api.disputeVote(
+                                            jsonBody {
+                                                put("wallet", wallet)
+                                                put("challengerPool", myPool)
+                                                put("defenderPool", d.defender)
+                                            },
+                                        ).readText()
+                                        val json = JSONObject(raw)
+                                        if (json.optBoolean("ok") != true) {
+                                            error(formatApiErrorBody(raw) ?: json.optString("error", "vote failed"))
+                                        }
+                                        raw
+                                    }
+                                }
+                                busyPool = null
+                                res.onSuccess {
+                                    message = if (es) "Squeeze aceptado" else "Squeeze accepted"
+                                    reload()
+                                }.onFailure { message = it.apiMessage(it.message ?: "accept failed") }
                             }
                         },
                         onClaim = {
@@ -714,6 +764,7 @@ private fun DisputeCardView(
     claimBusy: Boolean,
     onToggle: (() -> Unit)?,
     onJoin: () -> Unit,
+    onAcceptProposal: () -> Unit = {},
     onClaim: () -> Unit,
     onRanking: () -> Unit,
 ) {
@@ -776,6 +827,10 @@ private fun DisputeCardView(
         myPool == dispute.challenger &&
         myWallet != null &&
         dispute.wallets.none { it.wallet == myWallet }
+    val canAcceptProposal = isProposing &&
+        myPool == dispute.challenger &&
+        myWallet != null &&
+        !dispute.votes.contains(myWallet)
 
     Column(
         Modifier
@@ -862,6 +917,14 @@ private fun DisputeCardView(
                     modifier = Modifier.weight(1f),
                 )
                 CountdownText(proposalDeadline, nowMs, Color(0xFF64748B))
+            }
+            if (canAcceptProposal) {
+                Mm3Button(
+                    text = if (es) "✓ ACEPTAR" else "✓ ACCEPT",
+                    onClick = onAcceptProposal,
+                    accent = Color(0xFF4ADE80),
+                    modifier = Modifier.fillMaxWidth(),
+                )
             }
         }
 
