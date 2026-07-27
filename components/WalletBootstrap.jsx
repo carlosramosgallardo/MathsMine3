@@ -5,7 +5,6 @@ import { getAccount } from 'wagmi/actions';
 import { useActiveWallet } from '@/lib/use-active-wallet';
 import {
   getSessionToken,
-  shouldAutoPromptWalletSign,
   signInWithWallet,
   walletSignErrorMessage,
 } from '@/lib/wallet-session-client';
@@ -20,11 +19,10 @@ export default function WalletBootstrap() {
     const wallet = String(account || '').toLowerCase();
     if (!wallet) return;
 
-    // Google wallets are created server-side during login (google-auth-context).
-    // Only Web3 wallets need bootstrapping here.
+    // Google wallets mint session during loginWithGoogle — no personal_sign.
     if (isVirtualWallet) return;
 
-    // Already have a portal session — don't re-prompt on every page.
+    // Already signed in for this wallet — squeeze/trade reuse the cached session.
     if (getSessionToken(wallet)) return;
 
     let cancelled = false;
@@ -46,15 +44,27 @@ export default function WalletBootstrap() {
 
       if (cancelled) return;
 
-      // MetaMask injected: auto sign-in is fine.
-      // Ronin / WalletConnect: defer until the user acts (EXEC / accept) — immediate
-      // personal_sign after connect often hits Ronin's "Login session has expired".
       const connected = getAccount(wagmiConfig);
-      if (!shouldAutoPromptWalletSign(connected.connector)) {
-        return;
-      }
+      const connector = connected.connector;
+      const isWcOrRonin = !!(
+        connector
+        && (connector.type === 'walletConnect'
+          || /walletconnect|ronin/i.test(`${connector.id || ''} ${connector.name || ''}`))
+      );
 
-      await new Promise((r) => setTimeout(r, 250));
+      // Always ask for the login signature at connect time (not mid-squeeze/EXEC).
+      // Give Ronin/WC a moment to finish the connect handshake first.
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('mm3-toast', {
+          detail: {
+            msg: language === 'es'
+              ? 'Firma el mensaje en tu wallet para entrar (una sola vez)'
+              : 'Sign the wallet message to enter (one time)',
+            type: 'info',
+          },
+        }));
+      }
+      await new Promise((r) => setTimeout(r, isWcOrRonin ? 900 : 300));
       if (cancelled) return;
 
       try {
