@@ -7,7 +7,7 @@ import { useI18n } from '@/lib/i18n-context';
 import { useCurrency } from '@/lib/currency-context';
 import { normalizeMacroState } from '@/lib/mm3-macro';
 import { getRankTier } from '@/lib/ranks';
-import { TRADE_SLOT_ORDER, SQUEEZE_SLOT_ORDER, WALLET_DECORATIONS, TRADING_NFTJI, LIFE_NFTJI_ACCENT, lifeNftjiEmojiFilterStyle, getEmojiTitle, computeRelayLevel, getWalletTradeMultiplier, normalizeWalletDecorations, appendWalletDecoration } from '@/lib/wallet-decorations';
+import { TRADE_SLOT_ORDER, SQUEEZE_SLOT_ORDER, WALLET_DECORATIONS, TRADING_NFTJI, LIFE_NFTJI_ACCENT, lifeNftjiEmojiFilterStyle, getEmojiTitle, getTradeSlotImpact, computeRelayLevel, getWalletTradeMultiplier, normalizeWalletDecorations, appendWalletDecoration } from '@/lib/wallet-decorations';
 import { useDice } from '@/lib/dice-context';
 import { getDiceState } from '@/lib/dice';
 import { useSound } from '@/lib/sound-context';
@@ -109,15 +109,6 @@ function formatCountdown(ms) {
 
 function getTxLogStorageKey(account) {
   return `mm3-trade-txlog:${String(account || '').toLowerCase()}`;
-}
-
-function getTradeSlotImpact(slot, nftjiLevel = 0) {
-  if (slot.key === 'revive') return { label: 'FEE 0%', multiplier: slot.multiplier };
-  const safeNftjiLevel = Math.max(0, Number(nftjiLevel) || 0);
-  const multiplier = slot.multiplier * (1 + safeNftjiLevel * 0.05);
-  const impactPct = (multiplier - 1) * 100;
-  const precision = Math.abs(impactPct) < 10 ? 1 : 0;
-  return { label: `OUT +${impactPct.toFixed(precision)}%`, multiplier };
 }
 
 function getTradeSlotTitle(slot, level, nftjiLevel, language) {

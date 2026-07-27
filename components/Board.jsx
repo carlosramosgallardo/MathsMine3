@@ -19,6 +19,7 @@ import {
   appendWalletDecoration,
   computeRelayLevel,
   getEmojiTitle,
+  getTradeSlotImpact,
   getWalletMarketDelta,
   MARKET_EVENT_TYPE_LIFE,
   MARKET_EVENT_TYPE_NFTJI,
@@ -2525,6 +2526,9 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
         .mm3-train-arsenal {
           padding: 0.35rem 0.4rem !important;
         }
+        .mm3-train-arsenal > div:first-child {
+          margin-bottom: 0.35rem !important;
+        }
         .mm3-train-chrome .mm3-trade-slot {
           width: 2.45rem !important;
           height: 46px !important;
@@ -2532,6 +2536,25 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
           padding: 0 !important;
           gap: 0 !important;
           border-radius: 0.3rem !important;
+        }
+        .mm3-train-chrome .mm3-trade-slot .mm3-trade-slot-skill {
+          padding-top: 1px !important;
+          padding-bottom: 1px !important;
+          font-size: 0.42rem !important;
+          line-height: 1 !important;
+        }
+        .mm3-train-chrome .mm3-trade-slot .mm3-trade-slot-emoji {
+          margin-top: 2px !important;
+          font-size: 1.05rem !important;
+          line-height: 1 !important;
+        }
+        .mm3-train-chrome .mm3-trade-slot .mm3-trade-slot-emoji.mm3-trade-slot-emoji--squeeze {
+          font-size: 0.82rem !important;
+        }
+        .mm3-train-chrome .mm3-trade-slot .mm3-trade-slot-lvl {
+          margin-top: 0 !important;
+          font-size: 0.52rem !important;
+          line-height: 1 !important;
         }
       `}</style>
 
@@ -2553,34 +2576,71 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
               {displayedNftjis.length ? (
                 <div className="mm3-train-arsenal-grid mx-auto">
                   {displayedNftjis.map((nftji) => {
+                    const owned = !nftji.placeholder;
                     const isMining = nftji.source === 'mining';
                     const isLife = nftji.emoji === WALLET_DECORATIONS.revive;
-                    const borderColor = nftji.placeholder
+                    const isSqueeze = nftji.source === 'squeeze';
+                    const tradeSlot = TRADE_SLOT_ORDER.find((s) => s.emoji === nftji.emoji);
+                    const ability = tradeSlot ? getTradeSlotImpact(tradeSlot, nftji.level) : null;
+                    const borderColor = !owned
                       ? (isMining ? 'rgba(250,204,21,0.22)' : isLife ? 'rgba(56,189,248,0.22)' : 'rgba(148,163,184,0.22)')
                       : (isMining ? 'rgba(250,204,21,0.6)' : isLife ? 'rgba(56,189,248,0.6)' : tier.glow);
                     const slotColor = isMining ? '#fef08a' : tier.color;
-                    const title = nftji.placeholder
-                      ? (nftji.source === 'mining' ? 'Mining NFTJI — none' : `${getEmojiTitle(nftji.emoji)} — none`)
-                      : `${getEmojiTitle(nftji.emoji)}${nftji.blockKey ? ` | ${nftji.blockKey}` : ''} | Lv.${nftji.level}`;
+                    const showLvl = owned && !isLife && nftji.source !== 'wallet';
+                    const title = !owned
+                      ? (isMining ? 'Mining NFTJI — none' : `${getEmojiTitle(nftji.emoji)} — none`)
+                      : `${getEmojiTitle(nftji.emoji)}${nftji.blockKey ? ` | ${nftji.blockKey}` : ''}${showLvl ? ` | Lv.${nftji.level}` : ''}`;
                     return (
                       <div
                         key={nftji.key}
-                        className="mm3-trade-slot flex h-[46px] w-[2.45rem] flex-col items-center justify-center rounded-md border"
+                        className="mm3-trade-slot relative flex h-[46px] w-[2.45rem] flex-col items-center justify-center overflow-hidden rounded-md border"
                         style={{
                           borderColor,
-                          background: nftji.placeholder ? 'rgba(2,6,23,0.4)' : (isLife ? '#100b18' : tier.bg),
-                          color: nftji.placeholder ? 'rgba(100,116,139,0.35)' : slotColor,
-                          boxShadow: nftji.placeholder ? 'none' : (isMining ? '0 0 12px rgba(250,204,21,0.25)' : `0 0 12px ${tier.color}22`),
+                          background: !owned ? 'rgba(2,6,23,0.4)' : (isLife ? '#100b18' : tier.bg),
+                          color: !owned ? 'rgba(100,116,139,0.35)' : slotColor,
+                          boxShadow: !owned ? 'none' : (isMining ? '0 0 12px rgba(250,204,21,0.25)' : `0 0 12px ${tier.color}22`),
                         }}
                         title={title}
                       >
-                        {!nftji.placeholder && (
-                          <span className="text-[1.05rem] leading-none" style={lifeNftjiEmojiFilterStyle(nftji.emoji)}>
+                        {owned && ability && (
+                          <span
+                            className="mm3-trade-slot-skill absolute inset-x-0 top-0 px-px py-px text-center text-[0.42rem] font-black leading-none tracking-tight text-[#02060b]"
+                            style={{ background: isLife ? LIFE_NFTJI_ACCENT : tier.color }}
+                          >
+                            {ability.label}
+                          </span>
+                        )}
+                        {owned && (
+                          <span
+                            className={`mm3-trade-slot-emoji${isSqueeze ? ' mm3-trade-slot-emoji--squeeze' : ''}`}
+                            style={{
+                              fontSize: isSqueeze ? '0.82rem' : '1.05rem',
+                              lineHeight: 1,
+                              marginTop: ability ? 2 : 0,
+                              ...lifeNftjiEmojiFilterStyle(nftji.emoji),
+                            }}
+                          >
                             {nftji.emoji}
                           </span>
                         )}
-                        {!nftji.placeholder && (
-                          <span className="mt-0.5 font-mono text-[0.52rem] font-black leading-none">Lv{nftji.level}</span>
+                        {owned && (
+                          <span
+                            className="mm3-trade-slot-lvl"
+                            style={{
+                              fontSize: '0.52rem',
+                              fontFamily: 'monospace',
+                              fontWeight: 800,
+                              lineHeight: 1,
+                              color: slotColor,
+                              textShadow: `0 0 3px ${slotColor}`,
+                            }}
+                          >
+                            {isLife && ability
+                              ? `×${ability.multiplier.toFixed(2)}`
+                              : showLvl
+                                ? `Lv${nftji.level}`
+                                : ''}
+                          </span>
                         )}
                       </div>
                     );

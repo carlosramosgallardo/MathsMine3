@@ -97,8 +97,15 @@ private data class TradeReload(
     val cny: Double,
     val available: Double,
     val decorations: List<String>,
+    val nftjiSlots: List<NftjiSlotUi>,
     val daily: Int,
     val source: String,
+)
+
+private data class NftjiSlotUi(
+    val emoji: String,
+    val level: Int?,
+    val owned: Boolean,
 )
 
 @Composable
@@ -124,6 +131,7 @@ fun TradingScreen(
     var showLog by remember { mutableStateOf(false) }
     var dailyTx by remember { mutableIntStateOf(0) }
     var decorations by remember { mutableStateOf(listOf<String>()) }
+    var nftjiSlots by remember { mutableStateOf(listOf<NftjiSlotUi>()) }
     var source by remember { mutableStateOf("wallet") }
 
     var transactions by remember { mutableStateOf(listOf<TradeTx>()) }
@@ -249,6 +257,26 @@ fun TradingScreen(
                     val nextDecorations = buildList {
                         if (arr != null) for (i in 0 until arr.length()) add(arr.optString(i))
                     }
+                    val owned = nextDecorations.toSet()
+                    fun lvl(key: String) = progress?.optInt(key, 0) ?: 0
+                    val miningKey = progress?.optString("mining_nftji_key").orEmpty()
+                    val miningOwned = miningKey.isNotBlank()
+                    val miningLevel = if (miningOwned) {
+                        progress?.optJSONObject("mining_nftji_levels")?.optInt(miningKey, 0) ?: 0
+                    } else null
+                    val nextSlots = listOf(
+                        NftjiSlotUi("🔮", lvl("lucky_50_level").takeIf { "🔮" in owned }, "🔮" in owned),
+                        NftjiSlotUi("🍀", lvl("lucky_100_level").takeIf { "🍀" in owned }, "🍀" in owned),
+                        NftjiSlotUi("🎰", lvl("lucky_500_level").takeIf { "🎰" in owned }, "🎰" in owned),
+                        NftjiSlotUi("🧿", lvl("lucky_1000_level").takeIf { "🧿" in owned }, "🧿" in owned),
+                        NftjiSlotUi("❤️", 0.takeIf { "❤️" in owned }, "❤️" in owned),
+                        NftjiSlotUi("🛰", null, "🛰" in owned),
+                        NftjiSlotUi("🔁", null, "🔁" in owned),
+                        NftjiSlotUi("🔰", null, false),
+                        NftjiSlotUi("⚔️", null, false),
+                        NftjiSlotUi("👾", progress?.optInt("zero_day_level", -1)?.takeIf { it >= 0 && "👾" in owned }, "👾" in owned),
+                        NftjiSlotUi("⬡", miningLevel, miningOwned),
+                    )
                     runCatching { api.tokenValue().readText() }
                     val nextDaily = if (supabase.configured) {
                         min(
@@ -262,7 +290,7 @@ fun TradingScreen(
                     val nextSource = if (session.kind == xyz.mathsmine3.nativeapp.auth.AuthKind.GOOGLE) "google" else "wallet"
                     TradeReload(
                         nextLevel, nextSold, nextEur, nextUsd, nextCny,
-                        nextAvailable, nextDecorations, nextDaily, nextSource,
+                        nextAvailable, nextDecorations, nextSlots, nextDaily, nextSource,
                     )
                 }
             }
@@ -274,6 +302,7 @@ fun TradingScreen(
                 cnyEarned = snap.cny
                 availableMm3 = snap.available
                 decorations = snap.decorations
+                nftjiSlots = snap.nftjiSlots
                 dailyTx = snap.daily
                 source = snap.source
                 message = when {
@@ -320,11 +349,49 @@ fun TradingScreen(
                 )
             }
             Text(
-                "NFTJI · ${if (decorations.isEmpty()) "none" else decorations.joinToString(" ")}",
-                color = Mm3Colors.Muted,
+                "NFTJI",
+                color = tier.color.copy(alpha = 0.7f),
                 fontFamily = FontFamily.Monospace,
-                fontSize = 11.sp,
+                fontSize = 10.sp,
             )
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                val slots = if (nftjiSlots.isEmpty()) {
+                    List(11) { NftjiSlotUi("·", null, false) }
+                } else nftjiSlots
+                slots.take(11).forEach { slot ->
+                    Box(
+                        Modifier
+                            .weight(1f)
+                            .height(46.dp)
+                            .border(
+                                1.dp,
+                                if (slot.owned) tier.color.copy(alpha = 0.65f) else Mm3Colors.Muted.copy(alpha = 0.25f),
+                                RoundedCornerShape(4.dp),
+                            )
+                            .background(Mm3Colors.PanelSoft),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(
+                                if (slot.owned) slot.emoji else "",
+                                fontSize = 14.sp,
+                            )
+                            if (slot.owned && slot.level != null) {
+                                Text(
+                                    "Lv${slot.level}",
+                                    color = tier.color,
+                                    fontFamily = FontFamily.Monospace,
+                                    fontSize = 8.sp,
+                                    fontWeight = FontWeight.Bold,
+                                )
+                            }
+                        }
+                    }
+                }
+            }
         }
 
         Mm3Panel(accent = tier.color) {

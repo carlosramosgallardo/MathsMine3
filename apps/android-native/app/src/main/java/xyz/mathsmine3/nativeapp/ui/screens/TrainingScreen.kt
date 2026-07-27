@@ -272,7 +272,7 @@ fun TrainingScreen(session: Session, api: Mm3Api, supabase: SupabaseRest) {
                                 fontSize = 14.sp,
                             )
                             if (slot.owned && slot.level != null) {
-                                Text("Lv${slot.level}", color = tier.color, fontFamily = FontFamily.Monospace, fontSize = 8.sp)
+                                Text("Lv${slot.level}", color = tier.color, fontFamily = FontFamily.Monospace, fontSize = 8.sp, fontWeight = FontWeight.Bold)
                             }
                         }
                     }
