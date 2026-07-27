@@ -209,19 +209,15 @@ fun RelayingScreen(
         }
     }
 
-    LaunchedEffect(wallet, session.kind, supabase.configured) {
-        if (wallet == null || !supabase.configured) return@LaunchedEffect
-        val source = if (session.kind == AuthKind.GOOGLE) "google" else "wallet"
+    LaunchedEffect(wallet, session.kind) {
+        if (wallet == null) return@LaunchedEffect
         while (isActive) {
             withContext(Dispatchers.IO) {
                 runCatching {
-                    supabase.upsert(
-                        "mm3_wallet_presence",
-                        JSONObject()
-                            .put("wallet", wallet)
-                            .put("source", source)
-                            .put("last_seen", java.time.Instant.now().toString()),
-                        onConflict = "wallet",
+                    api.presencePing(
+                        jsonBody {
+                            put("source", if (session.kind == AuthKind.GOOGLE) "google" else "wallet")
+                        },
                     )
                 }
             }
@@ -536,17 +532,14 @@ private suspend fun handleSend(
     appendLocal(msg)
     withContext(Dispatchers.IO) {
         runCatching {
-            if (supabase.configured) {
-                supabase.insert(
-                    "mm3_relaying_messages",
-                    JSONObject()
-                        .put("wallet", wallet)
-                        .put("text", text)
-                        .put("ts", now)
-                        .put("kind", "chat")
-                        .put("tone", "neutral"),
-                )
-            }
+            api.relayChat(
+                jsonBody {
+                    put("text", text)
+                    put("ts", now)
+                    put("kind", "chat")
+                    put("tone", "neutral")
+                },
+            )
         }
     }
     broadcastPayload(

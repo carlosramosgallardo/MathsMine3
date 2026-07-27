@@ -2,16 +2,11 @@ export const dynamic = 'force-dynamic';
 
 import { createClient } from '@supabase/supabase-js';
 import { checkAndAwardChainWinner } from '@/lib/chain-winner';
-
-const WALLET_RE = /^0x[0-9a-fA-F]{40}$/
+import { walletFromRequest } from '@/lib/wallet-session';
 
 export async function POST(req) {
-  let body = {}
-  try { body = await req.json() } catch {}
-
-  const wallet = String(body.wallet || '').trim()
-  if (!WALLET_RE.test(wallet)) {
-    return Response.json({ ok: false, error: 'wallet required' }, { status: 401 })
+  if (!walletFromRequest(req)) {
+    return Response.json({ ok: false, error: 'unauthorized' }, { status: 401 });
   }
 
   const supabase = createClient(

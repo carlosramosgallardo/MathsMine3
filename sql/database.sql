@@ -1556,7 +1556,6 @@ DROP POLICY IF EXISTS "public_read_games" ON games;
 CREATE POLICY "public_read_games" ON games FOR SELECT TO public USING (true);
 
 DROP POLICY IF EXISTS "public_insert_games" ON games;
-CREATE POLICY "public_insert_games" ON games FOR INSERT TO public WITH CHECK (true);
 
 -- Math problems policies
 DROP POLICY IF EXISTS "public_read_math_problems" ON math_problems;
@@ -1574,7 +1573,6 @@ CREATE POLICY "public_read_player_progress" ON player_progress FOR SELECT TO pub
 DROP POLICY IF EXISTS "public_insert_player_progress" ON player_progress;
 
 DROP POLICY IF EXISTS "public_update_player_progress" ON player_progress;
-CREATE POLICY "public_update_player_progress" ON player_progress FOR UPDATE TO public USING (true) WITH CHECK (level >= 0 AND level <= 100);
 
 DROP POLICY IF EXISTS "public_read_mm3_mining_state" ON mm3_mining_state;
 CREATE POLICY "public_read_mm3_mining_state" ON mm3_mining_state FOR SELECT TO public USING (true);
@@ -1586,10 +1584,8 @@ DROP POLICY IF EXISTS "public_read_mm3_wallet_presence" ON mm3_wallet_presence;
 CREATE POLICY "public_read_mm3_wallet_presence" ON mm3_wallet_presence FOR SELECT TO public USING (true);
 
 DROP POLICY IF EXISTS "public_insert_mm3_wallet_presence" ON mm3_wallet_presence;
-CREATE POLICY "public_insert_mm3_wallet_presence" ON mm3_wallet_presence FOR INSERT TO public WITH CHECK (wallet <> '');
 
 DROP POLICY IF EXISTS "public_update_mm3_wallet_presence" ON mm3_wallet_presence;
-CREATE POLICY "public_update_mm3_wallet_presence" ON mm3_wallet_presence FOR UPDATE TO public USING (true) WITH CHECK (wallet <> '');
 
 DROP POLICY IF EXISTS "public_read_mm3_wallet_pools" ON mm3_wallet_pools;
 CREATE POLICY "public_read_mm3_wallet_pools" ON mm3_wallet_pools FOR SELECT TO public USING (true);
@@ -1623,13 +1619,11 @@ DROP POLICY IF EXISTS "public_read_mm3_sell_transactions" ON mm3_sell_transactio
 CREATE POLICY "public_read_mm3_sell_transactions" ON mm3_sell_transactions FOR SELECT TO public USING (true);
 
 DROP POLICY IF EXISTS "public_insert_mm3_sell_transactions" ON mm3_sell_transactions;
-CREATE POLICY "public_insert_mm3_sell_transactions" ON mm3_sell_transactions FOR INSERT TO public WITH CHECK (level >= 0 AND level <= 100);
 
 DROP POLICY IF EXISTS "public_read_mm3_mining_events" ON mm3_mining_events;
 CREATE POLICY "public_read_mm3_mining_events" ON mm3_mining_events FOR SELECT TO public USING (true);
 
 DROP POLICY IF EXISTS "public_insert_mm3_mining_events" ON mm3_mining_events;
-CREATE POLICY "public_insert_mm3_mining_events" ON mm3_mining_events FOR INSERT TO public WITH CHECK (event_type IN ('life_continue', 'nftji_claim', 'mining_buy', 'mining_resell', 'nftji_level_up', 'node_stormroll', 'rl_mount_buy'));
 
 -- API Requests policies
 DROP POLICY IF EXISTS "public_read_api_requests" ON api_requests;
@@ -1650,22 +1644,8 @@ CREATE POLICY "public_read_mm3_mined_blocks" ON mm3_mined_blocks FOR SELECT TO p
 DROP POLICY IF EXISTS "public_read_mm3_mining_commands" ON mm3_mining_commands;
 CREATE POLICY "public_read_mm3_mining_commands" ON mm3_mining_commands FOR SELECT TO anon USING (true);
 
-DROP POLICY IF EXISTS "public_insert_mm3_mining_commands" ON mm3_mining_commands;
-CREATE POLICY "public_insert_mm3_mining_commands" ON mm3_mining_commands FOR INSERT TO anon WITH CHECK (wallet <> '' AND nftji_key <> '' AND command <> '');
-
-DROP POLICY IF EXISTS "public_update_mm3_mining_commands" ON mm3_mining_commands;
-CREATE POLICY "public_update_mm3_mining_commands" ON mm3_mining_commands FOR UPDATE TO anon USING (wallet <> '') WITH CHECK (wallet <> '');
-
 DROP POLICY IF EXISTS "public_read_mm3_command_penalties" ON mm3_command_penalties;
 CREATE POLICY "public_read_mm3_command_penalties" ON mm3_command_penalties FOR SELECT TO public USING (true);
-
-DROP POLICY IF EXISTS "public_insert_mm3_command_penalties" ON mm3_command_penalties;
-CREATE POLICY "public_insert_mm3_command_penalties" ON mm3_command_penalties FOR INSERT TO public WITH CHECK (wallet <> '' AND nftji_key <> '' AND penalty_code <> '');
-
-DROP POLICY IF EXISTS "public_update_mm3_command_penalties" ON mm3_command_penalties;
-CREATE POLICY "public_update_mm3_command_penalties" ON mm3_command_penalties FOR UPDATE TO public
-  USING (redeemed_at IS NULL)
-  WITH CHECK (wallet <> '' AND nftji_key <> '' AND penalty_code <> '');
 
 DROP POLICY IF EXISTS "public_read_mm3_hidden_cmd_executions" ON mm3_hidden_cmd_executions;
 CREATE POLICY "public_read_mm3_hidden_cmd_executions" ON mm3_hidden_cmd_executions FOR SELECT TO public USING (true);
@@ -1678,7 +1658,6 @@ DROP POLICY IF EXISTS "public_read_mm3_relaying_messages" ON mm3_relaying_messag
 CREATE POLICY "public_read_mm3_relaying_messages" ON mm3_relaying_messages FOR SELECT TO public USING (true);
 
 DROP POLICY IF EXISTS "public_insert_mm3_relaying_messages" ON mm3_relaying_messages;
-CREATE POLICY "public_insert_mm3_relaying_messages" ON mm3_relaying_messages FOR INSERT TO public WITH CHECK (wallet <> '' AND text <> '');
 
 -- No anon DELETE on relaying_messages: pruning is server-side only (service role)
 DROP POLICY IF EXISTS "public_delete_mm3_relaying_messages" ON mm3_relaying_messages;
@@ -1992,27 +1971,27 @@ ON CONFLICT (wallet) DO UPDATE SET is_bot = TRUE, updated_at = NOW();
 -- PHASE 10: GRANT PERMISSIONS
 -- ==============================================
 
--- Tables
-GRANT SELECT, INSERT           ON games                        TO anon;
+-- Tables (anon: SELECT only on economy/progress — writes via API + service_role)
+GRANT SELECT                   ON games                        TO anon;
 GRANT SELECT                   ON math_problems                TO anon;
 GRANT SELECT                   ON leaderboard_data             TO anon;
-GRANT SELECT, INSERT, UPDATE   ON player_progress              TO anon;
-GRANT SELECT, INSERT, UPDATE   ON mm3_mining_state             TO anon;
+GRANT SELECT                   ON player_progress              TO anon;
+GRANT SELECT                   ON mm3_mining_state             TO anon;
 GRANT SELECT, INSERT, UPDATE   ON mm3_macro_state              TO anon;
-GRANT SELECT, INSERT, UPDATE   ON mm3_wallet_presence          TO anon;
+GRANT SELECT                   ON mm3_wallet_presence          TO anon;
 GRANT SELECT, INSERT, UPDATE   ON mm3_wallet_pools             TO anon;
 GRANT SELECT, INSERT           ON mm3_wallet_pool_members      TO anon;
 GRANT SELECT, INSERT, UPDATE   ON mm3_wallet_pool_invitations  TO anon;
-GRANT SELECT, INSERT           ON mm3_sell_transactions        TO anon;
-GRANT SELECT, INSERT           ON mm3_mining_events            TO anon;
+GRANT SELECT                   ON mm3_sell_transactions        TO anon;
+GRANT SELECT                   ON mm3_mining_events            TO anon;
 GRANT SELECT, INSERT           ON api_requests                 TO anon;
 GRANT SELECT                   ON mm3_mining_blocks            TO anon;
 GRANT SELECT                   ON mm3_mined_blocks             TO anon;
-GRANT SELECT, INSERT, UPDATE   ON mm3_mining_commands          TO anon;
-GRANT SELECT, INSERT, UPDATE   ON mm3_command_penalties        TO anon;
+GRANT SELECT                   ON mm3_mining_commands          TO anon;
+GRANT SELECT                   ON mm3_command_penalties        TO anon;
 GRANT SELECT, INSERT           ON mm3_hidden_cmd_executions    TO anon;
-GRANT SELECT, INSERT           ON mm3_relaying_messages             TO anon;
-GRANT SELECT, INSERT           ON mm3_relay_exec_log                TO anon;
+GRANT SELECT                   ON mm3_relaying_messages        TO anon;
+GRANT SELECT, INSERT           ON mm3_relay_exec_log           TO anon;
 GRANT USAGE, SELECT            ON SEQUENCE mm3_relay_exec_log_id_seq TO anon;
 -- REVOKED: anon DELETE on relaying_messages (server-side only via service role)
 GRANT SELECT, INSERT           ON daily_task_claims            TO anon;

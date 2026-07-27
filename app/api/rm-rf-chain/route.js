@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
+import { walletFromRequest } from '@/lib/wallet-session';
 
 // Lazy — do NOT evaluate at module level; env vars may be absent during build.
 let _supabase = null;
@@ -44,8 +45,14 @@ export async function GET() {
 }
 
 export async function POST(request) {
+  const sessionWallet = walletFromRequest(request);
+  if (!sessionWallet) {
+    return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
+  }
+
   try {
-    const { chip, wallet } = await request.json();
+    const { chip } = await request.json();
+    const wallet = sessionWallet;
     const chipNum = Number(chip);
     if (chipNum !== 1 && chipNum !== 2) {
       return NextResponse.json({ error: 'invalid_chip' }, { status: 400 });

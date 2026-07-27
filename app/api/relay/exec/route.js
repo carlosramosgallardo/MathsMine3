@@ -1,6 +1,8 @@
 import { createClient } from '@supabase/supabase-js';
 import { WALLET_DECORATIONS, computeRelayLevel } from '@/lib/wallet-decorations';
 import { walletFromRequest } from '@/lib/wallet-session';
+import { formatWalletLabel } from '@/lib/wallet-format';
+import { insertRelayMessage } from '@/lib/insert-relay-message';
 
 const ACTIVE_WINDOW_MS = 90_000;
 const COOLDOWN_MS = 24 * 60 * 60 * 1000;
@@ -145,11 +147,20 @@ export async function POST(req) {
     return Response.json({ ok: false, error: 'db_error' }, { status: 500 });
   }
 
+  const trace = `🔁 relay exec >> ${formatWalletLabel(wallet)} → ${formatWalletLabel(targetWallet)} >> execs: #${originExecs.toString(16).toUpperCase()} + #${targetExecs.toString(16).toUpperCase()} >> lv.${newLevel} >> Δmm3:${relayDelta >= 0 ? '+' : ''}${Number(relayDelta || 0).toFixed(6)}`;
+  await insertRelayMessage(supabase, {
+    wallet: 'system',
+    text: trace,
+    kind: 'system',
+    tone: 'market',
+  });
+
   return Response.json({
     ok: true,
     originExecs,
     targetExecs,
     level: newLevel,
     relayDelta,
+    trace,
   });
 }

@@ -14,6 +14,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
 import xyz.mathsmine3.nativeapp.AppContainer
+import xyz.mathsmine3.nativeapp.BuildConfig
 import xyz.mathsmine3.nativeapp.auth.GoogleAuthManager
 import xyz.mathsmine3.nativeapp.auth.WalletAuthManager
 import xyz.mathsmine3.nativeapp.ui.components.Mm3Button
@@ -72,33 +73,42 @@ fun AuthScreen(container: AppContainer, onDone: () -> Unit) {
         }
 
         Mm3Panel(accent = Mm3Colors.Green) {
-            Mm3Field(value = address, onValueChange = { address = it }, label = "Wallet 0x…")
+            Text(
+                "Wallet · sign with MetaMask / WalletConnect (EIP-191)",
+                color = Mm3Colors.Muted,
+                fontFamily = FontFamily.Monospace,
+                fontSize = 11.sp,
+            )
             Mm3Button(
-                text = "Connect wallet address",
-                onClick = {
-                    scope.launch {
-                        busy = true
-                        message = null
-                        try {
-                            val w = walletAuth.connectAddress(address)
-                            message = "ok · $w"
-                            onDone()
-                        } catch (e: Exception) {
-                            message = e.message
-                        } finally {
-                            busy = false
-                        }
-                    }
-                },
+                text = "Sign in with wallet",
+                onClick = { walletAuth.openWalletSignIn(context) },
                 enabled = !busy,
                 accent = Mm3Colors.Green,
             )
-            Mm3Button(
-                text = "Open MetaMask",
-                onClick = { walletAuth.openExternalWallet(context) },
-                filled = false,
-                accent = Mm3Colors.Green,
-            )
+            if (BuildConfig.DEBUG) {
+                Mm3Field(value = address, onValueChange = { address = it }, label = "Wallet 0x… (debug only)")
+                Mm3Button(
+                    text = "Connect address (debug)",
+                    onClick = {
+                        scope.launch {
+                            busy = true
+                            message = null
+                            try {
+                                val w = walletAuth.connectAddress(address)
+                                message = "ok · $w (no session — use sign-in above)"
+                                onDone()
+                            } catch (e: Exception) {
+                                message = e.message
+                            } finally {
+                                busy = false
+                            }
+                        }
+                    },
+                    enabled = !busy,
+                    filled = false,
+                    accent = Mm3Colors.Green,
+                )
+            }
         }
 
         Mm3Button(

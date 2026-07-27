@@ -14,6 +14,7 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import java.net.URLEncoder
 import xyz.mathsmine3.nativeapp.PortalOrigin
+import xyz.mathsmine3.nativeapp.PortalWebViewSecurity
 import xyz.mathsmine3.nativeapp.handleLocalPortalSsl
 
 /**
@@ -51,6 +52,11 @@ class MiningWebView(context: Context) : WebView(context) {
         }
         webChromeClient = WebChromeClient()
         webViewClient = object : WebViewClient() {
+
+            override fun shouldOverrideUrlLoading(
+                view: WebView?,
+                request: WebResourceRequest?,
+            ): Boolean = PortalWebViewSecurity.shouldBlockNavigation(view, request)
 
             override fun onReceivedSslError(
                 view: WebView?,

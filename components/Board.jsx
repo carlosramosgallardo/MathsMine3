@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useI18n } from '@/lib/i18n-context';
 import supabase from '@/lib/supabaseClient';
+import { apiFetch } from '@/lib/wallet-session-client';
 import { clampRankLevel, getRankTier } from '@/lib/ranks';
 import { CNY_TO_EUR, CNY_TO_USD, getSellQuote, formatMoney, formatCompactNum } from '@/lib/sell-offer';
 import { getDiceState } from '@/lib/dice';
@@ -1977,86 +1978,35 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
     if (!account || !problem) return false;
 
     const wallet = account.toLowerCase();
-    const [{ data: progressRow }, { data: tokenValueRow }] = await Promise.all([
-      supabase
-        .from('player_progress')
-        .select('eur_earned, usd_earned, cny_earned, mm3_sold, wallet_emojis, life_used, lucky_50_claimed, lucky_100_claimed, lucky_500_claimed, lucky_1000_claimed, lucky_50_level, lucky_100_level, lucky_500_level, lucky_1000_level')
-        .eq('wallet', wallet)
-        .maybeSingle(),
-      marketDelta !== 0
-        ? supabase.from('token_value').select('total_eth').limit(1).maybeSingle()
-        : Promise.resolve({ data: null }),
-    ]);
-
-    const currentDecorations = Array.isArray(progressRow?.wallet_emojis) ? progressRow.wallet_emojis : [];
-    const nextDecorations = emoji ? appendWalletDecoration(currentDecorations, emoji) : currentDecorations;
-    const nextFunds = {
-      eur_earned: Number(progressRow?.eur_earned) || 0,
-      usd_earned: Number(progressRow?.usd_earned) || 0,
-      cny_earned: Number(progressRow?.cny_earned) || 0,
-    };
-    const soldMm3 = Number(progressRow?.mm3_sold) || 0;
-    const liveSellQuote = getSellQuote(progressLevel, Math.max(0, totalMined - soldMm3));
-
-    if (reviveCost) {
-      nextFunds[reviveCost.field] = Math.max(0, nextFunds[reviveCost.field] - reviveCost.amount);
+    const res = await apiFetch('/api/training/failure', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        choice: String(choice ?? ''),
+        progress_level: clampLevel(progressLevel),
+        time_ms: elapsedTime,
+        problem: {
+          masked: problem.masked,
+          difficulty: problem.difficulty || getDiff(progressLevel),
+          problem_type: problem.problem_type || 'arithmetic',
+          id: problem.id || null,
+        },
+        emoji,
+        market_delta: marketDelta,
+        consume_life: consumeLife,
+        revive_cost: reviveCost,
+      }),
+    }, wallet);
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'failure_persist_failed');
     }
-
-    const gameInsert = {
-      wallet,
-      problem: problem.masked,
-      user_answer: String(choice ?? ''),
-      is_correct: false,
-      time_ms: elapsedTime,
-      mining_reward: 0,
-      problem_id: problem.id || null,
-      difficulty: problem.difficulty || getDiff(progressLevel),
-      problem_type: problem.problem_type || 'arithmetic',
+    const data = await res.json();
+    const nextFunds = data.funds || {
+      eur_earned: 0,
+      usd_earned: 0,
+      cny_earned: 0,
     };
-
-    const { error: gameError } = await supabase.from('games').insert([gameInsert]);
-    if (gameError) throw gameError;
-
-    const progressPayload = {
-      wallet,
-      level: clampLevel(progressLevel),
-      wallet_emojis: nextDecorations,
-      life_used: consumeLife || Boolean(progressRow?.life_used),
-      lucky_50_claimed: emoji === WALLET_DECORATIONS.lucky50 ? true : Boolean(progressRow?.lucky_50_claimed),
-      lucky_100_claimed: emoji === WALLET_DECORATIONS.lucky100 ? true : Boolean(progressRow?.lucky_100_claimed),
-      lucky_500_claimed: emoji === WALLET_DECORATIONS.lucky500 ? true : Boolean(progressRow?.lucky_500_claimed),
-      lucky_1000_claimed: emoji === WALLET_DECORATIONS.lucky1000 ? true : Boolean(progressRow?.lucky_1000_claimed),
-      lucky_50_level: Number(progressRow?.lucky_50_level ?? -1),
-      lucky_100_level: Number(progressRow?.lucky_100_level ?? -1),
-      lucky_500_level: Number(progressRow?.lucky_500_level ?? -1),
-      lucky_1000_level: Number(progressRow?.lucky_1000_level ?? -1),
-      sell_rate_cny: liveSellQuote.rateCny,
-      sell_quote_cny: liveSellQuote.netCny,
-      sell_quote_eur: liveSellQuote.netEur,
-      sell_quote_usd: liveSellQuote.netUsd,
-      updated_at: new Date().toISOString(),
-      ...nextFunds,
-    };
-
-    const { error: progressError } = await supabase
-      .from('player_progress')
-      .update(progressPayload)
-      .eq('wallet', wallet);
-    if (progressError) throw progressError;
-
-    if (marketDelta !== 0) {
-      const totalMm3 = Number(tokenValueRow?.total_eth) || 0;
-      const deltaMm3 = -Math.abs(totalMm3 * marketDelta);
-      const { error: eventError } = await supabase
-        .from('mm3_mining_events')
-        .insert({
-          wallet,
-          event_type: MARKET_EVENT_TYPE_LIFE,
-          delta_mm3: deltaMm3,
-          emoji: emoji ?? WALLET_DECORATIONS.revive,
-        });
-      if (eventError) throw eventError;
-    }
 
     setLevel(clampLevel(progressLevel));
     setWalletMeta((previous) => ({
@@ -2064,12 +2014,12 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
       eur: nextFunds.eur_earned,
       usd: nextFunds.usd_earned,
       cny: nextFunds.cny_earned,
-      lifeUsed: consumeLife || Boolean(progressRow?.life_used),
-      lucky50Claimed: emoji === WALLET_DECORATIONS.lucky50 ? true : Boolean(progressRow?.lucky_50_claimed),
-      lucky100Claimed: emoji === WALLET_DECORATIONS.lucky100 ? true : Boolean(progressRow?.lucky_100_claimed),
-      lucky500Claimed: emoji === WALLET_DECORATIONS.lucky500 ? true : Boolean(progressRow?.lucky_500_claimed),
-      lucky1000Claimed: emoji === WALLET_DECORATIONS.lucky1000 ? true : Boolean(progressRow?.lucky_1000_claimed),
-      walletEmojis: nextDecorations,
+      lifeUsed: consumeLife || Boolean(previous?.lifeUsed),
+      lucky50Claimed: emoji === WALLET_DECORATIONS.lucky50 ? true : Boolean(previous?.lucky50Claimed),
+      lucky100Claimed: emoji === WALLET_DECORATIONS.lucky100 ? true : Boolean(previous?.lucky100Claimed),
+      lucky500Claimed: emoji === WALLET_DECORATIONS.lucky500 ? true : Boolean(previous?.lucky500Claimed),
+      lucky1000Claimed: emoji === WALLET_DECORATIONS.lucky1000 ? true : Boolean(previous?.lucky1000Claimed),
+      walletEmojis: emoji ? appendWalletDecoration(previous?.walletEmojis || [], emoji) : previous?.walletEmojis,
     }));
 
     if (typeof window !== 'undefined') {
@@ -2083,75 +2033,28 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
   const persistLifeRecovery = async ({ originalLevel, reviveCost }) => {
     if (!account) return false;
     const wallet = account.toLowerCase();
-    const [{ data: progressRow }, { data: tokenValueRow }] = await Promise.all([
-      supabase
-        .from('player_progress')
-        .select('eur_earned, usd_earned, cny_earned, mm3_sold, wallet_emojis, life_used, lucky_50_claimed, lucky_100_claimed, lucky_500_claimed, lucky_1000_claimed, lucky_50_level, lucky_100_level, lucky_500_level, lucky_1000_level')
-        .eq('wallet', wallet)
-        .maybeSingle(),
-      supabase.from('token_value').select('total_eth').limit(1).maybeSingle(),
-    ]);
-
-    const currentDecorations = Array.isArray(progressRow?.wallet_emojis) ? progressRow.wallet_emojis : [];
-    if (Boolean(progressRow?.life_used) || currentDecorations.includes(WALLET_DECORATIONS.revive)) {
-      throw new Error('REVIVE_ALREADY_USED');
+    const res = await apiFetch('/api/training/life-revive', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        original_level: clampLevel(originalLevel),
+        revive_cost: reviveCost,
+      }),
+    }, wallet);
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'life_revive_failed');
     }
-
-    const nextFunds = {
-      eur_earned: Number(progressRow?.eur_earned) || 0,
-      usd_earned: Number(progressRow?.usd_earned) || 0,
-      cny_earned: Number(progressRow?.cny_earned) || 0,
-    };
-    if (!reviveCost || nextFunds[reviveCost.field] < reviveCost.amount) {
-      throw new Error('REVIVE_INSUFFICIENT_FUNDS');
-    }
-    nextFunds[reviveCost.field] = Math.max(0, nextFunds[reviveCost.field] - reviveCost.amount);
-
-    const soldMm3 = Number(progressRow?.mm3_sold) || 0;
-    const liveSellQuote = getSellQuote(originalLevel, Math.max(0, totalMined - soldMm3));
-
-    const nextDecorations = appendWalletDecoration(currentDecorations, WALLET_DECORATIONS.revive);
-
-    const progressPayload = {
-      wallet,
-      level: clampLevel(originalLevel),
-      wallet_emojis: nextDecorations,
-      life_used: true,
-      lucky_50_claimed: Boolean(progressRow?.lucky_50_claimed),
-      lucky_100_claimed: Boolean(progressRow?.lucky_100_claimed),
-      lucky_500_claimed: Boolean(progressRow?.lucky_500_claimed),
-      lucky_1000_claimed: Boolean(progressRow?.lucky_1000_claimed),
-      lucky_50_level: Number(progressRow?.lucky_50_level ?? -1),
-      lucky_100_level: Number(progressRow?.lucky_100_level ?? -1),
-      lucky_500_level: Number(progressRow?.lucky_500_level ?? -1),
-      lucky_1000_level: Number(progressRow?.lucky_1000_level ?? -1),
-      sell_rate_cny: liveSellQuote.rateCny,
-      sell_quote_cny: liveSellQuote.netCny,
-      sell_quote_eur: liveSellQuote.netEur,
-      sell_quote_usd: liveSellQuote.netUsd,
-      updated_at: new Date().toISOString(),
-      ...nextFunds,
-    };
-
-    const { error: progressError } = await supabase
-      .from('player_progress')
-      .update(progressPayload)
-      .eq('wallet', wallet);
-    if (progressError) throw progressError;
-
-    const totalMm3 = Number(tokenValueRow?.total_eth) || 0;
-    const deltaMm3 = -Math.abs(totalMm3 * 0.25);
-    const { error: eventError } = await supabase
-      .from('mm3_mining_events')
-      .insert({ wallet, event_type: MARKET_EVENT_TYPE_LIFE, delta_mm3: deltaMm3, emoji: WALLET_DECORATIONS.revive });
-    if (eventError) throw eventError;
+    const data = await res.json();
+    const nextFunds = data.funds || {};
+    const nextDecorations = appendWalletDecoration(walletMeta?.walletEmojis || [], WALLET_DECORATIONS.revive);
 
     setLevel(clampLevel(originalLevel));
     setWalletMeta((prev) => ({
       ...prev,
-      eur: nextFunds.eur_earned,
-      usd: nextFunds.usd_earned,
-      cny: nextFunds.cny_earned,
+      eur: nextFunds.eur_earned ?? prev.eur,
+      usd: nextFunds.usd_earned ?? prev.usd,
+      cny: nextFunds.cny_earned ?? prev.cny,
       lifeUsed: true,
       walletEmojis: nextDecorations,
     }));
@@ -2167,87 +2070,37 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
     if (!account || !emoji) return false;
 
     const wallet = account.toLowerCase();
-    const [{ data: progressRow }, { data: tokenValueRow }] = await Promise.all([
-      supabase
-        .from('player_progress')
-        .select('level, eur_earned, usd_earned, cny_earned, mm3_sold, wallet_emojis, life_used, lucky_50_claimed, lucky_100_claimed, lucky_500_claimed, lucky_1000_claimed, lucky_50_level, lucky_100_level, lucky_500_level, lucky_1000_level')
-        .eq('wallet', wallet)
-        .maybeSingle(),
-      supabase.from('token_value').select('total_eth').limit(1).maybeSingle(),
-    ]);
-
-    const currentDecorations = Array.isArray(progressRow?.wallet_emojis) ? progressRow.wallet_emojis : [];
-    const alreadyOwned = currentDecorations.includes(emoji);
-    const nextDecorations = appendWalletDecoration(currentDecorations, emoji);
-    const soldMm3 = Number(progressRow?.mm3_sold) || 0;
-    const effectiveLevel = clampLevel(Math.max(Number(progressRow?.level) || 0, progressLevel || 0));
-    const liveSellQuote = getSellQuote(effectiveLevel, Math.max(0, Number(nextTotalMined) - soldMm3));
-
-    const progressPayload = {
-      wallet,
-      level: effectiveLevel,
-      mm3_sold: soldMm3,
-      cny_earned: Number(progressRow?.cny_earned) || 0,
-      eur_earned: Number(progressRow?.eur_earned) || 0,
-      usd_earned: Number(progressRow?.usd_earned) || 0,
-      wallet_emojis: nextDecorations,
-      life_used: Boolean(progressRow?.life_used),
-      lucky_50_claimed: emoji === WALLET_DECORATIONS.lucky50 ? true : Boolean(progressRow?.lucky_50_claimed),
-      lucky_100_claimed: emoji === WALLET_DECORATIONS.lucky100 ? true : Boolean(progressRow?.lucky_100_claimed),
-      lucky_500_claimed: emoji === WALLET_DECORATIONS.lucky500 ? true : Boolean(progressRow?.lucky_500_claimed),
-      lucky_1000_claimed: emoji === WALLET_DECORATIONS.lucky1000 ? true : Boolean(progressRow?.lucky_1000_claimed),
-      lucky_50_level: emoji === WALLET_DECORATIONS.lucky50
-        ? Number(progressRow?.lucky_50_level ?? -1) + 1 : Number(progressRow?.lucky_50_level ?? -1),
-      lucky_100_level: emoji === WALLET_DECORATIONS.lucky100
-        ? Number(progressRow?.lucky_100_level ?? -1) + 1 : Number(progressRow?.lucky_100_level ?? -1),
-      lucky_500_level: emoji === WALLET_DECORATIONS.lucky500
-        ? Number(progressRow?.lucky_500_level ?? -1) + 1 : Number(progressRow?.lucky_500_level ?? -1),
-      lucky_1000_level: emoji === WALLET_DECORATIONS.lucky1000
-        ? Number(progressRow?.lucky_1000_level ?? -1) + 1 : Number(progressRow?.lucky_1000_level ?? -1),
-      sell_rate_cny: liveSellQuote.rateCny,
-      sell_quote_cny: liveSellQuote.netCny,
-      sell_quote_eur: liveSellQuote.netEur,
-      sell_quote_usd: liveSellQuote.netUsd,
-      updated_at: new Date().toISOString(),
-    };
-
-    const { error: progressError } = await supabase
-      .from('player_progress')
-      .update(progressPayload)
-      .eq('wallet', wallet);
-    if (progressError) throw progressError;
-
-    const marketDelta = getWalletMarketDelta(emoji);
-    if (!alreadyOwned && marketDelta !== 0) {
-      const totalMm3 = Number(tokenValueRow?.total_eth) || 0;
-      const deltaMm3 = Math.abs(totalMm3 * marketDelta);
-      const { error: eventError } = await supabase
-        .from('mm3_mining_events')
-        .insert({
-          wallet,
-          event_type: MARKET_EVENT_TYPE_NFTJI,
-          delta_mm3: deltaMm3,
-          emoji,
-        });
-      if (eventError) {
-        console.error('nftji market event insert:', eventError);
-      }
+    const res = await apiFetch('/api/training/emoji-claim', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        emoji,
+        progress_level: clampLevel(progressLevel),
+        next_total_mined: nextTotalMined,
+      }),
+    }, wallet);
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'emoji_claim_failed');
     }
+    const data = await res.json();
+    const progressPayload = data.progress || {};
+    const nextDecorations = progressPayload.wallet_emojis || appendWalletDecoration(walletMeta?.walletEmojis || [], emoji);
 
     setWalletMeta((previous) => ({
       ...previous,
-      eur: progressPayload.eur_earned,
-      usd: progressPayload.usd_earned,
-      cny: progressPayload.cny_earned,
-      lifeUsed: progressPayload.life_used,
-      lucky50Claimed: progressPayload.lucky_50_claimed,
-      lucky100Claimed: progressPayload.lucky_100_claimed,
-      lucky500Claimed: progressPayload.lucky_500_claimed,
-      lucky1000Claimed: progressPayload.lucky_1000_claimed,
-      lucky50Level: progressPayload.lucky_50_level,
-      lucky100Level: progressPayload.lucky_100_level,
-      lucky500Level: progressPayload.lucky_500_level,
-      lucky1000Level: progressPayload.lucky_1000_level,
+      eur: progressPayload.eur_earned ?? previous.eur,
+      usd: progressPayload.usd_earned ?? previous.usd,
+      cny: progressPayload.cny_earned ?? previous.cny,
+      lifeUsed: progressPayload.life_used ?? previous.lifeUsed,
+      lucky50Claimed: progressPayload.lucky_50_claimed ?? previous.lucky50Claimed,
+      lucky100Claimed: progressPayload.lucky_100_claimed ?? previous.lucky100Claimed,
+      lucky500Claimed: progressPayload.lucky_500_claimed ?? previous.lucky500Claimed,
+      lucky1000Claimed: progressPayload.lucky_1000_claimed ?? previous.lucky1000Claimed,
+      lucky50Level: progressPayload.lucky_50_level ?? previous.lucky50Level,
+      lucky100Level: progressPayload.lucky_100_level ?? previous.lucky100Level,
+      lucky500Level: progressPayload.lucky_500_level ?? previous.lucky500Level,
+      lucky1000Level: progressPayload.lucky_1000_level ?? previous.lucky1000Level,
       walletEmojis: nextDecorations,
     }));
 
@@ -2599,6 +2452,7 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
     setGameData({
       wallet: account,
       problem: problem?.masked,
+      expected_answer: problem?.answer,
       user_answer: String(choice ?? ''),
       is_correct: isCorrect,
       time_ms: elapsedTime,

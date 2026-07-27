@@ -7,12 +7,11 @@ import { useState, useEffect } from 'react';
 import Board from '@/components/Board';
 import SectionFrame from '@/components/SectionFrame';
 
-import supabase from '@/lib/supabaseClient';
 import { SpeedInsights } from '@vercel/speed-insights/next';
 import { Analytics } from '@vercel/analytics/react';
 import { useActiveWallet } from '@/lib/use-active-wallet';
-import { getSellQuote } from '@/lib/sell-offer';
 import { useMm3Accent } from '@/lib/use-mm3-accent';
+import { apiFetch } from '@/lib/wallet-session-client';
 
 const markLeaderboardDirty = () => {
   if (typeof window !== 'undefined') {
@@ -33,44 +32,36 @@ export default function HomePageClient() {
       if (!gameData || !account) return;
       try {
         const wallet = account.toLowerCase();
-        const { progress_level, ...gameInsert } = gameData;
-        const sanitizedGame = { ...gameInsert, wallet };
+        const { progress_level, problem, ...gameFields } = gameData;
 
-        const { error } = await supabase.from('games').insert([sanitizedGame]);
-        if (error) { console.error('Supabase insert error:', error.message); setGameMessage('Error saving game data.'); return; }
+        const res = await apiFetch('/api/training/resolve', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            user_answer: gameFields.user_answer,
+            time_ms: gameFields.time_ms,
+            level_before: progress_level,
+            problem: {
+              masked: gameFields.problem,
+              answer: gameData.expected_answer,
+              difficulty: gameFields.difficulty,
+              problem_type: gameFields.problem_type,
+              id: gameFields.problem_id,
+            },
+          }),
+        }, wallet);
 
-        if (typeof progress_level === 'number') {
-          const [{ data: leaderboardRow }, { data: progressRow }] = await Promise.all([
-            supabase
-              .from('leaderboard_data')
-              .select('total_eth')
-              .eq('wallet', wallet)
-              .maybeSingle(),
-            supabase
-              .from('player_progress')
-              .select('mm3_sold')
-              .eq('wallet', wallet)
-              .maybeSingle(),
-          ]);
-          const walletMm3 = Number(leaderboardRow?.total_eth) || 0;
-          const soldMm3 = Number(progressRow?.mm3_sold) || 0;
-          const quote = getSellQuote(progress_level, Math.max(0, walletMm3 - soldMm3));
-          const { error: progressError } = await supabase
-            .from('player_progress')
-            .update({
-              level: Math.max(0, Math.min(100, progress_level)),
-              sell_rate_cny: quote.rateCny,
-              sell_quote_cny: quote.netCny,
-              sell_quote_eur: quote.netEur,
-              sell_quote_usd: quote.netUsd,
-              updated_at: new Date().toISOString(),
-            })
-            .eq('wallet', wallet);
-          if (progressError) console.error('player_progress upsert error:', progressError.message);
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          console.error('training resolve error:', err.error || res.status);
+          setGameMessage('Error saving game data.');
+          return;
         }
 
         markLeaderboardDirty();
-        window.dispatchEvent(new CustomEvent('mm3-db-updated', { detail: { wallet: account, delta: gameData?.mining_reward ?? null } }));
+        window.dispatchEvent(new CustomEvent('mm3-db-updated', {
+          detail: { wallet: account, delta: gameData?.mining_reward ?? null },
+        }));
       } catch (e) {
         console.error('Unexpected error saving game:', e);
         setGameMessage('Unexpected error. Try again.');

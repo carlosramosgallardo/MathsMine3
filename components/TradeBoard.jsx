@@ -543,22 +543,18 @@ export default function TradeBoard({ account, isVirtualWallet = false }) {
     setClaimingZeroDay(true);
     try {
       const wallet = account.toLowerCase();
-      const { data: progressRow } = await supabase
-        .from('player_progress')
-        .select('wallet_emojis, zero_day_level')
-        .eq('wallet', wallet)
-        .maybeSingle();
-      const nextDecorations = appendWalletDecoration(progressRow?.wallet_emojis, TRADING_NFTJI.emoji);
-      const nextLevel = Number(progressRow?.zero_day_level ?? -1) + 1;
-      const { error } = await supabase
-        .from('player_progress')
-        .update({
-          wallet_emojis: nextDecorations,
-          zero_day_level: nextLevel,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('wallet', wallet);
-      if (error) throw error;
+      const res = await apiFetch('/api/trade/zero-day-claim', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      }, wallet);
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || 'zero_day_claim_failed');
+      }
+      const data = await res.json();
+      const nextDecorations = data.wallet_emojis || appendWalletDecoration(walletDecorations, TRADING_NFTJI.emoji);
+      const nextLevel = Number(data.zero_day_level ?? zeroDayLevel + 1);
       setWalletDecorations(nextDecorations);
       setZeroDayLevel(nextLevel);
       setZeroDayOffer(false);

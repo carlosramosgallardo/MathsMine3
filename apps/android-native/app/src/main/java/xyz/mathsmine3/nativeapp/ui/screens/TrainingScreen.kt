@@ -40,6 +40,8 @@ import org.json.JSONObject
 import xyz.mathsmine3.nativeapp.auth.Session
 import xyz.mathsmine3.nativeapp.data.Mm3Api
 import xyz.mathsmine3.nativeapp.data.SupabaseRest
+import xyz.mathsmine3.nativeapp.data.jsonBody
+import xyz.mathsmine3.nativeapp.data.readText
 import xyz.mathsmine3.nativeapp.training.TrainingProblem
 import xyz.mathsmine3.nativeapp.training.TrainingRules
 import xyz.mathsmine3.nativeapp.ui.components.Mm3Button
@@ -132,26 +134,33 @@ fun TrainingScreen(session: Session, api: Mm3Api, supabase: SupabaseRest) {
     }
 
     suspend fun persistGame(correct: Boolean, choice: String, reward: Double, nextLevel: Int) {
-        if (wallet == null || !supabase.configured) return
+        if (wallet == null) return
+        val p = problem ?: return
         withContext(Dispatchers.IO) {
             runCatching {
-                supabase.insert(
-                    "games",
-                    JSONObject()
-                        .put("wallet", wallet)
-                        .put("problem", problem?.masked ?: "")
-                        .put("user_answer", choice)
-                        .put("is_correct", correct)
-                        .put("time_ms", elapsedMs)
-                        .put("mining_reward", reward)
-                        .put("difficulty", problem?.difficulty ?: TrainingRules.getDiff(level))
-                        .put("problem_type", problem?.problemType ?: "arithmetic"),
-                )
-                supabase.update(
-                    "player_progress",
-                    "wallet=eq.$wallet",
-                    JSONObject().put("level", nextLevel).put("updated_at", Instant.now().toString()),
-                )
+                val raw = api.trainingResolve(
+                    jsonBody {
+                        put("user_answer", choice)
+                        put("time_ms", elapsedMs)
+                        put("level_before", level)
+                        put(
+                            "problem",
+                            JSONObject()
+                                .put("masked", p.masked)
+                                .put("answer", p.answer)
+                                .put("difficulty", p.difficulty)
+                                .put("problem_type", p.problemType)
+                                .put("id", p.id),
+                        )
+                    },
+                ).readText()
+                val json = JSONObject(raw)
+                if (!json.optBoolean("ok")) {
+                    error(json.optString("error", "training_failed"))
+                }
+                level = json.optInt("level", nextLevel)
+            }.onFailure {
+                message = it.message ?: "save failed"
             }
             refreshSlots()
         }

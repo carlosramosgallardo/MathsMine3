@@ -3,23 +3,20 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import supabase from '@/lib/supabaseClient';
+import { apiFetch } from '@/lib/wallet-session-client';
 import { useI18n } from '@/lib/i18n-context';
 import { useActiveWallet } from '@/lib/use-active-wallet';
 import { useSound } from '@/lib/sound-context';
-import { CNY_TO_EUR, CNY_TO_USD, getSellRateCny } from '@/lib/sell-offer';
 import {
-  computeMarketCommandCode,
   commandKey,
   marketCommandFromBlock,
   normalizeCommandText,
-  getUtcDayWindow,
 } from '@/lib/mining-commands';
 import { formatBlockRequirement, MM3_BLOCK_REQUIREMENT_BY_HEX, normalizeBlockHex } from '@/lib/mm3-block-chain';
 import { useIrcPresence } from '@/lib/relaying-presence-context';
 import { groupPresenceEntries } from '@/lib/presence-display';
 import { colorFromAddress, colorFromPool } from '@/lib/wallet-colors';
 import { formatWalletLabel } from '@/lib/wallet-format';
-import { apiFetch } from '@/lib/wallet-session-client';
 
 const ACTIVE_WINDOW_MS = 90_000;
 const MAX_SESSION_MESSAGES = 500;
@@ -1332,169 +1329,36 @@ export default function RelayingTerminal({ accent = '#22d3ee' }) {
     const commandEntry = await findMarketCommandInDb(text);
     if (!commandEntry || !normalizedWallet) return false;
 
-    const now = new Date();
-    const nowIso = now.toISOString();
-    const dayWindow = getUtcDayWindow(now);
-
     try {
-      const [{ data: launcher }, { data: existingCommand }, { data: blockRow }] = await Promise.all([
-        supabase
-          .from('player_progress')
-          .select('wallet, mining_nftji_key, mm3_sold')
-          .eq('wallet', normalizedWallet)
-          .maybeSingle(),
-        supabase
-          .from('mm3_mining_commands')
-          .select('id, wallet, reset_at')
-          .eq('nftji_key', commandEntry.key)
-          .gt('reset_at', nowIso)
-          .order('executed_at', { ascending: false })
-          .limit(1)
-          .maybeSingle(),
-        supabase
-          .from('mm3_mining_blocks')
-          .select('block_key, emoji, grid_row, grid_col, title_en, title_es, price_eur, market_command')
-          .eq('block_key', commandEntry.key)
-          .maybeSingle(),
-      ]);
+      const res = await apiFetch('/api/relay/market-command', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ command: text }),
+      }, normalizedWallet);
+      const data = await res.json().catch(() => ({}));
 
-      if (launcher?.mining_nftji_key !== commandEntry.key) {
-        const hex = blockRow ? getBlockHex(blockRow.grid_row, blockRow.grid_col) : commandEntry.key;
-        const emoji = blockRow?.emoji || commandEntry.emoji;
-        await broadcastSystemMessage(`${t('relaying.commandRejected')} >> ${formatWalletLabel(normalizedWallet)} ${t('relaying.doesNotOwn')} ${hex}${emoji}`, 'command');
-        return true;
+      if (data.system_message?.text) {
+        await broadcastSystemMessage(data.system_message.text, data.system_message.tone || 'market');
+      } else if (data.message) {
+        await broadcastSystemMessage(data.message, data.tone || 'command');
+      } else if (!res.ok) {
+        await broadcastSystemMessage(`${t('mining.commandFailed')} >> ${data.error || res.status}`, 'command');
       }
 
-      if (existingCommand) {
-        const reset = formatResetIn(existingCommand.reset_at, language);
-        await broadcastSystemMessage(`${commandEntry.emoji} ${t('mining.launchLocked')} ${reset}`, 'command');
-        return true;
-      }
-
-      if (!blockRow) {
-        await broadcastSystemMessage(`${t('relaying.commandRejected')} >> ${t('relaying.noBlock')} ${commandEntry.key}`, 'command');
-        return true;
-      }
-
-      const { x, code } = computeMarketCommandCode(commandEntry, normalizedWallet, dayWindow.dayKey, now.getTime());
-      const { data: insertedCommand, error: commandError } = await supabase
-        .from('mm3_mining_commands')
-        .insert({
-          wallet: normalizedWallet,
-          nftji_key: commandEntry.key,
-          command: commandEntry.command,
-          numeric_code: code,
-          formula_x: x,
-          reset_at: dayWindow.resetAt,
-        })
-        .select('id')
-        .single();
-      if (commandError) throw commandError;
-
-      const { data: allProgress, error: progressError } = await supabase
-        .from('player_progress')
-        .select('wallet, level, mining_nftji_key, eur_earned, usd_earned, cny_earned, mm3_sold')
-        .limit(1000);
-      if (progressError) throw new Error(`allProgress: ${progressError.message}`);
-
-      const exemptWallets = new Set([normalizedWallet]);
-      {
-        const { data: pr } = await supabase
-          .from('mm3_wallet_pool_members').select('pool_code').eq('wallet', normalizedWallet).maybeSingle();
-        if (pr?.pool_code) {
-          const { data: pm } = await supabase
-            .from('mm3_wallet_pool_members').select('wallet').eq('pool_code', pr.pool_code);
-          for (const m of pm || []) exemptWallets.add(String(m.wallet || '').toLowerCase());
+      if (res.ok && data.ok) {
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('lb_dirty_at', String(Date.now()));
+          window.dispatchEvent(new CustomEvent('mm3-db-updated', { detail: { wallet: normalizedWallet, marketCommand: true } }));
         }
+        relayRef.current?.send({ type: 'broadcast', event: 'market-status-refresh', payload: { ts: Date.now() } }).catch(() => {});
       }
-
-      const priceEur = Number(blockRow.price_eur) || 0;
-      const priceUsd = priceEur * (CNY_TO_USD / CNY_TO_EUR);
-      const priceCny = priceEur / CNY_TO_EUR;
-      const isMm3Command = commandEntry.effect === 'mm3';
-      const penalties = [];
-      const balanceUpdates = [];
-
-      for (const row of allProgress || []) {
-        const wallet = String(row.wallet || '').toLowerCase();
-        if (!wallet || exemptWallets.has(wallet)) continue;
-        if (row.mining_nftji_key === commandEntry.key) continue;
-        if (isMm3Command) {
-          const soldMm3 = Number(row.mm3_sold) || 0;
-          penalties.push({
-            wallet,
-            command_id: insertedCommand?.id || null,
-            nftji_key: commandEntry.key,
-            penalty_code: code,
-            penalty_value: priceEur,
-            penalty_eur: 0,
-            penalty_effect: 'mm3',
-            reason: `${blockRow.emoji || commandEntry.emoji} ${blockRow.title_en || commandEntry.key}`,
-            reset_at: dayWindow.resetAt,
-          });
-          balanceUpdates.push({
-            wallet,
-            mm3_sold: soldMm3 + priceEur,
-            updated_at: new Date().toISOString(),
-          });
-        } else {
-          const rateCny = getSellRateCny(Number(row.level) || 0);
-          const penaltyMm3 = rateCny > 0 ? priceEur / (rateCny * CNY_TO_EUR) : 0;
-          penalties.push({
-            wallet,
-            command_id: insertedCommand?.id || null,
-            nftji_key: commandEntry.key,
-            penalty_code: code,
-            penalty_value: penaltyMm3,
-            penalty_eur: priceEur,
-            penalty_effect: 'money',
-            reason: `${blockRow.emoji || commandEntry.emoji} ${blockRow.title_en || commandEntry.key}`,
-            reset_at: dayWindow.resetAt,
-          });
-          balanceUpdates.push({
-            wallet,
-            eur_earned: (Number(row.eur_earned) || 0) - priceEur,
-            usd_earned: (Number(row.usd_earned) || 0) - priceUsd,
-            cny_earned: (Number(row.cny_earned) || 0) - priceCny,
-            updated_at: new Date().toISOString(),
-          });
-        }
-      }
-
-      if (penalties.length > 0) {
-        const { error: penaltyError } = await supabase
-          .from('mm3_command_penalties')
-          .insert(penalties);
-        if (penaltyError) throw penaltyError;
-
-        const penalizeRes = await apiFetch('/api/relay/penalize', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ updates: balanceUpdates }),
-        }, normalizedWallet);
-        if (!penalizeRes.ok) {
-          const { error } = await penalizeRes.json().catch(() => ({}));
-          throw new Error(error || 'relay penalize failed');
-        }
-      }
-
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('lb_dirty_at', String(Date.now()));
-        window.dispatchEvent(new CustomEvent('mm3-db-updated', { detail: { wallet: normalizedWallet, marketCommand: true } }));
-      }
-
-      await broadcastSystemMessage(
-        `exec >> ${blockRow.emoji || commandEntry.emoji} >> cmd=${commandEntry.command} >> nonce=${x} >> ${penalties.length} ${t('mining.walletsPenalized')} >> reset ${formatResetIn(dayWindow.resetAt, language)}`,
-        'market'
-      );
-      relayRef.current?.send({ type: 'broadcast', event: 'market-status-refresh', payload: { ts: Date.now() } }).catch(() => {});
       return true;
     } catch (err) {
       console.error('market command:', err);
       await broadcastSystemMessage(`${t('mining.commandFailed')} >> ${err?.message || 'mining daemon non-zero'}`, 'command');
       return true;
     }
-  }, [broadcastSystemMessage, findMarketCommandInDb, language, normalizedWallet, t]);
+  }, [broadcastSystemMessage, findMarketCommandInDb, normalizedWallet, t]);
 
   // /buy #hex — purchase a free NFTJI mining block (same backend as mine block)
   const processBuyNftjiCommand = useCallback(async (text) => {
@@ -1699,11 +1563,11 @@ export default function RelayingTerminal({ accent = '#22d3ee' }) {
         const query = new URLSearchParams(window.location.search);
         const chip = Number(query.get('chip')) || 1;
         try {
-          const res = await fetch('/api/rm-rf-chain', {
+          const res = await apiFetch('/api/rm-rf-chain', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ chip, wallet: normalizedWallet || 'anon' }),
-          });
+            body: JSON.stringify({ chip }),
+          }, normalizedWallet || undefined);
           const data = await res.json().catch(() => ({}));
           if (!res.ok || !data.ok) {
             const cooldownMsg = data.error === 'cooldown_active'
@@ -1776,13 +1640,8 @@ export default function RelayingTerminal({ accent = '#22d3ee' }) {
               text: errMap[data.error] || t('relaying.execFailed'),
             }), { silent: true });
           } else {
-            const trace = `🔁 relay exec >> ${formatWalletLabel(normalizedWallet)} → ${formatWalletLabel(onlineWallet.wallet)} >> execs: #${data.originExecs.toString(16).toUpperCase()} + #${data.targetExecs.toString(16).toUpperCase()} >> lv.${data.level} >> Δmm3:${data.relayDelta >= 0 ? '+' : ''}${Number(data.relayDelta || 0).toFixed(6)}`;
+            const trace = data.trace || `🔁 relay exec >> ${formatWalletLabel(normalizedWallet)} → ${formatWalletLabel(onlineWallet.wallet)} >> execs: #${data.originExecs.toString(16).toUpperCase()} + #${data.targetExecs.toString(16).toUpperCase()} >> lv.${data.level} >> Δmm3:${data.relayDelta >= 0 ? '+' : ''}${Number(data.relayDelta || 0).toFixed(6)}`;
             await broadcastSystemMessage(trace, 'market');
-            try {
-              await supabase.from('mm3_relaying_messages').insert({
-                wallet: 'system', text: trace, ts: Date.now(), kind: 'system', tone: 'market',
-              });
-            } catch {}
             if (typeof window !== 'undefined') {
               localStorage.setItem('lb_dirty_at', String(Date.now()));
               window.dispatchEvent(new CustomEvent('mm3-db-updated', { detail: { wallet: normalizedWallet, relayExec: true } }));
@@ -1830,9 +1689,15 @@ export default function RelayingTerminal({ accent = '#22d3ee' }) {
             : `ERR: system hack attempt >> wallet=${formatWalletLabel(normalizedWallet)} >> input=${text} >> expected=${malformedPublicCommand.command}`;
           await broadcastSystemMessage(hackText, 'command');
           try {
-            await supabase.from('mm3_relaying_messages').insert({
-              wallet: 'system', text: hackText, ts: Date.now(), kind: 'system', tone: 'command',
-            });
+            await apiFetch('/api/relay/invalid-command', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                input: text,
+                expected_command: malformedPublicCommand.command,
+                language,
+              }),
+            }, normalizedWallet);
           } catch {}
           return;
         }
@@ -1850,11 +1715,6 @@ export default function RelayingTerminal({ accent = '#22d3ee' }) {
           if (data.ok) {
             const trace = language === 'es' ? data.trace_es : data.trace_en;
             await broadcastSystemMessage(trace, 'command');
-            try {
-              await supabase.from('mm3_relaying_messages').insert({
-                wallet: 'system', text: trace, ts: Date.now(), kind: 'system', tone: 'command',
-              });
-            } catch {}
             if (typeof window !== 'undefined') {
               localStorage.setItem('lb_dirty_at', String(Date.now()));
               window.dispatchEvent(new CustomEvent('mm3-db-updated', { detail: { wallet: normalizedWallet } }));
@@ -1904,13 +1764,16 @@ export default function RelayingTerminal({ accent = '#22d3ee' }) {
     appendMessage(makeMessage(payload), { silent: false });
 
     try {
-      await supabase.from('mm3_relaying_messages').insert({
-        wallet: normalizedWallet,
-        text,
-        ts: payload.ts,
-        kind: 'chat',
-        tone: 'neutral',
-      });
+      await apiFetch('/api/relay/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          text,
+          ts: payload.ts,
+          kind: 'chat',
+          tone: 'neutral',
+        }),
+      }, normalizedWallet);
     } catch {}
 
     try {

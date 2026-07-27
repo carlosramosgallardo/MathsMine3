@@ -16,6 +16,7 @@ import { normalizeWalletDecorations } from '@/lib/wallet-decorations'
 import { formatWalletLabel } from '@/lib/wallet-format'
 import UtcClock from '@/components/UtcClock'
 import { wagmiConfig } from '@/lib/wagmi-core'
+import { apiFetch } from '@/lib/wallet-session-client'
 
 const chains = [wagmiConfig.chains[0]]
 const projectId = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID
@@ -105,13 +106,15 @@ function notify(msg, type = 'info') {
 async function insertIrcPresenceTrace(wallet, tone, text) {
   const normalized = String(wallet || '').toLowerCase()
   if (!normalized || !['join', 'leave'].includes(tone)) return
-  await supabase.from('mm3_relaying_messages').insert({
-    wallet: 'system',
-    text: `${normalized} ${text}`,
-    ts: Date.now(),
-    kind: 'system',
-    tone,
-  }).then(null, () => {})
+  await apiFetch('/api/presence/ping', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      source: 'wallet',
+      irc_trace: tone,
+      irc_text: `${normalized} ${text}`,
+    }),
+  }, normalized).then(null, () => {})
 }
 
 /* ── Connected state — same visual for both auth methods ── */
@@ -138,9 +141,11 @@ function ConnectedBar({ address, isRealWallet, onDisconnect, mode = 'full' }) {
 
     const beat = async () => {
       if (!mounted) return;
-      await supabase
-        .from('mm3_wallet_presence')
-        .upsert({ wallet, source, last_seen: new Date().toISOString() }, { onConflict: 'wallet' });
+      await apiFetch('/api/presence/ping', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ source }),
+      }, wallet);
     };
 
     beat().then(() => {
@@ -155,13 +160,11 @@ function ConnectedBar({ address, isRealWallet, onDisconnect, mode = 'full' }) {
     return () => {
       mounted = false;
       clearInterval(timer);
-      // Expire presence immediately so Leaderboard shows offline without waiting 90s
-      supabase
-        .from('mm3_wallet_presence')
-        .upsert(
-          { wallet, source, last_seen: new Date(Date.now() - 120_000).toISOString() },
-          { onConflict: 'wallet' }
-        )
+      apiFetch('/api/presence/ping', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ source, disconnect: true }),
+      }, wallet)
         .then(() => {
           if (typeof window !== 'undefined')
             window.dispatchEvent(new CustomEvent('mm3-presence-changed'));

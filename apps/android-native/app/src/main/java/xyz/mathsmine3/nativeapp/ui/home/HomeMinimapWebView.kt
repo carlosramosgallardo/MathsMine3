@@ -14,6 +14,7 @@ import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import xyz.mathsmine3.nativeapp.PortalOrigin
+import xyz.mathsmine3.nativeapp.PortalWebViewSecurity
 import xyz.mathsmine3.nativeapp.handleLocalPortalSsl
 
 /**
@@ -48,6 +49,11 @@ class HomeMinimapWebView(context: Context) : WebView(context) {
         addJavascriptInterface(NativeBridge(), "MM3NativeMinimap")
         webChromeClient = WebChromeClient()
         webViewClient = object : WebViewClient() {
+
+            override fun shouldOverrideUrlLoading(
+                view: WebView?,
+                request: WebResourceRequest?,
+            ): Boolean = PortalWebViewSecurity.shouldBlockNavigation(view, request)
 
             override fun onReceivedSslError(
                 view: WebView?,

@@ -3,6 +3,7 @@ export const maxDuration = 60
 
 import { createClient } from '@supabase/supabase-js'
 import { runAllChecks } from '@/lib/security-checks/index.js'
+import { walletFromRequest } from '@/lib/wallet-session'
 
 const SITE_URL     = 'https://mathsmine3.xyz'
 const RATE_LIMIT_MS = 60 * 60 * 1000 // 1 scan por hora como máximo
@@ -34,6 +35,9 @@ function rateLimited(triggeredAt) {
 export async function POST(req) {
   const supabase = getSupabase()
   const by = triggeredBy(req)
+  if (by === 'manual' && !walletFromRequest(req)) {
+    return Response.json({ ok: false, error: 'unauthorized' }, { status: 401 })
+  }
 
   // Rate limit global: no más de 1 scan en una ventana móvil de 1 hora.
   const { data: recent } = await supabase

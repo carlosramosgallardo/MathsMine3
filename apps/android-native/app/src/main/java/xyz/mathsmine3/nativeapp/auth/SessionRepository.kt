@@ -1,6 +1,8 @@
 package xyz.mathsmine3.nativeapp.auth
 
 import android.content.Context
+import androidx.security.crypto.EncryptedSharedPreferences
+import androidx.security.crypto.MasterKey
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
@@ -25,7 +27,22 @@ data class Session(
 class SessionRepository(private val context: Context) {
     private val walletKey = stringPreferencesKey("wallet")
     private val kindKey = stringPreferencesKey("kind")
-    private val tokenKey = stringPreferencesKey("session_token")
+    private val securePrefs = EncryptedSharedPreferences.create(
+        context,
+        "mm3_session_secure",
+        MasterKey.Builder(context).setKeyScheme(MasterKey.KeyScheme.AES256_GCM).build(),
+        EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+        EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM,
+    )
+
+    private fun readToken(): String? = securePrefs.getString("session_token", null)
+    private fun writeToken(token: String?) {
+        if (token.isNullOrBlank()) {
+            securePrefs.edit().remove("session_token").apply()
+        } else {
+            securePrefs.edit().putString("session_token", token).apply()
+        }
+    }
 
     val session: Flow<Session> = context.sessionStore.data.map { prefs ->
         val kind = when (prefs[kindKey]) {
@@ -33,7 +50,7 @@ class SessionRepository(private val context: Context) {
             "WALLET" -> AuthKind.WALLET
             else -> AuthKind.NONE
         }
-        val token = prefs[tokenKey]
+        val token = readToken()
         SessionTokenHolder.set(token)
         Session(wallet = prefs[walletKey], kind = kind, sessionToken = token)
     }
@@ -42,8 +59,8 @@ class SessionRepository(private val context: Context) {
         context.sessionStore.edit {
             it[walletKey] = wallet
             it[kindKey] = AuthKind.GOOGLE.name
-            if (sessionToken.isNullOrBlank()) it.remove(tokenKey) else it[tokenKey] = sessionToken
         }
+        writeToken(sessionToken)
         SessionTokenHolder.set(sessionToken)
     }
 
@@ -51,20 +68,19 @@ class SessionRepository(private val context: Context) {
         context.sessionStore.edit {
             it[walletKey] = wallet.lowercase()
             it[kindKey] = AuthKind.WALLET.name
-            if (sessionToken.isNullOrBlank()) it.remove(tokenKey) else it[tokenKey] = sessionToken
         }
+        writeToken(sessionToken)
         SessionTokenHolder.set(sessionToken)
     }
 
     suspend fun setSessionToken(token: String?) {
-        context.sessionStore.edit {
-            if (token.isNullOrBlank()) it.remove(tokenKey) else it[tokenKey] = token
-        }
+        writeToken(token)
         SessionTokenHolder.set(token)
     }
 
     suspend fun clear() {
         context.sessionStore.edit { it.clear() }
+        writeToken(null)
         SessionTokenHolder.clear()
     }
 }

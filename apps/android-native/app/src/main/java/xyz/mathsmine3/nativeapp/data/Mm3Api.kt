@@ -17,6 +17,7 @@ import retrofit2.http.Body
 import retrofit2.http.GET
 import retrofit2.http.POST
 import retrofit2.http.Query
+import xyz.mathsmine3.nativeapp.BuildConfig
 import xyz.mathsmine3.nativeapp.auth.SessionTokenHolder
 import java.util.concurrent.TimeUnit
 
@@ -102,6 +103,18 @@ interface Mm3Api {
     @POST("/api/auth/session")
     suspend fun authSession(@Body body: RequestBody): ResponseBody
 
+    @POST("/api/auth/nonce")
+    suspend fun authNonce(@Body body: RequestBody): ResponseBody
+
+    @POST("/api/training/resolve")
+    suspend fun trainingResolve(@Body body: RequestBody): ResponseBody
+
+    @POST("/api/presence/ping")
+    suspend fun presencePing(@Body body: RequestBody): ResponseBody
+
+    @POST("/api/relay/chat")
+    suspend fun relayChat(@Body body: RequestBody): ResponseBody
+
     @POST("/api/security/scan")
     suspend fun securityScan(): ResponseBody
 
@@ -128,10 +141,7 @@ data class WalletBody(val wallet: String)
 
 object Mm3ApiFactory {
     fun create(baseUrl: String): Mm3Api {
-        val logging = HttpLoggingInterceptor().apply {
-            level = HttpLoggingInterceptor.Level.BASIC
-        }
-        val client = OkHttpClient.Builder()
+        val clientBuilder = OkHttpClient.Builder()
             .connectTimeout(30, TimeUnit.SECONDS)
             .readTimeout(30, TimeUnit.SECONDS)
             .addInterceptor { chain ->
@@ -145,8 +155,12 @@ object Mm3ApiFactory {
                 }
                 chain.proceed(req)
             }
-            .addInterceptor(logging)
-            .build()
+        if (BuildConfig.DEBUG) {
+            clientBuilder.addInterceptor(
+                HttpLoggingInterceptor().apply { level = HttpLoggingInterceptor.Level.BASIC },
+            )
+        }
+        val client = clientBuilder.build()
         val moshi = Moshi.Builder()
             .add(KotlinJsonAdapterFactory())
             .build()

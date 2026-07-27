@@ -407,61 +407,17 @@ fun TradingScreen(
                     scope.launch {
                         val result = withContext(Dispatchers.IO) {
                             runCatching {
-                                val progress = JSONObject()
-                                    .put("wallet", wallet)
-                                    .put("level", level)
-                                    .put("mm3_sold", soldMm3 + q.totalMm3)
-                                    .put("cny_earned", cnyEarned + q.netCny)
-                                    .put("eur_earned", eurEarned + q.netEur)
-                                    .put("usd_earned", usdEarned + q.netUsd)
-                                    .put("sell_rate_cny", SellQuotes.sellRateCny(level))
-                                    .put("sell_quote_cny", 0)
-                                    .put("sell_quote_eur", 0)
-                                    .put("sell_quote_usd", 0)
-                                    .put("updated_at", Instant.now().toString())
-                                val execPayload = JSONObject()
-                                    .put("wallet", wallet)
-                                    .put("progress", progress)
-                                val execText = api.tradeExec(jsonBody(execPayload)).readText()
+                                val execText = api.tradeExec(
+                                    jsonBody {
+                                        put("mode", "sell")
+                                        put("currency", currency.uppercase())
+                                        put("amount", amount)
+                                        put("source", source)
+                                    },
+                                ).readText()
                                 val execJson = runCatching { JSONObject(execText) }.getOrNull()
                                 if (execJson?.optBoolean("ok") == false) {
                                     error(execJson.optString("error", "trade exec failed"))
-                                }
-
-                                if (supabase.configured) {
-                                    runCatching {
-                                        supabase.upsert("player_progress", progress, "wallet")
-                                    }
-                                    supabase.insert(
-                                        "mm3_sell_transactions",
-                                        JSONObject()
-                                            .put("wallet", wallet)
-                                            .put("source", source)
-                                            .put("level", level)
-                                            .put("mm3_amount", q.totalMm3)
-                                            .put("mm3_commission", q.commissionMm3)
-                                            .put("rate_cny", q.rateCny)
-                                            .put("gross_cny", q.grossCny)
-                                            .put("gross_eur", q.grossEur)
-                                            .put("gross_usd", q.grossUsd)
-                                            .put("commission_rate", q.commissionRate)
-                                            .put("commission_cny", q.commissionCny)
-                                            .put("commission_eur", q.commissionEur)
-                                            .put("commission_usd", q.commissionUsd)
-                                            .put("net_cny", q.netCny)
-                                            .put("net_eur", q.netEur)
-                                            .put("net_usd", q.netUsd),
-                                    )
-                                    runCatching {
-                                        supabase.insert(
-                                            "mm3_mining_events",
-                                            JSONObject()
-                                                .put("wallet", wallet)
-                                                .put("event_type", "mining_resell")
-                                                .put("delta_mm3", -q.totalMm3)
-                                                .put("emoji", "📉"),
-                                        )
-                                    }
                                 }
                                 "sold ${formatMm3(q.totalMm3)} → ${formatMoney(q.netEur, "EUR")}"
                             }

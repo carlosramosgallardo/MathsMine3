@@ -6,7 +6,6 @@ import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -16,6 +15,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -37,6 +37,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -51,15 +52,18 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.zIndex
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import xyz.mathsmine3.nativeapp.R
@@ -70,12 +74,12 @@ import xyz.mathsmine3.nativeapp.data.SupabaseRest
 import xyz.mathsmine3.nativeapp.data.readText
 import xyz.mathsmine3.nativeapp.ui.header.AmbientMusic
 import xyz.mathsmine3.nativeapp.ui.header.Dice
-import xyz.mathsmine3.nativeapp.ui.header.DiceState
 import xyz.mathsmine3.nativeapp.ui.header.colorFromAddress
 import xyz.mathsmine3.nativeapp.ui.header.currencySymbol
 import xyz.mathsmine3.nativeapp.ui.header.formatCompactNum
 import xyz.mathsmine3.nativeapp.ui.header.formatWalletLabel
 import xyz.mathsmine3.nativeapp.ui.header.localClockText
+import xyz.mathsmine3.nativeapp.ui.theme.Mm3Colors
 import xyz.mathsmine3.nativeapp.ui.theme.RankTiers
 import java.time.Instant
 import java.time.ZoneOffset
@@ -119,6 +123,7 @@ fun PortalHeaderBar(
     onMusic: (Boolean) -> Unit,
 ) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     val wallet = session.wallet?.lowercase()
 
     var clock by remember { mutableStateOf(localClockText()) }
@@ -392,10 +397,18 @@ fun PortalHeaderBar(
                     }
                 }
                 HeaderIconButton(onClick = { onSound(!soundEnabled) }) {
-                    SoundIcon(enabled = soundEnabled)
+                    Text(
+                        if (soundEnabled) "🔊" else "🔇",
+                        fontSize = 13.sp,
+                        color = if (soundEnabled) Color(0xFF94A3B8) else Color(0xFF64748B),
+                    )
                 }
                 HeaderIconButton(onClick = { onMusic(!musicEnabled) }) {
-                    MusicIcon(enabled = musicEnabled)
+                    Text(
+                        if (musicEnabled) "🎵" else "🎶̸",
+                        fontSize = 13.sp,
+                        color = if (musicEnabled) Color(0xFF94A3B8) else Color(0xFF64748B),
+                    )
                 }
                 AuthControls(
                     connected = wallet != null,
@@ -511,38 +524,33 @@ fun PortalHeaderBar(
 
 @Composable
 private fun MarqueeTicker(text: String, color: Color) {
+    val density = LocalDensity.current
     val transition = rememberInfiniteTransition(label = "ticker")
-    val progress by transition.animateFloat(
-        initialValue = 0f,
-        targetValue = 1f,
+    val offset by transition.animateFloat(
+        initialValue = 1f,
+        targetValue = -1.2f,
         animationSpec = infiniteRepeatable(
             animation = tween(durationMillis = 55_000, easing = LinearEasing),
             repeatMode = RepeatMode.Restart,
         ),
-        label = "tickerProgress",
+        label = "tickerX",
     )
-    // Duplicate text so the lane never goes empty (web-style continuous scroll).
-    val lane = remember(text) { "$text     ·     $text     ·     " }
-    Box(
-        Modifier
-            .fillMaxWidth()
-            .fillMaxHeight()
-            .clip(RoundedCornerShape(0)),
-        contentAlignment = Alignment.CenterStart,
-    ) {
+    Box(Modifier.fillMaxWidth().fillMaxHeight().clip(RoundedCornerShape(0))) {
         Text(
-            lane,
+            text,
             color = color,
             fontFamily = FontFamily.Monospace,
             fontWeight = FontWeight.Black,
             fontSize = 12.sp,
-            letterSpacing = 1.4.sp,
+            letterSpacing = 1.6.sp,
             maxLines = 1,
             softWrap = false,
-            modifier = Modifier.graphicsLayer {
-                // Sweep from ~full width toward fully left over 55s.
-                translationX = size.width * (1f - progress * 2.2f)
-            },
+            modifier = Modifier
+                .align(Alignment.CenterStart)
+                .graphicsLayer {
+                    translationX = offset * (density.density * 420f)
+                    shadowElevation = 0f
+                },
         )
     }
 }
@@ -551,7 +559,7 @@ private fun MarqueeTicker(text: String, color: Color) {
 private fun PulseBar(
     war: Int,
     nature: Int,
-    dice: DiceState,
+    dice: xyz.mathsmine3.nativeapp.ui.header.DiceState,
     active: Int,
     total: Int,
 ) {
@@ -699,7 +707,7 @@ private fun AuthControls(
 ) {
     if (connected) {
         HeaderIconButton(onClick = onDisconnect) {
-            PowerIcon(connected = true)
+            Text("⏻", color = Color(0xFF22D3EE), fontSize = 16.sp)
         }
     } else {
         Row(
@@ -715,7 +723,7 @@ private fun AuthControls(
                     .padding(horizontal = 8.dp),
                 contentAlignment = Alignment.Center,
             ) {
-                GoogleIcon()
+                Text("G", color = Color(0xFF4285F4), fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, fontSize = 13.sp)
             }
             Box(
                 Modifier
@@ -730,102 +738,9 @@ private fun AuthControls(
                     .padding(horizontal = 8.dp),
                 contentAlignment = Alignment.Center,
             ) {
-                PowerIcon(connected = false)
+                Text("⏻", color = Color(0xFF475569), fontSize = 14.sp)
             }
         }
-    }
-}
-
-@Composable
-private fun SoundIcon(enabled: Boolean) {
-    val stroke = if (enabled) Color(0xFF94A3B8) else Color(0xFF64748B)
-    Canvas(Modifier.size(14.dp)) {
-        val w = size.width
-        val h = size.height
-        val path = Path().apply {
-            moveTo(w * 0.46f, h * 0.22f)
-            lineTo(w * 0.25f, h * 0.38f)
-            lineTo(w * 0.08f, h * 0.38f)
-            lineTo(w * 0.08f, h * 0.62f)
-            lineTo(w * 0.25f, h * 0.62f)
-            lineTo(w * 0.46f, h * 0.78f)
-            close()
-        }
-        drawPath(path, stroke, style = Stroke(width = 2.2f, cap = StrokeCap.Round, join = StrokeJoin.Round))
-        if (enabled) {
-            drawArc(
-                color = stroke,
-                startAngle = -40f,
-                sweepAngle = 80f,
-                useCenter = false,
-                topLeft = Offset(w * 0.48f, h * 0.28f),
-                size = androidx.compose.ui.geometry.Size(w * 0.35f, h * 0.44f),
-                style = Stroke(width = 2.2f, cap = StrokeCap.Round),
-            )
-        } else {
-            drawLine(stroke, Offset(w * 0.72f, h * 0.38f), Offset(w * 0.92f, h * 0.62f), strokeWidth = 2.2f, cap = StrokeCap.Round)
-            drawLine(stroke, Offset(w * 0.72f, h * 0.62f), Offset(w * 0.92f, h * 0.38f), strokeWidth = 2.2f, cap = StrokeCap.Round)
-        }
-    }
-}
-
-@Composable
-private fun MusicIcon(enabled: Boolean) {
-    val stroke = if (enabled) Color(0xFF94A3B8) else Color(0xFF64748B)
-    Canvas(Modifier.size(14.dp)) {
-        val w = size.width
-        val h = size.height
-        drawLine(stroke, Offset(w * 0.38f, h * 0.75f), Offset(w * 0.38f, h * 0.22f), strokeWidth = 2.2f, cap = StrokeCap.Round)
-        drawLine(stroke, Offset(w * 0.38f, h * 0.22f), Offset(w * 0.88f, h * 0.14f), strokeWidth = 2.2f, cap = StrokeCap.Round)
-        drawLine(stroke, Offset(w * 0.88f, h * 0.14f), Offset(w * 0.88f, h * 0.66f), strokeWidth = 2.2f, cap = StrokeCap.Round)
-        drawCircle(stroke, radius = w * 0.12f, center = Offset(w * 0.28f, h * 0.78f), style = Stroke(width = 2.2f))
-        drawCircle(stroke, radius = w * 0.12f, center = Offset(w * 0.78f, h * 0.70f), style = Stroke(width = 2.2f))
-        if (!enabled) {
-            drawLine(Color(0xFF64748B), Offset(w * 0.08f, h * 0.08f), Offset(w * 0.92f, h * 0.92f), strokeWidth = 2.2f, cap = StrokeCap.Round)
-        }
-    }
-}
-
-@Composable
-private fun PowerIcon(connected: Boolean) {
-    val stroke = if (connected) Color(0xFF22D3EE) else Color(0xFF475569)
-    Canvas(Modifier.size(15.dp)) {
-        val w = size.width
-        val h = size.height
-        drawLine(stroke, Offset(w * 0.5f, h * 0.08f), Offset(w * 0.5f, h * 0.5f), strokeWidth = 2.4f, cap = StrokeCap.Round)
-        drawArc(
-            color = stroke,
-            startAngle = -40f,
-            sweepAngle = 260f,
-            useCenter = false,
-            topLeft = Offset(w * 0.12f, h * 0.18f),
-            size = androidx.compose.ui.geometry.Size(w * 0.76f, h * 0.76f),
-            style = Stroke(width = 2.4f, cap = StrokeCap.Round),
-        )
-    }
-}
-
-@Composable
-private fun GoogleIcon() {
-    // Simplified Google "G" mark in brand blue (full multi-path G is overkill at 13px).
-    Canvas(Modifier.size(13.dp)) {
-        val stroke = Color(0xFF4285F4)
-        drawArc(
-            color = stroke,
-            startAngle = -40f,
-            sweepAngle = 280f,
-            useCenter = false,
-            topLeft = Offset(size.width * 0.08f, size.height * 0.08f),
-            size = androidx.compose.ui.geometry.Size(size.width * 0.84f, size.height * 0.84f),
-            style = Stroke(width = 2.4f, cap = StrokeCap.Round),
-        )
-        drawLine(
-            stroke,
-            Offset(size.width * 0.5f, size.height * 0.5f),
-            Offset(size.width * 0.92f, size.height * 0.5f),
-            strokeWidth = 2.4f,
-            cap = StrokeCap.Round,
-        )
     }
 }
 
