@@ -111,11 +111,14 @@ jobs:
             Compose-native Android client (`xyz.mathsmine3.app`).
             Same backends as the web portal: [mathsmine3.xyz](https://mathsmine3.xyz) APIs + Supabase.
 
-            ### Highlights (beta.3)
-            - Web + Android header parity (3-row layout, perf overlay on native)
-            - Native **MM3 Chart** with NFTJI/dice markers and compact stat chips
-            - Wallet connect UX (MetaMask fox, auto-sign flow, Ronin helpers)
-            - Security DB phase A+B + create-account rate limit applied on prod
+            ### Highlights (beta.4)
+            - Android presence via `/api/presence/ping` (session) — no anon Supabase upsert
+            - Lock anon writes on wallet pool tables (SQL Fase B extension)
+            - ProGuard rules for release AAB; Play release checklist updated
+
+            ### Carried from beta.3
+            - Web + Android header parity; native MM3 Chart markers
+            - Wallet connect UX; security SQL A+B + rate limit on prod
 
             ### Native shell
             - Training, Trading, Squeezing, Relaying, Daily, MM3 Chart, Ranking, AI Team, Manifesto

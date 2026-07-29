@@ -70,6 +70,7 @@ import xyz.mathsmine3.nativeapp.auth.AuthKind
 import xyz.mathsmine3.nativeapp.auth.Session
 import xyz.mathsmine3.nativeapp.data.Mm3Api
 import xyz.mathsmine3.nativeapp.data.SupabaseRest
+import xyz.mathsmine3.nativeapp.data.jsonBody
 import xyz.mathsmine3.nativeapp.data.readText
 import xyz.mathsmine3.nativeapp.ui.header.AmbientMusic
 import xyz.mathsmine3.nativeapp.ui.header.Dice
@@ -205,18 +206,17 @@ fun PortalHeaderBar(
         while (isActive) {
             withContext(Dispatchers.IO) {
                 runCatching {
-                    if (!supabase.configured) return@runCatching
                     val source = if (session.kind == AuthKind.GOOGLE) "google" else "wallet"
-                    runCatching {
-                        supabase.upsert(
-                            "mm3_wallet_presence",
-                            JSONObject()
-                                .put("wallet", wallet)
-                                .put("source", source)
-                                .put("last_seen", Instant.now().toString()),
-                            "wallet",
-                        )
+                    if (session.hasApiSession) {
+                        runCatching {
+                            api.presencePing(
+                                jsonBody {
+                                    put("source", source)
+                                },
+                            )
+                        }
                     }
+                    if (!supabase.configured) return@runCatching
                     val progress = supabase.selectOne(
                         "player_progress",
                         "wallet=eq.$wallet",

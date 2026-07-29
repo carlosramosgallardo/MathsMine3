@@ -46,11 +46,14 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import java.math.BigDecimal
 import java.math.BigInteger
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import xyz.mathsmine3.nativeapp.AppContainer
 import xyz.mathsmine3.nativeapp.BuildConfig
 import xyz.mathsmine3.nativeapp.auth.AuthKind
 import xyz.mathsmine3.nativeapp.auth.Session
+import xyz.mathsmine3.nativeapp.data.jsonBody
 import xyz.mathsmine3.nativeapp.ui.components.PortalHeaderBar
 import xyz.mathsmine3.nativeapp.ui.components.mm3PortalBackground
 import xyz.mathsmine3.nativeapp.ui.screens.AiTeamScreen
@@ -153,7 +156,24 @@ fun Mm3AppRoot(container: AppContainer) {
                         onNativeRoute = { go(it) },
                         onAuth = { navController.navigate(Mm3Dest.Auth.route) },
                         onDisconnect = {
-                            scope.launch { container.sessionRepository.clear() }
+                            scope.launch {
+                                if (session.hasApiSession) {
+                                    runCatching {
+                                        withContext(Dispatchers.IO) {
+                                            container.api.presencePing(
+                                                jsonBody {
+                                                    put(
+                                                        "source",
+                                                        if (session.kind == AuthKind.GOOGLE) "google" else "wallet",
+                                                    )
+                                                    put("disconnect", true)
+                                                },
+                                            )
+                                        }
+                                    }
+                                }
+                                container.sessionRepository.clear()
+                            }
                         },
                         onLanguage = { lang ->
                             scope.launch { container.uiPrefsRepository.setLanguage(lang) }
