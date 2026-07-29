@@ -31,8 +31,18 @@ if [[ ! -f "$AAB_SRC" ]]; then
   echo "AAB not found at $AAB_SRC"
   exit 1
 fi
-cp -f "$AAB_SRC" dist/mathsmine3-native-release.aab
-echo "AAB: $NATIVE/dist/mathsmine3-native-release.aab"
+
+# Name by versionName from app/build.gradle.kts (e.g. mathsmine3-0.1.0-beta.5.aab)
+VERSION_NAME="$(
+  awk -F'"' '/versionName[[:space:]]*=/{print $2; exit}' app/build.gradle.kts
+)"
+VERSION_NAME="${VERSION_NAME:-unknown}"
+AAB_NAME="mathsmine3-${VERSION_NAME}.aab"
+cp -f "$AAB_SRC" "dist/${AAB_NAME}"
+# Stable alias for docs / local scripts
+ln -sfn "$AAB_NAME" dist/mathsmine3-release.aab
+echo "AAB: $NATIVE/dist/${AAB_NAME}"
+echo "Alias: $NATIVE/dist/mathsmine3-release.aab → ${AAB_NAME}"
 
 # Print release cert SHA-256 for Digital Asset Links / Play Console
 STORE_FILE="$(awk -F= '/^storeFile=/{print $2}' keystore.properties | tr -d '\r')"
