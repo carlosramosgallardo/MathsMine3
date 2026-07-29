@@ -37,6 +37,8 @@ function SoundToggle() {
       onClick={toggleSound}
       title={enabled ? 'Mute sounds' : 'Unmute sounds'}
       aria-label={enabled ? 'Mute sounds' : 'Unmute sounds'}
+      data-testid="mm3-sound-toggle"
+      data-enabled={enabled ? 'true' : 'false'}
       className="flex min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 items-center justify-center border-0 bg-transparent px-1.5 py-1 text-slate-400 transition hover:text-cyan-300"
     >
       {enabled ? (
@@ -63,6 +65,8 @@ function MusicToggle() {
       onClick={toggleMusic}
       title={musicEnabled ? 'Mute music' : 'Unmute music'}
       aria-label={musicEnabled ? 'Mute music' : 'Unmute music'}
+      data-testid="mm3-music-toggle"
+      data-enabled={musicEnabled ? 'true' : 'false'}
       className="flex min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 items-center justify-center border-0 bg-transparent px-1.5 py-1 text-slate-400 transition hover:text-cyan-300"
     >
       {musicEnabled ? (
@@ -200,7 +204,7 @@ export default function Header() {
   }
 
   return (
-    <header className={`fixed top-0 left-0 right-0 z-50 bg-black/97 backdrop-blur-sm border-b border-cyan-900/30 ${pathname === '/trading' ? 'mm3-trade-header' : ''}`}>
+    <header data-testid="mm3-portal-header" className={`fixed top-0 left-0 right-0 z-50 bg-black/97 backdrop-blur-sm border-b border-cyan-900/30 ${pathname === '/trading' ? 'mm3-trade-header' : ''}`}>
       <div className="mm3-header-ticker flex h-7 sm:h-[34px] items-center overflow-hidden border-b border-green-400/20 bg-black/60">
         <MacroTicker />
       </div>

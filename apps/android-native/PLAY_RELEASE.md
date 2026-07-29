@@ -25,16 +25,42 @@ Deploy **Vercel first**, then SQL (APIs must exist before anon writes are revoke
 
 ## Phase 1 — Release engineering
 
-1. Create a **release** keystore (do not commit):
-   `keytool -genkeypair -keystore release.keystore -alias mathsmine3 -keyalg RSA -validity 10000`
-2. Configure `signingConfigs.release` in `app/build.gradle.kts`
-3. `./gradlew bundleRelease` → upload **AAB** to Play Console (Internal testing first)
-4. Append release SHA-256 to `public/.well-known/assetlinks.json` (keep debug fingerprint for local)
-5. Uninstall legacy TWA builds on test devices
+### Keystore (local, never commit)
+
+Files (gitignored):
+
+- `apps/android-native/release.keystore`
+- `apps/android-native/keystore.properties` (from `keystore.properties.example`)
+
+**Back up both offline.** Losing the upload key blocks future Play updates (unless you use Play App Signing with a registered upload key recovery).
+
+Gradle reads `keystore.properties` and signs `release` via `signingConfigs.release`.
+
+### Build signed AAB
+
+```bash
+npm run android:native:bundle
+# → apps/android-native/dist/mathsmine3-native-release.aab
+# prints release cert SHA-256
+```
+
+Then:
+
+1. Upload the AAB to Play Console → **Internal testing**
+2. Append the printed SHA-256 to `public/.well-known/assetlinks.json` (keep debug fingerprint for local)
+3. Uninstall legacy TWA / debug builds on test devices before installing the Play build
+
+### Release cert fingerprint (fill after first keystore)
+
+```
+SHA-256: AC:8A:45:9A:25:DF:7A:E2:7F:14:6D:00:27:A6:13:6A:EC:4E:D2:D1:D0:FC:8F:9A:82:B7:B6:48:3C:EE:D0:FE
+```
+
+(Re-print anytime with `npm run android:native:bundle` or `keytool -list -v -keystore apps/android-native/release.keystore`.)
 
 ## Phase 2 — Smoke test (device + emulator)
 
-With wallet session signed in:
+Manual UI checklist (with wallet session signed in):
 
 - [ ] Google login → create-account
 - [ ] MetaMask wallet connect + session
@@ -48,6 +74,16 @@ With wallet session signed in:
 - [ ] Mining WebView FPV
 - [ ] MM3 Chart (native markers)
 - [ ] SEC scan + API / Privacy / Terms native screens
+
+### Automated QA
+
+```bash
+npm run qa:sweep:unit
+NODE_TLS_REJECT_UNAUTHORIZED=0 npm run qa:sweep -- --base https://127.0.0.1:3000
+NODE_TLS_REJECT_UNAUTHORIZED=0 npm run qa:portal -- --base https://127.0.0.1:3000
+```
+
+See [`docs/QA.md`](../../docs/QA.md).
 
 ## Phase 3 — Play Console
 

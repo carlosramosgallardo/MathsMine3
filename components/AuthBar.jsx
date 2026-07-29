@@ -327,10 +327,16 @@ function ConnectedBar({ address, isRealWallet, onDisconnect, mode = 'full' }) {
   const mm3Compact = walletSummary ? Number(walletSummary.availableMm3 || 0).toFixed(2) : '0.00'
 
   return (
-    <div className={`flex items-center ${mode === 'wallet' ? 'gap-1 sm:gap-1.5' : 'gap-1.5'}`}>
+    <div
+      className={`flex items-center ${mode === 'wallet' ? 'gap-1 sm:gap-1.5' : 'gap-1.5'}`}
+      data-testid="mm3-auth-connected"
+      data-wallet={String(address || '').toLowerCase()}
+      data-mode={mode}
+    >
       {mode !== 'controls' && (
         <button
           type="button"
+          data-testid="mm3-auth-wallet-chip"
           onClick={copyAddress}
           className={`flex items-center rounded-md border border-transparent font-mono tracking-wide transition hover:bg-cyan-950/20 focus:border-transparent focus:outline-none focus:ring-0 active:border-transparent ${mode === 'wallet' ? 'min-h-5 px-1 py-0.5 text-[0.70rem] sm:px-1.5 sm:text-[0.82rem]' : 'h-9 px-2 text-[0.80rem] sm:text-[0.6rem]'}`}
           style={poolViewData
@@ -379,6 +385,7 @@ function ConnectedBar({ address, isRealWallet, onDisconnect, mode = 'full' }) {
           onClick={handleDisconnect}
           title={t('wallet.disconnect')}
           aria-label={t('wallet.disconnect')}
+          data-testid="mm3-auth-disconnect"
           className="group flex h-7 sm:h-9 w-8 sm:w-9 items-center justify-center rounded-md border border-transparent transition-all duration-150 focus:outline-none hover:border-rose-500/30 hover:bg-rose-950/25"
         >
           <PowerIcon connected size={15} />
@@ -406,12 +413,14 @@ function SplitConnectButton({ onGoogleClick, onWalletClick, googleBusy, walletBu
   return (
     <div
       className="flex h-7 sm:h-9 items-center overflow-hidden rounded-md"
+      data-testid="mm3-auth-connect"
       style={{ border: `1px solid transparent` }}
     >
       {/* Google half */}
       <button
         type="button"
         data-mm3-auth="google"
+        data-testid="mm3-auth-google"
         onClick={!noGoogle && !googleBusy ? onGoogleClick : undefined}
         disabled={noGoogle || googleBusy}
         title={googleTitle}
@@ -433,6 +442,7 @@ function SplitConnectButton({ onGoogleClick, onWalletClick, googleBusy, walletBu
       {/* Wallet half */}
       <button
         type="button"
+        data-testid="mm3-auth-wallet"
         onClick={handleWalletClick}
         title="Connect MetaMask or another crypto wallet"
         aria-label="Connect MetaMask or another crypto wallet"

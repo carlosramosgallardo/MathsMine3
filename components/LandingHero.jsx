@@ -214,6 +214,8 @@ function NonagonPortal({ portal, es, isDead, deadCountdown, count, nftji, mining
             <g
               key={card.href}
               className="mm3-nonagon-side"
+              data-testid={`mm3-portal-side-${card.href.replace(/^\//, '')}`}
+              data-portal-href={card.href}
               style={{ cursor: blocked ? 'not-allowed' : 'pointer' }}
               onMouseEnter={() => markSide(i)}
               onClick={() => {
@@ -271,7 +273,7 @@ function NonagonPortal({ portal, es, isDead, deadCountdown, count, nftji, mining
           {currentBlocked ? (
             <span className="mm3-nonagon-center-name">{current.name}</span>
           ) : (
-            <Link href={current.href} className="mm3-nonagon-center-name">{current.name}</Link>
+            <Link href={current.href} data-testid="mm3-portal-center-name" className="mm3-nonagon-center-name">{current.name}</Link>
           )}
         </span>
         <span className="mm3-nonagon-center-desc">

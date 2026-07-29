@@ -37,7 +37,7 @@ export default function Footer() {
   const touchClass = 'inline-flex min-h-[28px] min-w-[32px] items-center justify-center px-1 transition-colors duration-150 hover:text-cyan-400'
 
   return (
-    <footer className={`fixed bottom-0 left-0 right-0 z-40 h-[32px] overflow-x-auto whitespace-nowrap border-t border-cyan-900/20 bg-black/97 px-3 text-[0.75rem] font-mono text-gray-600 backdrop-blur-sm no-scrollbar ${pathname === '/trading' ? 'mm3-trade-footer' : ''}`}>
+    <footer data-testid="mm3-portal-footer" className={`fixed bottom-0 left-0 right-0 z-40 h-[32px] overflow-x-auto whitespace-nowrap border-t border-cyan-900/20 bg-black/97 px-3 text-[0.75rem] font-mono text-gray-600 backdrop-blur-sm no-scrollbar ${pathname === '/trading' ? 'mm3-trade-footer' : ''}`}>
       <div className="mx-auto flex h-full min-w-max items-center justify-center gap-3">
         {socials.map(({ label, href }) => (
           <a
@@ -103,8 +103,8 @@ export default function Footer() {
         <span className="select-none text-gray-800">|</span>
         <Link href="/api" className={touchClass}>API</Link>
         <Link href="/security" className={touchClass} title={es ? 'Seguridad' : 'Security'}>SEC</Link>
-        <Link href="/privacy" className={touchClass}>{es ? 'Privacidad' : 'Privacy'}</Link>
-        <Link href="/terms" className={touchClass}>{es ? 'Términos' : 'Terms'}</Link>
+        <Link href="/privacy" data-testid="mm3-footer-privacy" className={touchClass}>{es ? 'Privacidad' : 'Privacy'}</Link>
+        <Link href="/terms" data-testid="mm3-footer-terms" className={touchClass}>{es ? 'Términos' : 'Terms'}</Link>
         <span className="select-none text-gray-800">|</span>
         <span className="text-gray-600 select-none">&copy; 2026 FreakingAI</span>
       </div>

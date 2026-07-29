@@ -1,7 +1,10 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
 }
+
 
 /**
  * Load portal `.env.local` (repo root) so Android shares the same Google / Supabase
@@ -95,6 +98,37 @@ android {
         buildConfigField("String", "PORTAL_BASE_URL", "\"https://mathsmine3.xyz\"")
     }
 
+    // Release signing: apps/android-native/keystore.properties (gitignored).
+    // See keystore.properties.example and PLAY_RELEASE.md.
+    val keystorePropsFile = rootProject.file("keystore.properties")
+    val keystoreProps = Properties()
+    val hasReleaseKeystore = keystorePropsFile.isFile.also { exists ->
+        if (exists) keystorePropsFile.inputStream().use { keystoreProps.load(it) }
+    }
+    if (hasReleaseKeystore) {
+        val storeFilePath = keystoreProps.getProperty("storeFile")?.trim().orEmpty()
+        val storePassword = keystoreProps.getProperty("storePassword")?.trim().orEmpty()
+        val keyAlias = keystoreProps.getProperty("keyAlias")?.trim().orEmpty()
+        val keyPassword = keystoreProps.getProperty("keyPassword")?.trim().orEmpty()
+        val storeFileResolved = rootProject.file(storeFilePath)
+        require(storeFileResolved.isFile) {
+            "keystore.properties storeFile not found: ${storeFileResolved.absolutePath}"
+        }
+        signingConfigs {
+            create("release") {
+                storeFile = storeFileResolved
+                this.storePassword = storePassword
+                this.keyAlias = keyAlias
+                this.keyPassword = keyPassword
+            }
+        }
+    } else {
+        logger.warn(
+            "keystore.properties missing — release builds are unsigned. " +
+                "Copy keystore.properties.example and create release.keystore (see PLAY_RELEASE.md)."
+        )
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = true
@@ -104,6 +138,9 @@ android {
             )
             buildConfigField("String", "PORTAL_BASE_URL", "\"https://mathsmine3.xyz\"")
             manifestPlaceholders["usesCleartextTraffic"] = "false"
+            if (hasReleaseKeystore) {
+                signingConfig = signingConfigs.getByName("release")
+            }
         }
         debug {
             applicationIdSuffix = ""

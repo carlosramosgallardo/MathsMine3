@@ -47,7 +47,7 @@ export default function DeadGate({ children }) {
   const countdown = `${hh}:${mm}:${ss}`;
 
   return (
-    <div style={{
+    <div data-testid="mm3-dead-gate" style={{
       display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
       minHeight: '70vh', width: '100%', gap: '1.1rem',
       fontFamily: 'Consolas, "Courier New", monospace',
@@ -81,7 +81,7 @@ export default function DeadGate({ children }) {
         {es ? 'REVIVES EN' : 'REVIVES IN'}
       </div>
 
-      <Link href="/" style={{
+      <Link href="/" data-testid="mm3-dead-back" style={{
         marginTop: '0.6rem',
         fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.20em',
         color: '#374151', textDecoration: 'none', textTransform: 'uppercase',

@@ -32,11 +32,13 @@ export default function LanguageSwitcher() {
   };
 
   return (
-    <div className="relative z-[80]" ref={dropdownRef}>
+    <div className="relative z-[80]" ref={dropdownRef} data-testid="mm3-lang-switcher">
       <button
         onClick={() => setIsOpen(!isOpen)}
         title="Change language"
         aria-label="Change language"
+        data-testid="mm3-lang-toggle"
+        data-lang={language}
         className="flex min-h-[44px] sm:h-9 items-center gap-0.5 sm:gap-1 px-1 sm:px-1.5 text-[0.82rem] sm:text-[0.90rem] font-mono font-bold text-cyan-300
           hover:text-cyan-200 focus:outline-none uppercase tracking-wider transition"
       >
@@ -49,6 +51,7 @@ export default function LanguageSwitcher() {
         }`}>
           <button
             onClick={() => handleLanguageChange('en')}
+            data-testid="mm3-lang-option-en"
             className={`w-full px-3 py-2 text-left text-[0.7rem] font-mono uppercase tracking-wider transition
               ${language === 'en'
                 ? 'bg-cyan-300 text-black font-bold'
@@ -59,6 +62,7 @@ export default function LanguageSwitcher() {
           </button>
           <button
             onClick={() => handleLanguageChange('es')}
+            data-testid="mm3-lang-option-es"
             className={`w-full px-3 py-2 text-left text-[0.7rem] font-mono uppercase tracking-wider transition
               ${language === 'es'
                 ? 'bg-cyan-300 text-black font-bold'

@@ -42,7 +42,7 @@ export default function CookieBanner() {
   if (!mounted || !showBanner) return null;
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-50 bg-black/95 border-t border-cyan-500/20 p-3 sm:p-4 text-[0.7rem] sm:text-xs font-mono text-gray-300 backdrop-blur-sm">
+    <div data-testid="mm3-cookie-banner" className="fixed bottom-0 left-0 right-0 z-50 bg-black/95 border-t border-cyan-500/20 p-3 sm:p-4 text-[0.7rem] sm:text-xs font-mono text-gray-300 backdrop-blur-sm">
       <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
 
         {/* Cookie notice text */}
@@ -62,12 +62,14 @@ export default function CookieBanner() {
         <div className="flex gap-2 shrink-0">
           <button
             onClick={handleDecline}
+            data-testid="mm3-cookie-decline"
             className="px-3 py-1.5 border border-slate-700/60 rounded text-slate-500 hover:text-slate-400 hover:border-slate-600 transition-colors whitespace-nowrap"
           >
             [ Decline ]
           </button>
           <button
             onClick={handleAccept}
+            data-testid="mm3-cookie-accept"
             className="px-3 py-1.5 bg-cyan-500/15 border border-cyan-500/40 rounded text-cyan-300 hover:bg-cyan-500/25 hover:border-cyan-400/60 transition-colors whitespace-nowrap"
           >
             [ Accept ]
