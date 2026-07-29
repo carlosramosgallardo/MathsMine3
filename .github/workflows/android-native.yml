@@ -39,7 +39,7 @@ jobs:
       - name: Accept licenses & install platform
         run: |
           yes | sdkmanager --licenses >/dev/null || true
-          sdkmanager "platforms;android-34" "build-tools;34.0.0"
+          sdkmanager "platforms;android-35" "build-tools;35.0.0"
 
       - name: Write portal env for Gradle (public client keys)
         working-directory: ${{ github.workspace }}
@@ -111,14 +111,15 @@ jobs:
             Compose-native Android client (`xyz.mathsmine3.app`).
             Same backends as the web portal: [mathsmine3.xyz](https://mathsmine3.xyz) APIs + Supabase.
 
-            ### Highlights (beta.4)
-            - Android presence via `/api/presence/ping` (session) — no anon Supabase upsert
-            - Lock anon writes on wallet pool tables (SQL Fase B extension)
-            - ProGuard rules for release AAB; Play release checklist updated
+            ### Highlights (beta.5)
+            - Play Internal: `targetSdk` / `compileSdk` **35**, versionCode **29**
+            - Release signing + native `SYMBOL_TABLE` symbols for AAB
+            - Portal QA harness (`qa:sweep` / `qa:portal`)
 
-            ### Carried from beta.3
-            - Web + Android header parity; native MM3 Chart markers
-            - Wallet connect UX; security SQL A+B + rate limit on prod
+            ### Carried from beta.4
+            - Android presence via `/api/presence/ping` (session)
+            - Lock anon writes on wallet pool tables
+            - ProGuard rules; Play release checklist
 
             ### Native shell
             - Training, Trading, Squeezing, Relaying, Daily, MM3 Chart, Ranking, AI Team, Manifesto
@@ -129,14 +130,15 @@ jobs:
             - **Home** — arena + minimap (`/embed/home-arena`, `/embed/home-minimap`)
             - **Mining** — FPV (`/embed/mining`)
 
-            > Sideload debug APK — not a Play Store signed release.
+            > Sideload **debug** APK on this release — not the Play-signed AAB.
+            > Play Internal testing uses the signed AAB built locally (`npm run android:native:bundle`).
 
-            ### Install
+            ### Install (sideload)
             1. Download the attached APK (`mathsmine3-native-debug.apk` or `mathsmine3-*.apk`)
             2. Sideload on a device/emulator (USB debugging or file install)
             3. Package id: `xyz.mathsmine3.app`
 
-            See [docs/PLATFORMS.md](docs/PLATFORMS.md) and [`apps/android-native/README.md`](apps/android-native/README.md).
+            See [docs/PLATFORMS.md](docs/PLATFORMS.md), [`apps/android-native/README.md`](apps/android-native/README.md), and [`PLAY_RELEASE.md`](apps/android-native/PLAY_RELEASE.md).
 
             > Debug / sideload build — not a Play Store production signing release.
         env:
