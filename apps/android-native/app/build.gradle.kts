@@ -79,7 +79,7 @@ android {
         applicationId = "xyz.mathsmine3.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 28
+        versionCode = 29
         versionName = "0.1.0-beta.5"
         buildConfigField("String", "API_BASE_URL", "\"https://mathsmine3.xyz\"")
         buildConfigField("String", "GOOGLE_CLIENT_ID", "\"${escapeForBuildConfig(googleClientId)}\"")
@@ -138,6 +138,10 @@ android {
             )
             buildConfigField("String", "PORTAL_BASE_URL", "\"https://mathsmine3.xyz\"")
             manifestPlaceholders["usesCleartextTraffic"] = "false"
+            // Native debug symbols for Play Console (Filament .so) — clears the AAB warning.
+            ndk {
+                debugSymbolLevel = "SYMBOL_TABLE"
+            }
             if (hasReleaseKeystore) {
                 signingConfig = signingConfigs.getByName("release")
             }
