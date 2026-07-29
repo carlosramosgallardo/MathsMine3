@@ -13,6 +13,7 @@ import android.webkit.WebResourceRequest
 import xyz.mathsmine3.nativeapp.PortalOrigin
 import xyz.mathsmine3.nativeapp.PortalWebViewSecurity
 import xyz.mathsmine3.nativeapp.handleLocalPortalSsl
+import java.net.URLEncoder
 
 /**
  * Renders the real portal home arena (Three.js HomeMiningWorld3D) inside a
@@ -25,6 +26,8 @@ import xyz.mathsmine3.nativeapp.handleLocalPortalSsl
 class HomeArenaWebView(context: Context) : WebView(context) {
     var arenaReady = false
         private set
+    private var sessionWallet: String? = null
+    private val WALLET_RE = Regex("^0x[0-9a-fA-F]{40}$")
 
     init {
         setBackgroundColor(Color.parseColor("#070B0F"))
@@ -83,9 +86,22 @@ class HomeArenaWebView(context: Context) : WebView(context) {
             ViewGroup.LayoutParams.MATCH_PARENT,
             ViewGroup.LayoutParams.MATCH_PARENT,
         )
-        // Live home + CSS chrome strip = same Three.js avatars/textures today.
-        // Switch to EMBED_URL after /embed/home-arena is deployed to production.
-        loadUrl(FALLBACK_URL)
+        // Loaded later via loadArena() after session wallet is set.
+    }
+
+    fun setSessionWallet(wallet: String?) {
+        sessionWallet = wallet?.trim()?.takeIf { it.isNotEmpty() }
+    }
+
+    fun loadArena() {
+        loadUrl(buildUrl())
+    }
+
+    private fun buildUrl(): String {
+        val w = sessionWallet ?: return EMBED_URL
+        if (!w.matches(WALLET_RE)) return EMBED_URL
+        val encoded = URLEncoder.encode(w.lowercase(), Charsets.UTF_8.name())
+        return "$EMBED_URL?mm3_gw=$encoded"
     }
 
     fun cycleWithNonagon() {
@@ -96,9 +112,12 @@ class HomeArenaWebView(context: Context) : WebView(context) {
     }
 
     private fun injectArenaChrome() {
+        val w = sessionWallet?.takeIf { it.matches(WALLET_RE) }?.lowercase()
+        val walletBlock = if (w != null) "localStorage.setItem('mm3_gw','$w');" else ""
         val js = """
             (function(){
               try {
+                $walletBlock
                 var css = document.createElement('style');
                 css.id = 'mm3-native-arena-css';
                 css.textContent = `

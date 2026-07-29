@@ -37,7 +37,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -123,7 +122,6 @@ fun PortalHeaderBar(
     onMusic: (Boolean) -> Unit,
 ) {
     val context = LocalContext.current
-    val scope = rememberCoroutineScope()
     val wallet = session.wallet?.lowercase()
 
     var clock by remember { mutableStateOf(localClockText()) }
@@ -286,7 +284,7 @@ fun PortalHeaderBar(
             MarqueeTicker(text = tickerText, color = tickerColor)
         }
 
-        // ── ROW 2: pulse + home badge + controls ──
+        // ── ROW 2: pulse+home, then controls (2 lines — fits mobile vertical) ──
         Column(
             Modifier
                 .fillMaxWidth()
@@ -309,19 +307,12 @@ fun PortalHeaderBar(
                 HomeBadge(onClick = { onNativeRoute("home") })
             }
             Row(
-                Modifier.fillMaxWidth(),
+                Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState()),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.Center,
             ) {
-                Text(
-                    clock,
-                    color = Color(0xFF67E8F9),
-                    fontFamily = FontFamily.Monospace,
-                    fontWeight = FontWeight.Black,
-                    fontSize = 11.sp,
-                    letterSpacing = 0.8.sp,
-                    modifier = Modifier.padding(horizontal = 4.dp),
-                )
                 Box {
                     HeaderIconButton(onClick = { currencyOpen = true }) {
                         Text(
@@ -418,7 +409,7 @@ fun PortalHeaderBar(
             }
         }
 
-        // ── ROW 3: daily + wallet summary ──
+        // ── ROW 3: clock + perf + daily + wallet summary (logged in/out) ──
         Row(
             Modifier
                 .fillMaxWidth()
@@ -429,6 +420,16 @@ fun PortalHeaderBar(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.Center,
         ) {
+            Text(
+                clock,
+                color = Color(0xFF67E8F9),
+                fontFamily = FontFamily.Monospace,
+                fontWeight = FontWeight.Black,
+                fontSize = 11.sp,
+                letterSpacing = 0.8.sp,
+                modifier = Modifier.padding(horizontal = 4.dp),
+            )
+            PortalPerfOverlay(modifier = Modifier.padding(horizontal = 2.dp))
             Box(
                 Modifier
                     .clickable { onNativeRoute("daily") }
@@ -738,7 +739,7 @@ private fun AuthControls(
                     .padding(horizontal = 8.dp),
                 contentAlignment = Alignment.Center,
             ) {
-                Text("⏻", color = Color(0xFF475569), fontSize = 14.sp)
+                Text("🦊", fontSize = 14.sp)
             }
         }
     }

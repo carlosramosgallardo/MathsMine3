@@ -46,14 +46,14 @@ export default function WalletBootstrap() {
 
       const connected = getAccount(wagmiConfig);
       const connector = connected.connector;
-      const isWcOrRonin = !!(
+      const isWc = !!(
         connector
         && (connector.type === 'walletConnect'
           || /walletconnect|ronin/i.test(`${connector.id || ''} ${connector.name || ''}`))
       );
 
-      // Always ask for the login signature at connect time (not mid-squeeze/EXEC).
-      // Give Ronin/WC a moment to finish the connect handshake first.
+      // One personal_sign at connect time (not mid-squeeze/EXEC).
+      // Give WC a moment to finish the connect handshake first.
       if (typeof window !== 'undefined') {
         window.dispatchEvent(new CustomEvent('mm3-toast', {
           detail: {
@@ -64,22 +64,36 @@ export default function WalletBootstrap() {
           },
         }));
       }
-      await new Promise((r) => setTimeout(r, isWcOrRonin ? 900 : 300));
+      await new Promise((r) => setTimeout(r, isWc ? 900 : 300));
       if (cancelled) return;
 
-      try {
-        await signInWithWallet(wallet);
-      } catch (err) {
-        if (cancelled) return;
-        const code = err?.message || '';
-        console.error('wallet session sign-in failed:', code || err);
-        if (typeof window !== 'undefined') {
-          window.dispatchEvent(new CustomEvent('mm3-toast', {
-            detail: {
-              msg: walletSignErrorMessage(code, language),
-              type: 'error',
-            },
-          }));
+      // Some wallets (esp. WC) can still be hydrating right after connect —
+      // retry briefly before showing an error toast.
+      const retryDelaysMs = isWc ? [2000, 4000] : [];
+      for (let attempt = 0; ; attempt += 1) {
+        try {
+          await signInWithWallet(wallet);
+          return;
+        } catch (err) {
+          if (cancelled) return;
+          const code = err?.message || '';
+          const isTransientLock = code === 'wallet_locked' && attempt < retryDelaysMs.length;
+          if (isTransientLock) {
+            console.warn(`wallet session sign-in retry ${attempt + 1}:`, code);
+            await new Promise((r) => setTimeout(r, retryDelaysMs[attempt]));
+            if (cancelled) return;
+            continue;
+          }
+          console.error('wallet session sign-in failed:', code || err);
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('mm3-toast', {
+              detail: {
+                msg: walletSignErrorMessage(code, language),
+                type: 'error',
+              },
+            }));
+          }
+          return;
         }
       }
     };

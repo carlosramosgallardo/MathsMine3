@@ -23,38 +23,30 @@ export default function EmbedHeaderLayout({ children }) {
           height: auto !important;
           overflow: visible !important;
         }
-        /* Flow in the WebView strip — not fixed over a phantom page */
         html.mm3-native-header-embed header {
           position: relative !important;
           top: auto !important;
           left: auto !important;
           right: auto !important;
         }
-        /* Same wrap as max-sm portrait portal */
-        html.mm3-native-header-embed .mm3-header-ticker + div > div.flex.h-12,
-        html.mm3-native-header-embed .mm3-header-ticker + div > div.flex.h-14 {
-          height: auto !important;
-          min-height: 3rem;
-          flex-wrap: wrap;
-          column-gap: 0.5rem;
-          row-gap: 0.25rem;
-          padding-top: 0.375rem;
-          padding-bottom: 0.375rem;
+        /* Match mobile: controls row 2 lines (pulse+home, then settings+auth) */
+        html.mm3-native-header-embed .mm3-header-ticker + div > div.flex {
+          flex-direction: column !important;
+          align-items: center !important;
+          gap: 0.25rem !important;
+          padding-top: 0.375rem !important;
+          padding-bottom: 0.375rem !important;
+          overflow-x: visible !important;
+          flex-wrap: nowrap !important;
         }
-        html.mm3-native-header-embed .mm3-header-ticker + div .hidden.basis-full {
-          display: block !important;
-          height: 0;
-          flex-basis: 100%;
+        html.mm3-native-header-embed .mm3-header-ticker + div > div.flex > div:last-child {
+          overflow-x: auto !important;
+          max-width: 100% !important;
         }
-        html.mm3-native-header-embed .mm3-header-ticker + div .contents {
-          display: flex !important;
-          width: 100%;
-          align-items: center;
-          justify-content: center;
-          gap: 0.5rem;
+        html.mm3-native-header-embed .mm3-header-wallet-row {
+          overflow-x: auto !important;
+          flex-wrap: nowrap !important;
         }
-        html.mm3-native-header-embed .mm3-clock-controls { display: block !important; }
-        html.mm3-native-header-embed .mm3-clock-wallet { display: none !important; }
       `}</style>
       {children}
     </>

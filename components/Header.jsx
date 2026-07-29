@@ -206,37 +206,35 @@ export default function Header() {
       </div>
 
       <div className="relative z-[90] border-b border-cyan-900/15 overflow-visible">
-        <div className="flex h-12 items-center justify-center gap-1.5 px-3 sm:h-14 sm:gap-2.5 sm:px-4 max-sm:portrait:h-auto max-sm:portrait:min-h-12 max-sm:portrait:flex-wrap max-sm:portrait:gap-x-2 max-sm:portrait:gap-y-1 max-sm:portrait:py-1.5">
-          <GlobalPulseBar />
-          <Link
-            href="/"
-            onClick={triggerHomeLoading}
-            aria-label="MathsMine3 home"
-            aria-current={pathname === '/' ? 'page' : undefined}
-            className="mm3-home-portal-link shrink-0 focus:outline-none mx-0.5 sm:mx-1 is-active"
-          >
-            <span className="mm3-home-badge">
-              {/* unoptimized: keep a plain /og-image.jpg src so WebViews
-                  (native header strip) always paint the logo + house marker. */}
-              <Image
-                src="/og-image.jpg"
-                alt="MM3"
-                width={28}
-                height={28}
-                priority
-                unoptimized
-                className="mm3-home-logo"
-              />
-              <span className="mm3-home-marker" aria-hidden="true">
-                <svg viewBox="0 0 16 13" focusable="false">
-                  <path d="M1.5 6.2 8 1l6.5 5.2M3.5 5.2v6.3h9V5.2M6.4 11.5V7.8h3.2v3.7" />
-                </svg>
+        <div className="flex flex-col items-center justify-center gap-1 px-3 py-1.5 sm:h-14 sm:flex-row sm:gap-2.5 sm:px-4 sm:py-0">
+          <div className="flex items-center justify-center gap-1.5 sm:gap-2.5 shrink-0">
+            <GlobalPulseBar />
+            <Link
+              href="/"
+              onClick={triggerHomeLoading}
+              aria-label="MathsMine3 home"
+              aria-current={pathname === '/' ? 'page' : undefined}
+              className="mm3-home-portal-link shrink-0 focus:outline-none mx-0.5 sm:mx-1 is-active"
+            >
+              <span className="mm3-home-badge">
+                <Image
+                  src="/og-image.jpg"
+                  alt="MM3"
+                  width={28}
+                  height={28}
+                  priority
+                  unoptimized
+                  className="mm3-home-logo"
+                />
+                <span className="mm3-home-marker" aria-hidden="true">
+                  <svg viewBox="0 0 16 13" focusable="false">
+                    <path d="M1.5 6.2 8 1l6.5 5.2M3.5 5.2v6.3h9V5.2M6.4 11.5V7.8h3.2v3.7" />
+                  </svg>
+                </span>
               </span>
-            </span>
-          </Link>
-          <div aria-hidden="true" className="hidden basis-full max-sm:portrait:block max-sm:portrait:h-0" />
-          <div className="contents max-sm:portrait:flex max-sm:portrait:w-full max-sm:portrait:items-center max-sm:portrait:justify-center max-sm:portrait:gap-2">
-            <UtcClock className="mm3-clock-controls hidden max-sm:portrait:block font-mono text-[0.65rem] font-black tracking-[0.08em] text-cyan-300 shrink-0" />
+            </Link>
+          </div>
+          <div className="flex items-center justify-center gap-1.5 sm:gap-2 overflow-x-auto no-scrollbar max-w-full">
             <CurrencySwitcher />
             <LanguageSwitcher />
             <SoundToggle />
@@ -247,7 +245,7 @@ export default function Header() {
       </div>
 
       <div className="mm3-header-wallet-row relative z-[40] flex h-7 items-center justify-center gap-1.5 sm:gap-2 border-b border-cyan-900/10 px-2 sm:px-4 overflow-x-auto no-scrollbar">
-        <UtcClock className="mm3-clock-wallet max-sm:portrait:hidden font-mono text-[0.65rem] sm:text-[0.80rem] font-black tracking-[0.08em] sm:tracking-[0.14em] text-cyan-300 shrink-0" />
+        <UtcClock className="font-mono text-[0.65rem] sm:text-[0.80rem] font-black tracking-[0.08em] sm:tracking-[0.14em] text-cyan-300 shrink-0" />
         <PortalPerfOverlay />
         <DailyTaskLink />
         <AuthBar mode="wallet" />

@@ -1,13 +1,17 @@
 package xyz.mathsmine3.nativeapp.chart
 
+import androidx.compose.ui.graphics.Color
 import org.json.JSONArray
 import org.json.JSONObject
 import java.time.Instant
 import java.time.LocalDateTime
+import java.time.LocalDate
 import java.time.ZoneId
+import xyz.mathsmine3.nativeapp.ui.header.Dice
 import java.util.Calendar
 import java.util.Locale
 import kotlin.math.abs
+import kotlin.math.roundToInt
 
 enum class ChartRange(val key: String, val windowMs: Long?) {
     H1("1h", 3_600_000L),
@@ -39,6 +43,37 @@ data class ChartPoint(
     val marketDelta: Double = 0.0,
 )
 
+data class NftEvent(
+    val wallet: String,
+    val deltaMm3: Double,
+    val emoji: String,
+    val eventType: String,
+    val createdMs: Long,
+)
+
+enum class ChartMarkerKind {
+    NFT,
+    DICE_START,
+    DICE_END,
+    DICE_HOUR,
+}
+
+data class ChartMarker(
+    val index: Int,
+    val kind: ChartMarkerKind,
+    val color: Color,
+    val nftCount: Int = 0,
+    val emojiHint: String = "",
+    val diceModifier: Double? = null,
+    val diceEnd: Boolean = false,
+)
+
+data class DiceOverlayBand(
+    val startIndex: Int,
+    val endIndex: Int,
+    val modifier: Double,
+)
+
 data class HourlyRow(
     val hourMs: Long,
     val value: Double,
@@ -54,6 +89,165 @@ data class HourlyRow(
 )
 
 object TokenChartData {
+  private val COLOR_CYAN = Color(0xFF22D3EE)
+  private val COLOR_UP = Color(0xFF4ADE80)
+  private val LIFE_NFTJI_ACCENT = Color(0xFF38BDF8)
+  private val CRIT_NFTJI_ACCENT = Color(0xFFEF4444)
+
+  fun chartDiceColor(modifier: Double): Color =
+    if (modifier < 0) COLOR_CYAN else Color(0xFFFB923C)
+
+  fun emojiColor(emoji: String): Color = when (emoji) {
+    "🎲" -> Color(0xFF38BDF8)
+    "🏎️", "🚙" -> Color(0xFF0EA5E9)
+    "⬡" -> Color(0xFFFACC15)
+    "🧿" -> Color(0xFFC084FC)
+    "🎰" -> Color(0xFFF59E0B)
+    "🍀" -> COLOR_UP
+    "❤️" -> LIFE_NFTJI_ACCENT
+    "⚔️" -> CRIT_NFTJI_ACCENT
+    "🔰" -> Color(0xFF3B82F6)
+    "📈" -> Color(0xFF22C55E)
+    "📉" -> Color(0xFFF43F5E)
+    else -> COLOR_CYAN
+  }
+
+  fun groupColor(events: List<NftEvent>): Color {
+    if (events.any { it.emoji == "🧿" }) return Color(0xFFC084FC)
+    if (events.any { it.emoji == "🎰" }) return Color(0xFFF59E0B)
+    if (events.any { it.emoji == "❤️" }) return LIFE_NFTJI_ACCENT
+    if (events.any { it.emoji == "🍀" }) return COLOR_UP
+    if (events.any { it.emoji == "⚔️" }) return CRIT_NFTJI_ACCENT
+    if (events.any { it.emoji == "🔰" }) return Color(0xFF3B82F6)
+    if (events.any { it.emoji == "📈" }) return Color(0xFF22C55E)
+    if (events.any { it.emoji == "📉" }) return Color(0xFFF43F5E)
+    return COLOR_CYAN
+  }
+
+  fun indexForTime(points: List<ChartPoint>, timeKey: String): Int =
+    points.indexOfFirst { it.time == timeKey }
+
+  fun closestMinuteIndex(points: List<ChartPoint>, hour: Int, minute: Int): Int? {
+    if (points.isEmpty()) return null
+    val target = hour * 60 + minute
+  var best = -1
+  var bestDist = Int.MAX_VALUE
+  points.forEachIndexed { i, p ->
+    val parts = p.time.split(":")
+    val h = parts.getOrNull(0)?.toIntOrNull() ?: return@forEachIndexed
+    val m = parts.getOrNull(1)?.toIntOrNull() ?: 0
+    val v = h * 60 + m
+    val dist = abs(v - target)
+    if (dist < bestDist) {
+      bestDist = dist
+      best = i
+    }
+  }
+  return if (best >= 0) best else null
+  }
+
+  fun buildChartMarkers(
+    points: List<ChartPoint>,
+    nftByTime: Map<String, List<NftEvent>>,
+    range: ChartRange,
+    showDice: Boolean,
+    nowMs: Long = System.currentTimeMillis(),
+  ): Pair<List<ChartMarker>, List<DiceOverlayBand>> {
+    if (points.isEmpty()) return emptyList<ChartMarker>() to emptyList()
+
+    val markers = mutableListOf<ChartMarker>()
+    val bands = mutableListOf<DiceOverlayBand>()
+
+    nftByTime.forEach { (time, evts) ->
+      val idx = indexForTime(points, time)
+      if (idx >= 0 && evts.isNotEmpty()) {
+        val emojis = evts.map { it.emoji }.distinct().take(3).joinToString("")
+        markers += ChartMarker(
+          index = idx,
+          kind = ChartMarkerKind.NFT,
+          color = groupColor(evts),
+          nftCount = evts.size,
+          emojiHint = emojis,
+        )
+      }
+    }
+
+    if (!showDice) return markers to bands
+
+    when (range) {
+      ChartRange.H1 -> {
+        val chartRangeStart = nowMs - 3_600_000L
+        val nowHour = (nowMs / 3_600_000L) * 3_600_000L
+        for (offset in 0 downTo -1) {
+          val hourStart = nowHour + offset * 3_600_000L
+          val win = Dice.windowForHour(hourStart)
+          if (win.endMs <= chartRangeStart || win.startMs > nowMs) continue
+
+          val startMinute = ((win.startMs % 3_600_000L) / 60_000L).toInt()
+          val startHour = ((win.startMs / 3_600_000L) % 24).toInt()
+          val endMinute = ((win.endMs % 3_600_000L) / 60_000L).toInt()
+          val endHour = ((win.endMs / 3_600_000L) % 24).toInt()
+
+          val startIdx = closestMinuteIndex(points, startHour, startMinute)
+          val endIdx = when {
+            win.endMs > nowMs -> points.lastIndex
+            else -> closestMinuteIndex(points, endHour, endMinute)
+          }
+
+          if (startIdx != null && endIdx != null && endIdx > startIdx) {
+            bands += DiceOverlayBand(startIdx, endIdx, win.modifier)
+          }
+          if (startIdx != null) {
+            markers += ChartMarker(
+              index = startIdx,
+              kind = ChartMarkerKind.DICE_START,
+              color = chartDiceColor(win.modifier),
+              diceModifier = win.modifier,
+            )
+          }
+          if (win.endMs <= nowMs && endIdx != null) {
+            markers += ChartMarker(
+              index = endIdx,
+              kind = ChartMarkerKind.DICE_END,
+              color = Color(0xFF475569),
+              diceModifier = win.modifier,
+              diceEnd = true,
+            )
+          }
+        }
+      }
+      ChartRange.H24 -> {
+        points.forEachIndexed { i, p ->
+          val mod = diceModifierForPoint(p.time, range, nowMs)
+          if (mod != null) {
+            markers += ChartMarker(
+              index = i,
+              kind = ChartMarkerKind.DICE_HOUR,
+              color = chartDiceColor(mod),
+              diceModifier = mod,
+            )
+          }
+        }
+      }
+      ChartRange.D7, ChartRange.D30, ChartRange.D360 -> {
+        points.forEachIndexed { i, p ->
+          val mod = diceModifierForPoint(p.time, range, nowMs)
+          if (mod != null) {
+            markers += ChartMarker(
+              index = i,
+              kind = ChartMarkerKind.DICE_HOUR,
+              color = chartDiceColor(mod),
+              diceModifier = mod,
+            )
+          }
+        }
+      }
+      ChartRange.ALL -> Unit
+    }
+
+    return markers to bands
+  }
+
     fun parseHourly(raw: String): List<HourlyRow> {
         val arr = JSONArray(raw)
         return buildList {
@@ -110,6 +304,84 @@ object TokenChartData {
         val total = o.optDouble("total_eth", Double.NaN)
         if (!total.isNaN() && total != 0.0) return total
         return o.optDouble("value", 0.0)
+    }
+
+    fun parseNftEvents(raw: String): List<NftEvent> {
+        val arr = JSONArray(raw)
+        return buildList {
+            for (i in 0 until arr.length()) {
+                val o = arr.getJSONObject(i)
+                val created = o.optString("created_at")
+                val ms = runCatching { Instant.parse(created).toEpochMilli() }.getOrNull() ?: continue
+                add(
+                    NftEvent(
+                        wallet = o.optString("wallet"),
+                        deltaMm3 = o.optDouble("delta_mm3", 0.0),
+                        emoji = o.optString("emoji", "🔮"),
+                        eventType = o.optString("event_type"),
+                        createdMs = ms,
+                    ),
+                )
+            }
+        }
+    }
+
+    fun chartEventCategory(emoji: String, eventType: String): String {
+        if (eventType == "relaying" || emoji == "🔁") return "relaying"
+        if (emoji == "⚔️" || emoji == "🔰") return "squeeze"
+        if (emoji == "📈" || emoji == "📉") return "trading"
+        return "mining"
+    }
+
+    fun groupNftEvents(
+        events: List<NftEvent>,
+        range: ChartRange,
+        nowMs: Long = System.currentTimeMillis(),
+    ): Map<String, List<NftEvent>> {
+        if (events.isEmpty()) return emptyMap()
+        val cutoff = range.windowMs
+        val zone = ZoneId.systemDefault()
+        val filtered = events.filter { ev ->
+            cutoff == null || nowMs - ev.createdMs <= cutoff
+        }
+        val grouped = linkedMapOf<String, MutableList<NftEvent>>()
+        filtered.forEach { ev ->
+            val zdt = Instant.ofEpochMilli(ev.createdMs).atZone(zone)
+            val key = when (range) {
+                ChartRange.H1 -> "%02d:%02d".format(zdt.hour, zdt.minute)
+                ChartRange.H24 -> "%02d:00".format(zdt.hour)
+                else -> zdt.toLocalDate().toString().substring(5) // MM-DD
+            }
+            grouped.getOrPut(key) { mutableListOf() }.add(ev)
+        }
+        return grouped
+    }
+
+    fun diceModifierForPoint(time: String, range: ChartRange, nowMs: Long = System.currentTimeMillis()): Double? {
+        val zone = ZoneId.systemDefault()
+        val today = Instant.ofEpochMilli(nowMs).atZone(zone).toLocalDate()
+        return when (range) {
+            ChartRange.H1 -> {
+                val parts = time.split(":")
+                val hour = parts.getOrNull(0)?.toIntOrNull() ?: return null
+                val hourStart = today.atTime(hour, 0).atZone(zone).toInstant().toEpochMilli()
+                Dice.windowForHour(hourStart).modifier
+            }
+            ChartRange.H24 -> {
+                val hour = time.take(2).toIntOrNull() ?: return null
+                val hourStart = today.atTime(hour, 0).atZone(zone).toInstant().toEpochMilli()
+                Dice.windowForHour(hourStart).modifier
+            }
+            else -> {
+                val parts = time.split("-")
+                if (parts.size != 2) return null
+                val month = parts[0].toIntOrNull() ?: return null
+                val day = parts[1].toIntOrNull() ?: return null
+                val date = LocalDate.of(today.year, month, day)
+                val hourStart = date.atTime(12, 0).atZone(zone).toInstant().toEpochMilli()
+                Dice.windowForHour(hourStart).modifier
+            }
+        }
     }
 
     fun buildSeries(

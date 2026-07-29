@@ -1114,22 +1114,22 @@ export default function HomeMiningWorld3D() {
           rail.snapTarget += RAIL_SPACING // glide exactly one slot
         }
         window.addEventListener('mm3-home-cycle', onCycle)
-        accessEl.style.touchAction = 'pan-y'
-        accessEl.addEventListener('pointerdown', onDown)
+        accessEl?.style && (accessEl.style.touchAction = 'pan-y')
+        accessEl?.addEventListener('pointerdown', onDown)
         window.addEventListener('pointermove', onMove)
         window.addEventListener('pointerup', onUp)
         window.addEventListener('pointercancel', onUp)
-        accessEl.addEventListener('click', onClick, true)
+        accessEl?.addEventListener('click', onClick, true)
         const prevHoverCleanup = hoverCleanup
         hoverCleanup = () => {
           prevHoverCleanup?.()
           stageEl?.removeEventListener('click', onStageClick)
           window.removeEventListener('mm3-home-cycle', onCycle)
-          accessEl.removeEventListener('pointerdown', onDown)
+          accessEl?.removeEventListener('pointerdown', onDown)
           window.removeEventListener('pointermove', onMove)
           window.removeEventListener('pointerup', onUp)
           window.removeEventListener('pointercancel', onUp)
-          accessEl.removeEventListener('click', onClick, true)
+          accessEl?.removeEventListener('click', onClick, true)
         }
       }
 
@@ -1153,6 +1153,10 @@ export default function HomeMiningWorld3D() {
       intersectionObserver.observe(canvas)
 
       const clock = new THREE.Clock()
+
+      // Paint one frame immediately so embeds/WebViews that start with a stale
+      // visibility state do not remain black until the first "visible" tick.
+      renderer.render(scene, camera)
 
       // 3-second attack choreography per boss — called once per frame while attackT ∈ (0,1).
       // Arms blend from idle sway to an attack pose; legs do a boss-specific move; boss jumps.

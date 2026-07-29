@@ -6,6 +6,12 @@ import kotlin.math.floor
 import kotlin.math.round
 
 /** Port of lib/dice.js — deterministic hourly dice window. */
+data class DiceWindow(
+    val startMs: Long,
+    val endMs: Long,
+    val modifier: Double,
+)
+
 data class DiceState(
     val active: Boolean,
     val modifier: Double,
@@ -18,21 +24,25 @@ object Dice {
     private val COLOR_PRICEY = Color(0xFFFB923C)
     private val COLOR_INACTIVE = Color(0xFF334155)
 
-    fun state(nowMs: Long = System.currentTimeMillis()): DiceState {
-        val hourStart = floor(nowMs / 3_600_000.0).toLong() * 3_600_000L
-        val seed = (hourStart / 3_600_000L).toInt()
+    fun windowForHour(hourStartMs: Long): DiceWindow {
+        val seed = (hourStartMs / 3_600_000L).toInt()
         val r1 = seededRand(seed * 1664525 + 1013904223)
         val r3 = seededRand(seed * 6364136 + 1442695041)
         val startSecond = floor(r1 * 2699).toInt() + 1
         val modifier = round((r3 - 0.5) * 100.0) / 100.0
-        val startMs = hourStart + startSecond * 1000L
-        val endMs = startMs + 15 * 60 * 1000L
-        val active = nowMs >= startMs && nowMs < endMs
+        val startMs = hourStartMs + startSecond * 1000L
+        return DiceWindow(startMs, startMs + 15 * 60 * 1000L, modifier)
+    }
+
+    fun state(nowMs: Long = System.currentTimeMillis()): DiceState {
+        val hourStart = floor(nowMs / 3_600_000.0).toLong() * 3_600_000L
+        val win = windowForHour(hourStart)
+        val active = nowMs >= win.startMs && nowMs < win.endMs
         return DiceState(
             active = active,
-            modifier = modifier,
-            color = if (!active) COLOR_INACTIVE else if (modifier < 0) COLOR_CHEAP else COLOR_PRICEY,
-            secsLeft = if (active) ((endMs - nowMs + 999) / 1000).toInt() else 0,
+            modifier = win.modifier,
+            color = if (!active) COLOR_INACTIVE else if (win.modifier < 0) COLOR_CHEAP else COLOR_PRICEY,
+            secsLeft = if (active) ((win.endMs - nowMs + 999) / 1000).toInt() else 0,
         )
     }
 

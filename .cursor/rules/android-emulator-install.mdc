@@ -1,0 +1,21 @@
+---
+description: After any Android native change, install APK on the virtual device
+alwaysApply: true
+---
+
+# Android → always install on emulator
+
+Whenever you change anything under `apps/android-native/` (Kotlin, Gradle, manifest, assets, etc.):
+
+1. Finish the code changes.
+2. **Immediately** run from repo root:
+
+```bash
+npm run android:native:build
+```
+
+That script builds the debug APK and installs it on the connected emulator (prefers AVD **FreakingAI** via Windows `adb.exe` from WSL).
+
+3. Do not stop after `./gradlew assembleDebug` alone — the user expects the app on the virtual device, same as usual.
+4. If no device is online, say so clearly and ask them to start the AVD, then re-run the install.
+5. Do this even for small fixes; do not wait for the user to ask.

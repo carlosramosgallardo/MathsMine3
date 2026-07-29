@@ -76,6 +76,10 @@ if [[ -n "$ADB_BIN" ]]; then
     if [[ "$ADB_BIN" == *.exe ]]; then
       APK_PATH="$(wslpath -w "$APK_PATH")"
     fi
+    if [[ "$SERIAL" == emulator-* ]]; then
+      echo "Restoring adb reverse tcp:3000 -> tcp:3000 on $SERIAL …"
+      "$ADB_BIN" -s "$SERIAL" reverse tcp:3000 tcp:3000 || true
+    fi
     echo "Installing on $SERIAL (prefer AVD=$PREFERRED_AVD) via $ADB_BIN …"
     "$ADB_BIN" -s "$SERIAL" install -r "$APK_PATH"
     echo "Install OK → $SERIAL"

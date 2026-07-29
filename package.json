@@ -1,6 +1,6 @@
 {
   "name": "MathsMine3",
-  "version": "0.1.0-beta.1",
+  "version": "0.1.0-beta.3",
   "description": "Retro math mining game with wallet-based MM3 levels, ranking, and fictional Trade MM3.",
   "author": "botsandpods@gmail.com",
   "license": "MIT",
@@ -13,7 +13,8 @@
     "android:build": "bash scripts/android-build.sh",
     "android:install": "adb install -r android/dist/mathsmine3-debug.apk",
     "android:native:build": "bash scripts/android-native-build.sh",
-    "android:native:install": "adb install -r apps/android-native/dist/mathsmine3-native-debug.apk"
+    "android:native:install": "adb install -r apps/android-native/dist/mathsmine3-native-debug.apk",
+    "android:native:reconnect": "bash scripts/android-native-reconnect.sh"
   },
   "dependencies": {
     "@react-oauth/google": "^0.13.5",

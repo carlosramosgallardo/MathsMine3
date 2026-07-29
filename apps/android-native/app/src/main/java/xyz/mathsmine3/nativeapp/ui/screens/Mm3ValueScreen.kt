@@ -33,7 +33,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -43,16 +45,41 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import android.graphics.Paint
+import android.graphics.Typeface
+import xyz.mathsmine3.nativeapp.chart.ChartMarker
+import xyz.mathsmine3.nativeapp.chart.ChartMarkerKind
 import xyz.mathsmine3.nativeapp.chart.ChartPoint
 import xyz.mathsmine3.nativeapp.chart.ChartRange
+import xyz.mathsmine3.nativeapp.chart.DiceOverlayBand
 import xyz.mathsmine3.nativeapp.chart.HourlyRow
+import xyz.mathsmine3.nativeapp.chart.NftEvent
 import xyz.mathsmine3.nativeapp.chart.TokenChartData
+import xyz.mathsmine3.nativeapp.ui.header.formatWalletLabel
 import xyz.mathsmine3.nativeapp.data.Mm3Api
 import xyz.mathsmine3.nativeapp.data.readText
 import xyz.mathsmine3.nativeapp.ui.components.Mm3Panel
 import xyz.mathsmine3.nativeapp.ui.components.Mm3Screen
 import xyz.mathsmine3.nativeapp.ui.theme.Mm3Colors
 import kotlin.math.max
+import kotlin.math.roundToInt
+
+private data class ChartReload(
+    val hourly: List<HourlyRow>,
+    val minutes: List<ChartPoint>,
+    val events: List<NftEvent>,
+    val live: Double?,
+)
+
+private data class ChartFilters(
+    val dice: Boolean = true,
+    val mining: Boolean = true,
+    val trading: Boolean = true,
+    val squeeze: Boolean = true,
+    val relaying: Boolean = true,
+)
+
+private val CHART_FILTER_KEYS = listOf("dice", "mining", "trading", "squeeze", "relaying")
 
 @Composable
 fun Mm3ValueScreen(
@@ -63,6 +90,8 @@ fun Mm3ValueScreen(
     var range by remember { mutableStateOf(ChartRange.H24) }
     var hourly by remember { mutableStateOf<List<HourlyRow>>(emptyList()) }
     var minutes by remember { mutableStateOf<List<ChartPoint>>(emptyList()) }
+    var nftEvents by remember { mutableStateOf<List<NftEvent>>(emptyList()) }
+    var filters by remember { mutableStateOf(ChartFilters()) }
     var liveValue by remember { mutableStateOf<Double?>(null) }
     var status by remember { mutableStateOf(if (es) "cargando…" else "loading…") }
     var selectedIndex by remember { mutableIntStateOf(-1) }
@@ -80,16 +109,23 @@ fun Mm3ValueScreen(
                         runCatching { TokenChartData.parseMinutes(api.tokenHistoryMinutes().readText()) }
                             .getOrElse { emptyList() }
                     } else minutes
+                    val ev = runCatching { TokenChartData.parseNftEvents(api.nftEvents().readText()) }
+                        .getOrElse { emptyList() }
                     val v = runCatching { TokenChartData.parseTokenValue(api.tokenValue().readText()) }
                         .getOrNull()
-                    Triple(h, m, v)
+                    ChartReload(h, m, ev, v)
                 }
             }
-            result.onSuccess { (h, m, v) ->
-                hourly = h
-                if (m.isNotEmpty() || range == ChartRange.H1) minutes = m
-                if (v != null) liveValue = v
-                status = if (es) "live · ${h.size}h" else "live · ${h.size}h"
+            result.onSuccess { payload ->
+                hourly = payload.hourly
+                if (payload.minutes.isNotEmpty() || range == ChartRange.H1) minutes = payload.minutes
+                nftEvents = payload.events
+                if (payload.live != null) liveValue = payload.live
+                status = if (es) {
+                    "live · ${payload.hourly.size}h · ${payload.events.size} evt"
+                } else {
+                    "live · ${payload.hourly.size}h · ${payload.events.size} evt"
+                }
             }.onFailure {
                 status = it.message ?: "error"
             }
@@ -113,6 +149,15 @@ fun Mm3ValueScreen(
     }
 
     val points = series()
+    val groupedNft = TokenChartData.groupNftEvents(nftEvents, range)
+    val filteredNft = filterNftEvents(groupedNft, filters)
+    val nftEventCount = filteredNft.values.sumOf { it.size }
+    val (chartMarkers, diceBands) = TokenChartData.buildChartMarkers(
+        points = points,
+        nftByTime = filteredNft,
+        range = range,
+        showDice = filters.dice,
+    )
     val sel = when {
         selectedIndex in points.indices -> points[selectedIndex]
         points.isNotEmpty() -> points.last()
@@ -200,14 +245,76 @@ fun Mm3ValueScreen(
             }
         }
 
-        // H / L
+        // H / L — compact inline chips
         Row(
             Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
         ) {
-            StatChip("H", TokenChartData.formatValue(hi), Mm3Colors.Green)
-            StatChip("L", TokenChartData.formatValue(lo), Mm3Colors.Orange)
-            StatChip("N", "${points.size}", Mm3Colors.Cyan)
+            StatChip("H", TokenChartData.formatValue(hi), Mm3Colors.Green, Modifier.weight(1f))
+            StatChip("L", TokenChartData.formatValue(lo), Mm3Colors.Orange, Modifier.weight(1f))
+            StatChip("N", "${points.size}", Mm3Colors.Cyan, Modifier.weight(0.55f))
+            if (nftEventCount > 0) {
+                StatChip("◈", "$nftEventCount", Mm3Colors.Magenta, Modifier.weight(0.7f))
+            }
+        }
+
+        // Layer filters (match web chart modifiers)
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            CHART_FILTER_KEYS.forEach { key ->
+                val on = when (key) {
+                    "dice" -> filters.dice
+                    "mining" -> filters.mining
+                    "trading" -> filters.trading
+                    "squeeze" -> filters.squeeze
+                    "relaying" -> filters.relaying
+                    else -> true
+                }
+                val label = when (key) {
+                    "dice" -> if (es) "dado" else "dice"
+                    "mining" -> if (es) "mining" else "mining"
+                    "trading" -> if (es) "trade" else "trading"
+                    "squeeze" -> if (es) "squeeze" else "squeeze"
+                    "relaying" -> if (es) "relay" else "relaying"
+                    else -> key
+                }
+                Box(
+                    Modifier
+                        .border(
+                            1.dp,
+                            if (on) Mm3Colors.Cyan.copy(alpha = 0.45f) else Mm3Colors.Muted.copy(alpha = 0.25f),
+                            RoundedCornerShape(2.dp),
+                        )
+                        .background(
+                            if (on) Mm3Colors.Cyan.copy(alpha = 0.12f) else Color.Transparent,
+                            RoundedCornerShape(2.dp),
+                        )
+                        .clickable {
+                            filters = when (key) {
+                                "dice" -> filters.copy(dice = !filters.dice)
+                                "mining" -> filters.copy(mining = !filters.mining)
+                                "trading" -> filters.copy(trading = !filters.trading)
+                                "squeeze" -> filters.copy(squeeze = !filters.squeeze)
+                                "relaying" -> filters.copy(relaying = !filters.relaying)
+                                else -> filters
+                            }
+                        }
+                        .padding(horizontal = 8.dp, vertical = 5.dp),
+                ) {
+                    Text(
+                        label.uppercase(),
+                        color = if (on) Mm3Colors.Cyan else Mm3Colors.Muted,
+                        fontFamily = FontFamily.Monospace,
+                        fontWeight = FontWeight.Black,
+                        fontSize = 9.sp,
+                        letterSpacing = 0.8.sp,
+                    )
+                }
+            }
         }
 
         // Canvas chart
@@ -224,6 +331,8 @@ fun Mm3ValueScreen(
                     points = points,
                     selectedIndex = if (selectedIndex in points.indices) selectedIndex else points.lastIndex,
                     lineColor = accent,
+                    markers = chartMarkers,
+                    diceBands = if (filters.dice) diceBands else emptyList(),
                     onSelect = { selectedIndex = it },
                     modifier = Modifier
                         .fillMaxWidth()
@@ -234,50 +343,166 @@ fun Mm3ValueScreen(
 
         // Selected point detail
         if (sel != null) {
-            Mm3Panel(accent = Mm3Colors.Magenta) {
+            ChartPointDetailPanel(
+                point = sel,
+                label = sel.time,
+                range = range,
+                nftEvents = if (filters.dice) filteredNft[sel.time] ?: emptyList() else emptyList(),
+                showDice = filters.dice,
+                es = es,
+            )
+        }
+    }
+}
+
+private fun filterNftEvents(
+    grouped: Map<String, List<NftEvent>>,
+    filters: ChartFilters,
+): Map<String, List<NftEvent>> {
+    return grouped.mapValues { (_, list) ->
+        list.filter { ev ->
+            when (TokenChartData.chartEventCategory(ev.emoji, ev.eventType)) {
+                "mining" -> filters.mining
+                "trading" -> filters.trading
+                "squeeze" -> filters.squeeze
+                "relaying" -> filters.relaying
+                else -> true
+            }
+        }
+    }.filterValues { it.isNotEmpty() }
+}
+
+@Composable
+private fun ChartPointDetailPanel(
+    point: ChartPoint,
+    label: String,
+    range: ChartRange,
+    nftEvents: List<NftEvent>,
+    showDice: Boolean,
+    es: Boolean,
+) {
+    val diceMod = if (showDice) TokenChartData.diceModifierForPoint(label, range) else null
+    Mm3Panel(accent = Mm3Colors.Magenta) {
+        Text(
+            if (es) "⏱ $label" else "⏱ $label",
+            color = Mm3Colors.Magenta,
+            fontFamily = FontFamily.Monospace,
+            fontWeight = FontWeight.Bold,
+            fontSize = 11.sp,
+            letterSpacing = 1.sp,
+        )
+        Text(
+            "${TokenChartData.formatValue(point.value)} MM3",
+            color = Mm3Colors.Text,
+            fontFamily = FontFamily.Monospace,
+            fontSize = 14.sp,
+            fontWeight = FontWeight.Bold,
+        )
+        if (point.delta != 0.0) {
+            Text(
+                "${if (es) "Δ" else "Δ"} ${TokenChartData.formatDelta(point.delta)}",
+                color = if (point.delta >= 0) Mm3Colors.Green else Mm3Colors.Orange,
+                fontFamily = FontFamily.Monospace,
+                fontSize = 11.sp,
+            )
+        }
+        Spacer(Modifier.height(6.dp))
+        Text(
+            if (es) "DESGLOSE" else "BREAKDOWN",
+            color = Mm3Colors.CyanDim,
+            fontFamily = FontFamily.Monospace,
+            fontSize = 9.sp,
+            letterSpacing = 1.sp,
+        )
+        BreakdownLine(if (es) "mined" else "mined", point.minedDelta)
+        BreakdownLine(if (es) "nftji" else "nftji", point.nftjiDelta)
+        BreakdownLine("🎲 node", point.nodeDiceDelta)
+        BreakdownLine("🚙 rl", point.rlMountDelta)
+        BreakdownLine(
+            (if (es) "trade" else "trade") + tradeCounts(point.tradeWalletCount, point.tradeGoogleCount),
+            point.tradeDelta,
+        )
+        BreakdownLine(if (es) "market" else "market", point.marketDelta)
+        if (showDice) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text("🎲", color = Mm3Colors.Muted, fontFamily = FontFamily.Monospace, fontSize = 10.sp)
                 Text(
-                    if (es) "PUNTO · ${sel.time}" else "POINT · ${sel.time}",
-                    color = Mm3Colors.Magenta,
+                    if (diceMod != null) {
+                        val sign = if (diceMod >= 0) "+" else ""
+                        "$sign${(diceMod * 100).roundToInt()}%"
+                    } else {
+                        "—"
+                    },
+                    color = when {
+                        diceMod == null -> Mm3Colors.Muted
+                        diceMod < 0 -> Mm3Colors.Cyan
+                        else -> Color(0xFFFB923C)
+                    },
                     fontFamily = FontFamily.Monospace,
+                    fontSize = 10.sp,
                     fontWeight = FontWeight.Bold,
-                    fontSize = 11.sp,
-                    letterSpacing = 1.sp,
                 )
-                Text(
-                    "${TokenChartData.formatValue(sel.value)} MM3",
-                    color = Mm3Colors.Text,
-                    fontFamily = FontFamily.Monospace,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Bold,
-                )
-                Text(
-                    "Δ ${TokenChartData.formatDelta(sel.delta)}",
-                    color = if (sel.delta >= 0) Mm3Colors.Green else Mm3Colors.Orange,
-                    fontFamily = FontFamily.Monospace,
-                    fontSize = 11.sp,
-                )
-                Spacer(Modifier.height(4.dp))
-                BreakdownLine("mined", sel.minedDelta)
-                BreakdownLine("trade", sel.tradeDelta, extra = tradeCounts(sel.tradeWalletCount, sel.tradeGoogleCount))
-                BreakdownLine("nftji", sel.nftjiDelta)
-                BreakdownLine("dice", sel.nodeDiceDelta)
-                BreakdownLine("rl mount", sel.rlMountDelta)
-                BreakdownLine("market", sel.marketDelta)
+            }
+        }
+        if (nftEvents.isNotEmpty()) {
+            Spacer(Modifier.height(6.dp))
+            Text(
+                if (es) "EVENTOS NFTJI" else "NFTJI EVENTS",
+                color = Mm3Colors.CyanDim,
+                fontFamily = FontFamily.Monospace,
+                fontSize = 9.sp,
+                letterSpacing = 1.sp,
+            )
+            nftEvents.take(6).forEach { ev ->
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text(
+                        "${ev.emoji} ${formatWalletLabel(ev.wallet)}",
+                        color = Mm3Colors.Muted,
+                        fontFamily = FontFamily.Monospace,
+                        fontSize = 10.sp,
+                        maxLines = 1,
+                    )
+                    Text(
+                        TokenChartData.formatDelta(ev.deltaMm3),
+                        color = if (ev.deltaMm3 >= 0) Mm3Colors.Green else Mm3Colors.Orange,
+                        fontFamily = FontFamily.Monospace,
+                        fontSize = 10.sp,
+                    )
+                }
             }
         }
     }
 }
 
 @Composable
-private fun StatChip(label: String, value: String, color: Color) {
-    Column(
-        Modifier
-            .border(1.dp, color.copy(alpha = 0.3f), RoundedCornerShape(2.dp))
+private fun StatChip(
+    label: String,
+    value: String,
+    color: Color,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier
+            .border(1.dp, color.copy(alpha = 0.35f), RoundedCornerShape(2.dp))
             .background(Mm3Colors.Panel.copy(alpha = 0.9f), RoundedCornerShape(2.dp))
-            .padding(horizontal = 10.dp, vertical = 6.dp),
+            .padding(horizontal = 6.dp, vertical = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(label, color = color, fontFamily = FontFamily.Monospace, fontSize = 9.sp, fontWeight = FontWeight.Bold)
-        Text(value, color = Mm3Colors.Text, fontFamily = FontFamily.Monospace, fontSize = 11.sp)
+        Text(
+            label,
+            color = color,
+            fontFamily = FontFamily.Monospace,
+            fontSize = 9.sp,
+            fontWeight = FontWeight.Bold,
+        )
+        Text(
+            value,
+            color = Mm3Colors.Text,
+            fontFamily = FontFamily.Monospace,
+            fontSize = 10.sp,
+            maxLines = 1,
+        )
     }
 }
 
@@ -308,12 +533,18 @@ private fun TokenAreaChart(
     points: List<ChartPoint>,
     selectedIndex: Int,
     lineColor: Color,
+    markers: List<ChartMarker>,
+    diceBands: List<DiceOverlayBand>,
     onSelect: (Int) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val density = LocalDensity.current
+    val labelMinGapPx = with(density) { 40.dp.toPx() }
+    val labelTextPx = with(density) { 9.sp.toPx() }
+    val badgeTextPx = with(density) { 7.sp.toPx() }
     val padL = 8f
     val padR = 8f
-    val padT = 12f
+    val padT = 18f
     val padB = 28f
 
     Canvas(
@@ -351,6 +582,21 @@ private fun TokenAreaChart(
             drawLine(grid, Offset(padL, y), Offset(padL + w, y), strokeWidth = 1f)
         }
 
+        // 1h dice window bands (subtle fill behind the line)
+        diceBands.forEach { band ->
+            val x1 = xAt(band.startIndex)
+            val x2 = xAt(band.endIndex)
+            val bandColor = TokenChartData.chartDiceColor(band.modifier)
+            drawRect(
+                color = bandColor.copy(alpha = 0.10f),
+                topLeft = Offset(x1, padT),
+                size = androidx.compose.ui.geometry.Size(
+                    (x2 - x1).coerceAtLeast(2f),
+                    h,
+                ),
+            )
+        }
+
         val linePath = Path()
         val fillPath = Path()
         points.forEachIndexed { i, p ->
@@ -382,10 +628,103 @@ private fun TokenAreaChart(
             style = Stroke(width = 2.5f, cap = StrokeCap.Round),
         )
 
-        // selection
-        val si = selectedIndex.coerceIn(0, points.lastIndex)
-        val sx = xAt(si)
-        val sy = yAt(points[si].value)
+        // Dice-colored line segments inside active windows (1h)
+        diceBands.forEach { band ->
+            val bandColor = TokenChartData.chartDiceColor(band.modifier)
+            val seg = Path()
+            for (i in band.startIndex..band.endIndex) {
+                val x = xAt(i)
+                val y = yAt(points[i].value)
+                if (i == band.startIndex) seg.moveTo(x, y) else seg.lineTo(x, y)
+            }
+            drawPath(
+                seg,
+                color = bandColor,
+                style = Stroke(width = 3f, cap = StrokeCap.Round),
+            )
+        }
+
+        // Marker hairlines + dots on the series
+        markers.forEach { marker ->
+            val idx = marker.index.coerceIn(0, points.lastIndex)
+            val x = xAt(idx)
+            val y = yAt(points[idx].value)
+            val isDice = marker.kind != ChartMarkerKind.NFT
+            val lineAlpha = if (isDice) 0.55f else 0.35f
+            drawLine(
+                marker.color.copy(alpha = lineAlpha),
+                Offset(x, padT),
+                Offset(x, padT + h),
+                strokeWidth = if (isDice) 1.5f else 1f,
+            )
+            drawCircle(marker.color, radius = if (isDice) 4f else 3.5f, center = Offset(x, y))
+            drawCircle(Mm3Colors.BgDeep, radius = 1.5f, center = Offset(x, y))
+        }
+
+        // Compact labels — skip when markers crowd (selected point always labeled)
+        val labelPaint = Paint().apply {
+            isAntiAlias = true
+            textSize = labelTextPx
+            typeface = Typeface.MONOSPACE
+        }
+        val badgePaint = Paint().apply {
+            isAntiAlias = true
+            textSize = badgeTextPx
+            typeface = Typeface.create(Typeface.MONOSPACE, Typeface.BOLD)
+        }
+        var lastLabelX = Float.NEGATIVE_INFINITY
+        val sel = selectedIndex.coerceIn(0, points.lastIndex)
+        markers
+            .sortedBy { it.index }
+            .forEach { marker ->
+                val idx = marker.index
+                val x = xAt(idx)
+                val y = yAt(points[idx].value)
+                val force = idx == sel
+                if (!force && x - lastLabelX < labelMinGapPx) return@forEach
+
+                val label = when (marker.kind) {
+                    ChartMarkerKind.NFT -> {
+                        if (marker.emojiHint.isNotEmpty()) marker.emojiHint.take(2) else "◈"
+                    }
+                    ChartMarkerKind.DICE_END -> "0%"
+                    ChartMarkerKind.DICE_START, ChartMarkerKind.DICE_HOUR -> {
+                        val mod = marker.diceModifier
+                        if (mod == null) "🎲"
+                        else {
+                            val sign = if (mod >= 0) "+" else ""
+                            "🎲$sign${(mod * 100).roundToInt()}%"
+                        }
+                    }
+                }
+
+                val labelY = (y - 10f).coerceAtLeast(padT + 8f)
+                drawContext.canvas.nativeCanvas.apply {
+                    labelPaint.color = android.graphics.Color.argb(
+                        230,
+                        (marker.color.red * 255).roundToInt(),
+                        (marker.color.green * 255).roundToInt(),
+                        (marker.color.blue * 255).roundToInt(),
+                    )
+                    val textW = labelPaint.measureText(label)
+                    drawText(label, x - textW / 2f, labelY, labelPaint)
+                    if (marker.kind == ChartMarkerKind.NFT && marker.nftCount > 1) {
+                        badgePaint.color = android.graphics.Color.argb(
+                            255,
+                            (marker.color.red * 255).roundToInt(),
+                            (marker.color.green * 255).roundToInt(),
+                            (marker.color.blue * 255).roundToInt(),
+                        )
+                        val badge = marker.nftCount.toString()
+                        drawText(badge, x + textW / 2f + 2f, labelY - 2f, badgePaint)
+                    }
+                }
+                lastLabelX = x
+            }
+
+        // selection cursor
+        val sx = xAt(sel)
+        val sy = yAt(points[sel].value)
         drawLine(
             lineColor.copy(alpha = 0.45f),
             Offset(sx, padT),

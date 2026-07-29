@@ -111,19 +111,22 @@ jobs:
             Compose-native Android client (`xyz.mathsmine3.app`).
             Same backends as the web portal: [mathsmine3.xyz](https://mathsmine3.xyz) APIs + Supabase.
 
-            ### New since `v0.1.0-beta.1`
-            - **API** — native endpoint docs + JSON samples (no WebView)
-            - **Privacy** / **Terms** — native legal pages (EN/ES)
-            - **SEC** — native Security audit: score badge, scan history, run scan, expandable checks/findings, PDF export
-            - Footer **API / SEC / Privacy / Terms** no longer embed portal pages
+            ### Highlights (beta.3)
+            - Web + Android header parity (3-row layout, perf overlay on native)
+            - Native **MM3 Chart** with NFTJI/dice markers and compact stat chips
+            - Wallet connect UX (MetaMask fox, auto-sign flow, Ronin helpers)
+            - Security DB phase A+B + create-account rate limit applied on prod
 
-            ### Native (carried from beta.1)
+            ### Native shell
             - Training, Trading, Squeezing, Relaying, Daily, MM3 Chart, Ranking, AI Team, Manifesto
+            - API, SEC, Privacy, Terms (native screens)
             - Portal header, auth, footer (**ETH** donate, BMC, PAT)
 
-            ### Still WebView (by design)
-            - **Home** — 3D arena carousel + minimap (`/embed/home-arena`, `/embed/home-minimap`)
+            ### WebView (by design)
+            - **Home** — arena + minimap (`/embed/home-arena`, `/embed/home-minimap`)
             - **Mining** — FPV (`/embed/mining`)
+
+            > Sideload debug APK — not a Play Store signed release.
 
             ### Install
             1. Download the attached APK (`mathsmine3-native-debug.apk` or `mathsmine3-*.apk`)

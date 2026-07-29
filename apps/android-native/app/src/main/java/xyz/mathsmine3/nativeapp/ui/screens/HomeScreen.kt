@@ -165,7 +165,19 @@ fun HomeScreen(
             ) {
                 AndroidView(
                     factory = { ctx ->
-                        HomeArenaWebView(ctx).also { arenaWeb = it }
+                        HomeArenaWebView(ctx).also {
+                            it.setSessionWallet(session.wallet)
+                            it.loadArena()
+                            arenaWeb = it
+                        }
+                    },
+                    update = {
+                        it.setSessionWallet(session.wallet)
+                        val wallet = session.wallet?.lowercase()
+                        val currentUrl = it.url?.lowercase().orEmpty()
+                        if (wallet != null && !currentUrl.contains("mm3_gw=$wallet")) {
+                            it.loadArena()
+                        }
                     },
                     modifier = Modifier.fillMaxSize(),
                     onRelease = {

@@ -63,13 +63,15 @@ function GoogleIcon({ size = 13, dim = false }) {
   )
 }
 
-function WalletIcon({ size = 13 }) {
+function MetaMaskConnectMark({ size = 14, dim = false }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="2" y="5" width="20" height="14" rx="2"/>
-      <path d="M16 12h2"/>
-      <path d="M2 10h20"/>
-    </svg>
+    <span
+      className="inline-flex items-center justify-center leading-none select-none"
+      style={{ fontSize: size, lineHeight: 1, opacity: dim ? 0.35 : 1 }}
+      aria-hidden="true"
+    >
+      🦊
+    </span>
   )
 }
 
@@ -121,8 +123,8 @@ async function insertIrcPresenceTrace(wallet, tone, text) {
 function ConnectedBar({ address, isRealWallet, onDisconnect, mode = 'full' }) {
   const walletColor = useMemo(() => colorFromAddress(address), [address])
   const visibleAddress = useMemo(() => (!address ? '' : formatWalletLabel(address)), [address])
-  const pathname = usePathname()
   const { t } = useI18n()
+  const pathname = usePathname()
   const tRef = useRef(t)
   const { currency } = useCurrency()
   const [walletSummary, setWalletSummary] = useState(null)
@@ -432,14 +434,15 @@ function SplitConnectButton({ onGoogleClick, onWalletClick, googleBusy, walletBu
       <button
         type="button"
         onClick={handleWalletClick}
-        title="Connect a crypto wallet to play and mine MM3"
+        title="Connect MetaMask or another crypto wallet"
+        aria-label="Connect MetaMask or another crypto wallet"
         disabled={walletBusy}
         className="relative z-10 flex h-full min-w-10 items-center justify-center px-2.5 transition-colors duration-150 focus:outline-none disabled:cursor-not-allowed"
         style={{ background: hoverW && !walletBusy ? 'rgba(34,211,238,0.08)' : 'transparent' }}
         onMouseEnter={() => setHoverW(true)}
         onMouseLeave={() => setHoverW(false)}
       >
-        {walletBusy ? <span className="font-mono text-[0.88rem] font-bold text-cyan-400">⟳</span> : <PowerIcon connected={false} size={14} />}
+        {walletBusy ? <span className="font-mono text-[0.88rem] font-bold text-cyan-400">⟳</span> : <MetaMaskConnectMark size={14} />}
       </button>
     </div>
   )

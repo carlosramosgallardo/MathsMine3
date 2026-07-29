@@ -80,7 +80,7 @@ fun AuthScreen(container: AppContainer, onDone: () -> Unit) {
                 fontSize = 11.sp,
             )
             Mm3Button(
-                text = "Sign in with wallet",
+                text = "🦊 Sign in with wallet",
                 onClick = { walletAuth.openWalletSignIn(context) },
                 enabled = !busy,
                 accent = Mm3Colors.Green,
