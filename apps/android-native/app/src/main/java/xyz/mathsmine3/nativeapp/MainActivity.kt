@@ -12,6 +12,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.launch
+import xyz.mathsmine3.nativeapp.auth.GoogleAuthManager
 import xyz.mathsmine3.nativeapp.auth.WalletAuthManager
 import xyz.mathsmine3.nativeapp.ui.Mm3AppRoot
 import xyz.mathsmine3.nativeapp.ui.theme.Mm3Theme
@@ -42,8 +43,12 @@ class MainActivity : ComponentActivity() {
         val uri = intent?.data ?: return
         if (uri.scheme != "xyz.mathsmine3.app") return
         val walletAuth = WalletAuthManager(this, container.api, container.sessionRepository)
+        val googleAuth = GoogleAuthManager(this, container.api, container.sessionRepository)
         lifecycleScope.launch {
-            runCatching { walletAuth.completeDeepLink(uri) }
+            runCatching {
+                googleAuth.completeDeepLink(uri)
+                    ?: walletAuth.completeDeepLink(uri)
+            }
         }
     }
 }

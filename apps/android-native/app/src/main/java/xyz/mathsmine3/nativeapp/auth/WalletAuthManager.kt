@@ -49,6 +49,10 @@ class WalletAuthManager(
 
     suspend fun completeDeepLink(uri: Uri?): String? = withContext(Dispatchers.IO) {
         if (uri == null) return@withContext null
+        // Google browser OAuth returns kind=google — handled by GoogleAuthManager.
+        if (uri.getQueryParameter("kind")?.equals("google", ignoreCase = true) == true) {
+            return@withContext null
+        }
         val token = uri.getQueryParameter("token")?.takeIf { it.isNotBlank() }
         val wallet = uri.getQueryParameter("wallet")
             ?: uri.getQueryParameter("address")

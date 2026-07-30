@@ -33,6 +33,7 @@ fun AuthScreen(container: AppContainer, onDone: () -> Unit) {
     var message by remember { mutableStateOf<String?>(null) }
     var busy by remember { mutableStateOf(false) }
 
+    // Native Play Services path (debug / when Android OAuth SHA matches). Prefer browser for Play builds.
     val googleLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
@@ -59,29 +60,63 @@ fun AuthScreen(container: AppContainer, onDone: () -> Unit) {
                 fontFamily = FontFamily.Monospace,
                 fontSize = 11.sp,
             )
+            Text(
+                "Opens the portal in the browser (same Web client as mathsmine3.xyz). Returns to the app via deep link — works on Play builds without Android SHA error 10.",
+                color = Mm3Colors.Muted.copy(alpha = 0.85f),
+                fontFamily = FontFamily.Monospace,
+                fontSize = 10.sp,
+            )
             Mm3Button(
                 text = "Continue with Google",
                 onClick = {
                     try {
-                        googleLauncher.launch(google.signInIntent())
+                        google.openBrowserSignIn(context)
+                        message = "Browser opened · finish Google sign-in, then return to the app"
                     } catch (e: Exception) {
                         message = e.message
                     }
                 },
                 enabled = !busy,
             )
+            if (BuildConfig.DEBUG) {
+                Mm3Button(
+                    text = "Google (native / debug)",
+                    onClick = {
+                        try {
+                            googleLauncher.launch(google.signInIntent())
+                        } catch (e: Exception) {
+                            message = e.message
+                        }
+                    },
+                    enabled = !busy,
+                    filled = false,
+                )
+            }
         }
 
         Mm3Panel(accent = Mm3Colors.Green) {
             Text(
-                "Wallet · sign with MetaMask / WalletConnect (EIP-191)",
+                "Wallet · opens browser → MetaMask / WalletConnect → returns to app",
                 color = Mm3Colors.Muted,
                 fontFamily = FontFamily.Monospace,
                 fontSize = 11.sp,
             )
+            Text(
+                "Needs MetaMask (or a WC wallet) on the device. Emulators usually cannot complete this — use debug address below.",
+                color = Mm3Colors.Muted.copy(alpha = 0.85f),
+                fontFamily = FontFamily.Monospace,
+                fontSize = 10.sp,
+            )
             Mm3Button(
                 text = "🦊 Sign in with wallet",
-                onClick = { walletAuth.openWalletSignIn(context) },
+                onClick = {
+                    try {
+                        walletAuth.openWalletSignIn(context)
+                        message = "Browser opened · finish sign-in there, then return to the app"
+                    } catch (e: Exception) {
+                        message = e.message
+                    }
+                },
                 enabled = !busy,
                 accent = Mm3Colors.Green,
             )

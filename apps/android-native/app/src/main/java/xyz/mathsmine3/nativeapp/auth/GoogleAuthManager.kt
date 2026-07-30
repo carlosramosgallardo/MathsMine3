@@ -2,6 +2,7 @@ package xyz.mathsmine3.nativeapp.auth
 
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import com.google.android.gms.auth.GoogleAuthUtil
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInClient
@@ -12,14 +13,17 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import xyz.mathsmine3.nativeapp.BuildConfig
 import org.json.JSONObject
+import xyz.mathsmine3.nativeapp.PortalOrigin
 import xyz.mathsmine3.nativeapp.data.CreateAccountBody
 import xyz.mathsmine3.nativeapp.data.Mm3Api
 import xyz.mathsmine3.nativeapp.data.jsonBody
 import xyz.mathsmine3.nativeapp.data.readText
 
 /**
- * Mirrors web Google login: OAuth access_token → POST /api/create-account → virtual wallet.
- * Client ID from repo-root `.env.local` (`NEXT_PUBLIC_GOOGLE_CLIENT_ID`) at build time.
+ * Google login for native:
+ * - Primary: browser embed `/embed/google-auth` (same Web OAuth client as the portal —
+ *   no Android SHA-1 OAuth client required; works for Play-signed installs).
+ * - Optional debug: native Google Sign-In Play Services path (needs Android OAuth client + SHA).
  */
 class GoogleAuthManager(
     private val context: Context,
@@ -32,6 +36,14 @@ class GoogleAuthManager(
             error("NEXT_PUBLIC_GOOGLE_CLIENT_ID missing in .env.local — rebuild after setting it")
         }
         return id
+    }
+
+    /** Opens portal Google OAuth in the browser, then deep-links back with session. */
+    fun openBrowserSignIn(activityContext: Context = context) {
+        val returnUrl = Uri.encode("xyz.mathsmine3.app://auth")
+        val uri = Uri.parse("${PortalOrigin.url("/embed/google-auth")}?redirect=$returnUrl")
+        val intent = Intent(Intent.ACTION_VIEW, uri).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        activityContext.startActivity(intent)
     }
 
     fun signInClient(): GoogleSignInClient {
@@ -52,7 +64,17 @@ class GoogleAuthManager(
         val account = try {
             task.getResult(ApiException::class.java)
         } catch (e: ApiException) {
-            throw IllegalStateException("Google sign-in failed: ${e.statusCode}", e)
+            // 10 = DEVELOPER_ERROR — Android OAuth client missing/mismatched
+            // (package xyz.mathsmine3.app + SHA-1 of the APK signing cert).
+            val hint = when (e.statusCode) {
+                10 -> "Google sign-in failed: 10 (DEVELOPER_ERROR). " +
+                    "Use «Continue with Google» (browser) instead, or add an Android OAuth " +
+                    "client SHA for this APK (see apps/android-native/README.md)."
+                12501 -> "Google sign-in cancelled"
+                7 -> "Google sign-in failed: network error"
+                else -> "Google sign-in failed: ${e.statusCode}"
+            }
+            throw IllegalStateException(hint, e)
         }
         val emailAccount = account.account ?: error("No Google account on result")
         val scope = "oauth2:https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/userinfo.email"
@@ -72,6 +94,20 @@ class GoogleAuthManager(
         }.getOrNull()
         sessionRepository.setGoogleWallet(wallet, sessionToken)
         wallet
+    }
+
+    suspend fun completeDeepLink(uri: Uri?): String? = withContext(Dispatchers.IO) {
+        if (uri == null) return@withContext null
+        val kind = uri.getQueryParameter("kind")?.lowercase().orEmpty()
+        if (kind != "google") return@withContext null
+        val token = uri.getQueryParameter("token")?.takeIf { it.isNotBlank() }
+        val wallet = uri.getQueryParameter("wallet")
+            ?: uri.getQueryParameter("address")
+            ?: return@withContext null
+        val normalized = wallet.trim().lowercase()
+        if (!Regex("^0x[0-9a-fA-F]{40}$").matches(normalized)) return@withContext null
+        sessionRepository.setGoogleWallet(normalized, token)
+        normalized
     }
 
     suspend fun signOut() {
