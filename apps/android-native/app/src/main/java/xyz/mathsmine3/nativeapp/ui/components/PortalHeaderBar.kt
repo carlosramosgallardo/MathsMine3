@@ -129,6 +129,7 @@ fun PortalHeaderBar(
     var tickerEn by remember { mutableStateOf(DEFAULT_TICKER.getValue("en")) }
     var tickerEs by remember { mutableStateOf(DEFAULT_TICKER.getValue("es")) }
     var stormroll by remember { mutableStateOf(false) }
+    var stormrollExpiresAtMs by remember { mutableStateOf(0L) }
     var war by remember { mutableIntStateOf(50) }
     var nature by remember { mutableIntStateOf(50) }
     var activeWallets by remember { mutableIntStateOf(0) }
@@ -143,6 +144,14 @@ fun PortalHeaderBar(
         while (isActive) {
             clock = localClockText()
             diceNow = Dice.state()
+            // Cut stormroll banner the instant node_dice_expires_at elapses and
+            // restore the hardcoded welcome default (same as web MacroTicker).
+            if (stormroll && stormrollExpiresAtMs > 0L && System.currentTimeMillis() >= stormrollExpiresAtMs) {
+                stormroll = false
+                stormrollExpiresAtMs = 0L
+                tickerEn = DEFAULT_TICKER.getValue("en")
+                tickerEs = DEFAULT_TICKER.getValue("es")
+            }
             delay(1000)
         }
     }
@@ -187,8 +196,25 @@ fun PortalHeaderBar(
                                 macro.optString("ticker_message_es").ifBlank { legacy }
                             }
                             val diceExp = macro.optString("node_dice_expires_at")
-                            stormroll = diceExp.isNotBlank() &&
-                                runCatching { Instant.parse(diceExp).isAfter(Instant.now()) }.getOrDefault(false)
+                            val diceExpiresMs = if (diceExp.isNotBlank()) {
+                                runCatching { Instant.parse(diceExp).toEpochMilli() }.getOrDefault(0L)
+                            } else {
+                                0L
+                            }
+                            val diceActive = diceExpiresMs > System.currentTimeMillis()
+                            if (diceActive) {
+                                stormroll = true
+                                stormrollExpiresAtMs = diceExpiresMs
+                            } else if (stormroll) {
+                                // Dice finished → restore welcome default immediately.
+                                stormroll = false
+                                stormrollExpiresAtMs = 0L
+                                tickerEn = DEFAULT_TICKER.getValue("en")
+                                tickerEs = DEFAULT_TICKER.getValue("es")
+                            } else {
+                                stormroll = false
+                                stormrollExpiresAtMs = 0L
+                            }
                         }
                     }
                 }

@@ -28,18 +28,32 @@ export default function HomeArenaEmbedPage() {
 
   return (
     <div
-      className="mm3-home-arena-embed"
+      className="mm3-home-access mm3-home-arena-embed"
       style={{
         position: 'fixed',
         inset: 0,
         background: '#070b0f',
         overflow: 'hidden',
+        touchAction: 'pan-y',
       }}
     >
       <style>{`
-        .mm3-home-arena-embed .mm3-home-arena {
+        .mm3-home-arena-embed.mm3-home-access {
           width: 100vw !important;
           height: 100vh !important;
+          min-height: 100vh !important;
+          padding: 0 !important;
+          margin: 0 !important;
+        }
+        .mm3-home-arena-embed .mm3-home-access-stage {
+          display: block !important;
+          width: 100% !important;
+          height: 100% !important;
+          min-height: 100vh !important;
+        }
+        .mm3-home-arena-embed .mm3-home-arena {
+          width: 100% !important;
+          height: 100% !important;
           min-height: 100vh !important;
         }
         .mm3-home-arena-embed canvas {
@@ -48,7 +62,9 @@ export default function HomeArenaEmbedPage() {
           display: block !important;
         }
       `}</style>
-      <HomeMiningScene />
+      <span className="mm3-home-access-stage">
+        <HomeMiningScene />
+      </span>
     </div>
   )
 }

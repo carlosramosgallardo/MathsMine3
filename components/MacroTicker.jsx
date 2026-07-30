@@ -26,6 +26,8 @@ const NOTIF = {
 };
 const TICKER_SECONDS = 55;
 const NOTIF_SECONDS  = 28;  // shorter for mining events so queue drains faster
+const POLL_IDLE_MS = 300_000;
+const POLL_ACTIVE_MS = 30_000;
 
 function toConsoleMessage(value) {
   return String(value || '')
@@ -36,15 +38,28 @@ function toConsoleMessage(value) {
     .toUpperCase();
 }
 
+function resolveTickerMessages(data, now = Date.now()) {
+  const tickerExpired = data?.ticker_message_expires_at
+    && new Date(data.ticker_message_expires_at).getTime() < now;
+  if (tickerExpired || !data) return { ...DEFAULT_TICKER_MESSAGES };
+  const legacy = normalizeTickerMessage(data.ticker_message, DEFAULT_TICKER_MESSAGES.en);
+  return {
+    en: normalizeTickerMessage(data.ticker_message_en, legacy),
+    es: normalizeTickerMessage(data.ticker_message_es, legacy),
+  };
+}
+
 export default function MacroTicker() {
   const { language } = useI18n();
   const [messages, setMessages] = useState(DEFAULT_TICKER_MESSAGES);
   const [stormrollActive, setStormrollActive] = useState(false);
+  const [stormrollExpiresAt, setStormrollExpiresAt] = useState(0);
   const [notif, setNotif]       = useState(null);
 
   // Queue so rapid mining events don't replace each other instantly
   const queueRef    = useRef([]);
   const busyRef     = useRef(false);
+  const stormrollWasActiveRef = useRef(false);
 
   function pushNotif(msg, type = 'info') {
     const entry = { id: `${Date.now()}-${Math.random()}`, msg: toConsoleMessage(msg), type };
@@ -65,6 +80,14 @@ export default function MacroTicker() {
     drainQueue();
   }
 
+  const endStormrollToWelcome = useCallback(() => {
+    stormrollWasActiveRef.current = false;
+    setStormrollActive(false);
+    setStormrollExpiresAt(0);
+    // Node dice overlay ends → always restore the defined welcome default.
+    setMessages({ ...DEFAULT_TICKER_MESSAGES });
+  }, []);
+
   /* ── Load ticker text and stormroll state from DB ── */
   const load = useCallback(async () => {
     try {
@@ -73,25 +96,57 @@ export default function MacroTicker() {
         .select('ticker_message, ticker_message_en, ticker_message_es, node_dice_expires_at, ticker_message_expires_at')
         .eq('id', 1)
         .maybeSingle();
-      const tickerExpired = data?.ticker_message_expires_at
-        && new Date(data.ticker_message_expires_at).getTime() < Date.now();
-      const legacy = tickerExpired
-        ? DEFAULT_TICKER_MESSAGES.en
-        : normalizeTickerMessage(data?.ticker_message, DEFAULT_TICKER_MESSAGES.en);
-      setMessages({
-        en: tickerExpired ? DEFAULT_TICKER_MESSAGES.en : normalizeTickerMessage(data?.ticker_message_en, legacy),
-        es: tickerExpired ? DEFAULT_TICKER_MESSAGES.es : normalizeTickerMessage(data?.ticker_message_es, legacy),
-      });
+      const now = Date.now();
       const expiresAt = data?.node_dice_expires_at ? new Date(data.node_dice_expires_at).getTime() : 0;
-      setStormrollActive(expiresAt > Date.now());
+      const diceActive = Number.isFinite(expiresAt) && expiresAt > now;
+
+      if (diceActive) {
+        stormrollWasActiveRef.current = true;
+        setStormrollActive(true);
+        setStormrollExpiresAt(expiresAt);
+        setMessages(resolveTickerMessages(data, now));
+        return;
+      }
+
+      // Dice finished: restore welcome immediately (do not leave STORMROLL or a
+      // stale custom banner). Other temporary tickers (demine) only apply when
+      // we were not coming off an active node-dice window.
+      if (stormrollWasActiveRef.current) {
+        endStormrollToWelcome();
+        return;
+      }
+
+      setStormrollActive(false);
+      setStormrollExpiresAt(0);
+      setMessages(resolveTickerMessages(data, now));
     } catch {}
-  }, []);
+  }, [endStormrollToWelcome]);
 
   useEffect(() => {
     load();
-    const timer = setInterval(load, 300_000);
-    return () => clearInterval(timer);
   }, [load]);
+
+  // Poll faster while dice is active so expiry is noticed quickly even if
+  // the local timeout is missed (background tabs, clock skew, etc.).
+  useEffect(() => {
+    const ms = stormrollActive ? POLL_ACTIVE_MS : POLL_IDLE_MS;
+    const timer = setInterval(load, ms);
+    return () => clearInterval(timer);
+  }, [load, stormrollActive]);
+
+  // Cut the stormroll banner the instant node_dice_expires_at elapses.
+  useEffect(() => {
+    if (!stormrollExpiresAt) return undefined;
+    if (stormrollExpiresAt <= Date.now()) {
+      endStormrollToWelcome();
+      return undefined;
+    }
+    const ms = Math.max(0, stormrollExpiresAt - Date.now()) + 50;
+    const timer = setTimeout(() => {
+      endStormrollToWelcome();
+    }, ms);
+    return () => clearTimeout(timer);
+  }, [stormrollExpiresAt, endStormrollToWelcome]);
 
   /* ── Immediate refresh when stormroll activates / deactivates ── */
   useEffect(() => {

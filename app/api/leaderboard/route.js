@@ -7,12 +7,8 @@ import {
   getRateLimitHeaders
 } from '@/lib/rateLimitConfig'
 import { formatWalletLabel } from '@/lib/wallet-format'
-import { MM3_BLOCK_CHAIN_REQUIREMENTS } from '@/lib/mm3-block-chain'
 import { isAnonymousWallet } from '@/lib/is-anonymous-wallet'
-
-function clampLevel(level = 0) {
-  return Math.max(0, Math.min(100, Number(level) || 0))
-}
+import { mergeLeaderboardEntries } from '@/lib/leaderboard-merge'
 
 function maskWallet(wallet) {
   return formatWalletLabel(wallet)
@@ -58,23 +54,37 @@ export async function GET(req) {
 
   await supabase.from('api_requests').insert({ ip, endpoint })
 
-  const [{ data: leaderboardRows, error: leaderboardError }, progressResponse, minedBlocksResponse, marketBlocksResponse] = await Promise.all([
+  const [
+    leaderboardResponse,
+    progressResponse,
+    minedBlocksResponse,
+    poolMembersResponse,
+    squeezeNftjiResponse,
+    nftjiOwnersResponse,
+  ] = await Promise.all([
     supabase
       .from('leaderboard_data')
       .select('wallet, total_eth, total_correct, total_games, highest_streak'),
     supabase
       .from('player_progress')
-      .select('wallet, level, block_chain_percent, mm3_sold, cny_earned, eur_earned, usd_earned, wallet_emojis'),
+      .select('wallet, level, block_chain_percent, mm3_sold, cny_earned, eur_earned, usd_earned, wallet_emojis, is_bot'),
     supabase
       .from('mm3_mined_blocks')
       .select('wallet'),
     supabase
-      .from('mm3_mining_blocks')
-      .select('block_key', { count: 'exact', head: true }),
+      .from('mm3_wallet_pool_members')
+      .select('wallet, pool_code'),
+    supabase
+      .from('mm3_squeezing_nftji')
+      .select('wallet'),
+    supabase
+      .from('player_progress')
+      .select('wallet')
+      .not('mining_nftji_key', 'is', null),
   ])
 
-  if (leaderboardError) {
-    return new Response(JSON.stringify({ error: leaderboardError.message }), {
+  if (leaderboardResponse.error) {
+    return new Response(JSON.stringify({ error: leaderboardResponse.error.message }), {
       status: 500,
       headers: { 'Content-Type': 'application/json', ...getRateLimitHeaders((count ?? 0) + 1) }
     })
@@ -84,82 +94,34 @@ export async function GET(req) {
   if (progressResponse?.error) {
     const fallback = await supabase
       .from('player_progress')
-      .select('wallet, level, mm3_sold, cny_earned, eur_earned, usd_earned')
+      .select('wallet, level, mm3_sold, cny_earned, eur_earned, usd_earned, is_bot')
     progressRows = fallback?.data || []
   }
 
-  const minedCountByWallet = new Map()
-  if (!minedBlocksResponse?.error) {
-    for (const entry of minedBlocksResponse?.data || []) {
-      const wallet = String(entry.wallet || '').toLowerCase()
-      if (!wallet) continue
-      minedCountByWallet.set(wallet, (minedCountByWallet.get(wallet) || 0) + 1)
-    }
-  }
-  const minedBlockTotal = Math.max(1, MM3_BLOCK_CHAIN_REQUIREMENTS.length - (Number(marketBlocksResponse?.count) || 0))
-
-  const progressByWallet = new Map(
-    (progressRows || []).filter((entry) => !isAnonymousWallet(entry.wallet)).map((entry) => [
-      String(entry.wallet || '').toLowerCase(),
-      {
-        level:       clampLevel(entry.level),
-        blockChainPercent: Number(entry.block_chain_percent) || 0,
-        mm3Sold:     Number(entry.mm3_sold)   || 0,
-        cny:         Number(entry.cny_earned) || 0,
-        eur:         Number(entry.eur_earned) || 0,
-        usd:         Number(entry.usd_earned) || 0,
-        walletEmojis: Array.isArray(entry.wallet_emojis) ? entry.wallet_emojis : [],
-      },
-    ])
-  )
-
-  const merged = (leaderboardRows || [])
-    .filter((entry) => !isAnonymousWallet(entry.wallet))
-    .map((entry) => {
-      const progress = progressByWallet.get(String(entry.wallet || '').toLowerCase()) || {
-        level: 0, blockChainPercent: 0, mm3Sold: 0, cny: 0, eur: 0, usd: 0, walletEmojis: [],
-      }
-      const totalMm3 = Number(entry.total_eth) || 0
-      const minedBlockCount = Number(minedCountByWallet.get(String(entry.wallet || '').toLowerCase()) || 0)
-      const blockChainPercent = minedBlockCount > 0
-        ? Math.round((minedBlockCount / minedBlockTotal) * 10000) / 100
-        : progress.blockChainPercent
-      return {
-        wallet:        entry.wallet,
-        level:         progress.level,
-        block_chain_percent: blockChainPercent,
-        mined_block_count: minedBlockCount,
-        available_mm3: totalMm3 - progress.mm3Sold,
-        total_correct: Number(entry.total_correct) || 0,
-        total_games:   Number(entry.total_games)   || 0,
-        best_streak:   Number(entry.highest_streak) || 0,
-        cny_balance:   progress.cny,
-        eur_balance:   progress.eur,
-        usd_balance:   progress.usd,
-        nftjis:      progress.walletEmojis,
-      }
-    })
-    .sort((a, b) => {
-      if (b.block_chain_percent !== a.block_chain_percent) return b.block_chain_percent - a.block_chain_percent
-      if (b.level !== a.level) return b.level - a.level
-      if (b.available_mm3 !== a.available_mm3) return b.available_mm3 - a.available_mm3
-      return String(a.wallet).localeCompare(String(b.wallet))
-    })
+  const merged = mergeLeaderboardEntries({
+    leaderboardRows: leaderboardResponse.data || [],
+    progressRows,
+    minedBlocks: minedBlocksResponse?.error ? [] : minedBlocksResponse?.data || [],
+    poolMembers: poolMembersResponse?.error ? [] : poolMembersResponse?.data || [],
+    squeezeWallets: squeezeNftjiResponse?.error ? [] : squeezeNftjiResponse?.data || [],
+    nftjiOwners: (nftjiOwnersResponse?.data || []).map((entry) => entry.wallet),
+  })
 
   const pageItems = merged.slice(offset, offset + limit).map((entry, index) => ({
-    rank:          offset + index + 1,
-    wallet:        maskWallet(entry.wallet),
-    level:         entry.level,
+    rank: offset + index + 1,
+    wallet: maskWallet(entry.wallet),
+    level: entry.level,
     block_chain_percent: Number(entry.block_chain_percent || 0),
     mined_block_count: Number(entry.mined_block_count || 0),
     available_mm3: Number(entry.available_mm3 || 0),
     total_correct: entry.total_correct,
-    total_games:   entry.total_games,
-    best_streak:   entry.best_streak,
-    cny_balance:   entry.cny_balance,
-    eur_balance:   entry.eur_balance,
-    usd_balance:   entry.usd_balance,
-    nftjis:      entry.nftjis,
+    total_games: entry.total_games,
+    best_streak: entry.best_streak,
+    cny_balance: entry.cny_balance,
+    eur_balance: entry.eur_balance,
+    usd_balance: entry.usd_balance,
+    nftjis: entry.nftjis,
+    is_bot: entry.is_bot,
   }))
 
   return new Response(JSON.stringify({

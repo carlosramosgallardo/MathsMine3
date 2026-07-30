@@ -868,7 +868,14 @@ export default function HomeMiningWorld3D() {
       // painted boost lights up red — back to blue/cyan on leave. The car
       // list is filled right below, once the lineup props exist.
       const boostCars = []
-      const accessEl = canvas.closest('.mm3-home-access')
+      // Embed arena (Android WebView) uses the same classes as portal home so
+      // rail drag + mm3-home-cycle stay wired; fall back to arena root if needed.
+      const accessEl =
+        canvas.closest('.mm3-home-access') ||
+        canvas.closest('.mm3-home-arena') ||
+        canvas.closest('.mm3-home-arena-embed') ||
+        canvas.parentElement
+      const isEmbedArena = Boolean(canvas.closest('.mm3-home-arena-embed'))
       if (accessEl) {
         const setEyes = (red) => {
           setBossMaskEyesRed(scene, red)
@@ -1101,9 +1108,12 @@ export default function HomeMiningWorld3D() {
         }
         // Tap (no drag) on the stage toggles the fullscreen showcase — the
         // layout swap lives in LandingHero, which listens for this event.
-        const stageEl = canvas.closest('.mm3-home-access-stage')
+        const stageEl =
+          canvas.closest('.mm3-home-access-stage') ||
+          canvas.closest('.mm3-home-arena') ||
+          accessEl
         const onStageClick = () => {
-          window.dispatchEvent(new CustomEvent('mm3-stage-zoom-toggle'))
+          if (!isEmbedArena) window.dispatchEvent(new CustomEvent('mm3-stage-zoom-toggle'))
         }
         stageEl?.addEventListener('click', onStageClick)
         // Polygon auto-rotation (LandingHero) broadcasts a cycle event — the
@@ -1316,7 +1326,8 @@ export default function HomeMiningWorld3D() {
 
       const animate = () => {
         animationFrame = requestAnimationFrame(animate)
-        if (!pageVisible || !inViewport) return
+        // Embed WebViews can report hidden/intersection quirks — keep the loop alive.
+        if (!isEmbedArena && (!pageVisible || !inViewport)) return
         const time = clock.getElapsedTime()
         // Showcase spin timestep (shared by bosses, statue head and props).
         const spinDt = time - (lastSpinTime ?? time)

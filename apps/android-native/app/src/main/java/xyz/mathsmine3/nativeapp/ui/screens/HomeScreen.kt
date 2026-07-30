@@ -79,6 +79,7 @@ fun HomeScreen(
     var sel by remember { mutableIntStateOf(0) }
     var lastManualMs by remember { mutableStateOf(0L) }
     var mapOpen by remember { mutableStateOf(false) }
+    var arenaWeb by remember { mutableStateOf<HomeArenaWebView?>(null) }
 
     // Keep selection valid when language swap rebuilds the portal list.
     LaunchedEffect(portal.size) {
@@ -87,12 +88,14 @@ fun HomeScreen(
 
     BackHandler(enabled = mapOpen) { mapOpen = false }
 
-    LaunchedEffect(portal.size, mapOpen) {
+    LaunchedEffect(portal.size, mapOpen, arenaWeb) {
         while (true) {
             delay(3000)
             if (mapOpen) continue
             if (System.currentTimeMillis() - lastManualMs >= 5000) {
                 sel = (sel + 1) % portal.size
+                // Same as web: carousel glides one slot only on auto-rotation.
+                arenaWeb?.cycleWithNonagon()
             }
         }
     }
@@ -151,10 +154,6 @@ fun HomeScreen(
                 .padding(horizontal = 8.dp, vertical = 4.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            var arenaWeb by remember { mutableStateOf<HomeArenaWebView?>(null) }
-            LaunchedEffect(sel, mapOpen) {
-                if (!mapOpen) arenaWeb?.cycleWithNonagon()
-            }
             Box(
                 Modifier
                     .fillMaxWidth()
