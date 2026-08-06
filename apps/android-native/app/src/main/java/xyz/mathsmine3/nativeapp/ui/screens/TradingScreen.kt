@@ -114,9 +114,11 @@ fun TradingScreen(
     api: Mm3Api,
     supabase: SupabaseRest,
     currency: String = "EUR",
+    language: String = "en",
 ) {
     val scope = rememberCoroutineScope()
     val wallet = session.wallet?.lowercase()
+    val es = language.startsWith("es", ignoreCase = true)
 
     var mode by remember { mutableStateOf("sell") }
     var level by remember { mutableIntStateOf(0) }
@@ -126,7 +128,15 @@ fun TradingScreen(
     var usdEarned by remember { mutableStateOf(0.0) }
     var cnyEarned by remember { mutableStateOf(0.0) }
     var ratio by remember { mutableFloatStateOf(0f) }
-    var message by remember { mutableStateOf("Connect wallet to trade") }
+    var message by remember {
+        mutableStateOf(
+            if (language.startsWith("es", ignoreCase = true)) {
+                "Conecta wallet para operar"
+            } else {
+                "Connect wallet to trade"
+            },
+        )
+    }
     var busy by remember { mutableStateOf(false) }
     var showLog by remember { mutableStateOf(false) }
     var dailyTx by remember { mutableIntStateOf(0) }
@@ -234,7 +244,7 @@ fun TradingScreen(
 
     fun reload() {
         if (wallet == null) {
-            message = "Connect wallet to trade"
+            message = if (es) "Conecta wallet para operar" else "Connect wallet to trade"
             return
         }
         scope.launch {
@@ -306,7 +316,7 @@ fun TradingScreen(
                 dailyTx = snap.daily
                 source = snap.source
                 message = when {
-                    snap.daily >= DAILY_TX_CAP -> "Daily TX limit reached (#$DAILY_TX_CAP)"
+                    snap.daily >= DAILY_TX_CAP -> if (es) "Límite diario de TX (#$DAILY_TX_CAP)" else "Daily TX limit reached (#$DAILY_TX_CAP)"
                     snap.available >= MIN_TRADE_MM3 || snap.eur > 0 || snap.usd > 0 || snap.cny > 0 -> "Ready"
                     else -> "No MM3 to sell and no funds to buy"
                 }
@@ -481,14 +491,14 @@ fun TradingScreen(
                 ),
             )
             val receiveLabel = if (mode == "buy") {
-                "FEE ${(buyQuote.commissionRate * 100).formatPct()}% · YOU RECEIVE · ${"%.8f".format(Locale.US, buyQuote.netMm3)} MM3"
+                "FEE ${(buyQuote.commissionRate * 100).formatPct()}% · ${if (es) "RECIBES" else "YOU RECEIVE"} · ${"%.8f".format(Locale.US, buyQuote.netMm3)} MM3"
             } else {
                 val receive = when (currency.uppercase()) {
                     "USD" -> sellQuote.netUsd
                     "CNY" -> sellQuote.netCny
                     else -> sellQuote.netEur
                 }
-                "FEE ${(sellQuote.commissionRate * 100).formatPct()}% · YOU RECEIVE · ${formatMoney(receive, currency)}"
+                "FEE ${(sellQuote.commissionRate * 100).formatPct()}% · ${if (es) "RECIBES" else "YOU RECEIVE"} · ${formatMoney(receive, currency)}"
             }
             Text(
                 receiveLabel,
@@ -501,20 +511,20 @@ fun TradingScreen(
                 text = if (busy) "EXEC…" else "EXEC",
                 onClick = {
                     if (wallet == null) {
-                        message = "Connect wallet"
+                        message = if (es) "Conecta wallet" else "Connect wallet"
                         return@Mm3Button
                     }
                     if (dailyTx >= DAILY_TX_CAP) {
-                        message = "Daily TX limit"
+                        message = if (es) "Límite diario de TX" else "Daily TX limit"
                         return@Mm3Button
                     }
                     if (mode == "buy") {
                         if (!canBuy || buyFunds <= 0 || buyQuote.netMm3 < MIN_TRADE_MM3) {
-                            message = "Select buy amount"
+                            message = if (es) "Elige importe de compra" else "Select buy amount"
                             return@Mm3Button
                         }
                     } else if (!canSell || sellAmount < MIN_TRADE_MM3) {
-                        message = "Select sell amount"
+                        message = if (es) "Elige importe de venta" else "Select sell amount"
                         return@Mm3Button
                     }
                     busy = true
@@ -552,7 +562,14 @@ fun TradingScreen(
                                 if (execMode == "buy") {
                                     "bought ${formatMm3(previewBuy.netMm3)} for ${formatMoney(previewBuy.funds, currency)}"
                                 } else {
-                                    "sold ${formatMm3(previewSell.totalMm3)} → ${formatMoney(previewSell.netEur, "EUR")}"
+                                    "sold ${formatMm3(previewSell.totalMm3)} → ${formatMoney(
+                                        when (currency.uppercase()) {
+                                            "USD" -> previewSell.netUsd
+                                            "CNY" -> previewSell.netCny
+                                            else -> previewSell.netEur
+                                        },
+                                        currency,
+                                    )}"
                                 }
                             }
                         }

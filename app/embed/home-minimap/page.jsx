@@ -14,10 +14,13 @@ export default function HomeMinimapEmbedPage() {
     document.documentElement.classList.add('mm3-native-embed', 'mm3-native-minimap-embed')
     try {
       const params = new URLSearchParams(window.location.search)
-      const lang = (params.get('lang') || localStorage.getItem('mm3_lang') || '').toLowerCase()
+      const fromQuery = (params.get('lang') || '').toLowerCase()
+      const fromLs = (localStorage.getItem('mm3-language') || localStorage.getItem('mm3_lang') || '').toLowerCase()
+      const fromNative = (window.__MM3_NATIVE_LANG__ || '').toLowerCase()
+      const lang = fromQuery || fromLs || fromNative
       setEs(lang.startsWith('es') || (!lang && (navigator.language || '').startsWith('es')))
     } catch {
-      setEs(true)
+      setEs(false)
     }
   }, [])
 

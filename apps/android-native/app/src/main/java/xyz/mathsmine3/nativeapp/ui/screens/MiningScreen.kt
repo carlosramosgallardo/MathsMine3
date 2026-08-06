@@ -32,10 +32,12 @@ import xyz.mathsmine3.nativeapp.ui.theme.Mm3Colors
 @Composable
 fun MiningScreen(
     session: Session,
+    language: String = "en",
     onBack: () -> Unit = {},
 ) {
     var loading by remember { mutableStateOf(true) }
     var loadError by remember { mutableStateOf<String?>(null) }
+    val es = language.startsWith("es", ignoreCase = true)
 
     BackHandler(onBack = onBack)
 
@@ -80,7 +82,7 @@ fun MiningScreen(
 
         loadError?.let { err ->
             Text(
-                "MINING LOAD ERROR · $err",
+                if (es) "ERROR AL CARGAR MINING · $err" else "MINING LOAD ERROR · $err",
                 color = Mm3Colors.Danger,
                 fontFamily = FontFamily.Monospace,
                 fontSize = 11.sp,

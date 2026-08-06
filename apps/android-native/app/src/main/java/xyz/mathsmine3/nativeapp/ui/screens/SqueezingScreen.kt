@@ -53,7 +53,7 @@ import xyz.mathsmine3.nativeapp.ui.components.Mm3Panel
 import xyz.mathsmine3.nativeapp.ui.components.Mm3Screen
 import xyz.mathsmine3.nativeapp.ui.header.colorFromAddress
 import xyz.mathsmine3.nativeapp.ui.header.colorFromPool
-import xyz.mathsmine3.nativeapp.ui.header.formatMoney
+import xyz.mathsmine3.nativeapp.ui.header.formatEurAsCurrency
 import xyz.mathsmine3.nativeapp.ui.header.formatWalletLabel
 import xyz.mathsmine3.nativeapp.ui.theme.Mm3Colors
 import java.time.Instant
@@ -836,7 +836,7 @@ private fun DisputeCardView(
             }
             if (dispute.transferEur > 0) {
                 Text(
-                    "+${formatMoney(dispute.transferEur, currency)}",
+                    "+${formatEurAsCurrency(dispute.transferEur, currency)}",
                     color = Color(0xFF4ADE80),
                     fontFamily = FontFamily.Monospace,
                     fontSize = 10.sp,
@@ -1089,7 +1089,7 @@ private fun DisputeCardView(
                 )
                 if (dispute.transferEur > 0) {
                     Text(
-                        "${if (es) "Transferido" else "Transferred"}: +${formatMoney(dispute.transferEur, currency)}",
+                        "${if (es) "Transferido" else "Transferred"}: +${formatEurAsCurrency(dispute.transferEur, currency)}",
                         color = Color(0xFF4ADE80),
                         fontFamily = FontFamily.Monospace,
                         fontSize = 11.sp,
@@ -1222,7 +1222,7 @@ private fun WalletColumn(
                     if (isResolved && w.deltaEur != 0.0) {
                         Spacer(Modifier.weight(1f))
                         Text(
-                            "${if (w.deltaEur > 0) "+" else ""}${formatMoney(w.deltaEur, currency)}",
+                            "${if (w.deltaEur > 0) "+" else ""}${formatEurAsCurrency(w.deltaEur, currency)}",
                             color = if (w.deltaEur > 0) Color(0xFF4ADE80) else Color(0xFFF87171),
                             fontFamily = FontFamily.Monospace,
                             fontWeight = FontWeight.Bold,

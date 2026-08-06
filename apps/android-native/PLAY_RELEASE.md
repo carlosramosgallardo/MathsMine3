@@ -48,8 +48,37 @@ npm run android:native:bundle
 Then:
 
 1. Upload the AAB to Play Console → **Internal testing**
-2. Append the printed SHA-256 to `public/.well-known/assetlinks.json` (keep debug fingerprint for local)
-3. Uninstall legacy TWA / debug builds on test devices before installing the Play build
+2. Upload **native debug symbols** (see below) if Play warns about missing symbols
+3. Append the printed SHA-256 to `public/.well-known/assetlinks.json` (keep debug fingerprint for local)
+4. Uninstall legacy TWA / debug builds on test devices before installing the Play build
+
+### Native debug symbols (Play warning)
+
+Filament ships prebuilt `.so` libraries. Play expects native debug symbols for ANR/crash reports.
+
+**Option A — automatic (next AAB builds):**
+
+1. Install NDK in the Android SDK (required for AGP to embed symbols):
+
+   ```bash
+   sdkmanager "ndk;26.1.10909125"
+   ```
+
+2. `app/build.gradle.kts` sets `defaultConfig.ndk.debugSymbolLevel = SYMBOL_TABLE`.
+3. Rebuild: `npm run android:native:bundle` — symbols should appear under
+   `BUNDLE-METADATA/com.android.tools.build.debugsymbols` inside the AAB.
+
+**Option B — manual upload (works for an AAB already in Play):**
+
+1. After `npm run android:native:bundle`, use the generated zip:
+   `apps/android-native/dist/native-debug-symbols-<versionName>.zip`
+2. Play Console → **Test and release** → **App bundle explorer**
+3. Select the version (e.g. `32 (0.1.0-beta.6)`)
+4. **Downloads** tab → **Native debug symbols** → upload the zip
+
+Or: **Release** → your release → **App bundle explorer** → same upload control.
+
+The zip contains the four ABI folders (`arm64-v8a`, `armeabi-v7a`, `x86`, `x86_64`) with the merged `.so` symbol tables from Filament.
 
 ### Release cert fingerprint (fill after first keystore)
 

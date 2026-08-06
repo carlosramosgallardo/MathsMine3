@@ -44,6 +44,32 @@ ln -sfn "$AAB_NAME" dist/mathsmine3-release.aab
 echo "AAB: $NATIVE/dist/${AAB_NAME}"
 echo "Alias: $NATIVE/dist/mathsmine3-release.aab → ${AAB_NAME}"
 
+# Native debug symbols zip for Play Console (manual upload if not embedded in AAB).
+SYMS_ZIP="dist/native-debug-symbols-${VERSION_NAME}.zip"
+LIB_DIR="app/build/intermediates/merged_native_libs/release/mergeReleaseNativeLibs/out/lib"
+if [[ -d "$LIB_DIR" ]]; then
+  python3 - <<'PY' "$LIB_DIR" "$SYMS_ZIP"
+import sys, zipfile, pathlib
+lib, out = pathlib.Path(sys.argv[1]), pathlib.Path(sys.argv[2])
+with zipfile.ZipFile(out, 'w', zipfile.ZIP_DEFLATED) as zf:
+    for abi in ('arm64-v8a', 'armeabi-v7a', 'x86', 'x86_64'):
+        d = lib / abi
+        if not d.is_dir():
+            continue
+        for f in d.glob('*.so'):
+            zf.write(f, f'{abi}/{f.name}')
+print(f'Native symbols zip: {out} ({out.stat().st_size} bytes)')
+PY
+else
+  echo "WARN: $LIB_DIR not found — skip native symbols zip"
+fi
+
+if [[ ! -d "$ANDROID_HOME/ndk" ]] && ! compgen -G "$ANDROID_HOME/ndk/*" > /dev/null; then
+  echo ""
+  echo "WARN: Android NDK not installed — Play may warn about missing native debug symbols."
+  echo "Install: sdkmanager \"ndk;26.1.10909125\" then rebuild to embed symbols in the AAB."
+fi
+
 # Print release cert SHA-256 for Digital Asset Links / Play Console
 STORE_FILE="$(awk -F= '/^storeFile=/{print $2}' keystore.properties | tr -d '\r')"
 STORE_PASS="$(awk -F= '/^storePassword=/{print $2}' keystore.properties | tr -d '\r')"

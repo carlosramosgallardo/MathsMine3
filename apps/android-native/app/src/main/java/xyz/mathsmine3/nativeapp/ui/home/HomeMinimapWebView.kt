@@ -27,7 +27,7 @@ class HomeMinimapWebView(context: Context) : WebView(context) {
 
     var onClose: (() -> Unit)? = null
     private var usedFallback = false
-    private var language: String = "es"
+    private var language: String = "en"
 
     init {
         setBackgroundColor(Color.parseColor("#01070E"))
@@ -119,7 +119,11 @@ class HomeMinimapWebView(context: Context) : WebView(context) {
     }
 
     fun setLanguage(lang: String) {
-        language = if (lang.startsWith("es", ignoreCase = true)) "es" else "en"
+        val next = if (lang.startsWith("es", ignoreCase = true)) "es" else "en"
+        if (next == language) return
+        language = next
+        // Reload so ?lang= and injected prefs match the header toggle.
+        if (!url.isNullOrBlank()) loadMinimap()
     }
 
     fun loadMinimap() {

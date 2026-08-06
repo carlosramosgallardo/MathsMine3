@@ -60,11 +60,15 @@ private enum class TrainPhase { Loading, Ready, Countdown, Answering, Resolved }
 private data class NftjiSlot(val emoji: String, val level: Int?, val owned: Boolean)
 
 @Composable
-@Suppress("UNUSED_PARAMETER")
-fun TrainingScreen(session: Session, api: Mm3Api, supabase: SupabaseRest) {
+fun TrainingScreen(
+    session: Session,
+    api: Mm3Api,
+    supabase: SupabaseRest,
+    language: String = "en",
+) {
     val scope = rememberCoroutineScope()
     val wallet = session.wallet?.lowercase()
-    val lang = "en"
+    val lang = if (language.startsWith("es", ignoreCase = true)) "es" else "en"
 
     var phase by remember { mutableStateOf(TrainPhase.Loading) }
     var level by remember { mutableIntStateOf(0) }

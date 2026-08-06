@@ -24,9 +24,14 @@ import xyz.mathsmine3.nativeapp.ui.components.Mm3Screen
 import xyz.mathsmine3.nativeapp.ui.theme.Mm3Colors
 
 @Composable
-fun AuthScreen(container: AppContainer, onDone: () -> Unit) {
+fun AuthScreen(
+    container: AppContainer,
+    language: String = "en",
+    onDone: () -> Unit,
+) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val es = language.startsWith("es", ignoreCase = true)
     val google = remember { GoogleAuthManager(context, container.api, container.sessionRepository) }
     val walletAuth = remember { WalletAuthManager(context, container.api, container.sessionRepository) }
     var address by remember { mutableStateOf("") }
@@ -52,26 +57,41 @@ fun AuthScreen(container: AppContainer, onDone: () -> Unit) {
         }
     }
 
-    Mm3Screen(title = "CONNECT", subtitle = "Same create-account API as the web portal.") {
+    Mm3Screen(
+        title = if (es) "CONECTAR" else "CONNECT",
+        subtitle = if (es) {
+            "Misma API create-account que el portal web."
+        } else {
+            "Same create-account API as the web portal."
+        },
+    ) {
         Mm3Panel {
             Text(
-                "Google OAuth → virtual 0x wallet",
+                if (es) "Google OAuth → wallet virtual 0x" else "Google OAuth → virtual 0x wallet",
                 color = Mm3Colors.Muted,
                 fontFamily = FontFamily.Monospace,
                 fontSize = 11.sp,
             )
             Text(
-                "Opens the portal in the browser (same Web client as mathsmine3.xyz). Returns to the app via deep link — works on Play builds without Android SHA error 10.",
+                if (es) {
+                    "Abre el portal en el navegador (mismo cliente Web que mathsmine3.xyz). Vuelve a la app por deep link — funciona en builds de Play sin el error SHA 10."
+                } else {
+                    "Opens the portal in the browser (same Web client as mathsmine3.xyz). Returns to the app via deep link — works on Play builds without Android SHA error 10."
+                },
                 color = Mm3Colors.Muted.copy(alpha = 0.85f),
                 fontFamily = FontFamily.Monospace,
                 fontSize = 10.sp,
             )
             Mm3Button(
-                text = "Continue with Google",
+                text = if (es) "Continuar con Google" else "Continue with Google",
                 onClick = {
                     try {
                         google.openBrowserSignIn(context)
-                        message = "Browser opened · finish Google sign-in, then return to the app"
+                        message = if (es) {
+                            "Navegador abierto · termina el login de Google y vuelve a la app"
+                        } else {
+                            "Browser opened · finish Google sign-in, then return to the app"
+                        }
                     } catch (e: Exception) {
                         message = e.message
                     }
@@ -80,7 +100,7 @@ fun AuthScreen(container: AppContainer, onDone: () -> Unit) {
             )
             if (BuildConfig.DEBUG) {
                 Mm3Button(
-                    text = "Google (native / debug)",
+                    text = if (es) "Google (nativo / debug)" else "Google (native / debug)",
                     onClick = {
                         try {
                             googleLauncher.launch(google.signInIntent())
@@ -96,23 +116,35 @@ fun AuthScreen(container: AppContainer, onDone: () -> Unit) {
 
         Mm3Panel(accent = Mm3Colors.Green) {
             Text(
-                "Wallet · opens browser → MetaMask / WalletConnect → returns to app",
+                if (es) {
+                    "Wallet · abre el navegador → MetaMask / WalletConnect → vuelve a la app"
+                } else {
+                    "Wallet · opens browser → MetaMask / WalletConnect → returns to app"
+                },
                 color = Mm3Colors.Muted,
                 fontFamily = FontFamily.Monospace,
                 fontSize = 11.sp,
             )
             Text(
-                "Needs MetaMask (or a WC wallet) on the device. Emulators usually cannot complete this — use debug address below.",
+                if (es) {
+                    "Necesitas MetaMask (o un wallet WC) en el dispositivo. En emuladores suele fallar — usa la dirección debug abajo."
+                } else {
+                    "Needs MetaMask (or a WC wallet) on the device. Emulators usually cannot complete this — use debug address below."
+                },
                 color = Mm3Colors.Muted.copy(alpha = 0.85f),
                 fontFamily = FontFamily.Monospace,
                 fontSize = 10.sp,
             )
             Mm3Button(
-                text = "🦊 Sign in with wallet",
+                text = if (es) "🦊 Entrar con wallet" else "🦊 Sign in with wallet",
                 onClick = {
                     try {
                         walletAuth.openWalletSignIn(context)
-                        message = "Browser opened · finish sign-in there, then return to the app"
+                        message = if (es) {
+                            "Navegador abierto · termina el login allí y vuelve a la app"
+                        } else {
+                            "Browser opened · finish sign-in there, then return to the app"
+                        }
                     } catch (e: Exception) {
                         message = e.message
                     }
@@ -121,16 +153,24 @@ fun AuthScreen(container: AppContainer, onDone: () -> Unit) {
                 accent = Mm3Colors.Green,
             )
             if (BuildConfig.DEBUG) {
-                Mm3Field(value = address, onValueChange = { address = it }, label = "Wallet 0x… (debug only)")
+                Mm3Field(
+                    value = address,
+                    onValueChange = { address = it },
+                    label = if (es) "Wallet 0x… (solo debug)" else "Wallet 0x… (debug only)",
+                )
                 Mm3Button(
-                    text = "Connect address (debug)",
+                    text = if (es) "Conectar dirección (debug)" else "Connect address (debug)",
                     onClick = {
                         scope.launch {
                             busy = true
                             message = null
                             try {
                                 val w = walletAuth.connectAddress(address)
-                                message = "ok · $w (no session — use sign-in above)"
+                                message = if (es) {
+                                    "ok · $w (sin sesión — usa el login de arriba)"
+                                } else {
+                                    "ok · $w (no session — use sign-in above)"
+                                }
                                 onDone()
                             } catch (e: Exception) {
                                 message = e.message
@@ -147,11 +187,11 @@ fun AuthScreen(container: AppContainer, onDone: () -> Unit) {
         }
 
         Mm3Button(
-            text = "Sign out",
+            text = if (es) "Cerrar sesión" else "Sign out",
             onClick = {
                 scope.launch {
                     google.signOut()
-                    message = "signed out"
+                    message = if (es) "sesión cerrada" else "signed out"
                 }
             },
             filled = false,

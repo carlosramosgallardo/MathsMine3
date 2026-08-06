@@ -79,8 +79,8 @@ android {
         applicationId = "xyz.mathsmine3.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 32
-        versionName = "0.1.0-beta.6"
+        versionCode = 33
+        versionName = "0.1.0-beta.7"
         buildConfigField("String", "API_BASE_URL", "\"https://mathsmine3.xyz\"")
         buildConfigField("String", "GOOGLE_CLIENT_ID", "\"${escapeForBuildConfig(googleClientId)}\"")
         buildConfigField("String", "SUPABASE_URL", "\"${escapeForBuildConfig(supabaseUrl)}\"")
@@ -96,6 +96,10 @@ android {
         // Default; overridden per buildType (debug → local Next via adb reverse).
         manifestPlaceholders["usesCleartextTraffic"] = "false"
         buildConfigField("String", "PORTAL_BASE_URL", "\"https://mathsmine3.xyz\"")
+        // Filament ships prebuilt .so — AGP needs NDK installed to extract SYMBOL_TABLE into the AAB.
+        ndk {
+            debugSymbolLevel = "SYMBOL_TABLE"
+        }
     }
 
     // Release signing: apps/android-native/keystore.properties (gitignored).
@@ -138,10 +142,6 @@ android {
             )
             buildConfigField("String", "PORTAL_BASE_URL", "\"https://mathsmine3.xyz\"")
             manifestPlaceholders["usesCleartextTraffic"] = "false"
-            // Native debug symbols for Play Console (Filament .so) — clears the AAB warning.
-            ndk {
-                debugSymbolLevel = "SYMBOL_TABLE"
-            }
             if (hasReleaseKeystore) {
                 signingConfig = signingConfigs.getByName("release")
             }

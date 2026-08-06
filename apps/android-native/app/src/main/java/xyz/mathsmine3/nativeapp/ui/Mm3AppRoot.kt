@@ -106,6 +106,17 @@ private val footerRowDocs = listOf(
     FooterTab("pat", "PAT", Color(0xFFF87171), externalUrl = "https://patreon.com/FreakingAI"),
 )
 
+private fun footerDocsFor(language: String): List<FooterTab> {
+    val es = language.startsWith("es", ignoreCase = true)
+    return footerRowDocs.map { tab ->
+        when (tab.route) {
+            Mm3Dest.Privacy.route -> tab.copy(label = if (es) "Privacidad" else "Privacy")
+            Mm3Dest.Terms.route -> tab.copy(label = if (es) "Términos" else "Terms")
+            else -> tab
+        }
+    }
+}
+
 @Composable
 fun Mm3AppRoot(container: AppContainer) {
     val navController = rememberNavController()
@@ -121,8 +132,18 @@ fun Mm3AppRoot(container: AppContainer) {
     val currentRoute = backStack?.destination?.route
     var showEthDonate by remember { mutableStateOf(false) }
 
-    LaunchedEffect(uiPrefs.soundEnabled, uiPrefs.musicEnabled) {
-        SoundPrefsBridge.update(uiPrefs.soundEnabled, uiPrefs.musicEnabled)
+    LaunchedEffect(
+        uiPrefs.soundEnabled,
+        uiPrefs.musicEnabled,
+        uiPrefs.language,
+        uiPrefs.currency,
+    ) {
+        SoundPrefsBridge.update(
+            soundEnabled = uiPrefs.soundEnabled,
+            musicEnabled = uiPrefs.musicEnabled,
+            language = uiPrefs.language,
+            currency = uiPrefs.currency,
+        )
     }
 
     fun go(route: String) {
@@ -200,6 +221,7 @@ fun Mm3AppRoot(container: AppContainer) {
             if (currentRoute != Mm3Dest.Auth.route && currentRoute != Mm3Dest.Mining.route) {
                 FooterNavBar(
                     currentRoute = currentRoute,
+                    language = uiPrefs.language,
                     onSelect = { tab ->
                         when {
                             tab.ethDonate -> showEthDonate = true
@@ -246,18 +268,24 @@ fun Mm3AppRoot(container: AppContainer) {
                     )
                 }
                 composable(Mm3Dest.Auth.route) {
-                    AuthScreen(container = container, onDone = { navController.popBackStack() })
+                    AuthScreen(
+                        container = container,
+                        language = uiPrefs.language,
+                        onDone = { navController.popBackStack() },
+                    )
                 }
                 composable(Mm3Dest.Training.route) {
                     TrainingScreen(
                         session = session,
                         api = container.api,
                         supabase = container.supabase,
+                        language = uiPrefs.language,
                     )
                 }
                 composable(Mm3Dest.Mining.route) {
                     MiningScreen(
                         session = session,
+                        language = uiPrefs.language,
                         onBack = { navController.popBackStack() },
                     )
                 }
@@ -267,6 +295,7 @@ fun Mm3AppRoot(container: AppContainer) {
                         api = container.api,
                         supabase = container.supabase,
                         currency = uiPrefs.currency,
+                        language = uiPrefs.language,
                     )
                 }
                 composable(Mm3Dest.Ranking.route) {
@@ -340,6 +369,7 @@ fun Mm3AppRoot(container: AppContainer) {
 @Composable
 private fun FooterNavBar(
     currentRoute: String?,
+    language: String,
     onSelect: (FooterTab) -> Unit,
 ) {
     Column(
@@ -353,7 +383,7 @@ private fun FooterNavBar(
         verticalArrangement = Arrangement.spacedBy(2.dp),
     ) {
         FooterTabRow(tabs = footerRowSocial, currentRoute = currentRoute, onSelect = onSelect)
-        FooterTabRow(tabs = footerRowDocs, currentRoute = currentRoute, onSelect = onSelect)
+        FooterTabRow(tabs = footerDocsFor(language), currentRoute = currentRoute, onSelect = onSelect)
         Text(
             "© 2026 FreakingAI",
             color = Mm3Colors.Muted.copy(alpha = 0.7f),

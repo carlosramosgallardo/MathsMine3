@@ -106,6 +106,19 @@ fun formatMoney(value: Double, currency: String): String {
     return "${currencySymbol(currency)}$body"
 }
 
+/** Convert an EUR amount to the user's preferred fiat, then format. */
+fun formatEurAsCurrency(eur: Double, currency: String): String {
+    val value = when (currency.uppercase()) {
+        "USD" -> eur * (CNY_TO_USD / CNY_TO_EUR)
+        "CNY" -> eur / CNY_TO_EUR
+        else -> eur
+    }
+    return formatMoney(value, currency)
+}
+
+private const val CNY_TO_EUR = 0.128
+private const val CNY_TO_USD = 0.139
+
 fun formatMm3(value: Double): String {
     val abs = abs(value)
     return when {
