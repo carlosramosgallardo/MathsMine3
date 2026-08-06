@@ -25,10 +25,10 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set up JDK 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '17'
@@ -72,74 +72,45 @@ jobs:
           ./gradlew assembleDebug --no-daemon --stacktrace
 
       - name: Stage APK
+        id: stage
         run: |
-          mkdir -p dist
+          mkdir -p dist/release
           VER="${GITHUB_REF_NAME:-debug}"
           # Strip leading v from tags like v0.1.0-beta.1
           VER="${VER#v}"
-          OUT="dist/mathsmine3-${VER}.apk"
-          cp -f apps/android-native/app/build/outputs/apk/debug/app-debug.apk "$OUT"
-          # Stable name for Actions artifact consumers
-          cp -f "$OUT" dist/mathsmine3-native-debug.apk
-          ls -lh dist/
+          VERSIONED="dist/release/mathsmine3-${VER}.apk"
+          cp -f apps/android-native/app/build/outputs/apk/debug/app-debug.apk "$VERSIONED"
+          # Stable name for Actions artifact consumers (NOT in release/ — avoids duplicate upload)
+          cp -f "$VERSIONED" dist/mathsmine3-native-debug.apk
+          ls -lh dist/ dist/release/
+          echo "versioned_apk=$VERSIONED" >> "$GITHUB_OUTPUT"
 
       - name: Upload Actions artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: mathsmine3-native-debug
           path: |
             dist/mathsmine3-native-debug.apk
-            dist/mathsmine3-*.apk
+            dist/release/*.apk
           if-no-files-found: error
           retention-days: 90
 
+      # softprops/action-gh-release@v2 runs on deprecated Node 20.
+      # v3 uses Node 24. Also: never glob the same APK twice — `mathsmine3-*.apk`
+      # previously matched both the versioned file AND mathsmine3-native-debug.apk,
+      # causing parallel delete races ("Not Found" on delete-a-release-asset).
       - name: Publish GitHub Release (tags v*)
         if: startsWith(github.ref, 'refs/tags/v')
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
-          files: |
-            dist/mathsmine3-native-debug.apk
-            dist/mathsmine3-*.apk
-          generate_release_notes: true
+          # One unique file only — duplicate globs caused delete races (404 Not Found).
+          files: ${{ steps.stage.outputs.versioned_apk }}
+          overwrite_files: true
+          fail_on_unmatched_files: true
+          # Don't overwrite hand-written release notes / AAB assets from a prior `gh release create`.
+          generate_release_notes: false
           draft: false
-          # Latest on repo home (SemVer -beta.N stays in the version string).
           prerelease: false
           name: MathsMine3 ${{ github.ref_name }}
-          body: |
-            ## MathsMine3 `${{ github.ref_name }}`
-
-            Compose-native Android client (`xyz.mathsmine3.app`).
-            Same backends as the web portal: [mathsmine3.xyz](https://mathsmine3.xyz) APIs + Supabase.
-
-            ### Highlights (beta.5)
-            - Play Internal: `targetSdk` / `compileSdk` **35**, versionCode **29**
-            - Release signing + native `SYMBOL_TABLE` symbols for AAB
-            - Portal QA harness (`qa:sweep` / `qa:portal`)
-
-            ### Carried from beta.4
-            - Android presence via `/api/presence/ping` (session)
-            - Lock anon writes on wallet pool tables
-            - ProGuard rules; Play release checklist
-
-            ### Native shell
-            - Training, Trading, Squeezing, Relaying, Daily, MM3 Chart, Ranking, AI Team, Manifesto
-            - API, SEC, Privacy, Terms (native screens)
-            - Portal header, auth, footer (**ETH** donate, BMC, PAT)
-
-            ### WebView (by design)
-            - **Home** — arena + minimap (`/embed/home-arena`, `/embed/home-minimap`)
-            - **Mining** — FPV (`/embed/mining`)
-
-            > Sideload **debug** APK on this release — not the Play-signed AAB.
-            > Play Internal testing uses the signed AAB built locally (`npm run android:native:bundle`).
-
-            ### Install (sideload)
-            1. Download the attached APK (`mathsmine3-native-debug.apk` or `mathsmine3-*.apk`)
-            2. Sideload on a device/emulator (USB debugging or file install)
-            3. Package id: `xyz.mathsmine3.app`
-
-            See [docs/PLATFORMS.md](docs/PLATFORMS.md), [`apps/android-native/README.md`](apps/android-native/README.md), and [`PLAY_RELEASE.md`](apps/android-native/PLAY_RELEASE.md).
-
-            > Debug / sideload build — not a Play Store production signing release.
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
