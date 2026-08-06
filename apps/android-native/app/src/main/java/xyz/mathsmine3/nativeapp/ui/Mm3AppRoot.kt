@@ -24,6 +24,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -119,6 +120,10 @@ fun Mm3AppRoot(container: AppContainer) {
     val backStack by navController.currentBackStackEntryAsState()
     val currentRoute = backStack?.destination?.route
     var showEthDonate by remember { mutableStateOf(false) }
+
+    LaunchedEffect(uiPrefs.soundEnabled, uiPrefs.musicEnabled) {
+        SoundPrefsBridge.update(uiPrefs.soundEnabled, uiPrefs.musicEnabled)
+    }
 
     fun go(route: String) {
         if (route == Mm3Dest.Home.route) {

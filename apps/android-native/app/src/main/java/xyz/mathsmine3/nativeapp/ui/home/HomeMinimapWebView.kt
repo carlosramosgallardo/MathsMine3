@@ -16,6 +16,7 @@ import android.webkit.WebViewClient
 import xyz.mathsmine3.nativeapp.PortalOrigin
 import xyz.mathsmine3.nativeapp.PortalWebViewSecurity
 import xyz.mathsmine3.nativeapp.handleLocalPortalSsl
+import xyz.mathsmine3.nativeapp.ui.SoundPrefsBridge
 
 /**
  * Portal [HomeWorldMinimap] for the native home logo toggle.
@@ -48,6 +49,7 @@ class HomeMinimapWebView(context: Context) : WebView(context) {
         }
         addJavascriptInterface(NativeBridge(), "MM3NativeMinimap")
         webChromeClient = WebChromeClient()
+        SoundPrefsBridge.attach(this)
         webViewClient = object : WebViewClient() {
 
             override fun shouldOverrideUrlLoading(
@@ -64,6 +66,11 @@ class HomeMinimapWebView(context: Context) : WebView(context) {
                 super.onReceivedSslError(view, handler, error)
             }
 
+            override fun onPageStarted(view: WebView?, url: String?, favicon: android.graphics.Bitmap?) {
+                super.onPageStarted(view, url, favicon)
+                SoundPrefsBridge.injectInto(this@HomeMinimapWebView)
+            }
+
             override fun onPageFinished(view: WebView?, url: String?) {
                 super.onPageFinished(view, url)
                 if (usedFallback || url?.contains("/embed/home-minimap") != true) {
@@ -74,6 +81,7 @@ class HomeMinimapWebView(context: Context) : WebView(context) {
                         null,
                     )
                 }
+                SoundPrefsBridge.injectInto(this@HomeMinimapWebView)
             }
 
             override fun onReceivedHttpError(

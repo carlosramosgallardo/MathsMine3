@@ -13,6 +13,7 @@ import android.webkit.WebResourceRequest
 import xyz.mathsmine3.nativeapp.PortalOrigin
 import xyz.mathsmine3.nativeapp.PortalWebViewSecurity
 import xyz.mathsmine3.nativeapp.handleLocalPortalSsl
+import xyz.mathsmine3.nativeapp.ui.SoundPrefsBridge
 import java.net.URLEncoder
 
 /**
@@ -46,6 +47,7 @@ class HomeArenaWebView(context: Context) : WebView(context) {
             displayZoomControls = false
         }
         webChromeClient = WebChromeClient()
+        SoundPrefsBridge.attach(this)
         webViewClient = object : WebViewClient() {
 
             override fun shouldOverrideUrlLoading(
@@ -62,8 +64,14 @@ class HomeArenaWebView(context: Context) : WebView(context) {
                 super.onReceivedSslError(view, handler, error)
             }
 
+            override fun onPageStarted(view: WebView?, url: String?, favicon: android.graphics.Bitmap?) {
+                super.onPageStarted(view, url, favicon)
+                SoundPrefsBridge.injectInto(this@HomeArenaWebView)
+            }
+
             override fun onPageFinished(view: WebView?, url: String?) {
                 super.onPageFinished(view, url)
+                SoundPrefsBridge.injectInto(this@HomeArenaWebView)
                 injectArenaChrome()
                 arenaReady = true
             }
@@ -118,6 +126,8 @@ class HomeArenaWebView(context: Context) : WebView(context) {
             (function(){
               try {
                 $walletBlock
+                document.documentElement.classList.add('mm3-native-embed','mm3-native-app');
+                window.__MM3_NATIVE_APP__ = true;
                 var css = document.createElement('style');
                 css.id = 'mm3-native-arena-css';
                 css.textContent = `

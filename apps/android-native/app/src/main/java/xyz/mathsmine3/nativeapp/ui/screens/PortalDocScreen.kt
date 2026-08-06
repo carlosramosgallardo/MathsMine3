@@ -14,6 +14,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.viewinterop.AndroidView
 import xyz.mathsmine3.nativeapp.auth.Session
+import xyz.mathsmine3.nativeapp.ui.SoundPrefsBridge
 import xyz.mathsmine3.nativeapp.ui.theme.Mm3Colors
 
 /**
@@ -37,11 +38,17 @@ fun PortalDocScreen(
                     setSupportZoom(false)
                 }
                 webChromeClient = WebChromeClient()
+                SoundPrefsBridge.attach(this)
                 webViewClient = object : WebViewClient() {
                     override fun shouldOverrideUrlLoading(
                         view: WebView?,
                         request: WebResourceRequest?,
                     ): Boolean = false
+
+                    override fun onPageStarted(view: WebView?, startedUrl: String?, favicon: android.graphics.Bitmap?) {
+                        super.onPageStarted(view, startedUrl, favicon)
+                        SoundPrefsBridge.injectInto(this@apply)
+                    }
 
                     override fun onPageFinished(view: WebView?, finishedUrl: String?) {
                         super.onPageFinished(view, finishedUrl)
@@ -56,6 +63,8 @@ fun PortalDocScreen(
                             (function(){
                               $sessionJs
                               try {
+                                document.documentElement.classList.add('mm3-native-app');
+                                window.__MM3_NATIVE_APP__ = true;
                                 var css = document.createElement('style');
                                 css.id = 'mm3-native-doc-css';
                                 css.textContent = `
@@ -80,6 +89,7 @@ fun PortalDocScreen(
                             """.trimIndent(),
                             null,
                         )
+                        SoundPrefsBridge.injectInto(this@apply)
                     }
                 }
                 layoutParams = ViewGroup.LayoutParams(

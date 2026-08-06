@@ -15,6 +15,7 @@ import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import java.net.URLEncoder
+import xyz.mathsmine3.nativeapp.ui.SoundPrefsBridge
 
 /**
  * Live portal Header (ticker / pulse / clock / wallet row) as used on mobile web.
@@ -53,6 +54,7 @@ class PortalHeaderWebView @JvmOverloads constructor(
         }
         addJavascriptInterface(NativeBridge(), "MM3NativeHeader")
         webChromeClient = WebChromeClient()
+        SoundPrefsBridge.attach(this)
         webViewClient = object : WebViewClient() {
             override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
                 val uri = request?.url ?: return false
@@ -70,6 +72,7 @@ class PortalHeaderWebView @JvmOverloads constructor(
             override fun onPageStarted(view: WebView?, url: String?, favicon: android.graphics.Bitmap?) {
                 super.onPageStarted(view, url, favicon)
                 injectSession()
+                SoundPrefsBridge.injectInto(this@PortalHeaderWebView)
             }
 
             override fun onPageFinished(view: WebView?, url: String?) {
@@ -79,6 +82,7 @@ class PortalHeaderWebView @JvmOverloads constructor(
                     injectFallbackChrome()
                 }
                 injectHeightReporter()
+                SoundPrefsBridge.injectInto(this@PortalHeaderWebView)
             }
 
             override fun onReceivedHttpError(

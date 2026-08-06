@@ -16,6 +16,7 @@ import java.net.URLEncoder
 import xyz.mathsmine3.nativeapp.PortalOrigin
 import xyz.mathsmine3.nativeapp.PortalWebViewSecurity
 import xyz.mathsmine3.nativeapp.handleLocalPortalSsl
+import xyz.mathsmine3.nativeapp.ui.SoundPrefsBridge
 
 /**
  * Loads the real portal Mining FPV (Three.js MiningChain3DFPV) in a WebView.
@@ -51,6 +52,7 @@ class MiningWebView(context: Context) : WebView(context) {
             }
         }
         webChromeClient = WebChromeClient()
+        SoundPrefsBridge.attach(this)
         webViewClient = object : WebViewClient() {
 
             override fun shouldOverrideUrlLoading(
@@ -71,12 +73,14 @@ class MiningWebView(context: Context) : WebView(context) {
                 super.onPageStarted(view, url, favicon)
                 pageReady = false
                 injectSessionAndEmbedFlags()
+                SoundPrefsBridge.injectInto(this@MiningWebView)
             }
 
             override fun onPageFinished(view: WebView?, url: String?) {
                 super.onPageFinished(view, url)
                 injectSessionAndEmbedFlags()
                 injectNativeChrome()
+                SoundPrefsBridge.injectInto(this@MiningWebView)
                 pageReady = true
                 onReady?.invoke()
             }
@@ -156,6 +160,7 @@ class MiningWebView(context: Context) : WebView(context) {
               try {
                 document.documentElement.classList.add('mm3-native-embed');
                 window.__MM3_NATIVE_EMBED__ = true;
+                window.__MM3_NATIVE_APP__ = true;
                 $walletBlock
               } catch (e) {}
             })();
