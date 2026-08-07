@@ -59,16 +59,21 @@ jobs:
         env:
           # BuildConfig needs these; empty is fine for analysis (compile still runs).
           NEXT_PUBLIC_GOOGLE_CLIENT_ID: 'codeql-placeholder.apps.googleusercontent.com'
+          # Kotlin Gradle plugin defaults to in-process kotlinc — CodeQL's tracer
+          # only sees a separate process, so force out-of-process compilation.
+          ORG_GRADLE_PROJECT_kotlin.compiler.execution.strategy: out-of-process
         run: |
           if [[ ! -f local.properties ]]; then
             echo "sdk.dir=$ANDROID_HOME" > local.properties
           fi
+          # Also pin in gradle.properties for this job (property env above can be flaky).
+          echo 'kotlin.compiler.execution.strategy=out-of-process' >> gradle.properties
           # Force a real kotlinc run — cache hits hide sources from the CodeQL tracer.
           ./gradlew :app:compileDebugKotlin \
             --no-daemon \
             --no-build-cache \
-            --rerun-tasks
-
+            --rerun-tasks \
+            -Dkotlin.compiler.execution.strategy=out-of-process
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v3
         with:
