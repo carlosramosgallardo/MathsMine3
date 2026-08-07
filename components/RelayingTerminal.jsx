@@ -524,7 +524,7 @@ export default function RelayingTerminal({ accent = '#22d3ee' }) {
     const sessionId = sessionStorage.getItem('mm3-anon-session');
     const fallbackId = sessionId?.startsWith('anon:')
       ? sessionId
-      : `anon:${Math.random().toString(36).slice(2, 8)}`;
+      : `anon:${crypto.getRandomValues(new Uint32Array(1))[0].toString(36)}`;
     setAnonId(fallbackId);
     try {
       const cached = JSON.parse(sessionStorage.getItem(META_KEY) || '{}');
