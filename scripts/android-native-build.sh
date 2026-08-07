@@ -11,7 +11,7 @@ if [[ ! -f local.properties ]]; then
   echo "sdk.dir=$ANDROID_HOME" > local.properties
 fi
 if [[ ! -x ./gradlew ]]; then
-  /home/crg/.local/gradle/gradle-8.7/bin/gradle wrapper --gradle-version 8.7
+  /home/crg/.local/gradle/gradle-8.7/bin/gradle wrapper --gradle-version 8.9
 fi
 ./gradlew assembleDebug --no-daemon
 mkdir -p dist

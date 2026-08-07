@@ -73,14 +73,14 @@ if (supabaseUrl.isNotBlank()) {
 
 android {
     namespace = "xyz.mathsmine3.nativeapp"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "xyz.mathsmine3.app"
         minSdk = 26
-        targetSdk = 35
-        versionCode = 33
-        versionName = "0.1.0-beta.7"
+        targetSdk = 36
+        versionCode = 34
+        versionName = "0.1.0-beta.8"
         buildConfigField("String", "API_BASE_URL", "\"https://mathsmine3.xyz\"")
         buildConfigField("String", "GOOGLE_CLIENT_ID", "\"${escapeForBuildConfig(googleClientId)}\"")
         buildConfigField("String", "SUPABASE_URL", "\"${escapeForBuildConfig(supabaseUrl)}\"")
