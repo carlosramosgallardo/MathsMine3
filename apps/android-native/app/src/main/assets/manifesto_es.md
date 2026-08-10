@@ -1,5 +1,3 @@
-<a name="español"></a>
-
 # MathsMine3
 
 > Matemáticas a contrarreloj. Mining ficticio. Identidad de wallet. Economía terminal. Mundo 3D multijugador en tiempo real.
@@ -30,7 +28,7 @@
 - [Squeezing](#squeezing)
 - [Relaying](#relaying)
 - [Ranking](#ranking)
-- [Bots](#bots-1)
+- [Bots](#bots)
 - [API](#api)
 - [Análisis de Seguridad](#analisis-de-seguridad)
 - [Catálogo de Emojis](#catalogo-de-emojis)

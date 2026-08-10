@@ -1,5 +1,3 @@
-<a name="english"></a>
-
 # MathsMine3
 
 > Timed math. Fictional mining. Wallet identity. Terminal economy. Real-time 3D multiplayer world.

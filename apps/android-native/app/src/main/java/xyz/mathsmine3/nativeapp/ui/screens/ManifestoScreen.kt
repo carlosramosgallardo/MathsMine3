@@ -5,26 +5,32 @@ import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.ClickableText
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -32,12 +38,14 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import java.text.Normalizer
+import kotlinx.coroutines.launch
 import xyz.mathsmine3.nativeapp.ui.components.Mm3Panel
-import xyz.mathsmine3.nativeapp.ui.components.Mm3Screen
+import xyz.mathsmine3.nativeapp.ui.components.mm3PortalBackground
 import xyz.mathsmine3.nativeapp.ui.theme.Mm3Colors
 
 private sealed class MdBlock {
-    data class H(val level: Int, val text: String) : MdBlock()
+    data class H(val level: Int, val text: String, val id: String) : MdBlock()
     data class P(val text: String) : MdBlock()
     data class Li(val ordered: Boolean, val text: String) : MdBlock()
     data class Code(val text: String) : MdBlock()
@@ -50,30 +58,93 @@ private sealed class MdBlock {
 fun ManifestoScreen(language: String = "en") {
     val es = language.startsWith("es", ignoreCase = true)
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val listState = rememberLazyListState()
+
     val blocks = remember(es) {
         val asset = if (es) "manifesto_es.md" else "manifesto_en.md"
         parseMarkdown(loadAsset(context, asset))
     }
+    // Map every plausible anchor form → LazyColumn item index (header offset = +2).
+    val anchorToIndex = remember(blocks) {
+        val map = linkedMapOf<String, Int>()
+        blocks.forEachIndexed { i, block ->
+            if (block is MdBlock.H) {
+                val itemIndex = i + 2
+                listOf(block.id, slugify(block.text), slugifyKeepAccents(block.text))
+                    .distinct()
+                    .forEach { key -> map.putIfAbsent(key, itemIndex) }
+            }
+        }
+        map
+    }
 
-    Mm3Screen(
-        title = if (es) "MANIFIESTO" else "MANIFESTO",
-        subtitle = if (es) "guía completa del juego" else "full game guide",
+    fun jumpToAnchor(raw: String) {
+        val key = raw.removePrefix("#").trim()
+        val stripped = key.replace(Regex("-\\d+$"), "")
+        val index = anchorToIndex[key]
+            ?: anchorToIndex[slugify(key)]
+            ?: anchorToIndex[slugifyKeepAccents(key)]
+            ?: if (stripped != key) {
+                anchorToIndex[stripped]
+                    ?: anchorToIndex[slugify(stripped)]
+                    ?: anchorToIndex[slugifyKeepAccents(stripped)]
+            } else {
+                null
+            }
+            ?: return
+        scope.launch {
+            listState.animateScrollToItem(index)
+        }
+    }
+
+    LazyColumn(
+        state = listState,
+        modifier = Modifier
+            .fillMaxSize()
+            .mm3PortalBackground(),
+        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        Mm3Panel(accent = Color(0xFF94A3B8)) {
+        item {
             Text(
-                if (es) {
-                    "Reglas, mecánicas y filosofía de MathsMine3 — extraídas del README canónico."
-                } else {
-                    "Rules, mechanics, and philosophy of MathsMine3 — from the canonical README."
-                },
+                if (es) "▸ MANIFIESTO" else "▸ MANIFESTO",
+                style = TextStyle(
+                    fontFamily = FontFamily.Monospace,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 18.sp,
+                    color = Mm3Colors.Cyan,
+                    letterSpacing = 1.sp,
+                ),
+            )
+            Text(
+                if (es) "guía completa del juego" else "full game guide",
                 color = Mm3Colors.Muted,
                 fontFamily = FontFamily.Monospace,
                 fontSize = 11.sp,
-                lineHeight = 15.sp,
             )
         }
-
-        blocks.forEach { block ->
+        item {
+            Mm3Panel(accent = Color(0xFF94A3B8)) {
+                Text(
+                    if (es) {
+                        "Reglas, mecánicas y filosofía de MathsMine3 — extraídas del README canónico."
+                    } else {
+                        "Rules, mechanics, and philosophy of MathsMine3 — from the canonical README."
+                    },
+                    color = Mm3Colors.Muted,
+                    fontFamily = FontFamily.Monospace,
+                    fontSize = 11.sp,
+                    lineHeight = 15.sp,
+                )
+            }
+        }
+        itemsIndexed(blocks, key = { i, b ->
+            when (b) {
+                is MdBlock.H -> "h-${b.id}-$i"
+                else -> "b-$i"
+            }
+        }) { _, block ->
             when (block) {
                 is MdBlock.H -> {
                     val color = when (block.level) {
@@ -88,26 +159,28 @@ fun ManifestoScreen(language: String = "en") {
                         3 -> 13.sp
                         else -> 12.sp
                     }
-                    Spacer(Modifier.height(8.dp))
-                    Text(
-                        stripInlineMarkers(block.text),
-                        color = color,
-                        fontFamily = FontFamily.Monospace,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = size,
-                        letterSpacing = if (block.level <= 2) 0.8.sp else 0.sp,
-                    )
-                    if (block.level == 2) {
-                        Spacer(Modifier.height(2.dp))
-                        Spacer(
-                            Modifier
-                                .fillMaxWidth()
-                                .height(1.dp)
-                                .background(color.copy(alpha = 0.25f)),
+                    Column(Modifier.fillMaxWidth()) {
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            stripInlineMarkers(block.text),
+                            color = color,
+                            fontFamily = FontFamily.Monospace,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = size,
+                            letterSpacing = if (block.level <= 2) 0.8.sp else 0.sp,
                         )
+                        if (block.level == 2) {
+                            Spacer(Modifier.height(2.dp))
+                            Spacer(
+                                Modifier
+                                    .fillMaxWidth()
+                                    .height(1.dp)
+                                    .background(color.copy(alpha = 0.25f)),
+                            )
+                        }
                     }
                 }
-                is MdBlock.P -> InlineMdText(block.text)
+                is MdBlock.P -> InlineMdText(block.text, onAnchor = ::jumpToAnchor)
                 is MdBlock.Li -> {
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         Text(
@@ -116,7 +189,7 @@ fun ManifestoScreen(language: String = "en") {
                             fontFamily = FontFamily.Monospace,
                             fontSize = 12.sp,
                         )
-                        InlineMdText(block.text, modifier = Modifier.weight(1f))
+                        InlineMdText(block.text, modifier = Modifier.weight(1f), onAnchor = ::jumpToAnchor)
                     }
                 }
                 is MdBlock.Code -> {
@@ -167,41 +240,50 @@ fun ManifestoScreen(language: String = "en") {
                     }
                 }
                 MdBlock.Hr -> {
-                    Spacer(Modifier.height(6.dp))
-                    Spacer(
-                        Modifier
-                            .fillMaxWidth()
-                            .height(1.dp)
-                            .background(Mm3Colors.Muted.copy(alpha = 0.25f)),
-                    )
-                    Spacer(Modifier.height(6.dp))
+                    Column {
+                        Spacer(Modifier.height(6.dp))
+                        Spacer(
+                            Modifier
+                                .fillMaxWidth()
+                                .height(1.dp)
+                                .background(Mm3Colors.Muted.copy(alpha = 0.25f)),
+                        )
+                        Spacer(Modifier.height(6.dp))
+                    }
                 }
             }
         }
+        item { Spacer(Modifier.height(24.dp)) }
     }
 }
 
 @Composable
-private fun InlineMdText(raw: String, modifier: Modifier = Modifier) {
+private fun InlineMdText(
+    raw: String,
+    modifier: Modifier = Modifier,
+    onAnchor: (String) -> Unit = {},
+) {
     val context = LocalContext.current
     val annotated = remember(raw) { annotateInline(raw) }
     ClickableText(
         text = annotated,
         modifier = modifier.padding(vertical = 2.dp),
-        style = androidx.compose.ui.text.TextStyle(
+        style = TextStyle(
             color = Mm3Colors.Text,
             fontFamily = FontFamily.Monospace,
             fontSize = 12.sp,
             lineHeight = 17.sp,
         ),
         onClick = { offset ->
-            annotated.getStringAnnotations("URL", offset, offset)
-                .firstOrNull()
-                ?.let { ann ->
-                    runCatching {
-                        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(ann.item)))
-                    }
+            annotated.getStringAnnotations("ANCHOR", offset, offset).firstOrNull()?.let { ann ->
+                onAnchor(ann.item)
+                return@ClickableText
+            }
+            annotated.getStringAnnotations("URL", offset, offset).firstOrNull()?.let { ann ->
+                runCatching {
+                    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(ann.item)))
                 }
+            }
         },
     )
 }
@@ -209,9 +291,49 @@ private fun InlineMdText(raw: String, modifier: Modifier = Modifier) {
 private fun loadAsset(context: Context, name: String): String =
     context.assets.open(name).bufferedReader().use { it.readText() }
 
+/** Strip accents — matches web ManifestoClient.slugify. */
+private fun slugify(text: String): String {
+    var t = text
+        .replace(Regex("`([^`]+)`"), "$1")
+        .replace(Regex("\\[([^\\]]+)\\]\\([^)]+\\)"), "$1")
+        .lowercase()
+    t = Normalizer.normalize(t, Normalizer.Form.NFD)
+        .replace(Regex("\\p{Mn}+"), "")
+    return t
+        .replace(Regex("[^a-z0-9\\s-]"), "")
+        .trim()
+        .replace(Regex("\\s+"), "-")
+}
+
+/** Keep accents — matches GitHub-style anchors used in the Spanish index. */
+private fun slugifyKeepAccents(text: String): String {
+    val t = text
+        .replace(Regex("`([^`]+)`"), "$1")
+        .replace(Regex("\\[([^\\]]+)\\]\\([^)]+\\)"), "$1")
+        .lowercase()
+        .trim()
+    return t
+        .replace(Regex("[^\\p{L}\\p{N}\\s-]"), "")
+        .replace(Regex("\\s+"), "-")
+}
+
 private fun parseMarkdown(src: String): List<MdBlock> {
-    val lines = src.replace("\r\n", "\n").split('\n')
+    val lines = src.replace("\r\n", "\n").split('\n').filter { line ->
+        val trimmed = line.trim()
+        when {
+            trimmed.isEmpty() -> true
+            // Language section anchors left over from bilingual README extraction.
+            trimmed.matches(Regex("""^<a\s+name=["'](?:english|español|espanol)["']\s*></a>$""", RegexOption.IGNORE_CASE)) -> false
+            trimmed.matches(Regex("""^<a\s+name=["'][^"']+["']\s*></a>$""", RegexOption.IGNORE_CASE)) -> false
+            // Other raw HTML leftovers.
+            trimmed.startsWith("<") && trimmed.endsWith(">") && !trimmed.startsWith("```") -> false
+            trimmed.matches(Regex("""^\*\*Live:\*\*.*""")) -> false
+            trimmed.matches(Regex("""^\[!\[MathsMine3 Portal\]\([^)]+\)\]\([^)]+\)$""")) -> false
+            else -> true
+        }
+    }
     val out = mutableListOf<MdBlock>()
+    val usedSlugs = mutableMapOf<String, Int>()
     var i = 0
     while (i < lines.size) {
         val line = lines[i]
@@ -233,7 +355,12 @@ private fun parseMarkdown(src: String): List<MdBlock> {
             }
             Regex("^#{1,4}\\s+").containsMatchIn(line) -> {
                 val m = Regex("^(#{1,4})\\s+(.*)$").find(line)!!
-                out += MdBlock.H(m.groupValues[1].length, m.groupValues[2].trim())
+                val text = m.groupValues[2].trim()
+                val base = slugify(text).ifBlank { slugifyKeepAccents(text) }
+                val n = usedSlugs[base] ?: 0
+                usedSlugs[base] = n + 1
+                val id = if (n == 0) base else "$base-$n"
+                out += MdBlock.H(m.groupValues[1].length, text, id)
                 i++
             }
             line.trimStart().startsWith("> ") || line.trim() == ">" -> {
@@ -270,7 +397,6 @@ private fun parseMarkdown(src: String): List<MdBlock> {
                     buf.append(' ').append(lines[i].trim())
                     i++
                 }
-                // skip images-only paragraphs for native
                 val text = buf.toString().trim()
                 val imageOnly = text.startsWith("![") ||
                     text.startsWith("[![") ||
@@ -341,7 +467,11 @@ private fun annotateInline(text: String): AnnotatedString = buildAnnotatedString
                         fontWeight = FontWeight.Bold,
                     ),
                 ) { append(label) }
-                addStringAnnotation("URL", url, start, length)
+                if (url.startsWith("#")) {
+                    addStringAnnotation("ANCHOR", url.removePrefix("#"), start, length)
+                } else {
+                    addStringAnnotation("URL", url, start, length)
+                }
             }
             strong -> withStyle(SpanStyle(fontWeight = FontWeight.Bold, color = Mm3Colors.Text)) {
                 append(best.groupValues[1])
