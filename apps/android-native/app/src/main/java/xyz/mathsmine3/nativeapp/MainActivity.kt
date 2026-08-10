@@ -1,15 +1,17 @@
 package xyz.mathsmine3.nativeapp
 
 import android.content.Intent
+import android.graphics.Color
 import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Color as ComposeColor
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.launch
 import xyz.mathsmine3.nativeapp.auth.GoogleAuthManager
@@ -20,13 +22,16 @@ import xyz.mathsmine3.nativeapp.ui.theme.Mm3Theme
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
+        enableEdgeToEdge(
+            statusBarStyle = SystemBarStyle.dark(Color.TRANSPARENT),
+            navigationBarStyle = SystemBarStyle.dark(Color.TRANSPARENT),
+        )
         val app = application as Mm3App
         handleAuthDeepLink(intent, app.container)
 
         setContent {
             Mm3Theme {
-                Surface(modifier = Modifier.fillMaxSize(), color = Color(0xFF070B0F)) {
+                Surface(modifier = Modifier.fillMaxSize(), color = ComposeColor(0xFF070B0F)) {
                     Mm3AppRoot(container = app.container)
                 }
             }

@@ -79,8 +79,8 @@ android {
         applicationId = "xyz.mathsmine3.app"
         minSdk = 26
         targetSdk = 36
-        versionCode = 34
-        versionName = "0.1.0-beta.8"
+        versionCode = 35
+        versionName = "0.1.0-beta.9"
         buildConfigField("String", "API_BASE_URL", "\"https://mathsmine3.xyz\"")
         buildConfigField("String", "GOOGLE_CLIENT_ID", "\"${escapeForBuildConfig(googleClientId)}\"")
         buildConfigField("String", "SUPABASE_URL", "\"${escapeForBuildConfig(supabaseUrl)}\"")
@@ -209,7 +209,7 @@ dependencies {
 
     implementation("androidx.security:security-crypto:1.1.0-alpha06")
 
-    implementation("com.google.android.filament:filament-android:1.51.0")
-    implementation("com.google.android.filament:filament-utils-android:1.51.0")
-    implementation("com.google.android.filament:gltfio-android:1.51.0")
+    implementation("com.google.android.filament:filament-android:1.74.0")
+    implementation("com.google.android.filament:filament-utils-android:1.74.0")
+    implementation("com.google.android.filament:gltfio-android:1.74.0")
 }
