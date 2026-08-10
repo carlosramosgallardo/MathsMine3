@@ -73,7 +73,7 @@ MathsMine3 turns math into pressure, reward, memory, risk, and ritual.
 
 It is not a classroom skin. It is a terminal-world game: train under time pressure, mine the 1000-block 3D world, climb ranks, lose level when you fail, trade inside a fictional exchange, collect NFTJIs, fire Mining commands, take part in Relaying chat, and return after every reset sharper than before.
 
-The useful idea is simple: **math becomes action**. Every problem solved is not just a score event; it moves a wallet, a rank, a fictional market, and a shared public state. The 3D world has a finish line: 1000 blocks, one winner.
+The useful idea is simple: **math becomes action**. Every problem solved is not just a score event; it moves a wallet, a rank, a fictional market, and a shared public state. The 1000-block chain is a shared scoreboard that fills, resets, and fills again — not an ending.
 
 ---
 
@@ -97,7 +97,7 @@ You rank up by living in the world:
 
 **Level wall.** Most blocks in the upper half of the 28×28 grid require wallet level 80–100 (LEGEND rank). At level 100 you have 1500 ms per problem. One wrong answer at level 95+ costs 5 levels. Recovering takes at least three consecutive correct answers under that same pressure. Getting there and *staying* there is the first filter most wallets never pass.
 
-**Block scarcity.** Each of the 980 free chain cells is mined once and never again. Bots compete actively. Any cell another wallet claims first is gone from your count permanently. The 20 NFTJI cells can be owned simultaneously by multiple wallets — but only while you hold the NFTJI; selling it removes that cell from your count.
+**Block scarcity.** Each of the 980 free chain cells can only be held by one wallet at a time, but demine cycles reopen cleared blocks. Bots compete actively. Any open cell another wallet claims first is gone from your count until the next reset opens it again. The 20 NFTJI cells can be owned simultaneously by multiple wallets — but only while you hold the NFTJI; selling it removes that cell from your count.
 
 **Daily drill cap.** The base limit is 100 Training games per day — rising +1 for each all-time Trade EXEC. Even flawless play only translates to a handful of qualifying blocks per session, because qualifying for late-chain blocks requires both your wallet level and the shared global MM3 value to meet escalating thresholds at the same time.
 
@@ -107,7 +107,7 @@ You rank up by living in the world:
 
 **Rival pressure.** Without pool cover, any wallet that owns a Mining NFTJI can fire its daily command and drain rivals' fiat or MM3 in a single shot. Those losses can erase the reserves needed to meet a block threshold or rebuy MM3 at the exchange.
 
-**The real scale.** A live 3D world — 1000 block cells on the ground floor of the MM3 BLOCK CHAIN. 980 chain blocks glow as open targets when unclaimed; once mined, sealed permanently by whoever got there first. 20 NFTJI blocks float in amber: free until purchased, owned only as long as you hold the NFTJI. Other wallets walk the same world as avatars in real time — racing the same open chain blocks, able to attack you directly. Hundreds of timed training problems under maximum pressure. Days or weeks of sustained LEGEND-level performance. Active bots. World-state conditions outside your control. Rivals targeting your economy. The wallet that holds #1 will have earned it — and has to keep earning it, because the ladder never closes.
+**The real scale.** A live 3D world — 1000 block cells on the ground floor of the MM3 BLOCK CHAIN. 980 chain blocks glow as open targets when unclaimed; once mined, they stay sealed until a demine cycle clears them. 20 NFTJI blocks float in amber: free until purchased, owned only as long as you hold the NFTJI. Other wallets walk the same world as avatars in real time — racing the same open chain blocks, able to attack you directly. Hundreds of timed training problems under maximum pressure. Days or weeks of sustained LEGEND-level performance. Active bots. World-state conditions outside your control. Rivals targeting your economy. The wallet that holds #1 will have earned it — and has to keep earning it, because the ladder never closes.
 
 ---
 
@@ -119,7 +119,7 @@ You rank up by living in the world:
 | World stats | Watch 🔥 War, 🌪️ Nature, and 🎲 Dice. Dice is the most actionable: during its ~15 min/hour window, trading commissions and NFTJI drop rates shift. Time your trades and Mining actions around it. |
 | Training | Answer math problems as fast and accurately as possible. Aim for 25 correct answers per day. This earns MM3 and raises your level — both required to mine the board. Speed earns more MM3; a correct but slow answer earns negative MM3. Wrong answers cost levels — slow to recover at high tiers. |
 | Trading | Sell MM3 to build fiat reserves. Do 5 EXECs per day for the TRADING daily reward and a permanent +1 training slot. Buy rate is 18% above sell rate, so sell into strength and only rebuy when needed. |
-| Ranking and Pools | Your Mining % across all 1000 blocks is the only number that decides the winner — watch it. Join a pool: pool members are immune to each other's Mining commands, which matters more as penalties scale up with NFTJI level. |
+| Ranking and Pools | Your Mining % across all 1000 blocks is the main ranking column — watch it climb and fall. Join a pool: pool members are immune to each other's Mining commands, which matters more as penalties scale up with NFTJI level. |
 | Squeeze | Once in a pool, initiate Squeezes from the Squeezing page to earn fiat and drop Squeeze NFTJIs. Watch 🔥 War and 🎲 Dice before launching — they directly shift the outcome formula. |
 | Mining world | A **five-map 3D world** (Speculation Plaza + four peripheral maps) with **1000 minable blocks** (980 chain + 20 NFTJI), each map holding **200 blocks** with tiered requirements. Explore in first-person view with WASD/joystick, jump, PvP, and map gateways. Mine via Mining NFTJI purchase, `/mine block #XXX` in Relaying, or by solving `Ω(α, β, γ)`. |
 | Relaying | Your main action terminal. Type `/mine block #XXX` to attempt a chain cell. Fire your daily Mining command if you own a Mining NFTJI. Watch events, penalties, and world state shifts here in real time. |
@@ -381,7 +381,7 @@ The modifier is read live at the moment each operation executes (`getDiceState()
 
 ## Mining
 
-> Three ways to mine the 3D world: (1) buy a Mining NFTJI — that NFTJI block counts in your Mining % while you own it, and grants a daily attack command; (2) mine free chain blocks permanently with `/mine block #XXX` in Relaying; (3) submit the correct `Ω(α, β, γ)` for an immediate win. Selling an NFTJI removes that block from your count.
+> Three ways to mine the 3D world: (1) buy a Mining NFTJI — that NFTJI block counts in your Mining % while you own it, and grants a daily attack command; (2) mine free chain blocks with `/mine block #XXX` in Relaying — they stay yours until a demine cycle clears them; (3) submit the correct `Ω(α, β, γ)` to trigger **Demine Mode** (see [Solve the Chain](#solve-the-chain)). Selling an NFTJI removes that block from your count.
 
 The Mining world is a **five-map 3D cross layout** connected by gateway corridors. **Map 1 (Speculation Plaza)** sits at the centre; **maps 2–5** surround it (north / south / east / west). Each map is a full **56×56 playable island** with its own venue art, obstacles, and interactives. The logical chain has **1000 indices** (`#000`–`#3E7`): **980 regular blocks** plus **20 NFTJI blocks**. Blocks are **distributed 200 per map** by chain index — lower indices (and lower requirements) on M1, higher on M5. Explore in **first-person** view: WASD or joystick to move, spacebar to jump, USB-staff swings for PvP and boss fights. All 1000 blocks count toward each wallet's Mining %. An ambient soundtrack loops inside the 3D mine and follows the portal-wide sound toggle.
 
@@ -440,10 +440,10 @@ Owning (or equipping, for Squeeze NFTJIs) certain NFTJIs grants passive skills i
 
 Two block types:
 
-| Block type | Count | How mined | Permanent? |
+| Block type | Count | How mined | Cleared by demine? |
 |---|---:|---|---|
 | NFTJI blocks | 20 | Buy the NFTJI | No — lost when sold |
-| Chain blocks | 980 | `/mine block #XXX` in Relaying | Yes — locked to first miner |
+| Chain blocks | 980 | `/mine block #XXX` in Relaying | Yes — removed during Demine Mode |
 
 | Rail | Price Basis | Main Use |
 |---|---|---|
@@ -476,14 +476,14 @@ The 3D mining HUD displays a **MM3 BLOCK CHAIN** stats panel with two block type
 
 | Counter | Label | Mined (X) | Free (Y) |
 |---|---|---|---|
-| Regular Blocks | `Regular Blocks X / Y` | Cell has an owner and is **not** an NFTJI — permanently locked to first miner | Cell has no owner and is **not** an NFTJI — never yet mined |
+| Regular Blocks | `Regular Blocks X / Y` | Cell has an owner and is **not** an NFTJI — locked until demine clears it | Cell has no owner and is **not** an NFTJI — open for mining |
 | NFTJI Blocks | `NFTJI Blocks X / Y` | Cell is an NFTJI and is **currently owned** by at least 1 wallet | Cell is an NFTJI with **no current owner** (was resold or never bought) |
 
-**Regular Blocks** are mono-owner: once a wallet mines one, that cell is locked permanently. The owner never changes and the block can never be freed. There is no resell mechanic for Regular Blocks.
+**Regular Blocks** are mono-owner between demine cycles: once a wallet mines one, that cell stays theirs until **Demine Mode** randomly removes it. There is no resell mechanic for Regular Blocks.
 
 **NFTJI Blocks** are multi-owner over time: any wallet can buy an NFTJI block, resell it (removing their ownership), and a different wallet can buy it later. The counter reflects the **current** owner state — if at least 1 wallet holds it right now, it counts as mined; if no wallet holds it, it counts as free.
 
-> Open the block card to see its requirements (min level + required MM3 global value). When both conditions are met, go to Relaying and type `/mine block #XXX`. First wallet to meet the requirement claims the block permanently.
+> Open the block card to see its requirements (min level + required MM3 global value). When both conditions are met, go to Relaying and type `/mine block #XXX`. First wallet to meet the requirement claims the block until demine reopens it.
 
 Cells that are not fixed Mining NFTJIs are **open blocks**. They are not bought, sold, resold, linked to YouTube, or tied to Mining formulas. Instead, they can be mined from Relaying with:
 
@@ -493,10 +493,10 @@ Cells that are not fixed Mining NFTJIs are **open blocks**. They are not bought,
 
 When the first wallet that satisfies the requirement mines a block:
 
-- The block becomes a permanent **mined block**.
+- The block becomes a **mined block** (held until demine).
 - Its color freezes on the board.
 - The miner wallet is stored as the block owner for that cell.
-- A new immutable chain segment is appended:
+- A new chain segment is appended:
 
 ```txt
 #wallet#mined_block#mm3_value_in_hex
@@ -516,7 +516,7 @@ The 3D mining world shows **MM3 BLOCK CHAIN IN PROGRESS** with a percentage:
 (mined free blocks + distinct Mining NFTJIs currently owned) / 1000
 ```
 
-All 1000 blocks count. Chain blocks are permanently mined; NFTJI blocks count only while at least one wallet owns them. When all 1000 blocks are covered, the chain reaches 100% and the generated code becomes final game history.
+All 1000 blocks count. Chain blocks stay mined until a demine cycle clears them; NFTJI blocks count only while at least one wallet owns them. When all 1000 blocks are covered, the chain reaches 100%, **Demine Mode** activates, and the generated code is archived before the board opens again.
 
 > **NFTJI entries in the chain display:** when the first wallet buys a Mining NFTJI (no chain entry for that cell exists yet), the buyer's wallet address and the current global MM3 value are appended to the chain — same format as a free-mined block. If the last owner sells (nobody holds it anymore), that entry is removed from the chain. NFTJI entries appear in the chain string alongside free-mined blocks but are **not** counted in the coverage percentage — their board coverage is tracked separately through active NFTJI ownership.
 
@@ -558,7 +558,7 @@ The success trace is stored in `mm3_relaying_messages` as `kind=system`, `tone=m
 MM3 BLOCK CHAIN IN PROGRESS >> mined #029 by 0xa...123 >> 1/980 0.10% >> #0xabc...#029#D6D8C0
 ```
 
-> **Note:** the `1/980` counter tracks **free chain blocks only**. The chain string may also contain NFTJI entries (see above), but those are excluded from this counter — their coverage is tracked via active ownership. Board completeness for the win condition = 980 free chain blocks mined + all 20 Mining NFTJIs currently owned.
+> **Note:** the `1/980` counter tracks **free chain blocks only**. The chain string may also contain NFTJI entries (see above), but those are excluded from this counter — their coverage is tracked via active ownership. Full coverage (980 free chain blocks mined + all 20 Mining NFTJIs currently owned) triggers **Demine Mode** — see [Solve the Chain](#solve-the-chain).
 
 ---
 
@@ -582,14 +582,14 @@ The three live inputs are captured at the **exact moment** you submit. The funct
 - **Answer range:** integer from `1` to `γ` (minimum 50, shown live on the card).
 - **Bots do not participate** — this is a human-only challenge.
 
-**Win conditions (first to trigger ends the game):**
+**What triggers Demine Mode (the chain never ends the game):**
 
-| Condition | Winner |
+| Trigger | What happens |
 |---|---|
-| A wallet submits the correct `Ω(α, β, γ)` | That wallet — immediate win |
-| All 1000 board cells are covered (980 chain blocks mined + all 20 NFTJIs owned) | Wallet with the highest Mining % (tie-break: earliest last chain block) |
+| A wallet submits the correct `Ω(α, β, γ)` | That wallet is recorded as solver, auto-mines remaining blocks, **Demine Mode** starts |
+| All 1000 board cells are covered (980 chain blocks mined + all 20 NFTJIs owned) | The top Mining % wallet is credited as solver; **Demine Mode** starts |
 
-In both cases the board locks, all cells are shown as sealed, the ticker announces the winner, and the game is permanently over.
+**Demine Mode** is a shared ritual on Map 1: hit the Chain Node for 1 MM3 per hit (100 hits total). Each hit removes mined blocks at random. When demine finishes, the chain resets to an open state and mining resumes — the world keeps running. Solving Ω is a legendary flex; filling the chain is a community milestone. Neither ends MathsMine3.
 
 The values of α, β, and γ are visible on the card in real time. The rest is up to you.
 
@@ -802,11 +802,11 @@ Two **Kernel Panic** chips on the landing page expose a global chain reset comma
 
 ## Ranking
 
-> Your Mining % is the only number that decides who wins. Everything else — level, MM3 balance, NFTJIs — is context that explains why you are where you are.
+> Your Mining % is the headline ranking column. Everything else — level, MM3 balance, NFTJIs — is context that explains why you are where you are.
 
-Ranking is public memory for the game and defines its end state.
+Ranking is public memory for the game — a live leaderboard, not a finish line.
 
-The first ranking column is **Mining %**: each wallet's share of the 1000-block 3D world — permanently mined chain blocks plus any NFTJI blocks currently owned. **Ranking sorts by this column.** Win paths: be at #1 when all 1000 blocks are covered, or submit the correct `Ω(α, β, γ)` for an immediate win — see [Objective](#objective) and [Solve the Chain](#solve-the-chain).
+The first ranking column is **Mining %**: each wallet's share of the 1000-block 3D world — currently mined chain blocks plus any NFTJI blocks currently owned. **Ranking sorts by this column.** Reaching 100% coverage or solving `Ω(α, β, γ)` triggers **Demine Mode** and a chain reset cycle, but the rankings and the world continue — see [Objective](#objective) and [Solve the Chain](#solve-the-chain).
 
 Pool ranking sums the Mining % of current members.
 
@@ -1153,7 +1153,7 @@ MathsMine3 convierte las matemáticas en presión, recompensa, memoria, riesgo y
 
 No es una clase con skin. Es un juego-mundo de terminal: entrena bajo presión, mina los 1000 bloques del mundo 3D, sube de rango, pierde nivel cuando fallas, comercia dentro de un exchange ficticio, colecciona NFTJIs, dispara comandos de Mining, participa en el chat de Relaying y vuelve después de cada reset más afilado que antes.
 
-La idea útil es simple: **la matemática se convierte en acción**. Cada problema resuelto no es solo puntuación; mueve una wallet, un rango, un mercado ficticio y un estado público compartido. El mundo 3D tiene una línea de llegada: 1000 bloques, un solo ganador.
+La idea útil es simple: **la matemática se convierte en acción**. Cada problema resuelto no es solo puntuación; mueve una wallet, un rango, un mercado ficticio y un estado público compartido. La cadena de 1000 bloques es un marcador compartido que se llena, se resetea y se vuelve a llenar — no un final.
 
 ---
 
@@ -1177,7 +1177,7 @@ Subes de posición viviendo el mundo:
 
 **Barrera de nivel.** La mayoría de los bloques de la mitad superior del grid 28×28 requieren nivel de wallet 80–100 (rango LEGEND). Al nivel 100 tienes 1500 ms por problema. Un fallo en el nivel 95+ cuesta 5 niveles. Recuperarse exige al menos tres respuestas correctas consecutivas bajo esa misma presión. Llegar ahí *y mantenerse* es el primer filtro que la mayoría de wallets nunca superan.
 
-**Escasez de bloques.** Cada una de las 980 celdas libres se mina una sola vez y nunca vuelve a estar disponible. Los bots compiten activamente. Cualquier celda que otra wallet reclame primero desaparece de tu conteo para siempre. Las 20 celdas de NFTJI pueden ser poseídas simultáneamente por varias wallets, pero solo mientras tengas el NFTJI — si lo vendes, esa celda sale de tu conteo.
+**Escasez de bloques.** Cada una de las 980 celdas libres solo puede estar en manos de una wallet a la vez, pero los ciclos de demine reabren los bloques eliminados. Los bots compiten activamente. Cualquier celda abierta que otra wallet reclame primero desaparece de tu conteo hasta que el siguiente reset la vuelva a abrir. Las 20 celdas de NFTJI pueden ser poseídas simultáneamente por varias wallets, pero solo mientras tengas el NFTJI — si lo vendes, esa celda sale de tu conteo.
 
 **Tope diario de drill.** El límite base es 100 partidas de Training por día — sube +1 por cada EXEC histórico de Trade. Incluso jugando a la perfección, eso solo se traduce en un puñado de bloques cualificados por sesión, ya que minar bloques avanzados requiere que tu nivel de wallet y el `mm3_global_value` compartido cumplan umbrales crecientes al mismo tiempo.
 
@@ -1187,7 +1187,7 @@ Subes de posición viviendo el mundo:
 
 **Presión rival.** Sin cobertura de pool, cualquier wallet que posea un NFTJI de Mining puede disparar su comando diario y drenar fiat o MM3 de los rivales de un solo golpe. Esas pérdidas pueden borrar las reservas necesarias para cumplir un umbral de bloque o recomprar MM3 en el exchange.
 
-**La escala real.** 1000 celdas. 980 bloques permanentes + 20 celdas NFTJI (temporales, cubiertas solo mientras se posean). Cientos de problemas de training cronometrados bajo presión máxima. Días o semanas de rendimiento sostenido a nivel LEGEND. Bots activos. Condiciones del estado del mundo fuera de tu control. Rivales apuntando a tu economía. La wallet que sostenga el #1 se lo habrá ganado — y tendrá que seguir ganándoselo, porque la escalera nunca se cierra.
+**La escala real.** Un mundo 3D en vivo — 1000 celdas en la planta baja de la MM3 BLOCK CHAIN. 980 bloques de cadena brillan como objetivos abiertos cuando nadie los tiene; una vez minados, permanecen sellados hasta que un ciclo de demine los elimine. 20 bloques NFTJI flotan en ámbar: libres hasta comprarlos, en propiedad solo mientras tengas el NFTJI. Otras wallets recorren el mismo mundo como avatares en tiempo real — compitiendo por los mismos bloques abiertos, pudiendo atacarte directamente. Cientos de problemas de training cronometrados bajo presión máxima. Días o semanas de rendimiento sostenido a nivel LEGEND. Bots activos. Condiciones del estado del mundo fuera de tu control. Rivales apuntando a tu economía. La wallet que sostenga el #1 se lo habrá ganado — y tendrá que seguir ganándoselo, porque la escalera nunca se cierra.
 
 ---
 
@@ -1199,7 +1199,7 @@ Subes de posición viviendo el mundo:
 | Stats del mundo | Vigila 🔥 War, 🌪️ Naturaleza y 🎲 Dice. El Dice es el más accionable: durante su ventana de ~15 min/hora, las comisiones y las tasas de drop de NFTJI cambian. Ajusta tus trades y acciones de Mining en función de ello. |
 | Training | Responde preguntas de mates lo más rápido y con la mayor precisión posible. Apunta a 25 respuestas correctas al día. Esto genera MM3 y sube tu nivel — ambos necesarios para minar el tablero. La velocidad genera más MM3; acertar tarde genera MM3 negativo. Los fallos cuestan niveles, lentos de recuperar en rangos altos. |
 | Trading | Vende MM3 para acumular fiat. Haz 5 EXECs al día para la recompensa diaria de TRADING y un +1 permanente de training slot. La tasa de compra es un 18% mayor que la de venta: vende cuando puedas y recompra solo cuando lo necesites. |
-| Ranking y Pools | Tu % de Minado sobre los 1000 bloques del mundo 3D es el único número que decide quién gana — obsérvalo. Únete a un pool cuanto antes: los miembros del mismo pool son inmunes a los comandos de Mining entre sí, lo que importa más a medida que las penalizaciones escalan con el nivel del NFTJI. |
+| Ranking y Pools | Tu % de Minado sobre los 1000 bloques del mundo 3D es la columna principal del ranking — obsérvalo subir y bajar. Únete a un pool cuanto antes: los miembros del mismo pool son inmunes a los comandos de Mining entre sí, lo que importa más a medida que las penalizaciones escalan con el nivel del NFTJI. |
 | Squeeze | Una vez en un pool, inicia Squeezes desde la página de Squeezing para ganar fiat y conseguir NFTJIs de Squeeze. Consulta 🔥 War y 🎲 Dice antes de lanzar — afectan directamente a la fórmula de resultado. |
 | Mundo de Mining | **Mundo 3D de cinco mapas** (Plaza de la Especulación + cuatro periféricos) con **1000 bloques minables** (980 cadena + 20 NFTJI), **200 bloques por mapa** con requisitos escalonados. Explora en primera persona con WASD/joystick, salto, PvP y portales entre mapas. Mina comprando NFTJI de Mining, con `/mine block #XXX` en Relaying, o resolviendo `Ω(α, β, γ)`. |
 | Relaying | Tu terminal de acción principal. Escribe `/mine block #XXX` para intentar minar una celda de la cadena. Dispara tu comando diario de Mining si tienes un NFTJI de Mining. Observa los eventos para leer el estado del juego en tiempo real. |
@@ -1457,7 +1457,7 @@ El modificador se lee en vivo en el momento en que se ejecuta cada operación (`
 
 ## Mining
 
-> Tres formas de minar el mundo 3D: (1) compra un NFTJI de Mining — ese bloque NFTJI cuenta en tu % de Minado mientras lo tengas, y otorga un comando de ataque diario; (2) mina bloques libres de la cadena permanentemente con `/mine block #XXX` en Relaying; (3) envía el `Ω(α, β, γ)` correcto para ganar de inmediato. Vender un NFTJI elimina ese bloque de tu conteo.
+> Tres formas de minar el mundo 3D: (1) compra un NFTJI de Mining — ese bloque NFTJI cuenta en tu % de Minado mientras lo tengas, y otorga un comando de ataque diario; (2) mina bloques libres de la cadena con `/mine block #XXX` en Relaying — siguen siendo tuyos hasta que un ciclo de demine los elimine; (3) envía el `Ω(α, β, γ)` correcto para activar el **Modo Demine** (ver [Resolver la Cadena](#resolver-la-cadena)). Vender un NFTJI elimina ese bloque de tu conteo.
 
 El mundo de Mining es un **layout en cruz de cinco mapas 3D** conectados por corredores-portal. **Mapa 1 (Plaza de la Especulación)** está en el centro; **mapas 2–5** lo rodean (norte / sur / este / oeste). Cada mapa es una **isla jugable 56×56** con arte de escenario, obstáculos e interactivos propios. La cadena lógica tiene **1000 índices** (`#000`–`#3E7`): **980 bloques regulares** más **20 NFTJI**. Los bloques se **distribuyen 200 por mapa** según el índice — requisitos más bajos en M1, más altos en M5. Explora en **primera persona**: WASD o joystick, espacio para saltar, bastón USB para PvP y combate contra el boss. Los 1000 bloques cuentan para el % de Minado de cada wallet. Dentro de la mina suena una música ambiente en bucle que obedece el control de sonido global del portal.
 
@@ -1516,10 +1516,10 @@ Poseer (o equipar, en el caso de los NFTJIs de Squeeze) ciertos NFTJIs otorga sk
 
 Dos tipos de bloque:
 
-| Tipo de bloque | Cantidad | Cómo se mina | ¿Permanente? |
+| Tipo de bloque | Cantidad | Cómo se mina | ¿Se elimina en demine? |
 |---|---:|---|---|
 | Bloques NFTJI | 20 | Comprando el NFTJI | No — se pierde al vender |
-| Bloques libres de cadena | 980 | `/mine block #XXX` en Relaying | Sí — bloqueados al primer minero |
+| Bloques libres de cadena | 980 | `/mine block #XXX` en Relaying | Sí — eliminados durante el Modo Demine |
 
 | Rail | Base de Precio | Uso Principal |
 |---|---|---|
@@ -1552,14 +1552,14 @@ El HUD del mundo 3D muestra un panel **MM3 BLOCK CHAIN** con dos contadores de t
 
 | Contador | Etiqueta | Minado (X) | Libre (Y) |
 |---|---|---|---|
-| Bloques regulares | `Regular Blocks X / Y` | Celda con owner que **no** es NFTJI — bloqueada permanentemente al primer minero | Celda sin owner que **no** es NFTJI — nunca minada |
+| Bloques regulares | `Regular Blocks X / Y` | Celda con owner que **no** es NFTJI — bloqueada hasta que demine la libere | Celda sin owner que **no** es NFTJI — abierta para minar |
 | Bloques NFTJI | `NFTJI Blocks X / Y` | Celda NFTJI **actualmente con dueño** (al menos 1 wallet) | Celda NFTJI **sin dueño actual** (revendida o nunca comprada) |
 
-**Regular Blocks** son mono-owner: una vez que una wallet mina uno, esa celda queda bloqueada para siempre. El owner no cambia jamás y el bloque nunca puede liberarse. No existe mecánica de reventa para Regular Blocks.
+**Regular Blocks** son mono-owner entre ciclos de demine: una vez que una wallet mina uno, esa celda sigue siendo suya hasta que el **Modo Demine** lo elimina al azar. No existe mecánica de reventa para Regular Blocks.
 
 **NFTJI Blocks** son multi-owner en el tiempo: cualquier wallet puede comprar un bloque NFTJI, revenderlo (eliminando su propiedad) y otra wallet puede comprarlo después. El contador refleja el estado **actual** del owner — si al menos 1 wallet lo tiene ahora, cuenta como minado; si ninguna wallet lo tiene, cuenta como libre.
 
-> Abre la card del bloque para ver sus requisitos (nivel mínimo + valor MM3 global requerido). Cuando ambas condiciones se cumplan, ve a Relaying y escribe `/mine block #XXX`. La primera wallet que lo intente con los requisitos cumplidos se queda el bloque para siempre.
+> Abre la card del bloque para ver sus requisitos (nivel mínimo + valor MM3 global requerido). Cuando ambas condiciones se cumplan, ve a Relaying y escribe `/mine block #XXX`. La primera wallet que lo intente con los requisitos cumplidos se queda el bloque hasta que demine lo reabra.
 
 Las celdas que no son NFTJI fijos de Mining son **open blocks**. No se compran, no se venden, no se revenden, no enlazan a YouTube y no usan fórmulas de Mining. Se minan desde Relaying con:
 
@@ -1569,10 +1569,10 @@ Las celdas que no son NFTJI fijos de Mining son **open blocks**. No se compran, 
 
 Cuando la primera wallet que cumple el requisito mina un bloque:
 
-- El bloque pasa a ser **mined block** permanente.
+- El bloque pasa a ser **mined block** (retenido hasta demine).
 - Su color queda congelado en el tablero.
 - La wallet minera queda guardada como owner de esa celda.
-- Se añade un segmento inmutable a la cadena:
+- Se añade un segmento a la cadena:
 
 ```txt
 #wallet#mined_block#mm3_value_in_hex
@@ -1592,7 +1592,7 @@ El mundo 3D de Mining muestra **MM3 BLOCK CHAIN IN PROGRESS** con un porcentaje:
 (bloques libres minados + NFTJIs de Mining con al menos un dueño) / 1000
 ```
 
-Los 1000 bloques cuentan. Los bloques de cadena se minan permanentemente; los bloques NFTJI cuentan solo mientras al menos una wallet los posea. Cuando los 1000 bloques están cubiertos, la cadena llega al 100% y el código generado queda como historia final del juego.
+Los 1000 bloques cuentan. Los bloques de cadena permanecen minados hasta que un ciclo de demine los elimina; los bloques NFTJI cuentan solo mientras al menos una wallet los posea. Cuando los 1000 bloques están cubiertos, la cadena llega al 100%, se activa el **Modo Demine** y el código generado se archiva antes de que el tablero vuelva a abrirse.
 
 > **Entradas NFTJI en la cadena:** cuando la primera wallet compra un NFTJI de Mining (no existe aún una entrada de cadena para esa celda), la dirección de la wallet compradora y el valor MM3 global en ese momento se añaden a la cadena — mismo formato que un bloque libre minado. Si el último dueño lo vende (nadie lo tiene), esa entrada se elimina de la cadena. Las entradas NFTJI aparecen en el string de la cadena junto a los bloques libres, pero **no** se cuentan en el porcentaje de cobertura — esa cobertura se rastrea de forma independiente a través de la propiedad activa del NFTJI.
 
@@ -1634,7 +1634,7 @@ La traza de éxito se guarda en `mm3_relaying_messages` como `kind=system`, `ton
 MM3 BLOCK CHAIN IN PROGRESS >> mined #029 by 0xa...123 >> 1/980 0.10% >> #0xabc...#029#D6D8C0
 ```
 
-> **Nota:** el contador `1/980` cuenta únicamente los **bloques libres de cadena**. El string de la cadena puede contener también entradas NFTJI (ver arriba), pero se excluyen de este contador — su cobertura se rastrea por propiedad activa. Condición de victoria = 980 bloques libres minados + los 20 NFTJIs de Mining con dueño en ese momento.
+> **Nota:** el contador `1/980` cuenta únicamente los **bloques libres de cadena**. El string de la cadena puede contener también entradas NFTJI (ver arriba), pero se excluyen de este contador — su cobertura se rastrea por propiedad activa. Cobertura completa (980 bloques libres minados + los 20 NFTJIs de Mining con dueño en ese momento) activa el **Modo Demine** — ver [Resolver la Cadena](#resolver-la-cadena).
 
 ---
 
@@ -1658,14 +1658,14 @@ Las tres variables se capturan en el **momento exacto** del envío. La función 
 - **Rango de respuesta:** entero de `1` a `γ` (mínimo 50, visible en la tarjeta en tiempo real).
 - **Los bots no participan** — este desafío es exclusivo para humanos.
 
-**Condiciones de victoria (la primera en cumplirse termina la partida):**
+**Qué activa el Modo Demine (la cadena no termina el juego):**
 
-| Condición | Ganador |
+| Disparador | Qué ocurre |
 |---|---|
-| Una wallet envía el `Ω(α, β, γ)` correcto | Esa wallet — victoria inmediata |
-| Las 1000 celdas del tablero están cubiertas (980 bloques minados + los 20 NFTJIs con dueño) | Wallet con el mayor % de Minado (desempate: último bloque de cadena más temprano) |
+| Una wallet envía el `Ω(α, β, γ)` correcto | Se registra como solver, auto-mina los bloques restantes y arranca el **Modo Demine** |
+| Las 1000 celdas del tablero están cubiertas (980 bloques minados + los 20 NFTJIs con dueño) | Se acredita como solver a la wallet con mayor % de Minado; arranca el **Modo Demine** |
 
-En ambos casos el tablero se bloquea, todas las celdas aparecen selladas, el ticker anuncia al ganador y la partida termina de forma permanente.
+El **Modo Demine** es un ritual compartido en el Mapa 1: golpea el Nodo Cadena por 1 MM3 por golpe (100 golpes en total). Cada golpe elimina bloques minados al azar. Al terminar demine, la cadena vuelve a un estado abierto y el minado se reactiva — el mundo sigue en marcha. Resolver Ω es un flex legendario; completar la cadena es un hito comunitario. Ninguno de los dos termina MathsMine3.
 
 Los valores de α, β y γ son visibles en la tarjeta en tiempo real. El resto depende de ti.
 
@@ -1878,11 +1878,11 @@ Dos chips **Kernel Panic** en la landing page exponen un comando de reset global
 
 ## Ranking
 
-> Tu % de Minado es el único número que decide quién gana. Todo lo demás — nivel, balance MM3, NFTJIs — es contexto que explica por qué estás donde estás.
+> Tu % de Minado es la columna principal del ranking. Todo lo demás — nivel, balance MM3, NFTJIs — es contexto que explica por qué estás donde estás.
 
-El Ranking es la memoria pública del juego y define su estado final.
+El Ranking es la memoria pública del juego — una clasificación en vivo, no una línea de llegada.
 
-La primera columna del ranking es **% de Minado**: la parte del mundo 3D de 1000 bloques que corresponde a cada wallet — bloques de cadena minados permanentemente más cualquier bloque NFTJI que posea en ese momento. **El ranking ordena por esta columna.** Caminos de victoria: ser #1 cuando todos los 1000 bloques estén cubiertos, o enviar el `Ω(α, β, γ)` correcto para ganar de inmediato — ver [Objetivo](#objetivo) y [Resolver la Cadena](#resolver-la-cadena).
+La primera columna del ranking es **% de Minado**: la parte del mundo 3D de 1000 bloques que corresponde a cada wallet — bloques de cadena minados en ese momento más cualquier bloque NFTJI que posea. **El ranking ordena por esta columna.** Llegar al 100% de cobertura o resolver `Ω(α, β, γ)` activa el **Modo Demine** y un ciclo de reset de la cadena, pero las clasificaciones y el mundo continúan — ver [Objetivo](#objetivo) y [Resolver la Cadena](#resolver-la-cadena).
 
 El ranking de pools suma el % de Minado de sus miembros actuales.
 
