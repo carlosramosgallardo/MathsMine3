@@ -34,7 +34,7 @@ import { useCurrency } from '@/lib/currency-context';
 import { useActiveWallet } from '@/lib/use-active-wallet';
 import { formatWalletLabel } from '@/lib/wallet-format';
 import { MM3_BLOCK_CHAIN_REQUIREMENTS } from '@/lib/mm3-block-chain';
-import { isAnonymousWallet } from '@/lib/is-anonymous-wallet';
+import { isRankableWallet } from '@/lib/is-anonymous-wallet';
 import PageLoading from '@/components/PageLoading';
 import { apiFetch, ensureWalletSession } from '@/lib/wallet-session-client';
 
@@ -392,7 +392,7 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
         if (cacheIsFresh && cacheIsClean) {
           const cached = JSON.parse(localStorage.getItem('lb_data') || 'null');
           if (Array.isArray(cached)) {
-            const visibleCached = cached.filter((entry) => !isAnonymousWallet(entry?.wallet));
+            const visibleCached = cached.filter((entry) => isRankableWallet(entry?.wallet));
             if (visibleCached.length !== cached.length) {
               localStorage.setItem('lb_data', JSON.stringify(visibleCached));
             }
@@ -606,7 +606,7 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
         ...earnedByWallet.keys(),
         ...poolMemberWallets,
         ...squeezeNftjiByWallet.keys(),
-      ].filter((wallet) => wallet && !isAnonymousWallet(wallet)));
+      ].filter((wallet) => wallet && isRankableWallet(wallet)));
 
       const mergedData = [...allWallets]
         .map((normalizedWallet) => {

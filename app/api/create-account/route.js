@@ -90,6 +90,9 @@ export async function POST(req) {
     if (!sub) return Response.json({ ok: false, error: 'invalid_token' }, { status: 401 });
 
     const wallet = await deriveVirtualWallet(sub);
+    if (!/^0x[0-9a-f]{40}$/.test(wallet)) {
+      return Response.json({ ok: false, error: 'wallet_derive_failed' }, { status: 500 });
+    }
     const supabase = serviceClient();
 
     if (!await accountExists(supabase, wallet)) {
