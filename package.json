@@ -40,7 +40,7 @@
     "recharts": "^2.15.1",
     "three": "^0.185.1",
     "viem": "^2.55.7",
-    "wagmi": "^2.14.15"
+    "wagmi": "^3.7.6"
   },
   "devDependencies": {
     "@types/react": "^19.2.18",
