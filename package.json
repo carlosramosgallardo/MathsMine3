@@ -36,7 +36,7 @@
     "next": "^16.2.11",
     "nextjs-google-analytics": "^2.3.7",
     "react": "^19.2.8",
-    "react-dom": "^19.0.0",
+    "react-dom": "^19.2.8",
     "recharts": "^2.15.1",
     "three": "^0.185.1",
     "viem": "^2.55.7",
