@@ -39,7 +39,7 @@
     "react-dom": "^19.2.8",
     "recharts": "^2.15.1",
     "three": "^0.185.1",
-    "viem": "^2.55.7",
+    "viem": "^2.55.13",
     "wagmi": "^2.14.15"
   },
   "devDependencies": {
