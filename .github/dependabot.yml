@@ -11,3 +11,8 @@ updates:
       - "dependabot"
     commit-message:
       prefix: "deps"
+    ignore:
+      # @web3modal/wagmi (and Reown AppKit) only support wagmi 2.x.
+      # A v3 bump would break wallet connect until that stack is migrated.
+      - dependency-name: "wagmi"
+        update-types: ["version-update:semver-major"]
