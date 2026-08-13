@@ -207,7 +207,7 @@ dependencies {
 
     implementation("androidx.datastore:datastore-preferences:1.1.1")
 
-    implementation("androidx.security:security-crypto:1.1.0-alpha06")
+    implementation("androidx.security:security-crypto:1.1.0")
 
     implementation("com.google.android.filament:filament-android:1.74.0")
     implementation("com.google.android.filament:filament-utils-android:1.74.0")
