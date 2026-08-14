@@ -2,5 +2,14 @@
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": [
     "config:recommended"
+  ],
+  "packageRules": [
+    {
+      "description": "activity-compose 1.13+ requires AGP 8.9.1; this repo is on AGP 8.7.3 / Gradle 8.9",
+      "matchPackageNames": [
+        "androidx.activity:activity-compose"
+      ],
+      "allowedVersions": "<1.10.0"
+    }
   ]
 }
