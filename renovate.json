@@ -10,6 +10,13 @@
         "androidx.activity:activity-compose"
       ],
       "allowedVersions": "<1.10.0"
+    },
+    {
+      "description": "core-ktx 1.17+ needs AGP 8.9.1; 1.19+ needs AGP 9.1.0 and compileSdk 37",
+      "matchPackageNames": [
+        "androidx.core:core-ktx"
+      ],
+      "allowedVersions": "<1.17.0"
     }
   ]
 }
