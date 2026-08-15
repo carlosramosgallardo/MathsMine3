@@ -34,14 +34,16 @@
     {
       "description": "AGP 9.3+ needs Gradle 9.5; both Android trees are on Gradle 8.14.5 (PR #105/#92)",
       "matchPackageNames": [
-        "com.android.application"
+        "com.android.application",
+        "com.android.application:com.android.application.gradle.plugin"
       ],
       "allowedVersions": "<9.0.0"
     },
     {
       "description": "Project uses Kotlin 1.9.25; Kotlin 2.x is a toolchain migration (PR #105)",
       "matchPackageNames": [
-        "org.jetbrains.kotlin.android"
+        "org.jetbrains.kotlin.android",
+        "org.jetbrains.kotlin.android:org.jetbrains.kotlin.android.gradle.plugin"
       ],
       "allowedVersions": "<2.0.0"
     },

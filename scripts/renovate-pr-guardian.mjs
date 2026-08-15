@@ -104,6 +104,14 @@ function extractBumps(diff) {
   while ((m = gradleRe.exec(diff)) !== null) {
     bumps.push({ kind: 'gradle', coord: `${m[1]}:${m[2]}`, version: m[3] })
   }
+  const platformRe = /^\+\s*.*platform\(["']([^"']+):([^"']+):([^"']+)["']\)/gm
+  while ((m = platformRe.exec(diff)) !== null) {
+    bumps.push({ kind: 'gradle', coord: `${m[1]}:${m[2]}`, version: m[3] })
+  }
+  const pluginRe = /^\+\s*id\(["']([^"']+)["']\)\s+version\s+["']([^"']+)["']/gm
+  while ((m = pluginRe.exec(diff)) !== null) {
+    bumps.push({ kind: 'gradle', coord: m[1], version: m[2] })
+  }
   const npmRe = /^\+\s*"([^"]+)":\s*"([^"]+)"/gm
   while ((m = npmRe.exec(diff)) !== null) {
     bumps.push({ kind: 'npm', coord: m[1], version: m[2].replace(/^\^/, '') })
