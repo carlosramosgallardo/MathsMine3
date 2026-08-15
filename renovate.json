@@ -40,6 +40,13 @@
         "com.google.android.libraries.identity.googleid:googleid"
       ],
       "allowedVersions": "<1.2.0"
+    },
+    {
+      "description": "kotlinx-coroutines 1.11+ is built with Kotlin 2.2; project uses Kotlin 1.9.25",
+      "matchPackagePrefixes": [
+        "org.jetbrains.kotlinx:kotlinx-coroutines"
+      ],
+      "allowedVersions": "<1.11.0"
     }
   ]
 }
