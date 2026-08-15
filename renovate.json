@@ -33,6 +33,13 @@
         "androidx.credentials:"
       ],
       "allowedVersions": "<1.6.0"
+    },
+    {
+      "description": "googleid 1.2+ is built with Kotlin 2.1; project uses Kotlin 1.9.25",
+      "matchPackageNames": [
+        "com.google.android.libraries.identity.googleid:googleid"
+      ],
+      "allowedVersions": "<1.2.0"
     }
   ]
 }
