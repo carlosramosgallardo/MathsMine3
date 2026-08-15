@@ -1,0 +1,12 @@
+---
+description: Playbook when reviewing Renovate dependency PRs autonomously (vacation mode)
+globs:
+  - renovate.json
+  - apps/android-native/**
+  - package.json
+  - package-lock.json
+---
+
+When asked to review Renovate PRs or run vacation dependency maintenance, read `.cursor/automations/renovate-pr-review.md` and follow it.
+
+Do not merge major bumps without verifying Android CI. Pin incompatible Android deps in `renovate.json` instead of leaving failed PRs open.
