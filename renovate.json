@@ -17,24 +17,14 @@
   },
   "packageRules": [
     {
-<<<<<<< HEAD
-      "description": "One PR for android-native Gradle minor/patch — majors stay ungrouped and do not automerge",
-=======
-      "description": "Never automerge android-native majors (Kotlin 2 / AGP 9 need manual migration)",
-      "matchManagers": [
-        "gradle"
-      ],
-      "matchFileNames": [
-        "apps/android-native/**"
-      ],
+      "description": "Never automerge any major bump (belt-and-suspenders with major.automerge)",
       "matchUpdateTypes": [
         "major"
       ],
       "automerge": false
     },
     {
-      "description": "One PR for all apps/android-native Gradle bumps — fewer CI runs on vacation",
->>>>>>> e2966f0 (fix(ci): block major automerges in guardian and Renovate config)
+      "description": "One PR for android-native Gradle minor/patch — majors stay ungrouped and do not automerge",
       "matchManagers": [
         "gradle"
       ],
@@ -46,14 +36,9 @@
         "patch"
       ],
       "groupName": "android-native",
-      "matchUpdateTypes": [
-        "minor",
-        "patch"
-      ],
       "automerge": true
     },
     {
-<<<<<<< HEAD
       "description": "AGP 9.3+ needs Gradle 9.5; both Android trees are on Gradle 8.14.5 (PR #105/#92)",
       "matchPackageNames": [
         "com.android.application",
@@ -82,13 +67,6 @@
         "tailwindcss"
       ],
       "allowedVersions": "<4.0.0"
-=======
-      "description": "Never automerge npm/GitHub Actions majors",
-      "matchUpdateTypes": [
-        "major"
-      ],
-      "automerge": false
->>>>>>> e2966f0 (fix(ci): block major automerges in guardian and Renovate config)
     },
     {
       "description": "activity-compose 1.13+ requires AGP 8.9.1; this repo is on AGP 8.7.3 / Gradle 8.9",
