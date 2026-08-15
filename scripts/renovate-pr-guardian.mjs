@@ -20,9 +20,18 @@ const RENOVATE_JSON = resolve(ROOT, 'renovate.json')
 const DRY_RUN = process.env.GUARDIAN_DRY_RUN === '1'
 const REQUIRED_CHECKS = ['Build debug APK', 'SonarCloud Code Analysis']
 const RENOVATE_AUTHOR = 'app/renovate'
+const SAFE_PATH = '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'
+
+function execInRepo(file, args) {
+  return execFileSync(file, args, {
+    encoding: 'utf8',
+    cwd: ROOT,
+    env: { ...process.env, PATH: SAFE_PATH },
+  }).trim()
+}
 
 function gh(args) {
-  return execFileSync('gh', args, { encoding: 'utf8', cwd: ROOT }).trim()
+  return execInRepo('gh', args)
 }
 
 function log(msg) {
@@ -117,22 +126,27 @@ function getPrDiff(number) {
 /** Extract proposed Maven/npm version bumps from a Renovate PR diff. */
 function extractBumps(diff) {
   const bumps = []
-  const gradleRe = /^\+\s*implementation\(["']([^"']+):([^"']+):([^"']+)["']\)/gm
-  let m
-  while ((m = gradleRe.exec(diff)) !== null) {
-    bumps.push({ kind: 'gradle', coord: `${m[1]}:${m[2]}`, version: m[3] })
-  }
-  const platformRe = /^\+\s*.*platform\(["']([^"']+):([^"']+):([^"']+)["']\)/gm
-  while ((m = platformRe.exec(diff)) !== null) {
-    bumps.push({ kind: 'gradle', coord: `${m[1]}:${m[2]}`, version: m[3] })
-  }
-  const pluginRe = /^\+\s*id\(["']([^"']+)["']\)\s+version\s+["']([^"']+)["']/gm
-  while ((m = pluginRe.exec(diff)) !== null) {
-    bumps.push({ kind: 'gradle', coord: m[1], version: m[2] })
-  }
-  const npmRe = /^\+\s*"([^"]+)":\s*"([^"]+)"/gm
-  while ((m = npmRe.exec(diff)) !== null) {
-    bumps.push({ kind: 'npm', coord: m[1], version: m[2].replace(/^\^/, '') })
+  for (const line of diff.split('\n')) {
+    if (!line.startsWith('+')) continue
+    let m = line.match(/^\+ *implementation\(["']([^:]+):([^:"']+):([^"']+)["']\)/)
+    if (m) {
+      bumps.push({ kind: 'gradle', coord: `${m[1]}:${m[2]}`, version: m[3] })
+      continue
+    }
+    m = line.match(/platform\(["']([^:]+):([^:"']+):([^"']+)["']\)/)
+    if (m) {
+      bumps.push({ kind: 'gradle', coord: `${m[1]}:${m[2]}`, version: m[3] })
+      continue
+    }
+    m = line.match(/^\+ *id\(["']([^"']+)["']\)\s+version\s+["']([^"']+)["']/)
+    if (m) {
+      bumps.push({ kind: 'gradle', coord: m[1], version: m[2] })
+      continue
+    }
+    m = line.match(/^\+ *"([^"]+)":\s*"([^"]+)"/)
+    if (m) {
+      bumps.push({ kind: 'npm', coord: m[1], version: m[2].replace(/^\^/, '') })
+    }
   }
   return bumps
 }
@@ -172,11 +186,7 @@ function addPin(cfg, bump, reason) {
   const rule = {
     description: `${reason} (guardian pin ${new Date().toISOString().slice(0, 10)})`,
     allowedVersions: ceiling,
-  }
-  if (bump.kind === 'gradle' && bump.coord.includes(':')) {
-    rule.matchPackageNames = [bump.coord]
-  } else {
-    rule.matchPackageNames = [bump.coord]
+    matchPackageNames: [bump.coord],
   }
   cfg.packageRules = cfg.packageRules || []
   cfg.packageRules.push(rule)
@@ -198,11 +208,11 @@ function closePr(number, comment) {
 function commitPins(message) {
   log(`COMMIT: ${message}`)
   if (DRY_RUN) return
-  execFileSync('git', ['config', 'user.name', 'github-actions[bot]'], { cwd: ROOT })
-  execFileSync('git', ['config', 'user.email', '41898282+github-actions[bot]@users.noreply.github.com'], { cwd: ROOT })
-  execFileSync('git', ['add', 'renovate.json'], { cwd: ROOT })
-  execFileSync('git', ['commit', '-m', message], { cwd: ROOT })
-  execFileSync('git', ['push', 'origin', 'HEAD:main'], { cwd: ROOT })
+  execInRepo('git', ['config', 'user.name', 'github-actions[bot]'])
+  execInRepo('git', ['config', 'user.email', '41898282+github-actions[bot]@users.noreply.github.com'])
+  execInRepo('git', ['add', 'renovate.json'])
+  execInRepo('git', ['commit', '-m', message])
+  execInRepo('git', ['push', 'origin', 'HEAD:main'])
 }
 
 function handleFailedAndroid(pr, checks) {
