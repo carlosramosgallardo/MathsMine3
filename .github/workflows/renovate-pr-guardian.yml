@@ -1,0 +1,37 @@
+name: Renovate PR guardian
+
+on:
+  schedule:
+    # Every 3 hours — backup when platform automerge does not fire
+    - cron: '15 */3 * * *'
+  workflow_run:
+    workflows: ['Android native APK']
+    types: [completed]
+  pull_request:
+    types: [labeled, synchronize]
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  checks: read
+
+jobs:
+  guardian:
+    name: Review Renovate PRs
+    runs-on: ubuntu-latest
+    if: >-
+      github.event_name != 'pull_request' ||
+      github.event.pull_request.user.login == 'renovate[bot]' ||
+      github.event.pull_request.user.type == 'Bot'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Run guardian
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node scripts/renovate-pr-guardian.mjs
