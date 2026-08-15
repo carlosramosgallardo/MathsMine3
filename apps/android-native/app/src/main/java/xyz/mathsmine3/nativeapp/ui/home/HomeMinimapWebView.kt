@@ -3,18 +3,17 @@ package xyz.mathsmine3.nativeapp.ui.home
 import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Color
-import android.os.Build
 import android.view.MotionEvent
 import android.view.ViewGroup
 import android.webkit.JavascriptInterface
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
-import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import xyz.mathsmine3.nativeapp.PortalOrigin
 import xyz.mathsmine3.nativeapp.PortalWebViewSecurity
+import xyz.mathsmine3.nativeapp.applyPortalDefaults
 import xyz.mathsmine3.nativeapp.handleLocalPortalSsl
 import xyz.mathsmine3.nativeapp.ui.SoundPrefsBridge
 
@@ -31,22 +30,7 @@ class HomeMinimapWebView(context: Context) : WebView(context) {
 
     init {
         setBackgroundColor(Color.parseColor("#01070E"))
-        settings.apply {
-            javaScriptEnabled = true
-            domStorageEnabled = true
-            setMediaPlaybackRequiresUserGesture(false)
-            allowFileAccess = false
-            mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
-            cacheMode = WebSettings.LOAD_DEFAULT
-            useWideViewPort = true
-            loadWithOverviewMode = true
-            setSupportZoom(false)
-            builtInZoomControls = false
-            displayZoomControls = false
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                safeBrowsingEnabled = true
-            }
-        }
+        settings.applyPortalDefaults()
         addJavascriptInterface(NativeBridge(), "MM3NativeMinimap")
         webChromeClient = WebChromeClient()
         SoundPrefsBridge.attach(this)

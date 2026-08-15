@@ -1,5 +1,0 @@
-# Disabled while Renovate handles all dependency PRs (incl. npm security).
-# Re-enable by restoring open-pull-requests-limit: 5.
-version: 2
-
-updates: []
