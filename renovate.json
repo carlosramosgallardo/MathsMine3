@@ -18,8 +18,12 @@
   "packageRules": [
     {
       "description": "One PR for all apps/android-native Gradle bumps — fewer CI runs on vacation",
-      "matchManagers": ["gradle"],
-      "matchFileNames": ["apps/android-native/**"],
+      "matchManagers": [
+        "gradle"
+      ],
+      "matchFileNames": [
+        "apps/android-native/**"
+      ],
       "groupName": "android-native",
       "automerge": true
     },
@@ -74,8 +78,24 @@
     },
     {
       "description": "wagmi 3.x breaks @web3modal until Reown migration",
-      "matchPackageNames": ["wagmi"],
+      "matchPackageNames": [
+        "wagmi"
+      ],
       "allowedVersions": "<3.0.0"
+    },
+    {
+      "description": "Blocked after Android CI failure on PR #93 (guardian pin 2026-08-15)",
+      "allowedVersions": "<5.0.0",
+      "matchPackageNames": [
+        "com.squareup.okhttp3:okhttp"
+      ]
+    },
+    {
+      "description": "Blocked after Android CI failure on PR #93 (guardian pin 2026-08-15)",
+      "allowedVersions": "<5.0.0",
+      "matchPackageNames": [
+        "com.squareup.okhttp3:logging-interceptor"
+      ]
     }
   ]
 }
