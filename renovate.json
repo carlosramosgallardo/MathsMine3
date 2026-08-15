@@ -17,15 +17,47 @@
   },
   "packageRules": [
     {
-      "description": "One PR for all apps/android-native Gradle bumps — fewer CI runs on vacation",
+      "description": "One PR for android-native Gradle minor/patch — majors stay ungrouped and do not automerge",
       "matchManagers": [
         "gradle"
       ],
       "matchFileNames": [
         "apps/android-native/**"
       ],
+      "matchUpdateTypes": [
+        "minor",
+        "patch"
+      ],
       "groupName": "android-native",
       "automerge": true
+    },
+    {
+      "description": "AGP 9.3+ needs Gradle 9.5; both Android trees are on Gradle 8.14.5 (PR #105/#92)",
+      "matchPackageNames": [
+        "com.android.application"
+      ],
+      "allowedVersions": "<9.0.0"
+    },
+    {
+      "description": "Project uses Kotlin 1.9.25; Kotlin 2.x is a toolchain migration (PR #105)",
+      "matchPackageNames": [
+        "org.jetbrains.kotlin.android"
+      ],
+      "allowedVersions": "<2.0.0"
+    },
+    {
+      "description": "Compose BOM 2025+ needs a newer Compose compiler / Kotlin 2.x (PR #105)",
+      "matchPackageNames": [
+        "androidx.compose:compose-bom"
+      ],
+      "allowedVersions": "<2025.0.0"
+    },
+    {
+      "description": "Tailwind CSS 4 is a breaking rewrite; Vercel failed on PR #89",
+      "matchPackageNames": [
+        "tailwindcss"
+      ],
+      "allowedVersions": "<4.0.0"
     },
     {
       "description": "activity-compose 1.13+ requires AGP 8.9.1; this repo is on AGP 8.7.3 / Gradle 8.9",
