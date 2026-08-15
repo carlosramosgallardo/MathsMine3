@@ -58,6 +58,13 @@
         "org.jetbrains.kotlinx:kotlinx-coroutines"
       ],
       "allowedVersions": "<1.10.0"
+    },
+    {
+      "description": "retrofit 2.12+ is built with Kotlin 2.1; project uses Kotlin 1.9.25",
+      "matchPackagePrefixes": [
+        "com.squareup.retrofit2:"
+      ],
+      "allowedVersions": "<2.12.0"
     }
   ]
 }
