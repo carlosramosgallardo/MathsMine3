@@ -19,6 +19,13 @@
         "androidx.core:core-ktx"
       ],
       "allowedVersions": "<1.17.0"
+    },
+    {
+      "description": "lifecycle 2.11+ requires AGP 9.1.0 and compileSdk 37",
+      "matchPackagePrefixes": [
+        "androidx.lifecycle:"
+      ],
+      "allowedVersions": "<2.11.0"
     }
   ]
 }

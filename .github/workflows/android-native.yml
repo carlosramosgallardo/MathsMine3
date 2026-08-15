@@ -10,6 +10,12 @@ on:
       - 'docs/PLATFORMS.md'
     tags:
       - 'v*'
+  pull_request:
+    paths:
+      - 'apps/android-native/**'
+      - 'scripts/android-native-build.sh'
+      - '.github/workflows/android-native.yml'
+      - 'docs/PLATFORMS.md'
   workflow_dispatch:
 
 permissions:

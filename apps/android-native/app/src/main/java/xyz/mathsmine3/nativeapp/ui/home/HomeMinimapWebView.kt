@@ -34,7 +34,7 @@ class HomeMinimapWebView(context: Context) : WebView(context) {
         settings.apply {
             javaScriptEnabled = true
             domStorageEnabled = true
-            mediaPlaybackRequiresUserGesture = false
+            setMediaPlaybackRequiresUserGesture(false)
             allowFileAccess = false
             mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
             cacheMode = WebSettings.LOAD_DEFAULT
