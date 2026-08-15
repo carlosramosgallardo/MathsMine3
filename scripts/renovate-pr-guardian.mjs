@@ -65,10 +65,28 @@ function isAutomergeEnabled(body) {
 }
 
 function isMajorPr(title, body) {
-  if (/\bmajor\b/i.test(body || '')) return true
-  if (/\bmajor\b/i.test(title || '')) return true
-  // Grouped major branches from Renovate
+  const text = `${title}\n${body || ''}`
   if (/\(major\)/i.test(title || '')) return true
+  if (/\bmajor\b/i.test(text)) return true
+  // Renovate table column: | ... | major | ...
+  if (/\|\s*major\s*\|/i.test(body || '')) return true
+  // Semver major in Renovate change column: `1.9.25` → `2.4.10`
+  const arrowRe = /`(\d+)\.[^`]*`\s*→\s*`(\d+)\./g
+  let m
+  while ((m = arrowRe.exec(body || '')) !== null) {
+    if (m[1] !== m[2]) return true
+  }
+  return false
+}
+
+function isConfirmedMinorOrPatch(title, body) {
+  const text = `${title}\n${body || ''}`
+  if (/\|\s*(patch|minor)\s*\|/i.test(body || '')) return true
+  if (/\b(patch|minor)\s+update\b/i.test(text)) return true
+  // Single-package title without major signals, e.g. "… to v2.7.3"
+  if (!isMajorPr(title, body) && /update dependency .+ to v\d+\.\d+\.\d+/i.test(title || '')) {
+    return true
+  }
   return false
 }
 
@@ -85,11 +103,11 @@ function shouldAttemptMerge(pr, { requiredOk, failed, pending }) {
   if (isAutomergeEnabled(pr.body)) {
     return { action: 'merge', reason: 'automerge enabled + CI green' }
   }
-  // Backup merge for minor/patch when platform automerge did not fire
-  if (!/major/i.test(pr.title)) {
-    return { action: 'merge', reason: 'minor/patch + CI green (guardian backup)' }
+  // Backup merge only when Renovate body confirms patch/minor — never guess from title alone
+  if (isConfirmedMinorOrPatch(pr.title, pr.body)) {
+    return { action: 'merge', reason: 'confirmed minor/patch + CI green (guardian backup)' }
   }
-  return { action: 'skip', reason: 'not eligible' }
+  return { action: 'skip', reason: 'update type unknown — no automerge' }
 }
 
 function getPrDiff(number) {
