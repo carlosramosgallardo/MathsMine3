@@ -2,8 +2,7 @@
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": [
     "config:recommended",
-    ":automergeMinor",
-    "security:open"
+    ":automergeMinor"
   ],
   "platformAutomerge": true,
   "vulnerabilityAlerts": {
