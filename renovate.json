@@ -2,10 +2,22 @@
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": [
     "config:recommended",
-    ":automergeMinor"
+    ":automergeMinor",
+    "security:open"
   ],
   "platformAutomerge": true,
+  "vulnerabilityAlerts": {
+    "enabled": true,
+    "automerge": true
+  },
   "packageRules": [
+    {
+      "description": "One PR for all apps/android-native Gradle bumps — fewer CI runs on vacation",
+      "matchManagers": ["gradle"],
+      "matchFileNames": ["apps/android-native/**"],
+      "groupName": "android-native",
+      "automerge": true
+    },
     {
       "description": "activity-compose 1.13+ requires AGP 8.9.1; this repo is on AGP 8.7.3 / Gradle 8.9",
       "matchPackageNames": [
