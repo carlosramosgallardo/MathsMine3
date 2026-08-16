@@ -69,6 +69,27 @@
       "allowedVersions": "<4.0.0"
     },
     {
+      "description": "Recharts 3 is a breaking chart API (TokenChart.jsx); vacation mode pins 2.x (PR #95)",
+      "matchPackageNames": [
+        "recharts"
+      ],
+      "allowedVersions": "<3.0.0"
+    },
+    {
+      "description": "uuid 12+ is a major of a WalletConnect override (CJS removal, Node 18 drop); stay on 11.x (PR #90)",
+      "matchPackageNames": [
+        "uuid"
+      ],
+      "allowedVersions": "<12.0.0"
+    },
+    {
+      "description": "nanoid 4+ is ESM-first and v6 drops Node 18/20; override stays on 3.x (PR #88)",
+      "matchPackageNames": [
+        "nanoid"
+      ],
+      "allowedVersions": "<4.0.0"
+    },
+    {
       "description": "activity-compose 1.13+ requires AGP 8.9.1; this repo is on AGP 8.7.3 / Gradle 8.9",
       "matchPackageNames": [
         "androidx.activity:activity-compose"
