@@ -1,4 +1,4 @@
-# Ficha de Play Store — MathsMine3
+# Play Store listing — MathsMine3
 
 Assets listos para Google Play Console (tamaños exactos). Regenerados para usar la **marca real** del proyecto (`mm3_logo_core` / `MM3_thumbnail`) y capturas **sin cookie banner**.
 
