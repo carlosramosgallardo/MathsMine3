@@ -13,21 +13,21 @@ Assets listos para Google Play Console (tamaños exactos). Regenerados para usar
 | Tablet / Chromebook / XR / PC = mismas 4 fotos clonadas | Landscape derivados de las 4 capturas phone con marco + caption |
 | Portada PC AI sin marca | Portada desde thumbnail oficial + medallón (sin texto) |
 
-## Orden de subida en Play Console
+## Upload order in Play Console
 
-1. **`01-icono-aplicacion/`** → Icono de la aplicación · PNG **512 × 512**
-2. **`02-grafico-de-funciones/`** → Gráfico de funciones · PNG **1024 × 500**
-   - `grafico-funciones-1024x500.png` → locale EN
-   - `grafico-funciones-1024x500-es.png` → locale ES
-3. **`03-capturas-telefono/`** → Capturas de teléfono · **1080 × 1920** (mín. 2; aquí van 4)
-4. **`04-tablet-7/`** → Tablets de 7" · **1920 × 1080**
-5. **`05-tablet-10/`** → Tablets de 10" · **1920 × 1080**
+1. **`01-app-icon/`** → App icon · PNG **512 × 512**
+2. **`02-feature-graphic/`** → Feature graphic · PNG **1024 × 500**
+   - `feature-graphic-1024x500.png` → EN locale
+   - `feature-graphic-1024x500-es.png` → ES locale
+3. **`03-phone-screenshots/`** → Phone screenshots · **1080 × 1920** (min. 2; 4 included)
+4. **`04-tablet-7/`** → 7" tablets · **1920 × 1080**
+5. **`05-tablet-10/`** → 10" tablets · **1920 × 1080**
 6. **`06-google-play-games-pc/`**
-   - `logo/` · Logotipo transparente **600 × 400**
-   - `grafico/` · Portada **sin texto** **1920 × 1080**
-   - `capturas/` · Capturas PC **1920 × 1080**
-7. **`07-chromebook/`** → Solo si activas ficha Chromebook
-8. **`08-android-xr/`** → **No subir** salvo que la app declare XR real (hoy no)
+   - `logo/` · Transparent logo **600 × 400**
+   - `cover-graphic/` · Cover **no text** **1920 × 1080**
+   - `screenshots/` · PC screenshots **1920 × 1080**
+7. **`07-chromebook/`** → Only if you enable the Chromebook listing
+8. **`08-android-xr/`** → **Do not upload** unless the app declares real XR support (not today)
 
 ## Vídeo
 
@@ -41,7 +41,7 @@ Assets listos para Google Play Console (tamaños exactos). Regenerados para usar
 **Descripción breve (≤80):**  
 `Timed math. Fictional mining. Live 3D multiplayer. Earn MM3 in a terminal world.`
 
-**Descripción completa:** ver `textos-ficha.md`.
+**Full description:** see `listing-copy.md`.
 
 ## Textos sugeridos (ES)
 

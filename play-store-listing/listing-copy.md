@@ -1,4 +1,4 @@
-# Textos de ficha — MathsMine3
+# Listing copy — MathsMine3
 
 Copia/pega en Play Console (locales EN y ES).
 
