@@ -20,7 +20,10 @@ for (const rel of routeFiles) {
   const src = readFileSync(path.join(root, rel), 'utf8')
   const routePath = '/' + rel.replace(/^app\//, '').replace(/\/route\.js$/, '')
   for (const method of ['GET', 'POST', 'PUT', 'PATCH', 'DELETE']) {
-    if (new RegExp(String.raw`export async function ${method}\b`).test(src)) {
+    if (
+      new RegExp(String.raw`export async function ${method}\b`).test(src)
+      || new RegExp(String.raw`export const ${method}\b`).test(src)
+    ) {
       implemented.add(`${method} ${routePath}`)
     }
   }
