@@ -1,4 +1,4 @@
-import HomePageClient from '@/components/HomePageClient';
+import TrainingPageClient from '@/components/TrainingPageClient';
 import DeadGate from '@/components/DeadGate';
 
 export const metadata = {
@@ -13,5 +13,5 @@ export const metadata = {
 };
 
 export default function TrainingPage() {
-  return <DeadGate><HomePageClient /></DeadGate>;
+  return <DeadGate><TrainingPageClient /></DeadGate>;
 }

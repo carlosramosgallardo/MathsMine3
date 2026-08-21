@@ -56,3 +56,19 @@ const assetPath = path.join(
 )
 writeFileSync(assetPath, `${JSON.stringify(payload, null, 2)}\n`)
 console.log(`Synced ${documented.size} endpoints → ${path.relative(root, assetPath)}`)
+
+const routePaths = [...implemented]
+  .map((key) => key.split(' ')[1])
+  .filter((p, i, arr) => arr.indexOf(p) === i)
+  .sort((a, b) => a.localeCompare(b))
+const routesTxtPath = path.join(root, 'packages/api-contracts/routes.txt')
+writeFileSync(routesTxtPath, `${routePaths.join('\n')}\n`)
+console.log(`Synced ${routePaths.length} route paths → ${path.relative(root, routesTxtPath)}`)
+
+const channelsSource = path.join(root, 'packages/realtime-protocol/channels.json')
+const channelsAsset = path.join(
+  root,
+  'apps/android-native/app/src/main/assets/realtime-channels.json',
+)
+writeFileSync(channelsAsset, readFileSync(channelsSource, 'utf8'))
+console.log(`Synced realtime channels → ${path.relative(root, channelsAsset)}`)

@@ -712,17 +712,6 @@ export function addHomeBoss(THREE, scene, options = {}) {
   }
 }
 
-/** @deprecated Use addHomeBoss — kept for callers that only need Trump. */
-export function addHomeTrumpBoss(THREE, scene, options = {}) {
-  return addHomeBoss(THREE, scene, {
-    createVisual: createM5TrumpBossVisual,
-    bossScale: M5_TRUMP_BOSS_SCALE,
-    position: [0, 0, 0.14],
-    glowColor: '#ef4444',
-    ...options,
-  })
-}
-
 function disposeScene(scene) {
   scene.traverse(object => {
     object.geometry?.dispose()

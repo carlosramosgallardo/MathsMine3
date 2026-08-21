@@ -1,3 +1,5 @@
+/api/auth/nonce
+/api/auth/session
 /api/bot/tick
 /api/chain-check
 /api/chain-solve/attempt
@@ -29,11 +31,15 @@
 /api/pool-heal
 /api/pools-quick
 /api/portal-status
+/api/presence/ping
 /api/pvp-anon-kill
 /api/pvp-death
 /api/pvp-hit
 /api/redeem-penalty
+/api/relay/chat
 /api/relay/exec
+/api/relay/invalid-command
+/api/relay/market-command
 /api/relay/penalize
 /api/resell-nftji
 /api/rl-mount
@@ -46,6 +52,11 @@
 /api/token-history-minutes
 /api/token-value
 /api/trade/exec
+/api/trade/zero-day-claim
+/api/training/emoji-claim
+/api/training/failure
+/api/training/life-revive
+/api/training/resolve
 /api/wallet-pools/accept
 /api/wallet-pools/contact
 /api/wallet-pools/cooldown

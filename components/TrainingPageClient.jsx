@@ -19,7 +19,7 @@ const markLeaderboardDirty = () => {
   }
 };
 
-export default function HomePageClient() {
+export default function TrainingPageClient() {
   const { account } = useActiveWallet();
   const { frameAccent } = useMm3Accent();
 
