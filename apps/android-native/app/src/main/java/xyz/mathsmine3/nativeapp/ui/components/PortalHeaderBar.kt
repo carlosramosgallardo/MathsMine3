@@ -74,6 +74,7 @@ import xyz.mathsmine3.nativeapp.data.jsonBody
 import xyz.mathsmine3.nativeapp.data.readText
 import xyz.mathsmine3.nativeapp.ui.header.AmbientMusic
 import xyz.mathsmine3.nativeapp.ui.header.Dice
+import xyz.mathsmine3.nativeapp.ui.header.PowerIcon
 import xyz.mathsmine3.nativeapp.ui.header.colorFromAddress
 import xyz.mathsmine3.nativeapp.ui.header.currencySymbol
 import xyz.mathsmine3.nativeapp.ui.header.formatCompactNum
@@ -734,7 +735,7 @@ private fun AuthControls(
 ) {
     if (connected) {
         HeaderIconButton(onClick = onDisconnect) {
-            Text("⏻", color = Color(0xFF22D3EE), fontSize = 16.sp)
+            PowerIcon(connected = true, size = 15.dp)
         }
     } else {
         Row(
