@@ -42,6 +42,10 @@ Only when the PR is **confirmed minor or patch** (`| minor |` or `| patch |` in 
 - Prefer one combined commit when multiple safe bumps touch the same file
 - **Grouped android-native PRs:** cherry-pick only minor/patch rows; skip major rows; pin rejected majors
 
+## Cursor agent PRs (all branches)
+
+Same gate as Renovate: run `gh pr checks <n>` before merge. **Never merge** if **SonarCloud Code Analysis** is `fail`. See `.cursor/rules/merge-quality-gate.mdc`.
+
 ## Do NOT apply
 
 - **Any major** — including GitHub Actions (`checkout` v7, `upload-artifact` v7, etc.)

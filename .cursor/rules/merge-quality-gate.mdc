@@ -1,0 +1,40 @@
+---
+description: Never merge PRs with failing required CI — especially SonarCloud
+alwaysApply: true
+---
+
+# Merge quality gate (mandatory)
+
+**Never merge a PR to `main` if any required check is red or pending.**
+
+## Before every merge
+
+Run on the PR branch:
+
+```bash
+gh pr checks <number>
+```
+
+Do not merge until **all** of the following are `pass` (or `skipping` when expected):
+
+| Check | When required |
+|---|---|
+| **SonarCloud Code Analysis** | Always — any PR touching `app/`, `components/`, `lib/`, `scripts/` |
+| **Lint and build** | Web paths changed (see `web-quality.yml`) |
+| **Build debug APK** | Android paths changed (see `android-native.yml`) |
+
+If SonarCloud shows `fail`, **stop**. Fix the Sonar issues on the branch, push, wait for green, then merge. Do not bypass.
+
+## Why
+
+PR #121 was merged with Sonar red (`Math.random()` in `lib/boss-api-handlers.js`), breaking the main quality gate. That must not happen again.
+
+## GitHub branch protection (human setup)
+
+An agent cannot configure this. Owner must add these as **required status checks** on `main` in GitHub → Settings → Branches:
+
+- `SonarCloud Code Analysis`
+- `Lint and build`
+- `Build debug APK` (when Android CI applies)
+
+Until branch protection is enabled, agents must self-enforce via `gh pr checks`.
