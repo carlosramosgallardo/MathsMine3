@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useI18n } from '@/lib/i18n-context'
+import { useActiveWallet } from '@/lib/use-active-wallet'
+import { apiFetch, ensureWalletSession, walletSignErrorMessage } from '@/lib/wallet-session-client'
 
 const C    = '#22d3ee'
 const PASS = '#4ade80'
@@ -377,6 +379,8 @@ const PAGE_SIZE = 5
 
 export default function SecurityPage() {
   const { language } = useI18n()
+  const { account, isVirtualWallet } = useActiveWallet()
+  const wallet = account?.toLowerCase() || null
   const es = language === 'es'
   const [history, setHistory]     = useState([])
   const [selected, setSelected]   = useState(null)
@@ -405,10 +409,15 @@ export default function SecurityPage() {
   }
 
   async function triggerScan() {
+    if (!wallet) {
+      setScanMsg(es ? '✗ Inicia sesión (Google o wallet) para ejecutar el análisis' : '✗ Sign in (Google or wallet) to run a scan')
+      return
+    }
     setScanning(true)
     setScanMsg(es ? 'Ejecutando comprobaciones de seguridad…' : 'Running security checks…')
     try {
-      const res  = await fetch('/api/security/scan', { method: 'POST' })
+      await ensureWalletSession(wallet, { isVirtualWallet })
+      const res = await apiFetch('/api/security/scan', { method: 'POST' }, wallet)
       const data = await res.json()
       if (data.ok) {
         setScanMsg(es ? `✓ Análisis completado — Puntuación ${data.score}/100` : `✓ Scan complete — Score ${data.score}/100`)
@@ -419,11 +428,19 @@ export default function SecurityPage() {
         setTimeout(() => detailRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 60)
       } else if (data.error === 'rate_limited') {
         setScanMsg(es ? `⏳ Límite de velocidad — reintenta en ${Math.ceil(data.retryAfter / 60)} min` : `⏳ Rate limited — retry in ${Math.ceil(data.retryAfter / 60)} min`)
+      } else if (data.error === 'unauthorized') {
+        setScanMsg(es ? '✗ No autorizado — vuelve a entrar (Google/wallet) e reintenta' : '✗ Unauthorized — sign in again (Google/wallet) and retry')
       } else {
         setScanMsg(`✗ Error: ${data.error}`)
       }
     } catch (e) {
-      setScanMsg(`✗ ${e.message}`)
+      const code = e?.message || ''
+      const known = ['google_session_required', 'no_wallet', 'wallet_disconnected', 'wallet_mismatch', 'wallet_locked', 'sign_rejected', 'nonce_failed', 'session_failed', 'sign_failed']
+      if (known.includes(code)) {
+        setScanMsg(`✗ ${walletSignErrorMessage(code, language)}`)
+      } else {
+        setScanMsg(`✗ ${e.message}`)
+      }
     }
     setScanning(false)
   }
