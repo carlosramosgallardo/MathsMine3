@@ -109,7 +109,7 @@ private fun JSONObject.optStringOrNull(key: String): String? {
 }
 
 private fun authLabel(auth: String, es: Boolean): String = when (auth) {
-    "session" -> if (es) "Bearer session (MM3_SESSION)" else "Bearer session (MM3_SESSION)"
+    "session" -> "Bearer session (MM3_SESSION)"
     "cron" -> "Bearer CRON_SECRET"
     "webhook" -> if (es) "Token webhook en query" else "Webhook token query param"
     else -> if (es) "Ninguna" else "None"
@@ -234,7 +234,7 @@ fun ApiNativeScreen(language: String = "en") {
                             fontSize = 11.sp,
                         )
                         Text(
-                            if (es) "curl" else "curl",
+                            "curl",
                             color = Mm3Colors.Muted,
                             fontFamily = FontFamily.Monospace,
                             fontSize = 10.sp,
