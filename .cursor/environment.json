@@ -1,0 +1,9 @@
+{
+  "name": "MathsMine3",
+  "build": {
+    "dockerfile": "Dockerfile",
+    "context": ".."
+  },
+  "user": "ubuntu",
+  "install": "bash .cursor/scripts/cloud-agent-install.sh"
+}
