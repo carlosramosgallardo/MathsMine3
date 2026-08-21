@@ -146,6 +146,23 @@
       "allowedVersions": "<3.0.0"
     },
     {
+      "description": "ESLint 10 — wait for eslint-config-next alignment (Renovate PR #122)",
+      "matchPackageNames": [
+        "eslint"
+      ],
+      "allowedVersions": "<10.0.0"
+    },
+    {
+      "description": "Cloud agent stays on Node 22 until Node 24 stack validated (Renovate PR #120)",
+      "matchManagers": [
+        "dockerfile"
+      ],
+      "matchFileNames": [
+        ".cursor/Dockerfile"
+      ],
+      "allowedVersions": "<23.0.0"
+    },
+    {
       "description": "Blocked after Android CI failure on PR #93 (guardian pin 2026-08-15)",
       "allowedVersions": "<5.0.0",
       "matchPackageNames": [

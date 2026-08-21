@@ -1,7 +1,17 @@
 #!/usr/bin/env bash
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-export JAVA_HOME="${JAVA_HOME:-$HOME/.local/jdk/jdk-17.0.19+10}"
+
+if [[ -z "${JAVA_HOME:-}" || ! -d "$JAVA_HOME" ]]; then
+  if command -v javac >/dev/null 2>&1; then
+    export JAVA_HOME="$(dirname "$(dirname "$(readlink -f "$(command -v javac)")")")"
+  fi
+fi
+if [[ -z "${JAVA_HOME:-}" || ! -d "$JAVA_HOME" ]]; then
+  echo "ERROR: set JAVA_HOME to a JDK (17+). Cloud agents: run .cursor/scripts/cloud-agent-install.sh" >&2
+  exit 1
+fi
+
 export ANDROID_HOME="${ANDROID_HOME:-$HOME/.local/android}"
 export ANDROID_SDK_ROOT="$ANDROID_HOME"
 export PATH="$JAVA_HOME/bin:$PATH"
