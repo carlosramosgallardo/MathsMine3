@@ -1,8 +1,7 @@
 // Constrains the 3D game canvas width and prevents page scroll so it fills
-// exactly from the header to the bottom of the viewport — same treatment as
-// chain3d but with a max-width cap so the canvas never exceeds 1024 px on
-// wide monitors.  Wider canvases render more raycaster strips per frame,
-// making the game visibly slower on older / integrated-GPU hardware.
+// exactly from the header to the bottom of the viewport. Wider canvases render
+// more raycaster strips per frame, making the game visibly slower on older /
+// integrated-GPU hardware (/chain3d redirects here permanently).
 export const metadata = {
   title: 'Mining',
   description: 'The MathsMine3 3D mining world — a 28×28 block grid you can walk through in real time. Buy and resell NFTJI blocks, unlock daily Relaying commands, and penalise competing wallets.',

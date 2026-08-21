@@ -16,7 +16,6 @@ export const CHROME_ROUTES = [
   { path: '/security', name: 'security', chrome: true },
   { path: '/privacy', name: 'privacy', chrome: true },
   { path: '/terms', name: 'terms', chrome: true },
-  { path: '/chain3d', name: 'chain3d', chrome: true, slow: true },
 ]
 
 /** Bare shells — no portal Header/Footer */

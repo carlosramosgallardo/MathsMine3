@@ -81,14 +81,6 @@ export default function sitemap() {
       priority: 0.6,
     },
 
-    // ── MM3 BLOCK CHAIN 3D ────────────────────────────────────────────────────
-    {
-      url: `${BASE}/chain3d`,
-      lastModified: TODAY,
-      changeFrequency: 'weekly',
-      priority: 0.8,
-    },
-
     // ── Security audit ────────────────────────────────────────────────────────
     {
       url: `${BASE}/security`,

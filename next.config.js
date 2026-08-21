@@ -6,7 +6,13 @@ const nextConfig = {
     optimizePackageImports: ['recharts', 'three'],
   },
   async redirects() {
-    return []
+    return [
+      {
+        source: '/chain3d',
+        destination: '/mining',
+        permanent: true,
+      },
+    ]
   },
   webpack: (config) => {
     config.resolve.fallback = {
