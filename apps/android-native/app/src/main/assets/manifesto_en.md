@@ -45,7 +45,7 @@
 | Field | Value |
 |---|---|
 | Project | MathsMine3 |
-| Version | `0.1.0-beta.1` |
+| Version | `0.1.0-beta.11` |
 | Genre | Math-mining RPG / pool strategy — crypto freak terminal |
 | Economy | Fully simulated, fictional MM3 token |
 | Identity | Ethereum wallet or deterministic Google virtual wallet |
