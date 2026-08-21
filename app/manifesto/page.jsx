@@ -1,6 +1,7 @@
 import { promises as fs } from 'fs';
 import path from 'path';
 import ManifestoClient from './ManifestoClient';
+import { extractManifesto } from '@/lib/readme-manifesto';
 
 export const metadata = {
   title: 'Manifesto — The MathsMine3 Philosophy',
@@ -14,19 +15,6 @@ export const metadata = {
   },
   twitter: { card: 'summary_large_image', title: 'Manifesto | MathsMine3', images: ['/og-image.jpg'] },
 };
-
-function extractManifesto(readmeText, lang) {
-  const startTag = lang === 'es' ? '<!-- MANIFESTO_ES_START -->' : '<!-- MANIFESTO_EN_START -->';
-  const endTag = lang === 'es' ? '<!-- MANIFESTO_ES_END -->' : '<!-- MANIFESTO_EN_END -->';
-  const startIndex = readmeText.indexOf(startTag);
-  const endIndex = readmeText.indexOf(endTag);
-
-  if (startIndex === -1 || endIndex === -1 || endIndex <= startIndex) {
-    return '';
-  }
-
-  return readmeText.slice(startIndex + startTag.length, endIndex).trim();
-}
 
 export default async function ManifestoPage() {
   const readmePath = path.join(process.cwd(), 'README.md');

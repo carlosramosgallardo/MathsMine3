@@ -8,6 +8,7 @@
     "dev": "next dev",
     "dev:https": "next dev --port 3000 --experimental-https --experimental-https-key ./certificates/mathsmine3.xyz-key.pem --experimental-https-cert ./certificates/mathsmine3.xyz.pem",
     "build": "next build",
+    "lint": "eslint .",
     "start": "next start",
     "android:fingerprint": "bash scripts/android-fingerprint.sh",
     "android:build": "bash scripts/android-build.sh",
@@ -26,7 +27,10 @@
     "qa:all": "node scripts/qa-sweep.mjs && node scripts/qa-portal.mjs",
     "renovate:guardian": "node scripts/renovate-pr-guardian.mjs",
     "renovate:guardian:dry": "GUARDIAN_DRY_RUN=1 node scripts/renovate-pr-guardian.mjs",
-    "api-docs:sync": "node scripts/build-api-documentation.mjs"
+    "api-docs:sync": "node scripts/build-api-documentation.mjs",
+    "manifesto:sync": "node scripts/sync-manifesto.mjs",
+    "version:sync": "node scripts/sync-version.mjs",
+    "sync:assets": "node scripts/sync-version.mjs && node scripts/sync-manifesto.mjs && node scripts/build-api-documentation.mjs"
   },
   "dependencies": {
     "@react-oauth/google": "^0.13.5",
@@ -46,6 +50,8 @@
   },
   "devDependencies": {
     "autoprefixer": "^10.5.4",
+    "eslint": "^9.39.5",
+    "eslint-config-next": "^16.3.2",
     "playwright": "^1.62.1",
     "postcss": "^8.5.26",
     "supabase": "^2.114.0",
