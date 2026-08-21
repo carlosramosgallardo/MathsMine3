@@ -163,6 +163,16 @@
       "allowedVersions": "<23.0.0"
     },
     {
+      "description": "CI stays on Node 22 until Node 24 stack validated (Renovate PR #120)",
+      "matchManagers": [
+        "github-actions"
+      ],
+      "matchPackageNames": [
+        "node"
+      ],
+      "allowedVersions": "<23.0.0"
+    },
+    {
       "description": "Blocked after Android CI failure on PR #93 (guardian pin 2026-08-15)",
       "allowedVersions": "<5.0.0",
       "matchPackageNames": [
