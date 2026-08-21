@@ -11,8 +11,13 @@ NATIVE="$ROOT/apps/android-native"
 cd "$NATIVE"
 
 if [[ ! -f keystore.properties ]]; then
+  bash "$ROOT/scripts/android-native-prepare-signing.sh" || true
+fi
+
+if [[ ! -f keystore.properties ]]; then
   echo "Missing $NATIVE/keystore.properties"
-  echo "Copy keystore.properties.example → keystore.properties and create release.keystore (see PLAY_RELEASE.md)."
+  echo "Copy keystore.properties.example → keystore.properties, create release.keystore,"
+  echo "or set ANDROID_RELEASE_KEYSTORE_BASE64 + ANDROID_KEYSTORE_STORE_PASSWORD (see PLAY_RELEASE.md)."
   exit 1
 fi
 

@@ -1,0 +1,127 @@
+name: Android native AAB
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      attach_to_latest_release:
+        description: 'Attach AAB to the latest GitHub Release (same versionName)'
+        required: false
+        default: 'true'
+        type: choice
+        options:
+          - 'true'
+          - 'false'
+
+permissions:
+  contents: write
+
+jobs:
+  bundle:
+    name: Build signed AAB
+    runs-on: ubuntu-latest
+    environment: env
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@40fd30fb8d7440372e1316f5d1809ec01dcd3699 # v4.0.1
+
+      - name: Accept licenses & install SDK/NDK
+        run: |
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager "platforms;android-36" "build-tools;35.0.0" "ndk;26.1.10909125"
+
+      - name: Write portal env for Gradle
+        working-directory: ${{ github.workspace }}
+        env:
+          VAR_GOOGLE: ${{ vars.NEXT_PUBLIC_GOOGLE_CLIENT_ID }}
+          VAR_SUPA_URL: ${{ vars.NEXT_PUBLIC_SUPABASE_URL }}
+          VAR_SUPA_ANON: ${{ vars.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          SEC_GOOGLE: ${{ secrets.NEXT_PUBLIC_GOOGLE_CLIENT_ID }}
+          SEC_SUPA_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SEC_SUPA_ANON: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+        run: |
+          GOOGLE="${SEC_GOOGLE:-$VAR_GOOGLE}"
+          SUPA_URL="${SEC_SUPA_URL:-$VAR_SUPA_URL}"
+          SUPA_ANON="${SEC_SUPA_ANON:-$VAR_SUPA_ANON}"
+          {
+            echo "NEXT_PUBLIC_GOOGLE_CLIENT_ID=${GOOGLE}"
+            echo "NEXT_PUBLIC_SUPABASE_URL=${SUPA_URL}"
+            echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=${SUPA_ANON}"
+          } > .env.local
+
+      - name: Prepare release signing
+        env:
+          ANDROID_RELEASE_KEYSTORE_BASE64: ${{ secrets.ANDROID_RELEASE_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_STORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_STORE_PASSWORD }}
+          ANDROID_KEYSTORE_KEY_ALIAS: ${{ secrets.ANDROID_KEYSTORE_KEY_ALIAS }}
+          ANDROID_KEYSTORE_KEY_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_KEY_PASSWORD }}
+        run: bash scripts/android-native-prepare-signing.sh
+
+      - name: Build signed AAB
+        run: npm run android:native:bundle
+
+      - name: Stage artifacts
+        id: stage
+        run: |
+          VERSION_NAME="$(awk -F'"' '/versionName[[:space:]]*=/{print $2; exit}' apps/android-native/app/build.gradle.kts)"
+          AAB="apps/android-native/dist/mathsmine3-${VERSION_NAME}.aab"
+          SYMS="apps/android-native/dist/native-debug-symbols-${VERSION_NAME}.zip"
+          test -f "$AAB"
+          mkdir -p dist/release
+          cp -f "$AAB" "dist/release/"
+          if [[ -f "$SYMS" ]]; then
+            cp -f "$SYMS" "dist/release/"
+          fi
+          ls -lh dist/release/
+          echo "aab=dist/release/mathsmine3-${VERSION_NAME}.aab" >> "$GITHUB_OUTPUT"
+          echo "version_name=${VERSION_NAME}" >> "$GITHUB_OUTPUT"
+          if [[ -f "$SYMS" ]]; then
+            echo "syms=dist/release/native-debug-symbols-${VERSION_NAME}.zip" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Upload Actions artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: mathsmine3-native-aab
+          path: dist/release/*
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Attach to GitHub Release (tag push)
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228 # v3.0.2
+        with:
+          files: |
+            ${{ steps.stage.outputs.aab }}
+            ${{ steps.stage.outputs.syms }}
+          overwrite_files: true
+          fail_on_unmatched_files: true
+          generate_release_notes: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Attach to latest GitHub Release (manual)
+        if: github.event_name == 'workflow_dispatch' && inputs.attach_to_latest_release == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VER="${{ steps.stage.outputs.version_name }}"
+          TAG="v${VER}"
+          UPLOAD=( "${{ steps.stage.outputs.aab }}" )
+          if [[ -n "${{ steps.stage.outputs.syms }}" && -f "${{ steps.stage.outputs.syms }}" ]]; then
+            UPLOAD+=( "${{ steps.stage.outputs.syms }}" )
+          fi
+          gh release upload "$TAG" "${UPLOAD[@]}" --clobber

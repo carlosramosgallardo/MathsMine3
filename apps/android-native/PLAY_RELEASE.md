@@ -38,12 +38,27 @@ Gradle reads `keystore.properties` and signs `release` via `signingConfigs.relea
 
 ### Build signed AAB
 
+**Local / Cloud Agent (WSL or Cursor Cloud):**
+
 ```bash
 npm run android:native:bundle
 # → apps/android-native/dist/mathsmine3-<versionName>.aab
-#    e.g. mathsmine3-0.1.0-beta.5.aab
+#    e.g. mathsmine3-0.1.0-beta.11.aab
 # prints release cert SHA-256
 ```
+
+Requires `keystore.properties` + `release.keystore`, **or** these env secrets (never commit):
+
+| Secret | Purpose |
+|--------|---------|
+| `ANDROID_RELEASE_KEYSTORE_BASE64` | Base64 of `release.keystore` |
+| `ANDROID_KEYSTORE_STORE_PASSWORD` | Keystore password |
+| `ANDROID_KEYSTORE_KEY_ALIAS` | Key alias (default `mathsmine3`) |
+| `ANDROID_KEYSTORE_KEY_PASSWORD` | Key password (defaults to store password) |
+
+**GitHub Actions (no PC):** add the same secrets to GitHub Environment **`env`**, then run workflow **Android native AAB** (`workflow_dispatch`) or push a `v*` tag. The AAB is attached to the GitHub Release — download it on your phone and upload to Play Console in Chrome.
+
+**Mobile upload (Play Console):** the Play Console app does **not** upload AABs. Open [play.google.com/console](https://play.google.com/console) in Chrome → **Test and release** → **Internal testing** → **Create release** → **Upload** → pick the `.aab` from Downloads.
 
 Then:
 
