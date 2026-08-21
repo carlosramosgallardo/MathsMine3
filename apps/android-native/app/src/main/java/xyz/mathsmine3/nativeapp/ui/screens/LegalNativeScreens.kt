@@ -6,11 +6,16 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import android.content.Context
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
+import androidx.compose.runtime.remember
+import org.json.JSONArray
+import org.json.JSONObject
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
@@ -33,200 +38,239 @@ private data class LegalSection(
     val bodyEs: String,
 )
 
-private data class ApiBlock(
+private data class ApiDocEndpoint(
     val titleEn: String,
     val titleEs: String,
     val descEn: String,
     val descEs: String,
-    val endpoint: String,
-    val sample: String,
+    val method: String,
+    val path: String,
+    val auth: String,
+    val curl: String,
+    val requestSample: String?,
+    val responseSample: String?,
 )
+
+private data class ApiDocSection(
+    val id: String,
+    val titleEn: String,
+    val titleEs: String,
+    val endpoints: List<ApiDocEndpoint>,
+)
+
+private fun loadAssetText(context: Context, name: String): String =
+    context.assets.open(name).bufferedReader().use { it.readText() }
+
+private fun parseApiDocumentation(raw: String): Pair<String, List<ApiDocSection>> {
+    val root = JSONObject(raw)
+    val baseUrl = root.optString("baseUrl", "https://mathsmine3.xyz")
+    val sectionsArr = root.optJSONArray("sections") ?: JSONArray()
+    val sections = buildList {
+        for (i in 0 until sectionsArr.length()) {
+            val s = sectionsArr.getJSONObject(i)
+            val endpointsArr = s.optJSONArray("endpoints") ?: JSONArray()
+            val endpoints = buildList {
+                for (j in 0 until endpointsArr.length()) {
+                    val e = endpointsArr.getJSONObject(j)
+                    add(
+                        ApiDocEndpoint(
+                            titleEn = e.optString("titleEn"),
+                            titleEs = e.optString("titleEs"),
+                            descEn = e.optString("descEn"),
+                            descEs = e.optString("descEs"),
+                            method = e.optString("method"),
+                            path = e.optString("path"),
+                            auth = e.optString("auth", "none"),
+                            curl = e.optString("curl"),
+                            requestSample = e.optStringOrNull("requestSample"),
+                            responseSample = e.optStringOrNull("responseSample"),
+                        ),
+                    )
+                }
+            }
+            add(
+                ApiDocSection(
+                    id = s.optString("id"),
+                    titleEn = s.optString("titleEn"),
+                    titleEs = s.optString("titleEs"),
+                    endpoints = endpoints,
+                ),
+            )
+        }
+    }
+    return baseUrl to sections
+}
+
+private fun JSONObject.optStringOrNull(key: String): String? {
+    if (!has(key) || isNull(key)) return null
+    val v = optString(key)
+    return v.ifBlank { null }
+}
+
+private fun authLabel(auth: String, es: Boolean): String = when (auth) {
+    "session" -> if (es) "Bearer session (MM3_SESSION)" else "Bearer session (MM3_SESSION)"
+    "cron" -> "Bearer CRON_SECRET"
+    "webhook" -> if (es) "Token webhook en query" else "Webhook token query param"
+    else -> if (es) "Ninguna" else "None"
+}
 
 @Composable
 fun ApiNativeScreen(language: String = "en") {
     val es = language.startsWith("es", ignoreCase = true)
     val ctx = LocalContext.current
-    val blocks = listOf(
-        ApiBlock(
-            "Token Value", "Valor del Token",
-            "Latest aggregated MM3 value, updated every minute.",
-            "Valor MM3 agregado más reciente, actualizado cada minuto.",
-            "GET /api/token-value",
-            """{
-  "value": 1.0234,
-  "updatedAt": "2025-03-23T20:00:00Z"
-}""",
-        ),
-        ApiBlock(
-            "Token History", "Histórico del Token",
-            "Hourly MM3 value history with mined/trade/NFTJI breakdown.",
-            "Histórico horario del valor MM3 con desglose mined/trade/NFTJI.",
-            "GET /api/token-history",
-            """[
-  {
-    "hour": "2025-03-26T18:00:00Z",
-    "cumulative_reward": 0.00001776,
-    "delta": 0.0000012
-  }
-]""",
-        ),
-        ApiBlock(
-            "Minute-level History", "Histórico por Minutos",
-            "Minute-by-minute MM3 value for the last 60 minutes.",
-            "Valor MM3 minuto a minuto de los últimos 60 minutos.",
-            "GET /api/token-history-minutes",
-            """[
-  {
-    "minute": "14:30",
-    "value": 0.00001234,
-    "delta": 0.0000001
-  }
-]""",
-        ),
-        ApiBlock(
-            "Market Events", "Eventos de Mercado",
-            "NFTJI claims and life-continue events.",
-            "Claims de NFTJI y eventos de vida continuada.",
-            "GET /api/nft-events",
-            """[
-  {
-    "wallet": "0xabc...1234",
-    "event_type": "nftji_claim",
-    "emoji": "🔮"
-  }
-]""",
-        ),
-        ApiBlock(
-            "Leaderboard", "Leaderboard",
-            "Full ranking sorted by MM3 Chain contribution.",
-            "Ranking completo ordenado por contribución MM3 Chain.",
-            "GET /api/leaderboard?page=1&limit=50",
-            """{
-  "page": 1,
-  "limit": 50,
-  "total": 128,
-  "items": [{ "rank": 1, "wallet": "0xabc...1234" }]
-}""",
-        ),
-        ApiBlock(
-            "MM3 Block Chain", "MM3 Block Chain",
-            "Mine a free board block from IRC when requirements are met.",
-            "Mina un bloque libre del tablero desde IRC si cumples requisitos.",
-            "POST /api/mine-block",
-            """{
-  "wallet": "0xabc123...",
-  "blockHex": "#029"
-}""",
-        ),
-        ApiBlock(
-            "Squeezes", "Squeezes",
-            "Dispute detail: pools, timings, wallets, scores, result and drop.",
-            "Detalle de cada disputa: pools, tiempos, wallets, scores y drop.",
-            "GET /api/wallet-pools/disputes?pool=FHNN6&limit=50",
-            """{
-  "ok": true,
-  "disputes": [{ "id": 42, "status": "resolved", "winner": "defender" }]
-}""",
-        ),
-        ApiBlock(
-            "Service Status", "Estado del Servicio",
-            "Service health and rate-limit quota.",
-            "Estado de salud del servicio y cuota de rate limit.",
-            "GET /api/status",
-            """{
-  "message": "✅ Within rate limit",
-  "remaining": 9
-}""",
-        ),
-    )
+    val (baseUrl, sections) = remember {
+        parseApiDocumentation(loadAssetText(ctx, "api_documentation.json"))
+    }
+    val copy = remember {
+        runCatching {
+            val root = JSONObject(loadAssetText(ctx, "api_documentation.json"))
+            root.optJSONObject("copy")
+        }.getOrNull()
+    }
+    val intro = if (es) {
+        copy?.optJSONObject("es")?.optString("intro")
+            ?: "MathsMine3 expone una API HTTP JSON. Los GET publicos son abiertos; las mutaciones suelen requerir Bearer session."
+    } else {
+        copy?.optJSONObject("en")?.optString("intro")
+            ?: "MathsMine3 exposes a JSON HTTP API. Public GETs are open; mutations typically require a Bearer session."
+    }
+    val rateLimitDesc = if (es) {
+        copy?.optJSONObject("es")?.optString("rateLimitDesc")
+            ?: "Los endpoints publicos (/api/token-value, /api/leaderboard) aplican limite por IP."
+    } else {
+        copy?.optJSONObject("en")?.optString("rateLimitDesc")
+            ?: "Public endpoints (/api/token-value, /api/leaderboard) enforce a per-IP limit."
+    }
+    val endpointTotal = sections.sumOf { it.endpoints.size }
 
     Mm3Screen(
         title = "API",
         subtitle = if (es) {
-            "endpoints publicos de MM3 y ejemplos JSON"
+            "$endpointTotal endpoints documentados"
         } else {
-            "public MM3 endpoints and JSON examples"
+            "$endpointTotal documented endpoints"
         },
     ) {
         Mm3Panel(accent = Mm3Colors.Cyan) {
-            Text(
-                if (es) {
-                    "MathsMine3 ofrece una API publica con datos del mercado MM3 y del gameplay. Todos los endpoints devuelven JSON."
-                } else {
-                    "MathsMine3 provides a public API with MM3 market and gameplay data. All endpoints return JSON."
-                },
-                color = Mm3Colors.Muted,
-                fontFamily = FontFamily.Monospace,
-                fontSize = 11.sp,
-                lineHeight = 16.sp,
-            )
-        }
-        blocks.forEach { block ->
-            Mm3Panel(accent = Color(0xFF22D3EE)) {
                 Text(
-                    if (es) block.titleEs else block.titleEn,
-                    color = Mm3Colors.Cyan,
-                    fontFamily = FontFamily.Monospace,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 14.sp,
-                )
-                Text(
-                    if (es) block.descEs else block.descEn,
+                    intro,
                     color = Mm3Colors.Muted,
                     fontFamily = FontFamily.Monospace,
                     fontSize = 11.sp,
                     lineHeight = 16.sp,
                 )
+                Spacer(Modifier.height(6.dp))
                 Text(
-                    block.endpoint,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .border(1.dp, Mm3Colors.Cyan.copy(alpha = 0.25f), RoundedCornerShape(2.dp))
-                        .background(Mm3Colors.BgDeep)
-                        .clickable {
-                            val path = block.endpoint.substringAfter(' ').substringBefore('?')
-                            ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://mathsmine3.xyz$path")))
-                        }
-                        .padding(10.dp),
-                    color = Mm3Colors.Cyan,
+                    "${if (es) "URL base" else "Base URL"}: $baseUrl",
+                    color = Mm3Colors.Muted,
                     fontFamily = FontFamily.Monospace,
-                    fontSize = 11.sp,
-                )
-                Text(
-                    block.sample,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .horizontalScroll(rememberScrollState())
-                        .border(1.dp, Mm3Colors.Cyan.copy(alpha = 0.15f), RoundedCornerShape(2.dp))
-                        .background(Color(0xFF02060B))
-                        .padding(10.dp),
-                    color = Mm3Colors.Text,
-                    fontFamily = FontFamily.Monospace,
-                    fontSize = 11.sp,
-                    lineHeight = 15.sp,
+                    fontSize = 10.sp,
                 )
             }
-        }
-        Mm3Panel(accent = Color(0xFFFBBF24)) {
-            Text(
-                if (es) "RATE LIMITING" else "RATE LIMITING",
-                color = Color(0xFFFBBF24),
-                fontFamily = FontFamily.Monospace,
-                fontWeight = FontWeight.Bold,
-                fontSize = 13.sp,
-            )
-            Text(
-                if (es) {
-                    "Los endpoints publicos (/api/token-value, /api/leaderboard) aplican un limite por IP. Las cabeceras X-RateLimit-* informan del estado de la cuota."
-                } else {
-                    "Public endpoints (/api/token-value, /api/leaderboard) enforce a per-IP limit. X-RateLimit-* headers report current quota."
-                },
-                color = Mm3Colors.Muted,
-                fontFamily = FontFamily.Monospace,
-                fontSize = 11.sp,
-                lineHeight = 16.sp,
-            )
-        }
+            sections.forEach { section ->
+                Mm3Panel(accent = Color(0xFFFBBF24)) {
+                    Text(
+                        if (es) section.titleEs else section.titleEn,
+                        color = Color(0xFFFBBF24),
+                        fontFamily = FontFamily.Monospace,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 13.sp,
+                    )
+                }
+                section.endpoints.forEach { ep ->
+                    val endpointLine = "${ep.method} ${ep.path}"
+                    val sample = buildString {
+                        append(ep.curl)
+                        if (!ep.requestSample.isNullOrBlank()) {
+                            append("\n\n")
+                            append(if (es) "// Peticion\n" else "// Request\n")
+                            append(ep.requestSample)
+                        }
+                        if (!ep.responseSample.isNullOrBlank()) {
+                            append("\n\n")
+                            append(if (es) "// Respuesta\n" else "// Response\n")
+                            append(ep.responseSample)
+                        }
+                    }
+                    Mm3Panel(accent = Color(0xFF22D3EE)) {
+                        Text(
+                            if (es) ep.titleEs else ep.titleEn,
+                            color = Mm3Colors.Cyan,
+                            fontFamily = FontFamily.Monospace,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 14.sp,
+                        )
+                        Text(
+                            if (es) ep.descEs else ep.descEn,
+                            color = Mm3Colors.Muted,
+                            fontFamily = FontFamily.Monospace,
+                            fontSize = 11.sp,
+                            lineHeight = 16.sp,
+                        )
+                        Text(
+                            "${if (es) "Auth" else "Auth"}: ${authLabel(ep.auth, es)}",
+                            color = Mm3Colors.Muted,
+                            fontFamily = FontFamily.Monospace,
+                            fontSize = 10.sp,
+                        )
+                        Text(
+                            endpointLine,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .border(1.dp, Mm3Colors.Cyan.copy(alpha = 0.25f), RoundedCornerShape(2.dp))
+                                .background(Mm3Colors.BgDeep)
+                                .clickable {
+                                    if (ep.method == "GET") {
+                                        val path = ep.path.substringBefore('?')
+                                        ctx.startActivity(
+                                            Intent(Intent.ACTION_VIEW, Uri.parse("$baseUrl$path")),
+                                        )
+                                    }
+                                }
+                                .padding(10.dp),
+                            color = Mm3Colors.Cyan,
+                            fontFamily = FontFamily.Monospace,
+                            fontSize = 11.sp,
+                        )
+                        Text(
+                            if (es) "curl" else "curl",
+                            color = Mm3Colors.Muted,
+                            fontFamily = FontFamily.Monospace,
+                            fontSize = 10.sp,
+                            modifier = Modifier.padding(top = 6.dp),
+                        )
+                        Text(
+                            sample,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .horizontalScroll(rememberScrollState())
+                                .border(1.dp, Mm3Colors.Cyan.copy(alpha = 0.15f), RoundedCornerShape(2.dp))
+                                .background(Color(0xFF02060B))
+                                .padding(10.dp),
+                            color = Mm3Colors.Text,
+                            fontFamily = FontFamily.Monospace,
+                            fontSize = 11.sp,
+                            lineHeight = 15.sp,
+                        )
+                    }
+                }
+            }
+            Mm3Panel(accent = Color(0xFFFBBF24)) {
+                Text(
+                    "RATE LIMITING",
+                    color = Color(0xFFFBBF24),
+                    fontFamily = FontFamily.Monospace,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 13.sp,
+                )
+                Text(
+                    rateLimitDesc,
+                    color = Mm3Colors.Muted,
+                    fontFamily = FontFamily.Monospace,
+                    fontSize = 11.sp,
+                    lineHeight = 16.sp,
+                )
+            }
     }
 }
 
