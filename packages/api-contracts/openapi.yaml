@@ -5,6 +5,8 @@ info:
   description: >
     Mirror of existing Next.js App Router handlers. Additive documentation only;
     the web client remains the source of truth for behavior.
+    Full human-readable docs (83 endpoints, curl examples): lib/api-documentation.js
+    and https://mathsmine3.xyz/api
 servers:
   - url: https://mathsmine3.xyz
 paths:
