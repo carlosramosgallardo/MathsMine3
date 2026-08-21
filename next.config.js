@@ -51,6 +51,10 @@ const nextConfig = {
             value: "camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()",
           },
           {
+            key: "Vary",
+            value: "X-Forwarded-Host, Accept-Encoding",
+          },
+          {
             // Next.js requires unsafe-inline/eval for hydration & client components.
             // Frame-ancestors, object-src, base-uri, form-action and
             // upgrade-insecure-requests are enforced without restriction.
@@ -131,16 +135,6 @@ const nextConfig = {
           { key: "X-RateLimit-Reset", value: "60" },
         ],
       })),
-      // ── Cache-poisoning defence: vary the home page on the host header ───────
-      {
-        source: "/",
-        headers: [
-          {
-            key: "Vary",
-            value: "X-Forwarded-Host",
-          },
-        ],
-      },
     ];
   },
 };
