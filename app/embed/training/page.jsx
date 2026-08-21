@@ -2,7 +2,7 @@
 
 import { useLayoutEffect, useState } from 'react'
 import DeadGate from '@/components/DeadGate'
-import HomePageClient from '@/components/HomePageClient'
+import TrainingPageClient from '@/components/TrainingPageClient'
 
 /**
  * Bare Training board for the native Android WebView.
@@ -57,7 +57,7 @@ export default function EmbedTrainingPage() {
 
   return (
     <DeadGate>
-      <HomePageClient />
+      <TrainingPageClient />
     </DeadGate>
   )
 }
