@@ -1,4 +1,4 @@
-FROM ubuntu:24.04
+FROM node:22-bookworm-slim
 
 ENV DEBIAN_FRONTEND=noninteractive
 
@@ -10,13 +10,8 @@ RUN apt-get update \
         openjdk-17-jdk \
         unzip \
     && rm -rf /var/lib/apt/lists/* \
-    && curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
-    && apt-get install -y --no-install-recommends nodejs \
-    && rm -rf /var/lib/apt/lists/* \
-    && corepack enable
-
-# Cursor Cloud Agents run as ubuntu.
-RUN id ubuntu >/dev/null 2>&1 || useradd -m -s /bin/bash ubuntu
+    && corepack enable \
+    && (id ubuntu >/dev/null 2>&1 || useradd -m -s /bin/bash ubuntu)
 
 USER ubuntu
 WORKDIR /home/ubuntu

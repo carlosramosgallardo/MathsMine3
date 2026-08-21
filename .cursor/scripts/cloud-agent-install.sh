@@ -14,7 +14,7 @@ if [[ ! -x "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" ]]; then
   echo "Installing Android command-line tools into $ANDROID_HOME …"
   mkdir -p "$ANDROID_HOME/cmdline-tools"
   tmp="$(mktemp -d)"
-  curl -fsSL "$CMDLINE_URL" -o "$tmp/$CMDLINE_ZIP"
+  curl --proto '=https' --tlsv1.2 -fsSL "$CMDLINE_URL" -o "$tmp/$CMDLINE_ZIP"
   unzip -q "$tmp/$CMDLINE_ZIP" -d "$tmp/extract"
   rm -rf "$ANDROID_HOME/cmdline-tools/latest"
   mv "$tmp/extract/cmdline-tools" "$ANDROID_HOME/cmdline-tools/latest"
@@ -38,7 +38,7 @@ echo "sdk.dir=$ANDROID_HOME" > "$ROOT/apps/android-native/local.properties"
 if [[ -f "$ROOT/package-lock.json" ]]; then
   echo "Installing Node dependencies …"
   cd "$ROOT"
-  npm ci
+  npm ci --ignore-scripts
 fi
 
 echo "Cloud agent install complete."
