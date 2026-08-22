@@ -6,7 +6,7 @@ copy in the Automation UI and not a stale local checkout.
 
 This is **not** a Renovate-only playbook. The filename is `pr-review.md`.
 Do **not** run `gh pr list --author app/renovate` as the only scan.
-Do **not** skip drafts, `cursor/*` branches, or PRs authored by `carlosramosgallardo` / `cursoragent`.
+Do **not** skip drafts, `cursor/*` branches, or PRs authored by `carlosramosgallardo` / `cursoragent` / `imgbot[bot]`.
 
 Run this when the **PR review** Cursor Automation fires (schedule and/or PR event) on `carlosramosgallardo/MathsMine3`.
 
@@ -37,7 +37,7 @@ Leave open. Post one comment (skip if you already posted the same reason on this
 
 | Situation | Comment |
 |---|---|
-| Author is not `renovate[bot]` / `app/renovate` / `cursoragent` / `carlosramosgallardo` | `No merge: autor externo — needs-human` |
+| Author is not `renovate[bot]` / `app/renovate` / `imgbot[bot]` / `app/imgbot` / `cursoragent` / `carlosramosgallardo` | `No merge: autor externo — needs-human` |
 | Head repo is a fork | `No merge: fork — needs-human` |
 | Title/body looks like WIP (`WIP`, `[skip]`, `DO NOT MERGE`) | `No merge: marcado WIP` |
 | Renovate **major** (title `(major)`, table `\| major \|`, or `N.x` → `M.x` with N≠M) | `No merge: major — no automerge` (close + pin only if it is a Renovate dep PR; see majors) |
