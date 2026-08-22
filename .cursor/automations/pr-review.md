@@ -1,5 +1,9 @@
 # PR review (all open PRs)
 
+This file on `origin/main` is the source of truth. The Cursor Automation
+must `git fetch origin` and read **this path in the repo**, not a pasted
+copy in the Automation UI and not a stale local checkout.
+
 This is **not** a Renovate-only playbook. The filename is `pr-review.md`.
 Do **not** run `gh pr list --author app/renovate` as the only scan.
 Do **not** skip drafts, `cursor/*` branches, or PRs authored by `carlosramosgallardo` / `cursoragent`.

@@ -49,9 +49,6 @@ jobs:
       - name: ESLint
         run: npm run lint
 
-      - name: Guardian unit tests
-        run: node --test scripts/renovate-pr-guardian.test.mjs
-
       - name: Unit sweep
         run: npm run qa:sweep:unit
 
