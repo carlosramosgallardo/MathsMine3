@@ -2163,3 +2163,9 @@ Lee:
 - [Terms](https://mathsmine3.xyz/terms)
 
 <!-- MANIFESTO_ES_END -->
+
+<p align="center">
+  <a href="https://www.youtube.com/@FreakingAI">
+    <img src="public/images/freakingai-logo.png" width="88" alt="@FreakingAI" />
+  </a>
+</p>
