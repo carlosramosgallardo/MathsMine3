@@ -21,6 +21,7 @@ help:
 	@echo "  make check-ruby         Play listing assets + copy limits"
 	@echo "  python3 tools/balance/farming.py --input tools/balance/fixtures/farming_snapshot.json"
 	@echo "  go run -C tools ./cmd/lb-report -base https://mathsmine3.xyz"
+	@echo "Additive only (do not replace JS/Kotlin/PLpgSQL): HTML WebView offline, SQL farming snapshot, Windows .cmd"
 
 check: check-python check-pytest check-lua check-go check-rust check-spec check-powershell check-ruby check-rego
 

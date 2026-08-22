@@ -8,6 +8,7 @@ Live Postgres is the Supabase project `udarguklgjjlfnlsqdfw` (eu-west-2). GitHub
 | `sql/live-inventory.sql` | Public structural photo of live `public` (tables, constraints, indexes, RLS, GRANTs, RPC **signatures only**) |
 | `.private/sql/schema.sql` | Full live dump including function bodies and views. **Gitignored. Never commit.** |
 | `.private/sql/ops/` | Manual QA / reset scripts (bot wallets, chain reset). **Gitignored. Never commit.** |
+| `tools/sql/farming_snapshot.sql` | Read-only SELECT for farming audit (does **not** replace `tools/balance/farming.py`) |
 
 `sql/database.sql`, `supabase/database.sql`, `sql/rl_mount.sql`, and `sql/test_*.sql` were removed because they had drifted from production (wrong boss RPC arity, missing `relaying` on `mm3_mining_events`, leftover `mm3_game_winner`) and/or leaked ops SQL.
 

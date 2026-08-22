@@ -23,6 +23,7 @@ Supported surfaces for MathsMine3 today. One product, shared backend (`mathsmine
 - Logic that lives **only in the portal** and is shown in the app via **WebView** (Header, Mining FPV, Home 3D arena) updates when you deploy the web app — no Android code change.
 - UI that lives in **Jetpack Compose** (nonagon, session strip, Training/Trading/… screens still native) must be updated in `apps/android-native/` when you change that UX.
 - Web PC and web mobile are the **same** deploy; only responsive / touch CSS differs.
+- Packed WebView HTML (`apps/android-native/app/src/main/assets/webview/offline.html`) is an **offline fallback**, not a second web client.
 
 ## Download Android APK (GitHub)
 
@@ -65,6 +66,7 @@ Superficies soportadas hoy. Un producto, backend compartido.
 
 - Lo que vive en el **portal** y la app muestra por **WebView** se actualiza al desplegar web.
 - Lo que vive en **Compose** hay que tocarlo también en `apps/android-native/`.
+- El HTML empaquetado (`webview/offline.html`) es un **fallback offline**, no un segundo cliente web.
 
 ## Descargar el APK (GitHub)
 
