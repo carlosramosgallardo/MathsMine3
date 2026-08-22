@@ -106,7 +106,16 @@ export default function Footer() {
         <Link href="/privacy" data-testid="mm3-footer-privacy" className={touchClass}>{es ? 'Privacidad' : 'Privacy'}</Link>
         <Link href="/terms" data-testid="mm3-footer-terms" className={touchClass}>{es ? 'Términos' : 'Terms'}</Link>
         <span className="select-none text-gray-800">|</span>
-        <span className="text-gray-600 select-none">&copy; 2026 FreakingAI</span>
+        <a
+          href="https://www.youtube.com/@FreakingAI"
+          target="_blank"
+          rel="noopener noreferrer"
+          className={`${touchClass} gap-1`}
+          title="@FreakingAI"
+        >
+          <img src="/images/freakingai-logo.png" alt="" width={18} height={18} className="h-[18px] w-[18px] object-contain" />
+          <span className="text-gray-600">&copy; 2026 FreakingAI</span>
+        </a>
       </div>
     </footer>
   )

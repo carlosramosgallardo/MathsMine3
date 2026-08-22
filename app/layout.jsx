@@ -73,7 +73,7 @@ export default function RootLayout({ children }) {
             applicationCategory: 'Game',
             operatingSystem: 'Any (browser-based)',
             offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
-            author: { '@type': 'Organization', name: 'FreakingAI', url: 'https://mathsmine3.xyz' },
+            author: { '@type': 'Organization', name: 'FreakingAI', url: 'https://mathsmine3.xyz', logo: 'https://mathsmine3.xyz/images/freakingai-logo.png' },
             image: 'https://mathsmine3.xyz/og-image.jpg',
           }) }}
         />
