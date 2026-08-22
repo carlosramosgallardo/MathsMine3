@@ -8,13 +8,13 @@ import android.view.MotionEvent
 import android.view.ViewGroup
 import android.webkit.JavascriptInterface
 import android.webkit.WebChromeClient
-import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
-import android.webkit.WebViewClient
 import java.net.URLEncoder
 import xyz.mathsmine3.nativeapp.PortalEmbedFallback
+import xyz.mathsmine3.nativeapp.PortalEmbedWebViewClient
 import xyz.mathsmine3.nativeapp.PortalOfflinePage
+import xyz.mathsmine3.nativeapp.keepParentFromStealingTouches
 import xyz.mathsmine3.nativeapp.applyPortalDefaults
 import xyz.mathsmine3.nativeapp.ui.SoundPrefsBridge
 
@@ -41,7 +41,7 @@ class PortalHeaderWebView @JvmOverloads constructor(
         addJavascriptInterface(NativeBridge(), "MM3NativeHeader")
         webChromeClient = WebChromeClient()
         SoundPrefsBridge.attach(this)
-        webViewClient = object : WebViewClient() {
+        webViewClient = object : PortalEmbedWebViewClient(fallback, blockUnknownHosts = false) {
             override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
                 val uri = request?.url ?: return false
                 if (request.isForMainFrame != true && uri.host?.contains("mathsmine3") != true) {
@@ -74,28 +74,6 @@ class PortalHeaderWebView @JvmOverloads constructor(
                 SoundPrefsBridge.injectInto(this@PortalHeaderWebView)
             }
 
-            override fun onReceivedHttpError(
-                view: WebView?,
-                request: WebResourceRequest?,
-                errorResponse: android.webkit.WebResourceResponse?,
-            ) {
-                super.onReceivedHttpError(view, request, errorResponse)
-                val u = request?.url?.toString().orEmpty()
-                val code = errorResponse?.statusCode ?: 0
-                if (request?.isForMainFrame == true && code >= 400) {
-                    fallback.onMainFrameFailure(u)
-                }
-            }
-
-            override fun onReceivedError(
-                view: WebView?,
-                request: WebResourceRequest?,
-                error: WebResourceError?,
-            ) {
-                super.onReceivedError(view, request, error)
-                if (request?.isForMainFrame != true) return
-                fallback.onMainFrameFailure(request.url?.toString())
-            }
         }
         layoutParams = ViewGroup.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT,
@@ -247,12 +225,7 @@ class PortalHeaderWebView @JvmOverloads constructor(
     }
 
     override fun onTouchEvent(event: MotionEvent): Boolean {
-        when (event.actionMasked) {
-            MotionEvent.ACTION_DOWN ->
-                parent?.requestDisallowInterceptTouchEvent(true)
-            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL ->
-                parent?.requestDisallowInterceptTouchEvent(false)
-        }
+        keepParentFromStealingTouches(event)
         return super.onTouchEvent(event)
     }
 

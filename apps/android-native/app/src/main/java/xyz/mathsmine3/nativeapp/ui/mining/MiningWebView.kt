@@ -9,13 +9,12 @@ import android.webkit.WebChromeClient
 import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
-import android.webkit.WebViewClient
 import java.net.URLEncoder
 import xyz.mathsmine3.nativeapp.PortalEmbedFallback
+import xyz.mathsmine3.nativeapp.PortalEmbedWebViewClient
 import xyz.mathsmine3.nativeapp.PortalOrigin
-import xyz.mathsmine3.nativeapp.PortalWebViewSecurity
+import xyz.mathsmine3.nativeapp.keepParentFromStealingTouches
 import xyz.mathsmine3.nativeapp.applyPortalDefaults
-import xyz.mathsmine3.nativeapp.handleLocalPortalSsl
 import xyz.mathsmine3.nativeapp.ui.SoundPrefsBridge
 
 /**
@@ -38,22 +37,7 @@ class MiningWebView(context: Context) : WebView(context) {
         settings.applyPortalDefaults()
         webChromeClient = WebChromeClient()
         SoundPrefsBridge.attach(this)
-        webViewClient = object : WebViewClient() {
-
-            override fun shouldOverrideUrlLoading(
-                view: WebView?,
-                request: WebResourceRequest?,
-            ): Boolean = PortalWebViewSecurity.shouldBlockNavigation(view, request)
-
-            override fun onReceivedSslError(
-                view: WebView?,
-                handler: android.webkit.SslErrorHandler?,
-                error: android.net.http.SslError?,
-            ) {
-                if (handleLocalPortalSsl(view, handler, error)) return
-                super.onReceivedSslError(view, handler, error)
-            }
-
+        webViewClient = object : PortalEmbedWebViewClient(fallback) {
             override fun onPageStarted(view: WebView?, url: String?, favicon: android.graphics.Bitmap?) {
                 super.onPageStarted(view, url, favicon)
                 pageReady = false
@@ -70,28 +54,12 @@ class MiningWebView(context: Context) : WebView(context) {
                 onReady?.invoke()
             }
 
-            override fun onReceivedHttpError(
-                view: WebView?,
-                request: WebResourceRequest?,
-                errorResponse: android.webkit.WebResourceResponse?,
-            ) {
-                super.onReceivedHttpError(view, request, errorResponse)
-                val u = request?.url?.toString().orEmpty()
-                val code = errorResponse?.statusCode ?: 0
-                if (request?.isForMainFrame == true && code >= 400) {
-                    fallback.onMainFrameFailure(u)
-                }
-            }
-
-            override fun onReceivedError(
-                view: WebView?,
+            override fun onEmbedLoadFailed(
                 request: WebResourceRequest?,
                 error: WebResourceError?,
+                recovered: Boolean,
             ) {
-                super.onReceivedError(view, request, error)
-                if (request?.isForMainFrame != true) return
-                val recovered = fallback.onMainFrameFailure(request.url?.toString())
-                if (!recovered) {
+                if (request?.isForMainFrame == true && !recovered) {
                     onLoadError?.invoke(error?.description?.toString() ?: "load_error")
                 }
             }
@@ -204,12 +172,7 @@ class MiningWebView(context: Context) : WebView(context) {
     }
 
     override fun onTouchEvent(event: MotionEvent): Boolean {
-        when (event.actionMasked) {
-            MotionEvent.ACTION_DOWN ->
-                parent?.requestDisallowInterceptTouchEvent(true)
-            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL ->
-                parent?.requestDisallowInterceptTouchEvent(false)
-        }
+        keepParentFromStealingTouches(event)
         return super.onTouchEvent(event)
     }
 

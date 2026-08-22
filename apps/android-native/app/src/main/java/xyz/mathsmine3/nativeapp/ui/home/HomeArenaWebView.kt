@@ -6,16 +6,13 @@ import android.graphics.Color
 import android.view.MotionEvent
 import android.view.ViewGroup
 import android.webkit.WebChromeClient
-import android.webkit.WebResourceError
-import android.webkit.WebResourceRequest
 import android.webkit.WebView
-import android.webkit.WebViewClient
 import xyz.mathsmine3.nativeapp.PortalEmbedFallback
+import xyz.mathsmine3.nativeapp.PortalEmbedWebViewClient
 import xyz.mathsmine3.nativeapp.PortalOfflinePage
 import xyz.mathsmine3.nativeapp.PortalOrigin
-import xyz.mathsmine3.nativeapp.PortalWebViewSecurity
+import xyz.mathsmine3.nativeapp.keepParentFromStealingTouches
 import xyz.mathsmine3.nativeapp.applyPortalDefaults
-import xyz.mathsmine3.nativeapp.handleLocalPortalSsl
 import xyz.mathsmine3.nativeapp.ui.SoundPrefsBridge
 import java.net.URLEncoder
 
@@ -39,22 +36,7 @@ class HomeArenaWebView(context: Context) : WebView(context) {
         settings.applyPortalDefaults(enableSafeBrowsing = false)
         webChromeClient = WebChromeClient()
         SoundPrefsBridge.attach(this)
-        webViewClient = object : WebViewClient() {
-
-            override fun shouldOverrideUrlLoading(
-                view: WebView?,
-                request: WebResourceRequest?,
-            ): Boolean = PortalWebViewSecurity.shouldBlockNavigation(view, request)
-
-            override fun onReceivedSslError(
-                view: WebView?,
-                handler: android.webkit.SslErrorHandler?,
-                error: android.net.http.SslError?,
-            ) {
-                if (handleLocalPortalSsl(view, handler, error)) return
-                super.onReceivedSslError(view, handler, error)
-            }
-
+        webViewClient = object : PortalEmbedWebViewClient(fallback) {
             override fun onPageStarted(view: WebView?, url: String?, favicon: android.graphics.Bitmap?) {
                 super.onPageStarted(view, url, favicon)
                 SoundPrefsBridge.injectInto(this@HomeArenaWebView)
@@ -69,28 +51,6 @@ class HomeArenaWebView(context: Context) : WebView(context) {
                 arenaReady = true
             }
 
-            override fun onReceivedHttpError(
-                view: WebView?,
-                request: android.webkit.WebResourceRequest?,
-                errorResponse: android.webkit.WebResourceResponse?,
-            ) {
-                super.onReceivedHttpError(view, request, errorResponse)
-                val u = request?.url?.toString().orEmpty()
-                val code = errorResponse?.statusCode ?: 0
-                if (request?.isForMainFrame == true && code >= 400) {
-                    fallback.onMainFrameFailure(u)
-                }
-            }
-
-            override fun onReceivedError(
-                view: WebView?,
-                request: WebResourceRequest?,
-                error: WebResourceError?,
-            ) {
-                super.onReceivedError(view, request, error)
-                if (request?.isForMainFrame != true) return
-                fallback.onMainFrameFailure(request.url?.toString())
-            }
         }
         layoutParams = ViewGroup.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT,
@@ -182,13 +142,7 @@ class HomeArenaWebView(context: Context) : WebView(context) {
     }
 
     override fun onTouchEvent(event: MotionEvent): Boolean {
-        // Keep horizontal drags inside the WebView (carousel rail).
-        when (event.actionMasked) {
-            MotionEvent.ACTION_DOWN ->
-                parent?.requestDisallowInterceptTouchEvent(true)
-            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL ->
-                parent?.requestDisallowInterceptTouchEvent(false)
-        }
+        keepParentFromStealingTouches(event)
         return super.onTouchEvent(event)
     }
 

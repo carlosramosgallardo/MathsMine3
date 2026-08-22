@@ -1,5 +1,7 @@
 package xyz.mathsmine3.nativeapp
 
+import android.webkit.WebResourceRequest
+import android.webkit.WebResourceResponse
 import android.webkit.WebView
 
 /**
@@ -35,5 +37,19 @@ class PortalEmbedFallback(
             return true
         }
         return false
+    }
+
+    fun consumeMainFrameHttpError(
+        request: WebResourceRequest?,
+        errorResponse: WebResourceResponse?,
+    ): Boolean {
+        val code = errorResponse?.statusCode ?: 0
+        if (request?.isForMainFrame != true || code < 400) return false
+        return onMainFrameFailure(request.url?.toString())
+    }
+
+    fun consumeMainFrameError(request: WebResourceRequest?): Boolean {
+        if (request?.isForMainFrame != true) return false
+        return onMainFrameFailure(request.url?.toString())
     }
 }

@@ -30,6 +30,8 @@ def test_offline_html_is_static_and_bilingual():
     assert "MathsMine3" in text
     assert "Content-Security-Policy" in text
     assert "script-src 'none'" in text
+    assert "unsafe-inline" not in text
+    assert "sha256-" in text
     assert "English" in text and "Español" in text
     assert "href=\"/\"" in text
     assert UNSAFE_HTML.search(text) is None
