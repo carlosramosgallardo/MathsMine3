@@ -2889,6 +2889,7 @@ a.mm3-nonagon-center-name:hover {
 .ai-team-tool-block { display:flex; align-items:center; gap:.7rem; min-width:0; padding:.65rem; border:1px solid rgba(167,139,250,.16); background:rgba(7,5,16,.74); color:#fff; text-decoration:none; box-shadow:3px 3px 0 #010204; transition:transform .16s,border-color .16s; }
 .ai-team-tool-block:hover { transform:translate(-1px,-2px); border-color:rgba(167,139,250,.55); }
 .ai-team-tool-icon { display:grid; place-items:center; flex:0 0 auto; width:32px; height:30px; border:1px solid rgba(196,181,253,.34); background:#0c0918; color:#ddd6fe; font:900 .58rem/1 monospace; letter-spacing:.05em; box-shadow:3px 3px 0 #010204; }
+.ai-team-tool-logo { flex:0 0 auto; width:32px; height:32px; object-fit:contain; background:#000; box-shadow:3px 3px 0 #010204; }
 .ai-team-tool-block strong { display:block; font:900 .65rem/1 monospace; }
 .ai-team-tool-block span { display:block; margin-top:.25rem; color:rgba(148,163,184,.48); font:.52rem/1 monospace; letter-spacing:.12em; text-transform:uppercase; }
 
@@ -2974,6 +2975,7 @@ a.mm3-nonagon-center-name:hover {
   .ai-team-tool-grid { gap:.32rem; }
   .ai-team-tool-block { gap:.45rem; padding:.32rem .42rem; }
   .ai-team-tool-icon { width:27px; height:25px; }
+  .ai-team-tool-logo { width:27px; height:27px; }
   .ai-team-tool-block span { display:none; }
 }
 
@@ -3068,6 +3070,7 @@ a.mm3-nonagon-center-name:hover {
   .ai-team-tool-grid { grid-template-columns:repeat(3,minmax(0,1fr)); gap:.35rem; }
   .ai-team-tool-block { flex-direction:column; gap:.25rem; padding:.38rem .25rem; text-align:center; }
   .ai-team-tool-icon { width:28px; height:26px; }
+  .ai-team-tool-logo { width:28px; height:28px; }
   .ai-team-tool-block strong { font-size:.55rem; }
   .ai-team-tool-block span { display:none; }
 }

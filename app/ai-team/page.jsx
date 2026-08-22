@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import Link from 'next/link';
 import { useI18n } from '@/lib/i18n-context';
 import { colorFromAddress, colorFromPool } from '@/lib/wallet-colors';
@@ -120,11 +121,15 @@ export default function AITeamPage() {
               {[
                 { href: 'https://www.anthropic.com', mark: 'AN', name: 'Claude', company: 'Anthropic' },
                 { href: 'https://openai.com', mark: 'OP', name: 'Codex', company: 'OpenAI' },
-                { href: 'https://www.youtube.com/@Freakingai', mark: 'FK', name: '@FreakingAI', company: 'YouTube' },
-              ].map(({ href, mark, name, company }) => (
+                { href: 'https://www.youtube.com/@FreakingAI', mark: 'FK', name: '@FreakingAI', company: 'YouTube', logo: '/images/freakingai-logo.png' },
+              ].map(({ href, mark, name, company, logo }) => (
                 <a key={name} href={href} target="_blank" rel="noopener noreferrer"
                   className="ai-team-tool-block">
-                  <div className="ai-team-tool-icon" aria-hidden="true">{mark}</div>
+                  {logo ? (
+                    <Image src={logo} alt={name} width={32} height={32} className="ai-team-tool-logo" />
+                  ) : (
+                    <div className="ai-team-tool-icon" aria-hidden="true">{mark}</div>
+                  )}
                   <div>
                     <strong>{name}</strong>
                     <span>{company}</span>
