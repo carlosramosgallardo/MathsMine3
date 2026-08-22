@@ -11,6 +11,7 @@ import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import java.net.URLEncoder
+import xyz.mathsmine3.nativeapp.PortalEmbedFallback
 import xyz.mathsmine3.nativeapp.PortalOrigin
 import xyz.mathsmine3.nativeapp.PortalWebViewSecurity
 import xyz.mathsmine3.nativeapp.applyPortalDefaults
@@ -30,7 +31,7 @@ class MiningWebView(context: Context) : WebView(context) {
     var onLoadError: ((String) -> Unit)? = null
 
     private var sessionWallet: String? = null
-    private var usedFallback = false
+    private val fallback = PortalEmbedFallback(this, "/embed/mining") { FALLBACK_URL }
 
     init {
         setBackgroundColor(Color.parseColor("#070B0F"))
@@ -77,13 +78,8 @@ class MiningWebView(context: Context) : WebView(context) {
                 super.onReceivedHttpError(view, request, errorResponse)
                 val u = request?.url?.toString().orEmpty()
                 val code = errorResponse?.statusCode ?: 0
-                if (request?.isForMainFrame == true &&
-                    u.contains("/embed/mining") &&
-                    code >= 400 &&
-                    !usedFallback
-                ) {
-                    usedFallback = true
-                    post { loadUrl(FALLBACK_URL) }
+                if (request?.isForMainFrame == true && code >= 400) {
+                    fallback.onMainFrameFailure(u)
                 }
             }
 
@@ -94,11 +90,8 @@ class MiningWebView(context: Context) : WebView(context) {
             ) {
                 super.onReceivedError(view, request, error)
                 if (request?.isForMainFrame != true) return
-                val u = request.url?.toString().orEmpty()
-                if (u.contains("/embed/mining") && !usedFallback) {
-                    usedFallback = true
-                    post { loadUrl(FALLBACK_URL) }
-                } else {
+                val recovered = fallback.onMainFrameFailure(request.url?.toString())
+                if (!recovered) {
                     onLoadError?.invoke(error?.description?.toString() ?: "load_error")
                 }
             }
@@ -115,7 +108,7 @@ class MiningWebView(context: Context) : WebView(context) {
     }
 
     fun loadMining() {
-        usedFallback = false
+        fallback.reset()
         pageReady = false
         loadUrl(buildEmbedUrl())
     }

@@ -1007,6 +1007,7 @@ Secret effect: steals MM3 → executor. `x = daily nonce (100–799)`.
 | Platform | Vercel (hosting, Analytics, Speed Insights) |
 | Blockchain | Alchemy webhook (ETH mainnet realchain trace) |
 | Android | Kotlin, Jetpack Compose, WebView embeds (`apps/android-native`) |
+| CI tools | Additive only: Python, Go, Rust, Lua, Ruby, HTML offline page, SQL snapshot — never a second game runtime |
 
 ### Platforms
 
@@ -1021,6 +1022,7 @@ app/                 Routes, layouts, API handlers
 components/          UI, mining, chart, wallet, relaying, shell
 lib/                 Game logic, i18n, wallet helpers, macro, dice
 sql/                 Supabase schema and maintenance scripts
+tools/               Polyglot CI (Python/Go/SQL) — does not replace lib/ or Kotlin
 public/              Images, metadata, manifest, sitemap, robots
 apps/android-native/ Native Android client (Compose + portal WebViews)
 docs/PLATFORMS.md    Supported platforms & APK download notes
@@ -2083,6 +2085,7 @@ Efecto secreto: roba MM3 → wallet ejecutora. `x = nonce diario (100–799)`.
 | Plataforma | Vercel (hosting, Analytics, Speed Insights) |
 | Blockchain | Alchemy webhook (traza realchain ETH mainnet) |
 | Android | Kotlin, Jetpack Compose, WebViews del portal (`apps/android-native`) |
+| CI / tools | Solo aditivo: Python, Go, Rust, Lua, Ruby, HTML offline, SQL snapshot — nunca un segundo runtime de juego |
 
 ### Plataformas
 
@@ -2097,6 +2100,7 @@ app/                 Rutas, layouts, API handlers
 components/          UI, mining, chart, wallet, Relaying, shell
 lib/                 Lógica de juego, i18n, wallet helpers, macro, dice
 sql/                 Schema Supabase y scripts de mantenimiento
+tools/               CI políglota (Python/Go/SQL) — no sustituye lib/ ni Kotlin
 public/              Imágenes, metadata, manifest, sitemap, robots
 apps/android-native/ Cliente Android nativo (Compose + WebViews del portal)
 docs/PLATFORMS.md    Plataformas soportadas y descarga del APK

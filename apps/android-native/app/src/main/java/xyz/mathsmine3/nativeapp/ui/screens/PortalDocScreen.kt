@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.graphics.Color
 import android.view.ViewGroup
 import android.webkit.WebChromeClient
+import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
 import android.webkit.WebSettings
 import android.webkit.WebView
@@ -13,6 +14,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.viewinterop.AndroidView
+import xyz.mathsmine3.nativeapp.PortalOfflinePage
 import xyz.mathsmine3.nativeapp.auth.Session
 import xyz.mathsmine3.nativeapp.ui.SoundPrefsBridge
 import xyz.mathsmine3.nativeapp.ui.theme.Mm3Colors
@@ -40,10 +42,23 @@ fun PortalDocScreen(
                 webChromeClient = WebChromeClient()
                 SoundPrefsBridge.attach(this)
                 webViewClient = object : WebViewClient() {
+                    private var usedOffline = false
+
                     override fun shouldOverrideUrlLoading(
                         view: WebView?,
                         request: WebResourceRequest?,
                     ): Boolean = false
+
+                    override fun onReceivedError(
+                        view: WebView?,
+                        request: WebResourceRequest?,
+                        error: WebResourceError?,
+                    ) {
+                        super.onReceivedError(view, request, error)
+                        if (request?.isForMainFrame != true || usedOffline) return
+                        usedOffline = true
+                        view?.let { PortalOfflinePage.loadInto(it) }
+                    }
 
                     override fun onPageStarted(view: WebView?, startedUrl: String?, favicon: android.graphics.Bitmap?) {
                         super.onPageStarted(view, startedUrl, favicon)
@@ -52,6 +67,7 @@ fun PortalDocScreen(
 
                     override fun onPageFinished(view: WebView?, finishedUrl: String?) {
                         super.onPageFinished(view, finishedUrl)
+                        if (PortalOfflinePage.isOfflineContent(finishedUrl)) return
                         val w = session.wallet?.lowercase()?.takeIf {
                             it.matches(Regex("^0x[a-fA-F0-9]{40}$"))
                         }

@@ -6,9 +6,12 @@ import android.graphics.Color
 import android.view.MotionEvent
 import android.view.ViewGroup
 import android.webkit.WebChromeClient
+import android.webkit.WebResourceError
+import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
-import android.webkit.WebResourceRequest
+import xyz.mathsmine3.nativeapp.PortalEmbedFallback
+import xyz.mathsmine3.nativeapp.PortalOfflinePage
 import xyz.mathsmine3.nativeapp.PortalOrigin
 import xyz.mathsmine3.nativeapp.PortalWebViewSecurity
 import xyz.mathsmine3.nativeapp.applyPortalDefaults
@@ -29,6 +32,7 @@ class HomeArenaWebView(context: Context) : WebView(context) {
         private set
     private var sessionWallet: String? = null
     private val WALLET_RE = Regex("^0x[0-9a-fA-F]{40}$")
+    private val fallback = PortalEmbedFallback(this, "/embed/home-arena") { FALLBACK_URL }
 
     init {
         setBackgroundColor(Color.parseColor("#070B0F"))
@@ -59,7 +63,9 @@ class HomeArenaWebView(context: Context) : WebView(context) {
             override fun onPageFinished(view: WebView?, url: String?) {
                 super.onPageFinished(view, url)
                 SoundPrefsBridge.injectInto(this@HomeArenaWebView)
-                injectArenaChrome()
+                if (!PortalOfflinePage.isOfflineContent(url)) {
+                    injectArenaChrome()
+                }
                 arenaReady = true
             }
 
@@ -71,10 +77,19 @@ class HomeArenaWebView(context: Context) : WebView(context) {
                 super.onReceivedHttpError(view, request, errorResponse)
                 val u = request?.url?.toString().orEmpty()
                 val code = errorResponse?.statusCode ?: 0
-                if (request?.isForMainFrame == true && u.contains("/embed/home-arena") && code >= 400) {
-                    // Embed not deployed yet — use live home + CSS strip.
-                    post { loadUrl(FALLBACK_URL) }
+                if (request?.isForMainFrame == true && code >= 400) {
+                    fallback.onMainFrameFailure(u)
                 }
+            }
+
+            override fun onReceivedError(
+                view: WebView?,
+                request: WebResourceRequest?,
+                error: WebResourceError?,
+            ) {
+                super.onReceivedError(view, request, error)
+                if (request?.isForMainFrame != true) return
+                fallback.onMainFrameFailure(request.url?.toString())
             }
         }
         layoutParams = ViewGroup.LayoutParams(
@@ -89,6 +104,7 @@ class HomeArenaWebView(context: Context) : WebView(context) {
     }
 
     fun loadArena() {
+        fallback.reset()
         loadUrl(buildUrl())
     }
 
