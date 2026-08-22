@@ -1,5 +1,9 @@
 # PR review (all open PRs)
 
+This is **not** a Renovate-only playbook. The filename is `pr-review.md`.
+Do **not** run `gh pr list --author app/renovate` as the only scan.
+Do **not** skip drafts, `cursor/*` branches, or PRs authored by `carlosramosgallardo` / `cursoragent`.
+
 Run this when the **PR review** Cursor Automation fires (schedule and/or PR event) on `carlosramosgallardo/MathsMine3`.
 
 ## Goal
@@ -69,7 +73,7 @@ Do not squash unless merge commits are disabled.
 
 ## Renovate majors only
 
-Same rules as before: **never merge**. Close with a short comment and add/tighten `allowedVersions` in `renovate.json` **on a new `cursor/renovate-pin-…` branch + PR** (do not push `main`). Do not close non-Renovate PRs.
+Never merge majors. Close with a short comment and add/tighten `allowedVersions` in `renovate.json` **on a new `cursor/renovate-pin-…` branch + PR** (do not push `main`). Do not close non-Renovate PRs.
 
 ## Do not
 
