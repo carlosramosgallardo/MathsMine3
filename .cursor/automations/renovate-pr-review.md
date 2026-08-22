@@ -17,7 +17,7 @@ Run both. Guardian handles the easy path; you handle what rules cannot.
 
 1. `git fetch origin && gh pr list --state open --author app/renovate`
 2. For each open PR (newest first):
-   - `gh pr checks <n>` — require **Build debug APK** + **SonarCloud** green before applying
+   - `gh pr checks <n>` — require **SonarCloud Code Analysis** + **SonarCloud quality gate** green before applying (plus **Build debug APK** when Android CI ran)
    - `gh pr diff <n>` — see what changes
    - If Android CI failed: read logs (`gh run view … --log-failed`), identify Kotlin 2.x / AGP / compileSdk issues
 
@@ -36,7 +36,7 @@ A PR is **major** if ANY of these is true — **close + pin, never apply**:
 
 Only when the PR is **confirmed minor or patch** (`| minor |` or `| patch |` in Renovate table, or clear patch semver in title):
 
-- All required CI green (**Build debug APK** + **SonarCloud** for Android-touching PRs)
+- All required CI green (**SonarCloud Code Analysis** + **SonarCloud quality gate**; **Build debug APK** when Android-touching)
 - Android-only bumps that pass **Android native APK**
 - Web-only bumps (npm lockfile) with Vercel green
 - Prefer one combined commit when multiple safe bumps touch the same file
@@ -44,7 +44,7 @@ Only when the PR is **confirmed minor or patch** (`| minor |` or `| patch |` in 
 
 ## Cursor agent PRs (all branches)
 
-Same gate as Renovate: run `gh pr checks <n>` before merge. **Never merge** if **SonarCloud Code Analysis** is `fail`. See `.cursor/rules/merge-quality-gate.mdc`.
+Same gate as Renovate: run `gh pr checks <n>` before merge. **Never merge** if **SonarCloud Code Analysis** or **SonarCloud quality gate** is `fail`. **Never push the bump straight to `main`.** See `.cursor/rules/merge-quality-gate.mdc`.
 
 ## Do NOT apply
 
