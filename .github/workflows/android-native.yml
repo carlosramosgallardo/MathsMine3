@@ -3,23 +3,23 @@ name: Android native APK
 on:
   push:
     branches: [main]
-    paths:
+    paths: &apk_paths
       - 'apps/android-native/**'
       - 'scripts/android-native-build.sh'
       - '.github/workflows/android-native.yml'
-      - 'docs/PLATFORMS.md'
     tags:
       - 'v*'
   pull_request:
-    paths:
-      - 'apps/android-native/**'
-      - 'scripts/android-native-build.sh'
-      - '.github/workflows/android-native.yml'
-      - 'docs/PLATFORMS.md'
+    paths: *apk_paths
   workflow_dispatch:
 
+# Write only on v* tags (GitHub Release + stamp commit). PRs just upload artifacts.
 permissions:
-  contents: write
+  contents: ${{ startsWith(github.ref, 'refs/tags/v') && 'write' || 'read' }}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   build:
@@ -32,8 +32,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-        with:
-          fetch-depth: 0
 
       - name: Set up JDK 17
         uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5

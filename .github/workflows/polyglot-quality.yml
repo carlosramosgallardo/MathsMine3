@@ -3,7 +3,7 @@ name: Polyglot quality
 on:
   push:
     branches: [main]
-    paths:
+    paths: &polyglot_paths
       - 'app/api/**'
       - 'lib/ranks.js'
       - 'lib/training-game.ts'
@@ -22,32 +22,17 @@ on:
       - 'scripts/windows/**'
       - 'Makefile'
       - 'Gemfile'
-      - '.github/workflows/**'
+      - '.github/workflows/polyglot-quality.yml'
   pull_request:
-    paths:
-      - 'app/api/**'
-      - 'lib/ranks.js'
-      - 'lib/training-game.ts'
-      - 'lib/dice.ts'
-      - 'apps/android-native/app/src/main/java/xyz/mathsmine3/nativeapp/ui/theme/RankTiers.kt'
-      - 'apps/android-native/app/src/main/java/xyz/mathsmine3/nativeapp/training/TrainingProblem.kt'
-      - 'packages/api-contracts/**'
-      - 'packages/realtime-protocol/**'
-      - 'packages/game-tables/**'
-      - 'packages/mm3-math/**'
-      - 'tools/**'
-      - 'features/**'
-      - 'fastlane/**'
-      - 'play-store-listing/**'
-      - 'policy/**'
-      - 'scripts/windows/**'
-      - 'Makefile'
-      - 'Gemfile'
-      - '.github/workflows/**'
+    paths: *polyglot_paths
   workflow_dispatch:
 
 permissions:
   contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   verify:
