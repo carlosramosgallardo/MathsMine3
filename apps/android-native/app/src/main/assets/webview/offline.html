@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src 'none'; script-src 'none'; connect-src 'none'; font-src 'none'; object-src 'none'; frame-src 'none'; form-action 'none'; base-uri 'none'">
+  <title>MathsMine3 — offline</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #01070e;
+      --panel: #070b0f;
+      --line: #16324a;
+      --text: #d7eefc;
+      --muted: #7fa3b8;
+      --accent: #3ee0c5;
+    }
+    html, body {
+      margin: 0;
+      min-height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: ui-monospace, "Cascadia Code", "SF Mono", Menlo, Consolas, monospace;
+    }
+    main {
+      box-sizing: border-box;
+      max-width: 34rem;
+      margin: 0 auto;
+      padding: 2.5rem 1.25rem;
+    }
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 2px;
+      padding: 1.25rem 1.1rem 1.4rem;
+    }
+    h1 {
+      margin: 0 0 0.35rem;
+      font-size: 1.05rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--accent);
+    }
+    p { margin: 0.65rem 0 0; line-height: 1.45; color: var(--muted); }
+    .lang { margin-top: 1.15rem; }
+    .lang h2 {
+      margin: 0;
+      font-size: 0.72rem;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--accent);
+    }
+    a.retry {
+      display: inline-block;
+      margin-top: 1.2rem;
+      padding: 0.45rem 0.8rem;
+      border: 1px solid var(--accent);
+      color: var(--accent);
+      text-decoration: none;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      font-size: 0.78rem;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <section class="panel">
+      <h1>MathsMine3</h1>
+      <p>Packed fallback for Android WebViews when the live portal cannot be reached. This file is not a second game client and does not replace Next.js.</p>
+      <div class="lang">
+        <h2>English</h2>
+        <p>Cannot reach the MathsMine3 portal. Training scores, ranks, and MM3 balances stay on the server. Retry when the network is back; nothing is mined or paid while offline.</p>
+      </div>
+      <div class="lang">
+        <h2>Español</h2>
+        <p>No se puede alcanzar el portal de MathsMine3. Puntos de Training, rangos y saldos MM3 siguen en el servidor. Reintenta cuando vuelva la red; offline no se mina ni se paga nada.</p>
+      </div>
+      <a class="retry" href="/">Retry · Reintentar</a>
+    </section>
+  </main>
+</body>
+</html>
