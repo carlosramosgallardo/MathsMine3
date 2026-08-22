@@ -1,0 +1,13 @@
+GEM
+  remote: https://rubygems.org/
+  specs:
+    fastlane (2.228.0)
+
+PLATFORMS
+  ruby
+
+DEPENDENCIES
+  fastlane (~> 2.228)
+
+BUNDLED WITH
+   2.5.23

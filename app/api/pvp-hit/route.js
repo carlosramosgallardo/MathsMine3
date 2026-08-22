@@ -4,6 +4,7 @@ import { createClient } from '@supabase/supabase-js'
 import { isInHousePoolPvpSafeZone } from '@/lib/mining-world-layout'
 import { applyDeathLevelPenalty } from '@/lib/death-penalty'
 import { walletFromRequest } from '@/lib/wallet-session'
+import { unitRandom } from '@/lib/game-random'
 
 function serviceClient() {
   return createClient(
@@ -74,13 +75,13 @@ export async function POST(req) {
   // Defense NFTJI (🔰): 10% dodge — independent of hit zone / RL mount.
   const hasDefenseNftji = victimSqueezeNftji?.equipped === 'defense'
     && Number(victimSqueezeNftji?.defense_level ?? -1) >= 0
-  if (!victimIsAnon && hasDefenseNftji && Math.random() < 0.10) {
+  if (!victimIsAnon && hasDefenseNftji && unitRandom() < 0.10) {
     return Response.json({ ok: true, dodged: true, damage: 0, health: Number(victimHealth?.health ?? 100), killed: false })
   }
 
   const hasAttackNftji = squeezeNftji?.equipped === 'attack'
     && Number(squeezeNftji?.attack_level ?? -1) >= 0
-  const critical = hasAttackNftji && Math.random() < 0.05
+  const critical = hasAttackNftji && unitRandom() < 0.05
   const headshot = hitZone === 'head'
   const damage = headshot || critical ? 5 : 1
 
@@ -88,7 +89,7 @@ export async function POST(req) {
   // OFFLINE for 5s — replicated to the victim through the pvp-result payload.
   const hasZeroDay = Array.isArray(attackerProgress?.wallet_emojis)
     && attackerProgress.wallet_emojis.includes('👾')
-  const hacked = hasZeroDay && Math.random() < 0.10
+  const hacked = hasZeroDay && unitRandom() < 0.10
 
   const { data, error } = await sb.rpc('apply_mm3_pvp_hit', {
     p_attacker: attacker,

@@ -3,9 +3,10 @@ export const dynamic = 'force-dynamic';
 import { createClient } from '@supabase/supabase-js';
 import { clampMacroPercent, NUDGE_MAX_DELTA } from '@/lib/mm3-macro';
 import { walletFromRequest } from '@/lib/wallet-session';
+import { unitRandom } from '@/lib/game-random';
 
 function randomNudge(current) {
-  const delta = (Math.random() * (2 * NUDGE_MAX_DELTA)) - NUDGE_MAX_DELTA;
+  const delta = (unitRandom() * (2 * NUDGE_MAX_DELTA)) - NUDGE_MAX_DELTA;
   return clampMacroPercent(current + delta);
 }
 

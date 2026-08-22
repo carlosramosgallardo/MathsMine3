@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic'
 import { createClient } from '@supabase/supabase-js'
 import { getDiceState } from '@/lib/dice'
 import { walletFromRequest } from '@/lib/wallet-session'
+import { unitRandom } from '@/lib/game-random'
 
 const NODE_DICE_PRICE_MM3 = 500
 const NODE_DICE_MIN_LEVEL = 30
@@ -100,7 +101,7 @@ export async function POST(req) {
   if (payError) return Response.json({ ok: false, error: 'purchase_failed' }, { status: 500 })
 
   const dice = getDiceState(now)
-  const mode = dice.active ? modeFor(wallet, dice.hourStart) : (Math.random() < .5 ? 'meteo' : 'war')
+  const mode = dice.active ? modeFor(wallet, dice.hourStart) : (unitRandom() < .5 ? 'meteo' : 'war')
   const update = {
     node_dice_wallet: wallet,
     node_dice_started_at: new Date(now).toISOString(),
