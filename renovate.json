@@ -146,6 +146,33 @@
       "allowedVersions": "<3.0.0"
     },
     {
+      "description": "TypeScript 6/7 broke Lint and build / Vercel on PR #133; stay on 5.x until Next 16 is validated",
+      "matchPackageNames": [
+        "typescript"
+      ],
+      "allowedVersions": "<6.0.0"
+    },
+    {
+      "description": "setup-python v6/v7 is a major; keep SHA-pinned v5 (PR #131, Sonar red)",
+      "matchManagers": [
+        "github-actions"
+      ],
+      "matchPackageNames": [
+        "actions/setup-python"
+      ],
+      "allowedVersions": "<6.0.0"
+    },
+    {
+      "description": "setup-go v6/v7 is a major; keep SHA-pinned v5 (PR #130, Sonar red). Same policy as checkout v5→v7.",
+      "matchManagers": [
+        "github-actions"
+      ],
+      "matchPackageNames": [
+        "actions/setup-go"
+      ],
+      "allowedVersions": "<6.0.0"
+    },
+    {
       "description": "ESLint 10 — wait for eslint-config-next alignment (Renovate PR #122)",
       "matchPackageNames": [
         "eslint"
