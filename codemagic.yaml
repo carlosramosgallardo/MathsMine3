@@ -1,0 +1,145 @@
+# MathsMine3 — Codemagic (native Android, not React Native / Flutter).
+#
+# Gradle project: apps/android-native/  (package xyz.mathsmine3.app)
+# Web / Vercel is unchanged; this file only builds the Compose APK / Play AAB.
+#
+# After this file is on a branch, in Codemagic: pick that branch → Check for
+# configuration file. Then Start new build → "Native Android debug APK".
+#
+# Codemagic → Environment variables — create group `mm3_android`:
+#   NEXT_PUBLIC_GOOGLE_CLIENT_ID
+#   NEXT_PUBLIC_SUPABASE_URL
+#   NEXT_PUBLIC_SUPABASE_ANON_KEY
+# Release AAB also needs (same names as GitHub Environment `env`):
+#   ANDROID_RELEASE_KEYSTORE_BASE64
+#   ANDROID_KEYSTORE_STORE_PASSWORD
+#   ANDROID_KEYSTORE_KEY_ALIAS          (optional, default mathsmine3)
+#   ANDROID_KEYSTORE_KEY_PASSWORD       (optional, defaults to store password)
+#
+# Optional later: upload the Play upload keystore under Team settings →
+# Code signing identities as `mathsmine3_upload`, then uncomment android_signing
+# below. Do not enable google_play publishing until a Play service account exists.
+
+definitions:
+  android_machine: &android_machine
+    instance_type: mac_mini_m2
+    max_build_duration: 60
+
+  gradle_cache: &gradle_cache
+    cache_paths:
+      - ~/.gradle/caches
+
+  write_portal_env: &write_portal_env
+    name: Write portal env for Gradle
+    script: |
+      set -euo pipefail
+      {
+        echo "NEXT_PUBLIC_GOOGLE_CLIENT_ID=${NEXT_PUBLIC_GOOGLE_CLIENT_ID:-}"
+        echo "NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL:-}"
+        echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=${NEXT_PUBLIC_SUPABASE_ANON_KEY:-}"
+      } > "$CM_BUILD_DIR/.env.local"
+      if [ -z "${NEXT_PUBLIC_GOOGLE_CLIENT_ID:-}" ]; then
+        echo "WARN: NEXT_PUBLIC_GOOGLE_CLIENT_ID empty — add group mm3_android in Codemagic"
+      fi
+
+  set_sdk: &set_sdk
+    name: Set Android SDK location
+    working_directory: apps/android-native
+    script: |
+      set -euo pipefail
+      echo "sdk.dir=$ANDROID_SDK_ROOT" > local.properties
+      chmod +x gradlew
+
+workflows:
+  android-native-debug:
+    name: Native Android debug APK
+    <<: *android_machine
+    environment:
+      groups:
+        - mm3_android
+      java: 17
+      vars:
+        PACKAGE_NAME: xyz.mathsmine3.app
+    cache: *gradle_cache
+    scripts:
+      - *write_portal_env
+      - *set_sdk
+      - name: Assemble debug APK
+        working_directory: apps/android-native
+        script: |
+          set -euo pipefail
+          ./gradlew assembleDebug --no-daemon --stacktrace
+      - name: Stage APK
+        script: |
+          set -euo pipefail
+          mkdir -p "$CM_BUILD_DIR/dist/release"
+          VER="${CM_BRANCH:-debug}"
+          VER="${VER//\//-}"
+          cp -f "$CM_BUILD_DIR/apps/android-native/app/build/outputs/apk/debug/app-debug.apk" \
+            "$CM_BUILD_DIR/dist/mathsmine3-native-debug.apk"
+          cp -f "$CM_BUILD_DIR/dist/mathsmine3-native-debug.apk" \
+            "$CM_BUILD_DIR/dist/release/mathsmine3-${VER}.apk"
+          ls -lh "$CM_BUILD_DIR/dist" "$CM_BUILD_DIR/dist/release"
+    artifacts:
+      - dist/mathsmine3-native-debug.apk
+      - dist/release/*.apk
+      - apps/android-native/app/build/outputs/**/*.apk
+
+  android-native-release:
+    name: Native Android signed AAB
+    <<: *android_machine
+    environment:
+      groups:
+        - mm3_android
+      # android_signing:
+      #   - mathsmine3_upload
+      java: 17
+      ndk: 26.1.10909125
+      vars:
+        PACKAGE_NAME: xyz.mathsmine3.app
+    cache: *gradle_cache
+    scripts:
+      - *write_portal_env
+      - *set_sdk
+      - name: Prepare release signing
+        script: |
+          set -euo pipefail
+          NATIVE="$CM_BUILD_DIR/apps/android-native"
+          if [ -n "${CM_KEYSTORE_PATH:-}" ]; then
+            cp "$CM_KEYSTORE_PATH" "$NATIVE/release.keystore"
+            chmod 600 "$NATIVE/release.keystore"
+            printf '%s\n' \
+              "storeFile=release.keystore" \
+              "storePassword=${CM_KEYSTORE_PASSWORD}" \
+              "keyAlias=${CM_KEY_ALIAS}" \
+              "keyPassword=${CM_KEY_PASSWORD}" \
+              > "$NATIVE/keystore.properties"
+            chmod 600 "$NATIVE/keystore.properties"
+            echo "Prepared release signing from Codemagic code signing identities"
+          else
+            bash "$CM_BUILD_DIR/scripts/android-native-prepare-signing.sh"
+          fi
+      - name: Bundle signed release
+        working_directory: apps/android-native
+        script: |
+          set -euo pipefail
+          ./gradlew bundleRelease --no-daemon --stacktrace
+      - name: Stage AAB
+        script: |
+          set -euo pipefail
+          VERSION_NAME="$(awk -F'"' '/versionName[[:space:]]*=/{print $2; exit}' \
+            "$CM_BUILD_DIR/apps/android-native/app/build.gradle.kts")"
+          VERSION_NAME="${VERSION_NAME:-unknown}"
+          SRC="$CM_BUILD_DIR/apps/android-native/app/build/outputs/bundle/release/app-release.aab"
+          test -f "$SRC"
+          mkdir -p "$CM_BUILD_DIR/dist/release"
+          cp -f "$SRC" "$CM_BUILD_DIR/dist/release/mathsmine3-${VERSION_NAME}.aab"
+          ls -lh "$CM_BUILD_DIR/dist/release"
+    artifacts:
+      - dist/release/*.aab
+      - apps/android-native/app/build/outputs/**/*.aab
+    # publishing:
+    #   google_play:
+    #     credentials: $GOOGLE_PLAY_SERVICE_ACCOUNT_CREDENTIALS
+    #     track: internal
+    #     submit_as_draft: true

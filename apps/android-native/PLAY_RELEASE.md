@@ -58,6 +58,8 @@ Requires `keystore.properties` + `release.keystore`, **or** these env secrets (n
 
 **GitHub Actions (no PC):** add the same secrets to GitHub Environment **`env`**, then run workflow **Android native AAB** (`workflow_dispatch`) or push a `v*` tag. The AAB is attached to the GitHub Release — download it on your phone and upload to Play Console in Chrome.
 
+**Codemagic:** repo-root `codemagic.yaml` (native Android, not React Native). Create variable group **`mm3_android`** with the portal keys plus the four signing secrets above. Start workflow **Native Android signed AAB**. Play Console upload stays manual until a Play service account is added.
+
 **Mobile upload (Play Console):** the Play Console app does **not** upload AABs. Open [play.google.com/console](https://play.google.com/console) in Chrome → **Test and release** → **Internal testing** → **Create release** → **Upload** → pick the `.aab` from Downloads.
 
 Then:
