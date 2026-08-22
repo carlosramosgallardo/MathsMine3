@@ -1020,7 +1020,8 @@ See **[docs/PLATFORMS.md](docs/PLATFORMS.md)** for the supported surfaces (web P
 app/                 Routes, layouts, API handlers
 components/          UI, mining, chart, wallet, relaying, shell
 lib/                 Game logic, i18n, wallet helpers, macro, dice
-sql/                 Supabase schema and maintenance scripts
+sql/                 Public schema inventory (full dump + ops SQL in .private/)
+supabase/migrations/ Live Postgres history (Supabase)
 public/              Images, metadata, manifest, sitemap, robots
 apps/android-native/ Native Android client (Compose + portal WebViews)
 docs/PLATFORMS.md    Supported platforms & APK download notes
@@ -2096,7 +2097,8 @@ Ver **[docs/PLATFORMS.md](docs/PLATFORMS.md)** (web PC, web móvil, app Android 
 app/                 Rutas, layouts, API handlers
 components/          UI, mining, chart, wallet, Relaying, shell
 lib/                 Lógica de juego, i18n, wallet helpers, macro, dice
-sql/                 Schema Supabase y scripts de mantenimiento
+sql/                 Inventario público del schema (dump completo y ops en .private/)
+supabase/migrations/ Historial Postgres en vivo (Supabase)
 public/              Imágenes, metadata, manifest, sitemap, robots
 apps/android-native/ Cliente Android nativo (Compose + WebViews del portal)
 docs/PLATFORMS.md    Plataformas soportadas y descarga del APK
