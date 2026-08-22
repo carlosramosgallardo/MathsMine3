@@ -1,0 +1,11 @@
+---
+description: Playbook for the PR review Cursor Automation
+globs:
+  - .cursor/automations/pr-review.md
+---
+
+When asked to review PRs or the PR review automation runs, read `.cursor/automations/pr-review.md` and follow it.
+
+Review **all** open PRs, not only Renovate. Merge only when relevant checks are green (Sonar required). Otherwise leave the PR open and comment why.
+
+Do not push to `main`. Do not merge majors, forks, or PRs with a failing/pending check.
