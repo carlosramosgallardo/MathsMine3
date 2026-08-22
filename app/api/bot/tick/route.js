@@ -1766,9 +1766,9 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
       mm3GlobalDelta += buyDelta;
 
       const nftjiNewLevel = Number(currentLevels[targetBlock.block_key] ?? -1) + 1;
+      const { data: tvRow } = await supabase.from('token_value').select('total_eth').limit(1).maybeSingle();
+      const totalMm3ForLevel = Number(tvRow?.total_eth) || 0;
       if (nftjiNewLevel > 0) {
-        const { data: tvRow } = await supabase.from('token_value').select('total_eth').limit(1).maybeSingle();
-        const totalMm3ForLevel = Number(tvRow?.total_eth) || 0;
         const nftjiLevelUpDelta = totalMm3ForLevel * NFTJI_LEVEL_BASE_PCT * nftjiNewLevel;
         if (nftjiLevelUpDelta > 0) {
           await supabase.from('mm3_mining_events').insert({
