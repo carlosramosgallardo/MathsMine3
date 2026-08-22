@@ -13,6 +13,7 @@ import { getDiceState } from '@/lib/dice';
 import { useSound } from '@/lib/sound-context';
 import { apiFetch, ensureWalletSession, walletSignErrorMessage } from '@/lib/wallet-session-client';
 import PageLoading from '@/components/PageLoading';
+import { unitRandom } from '@/lib/game-random';
 
 const MIN_TRADE_MM3 = 0.00001;
 const SLIDER_STEPS = 1000;
@@ -513,7 +514,7 @@ export default function TradeBoard({ account, isVirtualWallet = false }) {
 
       // Zero-Day 👾 — 5% drop per EXEC, claimed like a training drop.
       // Re-drops level it up, so the roll never stops firing once owned.
-      if (Math.random() < TRADING_NFTJI.dropChance) {
+      if (unitRandom() < TRADING_NFTJI.dropChance) {
         setZeroDayOffer(true);
         playNftDrop();
       }

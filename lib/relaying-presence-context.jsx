@@ -3,6 +3,7 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState } f
 import { usePathname } from 'next/navigation';
 import supabase from './supabaseClient';
 import { useActiveWallet } from './use-active-wallet';
+import { unitRandom } from '@/lib/game-random';
 
 const ACTIVE_WINDOW_MS = 90_000;
 
@@ -39,11 +40,11 @@ export function IrcPresenceProvider({ children }) {
       try {
         presenceKey = localStorage.getItem('mm3_anon_key');
         if (!presenceKey) {
-          presenceKey = `anon-${Math.random().toString(36).slice(2, 8)}`;
+          presenceKey = `anon-${unitRandom().toString(36).slice(2, 8)}`;
           localStorage.setItem('mm3_anon_key', presenceKey);
         }
       } catch {
-        presenceKey = `anon-${Math.random().toString(36).slice(2, 8)}`;
+        presenceKey = `anon-${unitRandom().toString(36).slice(2, 8)}`;
       }
     }
     const ch = supabase.channel('mm3-portal-anon-v1', {

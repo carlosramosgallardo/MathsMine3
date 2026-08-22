@@ -8,6 +8,7 @@ import { marketCommandFromBlock, computeMarketCommandCode, getUtcDayWindow } fro
 import { getChallengerRegistrationState, SQUEEZE_REGISTER_MS } from '@/lib/squeeze-transitions';
 import { getDiceState } from '@/lib/dice';
 import { insertSqueezeIrcTrace } from '@/lib/squeezing-relay';
+import { unitRandom } from '@/lib/game-random';
 import {
   MM3_BLOCK_CHAIN_REQUIREMENTS,
   MM3_BLOCK_REQUIREMENT_BY_HEX,
@@ -328,8 +329,8 @@ async function simulateBotMapSession(supabase, wallet, targetRow, targetCol, poo
   let gx, gy;
   let tries = 0;
   do {
-    gx = 1.5 + Math.random() * 25;
-    gy = 1.5 + Math.random() * 25;
+    gx = 1.5 + unitRandom() * 25;
+    gy = 1.5 + unitRandom() * 25;
     tries++;
   } while (
     Math.hypot(gx - (targetCol + 0.5), gy - (targetRow + 0.5)) < BOT_MAP_SPAWN_MIN_DIST &&
@@ -428,7 +429,7 @@ async function simulateBotMapSession(supabase, wallet, targetRow, targetCol, poo
     await target.send({ type: 'broadcast', event: 'move', payload }).catch(() => {});
   };
 
-  const steps = BOT_MAP_STEPS_MIN + Math.floor(Math.random() * (BOT_MAP_STEPS_MAX - BOT_MAP_STEPS_MIN + 1));
+  const steps = BOT_MAP_STEPS_MIN + Math.floor(unitRandom() * (BOT_MAP_STEPS_MAX - BOT_MAP_STEPS_MIN + 1));
   // Stop outside the solid target cell, on the side closest to the spawn.
   // The bot still faces the block center while acting, like a real player.
   const targetCenterX = targetCol + 0.5;
@@ -465,21 +466,21 @@ async function simulateBotMapSession(supabase, wallet, targetRow, targetCol, poo
 
     if (dist > 1.0) {
       // Walking toward target with noise
-      const speed = 0.55 + Math.random() * 0.85;
-      gx = Math.max(0.5, Math.min(27.5, gx + (dx / dist) * speed + (Math.random() - 0.5) * 0.55));
-      gy = Math.max(0.5, Math.min(27.5, gy + (dy / dist) * speed + (Math.random() - 0.5) * 0.55));
+      const speed = 0.55 + unitRandom() * 0.85;
+      gx = Math.max(0.5, Math.min(27.5, gx + (dx / dist) * speed + (unitRandom() - 0.5) * 0.55));
+      gy = Math.max(0.5, Math.min(27.5, gy + (dy / dist) * speed + (unitRandom() - 0.5) * 0.55));
     } else {
       // Near target: small fidget
-      gx = Math.max(0.5, Math.min(27.5, gx + (Math.random() - 0.5) * 0.45));
-      gy = Math.max(0.5, Math.min(27.5, gy + (Math.random() - 0.5) * 0.45));
+      gx = Math.max(0.5, Math.min(27.5, gx + (unitRandom() - 0.5) * 0.45));
+      gy = Math.max(0.5, Math.min(27.5, gy + (unitRandom() - 0.5) * 0.45));
     }
 
     await broadcastPos();
 
-    const isPause = Math.random() < BOT_MAP_PAUSE_CHANCE;
+    const isPause = unitRandom() < BOT_MAP_PAUSE_CHANCE;
     const ms = isPause
-      ? BOT_MAP_PAUSE_MS_MIN + Math.floor(Math.random() * (BOT_MAP_PAUSE_MS_MAX - BOT_MAP_PAUSE_MS_MIN))
-      : BOT_MAP_STEP_MS_MIN + Math.floor(Math.random() * (BOT_MAP_STEP_MS_MAX - BOT_MAP_STEP_MS_MIN));
+      ? BOT_MAP_PAUSE_MS_MIN + Math.floor(unitRandom() * (BOT_MAP_PAUSE_MS_MAX - BOT_MAP_PAUSE_MS_MIN))
+      : BOT_MAP_STEP_MS_MIN + Math.floor(unitRandom() * (BOT_MAP_STEP_MS_MAX - BOT_MAP_STEP_MS_MIN));
     await new Promise(r => setTimeout(r, ms));
   }
 
@@ -504,7 +505,7 @@ async function simulateBotMapSession(supabase, wallet, targetRow, targetCol, poo
         const dx = tgx - gx, dy = tgy - gy;
         const dist = Math.hypot(dx, dy);
         if (dist <= 1.0 || pendingRespawn) break;
-        const speed = 0.75 + Math.random() * 0.65;
+        const speed = 0.75 + unitRandom() * 0.65;
         gx = Math.max(0.5, Math.min(27.5, gx + (dx / dist) * speed));
         gy = Math.max(0.5, Math.min(27.5, gy + (dy / dist) * speed));
         await broadcastPos();
@@ -518,7 +519,7 @@ async function simulateBotMapSession(supabase, wallet, targetRow, targetCol, poo
     await new Promise(r => setTimeout(r, BOT_MAP_SWING_MS + 120));
   }
   await new Promise(r => setTimeout(r,
-    BOT_MAP_FINAL_MS_MIN + Math.floor(Math.random() * (BOT_MAP_FINAL_MS_MAX - BOT_MAP_FINAL_MS_MIN))
+    BOT_MAP_FINAL_MS_MIN + Math.floor(unitRandom() * (BOT_MAP_FINAL_MS_MAX - BOT_MAP_FINAL_MS_MIN))
   ));
 
   await ch.untrack().catch(() => {});
@@ -951,14 +952,14 @@ async function maybeLaunchBotSqueeze(supabase) {
   const nowHour = new Date().getUTCHours();
   const squeezeDice = getDiceState();
   const wantToChallenge = availablePools.filter(p => {
-    if (!squeezeDice.active && Math.random() < 0.94) return false;
+    if (!squeezeDice.active && unitRandom() < 0.94) return false;
     const { prob } = poolStrategyMap.get(p) || { prob: 0.5 };
     const info = poolLaunchInfo.get(p) || { count: 0, lastLaunchMs: 0 };
     if (Date.now() - info.lastLaunchMs < SQUEEZE_COOLDOWN_MS) return false;
     const windows = POOL_TIME_WINDOWS[p];
     const inWindow = windows ? windows.some(([s, e]) => nowHour >= s && nowHour < e) : true;
     const timeMult = inWindow ? 2.0 : 0.3;
-    return Math.random() < Math.min(0.95, prob * timeMult);
+    return unitRandom() < Math.min(0.95, prob * timeMult);
   });
 
   if (wantToChallenge.length === 0) {
@@ -990,11 +991,11 @@ async function maybeLaunchBotSqueeze(supabase) {
   const challengerBots = botsByPool.get(challengerPool) || [];
   const defenderBots = botsByPool.get(defenderPool) || [];
   const challenger = {
-    wallet: challengerBots[Math.floor(Math.random() * challengerBots.length)],
+    wallet: challengerBots[Math.floor(unitRandom() * challengerBots.length)],
     poolCode: challengerPool,
   };
   const defender = {
-    wallet: defenderBots[Math.floor(Math.random() * defenderBots.length)],
+    wallet: defenderBots[Math.floor(unitRandom() * defenderBots.length)],
     poolCode: defenderPool,
   };
 
@@ -1144,7 +1145,7 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
   // as any real player). The skip probability compounds per 5-min slice, so
   // long cron intervals (e.g. 720 min) almost never skip a whole tick.
   const tradeSkipProb = Math.pow(0.95, BOT_CRON_INTERVAL_MINUTES / 5);
-  const tradesToRun = !diceState.active && Math.random() < tradeSkipProb
+  const tradesToRun = !diceState.active && unitRandom() < tradeSkipProb
     ? 0
     : Math.min(DAILY_TRADE_LIMIT - tradesTodayCount, pacedTradesAvailable, tradeCap);
   const claimedTasks = new Set((claimsData || []).map((r) => r.task_key));
@@ -1235,19 +1236,19 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
     const miningDm = miningDice.active ? miningDice.modifier : 0;
 
     for (let i = 0; i < drillsToRun; i++) {
-      const problem = pool[Math.floor(Math.random() * pool.length)];
+      const problem = pool[Math.floor(unitRandom() * pool.length)];
       const timeLimit = getTimeLimit(level);
 
       // Per-bot skill derived from wallet address → equilibrium level spread ~20–90
       const walletSeed = parseInt(normalizeWallet(wallet).replace('0x', '').slice(-6), 16) % 1000;
       const botBaseWin = 0.58 + (walletSeed / 1000) * 0.28; // 0.58–0.86
       const winRate = Math.max(0.10, botBaseWin - (level / 100) * 0.40);
-      const isCorrect = Math.random() < winRate;
+      const isCorrect = unitRandom() < winRate;
 
       let totalTime, mining, userAnswer;
 
       if (isCorrect) {
-        const timePct = 0.3 + Math.random() * 0.5;
+        const timePct = 0.3 + unitRandom() * 0.5;
         totalTime = Math.round(timeLimit * timePct);
         const base = timeLimit * 0.5;
         mining = totalTime <= base
@@ -1257,9 +1258,9 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
         userAnswer = String(problem.correct_answer).trim();
         level = clampLevel(level + 1);
       } else {
-        totalTime = Math.round(timeLimit * (0.85 + Math.random() * 0.15));
+        totalTime = Math.round(timeLimit * (0.85 + unitRandom() * 0.15));
         mining = 0;
-        const offset = Math.floor(Math.random() * 5) + 1;
+        const offset = Math.floor(unitRandom() * 5) + 1;
         const correctNum = Number(problem.correct_answer);
         userAnswer = isNaN(correctNum)
           ? String(problem.correct_answer) + '?'
@@ -1285,13 +1286,13 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
 
       if (isCorrect) {
         let drop = null;
-        if (Math.random() < (1 / 1000) * (1 + miningDm))
+        if (unitRandom() < (1 / 1000) * (1 + miningDm))
           drop = { emoji: WALLET_DECORATIONS.lucky1000, claimField: 'lucky_1000_claimed', levelField: 'lucky_1000_level' };
-        else if (Math.random() < (1 / 500) * (1 + miningDm))
+        else if (unitRandom() < (1 / 500) * (1 + miningDm))
           drop = { emoji: WALLET_DECORATIONS.lucky500, claimField: 'lucky_500_claimed', levelField: 'lucky_500_level' };
-        else if (Math.random() < (1 / 100) * (1 + miningDm))
+        else if (unitRandom() < (1 / 100) * (1 + miningDm))
           drop = { emoji: WALLET_DECORATIONS.lucky100, claimField: 'lucky_100_claimed', levelField: 'lucky_100_level' };
-        else if (Math.random() < (1 / 50) * (1 + miningDm))
+        else if (unitRandom() < (1 / 50) * (1 + miningDm))
           drop = { emoji: WALLET_DECORATIONS.lucky50, claimField: 'lucky_50_claimed', levelField: 'lucky_50_level' };
         if (drop) {
           if (!nftjiDropCounts[drop.levelField]) nftjiDropCounts[drop.levelField] = { ...drop, count: 0 };
@@ -1451,7 +1452,7 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
 
       while (tradesThisTick < tradesToRun && (botFunds.eur_earned - spentEurTotal) > minBalance) {
         const remainingEur = botFunds.eur_earned - spentEurTotal - minBalance;
-        const spendEur = Math.max(0, remainingEur * (0.40 + Math.random() * 0.30)); // Bull: large buys, strong upward push
+        const spendEur = Math.max(0, remainingEur * (0.40 + unitRandom() * 0.30)); // Bull: large buys, strong upward push
         if (spendEur < 0.001) break;
 
         const buyQuote = getBuyQuote(level, spendEur, 'EUR', walletEmojis, macroState);
@@ -1519,8 +1520,8 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
       let tradesThisTick = 0;
       while (tradesThisTick < tradesToRun && availableMm3 > mm3Reserve + 0.000001) {
         const fraction = strategy === 'nftji_flip'
-          ? 0.30 + Math.random() * 0.30  // Flipper: heavy sell slices between market operations
-          : 0.10 + Math.random() * 0.20;
+          ? 0.30 + unitRandom() * 0.30  // Flipper: heavy sell slices between market operations
+          : 0.10 + unitRandom() * 0.20;
         const sellMm3 = Math.min(availableMm3 * fraction, availableMm3 - mm3Reserve);
         const rateCny = getSellRateCny(level);
         const commissionRate = getCommissionRate(sellMm3);
@@ -1561,7 +1562,7 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
         tradesThisTick++;
         actions.push({ type: 'trade', mm3_sold: sellMm3, net_eur: netCny * CNY_TO_EUR });
 
-        const nudge = (v) => Math.round(Math.max(0, Math.min(100, v + (Math.random() * 20 - 10))) * 10) / 10;
+        const nudge = (v) => Math.round(Math.max(0, Math.min(100, v + (unitRandom() * 20 - 10))) * 10) / 10;
         macroState = { war_percent: nudge(macroState.war_percent), nature_percent: nudge(macroState.nature_percent) };
       }
 
@@ -1591,7 +1592,7 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
     const execsThisTick = actions.filter((a) => a.type === 'trade').length;
     let zeroDayDrops = 0;
     for (let i = 0; i < execsThisTick; i++) {
-      if (Math.random() < TRADING_NFTJI.dropChance) zeroDayDrops++;
+      if (unitRandom() < TRADING_NFTJI.dropChance) zeroDayDrops++;
     }
     if (zeroDayDrops > 0) {
       const { data: freshProg } = await supabase.from('player_progress')
@@ -1635,7 +1636,7 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
   let didBuyOrResell = false;
 
   // Bots prefer dice window for market ops; skip most ticks when inactive
-  if (nftjiBlocks && nftjiBlocks.length > 0 && (diceState.active || Math.random() < 0.05)) {
+  if (nftjiBlocks && nftjiBlocks.length > 0 && (diceState.active || unitRandom() < 0.05)) {
     const { data: freshProg } = await supabase
       .from('player_progress')
       .select('eur_earned, cny_earned, usd_earned, mm3_sold, mining_nftji_levels')
@@ -1950,7 +1951,7 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
 
   // ── PENALTY REDEMPTION ───────────────────────────────────
   // Bots redeem their own penalties within the 24h window (probabilistic per tick)
-  if (Math.random() < 0.10) {
+  if (unitRandom() < 0.10) {
     const { data: activePenalties } = await supabase
       .from('mm3_command_penalties')
       .select('id, penalty_code, penalty_value, penalty_eur, penalty_effect')
@@ -1994,7 +1995,7 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
   // Only the lexicographically smaller wallet initiates to avoid concurrent duplicate execs.
   // Probability compounds with the cron cadence (0.09 per 5-min slice), so a
   // 12h tick attempts nearly every time — the 24h cooldown still gates it.
-  if (Math.random() < Math.min(1, RELAY_EXEC_PROB * (BOT_CRON_INTERVAL_MINUTES / 5))) {
+  if (unitRandom() < Math.min(1, RELAY_EXEC_PROB * (BOT_CRON_INTERVAL_MINUTES / 5))) {
     const myPool = BOT_POOL_MAP.get(wallet);
     const poolPartners = myPool
       ? BOT_WALLETS.filter((w) => w !== wallet && BOT_POOL_MAP.get(w) === myPool)
@@ -2097,7 +2098,7 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
 
   // ── MARKET BLOCK CHAIN MINING ─────────────────────────────
   // Bots mine a qualifying block if one is available (max 1 per tick)
-  if (!claimedTasks.has('mining_chain') && Math.random() < 0.14) {
+  if (!claimedTasks.has('mining_chain') && unitRandom() < 0.14) {
     const [{ data: alreadyMined }, { data: nftjiReserved }, { data: tvRow }] = await Promise.all([
       supabase.from('mm3_mined_blocks').select('block_hex'),
       supabase.from('mm3_mining_blocks').select('grid_row, grid_col'),
@@ -2116,7 +2117,7 @@ async function runBotTick(supabase, wallet, sharedActions = []) {
     });
 
     if (qualifying.length > 0) {
-      const pick = qualifying[Math.floor(Math.random() * Math.min(qualifying.length, 10))];
+      const pick = qualifying[Math.floor(unitRandom() * Math.min(qualifying.length, 10))];
       const grid = blockHexToGrid(pick.blockHex);
 
       // Bot enters the 3D map and walks to the target block before mining.

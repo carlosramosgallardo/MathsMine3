@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import supabase from '@/lib/supabaseClient';
 import { useI18n } from '@/lib/i18n-context';
+import { unitRandom } from '@/lib/game-random';
 
 const DEFAULT_TICKER_MESSAGES = {
   en: 'welcome@MM3·:~$ #MathsMine3 #TimedMath #FictionalMining #WalletIdentity #TerminalEconomy #RealTime3DMultiplayerWorld #Humor',
@@ -62,7 +63,7 @@ export default function MacroTicker() {
   const stormrollWasActiveRef = useRef(false);
 
   function pushNotif(msg, type = 'info') {
-    const entry = { id: `${Date.now()}-${Math.random()}`, msg: toConsoleMessage(msg), type };
+    const entry = { id: `${Date.now()}-${unitRandom()}`, msg: toConsoleMessage(msg), type };
     if (!entry.msg) return;
     queueRef.current.push(entry);
     if (!busyRef.current) drainQueue();

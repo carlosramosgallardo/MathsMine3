@@ -7,6 +7,7 @@ import { apiFetch } from '@/lib/wallet-session-client';
 import { useI18n } from '@/lib/i18n-context';
 import { useActiveWallet } from '@/lib/use-active-wallet';
 import { useSound } from '@/lib/sound-context';
+import { unitRandom } from '@/lib/game-random';
 import {
   commandKey,
   marketCommandFromBlock,
@@ -1226,7 +1227,7 @@ export default function RelayingTerminal({ accent = '#22d3ee' }) {
 
   const broadcastSystemMessage = useCallback(async (text, tone = 'accent') => {
     const payload = {
-      id: `system:${Date.now()}:${Math.random().toString(36).slice(2, 7)}`,
+      id: `system:${Date.now()}:${unitRandom().toString(36).slice(2, 7)}`,
       kind: 'system',
       wallet: 'system',
       text: normalizeRelayMessage(text),
@@ -1755,7 +1756,7 @@ export default function RelayingTerminal({ accent = '#22d3ee' }) {
     // ── Regular chat message ──
     const now = Date.now();
     const payload = {
-      id: `msg:${normalizedWallet}:${now}:${Math.random().toString(36).slice(2, 7)}`,
+      id: `msg:${normalizedWallet}:${now}:${unitRandom().toString(36).slice(2, 7)}`,
       wallet: normalizedWallet,
       text,
       ts: now,

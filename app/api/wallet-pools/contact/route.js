@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic';
 import { createClient } from '@supabase/supabase-js';
 import { getActivePoolDispute } from '@/lib/pool-dispute-lock';
 import { walletFromRequest } from '@/lib/wallet-session';
+import { unitRandom } from '@/lib/game-random';
 
 const POOL_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 const BOT_WALLETS = new Set([
@@ -19,7 +20,7 @@ function normalizeWallet(value) {
 function randomPoolCode() {
   let code = '';
   for (let i = 0; i < 5; i += 1) {
-    code += POOL_ALPHABET[Math.floor(Math.random() * POOL_ALPHABET.length)];
+    code += POOL_ALPHABET[Math.floor(unitRandom() * POOL_ALPHABET.length)];
   }
   return code;
 }

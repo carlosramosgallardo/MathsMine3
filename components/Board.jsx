@@ -9,6 +9,7 @@ import { CNY_TO_EUR, CNY_TO_USD, getSellQuote, formatMoney, formatCompactNum } f
 import { getDiceState } from '@/lib/dice';
 import { useCurrency } from '@/lib/currency-context';
 import { useSound } from '@/lib/sound-context';
+import { unitRandom } from '@/lib/game-random';
 import {
   WALLET_DECORATIONS,
   TRADE_SLOT_ORDER,
@@ -861,7 +862,7 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
   const didMountRef = useRef(false);
   const problemStorageKey = `mm3-active-problem:${account?.toLowerCase() || 'guest'}:${language}`;
 
-  const randInt = (a, b) => Math.floor(Math.random() * (b - a + 1)) + a;
+  const randInt = (a, b) => Math.floor(unitRandom() * (b - a + 1)) + a;
   const pickOne = (items) => items[randInt(0, items.length - 1)];
   const clearWrongFeedback = () => setWrongFeedbackActive(false);
   const clearCorrectFeedback = () => setCorrectFeedbackActive(false);
@@ -941,7 +942,7 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
   const shuffle = (arr) => {
     const copy = [...arr];
     for (let i = copy.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
+      const j = Math.floor(unitRandom() * (i + 1));
       [copy[i], copy[j]] = [copy[j], copy[i]];
     }
     return copy;
@@ -953,7 +954,7 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
     const near = new Set();
     const spread = Math.max(spreadBase, Math.ceil(Math.abs(n) * 0.08));
     while (near.size < 3) {
-      const delta = randInt(1, spread) * (Math.random() < 0.5 ? -1 : 1);
+      const delta = randInt(1, spread) * (unitRandom() < 0.5 ? -1 : 1);
       const candidate = String(n + delta);
       if (candidate !== correct) near.add(candidate);
     }
@@ -1250,7 +1251,7 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
       a = b * randInt(3, Math.min(20, 6 + diff * 2));
     }
 
-    if (lvl >= 18 && diff >= 2 && Math.random() < 0.45) {
+    if (lvl >= 18 && diff >= 2 && unitRandom() < 0.45) {
       const c = randInt(2, 16 + diff * 3);
       const tailOp = pickOne(['+', '-']);
       const middleOp = pickOne(['+', '-']);
@@ -1294,7 +1295,7 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
 
   const genOpFix = (diff, lvl) => {
     const ops = ['+','-','*','/'];
-    const op = ops[Math.floor(Math.random() * ops.length)];
+    const op = ops[Math.floor(unitRandom() * ops.length)];
     let a = randInt(6, 45 + diff * 12 + lvl);
     let b = randInt(2, 18 + diff * 4);
     if (op === '/') {
@@ -1464,7 +1465,7 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
     if (diff <= 2) {
       const b = randInt(2, 9 + diff);
       const a = randInt(b + 1, 40 + diff * 15 + _lvl);
-      if (Math.random() < 0.5) {
+      if (unitRandom() < 0.5) {
         const ans = a % b;
         return { type: 'modulo', problem_type: 'modulo', question: `${a} mod ${b} =`, answer: String(ans), masked: `${a} mod ${b} = [MASK]`, placeholder: '?', choices: buildNumericChoices(ans, 3), difficulty: diff };
       }
@@ -1474,7 +1475,7 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
     }
     if (diff === 3) {
       const b = randInt(5, 13); const a = randInt(4, 20);
-      if (Math.random() < 0.5) {
+      if (unitRandom() < 0.5) {
         const ans = (a * a) % b;
         return { type: 'modulo', problem_type: 'modulo', question: `${a}² mod ${b} =`, answer: String(ans), masked: `${a}² mod ${b} = [MASK]`, placeholder: '?', choices: buildNumericChoices(ans, 4), difficulty: diff };
       }
@@ -1484,7 +1485,7 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
     }
     if (diff === 4) {
       const c = randInt(7, 17); const a = randInt(3, 15); const b2 = randInt(3, 15);
-      if (Math.random() < 0.5) {
+      if (unitRandom() < 0.5) {
         const ans = (a * b2) % c;
         return { type: 'modulo', problem_type: 'modulo', question: `${a} × ${b2} mod ${c} =`, answer: String(ans), masked: `${a} × ${b2} mod ${c} = [MASK]`, placeholder: '?', choices: buildNumericChoices(ans, 5), difficulty: diff };
       }
@@ -1492,7 +1493,7 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
       return { type: 'modulo', problem_type: 'modulo', question: `(${a}² + ${b2}) mod ${c} =`, answer: String(ans), masked: `(${a}² + ${b2}) mod ${c} = [MASK]`, placeholder: '?', choices: buildNumericChoices(ans, 5), difficulty: diff };
     }
     const m = randInt(5, 13); const n = randInt(4, 10);
-    if (Math.random() < 0.5) {
+    if (unitRandom() < 0.5) {
       const ans = Math.pow(2, n) % m;
       return { type: 'modulo', problem_type: 'modulo', question: `2^${n} mod ${m} =`, answer: String(ans), masked: `2^${n} mod ${m} = [MASK]`, placeholder: '?', choices: buildNumericChoices(ans, 4), difficulty: diff };
     }
@@ -1508,14 +1509,14 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
     const bools = [T, F];
 
     if (diff <= 2) {
-      const op = Math.random() < 0.5 ? g.and : g.or;
+      const op = unitRandom() < 0.5 ? g.and : g.or;
       const a = bools[randInt(0, 1)]; const b = bools[randInt(0, 1)];
       const result = op === g.and ? (a === T && b === T ? T : F) : (a === T || b === T ? T : F);
       return { type: 'logic', problem_type: 'logic', question: `${a} ${op} ${b} =`, answer: result, masked: `${a} ${op} ${b} = [MASK]`, placeholder: '?', choices: shuffle([T, F, g.maybe, g.both]), difficulty: diff };
     }
 
     if (diff === 3) {
-      if (Math.random() < 0.5) {
+      if (unitRandom() < 0.5) {
         const a = bools[randInt(0, 1)]; const result = a === T ? F : T;
         return { type: 'logic', problem_type: 'logic', question: `${g.not} ${a} =`, answer: result, masked: `${g.not} ${a} = [MASK]`, placeholder: '?', choices: shuffle([T, F, g.nil, '?']), difficulty: diff };
       }
@@ -1557,7 +1558,7 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
       let tries = 0;
       while (wrong.size < count && tries < 60) {
         tries++;
-        const delta = randInt(1, 4) * (Math.random() < 0.5 ? 1 : -1);
+        const delta = randInt(1, 4) * (unitRandom() < 0.5 ? 1 : -1);
         const wn = rn + delta;
         if (wn > 0) { const [wn2, wd2] = reduceFrac(wn, rd); const w = fracStr(wn2, wd2); if (w !== ans) wrong.add(w); }
       }
@@ -1569,7 +1570,7 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
     if (diff <= 2) {
       const d1 = denoms[randInt(0, 3)]; const d2 = denoms[randInt(0, 3)];
       const a = randInt(1, d1 - 1); const b = randInt(1, d2 - 1);
-      if (Math.random() < 0.5) {
+      if (unitRandom() < 0.5) {
         const lcd = lcm(d1, d2);
         const num = a * (lcd / d1) + b * (lcd / d2);
         const [rn, rd] = reduceFrac(num, lcd);
@@ -1595,7 +1596,7 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
     if (diff === 4) {
       const d1 = denoms[randInt(0, 4)]; const d2 = denoms[randInt(0, 4)];
       const a = randInt(1, d1); const b = randInt(1, d2);
-      if (Math.random() < 0.5) {
+      if (unitRandom() < 0.5) {
         const [rn, rd] = reduceFrac(a * b, d1 * d2);
         const ans = fracStr(rn, rd);
         return { type: 'fractions', problem_type: 'fractions', question: `${a}/${d1} × ${b}/${d2} =`, answer: ans, masked: `${a}/${d1} × ${b}/${d2} = [MASK]`, placeholder: '?', choices: shuffle([ans, ...makeFracWrongs(rn, rd)]), difficulty: diff };
@@ -1623,7 +1624,7 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
     }
 
     if (diff === 3) {
-      if (Math.random() < 0.5) {
+      if (unitRandom() < 0.5) {
         const idx = randInt(0, 24);
         const n = PRIMES[idx]; const next = PRIMES[idx + 1];
         return { type: 'primes', problem_type: 'primes', question: g.nextPrime(n), answer: String(next), masked: `${g.nextPrime(n)} [MASK]`, placeholder: '?', choices: buildNumericChoices(next, 5), difficulty: diff };
@@ -1635,7 +1636,7 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
     }
 
     if (diff === 4) {
-      if (Math.random() < 0.5) {
+      if (unitRandom() < 0.5) {
         const sets = [[12,2],[15,2],[18,2],[20,2],[30,3],[42,3],[24,2],[36,2],[60,3],[70,3],[100,2],[84,3],[90,3]];
         const [n, ans] = pickOne(sets);
         return { type: 'primes', problem_type: 'primes', question: g.distFactors(n), answer: String(ans), masked: `${g.distFactors(n)} [MASK]`, placeholder: '?', choices: ['1', '2', '3', '4'], difficulty: diff };
@@ -1647,7 +1648,7 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
       return { type: 'primes', problem_type: 'primes', question: g.twinPrimes(a, b), answer: ans, masked: g.twinPrimes(a, b), placeholder: '?', choices: shuffle([g.yes, g.no, g.maybe, g.both]), difficulty: diff };
     }
 
-    if (Math.random() < 0.5) {
+    if (unitRandom() < 0.5) {
       const targets = [{ n: 6, ans: 10 }, { n: 10, ans: 17 }, { n: 12, ans: 28 }, { n: 15, ans: 41 }, { n: 20, ans: 77 }];
       const { n, ans } = pickOne(targets);
       return { type: 'primes', problem_type: 'primes', question: g.sumPrimesLt(n), answer: String(ans), masked: `${g.sumPrimesLt(n)} [MASK]`, placeholder: '?', choices: buildNumericChoices(ans, 7), difficulty: diff };
@@ -1683,7 +1684,7 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
 
     if (diff === 3) {
       const triples = [[3,4,5],[5,12,13],[8,15,17],[7,24,25],[6,8,10],[9,12,15]];
-      if (Math.random() < 0.5) {
+      if (unitRandom() < 0.5) {
         const [a, b, c] = pickOne(triples);
         const forms = [
           { q: g.hypot(a, b), a: c },
@@ -1753,7 +1754,7 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
       const orig = randInt(4, 20) * 10;
       const pct = pickOne([10, 20, 25, 50]);
       const change = (pct * orig) / 100;
-      const dir = Math.random() < 0.5 ? g.inc : g.dec;
+      const dir = unitRandom() < 0.5 ? g.inc : g.dec;
       const result = dir === g.inc ? orig + change : orig - change;
       return mk(g.pctChange(orig, pct, dir), result);
     }
@@ -1776,14 +1777,14 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
 
     if (diff <= 2) {
       const x = randInt(1, 20 + diff * 8), a = randInt(2, 15 + diff * 5);
-      const op = Math.random() < 0.5 ? '+' : '-';
+      const op = unitRandom() < 0.5 ? '+' : '-';
       const b = op === '+' ? x + a : x - a;
       return mk(`x ${op} ${a} = ${b}   →   x =`, x, 5 + diff * 2);
     }
 
     if (diff === 3) {
       const x = randInt(1, 15);
-      if (Math.random() < 0.5) {
+      if (unitRandom() < 0.5) {
         const a = randInt(2, 9);
         return mk(`${a}x = ${a * x}   →   x =`, x, 6);
       }
@@ -1796,7 +1797,7 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
       return mk(`${a}x + ${b} = ${a * x + b}   →   x =`, x, 5);
     }
 
-    if (Math.random() < 0.5) {
+    if (unitRandom() < 0.5) {
       const a = randInt(3, 8), c = randInt(1, 2), x = randInt(1, 10), b = randInt(1, 15);
       const d = (a - c) * x + b;
       return mk(`${a}x + ${b} = ${c}x + ${d}   →   x =`, x, 5);
@@ -1900,7 +1901,7 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
   };
 
   const generateProblem = (diff, lvl, lang = 'en') => {
-    const p = Math.random();
+    const p = unitRandom();
     if (lvl >= 40) {
       if (p < 0.07) return genModulo(diff, lvl);
       if (p < 0.14) return genLogic(diff, lvl, lang);
@@ -1968,10 +1969,10 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
     // No "already owned" guard — NFTJis level up each time they drop
     const liveDice = getDiceState();
     const dm = liveDice.active ? liveDice.modifier : 0;
-    if (Math.random() < (1 / 1000) * (1 + dm)) return { type: 'emoji1000', emoji: WALLET_DECORATIONS.lucky1000 };
-    if (Math.random() < (1 / 500)  * (1 + dm)) return { type: 'emoji500',  emoji: WALLET_DECORATIONS.lucky500  };
-    if (Math.random() < (1 / 100)  * (1 + dm)) return { type: 'emoji100',  emoji: WALLET_DECORATIONS.lucky100  };
-    if (Math.random() < (1 / 50)   * (1 + dm)) return { type: 'emoji50',   emoji: WALLET_DECORATIONS.lucky50   };
+    if (unitRandom() < (1 / 1000) * (1 + dm)) return { type: 'emoji1000', emoji: WALLET_DECORATIONS.lucky1000 };
+    if (unitRandom() < (1 / 500)  * (1 + dm)) return { type: 'emoji500',  emoji: WALLET_DECORATIONS.lucky500  };
+    if (unitRandom() < (1 / 100)  * (1 + dm)) return { type: 'emoji100',  emoji: WALLET_DECORATIONS.lucky100  };
+    if (unitRandom() < (1 / 50)   * (1 + dm)) return { type: 'emoji50',   emoji: WALLET_DECORATIONS.lucky50   };
     return null;
   };
 
@@ -2129,7 +2130,7 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
         pool = fallback?.length ? fallback : null;
       }
       if (!pool) return null;
-      const data = localizeDbProblemRow(pool[Math.floor(Math.random() * pool.length)], lang);
+      const data = localizeDbProblemRow(pool[Math.floor(unitRandom() * pool.length)], lang);
       if (data.is_definition_type || data.problem_type === 'definition') {
         return {
           id: data.id,
@@ -2172,7 +2173,7 @@ export default function Board({ account, setGameMessage, setGameCompleted, setGa
     solveStartedAtRef.current = null;
     try {
       const diff = getDiff(lvl);
-      const shouldGenerate = lvl >= 20 || Math.random() < 0.55;
+      const shouldGenerate = lvl >= 20 || unitRandom() < 0.55;
       let nextProblem = shouldGenerate ? generateProblem(diff, lvl, language) : await fetchFromDB(diff, language);
       if (!nextProblem) nextProblem = generateProblem(diff, lvl, language);
 

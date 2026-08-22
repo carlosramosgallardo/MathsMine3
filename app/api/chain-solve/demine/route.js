@@ -4,6 +4,7 @@ import { createClient } from '@supabase/supabase-js';
 import { formatWalletLabel } from '@/lib/wallet-format';
 import { gridToBlockHex, MM3_MINE_BLOCK_TOTAL } from '@/lib/mm3-block-chain';
 import { walletFromRequest } from '@/lib/wallet-session';
+import { unitRandom } from '@/lib/game-random';
 
 export async function POST(req) {
   try {
@@ -75,7 +76,7 @@ async function handleDemine(req) {
   // Fisher-Yates shuffle, take first N
   const shuffled = [...deminePool];
   for (let i = shuffled.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
+    const j = Math.floor(unitRandom() * (i + 1));
     [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
   }
   const removing = shuffled.slice(0, toRemoveCount);

@@ -75,17 +75,22 @@ export function parseArgs(argv) {
 
 export function createReporter() {
   const results = []
+  const line = (kind, id, detail) => {
+    const safeId = String(id).replace(/[\u0000-\u001f\u007f]/g, ' ').slice(0, 120)
+    const safeDetail = String(detail || '').replace(/[\u0000-\u001f\u007f]/g, ' ').slice(0, 160)
+    console.log(`${kind}  ${safeId}${safeDetail ? ` — ${safeDetail}` : ''}`) // NOSONAR jssecurity:S5145 QA CLI status line
+  }
   const ok = (id, detail = '') => {
     results.push({ status: 'OK', id, detail })
-    console.log(`OK   ${id}${detail ? ` — ${detail}` : ''}`)
+    line('OK  ', id, detail)
   }
   const nok = (id, detail = '') => {
     results.push({ status: 'NOK', id, detail })
-    console.log(`NOK  ${id}${detail ? ` — ${detail}` : ''}`)
+    line('NOK ', id, detail)
   }
   const skip = (id, detail = '') => {
     results.push({ status: 'SKIP', id, detail })
-    console.log(`SKIP ${id}${detail ? ` — ${detail}` : ''}`)
+    line('SKIP', id, detail)
   }
   const summary = () => {
     const counts = { OK: 0, NOK: 0, SKIP: 0 }

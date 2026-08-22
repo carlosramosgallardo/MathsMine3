@@ -10,6 +10,7 @@ import { useActiveWallet } from '@/lib/use-active-wallet'
 import { apiFetch } from '@/lib/wallet-session-client'
 import { colorFromAddress } from '@/lib/wallet-colors'
 import { getDiceState } from '@/lib/dice'
+import { unitRandom } from '@/lib/game-random'
 import {
   gridToBlockHex, blockHexToGrid,
   MM3_BLOCK_REQUIREMENT_BY_HEX,
@@ -219,7 +220,7 @@ function getOrCreateAnonKey() {
     const saved = localStorage.getItem(ANON_KEY_STORAGE)
     if (saved?.startsWith('anon-')) return saved
   } catch { /* */ }
-  const fresh = `anon-${Math.random().toString(36).slice(2, 8)}`
+  const fresh = `anon-${unitRandom().toString(36).slice(2, 8)}`
   try { localStorage.setItem(ANON_KEY_STORAGE, fresh) } catch { /* */ }
   return fresh
 }
@@ -245,8 +246,8 @@ const VISUAL_BLOCK_POSITIONS = MINING_VISUAL_BLOCK_POSITIONS
 
 function getRandomLoggedSpawn() {
   return {
-    row: 2 + Math.floor(Math.random() * (MM3_BLOCK_GRID_ROWS - 4)),
-    col: 2 + Math.floor(Math.random() * (MM3_BLOCK_GRID_COLS - 4)),
+    row: 2 + Math.floor(unitRandom() * (MM3_BLOCK_GRID_ROWS - 4)),
+    col: 2 + Math.floor(unitRandom() * (MM3_BLOCK_GRID_COLS - 4)),
   }
 }
 
@@ -258,7 +259,7 @@ const ANONYMOUS_ARENA_SPAWNS = [
 ]
 
 function getAnonymousArenaSpawn() {
-  return ANONYMOUS_ARENA_SPAWNS[Math.floor(Math.random()*ANONYMOUS_ARENA_SPAWNS.length)]
+  return ANONYMOUS_ARENA_SPAWNS[Math.floor(unitRandom()*ANONYMOUS_ARENA_SPAWNS.length)]
 }
 
 function getSpawnForWallet(wallet) {
@@ -2243,7 +2244,7 @@ export default function MiningChain3D() {
 
   const handleDemineHit = useCallback(({ wallet, mm3Awarded, hitsRemaining, chainReset }) => {
     const eventId = globalThis.crypto?.randomUUID?.()
-      || `demine-${Date.now()}-${Math.random().toString(36).slice(2)}`
+      || `demine-${Date.now()}-${unitRandom().toString(36).slice(2)}`
     const reward = { wallet, mm3Awarded, hitsRemaining, chainReset, eventId }
     applyDemineReward(reward)
     channelRef.current?.send({

@@ -10,6 +10,7 @@ import { aiTeamPoolCode } from '@/lib/ai-team'
 import { MM3_BLOCK_GRID_ROWS, MM3_BLOCK_GRID_COLS, MM3_MINE_BLOCK_TOTAL, MM3_REGULAR_BLOCK_TOTAL, MM3_NFTJI_BLOCK_TOTAL, gridToBlockHex, MM3_BLOCK_REQUIREMENT_BY_HEX, doesGlobalValueMeetRequirement } from '@/lib/mm3-block-chain'
 import supabase from '@/lib/supabaseClient'
 import { groupPresenceEntries } from '@/lib/presence-display'
+import { unitRandom } from '@/lib/game-random'
 import {
   detectMiningMapTransition,
   getMiningMapDefinition,
@@ -3585,7 +3586,7 @@ function findRandomFreeCell(cellMap, validObs) {
     }
   }
   if (!free.length) return { row: 14, col: 14 }
-  const idx = Math.floor(Math.random() * free.length)
+  const idx = Math.floor(unitRandom() * free.length)
   return { row: free[idx][0], col: free[idx][1] }
 }
 
@@ -5070,7 +5071,7 @@ function playPickHit(audioCtxRef, type) {
       const buf = ctx.createBuffer(1, Math.ceil(sr * 0.14), sr)
       const d   = buf.getChannelData(0)
       for (let i = 0; i < d.length; i++)
-        d[i] = (Math.random()*2-1) * Math.pow(1 - i/d.length, 1.4)
+        d[i] = (unitRandom()*2-1) * Math.pow(1 - i/d.length, 1.4)
       const src = ctx.createBufferSource(); src.buffer = buf
       const f = ctx.createBiquadFilter(); f.type='bandpass'; f.frequency.value=160; f.Q.value=4
       const g = ctx.createGain(); g.gain.value = 0.45
@@ -5092,7 +5093,7 @@ function playPickHit(audioCtxRef, type) {
       const buf = ctx.createBuffer(1, Math.ceil(sr * 0.03), sr)
       const d   = buf.getChannelData(0)
       for (let i = 0; i < d.length; i++)
-        d[i] = (Math.random()*2-1) * Math.pow(1 - i/d.length, 7)
+        d[i] = (unitRandom()*2-1) * Math.pow(1 - i/d.length, 7)
       const src = ctx.createBufferSource(); src.buffer = buf
       const g = ctx.createGain(); g.gain.value = 0.06
       src.connect(g); g.connect(ctx.destination); src.start()
@@ -5114,7 +5115,7 @@ function playM2HoopScoreSound(audioCtxRef) {
     const buf = ctx.createBuffer(1, Math.ceil(sr * 0.22), sr)
     const d = buf.getChannelData(0)
     for (let i = 0; i < d.length; i++)
-      d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / d.length, 1.6)
+      d[i] = (unitRandom() * 2 - 1) * Math.pow(1 - i / d.length, 1.6)
     const src = ctx.createBufferSource(); src.buffer = buf
     const f = ctx.createBiquadFilter(); f.type = 'highpass'
     f.frequency.setValueAtTime(2600, t)
@@ -5172,7 +5173,7 @@ function playNodeDiceWeatherSound(audioCtxRef, mode = 'meteo') {
     const d = buf.getChannelData(0)
     for (let i = 0; i < d.length; i++) {
       const fade = Math.pow(1 - i / d.length, mode === 'war' ? 2.4 : 1.2)
-      d[i] = (Math.random() * 2 - 1) * fade
+      d[i] = (unitRandom() * 2 - 1) * fade
     }
     const src = ctx.createBufferSource(); src.buffer = buf
     const f = ctx.createBiquadFilter(); f.type = mode === 'war' ? 'bandpass' : 'lowpass'
@@ -5207,7 +5208,7 @@ function playBossDollarAttackSound(audioCtxRef) {
     const d = buf.getChannelData(0)
     for (let i = 0; i < d.length; i++) {
       const fade = Math.pow(1 - i / d.length, 1.15)
-      d[i] = (Math.random() * 2 - 1) * fade
+      d[i] = (unitRandom() * 2 - 1) * fade
     }
     const src = ctx.createBufferSource()
     src.buffer = buf
@@ -5849,7 +5850,7 @@ function playWalkStep(audioCtxRef) {
     const d   = buf.getChannelData(0)
     // Short noise burst with fast exponential decay → soft floor thud
     for (let i = 0; i < d.length; i++) {
-      d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / d.length, 2.4)
+      d[i] = (unitRandom() * 2 - 1) * Math.pow(1 - i / d.length, 2.4)
     }
     const src  = ctx.createBufferSource()
     src.buffer = buf
@@ -5895,7 +5896,7 @@ function playCarDriveSound(audioCtxRef) {
     const buf = ctx.createBuffer(1, Math.ceil(sr * dur), sr)
     const d = buf.getChannelData(0)
     for (let i = 0; i < d.length; i++) {
-      d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / d.length, 1.35)
+      d[i] = (unitRandom() * 2 - 1) * Math.pow(1 - i / d.length, 1.35)
     }
     const road = ctx.createBufferSource()
     road.buffer = buf
@@ -11144,7 +11145,7 @@ const STATUE_WALK_SPEED = 3.5
 function initStatuePatrol(baseGx, baseGz, baseRotY, staggerSec = 0, gazeAngle = 0) {
   return {
     phase: 'idle',
-    nextTriggerT: staggerSec + 30 + Math.random() * 90,
+    nextTriggerT: staggerSec + 30 + unitRandom() * 90,
     currentGx: baseGx,
     currentGz: baseGz,
     baseGx,
@@ -11333,13 +11334,13 @@ function updateStatuePatrol(motion, time, dt, cellMap, obsSet) {
       const nukePos = NUKE_CUBE_POSITIONS[String(motion.mapId)]
       if (!nukePos) return
       const legTargets = []
-      const n = 1 + Math.floor(Math.random() * 2)
+      const n = 1 + Math.floor(unitRandom() * 2)
       for (let i = 0; i < n; i++) {
         // Pick waypoints that are not inside walls; skip blocked candidates.
         let tries = 0
         while (tries < 8) {
-          const wgx = 8 + Math.random() * 40
-          const wgz = 8 + Math.random() * 40
+          const wgx = 8 + unitRandom() * 40
+          const wgz = 8 + unitRandom() * 40
           if (!statueHitsWall(wgx, wgz, cellMap, obsSet)) { legTargets.push({ gx: wgx, gz: wgz }); break }
           tries++
         }
@@ -11430,7 +11431,7 @@ function updateStatuePatrol(motion, time, dt, cellMap, obsSet) {
       } else {
         // Returning, path fully walked — home.
         p.phase = 'idle'
-        p.nextTriggerT = time + 30 + Math.random() * 90
+        p.nextTriggerT = time + 30 + unitRandom() * 90
         p.currentGx = p.baseGx
         p.currentGz = p.baseGz
         motion.root.position.x = p.baseGx
@@ -14864,7 +14865,7 @@ export default function MiningChain3DFPV({
       ctx.fillStyle = '#a78bfa'
       for (let gy = (performance.now() * 0.08) % 26; gy < H; gy += 26) ctx.fillRect(0, gy, W, 2)
       // Jittered OFFLINE label + countdown
-      const jx = (Math.random() - 0.5) * 3, jy = (Math.random() - 0.5) * 2
+      const jx = (unitRandom() - 0.5) * 3, jy = (unitRandom() - 0.5) * 2
       ctx.globalAlpha = flicker
       ctx.font = 'bold 26px monospace'
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
@@ -15650,8 +15651,8 @@ export default function MiningChain3DFPV({
             // never inside a wall/obstacle (the bot obeys world physics now).
             let sx = 28, sy = 28, tries = 0
             do {
-              sx = 6 + Math.random() * 44
-              sy = 6 + Math.random() * 44
+              sx = 6 + unitRandom() * 44
+              sy = 6 + unitRandom() * 44
               tries += 1
             } while (
               (Math.hypot(sx - px, sy - py) < 14 ||
@@ -15728,7 +15729,7 @@ export default function MiningChain3DFPV({
               // Commit to one side for ~1s so the bot borders the obstacle
               // instead of dithering left/right against the wall.
               if (!npc.detourSign || nowMs > (npc.detourUntil || 0)) {
-                npc.detourSign = Math.random() < 0.5 ? 1 : -1
+                npc.detourSign = unitRandom() < 0.5 ? 1 : -1
                 npc.detourUntil = nowMs + 900
               }
               npcMoved = tryMove(-dirY * step * npc.detourSign, dirX * step * npc.detourSign)
@@ -15757,11 +15758,11 @@ export default function MiningChain3DFPV({
             // Pure visuals — real damage stays the cooldown hit below.
             if (nowMs > (npc.nextVisualSwingAt || 0)) {
               npc.swingUntil = nowMs + 420
-              npc.nextVisualSwingAt = nowMs + 850 + Math.random() * 500
+              npc.nextVisualSwingAt = nowMs + 850 + unitRandom() * 500
             }
             if (!hopping && nowMs > (npc.nextAttackHopAt || 0)) {
               npc.hopStart = nowMs
-              npc.nextAttackHopAt = nowMs + 2600 + Math.random() * 900
+              npc.nextAttackHopAt = nowMs + 2600 + unitRandom() * 900
             }
           }
           if (!myDead && !npcOffline && ndist <= NPC_HIT_RANGE && nowMs - npc.lastHitAt >= NPC_HIT_COOLDOWN_MS) {
@@ -16362,7 +16363,7 @@ export default function MiningChain3DFPV({
           npc.hp -= npcHeadshot ? 2 : 1
           npc.hitFlashUntil = performance.now() + 220
           // HACKING (Zero-Day 👾): 10% per hit knocks the bot OFFLINE 5s
-          const npcHacked = hackChanceRef.current > 0 && Math.random() < hackChanceRef.current
+          const npcHacked = hackChanceRef.current > 0 && unitRandom() < hackChanceRef.current
           if (npcHacked) npc.offlineUntil = performance.now() + HACKING_OFFLINE_MS
           drawNpcHpBar(npc.hpBar, npc.hp)
           const shortTag = `${npc.wallet.slice(0, 6)}…${npc.wallet.slice(-4)}`
@@ -16371,8 +16372,8 @@ export default function MiningChain3DFPV({
             drawNpcHpBar(npc.hpBar, npc.hp)
             let sx = 28, sy = 28, tries = 0
             do {
-              sx = 6 + Math.random() * 44
-              sy = 6 + Math.random() * 44
+              sx = 6 + unitRandom() * 44
+              sy = 6 + unitRandom() * 44
               tries += 1
             } while (
               (Math.hypot(sx - pgx, sy - pgy) < 14 ||
@@ -16404,7 +16405,7 @@ export default function MiningChain3DFPV({
           const rt = bossRuntimeRef.current
           // HACKING (Zero-Day 👾): 10% per hit knocks the boss OFFLINE 5s —
           // its local runtime freezes (no moves/attacks) but keeps taking hits.
-          const bossHacked = hackChanceRef.current > 0 && Math.random() < hackChanceRef.current
+          const bossHacked = hackChanceRef.current > 0 && unitRandom() < hackChanceRef.current
           if (rt) {
             rt.hitFlashUntil = performance.now() + 220
             rt.combatEngaged = true
