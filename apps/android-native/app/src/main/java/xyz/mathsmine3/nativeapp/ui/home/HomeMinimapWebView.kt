@@ -7,14 +7,13 @@ import android.view.MotionEvent
 import android.view.ViewGroup
 import android.webkit.JavascriptInterface
 import android.webkit.WebChromeClient
-import android.webkit.WebResourceError
-import android.webkit.WebResourceRequest
 import android.webkit.WebView
-import android.webkit.WebViewClient
+import xyz.mathsmine3.nativeapp.PortalEmbedFallback
+import xyz.mathsmine3.nativeapp.PortalEmbedWebViewClient
+import xyz.mathsmine3.nativeapp.PortalOfflinePage
 import xyz.mathsmine3.nativeapp.PortalOrigin
-import xyz.mathsmine3.nativeapp.PortalWebViewSecurity
+import xyz.mathsmine3.nativeapp.keepParentFromStealingTouches
 import xyz.mathsmine3.nativeapp.applyPortalDefaults
-import xyz.mathsmine3.nativeapp.handleLocalPortalSsl
 import xyz.mathsmine3.nativeapp.ui.SoundPrefsBridge
 
 /**
@@ -25,7 +24,7 @@ import xyz.mathsmine3.nativeapp.ui.SoundPrefsBridge
 class HomeMinimapWebView(context: Context) : WebView(context) {
 
     var onClose: (() -> Unit)? = null
-    private var usedFallback = false
+    private val fallback = PortalEmbedFallback(this, "/embed/home-minimap") { FALLBACK_URL }
     private var language: String = "en"
 
     init {
@@ -34,22 +33,7 @@ class HomeMinimapWebView(context: Context) : WebView(context) {
         addJavascriptInterface(NativeBridge(), "MM3NativeMinimap")
         webChromeClient = WebChromeClient()
         SoundPrefsBridge.attach(this)
-        webViewClient = object : WebViewClient() {
-
-            override fun shouldOverrideUrlLoading(
-                view: WebView?,
-                request: WebResourceRequest?,
-            ): Boolean = PortalWebViewSecurity.shouldBlockNavigation(view, request)
-
-            override fun onReceivedSslError(
-                view: WebView?,
-                handler: android.webkit.SslErrorHandler?,
-                error: android.net.http.SslError?,
-            ) {
-                if (handleLocalPortalSsl(view, handler, error)) return
-                super.onReceivedSslError(view, handler, error)
-            }
-
+        webViewClient = object : PortalEmbedWebViewClient(fallback) {
             override fun onPageStarted(view: WebView?, url: String?, favicon: android.graphics.Bitmap?) {
                 super.onPageStarted(view, url, favicon)
                 SoundPrefsBridge.injectInto(this@HomeMinimapWebView)
@@ -57,7 +41,11 @@ class HomeMinimapWebView(context: Context) : WebView(context) {
 
             override fun onPageFinished(view: WebView?, url: String?) {
                 super.onPageFinished(view, url)
-                if (usedFallback || url?.contains("/embed/home-minimap") != true) {
+                if (PortalOfflinePage.isOfflineContent(url)) {
+                    SoundPrefsBridge.injectInto(this@HomeMinimapWebView)
+                    return
+                }
+                if (fallback.usedRemote || url?.contains("/embed/home-minimap") != true) {
                     injectFallbackMap()
                 } else {
                     evaluateJavascript(
@@ -68,33 +56,6 @@ class HomeMinimapWebView(context: Context) : WebView(context) {
                 SoundPrefsBridge.injectInto(this@HomeMinimapWebView)
             }
 
-            override fun onReceivedHttpError(
-                view: WebView?,
-                request: WebResourceRequest?,
-                errorResponse: android.webkit.WebResourceResponse?,
-            ) {
-                super.onReceivedHttpError(view, request, errorResponse)
-                val u = request?.url?.toString().orEmpty()
-                val code = errorResponse?.statusCode ?: 0
-                if (request?.isForMainFrame == true && u.contains("/embed/home-minimap") && code >= 400 && !usedFallback) {
-                    usedFallback = true
-                    post { loadUrl(FALLBACK_URL) }
-                }
-            }
-
-            override fun onReceivedError(
-                view: WebView?,
-                request: WebResourceRequest?,
-                error: WebResourceError?,
-            ) {
-                super.onReceivedError(view, request, error)
-                if (request?.isForMainFrame != true) return
-                val u = request.url?.toString().orEmpty()
-                if (u.contains("/embed/home-minimap") && !usedFallback) {
-                    usedFallback = true
-                    post { loadUrl(FALLBACK_URL) }
-                }
-            }
         }
         layoutParams = ViewGroup.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT,
@@ -111,7 +72,7 @@ class HomeMinimapWebView(context: Context) : WebView(context) {
     }
 
     fun loadMinimap() {
-        usedFallback = false
+        fallback.reset()
         loadUrl("$EMBED_URL?lang=$language")
     }
 
@@ -171,12 +132,7 @@ class HomeMinimapWebView(context: Context) : WebView(context) {
     }
 
     override fun onTouchEvent(event: MotionEvent): Boolean {
-        when (event.actionMasked) {
-            MotionEvent.ACTION_DOWN ->
-                parent?.requestDisallowInterceptTouchEvent(true)
-            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL ->
-                parent?.requestDisallowInterceptTouchEvent(false)
-        }
+        keepParentFromStealingTouches(event)
         return super.onTouchEvent(event)
     }
 

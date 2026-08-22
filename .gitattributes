@@ -1,0 +1,4 @@
+# Additive languages (do not reclassify existing JS / Kotlin / PLpgSQL sources).
+tools/sql/*.sql linguist-language=SQL
+apps/android-native/app/src/main/assets/webview/*.html linguist-language=HTML
+scripts/windows/*.cmd linguist-language=Batchfile

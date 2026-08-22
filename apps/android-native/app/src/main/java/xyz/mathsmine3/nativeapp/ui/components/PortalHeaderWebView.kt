@@ -8,11 +8,13 @@ import android.view.MotionEvent
 import android.view.ViewGroup
 import android.webkit.JavascriptInterface
 import android.webkit.WebChromeClient
-import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
-import android.webkit.WebViewClient
 import java.net.URLEncoder
+import xyz.mathsmine3.nativeapp.PortalEmbedFallback
+import xyz.mathsmine3.nativeapp.PortalEmbedWebViewClient
+import xyz.mathsmine3.nativeapp.PortalOfflinePage
+import xyz.mathsmine3.nativeapp.keepParentFromStealingTouches
 import xyz.mathsmine3.nativeapp.applyPortalDefaults
 import xyz.mathsmine3.nativeapp.ui.SoundPrefsBridge
 
@@ -31,7 +33,7 @@ class PortalHeaderWebView @JvmOverloads constructor(
     var onHeaderHeightPx: ((Int) -> Unit)? = null
 
     private var sessionWallet: String? = null
-    private var usedFallback = false
+    private val fallback = PortalEmbedFallback(this, "/embed/header") { FALLBACK_URL }
 
     init {
         setBackgroundColor(Color.parseColor("#01070E"))
@@ -39,7 +41,7 @@ class PortalHeaderWebView @JvmOverloads constructor(
         addJavascriptInterface(NativeBridge(), "MM3NativeHeader")
         webChromeClient = WebChromeClient()
         SoundPrefsBridge.attach(this)
-        webViewClient = object : WebViewClient() {
+        webViewClient = object : PortalEmbedWebViewClient(fallback, blockUnknownHosts = false) {
             override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
                 val uri = request?.url ?: return false
                 if (request.isForMainFrame != true && uri.host?.contains("mathsmine3") != true) {
@@ -62,40 +64,16 @@ class PortalHeaderWebView @JvmOverloads constructor(
             override fun onPageFinished(view: WebView?, url: String?) {
                 super.onPageFinished(view, url)
                 injectSession()
-                if (usedFallback || url?.contains("/embed/header") != true) {
+                if (PortalOfflinePage.isOfflineContent(url)) {
+                    return
+                }
+                if (fallback.usedRemote || url?.contains("/embed/header") != true) {
                     injectFallbackChrome()
                 }
                 injectHeightReporter()
                 SoundPrefsBridge.injectInto(this@PortalHeaderWebView)
             }
 
-            override fun onReceivedHttpError(
-                view: WebView?,
-                request: WebResourceRequest?,
-                errorResponse: android.webkit.WebResourceResponse?,
-            ) {
-                super.onReceivedHttpError(view, request, errorResponse)
-                val u = request?.url?.toString().orEmpty()
-                val code = errorResponse?.statusCode ?: 0
-                if (request?.isForMainFrame == true && u.contains("/embed/header") && code >= 400 && !usedFallback) {
-                    usedFallback = true
-                    post { loadUrl(FALLBACK_URL) }
-                }
-            }
-
-            override fun onReceivedError(
-                view: WebView?,
-                request: WebResourceRequest?,
-                error: WebResourceError?,
-            ) {
-                super.onReceivedError(view, request, error)
-                if (request?.isForMainFrame != true) return
-                val u = request.url?.toString().orEmpty()
-                if (u.contains("/embed/header") && !usedFallback) {
-                    usedFallback = true
-                    post { loadUrl(FALLBACK_URL) }
-                }
-            }
         }
         layoutParams = ViewGroup.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT,
@@ -110,7 +88,7 @@ class PortalHeaderWebView @JvmOverloads constructor(
     }
 
     fun loadHeader() {
-        usedFallback = false
+        fallback.reset()
         loadUrl(buildEmbedUrl())
     }
 
@@ -123,8 +101,13 @@ class PortalHeaderWebView @JvmOverloads constructor(
 
     private fun handleNavigation(url: String): Boolean {
         val lower = url.lowercase()
-        // Stay on embed / fallback document itself
-        if (lower.contains("/embed/header") || lower == FALLBACK_URL || lower == "$FALLBACK_URL/") {
+        // Stay on embed / live fallback / packed offline document
+        if (
+            lower.contains("/embed/header") ||
+            lower == FALLBACK_URL ||
+            lower == "$FALLBACK_URL/" ||
+            PortalOfflinePage.isOfflineContent(url)
+        ) {
             return false
         }
         val path = try {
@@ -242,12 +225,7 @@ class PortalHeaderWebView @JvmOverloads constructor(
     }
 
     override fun onTouchEvent(event: MotionEvent): Boolean {
-        when (event.actionMasked) {
-            MotionEvent.ACTION_DOWN ->
-                parent?.requestDisallowInterceptTouchEvent(true)
-            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL ->
-                parent?.requestDisallowInterceptTouchEvent(false)
-        }
+        keepParentFromStealingTouches(event)
         return super.onTouchEvent(event)
     }
 

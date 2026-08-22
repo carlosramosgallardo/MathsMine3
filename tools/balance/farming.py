@@ -5,6 +5,7 @@ Unknown superhuman timing, cloned time_ms, or daily-cap breaches are flagged.
 
 Offline:  python3 tools/balance/farming.py --input tools/balance/fixtures/farming_snapshot.json
 Live:     SUPABASE_SERVICE_ROLE_KEY + NEXT_PUBLIC_SUPABASE_URL → --supabase
+SQL editor (read-only, does not replace this CLI): tools/sql/farming_snapshot.sql
 """
 
 from __future__ import annotations
