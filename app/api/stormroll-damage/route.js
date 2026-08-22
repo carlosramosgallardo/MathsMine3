@@ -4,7 +4,7 @@ import { createClient } from '@supabase/supabase-js'
 import { applyDeathLevelPenalty } from '@/lib/death-penalty'
 import { walletFromRequest } from '@/lib/wallet-session'
 
-// Mirrors getDiceWindowForHour from lib/dice.js (server-side validation)
+// Mirrors getDiceWindowForHour from lib/dice.ts (server-side validation)
 function seededRand(n) {
   let s = (n ^ 0xdeadbeef) >>> 0
   s = Math.imul(s ^ (s >>> 16), 0x45d9f3b) >>> 0

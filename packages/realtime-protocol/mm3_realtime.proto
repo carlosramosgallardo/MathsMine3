@@ -1,0 +1,51 @@
+syntax = "proto3";
+
+package mm3.realtime;
+
+// Formal copy of packages/realtime-protocol/channels.json.
+// Every string value in that JSON must appear as a `// json:...` annotation.
+// CI: go run -C tools ./cmd/protocol-lint
+
+enum ChannelName {
+  CHANNEL_UNSPECIFIED = 0;
+  MINING_PRESENCE = 1; // json:mm3-chain3d-v1
+  MINING_MAP_MOVE = 2; // json:mm3-chain3d-v1-map-{mapId}
+  RELAYING_IRC = 3; // json:mm3-irc-relay
+  RELAYING_WALLET_FLAGS = 4; // json:mm3-irc-wallet-flags
+  RELAYING_PORTAL_ANON = 5; // json:mm3-portal-anon-v1
+  RELAYING_ANON_PRESENCE = 6; // json:mm3-irc-anon-presence
+  RELAYING_MARKET_WATCH = 7; // json:mm3-irc-market-commands-watch
+  PRESENCE_TABLE = 8; // json:mm3_wallet_presence
+}
+
+enum MiningBroadcastEvent {
+  MINING_BROADCAST_UNSPECIFIED = 0;
+  MOVE = 1; // json:move
+  PVP_HIT = 2; // json:pvp-hit
+  PVP_RESULT = 3; // json:pvp-result
+  PLAYER_DEATH = 4; // json:player-death
+  ANON_KILL = 5; // json:anon-kill
+  ANON_RESET = 6; // json:anon-reset
+  DEMINE_REWARD = 7; // json:demine-reward
+  BOSS_STATE = 8; // json:boss-state
+  BOSS_RESULT = 9; // json:boss-result
+  BOSS_ATTACK_RESULT = 10; // json:boss-attack-result
+  NODE_DICE = 11; // json:node-dice
+  STORMROLL_HIT = 12; // json:stormroll-hit
+  COLLISION_PUSH = 13; // json:collision-push
+  CHAIN_FORMULA_SOLVED = 14; // json:chain-formula-solved
+}
+
+enum RelayingBroadcastEvent {
+  RELAYING_BROADCAST_UNSPECIFIED = 0;
+  MESSAGE = 1; // json:message
+  MARKET_STATUS_REFRESH = 2; // json:market-status-refresh
+}
+
+enum RelayingPostgresTable {
+  RELAYING_TABLE_UNSPECIFIED = 0;
+  MINING_COMMANDS = 1; // json:mm3_mining_commands
+  MINING_EVENTS = 2; // json:mm3_mining_events
+  RELAYING_MESSAGES = 3; // json:mm3_relaying_messages
+  COMMAND_PENALTIES = 4; // json:mm3_command_penalties
+}

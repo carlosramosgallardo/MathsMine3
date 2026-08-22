@@ -29,6 +29,14 @@ android/maskable_icon.png
 *.apk
 *.aab
 
+# Rust crate build
+packages/mm3-math/target/
+
+# Python
+**/__pycache__/
+.pytest_cache/
+tsconfig.tsbuildinfo
+
 # Native Android
 apps/android-native/local.properties
 apps/android-native/.gradle/

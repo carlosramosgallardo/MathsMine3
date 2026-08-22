@@ -42,7 +42,7 @@ Portal: https://mathsmine3.xyz
 MathsMine3
 
 ### Descripción breve
-Mate cronometrada. Minería ficticia. Multijugador 3D. Gana MM3 en un mundo terminal.
+Mate cronometrada. Minería ficticia. Multijugador 3D. Gana MM3 en un terminal.
 
 ### Descripción completa
 MathsMine3 es un juego gratuito estilo portal en Android: resuelve matemáticas a contrarreloj, opera en una economía terminal ficticia y explora un mundo minero 3D multijugador en vivo.

@@ -1,0 +1,11 @@
+[package]
+name = "mm3-math"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "Training pressure-curve formulas for MathsMine3 (CI cross-check vs web/Android)"
+publish = false
+
+[[bin]]
+name = "dump-spec"
+path = "src/bin/dump-spec.rs"

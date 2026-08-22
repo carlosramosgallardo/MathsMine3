@@ -1,10 +1,10 @@
-/** Shared training math — mirrors Board.jsx / Android TrainingRules. */
+/** Shared training math — mirrors Android TrainingRules. Runtime source of truth for web. */
 import { clampRankLevel } from '@/lib/ranks';
 
 export const DAILY_MINE_BASE = 100;
 export const TRAINING_PRICE = Number(process.env.NEXT_PUBLIC_FAKE_MINING_PRICE) || 0.00001;
 
-export function getDiff(level) {
+export function getDiff(level: number): number {
   if (level >= 70) return 5;
   if (level >= 40) return 4;
   if (level >= 20) return 3;
@@ -12,26 +12,26 @@ export function getDiff(level) {
   return 1;
 }
 
-export function getTimeLimitMs(level) {
+export function getTimeLimitMs(level: number): number {
   return Math.max(1500, 6000 - level * 55);
 }
 
-export function clampTrainingLevel(level) {
+export function clampTrainingLevel(level: number): number {
   return clampRankLevel(level);
 }
 
-export function failPenalty(level) {
+export function failPenalty(level: number): number {
   if (level >= 70) return 5;
   if (level >= 40) return 3;
   if (level >= 15) return 2;
   return 1;
 }
 
-export function successDelta(level) {
+export function successDelta(level: number): number {
   return level >= 80 ? 2 : 1;
 }
 
-export function miningReward(elapsedMs, level) {
+export function miningReward(elapsedMs: number, level: number): number {
   const timeLimit = getTimeLimitMs(level);
   const rewardMult = 1 + Math.floor(level / 10) * 0.5;
   const base = timeLimit * 0.5;
@@ -41,6 +41,6 @@ export function miningReward(elapsedMs, level) {
   return raw * rewardMult;
 }
 
-export function answersMatch(userAnswer, expected) {
+export function answersMatch(userAnswer: unknown, expected: unknown): boolean {
   return String(userAnswer ?? '').trim().toLowerCase() === String(expected ?? '').trim().toLowerCase();
 }

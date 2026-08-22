@@ -1,0 +1,25 @@
+# frozen_string_literal: true
+
+default_platform(:android)
+
+platform :android do
+  desc "Validate Play listing assets and copy limits (no Play API call)"
+  lane :verify_listing do
+    sh("ruby", File.expand_path("verify_listing.rb", __dir__))
+  end
+
+  desc "Upload AAB to the internal track when PLAY_JSON_KEY is set"
+  lane :internal do
+    aab = ENV["MM3_AAB"]
+    UI.user_error!("Set MM3_AAB to the signed .aab path") if aab.to_s.empty?
+    UI.user_error!("Set PLAY_JSON_KEY to the Play service-account JSON") if ENV["PLAY_JSON_KEY"].to_s.empty?
+    upload_to_play_store(
+      aab: aab,
+      track: "internal",
+      skip_upload_metadata: false,
+      skip_upload_images: false,
+      skip_upload_screenshots: false,
+      json_key: ENV["PLAY_JSON_KEY"]
+    )
+  end
+end
