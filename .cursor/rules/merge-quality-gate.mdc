@@ -25,8 +25,10 @@ Do not merge until **all** of the following are `pass` (or `skipping` when expec
 | **Build debug APK** | Android paths changed (see `android-native.yml`) |
 | **Polyglot checks** | Polyglot paths changed (see `polyglot-quality.yml`) |
 
-A missing path-filtered job is **not** a failure. If SonarCloud is `fail` or pending, **stop**.
+A missing path-filtered job is **not** a failure. Do not wait for `Build debug APK` on a pytest-only PR. If SonarCloud is `fail` or pending, **stop**.
 
 Do not push to `main`. Do not bypass branch protection.
 
-Owner: keep `SonarCloud Code Analysis` required. Do **not** require path-filtered jobs on every PR.
+Owner: keep `SonarCloud Code Analysis` required. Do **not** require path-filtered jobs (`Lint and build`, `Build debug APK`, `Polyglot checks`) on every PR — they skip when their paths do not match.
+
+PR #121 was merged with Sonar red (`Math.random()` in `lib/boss-api-handlers.js`), breaking the main quality gate. That must not happen again.

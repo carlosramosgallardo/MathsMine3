@@ -1,0 +1,25 @@
+# Renovate owns version PRs (renovate.json). Dependabot version updates
+# would open duplicate pip/npm/gradle PRs. Keep the file so GitHub does
+# not fall back to UI defaults; open-pull-requests-limit: 0 creates none.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 0
+  - package-ecosystem: pip
+    directory: /tools/balance
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 0
+  - package-ecosystem: gradle
+    directory: /apps/android-native
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 0
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 0

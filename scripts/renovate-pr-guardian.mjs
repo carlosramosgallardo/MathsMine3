@@ -7,21 +7,74 @@
  * - Close + pin: Android APK failed (blocks incompatible bumps in renovate.json).
  * - Skip: majors with green CI (no automerge; human/agent can review later).
  *
+ * Required checks follow workflow path filters. Do not demand Build debug APK
+ * on a pytest-only PR — that job never runs.
+ *
  * Usage:
  *   node scripts/renovate-pr-guardian.mjs
  *   GUARDIAN_DRY_RUN=1 node scripts/renovate-pr-guardian.mjs
  */
 import { execFileSync } from 'node:child_process'
 import { readFileSync, writeFileSync } from 'node:fs'
-import { resolve, dirname } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import path, { resolve, dirname } from 'node:path'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const RENOVATE_JSON = resolve(ROOT, 'renovate.json')
 const DRY_RUN = process.env.GUARDIAN_DRY_RUN === '1'
-const REQUIRED_CHECKS = ['Build debug APK', 'SonarCloud Code Analysis']
+export const CHECK_APK = 'Build debug APK'
+export const CHECK_WEB = 'Lint and build'
+export const CHECK_POLYGLOT = 'Polyglot checks'
+export const CHECK_SONAR = 'SonarCloud Code Analysis'
 const RENOVATE_AUTHOR = 'app/renovate'
 const SAFE_PATH = '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'
+
+/** Keep in sync with .github/workflows/android-native.yml path filters. */
+export const ANDROID_PATHS = [
+  'apps/android-native/**',
+  'scripts/android-native-build.sh',
+  '.github/workflows/android-native.yml',
+]
+
+/** Keep in sync with .github/workflows/web-quality.yml path filters. */
+export const WEB_PATHS = [
+  'app/**',
+  'components/**',
+  'lib/**',
+  'scripts/**',
+  'package.json',
+  'package-lock.json',
+  'eslint.config.mjs',
+  'next.config.js',
+  'tsconfig.json',
+  'tailwind.config.js',
+  'proxy.ts',
+  'vercel.json',
+  '.github/workflows/web-quality.yml',
+]
+
+/** Keep in sync with .github/workflows/polyglot-quality.yml path filters. */
+export const POLYGLOT_PATHS = [
+  'app/api/**',
+  'lib/ranks.js',
+  'lib/training-game.ts',
+  'lib/dice.ts',
+  'apps/android-native/app/src/main/java/xyz/mathsmine3/nativeapp/ui/theme/RankTiers.kt',
+  'apps/android-native/app/src/main/java/xyz/mathsmine3/nativeapp/training/TrainingProblem.kt',
+  'packages/api-contracts/**',
+  'packages/realtime-protocol/**',
+  'packages/game-tables/**',
+  'packages/mm3-math/**',
+  'tools/**',
+  'features/**',
+  'fastlane/**',
+  'play-store-listing/**',
+  'policy/**',
+  'scripts/windows/**',
+  'Makefile',
+  'Gemfile',
+  '.github/workflows/polyglot-quality.yml',
+]
 
 function execInRepo(file, args) {
   return execFileSync(file, args, {
@@ -59,22 +112,53 @@ function getPrChecks(number) {
   }))
 }
 
-function checksSummary(checks) {
+export function matchFileName(pattern, file) {
+  if (!file) return false
+  // Replace ** first so the leftover * inside `.*` is not treated as a glob.
+  const token = '\u0000'
+  const source = pattern
+    .replace(/\*\*/g, token)
+    .replace(/[.+^${}()|[\]\\]/g, '\\$&')
+    .replace(/\*/g, '[^/]*')
+    .replaceAll(token, '.*')
+  return new RegExp(`^${source}$`).test(file)
+}
+
+export function fileMatchesAny(file, globs) {
+  return globs.some((glob) => matchFileName(glob, file))
+}
+
+export function prFiles(pr) {
+  return (pr.files || []).map((f) => (typeof f === 'string' ? f : f.path)).filter(Boolean)
+}
+
+export function requiredChecksForPr(pr) {
+  const files = prFiles(pr)
+  const required = [CHECK_SONAR]
+  if (files.some((file) => fileMatchesAny(file, ANDROID_PATHS))) required.push(CHECK_APK)
+  if (files.some((file) => fileMatchesAny(file, WEB_PATHS))) required.push(CHECK_WEB)
+  if (files.some((file) => fileMatchesAny(file, POLYGLOT_PATHS))) required.push(CHECK_POLYGLOT)
+  return required
+}
+
+export function isCheckSuccess(check) {
+  return check && (check.conclusion === 'SUCCESS' || check.state === 'SUCCESS')
+}
+
+export function checksSummary(checks, requiredNames = [CHECK_SONAR]) {
   const failed = checks.filter((c) => c.conclusion === 'FAILURE' || c.state === 'FAILURE')
   const pending = checks.filter((c) =>
     c.state === 'PENDING' || c.state === 'IN_PROGRESS' || c.conclusion == null && c.state !== 'SUCCESS',
   )
-  const requiredOk = REQUIRED_CHECKS.every((name) =>
-    checks.some((c) => c.name === name && (c.conclusion === 'SUCCESS' || c.state === 'SUCCESS')),
-  )
-  return { failed, pending, requiredOk }
+  const missing = requiredNames.filter((name) => !checks.some((c) => c.name === name && isCheckSuccess(c)))
+  return { failed, pending, requiredOk: missing.length === 0, requiredNames, missing }
 }
 
 function isAutomergeEnabled(body) {
   return /automerge:\s*enabled/i.test(body || '')
 }
 
-function isMajorPr(title, body) {
+export function isMajorPr(title, body) {
   const text = `${title}\n${body || ''}`
   if (/\(major\)/i.test(title || '')) return true
   if (/\bmajor\b/i.test(text)) return true
@@ -100,10 +184,13 @@ function isConfirmedMinorOrPatch(title, body) {
   return false
 }
 
-function shouldAttemptMerge(pr, { requiredOk, failed, pending }) {
+export function shouldAttemptMerge(pr, { requiredOk, failed, pending, missing }) {
   if (pending.length > 0) return { action: 'wait', reason: 'CI still running' }
   if (failed.length > 0) return { action: 'skip', reason: 'CI failed' }
-  if (!requiredOk) return { action: 'wait', reason: 'required checks missing' }
+  if (!requiredOk) {
+    const names = (missing || []).join(', ') || 'required checks'
+    return { action: 'wait', reason: `required checks missing: ${names}` }
+  }
   if (pr.mergeStateStatus === 'DIRTY' || pr.mergeable === 'CONFLICTING') {
     return { action: 'skip', reason: 'merge conflict' }
   }
@@ -122,14 +209,6 @@ function shouldAttemptMerge(pr, { requiredOk, failed, pending }) {
 
 function getPrDiff(number) {
   return gh(['pr', 'diff', String(number)])
-}
-
-function matchFileName(pattern, file) {
-  if (!file) return false
-  const re = new RegExp(
-    `^${pattern.replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*\*/g, '.*').replace(/\*/g, '[^/]*')}$`,
-  )
-  return re.test(file)
 }
 
 function bumpKey(bump) {
@@ -255,12 +334,12 @@ function collectPrBumps(pr) {
   const diff = getPrDiff(pr.number)
   const fromDiff = extractBumps(diff)
   const fromBody = extractBumpsFromBody(pr.body)
-  const prFiles = (pr.files || []).map((f) => f.path)
+  const files = prFiles(pr)
   const merged = new Map()
 
   for (const bump of [...fromDiff, ...fromBody]) {
-    if (!bump.file && prFiles.length === 1) {
-      bump.file = prFiles[0]
+    if (!bump.file && files.length === 1) {
+      bump.file = files[0]
     }
     merged.set(bumpKey(bump), bump)
   }
@@ -322,10 +401,6 @@ function findBlockingPinRule(cfg, bump) {
     (rule) => rule.allowedVersions && ruleMatchesBump(rule, bump) &&
       isBlockedByAllowedVersions(bump.version, rule.allowedVersions),
   )
-}
-
-function isBumpPinned(cfg, bump) {
-  return Boolean(findBlockingPinRule(cfg, bump))
 }
 
 function pinCeiling(version) {
@@ -410,7 +485,7 @@ function handlePinnedPr(pr) {
 }
 
 function handleFailedAndroid(pr, checks) {
-  const android = checks.find((c) => c.name === 'Build debug APK')
+  const android = checks.find((c) => c.name === CHECK_APK)
   if (!android || (android.conclusion !== 'FAILURE' && android.state !== 'FAILURE')) {
     return
   }
@@ -469,10 +544,12 @@ function run() {
       continue
     }
 
-    const summary = checksSummary(checks)
+    const required = requiredChecksForPr(pr)
+    log(`required checks: ${required.join(', ')}`)
+    const summary = checksSummary(checks, required)
     if (summary.failed.length > 0) {
       log(`failed checks: ${summary.failed.map((c) => c.name).join(', ')}`)
-      if (summary.failed.some((c) => c.name === 'Build debug APK')) {
+      if (summary.failed.some((c) => c.name === CHECK_APK)) {
         handleFailedAndroid(pr, checks)
       }
       continue
@@ -493,4 +570,9 @@ function run() {
   log('done')
 }
 
-run()
+const invokedDirectly = process.argv[1]
+  && pathToFileURL(path.resolve(process.argv[1])).href === import.meta.url
+
+if (invokedDirectly) {
+  run()
+}
