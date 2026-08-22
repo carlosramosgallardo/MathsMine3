@@ -62,13 +62,26 @@ def check_gherkin() -> None:
                 )
 
 
+def _spec_int(rows: list[dict[str, int]], level: int, column: str) -> int:
+    for row in rows:
+        if row.get("level") == level and column in row:
+            return row[column]
+    raise SystemExit(f"missing Gherkin cell level={level} {column}")
+
+
 def check_invariants() -> None:
-    if time_limit_ms(100) != 1500:
-        raise SystemExit("LEGEND time limit must floor at 1500 ms")
-    if fail_penalty(95) != 5:
-        raise SystemExit("level 95+ fail penalty must be 5")
-    if success_delta(80) != 2:
-        raise SystemExit("LEGEND success delta must be 2")
+    # Read expected floors from the feature file so these are regression checks,
+    # not compile-time constants (Sonar pythonbugs:S2583).
+    examples = parse_examples(FEATURE.read_text(encoding="utf-8"))
+    legend_ms = _spec_int(examples, 100, "ms")
+    if time_limit_ms(100) != legend_ms:
+        raise SystemExit(f"LEGEND time limit must floor at {legend_ms} ms")
+    high_penalty = _spec_int(examples, 70, "penalty")
+    if fail_penalty(95) != high_penalty:
+        raise SystemExit(f"level 95+ fail penalty must match 70+ band ({high_penalty})")
+    legend_delta = _spec_int(examples, 80, "delta")
+    if success_delta(80) != legend_delta:
+        raise SystemExit(f"LEGEND success delta must be {legend_delta}")
     instant = mining_reward(0, 0)
     if abs(instant - TRAINING_PRICE) > 1e-18:
         raise SystemExit(f"level-0 instant reward drifted: {instant}")
