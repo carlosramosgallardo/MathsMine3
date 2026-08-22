@@ -4,7 +4,7 @@
  *
  * - Close: bump already blocked by allowedVersions pin on main (renovate.json).
  * - Merge: required CI green + minor/patch (or Renovate automerge enabled).
- * - Close + pin: Android APK failed (blocks incompatible bumps in renovate.json).
+ * - Close + pin: Android APK failed — open a pin PR (do not push `main`).
  * - Skip: majors with green CI (no automerge; human/agent can review later).
  *
  * Required checks follow workflow path filters. Do not demand Build debug APK
@@ -410,6 +410,11 @@ function pinCeiling(version) {
   return `<0.0.${p.patch + 1}`
 }
 
+/** Branch used to land allowedVersions pins without pushing `main`. */
+export function pinBranchName(prNumber) {
+  return `cursor/renovate-pin-${Number(prNumber)}`
+}
+
 function loadRenovateConfig() {
   return JSON.parse(readFileSync(RENOVATE_JSON, 'utf8'))
 }
@@ -449,14 +454,43 @@ function closePr(number, comment) {
   gh(['pr', 'close', String(number), '--comment', comment])
 }
 
-function commitPins(message) {
-  log(`COMMIT: ${message}`)
-  if (DRY_RUN) return
+function commitPins(message, prNumber, bumps, reason) {
+  const branch = pinBranchName(prNumber)
+  log(`COMMIT: ${message} (branch ${branch}, PR to main — not a push to main)`)
+  if (DRY_RUN) {
+    return bumps.filter((bump) => !hasExistingPin(loadRenovateConfig(), bump)).length
+  }
   execInRepo('git', ['config', 'user.name', 'github-actions[bot]'])
   execInRepo('git', ['config', 'user.email', '41898282+github-actions[bot]@users.noreply.github.com'])
+  execInRepo('git', ['fetch', 'origin', 'main'])
+  execInRepo('git', ['checkout', '--', 'renovate.json'])
+  execInRepo('git', ['checkout', '-B', branch, 'origin/main'])
+  let cfg = loadRenovateConfig()
+  let added = 0
+  for (const bump of bumps) {
+    if (hasExistingPin(cfg, bump)) continue
+    cfg = addPin(cfg, bump, reason)
+    added++
+  }
+  if (added === 0) return 0
+  saveRenovateConfig(cfg)
   execInRepo('git', ['add', 'renovate.json'])
   execInRepo('git', ['commit', '-m', message])
-  execInRepo('git', ['push', 'origin', 'HEAD:main'])
+  execInRepo('git', ['push', '-u', 'origin', `HEAD:${branch}`])
+  try {
+    gh([
+      'pr', 'create',
+      '--base', 'main',
+      '--head', branch,
+      '--title', message,
+      '--body',
+      `Renovate guardian pin after failed Android APK on #${prNumber}.\n\n` +
+        'Branch protection blocks pushes to `main`; this PR only adds `allowedVersions`.',
+    ])
+  } catch (err) {
+    log(`pin PR already open or create failed: ${err.message}`)
+  }
+  return added
 }
 
 function handlePinnedPr(pr) {
@@ -499,23 +533,19 @@ function handleFailedAndroid(pr, checks) {
     return
   }
 
-  let cfg = loadRenovateConfig()
-  let added = 0
-  for (const bump of bumps) {
-    if (hasExistingPin(cfg, bump)) continue
-    cfg = addPin(cfg, bump, `Blocked after Android CI failure on PR #${pr.number}`)
-    added++
-  }
-  if (added > 0) {
-    saveRenovateConfig(cfg)
-    commitPins(`chore(renovate): guardian pin after failed PR #${pr.number}`)
-  }
+  const pinReason = `Blocked after Android CI failure on PR #${pr.number}`
+  const added = commitPins(
+    `chore(renovate): guardian pin after failed PR #${pr.number}`,
+    pr.number,
+    bumps,
+    pinReason,
+  )
 
   closePr(
     pr.number,
     `Renovate guardian: Android native APK CI failed. ` +
       (added > 0
-        ? `Added ${added} pin(s) in renovate.json to prevent repeat bumps.`
+        ? `Opened pin PR on \`${pinBranchName(pr.number)}\` with ${added} allowedVersions rule(s).`
         : 'Pins already present — closed for manual review.'),
   )
 }

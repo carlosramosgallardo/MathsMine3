@@ -5,6 +5,7 @@ import {
   CHECK_WEB,
   CHECK_POLYGLOT,
   CHECK_SONAR,
+  pinBranchName,
   requiredChecksForPr,
   checksSummary,
   shouldAttemptMerge,
@@ -83,6 +84,11 @@ test('missing APK on an Android PR keeps the guardian waiting', () => {
   const decision = shouldAttemptMerge(androidPr, summary)
   assert.equal(decision.action, 'wait')
   assert.match(decision.reason, /Build debug APK/)
+})
+
+test('guardian pins land on a cursor branch, not main', () => {
+  assert.equal(pinBranchName(142), 'cursor/renovate-pin-142')
+  assert.equal(pinBranchName('99'), 'cursor/renovate-pin-99')
 })
 
 test('major bumps never automerge even when CI is green', () => {
