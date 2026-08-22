@@ -1,12 +1,12 @@
 ---
-description: Playbook when reviewing Renovate dependency PRs autonomously (vacation mode)
+description: Playbook when the PR review automation or vacation maintenance runs
 globs:
   - renovate.json
-  - apps/android-native/**
-  - package.json
-  - package-lock.json
+  - .cursor/automations/renovate-pr-review.md
 ---
 
-When asked to review Renovate PRs or run vacation dependency maintenance, read `.cursor/automations/renovate-pr-review.md` and follow it.
+When asked to review PRs or run vacation maintenance, read `.cursor/automations/renovate-pr-review.md` and follow it.
 
-Do not merge major bumps without verifying Android CI. Pin incompatible Android deps in `renovate.json` instead of leaving failed PRs open.
+Review **all** open PRs, not only Renovate. Merge only when relevant checks are green (Sonar required). Otherwise leave the PR open and comment why.
+
+Do not push to `main`. Do not merge majors, forks, or PRs with a failing/pending check.
