@@ -3,7 +3,7 @@ name: Web quality
 on:
   push:
     branches: [main]
-    paths:
+    paths: &web_paths
       - 'app/**'
       - 'components/**'
       - 'lib/**'
@@ -14,23 +14,18 @@ on:
       - 'next.config.js'
       - 'tsconfig.json'
       - 'tailwind.config.js'
+      - 'proxy.ts'
+      - 'vercel.json'
       - '.github/workflows/web-quality.yml'
   pull_request:
-    paths:
-      - 'app/**'
-      - 'components/**'
-      - 'lib/**'
-      - 'scripts/**'
-      - 'package.json'
-      - 'package-lock.json'
-      - 'eslint.config.mjs'
-      - 'next.config.js'
-      - 'tsconfig.json'
-      - 'tailwind.config.js'
-      - '.github/workflows/web-quality.yml'
+    paths: *web_paths
 
 permissions:
   contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   verify:
@@ -53,6 +48,12 @@ jobs:
 
       - name: ESLint
         run: npm run lint
+
+      - name: Guardian unit tests
+        run: node --test scripts/renovate-pr-guardian.test.mjs
+
+      - name: Unit sweep
+        run: npm run qa:sweep:unit
 
       - name: Production build
         run: npm run build
