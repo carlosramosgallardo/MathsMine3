@@ -27,6 +27,8 @@
     "qa:all": "node scripts/qa-sweep.mjs && node scripts/qa-portal.mjs",
     "renovate:guardian": "node scripts/renovate-pr-guardian.mjs",
     "renovate:guardian:dry": "GUARDIAN_DRY_RUN=1 node scripts/renovate-pr-guardian.mjs",
+    "sonar:gate": "node scripts/wait-sonar-quality-gate.mjs",
+    "sonar:gate:test": "node --test scripts/wait-sonar-quality-gate.test.mjs",
     "api-docs:sync": "node scripts/build-api-documentation.mjs",
     "manifesto:sync": "node scripts/sync-manifesto.mjs",
     "version:sync": "node scripts/sync-version.mjs",

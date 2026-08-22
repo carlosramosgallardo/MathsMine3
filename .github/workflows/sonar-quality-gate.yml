@@ -1,0 +1,31 @@
+name: Sonar quality gate
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  checks: read
+  contents: read
+
+jobs:
+  wait:
+    name: SonarCloud quality gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Unit-test gate script
+        run: node --test scripts/wait-sonar-quality-gate.test.mjs
+
+      - name: Wait for SonarCloud Code Analysis
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          SONAR_PR: ${{ github.event.pull_request.number || '' }}
+        run: node scripts/wait-sonar-quality-gate.mjs --wait

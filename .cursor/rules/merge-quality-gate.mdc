@@ -6,6 +6,7 @@ alwaysApply: true
 # Merge quality gate (mandatory)
 
 **Never merge a PR to `main` if any required check is red or pending.**
+**Never `git push origin main` to bypass that gate.**
 
 ## Before every merge
 
@@ -13,13 +14,15 @@ Run on the PR branch:
 
 ```bash
 gh pr checks <number>
+npm run sonar:gate -- --status --pr <number>
 ```
 
 Do not merge until **all** of the following are `pass` (or `skipping` when expected):
 
 | Check | When required |
 |---|---|
-| **SonarCloud Code Analysis** | Always — any PR touching `app/`, `components/`, `lib/`, `scripts/` |
+| **SonarCloud Code Analysis** | Always (GitHub App decoration) |
+| **SonarCloud quality gate** | Always (workflow waits on the App check and fails closed) |
 | **Lint and build** | Web paths changed (see `web-quality.yml`) |
 | **Build debug APK** | Android paths changed (see `android-native.yml`) |
 
@@ -27,14 +30,20 @@ If SonarCloud shows `fail`, **stop**. Fix the Sonar issues on the branch, push, 
 
 ## Why
 
-PR #121 was merged with Sonar red (`Math.random()` in `lib/boss-api-handlers.js`), breaking the main quality gate. That must not happen again.
+1. PR #121 was merged with Sonar red (`Math.random()` in `lib/boss-api-handlers.js`).
+2. Polyglot CI was **pushed straight to `main`** (no PR). Automatic Analysis then scored new Python/Actions/Ruby files and flipped `main` from Green to Red (`new_reliability_rating` + `new_security_rating`).
+
+Rules-only enforcement is not enough. The **SonarCloud quality gate** workflow fails CI when the App check is red. The owner still must make that check **required** in GitHub (agents cannot set branch protection).
 
 ## GitHub branch protection (human setup)
 
-An agent cannot configure this. Owner must add these as **required status checks** on `main` in GitHub → Settings → Branches:
+Owner: GitHub → Settings → Branches → rule for `main`:
 
-- `SonarCloud Code Analysis`
-- `Lint and build`
-- `Build debug APK` (when Android CI applies)
+- Require a pull request before merging
+- Do not allow bypassing the above settings
+- Require status checks to pass:
+  - `SonarCloud Code Analysis`
+  - `SonarCloud quality gate`
+- Do **not** require path-filtered jobs (`Lint and build`, `Build debug APK`) on every PR — they will not run on unrelated diffs and will stick the merge box.
 
 Until branch protection is enabled, agents must self-enforce via `gh pr checks`.

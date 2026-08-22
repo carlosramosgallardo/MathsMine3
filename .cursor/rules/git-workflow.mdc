@@ -1,8 +1,10 @@
 ---
-description: Git workflow — work directly on main
+description: Git workflow — land on main through PRs with Sonar green
 alwaysApply: true
 ---
 
-- **Always work on `main`.** Do not create feature branches (`cursor/...` or otherwise).
-- Commit and push directly to `main` to trigger the Vercel deploy.
-- Do not open PRs unless the user explicitly asks for one.
+- **Do not push commits directly to `main`.** Direct pushes skip pull-request checks and are how Sonar went red on `main` (polyglot CI, PR #121).
+- Work on a `cursor/...` branch, open a PR, and merge only when **SonarCloud Code Analysis** is green. Vercel still deploys from `main` after the merge.
+- Before merge run `gh pr checks <n>` (or `npm run sonar:gate -- --status --pr <n>`). If Sonar is `fail` or pending, **stop**.
+- Hot-fix on `main` only when the user explicitly asks **and** `npm run sonar:gate -- --status --branch main` is already OK.
+- See `.cursor/rules/merge-quality-gate.mdc`.
