@@ -5,10 +5,10 @@ on:
     # Every 3 hours — backup when platform automerge does not fire
     - cron: '15 */3 * * *'
   workflow_run:
-    workflows: ['Android native APK']
+    workflows: ['Android native APK', 'Web quality', 'Polyglot quality']
     types: [completed]
   pull_request:
-    types: [labeled, synchronize]
+    types: [opened, reopened, labeled, synchronize]
     branches: [main]
   workflow_dispatch:
 
@@ -30,6 +30,9 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
+
+      - name: Guardian unit tests
+        run: node --test scripts/renovate-pr-guardian.test.mjs
 
       - name: Run guardian
         env:

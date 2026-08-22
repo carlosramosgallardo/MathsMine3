@@ -82,15 +82,21 @@ jobs:
           test -f "$AAB"
           mkdir -p dist/release
           cp -f "$AAB" "dist/release/"
-          if [[ -f "$SYMS" ]]; then
-            cp -f "$SYMS" "dist/release/"
-          fi
-          ls -lh dist/release/
           echo "aab=dist/release/mathsmine3-${VERSION_NAME}.aab" >> "$GITHUB_OUTPUT"
           echo "version_name=${VERSION_NAME}" >> "$GITHUB_OUTPUT"
           if [[ -f "$SYMS" ]]; then
+            cp -f "$SYMS" "dist/release/"
             echo "syms=dist/release/native-debug-symbols-${VERSION_NAME}.zip" >> "$GITHUB_OUTPUT"
           fi
+          {
+            echo "release_files<<EOF"
+            echo "dist/release/mathsmine3-${VERSION_NAME}.aab"
+            if [[ -f "$SYMS" ]]; then
+              echo "dist/release/native-debug-symbols-${VERSION_NAME}.zip"
+            fi
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+          ls -lh dist/release/
 
       - name: Upload Actions artifact
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
@@ -104,9 +110,7 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228 # v3.0.2
         with:
-          files: |
-            ${{ steps.stage.outputs.aab }}
-            ${{ steps.stage.outputs.syms }}
+          files: ${{ steps.stage.outputs.release_files }}
           overwrite_files: true
           fail_on_unmatched_files: true
           generate_release_notes: false

@@ -19,9 +19,12 @@ Do not merge until **all** of the following are `pass` (or `skipping` when expec
 
 | Check | When required |
 |---|---|
-| **SonarCloud Code Analysis** | Always — any PR touching `app/`, `components/`, `lib/`, `scripts/` |
+| **SonarCloud Code Analysis** | Always |
 | **Lint and build** | Web paths changed (see `web-quality.yml`) |
 | **Build debug APK** | Android paths changed (see `android-native.yml`) |
+| **Polyglot checks** | Polyglot paths changed (see `polyglot-quality.yml`) |
+
+A missing path-filtered job is **not** a failure. Do not wait for `Build debug APK` on a pytest-only PR.
 
 If SonarCloud shows `fail`, **stop**. Fix the Sonar issues on the branch, push, wait for green, then merge. Do not bypass.
 
@@ -33,8 +36,7 @@ PR #121 was merged with Sonar red (`Math.random()` in `lib/boss-api-handlers.js`
 
 An agent cannot configure this. Owner must add these as **required status checks** on `main` in GitHub → Settings → Branches:
 
-- `SonarCloud Code Analysis`
-- `Lint and build`
-- `Build debug APK` (when Android CI applies)
+- `SonarCloud Code Analysis` (always)
+- Do **not** require path-filtered jobs (`Lint and build`, `Build debug APK`, `Polyglot checks`) on every PR — they skip when their paths do not match.
 
 Until branch protection is enabled, agents must self-enforce via `gh pr checks`.
