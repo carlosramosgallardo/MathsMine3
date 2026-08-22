@@ -47,8 +47,20 @@ definitions:
     working_directory: apps/android-native
     script: |
       set -euo pipefail
-      echo "sdk.dir=$ANDROID_SDK_ROOT" > local.properties
+      SDK_DIR="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-/usr/local/share/android-sdk}}"
+      export ANDROID_SDK_ROOT="$SDK_DIR"
+      export ANDROID_HOME="$SDK_DIR"
+      echo "sdk.dir=$SDK_DIR" > local.properties
       chmod +x gradlew
+      echo "ANDROID_SDK_ROOT=$SDK_DIR"
+      SDKMANAGER="$SDK_DIR/cmdline-tools/latest/bin/sdkmanager"
+      if [ ! -x "$SDKMANAGER" ]; then
+        SDKMANAGER="$(command -v sdkmanager)"
+      fi
+      # Mac images currently ship platforms;android-36.1, not android-36.
+      # compileSdk = 36 needs platforms/android-36 (same as GitHub Actions).
+      yes | "$SDKMANAGER" --sdk_root="$SDK_DIR" --licenses >/dev/null || true
+      "$SDKMANAGER" --sdk_root="$SDK_DIR" "platforms;android-36" "build-tools;35.0.0"
 
 workflows:
   android-native-debug:
