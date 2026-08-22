@@ -1,8 +1,9 @@
 ---
-description: Git workflow — work directly on main
+description: Git workflow — land on main via PR
 alwaysApply: true
 ---
 
-- **Always work on `main`.** Do not create feature branches (`cursor/...` or otherwise).
-- Commit and push directly to `main` to trigger the Vercel deploy.
-- Do not open PRs unless the user explicitly asks for one.
+- **Do not push to `main`.** Branch protection requires a pull request and green `SonarCloud Code Analysis`.
+- Work on a `cursor/…` branch (or the PR's existing branch). Open or update a PR into `main`.
+- Merge only when `gh pr checks` is green enough: Sonar pass, no failures, no pending. Path-filtered jobs may skip.
+- Vercel production deploys from `main` after merge — not from a direct push.

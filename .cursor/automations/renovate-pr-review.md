@@ -1,80 +1,83 @@
-# Renovate PR review (vacation mode)
+# PR review (all open PRs)
 
-Run this when triggered by **Cursor Automation** (schedule and/or Renovate PR opened/pushed) on `carlosramosgallardo/MathsMine3`.
+Run this when the **PR review** Cursor Automation fires (schedule and/or PR event) on `carlosramosgallardo/MathsMine3`.
 
 ## Goal
 
-Autonomously review open Renovate PRs. Apply safe updates to `main`. Do not merge unsafe ones; close them and add `renovate.json` pins.
+Review **every** open PR. Merge to `main` only when every relevant check is green. Otherwise leave the PR open and comment **why** it was not merged.
 
-## Relationship to Renovate PR guardian
+Do **not** push to `main`. Branch protection requires a PR + green `SonarCloud Code Analysis`.
 
-- **Guardian** (`.github/workflows/renovate-pr-guardian.yml`) — rule-based: automerge minor/patch when CI green; close + pin on Android failure.
-- **This agent** — judgment calls: majors, partial applies, new pins, Sonar/CI triage, combined commits.
+## Tools
 
-Run both. Guardian handles the easy path; you handle what rules cannot.
+- You may open, comment, rebase, and merge PRs.
+- Do **not** approve PRs (Automation setting: Don't Allow PR Approval).
+- Do **not** close feature/agent PRs. Only Renovate majors may be closed + pinned (see below).
 
-## Workflow
+## Who to scan
 
-1. `git fetch origin && gh pr list --state open --author app/renovate`
-2. For each open PR (newest first):
-   - `gh pr checks <n>` — require **Build debug APK** + **SonarCloud** green before applying
-   - `gh pr diff <n>` — see what changes
-   - If Android CI failed: read logs (`gh run view … --log-failed`), identify Kotlin 2.x / AGP / compileSdk issues
+```bash
+git fetch origin
+gh pr list --state open --json number,title,author,headRefName,isDraft,mergeable,url --limit 50
+```
 
-## Detect major updates (mandatory before any apply)
+Process **all** of them, oldest first. If this run was triggered by one PR event, handle that PR first, then the rest.
 
-A PR is **major** if ANY of these is true — **close + pin, never apply**:
+## Never merge (comment + stop)
 
-1. Title contains `(major)` or the word `major`
-2. Renovate body table has `| major |` in the Update column
-3. Version jump in body: `` `N.x` → `M.x` `` where **N ≠ M** (e.g. `1.9.25` → `2.4.10`, `v5` → `v7`)
-4. Package name bump to a new major line: `tailwindcss to v4`, `gradle to v9`, `kotlin … to v2`, `recharts to v3`, `uuid to v14`, `nanoid to v6`
+Leave open. Post one comment (skip if you already posted the same reason on this PR in the last 24 h).
 
-**CI green does NOT override major detection.** `actions/checkout` v5→v7 was wrongly applied once — never repeat.
+| Situation | Comment |
+|---|---|
+| Author is not `renovate[bot]` / `app/renovate` / `cursoragent` / `carlosramosgallardo` | `No merge: autor externo — needs-human` |
+| Head repo is a fork | `No merge: fork — needs-human` |
+| Title/body looks like WIP (`WIP`, `[skip]`, `DO NOT MERGE`) | `No merge: marcado WIP` |
+| Renovate **major** (title `(major)`, table `\| major \|`, or `N.x` → `M.x` with N≠M) | `No merge: major — no automerge` (close + pin only if it is a Renovate dep PR; see majors) |
+| `mergeable` is `CONFLICTING` | `No merge: conflicto con main` |
+| Any check **fail** | `No merge: check rojo — <name> (<conclusion>)` |
+| Any check **pending** / in progress | `No merge: CI pendiente — <name>` |
+| `SonarCloud Code Analysis` missing or not success | `No merge: falta SonarCloud Code Analysis en verde` (GitHub lo exige) |
 
-## Apply (merge or commit to main)
+Draft + all checks green: mark **Ready for review**, then merge (drafts cannot be merged).
 
-Only when the PR is **confirmed minor or patch** (`| minor |` or `| patch |` in Renovate table, or clear patch semver in title):
+## Checks that count
 
-- All required CI green (**Build debug APK** + **SonarCloud** for Android-touching PRs)
-- Android-only bumps that pass **Android native APK**
-- Web-only bumps (npm lockfile) with Vercel green
-- Prefer one combined commit when multiple safe bumps touch the same file
-- **Grouped android-native PRs:** cherry-pick only minor/patch rows; skip major rows; pin rejected majors
+```bash
+gh pr checks <n>
+```
 
-## Cursor agent PRs (all branches)
+**Green enough to merge** means:
 
-Same gate as Renovate: run `gh pr checks <n>` before merge. **Never merge** if **SonarCloud Code Analysis** is `fail`. See `.cursor/rules/merge-quality-gate.mdc`.
+1. `SonarCloud Code Analysis` is `pass` / `SUCCESS`.
+2. No check is `fail` / `FAILURE` / `CANCELLED`.
+3. No check is pending / in progress.
+4. Path-filtered jobs that did **not** run (`skipping` / absent) are OK. Do not wait for `Build debug APK` or `Lint and build` if they never started.
+5. Ignore non-blocking noise if it is `pass` (CodeRabbit skip on draft, Vercel Preview Comments, etc.).
 
-## Do NOT apply
+If Vercel is `fail`, do **not** merge (prod would break).
 
-- **Any major** — including GitHub Actions (`checkout` v7, `upload-artifact` v7, etc.)
-- Anything compiled with **Kotlin 2.1+** while project uses **Kotlin 1.9.25**
-- `lifecycle` ≥ 2.11, `credentials` ≥ 1.6, `googleid` ≥ 1.2, `kotlinx-coroutines` ≥ 1.10, `retrofit` ≥ 2.12
-- `wagmi` ≥ 3 (breaks @web3modal)
-- PR with red **Build debug APK**
+## Merge (only when the table above does not apply)
 
-## On reject
+One PR per run if several are green (avoids stacking conflicts):
 
-1. Close PR with short comment explaining why
-2. Add or tighten `allowedVersions` pin in `renovate.json` (see existing packageRules)
-3. Commit and push to `main`
+1. Prefer `#` that restores Sonar on `main` (`fix(sonar)`, quality gate) first.
+2. `gh pr merge <n> --merge --delete-branch`
+3. Comment: `Merged: todos los checks relevantes en verde (Sonar required).`
+4. Stop further merges this run. Next cron pass picks the rest after `main` has the new commit.
 
-## Branch / PR policy
+Do not squash unless merge commits are disabled.
 
-- Work on `main` or `cursor/renovate-review-<date>`
-- Do not open PRs unless required; prefer direct apply + close Renovate PR
-- The **Renovate PR guardian** GitHub Action handles rule-based merge/close; you handle judgment calls it cannot (majors, partial applies, new pins)
+## Renovate majors only
 
-## After changes
+Same rules as before: **never merge**. Close with a short comment and add/tighten `allowedVersions` in `renovate.json` **on a new `cursor/renovate-pin-…` branch + PR** (do not push `main`). Do not close non-Renovate PRs.
 
-- Wait for or check Android native APK on `main`
-- Report summary: applied / rejected / left open for human
+## Do not
 
-## PR-triggered runs
+- Autofix red CI in this playbook (no drive-by patches). Comment the reason and leave it.
+- Approve the PR.
+- Push or commit to `main`.
+- Merge two overlapping PRs in the same run.
 
-If this run was triggered by a GitHub PR event, process that PR first. Skip PRs not authored by `renovate[bot]` / `app/renovate`. Then scan remaining open Renovate PRs.
+## After the run
 
-## Scheduled runs
-
-Process all open Renovate PRs (`gh pr list --state open --author app/renovate`), newest first. Do not wait for the user to ask.
+Report: merged / commented-pending (reason) / skipped (already commented).
