@@ -6,4 +6,5 @@ alwaysApply: true
 - **Do not push to `main`.** Branch protection requires a pull request and green `SonarCloud Code Analysis`.
 - Work on a `cursor/…` branch (or the PR's existing branch). Open or update a PR into `main`.
 - Merge only when `gh pr checks` is green enough: Sonar pass, no failures, no pending. Path-filtered jobs may skip.
+- Optional: `npm run sonar:gate -- --status --pr <n>` to query the same gate.
 - Vercel production deploys from `main` after merge — not from a direct push.

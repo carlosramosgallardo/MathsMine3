@@ -84,11 +84,12 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends lua5.4 ruby
-          curl -fsSL -o /tmp/conftest.tar.gz https://github.com/open-policy-agent/conftest/releases/download/v0.59.0/conftest_0.59.0_Linux_x86_64.tar.gz
+          curl --proto '=https' --tlsv1.2 -fsSL -o /tmp/conftest.tar.gz \
+            https://github.com/open-policy-agent/conftest/releases/download/v0.59.0/conftest_0.59.0_Linux_x86_64.tar.gz
           sudo tar -xzf /tmp/conftest.tar.gz -C /usr/local/bin conftest
 
       - name: Install pytest
-        run: python3 -m pip install -r tools/balance/requirements.txt
+        run: python3 -m pip install --require-hashes -r tools/balance/requirements.txt
 
       - name: Run polyglot checks
         run: make check LUA=lua5.4

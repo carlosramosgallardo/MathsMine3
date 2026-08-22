@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 
-from farming import analyze
+from farming import analyze, main, resolved_input_file
 
 FIXTURE = Path(__file__).parent / "fixtures" / "farming_snapshot.json"
 
@@ -34,3 +34,20 @@ def test_empty_snapshot_is_clean():
     report = analyze({"games": [], "progress": []})
     assert report["farming"] == []
     assert report["wallets"] == 0
+
+
+def test_fixture_input_stays_inside_repo():
+    path = resolved_input_file(FIXTURE)
+    assert path.is_file()
+    assert main(["farming.py", "--input", str(FIXTURE)]) == 0
+
+
+def test_input_outside_repo_is_rejected(tmp_path):
+    outsider = tmp_path / "snap.json"
+    outsider.write_text("{\"games\":[],\"progress\":[]}", encoding="utf-8")
+    try:
+        resolved_input_file(outsider)
+        raise AssertionError("expected path escape to be rejected")
+    except ValueError as exc:
+        assert "escapes" in str(exc)
+    assert main(["farming.py", "--input", str(outsider)]) == 2

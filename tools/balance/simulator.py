@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
+import hashlib
 from dataclasses import dataclass
-from random import Random
 
 from training import (
     DAILY_MINE_BASE,
@@ -12,6 +12,27 @@ from training import (
     success_delta,
     time_limit_ms,
 )
+
+
+class SeededRng:
+    """Deterministic SHA-256 stream for economy Monte Carlo (Sonar python:S2245)."""
+
+    __slots__ = ("_n",)
+
+    def __init__(self, seed: int = 0) -> None:
+        self._n = int(seed) & 0xFFFFFFFFFFFFFFFF
+
+    def _next_digest(self) -> bytes:
+        self._n = (self._n + 1) & 0xFFFFFFFFFFFFFFFF
+        return hashlib.sha256(self._n.to_bytes(8, "big")).digest()
+
+    def random(self) -> float:
+        return int.from_bytes(self._next_digest()[:8], "big") / float(1 << 64)
+
+    def randrange(self, stop: int) -> int:
+        if stop <= 0:
+            raise ValueError("empty range for randrange()")
+        return int.from_bytes(self._next_digest()[:8], "big") % stop
 
 
 @dataclass(frozen=True)
@@ -37,8 +58,8 @@ def clamp_level(level: int) -> int:
     return max(0, min(100, level))
 
 
-def play_day(model: PlayerModel, start_level: int = 0, rng: Random | None = None) -> DayResult:
-    rng = rng or Random(0)
+def play_day(model: PlayerModel, start_level: int = 0, rng: SeededRng | None = None) -> DayResult:
+    rng = rng or SeededRng(0)
     level = clamp_level(start_level)
     mm3 = 0.0
     correct = 0
@@ -77,5 +98,8 @@ def simulate_cohort(
     start_level: int,
     seed: int = 1,
 ) -> list[DayResult]:
-    rng = Random(seed)
-    return [play_day(model, start_level=start_level, rng=Random(rng.randrange(1 << 30))) for _ in range(n)]
+    parent = SeededRng(seed)
+    return [
+        play_day(model, start_level=start_level, rng=SeededRng(parent.randrange(1 << 30)))
+        for _ in range(n)
+    ]

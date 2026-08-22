@@ -30,6 +30,26 @@ DAILY_MINE_BASE = 100
 SUPERHUMAN_MS = 80
 CLONE_TIME_MIN = 15
 PERFECT_LEGEND_MIN = 40
+REPO_ROOT = Path(__file__).resolve().parents[2]
+
+
+def _is_inside(path: Path, root: Path) -> bool:
+    try:
+        path.relative_to(root)
+        return True
+    except ValueError:
+        return False
+
+
+def resolved_input_file(raw: Path) -> Path:
+    """Reject paths that escape the repo or the process working directory (S8707)."""
+    resolved = raw.expanduser().resolve()
+    if not resolved.is_file():
+        raise ValueError(f"input is not a file: {resolved}")
+    allowed = (Path.cwd().resolve(), REPO_ROOT)
+    if not any(_is_inside(resolved, root) for root in allowed):
+        raise ValueError(f"input path escapes allowed directories: {resolved}")
+    return resolved
 
 
 def norm_wallet(value: str) -> str:
@@ -187,7 +207,11 @@ def main(argv: list[str]) -> int:
             return 2
         snapshot = load_supabase(url, key)
     elif args.input:
-        snapshot = json.loads(args.input.read_text(encoding="utf-8"))
+        try:
+            snapshot = json.loads(resolved_input_file(args.input).read_text(encoding="utf-8"))
+        except ValueError as exc:
+            print(exc, file=sys.stderr)
+            return 2
     else:
         parser.print_help()
         return 2

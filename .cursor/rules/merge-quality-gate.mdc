@@ -6,11 +6,13 @@ alwaysApply: true
 # Merge quality gate (mandatory)
 
 **Never merge a PR to `main` if any required check is red or pending.**
+**Never `git push origin main` to bypass that gate.**
 
 ## Before every merge
 
 ```bash
 gh pr checks <number>
+npm run sonar:gate -- --status --pr <number>
 ```
 
 Do not merge until **all** of the following are `pass` (or `skipping` when expected):
@@ -18,6 +20,7 @@ Do not merge until **all** of the following are `pass` (or `skipping` when expec
 | Check | When required |
 |---|---|
 | **SonarCloud Code Analysis** | Always (GitHub required check on `main`) |
+| **SonarCloud quality gate** | Always when that workflow runs (waits on the App check) |
 | **Lint and build** | Web paths changed (see `web-quality.yml`) |
 | **Build debug APK** | Android paths changed (see `android-native.yml`) |
 | **Polyglot checks** | Polyglot paths changed (see `polyglot-quality.yml`) |
@@ -25,3 +28,5 @@ Do not merge until **all** of the following are `pass` (or `skipping` when expec
 A missing path-filtered job is **not** a failure. If SonarCloud is `fail` or pending, **stop**.
 
 Do not push to `main`. Do not bypass branch protection.
+
+Owner: keep `SonarCloud Code Analysis` required. Do **not** require path-filtered jobs on every PR.
