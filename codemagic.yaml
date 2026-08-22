@@ -10,11 +10,10 @@
 #   NEXT_PUBLIC_GOOGLE_CLIENT_ID
 #   NEXT_PUBLIC_SUPABASE_URL
 #   NEXT_PUBLIC_SUPABASE_ANON_KEY
-# Release AAB also needs (same names as GitHub Environment `env`):
-#   ANDROID_RELEASE_KEYSTORE_BASE64
-#   ANDROID_KEYSTORE_STORE_PASSWORD
-#   ANDROID_KEYSTORE_KEY_ALIAS          (optional, default mathsmine3)
-#   ANDROID_KEYSTORE_KEY_PASSWORD       (optional, defaults to store password)
+# Release AAB needs the same keystore env as GitHub Environment `env`
+# (ANDROID_RELEASE_KEYSTORE_BASE64 + ANDROID_KEYSTORE_STORE_PASSWORD, …).
+# Until those exist in group `mm3_android`, the AAB workflow is skipped so it
+# does not fail GitHub checks. Debug APK does not need the keystore.
 #
 # Optional later: upload the Play upload keystore under Team settings →
 # Code signing identities as `mathsmine3_upload`, then uncomment android_signing
@@ -100,6 +99,11 @@ workflows:
   android-native-release:
     name: Native Android signed AAB
     <<: *android_machine
+    # Skip on PRs until the Play upload keystore is in Codemagic (group mm3_android).
+    when:
+      condition: >-
+        (env.ANDROID_RELEASE_KEYSTORE_BASE64 != None and env.ANDROID_RELEASE_KEYSTORE_BASE64 != "")
+        or (env.CM_KEYSTORE_PATH != None and env.CM_KEYSTORE_PATH != "")
     environment:
       groups:
         - mm3_android
@@ -128,22 +132,34 @@ workflows:
               > "$NATIVE/keystore.properties"
             chmod 600 "$NATIVE/keystore.properties"
             echo "Prepared release signing from Codemagic code signing identities"
-          else
+          elif [ -n "${ANDROID_RELEASE_KEYSTORE_BASE64:-}" ]; then
             bash "$CM_BUILD_DIR/scripts/android-native-prepare-signing.sh"
+          else
+            echo "No Play upload keystore in Codemagic — skip signed AAB."
+            echo "Add ANDROID_RELEASE_KEYSTORE_BASE64 + ANDROID_KEYSTORE_STORE_PASSWORD to group mm3_android."
+            echo "GitHub Actions workflow Android native AAB still builds the Play bundle."
+            exit 0
           fi
       - name: Bundle signed release
         working_directory: apps/android-native
         script: |
           set -euo pipefail
+          if [ ! -f keystore.properties ]; then
+            echo "Skip bundleRelease (no keystore.properties)"
+            exit 0
+          fi
           ./gradlew bundleRelease --no-daemon --stacktrace
       - name: Stage AAB
         script: |
           set -euo pipefail
+          SRC="$CM_BUILD_DIR/apps/android-native/app/build/outputs/bundle/release/app-release.aab"
+          if [ ! -f "$SRC" ]; then
+            echo "Skip staging AAB (not built)"
+            exit 0
+          fi
           VERSION_NAME="$(awk -F'"' '/versionName[[:space:]]*=/{print $2; exit}' \
             "$CM_BUILD_DIR/apps/android-native/app/build.gradle.kts")"
           VERSION_NAME="${VERSION_NAME:-unknown}"
-          SRC="$CM_BUILD_DIR/apps/android-native/app/build/outputs/bundle/release/app-release.aab"
-          test -f "$SRC"
           mkdir -p "$CM_BUILD_DIR/dist/release"
           cp -f "$SRC" "$CM_BUILD_DIR/dist/release/mathsmine3-${VERSION_NAME}.aab"
           ls -lh "$CM_BUILD_DIR/dist/release"
