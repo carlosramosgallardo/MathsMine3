@@ -190,7 +190,7 @@
       "allowedVersions": "<23.0.0"
     },
     {
-      "description": "CI stays on Node 22 until Node 24 stack validated (Renovate PR #120)",
+      "description": "CI stays on Node 22 until Node 24 stack validated (Renovate PR #120/#153)",
       "matchManagers": [
         "github-actions"
       ],
@@ -198,6 +198,18 @@
         "node"
       ],
       "allowedVersions": "<23.0.0"
+    },
+    {
+      "description": "Android trees stay on Gradle 8.14.x until AGP/Kotlin toolchain is ready for 9.x (Renovate PR #154)",
+      "matchManagers": [
+        "gradle-wrapper",
+        "gradle"
+      ],
+      "matchPackageNames": [
+        "gradle",
+        "org.gradle:gradle"
+      ],
+      "allowedVersions": "<9.0.0"
     },
     {
       "description": "Blocked after Android CI failure on PR #93 (guardian pin 2026-08-15)",
