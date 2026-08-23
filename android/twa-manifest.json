@@ -20,7 +20,7 @@
     "path": "./android.keystore",
     "alias": "android"
   },
-  "appVersionName": "0.1.0-beta.11",
+  "appVersionName": "0.1.0-beta.12",
   "appVersionCode": 1,
   "shortcuts": [],
   "generatorApp": "bubblewrap",
