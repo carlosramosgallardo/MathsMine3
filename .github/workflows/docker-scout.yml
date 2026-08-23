@@ -25,8 +25,7 @@ jobs:
     permissions:
       contents: read
       pull-requests: write
-    # Hub credentials: add DOCKER_USER + DOCKER_PAT to Environment "env"
-    # (same place as other repo secrets), or as repository secrets.
+    # Requires DOCKER_USER + DOCKER_PAT in Environment "env".
     environment: env
     timeout-minutes: 20
 
@@ -38,7 +37,6 @@ jobs:
         uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
 
       - name: Log in to Docker Hub
-        if: ${{ secrets.DOCKER_USER != '' && secrets.DOCKER_PAT != '' }}
         uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         with:
           username: ${{ secrets.DOCKER_USER }}
@@ -55,7 +53,6 @@ jobs:
           cache-to: type=gha,mode=max
 
       - name: Docker Scout CVEs and recommendations
-        if: ${{ secrets.DOCKER_USER != '' && secrets.DOCKER_PAT != '' }}
         uses: docker/scout-action@7c6b6c3f7844478ace1ffd4e7aef649053d1f87d # v1.24.0
         with:
           command: cves,recommendations
@@ -66,9 +63,3 @@ jobs:
           write-comment: ${{ github.event_name == 'pull_request' }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
           summary: true
-
-      - name: Skip Scout when Hub credentials are missing
-        if: ${{ secrets.DOCKER_USER == '' || secrets.DOCKER_PAT == '' }}
-        run: |
-          echo '::warning::DOCKER_USER / DOCKER_PAT not set; image was built but Scout was skipped.'
-          echo 'Add both secrets to the GitHub Environment "env" (or repository secrets), then re-run.'
