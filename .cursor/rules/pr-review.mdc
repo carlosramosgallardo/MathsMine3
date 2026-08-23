@@ -8,4 +8,6 @@ When asked to review PRs or the PR review automation runs, read `.cursor/automat
 
 Review **all** open PRs, not only Renovate. Merge only when relevant checks are green (Sonar required). Otherwise leave the PR open and comment why.
 
+At the **end** of every run, check `main` health (Sonar + failing checks/workflows). If red, open a `cursor/fix-main-*` PR (or comment on an existing one) so the next pass can merge it when green.
+
 Do not push to `main`. Do not merge majors, forks, or PRs with a failing/pending check.

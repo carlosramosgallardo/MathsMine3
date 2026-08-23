@@ -13,9 +13,9 @@ on:
     paths: *apk_paths
   workflow_dispatch:
 
-# Write only on v* tags (GitHub Release + stamp commit). PRs just upload artifacts.
+# Workflow-level permissions must be static (no ${{ }}). Tag release + stamp need write on the job.
 permissions:
-  contents: ${{ startsWith(github.ref, 'refs/tags/v') && 'write' || 'read' }}
+  contents: read
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -25,6 +25,8 @@ jobs:
   build:
     name: Build debug APK
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     # Secrets live in GitHub Environment "env" (not repo-level secrets).
     environment: env
     timeout-minutes: 45
