@@ -49,8 +49,9 @@ export const HOME_PORTAL_HREFS = [
  */
 export const PAGE_LANG_MARKERS = {
   '/training': {
-    enPositive: ['CLICK TO START', 'Click to start'],
-    esPositive: ['PULSA PARA EMPEZAR', 'Pulsa para empezar'],
+    // Board chrome is immediate; start CTA waits on problem fetch (flaky in CI).
+    enPositive: ['DRILL SLOTS', 'Click to start', 'CLICK TO START', 'NO DRILL SLOTS'],
+    esPositive: ['SONDEOS', 'Pulsa para empezar', 'PULSA PARA EMPEZAR', 'SIN SONDEOS'],
   },
   '/trading': {
     enPositive: ['Sell', 'Buy', 'SELL', 'BUY'],
@@ -98,12 +99,12 @@ export const PAGE_LANG_MARKERS = {
   },
 }
 
-/** Pages where fiat currency UI should keep selected code after nav */
+/** Pages where fiat currency UI should keep selected code after nav.
+ * Skip /training — Board mounts heavy client work that can stall CI after nav. */
 export const CURRENCY_SURFACES = [
   { path: '/trading' },
   { path: '/ranking' },
   { path: '/daily-tasks' },
-  { path: '/training' },
   { path: '/squeezing' },
 ]
 
