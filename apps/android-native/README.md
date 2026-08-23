@@ -11,7 +11,7 @@ Supported platforms overview: [`docs/PLATFORMS.md`](../../docs/PLATFORMS.md).
 2. Open the latest successful run
 3. Download artifact **`mathsmine3-native-debug`**
 
-Or install from a **Release** created by tagging SemVer pre-releases (e.g. `git tag v0.1.0-beta.11 && git push origin v0.1.0-beta.11`).
+Or install from a **Release** created by tagging SemVer pre-releases (e.g. `git tag v0.1.0-beta.12 && git push origin v0.1.0-beta.12`).
 
 CI needs GitHub Environment **`env`** secrets (or Variables):
 `NEXT_PUBLIC_GOOGLE_CLIENT_ID`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`

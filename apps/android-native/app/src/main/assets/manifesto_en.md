@@ -47,7 +47,7 @@
 | Field | Value |
 |---|---|
 | Project | MathsMine3 |
-| Version | `0.1.0-beta.11` |
+| Version | `0.1.0-beta.12` |
 | Genre | Math-mining RPG / pool strategy — crypto freak terminal |
 | Economy | Fully simulated, fictional MM3 token |
 | Identity | Ethereum wallet or deterministic Google virtual wallet |
@@ -999,6 +999,7 @@ Secret effect: steals MM3 → executor. `x = daily nonce (100–799)`.
 | Platform | Vercel (hosting, Analytics, Speed Insights) |
 | Blockchain | Alchemy webhook (ETH mainnet realchain trace) |
 | Android | Kotlin, Jetpack Compose, WebView embeds (`apps/android-native`) |
+| CI tools | Additive only: Python, Go, Rust, Lua, Ruby, HTML offline page, SQL snapshot — never a second game runtime |
 
 ### Platforms
 
@@ -1012,7 +1013,9 @@ See **[docs/PLATFORMS.md](docs/PLATFORMS.md)** for the supported surfaces (web P
 app/                 Routes, layouts, API handlers
 components/          UI, mining, chart, wallet, relaying, shell
 lib/                 Game logic, i18n, wallet helpers, macro, dice
-sql/                 Supabase schema and maintenance scripts
+sql/                 Public schema inventory (full dump + ops SQL in .private/)
+supabase/migrations/ Live Postgres history (Supabase)
+tools/               Polyglot CI (Python/Go/SQL) — does not replace lib/ or Kotlin
 public/              Images, metadata, manifest, sitemap, robots
 apps/android-native/ Native Android client (Compose + portal WebViews)
 docs/PLATFORMS.md    Supported platforms & APK download notes

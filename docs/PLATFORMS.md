@@ -31,7 +31,7 @@ Supported surfaces for MathsMine3 today. One product, shared backend (`mathsmine
 2. Pick the latest green run on `main`.
 3. Download the artifact **`mathsmine3-native-debug`**.
 
-Optional permanent link: push a tag `v0.1.0-beta.11` (SemVer pre-release) — the workflow attaches the APK to a **GitHub Release** on the repo home.
+Optional permanent link: push a tag `v0.1.0-beta.12` (SemVer pre-release) — the workflow attaches the APK to a **GitHub Release** on the repo home.
 
 The workflow uses GitHub Environment **`env`** secrets:
 `NEXT_PUBLIC_GOOGLE_CLIENT_ID`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`.
