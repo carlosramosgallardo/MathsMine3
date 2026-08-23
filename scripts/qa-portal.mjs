@@ -98,6 +98,17 @@ async function bodyHasAny(page, needles) {
   return null
 }
 
+/** Poll body text until a marker appears (hydration / client fetch). */
+async function waitBodyHasAny(page, needles, { timeoutMs = 12_000, intervalMs = 400 } = {}) {
+  const deadline = Date.now() + timeoutMs
+  while (Date.now() < deadline) {
+    const hit = await bodyHasAny(page, needles)
+    if (hit) return hit
+    await page.waitForTimeout(intervalMs)
+  }
+  return null
+}
+
 async function closeOverlays(page) {
   await page.keyboard.press('Escape').catch(() => {})
   await page.mouse.click(8, 8).catch(() => {})
@@ -350,10 +361,13 @@ async function runPhase2(page, base, { ok, nok, skip }) {
         skip(`portal.lang.es.page${path}`, 'no markers')
         continue
       }
-      await goto(page, base, path, { slow: path === '/mining' })
+      const heavy = path === '/mining' || path === '/training'
+      await goto(page, base, path, { slow: heavy })
       // Re-assert language survived navigation
       const stillEs = await page.evaluate(() => localStorage.getItem('mm3-language'))
-      const hit = await bodyHasAny(page, positives)
+      const hit = heavy
+        ? await waitBodyHasAny(page, positives)
+        : await bodyHasAny(page, positives)
       const id = `portal.lang.es.page${path.replace(/\//g, '.') || '.home'}`
       if (stillEs === 'es' && hit) ok(id, hit)
       else nok(id, `lang=${stillEs} expected one of: ${positives.join(' | ')}`)
@@ -373,9 +387,12 @@ async function runPhase2(page, base, { ok, nok, skip }) {
     for (const [path, markers] of Object.entries(PAGE_LANG_MARKERS)) {
       const positives = markers.enPositive || []
       if (!positives.length) continue
-      await goto(page, base, path, { slow: path === '/mining' })
+      const heavy = path === '/mining' || path === '/training'
+      await goto(page, base, path, { slow: heavy })
       const stillEn = await page.evaluate(() => localStorage.getItem('mm3-language'))
-      const hit = await bodyHasAny(page, positives)
+      const hit = heavy
+        ? await waitBodyHasAny(page, positives)
+        : await bodyHasAny(page, positives)
       const id = `portal.lang.en.page${path.replace(/\//g, '.') || '.home'}`
       if (stillEn === 'en' && hit) ok(id, hit)
       else nok(id, `lang=${stillEn} expected one of: ${positives.join(' | ')}`)
@@ -429,7 +446,9 @@ async function runPhase2(page, base, { ok, nok, skip }) {
     await setCurrency(page, 'USD')
     for (const surface of CURRENCY_SURFACES) {
       await goto(page, base, surface.path)
-      const cur = await page.getByTestId('mm3-currency-toggle').getAttribute('data-currency')
+      const toggle = page.getByTestId('mm3-currency-toggle')
+      await toggle.waitFor({ state: 'attached', timeout: 15_000 })
+      const cur = await toggle.getAttribute('data-currency')
       const name = surface.path.replace('/', '') || 'home'
       if (cur === 'USD') ok(`portal.currency.surface.${name}`, 'USD sticky')
       else nok(`portal.currency.surface.${name}`, `currency=${cur}`)
