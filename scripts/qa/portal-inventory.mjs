@@ -61,8 +61,20 @@ export const PAGE_LANG_MARKERS = {
     esPositive: ['Billetera del Minero'],
   },
   '/squeezing': {
-    enPositive: ['POOLS', 'Pools'],
-    esPositive: ['POOLS ACTIVOS', 'Pools'],
+    // PoolSqueezeList only renders with pools; CI uses placeholder Supabase so
+    // assert DisputesPanel chrome (empty / error / loading) or the pools header.
+    enPositive: [
+      'No Squeeze battles',
+      'Error loading squeezes',
+      'Loading squeezes',
+      'Active pools',
+    ],
+    esPositive: [
+      'Sin combates registrados',
+      'Error cargando squeezes',
+      'Cargando squeezes',
+      'Pools activos',
+    ],
   },
   '/relaying': {
     enPositive: ['Connect a wallet', 'CONECTA', 'relay', 'RELAY'],
