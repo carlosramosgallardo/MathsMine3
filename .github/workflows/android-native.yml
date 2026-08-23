@@ -27,6 +27,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      pull-requests: write
     # Secrets live in GitHub Environment "env" (not repo-level secrets).
     environment: env
     timeout-minutes: 45
@@ -128,17 +129,20 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # Stamp main with the tag that actually shipped an APK. github-actions[bot]
-      # authors this commit (GITHUB_TOKEN does not retrigger this workflow).
+      # Stamp main with the tag that actually shipped an APK. Branch protection
+      # blocks direct pushes — open a PR instead (merged by pr-review automation).
       - name: Record last GitHub Release on main
         if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git fetch origin main
-          git checkout --force -B main origin/main
           TAG="${GITHUB_REF_NAME}"
           VER="${TAG#v}"
+          BRANCH="cursor/record-android-release-${VER}"
+          git checkout --force -B "${BRANCH}" origin/main
           jq -n \
             --arg tag "$TAG" \
             --arg version "$VER" \
@@ -154,4 +158,13 @@ jobs:
             exit 0
           fi
           git commit -m "Record GitHub Android release ${GITHUB_REF_NAME}."
-          git push origin HEAD:main
+          git push --force origin "HEAD:${BRANCH}"
+          if gh pr list --head "${BRANCH}" --state open --json number --jq '.[0].number' | grep -q .; then
+            echo "PR already open for ${BRANCH}"
+            exit 0
+          fi
+          gh pr create \
+            --base main \
+            --head "${BRANCH}" \
+            --title "Record GitHub Android release ${GITHUB_REF_NAME}." \
+            --body "Automated stamp after tag \`${TAG}\` APK release. Merge when checks are green."
