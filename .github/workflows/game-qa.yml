@@ -1,0 +1,24 @@
+# Release cut: always run web game QA on version tags (no path filter).
+# PRs still use web-quality.yml so docs-only changes skip the job.
+name: Game QA
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      portal_phases:
+        description: 'Portal QA phases (comma-separated, or all)'
+        required: false
+        default: '1,2'
+
+permissions:
+  contents: read
+
+jobs:
+  web:
+    name: Web game QA
+    uses: ./.github/workflows/web-quality.yml
+    with:
+      portal_phases: ${{ inputs.portal_phases || '1,2' }}
