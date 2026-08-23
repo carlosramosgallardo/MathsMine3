@@ -83,7 +83,8 @@ jobs:
         run: node scripts/build-api-documentation.mjs
 
       - name: Install Playwright Chromium
-        run: npx playwright install --with-deps chromium
+        # Local CLI from npm ci (lockfile-pinned). Avoid npx: Sonar S6505/S8543.
+        run: node node_modules/playwright/cli.js install --with-deps chromium
 
       - name: Start production server
         run: |
