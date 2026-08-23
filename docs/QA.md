@@ -2,6 +2,21 @@
 
 Two harnesses share the same `OK` / `NOK` / `SKIP` output (exit **1** on any NOK).
 
+## CI (PRs, `main`, version tags)
+
+| When | What runs |
+|------|-----------|
+| Web PR / push to `main` (path-filtered) | [`web-quality.yml`](../.github/workflows/web-quality.yml): ESLint, `npm test`, `qa:sweep:unit`, production build, Playwright portal phases **1–2** |
+| GitHub Release tag `v*` or Actions → **Game QA** | [`game-qa.yml`](../.github/workflows/game-qa.yml): same job, no path filter |
+
+```bash
+npm test                 # node:test — lib/*.test.mjs (RNG, market formulas, …)
+npm run qa:ci            # npm test + unit sweep (no server)
+npm run qa:portal:smoke  # needs a running Next server
+```
+
+Full API sweep (`qa:sweep` without `--unit-only`) is **manual**: it seeds QA wallets in Supabase and must not run against production from CI.
+
 ## 1. API + unit sweep
 
 ```bash

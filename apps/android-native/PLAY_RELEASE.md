@@ -125,12 +125,13 @@ Manual UI checklist (with wallet session signed in):
 ### Automated QA
 
 ```bash
+npm test
 npm run qa:sweep:unit
 NODE_TLS_REJECT_UNAUTHORIZED=0 npm run qa:sweep -- --base https://127.0.0.1:3000
 NODE_TLS_REJECT_UNAUTHORIZED=0 npm run qa:portal -- --base https://127.0.0.1:3000
 ```
 
-See [`docs/QA.md`](../../docs/QA.md).
+CI runs `npm test`, the unit sweep, a production build, and Playwright portal phases 1–2 on web PRs and on `v*` tags (see [`docs/QA.md`](../../docs/QA.md)).
 
 ## Phase 3 — Play Console
 

@@ -21,7 +21,8 @@ Do not merge until **all** of the following are `pass` (or `skipping` when expec
 |---|---|
 | **SonarCloud Code Analysis** | Always (GitHub required check on `main`) |
 | **SonarCloud quality gate** | Always when that workflow runs (waits on the App check) |
-| **Lint and build** | Web paths changed (see `web-quality.yml`) |
+| **Lint and build** | Web paths changed (see `web-quality.yml`) — includes `npm test`, unit sweep, production build, Playwright portal phases 1–2 |
+| **Game QA** | Version tags `v*` and manual dispatch (see `game-qa.yml`); same web job, no path filter |
 | **Build debug APK** | Android paths changed (see `android-native.yml`) |
 | **Polyglot checks** | Polyglot paths changed (see `polyglot-quality.yml`) |
 
