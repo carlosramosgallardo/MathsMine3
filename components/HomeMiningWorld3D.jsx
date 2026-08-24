@@ -15,7 +15,7 @@ import { roundedVoxelGeometry } from '@/lib/rounded-voxel'
 import { advanceShowcaseSpin, approachYaw } from '@/lib/map-boss-facing'
 import { setBossMaskEyesRed } from '@/lib/boss-head-photo'
 import { colorFromAddress } from '@/lib/wallet-colors'
-import { buildHumanoidBody, buildBotRoundHead, swayHumanoidArms, walkHumanoidLegs, flailHumanoidJump, flapHumanoidJump } from '@/lib/humanoid-body'
+import { buildHumanoidBody, buildHumanHead, humanSkinFromSeed, swayHumanoidArms, walkHumanoidLegs, flailHumanoidJump, flapHumanoidJump } from '@/lib/humanoid-body'
 import { addRlCarBoost, setRlCarBoostLit } from '@/lib/rl-car-boost'
 import { attachRlCarModel, addRlCockpitTub } from '@/lib/rl-car-model'
 import { createNukeCubeVisual, updateNukeCubeVisual } from '@/lib/nuke-cube'
@@ -66,68 +66,39 @@ export function addMiningBot(THREE, scene, options = {}) {
   } = options
   const avatar = new THREE.Group()
   const color = new THREE.Color(botColor)
-  const bright = color.clone().lerp(new THREE.Color('#ffffff'), .34)
   const dark = color.clone().multiplyScalar(.30)
   const mid = color.clone().multiplyScalar(.76)
-  const brightMat = new THREE.MeshStandardMaterial({ color: bright, roughness: .34, metalness: .46, emissive: color.clone().multiplyScalar(.08), emissiveIntensity: .26 })
-  const darkMat = new THREE.MeshStandardMaterial({ color: dark, roughness: .72, metalness: .28 })
-  const midMat = new THREE.MeshStandardMaterial({ color: mid, roughness: .58, metalness: .30 })
+  const skinHex = humanSkinFromSeed(botColor)
+  const skinMat = new THREE.MeshStandardMaterial({ color: skinHex, roughness: .72, metalness: .02 })
+  const darkMat = new THREE.MeshStandardMaterial({ color: dark, roughness: .78, metalness: .06 })
+  const hairMat = new THREE.MeshStandardMaterial({ color, roughness: .62, metalness: .04 })
   const cyanMat = new THREE.MeshBasicMaterial({ color: '#67e8f9' })
   const goldMat = new THREE.MeshBasicMaterial({ color: '#facc15' })
   const magentaMat = new THREE.MeshBasicMaterial({ color: '#d946ef' })
 
-  const addBox = (size, material, position) => {
-    const mesh = new THREE.Mesh(roundedVoxelGeometry(THREE, ...size), material)
-    mesh.position.set(...position)
-    avatar.add(mesh)
-    return mesh
-  }
-
-  // Low-poly humanoid body (same mold as bosses/statue) in the wallet colour;
-  // the robot head, antenna and USB staff stay. Body meshes are tagged as
-  // bodyParts so the bot-on-car variant can hide them (mining-style mount:
-  // only head, antenna and USB staff stay visible).
+  // Low-poly humanoid: cloth in the wallet colour, flesh skin, human head.
+  // USB staff and mini-USB hands stay. Body meshes tagged as bodyParts so
+  // the bot-on-car variant can hide them (mining-style mount: head + staff).
   const body = buildHumanoidBody(THREE, avatar, {
     mat: (c, roughness, metalness) => new THREE.MeshStandardMaterial({
       color: c,
-      roughness,
-      metalness: Math.min(0.5, metalness + 0.12),
-      emissive: color.clone().multiplyScalar(.09),
-      emissiveIntensity: .3,
+      roughness: Math.max(roughness, 0.55),
+      metalness: Math.min(metalness, 0.08),
     }),
     lowDetail: false,
     bulk: 1.02,
     handStyle: 'miniusb',
     colors: {
-      skin: bright,
+      skin: skinHex,
       torso: color.clone().lerp(new THREE.Color('#ffffff'), .10),
       arms: mid,
       legs: dark,
-      // Brighter than the trousers so the stepping feet read clearly.
       shoes: mid,
-      hands: bright,
+      hands: skinHex,
     },
   })
   const bodyParts = [...body.bodyMeshes, body.leftArm, body.rightArm, body.leftLeg, body.rightLeg]
-  // Chest screen + belt light, on the humanoid chest front (-z).
-  bodyParts.push(addBox([.20, .13, .02], darkMat, [0, .58, -.132]))
-  bodyParts.push(addBox([.13, .07, .012], new THREE.MeshBasicMaterial({ color: '#03121c' }), [0, .58, -.146]))
-  bodyParts.push(addBox([.07, .04, .012], goldMat, [0, .585, -.154]))
-  bodyParts.push(addBox([.07, .05, .02], cyanMat, [0, .345, -.125]))
-  // Rounded skull head, same style as the bosses/statue mold — including
-  // their glowing halo eyes (flip red with setBossMaskEyesRed like the bosses).
-  buildBotRoundHead(THREE, avatar, {
-    headMat: brightMat,
-    frameMat: darkMat,
-    earMat: midMat,
-  })
-
-  const antenna = new THREE.Mesh(new THREE.CylinderGeometry(.012, .012, .12, 8), darkMat)
-  antenna.position.set(.08, 1.005, 0)
-  avatar.add(antenna)
-  const antennaTip = new THREE.Mesh(new THREE.OctahedronGeometry(.027), magentaMat)
-  antennaTip.position.set(.08, 1.075, 0)
-  avatar.add(antennaTip)
+  buildHumanHead(THREE, avatar, { skinMat, hairMat })
 
   // Humanoid shoes double as the stepping feet; no separate soles.
   const leftFoot = body.leftShoe

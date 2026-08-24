@@ -3,7 +3,7 @@
 import { useEffect, useRef, useCallback, useState } from 'react'
 import * as THREE from 'three'
 import { colorFromAddress } from '@/lib/wallet-colors'
-import { buildHumanoidBody, buildBotRoundHead, swayHumanoidArms, walkHumanoidLegs, flailHumanoidJump, flapHumanoidJump } from '@/lib/humanoid-body'
+import { buildHumanoidBody, buildHumanHead, humanSkinFromSeed, swayHumanoidArms, walkHumanoidLegs, flailHumanoidJump, flapHumanoidJump } from '@/lib/humanoid-body'
 import { attachRlCarModel, addRlCockpitTub } from '@/lib/rl-car-model'
 import { addRlCarBoost, setRlCarBoostLit } from '@/lib/rl-car-boost'
 import { aiTeamPoolCode } from '@/lib/ai-team'
@@ -12091,48 +12091,33 @@ function createThreeWalletAvatar(wallet) {
   const lowDetail=isLowRenderTier()
   const avatar=new THREE.Group()
   const color=new THREE.Color(colorFromAddress(wallet))
-  const bright=color.clone().lerp(new THREE.Color('#ffffff'),.20)
   const dark=color.clone().multiplyScalar(.30)
   const mid=color.clone().multiplyScalar(.62)
-  const _mat=(c,roughness=.5,metalness=.3)=>lowDetail
-    ?new THREE.MeshLambertMaterial({color:c,emissive:new THREE.Color(c).multiplyScalar(.08)})
+  const skinHex=humanSkinFromSeed(wallet)
+  const _mat=(c,roughness=.5,metalness=.04)=>lowDetail
+    ?new THREE.MeshLambertMaterial({color:c})
     :new THREE.MeshStandardMaterial({color:c,roughness,metalness})
-  const brightMat=_mat(bright,.38,.42)
-  const darkMat=_mat(dark,.72,.28)
-  const midMat=_mat(mid,.58,.30)
+  const skinMat=_mat(skinHex,.72,.02)
+  const darkMat=_mat(dark,.78,.06)
+  const hairMat=_mat(color,.62,.04)
   const cyanMat=new THREE.MeshBasicMaterial({color:'#67e8f9'})
   const goldMat=new THREE.MeshBasicMaterial({color:'#facc15'})
   const magentaMat=new THREE.MeshBasicMaterial({color:'#d946ef'})
 
-  // Low-poly humanoid body — same mold as the home lineup bots and bosses.
+  // Low-poly humanoid — cloth in wallet colour, flesh skin, human head.
+  // USB staff and mini-USB hands stay (punch / mining / RL mount).
   const body=buildHumanoidBody(THREE,avatar,{
     mat:_mat,
     lowDetail,
     bulk:1.02,
     handStyle:'miniusb',
-    // Shoes brighter than the trousers so the walking feet read clearly.
-    colors:{skin:bright,torso:color,arms:mid,legs:dark,shoes:mid,hands:bright},
+    colors:{skin:skinHex,torso:color,arms:mid,legs:dark,shoes:mid,hands:skinHex},
   })
-  // Chest screen + belt light on the humanoid chest front (-z).
-  const chestPlate=new THREE.Mesh(new THREE.BoxGeometry(.20,.13,.02),darkMat)
-  chestPlate.position.set(0,.58,-.132);avatar.add(chestPlate)
-  const chestInset=new THREE.Mesh(new THREE.BoxGeometry(.13,.07,.012),new THREE.MeshBasicMaterial({color:'#03121c'}))
-  chestInset.position.set(0,.58,-.146);avatar.add(chestInset)
-  const core=new THREE.Mesh(new THREE.BoxGeometry(.07,.04,.012),goldMat)
-  core.position.set(0,.585,-.154);avatar.add(core)
-  const beltNode=new THREE.Mesh(new THREE.BoxGeometry(.07,.05,.02),cyanMat)
-  beltNode.position.set(0,.345,-.125);avatar.add(beltNode)
-
-  // Rounded skull head, same style as the bosses/statue mold — including
-  // their glowing halo eyes.
-  const { head }=buildBotRoundHead(THREE,avatar,{
-    headMat:brightMat,
-    frameMat:darkMat,
-    earMat:midMat,
+  const { head }=buildHumanHead(THREE,avatar,{
+    skinMat,
+    hairMat,
     lowDetail,
   })
-  const antennaStem=new THREE.Mesh(new THREE.CylinderGeometry(.012,.012,.12,5),darkMat);antennaStem.position.set(.08,1.005,0);avatar.add(antennaStem)
-  const antennaTip=new THREE.Mesh(new THREE.OctahedronGeometry(.027),magentaMat);antennaTip.position.set(.08,1.075,0);avatar.add(antennaTip)
 
   // Humanoid shoes double as the stepping feet; no separate soles.
   const footL=body.leftShoe
@@ -12172,11 +12157,8 @@ function createThreeWalletAvatar(wallet) {
   avatar.add(poolSubmersion)
   avatar.userData.tool=tool
   avatar.userData.head=head
-  avatar.userData.antennaStem=antennaStem
-  avatar.userData.antennaTip=antennaTip
   avatar.userData.bodyParts=[
     ...body.bodyMeshes,body.leftArm,body.rightArm,body.leftLeg,body.rightLeg,
-    chestPlate,chestInset,core,beltNode,
   ]
   // Whole legs vanish while riding the RL car (they poked through the floor
   // pan); the torso stays visible, seated inside the cockpit tub added by
