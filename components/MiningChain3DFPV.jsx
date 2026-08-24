@@ -3,7 +3,7 @@
 import { useEffect, useRef, useCallback, useState } from 'react'
 import * as THREE from 'three'
 import { colorFromAddress } from '@/lib/wallet-colors'
-import { buildHumanoidBody, buildHumanHead, humanSkinFromSeed, swayHumanoidArms, walkHumanoidLegs, flailHumanoidJump, flapHumanoidJump } from '@/lib/humanoid-body'
+import { buildHumanoidBody, buildHumanHead, humanSkinFromSeed, humanHairFromSeed, swayHumanoidArms, walkHumanoidLegs, flailHumanoidJump, flapHumanoidJump } from '@/lib/humanoid-body'
 import { attachRlCarModel, addRlCockpitTub } from '@/lib/rl-car-model'
 import { addRlCarBoost, setRlCarBoostLit } from '@/lib/rl-car-boost'
 import { aiTeamPoolCode } from '@/lib/ai-team'
@@ -12094,12 +12094,13 @@ function createThreeWalletAvatar(wallet) {
   const dark=color.clone().multiplyScalar(.30)
   const mid=color.clone().multiplyScalar(.62)
   const skinHex=humanSkinFromSeed(wallet)
+  const hairHex=humanHairFromSeed(wallet)
   const _mat=(c,roughness=.5,metalness=.04)=>lowDetail
     ?new THREE.MeshLambertMaterial({color:c})
     :new THREE.MeshStandardMaterial({color:c,roughness,metalness})
   const skinMat=_mat(skinHex,.72,.02)
   const darkMat=_mat(dark,.78,.06)
-  const hairMat=_mat(color,.62,.04)
+  const hairMat=_mat(hairHex,.62,.04)
   const cyanMat=new THREE.MeshBasicMaterial({color:'#67e8f9'})
   const goldMat=new THREE.MeshBasicMaterial({color:'#facc15'})
   const magentaMat=new THREE.MeshBasicMaterial({color:'#d946ef'})
