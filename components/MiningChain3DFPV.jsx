@@ -4,6 +4,7 @@ import { useEffect, useRef, useCallback, useState } from 'react'
 import * as THREE from 'three'
 import { colorFromAddress } from '@/lib/wallet-colors'
 import { buildHumanoidBody, buildHumanHead, humanSkinFromSeed, humanHairFromSeed, swayHumanoidArms, walkHumanoidLegs, flailHumanoidJump, flapHumanoidJump } from '@/lib/humanoid-body'
+import { dockHeldItemsToGlb, seatHumanoidGlbInCar, unseatHumanoidGlb } from '@/lib/humanoid-glb'
 import { attachRlCarModel, addRlCockpitTub } from '@/lib/rl-car-model'
 import { addRlCarBoost, setRlCarBoostLit } from '@/lib/rl-car-boost'
 import { aiTeamPoolCode } from '@/lib/ai-team'
@@ -12033,13 +12034,21 @@ function applyRlMountVisual(avatar, mounted, threeState = null) {
   car.visible = mounted && !avatar.userData.wasDead
   if (avatar.userData.bodyParts) {
     const hidden = mounted ? new Set(avatar.userData.mountHiddenParts || []) : null
-    for (const part of avatar.userData.bodyParts) part.visible = !hidden || !hidden.has(part)
+    for (const part of avatar.userData.bodyParts) {
+      if (part?.userData?.glbSuppressed) {
+        part.visible = false
+        continue
+      }
+      part.visible = !hidden || !hidden.has(part)
+    }
   }
+  if (mounted) seatHumanoidGlbInCar(avatar, { neckY: 0.52, neckZ: 0 })
+  else unseatHumanoidGlb(avatar)
   // Mounted keeps head, antenna and USB staff at their standing pose — the bot
   // rides the car with the same silhouette instead of sinking into the roof.
   if (avatar.userData.tool) {
-    avatar.userData.tool.visible = !avatar.userData.wasDead && !avatar.userData.isHealingRecharge
-    if (avatar.userData.rlStandToolPos) {
+    avatar.userData.tool.visible = !mounted && !avatar.userData.wasDead && !avatar.userData.isHealingRecharge
+    if (!mounted && avatar.userData.rlStandToolPos) {
       avatar.userData.tool.position.copy(avatar.userData.rlStandToolPos)
     }
   }
@@ -12162,10 +12171,11 @@ function createThreeWalletAvatar(wallet) {
   avatar.userData.bodyParts=[
     ...body.bodyMeshes,body.leftArm,body.rightArm,body.leftLeg,body.rightLeg,
   ]
-  // Whole legs vanish while riding the RL car (they poked through the floor
-  // pan); the torso stays visible, seated inside the cockpit tub added by
-  // applyRlMountVisual, with no gap under the head.
-  avatar.userData.mountHiddenParts=[body.leftLeg,body.rightLeg]
+  avatar.userData.mountHiddenParts=[
+    body.leftLeg, body.rightLeg, body.leftArm, body.rightArm,
+    avatar.userData.humanoidGlbBody,
+  ]
+  dockHeldItemsToGlb(avatar)
   avatar.userData.leftFoot=footL
   avatar.userData.rightFoot=footR
   avatar.userData.healEffect=healEffect
