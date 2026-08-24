@@ -25,6 +25,7 @@ jobs:
     permissions:
       contents: read
       pull-requests: write
+      security-events: write
     # Requires DOCKER_USER + DOCKER_PAT in Environment "env".
     environment: env
     timeout-minutes: 20
@@ -52,14 +53,56 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Docker Scout CVEs and recommendations
+      # Split from `recommendations` because `sarif-file` only applies to `cves`.
+      - name: Docker Scout CVEs
         uses: docker/scout-action@7c6b6c3f7844478ace1ffd4e7aef649053d1f87d # v1.24.0
         with:
-          command: cves,recommendations
+          command: cves
           image: local://mathsmine3-cursor:scout
           dockerhub-user: ${{ secrets.DOCKER_USER }}
           dockerhub-password: ${{ secrets.DOCKER_PAT }}
           only-severities: critical,high
+          sarif-file: scout-cves.sarif
           write-comment: ${{ github.event_name == 'pull_request' }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
           summary: true
+
+      - name: Docker Scout base image recommendations
+        uses: docker/scout-action@7c6b6c3f7844478ace1ffd4e7aef649053d1f87d # v1.24.0
+        with:
+          command: recommendations
+          image: local://mathsmine3-cursor:scout
+          dockerhub-user: ${{ secrets.DOCKER_USER }}
+          dockerhub-password: ${{ secrets.DOCKER_PAT }}
+          write-comment: ${{ github.event_name == 'pull_request' }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          summary: true
+
+      # Code Scanning caps locations and relatedLocations at 1000 per result.
+      # Scout emits one location per affected package, which the base image
+      # blows past (2243 on node:22-bookworm-slim).
+      - name: Trim SARIF locations
+        if: always() && hashFiles('scout-cves.sarif') != ''
+        run: |
+          set -euo pipefail
+          report() {
+            jq -r '"results=\([.runs[].results | length] | add // 0)"
+                   + " maxLocations=\([.runs[].results[]?.locations // [] | length] | max // 0)"
+                   + " maxRelated=\([.runs[].results[]?.relatedLocations // [] | length] | max // 0)"' "$1"
+          }
+          echo "before: $(report scout-cves.sarif)"
+          jq '.runs[].results[]? |= (
+                (if (.locations // [] | length) > 1000 then .locations |= .[0:1000] else . end)
+                | (if (.relatedLocations // [] | length) > 1000 then .relatedLocations |= .[0:1000] else . end)
+              )' scout-cves.sarif > scout-cves.trimmed.sarif
+          mv scout-cves.trimmed.sarif scout-cves.sarif
+          echo "after: $(report scout-cves.sarif)"
+
+      # PR comments race the merge (Sonar goes green minutes earlier), so the
+      # findings also land in Code Scanning where they persist.
+      - name: Upload SARIF to Code Scanning
+        if: always() && hashFiles('scout-cves.sarif') != ''
+        uses: github/codeql-action/upload-sarif@c16c0f3f2812ec4bb3750a5ed64873fe2ce0fbef # codeql-bundle-v2.26.3
+        with:
+          sarif_file: scout-cves.sarif
+          category: docker-scout
