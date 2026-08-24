@@ -83,12 +83,18 @@ jobs:
       - name: Trim SARIF related locations
         if: always() && hashFiles('scout-cves.sarif') != ''
         run: |
-          jq '.runs[].results[]? |= (
-                if ((.relatedLocations // []) | length) > 1000
+          set -euo pipefail
+          max() { jq '[.. | objects | select(has("relatedLocations")) | .relatedLocations | length] | max // 0' "$1"; }
+          echo "max related locations before: $(max scout-cves.sarif)"
+          jq 'walk(
+                if type == "object"
+                   and (.relatedLocations | type) == "array"
+                   and (.relatedLocations | length) > 1000
                 then .relatedLocations |= .[0:1000]
                 else . end
               )' scout-cves.sarif > scout-cves.trimmed.sarif
           mv scout-cves.trimmed.sarif scout-cves.sarif
+          echo "max related locations after: $(max scout-cves.sarif)"
 
       # PR comments race the merge (Sonar goes green minutes earlier), so the
       # findings also land in Code Scanning where they persist.
