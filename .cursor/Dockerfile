@@ -15,7 +15,7 @@ RUN apt-get update \
         openjdk-17-jdk \
         unzip \
     && rm -rf /var/lib/apt/lists/* \
-    && npm install -g "npm@${NPM_VERSION}" \
+    && npm install -g --ignore-scripts "npm@${NPM_VERSION}" \
     && corepack enable \
     && (id ubuntu >/dev/null 2>&1 || useradd -m -s /bin/bash ubuntu)
 
