@@ -15,7 +15,7 @@ import { roundedVoxelGeometry } from '@/lib/rounded-voxel'
 import { advanceShowcaseSpin, approachYaw } from '@/lib/map-boss-facing'
 import { setBossMaskEyesRed } from '@/lib/boss-head-photo'
 import { colorFromAddress } from '@/lib/wallet-colors'
-import { buildHumanoidBody, buildHumanHead, humanSkinFromSeed, swayHumanoidArms, walkHumanoidLegs, flailHumanoidJump, flapHumanoidJump } from '@/lib/humanoid-body'
+import { buildHumanoidBody, buildHumanHead, humanSkinFromSeed, humanHairFromSeed, swayHumanoidArms, walkHumanoidLegs, flailHumanoidJump, flapHumanoidJump } from '@/lib/humanoid-body'
 import { addRlCarBoost, setRlCarBoostLit } from '@/lib/rl-car-boost'
 import { attachRlCarModel, addRlCockpitTub } from '@/lib/rl-car-model'
 import { createNukeCubeVisual, updateNukeCubeVisual } from '@/lib/nuke-cube'
@@ -69,9 +69,10 @@ export function addMiningBot(THREE, scene, options = {}) {
   const dark = color.clone().multiplyScalar(.30)
   const mid = color.clone().multiplyScalar(.76)
   const skinHex = humanSkinFromSeed(botColor)
+  const hairHex = humanHairFromSeed(botColor)
   const skinMat = new THREE.MeshStandardMaterial({ color: skinHex, roughness: .72, metalness: .02 })
   const darkMat = new THREE.MeshStandardMaterial({ color: dark, roughness: .78, metalness: .06 })
-  const hairMat = new THREE.MeshStandardMaterial({ color, roughness: .62, metalness: .04 })
+  const hairMat = new THREE.MeshStandardMaterial({ color: hairHex, roughness: .62, metalness: .04 })
   const cyanMat = new THREE.MeshBasicMaterial({ color: '#67e8f9' })
   const goldMat = new THREE.MeshBasicMaterial({ color: '#facc15' })
   const magentaMat = new THREE.MeshBasicMaterial({ color: '#d946ef' })
