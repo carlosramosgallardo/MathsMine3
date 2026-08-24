@@ -78,23 +78,25 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           summary: true
 
-      # Code Scanning rejects a result with more than 1000 related locations;
-      # Scout emits one per affected package and the base image blows past it.
-      - name: Trim SARIF related locations
+      # Code Scanning caps locations and relatedLocations at 1000 per result.
+      # Scout emits one location per affected package, which the base image
+      # blows past (2243 on node:22-bookworm-slim).
+      - name: Trim SARIF locations
         if: always() && hashFiles('scout-cves.sarif') != ''
         run: |
           set -euo pipefail
-          max() { jq '[.. | objects | select(has("relatedLocations")) | .relatedLocations | length] | max // 0' "$1"; }
-          echo "max related locations before: $(max scout-cves.sarif)"
-          jq 'walk(
-                if type == "object"
-                   and (.relatedLocations | type) == "array"
-                   and (.relatedLocations | length) > 1000
-                then .relatedLocations |= .[0:1000]
-                else . end
+          report() {
+            jq -r '"results=\([.runs[].results | length] | add // 0)"
+                   + " maxLocations=\([.runs[].results[]?.locations // [] | length] | max // 0)"
+                   + " maxRelated=\([.runs[].results[]?.relatedLocations // [] | length] | max // 0)"' "$1"
+          }
+          echo "before: $(report scout-cves.sarif)"
+          jq '.runs[].results[]? |= (
+                (if (.locations // [] | length) > 1000 then .locations |= .[0:1000] else . end)
+                | (if (.relatedLocations // [] | length) > 1000 then .relatedLocations |= .[0:1000] else . end)
               )' scout-cves.sarif > scout-cves.trimmed.sarif
           mv scout-cves.trimmed.sarif scout-cves.sarif
-          echo "max related locations after: $(max scout-cves.sarif)"
+          echo "after: $(report scout-cves.sarif)"
 
       # PR comments race the merge (Sonar goes green minutes earlier), so the
       # findings also land in Code Scanning where they persist.
