@@ -16,6 +16,7 @@ import { advanceShowcaseSpin, approachYaw } from '@/lib/map-boss-facing'
 import { setBossMaskEyesRed } from '@/lib/boss-head-photo'
 import { colorFromAddress } from '@/lib/wallet-colors'
 import { buildHumanoidBody, buildHumanHead, humanSkinFromSeed, humanHairFromSeed, swayHumanoidArms, walkHumanoidLegs, flailHumanoidJump, flapHumanoidJump } from '@/lib/humanoid-body'
+import { dockHeldItemsToGlb, seatHumanoidGlbInCar } from '@/lib/humanoid-glb'
 import { addRlCarBoost, setRlCarBoostLit } from '@/lib/rl-car-boost'
 import { attachRlCarModel, addRlCockpitTub } from '@/lib/rl-car-model'
 import { createNukeCubeVisual, updateNukeCubeVisual } from '@/lib/nuke-cube'
@@ -41,10 +42,11 @@ const HOME_ARENA_BOSS_VS_BOT = 1.31
 const HOME_BOSS_SIZE_MULT = 1.06
 const HOME_LINEUP_BOT_SCALE = 2.96
 const HOME_LINEUP_CAR_SCALE = 2.51
-// Seated pose for bots riding the rl-car.glb: rear-cabin offset and body sink
-// (group-local units; the animate loop reuses SEAT_Y as the bob baseline).
-const HOME_BOTCAR_SEAT_Y = -0.30
-const HOME_BOTCAR_SEAT_Z = 0.45
+// Head-only cockpit pose (bot-local): neck sits on the car tub, not a sunk torso.
+const HOME_BOTCAR_SEAT_Y = 0
+const HOME_BOTCAR_SEAT_Z = 0
+const HOME_BOTCAR_NECK_Y = 0.38 * HOME_LINEUP_CAR_SCALE / HOME_LINEUP_BOT_SCALE
+const HOME_BOTCAR_NECK_Z = 0.18 * HOME_LINEUP_CAR_SCALE / HOME_LINEUP_BOT_SCALE
 /** World Y where bot soles meet the arena disc (avatar origin + sole bottom local × scale). */
 const HOME_ARENA_FLOOR_Y = 0.12 + 0.0015 * HOME_ARENA_BOT_SCALE
 const HOME_SCENE_CENTER = { x: 0, z: 0 }
@@ -165,6 +167,7 @@ export function addMiningBot(THREE, scene, options = {}) {
   avatar.userData.rightSole = rightSole
   avatar.userData.tool = tool
   avatar.userData.bodyParts = bodyParts
+  dockHeldItemsToGlb(avatar)
   scene.add(avatar)
   return avatar
 }
@@ -224,11 +227,15 @@ function addHomeBotCar(THREE, scene, options = {}) {
     rotationY: 0,
     scale: HOME_LINEUP_BOT_SCALE,
   })
-  // Legs and feet stay inside the car body — hide them so nothing pokes
-  // through the chassis underside.
+  seatHumanoidGlbInCar(bot, { neckY: HOME_BOTCAR_NECK_Y, neckZ: HOME_BOTCAR_NECK_Z })
   for (const part of [
     bot.userData.leftFoot, bot.userData.rightFoot, bot.userData.leftSole, bot.userData.rightSole,
     ...(bot.userData.humanLegs || []),
+    ...(bot.userData.humanArms || []),
+    bot.userData.tool,
+    bot.userData.humanoidGlbBody,
+    bot.userData.humanoidGlbLeftHand,
+    bot.userData.humanoidGlbRightHand,
   ]) {
     if (part) part.visible = false
   }
@@ -865,8 +872,9 @@ export default function HomeMiningWorld3D() {
         rotationY: Math.PI,
         phase: Math.PI * .82,
       })
-      const homeSoloCar = addHomeCar(THREE, scene, {
-        color: '#334155',
+      const homeSoloCar = addHomeBotCar(THREE, scene, {
+        botColor: '#67e8f9',
+        carColor: '#334155',
         position: [HOME_LINEUP_X[1], 0, 0.16],
         rotationY: Math.PI,
         phase: Math.PI * 1.48,
@@ -892,7 +900,7 @@ export default function HomeMiningWorld3D() {
       // the same mid-air flail the in-game jumps use.
       homeBotCar.jump = true
       homeBotCar.jumpPhase = 1.2
-      boostCars.push(homeSoloCar.group, homeBotCar.car, homePunchBotCar.car)
+      boostCars.push(homeSoloCar.car, homeBotCar.car, homePunchBotCar.car)
       const homeNuke = addHomeNukeCube(THREE, scene)
       const homeSign = addHomeCautionSign(THREE, scene)
       const homeProps = [
