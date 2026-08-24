@@ -67,15 +67,6 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           summary: true
 
-      # PR comments race the merge (Sonar goes green minutes earlier), so the
-      # findings also land in Code Scanning where they persist.
-      - name: Upload SARIF to Code Scanning
-        if: always() && hashFiles('scout-cves.sarif') != ''
-        uses: github/codeql-action/upload-sarif@c16c0f3f2812ec4bb3750a5ed64873fe2ce0fbef # codeql-bundle-v2.26.3
-        with:
-          sarif_file: scout-cves.sarif
-          category: docker-scout
-
       - name: Docker Scout base image recommendations
         uses: docker/scout-action@7c6b6c3f7844478ace1ffd4e7aef649053d1f87d # v1.24.0
         with:
@@ -86,3 +77,24 @@ jobs:
           write-comment: ${{ github.event_name == 'pull_request' }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
           summary: true
+
+      # Code Scanning rejects a result with more than 1000 related locations;
+      # Scout emits one per affected package and the base image blows past it.
+      - name: Trim SARIF related locations
+        if: always() && hashFiles('scout-cves.sarif') != ''
+        run: |
+          jq '.runs[].results[]? |= (
+                if ((.relatedLocations // []) | length) > 1000
+                then .relatedLocations |= .[0:1000]
+                else . end
+              )' scout-cves.sarif > scout-cves.trimmed.sarif
+          mv scout-cves.trimmed.sarif scout-cves.sarif
+
+      # PR comments race the merge (Sonar goes green minutes earlier), so the
+      # findings also land in Code Scanning where they persist.
+      - name: Upload SARIF to Code Scanning
+        if: always() && hashFiles('scout-cves.sarif') != ''
+        uses: github/codeql-action/upload-sarif@c16c0f3f2812ec4bb3750a5ed64873fe2ce0fbef # codeql-bundle-v2.26.3
+        with:
+          sarif_file: scout-cves.sarif
+          category: docker-scout
