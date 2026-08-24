@@ -89,12 +89,13 @@ export function addMiningBot(THREE, scene, options = {}) {
     lowDetail: false,
     bulk: 1.02,
     handStyle: 'miniusb',
+    sleeve: 'short',
     colors: {
       skin: skinHex,
       torso: color.clone().lerp(new THREE.Color('#ffffff'), .10),
       arms: mid,
       legs: dark,
-      shoes: mid,
+      shoes: '#1c1916',
       hands: skinHex,
     },
   })
