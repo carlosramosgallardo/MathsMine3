@@ -12112,7 +12112,8 @@ function createThreeWalletAvatar(wallet) {
     lowDetail,
     bulk:1.02,
     handStyle:'miniusb',
-    colors:{skin:skinHex,torso:color,arms:mid,legs:dark,shoes:mid,hands:skinHex},
+    sleeve:'short',
+    colors:{skin:skinHex,torso:color,arms:mid,legs:dark,shoes:'#1c1916',hands:skinHex},
   })
   const { head }=buildHumanHead(THREE,avatar,{
     skinMat,
