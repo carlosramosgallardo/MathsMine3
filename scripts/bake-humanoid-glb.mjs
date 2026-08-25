@@ -13,10 +13,12 @@
  *   node scripts/bake-humanoid-glb.mjs <src> <out> --preview .private/preview/man
  */
 import { statSync } from 'node:fs'
+import sharp from 'sharp'
 import {
   readGlb,
   writeGlb,
   accessorArray,
+  bufferViewBytes,
   collectPrimitives,
   transformPoint,
   transformDirection,
@@ -31,15 +33,19 @@ const TARGET_HEIGHT = 1.895
 const ARRAY_BUFFER = 34962
 const ELEMENT_ARRAY_BUFFER = 34963
 
-function gatherMesh(json, bin) {
+function gatherMesh(json, bin, { keepUv = false } = {}) {
   const prims = collectPrimitives(json)
   const positions = []
   const normals = []
+  const uvs = keepUv ? [] : null
   const indices = []
   for (const { prim, world } of prims) {
     if (prim.mode !== undefined && prim.mode !== 4) continue
     const pos = accessorArray(json, bin, prim.attributes.POSITION)
     const nor = Number.isInteger(prim.attributes.NORMAL) ? accessorArray(json, bin, prim.attributes.NORMAL) : null
+    const uv = keepUv && Number.isInteger(prim.attributes.TEXCOORD_0)
+      ? accessorArray(json, bin, prim.attributes.TEXCOORD_0)
+      : null
     const base = positions.length / 3
     for (let i = 0; i < pos.length; i += 3) {
       const p = transformPoint(world, pos[i], pos[i + 1], pos[i + 2])
@@ -48,6 +54,11 @@ function gatherMesh(json, bin) {
         ? transformDirection(world, nor[i], nor[i + 1], nor[i + 2])
         : [0, 1, 0]
       normals.push(n[0], n[1], n[2])
+      if (uvs) {
+        const u = uv ? uv[(i / 3) * 2] : 0
+        const v = uv ? uv[(i / 3) * 2 + 1] : 0
+        uvs.push(u, v)
+      }
     }
     const idx = Number.isInteger(prim.indices) ? accessorArray(json, bin, prim.indices) : null
     if (idx) for (const value of idx) indices.push(base + value)
@@ -56,6 +67,7 @@ function gatherMesh(json, bin) {
   return {
     positions: Float32Array.from(positions),
     normals: Float32Array.from(normals),
+    uvs: uvs ? Float32Array.from(uvs) : null,
     indices: Uint32Array.from(indices),
   }
 }
@@ -97,24 +109,101 @@ function normalize(positions) {
 const positionKey = (p, i) => `${Math.round(p[i] * 1e5)},${Math.round(p[i + 1] * 1e5)},${Math.round(p[i + 2] * 1e5)}`
 
 /**
+ * Uniform-grid cluster decimation that keeps UVs (averaged per cell). Used when
+ * a textured download is still hundreds of thousands of triangles after welding.
+ */
+function clusterDecimate({ positions, normals, uvs, indices }, gridCells) {
+  const min = [Infinity, Infinity, Infinity]
+  const max = [-Infinity, -Infinity, -Infinity]
+  for (let i = 0; i < positions.length; i += 3) {
+    for (let k = 0; k < 3; k += 1) {
+      if (positions[i + k] < min[k]) min[k] = positions[i + k]
+      if (positions[i + k] > max[k]) max[k] = positions[i + k]
+    }
+  }
+  const cell = Math.max(max[0] - min[0], max[1] - min[1], max[2] - min[2]) / gridCells
+  const dims = min.map((lo, k) => Math.max(1, Math.ceil((max[k] - lo) / cell) + 1))
+  const cellOf = new Float64Array(positions.length / 3)
+  const sums = new Map()
+  for (let v = 0; v < cellOf.length; v += 1) {
+    const key = (
+      (Math.floor((positions[v * 3 + 2] - min[2]) / cell) * dims[1]
+        + Math.floor((positions[v * 3 + 1] - min[1]) / cell)) * dims[0]
+      + Math.floor((positions[v * 3] - min[0]) / cell)
+    )
+    cellOf[v] = key
+    let acc = sums.get(key)
+    if (!acc) {
+      acc = { n: 0, p: [0, 0, 0], nor: [0, 0, 0], uv: [0, 0], index: sums.size }
+      sums.set(key, acc)
+    }
+    acc.n += 1
+    for (let k = 0; k < 3; k += 1) {
+      acc.p[k] += positions[v * 3 + k]
+      acc.nor[k] += normals[v * 3 + k]
+    }
+    if (uvs) {
+      acc.uv[0] += uvs[v * 2]
+      acc.uv[1] += uvs[v * 2 + 1]
+    }
+  }
+  const count = sums.size
+  const outPos = new Float32Array(count * 3)
+  const outNor = new Float32Array(count * 3)
+  const outUv = uvs ? new Float32Array(count * 2) : null
+  for (const acc of sums.values()) {
+    const at = acc.index * 3
+    const len = Math.hypot(acc.nor[0], acc.nor[1], acc.nor[2]) || 1
+    for (let k = 0; k < 3; k += 1) {
+      outPos[at + k] = acc.p[k] / acc.n
+      outNor[at + k] = acc.nor[k] / len
+    }
+    if (outUv) {
+      outUv[acc.index * 2] = acc.uv[0] / acc.n
+      outUv[acc.index * 2 + 1] = acc.uv[1] / acc.n
+    }
+  }
+  const outIdx = []
+  for (let t = 0; t < indices.length; t += 3) {
+    const a = sums.get(cellOf[indices[t]]).index
+    const b = sums.get(cellOf[indices[t + 1]]).index
+    const c = sums.get(cellOf[indices[t + 2]]).index
+    if (a === b || b === c || a === c) continue
+    outIdx.push(a, b, c)
+  }
+  return {
+    positions: outPos,
+    normals: outNor,
+    uvs: outUv,
+    indices: Uint32Array.from(outIdx),
+  }
+}
+
+/**
  * Merge co-located corners and drop unreferenced vertices. Scans ship as soup
  * with one vertex per corner; an organic body is smooth-shaded, so normals of
- * merged corners are averaged rather than kept as hard edges.
+ * merged corners are averaged rather than kept as hard edges. When UVs are
+ * present, vertices that share a position but sit on different charts stay
+ * split so the texture does not bleed across seams.
  */
-function weld({ positions, normals, indices }) {
+function weld({ positions, normals, uvs, indices }) {
   const map = new Map()
   const outPos = []
   const outNor = []
+  const outUv = uvs ? [] : null
   const outIdx = new Uint32Array(indices.length)
   for (let i = 0; i < indices.length; i += 1) {
     const v = indices[i]
-    const key = positionKey(positions, v * 3)
+    const key = uvs
+      ? `${positionKey(positions, v * 3)}|${Math.round(uvs[v * 2] * 1e4)},${Math.round(uvs[v * 2 + 1] * 1e4)}`
+      : positionKey(positions, v * 3)
     let target = map.get(key)
     if (target === undefined) {
       target = outPos.length / 3
       map.set(key, target)
       outPos.push(positions[v * 3], positions[v * 3 + 1], positions[v * 3 + 2])
       outNor.push(0, 0, 0)
+      if (outUv) outUv.push(uvs[v * 2], uvs[v * 2 + 1])
     }
     outNor[target * 3] += normals[v * 3]
     outNor[target * 3 + 1] += normals[v * 3 + 1]
@@ -129,6 +218,7 @@ function weld({ positions, normals, indices }) {
   return {
     positions: Float32Array.from(outPos),
     normals: Float32Array.from(outNor),
+    uvs: outUv ? Float32Array.from(outUv) : null,
     indices: vertexCount < 65536 ? Uint16Array.from(outIdx) : outIdx,
   }
 }
@@ -194,7 +284,7 @@ function quantizeWeights(weights) {
   return out
 }
 
-function buildGlb({ positions, normals, indices, joints, weights, skeleton, boneNames, extras }) {
+function buildGlb({ positions, normals, uvs, indices, joints, weights, skeleton, boneNames, extras, textureJpeg = null }) {
   const json = {
     asset: { version: '2.0', generator: 'MathsMine3 bake-humanoid-glb', extras },
     scene: 0,
@@ -203,25 +293,38 @@ function buildGlb({ positions, normals, indices, joints, weights, skeleton, bone
     materials: [{
       name: 'body',
       doubleSided: false,
-      pbrMetallicRoughness: { baseColorFactor: [1, 1, 1, 1], metallicFactor: 0.04, roughnessFactor: 0.68 },
+      pbrMetallicRoughness: {
+        baseColorFactor: [1, 1, 1, 1],
+        metallicFactor: 0.04,
+        roughnessFactor: 0.68,
+        ...(textureJpeg ? { baseColorTexture: { index: 0 } } : {}),
+      },
     }],
   }
+  if (textureJpeg) {
+    json.samplers = [{ magFilter: 9729, minFilter: 9987, wrapS: 10497, wrapT: 10497 }]
+    json.images = [{ mimeType: 'image/jpeg', bufferView: null }]
+    json.textures = [{ sampler: 0, source: 0 }]
+  }
   const builder = new GlbBuilder(json)
-  const positionAccessor = builder.addAccessor(positions, 'VEC3', { target: ARRAY_BUFFER, minMax: true })
-  const normalAccessor = builder.addAccessor(normals, 'VEC3', { target: ARRAY_BUFFER })
-  const jointAccessor = builder.addAccessor(joints, 'VEC4', { target: ARRAY_BUFFER })
-  const weightAccessor = builder.addAccessor(weights, 'VEC4', { target: ARRAY_BUFFER, normalized: true })
+  if (textureJpeg) {
+    json.images[0].bufferView = builder.addBufferView(textureJpeg)
+  }
+  const attributes = {
+    POSITION: builder.addAccessor(positions, 'VEC3', { target: ARRAY_BUFFER, minMax: true }),
+    NORMAL: builder.addAccessor(normals, 'VEC3', { target: ARRAY_BUFFER }),
+    JOINTS_0: builder.addAccessor(joints, 'VEC4', { target: ARRAY_BUFFER }),
+    WEIGHTS_0: builder.addAccessor(weights, 'VEC4', { target: ARRAY_BUFFER, normalized: true }),
+  }
+  if (uvs) {
+    attributes.TEXCOORD_0 = builder.addAccessor(uvs, 'VEC2', { target: ARRAY_BUFFER })
+  }
   const indexAccessor = builder.addAccessor(indices, 'SCALAR', { target: ELEMENT_ARRAY_BUFFER })
 
   json.meshes = [{
     name: 'body',
     primitives: [{
-      attributes: {
-        POSITION: positionAccessor,
-        NORMAL: normalAccessor,
-        JOINTS_0: jointAccessor,
-        WEIGHTS_0: weightAccessor,
-      },
+      attributes,
       indices: indexAccessor,
       material: 0,
     }],
@@ -329,18 +432,39 @@ function previewPose(mesh, skeleton, boneNames, outBase) {
   previewPoints(out, `${outBase}-posed`)
 }
 
-function main() {
+async function extractTextureJpeg(json, bin, { maxTexture = 1024, quality = 82 } = {}) {
+  const image = json.images?.[0]
+  if (!image || !Number.isInteger(image.bufferView)) return null
+  const bytes = bufferViewBytes(json, bin, image.bufferView)
+  const meta = await sharp(bytes).metadata()
+  const size = Math.min(maxTexture, Math.max(meta.width || maxTexture, meta.height || maxTexture))
+  const data = await sharp(bytes)
+    .resize(size, size, { fit: 'inside', withoutEnlargement: true })
+    .jpeg({ quality, mozjpeg: true })
+    .toBuffer()
+  return { data: new Uint8Array(data), from: `${meta.width}x${meta.height}`, to: `${size}` }
+}
+
+async function main() {
   const [src, out, ...rest] = process.argv.slice(2)
   if (!src || !out) {
-    console.error('usage: node scripts/bake-humanoid-glb.mjs <src.glb> <out.glb> [--preview <prefix>]')
+    console.error('usage: node scripts/bake-humanoid-glb.mjs <src.glb> <out.glb> [--preview <prefix>] [--keep-texture] [--max-texture n]')
     process.exit(1)
   }
   const previewFlag = rest.indexOf('--preview')
   const previewBase = previewFlag >= 0 ? rest[previewFlag + 1] : null
+  const keepTexture = rest.includes('--keep-texture')
+  const maxTexFlag = rest.indexOf('--max-texture')
+  const maxTexture = maxTexFlag >= 0 ? Number(rest[maxTexFlag + 1]) : 1024
+  const gridFlag = rest.indexOf('--grid')
+  const grid = gridFlag >= 0 ? Number(rest[gridFlag + 1]) : (keepTexture ? 160 : 0)
 
   const { json, bin } = readGlb(src)
-  const raw = gatherMesh(json, bin)
-  const mesh = weld(raw)
+  const raw = gatherMesh(json, bin, { keepUv: keepTexture })
+  let mesh = weld(raw)
+  if (grid > 0 && mesh.positions.length / 3 > 40000) {
+    mesh = clusterDecimate(mesh, grid)
+  }
   const fit = normalize(mesh.positions)
   const measurements = measureHumanoid(mesh.positions, TARGET_HEIGHT)
   const skeleton = buildSkeleton(measurements)
@@ -351,15 +475,18 @@ function main() {
     welded: topology,
   })
 
+  const texture = keepTexture ? await extractTextureJpeg(json, bin, { maxTexture }) : null
   const { json: outJson, bin: outBin } = buildGlb({
     positions: mesh.positions,
     normals: mesh.normals,
+    uvs: mesh.uvs,
     indices: mesh.indices,
     joints,
     weights: quantizeWeights(weights),
     skeleton,
     boneNames,
     extras: creditExtras(json),
+    textureJpeg: texture?.data || null,
   })
   writeGlb(out, outJson, outBin)
 
@@ -367,6 +494,7 @@ function main() {
   console.log(`${src} → ${out}`)
   console.log(`  verts ${raw.positions.length / 3} → ${mesh.positions.length / 3}, tris ${mesh.indices.length / 3}`)
   console.log(`  source fit: scale ${round(fit.scale)}, centre x ${round(fit.centerX)} z ${round(fit.centerZ)}`)
+  if (texture) console.log(`  texture ${texture.from} → JPEG ${texture.to}px`)
   console.log('  landmarks:', JSON.stringify({
     neckY: round(measurements.neckY),
     crotchY: round(measurements.crotchY),
@@ -377,9 +505,6 @@ function main() {
     ankleY: round(measurements.ankleY),
     armMinX: round(measurements.armMinX),
   }))
-  console.log('  joints:', JSON.stringify(Object.fromEntries(
-    Object.entries(skeleton.joints).map(([name, p]) => [name, p.map(round)]),
-  )))
   console.log(`  size ${(statSync(out).size / 1024).toFixed(0)} KB`)
 
   if (previewBase) {
@@ -389,4 +514,7 @@ function main() {
   }
 }
 
-main()
+main().catch((err) => {
+  console.error(err)
+  process.exit(1)
+})
