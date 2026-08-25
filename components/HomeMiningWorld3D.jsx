@@ -44,16 +44,42 @@ const HOME_ARENA_BOSS_VS_BOT = 1.31
 const HOME_BOSS_SIZE_MULT = 1.06
 const HOME_LINEUP_BOT_SCALE = 2.96
 const HOME_LINEUP_CAR_SCALE = 2.51
-// Head+shoulders cockpit pose (bot-local): torso sits on the car tub.
+// Head peeking from cockpit (bot-local): neck on the tub roof.
 const HOME_BOTCAR_SEAT_Y = 0
 const HOME_BOTCAR_SEAT_Z = 0
-const HOME_BOTCAR_NECK_Y = 0.52 * HOME_LINEUP_CAR_SCALE / HOME_LINEUP_BOT_SCALE
-const HOME_BOTCAR_NECK_Z = 0.18 * HOME_LINEUP_CAR_SCALE / HOME_LINEUP_BOT_SCALE
+const HOME_BOTCAR_NECK_Y = 0.58 * HOME_LINEUP_CAR_SCALE / HOME_LINEUP_BOT_SCALE
+const HOME_BOTCAR_NECK_Z = 0.16 * HOME_LINEUP_CAR_SCALE / HOME_LINEUP_BOT_SCALE
 /** World Y where bot soles meet the arena disc (avatar origin + sole bottom local × scale). */
 const HOME_ARENA_FLOOR_Y = 0.12 + 0.0015 * HOME_ARENA_BOT_SCALE
 const HOME_SCENE_CENTER = { x: 0, z: 0 }
 /** All home bosses face the hero camera (+Z); bodyPivot already carries π yaw. */
 const HOME_BOSS_FACING = 0
+
+/** Hide a home lineup member until its GLB (or humanoid scan) finishes — no
+ *  coloured slabs / capsule half-bodies during the initial load flash. */
+function gateHomeAvatarUntilReady(group, readyHost = group) {
+  if (!group) return
+  if (readyHost?.userData?.modelReady || readyHost?.userData?.humanoidGlbReady) {
+    group.visible = true
+    return
+  }
+  group.visible = false
+  const reveal = () => {
+    group.visible = true
+  }
+  const prevModel = readyHost.userData.onModelReady
+  readyHost.userData.onModelReady = (arg) => {
+    prevModel?.(arg)
+    reveal()
+  }
+  const prevGlb = readyHost.userData.onHumanoidGlbReady
+  readyHost.userData.onHumanoidGlbReady = (arg) => {
+    prevGlb?.(arg)
+    reveal()
+  }
+  // Failed / hung loads must not leave empty rail slots forever.
+  setTimeout(reveal, 12000)
+}
 
 function homeYawTowardCenter(fromX, fromZ, centerX = HOME_SCENE_CENTER.x, centerZ = HOME_SCENE_CENTER.z) {
   const dx = centerX - fromX
@@ -123,6 +149,7 @@ export function addMiningBot(THREE, scene, options = {}) {
   avatar.userData.bodyParts = bodyParts
   dockHeldItemsToGlb(avatar)
   scene.add(avatar)
+  gateHomeAvatarUntilReady(avatar, avatar)
   return avatar
 }
 
@@ -182,17 +209,21 @@ function addHomeBotCar(THREE, scene, options = {}) {
     scale: HOME_LINEUP_BOT_SCALE,
   })
   seatHumanoidGlbInCar(bot, { neckY: HOME_BOTCAR_NECK_Y, neckZ: HOME_BOTCAR_NECK_Z })
-  // Hide capsule limbs/tools only — skinned head+torso stay visible in the cabin.
+  // Capsule limbs / shoes / tool stay in the cabin; skull rides above the tub.
   for (const part of [
     bot.userData.leftFoot, bot.userData.rightFoot, bot.userData.leftSole, bot.userData.rightSole,
     ...(bot.userData.humanLegs || []),
     ...(bot.userData.humanArms || []),
+    ...(bot.userData.bodyParts || []),
     bot.userData.tool,
+    bot.userData.humanoidGlbBodyMesh,
     bot.userData.humanoidGlbLeftHand,
     bot.userData.humanoidGlbRightHand,
   ]) {
     if (part) part.visible = false
   }
+  if (bot.userData.humanoidGlbHeadMesh) bot.userData.humanoidGlbHeadMesh.visible = true
+  gateHomeAvatarUntilReady(group, bot)
   return { kind: 'botCar', group, bot, car, baseY: HOME_ARENA_FLOOR_Y, baseRotationY: rotationY, phase, bob: 2.15, sway: .42 }
 }
 
@@ -378,86 +409,89 @@ export function addNftjiMiningBlock(THREE, scene, options = {}) {
 // Initial x positions only — the carousel rail overwrites every member's x
 // with railX (slot index × RAIL_SPACING), so the lineup is NOT capped at 7.
 const HOME_LINEUP_X = Object.freeze([-13.65, -9.1, -4.45, 0, 4.45, 9.1, 13.65])
-// heightMult sets each member's height relative to Trump (bossScale cancels
-// out in scaleMult) — keep it at realHeight/190 so the home matches the world.
+// heightMult ≈ realHeight/190 so every boss shares the Trump crown on the rail.
+// Statues get a small yOffset for the MM3 plinth only — not a second height bump.
 const HOME_BOSS_LAYOUT = [
   {
     id: 'putin',
-    heightMult: 0.93,
+    heightMult: 0.95,
     createVisual: createM3PutinBossVisual,
     bossScale: M3_PUTIN_BOSS_SCALE,
     position: [HOME_LINEUP_X[2], 0, 0.04],
     glowColor: '#94a3b8',
-    glowIntensity: 0.85,
+    glowIntensity: 0.7,
     phase: 0,
-    sway: 0.62,
-    bob: 2.2,
+    sway: 0.55,
+    bob: 2.1,
+    tagY: 1.35,
   },
   {
     id: 'milei',
-    heightMult: 0.92,
-    // Statue: lifted a touch — the pedestal adds real base height under it.
-    yOffset: 0.3,
+    heightMult: 0.95,
+    yOffset: 0.12,
     createVisual: createM1MileiStatueVisual,
     bossScale: M1_MILEI_STATUE_SCALE,
     position: [HOME_LINEUP_X[4], 0, 0.06],
     glowColor: '#74acdf',
-    glowIntensity: 0.9,
+    glowIntensity: 0.7,
     phase: Math.PI * 1.85,
-    sway: 0.58,
-    bob: 2.18,
+    sway: 0.55,
+    bob: 2.1,
+    tagY: 1.35,
   },
   {
     id: 'zelensky',
-    heightMult: 0.89,
-    // Statue: lifted a touch — the pedestal adds real base height under it.
-    yOffset: 0.3,
+    heightMult: 0.95,
+    yOffset: 0.12,
     createVisual: createM1ZelenskyStatueVisual,
     bossScale: M1_ZELENSKY_STATUE_SCALE,
     position: [HOME_LINEUP_X[1], 0, 0.06],
     glowColor: '#3b82f6',
-    glowIntensity: 0.9,
+    glowIntensity: 0.7,
     phase: Math.PI * 0.6,
-    sway: 0.6,
-    bob: 2.16,
+    sway: 0.55,
+    bob: 2.1,
+    tagY: 1.35,
   },
   {
     id: 'macron',
-    heightMult: 0.91,
-    // Statue: lifted a touch — the pedestal adds real base height under it.
-    yOffset: 0.3,
+    heightMult: 0.95,
+    yOffset: 0.12,
     createVisual: createM2MacronStatueVisual,
     bossScale: M2_MACRON_STATUE_SCALE,
     position: [HOME_LINEUP_X[3], 0, 0.06],
     glowColor: '#2563eb',
-    glowIntensity: 0.9,
+    glowIntensity: 0.7,
     phase: Math.PI * 1.15,
-    sway: 0.58,
-    bob: 2.22,
+    sway: 0.55,
+    bob: 2.1,
+    tagY: 1.35,
   },
   {
     id: 'kim',
-    heightMult: 0.90,
+    heightMult: 0.95,
     createVisual: createM4KimBossVisual,
     bossScale: M4_KIM_BOSS_SCALE,
     position: [HOME_LINEUP_X[6], 0, 0.04],
     glowColor: '#d946ef',
-    glowIntensity: 0.95,
+    glowIntensity: 0.7,
     phase: Math.PI * 1.33,
-    sway: 0.66,
-    bob: 2.45,
+    sway: 0.55,
+    bob: 2.1,
+    tagY: 1.35,
   },
   {
     id: 'trump',
     heightMult: 1.0,
     createVisual: createM5TrumpBossVisual,
     bossScale: M5_TRUMP_BOSS_SCALE,
-    position: [HOME_LINEUP_X[0], 0, 0.12],
+    position: [HOME_LINEUP_X[0], 0, 0.08],
     glowColor: '#ef4444',
-    glowIntensity: 1.0,
+    glowIntensity: 0.75,
     phase: Math.PI * 0.66,
-    sway: 0.56,
+    sway: 0.55,
     bob: 2.05,
+    tagY: 1.2,
   },
 ]
 
@@ -517,6 +551,7 @@ export function addHomeBoss(THREE, scene, options = {}) {
   group.add(glowLight)
 
   scene.add(group)
+  gateHomeAvatarUntilReady(group, group)
   return {
     id,
     group,
@@ -529,6 +564,7 @@ export function addHomeBoss(THREE, scene, options = {}) {
     sway,
     bob,
     baseGlow: glowIntensity,
+    tagY: options.tagY || 1.35,
     isStatue: group.userData.m1MileiStatue === true || group.userData.m1ZelenskyStatue === true || group.userData.m2MacronStatue === true,
     saluteStyle: group.userData.statueSalute || 'rightWave',
     leftArm: group.userData.homeLeftArm || null,
@@ -807,18 +843,18 @@ export default function HomeMiningWorld3D() {
         tag.position.y = localY
         group.add(tag)
       }
-      addHomeTag(bossById.trump.group, `${M5_TRUMP_BOSS_NAME} · BOSS · ♥${M5_TRUMP_BOSS_MAX_HP}`, '#ef4444', 1.45)
-      addHomeTag(bossById.putin.group, `${M3_PUTIN_BOSS_NAME} · BOSS · ♥${M3_PUTIN_BOSS_MAX_HP}`, '#94a3b8', 1.45)
-      addHomeTag(bossById.kim.group, `${M4_KIM_BOSS_NAME} · BOSS · ♥${M4_KIM_BOSS_MAX_HP}`, '#d946ef', 1.45)
-      addHomeTag(bossById.milei.group, 'Javier Milei · STATUE', '#74acdf', 1.45)
-      addHomeTag(bossById.zelensky.group, 'Volodymyr Zelensky · STATUE', '#3b82f6', 1.45)
-      addHomeTag(bossById.macron.group, 'Emmanuel Macron · STATUE', '#2563eb', 1.45)
-      addHomeTag(homeNuke.group, 'NUKE CUBE · ???', '#facc15', 3.1)
-      addHomeTag(homeSoloCar.group, 'Aserejee · AI', '#22d3ee', 0.95)
-      addHomeTag(homeBot, aiTeamTag(AI_TEAM_WALLETS[0]), '#86efac', 1.25)
-      addHomeTag(homeBotCar.group, aiTeamTag(AI_TEAM_WALLETS[1]), '#86efac', 3.62)
-      addHomeTag(homePunchBot, aiTeamTag(AI_TEAM_WALLETS[2]), '#86efac', 1.25)
-      addHomeTag(homePunchBotCar.group, aiTeamTag(AI_TEAM_WALLETS[3]), '#86efac', 3.62)
+      addHomeTag(bossById.trump.group, `${M5_TRUMP_BOSS_NAME} · BOSS · ♥${M5_TRUMP_BOSS_MAX_HP}`, '#ef4444', bossById.trump.tagY || 1.2)
+      addHomeTag(bossById.putin.group, `${M3_PUTIN_BOSS_NAME} · BOSS · ♥${M3_PUTIN_BOSS_MAX_HP}`, '#94a3b8', 1.35)
+      addHomeTag(bossById.kim.group, `${M4_KIM_BOSS_NAME} · BOSS · ♥${M4_KIM_BOSS_MAX_HP}`, '#d946ef', 1.35)
+      addHomeTag(bossById.milei.group, 'Javier Milei · STATUE', '#74acdf', 1.35)
+      addHomeTag(bossById.zelensky.group, 'Volodymyr Zelensky · STATUE', '#3b82f6', 1.35)
+      addHomeTag(bossById.macron.group, 'Emmanuel Macron · STATUE', '#2563eb', 1.35)
+      addHomeTag(homeNuke.group, 'NUKE CUBE · ???', '#facc15', 2.4)
+      addHomeTag(homeSoloCar.group, 'Aserejee · AI', '#22d3ee', 1.55)
+      addHomeTag(homeBot, aiTeamTag(AI_TEAM_WALLETS[0]), '#86efac', 1.35)
+      addHomeTag(homeBotCar.group, aiTeamTag(AI_TEAM_WALLETS[1]), '#86efac', 1.55)
+      addHomeTag(homePunchBot, aiTeamTag(AI_TEAM_WALLETS[2]), '#86efac', 1.35)
+      addHomeTag(homePunchBotCar.group, aiTeamTag(AI_TEAM_WALLETS[3]), '#86efac', 1.55)
       const rail = { offset: 0, vel: 0, dragging: false, lastX: 0, moved: 0, suppressClick: false, snapTarget: 0 }
       // Center-stage feature: one boss/statue at a time steps off the rail
       // toward the camera, plays its signature show and walks back; the rail
@@ -1214,7 +1250,9 @@ export default function HomeMiningWorld3D() {
           const yawCam = Math.atan2(camera.position.x - entry.wx, camera.position.z - g.position.z)
           entry.baseRotationY = entry.faceYaw0 + yawCam
           const f = 1 + entry.focus * FEATURE_SCALE_BUMP
-          g.scale.set(entry.baseScaleX * Math.cos(yawCam) * f, entry.baseScaleY * f, entry.baseScaleZ * f)
+          // Face the camera via yaw only — never squash X by cos(yaw) (that
+          // erased the paper-thin Macron/Zelensky props at off-center slots).
+          g.scale.set(entry.baseScaleX * f, entry.baseScaleY * f, entry.baseScaleZ * f)
         }
         // Spotlight ring hugs the centered member; the cone light tracks it.
         if (center) {
