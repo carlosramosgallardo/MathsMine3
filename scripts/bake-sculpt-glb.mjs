@@ -261,10 +261,21 @@ function boostColors(colors, { loPct = 0.02, hiPct = 0.98, targetLo = 0.22, targ
 }
 
 /**
- * Paint the monochrome Milei+chainsaw STL (no UVs / no COLOR_0) into readable
- * regions after normalisation: plinth, dark suit, skin, hair, saw housing/blade.
+ * Pick a region colour for the monochrome Milei+chainsaw STL after normalisation.
  * Tuned on the FrancoGUG sculpt bounds (feet y=0, crown y≈1.9, saw +Z at mid).
  */
+function mileiRgbAt(x, y, z) {
+  const r = Math.hypot(x, z)
+  if (y < 0.16) return y < 0.06 ? [0.42, 0.30, 0.14] : [0.62, 0.48, 0.22]
+  if (y > 0.55 && y < 1.08 && z > 0.28) return z > 0.72 ? [0.72, 0.76, 0.80] : [0.92, 0.55, 0.08]
+  if (y > 1.52) return [0.18, 0.11, 0.07]
+  if (y > 1.28 && Math.abs(x) < 0.24 && z > -0.38 && z < 0.22) return [0.86, 0.68, 0.52]
+  if (y > 0.55 && y < 1.05 && r > 0.42 && z > 0.05) return [0.82, 0.62, 0.46]
+  if (y < 0.38) return [0.12, 0.12, 0.14]
+  const sash = y > 0.85 && y < 1.25 && Math.abs(x) < 0.18 && z > -0.05 && z < 0.28
+  return sash ? [0.45, 0.62, 0.82] : [0.14, 0.16, 0.22]
+}
+
 function paintMileiColors(mesh) {
   const { positions, colors } = mesh
   const count = positions.length / 3
@@ -272,34 +283,7 @@ function paintMileiColors(mesh) {
     const x = positions[v * 3]
     const y = positions[v * 3 + 1]
     const z = positions[v * 3 + 2]
-    const r = Math.hypot(x, z)
-    let rgb
-    if (y < 0.16) {
-      // Tiered plinth — warm bronze.
-      rgb = y < 0.06 ? [0.42, 0.30, 0.14] : [0.62, 0.48, 0.22]
-    } else if (y > 0.55 && y < 1.08 && z > 0.28) {
-      // Chainsaw: silver blade tip, orange/yellow housing nearer the body.
-      rgb = z > 0.72
-        ? [0.72, 0.76, 0.80]
-        : [0.92, 0.55, 0.08]
-    } else if (y > 1.52) {
-      // Wild hair.
-      rgb = [0.18, 0.11, 0.07]
-    } else if (y > 1.28 && Math.abs(x) < 0.24 && z > -0.38 && z < 0.22) {
-      // Face / neck skin.
-      rgb = [0.86, 0.68, 0.52]
-    } else if (y > 0.55 && y < 1.05 && r > 0.42 && z > 0.05) {
-      // Hands on the grip.
-      rgb = [0.82, 0.62, 0.46]
-    } else if (y < 0.38) {
-      // Shoes / lower legs.
-      rgb = [0.12, 0.12, 0.14]
-    } else {
-      // Dark suit with a faint Argentine-blue sash cue on the torso front.
-      const sash = y > 0.85 && y < 1.25 && Math.abs(x) < 0.18 && z > -0.05 && z < 0.28
-      rgb = sash ? [0.45, 0.62, 0.82] : [0.14, 0.16, 0.22]
-    }
-    // Tiny height-based shading so flat regions don't look plastic.
+    const rgb = mileiRgbAt(x, y, z)
     const shade = 0.92 + 0.08 * Math.sin(y * 11 + x * 7)
     colors[v * 3] = Math.min(1, rgb[0] * shade)
     colors[v * 3 + 1] = Math.min(1, rgb[1] * shade)
@@ -367,7 +351,7 @@ function main() {
   if (Number.isFinite(options.maxY)) mesh = clipAbove(mesh, options.maxY)
   mesh = compact(clusterDecimate(mesh, options.grid))
   const fit = normalize(mesh)
-  if (options.paint === 'milei') paintMileiColors(mesh)
+  if (String(options.paint || '') === 'milei') paintMileiColors(mesh)
   else boostColors(mesh.colors)
 
   const name = options.out.split('/').pop().replace(/\.glb$/, '')

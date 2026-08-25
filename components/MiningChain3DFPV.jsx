@@ -55,7 +55,6 @@ import { NUKE_CUBE_POSITIONS, NUKE_CUBE_INTERACT_RADIUS, addNukeCubeReservations
 import { resolveBossStatueFacing, getBossStatuesForMap } from '@/lib/mining-boss-statue-registry'
 import { drawMinimapFlag } from '@/lib/minimap-flags'
 import { addVerticalArenaUsbStaff } from '@/lib/arena-usb-staff'
-import { roundedVoxelGeometry } from '@/lib/rounded-voxel'
 import { advanceShowcaseSpin, approachYaw } from '@/lib/map-boss-facing'
 import { drawRlBadge, onRlCarImageReady } from '@/lib/rl-badge'
 import { setBossMaskEyesRed } from '@/lib/boss-head-photo'
@@ -12112,11 +12111,7 @@ function createThreeWalletAvatar(wallet) {
     ?new THREE.MeshLambertMaterial({color:c})
     :new THREE.MeshStandardMaterial({color:c,roughness,metalness})
   const skinMat=_mat(skinHex,.72,.02)
-  const darkMat=_mat(dark,.78,.06)
   const hairMat=_mat(hairHex,.62,.04)
-  const cyanMat=new THREE.MeshBasicMaterial({color:'#67e8f9'})
-  const goldMat=new THREE.MeshBasicMaterial({color:'#facc15'})
-  const magentaMat=new THREE.MeshBasicMaterial({color:'#d946ef'})
 
   // Low-poly humanoid — cloth in wallet colour, flesh skin, human head.
   // USB staff and mini-USB hands stay (punch / mining / RL mount).
