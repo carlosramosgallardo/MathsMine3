@@ -17,6 +17,7 @@ import { setBossMaskEyesRed } from '@/lib/boss-head-photo'
 import { colorFromAddress } from '@/lib/wallet-colors'
 import { buildHumanoidBody, buildHumanHead, humanSkinFromSeed, humanHairFromSeed, swayHumanoidArms, walkHumanoidLegs, flailHumanoidJump, flapHumanoidJump } from '@/lib/humanoid-body'
 import { dockHeldItemsToGlb, seatHumanoidGlbInCar } from '@/lib/humanoid-glb'
+import { animateQuadruped, isQuadrupedBody } from '@/lib/quadruped-motion'
 import { addRlCarBoost, setRlCarBoostLit } from '@/lib/rl-car-boost'
 import { attachRlCarModel, addRlCockpitTub } from '@/lib/rl-car-model'
 import { createNukeCubeVisual, updateNukeCubeVisual } from '@/lib/nuke-cube'
@@ -1141,6 +1142,18 @@ export default function HomeMiningWorld3D() {
       // 3-second attack choreography per boss — called once per frame while attackT ∈ (0,1).
       // Arms blend from idle sway to an attack pose; legs do a boss-specific move; boss jumps.
       const applyBossAttack = (boss, bossId, at, t) => {
+        // Sculpt bodies (Trump crawls) have no limbs to pose: the whole body
+        // rears and slams, and the group hops along its lunge direction.
+        if (isQuadrupedBody(boss.bodyPivot)) {
+          const jump = Math.sin(at * Math.PI)
+          const lf = boss.lungseFacing ?? boss.group.rotation.y
+          animateQuadruped(boss.bodyPivot, { time: t, moving: 0.55, attackT: at })
+          boss.group.position.y = boss.baseY + jump * 0.18
+          boss.group.position.x += Math.sin(lf) * 1.8 * jump
+          boss.group.position.z = boss.baseZ + Math.cos(lf) * 1.8 * jump
+          boss.group.rotation.z = 0
+          return
+        }
         const arms = boss.bodyPivot?.userData?.humanArms
         const legs = boss.bodyPivot?.userData?.humanLegs
         if (!arms || !legs) return
@@ -1205,29 +1218,24 @@ export default function HomeMiningWorld3D() {
           boss.group.position.x   += lfx * 1.8 * jumpH * blend
           boss.group.position.z    = boss.baseZ + lfz * 1.8 * jumpH * blend
 
-        } else if (bossId === 'trump') {
-          // Bombastic: arms blast wide sideways then right arm jabs; low hop; lateral leg spread + hip wobble
-          const spreadP = Math.min(1, at / 0.30)
-          const pointP  = at > 0.45 ? Math.min(1, (at - 0.45) / 0.22) : 0
-          lArm.rotation.x = idleAX(lPhase) * (1 - blend) + spreadP * 0.22 * blend
-          rArm.rotation.x = idleAX(rPhase) * (1 - blend) + (spreadP * 0.22 + pointP * 0.85) * blend
-          lArm.rotation.z = idleAZ(lBaseZ, lPhase) * (1 - blend) + (lBaseZ + spreadP * 1.22) * blend
-          rArm.rotation.z = idleAZ(rBaseZ, rPhase) * (1 - blend) + (rBaseZ - spreadP * 1.22 + pointP * 0.58) * blend
-          lLeg.rotation.z = -jumpH * 0.46 * blend
-          rLeg.rotation.z =  jumpH * 0.46 * blend
-          lLeg.rotation.x =  jumpH * 0.18 * blend
-          rLeg.rotation.x =  jumpH * 0.18 * blend
-          boss.bodyPivot.position.y = Math.max(0, Math.sin(t * boss.bob) * 0.06) * (1 - blend)
-          boss.group.position.y    = boss.baseY + jumpH * 0.22 * blend
-          boss.group.rotation.z    = Math.sin(t * (boss.sway + 0.65)) * 0.014 * (1 - blend)
-                                   + Math.sin(at * Math.PI * 3.5) * 0.032 * blend
-          boss.group.position.x   += lfx * 1.8 * jumpH * blend
-          boss.group.position.z    = boss.baseZ + lfz * 1.8 * jumpH * blend
         }
       }
 
       // Greeting wave animation (between attacks): each boss has a regime-specific pose.
       const applyBossGreet = (boss, bossId, gt, t) => {
+        // Sculpt bodies greet by rearing up once, in place, facing the camera.
+        if (isQuadrupedBody(boss.bodyPivot)) {
+          const yawFrom = Number.isFinite(boss.greetYawFrom) ? boss.greetYawFrom : boss.baseRotationY + (boss.spinYaw || 0)
+          const yawDelta = ((yawFrom - boss.baseRotationY + Math.PI) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2) - Math.PI
+          const turnIn = Math.sin(Math.min(1, gt / 0.25) * Math.PI * 0.5)
+          boss.group.rotation.y = boss.baseRotationY + yawDelta * (1 - turnIn)
+          boss.group.position.y = boss.baseY
+          boss.group.position.z = boss.baseZ
+          boss.group.rotation.z = 0
+          animateQuadruped(boss.bodyPivot, { time: t, moving: 0.35, attackT: gt })
+          boss.bodyPivot.scale.setScalar(1)
+          return
+        }
         const arms = boss.bodyPivot?.userData?.humanArms
         const legs = boss.bodyPivot?.userData?.humanLegs
         if (!arms) return
@@ -1417,6 +1425,7 @@ export default function HomeMiningWorld3D() {
               g.position.z += Math.sign(dz) * Math.min(Math.abs(dz), FEATURE_WALK_SPD * spinDt)
               walkHumanoidLegs(boss.bodyPivot, t * 3.5, 0.45)
               swayHumanoidArms(boss.bodyPivot, t)
+              animateQuadruped(boss.bodyPivot, { time: t, moving: 1 })
             } else if (feat === 'out') {
               // Arrived at the front of the stage: play the signature show
               // from here (baseZ moved forward so attack/greet use this spot).
@@ -1529,6 +1538,8 @@ export default function HomeMiningWorld3D() {
               boss.group.position.z = boss.baseZ
               boss.group.rotation.z = Math.sin(t * (boss.sway + 0.65)) * 0.014
               swayHumanoidArms(boss.bodyPivot, t)
+              // Crawlers keep pawing on the spot instead of standing still.
+              animateQuadruped(boss.bodyPivot, { time: t, moving: boss.isCenter ? 0.45 : 0.18 })
               const legs = boss.bodyPivot?.userData?.humanLegs
               if (legs) {
                 legs[0].rotation.x = 0; legs[0].rotation.z = 0

@@ -1058,6 +1058,20 @@ Los crons de `vercel.json` requieren un plan de Vercel que los soporte (Hobby in
 
 ---
 
+## Créditos — Modelos 3D
+
+Los personajes y vehículos son modelos de terceros descargados de Sketchfab y usados bajo **[CC BY 4.0](http://creativecommons.org/licenses/by/4.0/)**. Gracias a sus autores: sin ellos el juego no tendría este aspecto.
+
+| Modelo | En el juego | Autor | Licencia |
+|---|---|---|---|
+| [Male Body](https://sketchfab.com/3d-models/male-body-15a422001834483c9750ce6117d59cc1) | `public/models/man.glb` — cuerpo por defecto de jugadores, bots, bosses y estatuas | [Alexander Antipov](https://sketchfab.com/Dessen) | [CC BY 4.0](http://creativecommons.org/licenses/by/4.0/) |
+| [Fennec — Rocket League Car](https://sketchfab.com/3d-models/fennec-rocket-league-car-5b43b50b6eeb4a12a29671df3418f57a) | `public/models/rl-car.glb` — el coche conducible | [Jako](https://sketchfab.com/fairlight51) | [CC BY 4.0](http://creativecommons.org/licenses/by/4.0/) |
+| [Benjamin Netanyahu Riding Donald Trump](https://sketchfab.com/3d-models/benjamin-netanyahu-riding-donald-trump-c48169c28d294588abb47c30dedbb06d) | `public/models/trump.glb` — el boss de M5, que se mueve a cuatro patas | [Rudy](https://sketchfab.com/Rudy27) | [CC BY 4.0](http://creativecommons.org/licenses/by/4.0/) |
+
+**Modificaciones.** Cada modelo se hornea para el navegador con `scripts/bake-*.mjs`: se sueldan y decimalizan las mallas, se recomprimen las texturas, al cuerpo masculino se le genera un esqueleto que no traía, y todos se reescalan y recentran al espacio de personaje del juego. Cada GLB horneado lleva su crédito dentro de `asset.extras`, así que la atribución viaja con el archivo. Las descargas originales quedan fuera del repositorio.
+
+---
+
 ## Legal
 
 MathsMine3 es un juego matemático y una economía cripto simulada.
