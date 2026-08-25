@@ -16,7 +16,7 @@ import { advanceShowcaseSpin, approachYaw } from '@/lib/map-boss-facing'
 import { setBossMaskEyesRed } from '@/lib/boss-head-photo'
 import { colorFromAddress } from '@/lib/wallet-colors'
 import { buildHumanoidBody, buildHumanHead, humanSkinFromSeed, humanHairFromSeed, swayHumanoidArms, walkHumanoidLegs, flailHumanoidJump, flapHumanoidJump } from '@/lib/humanoid-body'
-import { dockHeldItemsToGlb, seatHumanoidGlbInCar } from '@/lib/humanoid-glb'
+import { dockHeldItemsToGlb, applyHumanoidCarMount, HUMANOID_GLB_SRC_CLOTHES } from '@/lib/humanoid-glb'
 import { createLedgerTool, poseLedgerHoldArm, poseLedgerSwing } from '@/lib/ledger-tool'
 import { animateQuadruped, isQuadrupedBody } from '@/lib/quadruped-motion'
 import { addRlCarBoost, setRlCarBoostLit } from '@/lib/rl-car-boost'
@@ -93,6 +93,7 @@ export function addMiningBot(THREE, scene, options = {}) {
     position = [-2.25, .12, .20],
     rotationY = homeYawTowardCenter(-2.25, .20),
     scale = HOME_ARENA_BOT_SCALE,
+    glbBodyCutY = undefined,
   } = options
   const avatar = new THREE.Group()
   const color = new THREE.Color(botColor)
@@ -116,6 +117,7 @@ export function addMiningBot(THREE, scene, options = {}) {
     bulk: 1.02,
     handStyle: 'miniusb',
     sleeve: 'short',
+    glbBodyCutY,
     colors: {
       skin: skinHex,
       torso: color.clone().lerp(new THREE.Color('#ffffff'), .10),
@@ -207,23 +209,18 @@ function addHomeBotCar(THREE, scene, options = {}) {
     position: [0, HOME_BOTCAR_SEAT_Y, HOME_BOTCAR_SEAT_Z],
     rotationY: 0,
     scale: HOME_LINEUP_BOT_SCALE,
+    glbBodyCutY: HUMANOID_GLB_SRC_CLOTHES.waistY,
   })
-  seatHumanoidGlbInCar(bot, { neckY: HOME_BOTCAR_NECK_Y, neckZ: HOME_BOTCAR_NECK_Z })
-  // Capsule limbs / shoes / tool stay in the cabin; skull rides above the tub.
-  for (const part of [
-    bot.userData.leftFoot, bot.userData.rightFoot, bot.userData.leftSole, bot.userData.rightSole,
-    ...(bot.userData.humanLegs || []),
-    ...(bot.userData.humanArms || []),
-    ...(bot.userData.bodyParts || []),
-    bot.userData.tool,
-    bot.userData.humanoidGlbBodyMesh,
-    bot.userData.humanoidGlbLeftHand,
-    bot.userData.humanoidGlbRightHand,
-  ]) {
-    if (part) part.visible = false
+  const mountBotInCar = () => applyHumanoidCarMount(bot, {
+    neckY: HOME_BOTCAR_NECK_Y,
+    neckZ: HOME_BOTCAR_NECK_Z,
+  })
+  mountBotInCar()
+  const prevGlbReady = bot.userData.onHumanoidGlbReady
+  bot.userData.onHumanoidGlbReady = (host) => {
+    prevGlbReady?.(host)
+    mountBotInCar()
   }
-  if (bot.userData.humanoidGlbHeadMesh) bot.userData.humanoidGlbHeadMesh.visible = true
-  for (const mesh of bot.userData.proceduralHeadMeshes || []) mesh.visible = false
   gateHomeAvatarUntilReady(group, bot)
   return { kind: 'botCar', group, bot, car, baseY: HOME_ARENA_FLOOR_Y, baseRotationY: rotationY, phase, bob: 2.15, sway: .42 }
 }
