@@ -32,11 +32,12 @@ const ARRAY_BUFFER = 34962
 const ELEMENT_ARRAY_BUFFER = 34963
 
 function parseArgs(argv) {
-  const options = { src: argv[0], out: argv[1], grid: 160, maxY: null, preview: null }
+  const options = { src: argv[0], out: argv[1], grid: 160, maxY: null, preview: null, paint: null }
   for (let i = 2; i < argv.length; i += 1) {
     if (argv[i] === '--grid') options.grid = Number(argv[i + 1])
     else if (argv[i] === '--max-y') options.maxY = Number(argv[i + 1])
     else if (argv[i] === '--preview') options.preview = argv[i + 1]
+    else if (argv[i] === '--paint') options.paint = argv[i + 1]
   }
   return options
 }
@@ -259,6 +260,53 @@ function boostColors(colors, { loPct = 0.02, hiPct = 0.98, targetLo = 0.22, targ
   }
 }
 
+/**
+ * Paint the monochrome Milei+chainsaw STL (no UVs / no COLOR_0) into readable
+ * regions after normalisation: plinth, dark suit, skin, hair, saw housing/blade.
+ * Tuned on the FrancoGUG sculpt bounds (feet y=0, crown y≈1.9, saw +Z at mid).
+ */
+function paintMileiColors(mesh) {
+  const { positions, colors } = mesh
+  const count = positions.length / 3
+  for (let v = 0; v < count; v += 1) {
+    const x = positions[v * 3]
+    const y = positions[v * 3 + 1]
+    const z = positions[v * 3 + 2]
+    const r = Math.hypot(x, z)
+    let rgb
+    if (y < 0.16) {
+      // Tiered plinth — warm bronze.
+      rgb = y < 0.06 ? [0.42, 0.30, 0.14] : [0.62, 0.48, 0.22]
+    } else if (y > 0.55 && y < 1.08 && z > 0.28) {
+      // Chainsaw: silver blade tip, orange/yellow housing nearer the body.
+      rgb = z > 0.72
+        ? [0.72, 0.76, 0.80]
+        : [0.92, 0.55, 0.08]
+    } else if (y > 1.52) {
+      // Wild hair.
+      rgb = [0.18, 0.11, 0.07]
+    } else if (y > 1.28 && Math.abs(x) < 0.24 && z > -0.38 && z < 0.22) {
+      // Face / neck skin.
+      rgb = [0.86, 0.68, 0.52]
+    } else if (y > 0.55 && y < 1.05 && r > 0.42 && z > 0.05) {
+      // Hands on the grip.
+      rgb = [0.82, 0.62, 0.46]
+    } else if (y < 0.38) {
+      // Shoes / lower legs.
+      rgb = [0.12, 0.12, 0.14]
+    } else {
+      // Dark suit with a faint Argentine-blue sash cue on the torso front.
+      const sash = y > 0.85 && y < 1.25 && Math.abs(x) < 0.18 && z > -0.05 && z < 0.28
+      rgb = sash ? [0.45, 0.62, 0.82] : [0.14, 0.16, 0.22]
+    }
+    // Tiny height-based shading so flat regions don't look plastic.
+    const shade = 0.92 + 0.08 * Math.sin(y * 11 + x * 7)
+    colors[v * 3] = Math.min(1, rgb[0] * shade)
+    colors[v * 3 + 1] = Math.min(1, rgb[1] * shade)
+    colors[v * 3 + 2] = Math.min(1, rgb[2] * shade)
+  }
+}
+
 /** RGB floats → RGBA bytes: glTF accessors must stay 4-byte aligned. */
 function toUint8Colors(colors) {
   const count = colors.length / 3
@@ -310,7 +358,7 @@ function buildGlb(mesh, extras, name) {
 function main() {
   const options = parseArgs(process.argv.slice(2))
   if (!options.src || !options.out) {
-    console.error('usage: node scripts/bake-sculpt-glb.mjs <src.glb> <out.glb> [--grid n] [--max-y y] [--preview prefix]')
+    console.error('usage: node scripts/bake-sculpt-glb.mjs <src.glb> <out.glb> [--grid n] [--max-y y] [--paint milei] [--preview prefix]')
     process.exit(1)
   }
   const { json, bin } = readGlb(options.src)
@@ -319,7 +367,8 @@ function main() {
   if (Number.isFinite(options.maxY)) mesh = clipAbove(mesh, options.maxY)
   mesh = compact(clusterDecimate(mesh, options.grid))
   const fit = normalize(mesh)
-  boostColors(mesh.colors)
+  if (options.paint === 'milei') paintMileiColors(mesh)
+  else boostColors(mesh.colors)
 
   const name = options.out.split('/').pop().replace(/\.glb$/, '')
   const { json: outJson, bin: outBin } = buildGlb(mesh, creditExtras(json), name)
