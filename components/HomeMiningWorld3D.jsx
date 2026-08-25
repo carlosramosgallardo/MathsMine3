@@ -44,11 +44,11 @@ const HOME_ARENA_BOSS_VS_BOT = 1.31
 const HOME_BOSS_SIZE_MULT = 1.06
 const HOME_LINEUP_BOT_SCALE = 2.96
 const HOME_LINEUP_CAR_SCALE = 2.51
-// Head peeking from cockpit (bot-local): neck on the tub roof.
+// Head peeking from cockpit (bot-local): neck above the tub coaming.
 const HOME_BOTCAR_SEAT_Y = 0
 const HOME_BOTCAR_SEAT_Z = 0
-const HOME_BOTCAR_NECK_Y = 0.58 * HOME_LINEUP_CAR_SCALE / HOME_LINEUP_BOT_SCALE
-const HOME_BOTCAR_NECK_Z = 0.16 * HOME_LINEUP_CAR_SCALE / HOME_LINEUP_BOT_SCALE
+const HOME_BOTCAR_NECK_Y = 0.72 * HOME_LINEUP_CAR_SCALE / HOME_LINEUP_BOT_SCALE
+const HOME_BOTCAR_NECK_Z = 0.12 * HOME_LINEUP_CAR_SCALE / HOME_LINEUP_BOT_SCALE
 /** World Y where bot soles meet the arena disc (avatar origin + sole bottom local × scale). */
 const HOME_ARENA_FLOOR_Y = 0.12 + 0.0015 * HOME_ARENA_BOT_SCALE
 const HOME_SCENE_CENTER = { x: 0, z: 0 }
@@ -222,7 +222,8 @@ function addHomeBotCar(THREE, scene, options = {}) {
   ]) {
     if (part) part.visible = false
   }
-  if (bot.userData.humanoidGlbHeadMesh) bot.userData.humanoidGlbHeadMesh.visible = true
+  if (bot.userData.humanoidGlbHeadMesh) bot.userData.humanoidGlbHeadMesh.visible = false
+  for (const mesh of bot.userData.proceduralHeadMeshes || []) mesh.visible = true
   gateHomeAvatarUntilReady(group, bot)
   return { kind: 'botCar', group, bot, car, baseY: HOME_ARENA_FLOOR_Y, baseRotationY: rotationY, phase, bob: 2.15, sway: .42 }
 }
@@ -551,6 +552,9 @@ export function addHomeBoss(THREE, scene, options = {}) {
   group.add(glowLight)
 
   scene.add(group)
+  if (group.userData.freezeGlbPoseOnHome && bodyPivot) {
+    bodyPivot.userData.freezeGlbPose = true
+  }
   gateHomeAvatarUntilReady(group, group)
   return {
     id,
@@ -845,16 +849,16 @@ export default function HomeMiningWorld3D() {
       }
       addHomeTag(bossById.trump.group, `${M5_TRUMP_BOSS_NAME} · BOSS · ♥${M5_TRUMP_BOSS_MAX_HP}`, '#ef4444', bossById.trump.tagY || 1.2)
       addHomeTag(bossById.putin.group, `${M3_PUTIN_BOSS_NAME} · BOSS · ♥${M3_PUTIN_BOSS_MAX_HP}`, '#94a3b8', 1.35)
-      addHomeTag(bossById.kim.group, `${M4_KIM_BOSS_NAME} · BOSS · ♥${M4_KIM_BOSS_MAX_HP}`, '#d946ef', 1.35)
+      addHomeTag(bossById.kim.group, `${M4_KIM_BOSS_NAME} · BOSS · ♥${M4_KIM_BOSS_MAX_HP}`, '#d946ef', 1.55)
       addHomeTag(bossById.milei.group, 'Javier Milei · STATUE', '#74acdf', 1.35)
       addHomeTag(bossById.zelensky.group, 'Volodymyr Zelensky · STATUE', '#3b82f6', 1.35)
       addHomeTag(bossById.macron.group, 'Emmanuel Macron · STATUE', '#2563eb', 1.35)
-      addHomeTag(homeNuke.group, 'NUKE CUBE · ???', '#facc15', 2.4)
-      addHomeTag(homeSoloCar.group, 'Aserejee · AI', '#22d3ee', 1.55)
+      addHomeTag(homeNuke.group, 'NUKE CUBE · ???', '#facc15', 3.55)
+      addHomeTag(homeSoloCar.group, 'Aserejee · AI', '#22d3ee', 2.05)
       addHomeTag(homeBot, aiTeamTag(AI_TEAM_WALLETS[0]), '#86efac', 1.35)
-      addHomeTag(homeBotCar.group, aiTeamTag(AI_TEAM_WALLETS[1]), '#86efac', 1.55)
+      addHomeTag(homeBotCar.group, aiTeamTag(AI_TEAM_WALLETS[1]), '#86efac', 2.05)
       addHomeTag(homePunchBot, aiTeamTag(AI_TEAM_WALLETS[2]), '#86efac', 1.35)
-      addHomeTag(homePunchBotCar.group, aiTeamTag(AI_TEAM_WALLETS[3]), '#86efac', 1.55)
+      addHomeTag(homePunchBotCar.group, aiTeamTag(AI_TEAM_WALLETS[3]), '#86efac', 2.05)
       const rail = { offset: 0, vel: 0, dragging: false, lastX: 0, moved: 0, suppressClick: false, snapTarget: 0 }
       // Center-stage feature: one boss/statue at a time steps off the rail
       // toward the camera, plays its signature show and walks back; the rail
