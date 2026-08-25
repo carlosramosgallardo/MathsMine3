@@ -496,7 +496,7 @@ const HOME_BOSS_LAYOUT = [
     bossScale: M3_PUTIN_BOSS_SCALE,
     position: [HOME_LINEUP_X[2], 0, 0.04],
     glowColor: '#94a3b8',
-    glowIntensity: 2.8,
+    glowIntensity: 0.85,
     phase: 0,
     sway: 0.62,
     bob: 2.2,
@@ -510,7 +510,7 @@ const HOME_BOSS_LAYOUT = [
     bossScale: M1_MILEI_STATUE_SCALE,
     position: [HOME_LINEUP_X[4], 0, 0.06],
     glowColor: '#74acdf',
-    glowIntensity: 2.9,
+    glowIntensity: 0.9,
     phase: Math.PI * 1.85,
     sway: 0.58,
     bob: 2.18,
@@ -524,7 +524,7 @@ const HOME_BOSS_LAYOUT = [
     bossScale: M1_ZELENSKY_STATUE_SCALE,
     position: [HOME_LINEUP_X[1], 0, 0.06],
     glowColor: '#3b82f6',
-    glowIntensity: 2.9,
+    glowIntensity: 0.9,
     phase: Math.PI * 0.6,
     sway: 0.6,
     bob: 2.16,
@@ -538,7 +538,7 @@ const HOME_BOSS_LAYOUT = [
     bossScale: M2_MACRON_STATUE_SCALE,
     position: [HOME_LINEUP_X[3], 0, 0.06],
     glowColor: '#2563eb',
-    glowIntensity: 2.9,
+    glowIntensity: 0.9,
     phase: Math.PI * 1.15,
     sway: 0.58,
     bob: 2.22,
@@ -550,7 +550,7 @@ const HOME_BOSS_LAYOUT = [
     bossScale: M4_KIM_BOSS_SCALE,
     position: [HOME_LINEUP_X[6], 0, 0.04],
     glowColor: '#d946ef',
-    glowIntensity: 3.0,
+    glowIntensity: 0.95,
     phase: Math.PI * 1.33,
     sway: 0.66,
     bob: 2.45,
@@ -562,7 +562,7 @@ const HOME_BOSS_LAYOUT = [
     bossScale: M5_TRUMP_BOSS_SCALE,
     position: [HOME_LINEUP_X[0], 0, 0.12],
     glowColor: '#ef4444',
-    glowIntensity: 3.2,
+    glowIntensity: 1.0,
     phase: Math.PI * 0.66,
     sway: 0.56,
     bob: 2.05,
@@ -726,7 +726,8 @@ export default function HomeMiningWorld3D() {
       renderer.setClearColor(0x000000, 0)
       renderer.outputColorSpace = THREE.SRGBColorSpace
       renderer.toneMapping = THREE.ACESFilmicToneMapping
-      renderer.toneMappingExposure = 1.72
+      // Match FPV (~1.38): higher exposure + boss point-lights bleached sculpts.
+      renderer.toneMappingExposure = 1.32
       renderer.shadowMap.enabled = true
       renderer.shadowMap.type = THREE.PCFSoftShadowMap
 
@@ -761,25 +762,27 @@ export default function HomeMiningWorld3D() {
       const threeState = { camera, _v3a, _v3b }
 
       // Ambient: deep blue sky → dark void ground — floating-in-space feel.
-      scene.add(new THREE.HemisphereLight('#c8e8ff', '#0a1428', 2.2))
+      // Keep intensities near the FPV stage: the previous 2.2/3.8 stack + exposure
+      // 1.72 bleached Trump's vertex paint and crushed Putin's albedo into noise.
+      scene.add(new THREE.HemisphereLight('#c8e8ff', '#0a1428', 1.05))
       // Key: warm white from above-left (main character illumination).
-      const key = new THREE.DirectionalLight('#fff8e0', 3.8)
+      const key = new THREE.DirectionalLight('#fff8e0', 1.85)
       key.position.set(-4, 9, 8)
       key.castShadow = true
       key.shadow.mapSize.set(1024, 1024)
       scene.add(key)
       // Rim: cool blue from behind — separates characters from the dark background.
-      const rim = new THREE.DirectionalLight('#3a6fff', 1.1)
+      const rim = new THREE.DirectionalLight('#3a6fff', 0.65)
       rim.position.set(2, 5, -8)
       scene.add(rim)
-      // Five portal-palette accent lights at torso height — cyan/yellow/magenta
-      // wash over characters without needing a visible floor to bounce off.
+      // Soft portal-palette accents — low intensity so PBR / vertex-colour bosses
+      // keep readable albedo instead of washing to white.
       for (const [x, color, intensity] of [
-        [-12, '#22d3ee', 3.4],
-        [ -6, '#ffe34d', 3.2],
-        [  0, '#d946ef', 3.0],
-        [  6, '#ffe34d', 3.2],
-        [ 12, '#22d3ee', 3.4],
+        [-12, '#22d3ee', 1.15],
+        [ -6, '#ffe34d', 1.05],
+        [  0, '#d946ef', 1.0],
+        [  6, '#ffe34d', 1.05],
+        [ 12, '#22d3ee', 1.15],
       ]) {
         const fl = new THREE.PointLight(color, intensity, 18, 2)
         fl.position.set(x, 2.8, 1.5)
