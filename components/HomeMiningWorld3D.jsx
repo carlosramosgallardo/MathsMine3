@@ -415,7 +415,7 @@ const HOME_LINEUP_X = Object.freeze([-13.65, -9.1, -4.45, 0, 4.45, 9.1, 13.65])
 const HOME_BOSS_LAYOUT = [
   {
     id: 'putin',
-    heightMult: 0.95,
+    heightMult: 1.0,
     createVisual: createM3PutinBossVisual,
     bossScale: M3_PUTIN_BOSS_SCALE,
     position: [HOME_LINEUP_X[2], 0, 0.04],
@@ -428,7 +428,7 @@ const HOME_BOSS_LAYOUT = [
   },
   {
     id: 'milei',
-    heightMult: 0.95,
+    heightMult: 1.0,
     yOffset: 0.12,
     createVisual: createM1MileiStatueVisual,
     bossScale: M1_MILEI_STATUE_SCALE,
@@ -442,7 +442,7 @@ const HOME_BOSS_LAYOUT = [
   },
   {
     id: 'zelensky',
-    heightMult: 0.95,
+    heightMult: 1.0,
     yOffset: 0.12,
     createVisual: createM1ZelenskyStatueVisual,
     bossScale: M1_ZELENSKY_STATUE_SCALE,
@@ -456,7 +456,7 @@ const HOME_BOSS_LAYOUT = [
   },
   {
     id: 'macron',
-    heightMult: 0.95,
+    heightMult: 1.0,
     yOffset: 0.12,
     createVisual: createM2MacronStatueVisual,
     bossScale: M2_MACRON_STATUE_SCALE,
@@ -470,7 +470,7 @@ const HOME_BOSS_LAYOUT = [
   },
   {
     id: 'kim',
-    heightMult: 0.95,
+    heightMult: 1.0,
     createVisual: createM4KimBossVisual,
     bossScale: M4_KIM_BOSS_SCALE,
     position: [HOME_LINEUP_X[6], 0, 0.04],
