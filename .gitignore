@@ -10,6 +10,9 @@ supabase/.branches/
 .private/
 .run/
 
+# Source scan (80MB+ / 2M tris). The game ships the compressed public/models/man.glb.
+public/models/man_v2.glb
+
 # Evitar subir artefactos grandes
 *.zip
 MathsMine3.zip
