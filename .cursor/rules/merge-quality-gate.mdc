@@ -1,5 +1,5 @@
 ---
-description: Never merge PRs with failing required CI — especially SonarCloud
+description: Never merge PRs with failing required CI — especially SonarCloud; merge when green
 alwaysApply: true
 ---
 
@@ -7,6 +7,12 @@ alwaysApply: true
 
 **Never merge a PR to `main` if any required check is red or pending.**
 **Never `git push origin main` to bypass that gate.**
+
+## When a PR is green — merge it
+
+Once the gate below is fully green, **merge the PR without waiting to be asked**. Prefer the repo default merge method via `gh pr merge`. Then pull `main` locally and delete the finished feature branch.
+
+Do this for every PR you open or are watching in the session (including ones that turn green after a fix push).
 
 ## Before every merge
 
