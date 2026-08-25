@@ -12146,7 +12146,6 @@ function createThreeWalletAvatar(wallet) {
   ]
   avatar.userData.mountHiddenParts=[
     body.leftLeg, body.rightLeg, body.leftArm, body.rightArm,
-    avatar.userData.humanoidGlbBody,
   ]
   dockHeldItemsToGlb(avatar)
   avatar.userData.leftFoot=footL

@@ -138,13 +138,20 @@ async function main() {
     scene: json.scene || 0,
     scenes: structuredClone(json.scenes),
     nodes: structuredClone(json.nodes),
-    materials: (json.materials || []).map((material) => stripMaterial(material, options.keepNormalMaps)),
+    // Drop material extensions: remapped texture indices leave specular/clearcoat
+    // pointing at holes, and Three's GLTFLoader then aborts the whole load.
+    materials: (json.materials || []).map((material) => {
+      const stripped = stripMaterial(material, options.keepNormalMaps)
+      delete stripped.extensions
+      delete stripped.extras
+      return stripped
+    }),
     samplers: structuredClone(json.samplers) || [{ magFilter: 9729, minFilter: 9987, wrapS: 10497, wrapT: 10497 }],
     meshes: [],
     textures: [],
     images: [],
   }
-  if (json.extensionsUsed) outJson.extensionsUsed = structuredClone(json.extensionsUsed)
+  // Do not copy extensionsUsed — we stripped material extensions above.
 
   // Re-index the textures each surviving material still points at.
   const textureRemap = new Map()
@@ -211,6 +218,10 @@ async function main() {
   }
   for (const node of outJson.nodes) {
     if (Number.isInteger(node.mesh)) node.mesh = meshRemap.get(node.mesh)
+    // Ready-Player / Sketchfab props often tag static meshes with `skin: 0`
+    // without shipping a skins array — Three's loader then crashes on load.
+    delete node.skin
+    delete node.skeleton
   }
 
   const report = []

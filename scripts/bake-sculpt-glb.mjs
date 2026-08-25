@@ -239,7 +239,7 @@ function normalize(mesh) {
  * luminance into a readable range while keeping each vertex's hue — Trump's
  * suit, skin and Bibi's jacket stay distinct, just no longer crushed.
  */
-function boostColors(colors, { loPct = 0.02, hiPct = 0.98, targetLo = 0.22, targetHi = 1.0 } = {}) {
+function boostColors(colors, { loPct = 0.02, hiPct = 0.98, targetLo = 0.18, targetHi = 0.92 } = {}) {
   const count = colors.length / 3
   const lums = new Float64Array(count)
   for (let v = 0; v < count; v += 1) {
@@ -252,11 +252,25 @@ function boostColors(colors, { loPct = 0.02, hiPct = 0.98, targetLo = 0.22, targ
   for (let v = 0; v < count; v += 1) {
     const t = Math.min(1, Math.max(0, (lums[v] - lo) / span))
     // Mild gamma so midtones (suits, skin) lift without blowing highlights.
-    const target = targetLo + (t ** 0.75) * (targetHi - targetLo)
+    const target = targetLo + (t ** 0.7) * (targetHi - targetLo)
     const scale = lums[v] > 1e-6 ? target / lums[v] : 1
     for (let k = 0; k < 3; k += 1) {
       colors[v * 3 + k] = Math.min(1, Math.max(0, colors[v * 3 + k] * scale))
     }
+  }
+}
+
+/** Push chroma so MAGA red / skin / jacket read vivid on ACES filmic. */
+function saturateColors(colors, amount = 1.45) {
+  const count = colors.length / 3
+  for (let v = 0; v < count; v += 1) {
+    const r = colors[v * 3]
+    const g = colors[v * 3 + 1]
+    const b = colors[v * 3 + 2]
+    const avg = (r + g + b) / 3
+    colors[v * 3] = Math.min(1, Math.max(0, avg + (r - avg) * amount))
+    colors[v * 3 + 1] = Math.min(1, Math.max(0, avg + (g - avg) * amount))
+    colors[v * 3 + 2] = Math.min(1, Math.max(0, avg + (b - avg) * amount))
   }
 }
 
@@ -352,7 +366,10 @@ function main() {
   mesh = compact(clusterDecimate(mesh, options.grid))
   const fit = normalize(mesh)
   if (String(options.paint || '') === 'milei') paintMileiColors(mesh)
-  else boostColors(mesh.colors)
+  else {
+    boostColors(mesh.colors)
+    saturateColors(mesh.colors)
+  }
 
   const name = options.out.split('/').pop().replace(/\.glb$/, '')
   const { json: outJson, bin: outBin } = buildGlb(mesh, creditExtras(json), name)
