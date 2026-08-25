@@ -21,6 +21,8 @@ import {
   applyKimRigidHomeAttack,
   applyKimRigidHomeGreet,
   applyKimRigidHomeWalk,
+  homeAttackEnvelope,
+  homeBossAttackHop,
   homeBossGreetYaw,
   isKimRigidStatue,
   resetKimRigidHomeIdle,
@@ -1058,23 +1060,11 @@ export default function HomeMiningWorld3D() {
         const rPhase = rArm.userData.swayPhase || 0
         const lBaseZ = lArm.userData.baseRotZ || 0
         const rBaseZ = rArm.userData.baseRotZ || 0
-        // Envelope: smooth in (first 15 %) and smooth out (last 20 %) of 3 s window
-        const bIn   = Math.sin(Math.min(1, at / 0.15) * Math.PI * 0.5)
-        const bOut  = Math.sin(Math.min(1, (1 - at) / 0.20) * Math.PI * 0.5)
-        const blend = bIn * bOut
-        // Jump arc: 0→1→0 over the full 3 s; peaks at at = 0.5 (moment VFX fires)
-        const jumpH   = Math.sin(at * Math.PI)
+        const { blend, jumpH } = homeAttackEnvelope(at)
         const windupP = Math.min(1, at / 0.35)
         const strikeP = at >= 0.35 ? Math.min(1, (at - 0.35) / 0.18) : 0
-        // Idle arm baselines (same formula as swayHumanoidArms — seamless blend)
         const idleAX = ph => Math.sin(t * 0.9  + ph) * 0.055
         const idleAZ = (bz, ph) => bz + Math.sin(t * 0.63 + ph * 1.7) * 0.045
-
-        // Lunge direction captured at attack-start (boss.lungseFacing), so it stays
-        // constant even as the showcase spin rotates the boss during the 3 s window.
-        const lf = boss.lungseFacing ?? boss.group.rotation.y
-        const lfx = Math.sin(lf)
-        const lfz = Math.cos(lf)
 
         if (bossId === 'putin') {
           // Military precision: both arms pull back then thrust forward together; V-spread legs
@@ -1089,10 +1079,7 @@ export default function HomeMiningWorld3D() {
           rLeg.rotation.z =  jumpH * 0.44 * blend
           boss.bodyPivot.position.y = Math.max(0, Math.sin(t * boss.bob) * 0.06) * (1 - blend)
                                     + (-0.07 * windupP + 0.03 * strikeP) * blend
-          boss.group.position.y    = boss.baseY + jumpH * 0.38 * blend
-          boss.group.rotation.z    = Math.sin(t * (boss.sway + 0.65)) * 0.014 * (1 - blend)
-          boss.group.position.x   += lfx * 1.8 * jumpH * blend
-          boss.group.position.z    = boss.baseZ + lfz * 1.8 * jumpH * blend
+          homeBossAttackHop(boss, { jumpH, blend, jumpScale: 0.38, t })
 
         } else if (bossId === 'kim') {
           // Theatrical: right arm sweeps overhead then stabs forward; left stays back; scissor kick
@@ -1108,10 +1095,7 @@ export default function HomeMiningWorld3D() {
           rLeg.rotation.z = 0
           boss.bodyPivot.position.y = Math.max(0, Math.sin(t * boss.bob) * 0.06) * (1 - blend)
                                     + 0.05 * windupP * blend
-          boss.group.position.y    = boss.baseY + jumpH * 0.52 * blend
-          boss.group.rotation.z    = Math.sin(t * (boss.sway + 0.65)) * 0.014 * (1 - blend)
-          boss.group.position.x   += lfx * 1.8 * jumpH * blend
-          boss.group.position.z    = boss.baseZ + lfz * 1.8 * jumpH * blend
+          homeBossAttackHop(boss, { jumpH, blend, jumpScale: 0.52, t })
 
         }
       }

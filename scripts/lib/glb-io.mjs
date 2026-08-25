@@ -185,6 +185,9 @@ export function boundsOf(packed) {
   return { min, max }
 }
 
+const ARRAY_BUFFER = 34962
+const ELEMENT_ARRAY_BUFFER = 34963
+
 /** RGB floats → RGBA bytes for glTF COLOR_0 accessors. */
 export function toUint8Colors(colors) {
   const count = colors.length / 3
@@ -196,6 +199,45 @@ export function toUint8Colors(colors) {
     out[v * 4 + 3] = 255
   }
   return out
+}
+
+/** Single vertex-coloured mesh GLB (sculpts + Milei plinth extract). */
+export function buildVertexColorMeshGlb(mesh, {
+  name,
+  generator,
+  extras,
+  doubleSided = true,
+} = {}) {
+  const json = {
+    asset: { version: '2.0', generator, extras },
+    scene: 0,
+    scenes: [{ nodes: [0] }],
+    nodes: [{ name, mesh: 0 }],
+    materials: [{
+      name,
+      doubleSided,
+      pbrMetallicRoughness: { baseColorFactor: [1, 1, 1, 1], metallicFactor: 0, roughnessFactor: 0.72 },
+    }],
+  }
+  const builder = new GlbBuilder(json)
+  const vertexCount = mesh.positions.length / 3
+  json.meshes = [{
+    name,
+    primitives: [{
+      attributes: {
+        POSITION: builder.addAccessor(mesh.positions, 'VEC3', { target: ARRAY_BUFFER, minMax: true }),
+        NORMAL: builder.addAccessor(mesh.normals, 'VEC3', { target: ARRAY_BUFFER }),
+        COLOR_0: builder.addAccessor(toUint8Colors(mesh.colors), 'VEC4', { target: ARRAY_BUFFER, normalized: true }),
+      },
+      indices: builder.addAccessor(
+        vertexCount < 65536 ? Uint16Array.from(mesh.indices) : mesh.indices,
+        'SCALAR',
+        { target: ELEMENT_ARRAY_BUFFER },
+      ),
+      material: 0,
+    }],
+  }]
+  return { json, bin: builder.finish() }
 }
 
 /** Accumulates typed arrays into one GLB buffer, emitting bufferViews/accessors. */

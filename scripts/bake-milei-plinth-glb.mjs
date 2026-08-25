@@ -6,21 +6,19 @@
  * Usage:
  *   node scripts/bake-milei-plinth-glb.mjs public/models/milei.glb public/models/statue-plinth.glb
  */
-import { readGlb, writeGlb, accessorArray, creditExtras, GlbBuilder, toUint8Colors } from './lib/glb-io.mjs'
-
-const ARRAY_BUFFER = 34962
-const ELEMENT_ARRAY_BUFFER = 34963
+import {
+  readGlb,
+  writeGlb,
+  accessorArray,
+  creditExtras,
+  buildVertexColorMeshGlb,
+} from './lib/glb-io.mjs'
 
 /** Just below shoeTopY (0.105) on the Milei sculpt — plinth only, no boots. */
 const PLINTH_TOP_Y = 0.108
 
-function parseArgs(argv) {
-  return { src: argv[0] || 'public/models/milei.glb', out: argv[1] || 'public/models/statue-plinth.glb' }
-}
-
 function extractPlinth(json, bin, cutoffY) {
-  const mesh = json.meshes[0]
-  const prim = mesh.primitives[0]
+  const prim = json.meshes[0].primitives[0]
   const pos = accessorArray(json, bin, prim.attributes.POSITION)
   const norm = accessorArray(json, bin, prim.attributes.NORMAL)
   const col = accessorArray(json, bin, prim.attributes.COLOR_0)
@@ -32,25 +30,22 @@ function extractPlinth(json, bin, cutoffY) {
   const outIdx = []
   const remap = new Map()
   const keepVertex = (vi) => {
-    const y = pos[vi * 3 + 1]
-    if (y > cutoffY) return -1
+    if (pos[vi * 3 + 1] > cutoffY) return -1
     if (remap.has(vi)) return remap.get(vi)
     const ni = outPos.length / 3
     remap.set(vi, ni)
-    outPos.push(pos[vi * 3], pos[vi * 3 + 1], pos[vi * 3 + 2])
-    outNorm.push(norm[vi * 3], norm[vi * 3 + 1], norm[vi * 3 + 2])
-    outCol.push(col[vi * 3], col[vi * 3 + 1], col[vi * 3 + 2])
+    const o = vi * 3
+    outPos.push(pos[o], pos[o + 1], pos[o + 2])
+    outNorm.push(norm[o], norm[o + 1], norm[o + 2])
+    outCol.push(col[o], col[o + 1], col[o + 2])
     return ni
   }
   for (let i = 0; i < triCount; i += 3) {
-    const a = idx ? idx[i] : i
-    const b = idx ? idx[i + 1] : i + 1
-    const c = idx ? idx[i + 2] : i + 2
-    const ia = keepVertex(a)
-    const ib = keepVertex(b)
-    const ic = keepVertex(c)
-    if (ia < 0 || ib < 0 || ic < 0) continue
-    outIdx.push(ia, ib, ic)
+    const a = keepVertex(idx ? idx[i] : i)
+    const b = keepVertex(idx ? idx[i + 1] : i + 1)
+    const c = keepVertex(idx ? idx[i + 2] : i + 2)
+    if (a < 0 || b < 0 || c < 0) continue
+    outIdx.push(a, b, c)
   }
   return {
     positions: new Float32Array(outPos),
@@ -60,43 +55,15 @@ function extractPlinth(json, bin, cutoffY) {
   }
 }
 
-function buildGlb(mesh, extras) {
-  const json = {
-    asset: { version: '2.0', generator: 'MathsMine3 bake-milei-plinth-glb', extras },
-    scene: 0,
-    scenes: [{ nodes: [0] }],
-    nodes: [{ name: 'statuePlinth', mesh: 0 }],
-    materials: [{
-      name: 'plinth',
-      doubleSided: true,
-      pbrMetallicRoughness: { baseColorFactor: [1, 1, 1, 1], metallicFactor: 0, roughnessFactor: 0.72 },
-    }],
-  }
-  const builder = new GlbBuilder(json)
-  const vertexCount = mesh.positions.length / 3
-  json.meshes = [{
-    name: 'statuePlinth',
-    primitives: [{
-      attributes: {
-        POSITION: builder.addAccessor(mesh.positions, 'VEC3', { target: ARRAY_BUFFER, minMax: true }),
-        NORMAL: builder.addAccessor(mesh.normals, 'VEC3', { target: ARRAY_BUFFER }),
-        COLOR_0: builder.addAccessor(toUint8Colors(mesh.colors), 'VEC4', { target: ARRAY_BUFFER, normalized: true }),
-      },
-      indices: builder.addAccessor(
-        vertexCount < 65536 ? Uint16Array.from(mesh.indices) : mesh.indices,
-        'SCALAR',
-        { target: ELEMENT_ARRAY_BUFFER },
-      ),
-      material: 0,
-    }],
-  }]
-  return { json, bin: builder.finish() }
-}
-
-const { src, out } = parseArgs(process.argv.slice(2))
+const src = process.argv[2] || 'public/models/milei.glb'
+const out = process.argv[3] || 'public/models/statue-plinth.glb'
 const { json, bin } = readGlb(src)
 const plinth = extractPlinth(json, bin, PLINTH_TOP_Y)
 if (!plinth.indices.length) throw new Error('No plinth geometry extracted — check PLINTH_TOP_Y')
-const { json: outJson, bin: outBin } = buildGlb(plinth, creditExtras(json))
+const { json: outJson, bin: outBin } = buildVertexColorMeshGlb(plinth, {
+  name: 'statuePlinth',
+  generator: 'MathsMine3 bake-milei-plinth-glb',
+  extras: creditExtras(json),
+})
 writeGlb(out, outJson, outBin)
 console.log(`Wrote ${out} (${plinth.indices.length / 3} tris, y ≤ ${PLINTH_TOP_Y})`)
