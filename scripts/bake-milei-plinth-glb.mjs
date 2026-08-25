@@ -6,7 +6,7 @@
  * Usage:
  *   node scripts/bake-milei-plinth-glb.mjs public/models/milei.glb public/models/statue-plinth.glb
  */
-import { readGlb, writeGlb, accessorArray, creditExtras, GlbBuilder } from './lib/glb-io.mjs'
+import { readGlb, writeGlb, accessorArray, creditExtras, GlbBuilder, toUint8Colors } from './lib/glb-io.mjs'
 
 const ARRAY_BUFFER = 34962
 const ELEMENT_ARRAY_BUFFER = 34963
@@ -58,18 +58,6 @@ function extractPlinth(json, bin, cutoffY) {
     colors: new Float32Array(outCol),
     indices: new Uint32Array(outIdx),
   }
-}
-
-function toUint8Colors(colors) {
-  const count = colors.length / 3
-  const out = new Uint8Array(count * 4)
-  for (let v = 0; v < count; v += 1) {
-    for (let k = 0; k < 3; k += 1) {
-      out[v * 4 + k] = Math.max(0, Math.min(255, Math.round(colors[v * 3 + k] * 255)))
-    }
-    out[v * 4 + 3] = 255
-  }
-  return out
 }
 
 function buildGlb(mesh, extras) {

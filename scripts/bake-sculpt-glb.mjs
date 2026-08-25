@@ -23,6 +23,7 @@ import {
   transformDirection,
   creditExtras,
   GlbBuilder,
+  toUint8Colors,
 } from './lib/glb-io.mjs'
 import { previewPoints } from './glb-preview.mjs'
 
@@ -303,19 +304,6 @@ function paintMileiColors(mesh) {
     colors[v * 3 + 1] = Math.min(1, rgb[1] * shade)
     colors[v * 3 + 2] = Math.min(1, rgb[2] * shade)
   }
-}
-
-/** RGB floats → RGBA bytes: glTF accessors must stay 4-byte aligned. */
-function toUint8Colors(colors) {
-  const count = colors.length / 3
-  const out = new Uint8Array(count * 4)
-  for (let v = 0; v < count; v += 1) {
-    for (let k = 0; k < 3; k += 1) {
-      out[v * 4 + k] = Math.max(0, Math.min(255, Math.round(colors[v * 3 + k] * 255)))
-    }
-    out[v * 4 + 3] = 255
-  }
-  return out
 }
 
 function buildGlb(mesh, extras, name) {

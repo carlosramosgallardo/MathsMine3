@@ -4,7 +4,7 @@ import { useEffect, useRef, useCallback, useState } from 'react'
 import * as THREE from 'three'
 import { colorFromAddress } from '@/lib/wallet-colors'
 import { buildHumanoidBody, buildHumanHead, humanSkinFromSeed, humanHairFromSeed, swayHumanoidArms, walkHumanoidLegs, flailHumanoidJump, flapHumanoidJump } from '@/lib/humanoid-body'
-import { dockHeldItemsToGlb, applyHumanoidCarMount, unseatHumanoidGlb, HUMANOID_GLB_SRC_CLOTHES } from '@/lib/humanoid-glb'
+import { dockHeldItemsToGlb, applyHumanoidCarMount, hookHumanoidCarMount, unseatHumanoidGlb, HUMANOID_GLB_SRC_CLOTHES } from '@/lib/humanoid-glb'
 import { createLedgerTool, poseLedgerHoldArm, poseLedgerSwing } from '@/lib/ledger-tool'
 import { attachRlCarModel, addRlCockpitTub } from '@/lib/rl-car-model'
 import { addRlCarBoost, setRlCarBoostLit } from '@/lib/rl-car-boost'
@@ -12148,11 +12148,9 @@ function createThreeWalletAvatar(wallet) {
   avatar.userData.mountHiddenParts=[
     body.leftLeg, body.rightLeg, body.leftArm, body.rightArm,
   ]
-  const prevGlbReady = avatar.userData.onHumanoidGlbReady
-  avatar.userData.onHumanoidGlbReady = (host) => {
-    prevGlbReady?.(host)
-    if (host.userData.rlCar?.visible) applyHumanoidCarMount(host, { neckY: 0.52, neckZ: 0 })
-  }
+  hookHumanoidCarMount(avatar, { neckY: 0.52, neckZ: 0 }, {
+    when: (host) => host.userData.rlCar?.visible,
+  })
   dockHeldItemsToGlb(avatar)
   avatar.userData.leftFoot=footL
   avatar.userData.rightFoot=footR
