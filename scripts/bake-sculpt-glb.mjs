@@ -233,6 +233,32 @@ function normalize(mesh) {
   return { scale, centerX, centerZ }
 }
 
+/**
+ * Sketchfab sculpts often ship near-black vertex paint (p50 ≈ 0.12). Stretch
+ * luminance into a readable range while keeping each vertex's hue — Trump's
+ * suit, skin and Bibi's jacket stay distinct, just no longer crushed.
+ */
+function boostColors(colors, { loPct = 0.02, hiPct = 0.98, targetLo = 0.22, targetHi = 1.0 } = {}) {
+  const count = colors.length / 3
+  const lums = new Float64Array(count)
+  for (let v = 0; v < count; v += 1) {
+    lums[v] = (colors[v * 3] + colors[v * 3 + 1] + colors[v * 3 + 2]) / 3
+  }
+  const sorted = Float64Array.from(lums).sort()
+  const lo = sorted[Math.floor((count - 1) * loPct)]
+  const hi = sorted[Math.floor((count - 1) * hiPct)]
+  const span = Math.max(1e-6, hi - lo)
+  for (let v = 0; v < count; v += 1) {
+    const t = Math.min(1, Math.max(0, (lums[v] - lo) / span))
+    // Mild gamma so midtones (suits, skin) lift without blowing highlights.
+    const target = targetLo + (t ** 0.75) * (targetHi - targetLo)
+    const scale = lums[v] > 1e-6 ? target / lums[v] : 1
+    for (let k = 0; k < 3; k += 1) {
+      colors[v * 3 + k] = Math.min(1, Math.max(0, colors[v * 3 + k] * scale))
+    }
+  }
+}
+
 /** RGB floats → RGBA bytes: glTF accessors must stay 4-byte aligned. */
 function toUint8Colors(colors) {
   const count = colors.length / 3
@@ -293,6 +319,7 @@ function main() {
   if (Number.isFinite(options.maxY)) mesh = clipAbove(mesh, options.maxY)
   mesh = compact(clusterDecimate(mesh, options.grid))
   const fit = normalize(mesh)
+  boostColors(mesh.colors)
 
   const name = options.out.split('/').pop().replace(/\.glb$/, '')
   const { json: outJson, bin: outBin } = buildGlb(mesh, creditExtras(json), name)
