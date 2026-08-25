@@ -50,7 +50,7 @@ import {
 import { addM1MileiStatueReservedCells, buzzM1MileiStatue, createM1MileiStatueVisual, flashM1MileiStatue, M1_MILEI_STATUE_ID } from '@/lib/m1-milei-statue'
 import { setMileiChainsawProximity, startMileiChainsawLoop, stopMileiChainsawLoop, unlockMileiChainsawLoop } from '@/lib/milei-chainsaw-audio'
 import { addM1ZelenskyStatueReservedCells, createM1ZelenskyStatueVisual, flashM1ZelenskyStatue, M1_ZELENSKY_STATUE_ID } from '@/lib/m1-zelensky-statue'
-import { createM2MacronStatueVisual, M2_MACRON_STATUE_ID, M2_MACRON_STATUE_POSITION } from '@/lib/m2-macron-statue'
+import { createM2MacronStatueVisual, flashM2MacronStatue, M2_MACRON_STATUE_ID } from '@/lib/m2-macron-statue'
 import { NUKE_CUBE_POSITIONS, NUKE_CUBE_INTERACT_RADIUS, addNukeCubeReservations, createNukeCubeVisual, toggleNukeCube, updateNukeCubeVisual } from '@/lib/nuke-cube'
 import { resolveBossStatueFacing, getBossStatuesForMap } from '@/lib/mining-boss-statue-registry'
 import { drawMinimapFlag } from '@/lib/minimap-flags'
@@ -5043,6 +5043,7 @@ function flashBossStatueEyes(threeState, statueId, ms = 5000) {
   if (!group) return
   if (group.userData.statueFixed) {
     if (group.userData.m1ZelenskyStatue) flashM1ZelenskyStatue(group, ms)
+    else if (group.userData.m2MacronStatue) flashM2MacronStatue(group, ms)
     else flashM1MileiStatue(group, ms)
     return
   }
@@ -11638,6 +11639,7 @@ function addM1ZelenskyStatueDecor(world, lowDetail, state = null) {
 
 function addM2MacronStatueDecor(world, lowDetail, state = null) {
   const visual = createM2MacronStatueVisual(THREE, lowDetail)
+  // Keep the MM3 token plinth fixed; textured figure stays rooted (no salute/patrol).
   _extractStatuePlinth(visual, world)
   world.add(visual.group)
   if (state) {
@@ -11645,14 +11647,9 @@ function addM2MacronStatueDecor(world, lowDetail, state = null) {
     state.m2MacronStatueMotion = {
       root: visual.group,
       bodyPivot: visual.bodyPivot,
-      salute: 'bothUp',
-      head: visual.group.userData.homeHead || null,
-      leftArm: visual.group.userData.homeLeftArm || null,
-      rightArm: visual.group.userData.homeRightArm || null,
+      fixed: true,
       statueId: M2_MACRON_STATUE_ID,
       mapId: '2',
-      // gazeAngle=0 → stands east of M2 nuke (5.5, 51.5)
-      patrol: initStatuePatrol(M2_MACRON_STATUE_POSITION.gx, M2_MACRON_STATUE_POSITION.gy, visual.group.rotation.y, 30, 0),
     }
   }
 }
