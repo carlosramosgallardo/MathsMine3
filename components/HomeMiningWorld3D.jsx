@@ -584,7 +584,10 @@ function disposeScene(scene) {
     object.geometry?.dispose()
     const materials = Array.isArray(object.material) ? object.material : [object.material]
     materials.filter(Boolean).forEach(material => {
-      material.map?.dispose()
+      // GLTF cache textures are shared across mounts — never dispose unless we
+      // created/ cloned the map (React Strict Mode remount was bleaching Kim /
+      // Macron / Zelensky after the first teardown).
+      if (material.userData?.ownedMap) material.map?.dispose()
       material.dispose()
     })
   })
