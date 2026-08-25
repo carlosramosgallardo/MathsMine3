@@ -1,4 +1,5 @@
-FROM node:22-bookworm-slim
+# Debian 13 picks up the libtiff DSA that bookworm still lacks.
+FROM node:22-trixie-slim
 
 ENV DEBIAN_FRONTEND=noninteractive
 
