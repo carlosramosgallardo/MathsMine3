@@ -1032,6 +1032,28 @@ export default function HomeMiningWorld3D() {
 
       // 3-second attack choreography per boss — called once per frame while attackT ∈ (0,1).
       // Arms blend from idle sway to an attack pose; legs do a boss-specific move; boss jumps.
+      const applyKimRigidAttack = (boss, at, t) => {
+        const bIn = Math.sin(Math.min(1, at / 0.15) * Math.PI * 0.5)
+        const bOut = Math.sin(Math.min(1, (1 - at) / 0.20) * Math.PI * 0.5)
+        const blend = bIn * bOut
+        const jumpH = Math.sin(at * Math.PI)
+        const windupP = Math.min(1, at / 0.30)
+        const strikeP = at >= 0.30 ? Math.min(1, (at - 0.30) / 0.25) : 0
+        const lf = boss.lungseFacing ?? boss.group.rotation.y
+        const lfx = Math.sin(lf)
+        const lfz = Math.cos(lf)
+        const pivot = boss.bodyPivot
+        if (!pivot) return
+        pivot.position.y = Math.max(0, Math.sin(t * boss.bob) * 0.06) * (1 - blend) + 0.05 * windupP * blend
+        pivot.position.z = (windupP * -0.08 + strikeP * -0.18) * blend
+        pivot.rotation.x = (-0.12 * windupP + 0.08 * strikeP) * blend
+        pivot.scale.setScalar(1 + (0.04 * windupP + 0.02 * strikeP) * blend)
+        boss.group.position.y = boss.baseY + jumpH * 0.52 * blend
+        boss.group.rotation.z = Math.sin(t * (boss.sway + 0.65)) * 0.014 * (1 - blend)
+        boss.group.position.x += lfx * 1.8 * jumpH * blend
+        boss.group.position.z = boss.baseZ + lfz * 1.8 * jumpH * blend
+      }
+
       const applyBossAttack = (boss, bossId, at, t) => {
         // Sculpt bodies (Trump crawls) have no limbs to pose: the whole body
         // rears and slams, and the group hops along its lunge direction.
@@ -1047,6 +1069,11 @@ export default function HomeMiningWorld3D() {
         }
         const arms = boss.bodyPivot?.userData?.humanArms
         const legs = boss.bodyPivot?.userData?.humanLegs
+        const rigidKim = bossId === 'kim' && boss.bodyPivot?.userData?.statueGlbReady
+        if (rigidKim && (!arms || !legs)) {
+          applyKimRigidAttack(boss, at, t)
+          return
+        }
         if (!arms || !legs) return
         const [lArm, rArm] = arms
         const [lLeg, rLeg] = legs
@@ -1125,6 +1152,26 @@ export default function HomeMiningWorld3D() {
           boss.group.rotation.z = 0
           animateQuadruped(boss.bodyPivot, { time: t, moving: 0.35, attackT: gt })
           boss.bodyPivot.scale.setScalar(1)
+          return
+        }
+        const rigidKim = bossId === 'kim' && boss.bodyPivot?.userData?.statueGlbReady
+        if (rigidKim) {
+          const yawFrom = Number.isFinite(boss.greetYawFrom) ? boss.greetYawFrom : boss.baseRotationY + (boss.spinYaw || 0)
+          const yawDelta = ((yawFrom - boss.baseRotationY + Math.PI) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2) - Math.PI
+          const turnIn = Math.sin(Math.min(1, gt / 0.25) * Math.PI * 0.5)
+          const bIn = Math.sin(Math.min(1, gt / 0.15) * Math.PI * 0.5)
+          const bOut = Math.sin(Math.min(1, (1 - gt) / 0.15) * Math.PI * 0.5)
+          const blend = bIn * bOut
+          boss.group.rotation.y = boss.baseRotationY + yawDelta * (1 - turnIn)
+          boss.group.position.y = boss.baseY + Math.sin(t * 2.0) * 0.010
+          boss.group.position.z = boss.baseZ
+          boss.group.rotation.z = 0
+          const wave = Math.sin(t * 3.2) * 0.28 * blend
+          boss.bodyPivot.position.y = Math.sin(t * 2.2) * 0.025 + 0.04 * blend
+          boss.bodyPivot.position.z = 0
+          boss.bodyPivot.rotation.x = -0.08 * blend
+          boss.bodyPivot.rotation.z = wave * 0.35
+          boss.bodyPivot.scale.setScalar(1 + 0.03 * blend)
           return
         }
         const arms = boss.bodyPivot?.userData?.humanArms
@@ -1319,6 +1366,12 @@ export default function HomeMiningWorld3D() {
               walkHumanoidLegs(boss.bodyPivot, t * 3.5, 0.45)
               swayHumanoidArms(boss.bodyPivot, t)
               animateQuadruped(boss.bodyPivot, { time: t, moving: 1 })
+              if (boss.id === 'kim' && boss.bodyPivot?.userData?.statueGlbReady) {
+                const step = Math.sin(t * 7) * 0.035
+                boss.bodyPivot.position.y = (boss.bodyPivot.userData.baseY ?? 0) + Math.abs(step)
+                boss.bodyPivot.rotation.x = -0.06
+                boss.bodyPivot.position.z = step * 0.4
+              }
             } else if (feat === 'out') {
               // Arrived at the front of the stage: play the signature show
               // from here (baseZ moved forward so attack/greet use this spot).
@@ -1436,6 +1489,11 @@ export default function HomeMiningWorld3D() {
               swayHumanoidArms(boss.bodyPivot, t)
               // Crawlers keep pawing on the spot instead of standing still.
               animateQuadruped(boss.bodyPivot, { time: t, moving: boss.isCenter ? 0.45 : 0.18 })
+              if (boss.id === 'kim' && boss.bodyPivot?.userData?.statueGlbReady) {
+                boss.bodyPivot.rotation.x = 0
+                boss.bodyPivot.position.z = 0
+                boss.bodyPivot.scale.setScalar(1)
+              }
               const legs = boss.bodyPivot?.userData?.humanLegs
               if (legs) {
                 legs[0].rotation.x = 0; legs[0].rotation.z = 0
