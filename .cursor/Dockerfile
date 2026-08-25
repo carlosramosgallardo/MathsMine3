@@ -1,4 +1,6 @@
-FROM node:22-bookworm-slim
+# Debian 13 picks up the libtiff DSA that bookworm still lacks.
+# Trixie dropped OpenJDK 17; JDK 21 can still emit the Android jvmTarget 17.
+FROM node:22-trixie-slim
 
 ENV DEBIAN_FRONTEND=noninteractive
 
@@ -12,7 +14,7 @@ RUN apt-get update \
         ca-certificates \
         curl \
         git \
-        openjdk-17-jdk \
+        openjdk-21-jdk-headless \
         unzip \
     && rm -rf /var/lib/apt/lists/* \
     && npm install -g --ignore-scripts "npm@${NPM_VERSION}" \
