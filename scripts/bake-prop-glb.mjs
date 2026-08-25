@@ -174,7 +174,7 @@ async function main() {
       const materialUv = keepUv[prim.material] || new Set()
       const attributeNames = Object.keys(prim.attributes)
         .filter((name) => VEC_OF[name] && (!name.startsWith('TEXCOORD') || materialUv.has(name)))
-        .sort()
+        .sort((a, b) => a.localeCompare(b))
       const welded = weldPrimitive(json, bin, prim, attributeNames)
       sourceVerts += welded.sourceCount
       meshVerts += welded.vertexCount
@@ -191,7 +191,9 @@ async function main() {
         indices: builder.addAccessor(welded.indices, 'SCALAR', { target: ELEMENT_ARRAY_BUFFER }),
         material: prim.material,
       })
-      signature.push(createHash('sha1')
+      // Content hash for deduping identical parts — not a security boundary,
+      // but sha256 keeps the scanners quiet.
+      signature.push(createHash('sha256')
         .update(Buffer.from(welded.attributes[0].data.buffer))
         .update(String(prim.material))
         .digest('hex'))

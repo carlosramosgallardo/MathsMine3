@@ -41,51 +41,68 @@ function parseArgs(argv) {
   return options
 }
 
+/** Reader that yields RGB in 0..1 for any COLOR_0 encoding, white when absent. */
+function colorReader(json, bin, prim) {
+  const accessor = prim.attributes.COLOR_0
+  if (!Number.isInteger(accessor)) return () => [1, 1, 1]
+  const data = accessorArray(json, bin, accessor)
+  const stride = json.accessors[accessor].type === 'VEC4' ? 4 : 3
+  const scales = { Uint8Array: 1 / 255, Uint16Array: 1 / 65535 }
+  const scale = scales[data.constructor.name] ?? 1
+  return (vertex) => {
+    const at = vertex * stride
+    return [data[at] * scale, data[at + 1] * scale, data[at + 2] * scale]
+  }
+}
+
+function countMerged(json, prims) {
+  let vertices = 0
+  let indices = 0
+  for (const { prim } of prims) {
+    const count = json.accessors[prim.attributes.POSITION].count
+    vertices += count
+    indices += Number.isInteger(prim.indices) ? json.accessors[prim.indices].count : count
+  }
+  return { vertices, indices }
+}
+
 /** Merge every chunk of the sculpt into one indexed, world-space mesh. */
 function mergeChunks(json, bin) {
   const prims = collectPrimitives(json)
-  let total = 0
-  let indexTotal = 0
-  for (const { prim } of prims) {
-    total += json.accessors[prim.attributes.POSITION].count
-    indexTotal += Number.isInteger(prim.indices)
-      ? json.accessors[prim.indices].count
-      : json.accessors[prim.attributes.POSITION].count
+  const total = countMerged(json, prims)
+  const mesh = {
+    positions: new Float32Array(total.vertices * 3),
+    normals: new Float32Array(total.vertices * 3),
+    colors: new Float32Array(total.vertices * 3),
+    indices: new Uint32Array(total.indices),
   }
-  const positions = new Float32Array(total * 3)
-  const normals = new Float32Array(total * 3)
-  const colors = new Float32Array(total * 3)
-  const indices = new Uint32Array(indexTotal)
   let vertexAt = 0
   let indexAt = 0
   for (const { prim, world } of prims) {
     const pos = accessorArray(json, bin, prim.attributes.POSITION)
     const nor = Number.isInteger(prim.attributes.NORMAL) ? accessorArray(json, bin, prim.attributes.NORMAL) : null
-    const col = Number.isInteger(prim.attributes.COLOR_0) ? accessorArray(json, bin, prim.attributes.COLOR_0) : null
-    const colorComps = col ? (json.accessors[prim.attributes.COLOR_0].type === 'VEC4' ? 4 : 3) : 0
-    const colorScale = col && col.constructor !== Float32Array
-      ? 1 / (col.constructor === Uint8Array ? 255 : 65535)
-      : 1
+    const colorAt = colorReader(json, bin, prim)
     const base = vertexAt / 3
-    for (let i = 0; i < pos.length; i += 3) {
-      const p = transformPoint(world, pos[i], pos[i + 1], pos[i + 2])
-      positions[vertexAt] = p[0]; positions[vertexAt + 1] = p[1]; positions[vertexAt + 2] = p[2]
-      const n = nor ? transformDirection(world, nor[i], nor[i + 1], nor[i + 2]) : [0, 1, 0]
-      normals[vertexAt] = n[0]; normals[vertexAt + 1] = n[1]; normals[vertexAt + 2] = n[2]
-      const c = (i / 3) * colorComps
-      colors[vertexAt] = col ? col[c] * colorScale : 1
-      colors[vertexAt + 1] = col ? col[c + 1] * colorScale : 1
-      colors[vertexAt + 2] = col ? col[c + 2] * colorScale : 1
+    const count = pos.length / 3
+    for (let v = 0; v < count; v += 1) {
+      const p = transformPoint(world, pos[v * 3], pos[v * 3 + 1], pos[v * 3 + 2])
+      const n = nor ? transformDirection(world, nor[v * 3], nor[v * 3 + 1], nor[v * 3 + 2]) : [0, 1, 0]
+      const c = colorAt(v)
+      for (let k = 0; k < 3; k += 1) {
+        mesh.positions[vertexAt + k] = p[k]
+        mesh.normals[vertexAt + k] = n[k]
+        mesh.colors[vertexAt + k] = c[k]
+      }
       vertexAt += 3
     }
     const idx = Number.isInteger(prim.indices) ? accessorArray(json, bin, prim.indices) : null
-    const count = idx ? idx.length : pos.length / 3
-    for (let i = 0; i < count; i += 1) {
-      indices[indexAt] = base + (idx ? idx[i] : i)
+    const indexCount = idx ? idx.length : count
+    for (let i = 0; i < indexCount; i += 1) {
+      mesh.indices[indexAt] = base + (idx ? idx[i] : i)
       indexAt += 1
     }
   }
-  return { positions, normals, colors, indices }
+  return mesh
 }
 
 /** Drop every triangle whose centre sits above `maxY` (used to lop off a rider). */
@@ -100,6 +117,18 @@ function clipAbove(mesh, maxY) {
   return { ...mesh, indices: Uint32Array.from(kept) }
 }
 
+function boundsOf(positions) {
+  const min = [Infinity, Infinity, Infinity]
+  const max = [-Infinity, -Infinity, -Infinity]
+  for (let v = 0; v < positions.length; v += 3) {
+    for (let k = 0; k < 3; k += 1) {
+      min[k] = Math.min(min[k], positions[v + k])
+      max[k] = Math.max(max[k], positions[v + k])
+    }
+  }
+  return { min, max }
+}
+
 /**
  * Vertex-clustering decimation: snap vertices to a uniform grid, average each
  * cell, then rebuild the triangles that still span three distinct cells. Keeps
@@ -107,14 +136,7 @@ function clipAbove(mesh, maxY) {
  * unlike edge-collapse needs no connectivity pass over a million vertices.
  */
 function clusterDecimate(mesh, gridCells) {
-  const min = [Infinity, Infinity, Infinity]
-  const max = [-Infinity, -Infinity, -Infinity]
-  for (let i = 0; i < mesh.positions.length; i += 3) {
-    for (let k = 0; k < 3; k += 1) {
-      if (mesh.positions[i + k] < min[k]) min[k] = mesh.positions[i + k]
-      if (mesh.positions[i + k] > max[k]) max[k] = mesh.positions[i + k]
-    }
-  }
+  const { min, max } = boundsOf(mesh.positions)
   const cell = Math.max(max[0] - min[0], max[1] - min[1], max[2] - min[2]) / gridCells
   const dims = min.map((lo, k) => Math.max(1, Math.ceil((max[k] - lo) / cell) + 1))
   const cellOf = new Float64Array(mesh.positions.length / 3)
@@ -198,14 +220,9 @@ function trimmedCenter(positions, axis, keep = 0.94) {
 }
 
 function normalize(mesh) {
-  let minY = Infinity
-  let maxY = -Infinity
-  for (let v = 0; v < mesh.positions.length / 3; v += 1) {
-    const y = mesh.positions[v * 3 + 1]
-    if (y < minY) minY = y
-    if (y > maxY) maxY = y
-  }
-  const scale = TARGET_HEIGHT / (maxY - minY)
+  const { min, max } = boundsOf(mesh.positions)
+  const minY = min[1]
+  const scale = TARGET_HEIGHT / (max[1] - minY)
   const centerX = trimmedCenter(mesh.positions, 0)
   const centerZ = trimmedCenter(mesh.positions, 2)
   for (let v = 0; v < mesh.positions.length / 3; v += 1) {
@@ -282,14 +299,7 @@ function main() {
   writeGlb(options.out, outJson, outBin)
 
   const round = (v) => Number(v.toFixed(4))
-  let min = [Infinity, Infinity, Infinity]
-  let max = [-Infinity, -Infinity, -Infinity]
-  for (let v = 0; v < mesh.positions.length / 3; v += 1) {
-    for (let k = 0; k < 3; k += 1) {
-      min[k] = Math.min(min[k], mesh.positions[v * 3 + k])
-      max[k] = Math.max(max[k], mesh.positions[v * 3 + k])
-    }
-  }
+  const { min, max } = boundsOf(mesh.positions)
   console.log(`${options.src} → ${options.out}`)
   console.log(`  tris ${sourceTris} → ${mesh.indices.length / 3}, verts ${mesh.positions.length / 3} (grid ${options.grid})`)
   console.log(`  source fit: scale ${round(fit.scale)}, centre x ${round(fit.centerX)} z ${round(fit.centerZ)}`)
