@@ -5,6 +5,7 @@ import * as THREE from 'three'
 import { colorFromAddress } from '@/lib/wallet-colors'
 import { buildHumanoidBody, buildHumanHead, humanSkinFromSeed, humanHairFromSeed, swayHumanoidArms, walkHumanoidLegs, flailHumanoidJump, flapHumanoidJump } from '@/lib/humanoid-body'
 import { dockHeldItemsToGlb, seatHumanoidGlbInCar, unseatHumanoidGlb } from '@/lib/humanoid-glb'
+import { createLedgerTool, poseLedgerHoldArm, poseLedgerSwing } from '@/lib/ledger-tool'
 import { attachRlCarModel, addRlCockpitTub } from '@/lib/rl-car-model'
 import { addRlCarBoost, setRlCarBoostLit } from '@/lib/rl-car-boost'
 import { aiTeamPoolCode } from '@/lib/ai-team'
@@ -46,14 +47,14 @@ import {
   M2_PITCH_HOOP,
   updateM2PitchDomeRuntime,
 } from '@/lib/m2-pitch-dome'
-import { addM1MileiStatueReservedCells, createM1MileiStatueVisual, M1_MILEI_STATUE_ID, M1_MILEI_STATUE_POSITION } from '@/lib/m1-milei-statue'
-import { addM1ZelenskyStatueReservedCells, createM1ZelenskyStatueVisual, M1_ZELENSKY_STATUE_ID, M1_ZELENSKY_STATUE_POSITION } from '@/lib/m1-zelensky-statue'
+import { addM1MileiStatueReservedCells, buzzM1MileiStatue, createM1MileiStatueVisual, flashM1MileiStatue, M1_MILEI_STATUE_ID } from '@/lib/m1-milei-statue'
+import { setMileiChainsawProximity, startMileiChainsawLoop, stopMileiChainsawLoop, unlockMileiChainsawLoop } from '@/lib/milei-chainsaw-audio'
+import { addM1ZelenskyStatueReservedCells, createM1ZelenskyStatueVisual, flashM1ZelenskyStatue, M1_ZELENSKY_STATUE_ID } from '@/lib/m1-zelensky-statue'
 import { createM2MacronStatueVisual, M2_MACRON_STATUE_ID, M2_MACRON_STATUE_POSITION } from '@/lib/m2-macron-statue'
 import { NUKE_CUBE_POSITIONS, NUKE_CUBE_INTERACT_RADIUS, addNukeCubeReservations, createNukeCubeVisual, toggleNukeCube, updateNukeCubeVisual } from '@/lib/nuke-cube'
 import { resolveBossStatueFacing, getBossStatuesForMap } from '@/lib/mining-boss-statue-registry'
 import { drawMinimapFlag } from '@/lib/minimap-flags'
 import { addVerticalArenaUsbStaff } from '@/lib/arena-usb-staff'
-import { roundedVoxelGeometry } from '@/lib/rounded-voxel'
 import { advanceShowcaseSpin, approachYaw } from '@/lib/map-boss-facing'
 import { drawRlBadge, onRlCarImageReady } from '@/lib/rl-badge'
 import { setBossMaskEyesRed } from '@/lib/boss-head-photo'
@@ -5040,6 +5041,11 @@ function flashBossStatueEyes(threeState, statueId, ms = 5000) {
   const groups = [threeState?.m1MileiStatueGroup, threeState?.m1ZelenskyStatueGroup, threeState?.m2MacronStatueGroup]
   const group = groups.find(g => g && (!statueId || g.userData.bossStatueId === statueId))
   if (!group) return
+  if (group.userData.statueFixed) {
+    if (group.userData.m1ZelenskyStatue) flashM1ZelenskyStatue(group, ms)
+    else flashM1MileiStatue(group, ms)
+    return
+  }
   setBossMaskEyesRed(group, true)
   clearTimeout(group.userData.eyeRedTimer)
   group.userData.eyeRedTimer = setTimeout(() => setBossMaskEyesRed(group, false), ms)
@@ -11460,6 +11466,13 @@ function updateStatuePatrol(motion, time, dt, cellMap, obsSet) {
 
 function updateM1MileiStatueMotion(motion, time, look = null, cellMap = null, obsSet = null) {
   if (!motion) return
+  // Fixed Milei+motosierra sculpt: no patrol, wave, or head track — only a buzz.
+  // Fixed Zelensky textured statue: rooted, no motion at all.
+  if (motion.fixed) {
+    if (motion.buzz) buzzM1MileiStatue(motion.bodyPivot, time)
+    motion.root?.updateMatrixWorld?.(true)
+    return
+  }
   const armLift = Math.sin(time * 1.8) * 0.026
   const dt = time - (motion.lastSpinTime ?? time)
   motion.lastSpinTime = time
@@ -11592,28 +11605,23 @@ function _extractStatuePlinth(visual, world) {
 
 function addM1MileiStatueDecor(world, lowDetail, state = null) {
   const visual = createM1MileiStatueVisual(THREE, lowDetail)
-  _extractStatuePlinth(visual, world)
   world.add(visual.group)
   if (state) {
     state.m1MileiStatueGroup = visual.group
     state.m1MileiStatueMotion = {
       root: visual.group,
       bodyPivot: visual.bodyPivot,
-      head: visual.group.userData.homeHead || null,
-      leftArm: visual.group.userData.homeLeftArm || null,
-      rightArm: visual.group.userData.homeRightArm || null,
-      leftHand: visual.group.userData.homeLeftHand || null,
-      rightHand: visual.group.userData.homeRightHand || null,
+      fixed: true,
+      buzz: true,
       statueId: M1_MILEI_STATUE_ID,
       mapId: '1',
-      // gazeAngle=0 → stands east of M1 nuke (4.5, 2.5), Zelensky takes south (2.5, 4.5)
-      patrol: initStatuePatrol(M1_MILEI_STATUE_POSITION.gx, M1_MILEI_STATUE_POSITION.gy, visual.group.rotation.y, 0, 0),
     }
   }
 }
 
 function addM1ZelenskyStatueDecor(world, lowDetail, state = null) {
   const visual = createM1ZelenskyStatueVisual(THREE, lowDetail)
+  // Keep the MM3 token plinth fixed at the plaza spot (figure stays rooted too).
   _extractStatuePlinth(visual, world)
   world.add(visual.group)
   if (state) {
@@ -11621,14 +11629,9 @@ function addM1ZelenskyStatueDecor(world, lowDetail, state = null) {
     state.m1ZelenskyStatueMotion = {
       root: visual.group,
       bodyPivot: visual.bodyPivot,
-      salute: 'leftForward',
-      head: visual.group.userData.homeHead || null,
-      leftArm: visual.group.userData.homeLeftArm || null,
-      rightArm: visual.group.userData.homeRightArm || null,
+      fixed: true,
       statueId: M1_ZELENSKY_STATUE_ID,
       mapId: '1',
-      // gazeAngle=PI/2 → stands south of M1 nuke (2.5, 4.5), no overlap with Milei
-      patrol: initStatuePatrol(M1_ZELENSKY_STATUE_POSITION.gx, M1_ZELENSKY_STATUE_POSITION.gy, visual.group.rotation.y, 15, Math.PI / 2),
     }
   }
 }
@@ -12108,11 +12111,7 @@ function createThreeWalletAvatar(wallet) {
     ?new THREE.MeshLambertMaterial({color:c})
     :new THREE.MeshStandardMaterial({color:c,roughness,metalness})
   const skinMat=_mat(skinHex,.72,.02)
-  const darkMat=_mat(dark,.78,.06)
   const hairMat=_mat(hairHex,.62,.04)
-  const cyanMat=new THREE.MeshBasicMaterial({color:'#67e8f9'})
-  const goldMat=new THREE.MeshBasicMaterial({color:'#facc15'})
-  const magentaMat=new THREE.MeshBasicMaterial({color:'#d946ef'})
 
   // Low-poly humanoid — cloth in wallet colour, flesh skin, human head.
   // USB staff and mini-USB hands stay (punch / mining / RL mount).
@@ -12134,32 +12133,9 @@ function createThreeWalletAvatar(wallet) {
   const footL=body.leftShoe
   const footR=body.rightShoe
 
-  // Retro USB staff. The connector is a rectangular Type-A plug, never a pick head.
-  // Pivot sits at the staff's mini-USB port, directly under the right hand's
-  // mini-USB plug, so the hand reads as docked into the staff; swing anims
-  // rotate around this pivot.
-  const tool=new THREE.Group();tool.position.set(.277,.168,-.05)
-  const toolAngle=-.58
-  const shaft=new THREE.Mesh(new THREE.CylinderGeometry(.024,.030,.62,8),darkMat)
-  shaft.rotation.z=toolAngle;shaft.position.set(.17,.255,0);tool.add(shaft)
-  const dataRail=new THREE.Mesh(new THREE.CylinderGeometry(.009,.009,.48,6),cyanMat)
-  dataRail.rotation.z=toolAngle;dataRail.position.set(.185,.285,-.031);tool.add(dataRail)
-  // Mini-USB port instead of a grip: an upward-facing socket block at the
-  // shaft base that the hand plug inserts into (same 45°-rotated 4-segment
-  // trapezoid profile as the hand shell, slightly wider = the female port).
-  const port=new THREE.Mesh(roundedVoxelGeometry(THREE,.10,.075,.08),new THREE.MeshStandardMaterial({color:'#07121c',roughness:.55,metalness:.55}))
-  port.position.set(0,-.03,0);tool.add(port)
-  const portRim=new THREE.Mesh(new THREE.CylinderGeometry(.045,.036,.018,4,1),new THREE.MeshBasicMaterial({color:'#041019'}))
-  portRim.rotation.y=Math.PI/4;portRim.scale.z=.62;portRim.position.set(0,.010,0);tool.add(portRim)
-  const plug=new THREE.Group();plug.position.set(.36,.535,0);plug.rotation.z=toolAngle
-  const plugShell=new THREE.Mesh(new THREE.BoxGeometry(.15,.22,.095),new THREE.MeshStandardMaterial({color:'#d8e7ef',metalness:.78,roughness:.20}))
-  plug.add(plugShell)
-  const plugFace=new THREE.Mesh(new THREE.BoxGeometry(.105,.012,.061),new THREE.MeshBasicMaterial({color:'#041019'}));plugFace.position.y=.116;plug.add(plugFace)
-  for(const x of [-.034,0,.034]){
-    const contact=new THREE.Mesh(new THREE.BoxGeometry(.018,.008,.034),goldMat);contact.position.set(x,.124,0);plug.add(contact)
-  }
-  const plugCollar=new THREE.Mesh(new THREE.BoxGeometry(.17,.055,.11),magentaMat);plugCollar.position.y=-.13;plug.add(plugCollar)
-  tool.add(plug)
+  // Ledger Nano S baton: USB-port end at the hand dock; swing rotates this pivot.
+  const tool = createLedgerTool(THREE, { tint: color })
+  poseLedgerHoldArm(body)
   avatar.add(tool)
   const healEffect=createHealingRechargeEffect()
   healEffect.visible=false
@@ -12395,7 +12371,7 @@ function syncThreeAvatars(state,presence,myIdentity,currentMapId=MINING_CORE_MAP
       // Lie flat: tilt 90° forward, raise slightly so body sits on the ground
       avatar.rotation.x=Math.PI/2
       avatar.position.y=baseZ+0.14
-      avatar.userData.tool.rotation.x=0; avatar.userData.tool.rotation.z=0
+      poseLedgerSwing(avatar.userData.tool, { swing: 0 })
       walkHumanoidLegs(avatar,0)
       // Dead bodies render over obstacle walls so they stay visible when clipping
       if(!wasDead){
@@ -12436,20 +12412,17 @@ function syncThreeAvatars(state,presence,myIdentity,currentMapId=MINING_CORE_MAP
     const airborne=!swing&&(Number(data.zSpeed)||0)>0.55
     if(airborne){
       if(remoteMounted){
-        // Car jump: gleeful flail — arms up in a V, USB staff waggled overhead.
+        // Car jump: gleeful flail — arms up in a V, Ledger waggling overhead.
         flailHumanoidJump(avatar,tSec)
-        avatar.userData.tool.rotation.x=-1.7+Math.sin(tSec*11)*0.4
-        avatar.userData.tool.rotation.z=Math.sin(tSec*7.3)*0.45
+        poseLedgerSwing(avatar.userData.tool, { jump: true, carJump: true, time: tSec })
       }else{
-        // On-foot jump: wing flap + air-pedaling legs, staff pumped skyward.
+        // On-foot jump: wing flap + air-pedaling legs, Ledger pumped skyward.
         flapHumanoidJump(avatar,tSec)
-        avatar.userData.tool.rotation.x=-1.9+Math.sin(tSec*13)*0.55
-        avatar.userData.tool.rotation.z=0
+        poseLedgerSwing(avatar.userData.tool, { jump: true, time: tSec })
       }
     }else{
-    // Forward strike: tool pitches toward target (rotation.x), slight side sweep
-    avatar.userData.tool.rotation.x=-swing*1.15
-    avatar.userData.tool.rotation.z=swing*0.28
+    // Forward strike: short baton pitch toward the target, slight side sweep.
+    poseLedgerSwing(avatar.userData.tool, { swing })
     // Human walk: alternating hip swing (shoes ride at the leg tips), plus a
     // subtle random arm sway so remote wallets read as alive.
     const walk=Number(data.walkDist)||0
@@ -12555,8 +12528,7 @@ function syncThreeLocalAvatar(state,identity,swingT,walkDist,gx,gy,playerZ,headi
     setAvatarPoolSubmersion(state.localAvatar,false,playerZ+0.14)
     state.localAvatar.rotation.x=Math.PI/2
     if (state.localAvatar.userData.tool) {
-      state.localAvatar.userData.tool.rotation.x=0
-      state.localAvatar.userData.tool.rotation.z=0
+      poseLedgerSwing(state.localAvatar.userData.tool, { swing: 0 })
     }
     walkHumanoidLegs(state.localAvatar,0)
   }else{
@@ -12568,25 +12540,16 @@ function syncThreeLocalAvatar(state,identity,swingT,walkDist,gx,gy,playerZ,headi
     const tSec=Date.now()*.001
     if(airborne&&swing<=0){
       if(mounted){
-        // Car jump: gleeful flail — arms up in a V, USB staff waggled overhead.
+        // Car jump: gleeful flail — arms up in a V, Ledger waggling overhead.
         flailHumanoidJump(state.localAvatar,tSec)
-        if (state.localAvatar.userData.tool) {
-          state.localAvatar.userData.tool.rotation.x=-1.7+Math.sin(tSec*11)*0.4
-          state.localAvatar.userData.tool.rotation.z=Math.sin(tSec*7.3)*0.45
-        }
+        poseLedgerSwing(state.localAvatar.userData.tool, { jump: true, carJump: true, time: tSec })
       }else{
-        // On-foot jump: wing flap + air-pedaling legs, staff pumped skyward.
+        // On-foot jump: wing flap + air-pedaling legs, Ledger pumped skyward.
         flapHumanoidJump(state.localAvatar,tSec)
-        if (state.localAvatar.userData.tool) {
-          state.localAvatar.userData.tool.rotation.x=-1.9+Math.sin(tSec*13)*0.55
-          state.localAvatar.userData.tool.rotation.z=0
-        }
+        poseLedgerSwing(state.localAvatar.userData.tool, { jump: true, time: tSec })
       }
     }else{
-      if (state.localAvatar.userData.tool) {
-        state.localAvatar.userData.tool.rotation.x=-swing*1.15
-        state.localAvatar.userData.tool.rotation.z=swing*0.28
-      }
+      poseLedgerSwing(state.localAvatar.userData.tool, { swing })
       // Human walk from the hip + subtle random arm sway.
       const stride=walkDist*.18
       walkHumanoidLegs(state.localAvatar,stride)
@@ -12926,6 +12889,20 @@ export default function MiningChain3DFPV({
       removeGestureListeners()
       stinger.pause()
       stinger.src=''
+    }
+  },[mapId])
+
+  // Milei motosierra loop on M1 — always on while the map is live; volume by distance.
+  useEffect(()=>{
+    if(String(mapId)!=='1'||!portalSoundEnabled()) return undefined
+    startMileiChainsawLoop(0.32)
+    const onGesture=()=>unlockMileiChainsawLoop()
+    window.addEventListener('pointerdown',onGesture)
+    window.addEventListener('keydown',onGesture)
+    return ()=>{
+      window.removeEventListener('pointerdown',onGesture)
+      window.removeEventListener('keydown',onGesture)
+      stopMileiChainsawLoop()
     }
   },[mapId])
 
@@ -13761,6 +13738,10 @@ export default function MiningChain3DFPV({
           updateM1MileiStatueMotion(threeState.m1MileiStatueMotion, time, statueLook, activeCellMapRef.current, validObstaclesRef.current)
           updateM1MileiStatueMotion(threeState.m1ZelenskyStatueMotion, time, statueLook, activeCellMapRef.current, validObstaclesRef.current)
           updateM1MileiStatueMotion(threeState.m2MacronStatueMotion, time, statueLook, activeCellMapRef.current, validObstaclesRef.current)
+          if (mapIdRef.current === '1' && threeState.m1MileiStatueGroup) {
+            const sg = threeState.m1MileiStatueGroup
+            setMileiChainsawProximity(Math.hypot(gx - sg.position.x, gy - sg.position.z))
+          }
           // Nuke cube red button: eases toward its pressed/raised position.
           const nukeGroup=threeState.nukeCubeGroup
           if(nukeGroup){
@@ -15764,13 +15745,12 @@ export default function MiningChain3DFPV({
             npc.swingUntil = nowMs + 420
             onNpcHitRef.current?.({ wallet: npc.wallet, mapId: String(mapIdRef.current) })
           }
-          // USB-staff swing animation on hit
+          // Ledger baton swing on hit
           const tool = npc.avatar.userData.tool
           if (tool) {
             const swingLeft = npc.swingUntil - nowMs
             const swing = swingLeft > 0 ? Math.sin((1 - swingLeft / 420) * Math.PI) : 0
-            tool.rotation.x = -swing * 1.15
-            tool.rotation.z = swing * 0.28
+            poseLedgerSwing(tool, { swing })
           }
           // Same screen-matched LOD scale as remote player avatars, so the bot
           // reads exactly like an opposing player — plus a pop on damage.

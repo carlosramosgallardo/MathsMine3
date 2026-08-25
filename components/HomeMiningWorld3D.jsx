@@ -8,15 +8,17 @@ import { createM4KimBossVisual } from '@/lib/m4-kim-boss-runtime'
 import { M4_KIM_BOSS_SCALE, M4_KIM_BOSS_NAME, M4_KIM_BOSS_MAX_HP } from '@/lib/m4-kim-boss'
 import { createM5TrumpBossVisual } from '@/lib/m5-trump-boss-runtime'
 import { M5_TRUMP_BOSS_SCALE, M5_TRUMP_BOSS_NAME, M5_TRUMP_BOSS_MAX_HP } from '@/lib/m5-trump-boss'
-import { createM1MileiStatueVisual, M1_MILEI_STATUE_SCALE } from '@/lib/m1-milei-statue'
+import { createM1MileiStatueVisual, M1_MILEI_STATUE_SCALE, buzzM1MileiStatue } from '@/lib/m1-milei-statue'
+import { startMileiChainsawLoop, stopMileiChainsawLoop, unlockMileiChainsawLoop } from '@/lib/milei-chainsaw-audio'
 import { createM1ZelenskyStatueVisual, M1_ZELENSKY_STATUE_SCALE } from '@/lib/m1-zelensky-statue'
 import { createM2MacronStatueVisual, M2_MACRON_STATUE_SCALE } from '@/lib/m2-macron-statue'
-import { roundedVoxelGeometry } from '@/lib/rounded-voxel'
 import { advanceShowcaseSpin, approachYaw } from '@/lib/map-boss-facing'
 import { setBossMaskEyesRed } from '@/lib/boss-head-photo'
+import { setQuadrupedFlash } from '@/lib/quadruped-glb'
 import { colorFromAddress } from '@/lib/wallet-colors'
 import { buildHumanoidBody, buildHumanHead, humanSkinFromSeed, humanHairFromSeed, swayHumanoidArms, walkHumanoidLegs, flailHumanoidJump, flapHumanoidJump } from '@/lib/humanoid-body'
 import { dockHeldItemsToGlb, seatHumanoidGlbInCar } from '@/lib/humanoid-glb'
+import { createLedgerTool, poseLedgerHoldArm, poseLedgerSwing } from '@/lib/ledger-tool'
 import { animateQuadruped, isQuadrupedBody } from '@/lib/quadruped-motion'
 import { addRlCarBoost, setRlCarBoostLit } from '@/lib/rl-car-boost'
 import { attachRlCarModel, addRlCockpitTub } from '@/lib/rl-car-model'
@@ -74,15 +76,11 @@ export function addMiningBot(THREE, scene, options = {}) {
   const skinHex = humanSkinFromSeed(botColor)
   const hairHex = humanHairFromSeed(botColor)
   const skinMat = new THREE.MeshStandardMaterial({ color: skinHex, roughness: .72, metalness: .02 })
-  const darkMat = new THREE.MeshStandardMaterial({ color: dark, roughness: .78, metalness: .06 })
   const hairMat = new THREE.MeshStandardMaterial({ color: hairHex, roughness: .62, metalness: .04 })
-  const cyanMat = new THREE.MeshBasicMaterial({ color: '#67e8f9' })
-  const goldMat = new THREE.MeshBasicMaterial({ color: '#facc15' })
-  const magentaMat = new THREE.MeshBasicMaterial({ color: '#d946ef' })
 
   // Low-poly humanoid: cloth in the wallet colour, flesh skin, human head.
-  // USB staff and mini-USB hands stay. Body meshes tagged as bodyParts so
-  // the bot-on-car variant can hide them (mining-style mount: head + staff).
+  // Ledger baton + mini-USB hands. Body meshes tagged as bodyParts so the
+  // bot-on-car variant can hide them (mining-style mount: head only).
   const body = buildHumanoidBody(THREE, avatar, {
     mat: (c, roughness, metalness) => new THREE.MeshStandardMaterial({
       color: c,
@@ -111,52 +109,8 @@ export function addMiningBot(THREE, scene, options = {}) {
   const leftSole = null
   const rightSole = null
 
-  const tool = new THREE.Group()
-  // Pivot sits at the staff's mini-USB port, directly under the right hand's
-  // mini-USB plug, so the hand reads as docked into the staff; punch swings
-  // rotate around this pivot.
-  tool.position.set(.277, .168, -.05)
-  const toolAngle = -.58
-  const shaft = new THREE.Mesh(new THREE.CylinderGeometry(.024, .030, .62, 12), darkMat)
-  shaft.rotation.z = toolAngle
-  shaft.position.set(.17, .255, 0)
-  tool.add(shaft)
-  const dataRail = new THREE.Mesh(new THREE.CylinderGeometry(.009, .009, .48, 8), cyanMat)
-  dataRail.rotation.z = toolAngle
-  dataRail.position.set(.185, .285, -.031)
-  tool.add(dataRail)
-  // Mini-USB port instead of a grip: an upward-facing socket block at the
-  // shaft base that the hand plug inserts into.
-  const port = new THREE.Mesh(
-    roundedVoxelGeometry(THREE, .10, .075, .08),
-    new THREE.MeshStandardMaterial({ color: '#07121c', roughness: .55, metalness: .55 }),
-  )
-  port.position.set(0, -.03, 0)
-  tool.add(port)
-  const portRim = new THREE.Mesh(new THREE.CylinderGeometry(.045, .036, .018, 4, 1), new THREE.MeshBasicMaterial({ color: '#041019' }))
-  portRim.rotation.y = Math.PI / 4
-  portRim.scale.z = .62
-  portRim.position.set(0, .010, 0)
-  tool.add(portRim)
-  const plug = new THREE.Group()
-  plug.position.set(.36, .535, 0)
-  plug.rotation.z = toolAngle
-  plug.add(new THREE.Mesh(
-    new THREE.BoxGeometry(.15, .22, .095),
-    new THREE.MeshStandardMaterial({ color: '#d8e7ef', metalness: .78, roughness: .20 }),
-  ))
-  const plugFace = new THREE.Mesh(new THREE.BoxGeometry(.105, .012, .061), new THREE.MeshBasicMaterial({ color: '#041019' }))
-  plugFace.position.y = .116
-  plug.add(plugFace)
-  for (const x of [-.034, 0, .034]) {
-    const contact = new THREE.Mesh(new THREE.BoxGeometry(.018, .008, .034), goldMat)
-    contact.position.set(x, .124, 0)
-    plug.add(contact)
-  }
-  const collar = new THREE.Mesh(new THREE.BoxGeometry(.17, .055, .11), magentaMat)
-  collar.position.y = -.13
-  plug.add(collar)
-  tool.add(plug)
+  const tool = createLedgerTool(THREE, { tint: botColor })
+  poseLedgerHoldArm(body)
   avatar.add(tool)
 
   avatar.position.set(...position)
@@ -742,6 +696,10 @@ export default function HomeMiningWorld3D() {
     let renderer
     let hoverCleanup = null
     let lastSpinTime = null
+    startMileiChainsawLoop(0.22)
+    const onChainsawGesture = () => unlockMileiChainsawLoop()
+    window.addEventListener('pointerdown', onChainsawGesture)
+    window.addEventListener('keydown', onChainsawGesture)
     // Stage zoom: tapping the showcase (without dragging) toggles a closer
     // framing so the avatars read much bigger; tap again to zoom back out.
     let zoomCur = 1
@@ -850,6 +808,10 @@ export default function HomeMiningWorld3D() {
         const setEyes = (red) => {
           setBossMaskEyesRed(scene, red)
           for (const car of boostCars) setRlCarBoostLit(car, red)
+          for (const boss of homeBosses) {
+            if (!boss.group?.userData?.statueFixed) continue
+            setQuadrupedFlash(boss.bodyPivot, red ? '#ff2020' : '#000000', red ? 0.9 : 0)
+          }
         }
         const onAccessEnter = () => setEyes(true)
         const onAccessLeave = () => setEyes(false)
@@ -1458,13 +1420,15 @@ export default function HomeMiningWorld3D() {
             boss.glowLight.intensity = boss.baseGlow + Math.sin(t * 2.4) * 0.85
 
           } else if (boss.isStatue) {
-            // Statue stage time is a timed hold of its salute at the center.
+            // Statue stage time is a timed hold at center (Milei is fixed; others salute).
             if (feat === 'show' && time >= feature.until) feature.phase = 'back'
-            // Idle in carousel: statue-specific salute pose + head tracking.
             boss.bodyPivot.position.y = boss.bodyPivot.userData.baseY || 0
             boss.group.position.y = boss.baseY
             boss.group.rotation.y = boss.baseRotationY
             boss.group.rotation.z = 0
+            if (boss.group.userData.statueFixed) {
+              if (boss.id === 'milei') buzzM1MileiStatue(boss.bodyPivot, t)
+            } else {
             const armLift = Math.sin(t * 1.8) * 0.026
             if (boss.head) {
               boss.head.rotation.y = Math.sin(t * 0.42) * 0.5 + Math.sin(t * 0.17 + 2) * 0.18
@@ -1507,6 +1471,7 @@ export default function HomeMiningWorld3D() {
                 boss.rightArm.rotation.x = 0
                 boss.rightArm.rotation.z = 2.5 + Math.sin(t * 2.4) * 0.22
               }
+            }
             }
             boss.glowLight.intensity = (boss.baseGlow + Math.sin(t * 2.4) * 0.85) * (0.45 + 0.65 * boss.focus)
 
@@ -1569,42 +1534,29 @@ export default function HomeMiningWorld3D() {
             if (hopT < 0.55) {
               // Mid-hop: the on-foot jump gesture — wing flap + air pedaling.
               flapHumanoidJump(prop.group, t)
-              const tool = prop.group.userData.tool
-              if (tool && !prop.punch) tool.rotation.x = -1.9 + Math.sin(t * 13) * 0.55
+              if (!prop.punch) poseLedgerSwing(prop.group.userData.tool, { jump: true, time: t })
             } else if (isC) {
               // Center stage: marching in place plus arm sway.
               walkHumanoidLegs(prop.group, t * 3.2, 0.22)
               swayHumanoidArms(prop.group, t)
-              if (prop.jump && !prop.punch && prop.group.userData.tool) {
-                prop.group.userData.tool.rotation.x = 0
-              }
+              if (prop.jump && !prop.punch) poseLedgerSwing(prop.group.userData.tool, { swing: 0 })
             } else {
               // On the rail: legs still, arms swaying only.
               walkHumanoidLegs(prop.group, 0, 0)
               swayHumanoidArms(prop.group, t)
-              if (prop.jump && !prop.punch && prop.group.userData.tool) {
-                prop.group.userData.tool.rotation.x = 0
-              }
+              if (prop.jump && !prop.punch) poseLedgerSwing(prop.group.userData.tool, { swing: 0 })
             }
           } else if (prop.kind === 'botCar' && prop.bot) {
             // Ground level minus the anti-z-fight drop (see addHomeBotCar).
             prop.bot.position.y = HOME_BOTCAR_SEAT_Y + Math.sin(t * 2.4) * .012
             const jumpT = prop.jump && isC ? (time + (prop.jumpPhase || 0)) % 2 : 1
             if (jumpT < 0.55) {
-              // Mid-hop: the gleeful in-game jump flail — arms up wiggling,
-              // USB staff brandished overhead.
+              // Mid-hop: gleeful flail — arms up, Ledger waggling overhead.
               flailHumanoidJump(prop.bot, t)
-              const tool = prop.bot.userData.tool
-              if (tool) {
-                tool.rotation.x = -1.7 + Math.sin(t * 11) * 0.4
-                tool.rotation.z = Math.sin(t * 7.3) * 0.45
-              }
+              poseLedgerSwing(prop.bot.userData.tool, { jump: true, carJump: true, time: t })
             } else {
               swayHumanoidArms(prop.bot, t)
-              if (!prop.punch && prop.bot.userData.tool) {
-                prop.bot.userData.tool.rotation.x = 0
-                prop.bot.userData.tool.rotation.z = 0
-              }
+              if (!prop.punch) poseLedgerSwing(prop.bot.userData.tool, { swing: 0 })
             }
           } else if (prop.kind === 'nuke' && prop.cube) {
             // Auto-press only under the spotlight.
@@ -1612,16 +1564,17 @@ export default function HomeMiningWorld3D() {
             updateNukeCubeVisual(prop.cube, spinDt)
           }
           if (prop.punch) {
-            // Relaxed sparring: one 0.5s forward staff strike every 2s.
+            // Relaxed sparring: one 0.5s forward baton strike every 2s.
             const tool = (prop.kind === 'botCar' ? prop.bot : prop.group)?.userData.tool
             if (tool) {
               if (isC) {
                 const pt = (time + (prop.punchPhase || 0)) % 2
                 const swing = pt < 0.5 ? Math.sin((pt / 0.5) * Math.PI) : 0
-                tool.rotation.x = -swing * 1.05
+                poseLedgerSwing(tool, { swing })
               } else {
-                // Ease a mid-swing staff back to rest when focus moves on.
+                // Ease a mid-swing baton back to rest when focus moves on.
                 tool.rotation.x += (0 - tool.rotation.x) * Math.min(1, spinDt * 6)
+                tool.rotation.z += (0 - tool.rotation.z) * Math.min(1, spinDt * 6)
               }
             }
           }
@@ -1698,6 +1651,9 @@ export default function HomeMiningWorld3D() {
     return () => {
       destroyed = true
       hoverCleanup?.()
+      window.removeEventListener('pointerdown', onChainsawGesture)
+      window.removeEventListener('keydown', onChainsawGesture)
+      stopMileiChainsawLoop()
       document.removeEventListener('visibilitychange', onVisibilityChange)
       cancelAnimationFrame(animationFrame)
       resizeObserver?.disconnect()
