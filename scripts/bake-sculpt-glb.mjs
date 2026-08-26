@@ -14,6 +14,7 @@
  *     [--grid 160] [--max-y 0.58] [--preview .private/preview/trump]
  */
 import { statSync } from 'node:fs'
+import { isTrumpDollarBillVertex, trumpDollarBillRgb } from '../lib/trump-bibi-colors.js'
 import {
   readGlb,
   writeGlb,
@@ -303,6 +304,28 @@ function paintMileiColors(mesh) {
   }
 }
 
+function paintTrumpDollarBill(mesh) {
+  const { positions, colors } = mesh
+  const count = positions.length / 3
+  for (let v = 0; v < count; v += 1) {
+    const x = positions[v * 3]
+    const y = positions[v * 3 + 1]
+    const z = positions[v * 3 + 2]
+    const r = colors[v * 3]
+    const g = colors[v * 3 + 1]
+    const b = colors[v * 3 + 2]
+    const max = Math.max(r, g, b)
+    const min = Math.min(r, g, b)
+    const mid = (r + g + b) / 3
+    const isHairDark = max < 0.3 && max - min < 0.14
+    if (!isTrumpDollarBillVertex(x, y, z, r, g, b, { isHairDark })) continue
+    const [nr, ng, nb] = trumpDollarBillRgb(mid)
+    colors[v * 3] = nr
+    colors[v * 3 + 1] = ng
+    colors[v * 3 + 2] = nb
+  }
+}
+
 function buildGlb(mesh, extras, name) {
   // Open shells (straps, rods) need double-sided materials.
   return buildVertexColorMeshGlb(mesh, {
@@ -332,6 +355,8 @@ function main() {
   }
 
   const name = options.out.split('/').pop().replace(/\.glb$/, '')
+  if (name === 'trump') paintTrumpDollarBill(mesh)
+
   const { json: outJson, bin: outBin } = buildGlb(mesh, creditExtras(json), name)
   writeGlb(options.out, outJson, outBin)
 
