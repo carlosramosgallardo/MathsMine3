@@ -176,31 +176,64 @@ async function waitHomePortalReady(page) {
   }
 }
 
+async function readCenterPortal(page) {
+  return page.evaluate(() => {
+    const el = document.querySelector('[data-testid="mm3-portal-center-name"]')
+    if (!el) return { label: '', href: null }
+    return { label: (el.textContent || '').trim(), href: el.getAttribute('href') }
+  }).catch(() => ({ label: '', href: null }))
+}
+
 async function readCenterPortalLabel(page) {
-  return page.locator('.mm3-nonagon-center-name').first()
-    .evaluate((el) => (el.textContent || '').trim())
-    .catch(() => '')
+  return (await readCenterPortal(page)).label
 }
 
 async function readCenterPortalHref(page) {
-  return page.locator('.mm3-nonagon-center-name').first().getAttribute('href').catch(() => null)
+  return (await readCenterPortal(page)).href
 }
 
 async function focusPortalHref(page, href) {
   if (!(await waitHomePortalReady(page))) return ''
   await dismissHomeStageZoom(page)
-  const side = page.locator(`[data-portal-href="${href}"]`).first()
-  if (!(await side.count())) return ''
-  await side.hover({ force: true, timeout: 5000 }).catch(() => {})
-  await page.waitForTimeout(450)
-  if ((await readCenterPortalHref(page)) === href) return readCenterPortalLabel(page)
-  await side.locator('line').nth(1).click({ force: true, timeout: 5000 }).catch(() => {})
-  await page.waitForTimeout(450)
-  if ((await readCenterPortalHref(page)) === href) return readCenterPortalLabel(page)
-  for (let step = 0; step < 11; step += 1) {
+  // Hover pauses the 3s auto-rotation (see NonagonPortal onMouseEnter).
+  await page.locator('.mm3-nonagon').hover({ force: true, timeout: 5000 }).catch(() => {})
+  await page.waitForTimeout(250)
+
+  const sideId = `mm3-portal-side-${href.replace(/^\//, '')}`
+  if (!(await page.getByTestId(sideId).count())) return ''
+
+  await page.evaluate((id) => {
+    const side = document.querySelector(`[data-testid="${id}"]`)
+    if (!side) return
+    side.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }))
+    const hit = side.querySelector('line[stroke="transparent"]') || side.querySelector('line')
+    hit?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+  }, sideId)
+  await page.waitForTimeout(400)
+
+  for (let i = 0; i < 8; i += 1) {
+    const { label, href: centerHref } = await readCenterPortal(page)
+    if (centerHref === href) return label
+    await page.waitForTimeout(200)
+  }
+
+  const portalLen = await page.locator('[data-portal-href]').count()
+  for (let step = 0; step < portalLen + 2; step += 1) {
     await dismissHomeStageZoom(page)
-    if ((await readCenterPortalHref(page)) === href) return readCenterPortalLabel(page)
-    await page.locator('.mm3-nonagon-arrow').nth(1).click({ timeout: 5000 }).catch(() => {})
+    const { label, href: centerHref } = await readCenterPortal(page)
+    if (centerHref === href) return label
+
+    const { currentIdx, targetIdx } = await page.evaluate((target) => {
+      const center = document.querySelector('[data-testid="mm3-portal-center-name"]')
+      const active = center?.getAttribute('href') || ''
+      const sides = [...document.querySelectorAll('[data-portal-href]')]
+      const idx = (h) => sides.findIndex((el) => el.getAttribute('data-portal-href') === h)
+      return { currentIdx: idx(active), targetIdx: idx(target) }
+    }, href)
+    if (currentIdx < 0 || targetIdx < 0) break
+    const forward = ((targetIdx - currentIdx + portalLen) % portalLen) <= portalLen / 2
+    const arrowIdx = forward ? 1 : 0
+    await page.locator('.mm3-nonagon-arrow').nth(arrowIdx).click({ force: true, timeout: 5000 }).catch(() => {})
     await page.waitForTimeout(350)
   }
   return readCenterPortalLabel(page)
