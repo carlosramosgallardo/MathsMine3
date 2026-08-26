@@ -78,12 +78,20 @@ async function goto(page, base, path, { slow = false } = {}) {
 
 async function dismissCookies(page) {
   const banner = page.getByTestId('mm3-cookie-banner')
-  if (await banner.count()) {
-    const accept = page.getByTestId('mm3-cookie-accept')
-    // Home WebGL can stall Playwright's post-click navigation wait.
-    if (await accept.count()) await accept.click({ noWaitAfter: true, timeout: 10_000 })
-    await page.waitForTimeout(200)
+  if (!(await banner.count())) return
+  // Home WebGL re-renders make Playwright's actionability wait hang — DOM click.
+  try {
+    await domClick(page, 'mm3-cookie-accept')
+  } catch {
+    await page.evaluate(() => {
+      try {
+        localStorage.setItem('mm3_cookies_accepted', 'true')
+        localStorage.setItem('mm3_cookies_accepted_at', new Date().toISOString())
+      } catch { /* */ }
+      document.querySelector('[data-testid="mm3-cookie-banner"]')?.remove()
+    })
   }
+  await page.waitForTimeout(200)
 }
 
 async function bodyHas(page, needle) {
@@ -318,7 +326,7 @@ async function runPhase2(page, base, { ok, nok, skip }) {
     await page.waitForTimeout(700)
     const banner = page.getByTestId('mm3-cookie-banner')
     if (await banner.count()) {
-      await page.getByTestId('mm3-cookie-accept').click({ noWaitAfter: true, timeout: 10_000 })
+      await domClick(page, 'mm3-cookie-accept')
       await page.waitForTimeout(200)
       const stored = await page.evaluate(() => localStorage.getItem('mm3_cookies_accepted'))
       const gone = (await banner.count()) === 0
