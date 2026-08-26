@@ -12478,6 +12478,7 @@ function syncThreeAvatars(state,presence,myIdentity,currentMapId=MINING_CORE_MAP
       swayHumanoidArms(avatar,tSec)
     }
     }
+    }
   }
   for(const [wallet,avatar] of state.avatars){
     if(active.has(wallet)) continue
