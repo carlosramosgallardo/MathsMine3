@@ -143,6 +143,21 @@ async function setLanguage(page, lang) {
   await page.waitForTimeout(350)
 }
 
+async function selectPortalSide(page, href, labelRe) {
+  const side = page.getByTestId(`mm3-portal-side-${href.replace(/^\//, '')}`)
+  await side.waitFor({ state: 'visible', timeout: 15000 })
+  await side.click({ timeout: 5000 })
+  await page.waitForFunction(
+    (pattern) => {
+      const el = document.querySelector('[data-testid="mm3-portal-center-name"]')
+      return Boolean(el && new RegExp(pattern, 'i').test(el.textContent || ''))
+    },
+    labelRe,
+    { timeout: 8000 },
+  )
+  return page.getByTestId('mm3-portal-center-name').innerText().catch(() => '')
+}
+
 async function setCurrency(page, code) {
   await closeOverlays(page)
   await domClick(page, 'mm3-currency-toggle')
@@ -409,17 +424,13 @@ async function runPhase2(page, base, { ok, nok, skip }) {
     // Home nonagon labels flip with language (select Manifesto side)
     await goto(page, base, '/')
     await setLanguage(page, 'es')
-    await page.locator('[data-portal-href="/manifesto"]').first().evaluate((el) => el.dispatchEvent(new MouseEvent('click', { bubbles: true })))
-    await page.waitForTimeout(400)
-    const homeEs = await page.getByTestId('mm3-portal-center-name').innerText().catch(() => '')
+    const homeEs = await selectPortalSide(page, '/manifesto', 'Manifiesto').catch(() => '')
     if (/Manifiesto/i.test(homeEs)) ok('portal.lang.es.home.manifestoLabel', homeEs)
     else if (await bodyHas(page, 'Manifiesto')) ok('portal.lang.es.home.manifestoLabel', 'body')
     else nok('portal.lang.es.home.manifestoLabel', `center=${homeEs}`)
 
     await setLanguage(page, 'en')
-    await page.locator('[data-portal-href="/manifesto"]').first().evaluate((el) => el.dispatchEvent(new MouseEvent('click', { bubbles: true })))
-    await page.waitForTimeout(400)
-    const homeEn = await page.getByTestId('mm3-portal-center-name').innerText().catch(() => '')
+    const homeEn = await selectPortalSide(page, '/manifesto', 'Manifesto').catch(() => '')
     if (/Manifesto/i.test(homeEn)) ok('portal.lang.en.home.manifestoLabel', homeEn)
     else if (await bodyHas(page, 'Manifesto')) ok('portal.lang.en.home.manifestoLabel', 'body')
     else nok('portal.lang.en.home.manifestoLabel', `center=${homeEn}`)
