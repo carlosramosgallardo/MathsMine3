@@ -11467,8 +11467,6 @@ function updateStatuePatrol(motion, time, dt, cellMap, obsSet) {
 
 function updateM1MileiStatueMotion(motion, time, look = null, cellMap = null, obsSet = null) {
   if (!motion) return
-  // Fixed Milei+motosierra sculpt: no patrol, wave, or head track — only a buzz.
-  // Fixed Zelensky textured statue: rooted, no motion at all.
   if (motion.fixed) {
     if (motion.buzz) buzzM1MileiStatue(motion.bodyPivot, time)
     motion.root?.updateMatrixWorld?.(true)
@@ -11484,7 +11482,10 @@ function updateM1MileiStatueMotion(motion, time, look = null, cellMap = null, ob
   const isGazing = patrolPhase === 'gazing'
 
   if (isMoving || isGazing) {
-    if (motion.bodyPivot) motion.bodyPivot.rotation.x = 0
+    if (motion.bodyPivot) {
+      motion.bodyPivot.rotation.x = 0
+      motion.bodyPivot.rotation.z = 0
+    }
     walkHumanoidLegs(motion.bodyPivot, isMoving ? time * 6.4 : 0, 0.5)
     swayHumanoidArms(motion.bodyPivot, time)
     if (motion.head) {
@@ -11499,6 +11500,13 @@ function updateM1MileiStatueMotion(motion, time, look = null, cellMap = null, ob
     motion.root?.updateMatrixWorld?.(true)
     return
   }
+
+  // Idle on the pedestal — Milei buzzes the saw; others keep a light human sway.
+  if (motion.bodyPivot) {
+    const deck = motion.bodyPivot.userData.baseY ?? 0
+    motion.bodyPivot.position.y = deck
+  }
+  if (motion.buzz) buzzM1MileiStatue(motion.bodyPivot, time)
 
   if (motion.head) {
     // Head tracks the nearest alive player on M1 (neck-limited, smooth turns
@@ -11590,16 +11598,37 @@ function updateM1MileiStatueMotion(motion, time, look = null, cellMap = null, ob
   motion.root?.updateMatrixWorld?.(true)
 }
 
+function extractStatuePlinthToWorld(visual, world) {
+  // Keep the Milei-style pedestal fixed at the plaza while the figure patrols.
+  const fit = visual.group.children.find((c) => c.name === 'statuePlinthFit')
+  if (!fit) return
+  const pg = new THREE.Group()
+  pg.name = `${visual.group.name || 'statue'}Plinth`
+  pg.position.copy(visual.group.position)
+  pg.rotation.copy(visual.group.rotation)
+  pg.scale.copy(visual.group.scale)
+  pg.frustumCulled = false
+  world.add(pg)
+  visual.group.remove(fit)
+  pg.add(fit)
+}
+
 function addM1MileiStatueDecor(world, lowDetail, state = null) {
   const visual = createM1MileiStatueVisual(THREE, lowDetail)
+  extractStatuePlinthToWorld(visual, world)
   world.add(visual.group)
   if (state) {
+    const { gx, gy } = visual.group.position
     state.m1MileiStatueGroup = visual.group
     state.m1MileiStatueMotion = {
       root: visual.group,
       bodyPivot: visual.bodyPivot,
-      fixed: true,
+      fixed: false,
       buzz: true,
+      salute: 'rightWave',
+      leftArm: visual.group.userData.homeLeftArm || null,
+      rightArm: visual.group.userData.homeRightArm || null,
+      patrol: initStatuePatrol(gx, gy, visual.group.rotation.y, 8, 0.35),
       statueId: M1_MILEI_STATUE_ID,
       mapId: '1',
     }
@@ -11608,14 +11637,19 @@ function addM1MileiStatueDecor(world, lowDetail, state = null) {
 
 function addM1ZelenskyStatueDecor(world, lowDetail, state = null) {
   const visual = createM1ZelenskyStatueVisual(THREE, lowDetail)
-  // Plinth is the Milei extract under the figure (no legacy cylinder to peel).
+  extractStatuePlinthToWorld(visual, world)
   world.add(visual.group)
   if (state) {
+    const { gx, gy } = visual.group.position
     state.m1ZelenskyStatueGroup = visual.group
     state.m1ZelenskyStatueMotion = {
       root: visual.group,
       bodyPivot: visual.bodyPivot,
-      fixed: true,
+      fixed: false,
+      salute: 'leftForward',
+      leftArm: visual.group.userData.homeLeftArm || null,
+      rightArm: visual.group.userData.homeRightArm || null,
+      patrol: initStatuePatrol(gx, gy, visual.group.rotation.y, 22, 2.4),
       statueId: M1_ZELENSKY_STATUE_ID,
       mapId: '1',
     }
@@ -11624,13 +11658,19 @@ function addM1ZelenskyStatueDecor(world, lowDetail, state = null) {
 
 function addM2MacronStatueDecor(world, lowDetail, state = null) {
   const visual = createM2MacronStatueVisual(THREE, lowDetail)
+  extractStatuePlinthToWorld(visual, world)
   world.add(visual.group)
   if (state) {
+    const { gx, gy } = visual.group.position
     state.m2MacronStatueGroup = visual.group
     state.m2MacronStatueMotion = {
       root: visual.group,
       bodyPivot: visual.bodyPivot,
-      fixed: true,
+      fixed: false,
+      salute: 'bothUp',
+      leftArm: visual.group.userData.homeLeftArm || null,
+      rightArm: visual.group.userData.homeRightArm || null,
+      patrol: initStatuePatrol(gx, gy, visual.group.rotation.y, 40, 4.1),
       statueId: M2_MACRON_STATUE_ID,
       mapId: '2',
     }
