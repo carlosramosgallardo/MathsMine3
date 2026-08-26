@@ -16,16 +16,16 @@ import { advanceShowcaseSpin, approachYaw } from '@/lib/map-boss-facing'
 import { setBossMaskEyesRed } from '@/lib/boss-head-photo'
 import { colorFromAddress } from '@/lib/wallet-colors'
 import { buildHumanoidBody, buildHumanHead, humanSkinFromSeed, humanHairFromSeed, swayHumanoidArms, walkHumanoidLegs, flailHumanoidJump, flapHumanoidJump } from '@/lib/humanoid-body'
-import { dockHeldItemsToGlb, hookHumanoidCarMount, HUMANOID_GLB_SRC_CLOTHES } from '@/lib/humanoid-glb'
+import { dockHeldItemsToGlb } from '@/lib/humanoid-glb'
+import { attachManHeadInCar } from '@/lib/man-head-car'
 import {
-  applyKimRigidHomeAttack,
-  applyKimRigidHomeGreet,
-  applyKimRigidHomeWalk,
+  applyRigidHomeAttack,
+  applyRigidHomeGreet,
+  applyRigidHomeWalk,
   homeAttackEnvelope,
   homeBossAttackHop,
   homeBossGreetYaw,
-  isKimRigidStatue,
-  resetKimRigidHomeIdle,
+  isRigidTexturedBoss,
 } from '@/lib/home-boss-choreography'
 import { createLedgerTool, poseLedgerHoldArm, poseLedgerSwing } from '@/lib/ledger-tool'
 import { animateQuadruped, isQuadrupedBody } from '@/lib/quadruped-motion'
@@ -104,6 +104,7 @@ export function addMiningBot(THREE, scene, options = {}) {
     rotationY = homeYawTowardCenter(-2.25, .20),
     scale = HOME_ARENA_BOT_SCALE,
     glbBodyCutY = undefined,
+    skipGlb = false,
   } = options
   const avatar = new THREE.Group()
   const color = new THREE.Color(botColor)
@@ -128,6 +129,7 @@ export function addMiningBot(THREE, scene, options = {}) {
     handStyle: 'miniusb',
     sleeve: 'short',
     glbBodyCutY,
+    skipGlb,
     colors: {
       skin: skinHex,
       torso: color.clone().lerp(new THREE.Color('#ffffff'), .10),
@@ -211,19 +213,28 @@ function addHomeBotCar(THREE, scene, options = {}) {
   addRlCockpitTub(THREE, car)
   group.add(car)
 
-  // Mining-style mount, seated in the rl-car.glb cockpit: the cabin sits in
-  // the rear half of the model (car-local z +0.18 → ×CAR_SCALE in group
-  // units), and the bot is sunk into the body so it reads as riding the car.
+  // Rider: wallet-coloured capsule body hidden; Sketchfab Male Head peeks from the tub.
   const bot = addMiningBot(THREE, group, {
     color: botColor,
     position: [0, HOME_BOTCAR_SEAT_Y, HOME_BOTCAR_SEAT_Z],
     rotationY: 0,
     scale: HOME_LINEUP_BOT_SCALE,
-    glbBodyCutY: HUMANOID_GLB_SRC_CLOTHES.waistY,
+    skipGlb: true,
   })
-  hookHumanoidCarMount(bot, {
+  for (const part of [
+    bot.userData.leftFoot, bot.userData.rightFoot,
+    ...(bot.userData.humanLegs || []),
+    ...(bot.userData.humanArms || []),
+    ...(bot.userData.bodyParts || []),
+    bot.userData.tool,
+  ]) {
+    if (part) part.visible = false
+  }
+  for (const mesh of bot.userData.proceduralHeadMeshes || []) mesh.visible = false
+  attachManHeadInCar(THREE, bot, {
     neckY: HOME_BOTCAR_NECK_Y,
     neckZ: HOME_BOTCAR_NECK_Z,
+    targetHeight: 0.42,
   })
   gateHomeAvatarUntilReady(group, bot)
   return { kind: 'botCar', group, bot, car, baseY: HOME_ARENA_FLOOR_Y, baseRotationY: rotationY, phase, bob: 2.15, sway: .42 }
@@ -444,7 +455,7 @@ const HOME_BOSS_LAYOUT = [
   {
     id: 'zelensky',
     heightMult: 1.0,
-    yOffset: 0.12,
+    yOffset: 0,
     createVisual: createM1ZelenskyStatueVisual,
     bossScale: M1_ZELENSKY_STATUE_SCALE,
     position: [HOME_LINEUP_X[1], 0, 0.06],
@@ -458,7 +469,7 @@ const HOME_BOSS_LAYOUT = [
   {
     id: 'macron',
     heightMult: 1.0,
-    yOffset: 0.12,
+    yOffset: 0,
     createVisual: createM2MacronStatueVisual,
     bossScale: M2_MACRON_STATUE_SCALE,
     position: [HOME_LINEUP_X[3], 0, 0.06],
@@ -1047,9 +1058,9 @@ export default function HomeMiningWorld3D() {
         }
         const arms = boss.bodyPivot?.userData?.humanArms
         const legs = boss.bodyPivot?.userData?.humanLegs
-        const rigidKim = bossId === 'kim' && isKimRigidStatue(boss.bodyPivot)
-        if (rigidKim && (!arms || !legs)) {
-          applyKimRigidHomeAttack(boss, at, t)
+        const rigidBoss = (bossId === 'kim' || bossId === 'putin') && isRigidTexturedBoss(boss.bodyPivot)
+        if (rigidBoss && (!arms || !legs)) {
+          applyRigidHomeAttack(boss, at, t)
           return
         }
         if (!arms || !legs) return
@@ -1111,8 +1122,8 @@ export default function HomeMiningWorld3D() {
           boss.bodyPivot.scale.setScalar(1)
           return
         }
-        if (bossId === 'kim' && isKimRigidStatue(boss.bodyPivot)) {
-          applyKimRigidHomeGreet(boss, gt, t)
+        if ((bossId === 'kim' || bossId === 'putin') && isRigidTexturedBoss(boss.bodyPivot)) {
+          applyRigidHomeGreet(boss, gt, t)
           return
         }
         const arms = boss.bodyPivot?.userData?.humanArms
@@ -1264,11 +1275,12 @@ export default function HomeMiningWorld3D() {
           feature.entry = center
           center.origBaseZ = center.baseZ
           center.spinYaw = 0
-          if (center.isStatue) {
-            // Statues hold their salute in place — no walk, just stage time.
+          if (center.isStatue && center.group?.userData?.statueFixed) {
+            // Milei stays rooted — timed salute hold only.
             feature.phase = 'show'
             feature.until = time + 4
           } else {
+            // Bosses + walking statues step off the rail toward the camera.
             feature.phase = 'out'
           }
         }
@@ -1304,7 +1316,7 @@ export default function HomeMiningWorld3D() {
               walkHumanoidLegs(boss.bodyPivot, t * 3.5, 0.45)
               swayHumanoidArms(boss.bodyPivot, t)
               animateQuadruped(boss.bodyPivot, { time: t, moving: 1 })
-              if (boss.id === 'kim' && isKimRigidStatue(boss.bodyPivot)) applyKimRigidHomeWalk(boss, t)
+              if (isRigidTexturedBoss(boss.bodyPivot)) applyRigidHomeWalk(boss, t)
             } else if (feat === 'out') {
               // Arrived at the front of the stage: play the signature show
               // from here (baseZ moved forward so attack/greet use this spot).
@@ -1312,8 +1324,9 @@ export default function HomeMiningWorld3D() {
               walkHumanoidLegs(boss.bodyPivot, 0, 0)
               boss.baseZ = boss.origBaseZ + FEATURE_STEP_Z
               feature.phase = 'show'
-              if (boss.isStatue) feature.until = time + 4
-              else {
+              if (boss.isStatue) {
+                feature.until = time + 4
+              } else {
                 bossAttackStart[boss.id] = now
                 bossVfxFired[boss.id] = false
                 boss.lungseFacing = g.rotation.y
@@ -1337,58 +1350,22 @@ export default function HomeMiningWorld3D() {
             boss.glowLight.intensity = boss.baseGlow + Math.sin(t * 2.4) * 0.85
 
           } else if (boss.isStatue) {
-            // Statue stage time is a timed hold at center (Milei is fixed; others salute).
+            // Milei: fixed salute hold. Walking statues (Macron/Zelensky): soft walk bob.
             if (feat === 'show' && time >= feature.until) feature.phase = 'back'
-            boss.bodyPivot.position.y = boss.bodyPivot.userData.baseY || 0
-            boss.group.position.y = boss.baseY
             boss.group.rotation.y = boss.baseRotationY
-            boss.group.rotation.z = 0
             if (boss.group.userData.statueFixed) {
+              boss.bodyPivot.position.y = boss.bodyPivot.userData.baseY || 0
+              boss.group.position.y = boss.baseY
+              boss.group.rotation.z = 0
               if (boss.id === 'milei') buzzM1MileiStatue(boss.bodyPivot, t)
+            } else if (isRigidTexturedBoss(boss.bodyPivot)) {
+              applyRigidHomeWalk(boss, t)
+              boss.group.position.y = boss.baseY + Math.max(0, Math.sin(t * (boss.bob + 0.15)) * 0.018)
+              boss.group.rotation.z = Math.sin(t * (boss.sway + 0.65)) * 0.014
             } else {
-            const armLift = Math.sin(t * 1.8) * 0.026
-            if (boss.head) {
-              boss.head.rotation.y = Math.sin(t * 0.42) * 0.5 + Math.sin(t * 0.17 + 2) * 0.18
-              boss.head.rotation.x = Math.sin(t * 0.55 + 1) * 0.045
-            }
-            if (boss.saluteStyle === 'leftForward') {
-              const breathe = Math.sin(t * 1.6) * 0.03
-              if (boss.leftArm) {
-                boss.leftArm.position.y = (boss.leftArm.userData.baseY ?? 0.655) + armLift
-                boss.leftArm.rotation.x = 2.25 + breathe
-                boss.leftArm.rotation.z = (boss.leftArm.userData.baseRotZ || 0) + 0.08
-              }
-              if (boss.rightArm) {
-                const phase = boss.rightArm.userData.swayPhase || 0
-                boss.rightArm.position.y = (boss.rightArm.userData.baseY ?? 0.655) + armLift
-                boss.rightArm.rotation.x = Math.sin(t * 0.9 + phase) * 0.055
-                boss.rightArm.rotation.z = (boss.rightArm.userData.baseRotZ || 0) + Math.sin(t * 0.63 + phase) * 0.045
-              }
-              boss.bodyPivot.rotation.x = -0.03 + breathe * 0.3
-            } else if (boss.saluteStyle === 'bothUp') {
-              if (boss.leftArm) {
-                boss.leftArm.position.y = (boss.leftArm.userData.baseY ?? 0.655) + armLift
-                boss.leftArm.rotation.x = 0
-                boss.leftArm.rotation.z = -2.5 - Math.sin(t * 2.4 + Math.PI) * 0.22
-              }
-              if (boss.rightArm) {
-                boss.rightArm.position.y = (boss.rightArm.userData.baseY ?? 0.655) + armLift
-                boss.rightArm.rotation.x = 0
-                boss.rightArm.rotation.z = 2.5 + Math.sin(t * 2.4) * 0.22
-              }
-            } else {
-              if (boss.leftArm) {
-                const phase = boss.leftArm.userData.swayPhase || 0
-                boss.leftArm.position.y = (boss.leftArm.userData.baseY ?? 0.655) + armLift
-                boss.leftArm.rotation.x = Math.sin(t * 0.9 + phase) * 0.055
-                boss.leftArm.rotation.z = (boss.leftArm.userData.baseRotZ || 0) + Math.sin(t * 0.63 + phase) * 0.045
-              }
-              if (boss.rightArm) {
-                boss.rightArm.position.y = (boss.rightArm.userData.baseY ?? 0.655) + armLift
-                boss.rightArm.rotation.x = 0
-                boss.rightArm.rotation.z = 2.5 + Math.sin(t * 2.4) * 0.22
-              }
-            }
+              boss.bodyPivot.position.y = boss.bodyPivot.userData.baseY || 0
+              boss.group.position.y = boss.baseY
+              boss.group.rotation.z = 0
             }
             boss.glowLight.intensity = (boss.baseGlow + Math.sin(t * 2.4) * 0.85) * (0.45 + 0.65 * boss.focus)
 
@@ -1414,6 +1391,12 @@ export default function HomeMiningWorld3D() {
               boss.glowLight.intensity += bIn * bOut * 1.4
             } else if (greetT > 0) {
               applyBossGreet(boss, boss.id, greetT, t)
+            } else if (isRigidTexturedBoss(boss.bodyPivot)) {
+              // Kim/Putin textured props: lean-walk bob (no capsule limbs).
+              applyRigidHomeWalk(boss, t)
+              boss.group.position.y = boss.baseY + Math.max(0, Math.sin(t * (boss.bob + 0.15)) * 0.018)
+              boss.group.position.z = boss.baseZ
+              boss.group.rotation.z = Math.sin(t * (boss.sway + 0.65)) * 0.014
             } else {
               boss.bodyPivot.position.y = Math.max(0, stride * 0.06)
               boss.group.position.y = boss.baseY + Math.max(0, Math.sin(t * (boss.bob + 0.15)) * 0.018)
@@ -1422,7 +1405,6 @@ export default function HomeMiningWorld3D() {
               swayHumanoidArms(boss.bodyPivot, t)
               // Crawlers keep pawing on the spot instead of standing still.
               animateQuadruped(boss.bodyPivot, { time: t, moving: boss.isCenter ? 0.45 : 0.18 })
-              if (boss.id === 'kim' && isKimRigidStatue(boss.bodyPivot)) resetKimRigidHomeIdle(boss)
               const legs = boss.bodyPivot?.userData?.humanLegs
               if (legs) {
                 legs[0].rotation.x = 0; legs[0].rotation.z = 0

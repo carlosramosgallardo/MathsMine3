@@ -5041,10 +5041,10 @@ function flashBossStatueEyes(threeState, statueId, ms = 5000) {
   const groups = [threeState?.m1MileiStatueGroup, threeState?.m1ZelenskyStatueGroup, threeState?.m2MacronStatueGroup]
   const group = groups.find(g => g && (!statueId || g.userData.bossStatueId === statueId))
   if (!group) return
+  if (group.userData.m1ZelenskyStatue) { flashM1ZelenskyStatue(group, ms); return }
+  if (group.userData.m2MacronStatue) { flashM2MacronStatue(group, ms); return }
   if (group.userData.statueFixed) {
-    if (group.userData.m1ZelenskyStatue) flashM1ZelenskyStatue(group, ms)
-    else if (group.userData.m2MacronStatue) flashM2MacronStatue(group, ms)
-    else flashM1MileiStatue(group, ms)
+    flashM1MileiStatue(group, ms)
     return
   }
   setBossMaskEyesRed(group, true)
