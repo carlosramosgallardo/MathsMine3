@@ -16,6 +16,7 @@ import { advanceShowcaseSpin, approachYaw } from '@/lib/map-boss-facing'
 import { setBossMaskEyesRed } from '@/lib/boss-head-photo'
 import { colorFromAddress } from '@/lib/wallet-colors'
 import { buildHumanoidBody, buildHumanHead, humanSkinFromSeed, humanHairFromSeed, swayHumanoidArms, walkHumanoidLegs, flapHumanoidJump } from '@/lib/humanoid-body'
+import { relaxHumanoidArms } from '@/lib/capsule-anim-driver'
 import { dockHeldItemsToGlb } from '@/lib/humanoid-glb'
 import { attachManHeadInCar } from '@/lib/man-head-car'
 import {
@@ -1359,6 +1360,8 @@ export default function HomeMiningWorld3D() {
             boss.group.rotation.z = 0
             if (boss.id === 'milei') {
               buzzM1MileiStatue(boss.bodyPivot, t)
+            } else if (boss.id === 'zelensky' || boss.id === 'macron') {
+              relaxHumanoidArms(boss.bodyPivot, t, 0.45)
             } else if (boss.bodyPivot?.userData?.humanArms) {
               swayHumanoidArms(boss.bodyPivot, t, 0.85)
             }
@@ -1393,7 +1396,8 @@ export default function HomeMiningWorld3D() {
               boss.group.rotation.z = Math.sin(t * (boss.sway + 0.65)) * 0.014
             } else {
               const deck = boss.bodyPivot.userData.baseY || 0
-              boss.bodyPivot.position.y = deck + Math.max(0, stride * 0.06)
+              const limbBob = boss.bodyPivot.userData.capsuleAnimDriver ? 0.012 : 0.06
+              boss.bodyPivot.position.y = deck + Math.max(0, stride * limbBob)
               boss.group.position.y = boss.baseY + Math.max(0, Math.sin(t * (boss.bob + 0.15)) * 0.018)
               boss.group.position.z = boss.baseZ
               boss.group.rotation.z = Math.sin(t * (boss.sway + 0.65)) * 0.014
@@ -1402,8 +1406,12 @@ export default function HomeMiningWorld3D() {
               animateQuadruped(boss.bodyPivot, { time: t, moving: boss.isCenter ? 0.45 : 0.18 })
               const legs = boss.bodyPivot?.userData?.humanLegs
               if (legs) {
-                legs[0].rotation.x = 0; legs[0].rotation.z = 0
-                legs[1].rotation.x = 0; legs[1].rotation.z = 0
+                if (boss.isCenter && boss.bodyPivot.userData.capsuleAnimDriver) {
+                  walkHumanoidLegs(boss.bodyPivot, t * 3.2, 0.22)
+                } else {
+                  legs[0].rotation.x = 0; legs[0].rotation.z = 0
+                  legs[1].rotation.x = 0; legs[1].rotation.z = 0
+                }
               }
             }
           }

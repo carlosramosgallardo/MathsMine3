@@ -4,6 +4,7 @@ import { useEffect, useRef, useCallback, useState } from 'react'
 import * as THREE from 'three'
 import { colorFromAddress } from '@/lib/wallet-colors'
 import { buildHumanoidBody, buildHumanHead, humanSkinFromSeed, humanHairFromSeed, swayHumanoidArms, walkHumanoidLegs, flailHumanoidJump, flapHumanoidJump } from '@/lib/humanoid-body'
+import { relaxHumanoidArms } from '@/lib/capsule-anim-driver'
 import { dockHeldItemsToGlb, applyHumanoidCarMount, hookHumanoidCarMount, unseatHumanoidGlb, HUMANOID_GLB_SRC_CLOTHES } from '@/lib/humanoid-glb'
 import { createLedgerTool, poseLedgerHoldArm, poseLedgerSwing } from '@/lib/ledger-tool'
 import { attachRlCarModel, addRlCockpitTub } from '@/lib/rl-car-model'
@@ -11550,12 +11551,17 @@ function updateM1MileiStatueMotion(motion, time, look = null, cellMap = null, ob
     motion.head.rotation.y = motion.headYaw
     motion.head.rotation.x = Math.sin(time * 0.55 + 1) * 0.045
   }
-  // Humanoid arms pivot at the shoulder (userData.baseY) and carry their
-  // hands. Left arm idles with a subtle human sway; right arm stays raised,
-  // waving hello with the RJ45 hand.
-  if (motion.salute === 'leftForward') {
-    // Stiff left-arm salute thrust forward-up, body held upright (a stronger
-    // lean read as a tilted statue); the right arm idles with the human sway.
+  // Humanoid arms: Milei keeps a right-hand wave; Zelensky/Macron hang relaxed.
+  if (motion.salute === 'relaxed') {
+    if (motion.leftArm && Number.isFinite(motion.leftArm.userData.baseY)) {
+      motion.leftArm.position.y = motion.leftArm.userData.baseY
+    }
+    if (motion.rightArm && Number.isFinite(motion.rightArm.userData.baseY)) {
+      motion.rightArm.position.y = motion.rightArm.userData.baseY
+    }
+    relaxHumanoidArms(motion.bodyPivot, time, 0.45)
+    if (motion.bodyPivot) motion.bodyPivot.rotation.x = Math.sin(time * 1.1) * 0.012
+  } else if (motion.salute === 'leftForward') {
     const breathe = Math.sin(time * 1.6) * 0.03
     if (motion.leftArm) {
       motion.leftArm.position.y = (motion.leftArm.userData.baseY ?? 0.655) + armLift
@@ -11570,8 +11576,6 @@ function updateM1MileiStatueMotion(motion, time, look = null, cellMap = null, ob
     }
     if (motion.bodyPivot) motion.bodyPivot.rotation.x = -0.03 + breathe * 0.3
   } else if (motion.salute === 'bothUp') {
-    // Both arms raised in a V — the double presidential wave, arms waving
-    // hello in counter-phase.
     if (motion.leftArm) {
       motion.leftArm.position.y = (motion.leftArm.userData.baseY ?? 0.655) + armLift
       motion.leftArm.rotation.x = 0
@@ -11583,6 +11587,7 @@ function updateM1MileiStatueMotion(motion, time, look = null, cellMap = null, ob
       motion.rightArm.rotation.z = 2.5 + Math.sin(time * 2.4) * 0.22
     }
   } else {
+    // Default Milei-style: left idle sway, right arm raised wave.
     if (motion.leftArm) {
       const phase = motion.leftArm.userData.swayPhase || 0
       motion.leftArm.position.y = (motion.leftArm.userData.baseY ?? 0.655) + armLift
@@ -11646,7 +11651,7 @@ function addM1ZelenskyStatueDecor(world, lowDetail, state = null) {
       root: visual.group,
       bodyPivot: visual.bodyPivot,
       fixed: false,
-      salute: 'leftForward',
+      salute: 'relaxed',
       leftArm: visual.group.userData.homeLeftArm || null,
       rightArm: visual.group.userData.homeRightArm || null,
       patrol: initStatuePatrol(gx, gy, visual.group.rotation.y, 22, 2.4),
@@ -11667,7 +11672,7 @@ function addM2MacronStatueDecor(world, lowDetail, state = null) {
       root: visual.group,
       bodyPivot: visual.bodyPivot,
       fixed: false,
-      salute: 'bothUp',
+      salute: 'relaxed',
       leftArm: visual.group.userData.homeLeftArm || null,
       rightArm: visual.group.userData.homeRightArm || null,
       patrol: initStatuePatrol(gx, gy, visual.group.rotation.y, 40, 4.1),
