@@ -15,7 +15,7 @@ import { createM2MacronStatueVisual, M2_MACRON_STATUE_SCALE } from '@/lib/m2-mac
 import { advanceShowcaseSpin, approachYaw } from '@/lib/map-boss-facing'
 import { setBossMaskEyesRed } from '@/lib/boss-head-photo'
 import { colorFromAddress } from '@/lib/wallet-colors'
-import { buildHumanoidBody, buildHumanHead, humanSkinFromSeed, humanHairFromSeed, swayHumanoidArms, walkHumanoidLegs, flapHumanoidJump } from '@/lib/humanoid-body'
+import { buildHumanoidBody, buildHumanHead, humanSkinFromSeed, humanHairFromSeed, swayHumanoidArms, walkHumanoidLegs, walkHumanoidStride, flapHumanoidJump, poseHumanoidMeleeStrike } from '@/lib/humanoid-body'
 import { relaxHumanoidArms } from '@/lib/capsule-anim-driver'
 import { dockHeldItemsToGlb } from '@/lib/humanoid-glb'
 import { attachManHeadInCar } from '@/lib/man-head-car'
@@ -28,7 +28,7 @@ import {
   homeBossGreetYaw,
   isRigidTexturedBoss,
 } from '@/lib/home-boss-choreography'
-import { createLedgerTool, poseLedgerHoldArm, poseLedgerSwing } from '@/lib/ledger-tool'
+import { createLedgerTool, poseLedgerHoldArm, poseLedgerSwing, poseLedgerSwingArm } from '@/lib/ledger-tool'
 import { animateQuadruped, isQuadrupedBody } from '@/lib/quadruped-motion'
 import { addRlCarBoost, setRlCarBoostLit } from '@/lib/rl-car-boost'
 import { attachRlCarModel, addRlCockpitTub } from '@/lib/rl-car-model'
@@ -491,7 +491,7 @@ const HOME_BOSS_LAYOUT = [
     phase: Math.PI * 1.33,
     sway: 0.55,
     bob: 2.1,
-    tagY: 1.35,
+    tagY: 1.18,
   },
   {
     id: 'trump',
@@ -862,8 +862,8 @@ export default function HomeMiningWorld3D() {
         group.add(tag)
       }
       addHomeTag(bossById.trump.group, `${M5_TRUMP_BOSS_NAME} · BOSS · ♥${M5_TRUMP_BOSS_MAX_HP}`, '#ef4444', bossById.trump.tagY || 1.2)
-      addHomeTag(bossById.putin.group, `${M3_PUTIN_BOSS_NAME} · BOSS · ♥${M3_PUTIN_BOSS_MAX_HP}`, '#94a3b8', 1.35)
-      addHomeTag(bossById.kim.group, `${M4_KIM_BOSS_NAME} · BOSS · ♥${M4_KIM_BOSS_MAX_HP}`, '#d946ef', 1.45)
+      addHomeTag(bossById.putin.group, `${M3_PUTIN_BOSS_NAME} · BOSS · ♥${M3_PUTIN_BOSS_MAX_HP}`, '#94a3b8', bossById.putin.tagY || 1.35)
+      addHomeTag(bossById.kim.group, `${M4_KIM_BOSS_NAME} · BOSS · ♥${M4_KIM_BOSS_MAX_HP}`, '#d946ef', bossById.kim.tagY || 1.18)
       addHomeTag(bossById.milei.group, 'Javier Milei · STATUE', '#74acdf', 1.35)
       addHomeTag(bossById.zelensky.group, 'Volodymyr Zelensky · STATUE', '#3b82f6', 1.35)
       addHomeTag(bossById.macron.group, 'Emmanuel Macron · STATUE', '#2563eb', 1.35)
@@ -874,9 +874,9 @@ export default function HomeMiningWorld3D() {
       addHomeTag(homePunchBot, aiTeamTag(AI_TEAM_WALLETS[2]), '#86efac', 1.35)
       addHomeTag(homePunchBotCar.group, aiTeamTag(AI_TEAM_WALLETS[3]), '#86efac', 2.35)
       const rail = { offset: 0, vel: 0, dragging: false, lastX: 0, moved: 0, suppressClick: false, snapTarget: 0 }
-      // Center-stage feature: one boss/statue at a time steps off the rail
-      // toward the camera, plays its signature show and walks back; the rail
-      // then glides one slot so the next member takes the spotlight.
+      // Center-stage feature: bosses step off the rail toward the camera,
+      // play their show and walk back. Statues stay on the plinth (mining is
+      // where they leave the base). Rail then glides to the next member.
       const FEATURE_STEP_Z = 3.2
       const FEATURE_WALK_SPD = 2.2
       const FEATURE_SCALE_BUMP = 0.14
@@ -889,7 +889,13 @@ export default function HomeMiningWorld3D() {
           bossGreetStart[b.id] = null
           bossVfxFired[b.id] = false
         }
-        // Walks home; statues finish instantly since they never left their z.
+        if (b.isStatue) {
+          // Never left the plinth — drop the feature without a walk-back.
+          feature.phase = 'idle'
+          feature.entry = null
+          feature.cooldownUntil = (feature.clockTime || 0) + 5
+          return
+        }
         feature.phase = 'back'
       }
 
@@ -1064,49 +1070,13 @@ export default function HomeMiningWorld3D() {
           return
         }
         if (!arms || !legs) return
-        const [lArm, rArm] = arms
-        const [lLeg, rLeg] = legs
-        const lPhase = lArm.userData.swayPhase || 0
-        const rPhase = rArm.userData.swayPhase || 0
-        const lBaseZ = lArm.userData.baseRotZ || 0
-        const rBaseZ = rArm.userData.baseRotZ || 0
         const { blend, jumpH } = homeAttackEnvelope(at)
-        const windupP = Math.min(1, at / 0.35)
-        const strikeP = at >= 0.35 ? Math.min(1, (at - 0.35) / 0.18) : 0
-        const idleAX = ph => Math.sin(t * 0.9  + ph) * 0.055
-        const idleAZ = (bz, ph) => bz + Math.sin(t * 0.63 + ph * 1.7) * 0.045
-
         if (bossId === 'putin') {
-          // Military precision: both arms pull back then thrust forward together; V-spread legs
-          const aX = windupP * (-0.52) + strikeP * 1.70
-          lArm.rotation.x = idleAX(lPhase) * (1 - blend) + aX * blend
-          rArm.rotation.x = idleAX(rPhase) * (1 - blend) + aX * blend
-          lArm.rotation.z = idleAZ(lBaseZ, lPhase) * (1 - blend) + (lBaseZ + 0.10) * blend
-          rArm.rotation.z = idleAZ(rBaseZ, rPhase) * (1 - blend) + (rBaseZ - 0.10) * blend
-          lLeg.rotation.x = 0
-          rLeg.rotation.x = 0
-          lLeg.rotation.z = -jumpH * 0.44 * blend
-          rLeg.rotation.z =  jumpH * 0.44 * blend
-          boss.bodyPivot.position.y = Math.max(0, Math.sin(t * boss.bob) * 0.06) * (1 - blend)
-                                    + (-0.07 * windupP + 0.03 * strikeP) * blend
-          homeBossAttackHop(boss, { jumpH, blend, jumpScale: 0.38, t })
-
+          poseHumanoidMeleeStrike(boss.bodyPivot, at, { style: 'thrust', blend })
+          homeBossAttackHop(boss, { jumpH, blend, jumpScale: 0.10, t })
         } else if (bossId === 'kim') {
-          // Theatrical: right arm sweeps overhead then stabs forward; left stays back; scissor kick
-          const rX = windupP * (-1.20) + strikeP * 2.05
-          const lX = -0.38 * windupP
-          rArm.rotation.x = idleAX(rPhase) * (1 - blend) + rX * blend
-          lArm.rotation.x = idleAX(lPhase) * (1 - blend) + lX * blend
-          rArm.rotation.z = idleAZ(rBaseZ, rPhase) * (1 - blend) + (rBaseZ - 0.40) * blend
-          lArm.rotation.z = idleAZ(lBaseZ, lPhase) * (1 - blend) + (lBaseZ + 0.30) * blend
-          lLeg.rotation.x =  jumpH * 0.55 * blend
-          rLeg.rotation.x = -jumpH * 0.55 * blend
-          lLeg.rotation.z = 0
-          rLeg.rotation.z = 0
-          boss.bodyPivot.position.y = Math.max(0, Math.sin(t * boss.bob) * 0.06) * (1 - blend)
-                                    + 0.05 * windupP * blend
-          homeBossAttackHop(boss, { jumpH, blend, jumpScale: 0.52, t })
-
+          poseHumanoidMeleeStrike(boss.bodyPivot, at, { style: 'overhead', blend })
+          homeBossAttackHop(boss, { jumpH, blend, jumpScale: 0.20, t })
         }
       }
 
@@ -1194,6 +1164,7 @@ export default function HomeMiningWorld3D() {
         // Embed WebViews can report hidden/intersection quirks — keep the loop alive.
         if (!isEmbedArena && (!pageVisible || !inViewport)) return
         const time = clock.getElapsedTime()
+        feature.clockTime = time
         // Showcase spin timestep (shared by bosses, statue head and props).
         const spinDt = time - (lastSpinTime ?? time)
         lastSpinTime = time
@@ -1268,19 +1239,16 @@ export default function HomeMiningWorld3D() {
         spotLight.position.x = spotRing.position.x
         spotLight.target.position.set(spotRing.position.x, 0, spotRing.position.z)
 
-        // Center-stage feature: once a boss/statue settles under the spotlight,
-        // it steps off the rail toward the camera and plays its signature show.
+        // Center-stage feature: bosses step forward; statues stay on the plinth.
         if (feature.phase === 'idle' && center?.bodyPivot
             && time > feature.cooldownUntil && railSettled && center.focus > 0.85) {
           feature.entry = center
           center.origBaseZ = center.baseZ
           center.spinYaw = 0
-          if (center.isStatue && center.group?.userData?.statueFixed) {
-            // Milei stays rooted — timed salute hold only.
+          if (center.isStatue) {
             feature.phase = 'show'
             feature.until = time + 4
           } else {
-            // Bosses + walking statues step off the rail toward the camera.
             feature.phase = 'out'
           }
         }
@@ -1313,8 +1281,9 @@ export default function HomeMiningWorld3D() {
             boss.bodyPivot.position.y += ((boss.bodyPivot.userData.baseY ?? 0) - boss.bodyPivot.position.y) * Math.min(1, spinDt * 3)
             if (Math.abs(dz) > 0.15) {
               g.position.z += Math.sign(dz) * Math.min(Math.abs(dz), FEATURE_WALK_SPD * spinDt)
-              walkHumanoidLegs(boss.bodyPivot, t * 3.5, 0.45)
-              swayHumanoidArms(boss.bodyPivot, t)
+              walkHumanoidStride(boss.bodyPivot, t * 3.5, 0.48, {
+                lean: !boss.bodyPivot?.userData?.humanoidGlbBones,
+              })
               animateQuadruped(boss.bodyPivot, { time: t, moving: 1 })
               if (isRigidTexturedBoss(boss.bodyPivot)) applyRigidHomeWalk(boss, t)
             } else if (feat === 'out') {
@@ -1350,20 +1319,45 @@ export default function HomeMiningWorld3D() {
             boss.glowLight.intensity = boss.baseGlow + Math.sin(t * 2.4) * 0.85
 
           } else if (boss.isStatue) {
-            // Carousel: always rooted on the pedestal — light human idle / Milei buzz.
-            // Mining patrol (leave-base walk) lives in MiningChain3DFPV only.
-            if (feat === 'show' && time >= feature.until) feature.phase = 'back'
+            // Carousel: rooted on the pedestal — plinth stays put; no walk-off.
+            // Mining patrol (leave-base → bomb → return) lives in MiningChain3DFPV.
+            if (feat === 'show' && time >= feature.until) {
+              feature.phase = 'idle'
+              feature.entry = null
+              feature.cooldownUntil = time + 5
+              rail.snapTarget += RAIL_SPACING
+              boss.spinYaw = 0
+            }
             boss.group.rotation.y = boss.baseRotationY
+            boss.group.position.x = boss.wx
+            boss.group.position.z = boss.baseZ
             const deck = boss.bodyPivot?.userData?.baseY || 0
-            if (boss.bodyPivot) boss.bodyPivot.position.y = deck
+            if (boss.bodyPivot) {
+              boss.bodyPivot.position.y = deck
+              boss.bodyPivot.position.z = 0
+              boss.bodyPivot.rotation.x = 0
+            }
             boss.group.position.y = boss.baseY
             boss.group.rotation.z = 0
+            walkHumanoidLegs(boss.bodyPivot, 0, 0)
+            const showBlend = feat === 'show' ? 1 : 0.45
             if (boss.id === 'milei') {
               buzzM1MileiStatue(boss.bodyPivot, t)
             } else if (boss.id === 'zelensky' || boss.id === 'macron') {
-              relaxHumanoidArms(boss.bodyPivot, t, 0.45)
+              // On-plinth salute: slight arm lift while spotlighted, soft sway otherwise.
+              const arms = boss.bodyPivot?.userData?.humanArms
+              if (arms && feat === 'show') {
+                const [lArm, rArm] = arms
+                const wave = Math.sin(t * 3.0) * 0.22
+                rArm.rotation.x = 0.55 + wave * 0.15
+                lArm.rotation.x = 0.12
+                rArm.rotation.z = (rArm.userData.baseRotZ || 0) - 0.35 + wave
+                lArm.rotation.z = (lArm.userData.baseRotZ || 0) + 0.12
+              } else {
+                relaxHumanoidArms(boss.bodyPivot, t, showBlend)
+              }
             } else if (boss.bodyPivot?.userData?.humanArms) {
-              swayHumanoidArms(boss.bodyPivot, t, 0.85)
+              swayHumanoidArms(boss.bodyPivot, t, 0.85 * showBlend)
             }
             boss.glowLight.intensity = (boss.baseGlow + Math.sin(t * 2.4) * 0.85) * (0.45 + 0.65 * boss.focus)
 
@@ -1462,15 +1456,18 @@ export default function HomeMiningWorld3D() {
           }
           if (prop.punch) {
             // Relaxed sparring: one 0.5s forward baton strike every 2s.
-            const tool = (prop.kind === 'botCar' ? prop.bot : prop.group)?.userData.tool
+            const host = prop.kind === 'botCar' ? prop.bot : prop.group
+            const tool = host?.userData.tool
             if (tool) {
               if (isC) {
                 const pt = (time + (prop.punchPhase || 0)) % 2
                 const swing = pt < 0.5 ? Math.sin((pt / 0.5) * Math.PI) : 0
                 poseLedgerSwing(tool, { swing })
+                poseLedgerSwingArm({ rightArm: host?.userData.humanArms?.[1] }, swing)
               } else {
                 // Ease a mid-swing baton back to rest when focus moves on.
                 tool.rotation.x += (0 - tool.rotation.x) * Math.min(1, spinDt * 6)
+                tool.rotation.y += (0 - tool.rotation.y) * Math.min(1, spinDt * 6)
                 tool.rotation.z += (0 - tool.rotation.z) * Math.min(1, spinDt * 6)
               }
             }
