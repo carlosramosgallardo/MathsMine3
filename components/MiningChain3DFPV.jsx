@@ -3,10 +3,10 @@
 import { useEffect, useRef, useCallback, useState } from 'react'
 import * as THREE from 'three'
 import { colorFromAddress } from '@/lib/wallet-colors'
-import { buildHumanoidBody, buildHumanHead, humanSkinFromSeed, humanHairFromSeed, swayHumanoidArms, walkHumanoidLegs, flailHumanoidJump, flapHumanoidJump } from '@/lib/humanoid-body'
+import { buildHumanoidBody, buildHumanHead, humanSkinFromSeed, humanHairFromSeed, swayHumanoidArms, walkHumanoidLegs, walkHumanoidStride, flailHumanoidJump, flapHumanoidJump } from '@/lib/humanoid-body'
 import { relaxHumanoidArms } from '@/lib/capsule-anim-driver'
 import { dockHeldItemsToGlb, applyHumanoidCarMount, hookHumanoidCarMount, unseatHumanoidGlb, HUMANOID_GLB_SRC_CLOTHES } from '@/lib/humanoid-glb'
-import { createLedgerTool, poseLedgerHoldArm, poseLedgerSwing } from '@/lib/ledger-tool'
+import { createLedgerTool, poseLedgerHoldArm, poseLedgerSwing, poseLedgerSwingArm } from '@/lib/ledger-tool'
 import { attachRlCarModel, addRlCockpitTub } from '@/lib/rl-car-model'
 import { addRlCarBoost, setRlCarBoostLit } from '@/lib/rl-car-boost'
 import { aiTeamPoolCode } from '@/lib/ai-team'
@@ -156,7 +156,7 @@ function ceilingBottomAbovePlayerHead(bottom, playerZ) {
 }
 const AVATAR_R      = 0.30
 const FOOTSTEP_DIST = CELL_SIZE * 0.42       // footstep cadence
-const SWING_DUR     = 340    // ms per USB staff swing
+const SWING_DUR     = 480    // ms per USB stick slash (windup → cut → follow)
 const HITS_NEEDED   = 5      // swings to complete mining action
 const INTERACT_DIST       = 1.4   // grid cells — max distance for block interaction (increased for closer camera)
 const PORTAL_INTERACT_DIST = 2.25 // forgiving floor portals; easier to trigger while walking
@@ -5359,29 +5359,36 @@ function sampleBossGroundY(runtime, cellMap) {
   return 0
 }
 
-// ── First-person retro USB staff ────────────────────────────────────────────
+// ── First-person USB stick slash ────────────────────────────────────────────
 function drawFirstPersonTool(ctx, W, H, color, swingT, walkDist) {
   const mobile = W < 640
   const scale = mobile ? 0.72 : Math.max(0.82, Math.min(1.15, H / 620))
   const bob = Math.sin(walkDist * 0.16) * 3 * scale
-  const swing = Math.sin(Math.min(1, swingT) * Math.PI)
+  const t = Math.max(0, Math.min(1, Number(swingT) || 0))
+  const raise = Math.sin(t * Math.PI)
+  const cut = Math.sin(Math.min(1, t * 1.15) * Math.PI)
   const baseX = W * (mobile ? 0.82 : 0.76)
   const baseY = H + 20 * scale + bob
-  // Thrust hand toward crosshair (W/2, H*HORIZON_RATIO) during swing
-  const handX = baseX - swing * (baseX - W*0.52) * 0.65
-  const handY = baseY - swing * (baseY - H*HORIZON_RATIO) * 0.50
-  const [r,g,b] = hexToRgb(color || C)
+  // Diagonal slash: start high-right, sweep toward crosshair, finish low-left.
+  const handX = baseX - raise * 28 * scale - cut * (baseX - W * 0.48) * 0.72
+  const handY = baseY - raise * 110 * scale - cut * (baseY - H * HORIZON_RATIO) * 0.42
+    + raise * 18 * scale
+  const [r, g, b] = hexToRgb(color || C)
 
   ctx.save()
   ctx.globalAlpha = 0.96
-  ctx.strokeStyle = `rgb(${Math.round(r*.62)},${Math.round(g*.62)},${Math.round(b*.62)})`
-  ctx.lineWidth = Math.max(12, 18*scale); ctx.lineCap = 'round'
-  ctx.beginPath(); ctx.moveTo(W + 18, H + 18); ctx.lineTo(handX, handY); ctx.stroke()
+  ctx.strokeStyle = `rgb(${Math.round(r * 0.62)},${Math.round(g * 0.62)},${Math.round(b * 0.62)})`
+  ctx.lineWidth = Math.max(12, 18 * scale)
+  ctx.lineCap = 'round'
+  ctx.beginPath()
+  ctx.moveTo(W + 18, H + 18)
+  ctx.lineTo(handX, handY)
+  ctx.stroke()
 
-  // Weapon always aimed toward crosshair; thrust extends length at apex
-  const pickA = Math.atan2(H*HORIZON_RATIO - handY, W*0.50 - handX)
-  const pickL = (108 + swing*26) * scale
-  drawFreakUsbPen(ctx,handX,handY,pickL,pickA,scale)
+  const pickA = Math.atan2(H * HORIZON_RATIO - handY, W * 0.50 - handX)
+    + raise * 0.55 - cut * 0.85
+  const pickL = (108 + raise * 12 + cut * 22) * scale
+  drawFreakUsbPen(ctx, handX, handY, pickL, pickA, scale)
   ctx.restore()
 }
 
@@ -11487,8 +11494,8 @@ function updateM1MileiStatueMotion(motion, time, look = null, cellMap = null, ob
       motion.bodyPivot.rotation.x = 0
       motion.bodyPivot.rotation.z = 0
     }
-    walkHumanoidLegs(motion.bodyPivot, isMoving ? time * 6.4 : 0, 0.5)
-    swayHumanoidArms(motion.bodyPivot, time)
+    walkHumanoidStride(motion.bodyPivot, isMoving ? time * 6.4 : 0, 0.52)
+    if (!isMoving) swayHumanoidArms(motion.bodyPivot, time)
     if (motion.head) {
       const desiredYaw = isGazing ? 0 : (Math.sin(time * 0.42) * 0.5 + Math.sin(time * 0.17 + 2) * 0.18)
       motion.headYaw = approachYaw(
@@ -11506,7 +11513,10 @@ function updateM1MileiStatueMotion(motion, time, look = null, cellMap = null, ob
   if (motion.bodyPivot) {
     const deck = motion.bodyPivot.userData.baseY ?? 0
     motion.bodyPivot.position.y = deck
+    motion.bodyPivot.rotation.x = 0
+    motion.bodyPivot.rotation.z = 0
   }
+  walkHumanoidStride(motion.bodyPivot, 0, 0)
   if (motion.buzz) buzzM1MileiStatue(motion.bodyPivot, time)
 
   if (motion.head) {
@@ -12449,13 +12459,24 @@ function syncThreeAvatars(state,presence,myIdentity,currentMapId=MINING_CORE_MAP
         poseLedgerSwing(avatar.userData.tool, { jump: true, time: tSec })
       }
     }else{
-    // Forward strike: short baton pitch toward the target, slight side sweep.
+    // Diagonal stick slash: tool + right arm share the same swing envelope.
     poseLedgerSwing(avatar.userData.tool, { swing })
     // Human walk: alternating hip swing (shoes ride at the leg tips), plus a
     // subtle random arm sway so remote wallets read as alive.
     const walk=Number(data.walkDist)||0
     walkHumanoidLegs(avatar,walk*.18)
-    swayHumanoidArms(avatar,tSec)
+    if (swing > 0.02) {
+      const arms = avatar.userData.humanArms
+      poseLedgerSwingArm({ rightArm: arms?.[1] }, swing)
+      const lArm = arms?.[0]
+      if (lArm) {
+        const phase = lArm.userData.swayPhase || 0
+        lArm.rotation.x = Math.sin(tSec * 0.9 + phase) * 0.04
+        lArm.rotation.z = (lArm.userData.baseRotZ || 0) + Math.sin(tSec * 0.63 + phase * 1.7) * 0.03
+      }
+    } else {
+      swayHumanoidArms(avatar,tSec)
+    }
     }
     }
   }
@@ -12578,10 +12599,21 @@ function syncThreeLocalAvatar(state,identity,swingT,walkDist,gx,gy,playerZ,headi
       }
     }else{
       poseLedgerSwing(state.localAvatar.userData.tool, { swing })
-      // Human walk from the hip + subtle random arm sway.
+      // Human walk from the hip; right arm drives the slash when swinging.
       const stride=walkDist*.18
       walkHumanoidLegs(state.localAvatar,stride)
-      swayHumanoidArms(state.localAvatar,tSec)
+      if (swing > 0.02) {
+        const arms = state.localAvatar.userData.humanArms
+        poseLedgerSwingArm({ rightArm: arms?.[1] }, swing)
+        const lArm = arms?.[0]
+        if (lArm) {
+          const phase = lArm.userData.swayPhase || 0
+          lArm.rotation.x = Math.sin(tSec * 0.9 + phase) * 0.04
+          lArm.rotation.z = (lArm.userData.baseRotZ || 0) + Math.sin(tSec * 0.63 + phase * 1.7) * 0.03
+        }
+      } else {
+        swayHumanoidArms(state.localAvatar,tSec)
+      }
     }
   }
   applyRlMountVisual(state.localAvatar, mounted, state)
@@ -15779,6 +15811,7 @@ export default function MiningChain3DFPV({
             const swingLeft = npc.swingUntil - nowMs
             const swing = swingLeft > 0 ? Math.sin((1 - swingLeft / 420) * Math.PI) : 0
             poseLedgerSwing(tool, { swing })
+            poseLedgerSwingArm({ rightArm: npc.avatar.userData.humanArms?.[1] }, swing)
           }
           // Same screen-matched LOD scale as remote player avatars, so the bot
           // reads exactly like an opposing player — plus a pop on damage.
