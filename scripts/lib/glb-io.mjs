@@ -6,6 +6,20 @@
  * and to emit a single-buffer GLB again.
  */
 import { readFileSync, writeFileSync } from 'node:fs'
+import path from 'node:path'
+
+/** Resolve a bake-script path and reject `..` / absolute escapes (Sonar S8707). */
+export function resolveWorkspaceFile(file) {
+  if (typeof file !== 'string' || !file.trim()) throw new Error('missing file path')
+  const root = path.resolve(process.cwd())
+  const resolved = path.resolve(root, file)
+  const rel = path.relative(root, resolved)
+  const inside = resolved.startsWith(`${root}${path.sep}`)
+  if (!inside || !rel || rel.startsWith(`..${path.sep}`) || rel === '..' || path.isAbsolute(rel)) {
+    throw new Error(`path escapes workspace: ${file}`)
+  }
+  return resolved
+}
 
 const MAGIC = 0x46546c67
 const JSON_CHUNK = 0x4e4f534a
@@ -25,7 +39,8 @@ export const TYPE_COMPONENTS = { SCALAR: 1, VEC2: 2, VEC3: 3, VEC4: 4, MAT4: 16 
 export const IDENTITY = Object.freeze([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1])
 
 export function readGlb(file) {
-  const buf = readFileSync(file)
+  const safe = resolveWorkspaceFile(file)
+  const buf = readFileSync(safe)
   if (buf.readUInt32LE(0) !== MAGIC) throw new Error(`${file}: not a GLB`)
   let offset = 12
   let json = null
@@ -55,7 +70,8 @@ export function writeGlb(file, json, bin) {
     head.writeUInt32LE(type, 4)
     return head
   }
-  writeFileSync(file, Buffer.concat([
+  const safe = resolveWorkspaceFile(file)
+  writeFileSync(safe, Buffer.concat([
     header,
     chunk(jsonBuf.length, JSON_CHUNK), jsonBuf,
     chunk(binBuf.length, BIN_CHUNK), binBuf,
