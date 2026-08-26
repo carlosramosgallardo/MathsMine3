@@ -10,6 +10,7 @@ import {
   readGlb,
   writeGlb,
   accessorArray,
+  accessorColorRgb,
   creditExtras,
   buildVertexColorMeshGlb,
 } from './lib/glb-io.mjs'
@@ -21,7 +22,7 @@ function extractPlinth(json, bin, cutoffY) {
   const prim = json.meshes[0].primitives[0]
   const pos = accessorArray(json, bin, prim.attributes.POSITION)
   const norm = accessorArray(json, bin, prim.attributes.NORMAL)
-  const col = accessorArray(json, bin, prim.attributes.COLOR_0)
+  const col = accessorColorRgb(json, bin, prim.attributes.COLOR_0)
   const idx = prim.indices != null ? accessorArray(json, bin, prim.indices) : null
   const triCount = idx ? idx.length : pos.length / 3
   const outPos = []
