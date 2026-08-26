@@ -11,7 +11,7 @@
  *
  * Usage:
  *   node scripts/bake-prop-glb.mjs .private/models-src/rl-car-src.glb public/models/rl-car.glb
- *   ... [--max-texture 1024] [--quality 82] [--keep-normal-maps] [--keep-skin]
+ *   ... [--max-texture 1024] [--quality 82] [--keep-normal-maps] [--keep-skin] [--decimate-grid n]
  */
 import { statSync } from 'node:fs'
 import { createHash } from 'node:crypto'
@@ -217,14 +217,110 @@ function invertMat4(m) {
 
 function parseArgs(argv) {
   const [src, out] = argv
-  const options = { src, out, maxTexture: 1024, quality: 82, keepNormalMaps: false, keepSkin: false }
+  const options = {
+    src, out, maxTexture: 1024, quality: 82, keepNormalMaps: false, keepSkin: false, decimateGrid: 0,
+  }
   for (let i = 2; i < argv.length; i += 1) {
     if (argv[i] === '--max-texture') options.maxTexture = Number(argv[i + 1])
     else if (argv[i] === '--quality') options.quality = Number(argv[i + 1])
     else if (argv[i] === '--keep-normal-maps') options.keepNormalMaps = true
     else if (argv[i] === '--keep-skin') options.keepSkin = true
+    else if (argv[i] === '--decimate-grid') options.decimateGrid = Number(argv[i + 1])
   }
   return options
+}
+
+/** Uniform-grid decimation that keeps UVs — same idea as bake-humanoid-glb. */
+function clusterDecimate({ positions, normals, uvs, indices }, gridCells) {
+  const min = [Infinity, Infinity, Infinity]
+  const max = [-Infinity, -Infinity, -Infinity]
+  for (let i = 0; i < positions.length; i += 3) {
+    for (let k = 0; k < 3; k += 1) {
+      if (positions[i + k] < min[k]) min[k] = positions[i + k]
+      if (positions[i + k] > max[k]) max[k] = positions[i + k]
+    }
+  }
+  const cell = Math.max(max[0] - min[0], max[1] - min[1], max[2] - min[2]) / gridCells
+  const dims = min.map((lo, k) => Math.max(1, Math.ceil((max[k] - lo) / cell) + 1))
+  const cellOf = new Float64Array(positions.length / 3)
+  const sums = new Map()
+  for (let v = 0; v < cellOf.length; v += 1) {
+    const key = (
+      (Math.floor((positions[v * 3 + 2] - min[2]) / cell) * dims[1]
+        + Math.floor((positions[v * 3 + 1] - min[1]) / cell)) * dims[0]
+      + Math.floor((positions[v * 3] - min[0]) / cell)
+    )
+    cellOf[v] = key
+    let acc = sums.get(key)
+    if (!acc) {
+      acc = { n: 0, p: [0, 0, 0], nor: [0, 0, 0], uv: [0, 0], index: sums.size }
+      sums.set(key, acc)
+    }
+    acc.n += 1
+    for (let k = 0; k < 3; k += 1) {
+      acc.p[k] += positions[v * 3 + k]
+      acc.nor[k] += normals[v * 3 + k]
+    }
+    if (uvs) {
+      acc.uv[0] += uvs[v * 2]
+      acc.uv[1] += uvs[v * 2 + 1]
+    }
+  }
+  const count = sums.size
+  const outPos = new Float32Array(count * 3)
+  const outNor = new Float32Array(count * 3)
+  const outUv = uvs ? new Float32Array(count * 2) : null
+  for (const acc of sums.values()) {
+    const at = acc.index * 3
+    const len = Math.hypot(acc.nor[0], acc.nor[1], acc.nor[2]) || 1
+    for (let k = 0; k < 3; k += 1) {
+      outPos[at + k] = acc.p[k] / acc.n
+      outNor[at + k] = acc.nor[k] / len
+    }
+    if (outUv) {
+      outUv[acc.index * 2] = acc.uv[0] / acc.n
+      outUv[acc.index * 2 + 1] = acc.uv[1] / acc.n
+    }
+  }
+  const outIdx = []
+  for (let t = 0; t < indices.length; t += 3) {
+    const a = sums.get(cellOf[indices[t]]).index
+    const b = sums.get(cellOf[indices[t + 1]]).index
+    const c = sums.get(cellOf[indices[t + 2]]).index
+    if (a === b || b === c || a === c) continue
+    outIdx.push(a, b, c)
+  }
+  return {
+    positions: outPos,
+    normals: outNor,
+    uvs: outUv,
+    indices: Uint32Array.from(outIdx),
+  }
+}
+
+function decimateWelded(welded, gridCells) {
+  const pos = welded.attributes.find(({ name }) => name === 'POSITION')
+  const nor = welded.attributes.find(({ name }) => name === 'NORMAL')
+  const uv = welded.attributes.find(({ name }) => name === 'TEXCOORD_0')
+  const indices = welded.indices instanceof Uint16Array
+    ? Uint32Array.from(welded.indices)
+    : welded.indices
+  const decimated = clusterDecimate({
+    positions: pos.data,
+    normals: nor?.data || new Float32Array(pos.data.length),
+    uvs: uv?.data || null,
+    indices,
+  }, gridCells)
+  const attributes = [{ name: 'POSITION', comps: 3, data: decimated.positions }]
+  if (nor) attributes.push({ name: 'NORMAL', comps: 3, data: decimated.normals })
+  if (uv && decimated.uvs) attributes.push({ name: 'TEXCOORD_0', comps: 2, data: decimated.uvs })
+  const vertexCount = decimated.positions.length / 3
+  return {
+    attributes,
+    indices: vertexCount < 65536 ? Uint16Array.from(decimated.indices) : decimated.indices,
+    vertexCount,
+    sourceCount: welded.sourceCount,
+  }
 }
 
 /** Texture slots each material keeps, in the order they are re-indexed. */
@@ -320,7 +416,7 @@ async function encodeImage(bytes, { maxTexture, quality }) {
 async function main() {
   const options = parseArgs(process.argv.slice(2))
   if (!options.src || !options.out) {
-    console.error('usage: node scripts/bake-prop-glb.mjs <src.glb> <out.glb> [--max-texture n] [--quality n] [--keep-normal-maps] [--keep-skin]')
+    console.error('usage: node scripts/bake-prop-glb.mjs <src.glb> <out.glb> [--max-texture n] [--quality n] [--keep-normal-maps] [--keep-skin] [--decimate-grid n]')
     process.exit(1)
   }
   let { json, bin } = readGlb(options.src)
@@ -382,10 +478,13 @@ async function main() {
         .filter((name) => VEC_OF[name] && (!name.startsWith('TEXCOORD') || materialUv.has(name)))
         .sort((a, b) => a.localeCompare(b))
       const welded = weldPrimitive(json, bin, prim, attributeNames)
-      sourceVerts += welded.sourceCount
-      meshVerts += welded.vertexCount
+      const baked = options.decimateGrid > 0 && welded.vertexCount > 40000
+        ? decimateWelded(welded, options.decimateGrid)
+        : welded
+      sourceVerts += baked.sourceCount
+      meshVerts += baked.vertexCount
       const attributes = {}
-      for (const attribute of welded.attributes) {
+      for (const attribute of baked.attributes) {
         attributes[attribute.name] = builder.addAccessor(
           attribute.data,
           attribute.comps === 2 ? 'VEC2' : attribute.comps === 4 ? 'VEC4' : 'VEC3',
@@ -394,7 +493,7 @@ async function main() {
       }
       primitives.push({
         attributes,
-        indices: builder.addAccessor(welded.indices, 'SCALAR', { target: ELEMENT_ARRAY_BUFFER }),
+        indices: builder.addAccessor(baked.indices, 'SCALAR', { target: ELEMENT_ARRAY_BUFFER }),
         material: prim.material,
       })
       // Content hash for deduping identical parts — not a security boundary,
