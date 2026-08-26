@@ -1394,10 +1394,10 @@ export default function HomeMiningWorld3D() {
               // Kim/Putin textured props: lean-walk bob (no capsule limbs).
               applyRigidHomeWalk(boss, t)
               boss.group.position.y = boss.baseY + Math.max(0, Math.sin(t * (boss.bob + 0.15)) * 0.018)
-              boss.group.position.z = boss.baseZ
               boss.group.rotation.z = Math.sin(t * (boss.sway + 0.65)) * 0.014
             } else {
-              boss.bodyPivot.position.y = Math.max(0, stride * 0.06)
+              const deck = boss.bodyPivot.userData.baseY || 0
+              boss.bodyPivot.position.y = deck + Math.max(0, stride * 0.06)
               boss.group.position.y = boss.baseY + Math.max(0, Math.sin(t * (boss.bob + 0.15)) * 0.018)
               boss.group.position.z = boss.baseZ
               boss.group.rotation.z = Math.sin(t * (boss.sway + 0.65)) * 0.014

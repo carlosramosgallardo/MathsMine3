@@ -11622,8 +11622,7 @@ function addM1MileiStatueDecor(world, lowDetail, state = null) {
 
 function addM1ZelenskyStatueDecor(world, lowDetail, state = null) {
   const visual = createM1ZelenskyStatueVisual(THREE, lowDetail)
-  // Keep the MM3 token plinth fixed at the plaza spot (figure stays rooted too).
-  _extractStatuePlinth(visual, world)
+  // Plinth is the Milei extract under the figure (no legacy cylinder to peel).
   world.add(visual.group)
   if (state) {
     state.m1ZelenskyStatueGroup = visual.group
@@ -11639,8 +11638,6 @@ function addM1ZelenskyStatueDecor(world, lowDetail, state = null) {
 
 function addM2MacronStatueDecor(world, lowDetail, state = null) {
   const visual = createM2MacronStatueVisual(THREE, lowDetail)
-  // Keep the MM3 token plinth fixed; textured figure stays rooted (no salute/patrol).
-  _extractStatuePlinth(visual, world)
   world.add(visual.group)
   if (state) {
     state.m2MacronStatueGroup = visual.group
