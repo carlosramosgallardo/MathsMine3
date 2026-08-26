@@ -98,6 +98,29 @@ export function accessorArray(json, bin, index) {
   return new Ctor(bin.buffer, start, acc.count * comps)
 }
 
+/**
+ * COLOR_0 → packed RGB floats in 0–1 (for buildVertexColorMeshGlb).
+ * Uint8/normalized accessors must be divided by 255 here — never push raw
+ * 0–255 into toUint8Colors (that clamps everything to white).
+ */
+export function accessorColorRgb(json, bin, index) {
+  const acc = json.accessors[index]
+  const raw = accessorArray(json, bin, index)
+  const comps = TYPE_COMPONENTS[acc.type]
+  const count = acc.count
+  const out = new Float32Array(count * 3)
+  const byteLike = acc.componentType === 5120 || acc.componentType === 5121
+    || acc.componentType === 5122 || acc.componentType === 5123
+  const scale = byteLike ? (1 / 255) : 1
+  for (let v = 0; v < count; v += 1) {
+    const o = v * comps
+    out[v * 3] = raw[o] * scale
+    out[v * 3 + 1] = raw[o + 1] * scale
+    out[v * 3 + 2] = raw[o + 2] * scale
+  }
+  return out
+}
+
 export function bufferViewBytes(json, bin, index) {
   const view = json.bufferViews[index]
   const start = (view.byteOffset || 0)

@@ -4,6 +4,7 @@ import { useEffect, useRef, useCallback, useState } from 'react'
 import * as THREE from 'three'
 import { colorFromAddress } from '@/lib/wallet-colors'
 import { buildHumanoidBody, buildHumanHead, humanSkinFromSeed, humanHairFromSeed, swayHumanoidArms, walkHumanoidLegs, flailHumanoidJump, flapHumanoidJump } from '@/lib/humanoid-body'
+import { relaxHumanoidArms } from '@/lib/capsule-anim-driver'
 import { dockHeldItemsToGlb, applyHumanoidCarMount, hookHumanoidCarMount, unseatHumanoidGlb, HUMANOID_GLB_SRC_CLOTHES } from '@/lib/humanoid-glb'
 import { createLedgerTool, poseLedgerHoldArm, poseLedgerSwing } from '@/lib/ledger-tool'
 import { attachRlCarModel, addRlCockpitTub } from '@/lib/rl-car-model'
@@ -5041,10 +5042,10 @@ function flashBossStatueEyes(threeState, statueId, ms = 5000) {
   const groups = [threeState?.m1MileiStatueGroup, threeState?.m1ZelenskyStatueGroup, threeState?.m2MacronStatueGroup]
   const group = groups.find(g => g && (!statueId || g.userData.bossStatueId === statueId))
   if (!group) return
+  if (group.userData.m1ZelenskyStatue) { flashM1ZelenskyStatue(group, ms); return }
+  if (group.userData.m2MacronStatue) { flashM2MacronStatue(group, ms); return }
   if (group.userData.statueFixed) {
-    if (group.userData.m1ZelenskyStatue) flashM1ZelenskyStatue(group, ms)
-    else if (group.userData.m2MacronStatue) flashM2MacronStatue(group, ms)
-    else flashM1MileiStatue(group, ms)
+    flashM1MileiStatue(group, ms)
     return
   }
   setBossMaskEyesRed(group, true)
@@ -11467,8 +11468,6 @@ function updateStatuePatrol(motion, time, dt, cellMap, obsSet) {
 
 function updateM1MileiStatueMotion(motion, time, look = null, cellMap = null, obsSet = null) {
   if (!motion) return
-  // Fixed Milei+motosierra sculpt: no patrol, wave, or head track — only a buzz.
-  // Fixed Zelensky textured statue: rooted, no motion at all.
   if (motion.fixed) {
     if (motion.buzz) buzzM1MileiStatue(motion.bodyPivot, time)
     motion.root?.updateMatrixWorld?.(true)
@@ -11484,7 +11483,10 @@ function updateM1MileiStatueMotion(motion, time, look = null, cellMap = null, ob
   const isGazing = patrolPhase === 'gazing'
 
   if (isMoving || isGazing) {
-    if (motion.bodyPivot) motion.bodyPivot.rotation.x = 0
+    if (motion.bodyPivot) {
+      motion.bodyPivot.rotation.x = 0
+      motion.bodyPivot.rotation.z = 0
+    }
     walkHumanoidLegs(motion.bodyPivot, isMoving ? time * 6.4 : 0, 0.5)
     swayHumanoidArms(motion.bodyPivot, time)
     if (motion.head) {
@@ -11499,6 +11501,13 @@ function updateM1MileiStatueMotion(motion, time, look = null, cellMap = null, ob
     motion.root?.updateMatrixWorld?.(true)
     return
   }
+
+  // Idle on the pedestal — Milei buzzes the saw; others keep a light human sway.
+  if (motion.bodyPivot) {
+    const deck = motion.bodyPivot.userData.baseY ?? 0
+    motion.bodyPivot.position.y = deck
+  }
+  if (motion.buzz) buzzM1MileiStatue(motion.bodyPivot, time)
 
   if (motion.head) {
     // Head tracks the nearest alive player on M1 (neck-limited, smooth turns
@@ -11542,12 +11551,17 @@ function updateM1MileiStatueMotion(motion, time, look = null, cellMap = null, ob
     motion.head.rotation.y = motion.headYaw
     motion.head.rotation.x = Math.sin(time * 0.55 + 1) * 0.045
   }
-  // Humanoid arms pivot at the shoulder (userData.baseY) and carry their
-  // hands. Left arm idles with a subtle human sway; right arm stays raised,
-  // waving hello with the RJ45 hand.
-  if (motion.salute === 'leftForward') {
-    // Stiff left-arm salute thrust forward-up, body held upright (a stronger
-    // lean read as a tilted statue); the right arm idles with the human sway.
+  // Humanoid arms: Milei keeps a right-hand wave; Zelensky/Macron hang relaxed.
+  if (motion.salute === 'relaxed') {
+    if (motion.leftArm && Number.isFinite(motion.leftArm.userData.baseY)) {
+      motion.leftArm.position.y = motion.leftArm.userData.baseY
+    }
+    if (motion.rightArm && Number.isFinite(motion.rightArm.userData.baseY)) {
+      motion.rightArm.position.y = motion.rightArm.userData.baseY
+    }
+    relaxHumanoidArms(motion.bodyPivot, time, 0.45)
+    if (motion.bodyPivot) motion.bodyPivot.rotation.x = Math.sin(time * 1.1) * 0.012
+  } else if (motion.salute === 'leftForward') {
     const breathe = Math.sin(time * 1.6) * 0.03
     if (motion.leftArm) {
       motion.leftArm.position.y = (motion.leftArm.userData.baseY ?? 0.655) + armLift
@@ -11562,8 +11576,6 @@ function updateM1MileiStatueMotion(motion, time, look = null, cellMap = null, ob
     }
     if (motion.bodyPivot) motion.bodyPivot.rotation.x = -0.03 + breathe * 0.3
   } else if (motion.salute === 'bothUp') {
-    // Both arms raised in a V — the double presidential wave, arms waving
-    // hello in counter-phase.
     if (motion.leftArm) {
       motion.leftArm.position.y = (motion.leftArm.userData.baseY ?? 0.655) + armLift
       motion.leftArm.rotation.x = 0
@@ -11575,6 +11587,7 @@ function updateM1MileiStatueMotion(motion, time, look = null, cellMap = null, ob
       motion.rightArm.rotation.z = 2.5 + Math.sin(time * 2.4) * 0.22
     }
   } else {
+    // Default Milei-style: left idle sway, right arm raised wave.
     if (motion.leftArm) {
       const phase = motion.leftArm.userData.swayPhase || 0
       motion.leftArm.position.y = (motion.leftArm.userData.baseY ?? 0.655) + armLift
@@ -11590,30 +11603,37 @@ function updateM1MileiStatueMotion(motion, time, look = null, cellMap = null, ob
   motion.root?.updateMatrixWorld?.(true)
 }
 
-function _extractStatuePlinth(visual, world) {
-  // Move the cylinder pedestal out of the figure group into its own fixed group
-  // so the plinth stays at the base while the figure patrols.
-  const plinths = visual.group.children.filter(c => c.isMesh && c.geometry?.type === 'CylinderGeometry')
-  if (!plinths.length) return
+function extractStatuePlinthToWorld(visual, world) {
+  // Keep the Milei-style pedestal fixed at the plaza while the figure patrols.
+  const fit = visual.group.children.find((c) => c.name === 'statuePlinthFit')
+  if (!fit) return
   const pg = new THREE.Group()
+  pg.name = `${visual.group.name || 'statue'}Plinth`
   pg.position.copy(visual.group.position)
   pg.rotation.copy(visual.group.rotation)
   pg.scale.copy(visual.group.scale)
   pg.frustumCulled = false
   world.add(pg)
-  for (const m of plinths) { visual.group.remove(m); pg.add(m) }
+  visual.group.remove(fit)
+  pg.add(fit)
 }
 
 function addM1MileiStatueDecor(world, lowDetail, state = null) {
   const visual = createM1MileiStatueVisual(THREE, lowDetail)
+  extractStatuePlinthToWorld(visual, world)
   world.add(visual.group)
   if (state) {
+    const { gx, gy } = visual.group.position
     state.m1MileiStatueGroup = visual.group
     state.m1MileiStatueMotion = {
       root: visual.group,
       bodyPivot: visual.bodyPivot,
-      fixed: true,
+      fixed: false,
       buzz: true,
+      salute: 'rightWave',
+      leftArm: visual.group.userData.homeLeftArm || null,
+      rightArm: visual.group.userData.homeRightArm || null,
+      patrol: initStatuePatrol(gx, gy, visual.group.rotation.y, 8, 0.35),
       statueId: M1_MILEI_STATUE_ID,
       mapId: '1',
     }
@@ -11622,15 +11642,19 @@ function addM1MileiStatueDecor(world, lowDetail, state = null) {
 
 function addM1ZelenskyStatueDecor(world, lowDetail, state = null) {
   const visual = createM1ZelenskyStatueVisual(THREE, lowDetail)
-  // Keep the MM3 token plinth fixed at the plaza spot (figure stays rooted too).
-  _extractStatuePlinth(visual, world)
+  extractStatuePlinthToWorld(visual, world)
   world.add(visual.group)
   if (state) {
+    const { gx, gy } = visual.group.position
     state.m1ZelenskyStatueGroup = visual.group
     state.m1ZelenskyStatueMotion = {
       root: visual.group,
       bodyPivot: visual.bodyPivot,
-      fixed: true,
+      fixed: false,
+      salute: 'relaxed',
+      leftArm: visual.group.userData.homeLeftArm || null,
+      rightArm: visual.group.userData.homeRightArm || null,
+      patrol: initStatuePatrol(gx, gy, visual.group.rotation.y, 22, 2.4),
       statueId: M1_ZELENSKY_STATUE_ID,
       mapId: '1',
     }
@@ -11639,15 +11663,19 @@ function addM1ZelenskyStatueDecor(world, lowDetail, state = null) {
 
 function addM2MacronStatueDecor(world, lowDetail, state = null) {
   const visual = createM2MacronStatueVisual(THREE, lowDetail)
-  // Keep the MM3 token plinth fixed; textured figure stays rooted (no salute/patrol).
-  _extractStatuePlinth(visual, world)
+  extractStatuePlinthToWorld(visual, world)
   world.add(visual.group)
   if (state) {
+    const { gx, gy } = visual.group.position
     state.m2MacronStatueGroup = visual.group
     state.m2MacronStatueMotion = {
       root: visual.group,
       bodyPivot: visual.bodyPivot,
-      fixed: true,
+      fixed: false,
+      salute: 'relaxed',
+      leftArm: visual.group.userData.homeLeftArm || null,
+      rightArm: visual.group.userData.homeRightArm || null,
+      patrol: initStatuePatrol(gx, gy, visual.group.rotation.y, 40, 4.1),
       statueId: M2_MACRON_STATUE_ID,
       mapId: '2',
     }
