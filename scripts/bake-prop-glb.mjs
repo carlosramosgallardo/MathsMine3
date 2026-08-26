@@ -11,7 +11,7 @@
  *
  * Usage:
  *   node scripts/bake-prop-glb.mjs .private/models-src/rl-car-src.glb public/models/rl-car.glb
- *   ... [--max-texture 1024] [--quality 82] [--keep-normal-maps]
+ *   ... [--max-texture 1024] [--quality 82] [--keep-normal-maps] [--keep-skin]
  */
 import { statSync } from 'node:fs'
 import { createHash } from 'node:crypto'
@@ -217,11 +217,12 @@ function invertMat4(m) {
 
 function parseArgs(argv) {
   const [src, out] = argv
-  const options = { src, out, maxTexture: 1024, quality: 82, keepNormalMaps: false }
+  const options = { src, out, maxTexture: 1024, quality: 82, keepNormalMaps: false, keepSkin: false }
   for (let i = 2; i < argv.length; i += 1) {
     if (argv[i] === '--max-texture') options.maxTexture = Number(argv[i + 1])
     else if (argv[i] === '--quality') options.quality = Number(argv[i + 1])
     else if (argv[i] === '--keep-normal-maps') options.keepNormalMaps = true
+    else if (argv[i] === '--keep-skin') options.keepSkin = true
   }
   return options
 }
@@ -319,13 +320,15 @@ async function encodeImage(bytes, { maxTexture, quality }) {
 async function main() {
   const options = parseArgs(process.argv.slice(2))
   if (!options.src || !options.out) {
-    console.error('usage: node scripts/bake-prop-glb.mjs <src.glb> <out.glb> [--max-texture n] [--quality n] [--keep-normal-maps]')
+    console.error('usage: node scripts/bake-prop-glb.mjs <src.glb> <out.glb> [--max-texture n] [--quality n] [--keep-normal-maps] [--keep-skin]')
     process.exit(1)
   }
   let { json, bin } = readGlb(options.src)
-  if (json.skins?.length) {
+  if (json.skins?.length && !options.keepSkin) {
     bin = bakeRestPoseSkins(json, bin)
     console.log(`  baked rest-pose skinning (${json.nodes.filter((n) => n.mesh != null).length} mesh nodes)`)
+  } else if (json.skins?.length && options.keepSkin) {
+    console.log(`  keeping skeleton + skin (${json.skins.length} skin(s))`)
   }
   const keepUv = usedTexCoords(json, options.keepNormalMaps)
 
@@ -414,10 +417,15 @@ async function main() {
   }
   for (const node of outJson.nodes) {
     if (Number.isInteger(node.mesh)) node.mesh = meshRemap.get(node.mesh)
+    if (options.keepSkin && json.skins?.length) continue
     // Ready-Player / Sketchfab props often tag static meshes with `skin: 0`
     // without shipping a skins array — Three's loader then crashes on load.
     delete node.skin
     delete node.skeleton
+  }
+
+  if (options.keepSkin && json.skins?.length) {
+    outJson.skins = structuredClone(json.skins)
   }
 
   const report = []

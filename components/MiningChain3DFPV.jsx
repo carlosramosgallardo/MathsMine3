@@ -11494,7 +11494,9 @@ function updateM1MileiStatueMotion(motion, time, look = null, cellMap = null, ob
       motion.bodyPivot.rotation.x = 0
       motion.bodyPivot.rotation.z = 0
     }
-    walkHumanoidStride(motion.bodyPivot, isMoving ? time * 6.4 : 0, 0.52)
+    walkHumanoidStride(motion.bodyPivot, isMoving ? time * 6.4 : 0, 0.52, {
+      lean: !motion.bodyPivot?.userData?.humanoidGlbBones,
+    })
     if (!isMoving) swayHumanoidArms(motion.bodyPivot, time)
     if (motion.head) {
       const desiredYaw = isGazing ? 0 : (Math.sin(time * 0.42) * 0.5 + Math.sin(time * 0.17 + 2) * 0.18)
