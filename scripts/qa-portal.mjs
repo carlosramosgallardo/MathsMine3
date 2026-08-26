@@ -177,24 +177,30 @@ async function readCenterPortalLabel(page) {
     .catch(() => '')
 }
 
-async function selectPortalSide(page, href, labelRe) {
+async function focusPortalHref(page, href) {
   await waitHomePortalReady(page)
-  if (await page.locator('.mm3-nonagon.is-open').count()) {
-    await page.locator('.mm3-nonagon-mapfull').click({ timeout: 5000 })
-    await page.waitForTimeout(300)
-    await waitHomePortalReady(page)
-  }
-  const pattern = new RegExp(labelRe, 'i')
-  const nextArrow = page.locator('.mm3-nonagon-arrow').nth(1)
-  for (let step = 0; step < 12; step += 1) {
-    await dismissHomeStageZoom(page)
-    const text = await readCenterPortalLabel(page)
-    const centerHref = await page.locator('.mm3-nonagon-center-name').first().getAttribute('href').catch(() => null)
-    if (centerHref === href || pattern.test(text)) return text
-    await nextArrow.click({ timeout: 5000 })
-    await page.waitForTimeout(350)
+  await dismissHomeStageZoom(page)
+  const side = page.locator(`[data-portal-href="${href}"]`).first()
+  await side.waitFor({ state: 'attached', timeout: 10000 })
+  // Hover selects without navigating (click would route when already selected).
+  await side.dispatchEvent('mouseenter')
+  await page.waitForTimeout(450)
+  let centerHref = await page.locator('.mm3-nonagon-center-name').first().getAttribute('href').catch(() => null)
+  if (centerHref !== href) {
+    for (let step = 0; step < 11; step += 1) {
+      await page.locator('.mm3-nonagon-arrow').nth(1).click({ timeout: 5000 })
+      await page.waitForTimeout(350)
+      centerHref = await page.locator('.mm3-nonagon-center-name').first().getAttribute('href').catch(() => null)
+      if (centerHref === href) break
+    }
   }
   return readCenterPortalLabel(page)
+}
+
+async function selectPortalSide(page, href, labelRe) {
+  const text = await focusPortalHref(page, href)
+  if (labelRe && !new RegExp(labelRe, 'i').test(text)) return text
+  return text
 }
 
 async function setCurrency(page, code) {
@@ -464,22 +470,25 @@ async function runPhase2(page, base, { ok, nok, skip }) {
     await goto(page, base, '/')
     await waitHomePortalReady(page)
     await setLanguage(page, 'es')
-    await page.waitForFunction(() => localStorage.getItem('mm3-language') === 'es', { timeout: 5000 })
     await page.waitForFunction(
-      () => /Manifiesto/i.test(document.querySelector('.mm3-nonagon-center-name')?.textContent || '')
-        || document.documentElement.lang === 'es',
+      () => localStorage.getItem('mm3-language') === 'es' && document.documentElement.lang === 'es',
       { timeout: 8000 },
-    ).catch(() => {})
-    const homeEs = await selectPortalSide(page, '/manifesto', 'Manifiesto').catch(() => '')
+    )
+    await page.waitForTimeout(400)
+    const homeEs = await focusPortalHref(page, '/manifesto').catch(() => '')
     if (/Manifiesto/i.test(homeEs)) ok('portal.lang.es.home.manifestoLabel', homeEs)
     else if (await bodyHas(page, 'Manifiesto')) ok('portal.lang.es.home.manifestoLabel', 'body')
     else nok('portal.lang.es.home.manifestoLabel', `center=${homeEs}`)
 
-    await setLanguage(page, 'en')
-    await page.waitForFunction(() => localStorage.getItem('mm3-language') === 'en', { timeout: 5000 })
     await goto(page, base, '/')
     await waitHomePortalReady(page)
-    const homeEn = await selectPortalSide(page, '/manifesto', 'Manifesto').catch(() => '')
+    await setLanguage(page, 'en')
+    await page.waitForFunction(
+      () => localStorage.getItem('mm3-language') === 'en' && document.documentElement.lang === 'en',
+      { timeout: 8000 },
+    )
+    await page.waitForTimeout(400)
+    const homeEn = await focusPortalHref(page, '/manifesto').catch(() => '')
     if (/Manifesto/i.test(homeEn)) ok('portal.lang.en.home.manifestoLabel', homeEn)
     else if (await bodyHas(page, 'Manifesto')) ok('portal.lang.en.home.manifestoLabel', 'body')
     else nok('portal.lang.en.home.manifestoLabel', `center=${homeEn}`)
