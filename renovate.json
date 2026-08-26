@@ -125,6 +125,13 @@
       "allowedVersions": "<1.2.0"
     },
     {
+      "description": "navigation-compose 2.10+ pulls lifecycle-compose 2.11, which needs AGP 9.1 and compileSdk 37 (PR #211)",
+      "matchPackageNames": [
+        "androidx.navigation:navigation-compose"
+      ],
+      "allowedVersions": "<2.10.0"
+    },
+    {
       "description": "play-services-auth 22.x Kotlin compilation failure on PR #196",
       "matchPackageNames": [
         "com.google.android.gms:play-services-auth"
