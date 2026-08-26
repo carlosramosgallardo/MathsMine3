@@ -662,8 +662,8 @@ export default function HomeMiningWorld3D() {
       renderer.setClearColor(0x000000, 0)
       renderer.outputColorSpace = THREE.SRGBColorSpace
       renderer.toneMapping = THREE.ACESFilmicToneMapping
-      // Match FPV (~1.38): higher exposure + boss point-lights bleached sculpts.
-      renderer.toneMappingExposure = 1.32
+      // Mild ACES — higher exposure washed Kim/Macron/Zelensky albedo to chalk.
+      renderer.toneMappingExposure = 1.18
       renderer.shadowMap.enabled = true
       renderer.shadowMap.type = THREE.PCFSoftShadowMap
 
@@ -711,14 +711,13 @@ export default function HomeMiningWorld3D() {
       const rim = new THREE.DirectionalLight('#3a6fff', 0.65)
       rim.position.set(2, 5, -8)
       scene.add(rim)
-      // Soft portal-palette accents — low intensity so PBR / vertex-colour bosses
-      // keep readable albedo instead of washing to white.
+      // Soft portal-palette accents — keep low so textured statues keep albedo.
       for (const [x, color, intensity] of [
-        [-12, '#22d3ee', 1.15],
-        [ -6, '#ffe34d', 1.05],
-        [  0, '#d946ef', 1.0],
-        [  6, '#ffe34d', 1.05],
-        [ 12, '#22d3ee', 1.15],
+        [-12, '#22d3ee', 0.85],
+        [ -6, '#ffe34d', 0.75],
+        [  0, '#d946ef', 0.7],
+        [  6, '#ffe34d', 0.75],
+        [ 12, '#22d3ee', 0.85],
       ]) {
         const fl = new THREE.PointLight(color, intensity, 18, 2)
         fl.position.set(x, 2.8, 1.5)
