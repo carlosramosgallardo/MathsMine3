@@ -160,7 +160,7 @@ async function selectPortalSide(page, _href, labelRe) {
     await page.locator('.mm3-nonagon-mapfull').click({ timeout: 5000 })
     await page.waitForTimeout(250)
   }
-  const center = page.getByTestId('mm3-portal-center-name')
+  const center = page.locator('.mm3-nonagon-center-name').first()
   await center.waitFor({ state: 'attached', timeout: 15000 })
   const pattern = new RegExp(labelRe, 'i')
   const nextArrow = page.locator('.mm3-nonagon-arrow').nth(1)
