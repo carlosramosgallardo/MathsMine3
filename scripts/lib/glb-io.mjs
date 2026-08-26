@@ -345,3 +345,74 @@ export function creditExtras(json) {
   const { title, author, license, source } = extras
   return { title, author, license, source }
 }
+
+/**
+ * Uniform-grid cluster decimation that keeps UVs (averaged per cell). Used when
+ * a textured download is still hundreds of thousands of triangles after welding.
+ */
+export function clusterDecimate({ positions, normals, uvs, indices }, gridCells) {
+  const min = [Infinity, Infinity, Infinity]
+  const max = [-Infinity, -Infinity, -Infinity]
+  for (let i = 0; i < positions.length; i += 3) {
+    for (let k = 0; k < 3; k += 1) {
+      if (positions[i + k] < min[k]) min[k] = positions[i + k]
+      if (positions[i + k] > max[k]) max[k] = positions[i + k]
+    }
+  }
+  const cell = Math.max(max[0] - min[0], max[1] - min[1], max[2] - min[2]) / gridCells
+  const dims = min.map((lo, k) => Math.max(1, Math.ceil((max[k] - lo) / cell) + 1))
+  const cellOf = new Float64Array(positions.length / 3)
+  const sums = new Map()
+  for (let v = 0; v < cellOf.length; v += 1) {
+    const key = (
+      (Math.floor((positions[v * 3 + 2] - min[2]) / cell) * dims[1]
+        + Math.floor((positions[v * 3 + 1] - min[1]) / cell)) * dims[0]
+      + Math.floor((positions[v * 3] - min[0]) / cell)
+    )
+    cellOf[v] = key
+    let acc = sums.get(key)
+    if (!acc) {
+      acc = { n: 0, p: [0, 0, 0], nor: [0, 0, 0], uv: [0, 0], index: sums.size }
+      sums.set(key, acc)
+    }
+    acc.n += 1
+    for (let k = 0; k < 3; k += 1) {
+      acc.p[k] += positions[v * 3 + k]
+      acc.nor[k] += normals[v * 3 + k]
+    }
+    if (uvs) {
+      acc.uv[0] += uvs[v * 2]
+      acc.uv[1] += uvs[v * 2 + 1]
+    }
+  }
+  const count = sums.size
+  const outPos = new Float32Array(count * 3)
+  const outNor = new Float32Array(count * 3)
+  const outUv = uvs ? new Float32Array(count * 2) : null
+  for (const acc of sums.values()) {
+    const at = acc.index * 3
+    const len = Math.hypot(acc.nor[0], acc.nor[1], acc.nor[2]) || 1
+    for (let k = 0; k < 3; k += 1) {
+      outPos[at + k] = acc.p[k] / acc.n
+      outNor[at + k] = acc.nor[k] / len
+    }
+    if (outUv) {
+      outUv[acc.index * 2] = acc.uv[0] / acc.n
+      outUv[acc.index * 2 + 1] = acc.uv[1] / acc.n
+    }
+  }
+  const outIdx = []
+  for (let t = 0; t < indices.length; t += 3) {
+    const a = sums.get(cellOf[indices[t]]).index
+    const b = sums.get(cellOf[indices[t + 1]]).index
+    const c = sums.get(cellOf[indices[t + 2]]).index
+    if (a === b || b === c || a === c) continue
+    outIdx.push(a, b, c)
+  }
+  return {
+    positions: outPos,
+    normals: outNor,
+    uvs: outUv,
+    indices: Uint32Array.from(outIdx),
+  }
+}
