@@ -5,7 +5,15 @@ on:
     branches: [main]
     paths: &portal_paths
       - 'app/**'
-      - 'components/**'
+      - 'components/LandingHero.jsx'
+      - 'components/Footer.jsx'
+      - 'components/DeadGate.jsx'
+      - 'components/AuthBar.jsx'
+      - 'components/Header.jsx'
+      - 'components/CookieBanner.jsx'
+      - 'components/CurrencySwitcher.jsx'
+      - 'components/LanguageSwitcher.jsx'
+      - 'components/RouteShell.jsx'
       - 'lib/i18n-context.js'
       - 'scripts/qa-portal.mjs'
       - 'scripts/qa/portal-inventory.mjs'

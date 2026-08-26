@@ -7,7 +7,7 @@ Two harnesses share the same `OK` / `NOK` / `SKIP` output (exit **1** on any NOK
 | When | What runs |
 |------|-----------|
 | Web PR / push to `main` (path-filtered) | [`web-quality.yml`](../.github/workflows/web-quality.yml): ESLint, `npm test`, `qa:sweep:unit`, production build |
-| Portal UI PR / push (narrower paths) | [`portal-qa.yml`](../.github/workflows/portal-qa.yml): production build + Playwright portal phases **1–2** |
+| Portal UI PR / push (narrower paths) | [`portal-qa.yml`](../.github/workflows/portal-qa.yml): production build + Playwright portal phases **1–2** (skips pure 3D/GLB-only diffs) |
 | GitHub Release tag `v*` or Actions → **Game QA** | [`game-qa.yml`](../.github/workflows/game-qa.yml): lint/build then portal QA, no path filter |
 
 ```bash
@@ -17,6 +17,14 @@ npm run qa:portal:smoke  # needs a running Next server
 ```
 
 Full API sweep (`qa:sweep` without `--unit-only`) is **manual**: it seeds QA wallets in Supabase and must not run against production from CI.
+
+### Required vs optional on PRs
+
+**Required on `main` (branch protection):** SonarCloud Code Analysis only.
+
+**Repo workflows (path-filtered):** Lint and build, Portal QA, Polyglot, Android APK — run when their paths match; absence is not a failure.
+
+**Third-party apps (informational, often slow):** Cursor Approval / Bugbot / Security, CodeRabbit, Gitar, qlty, Snyk, Vercel preview. Do not block merge waiting for these unless you add them as required checks. To cut noise: GitHub → Settings → Integrations → disable redundant review bots; keep Sonar + your own workflows.
 
 ## 1. API + unit sweep
 
