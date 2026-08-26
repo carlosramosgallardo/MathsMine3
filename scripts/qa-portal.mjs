@@ -477,6 +477,8 @@ async function runPhase2(page, base, { ok, nok, skip }) {
 
     await setLanguage(page, 'en')
     await page.waitForFunction(() => localStorage.getItem('mm3-language') === 'en', { timeout: 5000 })
+    await goto(page, base, '/')
+    await waitHomePortalReady(page)
     const homeEn = await selectPortalSide(page, '/manifesto', 'Manifesto').catch(() => '')
     if (/Manifesto/i.test(homeEn)) ok('portal.lang.en.home.manifestoLabel', homeEn)
     else if (await bodyHas(page, 'Manifesto')) ok('portal.lang.en.home.manifestoLabel', 'body')
