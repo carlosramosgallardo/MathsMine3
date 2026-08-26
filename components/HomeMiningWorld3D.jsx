@@ -423,7 +423,7 @@ export function addNftjiMiningBlock(THREE, scene, options = {}) {
 // with railX (slot index × RAIL_SPACING), so the lineup is NOT capped at 7.
 const HOME_LINEUP_X = Object.freeze([-13.65, -9.1, -4.45, 0, 4.45, 9.1, 13.65])
 // heightMult ≈ realHeight/190 so every boss shares the Trump crown on the rail.
-// Statues get a small yOffset for the MM3 plinth only — not a second height bump.
+// Statues share one MM3 plinth extract — no extra yOffset per character.
 const HOME_BOSS_LAYOUT = [
   {
     id: 'putin',
@@ -441,7 +441,6 @@ const HOME_BOSS_LAYOUT = [
   {
     id: 'milei',
     heightMult: 1.0,
-    yOffset: 0.12,
     createVisual: createM1MileiStatueVisual,
     bossScale: M1_MILEI_STATUE_SCALE,
     position: [HOME_LINEUP_X[4], 0, 0.06],
