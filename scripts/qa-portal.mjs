@@ -155,7 +155,15 @@ async function dismissHomeStageZoom(page) {
 }
 
 async function waitHomePortalReady(page) {
-  await dismissHomeStageZoom(page)
+  for (let i = 0; i < 3; i += 1) {
+    await dismissHomeStageZoom(page)
+    const ready = await page.evaluate(() => (
+      document.querySelectorAll('[data-portal-href]').length >= 10
+      && document.querySelector('.mm3-nonagon-center-name')
+    ))
+    if (ready) return
+    await page.waitForTimeout(400)
+  }
   await page.waitForFunction(
     () => document.querySelectorAll('[data-portal-href]').length >= 10
       && document.querySelector('.mm3-nonagon-center-name'),
@@ -164,7 +172,9 @@ async function waitHomePortalReady(page) {
 }
 
 async function readCenterPortalLabel(page) {
-  return page.locator('.mm3-nonagon-center-name').first().innerText().catch(() => '')
+  return page.locator('.mm3-nonagon-center-name').first()
+    .evaluate((el) => (el.textContent || '').trim())
+    .catch(() => '')
 }
 
 async function selectPortalSide(page, href, labelRe) {
