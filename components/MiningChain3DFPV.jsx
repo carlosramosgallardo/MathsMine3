@@ -11590,20 +11590,6 @@ function updateM1MileiStatueMotion(motion, time, look = null, cellMap = null, ob
   motion.root?.updateMatrixWorld?.(true)
 }
 
-function _extractStatuePlinth(visual, world) {
-  // Move the cylinder pedestal out of the figure group into its own fixed group
-  // so the plinth stays at the base while the figure patrols.
-  const plinths = visual.group.children.filter(c => c.isMesh && c.geometry?.type === 'CylinderGeometry')
-  if (!plinths.length) return
-  const pg = new THREE.Group()
-  pg.position.copy(visual.group.position)
-  pg.rotation.copy(visual.group.rotation)
-  pg.scale.copy(visual.group.scale)
-  pg.frustumCulled = false
-  world.add(pg)
-  for (const m of plinths) { visual.group.remove(m); pg.add(m) }
-}
-
 function addM1MileiStatueDecor(world, lowDetail, state = null) {
   const visual = createM1MileiStatueVisual(THREE, lowDetail)
   world.add(visual.group)
