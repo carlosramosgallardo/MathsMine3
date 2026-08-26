@@ -6,8 +6,9 @@ Two harnesses share the same `OK` / `NOK` / `SKIP` output (exit **1** on any NOK
 
 | When | What runs |
 |------|-----------|
-| Web PR / push to `main` (path-filtered) | [`web-quality.yml`](../.github/workflows/web-quality.yml): ESLint, `npm test`, `qa:sweep:unit`, production build, Playwright portal phases **1–2** |
-| GitHub Release tag `v*` or Actions → **Game QA** | [`game-qa.yml`](../.github/workflows/game-qa.yml): same job, no path filter |
+| Web PR / push to `main` (path-filtered) | [`web-quality.yml`](../.github/workflows/web-quality.yml): ESLint, `npm test`, `qa:sweep:unit`, production build |
+| Portal UI PR / push (narrower paths) | [`portal-qa.yml`](../.github/workflows/portal-qa.yml): production build + Playwright portal phases **1–2** |
+| GitHub Release tag `v*` or Actions → **Game QA** | [`game-qa.yml`](../.github/workflows/game-qa.yml): lint/build then portal QA, no path filter |
 
 ```bash
 npm test                 # node:test — lib/*.test.mjs (RNG, market formulas, …)

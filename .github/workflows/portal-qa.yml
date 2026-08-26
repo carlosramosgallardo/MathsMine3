@@ -1,0 +1,78 @@
+name: Portal QA
+
+on:
+  push:
+    branches: [main]
+    paths: &portal_paths
+      - 'app/**'
+      - 'components/**'
+      - 'lib/i18n-context.js'
+      - 'scripts/qa-portal.mjs'
+      - 'scripts/qa/portal-inventory.mjs'
+      - 'scripts/qa/lib.mjs'
+      - 'scripts/ci-wait-http.sh'
+      - 'proxy.ts'
+      - '.github/workflows/portal-qa.yml'
+  pull_request:
+    paths: *portal_paths
+  workflow_dispatch:
+    inputs:
+      portal_phases:
+        description: 'Portal QA phases (comma-separated, or all)'
+        required: false
+        default: '1,2'
+  workflow_call:
+    inputs:
+      portal_phases:
+        description: 'Portal QA phases (comma-separated, or all)'
+        type: string
+        required: false
+        default: '1,2'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  verify:
+    name: Portal QA
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      NEXT_TELEMETRY_DISABLED: '1'
+      NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiJ9.signature
+      NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID: ci-placeholder
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Production build
+        run: npm run build
+
+      - name: Install Playwright Chromium
+        run: node node_modules/playwright/cli.js install --with-deps chromium
+
+      - name: Start production server
+        run: |
+          npm run start -- --hostname 127.0.0.1 --port 3000 &
+          bash scripts/ci-wait-http.sh http://127.0.0.1:3000
+
+      - name: Portal QA
+        run: node scripts/qa-portal.mjs --base http://127.0.0.1:3000 --phase "${PHASES}"
+        env:
+          CI: 'true'
+          PHASES: ${{ inputs.portal_phases || '1,2' }}
