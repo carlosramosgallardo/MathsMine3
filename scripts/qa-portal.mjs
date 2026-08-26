@@ -143,19 +143,33 @@ async function setLanguage(page, lang) {
   await page.waitForTimeout(350)
 }
 
+async function dismissHomeStageZoom(page) {
+  if (!(await page.locator('.mm3-home-access.is-stagezoom').count())) return
+  await page.evaluate(() => {
+    window.dispatchEvent(new CustomEvent('mm3-stage-zoom-toggle'))
+  })
+  await page.waitForTimeout(400)
+}
+
 async function selectPortalSide(page, href, labelRe) {
-  const side = page.getByTestId(`mm3-portal-side-${href.replace(/^\//, '')}`)
-  await side.waitFor({ state: 'visible', timeout: 15000 })
-  await side.click({ timeout: 5000 })
-  await page.waitForFunction(
-    (pattern) => {
-      const el = document.querySelector('[data-testid="mm3-portal-center-name"]')
-      return Boolean(el && new RegExp(pattern, 'i').test(el.textContent || ''))
-    },
-    labelRe,
-    { timeout: 8000 },
-  )
-  return page.getByTestId('mm3-portal-center-name').innerText().catch(() => '')
+  await dismissHomeStageZoom(page)
+  if (await page.locator('.mm3-nonagon.is-open').count()) {
+    await page.locator('.mm3-nonagon-mapfull').click({ timeout: 5000 })
+    await page.waitForTimeout(250)
+  }
+  const center = page.getByTestId('mm3-portal-center-name')
+  await center.waitFor({ state: 'attached', timeout: 15000 })
+  const pattern = new RegExp(labelRe, 'i')
+  for (let step = 0; step < 12; step += 1) {
+    const text = await center.innerText().catch(() => '')
+    if (pattern.test(text)) return text
+    const nextLabel = (await page.evaluate(() => document.documentElement.lang)) === 'es'
+      ? 'Siguiente'
+      : 'Next'
+    await page.getByRole('button', { name: nextLabel }).click({ timeout: 5000 })
+    await page.waitForTimeout(350)
+  }
+  return center.innerText().catch(() => '')
 }
 
 async function setCurrency(page, code) {
