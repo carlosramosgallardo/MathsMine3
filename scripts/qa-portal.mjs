@@ -80,7 +80,8 @@ async function dismissCookies(page) {
   const banner = page.getByTestId('mm3-cookie-banner')
   if (await banner.count()) {
     const accept = page.getByTestId('mm3-cookie-accept')
-    if (await accept.count()) await accept.click()
+    // Home WebGL can stall Playwright's post-click navigation wait.
+    if (await accept.count()) await accept.click({ noWaitAfter: true, timeout: 10_000 })
     await page.waitForTimeout(200)
   }
 }
@@ -306,7 +307,7 @@ async function runPhase2(page, base, { ok, nok, skip }) {
 
   // Cookies accept + persist
   try {
-    await goto(page, base, '/')
+    await goto(page, base, '/', { slow: true })
     await page.evaluate(() => {
       try {
         localStorage.removeItem('mm3_cookies_accepted')
@@ -317,7 +318,7 @@ async function runPhase2(page, base, { ok, nok, skip }) {
     await page.waitForTimeout(700)
     const banner = page.getByTestId('mm3-cookie-banner')
     if (await banner.count()) {
-      await page.getByTestId('mm3-cookie-accept').click()
+      await page.getByTestId('mm3-cookie-accept').click({ noWaitAfter: true, timeout: 10_000 })
       await page.waitForTimeout(200)
       const stored = await page.evaluate(() => localStorage.getItem('mm3_cookies_accepted'))
       const gone = (await banner.count()) === 0
@@ -459,12 +460,12 @@ async function runPhase2(page, base, { ok, nok, skip }) {
 
   // Sound / music toggles
   try {
-    await goto(page, base, '/')
+    await goto(page, base, '/', { slow: true })
     await dismissCookies(page)
     const sound = page.getByTestId('mm3-sound-toggle')
     const music = page.getByTestId('mm3-music-toggle')
     const beforeS = await sound.getAttribute('data-enabled')
-    await sound.click()
+    await domClick(page, 'mm3-sound-toggle')
     await page.waitForTimeout(200)
     const afterS = await sound.getAttribute('data-enabled')
     const storedS = await page.evaluate(() => localStorage.getItem('mm3-sound-enabled'))
@@ -474,10 +475,10 @@ async function runPhase2(page, base, { ok, nok, skip }) {
       nok('portal.sound.toggle', `before=${beforeS} after=${afterS} stored=${storedS}`)
     }
     // restore
-    await sound.click()
+    await domClick(page, 'mm3-sound-toggle')
 
     const beforeM = await music.getAttribute('data-enabled')
-    await music.click()
+    await domClick(page, 'mm3-music-toggle')
     await page.waitForTimeout(200)
     const afterM = await music.getAttribute('data-enabled')
     const storedM = await page.evaluate(() => localStorage.getItem('mm3-music-enabled'))
@@ -486,16 +487,16 @@ async function runPhase2(page, base, { ok, nok, skip }) {
     } else {
       nok('portal.music.toggle', `before=${beforeM} after=${afterM} stored=${storedM}`)
     }
-    await music.click()
+    await domClick(page, 'mm3-music-toggle')
 
     // Persist across page
-    await sound.click() // mute
+    await domClick(page, 'mm3-sound-toggle') // mute
     await goto(page, base, '/ranking')
     const persisted = await page.evaluate(() => localStorage.getItem('mm3-sound-enabled'))
     const ui = await page.getByTestId('mm3-sound-toggle').getAttribute('data-enabled')
     if (persisted === 'false' && ui === 'false') ok('portal.sound.persist.ranking')
     else nok('portal.sound.persist.ranking', `stored=${persisted} ui=${ui}`)
-    await page.getByTestId('mm3-sound-toggle').click() // unmute restore
+    await domClick(page, 'mm3-sound-toggle') // unmute restore
   } catch (e) {
     nok('portal.soundMusic', e.message?.slice(0, 200) || String(e))
   }
