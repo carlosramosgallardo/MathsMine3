@@ -271,7 +271,7 @@ function NonagonPortal({ portal, es, isDead, deadCountdown, count, nftji, mining
         <span className="mm3-nonagon-center-head">
           <span className="mm3-nonagon-center-icon" aria-hidden="true">{currentBlocked ? '💀' : current.icon}</span>
           {currentBlocked ? (
-            <span className="mm3-nonagon-center-name">{current.name}</span>
+            <span data-testid="mm3-portal-center-name" className="mm3-nonagon-center-name">{current.name}</span>
           ) : (
             <Link href={current.href} data-testid="mm3-portal-center-name" className="mm3-nonagon-center-name">{current.name}</Link>
           )}

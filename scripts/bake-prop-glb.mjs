@@ -11,7 +11,7 @@
  *
  * Usage:
  *   node scripts/bake-prop-glb.mjs .private/models-src/rl-car-src.glb public/models/rl-car.glb
- *   ... [--max-texture 1024] [--quality 82] [--keep-normal-maps]
+ *   ... [--max-texture 1024] [--quality 82] [--keep-normal-maps] [--keep-skin] [--decimate-grid n]
  */
 import { statSync } from 'node:fs'
 import { createHash } from 'node:crypto'
@@ -23,6 +23,7 @@ import {
   bufferViewBytes,
   creditExtras,
   GlbBuilder,
+  clusterDecimate,
   IDENTITY,
   multiply,
   nodeMatrix,
@@ -217,13 +218,42 @@ function invertMat4(m) {
 
 function parseArgs(argv) {
   const [src, out] = argv
-  const options = { src, out, maxTexture: 1024, quality: 82, keepNormalMaps: false }
+  const options = {
+    src, out, maxTexture: 1024, quality: 82, keepNormalMaps: false, keepSkin: false, decimateGrid: 0,
+  }
   for (let i = 2; i < argv.length; i += 1) {
     if (argv[i] === '--max-texture') options.maxTexture = Number(argv[i + 1])
     else if (argv[i] === '--quality') options.quality = Number(argv[i + 1])
     else if (argv[i] === '--keep-normal-maps') options.keepNormalMaps = true
+    else if (argv[i] === '--keep-skin') options.keepSkin = true
+    else if (argv[i] === '--decimate-grid') options.decimateGrid = Number(argv[i + 1])
   }
   return options
+}
+
+function decimateWelded(welded, gridCells) {
+  const pos = welded.attributes.find(({ name }) => name === 'POSITION')
+  const nor = welded.attributes.find(({ name }) => name === 'NORMAL')
+  const uv = welded.attributes.find(({ name }) => name === 'TEXCOORD_0')
+  const indices = welded.indices instanceof Uint16Array
+    ? Uint32Array.from(welded.indices)
+    : welded.indices
+  const decimated = clusterDecimate({
+    positions: pos.data,
+    normals: nor?.data || new Float32Array(pos.data.length),
+    uvs: uv?.data || null,
+    indices,
+  }, gridCells)
+  const attributes = [{ name: 'POSITION', comps: 3, data: decimated.positions }]
+  if (nor) attributes.push({ name: 'NORMAL', comps: 3, data: decimated.normals })
+  if (uv && decimated.uvs) attributes.push({ name: 'TEXCOORD_0', comps: 2, data: decimated.uvs })
+  const vertexCount = decimated.positions.length / 3
+  return {
+    attributes,
+    indices: vertexCount < 65536 ? Uint16Array.from(decimated.indices) : decimated.indices,
+    vertexCount,
+    sourceCount: welded.sourceCount,
+  }
 }
 
 /** Texture slots each material keeps, in the order they are re-indexed. */
@@ -316,16 +346,40 @@ async function encodeImage(bytes, { maxTexture, quality }) {
   }
 }
 
+/** Copy a skinned primitive verbatim — welding drops JOINTS_0/WEIGHTS_0. */
+function copySkinnedPrimitive(json, bin, prim, builder) {
+  const attributes = {}
+  for (const [name, accIndex] of Object.entries(prim.attributes)) {
+    const acc = json.accessors[accIndex]
+    attributes[name] = builder.addAccessor(accessorArray(json, bin, accIndex), acc.type, {
+      target: ARRAY_BUFFER,
+      normalized: Boolean(acc.normalized),
+      minMax: name === 'POSITION',
+    })
+  }
+  const primitive = { attributes, material: prim.material }
+  if (Number.isInteger(prim.indices)) {
+    primitive.indices = builder.addAccessor(
+      accessorArray(json, bin, prim.indices),
+      'SCALAR',
+      { target: ELEMENT_ARRAY_BUFFER },
+    )
+  }
+  return primitive
+}
+
 async function main() {
   const options = parseArgs(process.argv.slice(2))
   if (!options.src || !options.out) {
-    console.error('usage: node scripts/bake-prop-glb.mjs <src.glb> <out.glb> [--max-texture n] [--quality n] [--keep-normal-maps]')
+    console.error('usage: node scripts/bake-prop-glb.mjs <src.glb> <out.glb> [--max-texture n] [--quality n] [--keep-normal-maps] [--keep-skin] [--decimate-grid n]')
     process.exit(1)
   }
   let { json, bin } = readGlb(options.src)
-  if (json.skins?.length) {
+  if (json.skins?.length && !options.keepSkin) {
     bin = bakeRestPoseSkins(json, bin)
     console.log(`  baked rest-pose skinning (${json.nodes.filter((n) => n.mesh != null).length} mesh nodes)`)
+  } else if (json.skins?.length && options.keepSkin) {
+    console.log(`  keeping skeleton + skin (${json.skins.length} skin(s))`)
   }
   const keepUv = usedTexCoords(json, options.keepNormalMaps)
 
@@ -368,7 +422,19 @@ async function main() {
   const meshRemap = new Map()
   let sourceVerts = 0
   let bakedVerts = 0
-  for (let i = 0; i < json.meshes.length; i += 1) {
+  if (options.keepSkin && json.skins?.length) {
+    for (let i = 0; i < json.meshes.length; i += 1) {
+      const mesh = json.meshes[i]
+      const primitives = mesh.primitives.map((prim) => {
+        const count = json.accessors[prim.attributes.POSITION].count
+        sourceVerts += count
+        bakedVerts += count
+        return copySkinnedPrimitive(json, bin, prim, builder)
+      })
+      outJson.meshes.push({ name: mesh.name, primitives })
+      meshRemap.set(i, i)
+    }
+  } else for (let i = 0; i < json.meshes.length; i += 1) {
     const mesh = json.meshes[i]
     const primitives = []
     const signature = []
@@ -379,10 +445,13 @@ async function main() {
         .filter((name) => VEC_OF[name] && (!name.startsWith('TEXCOORD') || materialUv.has(name)))
         .sort((a, b) => a.localeCompare(b))
       const welded = weldPrimitive(json, bin, prim, attributeNames)
-      sourceVerts += welded.sourceCount
-      meshVerts += welded.vertexCount
+      const baked = options.decimateGrid > 0 && welded.vertexCount > 40000
+        ? decimateWelded(welded, options.decimateGrid)
+        : welded
+      sourceVerts += baked.sourceCount
+      meshVerts += baked.vertexCount
       const attributes = {}
-      for (const attribute of welded.attributes) {
+      for (const attribute of baked.attributes) {
         attributes[attribute.name] = builder.addAccessor(
           attribute.data,
           attribute.comps === 2 ? 'VEC2' : attribute.comps === 4 ? 'VEC4' : 'VEC3',
@@ -391,7 +460,7 @@ async function main() {
       }
       primitives.push({
         attributes,
-        indices: builder.addAccessor(welded.indices, 'SCALAR', { target: ELEMENT_ARRAY_BUFFER }),
+        indices: builder.addAccessor(baked.indices, 'SCALAR', { target: ELEMENT_ARRAY_BUFFER }),
         material: prim.material,
       })
       // Content hash for deduping identical parts — not a security boundary,
@@ -414,10 +483,22 @@ async function main() {
   }
   for (const node of outJson.nodes) {
     if (Number.isInteger(node.mesh)) node.mesh = meshRemap.get(node.mesh)
+    if (options.keepSkin && json.skins?.length) continue
     // Ready-Player / Sketchfab props often tag static meshes with `skin: 0`
     // without shipping a skins array — Three's loader then crashes on load.
     delete node.skin
     delete node.skeleton
+  }
+
+  if (options.keepSkin && json.skins?.length) {
+    outJson.skins = json.skins.map((skin) => ({
+      ...(skin.name != null ? { name: skin.name } : {}),
+      joints: [...skin.joints],
+      inverseBindMatrices: builder.addAccessor(
+        accessorArray(json, bin, skin.inverseBindMatrices),
+        'MAT4',
+      ),
+    }))
   }
 
   const report = []

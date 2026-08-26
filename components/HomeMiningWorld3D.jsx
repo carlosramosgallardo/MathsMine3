@@ -736,7 +736,7 @@ export default function HomeMiningWorld3D() {
       }
 
       // Non-boss props (cars/bots/nuke cube) join the bosses on the rail.
-      addRedCarpet(THREE, scene, HOME_BOSS_LAYOUT.length + 6)
+      addRedCarpet(THREE, scene, HOME_BOSS_LAYOUT.length + 3)
       const homeBosses = HOME_BOSS_LAYOUT.map((layout) => addHomeBoss(THREE, scene, layout))
 
       // Hovering the mining-access card puts every boss/statue/bot in
@@ -780,43 +780,14 @@ export default function HomeMiningWorld3D() {
         rotationY: Math.PI,
         phase: Math.PI * .82,
       })
-      const homeSoloCar = addHomeBotCar(THREE, scene, {
-        botColor: '#67e8f9',
-        carColor: '#334155',
-        position: [HOME_LINEUP_X[1], 0, 0.16],
-        rotationY: Math.PI,
-        phase: Math.PI * 1.48,
-      })
-      // Sparring members: two more AI-team bots (real wallet colours) that
-      // throw a relaxed USB-staff strike every 2s (punch envelope in animate).
-      const homePunchBot = addMiningBot(THREE, scene, {
-        color: colorFromAddress(AI_TEAM_WALLETS[2]),
-        position: [0, HOME_ARENA_FLOOR_Y, 0.08],
-        rotationY: Math.PI,
-        scale: HOME_LINEUP_BOT_SCALE,
-      })
-      const homePunchBotCar = addHomeBotCar(THREE, scene, {
-        botColor: colorFromAddress(AI_TEAM_WALLETS[3]),
-        carColor: '#0ea5e9',
-        position: [0, 0, 0.10],
-        rotationY: Math.PI,
-        phase: Math.PI * .40,
-      })
-      homePunchBotCar.punch = true
-      homePunchBotCar.punchPhase = 1.0
-      // The other bot car hops every 2s (offset from the green bot's hop) with
-      // the same mid-air flail the in-game jumps use.
+      // The bot car hops every 2s with the same mid-air flail in-game jumps use.
       homeBotCar.jump = true
       homeBotCar.jumpPhase = 1.2
-      boostCars.push(homeSoloCar.car, homeBotCar.car, homePunchBotCar.car)
+      boostCars.push(homeBotCar.car)
       const homeNuke = addHomeNukeCube(THREE, scene)
       const homeProps = [
-        // The green bot hops every 2s (jump), the sparring pair strikes every 2s (punch).
         { kind: 'bot', group: homeBot, baseY: HOME_ARENA_FLOOR_Y, baseRotationY: Math.PI, phase: Math.PI * .28, bob: 2.35, sway: .54, jump: true, jumpPhase: .5 },
         homeBotCar,
-        homeSoloCar,
-        { kind: 'bot', group: homePunchBot, baseY: HOME_ARENA_FLOOR_Y, baseRotationY: Math.PI, phase: Math.PI * 1.12, bob: 2.25, sway: .48, punch: true, punchPhase: 0 },
-        homePunchBotCar,
         homeNuke,
       ]
 
@@ -828,11 +799,9 @@ export default function HomeMiningWorld3D() {
       // Members interleave boss/bot as evenly as the boss/prop counts allow,
       // at the same RAIL_SPACING gap as before; railX is assigned by slot index.
       const bossById = Object.fromEntries(HOME_BOSS_LAYOUT.map((layout, i) => [layout.id, homeBosses[i]]))
-      const punchBotProp = homeProps[3]
       const lineup = [
-        bossById.trump, homeSoloCar, bossById.putin, homeProps[0], bossById.milei,
-        homeBotCar, bossById.kim, punchBotProp, bossById.zelensky, homePunchBotCar,
-        bossById.macron, homeNuke,
+        bossById.trump, bossById.putin, homeProps[0], bossById.milei,
+        homeBotCar, bossById.kim, bossById.zelensky, bossById.macron, homeNuke,
       ]
       const RAIL_SPACING = 6.0
       const railSpan = lineup.length * RAIL_SPACING
@@ -868,11 +837,8 @@ export default function HomeMiningWorld3D() {
       addHomeTag(bossById.zelensky.group, 'Volodymyr Zelensky · STATUE', '#3b82f6', 1.35)
       addHomeTag(bossById.macron.group, 'Emmanuel Macron · STATUE', '#2563eb', 1.35)
       addHomeTag(homeNuke.group, 'NUKE CUBE · ???', '#facc15', 3.55)
-      addHomeTag(homeSoloCar.group, 'Aserejee · AI', '#22d3ee', 2.35)
       addHomeTag(homeBot, aiTeamTag(AI_TEAM_WALLETS[0]), '#86efac', 1.35)
       addHomeTag(homeBotCar.group, aiTeamTag(AI_TEAM_WALLETS[1]), '#86efac', 2.35)
-      addHomeTag(homePunchBot, aiTeamTag(AI_TEAM_WALLETS[2]), '#86efac', 1.35)
-      addHomeTag(homePunchBotCar.group, aiTeamTag(AI_TEAM_WALLETS[3]), '#86efac', 2.35)
       const rail = { offset: 0, vel: 0, dragging: false, lastX: 0, moved: 0, suppressClick: false, snapTarget: 0 }
       // Center-stage feature: bosses step off the rail toward the camera,
       // play their show and walk back. Statues stay on the plinth (mining is

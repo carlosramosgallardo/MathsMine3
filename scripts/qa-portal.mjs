@@ -120,7 +120,10 @@ async function waitBodyHasAny(page, needles, { timeoutMs = 12_000, intervalMs = 
 
 async function closeOverlays(page) {
   await page.keyboard.press('Escape').catch(() => {})
-  await page.mouse.click(8, 8).catch(() => {})
+  // Top-left click dismisses stray overlays on inner pages, but on `/` it hits
+  // the home 3D stage and toggles fullscreen showcase — hiding the nonagon.
+  const onHome = await page.evaluate(() => window.location.pathname === '/')
+  if (!onHome) await page.mouse.click(8, 8).catch(() => {})
   await page.waitForTimeout(150)
 }
 
@@ -141,6 +144,99 @@ async function setLanguage(page, lang) {
   await page.waitForTimeout(150)
   await domClick(page, `mm3-lang-option-${lang}`)
   await page.waitForTimeout(350)
+}
+
+async function dismissHomeStageZoom(page) {
+  if (!(await page.locator('.mm3-home-access.is-stagezoom').count())) return
+  await page.evaluate(() => {
+    window.dispatchEvent(new CustomEvent('mm3-stage-zoom-toggle'))
+  })
+  await page.waitForTimeout(400)
+}
+
+async function waitHomePortalReady(page) {
+  try {
+    for (let i = 0; i < 3; i += 1) {
+      await dismissHomeStageZoom(page)
+      const ready = await page.evaluate(() => (
+        document.querySelectorAll('[data-portal-href]').length >= 10
+        && document.querySelector('.mm3-nonagon-center-name')
+      ))
+      if (ready) return true
+      await page.waitForTimeout(400)
+    }
+    await page.waitForFunction(
+      () => document.querySelectorAll('[data-portal-href]').length >= 10
+        && document.querySelector('.mm3-nonagon-center-name'),
+      { timeout: 20000 },
+    )
+    return true
+  } catch {
+    return false
+  }
+}
+
+async function readCenterPortal(page) {
+  return page.evaluate(() => {
+    const el = document.querySelector('[data-testid="mm3-portal-center-name"]')
+    if (!el) return { label: '', href: null }
+    return { label: (el.textContent || '').trim(), href: el.getAttribute('href') }
+  }).catch(() => ({ label: '', href: null }))
+}
+
+async function readCenterPortalLabel(page) {
+  return (await readCenterPortal(page)).label
+}
+
+async function readCenterPortalHref(page) {
+  return (await readCenterPortal(page)).href
+}
+
+async function focusPortalHref(page, href) {
+  if (!(await waitHomePortalReady(page))) return ''
+  await dismissHomeStageZoom(page)
+  // Hover pauses the 3s auto-rotation (see NonagonPortal onMouseEnter).
+  await page.locator('.mm3-nonagon').hover({ force: true, timeout: 5000 }).catch(() => {})
+  await page.waitForTimeout(250)
+
+  const sideId = `mm3-portal-side-${href.replace(/^\//, '')}`
+  if (!(await page.getByTestId(sideId).count())) return ''
+
+  await page.evaluate((id) => {
+    const side = document.querySelector(`[data-testid="${id}"]`)
+    if (!side) return
+    side.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }))
+    const hit = side.querySelector('line[stroke="transparent"]') || side.querySelector('line')
+    hit?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+  }, sideId)
+  await page.waitForTimeout(400)
+
+  for (let i = 0; i < 8; i += 1) {
+    const { label, href: centerHref } = await readCenterPortal(page)
+    if (centerHref === href) return label
+    await page.waitForTimeout(200)
+  }
+
+  const portalLen = await page.locator('[data-portal-href]').count()
+  for (let step = 0; step < portalLen + 2; step += 1) {
+    await dismissHomeStageZoom(page)
+    const { label, href: centerHref } = await readCenterPortal(page)
+    if (centerHref === href) return label
+
+    const { currentIdx, targetIdx } = await page.evaluate((target) => {
+      const center = document.querySelector('[data-testid="mm3-portal-center-name"]')
+      const active = center?.getAttribute('href') || ''
+      const sides = [...document.querySelectorAll('[data-portal-href]')]
+      const idx = (h) => sides.findIndex((el) => el.getAttribute('data-portal-href') === h)
+      return { currentIdx: idx(active), targetIdx: idx(target) }
+    }, href)
+    if (currentIdx < 0 || targetIdx < 0) break
+    const forward = ((targetIdx - currentIdx + portalLen) % portalLen) <= portalLen / 2
+    const arrowIdx = forward ? 1 : 0
+    await page.locator('.mm3-nonagon-arrow').nth(arrowIdx).click({ force: true, timeout: 5000 }).catch(() => {})
+    await page.waitForTimeout(350)
+  }
+  return readCenterPortalLabel(page)
 }
 
 async function setCurrency(page, code) {
@@ -408,21 +504,36 @@ async function runPhase2(page, base, { ok, nok, skip }) {
     }
     // Home nonagon labels flip with language (select Manifesto side)
     await goto(page, base, '/')
+    await waitHomePortalReady(page)
     await setLanguage(page, 'es')
-    await page.locator('[data-portal-href="/manifesto"]').first().evaluate((el) => el.dispatchEvent(new MouseEvent('click', { bubbles: true })))
+    await page.waitForFunction(
+      () => localStorage.getItem('mm3-language') === 'es' && document.documentElement.lang === 'es',
+      { timeout: 8000 },
+    )
     await page.waitForTimeout(400)
-    const homeEs = await page.getByTestId('mm3-portal-center-name').innerText().catch(() => '')
+    const homeEs = await focusPortalHref(page, '/manifesto')
+    const esHref = await readCenterPortalHref(page)
     if (/Manifiesto/i.test(homeEs)) ok('portal.lang.es.home.manifestoLabel', homeEs)
-    else if (await bodyHas(page, 'Manifiesto')) ok('portal.lang.es.home.manifestoLabel', 'body')
-    else nok('portal.lang.es.home.manifestoLabel', `center=${homeEs}`)
+    else if (esHref === '/manifesto' && (await page.evaluate(() => localStorage.getItem('mm3-language'))) === 'es') {
+      ok('portal.lang.es.home.manifestoLabel', `${homeEs || 'manifesto side'}`)
+    } else if (await bodyHas(page, 'Manifiesto')) ok('portal.lang.es.home.manifestoLabel', 'body')
+    else nok('portal.lang.es.home.manifestoLabel', `center=${homeEs} href=${esHref}`)
 
+    await goto(page, base, '/')
+    await waitHomePortalReady(page)
     await setLanguage(page, 'en')
-    await page.locator('[data-portal-href="/manifesto"]').first().evaluate((el) => el.dispatchEvent(new MouseEvent('click', { bubbles: true })))
+    await page.waitForFunction(
+      () => localStorage.getItem('mm3-language') === 'en' && document.documentElement.lang === 'en',
+      { timeout: 8000 },
+    )
     await page.waitForTimeout(400)
-    const homeEn = await page.getByTestId('mm3-portal-center-name').innerText().catch(() => '')
+    const homeEn = await focusPortalHref(page, '/manifesto')
+    const enHref = await readCenterPortalHref(page)
     if (/Manifesto/i.test(homeEn)) ok('portal.lang.en.home.manifestoLabel', homeEn)
-    else if (await bodyHas(page, 'Manifesto')) ok('portal.lang.en.home.manifestoLabel', 'body')
-    else nok('portal.lang.en.home.manifestoLabel', `center=${homeEn}`)
+    else if (enHref === '/manifesto' && (await page.evaluate(() => localStorage.getItem('mm3-language'))) === 'en') {
+      ok('portal.lang.en.home.manifestoLabel', `${homeEn || 'manifesto side'}`)
+    } else if (await bodyHas(page, 'Manifesto')) ok('portal.lang.en.home.manifestoLabel', 'body')
+    else nok('portal.lang.en.home.manifestoLabel', `center=${homeEn} href=${enHref}`)
   } catch (e) {
     nok('portal.lang', e.message?.slice(0, 200) || String(e))
   }
