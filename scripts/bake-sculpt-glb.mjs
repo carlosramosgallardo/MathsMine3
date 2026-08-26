@@ -22,14 +22,12 @@ import {
   transformPoint,
   transformDirection,
   creditExtras,
-  GlbBuilder,
+  buildVertexColorMeshGlb,
 } from './lib/glb-io.mjs'
 import { previewPoints } from './glb-preview.mjs'
 
 /** Must match HUMANOID_GLB_SRC_YMAX in lib/humanoid-glb.js. */
 const TARGET_HEIGHT = 1.895
-const ARRAY_BUFFER = 34962
-const ELEMENT_ARRAY_BUFFER = 34963
 
 function parseArgs(argv) {
   const options = { src: argv[0], out: argv[1], grid: 160, maxY: null, preview: null, paint: null }
@@ -305,52 +303,14 @@ function paintMileiColors(mesh) {
   }
 }
 
-/** RGB floats → RGBA bytes: glTF accessors must stay 4-byte aligned. */
-function toUint8Colors(colors) {
-  const count = colors.length / 3
-  const out = new Uint8Array(count * 4)
-  for (let v = 0; v < count; v += 1) {
-    for (let k = 0; k < 3; k += 1) {
-      out[v * 4 + k] = Math.max(0, Math.min(255, Math.round(colors[v * 3 + k] * 255)))
-    }
-    out[v * 4 + 3] = 255
-  }
-  return out
-}
-
 function buildGlb(mesh, extras, name) {
-  const json = {
-    asset: { version: '2.0', generator: 'MathsMine3 bake-sculpt-glb', extras },
-    scene: 0,
-    scenes: [{ nodes: [0] }],
-    nodes: [{ name, mesh: 0 }],
-    materials: [{
-      name,
-      // Sculpts carry thin, open shells (straps, a rod, a line) that vanish
-      // when backfaces are culled.
-      doubleSided: true,
-      pbrMetallicRoughness: { baseColorFactor: [1, 1, 1, 1], metallicFactor: 0, roughnessFactor: 0.72 },
-    }],
-  }
-  const builder = new GlbBuilder(json)
-  const vertexCount = mesh.positions.length / 3
-  json.meshes = [{
+  // Open shells (straps, rods) need double-sided materials.
+  return buildVertexColorMeshGlb(mesh, {
     name,
-    primitives: [{
-      attributes: {
-        POSITION: builder.addAccessor(mesh.positions, 'VEC3', { target: ARRAY_BUFFER, minMax: true }),
-        NORMAL: builder.addAccessor(mesh.normals, 'VEC3', { target: ARRAY_BUFFER }),
-        COLOR_0: builder.addAccessor(toUint8Colors(mesh.colors), 'VEC4', { target: ARRAY_BUFFER, normalized: true }),
-      },
-      indices: builder.addAccessor(
-        vertexCount < 65536 ? Uint16Array.from(mesh.indices) : mesh.indices,
-        'SCALAR',
-        { target: ELEMENT_ARRAY_BUFFER },
-      ),
-      material: 0,
-    }],
-  }]
-  return { json, bin: builder.finish() }
+    generator: 'MathsMine3 bake-sculpt-glb',
+    extras,
+    doubleSided: true,
+  })
 }
 
 function main() {

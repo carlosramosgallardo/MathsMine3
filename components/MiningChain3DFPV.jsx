@@ -4,7 +4,7 @@ import { useEffect, useRef, useCallback, useState } from 'react'
 import * as THREE from 'three'
 import { colorFromAddress } from '@/lib/wallet-colors'
 import { buildHumanoidBody, buildHumanHead, humanSkinFromSeed, humanHairFromSeed, swayHumanoidArms, walkHumanoidLegs, flailHumanoidJump, flapHumanoidJump } from '@/lib/humanoid-body'
-import { dockHeldItemsToGlb, seatHumanoidGlbInCar, unseatHumanoidGlb } from '@/lib/humanoid-glb'
+import { dockHeldItemsToGlb, applyHumanoidCarMount, hookHumanoidCarMount, unseatHumanoidGlb, HUMANOID_GLB_SRC_CLOTHES } from '@/lib/humanoid-glb'
 import { createLedgerTool, poseLedgerHoldArm, poseLedgerSwing } from '@/lib/ledger-tool'
 import { attachRlCarModel, addRlCockpitTub } from '@/lib/rl-car-model'
 import { addRlCarBoost, setRlCarBoostLit } from '@/lib/rl-car-boost'
@@ -12042,7 +12042,7 @@ function applyRlMountVisual(avatar, mounted, threeState = null) {
       part.visible = !hidden || !hidden.has(part)
     }
   }
-  if (mounted) seatHumanoidGlbInCar(avatar, { neckY: 0.52, neckZ: 0 })
+  if (mounted) applyHumanoidCarMount(avatar, { neckY: 0.52, neckZ: 0 })
   else unseatHumanoidGlb(avatar)
   // Mounted keeps head, antenna and USB staff at their standing pose — the bot
   // rides the car with the same silhouette instead of sinking into the roof.
@@ -12118,6 +12118,7 @@ function createThreeWalletAvatar(wallet) {
     bulk:1.02,
     handStyle:'miniusb',
     sleeve:'short',
+    glbBodyCutY: HUMANOID_GLB_SRC_CLOTHES.waistY,
     colors:{skin:skinHex,torso:color,arms:mid,legs:dark,shoes:'#1c1916',hands:skinHex},
   })
   const { head }=buildHumanHead(THREE,avatar,{
@@ -12147,6 +12148,9 @@ function createThreeWalletAvatar(wallet) {
   avatar.userData.mountHiddenParts=[
     body.leftLeg, body.rightLeg, body.leftArm, body.rightArm,
   ]
+  hookHumanoidCarMount(avatar, { neckY: 0.52, neckZ: 0 }, {
+    when: (host) => host.userData.rlCar?.visible,
+  })
   dockHeldItemsToGlb(avatar)
   avatar.userData.leftFoot=footL
   avatar.userData.rightFoot=footR

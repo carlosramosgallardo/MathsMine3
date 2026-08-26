@@ -16,7 +16,17 @@ import { advanceShowcaseSpin, approachYaw } from '@/lib/map-boss-facing'
 import { setBossMaskEyesRed } from '@/lib/boss-head-photo'
 import { colorFromAddress } from '@/lib/wallet-colors'
 import { buildHumanoidBody, buildHumanHead, humanSkinFromSeed, humanHairFromSeed, swayHumanoidArms, walkHumanoidLegs, flailHumanoidJump, flapHumanoidJump } from '@/lib/humanoid-body'
-import { dockHeldItemsToGlb, seatHumanoidGlbInCar } from '@/lib/humanoid-glb'
+import { dockHeldItemsToGlb, hookHumanoidCarMount, HUMANOID_GLB_SRC_CLOTHES } from '@/lib/humanoid-glb'
+import {
+  applyKimRigidHomeAttack,
+  applyKimRigidHomeGreet,
+  applyKimRigidHomeWalk,
+  homeAttackEnvelope,
+  homeBossAttackHop,
+  homeBossGreetYaw,
+  isKimRigidStatue,
+  resetKimRigidHomeIdle,
+} from '@/lib/home-boss-choreography'
 import { createLedgerTool, poseLedgerHoldArm, poseLedgerSwing } from '@/lib/ledger-tool'
 import { animateQuadruped, isQuadrupedBody } from '@/lib/quadruped-motion'
 import { addRlCarBoost, setRlCarBoostLit } from '@/lib/rl-car-boost'
@@ -93,6 +103,7 @@ export function addMiningBot(THREE, scene, options = {}) {
     position = [-2.25, .12, .20],
     rotationY = homeYawTowardCenter(-2.25, .20),
     scale = HOME_ARENA_BOT_SCALE,
+    glbBodyCutY = undefined,
   } = options
   const avatar = new THREE.Group()
   const color = new THREE.Color(botColor)
@@ -116,6 +127,7 @@ export function addMiningBot(THREE, scene, options = {}) {
     bulk: 1.02,
     handStyle: 'miniusb',
     sleeve: 'short',
+    glbBodyCutY,
     colors: {
       skin: skinHex,
       torso: color.clone().lerp(new THREE.Color('#ffffff'), .10),
@@ -207,23 +219,12 @@ function addHomeBotCar(THREE, scene, options = {}) {
     position: [0, HOME_BOTCAR_SEAT_Y, HOME_BOTCAR_SEAT_Z],
     rotationY: 0,
     scale: HOME_LINEUP_BOT_SCALE,
+    glbBodyCutY: HUMANOID_GLB_SRC_CLOTHES.waistY,
   })
-  seatHumanoidGlbInCar(bot, { neckY: HOME_BOTCAR_NECK_Y, neckZ: HOME_BOTCAR_NECK_Z })
-  // Capsule limbs / shoes / tool stay in the cabin; skull rides above the tub.
-  for (const part of [
-    bot.userData.leftFoot, bot.userData.rightFoot, bot.userData.leftSole, bot.userData.rightSole,
-    ...(bot.userData.humanLegs || []),
-    ...(bot.userData.humanArms || []),
-    ...(bot.userData.bodyParts || []),
-    bot.userData.tool,
-    bot.userData.humanoidGlbBodyMesh,
-    bot.userData.humanoidGlbLeftHand,
-    bot.userData.humanoidGlbRightHand,
-  ]) {
-    if (part) part.visible = false
-  }
-  if (bot.userData.humanoidGlbHeadMesh) bot.userData.humanoidGlbHeadMesh.visible = true
-  for (const mesh of bot.userData.proceduralHeadMeshes || []) mesh.visible = false
+  hookHumanoidCarMount(bot, {
+    neckY: HOME_BOTCAR_NECK_Y,
+    neckZ: HOME_BOTCAR_NECK_Z,
+  })
   gateHomeAvatarUntilReady(group, bot)
   return { kind: 'botCar', group, bot, car, baseY: HOME_ARENA_FLOOR_Y, baseRotationY: rotationY, phase, bob: 2.15, sway: .42 }
 }
@@ -1047,6 +1048,11 @@ export default function HomeMiningWorld3D() {
         }
         const arms = boss.bodyPivot?.userData?.humanArms
         const legs = boss.bodyPivot?.userData?.humanLegs
+        const rigidKim = bossId === 'kim' && isKimRigidStatue(boss.bodyPivot)
+        if (rigidKim && (!arms || !legs)) {
+          applyKimRigidHomeAttack(boss, at, t)
+          return
+        }
         if (!arms || !legs) return
         const [lArm, rArm] = arms
         const [lLeg, rLeg] = legs
@@ -1054,23 +1060,11 @@ export default function HomeMiningWorld3D() {
         const rPhase = rArm.userData.swayPhase || 0
         const lBaseZ = lArm.userData.baseRotZ || 0
         const rBaseZ = rArm.userData.baseRotZ || 0
-        // Envelope: smooth in (first 15 %) and smooth out (last 20 %) of 3 s window
-        const bIn   = Math.sin(Math.min(1, at / 0.15) * Math.PI * 0.5)
-        const bOut  = Math.sin(Math.min(1, (1 - at) / 0.20) * Math.PI * 0.5)
-        const blend = bIn * bOut
-        // Jump arc: 0→1→0 over the full 3 s; peaks at at = 0.5 (moment VFX fires)
-        const jumpH   = Math.sin(at * Math.PI)
+        const { blend, jumpH } = homeAttackEnvelope(at)
         const windupP = Math.min(1, at / 0.35)
         const strikeP = at >= 0.35 ? Math.min(1, (at - 0.35) / 0.18) : 0
-        // Idle arm baselines (same formula as swayHumanoidArms — seamless blend)
         const idleAX = ph => Math.sin(t * 0.9  + ph) * 0.055
         const idleAZ = (bz, ph) => bz + Math.sin(t * 0.63 + ph * 1.7) * 0.045
-
-        // Lunge direction captured at attack-start (boss.lungseFacing), so it stays
-        // constant even as the showcase spin rotates the boss during the 3 s window.
-        const lf = boss.lungseFacing ?? boss.group.rotation.y
-        const lfx = Math.sin(lf)
-        const lfz = Math.cos(lf)
 
         if (bossId === 'putin') {
           // Military precision: both arms pull back then thrust forward together; V-spread legs
@@ -1085,10 +1079,7 @@ export default function HomeMiningWorld3D() {
           rLeg.rotation.z =  jumpH * 0.44 * blend
           boss.bodyPivot.position.y = Math.max(0, Math.sin(t * boss.bob) * 0.06) * (1 - blend)
                                     + (-0.07 * windupP + 0.03 * strikeP) * blend
-          boss.group.position.y    = boss.baseY + jumpH * 0.38 * blend
-          boss.group.rotation.z    = Math.sin(t * (boss.sway + 0.65)) * 0.014 * (1 - blend)
-          boss.group.position.x   += lfx * 1.8 * jumpH * blend
-          boss.group.position.z    = boss.baseZ + lfz * 1.8 * jumpH * blend
+          homeBossAttackHop(boss, { jumpH, blend, jumpScale: 0.38, t })
 
         } else if (bossId === 'kim') {
           // Theatrical: right arm sweeps overhead then stabs forward; left stays back; scissor kick
@@ -1104,10 +1095,7 @@ export default function HomeMiningWorld3D() {
           rLeg.rotation.z = 0
           boss.bodyPivot.position.y = Math.max(0, Math.sin(t * boss.bob) * 0.06) * (1 - blend)
                                     + 0.05 * windupP * blend
-          boss.group.position.y    = boss.baseY + jumpH * 0.52 * blend
-          boss.group.rotation.z    = Math.sin(t * (boss.sway + 0.65)) * 0.014 * (1 - blend)
-          boss.group.position.x   += lfx * 1.8 * jumpH * blend
-          boss.group.position.z    = boss.baseZ + lfz * 1.8 * jumpH * blend
+          homeBossAttackHop(boss, { jumpH, blend, jumpScale: 0.52, t })
 
         }
       }
@@ -1116,15 +1104,16 @@ export default function HomeMiningWorld3D() {
       const applyBossGreet = (boss, bossId, gt, t) => {
         // Sculpt bodies greet by rearing up once, in place, facing the camera.
         if (isQuadrupedBody(boss.bodyPivot)) {
-          const yawFrom = Number.isFinite(boss.greetYawFrom) ? boss.greetYawFrom : boss.baseRotationY + (boss.spinYaw || 0)
-          const yawDelta = ((yawFrom - boss.baseRotationY + Math.PI) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2) - Math.PI
-          const turnIn = Math.sin(Math.min(1, gt / 0.25) * Math.PI * 0.5)
-          boss.group.rotation.y = boss.baseRotationY + yawDelta * (1 - turnIn)
+          boss.group.rotation.y = homeBossGreetYaw(boss, gt)
           boss.group.position.y = boss.baseY
           boss.group.position.z = boss.baseZ
           boss.group.rotation.z = 0
           animateQuadruped(boss.bodyPivot, { time: t, moving: 0.35, attackT: gt })
           boss.bodyPivot.scale.setScalar(1)
+          return
+        }
+        if (bossId === 'kim' && isKimRigidStatue(boss.bodyPivot)) {
+          applyKimRigidHomeGreet(boss, gt, t)
           return
         }
         const arms = boss.bodyPivot?.userData?.humanArms
@@ -1143,10 +1132,7 @@ export default function HomeMiningWorld3D() {
 
         // Turn smoothly from the spin yaw at greet-start toward the camera; the
         // spin state is reset to 0 when the greet ends so rotation resumes from here.
-        const yawFrom = Number.isFinite(boss.greetYawFrom) ? boss.greetYawFrom : boss.baseRotationY + (boss.spinYaw || 0)
-        const yawDelta = ((yawFrom - boss.baseRotationY + Math.PI) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2) - Math.PI
-        const turnIn = Math.sin(Math.min(1, gt / 0.25) * Math.PI * 0.5)
-        boss.group.rotation.y  = boss.baseRotationY + yawDelta * (1 - turnIn)
+        boss.group.rotation.y = homeBossGreetYaw(boss, gt)
         boss.group.position.y  = boss.baseY + Math.sin(t * 2.0) * 0.010
         boss.group.position.z  = boss.baseZ
         boss.group.rotation.z  = 0
@@ -1319,6 +1305,7 @@ export default function HomeMiningWorld3D() {
               walkHumanoidLegs(boss.bodyPivot, t * 3.5, 0.45)
               swayHumanoidArms(boss.bodyPivot, t)
               animateQuadruped(boss.bodyPivot, { time: t, moving: 1 })
+              if (boss.id === 'kim' && isKimRigidStatue(boss.bodyPivot)) applyKimRigidHomeWalk(boss, t)
             } else if (feat === 'out') {
               // Arrived at the front of the stage: play the signature show
               // from here (baseZ moved forward so attack/greet use this spot).
@@ -1436,6 +1423,7 @@ export default function HomeMiningWorld3D() {
               swayHumanoidArms(boss.bodyPivot, t)
               // Crawlers keep pawing on the spot instead of standing still.
               animateQuadruped(boss.bodyPivot, { time: t, moving: boss.isCenter ? 0.45 : 0.18 })
+              if (boss.id === 'kim' && isKimRigidStatue(boss.bodyPivot)) resetKimRigidHomeIdle(boss)
               const legs = boss.bodyPivot?.userData?.humanLegs
               if (legs) {
                 legs[0].rotation.x = 0; legs[0].rotation.z = 0
