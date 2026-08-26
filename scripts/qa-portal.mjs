@@ -120,7 +120,10 @@ async function waitBodyHasAny(page, needles, { timeoutMs = 12_000, intervalMs = 
 
 async function closeOverlays(page) {
   await page.keyboard.press('Escape').catch(() => {})
-  await page.mouse.click(8, 8).catch(() => {})
+  // Top-left click dismisses stray overlays on inner pages, but on `/` it hits
+  // the home 3D stage and toggles fullscreen showcase — hiding the nonagon.
+  const onHome = await page.evaluate(() => window.location.pathname === '/')
+  if (!onHome) await page.mouse.click(8, 8).catch(() => {})
   await page.waitForTimeout(150)
 }
 
@@ -151,7 +154,7 @@ async function dismissHomeStageZoom(page) {
   await page.waitForTimeout(400)
 }
 
-async function selectPortalSide(page, href, labelRe) {
+async function selectPortalSide(page, _href, labelRe) {
   await dismissHomeStageZoom(page)
   if (await page.locator('.mm3-nonagon.is-open').count()) {
     await page.locator('.mm3-nonagon-mapfull').click({ timeout: 5000 })
@@ -160,16 +163,15 @@ async function selectPortalSide(page, href, labelRe) {
   const center = page.getByTestId('mm3-portal-center-name')
   await center.waitFor({ state: 'attached', timeout: 15000 })
   const pattern = new RegExp(labelRe, 'i')
+  const nextArrow = page.locator('.mm3-nonagon-arrow').nth(1)
   for (let step = 0; step < 12; step += 1) {
-    const text = await center.innerText().catch(() => '')
+    await dismissHomeStageZoom(page)
+    const text = await center.evaluate((el) => (el.textContent || '').trim())
     if (pattern.test(text)) return text
-    const nextLabel = (await page.evaluate(() => document.documentElement.lang)) === 'es'
-      ? 'Siguiente'
-      : 'Next'
-    await page.getByRole('button', { name: nextLabel }).click({ timeout: 5000 })
+    await nextArrow.click({ timeout: 5000 })
     await page.waitForTimeout(350)
   }
-  return center.innerText().catch(() => '')
+  return center.evaluate((el) => (el.textContent || '').trim()).catch(() => '')
 }
 
 async function setCurrency(page, code) {
@@ -438,12 +440,14 @@ async function runPhase2(page, base, { ok, nok, skip }) {
     // Home nonagon labels flip with language (select Manifesto side)
     await goto(page, base, '/')
     await setLanguage(page, 'es')
+    await dismissHomeStageZoom(page)
     const homeEs = await selectPortalSide(page, '/manifesto', 'Manifiesto').catch(() => '')
     if (/Manifiesto/i.test(homeEs)) ok('portal.lang.es.home.manifestoLabel', homeEs)
     else if (await bodyHas(page, 'Manifiesto')) ok('portal.lang.es.home.manifestoLabel', 'body')
     else nok('portal.lang.es.home.manifestoLabel', `center=${homeEs}`)
 
     await setLanguage(page, 'en')
+    await dismissHomeStageZoom(page)
     const homeEn = await selectPortalSide(page, '/manifesto', 'Manifesto').catch(() => '')
     if (/Manifesto/i.test(homeEn)) ok('portal.lang.en.home.manifestoLabel', homeEn)
     else if (await bodyHas(page, 'Manifesto')) ok('portal.lang.en.home.manifestoLabel', 'body')
