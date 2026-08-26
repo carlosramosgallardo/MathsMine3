@@ -1349,22 +1349,18 @@ export default function HomeMiningWorld3D() {
             boss.glowLight.intensity = boss.baseGlow + Math.sin(t * 2.4) * 0.85
 
           } else if (boss.isStatue) {
-            // Milei: fixed salute hold. Walking statues (Macron/Zelensky): soft walk bob.
+            // Carousel: always rooted on the pedestal — light human idle / Milei buzz.
+            // Mining patrol (leave-base walk) lives in MiningChain3DFPV only.
             if (feat === 'show' && time >= feature.until) feature.phase = 'back'
             boss.group.rotation.y = boss.baseRotationY
-            if (boss.group.userData.statueFixed) {
-              boss.bodyPivot.position.y = boss.bodyPivot.userData.baseY || 0
-              boss.group.position.y = boss.baseY
-              boss.group.rotation.z = 0
-              if (boss.id === 'milei') buzzM1MileiStatue(boss.bodyPivot, t)
-            } else if (isRigidTexturedBoss(boss.bodyPivot)) {
-              applyRigidHomeWalk(boss, t)
-              boss.group.position.y = boss.baseY + Math.max(0, Math.sin(t * (boss.bob + 0.15)) * 0.018)
-              boss.group.rotation.z = Math.sin(t * (boss.sway + 0.65)) * 0.014
-            } else {
-              boss.bodyPivot.position.y = boss.bodyPivot.userData.baseY || 0
-              boss.group.position.y = boss.baseY
-              boss.group.rotation.z = 0
+            const deck = boss.bodyPivot?.userData?.baseY || 0
+            if (boss.bodyPivot) boss.bodyPivot.position.y = deck
+            boss.group.position.y = boss.baseY
+            boss.group.rotation.z = 0
+            if (boss.id === 'milei') {
+              buzzM1MileiStatue(boss.bodyPivot, t)
+            } else if (boss.bodyPivot?.userData?.humanArms) {
+              swayHumanoidArms(boss.bodyPivot, t, 0.85)
             }
             boss.glowLight.intensity = (boss.baseGlow + Math.sin(t * 2.4) * 0.85) * (0.45 + 0.65 * boss.focus)
 
