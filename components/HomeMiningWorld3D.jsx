@@ -423,7 +423,7 @@ export function addNftjiMiningBlock(THREE, scene, options = {}) {
 // with railX (slot index × RAIL_SPACING), so the lineup is NOT capped at 7.
 const HOME_LINEUP_X = Object.freeze([-13.65, -9.1, -4.45, 0, 4.45, 9.1, 13.65])
 // heightMult ≈ realHeight/190 so every boss shares the Trump crown on the rail.
-// Statues get a small yOffset for the MM3 plinth only — not a second height bump.
+// Statues share one MM3 plinth extract — no extra yOffset per character.
 const HOME_BOSS_LAYOUT = [
   {
     id: 'putin',
@@ -441,7 +441,6 @@ const HOME_BOSS_LAYOUT = [
   {
     id: 'milei',
     heightMult: 1.0,
-    yOffset: 0.12,
     createVisual: createM1MileiStatueVisual,
     bossScale: M1_MILEI_STATUE_SCALE,
     position: [HOME_LINEUP_X[4], 0, 0.06],
@@ -1022,9 +1021,10 @@ export default function HomeMiningWorld3D() {
           const jump = Math.sin(at * Math.PI)
           const lf = boss.lungseFacing ?? boss.group.rotation.y
           animateQuadruped(boss.bodyPivot, { time: t, moving: 0.55, attackT: at })
-          boss.group.position.y = boss.baseY + jump * 0.18
-          boss.group.position.x += Math.sin(lf) * 1.8 * jump
-          boss.group.position.z = boss.baseZ + Math.cos(lf) * 1.8 * jump
+          boss.group.position.y = boss.baseY + jump * 0.07
+          const reach = 0.42 * jump
+          boss.group.position.x += Math.sin(lf) * reach
+          boss.group.position.z = boss.baseZ + Math.cos(lf) * reach
           boss.group.rotation.z = 0
           return
         }
@@ -1039,10 +1039,10 @@ export default function HomeMiningWorld3D() {
         const { blend, jumpH } = homeAttackEnvelope(at)
         if (bossId === 'putin') {
           poseHumanoidMeleeStrike(boss.bodyPivot, at, { style: 'thrust', blend })
-          homeBossAttackHop(boss, { jumpH, blend, jumpScale: 0.10, t })
+          homeBossAttackHop(boss, { jumpH, blend, jumpScale: 0.06, t })
         } else if (bossId === 'kim') {
           poseHumanoidMeleeStrike(boss.bodyPivot, at, { style: 'overhead', blend })
-          homeBossAttackHop(boss, { jumpH, blend, jumpScale: 0.20, t })
+          homeBossAttackHop(boss, { jumpH, blend, jumpScale: 0.10, t })
         }
       }
 
@@ -1386,7 +1386,7 @@ export default function HomeMiningWorld3D() {
           if (prop.jump && isC) {
             // One clean 0.55s hop every 2s, on top of the idle bob.
             const jt = (time + (prop.jumpPhase || 0)) % 2
-            if (jt < 0.55) prop.group.position.y += Math.sin((jt / 0.55) * Math.PI) * 0.5
+            if (jt < 0.55) prop.group.position.y += Math.sin((jt / 0.55) * Math.PI) * 0.22
           }
           prop.group.rotation.y = prop.baseRotationY + (isC
             ? advanceShowcaseSpin(prop, spinDt)

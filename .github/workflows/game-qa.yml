@@ -1,5 +1,5 @@
-# Release cut: always run web game QA on version tags (no path filter).
-# PRs still use web-quality.yml so docs-only changes skip the job.
+# Release cut: always run web + portal QA on version tags (no path filter).
+# PRs use path-filtered web-quality.yml and portal-qa.yml separately.
 name: Game QA
 
 on:
@@ -17,8 +17,13 @@ permissions:
   contents: read
 
 jobs:
-  web:
-    name: Web game QA
+  lint:
+    name: Lint and build
     uses: ./.github/workflows/web-quality.yml
+
+  portal:
+    name: Portal QA
+    needs: lint
+    uses: ./.github/workflows/portal-qa.yml
     with:
       portal_phases: ${{ inputs.portal_phases || '1,2' }}
