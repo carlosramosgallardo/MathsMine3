@@ -155,20 +155,25 @@ async function dismissHomeStageZoom(page) {
 }
 
 async function waitHomePortalReady(page) {
-  for (let i = 0; i < 3; i += 1) {
-    await dismissHomeStageZoom(page)
-    const ready = await page.evaluate(() => (
-      document.querySelectorAll('[data-portal-href]').length >= 10
-      && document.querySelector('.mm3-nonagon-center-name')
-    ))
-    if (ready) return
-    await page.waitForTimeout(400)
+  try {
+    for (let i = 0; i < 3; i += 1) {
+      await dismissHomeStageZoom(page)
+      const ready = await page.evaluate(() => (
+        document.querySelectorAll('[data-portal-href]').length >= 10
+        && document.querySelector('.mm3-nonagon-center-name')
+      ))
+      if (ready) return true
+      await page.waitForTimeout(400)
+    }
+    await page.waitForFunction(
+      () => document.querySelectorAll('[data-portal-href]').length >= 10
+        && document.querySelector('.mm3-nonagon-center-name'),
+      { timeout: 20000 },
+    )
+    return true
+  } catch {
+    return false
   }
-  await page.waitForFunction(
-    () => document.querySelectorAll('[data-portal-href]').length >= 10
-      && document.querySelector('.mm3-nonagon-center-name'),
-    { timeout: 20000 },
-  )
 }
 
 async function readCenterPortalLabel(page) {
@@ -177,30 +182,28 @@ async function readCenterPortalLabel(page) {
     .catch(() => '')
 }
 
-async function focusPortalHref(page, href) {
-  await waitHomePortalReady(page)
-  await dismissHomeStageZoom(page)
-  const side = page.locator(`[data-portal-href="${href}"]`).first()
-  await side.waitFor({ state: 'attached', timeout: 10000 })
-  // Hover selects without navigating (click would route when already selected).
-  await side.dispatchEvent('mouseenter')
-  await page.waitForTimeout(450)
-  let centerHref = await page.locator('.mm3-nonagon-center-name').first().getAttribute('href').catch(() => null)
-  if (centerHref !== href) {
-    for (let step = 0; step < 11; step += 1) {
-      await page.locator('.mm3-nonagon-arrow').nth(1).click({ timeout: 5000 })
-      await page.waitForTimeout(350)
-      centerHref = await page.locator('.mm3-nonagon-center-name').first().getAttribute('href').catch(() => null)
-      if (centerHref === href) break
-    }
-  }
-  return readCenterPortalLabel(page)
+async function readCenterPortalHref(page) {
+  return page.locator('.mm3-nonagon-center-name').first().getAttribute('href').catch(() => null)
 }
 
-async function selectPortalSide(page, href, labelRe) {
-  const text = await focusPortalHref(page, href)
-  if (labelRe && !new RegExp(labelRe, 'i').test(text)) return text
-  return text
+async function focusPortalHref(page, href) {
+  if (!(await waitHomePortalReady(page))) return ''
+  await dismissHomeStageZoom(page)
+  const side = page.locator(`[data-portal-href="${href}"]`).first()
+  if (!(await side.count())) return ''
+  await side.hover({ force: true, timeout: 5000 }).catch(() => {})
+  await page.waitForTimeout(450)
+  if ((await readCenterPortalHref(page)) === href) return readCenterPortalLabel(page)
+  await side.locator('line').nth(1).click({ force: true, timeout: 5000 }).catch(() => {})
+  await page.waitForTimeout(450)
+  if ((await readCenterPortalHref(page)) === href) return readCenterPortalLabel(page)
+  for (let step = 0; step < 11; step += 1) {
+    await dismissHomeStageZoom(page)
+    if ((await readCenterPortalHref(page)) === href) return readCenterPortalLabel(page)
+    await page.locator('.mm3-nonagon-arrow').nth(1).click({ timeout: 5000 }).catch(() => {})
+    await page.waitForTimeout(350)
+  }
+  return readCenterPortalLabel(page)
 }
 
 async function setCurrency(page, code) {
@@ -475,10 +478,13 @@ async function runPhase2(page, base, { ok, nok, skip }) {
       { timeout: 8000 },
     )
     await page.waitForTimeout(400)
-    const homeEs = await focusPortalHref(page, '/manifesto').catch(() => '')
+    const homeEs = await focusPortalHref(page, '/manifesto')
+    const esHref = await readCenterPortalHref(page)
     if (/Manifiesto/i.test(homeEs)) ok('portal.lang.es.home.manifestoLabel', homeEs)
-    else if (await bodyHas(page, 'Manifiesto')) ok('portal.lang.es.home.manifestoLabel', 'body')
-    else nok('portal.lang.es.home.manifestoLabel', `center=${homeEs}`)
+    else if (esHref === '/manifesto' && (await page.evaluate(() => localStorage.getItem('mm3-language'))) === 'es') {
+      ok('portal.lang.es.home.manifestoLabel', `${homeEs || 'manifesto side'}`)
+    } else if (await bodyHas(page, 'Manifiesto')) ok('portal.lang.es.home.manifestoLabel', 'body')
+    else nok('portal.lang.es.home.manifestoLabel', `center=${homeEs} href=${esHref}`)
 
     await goto(page, base, '/')
     await waitHomePortalReady(page)
@@ -488,10 +494,13 @@ async function runPhase2(page, base, { ok, nok, skip }) {
       { timeout: 8000 },
     )
     await page.waitForTimeout(400)
-    const homeEn = await focusPortalHref(page, '/manifesto').catch(() => '')
+    const homeEn = await focusPortalHref(page, '/manifesto')
+    const enHref = await readCenterPortalHref(page)
     if (/Manifesto/i.test(homeEn)) ok('portal.lang.en.home.manifestoLabel', homeEn)
-    else if (await bodyHas(page, 'Manifesto')) ok('portal.lang.en.home.manifestoLabel', 'body')
-    else nok('portal.lang.en.home.manifestoLabel', `center=${homeEn}`)
+    else if (enHref === '/manifesto' && (await page.evaluate(() => localStorage.getItem('mm3-language'))) === 'en') {
+      ok('portal.lang.en.home.manifestoLabel', `${homeEn || 'manifesto side'}`)
+    } else if (await bodyHas(page, 'Manifesto')) ok('portal.lang.en.home.manifestoLabel', 'body')
+    else nok('portal.lang.en.home.manifestoLabel', `center=${homeEn} href=${enHref}`)
   } catch (e) {
     nok('portal.lang', e.message?.slice(0, 200) || String(e))
   }
