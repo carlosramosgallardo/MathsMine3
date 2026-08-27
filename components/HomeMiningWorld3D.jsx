@@ -17,7 +17,7 @@ import { setBossMaskEyesRed } from '@/lib/boss-head-photo'
 import { colorFromAddress } from '@/lib/wallet-colors'
 import { buildHumanoidBody, buildHumanHead, humanSkinFromSeed, humanHairFromSeed, swayHumanoidArms, walkHumanoidLegs, walkHumanoidStride, flapHumanoidJump, poseHumanoidMeleeStrike } from '@/lib/humanoid-body'
 import { relaxHumanoidArms } from '@/lib/capsule-anim-driver'
-import { dockHeldItemsToGlb } from '@/lib/humanoid-glb'
+import { dockHeldItemsToGlb, setHumanoidHandSway } from '@/lib/humanoid-glb'
 import { attachManHeadInCar } from '@/lib/man-head-car'
 import {
   applyRigidHomeAttack,
@@ -1310,18 +1310,9 @@ export default function HomeMiningWorld3D() {
             if (boss.id === 'milei') {
               buzzM1MileiStatue(boss.bodyPivot, t)
             } else if (boss.id === 'zelensky' || boss.id === 'macron') {
-              // On-plinth salute: slight arm lift while spotlighted, soft sway otherwise.
-              const arms = boss.bodyPivot?.userData?.humanArms
-              if (arms && feat === 'show') {
-                const [lArm, rArm] = arms
-                const wave = Math.sin(t * 3.0) * 0.22
-                rArm.rotation.x = 0.55 + wave * 0.15
-                lArm.rotation.x = 0.12
-                rArm.rotation.z = (rArm.userData.baseRotZ || 0) - 0.35 + wave
-                lArm.rotation.z = (lArm.userData.baseRotZ || 0) + 0.12
-              } else {
-                relaxHumanoidArms(boss.bodyPivot, t, showBlend)
-              }
+              // Arms hang via skinned RPM bone sync; wrists get a light idle sway.
+              relaxHumanoidArms(boss.bodyPivot, t, showBlend)
+              setHumanoidHandSway(boss.bodyPivot, t, feat === 'show' ? 0.55 : 0.32)
             } else if (boss.bodyPivot?.userData?.humanArms) {
               swayHumanoidArms(boss.bodyPivot, t, 0.85 * showBlend)
             }
@@ -1367,10 +1358,14 @@ export default function HomeMiningWorld3D() {
               const legs = boss.bodyPivot?.userData?.humanLegs
               if (legs) {
                 if (boss.isCenter && boss.bodyPivot.userData.capsuleAnimDriver) {
-                  walkHumanoidLegs(boss.bodyPivot, t * 3.2, 0.22)
+                  // Same biped cadence as man.glb capsule walk (Kim / Putin rigid suits).
+                  walkHumanoidStride(boss.bodyPivot, t * 6.4, 0.48, {
+                    lean: !boss.bodyPivot.userData.humanoidGlbBones,
+                  })
                 } else {
-                  legs[0].rotation.x = 0; legs[0].rotation.z = 0
-                  legs[1].rotation.x = 0; legs[1].rotation.z = 0
+                  walkHumanoidStride(boss.bodyPivot, 0, 0, {
+                    lean: !boss.bodyPivot.userData.humanoidGlbBones,
+                  })
                 }
               }
             }

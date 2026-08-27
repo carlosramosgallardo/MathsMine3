@@ -47,18 +47,17 @@ function poseRpmArmsDown(json) {
   let posed = 0
   for (const node of json.nodes || []) {
     const name = String(node.name || '')
-    // Upper arm only — ForeArm_* stays as-is so elbows keep natural bend.
-    const left = /^LeftArm_\d+$/i.test(name)
-    const right = /^RightArm_\d+$/i.test(name)
+    // Shoulder — UpperArm local Z roll lifts hands into the face on these RPM
+    // rigs; shoulder Z-roll drops them to a natural A-pose (verified on Zelensky).
+    const left = /^LeftShoulder_\d+$/i.test(name)
+    const right = /^RightShoulder_\d+$/i.test(name)
     if (!left && !right) continue
-    // Local +Z roll: left arm drops +π/2, right −π/2 (same map as runtime bone sync).
-    const roll = left ? Math.PI / 2 : -Math.PI / 2
+    const roll = left ? -Math.PI / 2 : Math.PI / 2
     const half = roll / 2
     const qz = [0, 0, Math.sin(half), Math.cos(half)]
     const cur = Array.isArray(node.rotation) && node.rotation.length === 4
       ? node.rotation
       : [0, 0, 0, 1]
-    // qz ⊗ cur (apply drop in parent space on top of existing rest).
     const [x1, y1, z1, w1] = qz
     const [x2, y2, z2, w2] = cur
     node.rotation = [
@@ -412,7 +411,7 @@ async function main() {
   if (json.skins?.length && !options.keepSkin) {
     if (options.aPose) {
       const n = poseRpmArmsDown(json)
-      console.log(`  a-pose: dropped ${n} upper-arm joint(s)`)
+      console.log(`  a-pose: dropped ${n} shoulder joint(s)`)
     }
     bin = bakeRestPoseSkins(json, bin)
     console.log(`  baked rest-pose skinning (${json.nodes.filter((n) => n.mesh != null).length} mesh nodes)`)
