@@ -51,17 +51,18 @@ function samplePlanted(file, { yaw = Math.PI, mode = 'statue' } = {}) {
   return pts
 }
 
-function percentileBox(pts, padPct = 0.05) {
-  const xs = pts.map((p) => p.x).sort((a, b) => a - b)
-  const ys = pts.map((p) => p.y).sort((a, b) => a - b)
-  const zs = pts.map((p) => p.z).sort((a, b) => a - b)
-  const pct = (arr, t) => arr[Math.max(0, Math.min(arr.length - 1, Math.floor(arr.length * t)))]
-  const lo = Math.min(0.2, Math.max(0, padPct))
-  const hi = 1 - lo
-  return {
-    min: { x: pct(xs, lo), y: pct(ys, lo), z: pct(zs, lo) },
-    max: { x: pct(xs, hi), y: pct(ys, hi), z: pct(zs, hi) },
+/** Robust AABB: drop `trim` fraction of extremes per axis (not a copy of lib helper). */
+function trimmedExtent(pts, trim = 0.05) {
+  const axes = ['x', 'y', 'z']
+  const out = { min: {}, max: {} }
+  for (const axis of axes) {
+    const sorted = pts.map((p) => p[axis]).sort((a, b) => a - b)
+    const i0 = Math.floor(sorted.length * trim)
+    const i1 = Math.min(sorted.length - 1, Math.floor(sorted.length * (1 - trim)))
+    out.min[axis] = sorted[i0]
+    out.max[axis] = sorted[i1]
   }
+  return out
 }
 
 function skullBand(pts, skullFrac = 0.18) {
@@ -74,25 +75,20 @@ function skullBand(pts, skullFrac = 0.18) {
   return pts.filter((p) => p.y >= cut)
 }
 
-/** Mirror prop-eye-glows band placement (AABB path). */
-function placeBand(box, { eyeLine, forwardFrac, spacingFrac = 0.11, faceSign = -1, zBias = 0 }) {
-  const sizeV = {
-    x: box.max.x - box.min.x,
-    y: box.max.y - box.min.y,
-    z: box.max.z - box.min.z,
-  }
-  const frac = Math.min(0.35, Math.max(0, forwardFrac))
-  const faceZ = faceSign < 0
-    ? box.min.z + sizeV.z * frac
-    : box.max.z - sizeV.z * frac
-  const midX = (box.min.x + box.max.x) * 0.5
-  const halfEye = Math.max(0.014, sizeV.x * spacingFrac)
-  const y = box.min.y + sizeV.y * eyeLine
-  const z = faceZ + zBias
-  return [
-    { x: midX - halfEye, y, z },
-    { x: midX + halfEye, y, z },
-  ]
+/** Expected eye centres for one skull band (faceSign −1 = −Z face). */
+function expectedEyes(box, cfg) {
+  const w = box.max.x - box.min.x
+  const h = box.max.y - box.min.y
+  const d = box.max.z - box.min.z
+  const inset = Math.min(0.35, Math.max(0, cfg.forwardFrac))
+  const faceZ = (cfg.faceSign ?? -1) < 0
+    ? box.min.z + d * inset
+    : box.max.z - d * inset
+  const cx = (box.min.x + box.max.x) * 0.5
+  const half = Math.max(0.014, w * (cfg.spacingFrac ?? 0.11))
+  const ey = box.min.y + h * cfg.eyeLine
+  const ez = faceZ + (cfg.zBias || 0)
+  return [{ x: cx - half, y: ey, z: ez }, { x: cx + half, y: ey, z: ez }]
 }
 
 function assertOnFace(label, eyes, box, faceSign) {
@@ -173,11 +169,10 @@ for (const c of cases) {
   const errors = []
   if (c.dual) {
     const skull = skullBand(pts, c.bibi.skullFrac)
-    const box = percentileBox(skull, c.bibi.padPct || 0.05)
-    const bibiEyes = placeBand(box, c.bibi)
-    const trumpEyes = placeBand(box, c.trump)
-    errors.push(...assertOnFace(`${c.name}/bibi`, bibiEyes, box, -1))
-    errors.push(...assertOnFace(`${c.name}/trump`, trumpEyes, box, 1))
+    const box = trimmedExtent(skull, c.bibi.padPct || 0.05)
+    const bibiEyes = expectedEyes(box, c.bibi)
+    const trumpEyes = expectedEyes(box, c.trump)
+    errors.push(...assertOnFace(`${c.name}/bibi`, bibiEyes, box, -1), ...assertOnFace(`${c.name}/trump`, trumpEyes, box, 1))
     if (!errors.length) {
       console.log(
         `OK   ${c.name}`,
@@ -187,8 +182,8 @@ for (const c of cases) {
     }
   } else {
     const skull = skullBand(pts, c.opts.skullFrac || 0.18)
-    const box = percentileBox(skull, 0.05)
-    const eyes = placeBand(box, c.opts)
+    const box = trimmedExtent(skull, 0.05)
+    const eyes = expectedEyes(box, c.opts)
     errors.push(...assertOnFace(c.name, eyes, box, c.opts.faceSign))
     if (!errors.length) {
       console.log(`OK   ${c.name}`, `z=${eyes[0].z.toFixed(3)} y=${eyes[0].y.toFixed(3)}`)
