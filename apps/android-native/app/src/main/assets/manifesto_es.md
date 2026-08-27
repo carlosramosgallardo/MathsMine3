@@ -47,7 +47,7 @@
 | Campo | Valor |
 |---|---|
 | Proyecto | MathsMine3 |
-| Versión | `0.1.0-beta.12` |
+| Versión | `0.1.0-beta.13` |
 | Género | RPG de mining matemático / estrategia de pools — terminal crypto freak |
 | Economía | Token MM3 completamente simulado y ficticio |
 | Identidad | Wallet de Ethereum o wallet virtual determinista de Google |

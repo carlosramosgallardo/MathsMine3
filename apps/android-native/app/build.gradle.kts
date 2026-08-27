@@ -79,8 +79,8 @@ android {
         applicationId = "xyz.mathsmine3.app"
         minSdk = 26
         targetSdk = 36
-        versionCode = 38
-        versionName = "0.1.0-beta.12"
+        versionCode = 39
+        versionName = "0.1.0-beta.13"
         buildConfigField("String", "API_BASE_URL", "\"https://mathsmine3.xyz\"")
         buildConfigField("String", "GOOGLE_CLIENT_ID", "\"${escapeForBuildConfig(googleClientId)}\"")
         buildConfigField("String", "SUPABASE_URL", "\"${escapeForBuildConfig(supabaseUrl)}\"")
