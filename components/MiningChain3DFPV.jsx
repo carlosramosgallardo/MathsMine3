@@ -51,7 +51,13 @@ import {
 import { addM1MileiStatueReservedCells, buzzM1MileiStatue, createM1MileiStatueVisual, M1_MILEI_STATUE_ID } from '@/lib/m1-milei-statue'
 import { addM1ZelenskyStatueReservedCells, createM1ZelenskyStatueVisual, M1_ZELENSKY_STATUE_ID } from '@/lib/m1-zelensky-statue'
 import { createM2MacronStatueVisual, M2_MACRON_STATUE_ID } from '@/lib/m2-macron-statue'
-import { initStatuePatrol, statueWorldXZ, updateStatuePatrol } from '@/lib/statue-patrol'
+import { initStatuePatrol, applyStatueAltitude, statueWorldXZ, updateStatuePatrol } from '@/lib/statue-patrol'
+import {
+  holdMileiChainsaw,
+  releaseMileiChainsaw,
+  syncMileiPatrolChainsaw,
+  unlockMileiChainsawLoop,
+} from '@/lib/milei-chainsaw-audio'
 import { NUKE_CUBE_POSITIONS, NUKE_CUBE_INTERACT_RADIUS, addNukeCubeReservations, createNukeCubeVisual, toggleNukeCube, updateNukeCubeVisual } from '@/lib/nuke-cube'
 import { resolveBossStatueFacing, getBossStatuesForMap } from '@/lib/mining-boss-statue-registry'
 import { drawMinimapFlag } from '@/lib/minimap-flags'
@@ -11154,13 +11160,13 @@ function updateM1MileiStatueMotion(motion, time, look = null, cellMap = null, ob
   motion.lastSpinTime = time
 
   updateStatuePatrol(motion, time, dt, cellMap, obsSet)
+  applyStatueAltitude(motion, motion.patrol)
   const patrolPhase = motion.patrol?.phase ?? 'idle'
   const isMoving = patrolPhase === 'walking' || patrolPhase === 'returning'
   const isGazing = patrolPhase === 'gazing'
 
   if (isMoving || isGazing) {
     if (motion.bodyPivot) {
-      motion.bodyPivot.userData.strideFloorY = 0
       motion.bodyPivot.rotation.x = 0
       motion.bodyPivot.rotation.z = 0
     }
@@ -11183,9 +11189,6 @@ function updateM1MileiStatueMotion(motion, time, look = null, cellMap = null, ob
 
   // Idle on the pedestal — Milei buzzes the saw; others keep a light human sway.
   if (motion.bodyPivot) {
-    delete motion.bodyPivot.userData.strideFloorY
-    const deck = motion.bodyPivot.userData.baseY ?? 0
-    motion.bodyPivot.position.y = deck
     motion.bodyPivot.rotation.x = 0
     motion.bodyPivot.rotation.z = 0
   }
@@ -11288,7 +11291,8 @@ function updateM1MileiStatueMotion(motion, time, look = null, cellMap = null, ob
 
 function extractStatuePlinthToWorld(visual, world) {
   // Keep the Milei-style pedestal fixed at the plaza while the figure patrols.
-  const fit = visual.group.children.find((c) => c.name === 'statuePlinthFit')
+  const fit = visual.group.userData.statuePlinthFit
+    || visual.group.children.find((c) => c.name === 'statuePlinthFit')
   if (!fit) return
   const pg = new THREE.Group()
   pg.name = `${visual.group.name || 'statue'}Plinth`
@@ -13504,6 +13508,7 @@ export default function MiningChain3DFPV({
           updateM1MileiStatueMotion(threeState.m1MileiStatueMotion, time, statueLook, activeCellMapRef.current, validObstaclesRef.current)
           updateM1MileiStatueMotion(threeState.m1ZelenskyStatueMotion, time, statueLook, activeCellMapRef.current, validObstaclesRef.current)
           updateM1MileiStatueMotion(threeState.m2MacronStatueMotion, time, statueLook, activeCellMapRef.current, validObstaclesRef.current)
+          syncMileiPatrolChainsaw(threeState.m1MileiStatueMotion, gx, gy)
           // Nuke cube red button: eases toward its pressed/raised position.
           const nukeGroup=threeState.nukeCubeGroup
           if(nukeGroup){
@@ -15986,7 +15991,11 @@ export default function MiningChain3DFPV({
       facingDataRef.current={mx:fmx,my:fmy,cell:fc,dist:fcDist}
       const crossedInteractionRange=(previousFacing?.dist<=INTERACT_DIST)!==(fcDist<=INTERACT_DIST)
       // Reset mine progress whenever the player is out of interaction range
-      if(fcDist > INTERACT_DIST){ mineProgressRef.current=0; mineTargetRef.current=null }
+      if(fcDist > INTERACT_DIST){
+        mineProgressRef.current=0
+        mineTargetRef.current=null
+        releaseMileiChainsaw('hit')
+      }
       // Reset chain progress when stepping out of the tight chain radius
       if(onCoreMap&&cnDist > CHAIN_INTERACT_DIST && mineTypeRef.current==='chain'){ mineProgressRef.current=0 }
       // Keep chain active every frame while player stays within range (M1 only)
@@ -15995,6 +16004,7 @@ export default function MiningChain3DFPV({
         facingKeyRef.current=newKey
         // Reset progress when target changes
         mineProgressRef.current=0; mineTargetRef.current=null
+        releaseMileiChainsaw('hit')
         if(fmx>=0&&fmy>=0){
           if(!fc?.isObstacle) onFacingChange?.(fmy,fmx,fc,fcDist)
           if(fc?.isObstacle){
@@ -16351,6 +16361,10 @@ export default function MiningChain3DFPV({
             playPickHit(audioCtxRef,'nftji')
             // Eyes burn red on every hit while the tip is being "mined".
             flashBossStatueEyes(threeStateRef.current, facingDataRef.current?.cell?.bossStatueId, 1500)
+            if(facingDataRef.current?.cell?.bossStatueId===M1_MILEI_STATUE_ID){
+              unlockMileiChainsawLoop()
+              holdMileiChainsaw('hit', 0.38)
+            }
             if(mineProgressRef.current>=1){
               playPickHit(audioCtxRef,'complete')
               mineProgressRef.current=0
