@@ -11377,8 +11377,11 @@ function updateStatuePatrol(motion, time, dt, cellMap, obsSet) {
       const firstLeg = p.legTargets.shift()
       statuePlanLeg(p, firstLeg.gx, firstLeg.gz, cellMap, obsSet)
       p.phase = 'walking'
-      // Feet on the ground while patrolling.
-      if (motion.bodyPivot) motion.bodyPivot.position.y = 0
+      // Feet on the ground while patrolling (stride uses strideFloorY, not plinth deck).
+      if (motion.bodyPivot) {
+        motion.bodyPivot.userData.strideFloorY = 0
+        motion.bodyPivot.position.y = 0
+      }
     }
     return
   }
@@ -11454,7 +11457,10 @@ function updateStatuePatrol(motion, time, dt, cellMap, obsSet) {
         motion.root.position.z = p.baseGz
         motion.root.rotation.y = p.baseRotY
         // Step back onto pedestal.
-        if (motion.bodyPivot) motion.bodyPivot.position.y = motion.bodyPivot.userData.baseY ?? 0.09
+        if (motion.bodyPivot) {
+          delete motion.bodyPivot.userData.strideFloorY
+          motion.bodyPivot.position.y = motion.bodyPivot.userData.baseY ?? 0.09
+        }
       }
     }
     return
@@ -11491,6 +11497,7 @@ function updateM1MileiStatueMotion(motion, time, look = null, cellMap = null, ob
 
   if (isMoving || isGazing) {
     if (motion.bodyPivot) {
+      motion.bodyPivot.userData.strideFloorY = 0
       motion.bodyPivot.rotation.x = 0
       motion.bodyPivot.rotation.z = 0
     }
@@ -11513,6 +11520,7 @@ function updateM1MileiStatueMotion(motion, time, look = null, cellMap = null, ob
 
   // Idle on the pedestal — Milei buzzes the saw; others keep a light human sway.
   if (motion.bodyPivot) {
+    delete motion.bodyPivot.userData.strideFloorY
     const deck = motion.bodyPivot.userData.baseY ?? 0
     motion.bodyPivot.position.y = deck
     motion.bodyPivot.rotation.x = 0
