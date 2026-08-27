@@ -15,8 +15,7 @@ import { advanceShowcaseSpin, approachYaw } from '@/lib/map-boss-facing'
 import { colorFromAddress } from '@/lib/wallet-colors'
 import { buildHumanoidBody, buildHumanHead, humanSkinFromSeed, humanHairFromSeed, swayHumanoidArms, walkHumanoidLegs, walkHumanoidStride, flapHumanoidJump, poseHumanoidMeleeStrike } from '@/lib/humanoid-body'
 import { relaxHumanoidArms } from '@/lib/capsule-anim-driver'
-import { dockHeldItemsToGlb } from '@/lib/humanoid-glb'
-import { attachManHeadInCar } from '@/lib/man-head-car'
+import { dockHeldItemsToGlb, hookHumanoidCarMount, HUMANOID_GLB_SRC_CLOTHES, HUMANOID_GLB_CAR_NECK_Y } from '@/lib/humanoid-glb'
 import {
   applyRigidHomeAttack,
   applyRigidHomeGreet,
@@ -207,34 +206,17 @@ function addHomeBotCar(THREE, scene, options = {}) {
   addRlCockpitTub(THREE, car)
   group.add(car)
 
-  // Invisible wallet bot (identity / colour / gate). Head mounts on the car in
-  // car-local units so scale ratios cannot shove it outside the cabin.
-  const bot = addMiningBot(THREE, group, {
+  // Same rider as mining: man.glb, waist split, neck peek so shoulders clear
+  // the Fennec roof. Child of the car so lineup scale cannot un-seat it.
+  const bot = addMiningBot(THREE, car, {
     color: botColor,
-    position: [0, 0, 0],
+    position: [0, 0, 0.18],
     rotationY: 0,
-    scale: 0.001,
-    skipGlb: true,
+    scale: 1,
+    glbBodyCutY: HUMANOID_GLB_SRC_CLOTHES.waistY,
   })
-  bot.visible = false
-  for (const part of [
-    bot.userData.leftFoot, bot.userData.rightFoot,
-    ...(bot.userData.humanLegs || []),
-    ...(bot.userData.humanArms || []),
-    ...(bot.userData.bodyParts || []),
-    bot.userData.tool,
-  ]) {
-    if (part) part.visible = false
-  }
-  for (const mesh of bot.userData.proceduralHeadMeshes || []) mesh.visible = false
-  // Cockpit centre: tub seat ~y 0.40 / z 0.18 in car-local (see addRlCockpitTub).
-  attachManHeadInCar(THREE, car, {
-    neckY: 0.34,
-    neckZ: 0.20,
-    targetHeight: 0.24,
-  })
-  // Gate the whole slot on the car head (man-head sets humanoidGlbReady on parent).
-  gateHomeAvatarUntilReady(group, car)
+  hookHumanoidCarMount(bot, { neckY: HUMANOID_GLB_CAR_NECK_Y, neckZ: 0 })
+  gateHomeAvatarUntilReady(group, bot)
   return { kind: 'botCar', group, bot, car, baseY: HOME_ARENA_FLOOR_Y, baseRotationY: rotationY, phase, bob: 2.15, sway: .42 }
 }
 
@@ -827,7 +809,7 @@ export default function HomeMiningWorld3D() {
       addHomeTag(bossById.macron.group, 'Emmanuel Macron · STATUE', '#2563eb', 1.35)
       addHomeTag(homeNuke.group, 'NUKE CUBE · ???', '#facc15', 3.55)
       addHomeTag(homeBot, aiTeamTag(AI_TEAM_WALLETS[0]), '#86efac', 1.35)
-      addHomeTag(homeBotCar.group, aiTeamTag(AI_TEAM_WALLETS[1]), '#86efac', 2.35)
+      addHomeTag(homeBotCar.group, aiTeamTag(AI_TEAM_WALLETS[1]), '#86efac', 3.25)
       const rail = { offset: 0, vel: 0, dragging: false, lastX: 0, moved: 0, suppressClick: false, snapTarget: 0 }
       // Center-stage feature: bosses step off the rail toward the camera,
       // play their show and walk back. Statues stay on the plinth (mining is
@@ -1393,12 +1375,9 @@ export default function HomeMiningWorld3D() {
               swayHumanoidArms(prop.group, t)
               if (prop.jump && !prop.punch) poseLedgerSwing(prop.group.userData.tool, { swing: 0 })
             }
-          } else if (prop.kind === 'botCar' && prop.car) {
-            const headFit = prop.car.userData.manHeadCarFit
-            if (headFit) {
-              if (!Number.isFinite(headFit.userData.baseY)) headFit.userData.baseY = headFit.position.y
-              headFit.position.y = headFit.userData.baseY + Math.sin(t * 2.4) * 0.008
-            }
+          } else if (prop.kind === 'botCar' && prop.bot) {
+            swayHumanoidArms(prop.bot, t)
+            poseLedgerSwing(prop.bot.userData.tool, { swing: 0 })
           } else if (prop.kind === 'nuke' && prop.cube) {
             // Auto-press only under the spotlight.
             prop.cube.userData.pressed = isC && (time + prop.phase) % 4 < 2

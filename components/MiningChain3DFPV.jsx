@@ -51,6 +51,7 @@ import {
 import { addM1MileiStatueReservedCells, buzzM1MileiStatue, createM1MileiStatueVisual, M1_MILEI_STATUE_ID } from '@/lib/m1-milei-statue'
 import { addM1ZelenskyStatueReservedCells, createM1ZelenskyStatueVisual, M1_ZELENSKY_STATUE_ID } from '@/lib/m1-zelensky-statue'
 import { createM2MacronStatueVisual, M2_MACRON_STATUE_ID } from '@/lib/m2-macron-statue'
+import { initStatuePatrol, statueWorldXZ, updateStatuePatrol } from '@/lib/statue-patrol'
 import { NUKE_CUBE_POSITIONS, NUKE_CUBE_INTERACT_RADIUS, addNukeCubeReservations, createNukeCubeVisual, toggleNukeCube, updateNukeCubeVisual } from '@/lib/nuke-cube'
 import { resolveBossStatueFacing, getBossStatuesForMap } from '@/lib/mining-boss-statue-registry'
 import { drawMinimapFlag } from '@/lib/minimap-flags'
@@ -11141,329 +11142,6 @@ function addRlColiseumNodeVisual(world, lowDetail, state) {
 
 const M1_STATUE_NECK_LIMIT = 1.25
 
-const STATUE_WALK_SPEED = 3.5
-
-function initStatuePatrol(baseGx, baseGz, baseRotY, staggerSec = 0, gazeAngle = 0) {
-  return {
-    phase: 'idle',
-    nextTriggerT: staggerSec + 30 + unitRandom() * 90,
-    currentGx: baseGx,
-    currentGz: baseGz,
-    baseGx,
-    baseGz,
-    baseRotY,
-    gazeAngle,
-    targetGx: null,
-    targetGz: null,
-    // Fine step points for the leg currently being walked (grid-pathed).
-    waypoints: [],
-    // Remaining high-level stops after the current leg (random wander spots,
-    // then the bomb-approach point) — only used while phase === 'walking'.
-    legTargets: [],
-    // The current leg's ultimate destination, kept so a stuck statue can
-    // replan a fresh path from wherever it actually is.
-    legFinalGx: null,
-    legFinalGz: null,
-    replanTries: 0,
-    gazeStartT: 0,
-  }
-}
-
-const STATUE_COLLISION_R = 0.38
-
-function statueHitsWall(gx, gz, cellMap, obsSet) {
-  if (!cellMap && !obsSet) return false
-  const minRow = Math.floor(gz - STATUE_COLLISION_R)
-  const maxRow = Math.floor(gz + STATUE_COLLISION_R)
-  const minCol = Math.floor(gx - STATUE_COLLISION_R)
-  const maxCol = Math.floor(gx + STATUE_COLLISION_R)
-  for (let row = minRow; row <= maxRow; row++) {
-    for (let col = minCol; col <= maxCol; col++) {
-      const key = `${row},${col}`
-      const obs = obsSet?.get?.(key)
-      if (obs?.shape === 'sphere' || obs?.shape === 'tree') {
-        const cx = col + 0.5, cz = row + 0.5
-        const r = (obs.radius ?? 0.5) + STATUE_COLLISION_R
-        if ((gx - cx) * (gx - cx) + (gz - cz) * (gz - cz) < r * r) return true
-        continue
-      }
-      if (obs && !obs.isOrganicShape) {
-        const cx = col + 0.5, cz = row + 0.5
-        if (Math.abs(gx - cx) < 0.5 + STATUE_COLLISION_R && Math.abs(gz - cz) < 0.5 + STATUE_COLLISION_R) return true
-        continue
-      }
-      if (cellMap?.has(key)) {
-        const cx = col + 0.5, cz = row + 0.5
-        if (Math.abs(gx - cx) < 0.5 + STATUE_COLLISION_R && Math.abs(gz - cz) < 0.5 + STATUE_COLLISION_R) return true
-      }
-    }
-  }
-  return false
-}
-
-function statueStepWithSlide(p, dx, dz, dist, step, cellMap, obsSet) {
-  const nx = p.currentGx + (dx / dist) * step
-  const nz = p.currentGz + (dz / dist) * step
-  if (!statueHitsWall(nx, nz, cellMap, obsSet)) {
-    p.currentGx = nx
-    p.currentGz = nz
-    return true
-  }
-  // Try slide: X only
-  if (!statueHitsWall(nx, p.currentGz, cellMap, obsSet)) {
-    p.currentGx = nx
-    return true
-  }
-  // Try slide: Z only
-  if (!statueHitsWall(p.currentGx, nz, cellMap, obsSet)) {
-    p.currentGz = nz
-    return true
-  }
-  return false // stuck
-}
-
-// Grid-cell occupancy test for pathfinding — same collision rule movement
-// uses (statueHitsWall against the cell center), so a path the BFS approves
-// is a path the statue can actually walk without sliding into anything.
-function statueCellBlocked(row, col, cellMap, obsSet) {
-  return statueHitsWall(col + 0.5, row + 0.5, cellMap, obsSet)
-}
-
-const STATUE_PATH_DIAG_DIRS = [
-  [0, 1], [0, -1], [1, 0], [-1, 0],
-  [1, 1], [1, -1], [-1, 1], [-1, -1],
-]
-
-/** BFS over the mining grid from (fromGx,fromGz) to (toGx,toGz), 8-directional
-    with corner-cut prevention (a diagonal step is only allowed if both of its
-    orthogonal neighbours are free — otherwise the statue could "walk through"
-    the corner of a wall). Returns a list of step points ending exactly at the
-    requested target, or null if no route exists (e.g. an isolated pocket). */
-function statueFindPath(fromGx, fromGz, toGx, toGz, cellMap, obsSet) {
-  const startRow = Math.floor(fromGz)
-  const startCol = Math.floor(fromGx)
-  const goalRow = Math.floor(toGz)
-  const goalCol = Math.floor(toGx)
-  if (startRow === goalRow && startCol === goalCol) return [{ gx: toGx, gz: toGz }]
-
-  const startKey = `${startRow},${startCol}`
-  const goalKey = `${goalRow},${goalCol}`
-  const visited = new Set([startKey])
-  const cameFrom = new Map()
-  const queue = [[startRow, startCol]]
-  let qi = 0
-  let found = visited.has(goalKey)
-
-  while (qi < queue.length && !found) {
-    const [r, c] = queue[qi++]
-    for (const [dr, dc] of STATUE_PATH_DIAG_DIRS) {
-      const nr = r + dr
-      const nc = c + dc
-      if (nr < 1 || nr >= ROWS - 1 || nc < 1 || nc >= COLS - 1) continue
-      const key = `${nr},${nc}`
-      if (visited.has(key)) continue
-      if (statueCellBlocked(nr, nc, cellMap, obsSet)) continue
-      if (dr !== 0 && dc !== 0) {
-        // Diagonal: both flanking orthogonal cells must also be free.
-        if (statueCellBlocked(r, nc, cellMap, obsSet) || statueCellBlocked(nr, c, cellMap, obsSet)) continue
-      }
-      visited.add(key)
-      cameFrom.set(key, `${r},${c}`)
-      if (key === goalKey) { found = true; break }
-      queue.push([nr, nc])
-    }
-  }
-  if (!found) return null
-
-  const cells = []
-  let curKey = goalKey
-  while (curKey !== startKey) {
-    const [r, c] = curKey.split(',').map(Number)
-    cells.push({ gx: c + 0.5, gz: r + 0.5 })
-    const prevKey = cameFrom.get(curKey)
-    if (!prevKey) break
-    curKey = prevKey
-  }
-  cells.reverse()
-  // Land exactly on the requested point rather than the goal cell's center.
-  if (cells.length) cells[cells.length - 1] = { gx: toGx, gz: toGz }
-  else cells.push({ gx: toGx, gz: toGz })
-  return cells
-}
-
-/** Collapse consecutive collinear step points into longer straight segments,
-    so a path through open ground reads as a walk, not a cell-by-cell shuffle. */
-function statueSimplifyPath(cells) {
-  if (cells.length <= 2) return cells
-  const out = [cells[0]]
-  for (let i = 1; i < cells.length - 1; i++) {
-    const prev = out[out.length - 1]
-    const cur = cells[i]
-    const next = cells[i + 1]
-    const d1x = cur.gx - prev.gx, d1z = cur.gz - prev.gz
-    const d2x = next.gx - cur.gx, d2z = next.gz - cur.gz
-    const cross = d1x * d2z - d1z * d2x
-    const sameDir = d1x * d2x + d1z * d2z
-    if (Math.abs(cross) < 1e-6 && sameDir > 0) continue // collinear — drop it
-    out.push(cur)
-  }
-  out.push(cells[cells.length - 1])
-  return out
-}
-
-/** Plan one leg of the patrol: path from wherever the statue currently is to
-    (toGx,toGz), falling back to a direct hop (best-effort slide) only if the
-    grid is somehow disconnected — this should be rare on the mining maps. */
-function statuePlanLeg(p, toGx, toGz, cellMap, obsSet) {
-  const path = statueFindPath(p.currentGx, p.currentGz, toGx, toGz, cellMap, obsSet)
-  const cells = path ? statueSimplifyPath(path) : [{ gx: toGx, gz: toGz }]
-  p.waypoints = cells
-  p.legFinalGx = toGx
-  p.legFinalGz = toGz
-  p.replanTries = 0
-  const nxt = p.waypoints.shift()
-  p.targetGx = nxt.gx
-  p.targetGz = nxt.gz
-  p.stuckTicks = 0
-}
-
-function updateStatuePatrol(motion, time, dt, cellMap, obsSet) {
-  const p = motion?.patrol
-  if (!p) return
-  if (p.phase === 'idle') {
-    if (time >= p.nextTriggerT) {
-      const nukePos = NUKE_CUBE_POSITIONS[String(motion.mapId)]
-      if (!nukePos) return
-      const legTargets = []
-      const n = 1 + Math.floor(unitRandom() * 2)
-      for (let i = 0; i < n; i++) {
-        // Pick waypoints that are not inside walls; skip blocked candidates.
-        let tries = 0
-        while (tries < 8) {
-          const wgx = 8 + unitRandom() * 40
-          const wgz = 8 + unitRandom() * 40
-          if (!statueHitsWall(wgx, wgz, cellMap, obsSet)) { legTargets.push({ gx: wgx, gz: wgz }); break }
-          tries++
-        }
-      }
-      // Stop ~2 cells from the nuke at the statue's pre-assigned angle, never on
-      // the bomb itself. Unlike the nuke's own 3x3 keep-clear zone, this approach
-      // point isn't guaranteed free of unmined blocks — nudge outward along the
-      // same gaze direction until it lands somewhere walkable.
-      let approachGx = nukePos.col + 0.5 + Math.cos(p.gazeAngle) * 2
-      let approachGz = nukePos.row + 0.5 + Math.sin(p.gazeAngle) * 2
-      for (let extra = 1; extra <= 6 && statueHitsWall(approachGx, approachGz, cellMap, obsSet); extra++) {
-        const r = 2 + extra * 0.5
-        approachGx = nukePos.col + 0.5 + Math.cos(p.gazeAngle) * r
-        approachGz = nukePos.row + 0.5 + Math.sin(p.gazeAngle) * r
-      }
-      legTargets.push({ gx: approachGx, gz: approachGz })
-      p.legTargets = legTargets
-      const firstLeg = p.legTargets.shift()
-      statuePlanLeg(p, firstLeg.gx, firstLeg.gz, cellMap, obsSet)
-      p.phase = 'walking'
-      // Feet on the ground while patrolling (stride uses strideFloorY, not plinth deck).
-      if (motion.bodyPivot) {
-        motion.bodyPivot.userData.strideFloorY = 0
-        motion.bodyPivot.position.y = 0
-      }
-    }
-    return
-  }
-  if (p.phase === 'walking' || p.phase === 'returning') {
-    const dx = p.targetGx - p.currentGx
-    const dz = p.targetGz - p.currentGz
-    const dist = Math.hypot(dx, dz)
-    if (dist > 0.08) {
-      motion.root.rotation.y = approachYaw(motion.root.rotation.y, Math.atan2(dx, dz), dt, 5)
-      const step = Math.min(STATUE_WALK_SPEED * dt, dist)
-      const moved = statueStepWithSlide(p, dx, dz, dist, step, cellMap, obsSet)
-      // A wall-hugging slide can report "moved" every frame while barely
-      // closing the distance to the target (bouncing X/Z along a concave
-      // corner) — track real progress too, not just whether a step landed,
-      // so that oscillation trips the same replan safety net as a hard block.
-      const newDist = Math.hypot(p.targetGx - p.currentGx, p.targetGz - p.currentGz)
-      const progressed = moved && (dist - newDist) > 0.01
-      if (!progressed) {
-        p.stuckTicks = (p.stuckTicks || 0) + 1
-        if (p.stuckTicks > 30) {
-          // The planned route is physically blocked from here (a newly mined
-          // block, another statue standing in the way, …) — replan a fresh
-          // path from the current position instead of shuffling one cell at
-          // a time or freezing.
-          p.stuckTicks = 0
-          p.replanTries = (p.replanTries || 0) + 1
-          if (p.replanTries <= 3 && Number.isFinite(p.legFinalGx)) {
-            statuePlanLeg(p, p.legFinalGx, p.legFinalGz, cellMap, obsSet)
-          } else {
-            // Replanning keeps failing (fully boxed in) — nudge onward
-            // rather than freeze in place indefinitely.
-            p.replanTries = 0
-            if (p.waypoints.length > 0) {
-              const nxt = p.waypoints.shift()
-              p.targetGx = nxt.gx
-              p.targetGz = nxt.gz
-            } else {
-              p.currentGx = p.targetGx
-              p.currentGz = p.targetGz
-            }
-          }
-        }
-      } else {
-        p.stuckTicks = 0
-      }
-      motion.root.position.x = p.currentGx
-      motion.root.position.z = p.currentGz
-    } else {
-      p.currentGx = p.targetGx
-      p.currentGz = p.targetGz
-      motion.root.position.x = p.currentGx
-      motion.root.position.z = p.currentGz
-      if (p.waypoints.length > 0) {
-        // More step points queued for this leg (applies to both walking and
-        // returning — a pathed leg is rarely a single hop) — keep walking it.
-        const nxt = p.waypoints.shift()
-        p.targetGx = nxt.gx
-        p.targetGz = nxt.gz
-        p.stuckTicks = 0
-      } else if (p.phase === 'walking' && p.legTargets.length > 0) {
-        const nextLeg = p.legTargets.shift()
-        statuePlanLeg(p, nextLeg.gx, nextLeg.gz, cellMap, obsSet)
-      } else if (p.phase === 'walking') {
-        p.phase = 'gazing'
-        p.gazeStartT = time
-      } else {
-        // Returning, path fully walked — home.
-        p.phase = 'idle'
-        p.nextTriggerT = time + 30 + unitRandom() * 90
-        p.currentGx = p.baseGx
-        p.currentGz = p.baseGz
-        motion.root.position.x = p.baseGx
-        motion.root.position.z = p.baseGz
-        motion.root.rotation.y = p.baseRotY
-        // Step back onto pedestal.
-        if (motion.bodyPivot) {
-          delete motion.bodyPivot.userData.strideFloorY
-          motion.bodyPivot.position.y = motion.bodyPivot.userData.baseY ?? 0.09
-        }
-      }
-    }
-    return
-  }
-  if (p.phase === 'gazing') {
-    const nukePos = NUKE_CUBE_POSITIONS[String(motion.mapId)]
-    if (nukePos) {
-      const dx = nukePos.col + 0.5 - p.currentGx
-      const dz = nukePos.row + 0.5 - p.currentGz
-      motion.root.rotation.y = approachYaw(motion.root.rotation.y, Math.atan2(dx, dz), dt, 3)
-    }
-    if (time - p.gazeStartT >= 10) {
-      p.phase = 'returning'
-      statuePlanLeg(p, p.baseGx, p.baseGz, cellMap, obsSet)
-    }
-  }
-}
-
 function updateM1MileiStatueMotion(motion, time, look = null, cellMap = null, obsSet = null) {
   if (!motion) return
   if (motion.fixed) {
@@ -11628,7 +11306,7 @@ function addM1MileiStatueDecor(world, lowDetail, state = null) {
   extractStatuePlinthToWorld(visual, world)
   world.add(visual.group)
   if (state) {
-    const { gx, gy } = visual.group.position
+    const { gx, gz } = statueWorldXZ(visual.group)
     state.m1MileiStatueGroup = visual.group
     state.m1MileiStatueMotion = {
       root: visual.group,
@@ -11638,7 +11316,7 @@ function addM1MileiStatueDecor(world, lowDetail, state = null) {
       salute: 'rightWave',
       leftArm: visual.group.userData.homeLeftArm || null,
       rightArm: visual.group.userData.homeRightArm || null,
-      patrol: initStatuePatrol(gx, gy, visual.group.rotation.y, 8, 0.35),
+      patrol: initStatuePatrol(gx, gz, visual.group.rotation.y, 8, 0.35),
       statueId: M1_MILEI_STATUE_ID,
       mapId: '1',
     }
@@ -11650,7 +11328,7 @@ function addM1ZelenskyStatueDecor(world, lowDetail, state = null) {
   extractStatuePlinthToWorld(visual, world)
   world.add(visual.group)
   if (state) {
-    const { gx, gy } = visual.group.position
+    const { gx, gz } = statueWorldXZ(visual.group)
     state.m1ZelenskyStatueGroup = visual.group
     state.m1ZelenskyStatueMotion = {
       root: visual.group,
@@ -11659,7 +11337,7 @@ function addM1ZelenskyStatueDecor(world, lowDetail, state = null) {
       salute: 'relaxed',
       leftArm: visual.group.userData.homeLeftArm || null,
       rightArm: visual.group.userData.homeRightArm || null,
-      patrol: initStatuePatrol(gx, gy, visual.group.rotation.y, 22, 2.4),
+      patrol: initStatuePatrol(gx, gz, visual.group.rotation.y, 22, 2.4),
       statueId: M1_ZELENSKY_STATUE_ID,
       mapId: '1',
     }
@@ -11671,7 +11349,7 @@ function addM2MacronStatueDecor(world, lowDetail, state = null) {
   extractStatuePlinthToWorld(visual, world)
   world.add(visual.group)
   if (state) {
-    const { gx, gy } = visual.group.position
+    const { gx, gz } = statueWorldXZ(visual.group)
     state.m2MacronStatueGroup = visual.group
     state.m2MacronStatueMotion = {
       root: visual.group,
@@ -11680,7 +11358,7 @@ function addM2MacronStatueDecor(world, lowDetail, state = null) {
       salute: 'relaxed',
       leftArm: visual.group.userData.homeLeftArm || null,
       rightArm: visual.group.userData.homeRightArm || null,
-      patrol: initStatuePatrol(gx, gy, visual.group.rotation.y, 40, 4.1),
+      patrol: initStatuePatrol(gx, gz, visual.group.rotation.y, 40, 4.1),
       statueId: M2_MACRON_STATUE_ID,
       mapId: '2',
     }
