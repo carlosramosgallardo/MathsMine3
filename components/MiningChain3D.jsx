@@ -31,7 +31,7 @@ import { MINING_CORE_MAP_ID } from '@/lib/mining-maps'
 import { getBossStatueById } from '@/lib/mining-boss-statue-registry'
 import { M1_MILEI_STATUE_ID } from '@/lib/m1-milei-statue'
 import { playBossStatueVoice } from '@/lib/boss-statue-voice'
-import { startMileiChainsawLoop, stopMileiChainsawLoop } from '@/lib/milei-chainsaw-audio'
+import { stopMileiChainsawLoop, holdMileiChainsaw, releaseMileiChainsaw } from '@/lib/milei-chainsaw-audio'
 import { RL_NODE_MIN_LEVEL, RL_NODE_PRICE_MM3 } from '@/lib/mining-rl-mount'
 import { normalizeBossState as normalizeM5BossState, M5_TRUMP_BOSS_NAME, M5_TRUMP_BOSS_MAX_HP, M5_TRUMP_BOSS_SCALE, M5_TRUMP_BOSS_SPAWN } from '@/lib/m5-trump-boss'
 import { normalizeBossState as normalizeM3BossState, M3_PUTIN_BOSS_NAME, M3_PUTIN_BOSS_MAX_HP, M3_PUTIN_BOSS_SCALE, M3_PUTIN_BOSS_SPAWN } from '@/lib/m3-putin-boss'
@@ -687,7 +687,8 @@ export default function MiningChain3D() {
 
   const closeBossStatueTip = useCallback(() => {
     setBossStatueTipOpen(false)
-    stopMileiChainsawLoop()
+    releaseMileiChainsaw('tip')
+    releaseMileiChainsaw('hit')
   }, [])
 
   useEffect(() => () => stopMileiChainsawLoop(), [])
@@ -698,8 +699,8 @@ export default function MiningChain3D() {
     setBossStatueTipId(statueId)
     setBossStatueTipOpen(true)
     playBossStatueVoice(statue.voiceUrl)
-    if (statue.id === M1_MILEI_STATUE_ID) startMileiChainsawLoop(0.28)
-    else stopMileiChainsawLoop()
+    if (statue.id === M1_MILEI_STATUE_ID) holdMileiChainsaw('tip', 0.32)
+    else releaseMileiChainsaw('tip')
   }, [])
 
   const clearRlMountOnDeath = useCallback(() => {
