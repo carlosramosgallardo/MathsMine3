@@ -13,7 +13,6 @@ import { startMileiChainsawLoop, stopMileiChainsawLoop, unlockMileiChainsawLoop 
 import { createM1ZelenskyStatueVisual, M1_ZELENSKY_STATUE_SCALE } from '@/lib/m1-zelensky-statue'
 import { createM2MacronStatueVisual, M2_MACRON_STATUE_SCALE } from '@/lib/m2-macron-statue'
 import { advanceShowcaseSpin, approachYaw } from '@/lib/map-boss-facing'
-import { setBossMaskEyesRed } from '@/lib/boss-head-photo'
 import { colorFromAddress } from '@/lib/wallet-colors'
 import { buildHumanoidBody, buildHumanHead, humanSkinFromSeed, humanHairFromSeed, swayHumanoidArms, walkHumanoidLegs, walkHumanoidStride, flapHumanoidJump, poseHumanoidMeleeStrike } from '@/lib/humanoid-body'
 import { relaxHumanoidArms } from '@/lib/capsule-anim-driver'
@@ -738,11 +737,8 @@ export default function HomeMiningWorld3D() {
       addRedCarpet(THREE, scene, HOME_BOSS_LAYOUT.length + 3)
       const homeBosses = HOME_BOSS_LAYOUT.map((layout) => addHomeBoss(THREE, scene, layout))
 
-      // Hovering the mining-access card puts every boss/statue/bot in
-      // "fighting" mode: every tagged eye glow in the scene flips from the
-      // holo tint to red (eyes only — never the body mesh), and the cars'
-      // painted boost lights up red — back to blue/cyan on leave. The car
-      // list is filled right below, once the lineup props exist.
+      // Hovering the mining-access card lights the cars' painted boost red —
+      // back to blue/cyan on leave. The car list is filled right below.
       const boostCars = []
       // Embed arena (Android WebView) uses the same classes as portal home so
       // rail drag + mm3-home-cycle stay wired; fall back to arena root if needed.
@@ -753,12 +749,11 @@ export default function HomeMiningWorld3D() {
         canvas.parentElement
       const isEmbedArena = Boolean(canvas.closest('.mm3-home-arena-embed'))
       if (accessEl) {
-        const setEyes = (red) => {
-          setBossMaskEyesRed(scene, red)
+        const setBoostLit = (red) => {
           for (const car of boostCars) setRlCarBoostLit(car, red)
         }
-        const onAccessEnter = () => setEyes(true)
-        const onAccessLeave = () => setEyes(false)
+        const onAccessEnter = () => setBoostLit(true)
+        const onAccessLeave = () => setBoostLit(false)
         accessEl.addEventListener('pointerenter', onAccessEnter)
         accessEl.addEventListener('pointerleave', onAccessLeave)
         hoverCleanup = () => {

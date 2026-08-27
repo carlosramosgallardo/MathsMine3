@@ -48,17 +48,16 @@ import {
   M2_PITCH_HOOP,
   updateM2PitchDomeRuntime,
 } from '@/lib/m2-pitch-dome'
-import { addM1MileiStatueReservedCells, buzzM1MileiStatue, createM1MileiStatueVisual, flashM1MileiStatue, M1_MILEI_STATUE_ID } from '@/lib/m1-milei-statue'
+import { addM1MileiStatueReservedCells, buzzM1MileiStatue, createM1MileiStatueVisual, M1_MILEI_STATUE_ID } from '@/lib/m1-milei-statue'
 import { setMileiChainsawProximity, startMileiChainsawLoop, stopMileiChainsawLoop, unlockMileiChainsawLoop } from '@/lib/milei-chainsaw-audio'
-import { addM1ZelenskyStatueReservedCells, createM1ZelenskyStatueVisual, flashM1ZelenskyStatue, M1_ZELENSKY_STATUE_ID } from '@/lib/m1-zelensky-statue'
-import { createM2MacronStatueVisual, flashM2MacronStatue, M2_MACRON_STATUE_ID } from '@/lib/m2-macron-statue'
+import { addM1ZelenskyStatueReservedCells, createM1ZelenskyStatueVisual, M1_ZELENSKY_STATUE_ID } from '@/lib/m1-zelensky-statue'
+import { createM2MacronStatueVisual, M2_MACRON_STATUE_ID } from '@/lib/m2-macron-statue'
 import { NUKE_CUBE_POSITIONS, NUKE_CUBE_INTERACT_RADIUS, addNukeCubeReservations, createNukeCubeVisual, toggleNukeCube, updateNukeCubeVisual } from '@/lib/nuke-cube'
 import { resolveBossStatueFacing, getBossStatuesForMap } from '@/lib/mining-boss-statue-registry'
 import { drawMinimapFlag } from '@/lib/minimap-flags'
 import { addVerticalArenaUsbStaff } from '@/lib/arena-usb-staff'
 import { advanceShowcaseSpin, approachYaw } from '@/lib/map-boss-facing'
 import { drawRlBadge, onRlCarImageReady } from '@/lib/rl-badge'
-import { setBossMaskEyesRed } from '@/lib/boss-head-photo'
 import {
   drawBossDollarBills,
   spawnBossDollarBurst,
@@ -5037,21 +5036,8 @@ function drawNpcHpBar(hpBar, hp) {
   tex.needsUpdate = true
 }
 
-// Statue interaction feedback: eyes burn red for a few seconds, then back to holo.
-function flashBossStatueEyes(threeState, statueId, ms = 5000) {
-  const groups = [threeState?.m1MileiStatueGroup, threeState?.m1ZelenskyStatueGroup, threeState?.m2MacronStatueGroup]
-  const group = groups.find(g => g && (!statueId || g.userData.bossStatueId === statueId))
-  if (!group) return
-  if (group.userData.m1ZelenskyStatue) { flashM1ZelenskyStatue(group, ms); return }
-  if (group.userData.m2MacronStatue) { flashM2MacronStatue(group, ms); return }
-  if (group.userData.statueFixed) {
-    flashM1MileiStatue(group, ms)
-    return
-  }
-  setBossMaskEyesRed(group, true)
-  clearTimeout(group.userData.eyeRedTimer)
-  group.userData.eyeRedTimer = setTimeout(() => setBossMaskEyesRed(group, false), ms)
-}
+// Statue interaction feedback — red eye flash retired.
+function flashBossStatueEyes() {}
 
 function playPickHit(audioCtxRef, type) {
   if (!portalSoundEnabled()) return
@@ -15733,10 +15719,6 @@ export default function MiningChain3DFPV({
           // HACKING (Zero-Day 👾): while OFFLINE the bot freezes (no move, no
           // attack), its eye glows shut down, and it still takes damage.
           const npcOffline = nowMs < (npc.offlineUntil || 0)
-          if (npcOffline !== Boolean(npc.eyesOff)) {
-            npc.eyesOff = npcOffline
-            npc.avatar.traverse((o) => { if (o.userData?.bossEyeGlow) o.visible = !npcOffline })
-          }
           // Visual hop envelope (attack hops + obstacle hops) — pure client
           // visual except that while airborne the wall test runs at z=0.62,
           // so the bot really clears jumpable mining blocks (top 0.5).
