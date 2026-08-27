@@ -1300,7 +1300,7 @@ export default function HomeMiningWorld3D() {
             if (boss.id === 'milei') {
               buzzM1MileiStatue(boss.bodyPivot, t)
             } else if (boss.id === 'zelensky' || boss.id === 'macron') {
-              // Rigid A-pose GLB (full body); capsules only for light sway.
+              // Skinned original bind; funny arm idle is on the RPM bones.
               relaxHumanoidArms(boss.bodyPivot, t, showBlend)
             } else if (boss.bodyPivot?.userData?.humanArms) {
               swayHumanoidArms(boss.bodyPivot, t, 0.85 * showBlend)

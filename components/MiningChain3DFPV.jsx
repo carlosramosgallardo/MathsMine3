@@ -11556,7 +11556,7 @@ function updateM1MileiStatueMotion(motion, time, look = null, cellMap = null, ob
     motion.head.rotation.y = motion.headYaw
     motion.head.rotation.x = Math.sin(time * 0.55 + 1) * 0.045
   }
-  // Humanoid arms: Milei keeps a right-hand wave; Zelensky/Macron hang relaxed.
+  // Humanoid arms: Milei keeps a right-hand wave; Zelensky/Macron idle on the RPM skeleton.
   if (motion.salute === 'relaxed') {
     if (motion.leftArm && Number.isFinite(motion.leftArm.userData.baseY)) {
       motion.leftArm.position.y = motion.leftArm.userData.baseY
