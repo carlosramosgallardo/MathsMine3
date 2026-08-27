@@ -11,7 +11,8 @@
  *
  * Usage:
  *   node scripts/bake-prop-glb.mjs .private/models-src/rl-car-src.glb public/models/rl-car.glb
- *   ... [--max-texture 1024] [--quality 82] [--keep-normal-maps] [--keep-skin] [--a-pose] [--decimate-grid n]
+ *   ... [--max-texture 1024] [--quality 82] [--keep-normal-maps] [--keep-skin]
+ *       [--a-pose] [--wave right|left] [--decimate-grid n]
  */
 import { statSync } from 'node:fs'
 import { createHash } from 'node:crypto'
@@ -35,40 +36,84 @@ const ARRAY_BUFFER = 34962
 const ELEMENT_ARRAY_BUFFER = 34963
 const VEC_OF = { POSITION: 3, NORMAL: 3, TEXCOORD_0: 2, TEXCOORD_1: 2, COLOR_0: 4 }
 
+/** Premultiply `delta` onto a node's local quaternion rotation. */
+function premultiplyNodeRotation(node, delta) {
+  const cur = Array.isArray(node.rotation) && node.rotation.length === 4
+    ? node.rotation
+    : [0, 0, 0, 1]
+  const [x1, y1, z1, w1] = delta
+  const [x2, y2, z2, w2] = cur
+  node.rotation = [
+    w1 * x2 + x1 * w2 + y1 * z2 - z1 * y2,
+    w1 * y2 - x1 * z2 + y1 * w2 + z1 * x2,
+    w1 * z2 + x1 * y2 - y1 * x2 + z1 * w2,
+    w1 * w2 - x1 * x2 - y1 * y2 - z1 * z2,
+  ]
+}
+
+function quatAxisAngle(axis, angle) {
+  const half = angle / 2
+  const s = Math.sin(half)
+  const c = Math.cos(half)
+  if (axis === 'x') return [s, 0, 0, c]
+  if (axis === 'y') return [0, s, 0, c]
+  return [0, 0, s, c]
+}
+
+function findRpmNode(json, re) {
+  return (json.nodes || []).find((node) => re.test(String(node.name || '')))
+}
+
 /**
  * Ready Player Me / Sketchfab avatars ship bind-pose meshes + a rest skeleton.
  * Stripping `skin` without applying the rest pose leaves a white T-pose. Bake
  * the current joint pose into POSITION/NORMAL, then drop skinning entirely.
  *
- * Optional `--a-pose`: drop T-pose upper arms to the sides before baking so
- * rigid plaza statues (Zelensky/Macron) stand with relaxed limbs.
+ * Optional `--a-pose`: drop T-pose upper arms to the sides (slight outward
+ * clearance so hands are not glued to the hips).
+ * Optional `--wave right|left`: one arm raised in a friendly greeting; the
+ * other hangs in A-pose.
  */
-function poseRpmArmsDown(json) {
+/** ~77° — full 90° pins hands against the hips; a bit less keeps sleeves readable. */
+const RPM_ARM_DOWN_SHOULDER = 1.35
+
+function poseRpmArmsDown(json, { left = true, right = true } = {}) {
   let posed = 0
-  for (const node of json.nodes || []) {
-    const name = String(node.name || '')
-    // Shoulder — UpperArm local Z roll lifts hands into the face on these RPM
-    // rigs; shoulder Z-roll drops them to a natural A-pose (verified on Zelensky).
-    const left = /^LeftShoulder_\d+$/i.test(name)
-    const right = /^RightShoulder_\d+$/i.test(name)
-    if (!left && !right) continue
-    const roll = left ? -Math.PI / 2 : Math.PI / 2
-    const half = roll / 2
-    const qz = [0, 0, Math.sin(half), Math.cos(half)]
-    const cur = Array.isArray(node.rotation) && node.rotation.length === 4
-      ? node.rotation
-      : [0, 0, 0, 1]
-    const [x1, y1, z1, w1] = qz
-    const [x2, y2, z2, w2] = cur
-    node.rotation = [
-      w1 * x2 + x1 * w2 + y1 * z2 - z1 * y2,
-      w1 * y2 - x1 * z2 + y1 * w2 + z1 * x2,
-      w1 * z2 + x1 * y2 - y1 * x2 + z1 * w2,
-      w1 * w2 - x1 * x2 - y1 * y2 - z1 * z2,
-    ]
-    posed += 1
+  if (left) {
+    const node = findRpmNode(json, /^LeftShoulder_\d+$/i)
+    if (node) {
+      premultiplyNodeRotation(node, quatAxisAngle('z', -RPM_ARM_DOWN_SHOULDER))
+      posed += 1
+    }
+  }
+  if (right) {
+    const node = findRpmNode(json, /^RightShoulder_\d+$/i)
+    if (node) {
+      premultiplyNodeRotation(node, quatAxisAngle('z', RPM_ARM_DOWN_SHOULDER))
+      posed += 1
+    }
   }
   return posed
+}
+
+/**
+ * Friendly raised-hand wave on one side (elbow bent, hand near head height).
+ * The other arm drops to the cleared A-pose.
+ */
+function poseRpmWave(json, side) {
+  const waveRight = side === 'right'
+  poseRpmArmsDown(json, { left: !waveRight, right: waveRight })
+  const arm = findRpmNode(json, waveRight ? /^RightArm_\d+$/i : /^LeftArm_\d+$/i)
+  const fore = findRpmNode(json, waveRight ? /^RightForeArm_\d+$/i : /^LeftForeArm_\d+$/i)
+  const hand = findRpmNode(json, waveRight ? /^RightHand_\d+$/i : /^LeftHand_\d+$/i)
+  if (arm) premultiplyNodeRotation(arm, quatAxisAngle('x', -0.65))
+  if (fore) {
+    premultiplyNodeRotation(fore, quatAxisAngle('y', waveRight ? 1.45 : -1.45))
+  }
+  if (hand) {
+    premultiplyNodeRotation(hand, quatAxisAngle('z', waveRight ? -0.25 : 0.25))
+  }
+  return waveRight ? 'right' : 'left'
 }
 
 function bakeRestPoseSkins(json, bin) {
@@ -251,7 +296,7 @@ function parseArgs(argv) {
   const [src, out] = argv
   const options = {
     src, out, maxTexture: 1024, quality: 82, keepNormalMaps: false, keepSkin: false,
-    decimateGrid: 0, aPose: false,
+    decimateGrid: 0, aPose: false, wave: null,
   }
   for (let i = 2; i < argv.length; i += 1) {
     if (argv[i] === '--max-texture') options.maxTexture = Number(argv[i + 1])
@@ -259,6 +304,14 @@ function parseArgs(argv) {
     else if (argv[i] === '--keep-normal-maps') options.keepNormalMaps = true
     else if (argv[i] === '--keep-skin') options.keepSkin = true
     else if (argv[i] === '--a-pose') options.aPose = true
+    else if (argv[i] === '--wave') {
+      const side = String(argv[i + 1] || '').toLowerCase()
+      if (side !== 'right' && side !== 'left') {
+        throw new Error('--wave expects right or left')
+      }
+      options.wave = side
+      i += 1
+    }
     else if (argv[i] === '--decimate-grid') options.decimateGrid = Number(argv[i + 1])
   }
   return options
@@ -404,12 +457,15 @@ function copySkinnedPrimitive(json, bin, prim, builder) {
 async function main() {
   const options = parseArgs(process.argv.slice(2))
   if (!options.src || !options.out) {
-    console.error('usage: node scripts/bake-prop-glb.mjs <src.glb> <out.glb> [--max-texture n] [--quality n] [--keep-normal-maps] [--keep-skin] [--a-pose] [--decimate-grid n]')
+    console.error('usage: node scripts/bake-prop-glb.mjs <src.glb> <out.glb> [--max-texture n] [--quality n] [--keep-normal-maps] [--keep-skin] [--a-pose] [--wave right|left] [--decimate-grid n]')
     process.exit(1)
   }
   let { json, bin } = readGlb(options.src)
   if (json.skins?.length && !options.keepSkin) {
-    if (options.aPose) {
+    if (options.wave) {
+      const side = poseRpmWave(json, options.wave)
+      console.log(`  wave: ${side} hand raised, other arm A-pose`)
+    } else if (options.aPose) {
       const n = poseRpmArmsDown(json)
       console.log(`  a-pose: dropped ${n} shoulder joint(s)`)
     }
