@@ -17,7 +17,7 @@ import { setBossMaskEyesRed } from '@/lib/boss-head-photo'
 import { colorFromAddress } from '@/lib/wallet-colors'
 import { buildHumanoidBody, buildHumanHead, humanSkinFromSeed, humanHairFromSeed, swayHumanoidArms, walkHumanoidLegs, walkHumanoidStride, flapHumanoidJump, poseHumanoidMeleeStrike } from '@/lib/humanoid-body'
 import { relaxHumanoidArms } from '@/lib/capsule-anim-driver'
-import { dockHeldItemsToGlb, setHumanoidHandSway } from '@/lib/humanoid-glb'
+import { dockHeldItemsToGlb } from '@/lib/humanoid-glb'
 import { attachManHeadInCar } from '@/lib/man-head-car'
 import {
   applyRigidHomeAttack,
@@ -1310,9 +1310,8 @@ export default function HomeMiningWorld3D() {
             if (boss.id === 'milei') {
               buzzM1MileiStatue(boss.bodyPivot, t)
             } else if (boss.id === 'zelensky' || boss.id === 'macron') {
-              // Arms hang via skinned RPM bone sync; wrists get a light idle sway.
+              // Rigid A-pose GLB (full body); capsules only for light sway.
               relaxHumanoidArms(boss.bodyPivot, t, showBlend)
-              setHumanoidHandSway(boss.bodyPivot, t, feat === 'show' ? 0.55 : 0.32)
             } else if (boss.bodyPivot?.userData?.humanArms) {
               swayHumanoidArms(boss.bodyPivot, t, 0.85 * showBlend)
             }
