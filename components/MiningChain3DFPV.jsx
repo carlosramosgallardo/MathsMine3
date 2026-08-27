@@ -256,8 +256,8 @@ const REMOTE_AVATAR_LOCAL = Object.freeze({
 })
 // RL mount: head + antenna + USB staff above the car mesh (hidden only in pool heal).
 const REMOTE_AVATAR_MOUNTED_LOCAL = Object.freeze({
-  headTop: 0.94,
-  headBottom: 0.38,
+  headTop: 1.16,
+  headBottom: 0.55,
   halfWidth: 0.38,
 })
 function getRemoteAvatarWorldScale(threeState, gx, gy, gz) {
