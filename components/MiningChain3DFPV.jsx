@@ -12044,6 +12044,47 @@ function createRlCarMesh(lowDetail = false, { showcase = false, decor = false, t
   return group
 }
 
+function poseLedgerTowardLook(tool, {
+  swing = 0,
+  jump = false,
+  carJump = false,
+  time = 0,
+  avatar = null,
+  camera = null,
+  aimX = 0.22,
+  aimY = 0.48,
+  aimZ = -0.86,
+} = {}) {
+  if (!tool) return
+  if (jump || carJump) {
+    poseLedgerSwing(tool, { swing, jump, carJump, time })
+    return
+  }
+  let ax = aimX
+  let ay = aimY
+  let az = aimZ
+  if (camera && avatar?.matrixWorld && Number(swing) > 0.02) {
+    const aim = avatar.userData.ledgerAimDir || (avatar.userData.ledgerAimDir = new THREE.Vector3())
+    camera.getWorldDirection(aim)
+    const e = avatar.matrixWorld.elements
+    const x = aim.x
+    const y = aim.y
+    const z = aim.z
+    aim.set(
+      e[0] * x + e[1] * y + e[2] * z,
+      e[4] * x + e[5] * y + e[6] * z,
+      e[8] * x + e[9] * y + e[10] * z,
+    )
+    if (aim.lengthSq() > 1e-8) {
+      aim.normalize()
+      ax = aim.x
+      ay = aim.y
+      az = aim.z
+    }
+  }
+  poseLedgerSwing(tool, { swing, aimX: ax, aimY: ay, aimZ: az })
+}
+
 function applyRlMountVisual(avatar, mounted, threeState = null) {
   if (!avatar) return
   const lowDetail = isLowRenderTier()
@@ -12051,7 +12092,7 @@ function applyRlMountVisual(avatar, mounted, threeState = null) {
     avatar.userData.rlCar = createRlCarMesh(lowDetail)
     // rl-car.glb's cabin sits in the rear half (car-local z +0.18): shift the
     // car forward so the rider ends up seated in the cockpit, not on the hood.
-    avatar.userData.rlCar.position.z = -0.18
+    avatar.userData.rlCar.position.set(0, 0, -0.18)
     // Cockpit tub around the rider — dark side coamings + seat back close the
     // cabin so the torso reads seated IN the car instead of perched on it.
     addRlCockpitTub(THREE, avatar.userData.rlCar, { lowDetail })
@@ -12078,9 +12119,9 @@ function applyRlMountVisual(avatar, mounted, threeState = null) {
   if (mounted) applyHumanoidCarMount(avatar, { neckY: 0.52, neckZ: 0 })
   else unseatHumanoidGlb(avatar)
   // Mounted keeps head, antenna and USB staff at their standing pose — the bot
-  // rides the car with the same silhouette instead of sinking into the roof.
+  // rides the car with the stick in the right hand, tip up and a little out.
   if (avatar.userData.tool) {
-    avatar.userData.tool.visible = !mounted && !avatar.userData.wasDead && !avatar.userData.isHealingRecharge
+    avatar.userData.tool.visible = !avatar.userData.wasDead && !avatar.userData.isHealingRecharge
     if (!mounted && avatar.userData.rlStandToolPos) {
       avatar.userData.tool.position.copy(avatar.userData.rlStandToolPos)
     }
@@ -12144,12 +12185,12 @@ function createThreeWalletAvatar(wallet) {
   const hairMat=_mat(hairHex,.62,.04)
 
   // Low-poly humanoid — cloth in wallet colour, flesh skin, human head.
-  // USB staff and mini-USB hands stay (punch / mining / RL mount).
+  // Sphere hands hide once man.glb loads; the Ledger docks to the right palm.
   const body=buildHumanoidBody(THREE,avatar,{
     mat:_mat,
     lowDetail,
     bulk:1.02,
-    handStyle:'miniusb',
+    handStyle:'sphere',
     sleeve:'short',
     glbBodyCutY: HUMANOID_GLB_SRC_CLOTHES.waistY,
     colors:{skin:skinHex,torso:color,arms:mid,legs:dark,shoes:'#1c1916',hands:skinHex},
@@ -12447,15 +12488,15 @@ function syncThreeAvatars(state,presence,myIdentity,currentMapId=MINING_CORE_MAP
       if(remoteMounted){
         // Car jump: gleeful flail — arms up in a V, Ledger waggling overhead.
         flailHumanoidJump(avatar,tSec)
-        poseLedgerSwing(avatar.userData.tool, { jump: true, carJump: true, time: tSec })
+        poseLedgerTowardLook(avatar.userData.tool, { jump: true, carJump: true, time: tSec })
       }else{
         // On-foot jump: wing flap + air-pedaling legs, Ledger pumped skyward.
         flapHumanoidJump(avatar,tSec)
-        poseLedgerSwing(avatar.userData.tool, { jump: true, time: tSec })
+        poseLedgerTowardLook(avatar.userData.tool, { jump: true, time: tSec })
       }
     }else{
     // Diagonal stick slash: tool + right arm share the same swing envelope.
-    poseLedgerSwing(avatar.userData.tool, { swing })
+    poseLedgerTowardLook(avatar.userData.tool, { swing })
     // Human walk: alternating hip swing (shoes ride at the leg tips), plus a
     // subtle random arm sway so remote wallets read as alive.
     const walk=Number(data.walkDist)||0
@@ -12586,14 +12627,18 @@ function syncThreeLocalAvatar(state,identity,swingT,walkDist,gx,gy,playerZ,headi
       if(mounted){
         // Car jump: gleeful flail — arms up in a V, Ledger waggling overhead.
         flailHumanoidJump(state.localAvatar,tSec)
-        poseLedgerSwing(state.localAvatar.userData.tool, { jump: true, carJump: true, time: tSec })
+        poseLedgerTowardLook(state.localAvatar.userData.tool, { jump: true, carJump: true, time: tSec })
       }else{
         // On-foot jump: wing flap + air-pedaling legs, Ledger pumped skyward.
         flapHumanoidJump(state.localAvatar,tSec)
-        poseLedgerSwing(state.localAvatar.userData.tool, { jump: true, time: tSec })
+        poseLedgerTowardLook(state.localAvatar.userData.tool, { jump: true, time: tSec })
       }
     }else{
-      poseLedgerSwing(state.localAvatar.userData.tool, { swing })
+      poseLedgerTowardLook(state.localAvatar.userData.tool, {
+        swing,
+        avatar: state.localAvatar,
+        camera: state.camera,
+      })
       // Human walk from the hip; right arm drives the slash when swinging.
       const stride=walkDist*.18
       walkHumanoidLegs(state.localAvatar,stride)
@@ -13597,12 +13642,13 @@ export default function MiningChain3DFPV({
         applyStormrollSky(threeState, nodeDiceVisual, biome)
         // 3rd-person over-shoulder camera — drop to ground level when dead
         const localDead=myDeadUntilRef.current&&myDeadUntilRef.current>Date.now()
+        const rlMountedCam=!localDead&&rlMountActiveRef.current
         const headroom=playerHeadroomAt(
           gx,gy,pz,activeCellMapRef.current,validObstaclesRef.current,
         )
         const behindDist=localDead?1.20:CAMERA_BEHIND_DIST
         const aboveOffset=localDead?-0.45:CAMERA_ABOVE_OFFSET
-        const lookFwd=2.4,shoulderR=localDead?0:0.30,springArmMin=Math.min(1.5,Math.max(0.7,behindDist-0.1))
+        const lookFwd=2.4,shoulderR=localDead||rlMountedCam?0:0.30,springArmMin=Math.min(1.5,Math.max(0.7,behindDist-0.1))
         const maxCamY=pz+CAMERA_EYE_Z+Math.max(0.22,headroom-0.18)
         const cosA=Math.cos(angle),sinA=Math.sin(angle)
         // Perpendicular right vector (horizontal plane)
@@ -13647,6 +13693,7 @@ export default function MiningChain3DFPV({
             ||Math.abs(lastCollision.gx-gx)>.002||Math.abs(lastCollision.gy-gy)>.002
             ||Math.abs(lastCollision.angle-angle)>.002||Math.abs(lastCollision.rawZ-rawZ)>.002
             ||lastCollision.localDead!==Boolean(localDead)
+            ||lastCollision.rlMounted!==Boolean(rlMountedCam)
           try {
             if(threeState.world&&collisionChanged){
               // Phase 1 — primary position
@@ -13685,7 +13732,7 @@ export default function MiningChain3DFPV({
               }
               if(!threeState.cachedCameraPosition) threeState.cachedCameraPosition=new THREE.Vector3()
               threeState.cachedCameraPosition.copy(rb)
-              threeState.cameraCollisionState={gx,gy,angle,rawZ,localDead:Boolean(localDead),cameraZ}
+              threeState.cameraCollisionState={gx,gy,angle,rawZ,localDead:Boolean(localDead),cameraZ,rlMounted:Boolean(rlMountedCam)}
               threeState.cameraCollisionValid=true
             }else if(threeState.cachedCameraPosition&&lastCollision){
               rb.copy(threeState.cachedCameraPosition)
@@ -15783,7 +15830,7 @@ export default function MiningChain3DFPV({
           if (tool) {
             const swingLeft = npc.swingUntil - nowMs
             const swing = swingLeft > 0 ? Math.sin((1 - swingLeft / 420) * Math.PI) : 0
-            poseLedgerSwing(tool, { swing })
+            poseLedgerTowardLook(tool, { swing })
             poseLedgerSwingArm({ rightArm: npc.avatar.userData.humanArms?.[1] }, swing)
           }
           // Same screen-matched LOD scale as remote player avatars, so the bot

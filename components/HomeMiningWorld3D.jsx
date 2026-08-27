@@ -110,8 +110,8 @@ export function addMiningBot(THREE, scene, options = {}) {
   const hairMat = new THREE.MeshStandardMaterial({ color: hairHex, roughness: .62, metalness: .04 })
 
   // Low-poly humanoid: cloth in the wallet colour, flesh skin, human head.
-  // Ledger baton + mini-USB hands. Body meshes tagged as bodyParts so the
-  // bot-on-car variant can hide them (mining-style mount: head only).
+  // Ledger baton in the right palm. Body meshes tagged as bodyParts so the
+  // bot-on-car variant can hide them (mining-style mount: legs stowed).
   const body = buildHumanoidBody(THREE, avatar, {
     mat: (c, roughness, metalness) => new THREE.MeshStandardMaterial({
       color: c,
@@ -120,7 +120,7 @@ export function addMiningBot(THREE, scene, options = {}) {
     }),
     lowDetail: false,
     bulk: 1.02,
-    handStyle: 'miniusb',
+    handStyle: 'sphere',
     sleeve: 'short',
     glbBodyCutY,
     skipGlb,
@@ -1412,7 +1412,7 @@ export default function HomeMiningWorld3D() {
               if (isC) {
                 const pt = (time + (prop.punchPhase || 0)) % 2
                 const swing = pt < 0.5 ? Math.sin((pt / 0.5) * Math.PI) : 0
-                poseLedgerSwing(tool, { swing })
+                poseLedgerSwing(tool, { swing, aimX: 0.22, aimY: 0.48, aimZ: -0.86 })
                 poseLedgerSwingArm({ rightArm: host?.userData.humanArms?.[1] }, swing)
               } else {
                 // Ease a mid-swing baton back to rest when focus moves on.
