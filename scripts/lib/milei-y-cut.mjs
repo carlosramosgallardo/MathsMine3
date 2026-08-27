@@ -4,8 +4,8 @@
  */
 import { accessorArray, accessorColorRgb } from './glb-io.mjs'
 
-/** Just below shoeTopY (0.105) on the Milei sculpt. */
-export const MILEI_PLINTH_TOP_Y = 0.108
+/** Just above the cream deck (y≈0.14); shoes/legs start dark at y≥0.16. */
+export const MILEI_PLINTH_TOP_Y = 0.155
 
 function readMeshBuffers(json, bin) {
   const prim = json.meshes[0].primitives[0]
