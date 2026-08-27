@@ -52,6 +52,7 @@ import { addM1MileiStatueReservedCells, buzzM1MileiStatue, createM1MileiStatueVi
 import { addM1ZelenskyStatueReservedCells, createM1ZelenskyStatueVisual, M1_ZELENSKY_STATUE_ID } from '@/lib/m1-zelensky-statue'
 import { createM2MacronStatueVisual, M2_MACRON_STATUE_ID } from '@/lib/m2-macron-statue'
 import { initStatuePatrol, applyStatueAltitude, statueWorldXZ, updateStatuePatrol } from '@/lib/statue-patrol'
+import { syncStatueDeckFromPlinth } from '@/lib/statue-plinth'
 import {
   holdMileiChainsaw,
   releaseMileiChainsaw,
@@ -11290,7 +11291,7 @@ function updateM1MileiStatueMotion(motion, time, look = null, cellMap = null, ob
 }
 
 function extractStatuePlinthToWorld(visual, world) {
-  // Keep the Milei-style pedestal fixed at the plaza while the figure patrols.
+  // Keep the pedestal fixed at the plaza while the figure patrols.
   const fit = visual.group.userData.statuePlinthFit
     || visual.group.children.find((c) => c.name === 'statuePlinthFit')
   if (!fit) return
@@ -11303,6 +11304,7 @@ function extractStatuePlinthToWorld(visual, world) {
   world.add(pg)
   visual.group.remove(fit)
   pg.add(fit)
+  syncStatueDeckFromPlinth(THREE, visual.group, fit)
 }
 
 function addM1MileiStatueDecor(world, lowDetail, state = null) {
