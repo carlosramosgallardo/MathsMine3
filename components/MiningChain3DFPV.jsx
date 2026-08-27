@@ -5,7 +5,7 @@ import * as THREE from 'three'
 import { colorFromAddress } from '@/lib/wallet-colors'
 import { buildHumanoidBody, buildHumanHead, humanSkinFromSeed, humanHairFromSeed, swayHumanoidArms, walkHumanoidLegs, walkHumanoidStride, flailHumanoidJump, flapHumanoidJump } from '@/lib/humanoid-body'
 import { relaxHumanoidArms } from '@/lib/capsule-anim-driver'
-import { dockHeldItemsToGlb, applyHumanoidCarMount, hookHumanoidCarMount, unseatHumanoidGlb, HUMANOID_GLB_SRC_CLOTHES } from '@/lib/humanoid-glb'
+import { dockHeldItemsToGlb, applyHumanoidCarMount, hookHumanoidCarMount, unseatHumanoidGlb, HUMANOID_GLB_SRC_CLOTHES, HUMANOID_GLB_CAR_NECK_Y } from '@/lib/humanoid-glb'
 import { createLedgerTool, poseLedgerHoldArm, poseLedgerSwing, poseLedgerSwingArm } from '@/lib/ledger-tool'
 import { attachRlCarModel, addRlCockpitTub } from '@/lib/rl-car-model'
 import { addRlCarBoost, setRlCarBoostLit } from '@/lib/rl-car-boost'
@@ -256,8 +256,8 @@ const REMOTE_AVATAR_LOCAL = Object.freeze({
 })
 // RL mount: head + antenna + USB staff above the car mesh (hidden only in pool heal).
 const REMOTE_AVATAR_MOUNTED_LOCAL = Object.freeze({
-  headTop: 0.775,
-  headBottom: 0.30,
+  headTop: 0.94,
+  headBottom: 0.38,
   halfWidth: 0.38,
 })
 function getRemoteAvatarWorldScale(threeState, gx, gy, gz) {
@@ -12116,7 +12116,7 @@ function applyRlMountVisual(avatar, mounted, threeState = null) {
       part.visible = !hidden || !hidden.has(part)
     }
   }
-  if (mounted) applyHumanoidCarMount(avatar, { neckY: 0.52, neckZ: 0 })
+  if (mounted) applyHumanoidCarMount(avatar, { neckY: HUMANOID_GLB_CAR_NECK_Y, neckZ: 0 })
   else unseatHumanoidGlb(avatar)
   // Mounted keeps head, antenna and USB staff at their standing pose — the bot
   // rides the car with the stick in the right hand, tip up and a little out.
@@ -12222,7 +12222,7 @@ function createThreeWalletAvatar(wallet) {
   avatar.userData.mountHiddenParts=[
     body.leftLeg, body.rightLeg, body.leftArm, body.rightArm,
   ]
-  hookHumanoidCarMount(avatar, { neckY: 0.52, neckZ: 0 }, {
+  hookHumanoidCarMount(avatar, { neckY: HUMANOID_GLB_CAR_NECK_Y, neckZ: 0 }, {
     when: (host) => host.userData.rlCar?.visible,
   })
   dockHeldItemsToGlb(avatar)
