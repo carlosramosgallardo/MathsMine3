@@ -122,7 +122,7 @@ const cases = [
     file: 'public/models/kim.glb',
     mode: 'statue',
     yaw: Math.PI / 2,
-    opts: { eyeLine: 0.55, faceSign: -1, forwardFrac: 0.035, skullFrac: 0.14, spacingFrac: 0.10 },
+    opts: { eyeLine: 0.48, faceSign: 1, forwardFrac: 0.06, skullFrac: 0.12, spacingFrac: 0.09 },
   },
   {
     name: 'milei',
@@ -158,8 +158,9 @@ const cases = [
     mode: 'quad',
     yaw: Math.PI,
     dual: true,
-    bibi: { eyeLine: 0.58, faceSign: -1, forwardFrac: 0.05, spacingFrac: 0.06, skullFrac: 0.30, padPct: 0.08 },
-    trump: { eyeLine: 0.34, faceSign: 1, forwardFrac: 0.05, spacingFrac: 0.07, skullFrac: 0.30, padPct: 0.08, zBias: 0.01 },
+    // Both faces −Z after π plant; crawler head is forward (src +Z → −Z).
+    bibi: { eyeLine: 0.58, faceSign: -1, forwardFrac: 0.05, spacingFrac: 0.06, skullFrac: 0.22, padPct: 0.08 },
+    trump: { eyeLine: 0.34, faceSign: -1, forwardFrac: 0.05, spacingFrac: 0.07, skullFrac: 0.55, padPct: 0.08 },
   },
 ]
 
@@ -168,17 +169,26 @@ for (const c of cases) {
   const pts = samplePlanted(c.file, { yaw: c.yaw, mode: c.mode })
   const errors = []
   if (c.dual) {
-    const skull = skullBand(pts, c.bibi.skullFrac)
-    const box = trimmedExtent(skull, c.bibi.padPct || 0.05)
-    const bibiEyes = expectedEyes(box, c.bibi)
-    const trumpEyes = expectedEyes(box, c.trump)
-    errors.push(...assertOnFace(`${c.name}/bibi`, bibiEyes, box, -1), ...assertOnFace(`${c.name}/trump`, trumpEyes, box, 1))
-    if (!errors.length) {
-      console.log(
-        `OK   ${c.name}`,
-        `bibi z=${bibiEyes[0].z.toFixed(3)}`,
-        `trump z=${trumpEyes[0].z.toFixed(3)}`,
+    // Match runtime skin clusters: rider high-Y, crawler mid-Y forward (−Z).
+    const rider = pts.filter((p) => p.y > 0.95)
+    const crawl = pts.filter((p) => p.y > 0.38 && p.y < 0.78 && p.z < -0.25)
+    if (rider.length < 40 || crawl.length < 40) {
+      errors.push(`${c.name} missing skin clusters (rider ${rider.length}, crawl ${crawl.length})`)
+    } else {
+      const boxOf = (arr) => trimmedExtent(arr, 0.08)
+      const bibiEyes = expectedEyes(boxOf(rider), { eyeLine: 0.55, faceSign: -1, forwardFrac: 0.08, spacingFrac: 0.18 })
+      const trumpEyes = expectedEyes(boxOf(crawl), { eyeLine: 0.55, faceSign: -1, forwardFrac: 0.08, spacingFrac: 0.18 })
+      errors.push(
+        ...assertOnFace(`${c.name}/bibi`, bibiEyes, boxOf(rider), -1),
+        ...assertOnFace(`${c.name}/trump`, trumpEyes, boxOf(crawl), -1),
       )
+      if (!errors.length) {
+        console.log(
+          `OK   ${c.name}`,
+          `bibi z=${bibiEyes[0].z.toFixed(3)} y=${bibiEyes[0].y.toFixed(3)}`,
+          `trump z=${trumpEyes[0].z.toFixed(3)} y=${trumpEyes[0].y.toFixed(3)}`,
+        )
+      }
     }
   } else {
     const skull = skullBand(pts, c.opts.skullFrac || 0.18)
