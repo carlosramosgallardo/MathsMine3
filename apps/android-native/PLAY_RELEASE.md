@@ -43,7 +43,7 @@ Gradle reads `keystore.properties` and signs `release` via `signingConfigs.relea
 ```bash
 npm run android:native:bundle
 # → apps/android-native/dist/mathsmine3-<versionName>.aab
-#    e.g. mathsmine3-0.1.0-beta.12.aab
+#    e.g. mathsmine3-0.1.0-beta.13.aab
 # prints release cert SHA-256
 ```
 
