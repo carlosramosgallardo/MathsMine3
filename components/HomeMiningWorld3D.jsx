@@ -9,7 +9,6 @@ import { M4_KIM_BOSS_SCALE, M4_KIM_BOSS_NAME, M4_KIM_BOSS_MAX_HP } from '@/lib/m
 import { createM5TrumpBossVisual } from '@/lib/m5-trump-boss-runtime'
 import { M5_TRUMP_BOSS_SCALE, M5_TRUMP_BOSS_NAME, M5_TRUMP_BOSS_MAX_HP } from '@/lib/m5-trump-boss'
 import { createM1MileiStatueVisual, M1_MILEI_STATUE_SCALE, buzzM1MileiStatue } from '@/lib/m1-milei-statue'
-import { startMileiChainsawLoop, stopMileiChainsawLoop, unlockMileiChainsawLoop } from '@/lib/milei-chainsaw-audio'
 import { createM1ZelenskyStatueVisual, M1_ZELENSKY_STATUE_SCALE } from '@/lib/m1-zelensky-statue'
 import { createM2MacronStatueVisual, M2_MACRON_STATUE_SCALE } from '@/lib/m2-macron-statue'
 import { advanceShowcaseSpin, approachYaw } from '@/lib/map-boss-facing'
@@ -641,10 +640,6 @@ export default function HomeMiningWorld3D() {
     let renderer
     let hoverCleanup = null
     let lastSpinTime = null
-    startMileiChainsawLoop(0.22)
-    const onChainsawGesture = () => unlockMileiChainsawLoop()
-    window.addEventListener('pointerdown', onChainsawGesture)
-    window.addEventListener('keydown', onChainsawGesture)
     // Stage zoom: tapping the showcase (without dragging) toggles a closer
     // framing so the avatars read much bigger; tap again to zoom back out.
     let zoomCur = 1
@@ -1500,9 +1495,6 @@ export default function HomeMiningWorld3D() {
     return () => {
       destroyed = true
       hoverCleanup?.()
-      window.removeEventListener('pointerdown', onChainsawGesture)
-      window.removeEventListener('keydown', onChainsawGesture)
-      stopMileiChainsawLoop()
       document.removeEventListener('visibilitychange', onVisibilityChange)
       cancelAnimationFrame(animationFrame)
       resizeObserver?.disconnect()

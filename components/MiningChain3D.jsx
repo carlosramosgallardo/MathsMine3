@@ -29,7 +29,9 @@ import {
 } from '@/lib/mining-visual-layout'
 import { MINING_CORE_MAP_ID } from '@/lib/mining-maps'
 import { getBossStatueById } from '@/lib/mining-boss-statue-registry'
+import { M1_MILEI_STATUE_ID } from '@/lib/m1-milei-statue'
 import { playBossStatueVoice } from '@/lib/boss-statue-voice'
+import { startMileiChainsawLoop, stopMileiChainsawLoop } from '@/lib/milei-chainsaw-audio'
 import { RL_NODE_MIN_LEVEL, RL_NODE_PRICE_MM3 } from '@/lib/mining-rl-mount'
 import { normalizeBossState as normalizeM5BossState, M5_TRUMP_BOSS_NAME, M5_TRUMP_BOSS_MAX_HP, M5_TRUMP_BOSS_SCALE, M5_TRUMP_BOSS_SPAWN } from '@/lib/m5-trump-boss'
 import { normalizeBossState as normalizeM3BossState, M3_PUTIN_BOSS_NAME, M3_PUTIN_BOSS_MAX_HP, M3_PUTIN_BOSS_SCALE, M3_PUTIN_BOSS_SPAWN } from '@/lib/m3-putin-boss'
@@ -683,12 +685,21 @@ export default function MiningChain3D() {
     loadRlMountWalletStats().catch(() => {})
   }, [loadRlMountWalletStats])
 
+  const closeBossStatueTip = useCallback(() => {
+    setBossStatueTipOpen(false)
+    stopMileiChainsawLoop()
+  }, [])
+
+  useEffect(() => () => stopMileiChainsawLoop(), [])
+
   const handleBossStatueTipOpen = useCallback((statueId) => {
     const statue = getBossStatueById(statueId)
     if (!statue) return
     setBossStatueTipId(statueId)
     setBossStatueTipOpen(true)
     playBossStatueVoice(statue.voiceUrl)
+    if (statue.id === M1_MILEI_STATUE_ID) startMileiChainsawLoop(0.28)
+    else stopMileiChainsawLoop()
   }, [])
 
   const clearRlMountOnDeath = useCallback(() => {
@@ -2606,7 +2617,7 @@ export default function MiningChain3D() {
               position:'absolute', inset:0, display:'flex', alignItems:'center', justifyContent:'center',
               background:'rgba(0,0,0,0.90)', zIndex:60,
             }}
-            onClick={() => setBossStatueTipOpen(false)}
+            onClick={closeBossStatueTip}
           >
             <div
               onClick={e => e.stopPropagation()}
@@ -2621,7 +2632,7 @@ export default function MiningChain3D() {
                   {title}
                 </div>
                 <button
-                  onClick={() => setBossStatueTipOpen(false)}
+                  onClick={closeBossStatueTip}
                   style={{ background:'none', border:'none', color:'#64748b', cursor:'pointer', fontSize:'1.1rem', lineHeight:1 }}
                 >
                   ✕
