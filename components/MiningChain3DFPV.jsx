@@ -5345,20 +5345,20 @@ function sampleBossGroundY(runtime, cellMap) {
   return 0
 }
 
-// ── First-person USB stick slash ────────────────────────────────────────────
+// ── First-person USB baton smash ────────────────────────────────────────────
 function drawFirstPersonTool(ctx, W, H, color, swingT, walkDist) {
   const mobile = W < 640
   const scale = mobile ? 0.72 : Math.max(0.82, Math.min(1.15, H / 620))
   const bob = Math.sin(walkDist * 0.16) * 3 * scale
   const t = Math.max(0, Math.min(1, Number(swingT) || 0))
-  const raise = Math.sin(t * Math.PI)
-  const cut = Math.sin(Math.min(1, t * 1.15) * Math.PI)
+  // Match ledger-tool baton: windup high, then slam toward the crosshair.
+  const raise = Math.sin(Math.min(1, t / 0.42) * Math.PI * 0.5) * (t < 0.55 ? 1 : Math.max(0, 1 - (t - 0.55) / 0.45))
+  const cut = t > 0.38 ? Math.sin(Math.min(1, (t - 0.38) / 0.42) * Math.PI) : 0
   const baseX = W * (mobile ? 0.82 : 0.76)
   const baseY = H + 20 * scale + bob
-  // Diagonal slash: start high-right, sweep toward crosshair, finish low-left.
-  const handX = baseX - raise * 28 * scale - cut * (baseX - W * 0.48) * 0.72
-  const handY = baseY - raise * 110 * scale - cut * (baseY - H * HORIZON_RATIO) * 0.42
-    + raise * 18 * scale
+  const handX = baseX - raise * 18 * scale - cut * (baseX - W * 0.48) * 0.85
+  const handY = baseY - raise * 160 * scale - cut * (baseY - H * HORIZON_RATIO) * 0.55
+    + raise * 10 * scale
   const [r, g, b] = hexToRgb(color || C)
 
   ctx.save()
@@ -5372,8 +5372,8 @@ function drawFirstPersonTool(ctx, W, H, color, swingT, walkDist) {
   ctx.stroke()
 
   const pickA = Math.atan2(H * HORIZON_RATIO - handY, W * 0.50 - handX)
-    + raise * 0.55 - cut * 0.85
-  const pickL = (108 + raise * 12 + cut * 22) * scale
+    + raise * 0.85 - cut * 1.15
+  const pickL = (118 + raise * 18 + cut * 28) * scale
   drawFreakUsbPen(ctx, handX, handY, pickL, pickA, scale)
   ctx.restore()
 }
