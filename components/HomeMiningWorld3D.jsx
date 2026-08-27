@@ -1243,8 +1243,7 @@ export default function HomeMiningWorld3D() {
             if (Math.abs(dz) > 0.15) {
               g.position.z += Math.sign(dz) * Math.min(Math.abs(dz), FEATURE_WALK_SPD * spinDt)
               walkHumanoidStride(boss.bodyPivot, t * 3.5, 0.48, {
-                lean: !boss.bodyPivot?.userData?.humanoidGlbBones
-                  && !boss.bodyPivot?.userData?.bipedLimbsMounted,
+                lean: !boss.bodyPivot?.userData?.humanoidGlbBones,
               })
               animateQuadruped(boss.bodyPivot, { time: t, moving: 1 })
               if (isRigidTexturedBoss(boss.bodyPivot)) applyRigidHomeWalk(boss, t)
