@@ -49,7 +49,6 @@ import {
   updateM2PitchDomeRuntime,
 } from '@/lib/m2-pitch-dome'
 import { addM1MileiStatueReservedCells, buzzM1MileiStatue, createM1MileiStatueVisual, M1_MILEI_STATUE_ID } from '@/lib/m1-milei-statue'
-import { setMileiChainsawProximity, startMileiChainsawLoop, stopMileiChainsawLoop, unlockMileiChainsawLoop } from '@/lib/milei-chainsaw-audio'
 import { addM1ZelenskyStatueReservedCells, createM1ZelenskyStatueVisual, M1_ZELENSKY_STATUE_ID } from '@/lib/m1-zelensky-statue'
 import { createM2MacronStatueVisual, M2_MACRON_STATUE_ID } from '@/lib/m2-macron-statue'
 import { NUKE_CUBE_POSITIONS, NUKE_CUBE_INTERACT_RADIUS, addNukeCubeReservations, createNukeCubeVisual, toggleNukeCube, updateNukeCubeVisual } from '@/lib/nuke-cube'
@@ -11557,7 +11556,7 @@ function updateM1MileiStatueMotion(motion, time, look = null, cellMap = null, ob
     motion.head.rotation.y = motion.headYaw
     motion.head.rotation.x = Math.sin(time * 0.55 + 1) * 0.045
   }
-  // Humanoid arms: Milei keeps a right-hand wave; Zelensky/Macron hang relaxed.
+  // Humanoid arms: Milei keeps a right-hand wave; Zelensky/Macron idle on the RPM skeleton.
   if (motion.salute === 'relaxed') {
     if (motion.leftArm && Number.isFinite(motion.leftArm.userData.baseY)) {
       motion.leftArm.position.y = motion.leftArm.userData.baseY
@@ -12948,20 +12947,6 @@ export default function MiningChain3DFPV({
     }
   },[mapId])
 
-  // Milei motosierra loop on M1 — always on while the map is live; volume by distance.
-  useEffect(()=>{
-    if(String(mapId)!=='1'||!portalSoundEnabled()) return undefined
-    startMileiChainsawLoop(0.32)
-    const onGesture=()=>unlockMileiChainsawLoop()
-    window.addEventListener('pointerdown',onGesture)
-    window.addEventListener('keydown',onGesture)
-    return ()=>{
-      window.removeEventListener('pointerdown',onGesture)
-      window.removeEventListener('keydown',onGesture)
-      stopMileiChainsawLoop()
-    }
-  },[mapId])
-
   // WebGL context loss / restore — browser can reclaim GPU memory when tab is backgrounded
   useEffect(()=>{
     const canvas=webglCanvasRef.current
@@ -13794,10 +13779,6 @@ export default function MiningChain3DFPV({
           updateM1MileiStatueMotion(threeState.m1MileiStatueMotion, time, statueLook, activeCellMapRef.current, validObstaclesRef.current)
           updateM1MileiStatueMotion(threeState.m1ZelenskyStatueMotion, time, statueLook, activeCellMapRef.current, validObstaclesRef.current)
           updateM1MileiStatueMotion(threeState.m2MacronStatueMotion, time, statueLook, activeCellMapRef.current, validObstaclesRef.current)
-          if (mapIdRef.current === '1' && threeState.m1MileiStatueGroup) {
-            const sg = threeState.m1MileiStatueGroup
-            setMileiChainsawProximity(Math.hypot(gx - sg.position.x, gy - sg.position.z))
-          }
           // Nuke cube red button: eases toward its pressed/raised position.
           const nukeGroup=threeState.nukeCubeGroup
           if(nukeGroup){

@@ -102,16 +102,17 @@ function poseRpmArmsDown(json, { left = true, right = true } = {}) {
  */
 function poseRpmWave(json, side) {
   const waveRight = side === 'right'
-  poseRpmArmsDown(json, { left: !waveRight, right: waveRight })
+  // Both arms hang like man.glb A-pose; then one lifts into a hello.
+  poseRpmArmsDown(json, { left: true, right: true })
   const arm = findRpmNode(json, waveRight ? /^RightArm_\d+$/i : /^LeftArm_\d+$/i)
   const fore = findRpmNode(json, waveRight ? /^RightForeArm_\d+$/i : /^LeftForeArm_\d+$/i)
   const hand = findRpmNode(json, waveRight ? /^RightHand_\d+$/i : /^LeftHand_\d+$/i)
-  if (arm) premultiplyNodeRotation(arm, quatAxisAngle('x', -0.65))
+  if (arm) premultiplyNodeRotation(arm, quatAxisAngle('x', -1.12))
   if (fore) {
-    premultiplyNodeRotation(fore, quatAxisAngle('y', waveRight ? 1.45 : -1.45))
+    premultiplyNodeRotation(fore, quatAxisAngle('y', waveRight ? 1.15 : -1.15))
   }
   if (hand) {
-    premultiplyNodeRotation(hand, quatAxisAngle('z', waveRight ? -0.25 : 0.25))
+    premultiplyNodeRotation(hand, quatAxisAngle('z', waveRight ? -0.2 : 0.2))
   }
   return waveRight ? 'right' : 'left'
 }
@@ -464,7 +465,7 @@ async function main() {
   if (json.skins?.length && !options.keepSkin) {
     if (options.wave) {
       const side = poseRpmWave(json, options.wave)
-      console.log(`  wave: ${side} hand raised, other arm A-pose`)
+      console.log(`  wave: ${side} hand raised, other arm A-pose (both dropped first)`)
     } else if (options.aPose) {
       const n = poseRpmArmsDown(json)
       console.log(`  a-pose: dropped ${n} shoulder joint(s)`)
