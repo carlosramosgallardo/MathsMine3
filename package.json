@@ -83,7 +83,7 @@
     "socket.io-parser": "4.2.7",
     "hono": "^4.12.34",
     "@walletconnect/utils": "2.24.0",
-    "@walletconnect/core": "2.23.10",
+    "@walletconnect/core": "2.24.0",
     "@walletconnect/sign-client": "2.23.10",
     "@walletconnect/universal-provider": "2.23.10",
     "@walletconnect/ethereum-provider": "2.24.0",
