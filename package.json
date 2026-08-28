@@ -86,7 +86,7 @@
     "@walletconnect/core": "2.23.10",
     "@walletconnect/sign-client": "2.23.10",
     "@walletconnect/universal-provider": "2.23.10",
-    "@walletconnect/ethereum-provider": "2.23.10",
+    "@walletconnect/ethereum-provider": "2.24.0",
     "@walletconnect/types": "2.23.10"
   }
 }
