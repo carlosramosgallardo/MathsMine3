@@ -37,10 +37,11 @@
  * Output: scripts/trailer/out/<timestamp>/<NN-name>.mp4, one file per clip
  */
 import { chromium } from 'playwright'
-import { existsSync, mkdirSync, renameSync, unlinkSync, writeFileSync } from 'fs'
-import { resolve, dirname } from 'path'
-import { fileURLToPath } from 'url'
-import { spawn, spawnSync } from 'child_process'
+import { existsSync, mkdirSync, renameSync, unlinkSync, writeFileSync } from 'node:fs'
+import { resolve, dirname } from 'node:path'
+import { fileURLToPath } from 'node:url'
+import { spawn, spawnSync } from 'node:child_process'
+import { randomInt } from 'node:crypto'
 import {
   loadEnvLocal,
   createSessionToken,
@@ -61,6 +62,19 @@ const ONLY = onlyFlagIdx !== -1 ? args[onlyFlagIdx + 1] : null
 const SOFTWARE_CAPTURE = args.includes('--software')
 const GPU_CAPTURE = !SOFTWARE_CAPTURE && existsSync('/dev/dxg') && Boolean(process.env.DISPLAY)
 const PROTECT_GPU_WINDOW = GPU_CAPTURE && !args.includes('--interactive')
+
+// Never resolve recorder tools through the caller's PATH. Besides satisfying
+// Sonar's command-hijacking rule, fixed system paths ensure a local executable
+// with a familiar name cannot be injected into this privileged capture flow.
+const BIN = Object.freeze({
+  ffmpeg: '/usr/bin/ffmpeg',
+  ffprobe: '/usr/bin/ffprobe',
+  Xvfb: '/usr/bin/Xvfb',
+  pulseaudio: '/usr/bin/pulseaudio',
+  pactl: '/usr/bin/pactl',
+  xwininfo: '/usr/bin/xwininfo',
+  powershell: '/mnt/c/Windows/System32/WindowsPowerShell/v1.0/powershell.exe',
+})
 
 // Throwaway wallet — never a real user, never a live bot wallet.
 const TRAILER_WALLET = `0x${'deadbeef'.repeat(5)}`
@@ -817,7 +831,7 @@ async function recordAerialTourClip(page, outDir, supabase, wallet) {
       } finally {
         await stopFfmpegCapture(ffmpeg)
       }
-      const probe = spawnSync('ffprobe', [
+      const probe = spawnSync(BIN.ffprobe, [
         '-v', 'error', '-show_entries', 'format=duration',
         '-of', 'default=noprint_wrappers=1:nokey=1', partPath,
       ], { encoding: 'utf8' })
@@ -831,14 +845,14 @@ async function recordAerialTourClip(page, outDir, supabase, wallet) {
     const manifestPath = resolve(outDir, `.${name}-concat.txt`)
     writeFileSync(manifestPath, parts.map((part) => `file '${part.replaceAll("'", "'\\''")}'`).join('\n'))
     const joinedPath = resolve(outDir, `${name}.mp4`)
-    const joined = spawnSync('ffmpeg', [
+    const joined = spawnSync(BIN.ffmpeg, [
       '-y', '-f', 'concat', '-safe', '0', '-i', manifestPath,
       '-fflags', '+genpts', '-avoid_negative_ts', 'make_zero',
       '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '20', '-pix_fmt', 'yuv420p',
       '-c:a', 'aac', '-b:a', '192k', '-movflags', '+faststart', joinedPath,
     ], { encoding: 'utf8' })
     if (joined.status !== 0) throw new Error(`aerial concat failed: ${(joined.stderr || '').trim()}`)
-    const finalProbe = spawnSync('ffprobe', [
+    const finalProbe = spawnSync(BIN.ffprobe, [
       '-v', 'error', '-show_entries', 'format=duration',
       '-of', 'default=noprint_wrappers=1:nokey=1', joinedPath,
     ], { encoding: 'utf8' })
@@ -901,7 +915,7 @@ async function visitTrainingPage(page) {
     const answers = page.getByRole('button', { name: /^Answer:/ })
     const count = await answers.count().catch(() => 0)
     if (count === 0) break
-    await answers.nth(Math.floor(Math.random() * count)).click({ timeout: 6_000 })
+    await answers.nth(randomInt(count)).click({ timeout: 6_000 })
     await sleep(1_100) // hold the correct/wrong flash on screen
     const nextRound = page.getByRole('button', { name: 'Next round' })
     if (await nextRound.count().catch(() => 0)) {
@@ -1076,12 +1090,11 @@ async function findPurchasableNftjiTarget(supabase) {
   }
 }
 
-function commandExists(cmd) {
-  return spawnSync('sh', ['-c', `command -v ${cmd}`]).status === 0
-}
-
 function assertCaptureDepsInstalled() {
-  const missing = ['Xvfb', 'pulseaudio', 'pactl', 'ffmpeg'].filter((cmd) => !commandExists(cmd))
+  const required = SOFTWARE_CAPTURE
+    ? ['Xvfb', 'pulseaudio', 'pactl', 'ffmpeg', 'ffprobe']
+    : ['pulseaudio', 'pactl', 'ffmpeg', 'ffprobe', 'xwininfo']
+  const missing = required.filter((cmd) => !existsSync(BIN[cmd]))
   if (missing.length === 0) return
   console.error(
     `Missing on this host: ${missing.join(', ')}\n` +
@@ -1096,7 +1109,7 @@ function assertCaptureDepsInstalled() {
 // captured) with a real display; --headless never renders/plays audio at all.
 function startXvfb() {
   console.log(`Starting Xvfb on ${DISPLAY_NUM}...`)
-  return spawn('Xvfb', [DISPLAY_NUM, '-screen', '0', `${DISPLAY_SIZE.width}x${DISPLAY_SIZE.height}x24`, '-nolisten', 'tcp'], {
+  return spawn(BIN.Xvfb, [DISPLAY_NUM, '-screen', '0', `${DISPLAY_SIZE.width}x${DISPLAY_SIZE.height}x24`, '-nolisten', 'tcp'], {
     stdio: 'ignore',
   })
 }
@@ -1109,14 +1122,14 @@ let privatePulseProcess = null
 let previousPulseServer = null
 
 function pactl(args) {
-  return spawnSync('pactl', args, { encoding: 'utf8' })
+  return spawnSync(BIN.pactl, args, { encoding: 'utf8' })
 }
 
 async function ensurePulseAudio() {
   let info = pactl(['info'])
   if (info.status !== 0) {
     console.log('Starting PulseAudio...')
-    spawnSync('pulseaudio', ['--start', '--exit-idle-time=-1'], { stdio: 'ignore' })
+    spawnSync(BIN.pulseaudio, ['--start', '--exit-idle-time=-1'], { stdio: 'ignore' })
     for (let attempt = 0; attempt < 6 && info.status !== 0; attempt += 1) {
       await sleep(250)
       info = pactl(['info'])
@@ -1131,7 +1144,7 @@ async function ensurePulseAudio() {
     previousPulseServer = process.env.PULSE_SERVER ?? null
     process.env.PULSE_SERVER = `unix:${socketPath}`
     console.log(`Starting isolated PulseAudio server at ${socketPath}...`)
-    privatePulseProcess = spawn('pulseaudio', [
+    privatePulseProcess = spawn(BIN.pulseaudio, [
       '-n', '--daemonize=no', '--exit-idle-time=-1', '--use-pid-file=no',
       '--load', `module-native-protocol-unix socket=${socketPath}`,
       '--load', `module-null-sink sink_name=${PULSE_SINK_NAME}`,
@@ -1190,7 +1203,7 @@ async function findGpuCaptureWindow(page) {
   const marker = `MM3-TRAILER-CAPTURE-${process.pid}`
   await page.evaluate((title) => { document.title = title }, marker)
   await sleep(250)
-  const tree = spawnSync('xwininfo', ['-root', '-tree'], { encoding: 'utf8' })
+  const tree = spawnSync(BIN.xwininfo, ['-root', '-tree'], { encoding: 'utf8' })
   const escaped = marker.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
   const match = tree.stdout?.match(new RegExp(`^\\s*(0x[0-9a-f]+) "${escaped}`, 'mi'))
   if (!match) throw new Error('Could not locate the WSLg Chromium window for GPU capture')
@@ -1238,7 +1251,11 @@ public static class Mm3WindowGuard {
 '@
 if (-not [Mm3WindowGuard]::Protect($env:MM3_WINDOW_TITLE)) { exit 2 }
 `
-  const result = spawnSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', script], {
+  if (!existsSync(BIN.powershell)) {
+    console.warn('  ! PowerShell not found; GPU browser window remains interactive')
+    return
+  }
+  const result = spawnSync(BIN.powershell, ['-NoProfile', '-NonInteractive', '-Command', script], {
     encoding: 'utf8',
     env: { ...process.env, MM3_WINDOW_TITLE: titleMarker },
   })
@@ -1254,7 +1271,7 @@ async function startFfmpegCapture(page, outPath) {
   const videoInput = GPU_CAPTURE
     ? ['-f', 'x11grab', '-draw_mouse', '0', '-framerate', '30', '-window_id', await findGpuCaptureWindow(page), '-i', DISPLAY_NUM]
     : ['-f', 'x11grab', '-draw_mouse', '0', '-framerate', '30', '-video_size', `${CAPTURE_SIZE.width}x${CAPTURE_SIZE.height}`, '-i', `${DISPLAY_NUM}+0,${CHROMIUM_FRAME_TOP}`]
-  const ffmpeg = spawn('ffmpeg', [
+  const ffmpeg = spawn(BIN.ffmpeg, [
     '-y',
     '-thread_queue_size', '1024',
     ...videoInput,
