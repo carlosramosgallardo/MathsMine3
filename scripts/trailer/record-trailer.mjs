@@ -180,7 +180,9 @@ async function approachTarget(page, spawn, target, label) {
   // Establishing footage begins only after yaw and pitch are composed; this
   // keeps tall nodes and faces in frame from the first usable clip frame.
   await sleep(target.preApproachHoldMs || 1_500)
-  await sleep(1_800) // hold with the target in frame before walking in
+  // Hold with the target in frame, but not perfectly static — a slow
+  // look-around shows the scenery before the walk-in starts.
+  await driftLookAround(page, bearing)
   // Keep a little clearance instead of walking into the subject itself.
   const travelDist = Math.max(0, dist - (target.standoffCells ?? SUBJECT_STANDOFF_CELLS))
   if (travelDist > 0.2) {
@@ -222,6 +224,35 @@ async function nudgeCameraUp(page, pixels) {
   await page.mouse.move(x, nextY, { steps: 2 }).catch(() => {})
   cameraCursorY.set(page, nextY)
   await sleep(180)
+}
+
+// Gentle, bounded look-around while established at a distance from a
+// statue/node — a slow sinusoidal drift in yaw and pitch around the
+// authored bearing, so the surrounding scenery reads before the walk-in
+// starts, then eases back to dead-center so the approach still faces the
+// subject. Needs both exact camera hooks (yaw AND pitch) — there's no safe
+// way to fake a smooth two-axis drift with the coarser fallbacks (a raw
+// mouse move only works while pointer-locked, and re-locking mid-hold risks
+// the same overlay problems solved elsewhere), so this silently no-ops on
+// deployments without the trailer hooks rather than doing it badly.
+async function driftLookAround(page, baseBearing, { yawAmp = 0.16, pitchAmp = 0.09, steps = 9, stepMs = 240 } = {}) {
+  const [hasBearingHook, hasPitchHook] = await Promise.all([
+    page.evaluate(() => typeof window.__MM3_TRAILER_FACE_BEARING__ === 'function').catch(() => false),
+    page.evaluate(() => typeof window.__MM3_TRAILER_SET_CAMERA_PITCH__ === 'function').catch(() => false),
+  ])
+  if (!hasBearingHook && !hasPitchHook) return
+  for (let i = 0; i <= steps; i += 1) {
+    const t = i / steps
+    const yawWave = Math.sin(t * Math.PI * 2)
+    const pitchWave = Math.sin(t * Math.PI * 2 + Math.PI / 2) // quarter-cycle offset: an "around" feel, not a straight up-down bob
+    if (hasBearingHook) {
+      await page.evaluate((a) => window.__MM3_TRAILER_FACE_BEARING__?.(a), baseBearing + yawWave * yawAmp).catch(() => {})
+    }
+    if (hasPitchHook) await setCameraPitch(page, pitchWave * pitchAmp)
+    await sleep(stepMs)
+  }
+  if (hasBearingHook) await page.evaluate((a) => window.__MM3_TRAILER_FACE_BEARING__?.(a), baseBearing).catch(() => {})
+  if (hasPitchHook) await setCameraPitch(page, 0)
 }
 
 async function setCameraPitch(page, pitch) {
@@ -869,22 +900,15 @@ async function recordAerialTourClip(page, outDir, supabase, wallet) {
 }
 
 async function visitRelayingPage(page) {
-  console.log('Visiting Relaying — sending a live message...')
+  console.log('Visiting Relaying — sending live messages...')
   await page.goto(`${BASE_URL}/relaying`, { waitUntil: 'commit', timeout: 45_000 }).catch((err) => {
     console.warn(`  ! could not navigate to /relaying (${err.message})`)
   })
   await sleep(3_000) // let the terminal mount + wallet/relay-ready state settle
-  // Stable selectors: no data-testid on this form, but maxLength=280 on the
-  // one input and the mm3-irc-submit class on the one submit button are
-  // both unique to it (RelayingTerminal.jsx).
-  const input = page.locator('form input[maxlength="280"]')
-  const submit = page.locator('button.mm3-irc-submit')
-  await input.click({ timeout: 5_000 }).catch(() => {})
-  await input.fill('gm from the trailer bot 🤖').catch(() => {})
-  await sleep(400)
-  const sent = await submit.click({ timeout: 5_000 }).then(() => true).catch(() => false)
-  if (!sent) throw new Error('Relaying SEND stayed unavailable')
-  await sleep(2_500) // hold the sent message on screen for the footage
+  // In-character plea first (English — the terminal's own voice), then the
+  // help command so the available commands show up on screen too.
+  await submitRelayingCommand(page, 'we need help defeating the elites')
+  await submitRelayingCommand(page, '/?')
 }
 
 // Board.jsx's game controls all carry stable, English-only aria-labels
