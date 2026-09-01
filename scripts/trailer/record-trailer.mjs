@@ -1007,14 +1007,13 @@ const LANDMARKS = {
   // Player angle starts at 0 (+col/east). Spawning west of each subject means
   // it is already straight ahead: no frame-rate-sensitive timed turn, and
   // these centre-row approaches avoid the arenas' walls and scenery.
-  // Zelensky faces M1's chain centre. Milei's figure has an additional π turn
-  // baked into its GLB/body mount, so its trailer camera must use the mirrored
-  // side of the plaza to show his face rather than the back of the suit.
+  // Milei and Zelensky face M1's chain centre, so their cameras approach from
+  // that side of their plazas to keep their faces visible.
   m1Milei: {
-    row: 10, col: 44, label: 'Milei statue', approach: { dRow: -3, dCol: 3 }, cameraUpPixels: 118, moveSpeedCellsS: 0.11, preApproachHoldMs: 3_500,
+    row: 10, col: 44, label: 'Milei statue', approach: { dRow: 3, dCol: -3 }, cameraUpPixels: 118, moveSpeedCellsS: 0.11, preApproachHoldMs: 3_500,
     beautyShots: [
-      { x: 50, y: 2.7, z: 5, targetX: 44.5, targetY: 1.25, targetZ: 10.5, fov: 47, holdMs: 5_500 },
-      { x: 47.7, y: 2.05, z: 7.3, targetX: 44.5, targetY: 1.15, targetZ: 10.5, fov: 43, holdMs: 6_500 },
+      { x: 39, y: 2.7, z: 16, targetX: 44.5, targetY: 1.25, targetZ: 10.5, fov: 47, holdMs: 5_500 },
+      { x: 41.3, y: 2.05, z: 13.7, targetX: 44.5, targetY: 1.15, targetZ: 10.5, fov: 43, holdMs: 6_500 },
     ],
   },
   m1Zelensky: {
