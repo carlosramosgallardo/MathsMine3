@@ -11149,9 +11149,18 @@ function addRlColiseumNodeVisual(world, lowDetail, state) {
 
 const M1_STATUE_NECK_LIMIT = 1.25
 
+function trailerLocksStatuesToPlinth() {
+  return typeof window !== 'undefined' && window.__MM3_TRAILER_LOCK_STATUES__ === true
+}
+
 function updateM1MileiStatueMotion(motion, time, look = null, cellMap = null, obsSet = null) {
   if (!motion) return
   if (motion.fixed) {
+    // Trailer lock keeps the subject on its plinth for framing, but the
+    // visible limbs still perform a restrained in-place walk cycle.
+    walkHumanoidStride(motion.bodyPivot, time * 4.8, 0.24, {
+      lean: !motion.bodyPivot?.userData?.humanoidGlbBones,
+    })
     if (motion.buzz) buzzM1MileiStatue(motion.bodyPivot, time)
     motion.root?.updateMatrixWorld?.(true)
     return
@@ -11317,7 +11326,7 @@ function addM1MileiStatueDecor(world, lowDetail, state = null) {
     state.m1MileiStatueMotion = {
       root: visual.group,
       bodyPivot: visual.bodyPivot,
-      fixed: false,
+      fixed: trailerLocksStatuesToPlinth(),
       buzz: true,
       salute: 'rightWave',
       leftArm: visual.group.userData.homeLeftArm || null,
@@ -11339,7 +11348,7 @@ function addM1ZelenskyStatueDecor(world, lowDetail, state = null) {
     state.m1ZelenskyStatueMotion = {
       root: visual.group,
       bodyPivot: visual.bodyPivot,
-      fixed: false,
+      fixed: trailerLocksStatuesToPlinth(),
       salute: 'relaxed',
       leftArm: visual.group.userData.homeLeftArm || null,
       rightArm: visual.group.userData.homeRightArm || null,
@@ -11360,7 +11369,7 @@ function addM2MacronStatueDecor(world, lowDetail, state = null) {
     state.m2MacronStatueMotion = {
       root: visual.group,
       bodyPivot: visual.bodyPivot,
-      fixed: false,
+      fixed: trailerLocksStatuesToPlinth(),
       salute: 'relaxed',
       leftArm: visual.group.userData.homeLeftArm || null,
       rightArm: visual.group.userData.homeRightArm || null,
@@ -12379,10 +12388,14 @@ export default function MiningChain3DFPV({
   onWorldReady,
   playReady = false,
 }) {
+  const trailerAutomation = typeof window !== 'undefined' && window.__MM3_TRAILER_AUTOMATION__ === true
   const canvasRef    = useRef(null)
   const webglCanvasRef = useRef(null)
   const containerRef = useRef(null)
-  const [pointerLocked, setPointerLocked] = useState(false)
+  // Trailer automation drives yaw/pitch through CDP and deliberately never
+  // focuses the protected WSLg window. Treat it as play-ready so the normal
+  // desktop pointer-lock gate cannot leak into recorded footage.
+  const [pointerLocked, setPointerLocked] = useState(trailerAutomation)
   const [worldReady, setWorldReady] = useState(false)
   const worldReadyRef = useRef(false)
   const worldBootstrappedRef = useRef(false)
@@ -12440,6 +12453,65 @@ export default function MiningChain3DFPV({
   )
   const lastRenderDispatchRef = useRef(0)
   const lookDirtyRef = useRef(false)
+  const trailerCameraRef = useRef(null)
+  useEffect(() => {
+    if (!trailerAutomation) return undefined
+    window.__MM3_TRAILER_NUDGE_CAMERA_UP__ = (rawPixels) => {
+      const raw = Math.max(0, Number(rawPixels) || 0)
+      const delta = 0.0026 * (raw < 5 ? raw : 5 + Math.sqrt((raw - 5) * 3.4)) * 0.92
+      playerRef.current.pitch = Math.max(-MAX_PITCH_UP, playerRef.current.pitch - delta)
+      lookDirtyRef.current = true
+      return true
+    }
+    window.__MM3_TRAILER_FACE_BEARING__ = (angle) => {
+      const next = Number(angle)
+      if (!Number.isFinite(next)) return false
+      playerRef.current.angle = next
+      lookDirtyRef.current = true
+      return true
+    }
+    window.__MM3_TRAILER_SET_CAMERA_PITCH__ = (pitch) => {
+      const next = Number(pitch)
+      if (!Number.isFinite(next)) return false
+      playerRef.current.pitch = Math.max(-MAX_PITCH_UP, Math.min(MAX_PITCH_DOWN, next))
+      lookDirtyRef.current = true
+      return true
+    }
+    window.__MM3_TRAILER_PLAYER_STATE__ = () => ({
+      gx: playerRef.current.x / CELL_SIZE,
+      gy: playerRef.current.y / CELL_SIZE,
+      pitch: playerRef.current.pitch,
+      angle: playerRef.current.angle,
+      interaction: mineTypeRef.current,
+    })
+    window.__MM3_TRAILER_SET_CINEMATIC_CAMERA__ = (rawPose) => {
+      if (!rawPose || typeof rawPose !== 'object') return false
+      const keys = ['x', 'y', 'z', 'targetX', 'targetY', 'targetZ']
+      const pose = Object.fromEntries(keys.map((key) => [key, Number(rawPose[key])]))
+      if (keys.some((key) => !Number.isFinite(pose[key]))) return false
+      const fov = Number(rawPose.fov)
+      trailerCameraRef.current = {
+        ...pose,
+        fov: Number.isFinite(fov) ? Math.max(24, Math.min(90, fov)) : null,
+        followBoss: rawPose.followBoss === true,
+      }
+      lookDirtyRef.current = true
+      return true
+    }
+    window.__MM3_TRAILER_CLEAR_CINEMATIC_CAMERA__ = () => {
+      trailerCameraRef.current = null
+      lookDirtyRef.current = true
+      return true
+    }
+    return () => {
+      delete window.__MM3_TRAILER_NUDGE_CAMERA_UP__
+      delete window.__MM3_TRAILER_FACE_BEARING__
+      delete window.__MM3_TRAILER_SET_CAMERA_PITCH__
+      delete window.__MM3_TRAILER_PLAYER_STATE__
+      delete window.__MM3_TRAILER_SET_CINEMATIC_CAMERA__
+      delete window.__MM3_TRAILER_CLEAR_CINEMATIC_CAMERA__
+    }
+  }, [trailerAutomation])
   const onlineListTsRef = useRef(0)           // last time online list was re-drawn
   const onlineListDirtyRef = useRef(true)     // force redraw when presence changes
   const onlineListOffscreenRef = useRef(null) // cached offscreen canvas (avoids flicker)
@@ -12665,16 +12737,25 @@ export default function MiningChain3DFPV({
       window.removeEventListener('pointerdown',onGesture)
       window.removeEventListener('keydown',onGesture)
     }
-    tryPlay()
-    window.addEventListener('pointerdown',onGesture)
-    window.addEventListener('keydown',onGesture)
+    if(trailerAutomation){
+      // The recorder starts FFmpeg after the world has loaded. Defer the
+      // one-shot stinger until that exact moment so its opening is captured.
+      window.__MM3_TRAILER_PLAY_MAP_ENTRY_AUDIO__=tryPlay
+    }else{
+      tryPlay()
+      window.addEventListener('pointerdown',onGesture)
+      window.addEventListener('keydown',onGesture)
+    }
     return ()=>{
       disposed=true
       removeGestureListeners()
+      if(window.__MM3_TRAILER_PLAY_MAP_ENTRY_AUDIO__===tryPlay){
+        delete window.__MM3_TRAILER_PLAY_MAP_ENTRY_AUDIO__
+      }
       stinger.pause()
       stinger.src=''
     }
-  },[mapId])
+  },[mapId,trailerAutomation])
 
   // WebGL context loss / restore — browser can reclaim GPU memory when tab is backgrounded
   useEffect(()=>{
@@ -13430,6 +13511,26 @@ export default function MiningChain3DFPV({
           cameraZ - Math.sin(effectivePitch)*lookFwd*0.60 + 0.18,
           gy + sinA*lookFwd,
         )
+        // Recorder-only free camera. Gameplay still renders and animates as
+        // normal underneath it, but trailer shots can reveal complete bodies,
+        // tall nodes and the authored scenery that the shoulder camera crops.
+        const trailerPose=trailerCameraRef.current
+        if(trailerPose){
+          const followedBoss=trailerPose.followBoss?bossRuntimeRef.current:null
+          const followDx=followedBoss?followedBoss.gx-trailerPose.targetX:0
+          const followDz=followedBoss?followedBoss.gy-trailerPose.targetZ:0
+          threeState.camera.position.set(trailerPose.x+followDx,trailerPose.y,trailerPose.z+followDz)
+          threeState.camera.up.set(0,1,0)
+          threeState.camera.lookAt(
+            trailerPose.targetX+followDx,
+            trailerPose.targetY,
+            trailerPose.targetZ+followDz,
+          )
+          if(trailerPose.fov&&Math.abs(threeState.camera.fov-trailerPose.fov)>.0001){
+            threeState.camera.fov=trailerPose.fov
+            threeState.camera.updateProjectionMatrix()
+          }
+        }
 
         syncThreeAvatars(threeState,presence,myIdentity,mapIdRef.current)
         const time=performance.now()*.001
@@ -15889,7 +15990,7 @@ export default function MiningChain3DFPV({
       if (mapHasBoss(mapIdRef.current) && !myDead && bossStateRef.current?.state !== 'dead' && bossRuntimeRef.current) {
         const bossMod = getBossRuntimeModule(mapIdRef.current)
         const touchPad = _H > _W * 1.05 ? Math.max(10, Math.round(_W * 0.05)) : 0
-        bossSwingTargetRef.current = bossMod?.resolveSwingTarget({
+        const resolvedBossSwing = bossMod?.resolveSwingTarget({
           runtime: bossRuntimeRef.current,
           bossState: bossStateRef.current,
           playerGx: p.x / CELL_SIZE,
@@ -15903,6 +16004,20 @@ export default function MiningChain3DFPV({
           groundY: bossRuntimeRef.current.floorY ?? 0,
           touchPadding: touchPad,
         }) ?? null
+        const trailerDistance = Math.hypot(
+          bossRuntimeRef.current.gx - p.x / CELL_SIZE,
+          bossRuntimeRef.current.gy - p.y / CELL_SIZE,
+        )
+        bossSwingTargetRef.current = resolvedBossSwing || (
+          window.__MM3_TRAILER_AUTOMATION__ === true && trailerDistance <= 2.25
+            ? {
+                dist: trailerDistance,
+                hitZone: 'body',
+                bossGx: bossRuntimeRef.current.gx,
+                bossGy: bossRuntimeRef.current.gy,
+              }
+            : null
+        )
       } else {
         bossSwingTargetRef.current = null
       }
@@ -16501,6 +16616,41 @@ export default function MiningChain3DFPV({
     swingStartRef.current=performance.now();swingEpochRef.current=Date.now();hitDoneRef.current=false
     renderRef.current?.()
   },[])
+  useEffect(() => {
+    if (!trailerAutomation) return undefined
+    // Keep trailer input on the exact gameplay path without requiring a
+    // focusable/pointer-locked browser window. Returning the live target lets
+    // the recorder fail fast and correct its aim instead of recording 45s of
+    // harmless swings while a boss remains WAITING.
+    window.__MM3_TRAILER_ATTACK__ = () => {
+      let target = bossSwingTargetRef.current
+      // The cinematic camera intentionally favours the face. Trump's authored
+      // crawl mesh is much taller on screen than its conservative gameplay
+      // projection, so the visible reticle can sit on his face just outside
+      // that projected box. For trailer automation only, accept the same
+      // close-range/facing setup using the live runtime coordinates.
+      if (!target && bossRuntimeRef.current && mapHasBoss(mapIdRef.current)) {
+        const p = playerRef.current
+        const rt = bossRuntimeRef.current
+        const playerGx = p.x / CELL_SIZE
+        const playerGy = p.y / CELL_SIZE
+        const distance = Math.hypot(rt.gx - playerGx, rt.gy - playerGy)
+        if (distance <= 2.25) {
+          target = { dist: distance, hitZone: 'body', bossGx: rt.gx, bossGy: rt.gy }
+          bossSwingTargetRef.current = target
+        }
+      }
+      triggerAttack()
+      return {
+        target: Boolean(target),
+        distance: Number(target?.dist ?? NaN),
+        hitZone: target?.hitZone || null,
+        bossState: bossStateRef.current?.state || null,
+        bossHealth: Number(bossStateRef.current?.health ?? NaN),
+      }
+    }
+    return () => { delete window.__MM3_TRAILER_ATTACK__ }
+  }, [trailerAutomation, triggerAttack])
   return (
     <div ref={containerRef} style={{width:'100%',height:'100%',position:'relative',background:'#020610'}}>
       <canvas ref={webglCanvasRef} aria-hidden="true" style={{position:'absolute',inset:0,width:'100%',height:'100%',display:'block',pointerEvents:'none'}} />
@@ -16527,6 +16677,7 @@ export default function MiningChain3DFPV({
       {/* FPS pointer-lock overlay — desktop only, after world bootstrap */}
       {!pointerLocked && worldReady && playReady && (
         <div
+          data-testid="mm3-play-gate"
           onClick={()=>canvasRef.current?.requestPointerLock?.()}
           style={{
             position:'absolute',inset:0,zIndex:10,display:'flex',flexDirection:'column',

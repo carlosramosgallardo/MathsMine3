@@ -2457,6 +2457,7 @@ export default function MiningChain3D() {
       {/* ── MM3 Block Chain formula overlay ──────────────────────────────── */}
       {showChainSolve && (
         <div
+          data-testid="mm3-chain-interaction-panel"
           style={{
             position:'absolute', inset:0, display:'flex', alignItems:'center', justifyContent:'center',
             background:'rgba(0,0,0,0.90)', zIndex:60,
@@ -2614,6 +2615,7 @@ export default function MiningChain3D() {
         const title = es ? statue.titleEs : statue.titleEn
         return (
           <div
+            data-testid="mm3-statue-interaction-panel"
             style={{
               position:'absolute', inset:0, display:'flex', alignItems:'center', justifyContent:'center',
               background:'rgba(0,0,0,0.90)', zIndex:60,
@@ -2650,6 +2652,7 @@ export default function MiningChain3D() {
       {/* ── RL Node car purchase overlay ─────────────────────────────────── */}
       {rlMountPanelOpen && (
         <div
+          data-testid="mm3-rl-interaction-panel"
           style={{
             position:'absolute', inset:0, display:'flex', alignItems:'center', justifyContent:'center',
             background:'rgba(0,0,0,0.90)', zIndex:60,

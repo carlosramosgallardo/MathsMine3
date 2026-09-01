@@ -9,6 +9,7 @@ supabase/.temp/
 supabase/.branches/
 .private/
 .run/
+scripts/trailer/out/
 
 # Source scan (80MB+ / 2M tris). The game ships the compressed public/models/man.glb.
 public/models/man_v2.glb

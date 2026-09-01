@@ -8,13 +8,14 @@ import { createM4KimBossVisual } from '@/lib/m4-kim-boss-runtime'
 import { M4_KIM_BOSS_SCALE, M4_KIM_BOSS_NAME, M4_KIM_BOSS_MAX_HP } from '@/lib/m4-kim-boss'
 import { createM5TrumpBossVisual } from '@/lib/m5-trump-boss-runtime'
 import { M5_TRUMP_BOSS_SCALE, M5_TRUMP_BOSS_NAME, M5_TRUMP_BOSS_MAX_HP } from '@/lib/m5-trump-boss'
-import { createM1MileiStatueVisual, M1_MILEI_STATUE_SCALE, buzzM1MileiStatue } from '@/lib/m1-milei-statue'
+import { createM1MileiStatueVisual, M1_MILEI_STATUE_SCALE, buzzM1MileiStatue, walkM1MileiStatue } from '@/lib/m1-milei-statue'
 import { createM1ZelenskyStatueVisual, M1_ZELENSKY_STATUE_SCALE } from '@/lib/m1-zelensky-statue'
 import { createM2MacronStatueVisual, M2_MACRON_STATUE_SCALE } from '@/lib/m2-macron-statue'
 import { advanceShowcaseSpin, approachYaw } from '@/lib/map-boss-facing'
 import { colorFromAddress } from '@/lib/wallet-colors'
 import { buildHumanoidBody, buildHumanHead, humanSkinFromSeed, humanHairFromSeed, swayHumanoidArms, walkHumanoidLegs, walkHumanoidStride, flapHumanoidJump, poseHumanoidMeleeStrike } from '@/lib/humanoid-body'
 import { relaxHumanoidArms } from '@/lib/capsule-anim-driver'
+import { applyRigidBipedGait } from '@/lib/rigid-biped-limbs'
 import { dockHeldItemsToGlb, hookHumanoidCarMount, HUMANOID_GLB_SRC_CLOTHES, HUMANOID_GLB_CAR_NECK_Y } from '@/lib/humanoid-glb'
 import {
   applyRigidHomeAttack,
@@ -640,17 +641,18 @@ export default function HomeMiningWorld3D() {
 
     import('three').then(THREE => {
       if (destroyed) return
-      renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, powerPreference: 'high-performance' })
+      const trailerLite = window.__MM3_TRAILER_LIGHT_TEXTURES__ === true
+      renderer = new THREE.WebGLRenderer({ canvas, antialias: !trailerLite, alpha: true, powerPreference: 'high-performance' })
       // ?banner=1 lifts the DPR cap for max-resolution captures (banners, art);
       // normal visits stay capped at 2 for performance.
       const hiResCapture = new URLSearchParams(window.location.search).has('banner')
-      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, hiResCapture ? 4 : 2))
+      renderer.setPixelRatio(trailerLite ? 1 : Math.min(window.devicePixelRatio || 1, hiResCapture ? 4 : 2))
       renderer.setClearColor(0x000000, 0)
       renderer.outputColorSpace = THREE.SRGBColorSpace
       renderer.toneMapping = THREE.ACESFilmicToneMapping
       // Mild ACES — higher exposure washed Kim/Macron/Zelensky albedo to chalk.
       renderer.toneMappingExposure = 1.18
-      renderer.shadowMap.enabled = true
+      renderer.shadowMap.enabled = !trailerLite
       renderer.shadowMap.type = THREE.PCFSoftShadowMap
 
       scene = new THREE.Scene()
@@ -1222,6 +1224,8 @@ export default function HomeMiningWorld3D() {
               walkHumanoidStride(boss.bodyPivot, t * 3.5, 0.48, {
                 lean: !boss.bodyPivot?.userData?.humanoidGlbBones,
               })
+              if (boss.id === 'milei') walkM1MileiStatue(boss.bodyPivot, t * 3.5, 1)
+              else applyRigidBipedGait(boss.bodyPivot, t * 3.5, 1)
               animateQuadruped(boss.bodyPivot, { time: t, moving: 1 })
               if (isRigidTexturedBoss(boss.bodyPivot)) applyRigidHomeWalk(boss, t)
             } else if (feat === 'out') {
@@ -1229,6 +1233,7 @@ export default function HomeMiningWorld3D() {
               // from here (baseZ moved forward so attack/greet use this spot).
               g.position.z = targetZ
               walkHumanoidLegs(boss.bodyPivot, 0, 0)
+              applyRigidBipedGait(boss.bodyPivot, 0, 0)
               boss.baseZ = boss.origBaseZ + FEATURE_STEP_Z
               feature.phase = 'show'
               if (boss.isStatue) {
@@ -1242,6 +1247,7 @@ export default function HomeMiningWorld3D() {
               // Back on the rail: restore, cool down, glide to the next member.
               g.position.z = targetZ
               walkHumanoidLegs(boss.bodyPivot, 0, 0)
+              applyRigidBipedGait(boss.bodyPivot, 0, 0)
               boss.baseZ = boss.origBaseZ
               feature.phase = 'idle'
               feature.entry = null
@@ -1333,10 +1339,12 @@ export default function HomeMiningWorld3D() {
                   walkHumanoidStride(boss.bodyPivot, t * 6.4, 0.48, {
                     lean: !boss.bodyPivot.userData.humanoidGlbBones,
                   })
+                  applyRigidBipedGait(boss.bodyPivot, t * 6.4, 1)
                 } else {
                   walkHumanoidStride(boss.bodyPivot, 0, 0, {
                     lean: !boss.bodyPivot.userData.humanoidGlbBones,
                   })
+                  applyRigidBipedGait(boss.bodyPivot, 0, 0)
                 }
               }
             }

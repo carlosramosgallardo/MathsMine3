@@ -24,7 +24,7 @@ function solverBadge(solver) {
 }
 
 export default function ChainSolveCard({ wallet, onWinner }) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const [status, setStatus] = useState(null);
   const [input, setInput] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -89,7 +89,12 @@ export default function ChainSolveCard({ wallet, onWinner }) {
         if (data.error === 'already_attempted_today') {
           setFeedback({ type: 'warn', msg: t('chainSolve.feedbackAlreadyAttempted') });
         } else if (data.error === 'already_solved_lifetime') {
-          setFeedback({ type: 'info', msg: '✓ Tu wallet ya ha resuelto la fórmula anteriormente.' });
+          setFeedback({
+            type: 'info',
+            msg: language === 'es'
+              ? '✓ Tu wallet ya ha resuelto la fórmula anteriormente.'
+              : '✓ Your wallet has already solved the formula.',
+          });
         } else {
           setFeedback({ type: 'error', msg: data.error || t('chainSolve.feedbackNetwork') });
         }
@@ -110,7 +115,7 @@ export default function ChainSolveCard({ wallet, onWinner }) {
     } finally {
       setSubmitting(false);
     }
-  }, [wallet, input, submitting, fetchStatus, onWinner, status]);
+  }, [wallet, input, submitting, fetchStatus, onWinner, status, language, t]);
 
   const handleKey = useCallback((e) => {
     if (e.key === 'Enter') handleSubmit();
@@ -215,7 +220,9 @@ export default function ChainSolveCard({ wallet, onWinner }) {
           >
             <span className="text-[0.7rem]" style={{ animation: 'chain-win-pulse 2.4s ease-in-out infinite', color: '#4ade80' }}>⬡</span>
             <span className="text-[0.62rem] font-black font-mono tracking-[0.14em]" style={{ color: '#4ade80' }}>
-              TU WALLET ES @MM3 — HAS RESUELTO LA CHAIN
+              {language === 'es'
+                ? 'TU WALLET ES @MM3 — HAS RESUELTO LA CHAIN'
+                : 'YOUR WALLET IS @MM3 — YOU SOLVED THE CHAIN'}
             </span>
           </div>
         )}
