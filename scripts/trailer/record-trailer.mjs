@@ -180,7 +180,9 @@ async function approachTarget(page, spawn, target, label) {
   // Establishing footage begins only after yaw and pitch are composed; this
   // keeps tall nodes and faces in frame from the first usable clip frame.
   await sleep(target.preApproachHoldMs || 1_500)
-  await sleep(1_800) // hold with the target in frame before walking in
+  // Hold with the target in frame, but not perfectly static — a slow
+  // look-around shows the scenery before the walk-in starts.
+  await driftLookAround(page, bearing)
   // Keep a little clearance instead of walking into the subject itself.
   const travelDist = Math.max(0, dist - (target.standoffCells ?? SUBJECT_STANDOFF_CELLS))
   if (travelDist > 0.2) {
@@ -222,6 +224,35 @@ async function nudgeCameraUp(page, pixels) {
   await page.mouse.move(x, nextY, { steps: 2 }).catch(() => {})
   cameraCursorY.set(page, nextY)
   await sleep(180)
+}
+
+// Gentle, bounded look-around while established at a distance from a
+// statue/node — a slow sinusoidal drift in yaw and pitch around the
+// authored bearing, so the surrounding scenery reads before the walk-in
+// starts, then eases back to dead-center so the approach still faces the
+// subject. Needs both exact camera hooks (yaw AND pitch) — there's no safe
+// way to fake a smooth two-axis drift with the coarser fallbacks (a raw
+// mouse move only works while pointer-locked, and re-locking mid-hold risks
+// the same overlay problems solved elsewhere), so this silently no-ops on
+// deployments without the trailer hooks rather than doing it badly.
+async function driftLookAround(page, baseBearing, { yawAmp = 0.16, pitchAmp = 0.09, steps = 9, stepMs = 240 } = {}) {
+  const [hasBearingHook, hasPitchHook] = await Promise.all([
+    page.evaluate(() => typeof window.__MM3_TRAILER_FACE_BEARING__ === 'function').catch(() => false),
+    page.evaluate(() => typeof window.__MM3_TRAILER_SET_CAMERA_PITCH__ === 'function').catch(() => false),
+  ])
+  if (!hasBearingHook && !hasPitchHook) return
+  for (let i = 0; i <= steps; i += 1) {
+    const t = i / steps
+    const yawWave = Math.sin(t * Math.PI * 2)
+    const pitchWave = Math.sin(t * Math.PI * 2 + Math.PI / 2) // quarter-cycle offset: an "around" feel, not a straight up-down bob
+    if (hasBearingHook) {
+      await page.evaluate((a) => window.__MM3_TRAILER_FACE_BEARING__?.(a), baseBearing + yawWave * yawAmp).catch(() => {})
+    }
+    if (hasPitchHook) await setCameraPitch(page, pitchWave * pitchAmp)
+    await sleep(stepMs)
+  }
+  if (hasBearingHook) await page.evaluate((a) => window.__MM3_TRAILER_FACE_BEARING__?.(a), baseBearing).catch(() => {})
+  if (hasPitchHook) await setCameraPitch(page, 0)
 }
 
 async function setCameraPitch(page, pitch) {
@@ -634,10 +665,10 @@ async function waitForHomeLoaded(page) {
   if (!PROTECT_GPU_WINDOW) await page.bringToFront().catch(() => {})
 }
 
-async function progressivelyScrollPage(page) {
+async function progressivelyScrollPage(page, { amountRatio = 0.72, stepDelayMs = 260 } = {}) {
   let stableAtBottom = 0
   for (let step = 0; step < 240 && stableAtBottom < 3; step += 1) {
-    const state = await page.evaluate(() => {
+    const state = await page.evaluate((ratio) => {
       const candidates = [document.scrollingElement, ...document.querySelectorAll('*')].filter(Boolean)
       const scrollables = candidates.filter((element) => {
         const style = getComputedStyle(element)
@@ -647,17 +678,39 @@ async function progressivelyScrollPage(page) {
       let moved = false
       for (const element of scrollables) {
         const before = element.scrollTop
-        const amount = Math.max(180, Math.round(element.clientHeight * 0.72))
+        const amount = Math.max(180, Math.round(element.clientHeight * ratio))
         element.scrollTo({ top: Math.min(element.scrollHeight, before + amount), behavior: 'smooth' })
         if (element.scrollTop < element.scrollHeight - element.clientHeight - 4) moved = true
       }
       return { hasScrollable: scrollables.length > 0, moved }
-    }).catch(() => ({ hasScrollable: false, moved: false }))
+    }, amountRatio).catch(() => ({ hasScrollable: false, moved: false }))
     if (!state.hasScrollable) return
     stableAtBottom = state.moved ? 0 : stableAtBottom + 1
-    await sleep(260)
+    await sleep(stepDelayMs)
   }
   await sleep(900)
+}
+
+// Manifesto is long-form reading material, not a glance-and-move-on section
+// — a smaller step (readable chunk, not most of a screen) and a longer
+// pause between steps gives it a pace someone could actually read at,
+// instead of the same brisk scroll every other section uses.
+async function scrollManifestoSlowly(page) {
+  await progressivelyScrollPage(page, { amountRatio: 0.32, stepDelayMs: 950 })
+}
+
+// MM3 Chart (/mm3-value): click through a few time ranges so the chart
+// actually demonstrates re-scaling instead of sitting on the 1h default.
+async function cycleChartRanges(page) {
+  for (const range of ['24h', '7d', '30d']) {
+    const button = page.getByRole('button', { name: range, exact: true })
+    const clicked = await button.click({ timeout: 4_000 }).then(() => true).catch(() => false)
+    if (!clicked) {
+      console.warn(`  ! could not click the ${range} chart range button`)
+      continue
+    }
+    await sleep(2_200) // let the redraw settle and read on screen
+  }
 }
 
 // One integrated pass instead of two disconnected ones (a silent sound-only
@@ -698,7 +751,9 @@ async function enterPolygonSidesInOrder(page) {
       await page.goto(`${BASE_URL}${href}`, { waitUntil: 'commit', timeout: 45_000 }).catch(() => {})
     }
     await sleep(3_000) // hold the section on screen
-    await progressivelyScrollPage(page)
+    if (href === '/mm3-value') await cycleChartRanges(page)
+    if (href === '/manifesto') await scrollManifestoSlowly(page)
+    else await progressivelyScrollPage(page)
     if (href === '/mining') break // last one — stay here for the mining clips that follow
     await page.goto(`${BASE_URL}/`, { waitUntil: 'commit', timeout: 45_000 }).catch(() => {})
     await page.waitForSelector('.mm3-nonagon-side', { timeout: 20_000 }).catch(() => {})
@@ -869,22 +924,15 @@ async function recordAerialTourClip(page, outDir, supabase, wallet) {
 }
 
 async function visitRelayingPage(page) {
-  console.log('Visiting Relaying — sending a live message...')
+  console.log('Visiting Relaying — sending live messages...')
   await page.goto(`${BASE_URL}/relaying`, { waitUntil: 'commit', timeout: 45_000 }).catch((err) => {
     console.warn(`  ! could not navigate to /relaying (${err.message})`)
   })
   await sleep(3_000) // let the terminal mount + wallet/relay-ready state settle
-  // Stable selectors: no data-testid on this form, but maxLength=280 on the
-  // one input and the mm3-irc-submit class on the one submit button are
-  // both unique to it (RelayingTerminal.jsx).
-  const input = page.locator('form input[maxlength="280"]')
-  const submit = page.locator('button.mm3-irc-submit')
-  await input.click({ timeout: 5_000 }).catch(() => {})
-  await input.fill('gm from the trailer bot 🤖').catch(() => {})
-  await sleep(400)
-  const sent = await submit.click({ timeout: 5_000 }).then(() => true).catch(() => false)
-  if (!sent) throw new Error('Relaying SEND stayed unavailable')
-  await sleep(2_500) // hold the sent message on screen for the footage
+  // In-character plea first (English — the terminal's own voice), then the
+  // help command so the available commands show up on screen too.
+  await submitRelayingCommand(page, 'we need help defeating the elites')
+  await submitRelayingCommand(page, '/?')
 }
 
 // Board.jsx's game controls all carry stable, English-only aria-labels
@@ -976,11 +1024,13 @@ const LANDMARKS = {
     ],
   },
   // Macron's authored yaw faces north on M2.
+  // Approach/beauty-shot side mirrored (was north, now south) — the north
+  // side was confirmed showing Macron's back, not his face.
   m2Macron: {
-    row: 50, col: 25, label: 'Macron statue', approach: { dRow: -4, dCol: 0 }, cameraUpPixels: 118, moveSpeedCellsS: 0.11, preApproachHoldMs: 3_500,
+    row: 50, col: 25, label: 'Macron statue', approach: { dRow: 3, dCol: 0 }, cameraUpPixels: 118, moveSpeedCellsS: 0.11, preApproachHoldMs: 3_500,
     beautyShots: [
-      { x: 20, y: 2.8, z: 43, targetX: 25.5, targetY: 1.25, targetZ: 50.5, fov: 47, holdMs: 5_500 },
-      { x: 22.7, y: 2.05, z: 46.7, targetX: 25.5, targetY: 1.15, targetZ: 50.5, fov: 43, holdMs: 6_500 },
+      { x: 31, y: 2.8, z: 58, targetX: 25.5, targetY: 1.25, targetZ: 50.5, fov: 47, holdMs: 5_500 },
+      { x: 28.3, y: 2.05, z: 54.3, targetX: 25.5, targetY: 1.15, targetZ: 50.5, fov: 43, holdMs: 6_500 },
     ],
   },
   // A longer establishing view lets the autonomous RL cars race/jump before
