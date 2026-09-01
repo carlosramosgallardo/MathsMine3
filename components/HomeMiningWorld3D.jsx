@@ -1168,7 +1168,7 @@ export default function HomeMiningWorld3D() {
         )
         // Pass 2: visibility, placement, camera-facing yaw, and center-focus bump.
         for (const entry of lineup) {
-          entry.group.visible = visibleEntries.has(entry) || feature.entry === entry
+          entry.group.visible = visibleEntries.has(entry)
           entry.isCenter = entry === center
           entry.focus += ((entry.isCenter ? 1 : 0) - entry.focus) * Math.min(1, spinDt * 5)
           if (feature.entry === entry && feature.phase !== 'idle') continue
