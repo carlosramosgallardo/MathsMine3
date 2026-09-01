@@ -665,10 +665,10 @@ async function waitForHomeLoaded(page) {
   if (!PROTECT_GPU_WINDOW) await page.bringToFront().catch(() => {})
 }
 
-async function progressivelyScrollPage(page) {
+async function progressivelyScrollPage(page, { amountRatio = 0.72, stepDelayMs = 260 } = {}) {
   let stableAtBottom = 0
   for (let step = 0; step < 240 && stableAtBottom < 3; step += 1) {
-    const state = await page.evaluate(() => {
+    const state = await page.evaluate((ratio) => {
       const candidates = [document.scrollingElement, ...document.querySelectorAll('*')].filter(Boolean)
       const scrollables = candidates.filter((element) => {
         const style = getComputedStyle(element)
@@ -678,17 +678,39 @@ async function progressivelyScrollPage(page) {
       let moved = false
       for (const element of scrollables) {
         const before = element.scrollTop
-        const amount = Math.max(180, Math.round(element.clientHeight * 0.72))
+        const amount = Math.max(180, Math.round(element.clientHeight * ratio))
         element.scrollTo({ top: Math.min(element.scrollHeight, before + amount), behavior: 'smooth' })
         if (element.scrollTop < element.scrollHeight - element.clientHeight - 4) moved = true
       }
       return { hasScrollable: scrollables.length > 0, moved }
-    }).catch(() => ({ hasScrollable: false, moved: false }))
+    }, amountRatio).catch(() => ({ hasScrollable: false, moved: false }))
     if (!state.hasScrollable) return
     stableAtBottom = state.moved ? 0 : stableAtBottom + 1
-    await sleep(260)
+    await sleep(stepDelayMs)
   }
   await sleep(900)
+}
+
+// Manifesto is long-form reading material, not a glance-and-move-on section
+// — a smaller step (readable chunk, not most of a screen) and a longer
+// pause between steps gives it a pace someone could actually read at,
+// instead of the same brisk scroll every other section uses.
+async function scrollManifestoSlowly(page) {
+  await progressivelyScrollPage(page, { amountRatio: 0.32, stepDelayMs: 950 })
+}
+
+// MM3 Chart (/mm3-value): click through a few time ranges so the chart
+// actually demonstrates re-scaling instead of sitting on the 1h default.
+async function cycleChartRanges(page) {
+  for (const range of ['24h', '7d', '30d']) {
+    const button = page.getByRole('button', { name: range, exact: true })
+    const clicked = await button.click({ timeout: 4_000 }).then(() => true).catch(() => false)
+    if (!clicked) {
+      console.warn(`  ! could not click the ${range} chart range button`)
+      continue
+    }
+    await sleep(2_200) // let the redraw settle and read on screen
+  }
 }
 
 // One integrated pass instead of two disconnected ones (a silent sound-only
@@ -729,7 +751,9 @@ async function enterPolygonSidesInOrder(page) {
       await page.goto(`${BASE_URL}${href}`, { waitUntil: 'commit', timeout: 45_000 }).catch(() => {})
     }
     await sleep(3_000) // hold the section on screen
-    await progressivelyScrollPage(page)
+    if (href === '/mm3-value') await cycleChartRanges(page)
+    if (href === '/manifesto') await scrollManifestoSlowly(page)
+    else await progressivelyScrollPage(page)
     if (href === '/mining') break // last one — stay here for the mining clips that follow
     await page.goto(`${BASE_URL}/`, { waitUntil: 'commit', timeout: 45_000 }).catch(() => {})
     await page.waitForSelector('.mm3-nonagon-side', { timeout: 20_000 }).catch(() => {})
@@ -1000,11 +1024,13 @@ const LANDMARKS = {
     ],
   },
   // Macron's authored yaw faces north on M2.
+  // Approach/beauty-shot side mirrored (was north, now south) — the north
+  // side was confirmed showing Macron's back, not his face.
   m2Macron: {
-    row: 50, col: 25, label: 'Macron statue', approach: { dRow: -4, dCol: 0 }, cameraUpPixels: 118, moveSpeedCellsS: 0.11, preApproachHoldMs: 3_500,
+    row: 50, col: 25, label: 'Macron statue', approach: { dRow: 3, dCol: 0 }, cameraUpPixels: 118, moveSpeedCellsS: 0.11, preApproachHoldMs: 3_500,
     beautyShots: [
-      { x: 20, y: 2.8, z: 43, targetX: 25.5, targetY: 1.25, targetZ: 50.5, fov: 47, holdMs: 5_500 },
-      { x: 22.7, y: 2.05, z: 46.7, targetX: 25.5, targetY: 1.15, targetZ: 50.5, fov: 43, holdMs: 6_500 },
+      { x: 31, y: 2.8, z: 58, targetX: 25.5, targetY: 1.25, targetZ: 50.5, fov: 47, holdMs: 5_500 },
+      { x: 28.3, y: 2.05, z: 54.3, targetX: 25.5, targetY: 1.15, targetZ: 50.5, fov: 43, holdMs: 6_500 },
     ],
   },
   // A longer establishing view lets the autonomous RL cars race/jump before
