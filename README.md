@@ -1055,7 +1055,7 @@ Cron jobs in `vercel.json` require a Vercel plan that supports crons (Hobby incl
 
 ## Credits — 3D Models
 
-Characters and vehicles are third-party models from Sketchfab. Most are **[CC BY 4.0](http://creativecommons.org/licenses/by/4.0/)**; the plaza column base is **[CC BY-NC-SA 4.0](http://creativecommons.org/licenses/by-nc-sa/4.0/)**. Thanks to their authors — the game would look nothing like this without them.
+Characters and vehicles are third-party models from Sketchfab under **[CC BY 4.0](http://creativecommons.org/licenses/by/4.0/)**. Thanks to their authors — the game would look nothing like this without them.
 
 | Model | In game | Author | License |
 |---|---|---|---|
@@ -1069,7 +1069,7 @@ Characters and vehicles are third-party models from Sketchfab. Most are **[CC BY
 | [Kim Jong-Un - statue North Korea DPRK](https://sketchfab.com/3d-models/kim-jong-un-statue-north-korea-dprk-1da77051ecd0443e80c862c54eafaea0) | `public/models/kim.glb` — the M4 boss | [Brian Trepanier](https://sketchfab.com/CMBC) | [CC BY 4.0](http://creativecommons.org/licenses/by/4.0/) |
 | [Male Head](https://sketchfab.com/3d-models/male-head-0247a25a04ba46b99629130277fe39b7) | `public/models/man-head.glb` — RL-car bot cockpit head | [Alexander Antipov](https://sketchfab.com/Dessen) | [CC BY 4.0](http://creativecommons.org/licenses/by/4.0/) |
 | [Emmanuel Macron Avatar](https://sketchfab.com/3d-models/emmanuel-macron-avatar-a856203f463c43c592fffbf4c8bfc71b) | `public/models/macron.glb` — the M2 Macron statue (original bind pose; diplomatic-wave arm idle) | [Jasnoor Singh](https://sketchfab.com/jasnoorsingh) | [CC BY 4.0](http://creativecommons.org/licenses/by/4.0/) |
-| [Roman Column Base – Byrsa Hill, Carthage](https://sketchfab.com/3d-models/roman-column-base-byrsa-hill-carthage-4bf67a7e47a448d883c9eabc2f833a9d) | `public/models/statue-plinth.glb` — pedestal under Milei, Zelensky and Macron | [Tanit XR](https://sketchfab.com/tanitxrorg) | [CC BY-NC-SA 4.0](http://creativecommons.org/licenses/by-nc-sa/4.0/) |
+| [DnD Tokens](https://sketchfab.com/3d-models/dnd-tokens-cc40d30e125e4006aa53e53a0e78ee0b) | `public/models/pedestal.glb` — lightweight MM3-branded pedestal under Milei, Zelensky and Macron | [Birdy.82](https://sketchfab.com/Birdy.82) | [CC BY 4.0](http://creativecommons.org/licenses/by/4.0/) |
 | [Nuclear Reactor Bomb Chamber](https://sketchfab.com/3d-models/nuclear-reactor-bomb-chamber-6b2031b189e64936a8abd16231c061b8) | `public/models/nuclear.glb` — the nuke cube on every map | [NinjaJD](https://sketchfab.com/NinjaJD) | [CC BY 4.0](http://creativecommons.org/licenses/by/4.0/) |
 
 **Changes made.** Every model is re-baked for the browser by `scripts/bake-*.mjs`: meshes are welded and decimated, textures re-encoded, the male body is auto-rigged with a skeleton it did not ship with, and all of them are rescaled and re-centred into the game's character space. Each baked GLB carries its own credit inside `asset.extras`, so attribution travels with the file. Raw downloads are kept out of the repository.
@@ -2140,7 +2140,7 @@ Los crons de `vercel.json` requieren un plan de Vercel que los soporte (Hobby in
 
 ## Créditos — Modelos 3D
 
-Los personajes y vehículos son modelos de terceros descargados de Sketchfab. La mayoría están bajo **[CC BY 4.0](http://creativecommons.org/licenses/by/4.0/)**; la basa de columna de la plaza es **[CC BY-NC-SA 4.0](http://creativecommons.org/licenses/by-nc-sa/4.0/)**. Gracias a sus autores: sin ellos el juego no tendría este aspecto.
+Los personajes y vehículos son modelos de terceros descargados de Sketchfab bajo **[CC BY 4.0](http://creativecommons.org/licenses/by/4.0/)**. Gracias a sus autores: sin ellos el juego no tendría este aspecto.
 
 | Modelo | En el juego | Autor | Licencia |
 |---|---|---|---|
@@ -2154,7 +2154,7 @@ Los personajes y vehículos son modelos de terceros descargados de Sketchfab. La
 | [Kim Jong-Un - statue North Korea DPRK](https://sketchfab.com/3d-models/kim-jong-un-statue-north-korea-dprk-1da77051ecd0443e80c862c54eafaea0) | `public/models/kim.glb` — el boss de M4 | [Brian Trepanier](https://sketchfab.com/CMBC) | [CC BY 4.0](http://creativecommons.org/licenses/by/4.0/) |
 | [Male Head](https://sketchfab.com/3d-models/male-head-0247a25a04ba46b99629130277fe39b7) | `public/models/man-head.glb` — cabeza del bot en el RL-car | [Alexander Antipov](https://sketchfab.com/Dessen) | [CC BY 4.0](http://creativecommons.org/licenses/by/4.0/) |
 | [Emmanuel Macron Avatar](https://sketchfab.com/3d-models/emmanuel-macron-avatar-a856203f463c43c592fffbf4c8bfc71b) | `public/models/macron.glb` — la estatua de Macron en M2 (pose original; idle de saludo diplomático) | [Jasnoor Singh](https://sketchfab.com/jasnoorsingh) | [CC BY 4.0](http://creativecommons.org/licenses/by/4.0/) |
-| [Roman Column Base – Byrsa Hill, Carthage](https://sketchfab.com/3d-models/roman-column-base-byrsa-hill-carthage-4bf67a7e47a448d883c9eabc2f833a9d) | `public/models/statue-plinth.glb` — pedestal de Milei, Zelenski y Macron | [Tanit XR](https://sketchfab.com/tanitxrorg) | [CC BY-NC-SA 4.0](http://creativecommons.org/licenses/by-nc-sa/4.0/) |
+| [DnD Tokens](https://sketchfab.com/3d-models/dnd-tokens-cc40d30e125e4006aa53e53a0e78ee0b) | `public/models/pedestal.glb` — pedestal ligero con marca MM3 para Milei, Zelenski y Macron | [Birdy.82](https://sketchfab.com/Birdy.82) | [CC BY 4.0](http://creativecommons.org/licenses/by/4.0/) |
 | [Nuclear Reactor Bomb Chamber](https://sketchfab.com/3d-models/nuclear-reactor-bomb-chamber-6b2031b189e64936a8abd16231c061b8) | `public/models/nuclear.glb` — el cubo nuclear en cada mapa | [NinjaJD](https://sketchfab.com/NinjaJD) | [CC BY 4.0](http://creativecommons.org/licenses/by/4.0/) |
 
 **Modificaciones.** Cada modelo se hornea para el navegador con `scripts/bake-*.mjs`: se sueldan y decimalizan las mallas, se recomprimen las texturas, al cuerpo masculino se le genera un esqueleto que no traía, y todos se reescalan y recentran al espacio de personaje del juego. Cada GLB horneado lleva su crédito dentro de `asset.extras`, así que la atribución viaja con el archivo. Las descargas originales quedan fuera del repositorio.

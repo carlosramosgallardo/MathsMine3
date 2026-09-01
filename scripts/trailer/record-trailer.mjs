@@ -1007,8 +1007,8 @@ const LANDMARKS = {
   // Player angle starts at 0 (+col/east). Spawning west of each subject means
   // it is already straight ahead: no frame-rate-sensitive timed turn, and
   // these centre-row approaches avoid the arenas' walls and scenery.
-  // Milei and Zelensky face M1's chain centre; approach along that facing
-  // vector so their face/body—not the back of the sculpt—fills the shot.
+  // Milei and Zelensky face M1's chain centre, so their cameras approach from
+  // that side of their plazas to keep their faces visible.
   m1Milei: {
     row: 10, col: 44, label: 'Milei statue', approach: { dRow: 3, dCol: -3 }, cameraUpPixels: 118, moveSpeedCellsS: 0.11, preApproachHoldMs: 3_500,
     beautyShots: [

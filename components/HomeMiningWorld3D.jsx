@@ -428,9 +428,6 @@ const HOME_BOSS_LAYOUT = [
     createVisual: createM1MileiStatueVisual,
     bossScale: M1_MILEI_STATUE_SCALE,
     position: [HOME_LINEUP_X[4], 0, 0.06],
-    // Milei's sculpt has an extra half-turn baked into its body/GLB mount.
-    // Counter it only in Home so his face, not his back, points at the camera.
-    rotationY: Math.PI,
     glowColor: '#74acdf',
     glowIntensity: 0.7,
     phase: Math.PI * 1.85,

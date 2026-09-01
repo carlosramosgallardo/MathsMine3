@@ -5,7 +5,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { readGlb, writeGlb, resolveWorkspaceFile } from './glb-io.mjs'
 
-const FIXTURE = 'public/models/statue-plinth.glb'
+const FIXTURE = 'public/models/pedestal.glb'
 
 test('resolveWorkspaceFile keeps relative paths under cwd', () => {
   const resolved = resolveWorkspaceFile(FIXTURE)
