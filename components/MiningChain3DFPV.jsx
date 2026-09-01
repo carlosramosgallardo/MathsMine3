@@ -48,7 +48,7 @@ import {
   M2_PITCH_HOOP,
   updateM2PitchDomeRuntime,
 } from '@/lib/m2-pitch-dome'
-import { addM1MileiStatueReservedCells, buzzM1MileiStatue, createM1MileiStatueVisual, M1_MILEI_STATUE_ID, walkM1MileiStatue } from '@/lib/m1-milei-statue'
+import { addM1MileiStatueReservedCells, buzzM1MileiStatue, createM1MileiStatueVisual, M1_MILEI_STATUE_ID } from '@/lib/m1-milei-statue'
 import { addM1ZelenskyStatueReservedCells, createM1ZelenskyStatueVisual, M1_ZELENSKY_STATUE_ID } from '@/lib/m1-zelensky-statue'
 import { createM2MacronStatueVisual, M2_MACRON_STATUE_ID } from '@/lib/m2-macron-statue'
 import { initStatuePatrol, applyStatueAltitude, statueWorldXZ, updateStatuePatrol } from '@/lib/statue-patrol'
@@ -11161,7 +11161,6 @@ function updateM1MileiStatueMotion(motion, time, look = null, cellMap = null, ob
     walkHumanoidStride(motion.bodyPivot, time * 4.8, 0.24, {
       lean: !motion.bodyPivot?.userData?.humanoidGlbBones,
     })
-    if (motion.buzz) walkM1MileiStatue(motion.bodyPivot, time * 4.8, 0.72)
     if (motion.buzz) buzzM1MileiStatue(motion.bodyPivot, time)
     motion.root?.updateMatrixWorld?.(true)
     return
@@ -11184,7 +11183,6 @@ function updateM1MileiStatueMotion(motion, time, look = null, cellMap = null, ob
     walkHumanoidStride(motion.bodyPivot, isMoving ? time * 6.4 : 0, 0.52, {
       lean: !motion.bodyPivot?.userData?.humanoidGlbBones,
     })
-    if (motion.buzz) walkM1MileiStatue(motion.bodyPivot, isMoving ? time * 6.4 : 0, isMoving ? 1 : 0)
     if (!isMoving) swayHumanoidArms(motion.bodyPivot, time)
     if (motion.head) {
       const desiredYaw = isGazing ? 0 : (Math.sin(time * 0.42) * 0.5 + Math.sin(time * 0.17 + 2) * 0.18)
@@ -11205,7 +11203,6 @@ function updateM1MileiStatueMotion(motion, time, look = null, cellMap = null, ob
     motion.bodyPivot.rotation.z = 0
   }
   walkHumanoidStride(motion.bodyPivot, 0, 0)
-  if (motion.buzz) walkM1MileiStatue(motion.bodyPivot, 0, 0)
   if (motion.buzz) buzzM1MileiStatue(motion.bodyPivot, time)
 
   if (motion.head) {
