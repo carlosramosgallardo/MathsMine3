@@ -32,6 +32,7 @@
     "api-docs:sync": "node scripts/build-api-documentation.mjs",
     "manifesto:sync": "node scripts/sync-manifesto.mjs",
     "version:sync": "node scripts/sync-version.mjs",
+    "trailer:record": "node scripts/trailer/record-trailer.mjs",
     "sync:assets": "node scripts/sync-version.mjs && node scripts/sync-manifesto.mjs && node scripts/build-api-documentation.mjs",
     "polyglot:check": "make check"
   },
