@@ -771,23 +771,6 @@ La ayuda de Relaying (`/?`) incluye `/mine block #029` como forma corta para min
 /?                    — muestra /exec en el índice de comandos
 ```
 
-### Kernel Panic (`/rm -rf MM3_BLOCK_CHAIN`)
-
-Dos chips **Kernel Panic** en la landing page exponen un comando de reset global de la cadena. Cada chip tiene un cooldown independiente de 24 horas compartido entre todos los jugadores.
-
-- Disponible para cualquier wallet — incluyendo sesiones anónimas que lleguen por el link del chip
-- Se ejecuta desde el terminal de Relaying: `/rm -rf MM3_BLOCK_CHAIN`
-- **Borra toda la tabla `mm3_mined_blocks`** — todos los bloques libres minados y las entradas NFTJI se eliminan; el progreso de la cadena vuelve a 0%
-- Los bloques del mercado de Mining NFTJIs (`mm3_mining_blocks`) y el estado del jugador **no** se ven afectados
-- Se emite una traza `tone=kernelpanic` a Relaying al completarse, siempre visible para todos
-- Tras el reset, ese chip entra en cooldown 24h; el otro chip es independiente
-
-```txt
-/rm -rf MM3_BLOCK_CHAIN   — kernel panic, wipe de cadena (requiere acceso por chip de landing)
-```
-
----
-
 ## Ranking
 
 > Tu % de Minado es la columna principal del ranking. Todo lo demás — nivel, balance MM3, NFTJIs — es contexto que explica por qué estás donde estás.

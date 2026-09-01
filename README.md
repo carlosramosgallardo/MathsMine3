@@ -783,23 +783,6 @@ Relay help (`/?`) includes `/mine block #029` as the short form for mining free 
 /?                    — shows /exec in the command index
 ```
 
-### Kernel Panic (`/rm -rf MM3_BLOCK_CHAIN`)
-
-Two **Kernel Panic** chips on the landing page expose a global chain reset command. Each chip has an independent 24-hour cooldown shared across all players.
-
-- Available to any wallet — including anonymous sessions arriving via chip link
-- Executes from the Relaying terminal: `/rm -rf MM3_BLOCK_CHAIN`
-- **Wipes the entire `mm3_mined_blocks` table** — all free chain blocks and NFTJI chain entries are deleted; chain progress resets to 0%
-- Mining NFTJI market blocks (`mm3_mining_blocks`) and player state are **not** affected
-- A `tone=kernelpanic` trace is broadcast to Relaying on success and is always visible to all players
-- After a reset, that chip enters a 24-hour cooldown; the other chip is independent
-
-```txt
-/rm -rf MM3_BLOCK_CHAIN   — kernel panic chain wipe (requires landing page chip access)
-```
-
----
-
 ## Ranking
 
 > Your Mining % is the headline ranking column. Everything else — level, MM3 balance, NFTJIs — is context that explains why you are where you are.
@@ -1884,23 +1867,6 @@ La ayuda de Relaying (`/?`) incluye `/mine block #029` como forma corta para min
 /exec @0x1abc...def   — exec de relay (tab-completado desde wallets online)
 /?                    — muestra /exec en el índice de comandos
 ```
-
-### Kernel Panic (`/rm -rf MM3_BLOCK_CHAIN`)
-
-Dos chips **Kernel Panic** en la landing page exponen un comando de reset global de la cadena. Cada chip tiene un cooldown independiente de 24 horas compartido entre todos los jugadores.
-
-- Disponible para cualquier wallet — incluyendo sesiones anónimas que lleguen por el link del chip
-- Se ejecuta desde el terminal de Relaying: `/rm -rf MM3_BLOCK_CHAIN`
-- **Borra toda la tabla `mm3_mined_blocks`** — todos los bloques libres minados y las entradas NFTJI se eliminan; el progreso de la cadena vuelve a 0%
-- Los bloques del mercado de Mining NFTJIs (`mm3_mining_blocks`) y el estado del jugador **no** se ven afectados
-- Se emite una traza `tone=kernelpanic` a Relaying al completarse, siempre visible para todos
-- Tras el reset, ese chip entra en cooldown 24h; el otro chip es independiente
-
-```txt
-/rm -rf MM3_BLOCK_CHAIN   — kernel panic, wipe de cadena (requiere acceso por chip de landing)
-```
-
----
 
 ## Ranking
 

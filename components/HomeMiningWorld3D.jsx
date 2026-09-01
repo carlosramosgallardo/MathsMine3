@@ -401,8 +401,11 @@ export function addNftjiMiningBlock(THREE, scene, options = {}) {
 }
 
 // Initial x positions only — the carousel rail overwrites every member's x
-// with railX (slot index × RAIL_SPACING), so the lineup is NOT capped at 7.
+// with railX (slot index × RAIL_SPACING). Only the three slots nearest the
+// centre are rendered; the remaining members stay on the wrapping rail until
+// rotation brings them into the display window.
 const HOME_LINEUP_X = Object.freeze([-13.65, -9.1, -4.45, 0, 4.45, 9.1, 13.65])
+const HOME_VISIBLE_MEMBER_COUNT = 3
 // heightMult ≈ realHeight/190 so every boss shares the Trump crown on the rail.
 // Statues share one MM3 plinth extract — no extra yOffset per character.
 const HOME_BOSS_LAYOUT = [
@@ -658,9 +661,9 @@ export default function HomeMiningWorld3D() {
       scene = new THREE.Scene()
       scene.fog = new THREE.FogExp2('#010c18', .012)
       const camera = new THREE.PerspectiveCamera(36, 2, .1, 60)
-      /** Long-lens framing: fixed distance with the fov computed to fit the lineup
-          (±13.65u + boss half-width). Same on-screen size as a close camera, but the
-          narrow fov keeps the edge bosses from stretching wide (perspective distortion). */
+      /** Long-lens framing: fixed distance with the fov computed to fit the three
+          visible carousel slots. The narrow fov keeps the edge members from
+          stretching while making the smaller lineup substantially easier to read. */
       const frameCamera = () => {
         // featPull dollies the camera back in step with the featured member's
         // walk toward it, keeping the show inside the frame.
@@ -671,7 +674,7 @@ export default function HomeMiningWorld3D() {
         // canvases hit the floor and were cropping the overhead nameplates
         // against the top edge — tilting the window up trades some of the
         // (generous) empty floor margin for headroom above the tallest heads.
-        const halfHeight = Math.max(4.55, 15.6 / camera.aspect) / zoomCur
+        const halfHeight = Math.max(3.6, 9.2 / camera.aspect) / zoomCur
         const lookY = 3.5 - (zoomCur - 1) * 0.9
         camera.fov = THREE.MathUtils.radToDeg(2 * Math.atan(halfHeight / dist))
         camera.position.set(0, 3.0 + dist * .19, dist)
@@ -764,11 +767,10 @@ export default function HomeMiningWorld3D() {
         homeNuke,
       ]
 
-      // Display-case rail (carousel): the framing always shows the maximum
-      // number of members at once; dragging sideways scrolls the wrap-around
-      // rail, which matters once more avatars than visible slots join the
-      // lineup. Facing-the-camera yaw and the sec(θ) width compensation are
-      // re-applied per frame as members move along the rail.
+      // Display-case rail (carousel): only the three members closest to centre
+      // are rendered. Dragging or auto-advance moves the wrap-around rail and
+      // brings the remaining members into that three-slot display window.
+      // Facing-the-camera yaw is re-applied per frame as members move.
       // Members interleave boss/bot as evenly as the boss/prop counts allow,
       // at the same RAIL_SPACING gap as before; railX is assigned by slot index.
       const bossById = Object.fromEntries(HOME_BOSS_LAYOUT.map((layout, i) => [layout.id, homeBosses[i]]))
@@ -1154,8 +1156,16 @@ export default function HomeMiningWorld3D() {
           if (d < centerDist) { centerDist = d; center = entry }
         }
         const railSettled = !rail.dragging && Math.abs(rail.snapTarget - rail.offset) < 0.1
-        // Pass 2: placement, camera-facing yaw, and the center-focus scale bump.
+        // Pick exactly three entries by rail distance. This keeps draw calls and
+        // the visible scene bounded even at the midpoint between two slots.
+        const visibleEntries = new Set(
+          [...lineup]
+            .sort((a, b) => Math.abs(a.wx) - Math.abs(b.wx))
+            .slice(0, HOME_VISIBLE_MEMBER_COUNT),
+        )
+        // Pass 2: visibility, placement, camera-facing yaw, and center-focus bump.
         for (const entry of lineup) {
+          entry.group.visible = visibleEntries.has(entry) || feature.entry === entry
           entry.isCenter = entry === center
           entry.focus += ((entry.isCenter ? 1 : 0) - entry.focus) * Math.min(1, spinDt * 5)
           if (feature.entry === entry && feature.phase !== 'idle') continue
