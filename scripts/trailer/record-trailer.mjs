@@ -713,6 +713,73 @@ async function cycleChartRanges(page) {
   }
 }
 
+// /squeezing, /ranking, /ai-team, /daily-tasks and /trading have no clip of
+// their own anywhere in this script — the home tour below is the only place
+// they're ever shown, so each gets one small, safe, reversible interaction
+// here instead of just a scroll. Never anything that spends a limited daily
+// action or burns real, rate-limited game state (⚔ SQUEEZE/ACCEPT, EXEC,
+// Leave pool, dispute votes) — those stay untouched.
+async function interactWithSection(page, href) {
+  try {
+    if (href === '/squeezing') {
+      // Expand/collapse a resolved dispute card — cosmetic, local state only.
+      // Collapsed cards are buttons showing "<pool> vs <pool>"; once expanded
+      // the same text moves to a plain span and a separate "▲ Collapse"
+      // button appears, so each state needs its own locator.
+      const disputeToggle = page.locator('main').getByRole('button').filter({ hasText: 'vs' }).first()
+      if (await disputeToggle.click({ timeout: 4_000 }).then(() => true).catch(() => false)) {
+        await sleep(1_500)
+        await page.getByRole('button', { name: 'Collapse' }).first().click({ timeout: 4_000 }).catch(() => {})
+      }
+    } else if (href === '/ranking') {
+      const walletView = page.getByRole('button', { name: 'Wallet ranking' })
+      if (await walletView.click({ timeout: 4_000 }).then(() => true).catch(() => false)) await sleep(1_800)
+      await page.getByRole('button', { name: /^Level/ }).click({ timeout: 4_000 }).catch(() => {})
+      await sleep(1_400)
+      await page.getByRole('button', { name: 'Pool ranking' }).click({ timeout: 4_000 }).catch(() => {})
+      await sleep(1_400)
+    } else if (href === '/daily-tasks') {
+      // Claim a completed task if one's ready (one-time, non-destructive —
+      // the same call this trailer wallet could make for real), then fold a
+      // claimed card open/closed.
+      if (await page.getByRole('button', { name: 'Claim' }).first()
+        .click({ timeout: 4_000 }).then(() => true).catch(() => false)) await sleep(1_800)
+      const claimedToggle = page.locator('.daily-task-claimed').first()
+      if (await claimedToggle.click({ timeout: 4_000 }).then(() => true).catch(() => false)) {
+        await sleep(1_200)
+        await claimedToggle.click({ timeout: 4_000 }).catch(() => {})
+      }
+    } else if (href === '/trading') {
+      await page.getByRole('button', { name: 'Sell' }).click({ timeout: 4_000 }).catch(() => {})
+      await sleep(900)
+      await page.getByRole('button', { name: 'Buy' }).click({ timeout: 4_000 }).catch(() => {})
+      await sleep(900)
+      const slider = page.locator('.mm3-trade-slider input[type="range"]')
+      if (await slider.count().catch(() => 0)) {
+        // A React-controlled range input ignores value set via evaluate()
+        // (no native "input" event fires) — focus it and drive it with the
+        // keyboard instead, a real interaction the browser handles natively.
+        if (await slider.focus({ timeout: 4_000 }).then(() => true).catch(() => false)) {
+          for (let i = 0; i < 12; i += 1) {
+            await page.keyboard.press('ArrowRight')
+            await sleep(90)
+          }
+        }
+        await sleep(600)
+      }
+      if (await page.getByRole('button', { name: 'tx.log' })
+        .click({ timeout: 4_000 }).then(() => true).catch(() => false)) {
+        await sleep(1_500)
+        await page.getByRole('button', { name: 'sync' }).click({ timeout: 4_000 }).catch(() => {})
+        await sleep(1_000)
+        await page.getByRole('button', { name: ':q ledger' }).click({ timeout: 4_000 }).catch(() => {})
+      }
+    }
+  } catch (err) {
+    console.warn(`  ! ${href} interaction skipped (${err.message})`)
+  }
+}
+
 // Portal accesses are now a stacked list of rows (PortalCardList,
 // LandingHero.jsx), one direct link each — no more polygon side to hover
 // first (that was also what fired the nav-tick sound, which the new list
@@ -739,6 +806,9 @@ async function enterPortalRowsInOrder(page) {
       await page.waitForURL((url) => url.pathname === href, { timeout: 8_000 }).catch(() => {})
     }
     await sleep(3_000) // hold the section on screen
+    if (['/squeezing', '/ranking', '/daily-tasks', '/trading'].includes(href)) {
+      await interactWithSection(page, href)
+    }
     if (href === '/mm3-value') await cycleChartRanges(page)
     if (href === '/manifesto') await scrollManifestoSlowly(page)
     else await progressivelyScrollPage(page)

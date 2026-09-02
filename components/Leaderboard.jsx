@@ -1456,14 +1456,14 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
         .lb-row.wallet-selected { background: rgba(34,211,238,.10); border-color: rgba(34,211,238,.75); }
         .lb-tbl { border-collapse: collapse; border: 1px solid rgba(34,211,238,.25); border-radius: 0; overflow: hidden; }
         .lb-tbl thead { background: #02060b; border-bottom: 1px solid rgba(34,211,238,.3); }
-        .lb-tbl thead th { color:#22d3ee; font-weight:700; padding:.34rem .3rem; text-align:left; border-right:1px solid rgba(34,211,238,.15); font-size:.58rem; letter-spacing:.05em; }
-        @media(min-width:640px){ .lb-tbl thead th { padding:.42rem .4rem; font-size:.64rem; } }
+        .lb-tbl thead th { color:#22d3ee; font-weight:700; padding:.24rem .28rem; text-align:left; border-right:1px solid rgba(34,211,238,.15); font-size:.56rem; letter-spacing:.04em; }
+        @media(min-width:640px){ .lb-tbl thead th { padding:.28rem .32rem; font-size:.58rem; } }
         .lb-tbl thead th:last-child { border-right:none; }
         .lb-tbl tbody tr:nth-child(odd) { background:rgba(34,211,238,.015); }
-        .lb-tbl td { padding:.3rem .3rem; border-bottom:1px solid rgba(34,211,238,.1); font-size:.62rem; }
-        @media(min-width:640px){ .lb-tbl td { padding:.38rem .4rem; font-size:.66rem; } }
+        .lb-tbl td { padding:.16rem .28rem; border-bottom:1px solid rgba(34,211,238,.1); font-size:.58rem; }
+        @media(min-width:640px){ .lb-tbl td { padding:.2rem .32rem; font-size:.6rem; } }
         .lb-tbl tbody tr:last-child td { border-bottom:none; }
-        .rank-badge { display:inline-flex; align-items:center; justify-content:center; min-width:2.4rem; font-weight:900; font-size:.78rem; border:none; background:none; box-shadow:none; flex-shrink:0; }
+        .rank-badge { display:inline-flex; align-items:center; justify-content:center; min-width:1.9rem; font-weight:900; font-size:.68rem; border:none; background:none; box-shadow:none; flex-shrink:0; }
         .rank-badge.r1 { color:#facc15; text-shadow:0 0 10px rgba(250,204,21,.32); }
         .rank-badge.r2 { color:#67e8f9; text-shadow:0 0 10px rgba(103,232,249,.32); }
         .rank-badge.r3 { color:#f472b6; text-shadow:0 0 10px rgba(244,114,182,.32); }
@@ -1473,6 +1473,13 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
         .lb-status-chip { display:inline-flex; align-items:center; justify-content:center; min-width:4.2rem; padding:.16rem .34rem; border:1px solid rgba(34,211,238,.18); background:rgba(0,0,0,.45); font-size:.5rem; font-weight:900; letter-spacing:.14em; text-transform:uppercase; }
         .lb-status-chip.online { border-color:rgba(74,222,128,.34); color:#4ade80; }
         .lb-status-chip.offline { border-color:rgba(148,163,184,.2); color:#64748b; }
+        /* Wider than :640px only — the mobile card view keeps its own slot
+           size below that (it's the layout the user already said reads fine);
+           this table-only compaction just tightens the desktop rows. */
+        @media(min-width:640px){
+          .lb-tbl .lb-slot-cell { width:1.4rem; height:1.4rem; }
+          .lb-tbl .lb-block-cell { width:1.45rem; height:1.45rem; }
+        }
         .lb-slot-cell { width:1.95rem; height:1.95rem; }
         .lb-block-cell { width:2rem; height:2rem; }
         .lb-penalty-link {
@@ -2165,9 +2172,9 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
                               boxShadow: owned ? `0 0 12px ${tier.color}22` : 'none',
                             }}
                           >
-                            <span style={{ fontSize: owned && showLvl ? '0.78rem' : '0.95rem', lineHeight: 1, ...lifeNftjiEmojiFilterStyle(slot.emoji) }}>{owned ? slot.emoji : ''}</span>
+                            <span style={{ fontSize: owned && showLvl ? '0.58rem' : '0.68rem', lineHeight: 1, ...lifeNftjiEmojiFilterStyle(slot.emoji) }}>{owned ? slot.emoji : ''}</span>
                             {owned && showLvl && (
-                              <span style={{ fontSize: '0.5rem', fontFamily: 'monospace', fontWeight: 800, lineHeight: 1, color: '#a5f3fc' }}>
+                              <span style={{ fontSize: '0.4rem', fontFamily: 'monospace', fontWeight: 800, lineHeight: 1, color: '#a5f3fc' }}>
                                 Lv.{lvlSum}
                               </span>
                             )}
@@ -2192,7 +2199,7 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
                             className="lb-slot-cell relative flex flex-col items-center justify-center rounded-md border"
                             style={{ borderColor: 'rgba(250,204,21,0.6)', background: tier.bg, color: '#fef08a', boxShadow: '0 0 12px rgba(250,204,21,0.25)' }}
                           >
-                            <span style={{ fontSize: '0.78rem', lineHeight: 1 }}>{emoji}</span>
+                            <span style={{ fontSize: '0.58rem', lineHeight: 1 }}>{emoji}</span>
                             <span className="font-mono text-[0.52rem] font-black leading-none text-cyan-200">Lv.{lvlSum}</span>
                           </div>
                         );
@@ -2214,9 +2221,9 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
                               boxShadow: owned ? `0 0 12px ${color}25` : 'none',
                             }}
                           >
-                            <span style={{ fontSize: owned ? '0.78rem' : '0.95rem', lineHeight: 1, ...lifeNftjiEmojiFilterStyle(slot.emoji) }}>{owned ? slot.emoji : ''}</span>
+                            <span style={{ fontSize: owned ? '0.58rem' : '0.68rem', lineHeight: 1, ...lifeNftjiEmojiFilterStyle(slot.emoji) }}>{owned ? slot.emoji : ''}</span>
                             {owned && (
-                              <span style={{ fontSize: '0.5rem', fontFamily: 'monospace', fontWeight: 800, lineHeight: 1, color: '#a5f3fc' }}>
+                              <span style={{ fontSize: '0.4rem', fontFamily: 'monospace', fontWeight: 800, lineHeight: 1, color: '#a5f3fc' }}>
                                 Lv.{lvlSum}
                               </span>
                             )}
@@ -2453,7 +2460,7 @@ export default function Leaderboard({ itemsPerPage = 10 }) {
                               boxShadow: owned ? `0 0 12px ${color}25` : 'none',
                             }}
                           >
-                            <span style={{ fontSize: owned ? '0.78rem' : '0.95rem', lineHeight: 1, ...lifeNftjiEmojiFilterStyle(slot.emoji) }}>{owned ? slot.emoji : ''}</span>
+                            <span style={{ fontSize: owned ? '0.58rem' : '0.68rem', lineHeight: 1, ...lifeNftjiEmojiFilterStyle(slot.emoji) }}>{owned ? slot.emoji : ''}</span>
                             {owned && (
                               <span style={{
                                 fontSize: '0.52rem', fontFamily: 'monospace',
