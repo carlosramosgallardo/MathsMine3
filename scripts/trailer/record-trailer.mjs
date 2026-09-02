@@ -997,7 +997,7 @@ async function visitRelayingPage(page) {
 // ("Start game", "Next round", "Answer: {choice}") independent of the
 // visible/translated button text — no need to juggle locale here.
 async function visitTrainingPage(page) {
-  console.log('Visiting Training — playing a few rounds...')
+  console.log('Visiting Training — playing 3 games...')
   await page.goto(`${BASE_URL}/training`, { waitUntil: 'commit', timeout: 45_000 }).catch((err) => {
     console.warn(`  ! could not navigate to /training (${err.message})`)
   })
@@ -1013,22 +1013,44 @@ async function visitTrainingPage(page) {
   // The correct choice isn't exposed anywhere in the DOM (problem.answer is
   // internal React state — Board.jsx:2283), so there's no way to deliberately
   // pick right vs. wrong ahead of time. Picking a random choice among the
-  // options each round is the closest available proxy: across a few rounds
+  // options each round is the closest available proxy: across a few games
   // it naturally lands on both the correct-flash and wrong-flash states,
   // which is what actually needs to be visible on screen.
-  const ROUNDS = 3
-  for (let i = 0; i < ROUNDS; i += 1) {
+  const GAMES = 3
+  let played = 0
+  for (let i = 0; i < GAMES; i += 1) {
+    // startNextBlock() (Board.jsx:2252) fetches the next problem async —
+    // that can take longer than a fixed sleep, and a single premature
+    // zero-count check here used to `break` the whole loop after only 1-2
+    // games instead of all 3. Poll instead of checking once.
     const answers = page.getByRole('button', { name: /^Answer:/ })
-    const count = await answers.count().catch(() => 0)
-    if (count === 0) break
-    await answers.nth(randomInt(count)).click({ timeout: 6_000 })
-    await sleep(1_100) // hold the correct/wrong flash on screen
-    const nextRound = page.getByRole('button', { name: 'Next round' })
-    if (await nextRound.count().catch(() => 0)) {
-      await nextRound.click({ timeout: 5_000 }).catch(() => {})
-      await sleep(1_000)
+    let count = 0
+    for (let wait = 0; wait < 12 && count === 0; wait += 1) {
+      count = await answers.count().catch(() => 0)
+      if (count === 0) await sleep(500)
     }
+    if (count === 0) {
+      console.warn(`  ! training game ${i + 1}/${GAMES} never showed answer choices — stopping`)
+      break
+    }
+    await answers.nth(randomInt(count)).click({ timeout: 6_000 })
+    played += 1
+    await sleep(1_400) // hold the correct/wrong flash + offer panel on screen
+
+    if (i === GAMES - 1) break // last game — no need to advance again
+    const nextRound = page.getByRole('button', { name: 'Next round' })
+    let advanced = false
+    for (let wait = 0; wait < 10 && !advanced; wait += 1) {
+      advanced = await nextRound.click({ timeout: 1_000 }).then(() => true).catch(() => false)
+      if (!advanced) await sleep(500)
+    }
+    if (!advanced) {
+      console.warn(`  ! could not advance past training game ${i + 1}/${GAMES} — stopping`)
+      break
+    }
+    await sleep(1_000)
   }
+  console.log(`  played ${played}/${GAMES} training games`)
   await sleep(1_500)
 }
 
