@@ -90,6 +90,14 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 const DISPLAY_NUM = GPU_CAPTURE ? process.env.DISPLAY : ':97'
 const PULSE_SINK_NAME = 'mm3trailer'
 const CAPTURE_SIZE = { width: 1280, height: 720 }
+// How far ahead of video the PulseAudio capture starts, in seconds — delays
+// the audio input by this much in startFfmpegCapture() to resync it. Tune
+// this if a recording still shows audio leading (raise it) or now trailing
+// (lower it) the matching visual.
+// Measured against the Training answer transition in the captured MP4:
+// PulseAudio's tone arrived ~0.73s before the countdown disappeared. A
+// 0.90s input offset absorbs that lead plus the original 0.15s startup gap.
+const AUDIO_SYNC_OFFSET_SEC = 0.90
 // Bare Xvfb has no window manager, so Chromium keeps a 70px top frame even
 // in kiosk/app mode. Give the display that extra strip and grab below it.
 const CHROMIUM_FRAME_TOP = 88
@@ -382,7 +390,7 @@ async function waitForMiningInteractionPanel(page, testId) {
   }, testId, { timeout: 5_000 })
 }
 
-async function interact(page, label, { close = false } = {}) {
+async function interact(page, label, { close = false, holdMs = 2500 } = {}) {
   console.log(`  ⏎ interacting: ${label}`)
   await page.keyboard.down('Enter')
   await sleep(150)
@@ -395,7 +403,7 @@ async function interact(page, label, { close = false } = {}) {
   if (panelSelector) {
     await waitForMiningInteractionPanel(page, panelSelector.match(/"([^"]+)"/)?.[1])
   }
-  await sleep(2500) // hold the panel on screen for the footage
+  await sleep(holdMs) // hold the panel on screen for the footage
   if (close) {
     await page.mouse.click(60, CAPTURE_SIZE.height - 60).catch(() => {}) // backdrop corner, clear of HUD chips
     await sleep(400)
@@ -713,6 +721,122 @@ async function cycleChartRanges(page) {
   }
 }
 
+// Shared by the home tour (interactWithSection below) and the standalone
+// '14-trading' clip. The standalone clip can execute one real trade with the
+// disposable trailer wallet so TX.LOG has a fresh row to reveal; the home
+// tour keeps the lighter, reversible interaction.
+async function interactTrading(page, { executeTrade = false } = {}) {
+  await page.getByRole('button', { name: 'Sell' }).click({ timeout: 4_000 }).catch(() => {})
+  await sleep(900)
+  await page.getByRole('button', { name: 'Buy' }).click({ timeout: 4_000 }).catch(() => {})
+  await sleep(900)
+  const slider = page.locator('.mm3-trade-slider input[type="range"]')
+  if (await slider.count().catch(() => 0)) {
+    // A React-controlled range input ignores value set via evaluate()
+    // (no native "input" event fires) — focus it and drive it with the
+    // keyboard instead, a real interaction the browser handles natively.
+    if (await slider.focus({ timeout: 4_000 }).then(() => true).catch(() => false)) {
+      for (let i = 0; i < 12; i += 1) {
+        await page.keyboard.press('ArrowRight')
+        await sleep(90)
+      }
+    }
+    await sleep(600)
+  }
+  if (executeTrade) {
+    const execButton = page.getByRole('button', { name: /^EXEC$/i })
+    await execButton.waitFor({ state: 'visible', timeout: 8_000 })
+    await page.waitForFunction(() => {
+      const button = [...document.querySelectorAll('button')]
+        .find((candidate) => /^EXEC$/i.test(candidate.textContent?.trim() || ''))
+      return Boolean(button && !button.disabled)
+    }, undefined, { timeout: 12_000 })
+    const [response] = await Promise.all([
+      page.waitForResponse((candidate) => (
+        candidate.url().includes('/api/trade/exec')
+          && candidate.request().method() === 'POST'
+      ), { timeout: 20_000 }),
+      execButton.click(),
+    ])
+    const result = await response.json().catch(() => ({}))
+    if (!response.ok() || result?.ok !== true) {
+      throw new Error(`Trading EXEC failed (${response.status()}): ${result?.error || 'unknown error'}`)
+    }
+    await sleep(1_500)
+  }
+  if (await page.getByRole('button', { name: 'tx.log' })
+    .click({ timeout: 4_000 }).then(() => true).catch(() => false)) {
+    await sleep(1_500)
+    // The ledger (.mm3-trade-log, TradeBoard.jsx:952) is its own
+    // overflow-y-auto panel, not part of page scroll — scroll it directly
+    // so older transactions actually come into view instead of just sitting
+    // on the first screenful.
+    const ledger = page.locator('.mm3-trade-log')
+    if (await ledger.count().catch(() => 0)) {
+      await ledger.evaluate((el) => el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' })).catch(() => {})
+      await sleep(1_800) // let the smooth scroll actually play out on screen
+    }
+    await page.getByRole('button', { name: 'sync' }).click({ timeout: 4_000 }).catch(() => {})
+    await sleep(1_000)
+    await page.getByRole('button', { name: ':q ledger' }).click({ timeout: 4_000 }).catch(() => {})
+  }
+}
+
+async function visitTradingPage(page) {
+  console.log('Visiting Trading — exploring the tx log...')
+  await page.goto(`${BASE_URL}/trading`, { waitUntil: 'commit', timeout: 45_000 }).catch((err) => {
+    console.warn(`  ! could not navigate to /trading (${err.message})`)
+  })
+  await sleep(3_000) // let the board mount + wallet/rate state settle
+  await interactTrading(page, { executeTrade: true })
+  await sleep(1_500)
+}
+
+// /squeezing, /ranking, /ai-team and /daily-tasks have no clip of their own
+// anywhere in this script — the home tour below is the only place they're
+// ever shown, so each gets one small, safe, reversible interaction here
+// instead of just a scroll. /trading now also has its own dedicated clip
+// (14-trading) but keeps this lighter pass during the tour too. Never
+// anything that spends a limited daily action or burns real, rate-limited
+// game state (⚔ SQUEEZE/ACCEPT, EXEC, Leave pool, dispute votes).
+async function interactWithSection(page, href) {
+  try {
+    if (href === '/squeezing') {
+      // Expand/collapse a resolved dispute card — cosmetic, local state only.
+      // Collapsed cards are buttons showing "<pool> vs <pool>"; once expanded
+      // the same text moves to a plain span and a separate "▲ Collapse"
+      // button appears, so each state needs its own locator.
+      const disputeToggle = page.locator('main').getByRole('button').filter({ hasText: 'vs' }).first()
+      if (await disputeToggle.click({ timeout: 4_000 }).then(() => true).catch(() => false)) {
+        await sleep(1_500)
+        await page.getByRole('button', { name: 'Collapse' }).first().click({ timeout: 4_000 }).catch(() => {})
+      }
+    } else if (href === '/ranking') {
+      const walletView = page.getByRole('button', { name: 'Wallet ranking' })
+      if (await walletView.click({ timeout: 4_000 }).then(() => true).catch(() => false)) await sleep(1_800)
+      await page.getByRole('button', { name: /^Level/ }).click({ timeout: 4_000 }).catch(() => {})
+      await sleep(1_400)
+      await page.getByRole('button', { name: 'Pool ranking' }).click({ timeout: 4_000 }).catch(() => {})
+      await sleep(1_400)
+    } else if (href === '/daily-tasks') {
+      // Claim a completed task if one's ready (one-time, non-destructive —
+      // the same call this trailer wallet could make for real), then fold a
+      // claimed card open/closed.
+      if (await page.getByRole('button', { name: 'Claim' }).first()
+        .click({ timeout: 4_000 }).then(() => true).catch(() => false)) await sleep(1_800)
+      const claimedToggle = page.locator('.daily-task-claimed').first()
+      if (await claimedToggle.click({ timeout: 4_000 }).then(() => true).catch(() => false)) {
+        await sleep(1_200)
+        await claimedToggle.click({ timeout: 4_000 }).catch(() => {})
+      }
+    } else if (href === '/trading') {
+      await interactTrading(page)
+    }
+  } catch (err) {
+    console.warn(`  ! ${href} interaction skipped (${err.message})`)
+  }
+}
+
 // Portal accesses are now a stacked list of rows (PortalCardList,
 // LandingHero.jsx), one direct link each — no more polygon side to hover
 // first (that was also what fired the nav-tick sound, which the new list
@@ -739,6 +863,9 @@ async function enterPortalRowsInOrder(page) {
       await page.waitForURL((url) => url.pathname === href, { timeout: 8_000 }).catch(() => {})
     }
     await sleep(3_000) // hold the section on screen
+    if (['/squeezing', '/ranking', '/daily-tasks', '/trading'].includes(href)) {
+      await interactWithSection(page, href)
+    }
     if (href === '/mm3-value') await cycleChartRanges(page)
     if (href === '/manifesto') await scrollManifestoSlowly(page)
     else await progressivelyScrollPage(page)
@@ -927,13 +1054,19 @@ async function visitRelayingPage(page) {
 // ("Start game", "Next round", "Answer: {choice}") independent of the
 // visible/translated button text — no need to juggle locale here.
 async function visitTrainingPage(page) {
-  console.log('Visiting Training — playing a few rounds...')
+  const GAMES = 5
+  console.log(`Visiting Training — playing ${GAMES} games...`)
   await page.goto(`${BASE_URL}/training`, { waitUntil: 'commit', timeout: 45_000 }).catch((err) => {
     console.warn(`  ! could not navigate to /training (${err.message})`)
   })
   await sleep(3_000) // let the board mount + wallet/slot state settle
 
-  const started = await page.getByRole('button', { name: 'Start game' })
+  // seedProgress() (below) seeds the trailer wallet at level 55, not 0 — Board.jsx
+  // only shows "Start game" when the loaded level is 0 (Board.jsx:1106/2196); at
+  // any level above that the very first button is already "Next round" instead.
+  // Matching only 'Start game' here always timed out and aborted the whole clip
+  // before a single problem ever rendered — match whichever of the two is up.
+  const started = await page.getByRole('button', { name: /^(Start game|Next round)$/ })
     .click({ timeout: 8_000 }).then(() => true).catch(() => false)
   if (!started) {
     throw new Error('Training could not start (board unavailable or no daily slots)')
@@ -943,22 +1076,43 @@ async function visitTrainingPage(page) {
   // The correct choice isn't exposed anywhere in the DOM (problem.answer is
   // internal React state — Board.jsx:2283), so there's no way to deliberately
   // pick right vs. wrong ahead of time. Picking a random choice among the
-  // options each round is the closest available proxy: across a few rounds
+  // options each round is the closest available proxy: across a few games
   // it naturally lands on both the correct-flash and wrong-flash states,
   // which is what actually needs to be visible on screen.
-  const ROUNDS = 3
-  for (let i = 0; i < ROUNDS; i += 1) {
+  let played = 0
+  for (let i = 0; i < GAMES; i += 1) {
+    // startNextBlock() (Board.jsx:2252) fetches the next problem async —
+    // that can take longer than a fixed sleep, and a single premature
+    // zero-count check here used to `break` the whole loop after only 1-2
+    // games instead of all 3. Poll instead of checking once.
     const answers = page.getByRole('button', { name: /^Answer:/ })
-    const count = await answers.count().catch(() => 0)
-    if (count === 0) break
-    await answers.nth(randomInt(count)).click({ timeout: 6_000 })
-    await sleep(1_100) // hold the correct/wrong flash on screen
-    const nextRound = page.getByRole('button', { name: 'Next round' })
-    if (await nextRound.count().catch(() => 0)) {
-      await nextRound.click({ timeout: 5_000 }).catch(() => {})
-      await sleep(1_000)
+    let count = 0
+    for (let wait = 0; wait < 12 && count === 0; wait += 1) {
+      count = await answers.count().catch(() => 0)
+      if (count === 0) await sleep(500)
     }
+    if (count === 0) {
+      console.warn(`  ! training game ${i + 1}/${GAMES} never showed answer choices — stopping`)
+      break
+    }
+    await answers.nth(randomInt(count)).click({ timeout: 6_000 })
+    played += 1
+    await sleep(1_400) // hold the correct/wrong flash + offer panel on screen
+
+    if (i === GAMES - 1) break // last game — no need to advance again
+    const nextRound = page.getByRole('button', { name: 'Next round' })
+    let advanced = false
+    for (let wait = 0; wait < 10 && !advanced; wait += 1) {
+      advanced = await nextRound.click({ timeout: 1_000 }).then(() => true).catch(() => false)
+      if (!advanced) await sleep(500)
+    }
+    if (!advanced) {
+      console.warn(`  ! could not advance past training game ${i + 1}/${GAMES} — stopping`)
+      break
+    }
+    await sleep(1_000)
   }
+  console.log(`  played ${played}/${GAMES} training games`)
   await sleep(1_500)
 }
 
@@ -1314,6 +1468,12 @@ async function startFfmpegCapture(page, outPath) {
     '-thread_queue_size', '1024',
     ...videoInput,
     '-thread_queue_size', '1024',
+    // PulseAudio's monitor starts capturing essentially instantly, while
+    // x11grab has to lock onto the X server and grab its first real frame —
+    // that head start made every in-game cue (training's correct/wrong tone
+    // included) play audibly ahead of the matching visual. Delay the audio
+    // input to line it back up with video's later start.
+    '-itsoffset', String(AUDIO_SYNC_OFFSET_SEC),
     '-f', 'pulse', '-i', `${PULSE_SINK_NAME}.monitor`,
     ...(GPU_CAPTURE ? ['-vf', `crop=${CAPTURE_SIZE.width}:${CAPTURE_SIZE.height}:8:85`] : []),
     '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '20', '-pix_fmt', 'yuv420p',
@@ -1402,6 +1562,17 @@ async function seedProgress(wallet) {
   const { error: gamesCleanupError } = await supabase.from('games').delete().eq('wallet', wallet).gte('created_at', todayStart.toISOString())
   if (gamesCleanupError && gamesCleanupError.code !== '42P01') {
     throw new Error(`reset trailer wallet training slots ${wallet}: ${gamesCleanupError.message}`)
+  }
+  // EXEC is capped at five trades per UTC day. The trailer wallet is
+  // disposable, so clear only its rows from today before recording; this
+  // keeps `--only 14-trading` repeatable and leaves room for retry attempts.
+  const { error: tradesCleanupError } = await supabase
+    .from('mm3_sell_transactions')
+    .delete()
+    .eq('wallet', wallet)
+    .gte('created_at', todayStart.toISOString())
+  if (tradesCleanupError && tradesCleanupError.code !== '42P01') {
+    throw new Error(`reset trailer wallet trading EXECs ${wallet}: ${tradesCleanupError.message}`)
   }
   await ensureProgress(supabase, wallet, {
     level: 55,
@@ -1557,14 +1728,19 @@ async function run() {
       : null
     const miningClips = [
       ['02-m1-chain-node', '1', LANDMARKS.m1ChainNode, () => solveChainWithTrailerAnswer(page), castWallet(0)],
-      ['03-m1-milei', '1', LANDMARKS.m1Milei, () => interact(page, LANDMARKS.m1Milei.label), castWallet(1)],
+      // Opening the statue panel fires its /voices/*.mp3 line (boss-statue-voice.js)
+      // — milei.mp3 runs ~3.76s, longer than the default 2.5s hold, so it was
+      // getting cut off. Extra holdMs here only, not the shared interact() default
+      // (Zelensky and the chain node keep their normal pace).
+      ['03-m1-milei', '1', LANDMARKS.m1Milei, () => interact(page, LANDMARKS.m1Milei.label, { holdMs: 4_500 }), castWallet(1)],
       ['04-m1-zelensky', '1', LANDMARKS.m1Zelensky, () => interact(page, LANDMARKS.m1Zelensky.label), castWallet(2)],
       ['05-m1-node-dice', '1', LANDMARKS.m1NodeDice, async () => { await sleep(2_000) }, castWallet(3)],
       ...(nftjiTarget ? [['06-m1-nftji-buy', '1', nftjiTarget, () => buyNftjiThroughRelaying(page, nftjiTarget), TRAILER_WALLET]] : []),
     ]
     if (!QUICK) {
       miningClips.push(
-        ['07-m2-macron', '2', LANDMARKS.m2Macron, () => interact(page, LANDMARKS.m2Macron.label), castWallet(3)],
+        // macron.mp3 runs ~4.88s — same reasoning as Milei above.
+        ['07-m2-macron', '2', LANDMARKS.m2Macron, () => interact(page, LANDMARKS.m2Macron.label, { holdMs: 5_600 }), castWallet(3)],
         ['08-m2-rlnode-buy', '2', LANDMARKS.m2RlNode, () => interactAndBuyRlCar(page, LANDMARKS.m2RlNode.label), castWallet(0)],
         ['09-m3-putin', '3', LANDMARKS.m3Putin, async () => {
           await fightBossToDeath(page, LANDMARKS.m3Putin.label)
@@ -1624,6 +1800,15 @@ async function run() {
       }
       await keepRecording('13-mining-aerial-all-maps', () => (
         recordAerialTourClip(page, outDir, supabase, TRAILER_WALLET)
+      ))
+    }
+    if (!QUICK && (!ONLY || '14-trading'.includes(ONLY))) {
+      if (activeWallet !== TRAILER_WALLET) {
+        await switchSessionWallet(page, TRAILER_WALLET)
+        activeWallet = TRAILER_WALLET
+      }
+      await keepRecording('14-trading', () => recordClipWithRetries(
+        page, outDir, '14-trading', async () => {}, () => visitTradingPage(page),
       ))
     }
   } catch (err) {
