@@ -1003,7 +1003,12 @@ async function visitTrainingPage(page) {
   })
   await sleep(3_000) // let the board mount + wallet/slot state settle
 
-  const started = await page.getByRole('button', { name: 'Start game' })
+  // seedProgress() (below) seeds the trailer wallet at level 55, not 0 — Board.jsx
+  // only shows "Start game" when the loaded level is 0 (Board.jsx:1106/2196); at
+  // any level above that the very first button is already "Next round" instead.
+  // Matching only 'Start game' here always timed out and aborted the whole clip
+  // before a single problem ever rendered — match whichever of the two is up.
+  const started = await page.getByRole('button', { name: /^(Start game|Next round)$/ })
     .click({ timeout: 8_000 }).then(() => true).catch(() => false)
   if (!started) {
     throw new Error('Training could not start (board unavailable or no daily slots)')
