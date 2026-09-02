@@ -718,12 +718,62 @@ async function cycleChartRanges(page) {
   }
 }
 
-// /squeezing, /ranking, /ai-team, /daily-tasks and /trading have no clip of
-// their own anywhere in this script — the home tour below is the only place
-// they're ever shown, so each gets one small, safe, reversible interaction
-// here instead of just a scroll. Never anything that spends a limited daily
-// action or burns real, rate-limited game state (⚔ SQUEEZE/ACCEPT, EXEC,
-// Leave pool, dispute votes) — those stay untouched.
+// Shared by the home tour (interactWithSection below) and the standalone
+// '14-trading' clip. Never clicks EXEC (executes a real, daily-limited
+// trade) or the Zero-Day claim — only mode/slider/ledger, all reversible.
+async function interactTrading(page) {
+  await page.getByRole('button', { name: 'Sell' }).click({ timeout: 4_000 }).catch(() => {})
+  await sleep(900)
+  await page.getByRole('button', { name: 'Buy' }).click({ timeout: 4_000 }).catch(() => {})
+  await sleep(900)
+  const slider = page.locator('.mm3-trade-slider input[type="range"]')
+  if (await slider.count().catch(() => 0)) {
+    // A React-controlled range input ignores value set via evaluate()
+    // (no native "input" event fires) — focus it and drive it with the
+    // keyboard instead, a real interaction the browser handles natively.
+    if (await slider.focus({ timeout: 4_000 }).then(() => true).catch(() => false)) {
+      for (let i = 0; i < 12; i += 1) {
+        await page.keyboard.press('ArrowRight')
+        await sleep(90)
+      }
+    }
+    await sleep(600)
+  }
+  if (await page.getByRole('button', { name: 'tx.log' })
+    .click({ timeout: 4_000 }).then(() => true).catch(() => false)) {
+    await sleep(1_500)
+    // The ledger (.mm3-trade-log, TradeBoard.jsx:952) is its own
+    // overflow-y-auto panel, not part of page scroll — scroll it directly
+    // so older transactions actually come into view instead of just sitting
+    // on the first screenful.
+    const ledger = page.locator('.mm3-trade-log')
+    if (await ledger.count().catch(() => 0)) {
+      await ledger.evaluate((el) => el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' })).catch(() => {})
+      await sleep(1_800) // let the smooth scroll actually play out on screen
+    }
+    await page.getByRole('button', { name: 'sync' }).click({ timeout: 4_000 }).catch(() => {})
+    await sleep(1_000)
+    await page.getByRole('button', { name: ':q ledger' }).click({ timeout: 4_000 }).catch(() => {})
+  }
+}
+
+async function visitTradingPage(page) {
+  console.log('Visiting Trading — exploring the tx log...')
+  await page.goto(`${BASE_URL}/trading`, { waitUntil: 'commit', timeout: 45_000 }).catch((err) => {
+    console.warn(`  ! could not navigate to /trading (${err.message})`)
+  })
+  await sleep(3_000) // let the board mount + wallet/rate state settle
+  await interactTrading(page)
+  await sleep(1_500)
+}
+
+// /squeezing, /ranking, /ai-team and /daily-tasks have no clip of their own
+// anywhere in this script — the home tour below is the only place they're
+// ever shown, so each gets one small, safe, reversible interaction here
+// instead of just a scroll. /trading now also has its own dedicated clip
+// (14-trading) but keeps this lighter pass during the tour too. Never
+// anything that spends a limited daily action or burns real, rate-limited
+// game state (⚔ SQUEEZE/ACCEPT, EXEC, Leave pool, dispute votes).
 async function interactWithSection(page, href) {
   try {
     if (href === '/squeezing') {
@@ -755,30 +805,7 @@ async function interactWithSection(page, href) {
         await claimedToggle.click({ timeout: 4_000 }).catch(() => {})
       }
     } else if (href === '/trading') {
-      await page.getByRole('button', { name: 'Sell' }).click({ timeout: 4_000 }).catch(() => {})
-      await sleep(900)
-      await page.getByRole('button', { name: 'Buy' }).click({ timeout: 4_000 }).catch(() => {})
-      await sleep(900)
-      const slider = page.locator('.mm3-trade-slider input[type="range"]')
-      if (await slider.count().catch(() => 0)) {
-        // A React-controlled range input ignores value set via evaluate()
-        // (no native "input" event fires) — focus it and drive it with the
-        // keyboard instead, a real interaction the browser handles natively.
-        if (await slider.focus({ timeout: 4_000 }).then(() => true).catch(() => false)) {
-          for (let i = 0; i < 12; i += 1) {
-            await page.keyboard.press('ArrowRight')
-            await sleep(90)
-          }
-        }
-        await sleep(600)
-      }
-      if (await page.getByRole('button', { name: 'tx.log' })
-        .click({ timeout: 4_000 }).then(() => true).catch(() => false)) {
-        await sleep(1_500)
-        await page.getByRole('button', { name: 'sync' }).click({ timeout: 4_000 }).catch(() => {})
-        await sleep(1_000)
-        await page.getByRole('button', { name: ':q ledger' }).click({ timeout: 4_000 }).catch(() => {})
-      }
+      await interactTrading(page)
     }
   } catch (err) {
     console.warn(`  ! ${href} interaction skipped (${err.message})`)
@@ -1737,6 +1764,15 @@ async function run() {
       }
       await keepRecording('13-mining-aerial-all-maps', () => (
         recordAerialTourClip(page, outDir, supabase, TRAILER_WALLET)
+      ))
+    }
+    if (!QUICK && (!ONLY || '14-trading'.includes(ONLY))) {
+      if (activeWallet !== TRAILER_WALLET) {
+        await switchSessionWallet(page, TRAILER_WALLET)
+        activeWallet = TRAILER_WALLET
+      }
+      await keepRecording('14-trading', () => recordClipWithRetries(
+        page, outDir, '14-trading', async () => {}, () => visitTradingPage(page),
       ))
     }
   } catch (err) {
