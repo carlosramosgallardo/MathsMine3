@@ -382,7 +382,7 @@ async function waitForMiningInteractionPanel(page, testId) {
   }, testId, { timeout: 5_000 })
 }
 
-async function interact(page, label, { close = false } = {}) {
+async function interact(page, label, { close = false, holdMs = 2500 } = {}) {
   console.log(`  ⏎ interacting: ${label}`)
   await page.keyboard.down('Enter')
   await sleep(150)
@@ -395,7 +395,7 @@ async function interact(page, label, { close = false } = {}) {
   if (panelSelector) {
     await waitForMiningInteractionPanel(page, panelSelector.match(/"([^"]+)"/)?.[1])
   }
-  await sleep(2500) // hold the panel on screen for the footage
+  await sleep(holdMs) // hold the panel on screen for the footage
   if (close) {
     await page.mouse.click(60, CAPTURE_SIZE.height - 60).catch(() => {}) // backdrop corner, clear of HUD chips
     await sleep(400)
@@ -1654,14 +1654,19 @@ async function run() {
       : null
     const miningClips = [
       ['02-m1-chain-node', '1', LANDMARKS.m1ChainNode, () => solveChainWithTrailerAnswer(page), castWallet(0)],
-      ['03-m1-milei', '1', LANDMARKS.m1Milei, () => interact(page, LANDMARKS.m1Milei.label), castWallet(1)],
+      // Opening the statue panel fires its /voices/*.mp3 line (boss-statue-voice.js)
+      // — milei.mp3 runs ~3.76s, longer than the default 2.5s hold, so it was
+      // getting cut off. Extra holdMs here only, not the shared interact() default
+      // (Zelensky and the chain node keep their normal pace).
+      ['03-m1-milei', '1', LANDMARKS.m1Milei, () => interact(page, LANDMARKS.m1Milei.label, { holdMs: 4_500 }), castWallet(1)],
       ['04-m1-zelensky', '1', LANDMARKS.m1Zelensky, () => interact(page, LANDMARKS.m1Zelensky.label), castWallet(2)],
       ['05-m1-node-dice', '1', LANDMARKS.m1NodeDice, async () => { await sleep(2_000) }, castWallet(3)],
       ...(nftjiTarget ? [['06-m1-nftji-buy', '1', nftjiTarget, () => buyNftjiThroughRelaying(page, nftjiTarget), TRAILER_WALLET]] : []),
     ]
     if (!QUICK) {
       miningClips.push(
-        ['07-m2-macron', '2', LANDMARKS.m2Macron, () => interact(page, LANDMARKS.m2Macron.label), castWallet(3)],
+        // macron.mp3 runs ~4.88s — same reasoning as Milei above.
+        ['07-m2-macron', '2', LANDMARKS.m2Macron, () => interact(page, LANDMARKS.m2Macron.label, { holdMs: 5_600 }), castWallet(3)],
         ['08-m2-rlnode-buy', '2', LANDMARKS.m2RlNode, () => interactAndBuyRlCar(page, LANDMARKS.m2RlNode.label), castWallet(0)],
         ['09-m3-putin', '3', LANDMARKS.m3Putin, async () => {
           await fightBossToDeath(page, LANDMARKS.m3Putin.label)
