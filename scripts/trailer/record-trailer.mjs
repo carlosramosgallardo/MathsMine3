@@ -94,7 +94,10 @@ const CAPTURE_SIZE = { width: 1280, height: 720 }
 // the audio input by this much in startFfmpegCapture() to resync it. Tune
 // this if a recording still shows audio leading (raise it) or now trailing
 // (lower it) the matching visual.
-const AUDIO_SYNC_OFFSET_SEC = 0.15
+// Measured against the Training answer transition in the captured MP4:
+// PulseAudio's tone arrived ~0.73s before the countdown disappeared. A
+// 0.90s input offset absorbs that lead plus the original 0.15s startup gap.
+const AUDIO_SYNC_OFFSET_SEC = 0.90
 // Bare Xvfb has no window manager, so Chromium keeps a 70px top frame even
 // in kiosk/app mode. Give the display that extra strip and grab below it.
 const CHROMIUM_FRAME_TOP = 88
@@ -719,9 +722,10 @@ async function cycleChartRanges(page) {
 }
 
 // Shared by the home tour (interactWithSection below) and the standalone
-// '14-trading' clip. Never clicks EXEC (executes a real, daily-limited
-// trade) or the Zero-Day claim — only mode/slider/ledger, all reversible.
-async function interactTrading(page) {
+// '14-trading' clip. The standalone clip can execute one real trade with the
+// disposable trailer wallet so TX.LOG has a fresh row to reveal; the home
+// tour keeps the lighter, reversible interaction.
+async function interactTrading(page, { executeTrade = false } = {}) {
   await page.getByRole('button', { name: 'Sell' }).click({ timeout: 4_000 }).catch(() => {})
   await sleep(900)
   await page.getByRole('button', { name: 'Buy' }).click({ timeout: 4_000 }).catch(() => {})
@@ -738,6 +742,27 @@ async function interactTrading(page) {
       }
     }
     await sleep(600)
+  }
+  if (executeTrade) {
+    const execButton = page.getByRole('button', { name: /^EXEC$/i })
+    await execButton.waitFor({ state: 'visible', timeout: 8_000 })
+    await page.waitForFunction(() => {
+      const button = [...document.querySelectorAll('button')]
+        .find((candidate) => /^EXEC$/i.test(candidate.textContent?.trim() || ''))
+      return Boolean(button && !button.disabled)
+    }, undefined, { timeout: 12_000 })
+    const [response] = await Promise.all([
+      page.waitForResponse((candidate) => (
+        candidate.url().includes('/api/trade/exec')
+          && candidate.request().method() === 'POST'
+      ), { timeout: 20_000 }),
+      execButton.click(),
+    ])
+    const result = await response.json().catch(() => ({}))
+    if (!response.ok() || result?.ok !== true) {
+      throw new Error(`Trading EXEC failed (${response.status()}): ${result?.error || 'unknown error'}`)
+    }
+    await sleep(1_500)
   }
   if (await page.getByRole('button', { name: 'tx.log' })
     .click({ timeout: 4_000 }).then(() => true).catch(() => false)) {
@@ -763,7 +788,7 @@ async function visitTradingPage(page) {
     console.warn(`  ! could not navigate to /trading (${err.message})`)
   })
   await sleep(3_000) // let the board mount + wallet/rate state settle
-  await interactTrading(page)
+  await interactTrading(page, { executeTrade: true })
   await sleep(1_500)
 }
 
@@ -1537,6 +1562,17 @@ async function seedProgress(wallet) {
   const { error: gamesCleanupError } = await supabase.from('games').delete().eq('wallet', wallet).gte('created_at', todayStart.toISOString())
   if (gamesCleanupError && gamesCleanupError.code !== '42P01') {
     throw new Error(`reset trailer wallet training slots ${wallet}: ${gamesCleanupError.message}`)
+  }
+  // EXEC is capped at five trades per UTC day. The trailer wallet is
+  // disposable, so clear only its rows from today before recording; this
+  // keeps `--only 14-trading` repeatable and leaves room for retry attempts.
+  const { error: tradesCleanupError } = await supabase
+    .from('mm3_sell_transactions')
+    .delete()
+    .eq('wallet', wallet)
+    .gte('created_at', todayStart.toISOString())
+  if (tradesCleanupError && tradesCleanupError.code !== '42P01') {
+    throw new Error(`reset trailer wallet trading EXECs ${wallet}: ${tradesCleanupError.message}`)
   }
   await ensureProgress(supabase, wallet, {
     level: 55,
