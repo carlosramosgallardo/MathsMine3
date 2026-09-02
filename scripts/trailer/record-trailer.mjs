@@ -90,6 +90,11 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 const DISPLAY_NUM = GPU_CAPTURE ? process.env.DISPLAY : ':97'
 const PULSE_SINK_NAME = 'mm3trailer'
 const CAPTURE_SIZE = { width: 1280, height: 720 }
+// How far ahead of video the PulseAudio capture starts, in seconds — delays
+// the audio input by this much in startFfmpegCapture() to resync it. Tune
+// this if a recording still shows audio leading (raise it) or now trailing
+// (lower it) the matching visual.
+const AUDIO_SYNC_OFFSET_SEC = 0.15
 // Bare Xvfb has no window manager, so Chromium keeps a 70px top frame even
 // in kiosk/app mode. Give the display that extra strip and grab below it.
 const CHROMIUM_FRAME_TOP = 88
@@ -997,7 +1002,8 @@ async function visitRelayingPage(page) {
 // ("Start game", "Next round", "Answer: {choice}") independent of the
 // visible/translated button text — no need to juggle locale here.
 async function visitTrainingPage(page) {
-  console.log('Visiting Training — playing 3 games...')
+  const GAMES = 5
+  console.log(`Visiting Training — playing ${GAMES} games...`)
   await page.goto(`${BASE_URL}/training`, { waitUntil: 'commit', timeout: 45_000 }).catch((err) => {
     console.warn(`  ! could not navigate to /training (${err.message})`)
   })
@@ -1021,7 +1027,6 @@ async function visitTrainingPage(page) {
   // options each round is the closest available proxy: across a few games
   // it naturally lands on both the correct-flash and wrong-flash states,
   // which is what actually needs to be visible on screen.
-  const GAMES = 3
   let played = 0
   for (let i = 0; i < GAMES; i += 1) {
     // startNextBlock() (Board.jsx:2252) fetches the next problem async —
@@ -1411,6 +1416,12 @@ async function startFfmpegCapture(page, outPath) {
     '-thread_queue_size', '1024',
     ...videoInput,
     '-thread_queue_size', '1024',
+    // PulseAudio's monitor starts capturing essentially instantly, while
+    // x11grab has to lock onto the X server and grab its first real frame —
+    // that head start made every in-game cue (training's correct/wrong tone
+    // included) play audibly ahead of the matching visual. Delay the audio
+    // input to line it back up with video's later start.
+    '-itsoffset', String(AUDIO_SYNC_OFFSET_SEC),
     '-f', 'pulse', '-i', `${PULSE_SINK_NAME}.monitor`,
     ...(GPU_CAPTURE ? ['-vf', `crop=${CAPTURE_SIZE.width}:${CAPTURE_SIZE.height}:8:85`] : []),
     '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '20', '-pix_fmt', 'yuv420p',
