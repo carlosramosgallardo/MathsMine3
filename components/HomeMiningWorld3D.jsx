@@ -778,6 +778,17 @@ export default function HomeMiningWorld3D() {
         bossById.trump, bossById.putin, homeProps[0], bossById.milei,
         homeBotCar, bossById.kim, bossById.zelensky, bossById.macron, homeNuke,
       ]
+      // The camera only ever frames ~3 centered slots (frameCamera above —
+      // "fov computed to fit the three visible carousel slots"), so with a
+      // fixed lineup order the same three (whichever land near railX=0)
+      // always greet you. Shuffling the order here means a different random
+      // three are centered on every mount (Home reload, or navigating back
+      // to it) while everyone still exists exactly as before, one drag away
+      // — no visibility toggling, no touching the framing/feature-show math.
+      for (let i = lineup.length - 1; i > 0; i -= 1) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [lineup[i], lineup[j]] = [lineup[j], lineup[i]]
+      }
       const RAIL_SPACING = 6.0
       const railSpan = lineup.length * RAIL_SPACING
       lineup.forEach((entry, i) => {
@@ -936,14 +947,15 @@ export default function HomeMiningWorld3D() {
           if (!isEmbedArena) window.dispatchEvent(new CustomEvent('mm3-stage-zoom-toggle'))
         }
         stageEl?.addEventListener('click', onStageClick)
-        // Polygon auto-rotation (LandingHero) broadcasts a cycle event — the
-        // carousel glides one slot in sync, unless the user is mid-drag.
-        const onCycle = () => {
-          // Paused while dragging and while a feature show is on stage.
+        // Self-paced auto-advance (used to be driven by the nonagon's own
+        // rotation timer in LandingHero — that polygon is gone, replaced by
+        // the stacked portal list, so the carousel now paces itself instead
+        // of waiting on an external cycle event that no longer exists).
+        // Same 3s cadence and guards as the old nonagon rotation.
+        const cycleTimer = setInterval(() => {
           if (rail.dragging || feature.phase !== 'idle') return
           rail.snapTarget += RAIL_SPACING // glide exactly one slot
-        }
-        window.addEventListener('mm3-home-cycle', onCycle)
+        }, 3000)
         accessEl?.style && (accessEl.style.touchAction = 'pan-y')
         accessEl?.addEventListener('pointerdown', onDown)
         window.addEventListener('pointermove', onMove)
@@ -954,7 +966,7 @@ export default function HomeMiningWorld3D() {
         hoverCleanup = () => {
           prevHoverCleanup?.()
           stageEl?.removeEventListener('click', onStageClick)
-          window.removeEventListener('mm3-home-cycle', onCycle)
+          clearInterval(cycleTimer)
           accessEl?.removeEventListener('pointerdown', onDown)
           window.removeEventListener('pointermove', onMove)
           window.removeEventListener('pointerup', onUp)

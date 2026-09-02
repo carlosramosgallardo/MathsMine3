@@ -1,16 +1,12 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
 import { useI18n } from '@/lib/i18n-context';
-import { useSound } from '@/lib/sound-context';
 import { useActiveWallet } from '@/lib/use-active-wallet';
 import { loadDailyTaskProgress } from '@/lib/daily-tasks';
 import supabase from '@/lib/supabaseClient';
 import HomeMiningScene from '@/components/HomeMiningScene';
-import HomeWorldMinimap from '@/components/HomeWorldMinimap';
 import { prefetchMiningRoute } from '@/lib/prefetch-mining';
 import { getEmojiTitle, computeRelayLevel, lifeNftjiEmojiFilterStyle } from '@/lib/wallet-decorations';
 
@@ -74,11 +70,6 @@ const PORTAL = {
   ],
 };
 
-/**
- * The nine portal accesses as a nonagon: each side is one access (its accent
- * colour + icon); hovering/selecting a side extends that card's info in the
- * centre, clicking the side (or the centre button) navigates.
- */
 /** One NFTJI tile — logo-badge format: framed square with the emoji inside
     and, when leveled/equipped, a corner badge with the current level (like the
     header logo tile, with the level where the home marker sits). Three states:
@@ -114,202 +105,74 @@ function NftjiChip({ emoji, nftji, es }) {
   )
 }
 
-function NonagonPortal({ portal, es, isDead, deadCountdown, count, nftji, miningBlocks }) {
-  const router = useRouter()
-  const { playNavTick } = useSound()
-  const [sel, setSel] = useState(0)
-  // Core toggle: MM3 logo (compact — the avatar showcase gets the spotlight)
-  // ⇄ extended world minimap (the nonagon grows to fit it).
-  const [mapOpen, setMapOpen] = useState(false)
-  // Track last manual interaction so auto-rotation backs off for 5s on mobile.
-  const lastManualRef = useRef(0)
-  const markSide = (i) => {
-    if (i === sel) return
-    lastManualRef.current = performance.now()
-    setSel(i)
-    playNavTick()
-  }
-  const goPrev = () => {
-    lastManualRef.current = performance.now()
-    setSel((s) => (s - 1 + portal.length) % portal.length)
-    playNavTick()
-  }
-  const goNext = () => {
-    lastManualRef.current = performance.now()
-    setSel((s) => (s + 1) % portal.length)
-    playNavTick()
-  }
-
-  // Auto-rotation: every 3s the marked side advances and the card cycles
-  // through the nine accesses. Pauses while the pointer is over the polygon
-  // (manual browsing wins), while the map is open, and for 5s after any
-  // manual touch interaction. Silent — the nav tick only plays on manual hover.
-  const [autoPaused, setAutoPaused] = useState(false)
-  useEffect(() => {
-    if (mapOpen || autoPaused) return undefined
-    const id = setInterval(() => {
-      if (performance.now() - lastManualRef.current < 5000) return
-      setSel((s) => (s + 1) % portal.length)
-      // Keep the avatar carousel gliding in sync with the side rotation.
-      window.dispatchEvent(new CustomEvent('mm3-home-cycle'))
-    }, 3000)
-    return () => clearInterval(id)
-  }, [mapOpen, autoPaused, portal.length])
-  const C = 200
-  const R = 176
-  // One side per portal access — the polygon grows with the accesses (10 now).
-  const sideStep = 360 / portal.length
-  const pt = (i) => {
-    const a = ((-90 + i * sideStep) * Math.PI) / 180
-    return [C + R * Math.cos(a), C + R * Math.sin(a)]
-  }
+/**
+ * Portal accesses as a plain stacked list, one row per section — replaces
+ * the nonagon polygon + MM3 logo (no more select-then-navigate two-step:
+ * each row's title is a direct link, like every other nav on the site).
+ * Every row shows its own icon/desc/NFTJI chips at once, so there's no
+ * selection state or auto-rotation to drive a "which one is showing" cycle
+ * — the earlier per-selection card became a permanent per-row block instead.
+ */
+function PortalCardList({ portal, es, isDead, deadCountdown, count, nftji, miningBlocks }) {
   const isBlocked = (href) => isDead && INTERACTIVE_HREFS.has(href)
-  const current = portal[sel] || portal[0]
-  const currentBlocked = isBlocked(current.href)
-
-  // Map mode: no polygon at all — the world minimap takes the full carpet
-  // width on its own; clicking it warps back to the logo + nonagon.
-  if (mapOpen) {
-    return (
-      <div className="mm3-nonagon is-open">
-        <button
-          type="button"
-          className="mm3-nonagon-mapfull"
-          onClick={() => setMapOpen(false)}
-          title={es ? 'Mostrar logo MM3' : 'Show MM3 logo'}
-        >
-          <span className="mm3-nonagon-core-flip">
-            <HomeWorldMinimap es={es} />
-          </span>
-        </button>
-      </div>
-    )
-  }
-
   return (
-    <div
-      className="mm3-nonagon"
-      onMouseEnter={() => setAutoPaused(true)}
-      onMouseLeave={() => setAutoPaused(false)}
-    >
-      <div className="mm3-nonagon-ring-row">
-      <button type="button" className="mm3-nonagon-arrow" aria-label={es ? 'Anterior' : 'Previous'} onClick={goPrev}>‹</button>
-      <div className="mm3-nonagon-ring">
-      <svg viewBox="0 0 400 400" className="mm3-nonagon-svg" aria-label={es ? 'Accesos del portal' : 'Portal accesses'}>
-        {portal.map((card, i) => {
-          const [x1, y1] = pt(i)
-          const [x2, y2] = pt(i + 1)
-          const mx = (x1 + x2) / 2
-          const my = (y1 + y2) / 2
-          // Badge hugs its side (0.94 ≈ on the stroke) so the enlarged core
-          // logo (radius ~151 in viewBox units) never covers it.
-          const ix = C + (mx - C) * 0.94
-          const iy = C + (my - C) * 0.94
-          const blocked = isBlocked(card.href)
-          const selected = i === sel
-          // Sides carry no icons and only the two eye colours: holo cyan at
-          // rest, fight red when the side is marked.
-          const stroke = blocked ? '#4b5563' : selected ? '#ff2020' : '#22d3ee'
-          return (
-            <g
-              key={card.href}
-              className="mm3-nonagon-side"
-              data-testid={`mm3-portal-side-${card.href.replace(/^\//, '')}`}
-              data-portal-href={card.href}
-              style={{ cursor: blocked ? 'not-allowed' : 'pointer' }}
-              onMouseEnter={() => markSide(i)}
-              onClick={() => {
-                if (i !== sel) {
-                  // First tap/click: select this side so the ficha is visible.
-                  // Desktop: hover already selected it so i === sel and we navigate.
-                  lastManualRef.current = performance.now()
-                  markSide(i)
-                } else if (!blocked) {
-                  router.push(card.href)
-                }
-              }}
-            >
-              <line
-                x1={x1} y1={y1} x2={x2} y2={y2}
-                stroke={stroke}
-                strokeWidth={selected ? 13 : 8}
-                strokeLinecap="round"
-                opacity={selected ? 1 : 0.62}
-                style={selected && !blocked ? { filter: 'drop-shadow(0 0 6px #ff2020)' } : undefined}
-              />
-              <line x1={x1} y1={y1} x2={x2} y2={y2} stroke="transparent" strokeWidth={56} strokeLinecap="round" />
-              {card.daily && count > 0 && !blocked && (
-                <circle cx={ix} cy={iy} r={5} fill="#ef4444" stroke="#010709" strokeWidth={1.4} />
+    <div className="mm3-portal-list" aria-label={es ? 'Accesos del portal' : 'Portal accesses'}>
+      {portal.map((card) => {
+        const blocked = isBlocked(card.href)
+        return (
+          <div
+            key={card.href}
+            className={`mm3-portal-row${card.href === '/mining' ? ' is-tall' : ''}`}
+            data-testid={`mm3-portal-row-${card.href.replace(/^\//, '')}`}
+            data-portal-href={card.href}
+            style={{ '--ac': blocked ? '#6b7280' : card.accent }}
+          >
+            <span className="mm3-portal-row-head">
+              <span className="mm3-portal-row-icon" aria-hidden="true">{blocked ? '💀' : card.icon}</span>
+              {blocked ? (
+                <span className="mm3-portal-row-name">{card.name}</span>
+              ) : (
+                <Link href={card.href} className="mm3-portal-row-name">{card.name}</Link>
               )}
-            </g>
-          )
-        })}
-      </svg>
-        {/* Clickable core: the MM3 logo — click warps into the full-width map. */}
-        <button
-          type="button"
-          className="mm3-nonagon-core"
-          onClick={() => setMapOpen(true)}
-          title={es ? 'Mostrar mapa del mundo' : 'Show world map'}
-        >
-          <span className="mm3-nonagon-core-flip">
-            <Image src="/og-image.jpg" alt="MM3" width={360} height={360} className="mm3-nonagon-logo" />
-          </span>
-        </button>
-      </div>
-      <button type="button" className="mm3-nonagon-arrow" aria-label={es ? 'Siguiente' : 'Next'} onClick={goNext}>›</button>
-      </div>
-      {/* Selected side: the card's info extends here — only while the core
-          shows the logo (map mode keeps the ring clean; sides still navigate).
-          Single cyan accent for every card, keyed so the glitch-in replays. */}
-      {!mapOpen && (
-      <div
-        className={`mm3-nonagon-caption${current.href === '/mining' ? ' is-tall' : ''}`}
-        key={current.href}
-        style={{ '--ac': currentBlocked ? '#6b7280' : '#22d3ee' }}
-      >
-        <span className="mm3-nonagon-center-head">
-          <span className="mm3-nonagon-center-icon" aria-hidden="true">{currentBlocked ? '💀' : current.icon}</span>
-          {currentBlocked ? (
-            <span data-testid="mm3-portal-center-name" className="mm3-nonagon-center-name">{current.name}</span>
-          ) : (
-            <Link href={current.href} data-testid="mm3-portal-center-name" className="mm3-nonagon-center-name">{current.name}</Link>
-          )}
-        </span>
-        <span className="mm3-nonagon-center-desc">
-          {currentBlocked
-            ? (es ? `MUERTO · revives en ${deadCountdown}` : `DEAD · revives in ${deadCountdown}`)
-            : current.desc}
-        </span>
-        {!currentBlocked && SECTION_NFTJIS[current.href] && (
-          <span className="mm3-nonagon-nftjis" aria-label="NFTJIs">
-            {SECTION_NFTJIS[current.href].map((emoji) => (
-              <NftjiChip key={emoji} emoji={emoji} nftji={nftji} es={es} />
-            ))}
-          </span>
-        )}
-        {/* Mining side: its 20 block NFTJIs as a second row; every block the
-            wallet has leveled shows its level, and the one currently equipped
-            keeps the gold glow. */}
-        {!currentBlocked && current.href === '/mining' && miningBlocks.length > 0 && (
-          <span className="mm3-nonagon-nftjis mm3-nonagon-nftjis-blocks" aria-label="NFTJIs">
-            {miningBlocks.map((block) => (
-              <NftjiTile
-                key={block.block_key}
-                emoji={block.emoji || '⬡'}
-                owned={Math.max(0, Number(nftji.miningLevels[block.block_key] ?? 0)) > 0}
-                equipped={nftji.miningKey === block.block_key}
-                level={Math.max(0, Number(nftji.miningLevels[block.block_key] ?? 0))}
-                title={nftjiTooltip(block.emoji, es, {
-                  base: (es ? block.title_es : block.title_en) || block.block_key,
-                  isMiningBlock: true,
-                })}
-              />
-            ))}
-          </span>
-        )}
-      </div>
-      )}
+              {card.daily && count > 0 && !blocked && (
+                <span className="mm3-portal-row-dot" aria-hidden="true" />
+              )}
+            </span>
+            <span className="mm3-portal-row-desc">
+              {blocked
+                ? (es ? `MUERTO · revives en ${deadCountdown}` : `DEAD · revives in ${deadCountdown}`)
+                : card.desc}
+            </span>
+            {!blocked && SECTION_NFTJIS[card.href] && (
+              <span className="mm3-portal-row-nftjis" aria-label="NFTJIs">
+                {SECTION_NFTJIS[card.href].map((emoji) => (
+                  <NftjiChip key={emoji} emoji={emoji} nftji={nftji} es={es} />
+                ))}
+              </span>
+            )}
+            {/* Mining row: its 20 block NFTJIs as a second strip; every block the
+                wallet has leveled shows its level, and the one currently equipped
+                keeps the gold glow. */}
+            {!blocked && card.href === '/mining' && miningBlocks.length > 0 && (
+              <span className="mm3-portal-row-nftjis mm3-portal-row-nftjis-blocks" aria-label="NFTJIs">
+                {miningBlocks.map((block) => (
+                  <NftjiTile
+                    key={block.block_key}
+                    emoji={block.emoji || '⬡'}
+                    owned={Math.max(0, Number(nftji.miningLevels[block.block_key] ?? 0)) > 0}
+                    equipped={nftji.miningKey === block.block_key}
+                    level={Math.max(0, Number(nftji.miningLevels[block.block_key] ?? 0))}
+                    title={nftjiTooltip(block.emoji, es, {
+                      base: (es ? block.title_es : block.title_en) || block.block_key,
+                      isMiningBlock: true,
+                    })}
+                  />
+                ))}
+              </span>
+            )}
+          </div>
+        )
+      })}
     </div>
   )
 }
@@ -471,11 +334,10 @@ export default function LandingHero() {
             <span className="mm3-home-access-stage">
               <HomeMiningScene />
             </span>
-            {/* /mining access now lives on the polygon's tenth side and its
-                caption card (with the 20 block NFTJIs), like every section. */}
-            {/* Nonagon of portal accesses with the extended world minimap inside. */}
+            {/* Stacked portal access rows — mining included like every other
+                section (with its 20 block NFTJIs on its own row). */}
             <div className="mm3-home-underrow">
-              <NonagonPortal
+              <PortalCardList
                 portal={portal}
                 es={es}
                 isDead={isDead}

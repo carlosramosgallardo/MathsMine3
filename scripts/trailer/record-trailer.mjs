@@ -647,17 +647,17 @@ async function switchSessionWallet(page, wallet) {
 }
 
 async function waitForHomeLoaded(page) {
-  console.log('Home: waiting for the polygon and 3D showcase to finish loading...')
+  console.log('Home: waiting for the portal list and 3D showcase to finish loading...')
   // --app creates a Chromium surface of its own. Keep Playwright's Home page
   // above it before Xvfb/ffmpeg starts, otherwise DOM checks can observe Home
   // while the pixels being captured belong to a different browser window.
   if (!PROTECT_GPU_WINDOW) await page.bringToFront().catch(() => {})
-  await page.waitForSelector('.mm3-nonagon-side', { timeout: 20_000 })
+  await page.waitForSelector('.mm3-portal-row', { timeout: 20_000 })
   await page.waitForSelector('canvas.mm3-home-arena-canvas', { timeout: 20_000 })
   await page.waitForFunction(() => {
     const canvas = document.querySelector('canvas.mm3-home-arena-canvas')
-    const centerName = document.querySelector('[data-testid="mm3-portal-center-name"]')
-    return canvas?.width > 0 && canvas?.height > 0 && centerName?.textContent?.trim()
+    const firstRowName = document.querySelector('.mm3-portal-row-name')
+    return canvas?.width > 0 && canvas?.height > 0 && firstRowName?.textContent?.trim()
   }, null, { timeout: 20_000 })
   // Trailer-lite GLBs are 60–75% smaller than the originals. Keep a short
   // warm-up outside FFmpeg so the first recorded frame is still complete.
@@ -713,42 +713,30 @@ async function cycleChartRanges(page) {
   }
 }
 
-// One integrated pass instead of two disconnected ones (a silent sound-only
-// hover sweep, then a fixed URL list unrelated to which side that was).
-// This reads the actual polygon side order from data-portal-href (set by
-// LandingHero.jsx on each .mm3-nonagon-side <g>) and, as each side comes up,
-// really enters it the way a user would: hover first (fires playNavTick —
-// lib/sound-context.js, "the nav tick only plays on manual hover", which is
-// why the earlier auto-rotation phase stays silent on purpose), then a
-// second click on the now-selected side navigates in (LandingHero's onClick:
-// first click selects, second click on an already-selected side pushes the
-// route). Mining is pulled out of its natural position and saved for last —
-// it's not just another section, it's where the following clips pick up.
-async function enterPolygonSidesInOrder(page) {
-  const sideHrefs = await page.locator('.mm3-nonagon-side').evaluateAll(
-    (nodes) => nodes.map((node) => node.getAttribute('data-portal-href')).filter(Boolean),
+// Portal accesses are now a stacked list of rows (PortalCardList,
+// LandingHero.jsx), one direct link each — no more polygon side to hover
+// first (that was also what fired the nav-tick sound, which the new list
+// doesn't have at all; nothing to reproduce here anymore).
+async function enterPortalRowsInOrder(page) {
+  const rowHrefs = await page.locator('.mm3-portal-row a.mm3-portal-row-name').evaluateAll(
+    (nodes) => nodes.map((node) => new URL(node.href).pathname).filter(Boolean),
   ).catch(() => [])
-  if (!sideHrefs.length) {
-    console.warn('  ! no polygon sides found — falling back to a plain /mining navigation')
+  if (!rowHrefs.length) {
+    console.warn('  ! no portal rows found — falling back to a plain /mining navigation')
     await page.goto(`${BASE_URL}/mining`, { waitUntil: 'commit', timeout: 45_000 }).catch(() => {})
     await sleep(3_000)
     return
   }
-  const orderedHrefs = [...sideHrefs.filter((href) => href !== '/mining'), '/mining']
-  console.log(`Home: entering each side in order (${orderedHrefs.join(' → ')})...`)
+  const orderedHrefs = [...rowHrefs.filter((href) => href !== '/mining'), '/mining']
+  console.log(`Home: entering each row in order (${orderedHrefs.join(' → ')})...`)
   for (const href of orderedHrefs) {
-    const side = page.locator(`.mm3-nonagon-side[data-portal-href="${href}"]`)
-    const box = await side.boundingBox().catch(() => null)
-    if (box) {
-      const point = { x: box.x + box.width / 2, y: box.y + box.height / 2 }
-      await page.mouse.move(point.x, point.y, { steps: 5 }).catch(() => {}) // selects the side + audible nav tick
-      await sleep(900)
-      await page.mouse.click(point.x, point.y).catch(() => {}) // already selected → navigates
-    }
-    const navigated = await page.waitForURL((url) => url.pathname === href, { timeout: 8_000 }).then(() => true).catch(() => false)
-    if (!navigated) {
-      console.warn(`  ! clicking the ${href} side did not navigate — going there directly`)
+    const link = page.locator(`[data-testid="mm3-portal-row-${href.replace(/^\//, '')}"] a.mm3-portal-row-name`)
+    const clicked = await link.click({ timeout: 5_000 }).then(() => true).catch(() => false)
+    if (!clicked) {
+      console.warn(`  ! clicking the ${href} row did not navigate — going there directly`)
       await page.goto(`${BASE_URL}${href}`, { waitUntil: 'commit', timeout: 45_000 }).catch(() => {})
+    } else {
+      await page.waitForURL((url) => url.pathname === href, { timeout: 8_000 }).catch(() => {})
     }
     await sleep(3_000) // hold the section on screen
     if (href === '/mm3-value') await cycleChartRanges(page)
@@ -756,8 +744,8 @@ async function enterPolygonSidesInOrder(page) {
     else await progressivelyScrollPage(page)
     if (href === '/mining') break // last one — stay here for the mining clips that follow
     await page.goto(`${BASE_URL}/`, { waitUntil: 'commit', timeout: 45_000 }).catch(() => {})
-    await page.waitForSelector('.mm3-nonagon-side', { timeout: 20_000 }).catch(() => {})
-    await sleep(1_500) // brief hold back on the polygon before the next side
+    await page.waitForSelector('.mm3-portal-row', { timeout: 20_000 }).catch(() => {})
+    await sleep(1_500) // brief hold back on the portal list before the next row
   }
 }
 
@@ -1539,7 +1527,7 @@ async function run() {
           await waitForHomeLoaded(page)
         },
         async () => {
-          await enterPolygonSidesInOrder(page)
+          await enterPortalRowsInOrder(page)
         },
       ))
     }
