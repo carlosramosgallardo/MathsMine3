@@ -786,6 +786,7 @@ export default function HomeMiningWorld3D() {
       // to it) while everyone still exists exactly as before, one drag away
       // — no visibility toggling, no touching the framing/feature-show math.
       for (let i = lineup.length - 1; i > 0; i -= 1) {
+        // NOSONAR: cosmetic display-order shuffle, not a security-sensitive use of randomness.
         const j = Math.floor(Math.random() * (i + 1));
         [lineup[i], lineup[j]] = [lineup[j], lineup[i]]
       }
