@@ -1,8 +1,8 @@
 {
-  "tag": "v0.1.0-beta.13",
-  "version": "0.1.0-beta.13",
-  "sourceCommit": "a89655c2dac0aa0fd395457c9debccad600414a3",
-  "apk": "mathsmine3-0.1.0-beta.13.apk",
-  "releaseUrl": "https://github.com/carlosramosgallardo/MathsMine3/releases/tag/v0.1.0-beta.13",
-  "builtAt": "2026-08-27T22:48:24Z"
+  "tag": "v0.1.0-beta.14",
+  "version": "0.1.0-beta.14",
+  "sourceCommit": "5d69b1ea08fb5df780704173b6c21e4087da1450",
+  "apk": "mathsmine3-0.1.0-beta.14.apk",
+  "releaseUrl": "https://github.com/carlosramosgallardo/MathsMine3/releases/tag/v0.1.0-beta.14",
+  "builtAt": "2026-09-02T14:32:08Z"
 }
