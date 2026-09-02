@@ -1628,11 +1628,28 @@ footer.bg-black\/97,
    clipped corners, --ac glow border) but every row is always expanded, so
    there's no selection state to drive. */
 .mm3-portal-list {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: 1fr;
   gap: .28rem;
   width: min(612px, 92vw);
   margin: 0 auto;
+}
+/* Wide screens: the stage above spans up to 1240px, so a single narrow
+   column of cards leaves a huge empty gutter on each side — spread the
+   list into a grid that fills the same width the carousel already uses. */
+@media (min-width: 760px) {
+  .mm3-portal-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: min(920px, 94vw);
+    gap: .4rem .6rem;
+  }
+  .mm3-portal-row.is-tall { grid-column: 1 / -1; }
+}
+@media (min-width: 1100px) {
+  .mm3-portal-list {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    width: min(1180px, 96vw);
+  }
 }
 .mm3-portal-row {
   position: relative;
