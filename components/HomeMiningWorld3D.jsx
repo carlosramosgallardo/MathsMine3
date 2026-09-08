@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from 'react'
 import { openModelLoadGate, cancelModelLoadGate } from '@/lib/model-load-scheduling'
+import { skipShaderErrorChecks } from '@/lib/webgl-renderer-tuning'
 import { spawnBossTrail, drawBossTrail } from '@/lib/boss-attack-beam-vfx'
 import { createM3PutinBossVisual } from '@/lib/m3-putin-boss-runtime'
 import { M3_PUTIN_BOSS_ATTACKS, M3_PUTIN_BOSS_SCALE, M3_PUTIN_BOSS_NAME, M3_PUTIN_BOSS_MAX_HP } from '@/lib/m3-putin-boss'
@@ -409,6 +410,10 @@ export function addNftjiMiningBlock(THREE, scene, options = {}) {
 // rotation brings them into the display window.
 const HOME_LINEUP_X = Object.freeze([-13.65, -9.1, -4.45, 0, 4.45, 9.1, 13.65])
 const HOME_VISIBLE_MEMBER_COUNT = 3
+// Slots kept loaded and shader-compiled just off-stage, and how often that
+// warm-up is re-checked (a figure's meshes arrive over several frames).
+const HOME_WARM_AHEAD_COUNT = 2
+const HOME_WARM_INTERVAL_MS = 400
 // heightMult ≈ realHeight/190 so every boss shares the Trump crown on the rail.
 // Statues share one MM3 plinth extract — no extra yOffset per character.
 const HOME_BOSS_LAYOUT = [
@@ -630,6 +635,7 @@ export default function HomeMiningWorld3D() {
     let renderer
     const modelLoadGates = []
     let lastRenderTime = 0
+    let lastWarmTime = 0
     let hoverCleanup = null
     let lastSpinTime = null
     // Stage zoom: tapping the showcase (without dragging) toggles a closer
@@ -654,6 +660,7 @@ export default function HomeMiningWorld3D() {
       const mobile = window.matchMedia('(pointer: coarse)').matches || window.innerWidth < 820
       const frameInterval = mobile ? 1000 / 30 : 1000 / 60
       renderer = new THREE.WebGLRenderer({ canvas, antialias: !trailerLite && !mobile, alpha: true, powerPreference: 'high-performance' })
+      skipShaderErrorChecks(renderer)
       // ?banner=1 lifts the DPR cap for max-resolution captures (banners, art);
       // normal visits stay capped at 2 for performance.
       const hiResCapture = new URLSearchParams(window.location.search).has('banner')
@@ -1212,11 +1219,24 @@ export default function HomeMiningWorld3D() {
         const railSettled = !rail.dragging && Math.abs(rail.snapTarget - rail.offset) < 0.1
         // Pick exactly three entries by rail distance. This keeps draw calls and
         // the visible scene bounded even at the midpoint between two slots.
-        const visibleEntries = new Set(
-          [...lineup]
-            .sort((a, b) => Math.abs(a.wx) - Math.abs(b.wx))
-            .slice(0, HOME_VISIBLE_MEMBER_COUNT),
-        )
+        const byRailDistance = [...lineup].sort((a, b) => Math.abs(a.wx) - Math.abs(b.wx))
+        const visibleEntries = new Set(byRailDistance.slice(0, HOME_VISIBLE_MEMBER_COUNT))
+        // Warm the slots queued behind the visible three. Fetching and — above
+        // all — compiling a figure's shaders the frame it rotates on-stage is
+        // what made the carousel stutter for its first half-minute: profiling
+        // showed ~45 programs linking between t=1s and t=30s, one batch per
+        // arrival. compile() walks the object with traverse(), not
+        // traverseVisible(), so a hidden group compiles fine, and compileAsync
+        // hands the work to KHR_parallel_shader_compile instead of the frame.
+        if (renderNow - lastWarmTime > HOME_WARM_INTERVAL_MS) {
+          lastWarmTime = renderNow
+          for (const entry of byRailDistance.slice(HOME_VISIBLE_MEMBER_COUNT, HOME_VISIBLE_MEMBER_COUNT + HOME_WARM_AHEAD_COUNT)) {
+            openModelLoadGate(entry.group.userData.modelLoadGate)
+            // Re-runs while a figure streams in: each pass compiles whatever
+            // meshes have landed since, and costs nothing once all are ready.
+            renderer.compileAsync?.(entry.group, camera, scene)?.catch(() => {})
+          }
+        }
         // Pass 2: visibility, placement, camera-facing yaw, and center-focus bump.
         for (const entry of lineup) {
           entry.group.visible = visibleEntries.has(entry)

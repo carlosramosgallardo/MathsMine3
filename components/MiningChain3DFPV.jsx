@@ -8,6 +8,7 @@ import { useEffect, useRef, useCallback, useState } from 'react'
 import * as THREE from 'three'
 import { getMiningMapVisuals } from '@/lib/mining-map-visuals'
 import { findBossAttack } from '@/lib/boss-attack-selection'
+import { skipShaderErrorChecks } from '@/lib/webgl-renderer-tuning'
 import { colorFromAddress } from '@/lib/wallet-colors'
 import { buildHumanoidBody, buildHumanHead, humanSkinFromSeed, humanHairFromSeed, swayHumanoidArms, walkHumanoidLegs, walkHumanoidStride, flailHumanoidJump, flapHumanoidJump } from '@/lib/humanoid-body'
 import { relaxHumanoidArms } from '@/lib/capsule-anim-driver'
@@ -151,6 +152,9 @@ const FOV           = Math.PI * 0.36   // increased zoom for better closeup visi
 const PROJ_DIST     = 0.82   // improved near-plane projection
 const CAMERA_EYE_Z  = 0.52   // closer eye height for larger player view and better interaction
 // Global close third-person rig — same feel as under the pool deck / low tunnels.
+// Ceiling on how long arrival waits for shader precompilation before showing
+// the map anyway; the compile keeps running, it just stops being a gate.
+const PRECOMPILE_BUDGET_MS = 3000
 const CAMERA_BEHIND_DIST = 1.35
 const CAMERA_ABOVE_OFFSET = 0.38
 const MAX_PITCH_UP   = 1.32   // ~76deg upward
@@ -12663,9 +12667,6 @@ export default function MiningChain3DFPV({
         if (!threeStateRef.current || !obstaclesReadyRef.current) return
         rebuildThreeRef.current?.()
         const state = threeStateRef.current
-        if (state.renderer?.compile) {
-          try { state.renderer.compile(state.scene, state.camera) } catch {}
-        }
         let framesLeft = 3
         const warm = () => {
           warmRender()
@@ -12679,7 +12680,25 @@ export default function MiningChain3DFPV({
           setWorldReady(true)
           onWorldReadyRef.current?.()
         }
-        requestAnimationFrame(warm)
+        // Precompile before the warm frames, so entering the map never draws a
+        // material for the first time. compileAsync routes the link through
+        // KHR_parallel_shader_compile and leaves the main thread free; compile()
+        // does the same work while blocking it, which on a map this size is the
+        // freeze people feel on arrival. Either way the warm frames wait.
+        let precompiled
+        if (state.renderer?.compileAsync) {
+          // Never gate world-ready on the promise alone: a lost context or a
+          // driver that stops reporting readiness would strand the player on
+          // the loading screen, where the old blocking call always returned.
+          precompiled = Promise.race([
+            state.renderer.compileAsync(state.scene, state.camera).catch(() => {}),
+            new Promise((resolve) => setTimeout(resolve, PRECOMPILE_BUDGET_MS)),
+          ])
+        } else {
+          try { state.renderer?.compile?.(state.scene, state.camera) } catch {}
+          precompiled = Promise.resolve()
+        }
+        precompiled.then(() => requestAnimationFrame(warm))
       })
     }
     return () => { scheduleWorldBootstrapRef.current = null }
@@ -12795,6 +12814,7 @@ export default function MiningChain3DFPV({
     const launchLite=launchTier!=='high'
     try{
       renderer=new THREE.WebGLRenderer({canvas,antialias:!launchLite,powerPreference:'high-performance',stencil:false})
+      skipShaderErrorChecks(renderer)
     }catch{return}
     renderer.outputColorSpace=THREE.SRGBColorSpace
     renderer.toneMapping=THREE.ACESFilmicToneMapping
