@@ -129,6 +129,7 @@ import {
   isPlayableMiningWorldCell,
   isInHousePoolPvpSafeZone,
 } from '@/lib/mining-world-layout'
+import { startVisibleAnimationLoop } from '@/lib/visible-animation-loop'
 import { isCoarsePointerLike as isCoarsePointerDevice, isMobilePreviewActive, isMobilePreviewHighQuality, MOBILE_PREVIEW_VIEWPORT } from '@/lib/mobile-preview'
 import { apiFetch } from '@/lib/wallet-session-client'
 
@@ -152,9 +153,6 @@ const FOV           = Math.PI * 0.36   // increased zoom for better closeup visi
 const PROJ_DIST     = 0.82   // improved near-plane projection
 const CAMERA_EYE_Z  = 0.52   // closer eye height for larger player view and better interaction
 // Global close third-person rig — same feel as under the pool deck / low tunnels.
-// Ceiling on how long arrival waits for shader precompilation before showing
-// the map anyway; the compile keeps running, it just stops being a gate.
-const PRECOMPILE_BUDGET_MS = 3000
 const CAMERA_BEHIND_DIST = 1.35
 const CAMERA_ABOVE_OFFSET = 0.38
 const MAX_PITCH_UP   = 1.32   // ~76deg upward
@@ -354,7 +352,8 @@ function getMiningVisualTier(viewWidth = 1280, viewHeight = 720) {
   // Typical phone portrait / small view: lite scenery + biome lights (prod default).
   if (portraitMobile || isCoarsePointerDevice() || viewWidth < 640) return capMiningVisualTier('medium', autoCapTier)
   if (viewWidth < 980) return capMiningVisualTier('medium', autoCapTier)
-  return capMiningVisualTier('high', autoCapTier)
+  // Start balanced: a large desktop viewport does not imply a dedicated GPU.
+  return capMiningVisualTier('medium', autoCapTier)
 }
 
 function isLowRenderTier(viewWidth, viewHeight) {
@@ -12459,7 +12458,6 @@ export default function MiningChain3DFPV({
   const joystickPadRef = useRef(null)
   const joystickKnobRef = useRef(null)
   const cameraVisualRef = useRef({z:0,pitch:0,last:0})
-  const animRef       = useRef(null)
   const lastFrameRef  = useRef(0)
   const qualityMonitorRef = useRef({ frames: 0, startedAt: 0, lastDowngradeAt: 0 })
   const velocityRef   = useRef({x:0,y:0})
@@ -12643,6 +12641,15 @@ export default function MiningChain3DFPV({
   }, [playReady])
 
   useEffect(() => {
+    let cancelled = false
+    const pendingFrames = new Set()
+    const scheduleFrame = (callback) => {
+      const id = requestAnimationFrame(() => {
+        pendingFrames.delete(id)
+        if (!cancelled) callback()
+      })
+      pendingFrames.add(id)
+    }
     const warmRender = () => {
       if (renderRef.current) {
         renderRef.current()
@@ -12656,23 +12663,22 @@ export default function MiningChain3DFPV({
 
     scheduleWorldBootstrapRef.current = () => {
       if (worldBootstrappedRef.current) {
-        requestAnimationFrame(() => rebuildThreeRef.current?.())
+        scheduleFrame(() => rebuildThreeRef.current?.())
         return
       }
       if (!obstaclesReadyRef.current || !threeStateRef.current) return
       if (worldBootstrapPendingRef.current) return
       worldBootstrapPendingRef.current = true
-      requestAnimationFrame(() => {
+      scheduleFrame(() => {
         worldBootstrapPendingRef.current = false
         if (!threeStateRef.current || !obstaclesReadyRef.current) return
         rebuildThreeRef.current?.()
-        const state = threeStateRef.current
         let framesLeft = 3
         const warm = () => {
           warmRender()
           framesLeft -= 1
           if (framesLeft > 0) {
-            requestAnimationFrame(warm)
+            scheduleFrame(warm)
             return
           }
           worldReadyRef.current = true
@@ -12680,28 +12686,18 @@ export default function MiningChain3DFPV({
           setWorldReady(true)
           onWorldReadyRef.current?.()
         }
-        // Precompile before the warm frames, so entering the map never draws a
-        // material for the first time. compileAsync routes the link through
-        // KHR_parallel_shader_compile and leaves the main thread free; compile()
-        // does the same work while blocking it, which on a map this size is the
-        // freeze people feel on arrival. Either way the warm frames wait.
-        let precompiled
-        if (state.renderer?.compileAsync) {
-          // Never gate world-ready on the promise alone: a lost context or a
-          // driver that stops reporting readiness would strand the player on
-          // the loading screen, where the old blocking call always returned.
-          precompiled = Promise.race([
-            state.renderer.compileAsync(state.scene, state.camera).catch(() => {}),
-            new Promise((resolve) => setTimeout(resolve, PRECOMPILE_BUDGET_MS)),
-          ])
-        } else {
-          try { state.renderer?.compile?.(state.scene, state.camera) } catch {}
-          precompiled = Promise.resolve()
-        }
-        precompiled.then(() => requestAnimationFrame(warm))
+        // Warm only what the camera renders. Whole-world compileAsync also
+        // prepares off-screen materials and its internal timers outlive the
+        // renderer on navigation. Visible warm frames bound that initial work.
+        scheduleFrame(warm)
       })
     }
-    return () => { scheduleWorldBootstrapRef.current = null }
+    return () => {
+      cancelled = true
+      pendingFrames.forEach(cancelAnimationFrame)
+      worldBootstrapPendingRef.current = false
+      scheduleWorldBootstrapRef.current = null
+    }
   }, [])
 
   // Expose reinit trigger to refs so it can be called from the render loop or context handlers
@@ -14980,7 +14976,7 @@ export default function MiningChain3DFPV({
       if (visualTier === 'low') {
         webglDpr = 0.85
       } else if (visualTier === 'medium') {
-        webglDpr = mobileLayout ? 1.0 : Math.min(1.4, Math.max(1.0, rawDpr))
+        webglDpr = 1.0
       } else {
         const pixels = cssW * cssH
         const dprCap = pixels > 1600000 ? 1.1 : 1.4
@@ -15178,14 +15174,11 @@ export default function MiningChain3DFPV({
   // Game loop
   useEffect(()=>{
     const loop=()=>{
-      // Schedule next frame FIRST so the loop survives any exception in the body
-      animRef.current=requestAnimationFrame(loop)
       if (!worldReadyRef.current) return
       const nowMs=performance.now()
-      // On low tier (mobile portrait), cap the entire physics loop to ~30fps so
-      // high-refresh-rate phones (90/120 Hz) don't burn CPU on wasted ticks.
+      // Bound simulation work as well as rendering on balanced/lite devices.
       const loopTier=visualPerfTierRef.current
-      const mobileLoopCap=loopTier==='low'
+      const mobileLoopCap=loopTier!=='high'
       if(mobileLoopCap&&lastFrameRef.current&&nowMs-lastFrameRef.current<33) return
       updateAutoQuality(nowMs)
       const k=keysRef.current, p=playerRef.current
@@ -16598,8 +16591,8 @@ export default function MiningChain3DFPV({
       )
       const perfTier=visualPerfTierRef.current
       const ambientInterval=perfTier==='low'?150:50
-      // low/medium: cap at 30fps (33ms), high: uncapped
-      const renderInterval=perfTier==='high'?0:33
+      // Also bound high quality on 120/144/240 Hz displays.
+      const renderInterval=perfTier==='high'?16:33
       const ambientDue=hasRemotes&&nowMs-lastAmbientRenderRef.current>ambientInterval
       const renderDue=renderInterval===0||nowMs-lastRenderDispatchRef.current>=renderInterval
       if(needsRender||ambientDue){
@@ -16610,8 +16603,18 @@ export default function MiningChain3DFPV({
       }
     }
     lastFrameRef.current=0
-    animRef.current=requestAnimationFrame(loop)
-    return ()=>{ cancelAnimationFrame(animRef.current); lastFrameRef.current=0 }
+    const stop = startVisibleAnimationLoop(loop, {
+      fps: 60,
+      onPause: () => {
+        lastFrameRef.current = 0
+        keysRef.current = {}
+        joystickRef.current.x = 0
+        joystickRef.current.y = 0
+        qualityMonitorRef.current.frames = 0
+        qualityMonitorRef.current.startedAt = 0
+      },
+    })
+    return ()=>{ stop(); lastFrameRef.current=0 }
   },[onPositionChange,onFacingChange,updateAutoQuality])
 
   const updateJoystick=useCallback((clientX,clientY)=>{

@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef } from 'react'
+import { startVisibleAnimationLoop } from '@/lib/visible-animation-loop'
 import {
   getMiningMapGroundFeatures,
   getMiningMapAmbientObstacles,
@@ -439,13 +440,13 @@ export default function HomeWorldMinimap({ es = false }) {
     canvas.addEventListener('pointercancel', onUp)
     canvas.addEventListener('click', onClickCapture, true)
 
-    let raf = 0
-    let lastTick = 0
+    let inViewport = true
+    const intersection = new IntersectionObserver(([entry]) => {
+      inViewport = entry.isIntersecting
+    })
+    intersection.observe(canvas)
     const tick = (nowMs) => {
-      raf = requestAnimationFrame(tick)
-      // ~30 fps is plenty for the subtle marker motion — halves the cost.
-      if (nowMs - lastTick < 33) return
-      lastTick = nowMs
+      if (!inViewport) return
       if (!staticLayer) return
       const ctx = canvas.getContext('2d')
       if (!ctx) return
@@ -469,11 +470,12 @@ export default function HomeWorldMinimap({ es = false }) {
       resizeRaf = requestAnimationFrame(() => { buildStatic(); clampView() })
     }
     buildStatic()
-    raf = requestAnimationFrame(tick)
+    const stop = startVisibleAnimationLoop(tick, { fps: 20 })
     const observer = new ResizeObserver(onResize)
     observer.observe(canvas)
     return () => {
-      cancelAnimationFrame(raf)
+      stop()
+      intersection.disconnect()
       cancelAnimationFrame(resizeRaf)
       observer.disconnect()
       canvas.removeEventListener('pointerdown', onDown)
