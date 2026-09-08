@@ -8,6 +8,11 @@ on:
       - 'components/**'
       - 'lib/**'
       - 'scripts/**'
+      # runtime-model-url.js rewrites every model URL to its .runtime.glb
+      # derivative, so a missing derivative is a silent 404 at play time. The
+      # unit tests read these files: keep asset-only changes in scope so that
+      # guard actually runs on the commits most likely to break it.
+      - 'public/models/**'
       - 'package.json'
       - 'package-lock.json'
       - 'eslint.config.mjs'

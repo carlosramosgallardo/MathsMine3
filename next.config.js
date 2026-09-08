@@ -84,6 +84,22 @@ const nextConfig = {
           },
         ],
       },
+      // ── Static binary cache control ────────────────────────────────────────
+      // public/ is not fingerprinted, so Next serves it as max-age=0 and every
+      // visit re-validates each asset. That is ~57MB of GLBs plus the audio
+      // stems — a conditional request per file, per visit, all latency.
+      // These are regenerated offline and keep their filenames, so a day of
+      // browser caching plus a month of serve-stale-while-revalidating gives
+      // instant repeat loads with a bounded staleness window and no purge step.
+      ...["/models/:path*", "/ambient/:path*", "/voices/:path*"].map((source) => ({
+        source,
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "public, max-age=86400, stale-while-revalidate=2592000",
+          },
+        ],
+      })),
       // ── Sitemap cache control ──────────────────────────────────────────────
       {
         source: "/sitemap.xml",
