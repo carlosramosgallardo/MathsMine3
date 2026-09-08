@@ -410,10 +410,9 @@ export function addNftjiMiningBlock(THREE, scene, options = {}) {
 // rotation brings them into the display window.
 const HOME_LINEUP_X = Object.freeze([-13.65, -9.1, -4.45, 0, 4.45, 9.1, 13.65])
 const HOME_VISIBLE_MEMBER_COUNT = 3
-// Slots kept loaded and shader-compiled just off-stage, and how often that
-// warm-up is re-checked (a figure's meshes arrive over several frames).
-const HOME_WARM_AHEAD_COUNT = 2
-const HOME_WARM_INTERVAL_MS = 400
+// Fetch one nearby slot ahead of time without compiling hidden scene graphs.
+const HOME_WARM_AHEAD_COUNT = 1
+const HOME_WARM_INTERVAL_MS = 1200
 // heightMult ≈ realHeight/190 so every boss shares the Trump crown on the rail.
 // Statues share one MM3 plinth extract — no extra yOffset per character.
 const HOME_BOSS_LAYOUT = [
@@ -657,14 +656,13 @@ export default function HomeMiningWorld3D() {
     import('three').then(THREE => {
       if (destroyed) return
       const trailerLite = window.__MM3_TRAILER_LIGHT_TEXTURES__ === true
-      const mobile = window.matchMedia('(pointer: coarse)').matches || window.innerWidth < 820
-      const frameInterval = mobile ? 1000 / 30 : 1000 / 60
-      renderer = new THREE.WebGLRenderer({ canvas, antialias: !trailerLite && !mobile, alpha: true, powerPreference: 'high-performance' })
+      const frameInterval = 1000 / 30
+      renderer = new THREE.WebGLRenderer({ canvas, antialias: false, alpha: true, powerPreference: 'low-power' })
       skipShaderErrorChecks(renderer)
       // ?banner=1 lifts the DPR cap for max-resolution captures (banners, art);
-      // normal visits stay capped at 2 for performance.
+      // normal visits use native CSS resolution to bound GPU work.
       const hiResCapture = new URLSearchParams(window.location.search).has('banner')
-      renderer.setPixelRatio(trailerLite ? 1 : Math.min(window.devicePixelRatio || 1, hiResCapture ? 4 : mobile ? 1.25 : 1.5))
+      renderer.setPixelRatio(trailerLite ? 1 : Math.min(window.devicePixelRatio || 1, hiResCapture ? 4 : 1))
       renderer.setClearColor(0x000000, 0)
       renderer.outputColorSpace = THREE.SRGBColorSpace
       renderer.toneMapping = THREE.ACESFilmicToneMapping
@@ -966,7 +964,7 @@ export default function HomeMiningWorld3D() {
         // of waiting on an external cycle event that no longer exists).
         // Same 3s cadence and guards as the old nonagon rotation.
         const cycleTimer = setInterval(() => {
-          if (rail.dragging || feature.phase !== 'idle') return
+          if ((!isEmbedArena && (!pageVisible || !inViewport)) || rail.dragging || feature.phase !== 'idle') return
           rail.snapTarget += RAIL_SPACING // glide exactly one slot
         }, 3000)
         accessEl?.style && (accessEl.style.touchAction = 'pan-y')
@@ -1221,20 +1219,14 @@ export default function HomeMiningWorld3D() {
         // the visible scene bounded even at the midpoint between two slots.
         const byRailDistance = [...lineup].sort((a, b) => Math.abs(a.wx) - Math.abs(b.wx))
         const visibleEntries = new Set(byRailDistance.slice(0, HOME_VISIBLE_MEMBER_COUNT))
-        // Warm the slots queued behind the visible three. Fetching and — above
-        // all — compiling a figure's shaders the frame it rotates on-stage is
-        // what made the carousel stutter for its first half-minute: profiling
-        // showed ~45 programs linking between t=1s and t=30s, one batch per
-        // arrival. compile() walks the object with traverse(), not
-        // traverseVisible(), so a hidden group compiles fine, and compileAsync
-        // hands the work to KHR_parallel_shader_compile instead of the frame.
+        // Fetch/decode one nearby model ahead. Compiling hidden groups every
+        // few frames traversed the same meshes repeatedly and left Three's
+        // readiness timers accessing disposed programs after navigation.
         if (renderNow - lastWarmTime > HOME_WARM_INTERVAL_MS) {
           lastWarmTime = renderNow
           for (const entry of byRailDistance.slice(HOME_VISIBLE_MEMBER_COUNT, HOME_VISIBLE_MEMBER_COUNT + HOME_WARM_AHEAD_COUNT)) {
             openModelLoadGate(entry.group.userData.modelLoadGate)
-            // Re-runs while a figure streams in: each pass compiles whatever
-            // meshes have landed since, and costs nothing once all are ready.
-            renderer.compileAsync?.(entry.group, camera, scene)?.catch(() => {})
+
           }
         }
         // Pass 2: visibility, placement, camera-facing yaw, and center-focus bump.

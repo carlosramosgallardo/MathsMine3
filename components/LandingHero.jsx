@@ -7,7 +7,6 @@ import { useActiveWallet } from '@/lib/use-active-wallet';
 import { loadDailyTaskProgress } from '@/lib/daily-tasks';
 import supabase from '@/lib/supabaseClient';
 import HomeMiningScene from '@/components/HomeMiningScene';
-import { prefetchMiningRoute } from '@/lib/prefetch-mining';
 import { getEmojiTitle, computeRelayLevel, lifeNftjiEmojiFilterStyle } from '@/lib/wallet-decorations';
 
 // Interactive portal cards disabled during the 5-minute death cooldown
@@ -330,7 +329,7 @@ export default function LandingHero() {
 
           {/* Display case: the stage only drags the carousel; navigation into
               /mining lives on the access-text link alone. */}
-          <div className={`mm3-home-access${stageZoom ? ' is-stagezoom' : ''}`} onMouseEnter={prefetchMiningRoute} onTouchStart={prefetchMiningRoute}>
+          <div className={`mm3-home-access${stageZoom ? ' is-stagezoom' : ''}`}>
             <span className="mm3-home-access-stage">
               <HomeMiningScene />
             </span>
