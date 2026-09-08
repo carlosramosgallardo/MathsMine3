@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from 'react'
 import { addMiningBot, addNftjiMiningBlock } from '@/components/HomeMiningWorld3D'
+import { skipShaderErrorChecks } from '@/lib/webgl-renderer-tuning'
 
 function disposeScene(scene) {
   scene.traverse(object => {
@@ -37,6 +38,7 @@ export default function AITeamForge3D({ colors }) {
       if (destroyed) return
 
       renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, powerPreference: 'high-performance' })
+      skipShaderErrorChecks(renderer)
       renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2))
       renderer.setClearColor(0x000000, 0)
       renderer.outputColorSpace = THREE.SRGBColorSpace
