@@ -5954,7 +5954,7 @@ function disposeThreeObject(root) {
     const materials=Array.isArray(object.material)?object.material:[object.material]
     materials.filter(Boolean).forEach(material=>{
       if(material.userData?.ownedMap) material.map?.dispose?.()
-      material.dispose?.()
+      if (!material.userData?.skipDispose) material.dispose?.()
     })
   })
 }

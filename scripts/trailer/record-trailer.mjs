@@ -3,7 +3,7 @@
  * One-off trailer footage recorder — clip mode.
  *
  * Records a SEPARATE short clip per point of interest (each M1 landmark,
- * each M2-M5 boss, the RL node purchase, Relaying, Training) instead of one
+ * each M2-M5 boss, the RL node purchase, and every portal section) instead of one
  * continuous walking tour. Earlier versions tried to walk/teleport between
  * every stop in one take, but the leg between destinations was consistently
  * where things stalled (wall clips, drift, and — the one that never got
@@ -27,12 +27,13 @@
  *   sudo apt-get install -y xvfb pulseaudio pulseaudio-utils
  *
  * This is NOT a QA script and is not wired into CI. Run on demand:
- *   node scripts/trailer/record-trailer.mjs [--quick] [--base https://mathsmine3.xyz] [--software]
+ *   node scripts/trailer/record-trailer.mjs [--quick] [--base https://mathsmine3.xyz] [--software] [--insecure]
  *
  * --quick   only the M1 clips (fast iteration)
  * --base    portal base URL (default https://mathsmine3.xyz)
  * --software force Xvfb + SwiftShader instead of WSLg GPU capture
  * --interactive keep the WSLg browser focusable/clickable for debugging
+ * --insecure ignore HTTPS certificate errors (local development only)
  *
  * Output: scripts/trailer/out/<timestamp>/<NN-name>.mp4, one file per clip
  */
@@ -56,10 +57,28 @@ const __dirname = dirname(fileURLToPath(import.meta.url))
 const args = process.argv.slice(2)
 const QUICK = args.includes('--quick')
 const baseFlagIdx = args.indexOf('--base')
-const BASE_URL = (baseFlagIdx !== -1 ? args[baseFlagIdx + 1] : 'https://mathsmine3.xyz').replace(/\/$/, '')
+
+function parseBaseUrl(value) {
+  const raw = String(value || '').trim()
+  const markdownLink = /^\[[^\]]*\]\((https?:\/\/[^)]+)\)$/.exec(raw)
+  const candidate = markdownLink?.[1] || raw
+  let parsed
+  try { parsed = new URL(candidate) } catch {
+    throw new Error(`Invalid --base URL: "${raw}". Use a bare URL such as https://mathsmine3.xyz:3000`)
+  }
+  if (!['http:', 'https:'].includes(parsed.protocol)) {
+    throw new Error(`Invalid --base protocol: ${parsed.protocol}`)
+  }
+  return parsed.toString().replace(/\/$/, '')
+}
+
+const BASE_URL = parseBaseUrl(baseFlagIdx !== -1 ? args[baseFlagIdx + 1] : 'https://mathsmine3.xyz')
 const onlyFlagIdx = args.indexOf('--only')
 const ONLY = onlyFlagIdx !== -1 ? args[onlyFlagIdx + 1] : null
 const SOFTWARE_CAPTURE = args.includes('--software')
+// Port 3000 is this project's local HTTPS dev endpoint. Trust its development
+// certificate automatically; every normal production URL keeps strict TLS.
+const INSECURE_TLS = args.includes('--insecure') || new URL(BASE_URL).port === '3000'
 const GPU_CAPTURE = !SOFTWARE_CAPTURE && existsSync('/dev/dxg') && Boolean(process.env.DISPLAY)
 const PROTECT_GPU_WINDOW = GPU_CAPTURE && !args.includes('--interactive')
 
@@ -699,12 +718,47 @@ async function progressivelyScrollPage(page, { amountRatio = 0.72, stepDelayMs =
   await sleep(900)
 }
 
-// Manifesto is long-form reading material, not a glance-and-move-on section
-// — a smaller step (readable chunk, not most of a screen) and a longer
-// pause between steps gives it a pace someone could actually read at,
-// instead of the same brisk scroll every other section uses.
-async function scrollManifestoSlowly(page) {
-  await progressivelyScrollPage(page, { amountRatio: 0.32, stepDelayMs: 950 })
+// Show the title and complete table of contents, skip the very long guide body,
+// then finish on the attribution + legal material at a readable pace.
+async function recordManifestoHighlights(page) {
+  const introReady = await page.evaluate(() => {
+    const toc = document.querySelector('#table-of-contents, #indice')
+    if (!toc) return false
+    const headings = [...document.querySelectorAll('.mm3-manifesto-panel h2')]
+    const nextHeading = headings.find((heading) => heading.offsetTop > toc.offsetTop)
+    const scroller = document.scrollingElement
+    window.__MM3_TRAILER_MANIFESTO_INDEX_END__ = nextHeading?.offsetTop || toc.offsetTop + 1600
+    scroller?.scrollTo({ top: 0, behavior: 'auto' })
+    return true
+  }).catch(() => false)
+  if (!introReady) console.warn('  ! Manifesto table of contents heading not found')
+  await sleep(1_500)
+
+  // Move only through the opening and TOC; stop before the first guide section.
+  for (let step = 0; step < 40; step += 1) {
+    const done = await page.evaluate(() => {
+      const scroller = document.scrollingElement
+      if (!scroller) return true
+      const boundary = Number(window.__MM3_TRAILER_MANIFESTO_INDEX_END__) || 0
+      const target = Math.max(0, boundary - innerHeight - 24)
+      if (scroller.scrollTop >= target - 4) return true
+      scroller.scrollTo({ top: Math.min(target, scroller.scrollTop + Math.max(150, innerHeight * 0.22)), behavior: 'smooth' })
+      return false
+    }).catch(() => true)
+    await sleep(650)
+    if (done) break
+  }
+  await sleep(1_200)
+
+  const creditsFound = await page.evaluate(() => {
+    const credits = document.querySelector('#credits-3d-models, #creditos-modelos-3d')
+    if (!credits) return false
+    credits.scrollIntoView({ behavior: 'auto', block: 'start' })
+    return true
+  }).catch(() => false)
+  if (!creditsFound) throw new Error('Manifesto Credits — 3D Models heading not found')
+  await sleep(1_500)
+  await progressivelyScrollPage(page, { amountRatio: 0.25, stepDelayMs: 850 })
 }
 
 // MM3 Chart (/mm3-value): click through a few time ranges so the chart
@@ -782,21 +836,20 @@ async function interactTrading(page, { executeTrade = false } = {}) {
   }
 }
 
+async function preparePortalSection(page, href, label = href) {
+  console.log(`Preparing ${label}...`)
+  await page.goto(`${BASE_URL}${href}`, { waitUntil: 'commit', timeout: 45_000 })
+  await sleep(3_000)
+}
+
 async function visitTradingPage(page) {
-  console.log('Visiting Trading — exploring the tx log...')
-  await page.goto(`${BASE_URL}/trading`, { waitUntil: 'commit', timeout: 45_000 }).catch((err) => {
-    console.warn(`  ! could not navigate to /trading (${err.message})`)
-  })
-  await sleep(3_000) // let the board mount + wallet/rate state settle
+  console.log('Trading — exploring the tx log...')
   await interactTrading(page, { executeTrade: true })
   await sleep(1_500)
 }
 
-// /squeezing, /ranking, /ai-team and /daily-tasks have no clip of their own
-// anywhere in this script — the home tour below is the only place they're
-// ever shown, so each gets one small, safe, reversible interaction here
-// instead of just a scroll. /trading now also has its own dedicated clip
-// (14-trading) but keeps this lighter pass during the tour too. Never
+// Small, safe, reversible interactions for standalone portal-section clips.
+// Never
 // anything that spends a limited daily action or burns real, rate-limited
 // game state (⚔ SQUEEZE/ACCEPT, EXEC, Leave pool, dispute votes).
 async function interactWithSection(page, href) {
@@ -837,43 +890,12 @@ async function interactWithSection(page, href) {
   }
 }
 
-// Portal accesses are now a stacked list of rows (PortalCardList,
-// LandingHero.jsx), one direct link each — no more polygon side to hover
-// first (that was also what fired the nav-tick sound, which the new list
-// doesn't have at all; nothing to reproduce here anymore).
-async function enterPortalRowsInOrder(page) {
-  const rowHrefs = await page.locator('.mm3-portal-row a.mm3-portal-row-name').evaluateAll(
-    (nodes) => nodes.map((node) => new URL(node.href).pathname).filter(Boolean),
-  ).catch(() => [])
-  if (!rowHrefs.length) {
-    console.warn('  ! no portal rows found — falling back to a plain /mining navigation')
-    await page.goto(`${BASE_URL}/mining`, { waitUntil: 'commit', timeout: 45_000 }).catch(() => {})
-    await sleep(3_000)
-    return
-  }
-  const orderedHrefs = [...rowHrefs.filter((href) => href !== '/mining'), '/mining']
-  console.log(`Home: entering each row in order (${orderedHrefs.join(' → ')})...`)
-  for (const href of orderedHrefs) {
-    const link = page.locator(`[data-testid="mm3-portal-row-${href.replace(/^\//, '')}"] a.mm3-portal-row-name`)
-    const clicked = await link.click({ timeout: 5_000 }).then(() => true).catch(() => false)
-    if (!clicked) {
-      console.warn(`  ! clicking the ${href} row did not navigate — going there directly`)
-      await page.goto(`${BASE_URL}${href}`, { waitUntil: 'commit', timeout: 45_000 }).catch(() => {})
-    } else {
-      await page.waitForURL((url) => url.pathname === href, { timeout: 8_000 }).catch(() => {})
-    }
-    await sleep(3_000) // hold the section on screen
-    if (['/squeezing', '/ranking', '/daily-tasks', '/trading'].includes(href)) {
-      await interactWithSection(page, href)
-    }
-    if (href === '/mm3-value') await cycleChartRanges(page)
-    if (href === '/manifesto') await scrollManifestoSlowly(page)
-    else await progressivelyScrollPage(page)
-    if (href === '/mining') break // last one — stay here for the mining clips that follow
-    await page.goto(`${BASE_URL}/`, { waitUntil: 'commit', timeout: 45_000 }).catch(() => {})
-    await page.waitForSelector('.mm3-portal-row', { timeout: 20_000 }).catch(() => {})
-    await sleep(1_500) // brief hold back on the portal list before the next row
-  }
+async function visitPortalSection(page, href) {
+  console.log(`Recording standalone section: ${href}`)
+  await interactWithSection(page, href)
+  if (href === '/mm3-value') await cycleChartRanges(page)
+  else if (href === '/manifesto') await recordManifestoHighlights(page)
+  else await progressivelyScrollPage(page)
 }
 
 // Seeds the wallet's stored position at the clip's target and (re)loads
@@ -1039,11 +1061,7 @@ async function recordAerialTourClip(page, outDir, supabase, wallet) {
 }
 
 async function visitRelayingPage(page) {
-  console.log('Visiting Relaying — sending live messages...')
-  await page.goto(`${BASE_URL}/relaying`, { waitUntil: 'commit', timeout: 45_000 }).catch((err) => {
-    console.warn(`  ! could not navigate to /relaying (${err.message})`)
-  })
-  await sleep(3_000) // let the terminal mount + wallet/relay-ready state settle
+  console.log('Relaying — sending live messages...')
   // In-character plea first (English — the terminal's own voice), then the
   // help command so the available commands show up on screen too.
   await submitRelayingCommand(page, 'we need help defeating the elites')
@@ -1055,11 +1073,7 @@ async function visitRelayingPage(page) {
 // visible/translated button text — no need to juggle locale here.
 async function visitTrainingPage(page) {
   const GAMES = 5
-  console.log(`Visiting Training — playing ${GAMES} games...`)
-  await page.goto(`${BASE_URL}/training`, { waitUntil: 'commit', timeout: 45_000 }).catch((err) => {
-    console.warn(`  ! could not navigate to /training (${err.message})`)
-  })
-  await sleep(3_000) // let the board mount + wallet/slot state settle
+  console.log(`Training — playing ${GAMES} games...`)
 
   // seedProgress() (below) seeds the trailer wallet at level 55, not 0 — Board.jsx
   // only shows "Start game" when the loaded level is 0 (Board.jsx:1106/2196); at
@@ -1635,6 +1649,7 @@ async function run() {
   // Chromium size itself to fill the whole display without a WM (Xvfb has
   // none) to negotiate window geometry with.
   console.log(GPU_CAPTURE ? 'GPU capture: WSLg + NVIDIA D3D12' : 'Software capture: Xvfb + SwiftShader')
+  if (INSECURE_TLS) console.log('Local capture: accepting the development HTTPS certificate')
   const browser = await chromium.launch({
     headless: false,
     // Keep exactly one browser surface. --app=<url> created an extra window
@@ -1644,6 +1659,7 @@ async function run() {
     // kiosk's browser chrome without needing a second app window.
     args: [
       ...(GPU_CAPTURE ? ['--use-gl=angle', '--use-angle=gl'] : ['--kiosk']),
+      ...(INSECURE_TLS ? ['--ignore-certificate-errors'] : []),
       '--window-position=0,0',
       `--window-size=${DISPLAY_SIZE.width},${DISPLAY_SIZE.height}`,
     ],
@@ -1664,6 +1680,7 @@ async function run() {
   const context = await browser.newContext({
     viewport: CAPTURE_SIZE,
     screen: DISPLAY_SIZE,
+    ignoreHTTPSErrors: INSECURE_TLS,
   })
   // Mining statues normally leave their plinth on autonomous patrols. Every
   // trailer page sees this flag before application code runs, so statue
@@ -1677,6 +1694,7 @@ async function run() {
   const page = await context.newPage()
   page.setDefaultTimeout(30_000)
   const failedClips = []
+  let fatalError = null
   const keepRecording = async (name, fn) => {
     try { await fn() } catch (err) {
       failedClips.push({ name, error: err })
@@ -1697,9 +1715,9 @@ async function run() {
           await page.goto(`${BASE_URL}/`, { waitUntil: 'commit', timeout: 45_000 })
           await waitForHomeLoaded(page)
         },
-        async () => {
-          await enterPortalRowsInOrder(page)
-        },
+        // FFmpeg is already capturing during its 1.5 s startup check, so a
+        // 13.5 s clean hold produces a ~15 s Home-only output file.
+        async () => { await sleep(13_500) },
       ))
     }
 
@@ -1777,7 +1795,9 @@ async function run() {
         activeWallet = castWallet(1)
       }
       await keepRecording('11-relaying', () => recordClipWithRetries(
-        page, outDir, '11-relaying', async () => {}, () => visitRelayingPage(page),
+        page, outDir, '11-relaying',
+        () => preparePortalSection(page, '/relaying', 'Relaying'),
+        () => visitRelayingPage(page),
       ))
     }
     if (!QUICK && (!ONLY || '12-training'.includes(ONLY))) {
@@ -1790,7 +1810,9 @@ async function run() {
         activeWallet = TRAILER_WALLET
       }
       await keepRecording('12-training', () => recordClipWithRetries(
-        page, outDir, '12-training', async () => {}, () => visitTrainingPage(page),
+        page, outDir, '12-training',
+        () => preparePortalSection(page, '/training', 'Training'),
+        () => visitTrainingPage(page),
       ))
     }
     if (!QUICK && (!ONLY || '13-mining-aerial-all-maps'.includes(ONLY))) {
@@ -1808,10 +1830,31 @@ async function run() {
         activeWallet = TRAILER_WALLET
       }
       await keepRecording('14-trading', () => recordClipWithRetries(
-        page, outDir, '14-trading', async () => {}, () => visitTradingPage(page),
+        page, outDir, '14-trading',
+        () => preparePortalSection(page, '/trading', 'Trading'),
+        () => visitTradingPage(page),
       ))
     }
+    const portalSectionClips = [
+      ['15-squeezing', '/squeezing'],
+      ['16-daily-tasks', '/daily-tasks'],
+      ['17-mm3-value', '/mm3-value'],
+      ['18-ranking', '/ranking'],
+      ['19-ai-team', '/ai-team'],
+      ['20-manifesto', '/manifesto'],
+    ]
+    if (!QUICK) {
+      for (const [name, href] of portalSectionClips) {
+        if (ONLY && !name.includes(ONLY)) continue
+        await keepRecording(name, () => recordClipWithRetries(
+          page, outDir, name,
+          () => preparePortalSection(page, href),
+          () => visitPortalSection(page, href),
+        ))
+      }
+    }
   } catch (err) {
+    fatalError = err
     console.error('Trailer clip session hit an error:', err)
   } finally {
     // A Ctrl+C (or a page/browser crash mid-run) can tear the browser down
@@ -1825,7 +1868,10 @@ async function run() {
   }
 
   console.log(`\nClips written to: ${outDir}`)
-  if (failedClips.length) {
+  if (fatalError) {
+    console.error(`Trailer session failed before completion: ${fatalError.message}`)
+    process.exitCode = 1
+  } else if (failedClips.length) {
     console.error(`Invalid clips: ${failedClips.map(({ name }) => name).join(', ')}`)
     process.exitCode = 1
   } else {

@@ -1,0 +1,110 @@
+[
+  {
+    "name": "kim",
+    "sourceBytes": 7765688,
+    "runtimeBytes": 2615956,
+    "sourceTriangles": 282492,
+    "runtimeTriangles": 65858,
+    "skins": 0,
+    "animations": 0
+  },
+  {
+    "name": "putin",
+    "sourceBytes": 6820276,
+    "runtimeBytes": 2192964,
+    "sourceTriangles": 258079,
+    "runtimeTriangles": 63776,
+    "skins": 0,
+    "animations": 0
+  },
+  {
+    "name": "trump",
+    "sourceBytes": 4029564,
+    "runtimeBytes": 677984,
+    "sourceTriangles": 162500,
+    "runtimeTriangles": 36576,
+    "skins": 0,
+    "animations": 0
+  },
+  {
+    "name": "macron",
+    "sourceBytes": 4581056,
+    "runtimeBytes": 2104592,
+    "sourceTriangles": 72835,
+    "runtimeTriangles": 26937,
+    "skins": 1,
+    "animations": 0
+  },
+  {
+    "name": "zelenski",
+    "sourceBytes": 3780100,
+    "runtimeBytes": 1975964,
+    "sourceTriangles": 57736,
+    "runtimeTriangles": 25609,
+    "skins": 1,
+    "animations": 0
+  },
+  {
+    "name": "milei",
+    "sourceBytes": 2103740,
+    "runtimeBytes": 496784,
+    "sourceTriangles": 116773,
+    "runtimeTriangles": 29152,
+    "skins": 0,
+    "animations": 0
+  },
+  {
+    "name": "milei-figure",
+    "sourceBytes": 1619000,
+    "runtimeBytes": 496928,
+    "sourceTriangles": 91293,
+    "runtimeTriangles": 29158,
+    "skins": 0,
+    "animations": 0
+  },
+  {
+    "name": "rl-car",
+    "sourceBytes": 2489332,
+    "runtimeBytes": 1326628,
+    "sourceTriangles": 70879,
+    "runtimeTriangles": 23284,
+    "skins": 0,
+    "animations": 0
+  },
+  {
+    "name": "man",
+    "sourceBytes": 461812,
+    "runtimeBytes": 256120,
+    "sourceTriangles": 20764,
+    "runtimeTriangles": 11420,
+    "skins": 1,
+    "animations": 0
+  },
+  {
+    "name": "man-head",
+    "sourceBytes": 169368,
+    "runtimeBytes": 123392,
+    "sourceTriangles": 3718,
+    "runtimeTriangles": 3019,
+    "skins": 0,
+    "animations": 0
+  },
+  {
+    "name": "tool-usb",
+    "sourceBytes": 233484,
+    "runtimeBytes": 143420,
+    "sourceTriangles": 6678,
+    "runtimeTriangles": 3791,
+    "skins": 0,
+    "animations": 0
+  },
+  {
+    "name": "nuclear",
+    "sourceBytes": 516596,
+    "runtimeBytes": 482764,
+    "sourceTriangles": 4320,
+    "runtimeTriangles": 3985,
+    "skins": 0,
+    "animations": 0
+  }
+]

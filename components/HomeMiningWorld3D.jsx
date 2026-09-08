@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef } from 'react'
+import { openModelLoadGate, cancelModelLoadGate } from '@/lib/model-load-scheduling'
 import { spawnBossTrail, drawBossTrail } from '@/lib/boss-attack-beam-vfx'
 import { createM3PutinBossVisual } from '@/lib/m3-putin-boss-runtime'
 import { M3_PUTIN_BOSS_ATTACKS, M3_PUTIN_BOSS_SCALE, M3_PUTIN_BOSS_NAME, M3_PUTIN_BOSS_MAX_HP } from '@/lib/m3-putin-boss'
@@ -578,14 +579,14 @@ export function addHomeBoss(THREE, scene, options = {}) {
 
 function disposeScene(scene) {
   scene.traverse(object => {
-    object.geometry?.dispose()
+    if (!object.geometry?.userData?.skipDispose) object.geometry?.dispose()
     const materials = Array.isArray(object.material) ? object.material : [object.material]
     materials.filter(Boolean).forEach(material => {
       // GLTF cache textures are shared across mounts — never dispose unless we
       // created/ cloned the map (React Strict Mode remount was bleaching Kim /
       // Macron / Zelensky after the first teardown).
       if (material.userData?.ownedMap) material.map?.dispose()
-      material.dispose()
+      if (!material.userData?.skipDispose) material.dispose()
     })
   })
 }
@@ -627,6 +628,8 @@ export default function HomeMiningWorld3D() {
     let pageVisible = !document.hidden
     let inViewport = true
     let renderer
+    const modelLoadGates = []
+    let lastRenderTime = 0
     let hoverCleanup = null
     let lastSpinTime = null
     // Stage zoom: tapping the showcase (without dragging) toggles a closer
@@ -648,18 +651,20 @@ export default function HomeMiningWorld3D() {
     import('three').then(THREE => {
       if (destroyed) return
       const trailerLite = window.__MM3_TRAILER_LIGHT_TEXTURES__ === true
-      renderer = new THREE.WebGLRenderer({ canvas, antialias: !trailerLite, alpha: true, powerPreference: 'high-performance' })
+      const mobile = window.matchMedia('(pointer: coarse)').matches || window.innerWidth < 820
+      const frameInterval = mobile ? 1000 / 30 : 1000 / 60
+      renderer = new THREE.WebGLRenderer({ canvas, antialias: !trailerLite && !mobile, alpha: true, powerPreference: 'high-performance' })
       // ?banner=1 lifts the DPR cap for max-resolution captures (banners, art);
       // normal visits stay capped at 2 for performance.
       const hiResCapture = new URLSearchParams(window.location.search).has('banner')
-      renderer.setPixelRatio(trailerLite ? 1 : Math.min(window.devicePixelRatio || 1, hiResCapture ? 4 : 2))
+      renderer.setPixelRatio(trailerLite ? 1 : Math.min(window.devicePixelRatio || 1, hiResCapture ? 4 : mobile ? 1.25 : 1.5))
       renderer.setClearColor(0x000000, 0)
       renderer.outputColorSpace = THREE.SRGBColorSpace
       renderer.toneMapping = THREE.ACESFilmicToneMapping
       // Mild ACES — higher exposure washed Kim/Macron/Zelensky albedo to chalk.
       renderer.toneMappingExposure = 1.18
-      renderer.shadowMap.enabled = !trailerLite
-      renderer.shadowMap.type = THREE.PCFSoftShadowMap
+      // The floating stage has no shadow receiver: avoid rendering a second pass.
+      renderer.shadowMap.enabled = false
 
       scene = new THREE.Scene()
       scene.fog = new THREE.FogExp2('#010c18', .012)
@@ -694,30 +699,17 @@ export default function HomeMiningWorld3D() {
       // Ambient: deep blue sky → dark void ground — floating-in-space feel.
       // Keep intensities near the FPV stage: the previous 2.2/3.8 stack + exposure
       // 1.72 bleached Trump's vertex paint and crushed Putin's albedo into noise.
-      scene.add(new THREE.HemisphereLight('#c8e8ff', '#0a1428', 1.05))
+      scene.add(new THREE.HemisphereLight('#dceeff', '#303044', 1.35))
       // Key: warm white from above-left (main character illumination).
-      const key = new THREE.DirectionalLight('#fff8e0', 1.85)
+      const key = new THREE.DirectionalLight('#ffe8ce', 2.05)
       key.position.set(-4, 9, 8)
       key.castShadow = true
       key.shadow.mapSize.set(1024, 1024)
       scene.add(key)
       // Rim: cool blue from behind — separates characters from the dark background.
-      const rim = new THREE.DirectionalLight('#3a6fff', 0.65)
+      const rim = new THREE.DirectionalLight('#86c4e8', 0.85)
       rim.position.set(2, 5, -8)
       scene.add(rim)
-      // Soft portal-palette accents — keep low so textured statues keep albedo.
-      for (const [x, color, intensity] of [
-        [-12, '#22d3ee', 0.85],
-        [ -6, '#ffe34d', 0.75],
-        [  0, '#d946ef', 0.7],
-        [  6, '#ffe34d', 0.75],
-        [ 12, '#22d3ee', 0.85],
-      ]) {
-        const fl = new THREE.PointLight(color, intensity, 18, 2)
-        fl.position.set(x, 2.8, 1.5)
-        scene.add(fl)
-      }
-
       // Non-boss props (cars/bots/nuke cube) join the bosses on the rail.
       addRedCarpet(THREE, scene, HOME_BOSS_LAYOUT.length + 3)
       const homeBosses = HOME_BOSS_LAYOUT.map((layout) => addHomeBoss(THREE, scene, layout))
@@ -781,6 +773,16 @@ export default function HomeMiningWorld3D() {
         bossById.trump, bossById.putin, homeProps[0], bossById.milei,
         homeBotCar, bossById.kim, bossById.zelensky, bossById.macron, homeNuke,
       ]
+      for (const entry of lineup) {
+        // The recorder pans the whole rail in one take, so a gate that only
+        // opens when a slot becomes visible would start that model's fetch
+        // mid-shot and film it popping in. Trailer runs preload everyone up
+        // front (what waitForHomeLoaded's warm-up already assumes); ordinary
+        // visits keep the deferral and only pay for what they see.
+        const gate = { open: trailerLite, cancelled: false, pending: [] }
+        entry.group.userData.modelLoadGate = gate
+        modelLoadGates.push(gate)
+      }
       // The camera only ever frames ~3 centered slots (frameCamera above —
       // "fov computed to fit the three visible carousel slots"), so with a
       // fixed lineup order the same three (whichever land near railX=0)
@@ -1149,12 +1151,18 @@ export default function HomeMiningWorld3D() {
 
       const animate = () => {
         animationFrame = requestAnimationFrame(animate)
-        // Embed WebViews can report hidden/intersection quirks — keep the loop alive.
-        if (!isEmbedArena && (!pageVisible || !inViewport)) return
+        // Embed WebViews misreport both hidden and intersection: bd8f95a added
+        // this bypass precisely because the Android home arena sat frozen while
+        // the portal carousel moved, and the app never pauses the WebView
+        // itself. Ordinary pages still stop when backgrounded or scrolled away.
+        if (!isEmbedArena && (!pageVisible || !inViewport)) { lastSpinTime = null; return }
+        const renderNow = performance.now()
+        if (renderNow - lastRenderTime < frameInterval - 1) return
+        lastRenderTime = renderNow
         const time = clock.getElapsedTime()
         feature.clockTime = time
         // Showcase spin timestep (shared by bosses, statue head and props).
-        const spinDt = time - (lastSpinTime ?? time)
+        const spinDt = Math.min(.05, time - (lastSpinTime ?? time))
         lastSpinTime = time
 
         // Stage zoom easing toward its target framing.
@@ -1212,6 +1220,7 @@ export default function HomeMiningWorld3D() {
         // Pass 2: visibility, placement, camera-facing yaw, and center-focus bump.
         for (const entry of lineup) {
           entry.group.visible = visibleEntries.has(entry)
+          if (entry.group.visible) openModelLoadGate(entry.group.userData.modelLoadGate)
           entry.isCenter = entry === center
           entry.focus += ((entry.isCenter ? 1 : 0) - entry.focus) * Math.min(1, spinDt * 5)
           if (feature.entry === entry && feature.phase !== 'idle') continue
@@ -1252,6 +1261,7 @@ export default function HomeMiningWorld3D() {
         const now = performance.now()
 
         for (const boss of homeBosses) {
+          if (!boss.group.visible) continue
           // Attack yaw/roll is a temporary offset, never the next pose's base.
           if (!boss.isStatue && boss.bodyPivot) {
             boss.bodyPivot.rotation.y = Math.PI
@@ -1416,6 +1426,7 @@ export default function HomeMiningWorld3D() {
           }
         }
         for (const prop of homeProps) {
+          if (!prop.group.visible) continue
           const t = time + prop.phase
           // Showy moves (hops, strikes, nuke press, showcase spin) only play
           // while this prop holds the spotlight; on the rail it idles calmly.
@@ -1547,6 +1558,7 @@ export default function HomeMiningWorld3D() {
 
     return () => {
       destroyed = true
+      modelLoadGates.forEach(cancelModelLoadGate)
       hoverCleanup?.()
       document.removeEventListener('visibilitychange', onVisibilityChange)
       cancelAnimationFrame(animationFrame)
