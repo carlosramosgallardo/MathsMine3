@@ -129,6 +129,7 @@ import {
   isPlayableMiningWorldCell,
   isInHousePoolPvpSafeZone,
 } from '@/lib/mining-world-layout'
+import { createFrameInvalidator } from '@/lib/frame-invalidation'
 import { startVisibleAnimationLoop } from '@/lib/visible-animation-loop'
 import { isCoarsePointerLike as isCoarsePointerDevice, isMobilePreviewActive, isMobilePreviewHighQuality, MOBILE_PREVIEW_VIEWPORT } from '@/lib/mobile-preview'
 import { apiFetch } from '@/lib/wallet-session-client'
@@ -14946,7 +14947,15 @@ export default function MiningChain3DFPV({
     }
   }, [])
 
-  useEffect(()=>{ renderRef.current=renderFrame },[renderFrame])
+  // Network, resize, warm-up and input all share the same frame budget.
+  useEffect(() => {
+    const frames = createFrameInvalidator(renderFrame, () => visualPerfTierRef.current === 'high' ? 60 : 30)
+    renderRef.current = frames.request
+    return () => {
+      frames.dispose()
+      renderRef.current = null
+    }
+  }, [renderFrame])
 
   // Canvas resize
   useEffect(()=>{
