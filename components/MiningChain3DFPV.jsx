@@ -1,7 +1,13 @@
 'use client'
 
+import { M5_TRUMP_BOSS_ATTACKS } from '@/lib/m5-trump-boss'
+import { M4_KIM_BOSS_ATTACKS } from '@/lib/m4-kim-boss'
+import { M3_PUTIN_BOSS_ATTACKS } from '@/lib/m3-putin-boss'
+
 import { useEffect, useRef, useCallback, useState } from 'react'
 import * as THREE from 'three'
+import { getMiningMapVisuals } from '@/lib/mining-map-visuals'
+import { findBossAttack } from '@/lib/boss-attack-selection'
 import { colorFromAddress } from '@/lib/wallet-colors'
 import { buildHumanoidBody, buildHumanHead, humanSkinFromSeed, humanHairFromSeed, swayHumanoidArms, walkHumanoidLegs, walkHumanoidStride, flailHumanoidJump, flapHumanoidJump } from '@/lib/humanoid-body'
 import { relaxHumanoidArms } from '@/lib/capsule-anim-driver'
@@ -342,7 +348,7 @@ function getMiningVisualTier(viewWidth = 1280, viewHeight = 720) {
   // Weakest devices: full lite pass.
   if (lowMem || veryNarrow) return capMiningVisualTier('low', autoCapTier)
   // Typical phone portrait / small view: lite scenery + biome lights (prod default).
-  if (portraitMobile || viewWidth < 640) return capMiningVisualTier('medium', autoCapTier)
+  if (portraitMobile || isCoarsePointerDevice() || viewWidth < 640) return capMiningVisualTier('medium', autoCapTier)
   if (viewWidth < 980) return capMiningVisualTier('medium', autoCapTier)
   return capMiningVisualTier('high', autoCapTier)
 }
@@ -5655,7 +5661,7 @@ const STORMROLL_SKY = {
   },
 }
 
-function applyStormrollSky(threeState, visual, biome) {
+function applyStormrollSky(threeState, visual, mapId) {
   if (!threeState?.scene) return
   const { scene, hemi, rim } = threeState
   if (visual) {
@@ -5671,7 +5677,7 @@ function applyStormrollSky(threeState, visual, biome) {
     return
   }
   if (!threeState.activeNodeDice) return
-  const atmosphere = BIOME_ATMOSPHERE[biome]
+  const atmosphere = getMiningMapVisuals(mapId)
   scene.background.set(atmosphere.sky)
   scene.fog.color.set(atmosphere.fog)
   hemi.color.set(atmosphere.hemi)
@@ -5967,8 +5973,8 @@ function makeRampGeometry(direction='east') {
 }
 
 // Single uniform biome on every map — the per-quadrant split (mountain/coast/
-// ice/inferno) was dropped: one ground colour, one block palette, one static
-// atmosphere. Signature kept so all call sites stay untouched.
+// ice/inferno) was dropped. Cell materials stay unchanged; map atmosphere
+// is selected independently. Signature kept so all call sites stay untouched.
 function biomeForCell() {
   return 'mountain'
 }
@@ -5978,12 +5984,6 @@ const BIOME_STYLE={
   coast:{ground:'#9a7444',block:'#e8b967',accent:'#22d3ee'},
   ice:{ground:'#4a9bc7',block:'#b9ecff',accent:'#f0fbff'},
   inferno:{ground:'#671b18',block:'#d64b2a',accent:'#ffb11b'},
-}
-const BIOME_ATMOSPHERE={
-  mountain:{fog:'#102d49',sky:'#07152f',hemi:'#c7e7ff',rim:'#22d3ee'},
-  coast:{fog:'#0b4962',sky:'#06233d',hemi:'#d0f6ff',rim:'#2dd4bf'},
-  ice:{fog:'#286386',sky:'#0d3152',hemi:'#f0fcff',rim:'#91eaff'},
-  inferno:{fog:'#5a160f',sky:'#2b0709',hemi:'#ffd0a8',rim:'#ff641e'},
 }
 const BIOME_GROUND={
   mountain:{color:'#284765',roughness:.76,metalness:.10,emissive:'#071a2e',emissiveIntensity:.18},
@@ -6095,11 +6095,11 @@ function renderProceduralTextureCanvas(kind, size = 128) {
   return canvas
 }
 
-function finalizeCanvasTexture(texture, { wrap, repeat, anisotropy = 1 } = {}) {
+function finalizeCanvasTexture(texture, { wrap, repeat, anisotropy = 1, mipmaps = false } = {}) {
   texture.colorSpace = THREE.SRGBColorSpace
-  texture.minFilter = THREE.LinearFilter
+  texture.minFilter = mipmaps ? THREE.LinearMipmapLinearFilter : THREE.LinearFilter
   texture.magFilter = THREE.LinearFilter
-  texture.generateMipmaps = false
+  texture.generateMipmaps = mipmaps
   texture.anisotropy = anisotropy
   texture.needsUpdate = true
   if (wrap) {
@@ -6115,7 +6115,8 @@ function createProceduralTexture(kind, size = 128) {
   return finalizeCanvasTexture(texture, {
     wrap: THREE.RepeatWrapping,
     repeat: [5, 5],
-    anisotropy: size <= 64 ? 1 : 4,
+    // Mip levels suppress distant texture shimmer and improve texture locality.
+    mipmaps: true,
   })
 }
 
@@ -6127,7 +6128,7 @@ function tintCanvas(canvas, hex) {
   ctx.globalCompositeOperation = 'source-over'
 }
 
-// One 2×2 atlas — matches biomeForCell quadrants, single ground plane (no z-fighting).
+// One repeated ground tile, shared by cached maps.
 let _biomeAtlasCache = null
 function getBiomeAtlas() {
   if (!_biomeAtlasCache) {
@@ -6138,27 +6139,17 @@ function getBiomeAtlas() {
   return _biomeAtlasCache
 }
 function createBiomeAtlasTexture(quadSize = 256) {
-  const atlas = document.createElement('canvas')
-  atlas.width = quadSize * 2
-  atlas.height = quadSize * 2
-  const ctx = atlas.getContext('2d')
-  // All four atlas tiles share the uniform biome; UV layout stays the same.
-  const layout = [
-    ['mountain', 0, 0],
-    ['mountain', quadSize, 0],
-    ['mountain', 0, quadSize],
-    ['mountain', quadSize, quadSize],
-  ]
-  for (const [biome, x, y] of layout) {
-    const tile = renderProceduralTextureCanvas(biome, quadSize)
-    tintCanvas(tile, BIOME_GROUND[biome].color)
-    ctx.drawImage(tile, x, y)
-  }
-  const texture = new THREE.CanvasTexture(atlas)
-  return finalizeCanvasTexture(texture, {
-    wrap: THREE.ClampToEdgeWrapping,
-    anisotropy: quadSize <= 128 ? 1 : 4,
+  // The old atlas contained four identical tiles. Repeat one tile at the
+  // same world scale: 75% fewer base texels, with mipmaps for stable distance detail.
+  const tile = renderProceduralTextureCanvas('mountain', quadSize)
+  tintCanvas(tile, BIOME_GROUND.mountain.color)
+  const texture = new THREE.CanvasTexture(tile)
+  finalizeCanvasTexture(texture, {
+    wrap: THREE.RepeatWrapping,
+    repeat: [2, 2],
+    mipmaps: true,
   })
+  return texture
 }
 
 function createHouseGroundTexture(size=128) {
@@ -6188,15 +6179,41 @@ function createHouseGroundTexture(size=128) {
     ctx.beginPath();ctx.moveTo(p,0);ctx.lineTo(p,size);ctx.stroke()
   }
   const texture=new THREE.CanvasTexture(canvas)
-  return finalizeCanvasTexture(texture,{wrap:THREE.RepeatWrapping,repeat:[3,3],anisotropy:4})
+  return finalizeCanvasTexture(texture,{wrap:THREE.RepeatWrapping,repeat:[3,3],mipmaps:true})
+}
+
+function paintMiningSky(canvas, palette) {
+  const ctx=canvas.getContext('2d'),h=canvas.height
+  const gradient=ctx.createLinearGradient(0,0,0,h)
+  gradient.addColorStop(0,palette.zenith)
+  gradient.addColorStop(.22,palette.sky)
+  gradient.addColorStop(.44,palette.fog)
+  gradient.addColorStop(.52,palette.horizon)
+  gradient.addColorStop(1,palette.fog)
+  ctx.fillStyle=gradient;ctx.fillRect(0,0,canvas.width,h)
 }
 
 function createSkyTexture() {
-  const canvas=document.createElement('canvas');canvas.width=64;canvas.height=512
-  const ctx=canvas.getContext('2d'),gradient=ctx.createLinearGradient(0,0,0,512)
-  gradient.addColorStop(0,'#01020d');gradient.addColorStop(.35,'#071642');gradient.addColorStop(.72,'#293b78');gradient.addColorStop(1,'#8a315d')
-  ctx.fillStyle=gradient;ctx.fillRect(0,0,64,512)
+  const canvas=document.createElement('canvas');canvas.width=16;canvas.height=256
+  paintMiningSky(canvas,getMiningMapVisuals('1'))
   return finalizeCanvasTexture(new THREE.CanvasTexture(canvas))
+}
+
+function syncMiningMapAtmosphere(state, mapId) {
+  if(state.activeVisualMap===mapId) return
+  const palette=getMiningMapVisuals(mapId)
+  state.scene.background.set(palette.sky)
+  state.scene.fog.color.set(palette.fog)
+  state.hemi.color.set(palette.hemi)
+  state.hemi.groundColor.set(palette.bounce)
+  state.key.color.set(palette.key)
+  state.rim.color.set(palette.rim)
+  const {skyTexture,skyDome}=state.scene.userData
+  paintMiningSky(skyTexture.image,palette)
+  skyTexture.needsUpdate=true
+  skyDome.material.color.set(palette.dome)
+  state.scene.userData.defaultSkyDomeColor=palette.dome
+  state.activeVisualMap=mapId
 }
 
 function addNightDome(scene, lowDetail=false) {
@@ -6257,12 +6274,13 @@ function syncThreeSceneForVisualTier(state, tier = 'high') {
   if (!state?.scene) return
   const high = tier === 'high'
   const lightScale = high ? 1 : 0
-  if (state.iceLight) state.iceLight.intensity = 18 * lightScale
-  if (state.coastLight) state.coastLight.intensity = 12 * lightScale
-  if (state.infernoLight) state.infernoLight.intensity = 24 * lightScale
+  if (state.iceLight) { state.iceLight.intensity = 18 * lightScale; state.iceLight.visible = high }
+  if (state.coastLight) { state.coastLight.intensity = 12 * lightScale; state.coastLight.visible = high }
+  if (state.infernoLight) { state.infernoLight.intensity = 24 * lightScale; state.infernoLight.visible = high }
   if (state.scene.fog) state.scene.fog.density = tier === 'low' ? 0.014 : tier === 'medium' ? 0.016 : 0.018
   if (state.grid) state.grid.visible = high
   if (high) addNightOrbitals(state.scene)
+  for (const orbital of state.scene.userData.orbitals || []) orbital.visible = high
   state.visualTierSynced = tier
 }
 
@@ -6273,9 +6291,9 @@ function addBiomeGround(world, textures, mapId = MINING_CORE_MAP_ID) {
     new THREE.PlaneGeometry(COLS, ROWS),
     new THREE.MeshStandardMaterial({
       map: atlas,
-      color: '#ffffff',
-      roughness: .58,
-      metalness: .12,
+      color: getMiningMapVisuals(mapId).ground,
+      roughness: .82,
+      metalness: .04,
       emissive: '#061018',
       emissiveIntensity: .20,
       polygonOffset: true,
@@ -12780,7 +12798,7 @@ export default function MiningChain3DFPV({
     }catch{return}
     renderer.outputColorSpace=THREE.SRGBColorSpace
     renderer.toneMapping=THREE.ACESFilmicToneMapping
-    renderer.toneMappingExposure=1.38
+    renderer.toneMappingExposure=1.22
     const scene=new THREE.Scene()
     scene.background=new THREE.Color('#020617')
     scene.fog=new THREE.FogExp2('#07132c',.018)
@@ -12794,9 +12812,9 @@ export default function MiningChain3DFPV({
     const hudRim=new THREE.DirectionalLight('#22d3ee',1.4);hudRim.position.set(3,2,2);hudScene.add(hudRim)
     // Extra fill from the front so the face is readable
     const hudFront=new THREE.DirectionalLight('#b0f0ff',1.1);hudFront.position.set(0,0,-4);hudScene.add(hudFront)
-    const hemi=new THREE.HemisphereLight('#d9f2ff','#18213a',2.15);scene.add(hemi)
-    const key=new THREE.DirectionalLight('#fff4d6',2.35);key.position.set(-8,16,-10);scene.add(key)
-    const rim=new THREE.DirectionalLight('#22d3ee',1.1);rim.position.set(12,5,14);scene.add(rim)
+    const hemi=new THREE.HemisphereLight('#d9f2ff','#18213a',1.85);scene.add(hemi)
+    const key=new THREE.DirectionalLight('#fff4d6',2.2);key.position.set(-8,16,-10);scene.add(key)
+    const rim=new THREE.DirectionalLight('#22d3ee',.85);rim.position.set(12,5,14);scene.add(rim)
     const iceLight=new THREE.PointLight('#83e6ff',18,24,1.5);iceLight.position.set(14,6,42);scene.add(iceLight)
     const coastLight=new THREE.PointLight('#62eaff',12,22,1.7);coastLight.position.set(42,5,14);scene.add(coastLight)
     const infernoLight=new THREE.PointLight('#ff4b12',24,25,1.45);infernoLight.position.set(42,5,42);scene.add(infernoLight)
@@ -12819,7 +12837,7 @@ export default function MiningChain3DFPV({
       camRaycaster,occlusionRaycaster,_occlusionTarget:new THREE.Vector3(),_occlusionDirection:new THREE.Vector3(),
       _v3a:new THREE.Vector3(),_v3b:new THREE.Vector3(),_v3c:new THREE.Vector3(),_v3d:new THREE.Vector3(),_v3e:new THREE.Vector3(),
       _avatarCameraSpace:new THREE.Vector3(),_activeAvatars:new Set(),_fadedOccluders:new Set(),
-      _occlusionAvatars:[],_occlusionHits:[],viewWidth:0,viewHeight:0,viewDpr:0,viewFov:0,activeBiome:null,visualTierSynced:null}
+      _occlusionAvatars:[],_occlusionHits:[],viewWidth:0,viewHeight:0,viewDpr:0,viewFov:0,activeVisualMap:null,visualTierSynced:null}
     threeStateRef.current=state
     syncThreeSceneForVisualTier(state,launchTier)
     rebuildThreeRef.current=()=>{
@@ -13395,16 +13413,8 @@ export default function MiningChain3DFPV({
           threeState.size.set(W,H)
         }
         const gx=px/CELL_SIZE,gy=py/CELL_SIZE,lookDistance=5
-        const biome=biomeForCell(Math.floor(gy),Math.floor(gx))
-        if(threeState.activeBiome!==biome){
-          const atmosphere=BIOME_ATMOSPHERE[biome]
-          threeState.scene.background.set(atmosphere.sky)
-          threeState.scene.fog.color.set(atmosphere.fog)
-          threeState.hemi.color.set(atmosphere.hemi)
-          threeState.rim.color.set(atmosphere.rim)
-          threeState.activeBiome=biome
-        }
-        applyStormrollSky(threeState, nodeDiceVisual, biome)
+        syncMiningMapAtmosphere(threeState, mapIdRef.current)
+        applyStormrollSky(threeState, nodeDiceVisual, mapIdRef.current)
         // 3rd-person over-shoulder camera — drop to ground level when dead
         const localDead=myDeadUntilRef.current&&myDeadUntilRef.current>Date.now()
         const rlMountedCam=!localDead&&rlMountActiveRef.current
@@ -15655,7 +15665,18 @@ export default function MiningChain3DFPV({
             localGy: p.y / CELL_SIZE,
             stormAggro,
             canMoveTo: (gx, gy) => !hitsSolidWall(gx, gy, activeCellMapRef.current, validObstaclesRef.current, 0, 0),
-            onAttack: (payload) => onBossAttackRef.current?.({ ...payload, mapId: currentMapId }),
+            onAttack: async (payload) => {
+              const runtime = bossRuntimeRef.current
+              const startedAt = runtime?.lastAttackMs
+              const result = await onBossAttackRef.current?.({ ...payload, mapId: currentMapId })
+              if (!result?.ok || bossRuntimeRef.current !== runtime || runtime.lastAttackMs !== startedAt) return
+              const attacks = currentMapId === '3' ? M3_PUTIN_BOSS_ATTACKS : currentMapId === '4' ? M4_KIM_BOSS_ATTACKS : M5_TRUMP_BOSS_ATTACKS
+              const attack = findBossAttack(attacks, result.attackId)
+              if (attack) {
+                runtime.currentAttack = attack
+                runtime.attackUntil = startedAt + attack.durationMs
+              }
+            },
             onRequestIdle: () => {
               if (bossIdleRequestedRef.current || bossStateRef.current?.state !== 'active') return
               bossIdleRequestedRef.current = true

@@ -1030,7 +1030,7 @@ export default function MiningChain3D() {
     }).catch(() => {})
   }, [triggerSelfDeath])
 
-  const handleBossAttack = useCallback(async ({ wallet, playerGx, playerGy, bossGx, bossGy, mapId: attackMapId }) => {
+  const handleBossAttack = useCallback(async ({ wallet, playerGx, playerGy, bossGx, bossGy, attackId, mapId: attackMapId }) => {
     const bossMapId = String(attackMapId || mapIdRef.current)
     const cfg = getMapBossConfig(bossMapId)
     if (!cfg) return { ok: false, error: 'no_boss' }
@@ -1054,6 +1054,7 @@ export default function MiningChain3D() {
           playerGy,
           bossGx,
           bossGy,
+          attackId,
           mapId: bossMapId,
         }),
       }, normalizedWallet).then(r => r.json()).catch(() => null)

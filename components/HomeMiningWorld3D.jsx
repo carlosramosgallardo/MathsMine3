@@ -3,11 +3,11 @@
 import { useEffect, useRef } from 'react'
 import { spawnBossTrail, drawBossTrail } from '@/lib/boss-attack-beam-vfx'
 import { createM3PutinBossVisual } from '@/lib/m3-putin-boss-runtime'
-import { M3_PUTIN_BOSS_SCALE, M3_PUTIN_BOSS_NAME, M3_PUTIN_BOSS_MAX_HP } from '@/lib/m3-putin-boss'
+import { M3_PUTIN_BOSS_ATTACKS, M3_PUTIN_BOSS_SCALE, M3_PUTIN_BOSS_NAME, M3_PUTIN_BOSS_MAX_HP } from '@/lib/m3-putin-boss'
 import { createM4KimBossVisual } from '@/lib/m4-kim-boss-runtime'
-import { M4_KIM_BOSS_SCALE, M4_KIM_BOSS_NAME, M4_KIM_BOSS_MAX_HP } from '@/lib/m4-kim-boss'
+import { M4_KIM_BOSS_ATTACKS, M4_KIM_BOSS_SCALE, M4_KIM_BOSS_NAME, M4_KIM_BOSS_MAX_HP } from '@/lib/m4-kim-boss'
 import { createM5TrumpBossVisual } from '@/lib/m5-trump-boss-runtime'
-import { M5_TRUMP_BOSS_SCALE, M5_TRUMP_BOSS_NAME, M5_TRUMP_BOSS_MAX_HP } from '@/lib/m5-trump-boss'
+import { M5_TRUMP_BOSS_ATTACKS, M5_TRUMP_BOSS_SCALE, M5_TRUMP_BOSS_NAME, M5_TRUMP_BOSS_MAX_HP } from '@/lib/m5-trump-boss'
 import { createM1MileiStatueVisual, M1_MILEI_STATUE_SCALE, buzzM1MileiStatue, walkM1MileiStatue } from '@/lib/m1-milei-statue'
 import { createM1ZelenskyStatueVisual, M1_ZELENSKY_STATUE_SCALE } from '@/lib/m1-zelensky-statue'
 import { createM2MacronStatueVisual, M2_MACRON_STATUE_SCALE } from '@/lib/m2-macron-statue'
@@ -32,6 +32,8 @@ import { addRlCarBoost, setRlCarBoostLit } from '@/lib/rl-car-boost'
 import { attachRlCarModel, addRlCockpitTub } from '@/lib/rl-car-model'
 import { createNukeCubeVisual, updateNukeCubeVisual } from '@/lib/nuke-cube'
 import { aiTeamPoolCode } from '@/lib/ai-team'
+import { selectBossAttack } from '@/lib/boss-attack-selection'
+import { unitRandom } from '@/lib/game-random'
 
 /** The real AI-team bot wallets (NPC_BOT_BY_MAP in MiningChain3DFPV, maps 2-5):
     the four home bots ARE these bots — same wallet colour, same overhead tag. */
@@ -616,6 +618,7 @@ export default function HomeMiningWorld3D() {
     // Attack animation state: null = idle, number = performance.now() when the
     // 3 s sequence began. Attacks only start from the center-stage feature.
     const bossAttackStart = { putin: null, kim: null, trump: null }
+    const bossAttackVariant = { putin: null, kim: null, trump: null }
     const bossVfxFired    = { putin: false, kim: false, trump: false }
     const bossGreetStart  = { putin: null, kim: null, trump: null }
 
@@ -838,6 +841,7 @@ export default function HomeMiningWorld3D() {
         if (!b) return
         if (b.id && !b.isStatue) {
           bossAttackStart[b.id] = null
+          bossAttackVariant[b.id] = null
           bossGreetStart[b.id] = null
           bossVfxFired[b.id] = false
         }
@@ -1002,15 +1006,26 @@ export default function HomeMiningWorld3D() {
 
       // 3-second attack choreography per boss — called once per frame while attackT ∈ (0,1).
       // Arms blend from idle sway to an attack pose; legs do a boss-specific move; boss jumps.
-      const applyBossAttack = (boss, bossId, at, t) => {
+      const applyBossAttack = (boss, bossId, attackId, at, t) => {
         // Sculpt bodies (Trump crawls) have no limbs to pose: the whole body
         // rears and slams, and the group hops along its lunge direction.
         if (isQuadrupedBody(boss.bodyPivot)) {
           const jump = Math.sin(at * Math.PI)
           const lf = boss.lungseFacing ?? boss.group.rotation.y
-          animateQuadruped(boss.bodyPivot, { time: t, moving: 0.55, attackT: at })
-          boss.group.position.y = boss.baseY + jump * 0.07
-          const reach = 0.42 * jump
+          if (attackId === 'side-swipe') {
+            animateQuadruped(boss.bodyPivot, { time: t, moving: 0.18 })
+            boss.bodyPivot.rotation.y = Math.PI + jump * 0.82
+            boss.bodyPivot.rotation.z += jump * 0.34
+          } else if (attackId === 'bull-rush') {
+            const impact = Math.sin(Math.max(0, Math.min(1, (at - 0.42) / 0.38)) * Math.PI)
+            animateQuadruped(boss.bodyPivot, { time: t * 1.8, moving: 1 })
+            boss.bodyPivot.rotation.x += jump * 0.24 - impact * 0.42
+          } else {
+            animateQuadruped(boss.bodyPivot, { time: t, moving: 0.55, attackT: at })
+            boss.bodyPivot.rotation.y = Math.PI
+          }
+          boss.group.position.y = boss.baseY + jump * (attackId === 'bull-rush' ? 0.11 : 0.07)
+          const reach = (attackId === 'side-swipe' ? 0.18 : 0.42) * jump
           boss.group.position.x += Math.sin(lf) * reach
           boss.group.position.z = boss.baseZ + Math.cos(lf) * reach
           boss.group.rotation.z = 0
@@ -1026,10 +1041,29 @@ export default function HomeMiningWorld3D() {
         if (!arms || !legs) return
         const { blend, jumpH } = homeAttackEnvelope(at)
         if (bossId === 'putin') {
-          poseHumanoidMeleeStrike(boss.bodyPivot, at, { style: 'thrust', blend })
+          poseHumanoidMeleeStrike(boss.bodyPivot, at, { style: attackId === 'sweeping-hook' ? 'overhead' : 'thrust', blend })
+          if (attackId === 'sweeping-hook') {
+            boss.bodyPivot.rotation.y = Math.PI + jumpH * 0.72
+            boss.bodyPivot.rotation.z -= jumpH * 0.16
+          } else if (attackId === 'spinning-kick') {
+            const kick = Math.sin(Math.max(0, Math.min(1, (at - 0.18) / 0.56)) * Math.PI)
+            boss.bodyPivot.rotation.y = Math.PI + Math.sin(Math.min(1, at / 0.72) * Math.PI) * Math.PI * 1.65
+            boss.bodyPivot.rotation.z = -kick * 0.22
+            legs[0].rotation.x = -kick * 1.18
+            legs[1].rotation.x = kick * 0.28
+          }
           homeBossAttackHop(boss, { jumpH, blend, jumpScale: 0.06, t })
         } else if (bossId === 'kim') {
-          poseHumanoidMeleeStrike(boss.bodyPivot, at, { style: 'overhead', blend })
+          poseHumanoidMeleeStrike(boss.bodyPivot, at, { style: attackId === 'shoulder-barge' ? 'thrust' : 'overhead', blend })
+          if (attackId === 'shoulder-barge') {
+            boss.bodyPivot.rotation.x = -jumpH * 0.36
+            boss.bodyPivot.rotation.z = jumpH * 0.18
+          } else if (attackId === 'quake-stomp') {
+            const stomp = Math.sin(Math.max(0, Math.min(1, (at - 0.38) / 0.42)) * Math.PI)
+            legs[0].rotation.x = -jumpH * 0.82
+            legs[1].rotation.x = stomp * 0.32
+            boss.bodyPivot.rotation.x = -jumpH * 0.12 + stomp * 0.28
+          }
           homeBossAttackHop(boss, { jumpH, blend, jumpScale: 0.10, t })
         }
       }
@@ -1218,6 +1252,11 @@ export default function HomeMiningWorld3D() {
         const now = performance.now()
 
         for (const boss of homeBosses) {
+          // Attack yaw/roll is a temporary offset, never the next pose's base.
+          if (!boss.isStatue && boss.bodyPivot) {
+            boss.bodyPivot.rotation.y = Math.PI
+            boss.bodyPivot.rotation.z = 0
+          }
           const t = time + boss.phase
           const stride = Math.sin(t * boss.bob)
           const feat = feature.entry === boss ? feature.phase : 'idle'
@@ -1262,6 +1301,10 @@ export default function HomeMiningWorld3D() {
                 feature.until = time + 4
               } else {
                 bossAttackStart[boss.id] = now
+                const attacks = boss.id === 'putin' ? M3_PUTIN_BOSS_ATTACKS
+                  : boss.id === 'kim' ? M4_KIM_BOSS_ATTACKS
+                    : M5_TRUMP_BOSS_ATTACKS
+                bossAttackVariant[boss.id] = selectBossAttack(attacks, unitRandom())
                 bossVfxFired[boss.id] = false
                 boss.lungseFacing = g.rotation.y
               }
@@ -1333,7 +1376,7 @@ export default function HomeMiningWorld3D() {
             const greetT = gs ? Math.min(1, (now - gs) / 3000) : 0
             boss.glowLight.intensity = (boss.baseGlow + Math.sin(t * 2.4) * 0.85) * (0.45 + 0.65 * boss.focus)
             if (attackT > 0) {
-              applyBossAttack(boss, boss.id, attackT, t)
+              applyBossAttack(boss, boss.id, bossAttackVariant[boss.id]?.id, attackT, t)
               const bIn  = Math.sin(Math.min(1, attackT / 0.15) * Math.PI * 0.5)
               const bOut = Math.sin(Math.min(1, (1 - attackT) / 0.20) * Math.PI * 0.5)
               boss.glowLight.intensity += bIn * bOut * 1.4
@@ -1480,6 +1523,7 @@ export default function HomeMiningWorld3D() {
           }
           if (elapsed >= 3000) {
             bossAttackStart[bossId] = null
+            bossAttackVariant[bossId] = null
             bossVfxFired[bossId] = false
             bossGreetStart[bossId] = now   // start greeting wave immediately after attack
             // Yaw at the moment the greet begins, so the greet can turn from it smoothly.

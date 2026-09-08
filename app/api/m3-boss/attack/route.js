@@ -2,9 +2,7 @@ export const dynamic = 'force-dynamic'
 
 import {
   M3_PUTIN_BOSS_ATTACK_RANGE_SERVER,
-  M3_PUTIN_BOSS_CRIT_CHANCE,
-  M3_PUTIN_BOSS_CRIT_DAMAGE,
-  M3_PUTIN_BOSS_HIT_DAMAGE,
+  M3_PUTIN_BOSS_ATTACKS,
   M3_PUTIN_BOSS_ID,
   isBossPositionValid,
 } from '@/lib/m3-putin-boss'
@@ -15,9 +13,7 @@ export async function POST(req) {
     mapId: '3',
     bossId: M3_PUTIN_BOSS_ID,
     attackRangeServer: M3_PUTIN_BOSS_ATTACK_RANGE_SERVER,
-    critChance: M3_PUTIN_BOSS_CRIT_CHANCE,
-    critDamage: M3_PUTIN_BOSS_CRIT_DAMAGE,
-    hitDamage: M3_PUTIN_BOSS_HIT_DAMAGE,
+    attacks: M3_PUTIN_BOSS_ATTACKS,
     isBossPositionValid,
   })
 }
