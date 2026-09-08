@@ -410,9 +410,6 @@ export function addNftjiMiningBlock(THREE, scene, options = {}) {
 // rotation brings them into the display window.
 const HOME_LINEUP_X = Object.freeze([-13.65, -9.1, -4.45, 0, 4.45, 9.1, 13.65])
 const HOME_VISIBLE_MEMBER_COUNT = 3
-// Fetch one nearby slot ahead of time without compiling hidden scene graphs.
-const HOME_WARM_AHEAD_COUNT = 1
-const HOME_WARM_INTERVAL_MS = 1200
 // heightMult ≈ realHeight/190 so every boss shares the Trump crown on the rail.
 // Statues share one MM3 plinth extract — no extra yOffset per character.
 const HOME_BOSS_LAYOUT = [
@@ -634,7 +631,6 @@ export default function HomeMiningWorld3D() {
     let renderer
     const modelLoadGates = []
     let lastRenderTime = 0
-    let lastWarmTime = 0
     let hoverCleanup = null
     let lastSpinTime = null
     // Stage zoom: tapping the showcase (without dragging) toggles a closer
@@ -962,11 +958,11 @@ export default function HomeMiningWorld3D() {
         // rotation timer in LandingHero — that polygon is gone, replaced by
         // the stacked portal list, so the carousel now paces itself instead
         // of waiting on an external cycle event that no longer exists).
-        // Same 3s cadence and guards as the old nonagon rotation.
+        // Give the initial models time to settle before fetching the next slot.
         const cycleTimer = setInterval(() => {
           if ((!isEmbedArena && (!pageVisible || !inViewport)) || rail.dragging || feature.phase !== 'idle') return
           rail.snapTarget += RAIL_SPACING // glide exactly one slot
-        }, 3000)
+        }, 12000)
         accessEl?.style && (accessEl.style.touchAction = 'pan-y')
         accessEl?.addEventListener('pointerdown', onDown)
         window.addEventListener('pointermove', onMove)
@@ -1219,16 +1215,6 @@ export default function HomeMiningWorld3D() {
         // the visible scene bounded even at the midpoint between two slots.
         const byRailDistance = [...lineup].sort((a, b) => Math.abs(a.wx) - Math.abs(b.wx))
         const visibleEntries = new Set(byRailDistance.slice(0, HOME_VISIBLE_MEMBER_COUNT))
-        // Fetch/decode one nearby model ahead. Compiling hidden groups every
-        // few frames traversed the same meshes repeatedly and left Three's
-        // readiness timers accessing disposed programs after navigation.
-        if (renderNow - lastWarmTime > HOME_WARM_INTERVAL_MS) {
-          lastWarmTime = renderNow
-          for (const entry of byRailDistance.slice(HOME_VISIBLE_MEMBER_COUNT, HOME_VISIBLE_MEMBER_COUNT + HOME_WARM_AHEAD_COUNT)) {
-            openModelLoadGate(entry.group.userData.modelLoadGate)
-
-          }
-        }
         // Pass 2: visibility, placement, camera-facing yaw, and center-focus bump.
         for (const entry of lineup) {
           entry.group.visible = visibleEntries.has(entry)
