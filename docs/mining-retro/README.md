@@ -6,13 +6,17 @@ Avatares, estatuas, jefes, coches, herramientas y cubos nucleares conservan su i
 
 En Mining los personajes (jefes, estatuas, bots, cápsulas, peana, ledger, cubo) llevan *frustum culling* activo: no se dibujan cuando quedan fuera del cono de la cámara. Los venían desactivando en bloque (`frustumCulled = false`), así que todos se dibujaban aunque estuvieran a la espalda. Las mallas *skinned* usan una esfera de pose de reposo acolchada ×1,5, porque three calcula la suya una sola vez en el primer frame y un brazo animado podría salirse. Home no cambia: sus tres huecos visibles siempre están en pantalla.
 
-## Streaming por proximidad
+## Distancia de renderizado
 
-Tres cosas se reparten ahora alrededor del jugador, todas desde el mismo tick que ya sincronizaba los chunks de bloques minables:
+`MINING_RENDER_DISTANCE` (22 celdas) es la perilla: todo lo visual que está troceado solo se dibuja dentro de ese radio del jugador y **aparece a medida que camina**; lo que queda fuera nace oculto al construir el mapa, así que la entrada no muestra el mundo entero de golpe. `MINING_FOG_DENSITY` (.055) va a juego: en el borde del radio queda ~23 % visible, así que los trozos nuevos se funden con la niebla en vez de saltar. Suben o bajan juntas.
 
-- **Construcción incremental de la decoración.** `createMiningDecorBatcher` ordena los lotes estáticos de 12×12 celdas de cerca a lejos respecto al punto de aparición; los más cercanos se fusionan al construir el mapa (10 ms) y el resto en pasos de 3 ms por tick. Mientras un lote está pendiente, sus piezas originales siguen dibujándose (más draw calls unos frames, nunca un hueco), así que la entrada al mapa deja de pagar toda la fusión de golpe — y ese coste crecía linealmente con cada pieza de decoración. El planificador viaja con el mundo en la caché de mapas y se cancela al descartarlo.
-- **Culling por distancia de lotes, ligado a la niebla.** `MINING_FOG_DENSITY` es la única perilla: `FogExp2` deja visible `exp(-(densidad·d)²)`, y `cullMiningBatchesByDistance` oculta los lotes fusionados a partir de donde eso baja del ~8 %, con un margen de medio lote para que ningún borde parpadee. Con la densidad anterior (.014) la esquina opuesta de un mapa de 56 celdas seguía al 45 % y no se cullaba nada; con .028 el corte queda a ~57 celdas (30 % visible a 40, 8 % en el corte) y desde cualquier punto deja de dibujarse aproximadamente el tercio más lejano de la decoración. Subirla compra margen para más decoración; bajarla alarga el horizonte.
-- **Carga de modelos por proximidad.** Jefes, estatuas, cubo y bots llevan un `modelLoadGate` (el mismo mecanismo del carrusel de Home) que se abre a 20 celdas del jugador. Hasta entonces se ve el stand-in voxel, que a esa distancia mide ~40 px; el modelo no se descarga nunca. Los gates de los personajes del mundo viajan con él en la caché; los de los bots se liberan uno a uno cuando la presencia los retira.
+Qué está troceado y cómo:
+
+- **Muros de bioma y casas** (`addChunkedInstancedMeshes`): un `InstancedMesh` por trozo de 14×14 celdas en vez de uno por mapa. Era la geometría dominante y la única que no estaba troceada; por eso antes "cargaba todo de golpe" aunque bloques y decoración ya fueran por proximidad. Los trozos ocultos siguen colisionando: three no salta objetos invisibles al hacer raycast.
+- **Paisaje de M1** (`addM1RetroDecor`): ya iba instanciado por 14×14; ahora se registra para el culling por distancia.
+- **Decoración estática de M2–M5** (`createMiningDecorBatcher`): lotes de 12×12 ordenados de cerca a lejos desde el punto de aparición; los cercanos se fusionan al construir el mapa (10 ms) y el resto en pasos de 3 ms por tick. Los lotes fuera del radio nacen ocultos (originales incluidos) y se muestran al acercarse. El planificador viaja con el mundo en la caché de mapas y se cancela al descartarlo.
+- **Bloques minables**: su propio sistema de chunks de 8×8 (radio 1 en tier bajo, 3 en alto ≈ 24 celdas), sin cambios.
+- **Modelos de personajes**: jefes, estatuas, cubo y bots muestran el stand-in voxel hasta que el jugador está a 20 celdas y entonces descargan el modelo (`modelLoadGate`, el mismo mecanismo del carrusel de Home). El modelo no se descarga nunca. Los gates de los personajes del mundo viajan con él en la caché; los de los bots se liberan uno a uno con la presencia.
 
 Los datos de mapa, colisión, combate y movimiento no participan en nada de esto: se cargan enteros al instante, como antes.
 

@@ -7,7 +7,7 @@ import { M3_PUTIN_BOSS_ATTACKS } from '@/lib/m3-putin-boss'
 import { useEffect, useRef, useCallback, useState } from 'react'
 import * as THREE from 'three'
 import { addRetroHead } from '@/lib/mining-retro-props'
-import { addM1RetroDecor, simplifyMiningMaterials, createMiningDecorBatcher, cullMiningBatchesByDistance, miningViewRadius, batchMiningShoreline, miningRetroPixelRatio, createMiningRetroTexture } from '@/lib/mining-retro'
+import { addM1RetroDecor, simplifyMiningMaterials, createMiningDecorBatcher, cullMiningBatchesByDistance, addChunkedInstancedMeshes, batchMiningShoreline, miningRetroPixelRatio, createMiningRetroTexture } from '@/lib/mining-retro'
 import { createModelLoadGate, cancelModelLoadGate, syncProximityGates } from '@/lib/model-load-scheduling'
 import { getMiningMapVisuals } from '@/lib/mining-map-visuals'
 import { findBossAttack } from '@/lib/boss-attack-selection'
@@ -7660,15 +7660,17 @@ function makeRecoveryTileTexture() {
 
 // ── Minable block chunk streaming (visual only — physics uses cellMap) ─────────
 const MINABLE_BLOCK_CHUNK_SIZE = 8
-// One knob for view distance AND decor headroom. FogExp2 leaves
-// exp(-(density·d)²) visible; cullMiningBatchesByDistance hides merged decor
-// once that drops under ~8%, so a denser fog both shortens the horizon and
-// removes triangles from the frame. On a 56-cell map .014 (the old value)
-// culled nothing — the far corner was still 45% visible. .028 puts the cull
-// at ~57 cells: 30% visible at 40 cells, 8% at the cut, so from anywhere on
-// the map roughly the far third of the decor stops drawing. Raise it further
-// to buy room for denser decoration; lower it to see further.
-const MINING_FOG_DENSITY = .028
+// Render distance, in cells. Everything visual that is chunked — biome
+// walls, houses, M1 landscape instances, M2–M5 decor batches — only draws
+// within this radius of the player and appears as they walk; far chunks are
+// born hidden at map build. Gameplay data (cells, collision, combat) is
+// always whole: hidden chunks still raycast. Minable blocks keep their own
+// chunk radius (8-cell chunks, 1 on low tier / 3 on high ≈ this distance).
+const MINING_RENDER_DISTANCE = 22
+// FogExp2 leaves exp(-(density·d)²) visible. Tuned to the render distance:
+// at 22 cells a chunk edge is ~23% visible, so new chunks fade in rather than
+// pop, and at 30 cells ~7% is left. Raise both together to see further.
+const MINING_FOG_DENSITY = .055
 // Characters keep their voxel stand-in until the player is this close; at 20
 // cells a figure is ~40px tall in the retro framebuffer, about where the
 // stand-in starts to read as one. Models never unload once loaded, so this
@@ -8062,21 +8064,21 @@ function rebuildThreeWorld(state,cellMap,obstacles) {
     for(const kind of ['wall','roof','stair']){
       const entries=houseGroups[kind]
       if(!entries.length) continue
-      const mesh=new THREE.InstancedMesh(new THREE.BoxGeometry(1,1,1),houseMaterials[kind],entries.length)
-      entries.forEach(([key,obstacle],index)=>{
-        const [row,col]=key.split(',').map(Number)
-        const bottom=obstacleBottom(obstacle)
-        const visualTop=Number(obstacle.visualHeight)||obstacleTop(obstacle)
-        const visualHeight=Math.max(.02,visualTop-bottom)
-        const inset=kind==='roof'?0.92:0.985
-        position.set(col+.5,bottom+visualHeight*.5,row+.5)
-        scale.set(inset,visualHeight,inset)
-        matrix.compose(position,quaternion,scale)
-        mesh.setMatrixAt(index,matrix)
+      const inset=kind==='roof'?0.92:0.985
+      addChunkedInstancedMeshes(world,{
+        geometry:new THREE.BoxGeometry(1,1,1),material:houseMaterials[kind],entries,name:`house ${kind}`,
+        collidable:kind==='wall'||kind==='roof',
+        cellOf:([key])=>key.split(',').map(Number),
+        place:([key,obstacle],index,m)=>{
+          const [row,col]=key.split(',').map(Number)
+          const bottom=obstacleBottom(obstacle)
+          const visualTop=Number(obstacle.visualHeight)||obstacleTop(obstacle)
+          const visualHeight=Math.max(.02,visualTop-bottom)
+          position.set(col+.5,bottom+visualHeight*.5,row+.5)
+          scale.set(inset,visualHeight,inset)
+          m.compose(position,quaternion,scale)
+        },
       })
-      mesh.instanceMatrix.needsUpdate=true
-      if(kind==='wall'||kind==='roof') mesh.userData.collidable=true
-      world.add(mesh)
     }
     state.housePerimeterHeartsMesh=addHousePerimeterHeartSigns(world)
     if(houseGroups.rail.length){
@@ -8410,15 +8412,18 @@ function rebuildThreeWorld(state,cellMap,obstacles) {
       inferno:{color:'#df5832',roughness:.55,metalness:.18,emissive:'#8c1705',intensity:.88},
     }[biome]
     const material=new THREE.MeshStandardMaterial({map:textures[biome],color:style.color,roughness:style.roughness,metalness:style.metalness,emissive:style.emissive,emissiveIntensity:style.intensity})
-    const mesh=new THREE.InstancedMesh(new THREE.BoxGeometry(1,1,1),material,entries.length)
-    entries.forEach(([key,obstacle],index)=>{
-      const [row,col]=key.split(',').map(Number),bottom=obstacleBottom(obstacle),height=obstacleTop(obstacle)-bottom
-      const visualTop=Number(obstacle.visualHeight)||obstacleTop(obstacle)
-      const visualHeight=Math.max(.02,visualTop-bottom)
-      position.set(col+.5,bottom+visualHeight*.5,row+.5);scale.set(.985,visualHeight,.985)
-      matrix.compose(position,quaternion,scale);mesh.setMatrixAt(index,matrix)
+    // Chunked per 14 cells so the render distance applies to the walls too.
+    addChunkedInstancedMeshes(world,{
+      geometry:new THREE.BoxGeometry(1,1,1),material,entries,collidable:true,name:`${biome} blocks`,
+      cellOf:([key])=>key.split(',').map(Number),
+      place:([key,obstacle],index,m)=>{
+        const [row,col]=key.split(',').map(Number),bottom=obstacleBottom(obstacle)
+        const visualTop=Number(obstacle.visualHeight)||obstacleTop(obstacle)
+        const visualHeight=Math.max(.02,visualTop-bottom)
+        position.set(col+.5,bottom+visualHeight*.5,row+.5);scale.set(.985,visualHeight,.985)
+        m.compose(position,quaternion,scale)
+      },
     })
-    mesh.instanceMatrix.needsUpdate=true;mesh.userData.collidable=true;world.add(mesh)
   }
 
   for(const [key,obstacle] of obstacles){
@@ -8451,9 +8456,11 @@ function rebuildThreeWorld(state,cellMap,obstacles) {
   const protectedVisuals = new Set([state.m1MileiStatueGroup, state.m1ZelenskyStatueGroup, state.nukeCubeGroup].filter(Boolean))
   simplifyMiningMaterials(world, protectedVisuals)
   // Nearest buckets merge now; the rest streams in from the game tick.
-  state.retroBatcher = createMiningDecorBatcher(world, protectedVisuals, { origin: { x: playerGx, z: playerGy } })
+  state.retroBatcher = createMiningDecorBatcher(world, protectedVisuals, { origin: { x: playerGx, z: playerGy }, hideBeyond: MINING_RENDER_DISTANCE })
   state.retroBatcher.step(DECOR_BATCH_FIRST_BUDGET_MS)
   batchMiningShoreline(world)
+  // Before the first frame, not the first tick: no flash of the whole map.
+  cullMiningBatchesByDistance(world, playerGx, playerGy, MINING_RENDER_DISTANCE)
   state.world=world
   state.proximityCellKey=null
   state.cameraCollisionValid=false
@@ -10663,20 +10670,20 @@ function rebuildPeripheralMapWorld(state, mapId, obstacles, cellMap) {
       map: state.textures[biome], color: style.color, roughness: style.roughness,
       metalness: style.metalness, emissive: style.emissive, emissiveIntensity: style.intensity,
     })
-    const mesh = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), material, entries.length)
-    entries.forEach(([key, obstacle], index) => {
-      const [row, col] = key.split(',').map(Number)
-      const bottom = obstacleBottom(obstacle)
-      const visualTop = Number(obstacle.visualHeight) || obstacleTop(obstacle)
-      const visualHeight = Math.max(0.02, visualTop - bottom)
-      position.set(col + 0.5, bottom + visualHeight * 0.5, row + 0.5)
-      scale.set(0.985, visualHeight, 0.985)
-      matrix.compose(position, quaternion, scale)
-      mesh.setMatrixAt(index, matrix)
+    // Chunked per 14 cells so the render distance applies to the walls too.
+    addChunkedInstancedMeshes(world, {
+      geometry: new THREE.BoxGeometry(1, 1, 1), material, entries, collidable: true, name: `${biome} blocks`,
+      cellOf: ([key]) => key.split(',').map(Number),
+      place: ([key, obstacle], index, m) => {
+        const [row, col] = key.split(',').map(Number)
+        const bottom = obstacleBottom(obstacle)
+        const visualTop = Number(obstacle.visualHeight) || obstacleTop(obstacle)
+        const visualHeight = Math.max(0.02, visualTop - bottom)
+        position.set(col + 0.5, bottom + visualHeight * 0.5, row + 0.5)
+        scale.set(0.985, visualHeight, 0.985)
+        m.compose(position, quaternion, scale)
+      },
     })
-    mesh.instanceMatrix.needsUpdate = true
-    mesh.userData.collidable = true
-    world.add(mesh)
   }
   const activeCellMap = cellMap || new Map()
   const playerGx = state.lastPlayerGridX ?? COLS / 2
@@ -10720,9 +10727,10 @@ function rebuildPeripheralMapWorld(state, mapId, obstacles, cellMap) {
     state.m3PutinBossGroup, state.m4KimBossGroup, state.m5TrumpBossGroup, state.nukeCubeGroup].filter(Boolean))
   simplifyMiningMaterials(world, protectedVisuals)
   // Nearest buckets merge now; the rest streams in from the game tick.
-  state.retroBatcher = createMiningDecorBatcher(world, protectedVisuals, { origin: { x: playerGx, z: playerGy } })
+  state.retroBatcher = createMiningDecorBatcher(world, protectedVisuals, { origin: { x: playerGx, z: playerGy }, hideBeyond: MINING_RENDER_DISTANCE })
   state.retroBatcher.step(DECOR_BATCH_FIRST_BUDGET_MS)
   batchMiningShoreline(world)
+  cullMiningBatchesByDistance(world, playerGx, playerGy, MINING_RENDER_DISTANCE)
   state.world = world
   state.proximityCellKey = null
   state.cameraCollisionValid = false
@@ -15225,7 +15233,7 @@ export default function MiningChain3DFPV({
           const cellKey = `${Math.floor(pgx)},${Math.floor(pgy)}`
           if (cellKey !== ts.proximityCellKey || ts.retroBatcher) {
             ts.proximityCellKey = cellKey
-            cullMiningBatchesByDistance(ts.world, pgx, pgy, miningViewRadius(ts.scene?.fog?.density ?? MINING_FOG_DENSITY))
+            cullMiningBatchesByDistance(ts.world, pgx, pgy, MINING_RENDER_DISTANCE)
             if (ts.proximityGates?.length) syncProximityGates(ts.proximityGates, pgx, pgy, CHARACTER_MODEL_LOAD_RADIUS)
             if (ts.avatarGates?.length) syncProximityGates(ts.avatarGates, pgx, pgy, CHARACTER_MODEL_LOAD_RADIUS)
           }
