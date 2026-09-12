@@ -6,11 +6,13 @@ import { M3_PUTIN_BOSS_ATTACKS } from '@/lib/m3-putin-boss'
 
 import { useEffect, useRef, useCallback, useState } from 'react'
 import * as THREE from 'three'
+import { addRetroHead } from '@/lib/mining-retro-props'
+import { addM1RetroDecor, simplifyMiningMaterials, batchMiningStaticDecor, batchMiningShoreline, miningRetroPixelRatio, createMiningRetroTexture } from '@/lib/mining-retro'
 import { getMiningMapVisuals } from '@/lib/mining-map-visuals'
 import { findBossAttack } from '@/lib/boss-attack-selection'
 import { skipShaderErrorChecks } from '@/lib/webgl-renderer-tuning'
 import { colorFromAddress } from '@/lib/wallet-colors'
-import { buildHumanoidBody, buildHumanHead, humanSkinFromSeed, humanHairFromSeed, swayHumanoidArms, walkHumanoidLegs, walkHumanoidStride, flailHumanoidJump, flapHumanoidJump } from '@/lib/humanoid-body'
+import { buildHumanoidBody, humanSkinFromSeed, humanHairFromSeed, swayHumanoidArms, walkHumanoidLegs, walkHumanoidStride, flailHumanoidJump, flapHumanoidJump } from '@/lib/humanoid-body'
 import { relaxHumanoidArms } from '@/lib/capsule-anim-driver'
 import { dockHeldItemsToGlb, applyHumanoidCarMount, hookHumanoidCarMount, unseatHumanoidGlb, HUMANOID_GLB_SRC_CLOTHES, HUMANOID_GLB_CAR_NECK_Y } from '@/lib/humanoid-glb'
 import { createLedgerTool, poseLedgerHoldArm, poseLedgerSwing, poseLedgerSwingArm } from '@/lib/ledger-tool'
@@ -131,7 +133,7 @@ import {
 } from '@/lib/mining-world-layout'
 import { createFrameInvalidator } from '@/lib/frame-invalidation'
 import { startVisibleAnimationLoop } from '@/lib/visible-animation-loop'
-import { isCoarsePointerLike as isCoarsePointerDevice, isMobilePreviewActive, isMobilePreviewHighQuality, MOBILE_PREVIEW_VIEWPORT } from '@/lib/mobile-preview'
+import { isCoarsePointerLike as isCoarsePointerDevice, isMobilePreviewActive } from '@/lib/mobile-preview'
 import { apiFetch } from '@/lib/wallet-session-client'
 
 function isRlNodeCell(cell) { return Boolean(cell?.isRlNode) }
@@ -294,67 +296,9 @@ const COLOSSEUM_STAND_TOPS = COLOSSEUM_STAND_BASE_TOPS.map(top=>top+COLOSSEUM_SE
 // ride ON it instead of sinking to bare ground through the visual.
 const COLOSSEUM_FOUNDATION_RADIUS = 5.25
 const COLOSSEUM_FOUNDATION_TOP = 0.075
-const MINING_AUTO_QUALITY_SESSION_KEY = 'mm3_mining_auto_quality_tier'
-const MINING_QUALITY_CHANGE_EVENT = 'mm3-mining-quality-change'
-const MINING_VISUAL_TIER_RANK = Object.freeze({ low: 0, medium: 1, high: 2 })
-
-function normalizeMiningVisualTier(tier) {
-  return Object.prototype.hasOwnProperty.call(MINING_VISUAL_TIER_RANK, tier) ? tier : null
-}
-
-function capMiningVisualTier(tier, capTier) {
-  const normalizedTier = normalizeMiningVisualTier(tier) || 'high'
-  const normalizedCap = normalizeMiningVisualTier(capTier)
-  if (!normalizedCap) return normalizedTier
-  return MINING_VISUAL_TIER_RANK[normalizedTier] > MINING_VISUAL_TIER_RANK[normalizedCap]
-    ? normalizedCap
-    : normalizedTier
-}
-
-function nextLowerMiningVisualTier(tier) {
-  if (tier === 'high') return 'medium'
-  if (tier === 'medium') return 'low'
+function getMiningVisualTier() {
+  // All maps and avatars use the same bounded retro renderer.
   return 'low'
-}
-
-function readMiningAutoVisualTier() {
-  if (typeof window === 'undefined') return null
-  try {
-    return normalizeMiningVisualTier(window.sessionStorage.getItem(MINING_AUTO_QUALITY_SESSION_KEY))
-  } catch {
-    return null
-  }
-}
-
-function writeMiningAutoVisualTier(tier) {
-  if (typeof window === 'undefined') return
-  const normalized = normalizeMiningVisualTier(tier)
-  try {
-    if (normalized) window.sessionStorage.setItem(MINING_AUTO_QUALITY_SESSION_KEY, normalized)
-    else window.sessionStorage.removeItem(MINING_AUTO_QUALITY_SESSION_KEY)
-  } catch {
-    /* ignore */
-  }
-}
-
-function getMiningVisualTier(viewWidth = 1280, viewHeight = 720) {
-  const autoCapTier = readMiningAutoVisualTier()
-  if (typeof window !== 'undefined' && isMobilePreviewHighQuality()) return capMiningVisualTier('high', autoCapTier)
-  if (typeof window !== 'undefined' && isMobilePreviewActive()) {
-    viewWidth = MOBILE_PREVIEW_VIEWPORT.width
-    viewHeight = MOBILE_PREVIEW_VIEWPORT.height
-  }
-  if (typeof window === 'undefined') return 'high'
-  const lowMem = Number(navigator.deviceMemory) > 0 && navigator.deviceMemory <= 4
-  const portraitMobile = viewHeight > viewWidth && viewWidth < 820
-  const veryNarrow = viewWidth < 360
-  // Weakest devices: full lite pass.
-  if (lowMem || veryNarrow) return capMiningVisualTier('low', autoCapTier)
-  // Typical phone portrait / small view: lite scenery + biome lights (prod default).
-  if (portraitMobile || isCoarsePointerDevice() || viewWidth < 640) return capMiningVisualTier('medium', autoCapTier)
-  if (viewWidth < 980) return capMiningVisualTier('medium', autoCapTier)
-  // Start balanced: a large desktop viewport does not imply a dedicated GPU.
-  return capMiningVisualTier('medium', autoCapTier)
 }
 
 function isLowRenderTier(viewWidth, viewHeight) {
@@ -5954,6 +5898,7 @@ function playStep(audioCtxRef, mode = 'walk') {
 
 function disposeThreeObject(root) {
   root?.traverse?.(object=>{
+    if (object.isInstancedMesh) object.dispose()
     if (!object.geometry?.userData?.skipDispose) object.geometry?.dispose?.()
     const materials=Array.isArray(object.material)?object.material:[object.material]
     materials.filter(Boolean).forEach(material=>{
@@ -5989,12 +5934,6 @@ const BIOME_STYLE={
   ice:{ground:'#4a9bc7',block:'#b9ecff',accent:'#f0fbff'},
   inferno:{ground:'#671b18',block:'#d64b2a',accent:'#ffb11b'},
 }
-const BIOME_GROUND={
-  mountain:{color:'#284765',roughness:.76,metalness:.10,emissive:'#071a2e',emissiveIntensity:.18},
-  coast:{color:'#9a7444',roughness:.90,metalness:.05,emissive:'#0a3040',emissiveIntensity:.12},
-  ice:{color:'#4a9bc7',roughness:.22,metalness:.30,emissive:'#0d3152',emissiveIntensity:.22},
-  inferno:{color:'#671b18',roughness:.64,metalness:.14,emissive:'#3b0904',emissiveIntensity:.40},
-}
 const BIOME_SAND={
   mountain:{color:'#5f7589',roughness:.88,metalness:.08,emissive:'#0a1828',emissiveIntensity:.10},
   coast:{color:'#e8c88a',roughness:.92,metalness:.04,emissive:'#143848',emissiveIntensity:.08},
@@ -6019,90 +5958,10 @@ function seededUnit(seed) {
   return value-Math.floor(value)
 }
 
-function renderProceduralTextureCanvas(kind, size = 128) {
-  const canvas = document.createElement('canvas')
-  canvas.width = size
-  canvas.height = size
-  const ctx = canvas.getContext('2d')
-  const image = ctx.createImageData(size, size)
-  const data = image.data
-  const palettes = {
-    mountain: [[28, 54, 78], [51, 85, 112], [93, 126, 150]],
-    coast: [[176, 126, 66], [218, 174, 101], [242, 207, 139]],
-    ice: [[69, 151, 196], [136, 214, 241], [224, 249, 255]],
-    inferno: [[64, 12, 14], [132, 28, 19], [225, 68, 25]],
-    crypto: [[18, 44, 68], [36, 83, 112], [74, 151, 174]],
-  }
-  const palette = palettes[kind] || palettes.crypto
-  for (let y = 0; y < size; y += 1) {
-    for (let x = 0; x < size; x += 1) {
-      const grain = seededUnit(x * 71 + y * 191 + kind.length * 997)
-      const wave = (Math.sin(x * .22) + Math.sin(y * .17) + Math.sin((x + y) * .08)) / 6 + .5
-      const index = Math.min(palette.length - 1, Math.floor((grain * .42 + wave * .58) * palette.length))
-      const base = palette[index]
-      const offset = (grain - .5) * 22
-      const i = (y * size + x) * 4
-      data[i] = Math.max(0, Math.min(255, base[0] + offset))
-      data[i + 1] = Math.max(0, Math.min(255, base[1] + offset))
-      data[i + 2] = Math.max(0, Math.min(255, base[2] + offset))
-      data[i + 3] = 255
-    }
-  }
-  ctx.putImageData(image, 0, 0)
-  ctx.globalAlpha = .34
-  if (kind === 'ice') {
-    ctx.strokeStyle = '#e6fbff'
-    ctx.lineWidth = 1
-    for (let index = 0; index < 28; index += 1) {
-      const x = seededUnit(index + 20) * size
-      const y = seededUnit(index + 60) * size
-      ctx.beginPath()
-      ctx.moveTo(x, y)
-      ctx.lineTo(x + (seededUnit(index + 90) - .5) * 34, y + (seededUnit(index + 120) - .5) * 34)
-      ctx.stroke()
-    }
-  } else if (kind === 'inferno') {
-    ctx.strokeStyle = '#ff8a1f'
-    ctx.lineWidth = 2
-    for (let index = 0; index < 22; index += 1) {
-      const px = seededUnit(index + 30) * size
-      const py = seededUnit(index + 50) * size
-      const len = 14 + seededUnit(index + 70) * 24
-      const angle = (seededUnit(index + 90) - .5) * Math.PI * .8
-      ctx.beginPath()
-      ctx.moveTo(px, py)
-      ctx.lineTo(px + Math.cos(angle) * len, py + Math.sin(angle) * len)
-      ctx.stroke()
-    }
-  } else if (kind === 'coast') {
-    ctx.fillStyle = '#fff1bd'
-    for (let index = 0; index < 150; index += 1) {
-      ctx.fillRect(seededUnit(index + 10) * size, seededUnit(index + 410) * size, 1, 1)
-    }
-  } else {
-    ctx.strokeStyle = '#76d9ed'
-    ctx.lineWidth = 1
-    for (let x = 0; x < size; x += 16) {
-      ctx.beginPath()
-      ctx.moveTo(x, 0)
-      ctx.lineTo(x, size)
-      ctx.stroke()
-    }
-    for (let y = 0; y < size; y += 16) {
-      ctx.beginPath()
-      ctx.moveTo(0, y)
-      ctx.lineTo(size, y)
-      ctx.stroke()
-    }
-  }
-  ctx.globalAlpha = 1
-  return canvas
-}
-
 function finalizeCanvasTexture(texture, { wrap, repeat, anisotropy = 1, mipmaps = false } = {}) {
   texture.colorSpace = THREE.SRGBColorSpace
-  texture.minFilter = mipmaps ? THREE.LinearMipmapLinearFilter : THREE.LinearFilter
-  texture.magFilter = THREE.LinearFilter
+  texture.minFilter = mipmaps ? THREE.NearestMipmapNearestFilter : THREE.NearestFilter
+  texture.magFilter = THREE.NearestFilter
   texture.generateMipmaps = mipmaps
   texture.anisotropy = anisotropy
   texture.needsUpdate = true
@@ -6111,48 +5970,6 @@ function finalizeCanvasTexture(texture, { wrap, repeat, anisotropy = 1, mipmaps 
     texture.wrapT = wrap
   }
   if (repeat) texture.repeat.set(repeat[0], repeat[1])
-  return texture
-}
-
-function createProceduralTexture(kind, size = 128) {
-  const texture = new THREE.CanvasTexture(renderProceduralTextureCanvas(kind, size))
-  return finalizeCanvasTexture(texture, {
-    wrap: THREE.RepeatWrapping,
-    repeat: [5, 5],
-    // Mip levels suppress distant texture shimmer and improve texture locality.
-    mipmaps: true,
-  })
-}
-
-function tintCanvas(canvas, hex) {
-  const ctx = canvas.getContext('2d')
-  ctx.globalCompositeOperation = 'multiply'
-  ctx.fillStyle = hex
-  ctx.fillRect(0, 0, canvas.width, canvas.height)
-  ctx.globalCompositeOperation = 'source-over'
-}
-
-// One repeated ground tile, shared by cached maps.
-let _biomeAtlasCache = null
-function getBiomeAtlas() {
-  if (!_biomeAtlasCache) {
-    const compact = typeof window !== 'undefined'
-      && getMiningVisualTier(window.innerWidth, window.innerHeight) === 'low'
-    _biomeAtlasCache = createBiomeAtlasTexture(compact ? 128 : 256)
-  }
-  return _biomeAtlasCache
-}
-function createBiomeAtlasTexture(quadSize = 256) {
-  // The old atlas contained four identical tiles. Repeat one tile at the
-  // same world scale: 75% fewer base texels, with mipmaps for stable distance detail.
-  const tile = renderProceduralTextureCanvas('mountain', quadSize)
-  tintCanvas(tile, BIOME_GROUND.mountain.color)
-  const texture = new THREE.CanvasTexture(tile)
-  finalizeCanvasTexture(texture, {
-    wrap: THREE.RepeatWrapping,
-    repeat: [2, 2],
-    mipmaps: true,
-  })
   return texture
 }
 
@@ -6254,43 +6071,17 @@ function addNightDome(scene, lowDetail=false) {
   }
   if(lowDetail) return
 
-  addNightOrbitals(scene)
-}
-
-function addNightOrbitals(scene) {
-  if (scene.userData.orbitals?.length) return
-  const planet=new THREE.Group()
-  const planetBody=new THREE.Mesh(new THREE.SphereGeometry(3.2,20,14),new THREE.MeshStandardMaterial({color:'#7c3aed',emissive:'#29105f',emissiveIntensity:.8,roughness:.72,fog:false}))
-  const planetRing=new THREE.Mesh(new THREE.TorusGeometry(4.4,.20,8,42),new THREE.MeshBasicMaterial({color:'#f0abfc',transparent:true,opacity:.66,fog:false}))
-  planetRing.rotation.x=1.12;planet.add(planetBody,planetRing);planet.position.set(-30,18,38);planet.userData.orbital='planet';scene.add(planet)
-  const ship=new THREE.Group()
-  const hull=new THREE.Mesh(new THREE.ConeGeometry(.42,1.9,5),new THREE.MeshStandardMaterial({color:'#dbeafe',metalness:.72,roughness:.24,fog:false}))
-  hull.rotation.z=-Math.PI/2
-  const cockpit=new THREE.Mesh(new THREE.SphereGeometry(.26,8,6),new THREE.MeshBasicMaterial({color:'#22d3ee',fog:false}));cockpit.position.set(.25,.18,0)
-  const wingGeometry=new THREE.BoxGeometry(.85,.08,.55)
-  const wings=new THREE.Mesh(wingGeometry,new THREE.MeshStandardMaterial({color:'#f97316',metalness:.5,roughness:.36,fog:false}));wings.position.x=-.15
-  const engine=new THREE.PointLight('#22d3ee',5,8,2);engine.position.set(-1,0,0)
-  ship.add(hull,cockpit,wings,engine);ship.position.set(COLS/2,15,ROWS/2);ship.userData.orbital='ship';scene.add(ship)
-  scene.userData.orbitals=[planet,ship]
 }
 
 function syncThreeSceneForVisualTier(state, tier = 'high') {
   if (!state?.scene) return
-  const high = tier === 'high'
-  const lightScale = high ? 1 : 0
-  if (state.iceLight) { state.iceLight.intensity = 18 * lightScale; state.iceLight.visible = high }
-  if (state.coastLight) { state.coastLight.intensity = 12 * lightScale; state.coastLight.visible = high }
-  if (state.infernoLight) { state.infernoLight.intensity = 24 * lightScale; state.infernoLight.visible = high }
-  if (state.scene.fog) state.scene.fog.density = tier === 'low' ? 0.014 : tier === 'medium' ? 0.016 : 0.018
-  if (state.grid) state.grid.visible = high
-  if (high) addNightOrbitals(state.scene)
-  for (const orbital of state.scene.userData.orbitals || []) orbital.visible = high
+  state.scene.fog.density = .014
   state.visualTierSynced = tier
 }
 
 function addBiomeGround(world, textures, mapId = MINING_CORE_MAP_ID) {
   const coreMap = isMiningCoreMap(mapId)
-  const atlas = getBiomeAtlas()
+  const atlas = textures[`ground-${mapId}`] || textures.ground
   const ground = new THREE.Mesh(
     new THREE.PlaneGeometry(COLS, ROWS),
     new THREE.MeshStandardMaterial({
@@ -7021,7 +6812,7 @@ function addCipherHouseDetails(world, lowDetail = false) {
   const wallCapMat=new THREE.MeshStandardMaterial({
     color:'#07172e',emissive:'#061521',emissiveIntensity:.58,roughness:.42,metalness:.56,
   })
-  const wallCapTrimMat=new THREE.MeshBasicMaterial({color:'#22d3ee',transparent:true,opacity:.34,depthWrite:false})
+  const wallCapTrimMat=new THREE.MeshBasicMaterial({color:'#277d91',depthWrite:true})
   for(const key of CIPHER_HOUSE_PERIMETER_KEYS){
     const [row,col]=key.split(',').map(Number)
     const cap=new THREE.Mesh(new THREE.BoxGeometry(1.02,HOUSE_EXTERIOR_WALL_CAP_THICK,1.02),wallCapMat)
@@ -7039,7 +6830,7 @@ function addCipherHouseDetails(world, lowDetail = false) {
   const roofMat=new THREE.MeshStandardMaterial({
     color:'#020817',emissive:'#040e1d',emissiveIntensity:.52,roughness:.56,metalness:.38,
   })
-  const roofTrimMat=new THREE.MeshBasicMaterial({color:'#22d3ee',transparent:true,opacity:.32,depthWrite:false})
+  const roofTrimMat=new THREE.MeshBasicMaterial({color:'#26758a',depthWrite:true})
   const addRoofTile=(row,col)=>{
     const tile=new THREE.Mesh(new THREE.BoxGeometry(1.02,0.16,1.02),roofMat)
     tile.position.set(col+.5,HOUSE_ROOF_LEVEL-0.04,row+.5)
@@ -8114,15 +7905,14 @@ function rebuildThreeWorld(state,cellMap,obstacles) {
   if(state.world){state.scene.remove(state.world);disposeThreeObject(state.world)}
   const world=new THREE.Group(),matrix=new THREE.Matrix4(),position=new THREE.Vector3()
   const scale=new THREE.Vector3(),quaternion=new THREE.Quaternion()
-  const visualTier=typeof window!=='undefined'
-    ?getMiningVisualTier(window.innerWidth,window.innerHeight)
-    :'high'
+  const visualTier='low'
+  const textures=state.textures
   const lowDetail=visualTier==='low'
   const liteScenery=visualTier!=='high'
-  addBiomeGround(world,state.textures)
+  addBiomeGround(world,textures)
   addCryptoColosseum(world,liteScenery?'low':visualTier)
   addCipherHouseDetails(world,liteScenery)
-  addBiomeLandmarks(world,state.textures,liteScenery)
+  addBiomeLandmarks(world,textures,liteScenery)
   addPeripheralGroundFeatures(world, '1', liteScenery)
   addM1MileiStatueDecor(world, liteScenery, state)
   addM1ZelenskyStatueDecor(world, liteScenery, state)
@@ -8576,7 +8366,7 @@ function rebuildThreeWorld(state,cellMap,obstacles) {
       ice:{color:'#ddfaff',roughness:.12,metalness:.30,emissive:'#0b5d89',intensity:.42},
       inferno:{color:'#df5832',roughness:.55,metalness:.18,emissive:'#8c1705',intensity:.88},
     }[biome]
-    const material=new THREE.MeshStandardMaterial({map:state.textures[biome],color:style.color,roughness:style.roughness,metalness:style.metalness,emissive:style.emissive,emissiveIntensity:style.intensity})
+    const material=new THREE.MeshStandardMaterial({map:textures[biome],color:style.color,roughness:style.roughness,metalness:style.metalness,emissive:style.emissive,emissiveIntensity:style.intensity})
     const mesh=new THREE.InstancedMesh(new THREE.BoxGeometry(1,1,1),material,entries.length)
     entries.forEach(([key,obstacle],index)=>{
       const [row,col]=key.split(',').map(Number),bottom=obstacleBottom(obstacle),height=obstacleTop(obstacle)-bottom
@@ -8592,7 +8382,7 @@ function rebuildThreeWorld(state,cellMap,obstacles) {
     if(!isOrganicShape(obstacle)) continue
     if(obstacle.isHouse) continue  // house door-step ramps render via houseGroups.doorStep
     const [row,col]=key.split(',').map(Number),biome=biomeForCell(row,col)
-    const material=new THREE.MeshStandardMaterial({map:state.textures[biome],color:BIOME_STYLE[biome].block,roughness:biome==='ice'?.14:.66,metalness:biome==='ice'?.28:.14,emissive:biome==='inferno'?'#681205':biome==='ice'?'#0a4a70':'#000000',emissiveIntensity:biome==='inferno'?.82:.22})
+    const material=new THREE.MeshStandardMaterial({map:textures[biome],color:BIOME_STYLE[biome].block,roughness:biome==='ice'?.14:.66,metalness:biome==='ice'?.28:.14,emissive:biome==='inferno'?'#681205':biome==='ice'?'#0a4a70':'#000000',emissiveIntensity:biome==='inferno'?.82:.22})
     if(obstacle.shape==='ramp'){
       const mesh=new THREE.Mesh(makeRampGeometry(obstacle.direction),material)
       mesh.userData.avatarFadeOccluder=true;mesh.userData.collidable=true
@@ -8613,6 +8403,11 @@ function rebuildThreeWorld(state,cellMap,obstacles) {
       core.position.y=1.34;tree.add(core);tree.position.set(col+.5,0,row+.5);world.add(tree)
     }
   }
+  addM1RetroDecor(world, obstacles, cellMap)
+  const protectedVisuals = new Set([state.m1MileiStatueGroup, state.m1ZelenskyStatueGroup, state.nukeCubeGroup].filter(Boolean))
+  simplifyMiningMaterials(world, protectedVisuals)
+  batchMiningStaticDecor(world, protectedVisuals)
+  batchMiningShoreline(world)
   state.world=world
   state.cameraCollisionValid=false
   state.biomeSurfaces=[]
@@ -10788,9 +10583,7 @@ function rebuildPeripheralMapWorld(state, mapId, obstacles, cellMap) {
   const position = new THREE.Vector3()
   const scale = new THREE.Vector3()
   const quaternion = new THREE.Quaternion()
-  const visualTier = typeof window !== 'undefined'
-    ? getMiningVisualTier(window.innerWidth, window.innerHeight)
-    : 'high'
+  const visualTier = 'low'
   const lowDetail = visualTier === 'low'
   addBiomeGround(world, state.textures, mapId)
   addIslandSurroundCoast(world, state.textures, lowDetail, mapId)
@@ -10864,7 +10657,7 @@ function rebuildPeripheralMapWorld(state, mapId, obstacles, cellMap) {
   state.m4KimBossGroup = null
   const bossMod = getBossRuntimeModule(mapId)
   if (bossMod) {
-    const bossVisual = bossMod.createVisual(THREE, lowDetail)
+    const bossVisual = bossMod.createVisual(THREE, lowDetail, { retro: true })
     bossVisual.group.matrixAutoUpdate = true
     world.add(bossVisual.group)
     state[bossMod.groupKey] = bossVisual.group
@@ -10873,6 +10666,11 @@ function rebuildPeripheralMapWorld(state, mapId, obstacles, cellMap) {
     ? addInteractiveBeaconBatch(world, beaconEntries)
     : null
   if (state.beaconBatch) updateInteractiveBeaconBatch(state.beaconBatch, performance.now() * .001)
+  const protectedVisuals = new Set([state.m2PitchDomeGroup, state.m2MacronStatueGroup,
+    state.m3PutinBossGroup, state.m4KimBossGroup, state.m5TrumpBossGroup, state.nukeCubeGroup].filter(Boolean))
+  simplifyMiningMaterials(world, protectedVisuals)
+  batchMiningStaticDecor(world, protectedVisuals)
+  batchMiningShoreline(world)
   state.world = world
   state.cameraCollisionValid = false
   state.biomeSurfaces = []
@@ -10915,9 +10713,7 @@ function rebuildPeripheralMapWorld(state, mapId, obstacles, cellMap) {
 }
 
 function rebuildActiveMapWorld(state, mapId, cellMap, obstacles) {
-  const visualTier = typeof window !== 'undefined'
-    ? getMiningVisualTier(window.innerWidth, window.innerHeight)
-    : 'high'
+  const visualTier = 'low'
   const targetKey = getCachedWorldKey(mapId, visualTier)
   const signature = getCachedWorldSignature(cellMap)
   ensureWorldCache(state)
@@ -10931,6 +10727,7 @@ function rebuildActiveMapWorld(state, mapId, cellMap, obstacles) {
   if (freshCached) {
     cacheCurrentWorld(state, targetKey)
     restoreCachedWorld(state, targetKey, freshCached)
+    trimWorldCache(state)
     return
   }
 
@@ -11045,6 +10842,7 @@ function cacheCurrentWorld(state, targetKey) {
 
 function restoreCachedWorld(state, key, cached) {
   if (!cached?.world) return
+  state.mapWorldCache.delete(key)
   applyWorldStateSnapshot(state, cached)
   if (cached.world.parent !== state.scene) state.scene.add(cached.world)
   cached.lastUsed = performance.now()
@@ -11055,10 +10853,11 @@ function restoreCachedWorld(state, key, cached) {
 function disposeCachedWorld(cached) {
   if (!cached?.world) return
   try { cached.world.parent?.remove?.(cached.world) } catch {}
+  try { disposeMinableBlockChunkSystem(cached) } catch {}
   try { disposeThreeObject(cached.world) } catch {}
 }
 
-function trimWorldCache(state, maxEntries = 3) {
+function trimWorldCache(state, maxEntries = 1) {
   if (!state.mapWorldCache || state.mapWorldCache.size <= maxEntries) return
   const entries = [...state.mapWorldCache.entries()]
     .filter(([key]) => key !== state.currentWorldCacheKey)
@@ -11339,7 +11138,7 @@ function extractStatuePlinthToWorld(visual, world) {
 }
 
 function addM1MileiStatueDecor(world, lowDetail, state = null) {
-  const visual = createM1MileiStatueVisual(THREE, lowDetail)
+  const visual = createM1MileiStatueVisual(THREE, lowDetail, { retro: true })
   extractStatuePlinthToWorld(visual, world)
   world.add(visual.group)
   if (state) {
@@ -11361,7 +11160,7 @@ function addM1MileiStatueDecor(world, lowDetail, state = null) {
 }
 
 function addM1ZelenskyStatueDecor(world, lowDetail, state = null) {
-  const visual = createM1ZelenskyStatueVisual(THREE, lowDetail)
+  const visual = createM1ZelenskyStatueVisual(THREE, lowDetail, { retro: true })
   extractStatuePlinthToWorld(visual, world)
   world.add(visual.group)
   if (state) {
@@ -11382,7 +11181,7 @@ function addM1ZelenskyStatueDecor(world, lowDetail, state = null) {
 }
 
 function addM2MacronStatueDecor(world, lowDetail, state = null) {
-  const visual = createM2MacronStatueVisual(THREE, lowDetail)
+  const visual = createM2MacronStatueVisual(THREE, lowDetail, { retro: true })
   extractStatuePlinthToWorld(visual, world)
   world.add(visual.group)
   if (state) {
@@ -11405,7 +11204,7 @@ function addM2MacronStatueDecor(world, lowDetail, state = null) {
 function addNukeCubeDecor(world, mapId, lowDetail, state = null) {
   const pos = NUKE_CUBE_POSITIONS[String(mapId)]
   if (!pos) return
-  const visual = createNukeCubeVisual(THREE, lowDetail)
+  const visual = createNukeCubeVisual(THREE, lowDetail, { retro: true })
   visual.group.position.set(pos.col + 0.5, 0, pos.row + 0.5)
   world.add(visual.group)
   if (state) state.nukeCubeGroup = visual.group
@@ -11745,12 +11544,11 @@ function createRlCarMesh(lowDetail = false, { showcase = false, decor = false, t
   const teamKey = String(teamColor || '').toLowerCase()
   const isAserejeeCar = decor && (teamKey === '#f8fafc' || teamKey === '#ffffff')
   const isBotTeamCar = decor && !isAserejeeCar
-  // Textured battle-car (rl-car.glb, async-attached, geometry shared across
-  // instances). Bot team cars get their team tint on the body paint; the
-  // Aserejee car and the player mount keep the stock white paint.
+  // Retro battle-car uses the same cockpit and boost anchors.
   attachRlCarModel(THREE, group, {
     tint: isBotTeamCar ? teamColor : null,
     lowDetail,
+    retro: true,
   })
   // Painted boost: always-visible thruster nozzles + glow discs that light up
   // while boosting (jump / high speed); flame cones only show while lit.
@@ -11896,11 +11694,9 @@ function createThreeWalletAvatar(wallet) {
   const _mat=(c,roughness=.5,metalness=.04)=>lowDetail
     ?new THREE.MeshLambertMaterial({color:c})
     :new THREE.MeshStandardMaterial({color:c,roughness,metalness})
-  const skinMat=_mat(skinHex,.72,.02)
-  const hairMat=_mat(hairHex,.62,.04)
 
   // Low-poly humanoid — cloth in wallet colour, flesh skin, human head.
-  // Sphere hands hide once man.glb loads; the Ledger docks to the right palm.
+  // Procedural limbs keep the existing animation pivots and tool grip.
   const body=buildHumanoidBody(THREE,avatar,{
     mat:_mat,
     lowDetail,
@@ -11908,20 +11704,17 @@ function createThreeWalletAvatar(wallet) {
     handStyle:'sphere',
     sleeve:'short',
     glbBodyCutY: HUMANOID_GLB_SRC_CLOTHES.waistY,
+    skipGlb: true,
     colors:{skin:skinHex,torso:color,arms:mid,legs:dark,shoes:'#1c1916',hands:skinHex},
   })
-  const { head }=buildHumanHead(THREE,avatar,{
-    skinMat,
-    hairMat,
-    lowDetail,
-  })
+  const { head }=addRetroHead(THREE,avatar,{ skin: skinHex, hair: hairHex })
 
   // Humanoid shoes double as the stepping feet; no separate soles.
   const footL=body.leftShoe
   const footR=body.rightShoe
 
   // Ledger Nano S baton: USB-port end at the hand dock; swing rotates this pivot.
-  const tool = createLedgerTool(THREE, { tint: color })
+  const tool = createLedgerTool(THREE, { tint: color, retro: true })
   poseLedgerHoldArm(body)
   avatar.add(tool)
   const healEffect=createHealingRechargeEffect()
@@ -12460,7 +12253,6 @@ export default function MiningChain3DFPV({
   const joystickKnobRef = useRef(null)
   const cameraVisualRef = useRef({z:0,pitch:0,last:0})
   const lastFrameRef  = useRef(0)
-  const qualityMonitorRef = useRef({ frames: 0, startedAt: 0, lastDowngradeAt: 0 })
   const velocityRef   = useRef({x:0,y:0})
   const lastSentStateRef = useRef(null)
   const swingEpochRef = useRef(0)
@@ -12498,6 +12290,15 @@ export default function MiningChain3DFPV({
       lookDirtyRef.current = true
       return true
     }
+    window.__MM3_TRAILER_RENDER_STATS__ = function miningRenderStats() {
+      const state = threeStateRef.current
+      return state ? { ...state.renderer.info.render, memory: { ...state.renderer.info.memory },
+        width: state.renderer.domElement.width, height: state.renderer.domElement.height,
+        savedDraws: state.world?.userData.retroSavedDraws,
+        cachedMaps: state.mapWorldCache?.size || 0,
+        map: mapIdRef.current,
+      } : null
+    }
     window.__MM3_TRAILER_PLAYER_STATE__ = () => ({
       gx: playerRef.current.x / CELL_SIZE,
       gy: playerRef.current.y / CELL_SIZE,
@@ -12528,6 +12329,7 @@ export default function MiningChain3DFPV({
       delete window.__MM3_TRAILER_NUDGE_CAMERA_UP__
       delete window.__MM3_TRAILER_FACE_BEARING__
       delete window.__MM3_TRAILER_SET_CAMERA_PITCH__
+      delete window.__MM3_TRAILER_RENDER_STATS__
       delete window.__MM3_TRAILER_PLAYER_STATE__
       delete window.__MM3_TRAILER_SET_CINEMATIC_CAMERA__
       delete window.__MM3_TRAILER_CLEAR_CINEMATIC_CAMERA__
@@ -12704,43 +12506,6 @@ export default function MiningChain3DFPV({
   // Expose reinit trigger to refs so it can be called from the render loop or context handlers
   useEffect(()=>{ threeReinitRef.current=()=>setThreeKey(k=>k+1) },[])
 
-  const updateAutoQuality = useCallback((nowMs)=>{
-    const tier = visualPerfTierRef.current
-    if (tier === 'low') return
-    const monitor = qualityMonitorRef.current
-    if (!monitor.startedAt) {
-      monitor.startedAt = nowMs
-      monitor.frames = 0
-    }
-    monitor.frames += 1
-    const elapsed = nowMs - monitor.startedAt
-    if (elapsed < 6500) return
-    const fps = monitor.frames * 1000 / elapsed
-    const minFps = tier === 'high' ? 42 : 24
-    if (fps < minFps && nowMs - monitor.lastDowngradeAt > 14000) {
-      const nextTier = nextLowerMiningVisualTier(tier)
-      writeMiningAutoVisualTier(nextTier)
-      monitor.frames = 0
-      monitor.startedAt = nowMs
-      monitor.lastDowngradeAt = nowMs
-      notifRef.current = {
-        text: esRef.current
-          ? `Rendimiento bajo (${Math.round(fps)} fps): calidad ${nextTier}`
-          : `Low performance (${Math.round(fps)} fps): quality ${nextTier}`,
-        color: '#facc15',
-        startedAt: Date.now(),
-      }
-      window.dispatchEvent(new Event(MINING_QUALITY_CHANGE_EVENT))
-      renderRef.current?.()
-      return
-    }
-    if (elapsed > 10000) {
-      monitor.frames = 0
-      monitor.startedAt = nowMs
-    }
-  },[])
-
-
   // Ambient music now lives portal-wide in SoundProvider (music toggle in the
   // header) — nothing map-specific to run here.
 
@@ -12807,12 +12572,13 @@ export default function MiningChain3DFPV({
     const canvas=webglCanvasRef.current
     if(!canvas) return
     let renderer
-    const launchTier=getMiningVisualTier(window.innerWidth,window.innerHeight)
+    const launchTier='low'
     const launchLite=launchTier!=='high'
     try{
       renderer=new THREE.WebGLRenderer({canvas,antialias:!launchLite,powerPreference:'high-performance',stencil:false})
       skipShaderErrorChecks(renderer)
     }catch{return}
+    renderer.domElement.style.imageRendering='pixelated'
     renderer.outputColorSpace=THREE.SRGBColorSpace
     renderer.toneMapping=THREE.ACESFilmicToneMapping
     renderer.toneMappingExposure=1.22
@@ -12832,25 +12598,12 @@ export default function MiningChain3DFPV({
     const hemi=new THREE.HemisphereLight('#d9f2ff','#18213a',1.85);scene.add(hemi)
     const key=new THREE.DirectionalLight('#fff4d6',2.2);key.position.set(-8,16,-10);scene.add(key)
     const rim=new THREE.DirectionalLight('#22d3ee',.85);rim.position.set(12,5,14);scene.add(rim)
-    const iceLight=new THREE.PointLight('#83e6ff',18,24,1.5);iceLight.position.set(14,6,42);scene.add(iceLight)
-    const coastLight=new THREE.PointLight('#62eaff',12,22,1.7);coastLight.position.set(42,5,14);scene.add(coastLight)
-    const infernoLight=new THREE.PointLight('#ff4b12',24,25,1.45);infernoLight.position.set(42,5,42);scene.add(infernoLight)
-    if(launchLite){
-      iceLight.intensity=0;coastLight.intensity=0;infernoLight.intensity=0
-      scene.fog.density=.014
-    }
-    const grid=new THREE.GridHelper(Math.max(COLS,ROWS),Math.max(COLS,ROWS),'#176080','#12334f')
-    grid.position.set(COLS/2,.004,ROWS/2);grid.material.transparent=true;grid.material.opacity=.10;grid.material.depthWrite=false;scene.add(grid)
-    if(launchLite) grid.visible=false
+    scene.fog.density=.014
     addNightDome(scene,launchLite)
-    const texSize = launchLite ? 64 : 128
-    const textures={
-      mountain:createProceduralTexture('mountain', texSize),coast:createProceduralTexture('coast', texSize),
-      ice:createProceduralTexture('ice', texSize),inferno:createProceduralTexture('inferno', texSize),crypto:createProceduralTexture('crypto', texSize),
-    }
+    const textures = Object.fromEntries(['mountain','coast','ice','inferno','crypto','ground','ground-2','ground-3','ground-4','ground-5'].map(kind => [kind, createMiningRetroTexture(kind)]))
     const camRaycaster=new THREE.Raycaster(); camRaycaster.camera=camera
     const occlusionRaycaster=new THREE.Raycaster()
-    const state={renderer,scene,camera,hudScene,hudCamera,localAvatar:null,localAvatarId:null,world:null,avatars:new Map(),pixelRatio:0,size:new THREE.Vector2(),hemi,key,rim,iceLight,coastLight,infernoLight,grid,textures,
+    const state={renderer,scene,camera,hudScene,hudCamera,localAvatar:null,localAvatarId:null,world:null,avatars:new Map(),pixelRatio:0,size:new THREE.Vector2(),hemi,key,rim,textures,
       camRaycaster,occlusionRaycaster,_occlusionTarget:new THREE.Vector3(),_occlusionDirection:new THREE.Vector3(),
       _v3a:new THREE.Vector3(),_v3b:new THREE.Vector3(),_v3c:new THREE.Vector3(),_v3d:new THREE.Vector3(),_v3e:new THREE.Vector3(),
       _avatarCameraSpace:new THREE.Vector3(),_activeAvatars:new Set(),_fadedOccluders:new Set(),
@@ -13305,7 +13058,7 @@ export default function MiningChain3DFPV({
     const H = Math.round(canvas.height / dpr)
     if (!W||!H) return
     const prevVisualTier = visualPerfTierRef.current
-    const visualTier = getMiningVisualTier(W, H)
+    const visualTier = 'low'
     if (threeStateRef.current && threeStateRef.current.visualTierSynced !== visualTier) {
       syncThreeSceneForVisualTier(threeStateRef.current, visualTier)
     }
@@ -13416,7 +13169,7 @@ export default function MiningChain3DFPV({
         const aspect=W/Math.max(1,H)
         const fovRad = FOV + dynamicFovRef.current
         const verticalFov=THREE.MathUtils.radToDeg(2*Math.atan(Math.tan(fovRad/2)/aspect))
-        const webglDpr = Number(canvas.dataset.webglDpr) || dpr
+        const webglDpr = miningRetroPixelRatio(W, H)
         const projectionChanged=threeState.viewWidth!==W||threeState.viewHeight!==H||Math.abs(threeState.viewFov-verticalFov)>.0001
         const sizeChanged=threeState.viewWidth!==W||threeState.viewHeight!==H||threeState.viewDpr!==webglDpr
         if(projectionChanged){
@@ -13606,17 +13359,6 @@ export default function MiningChain3DFPV({
         threeState.fxFrame=(threeState.fxFrame||0)+1
         if(visualTier==='high'&&threeState.beaconBatch){
           if(threeState.fxFrame%2===0) updateInteractiveBeaconBatch(threeState.beaconBatch,time)
-        }
-        if(visualTier==='high'){
-          for(const orbital of threeState.scene.userData.orbitals||[]){
-            if(orbital.userData.orbital==='ship'){
-              const orbit=time*.055
-              orbital.position.set(COLS/2+Math.cos(orbit)*39,13+Math.sin(time*.18)*2.2,ROWS/2+Math.sin(orbit)*39)
-              orbital.rotation.y=-orbit+.2
-            }else{
-              orbital.rotation.y=time*.025;orbital.rotation.z=Math.sin(time*.04)*.08
-            }
-          }
         }
         const localSwingAge=performance.now()-swingStartRef.current
         const localSwingT=localSwingAge<SWING_DUR?localSwingAge/SWING_DUR:0
@@ -15008,11 +14750,9 @@ export default function MiningChain3DFPV({
     resize()
     const ro=new ResizeObserver(resize); ro.observe(container)
     window.addEventListener('resize', resize)
-    window.addEventListener(MINING_QUALITY_CHANGE_EVENT, resize)
     return ()=>{
       ro.disconnect()
       window.removeEventListener('resize', resize)
-      window.removeEventListener(MINING_QUALITY_CHANGE_EVENT, resize)
     }
   },[])
 
@@ -15189,7 +14929,6 @@ export default function MiningChain3DFPV({
       const loopTier=visualPerfTierRef.current
       const mobileLoopCap=loopTier!=='high'
       if(mobileLoopCap&&lastFrameRef.current&&nowMs-lastFrameRef.current<33) return
-      updateAutoQuality(nowMs)
       const k=keysRef.current, p=playerRef.current
       const dt=lastFrameRef.current ? Math.min(0.05,(nowMs-lastFrameRef.current)/1000) : 1/60
       lastFrameRef.current=nowMs
@@ -16619,12 +16358,10 @@ export default function MiningChain3DFPV({
         keysRef.current = {}
         joystickRef.current.x = 0
         joystickRef.current.y = 0
-        qualityMonitorRef.current.frames = 0
-        qualityMonitorRef.current.startedAt = 0
       },
     })
     return ()=>{ stop(); lastFrameRef.current=0 }
-  },[onPositionChange,onFacingChange,updateAutoQuality])
+  },[onPositionChange,onFacingChange])
 
   const updateJoystick=useCallback((clientX,clientY)=>{
     const rect=joystickPadRef.current?.getBoundingClientRect()

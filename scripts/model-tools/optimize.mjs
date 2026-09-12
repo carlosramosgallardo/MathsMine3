@@ -12,7 +12,7 @@ await MeshoptSimplifier.ready
 const report = []
 const triangles = doc => doc.getRoot().listMeshes().reduce((sum, mesh) => sum + mesh.listPrimitives().reduce((n, p) => n + (p.getIndices()?.getCount() || p.getAttribute('POSITION').getCount()) / 3, 0), 0)
 for (const name of names) {
-  const input = `public/models/${name}.glb`
+  const input = `assets/model-sources/${name}.glb`
   const output = `public/models/${name}.runtime.glb`
   const doc = await io.read(input)
   const before = triangles(doc)

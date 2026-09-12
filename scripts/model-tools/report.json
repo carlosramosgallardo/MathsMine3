@@ -45,15 +45,6 @@
     "animations": 0
   },
   {
-    "name": "milei",
-    "sourceBytes": 2103740,
-    "runtimeBytes": 496784,
-    "sourceTriangles": 116773,
-    "runtimeTriangles": 29152,
-    "skins": 0,
-    "animations": 0
-  },
-  {
     "name": "milei-figure",
     "sourceBytes": 1619000,
     "runtimeBytes": 496928,
@@ -78,15 +69,6 @@
     "sourceTriangles": 20764,
     "runtimeTriangles": 11420,
     "skins": 1,
-    "animations": 0
-  },
-  {
-    "name": "man-head",
-    "sourceBytes": 169368,
-    "runtimeBytes": 123392,
-    "sourceTriangles": 3718,
-    "runtimeTriangles": 3019,
-    "skins": 0,
     "animations": 0
   },
   {

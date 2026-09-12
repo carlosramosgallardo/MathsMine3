@@ -10,7 +10,7 @@
  * are preserved, so the runtime keeps loading it with a plain GLTFLoader.
  *
  * Usage:
- *   node scripts/bake-prop-glb.mjs .private/models-src/rl-car-src.glb public/models/rl-car.glb
+ *   node scripts/bake-prop-glb.mjs .private/models-src/rl-car-src.glb assets/model-sources/rl-car.glb
  *   ... [--max-texture 1024] [--quality 82] [--keep-normal-maps] [--keep-skin]
  *       [--a-pose] [--wave right|left] [--decimate-grid n]
  */

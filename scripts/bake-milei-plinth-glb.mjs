@@ -6,7 +6,7 @@
  * the shared plinth matches the dark-top look of the other statues.
  *
  * Usage:
- *   node scripts/bake-milei-plinth-glb.mjs public/models/milei.glb public/models/statue-plinth.glb
+ *   node scripts/bake-milei-plinth-glb.mjs assets/model-sources/milei.glb assets/model-sources/statue-plinth.glb
  */
 import { readGlb, writeGlb, creditExtras, buildVertexColorMeshGlb } from './lib/glb-io.mjs'
 import { extractMileiByY, MILEI_PLINTH_TOP_Y } from './lib/milei-y-cut.mjs'
@@ -28,8 +28,8 @@ function paintUpperDeckBlack(mesh) {
   return n
 }
 
-const src = process.argv[2] || 'public/models/milei.glb'
-const out = process.argv[3] || 'public/models/statue-plinth.glb'
+const src = process.argv[2] || 'assets/model-sources/milei.glb'
+const out = process.argv[3] || 'assets/model-sources/statue-plinth.glb'
 const { json, bin } = readGlb(src)
 const plinth = extractMileiByY(json, bin, MILEI_PLINTH_TOP_Y, 'below')
 if (!plinth.indices.length) throw new Error('No plinth geometry extracted — check MILEI_PLINTH_TOP_Y')

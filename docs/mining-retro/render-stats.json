@@ -1,0 +1,267 @@
+[
+  {
+    "map": "1",
+    "initial": {
+      "stats": {
+        "frame": 21,
+        "calls": 239,
+        "triangles": 14898,
+        "points": 100,
+        "lines": 0,
+        "memory": {
+          "geometries": 224,
+          "textures": 12
+        },
+        "width": 571,
+        "height": 480,
+        "savedDraws": 835,
+        "cachedMaps": 0,
+        "map": "1"
+      },
+      "player": {
+        "gx": 29.5,
+        "gy": 48.5,
+        "pitch": 0,
+        "angle": 0,
+        "interaction": "mine"
+      }
+    },
+    "overview": {
+      "frame": 32,
+      "calls": 579,
+      "triangles": 46406,
+      "points": 100,
+      "lines": 0,
+      "memory": {
+        "geometries": 563,
+        "textures": 31
+      },
+      "width": 571,
+      "height": 480,
+      "savedDraws": 835,
+      "cachedMaps": 0,
+      "map": "1"
+    },
+    "moved": {
+      "gx": 29.776200076829735,
+      "gy": 48.5,
+      "pitch": 0,
+      "angle": 0,
+      "interaction": "mine"
+    },
+    "models": [],
+    "errors": []
+  },
+  {
+    "map": "2",
+    "initial": {
+      "stats": {
+        "frame": 9,
+        "calls": 149,
+        "triangles": 45854,
+        "points": 100,
+        "lines": 0,
+        "memory": {
+          "geometries": 141,
+          "textures": 10
+        },
+        "width": 571,
+        "height": 480,
+        "savedDraws": 172,
+        "cachedMaps": 0,
+        "map": "2"
+      },
+      "player": {
+        "gx": 29.5,
+        "gy": 48.5,
+        "pitch": 0,
+        "angle": 0,
+        "interaction": "mine"
+      }
+    },
+    "overview": {
+      "frame": 26,
+      "calls": 248,
+      "triangles": 51288,
+      "points": 100,
+      "lines": 240,
+      "memory": {
+        "geometries": 239,
+        "textures": 23
+      },
+      "width": 571,
+      "height": 480,
+      "savedDraws": 172,
+      "cachedMaps": 0,
+      "map": "2"
+    },
+    "moved": {
+      "gx": 29.527339618504165,
+      "gy": 48.5,
+      "pitch": 0,
+      "angle": 0,
+      "interaction": "mine"
+    },
+    "models": [],
+    "errors": []
+  },
+  {
+    "map": "3",
+    "initial": {
+      "stats": {
+        "frame": 12,
+        "calls": 112,
+        "triangles": 39442,
+        "points": 100,
+        "lines": 0,
+        "memory": {
+          "geometries": 112,
+          "textures": 6
+        },
+        "width": 571,
+        "height": 480,
+        "savedDraws": 249,
+        "cachedMaps": 0,
+        "map": "3"
+      },
+      "player": {
+        "gx": 28.5,
+        "gy": 47.5,
+        "pitch": 0,
+        "angle": 0,
+        "interaction": "empty"
+      }
+    },
+    "overview": {
+      "frame": 25,
+      "calls": 301,
+      "triangles": 45254,
+      "points": 100,
+      "lines": 0,
+      "memory": {
+        "geometries": 286,
+        "textures": 12
+      },
+      "width": 571,
+      "height": 480,
+      "savedDraws": 249,
+      "cachedMaps": 0,
+      "map": "3"
+    },
+    "moved": {
+      "gx": 28.70434445775657,
+      "gy": 47.5,
+      "pitch": 0,
+      "angle": 0,
+      "interaction": "empty"
+    },
+    "models": [],
+    "errors": []
+  },
+  {
+    "map": "4",
+    "initial": {
+      "stats": {
+        "frame": 10,
+        "calls": 114,
+        "triangles": 56264,
+        "points": 100,
+        "lines": 0,
+        "memory": {
+          "geometries": 111,
+          "textures": 8
+        },
+        "width": 571,
+        "height": 480,
+        "savedDraws": 250,
+        "cachedMaps": 0,
+        "map": "4"
+      },
+      "player": {
+        "gx": 28.5,
+        "gy": 47.5,
+        "pitch": 0,
+        "angle": 0,
+        "interaction": "empty"
+      }
+    },
+    "overview": {
+      "frame": 23,
+      "calls": 260,
+      "triangles": 61756,
+      "points": 100,
+      "lines": 0,
+      "memory": {
+        "geometries": 242,
+        "textures": 16
+      },
+      "width": 571,
+      "height": 480,
+      "savedDraws": 250,
+      "cachedMaps": 0,
+      "map": "4"
+    },
+    "moved": {
+      "gx": 28.676469221007352,
+      "gy": 47.5,
+      "pitch": 0,
+      "angle": 0,
+      "interaction": "empty"
+    },
+    "models": [],
+    "errors": []
+  },
+  {
+    "map": "5",
+    "initial": {
+      "stats": {
+        "frame": 11,
+        "calls": 97,
+        "triangles": 30362,
+        "points": 100,
+        "lines": 0,
+        "memory": {
+          "geometries": 97,
+          "textures": 7
+        },
+        "width": 571,
+        "height": 480,
+        "savedDraws": 204,
+        "cachedMaps": 0,
+        "map": "5"
+      },
+      "player": {
+        "gx": 30.5,
+        "gy": 47.5,
+        "pitch": 0,
+        "angle": 0,
+        "interaction": "empty"
+      }
+    },
+    "overview": {
+      "frame": 24,
+      "calls": 209,
+      "triangles": 41698,
+      "points": 100,
+      "lines": 0,
+      "memory": {
+        "geometries": 218,
+        "textures": 11
+      },
+      "width": 571,
+      "height": 480,
+      "savedDraws": 204,
+      "cachedMaps": 0,
+      "map": "5"
+    },
+    "moved": {
+      "gx": 30.622666599375556,
+      "gy": 47.5,
+      "pitch": 0,
+      "angle": 0,
+      "interaction": "empty"
+    },
+    "models": [],
+    "errors": []
+  }
+]

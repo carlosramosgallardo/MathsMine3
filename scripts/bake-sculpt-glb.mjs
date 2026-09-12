@@ -10,7 +10,7 @@
  * character without touching the runtime fit.
  *
  * Usage:
- *   node scripts/bake-sculpt-glb.mjs .private/models-src/trump-src.glb public/models/trump.glb \
+ *   node scripts/bake-sculpt-glb.mjs .private/models-src/trump-src.glb assets/model-sources/trump.glb \
  *     [--grid 160] [--max-y 0.58] [--preview .private/preview/trump]
  */
 import { statSync } from 'node:fs'
