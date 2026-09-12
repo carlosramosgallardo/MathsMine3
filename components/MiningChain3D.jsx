@@ -535,7 +535,7 @@ export default function MiningChain3D() {
     let mounted = true
     import('./MiningChain3DFPV').then(() => {
       if (mounted) setFpvReady(true)
-    }).catch(() => {})
+    }).catch(error => { console.error('[mining] engine import failed', error) })
     return () => { mounted = false }
   }, [])
 

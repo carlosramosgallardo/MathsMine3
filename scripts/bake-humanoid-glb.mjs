@@ -4,12 +4,12 @@
  *
  * Input is any static humanoid GLB (Sketchfab CC-BY downloads are stored in
  * .private/models-src/, outside git — see the credits in README.md). Output is
- * public/models/<name>.glb: welded, normalised to the game rig space (Y-up,
+ * assets/model-sources/<name>.glb: welded, normalised to the game rig space (Y-up,
  * feet on y=0, crown at HUMANOID_GLB_SRC_YMAX, facing +Z) and auto-rigged with
  * the bone names lib/humanoid-glb.js drives from the capsule pose.
  *
  * Usage:
- *   node scripts/bake-humanoid-glb.mjs .private/models-src/man-src.glb public/models/man.glb
+ *   node scripts/bake-humanoid-glb.mjs .private/models-src/man-src.glb assets/model-sources/man.glb
  *   node scripts/bake-humanoid-glb.mjs <src> <out> --preview .private/preview/man
  */
 import { statSync } from 'node:fs'

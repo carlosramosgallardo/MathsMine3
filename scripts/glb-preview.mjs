@@ -7,7 +7,7 @@
  * world space and splatted on the front (x/y) and side (z/y) planes, shaded by
  * depth.
  *
- * Usage: node scripts/glb-preview.mjs public/models/man.glb .private/preview/man
+ * Usage: node scripts/glb-preview.mjs assets/model-sources/man.glb .private/preview/man
  */
 import { writeFileSync, mkdirSync } from 'node:fs'
 import path from 'node:path'

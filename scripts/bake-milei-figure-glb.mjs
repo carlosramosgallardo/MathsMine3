@@ -4,7 +4,7 @@
  * patrol (shared statue-plinth.glb stays at the plaza).
  *
  * Usage:
- *   node scripts/bake-milei-figure-glb.mjs public/models/milei.glb public/models/milei-figure.glb
+ *   node scripts/bake-milei-figure-glb.mjs assets/model-sources/milei.glb assets/model-sources/milei-figure.glb
  */
 import { readGlb, writeGlb, creditExtras, buildVertexColorMeshGlb } from './lib/glb-io.mjs'
 import { extractMileiByY, MILEI_PLINTH_TOP_Y } from './lib/milei-y-cut.mjs'
@@ -48,8 +48,8 @@ function paintHeadAndNeck(mesh) {
   }
 }
 
-const src = process.argv[2] || 'public/models/milei.glb'
-const out = process.argv[3] || 'public/models/milei-figure.glb'
+const src = process.argv[2] || 'assets/model-sources/milei.glb'
+const out = process.argv[3] || 'assets/model-sources/milei-figure.glb'
 const { json, bin } = readGlb(src)
 const figure = extractMileiByY(json, bin, MILEI_PLINTH_TOP_Y, 'above', { floorFeet: true })
 if (!figure.indices.length) throw new Error('No figure geometry extracted — check MILEI_PLINTH_TOP_Y')
