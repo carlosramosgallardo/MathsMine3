@@ -7664,14 +7664,16 @@ const MINABLE_BLOCK_CHUNK_SIZE = 8
 // exp(-(density·d)²) visible; cullMiningBatchesByDistance hides merged decor
 // once that drops under ~8%, so a denser fog both shortens the horizon and
 // removes triangles from the frame. On a 56-cell map .014 (the old value)
-// culled nothing — the far corner was still 45% visible; .022 fades it to
-// ~12% and lets edge-of-map buckets drop. Raise it further to buy room for
-// denser decoration; lower it to see further.
-const MINING_FOG_DENSITY = .022
-// Characters keep their voxel stand-in until the player is this close; past
-// it a figure is ~30px tall in the retro framebuffer and the model would not
-// read anyway. Models never unload once loaded.
-const CHARACTER_MODEL_LOAD_RADIUS = 26
+// culled nothing — the far corner was still 45% visible. .028 puts the cull
+// at ~57 cells: 30% visible at 40 cells, 8% at the cut, so from anywhere on
+// the map roughly the far third of the decor stops drawing. Raise it further
+// to buy room for denser decoration; lower it to see further.
+const MINING_FOG_DENSITY = .028
+// Characters keep their voxel stand-in until the player is this close; at 20
+// cells a figure is ~40px tall in the retro framebuffer, about where the
+// stand-in starts to read as one. Models never unload once loaded, so this
+// only defers the fetch — a true near/far LOD swap would be the next step.
+const CHARACTER_MODEL_LOAD_RADIUS = 20
 // Merge budget per game tick for the decor batcher (ms). The first slice at
 // map build is bigger so the buckets around the spawn are solid before the
 // first frame; the rest streams in nearest-first.
