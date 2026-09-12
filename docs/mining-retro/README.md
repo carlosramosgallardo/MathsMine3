@@ -2,7 +2,7 @@
 
 Los cinco mapas usan texturas procedurales de 32 × 32, filtrado de píxel, materiales simplificados y un framebuffer de hasta 768 × 480, conservando la proporción. El HUD mantiene su resolución independiente.
 
-Avatares, estatuas, jefes, coches, herramientas y cubos nucleares conservan su identidad mediante un tier `.retro.glb` propio (`scripts/model-tools/`): los mismos materiales, normales suaves y filtrado lineal que en Home, pero con decimación agresiva (~6–15 % de los triángulos originales) y texturas de 512² (4× menos memoria GPU por personaje que las de 1024² de Home). El pixelado lo aporta el propio framebuffer de 768×480, uniforme para toda la escena; los modelos no necesitan tratamiento aparte. Todo el reparto pesa ~2,9 MB frente a los 34 MB originales. Los props geométricos de `lib/mining-retro-props.js` (figura voxel, coche de cajas, paneles) aparecen al instante como sustitutos: el modelo pixel-art los reemplaza al cargar y, si nunca llega, se quedan. Home conserva el tier `.runtime.glb` de mayor fidelidad.
+Avatares, estatuas, jefes, coches, herramientas y cubos nucleares conservan su identidad con los mismos `.runtime.glb` que Home (`scripts/model-tools/`): decimación agresiva (~6–15 % de los triángulos originales), texturas de 512², normales suaves y filtrado lineal. El pixelado lo aporta el propio framebuffer de 768×480, uniforme para toda la escena; los modelos no necesitan tratamiento aparte. Todo el reparto pesa ~2,9 MB frente a los 34 MB originales. Los props geométricos de `lib/mining-retro-props.js` (figura voxel, coche de cajas, paneles) aparecen al instante como sustitutos: el modelo los reemplaza al cargar y, si nunca llega, se quedan.
 
 En Mining los personajes (jefes, estatuas, bots, cápsulas, peana, ledger, cubo) llevan *frustum culling* activo: no se dibujan cuando quedan fuera del cono de la cámara. Los venían desactivando en bloque (`frustumCulled = false`), así que todos se dibujaban aunque estuvieran a la espalda. Las mallas *skinned* usan una esfera de pose de reposo acolchada ×1,5, porque three calcula la suya una sola vez en el primer frame y un brazo animado podría salirse. Home no cambia: sus tres huecos visibles siempre están en pantalla.
 
@@ -16,7 +16,7 @@ Solo se conserva un mapa inactivo en caché. Se liberan también los buffers de 
 - QA sweep unitario: 11 correctas, 7 comprobaciones de cliente omitidas por ese comando.
 - ESLint: sin errores, 45 advertencias existentes.
 - Compilación de producción y sincronización de documentación API correctas.
-- Chromium: carga y movimiento en M1–M5, sin excepciones JavaScript. (Medido antes del tier retro: entonces Mining no hacía peticiones a /models/; ahora descarga los `.retro.glb`, ~2,9 MB en total.)
+- Chromium: carga y movimiento en M1–M5, sin excepciones JavaScript. (Medido antes de restaurar los modelos: entonces Mining no hacía peticiones a /models/; ahora descarga los `.runtime.glb`, ~2,9 MB en total.)
 - Recorrido M1 → M2 → M1: resolución reducida constante, como máximo un mapa inactivo en caché.
 
 | Mapa | Llamadas de dibujo iniciales | Llamadas en vista general | Agrupaciones: envíos estáticos ahorrados |
