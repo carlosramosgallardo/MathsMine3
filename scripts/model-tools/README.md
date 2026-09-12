@@ -10,10 +10,12 @@ npm test
 
 This offline tool uses [glTF Transform](https://gltf-transform.dev/) and Meshoptimizer. From every original in `assets/model-sources/` (outside the public web directory) it generates two derivatives in `public/models/` plus `report.json`. No optimizer or decoder is added to the application bundle: the outputs only use `EXT_texture_webp` (WebP is supported by the project's browser targets and Android WebView) and extensions three.js's `GLTFLoader` handles natively.
 
-| Tier | Consumer | Cut | Textures | Look |
-| --- | --- | --- | --- | --- |
-| `.runtime.glb` | Home carousel | error cap 0.001 dominates; ratio only bites where silhouette/UV seams survive | 1024² WebP q85, linear + mipmaps | full-fidelity scan |
-| `.retro.glb` | Mining (all five maps) | error cap 0.02 so the ratio lands near 6–15% of source triangles (gentler on small props) | 256² WebP q70, drawn with nearest filtering | deliberate pixel-art / low-poly |
+| Tier | Consumer | Cut | Textures |
+| --- | --- | --- | --- |
+| `.runtime.glb` | Home carousel | error cap 0.001 dominates; ratio only bites where silhouette/UV seams survive | 1024² WebP q85 |
+| `.retro.glb` | Mining (all five maps) | error cap 0.02 so the ratio lands near 6–15% of source triangles (gentler on small props) | 512² WebP q80 |
+
+Both tiers render identically (same material factories, smooth normals, linear mipmapped filtering); retro is only lighter. Mining's 768×480 framebuffer pixelates the whole scene uniformly, so the models need no nearest-filter or flat-shading treatment — that was tried and read as shimmer and facets on scanned faces.
 
 Both tiers keep node hierarchies, names, skin joints, material boundaries and animation data: rigid limb animation and hand docking look nodes up by name, so do not flatten/join. `simplify` runs with `cleanup:false` for that reason (its own `prune` would drop named leaf nodes); the tool then compacts the surviving primitives and prunes **accessors only**, which is what keeps the pre-simplify vertex data from riding along as dead binary.
 

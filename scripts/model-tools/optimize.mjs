@@ -12,17 +12,19 @@ await MeshoptSimplifier.ready
 
 // Two derivatives per source. Both keep node names/hierarchy and skins — the
 // runtime animation and hand docking depend on them — and only differ in how
-// hard they cut:
+// hard they cut. They are meant to LOOK the same (same materials, smooth
+// normals, linear-filtered maps); the retro tier is only lighter:
 //  - runtime (Home carousel): the error cap dominates, so the ratio only bites
 //    where it keeps silhouette/UV boundaries intact; 1024² textures.
-//  - retro (Mining): a deliberate pixel-art tier. The error cap is loosened so
-//    the ratio actually lands near ~6–15% of the source triangles, and 256²
-//    textures are drawn with nearest filtering in-game, so the faceting and
-//    texels are the look rather than a defect. Small props keep a gentler
-//    ratio — there is not much left to cut on a 4k-triangle ledger.
+//  - retro (Mining): the error cap is loosened so the ratio lands near ~6–15%
+//    of the source triangles, and textures drop to 512² — 4× less GPU memory
+//    per character than Home, still far more texels than a face ever covers
+//    inside the 768×480 retro framebuffer (which is what pixelates the scene,
+//    uniformly, so the models themselves need no "pixel" treatment). Small
+//    props keep a gentler ratio — little is left to cut on a 4k-tri ledger.
 const TIERS = {
   runtime: (before) => ({ ratio: before > 50000 ? .2 : .55, error: .001, resize: [1024, 1024], quality: 85 }),
-  retro: (before) => ({ ratio: before > 50000 ? .06 : before > 15000 ? .15 : .4, error: .02, resize: [256, 256], quality: 70 }),
+  retro: (before) => ({ ratio: before > 50000 ? .06 : before > 15000 ? .15 : .4, error: .02, resize: [512, 512], quality: 80 }),
 }
 
 const report = []

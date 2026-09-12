@@ -7,7 +7,7 @@
     "animations": 0,
     "runtimeBytes": 2615956,
     "runtimeTriangles": 65858,
-    "retroBytes": 644592,
+    "retroBytes": 682512,
     "retroTriangles": 16847
   },
   {
@@ -18,7 +18,7 @@
     "animations": 0,
     "runtimeBytes": 2192964,
     "runtimeTriangles": 63776,
-    "retroBytes": 502580,
+    "retroBytes": 533540,
     "retroTriangles": 15234
   },
   {
@@ -40,7 +40,7 @@
     "animations": 0,
     "runtimeBytes": 1422272,
     "runtimeTriangles": 26937,
-    "retroBytes": 316944,
+    "retroBytes": 368764,
     "retroTriangles": 5144
   },
   {
@@ -51,7 +51,7 @@
     "animations": 0,
     "runtimeBytes": 1365492,
     "runtimeTriangles": 25609,
-    "retroBytes": 285684,
+    "retroBytes": 328584,
     "retroTriangles": 4254
   },
   {
@@ -73,7 +73,7 @@
     "animations": 0,
     "runtimeBytes": 947828,
     "runtimeTriangles": 23284,
-    "retroBytes": 250612,
+    "retroBytes": 297644,
     "retroTriangles": 5559
   },
   {
@@ -95,7 +95,7 @@
     "animations": 0,
     "runtimeBytes": 143420,
     "runtimeTriangles": 3791,
-    "retroBytes": 99272,
+    "retroBytes": 107980,
     "retroTriangles": 2676
   },
   {
@@ -106,7 +106,7 @@
     "animations": 0,
     "runtimeBytes": 482764,
     "runtimeTriangles": 3985,
-    "retroBytes": 182644,
+    "retroBytes": 248048,
     "retroTriangles": 2970
   }
 ]
