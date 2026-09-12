@@ -1,6 +1,24 @@
 # Mundo Mining retro: M1–M5
 
-Los cinco mapas usan texturas procedurales de 32 × 32, filtrado de píxel, materiales simplificados y un framebuffer de hasta 768 × 480, conservando la proporción. El HUD mantiene su resolución independiente. Avatares, estatuas, jefes, coches, herramientas y cubos nucleares usan geometría sencilla sin descargar GLB en Mining. Home conserva los modelos optimizados que todavía utiliza.
+Los cinco mapas usan texturas procedurales de 32 × 32, filtrado de píxel, materiales simplificados y un framebuffer de hasta 768 × 480, conservando la proporción. El HUD mantiene su resolución independiente.
+
+Avatares, estatuas, jefes, coches, herramientas y cubos nucleares conservan su identidad con los mismos `.runtime.glb` que Home (`scripts/model-tools/`): decimación agresiva (~6–15 % de los triángulos originales), texturas de 512², normales suaves y filtrado lineal. El pixelado lo aporta el propio framebuffer de 768×480, uniforme para toda la escena; los modelos no necesitan tratamiento aparte. Todo el reparto pesa ~2,9 MB frente a los 34 MB originales. Los props geométricos de `lib/mining-retro-props.js` (figura voxel, coche de cajas, paneles) aparecen al instante como sustitutos: el modelo los reemplaza al cargar y, si nunca llega, se quedan.
+
+En Mining los personajes (jefes, estatuas, bots, cápsulas, peana, ledger, cubo) llevan *frustum culling* activo: no se dibujan cuando quedan fuera del cono de la cámara. Los venían desactivando en bloque (`frustumCulled = false`), así que todos se dibujaban aunque estuvieran a la espalda. Las mallas *skinned* usan una esfera de pose de reposo acolchada ×1,5, porque three calcula la suya una sola vez en el primer frame y un brazo animado podría salirse. Home no cambia: sus tres huecos visibles siempre están en pantalla.
+
+## Distancia de renderizado
+
+`MINING_RENDER_DISTANCE` (22 celdas) es la perilla: todo lo visual que está troceado solo se dibuja dentro de ese radio del jugador y **aparece a medida que camina**; lo que queda fuera nace oculto al construir el mapa, así que la entrada no muestra el mundo entero de golpe. `MINING_FOG_DENSITY` (.055) va a juego: en el borde del radio queda ~23 % visible, así que los trozos nuevos se funden con la niebla en vez de saltar. Suben o bajan juntas.
+
+Qué está troceado y cómo:
+
+- **Muros de bioma y casas** (`addChunkedInstancedMeshes`): un `InstancedMesh` por trozo de 14×14 celdas en vez de uno por mapa. Era la geometría dominante y la única que no estaba troceada; por eso antes "cargaba todo de golpe" aunque bloques y decoración ya fueran por proximidad. Los trozos ocultos siguen colisionando: three no salta objetos invisibles al hacer raycast.
+- **Paisaje de M1** (`addM1RetroDecor`): ya iba instanciado por 14×14; ahora se registra para el culling por distancia.
+- **Decoración estática de M2–M5** (`createMiningDecorBatcher`): lotes de 12×12 ordenados de cerca a lejos desde el punto de aparición; los cercanos se fusionan al construir el mapa (10 ms) y el resto en pasos de 3 ms por tick. Los lotes fuera del radio nacen ocultos (originales incluidos) y se muestran al acercarse. El planificador viaja con el mundo en la caché de mapas y se cancela al descartarlo.
+- **Bloques minables**: su propio sistema de chunks de 8×8 (radio 1 en tier bajo, 3 en alto ≈ 24 celdas), sin cambios.
+- **Modelos de personajes**: jefes, estatuas, cubo y bots muestran el stand-in voxel hasta que el jugador está a 20 celdas y entonces descargan el modelo (`modelLoadGate`, el mismo mecanismo del carrusel de Home). El modelo no se descarga nunca. Los gates de los personajes del mundo viajan con él en la caché; los de los bots se liberan uno a uno con la presencia.
+
+Los datos de mapa, colisión, combate y movimiento no participan en nada de esto: se cargan enteros al instante, como antes.
 
 M1 añade montañas, árboles, mosaicos, flores y cristales. M2–M5 conservan su decoración temática, agrupada y adaptada al renderizado retro. Los objetos interactivos y animados quedan excluidos de la agrupación estática. Las superficies de colisión mantienen geometría y transformaciones exactas como proxies invisibles para raycasting. Los datos de mapa, combate, minería y movimiento conservan su lógica existente.
 
@@ -12,7 +30,7 @@ Solo se conserva un mapa inactivo en caché. Se liberan también los buffers de 
 - QA sweep unitario: 11 correctas, 7 comprobaciones de cliente omitidas por ese comando.
 - ESLint: sin errores, 45 advertencias existentes.
 - Compilación de producción y sincronización de documentación API correctas.
-- Chromium: carga y movimiento en M1–M5, sin excepciones JavaScript ni peticiones a /models/.
+- Chromium: carga y movimiento en M1–M5, sin excepciones JavaScript. (Medido antes de restaurar los modelos: entonces Mining no hacía peticiones a /models/; ahora descarga los `.runtime.glb`, ~2,9 MB en total.)
 - Recorrido M1 → M2 → M1: resolución reducida constante, como máximo un mapa inactivo en caché.
 
 | Mapa | Llamadas de dibujo iniciales | Llamadas en vista general | Agrupaciones: envíos estáticos ahorrados |

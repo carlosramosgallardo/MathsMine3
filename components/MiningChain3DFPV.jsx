@@ -7,7 +7,8 @@ import { M3_PUTIN_BOSS_ATTACKS } from '@/lib/m3-putin-boss'
 import { useEffect, useRef, useCallback, useState } from 'react'
 import * as THREE from 'three'
 import { addRetroHead } from '@/lib/mining-retro-props'
-import { addM1RetroDecor, simplifyMiningMaterials, batchMiningStaticDecor, batchMiningShoreline, miningRetroPixelRatio, createMiningRetroTexture } from '@/lib/mining-retro'
+import { addM1RetroDecor, simplifyMiningMaterials, createMiningDecorBatcher, cullMiningBatchesByDistance, addChunkedInstancedMeshes, batchMiningShoreline, miningRetroPixelRatio, createMiningRetroTexture } from '@/lib/mining-retro'
+import { createModelLoadGate, cancelModelLoadGate, syncProximityGates } from '@/lib/model-load-scheduling'
 import { getMiningMapVisuals } from '@/lib/mining-map-visuals'
 import { findBossAttack } from '@/lib/boss-attack-selection'
 import { skipShaderErrorChecks } from '@/lib/webgl-renderer-tuning'
@@ -6073,7 +6074,7 @@ function addNightDome(scene, lowDetail=false) {
 
 function syncThreeSceneForVisualTier(state, tier = 'high') {
   if (!state?.scene) return
-  state.scene.fog.density = .014
+  state.scene.fog.density = MINING_FOG_DENSITY
   state.visualTierSynced = tier
 }
 
@@ -7659,6 +7660,50 @@ function makeRecoveryTileTexture() {
 
 // ── Minable block chunk streaming (visual only — physics uses cellMap) ─────────
 const MINABLE_BLOCK_CHUNK_SIZE = 8
+// Render distance, in cells. Everything visual that is chunked — biome
+// walls, houses, M1 landscape instances, M2–M5 decor batches — only draws
+// within this radius of the player and appears as they walk; far chunks are
+// born hidden at map build. Gameplay data (cells, collision, combat) is
+// always whole: hidden chunks still raycast. Minable blocks keep their own
+// chunk radius (8-cell chunks, 1 on low tier / 3 on high ≈ this distance).
+const MINING_RENDER_DISTANCE = 22
+// FogExp2 leaves exp(-(density·d)²) visible. Tuned to the render distance:
+// at 22 cells a chunk edge is ~23% visible, so new chunks fade in rather than
+// pop, and at 30 cells ~7% is left. Raise both together to see further.
+const MINING_FOG_DENSITY = .055
+// Characters keep their voxel stand-in until the player is this close; at 20
+// cells a figure is ~40px tall in the retro framebuffer, about where the
+// stand-in starts to read as one. Models never unload once loaded, so this
+// only defers the fetch — a true near/far LOD swap would be the next step.
+const CHARACTER_MODEL_LOAD_RADIUS = 20
+// Merge budget per game tick for the decor batcher (ms). The first slice at
+// map build is bigger so the buckets around the spawn are solid before the
+// first frame; the rest streams in nearest-first.
+const DECOR_BATCH_TICK_BUDGET_MS = 3
+const DECOR_BATCH_FIRST_BUDGET_MS = 10
+
+// Two lists on purpose. World characters (bosses, statues, nuke) belong to
+// the map: their gates travel with it into the world cache and are cancelled
+// when it is disposed. Bot avatars live on the scene across maps, so theirs
+// are released one by one as presence drops them — never with the world.
+function attachProximityGate(state, group, list = 'proximityGates') {
+  if (!state || !group) return
+  const gate = createModelLoadGate()
+  group.userData.modelLoadGate = gate
+  ;(state[list] ||= []).push({ group, gate })
+}
+
+function releaseWorldProximityGates(holder) {
+  for (const entry of holder?.proximityGates || []) cancelModelLoadGate(entry.gate)
+  if (holder) holder.proximityGates = []
+}
+
+function releaseAvatarProximityGate(state, avatar) {
+  const gate = avatar?.userData?.modelLoadGate
+  if (!gate) return
+  cancelModelLoadGate(gate)
+  if (state?.avatarGates) state.avatarGates = state.avatarGates.filter((e) => e.gate !== gate)
+}
 
 function getMinableBlockChunkRadius(visualTier) {
   if (visualTier === 'high') return 3
@@ -7900,6 +7945,8 @@ function initMinableBlockChunkSystem(state, cellMap, visualTier, gridX, gridY) {
 function rebuildThreeWorld(state,cellMap,obstacles) {
   if(!state) return
   disposeMinableBlockChunkSystem(state)
+  state.retroBatcher?.cancel(); state.retroBatcher = null
+  releaseWorldProximityGates(state)
   if(state.world){state.scene.remove(state.world);disposeThreeObject(state.world)}
   const world=new THREE.Group(),matrix=new THREE.Matrix4(),position=new THREE.Vector3()
   const scale=new THREE.Vector3(),quaternion=new THREE.Quaternion()
@@ -8017,21 +8064,21 @@ function rebuildThreeWorld(state,cellMap,obstacles) {
     for(const kind of ['wall','roof','stair']){
       const entries=houseGroups[kind]
       if(!entries.length) continue
-      const mesh=new THREE.InstancedMesh(new THREE.BoxGeometry(1,1,1),houseMaterials[kind],entries.length)
-      entries.forEach(([key,obstacle],index)=>{
-        const [row,col]=key.split(',').map(Number)
-        const bottom=obstacleBottom(obstacle)
-        const visualTop=Number(obstacle.visualHeight)||obstacleTop(obstacle)
-        const visualHeight=Math.max(.02,visualTop-bottom)
-        const inset=kind==='roof'?0.92:0.985
-        position.set(col+.5,bottom+visualHeight*.5,row+.5)
-        scale.set(inset,visualHeight,inset)
-        matrix.compose(position,quaternion,scale)
-        mesh.setMatrixAt(index,matrix)
+      const inset=kind==='roof'?0.92:0.985
+      addChunkedInstancedMeshes(world,{
+        geometry:new THREE.BoxGeometry(1,1,1),material:houseMaterials[kind],entries,name:`house ${kind}`,
+        collidable:kind==='wall'||kind==='roof',
+        cellOf:([key])=>key.split(',').map(Number),
+        place:([key,obstacle],index,m)=>{
+          const [row,col]=key.split(',').map(Number)
+          const bottom=obstacleBottom(obstacle)
+          const visualTop=Number(obstacle.visualHeight)||obstacleTop(obstacle)
+          const visualHeight=Math.max(.02,visualTop-bottom)
+          position.set(col+.5,bottom+visualHeight*.5,row+.5)
+          scale.set(inset,visualHeight,inset)
+          m.compose(position,quaternion,scale)
+        },
       })
-      mesh.instanceMatrix.needsUpdate=true
-      if(kind==='wall'||kind==='roof') mesh.userData.collidable=true
-      world.add(mesh)
     }
     state.housePerimeterHeartsMesh=addHousePerimeterHeartSigns(world)
     if(houseGroups.rail.length){
@@ -8365,15 +8412,18 @@ function rebuildThreeWorld(state,cellMap,obstacles) {
       inferno:{color:'#df5832',roughness:.55,metalness:.18,emissive:'#8c1705',intensity:.88},
     }[biome]
     const material=new THREE.MeshStandardMaterial({map:textures[biome],color:style.color,roughness:style.roughness,metalness:style.metalness,emissive:style.emissive,emissiveIntensity:style.intensity})
-    const mesh=new THREE.InstancedMesh(new THREE.BoxGeometry(1,1,1),material,entries.length)
-    entries.forEach(([key,obstacle],index)=>{
-      const [row,col]=key.split(',').map(Number),bottom=obstacleBottom(obstacle),height=obstacleTop(obstacle)-bottom
-      const visualTop=Number(obstacle.visualHeight)||obstacleTop(obstacle)
-      const visualHeight=Math.max(.02,visualTop-bottom)
-      position.set(col+.5,bottom+visualHeight*.5,row+.5);scale.set(.985,visualHeight,.985)
-      matrix.compose(position,quaternion,scale);mesh.setMatrixAt(index,matrix)
+    // Chunked per 14 cells so the render distance applies to the walls too.
+    addChunkedInstancedMeshes(world,{
+      geometry:new THREE.BoxGeometry(1,1,1),material,entries,collidable:true,name:`${biome} blocks`,
+      cellOf:([key])=>key.split(',').map(Number),
+      place:([key,obstacle],index,m)=>{
+        const [row,col]=key.split(',').map(Number),bottom=obstacleBottom(obstacle)
+        const visualTop=Number(obstacle.visualHeight)||obstacleTop(obstacle)
+        const visualHeight=Math.max(.02,visualTop-bottom)
+        position.set(col+.5,bottom+visualHeight*.5,row+.5);scale.set(.985,visualHeight,.985)
+        m.compose(position,quaternion,scale)
+      },
     })
-    mesh.instanceMatrix.needsUpdate=true;mesh.userData.collidable=true;world.add(mesh)
   }
 
   for(const [key,obstacle] of obstacles){
@@ -8405,9 +8455,14 @@ function rebuildThreeWorld(state,cellMap,obstacles) {
   addM1RetroDecor(world, obstacles, cellMap)
   const protectedVisuals = new Set([state.m1MileiStatueGroup, state.m1ZelenskyStatueGroup, state.nukeCubeGroup].filter(Boolean))
   simplifyMiningMaterials(world, protectedVisuals)
-  batchMiningStaticDecor(world, protectedVisuals)
+  // Nearest buckets merge now; the rest streams in from the game tick.
+  state.retroBatcher = createMiningDecorBatcher(world, protectedVisuals, { origin: { x: playerGx, z: playerGy }, hideBeyond: MINING_RENDER_DISTANCE })
+  state.retroBatcher.step(DECOR_BATCH_FIRST_BUDGET_MS)
   batchMiningShoreline(world)
+  // Before the first frame, not the first tick: no flash of the whole map.
+  cullMiningBatchesByDistance(world, playerGx, playerGy, MINING_RENDER_DISTANCE)
   state.world=world
+  state.proximityCellKey=null
   state.cameraCollisionValid=false
   state.biomeSurfaces=[]
   state.interactiveVisuals=[]
@@ -10576,6 +10631,8 @@ function rebuildPeripheralMapWorld(state, mapId, obstacles, cellMap) {
   state.m2MacronStatueGroup = null
   state.m2MacronStatueMotion = null
   state.nukeCubeGroup = null
+  state.retroBatcher?.cancel(); state.retroBatcher = null
+  releaseWorldProximityGates(state)
   if (state.world) { state.scene.remove(state.world); disposeThreeObject(state.world) }
   const world = new THREE.Group()
   const matrix = new THREE.Matrix4()
@@ -10613,20 +10670,20 @@ function rebuildPeripheralMapWorld(state, mapId, obstacles, cellMap) {
       map: state.textures[biome], color: style.color, roughness: style.roughness,
       metalness: style.metalness, emissive: style.emissive, emissiveIntensity: style.intensity,
     })
-    const mesh = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), material, entries.length)
-    entries.forEach(([key, obstacle], index) => {
-      const [row, col] = key.split(',').map(Number)
-      const bottom = obstacleBottom(obstacle)
-      const visualTop = Number(obstacle.visualHeight) || obstacleTop(obstacle)
-      const visualHeight = Math.max(0.02, visualTop - bottom)
-      position.set(col + 0.5, bottom + visualHeight * 0.5, row + 0.5)
-      scale.set(0.985, visualHeight, 0.985)
-      matrix.compose(position, quaternion, scale)
-      mesh.setMatrixAt(index, matrix)
+    // Chunked per 14 cells so the render distance applies to the walls too.
+    addChunkedInstancedMeshes(world, {
+      geometry: new THREE.BoxGeometry(1, 1, 1), material, entries, collidable: true, name: `${biome} blocks`,
+      cellOf: ([key]) => key.split(',').map(Number),
+      place: ([key, obstacle], index, m) => {
+        const [row, col] = key.split(',').map(Number)
+        const bottom = obstacleBottom(obstacle)
+        const visualTop = Number(obstacle.visualHeight) || obstacleTop(obstacle)
+        const visualHeight = Math.max(0.02, visualTop - bottom)
+        position.set(col + 0.5, bottom + visualHeight * 0.5, row + 0.5)
+        scale.set(0.985, visualHeight, 0.985)
+        m.compose(position, quaternion, scale)
+      },
     })
-    mesh.instanceMatrix.needsUpdate = true
-    mesh.userData.collidable = true
-    world.add(mesh)
   }
   const activeCellMap = cellMap || new Map()
   const playerGx = state.lastPlayerGridX ?? COLS / 2
@@ -10660,6 +10717,7 @@ function rebuildPeripheralMapWorld(state, mapId, obstacles, cellMap) {
     bossVisual.group.matrixAutoUpdate = true
     world.add(bossVisual.group)
     state[bossMod.groupKey] = bossVisual.group
+    attachProximityGate(state, bossVisual.group)
   }
   state.beaconBatch = visualTier === 'high' && beaconEntries.length
     ? addInteractiveBeaconBatch(world, beaconEntries)
@@ -10668,9 +10726,13 @@ function rebuildPeripheralMapWorld(state, mapId, obstacles, cellMap) {
   const protectedVisuals = new Set([state.m2PitchDomeGroup, state.m2MacronStatueGroup,
     state.m3PutinBossGroup, state.m4KimBossGroup, state.m5TrumpBossGroup, state.nukeCubeGroup].filter(Boolean))
   simplifyMiningMaterials(world, protectedVisuals)
-  batchMiningStaticDecor(world, protectedVisuals)
+  // Nearest buckets merge now; the rest streams in from the game tick.
+  state.retroBatcher = createMiningDecorBatcher(world, protectedVisuals, { origin: { x: playerGx, z: playerGy }, hideBeyond: MINING_RENDER_DISTANCE })
+  state.retroBatcher.step(DECOR_BATCH_FIRST_BUDGET_MS)
   batchMiningShoreline(world)
+  cullMiningBatchesByDistance(world, playerGx, playerGy, MINING_RENDER_DISTANCE)
   state.world = world
+  state.proximityCellKey = null
   state.cameraCollisionValid = false
   state.biomeSurfaces = []
   state.interactiveVisuals = []
@@ -10743,6 +10805,8 @@ function rebuildActiveMapWorld(state, mapId, cellMap, obstacles) {
 
 const WORLD_CACHE_STATE_KEYS = [
   'world',
+  'retroBatcher',
+  'proximityGates',
   'minableBlockChunks',
   'beaconBatch',
   'biomeSurfaces',
@@ -10818,6 +10882,8 @@ function applyWorldStateSnapshot(state, snapshot) {
   state.avatarFadeOccluders = snapshot.avatarFadeOccluders || []
   state.collisionMeshes = snapshot.collisionMeshes || []
   state.cameraCollisionValid = false
+  // Re-cull and re-check gates from the player's current cell on the next tick.
+  state.proximityCellKey = null
 }
 
 function cacheCurrentWorld(state, targetKey) {
@@ -10851,6 +10917,8 @@ function restoreCachedWorld(state, key, cached) {
 
 function disposeCachedWorld(cached) {
   if (!cached?.world) return
+  try { cached.retroBatcher?.cancel() } catch {}
+  try { releaseWorldProximityGates(cached) } catch {}
   try { cached.world.parent?.remove?.(cached.world) } catch {}
   try { disposeMinableBlockChunkSystem(cached) } catch {}
   try { disposeThreeObject(cached.world) } catch {}
@@ -11141,6 +11209,7 @@ function addM1MileiStatueDecor(world, lowDetail, state = null) {
   extractStatuePlinthToWorld(visual, world)
   world.add(visual.group)
   if (state) {
+    attachProximityGate(state, visual.group)
     const { gx, gz } = statueWorldXZ(visual.group)
     state.m1MileiStatueGroup = visual.group
     state.m1MileiStatueMotion = {
@@ -11163,6 +11232,7 @@ function addM1ZelenskyStatueDecor(world, lowDetail, state = null) {
   extractStatuePlinthToWorld(visual, world)
   world.add(visual.group)
   if (state) {
+    attachProximityGate(state, visual.group)
     const { gx, gz } = statueWorldXZ(visual.group)
     state.m1ZelenskyStatueGroup = visual.group
     state.m1ZelenskyStatueMotion = {
@@ -11184,6 +11254,7 @@ function addM2MacronStatueDecor(world, lowDetail, state = null) {
   extractStatuePlinthToWorld(visual, world)
   world.add(visual.group)
   if (state) {
+    attachProximityGate(state, visual.group)
     const { gx, gz } = statueWorldXZ(visual.group)
     state.m2MacronStatueGroup = visual.group
     state.m2MacronStatueMotion = {
@@ -11206,7 +11277,10 @@ function addNukeCubeDecor(world, mapId, lowDetail, state = null) {
   const visual = createNukeCubeVisual(THREE, lowDetail, { retro: true })
   visual.group.position.set(pos.col + 0.5, 0, pos.row + 0.5)
   world.add(visual.group)
-  if (state) state.nukeCubeGroup = visual.group
+  if (state) {
+    state.nukeCubeGroup = visual.group
+    attachProximityGate(state, visual.group)
+  }
 }
 
 function addM2PitchDomeDecor(world, lowDetail, state) {
@@ -11695,7 +11769,9 @@ function createThreeWalletAvatar(wallet) {
     :new THREE.MeshStandardMaterial({color:c,roughness,metalness})
 
   // Low-poly humanoid — cloth in wallet colour, flesh skin, human head.
-  // Procedural limbs keep the existing animation pivots and tool grip.
+  // Procedural limbs keep the existing animation pivots and tool grip. The
+  // voxel body+head show at once; the pixel-art man.glb tier replaces them
+  // when it streams (the Ledger docks to its palm), or they simply stay.
   const body=buildHumanoidBody(THREE,avatar,{
     mat:_mat,
     lowDetail,
@@ -11703,7 +11779,7 @@ function createThreeWalletAvatar(wallet) {
     handStyle:'sphere',
     sleeve:'short',
     glbBodyCutY: HUMANOID_GLB_SRC_CLOTHES.waistY,
-    skipGlb: true,
+    retro: true,
     colors:{skin:skinHex,torso:color,arms:mid,legs:dark,shoes:'#1c1916',hands:skinHex},
   })
   const { head }=addRetroHead(THREE,avatar,{ skin: skinHex, hair: hairHex })
@@ -11933,6 +12009,8 @@ function syncThreeAvatars(state,presence,myIdentity,currentMapId=MINING_CORE_MAP
     if(!avatar){
       avatar=createThreeWalletAvatar(wallet)
       state.avatars.set(wallet,avatar);state.scene.add(avatar)
+      // Presence positions it on the next line; the gate check reads live positions.
+      attachProximityGate(state, avatar, 'avatarGates')
     }
     avatar.visible=true
     const remoteMounted = Boolean(data.rlMount) && !data.isDead
@@ -12025,6 +12103,7 @@ function syncThreeAvatars(state,presence,myIdentity,currentMapId=MINING_CORE_MAP
   }
   for(const [wallet,avatar] of state.avatars){
     if(active.has(wallet)) continue
+    releaseAvatarProximityGate(state, avatar)
     state.scene.remove(avatar);disposeThreeObject(avatar);state.avatars.delete(wallet)
   }
   // Apply same LOD scale to local avatar so it matches remote avatar apparent size
@@ -12583,7 +12662,7 @@ export default function MiningChain3DFPV({
     renderer.toneMappingExposure=1.22
     const scene=new THREE.Scene()
     scene.background=new THREE.Color('#020617')
-    scene.fog=new THREE.FogExp2('#07132c',.018)
+    scene.fog=new THREE.FogExp2('#07132c',MINING_FOG_DENSITY)
     const camera=new THREE.PerspectiveCamera(58,1,.05,100)
     const hudScene=new THREE.Scene()
     // Perspective camera for 3D avatar — positioned slightly above-right-front for a 3/4 hero pose
@@ -15143,6 +15222,22 @@ export default function MiningChain3DFPV({
           if (centerKey !== ts.minableBlockChunks.centerKey || tier !== ts.minableBlockChunks.tier) {
             syncMinableBlockChunks(ts, pgx, pgy, tier)
           }
+        }
+        // Stream the rest of the world by proximity too: merge pending decor
+        // buckets nearest-first within a small budget, hide merged buckets the
+        // fog has swallowed, and let characters fetch their model once close.
+        if (ts?.world) {
+          const pgx = p.x / CELL_SIZE
+          const pgy = p.y / CELL_SIZE
+          if (ts.retroBatcher && !ts.retroBatcher.done) ts.retroBatcher.step(DECOR_BATCH_TICK_BUDGET_MS)
+          const cellKey = `${Math.floor(pgx)},${Math.floor(pgy)}`
+          if (cellKey !== ts.proximityCellKey || ts.retroBatcher) {
+            ts.proximityCellKey = cellKey
+            cullMiningBatchesByDistance(ts.world, pgx, pgy, MINING_RENDER_DISTANCE)
+            if (ts.proximityGates?.length) syncProximityGates(ts.proximityGates, pgx, pgy, CHARACTER_MODEL_LOAD_RADIUS)
+            if (ts.avatarGates?.length) syncProximityGates(ts.avatarGates, pgx, pgy, CHARACTER_MODEL_LOAD_RADIUS)
+          }
+          if (ts.retroBatcher?.done) ts.retroBatcher = null
         }
       }
 

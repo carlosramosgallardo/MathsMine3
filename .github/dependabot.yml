@@ -1,25 +1,26 @@
-# Renovate owns version PRs (renovate.json). Dependabot version updates
-# would open duplicate pip/npm/gradle PRs. Keep the file so GitHub does
-# not fall back to UI defaults; open-pull-requests-limit: 0 creates none.
+# Renovate owns most dependency updates through renovate.json. Dependabot
+# remains configured here as a GitHub-native fallback for ecosystem updates,
+# and it is allowed to open PRs so the repository can enable bot automerge
+# safely after all branch checks are green.
 version: 2
 updates:
   - package-ecosystem: npm
     directory: /
     schedule:
       interval: monthly
-    open-pull-requests-limit: 0
+    open-pull-requests-limit: 10
   - package-ecosystem: pip
     directory: /tools/balance
     schedule:
       interval: monthly
-    open-pull-requests-limit: 0
+    open-pull-requests-limit: 10
   - package-ecosystem: gradle
     directory: /apps/android-native
     schedule:
       interval: monthly
-    open-pull-requests-limit: 0
+    open-pull-requests-limit: 10
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: monthly
-    open-pull-requests-limit: 0
+    open-pull-requests-limit: 10
