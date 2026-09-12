@@ -6,6 +6,16 @@ Avatares, estatuas, jefes, coches, herramientas y cubos nucleares conservan su i
 
 En Mining los personajes (jefes, estatuas, bots, cápsulas, peana, ledger, cubo) llevan *frustum culling* activo: no se dibujan cuando quedan fuera del cono de la cámara. Los venían desactivando en bloque (`frustumCulled = false`), así que todos se dibujaban aunque estuvieran a la espalda. Las mallas *skinned* usan una esfera de pose de reposo acolchada ×1,5, porque three calcula la suya una sola vez en el primer frame y un brazo animado podría salirse. Home no cambia: sus tres huecos visibles siempre están en pantalla.
 
+## Streaming por proximidad
+
+Tres cosas se reparten ahora alrededor del jugador, todas desde el mismo tick que ya sincronizaba los chunks de bloques minables:
+
+- **Construcción incremental de la decoración.** `createMiningDecorBatcher` ordena los lotes estáticos de 12×12 celdas de cerca a lejos respecto al punto de aparición; los más cercanos se fusionan al construir el mapa (10 ms) y el resto en pasos de 3 ms por tick. Mientras un lote está pendiente, sus piezas originales siguen dibujándose (más draw calls unos frames, nunca un hueco), así que la entrada al mapa deja de pagar toda la fusión de golpe — y ese coste crecía linealmente con cada pieza de decoración. El planificador viaja con el mundo en la caché de mapas y se cancela al descartarlo.
+- **Culling por distancia de lotes, ligado a la niebla.** `MINING_FOG_DENSITY` es la única perilla: `FogExp2` deja visible `exp(-(densidad·d)²)`, y `cullMiningBatchesByDistance` oculta los lotes fusionados a partir de donde eso baja del ~8 %, con un margen de medio lote para que ningún borde parpadee. Con la densidad anterior (.014) la esquina opuesta de un mapa de 56 celdas seguía al 45 % y no se cullaba nada; con .022 baja al ~12 % y los lotes del borde opuesto dejan de dibujarse. Subirla compra margen para más decoración; bajarla alarga el horizonte.
+- **Carga de modelos por proximidad.** Jefes, estatuas, cubo y bots llevan un `modelLoadGate` (el mismo mecanismo del carrusel de Home) que se abre a 26 celdas del jugador. Hasta entonces se ve el stand-in voxel, que a esa distancia mide ~30 px y es indistinguible; el modelo no se descarga nunca. Los gates de los personajes del mundo viajan con él en la caché; los de los bots se liberan uno a uno cuando la presencia los retira.
+
+Los datos de mapa, colisión, combate y movimiento no participan en nada de esto: se cargan enteros al instante, como antes.
+
 M1 añade montañas, árboles, mosaicos, flores y cristales. M2–M5 conservan su decoración temática, agrupada y adaptada al renderizado retro. Los objetos interactivos y animados quedan excluidos de la agrupación estática. Las superficies de colisión mantienen geometría y transformaciones exactas como proxies invisibles para raycasting. Los datos de mapa, combate, minería y movimiento conservan su lógica existente.
 
 Solo se conserva un mapa inactivo en caché. Se liberan también los buffers de instancias y bloques al descartar mapas. El icono RL ahora es 2D y no crea otro contexto WebGL. Los originales para edición se trasladan fuera de public; se eliminan modelos y retratos sin consumidores. Las herramientas de generación siguen usando los originales conservados.
