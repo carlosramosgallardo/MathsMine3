@@ -301,11 +301,9 @@ function getMiningVisualTier() {
   return 'low'
 }
 
-function isLowRenderTier(viewWidth, viewHeight) {
+function isLowRenderTier() {
   if (typeof window === 'undefined') return false
-  const w = viewWidth ?? window.innerWidth
-  const h = viewHeight ?? window.innerHeight
-  return getMiningVisualTier(w, h) === 'low'
+  return getMiningVisualTier() === 'low'
 }
 
 // Tier 'low': weakest phones. 'medium': typical mobile prod (lite scenery + lights).
@@ -8382,7 +8380,8 @@ function rebuildThreeWorld(state,cellMap,obstacles) {
     if(!isOrganicShape(obstacle)) continue
     if(obstacle.isHouse) continue  // house door-step ramps render via houseGroups.doorStep
     const [row,col]=key.split(',').map(Number),biome=biomeForCell(row,col)
-    const material=new THREE.MeshStandardMaterial({map:textures[biome],color:BIOME_STYLE[biome].block,roughness:biome==='ice'?.14:.66,metalness:biome==='ice'?.28:.14,emissive:biome==='inferno'?'#681205':biome==='ice'?'#0a4a70':'#000000',emissiveIntensity:biome==='inferno'?.82:.22})
+    const emissive = { inferno: '#681205', ice: '#0a4a70' }[biome] || '#000000'
+    const material=new THREE.MeshStandardMaterial({map:textures[biome],color:BIOME_STYLE[biome].block,roughness:biome==='ice'?.14:.66,metalness:biome==='ice'?.28:.14,emissive,emissiveIntensity:biome==='inferno'?.82:.22})
     if(obstacle.shape==='ramp'){
       const mesh=new THREE.Mesh(makeRampGeometry(obstacle.direction),material)
       mesh.userData.avatarFadeOccluder=true;mesh.userData.collidable=true
@@ -12261,7 +12260,7 @@ export default function MiningChain3DFPV({
   const lastRemoteFrameRef = useRef(0)
   const visualPerfTierRef = useRef(
     typeof window !== 'undefined'
-      ? getMiningVisualTier(window.innerWidth, window.innerHeight)
+      ? getMiningVisualTier()
       : 'medium',
   )
   const lastRenderDispatchRef = useRef(0)
@@ -14708,7 +14707,7 @@ export default function MiningChain3DFPV({
       const cssW = Math.max(1, Math.round(width))
       const cssH = Math.max(1, Math.round(height))
       const rawDpr = window.devicePixelRatio || 1
-      const visualTier = getMiningVisualTier(cssW, cssH)
+      const visualTier = getMiningVisualTier()
       const isMobilePortrait = cssH > cssW && cssW < 820
       const isPortraitTablet = cssW >= 540 && cssH > cssW
       const mobileLike = isMobilePortrait || isPortraitTablet || isCoarsePointerDevice()
