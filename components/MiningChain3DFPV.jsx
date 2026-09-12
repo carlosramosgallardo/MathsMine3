@@ -11695,7 +11695,9 @@ function createThreeWalletAvatar(wallet) {
     :new THREE.MeshStandardMaterial({color:c,roughness,metalness})
 
   // Low-poly humanoid — cloth in wallet colour, flesh skin, human head.
-  // Procedural limbs keep the existing animation pivots and tool grip.
+  // Procedural limbs keep the existing animation pivots and tool grip. The
+  // voxel body+head show at once; the pixel-art man.glb tier replaces them
+  // when it streams (the Ledger docks to its palm), or they simply stay.
   const body=buildHumanoidBody(THREE,avatar,{
     mat:_mat,
     lowDetail,
@@ -11703,7 +11705,7 @@ function createThreeWalletAvatar(wallet) {
     handStyle:'sphere',
     sleeve:'short',
     glbBodyCutY: HUMANOID_GLB_SRC_CLOTHES.waistY,
-    skipGlb: true,
+    retro: true,
     colors:{skin:skinHex,torso:color,arms:mid,legs:dark,shoes:'#1c1916',hands:skinHex},
   })
   const { head }=addRetroHead(THREE,avatar,{ skin: skinHex, hair: hairHex })

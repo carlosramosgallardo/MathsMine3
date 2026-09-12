@@ -1,6 +1,8 @@
 # Mundo Mining retro: M1–M5
 
-Los cinco mapas usan texturas procedurales de 32 × 32, filtrado de píxel, materiales simplificados y un framebuffer de hasta 768 × 480, conservando la proporción. El HUD mantiene su resolución independiente. Avatares, estatuas, jefes, coches, herramientas y cubos nucleares usan geometría sencilla sin descargar GLB en Mining. Home conserva los modelos optimizados que todavía utiliza.
+Los cinco mapas usan texturas procedurales de 32 × 32, filtrado de píxel, materiales simplificados y un framebuffer de hasta 768 × 480, conservando la proporción. El HUD mantiene su resolución independiente.
+
+Avatares, estatuas, jefes, coches, herramientas y cubos nucleares conservan su identidad mediante un tier `.retro.glb` propio (`scripts/model-tools/`): decimación agresiva (~6–15 % de los triángulos originales), texturas de 256² con filtrado *nearest* y sombreado plano, de modo que dentro del framebuffer retro se leen como figuras low-poly pixeladas. Todo el reparto pesa ~2,6 MB frente a los 34 MB originales. Los props geométricos de `lib/mining-retro-props.js` (figura voxel, coche de cajas, paneles) aparecen al instante como sustitutos: el modelo pixel-art los reemplaza al cargar y, si nunca llega, se quedan. Home conserva el tier `.runtime.glb` de mayor fidelidad.
 
 M1 añade montañas, árboles, mosaicos, flores y cristales. M2–M5 conservan su decoración temática, agrupada y adaptada al renderizado retro. Los objetos interactivos y animados quedan excluidos de la agrupación estática. Las superficies de colisión mantienen geometría y transformaciones exactas como proxies invisibles para raycasting. Los datos de mapa, combate, minería y movimiento conservan su lógica existente.
 
@@ -12,7 +14,7 @@ Solo se conserva un mapa inactivo en caché. Se liberan también los buffers de 
 - QA sweep unitario: 11 correctas, 7 comprobaciones de cliente omitidas por ese comando.
 - ESLint: sin errores, 45 advertencias existentes.
 - Compilación de producción y sincronización de documentación API correctas.
-- Chromium: carga y movimiento en M1–M5, sin excepciones JavaScript ni peticiones a /models/.
+- Chromium: carga y movimiento en M1–M5, sin excepciones JavaScript. (Medido antes del tier retro: entonces Mining no hacía peticiones a /models/; ahora descarga los `.retro.glb`, ~2,6 MB en total.)
 - Recorrido M1 → M2 → M1: resolución reducida constante, como máximo un mapa inactivo en caché.
 
 | Mapa | Llamadas de dibujo iniciales | Llamadas en vista general | Agrupaciones: envíos estáticos ahorrados |

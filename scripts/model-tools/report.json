@@ -2,91 +2,111 @@
   {
     "name": "kim",
     "sourceBytes": 7765688,
-    "runtimeBytes": 2615956,
     "sourceTriangles": 282492,
-    "runtimeTriangles": 65858,
     "skins": 0,
-    "animations": 0
+    "animations": 0,
+    "runtimeBytes": 2615956,
+    "runtimeTriangles": 65858,
+    "retroBytes": 644592,
+    "retroTriangles": 16847
   },
   {
     "name": "putin",
     "sourceBytes": 6820276,
-    "runtimeBytes": 2192964,
     "sourceTriangles": 258079,
-    "runtimeTriangles": 63776,
     "skins": 0,
-    "animations": 0
+    "animations": 0,
+    "runtimeBytes": 2192964,
+    "runtimeTriangles": 63776,
+    "retroBytes": 502580,
+    "retroTriangles": 15234
   },
   {
     "name": "trump",
     "sourceBytes": 4029564,
-    "runtimeBytes": 677984,
     "sourceTriangles": 162500,
-    "runtimeTriangles": 36576,
     "skins": 0,
-    "animations": 0
+    "animations": 0,
+    "runtimeBytes": 677984,
+    "runtimeTriangles": 36576,
+    "retroBytes": 178056,
+    "retroTriangles": 9722
   },
   {
     "name": "macron",
     "sourceBytes": 4581056,
-    "runtimeBytes": 2104592,
     "sourceTriangles": 72835,
-    "runtimeTriangles": 26937,
     "skins": 1,
-    "animations": 0
+    "animations": 0,
+    "runtimeBytes": 1422272,
+    "runtimeTriangles": 26937,
+    "retroBytes": 316944,
+    "retroTriangles": 5144
   },
   {
     "name": "zelenski",
     "sourceBytes": 3780100,
-    "runtimeBytes": 1975964,
     "sourceTriangles": 57736,
-    "runtimeTriangles": 25609,
     "skins": 1,
-    "animations": 0
+    "animations": 0,
+    "runtimeBytes": 1365492,
+    "runtimeTriangles": 25609,
+    "retroBytes": 285684,
+    "retroTriangles": 4254
   },
   {
     "name": "milei-figure",
     "sourceBytes": 1619000,
-    "runtimeBytes": 496928,
     "sourceTriangles": 91293,
-    "runtimeTriangles": 29158,
     "skins": 0,
-    "animations": 0
+    "animations": 0,
+    "runtimeBytes": 496928,
+    "runtimeTriangles": 29158,
+    "retroBytes": 92748,
+    "retroTriangles": 5359
   },
   {
     "name": "rl-car",
     "sourceBytes": 2489332,
-    "runtimeBytes": 1326628,
     "sourceTriangles": 70879,
-    "runtimeTriangles": 23284,
     "skins": 0,
-    "animations": 0
+    "animations": 0,
+    "runtimeBytes": 947828,
+    "runtimeTriangles": 23284,
+    "retroBytes": 250612,
+    "retroTriangles": 5559
   },
   {
     "name": "man",
     "sourceBytes": 461812,
-    "runtimeBytes": 256120,
     "sourceTriangles": 20764,
-    "runtimeTriangles": 11420,
     "skins": 1,
-    "animations": 0
+    "animations": 0,
+    "runtimeBytes": 256120,
+    "runtimeTriangles": 11420,
+    "retroBytes": 73384,
+    "retroTriangles": 3114
   },
   {
     "name": "tool-usb",
     "sourceBytes": 233484,
-    "runtimeBytes": 143420,
     "sourceTriangles": 6678,
-    "runtimeTriangles": 3791,
     "skins": 0,
-    "animations": 0
+    "animations": 0,
+    "runtimeBytes": 143420,
+    "runtimeTriangles": 3791,
+    "retroBytes": 99272,
+    "retroTriangles": 2676
   },
   {
     "name": "nuclear",
     "sourceBytes": 516596,
-    "runtimeBytes": 482764,
     "sourceTriangles": 4320,
-    "runtimeTriangles": 3985,
     "skins": 0,
-    "animations": 0
+    "animations": 0,
+    "runtimeBytes": 482764,
+    "runtimeTriangles": 3985,
+    "retroBytes": 182644,
+    "retroTriangles": 2970
   }
 ]
